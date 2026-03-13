@@ -756,9 +756,13 @@ find_execute_nested_plans(struct db_i *dbip, struct bu_ptbl *results, struct db_
  * A path passes "-below expr" if any ancestor of the path satisfies expr.
  *
  * Walks up the ancestor chain from the current path, evaluating the inner
- * plan at each ancestor.  Cost is O(D) per path where D is the path depth.
- * For typical BRL-CAD trees (depth 5-20) this is fast enough in practice.
- */
+ * plan at each ancestor.  Cost is O(D) per path where D is the path depth,
+ * giving O(N·D) = O(Σdepths) total over all N paths.
+ * For typical BRL-CAD trees (depth 5-20) this is fast.  For wide fan models
+ * with hundreds of children per combination and depths up to 100, Σdepths
+ * can reach tens of millions, taking roughly 1-3 seconds per -below query.
+ * Only extreme deep chains (D ≫ 100) show quadratic behaviour (O(D²) for
+ * a pure chain, because both N and average-depth grow with D). */
 static int
 f_below(struct db_plan_t *plan, struct db_node_t *db_node, struct db_i *dbip, struct bu_ptbl *results)
 {
@@ -820,12 +824,17 @@ c_below(char *UNUSED(ignore), char ***UNUSED(ignored), int UNUSED(unused), struc
  *
  * Fast path: when the caller has pre-built an above_passes_map (a per-plan-node
  * hash set of path fingerprints, populated by a bottom-up reverse pass over all
- * collected paths), this reduces to a single O(1) hash-set lookup.
+ * collected paths), this reduces to a single O(1) hash-set lookup.  The pre-pass
+ * costs O(N log N) + O(N·A) where N is the total path count and A is the number
+ * of unconstrained N_ABOVE nodes.  This is the common case for -above queries.
  *
- * Slow path (fallback): used when the map is not available (e.g. when the plan
- * node could not be included in the pre-pass).  Iterates over all collected full
- * paths looking for descendants that satisfy the inner expression - O(N) per
- * node, O(N²) total for the entire search.
+ * Slow path (fallback): used when the map is not available.  This happens for:
+ *   - Depth-constrained -above nodes (e.g. "-above=1", "-above<3"): excluded from
+ *     the pre-pass because upward propagation would miscount relative depths.
+ *   - Nested -above inside another -above's inner plan.
+ * The slow path iterates all collected full paths: O(N) per node, O(N²) total.
+ * For N > ~1000 paths this becomes the performance bottleneck and the main case
+ * where a depth-constrained -above query is slower than an unconstrained one.
  */
 static int
 f_above(struct db_plan_t *plan, struct db_node_t *db_node, struct db_i *dbip, struct bu_ptbl *UNUSED(results))

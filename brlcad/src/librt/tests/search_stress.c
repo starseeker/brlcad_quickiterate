@@ -231,12 +231,16 @@
  *   Σ(path depths) ≈ 16W²(K+5) + 8W²(K+4) + W²(K+3) + W(K+2) + K²/2
  *
  *   Both new and old code use the same ancestor-walk for f_below:
- *   cost ≈ Σdepths × ~120ns (path building + inner-plan evaluation per ancestor).
+ *   cost ≈ Σdepths × ~37ns (path building + inner-plan evaluation per ancestor).
  *
  *   Measured at W=40, K=2000 (Σdepths ≈ 82M):
- *     new  ≈  3s per full traversal
- *     old  ≈ 4.5s per full traversal  (db_search_old(), ancestor-walk)
- *     The modest difference reflects path-allocation and traversal overhead.
+ *     new  ≈  3s per full traversal  (deque-based, lower path-allocation overhead)
+ *     old  ≈ 4.5s per full traversal (ptbl pre-collection, same ancestor-walk)
+ *     The modest difference reflects path-allocation and traversal overhead only.
+ *     (f_below uses an O(depth)-per-path ancestor-walk in BOTH implementations.
+ *      For typical BRL-CAD tree depths (5-20) this is fast; for D=100 it is
+ *      still manageable at ~37ns × Σdepths.  Only extreme chains (D≫100) can
+ *      show quadratic behaviour.)
  *
  * The old code is the same algorithm as the root-level search.cpp kept at
  * the top of the repository; it is compiled into librt as db_search_old().
@@ -1783,6 +1787,21 @@ fail:
  *   -below -name cwd_lf_0     = W² * 2            (W² occ × 2 prims each)
  *   -below -name cwd_ch_{fan_k/2} = fan_k/2 + 25*W² + fan_w + 2
  *
+ * -above ground truth (paths P where any DESCENDANT of P satisfies the inner filter):
+ *   -above -name cwd_pChain.s = fan_k + 1    (cwd_root + K chain nodes; pChain only under ch_0)
+ *   -above -name cwd_assy     = fan_k + 1    (same ancestor set; assy only under ch_0)
+ *   -above -name cwd_pA.s     = fan_k + 3*W² + W + 2
+ *                                   (root + K chains + assy + W clusters + W² groups + 2*W² leaves)
+ *   -above -name cwd_pFill.s  = fan_k + 9*W² + W + 2
+ *                                   (root + K chains + assy + W clusters + W² groups + 8*W² leaves)
+ *   -above -name cwd_lf_0     = fan_k + W² + W + 2
+ *                                   (root + K chains + assy + W clusters + W² groups;
+ *                                    lf_0 occurs W² times but each lf_0 path is NOT above itself)
+ *   -above -name cwd_grp_0    = fan_k + W + 2
+ *                                   (root + K chains + assy + W clusters; grp_0 under every cluster)
+ *   -above -name cwd_clust_0  = fan_k + 2
+ *                                   (root + K chains + assy; clust_0 under assy only)
+ *
  * After running all queries, the function prints the theoretical Σ(path
  * depths) and the expected old-code time (ancestor-walk f_below), using
  * the calibrated value from the W=40 K=2000 head-to-head measurement.
@@ -1981,7 +2000,7 @@ test_csg_below_wide_deep(struct db_i *dbip, int fan_w, int fan_k)
      * (cwd_ch_{k_half-1} down to cwd_ch_0) plus the full fan subtree.
      * Expected = k_half + (25W² + fan_w + 2).
      *
-     * This test verifies that the BFS cache correctly identifies a
+     * This test verifies that the ancestor-walk correctly finds a
      * mid-chain ancestor even when many thousands of paths pass through it.
      */
     expected = k_half + 25*W2 + fan_w + 2;
@@ -2009,8 +2028,8 @@ test_csg_below_wide_deep(struct db_i *dbip, int fan_w, int fan_k)
      *   leaves   (8W² at depth fan_k+4):            8W²*(fan_k+4)
      *   prims    (16W² at depth fan_k+5):           16W²*(fan_k+5)
      *
-     * The BFS propagation cache makes f_below cost O(1) per path; the old
-     * ancestor-walk costs O(depth) per path.  See the head-to-head perf
+     * Both new and old code use the same ancestor-walk for f_below:
+     * O(depth) per path, O(Σdepths) total.  See the head-to-head perf
      * demo (fan_w=40, fan_k=2000) for measured times.
      */
     sigma_depths = csg_sigma_depths(fan_w, fan_k);
@@ -2159,6 +2178,251 @@ test_csg_below_perf(struct db_i *dbip, int fan_w, int fan_k)
     db_search_context_destroy(ctx);
     return failures;
 }
+
+
+/* ------------------------------------------------------------------ */
+/*  Wide + Deep CSG -above correctness and cross-validation           */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Verify -above correctness on the wide+deep CSG tree using only the new
+ * db_search() implementation.  The old code (db_search_old) is O(N²) for
+ * -above queries and is far too slow on trees with >1000 paths.
+ *
+ * Ground-truth formulas (NL=8 leaves, W = fan_w, K = fan_k):
+ *
+ *   -above -name cwd_pChain.s = K + 1
+ *       Only cwd_ch_0 has pChain.s directly; the ancestors are
+ *       cwd_ch_0..cwd_ch_{K-1} (K paths) plus cwd_root (1 path).
+ *
+ *   -above -name cwd_assy     = K + 1
+ *       Same ancestor set as pChain.s (assy is a sibling of pChain.s,
+ *       both are direct children of cwd_ch_0).
+ *
+ *   -above -name cwd_pA.s     = K + 3*W² + W + 2
+ *       root + K chains + assy + W clusters + W² groups
+ *       + 2*W² leaves (only lf_0 and lf_4 contain pA.s)
+ *
+ *   -above -name cwd_pFill.s  = K + 9*W² + W + 2
+ *       root + K chains + assy + W clusters + W² groups
+ *       + 8*W² leaves (all 8 leaf types contain pFill.s)
+ *
+ *   -above -name cwd_lf_0     = K + W² + W + 2
+ *       root + K chains + assy + W clusters + W² groups
+ *       (lf_0 itself is not "above" lf_0 - a path is only above a
+ *        descendant that extends it, not the path itself)
+ *
+ *   -above -name cwd_grp_0    = K + W + 2
+ *       root + K chains + assy + W clusters
+ *       (each cluster has grp_0 below it)
+ *
+ *   -above -name cwd_clust_0  = K + 2
+ *       root + K chains + assy
+ *       (clust_0 is under cwd_assy only)
+ *
+ * Performance note:
+ *   -above triggers full-path pre-collection and the reverse-BFS pre-pass.
+ *   New code: O(N log N) sort + O(N·A) pre-pass; then O(1) per query (hash lookup).
+ *   Old code: O(N) per call, O(N²) total -- too slow for N > ~1000 paths.
+ *
+ *   The only scenario where the new logic is slower than old is depth-constrained
+ *   -above (e.g. "-above=1") on large trees: depth-constrained nodes are excluded
+ *   from the reverse-BFS cache and fall back to the O(N) slow path, but still pay
+ *   the O(N log N) sorting overhead with no benefit.  For unconstrained -above the
+ *   new code is always faster.
+ */
+static int
+test_csg_above_wide_deep(struct db_i *dbip, int fan_w, int fan_k)
+{
+    int failures = 0;
+    int cnt, expected;
+    int64_t t;
+    int W2 = fan_w * fan_w;
+    struct bu_ptbl results = BU_PTBL_INIT_ZERO;
+
+#define RUN_ABOVE(filter, exp, msg) \
+    do { \
+	expected = (exp); \
+	t = bu_gettime(); \
+	cnt = db_search(&results, DB_SEARCH_TREE, (filter), \
+			0, NULL, dbip, NULL, NULL, NULL); \
+	t = bu_gettime() - t; \
+	db_search_free(&results); \
+	bu_log("  csg fan_w=%-3d fan_k=%-4d  %-36s %6d exp %6d  (%.4fs)%s\n", \
+	       fan_w, fan_k, (filter), cnt, expected, \
+	       (double)t/1e6, \
+	       (cnt != expected) ? "  FAIL" : ""); \
+	CHECK(cnt == expected, (msg)); \
+    } while (0)
+
+    bu_log("\n  -above tests: fan_w=%d fan_k=%d\n", fan_w, fan_k);
+
+    /* pChain.s only appears under cwd_ch_0: ancestors = K chain nodes + root */
+    RUN_ABOVE("-above -name cwd_pChain.s",
+	      fan_k + 1,
+	      "-above -name cwd_pChain.s");
+
+    /* cwd_assy is a sibling of pChain.s under cwd_ch_0: same ancestor set */
+    RUN_ABOVE("-above -name cwd_assy",
+	      fan_k + 1,
+	      "-above -name cwd_assy");
+
+    /* pA.s in lf_0 and lf_4; two leaf types × W groups × W clusters = 2*W² leaf paths */
+    RUN_ABOVE("-above -name cwd_pA.s",
+	      fan_k + 3*W2 + fan_w + 2,
+	      "-above -name cwd_pA.s");
+
+    /* pFill.s in all 8 leaf types; 8*W² leaf paths are above it */
+    RUN_ABOVE("-above -name cwd_pFill.s",
+	      fan_k + 9*W2 + fan_w + 2,
+	      "-above -name cwd_pFill.s");
+
+    /* lf_0 shared across all W² grp/clust combos; but lf_0 itself is not above lf_0 */
+    RUN_ABOVE("-above -name cwd_lf_0",
+	      fan_k + W2 + fan_w + 2,
+	      "-above -name cwd_lf_0");
+
+    /* grp_0 in each cluster; every cluster has grp_0 below it */
+    RUN_ABOVE("-above -name cwd_grp_0",
+	      fan_k + fan_w + 2,
+	      "-above -name cwd_grp_0");
+
+    /* clust_0 only under cwd_assy */
+    RUN_ABOVE("-above -name cwd_clust_0",
+	      fan_k + 2,
+	      "-above -name cwd_clust_0");
+
+#undef RUN_ABOVE
+
+    return failures;
+}
+
+
+/* ------------------------------------------------------------------ */
+/*  Cyclic-tree robustness test                                        */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Build three simple cyclic structures to verify that db_search never
+ * infinite-loops on cyclic CSG models.
+ *
+ * cyc_self:  references itself  (self-loop, depth 0)
+ * cyc_a:     references cyc_b   (mutual loop)
+ * cyc_b:     references cyc_a
+ * cyc_x:     references cyc_y   (3-node loop)
+ * cyc_y:     references cyc_z
+ * cyc_z:     references cyc_x
+ *
+ * The traversal code calls db_full_path_cyclic() before recursing; a cyclic
+ * child is therefore never added to the work queue (non-above path) or never
+ * recursed into (above path collection), so traversal always terminates.
+ *
+ * Expected path counts (non-above traversal from each root):
+ *   cyc_self:  1  ([cyc_self] only; the child cyc_self is detected cyclic)
+ *   cyc_a:     2  ([cyc_a], [cyc_a/cyc_b]; the [cyc_a/cyc_b/cyc_a] child is cyclic)
+ *   cyc_x:     3  ([cyc_x], [cyc_x/cyc_y], [cyc_x/cyc_y/cyc_z])
+ */
+static int
+build_cyclic_tree(struct rt_wdb *wdbp)
+{
+    struct wmember wm;
+
+    /* self-referential: cyc_self -> cyc_self */
+    BU_LIST_INIT(&wm.l);
+    mk_addmember("cyc_self", &wm.l, NULL, WMOP_UNION);
+    if (mk_lcomb(wdbp, "cyc_self", &wm, 0, NULL, NULL, NULL, 0) != 0)
+	return 1;
+
+    /* mutual reference: create cyc_b first (cyc_a doesn't exist yet) */
+    BU_LIST_INIT(&wm.l);
+    mk_addmember("cyc_a", &wm.l, NULL, WMOP_UNION);
+    if (mk_lcomb(wdbp, "cyc_b", &wm, 0, NULL, NULL, NULL, 0) != 0)
+	return 1;
+    /* now create cyc_a referencing the already-existing cyc_b */
+    BU_LIST_INIT(&wm.l);
+    mk_addmember("cyc_b", &wm.l, NULL, WMOP_UNION);
+    if (mk_lcomb(wdbp, "cyc_a", &wm, 0, NULL, NULL, NULL, 0) != 0)
+	return 1;
+
+    /* 3-node cycle: create z first, then y, then x */
+    BU_LIST_INIT(&wm.l);
+    mk_addmember("cyc_x", &wm.l, NULL, WMOP_UNION);
+    if (mk_lcomb(wdbp, "cyc_z", &wm, 0, NULL, NULL, NULL, 0) != 0)
+	return 1;
+    BU_LIST_INIT(&wm.l);
+    mk_addmember("cyc_z", &wm.l, NULL, WMOP_UNION);
+    if (mk_lcomb(wdbp, "cyc_y", &wm, 0, NULL, NULL, NULL, 0) != 0)
+	return 1;
+    BU_LIST_INIT(&wm.l);
+    mk_addmember("cyc_y", &wm.l, NULL, WMOP_UNION);
+    if (mk_lcomb(wdbp, "cyc_x", &wm, 0, NULL, NULL, NULL, 0) != 0)
+	return 1;
+
+    return 0;
+}
+
+static int
+test_cyclic_tree(struct db_i *dbip)
+{
+    int failures = 0;
+    int cnt;
+    struct bu_ptbl results = BU_PTBL_INIT_ZERO;
+    struct directory *dp;
+
+    bu_log("\n  Cyclic-tree robustness tests (DB_SEARCH_TREE):\n");
+
+    /* ---- cyc_self: 1 path ---- */
+    dp = db_lookup(dbip, "cyc_self", LOOKUP_QUIET);
+    if (dp == RT_DIR_NULL) {
+	bu_log("FAIL: cyc_self not found\n");
+	return 1;
+    }
+    cnt = db_search(&results, DB_SEARCH_TREE, "",
+		    1, &dp, dbip, NULL, NULL, NULL);
+    db_search_free(&results);
+    bu_log("  cyc_self (self-loop):   %d path(s) [expected 1]%s\n",
+	   cnt, (cnt != 1) ? "  FAIL" : "");
+    CHECK(cnt == 1, "cyc_self: terminates with 1 path");
+
+    /* ---- cyc_a: 2 paths ([cyc_a], [cyc_a/cyc_b]) ---- */
+    dp = db_lookup(dbip, "cyc_a", LOOKUP_QUIET);
+    if (dp == RT_DIR_NULL) {
+	bu_log("FAIL: cyc_a not found\n");
+	return 1;
+    }
+    cnt = db_search(&results, DB_SEARCH_TREE, "",
+		    1, &dp, dbip, NULL, NULL, NULL);
+    db_search_free(&results);
+    bu_log("  cyc_a (mutual loop):    %d path(s) [expected 2]%s\n",
+	   cnt, (cnt != 2) ? "  FAIL" : "");
+    CHECK(cnt == 2, "cyc_a: terminates with 2 paths");
+
+    /* ---- cyc_x: 3 paths ([cyc_x], [cyc_x/cyc_y], [cyc_x/cyc_y/cyc_z]) ---- */
+    dp = db_lookup(dbip, "cyc_x", LOOKUP_QUIET);
+    if (dp == RT_DIR_NULL) {
+	bu_log("FAIL: cyc_x not found\n");
+	return 1;
+    }
+    cnt = db_search(&results, DB_SEARCH_TREE, "",
+		    1, &dp, dbip, NULL, NULL, NULL);
+    db_search_free(&results);
+    bu_log("  cyc_x (3-node cycle):   %d path(s) [expected 3]%s\n",
+	   cnt, (cnt != 3) ? "  FAIL" : "");
+    CHECK(cnt == 3, "cyc_x: terminates with 3 paths");
+
+    /* ---- verify -below is also safe on cyclic trees ---- */
+    dp = db_lookup(dbip, "cyc_a", LOOKUP_QUIET);
+    cnt = db_search(&results, DB_SEARCH_TREE, "-below -name cyc_a",
+		    1, &dp, dbip, NULL, NULL, NULL);
+    db_search_free(&results);
+    /* [cyc_a/cyc_b] has cyc_a as parent → 1 result */
+    bu_log("  cyc_a -below -name cyc_a: %d path(s) [expected 1]%s\n",
+	   cnt, (cnt != 1) ? "  FAIL" : "");
+    CHECK(cnt == 1, "cyc_a -below: terminates with 1 path");
+
+    return failures;
+}
+
 
 int
 main(int argc, char *argv[])
@@ -2360,24 +2624,29 @@ main(int argc, char *argv[])
      * all-to-all sharing) with a fan_k-level linear chain above it, producing
      * a tree that is simultaneously wide AND deep.
      *
-     * It runs 13 queries with independently-computed ground-truth counts
-     * to verify that the BFS propagation cache handles subtree reuse,
+     * It runs -below and -above queries with independently-computed ground-truth counts
+     * to verify that the ancestor-walk and reverse-BFS cache handle subtree reuse,
      * deep ancestry, and mixed fan+chain structures correctly.
      *
      * The correctness run (fan_w=20, fan_k=500) completes quickly and validates
      * all query types.  The performance note at the end of each run prints:
-     *   - Σ(path depths): the total work the old ancestor-walk would have done
-     *   - Estimated old-code time at ~126ns per depth unit
-     *   - Estimated new-code time at ~26ns per depth unit
+     *   - Σ(path depths): the total work the f_below ancestor-walk does
+     *   - Measured time for the new and old code
      *
      * Scaling reference:
-     *   fan_w=30, fan_k=3000 → Σdepths ≈ 72M → old ~9s, new ~1.9s  (~10-second demo)
+     *   fan_w=30, fan_k=3000 → Σdepths ≈ 72M → new ~2s, old ~2.7s  (~5-second demo)
      */
     {
-	/* {fan_w, fan_k} pairs:  fan_w=20 fan_k=500 for quick correctness; scale up for perf */
+	/* {fan_w, fan_k} pairs covering the key stress scenarios:
+	 *   {20, 500}  - quick correctness baseline (small fan, long chain)
+	 *   {100, 10}  - hundreds of children per combination (wide fan, shallow chain)
+	 *   {30, 95}   - depth-100 paths (moderate fan, chain depth K=95 → K+5=100)
+	 */
 	int csg_cases[][2] = {
-	    {20, 500},
-	    {0,  0}
+	    {20,  500},
+	    {100,  10},
+	    {30,   95},
+	    {0,    0}
 	};
 	int ci;
 
@@ -2409,6 +2678,7 @@ main(int argc, char *argv[])
 
 	    db_update_nref(dbip, &rt_uniresource);
 	    failures += test_csg_below_wide_deep(dbip, fan_w, fan_k);
+	    failures += test_csg_above_wide_deep(dbip, fan_w, fan_k);
 
 	    wdb_close(wdbp);
 	}
@@ -2421,9 +2691,9 @@ main(int argc, char *argv[])
      * measure the actual performance delta on the same data set.
      *
      * For this tree: Sigma path-depths ~82M
-     *   new code (BFS cache):     ~1.3s  measured
-     *   old code (ancestor-walk): ~10s   measured
-     *   speedup:                  ~7x    measured
+     *   new code (ancestor-walk, deque):  ~3s  measured
+     *   old code (ancestor-walk, ptbl):   ~4.5s measured
+     *   speedup:                          ~1.5x measured (path-allocation difference only)
      *
      * The old code is the same algorithm as the root-level search.cpp kept
      * at the top of the repository; here it runs as db_search_old() from
@@ -2452,6 +2722,41 @@ main(int argc, char *argv[])
 		} else {
 		    db_update_nref(dbip, &rt_uniresource);
 		    failures += test_csg_below_perf(dbip, fan_w, fan_k);
+		    wdb_close(wdbp);
+		}
+	    }
+	}
+    }
+
+    /* ---- Cyclic tree robustness test ---- */
+    /*
+     * Verify that db_search never infinite-loops on CSG models that contain
+     * cyclic references (A → B → A, or A → A).  The traversal code checks
+     * db_full_path_cyclic() before adding a child to the work queue, so
+     * cyclic paths are detected and skipped without recursing further.
+     *
+     * This test is important for the stated scenarios: trees with hundreds of
+     * nodes per combination that could contain accidental back-references.
+     */
+    {
+	bu_log("\nRunning cyclic-tree robustness tests...\n");
+	dbip = db_open_inmem();
+	if (dbip == DBI_NULL) {
+	    bu_log("ERROR: Cannot create cyclic tree db\n");
+	    failures++;
+	} else {
+	    wdbp = wdb_dbopen(dbip, RT_WDB_TYPE_DB_INMEM);
+	    if (!wdbp) {
+		db_close(dbip);
+		failures++;
+	    } else {
+		if (build_cyclic_tree(wdbp) != 0) {
+		    bu_log("ERROR: Cannot build cyclic tree\n");
+		    wdb_close(wdbp);
+		    failures++;
+		} else {
+		    db_update_nref(dbip, &rt_uniresource);
+		    failures += test_cyclic_tree(dbip);
 		    wdb_close(wdbp);
 		}
 	    }
