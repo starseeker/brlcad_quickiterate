@@ -3122,6 +3122,10 @@ split_face_into_loops(
     }
 
     // can't close curves that don't partition the face
+    if (DEBUG_BREP_BOOLEAN) {
+	bu_log("split_face_into_loops: intersects_outerloop=%d clx_points.Count()=%d\n",
+	       (int)intersects_outerloop, clx_points.Count());
+    }
     if (!intersects_outerloop || clx_points.Count() < 2) {
 	ON_SimpleArray<ON_Curve *> loop;
 	for (int i = 0; i < orig_face->m_outerloop.Count(); ++i) {
@@ -3400,6 +3404,17 @@ split_face_into_loops(
 	}
 
 	// append the new loop if it's valid
+	if (DEBUG_BREP_BOOLEAN) {
+	    bu_log("  is_loop_valid(newloop): count=%d", newloop.Count());
+	    for (int gi = 0; gi < newloop.Count(); gi++) {
+		int gj = (gi + 1) % newloop.Count();
+		if (newloop[gi] && newloop[gj]) {
+		    double g = newloop[gi]->PointAtEnd().DistanceTo(newloop[gj]->PointAtStart());
+		    bu_log(" g[%d→%d]=%g", gi, gj, g);
+		}
+	    }
+	    bu_log("\n");
+	}
 	if (is_loop_valid(newloop, ON_ZERO_TOLERANCE)) {
 	    ON_SimpleArray<ON_Curve *> loop;
 	    loop.Append(newloop.Count(), newloop.Array());
@@ -3585,12 +3600,22 @@ split_trimmed_face(
 	    ssx_loops = split_face_into_loops(orig_face, ssx_curves[i]);
 	}
 
+	if (DEBUG_BREP_BOOLEAN) {
+	    bu_log("ssx_curve[%d]: %zu ssx_loops, out.Count=%d\n",
+		   i, ssx_loops.size(), out.Count());
+	    for (size_t j = 0; j < ssx_loops.size(); ++j) {
+		bu_log("  ssx_loops[%zu]: area=%g segs=%d\n",
+		       j, loop_shoelace_area(ssx_loops[j]), ssx_loops[j].Count());
+	    }
+	}
+
 	// combine each intersection loop with the original face (or
 	// the previous iteration of split faces) to create new split
 	// faces
 	ON_SimpleArray<TrimmedFace *> next_out;
 	for (size_t j = 0; j < ssx_loops.size(); ++j) {
 	    if (loop_is_degenerate(ssx_loops[j])) {
+		if (DEBUG_BREP_BOOLEAN) bu_log("  ssx_loop[%zu] degenerate, skip\n", j);
 		continue;
 	    }
 
@@ -3645,25 +3670,54 @@ split_trimmed_face(
 		    append_faces_from_loops(next_out, out[k], diff_loops);
 		    diff_loops.ClearInnerloops();
 		} else if (intersect_loops.outerloops.empty()) {
-		    /* loop_boolean returns nothing when ssx_loops[j] was built
-		     * using a sub-arc of out[k]'s own outer loop (the
-		     * "corner-bite" case: the open SSI curve enters and exits
-		     * through the same outer-loop segment, so the resulting
-		     * ssx_loop already contains an outer-loop arc as one of its
-		     * boundary segments).  In this situation the ssx_loop IS the
-		     * sub-face — add it directly. */
+		    /* loop_boolean returns nothing for two distinct reasons:
+		     * 1. No overlap: ssx_loops[j] and out[k] share no area.
+		     * 2. Corner-bite: ssx_loops[j] IS a sub-region of out[k],
+		     *    but its boundary arc comes from out[k]'s outer loop,
+		     *    so loop_boolean can't find the split.
+		     *
+		     * Distinguish by checking whether the centroid of ssx_loops[j]
+		     * is inside out[k]'s outer loop.  If not → no overlap → skip.
+		     * If yes → corner-bite → use ssx_loop directly as the face. */
 		    double ssx_area = loop_shoelace_area(ssx_loops[j]);
-		    if (fabs(ssx_area) > INTERSECTION_TOL * INTERSECTION_TOL) {
-			TrimmedFace *new_face = out[k]->Duplicate();
-			for (int fi = 0; fi < new_face->m_outerloop.Count(); fi++) {
-			    delete new_face->m_outerloop[fi];
-			}
-			new_face->m_outerloop.Empty();
-			for (int fi = 0; fi < ssx_loops[j].Count(); fi++) {
-			    new_face->m_outerloop.Append(ssx_loops[j][fi]->Duplicate());
-			}
-			next_out.Append(new_face);
+		    if (fabs(ssx_area) <= INTERSECTION_TOL * INTERSECTION_TOL) {
+			continue;
 		    }
+		    /* Compute ssx_loop centroid in UV space */
+		    ON_2dPoint ssx_centroid(0.0, 0.0);
+		    for (int si = 0; si < ssx_loops[j].Count(); si++) {
+			ON_3dPoint p = ssx_loops[j][si]->PointAtStart();
+			ssx_centroid.x += p.x;
+			ssx_centroid.y += p.y;
+		    }
+		    ssx_centroid.x /= ssx_loops[j].Count();
+		    ssx_centroid.y /= ssx_loops[j].Count();
+		    bool ssx_inside_outk = false;
+		    try {
+			ssx_inside_outk = is_point_inside_loop(ssx_centroid, out[k]->m_outerloop) ||
+					  is_point_on_loop(ssx_centroid, out[k]->m_outerloop);
+		    } catch (InvalidGeometry &) {}
+		    if (DEBUG_BREP_BOOLEAN) {
+			bu_log("  corner-bite check: ssx_loop[%zu] k=%d ssx_area=%g centroid(%g,%g) inside=%d\n",
+			       j, k, ssx_area, ssx_centroid.x, ssx_centroid.y, (int)ssx_inside_outk);
+		    }
+		    if (!ssx_inside_outk) {
+			/* No overlap between ssx_loop and this face — skip.
+			 * out[k] will be covered by the ssx_loop that does
+			 * overlap it (every sub-face must overlap at least
+			 * one ssx_loop from the partition). */
+			continue;
+		    }
+		    /* Corner-bite: ssx_loop IS the sub-face */
+		    TrimmedFace *new_face = out[k]->Duplicate();
+		    for (int fi = 0; fi < new_face->m_outerloop.Count(); fi++) {
+			delete new_face->m_outerloop[fi];
+		    }
+		    new_face->m_outerloop.Empty();
+		    for (int fi = 0; fi < ssx_loops[j].Count(); fi++) {
+			new_face->m_outerloop.Append(ssx_loops[j][fi]->Duplicate());
+		    }
+		    next_out.Append(new_face);
 		    continue;
 		}
 		append_faces_from_loops(next_out, out[k], intersect_loops);
@@ -4581,7 +4635,15 @@ get_face_intersection_curves(
 	std::set<int> *unused = i < face_count1 ? &unused1 : &unused2;
 	std::set<int> *intact = i < face_count1 ? &finalform1 : &finalform2;
 	int curr_index = i < face_count1 ? i : i - face_count1;
-	if (face.BoundingBox().MinimumDistanceTo(brep->BoundingBox()) > INTERSECTION_TOL) {
+	fastf_t face_bbox_dist = face.BoundingBox().MinimumDistanceTo(brep->BoundingBox());
+	if (DEBUG_BREP_BOOLEAN) {
+	    ON_BoundingBox fb = face.BoundingBox();
+	    bu_log("face_prefilter i=%d(%s%d) dist=%g bbox[%g,%g,%g]-[%g,%g,%g]\n",
+		   i, i < face_count1 ? "s1f" : "s2f", curr_index, face_bbox_dist,
+		   fb.m_min.x, fb.m_min.y, fb.m_min.z,
+		   fb.m_max.x, fb.m_max.y, fb.m_max.z);
+	}
+	if (face_bbox_dist > INTERSECTION_TOL) {
 	    switch (operation) {
 		case BOOLEAN_UNION:
 		    intact->insert(curr_index);
