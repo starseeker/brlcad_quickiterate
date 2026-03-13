@@ -4735,6 +4735,23 @@ categorize_trimmed_faces(
 	    } catch (AlgorithmError &e) {
 		bu_log("%s", e.what());
 	    }
+	    /* Debug: report face index, split index, location, 3D test point */
+	    {
+		const char *loc_str = (face_location == INSIDE_BREP)  ? "INSIDE"  :
+				      (face_location == OUTSIDE_BREP) ? "OUTSIDE" :
+				      (face_location == ON_BREP_SURFACE) ? "ON_SURF" : "UNKNOWN";
+		ON_2dPoint tp2;
+		ON_3dPoint tp3(0,0,0);
+		try {
+		    tp2 = get_point_inside_trimmed_face(splitted[j]);
+		    tp3 = splitted[j]->m_face->PointAt(tp2.x, tp2.y);
+		} catch (...) {}
+		bu_log("categorize: brep%d face[%d] split[%d] => %s  testpt=(%.4g,%.4g,%.4g)\n",
+		       (i < face_count1) ? 1 : 2,
+		       (i < face_count1) ? i : i - face_count1,
+		       j, loc_str, tp3.x, tp3.y, tp3.z);
+	    }
+
 	    if (face_location < 0) {
 		if (DEBUG_BREP_BOOLEAN) {
 		    bu_log("Whether the trimmed face is inside/outside is unknown.\n");
@@ -4878,6 +4895,7 @@ get_evaluated_faces(const ON_Brep *brep1, const ON_Brep *brep2, op_type operatio
 	 * bounding box, it is a seam duplicate — null it out so
 	 * link_curves() ignores it. */
 	ON_SimpleArray<SSICurve> &carray = curves_array[i];
+	bu_log("get_evaluated_faces: face[%d] has %d SSI curves\n", i, carray.Count());
 	for (int m = 0; m < carray.Count(); m++) {
 	    if (!carray[m].m_curve || !carray[m].m_curve->IsClosed()) continue;
 	    ON_BoundingBox bbm;
@@ -4899,6 +4917,7 @@ get_evaluated_faces(const ON_Brep *brep1, const ON_Brep *brep2, op_type operatio
 	ON_ClassArray<LinkedCurve> linked_curves = link_curves(curves_array[i]);
 
 	ON_SimpleArray<TrimmedFace *> splitted = split_trimmed_face(first, linked_curves);
+	bu_log("get_evaluated_faces: face[%d] -> %d split faces\n", i, splitted.Count());
 	trimmed_faces.Append(splitted);
 
 	// Delete the curves passed in.
