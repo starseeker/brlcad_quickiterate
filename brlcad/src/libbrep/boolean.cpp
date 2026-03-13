@@ -5093,8 +5093,11 @@ join_boundary_edges(ON_Brep *brep)
 		    auto find_seam_t = [](const ON_Curve *c,
 					  const ON_3dPoint &target,
 					  double *t_out) -> bool {
-			/* Coarse search */
 			static const int NSAMP = 400;
+			static const int MAX_NEWTON_ITERS  = 50;
+			static const double NEWTON_DF_EPS  = 1e-15; /* near-flat */
+			static const double NEWTON_DT_EPS  = 1e-13; /* converged */
+			/* Coarse search */
 			ON_Interval dom = c->Domain();
 			double best_dist = ON_DBL_MAX;
 			double t_best = dom.Min();
@@ -5111,7 +5114,7 @@ join_boundary_edges(ON_Brep *brep)
 			ON_NurbsCurve nc;
 			if (c->GetNurbForm(nc)) {
 			    double t = t_best;
-			    for (int nr = 0; nr < 50; nr++) {
+			    for (int nr = 0; nr < MAX_NEWTON_ITERS; nr++) {
 				ON_3dPoint  pt;
 				ON_3dVector d1, d2;
 				nc.Ev2Der(t, pt, d1, d2);
@@ -5119,9 +5122,9 @@ join_boundary_edges(ON_Brep *brep)
 				    pt - target, d1);
 				double df = d1.Length()*d1.Length() +
 				    ON_DotProduct(pt - target, d2);
-				if (fabs(df) < 1e-15) break;
+				if (fabs(df) < NEWTON_DF_EPS) break;
 				double dt = -f / df;
-				if (fabs(dt) < 1e-13) break;
+				if (fabs(dt) < NEWTON_DT_EPS) break;
 				t += dt;
 			    }
 			    /* Clamp to valid domain to avoid wrap-around */
@@ -5179,6 +5182,9 @@ join_boundary_edges(ON_Brep *brep)
 			    fi_al && fi_al->SurfaceOf()) {
 			    const ON_Surface *sfi_al = fi_al->SurfaceOf();
 			    ON_ClassArray<ON_PX_EVENT> pxi;
+			    /* 10× tolerance: P_j is on fj's surface exactly
+			     * but may be slightly off fi's surface due to
+			     * boolean floating-point errors. */
 			    if (ON_Intersect(P_j, *sfi_al, pxi,
 					     INTERSECTION_TOL * 10.0) &&
 				pxi.Count() > 0) {
