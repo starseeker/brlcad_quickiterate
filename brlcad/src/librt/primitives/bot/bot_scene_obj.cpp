@@ -82,6 +82,10 @@ extern "C" {
 #include <map>
 #include <cmath>
 
+/* Minimum face normal vector length to accept normalization.
+ * Faces with area so small that their cross-product magnitude falls below
+ * this threshold are degenerate; their normal is left as-is (zero-length). */
+static constexpr float BOT_NORMAL_LENGTH_EPSILON = 1e-10f;
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                              */
@@ -231,7 +235,7 @@ bot_shaded_node(const struct rt_bot_internal *bot)
 	    float nz = ax*by - ay*bx;
 	    float len = sqrtf(nx*nx + ny*ny + nz*nz);
 	    /* Threshold: skip normalization for degenerate (zero-area) faces */
-	    if (len > 1e-10f) { nx /= len; ny /= len; nz /= len; }
+	    if (len > BOT_NORMAL_LENGTH_EPSILON) { nx /= len; ny /= len; nz /= len; }
 
 	    norm->vector.set1Value(fi, nx, ny, nz);
 	}
