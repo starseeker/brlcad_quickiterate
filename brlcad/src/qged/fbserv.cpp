@@ -42,6 +42,9 @@
 #  include "qtcad/QgGL.h"
 #endif
 #include "qtcad/QgSW.h"
+#ifdef BRLCAD_ENABLE_OBOL
+#  include "QgObolView.h"
+#endif
 
 void
 QFBSocket::client_handler()
@@ -236,6 +239,44 @@ qdm_open_sw_client_handler(struct fbserv_obj *fbsp, int i, void *data)
 	QObject::connect(s, &QFBSocket::updated, ctx, &QgSW::need_update, Qt::QueuedConnection);
     }
 }
+
+#ifdef BRLCAD_ENABLE_OBOL
+/* Obol path: the view widget pointer is stored in fbs_clientData by do_obol_init().
+ * Connect new-data notification to the Obol view's need_update() slot so that
+ * incoming rt pixels trigger a repaint (which overlays the fb in paintGL). */
+void
+qdm_open_obol_client_handler(struct fbserv_obj *fbsp, int i, void *data)
+{
+    bu_log("open_obol_client_handler\n");
+    fbsp->fbs_clients[i].fbsc_chan = data;
+    QFBSocket *s = (QFBSocket *)data;
+    QObject::connect(s->s, &QTcpSocket::readyRead, s, &QFBSocket::client_handler, Qt::QueuedConnection);
+
+    QgObolView *ctx = (QgObolView *)fbsp->fbs_clientData;
+    if (ctx) {
+	QObject::connect(s, &QFBSocket::updated, ctx, [ctx]() {
+	    ctx->need_update(QG_VIEW_REFRESH);
+	}, Qt::QueuedConnection);
+    }
+}
+#  ifdef OBOL_BUILD_DUAL_GL
+void
+qdm_open_obol_sw_client_handler(struct fbserv_obj *fbsp, int i, void *data)
+{
+    bu_log("open_obol_sw_client_handler\n");
+    fbsp->fbs_clients[i].fbsc_chan = data;
+    QFBSocket *s = (QFBSocket *)data;
+    QObject::connect(s->s, &QTcpSocket::readyRead, s, &QFBSocket::client_handler, Qt::QueuedConnection);
+
+    QgObolSwrastView *ctx = (QgObolSwrastView *)fbsp->fbs_clientData;
+    if (ctx) {
+	QObject::connect(s, &QFBSocket::updated, ctx, [ctx]() {
+	    ctx->need_update(QG_VIEW_REFRESH);
+	}, Qt::QueuedConnection);
+    }
+}
+#  endif /* OBOL_BUILD_DUAL_GL */
+#endif /* BRLCAD_ENABLE_OBOL */
 
 void
 qdm_close_client_handler(struct fbserv_obj *fbsp, int i)

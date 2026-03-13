@@ -64,15 +64,45 @@ ged_ert_core(struct ged *gedp, int argc, const char *argv[])
     }
 
     struct dm *dmp = (struct dm *)gedp->ged_gvp->dmp;
-    if (!dmp) {
-	bu_vls_printf(gedp->ged_result_str, "no current display manager set\n");
-	return BRLCAD_ERROR;
-    }
+    struct fb *fbp = NULL;
+    int width, height;
 
-    struct fb *fbp = dm_get_fb(dmp);
-    if (!fbp) {
-	bu_vls_printf(gedp->ged_result_str, "attached display manager has no embedded framebuffer\n");
-	return BRLCAD_ERROR;
+    if (dmp) {
+	/* Standard libdm path: get the embedded framebuffer from the dm. */
+	fbp = dm_get_fb(dmp);
+	if (!fbp) {
+	    bu_vls_printf(gedp->ged_result_str, "attached display manager has no embedded framebuffer\n");
+	    return BRLCAD_ERROR;
+	}
+	width  = dm_get_width(dmp);
+	height = dm_get_height(dmp);
+    } else {
+	/* Obol path: no display manager (view owned by QgObolView / obol_view
+	 * Tk widget).  Use a memory-backed framebuffer and read view dimensions
+	 * from the bsg_view.  The Obol widget overlays the pixels when painting. */
+	width  = gedp->ged_gvp->gv_width;
+	height = gedp->ged_gvp->gv_height;
+	if (width <= 0 || height <= 0) {
+	    bu_vls_printf(gedp->ged_result_str, "view has no valid dimensions for embedded raytracing\n");
+	    return BRLCAD_ERROR;
+	}
+	/* Reuse any existing fb of the right size; otherwise (re-)open one. */
+	struct fbserv_obj *fbs = gedp->ged_fbs;
+	if (fbs->fbs_fbp &&
+	    fb_getwidth(fbs->fbs_fbp) == width &&
+	    fb_getheight(fbs->fbs_fbp) == height) {
+	    fbp = fbs->fbs_fbp;
+	} else {
+	    if (fbs->fbs_fbp) {
+		fb_close(fbs->fbs_fbp);
+		fbs->fbs_fbp = NULL;
+	    }
+	    fbp = fb_open("/dev/mem", width, height);
+	    if (!fbp) {
+		bu_vls_printf(gedp->ged_result_str, "could not open in-memory framebuffer for embedded raytracing\n");
+		return BRLCAD_ERROR;
+	    }
+	}
     }
 
     if (!ged_who_argc(gedp)) {
@@ -106,9 +136,6 @@ ged_ert_core(struct ged *gedp, int argc, const char *argv[])
     args.push_back(std::string("-F"));
     args.push_back(std::to_string(fbs->fbs_listener.fbsl_port));
     args.push_back(std::string("-M"));
-
-    int width = dm_get_width(dmp);
-    int height = dm_get_height(dmp);
 
     args.push_back(std::string("-w"));
     args.push_back(std::to_string(width));

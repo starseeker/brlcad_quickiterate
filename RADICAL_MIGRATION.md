@@ -483,8 +483,9 @@ cameras are therefore supported in archer.
 
 ## Stage 7: Remove libdm / libbsg
 
-**Status:** In Progress — null DMP guards added; `dm_draw_viewobjs` double-call bug
-fixed; more work needed to fully remove dm plugin dependencies.
+**Status:** In Progress — null DMP guards added; `ert` command now works in Obol
+path via memory fb + overlay rendering; more work needed to fully remove dm plugin
+dependencies.
 
 **Goal:** Once Obol rendering is the sole path for qged (and optionally mged),
 remove the old infrastructure.
@@ -504,6 +505,23 @@ remove the old infrastructure.
   init.  Called by both mged's `refresh()` and libtclcad's
   `to_refresh_all_views()` so that all live `obol_view` Tk widgets are
   redrawn whenever the scene changes.
+- **`ert` Obol path** (`libged/dm/ert.cpp`): When `dmp == NULL` (Obol path),
+  `ert` now creates an in-memory framebuffer (`/dev/mem`) sized to the view
+  dimensions instead of failing with "no current display manager set".  This
+  unblocks embedded raytracing in qged's Obol mode.
+- **`QgObolView` fb overlay** (`QgObolView.h`): Added `setFbServ()` and a private
+  `_paintFbOverlay()` helper.  When `gv_fb_mode` is non-zero, the Obol single-view
+  path reads the framebuffer pixels at the end of `paintGL()` and composites them
+  on top of the 3D scene via QPainter (hardware-GL path) or inside `renderSingle()`
+  (swrast path).
+- **`qdm_open_obol_client_handler`** (`qged/fbserv.cpp`): New fbserv client handler
+  for the Obol path.  Registered in `do_obol_init()` via `fbs_open_client_handler`;
+  connects `QFBSocket::updated` → `QgObolView::need_update()` so that arriving rt
+  pixels trigger a repaint.
+- **`do_obol_init()` fb wiring** (`QgEdMainWindow.cpp`): After Obol GL is ready,
+  sets `fbs_open_client_handler = &qdm_open_obol_client_handler`, stores the view
+  widget pointer in `fbs_clientData`, and calls `setFbServ(gedp->ged_fbs)` on the
+  Obol view so the overlay knows which fb to read.
 
 ### libdm removal (remaining work)
 
