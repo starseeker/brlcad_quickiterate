@@ -2154,6 +2154,7 @@ get_loop_curve(const ON_SimpleArray<ON_Curve *> &loop)
 {
     ON_PolyCurve *pcurve = new ON_PolyCurve();
     for (int i = 0; i < loop.Count(); ++i) {
+	if (!loop[i]) continue; /* skip NULL placeholders from vertex-endpoint splits */
 	append_to_polycurve(loop[i]->Duplicate(), *pcurve);
     }
     return pcurve;
@@ -2628,8 +2629,6 @@ loop_boolean(
      * If any single pair produces more than MAX_COEXT_EVENTS events and the
      * overlap covers ≥ 90 % of loop1's parameter domain, they are coextensive.
      */
-    static const int MAX_COEXT_EVENTS = 100;
-
     // Collect CCI events for all pairs (needed both for coextension check and
     // for the normal segment-building path below).
     typedef std::vector<ON_SimpleArray<ON_X_EVENT> > EventTable;
@@ -2641,25 +2640,40 @@ loop_boolean(
 	}
     }
 
-    // Coextension check: any pair with many overlap events covering the loop?
+    // Coextension check: compute the total overlap coverage of loop1's
+    // parameter domain across ALL loop1×loop2 segment pairs.  For a pair
+    // of nearly-identical loops (e.g. a split face whose outer loop equals
+    // the next ssx_loop), every segment of loop1 will be covered by some
+    // overlap event with loop2's corresponding segment.  Summing across all
+    // pairs correctly detects this even when no individual pair exceeds
+    // MAX_COEXT_EVENTS events.
     bool coextensive = false;
-    for (int i = 0; i < loop1.Count() && !coextensive; ++i) {
-	const ON_SimpleArray<ON_X_EVENT> &evs =
-	    all_x_events[i * loop2.Count()]; /* j=0 representative pair */
-	if (evs.Count() <= MAX_COEXT_EVENTS) continue;
-
-	double domain_len = loop1[i]->Domain().Length();
-	if (domain_len <= 0.0) continue;
-	double overlap_len = 0.0;
-	for (int k = 0; k < evs.Count(); ++k) {
-	    if (evs[k].m_type == ON_X_EVENT::ccx_overlap) {
-		overlap_len += fabs(evs[k].m_a[1] - evs[k].m_a[0]);
+    {
+	double total_domain_len = 0.0;
+	double total_overlap_len = 0.0;
+	for (int i = 0; i < loop1.Count(); ++i) {
+	    double seg_len = loop1[i]->Domain().Length();
+	    if (seg_len <= 0.0) continue;
+	    total_domain_len += seg_len;
+	    double seg_overlap = 0.0;
+	    for (int j = 0; j < loop2.Count(); ++j) {
+		const ON_SimpleArray<ON_X_EVENT> &evs =
+		    all_x_events[i * loop2.Count() + j];
+		for (int k = 0; k < evs.Count(); ++k) {
+		    if (evs[k].m_type == ON_X_EVENT::ccx_overlap) {
+			seg_overlap += fabs(evs[k].m_a[1] - evs[k].m_a[0]);
+		    }
+		}
 	    }
+	    /* Clamp per-segment overlap to [0, seg_len] to avoid
+	     * double-counting when multiple loop2 segments overlap. */
+	    total_overlap_len += (seg_overlap > seg_len) ? seg_len : seg_overlap;
 	}
-	if (overlap_len / domain_len >= 0.90) {
+	if (total_domain_len > 0.0 &&
+	    total_overlap_len / total_domain_len >= 0.90) {
 	    coextensive = true;
-	    bu_log("loop_boolean: coextension detected (overlap=%.1f%%)\n",
-		   100.0 * overlap_len / domain_len);
+	    bu_log("loop_boolean: coextension detected (total overlap=%.1f%%)\n",
+		   100.0 * total_overlap_len / total_domain_len);
 	}
     }
 
@@ -2697,6 +2711,21 @@ loop_boolean(
 		all_x_events[i * loop2.Count() + j];
 
 	    for (int k = 0; k < x_events.Count(); ++k) {
+		/* Skip overlap events between the two loops.  A ccx_overlap
+		 * means loop1 and loop2 share a collinear edge segment; the
+		 * entire overlap region (both endpoints, m_a[0]/m_A[0] and
+		 * m_a[1]/m_A[1]) is skipped.  Adding overlap endpoints as
+		 * CurvePoints splits the shared edge into sub-segments that
+		 * produce degenerate CurveSegments in make_segments (same
+		 * from/to parameter) and disconnected chains in
+		 * construct_loops_from_segments.  The endpoints of each loop
+		 * segment are already inserted by get_loop_points(), so no
+		 * valid partition information is lost by skipping the entire
+		 * overlap event. */
+		if (x_events[k].m_type == ON_X_EVENT::ccx_overlap) {
+		    continue;
+		}
+
 		add_point_to_set(loop1_points, CurvePoint(1, i,
 							  x_events[k].m_a[0], x_events[k].m_A[0],
 							  CurvePoint::BOUNDARY));
@@ -2704,16 +2733,6 @@ loop_boolean(
 		add_point_to_set(loop2_points, CurvePoint(2, j,
 							  x_events[k].m_b[0], x_events[k].m_B[0],
 							  CurvePoint::BOUNDARY));
-
-		if (x_events[k].m_type == ON_X_EVENT::ccx_overlap) {
-		    add_point_to_set(loop1_points, CurvePoint(1, i,
-							      x_events[k].m_a[1], x_events[k].m_A[1],
-							      CurvePoint::BOUNDARY));
-
-		    add_point_to_set(loop2_points, CurvePoint(2, j,
-							      x_events[k].m_b[1], x_events[k].m_B[1],
-							      CurvePoint::BOUNDARY));
-		}
 	    }
 	}
     }
@@ -2971,6 +2990,22 @@ split_face_into_loops(
 		     x_events, INTERSECTION_TOL);
 
 	for (int j = 0; j < x_events.Count(); j++) {
+	    /* Skip overlap events: a ccx_overlap means the SSI curve runs
+	     * collinearly along the outer-loop edge.  That is not a
+	     * transversal crossing, so those endpoints must NOT be treated
+	     * as face-partition points.  The BOOLE algorithm requires the
+	     * SSI curve to enter/exit the face through the boundary
+	     * transversally; collinear segments on the boundary are
+	     * degenerate and corrupt the IN/OUT classifier if included.
+	     * The adjacent outer-loop vertex (where the collinear segment
+	     * ends) is still detected as a normal ccx_point event from the
+	     * neighboring outer-loop segment, so no valid information is
+	     * lost by skipping the overlap here. */
+	    if (x_events[j].m_type == ON_X_EVENT::ccx_overlap) {
+		intersects_outerloop = true;
+		continue;
+	    }
+
 	    IntersectPoint tmp_pt;
 	    tmp_pt.m_pt = x_events[j].m_A[0];
 	    tmp_pt.m_seg_t = x_events[j].m_a[0];
@@ -2978,12 +3013,6 @@ split_face_into_loops(
 	    tmp_pt.m_loop_seg = i;
 	    clx_points.Append(tmp_pt);
 
-	    if (x_events[j].m_type == ON_X_EVENT::ccx_overlap) {
-		tmp_pt.m_pt = x_events[j].m_A[1];
-		tmp_pt.m_seg_t = x_events[j].m_a[1];
-		tmp_pt.m_curve_t = x_events[j].m_b[1];
-		clx_points.Append(tmp_pt);
-	    }
 	    if (x_events.Count()) {
 		intersects_outerloop = true;
 	    }
@@ -3004,6 +3033,31 @@ split_face_into_loops(
     clx_points.QuickSort(curve_t_compare);
     for (int i = 0; i < clx_points.Count(); i++) {
 	clx_points[i].m_curve_pos = i;
+    }
+
+    /* Deduplicate intersection events that arise when the SSI curve endpoint
+     * coincides with an outer-loop vertex.  ON_Intersect() reports such a
+     * vertex once as end-of-segment[k] and once as start-of-segment[k+1];
+     * both carry the same curve parameter and the same 3-D point.  The
+     * duplicate causes two consecutive same-direction events in the IN/OUT
+     * classifier (the "next" midpoint between them collapses to the vertex
+     * itself, which lies on the boundary, so inside-test returns false for
+     * both) and leads to a zero-length SubCurve call in the loop-pairing
+     * step (which throws "degenerate interval").  Remove the second of each
+     * such pair so that only one event survives per vertex. */
+    {
+	for (int i = clx_points.Count() - 1; i >= 1; i--) {
+	    const IntersectPoint &prev = clx_points[i - 1];
+	    const IntersectPoint &curr = clx_points[i];
+	    if (ON_NearZero(curr.m_curve_t - prev.m_curve_t) &&
+		curr.m_pt.DistanceTo(prev.m_pt) <= INTERSECTION_TOL) {
+		clx_points.Remove(i);
+	    }
+	}
+	/* Re-assign curve_pos after deduplication. */
+	for (int i = 0; i < clx_points.Count(); i++) {
+	    clx_points[i].m_curve_pos = i;
+	}
     }
 
     // classify intersection points
@@ -3107,7 +3161,15 @@ split_face_into_loops(
 	    }
 	    ipt.m_split_li = outerloop_segs.Count() - 1;
 	}
-	outerloop_segs.Append(remainder);
+	/* Only append remainder if it is non-NULL: a NULL remainder means the
+	 * last intersection point on this segment was exactly at the segment's
+	 * end (a vertex boundary).  Appending NULL would cause a crash at the
+	 * circular-wrap duplication step below, and would corrupt m_split_li
+	 * for any intersection point on the following segment that starts at
+	 * the same vertex. */
+	if (remainder) {
+	    outerloop_segs.Append(remainder);
+	}
     }
 
     // Append the first element at the last to handle some special cases.
@@ -3115,9 +3177,17 @@ split_face_into_loops(
 	clx_points.Append(clx_points[0]);
 	clx_points.Last()->m_loop_seg += orig_face->m_outerloop.Count();
 	for (int i = 0; i <= clx_points[0].m_split_li; i++) {
+	    if (!outerloop_segs[i]) {
+		/* NULL slot: the last intersection point on this outer-loop
+		 * segment fell exactly at the segment's endpoint (a vertex
+		 * boundary), so the remainder after splitting was NULL and
+		 * was not appended.  Skip to avoid dereferencing NULL. */
+		continue;
+	    }
 	    ON_Curve *dup = outerloop_segs[i]->Duplicate();
 	    if (dup == NULL) {
 		bu_log("ON_Curve::Duplicate() failed.\n");
+		continue;
 	    }
 	    outerloop_segs.Append(dup);
 	}
@@ -3187,6 +3257,14 @@ split_face_into_loops(
 	ON_Curve *seg_on_SSI = linked_curve.SubCurve(t1, t2);
 	if (seg_on_SSI == NULL) {
 	    bu_log("sub_curve() failed.\n");
+	    /* The newloop outer-loop segments were transferred out of
+	     * outerloop_segs (ownership moved to newloop) but we cannot
+	     * form the loop.  Ownership must be returned so the caller can
+	     * still build the remaining outer loop.  The simplest recovery
+	     * is to put them back and skip this pairing. */
+	    for (int j = p.m_split_li + 1; j <= q.m_split_li; j++) {
+		outerloop_segs[j] = newloop[j - (p.m_split_li + 1)];
+	    }
 	    continue;
 	}
 	if (need_reverse) {
@@ -3282,9 +3360,46 @@ loop_is_degenerate(const ON_SimpleArray<ON_Curve *> &loop)
 
     ON_3dPoint pt1 = loop_curve->PointAt(dom.ParameterAt(.25));
     ON_3dPoint pt2 = loop_curve->PointAt(dom.ParameterAt(.75));
+
+    /* A "there-and-back" (zero-area) closed loop — where the curve
+     * retraces the same path in reverse — encloses zero area.  The
+     * 25%/75% distance check misses this when the two curve segments
+     * have DIFFERENT domain lengths, causing asymmetric sampling that
+     * lands at geometrically distinct points far apart (pt_dist >> TOL).
+     * Parameter-space shoelace sampling also gives wrong non-zero area.
+     *
+     * Fix: compute the signed 2D shoelace area using only the SEGMENT
+     * ENDPOINTS (start/end of each sub-curve) as polygon vertices.
+     * This is exact for piecewise-linear loops and correctly gives zero
+     * for there-and-back paths regardless of domain parameterization. */
+    double shoelace = 0.0;
+    {
+	/* Use the start/end points of each curve in the original loop array
+	 * as polygon vertices.  This avoids the parameter-space asymmetry
+	 * problem and is exact for piecewise-linear curves. */
+	ON_3dPoint prev = loop[0]->PointAtStart();
+	for (int si = 0; si < loop.Count(); ++si) {
+	    if (!loop[si]) continue;
+	    ON_3dPoint curr = loop[si]->PointAtEnd();
+	    shoelace += prev.x * curr.y - curr.x * prev.y;
+	    prev = curr;
+	}
+    }
+    double area = fabs(shoelace * 0.5);
+
+    ON_BoundingBox bbox = loop_curve->BoundingBox();
+    double bbox_diag = bbox.Diagonal().Length();
     delete loop_curve;
 
-    return pt1.DistanceTo(pt2) < INTERSECTION_TOL;
+    /* Degenerate if point samples are too close, or if the enclosed area
+     * is negligible compared to the loop's bounding-box extent. */
+    if (pt1.DistanceTo(pt2) < INTERSECTION_TOL) {
+	return true;
+    }
+    if (bbox_diag > INTERSECTION_TOL && area / (bbox_diag * bbox_diag) < 1e-3) {
+	return true;
+    }
+    return false;
 }
 
 
