@@ -39,10 +39,15 @@
  *   - CGL / NSOpenGL on macOS
  *   - GLX on X11 / Linux
  *
- * A single hidden 1×1 Fl_Gl_Window is created lazily on the first render
- * request and kept alive for the lifetime of the manager.  Offscreen
- * rendering uses framebuffer objects (FBOs) managed by the Obol library;
- * the FLTK window surface itself is never drawn to.
+ * The manager creates a small hidden 1×1 Fl_Gl_Window lazily on the first
+ * render request.  Its sole purpose is to own a valid GL context for use
+ * by SoOffscreenRenderer via FBOs.  CoinPanel is a plain Fl_Box and
+ * interacts with the context manager only indirectly through
+ * SoOffscreenRenderer; no visible Fl_Gl_Window widget is involved.
+ *
+ * Offscreen rendering uses framebuffer objects (FBOs) managed by the Obol
+ * library; the FLTK window surface itself is never drawn to directly by
+ * this context manager.
  *
  * This header provides drop-in replacements for the same functions that
  * headless_utils.h exposes for the system-GL / GLX path:
@@ -76,15 +81,22 @@
 #include <FL/Fl.H>
 #include <FL/Fl_Gl_Window.H>
 
+#include <cstdio>
+#include <cstdlib>
+
 /* Platform-specific GL function pointer loader */
 #if defined(_WIN32)
 #  include <windows.h>
 #  include <GL/gl.h>
 #elif defined(__APPLE__)
 #  include <dlfcn.h>
+#  include <OpenGL/gl.h>
 #else
 /* Linux / X11: glXGetProcAddress is always available via libGL. */
 #  include <GL/glx.h>
+/* FL/platform.H exposes fl_display (the X11 Display* FLTK uses) which is
+ * needed for XSync() in ensureWindow(). */
+#  include <FL/platform.H>
 #endif
 
 /* Match default dimensions used in headless_utils.h */
@@ -92,6 +104,55 @@
 #  define DEFAULT_WIDTH  800
 #  define DEFAULT_HEIGHT 600
 #endif
+
+/* =========================================================================
+ * GL diagnostic helper
+ *
+ * reportGL(where) checks whether a valid OpenGL context is current by
+ * calling glGetString(GL_VERSION).
+ *
+ * Printing policy:
+ *   - Always prints for the first kAlwaysPrintCalls invocations so that
+ *     GL context lifecycle problems appear in crash logs unconditionally.
+ *   - Always prints when glGetString returns NULL (that is always a bug).
+ *   - Prints on all subsequent calls when OBOL_GL_DIAG=1 is set.
+ *
+ * The output goes to stderr immediately (flushed) so it appears even if
+ * the process crashes shortly after.
+ *
+ * Returns true if a GL context is current, false otherwise.
+ * ======================================================================= */
+inline bool reportGL(const char* where)
+{
+    static const bool diag_env = (getenv("OBOL_GL_DIAG") != nullptr);
+    const GLubyte* ver = glGetString(GL_VERSION);
+    if (diag_env || !ver) {
+        if (ver) {
+            const GLubyte* ren  = glGetString(GL_RENDERER);
+            const GLubyte* vend = glGetString(GL_VENDOR);
+            const GLubyte* glsl = glGetString(GL_SHADING_LANGUAGE_VERSION);
+            fprintf(stderr,
+                    "[GL diag] %s:\n"
+                    "          GL_VERSION                  = \"%s\"\n"
+                    "          GL_RENDERER                 = \"%s\"\n"
+                    "          GL_VENDOR                   = \"%s\"\n"
+                    "          GL_SHADING_LANGUAGE_VERSION = \"%s\"\n",
+                    where,
+                    (const char*)ver,
+                    ren  ? (const char*)ren  : "(null)",
+                    vend ? (const char*)vend : "(null)",
+                    glsl ? (const char*)glsl : "(null)");
+        } else {
+            fprintf(stderr,
+                    "[GL diag] %s:\n"
+                    "          glGetString(GL_VERSION) = NULL"
+                    "\n          (no current GL context!)\n",
+                    where);
+        }
+        fflush(stderr);
+    }
+    return (ver != nullptr);
+}
 
 /* =========================================================================
  * FLTKGLContextWindow
@@ -144,6 +205,10 @@ struct FLTKOffscreenCtx {
  *
  * Implements SoDB::ContextManager using FLTK's Fl_Gl_Window so that
  * context creation is handled by FLTK on every supported platform.
+ *
+ * A small hidden 1×1 FLTKGLContextWindow is created lazily on the first
+ * render request.  All offscreen rendering is FBO-based; the window
+ * surface is never drawn to directly.
  * ======================================================================= */
 class FLTKContextManager : public SoDB::ContextManager {
 public:
@@ -164,16 +229,17 @@ public:
         return new FLTKOffscreenCtx{width, height};
     }
 
-    virtual SbBool makeContextCurrent(void* /*context*/) override {
+    virtual SbBool makeContextCurrent(void* context) override {
+        (void)context;
         if (!ensureWindow()) return FALSE;
         win_->make_current();
-        return TRUE;
+        return glGetString(GL_VERSION) ? TRUE : FALSE;
     }
 
     virtual void restorePreviousContext(void* /*context*/) override {
-        /* FLTK does not expose a context-stack API.  Offscreen FBO
-         * rendering does not require unbinding the context between calls,
-         * so this is intentionally a no-op. */
+        /* No-op: the hidden 1×1 window is the sole GL context source.
+         * There is no prior context to restore, and the next
+         * makeContextCurrent() call will re-activate it as needed. */
     }
 
     virtual void destroyContext(void* context) override {
@@ -204,14 +270,15 @@ public:
     }
 
 private:
+    /* Hidden 1×1 context window created lazily by ensureWindow(). */
     FLTKGLContextWindow* win_;
 
-    /* Create and show the hidden GL context window on first use.
-     * Deferred until the first render request so that FLTK's display
-     * connection (Fl::visual / Fl_Window::show) is already established
-     * before we try to create a GL context. */
+    /* Ensure a valid GL context window is available.
+     *
+     * Creates a hidden 1×1 FLTKGLContextWindow on the first call. */
     bool ensureWindow() {
         if (win_) return true;
+
         win_ = new FLTKGLContextWindow();
         /* Position the 1×1 window off-screen.  show() creates the native
          * window handle and the platform GL context without making the
@@ -221,9 +288,17 @@ private:
         /* Flush the FLTK event queue so the native GL context is fully
          * initialised before the first make_current() call. */
         Fl::check();
-        /* Activate the context once to confirm it is valid and to
-         * trigger any deferred GL initialisation inside FLTK. */
+#if !defined(_WIN32) && !defined(__APPLE__)
+        /* On X11/GLX, synchronise with the X server before calling
+         * make_current().  Without this sync, Mesa's software renderer
+         * (used with Xvfb in CI) returns True from glXMakeCurrent but
+         * leaves glGetString(GL_VERSION) returning NULL because the
+         * window's rendering surface has not been allocated yet. */
+        if (fl_display) XSync(fl_display, False);
+#endif
         win_->make_current();
+        /* Confirm the hidden-window context is actually active. */
+        reportGL("FLTKContextManager::ensureWindow");
         return true;
     }
 };
