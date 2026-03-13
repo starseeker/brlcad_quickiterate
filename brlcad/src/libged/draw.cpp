@@ -70,226 +70,6 @@ draw_free_data(bsg_shape *s)
     s->s_i_data = NULL;
 }
 
-struct ged_full_detail_clbk_data {
-    struct db_i *dbip;
-    struct directory *dp;
-    struct resource *res;
-    struct rt_db_internal *intern;
-};
-
-/* Set up the data for drawing */
-static int
-bot_mesh_info_clbk(bsg_lod *lod, void *cb_data)
-{
-    if (!lod || !cb_data)
-	return -1;
-
-    struct ged_full_detail_clbk_data *cd = (struct ged_full_detail_clbk_data *)cb_data;
-    struct db_i *dbip = cd->dbip;
-    struct directory *dp = cd->dp;
-
-    BU_GET(cd->intern, struct rt_db_internal);
-    RT_DB_INTERNAL_INIT(cd->intern);
-    struct rt_db_internal *ip = cd->intern;
-    int ret = rt_db_get_internal(ip, dp, dbip, NULL, cd->res);
-    if (ret < 0) {
-	BU_PUT(cd->intern, struct rt_db_internal);
-	return -1;
-    }
-    struct rt_bot_internal *bot = (struct rt_bot_internal *)ip->idb_ptr;
-    RT_BOT_CK_MAGIC(bot);
-
-    lod->faces = bot->faces;
-    lod->fcnt = bot->num_faces;
-    lod->pcnt = bot->num_vertices;
-    lod->points = (const point_t *)bot->vertices;
-    lod->points_orig = (const point_t *)bot->vertices;
-
-    return 0;
-}
-
-/* Free up the drawing data, but not (yet) done with ged_full_detail_clbk_data */
-static int
-bot_mesh_info_clear_clbk(bsg_lod *lod, void *cb_data)
-{
-    struct ged_full_detail_clbk_data *cd = (struct ged_full_detail_clbk_data *)cb_data;
-    if (cd->intern) {
-	rt_db_free_internal(cd->intern);
-	BU_PUT(cd->intern, struct rt_db_internal);
-    }
-    cd->intern = NULL;
-
-    lod->faces = NULL;
-    lod->fcnt = 0;
-    lod->pcnt = 0;
-    lod->points = NULL;
-    lod->points_orig = NULL;
-
-    return 0;
-}
-
-/* Done - free up everything */
-static int
-bot_mesh_info_free_clbk(bsg_lod *lod, void *cb_data)
-{
-    bot_mesh_info_clear_clbk(lod, cb_data);
-    struct ged_full_detail_clbk_data *cd = (struct ged_full_detail_clbk_data *)cb_data;
-    BU_PUT(cd, struct ged_full_detail_clbk_data);
-    return 0;
-}
-
-
-static void
-brep_adaptive_plot(bsg_shape *s, bsg_view *v)
-{
-    if (!s || !v)
-	return;
-    struct draw_update_data_t *d = (struct draw_update_data_t *)s->s_i_data;
-    if (!d || !d->mesh_c)
-	return;
-    bsg_log(1, "brep_adaptive_plot %s[%s]", bu_vls_cstr(&s->s_name), (v) ? bu_vls_cstr(&v->gv_name) : "NULL");
-
-    s->csg_obj = 0;
-    s->mesh_obj = 1;
-
-    bsg_shape *vo = bsg_shape_for_view(s, v);
-
-    if (!vo) {
-
-	vo = bsg_shape_get_view_obj(s, v);
-
-	vo->csg_obj = 0;
-	vo->mesh_obj = 1;
-
-	struct db_i *dbip = d->dbip;
-	struct db_full_path *fp = (struct db_full_path *)s->s_path;
-	struct directory *dp = (fp) ? DB_FULL_PATH_CUR_DIR(fp) : (struct directory *)s->dp;
-
-	if (!dp)
-	    return;
-
-	const struct bn_tol *tol = d->tol;
-	const struct bg_tess_tol *ttol = d->ttol;
-	bsg_lod *lod = NULL;
-
-	// We need the key to look up the LoD data from the cache, and if we don't
-	// already have cache data for this brep we need to generate it.
-	unsigned long long key = bsg_mesh_lod_key_get(d->mesh_c, dp->d_namep);
-	if (!key) {
-	    // We don't have a key associated with the name.  Get and check the
-	    // Brep data itself, creating the mesh data and the corresponding LoD
-	    // data if we don't already have it
-	    struct bu_external ext = BU_EXTERNAL_INIT_ZERO;
-	    if (db_get_external(&ext, dp, dbip))
-		return;
-	    key = bu_data_hash((void *)ext.ext_buf,  ext.ext_nbytes);
-	    bu_free_external(&ext);
-	    if (!key)
-		return;
-	    lod = bsg_mesh_lod_create(d->mesh_c, key);
-	    if (!lod) {
-		// Just in case we have a stale key...
-		bsg_mesh_lod_clear_cache(d->mesh_c, key);
-
-		struct rt_db_internal dbintern;
-		RT_DB_INTERNAL_INIT(&dbintern);
-		struct rt_db_internal *ip = &dbintern;
-		int ret = rt_db_get_internal(ip, dp, dbip, NULL, d->res);
-		if (ret < 0)
-		    return;
-		struct rt_brep_internal *bi = (struct rt_brep_internal *)ip->idb_ptr;
-		RT_BREP_CK_MAGIC(bi);
-
-		// Unlike a BoT, which has the mesh data already, we need to generate the
-		// mesh from the brep
-		int *faces = NULL;
-		int face_cnt = 0;
-		vect_t *normals = NULL;
-		point_t *pnts = NULL;
-		int pnt_cnt = 0;
-
-		ret = brep_cdt_fast(&faces, &face_cnt, &normals, &pnts, &pnt_cnt, bi->brep, -1, ttol, tol);
-		if (ret != BRLCAD_OK) {
-		    bu_free(faces, "faces");
-		    bu_free(normals, "normals");
-		    bu_free(pnts, "pnts");
-		    return;
-		}
-
-		// Because we won't have the internal data to use for a full detail scenario, we set the ratio
-		// to 1 rather than .66 for breps...
-		key = bsg_mesh_lod_cache(d->mesh_c, (const point_t *)pnts, pnt_cnt, normals, faces, face_cnt, key, 1);
-
-		if (key)
-		    bsg_mesh_lod_key_put(d->mesh_c, dp->d_namep, key);
-
-		rt_db_free_internal(&dbintern);
-
-		bu_free(faces, "faces");
-		bu_free(normals, "normals");
-		bu_free(pnts, "pnts");
-	    }
-	}
-	if (!key)
-	    return;
-
-	// Once we have a valid key, proceed to create the necessary
-	// data structures and objects.  If the above didn't get us
-	// a valid mesh, no point in trying further
-	lod = bsg_mesh_lod_create(d->mesh_c, key);
-	if (!lod)
-	    return;
-
-	// Assign the LoD information to the object's draw_data, and let
-	// the LoD know which object it is associated with.
-	vo->draw_data = (void *)lod;
-	lod->s = vo;
-
-	// The object bounds are based on the LoD's calculations.  Because the LoD
-	// cache stores only one cached data set per object, but full path
-	// instances in the scene can be placed with matrices, we must apply the
-	// s_mat transformation to the "baseline" LoD bbox info to get the correct
-	// box for the instance.
-	MAT4X3PNT(vo->bmin, s->s_mat, lod->bmin);
-	MAT4X3PNT(vo->bmax, s->s_mat, lod->bmax);
-	VMOVE(s->bmin, vo->bmin);
-	VMOVE(s->bmax, vo->bmax);
-
-	// Record the necessary information for full detail information recovery.  We
-	// don't duplicate the full mesh detail in the on-disk LoD storage, since we
-	// already have that info in the .g itself, but we need to know how to get at
-	// it when needed.  The free callback will clean up, but we need to initialize
-	// the callback data here.
-	struct ged_full_detail_clbk_data *cbd;
-	BU_GET(cbd, ged_full_detail_clbk_data);
-	cbd->dbip = dbip;
-	cbd->dp = dp;
-	cbd->res = &rt_uniresource;
-	cbd->intern = NULL;
-	bsg_mesh_lod_detail_setup_clbk(lod, &bot_mesh_info_clbk, (void *)cbd);
-	bsg_mesh_lod_detail_clear_clbk(lod, &bot_mesh_info_clear_clbk);
-	bsg_mesh_lod_detail_free_clbk(lod, &bot_mesh_info_free_clbk);
-
-	// LoD will need to re-check its level settings whenever the view changes
-	vo->s_update_callback = &bsg_mesh_lod_view;
-	vo->s_free_callback = &bsg_mesh_lod_free;
-
-	// Initialize the LoD data to the current view
-	int level = bsg_mesh_lod_view(vo, vo->s_v, 0);
-	if (level < 0) {
-	    bu_log("Error loading info for initial LoD view\n");
-	}
-
-	// Mark the object as a Mesh LoD so the drawing routine knows to handle it differently
-	vo->s_type_flags |= BSG_NODE_MESH_LOD;
-    }
-
-    bsg_mesh_lod_view(vo, vo->s_v, 0);
-    bsg_shape_stale(vo);
-
-    return;
-}
-
 
 extern "C" int draw_points(bsg_shape *s);
 extern "C" int rt_generic_scene_obj(bsg_shape *s, struct directory *dp,
@@ -301,18 +81,17 @@ extern "C" int rt_generic_scene_obj(bsg_shape *s, struct directory *dp,
 /* This function is the master controller that decides, based on available settings
  * and data, which specific drawing routines need to be triggered.
  *
- * Session 9 simplification: after the setup phase, dispatch to
- * OBJ[dp->d_minor_type].ft_scene_obj() for all primitive types.  The
- * per-primitive ft_scene_obj implementations (rt_bot_scene_obj,
- * rt_brep_scene_obj, rt_comb_scene_obj, rt_generic_scene_obj) contain all
- * the per-type drawing logic.  One special case remains in draw_scene:
+ * After the setup phase, dispatch to OBJ[dp->d_minor_type].ft_scene_obj() for
+ * all primitive types.  The per-primitive ft_scene_obj implementations
+ * (rt_bot_scene_obj, rt_brep_scene_obj, rt_comb_scene_obj,
+ * rt_generic_scene_obj) contain all the per-type drawing logic — there are
+ * no remaining special cases in draw_scene.
  *
- *   BREP mode 1 + adaptive_plot_mesh: handled by brep_adaptive_plot() for
- *   LoD-managed hidden-line BREP display.  Migration to rt_brep_scene_obj
- *   is deferred to a future session.
- *
- * Mode 3 (evaluated wireframe for combs) is now handled by rt_comb_scene_obj
+ * Mode 3 (evaluated wireframe for combs) is handled by rt_comb_scene_obj
  * → rt_comb_eval_m3() in librt/comb/comb_scene_obj.c.
+ *
+ * BREP mode 1 + adaptive_plot_mesh (LoD-managed hidden-line) is handled by
+ * rt_brep_scene_obj() in librt/primitives/brep/brep.cpp.
  */
 extern "C" void
 draw_scene(bsg_shape *s, bsg_view *v)
@@ -414,20 +193,11 @@ draw_scene(bsg_shape *s, bsg_view *v)
 	}
     }
 
-    /**************************************************************************
-     * Adaptive BREP hidden-line (mode 1) — LoD management not yet migrated
-     * to rt_brep_scene_obj.  Keep as a special case until that migration
-     * is complete.
-     **************************************************************************/
-    if (dp->d_minor_type == DB5_MINORTYPE_BRLCAD_BREP && v && v->gv_s->adaptive_plot_mesh && s->s_os->s_dmode == 1) {
-	brep_adaptive_plot(s, v);
-	return;
-    }
-
-    /* For non-BREP shapes in the adaptive path, classify as CSG wireframe
+    /* For non-BoT shapes in the adaptive path, pre-classify as CSG wireframe
      * so BViewState::redraw() can queue this shape for retry after the
-     * async AABB pipeline delivers the bbox.  BoT shapes are classified
-     * by rt_bot_scene_obj (mesh_obj=1); everything else is CSG. */
+     * async AABB pipeline delivers the bbox.  BoT and BREP shapes are
+     * reclassified to mesh_obj=1 by their ft_scene_obj implementations
+     * (rt_bot_scene_obj and rt_brep_scene_obj respectively). */
     if (v && dp->d_minor_type != DB5_MINORTYPE_BRLCAD_BOT) {
 	s->csg_obj  = 1;
 	s->mesh_obj = 0;
