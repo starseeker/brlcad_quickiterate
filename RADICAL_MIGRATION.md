@@ -394,9 +394,29 @@ tools (ae, center, zoom, rot commands continue to work via `syncCameraFromBsgVie
 
 ---
 
-## Stage 6: mged, archer, rtwizard
+## Stage 6: qged, mged, archer, rtwizard
 
-**Goal:** Update legacy frontends to use Obol.
+**Status (qged):** Complete
+
+**Goal:** Update frontends to use Obol rendering.
+
+### qged (Qt-based) — **Done**
+
+`QgObolView` is now the primary 3D rendering widget in qged when Obol is
+available (detected via `BRLCAD_ENABLE_OBOL`):
+
+- `QgEdApp` calls `SoDB::init()`, `SoNodeKit::init()`, `SoInteraction::init()`
+  using `QgObolContextManager` before any GL widget is created.
+- `QgEdMainWindow::CreateWidgets()` instantiates `QgObolView` (instead of
+  `QgQuadView`) when `BRLCAD_ENABLE_OBOL` is defined.
+- `view_update` signal is connected to `QgObolView::need_update()`, which calls
+  `obol_scene_assemble()` (when `QG_VIEW_DRAWN` is set) then repaints.
+- `QgObolView::init_done()` signal is connected to `do_obol_init()` for
+  post-GL-init setup.
+- All `c4` (QgQuadView) methods are guarded — in the Obol path they delegate
+  to `obol_view_` or return no-ops.
+- `qged_test` and `qged_pipeline_test` are also linked with Obol and
+  `Qt6::OpenGLWidgets` so they compile when Obol is enabled.
 
 ### mged (Tcl/C-based)
 

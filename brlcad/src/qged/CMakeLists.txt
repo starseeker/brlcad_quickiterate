@@ -136,6 +136,16 @@ if(BRLCAD_ENABLE_QT)
   else()
     target_link_libraries(qged_test libqtcad libged librt libbu Qt5::Widgets Qt5::Network)
   endif()
+  if(BRLCAD_ENABLE_OBOL AND TARGET Obol::Obol)
+    target_link_libraries(qged_test Obol::Obol)
+    if(Qt6Widgets_FOUND AND TARGET Qt6::OpenGLWidgets)
+      target_link_libraries(qged_test Qt6::OpenGLWidgets)
+    endif()
+    target_include_directories(qged_test PRIVATE
+      ${Obol_INCLUDE_DIR}
+      ${CMAKE_SOURCE_DIR}/src/libged)
+    target_compile_definitions(qged_test PRIVATE BRLCAD_ENABLE_OBOL)
+  endif()
   add_dependencies(qged_test dm_plugins ged_plugins draw_test_moss_g)
   set_target_properties(qged_test PROPERTIES EXCLUDE_FROM_ALL TRUE)
 
@@ -157,6 +167,16 @@ if(BRLCAD_ENABLE_QT)
   else()
     target_link_libraries(qged_pipeline_test
       libqtcad libged librt libbu Qt5::Widgets Qt5::Network)
+  endif()
+  if(BRLCAD_ENABLE_OBOL AND TARGET Obol::Obol)
+    target_link_libraries(qged_pipeline_test Obol::Obol)
+    if(Qt6Widgets_FOUND AND TARGET Qt6::OpenGLWidgets)
+      target_link_libraries(qged_pipeline_test Qt6::OpenGLWidgets)
+    endif()
+    target_include_directories(qged_pipeline_test PRIVATE
+      ${Obol_INCLUDE_DIR}
+      ${CMAKE_SOURCE_DIR}/src/libged)
+    target_compile_definitions(qged_pipeline_test PRIVATE BRLCAD_ENABLE_OBOL)
   endif()
   add_dependencies(qged_pipeline_test dm_plugins ged_plugins Generic_Twin.g)
   set_target_properties(qged_pipeline_test PROPERTIES EXCLUDE_FROM_ALL TRUE)
