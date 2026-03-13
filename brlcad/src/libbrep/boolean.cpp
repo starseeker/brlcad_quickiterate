@@ -2698,6 +2698,21 @@ loop_boolean(
 		all_x_events[i * loop2.Count() + j];
 
 	    for (int k = 0; k < x_events.Count(); ++k) {
+		/* Skip overlap events between the two loops.  A ccx_overlap
+		 * means loop1 and loop2 share a collinear edge segment; the
+		 * entire overlap region (both endpoints, m_a[0]/m_A[0] and
+		 * m_a[1]/m_A[1]) is skipped.  Adding overlap endpoints as
+		 * CurvePoints splits the shared edge into sub-segments that
+		 * produce degenerate CurveSegments in make_segments (same
+		 * from/to parameter) and disconnected chains in
+		 * construct_loops_from_segments.  The endpoints of each loop
+		 * segment are already inserted by get_loop_points(), so no
+		 * valid partition information is lost by skipping the entire
+		 * overlap event. */
+		if (x_events[k].m_type == ON_X_EVENT::ccx_overlap) {
+		    continue;
+		}
+
 		add_point_to_set(loop1_points, CurvePoint(1, i,
 							  x_events[k].m_a[0], x_events[k].m_A[0],
 							  CurvePoint::BOUNDARY));
@@ -2705,16 +2720,6 @@ loop_boolean(
 		add_point_to_set(loop2_points, CurvePoint(2, j,
 							  x_events[k].m_b[0], x_events[k].m_B[0],
 							  CurvePoint::BOUNDARY));
-
-		if (x_events[k].m_type == ON_X_EVENT::ccx_overlap) {
-		    add_point_to_set(loop1_points, CurvePoint(1, i,
-							      x_events[k].m_a[1], x_events[k].m_A[1],
-							      CurvePoint::BOUNDARY));
-
-		    add_point_to_set(loop2_points, CurvePoint(2, j,
-							      x_events[k].m_b[1], x_events[k].m_B[1],
-							      CurvePoint::BOUNDARY));
-		}
 	    }
 	}
     }
@@ -2972,6 +2977,22 @@ split_face_into_loops(
 		     x_events, INTERSECTION_TOL);
 
 	for (int j = 0; j < x_events.Count(); j++) {
+	    /* Skip overlap events: a ccx_overlap means the SSI curve runs
+	     * collinearly along the outer-loop edge.  That is not a
+	     * transversal crossing, so those endpoints must NOT be treated
+	     * as face-partition points.  The BOOLE algorithm requires the
+	     * SSI curve to enter/exit the face through the boundary
+	     * transversally; collinear segments on the boundary are
+	     * degenerate and corrupt the IN/OUT classifier if included.
+	     * The adjacent outer-loop vertex (where the collinear segment
+	     * ends) is still detected as a normal ccx_point event from the
+	     * neighboring outer-loop segment, so no valid information is
+	     * lost by skipping the overlap here. */
+	    if (x_events[j].m_type == ON_X_EVENT::ccx_overlap) {
+		intersects_outerloop = true;
+		continue;
+	    }
+
 	    IntersectPoint tmp_pt;
 	    tmp_pt.m_pt = x_events[j].m_A[0];
 	    tmp_pt.m_seg_t = x_events[j].m_a[0];
@@ -2979,12 +3000,6 @@ split_face_into_loops(
 	    tmp_pt.m_loop_seg = i;
 	    clx_points.Append(tmp_pt);
 
-	    if (x_events[j].m_type == ON_X_EVENT::ccx_overlap) {
-		tmp_pt.m_pt = x_events[j].m_A[1];
-		tmp_pt.m_seg_t = x_events[j].m_a[1];
-		tmp_pt.m_curve_t = x_events[j].m_b[1];
-		clx_points.Append(tmp_pt);
-	    }
 	    if (x_events.Count()) {
 		intersects_outerloop = true;
 	    }
@@ -3150,7 +3165,10 @@ split_face_into_loops(
 	clx_points.Last()->m_loop_seg += orig_face->m_outerloop.Count();
 	for (int i = 0; i <= clx_points[0].m_split_li; i++) {
 	    if (!outerloop_segs[i]) {
-		/* NULL slot left by a segment fully consumed at a vertex; skip. */
+		/* NULL slot: the last intersection point on this outer-loop
+		 * segment fell exactly at the segment's endpoint (a vertex
+		 * boundary), so the remainder after splitting was NULL and
+		 * was not appended.  Skip to avoid dereferencing NULL. */
 		continue;
 	    }
 	    ON_Curve *dup = outerloop_segs[i]->Duplicate();
