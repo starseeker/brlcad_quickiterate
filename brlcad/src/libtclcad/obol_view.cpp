@@ -139,6 +139,20 @@ extern "C" {
 #include <cstring>
 #include <cstdlib>
 #include <cstdio>
+#include <vector>
+#include <algorithm>
+
+/* ======================================================================== *
+ * Global registry of all live ObolViewWidget instances                     *
+ *                                                                           *
+ * Widgets register themselves in Obol_View_Cmd (creation) and deregister   *
+ * in ObolViewDelete (destruction).  obol_notify_views iterates this list   *
+ * to trigger a redraw on every live widget, allowing mged's refresh() and  *
+ * libtclcad's to_refresh_view() to wake up Obol rendering without knowing  *
+ * the widget path names.                                                    *
+ * ======================================================================== */
+
+static std::vector<struct ObolViewWidget *> s_obol_view_instances;
 
 /* ======================================================================== *
  * Internal widget state                                                     *
@@ -750,6 +764,12 @@ ObolViewDelete(ClientData clientData)
     ObolViewWidget *w = (ObolViewWidget *)clientData;
     if (!w) return;
 
+    /* Remove from global instance registry */
+    auto it = std::find(s_obol_view_instances.begin(),
+			s_obol_view_instances.end(), w);
+    if (it != s_obol_view_instances.end())
+	s_obol_view_instances.erase(it);
+
     if (w->render_mgr_active) {
 w->render_mgr.setSceneGraph(nullptr);
 w->render_mgr_active = false;
@@ -1091,11 +1111,34 @@ ObolViewEventProc, (ClientData)w);
     Tcl_CreateCommand(interp, path, ObolView_InstanceCmd,
       (ClientData)w, ObolViewDelete);
 
+    /* Register in global instance list for obol_notify_views */
+    s_obol_view_instances.push_back(w);
+
     Tcl_SetResult(interp, (char *)path, TCL_VOLATILE);
     return TCL_OK;
 #endif /* HAVE_TK */
 }
 
+
+/* ======================================================================== *
+ * obol_notify_views — trigger redraw on every live obol_view widget        *
+ *                                                                           *
+ * Called by mged's refresh() and libtclcad's to_refresh_view() to wake up  *
+ * Obol rendering after geometry changes (draw, erase, view change, etc.).  *
+ * ======================================================================== */
+
+extern "C" int
+Obol_Notify_Views_Cmd(ClientData UNUSED(clientData), Tcl_Interp *UNUSED(interp),
+		      int UNUSED(argc), const char **UNUSED(argv))
+{
+    /* All entries in s_obol_view_instances are non-null (registration in
+     * Obol_View_Cmd only pushes a successfully-allocated widget), but we
+     * keep the null-check as belt-and-suspenders against future changes. */
+    for (ObolViewWidget *w : s_obol_view_instances) {
+	if (w) obol_view_do_render(w);
+    }
+    return TCL_OK;
+}
 
 /* ======================================================================== *
  * One-time Obol initialisation command ("obol_init")                       *

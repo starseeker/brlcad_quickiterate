@@ -1689,6 +1689,16 @@ refresh(struct mged_state *s)
 
     bu_vls_free(&overlay_vls);
     bu_vls_free(&tmp_vls);
+
+    /* Obol path: notify all obol_view Tk widgets to re-render.
+     * When libtclcad's obol_view is used (mged Obol path), the standard
+     * dm_draw_begin/dozoom/dm_draw_end loop above is a no-op because the
+     * null display manager is the only active DMP.  Instead, obol_notify_views
+     * calls obol_scene_assemble() + SoGLRenderAction on each live obol_view
+     * widget so that geometry changes (draw, erase, view commands) are
+     * immediately visible.  This is a no-op when no obol_view widgets exist. */
+    if (s->interp)
+	(void)Tcl_Eval(s->interp, "catch {obol_notify_views}");
 }
 
 

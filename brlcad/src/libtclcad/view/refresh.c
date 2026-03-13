@@ -137,7 +137,6 @@ go_refresh_draw(struct ged *gedp, bsg_view *gdvp, int restore_zbuffer)
     gdvp->gv_local2base = gedp->dbip->dbi_local2base;
     gdvp->gv_base2local = gedp->dbip->dbi_base2local;
     dm_draw_viewobjs(wdbp, gdvp, &tgd->go_dmv);
-    dm_draw_viewobjs(wdbp, gdvp, &tgd->go_dmv);
     gdvp->gv_local2base = l2b;
     gdvp->gv_base2local = b2l;
 }
@@ -146,6 +145,14 @@ void
 go_refresh(struct ged *gedp, bsg_view *gdvp)
 {
     int restore_zbuffer = 0;
+
+    /* Obol path (Stage 7 migration): when the view has no display manager
+     * (dmp == NULL, meaning the view is rendered by an obol_view Tcl widget
+     * or QgObolView rather than a libdm plugin), skip all dm_draw_* calls.
+     * The obol_notify_views call in to_refresh_all_views() handles rendering
+     * for those views. */
+    if (!gdvp->dmp)
+	return;
 
     /* Turn off the zbuffer if the framebuffer is active AND the zbuffer is on. */
     struct tclcad_view_data *tvd = (struct tclcad_view_data *)gdvp->u_data;
@@ -184,6 +191,13 @@ to_refresh_all_views(struct tclcad_obj *top)
 	gdvp = (bsg_view *)BU_PTBL_GET(views, i);
 	to_refresh_view(gdvp);
     }
+
+    /* Obol path: notify obol_view Tk widgets to re-render.
+     * When apps (archer, etc.) use obol_view for display, to_refresh_view
+     * above is a no-op because gdvp->dmp is null.  obol_notify_views
+     * ensures all live obol_view widgets call obol_scene_assemble + render. */
+    if (top && top->to_gedp && top->to_interp)
+	(void)Tcl_Eval(top->to_interp, "catch {obol_notify_views}");
 }
 
 int

@@ -397,6 +397,8 @@ tools (ae, center, zoom, rot commands continue to work via `syncCameraFromBsgVie
 ## Stage 6: qged, mged, archer, rtwizard
 
 **Status (qged):** Complete
+**Status (mged):** Integration in progress — obol_view Tk widget renders BRL-CAD geometry via Obol when BRLCAD_ENABLE_OBOL is set.
+**Status (archer):** Integration in progress — `cadwidgets::Ged` uses `obol_view` widgets when `obol_view` command is available.
 
 **Goal:** Update frontends to use Obol rendering.
 
@@ -418,19 +420,61 @@ available (detected via `BRLCAD_ENABLE_OBOL`):
 - `qged_test` and `qged_pipeline_test` are also linked with Obol and
   `Qt6::OpenGLWidgets` so they compile when Obol is enabled.
 
-### mged (Tcl/C-based)
+### mged (Tcl/C-based) — **In Progress**
 
-- mged uses a custom Tk OpenGL widget (`dm-tk`).
-- Replace `dm-tk` with an Obol-based renderer using `SoDB::ContextManager`
-  that wraps the raw GLX context from Tk's `togl` widget.
-- Alternatively, expose a minimal C API from `libObol` for Tcl embedding.
+mged uses a platform-neutral Tk Obol widget (`obol_view`, implemented in
+`libtclcad/obol_view.cpp`) to render geometry via Obol when
+`BRLCAD_ENABLE_OBOL` is defined:
 
-### archer
+- `gui_setup()` in `attach.c` calls `obol_init` (via Tcl) to initialize SoDB
+  before any `obol_view` widget is created.
+- `mview.tcl`'s `openmv` proc detects `obol_view` and `gvp_ptr` commands and
+  creates `obol_view` widgets (instead of calling `attach` for dm plugins).
+  Each widget auto-detects HW GL (GLX on X11, WGL on Windows, NSOpenGL on macOS)
+  and falls back to SW (SoOffscreenRenderer + OSMesa) automatically.
+- After `obol_init`, the `obol_view` widget path supports:
+  - HW GL via `OBOL_HW_GLX` (X11/GLX), `OBOL_HW_WGL` (Windows), `OBOL_HW_NSGL` (macOS)
+  - SW via `SoOffscreenRenderer` + `CoinOSMesaContextManager` (headless/portable)
+- `mged.c`'s `refresh()` now calls `obol_notify_views` (a new Tcl command) at
+  the end of every refresh cycle to wake up all live `obol_view` widgets so
+  that geometry changes (draw, erase, view commands) are immediately visible.
+- `obol_notify_views` calls `obol_scene_assemble()` + `SoGLRenderAction` on
+  every registered `obol_view` instance.
+- `f_gvp_ptr` command exposes the current `bsg_view` pointer to Tcl so that
+  `obol_view` widgets can be attached to it.
 
-- archer is also Qt-based.  Apply the same `QgObolView` approach as qged.
+**Known limitation**: The current mview.tcl attaches all 4 panes to the SAME
+`bsg_view` pointer (all panes show the same camera view). Multi-pane independent
+cameras require per-pane `bsg_view` objects — planned for a future PR.
+
+### archer — **In Progress**
+
+archer is a Tcl/Tk application using libtclcad.  Obol integration is done via
+the `cadwidgets::Ged` widget, which uses `to_new_view` in libtclcad:
+
+- `archer.c` already calls `obol_init` at startup (before any Tk widgets are
+  created), so SoDB is initialized by the time `cadwidgets::Ged` is constructed.
+- **`to_new_view` in `commands.c`** now recognizes `"obol"` as a virtual display
+  type:
+  - Skips `dm_open` entirely (leaves `new_gdvp->dmp = NULL`).
+  - Registers the `bsg_view` in `ged_views` as usual.
+  - Creates an `obol_view` Tk widget at the view name path via Tcl.
+  - Calls `$path attach $gvp_ptr` to bind the `bsg_view` to the widget.
+- **`to_open_fbs` in `fb.c`** now has a null-DMP guard so it returns `TCL_OK`
+  silently for Obol views (no framebuffer yet — planned as follow-up).
+- **`Ged.tcl` constructor** detects `obol_view` availability and sets
+  `dmType obol` before the four `new_view` calls.  When Obol is not available,
+  the original `dm_list`-based selection is used unchanged.
+- **`ArcherCore.tcl`** transparency-menu guard updated: `mDisplayType == "obol"`
+  is treated equivalently to `"ogl"`/`"wgl"` (allows transparency menu).
+
+The 4-pane layout (ul, ur, ll, lr) now creates independent `bsg_view` objects
+(one per pane) with separate `obol_view` render widgets — multi-pane independent
+cameras are therefore supported in archer.
 
 ### rtwizard
 
+- `rtwizard` calls `obol_init` when running in GUI mode (done).
 - rtwizard uses offscreen rendering (`rt`, `rtwizard`) for high-quality images.
 - Use `SoOffscreenRenderer` with an `OSMesaContextManager` for headless rendering.
 - rtwizard geometry pipeline: `rt` → pixel buffer → composited with Obol overlays.
@@ -439,17 +483,48 @@ available (detected via `BRLCAD_ENABLE_OBOL`):
 
 ## Stage 7: Remove libdm / libbsg
 
+**Status:** In Progress — null DMP guards added; `dm_draw_viewobjs` double-call bug
+fixed; more work needed to fully remove dm plugin dependencies.
+
 **Goal:** Once Obol rendering is the sole path for qged (and optionally mged),
 remove the old infrastructure.
 
-### libdm removal
+### Completed Stage 7 work
 
-- Delete: `dm-gl.c`, `dm-gl_lod.cpp`, `dm-generic.c`, `dm_plugins.cpp`
-- Delete: all dm plugin directories (`qtgl/`, `swrast/`, `glx/`, `null/`,
-  `plot/`, `postscript/`)
-- Keep `libfb` for rtwizard pixel buffers (not scene-graph based)
+- **`go_refresh()` null DMP guard**: When a view's `dmp` is NULL (view owned by
+  an `obol_view` widget or `QgObolView`), `go_refresh()` returns early without
+  calling any `dm_draw_*` functions.  This eliminates libdm calls for Obol-rendered
+  views in libtclcad-based apps (archer, etc.).
+- **`go_draw_solid()` null DMP guard**: Same — skips libdm drawing when `dmp` is
+  NULL.
+- **`dm_draw_viewobjs` double-call bug fixed**: `go_refresh_draw()` was calling
+  `dm_draw_viewobjs()` twice at the end of the non-framebuffer path; removed
+  the spurious second call.
+- **`obol_notify_views` global refresh command**: Registered in libtclcad's
+  init.  Called by both mged's `refresh()` and libtclcad's
+  `to_refresh_all_views()` so that all live `obol_view` Tk widgets are
+  redrawn whenever the scene changes.
+
+### libdm removal (remaining work)
+
+The following dm plugin files can be removed once their callers are updated:
+
+- `qtgl/` — used by `libqtcad/QgGL.cpp` (HW GL framebuffer for qged's `rt` output)
+  and as a fallback in `QgEdMainWindow` when Obol is absent or SW-mode is not
+  available with dual-GL.  Requires updating `QgGL.cpp` to use an Obol framebuffer.
+- `glx/` — used by mged's legacy `attach -t ogl` path.  Can be removed once
+  mged is fully migrated to `obol_view`.
+- `swrast/` — used by `qged_test` / `qged_pipeline_test` for headless rendering.
+  Can be removed once those tests are migrated to Obol OSMesa path.
+- `null/`, `plot/`, `postscript/` — non-GL plugins; can be removed once all
+  callers use Obol or libfb for output.
+
+Remaining libdm work:
+- Remove `dm-gl.c`, `dm-gl_lod.cpp`, `dm-generic.c`, `dm_plugins.cpp` from the build
 - Delete: `include/dm.h`, `include/dm/` tree
-- Update all callers (mged, archer, libged/view.cpp) to use Obol equivalents
+- Update all callers (mged's legacy dm path, archer, libged/view.cpp) to use Obol equivalents
+- Replace `QgGL.cpp`'s `dm_open("qtgl")` framebuffer with an Obol-based framebuffer
+  (prerequisite for removing dm-qtgl)
 
 ### libbsg removal
 
