@@ -64,6 +64,7 @@
 #include <Inventor/nodes/SoSeparator.h>
 #include <Inventor/nodes/SoCamera.h>
 #include <Inventor/nodes/SoTransform.h>
+#include <Inventor/SoPath.h>
 
 /**
  * Create a new (empty) Obol scene root with default lighting.
@@ -124,6 +125,47 @@ void obol_scene_clear(SoSeparator *scene_root);
  * then call unref() on the pointer.
  */
 SoTransform *obol_mat_to_transform(const mat_t m);
+
+/* ====================================================================== *
+ * Stage 5: Selection and Picking                                          *
+ * ====================================================================== */
+
+/**
+ * Resolve an Obol pick path back to the BRL-CAD @c bsg_shape leaf it
+ * corresponds to, if any.
+ *
+ * @p pick_path is the @c SoPath returned by @c SoPickedPoint::getPath().
+ * This function walks the path from the tail (deepest node) toward the root,
+ * looking for the first @c SoSeparator that appears in the internal
+ * shape-separator reverse map maintained by @c obol_scene_assemble().
+ *
+ * Returns the matching @c bsg_shape pointer, or @c nullptr if the path does
+ * not correspond to any assembled shape (e.g. the pick hit the background or
+ * a group separator with no associated leaf shape).
+ *
+ * Thread safety: must be called on the main (GL) thread.
+ */
+bsg_shape *obol_find_shape_for_path(const SoPath *pick_path);
+
+/**
+ * Mark a @c bsg_shape's Obol separator as selected or deselected.
+ *
+ * Sets an internal selection flag on the shape's separator so that the next
+ * call to @c obol_scene_assemble() (which re-runs with @c s_changed forced)
+ * will rebuild the shape's @c SoMaterial with an emissive highlight colour.
+ *
+ * Calling with @p selected = @c false reverts the material to the normal
+ * diffuse-only appearance.
+ *
+ * @param s        The leaf bsg_shape to select/deselect.
+ * @param selected @c true to highlight; @c false to revert.
+ */
+void obol_shape_set_selected(bsg_shape *s, bool selected);
+
+/**
+ * Return @c true if @p s is currently marked as selected.
+ */
+bool obol_shape_is_selected(bsg_shape *s);
 
 #endif /* BRLCAD_ENABLE_OBOL */
 
