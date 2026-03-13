@@ -95,23 +95,27 @@ QgEdMainWindow::CreateWidgets(int canvas_type)
     cw = new QWidget(this);
 
     // The core of the interface is the CAD view widget.  When the Obol
-    // scene-graph renderer is available we use a QgObolView directly;
-    // otherwise we fall back to the libdm-based QgQuadView.
+    // scene-graph renderer is available and hardware OpenGL rendering is
+    // requested, we use a QgObolView directly.  When the software rasterizer
+    // (swrast) is explicitly requested (canvas_type == QgView_SW) we fall
+    // back to the libdm QgQuadView so that headless/test modes still work.
 #ifdef BRLCAD_ENABLE_OBOL
-    (void)canvas_type;  /* Obol path: canvas_type (libdm backend) is unused */
-    obol_view_ = new QgObolView(cw);
-    if (!obol_view_) {
-	QMessageBox::critical(nullptr, "Fatal Error",
-	    "Unable to create QgObolView widget");
-	bu_exit(EXIT_FAILURE, "Unable to create QgObolView widget\n");
+    if (canvas_type != QgView_SW) {
+	obol_view_ = new QgObolView(cw);
+	if (!obol_view_) {
+	    QMessageBox::critical(nullptr, "Fatal Error",
+		"Unable to create QgObolView widget");
+	    bu_exit(EXIT_FAILURE, "Unable to create QgObolView widget\n");
+	}
+	obol_view_->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
+	/* Attach the primary bsg_view (ged_gvp will be set after this call) */
+	obol_view_->setBsgView(gedp->ged_gvp);
+	/* Register the Obol view's bsg_view with the scene view set */
+	bsg_scene_add_view(&gedp->ged_views, obol_view_->getBsgView());
+	gedp->ged_gvp = obol_view_->getBsgView();
     }
-    obol_view_->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
-    /* Attach the primary bsg_view (ged_gvp will be set after this call) */
-    obol_view_->setBsgView(gedp->ged_gvp);
-    /* Register the Obol view's bsg_view with the scene view set */
-    bsg_scene_add_view(&gedp->ged_views, obol_view_->getBsgView());
-    gedp->ged_gvp = obol_view_->getBsgView();
-#else
+    if (!obol_view_) {
+#endif
     c4 = new QgQuadView(cw, gedp, canvas_type);
     if (!c4) {
 	QMessageBox::critical(nullptr, "Fatal Error",
@@ -119,6 +123,8 @@ QgEdMainWindow::CreateWidgets(int canvas_type)
 	bu_exit(EXIT_FAILURE, "Unable to create QgQuadView widget\n");
     }
     c4->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
+#ifdef BRLCAD_ENABLE_OBOL
+    }
 #endif
 
     // Define a graphical toolbar with control widgets
