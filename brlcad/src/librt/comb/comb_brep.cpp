@@ -73,7 +73,7 @@ conv_tree(ON_Brep **b, const union tree *t, const struct db_i *dbip)
 	    /* convert right */
 	    old = right = ON_Brep::New();
 	    ret = conv_tree(&right, t->tr_b.tb_right, dbip);
-	    if (ret) {
+	    if (ret < 0) {
 		delete old;
 		break;
 	    }
@@ -84,8 +84,9 @@ conv_tree(ON_Brep **b, const union tree *t, const struct db_i *dbip)
 	    /* convert left */
 	    old = left = ON_Brep::New();
 	    ret = conv_tree(&left, t->tr_b.tb_left, dbip);
-	    if (!ret) {
-		// Perform NURBS evaluations
+	    if (!ret || ret == 1) {
+		/* ret==0: normal success; ret==1: empty result — still valid */
+		/* Perform NURBS evaluations */
 		if (t->tr_op == OP_UNION)
 		    ret = ON_Boolean(*b, left, right, BOOLEAN_UNION);
 		else if (t->tr_op == OP_INTERSECT)
@@ -135,7 +136,7 @@ conv_tree(ON_Brep **b, const union tree *t, const struct db_i *dbip)
 	    bu_log("OPCODE NOT IMPLEMENTED: %d\n", t->tr_op);
 	    ret = -1;
     }
-    if (ret) {
+    if (ret < 0) {
 	*b = NULL;
     }
 

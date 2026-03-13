@@ -3785,7 +3785,29 @@ is_point_inside_brep(const ON_3dPoint &pt, const ON_Brep *brep, ON_SimpleArray<S
 	return false;
     }
 
-    ON_BoundingBox bbox = brep->BoundingBox();
+    /* Build a tight bounding box from vertices and edge curve extents.
+     * ON_Brep::BoundingBox() uses the full NURBS surface parametric domain
+     * which can be 2× larger than the trimmed face extent (e.g. BRL-CAD
+     * ARB8 breps use diamond-trimmed planar surfaces whose full domain
+     * corners land outside the box vertices).  Any interior point of a
+     * closed solid lies within the bbox of its boundary edges, so this
+     * is both correct and tight. */
+    ON_BoundingBox bbox;
+    {
+	bool first = true;
+	for (int vi = 0; vi < brep->m_V.Count(); vi++) {
+	    bbox.Set(brep->m_V[vi].point, !first);
+	    first = false;
+	}
+	for (int ei = 0; ei < brep->m_E.Count(); ei++) {
+	    ON_3dPoint emin, emax;
+	    if (brep->m_E[ei].GetBoundingBox(emin, emax, false)) {
+		bbox.Union(ON_BoundingBox(emin, emax));
+	    }
+	}
+	if (first)
+	    return false; /* no vertices — degenerate brep */
+    }
     bbox.m_min -= ON_3dVector(INTERSECTION_TOL, INTERSECTION_TOL, INTERSECTION_TOL);
     bbox.m_max += ON_3dVector(INTERSECTION_TOL, INTERSECTION_TOL, INTERSECTION_TOL);
     if (!bbox.IsPointIn(pt)) {
@@ -4149,7 +4171,24 @@ face_brep_location(const TrimmedFace *tface, const ON_Brep *brep, ON_SimpleArray
 	throw InvalidGeometry("face_brep_location(): TrimmedFace has NULL face.\n");
     }
 
-    ON_BoundingBox brep2box = brep->BoundingBox();
+    /* Build a tight bounding box from the other brep's vertices and edges
+     * (same approach as is_point_inside_brep) to detect faces that are
+     * clearly outside the other brep's extents and can be skipped. */
+    ON_BoundingBox brep2box;
+    {
+	bool first = true;
+	for (int vi = 0; vi < brep->m_V.Count(); vi++) {
+	    brep2box.Set(brep->m_V[vi].point, !first);
+	    first = false;
+	}
+	for (int ei = 0; ei < brep->m_E.Count(); ei++) {
+	    ON_3dPoint emin, emax;
+	    if (brep->m_E[ei].GetBoundingBox(emin, emax, false)) {
+		brep2box.Union(ON_BoundingBox(emin, emax));
+	    }
+	}
+	if (first) return OUTSIDE_BREP;
+    }
     brep2box.m_min -= ON_3dVector(INTERSECTION_TOL, INTERSECTION_TOL, INTERSECTION_TOL);
     brep2box.m_max += ON_3dVector(INTERSECTION_TOL, INTERSECTION_TOL, INTERSECTION_TOL);
     if (!bface->BoundingBox().Intersection(brep2box)) {
@@ -4985,69 +5024,54 @@ join_boundary_edges(ON_Brep *brep)
 	    /* Determine orientation for the transferred trim.
 	     *
 	     * For trims created by add_elements(), m_bRev3d is always
-	     * initialized to false (same direction as their original edge).
-	     * When the trim is transferred to a different edge, the correct
-	     * bRev3d value depends on whether the two 3D edge curves wind
-	     * in the same or opposite direction.
+	     * initialized to false (same direction as their original edge
+	     * curve cj3).  When the trim is transferred to ei whose 3D curve
+	     * is ci3, the correct bRev3d value is:
+	     *   false  if ci3 and cj3 wind in the SAME direction  (no flip)
+	     *   true   if ci3 and cj3 wind in OPPOSITE directions (flip)
 	     *
-	     * For seam-crossing trims (whose 2D curve goes from u=domain_max
-	     * to u=domain_min at constant v), OpenNURBS defines "same direction"
-	     * differently from the 3D winding orientation. Specifically, the
-	     * bRev3d check compares the 3D edge curve tangent at the shared
-	     * vertex with the 3D pushup tangent of the 2D trim at the same
-	     * point, accounting for the surface's periodicity.
+	     * OpenNURBS defines m_bRev3d=true as "the edge and trim have
+	     * opposite directions."  We compare the Newell winding normals
+	     * of ci3 and cj3 directly — this is more reliable than pushing
+	     * up the 2D trim curve (which degenerates to a point for
+	     * seam-crossing trims on periodic surfaces).
 	     *
-	     * Empirical testing on m35 CSG models shows that for FULL-REVOLUTION
-	     * closed edges (circles), the two independently-created 3D curves
-	     * go in opposite 3D winding directions (because one comes from
-	     * add_elements on an inner loop and one from an outer loop), but
-	     * OpenNURBS's validity check considers them "same direction" due to
-	     * how seam-crossing parameterization interacts with bRev3d.
-	     *
-	     * To keep things simple and correct: we use the Newell-method
-	     * winding comparison but INVERT its result, since the OpenNURBS
-	     * convention for seam-crossing trims is the opposite of the 3D
-	     * geometric winding comparison. */
+	     * dot(Newell(ci3), Newell(cj3)) < 0  →  opposite winding
+	     *   →  m_bRev3d should be true  →  rev = true
+	     * dot(Newell(ci3), Newell(cj3)) > 0  →  same winding
+	     *   →  m_bRev3d should stay false  →  rev = false  */
 	    bool rev = false;
 	    {
-		const ON_Curve  *c2j = brep->m_C2[brep->m_T[tj].m_c2i];
-		const ON_BrepFace *fj = brep->m_T[tj].Face();
+		static const int N = 64;
 
-		if (c2j && fj && fj->SurfaceOf()) {
-		    const ON_Surface *sfj = fj->SurfaceOf();
-		    static const int N = 64;
-
-		    /* Newell normal for ci3 (3D edge curve) */
-		    ON_3dVector ni(0, 0, 0);
-		    ON_3dPoint  prev_i = ci3->PointAt(ci3->Domain().ParameterAt(0.0));
-		    for (int s = 1; s <= N; s++) {
-			ON_3dPoint cur_i = ci3->PointAt(
-			    ci3->Domain().ParameterAt((double)s / N));
-			ni.x += (prev_i.y - cur_i.y) * (prev_i.z + cur_i.z);
-			ni.y += (prev_i.z - cur_i.z) * (prev_i.x + cur_i.x);
-			ni.z += (prev_i.x - cur_i.x) * (prev_i.y + cur_i.y);
-			prev_i = cur_i;
-		    }
-
-		    /* Newell normal for trim tj pushed up to 3D */
-		    ON_3dVector nj(0, 0, 0);
-		    ON_2dPoint  uv0 = c2j->PointAt(c2j->Domain().ParameterAt(0.0));
-		    ON_3dPoint  prev_j = sfj->PointAt(uv0.x, uv0.y);
-		    for (int s = 1; s <= N; s++) {
-			ON_2dPoint uv = c2j->PointAt(
-			    c2j->Domain().ParameterAt((double)s / N));
-			ON_3dPoint cur_j = sfj->PointAt(uv.x, uv.y);
-			nj.x += (prev_j.y - cur_j.y) * (prev_j.z + cur_j.z);
-			nj.y += (prev_j.z - cur_j.z) * (prev_j.x + cur_j.x);
-			nj.z += (prev_j.x - cur_j.x) * (prev_j.y + cur_j.y);
-			prev_j = cur_j;
-		    }
-
-		    /* Opposite 3D normals → seam-crossing trim is in the SAME
-		     * OpenNURBS direction (the seam parameterization inverses
-		     * the correspondence); same 3D normals → trim is reversed. */
-		    rev = (ON_DotProduct(ni, nj) > 0.0);
+		/* Newell normal for ci3 (3D edge curve of ei) */
+		ON_3dVector ni(0, 0, 0);
+		ON_3dPoint  prev_i = ci3->PointAt(ci3->Domain().ParameterAt(0.0));
+		for (int s = 1; s <= N; s++) {
+		    ON_3dPoint cur_i = ci3->PointAt(
+			ci3->Domain().ParameterAt((double)s / N));
+		    ni.x += (prev_i.y - cur_i.y) * (prev_i.z + cur_i.z);
+		    ni.y += (prev_i.z - cur_i.z) * (prev_i.x + cur_i.x);
+		    ni.z += (prev_i.x - cur_i.x) * (prev_i.y + cur_i.y);
+		    prev_i = cur_i;
 		}
+
+		/* Newell normal for cj3 (3D edge curve of ej) */
+		ON_3dVector nj(0, 0, 0);
+		ON_3dPoint  prev_j = cj3->PointAt(cj3->Domain().ParameterAt(0.0));
+		for (int s = 1; s <= N; s++) {
+		    ON_3dPoint cur_j = cj3->PointAt(
+			cj3->Domain().ParameterAt((double)s / N));
+		    nj.x += (prev_j.y - cur_j.y) * (prev_j.z + cur_j.z);
+		    nj.y += (prev_j.z - cur_j.z) * (prev_j.x + cur_j.x);
+		    nj.z += (prev_j.x - cur_j.x) * (prev_j.y + cur_j.y);
+		    prev_j = cur_j;
+		}
+
+		/* Opposite winding (dot < 0) means the transferred trim's
+		 * existing bRev3d=false would give "same direction", but we
+		 * need "opposite direction" — so flip it. */
+		rev = (ON_DotProduct(ni, nj) < 0.0);
 	    }
 	    if (rev)
 		brep->m_T[tj].m_bRev3d = !brep->m_T[tj].m_bRev3d;
@@ -5063,6 +5087,198 @@ join_boundary_edges(ON_Brep *brep)
 		brep->m_T[tj].m_vi[1] = ei.m_vi[bRev3d ? 0 : 1];
 	    }
 
+	    /* Align trim start positions for the joined closed edge.
+	     *
+	     * After joining, ei has two trims: ti (the original single-
+	     * trim closed loop, e.g. the box-face inner circle) and tj
+	     * (the transferred trim, potentially part of a multi-trim
+	     * loop, e.g. the cylindrical-face outer loop).
+	     *
+	     * The two coincident circles may have started at different
+	     * angular positions.  OpenNURBS requires every trim's 3D
+	     * pushup-start to match ei's edge curve start position.
+	     * We fix this by moving the "canonical start" to tj's start
+	     * position (P_j), because tj is in a multi-trim loop whose
+	     * adjacent trims (e.g. seam lines) already reference P_j:
+	     *
+	     *  1. Compute P_j = 3D position of tj's 2D curve start.
+	     *  2. Reparametrize ci3 (ei's 3D edge curve) to start at P_j.
+	     *  3. Move ei's vertex to P_j.
+	     *  4. Reparametrize ti's 2D curve (single-trim closed loop)
+	     *     to start at the UV corresponding to P_j.
+	     *  5. Merge ej's vertex into ei's vertex so the multi-trim
+	     *     loop (tj's loop) stays topologically connected.
+	     *
+	     * tj's 2D curve is left untouched so its loop connectivity
+	     * is preserved. */
+	    if (ci3->IsClosed()) {
+		/* Step 1: find P_j */
+		const ON_Curve *c2j_al =
+		    brep->m_C2[brep->m_T[tj].m_c2i];
+		const ON_BrepFace *fj_al = brep->m_T[tj].Face();
+		if (c2j_al && fj_al && fj_al->SurfaceOf()) {
+		    ON_3dPoint uv_start_al =
+			c2j_al->PointAt(c2j_al->Domain().Min());
+		    ON_3dPoint P_j =
+			fj_al->SurfaceOf()->PointAt(uv_start_al.x,
+						    uv_start_al.y);
+
+		    /* Helper: find the parameter on a closed curve where
+		     * the curve passes closest to 'target'.  Uses a 400-
+		     * sample coarse search followed by Newton refinement
+		     * to achieve machine-precision accuracy.  Treats the
+		     * ON_Curve as a 3D curve (works for both 3D edge curves
+		     * and 2D trim curves treated as 3D in (u,v,0) space). */
+		    auto find_seam_t = [](const ON_Curve *c,
+					  const ON_3dPoint &target,
+					  double *t_out) -> bool {
+			static const int NSAMP = 400;
+			static const int MAX_NEWTON_ITERS  = 50;
+			static const double NEWTON_DF_EPS  = 1e-15; /* near-flat */
+			static const double NEWTON_DT_EPS  = 1e-13; /* converged */
+			/* Coarse search */
+			ON_Interval dom = c->Domain();
+			double best_dist = ON_DBL_MAX;
+			double t_best = dom.Min();
+			for (int s = 0; s <= NSAMP; s++) {
+			    double t_s = dom.ParameterAt(
+				(double)s / NSAMP);
+			    double d = c->PointAt(t_s).DistanceTo(target);
+			    if (d < best_dist) {
+				best_dist = d;
+				t_best = t_s;
+			    }
+			}
+			/* Newton refinement to machine precision */
+			ON_NurbsCurve nc;
+			if (c->GetNurbForm(nc)) {
+			    double t = t_best;
+			    for (int nr = 0; nr < MAX_NEWTON_ITERS; nr++) {
+				ON_3dPoint  pt;
+				ON_3dVector d1, d2;
+				nc.Ev2Der(t, pt, d1, d2);
+				double f = ON_DotProduct(
+				    pt - target, d1);
+				double df = d1.Length()*d1.Length() +
+				    ON_DotProduct(pt - target, d2);
+				if (fabs(df) < NEWTON_DF_EPS) break;
+				double dt = -f / df;
+				if (fabs(dt) < NEWTON_DT_EPS) break;
+				t += dt;
+			    }
+			    /* Clamp to valid domain to avoid wrap-around */
+			    if (t < dom.Min()) t = dom.Min();
+			    if (t > dom.Max()) t = dom.Max();
+			    t_best = t;
+			}
+			*t_out = t_best;
+			return true;
+		    };
+
+		    /* Step 2: reparametrize ci3 to start at P_j */
+		    {
+			double t_new3 = ci3->Domain().Min();
+			find_seam_t(ci3, P_j, &t_new3);
+			if (ci3->PointAt(t_new3).DistanceTo(P_j)
+			    > ON_ZERO_TOLERANCE) {
+			    ON_Curve *ci3_new =
+				brep->m_C3[ei.m_c3i]->Duplicate();
+			    if (ci3_new &&
+				ci3_new->ChangeClosedCurveSeam(t_new3)) {
+				int new_c3i =
+				    brep->AddEdgeCurve(ci3_new);
+				ei.m_c3i = new_c3i;
+				ei.SetProxyCurve(
+				    brep->m_C3[new_c3i]);
+				brep->SetEdgeDomain(
+				    ei.m_edge_index,
+				    brep->m_C3[new_c3i]->Domain());
+				ci3 = brep->m_C3[new_c3i];
+			    } else {
+				delete ci3_new;
+			    }
+			}
+		    }
+
+		    /* Step 3: move ei's vertex to P_j */
+		    {
+			int ei_vi = ei.m_vi[0]; /* closed edge: vi[0]==vi[1] */
+			brep->m_V[ei_vi].SetPoint(P_j);
+		    }
+
+		    /* Step 4: reparametrize ti's 2D curve (Case A:
+		     * single-trim closed-circle loop on the other face)
+		     * to start at the UV on ti's surface that maps to P_j. */
+		    if (ei.m_ti.Count() >= 1) {
+			/* ti is the FIRST trim on ei (tj was just appended
+			 * as the second via ei.m_ti.Append(tj) above). */
+			int ti_idx = ei.m_ti[0];
+			const ON_Curve *c2i_al =
+			    brep->m_C2[brep->m_T[ti_idx].m_c2i];
+			const ON_BrepFace *fi_al =
+			    brep->m_T[ti_idx].Face();
+			if (c2i_al && c2i_al->IsClosed() &&
+			    fi_al && fi_al->SurfaceOf()) {
+			    const ON_Surface *sfi_al = fi_al->SurfaceOf();
+			    ON_ClassArray<ON_PX_EVENT> pxi;
+			    /* 10× tolerance: P_j is on fj's surface exactly
+			     * but may be slightly off fi's surface due to
+			     * boolean floating-point errors. */
+			    if (ON_Intersect(P_j, *sfi_al, pxi,
+					     INTERSECTION_TOL * 10.0) &&
+				pxi.Count() > 0) {
+				/* Find the seam parameter on c2i_al closest
+				 * to the target UV (treated as 3D point in
+				 * (u,v,0) space). */
+				ON_3dPoint uv_ti_3d(pxi[0].m_b[0],
+						    pxi[0].m_b[1], 0.0);
+				double t_seam_ti = c2i_al->Domain().Min();
+				find_seam_t(c2i_al, uv_ti_3d, &t_seam_ti);
+				double uv_dist_ti =
+				    c2i_al->PointAt(t_seam_ti).DistanceTo(
+					c2i_al->PointAt(
+					    c2i_al->Domain().Min()));
+				if (uv_dist_ti > ON_ZERO_TOLERANCE) {
+				    ON_Curve *c2i_new =
+					c2i_al->Duplicate();
+				    if (c2i_new &&
+					c2i_new->ChangeClosedCurveSeam(
+					    t_seam_ti)) {
+					int new_c2i_idx =
+					    brep->AddTrimCurve(c2i_new);
+					brep->m_T[ti_idx].ChangeTrimCurve(
+					    new_c2i_idx);
+				    } else {
+					delete c2i_new;
+				    }
+				}
+			    }
+			}
+		    }
+
+		    /* Step 5: merge ej's vertex into ei's vertex so
+		     * the multi-trim loop containing tj stays connected. */
+		    {
+			int ei_vi = ei.m_vi[0];
+			int ej_vi = ej.m_vi[0];
+			if (ej_vi != ei_vi) {
+			    for (int k = 0; k < brep->m_T.Count(); k++) {
+				if (brep->m_T[k].m_vi[0] == ej_vi)
+				    brep->m_T[k].m_vi[0] = ei_vi;
+				if (brep->m_T[k].m_vi[1] == ej_vi)
+				    brep->m_T[k].m_vi[1] = ei_vi;
+			    }
+			    for (int k = 0; k < brep->m_E.Count(); k++) {
+				if (brep->m_E[k].m_vi[0] == ej_vi)
+				    brep->m_E[k].m_vi[0] = ei_vi;
+				if (brep->m_E[k].m_vi[1] == ej_vi)
+				    brep->m_E[k].m_vi[1] = ei_vi;
+			    }
+			}
+		    }
+		}
+	    }
+
 	    /* Mark ej as unused by emptying its trim list.  No trim
 	     * references ej any more (we just redirected tj to ei),
 	     * so Compact() will remove ej and clean up its vertex. */
@@ -5072,7 +5288,46 @@ join_boundary_edges(ON_Brep *brep)
 	}
     }
 
+    /* Rebuild all vertex m_ei arrays from the current edge-vertex
+     * references.  The Pass 2 vertex-merge operations above updated
+     * edge m_vi[] arrays but did NOT update vertex m_ei[] arrays, so
+     * some vertices have stale edge lists.  Compact() uses m_ei to
+     * decide which vertices are live, so we must fix m_ei first. */
+    for (int k = 0; k < brep->m_V.Count(); k++)
+	brep->m_V[k].m_ei.Empty();
+    for (int k = 0; k < brep->m_E.Count(); k++) {
+	const ON_BrepEdge &ek = brep->m_E[k];
+	if (ek.m_ti.Count() == 0) continue; /* will be removed */
+	int v0 = ek.m_vi[0], v1 = ek.m_vi[1];
+	/* For closed edges (v0==v1) the index appears twice. */
+	if (v0 >= 0 && v0 < brep->m_V.Count())
+	    brep->m_V[v0].m_ei.Append(k);
+	if (v1 >= 0 && v1 < brep->m_V.Count())
+	    brep->m_V[v1].m_ei.Append(k);
+    }
+
     brep->Compact();
+
+    /* After Compact() renumbers all elements, rebuild vertex m_ei arrays
+     * one final time.  Compact() applies a remapping to existing m_ei
+     * entries but may not add entries for newly-referenced vertices (from
+     * the vertex-merge steps above).  A clean rebuild from the post-compact
+     * edge list is the safest approach. */
+    for (int k = 0; k < brep->m_V.Count(); k++)
+	brep->m_V[k].m_ei.Empty();
+    for (int k = 0; k < brep->m_E.Count(); k++) {
+	int v0 = brep->m_E[k].m_vi[0];
+	int v1 = brep->m_E[k].m_vi[1];
+	if (v0 >= 0 && v0 < brep->m_V.Count())
+	    brep->m_V[v0].m_ei.Append(k);
+	if (v1 >= 0 && v1 < brep->m_V.Count() && v1 != v0)
+	    brep->m_V[v1].m_ei.Append(k);
+	/* Closed edge: both ends are the same vertex; convention is that
+	 * the edge index appears TWICE in that vertex's m_ei list. */
+	if (v0 == v1 && v0 >= 0 && v0 < brep->m_V.Count())
+	    brep->m_V[v0].m_ei.Append(k);
+    }
+
     brep->SetTrimTypeFlags(false);
 }
 
@@ -5090,6 +5345,38 @@ ON_Boolean(ON_Brep *evaluated_brep, const ON_Brep *brep1, const ON_Brep *brep2, 
 
     ON_ClassArray<ON_SimpleArray<TrimmedFace *> > trimmed_faces;
     try {
+	/* Handle empty-brep operands before any other processing.
+	 * An empty brep (0 faces) is the identity element for union and
+	 * the absorbing element for intersection; for subtraction,
+	 * empty - anything = empty and anything - empty = anything.
+	 * Handling this here also prevents get_face_intersection_curves()
+	 * from returning a zero-length curve array that would be indexed
+	 * out-of-bounds by get_evaluated_faces(). */
+	if (brep1->m_F.Count() == 0 || brep2->m_F.Count() == 0) {
+	    switch (operation) {
+		case BOOLEAN_UNION:
+		    if (brep1->m_F.Count() > 0)
+			evaluated_brep->Append(*brep1);
+		    else
+			evaluated_brep->Append(*brep2);
+		    break;
+		case BOOLEAN_DIFF:
+		    if (brep1->m_F.Count() > 0)
+			evaluated_brep->Append(*brep1);
+		    /* brep2 is empty or brep1 is empty: either way result
+		     * is brep1 (possibly empty). */
+		    break;
+		case BOOLEAN_INTERSECT:
+		    /* anything ∩ empty = empty */
+		    break;
+		default:
+		    throw InvalidBooleanOperation("Error - unknown boolean operation\n");
+	    }
+	    evaluated_brep->ShrinkSurfaces();
+	    evaluated_brep->Compact();
+	    return 0;
+	}
+
 	/* Deal with the trivial cases up front */
 	if (brep1->BoundingBox().MinimumDistanceTo(brep2->BoundingBox()) > ON_ZERO_TOLERANCE) {
 	    switch (operation) {
@@ -5184,6 +5471,16 @@ ON_Boolean(ON_Brep *evaluated_brep, const ON_Brep *brep1, const ON_Brep *brep2, 
     }
 
     evaluated_brep->ShrinkSurfaces();
+
+    /* If the boolean evaluation produced no faces the result is
+     * geometrically empty (e.g. a solid subtracted from itself).
+     * Skip the edge-join and tolerance steps which are no-ops on an
+     * empty brep, and return a dedicated code so callers can recognise
+     * and handle the zero-volume result. */
+    if (evaluated_brep->m_F.Count() == 0) {
+	evaluated_brep->Compact();
+	return 1; /* valid but empty result */
+    }
 
     /* Join coincident boundary edges so the result is a closed solid that
      * the raytracer treats as a solid volume rather than a zero-thickness

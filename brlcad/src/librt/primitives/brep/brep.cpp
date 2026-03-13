@@ -2611,6 +2611,9 @@ rt_brep_boolean(struct rt_db_internal *out, const struct rt_db_internal *ip1, co
     int ret;
     if ((ret = ON_Boolean(brep_out, brep1, brep2, operation_type)) < 0)
 	return ret;
+    /* ret == 1 means the evaluation succeeded but produced a zero-volume
+     * result (e.g. a solid subtracted from itself).  We still package the
+     * empty brep so callers receive a valid (but empty) object. */
 
     // make the final rt_db_internal
     struct rt_brep_internal *bip_out;
