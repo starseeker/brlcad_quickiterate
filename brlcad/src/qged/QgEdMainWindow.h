@@ -56,11 +56,14 @@
 #include "QgEdPalette.h"
 
 #ifdef BRLCAD_ENABLE_OBOL
-/* Forward-declare QgObolView so callers of QgEdMainWindow.h do not need to
- * include QgObolView.h (which pulls in QOpenGLWidget / Obol headers).  The
- * full definition is included only in QgEdMainWindow.cpp where the pointer
- * member is actually used. */
+/* Forward-declare QgObolView and QgObolSwrastView so callers of
+ * QgEdMainWindow.h do not need to include QgObolView.h (which pulls in
+ * QOpenGLWidget / Obol headers).  The full definitions are included only in
+ * QgEdMainWindow.cpp where the pointer members are actually used. */
 class QgObolView;
+#  ifdef OBOL_BUILD_DUAL_GL
+class QgObolSwrastView;
+#  endif
 #endif
 
 class QgEdMainWindow : public QMainWindow
@@ -113,7 +116,7 @@ class QgEdMainWindow : public QMainWindow
 
     private:
 
-	void CreateWidgets(int canvas_type);
+	void CreateWidgets(int canvas_type, int quad_view = 0);
 	void LocateWidgets();
 	void ConnectWidgets();
 	void SetupMenu();
@@ -134,6 +137,9 @@ class QgEdMainWindow : public QMainWindow
 	QAction *cad_quad_view = nullptr;
 #ifdef BRLCAD_ENABLE_OBOL
 	QgObolView *obol_view_ = nullptr;
+#  ifdef OBOL_BUILD_DUAL_GL
+	QgObolSwrastView *obol_swrast_view_ = nullptr;
+#  endif
 #endif
 
 	// Docked widgets

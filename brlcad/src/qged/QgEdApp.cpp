@@ -50,8 +50,11 @@
 #  include <Inventor/SoInteraction.h>
 #  include <Inventor/nodes/SoNode.h>
 #  include "QgObolView.h"
-/* One application-wide context manager (created before any GL widget). */
+/* Application-wide context managers (created before any GL widget). */
 static QgObolContextManager *s_obol_ctx_mgr = nullptr;
+#  ifdef OBOL_BUILD_DUAL_GL
+static CoinOSMesaContextManager *s_osmesa_ctx_mgr = nullptr;
+#  endif
 /* Shim for bsg_obol_set_unref: calls SoNode::unref() on the void* pointer. */
 static void obol_unref_shim(void *p) {
     if (p) static_cast<SoNode *>(p)->unref();
@@ -235,11 +238,22 @@ QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode) :QAppl
     // ── Obol scene-graph initialization ─────────────────────────────────
     // Obol must be initialized before any QOpenGLWidget-derived view is
     // created.  We create the context manager here (before the main window)
-    // and pass it to SoDB::init().  The context manager's share context will
-    // be updated after the first GL widget initialises (in initializeGL()).
+    // and pass it to SoDB::init().
+    //
+    //   Hardware GL: QgObolContextManager (Qt QOpenGLContext/QOffscreenSurface)
+    //   Swrast mode: CoinOSMesaContextManager (OSMesa, OBOL_BUILD_DUAL_GL only)
 #ifdef BRLCAD_ENABLE_OBOL
-    s_obol_ctx_mgr = new QgObolContextManager(nullptr /* share ctx set later */);
-    SoDB::init(s_obol_ctx_mgr);
+#  ifdef OBOL_BUILD_DUAL_GL
+    if (swrast_mode) {
+	s_osmesa_ctx_mgr = new CoinOSMesaContextManager();
+	SoDB::init(s_osmesa_ctx_mgr);
+    } else {
+#  endif
+	s_obol_ctx_mgr = new QgObolContextManager(nullptr /* share ctx set later */);
+	SoDB::init(s_obol_ctx_mgr);
+#  ifdef OBOL_BUILD_DUAL_GL
+    }
+#  endif
     SoNodeKit::init();
     SoInteraction::init();
     /* Disable Obol's own auto-redraw loop — Qt's event loop drives repaints. */
@@ -423,6 +437,10 @@ QgEdApp::~QgEdApp() {
     SoDB::finish();
     delete s_obol_ctx_mgr;
     s_obol_ctx_mgr = nullptr;
+#  ifdef OBOL_BUILD_DUAL_GL
+    delete s_osmesa_ctx_mgr;
+    s_osmesa_ctx_mgr = nullptr;
+#  endif
 #endif /* BRLCAD_ENABLE_OBOL */
 }
 
