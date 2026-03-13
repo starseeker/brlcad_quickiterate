@@ -2629,8 +2629,6 @@ loop_boolean(
      * If any single pair produces more than MAX_COEXT_EVENTS events and the
      * overlap covers ≥ 90 % of loop1's parameter domain, they are coextensive.
      */
-    static const int MAX_COEXT_EVENTS = 100;
-
     // Collect CCI events for all pairs (needed both for coextension check and
     // for the normal segment-building path below).
     typedef std::vector<ON_SimpleArray<ON_X_EVENT> > EventTable;
@@ -2642,25 +2640,40 @@ loop_boolean(
 	}
     }
 
-    // Coextension check: any pair with many overlap events covering the loop?
+    // Coextension check: compute the total overlap coverage of loop1's
+    // parameter domain across ALL loop1×loop2 segment pairs.  For a pair
+    // of nearly-identical loops (e.g. a split face whose outer loop equals
+    // the next ssx_loop), every segment of loop1 will be covered by some
+    // overlap event with loop2's corresponding segment.  Summing across all
+    // pairs correctly detects this even when no individual pair exceeds
+    // MAX_COEXT_EVENTS events.
     bool coextensive = false;
-    for (int i = 0; i < loop1.Count() && !coextensive; ++i) {
-	const ON_SimpleArray<ON_X_EVENT> &evs =
-	    all_x_events[i * loop2.Count()]; /* j=0 representative pair */
-	if (evs.Count() <= MAX_COEXT_EVENTS) continue;
-
-	double domain_len = loop1[i]->Domain().Length();
-	if (domain_len <= 0.0) continue;
-	double overlap_len = 0.0;
-	for (int k = 0; k < evs.Count(); ++k) {
-	    if (evs[k].m_type == ON_X_EVENT::ccx_overlap) {
-		overlap_len += fabs(evs[k].m_a[1] - evs[k].m_a[0]);
+    {
+	double total_domain_len = 0.0;
+	double total_overlap_len = 0.0;
+	for (int i = 0; i < loop1.Count(); ++i) {
+	    double seg_len = loop1[i]->Domain().Length();
+	    if (seg_len <= 0.0) continue;
+	    total_domain_len += seg_len;
+	    double seg_overlap = 0.0;
+	    for (int j = 0; j < loop2.Count(); ++j) {
+		const ON_SimpleArray<ON_X_EVENT> &evs =
+		    all_x_events[i * loop2.Count() + j];
+		for (int k = 0; k < evs.Count(); ++k) {
+		    if (evs[k].m_type == ON_X_EVENT::ccx_overlap) {
+			seg_overlap += fabs(evs[k].m_a[1] - evs[k].m_a[0]);
+		    }
+		}
 	    }
+	    /* Clamp per-segment overlap to [0, seg_len] to avoid
+	     * double-counting when multiple loop2 segments overlap. */
+	    total_overlap_len += (seg_overlap > seg_len) ? seg_len : seg_overlap;
 	}
-	if (overlap_len / domain_len >= 0.90) {
+	if (total_domain_len > 0.0 &&
+	    total_overlap_len / total_domain_len >= 0.90) {
 	    coextensive = true;
-	    bu_log("loop_boolean: coextension detected (overlap=%.1f%%)\n",
-		   100.0 * overlap_len / domain_len);
+	    bu_log("loop_boolean: coextension detected (total overlap=%.1f%%)\n",
+		   100.0 * total_overlap_len / total_domain_len);
 	}
     }
 
@@ -3347,9 +3360,16 @@ loop_is_degenerate(const ON_SimpleArray<ON_Curve *> &loop)
 
     ON_3dPoint pt1 = loop_curve->PointAt(dom.ParameterAt(.25));
     ON_3dPoint pt2 = loop_curve->PointAt(dom.ParameterAt(.75));
+
+    /* A "there-and-back" (colinear, zero-area) closed curve has all
+     * points on a single line and produces zero area.  IsLinear()
+     * catches this class, which pt1/pt2 distance may miss when the
+     * two half-way samples land on the same geometric point by
+     * symmetry but the numerical difference is > INTERSECTION_TOL. */
+    bool is_linear = loop_curve->IsLinear(INTERSECTION_TOL);
     delete loop_curve;
 
-    return pt1.DistanceTo(pt2) < INTERSECTION_TOL;
+    return pt1.DistanceTo(pt2) < INTERSECTION_TOL || is_linear;
 }
 
 
