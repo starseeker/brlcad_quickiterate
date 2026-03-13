@@ -61,10 +61,18 @@
 
 #include "bsg/defines.h"
 
+/* Suppress -Wfloat-equal from third-party Obol/Inventor headers */
+#if defined(__GNUC__) || defined(__clang__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wfloat-equal"
+#endif
 #include <Inventor/nodes/SoSeparator.h>
 #include <Inventor/nodes/SoCamera.h>
 #include <Inventor/nodes/SoTransform.h>
 #include <Inventor/SoPath.h>
+#if defined(__GNUC__) || defined(__clang__)
+#  pragma GCC diagnostic pop
+#endif
 
 /**
  * Create a new (empty) Obol scene root with default lighting.

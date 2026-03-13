@@ -55,6 +55,14 @@
 #include "plugins/plugin.h"
 #include "QgEdPalette.h"
 
+#ifdef BRLCAD_ENABLE_OBOL
+/* Forward-declare QgObolView so callers of QgEdMainWindow.h do not need to
+ * include QgObolView.h (which pulls in QOpenGLWidget / Obol headers).  The
+ * full definition is included only in QgEdMainWindow.cpp where the pointer
+ * member is actually used. */
+class QgObolView;
+#endif
+
 class QgEdMainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -94,6 +102,9 @@ class QgEdMainWindow : public QMainWindow
     public slots:
 	//void save_image();
 	void do_dm_init();
+#ifdef BRLCAD_ENABLE_OBOL
+	void do_obol_init();
+#endif
         void close();
 	// Put central display into Quad mode
 	void QuadDisplay();
@@ -121,6 +132,9 @@ class QgEdMainWindow : public QMainWindow
 	QgQuadView *c4 = nullptr;
 	QAction *cad_single_view = nullptr;
 	QAction *cad_quad_view = nullptr;
+#ifdef BRLCAD_ENABLE_OBOL
+	QgObolView *obol_view_ = nullptr;
+#endif
 
 	// Docked widgets
 	QgAttributesModel *stdpropmodel = nullptr;
