@@ -40,7 +40,7 @@
  *   Mouse navigation in QgObolView does the reverse: camera changes made by
  *   Obol dragging are reflected back to bsg_view via syncBsgViewFromCamera().
  *
- * See RADICAL_MIGRATION.md Stage 0-4 for context.
+ * See RADICAL_MIGRATION.md Stage 0-5 for context.
  */
 
 #pragma once
@@ -72,10 +72,13 @@
 #include <Inventor/nodes/SoSeparator.h>
 #include <Inventor/actions/SoGLRenderAction.h>
 #include <Inventor/actions/SoGetBoundingBoxAction.h>
+#include <Inventor/actions/SoRayPickAction.h>
 #include <Inventor/actions/SoSearchAction.h>
 #include <Inventor/events/SoLocation2Event.h>
 #include <Inventor/events/SoMouseButtonEvent.h>
 #include <Inventor/events/SoKeyboardEvent.h>
+#include <Inventor/SoPickedPoint.h>
+#include <Inventor/SoPath.h>
 
 #include <GL/gl.h>
 #include <cmath>
@@ -175,6 +178,7 @@ public:
 	: QOpenGLWidget(parent)
 	, bsg_v_(nullptr)
 	, obol_root_(nullptr)
+	, selectedShape_(nullptr)
     {
 	setMouseTracking(true);
 	setFocusPolicy(Qt::StrongFocus);
@@ -204,6 +208,7 @@ public:
     /** Attach a BRL-CAD bsg_view.  Call after SoDB::init(). */
     void setBsgView(bsg_view *v) {
 	bsg_v_ = v;
+	selectedShape_ = nullptr;    /* Clear any dangling selection on view switch */
 	if (!obol_root_) {
 	    obol_root_ = obol_scene_create();
 	    setObolSceneGraph(obol_root_);
@@ -517,6 +522,16 @@ public slots:
 	update();
     }
 
+signals:
+    /**
+     * Stage 5: Emitted when the user picks an object in the scene.
+     *
+     * @p s  The leaf bsg_shape that was hit.  The shape's @c s_path contains
+     *       the db_full_path to the BRL-CAD object.  May be @c nullptr if
+     *       the background was clicked (deselect).
+     */
+    void picked(bsg_shape *s);
+
 protected:
     // ── QOpenGLWidget overrides ──────────────────────────────────────────
 
@@ -524,6 +539,7 @@ protected:
 	glEnable(GL_DEPTH_TEST);
 	renderMgr_.getGLRenderAction()->setCacheContext(cacheContext_);
     }
+
 
     void resizeGL(int w, int h) override {
 	const qreal dpr = devicePixelRatioF();
@@ -545,6 +561,14 @@ protected:
 
     void mousePressEvent(QMouseEvent *e) override {
 	lastMousePos_ = e->position();
+
+	/* Stage 5: Ctrl+left-click triggers object picking instead of orbit.
+	 * Right-click is handled by contextMenuEvent (no picking there). */
+	if (e->button() == Qt::LeftButton &&
+	    (e->modifiers() & Qt::ControlModifier)) {
+	    pickAt((int)e->position().x(), (int)e->position().y());
+	    return;
+	}
 
 	SoMouseButtonEvent ev;
 	ev.setPosition(SbVec2s((short)e->position().x(), (short)e->position().y()));
@@ -689,6 +713,61 @@ private:
 	return ctx.fetch_add(1, std::memory_order_relaxed);
     }
 
+    // ── Stage 5: picking helper ───────────────────────────────────────────
+
+    /**
+     * Cast a pick ray at viewport coordinate (@p x, @p y) and emit the
+     * `picked(bsg_shape*)` signal with the closest hit.
+     *
+     * Uses `SoRayPickAction` against the current scene graph.  The hit path
+     * is resolved to a `bsg_shape` via `obol_find_shape_for_path()`.  If the
+     * hit resolves to a shape that is already selected it is deselected;
+     * otherwise the previous selection is cleared and the new shape is
+     * selected.  After modifying the selection state, `obol_scene_assemble()`
+     * is called to rebuild the affected separators (highlight on/off) and a
+     * repaint is requested.
+     *
+     * Emits `picked(nullptr)` when the background is clicked (deselect all).
+     */
+    void pickAt(int x, int y) {
+	SoNode *scene = viewport_.getSceneGraph();
+	if (!scene)
+	    return;
+
+	SbViewportRegion vpr = viewport_.getViewportRegion();
+	SoRayPickAction rpa(vpr);
+	rpa.setPoint(SbVec2s((short)x, (short)y));
+	rpa.setPickAll(false);   /* closest hit only */
+	rpa.apply(scene);
+
+	const SoPickedPoint *pp = rpa.getPickedPoint(0);
+	bsg_shape *hit = pp ? obol_find_shape_for_path(pp->getPath()) : nullptr;
+
+	/* Toggle selection: clicking the already-selected shape deselects it;
+	 * clicking a new shape first clears the previous selection. */
+	bsg_shape *prev = selectedShape_;
+	if (selectedShape_) {
+	    obol_shape_set_selected(selectedShape_, false);
+	    selectedShape_ = nullptr;
+	}
+
+	if (hit && hit != prev) {
+	    /* New shape: select it. */
+	    obol_shape_set_selected(hit, true);
+	    selectedShape_ = hit;
+	} else {
+	    /* Background click, or re-click on already-selected shape: deselect. */
+	    hit = nullptr;
+	}
+
+	/* Rebuild affected shapes and repaint. */
+	if (obol_root_ && bsg_v_)
+	    obol_scene_assemble(obol_root_, bsg_v_);
+
+	emit picked(hit);
+	update();
+    }
+
     // ── Members ───────────────────────────────────────────────────────────
 
     bsg_view        *bsg_v_;       /* BRL-CAD view (not owned) */
@@ -698,6 +777,7 @@ private:
     QTimer           idleTimer_, delayTimer_, timerTimer_;
     QPointF          lastMousePos_;
     uint32_t         cacheContext_ = allocCacheContext();
+    bsg_shape       *selectedShape_ = nullptr;  /* Stage 5: current selection */
 };
 
 #endif /* BRLCAD_ENABLE_OBOL */

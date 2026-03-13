@@ -351,36 +351,46 @@ tools (ae, center, zoom, rot commands continue to work via `syncCameraFromBsgVie
 
 ## Stage 5: Selection and Picking
 
+**Status:** Complete
+
 **Goal:** Replace librt-based screen-ray picking with `SoRayPickAction`.
 
-### Current picking
+### Implementation
 
-```c
-// In libged pick:
-rt_shootray(...);
-// returns hit list from librt
-```
+**`obol_scene.cpp`** — Selection API
 
-### Target: SoRayPickAction
+- **Reverse map** (`sep_shape_map`): `SoSeparator* → bsg_shape*`, maintained
+  alongside the forward `shape_sep_map`.  Entries are added in
+  `obol_scene_update_shape()` and removed on rebuild or `obol_scene_clear()`.
 
-```cpp
-SoRayPickAction rpa(SbViewportRegion(w, h));
-rpa.setPoint(SbVec2s(x, y));
-rpa.apply(viewport_.getSceneGraph());
-const SoPickedPointList &picks = rpa.getPickedPointList();
-// For each pick, SoPath leads back to the SoSeparator for the BRL-CAD object
-```
+- **`obol_find_shape_for_path(const SoPath*)`** — walks the pick path from the
+  deepest node toward the root, returning the first `bsg_shape` whose
+  `SoSeparator` appears in the reverse map.
 
-### Highlight on hover
+- **`obol_shape_set_selected(bsg_shape*, bool)`** — marks a shape as
+  selected/deselected, sets `s_changed = 1` to force a material rebuild.
 
-```cpp
-// Use SoSelection node in the scene
-SoSelection *sel = new SoSelection;
-sel->policy = SoSelection::SINGLE;
-sel->addSelectionCallback(onSelectionChanged, this);
-root->addChild(sel);
-// SoLocateHighlight or SoBoxHighlightRenderAction for visual feedback
-```
+- **`obol_shape_is_selected(bsg_shape*)`** — returns the current selection state.
+
+- **Selection highlight** — in `obol_scene_update_shape()`, if a shape is
+  selected, its `SoMaterial` gets an emissive orange glow
+  (`emissiveColor = {0.8, 0.4, 0.0}`).
+
+**`QgObolView.h`** — Picking
+
+- **Ctrl+left-click** triggers `pickAt(x, y)` instead of orbit.
+
+- **`pickAt(int x, int y)`** — fires `SoRayPickAction` against the scene,
+  resolves the closest hit to a `bsg_shape`, handles toggle (re-click
+  deselects, new click replaces selection), calls `obol_scene_assemble()` to
+  apply highlight, emits `picked(bsg_shape*)`.
+
+- **`picked(bsg_shape*)` signal** — consumers connect to this to act on
+  selection changes (e.g. update the tree view, show properties panel).
+
+- **`selectedShape_` member** — tracks the currently selected shape so that
+  `pickAt()` can clear the previous selection without iterating the entire
+  scene.
 
 ---
 
