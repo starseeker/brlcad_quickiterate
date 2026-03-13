@@ -1131,6 +1131,9 @@ extern "C" int
 Obol_Notify_Views_Cmd(ClientData UNUSED(clientData), Tcl_Interp *UNUSED(interp),
 		      int UNUSED(argc), const char **UNUSED(argv))
 {
+    /* All entries in s_obol_view_instances are non-null (registration in
+     * Obol_View_Cmd only pushes a successfully-allocated widget), but we
+     * keep the null-check as belt-and-suspenders against future changes. */
     for (ObolViewWidget *w : s_obol_view_instances) {
 	if (w) obol_view_do_render(w);
     }

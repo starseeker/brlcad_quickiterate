@@ -943,6 +943,12 @@ to_open_fbs(bsg_view *gdvp, Tcl_Interp *interp)
     if (tvd->gdv_fbs.fbs_fbp != FB_NULL)
 	return TCL_OK;
 
+    /* Obol path (Stage 7 migration): Obol-owned views have no libdm DMP;
+     * their framebuffer (for rt output compositing) is not yet implemented.
+     * Return OK silently — the view remains functional for geometry display. */
+    if (!gdvp->dmp)
+	return TCL_OK;
+
     tvd->gdv_fbs.fbs_fbp = dm_get_fb((struct dm *)gdvp->dmp);
 
     if (tvd->gdv_fbs.fbs_fbp == FB_NULL) {
