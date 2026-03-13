@@ -50,9 +50,6 @@ shoal_csg(struct bu_vls *msgs, surface_t surface_type, struct subbrep_shoal_data
 
     // If we hit something we don't handle yet, bail immediately.
     switch (surface_type) {
-	case SURFACE_TORUS:
-	    return 0;
-	    break;
 	default:
 	    break;
     }
@@ -205,6 +202,8 @@ shoal_csg(struct bu_vls *msgs, surface_t surface_type, struct subbrep_shoal_data
 	    implicit_plane_ind = sph_implicit_plane(brep, nc, ne, &shoal_planes);
 	    break;
 	case SURFACE_TORUS:
+	    /* For a torus, bounding planes come from edge arcs and are already
+	     * collected in shoal_planes.  No additional implicit plane logic needed. */
 	    break;
 	default:
 	    break;
@@ -306,6 +305,7 @@ shoal_csg(struct bu_vls *msgs, surface_t surface_type, struct subbrep_shoal_data
 	    need_arbn = sph_implicit_params(data, &shoal_planes, *nonplanar_surfaces.begin());
 	    break;
 	case SURFACE_TORUS:
+	    need_arbn = torus_implicit_params(data, &shoal_planes, *nonplanar_surfaces.begin());
 	    break;
 	default:
 	    break;

@@ -127,6 +127,11 @@ int negative_sphere(const ON_Brep *brep, int face_index, double cyl_tol);
 int sph_implicit_plane(const ON_Brep *brep, int ec, int *edges, ON_SimpleArray<ON_Plane> *sph_planes);
 int sph_implicit_params(struct subbrep_shoal_data *data, ON_SimpleArray<ON_Plane> *sph_planes, int shoal_nonplanar_face);
 
+// Torus specific functionality
+int tor_validate_face(const ON_BrepFace *forig, const ON_BrepFace *fcand);
+int negative_torus(const ON_Brep *brep, int face_index, double tor_tol);
+int torus_implicit_params(struct subbrep_shoal_data *data, ON_SimpleArray<ON_Plane> *tor_planes, int shoal_nonplanar_face);
+
 
 #endif /* SHAPE_RECOGNITION_H */
 
