@@ -2494,8 +2494,15 @@ construct_loops_from_segments(
 	    out.push_back(loop);
 	} else {
 	    // couldn't join to the last segment, discard it
+	    const CurveSegment &unconn = *loop_segs.back();
+	    bu_log("construct_loops_from_segments: found unconnected segment"
+		   " from (%.6g,%.6g) to (%.6g,%.6g) loc=%d"
+		   " (chain len=%zu, remaining=%zu)\n",
+		   unconn.from.pt.x, unconn.from.pt.y,
+		   unconn.to.pt.x,   unconn.to.pt.y,
+		   (int)unconn.location,
+		   loop_segs.size(), segments.size());
 	    segments.erase(loop_segs.back());
-	    bu_log("construct_loops_from_segments: found unconnected segment\n");
 	}
 	loop_segs.clear();
 	visited_points.clear();
@@ -3459,6 +3466,14 @@ split_trimmed_face(
 	return out;
     }
     delete face_outerloop;
+    bu_log("split_trimmed_face: face outer loop (%d segs):\n",
+	   orig_face->m_outerloop.Count());
+    for (int si = 0; si < orig_face->m_outerloop.Count(); ++si) {
+	if (!orig_face->m_outerloop[si]) continue;
+	ON_2dPoint s = orig_face->m_outerloop[si]->PointAtStart();
+	ON_2dPoint e = orig_face->m_outerloop[si]->PointAtEnd();
+	bu_log("  ol_seg[%d]: (%.4g,%.4g)->(%.4g,%.4g)\n", si, s.x, s.y, e.x, e.y);
+    }
 
     for (int i = 0; i < ssx_curves.Count(); ++i) {
 	std::vector<ON_SimpleArray<ON_Curve *> > ssx_loops;
@@ -3478,7 +3493,17 @@ split_trimmed_face(
 	ON_SimpleArray<TrimmedFace *> next_out;
 	for (size_t j = 0; j < ssx_loops.size(); ++j) {
 	    if (loop_is_degenerate(ssx_loops[j])) {
+		bu_log("split_trimmed_face: ssx_loop[%zu] is degenerate, skipping\n", j);
 		continue;
+	    }
+	    bu_log("split_trimmed_face: processing ssx_loop[%zu] (%d segs)\n",
+		   j, ssx_loops[j].Count());
+	    for (int si = 0; si < ssx_loops[j].Count(); ++si) {
+		if (!ssx_loops[j][si]) { bu_log("  seg[%d]: NULL\n", si); continue; }
+		ON_2dPoint s = ssx_loops[j][si]->PointAtStart();
+		ON_2dPoint e = ssx_loops[j][si]->PointAtEnd();
+		bu_log("  seg[%d]: (%.4g,%.4g)->(%.4g,%.4g)\n", si,
+		       s.x, s.y, e.x, e.y);
 	    }
 
 	    for (int k = 0; k < out.Count(); ++k) {
