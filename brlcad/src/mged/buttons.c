@@ -1088,6 +1088,8 @@ chg_state(struct mged_state *s, int from, int to, char *str)
 	new_mats(s);
     }
     set_curr_pane(s, NULL);
+    /* Restore mged_curr_dm after set_curr_pane may have redirected it. */
+    set_curr_dm(s, save_dm_list);
 
     bu_vls_printf(&vls, "%s(state)", MGED_DISPLAY_VAR);
     Tcl_SetVar(s->interp, bu_vls_addr(&vls), state_str[s->global_editing_state], TCL_GLOBAL_ONLY);

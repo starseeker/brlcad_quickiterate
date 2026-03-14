@@ -781,6 +781,10 @@ from `mp_gvp` (no DMP indirection).
      accidental dereference of a legacy dm pointer.
    - The ternary macros (`view_state`, `color_scheme`, etc.) continue to prefer
      `mp->mp_*` because `mged_curr_pane` is non-NULL.
+   All `active_pane_set` loops that call `set_curr_pane` now also restore
+   `mged_curr_dm` via `set_curr_dm(s, save_m_dmp)` when there was no Obol pane
+   active before the loop (save_pane == NULL), preventing mged_curr_dm from
+   being left pointing at mged_dm_init_state after the loop.
    Comments in `attach.c` and `mged_dm.h` updated to reflect the new behaviour.
 
 6. **Remove `mged_dm` and `active_dm_set`** — Once all panes use `mged_pane` and

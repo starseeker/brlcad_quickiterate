@@ -2099,6 +2099,8 @@ s->update_views = 1;
     }
 }
 set_curr_pane(s, save_pane);
+    /* Restore mged_curr_dm after set_curr_pane may have redirected it. */
+    if (!save_pane) set_curr_dm(s, save_m_dmp);
     }
 
     return TCL_OK;
