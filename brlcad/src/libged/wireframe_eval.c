@@ -19,11 +19,14 @@
  */
 /** @file libged/draw/wireframe_eval.c
  *
- * Compatibility shim: the evaluated wireframe (mode 3, "bigE") engine has
- * been migrated to librt as rt_comb_eval_m3() in
- * src/librt/comb/comb_scene_obj.c.  draw_m3() is preserved here only for
- * any out-of-tree callers; within BRL-CAD draw_scene now calls
- * rt_comb_scene_obj → rt_comb_eval_m3 directly.
+ * DEPRECATED — no longer compiled as part of libged (removed from
+ * CMakeLists.txt 2026-03-14).  Preserved for reference only.
+ *
+ * The evaluated wireframe (mode 3, "bigE") engine has been migrated to
+ * librt as rt_comb_eval_m3() in src/librt/comb/comb_scene_obj.c, called
+ * by rt_comb_scene_obj.  draw_scene() dispatches via
+ * OBJ[dp->d_minor_type].ft_scene_obj() for all types including ID_COMBINATION;
+ * there is no separate draw_m3() call-site remaining in BRL-CAD.
  */
 
 #include "common.h"
