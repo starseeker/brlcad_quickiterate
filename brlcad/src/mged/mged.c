@@ -1326,6 +1326,7 @@ event_check(struct mged_state *s, int non_blocking)
 	    bu_vls_free(&vls);
 	}
 	if (mp->mp_view_state && mp->mp_view_state->k.tra_m_flag) {
+	    /* Added to match legacy dm loop coverage (rot_m, tra_m, rot_v, tra_v, sca). */
 	    struct bu_vls vls = BU_VLS_INIT_ZERO;
 	    non_blocking++;
 	    bu_vls_printf(&vls, "knob -i -m aX %f aY %f aZ %f\n",
