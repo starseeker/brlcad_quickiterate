@@ -705,11 +705,29 @@ from `mp_gvp` (no DMP indirection).
    Files updated: `chgview.c` (17 sites), `edsol.c` (5 sites), `edarb.c` (2 sites),
    `dodraw.c`, `tedit.c`, `rtif.c`, `setup.c`, `rect.c`, `menu.c`, `cmd.c` (3 sites),
    `usepen.c` (3 sites), `mged.c` (2 sites in `new_edit_mats` and `mged_view_callback`).
-   The comment in `refresh()` updated to reflect this invariant.  The sole remaining
-   site that cannot set `s->update_views` is the `view_changed_hook` in
-   `dm-generic.c` (no `mged_state *` available in that callback); it is a belt-and-
-   suspenders path triggered by the `bu_structparse` variable-change mechanism, which
-   only fires when the legacy libdm path is active.
+   The comment in `refresh()` updated to reflect this invariant.  The `view_changed_hook`
+   in `dm-generic.c` was also fixed by adding a `struct mged_state *hs_s` back-pointer
+   to `mged_view_hook_state` and setting `hs->hs_s->update_views = 1` there.
+   **All** MGED view-change paths now set both `vs_flag` and `s->update_views`.
+
+5.7 **✅ Propagate `update_views` through `*_set_dirty_flag` hooks** —
+   The `bu_structparse` variable-change hooks for axes settings (`ax_set_dirty_flag`
+   in `axes.c`), color-scheme settings (`cs_set_dirty_flag` in `color_scheme.c`),
+   grid settings (`grid_set_dirty_flag` in `grid.c`), display-manager variables
+   (`set_dirty_flag` in `set.c`), and ADC cursor state (`adc_set_dirty_flag` in
+   `adc.c`) now all set `s->update_views = 1` alongside the legacy `dm_dirty` flag.
+   This ensures the Obol path repaints whenever any of these settings change.
+   Also: `overlay.c` dmp assignment hardened (`DMP ? (void *)DMP : NULL` instead of
+   unconditional dereference); `clone.c` draw-skip check extended to also allow a
+   redraw when `s->mged_curr_pane` is set (an Obol pane is active).
+
+5.8 **✅ Add `DbiState::wait_for_pipeline()` + `wait_pipeline` GED command** —
+   New `DbiState::wait_for_pipeline(int max_ms)` polls `drain_geom_results()` in a
+   1 ms sleep loop until the background draw pipeline `settled()` or the timeout
+   expires.  Exposed as a GED command `wait_pipeline [max_ms]` registered in
+   `src/libged/draw/draw.c`; the `ged_exec_wait_pipeline` C API is auto-generated
+   in `ged_cmds.h`.  `test_dbi_cpp.cpp` updated to use `wait_for_pipeline()` instead
+   of hand-rolled poll loops.
 
 6. **Remove `mged_dm` and `active_dm_set`** — Once all panes use `mged_pane` and
    no remaining mged code references `DMP` unconditionally, delete `struct mged_dm`,

@@ -77,7 +77,8 @@ static char adc_syntax4[] = "\
 void
 adc_set_dirty_flag(struct mged_state *s)
 {
-
+    /* Stage 7: notify the Obol path via update_views. */
+    s->update_views = 1;
     for (size_t i = 0; i < BU_PTBL_LEN(&active_dm_set); i++) {
 	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, i);
 	if (m_dmp->dm_adc_state == adc_state) {
