@@ -307,6 +307,7 @@ new_edit_mats(struct mged_state *s)
     save_dm_list = s->mged_curr_dm;
     for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
 	struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
+	if (!p->dm_dmp) continue;  /* skip null-dm sentinel */
 	if (!p->dm_owner)
 	    continue;
 
@@ -1239,6 +1240,7 @@ event_check(struct mged_state *s, int non_blocking)
 
     for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
 	struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
+	if (!p->dm_dmp) continue;  /* skip null-dm sentinel */
 	if (!p->dm_owner)
 	    continue;
 
