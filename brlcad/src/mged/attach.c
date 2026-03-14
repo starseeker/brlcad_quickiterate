@@ -117,6 +117,9 @@ set_curr_pane(struct mged_state *s, struct mged_pane *mp)
 {
     if (!s || !s->gedp)
 	return;
+    /* Track the active Obol pane directly on mged_state for convenient
+     * access by refresh(), overlay code, and Step 6 migration. */
+    s->mged_curr_pane = mp;
     if (!mp) {
 	s->gedp->ged_gvp = NULL;
 	return;

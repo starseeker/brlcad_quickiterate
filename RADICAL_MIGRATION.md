@@ -686,10 +686,24 @@ from `mp_gvp` (no DMP indirection).
    in Completed Stage 7 work) ensure per-pane state is correctly freed when
    a pane is closed.
 
+5.5 **✅ Add `mged_curr_pane` to `mged_state`** (Step 6 prep) —
+   `struct mged_pane *mged_curr_pane` added to `mged_state` in `mged.h`.
+   `set_curr_pane()` now sets both `s->gedp->ged_gvp` AND `s->mged_curr_pane`,
+   giving all mged code a direct pointer to the active Obol pane.  Initialized
+   to `MGED_PANE_NULL` at startup.  `refresh()` now checks `s->mged_curr_pane`
+   as a fast-path guard in the `obol_notify_views` condition, eliminating the
+   `BU_PTBL_LEN` call when no Obol pane has ever been activated.  The orphaned
+   `extern "C" int draw_points` forward declaration was removed from `draw.cpp`
+   (the implementation in `points_eval.c` is superseded by `rt_generic_scene_obj`
+   mode-5 handling via `rt_sample_pnts`).
+
 6. **Remove `mged_dm` and `active_dm_set`** — Once all panes use `mged_pane` and
    no remaining mged code references `DMP` unconditionally, delete `struct mged_dm`,
    `active_dm_set`, the `DMP`/`fbp`/`clients` macros, and everything in
-   `src/mged/dm-generic.c`.
+   `src/mged/dm-generic.c`.  Prerequisites now met: all DMP uses are guarded;
+   `mged_curr_pane` tracks the active Obol pane.  Remaining blocker: the initial
+   "nu" `mged_dm` entry and the legacy `f_attach`/`gui_setup` dm_open path must be
+   removed, along with all `mged_curr_dm` dereferences in attach.c/chgview.c/etc.
 
 7. **Remove `attach` command's dm backend** — `gui_setup()` in `attach.c` currently
    contains the full `dm_open` path for the legacy GL path.  Once step 6 is done,

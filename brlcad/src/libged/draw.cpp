@@ -483,7 +483,6 @@ brep_adaptive_plot(bsg_shape *s, bsg_view *v)
 }
 
 
-extern "C" int draw_points(bsg_shape *s);
 extern "C" int rt_generic_scene_obj(bsg_shape *s, struct directory *dp,
 				    struct db_i *dbip,
 				    const struct bg_tess_tol *ttol,

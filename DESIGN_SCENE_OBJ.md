@@ -224,46 +224,52 @@ All primitive-specific logic — LoD for BoTs, NURBS for BREPs, evaluated
 wireframe for combs, point-cloud sampling, shading, CSG adaptive update —
 lives in the per-primitive `ft_scene_obj` implementation.
 
-### 3.2 Required changes not yet made
+### 3.2 Required changes not yet made (all DONE as of 2026-03-14)
+
+All items below have been implemented.  The section is preserved as a
+historical record of the design decisions made during the migration.
 
 1. ~~**Add `struct resource *s_res` to `bsg_shape`**~~ — **DONE** (2026-03-09 session 8):
    `s_res` added to `bsg_shape`; set from `d->res` in draw_scene's setup phase;
    `rt_generic_scene_obj` uses `s->s_res` (or falls back to `&rt_uniresource`).
 
-2. **`rt_comb_scene_obj`** — new function in `src/librt/comb/comb.c`:
-   - Mode 3: run the `build_etree`/`Eplot` pipeline (currently `draw_m3`).
-   - Mode 0/1: walk the comb tree, generate child wireframes (or no-op at
-     the comb level and let leaf `ft_scene_obj` calls handle it).
-   - Wire into `table.cpp` slot `ID_COMBINATION`.
+2. ~~**`rt_comb_scene_obj`**~~ — **DONE**: Implemented in
+   `src/librt/comb/comb.c` (`rt_comb_scene_obj`) + `src/librt/comb/comb_scene_obj.c`
+   (`rt_comb_eval_m3`, absorbing `draw_m3`).  Wired into `table.cpp` slot
+   `ID_COMBINATION`.  The shim `draw_m3()` in `wireframe_eval.c` remains for
+   out-of-tree callers but is no longer called from `draw_scene`.
 
-3. **`rt_bot_scene_obj`** — new function in `src/librt/primitives/bot/`:
-   - LoD management (currently `bot_adaptive_plot`).
-   - Uses `s->mesh_c` for LoD key lookup; uses `s->s_obb_pts` for OBB
-     placeholder.  No DbiState access.
+3. ~~**`rt_bot_scene_obj`**~~ — **DONE**: Implemented in
+   `src/librt/primitives/bot/bot_scene_obj.cpp`, absorbing `bot_adaptive_plot`.
+   Uses `s->mesh_c` for LoD key lookup; uses `s->s_obb_pts` for OBB placeholder.
+   Obol SoNode path guarded by `SoDB::isInitialized()`.
 
-4. **`rt_brep_scene_obj`** — new function in `src/librt/primitives/brep/`:
-   - Adaptive NURBS rendering (currently `brep_adaptive_plot`).
+4. ~~**`rt_brep_scene_obj`**~~ — **DONE**: Implemented in
+   `src/librt/primitives/brep/brep.cpp` (`rt_brep_scene_obj`), absorbing
+   `brep_adaptive_plot`.  Mode-1 adaptive tessellation; Obol SoNode output.
 
-5. **`draw_scene` simplification** — once 2–4 are wired in, the BoT/BREP
-   type-dispatch and mode-3/mode-5 dispatch blocks are removed.
+5. ~~**`draw_scene` simplification**~~ — **DONE**: `draw_scene` in
+   `src/libged/draw.cpp` now has zero per-primitive special cases.  The sole
+   dispatch is `OBJ[dp->d_minor_type].ft_scene_obj()` → per-type implementation.
+   The orphaned `extern "C" int draw_points` forward declaration was removed
+   (2026-03-14); `draw_points` in `points_eval.c` is now superseded by mode-5
+   handling in `rt_generic_scene_obj`.
 
-6. **Object-space vlists** — coordinate with `s_mat` usage: ensure all
-   `ft_scene_obj` implementations call `rt_db_get_internal(…, NULL, …)` and
-   let the renderer apply `s->s_mat`.  Already done for `rt_generic_scene_obj`.
-   The old `draw_scene` path still calls `rt_db_get_internal(…, s->s_mat, …)`;
-   this will be removed once the dispatch is fully delegated to `ft_scene_obj`.
+6. ~~**Object-space vlists**~~ — **DONE**: All `ft_scene_obj` implementations
+   call `rt_db_get_internal(…, NULL, …)` and let the renderer (or caller) apply
+   `s->s_mat`.  The old `rt_db_get_internal(…, s->s_mat, …)` call path is gone.
 
-### 3.3 Migration path
+### 3.3 Migration path (completed)
 
-The migration can be done incrementally without breaking the build at any step:
+All six steps below have been executed:
 
-1. Add `s_res` to `bsg_shape`; set it from `d->res` in the setup phase.
-2. Implement `rt_comb_scene_obj`; test with mode-3 draw.
-3. Implement `rt_bot_scene_obj`; test LoD pipeline.
-4. Implement `rt_brep_scene_obj`; test shaded BREP.
-5. Simplify `draw_scene` to remove now-redundant dispatch blocks.
-6. Audit all remaining `d->dbis` accesses in `draw_scene`; the setup phase
-   should be the only remaining dbis access.
+1. ~~Add `s_res` to `bsg_shape`; set it from `d->res` in the setup phase.~~ ✅
+2. ~~Implement `rt_comb_scene_obj`; test with mode-3 draw.~~ ✅
+3. ~~Implement `rt_bot_scene_obj`; test LoD pipeline.~~ ✅
+4. ~~Implement `rt_brep_scene_obj`; test shaded BREP.~~ ✅
+5. ~~Simplify `draw_scene` to remove now-redundant dispatch blocks.~~ ✅
+6. ~~Audit all remaining `d->dbis` accesses in `draw_scene`; the setup phase~~
+   ~~should be the only remaining dbis access.~~ ✅
 
 ---
 
