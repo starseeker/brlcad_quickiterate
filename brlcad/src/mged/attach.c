@@ -231,10 +231,23 @@ mged_pane_init_resources(struct mged_state *s, struct mged_pane *mp)
     BU_ALLOC(mp->mp_dlist_state, struct _dlist_state);
     mp->mp_dlist_state->dl_rc = 1;
 
-    /* mp_view_state: allocated by the caller (or by f_new_obol_view_ptr)
-     * because the view (bsg_view) is separately tracked in ged_free_views.
-     * Left NULL here; Step 6 will wire this up. */
-    mp->mp_view_state = NULL;
+    /* mp_view_state: a lightweight _view_state wrapper so the ternary macros
+     * (view_state, etc.) can safely dereference vs_gvp for Obol panes.
+     * The underlying bsg_view (vs_gvp) is owned by GED (ged_free_views) and
+     * must NOT be freed here — only the _view_state shell is ours. */
+    BU_ALLOC(mp->mp_view_state, struct _view_state);
+    mp->mp_view_state->vs_rc = 1;
+    mp->mp_view_state->vs_gvp = mp->mp_gvp;  /* borrow GED-owned view */
+    if (mged_dm_init_state && mged_dm_init_state->dm_view_state) {
+/* copy vs_model2objview / vs_objview2model / vs_ModelDelta defaults */
+MAT_COPY(mp->mp_view_state->vs_model2objview,
+ mged_dm_init_state->dm_view_state->vs_model2objview);
+MAT_COPY(mp->mp_view_state->vs_objview2model,
+ mged_dm_init_state->dm_view_state->vs_objview2model);
+MAT_COPY(mp->mp_view_state->vs_ModelDelta,
+ mged_dm_init_state->dm_view_state->vs_ModelDelta);
+    }
+    view_ring_init(mp->mp_view_state, (struct _view_state *)NULL);
 }
 
 /*
@@ -256,7 +269,21 @@ mged_pane_free_resources(struct mged_pane *mp)
     if (mp->mp_grid_state)      { bu_free(mp->mp_grid_state, "mp_grid_state");            mp->mp_grid_state = NULL; }
     if (mp->mp_axes_state)      { bu_free(mp->mp_axes_state, "mp_axes_state");            mp->mp_axes_state = NULL; }
     if (mp->mp_dlist_state)     { bu_free(mp->mp_dlist_state, "mp_dlist_state");          mp->mp_dlist_state = NULL; }
-    /* mp_view_state: owned by GED; freed separately via ged_free_views. */
+    /* mp_view_state: the _view_state shell is ours; vs_gvp inside is owned
+     * by GED and must NOT be freed here.  The view_ring items allocated by
+     * view_ring_init() are freed here. */
+    if (mp->mp_view_state) {
+struct view_ring *vrp;
+while (BU_LIST_NON_EMPTY(&mp->mp_view_state->vs_headView.l)) {
+    vrp = BU_LIST_FIRST(view_ring, &mp->mp_view_state->vs_headView.l);
+    BU_LIST_DEQUEUE(&vrp->l);
+    bu_free((void *)vrp, "mged_pane view_ring");
+}
+/* vs_gvp is owned by GED — do NOT free it here. */
+mp->mp_view_state->vs_gvp = NULL;
+bu_free(mp->mp_view_state, "mp_view_state");
+mp->mp_view_state = NULL;
+    }
 }
 
 int
