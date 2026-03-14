@@ -1,2 +1,4 @@
 # BRL-CAD build directory - created during CMake configure/build
 brlcad_build/
+*.log
+mged-*.bomb

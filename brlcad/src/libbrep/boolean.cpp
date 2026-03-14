@@ -1132,6 +1132,18 @@ get_subcurves_inside_faces(
 		    ON_Curve *subcurve_on2 = sub_curve(event->m_curveB,
 						       interval_on2.Min(), interval_on2.Max());
 
+		    /* Filter: UV midpoint must be strictly inside face2's outer
+		     * loop to discard boundary-artefact SSI segments. */
+		    if (face2_loops.Count() > 0) {
+			ON_2dPoint mid_uv(subcurve_on2->PointAt(
+				subcurve_on2->Domain().ParameterAt(0.5)));
+			try {
+			    if (is_point_outside_loop(mid_uv, face2_loops[0])) {
+				delete subcurve_on2;
+				continue;
+			    }
+			} catch (InvalidGeometry &) {}
+		    }
 		    subcurves_on2.Append(subcurve_on2);
 		} catch (InvalidInterval &e) {
 		    bu_log("%s", e.what());
@@ -1155,6 +1167,18 @@ get_subcurves_inside_faces(
 		    ON_Curve *subcurve_on1 = sub_curve(event->m_curveA,
 						       interval_on1.Min(), interval_on1.Max());
 
+		    /* Filter: UV midpoint must be strictly inside face1's outer
+		     * loop to discard boundary-artefact SSI segments. */
+		    if (face1_loops.Count() > 0) {
+			ON_2dPoint mid_uv(subcurve_on1->PointAt(
+				subcurve_on1->Domain().ParameterAt(0.5)));
+			try {
+			    if (is_point_outside_loop(mid_uv, face1_loops[0])) {
+				delete subcurve_on1;
+				continue;
+			    }
+			} catch (InvalidGeometry &) {}
+		    }
 		    subcurves_on1.Append(subcurve_on1);
 		} catch (InvalidInterval &e) {
 		    bu_log("%s", e.what());
@@ -2181,6 +2205,12 @@ loop_boolean(
 	    ON_Intersect(loop1[i], loop2[j], x_events, INTERSECTION_TOL);
 
 	    for (int k = 0; k < x_events.Count(); ++k) {
+		/* Skip overlap events: they are collinear and not transversal
+		 * crossings.  The endpoints are already in loop1_points /
+		 * loop2_points via get_loop_points(). */
+		if (x_events[k].m_type == ON_X_EVENT::ccx_overlap)
+		    continue;
+
 		add_point_to_set(loop1_points, CurvePoint(1, i,
 							  x_events[k].m_a[0], x_events[k].m_A[0],
 							  CurvePoint::BOUNDARY));
@@ -2188,16 +2218,6 @@ loop_boolean(
 		add_point_to_set(loop2_points, CurvePoint(2, j,
 							  x_events[k].m_b[0], x_events[k].m_B[0],
 							  CurvePoint::BOUNDARY));
-
-		if (x_events[k].m_type == ON_X_EVENT::ccx_overlap) {
-		    add_point_to_set(loop1_points, CurvePoint(1, i,
-							      x_events[k].m_a[1], x_events[k].m_A[1],
-							      CurvePoint::BOUNDARY));
-
-		    add_point_to_set(loop2_points, CurvePoint(2, j,
-							      x_events[k].m_b[1], x_events[k].m_B[1],
-							      CurvePoint::BOUNDARY));
-		}
 	    }
 	}
     }
@@ -2455,6 +2475,12 @@ split_face_into_loops(
 		     x_events, INTERSECTION_TOL);
 
 	for (int j = 0; j < x_events.Count(); j++) {
+	    /* Skip overlap events: these mean the SSI curve is collinear
+	     * with the outer-loop edge and doesn't transversally cross it.
+	     * The endpoints are already captured by get_loop_points(). */
+	    if (x_events[j].m_type == ON_X_EVENT::ccx_overlap)
+		continue;
+
 	    IntersectPoint tmp_pt;
 	    tmp_pt.m_pt = x_events[j].m_A[0];
 	    tmp_pt.m_seg_t = x_events[j].m_a[0];
@@ -2462,12 +2488,6 @@ split_face_into_loops(
 	    tmp_pt.m_loop_seg = i;
 	    clx_points.Append(tmp_pt);
 
-	    if (x_events[j].m_type == ON_X_EVENT::ccx_overlap) {
-		tmp_pt.m_pt = x_events[j].m_A[1];
-		tmp_pt.m_seg_t = x_events[j].m_a[1];
-		tmp_pt.m_curve_t = x_events[j].m_b[1];
-		clx_points.Append(tmp_pt);
-	    }
 	    if (x_events.Count()) {
 		intersects_outerloop = true;
 	    }
@@ -2760,15 +2780,47 @@ loop_is_degenerate(const ON_SimpleArray<ON_Curve *> &loop)
     if (loop.Count() < 1) {
 	return true;
     }
-    // want sufficient distance between non-adjacent curve points
+
+    /* Use a shoelace-area approach: sample N points around the loop and
+     * compute the bounding-box-normalised signed area.  A "there-and-back"
+     * (zero-area) ssx_loop is caught even when its two endpoints are far
+     * apart, which the old two-point distance test would miss. */
+    const int N = 16;
     ON_Curve *loop_curve = get_loop_curve(loop);
+    if (!loop_curve) {
+	return true;
+    }
     ON_Interval dom = loop_curve->Domain();
 
-    ON_3dPoint pt1 = loop_curve->PointAt(dom.ParameterAt(.25));
-    ON_3dPoint pt2 = loop_curve->PointAt(dom.ParameterAt(.75));
+    /* Collect sample points */
+    ON_3dPointArray pts;
+    for (int i = 0; i <= N; i++) {
+	pts.Append(loop_curve->PointAt(dom.ParameterAt(i / (double)N)));
+    }
     delete loop_curve;
 
-    return pt1.DistanceTo(pt2) < INTERSECTION_TOL;
+    /* Compute bounding box diagonal for normalisation */
+    ON_BoundingBox bbox;
+    for (int i = 0; i < pts.Count(); i++) {
+	bbox.Set(pts[i], i == 0);
+    }
+    double diag = bbox.Diagonal().Length();
+    if (diag < ON_ZERO_TOLERANCE) {
+	return true;
+    }
+
+    /* Shoelace signed area in the XY, YZ, ZX planes; take the largest */
+    double axy = 0.0, ayz = 0.0, azx = 0.0;
+    for (int i = 0; i < N; i++) {
+	const ON_3dPoint &a = pts[i], &b = pts[i + 1];
+	axy += a.x * b.y - b.x * a.y;
+	ayz += a.y * b.z - b.y * a.z;
+	azx += a.z * b.x - b.z * a.x;
+    }
+    double area = 0.5 * sqrt(axy*axy + ayz*ayz + azx*azx);
+
+    /* Degenerate if normalised area is negligible */
+    return (area / (diag * diag)) < 1e-3;
 }
 
 
@@ -3126,7 +3178,7 @@ add_elements(ON_Brep *brep, ON_BrepFace &face, const ON_SimpleArray<ON_Curve *> 
 	    int i;
 	    ON_3dPoint vtx = c3d->PointAtStart();
 	    for (i = brep->m_V.Count() - 1; i >= 0; i--) {
-		if (brep->m_V[i].Point().DistanceTo(vtx) < ON_ZERO_TOLERANCE) {
+		if (brep->m_V[i].Point().DistanceTo(vtx) < INTERSECTION_TOL) {
 		    break;
 		}
 	    }
@@ -3151,7 +3203,7 @@ add_elements(ON_Brep *brep, ON_BrepFace &face, const ON_SimpleArray<ON_Curve *> 
 	    ON_3dPoint vtx = face.SurfaceOf()->PointAt(start.x, start.y);
 	    int i;
 	    for (i = 0; i < brep->m_V.Count(); i++) {
-		if (brep->m_V[i].Point().DistanceTo(vtx) < ON_ZERO_TOLERANCE) {
+		if (brep->m_V[i].Point().DistanceTo(vtx) < INTERSECTION_TOL) {
 		    break;
 		}
 	    }
@@ -3168,7 +3220,7 @@ add_elements(ON_Brep *brep, ON_BrepFace &face, const ON_SimpleArray<ON_Curve *> 
 	    ON_3dPoint vtx = face.SurfaceOf()->PointAt(end.x, end.y);
 	    int i;
 	    for (i = 0; i < brep->m_V.Count(); i++) {
-		if (brep->m_V[i].Point().DistanceTo(vtx) < ON_ZERO_TOLERANCE) {
+		if (brep->m_V[i].Point().DistanceTo(vtx) < INTERSECTION_TOL) {
 		    break;
 		}
 	    }
@@ -3178,12 +3230,66 @@ add_elements(ON_Brep *brep, ON_BrepFace &face, const ON_SimpleArray<ON_Curve *> 
 	    }
 	}
 
-	brep->AddEdgeCurve(c3d);
-	int ti = brep->AddTrimCurve(loop[k]);
-	ON_BrepEdge &edge = brep->NewEdge(brep->m_V[start_idx], brep->m_V[end_idx],
-					  brep->m_C3.Count() - 1, (const ON_Interval *)0, MAX_FASTF);
-	ON_BrepTrim &trim = brep->NewTrim(edge, 0, breploop, ti);
-	trim.m_tolerance[0] = trim.m_tolerance[1] = MAX_FASTF;
+	/* Before creating a new edge, search for an existing edge connecting
+	 * the same vertex pair with only one trim so far.  When two adjacent
+	 * faces in the boolean result share a boundary, their corresponding
+	 * trims map to the same 3D edge and must share it so the resulting
+	 * brep is a closed (solid) manifold.
+	 */
+	int match_ei = -1;
+	bool match_rev3d = false;
+
+	const ON_BrepVertex &vs = brep->m_V[start_idx];
+	for (int ei = 0; ei < vs.m_ei.Count() && match_ei < 0; ei++) {
+	    int eidx = vs.m_ei[ei];
+	    const ON_BrepEdge &e = brep->m_E[eidx];
+	    /* Only consider edges that have exactly one trim (need a partner) */
+	    if (e.m_ti.Count() != 1)
+		continue;
+	    if (e.m_vi[0] == start_idx && e.m_vi[1] == end_idx) {
+		if (start_idx == end_idx) {
+		    /* Closed edge: additionally compare 3D midpoints to
+		     * avoid matching the wrong closed edge at the same vertex */
+		    ON_Curve *ec = brep->m_C3[e.m_c3i];
+		    ON_3dPoint e_mid = ec->PointAt(ec->Domain().ParameterAt(0.5));
+		    ON_3dPoint c_mid = c3d->PointAt(c3d->Domain().ParameterAt(0.5));
+		    if (c_mid.DistanceTo(e_mid) > INTERSECTION_TOL)
+			continue;
+		    /* bRev3d: true when trim's 3D direction is opposite edge's.
+		     * Compare tangents at start; fall back to false when either
+		     * tangent is degenerate (zero or near-zero length). */
+		    ON_3dVector e_tan = ec->TangentAt(ec->Domain().Min());
+		    ON_3dVector c_tan = c3d->TangentAt(c3d->Domain().Min());
+		    if (e_tan.LengthSquared() > ON_ZERO_TOLERANCE &&
+			c_tan.LengthSquared() > ON_ZERO_TOLERANCE) {
+			match_rev3d = (ON_DotProduct(e_tan, c_tan) < 0.0);
+		    } else {
+			match_rev3d = false;
+		    }
+		    match_rev3d = (ON_DotProduct(e_tan, c_tan) < 0.0);
+		} else {
+		    match_rev3d = false;
+		}
+		match_ei = eidx;
+	    } else if (e.m_vi[0] == end_idx && e.m_vi[1] == start_idx) {
+		match_ei = eidx;
+		match_rev3d = true;
+	    }
+	}
+
+	if (match_ei >= 0) {
+	    delete c3d;
+	    int ti = brep->AddTrimCurve(loop[k]);
+	    ON_BrepTrim &trim = brep->NewTrim(brep->m_E[match_ei], match_rev3d, breploop, ti);
+	    trim.m_tolerance[0] = trim.m_tolerance[1] = MAX_FASTF;
+	} else {
+	    brep->AddEdgeCurve(c3d);
+	    int ti = brep->AddTrimCurve(loop[k]);
+	    ON_BrepEdge &edge = brep->NewEdge(brep->m_V[start_idx], brep->m_V[end_idx],
+					      brep->m_C3.Count() - 1, (const ON_Interval *)0, MAX_FASTF);
+	    ON_BrepTrim &trim = brep->NewTrim(edge, 0, breploop, ti);
+	    trim.m_tolerance[0] = trim.m_tolerance[1] = MAX_FASTF;
+	}
     }
 }
 
