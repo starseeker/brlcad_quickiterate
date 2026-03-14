@@ -1325,6 +1325,16 @@ event_check(struct mged_state *s, int non_blocking)
 	    Tcl_Eval(s->interp, bu_vls_addr(&vls));
 	    bu_vls_free(&vls);
 	}
+	if (mp->mp_view_state && mp->mp_view_state->k.tra_m_flag) {
+	    struct bu_vls vls = BU_VLS_INIT_ZERO;
+	    non_blocking++;
+	    bu_vls_printf(&vls, "knob -i -m aX %f aY %f aZ %f\n",
+			  mp->mp_view_state->k.tra_m[X] * 0.05 * mp->mp_view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local,
+			  mp->mp_view_state->k.tra_m[Y] * 0.05 * mp->mp_view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local,
+			  mp->mp_view_state->k.tra_m[Z] * 0.05 * mp->mp_view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local);
+	    Tcl_Eval(s->interp, bu_vls_addr(&vls));
+	    bu_vls_free(&vls);
+	}
 	if (mp->mp_view_state && mp->mp_view_state->k.rot_v_flag) {
 	    struct bu_vls vls = BU_VLS_INIT_ZERO;
 	    non_blocking++;
@@ -1333,6 +1343,16 @@ event_check(struct mged_state *s, int non_blocking)
 			  mp->mp_view_state->k.rot_v[X],
 			  mp->mp_view_state->k.rot_v[Y],
 			  mp->mp_view_state->k.rot_v[Z]);
+	    Tcl_Eval(s->interp, bu_vls_addr(&vls));
+	    bu_vls_free(&vls);
+	}
+	if (mp->mp_view_state && mp->mp_view_state->k.tra_v_flag) {
+	    struct bu_vls vls = BU_VLS_INIT_ZERO;
+	    non_blocking++;
+	    bu_vls_printf(&vls, "knob -i -v aX %f aY %f aZ %f",
+			  mp->mp_view_state->k.tra_v[X] * 0.05 * mp->mp_view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local,
+			  mp->mp_view_state->k.tra_v[Y] * 0.05 * mp->mp_view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local,
+			  mp->mp_view_state->k.tra_v[Z] * 0.05 * mp->mp_view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local);
 	    Tcl_Eval(s->interp, bu_vls_addr(&vls));
 	    bu_vls_free(&vls);
 	}
