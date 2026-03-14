@@ -164,10 +164,6 @@ mged_pane_find_by_name(const char *name)
  * Call this when the corresponding obol_view Tk widget is destroyed.
  * The bsg_view (mp->mp_gvp) is owned by ged_free_views and must be freed
  * separately through the GED view-teardown path.
- *
- * The predictor vlist (mp_p_vlist) will be freed here once the overlay
- * migration is complete.  For now it is always empty when this is called
- * (no overlay vlists are added to Obol panes yet).
  */
 void
 mged_pane_release(struct mged_pane *mp)
@@ -175,9 +171,9 @@ mged_pane_release(struct mged_pane *mp)
     if (!mp)
 	return;
     bu_ptbl_rm(&active_pane_set, (long *)mp);
-    /* mp_p_vlist: currently always empty for Obol panes.  When overlay
-     * migration is complete, call BSG_FREE_VLIST(vlfree, &mp->mp_p_vlist)
-     * with the appropriate vlfree pool before freeing the pane. */
+    /* Step 5.15: free the predictor vlist.  The vlist entries are rt_vlfree
+     * entries (same pool used by mged); BSG_FREE_VLIST uses rt_vlfree. */
+    BSG_FREE_VLIST(&rt_vlfree, &mp->mp_p_vlist);
     mged_pane_free_resources(mp);
     BU_PUT(mp, struct mged_pane);
 }
@@ -266,6 +262,11 @@ mged_pane_init_resources(struct mged_state *s, struct mged_pane *mp)
     bu_vls_init(&mp->mp_center_name);
     bu_vls_init(&mp->mp_size_name);
     bu_vls_init(&mp->mp_adc_name);
+
+    /* Predictor vlist and trails (Step 5.15). */
+    BU_LIST_INIT(&mp->mp_p_vlist);
+    predictor_init_pane(mp);
+    mp->mp_ndrawn = 0;
 }
 
 /*
