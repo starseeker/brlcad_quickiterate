@@ -621,6 +621,7 @@ extern void mged_rtCmdNotify(int);
 #define DM_PS_INDEX 1
 
 struct mged_view_hook_state {
+    struct mged_state    *hs_s;          /* back-pointer to session state (Step 6.a) */
     struct dm *hs_dmp;
     struct _view_state *vs;
     int *dirty_global;

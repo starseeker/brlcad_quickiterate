@@ -774,3 +774,60 @@ fully removed.
 - [x] Update `RADICAL_MIGRATION.md` with Step 5.6 entry
 - [x] Build verify (all 12 modified files compile cleanly with -Werror)
 
+
+---
+
+## Session 11 Part B Results (2026-03-14) — wait_for_pipeline + dm-generic.c step 6.a completion
+
+### Summary
+
+Two additional improvements made as continuation of Session 11 step 6.a work:
+
+### 1. Complete vs_flag unification in dm-generic.c
+
+The `view_state_flag_hook` callback in `dm-generic.c` (invoked by the
+`bu_structparse` variable-change mechanism when legacy libdm view settings
+change) was the last site that set `vs_flag = 1` without also setting
+`s->update_views = 1`.  This required adding a back-pointer from
+`mged_view_hook_state` to `mged_state`:
+
+- Added `struct mged_state *hs_s` field to `struct mged_view_hook_state`
+  in `mged_dm.h`.
+- Updated `set_hook_data()` in `dm-generic.c` to set `hs->hs_s = s`.
+- Updated `view_state_flag_hook()` to add
+  `if (hs->hs_s) hs->hs_s->update_views = 1;` alongside the existing
+  `hs->vs->vs_flag = 1;` call.
+
+This completes Step 6.a: **all** MGED view-change paths now set both
+`vs_flag` and `s->update_views`.
+
+### 2. DbiState::wait_for_pipeline()
+
+Added a new public API method to `DbiState`:
+
+```cpp
+size_t DbiState::wait_for_pipeline(int max_ms = 5000);
+```
+
+This method polls `drain_geom_results()` in a 1ms-sleep loop until
+`DrawPipeline::settled()` returns true, or `max_ms` milliseconds have
+elapsed.  It fires a final drain after settling to catch any last-minute
+results.  Declared in `include/ged/dbi.h`; implemented in
+`src/libged/dbi_state.cpp`.
+
+Uses: tests and scripted scenarios where the caller must have all
+background bboxes/LoD populated before proceeding.  Prerequisite for
+making `defer_all` the permanent default without breaking tests.
+
+Updated `test_dbi_cpp.cpp` to use `wait_for_pipeline()` instead of
+manual poll loops (simplifies the test; also exercises the new API).
+
+### Checklist
+
+- [x] Add `hs_s` to `struct mged_view_hook_state`; set in `set_hook_data()`
+- [x] Add `s->update_views = 1` in `view_state_flag_hook()` (dm-generic.c)
+- [x] Declare `wait_for_pipeline()` in `include/ged/dbi.h`
+- [x] Implement `wait_for_pipeline()` in `src/libged/dbi_state.cpp`
+- [x] Update `test_dbi_cpp.cpp` to use `wait_for_pipeline()` (remove manual poll loops)
+- [x] Build verify (libged + test_dbi_cpp compile cleanly)
+
