@@ -2054,6 +2054,9 @@ cmd_blast(ClientData clientData, Tcl_Interp *UNUSED(interpreter), int argc, cons
 	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
 	int non_empty = 0; /* start out empty */
 
+	/* Step 5.17: skip null-dm sentinel before set_curr_dm. */
+	if (!m_dmp->dm_dmp) continue;
+
 	set_curr_dm(s, m_dmp);
 
 	if (s->mged_curr_dm->dm_tie) {

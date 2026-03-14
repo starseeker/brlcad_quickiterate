@@ -2349,12 +2349,13 @@ f_svbase(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[]
 
     for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
 	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
+	if (!m_dmp->dm_dmp) continue;  /* skip null-dm sentinel */
 	/* if sharing view while faceplate and original gui (i.e. button menu, sliders) are on */
 	if (m_dmp->dm_view_state == view_state &&
 	    m_dmp->dm_mged_variables->mv_faceplate &&
 	    m_dmp->dm_mged_variables->mv_orig_gui) {
 	    m_dmp->dm_dirty = 1;
-	    if (m_dmp->dm_dmp) dm_set_dirty(m_dmp->dm_dmp, 1);
+	    dm_set_dirty(m_dmp->dm_dmp, 1);
 	}
     }
 
