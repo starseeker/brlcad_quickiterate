@@ -548,10 +548,10 @@ remove the old infrastructure.
   loop-based `dm_set_dirty(m_dmp->dm_dmp, 1)` patterns are guarded with
   `if (m_dmp->dm_dmp)`.  `doevent.c` returns early (skipping X11 event
   dispatch) when `DMP` is NULL.  Files modified: `adc.c`, `axes.c`,
-  `buttons.c`, `chgmodel.c`, `chgview.c`, `color_scheme.c`, `doevent.c`,
-  `dozoom.c`, `edarb.c`, `edsol.c`, `fbserv.c`, `grid.c`, `mater.c`,
-  `menu.c`, `mged.c`, `overlay.c`, `predictor.c`, `rect.c`, `scroll.c`,
-  `set.c`, `share.c`, `titles.c`, `usepen.c`.
+  `buttons.c`, `chgmodel.c`, `chgview.c`, `cmd.c`, `color_scheme.c`,
+  `dm-generic.c`, `doevent.c`, `dozoom.c`, `edarb.c`, `edsol.c`, `fbserv.c`,
+  `grid.c`, `mater.c`, `menu.c`, `mged.c`, `overlay.c`, `predictor.c`,
+  `rect.c`, `scroll.c`, `set.c`, `share.c`, `titles.c`, `usepen.c`.
 
 ### libdm removal (remaining work)
 
@@ -628,12 +628,12 @@ from `mp_gvp` (no DMP indirection).
    `dozoom`, `scroll_display`, `mmenu_display`, `mged_highlight_menu_item`).
    Added `if (DMP)` wrappers around all standalone `dm_set_dirty(DMP, 1)`,
    `dm_set_debug(DMP, ...)`, and `dm_set_perspective(DMP, ...)` calls in
-   `buttons.c`, `chgmodel.c`, `chgview.c`, `mater.c`, `edarb.c`, `overlay.c`,
-   `usepen.c`, `edsol.c`, `fbserv.c`, and `set.c`.  Added `if (m_dmp->dm_dmp)`
-   guards to all loop-based `dm_set_dirty` patterns in `adc.c`, `axes.c`,
-   `color_scheme.c`, `grid.c`, `menu.c`, `mged.c`, `rect.c`, `set.c`,
-   and `share.c`.  Added a `if (!DMP)` early-return in `doevent.c` so that
-   X11 events are not dispatched through a null DMP.
+   `buttons.c`, `chgmodel.c`, `chgview.c`, `cmd.c`, `dm-generic.c`, `mater.c`,
+   `edarb.c`, `overlay.c`, `usepen.c`, `edsol.c`, `fbserv.c`, and `set.c`.
+   Added `if (m_dmp->dm_dmp)` guards to all loop-based `dm_set_dirty` patterns
+   in `adc.c`, `axes.c`, `color_scheme.c`, `grid.c`, `menu.c`, `mged.c`,
+   `rect.c`, `set.c`, and `share.c`.  Added a `if (!DMP)` early-return in
+   `doevent.c` so that X11 events are not dispatched through a null DMP.
 
 2. **✅ Add `mged_pane` alongside `mged_dm`** — `struct mged_pane` added to
    `mged_dm.h`; `active_pane_set` (a `bu_ptbl`) added in `attach.c`;

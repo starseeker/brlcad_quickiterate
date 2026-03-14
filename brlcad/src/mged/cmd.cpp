@@ -737,7 +737,7 @@ cmd_ged_erase_wrapper(ClientData clientData, Tcl_Interp *interpreter, int argc, 
 
     solid_list_callback(s);
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
+    if (DMP) dm_set_dirty(DMP, 1);
 
     return TCL_OK;
 }
@@ -811,7 +811,7 @@ cmd_ged_gqa(ClientData clientData, Tcl_Interp *interpreter, int argc, const char
 	return TCL_ERROR;
 
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
+    if (DMP) dm_set_dirty(DMP, 1);
 
     return TCL_OK;
 }
@@ -1249,7 +1249,7 @@ cmd_screengrab(ClientData clientData, Tcl_Interp *interpreter, int argc, const c
 
     /* Force the scene to be rendered before reading pixels. */
     DMP_dirty = 1;
-    dm_set_dirty(DMP, 1);
+    if (DMP) dm_set_dirty(DMP, 1);
     refresh(s);
 
     if (!s->gedp->ged_gvp)
@@ -1984,7 +1984,7 @@ f_postscript(ClientData clientData, Tcl_Interp *interpreter, int argc, const cha
     memmove((void *)scroll_array, (void *)dml->dm_scroll_array, sizeof(struct scroll_item *) * 6);
 
     DMP_dirty = 1;
-    dm_set_dirty(DMP, 1);
+    if (DMP) dm_set_dirty(DMP, 1);
     refresh(s);
 
     view_state = vsp;  /* restore state info pointer */
@@ -2320,7 +2320,7 @@ cmd_units(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *
     sf = s->dbip->dbi_base2local / sf;
     update_grids(s,sf);
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
+    if (DMP) dm_set_dirty(DMP, 1);
 
     return TCL_OK;
 }
