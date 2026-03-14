@@ -490,6 +490,7 @@ struct mged_pane {
 extern struct bu_ptbl active_pane_set;       /* defined in attach.c */
 extern void set_curr_pane(struct mged_state *s, struct mged_pane *mp);
 extern void mged_pane_link_vars(struct mged_pane *mp);  /* in attach.c */
+extern void obol_update_title_vars(struct mged_state *s, struct mged_pane *mp);  /* in titles.c */
 
 /**
  * Find the mged_pane in active_pane_set whose gv_name matches `name`.

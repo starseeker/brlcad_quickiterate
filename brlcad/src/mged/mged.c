@@ -1797,8 +1797,14 @@ refresh(struct mged_state *s)
      * be the only rendering dispatch in refresh(), and the obol_needs_refresh
      * / do_time conditions will be the only dirty-tracking logic. */
     if (s->interp && (obol_needs_refresh || do_time) &&
-	    (s->mged_curr_pane || BU_PTBL_LEN(&active_pane_set) > 0))
+	    (s->mged_curr_pane || BU_PTBL_LEN(&active_pane_set) > 0)) {
+	/* Update Tcl HUD display variables for each Obol pane. */
+	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	    struct mged_pane *pmp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	    obol_update_title_vars(s, pmp);
+	}
 	(void)Tcl_Eval(s->interp, "catch {obol_notify_views}");
+    }
 }
 
 
