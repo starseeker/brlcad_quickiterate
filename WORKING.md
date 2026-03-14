@@ -831,3 +831,42 @@ manual poll loops (simplifies the test; also exercises the new API).
 - [x] Update `test_dbi_cpp.cpp` to use `wait_for_pipeline()` (remove manual poll loops)
 - [x] Build verify (libged + test_dbi_cpp compile cleanly)
 
+
+---
+
+## Session 12 Results (2026-03-14) — Propagate update_views + harden dmp assignments
+
+### Summary
+
+Continued the `update_views` propagation work started in Session 11.  Five additional
+hook functions that set `dm_dirty` but not `s->update_views` were fixed, plus three
+code-hardening fixes in `cmd.c`, `overlay.c`, and `clone.c`.
+
+### Files modified
+
+| File | Change |
+|------|--------|
+| `axes.c` | `ax_set_dirty_flag`: add `s->update_views = 1` |
+| `adc.c` | `adc_set_dirty_flag`: add `s->update_views = 1` |
+| `grid.c` | `grid_set_dirty_flag`: add `s->update_views = 1` |
+| `set.c` | `set_dirty_flag` (mged_variables hook): add `s->update_views = 1` |
+| `color_scheme.c` | `cs_set_dirty_flag`: add `s->update_views = 1` |
+| `menu.c` | `mmenu_set`: add `s->update_views = 1` before the active_dm_set loop |
+| `share.c` | `f_share`: add `s->update_views = 1` before `dlp2->dm_dirty = 1` |
+| `cmd.c` | Replace unconditional `dm_dmp` assignment with `DMP ? (void*)DMP : NULL` (2 sites) |
+| `overlay.c` | Replace unconditional `dm_dmp` assignment with `DMP ? (void*)DMP : NULL` |
+| `clone.c` | Add `|| s->mged_curr_pane` to the no-draw skip condition |
+
+### Coverage summary
+
+After Sessions 11-12, **all** of the following now set `s->update_views = 1`:
+- Direct view command returns (17+ in chgview.c, 5 in edsol.c, ...)
+- `bu_structparse` variable-change hooks: adc, axes, color_scheme, grid, mged_variables, view_state
+- Overlay drawing functions that trigger a redraw
+- Menu/share state changes
+
+The only remaining `active_dm_set` loops NOT yet migrated are the display-list
+management functions in `dozoom.c` (CreateDListSolid, freeDListsAll) and the
+network framebuffer server in `fbserv.c` — both are intrinsically dm-specific and
+will be removed in Step 6.
+

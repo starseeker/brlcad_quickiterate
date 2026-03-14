@@ -264,6 +264,7 @@ f_share(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *ar
     }
 
     if (!uflag) {
+	s->update_views = 1;  /* Stage 7: notify Obol path on share change */
 	dlp2->dm_dirty = 1;	/* need to redraw this guy */
 	if (dlp2->dm_dmp) dm_set_dirty(dlp2->dm_dmp, 1);
     }

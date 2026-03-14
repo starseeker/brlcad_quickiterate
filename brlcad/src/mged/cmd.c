@@ -837,7 +837,8 @@ cmd_ged_dm_wrapper(ClientData clientData, Tcl_Interp *interpreter, int argc, con
 
     if (!s->gedp->ged_gvp)
 	s->gedp->ged_gvp = view_state->vs_gvp;
-    s->gedp->ged_gvp->dmp = (void *)s->mged_curr_dm->dm_dmp;
+    /* Stage 7: DMP is NULL for Obol panes; set dmp to NULL explicitly. */
+    s->gedp->ged_gvp->dmp = DMP ? (void *)DMP : NULL;
 
     ret = (*ctp->ged_func)(s->gedp, argc, (const char **)argv);
     GED_OUTPUT;
@@ -881,7 +882,8 @@ cmd_screengrab(ClientData clientData, Tcl_Interp *interpreter, int argc, const c
 
     if (!s->gedp->ged_gvp)
 	s->gedp->ged_gvp = view_state->vs_gvp;
-    s->gedp->ged_gvp->dmp = (void *)s->mged_curr_dm->dm_dmp;
+    /* Stage 7: DMP is NULL for Obol panes; set dmp to NULL explicitly. */
+    s->gedp->ged_gvp->dmp = DMP ? (void *)DMP : NULL;
 
     ret = (*ctp->ged_func)(s->gedp, argc, (const char **)argv);
     GED_OUTPUT;
