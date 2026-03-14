@@ -57,6 +57,11 @@
 struct bu_ptbl active_dm_set = BU_PTBL_INIT_ZERO;  /* set of active display managers */
 struct mged_dm *mged_dm_init_state = NULL;
 
+/* Stage 7 (libdm removal): Obol pane set — tracks mged_pane objects for
+ * Obol-rendered panes created by f_new_obol_view_ptr.  This coexists with
+ * active_dm_set during the transition.  See RADICAL_MIGRATION.md step 2. */
+struct bu_ptbl active_pane_set = BU_PTBL_INIT_ZERO;
+
 
 extern struct _color_scheme default_color_scheme;
 extern void share_dlist(struct mged_dm *dlp2);	/* defined in share.c */
@@ -93,6 +98,74 @@ void set_curr_dm(struct mged_state *s, struct mged_dm *nc)
 	    s->gedp->ged_gvp = NULL;
 	}
     }
+}
+
+/**
+ * set_curr_pane — make an Obol mged_pane the active view source.
+ *
+ * Stage 7 (libdm removal): this is the counterpart of set_curr_dm() for
+ * Obol panes tracked in active_pane_set.  It sets s->gedp->ged_gvp to the
+ * pane's bsg_view WITHOUT touching s->mged_curr_dm, so code that uses DMP
+ * continues to reference the last-active legacy dm safely.
+ *
+ * When all panes have been migrated to mged_pane (step 6), set_curr_dm and
+ * the DMP macros will be removed and set_curr_pane will become the sole
+ * pane-switching function.
+ */
+void
+set_curr_pane(struct mged_state *s, struct mged_pane *mp)
+{
+    if (!s || !s->gedp)
+	return;
+    if (!mp) {
+	s->gedp->ged_gvp = NULL;
+	return;
+    }
+    s->gedp->ged_gvp = mp->mp_gvp;
+}
+
+/**
+ * mged_pane_find_by_name — look up an Obol pane by its gv_name.
+ *
+ * Searches active_pane_set for a mged_pane whose mp_gvp->gv_name matches
+ * `name`.  Returns MGED_PANE_NULL if not found.  Used by f_winset and any
+ * future code that needs to resolve a Tk widget path to a mged_pane.
+ */
+struct mged_pane *
+mged_pane_find_by_name(const char *name)
+{
+    if (!name)
+	return MGED_PANE_NULL;
+    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	if (mp && mp->mp_gvp &&
+	    BU_STR_EQUAL(name, bu_vls_cstr(&mp->mp_gvp->gv_name)))
+	    return mp;
+    }
+    return MGED_PANE_NULL;
+}
+
+/**
+ * mged_pane_release — remove a pane from active_pane_set and free it.
+ *
+ * Call this when the corresponding obol_view Tk widget is destroyed.
+ * The bsg_view (mp->mp_gvp) is owned by ged_free_views and must be freed
+ * separately through the GED view-teardown path.
+ *
+ * The predictor vlist (mp_p_vlist) will be freed here once the overlay
+ * migration is complete.  For now it is always empty when this is called
+ * (no overlay vlists are added to Obol panes yet).
+ */
+void
+mged_pane_release(struct mged_pane *mp)
+{
+    if (!mp)
+	return;
+    bu_ptbl_rm(&active_pane_set, (long *)mp);
+    /* mp_p_vlist: currently always empty for Obol panes.  When overlay
+     * migration is complete, call BSG_FREE_VLIST(vlfree, &mp->mp_p_vlist)
+     * with the appropriate vlfree pool before freeing the pane. */
+    BU_PUT(mp, struct mged_pane);
 }
 
 int
@@ -924,12 +997,23 @@ f_new_obol_view_ptr(ClientData clientData, Tcl_Interp *interpreter,
     tvd->gdv_fbs.fbs_clientData         = gvp;
     tvd->gdv_fbs.fbs_interp             = interpreter;
 
+    /* Stage 7 (libdm removal): Register this Obol pane in active_pane_set so
+     * that f_winset can find it without the ::obol_pane_gvp Tcl-variable
+     * bridge.  The mged_pane carries only the view pointer and command-history
+     * link; all other per-pane state remains on the legacy mged_dm for now. */
+    struct mged_pane *pane;
+    BU_GET(pane, struct mged_pane);
+    pane->mp_gvp     = gvp;
+    pane->mp_cmd_tie = NULL;  /* not yet attached to a cmd_list */
+    BU_LIST_INIT(&pane->mp_p_vlist);
+    bu_ptbl_ins(&active_pane_set, (long *)pane);
+
     /* Return the pointer as a hex string.  The caller (mview.tcl) passes this
      * to "obol_view <path> attach <ptr>" — the obol_view Tk widget's attach
      * subcommand expects a C pointer in this format (same convention as the
      * existing gvp_ptr / to_new_view paths).  f_winset validates the parsed
-     * pointer against ged_views before using it, preventing a crafted Tcl
-     * value from redirecting ged_gvp to an unregistered address. */
+     * pointer against active_pane_set before using it, preventing a crafted
+     * Tcl value from redirecting ged_gvp to an unregistered address. */
     char buf[64];
     snprintf(buf, sizeof(buf), "%p", (void *)gvp);
     Tcl_SetResult(interpreter, buf, TCL_VOLATILE);
