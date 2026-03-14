@@ -3924,6 +3924,43 @@ add_elements(ON_Brep *brep, ON_BrepFace &face, const ON_SimpleArray<ON_Curve *> 
 	return;
     }
 
+    /* Expand any ON_PolyCurve elements into their component segments before
+     * processing.  When loop_boolean produces a sub-face whose outer boundary
+     * is a closed linked-curve polycurve (e.g. the rectangular inner-wall
+     * face from an ARB8 subtraction), the single polycurve entry would
+     * otherwise be treated as a single closed edge (c3d->IsClosed() makes
+     * end_idx == start_idx), collapsing the entire loop to a degenerate
+     * single-vertex edge.  Expanding into individual segments ensures each
+     * side of the rectangle becomes its own separate BREP edge. */
+    bool need_expand = false;
+    for (int k = 0; k < loop.Count(); k++) {
+	const ON_PolyCurve *pc = ON_PolyCurve::Cast(loop[k]);
+	if (pc && pc->Count() > 1) {
+	    need_expand = true;
+	    break;
+	}
+    }
+    if (need_expand) {
+	ON_SimpleArray<ON_Curve *> expanded;
+	for (int k = 0; k < loop.Count(); k++) {
+	    const ON_PolyCurve *pc = ON_PolyCurve::Cast(loop[k]);
+	    if (pc && pc->Count() > 1) {
+		for (int s = 0; s < pc->Count(); s++) {
+		    expanded.Append(pc->SegmentCurve(s)->Duplicate());
+		}
+	    } else {
+		expanded.Append(loop[k]);
+	    }
+	}
+	/* Recurse with the expanded list.  Curves duplicated from polycurve
+	 * segments are passed to brep->AddTrimCurve() inside the recursive
+	 * call, transferring ownership to the brep; they must not be freed
+	 * here.  Pointers borrowed from the original loop[] are also owned
+	 * by the brep after AddTrimCurve and must not be freed. */
+	add_elements(brep, face, expanded, loop_type);
+	return;
+    }
+
     ON_BrepLoop &breploop = brep->NewLoop(loop_type, face);
     const ON_Surface *srf = face.SurfaceOf();
 
@@ -4030,7 +4067,13 @@ add_elements(ON_Brep *brep, ON_BrepFace &face, const ON_SimpleArray<ON_Curve *> 
 	    c3d = new ON_PolylineCurve(ptarray);
 	}
 
-	if (c3d->BoundingBox().Diagonal().Length() < ON_ZERO_TOLERANCE) {
+	/* Treat as a singular (degenerate) trim when the 3D curve maps to a
+	 * single point: either its bounding-box diagonal is smaller than
+	 * INTERSECTION_TOL, or the 3D start and end points coincide within
+	 * INTERSECTION_TOL (handles very short artifacts from overlap/coplanar
+	 * face processing where the UV domain is near floating-point epsilon). */
+	if (c3d->BoundingBox().Diagonal().Length() < INTERSECTION_TOL ||
+	    c3d->PointAtStart().DistanceTo(c3d->PointAtEnd()) < INTERSECTION_TOL) {
 	    // The trim is singular
 	    int i;
 	    ON_3dPoint vtx = c3d->PointAtStart();
