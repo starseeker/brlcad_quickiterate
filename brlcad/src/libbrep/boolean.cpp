@@ -2754,6 +2754,154 @@ loop_boolean(
 	return out;
     }
 
+    /* Non-intersecting nested-loop short-circuit:
+     *
+     * When no CCI events exist (the two loops never cross), they are either
+     * completely separate or one is entirely enclosed by the other.  The
+     * normal segment-building path cannot handle this: make_segments() with
+     * empty CurvePoint sets always returns an empty result, so get_op_segments
+     * and construct_loops_from_segments produce nothing.
+     *
+     * Detect the nesting relationship by testing one boundary point of each
+     * loop against the other loop.  Then return the analytically correct
+     * result for each operation:
+     *
+     *   loop2 inside loop1:
+     *     UNION      → loop1 (loop2 is absorbed)
+     *     INTERSECT  → loop2 (the smaller enclosed region)
+     *     DIFF       → loop1 with loop2 as an inner hole
+     *
+     *   loop1 inside loop2:
+     *     UNION      → loop2 (loop1 is absorbed)
+     *     INTERSECT  → loop1 (the smaller enclosed region)
+     *     DIFF       → empty (loop1 is entirely removed by loop2)
+     *
+     *   disjoint (no overlap):
+     *     UNION      → both loops as separate outer loops
+     *     INTERSECT  → empty
+     *     DIFF       → loop1 unchanged
+     *
+     * Only run when ALL CCI event arrays are empty (no crossing events).
+     */
+    {
+	bool any_events = false;
+	for (int i = 0; i < loop1.Count() && !any_events; ++i) {
+	    for (int j = 0; j < loop2.Count() && !any_events; ++j) {
+		if (all_x_events[i * loop2.Count() + j].Count() > 0)
+		    any_events = true;
+	    }
+	}
+
+	if (!any_events) {
+	    /* Check nesting: is loop2 inside loop1? */
+	    ON_2dPoint l2pt = loop2[0]->PointAtStart();
+	    bool l2_in_l1 = !is_point_outside_loop(l2pt, loop1);
+
+	    /* Check nesting: is loop1 inside loop2? */
+	    ON_2dPoint l1pt = loop1[0]->PointAtStart();
+	    bool l1_in_l2 = !is_point_outside_loop(l1pt, loop2);
+
+	    if (l2_in_l1 && !l1_in_l2) {
+		/* loop2 entirely inside loop1 */
+		if (op == BOOLEAN_UNION) {
+		    /* result = loop1 */
+		    ON_SimpleArray<ON_Curve *> result;
+		    for (int i = 0; i < loop1.Count(); ++i) {
+			result.Append(loop1[i]);
+			loop1[i] = NULL;
+		    }
+		    set_loop_direction(result, LOOP_DIRECTION_CCW);
+		    out.outerloops.push_back(result);
+		} else if (op == BOOLEAN_INTERSECT) {
+		    /* result = loop2 */
+		    ON_SimpleArray<ON_Curve *> result;
+		    for (int i = 0; i < loop2.Count(); ++i) {
+			result.Append(loop2[i]);
+			loop2[i] = NULL;
+		    }
+		    set_loop_direction(result, LOOP_DIRECTION_CCW);
+		    out.outerloops.push_back(result);
+		} else {
+		    /* DIFF: result = loop1 with loop2 as inner hole */
+		    ON_SimpleArray<ON_Curve *> outer_result;
+		    for (int i = 0; i < loop1.Count(); ++i) {
+			outer_result.Append(loop1[i]);
+			loop1[i] = NULL;
+		    }
+		    set_loop_direction(outer_result, LOOP_DIRECTION_CCW);
+		    out.outerloops.push_back(outer_result);
+
+		    ON_SimpleArray<ON_Curve *> inner_result;
+		    for (int i = 0; i < loop2.Count(); ++i) {
+			inner_result.Append(loop2[i]);
+			loop2[i] = NULL;
+		    }
+		    set_loop_direction(inner_result, LOOP_DIRECTION_CW);
+		    out.innerloops.push_back(inner_result);
+		}
+	    } else if (l1_in_l2 && !l2_in_l1) {
+		/* loop1 entirely inside loop2 */
+		if (op == BOOLEAN_UNION) {
+		    /* result = loop2 */
+		    ON_SimpleArray<ON_Curve *> result;
+		    for (int i = 0; i < loop2.Count(); ++i) {
+			result.Append(loop2[i]);
+			loop2[i] = NULL;
+		    }
+		    set_loop_direction(result, LOOP_DIRECTION_CCW);
+		    out.outerloops.push_back(result);
+		} else if (op == BOOLEAN_INTERSECT) {
+		    /* result = loop1 */
+		    ON_SimpleArray<ON_Curve *> result;
+		    for (int i = 0; i < loop1.Count(); ++i) {
+			result.Append(loop1[i]);
+			loop1[i] = NULL;
+		    }
+		    set_loop_direction(result, LOOP_DIRECTION_CCW);
+		    out.outerloops.push_back(result);
+		}
+		/* DIFF: empty (loop1 is entirely inside the subtracted region) */
+	    } else {
+		/* Disjoint loops */
+		if (op == BOOLEAN_UNION) {
+		    /* result = both loops */
+		    ON_SimpleArray<ON_Curve *> r1, r2;
+		    for (int i = 0; i < loop1.Count(); ++i) {
+			r1.Append(loop1[i]);
+			loop1[i] = NULL;
+		    }
+		    for (int i = 0; i < loop2.Count(); ++i) {
+			r2.Append(loop2[i]);
+			loop2[i] = NULL;
+		    }
+		    set_loop_direction(r1, LOOP_DIRECTION_CCW);
+		    set_loop_direction(r2, LOOP_DIRECTION_CCW);
+		    out.outerloops.push_back(r1);
+		    out.outerloops.push_back(r2);
+		} else if (op == BOOLEAN_DIFF) {
+		    /* result = loop1 unchanged */
+		    ON_SimpleArray<ON_Curve *> result;
+		    for (int i = 0; i < loop1.Count(); ++i) {
+			result.Append(loop1[i]);
+			loop1[i] = NULL;
+		    }
+		    set_loop_direction(result, LOOP_DIRECTION_CCW);
+		    out.outerloops.push_back(result);
+		}
+		/* INTERSECT disjoint: empty */
+	    }
+
+	    /* Free any non-transferred curves */
+	    for (int i = 0; i < loop1.Count(); ++i) {
+		if (loop1[i]) delete loop1[i];
+	    }
+	    for (int i = 0; i < loop2.Count(); ++i) {
+		if (loop2[i]) delete loop2[i];
+	    }
+	    return out;
+	}
+    }
+
     // get curve endpoints and intersection points for each loop
     std::multiset<CurvePoint> loop1_points, loop2_points;
 
@@ -4068,12 +4216,12 @@ add_elements(ON_Brep *brep, ON_BrepFace &face, const ON_SimpleArray<ON_Curve *> 
 	}
 
 	/* Treat as a singular (degenerate) trim when the 3D curve maps to a
-	 * single point: either its bounding-box diagonal is smaller than
-	 * INTERSECTION_TOL, or the 3D start and end points coincide within
-	 * INTERSECTION_TOL (handles very short artifacts from overlap/coplanar
-	 * face processing where the UV domain is near floating-point epsilon). */
-	if (c3d->BoundingBox().Diagonal().Length() < INTERSECTION_TOL ||
-	    c3d->PointAtStart().DistanceTo(c3d->PointAtEnd()) < INTERSECTION_TOL) {
+	 * single point: its bounding-box diagonal is smaller than
+	 * INTERSECTION_TOL.  A closed curve (start == end) is NOT singular —
+	 * it is a full-circle (or other closed) trim and must be kept as a
+	 * proper edge.  Using the start-end distance as a singularity test
+	 * incorrectly classifies those closed curves. */
+	if (c3d->BoundingBox().Diagonal().Length() < INTERSECTION_TOL) {
 	    // The trim is singular
 	    int i;
 	    ON_3dPoint vtx = c3d->PointAtStart();
