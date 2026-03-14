@@ -120,6 +120,8 @@ f_share(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *ar
 
     for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
 	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
+	/* Stage 7 (step 5.14): skip initial "nu" entry with no dm. */
+	if (!m_dmp->dm_dmp) continue;
 	struct bu_vls *pname = dm_get_pathname(m_dmp->dm_dmp);
 	if (BU_STR_EQUAL(argv[2], bu_vls_cstr(pname))) {
 	    dlp1 = m_dmp;
@@ -136,6 +138,8 @@ f_share(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *ar
     if (!uflag) {
 	for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
 	    struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
+	    /* Stage 7 (step 5.14): skip initial "nu" entry with no dm. */
+	    if (!m_dmp->dm_dmp) continue;
 	    struct bu_vls *pname = dm_get_pathname(m_dmp->dm_dmp);
 	    if (BU_STR_EQUAL(argv[3], bu_vls_cstr(pname))) {
 		dlp2 = m_dmp;
@@ -450,11 +454,16 @@ free_all_resources(struct mged_dm *dlp)
 void
 share_dlist(struct mged_dm *dlp2)
 {
-    if (!dm_get_displaylist(dlp2->dm_dmp))
+    /* Stage 7 (step 5.14): guard for NULL dm_dmp (initial "nu" mged_dm). */
+    if (!dlp2->dm_dmp || !dm_get_displaylist(dlp2->dm_dmp))
 	return;
 
     for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
 	struct mged_dm *dlp1 = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
+	/* Stage 7 (step 5.14): skip entries with no dm (initial "nu" state).
+	 * dlp2->dm_dmp is guaranteed non-NULL by the guard at function entry. */
+	if (!dlp1->dm_dmp)
+	    continue;
 	if (dlp1 != dlp2 &&
 	    dm_get_type(dlp1->dm_dmp) == dm_get_type(dlp2->dm_dmp) && dm_get_dname(dlp1->dm_dmp) && dm_get_dname(dlp2->dm_dmp) &&
 	    !bu_vls_strcmp(dm_get_dname(dlp1->dm_dmp), dm_get_dname(dlp2->dm_dmp))) {
@@ -463,8 +472,8 @@ share_dlist(struct mged_dm *dlp2)
 
 		SHARE_RESOURCE(0, _dlist_state, dm_dlist_state, dl_rc, dlp1, dlp2, vls, "share: dlist_state");
 		dlp1->dm_dirty = dlp2->dm_dirty = 1;
-		if (dlp1->dm_dmp) dm_set_dirty(dlp1->dm_dmp, 1);
-		if (dlp2->dm_dmp) dm_set_dirty(dlp2->dm_dmp, 1);
+		dm_set_dirty(dlp1->dm_dmp, 1);
+		dm_set_dirty(dlp2->dm_dmp, 1);
 		bu_vls_free(&vls);
 	    }
 

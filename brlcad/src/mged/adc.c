@@ -81,9 +81,10 @@ adc_set_dirty_flag(struct mged_state *s)
     s->update_views = 1;
     for (size_t i = 0; i < BU_PTBL_LEN(&active_dm_set); i++) {
 	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, i);
+	if (!m_dmp->dm_dmp) continue;  /* skip null-dm sentinel */
 	if (m_dmp->dm_adc_state == adc_state) {
 	    m_dmp->dm_dirty = 1;
-	    if (m_dmp->dm_dmp) dm_set_dirty(m_dmp->dm_dmp, 1);
+	    dm_set_dirty(m_dmp->dm_dmp, 1);
 	}
     }
 }
@@ -96,11 +97,12 @@ adc_set_scroll(struct mged_state *s)
 
     for (size_t i = 0; i < BU_PTBL_LEN(&active_dm_set); i++) {
 	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, i);
+	if (!m_dmp->dm_dmp) continue;  /* skip null-dm sentinel */
 	if (m_dmp->dm_adc_state == adc_state) {
 	    set_curr_dm(s, m_dmp);
 	    set_scroll(s);
 	    DMP_dirty = 1;
-	    if (DMP) dm_set_dirty(DMP, 1);
+	    dm_set_dirty(DMP, 1);
 	}
     }
 

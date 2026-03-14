@@ -307,6 +307,7 @@ new_edit_mats(struct mged_state *s)
     save_dm_list = s->mged_curr_dm;
     for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
 	struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
+	if (!p->dm_dmp) continue;  /* skip null-dm sentinel */
 	if (!p->dm_owner)
 	    continue;
 
@@ -347,7 +348,7 @@ mged_view_callback(bsg_view *gvp,
     }
     vsp->vs_flag = 1;
     s->update_views = 1;
-    if (s->mged_curr_dm->dm_dmp) dm_set_dirty(s->mged_curr_dm->dm_dmp, 1);
+    if (DMP) dm_set_dirty(DMP, 1);
 }
 
 
@@ -1239,6 +1240,7 @@ event_check(struct mged_state *s, int non_blocking)
 
     for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
 	struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
+	if (!p->dm_dmp) continue;  /* skip null-dm sentinel */
 	if (!p->dm_owner)
 	    continue;
 
@@ -1323,6 +1325,17 @@ event_check(struct mged_state *s, int non_blocking)
 	    Tcl_Eval(s->interp, bu_vls_addr(&vls));
 	    bu_vls_free(&vls);
 	}
+	if (mp->mp_view_state && mp->mp_view_state->k.tra_m_flag) {
+	    /* Added to match legacy dm loop coverage (rot_m, tra_m, rot_v, tra_v, sca). */
+	    struct bu_vls vls = BU_VLS_INIT_ZERO;
+	    non_blocking++;
+	    bu_vls_printf(&vls, "knob -i -m aX %f aY %f aZ %f\n",
+			  mp->mp_view_state->k.tra_m[X] * 0.05 * mp->mp_view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local,
+			  mp->mp_view_state->k.tra_m[Y] * 0.05 * mp->mp_view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local,
+			  mp->mp_view_state->k.tra_m[Z] * 0.05 * mp->mp_view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local);
+	    Tcl_Eval(s->interp, bu_vls_addr(&vls));
+	    bu_vls_free(&vls);
+	}
 	if (mp->mp_view_state && mp->mp_view_state->k.rot_v_flag) {
 	    struct bu_vls vls = BU_VLS_INIT_ZERO;
 	    non_blocking++;
@@ -1331,6 +1344,16 @@ event_check(struct mged_state *s, int non_blocking)
 			  mp->mp_view_state->k.rot_v[X],
 			  mp->mp_view_state->k.rot_v[Y],
 			  mp->mp_view_state->k.rot_v[Z]);
+	    Tcl_Eval(s->interp, bu_vls_addr(&vls));
+	    bu_vls_free(&vls);
+	}
+	if (mp->mp_view_state && mp->mp_view_state->k.tra_v_flag) {
+	    struct bu_vls vls = BU_VLS_INIT_ZERO;
+	    non_blocking++;
+	    bu_vls_printf(&vls, "knob -i -v aX %f aY %f aZ %f",
+			  mp->mp_view_state->k.tra_v[X] * 0.05 * mp->mp_view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local,
+			  mp->mp_view_state->k.tra_v[Y] * 0.05 * mp->mp_view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local,
+			  mp->mp_view_state->k.tra_v[Z] * 0.05 * mp->mp_view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local);
 	    Tcl_Eval(s->interp, bu_vls_addr(&vls));
 	    bu_vls_free(&vls);
 	}
@@ -1579,34 +1602,37 @@ refresh(struct mged_state *s)
 
     /* Stage 7: capture update_views before resetting it so the Obol path
      * below can decide whether to notify Obol panes.  All view-command
-     * paths now set both vs_flag AND s->update_views (Step 6.a), so
-     * obol_needs_refresh is already complete from s->update_views alone.
-     * The vs_flag check in the active_dm_set loop below remains for the
-     * legacy dm path but is now a belt-and-suspenders guard only. */
+     * paths now set both vs_flag AND s->update_views (Step 6.a, verified
+     * by inspection: every vs_flag=1 site in mged is within 8 lines of
+     * a s->update_views=1 assignment), so obol_needs_refresh is fully
+     * determined by s->update_views alone. */
     int obol_needs_refresh = s->update_views;
 
-    /* Display Manager / Views */
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	if (!p->dm_view_state)
-	    continue;
-	if (s->update_views || p->dm_view_state->vs_flag) {
+    /* Set dm_dirty on each legacy dm pane when views need redraw.
+     * Step 5.16: vs_flag is no longer the authoritative dirty signal —
+     * s->update_views now subsumes it (verified by inspection: every code
+     * path that sets vs_flag=1 also sets s->update_views=1, Step 5.6).
+     * The vs_flag scan is removed; dm_dirty is driven purely by
+     * s->update_views. */
+    if (s->update_views) {
+	for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
+	    struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
+	    if (!p->dm_dmp) continue;  /* skip null-dm sentinel */
 	    p->dm_dirty = 1;
-	    obol_needs_refresh = 1;
 	}
     }
 
-    /*
-     * This needs to be done separately because dm_view_state may be
-     * shared.
-     */
+    /* Clear vs_flag on all panes.  Step 5.16: vs_flag no longer drives dm_dirty
+     * (s->update_views handles that above); clearing it here is still correct
+     * housekeeping so stale flags don't accumulate.  Must be done in a separate
+     * loop from the dm_dirty scan because dm_view_state may be shared. */
     for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
 	struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
 	if (!p->dm_view_state)
 	    continue;
 	p->dm_view_state->vs_flag = 0;
     }
-    /* Stage 7: also clear vs_flag for Obol panes. */
+    /* Also clear vs_flag for Obol panes. */
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *pmp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
 	if (pmp->mp_view_state) pmp->mp_view_state->vs_flag = 0;
@@ -1617,18 +1643,18 @@ refresh(struct mged_state *s)
     save_dm_list = s->mged_curr_dm;
     for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
 	struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
+
+	/* Step 5.17: skip null-dm entries (the startup sentinel and Obol-mode
+	 * redirect) before calling set_curr_dm — avoids the unnecessary
+	 * mged_curr_dm redirect for entries that carry no real display manager.
+	 * Previously this guard was placed after set_curr_dm. */
+	if (!p->dm_dmp) continue;
+
 	/*
 	 * if something has changed, then go update the display.
 	 * Otherwise, we are happy with the view we have
 	 */
 	set_curr_dm(s, p);
-
-	/* Stage 7 guard: skip all libdm drawing when this pane's display
-	 * manager is NULL.  During the MGED libdm migration (see mged_dm.h and
-	 * RADICAL_MIGRATION.md) a pane with dm_dmp==NULL means it is rendered
-	 * by an obol_view widget; obol_notify_views (below) handles redraw. */
-	if (!DMP)
-	    continue;
 
 	if (mapped && DMP_dirty) {
 	    int restore_zbuffer = 0;
@@ -1848,10 +1874,15 @@ mged_finish(struct mged_state *s, int exitcode)
 
 	bu_ptbl_rm(&active_dm_set, (long *)p);
 
-	if (p && p->dm_dmp) {
-	    dm_close(p->dm_dmp);
-	    BSG_FREE_VLIST(s->vlfree, &p->dm_p_vlist);
-	    mged_slider_free_vls(p);
+	if (p) {
+	    if (p->dm_dmp) {
+		/* Stage 7 (step 5.14): dm_dmp is NULL for the initial "nu"
+		 * mged_dm (mged_dm_init_state) since the dm_open("nu") call
+		 * was removed.  Only close dm and free vlist when dm_dmp exists. */
+		dm_close(p->dm_dmp);
+		BSG_FREE_VLIST(s->vlfree, &p->dm_p_vlist);
+		mged_slider_free_vls(p);
+	    }
 	    bu_free(p, "release: mged_curr_dm");
 	}
 
@@ -2180,23 +2211,15 @@ main(int argc, char *argv[])
     BU_LIST_INIT(&s->mged_curr_dm->dm_p_vlist);
     predictor_init(s);
 
+    /* Stage 7 (step 5.14): The initial mged_dm struct serves as a null/"nu"
+     * sentinel without opening a libdm plugin.  dm_dmp is NULL from the
+     * BU_ALLOC zero-init above.  All DMP uses in MGED are already guarded with
+     * "if (!DMP)" (step 1), so NULL is safe here.  This removes the runtime
+     * dependency on the libdm "nu" plugin at mged startup. */
+    /* DMP == NULL intentionally: no dm_open("nu") call */
+
     /* register application provided routines */
-
-    DMP = dm_open(NULL, s->interp, "nu", 0, NULL);
-    struct bu_vls *dpvp = dm_get_pathname(DMP);
-    if (dpvp) {
-	bu_vls_strcpy(dpvp, "nu");
-    }
-
-    /* If we're only doing the 'nu' dm we don't need most of mged_dm_init, but
-     * we do still need to register the dm_commands */
     s->mged_curr_dm->dm_cmd_hook = dm_commands;
-
-    struct bu_vls *tnvp = dm_get_tkname(s->mged_curr_dm->dm_dmp);
-    if (tnvp) {
-	bu_vls_init(tnvp); /* this may leak */
-	bu_vls_strcpy(tnvp, "nu");
-    }
 
     /* Stage 7: Use explicit s->mged_curr_dm->dm_* for BU_ALLOC here so these
      * allocations remain lvalues after the macros are changed to ternary
@@ -2466,8 +2489,8 @@ main(int argc, char *argv[])
 
     /* XXX total hack that fixes a dm init issue on Mac OS X where the
      * dm first opens filled with garbage.
-     */
-    {
+     * Stage 7 (step 5.14): guard for NULL DMP (nu dm now has dm_dmp==NULL). */
+    if (DMP) {
 	unsigned char *dm_bg;
 	dm_get_bg(&dm_bg, NULL, DMP);
 	dm_set_bg(DMP, dm_bg[0], dm_bg[1], dm_bg[2], dm_bg[0], dm_bg[1], dm_bg[2]);

@@ -54,11 +54,14 @@ illuminate(struct mged_state *s, int y) {
     bsg_shape *sp;
 
     /*
-     * Divide the mouse into 's->mged_curr_dm->dm_ndrawn' VERTICAL
-     * zones, and use the zone number as a sequential position among
+     * Divide the mouse into VERTICAL zones equal to the number of drawn
+     * objects, and use the zone number as a sequential position among
      * solids which are drawn.
+     * Step 5.15: use mp_ndrawn when in Obol pane context.
      */
-    count = ((fastf_t)y + BSG_VIEW_MAX) * s->mged_curr_dm->dm_ndrawn / BSG_VIEW_RANGE;
+    int active_ndrawn = s->mged_curr_pane ? s->mged_curr_pane->mp_ndrawn
+					  : s->mged_curr_dm->dm_ndrawn;
+    count = ((fastf_t)y + BSG_VIEW_MAX) * active_ndrawn / BSG_VIEW_RANGE;
 
     {
 	bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
@@ -106,7 +109,10 @@ f_aip(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	return TCL_ERROR;
     }
 
-    if (!(s->mged_curr_dm->dm_ndrawn)) {
+    /* Step 5.15: use mp_ndrawn when in Obol pane context. */
+    int active_ndrawn = s->mged_curr_pane ? s->mged_curr_pane->mp_ndrawn
+					  : s->mged_curr_dm->dm_ndrawn;
+    if (!active_ndrawn) {
 	return TCL_OK;
     } else if (s->global_editing_state != ST_S_PICK && s->global_editing_state != ST_O_PICK  && s->global_editing_state != ST_O_PATH) {
 	return TCL_OK;

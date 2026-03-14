@@ -870,3 +870,60 @@ management functions in `dozoom.c` (CreateDListSolid, freeDListsAll) and the
 network framebuffer server in `fbserv.c` — both are intrinsically dm-specific and
 will be removed in Step 6.
 
+---
+
+## Sessions 13-15 Results (2026-03-14) — mged_pane resource fields + null-dm guards everywhere
+
+### Summary (Sessions 13-14)
+
+Sessions 13-14 covered RADICAL_MIGRATION.md steps 5.11-5.14.  See memories for details.
+
+### Session 15 Summary — Steps 5.15-5.17
+
+**Step 5.15**: `mged_pane` gains predictor state (`mp_trails[NUM_TRAILS]`, `mp_p_vlist`,
+`mp_ndrawn`).  New ternary macros `pv_head` and `pane_trails` in `mged_dm.h`.
+`predictor.c` fully migrated: 0 remaining `mged_curr_dm` references.
+
+**Step 5.16**: `refresh()` dirty-flag scan simplified — removed `vs_flag` scan from the
+`active_dm_set` loop (verified: every `vs_flag=1` site is within 8 lines of
+`s->update_views=1`, Step 5.6).  `dm_dirty` is now driven purely by `s->update_views`.
+`obol_needs_refresh` captured from `s->update_views` alone.
+
+**Step 5.17**: Null-dm guard (`if (!m_dmp->dm_dmp) continue`) moved to the TOP of every
+`active_dm_set` loop body, BEFORE any `set_curr_dm` call.  Applied to all remaining
+loops across the mged source tree:
+
+| File | Functions patched |
+|------|-------------------|
+| `mged.c` | `new_edit_mats`, view-rate knob loop, `refresh()` draw loop |
+| `chgview.c` | `edit_com`, `cmd_autoview`, `f_svbase` |
+| `grid.c` | `grid_set_dirty_flag` |
+| `adc.c` | `adc_set_dirty_flag`, `adc_set_scroll` |
+| `axes.c` | `ax_set_dirty_flag` |
+| `color_scheme.c` | `cs_set_dirty_flag`, `cs_update` |
+| `set.c` | `set_dirty_flag`, `set_knob_dirty_flag`, display-list create/free |
+| `buttons.c` | `be_repl`/`be_reject`, `chg_state` |
+| `menu.c` | `mmenu_set`, `mmenu_set_all` |
+| `fbserv.c` | client-fd + netfd lookup; `fbserv_set_port` gets `if (!DMP) return` |
+| `cmd.c` | `f_opendb` resize loop |
+| `share.c` | `share_dlist` redundant guards removed |
+
+**Bug fix (set.c)**: Inner dlist-sharing loop used outer-loop index `di` instead of `dj`
+in `BU_PTBL_GET` — pre-existing typo corrected.
+
+### Files modified (Session 15)
+
+| File | Change |
+|------|--------|
+| `mged_dm.h` | Add `mp_trails[NUM_TRAILS]`, `mp_p_vlist`, `mp_ndrawn` to `mged_pane`; `pv_head`/`pane_trails` macros |
+| `predictor.c` | Fully migrated (0 mged_curr_dm refs); `predictor_init_pane()` added |
+| `mged.h` | Add `predictor_init_pane()` decl |
+| `attach.c` | `mged_pane_init_resources()`: init mp_p_vlist, mp_trails, mp_ndrawn |
+| `dozoom.c` | Use `pv_head` macro for predictor vlist |
+| `usepen.c` | Use `active_ndrawn` (renamed from `curr_ndrawn`/`pane_ndrawn`) |
+| `mged.c` | Step 5.16 dirty scan; Step 5.17 loop guards; `mged_view_callback` uses `DMP` |
+| `chgview.c`, `grid.c`, `adc.c`, `axes.c` | Null-dm guards in dirty loops |
+| `color_scheme.c`, `set.c` | Null-dm guards; set.c di→dj bugfix |
+| `buttons.c`, `menu.c`, `fbserv.c`, `cmd.c`, `share.c` | Null-dm guards |
+
+

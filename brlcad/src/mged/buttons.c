@@ -828,6 +828,7 @@ be_accept(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), c
 
     for (size_t i = 0; i < BU_PTBL_LEN(&active_dm_set); i++) {
 	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, i);
+	if (!m_dmp->dm_mged_variables) continue;
 	if (m_dmp->dm_mged_variables->mv_transform == 'e')
 	    m_dmp->dm_mged_variables->mv_transform = 'v';
     }
@@ -903,6 +904,7 @@ be_reject(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), c
 
     for (size_t i = 0; i < BU_PTBL_LEN(&active_dm_set); i++) {
 	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, i);
+	if (!m_dmp->dm_mged_variables) continue;
 	if (m_dmp->dm_mged_variables->mv_transform == 'e')
 	    m_dmp->dm_mged_variables->mv_transform = 'v';
     }
@@ -1075,6 +1077,7 @@ chg_state(struct mged_state *s, int from, int to, char *str)
     save_dm_list = s->mged_curr_dm;
     for (size_t i = 0; i < BU_PTBL_LEN(&active_dm_set); i++) {
 	struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, i);
+	if (!p->dm_dmp) continue;  /* skip null-dm sentinel */
 	set_curr_dm(s, p);
 
 	new_mats(s);

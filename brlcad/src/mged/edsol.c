@@ -1238,7 +1238,9 @@ get_rotation_vertex(struct mged_state *s)
     }
     bu_vls_printf(&str, ") [%d]: ", rt_arb_vertices[type][loc]);
 
-    const struct bu_vls *dnvp = dm_get_dname(s->mged_curr_dm->dm_dmp);
+    /* Stage 7 (step 5.14): guard for NULL dm_dmp (initial headless mged_dm). */
+    const struct bu_vls *dnvp = s->mged_curr_dm->dm_dmp ?
+	dm_get_dname(s->mged_curr_dm->dm_dmp) : NULL;
 
     bu_vls_printf(&cmd, "cad_input_dialog .get_vertex %s {Need vertex for solid rotate}\
  {%s} vertex_num %d 0 {{ summary \"Enter a vertex number to rotate about.\"}} OK",
@@ -1286,7 +1288,7 @@ get_file_name(struct mged_state *s, char *str)
 	bu_free((void *)dir, "get_file_name: directory string");
     }
 
-    if (dm_get_pathname(DMP)) {
+    if (DMP && dm_get_pathname(DMP)) {
 	bu_vls_printf(&cmd,
 		"getFile %s %s {{{All Files} {*}}} {Get File}",
 		bu_vls_addr(dm_get_pathname(DMP)),
@@ -2685,7 +2687,7 @@ sedit(struct mged_state *s)
 		RT_BOT_CK_MAGIC(bot);
 		old_mode = bot->mode;
 		sprintf(mode, " %d", old_mode - 1);
-		if (dm_get_pathname(DMP)) {
+		if (DMP && dm_get_pathname(DMP)) {
 		    ret_tcl = Tcl_VarEval(s->interp, "cad_radio", " .bot_mode_radio ",
 			    bu_vls_addr(dm_get_pathname(DMP)), " _bot_mode_result",
 			    " \"BOT Mode\"", "  \"Select the desired mode\"", mode,
@@ -2725,7 +2727,7 @@ sedit(struct mged_state *s)
 
 		RT_BOT_CK_MAGIC(bot);
 		sprintf(orient, " %d", bot->orientation - 1);
-		if (dm_get_pathname(DMP)) {
+		if (DMP && dm_get_pathname(DMP)) {
 		    ret_tcl = Tcl_VarEval(s->interp, "cad_radio", " .bot_orient_radio ",
 			    bu_vls_addr(dm_get_pathname(DMP)), " _bot_orient_result",
 			    " \"BOT Face Orientation\"", "  \"Select the desired orientation\"", orient,
@@ -2818,7 +2820,7 @@ sedit(struct mged_state *s)
 		    cur_settings[5] = '1';
 		}
 
-		if (dm_get_pathname(DMP)) {
+		if (DMP && dm_get_pathname(DMP)) {
 		    ret_tcl = Tcl_VarEval(s->interp,
 			    "cad_list_buts",
 			    " .bot_list_flags ",
@@ -2903,7 +2905,7 @@ sedit(struct mged_state *s)
 		else
 		    sprintf(fmode, " %d", BU_BITTEST(bot->face_mode, 0)?1:0);
 
-		if (dm_get_pathname(DMP)) {
+		if (DMP && dm_get_pathname(DMP)) {
 		    ret_tcl = Tcl_VarEval(s->interp, "cad_radio", " .bot_fmode_radio ", bu_vls_addr(dm_get_pathname(DMP)),
 			    " _bot_fmode_result ", "\"BOT Face Mode\"",
 			    " \"Select the desired face mode\"", fmode,

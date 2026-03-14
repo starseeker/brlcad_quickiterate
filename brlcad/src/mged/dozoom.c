@@ -148,6 +148,8 @@ dozoom(struct mged_state *s, int which_eye)
 	/* The vectorThreshold stuff in libdm may turn the Tcl-crank causing s->mged_curr_dm to change. */
 	if (s->mged_curr_dm != save_dm_list) set_curr_dm(s, save_dm_list);
 
+	/* Step 5.15: accumulate drawn count via struct field directly to avoid
+	 * conflict with the local "ndrawn" variable (the macro would shadow it). */
 	s->mged_curr_dm->dm_ndrawn += ndrawn;
 
 	/* disable write to depth buffer */
@@ -179,7 +181,8 @@ dozoom(struct mged_state *s, int which_eye)
 		       color_scheme->cs_predictor[0],
 		       color_scheme->cs_predictor[1],
 		       color_scheme->cs_predictor[2], 1, 1.0);
-	dm_draw_vlist(DMP, (struct bsg_vlist *)&s->mged_curr_dm->dm_p_vlist);
+	/* Step 5.15: pv_head macro returns pointer to active pane's vlist head. */
+	dm_draw_vlist(DMP, (struct bsg_vlist *)pv_head);
     }
 
     /*
@@ -207,6 +210,7 @@ dozoom(struct mged_state *s, int which_eye)
 	    r, g, b, mged_variables->mv_linewidth, mged_variables->mv_dlist, 1,
 	    geometry_default_color, 0, mged_variables->mv_dlist);
 
+    /* Step 5.15: accumulate via struct field directly (avoid macro/local conflict). */
     s->mged_curr_dm->dm_ndrawn += ndrawn;
 
     /* The vectorThreshold stuff in libdm may turn the Tcl-crank causing s->mged_curr_dm to change. */
@@ -233,6 +237,9 @@ createDListSolid(void *vlist_ctx, bsg_shape *sp)
 
     for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
 	struct mged_dm *dlp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
+	/* Stage 7 (step 5.14): skip entries with no dm (initial "nu" state). */
+	if (!dlp->dm_dmp)
+	    continue;
 	if (dlp->dm_mapped &&
 		dm_get_displaylist(dlp->dm_dmp) &&
 		dlp->dm_mged_variables->mv_dlist) {
@@ -296,6 +303,9 @@ freeDListsAll(void *data, unsigned int dlist, int range)
     MGED_CK_STATE(s);
     for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
 	struct mged_dm *dlp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
+	/* Stage 7 (step 5.14): skip entries with no dm (initial "nu" state). */
+	if (!dlp->dm_dmp)
+	    continue;
 	if (dm_get_displaylist(dlp->dm_dmp) &&
 	    dlp->dm_mged_variables->mv_dlist) {
 	    (void)dm_make_current(DMP);

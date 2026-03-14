@@ -488,6 +488,7 @@ extern void draw_grid(struct mged_state *s);
 /* predictor.c */
 extern void predictor_frame(struct mged_state *s);
 extern void predictor_init(struct mged_state *s);
+extern void predictor_init_pane(struct mged_pane *mp); /* Step 5.15 */
 
 /* usepen.c */
 void wrt_view(struct mged_state *s, mat_t out, const mat_t change, const mat_t in);

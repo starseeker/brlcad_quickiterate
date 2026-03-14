@@ -164,10 +164,6 @@ mged_pane_find_by_name(const char *name)
  * Call this when the corresponding obol_view Tk widget is destroyed.
  * The bsg_view (mp->mp_gvp) is owned by ged_free_views and must be freed
  * separately through the GED view-teardown path.
- *
- * The predictor vlist (mp_p_vlist) will be freed here once the overlay
- * migration is complete.  For now it is always empty when this is called
- * (no overlay vlists are added to Obol panes yet).
  */
 void
 mged_pane_release(struct mged_pane *mp)
@@ -175,9 +171,9 @@ mged_pane_release(struct mged_pane *mp)
     if (!mp)
 	return;
     bu_ptbl_rm(&active_pane_set, (long *)mp);
-    /* mp_p_vlist: currently always empty for Obol panes.  When overlay
-     * migration is complete, call BSG_FREE_VLIST(vlfree, &mp->mp_p_vlist)
-     * with the appropriate vlfree pool before freeing the pane. */
+    /* Step 5.15: free the predictor vlist.  The vlist entries are rt_vlfree
+     * entries (same pool used by mged); BSG_FREE_VLIST uses rt_vlfree. */
+    BSG_FREE_VLIST(&rt_vlfree, &mp->mp_p_vlist);
     mged_pane_free_resources(mp);
     BU_PUT(mp, struct mged_pane);
 }
@@ -266,6 +262,11 @@ mged_pane_init_resources(struct mged_state *s, struct mged_pane *mp)
     bu_vls_init(&mp->mp_center_name);
     bu_vls_init(&mp->mp_size_name);
     bu_vls_init(&mp->mp_adc_name);
+
+    /* Predictor vlist and trails (Step 5.15). */
+    BU_LIST_INIT(&mp->mp_p_vlist);
+    predictor_init_pane(mp);
+    mp->mp_ndrawn = 0;
 }
 
 /*
@@ -458,8 +459,11 @@ release(struct mged_state *s, char *name, int need_close)
 	    Tcl_AppendResult(s->interp, "release: ", name, " not found\n", (char *)NULL);
 	    return TCL_ERROR;
 	}
-    } else if (DMP && BU_STR_EQUAL("nu", bu_vls_cstr(dm_get_pathname(DMP))))
-	return TCL_OK;  /* Ignore */
+    } else if (!DMP)
+	/* Stage 7 (step 5.14): DMP is NULL for the initial "nu" mged_dm
+	 * (mged_dm_init_state).  Previously checked dm_get_pathname(DMP)=="nu";
+	 * now simply treat a NULL DMP as the headless sentinel and skip release. */
+	return TCL_OK;  /* Ignore: headless/null dm — nothing to release */
 
     if (fbp) {
 	if (mged_variables->mv_listen) {
@@ -683,8 +687,6 @@ gui_setup(struct mged_state *s, const char *dstr)
 int
 mged_attach(struct mged_state *s, const char *wp_name, int argc, const char *argv[])
 {
-    int opt_argc;
-    char **opt_argv;
     struct mged_dm *o_dm;
 
     if (!wp_name) {
@@ -700,36 +702,32 @@ mged_attach(struct mged_state *s, const char *wp_name, int argc, const char *arg
 
     /* Only need to do this once */
     if (tkwin == NULL && BU_STR_EQUIV(dm_graphics_system(wp_name), "Tk")) {
-	struct dm *tmp_dmp;
-	struct bu_vls tmp_vls = BU_VLS_INIT_ZERO;
+	/* Stage 7 (step 5.14): Parse the optional "-d display_string" from argv
+	 * without opening a temporary "nu" dm.  Previously dm_open("nu") was
+	 * used as a throwaway option-parser; we now scan argv directly.
+	 * This removes the second dm_open("nu") call from the attach path. */
+	const char *dname = NULL;
+	for (int i = 1; i < argc - 1; i++) {
+	    /* argv[argc-1] is the dm type (wp_name); the value for -d must
+	     * appear before it, so i+1 < argc-1 ensures we never read the dm
+	     * type name as the display string value. */
+	    if (BU_STR_EQUAL(argv[i], "-d") && i + 1 < argc - 1) {
+		dname = argv[i + 1];
+		break;
+	    }
+	}
 
-	/* look for "-d display_string" and use it if provided */
-	tmp_dmp = dm_open(NULL, s->interp, "nu", 0, NULL);
-
-	opt_argc = argc - 1;
-	opt_argv = bu_argv_dup(opt_argc, argv + 1);
-	dm_processOptions(tmp_dmp, &tmp_vls, opt_argc, (const char **)opt_argv);
-	bu_argv_free(opt_argc, opt_argv);
-
-	struct bu_vls *dname = dm_get_dname(tmp_dmp);
-	if (dname && bu_vls_strlen(dname)) {
-	    if (gui_setup(s, bu_vls_cstr(dname)) == TCL_ERROR) {
+	if (dname && strlen(dname) > 0) {
+	    if (gui_setup(s, dname) == TCL_ERROR) {
 		bu_free((void *)s->mged_curr_dm, "f_attach: dm_list");
 		set_curr_dm(s, o_dm);
-		bu_vls_free(&tmp_vls);
-		dm_close(tmp_dmp);
 		return TCL_ERROR;
 	    }
 	} else if (gui_setup(s, (char *)NULL) == TCL_ERROR) {
 	    bu_free((void *)s->mged_curr_dm, "f_attach: dm_list");
 	    set_curr_dm(s, o_dm);
-	    bu_vls_free(&tmp_vls);
-	    dm_close(tmp_dmp);
 	    return TCL_ERROR;
 	}
-
-	bu_vls_free(&tmp_vls);
-	dm_close(tmp_dmp);
     }
 
     bu_ptbl_ins(&active_dm_set, (long *)s->mged_curr_dm);
@@ -900,6 +898,9 @@ f_dm(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *argv[
 	return TCL_OK;
     }
 
+    /* Stage 7 (step 5.14): DMP is NULL when no display manager has been
+     * attached yet (the initial "nu" mged_dm has dm_dmp==NULL).  Return
+     * sensible errors for the informational subcommands. */
     if (BU_STR_EQUAL(argv[1], "type")) {
 	if (argc != 2) {
 	    bu_vls_printf(&vls, "help dm");
@@ -907,8 +908,18 @@ f_dm(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *argv[
 	    bu_vls_free(&vls);
 	    return TCL_ERROR;
 	}
+	if (!DMP) {
+	    Tcl_AppendResult(interpreter, "nu", (char *)NULL);
+	    return TCL_OK;
+	}
 	Tcl_AppendResult(interpreter, dm_get_type(DMP), (char *)NULL);
 	return TCL_OK;
+    }
+
+    if (!DMP) {
+	Tcl_AppendResult(interpreter,
+		"dm: no display manager attached\n", (char *)NULL);
+	return TCL_ERROR;
     }
 
     if (!cmd_hook) {
@@ -1016,6 +1027,11 @@ dm_var_init(struct mged_state *s, struct mged_dm *target_dm)
 void
 mged_link_vars(struct mged_dm *p)
 {
+    /* Stage 7 (step 5.14): dm_dmp may be NULL for the initial "nu" mged_dm
+     * (mged_dm_init_state).  Skip link_vars when there is no dm pathname to
+     * use as the Tcl variable name prefix. */
+    if (!p->dm_dmp)
+	return;
     mged_slider_init_vls(p);
     struct bu_vls *pn = dm_get_pathname(p->dm_dmp);
     if (pn) {
@@ -1066,6 +1082,9 @@ f_get_dm_list(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, 
 
     for (size_t i = 0; i < BU_PTBL_LEN(&active_dm_set); i++) {
 	struct mged_dm *dlp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, i);
+	/* Stage 7 (step 5.14): dm_dmp is NULL for the initial "nu" mged_dm. */
+	if (!dlp->dm_dmp)
+	    continue;
 	struct bu_vls *pn = dm_get_pathname(dlp->dm_dmp);
 	if (pn && bu_vls_strlen(pn))
 	    Tcl_AppendElement(interpreter, bu_vls_cstr(pn));

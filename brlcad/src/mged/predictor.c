@@ -122,14 +122,29 @@ predictor_init(struct mged_state *s)
     int i;
 
     for (i = 0; i < NUM_TRAILS; ++i)
-	init_trail(&s->mged_curr_dm->dm_trails[i]);
+	init_trail(&pane_trails[i]);
+}
+
+
+/* Step 5.15: initialize predictor trails for an Obol mged_pane.
+ * Called from mged_pane_init_resources() (attach.c) when a new Obol pane
+ * is registered.  Initializes the eight trail-history arrays embedded in
+ * mp->mp_trails so predictor_frame() can safely push trail points from
+ * the first frame onward.  The companion mp_p_vlist is initialized via
+ * BU_LIST_INIT in mged_pane_init_resources() and freed in mged_pane_release().
+ */
+void
+predictor_init_pane(struct mged_pane *mp)
+{
+    for (int i = 0; i < NUM_TRAILS; ++i)
+	init_trail(&mp->mp_trails[i]);
 }
 
 
 void
 predictor_kill(struct mged_state *s)
 {
-    BSG_FREE_VLIST(s->vlfree, &s->mged_curr_dm->dm_p_vlist);
+    BSG_FREE_VLIST(s->vlfree, pv_head);
     predictor_init(s);
 }
 
@@ -185,7 +200,7 @@ predictor_frame(struct mged_state *s)
 	return;
     }
 
-    BSG_FREE_VLIST(s->vlfree, &s->mged_curr_dm->dm_p_vlist);
+    BSG_FREE_VLIST(s->vlfree, pv_head);
 
     /* Advance into the future */
     nframes = (int)(mged_variables->mv_predictor_advance / frametime);
@@ -212,8 +227,8 @@ predictor_frame(struct mged_state *s)
     /* Centering dot */
     VSETALL(delta_v, 0.0);
     TF_VL(m, delta_v);
-    BSG_ADD_VLIST(s->vlfree, &s->mged_curr_dm->dm_p_vlist, m, BSG_VLIST_LINE_MOVE);
-    BSG_ADD_VLIST(s->vlfree, &s->mged_curr_dm->dm_p_vlist, m, BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(s->vlfree, pv_head, m, BSG_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(s->vlfree, pv_head, m, BSG_VLIST_LINE_DRAW);
 
     /* The exterior rectangle */
     VSET(delta_v, -TF_X, -TF_Y, 0.0);
@@ -259,53 +274,53 @@ predictor_frame(struct mged_state *s)
     VCROSS(norm, right, up);
     VUNITIZE(norm);
 
-    BSG_ADD_VLIST(s->vlfree, &s->mged_curr_dm->dm_p_vlist, norm, BSG_VLIST_POLY_START);
-    BSG_ADD_VLIST(s->vlfree, &s->mged_curr_dm->dm_p_vlist, mA, BSG_VLIST_POLY_MOVE);
-    BSG_ADD_VLIST(s->vlfree, &s->mged_curr_dm->dm_p_vlist, mB, BSG_VLIST_POLY_DRAW);
-    BSG_ADD_VLIST(s->vlfree, &s->mged_curr_dm->dm_p_vlist, mF, BSG_VLIST_POLY_DRAW);
-    BSG_ADD_VLIST(s->vlfree, &s->mged_curr_dm->dm_p_vlist, mE, BSG_VLIST_POLY_DRAW);
-    BSG_ADD_VLIST(s->vlfree, &s->mged_curr_dm->dm_p_vlist, mA, BSG_VLIST_POLY_END);
+    BSG_ADD_VLIST(s->vlfree, pv_head, norm, BSG_VLIST_POLY_START);
+    BSG_ADD_VLIST(s->vlfree, pv_head, mA, BSG_VLIST_POLY_MOVE);
+    BSG_ADD_VLIST(s->vlfree, pv_head, mB, BSG_VLIST_POLY_DRAW);
+    BSG_ADD_VLIST(s->vlfree, pv_head, mF, BSG_VLIST_POLY_DRAW);
+    BSG_ADD_VLIST(s->vlfree, pv_head, mE, BSG_VLIST_POLY_DRAW);
+    BSG_ADD_VLIST(s->vlfree, pv_head, mA, BSG_VLIST_POLY_END);
 
-    BSG_ADD_VLIST(s->vlfree, &s->mged_curr_dm->dm_p_vlist, norm, BSG_VLIST_POLY_START);
-    BSG_ADD_VLIST(s->vlfree, &s->mged_curr_dm->dm_p_vlist, mE, BSG_VLIST_POLY_MOVE);
-    BSG_ADD_VLIST(s->vlfree, &s->mged_curr_dm->dm_p_vlist, mI, BSG_VLIST_POLY_DRAW);
-    BSG_ADD_VLIST(s->vlfree, &s->mged_curr_dm->dm_p_vlist, mL, BSG_VLIST_POLY_DRAW);
-    BSG_ADD_VLIST(s->vlfree, &s->mged_curr_dm->dm_p_vlist, mH, BSG_VLIST_POLY_DRAW);
-    BSG_ADD_VLIST(s->vlfree, &s->mged_curr_dm->dm_p_vlist, mE, BSG_VLIST_POLY_END);
+    BSG_ADD_VLIST(s->vlfree, pv_head, norm, BSG_VLIST_POLY_START);
+    BSG_ADD_VLIST(s->vlfree, pv_head, mE, BSG_VLIST_POLY_MOVE);
+    BSG_ADD_VLIST(s->vlfree, pv_head, mI, BSG_VLIST_POLY_DRAW);
+    BSG_ADD_VLIST(s->vlfree, pv_head, mL, BSG_VLIST_POLY_DRAW);
+    BSG_ADD_VLIST(s->vlfree, pv_head, mH, BSG_VLIST_POLY_DRAW);
+    BSG_ADD_VLIST(s->vlfree, pv_head, mE, BSG_VLIST_POLY_END);
 
-    BSG_ADD_VLIST(s->vlfree, &s->mged_curr_dm->dm_p_vlist, norm, BSG_VLIST_POLY_START);
-    BSG_ADD_VLIST(s->vlfree, &s->mged_curr_dm->dm_p_vlist, mH, BSG_VLIST_POLY_MOVE);
-    BSG_ADD_VLIST(s->vlfree, &s->mged_curr_dm->dm_p_vlist, mG, BSG_VLIST_POLY_DRAW);
-    BSG_ADD_VLIST(s->vlfree, &s->mged_curr_dm->dm_p_vlist, mC, BSG_VLIST_POLY_DRAW);
-    BSG_ADD_VLIST(s->vlfree, &s->mged_curr_dm->dm_p_vlist, mD, BSG_VLIST_POLY_DRAW);
-    BSG_ADD_VLIST(s->vlfree, &s->mged_curr_dm->dm_p_vlist, mH, BSG_VLIST_POLY_END);
+    BSG_ADD_VLIST(s->vlfree, pv_head, norm, BSG_VLIST_POLY_START);
+    BSG_ADD_VLIST(s->vlfree, pv_head, mH, BSG_VLIST_POLY_MOVE);
+    BSG_ADD_VLIST(s->vlfree, pv_head, mG, BSG_VLIST_POLY_DRAW);
+    BSG_ADD_VLIST(s->vlfree, pv_head, mC, BSG_VLIST_POLY_DRAW);
+    BSG_ADD_VLIST(s->vlfree, pv_head, mD, BSG_VLIST_POLY_DRAW);
+    BSG_ADD_VLIST(s->vlfree, pv_head, mH, BSG_VLIST_POLY_END);
 
-    BSG_ADD_VLIST(s->vlfree, &s->mged_curr_dm->dm_p_vlist, norm, BSG_VLIST_POLY_START);
-    BSG_ADD_VLIST(s->vlfree, &s->mged_curr_dm->dm_p_vlist, mJ, BSG_VLIST_POLY_MOVE);
-    BSG_ADD_VLIST(s->vlfree, &s->mged_curr_dm->dm_p_vlist, mF, BSG_VLIST_POLY_DRAW);
-    BSG_ADD_VLIST(s->vlfree, &s->mged_curr_dm->dm_p_vlist, mG, BSG_VLIST_POLY_DRAW);
-    BSG_ADD_VLIST(s->vlfree, &s->mged_curr_dm->dm_p_vlist, mK, BSG_VLIST_POLY_DRAW);
-    BSG_ADD_VLIST(s->vlfree, &s->mged_curr_dm->dm_p_vlist, mJ, BSG_VLIST_POLY_END);
+    BSG_ADD_VLIST(s->vlfree, pv_head, norm, BSG_VLIST_POLY_START);
+    BSG_ADD_VLIST(s->vlfree, pv_head, mJ, BSG_VLIST_POLY_MOVE);
+    BSG_ADD_VLIST(s->vlfree, pv_head, mF, BSG_VLIST_POLY_DRAW);
+    BSG_ADD_VLIST(s->vlfree, pv_head, mG, BSG_VLIST_POLY_DRAW);
+    BSG_ADD_VLIST(s->vlfree, pv_head, mK, BSG_VLIST_POLY_DRAW);
+    BSG_ADD_VLIST(s->vlfree, pv_head, mJ, BSG_VLIST_POLY_END);
 
-    push_trail(&s->mged_curr_dm->dm_trails[0], mA);
-    push_trail(&s->mged_curr_dm->dm_trails[1], mB);
-    push_trail(&s->mged_curr_dm->dm_trails[2], mC);
-    push_trail(&s->mged_curr_dm->dm_trails[3], mD);
+    push_trail(&pane_trails[0], mA);
+    push_trail(&pane_trails[1], mB);
+    push_trail(&pane_trails[2], mC);
+    push_trail(&pane_trails[3], mD);
 
-    push_trail(&s->mged_curr_dm->dm_trails[4], mE);
-    push_trail(&s->mged_curr_dm->dm_trails[5], mF);
-    push_trail(&s->mged_curr_dm->dm_trails[6], mG);
-    push_trail(&s->mged_curr_dm->dm_trails[7], mH);
+    push_trail(&pane_trails[4], mE);
+    push_trail(&pane_trails[5], mF);
+    push_trail(&pane_trails[6], mG);
+    push_trail(&pane_trails[7], mH);
 
     /* Draw the trails */
-    poly_trail(s, &trail, &s->mged_curr_dm->dm_trails[0], &s->mged_curr_dm->dm_trails[4]);
-    BU_LIST_APPEND_LIST(&s->mged_curr_dm->dm_p_vlist, &trail);
-    poly_trail(s, &trail, &s->mged_curr_dm->dm_trails[1], &s->mged_curr_dm->dm_trails[5]);
-    BU_LIST_APPEND_LIST(&s->mged_curr_dm->dm_p_vlist, &trail);
-    poly_trail(s, &trail, &s->mged_curr_dm->dm_trails[6], &s->mged_curr_dm->dm_trails[2]);
-    BU_LIST_APPEND_LIST(&s->mged_curr_dm->dm_p_vlist, &trail);
-    poly_trail(s, &trail, &s->mged_curr_dm->dm_trails[7], &s->mged_curr_dm->dm_trails[3]);
-    BU_LIST_APPEND_LIST(&s->mged_curr_dm->dm_p_vlist, &trail);
+    poly_trail(s, &trail, &pane_trails[0], &pane_trails[4]);
+    BU_LIST_APPEND_LIST(pv_head, &trail);
+    poly_trail(s, &trail, &pane_trails[1], &pane_trails[5]);
+    BU_LIST_APPEND_LIST(pv_head, &trail);
+    poly_trail(s, &trail, &pane_trails[6], &pane_trails[2]);
+    BU_LIST_APPEND_LIST(pv_head, &trail);
+    poly_trail(s, &trail, &pane_trails[7], &pane_trails[3]);
+    BU_LIST_APPEND_LIST(pv_head, &trail);
 
     /* Done */
     MAT_IDN(view_state->vs_ModelDelta);
