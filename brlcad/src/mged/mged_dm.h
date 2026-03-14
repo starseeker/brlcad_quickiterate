@@ -456,9 +456,21 @@ struct mged_pane {
     bsg_view          *mp_gvp;       /* the view this pane displays (dmp == NULL for Obol) */
     struct cmd_list   *mp_cmd_tie;   /* Tcl command-history link (mirrors dm_tie) */
     struct bu_list     mp_p_vlist;   /* predictor vlist */
-    /* Remaining per-pane overlay state will be added here as each overlay
-     * is migrated away from libdm.  Until then, the corresponding fields on
-     * the legacy mged_dm struct continue to be used. */
+
+    /* Per-pane state (mirrors the shareable resources in mged_dm).  These
+     * are allocated and initialized by mged_pane_init_resources() in
+     * attach.c when f_new_obol_view_ptr creates the pane, and freed by
+     * mged_pane_free_resources() (called from mged_pane_release()).  They
+     * replace the mged_curr_dm->dm_* equivalents for Obol panes. */
+    struct _view_state      *mp_view_state;
+    struct _adc_state       *mp_adc_state;
+    struct _menu_state      *mp_menu_state;
+    struct _rubber_band     *mp_rubber_band;
+    struct _mged_variables  *mp_mged_variables;
+    struct _color_scheme    *mp_color_scheme;
+    struct bsg_grid_state   *mp_grid_state;
+    struct _axes_state      *mp_axes_state;
+    struct _dlist_state     *mp_dlist_state;
 };
 
 #define MGED_PANE_NULL ((struct mged_pane *)NULL)
@@ -479,6 +491,21 @@ extern struct mged_pane *mged_pane_find_by_name(const char *name);
  * (it is tracked in ged_free_views).
  */
 extern void mged_pane_release(struct mged_pane *mp);
+
+/**
+ * Allocate and initialize the per-pane overlay state (mp_view_state,
+ * mp_color_scheme, etc.) for an Obol mged_pane.  Copies initial values
+ * from mged_dm_init_state so the new pane starts with the same defaults
+ * as a legacy dm pane.  Must be called after mged_dm_init_state has been
+ * populated (i.e. after the nu-dm is set up in mged main()).
+ */
+extern void mged_pane_init_resources(struct mged_state *s, struct mged_pane *mp);
+
+/**
+ * Free the per-pane overlay state allocated by mged_pane_init_resources().
+ * Safe to call even if init_resources was never called (all pointers are NULL).
+ */
+extern void mged_pane_free_resources(struct mged_pane *mp);
 #define DMP s->mged_curr_dm->dm_dmp
 #define DMP_dirty s->mged_curr_dm->dm_dirty
 #define fbp s->mged_curr_dm->dm_fbp

@@ -729,6 +729,19 @@ from `mp_gvp` (no DMP indirection).
    in `ged_cmds.h`.  `test_dbi_cpp.cpp` updated to use `wait_for_pipeline()` instead
    of hand-rolled poll loops.
 
+5.9 **✅ Add per-pane state to `mged_pane` (Step 6 prep)** —
+   `struct mged_pane` now includes the same "shareable resource" pointer fields
+   that `mged_dm` carries (`mp_view_state`, `mp_color_scheme`, `mp_axes_state`, …).
+   Two new functions in `attach.c`:
+   - `mged_pane_init_resources(s, mp)` — allocates and copies initial state from
+     `mged_dm_init_state` (mirrors what `dm_var_init()` does for legacy dm panes).
+   - `mged_pane_free_resources(mp)` — frees the per-pane state on teardown.
+   `f_new_obol_view_ptr()` now calls `mged_pane_init_resources()` immediately
+   after allocating the pane.  `mged_pane_release()` calls `mged_pane_free_resources()`
+   before freeing the pane struct.  The global macros (`view_state`, `color_scheme`,
+   etc.) still expand to `s->mged_curr_dm->dm_*`; the next step (Step 6) will change
+   them to prefer `s->mged_curr_pane->mp_*` when non-null.
+
 6. **Remove `mged_dm` and `active_dm_set`** — Once all panes use `mged_pane` and
    no remaining mged code references `DMP` unconditionally, delete `struct mged_dm`,
    `active_dm_set`, the `DMP`/`fbp`/`clients` macros, and everything in
