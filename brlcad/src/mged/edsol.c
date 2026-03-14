@@ -114,7 +114,7 @@ set_e_axes_pos(struct mged_state *s, int both)
     const int local_arb_faces[5][24] = rt_arb_faces;
 
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
+    if (DMP) dm_set_dirty(DMP, 1);
     switch (MEDIT(s)->es_int.idb_type) {
 	case ID_ARB8:
 	    if (s->global_editing_state == ST_O_EDIT) {
@@ -5147,7 +5147,7 @@ sedit(struct mged_state *s)
     replot_editing_solid(s);
 
     if (s->update_views) {
-	dm_set_dirty(DMP, 1);
+	if (DMP) dm_set_dirty(DMP, 1);
 	struct bu_vls vls = BU_VLS_INIT_ZERO;
 
 	bu_vls_printf(&vls, "active_edit_callback");
@@ -7681,7 +7681,7 @@ f_sedit_reset(ClientData clientData, Tcl_Interp *interp, int argc, const char *U
 
     set_e_axes_pos(s, 1);
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
+    if (DMP) dm_set_dirty(DMP, 1);
 
     /* active edit callback */
     bu_vls_printf(&vls, "active_edit_callback");
@@ -7746,7 +7746,7 @@ f_oedit_reset(ClientData clientData, Tcl_Interp *interp, int argc, const char *U
 
     new_edit_mats(s);
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
+    if (DMP) dm_set_dirty(DMP, 1);
 
     /* active edit callback */
     bu_vls_printf(&vls, "active_edit_callback");
@@ -7785,7 +7785,7 @@ f_oedit_apply(ClientData clientData, Tcl_Interp *interp, int UNUSED(argc), const
     init_oedit_vars(s);
     new_edit_mats(s);
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
+    if (DMP) dm_set_dirty(DMP, 1);
 
     /* active edit callback */
     bu_vls_printf(&vls, "active_edit_callback");

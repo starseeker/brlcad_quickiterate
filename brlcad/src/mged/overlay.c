@@ -62,7 +62,7 @@ cmd_overlay(ClientData clientData, Tcl_Interp *interp, int argc, const char *arg
 	return TCL_ERROR;
 
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
+    if (DMP) dm_set_dirty(DMP, 1);
 
     return ret;
 }

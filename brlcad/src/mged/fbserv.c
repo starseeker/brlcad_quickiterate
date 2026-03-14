@@ -153,7 +153,7 @@ found:
 
 	if (npp > 0) {
 	    DMP_dirty = 1;
-	    dm_set_dirty(DMP, 1);
+	    if (DMP) dm_set_dirty(DMP, 1);
 	}
 
 	if (clients[i].c_fd != fd)
@@ -171,7 +171,7 @@ found:
 
 	if (npp > 0) {
 	    DMP_dirty = 1;
-	    dm_set_dirty(DMP, 1);
+	    if (DMP) dm_set_dirty(DMP, 1);
 	}
     }
 

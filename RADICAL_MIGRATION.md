@@ -539,6 +539,19 @@ remove the old infrastructure.
   `active_pane_set` first (Obol panes, matched by `gv_name`), then falls back to
   `active_dm_set` for legacy dm panes.  The old Tcl-variable bridge
   (`::obol_pane_gvp`) has been removed from both `f_winset` and `mview.tcl`.
+- **Step 1 (DMP null guards)**: All MGED overlay drawing functions (`adcursor`,
+  `draw_e_axes`, `draw_m_axes`, `draw_v_axes`, `draw_rect`, `draw_grid`,
+  `dotitles`, `predictor_frame`, `dozoom`, `scroll_display`, `mmenu_display`,
+  `mged_highlight_menu_item`) now return immediately when `DMP` is NULL.  All
+  standalone `dm_set_dirty(DMP, 1)`, `dm_set_debug(DMP, ...)`, and
+  `dm_set_perspective(DMP, ...)` calls are wrapped with `if (DMP)`.  All
+  loop-based `dm_set_dirty(m_dmp->dm_dmp, 1)` patterns are guarded with
+  `if (m_dmp->dm_dmp)`.  `doevent.c` returns early (skipping X11 event
+  dispatch) when `DMP` is NULL.  Files modified: `adc.c`, `axes.c`,
+  `buttons.c`, `chgmodel.c`, `chgview.c`, `color_scheme.c`, `doevent.c`,
+  `dozoom.c`, `edarb.c`, `edsol.c`, `fbserv.c`, `grid.c`, `mater.c`,
+  `menu.c`, `mged.c`, `overlay.c`, `predictor.c`, `rect.c`, `scroll.c`,
+  `set.c`, `share.c`, `titles.c`, `usepen.c`.
 
 ### libdm removal (remaining work)
 
@@ -609,11 +622,18 @@ from `mp_gvp` (no DMP indirection).
 
 **Migration steps (incremental, preserving backward compatibility):**
 
-1. **Guard all `DMP` uses** — Before each `DMP`-using call, add `if (!DMP)` guards
-   analogous to those already in `go_refresh()` and `go_draw_solid()`.  This allows
-   Obol panes created with `f_new_obol_view_ptr` to coexist with legacy dm panes in
-   the same mged session without crashing.  (`DMP` is NULL for Obol panes because
-   `f_new_obol_view_ptr` sets `gvp->dmp = NULL`.)
+1. **✅ Guard all `DMP` uses** — Added `if (!DMP) return;` guards to all MGED
+   overlay drawing functions (`adcursor`, `draw_e_axes`, `draw_m_axes`,
+   `draw_v_axes`, `draw_rect`, `draw_grid`, `dotitles`, `predictor_frame`,
+   `dozoom`, `scroll_display`, `mmenu_display`, `mged_highlight_menu_item`).
+   Added `if (DMP)` wrappers around all standalone `dm_set_dirty(DMP, 1)`,
+   `dm_set_debug(DMP, ...)`, and `dm_set_perspective(DMP, ...)` calls in
+   `buttons.c`, `chgmodel.c`, `chgview.c`, `mater.c`, `edarb.c`, `overlay.c`,
+   `usepen.c`, `edsol.c`, `fbserv.c`, and `set.c`.  Added `if (m_dmp->dm_dmp)`
+   guards to all loop-based `dm_set_dirty` patterns in `adc.c`, `axes.c`,
+   `color_scheme.c`, `grid.c`, `menu.c`, `mged.c`, `rect.c`, `set.c`,
+   and `share.c`.  Added a `if (!DMP)` early-return in `doevent.c` so that
+   X11 events are not dispatched through a null DMP.
 
 2. **✅ Add `mged_pane` alongside `mged_dm`** — `struct mged_pane` added to
    `mged_dm.h`; `active_pane_set` (a `bu_ptbl`) added in `attach.c`;

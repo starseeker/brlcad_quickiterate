@@ -77,7 +77,7 @@ rb_set_dirty_flag(const struct bu_structparse *UNUSED(sdp),
 	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
 	if (m_dmp->dm_rubber_band == rubber_band) {
 	    m_dmp->dm_dirty = 1;
-	    dm_set_dirty(m_dmp->dm_dmp, 1);
+	    if (m_dmp->dm_dmp) dm_set_dirty(m_dmp->dm_dmp, 1);
 	}
     }
 }
@@ -163,6 +163,9 @@ adjust_rect_for_zoom(struct mged_state *s)
 void
 draw_rect(struct mged_state *s)
 {
+    /* Stage 7 guard: skip libdm overlay drawing for Obol panes */
+    if (!DMP) return;
+
     int line_style;
 
     if (ZERO(rubber_band->rb_width) &&

@@ -345,7 +345,7 @@ mged_view_callback(bsg_view *gvp,
 	bn_mat_inv(vsp->vs_objview2model, vsp->vs_model2objview);
     }
     vsp->vs_flag = 1;
-    dm_set_dirty(s->mged_curr_dm->dm_dmp, 1);
+    if (s->mged_curr_dm->dm_dmp) dm_set_dirty(s->mged_curr_dm->dm_dmp, 1);
 }
 
 

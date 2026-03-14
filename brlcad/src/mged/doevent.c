@@ -87,6 +87,13 @@ doEvent(ClientData clientData, XEvent *eventPtr)
 	return TCL_OK;
     }
 
+    /* Stage 7 guard: Obol panes have dm_dmp==NULL and are handled by
+     * obol_view Tk widgets, not by the libdm X11 event dispatch. */
+    if (!DMP) {
+	set_curr_dm(s, save_dm_list);
+	return TCL_OK;
+    }
+
     /* calling the display manager specific event handler */
     status = dm_doevent(DMP, clientData, eventPtr);
     DMP_dirty = dm_get_dirty(DMP);

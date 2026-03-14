@@ -132,7 +132,7 @@ f_extrude(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[
     /* draw the updated solid */
     replot_editing_solid(s);
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
+    if (DMP) dm_set_dirty(DMP, 1);
 
     return TCL_OK;
 }

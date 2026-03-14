@@ -82,7 +82,7 @@ adc_set_dirty_flag(struct mged_state *s)
 	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, i);
 	if (m_dmp->dm_adc_state == adc_state) {
 	    m_dmp->dm_dirty = 1;
-	    dm_set_dirty(m_dmp->dm_dmp, 1);
+	    if (m_dmp->dm_dmp) dm_set_dirty(m_dmp->dm_dmp, 1);
 	}
     }
 }
@@ -99,7 +99,7 @@ adc_set_scroll(struct mged_state *s)
 	    set_curr_dm(s, m_dmp);
 	    set_scroll(s);
 	    DMP_dirty = 1;
-	    dm_set_dirty(DMP, 1);
+	    if (DMP) dm_set_dirty(DMP, 1);
 	}
     }
 
@@ -303,6 +303,9 @@ draw_ticks(struct mged_state *s, fastf_t angle)
 void
 adcursor(struct mged_state *s)
 {
+    /* Stage 7 guard: skip libdm overlay drawing for Obol panes */
+    if (!DMP) return;
+
     fastf_t x1, Y1;	/* not "y1", due to conflict with math lib */
     fastf_t x2, y2;
     fastf_t x3, y3;

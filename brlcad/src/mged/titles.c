@@ -213,6 +213,9 @@ screen_vls(
 void
 dotitles(struct mged_state *s, struct bu_vls *overlay_vls)
 {
+    /* Stage 7 guard: skip libdm overlay drawing for Obol panes */
+    if (!DMP) return;
+
     size_t i = 0;
 
     /* for menu computations */
