@@ -429,6 +429,55 @@ struct mged_dm {
 extern void set_curr_dm(struct mged_state *s, struct mged_dm *nl);
 
 #define MGED_DM_NULL ((struct mged_dm *)NULL)
+
+/* -----------------------------------------------------------------------
+ * Stage 7 — MGED libdm removal: mged_pane + active_pane_set
+ *
+ * `mged_pane` is the lightweight per-pane struct that replaces `mged_dm`
+ * once libdm is fully removed from MGED.  It carries only the non-dm
+ * per-pane state.  `active_pane_set` (a bu_ptbl of mged_pane*) replaces
+ * `active_dm_set`.  For now both coexist:
+ *
+ *  - Legacy dm panes remain in `active_dm_set` (unchanged).
+ *  - Obol panes created by `f_new_obol_view_ptr` are registered in BOTH
+ *    `active_pane_set` AND `ged_views`, replacing the old `::obol_pane_gvp`
+ *    Tcl-variable bridge.
+ *
+ * `set_curr_pane()` sets `s->gedp->ged_gvp` from `mp->mp_gvp` without
+ * touching `s->mged_curr_dm`, so no DMP null guards are needed at this
+ * stage.  Once all panes are migrated to `mged_pane`, `set_curr_dm` and
+ * the DMP macros can be removed.
+ *
+ * See RADICAL_MIGRATION.md, "MGED refactoring for libdm removal", steps 2-3.
+ * ----------------------------------------------------------------------- */
+
+struct mged_pane {
+    bsg_view          *mp_gvp;       /* the view this pane displays (dmp == NULL for Obol) */
+    struct cmd_list   *mp_cmd_tie;   /* Tcl command-history link (mirrors dm_tie) */
+    struct bu_list     mp_p_vlist;   /* predictor vlist */
+    /* Remaining per-pane overlay state will be added here as each overlay
+     * is migrated away from libdm.  Until then, the corresponding fields on
+     * the legacy mged_dm struct continue to be used. */
+};
+
+#define MGED_PANE_NULL ((struct mged_pane *)NULL)
+
+extern struct bu_ptbl active_pane_set;       /* defined in attach.c */
+extern void set_curr_pane(struct mged_state *s, struct mged_pane *mp);
+
+/**
+ * Find the mged_pane in active_pane_set whose gv_name matches `name`.
+ * Returns MGED_PANE_NULL if not found.
+ */
+extern struct mged_pane *mged_pane_find_by_name(const char *name);
+
+/**
+ * Release an Obol pane: remove it from active_pane_set and free it.
+ * Call this when the corresponding obol_view Tk widget is destroyed.
+ * The caller is responsible for destroying the bsg_view separately
+ * (it is tracked in ged_free_views).
+ */
+extern void mged_pane_release(struct mged_pane *mp);
 #define DMP s->mged_curr_dm->dm_dmp
 #define DMP_dirty s->mged_curr_dm->dm_dirty
 #define fbp s->mged_curr_dm->dm_fbp

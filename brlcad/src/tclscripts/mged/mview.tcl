@@ -61,10 +61,11 @@ proc openmv { id w wc dpy dtype } {
 	    # Create a per-pane bsg_view for independent cameras (Stage 6).
 	    # new_obol_view_ptr is registered when BRLCAD_ENABLE_OBOL is set;
 	    # fall back to the shared gvp_ptr if the command is absent.
+	    # Stage 7: new_obol_view_ptr now registers the pane in active_pane_set
+	    # on the C side, so winset can find it without the ::obol_pane_gvp
+	    # Tcl-variable bridge (that array has been removed).
 	    if {[info commands new_obol_view_ptr] ne ""} {
 		set _gvp [new_obol_view_ptr $w.$pane]
-		# Store the pane→view mapping so that winset can switch ged_gvp.
-		set ::obol_pane_gvp($w.$pane) $_gvp
 	    } else {
 		set _gvp [gvp_ptr]
 	    }

@@ -1636,9 +1636,23 @@ f_winset(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
 
     /* print pathname of drawing window with primary focus */
     if (argc == 1) {
-	/* MIGRATION NOTE: once DMP is always NULL (Obol path), this branch
-	 * should return the gv_name of s->gedp->ged_gvp instead of the dm
-	 * pathname. */
+	/* For Obol panes (tracked in active_pane_set) the pane identity is
+	 * the gv_name which was set to the Tk widget path by new_obol_view_ptr.
+	 * For legacy dm panes, return the dm pathname as before.
+	 * mged_pane_find_by_name() is used for the set-by-name path; here we
+	 * do a reverse lookup to find which active pane holds ged_gvp. */
+	if (s->gedp && s->gedp->ged_gvp) {
+	    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+		struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+		if (mp && mp->mp_gvp == s->gedp->ged_gvp) {
+		    const char *nm = bu_vls_cstr(&mp->mp_gvp->gv_name);
+		    if (nm && nm[0])
+			Tcl_AppendResult(interpreter, nm, (char *)NULL);
+		    return TCL_OK;
+		}
+	    }
+	}
+	/* Legacy dm path: return the dm window pathname. */
 	struct bu_vls *pn = dm_get_pathname(DMP);
 	if (pn && bu_vls_strlen(pn)) {
 	    Tcl_AppendResult(interpreter, bu_vls_cstr(pn), (char *)NULL);
@@ -1646,14 +1660,26 @@ f_winset(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
 	return TCL_OK;
     }
 
-    /* change primary focus to window argv[1] — legacy dm path.
+    /* Stage 7: check active_pane_set first (Obol panes).
      *
-     * MIGRATION NOTE (Stage 7 — MGED libdm removal):
-     * This loop over active_dm_set will be replaced by a loop over
-     * active_pane_set (a bu_ptbl of mged_pane*) once mged_dm is gone.
-     * At that point the lookup key will be mp_gvp->gv_name rather than
-     * dm_get_pathname(dm_dmp).  See RADICAL_MIGRATION.md, "MGED refactoring
-     * for libdm removal", step 3 (Migrate f_winset fully). */
+     * Obol panes created by new_obol_view_ptr are registered in
+     * active_pane_set with mp_gvp->gv_name set to the Tk widget path.
+     * mged_pane_find_by_name() centralises the lookup so this and any
+     * other callers share the same implementation.  See RADICAL_MIGRATION.md,
+     * "MGED refactoring for libdm removal", step 3. */
+    {
+	struct mged_pane *mp = mged_pane_find_by_name(argv[1]);
+	if (mp) {
+	    set_curr_pane(s, mp);
+	    if (mp->mp_cmd_tie)
+		curr_cmd_list = mp->mp_cmd_tie;
+	    else
+		curr_cmd_list = &head_cmd_list;
+	    return TCL_OK;
+	}
+    }
+
+    /* Legacy dm path: loop active_dm_set matching by dm pathname. */
     for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
 	struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
 	struct bu_vls *pn = dm_get_pathname(p->dm_dmp);
@@ -1669,42 +1695,6 @@ f_winset(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
 		s->gedp->ged_gvp = view_state->vs_gvp;
 
 	    return TCL_OK;
-	}
-    }
-
-    /* Obol path (Stage 6): check the per-pane bsg_view map stored by
-     * mview.tcl in the ::obol_pane_gvp Tcl array.  When a pane was created
-     * with new_obol_view_ptr its pointer is recorded as
-     *   ::obol_pane_gvp(<path>) = "<hex_ptr>"
-     * so that winset can make the right bsg_view current for view commands.
-     *
-     * The pointer value is validated against ged_views before use so that a
-     * crafted Tcl value cannot redirect ged_gvp to an arbitrary address — only
-     * pointers that were returned by new_obol_view_ptr (and thus registered in
-     * s->gedp->ged_views) are accepted.
-     *
-     * MIGRATION NOTE (Stage 7): this Tcl-variable bridge is a temporary shim.
-     * Once active_dm_set is replaced by active_pane_set (see above), every
-     * pane — legacy and Obol alike — will be looked up the same way and this
-     * separate branch disappears.  The ::obol_pane_gvp array can then be
-     * removed from mview.tcl. */
-    {
-	const char *ptr_str = Tcl_GetVar2(interpreter, "::obol_pane_gvp",
-					  argv[1], TCL_GLOBAL_ONLY);
-	if (ptr_str) {
-	    bsg_view *candidate = NULL;
-	    if (sscanf(ptr_str, "%p", (void **)&candidate) == 1 && candidate) {
-		/* Validate: the pointer must be in the registered view set. */
-		struct bu_ptbl *views = bsg_scene_views(&s->gedp->ged_views);
-		for (size_t vi = 0; vi < BU_PTBL_LEN(views); vi++) {
-		    bsg_view *v = (bsg_view *)BU_PTBL_GET(views, vi);
-		    if (v == candidate) {
-			s->gedp->ged_gvp = v;
-			return TCL_OK;
-		    }
-		}
-		/* pointer not in registered views — ignore silently */
-	    }
 	}
     }
 
