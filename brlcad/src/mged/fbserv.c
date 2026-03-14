@@ -127,6 +127,7 @@ fbserv_existing_client_handler(ClientData clientData, int UNUSED(mask))
 
     for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
 	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
+	if (!m_dmp->dm_dmp) continue;  /* skip null-dm sentinel */
 	for (i = MAX_CLIENTS-1; i >= 0; i--)
 	    if (fd == m_dmp->dm_clients[i].c_fd) {
 		dlp = m_dmp;
@@ -280,6 +281,10 @@ fbserv_set_port(const struct bu_structparse *UNUSED(sp), const char *UNUSED(c1),
     struct mged_state *s = MGED_STATE;
     int i;
     int save_port;
+
+    /* Stage 7 guard: fbserv requires a real libdm display manager; skip for
+     * Obol panes (dm_dmp == NULL).  Obol has its own fb overlay mechanism. */
+    if (!DMP) return;
 
 #define MAX_PORT_TRIES 100
 
