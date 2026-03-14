@@ -4222,39 +4222,51 @@ add_elements(ON_Brep *brep, ON_BrepFace &face, const ON_SimpleArray<ON_Curve *> 
 	 * proper edge.  Using the start-end distance as a singularity test
 	 * incorrectly classifies those closed curves. */
 	if (c3d->BoundingBox().Diagonal().Length() < INTERSECTION_TOL) {
-	    /* The 3D curve maps to a single point — check if it is truly
-	     * isoparametric before creating a singular trim.  A singular trim
-	     * requires m_iso != not_iso; if the 2D curve is not along a surface
-	     * iso-parameter boundary the trim would fail ON_Brep::IsValid().
-	     * In that case the curve is geometrically degenerate AND structurally
-	     * meaningless (it carries no boundary information), so skip it. */
+	    /* The 3D curve maps to a single point.  A valid singular trim
+	     * requires m_iso to be one of the BOUNDARY iso values (W_iso,
+	     * S_iso, E_iso, or N_iso).  Interior iso values (x_iso, y_iso)
+	     * and not_iso all fail ON_Brep::IsValid().
+	     *
+	     * When the iso type is NOT a valid singular-trim boundary, fall
+	     * through to create a regular (degenerate) edge instead.  The
+	     * resulting edge has near-zero 3-D extent but is still a proper
+	     * boundary trim and preserves loop continuity. */
 	    ON_Surface::ISO iso_type = srf->IsIsoparametric(*loop[k]);
-	    if (iso_type == ON_Surface::not_iso) {
-		bu_log("add_elements: skipping degenerate non-iso 2D curve (3D bbox diag=%.6g)\n",
-		       c3d->BoundingBox().Diagonal().Length());
+	    bool valid_singular_iso = (iso_type == ON_Surface::W_iso ||
+				       iso_type == ON_Surface::S_iso ||
+				       iso_type == ON_Surface::E_iso ||
+				       iso_type == ON_Surface::N_iso);
+	    if (valid_singular_iso) {
+		int i;
+		ON_3dPoint vtx = c3d->PointAtStart();
+		for (i = brep->m_V.Count() - 1; i >= 0; i--) {
+		    if (brep->m_V[i].Point().DistanceTo(vtx) < ON_ZERO_TOLERANCE) {
+			break;
+		    }
+		}
+		if (i < 0) {
+		    i = brep->m_V.Count();
+		    brep->NewVertex(c3d->PointAtStart(), 0.0);
+		}
+		int ti = brep->AddTrimCurve(loop[k]);
+		ON_BrepTrim &trim = brep->NewSingularTrim(brep->m_V[i], breploop, iso_type, ti);
+		trim.m_tolerance[0] = trim.m_tolerance[1] = MAX_FASTF;
 		delete c3d;
 		continue;
 	    }
-	    int i;
-	    ON_3dPoint vtx = c3d->PointAtStart();
-	    for (i = brep->m_V.Count() - 1; i >= 0; i--) {
-		if (brep->m_V[i].Point().DistanceTo(vtx) < ON_ZERO_TOLERANCE) {
-		    break;
-		}
-	    }
-	    if (i < 0) {
-		i = brep->m_V.Count();
-		brep->NewVertex(c3d->PointAtStart(), 0.0);
-	    }
-	    int ti = brep->AddTrimCurve(loop[k]);
-	    ON_BrepTrim &trim = brep->NewSingularTrim(brep->m_V[i], breploop, iso_type, ti);
-	    trim.m_tolerance[0] = trim.m_tolerance[1] = MAX_FASTF;
+	    /* Not a valid singular iso: replace c3d with a zero-length
+	     * closed curve (P→P) so the edge is topologically valid.
+	     * The original 2-D trim curve is kept unchanged, preserving
+	     * loop 2-D continuity.  Both endpoints of the resulting edge
+	     * share the same vertex (start_idx), and IsClosed()==true. */
+	    ON_3dPoint start3d = c3d->PointAtStart();
 	    delete c3d;
-	    continue;
+	    c3d = new ON_LineCurve(start3d, start3d);
 	}
 
 	ON_2dPoint start = loop[k]->PointAtStart(), end = loop[k]->PointAtEnd();
 	int start_idx, end_idx;
+
 
 	// Get the start vertex index
 	if (k > 0) {
