@@ -472,12 +472,24 @@ struct mged_pane {
     struct bsg_grid_state   *mp_grid_state;
     struct _axes_state      *mp_axes_state;
     struct _dlist_state     *mp_dlist_state;
+
+    /* Tcl display variable names (mirrors dm_fps_name, dm_aet_name, etc.).
+     * Initialized by mged_pane_link_vars() when the pane is registered.
+     * Used by dotitles() (Stage 7: currently dotitles() skips Obol panes
+     * via the !DMP guard; these fields prepare for a future obol_dotitles). */
+    struct bu_vls   mp_fps_name;    /* "$::mged_display(%path,fps)" */
+    struct bu_vls   mp_aet_name;    /* "$::mged_display(%path,aet)" */
+    struct bu_vls   mp_ang_name;    /* "$::mged_display(%path,ang)" */
+    struct bu_vls   mp_center_name; /* "$::mged_display(%path,center)" */
+    struct bu_vls   mp_size_name;   /* "$::mged_display(%path,size)" */
+    struct bu_vls   mp_adc_name;    /* "$::mged_display(%path,adc)" */
 };
 
 #define MGED_PANE_NULL ((struct mged_pane *)NULL)
 
 extern struct bu_ptbl active_pane_set;       /* defined in attach.c */
 extern void set_curr_pane(struct mged_state *s, struct mged_pane *mp);
+extern void mged_pane_link_vars(struct mged_pane *mp);  /* in attach.c */
 
 /**
  * Find the mged_pane in active_pane_set whose gv_name matches `name`.
