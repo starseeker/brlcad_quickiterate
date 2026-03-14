@@ -55,7 +55,7 @@
 //DebugPlot *dplot = NULL;
 
 // Whether to output the debug messages about b-rep booleans.
-#define DEBUG_BREP_BOOLEAN 1
+#define DEBUG_BREP_BOOLEAN 0
 
 
 struct IntersectPoint {
@@ -738,34 +738,25 @@ is_loop_valid(const ON_SimpleArray<ON_Curve *> &loop, double tolerance, ON_PolyC
 	    append_to_polycurve(loop[0]->Duplicate(), *polycurve);
 	}
 	for (int i = 1 ; i < loop.Count(); i++) {
-	    double gap_i = (loop[i] && loop[i-1]) ?
-		loop[i]->PointAtStart().DistanceTo(loop[i-1]->PointAtEnd()) : 1e99;
-	    if (loop[i] && loop[i - 1] && gap_i < ON_ZERO_TOLERANCE) {
+	    if (loop[i] && loop[i - 1] && loop[i]->PointAtStart().DistanceTo(loop[i - 1]->PointAtEnd()) < ON_ZERO_TOLERANCE) {
 		append_to_polycurve(loop[i]->Duplicate(), *polycurve);
 	    } else {
-		bu_log("The input loop is not continuous (seg %d gap=%g ON_ZERO_TOL=%g).\n",
-		       i, gap_i, ON_ZERO_TOLERANCE);
+		bu_log("The input loop is not continuous.\n");
 		ret = false;
 	    }
 	}
     }
-    if (ret) {
-	double close_gap = polycurve->PointAtStart().DistanceTo(polycurve->PointAtEnd());
-	if (close_gap >= ON_ZERO_TOLERANCE) {
-	    bu_log("The input loop is not closed (close_gap=%g).\n", close_gap);
-	    ret = false;
-	}
+    if (ret && polycurve->PointAtStart().DistanceTo(polycurve->PointAtEnd()) >= ON_ZERO_TOLERANCE)
+    {
+	bu_log("The input loop is not closed.\n");
+	ret = false;
     }
 
     if (ret) {
 	// Check whether the loop is degenerated.
 	ON_BoundingBox bbox = polycurve->BoundingBox();
-	double diag = bbox.Diagonal().Length();
-	bool islin = polycurve->IsLinear(tolerance);
-	if (DEBUG_BREP_BOOLEAN && (ON_NearZero(diag, tolerance) || islin)) {
-	    bu_log("is_loop_valid: DEGENERATE diag=%g islinear=%d tol=%g\n", diag, (int)islin, tolerance);
-	}
-	ret = !ON_NearZero(diag, tolerance) && !islin;
+	ret = !ON_NearZero(bbox.Diagonal().Length(), tolerance)
+	    && !polycurve->IsLinear(tolerance);
     }
 
     if (delete_curve) {
@@ -1562,6 +1553,21 @@ get_subcurves_inside_faces(
 	    ON_Interval interval_on2 = interval_3d_to_2d(intervals_3d[j],
 							 event->m_curveB, event->m_curve3d, &brep2->m_F[face_i2]);
 	    if (interval_on2.IsValid()) {
+		/* Snap the interval endpoints to the SSI curve's domain
+		 * boundaries when they fall within INTERSECTION_TOL.  The
+		 * interval_3d_to_2d conversion can place an endpoint a tiny
+		 * epsilon away from the exact domain boundary even when the
+		 * SSI curve physically starts/ends on the face boundary.
+		 * Without snapping, close_small_gaps later inserts a
+		 * degenerate gap-closer of that epsilon length, which collapses
+		 * the resulting inner-loop area to nearly zero, causing
+		 * loop_is_degenerate to discard the otherwise valid loop. */
+		ON_Interval dom2 = event->m_curveB->Domain();
+		if (ON_NearZero(interval_on2.Min() - dom2.Min(), INTERSECTION_TOL))
+		    interval_on2.m_t[0] = dom2.Min();
+		if (ON_NearZero(dom2.Max() - interval_on2.Max(), INTERSECTION_TOL))
+		    interval_on2.m_t[1] = dom2.Max();
+
 		// create subcurve from interval
 		try {
 		    ON_Curve *subcurve_on2 = sub_curve(event->m_curveB,
@@ -1579,8 +1585,18 @@ get_subcurves_inside_faces(
 		     * by the "corner-bite" fallback in split_trimmed_face. */
 		    ON_2dPoint mid2 = subcurve_on2->PointAt(subcurve_on2->Domain().Mid());
 		    if (!is_point_inside_loop(mid2, face2_loops[0])) {
+			if (DEBUG_BREP_BOOLEAN)
+			    bu_log("  subcurve_on2 REJECTED: face%d mid=(%g,%g) start=(%g,%g) end=(%g,%g)\n",
+				   face_i2, mid2.x, mid2.y,
+				   subcurve_on2->PointAtStart().x, subcurve_on2->PointAtStart().y,
+				   subcurve_on2->PointAtEnd().x, subcurve_on2->PointAtEnd().y);
 			delete subcurve_on2;
 		    } else {
+			if (DEBUG_BREP_BOOLEAN)
+			    bu_log("  subcurve_on2 KEPT: face%d mid=(%g,%g) start=(%g,%g) end=(%g,%g)\n",
+				   face_i2, mid2.x, mid2.y,
+				   subcurve_on2->PointAtStart().x, subcurve_on2->PointAtStart().y,
+				   subcurve_on2->PointAtEnd().x, subcurve_on2->PointAtEnd().y);
 			subcurves_on2.Append(subcurve_on2);
 		    }
 		} catch (InvalidInterval &e) {
@@ -1600,6 +1616,14 @@ get_subcurves_inside_faces(
 	    ON_Interval interval_on1 = interval_3d_to_2d(intervals_3d[j],
 							 event->m_curveA, event->m_curve3d, &brep1->m_F[face_i1]);
 	    if (interval_on1.IsValid()) {
+		/* Snap interval endpoints to the SSI curve domain when within
+		 * INTERSECTION_TOL — same reasoning as the face2 case above. */
+		ON_Interval dom1 = event->m_curveA->Domain();
+		if (ON_NearZero(interval_on1.Min() - dom1.Min(), INTERSECTION_TOL))
+		    interval_on1.m_t[0] = dom1.Min();
+		if (ON_NearZero(dom1.Max() - interval_on1.Max(), INTERSECTION_TOL))
+		    interval_on1.m_t[1] = dom1.Max();
+
 		// create subcurve from interval
 		try {
 		    ON_Curve *subcurve_on1 = sub_curve(event->m_curveA,
@@ -3180,6 +3204,15 @@ split_face_into_loops(
     double curve_min_t = linked_curve.Domain().Min();
     double curve_max_t = linked_curve.Domain().Max();
 
+    if (DEBUG_BREP_BOOLEAN) {
+	bu_log("  IN/OUT classify: curve_min_t=%g curve_max_t=%g\n", curve_min_t, curve_max_t);
+	for (int i = 0; i < clx_points.Count(); i++) {
+	    const IntersectPoint &ipt = clx_points[i];
+	    bu_log("    clx[%d] curve_t=%g seg=%d seg_t=%g pt=(%g,%g)\n",
+		   i, ipt.m_curve_t, ipt.m_loop_seg, ipt.m_seg_t, ipt.m_pt.x, ipt.m_pt.y);
+	}
+    }
+
     for (int i = 0; i < clx_points.Count(); i++) {
 	bool is_first_ipt = (i == 0);
 	bool is_last_ipt = (i == (clx_points.Count() - 1));
@@ -3240,16 +3273,6 @@ split_face_into_loops(
     }
 
     clx_points.Append(new_pts.Count(), new_pts.Array());
-    if (DEBUG_BREP_BOOLEAN) {
-	bu_log("  before loop_t_compare sort:\n");
-	for (int i = 0; i < clx_points.Count(); i++) {
-	    bu_log("    clx[%d]: seg=%d seg_t=%g curve_t=%g dir=%d curve_pos=%d pt=(%g,%g)\n",
-		   i, clx_points[i].m_loop_seg, clx_points[i].m_seg_t,
-		   clx_points[i].m_curve_t, (int)clx_points[i].m_dir,
-		   clx_points[i].m_curve_pos,
-		   clx_points[i].m_pt.x, clx_points[i].m_pt.y);
-	}
-    }
     clx_points.QuickSort(loop_t_compare);
 
     // Split the outer loop.
@@ -3433,13 +3456,6 @@ split_face_into_loops(
 		}
 	    }
 	    bu_log("\n");
-	    for (int gi = 0; gi < newloop.Count(); gi++) {
-		if (newloop[gi]) {
-		    ON_3dPoint spt = newloop[gi]->PointAtStart();
-		    ON_3dPoint ept = newloop[gi]->PointAtEnd();
-		    bu_log("    seg[%d]: (%g,%g)->(%g,%g)\n", gi, spt.x, spt.y, ept.x, ept.y);
-		}
-	    }
 	}
 	if (is_loop_valid(newloop, ON_ZERO_TOLERANCE)) {
 	    ON_SimpleArray<ON_Curve *> loop;
@@ -3497,7 +3513,29 @@ free_loops(std::vector<ON_SimpleArray<ON_Curve *> > &loops)
  * regardless of domain parameterisation.
  *
  * The loop curves live in the face's 2D UV parameter space, so x and y
- * are the u and v coordinates respectively. */
+ * are the u and v coordinates respectively.
+ *
+ * Polycurve entries (e.g. the reversed SubCurve appended by
+ * split_face_into_loops) are recursed into so that every internal vertex
+ * is included as a shoelace polygon vertex.  Without recursion, a
+ * polycurve that goes A→B→C→A would be treated as the straight chord A→A,
+ * collapsing the area to zero even when the true enclosed area is large. */
+static void
+shoelace_accumulate(const ON_Curve *c, ON_3dPoint &prev, double &shoelace)
+{
+    if (!c) return;
+    const ON_PolyCurve *pc = ON_PolyCurve::Cast(c);
+    if (pc) {
+	for (int i = 0; i < pc->Count(); i++) {
+	    shoelace_accumulate(pc->SegmentCurve(i), prev, shoelace);
+	}
+	return;
+    }
+    ON_3dPoint curr = c->PointAtEnd();
+    shoelace += prev.x * curr.y - curr.x * prev.y;
+    prev = curr;
+}
+
 static double
 loop_shoelace_area(const ON_SimpleArray<ON_Curve *> &loop)
 {
@@ -3507,9 +3545,7 @@ loop_shoelace_area(const ON_SimpleArray<ON_Curve *> &loop)
     ON_3dPoint prev = loop[0]->PointAtStart();
     for (int si = 0; si < loop.Count(); ++si) {
 	if (!loop[si]) continue;
-	ON_3dPoint curr = loop[si]->PointAtEnd();
-	shoelace += prev.x * curr.y - curr.x * prev.y;
-	prev = curr;
+	shoelace_accumulate(loop[si], prev, shoelace);
     }
     return fabs(shoelace * 0.5);
 }
