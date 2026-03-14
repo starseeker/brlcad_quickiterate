@@ -2129,33 +2129,36 @@ main(int argc, char *argv[])
 	bu_vls_strcpy(tnvp, "nu");
     }
 
-    BU_ALLOC(rubber_band, struct _rubber_band);
-    *rubber_band = default_rubber_band;		/* struct copy */
+    /* Stage 7: Use explicit s->mged_curr_dm->dm_* for BU_ALLOC here so these
+     * allocations remain lvalues after the macros are changed to ternary
+     * expressions in Step 6. */
+    BU_ALLOC(s->mged_curr_dm->dm_rubber_band, struct _rubber_band);
+    *s->mged_curr_dm->dm_rubber_band = default_rubber_band;	/* struct copy */
 
-    BU_ALLOC(mged_variables, struct _mged_variables);
-    *mged_variables = default_mged_variables;	/* struct copy */
+    BU_ALLOC(s->mged_curr_dm->dm_mged_variables, struct _mged_variables);
+    *s->mged_curr_dm->dm_mged_variables = default_mged_variables;	/* struct copy */
 
-    BU_ALLOC(color_scheme, struct _color_scheme);
-    *color_scheme = default_color_scheme;	/* struct copy */
+    BU_ALLOC(s->mged_curr_dm->dm_color_scheme, struct _color_scheme);
+    *s->mged_curr_dm->dm_color_scheme = default_color_scheme;	/* struct copy */
 
-    BU_ALLOC(grid_state, struct bsg_grid_state);
-    *grid_state = default_grid_state;		/* struct copy */
+    BU_ALLOC(s->mged_curr_dm->dm_grid_state, struct bsg_grid_state);
+    *s->mged_curr_dm->dm_grid_state = default_grid_state;	/* struct copy */
 
-    BU_ALLOC(axes_state, struct _axes_state);
-    *axes_state = default_axes_state;		/* struct copy */
+    BU_ALLOC(s->mged_curr_dm->dm_axes_state, struct _axes_state);
+    *s->mged_curr_dm->dm_axes_state = default_axes_state;	/* struct copy */
 
-    BU_ALLOC(adc_state, struct _adc_state);
-    adc_state->adc_rc = 1;
-    adc_state->adc_a1 = adc_state->adc_a2 = 45.0;
+    BU_ALLOC(s->mged_curr_dm->dm_adc_state, struct _adc_state);
+    s->mged_curr_dm->dm_adc_state->adc_rc = 1;
+    s->mged_curr_dm->dm_adc_state->adc_a1 = s->mged_curr_dm->dm_adc_state->adc_a2 = 45.0;
 
-    BU_ALLOC(menu_state, struct _menu_state);
-    menu_state->ms_rc = 1;
+    BU_ALLOC(s->mged_curr_dm->dm_menu_state, struct _menu_state);
+    s->mged_curr_dm->dm_menu_state->ms_rc = 1;
 
-    BU_ALLOC(dlist_state, struct _dlist_state);
-    dlist_state->dl_rc = 1;
+    BU_ALLOC(s->mged_curr_dm->dm_dlist_state, struct _dlist_state);
+    s->mged_curr_dm->dm_dlist_state->dl_rc = 1;
 
-    BU_ALLOC(view_state, struct _view_state);
-    view_state->vs_rc = 1;
+    BU_ALLOC(s->mged_curr_dm->dm_view_state, struct _view_state);
+    s->mged_curr_dm->dm_view_state->vs_rc = 1;
     view_ring_init(s->mged_curr_dm->dm_view_state, (struct _view_state *)NULL);
     MAT_IDN(view_state->vs_ModelDelta);
 

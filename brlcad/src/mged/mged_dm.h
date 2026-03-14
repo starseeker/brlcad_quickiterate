@@ -516,15 +516,20 @@ extern void mged_pane_free_resources(struct mged_pane *mp);
 #define perspective_angle s->mged_curr_dm->dm_perspective_angle
 #define zclip_ptr s->mged_curr_dm->dm_zclip_ptr
 
-#define view_state s->mged_curr_dm->dm_view_state
-#define adc_state s->mged_curr_dm->dm_adc_state
-#define menu_state s->mged_curr_dm->dm_menu_state
-#define rubber_band s->mged_curr_dm->dm_rubber_band
-#define mged_variables s->mged_curr_dm->dm_mged_variables
-#define color_scheme s->mged_curr_dm->dm_color_scheme
-#define grid_state s->mged_curr_dm->dm_grid_state
-#define axes_state s->mged_curr_dm->dm_axes_state
-#define dlist_state s->mged_curr_dm->dm_dlist_state
+/* Stage 7 (Step 6 transition): per-pane state macros prefer mged_curr_pane
+ * (Obol path) when set, falling back to mged_curr_dm (legacy dm path).
+ * All BU_ALLOC(macro_name, type) and direct pointer-assignment sites have
+ * been changed to use s->mged_curr_dm->dm_<field> explicitly (in attach.c
+ * dm_var_init and mged.c main), so these ternary definitions are safe. */
+#define view_state (s->mged_curr_pane ? s->mged_curr_pane->mp_view_state : s->mged_curr_dm->dm_view_state)
+#define adc_state (s->mged_curr_pane ? s->mged_curr_pane->mp_adc_state : s->mged_curr_dm->dm_adc_state)
+#define menu_state (s->mged_curr_pane ? s->mged_curr_pane->mp_menu_state : s->mged_curr_dm->dm_menu_state)
+#define rubber_band (s->mged_curr_pane ? s->mged_curr_pane->mp_rubber_band : s->mged_curr_dm->dm_rubber_band)
+#define mged_variables (s->mged_curr_pane ? s->mged_curr_pane->mp_mged_variables : s->mged_curr_dm->dm_mged_variables)
+#define color_scheme (s->mged_curr_pane ? s->mged_curr_pane->mp_color_scheme : s->mged_curr_dm->dm_color_scheme)
+#define grid_state (s->mged_curr_pane ? s->mged_curr_pane->mp_grid_state : s->mged_curr_dm->dm_grid_state)
+#define axes_state (s->mged_curr_pane ? s->mged_curr_pane->mp_axes_state : s->mged_curr_dm->dm_axes_state)
+#define dlist_state (s->mged_curr_pane ? s->mged_curr_pane->mp_dlist_state : s->mged_curr_dm->dm_dlist_state)
 
 #define cmd_hook s->mged_curr_dm->dm_cmd_hook
 #define viewpoint_hook s->mged_curr_dm->dm_viewpoint_hook

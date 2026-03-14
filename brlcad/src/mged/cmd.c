@@ -1601,7 +1601,8 @@ f_postscript(ClientData clientData, Tcl_Interp *interpreter, int argc, const cha
     vsp = view_state;  /* save state info pointer */
 
     bu_free((void *)menu_state, "f_postscript: menu_state");
-    menu_state = dml->dm_menu_state;
+    /* Stage 7: use explicit mged_curr_dm assignment for ternary-macro safety. */
+    s->mged_curr_dm->dm_menu_state = dml->dm_menu_state;
 
     scroll_top = dml->dm_scroll_top;
     scroll_active = dml->dm_scroll_active;
@@ -1612,7 +1613,10 @@ f_postscript(ClientData clientData, Tcl_Interp *interpreter, int argc, const cha
     if (DMP) dm_set_dirty(DMP, 1);
     refresh(s);
 
-    view_state = vsp;  /* restore state info pointer */
+    /* Stage 7: restore explicitly via mged_curr_dm so this assignment is an
+     * lvalue even after the view_state macro is eventually changed to a
+     * ternary expression (Step 6). */
+    s->mged_curr_dm->dm_view_state = vsp;
     status = Tcl_Eval(interpreter, "release");
     set_curr_dm(s, dml);
     s->gedp->ged_gvp = view_state->vs_gvp;
