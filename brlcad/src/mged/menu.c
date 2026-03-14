@@ -1440,11 +1440,12 @@ mmenu_set(struct mged_state *s, int index, struct menu_item *value)
     s->update_views = 1;
     for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
 	struct mged_dm *dlp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
+	if (!dlp->dm_dmp) continue;  /* skip null-dm sentinel */
 	if (menu_state == dlp->dm_menu_state &&
 	    dlp->dm_mged_variables->mv_faceplate &&
 	    dlp->dm_mged_variables->mv_orig_gui) {
 	    dlp->dm_dirty = 1;
-	    if (dlp->dm_dmp) dm_set_dirty(dlp->dm_dmp, 1);
+	    dm_set_dirty(dlp->dm_dmp, 1);
 	}
     }
 }
@@ -1460,6 +1461,7 @@ mmenu_set_all(struct mged_state *s, int index, struct menu_item *value)
     save_dm_list = s->mged_curr_dm;
     for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
 	struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
+	if (!p->dm_dmp) continue;  /* skip null-dm sentinel */
 	if (p->dm_tie)
 	    curr_cmd_list = p->dm_tie;
 
