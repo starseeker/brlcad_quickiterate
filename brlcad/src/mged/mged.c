@@ -1028,7 +1028,11 @@ event_check(struct mged_state *s, int non_blocking)
 	struct bu_vls vls = BU_VLS_INIT_ZERO;
 	char save_coords;
 
-	set_curr_dm(s, s->s_edit->edit_rate_mr_dm);
+	/* Stage 7: prefer Obol pane when the event came from one. */
+	if (s->s_edit->edit_rate_mr_pane)
+	    set_curr_pane(s, s->s_edit->edit_rate_mr_pane);
+	else
+	    set_curr_dm(s, s->s_edit->edit_rate_mr_dm);
 	save_coords = mged_variables->mv_coords;
 	mged_variables->mv_coords = 'm';
 
@@ -1062,7 +1066,11 @@ event_check(struct mged_state *s, int non_blocking)
 	struct bu_vls vls = BU_VLS_INIT_ZERO;
 	char save_coords;
 
-	set_curr_dm(s, s->s_edit->edit_rate_or_dm);
+	/* Stage 7: prefer Obol pane when the event came from one. */
+	if (s->s_edit->edit_rate_or_pane)
+	    set_curr_pane(s, s->s_edit->edit_rate_or_pane);
+	else
+	    set_curr_dm(s, s->s_edit->edit_rate_or_dm);
 	save_coords = mged_variables->mv_coords;
 	mged_variables->mv_coords = 'o';
 
@@ -1096,7 +1104,11 @@ event_check(struct mged_state *s, int non_blocking)
 	struct bu_vls vls = BU_VLS_INIT_ZERO;
 	char save_coords;
 
-	set_curr_dm(s, s->s_edit->edit_rate_vr_dm);
+	/* Stage 7: prefer Obol pane when the event came from one. */
+	if (s->s_edit->edit_rate_vr_pane)
+	    set_curr_pane(s, s->s_edit->edit_rate_vr_pane);
+	else
+	    set_curr_dm(s, s->s_edit->edit_rate_vr_dm);
 	save_coords = mged_variables->mv_coords;
 	mged_variables->mv_coords = 'v';
 
@@ -1130,7 +1142,11 @@ event_check(struct mged_state *s, int non_blocking)
 	char save_coords;
 	struct bu_vls vls = BU_VLS_INIT_ZERO;
 
-	set_curr_dm(s, s->s_edit->edit_rate_mt_dm);
+	/* Stage 7: prefer Obol pane when the event came from one. */
+	if (s->s_edit->edit_rate_mt_pane)
+	    set_curr_pane(s, s->s_edit->edit_rate_mt_pane);
+	else
+	    set_curr_dm(s, s->s_edit->edit_rate_mt_dm);
 	save_coords = mged_variables->mv_coords;
 	mged_variables->mv_coords = 'm';
 
@@ -1163,7 +1179,11 @@ event_check(struct mged_state *s, int non_blocking)
 	char save_coords;
 	struct bu_vls vls = BU_VLS_INIT_ZERO;
 
-	set_curr_dm(s, s->s_edit->edit_rate_vt_dm);
+	/* Stage 7: prefer Obol pane when the event came from one. */
+	if (s->s_edit->edit_rate_vt_pane)
+	    set_curr_pane(s, s->s_edit->edit_rate_vt_pane);
+	else
+	    set_curr_dm(s, s->s_edit->edit_rate_vt_dm);
 	save_coords = mged_variables->mv_coords;
 	mged_variables->mv_coords = 'v';
 
@@ -1286,6 +1306,44 @@ event_check(struct mged_state *s, int non_blocking)
 
 	set_curr_dm(s, save_dm_list);
     }
+
+    /* Stage 7: apply view rate knobs to Obol panes (active_pane_set). */
+    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	set_curr_pane(s, mp);
+
+	if (mp->mp_view_state && mp->mp_view_state->k.rot_m_flag) {
+	    struct bu_vls vls = BU_VLS_INIT_ZERO;
+	    non_blocking++;
+	    bu_vls_printf(&vls, "knob -o %c -i -m ax %f ay %f az %f\n",
+			  mp->mp_view_state->k.origin_m,
+			  mp->mp_view_state->k.rot_m[X],
+			  mp->mp_view_state->k.rot_m[Y],
+			  mp->mp_view_state->k.rot_m[Z]);
+	    Tcl_Eval(s->interp, bu_vls_addr(&vls));
+	    bu_vls_free(&vls);
+	}
+	if (mp->mp_view_state && mp->mp_view_state->k.rot_v_flag) {
+	    struct bu_vls vls = BU_VLS_INIT_ZERO;
+	    non_blocking++;
+	    bu_vls_printf(&vls, "knob -o %c -i -v ax %f ay %f az %f\n",
+			  mp->mp_view_state->k.origin_v,
+			  mp->mp_view_state->k.rot_v[X],
+			  mp->mp_view_state->k.rot_v[Y],
+			  mp->mp_view_state->k.rot_v[Z]);
+	    Tcl_Eval(s->interp, bu_vls_addr(&vls));
+	    bu_vls_free(&vls);
+	}
+	if (mp->mp_view_state && mp->mp_view_state->k.sca_flag) {
+	    struct bu_vls vls = BU_VLS_INIT_ZERO;
+	    non_blocking++;
+	    bu_vls_printf(&vls, "zoom %f", 1.0 / (1.0 - (mp->mp_view_state->k.sca / 10.0)));
+	    Tcl_Eval(s->interp, bu_vls_addr(&vls));
+	    bu_vls_free(&vls);
+	}
+	set_curr_pane(s, NULL);
+    }
+    set_curr_dm(s, save_dm_list);
 
     return non_blocking;
 }

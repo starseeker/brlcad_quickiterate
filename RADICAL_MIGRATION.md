@@ -754,6 +754,23 @@ from `mp_gvp` (no DMP indirection).
      changed to `s->mged_curr_dm->dm_menu_state = dml->dm_menu_state`.
    All MGED .c files compile cleanly after the macro change.
 
+5.11 **✅ Wire `mp_view_state` for Obol panes + `active_pane_set` view loops (Session 13)** —
+   Three improvements:
+   1. `mged_pane_init_resources()` now allocates a `_view_state` shell
+      (`mp->mp_view_state`) with `vs_gvp = mp->mp_gvp` and calls `view_ring_init()`.
+      `mged_pane_free_resources()` frees the view_ring items and the shell (but not
+      `vs_gvp`, which is owned by GED).  This makes the ternary `view_state` macro
+      safe: previously it returned NULL for Obol panes causing a crash.
+   2. `chgview.c` `edit_com()` and `cmd_autoview()` now iterate `active_pane_set`
+      after the existing `active_dm_set` loop so Obol panes also receive `autoview`
+      when a new object is drawn into an initially-empty scene.
+   3. `mged.h` `mged_edit_state`: added `edit_rate_*_pane` fields (Obol equivalents
+      of `edit_rate_*_dm`).  `chgview.c` sets them alongside the `_dm` fields.
+      `mged.c` knob event loop checks `edit_rate_mr_pane` first and calls
+      `set_curr_pane` instead of `set_curr_dm` for Obol-originated knob events.
+      Added a separate `active_pane_set` loop after the `active_dm_set` loop for
+      view rate knobs (rot_m, rot_v, sca).
+
 6. **Remove `mged_dm` and `active_dm_set`** — Once all panes use `mged_pane` and
    no remaining mged code references `DMP` unconditionally, delete `struct mged_dm`,
    `active_dm_set`, the `DMP`/`fbp`/`clients` macros, and everything in
