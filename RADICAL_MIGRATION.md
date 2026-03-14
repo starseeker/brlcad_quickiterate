@@ -771,6 +771,18 @@ from `mp_gvp` (no DMP indirection).
    6. `mged.c` `refresh()`: clears `mp_view_state->vs_flag` for Obol panes alongside
       the existing `active_dm_set` loop.
 
+5.12 **✅ `set_curr_pane` now redirects `mged_curr_dm` to nu-init-state (Session 13)** —
+   `set_curr_pane()` now additionally sets `s->mged_curr_dm = mged_dm_init_state`
+   (the "nu" headless dm created at startup with `dm_dmp == NULL`).  This ensures
+   that whenever an Obol pane is active:
+   - `DMP == NULL` so all legacy libdm drawing guards (`if (!DMP) return;`) fire
+     immediately — no special-casing needed.
+   - `s->mged_curr_dm` points to a valid struct (not dangling), preventing any
+     accidental dereference of a legacy dm pointer.
+   - The ternary macros (`view_state`, `color_scheme`, etc.) continue to prefer
+     `mp->mp_*` because `mged_curr_pane` is non-NULL.
+   Comments in `attach.c` and `mged_dm.h` updated to reflect the new behaviour.
+
 6. **Remove `mged_dm` and `active_dm_set`** — Once all panes use `mged_pane` and
    no remaining mged code references `DMP` unconditionally, delete `struct mged_dm`,
    `active_dm_set`, the `DMP`/`fbp`/`clients` macros, and everything in
