@@ -1718,13 +1718,18 @@ refresh(struct mged_state *s)
      * drawn (do_time) — the latter handles shared-view cases where both
      * dm and Obol panes display the same scene.
      *
+     * The guard uses active_pane_set size so that the call is skipped
+     * entirely in the no-Obol case.  s->mged_curr_pane (set by set_curr_pane
+     * and kept in sync with the active Obol pane) is checked first as a fast
+     * path: if we currently have an active Obol pane, Obol is definitely live.
+     *
      * MIGRATION NOTE (Stage 7): Once all active_dm_set entries have been
      * migrated to the active_pane_set / mged_pane model and all libdm drawing
      * has been removed from the loop above, this obol_notify_views call will
      * be the only rendering dispatch in refresh(), and the obol_needs_refresh
      * / do_time conditions will be the only dirty-tracking logic. */
     if (s->interp && (obol_needs_refresh || do_time) &&
-	    BU_PTBL_LEN(&active_pane_set) > 0)
+	    (s->mged_curr_pane || BU_PTBL_LEN(&active_pane_set) > 0))
 	(void)Tcl_Eval(s->interp, "catch {obol_notify_views}");
 }
 
@@ -1927,6 +1932,10 @@ main(int argc, char *argv[])
     bu_ptbl_ins(&active_dm_set, (long *)s->mged_curr_dm);
     mged_dm_init_state = s->mged_curr_dm;
     s->mged_curr_dm->dm_netfd = -1;
+    /* Stage 7 (libdm removal): no initial Obol pane until the Tcl startup
+     * scripts call new_obol_view_ptr.  active_pane_set (BU_PTBL_INIT_ZERO)
+     * needs no explicit init; mged_curr_pane tracks the active Obol pane. */
+    s->mged_curr_pane = MGED_PANE_NULL;
 
     setmode(fileno(stdin), O_BINARY);
     setmode(fileno(stdout), O_BINARY);

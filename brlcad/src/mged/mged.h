@@ -224,7 +224,8 @@ struct mged_state {
     struct bu_vls mged_prompt;
 
     /* Display related */
-    struct mged_dm *mged_curr_dm;
+    struct mged_dm *mged_curr_dm;  /* legacy libdm pane (NULL when Obol-only) */
+    struct mged_pane *mged_curr_pane;  /* Stage 7: current Obol pane; NULL when using legacy dm */
     char *dpy_string;
     struct bu_list *vlfree;
 
