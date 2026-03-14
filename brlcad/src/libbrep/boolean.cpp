@@ -746,8 +746,7 @@ is_loop_valid(const ON_SimpleArray<ON_Curve *> &loop, double tolerance, ON_PolyC
 	    }
 	}
     }
-    if (ret && (polycurve->PointAtStart().DistanceTo(polycurve->PointAtEnd()) >= ON_ZERO_TOLERANCE ||
-		!polycurve->IsClosed()))
+    if (ret && polycurve->PointAtStart().DistanceTo(polycurve->PointAtEnd()) >= ON_ZERO_TOLERANCE)
     {
 	bu_log("The input loop is not closed.\n");
 	ret = false;
@@ -1554,6 +1553,21 @@ get_subcurves_inside_faces(
 	    ON_Interval interval_on2 = interval_3d_to_2d(intervals_3d[j],
 							 event->m_curveB, event->m_curve3d, &brep2->m_F[face_i2]);
 	    if (interval_on2.IsValid()) {
+		/* Snap the interval endpoints to the SSI curve's domain
+		 * boundaries when they fall within INTERSECTION_TOL.  The
+		 * interval_3d_to_2d conversion can place an endpoint a tiny
+		 * epsilon away from the exact domain boundary even when the
+		 * SSI curve physically starts/ends on the face boundary.
+		 * Without snapping, close_small_gaps later inserts a
+		 * degenerate gap-closer of that epsilon length, which collapses
+		 * the resulting inner-loop area to nearly zero, causing
+		 * loop_is_degenerate to discard the otherwise valid loop. */
+		ON_Interval dom2 = event->m_curveB->Domain();
+		if (ON_NearZero(interval_on2.Min() - dom2.Min(), INTERSECTION_TOL))
+		    interval_on2.m_t[0] = dom2.Min();
+		if (ON_NearZero(dom2.Max() - interval_on2.Max(), INTERSECTION_TOL))
+		    interval_on2.m_t[1] = dom2.Max();
+
 		// create subcurve from interval
 		try {
 		    ON_Curve *subcurve_on2 = sub_curve(event->m_curveB,
@@ -1566,14 +1580,23 @@ get_subcurves_inside_faces(
 		     * edge.  Including them causes link_curves to chain the
 		     * boundary segment with the true interior cut, which
 		     * produces a combined path that touches the outer loop at
-		     * intermediate points and confuses the IN/OUT classifier
-		     * in split_face_into_loops, ultimately creating a degenerate
-		     * there-and-back ssx_loop that collapses via the coextension
-		     * guard rather than splitting the face correctly. */
+		     * intermediate points.  Curves missing from the closed loop
+		     * (because they run along the face boundary) are recovered
+		     * by the "corner-bite" fallback in split_trimmed_face. */
 		    ON_2dPoint mid2 = subcurve_on2->PointAt(subcurve_on2->Domain().Mid());
 		    if (!is_point_inside_loop(mid2, face2_loops[0])) {
+			if (DEBUG_BREP_BOOLEAN)
+			    bu_log("  subcurve_on2 REJECTED: face%d mid=(%g,%g) start=(%g,%g) end=(%g,%g)\n",
+				   face_i2, mid2.x, mid2.y,
+				   subcurve_on2->PointAtStart().x, subcurve_on2->PointAtStart().y,
+				   subcurve_on2->PointAtEnd().x, subcurve_on2->PointAtEnd().y);
 			delete subcurve_on2;
 		    } else {
+			if (DEBUG_BREP_BOOLEAN)
+			    bu_log("  subcurve_on2 KEPT: face%d mid=(%g,%g) start=(%g,%g) end=(%g,%g)\n",
+				   face_i2, mid2.x, mid2.y,
+				   subcurve_on2->PointAtStart().x, subcurve_on2->PointAtStart().y,
+				   subcurve_on2->PointAtEnd().x, subcurve_on2->PointAtEnd().y);
 			subcurves_on2.Append(subcurve_on2);
 		    }
 		} catch (InvalidInterval &e) {
@@ -1593,6 +1616,14 @@ get_subcurves_inside_faces(
 	    ON_Interval interval_on1 = interval_3d_to_2d(intervals_3d[j],
 							 event->m_curveA, event->m_curve3d, &brep1->m_F[face_i1]);
 	    if (interval_on1.IsValid()) {
+		/* Snap interval endpoints to the SSI curve domain when within
+		 * INTERSECTION_TOL — same reasoning as the face2 case above. */
+		ON_Interval dom1 = event->m_curveA->Domain();
+		if (ON_NearZero(interval_on1.Min() - dom1.Min(), INTERSECTION_TOL))
+		    interval_on1.m_t[0] = dom1.Min();
+		if (ON_NearZero(dom1.Max() - interval_on1.Max(), INTERSECTION_TOL))
+		    interval_on1.m_t[1] = dom1.Max();
+
 		// create subcurve from interval
 		try {
 		    ON_Curve *subcurve_on1 = sub_curve(event->m_curveA,
@@ -3043,7 +3074,91 @@ split_face_into_loops(
 	}
     }
 
+    /* Endpoint-pinch fix: if the linked curve's start or end point lies
+     * within INTERSECTION_TOL of an outer-loop segment but was not detected
+     * by ON_Intersect above (e.g. the endpoint is fractionally inside the
+     * face rather than exactly on the boundary), add a synthetic
+     * IntersectPoint so the BOOLE algorithm can use it to partition the face.
+     *
+     * This case arises when a collinear boundary SSI segment is removed by
+     * the midpoint filter in get_subcurves_inside_faces, leaving the
+     * remaining non-boundary segments with endpoints that are approximately
+     * (but not exactly) on the outer loop.  Without this fix,
+     * clx_points.Count() < 2 and the function returns the unmodified original
+     * face (no split).
+     *
+     * Only run when clx_points currently has fewer than 2 entries: if the
+     * outer-loop intersection is already fully detected (2 or more points
+     * found by ON_Intersect), we must NOT add more because the resulting
+     * 3-point or 4-point set confuses the stack-based loop-pairing
+     * algorithm that expects an even number of transversal crossings. */
+    if (clx_points.Count() < 2) {
+	const double curve_t_min = linked_curve.Domain().Min();
+	const double curve_t_max = linked_curve.Domain().Max();
+	const ON_3dPoint ep[2] = {
+	    linked_curve.Curve()->PointAtStart(),
+	    linked_curve.Curve()->PointAtEnd()
+	};
+	const double ep_t[2] = { curve_t_min, curve_t_max };
+
+	for (int ep_idx = 0; ep_idx < 2; ep_idx++) {
+	    /* Skip if the endpoint is already represented in clx_points
+	     * (the original ON_Intersect loop found it as a ccx_point
+	     * event). */
+	    bool already_found = false;
+	    for (int ci = 0; ci < clx_points.Count(); ci++) {
+		if (fabs(clx_points[ci].m_curve_t - ep_t[ep_idx]) < INTERSECTION_TOL &&
+		    clx_points[ci].m_pt.DistanceTo(ep[ep_idx]) <= INTERSECTION_TOL) {
+		    already_found = true;
+		    break;
+		}
+	    }
+	    if (already_found)
+		continue;
+
+	    /* Find the outer-loop segment nearest to this endpoint */
+	    double best_dist = INTERSECTION_TOL;
+	    int best_seg = -1;
+	    double best_seg_t = 0.0;
+	    ON_3dPoint best_pt;
+
+	    for (int i = 0; i < orig_face->m_outerloop.Count(); i++) {
+		ON_ClassArray<ON_PX_EVENT> px;
+		if (!ON_Intersect(ep[ep_idx], *orig_face->m_outerloop[i], px, INTERSECTION_TOL))
+		    continue;
+		for (int k = 0; k < px.Count(); k++) {
+		    double dist = ep[ep_idx].DistanceTo(px[k].m_B);
+		    if (dist < best_dist) {
+			best_dist = dist;
+			best_seg = i;
+			best_seg_t = px[k].m_b.x;
+			best_pt = px[k].m_B;
+		    }
+		}
+	    }
+
+	    if (best_seg >= 0) {
+		if (DEBUG_BREP_BOOLEAN) {
+		    bu_log("endpoint-pinch: ep[%d] at (%g,%g,%g) snapped to outer_loop[%d] at (%g,%g,%g) dist=%g\n",
+			   ep_idx, ep[ep_idx].x, ep[ep_idx].y, ep[ep_idx].z,
+			   best_seg, best_pt.x, best_pt.y, best_pt.z, best_dist);
+		}
+		IntersectPoint tmp_pt;
+		tmp_pt.m_pt = best_pt;
+		tmp_pt.m_seg_t = best_seg_t;
+		tmp_pt.m_curve_t = ep_t[ep_idx];
+		tmp_pt.m_loop_seg = best_seg;
+		clx_points.Append(tmp_pt);
+		intersects_outerloop = true;
+	    }
+	}
+    }
+
     // can't close curves that don't partition the face
+    if (DEBUG_BREP_BOOLEAN) {
+	bu_log("split_face_into_loops: intersects_outerloop=%d clx_points.Count()=%d\n",
+	       (int)intersects_outerloop, clx_points.Count());
+    }
     if (!intersects_outerloop || clx_points.Count() < 2) {
 	ON_SimpleArray<ON_Curve *> loop;
 	for (int i = 0; i < orig_face->m_outerloop.Count(); ++i) {
@@ -3088,6 +3203,15 @@ split_face_into_loops(
     ON_SimpleArray<IntersectPoint> new_pts;
     double curve_min_t = linked_curve.Domain().Min();
     double curve_max_t = linked_curve.Domain().Max();
+
+    if (DEBUG_BREP_BOOLEAN) {
+	bu_log("  IN/OUT classify: curve_min_t=%g curve_max_t=%g\n", curve_min_t, curve_max_t);
+	for (int i = 0; i < clx_points.Count(); i++) {
+	    const IntersectPoint &ipt = clx_points[i];
+	    bu_log("    clx[%d] curve_t=%g seg=%d seg_t=%g pt=(%g,%g)\n",
+		   i, ipt.m_curve_t, ipt.m_loop_seg, ipt.m_seg_t, ipt.m_pt.x, ipt.m_pt.y);
+	}
+    }
 
     for (int i = 0; i < clx_points.Count(); i++) {
 	bool is_first_ipt = (i == 0);
@@ -3322,6 +3446,17 @@ split_face_into_loops(
 	}
 
 	// append the new loop if it's valid
+	if (DEBUG_BREP_BOOLEAN) {
+	    bu_log("  is_loop_valid(newloop): count=%d", newloop.Count());
+	    for (int gi = 0; gi < newloop.Count(); gi++) {
+		int gj = (gi + 1) % newloop.Count();
+		if (newloop[gi] && newloop[gj]) {
+		    double g = newloop[gi]->PointAtEnd().DistanceTo(newloop[gj]->PointAtStart());
+		    bu_log(" g[%d→%d]=%g", gi, gj, g);
+		}
+	    }
+	    bu_log("\n");
+	}
 	if (is_loop_valid(newloop, ON_ZERO_TOLERANCE)) {
 	    ON_SimpleArray<ON_Curve *> loop;
 	    loop.Append(newloop.Count(), newloop.Array());
@@ -3378,7 +3513,29 @@ free_loops(std::vector<ON_SimpleArray<ON_Curve *> > &loops)
  * regardless of domain parameterisation.
  *
  * The loop curves live in the face's 2D UV parameter space, so x and y
- * are the u and v coordinates respectively. */
+ * are the u and v coordinates respectively.
+ *
+ * Polycurve entries (e.g. the reversed SubCurve appended by
+ * split_face_into_loops) are recursed into so that every internal vertex
+ * is included as a shoelace polygon vertex.  Without recursion, a
+ * polycurve that goes A→B→C→A would be treated as the straight chord A→A,
+ * collapsing the area to zero even when the true enclosed area is large. */
+static void
+shoelace_accumulate(const ON_Curve *c, ON_3dPoint &prev, double &shoelace)
+{
+    if (!c) return;
+    const ON_PolyCurve *pc = ON_PolyCurve::Cast(c);
+    if (pc) {
+	for (int i = 0; i < pc->Count(); i++) {
+	    shoelace_accumulate(pc->SegmentCurve(i), prev, shoelace);
+	}
+	return;
+    }
+    ON_3dPoint curr = c->PointAtEnd();
+    shoelace += prev.x * curr.y - curr.x * prev.y;
+    prev = curr;
+}
+
 static double
 loop_shoelace_area(const ON_SimpleArray<ON_Curve *> &loop)
 {
@@ -3388,9 +3545,7 @@ loop_shoelace_area(const ON_SimpleArray<ON_Curve *> &loop)
     ON_3dPoint prev = loop[0]->PointAtStart();
     for (int si = 0; si < loop.Count(); ++si) {
 	if (!loop[si]) continue;
-	ON_3dPoint curr = loop[si]->PointAtEnd();
-	shoelace += prev.x * curr.y - curr.x * prev.y;
-	prev = curr;
+	shoelace_accumulate(loop[si], prev, shoelace);
     }
     return fabs(shoelace * 0.5);
 }
@@ -3507,12 +3662,22 @@ split_trimmed_face(
 	    ssx_loops = split_face_into_loops(orig_face, ssx_curves[i]);
 	}
 
+	if (DEBUG_BREP_BOOLEAN) {
+	    bu_log("ssx_curve[%d]: %zu ssx_loops, out.Count=%d\n",
+		   i, ssx_loops.size(), out.Count());
+	    for (size_t j = 0; j < ssx_loops.size(); ++j) {
+		bu_log("  ssx_loops[%zu]: area=%g segs=%d\n",
+		       j, loop_shoelace_area(ssx_loops[j]), ssx_loops[j].Count());
+	    }
+	}
+
 	// combine each intersection loop with the original face (or
 	// the previous iteration of split faces) to create new split
 	// faces
 	ON_SimpleArray<TrimmedFace *> next_out;
 	for (size_t j = 0; j < ssx_loops.size(); ++j) {
 	    if (loop_is_degenerate(ssx_loops[j])) {
+		if (DEBUG_BREP_BOOLEAN) bu_log("  ssx_loop[%zu] degenerate, skip\n", j);
 		continue;
 	    }
 
@@ -3566,6 +3731,56 @@ split_trimmed_face(
 					      BOOLEAN_DIFF);
 		    append_faces_from_loops(next_out, out[k], diff_loops);
 		    diff_loops.ClearInnerloops();
+		} else if (intersect_loops.outerloops.empty()) {
+		    /* loop_boolean returns nothing for two distinct reasons:
+		     * 1. No overlap: ssx_loops[j] and out[k] share no area.
+		     * 2. Corner-bite: ssx_loops[j] IS a sub-region of out[k],
+		     *    but its boundary arc comes from out[k]'s outer loop,
+		     *    so loop_boolean can't find the split.
+		     *
+		     * Distinguish by checking whether the centroid of ssx_loops[j]
+		     * is inside out[k]'s outer loop.  If not → no overlap → skip.
+		     * If yes → corner-bite → use ssx_loop directly as the face. */
+		    double ssx_area = loop_shoelace_area(ssx_loops[j]);
+		    if (fabs(ssx_area) <= INTERSECTION_TOL * INTERSECTION_TOL) {
+			continue;
+		    }
+		    /* Compute ssx_loop centroid in UV space */
+		    ON_2dPoint ssx_centroid(0.0, 0.0);
+		    for (int si = 0; si < ssx_loops[j].Count(); si++) {
+			ON_3dPoint p = ssx_loops[j][si]->PointAtStart();
+			ssx_centroid.x += p.x;
+			ssx_centroid.y += p.y;
+		    }
+		    ssx_centroid.x /= ssx_loops[j].Count();
+		    ssx_centroid.y /= ssx_loops[j].Count();
+		    bool ssx_inside_outk = false;
+		    try {
+			ssx_inside_outk = is_point_inside_loop(ssx_centroid, out[k]->m_outerloop) ||
+					  is_point_on_loop(ssx_centroid, out[k]->m_outerloop);
+		    } catch (InvalidGeometry &) {}
+		    if (DEBUG_BREP_BOOLEAN) {
+			bu_log("  corner-bite check: ssx_loop[%zu] k=%d ssx_area=%g centroid(%g,%g) inside=%d\n",
+			       j, k, ssx_area, ssx_centroid.x, ssx_centroid.y, (int)ssx_inside_outk);
+		    }
+		    if (!ssx_inside_outk) {
+			/* No overlap between ssx_loop and this face — skip.
+			 * out[k] will be covered by the ssx_loop that does
+			 * overlap it (every sub-face must overlap at least
+			 * one ssx_loop from the partition). */
+			continue;
+		    }
+		    /* Corner-bite: ssx_loop IS the sub-face */
+		    TrimmedFace *new_face = out[k]->Duplicate();
+		    for (int fi = 0; fi < new_face->m_outerloop.Count(); fi++) {
+			delete new_face->m_outerloop[fi];
+		    }
+		    new_face->m_outerloop.Empty();
+		    for (int fi = 0; fi < ssx_loops[j].Count(); fi++) {
+			new_face->m_outerloop.Append(ssx_loops[j][fi]->Duplicate());
+		    }
+		    next_out.Append(new_face);
+		    continue;
 		}
 		append_faces_from_loops(next_out, out[k], intersect_loops);
 		intersect_loops.ClearInnerloops();
@@ -3932,6 +4147,21 @@ is_point_on_brep_surface(const ON_3dPoint &pt, const ON_Brep *brep, ON_SimpleArr
 	    outerloop.Append(brep->m_C2[brep->m_T[loop.m_ti[j]].m_c2i]);
 	}
 	ON_2dPoint pt2d(px_event[0].m_b[0], px_event[0].m_b[1]);
+	/* Verify the 3-D surface point at the returned UV is actually close
+	 * to the query point.  ON_Intersect() clamps UV to the surface domain
+	 * [u_min,u_max]×[v_min,v_max] when the true closest point is outside
+	 * the domain.  For a planar face of a box (e.g. ARB8 left face at
+	 * x=const) a query point that is ON the plane but far outside the
+	 * trimmed region maps to a clamped UV that lies on the outer-loop
+	 * boundary, causing a false ON_BREP_SURFACE classification.
+	 * Rejecting events where the reprojected 3-D point is farther than
+	 * INTERSECTION_TOL from the query point avoids this. */
+	{
+	    ON_3dPoint surf_pt = surf->PointAt(pt2d.x, pt2d.y);
+	    if (surf_pt.DistanceTo(pt) > INTERSECTION_TOL) {
+		continue;
+	    }
+	}
 	try {
 	    if (!is_point_outside_loop(pt2d, outerloop)) {
 		return true;
@@ -3993,85 +4223,117 @@ is_point_inside_brep(const ON_3dPoint &pt, const ON_Brep *brep, ON_SimpleArray<S
 	return false;
     }
 
-    ON_3dVector diag = bbox.Diagonal() * 1.5; // Make it even longer
-    ON_LineCurve line(pt, pt + diag);	// pt + diag should be outside, if pt
-    // is inside the bbox
+    /* Fire three axis-aligned rays (+x, +y, +z) and use a majority vote.
+     * A single diagonal ray was used previously but could be nearly parallel
+     * to flat-slot face planes, causing missed intersections. */
+    if (DEBUG_BREP_BOOLEAN) {
+	bu_log("is_point_inside_brep pt(%g,%g,%g) bbox[%g,%g,%g]-[%g,%g,%g]\n",
+	       pt.x, pt.y, pt.z,
+	       bbox.m_min.x, bbox.m_min.y, bbox.m_min.z,
+	       bbox.m_max.x, bbox.m_max.y, bbox.m_max.z);
+    }
+    int inside_votes = 0;
 
-    /* Pre-extract line endpoints for the slab prefilter below. */
-    const ON_3dPoint &ray_start = line.m_line.from;
-    const ON_3dPoint  ray_end   = line.m_line.to;
+    static const ON_3dVector ray_dirs[3] = {
+	ON_3dVector(1, 0, 0),
+	ON_3dVector(0, 1, 0),
+	ON_3dVector(0, 0, 1)
+    };
 
-    ON_3dPointArray isect_pt;
-    for (int i = 0; i < brep->m_F.Count(); i++) {
-	const ON_BrepFace &face = brep->m_F[i];
-	/* Directional slab prefilter: the ray goes from ray_start to
-	 * ray_end with all-positive direction components (diag =
-	 * bbox.Diagonal()*1.5).  A surface whose 3D bbox is entirely
-	 * "behind" the ray start in any axis can never be intersected
-	 * by the forward ray — skip it.  Similarly, a surface that is
-	 * entirely beyond the ray endpoint in any axis is out of
-	 * reach. */
-	{
-	    ON_3dPoint fb_min, fb_max;
-	    surf_tree[face.m_si]->GetBBox(fb_min, fb_max);
-	    if (fb_max.x < ray_start.x - INTERSECTION_TOL ||
-		fb_max.y < ray_start.y - INTERSECTION_TOL ||
-		fb_max.z < ray_start.z - INTERSECTION_TOL) {
+    for (int ray_idx = 0; ray_idx < 3; ray_idx++) {
+	const ON_3dVector &rdir = ray_dirs[ray_idx];
+	/* Ray end: start + direction * (2 * bbox extent along that axis) so
+	 * the endpoint is guaranteed to be outside the bbox. */
+	double extent = bbox.Diagonal().x * rdir.x
+	              + bbox.Diagonal().y * rdir.y
+	              + bbox.Diagonal().z * rdir.z;
+	if (extent < INTERSECTION_TOL)
+	    extent = 1.0; /* fallback for degenerate bbox */
+	ON_LineCurve line(pt, pt + rdir * (extent * 2.0 + 1.0));
+
+	const ON_3dPoint &ray_start = line.m_line.from;
+	const ON_3dPoint  ray_end   = line.m_line.to;
+
+	ON_3dPointArray isect_pt;
+	for (int i = 0; i < brep->m_F.Count(); i++) {
+	    const ON_BrepFace &face = brep->m_F[i];
+	    /* Slab prefilter along the ray direction only.  We must NOT
+	     * prune using the other axes when firing an axis-aligned ray —
+	     * the old diagonal prefilter was incorrect because it could
+	     * discard faces that straddle the ray position in Y/Z while
+	     * being "ahead" in X. */
+	    {
+		ON_3dPoint fb_min, fb_max;
+		surf_tree[face.m_si]->GetBBox(fb_min, fb_max);
+		/* Skip face if its extent along the ray is entirely behind
+		 * the ray start or entirely beyond the ray end. */
+		double fmin_along = fb_min.x*rdir.x + fb_min.y*rdir.y + fb_min.z*rdir.z;
+		double fmax_along = fb_max.x*rdir.x + fb_max.y*rdir.y + fb_max.z*rdir.z;
+		double ray_s_along = ray_start.x*rdir.x + ray_start.y*rdir.y + ray_start.z*rdir.z;
+		double ray_e_along = ray_end.x*rdir.x   + ray_end.y*rdir.y   + ray_end.z*rdir.z;
+		if (fmax_along < ray_s_along - INTERSECTION_TOL)
+		    continue;
+		if (fmin_along > ray_e_along + INTERSECTION_TOL)
+		    continue;
+	    }
+	    const ON_Surface *surf = face.SurfaceOf();
+	    ON_SimpleArray<ON_X_EVENT> x_event;
+	    if (!ON_Intersect(&line, surf, x_event, INTERSECTION_TOL, 0.0, 0, 0, 0, 0, 0, surf_tree[face.m_si])) {
 		continue;
 	    }
-	    if (fb_min.x > ray_end.x + INTERSECTION_TOL ||
-		fb_min.y > ray_end.y + INTERSECTION_TOL ||
-		fb_min.z > ray_end.z + INTERSECTION_TOL) {
-		continue;
-	    }
-	}
-	const ON_Surface *surf = face.SurfaceOf();
-	ON_SimpleArray<ON_X_EVENT> x_event;
-	if (!ON_Intersect(&line, surf, x_event, INTERSECTION_TOL, 0.0, 0, 0, 0, 0, 0, surf_tree[face.m_si])) {
-	    continue;
-	}
 
-	// Get the trimming curves of the face, and determine whether the
-	// points are inside the outerloop
-	ON_SimpleArray<ON_Curve *> outerloop;
-	const ON_BrepLoop &loop = brep->m_L[face.m_li[0]];  // outerloop only
-	for (int j = 0; j < loop.m_ti.Count(); j++) {
-	    outerloop.Append(brep->m_C2[brep->m_T[loop.m_ti[j]].m_c2i]);
-	}
-	try {
-	    for (int j = 0; j < x_event.Count(); j++) {
-		ON_2dPoint pt2d(x_event[j].m_b[0], x_event[j].m_b[1]);
-		if (!is_point_outside_loop(pt2d, outerloop)) {
-		    isect_pt.Append(x_event[j].m_B[0]);
-		}
-		if (x_event[j].m_type == ON_X_EVENT::ccx_overlap) {
-		    pt2d = ON_2dPoint(x_event[j].m_b[2], x_event[j].m_b[3]);
+	    // Get the trimming curves of the face, and determine whether the
+	    // intersection points are inside the outerloop
+	    ON_SimpleArray<ON_Curve *> outerloop;
+	    const ON_BrepLoop &loop = brep->m_L[face.m_li[0]];  // outerloop only
+	    for (int j = 0; j < loop.m_ti.Count(); j++) {
+		outerloop.Append(brep->m_C2[brep->m_T[loop.m_ti[j]].m_c2i]);
+	    }
+	    try {
+		for (int j = 0; j < x_event.Count(); j++) {
+		    ON_2dPoint pt2d(x_event[j].m_b[0], x_event[j].m_b[1]);
 		    if (!is_point_outside_loop(pt2d, outerloop)) {
-			isect_pt.Append(x_event[j].m_B[1]);
+			isect_pt.Append(x_event[j].m_B[0]);
+		    }
+		    if (x_event[j].m_type == ON_X_EVENT::ccx_overlap) {
+			pt2d = ON_2dPoint(x_event[j].m_b[2], x_event[j].m_b[3]);
+			if (!is_point_outside_loop(pt2d, outerloop)) {
+			    isect_pt.Append(x_event[j].m_B[1]);
+			}
 		    }
 		}
-	    }
-	} catch (InvalidGeometry &e) {
-	    bu_log("%s", e.what());
-	}
-    }
-
-    // Remove duplications
-    ON_3dPointArray pt_no_dup;
-    for (int i = 0; i < isect_pt.Count(); i++) {
-	int j;
-	for (j = 0; j < pt_no_dup.Count(); j++) {
-	    if (isect_pt[i].DistanceTo(pt_no_dup[j]) < INTERSECTION_TOL) {
-		break;
+	    } catch (InvalidGeometry &e) {
+		bu_log("%s", e.what());
 	    }
 	}
-	if (j == pt_no_dup.Count()) {
-	    // No duplication, append to the array
-	    pt_no_dup.Append(isect_pt[i]);
+
+	// Remove duplications
+	ON_3dPointArray pt_no_dup;
+	for (int i = 0; i < isect_pt.Count(); i++) {
+	    int j;
+	    for (j = 0; j < pt_no_dup.Count(); j++) {
+		if (isect_pt[i].DistanceTo(pt_no_dup[j]) < INTERSECTION_TOL) {
+		    break;
+		}
+	    }
+	    if (j == pt_no_dup.Count()) {
+		pt_no_dup.Append(isect_pt[i]);
+	    }
 	}
+
+	if (DEBUG_BREP_BOOLEAN) {
+	    bu_log("  ray[%d] hits=%d (%s)\n", ray_idx, pt_no_dup.Count(),
+		   pt_no_dup.Count() % 2 != 0 ? "inside" : "outside");
+	}
+	if (pt_no_dup.Count() % 2 != 0)
+	    inside_votes++;
     }
 
-    return pt_no_dup.Count() % 2 != 0;
+    /* Majority vote: inside if 2 or 3 rays agree. */
+    if (DEBUG_BREP_BOOLEAN) {
+	bu_log("  inside_votes=%d → %s\n", inside_votes, inside_votes >= 2 ? "INSIDE" : "OUTSIDE");
+    }
+    return inside_votes >= 2;
 }
 
 
@@ -4435,7 +4697,15 @@ get_face_intersection_curves(
 	std::set<int> *unused = i < face_count1 ? &unused1 : &unused2;
 	std::set<int> *intact = i < face_count1 ? &finalform1 : &finalform2;
 	int curr_index = i < face_count1 ? i : i - face_count1;
-	if (face.BoundingBox().MinimumDistanceTo(brep->BoundingBox()) > INTERSECTION_TOL) {
+	fastf_t face_bbox_dist = face.BoundingBox().MinimumDistanceTo(brep->BoundingBox());
+	if (DEBUG_BREP_BOOLEAN) {
+	    ON_BoundingBox fb = face.BoundingBox();
+	    bu_log("face_prefilter i=%d(%s%d) dist=%g bbox[%g,%g,%g]-[%g,%g,%g]\n",
+		   i, i < face_count1 ? "s1f" : "s2f", curr_index, face_bbox_dist,
+		   fb.m_min.x, fb.m_min.y, fb.m_min.z,
+		   fb.m_max.x, fb.m_max.y, fb.m_max.z);
+	}
+	if (face_bbox_dist > INTERSECTION_TOL) {
 	    switch (operation) {
 		case BOOLEAN_UNION:
 		    intact->insert(curr_index);
@@ -5070,8 +5340,13 @@ join_boundary_edges(ON_Brep *brep)
     ON_BoundingBox bbox;
     brep->GetBoundingBox(bbox);
     double bbox_diag = bbox.Diagonal().Length();
-    static const double VTOL_REL = 1.0e-8;
+    static const double VTOL_REL = 1.0e-5;
     double vtol = (bbox_diag > ON_ZERO_TOLERANCE) ? bbox_diag * VTOL_REL : ON_ZERO_TOLERANCE;
+    /* Never fall below INTERSECTION_TOL: intersection points computed from
+     * different surface parameterisations may have floating-point differences
+     * that exceed the bbox-relative tolerance when the model is small. */
+    if (vtol < INTERSECTION_TOL)
+	vtol = INTERSECTION_TOL;
 
     /* ---------------------------------------------------------------
      * Pass 1: open boundary edges.
