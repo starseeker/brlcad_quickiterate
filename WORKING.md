@@ -553,10 +553,97 @@ all primitive-specific drawing operations without any direct access to
 - [x] Use `s->s_res` in `rt_generic_scene_obj` (fallback to `&rt_uniresource`)
 - [x] Document `ft_mat`/`rt_##name##_mat` usage with `s_res` in DESIGN_SCENE_OBJ.md
 - [x] Build clean
-- [ ] Implement `rt_comb_scene_obj` (absorbs draw_m3)
-- [ ] Implement `rt_bot_scene_obj` (absorbs bot_adaptive_plot)
-- [ ] Implement `rt_brep_scene_obj` (absorbs brep_adaptive_plot)
-- [ ] Simplify draw_scene to call ft_scene_obj as primary dispatch
+- [x] Implement `rt_comb_scene_obj` (absorbs draw_m3) — done in earlier sessions
+- [x] Implement `rt_bot_scene_obj` (absorbs bot_adaptive_plot) — done in earlier sessions
+- [x] Implement `rt_brep_scene_obj` (absorbs brep_adaptive_plot) — done in earlier sessions
+- [x] Simplify draw_scene to call ft_scene_obj as primary dispatch — done in earlier sessions
+
+---
+
+## Session 9 Results (2026-03-14) — Stage 7 step 6 prep: mged_curr_pane
+
+### Summary
+
+Continued Stage 7 MGED libdm→Obol migration.  Added `mged_curr_pane` to
+`mged_state` as a direct per-state pointer to the active Obol pane, removing
+the need to scan `active_pane_set` in `refresh()`.  Removed dead code left over
+from the now-complete `ft_scene_obj` draw-scene migration.
+
+### Changes Made
+
+#### `mged.h` — Add `mged_curr_pane` to `mged_state`
+
+```c
+struct mged_state {
+    struct mged_dm   *mged_curr_dm;      /* legacy libdm pane */
+    struct mged_pane *mged_curr_pane;    /* Stage 7: current Obol pane */
+    ...
+};
+```
+
+#### `attach.c` — `set_curr_pane()` sets `s->mged_curr_pane`
+
+In addition to `s->gedp->ged_gvp = mp->mp_gvp`, now also sets
+`s->mged_curr_pane = mp`.  When called with `NULL`, both fields are cleared.
+
+#### `mged.c` — Initialize + use `mged_curr_pane`
+
+- `s->mged_curr_pane = MGED_PANE_NULL` at startup.
+- `refresh()` `obol_notify_views` guard: uses `s->mged_curr_pane` as a fast
+  path alongside `BU_PTBL_LEN(&active_pane_set) > 0`, removing the table scan
+  when the active window is an Obol pane.
+
+#### `draw.cpp` — Remove orphaned `extern "C" int draw_points`
+
+The `draw_points()` forward declaration was removed.  `draw_points()` in
+`points_eval.c` is superseded by mode-5 handling in `rt_generic_scene_obj`
+(`rt_sample_pnts`); the declaration was never called.
+
+#### `DESIGN_SCENE_OBJ.md` — All section 3.2 items marked done
+
+All 6 required changes (s_res, rt_comb_scene_obj, rt_bot_scene_obj,
+rt_brep_scene_obj, draw_scene simplification, object-space vlists) are now
+marked completed.  Section 3.3 migration path also marked complete.
+
+#### `RADICAL_MIGRATION.md` — Step 5.5 added, Step 6 updated
+
+Step 5.5 documents the `mged_curr_pane` addition.  Step 6 updated to clarify
+the remaining blocker: initial "nu" mged_dm entry and f_attach dm_open path.
+
+### Checklist
+
+- [x] `struct mged_pane *mged_curr_pane` added to `mged_state`
+- [x] `set_curr_pane()` sets `s->mged_curr_pane`
+- [x] `s->mged_curr_pane = MGED_PANE_NULL` at startup (mged.c)
+- [x] `refresh()` uses `mged_curr_pane` fast-path guard
+- [x] Orphaned `extern "C" int draw_points` removed from draw.cpp
+- [x] DESIGN_SCENE_OBJ.md §3.2 all items marked done
+- [x] RADICAL_MIGRATION.md Step 5.5 documented
+- [x] Build clean (libged + librt + attach.c/mged.c compile with -Werror)
+
+---
+
+## Session 10 Results (2026-03-14) — Remove dead draw stubs from libged build
+
+### Summary
+
+Removed `points_eval.c` and `wireframe_eval.c` from the libged CMakeLists.txt
+build list.  Both files are dead code: their functions (`draw_points` and
+`draw_m3`) are no longer called anywhere in BRL-CAD.  The implementations
+have been superseded by per-primitive `ft_scene_obj` callbacks in librt:
+
+- `draw_points` → `rt_generic_scene_obj` mode-5 via `rt_sample_pnts`
+- `draw_m3` → `rt_comb_scene_obj` → `rt_comb_eval_m3` in librt
+
+Both files are retained in the source tree with updated headers explaining
+they are deprecated, for reference by any out-of-tree callers.
+
+### Checklist
+
+- [x] Remove `points_eval.c` from libged CMakeLists.txt
+- [x] Remove `wireframe_eval.c` from libged CMakeLists.txt
+- [x] Update file headers to document deprecated/not-built status
+- [x] Build verify (libged builds without these files)
 
 ---
 
