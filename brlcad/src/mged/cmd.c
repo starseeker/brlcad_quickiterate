@@ -812,6 +812,7 @@ cmd_ged_view_wrapper(ClientData clientData, Tcl_Interp *interpreter, int argc, c
 	return TCL_ERROR;
 
     (void)mged_svbase(s);
+    s->update_views = 1;
     view_state->vs_flag = 1;
 
     return TCL_OK;
@@ -2419,6 +2420,7 @@ _view_update_rate_flags_viewonly(struct mged_state *s)
 				!ZERO(view_state->k.tra_m[Y]) ||
 				!ZERO(view_state->k.tra_m[Z])) ? 1 : 0;
     view_state->k.sca_flag = (!ZERO(view_state->k.sca)) ? 1 : 0;
+    s->update_views = 1;
     view_state->vs_flag = 1;
 }
 
@@ -2624,6 +2626,7 @@ cmd_view(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
     /* Success: propagate staging->MGED if distinct */
     if (!shared_view) {
 	_view_copy_from_staging(mged_view, staging, is_knob);
+	s->update_views = 1;
 	view_state->vs_flag = 1;
     }
 

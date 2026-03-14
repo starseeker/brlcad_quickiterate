@@ -710,3 +710,67 @@ Registered as `bg_bb` in `tests/CMakeLists.txt`.
 
 `bg_bb` test passes (exit code 0, 10 iterations, all checks pass).
 
+
+---
+
+## Session 11 Results (2026-03-14) — Step 6.a: Unify view-dirty tracking
+
+### Summary
+
+All MGED view-command code paths that previously set only
+`view_state->vs_flag = 1` (without `s->update_views = 1`) now set both.
+This is Step 6.a of the MGED libdm removal refactoring: it ensures that
+`obol_notify_views` fires correctly in the Obol rendering path even after
+the `active_dm_set` vs_flag scan is removed in Step 6.
+
+The `vs_flag` mechanism is a per-pane display-dirty flag propagated through
+`struct _view_state`.  The `s->update_views` flag is a session-level dirty
+flag that was already set by most (but not all) view-change paths.  The
+missing `s->update_views = 1` additions are needed because:
+
+1. `refresh()` computes `obol_needs_refresh = s->update_views` at the top,
+   before the `active_dm_set` loop.  When Step 6 removes the `active_dm_set`
+   loop, the `vs_flag` scan in that loop will disappear, so `update_views`
+   must be the sole trigger for `obol_notify_views`.
+
+2. Even now (before Step 6), any view command that set only `vs_flag` without
+   `update_views` was relying on the `active_dm_set` loop to eventually set
+   `obol_needs_refresh`.  Setting both flags directly is cleaner.
+
+### Files changed
+
+| File | Changes |
+|------|---------|
+| `src/mged/chgview.c` | Added `s->update_views = 1` at 17 vs_flag sites |
+| `src/mged/edsol.c` | 5 sites |
+| `src/mged/edarb.c` | 2 sites |
+| `src/mged/dodraw.c` | 1 site |
+| `src/mged/tedit.c` | 1 site |
+| `src/mged/rtif.c` | 1 site |
+| `src/mged/setup.c` | 1 site |
+| `src/mged/rect.c` | 1 site |
+| `src/mged/menu.c` | 1 site |
+| `src/mged/cmd.c` | 3 sites |
+| `src/mged/usepen.c` | 3 sites (one required adding braces to an if-body) |
+| `src/mged/mged.c` | 2 sites (`new_edit_mats` loop and `mged_view_callback`) |
+| `RADICAL_MIGRATION.md` | Added Step 5.6 ✅ entry documenting this change |
+
+### Note on dm-generic.c
+
+The `view_changed_hook` callback in `dm-generic.c` (line 599) sets
+`hs->vs->vs_flag = 1` through a `mged_view_hook_state *` that has no
+`mged_state *` member.  Adding `s->update_views = 1` here would require
+extending `mged_view_hook_state` with a back-pointer to `mged_state`.
+This path is only active when the legacy libdm path is live (it fires
+from `bu_structparse` variable-change hooks wired up in `mged_link_vars`).
+It is therefore safe to leave for Step 6 when the legacy libdm path is
+fully removed.
+
+### Checklist
+
+- [x] Add `s->update_views = 1` alongside `vs_flag = 1` in 12 MGED source files (38 sites)
+- [x] Fix indentation/braces for two if-guards that gained an extra statement
+- [x] Update `refresh()` comment to document the new invariant
+- [x] Update `RADICAL_MIGRATION.md` with Step 5.6 entry
+- [x] Build verify (all 12 modified files compile cleanly with -Werror)
+

@@ -3161,6 +3161,7 @@ sedit(struct mged_state *s)
 	    pr_prompt(s);
 	    fixv--;
 	    MEDIT(s)->edit_flag = ECMD_ARB_ROTATE_FACE;
+	    s->update_views = 1;
 	    view_state->vs_flag = 1;	/* draw arrow, etc. */
 	    set_e_axes_pos(s, 1);
 	    break;
@@ -4209,6 +4210,7 @@ sedit(struct mged_state *s)
 		es_eu = (struct edgeuse *)NULL;
 
 		replot_editing_solid(s);
+		s->update_views = 1;
 		view_state->vs_flag = 1;
 	    }
 	    break;
@@ -6175,6 +6177,7 @@ f_eqn(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     replot_editing_solid(s);
 
     /* update display information */
+    s->update_views = 1;
     view_state->vs_flag = 1;
 
     return TCL_OK;
@@ -7119,6 +7122,7 @@ sedit_vpick(struct mged_state *s, point_t v_pos)
 	get_solid_keypoint(s, MEDIT(s)->e_keypoint, &MEDIT(s)->e_keytag, &MEDIT(s)->es_int, MEDIT(s)->e_mat);
     }
     chg_state(s, ST_S_VPICK, ST_S_EDIT, "Vertex Pick Complete");
+    s->update_views = 1;
     view_state->vs_flag = 1;
 }
 
@@ -7255,6 +7259,7 @@ f_keypoint(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv
 	    return TCL_ERROR;
     }
 
+    s->update_views = 1;
     view_state->vs_flag = 1;
     return TCL_OK;
 }

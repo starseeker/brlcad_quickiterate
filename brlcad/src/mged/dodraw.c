@@ -269,6 +269,7 @@ replot_modified_solid(
 		(struct db_full_path *)0,
 		(struct db_tree_state *)0, sp);
 
+    s->update_views = 1;
     view_state->vs_flag = 1;
     return 0;
 }

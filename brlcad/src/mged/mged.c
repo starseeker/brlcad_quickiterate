@@ -322,6 +322,7 @@ new_edit_mats(struct mged_state *s)
 	MAT_COPY(MEDIT(s)->model2objview, view_state->vs_model2objview);
 
 	view_state->vs_flag = 1;
+	s->update_views = 1;
     }
 
     set_curr_dm(s, save_dm_list);
@@ -345,6 +346,7 @@ mged_view_callback(bsg_view *gvp,
 	bn_mat_inv(vsp->vs_objview2model, vsp->vs_model2objview);
     }
     vsp->vs_flag = 1;
+    s->update_views = 1;
     if (s->mged_curr_dm->dm_dmp) dm_set_dirty(s->mged_curr_dm->dm_dmp, 1);
 }
 
@@ -1518,8 +1520,11 @@ refresh(struct mged_state *s)
     mged_pr_output(s->interp);
 
     /* Stage 7: capture update_views before resetting it so the Obol path
-     * below can decide whether to notify Obol panes.  Also true when any
-     * vs_flag is set on active_dm_set view states (checked in the loop). */
+     * below can decide whether to notify Obol panes.  All view-command
+     * paths now set both vs_flag AND s->update_views (Step 6.a), so
+     * obol_needs_refresh is already complete from s->update_views alone.
+     * The vs_flag check in the active_dm_set loop below remains for the
+     * legacy dm path but is now a belt-and-suspenders guard only. */
     int obol_needs_refresh = s->update_views;
 
     /* Display Manager / Views */
