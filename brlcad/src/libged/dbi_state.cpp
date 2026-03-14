@@ -32,6 +32,7 @@
 #include <algorithm>
 #include <condition_variable>
 #include <deque>
+#include <chrono>
 #include <map>
 #include <mutex>
 #include <thread>
@@ -3895,6 +3896,38 @@ DbiState::drain_geom_results()
     }
 
     return n;
+}
+
+size_t
+DbiState::wait_for_pipeline(int max_ms)
+{
+    if (!draw_pipeline_)
+	return 0;
+
+    size_t total = 0;
+    auto t0 = std::chrono::steady_clock::now();
+
+    while (true) {
+	total += drain_geom_results();
+
+	if (draw_pipeline_->settled())
+	    break;
+
+	if (max_ms > 0) {
+	    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+		std::chrono::steady_clock::now() - t0).count();
+	    if (elapsed >= max_ms)
+		break;
+	}
+
+	std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+
+    /* One final drain to pick up any results that arrived between the
+     * last drain and the settled() check. */
+    total += drain_geom_results();
+
+    return total;
 }
 
 /* ---- Phase 3: GObj and CombInst implementations ---- */

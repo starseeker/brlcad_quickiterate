@@ -311,7 +311,6 @@ set(
   inside.c
   path.c
   pnts_util.c
-  points_eval.c
   polyclip.cpp
   qray.cpp
   tab_complete.cpp
@@ -321,7 +320,6 @@ set(
   vutil.c
   view/data_lines.c
   wdb_importFg4Section.c
-  wireframe_eval.c
 )
 
 # Conditionally include Obol scene assembler when the Obol library is available.

@@ -21,9 +21,14 @@
 /** @{ */
 /** @file libged/draw/points_eval.c
  *
- *  Given a .g object, raytrace that object pseudo-randomly to generate a point
- *  cloud for visualization
+ * DEPRECATED — no longer compiled as part of libged (removed from
+ * CMakeLists.txt 2026-03-14).  Preserved for reference only.
  *
+ * Point-cloud visualization (mode 5, "draw -m5") has been migrated to
+ * rt_generic_scene_obj() in src/librt/primitives/generic.c, which calls
+ * rt_sample_pnts() directly in its mode-5 switch case.  draw_scene()
+ * dispatches via OBJ[dp->d_minor_type].ft_scene_obj() for all types;
+ * there is no separate draw_points() call-site remaining in BRL-CAD.
  */
 /** @} */
 

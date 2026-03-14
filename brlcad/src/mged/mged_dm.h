@@ -443,10 +443,12 @@ extern void set_curr_dm(struct mged_state *s, struct mged_dm *nl);
  *    `active_pane_set` AND `ged_views`, replacing the old `::obol_pane_gvp`
  *    Tcl-variable bridge.
  *
- * `set_curr_pane()` sets `s->gedp->ged_gvp` from `mp->mp_gvp` without
- * touching `s->mged_curr_dm`, so no DMP null guards are needed at this
- * stage.  Once all panes are migrated to `mged_pane`, `set_curr_dm` and
- * the DMP macros can be removed.
+ * `set_curr_pane()` sets `s->gedp->ged_gvp` from `mp->mp_gvp`, sets
+ * `s->mged_curr_pane = mp`, AND redirects `s->mged_curr_dm` to the headless
+ * "nu" init dm (`mged_dm_init_state`) so that `DMP == NULL` and all legacy
+ * libdm drawing guards fire cleanly.  The ternary macros prefer `mp->mp_*`
+ * because `mged_curr_pane` is now non-NULL.  Once all panes are migrated to
+ * `mged_pane`, `set_curr_dm` and the DMP macros can be removed (Step 6).
  *
  * See RADICAL_MIGRATION.md, "MGED refactoring for libdm removal", steps 2-3.
  * ----------------------------------------------------------------------- */
@@ -455,15 +457,40 @@ struct mged_pane {
     bsg_view          *mp_gvp;       /* the view this pane displays (dmp == NULL for Obol) */
     struct cmd_list   *mp_cmd_tie;   /* Tcl command-history link (mirrors dm_tie) */
     struct bu_list     mp_p_vlist;   /* predictor vlist */
-    /* Remaining per-pane overlay state will be added here as each overlay
-     * is migrated away from libdm.  Until then, the corresponding fields on
-     * the legacy mged_dm struct continue to be used. */
+
+    /* Per-pane state (mirrors the shareable resources in mged_dm).  These
+     * are allocated and initialized by mged_pane_init_resources() in
+     * attach.c when f_new_obol_view_ptr creates the pane, and freed by
+     * mged_pane_free_resources() (called from mged_pane_release()).  They
+     * replace the mged_curr_dm->dm_* equivalents for Obol panes. */
+    struct _view_state      *mp_view_state;
+    struct _adc_state       *mp_adc_state;
+    struct _menu_state      *mp_menu_state;
+    struct _rubber_band     *mp_rubber_band;
+    struct _mged_variables  *mp_mged_variables;
+    struct _color_scheme    *mp_color_scheme;
+    struct bsg_grid_state   *mp_grid_state;
+    struct _axes_state      *mp_axes_state;
+    struct _dlist_state     *mp_dlist_state;
+
+    /* Tcl display variable names (mirrors dm_fps_name, dm_aet_name, etc.).
+     * Initialized by mged_pane_link_vars() when the pane is registered.
+     * Used by dotitles() (Stage 7: currently dotitles() skips Obol panes
+     * via the !DMP guard; these fields prepare for a future obol_dotitles). */
+    struct bu_vls   mp_fps_name;    /* "$::mged_display(%path,fps)" */
+    struct bu_vls   mp_aet_name;    /* "$::mged_display(%path,aet)" */
+    struct bu_vls   mp_ang_name;    /* "$::mged_display(%path,ang)" */
+    struct bu_vls   mp_center_name; /* "$::mged_display(%path,center)" */
+    struct bu_vls   mp_size_name;   /* "$::mged_display(%path,size)" */
+    struct bu_vls   mp_adc_name;    /* "$::mged_display(%path,adc)" */
 };
 
 #define MGED_PANE_NULL ((struct mged_pane *)NULL)
 
 extern struct bu_ptbl active_pane_set;       /* defined in attach.c */
 extern void set_curr_pane(struct mged_state *s, struct mged_pane *mp);
+extern void mged_pane_link_vars(struct mged_pane *mp);  /* in attach.c */
+extern void obol_update_title_vars(struct mged_state *s, struct mged_pane *mp);  /* in titles.c */
 
 /**
  * Find the mged_pane in active_pane_set whose gv_name matches `name`.
@@ -478,6 +505,21 @@ extern struct mged_pane *mged_pane_find_by_name(const char *name);
  * (it is tracked in ged_free_views).
  */
 extern void mged_pane_release(struct mged_pane *mp);
+
+/**
+ * Allocate and initialize the per-pane overlay state (mp_view_state,
+ * mp_color_scheme, etc.) for an Obol mged_pane.  Copies initial values
+ * from mged_dm_init_state so the new pane starts with the same defaults
+ * as a legacy dm pane.  Must be called after mged_dm_init_state has been
+ * populated (i.e. after the nu-dm is set up in mged main()).
+ */
+extern void mged_pane_init_resources(struct mged_state *s, struct mged_pane *mp);
+
+/**
+ * Free the per-pane overlay state allocated by mged_pane_init_resources().
+ * Safe to call even if init_resources was never called (all pointers are NULL).
+ */
+extern void mged_pane_free_resources(struct mged_pane *mp);
 #define DMP s->mged_curr_dm->dm_dmp
 #define DMP_dirty s->mged_curr_dm->dm_dirty
 #define fbp s->mged_curr_dm->dm_fbp
@@ -488,15 +530,20 @@ extern void mged_pane_release(struct mged_pane *mp);
 #define perspective_angle s->mged_curr_dm->dm_perspective_angle
 #define zclip_ptr s->mged_curr_dm->dm_zclip_ptr
 
-#define view_state s->mged_curr_dm->dm_view_state
-#define adc_state s->mged_curr_dm->dm_adc_state
-#define menu_state s->mged_curr_dm->dm_menu_state
-#define rubber_band s->mged_curr_dm->dm_rubber_band
-#define mged_variables s->mged_curr_dm->dm_mged_variables
-#define color_scheme s->mged_curr_dm->dm_color_scheme
-#define grid_state s->mged_curr_dm->dm_grid_state
-#define axes_state s->mged_curr_dm->dm_axes_state
-#define dlist_state s->mged_curr_dm->dm_dlist_state
+/* Stage 7 (Step 6 transition): per-pane state macros prefer mged_curr_pane
+ * (Obol path) when set, falling back to mged_curr_dm (legacy dm path).
+ * All BU_ALLOC(macro_name, type) and direct pointer-assignment sites have
+ * been changed to use s->mged_curr_dm->dm_<field> explicitly (in attach.c
+ * dm_var_init and mged.c main), so these ternary definitions are safe. */
+#define view_state (s->mged_curr_pane ? s->mged_curr_pane->mp_view_state : s->mged_curr_dm->dm_view_state)
+#define adc_state (s->mged_curr_pane ? s->mged_curr_pane->mp_adc_state : s->mged_curr_dm->dm_adc_state)
+#define menu_state (s->mged_curr_pane ? s->mged_curr_pane->mp_menu_state : s->mged_curr_dm->dm_menu_state)
+#define rubber_band (s->mged_curr_pane ? s->mged_curr_pane->mp_rubber_band : s->mged_curr_dm->dm_rubber_band)
+#define mged_variables (s->mged_curr_pane ? s->mged_curr_pane->mp_mged_variables : s->mged_curr_dm->dm_mged_variables)
+#define color_scheme (s->mged_curr_pane ? s->mged_curr_pane->mp_color_scheme : s->mged_curr_dm->dm_color_scheme)
+#define grid_state (s->mged_curr_pane ? s->mged_curr_pane->mp_grid_state : s->mged_curr_dm->dm_grid_state)
+#define axes_state (s->mged_curr_pane ? s->mged_curr_pane->mp_axes_state : s->mged_curr_dm->dm_axes_state)
+#define dlist_state (s->mged_curr_pane ? s->mged_curr_pane->mp_dlist_state : s->mged_curr_dm->dm_dlist_state)
 
 #define cmd_hook s->mged_curr_dm->dm_cmd_hook
 #define viewpoint_hook s->mged_curr_dm->dm_viewpoint_hook
@@ -620,6 +667,7 @@ extern void mged_rtCmdNotify(int);
 #define DM_PS_INDEX 1
 
 struct mged_view_hook_state {
+    struct mged_state    *hs_s;          /* back-pointer to session state (Step 6.a) */
     struct dm *hs_dmp;
     struct _view_state *vs;
     int *dirty_global;

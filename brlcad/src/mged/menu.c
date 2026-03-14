@@ -401,6 +401,7 @@ nmg_ed(struct mged_state *s, int arg, int UNUSED(a), int UNUSED(b))
 	    if (*es_eu->up.magic_p == NMG_LOOPUSE_MAGIC)
 		nmg_veu(&es_eu->up.lu_p->down_hd, es_eu->up.magic_p);
 	    /* no change of state or MEDIT(s)->edit_flag */
+	    s->update_views = 1;
 	    view_state->vs_flag = 1;
 	    return;
 	case ECMD_NMG_FORW:
@@ -1435,13 +1436,15 @@ mmenu_set(struct mged_state *s, int index, struct menu_item *value)
     Tcl_DStringFree(&ds_menu);
     bu_vls_free(&menu_string);
 
+    /* Stage 7: notify the Obol path. */
+    s->update_views = 1;
     for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
 	struct mged_dm *dlp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
 	if (menu_state == dlp->dm_menu_state &&
 	    dlp->dm_mged_variables->mv_faceplate &&
 	    dlp->dm_mged_variables->mv_orig_gui) {
 	    dlp->dm_dirty = 1;
-	    dm_set_dirty(dlp->dm_dmp, 1);
+	    if (dlp->dm_dmp) dm_set_dirty(dlp->dm_dmp, 1);
 	}
     }
 }
@@ -1472,6 +1475,9 @@ mmenu_set_all(struct mged_state *s, int index, struct menu_item *value)
 void
 mged_highlight_menu_item(struct mged_state *s, struct menu_item *mptr, int y)
 {
+    /* Stage 7 guard: skip libdm overlay drawing for Obol panes */
+    if (!DMP) return;
+
     switch (mptr->menu_arg) {
 	case BV_RATE_TOGGLE:
 	    if (mged_variables->mv_rateknobs) {
@@ -1516,6 +1522,9 @@ mged_highlight_menu_item(struct mged_state *s, struct menu_item *mptr, int y)
 void
 mmenu_display(struct mged_state *s, int y_top)
 {
+    /* Stage 7 guard: skip libdm overlay drawing for Obol panes */
+    if (!DMP) return;
+
     static int menu, item;
     struct menu_item **m;
     struct menu_item *mptr;

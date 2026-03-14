@@ -138,11 +138,13 @@ set_dirty_flag(const struct bu_structparse *UNUSED(sdp),
 {
     struct mged_state *s = (struct mged_state *)data;
     MGED_CK_STATE(s);
+    /* Stage 7: notify the Obol path via update_views. */
+    s->update_views = 1;
     for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
 	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
 	if (m_dmp->dm_mged_variables == mged_variables) {
 	    m_dmp->dm_dirty = 1;
-	    dm_set_dirty(m_dmp->dm_dmp, 1);
+	    if (m_dmp->dm_dmp) dm_set_dirty(m_dmp->dm_dmp, 1);
 	}
     }
 }
@@ -334,7 +336,7 @@ set_scroll_private(const struct bu_structparse *UNUSED(sdp),
 
 		set_scroll(s);		/* set scroll_array for drawing the scroll bars */
 		DMP_dirty = 1;
-		dm_set_dirty(DMP, 1);
+		if (DMP) dm_set_dirty(DMP, 1);
 	    }
 	}
     }
@@ -415,7 +417,7 @@ set_dlist(const struct bu_structparse *UNUSED(sdp),
 		createDListAll((void *)s, NULL);
 		dlp1->dm_dlist_state->dl_active = 1;
 		dlp1->dm_dirty = 1;
-		dm_set_dirty(dlp1->dm_dmp, 1);
+		if (dlp1->dm_dmp) dm_set_dirty(dlp1->dm_dmp, 1);
 	    }
 	}
     } else {
@@ -496,7 +498,7 @@ set_perspective(const struct bu_structparse *sdp,
     }
 
     /* keep display manager in sync */
-    dm_set_perspective(DMP, mged_variables->mv_perspective_mode);
+    if (DMP) dm_set_perspective(DMP, mged_variables->mv_perspective_mode);
 
     set_dirty_flag(sdp, name, base, value, data);
 }
@@ -522,7 +524,7 @@ establish_perspective(const struct bu_structparse *sdp,
     }
 
     /* keep display manager in sync */
-    dm_set_perspective(DMP, mged_variables->mv_perspective_mode);
+    if (DMP) dm_set_perspective(DMP, mged_variables->mv_perspective_mode);
 
     set_dirty_flag(sdp, name, base, value, data);
 }
@@ -568,7 +570,7 @@ toggle_perspective(const struct bu_structparse *sdp,
     }
 
     /* keep display manager in sync */
-    dm_set_perspective(DMP, mged_variables->mv_perspective_mode);
+    if (DMP) dm_set_perspective(DMP, mged_variables->mv_perspective_mode);
 
     set_dirty_flag(sdp, name, base, value, data);
 }

@@ -363,7 +363,7 @@ cmd_ged_erase_wrapper(ClientData clientData, Tcl_Interp *interpreter, int argc, 
 
     solid_list_callback(s);
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
+    if (DMP) dm_set_dirty(DMP, 1);
 
     return TCL_OK;
 }
@@ -437,7 +437,7 @@ cmd_ged_gqa(ClientData clientData, Tcl_Interp *interpreter, int argc, const char
 	return TCL_ERROR;
 
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
+    if (DMP) dm_set_dirty(DMP, 1);
 
     return TCL_OK;
 }
@@ -812,6 +812,7 @@ cmd_ged_view_wrapper(ClientData clientData, Tcl_Interp *interpreter, int argc, c
 	return TCL_ERROR;
 
     (void)mged_svbase(s);
+    s->update_views = 1;
     view_state->vs_flag = 1;
 
     return TCL_OK;
@@ -836,7 +837,8 @@ cmd_ged_dm_wrapper(ClientData clientData, Tcl_Interp *interpreter, int argc, con
 
     if (!s->gedp->ged_gvp)
 	s->gedp->ged_gvp = view_state->vs_gvp;
-    s->gedp->ged_gvp->dmp = (void *)s->mged_curr_dm->dm_dmp;
+    /* Stage 7: DMP is NULL for Obol panes; set dmp to NULL explicitly. */
+    s->gedp->ged_gvp->dmp = DMP ? (void *)DMP : NULL;
 
     ret = (*ctp->ged_func)(s->gedp, argc, (const char **)argv);
     GED_OUTPUT;
@@ -875,12 +877,13 @@ cmd_screengrab(ClientData clientData, Tcl_Interp *interpreter, int argc, const c
 
     /* Force the scene to be rendered before reading pixels. */
     DMP_dirty = 1;
-    dm_set_dirty(DMP, 1);
+    if (DMP) dm_set_dirty(DMP, 1);
     refresh(s);
 
     if (!s->gedp->ged_gvp)
 	s->gedp->ged_gvp = view_state->vs_gvp;
-    s->gedp->ged_gvp->dmp = (void *)s->mged_curr_dm->dm_dmp;
+    /* Stage 7: DMP is NULL for Obol panes; set dmp to NULL explicitly. */
+    s->gedp->ged_gvp->dmp = DMP ? (void *)DMP : NULL;
 
     ret = (*ctp->ged_func)(s->gedp, argc, (const char **)argv);
     GED_OUTPUT;
@@ -1598,7 +1601,8 @@ f_postscript(ClientData clientData, Tcl_Interp *interpreter, int argc, const cha
     vsp = view_state;  /* save state info pointer */
 
     bu_free((void *)menu_state, "f_postscript: menu_state");
-    menu_state = dml->dm_menu_state;
+    /* Stage 7: use explicit mged_curr_dm assignment for ternary-macro safety. */
+    s->mged_curr_dm->dm_menu_state = dml->dm_menu_state;
 
     scroll_top = dml->dm_scroll_top;
     scroll_active = dml->dm_scroll_active;
@@ -1606,10 +1610,13 @@ f_postscript(ClientData clientData, Tcl_Interp *interpreter, int argc, const cha
     memmove((void *)scroll_array, (void *)dml->dm_scroll_array, sizeof(struct scroll_item *) * 6);
 
     DMP_dirty = 1;
-    dm_set_dirty(DMP, 1);
+    if (DMP) dm_set_dirty(DMP, 1);
     refresh(s);
 
-    view_state = vsp;  /* restore state info pointer */
+    /* Stage 7: restore explicitly via mged_curr_dm so this assignment is an
+     * lvalue even after the view_state macro is eventually changed to a
+     * ternary expression (Step 6). */
+    s->mged_curr_dm->dm_view_state = vsp;
     status = Tcl_Eval(interpreter, "release");
     set_curr_dm(s, dml);
     s->gedp->ged_gvp = view_state->vs_gvp;
@@ -1942,7 +1949,7 @@ cmd_units(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *
     sf = s->dbip->dbi_base2local / sf;
     update_grids(s,sf);
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
+    if (DMP) dm_set_dirty(DMP, 1);
 
     return TCL_OK;
 }
@@ -2073,6 +2080,28 @@ cmd_blast(ClientData clientData, Tcl_Interp *UNUSED(interpreter), int argc, cons
     set_curr_dm(s, save_m_dmp);
     curr_cmd_list = save_cmd_list;
     s->gedp->ged_gvp = view_state->vs_gvp;
+
+    /* Stage 7: also apply autoview to Obol panes (active_pane_set). */
+    {
+	struct mged_pane *save_pane = s->mged_curr_pane;
+	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	    int non_empty = 0;
+	    set_curr_pane(s, mp);
+	    {
+		bsg_shape *root = bsg_scene_root_get(mp->mp_gvp);
+		non_empty = (root && BU_PTBL_LEN(&root->children) > 0) ? 1 : 0;
+	    }
+	    if (mged_variables->mv_autosize && non_empty) {
+		const char *av[1] = {"autoview"};
+		ged_exec_autoview(s->gedp, 1, (const char **)av);
+		s->update_views = 1;
+	    }
+	}
+	set_curr_pane(s, save_pane);
+	/* Restore mged_curr_dm after set_curr_pane may have redirected it. */
+	if (!save_pane) set_curr_dm(s, save_m_dmp);
+    }
 
     return TCL_OK;
 }
@@ -2419,6 +2448,7 @@ _view_update_rate_flags_viewonly(struct mged_state *s)
 				!ZERO(view_state->k.tra_m[Y]) ||
 				!ZERO(view_state->k.tra_m[Z])) ? 1 : 0;
     view_state->k.sca_flag = (!ZERO(view_state->k.sca)) ? 1 : 0;
+    s->update_views = 1;
     view_state->vs_flag = 1;
 }
 
@@ -2624,6 +2654,7 @@ cmd_view(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
     /* Success: propagate staging->MGED if distinct */
     if (!shared_view) {
 	_view_copy_from_staging(mged_view, staging, is_knob);
+	s->update_views = 1;
 	view_state->vs_flag = 1;
     }
 

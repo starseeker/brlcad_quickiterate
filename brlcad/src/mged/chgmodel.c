@@ -127,7 +127,7 @@ mged_rot_obj(struct mged_state *s, int iflag, fastf_t *argvect)
     vect_t v_work;
 
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
+    if (DMP) dm_set_dirty(DMP, 1);
 
     if (movedir != ROTARROW) {
 	/* NOT in object rotate mode - put it in obj rot */
@@ -253,7 +253,7 @@ f_sc_obj(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[]
     }
 
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
+    if (DMP) dm_set_dirty(DMP, 1);
 
     MAT_IDN(incr);
 
@@ -336,7 +336,7 @@ f_tr_obj(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[]
     /* Remainder of code concerns object edit case */
 
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
+    if (DMP) dm_set_dirty(DMP, 1);
 
     MAT_IDN(incr);
     MAT_IDN(old);

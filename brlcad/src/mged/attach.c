@@ -105,8 +105,10 @@ void set_curr_dm(struct mged_state *s, struct mged_dm *nc)
  *
  * Stage 7 (libdm removal): this is the counterpart of set_curr_dm() for
  * Obol panes tracked in active_pane_set.  It sets s->gedp->ged_gvp to the
- * pane's bsg_view WITHOUT touching s->mged_curr_dm, so code that uses DMP
- * continues to reference the last-active legacy dm safely.
+ * pane's bsg_view AND redirects s->mged_curr_dm to the headless "nu" init dm
+ * (mged_dm_init_state) so that DMP == NULL and all legacy libdm drawing guards
+ * fire cleanly.  The ternary macros prefer mp->mp_* because mged_curr_pane is
+ * non-NULL.
  *
  * When all panes have been migrated to mged_pane (step 6), set_curr_dm and
  * the DMP macros will be removed and set_curr_pane will become the sole
@@ -117,11 +119,22 @@ set_curr_pane(struct mged_state *s, struct mged_pane *mp)
 {
     if (!s || !s->gedp)
 	return;
+    /* Track the active Obol pane directly on mged_state for convenient
+     * access by refresh(), overlay code, and Step 6 migration. */
+    s->mged_curr_pane = mp;
     if (!mp) {
 	s->gedp->ged_gvp = NULL;
 	return;
     }
     s->gedp->ged_gvp = mp->mp_gvp;
+
+    /* Stage 7: also point mged_curr_dm at the "nu" headless init dm so
+     * that DMP == NULL and all legacy libdm drawing guards fire cleanly.
+     * The ternary macros (view_state, color_scheme, etc.) prefer mp->mp_*
+     * because mged_curr_pane is now non-NULL.  mged_dm_init_state is always
+     * non-NULL once the startup code has run. */
+    if (mged_dm_init_state)
+	s->mged_curr_dm = mged_dm_init_state;
 }
 
 /**
@@ -165,7 +178,138 @@ mged_pane_release(struct mged_pane *mp)
     /* mp_p_vlist: currently always empty for Obol panes.  When overlay
      * migration is complete, call BSG_FREE_VLIST(vlfree, &mp->mp_p_vlist)
      * with the appropriate vlfree pool before freeing the pane. */
+    mged_pane_free_resources(mp);
     BU_PUT(mp, struct mged_pane);
+}
+
+/*
+ * mged_pane_init_resources — allocate and initialise per-pane overlay state.
+ *
+ * Copies default values from mged_dm_init_state (the "nu" dm set up at
+ * startup).  Must be called after mged_dm_init_state has been populated.
+ * Called by f_new_obol_view_ptr() immediately after allocating the mged_pane.
+ */
+void
+mged_pane_init_resources(struct mged_state *s, struct mged_pane *mp)
+{
+    if (!mp)
+	return;
+
+    BU_ALLOC(mp->mp_adc_state, struct _adc_state);
+    if (mged_dm_init_state && mged_dm_init_state->dm_adc_state)
+	*mp->mp_adc_state = *mged_dm_init_state->dm_adc_state;
+    mp->mp_adc_state->adc_rc = 1;
+
+    BU_ALLOC(mp->mp_menu_state, struct _menu_state);
+    if (mged_dm_init_state && mged_dm_init_state->dm_menu_state)
+	*mp->mp_menu_state = *mged_dm_init_state->dm_menu_state;
+    mp->mp_menu_state->ms_rc = 1;
+
+    BU_ALLOC(mp->mp_rubber_band, struct _rubber_band);
+    if (mged_dm_init_state && mged_dm_init_state->dm_rubber_band)
+	*mp->mp_rubber_band = *mged_dm_init_state->dm_rubber_band;
+    mp->mp_rubber_band->rb_rc = 1;
+
+    BU_ALLOC(mp->mp_mged_variables, struct _mged_variables);
+    if (mged_dm_init_state && mged_dm_init_state->dm_mged_variables)
+	*mp->mp_mged_variables = *mged_dm_init_state->dm_mged_variables;
+    else if (s) {
+	/* fall back to a zero-initialised block; caller can populate */
+	(void)s;
+    }
+    mp->mp_mged_variables->mv_rc = 1;
+    mp->mp_mged_variables->mv_dlist = 0; /* Obol panes never use display lists */
+    mp->mp_mged_variables->mv_listen = 0;
+    mp->mp_mged_variables->mv_port = 0;
+    mp->mp_mged_variables->mv_fb = 0;
+
+    BU_ALLOC(mp->mp_color_scheme, struct _color_scheme);
+    if (mged_dm_init_state && mged_dm_init_state->dm_color_scheme)
+	*mp->mp_color_scheme = *mged_dm_init_state->dm_color_scheme;
+    mp->mp_color_scheme->cs_rc = 1;
+
+    BU_ALLOC(mp->mp_grid_state, struct bsg_grid_state);
+    if (mged_dm_init_state && mged_dm_init_state->dm_grid_state)
+	*mp->mp_grid_state = *mged_dm_init_state->dm_grid_state;
+    mp->mp_grid_state->rc = 1;
+
+    BU_ALLOC(mp->mp_axes_state, struct _axes_state);
+    if (mged_dm_init_state && mged_dm_init_state->dm_axes_state)
+	*mp->mp_axes_state = *mged_dm_init_state->dm_axes_state;
+    mp->mp_axes_state->ax_rc = 1;
+
+    BU_ALLOC(mp->mp_dlist_state, struct _dlist_state);
+    mp->mp_dlist_state->dl_rc = 1;
+
+    /* mp_view_state: a lightweight _view_state wrapper so the ternary macros
+     * (view_state, etc.) can safely dereference vs_gvp for Obol panes.
+     * The underlying bsg_view (vs_gvp) is owned by GED (ged_free_views) and
+     * must NOT be freed here — only the _view_state shell is ours. */
+    BU_ALLOC(mp->mp_view_state, struct _view_state);
+    mp->mp_view_state->vs_rc = 1;
+    mp->mp_view_state->vs_gvp = mp->mp_gvp;  /* borrow GED-owned view */
+    if (mged_dm_init_state && mged_dm_init_state->dm_view_state) {
+	/* copy vs_model2objview / vs_objview2model / vs_ModelDelta defaults */
+	MAT_COPY(mp->mp_view_state->vs_model2objview,
+		 mged_dm_init_state->dm_view_state->vs_model2objview);
+	MAT_COPY(mp->mp_view_state->vs_objview2model,
+		 mged_dm_init_state->dm_view_state->vs_objview2model);
+	MAT_COPY(mp->mp_view_state->vs_ModelDelta,
+		 mged_dm_init_state->dm_view_state->vs_ModelDelta);
+    }
+    view_ring_init(mp->mp_view_state, (struct _view_state *)NULL);
+
+    /* Initialize Tcl HUD variable name storage; populated by mged_pane_link_vars(). */
+    bu_vls_init(&mp->mp_fps_name);
+    bu_vls_init(&mp->mp_aet_name);
+    bu_vls_init(&mp->mp_ang_name);
+    bu_vls_init(&mp->mp_center_name);
+    bu_vls_init(&mp->mp_size_name);
+    bu_vls_init(&mp->mp_adc_name);
+}
+
+/*
+ * mged_pane_free_resources — free per-pane overlay state.
+ *
+ * Safe to call even if mged_pane_init_resources was never called (all
+ * pointers default to NULL from BU_GET).
+ */
+void
+mged_pane_free_resources(struct mged_pane *mp)
+{
+    if (!mp)
+	return;
+    if (mp->mp_adc_state)       { bu_free(mp->mp_adc_state, "mp_adc_state");             mp->mp_adc_state = NULL; }
+    if (mp->mp_menu_state)      { bu_free(mp->mp_menu_state, "mp_menu_state");            mp->mp_menu_state = NULL; }
+    if (mp->mp_rubber_band)     { bu_free(mp->mp_rubber_band, "mp_rubber_band");          mp->mp_rubber_band = NULL; }
+    if (mp->mp_mged_variables)  { bu_free(mp->mp_mged_variables, "mp_mged_variables");   mp->mp_mged_variables = NULL; }
+    if (mp->mp_color_scheme)    { bu_free(mp->mp_color_scheme, "mp_color_scheme");        mp->mp_color_scheme = NULL; }
+    if (mp->mp_grid_state)      { bu_free(mp->mp_grid_state, "mp_grid_state");            mp->mp_grid_state = NULL; }
+    if (mp->mp_axes_state)      { bu_free(mp->mp_axes_state, "mp_axes_state");            mp->mp_axes_state = NULL; }
+    if (mp->mp_dlist_state)     { bu_free(mp->mp_dlist_state, "mp_dlist_state");          mp->mp_dlist_state = NULL; }
+    /* mp_view_state: the _view_state shell is ours; vs_gvp inside is owned
+     * by GED and must NOT be freed here.  The view_ring items allocated by
+     * view_ring_init() are freed here. */
+    if (mp->mp_view_state) {
+	struct view_ring *vrp;
+	while (BU_LIST_NON_EMPTY(&mp->mp_view_state->vs_headView.l)) {
+	    vrp = BU_LIST_FIRST(view_ring, &mp->mp_view_state->vs_headView.l);
+	    BU_LIST_DEQUEUE(&vrp->l);
+	    bu_free((void *)vrp, "mged_pane view_ring");
+	}
+	/* vs_gvp is owned by GED — do NOT free it here. */
+	mp->mp_view_state->vs_gvp = NULL;
+	bu_free(mp->mp_view_state, "mp_view_state");
+	mp->mp_view_state = NULL;
+    }
+
+    /* Free Tcl HUD variable name storage. */
+    bu_vls_free(&mp->mp_fps_name);
+    bu_vls_free(&mp->mp_aet_name);
+    bu_vls_free(&mp->mp_ang_name);
+    bu_vls_free(&mp->mp_center_name);
+    bu_vls_free(&mp->mp_size_name);
+    bu_vls_free(&mp->mp_adc_name);
 }
 
 int
@@ -279,6 +423,38 @@ release(struct mged_state *s, char *name, int need_close)
 	}
 
 	if (p == MGED_DM_NULL) {
+	    /* Stage 7 (MGED libdm migration): Obol panes are registered in
+	     * active_pane_set, not active_dm_set.  Check there before
+	     * reporting an error, so that "release .mged0.ul" (called from
+	     * releasemv in mview.tcl) correctly tears down Obol panes. */
+	    struct mged_pane *mp = mged_pane_find_by_name(name);
+	    if (mp) {
+		bsg_view *gvp = mp->mp_gvp;
+
+		/* Remove the pane from active_pane_set and free the struct. */
+		mged_pane_release(mp);
+
+		/* Teardown the bsg_view: remove from scene, free tclcad user
+		 * data, remove from ged_free_views, then free the view. */
+		if (gvp && s->gedp) {
+		    bsg_scene_rm_view(&s->gedp->ged_views, gvp);
+		    bu_ptbl_rm(&s->gedp->ged_free_views, (long *)gvp);
+
+		    struct tclcad_view_data *tvd =
+			(struct tclcad_view_data *)gvp->u_data;
+		    if (tvd) {
+			bu_vls_free(&tvd->gdv_edit_motion_delta_callback);
+			bu_vls_free(&tvd->gdv_callback);
+			BU_PUT(tvd, struct tclcad_view_data);
+			gvp->u_data = NULL;
+		    }
+
+		    bsg_view_free(gvp);
+		    bu_free((void *)gvp, "release obol pane: bsg_view");
+		}
+		return TCL_OK;
+	    }
+
 	    Tcl_AppendResult(s->interp, "release: ", name, " not found\n", (char *)NULL);
 	    return TCL_ERROR;
 	}
@@ -752,48 +928,53 @@ f_dm(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *argv[
 void
 dm_var_init(struct mged_state *s, struct mged_dm *target_dm)
 {
-    BU_ALLOC(adc_state, struct _adc_state);
-    *adc_state = *target_dm->dm_adc_state;		/* struct copy */
-    adc_state->adc_rc = 1;
+    /* Stage 7: Use explicit s->mged_curr_dm->dm_* instead of macros here.
+     * At call time mged_curr_pane is NULL (this init path is for legacy dm
+     * panes), so the macro and direct field access are equivalent.  Using
+     * direct fields avoids an lvalue-of-ternary problem if/when the macros
+     * are changed to prefer mged_curr_pane (Step 6). */
+    BU_ALLOC(s->mged_curr_dm->dm_adc_state, struct _adc_state);
+    *s->mged_curr_dm->dm_adc_state = *target_dm->dm_adc_state;	/* struct copy */
+    s->mged_curr_dm->dm_adc_state->adc_rc = 1;
 
-    BU_ALLOC(menu_state, struct _menu_state);
-    *menu_state = *target_dm->dm_menu_state;		/* struct copy */
-    menu_state->ms_rc = 1;
+    BU_ALLOC(s->mged_curr_dm->dm_menu_state, struct _menu_state);
+    *s->mged_curr_dm->dm_menu_state = *target_dm->dm_menu_state;	/* struct copy */
+    s->mged_curr_dm->dm_menu_state->ms_rc = 1;
 
-    BU_ALLOC(rubber_band, struct _rubber_band);
-    *rubber_band = *target_dm->dm_rubber_band;		/* struct copy */
-    rubber_band->rb_rc = 1;
+    BU_ALLOC(s->mged_curr_dm->dm_rubber_band, struct _rubber_band);
+    *s->mged_curr_dm->dm_rubber_band = *target_dm->dm_rubber_band;	/* struct copy */
+    s->mged_curr_dm->dm_rubber_band->rb_rc = 1;
 
-    BU_ALLOC(mged_variables, struct _mged_variables);
-    *mged_variables = *target_dm->dm_mged_variables;	/* struct copy */
-    mged_variables->mv_rc = 1;
-    mged_variables->mv_dlist = mged_default_dlist;
-    mged_variables->mv_listen = 0;
-    mged_variables->mv_port = 0;
-    mged_variables->mv_fb = 0;
+    BU_ALLOC(s->mged_curr_dm->dm_mged_variables, struct _mged_variables);
+    *s->mged_curr_dm->dm_mged_variables = *target_dm->dm_mged_variables;	/* struct copy */
+    s->mged_curr_dm->dm_mged_variables->mv_rc = 1;
+    s->mged_curr_dm->dm_mged_variables->mv_dlist = mged_default_dlist;
+    s->mged_curr_dm->dm_mged_variables->mv_listen = 0;
+    s->mged_curr_dm->dm_mged_variables->mv_port = 0;
+    s->mged_curr_dm->dm_mged_variables->mv_fb = 0;
 
-    BU_ALLOC(color_scheme, struct _color_scheme);
+    BU_ALLOC(s->mged_curr_dm->dm_color_scheme, struct _color_scheme);
 
     /* initialize using the nu display manager */
     if (mged_dm_init_state && mged_dm_init_state->dm_color_scheme) {
-	*color_scheme = *mged_dm_init_state->dm_color_scheme;
+	*s->mged_curr_dm->dm_color_scheme = *mged_dm_init_state->dm_color_scheme;
     }
 
-    color_scheme->cs_rc = 1;
+    s->mged_curr_dm->dm_color_scheme->cs_rc = 1;
 
-    BU_ALLOC(grid_state, struct bsg_grid_state);
-    *grid_state = *target_dm->dm_grid_state;		/* struct copy */
-    grid_state->rc = 1;
+    BU_ALLOC(s->mged_curr_dm->dm_grid_state, struct bsg_grid_state);
+    *s->mged_curr_dm->dm_grid_state = *target_dm->dm_grid_state;	/* struct copy */
+    s->mged_curr_dm->dm_grid_state->rc = 1;
 
-    BU_ALLOC(axes_state, struct _axes_state);
-    *axes_state = *target_dm->dm_axes_state;		/* struct copy */
-    axes_state->ax_rc = 1;
+    BU_ALLOC(s->mged_curr_dm->dm_axes_state, struct _axes_state);
+    *s->mged_curr_dm->dm_axes_state = *target_dm->dm_axes_state;	/* struct copy */
+    s->mged_curr_dm->dm_axes_state->ax_rc = 1;
 
-    BU_ALLOC(dlist_state, struct _dlist_state);
-    dlist_state->dl_rc = 1;
+    BU_ALLOC(s->mged_curr_dm->dm_dlist_state, struct _dlist_state);
+    s->mged_curr_dm->dm_dlist_state->dl_rc = 1;
 
-    BU_ALLOC(view_state, struct _view_state);
-    *view_state = *target_dm->dm_view_state;			/* struct copy */
+    BU_ALLOC(s->mged_curr_dm->dm_view_state, struct _view_state);
+    *s->mged_curr_dm->dm_view_state = *target_dm->dm_view_state;		/* struct copy */
     BU_ALLOC(view_state->vs_gvp, bsg_view);
     BU_GET(view_state->vs_gvp->callbacks, struct bu_ptbl);
     bu_ptbl_init(view_state->vs_gvp->callbacks, 8, "bv callbacks");
@@ -845,6 +1026,28 @@ mged_link_vars(struct mged_dm *p)
 	bu_vls_printf(&p->dm_size_name, "%s(%s,size)", MGED_DISPLAY_VAR, bu_vls_cstr(pn));
 	bu_vls_printf(&p->dm_adc_name, "%s(%s,adc)", MGED_DISPLAY_VAR,	bu_vls_cstr(pn));
     }
+}
+
+
+/* Stage 7: Set up Tcl HUD display variable names for an Obol mged_pane.
+ * The variable names mirror the dm_*_name fields in mged_link_vars() but
+ * use the view's gv_name (set when f_new_obol_view_ptr registers the
+ * bsg_view with GED) instead of the dm pathname.
+ * The bu_vls fields are initialized (zero-length) by mged_pane_init_resources;
+ * this function populates them from mp->mp_gvp->gv_name.
+ */
+void
+mged_pane_link_vars(struct mged_pane *mp)
+{
+    if (!mp || !mp->mp_gvp || !bu_vls_strlen(&mp->mp_gvp->gv_name))
+	return;
+    const char *pname = bu_vls_cstr(&mp->mp_gvp->gv_name);
+    bu_vls_printf(&mp->mp_fps_name,    "%s(%s,fps)",    MGED_DISPLAY_VAR, pname);
+    bu_vls_printf(&mp->mp_aet_name,    "%s(%s,aet)",    MGED_DISPLAY_VAR, pname);
+    bu_vls_printf(&mp->mp_ang_name,    "%s(%s,ang)",    MGED_DISPLAY_VAR, pname);
+    bu_vls_printf(&mp->mp_center_name, "%s(%s,center)", MGED_DISPLAY_VAR, pname);
+    bu_vls_printf(&mp->mp_size_name,   "%s(%s,size)",   MGED_DISPLAY_VAR, pname);
+    bu_vls_printf(&mp->mp_adc_name,    "%s(%s,adc)",    MGED_DISPLAY_VAR, pname);
 }
 
 
@@ -1006,6 +1209,13 @@ f_new_obol_view_ptr(ClientData clientData, Tcl_Interp *interpreter,
     pane->mp_gvp     = gvp;
     pane->mp_cmd_tie = NULL;  /* not yet attached to a cmd_list */
     BU_LIST_INIT(&pane->mp_p_vlist);
+    /* Stage 7 Step 6 prep: allocate per-pane overlay state so Obol panes
+     * can eventually have their own color scheme, variables, etc. independent
+     * of the legacy mged_curr_dm state.  These are not yet wired into the
+     * global macros (view_state, color_scheme, etc.) — that happens in Step 6
+     * when the macros are changed to prefer mged_curr_pane. */
+    mged_pane_init_resources(s, pane);
+    mged_pane_link_vars(pane);  /* populate mp_fps_name, mp_aet_name etc. */
     bu_ptbl_ins(&active_pane_set, (long *)pane);
 
     /* Return the pointer as a hex string.  The caller (mview.tcl) passes this

@@ -156,15 +156,22 @@ struct mged_edit_state {
     // a few additional MGED-only slots, hence mged_edit_state
     struct rt_edit *e;
 
-    // DM pointers - used by the editing code to stash current dm pointers for
-    // later restoration when editing.  Not 100% sure yet what the purpose is -
-    // seems to be allowing for the possibility of a change of mged_curr_dm
-    // mid-edit?
+    // DM pointers - used by the editing code to stash the active display
+    // pane when a knob rate event begins so the knob event loop can
+    // restore the correct pane context.
+    // Legacy (libdm) path: mged_dm pointer.
+    // Obol path: mged_pane pointer (set when mged_curr_pane is non-NULL).
     struct mged_dm *edit_rate_mr_dm;
     struct mged_dm *edit_rate_or_dm;
     struct mged_dm *edit_rate_vr_dm;
     struct mged_dm *edit_rate_mt_dm;
     struct mged_dm *edit_rate_vt_dm;
+    // Stage 7: Obol pane equivalents for the above.
+    struct mged_pane *edit_rate_mr_pane;
+    struct mged_pane *edit_rate_or_pane;
+    struct mged_pane *edit_rate_vr_pane;
+    struct mged_pane *edit_rate_mt_pane;
+    struct mged_pane *edit_rate_vt_pane;
 
     // TODO - can we eliminate these?
     int es_edclass;            /* type of editing class for this solid */
@@ -224,7 +231,8 @@ struct mged_state {
     struct bu_vls mged_prompt;
 
     /* Display related */
-    struct mged_dm *mged_curr_dm;
+    struct mged_dm *mged_curr_dm;  /* legacy libdm pane (NULL when Obol-only) */
+    struct mged_pane *mged_curr_pane;  /* Stage 7: current Obol pane; NULL when using legacy dm */
     char *dpy_string;
     struct bu_list *vlfree;
 

@@ -241,7 +241,7 @@ mged_librt_knob_edit_apply(struct mged_state *s,
     /* Update MGED's cached edit matrices and mark for redraw */
     new_edit_mats(s);
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
+    if (DMP) dm_set_dirty(DMP, 1);
 
     /* Synchronize MGED es_edclass (used by token_should_edit, knob printouts, rate loop) */
     if (did_rot) {
@@ -286,12 +286,14 @@ mged_knob_edit_process(struct mged_state *s,
                     else MEDIT(s)->k.rot_m[axis] = fval;
                     MEDIT(s)->k.origin_m = origin;
                     s->s_edit->edit_rate_mr_dm = s->mged_curr_dm;
+                    s->s_edit->edit_rate_mr_pane = s->mged_curr_pane;
                     break;
                 case 'o':
                     if (incr_flag) MEDIT(s)->k.rot_o[axis] += fval;
                     else MEDIT(s)->k.rot_o[axis] = fval;
                     MEDIT(s)->k.origin_o = origin;
                     s->s_edit->edit_rate_or_dm = s->mged_curr_dm;
+                    s->s_edit->edit_rate_or_pane = s->mged_curr_pane;
                     break;
                 case 'v':
                 default:
@@ -299,6 +301,7 @@ mged_knob_edit_process(struct mged_state *s,
                     else MEDIT(s)->k.rot_v[axis] = fval;
                     MEDIT(s)->k.origin_v = origin;
                     s->s_edit->edit_rate_vr_dm = s->mged_curr_dm;
+                    s->s_edit->edit_rate_vr_pane = s->mged_curr_pane;
                     break;
             }
             return BRLCAD_OK;
@@ -345,12 +348,14 @@ mged_knob_edit_process(struct mged_state *s,
                     if (incr_flag) MEDIT(s)->k.tra_m[axis] += fval;
                     else MEDIT(s)->k.tra_m[axis] = fval;
                     s->s_edit->edit_rate_mt_dm = s->mged_curr_dm;
+                    s->s_edit->edit_rate_mt_pane = s->mged_curr_pane;
                     break;
                 case 'v':
                 default:
                     if (incr_flag) MEDIT(s)->k.tra_v[axis] += fval;
                     else MEDIT(s)->k.tra_v[axis] = fval;
                     s->s_edit->edit_rate_vt_dm = s->mged_curr_dm;
+                    s->s_edit->edit_rate_vt_pane = s->mged_curr_pane;
                     break;
             }
             return BRLCAD_OK;
@@ -415,7 +420,7 @@ mged_erot(struct mged_state *s,
     struct bsg_camera _vsview_cam;
     bsg_view_get_camera(view_state->vs_gvp, &_vsview_cam);
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
+    if (DMP) dm_set_dirty(DMP, 1);
 
     switch (coords) {
 	case 'm':
@@ -558,7 +563,7 @@ mged_etran(struct mged_state *s,
 
 	new_edit_mats(s);
 	s->update_views = 1;
-	dm_set_dirty(DMP, 1);
+	if (DMP) dm_set_dirty(DMP, 1);
     }
 
     return TCL_OK;
@@ -623,6 +628,7 @@ cmd_center(ClientData clientData,
 
     if (argc > 1) {
 	(void)mged_svbase(s);
+	s->update_views = 1;
 	view_state->vs_flag = 1;
     }
 
@@ -664,6 +670,7 @@ cmd_size(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[]
 	}
 
 	if (argc > 1) {
+	    s->update_views = 1;
 	    view_state->vs_flag = 1;
 	}
 
@@ -688,6 +695,7 @@ size_reset(struct mged_state *s)
     const char *av[1] = {"autoview"};
     ged_exec_autoview(s->gedp, 1, (const char **)av);
     view_state->vs_gvp->gv_i_scale = view_state->vs_gvp->gv_scale;
+    s->update_views = 1;
     view_state->vs_flag = 1;
 }
 
@@ -869,7 +877,7 @@ edit_com(struct mged_state *s,
     }
 
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
+    if (DMP) dm_set_dirty(DMP, 1);
 
     if (flag_R_noresize) {
 	/* we're done */
@@ -919,6 +927,33 @@ edit_com(struct mged_state *s,
     set_curr_dm(s, save_m_dmp);
     curr_cmd_list = save_cmd_list;
     s->gedp->ged_gvp = view_state->vs_gvp;
+
+    /* Stage 7: also apply autoview to Obol panes (active_pane_set). */
+    {
+	struct mged_pane *save_pane = s->mged_curr_pane;
+	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	    int non_empty = 0;
+
+	    set_curr_pane(s, mp);
+
+	    {
+		bsg_shape *root = bsg_scene_root_get(mp->mp_gvp);
+		non_empty = (root && BU_PTBL_LEN(&root->children) > 0) ? 1 : 0;
+	    }
+
+	    if (mged_variables->mv_autosize && initial_blank_screen && non_empty) {
+		char *av[2];
+		av[0] = "autoview";
+		av[1] = (char *)0;
+		ged_exec_autoview(s->gedp, 1, (const char **)av);
+		s->update_views = 1;
+	    }
+	}
+	set_curr_pane(s, save_pane);
+	/* Restore mged_curr_dm after set_curr_pane may have redirected it. */
+	if (!save_pane) set_curr_dm(s, save_m_dmp);
+    }
 
     return TCL_OK;
 }
@@ -977,6 +1012,7 @@ cmd_autoview(ClientData clientData, Tcl_Interp *interp, int argc, const char *ar
 	    }
 
 	    ged_exec_autoview(s->gedp, ac, (const char **)av);
+	    s->update_views = 1;
 	    view_state->vs_flag = 1;
 	}
 	(void)mged_svbase(s);
@@ -988,6 +1024,26 @@ cmd_autoview(ClientData clientData, Tcl_Interp *interp, int argc, const char *ar
     set_curr_dm(s, save_m_dmp);
     curr_cmd_list = save_cmd_list;
     s->gedp->ged_gvp = view_state->vs_gvp;
+
+    /* Stage 7: also apply autoview to Obol panes (active_pane_set). */
+    {
+	struct mged_pane *save_pane = s->mged_curr_pane;
+	int ac = 1;
+	const char *av[3];
+	av[0] = "autoview";
+	av[1] = (argc > 1) ? argv[1] : NULL;
+	av[2] = NULL;
+	if (argc > 1) ac = 2;
+	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	    set_curr_pane(s, mp);
+	    ged_exec_autoview(s->gedp, ac, (const char **)av);
+	    s->update_views = 1;
+	}
+	set_curr_pane(s, save_pane);
+	/* Restore mged_curr_dm after set_curr_pane may have redirected it. */
+	if (!save_pane) set_curr_dm(s, save_m_dmp);
+    }
 
     return TCL_OK;
 }
@@ -1045,7 +1101,7 @@ f_regdebug(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv
 
     Tcl_AppendResult(interp, "regdebug=", debug_str, "\n", (char *)NULL);
 
-    dm_set_debug(DMP, regdebug);
+    if (DMP) dm_set_debug(DMP, regdebug);
 
     return TCL_OK;
 }
@@ -1065,7 +1121,7 @@ cmd_zap(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), con
     CHECK_DBI_NULL;
 
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
+    if (DMP) dm_set_dirty(DMP, 1);
     s->gedp->ged_destroy_vlist_callback = freeDListsAll;
 
     /* FIRST, reject any editing in progress */
@@ -1220,6 +1276,7 @@ f_refresh(ClientData clientData, Tcl_Interp *interp, int argc, const char *UNUSE
 	return TCL_ERROR;
     }
 
+    s->update_views = 1;
     view_state->vs_flag = 1;
     return TCL_OK;
 }
@@ -1438,7 +1495,7 @@ f_ill(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     }
 
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
+    if (DMP) dm_set_dirty(DMP, 1);
 
     if (path_piece) {
 	for (i = 0; path_piece[i] != 0; ++i) {
@@ -1520,7 +1577,7 @@ f_sed(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     }
 
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
+    if (DMP) dm_set_dirty(DMP, 1);
 
     button(s, BE_S_ILLUMINATE);	/* To ST_S_PICK */
 
@@ -1572,8 +1629,10 @@ update_all_rate_flags(struct mged_state *s)
     }
     if (s && s->s_edit && MEDIT(s))
 	update_knob_rate_flags(&MEDIT(s)->k, 1);
-    if (view_state)
+    if (view_state) {
+	s->update_views = 1;
 	view_state->vs_flag = 1;
+    }
 }
 
 
@@ -1925,7 +1984,7 @@ f_knob(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	 * code keying on s->update_views (rather than vs_flag alone) behaves
 	 * identically. */
 	s->update_views = 1;
-	dm_set_dirty(DMP, 1);
+	if (DMP) dm_set_dirty(DMP, 1);
 	view_state->vs_flag = 1;
     }
 
@@ -1951,7 +2010,7 @@ f_knob(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
      * added, but for now preserve behavior.*/
     if (view_abs_scale_changed && !view_do_tran && !view_do_rot) {
 	s->update_views = 1;
-	dm_set_dirty(DMP, 1);
+	if (DMP) dm_set_dirty(DMP, 1);
 	view_state->vs_flag = 1;
 	/* Absolute translations already refreshed in abs_zoom via set_absolute_* */
     }
@@ -2033,6 +2092,7 @@ mged_zoom(struct mged_state *s, double val)
 	ret = redraw_visible_objects(s);
     }
 
+    s->update_views = 1;
     view_state->vs_flag = 1;
 
     return ret;
@@ -2152,6 +2212,7 @@ cmd_setview(ClientData clientData, Tcl_Interp *interp, int argc, const char *arg
 	set_absolute_tran(s);
     }
 
+    s->update_views = 1;
     view_state->vs_flag = 1;
 
     return TCL_OK;
@@ -2190,6 +2251,7 @@ f_slewview(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv
 	return TCL_ERROR;
     }
 
+    s->update_views = 1;
     view_state->vs_flag = 1;
 
     /* all this for ModelDelta - re-fetch camera to get updated center */
@@ -2244,7 +2306,7 @@ mged_svbase(struct mged_state *s)
 
     if (mged_variables->mv_faceplate && mged_variables->mv_orig_gui) {
 	s->mged_curr_dm->dm_dirty = 1;
-	dm_set_dirty(DMP, 1);
+	if (DMP) dm_set_dirty(DMP, 1);
     }
 
     return TCL_OK;
@@ -2282,7 +2344,7 @@ f_svbase(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[]
 	    m_dmp->dm_mged_variables->mv_faceplate &&
 	    m_dmp->dm_mged_variables->mv_orig_gui) {
 	    m_dmp->dm_dirty = 1;
-	    dm_set_dirty(m_dmp->dm_dmp, 1);
+	    if (m_dmp->dm_dmp) dm_set_dirty(m_dmp->dm_dmp, 1);
 	}
     }
 
@@ -2329,6 +2391,7 @@ setview(struct mged_state *s,
 	set_absolute_tran(s);
     }
 
+    s->update_views = 1;
     view_state->vs_flag = 1;
 }
 
@@ -2379,6 +2442,7 @@ slewview(struct mged_state *s, vect_t view_pos)
 
     set_absolute_tran(s);
 
+    s->update_views = 1;
     view_state->vs_flag = 1;
 }
 
@@ -2817,6 +2881,7 @@ cmd_mrot(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[]
 	    return TCL_ERROR;
 	}
 
+	s->update_views = 1;
 	view_state->vs_flag = 1;
 
 	return TCL_OK;
@@ -2847,6 +2912,7 @@ cmd_vrot(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[]
 	return TCL_ERROR;
     }
 
+    s->update_views = 1;
     view_state->vs_flag = 1;
     set_absolute_tran(s);
 
@@ -2895,6 +2961,7 @@ cmd_rot(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	    return TCL_ERROR;
 	}
 
+	s->update_views = 1;
 	view_state->vs_flag = 1;
 
 	return TCL_OK;
@@ -2939,6 +3006,7 @@ cmd_arot(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[]
 	if (ret != BRLCAD_OK) {
 	    return TCL_ERROR;
 	}
+	s->update_views = 1;
 	view_state->vs_flag = 1;
 	return TCL_OK;
     }
@@ -2984,6 +3052,7 @@ cmd_tra(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	    return TCL_ERROR;
 	}
 
+	s->update_views = 1;
 	view_state->vs_flag = 1;
 
 	return TCL_OK;
@@ -3231,6 +3300,7 @@ cmd_sca(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	    view_state->vs_gvp->gv_a_scale = 1.0 - f;
 	}
 
+	s->update_views = 1;
 	view_state->vs_flag = 1;
 
 	return TCL_OK;

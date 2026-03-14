@@ -213,6 +213,9 @@ screen_vls(
 void
 dotitles(struct mged_state *s, struct bu_vls *overlay_vls)
 {
+    /* Stage 7 guard: skip libdm overlay drawing for Obol panes */
+    if (!DMP) return;
+
     size_t i = 0;
 
     /* for menu computations */
@@ -629,6 +632,50 @@ dotitles(struct mged_state *s, struct bu_vls *overlay_vls)
     }
     Tcl_SetVar(s->interp, bu_vls_addr(&s->mged_curr_dm->dm_fps_name),
 	       bu_vls_addr(&vls), TCL_GLOBAL_ONLY);
+
+    bu_vls_free(&vls);
+}
+
+
+/* Stage 7: Update Tcl HUD display variables for an Obol pane.
+ * This is the Obol equivalent of the Tcl-var-update portion of dotitles().
+ * Called from refresh() when active_pane_set is non-empty and
+ * obol_needs_refresh || do_time, using the mged_pane mp_*_name fields.
+ * Physical drawing is handled by obol_notify_views instead. */
+void
+obol_update_title_vars(struct mged_state *s, struct mged_pane *mp)
+{
+    if (!mp || !mp->mp_gvp || !s->interp) return;
+    /* Only update if the variable names have been populated. */
+    if (!bu_vls_strlen(&mp->mp_aet_name)) return;
+
+    struct bu_vls vls = BU_VLS_INIT_ZERO;
+    struct bsg_camera _tc;
+    bsg_view_get_camera(mp->mp_gvp, &_tc);
+
+    bu_vls_printf(&vls, "az=%3.2f  el=%3.2f  tw=%3.2f", V3ARGS(_tc.aet));
+    Tcl_SetVar(s->interp, bu_vls_cstr(&mp->mp_aet_name),
+	       bu_vls_cstr(&vls), TCL_GLOBAL_ONLY);
+
+    if (s->dbip != DBI_NULL) {
+	char cent_x[32], cent_y[32], cent_z[32], size[32];
+	float tmp;
+
+	tmp = -_tc.center[MDX]*s->dbip->dbi_base2local;
+	snprintf(cent_x, sizeof(cent_x), fabs(tmp) < 10e70 ? "%.3f" : "%.3g", tmp);
+	tmp = -_tc.center[MDY]*s->dbip->dbi_base2local;
+	snprintf(cent_y, sizeof(cent_y), fabs(tmp) < 10e70 ? "%.3f" : "%.3g", tmp);
+	tmp = -_tc.center[MDZ]*s->dbip->dbi_base2local;
+	snprintf(cent_z, sizeof(cent_z), fabs(tmp) < 10e70 ? "%.3f" : "%.3g", tmp);
+	bu_vls_trunc(&vls, 0);
+	bu_vls_printf(&vls, "cent=(%s %s %s)", cent_x, cent_y, cent_z);
+	Tcl_SetVar(s->interp, bu_vls_cstr(&mp->mp_center_name),
+		   bu_vls_cstr(&vls), TCL_GLOBAL_ONLY);
+
+	tmp = mp->mp_gvp->gv_size*s->dbip->dbi_base2local;
+	snprintf(size, sizeof(size), fabs(tmp) < 10e70 ? "sz=%.3f" : "sz=%.3g", tmp);
+	Tcl_SetVar(s->interp, bu_vls_cstr(&mp->mp_size_name), size, TCL_GLOBAL_ONLY);
+    }
 
     bu_vls_free(&vls);
 }

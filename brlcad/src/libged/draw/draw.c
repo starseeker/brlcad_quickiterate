@@ -1651,6 +1651,7 @@ ged_draw_guts(struct ged *gedp, int argc, const char *argv[], int kind)
 
 
 extern int ged_draw2_core(struct ged *gedp, int argc, const char *argv[]);
+extern int ged_wait_pipeline_core(struct ged *gedp, int argc, const char *argv[]);
 int
 ged_draw_core(struct ged *gedp, int argc, const char *argv[])
 {
@@ -1778,7 +1779,8 @@ ged_redraw_core(struct ged *gedp, int argc, const char *argv[])
     X(ev, ged_ev_core, GED_CMD_DEFAULT) \
     X(redraw, ged_redraw_core, GED_CMD_DEFAULT) \
     X(loadview, ged_loadview_core, GED_CMD_DEFAULT) \
-    X(preview, ged_preview_core, GED_CMD_DEFAULT)
+    X(preview, ged_preview_core, GED_CMD_DEFAULT) \
+    X(wait_pipeline, ged_wait_pipeline_core, GED_CMD_DEFAULT)
 
 GED_DECLARE_COMMAND_SET(GED_DRAW_COMMANDS)
 GED_DECLARE_PLUGIN_MANIFEST("libged_draw", 1, GED_DRAW_COMMANDS)

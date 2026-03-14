@@ -553,10 +553,97 @@ all primitive-specific drawing operations without any direct access to
 - [x] Use `s->s_res` in `rt_generic_scene_obj` (fallback to `&rt_uniresource`)
 - [x] Document `ft_mat`/`rt_##name##_mat` usage with `s_res` in DESIGN_SCENE_OBJ.md
 - [x] Build clean
-- [ ] Implement `rt_comb_scene_obj` (absorbs draw_m3)
-- [ ] Implement `rt_bot_scene_obj` (absorbs bot_adaptive_plot)
-- [ ] Implement `rt_brep_scene_obj` (absorbs brep_adaptive_plot)
-- [ ] Simplify draw_scene to call ft_scene_obj as primary dispatch
+- [x] Implement `rt_comb_scene_obj` (absorbs draw_m3) — done in earlier sessions
+- [x] Implement `rt_bot_scene_obj` (absorbs bot_adaptive_plot) — done in earlier sessions
+- [x] Implement `rt_brep_scene_obj` (absorbs brep_adaptive_plot) — done in earlier sessions
+- [x] Simplify draw_scene to call ft_scene_obj as primary dispatch — done in earlier sessions
+
+---
+
+## Session 9 Results (2026-03-14) — Stage 7 step 6 prep: mged_curr_pane
+
+### Summary
+
+Continued Stage 7 MGED libdm→Obol migration.  Added `mged_curr_pane` to
+`mged_state` as a direct per-state pointer to the active Obol pane, removing
+the need to scan `active_pane_set` in `refresh()`.  Removed dead code left over
+from the now-complete `ft_scene_obj` draw-scene migration.
+
+### Changes Made
+
+#### `mged.h` — Add `mged_curr_pane` to `mged_state`
+
+```c
+struct mged_state {
+    struct mged_dm   *mged_curr_dm;      /* legacy libdm pane */
+    struct mged_pane *mged_curr_pane;    /* Stage 7: current Obol pane */
+    ...
+};
+```
+
+#### `attach.c` — `set_curr_pane()` sets `s->mged_curr_pane`
+
+In addition to `s->gedp->ged_gvp = mp->mp_gvp`, now also sets
+`s->mged_curr_pane = mp`.  When called with `NULL`, both fields are cleared.
+
+#### `mged.c` — Initialize + use `mged_curr_pane`
+
+- `s->mged_curr_pane = MGED_PANE_NULL` at startup.
+- `refresh()` `obol_notify_views` guard: uses `s->mged_curr_pane` as a fast
+  path alongside `BU_PTBL_LEN(&active_pane_set) > 0`, removing the table scan
+  when the active window is an Obol pane.
+
+#### `draw.cpp` — Remove orphaned `extern "C" int draw_points`
+
+The `draw_points()` forward declaration was removed.  `draw_points()` in
+`points_eval.c` is superseded by mode-5 handling in `rt_generic_scene_obj`
+(`rt_sample_pnts`); the declaration was never called.
+
+#### `DESIGN_SCENE_OBJ.md` — All section 3.2 items marked done
+
+All 6 required changes (s_res, rt_comb_scene_obj, rt_bot_scene_obj,
+rt_brep_scene_obj, draw_scene simplification, object-space vlists) are now
+marked completed.  Section 3.3 migration path also marked complete.
+
+#### `RADICAL_MIGRATION.md` — Step 5.5 added, Step 6 updated
+
+Step 5.5 documents the `mged_curr_pane` addition.  Step 6 updated to clarify
+the remaining blocker: initial "nu" mged_dm entry and f_attach dm_open path.
+
+### Checklist
+
+- [x] `struct mged_pane *mged_curr_pane` added to `mged_state`
+- [x] `set_curr_pane()` sets `s->mged_curr_pane`
+- [x] `s->mged_curr_pane = MGED_PANE_NULL` at startup (mged.c)
+- [x] `refresh()` uses `mged_curr_pane` fast-path guard
+- [x] Orphaned `extern "C" int draw_points` removed from draw.cpp
+- [x] DESIGN_SCENE_OBJ.md §3.2 all items marked done
+- [x] RADICAL_MIGRATION.md Step 5.5 documented
+- [x] Build clean (libged + librt + attach.c/mged.c compile with -Werror)
+
+---
+
+## Session 10 Results (2026-03-14) — Remove dead draw stubs from libged build
+
+### Summary
+
+Removed `points_eval.c` and `wireframe_eval.c` from the libged CMakeLists.txt
+build list.  Both files are dead code: their functions (`draw_points` and
+`draw_m3`) are no longer called anywhere in BRL-CAD.  The implementations
+have been superseded by per-primitive `ft_scene_obj` callbacks in librt:
+
+- `draw_points` → `rt_generic_scene_obj` mode-5 via `rt_sample_pnts`
+- `draw_m3` → `rt_comb_scene_obj` → `rt_comb_eval_m3` in librt
+
+Both files are retained in the source tree with updated headers explaining
+they are deprecated, for reference by any out-of-tree callers.
+
+### Checklist
+
+- [x] Remove `points_eval.c` from libged CMakeLists.txt
+- [x] Remove `wireframe_eval.c` from libged CMakeLists.txt
+- [x] Update file headers to document deprecated/not-built status
+- [x] Build verify (libged builds without these files)
 
 ---
 
@@ -622,4 +709,164 @@ Registered as `bg_bb` in `tests/CMakeLists.txt`.
 ### Verification
 
 `bg_bb` test passes (exit code 0, 10 iterations, all checks pass).
+
+
+---
+
+## Session 11 Results (2026-03-14) — Step 6.a: Unify view-dirty tracking
+
+### Summary
+
+All MGED view-command code paths that previously set only
+`view_state->vs_flag = 1` (without `s->update_views = 1`) now set both.
+This is Step 6.a of the MGED libdm removal refactoring: it ensures that
+`obol_notify_views` fires correctly in the Obol rendering path even after
+the `active_dm_set` vs_flag scan is removed in Step 6.
+
+The `vs_flag` mechanism is a per-pane display-dirty flag propagated through
+`struct _view_state`.  The `s->update_views` flag is a session-level dirty
+flag that was already set by most (but not all) view-change paths.  The
+missing `s->update_views = 1` additions are needed because:
+
+1. `refresh()` computes `obol_needs_refresh = s->update_views` at the top,
+   before the `active_dm_set` loop.  When Step 6 removes the `active_dm_set`
+   loop, the `vs_flag` scan in that loop will disappear, so `update_views`
+   must be the sole trigger for `obol_notify_views`.
+
+2. Even now (before Step 6), any view command that set only `vs_flag` without
+   `update_views` was relying on the `active_dm_set` loop to eventually set
+   `obol_needs_refresh`.  Setting both flags directly is cleaner.
+
+### Files changed
+
+| File | Changes |
+|------|---------|
+| `src/mged/chgview.c` | Added `s->update_views = 1` at 17 vs_flag sites |
+| `src/mged/edsol.c` | 5 sites |
+| `src/mged/edarb.c` | 2 sites |
+| `src/mged/dodraw.c` | 1 site |
+| `src/mged/tedit.c` | 1 site |
+| `src/mged/rtif.c` | 1 site |
+| `src/mged/setup.c` | 1 site |
+| `src/mged/rect.c` | 1 site |
+| `src/mged/menu.c` | 1 site |
+| `src/mged/cmd.c` | 3 sites |
+| `src/mged/usepen.c` | 3 sites (one required adding braces to an if-body) |
+| `src/mged/mged.c` | 2 sites (`new_edit_mats` loop and `mged_view_callback`) |
+| `RADICAL_MIGRATION.md` | Added Step 5.6 ✅ entry documenting this change |
+
+### Note on dm-generic.c
+
+The `view_changed_hook` callback in `dm-generic.c` (line 599) sets
+`hs->vs->vs_flag = 1` through a `mged_view_hook_state *` that has no
+`mged_state *` member.  Adding `s->update_views = 1` here would require
+extending `mged_view_hook_state` with a back-pointer to `mged_state`.
+This path is only active when the legacy libdm path is live (it fires
+from `bu_structparse` variable-change hooks wired up in `mged_link_vars`).
+It is therefore safe to leave for Step 6 when the legacy libdm path is
+fully removed.
+
+### Checklist
+
+- [x] Add `s->update_views = 1` alongside `vs_flag = 1` in 12 MGED source files (38 sites)
+- [x] Fix indentation/braces for two if-guards that gained an extra statement
+- [x] Update `refresh()` comment to document the new invariant
+- [x] Update `RADICAL_MIGRATION.md` with Step 5.6 entry
+- [x] Build verify (all 12 modified files compile cleanly with -Werror)
+
+
+---
+
+## Session 11 Part B Results (2026-03-14) — wait_for_pipeline + dm-generic.c step 6.a completion
+
+### Summary
+
+Two additional improvements made as continuation of Session 11 step 6.a work:
+
+### 1. Complete vs_flag unification in dm-generic.c
+
+The `view_state_flag_hook` callback in `dm-generic.c` (invoked by the
+`bu_structparse` variable-change mechanism when legacy libdm view settings
+change) was the last site that set `vs_flag = 1` without also setting
+`s->update_views = 1`.  This required adding a back-pointer from
+`mged_view_hook_state` to `mged_state`:
+
+- Added `struct mged_state *hs_s` field to `struct mged_view_hook_state`
+  in `mged_dm.h`.
+- Updated `set_hook_data()` in `dm-generic.c` to set `hs->hs_s = s`.
+- Updated `view_state_flag_hook()` to add
+  `if (hs->hs_s) hs->hs_s->update_views = 1;` alongside the existing
+  `hs->vs->vs_flag = 1;` call.
+
+This completes Step 6.a: **all** MGED view-change paths now set both
+`vs_flag` and `s->update_views`.
+
+### 2. DbiState::wait_for_pipeline()
+
+Added a new public API method to `DbiState`:
+
+```cpp
+size_t DbiState::wait_for_pipeline(int max_ms = 5000);
+```
+
+This method polls `drain_geom_results()` in a 1ms-sleep loop until
+`DrawPipeline::settled()` returns true, or `max_ms` milliseconds have
+elapsed.  It fires a final drain after settling to catch any last-minute
+results.  Declared in `include/ged/dbi.h`; implemented in
+`src/libged/dbi_state.cpp`.
+
+Uses: tests and scripted scenarios where the caller must have all
+background bboxes/LoD populated before proceeding.  Prerequisite for
+making `defer_all` the permanent default without breaking tests.
+
+Updated `test_dbi_cpp.cpp` to use `wait_for_pipeline()` instead of
+manual poll loops (simplifies the test; also exercises the new API).
+
+### Checklist
+
+- [x] Add `hs_s` to `struct mged_view_hook_state`; set in `set_hook_data()`
+- [x] Add `s->update_views = 1` in `view_state_flag_hook()` (dm-generic.c)
+- [x] Declare `wait_for_pipeline()` in `include/ged/dbi.h`
+- [x] Implement `wait_for_pipeline()` in `src/libged/dbi_state.cpp`
+- [x] Update `test_dbi_cpp.cpp` to use `wait_for_pipeline()` (remove manual poll loops)
+- [x] Build verify (libged + test_dbi_cpp compile cleanly)
+
+
+---
+
+## Session 12 Results (2026-03-14) — Propagate update_views + harden dmp assignments
+
+### Summary
+
+Continued the `update_views` propagation work started in Session 11.  Five additional
+hook functions that set `dm_dirty` but not `s->update_views` were fixed, plus three
+code-hardening fixes in `cmd.c`, `overlay.c`, and `clone.c`.
+
+### Files modified
+
+| File | Change |
+|------|--------|
+| `axes.c` | `ax_set_dirty_flag`: add `s->update_views = 1` |
+| `adc.c` | `adc_set_dirty_flag`: add `s->update_views = 1` |
+| `grid.c` | `grid_set_dirty_flag`: add `s->update_views = 1` |
+| `set.c` | `set_dirty_flag` (mged_variables hook): add `s->update_views = 1` |
+| `color_scheme.c` | `cs_set_dirty_flag`: add `s->update_views = 1` |
+| `menu.c` | `mmenu_set`: add `s->update_views = 1` before the active_dm_set loop |
+| `share.c` | `f_share`: add `s->update_views = 1` before `dlp2->dm_dirty = 1` |
+| `cmd.c` | Replace unconditional `dm_dmp` assignment with `DMP ? (void*)DMP : NULL` (2 sites) |
+| `overlay.c` | Replace unconditional `dm_dmp` assignment with `DMP ? (void*)DMP : NULL` |
+| `clone.c` | Add `|| s->mged_curr_pane` to the no-draw skip condition |
+
+### Coverage summary
+
+After Sessions 11-12, **all** of the following now set `s->update_views = 1`:
+- Direct view command returns (17+ in chgview.c, 5 in edsol.c, ...)
+- `bu_structparse` variable-change hooks: adc, axes, color_scheme, grid, mged_variables, view_state
+- Overlay drawing functions that trigger a redraw
+- Menu/share state changes
+
+The only remaining `active_dm_set` loops NOT yet migrated are the display-list
+management functions in `dozoom.c` (CreateDListSolid, freeDListsAll) and the
+network framebuffer server in `fbserv.c` — both are intrinsically dm-specific and
+will be removed in Step 6.
 

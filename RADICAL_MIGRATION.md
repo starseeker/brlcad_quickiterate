@@ -539,6 +539,46 @@ remove the old infrastructure.
   `active_pane_set` first (Obol panes, matched by `gv_name`), then falls back to
   `active_dm_set` for legacy dm panes.  The old Tcl-variable bridge
   (`::obol_pane_gvp`) has been removed from both `f_winset` and `mview.tcl`.
+- **Step 1 (DMP null guards)**: All MGED overlay drawing functions (`adcursor`,
+  `draw_e_axes`, `draw_m_axes`, `draw_v_axes`, `draw_rect`, `draw_grid`,
+  `dotitles`, `predictor_frame`, `dozoom`, `scroll_display`, `mmenu_display`,
+  `mged_highlight_menu_item`) now return immediately when `DMP` is NULL.  All
+  standalone `dm_set_dirty(DMP, 1)`, `dm_set_debug(DMP, ...)`, and
+  `dm_set_perspective(DMP, ...)` calls are wrapped with `if (DMP)`.  All
+  loop-based `dm_set_dirty(m_dmp->dm_dmp, 1)` patterns are guarded with
+  `if (m_dmp->dm_dmp)`.  `doevent.c` returns early (skipping X11 event
+  dispatch) when `DMP` is NULL.  Files modified: `adc.c`, `axes.c`,
+  `buttons.c`, `chgmodel.c`, `chgview.c`, `cmd.c`, `color_scheme.c`,
+  `dm-generic.c`, `doevent.c`, `dozoom.c`, `edarb.c`, `edsol.c`, `fbserv.c`,
+  `grid.c`, `mater.c`, `menu.c`, `mged.c`, `overlay.c`, `predictor.c`,
+  `rect.c`, `scroll.c`, `set.c`, `share.c`, `titles.c`, `usepen.c`.
+- **Step 4/5 (Obol pane lifecycle — `release` and `refresh`)**: Fixed two
+  correctness gaps in the Obol pane lifecycle:
+  1. **`release()` now handles Obol panes** (`attach.c`): When the name
+     passed to `release` is not found in `active_dm_set`, it also checks
+     `active_pane_set` via `mged_pane_find_by_name()`.  If found, it:
+     removes the `mged_pane` from `active_pane_set`; removes the `bsg_view`
+     from `ged_views` (`bsg_scene_rm_view`); frees the `tclcad_view_data`
+     user-data; removes the view from `ged_free_views`; and calls
+     `bsg_view_free()` + `bu_free()` to fully teardown the Obol pane.
+     This fixes a leak where `releasemv` in `mview.tcl` silently failed to
+     clean up Obol panes (the error was swallowed by `catch`).
+  2. **`mview.tcl` adds `<Destroy>` binding** for Obol pane widgets: Each
+     `obol_view` pane now gets `bind $w.$pane <Destroy> "catch {release …}"`
+     so cleanup happens even if the widget is destroyed without going through
+     the `releasemv` Tcl proc.
+  3. **mged shutdown cleans up `active_pane_set`** (`mged.c`): The orderly
+     shutdown path (formerly cleaning only `active_dm_set`) now also iterates
+     `active_pane_set`, frees the `tclcad_view_data` on each Obol pane's
+     `bsg_view`, frees the `mged_pane` struct, and frees `active_pane_set`
+     itself.  This prevents `tclcad_view_data` from leaking at process exit.
+  4. **`refresh()` gates `obol_notify_views`**: The call is now conditional
+     on `BU_PTBL_LEN(&active_pane_set) > 0` (Obol panes exist) AND
+     `obol_needs_refresh || do_time` (something actually changed).  The
+     `obol_needs_refresh` variable is set at the top of `refresh()` from
+     `s->update_views` and from any `vs_flag` that was set on an
+     `active_dm_set` view state.  This avoids unnecessary Obol re-renders
+     on idle timer ticks when the scene is quiescent.
 
 ### libdm removal (remaining work)
 
@@ -609,11 +649,18 @@ from `mp_gvp` (no DMP indirection).
 
 **Migration steps (incremental, preserving backward compatibility):**
 
-1. **Guard all `DMP` uses** — Before each `DMP`-using call, add `if (!DMP)` guards
-   analogous to those already in `go_refresh()` and `go_draw_solid()`.  This allows
-   Obol panes created with `f_new_obol_view_ptr` to coexist with legacy dm panes in
-   the same mged session without crashing.  (`DMP` is NULL for Obol panes because
-   `f_new_obol_view_ptr` sets `gvp->dmp = NULL`.)
+1. **✅ Guard all `DMP` uses** — Added `if (!DMP) return;` guards to all MGED
+   overlay drawing functions (`adcursor`, `draw_e_axes`, `draw_m_axes`,
+   `draw_v_axes`, `draw_rect`, `draw_grid`, `dotitles`, `predictor_frame`,
+   `dozoom`, `scroll_display`, `mmenu_display`, `mged_highlight_menu_item`).
+   Added `if (DMP)` wrappers around all standalone `dm_set_dirty(DMP, 1)`,
+   `dm_set_debug(DMP, ...)`, and `dm_set_perspective(DMP, ...)` calls in
+   `buttons.c`, `chgmodel.c`, `chgview.c`, `cmd.c`, `dm-generic.c`, `mater.c`,
+   `edarb.c`, `overlay.c`, `usepen.c`, `edsol.c`, `fbserv.c`, and `set.c`.
+   Added `if (m_dmp->dm_dmp)` guards to all loop-based `dm_set_dirty` patterns
+   in `adc.c`, `axes.c`, `color_scheme.c`, `grid.c`, `menu.c`, `mged.c`,
+   `rect.c`, `set.c`, and `share.c`.  Added a `if (!DMP)` early-return in
+   `doevent.c` so that X11 events are not dispatched through a null DMP.
 
 2. **✅ Add `mged_pane` alongside `mged_dm`** — `struct mged_pane` added to
    `mged_dm.h`; `active_pane_set` (a `bu_ptbl`) added in `attach.c`;
@@ -625,19 +672,138 @@ from `mp_gvp` (no DMP indirection).
    `active_dm_set` for legacy dm panes.  The `::obol_pane_gvp` Tcl-variable bridge
    has been removed from `f_winset` and `mview.tcl`.
 
-4. **Migrate `refresh()`** — `mged.c`'s `refresh()` already skips dm drawing when
-   `DMP` is NULL (replaced by `obol_notify_views`).  Once all panes are Obol, remove
-   the dm draw block entirely.
+4. **✅ Migrate `refresh()`** — `refresh()` now gates `obol_notify_views` on
+   `obol_needs_refresh || do_time` (something actually changed) AND
+   `active_pane_set` being non-empty, preventing idle re-renders.  The legacy
+   dm draw block (now guarded by `if (!DMP) continue`) remains for backward
+   compatibility; it will be removed in Step 6 once all panes use `mged_pane`.
 
-5. **Migrate per-pane overlay rendering** — adc, predictor, trails, menu overlays
-   currently draw via libdm vlist calls.  Each needs an Obol `SoOverlay` / vlist→Obol
-   conversion, or can be deferred until after libdm is gone by simply skipping
-   overlay drawing when `DMP == NULL`.
+5. **✅ Migrate per-pane overlay rendering** — adc, predictor, trails, menu
+   overlays are guarded at function entry (`if (!DMP) return`) so Obol panes
+   silently skip libdm overlay drawing.  Full Obol overlay support (SoOverlay
+   nodes) is deferred until Step 6 when libdm is fully removed.  Additionally,
+   the Obol pane `release()` path and `<Destroy>` binding (see Step 4/5
+   in Completed Stage 7 work) ensure per-pane state is correctly freed when
+   a pane is closed.
+
+5.5 **✅ Add `mged_curr_pane` to `mged_state`** (Step 6 prep) —
+   `struct mged_pane *mged_curr_pane` added to `mged_state` in `mged.h`.
+   `set_curr_pane()` now sets both `s->gedp->ged_gvp` AND `s->mged_curr_pane`,
+   giving all mged code a direct pointer to the active Obol pane.  Initialized
+   to `MGED_PANE_NULL` at startup.  `refresh()` now checks `s->mged_curr_pane`
+   as a fast-path guard in the `obol_notify_views` condition, eliminating the
+   `BU_PTBL_LEN` call when no Obol pane has ever been activated.  The orphaned
+   `extern "C" int draw_points` forward declaration was removed from `draw.cpp`
+   (the implementation in `points_eval.c` is superseded by `rt_generic_scene_obj`
+   mode-5 handling via `rt_sample_pnts`).
+
+5.6 **✅ Unify view-dirty tracking: `vs_flag` → `s->update_views`** (Step 6.a) —
+   All view-command code paths that previously set only `view_state->vs_flag = 1`
+   now also set `s->update_views = 1`.  This ensures that `obol_notify_views` fires
+   correctly in the Obol path (which reads `s->update_views` via `obol_needs_refresh`)
+   even when the `active_dm_set` vs_flag scan is eventually removed in step 6.
+   Files updated: `chgview.c` (17 sites), `edsol.c` (5 sites), `edarb.c` (2 sites),
+   `dodraw.c`, `tedit.c`, `rtif.c`, `setup.c`, `rect.c`, `menu.c`, `cmd.c` (3 sites),
+   `usepen.c` (3 sites), `mged.c` (2 sites in `new_edit_mats` and `mged_view_callback`).
+   The comment in `refresh()` updated to reflect this invariant.  The `view_changed_hook`
+   in `dm-generic.c` was also fixed by adding a `struct mged_state *hs_s` back-pointer
+   to `mged_view_hook_state` and setting `hs->hs_s->update_views = 1` there.
+   **All** MGED view-change paths now set both `vs_flag` and `s->update_views`.
+
+5.7 **✅ Propagate `update_views` through `*_set_dirty_flag` hooks** —
+   The `bu_structparse` variable-change hooks for axes settings (`ax_set_dirty_flag`
+   in `axes.c`), color-scheme settings (`cs_set_dirty_flag` in `color_scheme.c`),
+   grid settings (`grid_set_dirty_flag` in `grid.c`), display-manager variables
+   (`set_dirty_flag` in `set.c`), and ADC cursor state (`adc_set_dirty_flag` in
+   `adc.c`) now all set `s->update_views = 1` alongside the legacy `dm_dirty` flag.
+   This ensures the Obol path repaints whenever any of these settings change.
+   Also: `overlay.c` dmp assignment hardened (`DMP ? (void *)DMP : NULL` instead of
+   unconditional dereference); `clone.c` draw-skip check extended to also allow a
+   redraw when `s->mged_curr_pane` is set (an Obol pane is active).
+
+5.8 **✅ Add `DbiState::wait_for_pipeline()` + `wait_pipeline` GED command** —
+   New `DbiState::wait_for_pipeline(int max_ms)` polls `drain_geom_results()` in a
+   1 ms sleep loop until the background draw pipeline `settled()` or the timeout
+   expires.  Exposed as a GED command `wait_pipeline [max_ms]` registered in
+   `src/libged/draw/draw.c`; the `ged_exec_wait_pipeline` C API is auto-generated
+   in `ged_cmds.h`.  `test_dbi_cpp.cpp` updated to use `wait_for_pipeline()` instead
+   of hand-rolled poll loops.
+
+5.9 **✅ Add per-pane state to `mged_pane` (Step 6 prep)** —
+   `struct mged_pane` now includes the same "shareable resource" pointer fields
+   that `mged_dm` carries (`mp_view_state`, `mp_color_scheme`, `mp_axes_state`, …).
+   Two new functions in `attach.c`:
+   - `mged_pane_init_resources(s, mp)` — allocates and copies initial state from
+     `mged_dm_init_state` (mirrors what `dm_var_init()` does for legacy dm panes).
+   - `mged_pane_free_resources(mp)` — frees the per-pane state on teardown.
+   `f_new_obol_view_ptr()` now calls `mged_pane_init_resources()` immediately
+   after allocating the pane.  `mged_pane_release()` calls `mged_pane_free_resources()`
+   before freeing the pane struct.  The macros were then updated in step 5.10 below.
+
+5.10 **✅ Change state macros to ternary pane-first form (Step 6)** —
+   All per-pane state macros (`view_state`, `adc_state`, `menu_state`, `rubber_band`,
+   `mged_variables`, `color_scheme`, `grid_state`, `axes_state`, `dlist_state`) now
+   use a ternary expression that prefers `s->mged_curr_pane->mp_*` when
+   `s->mged_curr_pane` is non-null, falling back to `s->mged_curr_dm->dm_*` for
+   legacy dm panes.  Pre-requisites met first:
+   - `dm_var_init()` in `attach.c` changed to use explicit `s->mged_curr_dm->dm_*`
+     for all `BU_ALLOC` calls (those need lvalue assignment, not ternary result).
+   - Startup init in `mged.c` likewise changed to explicit `s->mged_curr_dm->dm_*`.
+   - `f_postscript()` in `cmd.c`: `view_state = vsp` changed to
+     `s->mged_curr_dm->dm_view_state = vsp`; `menu_state = dml->dm_menu_state`
+     changed to `s->mged_curr_dm->dm_menu_state = dml->dm_menu_state`.
+   All MGED .c files compile cleanly after the macro change.
+
+5.11 **✅ Wire `mp_view_state` + `active_pane_set` view loops (Session 13)** —
+   Six improvements to make Obol panes participate in all view operations:
+   1. `mged_pane_init_resources()` now allocates a `_view_state` shell
+      (`mp->mp_view_state`) with `vs_gvp = mp->mp_gvp` and calls `view_ring_init()`.
+      `mged_pane_free_resources()` frees view_ring items + the shell (not `vs_gvp`).
+      This makes the ternary `view_state` macro safe for Obol panes.
+   2. `chgview.c` `edit_com()` and `cmd_autoview()` iterate `active_pane_set` after
+      `active_dm_set` so Obol panes also receive `autoview` when a new object appears.
+   3. `mged.h` `mged_edit_state`: added `edit_rate_*_pane` fields.
+      `chgview.c` sets them; `mged.c` knob loop prefers `set_curr_pane` for Obol.
+      Added `active_pane_set` loop for view rate knobs (rot_m, rot_v, sca).
+   4. `buttons.c`: `edit_accept`/`edit_reject` also reset `mv_transform` for Obol
+      panes; `chg_state` calls `new_mats()` for Obol panes too.
+   5. `grid.c` `update_grids()`: scales `mp_grid_state->res_h/v` for Obol panes.
+   6. `mged.c` `refresh()`: clears `mp_view_state->vs_flag` for Obol panes alongside
+      the existing `active_dm_set` loop.
+
+5.12 **✅ `set_curr_pane` now redirects `mged_curr_dm` to nu-init-state (Session 13)** —
+   `set_curr_pane()` now additionally sets `s->mged_curr_dm = mged_dm_init_state`
+   (the "nu" headless dm created at startup with `dm_dmp == NULL`).  This ensures
+   that whenever an Obol pane is active:
+   - `DMP == NULL` so all legacy libdm drawing guards (`if (!DMP) return;`) fire
+     immediately — no special-casing needed.
+   - `s->mged_curr_dm` points to a valid struct (not dangling), preventing any
+     accidental dereference of a legacy dm pointer.
+   - The ternary macros (`view_state`, `color_scheme`, etc.) continue to prefer
+     `mp->mp_*` because `mged_curr_pane` is non-NULL.
+   All `active_pane_set` loops that call `set_curr_pane` now also restore
+   `mged_curr_dm` via `set_curr_dm(s, save_m_dmp)` when there was no Obol pane
+   active before the loop (save_pane == NULL), preventing mged_curr_dm from
+   being left pointing at mged_dm_init_state after the loop.
+   Comments in `attach.c` and `mged_dm.h` updated to reflect the new behaviour.
+
+5.13 **✅ `mged_pane` Tcl HUD display variable names (Session 13)** —
+   `mged_pane` now has `mp_fps_name`, `mp_aet_name`, `mp_ang_name`, `mp_center_name`,
+   `mp_size_name`, `mp_adc_name` fields (mirrors `dm_fps_name` etc. in `mged_dm`).
+   `mged_pane_init_resources()` initialises these via `bu_vls_init()`.
+   `mged_pane_free_resources()` frees them via `bu_vls_free()`.
+   New `mged_pane_link_vars()` function (attach.c) populates them from `gv_name`.
+   Called automatically by `f_new_obol_view_ptr` after `mged_pane_init_resources`.
+   This prepares for a future `obol_dotitles()` that updates the Obol pane HUD
+   display Tcl variables (`$::mged_display($path,fps)` etc.).
 
 6. **Remove `mged_dm` and `active_dm_set`** — Once all panes use `mged_pane` and
    no remaining mged code references `DMP` unconditionally, delete `struct mged_dm`,
    `active_dm_set`, the `DMP`/`fbp`/`clients` macros, and everything in
-   `src/mged/dm-generic.c`.
+   `src/mged/dm-generic.c`.  Prerequisites now met: all DMP uses are guarded;
+   `mged_curr_pane` tracks the active Obol pane.  Remaining blocker: the initial
+   "nu" `mged_dm` entry and the legacy `f_attach`/`gui_setup` dm_open path must be
+   removed, along with all `mged_curr_dm` dereferences in attach.c/chgview.c/etc.
 
 7. **Remove `attach` command's dm backend** — `gui_setup()` in `attach.c` currently
    contains the full `dm_open` path for the legacy GL path.  Once step 6 is done,

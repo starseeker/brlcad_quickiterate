@@ -48,6 +48,9 @@ unsigned char geometry_default_color[] = { 255, 0, 0 };
 void
 dozoom(struct mged_state *s, int which_eye)
 {
+    /* Stage 7 guard: skip libdm drawing for Obol panes */
+    if (!DMP) return;
+
     int ndrawn = 0;
     fastf_t inv_viewsize = 0.0;
     mat_t newmat = MAT_INIT_ZERO;
