@@ -77,6 +77,16 @@ proc openmv { id w wc dpy dtype } {
 		obol_view_bind $w.$pane
 	    }
 	    set win_to_id($w.$pane) $id
+
+	    # Stage 7 (MGED libdm removal): Bind <Destroy> so that the Obol
+	    # pane's mged_pane entry in active_pane_set is cleaned up if the
+	    # widget is destroyed directly (e.g., window closed).  release is
+	    # extended (attach.c) to handle Obol panes via active_pane_set.
+	    # The catch wrapper suppresses the error for the "nu" path and for
+	    # repeat calls triggered by parent-window destruction.
+	    if {[info commands new_obol_view_ptr] ne ""} {
+		bind $w.$pane <Destroy> "catch {release $w.$pane}"
+	    }
 	}
 
 	grid $w.ul -in $wc.ulF -sticky "nsew" -row 0 -column 0

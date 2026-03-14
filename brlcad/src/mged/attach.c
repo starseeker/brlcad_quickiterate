@@ -279,6 +279,38 @@ release(struct mged_state *s, char *name, int need_close)
 	}
 
 	if (p == MGED_DM_NULL) {
+	    /* Stage 7 (MGED libdm migration): Obol panes are registered in
+	     * active_pane_set, not active_dm_set.  Check there before
+	     * reporting an error, so that "release .mged0.ul" (called from
+	     * releasemv in mview.tcl) correctly tears down Obol panes. */
+	    struct mged_pane *mp = mged_pane_find_by_name(name);
+	    if (mp) {
+		bsg_view *gvp = mp->mp_gvp;
+
+		/* Remove the pane from active_pane_set and free the struct. */
+		mged_pane_release(mp);
+
+		/* Teardown the bsg_view: remove from scene, free tclcad user
+		 * data, remove from ged_free_views, then free the view. */
+		if (gvp && s->gedp) {
+		    bsg_scene_rm_view(&s->gedp->ged_views, gvp);
+		    bu_ptbl_rm(&s->gedp->ged_free_views, (long *)gvp);
+
+		    struct tclcad_view_data *tvd =
+			(struct tclcad_view_data *)gvp->u_data;
+		    if (tvd) {
+			bu_vls_free(&tvd->gdv_edit_motion_delta_callback);
+			bu_vls_free(&tvd->gdv_callback);
+			BU_PUT(tvd, struct tclcad_view_data);
+			gvp->u_data = NULL;
+		    }
+
+		    bsg_view_free(gvp);
+		    bu_free((void *)gvp, "release obol pane: bsg_view");
+		}
+		return TCL_OK;
+	    }
+
 	    Tcl_AppendResult(s->interp, "release: ", name, " not found\n", (char *)NULL);
 	    return TCL_ERROR;
 	}
