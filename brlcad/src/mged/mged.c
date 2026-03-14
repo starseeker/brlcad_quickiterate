@@ -1517,13 +1517,20 @@ refresh(struct mged_state *s)
      * output to the interp. */
     mged_pr_output(s->interp);
 
+    /* Stage 7: capture update_views before resetting it so the Obol path
+     * below can decide whether to notify Obol panes.  Also true when any
+     * vs_flag is set on active_dm_set view states (checked in the loop). */
+    int obol_needs_refresh = s->update_views;
+
     /* Display Manager / Views */
     for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
 	struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
 	if (!p->dm_view_state)
 	    continue;
-	if (s->update_views || p->dm_view_state->vs_flag)
+	if (s->update_views || p->dm_view_state->vs_flag) {
 	    p->dm_dirty = 1;
+	    obol_needs_refresh = 1;
+	}
     }
 
     /*
@@ -1706,11 +1713,18 @@ refresh(struct mged_state *s)
      * widget so that geometry changes (draw, erase, view commands) are
      * immediately visible.  This is a no-op when no obol_view widgets exist.
      *
+     * Only call obol_notify_views when something has actually changed
+     * (obol_needs_refresh was set above), or when a legacy dm frame was
+     * drawn (do_time) — the latter handles shared-view cases where both
+     * dm and Obol panes display the same scene.
+     *
      * MIGRATION NOTE (Stage 7): Once all active_dm_set entries have been
      * migrated to the active_pane_set / mged_pane model and all libdm drawing
      * has been removed from the loop above, this obol_notify_views call will
-     * be the only rendering dispatch in refresh(). */
-    if (s->interp)
+     * be the only rendering dispatch in refresh(), and the obol_needs_refresh
+     * / do_time conditions will be the only dirty-tracking logic. */
+    if (s->interp && (obol_needs_refresh || do_time) &&
+	    BU_PTBL_LEN(&active_pane_set) > 0)
 	(void)Tcl_Eval(s->interp, "catch {obol_notify_views}");
 }
 
@@ -1765,6 +1779,28 @@ mged_finish(struct mged_state *s, int exitcode)
 	set_curr_dm(s, MGED_DM_NULL);
     }
     bu_ptbl_free(&active_dm_set);
+
+    /* Stage 7 (MGED libdm removal): Release all Obol panes.
+     * The bsg_view for each pane is owned by gedp->ged_free_views and freed
+     * by ged_close(); here we only free tclcad_view_data user-data and the
+     * mged_pane struct itself so they do not leak on orderly shutdown. */
+    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	if (!mp)
+	    continue;
+	if (mp->mp_gvp) {
+	    struct tclcad_view_data *tvd =
+		(struct tclcad_view_data *)mp->mp_gvp->u_data;
+	    if (tvd) {
+		bu_vls_free(&tvd->gdv_edit_motion_delta_callback);
+		bu_vls_free(&tvd->gdv_callback);
+		BU_PUT(tvd, struct tclcad_view_data);
+		mp->mp_gvp->u_data = NULL;
+	    }
+	}
+	BU_PUT(mp, struct mged_pane);
+    }
+    bu_ptbl_free(&active_pane_set);
 
     for (BU_LIST_FOR (c, cmd_list, &head_cmd_list.l)) {
 	bu_vls_free(&c->cl_name);

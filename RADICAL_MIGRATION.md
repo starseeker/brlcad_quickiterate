@@ -552,6 +552,33 @@ remove the old infrastructure.
   `dm-generic.c`, `doevent.c`, `dozoom.c`, `edarb.c`, `edsol.c`, `fbserv.c`,
   `grid.c`, `mater.c`, `menu.c`, `mged.c`, `overlay.c`, `predictor.c`,
   `rect.c`, `scroll.c`, `set.c`, `share.c`, `titles.c`, `usepen.c`.
+- **Step 4/5 (Obol pane lifecycle — `release` and `refresh`)**: Fixed two
+  correctness gaps in the Obol pane lifecycle:
+  1. **`release()` now handles Obol panes** (`attach.c`): When the name
+     passed to `release` is not found in `active_dm_set`, it also checks
+     `active_pane_set` via `mged_pane_find_by_name()`.  If found, it:
+     removes the `mged_pane` from `active_pane_set`; removes the `bsg_view`
+     from `ged_views` (`bsg_scene_rm_view`); frees the `tclcad_view_data`
+     user-data; removes the view from `ged_free_views`; and calls
+     `bsg_view_free()` + `bu_free()` to fully teardown the Obol pane.
+     This fixes a leak where `releasemv` in `mview.tcl` silently failed to
+     clean up Obol panes (the error was swallowed by `catch`).
+  2. **`mview.tcl` adds `<Destroy>` binding** for Obol pane widgets: Each
+     `obol_view` pane now gets `bind $w.$pane <Destroy> "catch {release …}"`
+     so cleanup happens even if the widget is destroyed without going through
+     the `releasemv` Tcl proc.
+  3. **mged shutdown cleans up `active_pane_set`** (`mged.c`): The orderly
+     shutdown path (formerly cleaning only `active_dm_set`) now also iterates
+     `active_pane_set`, frees the `tclcad_view_data` on each Obol pane's
+     `bsg_view`, frees the `mged_pane` struct, and frees `active_pane_set`
+     itself.  This prevents `tclcad_view_data` from leaking at process exit.
+  4. **`refresh()` gates `obol_notify_views`**: The call is now conditional
+     on `BU_PTBL_LEN(&active_pane_set) > 0` (Obol panes exist) AND
+     `obol_needs_refresh || do_time` (something actually changed).  The
+     `obol_needs_refresh` variable is set at the top of `refresh()` from
+     `s->update_views` and from any `vs_flag` that was set on an
+     `active_dm_set` view state.  This avoids unnecessary Obol re-renders
+     on idle timer ticks when the scene is quiescent.
 
 ### libdm removal (remaining work)
 
@@ -645,14 +672,19 @@ from `mp_gvp` (no DMP indirection).
    `active_dm_set` for legacy dm panes.  The `::obol_pane_gvp` Tcl-variable bridge
    has been removed from `f_winset` and `mview.tcl`.
 
-4. **Migrate `refresh()`** — `mged.c`'s `refresh()` already skips dm drawing when
-   `DMP` is NULL (replaced by `obol_notify_views`).  Once all panes are Obol, remove
-   the dm draw block entirely.
+4. **✅ Migrate `refresh()`** — `refresh()` now gates `obol_notify_views` on
+   `obol_needs_refresh || do_time` (something actually changed) AND
+   `active_pane_set` being non-empty, preventing idle re-renders.  The legacy
+   dm draw block (now guarded by `if (!DMP) continue`) remains for backward
+   compatibility; it will be removed in Step 6 once all panes use `mged_pane`.
 
-5. **Migrate per-pane overlay rendering** — adc, predictor, trails, menu overlays
-   currently draw via libdm vlist calls.  Each needs an Obol `SoOverlay` / vlist→Obol
-   conversion, or can be deferred until after libdm is gone by simply skipping
-   overlay drawing when `DMP == NULL`.
+5. **✅ Migrate per-pane overlay rendering** — adc, predictor, trails, menu
+   overlays are guarded at function entry (`if (!DMP) return`) so Obol panes
+   silently skip libdm overlay drawing.  Full Obol overlay support (SoOverlay
+   nodes) is deferred until Step 6 when libdm is fully removed.  Additionally,
+   the Obol pane `release()` path and `<Destroy>` binding (see Step 4/5
+   in Completed Stage 7 work) ensure per-pane state is correctly freed when
+   a pane is closed.
 
 6. **Remove `mged_dm` and `active_dm_set`** — Once all panes use `mged_pane` and
    no remaining mged code references `DMP` unconditionally, delete `struct mged_dm`,
