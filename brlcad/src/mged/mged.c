@@ -1606,6 +1606,11 @@ refresh(struct mged_state *s)
 	    continue;
 	p->dm_view_state->vs_flag = 0;
     }
+    /* Stage 7: also clear vs_flag for Obol panes. */
+    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	struct mged_pane *pmp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	if (pmp->mp_view_state) pmp->mp_view_state->vs_flag = 0;
+    }
 
     s->update_views = 0;
 
