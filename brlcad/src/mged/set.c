@@ -328,6 +328,7 @@ set_scroll_private(const struct bu_structparse *UNUSED(sdp),
 
     for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
 	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
+	if (!m_dmp->dm_dmp) continue;  /* skip null-dm sentinel */
 	if (m_dmp->dm_mged_variables == save_m_dmp->dm_mged_variables) {
 	    set_curr_dm(s, m_dmp);
 
@@ -337,7 +338,7 @@ set_scroll_private(const struct bu_structparse *UNUSED(sdp),
 
 		set_scroll(s);		/* set scroll_array for drawing the scroll bars */
 		DMP_dirty = 1;
-		if (DMP) dm_set_dirty(DMP, 1);
+		dm_set_dirty(DMP, 1);
 	    }
 	}
     }
@@ -433,6 +434,7 @@ set_dlist(const struct bu_structparse *UNUSED(sdp),
 
 	    struct mged_dm *dlp1 = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
 
+	    if (!dlp1->dm_dmp) continue;  /* skip null-dm sentinel */
 	    if (dlp1->dm_mged_variables != save_dlp->dm_mged_variables)
 		continue;
 
@@ -440,8 +442,9 @@ set_dlist(const struct bu_structparse *UNUSED(sdp),
 		/* for each display manager dlp2 that is sharing display lists with dlp1 */
 		struct mged_dm *dlp2 = MGED_DM_NULL;
 		for (size_t dj = 0; dj < BU_PTBL_LEN(&active_dm_set); dj++) {
-		    struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
+		    struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, dj);  /* was di: bug */
 
+		    if (!m_dmp->dm_dmp) continue;  /* skip null-dm sentinel */
 		    if (m_dmp->dm_dlist_state != dlp1->dm_dlist_state) {
 			continue;
 		    }
