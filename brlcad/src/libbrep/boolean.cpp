@@ -4235,12 +4235,17 @@ add_elements(ON_Brep *brep, ON_BrepFace &face, const ON_SimpleArray<ON_Curve *> 
 	}
 
 	/* Treat as a singular (degenerate) trim when the 3D curve maps to a
-	 * single point: its bounding-box diagonal is smaller than
-	 * INTERSECTION_TOL.  A closed curve (start == end) is NOT singular —
-	 * it is a full-circle (or other closed) trim and must be kept as a
-	 * proper edge.  Using the start-end distance as a singularity test
+	 * single point: either its bounding-box diagonal is smaller than
+	 * INTERSECTION_TOL, or its 2D UV domain length is smaller than
+	 * INTERSECTION_TOL^2 (a near-zero-length 2D curve that a numerical
+	 * pushup might return with a spuriously non-zero 3D bbox).
+	 * A closed curve (start == end) is NOT singular — it is a
+	 * full-circle (or other closed) trim and must be kept as a proper
+	 * edge.  Using the start-end distance as a singularity test
 	 * incorrectly classifies those closed curves. */
-	if (c3d->BoundingBox().Diagonal().Length() < INTERSECTION_TOL) {
+	double c3d_bbox = c3d->BoundingBox().Diagonal().Length();
+	double c2d_dom  = loop[k]->Domain().Length();
+	if (c3d_bbox < INTERSECTION_TOL || c2d_dom < INTERSECTION_TOL * INTERSECTION_TOL) {
 	    /* The 3D curve maps to a single point.  A valid singular trim
 	     * requires m_iso to be one of the BOUNDARY iso values (W_iso,
 	     * S_iso, E_iso, or N_iso).  Interior iso values (x_iso, y_iso)
@@ -6188,6 +6193,37 @@ ON_Boolean(ON_Brep *evaluated_brep, const ON_Brep *brep1, const ON_Brep *brep2, 
 		}
 
 		evaluated_brep->SetTrimIsoFlags(new_face);
+
+		/* SetTrimIsoFlags() recomputes m_iso for every trim from the
+		 * 2-D curve geometry.  For the near-zero-length degenerate
+		 * singular trims created above it returns an interior iso
+		 * (x_iso=1 or y_iso=2) because the UV position is interior to
+		 * the surface domain.  ON_Brep::IsValid() requires singular
+		 * trims to have a boundary iso (W/S/E/N_iso).  Correct any
+		 * singular trim whose m_iso is not one of the four boundary
+		 * values back to W_iso here. */
+		{
+		    const ON_BrepLoop &outerL = evaluated_brep->m_L[new_face.m_li[0]];
+		    for (int kk = 0; kk < new_face.LoopCount(); kk++) {
+			const ON_BrepLoop &lp = evaluated_brep->m_L[new_face.m_li[kk]];
+			for (int tt = 0; tt < lp.TrimCount(); tt++) {
+			    ON_BrepTrim &t = evaluated_brep->m_T[lp.m_ti[tt]];
+			    if (t.m_type == ON_BrepTrim::singular &&
+				t.m_iso != ON_Surface::W_iso &&
+				t.m_iso != ON_Surface::S_iso &&
+				t.m_iso != ON_Surface::E_iso &&
+				t.m_iso != ON_Surface::N_iso) {
+				/* Only override for truly degenerate (near-zero
+				 * 2D-domain) curves — legitimate singular trims
+				 * on surface boundaries keep their computed iso. */
+				const ON_Curve *c2 = t.TrimCurveOf();
+				if (c2 && c2->Domain().Length() < INTERSECTION_TOL * INTERSECTION_TOL)
+				    t.m_iso = ON_Surface::W_iso;
+			    }
+			}
+		    }
+		    (void)outerL; /* suppress unused warning */
+		}
 		const ON_BrepFace &original_face = i >= face_count1 ? brep2->m_F[i - face_count1] : brep1->m_F[i];
 		if (original_face.m_bRev ^ t_face->m_rev) {
 		    evaluated_brep->FlipFace(new_face);
