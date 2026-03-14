@@ -443,11 +443,12 @@ extern void set_curr_dm(struct mged_state *s, struct mged_dm *nl);
  *    `active_pane_set` AND `ged_views`, replacing the old `::obol_pane_gvp`
  *    Tcl-variable bridge.
  *
- * `set_curr_pane()` sets `s->gedp->ged_gvp` from `mp->mp_gvp` AND sets
- * `s->mged_curr_pane = mp` (the new per-state Obol pane tracker).  It does
- * NOT touch `s->mged_curr_dm`, so DMP null guards remain sufficient for now.
- * Once all panes are migrated to `mged_pane`, `set_curr_dm` and the DMP
- * macros can be removed (Step 6).
+ * `set_curr_pane()` sets `s->gedp->ged_gvp` from `mp->mp_gvp`, sets
+ * `s->mged_curr_pane = mp`, AND redirects `s->mged_curr_dm` to the headless
+ * "nu" init dm (`mged_dm_init_state`) so that `DMP == NULL` and all legacy
+ * libdm drawing guards fire cleanly.  The ternary macros prefer `mp->mp_*`
+ * because `mged_curr_pane` is now non-NULL.  Once all panes are migrated to
+ * `mged_pane`, `set_curr_dm` and the DMP macros can be removed (Step 6).
  *
  * See RADICAL_MIGRATION.md, "MGED refactoring for libdm removal", steps 2-3.
  * ----------------------------------------------------------------------- */

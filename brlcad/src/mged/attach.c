@@ -105,8 +105,10 @@ void set_curr_dm(struct mged_state *s, struct mged_dm *nc)
  *
  * Stage 7 (libdm removal): this is the counterpart of set_curr_dm() for
  * Obol panes tracked in active_pane_set.  It sets s->gedp->ged_gvp to the
- * pane's bsg_view WITHOUT touching s->mged_curr_dm, so code that uses DMP
- * continues to reference the last-active legacy dm safely.
+ * pane's bsg_view AND redirects s->mged_curr_dm to the headless "nu" init dm
+ * (mged_dm_init_state) so that DMP == NULL and all legacy libdm drawing guards
+ * fire cleanly.  The ternary macros prefer mp->mp_* because mged_curr_pane is
+ * non-NULL.
  *
  * When all panes have been migrated to mged_pane (step 6), set_curr_dm and
  * the DMP macros will be removed and set_curr_pane will become the sole
@@ -125,6 +127,14 @@ set_curr_pane(struct mged_state *s, struct mged_pane *mp)
 	return;
     }
     s->gedp->ged_gvp = mp->mp_gvp;
+
+    /* Stage 7: also point mged_curr_dm at the "nu" headless init dm so
+     * that DMP == NULL and all legacy libdm drawing guards fire cleanly.
+     * The ternary macros (view_state, color_scheme, etc.) prefer mp->mp_*
+     * because mged_curr_pane is now non-NULL.  mged_dm_init_state is always
+     * non-NULL once the startup code has run. */
+    if (mged_dm_init_state)
+	s->mged_curr_dm = mged_dm_init_state;
 }
 
 /**
