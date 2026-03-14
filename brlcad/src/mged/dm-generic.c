@@ -578,8 +578,8 @@ common_dm(struct mged_state *s, int argc, const char *argv[])
 	}
 
 	DMP_dirty = 1;
-	dm_set_dirty(DMP, 1);
-	(void)dm_make_current(DMP);
+	if (DMP) dm_set_dirty(DMP, 1);
+	if (DMP) (void)dm_make_current(DMP);
 	return dm_set_bg(DMP, r, g, b, r, g, b);
     }
 
