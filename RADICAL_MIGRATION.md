@@ -530,6 +530,15 @@ remove the old infrastructure.
   sets `fbs_open_client_handler = &qdm_open_obol_client_handler`, stores the view
   widget pointer in `fbs_clientData`, and calls `setFbServ(gedp->ged_fbs)` on the
   Obol view so the overlay knows which fb to read.
+- **Step 2 (`mged_pane` + `active_pane_set`)**: Added `struct mged_pane` to
+  `mged_dm.h` alongside `struct mged_dm`.  Added `active_pane_set` (a `bu_ptbl`)
+  in `attach.c` and `set_curr_pane()` to set `ged_gvp` for Obol panes without
+  touching `mged_curr_dm`.  `f_new_obol_view_ptr` now also creates a `mged_pane`
+  entry and adds it to `active_pane_set`.
+- **Step 3 (`f_winset` migration)**: `f_winset` in `cmd.c` now checks
+  `active_pane_set` first (Obol panes, matched by `gv_name`), then falls back to
+  `active_dm_set` for legacy dm panes.  The old Tcl-variable bridge
+  (`::obol_pane_gvp`) has been removed from both `f_winset` and `mview.tcl`.
 
 ### libdm removal (remaining work)
 
@@ -606,14 +615,15 @@ from `mp_gvp` (no DMP indirection).
    the same mged session without crashing.  (`DMP` is NULL for Obol panes because
    `f_new_obol_view_ptr` sets `gvp->dmp = NULL`.)
 
-2. **Add `mged_pane` alongside `mged_dm`** — Introduce the new `mged_pane` struct
-   and `active_pane_set` without removing `mged_dm`/`active_dm_set` yet.  The
-   `f_new_obol_view_ptr` path already creates panes in the new style.
+2. **✅ Add `mged_pane` alongside `mged_dm`** — `struct mged_pane` added to
+   `mged_dm.h`; `active_pane_set` (a `bu_ptbl`) added in `attach.c`;
+   `set_curr_pane()` added.  `f_new_obol_view_ptr` now creates a `mged_pane` and
+   registers it in `active_pane_set`.  The old `::obol_pane_gvp` Tcl array is gone.
 
-3. **Migrate `f_winset` fully** — The current `f_winset` Obol fallback (checking
-   `::obol_pane_gvp` Tcl array) is a bridge; the final form has `f_winset` look up
-   `active_pane_set` first (covering both Obol and legacy dm panes), removing the
-   `active_dm_set` loop.
+3. **✅ Migrate `f_winset` fully** — `f_winset` in `cmd.c` now checks
+   `active_pane_set` first (matched by `mp_gvp->gv_name`), then falls back to
+   `active_dm_set` for legacy dm panes.  The `::obol_pane_gvp` Tcl-variable bridge
+   has been removed from `f_winset` and `mview.tcl`.
 
 4. **Migrate `refresh()`** — `mged.c`'s `refresh()` already skips dm drawing when
    `DMP` is NULL (replaced by `obol_notify_views`).  Once all panes are Obol, remove
