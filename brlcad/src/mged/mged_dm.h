@@ -456,7 +456,9 @@ extern void set_curr_dm(struct mged_state *s, struct mged_dm *nl);
 struct mged_pane {
     bsg_view          *mp_gvp;       /* the view this pane displays (dmp == NULL for Obol) */
     struct cmd_list   *mp_cmd_tie;   /* Tcl command-history link (mirrors dm_tie) */
-    struct bu_list     mp_p_vlist;   /* predictor vlist */
+    struct bu_list     mp_p_vlist;   /* predictor vlist (mirrors dm_p_vlist) */
+    struct trail       mp_trails[NUM_TRAILS]; /* predictor trails (mirrors dm_trails) */
+    int                mp_ndrawn;    /* count of objects drawn (mirrors dm_ndrawn) */
 
     /* Per-pane state (mirrors the shareable resources in mged_dm).  These
      * are allocated and initialized by mged_pane_init_resources() in
@@ -544,6 +546,17 @@ extern void mged_pane_free_resources(struct mged_pane *mp);
 #define grid_state (s->mged_curr_pane ? s->mged_curr_pane->mp_grid_state : s->mged_curr_dm->dm_grid_state)
 #define axes_state (s->mged_curr_pane ? s->mged_curr_pane->mp_axes_state : s->mged_curr_dm->dm_axes_state)
 #define dlist_state (s->mged_curr_pane ? s->mged_curr_pane->mp_dlist_state : s->mged_curr_dm->dm_dlist_state)
+
+/* Predictor vlist and trails: prefer mged_curr_pane (Obol path) when set.
+ * pv_head is a pointer to the per-pane bu_list head; pane_trails decays to a
+ * pointer to the NUM_TRAILS-element trail array so pane_trails[i] is lvalue.
+ * (Step 5.15)
+ * NOTE: dm_ndrawn/mp_ndrawn is NOT exposed as a macro because "ndrawn"
+ * conflicts with local variable names in dozoom.c — callers use the
+ * struct fields directly (s->mged_curr_dm->dm_ndrawn or
+ * s->mged_curr_pane->mp_ndrawn). */
+#define pv_head (s->mged_curr_pane ? &s->mged_curr_pane->mp_p_vlist : &s->mged_curr_dm->dm_p_vlist)
+#define pane_trails (s->mged_curr_pane ? s->mged_curr_pane->mp_trails : s->mged_curr_dm->dm_trails)
 
 #define cmd_hook s->mged_curr_dm->dm_cmd_hook
 #define viewpoint_hook s->mged_curr_dm->dm_viewpoint_hook
