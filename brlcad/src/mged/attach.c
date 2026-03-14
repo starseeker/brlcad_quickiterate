@@ -875,48 +875,53 @@ f_dm(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *argv[
 void
 dm_var_init(struct mged_state *s, struct mged_dm *target_dm)
 {
-    BU_ALLOC(adc_state, struct _adc_state);
-    *adc_state = *target_dm->dm_adc_state;		/* struct copy */
-    adc_state->adc_rc = 1;
+    /* Stage 7: Use explicit s->mged_curr_dm->dm_* instead of macros here.
+     * At call time mged_curr_pane is NULL (this init path is for legacy dm
+     * panes), so the macro and direct field access are equivalent.  Using
+     * direct fields avoids an lvalue-of-ternary problem if/when the macros
+     * are changed to prefer mged_curr_pane (Step 6). */
+    BU_ALLOC(s->mged_curr_dm->dm_adc_state, struct _adc_state);
+    *s->mged_curr_dm->dm_adc_state = *target_dm->dm_adc_state;	/* struct copy */
+    s->mged_curr_dm->dm_adc_state->adc_rc = 1;
 
-    BU_ALLOC(menu_state, struct _menu_state);
-    *menu_state = *target_dm->dm_menu_state;		/* struct copy */
-    menu_state->ms_rc = 1;
+    BU_ALLOC(s->mged_curr_dm->dm_menu_state, struct _menu_state);
+    *s->mged_curr_dm->dm_menu_state = *target_dm->dm_menu_state;	/* struct copy */
+    s->mged_curr_dm->dm_menu_state->ms_rc = 1;
 
-    BU_ALLOC(rubber_band, struct _rubber_band);
-    *rubber_band = *target_dm->dm_rubber_band;		/* struct copy */
-    rubber_band->rb_rc = 1;
+    BU_ALLOC(s->mged_curr_dm->dm_rubber_band, struct _rubber_band);
+    *s->mged_curr_dm->dm_rubber_band = *target_dm->dm_rubber_band;	/* struct copy */
+    s->mged_curr_dm->dm_rubber_band->rb_rc = 1;
 
-    BU_ALLOC(mged_variables, struct _mged_variables);
-    *mged_variables = *target_dm->dm_mged_variables;	/* struct copy */
-    mged_variables->mv_rc = 1;
-    mged_variables->mv_dlist = mged_default_dlist;
-    mged_variables->mv_listen = 0;
-    mged_variables->mv_port = 0;
-    mged_variables->mv_fb = 0;
+    BU_ALLOC(s->mged_curr_dm->dm_mged_variables, struct _mged_variables);
+    *s->mged_curr_dm->dm_mged_variables = *target_dm->dm_mged_variables;	/* struct copy */
+    s->mged_curr_dm->dm_mged_variables->mv_rc = 1;
+    s->mged_curr_dm->dm_mged_variables->mv_dlist = mged_default_dlist;
+    s->mged_curr_dm->dm_mged_variables->mv_listen = 0;
+    s->mged_curr_dm->dm_mged_variables->mv_port = 0;
+    s->mged_curr_dm->dm_mged_variables->mv_fb = 0;
 
-    BU_ALLOC(color_scheme, struct _color_scheme);
+    BU_ALLOC(s->mged_curr_dm->dm_color_scheme, struct _color_scheme);
 
     /* initialize using the nu display manager */
     if (mged_dm_init_state && mged_dm_init_state->dm_color_scheme) {
-	*color_scheme = *mged_dm_init_state->dm_color_scheme;
+	*s->mged_curr_dm->dm_color_scheme = *mged_dm_init_state->dm_color_scheme;
     }
 
-    color_scheme->cs_rc = 1;
+    s->mged_curr_dm->dm_color_scheme->cs_rc = 1;
 
-    BU_ALLOC(grid_state, struct bsg_grid_state);
-    *grid_state = *target_dm->dm_grid_state;		/* struct copy */
-    grid_state->rc = 1;
+    BU_ALLOC(s->mged_curr_dm->dm_grid_state, struct bsg_grid_state);
+    *s->mged_curr_dm->dm_grid_state = *target_dm->dm_grid_state;	/* struct copy */
+    s->mged_curr_dm->dm_grid_state->rc = 1;
 
-    BU_ALLOC(axes_state, struct _axes_state);
-    *axes_state = *target_dm->dm_axes_state;		/* struct copy */
-    axes_state->ax_rc = 1;
+    BU_ALLOC(s->mged_curr_dm->dm_axes_state, struct _axes_state);
+    *s->mged_curr_dm->dm_axes_state = *target_dm->dm_axes_state;	/* struct copy */
+    s->mged_curr_dm->dm_axes_state->ax_rc = 1;
 
-    BU_ALLOC(dlist_state, struct _dlist_state);
-    dlist_state->dl_rc = 1;
+    BU_ALLOC(s->mged_curr_dm->dm_dlist_state, struct _dlist_state);
+    s->mged_curr_dm->dm_dlist_state->dl_rc = 1;
 
-    BU_ALLOC(view_state, struct _view_state);
-    *view_state = *target_dm->dm_view_state;			/* struct copy */
+    BU_ALLOC(s->mged_curr_dm->dm_view_state, struct _view_state);
+    *s->mged_curr_dm->dm_view_state = *target_dm->dm_view_state;		/* struct copy */
     BU_ALLOC(view_state->vs_gvp, bsg_view);
     BU_GET(view_state->vs_gvp->callbacks, struct bu_ptbl);
     bu_ptbl_init(view_state->vs_gvp->callbacks, 8, "bv callbacks");

@@ -738,9 +738,21 @@ from `mp_gvp` (no DMP indirection).
    - `mged_pane_free_resources(mp)` — frees the per-pane state on teardown.
    `f_new_obol_view_ptr()` now calls `mged_pane_init_resources()` immediately
    after allocating the pane.  `mged_pane_release()` calls `mged_pane_free_resources()`
-   before freeing the pane struct.  The global macros (`view_state`, `color_scheme`,
-   etc.) still expand to `s->mged_curr_dm->dm_*`; the next step (Step 6) will change
-   them to prefer `s->mged_curr_pane->mp_*` when non-null.
+   before freeing the pane struct.  The macros were then updated in step 5.10 below.
+
+5.10 **✅ Change state macros to ternary pane-first form (Step 6)** —
+   All per-pane state macros (`view_state`, `adc_state`, `menu_state`, `rubber_band`,
+   `mged_variables`, `color_scheme`, `grid_state`, `axes_state`, `dlist_state`) now
+   use a ternary expression that prefers `s->mged_curr_pane->mp_*` when
+   `s->mged_curr_pane` is non-null, falling back to `s->mged_curr_dm->dm_*` for
+   legacy dm panes.  Pre-requisites met first:
+   - `dm_var_init()` in `attach.c` changed to use explicit `s->mged_curr_dm->dm_*`
+     for all `BU_ALLOC` calls (those need lvalue assignment, not ternary result).
+   - Startup init in `mged.c` likewise changed to explicit `s->mged_curr_dm->dm_*`.
+   - `f_postscript()` in `cmd.c`: `view_state = vsp` changed to
+     `s->mged_curr_dm->dm_view_state = vsp`; `menu_state = dml->dm_menu_state`
+     changed to `s->mged_curr_dm->dm_menu_state = dml->dm_menu_state`.
+   All MGED .c files compile cleanly after the macro change.
 
 6. **Remove `mged_dm` and `active_dm_set`** — Once all panes use `mged_pane` and
    no remaining mged code references `DMP` unconditionally, delete `struct mged_dm`,
