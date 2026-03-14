@@ -162,6 +162,9 @@ predictor_kill(struct mged_state *s)
 void
 predictor_frame(struct mged_state *s)
 {
+    /* Stage 7 guard: skip libdm overlay drawing for Obol panes */
+    if (!DMP) return;
+
     int i;
     int nframes;
     mat_t predictor;

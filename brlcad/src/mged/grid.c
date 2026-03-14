@@ -80,7 +80,7 @@ grid_set_dirty_flag(const struct bu_structparse *UNUSED(sdp),
 	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
 	if (m_dmp->dm_grid_state == grid_state) {
 	    m_dmp->dm_dirty = 1;
-	    dm_set_dirty(m_dmp->dm_dmp, 1);
+	    if (m_dmp->dm_dmp) dm_set_dirty(m_dmp->dm_dmp, 1);
 	}
     }
 }
@@ -144,6 +144,9 @@ set_grid_res(const struct bu_structparse *sdp,
 void
 draw_grid(struct mged_state *s)
 {
+    /* Stage 7 guard: skip libdm overlay drawing for Obol panes */
+    if (!DMP) return;
+
     int i, j;
     int nh, nv;
     int nv_dots, nh_dots;

@@ -87,7 +87,7 @@ ax_set_dirty_flag(const struct bu_structparse *UNUSED(sdp),
 	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, i);
 	if (m_dmp->dm_axes_state == axes_state) {
 	    m_dmp->dm_dirty = 1;
-	    dm_set_dirty(m_dmp->dm_dmp, 1);
+	    if (m_dmp->dm_dmp) dm_set_dirty(m_dmp->dm_dmp, 1);
 	}
     }
 }
@@ -96,6 +96,9 @@ ax_set_dirty_flag(const struct bu_structparse *UNUSED(sdp),
 void
 draw_e_axes(struct mged_state *s)
 {
+    /* Stage 7 guard: skip libdm overlay drawing for Obol panes */
+    if (!DMP) return;
+
     point_t v_ap1;                 /* axes position in view coordinates */
     point_t v_ap2;                 /* axes position in view coordinates */
     mat_t rot_mat;
@@ -142,6 +145,9 @@ draw_e_axes(struct mged_state *s)
 void
 draw_m_axes(struct mged_state *s)
 {
+    /* Stage 7 guard: skip libdm overlay drawing for Obol panes */
+    if (!DMP) return;
+
     point_t m_ap;			/* axes position in model coordinates, mm */
     point_t v_ap;			/* axes position in view coordinates */
     struct bsg_axes gas;
@@ -166,6 +172,9 @@ draw_m_axes(struct mged_state *s)
 void
 draw_v_axes(struct mged_state *s)
 {
+    /* Stage 7 guard: skip libdm overlay drawing for Obol panes */
+    if (!DMP) return;
+
     point_t v_ap;			/* axes position in view coordinates */
     struct bsg_axes gas;
     struct bsg_camera _cam;

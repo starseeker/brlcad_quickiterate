@@ -467,6 +467,9 @@ view_scroll_display(fastf_t *f, struct scroll_item *mptr, struct mged_state *s)
 int
 scroll_display(struct mged_state *s, int y_top)
 {
+    /* Stage 7 guard: skip libdm overlay drawing for Obol panes */
+    if (!DMP) return y_top;
+
     int y;
     struct scroll_item *mptr;
     struct scroll_item **m;

@@ -1441,7 +1441,7 @@ mmenu_set(struct mged_state *s, int index, struct menu_item *value)
 	    dlp->dm_mged_variables->mv_faceplate &&
 	    dlp->dm_mged_variables->mv_orig_gui) {
 	    dlp->dm_dirty = 1;
-	    dm_set_dirty(dlp->dm_dmp, 1);
+	    if (dlp->dm_dmp) dm_set_dirty(dlp->dm_dmp, 1);
 	}
     }
 }
@@ -1472,6 +1472,9 @@ mmenu_set_all(struct mged_state *s, int index, struct menu_item *value)
 void
 mged_highlight_menu_item(struct mged_state *s, struct menu_item *mptr, int y)
 {
+    /* Stage 7 guard: skip libdm overlay drawing for Obol panes */
+    if (!DMP) return;
+
     switch (mptr->menu_arg) {
 	case BV_RATE_TOGGLE:
 	    if (mged_variables->mv_rateknobs) {
@@ -1516,6 +1519,9 @@ mged_highlight_menu_item(struct mged_state *s, struct menu_item *mptr, int y)
 void
 mmenu_display(struct mged_state *s, int y_top)
 {
+    /* Stage 7 guard: skip libdm overlay drawing for Obol panes */
+    if (!DMP) return;
+
     static int menu, item;
     struct menu_item **m;
     struct menu_item *mptr;

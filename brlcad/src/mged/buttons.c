@@ -630,7 +630,7 @@ be_o_scale(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), 
     edobj = BE_O_SCALE;
     movedir = SARROW;
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
+    if (DMP) dm_set_dirty(DMP, 1);
     set_e_axes_pos(s, 1);
 
     MEDIT(s)->k.sca_abs = MEDIT(s)->acc_sc_obj - 1.0;
@@ -653,7 +653,7 @@ be_o_xscale(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc),
     edobj = BE_O_XSCALE;
     movedir = SARROW;
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
+    if (DMP) dm_set_dirty(DMP, 1);
     set_e_axes_pos(s, 1);
 
     MEDIT(s)->k.sca_abs = MEDIT(s)->acc_sc[0] - 1.0;
@@ -676,7 +676,7 @@ be_o_yscale(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc),
     edobj = BE_O_YSCALE;
     movedir = SARROW;
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
+    if (DMP) dm_set_dirty(DMP, 1);
     set_e_axes_pos(s, 1);
 
     MEDIT(s)->k.sca_abs = MEDIT(s)->acc_sc[1] - 1.0;
@@ -699,7 +699,7 @@ be_o_zscale(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc),
     edobj = BE_O_ZSCALE;
     movedir = SARROW;
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
+    if (DMP) dm_set_dirty(DMP, 1);
     set_e_axes_pos(s, 1);
 
     MEDIT(s)->k.sca_abs = MEDIT(s)->acc_sc[2] - 1.0;
@@ -722,7 +722,7 @@ be_o_x(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), char
     edobj = BE_O_X;
     movedir = RARROW;
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
+    if (DMP) dm_set_dirty(DMP, 1);
     set_e_axes_pos(s, 1);
     return TCL_OK;
 }
@@ -741,7 +741,7 @@ be_o_y(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), char
     edobj = BE_O_Y;
     movedir = UARROW;
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
+    if (DMP) dm_set_dirty(DMP, 1);
     set_e_axes_pos(s, 1);
     return TCL_OK;
 }
@@ -760,7 +760,7 @@ be_o_xy(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), cha
     edobj = BE_O_XY;
     movedir = UARROW | RARROW;
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
+    if (DMP) dm_set_dirty(DMP, 1);
     set_e_axes_pos(s, 1);
     return TCL_OK;
 }
@@ -779,7 +779,7 @@ be_o_rotate(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc),
     edobj = BE_O_ROTATE;
     movedir = ROTARROW;
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
+    if (DMP) dm_set_dirty(DMP, 1);
     set_e_axes_pos(s, 1);
     return TCL_OK;
 }
@@ -851,7 +851,7 @@ be_reject(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), c
     struct mged_state *s = ctp->s;
 
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
+    if (DMP) dm_set_dirty(DMP, 1);
 
     /* Reject edit */
 
