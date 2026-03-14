@@ -599,6 +599,8 @@ view_state_flag_hook(const struct bu_structparse *UNUSED(sdp),
     struct mged_view_hook_state *hs = (struct mged_view_hook_state *)data;
     if (hs->vs)
 	hs->vs->vs_flag = 1;
+    if (hs->hs_s)
+	hs->hs_s->update_views = 1;
 }
 
 void
@@ -626,6 +628,7 @@ zclip_hook(const struct bu_structparse *sdp,
 
 void *
 set_hook_data(struct mged_state *s, struct mged_view_hook_state *hs) {
+    hs->hs_s = s;
     hs->hs_dmp = DMP;
     hs->vs = view_state;
     hs->dirty_global = &(DMP_dirty);

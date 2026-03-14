@@ -33,12 +33,10 @@
 
 #include "common.h"
 
-#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <string>
-#include <thread>
 #include <vector>
 
 #include "bu.h"
@@ -438,18 +436,10 @@ test_geomloader_bbox(struct ged *gedp)
     unsigned long long h =
 	bu_data_hash("bbox_sph.s", strlen("bbox_sph.s")*sizeof(char));
 
-    /* Poll drain_geom_results() until the bbox arrives or a 2-second
-     * timeout expires.  drain() integrates results into dbis->bboxes
-     * and fires scene-observer notifications. */
-    bool bbox_arrived = false;
-    for (int i = 0; i < 200; ++i) {
-	dbis->drain_geom_results();
-	if (dbis->bboxes.find(h) != dbis->bboxes.end()) {
-	    bbox_arrived = true;
-	    break;
-	}
-	std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    }
+        /* wait_for_pipeline() polls drain_geom_results() until the pipeline
+     * settles or a 2-second timeout expires. */
+    dbis->wait_for_pipeline(2000);
+    bool bbox_arrived = (dbis->bboxes.find(h) != dbis->bboxes.end());
 
     CHECK(bbox_arrived,
 	  "drain_geom_results() delivers bbox for a newly created primitive");
@@ -524,19 +514,12 @@ test_geomloader_lod(struct ged *gedp)
      * and push() will mark the BoT with needs_lod=true. */
     dbis->update();
 
-    /* Poll drain_geom_results() until the LoD key arrives or a 5-second
-     * timeout expires.  Background generation is triggered automatically
-     * inside start_geom_load() when lod_ctx is set (gedp->ged_lod != NULL). */
-    bool lod_arrived = false;
-    for (int i = 0; i < 500; ++i) {
-	dbis->drain_geom_results();
-	unsigned long long key = bsg_mesh_lod_key_get(gedp->ged_lod, bot_name);
-	if (key) {
-	    lod_arrived = true;
-	    break;
-	}
-	std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    }
+    /* wait_for_pipeline() polls drain_geom_results() until the LoD arrives
+     * or a 5-second timeout expires.  Background generation is triggered
+     * automatically inside start_geom_load() when lod_ctx is set. */
+    dbis->wait_for_pipeline(5000);
+    unsigned long long lod_key_check = bsg_mesh_lod_key_get(gedp->ged_lod, bot_name);
+    bool lod_arrived = (lod_key_check != 0);
 
     CHECK(lod_arrived,
 	  "drain_geom_results() generates LoD cache for a newly created BoT");

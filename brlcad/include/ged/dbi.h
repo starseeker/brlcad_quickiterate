@@ -807,6 +807,14 @@ class GED_EXPORT DbiState {
 	void   start_geom_load(const std::vector<DrawPipeline::WorkItem> &items);
 	size_t drain_geom_results();
 
+	// Poll drain_geom_results() in a tight loop until the background
+	// pipeline reports settled() or max_ms milliseconds have elapsed.
+	// Returns the total number of results drained.  Useful for tests and
+	// for the "draw --sync" mode where the caller needs all bboxes to be
+	// populated before proceeding.  MAIN THREAD ONLY.
+	// A max_ms <= 0 waits indefinitely until settled.
+	size_t wait_for_pipeline(int max_ms = 5000);
+
 	// Cumulative count of LoD results processed by drain_geom_results()
 	// since the last open_db() / update() call.  This counter is incremented
 	// by whoever calls drain_geom_results() — including the QgEdApp 100ms
