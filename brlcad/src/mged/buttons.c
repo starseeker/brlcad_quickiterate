@@ -831,6 +831,12 @@ be_accept(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), c
 	if (m_dmp->dm_mged_variables->mv_transform == 'e')
 	    m_dmp->dm_mged_variables->mv_transform = 'v';
     }
+    /* Stage 7: also reset for Obol panes. */
+    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	struct mged_pane *pmp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	if (pmp->mp_mged_variables && pmp->mp_mged_variables->mv_transform == 'e')
+	    pmp->mp_mged_variables->mv_transform = 'v';
+    }
 
     {
 	struct bu_vls vls = BU_VLS_INIT_ZERO;
@@ -899,6 +905,12 @@ be_reject(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), c
 	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, i);
 	if (m_dmp->dm_mged_variables->mv_transform == 'e')
 	    m_dmp->dm_mged_variables->mv_transform = 'v';
+    }
+    /* Stage 7: also reset for Obol panes. */
+    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	struct mged_pane *pmp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	if (pmp->mp_mged_variables && pmp->mp_mged_variables->mv_transform == 'e')
+	    pmp->mp_mged_variables->mv_transform = 'v';
     }
 
     {
@@ -1069,6 +1081,13 @@ chg_state(struct mged_state *s, int from, int to, char *str)
     }
 
     set_curr_dm(s, save_dm_list);
+    /* Stage 7: apply new_mats to Obol panes as well. */
+    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	struct mged_pane *pmp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	set_curr_pane(s, pmp);
+	new_mats(s);
+    }
+    set_curr_pane(s, NULL);
 
     bu_vls_printf(&vls, "%s(state)", MGED_DISPLAY_VAR);
     Tcl_SetVar(s->interp, bu_vls_addr(&vls), state_str[s->global_editing_state], TCL_GLOBAL_ONLY);
