@@ -326,6 +326,31 @@ ged_redraw2_core(struct ged *gedp, int argc, const char *argv[])
     return ret;
 }
 
+
+extern "C" int
+ged_wait_pipeline_core(struct ged *gedp, int argc, const char *argv[])
+{
+    GED_CHECK_DATABASE_OPEN(gedp, BRLCAD_ERROR);
+    if (!gedp->dbi_state)
+return BRLCAD_OK;
+
+    int max_ms = 5000;
+    if (argc > 1) {
+char *endptr = NULL;
+long ms = strtol(argv[1], &endptr, 10);
+if (!endptr || *endptr != '\0' || ms < 0) {
+    bu_vls_printf(gedp->ged_result_str, "Usage: wait_pipeline [max_ms]\n");
+    return BRLCAD_ERROR;
+}
+max_ms = (int)ms;
+    }
+
+    DbiState *dbis = (DbiState *)gedp->dbi_state;
+    size_t n = dbis->wait_for_pipeline(max_ms);
+    bu_vls_printf(gedp->ged_result_str, "%zu", n);
+    return BRLCAD_OK;
+}
+
 // Local Variables:
 // tab-width: 8
 // mode: C++
