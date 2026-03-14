@@ -406,6 +406,8 @@ set_dlist(const struct bu_structparse *UNUSED(sdp),
 	for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
 
 	    struct mged_dm *dlp1 = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
+	    /* Stage 7 (step 5.14): skip initial "nu" entry with no dm. */
+	    if (!dlp1->dm_dmp) continue;
 
 	    if (dlp1->dm_mged_variables != save_dlp->dm_mged_variables) {
 		continue;

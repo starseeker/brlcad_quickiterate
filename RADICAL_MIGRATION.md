@@ -797,17 +797,50 @@ from `mp_gvp` (no DMP indirection).
    This prepares for a future `obol_dotitles()` that updates the Obol pane HUD
    display Tcl variables (`$::mged_display($path,fps)` etc.).
 
+5.14 **✅ Remove `dm_open("nu")` from mged startup + attach path** —
+   The initial "nu" `mged_dm` entry (`mged_dm_init_state`) now has `dm_dmp == NULL`
+   without opening a libdm plugin at startup.  Previously, `dm_open(NULL, s->interp,
+   "nu", 0, NULL)` was called unconditionally in `mged.c` to create the sentinel dm.
+   Now, `s->mged_curr_dm->dm_dmp` stays NULL from the `BU_ALLOC` zero-init.  All
+   DMP uses in mged have already been guarded with `if (!DMP)` (step 1), so NULL is
+   safe throughout.
+
+   A second `dm_open("nu")` call in `mged_attach()` was used to bootstrap option
+   parsing (`-d display_string`) before calling `gui_setup()`.  This is replaced
+   with a direct argv scan for the `-d` option, removing that dm_open dependency.
+
+   Additional null-guard cleanups in this step:
+   - `mged_link_vars()` (attach.c): returns early when `p->dm_dmp` is NULL.
+   - `f_get_dm_list()` (attach.c): skips entries with NULL `dm_dmp`.
+   - `f_dm()` (attach.c): returns "nu" for `dm type` and error for other subcommands
+     when DMP is NULL.
+   - `release()` (attach.c): the "nu pathname" check is replaced with a `!DMP` check.
+   - `mged_finish()` (mged.c): frees `mged_dm` struct even when `dm_dmp` is NULL.
+   - `dozoom.c` `createDListSolid`/`freeDListsAll`: skip entries with NULL `dm_dmp`.
+   - `share.c` `share_dlist`/`f_share`: null guards for dm_dmp in all loops.
+   - `set.c` dlist create loop: null guard for dm_dmp.
+   - `edsol.c` ARB vertex dialog: null guard for `dm_get_dname`.
+   - `mged.c` Mac OS X bg hack: guarded with `if (DMP)`.
+
+   **Result**: mged no longer depends on the libdm "nu" plugin at startup.
+   The remaining `dm_open` call is only in `mged_dm_init()` which is called from
+   `mged_attach()` when the user explicitly attaches a graphical display manager
+   (ogl, swrast, etc.) — the prerequisite for step 6.
+
 6. **Remove `mged_dm` and `active_dm_set`** — Once all panes use `mged_pane` and
    no remaining mged code references `DMP` unconditionally, delete `struct mged_dm`,
    `active_dm_set`, the `DMP`/`fbp`/`clients` macros, and everything in
    `src/mged/dm-generic.c`.  Prerequisites now met: all DMP uses are guarded;
-   `mged_curr_pane` tracks the active Obol pane.  Remaining blocker: the initial
-   "nu" `mged_dm` entry and the legacy `f_attach`/`gui_setup` dm_open path must be
-   removed, along with all `mged_curr_dm` dereferences in attach.c/chgview.c/etc.
+   `mged_curr_pane` tracks the active Obol pane; the startup "nu" dm_open has been
+   removed (step 5.14).  Remaining blocker: the legacy `f_attach` / `mged_dm_init`
+   dm_open path (for `attach ogl` etc.) must be removed, along with all
+   `mged_curr_dm` dereferences that don't yet have Obol equivalents.
 
-7. **Remove `attach` command's dm backend** — `gui_setup()` in `attach.c` currently
-   contains the full `dm_open` path for the legacy GL path.  Once step 6 is done,
-   `gui_setup()` becomes an Obol-only setup function.
+7. **Remove `attach` command's dm backend** — `f_attach`/`mged_attach()`/`mged_dm_init()`
+   currently contain the dm_open path for the legacy GL path.  Once step 6 is done,
+   `gui_setup()` becomes the sole Tk + Obol initialization function and `f_attach`
+   only creates Obol panes (or is removed, since the Obol path in mview.tcl already
+   uses `new_obol_view_ptr` + `obol_view` directly).
 
 **Key files to update (Stage 7 MGED work):**
 

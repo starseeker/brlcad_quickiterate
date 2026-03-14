@@ -233,6 +233,9 @@ createDListSolid(void *vlist_ctx, bsg_shape *sp)
 
     for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
 	struct mged_dm *dlp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
+	/* Stage 7 (step 5.14): skip entries with no dm (initial "nu" state). */
+	if (!dlp->dm_dmp)
+	    continue;
 	if (dlp->dm_mapped &&
 		dm_get_displaylist(dlp->dm_dmp) &&
 		dlp->dm_mged_variables->mv_dlist) {
@@ -296,6 +299,9 @@ freeDListsAll(void *data, unsigned int dlist, int range)
     MGED_CK_STATE(s);
     for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
 	struct mged_dm *dlp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
+	/* Stage 7 (step 5.14): skip entries with no dm (initial "nu" state). */
+	if (!dlp->dm_dmp)
+	    continue;
 	if (dm_get_displaylist(dlp->dm_dmp) &&
 	    dlp->dm_mged_variables->mv_dlist) {
 	    (void)dm_make_current(DMP);

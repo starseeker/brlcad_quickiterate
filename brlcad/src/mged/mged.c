@@ -1848,10 +1848,15 @@ mged_finish(struct mged_state *s, int exitcode)
 
 	bu_ptbl_rm(&active_dm_set, (long *)p);
 
-	if (p && p->dm_dmp) {
-	    dm_close(p->dm_dmp);
-	    BSG_FREE_VLIST(s->vlfree, &p->dm_p_vlist);
-	    mged_slider_free_vls(p);
+	if (p) {
+	    if (p->dm_dmp) {
+		/* Stage 7 (step 5.14): dm_dmp is NULL for the initial "nu"
+		 * mged_dm (mged_dm_init_state) since the dm_open("nu") call
+		 * was removed.  Only close dm and free vlist when dm_dmp exists. */
+		dm_close(p->dm_dmp);
+		BSG_FREE_VLIST(s->vlfree, &p->dm_p_vlist);
+		mged_slider_free_vls(p);
+	    }
 	    bu_free(p, "release: mged_curr_dm");
 	}
 
@@ -2180,23 +2185,15 @@ main(int argc, char *argv[])
     BU_LIST_INIT(&s->mged_curr_dm->dm_p_vlist);
     predictor_init(s);
 
+    /* Stage 7 (step 5.14): The initial mged_dm struct serves as a null/"nu"
+     * sentinel without opening a libdm plugin.  dm_dmp is NULL from the
+     * BU_ALLOC zero-init above.  All DMP uses in MGED are already guarded with
+     * "if (!DMP)" (step 1), so NULL is safe here.  This removes the runtime
+     * dependency on the libdm "nu" plugin at mged startup. */
+    /* DMP == NULL intentionally: no dm_open("nu") call */
+
     /* register application provided routines */
-
-    DMP = dm_open(NULL, s->interp, "nu", 0, NULL);
-    struct bu_vls *dpvp = dm_get_pathname(DMP);
-    if (dpvp) {
-	bu_vls_strcpy(dpvp, "nu");
-    }
-
-    /* If we're only doing the 'nu' dm we don't need most of mged_dm_init, but
-     * we do still need to register the dm_commands */
     s->mged_curr_dm->dm_cmd_hook = dm_commands;
-
-    struct bu_vls *tnvp = dm_get_tkname(s->mged_curr_dm->dm_dmp);
-    if (tnvp) {
-	bu_vls_init(tnvp); /* this may leak */
-	bu_vls_strcpy(tnvp, "nu");
-    }
 
     /* Stage 7: Use explicit s->mged_curr_dm->dm_* for BU_ALLOC here so these
      * allocations remain lvalues after the macros are changed to ternary
@@ -2466,8 +2463,8 @@ main(int argc, char *argv[])
 
     /* XXX total hack that fixes a dm init issue on Mac OS X where the
      * dm first opens filled with garbage.
-     */
-    {
+     * Stage 7 (step 5.14): guard for NULL DMP (nu dm now has dm_dmp==NULL). */
+    if (DMP) {
 	unsigned char *dm_bg;
 	dm_get_bg(&dm_bg, NULL, DMP);
 	dm_set_bg(DMP, dm_bg[0], dm_bg[1], dm_bg[2], dm_bg[0], dm_bg[1], dm_bg[2]);
