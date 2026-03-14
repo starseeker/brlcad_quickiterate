@@ -708,9 +708,9 @@ mged_attach(struct mged_state *s, const char *wp_name, int argc, const char *arg
 	const char *dname = NULL;
 	for (int i = 1; i < argc - 1; i++) {
 	    /* argv[argc-1] is the dm type (wp_name); the value for -d must
-	     * appear before it, so i+1 < argc-1 excludes reading the dm type
-	     * as the display string. */
-	    if (BU_STR_EQUAL(argv[i], "-d") && i + 1 < argc) {
+	     * appear before it, so i+1 < argc-1 ensures we never read the dm
+	     * type name as the display string value. */
+	    if (BU_STR_EQUAL(argv[i], "-d") && i + 1 < argc - 1) {
 		dname = argv[i + 1];
 		break;
 	    }
