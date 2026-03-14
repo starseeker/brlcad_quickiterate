@@ -1153,7 +1153,7 @@ get_subcurves_inside_faces(
 
     }
     for (int i = 0; i < intervals2.Count(); ++i) {
-	// convert interval on face 1 to equivalent interval on face 2
+	// convert interval on face 2 to equivalent interval on face 1
 	std::vector<ON_Interval> intervals_3d;
 	intervals_3d = interval_2d_to_3d(intervals2[i], event->m_curveB,
 					 event->m_curve3d, &brep2->m_F[face_i2]);
@@ -2802,7 +2802,7 @@ loop_is_degenerate(const ON_SimpleArray<ON_Curve *> &loop)
     /* Compute bounding box diagonal for normalisation */
     ON_BoundingBox bbox;
     for (int i = 0; i < pts.Count(); i++) {
-	bbox.Set(pts[i], i == 0);
+	bbox.Set(pts[i], i != 0);
     }
     double diag = bbox.Diagonal().Length();
     if (diag < ON_ZERO_TOLERANCE) {
@@ -2887,7 +2887,10 @@ split_trimmed_face(
 	// get current ssx curve as closed loops
 	if (ssx_curves[i].IsClosed()) {
 	    ON_SimpleArray<ON_Curve *> loop;
-	    loop.Append(ssx_curves[i].Curve()->Duplicate());
+	    /* Use individual segment curves rather than the assembled
+	     * polycurve so that loop_boolean can resolve them into
+	     * separate edges that can be shared with adjoining faces. */
+	    ssx_curves[i].AppendCurvesToArray(loop);
 	    ssx_loops.push_back(loop);
 	} else {
 	    ssx_loops = split_face_into_loops(orig_face, ssx_curves[i]);
@@ -3266,7 +3269,6 @@ add_elements(ON_Brep *brep, ON_BrepFace &face, const ON_SimpleArray<ON_Curve *> 
 		    } else {
 			match_rev3d = false;
 		    }
-		    match_rev3d = (ON_DotProduct(e_tan, c_tan) < 0.0);
 		} else {
 		    match_rev3d = false;
 		}
@@ -3682,7 +3684,7 @@ get_face_intersection_curves(
 		    continue;
 		}
 
-		if (surf_tree2.Count() < brep2->m_F[j].m_si + 1)
+		if ((int)st2.size() < brep2->m_F[j].m_si + 1)
 		    continue;
 
 		// Possible enhancement: Some faces may share the same surface.
