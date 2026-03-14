@@ -1580,33 +1580,33 @@ refresh(struct mged_state *s)
     /* Stage 7: capture update_views before resetting it so the Obol path
      * below can decide whether to notify Obol panes.  All view-command
      * paths now set both vs_flag AND s->update_views (Step 6.a), so
-     * obol_needs_refresh is already complete from s->update_views alone.
-     * The vs_flag check in the active_dm_set loop below remains for the
-     * legacy dm path but is now a belt-and-suspenders guard only. */
+     * obol_needs_refresh is fully determined by s->update_views alone. */
     int obol_needs_refresh = s->update_views;
 
-    /* Display Manager / Views */
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	if (!p->dm_view_state)
-	    continue;
-	if (s->update_views || p->dm_view_state->vs_flag) {
+    /* Set dm_dirty on each legacy dm pane when views need redraw.
+     * Step 5.16: vs_flag is no longer the authoritative dirty signal —
+     * s->update_views now subsumes it (every code path that set vs_flag=1
+     * also sets s->update_views=1).  The vs_flag scan is removed; dm_dirty
+     * is driven purely by s->update_views. */
+    if (s->update_views) {
+	for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
+	    struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
+	    if (!p->dm_dmp) continue;  /* skip null-dm sentinel */
 	    p->dm_dirty = 1;
-	    obol_needs_refresh = 1;
 	}
     }
 
-    /*
-     * This needs to be done separately because dm_view_state may be
-     * shared.
-     */
+    /* Clear vs_flag on all panes.  Step 5.16: vs_flag no longer drives dm_dirty
+     * (s->update_views handles that above); clearing it here is still correct
+     * housekeeping so stale flags don't accumulate.  Must be done in a separate
+     * loop from the dm_dirty scan because dm_view_state may be shared. */
     for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
 	struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
 	if (!p->dm_view_state)
 	    continue;
 	p->dm_view_state->vs_flag = 0;
     }
-    /* Stage 7: also clear vs_flag for Obol panes. */
+    /* Also clear vs_flag for Obol panes. */
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *pmp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
 	if (pmp->mp_view_state) pmp->mp_view_state->vs_flag = 0;
@@ -1617,18 +1617,18 @@ refresh(struct mged_state *s)
     save_dm_list = s->mged_curr_dm;
     for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
 	struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
+
+	/* Step 5.17: skip null-dm entries (the startup sentinel and Obol-mode
+	 * redirect) before calling set_curr_dm — avoids the unnecessary
+	 * mged_curr_dm redirect for entries that carry no real display manager.
+	 * Previously this guard was placed after set_curr_dm. */
+	if (!p->dm_dmp) continue;
+
 	/*
 	 * if something has changed, then go update the display.
 	 * Otherwise, we are happy with the view we have
 	 */
 	set_curr_dm(s, p);
-
-	/* Stage 7 guard: skip all libdm drawing when this pane's display
-	 * manager is NULL.  During the MGED libdm migration (see mged_dm.h and
-	 * RADICAL_MIGRATION.md) a pane with dm_dmp==NULL means it is rendered
-	 * by an obol_view widget; obol_notify_views (below) handles redraw. */
-	if (!DMP)
-	    continue;
 
 	if (mapped && DMP_dirty) {
 	    int restore_zbuffer = 0;

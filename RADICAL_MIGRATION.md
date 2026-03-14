@@ -827,6 +827,42 @@ from `mp_gvp` (no DMP indirection).
    `mged_attach()` when the user explicitly attaches a graphical display manager
    (ogl, swrast, etc.) — the prerequisite for step 6.
 
+5.15 **✅ Add predictor state to `mged_pane`; `pv_head`/`pane_trails` macros** —
+   `struct mged_pane` gains `mp_p_vlist` (predictor vlist head), `mp_trails[NUM_TRAILS]`
+   (velocity-predictor trail history), and `mp_ndrawn` (drawn-object count used by
+   `usepen.c` for selection zone calculation).  Two new ternary macros in `mged_dm.h`:
+   - `pv_head` — pointer to the active pane's `bu_list` vlist head (prefers
+     `mged_curr_pane->mp_p_vlist` when set, falls back to `mged_curr_dm->dm_p_vlist`).
+   - `pane_trails` — pointer to the active pane's `struct trail[NUM_TRAILS]` array.
+   `predictor.c` is fully migrated to use `pv_head` and `pane_trails[i]` instead of
+   `s->mged_curr_dm->dm_p_vlist` and `s->mged_curr_dm->dm_trails[i]`.  This removes
+   all 45 `mged_curr_dm` references from `predictor.c`.  `predictor_init_pane(mp)`
+   is added for Obol pane initialization (called by `mged_pane_init_resources()`).
+   `usepen.c` uses `mp_ndrawn` when `mged_curr_pane` is active.
+   `dozoom.c` uses `pv_head` for predictor vlist drawing.
+   `mged_pane_release()` frees `mp_p_vlist` via `BSG_FREE_VLIST`.
+
+5.16 **✅ Simplify `refresh()` dirty-flag scan** —
+   The `active_dm_set` dirty-flag scan loop in `refresh()` previously checked
+   `vs_flag` in addition to `s->update_views`.  Step 5.6 already made `update_views`
+   the canonical dirty signal (every code path that sets `vs_flag = 1` also sets
+   `s->update_views = 1`, verified by inspection).  The scan loop is now:
+   ```c
+   if (s->update_views) {
+       for each legacy dm entry: p->dm_dirty = 1;
+   }
+   ```
+   `obol_needs_refresh` is captured from `s->update_views` alone (no longer ORed with
+   `vs_flag`).  The vs_flag *clearing* loops are retained as housekeeping.
+
+5.17 **✅ Move null-dm guard before `set_curr_dm` in `refresh()` draw loop** —
+   The `if (!DMP) continue` guard in the `active_dm_set` draw loop in `refresh()` was
+   previously placed AFTER `set_curr_dm(s, p)`.  It is moved to BEFORE the call so
+   that `set_curr_dm` (and the mged_curr_dm redirect) is entirely skipped for null-dm
+   entries (the startup sentinel and Obol-redirect entries).  In Obol-only mode (where
+   every entry in `active_dm_set` has `dm_dmp == NULL`) the loop body is now a
+   complete no-op without any side-effects on `mged_curr_dm`.
+
 6. **Remove `mged_dm` and `active_dm_set`** — Once all panes use `mged_pane` and
    no remaining mged code references `DMP` unconditionally, delete `struct mged_dm`,
    `active_dm_set`, the `DMP`/`fbp`/`clients` macros, and everything in
