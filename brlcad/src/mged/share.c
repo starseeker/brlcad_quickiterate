@@ -472,8 +472,8 @@ share_dlist(struct mged_dm *dlp2)
 
 		SHARE_RESOURCE(0, _dlist_state, dm_dlist_state, dl_rc, dlp1, dlp2, vls, "share: dlist_state");
 		dlp1->dm_dirty = dlp2->dm_dirty = 1;
-		if (dlp1->dm_dmp) dm_set_dirty(dlp1->dm_dmp, 1);
-		if (dlp2->dm_dmp) dm_set_dirty(dlp2->dm_dmp, 1);
+		dm_set_dirty(dlp1->dm_dmp, 1);
+		dm_set_dirty(dlp2->dm_dmp, 1);
 		bu_vls_free(&vls);
 	    }
 
