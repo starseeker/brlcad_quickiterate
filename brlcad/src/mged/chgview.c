@@ -932,25 +932,25 @@ edit_com(struct mged_state *s,
     {
 struct mged_pane *save_pane = s->mged_curr_pane;
 for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
-    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-    int non_empty = 0;
+	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	int non_empty = 0;
 
-    set_curr_pane(s, mp);
+	set_curr_pane(s, mp);
 
-    {
-bsg_shape *root = bsg_scene_root_get(mp->mp_gvp);
-non_empty = (root && BU_PTBL_LEN(&root->children) > 0) ? 1 : 0;
+	{
+	    bsg_shape *root = bsg_scene_root_get(mp->mp_gvp);
+	    non_empty = (root && BU_PTBL_LEN(&root->children) > 0) ? 1 : 0;
+	}
+
+	if (mged_variables->mv_autosize && initial_blank_screen && non_empty) {
+	    char *av[2];
+	    av[0] = "autoview";
+	    av[1] = (char *)0;
+	    ged_exec_autoview(s->gedp, 1, (const char **)av);
+	    s->update_views = 1;
+	}
     }
-
-    if (mged_variables->mv_autosize && initial_blank_screen && non_empty) {
-char *av[2];
-av[0] = "autoview";
-av[1] = (char *)0;
-ged_exec_autoview(s->gedp, 1, (const char **)av);
-s->update_views = 1;
-    }
-}
-set_curr_pane(s, save_pane);
+    set_curr_pane(s, save_pane);
     }
 
     return TCL_OK;
@@ -1025,20 +1025,20 @@ cmd_autoview(ClientData clientData, Tcl_Interp *interp, int argc, const char *ar
 
     /* Stage 7: also apply autoview to Obol panes (active_pane_set). */
     {
-struct mged_pane *save_pane = s->mged_curr_pane;
-int ac = 1;
-const char *av[3];
-av[0] = "autoview";
-av[1] = (argc > 1) ? argv[1] : NULL;
-av[2] = NULL;
-if (argc > 1) ac = 2;
-for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
-    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-    set_curr_pane(s, mp);
-    ged_exec_autoview(s->gedp, ac, (const char **)av);
-    s->update_views = 1;
-}
-set_curr_pane(s, save_pane);
+	struct mged_pane *save_pane = s->mged_curr_pane;
+	int ac = 1;
+	const char *av[3];
+	av[0] = "autoview";
+	av[1] = (argc > 1) ? argv[1] : NULL;
+	av[2] = NULL;
+	if (argc > 1) ac = 2;
+	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	    set_curr_pane(s, mp);
+	    ged_exec_autoview(s->gedp, ac, (const char **)av);
+	    s->update_views = 1;
+	}
+	set_curr_pane(s, save_pane);
     }
 
     return TCL_OK;

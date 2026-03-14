@@ -2081,6 +2081,26 @@ cmd_blast(ClientData clientData, Tcl_Interp *UNUSED(interpreter), int argc, cons
     curr_cmd_list = save_cmd_list;
     s->gedp->ged_gvp = view_state->vs_gvp;
 
+    /* Stage 7: also apply autoview to Obol panes (active_pane_set). */
+    {
+struct mged_pane *save_pane = s->mged_curr_pane;
+for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+    int non_empty = 0;
+    set_curr_pane(s, mp);
+    {
+bsg_shape *root = bsg_scene_root_get(mp->mp_gvp);
+non_empty = (root && BU_PTBL_LEN(&root->children) > 0) ? 1 : 0;
+    }
+    if (mged_variables->mv_autosize && non_empty) {
+const char *av[1] = {"autoview"};
+ged_exec_autoview(s->gedp, 1, (const char **)av);
+s->update_views = 1;
+    }
+}
+set_curr_pane(s, save_pane);
+    }
+
     return TCL_OK;
 }
 

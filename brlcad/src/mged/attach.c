@@ -239,13 +239,13 @@ mged_pane_init_resources(struct mged_state *s, struct mged_pane *mp)
     mp->mp_view_state->vs_rc = 1;
     mp->mp_view_state->vs_gvp = mp->mp_gvp;  /* borrow GED-owned view */
     if (mged_dm_init_state && mged_dm_init_state->dm_view_state) {
-/* copy vs_model2objview / vs_objview2model / vs_ModelDelta defaults */
-MAT_COPY(mp->mp_view_state->vs_model2objview,
- mged_dm_init_state->dm_view_state->vs_model2objview);
-MAT_COPY(mp->mp_view_state->vs_objview2model,
- mged_dm_init_state->dm_view_state->vs_objview2model);
-MAT_COPY(mp->mp_view_state->vs_ModelDelta,
- mged_dm_init_state->dm_view_state->vs_ModelDelta);
+	/* copy vs_model2objview / vs_objview2model / vs_ModelDelta defaults */
+	MAT_COPY(mp->mp_view_state->vs_model2objview,
+		 mged_dm_init_state->dm_view_state->vs_model2objview);
+	MAT_COPY(mp->mp_view_state->vs_objview2model,
+		 mged_dm_init_state->dm_view_state->vs_objview2model);
+	MAT_COPY(mp->mp_view_state->vs_ModelDelta,
+		 mged_dm_init_state->dm_view_state->vs_ModelDelta);
     }
     view_ring_init(mp->mp_view_state, (struct _view_state *)NULL);
 }
@@ -273,16 +273,16 @@ mged_pane_free_resources(struct mged_pane *mp)
      * by GED and must NOT be freed here.  The view_ring items allocated by
      * view_ring_init() are freed here. */
     if (mp->mp_view_state) {
-struct view_ring *vrp;
-while (BU_LIST_NON_EMPTY(&mp->mp_view_state->vs_headView.l)) {
-    vrp = BU_LIST_FIRST(view_ring, &mp->mp_view_state->vs_headView.l);
-    BU_LIST_DEQUEUE(&vrp->l);
-    bu_free((void *)vrp, "mged_pane view_ring");
-}
-/* vs_gvp is owned by GED — do NOT free it here. */
-mp->mp_view_state->vs_gvp = NULL;
-bu_free(mp->mp_view_state, "mp_view_state");
-mp->mp_view_state = NULL;
+	struct view_ring *vrp;
+	while (BU_LIST_NON_EMPTY(&mp->mp_view_state->vs_headView.l)) {
+	    vrp = BU_LIST_FIRST(view_ring, &mp->mp_view_state->vs_headView.l);
+	    BU_LIST_DEQUEUE(&vrp->l);
+	    bu_free((void *)vrp, "mged_pane view_ring");
+	}
+	/* vs_gvp is owned by GED — do NOT free it here. */
+	mp->mp_view_state->vs_gvp = NULL;
+	bu_free(mp->mp_view_state, "mp_view_state");
+	mp->mp_view_state = NULL;
     }
 }
 
