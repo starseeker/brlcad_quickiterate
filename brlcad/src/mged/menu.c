@@ -1436,6 +1436,8 @@ mmenu_set(struct mged_state *s, int index, struct menu_item *value)
     Tcl_DStringFree(&ds_menu);
     bu_vls_free(&menu_string);
 
+    /* Stage 7: notify the Obol path. */
+    s->update_views = 1;
     for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
 	struct mged_dm *dlp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
 	if (menu_state == dlp->dm_menu_state &&
