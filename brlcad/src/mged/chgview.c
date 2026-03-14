@@ -892,6 +892,9 @@ edit_com(struct mged_state *s,
 	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
 	int non_empty = 0; /* start out empty */
 
+	/* Step 5.17: skip null-dm sentinel before set_curr_dm. */
+	if (!m_dmp->dm_dmp) continue;
+
 	set_curr_dm(s, m_dmp);
 
 	if (s->mged_curr_dm->dm_tie) {
@@ -987,6 +990,9 @@ cmd_autoview(ClientData clientData, Tcl_Interp *interp, int argc, const char *ar
     for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
 	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
 	struct view_ring *vrp;
+
+	/* Step 5.17: skip null-dm sentinel before set_curr_dm. */
+	if (!m_dmp->dm_dmp) continue;
 
 	set_curr_dm(s, m_dmp);
 
@@ -2305,8 +2311,12 @@ mged_svbase(struct mged_state *s)
     }
 
     if (mged_variables->mv_faceplate && mged_variables->mv_orig_gui) {
-	s->mged_curr_dm->dm_dirty = 1;
-	if (DMP) dm_set_dirty(DMP, 1);
+	/* Step 5.17: DMP_dirty is only meaningful for legacy dm panes. */
+	if (DMP) {
+	    DMP_dirty = 1;
+	    dm_set_dirty(DMP, 1);
+	}
+	s->update_views = 1;
     }
 
     return TCL_OK;

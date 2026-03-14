@@ -126,7 +126,13 @@ predictor_init(struct mged_state *s)
 }
 
 
-/* Step 5.15: initialize predictor trails for an Obol mged_pane. */
+/* Step 5.15: initialize predictor trails for an Obol mged_pane.
+ * Called from mged_pane_init_resources() (attach.c) when a new Obol pane
+ * is registered.  Initializes the eight trail-history arrays embedded in
+ * mp->mp_trails so predictor_frame() can safely push trail points from
+ * the first frame onward.  The companion mp_p_vlist is initialized via
+ * BU_LIST_INIT in mged_pane_init_resources() and freed in mged_pane_release().
+ */
 void
 predictor_init_pane(struct mged_pane *mp)
 {

@@ -1579,15 +1579,18 @@ refresh(struct mged_state *s)
 
     /* Stage 7: capture update_views before resetting it so the Obol path
      * below can decide whether to notify Obol panes.  All view-command
-     * paths now set both vs_flag AND s->update_views (Step 6.a), so
-     * obol_needs_refresh is fully determined by s->update_views alone. */
+     * paths now set both vs_flag AND s->update_views (Step 6.a, verified
+     * by inspection: every vs_flag=1 site in mged is within 8 lines of
+     * a s->update_views=1 assignment), so obol_needs_refresh is fully
+     * determined by s->update_views alone. */
     int obol_needs_refresh = s->update_views;
 
     /* Set dm_dirty on each legacy dm pane when views need redraw.
      * Step 5.16: vs_flag is no longer the authoritative dirty signal —
-     * s->update_views now subsumes it (every code path that set vs_flag=1
-     * also sets s->update_views=1).  The vs_flag scan is removed; dm_dirty
-     * is driven purely by s->update_views. */
+     * s->update_views now subsumes it (verified by inspection: every code
+     * path that sets vs_flag=1 also sets s->update_views=1, Step 5.6).
+     * The vs_flag scan is removed; dm_dirty is driven purely by
+     * s->update_views. */
     if (s->update_views) {
 	for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
 	    struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
