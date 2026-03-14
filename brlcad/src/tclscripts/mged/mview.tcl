@@ -57,9 +57,18 @@ proc openmv { id w wc dpy dtype } {
 	    }
 	}
 
-	set _gvp [gvp_ptr]
-
 	foreach pane {ul ur ll lr} {
+	    # Create a per-pane bsg_view for independent cameras (Stage 6).
+	    # new_obol_view_ptr is registered when BRLCAD_ENABLE_OBOL is set;
+	    # fall back to the shared gvp_ptr if the command is absent.
+	    if {[info commands new_obol_view_ptr] ne ""} {
+		set _gvp [new_obol_view_ptr $w.$pane]
+		# Store the pane→view mapping so that winset can switch ged_gvp.
+		set ::obol_pane_gvp($w.$pane) $_gvp
+	    } else {
+		set _gvp [gvp_ptr]
+	    }
+
 	    # Auto-detect: try HW GL first, fall back to SW automatically
 	    obol_view $w.$pane
 	    $w.$pane attach $_gvp

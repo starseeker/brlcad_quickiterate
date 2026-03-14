@@ -1547,6 +1547,14 @@ refresh(struct mged_state *s)
 	 * Otherwise, we are happy with the view we have
 	 */
 	set_curr_dm(s, p);
+
+	/* Stage 7 guard: skip all libdm drawing when this pane's display
+	 * manager is NULL.  During the MGED libdm migration (see mged_dm.h and
+	 * RADICAL_MIGRATION.md) a pane with dm_dmp==NULL means it is rendered
+	 * by an obol_view widget; obol_notify_views (below) handles redraw. */
+	if (!DMP)
+	    continue;
+
 	if (mapped && DMP_dirty) {
 	    int restore_zbuffer = 0;
 
@@ -1696,7 +1704,12 @@ refresh(struct mged_state *s)
      * null display manager is the only active DMP.  Instead, obol_notify_views
      * calls obol_scene_assemble() + SoGLRenderAction on each live obol_view
      * widget so that geometry changes (draw, erase, view commands) are
-     * immediately visible.  This is a no-op when no obol_view widgets exist. */
+     * immediately visible.  This is a no-op when no obol_view widgets exist.
+     *
+     * MIGRATION NOTE (Stage 7): Once all active_dm_set entries have been
+     * migrated to the active_pane_set / mged_pane model and all libdm drawing
+     * has been removed from the loop above, this obol_notify_views call will
+     * be the only rendering dispatch in refresh(). */
     if (s->interp)
 	(void)Tcl_Eval(s->interp, "catch {obol_notify_views}");
 }

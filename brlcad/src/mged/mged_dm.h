@@ -19,8 +19,28 @@
  */
 /** @file mged/mged_dm.h
  *
- * Header file for communication with the display manager.
+ * Header file for MGED's per-pane display state.
  *
+ * MIGRATION NOTE (Stage 7 — libdm removal):
+ *
+ * The central struct here, `mged_dm`, currently owns both the libdm display
+ * manager (`dm_dmp`) and a large collection of per-pane overlay/UI state.
+ * It is the primary reason MGED still depends on libdm.
+ *
+ * The planned refactoring replaces `mged_dm` + `active_dm_set` with a leaner
+ * `mged_pane` struct + `active_pane_set` (see RADICAL_MIGRATION.md, Stage 7
+ * "MGED refactoring for libdm removal").  Key steps:
+ *
+ *  1. Guard every `DMP` use with `if (!DMP)` so Obol panes (dmp==NULL) can
+ *     coexist with legacy dm panes without crashing.
+ *  2. Introduce `mged_pane` carrying only the non-dm per-pane state.
+ *  3. `f_winset` / `set_curr_dm` migrate to `active_pane_set` lookup.
+ *  4. Once all rendering is Obol, delete `mged_dm`, the DMP/fbp macros, and
+ *     `src/mged/dm-generic.c`.
+ *
+ * Until that migration is complete, Obol panes created via `f_new_obol_view_ptr`
+ * are tracked separately in the `::obol_pane_gvp` Tcl array and bypass the
+ * `active_dm_set` infrastructure entirely.
  */
 
 #ifndef MGED_MGED_DM_H

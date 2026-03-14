@@ -188,6 +188,7 @@ static struct cmdtab mged_cmdtab[] = {
     {MGED_CMD_MAGIC, "get_dbip", cmd_ged_plain_wrapper, ged_exec_get_dbip, NULL}, // TODO - this needs to go away
     {MGED_CMD_MAGIC, "get_dm_list", f_get_dm_list, GED_FUNC_PTR_NULL, NULL},
     {MGED_CMD_MAGIC, "gvp_ptr", f_gvp_ptr, GED_FUNC_PTR_NULL, NULL},
+    {MGED_CMD_MAGIC, "new_obol_view_ptr", f_new_obol_view_ptr, GED_FUNC_PTR_NULL, NULL},
     {MGED_CMD_MAGIC, "get_more_default", cmd_get_more_default, GED_FUNC_PTR_NULL, NULL},
     {MGED_CMD_MAGIC, "get_sed", f_get_sedit, GED_FUNC_PTR_NULL, NULL},
     {MGED_CMD_MAGIC, "get_sed_menus", f_get_sedit_menus, GED_FUNC_PTR_NULL, NULL},

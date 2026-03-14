@@ -397,8 +397,8 @@ tools (ae, center, zoom, rot commands continue to work via `syncCameraFromBsgVie
 ## Stage 6: qged, mged, archer, rtwizard
 
 **Status (qged):** Complete
-**Status (mged):** Integration in progress — obol_view Tk widget renders BRL-CAD geometry via Obol when BRLCAD_ENABLE_OBOL is set.
-**Status (archer):** Integration in progress — `cadwidgets::Ged` uses `obol_view` widgets when `obol_view` command is available.
+**Status (mged):** Complete — per-pane independent cameras now supported via `new_obol_view_ptr`.
+**Status (archer):** Complete — `cadwidgets::Ged` uses `obol_view` widgets with independent per-pane cameras.
 
 **Goal:** Update frontends to use Obol rendering.
 
@@ -420,7 +420,7 @@ available (detected via `BRLCAD_ENABLE_OBOL`):
 - `qged_test` and `qged_pipeline_test` are also linked with Obol and
   `Qt6::OpenGLWidgets` so they compile when Obol is enabled.
 
-### mged (Tcl/C-based) — **In Progress**
+### mged (Tcl/C-based) — **Done**
 
 mged uses a platform-neutral Tk Obol widget (`obol_view`, implemented in
 `libtclcad/obol_view.cpp`) to render geometry via Obol when
@@ -442,12 +442,20 @@ mged uses a platform-neutral Tk Obol widget (`obol_view`, implemented in
   every registered `obol_view` instance.
 - `f_gvp_ptr` command exposes the current `bsg_view` pointer to Tcl so that
   `obol_view` widgets can be attached to it.
+- **`f_new_obol_view_ptr` command** (in `mged/attach.c`) creates a new
+  independent `bsg_view` (null dmp, registered in `ged_views`) and returns its
+  pointer as a hex string.  `mview.tcl` calls this for each of the four panes.
+- **Per-pane independent cameras**: `mview.tcl`'s Obol path now calls
+  `new_obol_view_ptr $w.$pane` for each pane and stores the mapping in the
+  `::obol_pane_gvp` Tcl array.  `f_winset` in `cmd.c` was updated to check
+  this array when the legacy `active_dm_set` lookup fails, so view commands
+  (`ae`, `press`, `zoom`, …) operate on the focused pane's camera.
 
-**Known limitation**: The current mview.tcl attaches all 4 panes to the SAME
-`bsg_view` pointer (all panes show the same camera view). Multi-pane independent
-cameras require per-pane `bsg_view` objects — planned for a future PR.
+The 4-pane layout (ul, ur, ll, lr) now creates independent `bsg_view` objects
+(one per pane) with separate `obol_view` render widgets — multi-pane independent
+cameras are therefore supported in mged.
 
-### archer — **In Progress**
+### archer — **Done**
 
 archer is a Tcl/Tk application using libtclcad.  Obol integration is done via
 the `cadwidgets::Ged` widget, which uses `to_new_view` in libtclcad:
@@ -543,6 +551,99 @@ Remaining libdm work:
 - Update all callers (mged's legacy dm path, archer, libged/view.cpp) to use Obol equivalents
 - Replace `QgGL.cpp`'s `dm_open("qtgl")` framebuffer with an Obol-based framebuffer
   (prerequisite for removing dm-qtgl)
+
+### MGED refactoring for libdm removal
+
+MGED's internal display-manager infrastructure (`mged_dm` / `active_dm_set`) is the
+largest single dependency on libdm remaining after Stage 6 is complete.  This section
+describes the planned refactoring path so that future work can proceed incrementally.
+
+**Current MGED DM architecture (to be replaced):**
+
+`struct mged_dm` in `mged_dm.h` is a fat per-pane struct that owns:
+- `struct dm *dm_dmp` — the libdm display manager (GL context + draw commands)
+- `struct fb *dm_fbp` — the libdm framebuffer
+- Network framebuffer socket state (`dm_netfd`, `dm_clients[]`)
+- Per-pane overlay state (predictor vlist, trails, scroll bars)
+- Shareable display resources (`_view_state`, `_adc_state`, `_menu_state`, …)
+- A `cmd_list *dm_tie` link that associates a Tcl command history to a pane
+
+`active_dm_set` is a `bu_ptbl` of `mged_dm*` pointers.  `set_curr_dm()` switches
+the "active" pane; the `DMP` macro returns `s->mged_curr_dm->dm_dmp`.
+
+Hundreds of mged source files use `DMP`, `fbp`, `dm_get_*`, `dm_set_*`, and
+`dm_draw_*` directly, making a bulk replacement non-trivial.
+
+**Target MGED view architecture (libdm-free):**
+
+Each pane becomes a `bsg_view` registered in `s->gedp->ged_views`, with:
+- `dmp = NULL` (no libdm; Obol `obol_view` Tk widget does the rendering)
+- `u_data` pointing to a `tclcad_view_data` (already the case for Obol panes
+  created by `f_new_obol_view_ptr`)
+
+A new, smaller `mged_pane` struct replaces `mged_dm`, retaining only what is
+needed after libdm is gone:
+```c
+struct mged_pane {
+    bsg_view          *mp_gvp;       /* the view this pane displays */
+    struct cmd_list   *mp_cmd_tie;   /* Tcl command-history link */
+    /* per-pane overlay state that isn't moving to bsg_view: */
+    struct bu_list     mp_p_vlist;   /* predictor vlist */
+    struct trail       mp_trails[NUM_TRAILS]; /* NUM_TRAILS defined in mged_dm.h */
+    /* … scroll/menu/adc state still needed after libdm removal … */
+};
+```
+
+`active_pane_set` (a `bu_ptbl` of `mged_pane*`) replaces `active_dm_set`.
+`set_curr_pane()` replaces `set_curr_dm()` and sets `s->gedp->ged_gvp` directly
+from `mp_gvp` (no DMP indirection).
+
+**Migration steps (incremental, preserving backward compatibility):**
+
+1. **Guard all `DMP` uses** — Before each `DMP`-using call, add `if (!DMP)` guards
+   analogous to those already in `go_refresh()` and `go_draw_solid()`.  This allows
+   Obol panes created with `f_new_obol_view_ptr` to coexist with legacy dm panes in
+   the same mged session without crashing.  (`DMP` is NULL for Obol panes because
+   `f_new_obol_view_ptr` sets `gvp->dmp = NULL`.)
+
+2. **Add `mged_pane` alongside `mged_dm`** — Introduce the new `mged_pane` struct
+   and `active_pane_set` without removing `mged_dm`/`active_dm_set` yet.  The
+   `f_new_obol_view_ptr` path already creates panes in the new style.
+
+3. **Migrate `f_winset` fully** — The current `f_winset` Obol fallback (checking
+   `::obol_pane_gvp` Tcl array) is a bridge; the final form has `f_winset` look up
+   `active_pane_set` first (covering both Obol and legacy dm panes), removing the
+   `active_dm_set` loop.
+
+4. **Migrate `refresh()`** — `mged.c`'s `refresh()` already skips dm drawing when
+   `DMP` is NULL (replaced by `obol_notify_views`).  Once all panes are Obol, remove
+   the dm draw block entirely.
+
+5. **Migrate per-pane overlay rendering** — adc, predictor, trails, menu overlays
+   currently draw via libdm vlist calls.  Each needs an Obol `SoOverlay` / vlist→Obol
+   conversion, or can be deferred until after libdm is gone by simply skipping
+   overlay drawing when `DMP == NULL`.
+
+6. **Remove `mged_dm` and `active_dm_set`** — Once all panes use `mged_pane` and
+   no remaining mged code references `DMP` unconditionally, delete `struct mged_dm`,
+   `active_dm_set`, the `DMP`/`fbp`/`clients` macros, and everything in
+   `src/mged/dm-generic.c`.
+
+7. **Remove `attach` command's dm backend** — `gui_setup()` in `attach.c` currently
+   contains the full `dm_open` path for the legacy GL path.  Once step 6 is done,
+   `gui_setup()` becomes an Obol-only setup function.
+
+**Key files to update (Stage 7 MGED work):**
+
+| File | Change |
+|------|--------|
+| `mged/mged_dm.h` | Add `mged_pane`; deprecate `mged_dm`; add DMP-null guards to macros |
+| `mged/attach.c` | Remove legacy dm_open path from `gui_setup()`; keep `f_new_obol_view_ptr` |
+| `mged/cmd.c` | Migrate `f_winset` to `active_pane_set`; remove `active_dm_set` loop |
+| `mged/mged.c` | `refresh()`: remove dm_draw block (already guarded); call only obol_notify |
+| `mged/share.c` | Sharing of view state between panes needs pane→pane (not dm→dm) linkage |
+| `mged/dm-generic.c` | Delete (all `mged_dm` display-manager glue) |
+| `mged/fbserv.c` | Replace with Obol fb overlay path (see Stage 7 ert/fbserv work) |
 
 ### libbsg removal
 
