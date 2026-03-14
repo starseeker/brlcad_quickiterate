@@ -950,6 +950,8 @@ for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	}
     }
     set_curr_pane(s, save_pane);
+    /* Restore mged_curr_dm after set_curr_pane may have redirected it. */
+    if (!save_pane) set_curr_dm(s, save_m_dmp);
     }
 
     return TCL_OK;
@@ -1038,6 +1040,8 @@ cmd_autoview(ClientData clientData, Tcl_Interp *interp, int argc, const char *ar
 	    s->update_views = 1;
 	}
 	set_curr_pane(s, save_pane);
+	/* Restore mged_curr_dm after set_curr_pane may have redirected it. */
+	if (!save_pane) set_curr_dm(s, save_m_dmp);
     }
 
     return TCL_OK;
