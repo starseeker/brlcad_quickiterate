@@ -829,6 +829,114 @@ f_gvp_ptr(ClientData clientData, Tcl_Interp *interpreter,
 }
 
 
+/**
+ * f_new_obol_view_ptr — create a new independent bsg_view for an Obol pane.
+ *
+ * Usage: new_obol_view_ptr <pane_path>
+ *
+ * Creates a new bsg_view registered in the mged GED view set with a NULL dmp
+ * (Obol-rendered; no libdm plugin).  Returns the pointer as a hex string so
+ * that mview.tcl can pass it to "obol_view <path> attach <ptr>".
+ *
+ * This enables per-pane independent cameras in mged's 4-pane Obol layout:
+ * each pane gets its own bsg_view so that view commands (ae, press, zoom, …)
+ * affect only the focused pane.  mview.tcl stores the pane→ptr mapping in
+ * the Tcl array ::obol_pane_gvp so that winset can switch ged_gvp.
+ *
+ * MIGRATION NOTE (Stage 7 — MGED libdm removal):
+ *
+ * Views created here intentionally bypass the legacy `mged_dm` / `active_dm_set`
+ * infrastructure.  They are the prototype for the future `mged_pane` struct that
+ * will replace `mged_dm` once libdm is fully removed from MGED.  See the "MGED
+ * refactoring for libdm removal" section of RADICAL_MIGRATION.md for the full
+ * plan.  In particular:
+ *
+ *  - `dmp == NULL` is load-bearing: `go_refresh()`, `go_draw_solid()`, and
+ *    `mged.c`'s `refresh()` all already guard against NULL dmp.
+ *  - The `tclcad_view_data` `u_data` is what libtclcad helpers (go_refresh,
+ *    go_draw_solid, to_open_fbs) expect; it must be present.
+ *  - The framebuffer (gdv_fbs) is left in its sentinel state because rt output
+ *    compositing for mged Obol panes is a follow-on task (requires wiring up
+ *    an fbs_open_client_handler analogous to the qged Obol path in fbserv.cpp).
+ */
+int
+f_new_obol_view_ptr(ClientData clientData, Tcl_Interp *interpreter,
+		    int argc, const char *argv[])
+{
+    struct cmdtab *ctp = (struct cmdtab *)clientData;
+    MGED_CK_CMD(ctp);
+    struct mged_state *s = ctp->s;
+
+    if (argc < 2) {
+	Tcl_SetResult(interpreter,
+		      (char *)"Usage: new_obol_view_ptr <pane_path>",
+		      TCL_STATIC);
+	return TCL_ERROR;
+    }
+
+    if (!s || !s->gedp) {
+	Tcl_SetResult(interpreter, (char *)"0", TCL_STATIC);
+	return TCL_OK;
+    }
+
+    /* Allocate and initialise a new bsg_view (Obol path — no dmp). */
+    bsg_view *gvp;
+    BU_ALLOC(gvp, bsg_view);
+
+    struct bu_ptbl *callbacks;
+    BU_GET(callbacks, struct bu_ptbl);
+    bu_ptbl_init(callbacks, 8, "bv callbacks");
+
+    bu_vls_init(&gvp->gv_name);
+    bu_vls_sprintf(&gvp->gv_name, "%s", argv[1]);
+
+    /* Allocate tclcad_view_data (u_data expected by libtclcad helpers). */
+    struct tclcad_view_data *tvd;
+    BU_GET(tvd, struct tclcad_view_data);
+    bu_vls_init(&tvd->gdv_edit_motion_delta_callback);
+    tvd->gdv_edit_motion_delta_callback_cnt = 0;
+    bu_vls_init(&tvd->gdv_callback);
+    tvd->gdv_callback_cnt = 0;
+    tvd->gedp = s->gedp;
+    gvp->u_data = (void *)tvd;
+
+    /* dmp is intentionally left NULL — the obol_view Tk widget renders this
+     * view; go_refresh() / go_draw_solid() guard against null dmp already. */
+    gvp->dmp = NULL;
+
+    bsg_view_init(gvp, &s->gedp->ged_views);
+    bsg_scene_root_create(gvp);
+    gvp->callbacks = callbacks;
+    bsg_scene_add_view(&s->gedp->ged_views, gvp);
+    bu_ptbl_ins(&s->gedp->ged_free_views, (long *)gvp);
+
+    gvp->gv_s->point_scale = 1.0;
+    gvp->gv_s->curve_scale = 1.0;
+
+    /* Framebuffer: not yet connected for mged Obol panes — to_open_fbs()
+     * already returns immediately when dmp is NULL, so leave fbs uninit'd
+     * except for the sentinel values that prevent use-before-init crashes. */
+    tvd->gdv_fbs.fbs_listener.fbsl_fbsp = &tvd->gdv_fbs;
+    tvd->gdv_fbs.fbs_listener.fbsl_fd   = -1;
+    tvd->gdv_fbs.fbs_listener.fbsl_port = -1;
+    tvd->gdv_fbs.fbs_fbp                = FB_NULL;
+    tvd->gdv_fbs.fbs_callback           = NULL;
+    tvd->gdv_fbs.fbs_clientData         = gvp;
+    tvd->gdv_fbs.fbs_interp             = interpreter;
+
+    /* Return the pointer as a hex string.  The caller (mview.tcl) passes this
+     * to "obol_view <path> attach <ptr>" — the obol_view Tk widget's attach
+     * subcommand expects a C pointer in this format (same convention as the
+     * existing gvp_ptr / to_new_view paths).  f_winset validates the parsed
+     * pointer against ged_views before using it, preventing a crafted Tcl
+     * value from redirecting ged_gvp to an unregistered address. */
+    char buf[64];
+    snprintf(buf, sizeof(buf), "%p", (void *)gvp);
+    Tcl_SetResult(interpreter, buf, TCL_VOLATILE);
+    return TCL_OK;
+}
+
+
 /*
  * Local Variables:
  * mode: C
