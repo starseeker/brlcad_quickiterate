@@ -49,6 +49,7 @@ extern int f_facedef(ClientData, Tcl_Interp *, int, const char *[]);
 extern int f_fhelp(ClientData, Tcl_Interp *, int, const char *[]);
 extern int f_get_dm_list(ClientData, Tcl_Interp *, int, const char *[]);
 extern int f_gvp_ptr(ClientData, Tcl_Interp *, int, const char *[]);
+extern int f_new_obol_view_ptr(ClientData, Tcl_Interp *, int, const char *[]);
 extern int f_get_sedit(ClientData, Tcl_Interp *, int, const char *[]);
 extern int f_get_sedit_menus(ClientData, Tcl_Interp *, int, const char *[]);
 extern int f_get_solid_keypoint(ClientData, Tcl_Interp *, int, const char *[]);
