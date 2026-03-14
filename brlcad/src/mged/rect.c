@@ -292,6 +292,7 @@ mged_center(struct mged_state *s, point_t center)
     av[4] = (char *)0;
     ged_exec_center(s->gedp, 4, (const char **)av);
     (void)mged_svbase(s);
+    s->update_views = 1;
     view_state->vs_flag = 1;
 }
 

@@ -179,6 +179,7 @@ f_mirface(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[
 
     /* draw the updated solid */
     replot_editing_solid(s);
+    s->update_views = 1;
     view_state->vs_flag = 1;
 
     return TCL_OK;
@@ -309,6 +310,7 @@ f_permute(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[
 
     /* draw the updated solid */
     replot_editing_solid(s);
+    s->update_views = 1;
     view_state->vs_flag = 1;
 
     return TCL_OK;

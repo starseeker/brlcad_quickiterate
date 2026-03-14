@@ -314,6 +314,7 @@ work:
 		}
 		break;
 	}
+	s->update_views = 1;
 	view_state->vs_flag = 1;
 	refresh(s);	/* Draw new display */
     }

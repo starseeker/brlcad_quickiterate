@@ -622,6 +622,7 @@ cmd_center(ClientData clientData,
 
     if (argc > 1) {
 	(void)mged_svbase(s);
+	s->update_views = 1;
 	view_state->vs_flag = 1;
     }
 
@@ -663,6 +664,7 @@ cmd_size(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[]
 	}
 
 	if (argc > 1) {
+	    s->update_views = 1;
 	    view_state->vs_flag = 1;
 	}
 
@@ -687,6 +689,7 @@ size_reset(struct mged_state *s)
     const char *av[1] = {"autoview"};
     ged_exec_autoview(s->gedp, 1, (const char **)av);
     view_state->vs_gvp->gv_i_scale = view_state->vs_gvp->gv_scale;
+    s->update_views = 1;
     view_state->vs_flag = 1;
 }
 
@@ -976,6 +979,7 @@ cmd_autoview(ClientData clientData, Tcl_Interp *interp, int argc, const char *ar
 	    }
 
 	    ged_exec_autoview(s->gedp, ac, (const char **)av);
+	    s->update_views = 1;
 	    view_state->vs_flag = 1;
 	}
 	(void)mged_svbase(s);
@@ -1221,6 +1225,7 @@ f_refresh(ClientData clientData, Tcl_Interp *interp, int argc, const char *UNUSE
 	return TCL_ERROR;
     }
 
+    s->update_views = 1;
     view_state->vs_flag = 1;
     return TCL_OK;
 }
@@ -1573,8 +1578,10 @@ update_all_rate_flags(struct mged_state *s)
     }
     if (s && s->s_edit && MEDIT(s))
 	update_knob_rate_flags(&MEDIT(s)->k, 1);
-    if (view_state)
+    if (view_state) {
+	s->update_views = 1;
 	view_state->vs_flag = 1;
+    }
 }
 
 
@@ -2036,6 +2043,7 @@ mged_zoom(struct mged_state *s, double val)
 	ret = redraw_visible_objects(s);
     }
 
+    s->update_views = 1;
     view_state->vs_flag = 1;
 
     return ret;
@@ -2155,6 +2163,7 @@ cmd_setview(ClientData clientData, Tcl_Interp *interp, int argc, const char *arg
 	set_absolute_tran(s);
     }
 
+    s->update_views = 1;
     view_state->vs_flag = 1;
 
     return TCL_OK;
@@ -2195,6 +2204,7 @@ f_slewview(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv
 	return TCL_ERROR;
     }
 
+    s->update_views = 1;
     view_state->vs_flag = 1;
 
     /* all this for ModelDelta - re-fetch camera to get updated center */
@@ -2334,6 +2344,7 @@ setview(struct mged_state *s,
 	set_absolute_tran(s);
     }
 
+    s->update_views = 1;
     view_state->vs_flag = 1;
 }
 
@@ -2384,6 +2395,7 @@ slewview(struct mged_state *s, vect_t view_pos)
 
     set_absolute_tran(s);
 
+    s->update_views = 1;
     view_state->vs_flag = 1;
 }
 
@@ -2826,6 +2838,7 @@ cmd_mrot(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[]
 	    return TCL_ERROR;
 	}
 
+	s->update_views = 1;
 	view_state->vs_flag = 1;
 
 	return TCL_OK;
@@ -2856,6 +2869,7 @@ cmd_vrot(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[]
 	return TCL_ERROR;
     }
 
+    s->update_views = 1;
     view_state->vs_flag = 1;
     set_absolute_tran(s);
 
@@ -2906,6 +2920,7 @@ cmd_rot(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	    return TCL_ERROR;
 	}
 
+	s->update_views = 1;
 	view_state->vs_flag = 1;
 
 	return TCL_OK;
@@ -2952,6 +2967,7 @@ cmd_arot(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[]
 	if (ret != BRLCAD_OK) {
 	    return TCL_ERROR;
 	}
+	s->update_views = 1;
 	view_state->vs_flag = 1;
 	return TCL_OK;
     }
@@ -2997,6 +3013,7 @@ cmd_tra(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	    return TCL_ERROR;
 	}
 
+	s->update_views = 1;
 	view_state->vs_flag = 1;
 
 	return TCL_OK;
@@ -3244,6 +3261,7 @@ cmd_sca(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	    view_state->vs_gvp->gv_a_scale = 1.0 - f;
 	}
 
+	s->update_views = 1;
 	view_state->vs_flag = 1;
 
 	return TCL_OK;

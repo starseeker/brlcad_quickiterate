@@ -401,6 +401,7 @@ nmg_ed(struct mged_state *s, int arg, int UNUSED(a), int UNUSED(b))
 	    if (*es_eu->up.magic_p == NMG_LOOPUSE_MAGIC)
 		nmg_veu(&es_eu->up.lu_p->down_hd, es_eu->up.magic_p);
 	    /* no change of state or MEDIT(s)->edit_flag */
+	    s->update_views = 1;
 	    view_state->vs_flag = 1;
 	    return;
 	case ECMD_NMG_FORW:

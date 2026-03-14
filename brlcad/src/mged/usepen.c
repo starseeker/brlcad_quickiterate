@@ -468,8 +468,10 @@ f_mouse(
 	    if (bdata)
 		ipathpos = bdata->s_fullpath.fp_len-1 - (
 			(ypos+(int)BSG_VIEW_MAX) * (bdata->s_fullpath.fp_len) / (int)BSG_VIEW_RANGE);
-	    if (ipathpos != isave)
+	    	    if (ipathpos != isave) {
+		s->update_views = 1;
 		view_state->vs_flag = 1;
+	    }
 	    return TCL_OK;
 
     } else switch (s->global_editing_state) {
@@ -485,12 +487,14 @@ f_mouse(
 	case ST_O_PICK:
 	    ipathpos = 0;
 	    (void)chg_state(s, ST_O_PICK, ST_O_PATH, "mouse press");
+	    s->update_views = 1;
 	    view_state->vs_flag = 1;
 	    return TCL_OK;
 
 	case ST_S_PICK:
 	    /* Check details, Init menu, set state */
 	    init_sedit(s);		/* does chg_state */
+	    s->update_views = 1;
 	    view_state->vs_flag = 1;
 	    return TCL_OK;
 

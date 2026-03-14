@@ -697,6 +697,20 @@ from `mp_gvp` (no DMP indirection).
    (the implementation in `points_eval.c` is superseded by `rt_generic_scene_obj`
    mode-5 handling via `rt_sample_pnts`).
 
+5.6 **✅ Unify view-dirty tracking: `vs_flag` → `s->update_views`** (Step 6.a) —
+   All view-command code paths that previously set only `view_state->vs_flag = 1`
+   now also set `s->update_views = 1`.  This ensures that `obol_notify_views` fires
+   correctly in the Obol path (which reads `s->update_views` via `obol_needs_refresh`)
+   even when the `active_dm_set` vs_flag scan is eventually removed in step 6.
+   Files updated: `chgview.c` (17 sites), `edsol.c` (5 sites), `edarb.c` (2 sites),
+   `dodraw.c`, `tedit.c`, `rtif.c`, `setup.c`, `rect.c`, `menu.c`, `cmd.c` (3 sites),
+   `usepen.c` (3 sites), `mged.c` (2 sites in `new_edit_mats` and `mged_view_callback`).
+   The comment in `refresh()` updated to reflect this invariant.  The sole remaining
+   site that cannot set `s->update_views` is the `view_changed_hook` in
+   `dm-generic.c` (no `mged_state *` available in that callback); it is a belt-and-
+   suspenders path triggered by the `bu_structparse` variable-change mechanism, which
+   only fires when the legacy libdm path is active.
+
 6. **Remove `mged_dm` and `active_dm_set`** — Once all panes use `mged_pane` and
    no remaining mged code references `DMP` unconditionally, delete `struct mged_dm`,
    `active_dm_set`, the `DMP`/`fbp`/`clients` macros, and everything in
