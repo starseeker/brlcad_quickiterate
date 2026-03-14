@@ -445,9 +445,10 @@ update_grids(struct mged_state *s, fastf_t sf)
 	dlp->dm_grid_state->res_v *= sf;
 	VSCALE(dlp->dm_grid_state->anchor, dlp->dm_grid_state->anchor, sf);
     }
-    /* Stage 7: scale grid for Obol panes as well. */
+    /* Stage 7: scale grid for Obol panes as well (skip legacy dm wrappers). */
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *pmp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	if (pmp->mp_dm) continue;  /* skip legacy dm wrappers */
 	if (pmp->mp_grid_state) {
 	    pmp->mp_grid_state->res_h *= sf;
 	    pmp->mp_grid_state->res_v *= sf;

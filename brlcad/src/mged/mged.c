@@ -1309,9 +1309,12 @@ event_check(struct mged_state *s, int non_blocking)
 	set_curr_dm(s, save_dm_list);
     }
 
-    /* Stage 7: apply view rate knobs to Obol panes (active_pane_set). */
+    /* Stage 7: apply view rate knobs to Obol panes (active_pane_set).
+     * Step 6.a: skip legacy dm wrapper panes (mp_dm != NULL) — their knob
+     * handling is done by the active_dm_set loop above. */
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	if (mp->mp_dm) continue;  /* skip legacy dm wrappers */
 	set_curr_pane(s, mp);
 
 	if (mp->mp_view_state && mp->mp_view_state->k.rot_m_flag) {
@@ -1632,9 +1635,12 @@ refresh(struct mged_state *s)
 	    continue;
 	p->dm_view_state->vs_flag = 0;
     }
-    /* Also clear vs_flag for Obol panes. */
+    /* Also clear vs_flag for Obol panes.
+     * Step 6.a: skip legacy dm wrappers — the dm's vs_flag is cleared by
+     * the active_dm_set loop above (same underlying mp_view_state). */
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *pmp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	if (pmp->mp_dm) continue;  /* skip legacy dm wrappers */
 	if (pmp->mp_view_state) pmp->mp_view_state->vs_flag = 0;
     }
 
@@ -1812,24 +1818,33 @@ refresh(struct mged_state *s)
      * drawn (do_time) — the latter handles shared-view cases where both
      * dm and Obol panes display the same scene.
      *
-     * The guard uses active_pane_set size so that the call is skipped
-     * entirely in the no-Obol case.  s->mged_curr_pane (set by set_curr_pane
-     * and kept in sync with the active Obol pane) is checked first as a fast
-     * path: if we currently have an active Obol pane, Obol is definitely live.
+     * Step 6.a: the guard now checks for Obol-only panes (mp_dm == NULL) to
+     * avoid spurious obol_notify_views calls in pure legacy-dm mode.
+     * s->mged_curr_pane without mp_dm (an Obol pane is active) is the fast
+     * path; otherwise scan active_pane_set for any Obol pane.
      *
      * MIGRATION NOTE (Stage 7): Once all active_dm_set entries have been
      * migrated to the active_pane_set / mged_pane model and all libdm drawing
      * has been removed from the loop above, this obol_notify_views call will
      * be the only rendering dispatch in refresh(), and the obol_needs_refresh
      * / do_time conditions will be the only dirty-tracking logic. */
-    if (s->interp && (obol_needs_refresh || do_time) &&
-	    (s->mged_curr_pane || BU_PTBL_LEN(&active_pane_set) > 0)) {
-	/* Update Tcl HUD display variables for each Obol pane. */
-	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
-	    struct mged_pane *pmp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	    obol_update_title_vars(s, pmp);
+    {
+	int has_obol_pane = (s->mged_curr_pane && !s->mged_curr_pane->mp_dm);
+	if (!has_obol_pane) {
+	    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+		struct mged_pane *pmp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+		if (pmp && !pmp->mp_dm) { has_obol_pane = 1; break; }
+	    }
 	}
-	(void)Tcl_Eval(s->interp, "catch {obol_notify_views}");
+	if (s->interp && (obol_needs_refresh || do_time) && has_obol_pane) {
+	    /* Update Tcl HUD display variables for each Obol pane (skip wrappers). */
+	    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+		struct mged_pane *pmp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+		if (pmp && !pmp->mp_dm)
+		    obol_update_title_vars(s, pmp);
+	    }
+	    (void)Tcl_Eval(s->interp, "catch {obol_notify_views}");
+	}
     }
 }
 
@@ -1875,6 +1890,19 @@ mged_finish(struct mged_state *s, int exitcode)
 	bu_ptbl_rm(&active_dm_set, (long *)p);
 
 	if (p) {
+	    /* Stage 7 Step 6.a: also free the thin mged_pane wrapper for this
+	     * legacy dm pane if one was created by mged_attach(). */
+	    if (p->dm_dmp) {
+		for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+		    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+		    if (mp && mp->mp_dm == p) {
+			bu_ptbl_rm(&active_pane_set, (long *)mp);
+			mged_pane_free_resources(mp);
+			BU_PUT(mp, struct mged_pane);
+			break;
+		    }
+		}
+	    }
 	    if (p->dm_dmp) {
 		/* Stage 7 (step 5.14): dm_dmp is NULL for the initial "nu"
 		 * mged_dm (mged_dm_init_state) since the dm_open("nu") call
@@ -1893,10 +1921,13 @@ mged_finish(struct mged_state *s, int exitcode)
     /* Stage 7 (MGED libdm removal): Release all Obol panes.
      * The bsg_view for each pane is owned by gedp->ged_free_views and freed
      * by ged_close(); here we only free tclcad_view_data user-data and the
-     * mged_pane struct itself so they do not leak on orderly shutdown. */
+     * mged_pane struct itself so they do not leak on orderly shutdown.
+     * Step 6.a: legacy dm wrapper panes (mp_dm != NULL) were already freed
+     * by the active_dm_set loop above; skip them here. */
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (!mp)
+	/* Skip NULL entries and legacy dm wrappers (already cleaned up above). */
+	if (!mp || mp->mp_dm)
 	    continue;
 	if (mp->mp_gvp) {
 	    struct tclcad_view_data *tvd =

@@ -1645,11 +1645,10 @@ f_winset(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
 
     /* print pathname of drawing window with primary focus */
     if (argc == 1) {
-	/* For Obol panes (tracked in active_pane_set) the pane identity is
-	 * the gv_name which was set to the Tk widget path by new_obol_view_ptr.
-	 * For legacy dm panes, return the dm pathname as before.
-	 * mged_pane_find_by_name() is used for the set-by-name path; here we
-	 * do a reverse lookup to find which active pane holds ged_gvp. */
+	/* Step 6.a: active_pane_set now covers ALL panes (both Obol and legacy dm
+	 * wrappers set up by mged_attach).  The pane identity is gv_name, which
+	 * is set to the Tk widget path by new_obol_view_ptr (Obol) or to the
+	 * dm pathname by mged_attach (legacy dm wrapper).  Check here first. */
 	if (s->gedp && s->gedp->ged_gvp) {
 	    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 		struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
@@ -1670,13 +1669,12 @@ f_winset(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
 	return TCL_OK;
     }
 
-    /* Stage 7: check active_pane_set first (Obol panes).
-     *
-     * Obol panes created by new_obol_view_ptr are registered in
-     * active_pane_set with mp_gvp->gv_name set to the Tk widget path.
-     * mged_pane_find_by_name() centralises the lookup so this and any
-     * other callers share the same implementation.  See RADICAL_MIGRATION.md,
-     * "MGED refactoring for libdm removal", step 3. */
+    /* Step 6.a: active_pane_set now covers ALL panes (both Obol and legacy
+     * dm wrappers).  mged_pane_find_by_name() searches by gv_name so it
+     * finds Obol panes (by Tk widget path) and legacy dm wrappers (by dm
+     * pathname) in one call.  set_curr_pane() handles both: for Obol panes
+     * (mp_dm == NULL) it redirects mged_curr_dm to the null sentinel; for
+     * legacy dm wrappers (mp_dm != NULL) it restores the real dm. */
     {
 	struct mged_pane *mp = mged_pane_find_by_name(argv[1]);
 	if (mp) {
@@ -1689,7 +1687,9 @@ f_winset(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
 	}
     }
 
-    /* Legacy dm path: loop active_dm_set matching by dm pathname. */
+    /* Legacy dm path fallback: loop active_dm_set matching by dm pathname.
+     * Reached only for dm panes that don't yet have a mged_pane wrapper
+     * in active_pane_set (e.g., attached before this code was in place). */
     for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
 	struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
 	/* Stage 7 (step 5.14): skip the initial "nu" entry with no dm. */
@@ -2089,11 +2089,13 @@ cmd_blast(ClientData clientData, Tcl_Interp *UNUSED(interpreter), int argc, cons
     curr_cmd_list = save_cmd_list;
     s->gedp->ged_gvp = view_state->vs_gvp;
 
-    /* Stage 7: also apply autoview to Obol panes (active_pane_set). */
+    /* Stage 7: also apply autoview to Obol panes (active_pane_set).
+     * Step 6.a: skip legacy dm wrapper panes (mp_dm != NULL). */
     {
 	struct mged_pane *save_pane = s->mged_curr_pane;
 	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	    if (mp->mp_dm) continue;  /* skip legacy dm wrappers */
 	    int non_empty = 0;
 	    set_curr_pane(s, mp);
 	    {

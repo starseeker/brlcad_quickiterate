@@ -460,11 +460,22 @@ struct mged_pane {
     struct trail       mp_trails[NUM_TRAILS]; /* predictor trails (mirrors dm_trails) */
     int                mp_ndrawn;    /* count of objects drawn (mirrors dm_ndrawn) */
 
-    /* Per-pane state (mirrors the shareable resources in mged_dm).  These
-     * are allocated and initialized by mged_pane_init_resources() in
-     * attach.c when f_new_obol_view_ptr creates the pane, and freed by
-     * mged_pane_free_resources() (called from mged_pane_release()).  They
-     * replace the mged_curr_dm->dm_* equivalents for Obol panes. */
+    /* Stage 7 Step 6.a: back-pointer to the legacy mged_dm for "thin wrapper"
+     * panes created by mged_attach() when the user runs "attach ogl" etc.
+     * NULL for Obol panes created by f_new_obol_view_ptr().
+     *
+     * When mp_dm != NULL this mged_pane is a thin wrapper: the mp_* resource
+     * pointers below are SHARED with the mged_dm (not separately allocated).
+     * set_curr_pane() redirects s->mged_curr_dm to mp_dm for these panes so
+     * that DMP is non-NULL and legacy GL drawing still works.
+     * mged_pane_free_resources() skips freeing the shared pointers. */
+    struct mged_dm    *mp_dm;
+
+    /* Per-pane state (mirrors the shareable resources in mged_dm).  For Obol
+     * panes (mp_dm == NULL) these are allocated and initialized by
+     * mged_pane_init_resources() and freed by mged_pane_free_resources().
+     * For legacy dm wrappers (mp_dm != NULL) these point directly to the
+     * corresponding dm_* fields of mp_dm and must NOT be freed here. */
     struct _view_state      *mp_view_state;
     struct _adc_state       *mp_adc_state;
     struct _menu_state      *mp_menu_state;
@@ -496,6 +507,7 @@ extern void obol_update_title_vars(struct mged_state *s, struct mged_pane *mp); 
 
 /**
  * Find the mged_pane in active_pane_set whose gv_name matches `name`.
+ * Step 6.a: active_pane_set covers both Obol panes and legacy dm wrappers.
  * Returns MGED_PANE_NULL if not found.
  */
 extern struct mged_pane *mged_pane_find_by_name(const char *name);
@@ -551,12 +563,15 @@ extern void mged_pane_free_resources(struct mged_pane *mp);
  * pv_head is a pointer to the per-pane bu_list head; pane_trails decays to a
  * pointer to the NUM_TRAILS-element trail array so pane_trails[i] is lvalue.
  * (Step 5.15)
+ * Step 6.a: when mged_curr_pane is a legacy dm wrapper (mp_dm != NULL) the
+ * predictor state lives in the mged_dm, not in the thin mged_pane wrapper.
+ * Use mged_curr_dm (which set_curr_pane has pointed at mp_dm) for those.
  * NOTE: dm_ndrawn/mp_ndrawn is NOT exposed as a macro because "ndrawn"
  * conflicts with local variable names in dozoom.c — callers use the
  * struct fields directly (s->mged_curr_dm->dm_ndrawn or
  * s->mged_curr_pane->mp_ndrawn). */
-#define pv_head (s->mged_curr_pane ? &s->mged_curr_pane->mp_p_vlist : &s->mged_curr_dm->dm_p_vlist)
-#define pane_trails (s->mged_curr_pane ? s->mged_curr_pane->mp_trails : s->mged_curr_dm->dm_trails)
+#define pv_head (s->mged_curr_pane && !s->mged_curr_pane->mp_dm ? &s->mged_curr_pane->mp_p_vlist : &s->mged_curr_dm->dm_p_vlist)
+#define pane_trails (s->mged_curr_pane && !s->mged_curr_pane->mp_dm ? s->mged_curr_pane->mp_trails : s->mged_curr_dm->dm_trails)
 
 #define cmd_hook s->mged_curr_dm->dm_cmd_hook
 #define viewpoint_hook s->mged_curr_dm->dm_viewpoint_hook

@@ -59,8 +59,15 @@ illuminate(struct mged_state *s, int y) {
      * solids which are drawn.
      * Step 5.15: use mp_ndrawn when in Obol pane context.
      */
-    int active_ndrawn = s->mged_curr_pane ? s->mged_curr_pane->mp_ndrawn
-					  : s->mged_curr_dm->dm_ndrawn;
+    /* Step 5.15/6.a: use mp_ndrawn for Obol panes; for legacy dm
+     * wrappers (mp_dm != NULL) use the dm's dm_ndrawn directly. */
+    int active_ndrawn;
+    if (!s->mged_curr_pane)
+	active_ndrawn = s->mged_curr_dm->dm_ndrawn;
+    else if (s->mged_curr_pane->mp_dm)
+	active_ndrawn = s->mged_curr_pane->mp_dm->dm_ndrawn;
+    else
+	active_ndrawn = s->mged_curr_pane->mp_ndrawn;
     count = ((fastf_t)y + BSG_VIEW_MAX) * active_ndrawn / BSG_VIEW_RANGE;
 
     {
@@ -109,9 +116,15 @@ f_aip(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	return TCL_ERROR;
     }
 
-    /* Step 5.15: use mp_ndrawn when in Obol pane context. */
-    int active_ndrawn = s->mged_curr_pane ? s->mged_curr_pane->mp_ndrawn
-					  : s->mged_curr_dm->dm_ndrawn;
+    /* Step 5.15/6.a: use mp_ndrawn for Obol panes; for legacy dm
+     * wrappers (mp_dm != NULL) use the dm's dm_ndrawn directly. */
+    int active_ndrawn;
+    if (!s->mged_curr_pane)
+	active_ndrawn = s->mged_curr_dm->dm_ndrawn;
+    else if (s->mged_curr_pane->mp_dm)
+	active_ndrawn = s->mged_curr_pane->mp_dm->dm_ndrawn;
+    else
+	active_ndrawn = s->mged_curr_pane->mp_ndrawn;
     if (!active_ndrawn) {
 	return TCL_OK;
     } else if (s->global_editing_state != ST_S_PICK && s->global_editing_state != ST_O_PICK  && s->global_editing_state != ST_O_PATH) {
