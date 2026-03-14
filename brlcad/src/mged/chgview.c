@@ -930,11 +930,13 @@ edit_com(struct mged_state *s,
     curr_cmd_list = save_cmd_list;
     s->gedp->ged_gvp = view_state->vs_gvp;
 
-    /* Stage 7: also apply autoview to Obol panes (active_pane_set). */
+    /* Stage 7: also apply autoview to Obol panes (active_pane_set).
+     * Step 6.a: skip legacy dm wrapper panes (mp_dm != NULL). */
     {
 	struct mged_pane *save_pane = s->mged_curr_pane;
 	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	    if (mp->mp_dm) continue;  /* skip legacy dm wrappers */
 	    int non_empty = 0;
 
 	    set_curr_pane(s, mp);
@@ -1030,7 +1032,8 @@ cmd_autoview(ClientData clientData, Tcl_Interp *interp, int argc, const char *ar
     curr_cmd_list = save_cmd_list;
     s->gedp->ged_gvp = view_state->vs_gvp;
 
-    /* Stage 7: also apply autoview to Obol panes (active_pane_set). */
+    /* Stage 7: also apply autoview to Obol panes (active_pane_set).
+     * Step 6.a: skip legacy dm wrapper panes (mp_dm != NULL). */
     {
 	struct mged_pane *save_pane = s->mged_curr_pane;
 	int ac = 1;
@@ -1041,6 +1044,7 @@ cmd_autoview(ClientData clientData, Tcl_Interp *interp, int argc, const char *ar
 	if (argc > 1) ac = 2;
 	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	    if (mp->mp_dm) continue;  /* skip legacy dm wrappers */
 	    set_curr_pane(s, mp);
 	    ged_exec_autoview(s->gedp, ac, (const char **)av);
 	    s->update_views = 1;
