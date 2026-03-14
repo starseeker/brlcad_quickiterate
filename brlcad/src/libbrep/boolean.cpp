@@ -4246,39 +4246,84 @@ add_elements(ON_Brep *brep, ON_BrepFace &face, const ON_SimpleArray<ON_Curve *> 
 	double c3d_bbox = c3d->BoundingBox().Diagonal().Length();
 	double c2d_dom  = loop[k]->Domain().Length();
 	if (c3d_bbox < INTERSECTION_TOL || c2d_dom < INTERSECTION_TOL * INTERSECTION_TOL) {
-	    /* The 3D curve maps to a single point.  A valid singular trim
-	     * requires m_iso to be one of the BOUNDARY iso values (W_iso,
-	     * S_iso, E_iso, or N_iso).  Interior iso values (x_iso, y_iso)
-	     * and not_iso all fail ON_Brep::IsValid().
-	     *
-	     * Degenerate 3D segments on non-boundary isoparametric curves
-	     * are filtered out at the source in get_subcurves_inside_faces.
-	     * If one somehow reaches here, create the singular trim anyway —
-	     * the alternative (skipping) produces a 2D loop gap that also
-	     * fails IsValid(), and a degenerate edge causes vertex mismatches.
-	     * The invalid singular trim is the least-bad fallback. */
-	    int i;
-	    ON_3dPoint vtx = c3d->PointAtStart();
-	    for (i = brep->m_V.Count() - 1; i >= 0; i--) {
-		if (brep->m_V[i].Point().DistanceTo(vtx) < ON_ZERO_TOLERANCE) {
-		    break;
-		}
-	    }
-	    if (i < 0) {
-		i = brep->m_V.Count();
-		brep->NewVertex(c3d->PointAtStart(), 0.0);
-	    }
-	    int ti = brep->AddTrimCurve(loop[k]);
 	    ON_Surface::ISO iso_type = srf->IsIsoparametric(*loop[k]);
-	    /* If not a valid singular iso, use W_iso as a safe fallback
-	     * (all singular trims require a boundary iso value). */
-	    if (iso_type != ON_Surface::W_iso && iso_type != ON_Surface::S_iso &&
-		iso_type != ON_Surface::E_iso && iso_type != ON_Surface::N_iso)
-		iso_type = ON_Surface::W_iso;
-	    ON_BrepTrim &trim = brep->NewSingularTrim(brep->m_V[i], breploop, iso_type, ti);
-	    trim.m_tolerance[0] = trim.m_tolerance[1] = MAX_FASTF;
-	    delete c3d;
-	    continue;
+	    if (iso_type == ON_Surface::W_iso || iso_type == ON_Surface::S_iso ||
+		iso_type == ON_Surface::E_iso || iso_type == ON_Surface::N_iso) {
+		/* Boundary iso: create a proper singular trim (e.g. TGC apex). */
+		int i;
+		ON_3dPoint vtx = c3d->PointAtStart();
+		for (i = brep->m_V.Count() - 1; i >= 0; i--) {
+		    if (brep->m_V[i].Point().DistanceTo(vtx) < ON_ZERO_TOLERANCE) {
+			break;
+		    }
+		}
+		if (i < 0) {
+		    i = brep->m_V.Count();
+		    brep->NewVertex(c3d->PointAtStart(), 0.0);
+		}
+		int ti = brep->AddTrimCurve(loop[k]);
+		ON_BrepTrim &trim = brep->NewSingularTrim(brep->m_V[i], breploop, iso_type, ti);
+		trim.m_tolerance[0] = trim.m_tolerance[1] = MAX_FASTF;
+		delete c3d;
+		continue;
+	    }
+	    /* Interior iso (x_iso, y_iso, not_iso): the 3D curve maps to a
+	     * single point at an interior UV position.  Cannot create a
+	     * singular trim — OpenNURBS IsValid requires both (a) singular
+	     * trims have boundary iso and (b) m_iso == IsIsoparametric result,
+	     * which are contradictory for interior-position degenerate trims.
+	     *
+	     * Create a regular edge using the actual (near-zero-length) 3D
+	     * pushup curve.  Force separate start/end vertices by evaluating
+	     * the end UV point directly rather than relying on IsClosed().
+	     * The post-join_boundary_edges vertex merge pass will reconcile
+	     * the two nearly-coincident vertices. */
+	    {
+		ON_2dPoint s2d = loop[k]->PointAtStart();
+		ON_2dPoint e2d = loop[k]->PointAtEnd();
+		/* Start vertex: reuse previous trim's end vertex when k>0. */
+		int svi;
+		if (k > 0 && brep->m_T.Count() > 0) {
+		    svi = brep->m_T.Last()->m_vi[1];
+		} else {
+		    ON_3dPoint svtx = face.SurfaceOf()->PointAt(s2d.x, s2d.y);
+		    svi = brep->m_V.Count();
+		    for (int vi = brep->m_V.Count() - 1; vi >= 0; vi--) {
+			if (brep->m_V[vi].Point().DistanceTo(svtx) < ON_ZERO_TOLERANCE) {
+			    svi = vi; break;
+			}
+		    }
+		    if (svi == brep->m_V.Count())
+			brep->NewVertex(svtx, 0.0);
+		}
+		/* End vertex: always evaluate from UV end (ignore IsClosed).
+		 * This guarantees m_vi[0] != m_vi[1] so the edge is not
+		 * treated as "closed" by OpenNURBS. */
+		ON_3dPoint evtx = face.SurfaceOf()->PointAt(e2d.x, e2d.y);
+		int evi = brep->m_V.Count();
+		for (int vi = brep->m_V.Count() - 1; vi >= 0; vi--) {
+		    if (brep->m_V[vi].Point().DistanceTo(evtx) < ON_ZERO_TOLERANCE) {
+			evi = vi; break;
+		    }
+		}
+		if (evi == brep->m_V.Count())
+		    brep->NewVertex(evtx, 0.0);
+		/* If start and end landed on the same existing vertex, nudge
+		 * the end to a fresh vertex to avoid m_vi[0]==m_vi[1] with
+		 * a non-closed curve (which OpenNURBS rejects). */
+		if (evi == svi) {
+		    evi = brep->m_V.Count();
+		    brep->NewVertex(evtx, 0.0);
+		}
+		brep->AddEdgeCurve(c3d);
+		int ti = brep->AddTrimCurve(loop[k]);
+		ON_BrepEdge &edge = brep->NewEdge(brep->m_V[svi], brep->m_V[evi],
+						  brep->m_C3.Count() - 1,
+						  (const ON_Interval *)0, MAX_FASTF);
+		ON_BrepTrim &trim = brep->NewTrim(edge, 0, breploop, ti);
+		trim.m_tolerance[0] = trim.m_tolerance[1] = MAX_FASTF;
+		continue;
+	    }
 	}
 
 	ON_2dPoint start = loop[k]->PointAtStart(), end = loop[k]->PointAtEnd();
@@ -6193,37 +6238,6 @@ ON_Boolean(ON_Brep *evaluated_brep, const ON_Brep *brep1, const ON_Brep *brep2, 
 		}
 
 		evaluated_brep->SetTrimIsoFlags(new_face);
-
-		/* SetTrimIsoFlags() recomputes m_iso for every trim from the
-		 * 2-D curve geometry.  For the near-zero-length degenerate
-		 * singular trims created above it returns an interior iso
-		 * (x_iso=1 or y_iso=2) because the UV position is interior to
-		 * the surface domain.  ON_Brep::IsValid() requires singular
-		 * trims to have a boundary iso (W/S/E/N_iso).  Correct any
-		 * singular trim whose m_iso is not one of the four boundary
-		 * values back to W_iso here. */
-		{
-		    const ON_BrepLoop &outerL = evaluated_brep->m_L[new_face.m_li[0]];
-		    for (int kk = 0; kk < new_face.LoopCount(); kk++) {
-			const ON_BrepLoop &lp = evaluated_brep->m_L[new_face.m_li[kk]];
-			for (int tt = 0; tt < lp.TrimCount(); tt++) {
-			    ON_BrepTrim &t = evaluated_brep->m_T[lp.m_ti[tt]];
-			    if (t.m_type == ON_BrepTrim::singular &&
-				t.m_iso != ON_Surface::W_iso &&
-				t.m_iso != ON_Surface::S_iso &&
-				t.m_iso != ON_Surface::E_iso &&
-				t.m_iso != ON_Surface::N_iso) {
-				/* Only override for truly degenerate (near-zero
-				 * 2D-domain) curves — legitimate singular trims
-				 * on surface boundaries keep their computed iso. */
-				const ON_Curve *c2 = t.TrimCurveOf();
-				if (c2 && c2->Domain().Length() < INTERSECTION_TOL * INTERSECTION_TOL)
-				    t.m_iso = ON_Surface::W_iso;
-			    }
-			}
-		    }
-		    (void)outerL; /* suppress unused warning */
-		}
 		const ON_BrepFace &original_face = i >= face_count1 ? brep2->m_F[i - face_count1] : brep1->m_F[i];
 		if (original_face.m_bRev ^ t_face->m_rev) {
 		    evaluated_brep->FlipFace(new_face);
@@ -6308,11 +6322,66 @@ ON_Boolean(ON_Brep *evaluated_brep, const ON_Brep *brep1, const ON_Brep *brep2, 
 		if (t.m_vi[0] >= 0) t.m_vi[0] = remap[t.m_vi[0]];
 		if (t.m_vi[1] >= 0) t.m_vi[1] = remap[t.m_vi[1]];
 	    }
-	    /* Update edges. */
+	    /* Update edges.  If the remap makes m_vi[0]==m_vi[1] for a
+	     * non-closed edge (degenerate near-zero-length edge whose two
+	     * vertices were coincident), replace the edge's 3-D curve with a
+	     * degenerate point curve at the merged vertex so that IsClosed()
+	     * returns true and the topology is consistent. */
 	    for (int ei = 0; ei < evaluated_brep->m_E.Count(); ei++) {
 		ON_BrepEdge &e = evaluated_brep->m_E[ei];
 		if (e.m_vi[0] >= 0) e.m_vi[0] = remap[e.m_vi[0]];
 		if (e.m_vi[1] >= 0) e.m_vi[1] = remap[e.m_vi[1]];
+		if (e.m_vi[0] == e.m_vi[1] && e.m_vi[0] >= 0 && !e.IsClosed()) {
+		    /* Degenerate self-loop: the two endpoints merged to the same
+		     * vertex but the 3-D curve is not closed.  Replace with a
+		     * tiny full-circle arc at the merged vertex.  An ON_ArcCurve
+		     * is the only curve type in OpenNURBS that returns IsClosed()
+		     * == true for a degenerate (radius → 0) case while still
+		     * passing IsValid().  The radius is set to 1e-8 (well below
+		     * any model feature size) so the geometric error is
+		     * negligible; the trim tolerance of MAX_FASTF absorbs it.
+		     * Use SetEdgeCurve() (not raw m_c3i) so the proxy pointer
+		     * used by IsClosed() is also updated. */
+		    const ON_3dPoint &pt = evaluated_brep->m_V[e.m_vi[0]].Point();
+		    ON_Plane plane(pt, ON_3dVector(0, 0, 1));
+		    double r = 1.0e-8;
+		    ON_Circle circle(plane, r);
+		    ON_Arc arc(circle, ON_Interval(0.0, 2.0 * ON_PI));
+		    ON_ArcCurve *arc_crv = new ON_ArcCurve(arc);
+		    int new_c3i = evaluated_brep->m_C3.Count();
+		    evaluated_brep->m_C3.Append(arc_crv);
+		    evaluated_brep->SetEdgeCurve(e, new_c3i);
+		    /* For closed-edge trims, IsValid checks that the 2D trim
+		     * direction matches the 3D arc direction.  The arc starts
+		     * going counterclockwise in the XY plane (tangent +Y at t=0).
+		     * Compare this with the trim's 2D UV tangent projected onto 3D
+		     * to set m_bRev3d correctly. */
+		    ON_3dVector arc_tangent(0, 1, 0); /* arc CCW tangent at t=0 */
+		    for (int ti = 0; ti < e.m_ti.Count(); ti++) {
+			int trim_idx = e.m_ti[ti];
+			if (trim_idx < 0 || trim_idx >= evaluated_brep->m_T.Count())
+			    continue;
+			ON_BrepTrim &trim = evaluated_brep->m_T[trim_idx];
+			/* Get the face this trim belongs to. */
+			const ON_BrepLoop *loop = trim.Loop();
+			if (!loop) { trim.m_bRev3d = false; continue; }
+			const ON_BrepFace *face = loop->Face();
+			if (!face || !face->SurfaceOf()) { trim.m_bRev3d = false; continue; }
+			/* Get the trim's 2D UV curve start tangent. */
+			const ON_Curve *c2 = trim.TrimCurveOf();
+			if (!c2) { trim.m_bRev3d = false; continue; }
+			ON_3dVector uv_tan = c2->TangentAt(c2->Domain().Min());
+			if (uv_tan.IsZero()) { trim.m_bRev3d = false; continue; }
+			/* Project UV tangent to 3D using the surface derivatives. */
+			ON_2dPoint uv_pt(c2->PointAtStart().x, c2->PointAtStart().y);
+			ON_3dPoint srf_pt;
+			ON_3dVector du, dv;
+			face->SurfaceOf()->Ev1Der(uv_pt.x, uv_pt.y, srf_pt, du, dv);
+			ON_3dVector tan3d = uv_tan.x * du + uv_tan.y * dv;
+			/* Directions are "opposite" if their dot product < 0. */
+			trim.m_bRev3d = (tan3d * arc_tangent < 0.0);
+		    }
+		}
 	    }
 	    /* Rebuild vertex edge lists for all canonical vertices. */
 	    for (int vi = 0; vi < nv; vi++)
