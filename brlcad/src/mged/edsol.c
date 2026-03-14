@@ -1288,7 +1288,7 @@ get_file_name(struct mged_state *s, char *str)
 	bu_free((void *)dir, "get_file_name: directory string");
     }
 
-    if (dm_get_pathname(DMP)) {
+    if (DMP && dm_get_pathname(DMP)) {
 	bu_vls_printf(&cmd,
 		"getFile %s %s {{{All Files} {*}}} {Get File}",
 		bu_vls_addr(dm_get_pathname(DMP)),
@@ -2687,7 +2687,7 @@ sedit(struct mged_state *s)
 		RT_BOT_CK_MAGIC(bot);
 		old_mode = bot->mode;
 		sprintf(mode, " %d", old_mode - 1);
-		if (dm_get_pathname(DMP)) {
+		if (DMP && dm_get_pathname(DMP)) {
 		    ret_tcl = Tcl_VarEval(s->interp, "cad_radio", " .bot_mode_radio ",
 			    bu_vls_addr(dm_get_pathname(DMP)), " _bot_mode_result",
 			    " \"BOT Mode\"", "  \"Select the desired mode\"", mode,
@@ -2727,7 +2727,7 @@ sedit(struct mged_state *s)
 
 		RT_BOT_CK_MAGIC(bot);
 		sprintf(orient, " %d", bot->orientation - 1);
-		if (dm_get_pathname(DMP)) {
+		if (DMP && dm_get_pathname(DMP)) {
 		    ret_tcl = Tcl_VarEval(s->interp, "cad_radio", " .bot_orient_radio ",
 			    bu_vls_addr(dm_get_pathname(DMP)), " _bot_orient_result",
 			    " \"BOT Face Orientation\"", "  \"Select the desired orientation\"", orient,
@@ -2820,7 +2820,7 @@ sedit(struct mged_state *s)
 		    cur_settings[5] = '1';
 		}
 
-		if (dm_get_pathname(DMP)) {
+		if (DMP && dm_get_pathname(DMP)) {
 		    ret_tcl = Tcl_VarEval(s->interp,
 			    "cad_list_buts",
 			    " .bot_list_flags ",
@@ -2905,7 +2905,7 @@ sedit(struct mged_state *s)
 		else
 		    sprintf(fmode, " %d", BU_BITTEST(bot->face_mode, 0)?1:0);
 
-		if (dm_get_pathname(DMP)) {
+		if (DMP && dm_get_pathname(DMP)) {
 		    ret_tcl = Tcl_VarEval(s->interp, "cad_radio", " .bot_fmode_radio ", bu_vls_addr(dm_get_pathname(DMP)),
 			    " _bot_fmode_result ", "\"BOT Face Mode\"",
 			    " \"Select the desired face mode\"", fmode,

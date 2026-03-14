@@ -1456,7 +1456,7 @@ f_tie(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, const ch
     if (argc == 1) {
 	for (BU_LIST_FOR (clp, cmd_list, &head_cmd_list.l)) {
 	    bu_vls_trunc(&vls, 0);
-	    if (clp->cl_tie) {
+	    if (clp->cl_tie && clp->cl_tie->dm_dmp) {
 		struct bu_vls *pn = dm_get_pathname(clp->cl_tie->dm_dmp);
 		if (pn && bu_vls_strlen(pn)) {
 		    bu_vls_printf(&vls, "%s %s", bu_vls_cstr(&clp->cl_name), bu_vls_cstr(pn));
@@ -1469,7 +1469,7 @@ f_tie(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, const ch
 	}
 
 	bu_vls_trunc(&vls, 0);
-	if (clp->cl_tie) {
+	if (clp->cl_tie && clp->cl_tie->dm_dmp) {
 	    struct bu_vls *pn = dm_get_pathname(clp->cl_tie->dm_dmp);
 	    if (pn && bu_vls_strlen(pn)) {
 		bu_vls_printf(&vls, "%s %s", bu_vls_cstr(&clp->cl_name), bu_vls_cstr(pn));
@@ -1521,7 +1521,7 @@ f_tie(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, const ch
 
     /* print out the display manager that we're tied to */
     if (argc == 2) {
-	if (clp->cl_tie) {
+	if (clp->cl_tie && clp->cl_tie->dm_dmp) {
 	    struct bu_vls *pn = dm_get_pathname(clp->cl_tie->dm_dmp);
 	    if (pn && bu_vls_strlen(pn)) {
 		Tcl_AppendElement(interpreter, bu_vls_cstr(pn));
@@ -1540,6 +1540,8 @@ f_tie(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, const ch
 
     for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
 	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
+	/* Stage 7 (step 5.14): skip the initial "nu" entry with no dm. */
+	if (!m_dmp->dm_dmp) continue;
 	struct bu_vls *pn = dm_get_pathname(m_dmp->dm_dmp);
 	if (pn && !bu_vls_strcmp(&vls, pn)) {
 	    dlp = m_dmp;
@@ -1660,6 +1662,7 @@ f_winset(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
 	    }
 	}
 	/* Legacy dm path: return the dm window pathname. */
+	if (!DMP) return TCL_OK;  /* Stage 7 (step 5.14): no dm attached */
 	struct bu_vls *pn = dm_get_pathname(DMP);
 	if (pn && bu_vls_strlen(pn)) {
 	    Tcl_AppendResult(interpreter, bu_vls_cstr(pn), (char *)NULL);
@@ -1689,6 +1692,8 @@ f_winset(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
     /* Legacy dm path: loop active_dm_set matching by dm pathname. */
     for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
 	struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
+	/* Stage 7 (step 5.14): skip the initial "nu" entry with no dm. */
+	if (!p->dm_dmp) continue;
 	struct bu_vls *pn = dm_get_pathname(p->dm_dmp);
 	if (pn && BU_STR_EQUAL(argv[1], bu_vls_cstr(pn))) {
 	    set_curr_dm(s, p);
