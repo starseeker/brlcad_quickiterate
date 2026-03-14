@@ -863,6 +863,21 @@ from `mp_gvp` (no DMP indirection).
    every entry in `active_dm_set` has `dm_dmp == NULL`) the loop body is now a
    complete no-op without any side-effects on `mged_curr_dm`.
 
+   The same `if (!m_dmp->dm_dmp) continue` guard has been applied to **all**
+   `active_dm_set` loops across the mged source tree in this step:
+   - `mged.c`: `new_edit_mats()`, view-rate knob loop
+   - `chgview.c`: `edit_com`, `cmd_autoview`, `f_svbase` shared-view dirty loop
+   - `grid.c`, `adc.c`, `axes.c`, `color_scheme.c`, `set.c`: all `*_set_dirty_flag` hooks
+   - `buttons.c`: `be_repl`/`be_reject` mv_transform loops, `chg_state` new_mats loop
+   - `menu.c`: `mmenu_set`, `mmenu_set_all`
+   - `fbserv.c`: client-fd lookup, netfd lookup; `fbserv_set_port` gets `if (!DMP) return`
+   - `cmd.c`: `f_opendb` resize loop
+   - `set.c`: `set_knob_dirty_flag()`, display-list create/free loops
+   - `set.c`: **Bug fix** — inner dlist-sharing loop used outer-loop index `di` instead
+     of `dj` in `BU_PTBL_GET` (pre-existing typo now corrected)
+   - All redundant `if (m_dmp->dm_dmp) dm_set_dirty(...)` replaced with direct
+     `dm_set_dirty(...)` calls (null check now at loop top)
+
 6. **Remove `mged_dm` and `active_dm_set`** — Once all panes use `mged_pane` and
    no remaining mged code references `DMP` unconditionally, delete `struct mged_dm`,
    `active_dm_set`, the `DMP`/`fbp`/`clients` macros, and everything in
