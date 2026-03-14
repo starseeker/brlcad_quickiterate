@@ -348,7 +348,7 @@ mged_view_callback(bsg_view *gvp,
     }
     vsp->vs_flag = 1;
     s->update_views = 1;
-    if (s->mged_curr_dm->dm_dmp) dm_set_dirty(s->mged_curr_dm->dm_dmp, 1);
+    if (DMP) dm_set_dirty(DMP, 1);
 }
 
 
