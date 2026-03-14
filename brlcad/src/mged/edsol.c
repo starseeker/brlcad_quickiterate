@@ -1238,7 +1238,9 @@ get_rotation_vertex(struct mged_state *s)
     }
     bu_vls_printf(&str, ") [%d]: ", rt_arb_vertices[type][loc]);
 
-    const struct bu_vls *dnvp = dm_get_dname(s->mged_curr_dm->dm_dmp);
+    /* Stage 7 (step 5.14): guard for NULL dm_dmp (initial headless mged_dm). */
+    const struct bu_vls *dnvp = s->mged_curr_dm->dm_dmp ?
+	dm_get_dname(s->mged_curr_dm->dm_dmp) : NULL;
 
     bu_vls_printf(&cmd, "cad_input_dialog .get_vertex %s {Need vertex for solid rotate}\
  {%s} vertex_num %d 0 {{ summary \"Enter a vertex number to rotate about.\"}} OK",
