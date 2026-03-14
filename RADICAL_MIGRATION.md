@@ -787,6 +787,16 @@ from `mp_gvp` (no DMP indirection).
    being left pointing at mged_dm_init_state after the loop.
    Comments in `attach.c` and `mged_dm.h` updated to reflect the new behaviour.
 
+5.13 **✅ `mged_pane` Tcl HUD display variable names (Session 13)** —
+   `mged_pane` now has `mp_fps_name`, `mp_aet_name`, `mp_ang_name`, `mp_center_name`,
+   `mp_size_name`, `mp_adc_name` fields (mirrors `dm_fps_name` etc. in `mged_dm`).
+   `mged_pane_init_resources()` initialises these via `bu_vls_init()`.
+   `mged_pane_free_resources()` frees them via `bu_vls_free()`.
+   New `mged_pane_link_vars()` function (attach.c) populates them from `gv_name`.
+   Called automatically by `f_new_obol_view_ptr` after `mged_pane_init_resources`.
+   This prepares for a future `obol_dotitles()` that updates the Obol pane HUD
+   display Tcl variables (`$::mged_display($path,fps)` etc.).
+
 6. **Remove `mged_dm` and `active_dm_set`** — Once all panes use `mged_pane` and
    no remaining mged code references `DMP` unconditionally, delete `struct mged_dm`,
    `active_dm_set`, the `DMP`/`fbp`/`clients` macros, and everything in

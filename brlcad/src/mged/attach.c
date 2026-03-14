@@ -258,6 +258,14 @@ mged_pane_init_resources(struct mged_state *s, struct mged_pane *mp)
 		 mged_dm_init_state->dm_view_state->vs_ModelDelta);
     }
     view_ring_init(mp->mp_view_state, (struct _view_state *)NULL);
+
+    /* Initialize Tcl HUD variable name storage; populated by mged_pane_link_vars(). */
+    bu_vls_init(&mp->mp_fps_name);
+    bu_vls_init(&mp->mp_aet_name);
+    bu_vls_init(&mp->mp_ang_name);
+    bu_vls_init(&mp->mp_center_name);
+    bu_vls_init(&mp->mp_size_name);
+    bu_vls_init(&mp->mp_adc_name);
 }
 
 /*
@@ -294,6 +302,14 @@ mged_pane_free_resources(struct mged_pane *mp)
 	bu_free(mp->mp_view_state, "mp_view_state");
 	mp->mp_view_state = NULL;
     }
+
+    /* Free Tcl HUD variable name storage. */
+    bu_vls_free(&mp->mp_fps_name);
+    bu_vls_free(&mp->mp_aet_name);
+    bu_vls_free(&mp->mp_ang_name);
+    bu_vls_free(&mp->mp_center_name);
+    bu_vls_free(&mp->mp_size_name);
+    bu_vls_free(&mp->mp_adc_name);
 }
 
 int
@@ -1013,6 +1029,28 @@ mged_link_vars(struct mged_dm *p)
 }
 
 
+/* Stage 7: Set up Tcl HUD display variable names for an Obol mged_pane.
+ * The variable names mirror the dm_*_name fields in mged_link_vars() but
+ * use the view's gv_name (set when f_new_obol_view_ptr registers the
+ * bsg_view with GED) instead of the dm pathname.
+ * The bu_vls fields are initialized (zero-length) by mged_pane_init_resources;
+ * this function populates them from mp->mp_gvp->gv_name.
+ */
+void
+mged_pane_link_vars(struct mged_pane *mp)
+{
+    if (!mp || !mp->mp_gvp || !bu_vls_strlen(&mp->mp_gvp->gv_name))
+	return;
+    const char *pname = bu_vls_cstr(&mp->mp_gvp->gv_name);
+    bu_vls_printf(&mp->mp_fps_name,    "%s(%s,fps)",    MGED_DISPLAY_VAR, pname);
+    bu_vls_printf(&mp->mp_aet_name,    "%s(%s,aet)",    MGED_DISPLAY_VAR, pname);
+    bu_vls_printf(&mp->mp_ang_name,    "%s(%s,ang)",    MGED_DISPLAY_VAR, pname);
+    bu_vls_printf(&mp->mp_center_name, "%s(%s,center)", MGED_DISPLAY_VAR, pname);
+    bu_vls_printf(&mp->mp_size_name,   "%s(%s,size)",   MGED_DISPLAY_VAR, pname);
+    bu_vls_printf(&mp->mp_adc_name,    "%s(%s,adc)",    MGED_DISPLAY_VAR, pname);
+}
+
+
 int
 f_get_dm_list(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, const char *argv[])
 {
@@ -1177,6 +1215,7 @@ f_new_obol_view_ptr(ClientData clientData, Tcl_Interp *interpreter,
      * global macros (view_state, color_scheme, etc.) — that happens in Step 6
      * when the macros are changed to prefer mged_curr_pane. */
     mged_pane_init_resources(s, pane);
+    mged_pane_link_vars(pane);  /* populate mp_fps_name, mp_aet_name etc. */
     bu_ptbl_ins(&active_pane_set, (long *)pane);
 
     /* Return the pointer as a hex string.  The caller (mview.tcl) passes this
