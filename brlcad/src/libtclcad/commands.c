@@ -1424,14 +1424,9 @@ to_configure(struct ged *gedp,
     if (!gdvp->dmp)
 	return BRLCAD_OK;
 
-    /* configure the display manager window */
-    
+    /* configure the display manager window — dm is going away; no-op */
 
-    /* configure the framebuffer window */
-    struct tclcad_view_data *tvd = (struct tclcad_view_data *)gdvp->u_data;
-    if (tvd->gdv_fbs.fbs_fbp != NULL)
-	(void)fb_configure_window(tvd->gdv_fbs.fbs_fbp, gdvp->gv_width, gdvp->gv_height);
-
+    /* configure the rect command dims */
     {
 	char cdimX[32];
 	char cdimY[32];
@@ -1450,12 +1445,8 @@ to_configure(struct ged *gedp,
 	(void)ged_exec_rect(gedp, 4, (const char **)av);
     }
 
-    if (status == TCL_OK) {
-	to_refresh_view(gdvp);
-	return BRLCAD_OK;
-    }
-
-    return BRLCAD_ERROR;
+    to_refresh_view(gdvp);
+    return BRLCAD_OK;
 }
 
 
@@ -4694,12 +4685,7 @@ to_paint_rect_area(struct ged *gedp,
 
     
 
-    struct tclcad_view_data *tvd = (struct tclcad_view_data *)gdvp->u_data;
-    (void)fb_refresh(tvd->gdv_fbs.fbs_fbp, gdvp->gv_s->gv_rect.pos[X], gdvp->gv_s->gv_rect.pos[Y],
-	    gdvp->gv_s->gv_rect.dim[X], gdvp->gv_s->gv_rect.dim[Y]);
-
-    
-
+    /* dm/fb is going away; fb_refresh is a no-op in Obol path */
     return BRLCAD_OK;
 }
 
