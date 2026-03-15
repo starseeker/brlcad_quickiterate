@@ -396,7 +396,7 @@ void size_reset(struct mged_state *s);
 void solid_list_callback(struct mged_state *s);
 
 extern void view_ring_init(struct _view_state *vsp1, struct _view_state *vsp2); /* defined in chgview.c */
-extern void view_ring_destroy(struct mged_dm *dlp);
+extern void view_ring_destroy(struct _view_state *vsp); /* Step 7.17: now takes view_state directly */
 
 /* cmd.c */
 int cmdline(struct mged_state *s, struct bu_vls *vp, int record);

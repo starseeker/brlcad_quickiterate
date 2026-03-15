@@ -224,10 +224,19 @@ mged_pane_init_resources(struct mged_state *s, struct mged_pane *mp)
 	BU_ALLOC(mp->mp_dlist_state, struct _dlist_state);
 	mp->mp_dlist_state->dl_rc = 1;
 
-	/* view_state: still dm-owned (Step 7.16); borrow after dm_var_init sets it.
-	 * Caller (mged_attach) must set mp->mp_view_state = mp->mp_dm->dm_view_state
-	 * after mged_dm_init() returns. */
-	mp->mp_view_state = mp->mp_dm->dm_view_state;  /* may be NULL before dm_init */
+	/* Step 7.17: view_state is now pane-owned.
+	 * For the sentinel init_pane (no prev pane: src == NULL), allocate with defaults.
+	 * For subsequent dms: leave mp_view_state = NULL; dm_var_init() will allocate it. */
+	if (!src) {
+	    /* init_pane case: allocate a fresh view_state with identity matrices. */
+	    BU_ALLOC(mp->mp_view_state, struct _view_state);
+	    mp->mp_view_state->vs_rc = 1;
+	    mp->mp_view_state->vs_gvp = NULL;  /* no view for the sentinel */
+	    view_ring_init(mp->mp_view_state, (struct _view_state *)NULL);
+	} else {
+	    /* Regular mged_attach pane: dm_var_init() will allocate mp_view_state. */
+	    mp->mp_view_state = NULL;
+	}
 
 	/* Step 7.16: register back-pointer so share.c can reach pane from dm. */
 	mp->mp_dm->dm_pane = mp;
@@ -319,14 +328,14 @@ mged_pane_init_resources(struct mged_state *s, struct mged_pane *mp)
     BU_ALLOC(mp->mp_view_state, struct _view_state);
     mp->mp_view_state->vs_rc = 1;
     mp->mp_view_state->vs_gvp = mp->mp_gvp;  /* borrow GED-owned view */
-    if (mged_dm_init_state && mged_dm_init_state->dm_view_state) {
-	/* copy vs_model2objview / vs_objview2model / vs_ModelDelta defaults */
+    /* Step 7.17: copy vs_model2objview/vs_objview2model/vs_ModelDelta defaults from sentinel. */
+    if (init_src && init_src->mp_view_state) {
 	MAT_COPY(mp->mp_view_state->vs_model2objview,
-		 mged_dm_init_state->dm_view_state->vs_model2objview);
+		 init_src->mp_view_state->vs_model2objview);
 	MAT_COPY(mp->mp_view_state->vs_objview2model,
-		 mged_dm_init_state->dm_view_state->vs_objview2model);
+		 init_src->mp_view_state->vs_objview2model);
 	MAT_COPY(mp->mp_view_state->vs_ModelDelta,
-		 mged_dm_init_state->dm_view_state->vs_ModelDelta);
+		 init_src->mp_view_state->vs_ModelDelta);
     }
     view_ring_init(mp->mp_view_state, (struct _view_state *)NULL);
 
@@ -367,8 +376,8 @@ mged_pane_free_resources(struct mged_pane *mp)
 
     /* Step 7.16: wrapper panes now OWN the 8 non-view resources (allocated in
      * mged_pane_init_resources).  Free them with reference counting (the share
-     * command may have raised the rc above 1).  The view_state is still dm-owned
-     * (dm_view_state); just NULL the borrow pointer, do not free it here. */
+     * command may have raised the rc above 1).
+     * Step 7.17: view_state is now also pane-owned; free it with ref counting too. */
     if (mp->mp_dm) {
 	if (mp->mp_adc_state      && !--mp->mp_adc_state->adc_rc)
 	    bu_free(mp->mp_adc_state,      "wrapper mp_adc_state");
@@ -406,8 +415,16 @@ mged_pane_free_resources(struct mged_pane *mp)
 	    mp->mp_dlist_state = NULL;
 	}
 
-	/* view_state: dm-owned; just null the borrow pointer. */
-	mp->mp_view_state = NULL;
+	/* Step 7.17: view_state is now pane-owned; free with ref counting.
+	 * view_ring items freed first, then the _view_state shell. */
+	if (mp->mp_view_state) {
+	    if (!--mp->mp_view_state->vs_rc) {
+		view_ring_destroy(mp->mp_view_state);
+		/* vs_gvp for wrapper panes is registered in ged_views and freed separately */
+		bu_free(mp->mp_view_state, "wrapper mp_view_state");
+	    }
+	    mp->mp_view_state = NULL;
+	}
 
 	/* Clear back-pointer. */
 	if (mp->mp_dm) mp->mp_dm->dm_pane = NULL;
@@ -474,7 +491,8 @@ mged_dm_init(
 
     /* Step 7.14: dm_cmd_hook removed — always dm_commands; no assignment needed. */
 
-    void *ctx = ndm->dm_view_state->vs_gvp;
+    /* Step 7.17: view_state now in pane (dm_var_init sets npane->mp_view_state). */
+    void *ctx = ndm->dm_pane->mp_view_state->vs_gvp;
     struct dm *dmp = dm_open(ctx, (void *)s->interp, dm_type, argc-1, argv);
     if (!dmp) {
 	Tcl_AppendResult(s->interp, "dm_open(", dm_type, ") failed\n", (char *)NULL);
@@ -483,7 +501,7 @@ mged_dm_init(
     ndm->dm_dmp = dmp;
 
     /*XXXX this eventually needs to move into Ogl's private structure */
-    dm_set_vp(dmp, &ndm->dm_view_state->vs_gvp->gv_scale);
+    dm_set_vp(dmp, &ndm->dm_pane->mp_view_state->vs_gvp->gv_scale);
     /* Step 7.16: mged_variables now in pane (dm_pane->mp_mged_variables). */
     dm_set_perspective(dmp, ndm->dm_pane->mp_mged_variables->mv_perspective_mode);
 
@@ -943,9 +961,9 @@ mged_attach(struct mged_state *s, const char *wp_name, int argc, const char *arg
 	goto Bad;
     }
 
-    /* Sync pane view pointer now that dm_var_init created the view_state. */
-    pane->mp_gvp       = ndm->dm_view_state->vs_gvp;
-    pane->mp_view_state = ndm->dm_view_state;   /* borrow: dm still owns view_state */
+    /* Step 7.17: dm_var_init sets pane->mp_view_state directly (pane owns view_state).
+     * Sync gvp from pane's view_state (which was just set by dm_var_init). */
+    pane->mp_gvp = pane->mp_view_state->vs_gvp;
 
     /* initialize the background color */
     {
@@ -979,7 +997,7 @@ mged_attach(struct mged_state *s, const char *wp_name, int argc, const char *arg
     (void)dm_make_current(ndmp);
     (void)dm_set_win_bounds(ndmp, windowbounds);
 
-    s->gedp->ged_gvp = ndm->dm_view_state->vs_gvp;
+    s->gedp->ged_gvp = pane->mp_view_state->vs_gvp;
     s->gedp->ged_gvp->gv_s->gv_grid = *pane->mp_grid_state; /* struct copy */
 
     /* Step 6.c: pane already in active_pane_set (added before mged_dm_init above).
@@ -988,9 +1006,9 @@ mged_attach(struct mged_state *s, const char *wp_name, int argc, const char *arg
 	/* Set gv_name from dm pathname so mged_pane_find_by_name finds it. */
 	struct bu_vls *dm_path = dm_get_pathname(ndmp);
 	if (dm_path && bu_vls_strlen(dm_path)) {
-	    if (!BU_VLS_IS_INITIALIZED(&ndm->dm_view_state->vs_gvp->gv_name))
-		bu_vls_init(&ndm->dm_view_state->vs_gvp->gv_name);
-	    bu_vls_sprintf(&ndm->dm_view_state->vs_gvp->gv_name,
+	    if (!BU_VLS_IS_INITIALIZED(&pane->mp_view_state->vs_gvp->gv_name))
+		bu_vls_init(&pane->mp_view_state->vs_gvp->gv_name);
+	    bu_vls_sprintf(&pane->mp_view_state->vs_gvp->gv_name,
 			  "%s", bu_vls_cstr(dm_path));
 	}
 	mged_pane_link_vars(pane);           /* populate HUD var names */
@@ -1161,20 +1179,22 @@ f_dm(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *argv[
 void
 dm_var_init(struct mged_state *s, struct mged_dm *target_dm, struct mged_dm *ndm)
 {
-    /* Step 7.16: The 8 non-view shareable resources are now owned by the pane
-     * (mged_pane_init_resources() allocates them in the wrapper pane BEFORE
-     * mged_dm_init() is called, and copies settings from s->mged_curr_pane).
-     * dm_var_init only needs to set up the view_state (still dm-owned). */
-    BU_ALLOC(ndm->dm_view_state, struct _view_state);
-    *ndm->dm_view_state = *target_dm->dm_view_state;		/* struct copy */
-    /* Step 7.8/7.10: Allocate a fresh vs_gvp for the new dm directly.
+    /* Step 7.17: view_state is now pane-owned.  ndm->dm_pane is the new pane
+     * (set in mged_pane_init_resources() before dm_var_init is called via mged_dm_init).
+     * Allocate mp_view_state in the new pane; copy settings from target_dm's pane. */
+    struct mged_pane *npane = ndm->dm_pane;
+    struct mged_pane *opane = target_dm->dm_pane;
+
+    BU_ALLOC(npane->mp_view_state, struct _view_state);
+    *npane->mp_view_state = *opane->mp_view_state;		/* struct copy */
+    /* Allocate a fresh vs_gvp for the new pane.
      * Do not use view_state macro (still refers to old pane's view state). */
     bsg_view *new_vs_gvp;
     BU_ALLOC(new_vs_gvp, bsg_view);
     BU_GET(new_vs_gvp->callbacks, struct bu_ptbl);
     bu_ptbl_init(new_vs_gvp->callbacks, 8, "bv callbacks");
 
-    *new_vs_gvp = *target_dm->dm_view_state->vs_gvp;	/* struct copy */
+    *new_vs_gvp = *opane->mp_view_state->vs_gvp;	/* struct copy */
 
     BU_GET(new_vs_gvp->gv_objs.db_objs, struct bu_ptbl);
     bu_ptbl_init(new_vs_gvp->gv_objs.db_objs, 8, "view_objs init");
@@ -1187,14 +1207,14 @@ dm_var_init(struct mged_state *s, struct mged_dm *target_dm, struct mged_dm *ndm
     new_vs_gvp->vset = &s->gedp->ged_views;
     new_vs_gvp->independent = 0;
 
-    new_vs_gvp->gv_clientData = (void *)ndm->dm_view_state;
+    new_vs_gvp->gv_clientData = (void *)npane->mp_view_state;
     new_vs_gvp->gv_s->adaptive_plot_csg = 0;
     new_vs_gvp->gv_s->redraw_on_zoom = 0;
     new_vs_gvp->gv_s->point_scale = 1.0;
     new_vs_gvp->gv_s->curve_scale = 1.0;
-    ndm->dm_view_state->vs_gvp = new_vs_gvp;
-    ndm->dm_view_state->vs_rc = 1;
-    view_ring_init(ndm->dm_view_state, (struct _view_state *)NULL);
+    npane->mp_view_state->vs_gvp = new_vs_gvp;
+    npane->mp_view_state->vs_rc = 1;
+    view_ring_init(npane->mp_view_state, (struct _view_state *)NULL);
 
     /* Step 7.15: Scalar state (owner, am_mode, adc_auto, grid_auto_size, etc.) moved
      * from mged_dm to mged_pane; initialized in mged_pane_init_resources().

@@ -1629,9 +1629,8 @@ f_postscript(ClientData clientData, Tcl_Interp *interpreter, int argc, const cha
     if (DMP) dm_set_dirty(DMP, 1);
     refresh(s);
 
-    /* Step 7.16: view_state is still dm-owned; update the dm's view_state pointer
-     * so that the postscript dm outputs to the right view. */
-    s->mged_curr_pane->mp_dm->dm_view_state = vsp;
+    /* Step 7.17: view_state now in pane; update pane's mp_view_state for postscript output. */
+    s->mged_curr_pane->mp_view_state = vsp;
     status = Tcl_Eval(interpreter, "release");
     set_curr_pane(s, dml_pane);
     s->gedp->ged_gvp = view_state->vs_gvp;

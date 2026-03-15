@@ -375,17 +375,15 @@ struct mged_dm {
     /* Step 7.12: dm_p_vlist removed — use mp_p_vlist on mged_pane. */
     /* Step 7.11: dm_tie removed — use mp_cmd_tie on mged_pane. */
 
-    /* Step 7.16: back-pointer to the owning mged_pane.  The pane owns the
-     * 8 non-view shareable resources (mp_adc_state … mp_dlist_state).
-     * dm_view_state remains dm-owned for now (complex view-ring lifecycle). */
+    /* Step 7.16: back-pointer to the owning mged_pane.  The pane owns ALL 9
+     * shareable resources (mp_adc_state … mp_view_state) after Step 7.17.
+     * dm_view_state removed from mged_dm in Step 7.17 — access via dm_pane->mp_view_state. */
     struct mged_pane	*dm_pane;		/* owning wrapper pane */
 
-    /* Shareable Resources — view_state remains dm-owned (Step 7.16).
-     * All other resource pointers are REMOVED (they live in dm_pane->mp_*). */
-    struct _view_state	*dm_view_state;
+    /* Shareable Resources — ALL resources now in dm_pane->mp_*. */
     /* Step 7.16: dm_adc_state, dm_menu_state, dm_rubber_band, dm_mged_variables,
-     * dm_color_scheme, dm_grid_state, dm_axes_state, dm_dlist_state removed —
-     * use dm_pane->mp_* for all 8 non-view shareable resources. */
+     * dm_color_scheme, dm_grid_state, dm_axes_state, dm_dlist_state removed. */
+    /* Step 7.17: dm_view_state removed — use dm_pane->mp_view_state. */
 
     /* Hooks */
     /* Step 7.14: dm_cmd_hook removed — always dm_commands; call directly. */

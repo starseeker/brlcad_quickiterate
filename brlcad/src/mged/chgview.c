@@ -2442,12 +2442,16 @@ view_ring_init(struct _view_state *vsp1, struct _view_state *vsp2)
 
 
 void
-view_ring_destroy(struct mged_dm *dlp)
+/* Step 7.17: view_ring_destroy now takes a _view_state * directly, removing
+ * the dependency on struct mged_dm (which no longer has dm_view_state). */
+view_ring_destroy(struct _view_state *vsp)
 {
     struct view_ring *vrp;
 
-    while (BU_LIST_NON_EMPTY(&dlp->dm_view_state->vs_headView.l)) {
-	vrp = BU_LIST_FIRST(view_ring, &dlp->dm_view_state->vs_headView.l);
+    if (!vsp) return;
+
+    while (BU_LIST_NON_EMPTY(&vsp->vs_headView.l)) {
+	vrp = BU_LIST_FIRST(view_ring, &vsp->vs_headView.l);
 	BU_LIST_DEQUEUE(&vrp->l);
 	bu_free((void *)vrp, "view_ring_destroy: vrp");
     }

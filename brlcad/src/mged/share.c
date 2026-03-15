@@ -268,24 +268,20 @@ f_share(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *ar
 	    else if (argv[1][1] == 'i' || argv[1][1] == 'I') {
 		if (!uflag) {
 		    /* free dlp2's view_state resources if currently not sharing */
-		    if (dlp2->dm_view_state->vs_rc == 1)
-			view_ring_destroy(dlp2);
+		    if (dlp2->dm_pane && dlp2->dm_pane->mp_view_state->vs_rc == 1)
+			view_ring_destroy(dlp2->dm_pane->mp_view_state);
 		}
 
-		/* view_state: still dm-owned (Step 7.16); use SHARE_RESOURCE_DM
-		 * and sync pane borrow pointers after sharing. */
-		SHARE_RESOURCE_DM(uflag, _view_state, dm_view_state, vs_rc, dlp1, dlp2, vls, "share: view_state");
-		/* Sync pane mp_view_state borrow pointers. */
-		if (dlp1->dm_pane) dlp1->dm_pane->mp_view_state = dlp1->dm_view_state;
-		if (dlp2->dm_pane) dlp2->dm_pane->mp_view_state = dlp2->dm_view_state;
+		/* Step 7.17: view_state now in pane (mp_view_state); use SHARE_RESOURCE. */
+		SHARE_RESOURCE(uflag, _view_state, mp_view_state, vs_rc, dlp1, dlp2, vls, "share: view_state");
 
 		if (uflag) {
 		    struct _view_state *ovsp;
-		    ovsp = dlp1->dm_view_state;
+		    ovsp = dlp1->dm_pane->mp_view_state;
 
 		    /* initialize dlp1's view_state */
-		    if (ovsp != dlp1->dm_view_state)
-			view_ring_init(dlp1->dm_view_state, ovsp);
+		    if (ovsp != dlp1->dm_pane->mp_view_state)
+			view_ring_init(dlp1->dm_pane->mp_view_state, ovsp);
 		}
 	    } else {
 		bu_vls_printf(&vls, "share: resource type '%s' unknown\n", argv[1]);
@@ -453,7 +449,7 @@ usurp_all_resources(struct mged_dm *dlp1, struct mged_dm *dlp2)
     if (p1->mp_dlist_state && !--p1->mp_dlist_state->dl_rc)
 	bu_free(p1->mp_dlist_state,    "usurp: p1 dlist_state");
 
-    /* Transfer p2's 8 resource pointers to p1. */
+    /* Transfer p2's 8 non-view resource pointers to p1. */
     p1->mp_adc_state      = p2->mp_adc_state;
     p1->mp_menu_state     = p2->mp_menu_state;
     p1->mp_rubber_band    = p2->mp_rubber_band;
@@ -466,6 +462,13 @@ usurp_all_resources(struct mged_dm *dlp1, struct mged_dm *dlp2)
     if (p2->mp_dlist_state && !--p2->mp_dlist_state->dl_rc)
 	bu_free(p2->mp_dlist_state,    "usurp: p2 dlist_state");
 
+    /* Step 7.17: view_state is now pane-owned too; usurp it like the others. */
+    if (p1->mp_view_state && !--p1->mp_view_state->vs_rc) {
+	view_ring_destroy(p1->mp_view_state);
+	bu_free((void *)p1->mp_view_state, "usurp: p1 view_state");
+    }
+    p1->mp_view_state = p2->mp_view_state;
+
     /* Null out p2's pointers (they now belong to p1 or were freed). */
     p2->mp_adc_state      = NULL;
     p2->mp_menu_state     = NULL;
@@ -475,33 +478,27 @@ usurp_all_resources(struct mged_dm *dlp1, struct mged_dm *dlp2)
     p2->mp_grid_state     = NULL;
     p2->mp_axes_state     = NULL;
     p2->mp_dlist_state    = NULL;
-
-    /* view_state: still dm-owned; usurp the dm's view_state pointer. */
-    if (dlp1->dm_view_state && !--dlp1->dm_view_state->vs_rc) {
-	view_ring_destroy(dlp1);
-	bu_free((void *)dlp1->dm_view_state, "usurp: view_state");
-    }
-    dlp1->dm_view_state = dlp2->dm_view_state;
-    dlp2->dm_view_state = (struct _view_state *)NULL;
+    p2->mp_view_state     = NULL;
 }
 
 
 /*
- * - decrement the reference count of all resources (pane-owned 8, plus dm_view_state)
+ * - decrement the reference count of all resources (all 9, now pane-owned)
  * - free all resources that are not being used
- * Step 7.16: non-view resources accessed via dlp->dm_pane->mp_*
+ * Step 7.17: view_state also pane-owned; accessed via dlp->dm_pane->mp_view_state
  */
 void
 free_all_resources(struct mged_dm *dlp)
 {
     struct mged_pane *pane = dlp->dm_pane;
 
-    if (dlp->dm_view_state && !--dlp->dm_view_state->vs_rc) {
-	view_ring_destroy(dlp);
-	bu_free((void *)dlp->dm_view_state, "free_all_resources: view_state");
-    }
-
     if (!pane) return;
+
+    if (pane->mp_view_state && !--pane->mp_view_state->vs_rc) {
+	view_ring_destroy(pane->mp_view_state);
+	bu_free((void *)pane->mp_view_state, "free_all_resources: view_state");
+    }
+    pane->mp_view_state = NULL;
 
     if (pane->mp_adc_state      && !--pane->mp_adc_state->adc_rc)
 	bu_free(pane->mp_adc_state,      "free_all_resources: adc_state");

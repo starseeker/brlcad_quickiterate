@@ -2143,25 +2143,19 @@ main(int argc, char *argv[])
     /* register application provided routines */
     /* Step 7.14: dm_cmd_hook removed — always dm_commands; no assignment needed. */
 
-    /* Step 7.16: The 8 non-view resources are now owned by the sentinel pane
-     * (mged_init_pane).  mged_pane_init_resources() below allocates them.
-     * Only dm_view_state is still allocated directly on mged_dm_init_state. */
-    BU_ALLOC(mged_dm_init_state->dm_view_state, struct _view_state);
-    mged_dm_init_state->dm_view_state->vs_rc = 1;
-    view_ring_init(mged_dm_init_state->dm_view_state, (struct _view_state *)NULL);
+    /* Step 7.17: ALL resources (including view_state) are now owned by the
+     * sentinel pane (mged_init_pane).  mged_pane_init_resources() allocates them.
+     * No resource allocation on mged_dm_init_state itself. */
 
     /* Step 7.2: Create a sentinel wrapper pane for mged_dm_init_state so that
      * mged_curr_pane is always non-NULL.  This avoids crashes from NULL dereferences
      * in the ternary macros before a real dm/Obol pane is attached.
-     * Step 7.16: mged_pane_init_resources() now allocates the 8 non-view resources
-     * in the pane (since s->mged_curr_pane is NULL at this point, it uses defaults)
-     * and sets mged_dm_init_state->dm_pane = init_pane. */
+     * Step 7.17: mged_pane_init_resources() allocates ALL 9 resources in the pane
+     * (including view_state) since s->mged_curr_pane is NULL → defaults path. */
     BU_GET(s->mged_init_pane, struct mged_pane);
     s->mged_init_pane->mp_dm  = mged_dm_init_state;
     s->mged_init_pane->mp_gvp = NULL;  /* no view until a dm is attached */
-    mged_pane_init_resources(s, s->mged_init_pane);  /* owns 8 resources + borrows view_state */
-    /* borrow view_state from dm (dm_var_init didn't run for the sentinel) */
-    s->mged_init_pane->mp_view_state = mged_dm_init_state->dm_view_state;
+    mged_pane_init_resources(s, s->mged_init_pane);  /* owns all 9 resources */
     s->mged_curr_pane = s->mged_init_pane;
 
     MAT_IDN(view_state->vs_ModelDelta);
