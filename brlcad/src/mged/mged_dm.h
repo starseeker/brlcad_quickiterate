@@ -403,8 +403,7 @@ struct mged_pane {
 
     /* Tcl display variable names (mirrors dm_fps_name, dm_aet_name, etc.).
      * Initialized by mged_pane_link_vars() when the pane is registered.
-     * Used by dotitles() (Stage 7: currently dotitles() skips Obol panes
-     * via the !DMP guard; these fields prepare for a future obol_dotitles). */
+     * Used by dotitles() (Step 7.20: dotitles uses these directly). */
     struct bu_vls   mp_fps_name;    /* "$::mged_display(%path,fps)" */
     struct bu_vls   mp_aet_name;    /* "$::mged_display(%path,aet)" */
     struct bu_vls   mp_ang_name;    /* "$::mged_display(%path,ang)" */
@@ -576,33 +575,12 @@ extern void mged_pane_free_resources(struct mged_pane *mp);
 
 #define BV_MAXFUNC	64	/* largest code used */
 
-#define GET_MGED_DM(p, id) { \
-    \
-    (p) = MGED_PANE_NULL; \
-    for (size_t dm_ind = 0; dm_ind < BU_PTBL_LEN(&active_pane_set); dm_ind++) { \
-	struct mged_pane *_mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, dm_ind); \
-	if (_mp->mp_dmp && (id) == dm_get_id(_mp->mp_dmp)) { \
-	    (p) = _mp; \
-	    break; \
-	} \
-    } \
-    \
-}
+/* Step 7.20: GET_MGED_DM — mp_dmp removed, always returns NULL. */
+#define GET_MGED_DM(p, id) { (void)(id); (p) = MGED_PANE_NULL; }
 
-/* Step 7.5: pane-based variant of GET_MGED_DM for doevent.c migration.
- * Finds the mged_pane whose legacy dm window-id matches `id`. */
-#define GET_MGED_PANE(p, id) { \
-    \
-    (p) = MGED_PANE_NULL; \
-    for (size_t dm_ind = 0; dm_ind < BU_PTBL_LEN(&active_pane_set); dm_ind++) { \
-	struct mged_pane *_mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, dm_ind); \
-	if (_mp->mp_dmp && (id) == dm_get_id(_mp->mp_dmp)) { \
-	    (p) = _mp; \
-	    break; \
-	} \
-    } \
-    \
-}
+/* Step 7.20: GET_MGED_PANE — mp_dmp removed, always returns NULL.
+ * (was: find pane by legacy dm window-id) */
+#define GET_MGED_PANE(p, id) { (void)(id); (p) = MGED_PANE_NULL; }
 
 extern double frametime;		/* defined in mged.c */
 extern int dm_pipe[];			/* defined in mged.c */

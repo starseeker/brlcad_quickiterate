@@ -304,11 +304,9 @@ new_edit_mats(struct mged_state *s)
 {
     struct mged_pane *save_pane = s->mged_curr_pane;
 
-    /* Step 6.b: use active_pane_set. */
+    /* Step 7.20: mp_dmp/mp_owner removed; iterate all panes. */
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (!mp->mp_dmp) continue;  /* skip Obol panes */
-	if (!mp->mp_owner) continue;
 
 	set_curr_pane(s, mp);
 	{
@@ -347,7 +345,6 @@ mged_view_callback(bsg_view *gvp,
     }
     vsp->vs_flag = 1;
     s->update_views = 1;
-    if (DMP) dm_set_dirty(DMP, 1);
 }
 
 
@@ -1226,8 +1223,7 @@ event_check(struct mged_state *s, int non_blocking)
 	/* Step 6.b: use active_pane_set (covers both legacy dm and Obol panes). */
 	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	    if (!mp->mp_owner) continue;
-
+	    /* Step 7.20: mp_owner removed. */
 	    set_curr_pane(s, mp);
 
 	    if (view_state->k.rot_m_flag) {
@@ -1921,7 +1917,6 @@ main(int argc, char *argv[])
     MAT_IDN(view_state->vs_ModelDelta);
 
     am_mode = AMM_IDLE;
-    owner = 1;
     frametime = 1;
 
     MAT_IDN(MEDIT(s)->model_changes);

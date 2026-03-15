@@ -363,7 +363,6 @@ cmd_ged_erase_wrapper(ClientData clientData, Tcl_Interp *interpreter, int argc, 
 
     solid_list_callback(s);
     s->update_views = 1;
-    if (DMP) dm_set_dirty(DMP, 1);
 
     return TCL_OK;
 }
@@ -437,7 +436,6 @@ cmd_ged_gqa(ClientData clientData, Tcl_Interp *interpreter, int argc, const char
 	return TCL_ERROR;
 
     s->update_views = 1;
-    if (DMP) dm_set_dirty(DMP, 1);
 
     return TCL_OK;
 }
@@ -837,8 +835,7 @@ cmd_ged_dm_wrapper(ClientData clientData, Tcl_Interp *interpreter, int argc, con
 
     if (!s->gedp->ged_gvp)
 	s->gedp->ged_gvp = view_state->vs_gvp;
-    /* Stage 7: DMP is NULL for Obol panes; set dmp to NULL explicitly. */
-    s->gedp->ged_gvp->dmp = DMP ? (void *)DMP : NULL;
+    s->gedp->ged_gvp->dmp = NULL; /* Step 7.20: DMP removed. */
 
     ret = (*ctp->ged_func)(s->gedp, argc, (const char **)argv);
     GED_OUTPUT;
@@ -876,14 +873,11 @@ cmd_screengrab(ClientData clientData, Tcl_Interp *interpreter, int argc, const c
 	return TCL_OK;
 
     /* Force the scene to be rendered before reading pixels. */
-    DMP_dirty = 1;
-    if (DMP) dm_set_dirty(DMP, 1);
     refresh(s);
 
     if (!s->gedp->ged_gvp)
 	s->gedp->ged_gvp = view_state->vs_gvp;
-    /* Stage 7: DMP is NULL for Obol panes; set dmp to NULL explicitly. */
-    s->gedp->ged_gvp->dmp = DMP ? (void *)DMP : NULL;
+    s->gedp->ged_gvp->dmp = NULL; /* Step 7.20: DMP removed. */
 
     ret = (*ctp->ged_func)(s->gedp, argc, (const char **)argv);
     GED_OUTPUT;
@@ -1458,30 +1452,15 @@ f_tie(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, const ch
     if (argc == 1) {
 	for (BU_LIST_FOR (clp, cmd_list, &head_cmd_list.l)) {
 	    bu_vls_trunc(&vls, 0);
-	    /* Step 7.4: cl_tie is mged_pane*; get dm pathname via mp_dm */
-	    if (clp->cl_tie && clp->cl_tie->mp_dmp) {
-		struct bu_vls *pn = dm_get_pathname(clp->cl_tie->mp_dmp);
-		if (pn && bu_vls_strlen(pn)) {
-		    bu_vls_printf(&vls, "%s %s", bu_vls_cstr(&clp->cl_name), bu_vls_cstr(pn));
-		    Tcl_AppendElement(interpreter, bu_vls_cstr(&vls));
-		}
-	    } else {
-		bu_vls_printf(&vls, "%s {}", bu_vls_cstr(&clp->cl_name));
-		Tcl_AppendElement(interpreter, bu_vls_cstr(&vls));
-	    }
-	}
-
-	bu_vls_trunc(&vls, 0);
-	if (clp->cl_tie && clp->cl_tie->mp_dmp) {
-	    struct bu_vls *pn = dm_get_pathname(clp->cl_tie->mp_dmp);
-	    if (pn && bu_vls_strlen(pn)) {
-		bu_vls_printf(&vls, "%s %s", bu_vls_cstr(&clp->cl_name), bu_vls_cstr(pn));
-		Tcl_AppendElement(interpreter, bu_vls_cstr(&vls));
-	    }
-	} else {
+	    /* Step 7.20: mp_dmp removed — always show empty tie. */
 	    bu_vls_printf(&vls, "%s {}", bu_vls_cstr(&clp->cl_name));
 	    Tcl_AppendElement(interpreter, bu_vls_cstr(&vls));
 	}
+
+	bu_vls_trunc(&vls, 0);
+/* Step 7.20: mp_dmp removed — always show empty tie. */
+	bu_vls_printf(&vls, "%s {}", bu_vls_cstr(&clp->cl_name));
+	Tcl_AppendElement(interpreter, bu_vls_cstr(&vls));
 
 	bu_vls_free(&vls);
 	return TCL_OK;
@@ -1525,15 +1504,8 @@ f_tie(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, const ch
 
     /* print out the display manager that we're tied to */
     if (argc == 2) {
-	/* Step 7.4: cl_tie is mged_pane*; get dm pathname via mp_dm */
-	if (clp->cl_tie && clp->cl_tie->mp_dmp) {
-	    struct bu_vls *pn = dm_get_pathname(clp->cl_tie->mp_dmp);
-	    if (pn && bu_vls_strlen(pn)) {
-		Tcl_AppendElement(interpreter, bu_vls_cstr(pn));
-	    }
-	} else {
-	    Tcl_AppendElement(interpreter, "");
-	}
+	/* Step 7.20: mp_dmp removed — no dm pathname. */
+	Tcl_AppendElement(interpreter, "");
 	bu_vls_free(&vls);
 	return TCL_OK;
     }
@@ -1543,18 +1515,8 @@ f_tie(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, const ch
     else
 	bu_vls_strcpy(&vls, argv[2]);
 
-    /* Step 7.4: search active_pane_set for the named dm wrapper pane; set both
-     * cl_tie (pane*) and the pane's mp_cmd_tie back-link. */
-    struct mged_pane *tlp = MGED_PANE_NULL;
-    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
-	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (!mp->mp_dmp) continue;
-	struct bu_vls *pn = dm_get_pathname(mp->mp_dmp);
-	if (pn && !bu_vls_strcmp(&vls, pn)) {
-	    tlp = mp;
-	    break;
-	}
-    }
+    /* Step 7.20: mp_dmp removed — search by pane name (Obol only). */
+    struct mged_pane *tlp = mged_pane_find_by_name(bu_vls_cstr(&vls));
 
     if (tlp == MGED_PANE_NULL) {
 	Tcl_AppendResult(interpreter, "f_tie: unrecognized path name - ",
@@ -1624,9 +1586,6 @@ f_postscript(ClientData clientData, Tcl_Interp *interpreter, int argc, const cha
     scroll_active = dml_pane->mp_scroll_active;
     scroll_y = dml_pane->mp_scroll_y;
     memmove((void *)scroll_array, (void *)dml_pane->mp_scroll_array, sizeof(struct scroll_item *) * 6);
-
-    DMP_dirty = 1;
-    if (DMP) dm_set_dirty(DMP, 1);
     refresh(s);
 
     /* Step 7.17: view_state now in pane; update pane's mp_view_state for postscript output. */
@@ -1672,12 +1631,7 @@ f_winset(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
 		}
 	    }
 	}
-	/* Legacy dm path: return the dm window pathname. */
-	if (!DMP) return TCL_OK;  /* Stage 7 (step 5.14): no dm attached */
-	struct bu_vls *pn = dm_get_pathname(DMP);
-	if (pn && bu_vls_strlen(pn)) {
-	    Tcl_AppendResult(interpreter, bu_vls_cstr(pn), (char *)NULL);
-	}
+	/* Step 7.20: DMP removed — no dm path name. */
 	return TCL_OK;
     }
 
@@ -1699,25 +1653,7 @@ f_winset(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
 	}
     }
 
-    /* Step 6.b: f_winset fallback: search active_pane_set for dm wrapper by pathname. */
-    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
-	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (!mp->mp_dmp) continue;
-	struct bu_vls *pn = dm_get_pathname(mp->mp_dmp);
-	if (pn && BU_STR_EQUAL(argv[1], bu_vls_cstr(pn))) {
-	    set_curr_pane(s, mp);
-
-	    if (s->mged_curr_pane->mp_cmd_tie)
-		curr_cmd_list = s->mged_curr_pane->mp_cmd_tie;
-	    else
-		curr_cmd_list = &head_cmd_list;
-
-	    if (s->gedp != GED_NULL)
-		s->gedp->ged_gvp = view_state->vs_gvp;
-
-	    return TCL_OK;
-	}
-    }
+    /* Step 7.20: mp_dmp removed — dm-by-pathname fallback removed. */
 
     Tcl_AppendResult(interpreter, "Unrecognized pathname - ", argv[1],
 		     "\n", (char *)NULL);
@@ -1963,7 +1899,6 @@ cmd_units(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *
     sf = s->dbip->dbi_base2local / sf;
     update_grids(s,sf);
     s->update_views = 1;
-    if (DMP) dm_set_dirty(DMP, 1);
 
     return TCL_OK;
 }
@@ -2079,13 +2014,7 @@ cmd_blast(ClientData clientData, Tcl_Interp *UNUSED(interpreter), int argc, cons
 		const char *av[1] = {"autoview"};
 		ged_exec_autoview(s->gedp, 1, (const char **)av);
 		s->update_views = 1;
-		/* Also update view_ring scale for legacy dm wrapper panes. */
-		if (mp->mp_dmp && mp->mp_view_state) {
-		    struct view_ring *vrp;
-		    (void)mged_svbase(s);
-		    for (BU_LIST_FOR(vrp, view_ring, &mp->mp_view_state->vs_headView.l))
-			vrp->vr_scale = view_state->vs_gvp->gv_scale;
-		}
+
 	    }
 	}
 	set_curr_pane(s, save_pane);
@@ -2112,10 +2041,7 @@ cmd_draw(ClientData clientData, Tcl_Interp *UNUSED(interpreter), int argc, const
     if (s->gedp)
 	gvp = s->gedp->ged_gvp;
 
-    if (gvp && DMP) {
-	gvp->gv_width = dm_get_width(DMP);
-	gvp->gv_height = dm_get_height(DMP);
-    }
+    /* Step 7.20: DMP removed — gv_width/height not set from dm. */
 
     return edit_com(s, argc, argv);
 }

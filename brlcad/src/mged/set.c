@@ -140,15 +140,7 @@ set_dirty_flag(const struct bu_structparse *UNUSED(sdp),
     MGED_CK_STATE(s);
     /* Stage 7: notify the Obol path via update_views. */
     s->update_views = 1;
-    /* Step 6.b: use active_pane_set. */
-    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
-	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (!mp->mp_dmp) continue;  /* skip Obol panes */
-	if (mp->mp_mged_variables == mged_variables) {
-	    mp->mp_dirty = 1;
-	    dm_set_dirty(mp->mp_dmp, 1);
-	}
-    }
+    /* Step 7.20: mp_dmp removed; update_views triggers Obol refresh. */
 }
 
 
@@ -328,10 +320,9 @@ set_scroll_private(const struct bu_structparse *UNUSED(sdp),
      * legacy dm wrapper panes; mged_curr_pane->mp_mged_variables is always valid). */
     struct _mged_variables *save_mv = save_pane->mp_mged_variables;
 
-    /* Step 6.b: use active_pane_set. */
+    /* Step 7.20: mp_dmp removed; iterate all panes. */
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (!mp->mp_dmp) continue;  /* skip Obol panes */
 	if (mp->mp_mged_variables == save_mv) {
 	    set_curr_pane(s, mp);
 
@@ -340,8 +331,6 @@ set_scroll_private(const struct bu_structparse *UNUSED(sdp),
 		    mged_svbase(s);
 
 		set_scroll(s);		/* set scroll_array for drawing the scroll bars */
-		DMP_dirty = 1;
-		dm_set_dirty(DMP, 1);
 	    }
 	}
     }
@@ -403,76 +392,7 @@ set_dlist(const struct bu_structparse *UNUSED(sdp),
     /* Step 7.7: compare via pane's mp_mged_variables instead of mged_curr_dm. */
     struct _mged_variables *save_mv = save_pane->mp_mged_variables;
 
-    if (mged_variables->mv_dlist) {
-	/* create display lists */
-
-	/* Step 6.b: for each wrapper pane that shares mged_variables with save_pane */
-	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
-	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	    if (!mp->mp_dmp) continue;  /* skip Obol panes */
-
-	    if (mp->mp_mged_variables != save_mv)
-		continue;
-
-	    if (dm_get_displaylist(mp->mp_dmp) &&
-		mp->mp_dlist_state->dl_active == 0) {
-		set_curr_pane(s, mp);
-		createDListAll((void *)s, NULL);
-		mp->mp_dlist_state->dl_active = 1;
-		mp->mp_dirty = 1;
-		dm_set_dirty(mp->mp_dmp, 1);
-	    }
-	}
-    } else {
-	/*
-	 * Free display lists if not being used by another display manager
-	 */
-
-	/* Step 6.b: for each wrapper pane that shares mged_variables with save_pane */
-	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
-	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-
-	    if (!mp->mp_dmp) continue;  /* skip Obol panes */
-	    if (mp->mp_mged_variables != save_mv)
-		continue;
-
-	    if (mp->mp_dlist_state->dl_active) {
-		/* for each wrapper pane mp2 that is sharing display lists with mp */
-		struct mged_pane *mp2 = MGED_PANE_NULL;
-		for (size_t pj = 0; pj < BU_PTBL_LEN(&active_pane_set); pj++) {
-		    struct mged_pane *m2 = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pj);
-
-		    if (!m2->mp_dmp) continue;  /* skip Obol panes */
-		    if (m2->mp_dlist_state != mp->mp_dlist_state)
-			continue;
-
-		    /* found mp2 that is actively using mp's display lists */
-		    if (mp2 && mp2->mp_mged_variables->mv_dlist) {
-			mp2 = m2;
-			break;
-		    }
-		}
-
-		/* these display lists are not being used, so free them */
-		if (mp2 == MGED_PANE_NULL) {
-		    mp->mp_dlist_state->dl_active = 0;
-
-		    /* Free each shape's display list individually via scene-root children */
-		    bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
-		    size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
-		    (void)dm_make_current(mp->mp_dmp);
-		    for (size_t si = 0; si < nshapes; si++) {
-			bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
-			if (sp->s_dlist) {
-			    (void)dm_free_dlists(mp->mp_dmp, sp->s_dlist, 1);
-			    sp->s_dlist = 0;
-			}
-		    }
-		}
-	    }
-	}
-    }
-
+    /* Step 7.20: display list loops removed (mp_dmp gone). */
     set_curr_pane(s, save_pane);
 }
 
@@ -499,9 +419,6 @@ set_perspective(const struct bu_structparse *sdp,
 	bsg_view_set_camera(view_state->vs_gvp, &_sp);
     }
 
-    /* keep display manager in sync */
-    if (DMP) dm_set_perspective(DMP, mged_variables->mv_perspective_mode);
-
     set_dirty_flag(sdp, name, base, value, data);
 }
 
@@ -524,9 +441,6 @@ establish_perspective(const struct bu_structparse *sdp,
 	_sp.perspective = mged_variables->mv_perspective;
 	bsg_view_set_camera(view_state->vs_gvp, &_sp);
     }
-
-    /* keep display manager in sync */
-    if (DMP) dm_set_perspective(DMP, mged_variables->mv_perspective_mode);
 
     set_dirty_flag(sdp, name, base, value, data);
 }
@@ -570,9 +484,6 @@ toggle_perspective(const struct bu_structparse *sdp,
 	_sp.perspective = mged_variables->mv_perspective;
 	bsg_view_set_camera(view_state->vs_gvp, &_sp);
     }
-
-    /* keep display manager in sync */
-    if (DMP) dm_set_perspective(DMP, mged_variables->mv_perspective_mode);
 
     set_dirty_flag(sdp, name, base, value, data);
 }

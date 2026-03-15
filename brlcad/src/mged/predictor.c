@@ -175,155 +175,9 @@ predictor_kill(struct mged_state *s)
  *		A --------------- B
  */
 void
-predictor_frame(struct mged_state *s)
+predictor_frame(struct mged_state *UNUSED(s))
 {
-    /* Stage 7 guard: skip libdm overlay drawing for Obol panes */
-    if (!DMP) return;
-
-    int i;
-    int nframes;
-    mat_t predictor;
-    mat_t predictorXv2m;
-    point_t m;		/* model coords */
-    point_t mA, mB, mC, mD, mE, mF, mG, mH, mI, mJ, mK, mL;
-    struct bu_list trail;
-    point_t framecenter_m;
-    point_t center_m;
-    vect_t delta_v;
-    vect_t right, up;
-    vect_t norm;
-
-    if (view_state->k.rot_v_flag == 0 &&
-	view_state->k.tra_v_flag == 0 &&
-	view_state->k.sca_flag == 0) {
-	predictor_kill(s);
-	return;
-    }
-
-    BSG_FREE_VLIST(s->vlfree, pv_head);
-
-    /* Advance into the future */
-    nframes = (int)(mged_variables->mv_predictor_advance / frametime);
-    if (nframes < 1) nframes = 1;
-
-    /* Build view2model matrix for the future time */
-    MAT_IDN(predictor);
-    for (i=0; i < nframes; i++) {
-	bn_mat_mul2(view_state->vs_ModelDelta, predictor);
-    }
-    {
-	struct bsg_camera _pred;
-	bsg_view_get_camera(view_state->vs_gvp, &_pred);
-	bn_mat_mul(predictorXv2m, predictor, _pred.view2model);
-	MAT_DELTAS_GET_NEG(center_m, _pred.center);
-    }
-
-    MAT4X3PNT(framecenter_m, predictor, center_m);
-
-    /*
-     * Draw the frame around the point framecenter_v.
-     */
-
-    /* Centering dot */
-    VSETALL(delta_v, 0.0);
-    TF_VL(m, delta_v);
-    BSG_ADD_VLIST(s->vlfree, pv_head, m, BSG_VLIST_LINE_MOVE);
-    BSG_ADD_VLIST(s->vlfree, pv_head, m, BSG_VLIST_LINE_DRAW);
-
-    /* The exterior rectangle */
-    VSET(delta_v, -TF_X, -TF_Y, 0.0);
-    TF_VL(mA, delta_v);
-
-    VSET(delta_v,  TF_X, -TF_Y, 0.0);
-    TF_VL(mB, delta_v);
-
-    VSET(delta_v,  TF_X,  TF_Y, 0.0);
-    TF_VL(mC, delta_v);
-
-    VSET(delta_v, -TF_X,  TF_Y, 0.0);
-    TF_VL(mD, delta_v);
-
-    /* The EFGH rectangle */
-    VSET(delta_v, -TF_X, -TF_Y+TF_BORD, 0.0);
-    TF_VL(mE, delta_v);
-
-    VSET(delta_v,  TF_X, -TF_Y+TF_BORD, 0.0);
-    TF_VL(mF, delta_v);
-
-    VSET(delta_v,  TF_X,  TF_Y-TF_BORD, 0.0);
-    TF_VL(mG, delta_v);
-
-    VSET(delta_v, -TF_X,  TF_Y-TF_BORD, 0.0);
-    TF_VL(mH, delta_v);
-
-    /* The IJKL rectangle */
-    VSET(delta_v, -TF_X+TF_BORD, -TF_Y+TF_BORD, 0.0);
-    TF_VL(mI, delta_v);
-
-    VSET(delta_v,  TF_X-TF_BORD, -TF_Y+TF_BORD, 0.0);
-    TF_VL(mJ, delta_v);
-
-    VSET(delta_v,  TF_X-TF_BORD,  TF_Y-TF_BORD, 0.0);
-    TF_VL(mK, delta_v);
-
-    VSET(delta_v, -TF_X+TF_BORD,  TF_Y-TF_BORD, 0.0);
-    TF_VL(mL, delta_v);
-
-    VSUB2(right, mB, mA);
-    VSUB2(up, mD, mA);
-    VCROSS(norm, right, up);
-    VUNITIZE(norm);
-
-    BSG_ADD_VLIST(s->vlfree, pv_head, norm, BSG_VLIST_POLY_START);
-    BSG_ADD_VLIST(s->vlfree, pv_head, mA, BSG_VLIST_POLY_MOVE);
-    BSG_ADD_VLIST(s->vlfree, pv_head, mB, BSG_VLIST_POLY_DRAW);
-    BSG_ADD_VLIST(s->vlfree, pv_head, mF, BSG_VLIST_POLY_DRAW);
-    BSG_ADD_VLIST(s->vlfree, pv_head, mE, BSG_VLIST_POLY_DRAW);
-    BSG_ADD_VLIST(s->vlfree, pv_head, mA, BSG_VLIST_POLY_END);
-
-    BSG_ADD_VLIST(s->vlfree, pv_head, norm, BSG_VLIST_POLY_START);
-    BSG_ADD_VLIST(s->vlfree, pv_head, mE, BSG_VLIST_POLY_MOVE);
-    BSG_ADD_VLIST(s->vlfree, pv_head, mI, BSG_VLIST_POLY_DRAW);
-    BSG_ADD_VLIST(s->vlfree, pv_head, mL, BSG_VLIST_POLY_DRAW);
-    BSG_ADD_VLIST(s->vlfree, pv_head, mH, BSG_VLIST_POLY_DRAW);
-    BSG_ADD_VLIST(s->vlfree, pv_head, mE, BSG_VLIST_POLY_END);
-
-    BSG_ADD_VLIST(s->vlfree, pv_head, norm, BSG_VLIST_POLY_START);
-    BSG_ADD_VLIST(s->vlfree, pv_head, mH, BSG_VLIST_POLY_MOVE);
-    BSG_ADD_VLIST(s->vlfree, pv_head, mG, BSG_VLIST_POLY_DRAW);
-    BSG_ADD_VLIST(s->vlfree, pv_head, mC, BSG_VLIST_POLY_DRAW);
-    BSG_ADD_VLIST(s->vlfree, pv_head, mD, BSG_VLIST_POLY_DRAW);
-    BSG_ADD_VLIST(s->vlfree, pv_head, mH, BSG_VLIST_POLY_END);
-
-    BSG_ADD_VLIST(s->vlfree, pv_head, norm, BSG_VLIST_POLY_START);
-    BSG_ADD_VLIST(s->vlfree, pv_head, mJ, BSG_VLIST_POLY_MOVE);
-    BSG_ADD_VLIST(s->vlfree, pv_head, mF, BSG_VLIST_POLY_DRAW);
-    BSG_ADD_VLIST(s->vlfree, pv_head, mG, BSG_VLIST_POLY_DRAW);
-    BSG_ADD_VLIST(s->vlfree, pv_head, mK, BSG_VLIST_POLY_DRAW);
-    BSG_ADD_VLIST(s->vlfree, pv_head, mJ, BSG_VLIST_POLY_END);
-
-    push_trail(&pane_trails[0], mA);
-    push_trail(&pane_trails[1], mB);
-    push_trail(&pane_trails[2], mC);
-    push_trail(&pane_trails[3], mD);
-
-    push_trail(&pane_trails[4], mE);
-    push_trail(&pane_trails[5], mF);
-    push_trail(&pane_trails[6], mG);
-    push_trail(&pane_trails[7], mH);
-
-    /* Draw the trails */
-    poly_trail(s, &trail, &pane_trails[0], &pane_trails[4]);
-    BU_LIST_APPEND_LIST(pv_head, &trail);
-    poly_trail(s, &trail, &pane_trails[1], &pane_trails[5]);
-    BU_LIST_APPEND_LIST(pv_head, &trail);
-    poly_trail(s, &trail, &pane_trails[6], &pane_trails[2]);
-    BU_LIST_APPEND_LIST(pv_head, &trail);
-    poly_trail(s, &trail, &pane_trails[7], &pane_trails[3]);
-    BU_LIST_APPEND_LIST(pv_head, &trail);
-
-    /* Done */
-    MAT_IDN(view_state->vs_ModelDelta);
+    /* Step 7.20: libdm removed — no-op. */
 }
 
 
@@ -340,9 +194,8 @@ predictor_hook(const struct bu_structparse *UNUSED(sp), const char *UNUSED(c1), 
 	predictor_init(s);
     else
 	predictor_kill(s);
-
-    DMP_dirty = 1;
-    dm_set_dirty(DMP, 1);
+    /* Step 7.20: DMP_dirty removed. */
+    s->update_views = 1;
 }
 
 
