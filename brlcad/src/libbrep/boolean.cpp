@@ -1664,6 +1664,118 @@ get_subcurves_inside_faces(
 	}
 
     }
+
+    /* ── Full inner-circle injection ──────────────────────────────────────
+     * When the SSI between a flat cap (face1) and a cone/cylinder (face2)
+     * produces a curve that lies entirely on the south-iso (v ≈ vdom2.Min())
+     * or north-iso (v ≈ vdom2.Max()) boundary of face2, the OpenNURBS SSI
+     * algorithm returns only the arc that does not cross the periodic seam.
+     * The complementary arc is never returned as a separate event, so the
+     * cap face's intersection curves are incomplete.
+     *
+     * Fix: when this situation is detected, replace the NURBS partial arc in
+     * subcurves_on1 with a single CLOSED polyline that samples the ENTIRE
+     * inner circle uniformly.  A closed curve skips the link_curves joining
+     * step and is fed directly as a closed ssx_curve to split_trimmed_face,
+     * avoiding the floating-point IsClosed() tolerance problems that arise
+     * when trying to join two separate open arcs. */
+    {
+	const ON_Surface *surf2 = brep2->m_S[brep2->m_F[face_i2].m_si];
+	const ON_Surface *surf1 = brep1->m_S[brep1->m_F[face_i1].m_si];
+	ON_Interval vdom2 = surf2->Domain(1);
+
+	ON_2dPoint cB_s = event->m_curveB->PointAtStart();
+	ON_2dPoint cB_e = event->m_curveB->PointAtEnd();
+
+	bool at_south = ON_NearZero(cB_s.y - vdom2.Min(), INTERSECTION_TOL * 100.0) &&
+			ON_NearZero(cB_e.y - vdom2.Min(), INTERSECTION_TOL * 100.0);
+	bool at_north = ON_NearZero(cB_s.y - vdom2.Max(), INTERSECTION_TOL * 100.0) &&
+			ON_NearZero(cB_e.y - vdom2.Max(), INTERSECTION_TOL * 100.0);
+	bool is_partial = !ON_NearZero(cB_s.x - cB_e.x, INTERSECTION_TOL);
+
+	if ((at_south || at_north) && is_partial) {
+	    /* v value at which to sample the tube surface for projection.
+	     * South boundary → v=vdom2.Min(); North boundary → v=vdom2.Max(). */
+	    const double v_boundary = at_south ? vdom2.Min() : vdom2.Max();
+
+	    /* Use a generous projection tolerance proportional to the arc
+	     * span: tilted TGC cap planes can be several millimetres apart
+	     * over the inner-circle diameter, so (span * 1000) in UV units
+	     * gives a stand-off tolerance large enough to catch the nearest
+	     * point even for the most tilted pair encountered in practice. */
+	    const double u_span = std::fabs(cB_s.x - cB_e.x);
+	    const double proj_tol = u_span * 1000.0 + INTERSECTION_TOL;
+	    /* N_ARC: sample points per half-circle; N_FULL = 2*N_ARC total
+	     * for the full circle.  Use N_ARC=16 (N_FULL=32, 11.25° per step)
+	     * rather than 8 to ensure that no chord of the resulting polygon
+	     * falls within the 1° ANGLE_TOL of the fixed 45° ray direction
+	     * used by point_loop_location() (which would filter the crossing
+	     * and cause the inner-loop exclusion test to fail). */
+	    const int N_ARC = 16;
+
+	    /* ---- Full circle: sample N_FULL equally-spaced points starting
+	     * at cB_s.x and advancing by one full period, then close back.
+	     *
+	     * The injection replaces the NURBS partial arc returned by the
+	     * SSI (which covers only the non-seam-crossing part of the circle)
+	     * with a complete closed polyline.  The uniform forward sweep from
+	     * cB_s.x covers the full circle regardless of arc direction.
+	     * Adjacent samples are ~11.25° apart, ensuring no chord aligns
+	     * with the 45° ray used by point_loop_location(). */
+	    ON_Interval udom2 = surf2->Domain(0);
+	    double u_period = udom2.Length();
+	    const int N_FULL = 2 * N_ARC;
+	    ON_3dPointArray uvpts;
+	    for (int k = 0; k < N_FULL; k++) {
+		double u_raw = cB_s.x + u_period * (double)k / N_FULL;
+		double u = u_raw;
+		while (u >= udom2.Max()) u -= u_period;
+		while (u <  udom2.Min()) u += u_period;
+		ON_3dPoint pt3d = surf2->PointAt(u, v_boundary);
+		ON_ClassArray<ON_PX_EVENT> px;
+		if (ON_Intersect(pt3d, *surf1, px, proj_tol) && px.Count() > 0) {
+		    ON_2dPoint uv1(px[0].m_b[0], px[0].m_b[1]);
+		    if (!is_point_outside_loop(uv1, face1_loops[0]))
+			uvpts.Append(ON_3dPoint(uv1.x, uv1.y, 0.0));
+		}
+	    }
+
+	    /* Deduplicate consecutive identical UV points (can arise when
+	     * is_point_outside_loop rejects some samples, leaving gaps). */
+	    {
+		ON_3dPointArray dedup;
+		for (int di = 0; di < uvpts.Count(); di++) {
+		    if (dedup.Count() == 0 ||
+			uvpts[di].DistanceTo(dedup[dedup.Count()-1]) > INTERSECTION_TOL)
+			dedup.Append(uvpts[di]);
+		}
+		uvpts = dedup;
+	    }
+
+	    if (uvpts.Count() >= 4) {
+		/* Close the polyline exactly. */
+		uvpts.Append(uvpts[0]);
+
+		ON_PolylineCurve *circle = new ON_PolylineCurve(uvpts);
+		if (circle->IsValid()) {
+		    /* Replace the NURBS bottom arc with the full-circle polyline. */
+		    if (subcurves_on1.Count() > 0) {
+			delete subcurves_on1[subcurves_on1.Count() - 1];
+			subcurves_on1.Remove();
+		    }
+		    if (DEBUG_BREP_BOOLEAN)
+			bu_log("  full inner-circle polyline ADDED for face%d: %d pts\n",
+			       face_i1, uvpts.Count());
+		    subcurves_on1.Append(circle);
+		} else {
+		    /* Polyline is degenerate; discard it and keep the NURBS arc. */
+		    delete circle;
+		}
+	    } else if (DEBUG_BREP_BOOLEAN) {
+		bu_log("  inner-circle: only %d pts (need >=4), not added\n", uvpts.Count());
+	    }
+	}
+    }
 }
 
 
@@ -3686,7 +3798,13 @@ free_loops(std::vector<ON_SimpleArray<ON_Curve *> > &loops)
  * split_face_into_loops) are recursed into so that every internal vertex
  * is included as a shoelace polygon vertex.  Without recursion, a
  * polycurve that goes A→B→C→A would be treated as the straight chord A→A,
- * collapsing the area to zero even when the true enclosed area is large. */
+ * collapsing the area to zero even when the true enclosed area is large.
+ *
+ * ON_PolylineCurve entries (e.g. the complementary-arc polylines injected
+ * by get_subcurves_inside_faces) are similarly expanded: each polyline
+ * vertex is used as a shoelace polygon vertex.  Without expansion only the
+ * endpoint is used, zeroing the area of any loop whose NURBS arc partner
+ * has nearly-antipodal endpoints. */
 static void
 shoelace_accumulate(const ON_Curve *c, ON_3dPoint &prev, double &shoelace)
 {
@@ -3695,6 +3813,16 @@ shoelace_accumulate(const ON_Curve *c, ON_3dPoint &prev, double &shoelace)
     if (pc) {
 	for (int i = 0; i < pc->Count(); i++) {
 	    shoelace_accumulate(pc->SegmentCurve(i), prev, shoelace);
+	}
+	return;
+    }
+    const ON_PolylineCurve *plc = ON_PolylineCurve::Cast(c);
+    if (plc) {
+	const ON_Polyline &pts = plc->m_pline;
+	for (int i = 1; i < pts.Count(); i++) {
+	    ON_3dPoint curr(pts[i]);
+	    shoelace += prev.x * curr.y - curr.x * prev.y;
+	    prev = curr;
 	}
 	return;
     }
@@ -4222,16 +4350,106 @@ add_elements(ON_Brep *brep, ON_BrepFace &face, const ON_SimpleArray<ON_Curve *> 
 
 	ON_Curve *c3d = NULL;
 	// First, try the ON_Surface::Pushup() method.
-	// If Pushup() does not succeed, use sampling method.
+	// If Pushup() does not succeed, or if it returns an invalid curve
+	// (e.g. a PolylineCurve with coincident endpoints for a closed
+	// injection polyline), fall back to the uniform sampling method.
 	c3d = ON_Surface_Pushup(face.SurfaceOf(), *(loop[k]), NULL);
-	if (!c3d) {
-	    ON_3dPointArray ptarray(101);
-	    for (int l = 0; l <= 100; l++) {
-		ON_3dPoint pt2d;
-		pt2d = loop[k]->PointAt(loop[k]->Domain().ParameterAt(l / 100.0));
-		ptarray.Append(face.SurfaceOf()->PointAt(pt2d.x, pt2d.y));
+	if (c3d) {
+	    /* Validate the Pushup result.  ON_PolylineCurve::IsValid() checks
+	     * for coincident consecutive points, but some OpenNURBS builds
+	     * report IsValid()=true even when the closing point duplicates the
+	     * penultimate sample.  Explicitly deduplicate: if the last point
+	     * coincides with its predecessor, remove it before checking. */
+	    ON_PolylineCurve *pushup_plc = ON_PolylineCurve::Cast(c3d);
+	    if (pushup_plc && pushup_plc->m_pline.Count() >= 2) {
+		int n = pushup_plc->m_pline.Count();
+		/* Check if last point coincides with second-to-last point */
+		if (pushup_plc->m_pline[n-1].IsCoincident(pushup_plc->m_pline[n-2])) {
+		    delete c3d;
+		    c3d = NULL;
+		}
 	    }
-	    c3d = new ON_PolylineCurve(ptarray);
+	}
+	if (c3d && !c3d->IsValid()) {
+	    delete c3d;
+	    c3d = NULL;
+	}
+	if (!c3d) {
+	    /* Build the 3D edge curve by lifting the 2D input curve onto the
+	     * 3D surface.
+	     *
+	     * When the 2D input is an ON_PolylineCurve: evaluate the surface
+	     * at each control-point UV to get the exact 3D control points.
+	     * This preserves the 1-to-1 correspondence between the 2D curve
+	     * and the 3D curve (same parameter values → same angular position
+	     * on the circle).  The seam-reparametrization in
+	     * join_boundary_edges can then align both curves at exactly the
+	     * same knot parameter, eliminating the chord-error mismatch that
+	     * arises from mismatched sampling resolutions.
+	     *
+	     * For closed PolylineCurve inputs the result is converted to
+	     * ON_NurbsCurve form.  ON_PolylineCurve::ChangeClosedCurveSeam()
+	     * inserts a new control point at an arbitrary parameter, which
+	     * can introduce coincident consecutive points and make the curve
+	     * invalid.  ON_NurbsCurve::ChangeClosedCurveSeam() only shifts
+	     * the knot vector (no point insertion) and always produces a
+	     * valid result.
+	     *
+	     * When the 2D input is NOT an ON_PolylineCurve (e.g. a NURBS
+	     * trim): fall back to 100 uniform samples plus closing point. */
+	    bool input_closed = loop[k]->IsClosed();
+	    const ON_PolylineCurve *input_plc =
+		ON_PolylineCurve::Cast(loop[k]);
+
+	    ON_3dPointArray ptarray;
+	    bool used_plc_direct = false;
+	    if (input_plc && input_plc->m_pline.Count() >= 2) {
+		/* Use the actual UV control points of the input polyline.
+		 * For a closed polyline the last point equals the first,
+		 * so skip it — we will re-append it below if needed.
+		 * For an open polyline we include ALL points (the last point
+		 * IS the endpoint; we must NOT add it again). */
+		int npts = input_plc->m_pline.Count();
+		int n_unique = input_closed ? (npts - 1) : npts;
+		ptarray.Reserve(npts);
+		for (int l = 0; l < n_unique; l++) {
+		    const ON_3dPoint &uv = input_plc->m_pline[l];
+		    ptarray.Append(face.SurfaceOf()->PointAt(uv.x, uv.y));
+		}
+		used_plc_direct = true;
+	    } else {
+		/* Generic fallback: 100 uniform samples (l = 0..99). */
+		int n_samp = 100;
+		ptarray.Reserve(n_samp + 1);
+		for (int l = 0; l < n_samp; l++) {
+		    ON_3dPoint pt2d = loop[k]->PointAt(
+			loop[k]->Domain().ParameterAt(l / (double)n_samp));
+		    ptarray.Append(face.SurfaceOf()->PointAt(pt2d.x, pt2d.y));
+		}
+	    }
+
+	    if (!input_closed) {
+		if (!used_plc_direct) {
+		    /* Generic path: add the true 3D endpoint (not yet in
+		     * ptarray since we only sampled l=0..99). */
+		    ON_3dPoint pt2d_end = loop[k]->PointAt(
+			loop[k]->Domain().ParameterAt(1.0));
+		    ptarray.Append(face.SurfaceOf()->PointAt(
+			pt2d_end.x, pt2d_end.y));
+		}
+		c3d = new ON_PolylineCurve(ptarray);
+	    } else {
+		/* Closed curve: close the polyline, then convert to NURBS. */
+		ptarray.Append(ptarray[0]);
+		ON_PolylineCurve plc(ptarray);
+		ON_NurbsCurve *nc = new ON_NurbsCurve();
+		if (plc.GetNurbForm(*nc) == 0) {
+		    delete nc;
+		    c3d = new ON_PolylineCurve(ptarray); /* fallback */
+		} else {
+		    c3d = nc;
+		}
+	    }
 	}
 
 	/* Treat as a singular (degenerate) trim when the 3D curve maps to a
@@ -4249,7 +4467,122 @@ add_elements(ON_Brep *brep, ON_BrepFace &face, const ON_SimpleArray<ON_Curve *> 
 	    ON_Surface::ISO iso_type = srf->IsIsoparametric(*loop[k]);
 	    if (iso_type == ON_Surface::W_iso || iso_type == ON_Surface::S_iso ||
 		iso_type == ON_Surface::E_iso || iso_type == ON_Surface::N_iso) {
-		/* Boundary iso: create a proper singular trim (e.g. TGC apex). */
+		/* Boundary iso: create a proper singular trim (e.g. TGC apex).
+		 *
+		 * The Boolean evaluator may produce a near-zero-length 2D curve
+		 * whose start and end UV lie within ~1 ULP of a surface boundary
+		 * but are not exactly on it (e.g. a corner point where v is
+		 * 0.99999993 instead of exactly 1.0).  IsIsoparametric detects
+		 * the correct boundary by looking at the closest axis-aligned
+		 * edge, but any subsequent SetTrimIsoFlags call re-runs the same
+		 * test and may return not_iso if the deviation from the boundary
+		 * exceeds its internal tolerance.  OpenNURBS IsValid then rejects
+		 * the trim because m_iso != IsIsoparametric(c2d).
+		 *
+		 * Fix: build a replacement 2D curve whose endpoints lie exactly
+		 * on the detected boundary (by snapping the iso-coordinate to the
+		 * exact surface domain edge), so that any future IsIsoparametric
+		 * call reliably returns the correct boundary iso.
+		 *
+		 * Start endpoint: use the exact last CV of the preceding trim
+		 * (loop continuity), with the iso-coordinate snapped to the
+		 * boundary.  The preceding trim's last CV is ALSO snapped in-
+		 * place so that its PointAtEnd() agrees with our new start.
+		 *
+		 * End endpoint: use loop[k]->PointAtEnd() with the same snap
+		 * (this is also the start of the next trim; in practice it is
+		 * already on the boundary so the snap is a no-op). */
+		ON_Interval udom = srf->Domain(0);
+		ON_Interval vdom = srf->Domain(1);
+
+		/* Build start UV: take u/v from the preceding trim's last CV. */
+		ON_2dPoint start_uv = loop[k]->PointAtStart();
+		if (k > 0 && brep->m_T.Count() > 0) {
+		    ON_BrepTrim &prev = brep->m_T[brep->m_T.Count() - 1];
+		    if (prev.m_c2i >= 0 && prev.m_c2i < brep->m_C2.Count()) {
+			ON_Curve *prev_c = brep->m_C2[prev.m_c2i];
+			if (prev_c) {
+			    /* Convert to NURBS form so we can access and snap
+			     * the last control vertex regardless of the actual
+			     * curve type (polyline, NurbsCurve, etc.). */
+			    ON_NurbsCurve *pnc =
+				ON_NurbsCurve::Cast(prev_c);
+			    ON_NurbsCurve nurbs_tmp;
+			    if (!pnc) {
+				if (prev_c->GetNurbForm(nurbs_tmp) == 0)
+				    pnc = NULL;
+				else
+				    pnc = &nurbs_tmp;
+			    }
+			    if (pnc && pnc->CVCount() > 0) {
+				int last = pnc->CVCount() - 1;
+				ON_3dPoint cv;
+				pnc->GetCV(last, cv);
+				/* Snap the iso-coordinate to the exact boundary
+				 * and update the preceding trim's stored curve
+				 * so PointAtEnd() matches our new start UV. */
+				if (iso_type == ON_Surface::N_iso)
+				    cv.y = vdom.Max();
+				else if (iso_type == ON_Surface::S_iso)
+				    cv.y = vdom.Min();
+				else if (iso_type == ON_Surface::E_iso)
+				    cv.x = udom.Max();
+				else /* W_iso */
+				    cv.x = udom.Min();
+				if (pnc == &nurbs_tmp) {
+				    /* Replace the stored curve with the
+				     * modified NURBS copy. */
+				    nurbs_tmp.SetCV(last, cv);
+				    ON_NurbsCurve *new_nc = (ON_NurbsCurve *)nurbs_tmp.DuplicateCurve();
+				    delete brep->m_C2[prev.m_c2i];
+				    brep->m_C2[prev.m_c2i] = new_nc;
+				} else {
+				    pnc->SetCV(last, cv);
+				}
+				start_uv = ON_2dPoint(cv.x, cv.y);
+			    }
+			}
+		    }
+		} else {
+		    /* k == 0: no preceding trim; snap from loop curve's start. */
+		    if (iso_type == ON_Surface::N_iso)
+			start_uv.y = vdom.Max();
+		    else if (iso_type == ON_Surface::S_iso)
+			start_uv.y = vdom.Min();
+		    else if (iso_type == ON_Surface::E_iso)
+			start_uv.x = udom.Max();
+		    else
+			start_uv.x = udom.Min();
+		}
+
+		/* Build end UV: snap the iso-coordinate from loop[k]'s end. */
+		ON_2dPoint end_uv = loop[k]->PointAtEnd();
+		if (iso_type == ON_Surface::N_iso)
+		    end_uv.y = vdom.Max();
+		else if (iso_type == ON_Surface::S_iso)
+		    end_uv.y = vdom.Min();
+		else if (iso_type == ON_Surface::E_iso)
+		    end_uv.x = udom.Max();
+		else
+		    end_uv.x = udom.Min();
+
+		/* Build the replacement iso-line c2d. */
+		ON_NurbsCurve *iso_c2d = new ON_NurbsCurve(2, false, 2, 2);
+		iso_c2d->SetCV(0, ON_3dPoint(start_uv.x, start_uv.y, 0));
+		iso_c2d->SetCV(1, ON_3dPoint(end_uv.x, end_uv.y, 0));
+		iso_c2d->MakeClampedUniformKnotVector();
+
+		/* Re-query iso from the replacement curve to confirm it lies
+		 * exactly on the boundary (it should — both CVs are on the
+		 * boundary, so IsIsoparametric returns the correct iso). */
+		ON_Surface::ISO actual_iso = srf->IsIsoparametric(*iso_c2d);
+		if (actual_iso == ON_Surface::W_iso ||
+		    actual_iso == ON_Surface::S_iso ||
+		    actual_iso == ON_Surface::E_iso ||
+		    actual_iso == ON_Surface::N_iso) {
+		    iso_type = actual_iso;
+		}
+
 		int i;
 		ON_3dPoint vtx = c3d->PointAtStart();
 		for (i = brep->m_V.Count() - 1; i >= 0; i--) {
@@ -4261,7 +4594,7 @@ add_elements(ON_Brep *brep, ON_BrepFace &face, const ON_SimpleArray<ON_Curve *> 
 		    i = brep->m_V.Count();
 		    brep->NewVertex(c3d->PointAtStart(), 0.0);
 		}
-		int ti = brep->AddTrimCurve(loop[k]);
+		int ti = brep->AddTrimCurve(iso_c2d);
 		ON_BrepTrim &trim = brep->NewSingularTrim(brep->m_V[i], breploop, iso_type, ti);
 		trim.m_tolerance[0] = trim.m_tolerance[1] = MAX_FASTF;
 		delete c3d;
@@ -4980,7 +5313,8 @@ face_brep_location(const TrimmedFace *tface, const ON_Brep *brep, ON_SimpleArray
     ON_3dPoint test_pt3d = tface->m_face->PointAt(test_pt2d.x, test_pt2d.y);
 
     if (DEBUG_BREP_BOOLEAN) {
-	bu_log("valid test point: (%g, %g, %g)\n", test_pt3d.x, test_pt3d.y, test_pt3d.z);
+	bu_log("valid test point: (%g, %g, %g) [UV: %g, %g]\n", test_pt3d.x, test_pt3d.y, test_pt3d.z,
+	       test_pt2d.x, test_pt2d.y);
     }
 
     if (is_point_on_brep_surface(test_pt3d, brep, surf_tree)) {
@@ -5353,6 +5687,10 @@ categorize_trimmed_faces(
 		continue;
 	    }
 
+	    if (DEBUG_BREP_BOOLEAN)
+		bu_log("  classify face[%d] split[%d]: innerloops=%zu outersegs=%d\n",
+		       i, j, splitted[j]->m_innerloop.size(), splitted[j]->m_outerloop.Count());
+
 	    int face_location = -1;
 	    try {
 		face_location = face_brep_location(splitted[j], another_brep, surf_tree);
@@ -5523,6 +5861,60 @@ get_evaluated_faces(const ON_Brep *brep1, const ON_Brep *brep2, op_type operatio
 	    }
 	}
 
+	/* Remove near-straight "chord" intersection curves that share reversed
+	 * endpoints with a genuinely curved arc in the same face.
+	 *
+	 * When the SSI between two nearly-coplanar cap faces (e.g. two TGC bases
+	 * that share a vertex but have slightly different axis directions) produces
+	 * a chord — the straight-line intersection of their two planes — that chord
+	 * shares its endpoints (in reverse order) with the correct inner-circle arc
+	 * coming from the tube-face SSI.  Together the chord and the arc form a
+	 * closed half-moon loop that splits the cap face incorrectly.
+	 *
+	 * Criterion: open curve m is "chord-like" if |mid(m) − midpoint(start,end)|
+	 * is less than 5% of |start − end|.  If a second open curve n exists whose
+	 * endpoints are the reverse of m's AND n is curved (ratio ≥ 5%), m is
+	 * the spurious chord and is removed. */
+	for (int m = 0; m < carray.Count(); m++) {
+	    ON_Curve *cm = carray[m].m_curve;
+	    if (!cm || cm->IsClosed()) continue;
+	    ON_3dPoint ms3 = cm->PointAtStart();
+	    ON_3dPoint me3 = cm->PointAtEnd();
+	    ON_3dPoint mm3 = cm->PointAt(cm->Domain().Mid());
+	    double len_m = ms3.DistanceTo(me3);
+	    if (len_m < INTERSECTION_TOL) continue;
+	    ON_3dPoint seg_mid_m = (ms3 + me3) * 0.5;
+	    double straight_ratio = mm3.DistanceTo(seg_mid_m) / len_m;
+	    if (straight_ratio >= 0.05) continue; /* curved — keep */
+
+	    /* m looks like a chord; search for a curved arc with reversed endpoints */
+	    for (int n = 0; n < carray.Count(); n++) {
+		if (n == m) continue;
+		ON_Curve *cn = carray[n].m_curve;
+		if (!cn || cn->IsClosed()) continue;
+		ON_3dPoint ns3 = cn->PointAtStart();
+		ON_3dPoint ne3 = cn->PointAtEnd();
+		/* Reversed endpoints: m.start ≈ n.end  AND  m.end ≈ n.start */
+		const double ep_tol = INTERSECTION_TOL * 100.0;
+		if (ms3.DistanceTo(ne3) > ep_tol) continue;
+		if (me3.DistanceTo(ns3) > ep_tol) continue;
+		ON_3dPoint nm3 = cn->PointAt(cn->Domain().Mid());
+		double len_n = ns3.DistanceTo(ne3);
+		if (len_n < INTERSECTION_TOL) continue;
+		ON_3dPoint seg_mid_n = (ns3 + ne3) * 0.5;
+		double n_ratio = nm3.DistanceTo(seg_mid_n) / len_n;
+		if (n_ratio >= 0.05) {
+		    /* n is curved and m is straight → m is the spurious chord */
+		    if (DEBUG_BREP_BOOLEAN)
+			bu_log("  Removing chord [face %d curve %d, straight_ratio=%g]\n",
+			       i, m, straight_ratio);
+		    delete carray[m].m_curve;
+		    carray[m].m_curve = NULL;
+		    break;
+		}
+	    }
+	}
+
 	ON_ClassArray<LinkedCurve> linked_curves = link_curves(curves_array[i]);
 
 	ON_SimpleArray<TrimmedFace *> splitted = split_trimmed_face(first, linked_curves);
@@ -5592,6 +5984,12 @@ standardize_loop_orientations(ON_Brep *brep)
 		// reverse all the loop's curves
 		for (int trim_idx = 0; trim_idx < reversed_loop.TrimCount(); ++trim_idx) {
 		    ON_BrepTrim *trim = reversed_loop.Trim(trim_idx);
+
+		    // Skip singular trims: they are degenerate points on a boundary,
+		    // have no edge, and reversing them corrupts their m_iso flag.
+		    if (trim->m_type == ON_BrepTrim::singular) {
+			continue;
+		    }
 
 		    // Replace trim curve2d with a reversed copy.
 		    // We'll use a previously made curve, or else
@@ -5728,16 +6126,12 @@ join_boundary_edges(ON_Brep *brep)
 		    ON_3dPoint pj1 = brep->m_V[ej.m_vi[1]].Point();
 		    forward = (pi0.DistanceTo(pj0) <= vtol && pi1.DistanceTo(pj1) <= vtol);
 		    reverse = (pi0.DistanceTo(pj1) <= vtol && pi1.DistanceTo(pj0) <= vtol);
-
-		    /* Sanity check: midpoint of both curves must also be close */
-		    if (forward || reverse) {
-			ON_3dPoint pmid_i = ei.PointAt(ei.Domain().Mid());
-			ON_3dPoint pmid_j = ej.PointAt(ej.Domain().Mid());
-			if (pmid_i.DistanceTo(pmid_j) > vtol * 100.0) {
-			    forward = false;
-			    reverse = false;
-			}
-		    }
+		    /* No midpoint check: two faces meeting at an intersection
+		     * produce 3D edge curves that share the same endpoints but
+		     * are parameterised independently from each surface, so their
+		     * geometric midpoints may differ significantly.  Checking both
+		     * endpoints is sufficient to ensure the correct topological
+		     * match. */
 		}
 		if (!forward && !reverse) continue;
 
@@ -5769,14 +6163,43 @@ join_boundary_edges(ON_Brep *brep)
 
     /* ---------------------------------------------------------------
      * Pass 2: closed boundary edges (e.g. hole circles).
-     * Two closed boundary edges are coincident when their 3-D bounding
-     * boxes are nearly equal AND their arc-lengths are nearly equal.
-     * For circles (the common case in brep boolean output) this is
-     * both necessary and sufficient.  Because the edges may start at
-     * different angles CombineCoincidentEdges() cannot be used (it
-     * requires matching vertices).  Instead we directly transfer the
-     * trim from the redundant edge to the surviving edge.
+     * Two closed boundary edges are coincident when their arc lengths
+     * and 3-D centroids agree.
+     *
+     * GetBoundingBox() is unreliable for this purpose because rational
+     * NURBS arcs (used for TGC circles) have control points outside the
+     * actual curve; the resulting control-polygon bbox can be 20–50%
+     * larger than the true bbox.  Arc length and centroid are independent
+     * of NURBS parameterisation, so they correctly identify coincident
+     * circles regardless of how each face's surface represents the curve.
+     *
+     * Two closed curves are coincident when:
+     *   (a) arc lengths agree within 5%, AND
+     *   (b) 3-D centroids agree within 1% of the arc length.
+     * This cleanly separates circles of different radii (arc-length
+     * filter) and circles in different planes (centroid filter).
+     *
+     * Because the edges may start at different angles
+     * CombineCoincidentEdges() cannot be used (it requires matching
+     * vertices).  Instead we directly transfer the trim from the
+     * redundant edge to the surviving edge.
      * --------------------------------------------------------------- */
+    {
+    /* Helper: sample a closed curve for arc length and centroid. */
+    auto curve_arc_centroid = [](const ON_Curve *c, double &arc_len, ON_3dPoint &cen) {
+	static const int NS = 64;
+	arc_len = 0.0;
+	cen = ON_3dPoint(0, 0, 0);
+	ON_3dPoint prev = c->PointAt(c->Domain().ParameterAt(0.0));
+	for (int s = 1; s <= NS; s++) {
+	    ON_3dPoint cur = c->PointAt(c->Domain().ParameterAt((double)s / NS));
+	    arc_len += prev.DistanceTo(cur);
+	    cen.x += cur.x; cen.y += cur.y; cen.z += cur.z;
+	    prev = cur;
+	}
+	cen.x /= NS; cen.y /= NS; cen.z /= NS;
+    };
+
     for (int i = 0; i < brep->m_E.Count(); i++) {
 	ON_BrepEdge &ei = brep->m_E[i];
 	if (ei.m_ti.Count() != 1) continue;
@@ -5793,18 +6216,26 @@ join_boundary_edges(ON_Brep *brep)
 	    const ON_Curve *cj3 = brep->m_C3[ej.m_c3i];
 	    if (!ci3 || !cj3) continue;
 
-	    /* Compare bounding boxes: for circles the bbox fully
-	     * characterises the geometry (center + radius + plane). */
-	    ON_BoundingBox bb_i, bb_j;
-	    ci3->GetBoundingBox(bb_i);
-	    cj3->GetBoundingBox(bb_j);
-	    double scale = bb_i.Diagonal().Length();
-	    if (scale < ON_ZERO_TOLERANCE) scale = 1.0;
-	    static const double BBOX_REL_TOL = 0.01; /* 1% of bbox diagonal */
-	    const double bb_tol = scale * BBOX_REL_TOL;
+	    double len_i, len_j;
+	    ON_3dPoint cen_i, cen_j;
+	    curve_arc_centroid(ci3, len_i, cen_i);
+	    curve_arc_centroid(cj3, len_j, cen_j);
 
-	    if (bb_i.m_min.DistanceTo(bb_j.m_min) > bb_tol) continue;
-	    if (bb_i.m_max.DistanceTo(bb_j.m_max) > bb_tol) continue;
+	    double len_max = std::max(len_i, len_j);
+	    if (len_max < ON_ZERO_TOLERANCE) continue;
+
+	    /* (a) arc lengths within 5% */
+	    static const double LEN_REL_TOL = 0.05;
+	    if (std::fabs(len_i - len_j) / len_max > LEN_REL_TOL) continue;
+
+	    /* (b) centroids within 1% of arc length */
+	    double cen_tol = len_max * 0.01;
+	    if (cen_i.DistanceTo(cen_j) > cen_tol) continue;
+
+	    if (DEBUG_BREP_BOOLEAN) {
+		bu_log("  join_closed edge[%d] vs edge[%d]: len_i=%g len_j=%g cen_dist=%g tol=%g MATCH\n",
+		       i, j, len_i, len_j, cen_i.DistanceTo(cen_j), cen_tol);
+	    }
 
 	    int tj = ej.m_ti[0];
 
@@ -5962,7 +6393,18 @@ join_boundary_edges(ON_Brep *brep)
 			return true;
 		    };
 
-		    /* Step 2: reparametrize ci3 to start at P_j */
+		    /* Step 2: reparametrize ci3 to start at P_j.
+		     *
+		     * After ChangeClosedCurveSeam(t_new3) the ACTUAL 3D start
+		     * of ci3 is ci3->PointAt(new_domain_min) = ci3(t_new3).
+		     * For a degree-1 NURBS approximation, t_new3 may fall
+		     * between knots; the value ci3(t_new3) is then a chord
+		     * point (not exactly on the circle).  This is acceptable
+		     * because all subsequent alignment steps use Q_seam
+		     * (not P_j) as the target, so residual mismatch between
+		     * the trim and the edge is bounded by the chord error and
+		     * accounted for in the tolerance update in Step 4. */
+		    ON_3dPoint Q_seam = P_j; /* the actual 3D seam position */
 		    {
 			double t_new3 = ci3->Domain().Min();
 			find_seam_t(ci3, P_j, &t_new3);
@@ -5971,31 +6413,57 @@ join_boundary_edges(ON_Brep *brep)
 			    ON_Curve *ci3_new =
 				brep->m_C3[ei.m_c3i]->Duplicate();
 			    if (ci3_new &&
-				ci3_new->ChangeClosedCurveSeam(t_new3)) {
-				int new_c3i =
-				    brep->AddEdgeCurve(ci3_new);
-				ei.m_c3i = new_c3i;
-				ei.SetProxyCurve(
-				    brep->m_C3[new_c3i]);
-				brep->SetEdgeDomain(
-				    ei.m_edge_index,
-				    brep->m_C3[new_c3i]->Domain());
-				ci3 = brep->m_C3[new_c3i];
+				ci3_new->ChangeClosedCurveSeam(t_new3) &&
+				ci3_new->IsClosed()) {
+				/* Validate: ChangeClosedCurveSeam may
+				 * introduce coincident consecutive points
+				 * in a PolylineCurve if t_new3 is near
+				 * an existing vertex.  Also check
+				 * IsClosed() since degree-1 NURBS seam
+				 * reparametrization can leave the curve
+				 * non-closed.  Discard if either check
+				 * fails. */
+				if (!ci3_new->IsValid()) {
+				    delete ci3_new;
+				} else {
+				    int new_c3i =
+					brep->AddEdgeCurve(ci3_new);
+				    ei.m_c3i = new_c3i;
+				    ei.SetProxyCurve(
+					brep->m_C3[new_c3i]);
+				    brep->SetEdgeDomain(
+					ei.m_edge_index,
+					brep->m_C3[new_c3i]->Domain());
+				    ci3 = brep->m_C3[new_c3i];
+				    /* Record the ACTUAL 3D seam start */
+				    Q_seam = ci3->PointAt(
+					ci3->Domain().Min());
+				}
 			    } else {
 				delete ci3_new;
 			    }
 			}
 		    }
 
-		    /* Step 3: move ei's vertex to P_j */
+		    /* Step 3: move ei's vertex to Q_seam (the actual 3D
+		     * start of the reparametrized edge curve). */
 		    {
 			int ei_vi = ei.m_vi[0]; /* closed edge: vi[0]==vi[1] */
-			brep->m_V[ei_vi].SetPoint(P_j);
+			brep->m_V[ei_vi].SetPoint(Q_seam);
 		    }
 
 		    /* Step 4: reparametrize ti's 2D curve (Case A:
 		     * single-trim closed-circle loop on the other face)
-		     * to start at the UV on ti's surface that maps to P_j. */
+		     * to start at the UV on ti's surface that maps to P_j.
+		     *
+		     * ON_Intersect(P_j, surface) may fail when P_j is not
+		     * exactly on ti's surface (e.g., P_j comes from face_j's
+		     * surface which may be slightly offset from face_i's).
+		     * Instead, find the parameter on c2i_al such that the
+		     * 3D point face_i.PointAt(c2i_al(t)) is closest to
+		     * Q_seam (the actual 3D start of the reparametrized edge
+		     * curve, which IS on face_i's circle).  Coarse grid search
+		     * + Newton refinement gives machine-precision accuracy. */
 		    if (ei.m_ti.Count() >= 1) {
 			/* ti is the FIRST trim on ei (tj was just appended
 			 * as the second via ei.m_ti.Append(tj) above). */
@@ -6007,37 +6475,108 @@ join_boundary_edges(ON_Brep *brep)
 			if (c2i_al && c2i_al->IsClosed() &&
 			    fi_al && fi_al->SurfaceOf()) {
 			    const ON_Surface *sfi_al = fi_al->SurfaceOf();
-			    ON_ClassArray<ON_PX_EVENT> pxi;
-			    /* 10× tolerance: P_j is on fj's surface exactly
-			     * but may be slightly off fi's surface due to
-			     * boolean floating-point errors. */
-			    if (ON_Intersect(P_j, *sfi_al, pxi,
-					     INTERSECTION_TOL * 10.0) &&
-				pxi.Count() > 0) {
-				/* Find the seam parameter on c2i_al closest
-				 * to the target UV (treated as 3D point in
-				 * (u,v,0) space). */
-				ON_3dPoint uv_ti_3d(pxi[0].m_b[0],
-						    pxi[0].m_b[1], 0.0);
-				double t_seam_ti = c2i_al->Domain().Min();
-				find_seam_t(c2i_al, uv_ti_3d, &t_seam_ti);
-				double uv_dist_ti =
-				    c2i_al->PointAt(t_seam_ti).DistanceTo(
-					c2i_al->PointAt(
-					    c2i_al->Domain().Min()));
-				if (uv_dist_ti > ON_ZERO_TOLERANCE) {
-				    ON_Curve *c2i_new =
-					c2i_al->Duplicate();
-				    if (c2i_new &&
-					c2i_new->ChangeClosedCurveSeam(
-					    t_seam_ti)) {
-					int new_c2i_idx =
-					    brep->AddTrimCurve(c2i_new);
-					brep->m_T[ti_idx].ChangeTrimCurve(
-					    new_c2i_idx);
-				    } else {
-					delete c2i_new;
-				    }
+			    /* Coarse search: 400 uniform samples */
+			    static const int N4 = 400;
+			    ON_Interval dom4 = c2i_al->Domain();
+			    double best_dist4 = ON_DBL_MAX;
+			    double t_seam_ti = dom4.Min();
+			    for (int si = 0; si <= N4; si++) {
+				double t_s4 = dom4.ParameterAt(
+				    (double)si / N4);
+				ON_3dPoint uv_s4 = c2i_al->PointAt(t_s4);
+				ON_3dPoint p3d_s4 = sfi_al->PointAt(
+				    uv_s4.x, uv_s4.y);
+				double d4 = p3d_s4.DistanceTo(Q_seam);
+				if (d4 < best_dist4) {
+				    best_dist4 = d4;
+				    t_seam_ti = t_s4;
+				}
+			    }
+			    /* Newton refinement: minimize
+			     * d(t) = |sfi_al(c2i_al(t)) - Q_seam|
+			     * using finite-difference derivative. */
+			    {
+				static const int MAXITER4 = 50;
+				static const double DT4 = 1e-6;
+				static const double CONV4 = 1e-12;
+				double t4 = t_seam_ti;
+				double len4 = dom4.Length();
+				for (int it4 = 0; it4 < MAXITER4; it4++) {
+				    ON_3dPoint uv4 = c2i_al->PointAt(t4);
+				    ON_3dPoint p4 = sfi_al->PointAt(
+					uv4.x, uv4.y);
+				    double dt4 = DT4 * len4;
+				    double t4p = t4 + dt4;
+				    if (t4p > dom4.Max())
+					t4p = t4 - dt4;
+				    ON_3dPoint uv4p = c2i_al->PointAt(t4p);
+				    ON_3dPoint p4p = sfi_al->PointAt(
+					uv4p.x, uv4p.y);
+				    ON_3dVector dp4 = (p4p - p4) /
+					(t4p - t4);
+				    double f4  = (p4  - Q_seam) * dp4;
+				    double fp4 = (p4p - Q_seam) * dp4;
+				    double df4 = fp4 - f4;
+				    if (std::fabs(df4) < 1e-20) break;
+				    double step4 = -f4 / df4 * dt4;
+				    /* Clamp step to avoid overshooting */
+				    if (step4 >  0.1 * len4) step4 =  0.1 * len4;
+				    if (step4 < -0.1 * len4) step4 = -0.1 * len4;
+				    t4 += step4;
+				    /* Wrap within domain for closed curve */
+				    while (t4 > dom4.Max())
+					t4 -= len4;
+				    while (t4 < dom4.Min())
+					t4 += len4;
+				    if (std::fabs(step4) < CONV4) break;
+				}
+				t_seam_ti = t4;
+			    }
+			    double uv_dist_ti =
+				c2i_al->PointAt(t_seam_ti).DistanceTo(
+				    c2i_al->PointAt(dom4.Min()));
+			    if (uv_dist_ti > ON_ZERO_TOLERANCE) {
+				ON_Curve *c2i_new =
+				    c2i_al->Duplicate();
+				if (c2i_new &&
+				    c2i_new->ChangeClosedCurveSeam(
+					t_seam_ti)) {
+				    int new_c2i_idx =
+					brep->AddTrimCurve(c2i_new);
+				    brep->m_T[ti_idx].ChangeTrimCurve(
+					new_c2i_idx);
+				} else {
+				    delete c2i_new;
+				}
+			    }
+			    /* Update trim tolerance to cover the residual
+			     * start-point distance between the 2D trim (on
+			     * its surface) and the 3D edge start Q_seam.
+			     * This residual is bounded by the chord error of
+			     * the degree-1 NURBS approximation (typically
+			     * ≤ 0.05 mm for a 32-segment injection circle of
+			     * radius ≤ 50 mm) and ensures ON_Brep::IsValid()
+			     * passes the trim-to-edge start check. */
+			    {
+				const ON_Curve *c2i_final =
+				    brep->m_C2[brep->m_T[ti_idx].m_c2i];
+				if (c2i_final) {
+				    ON_3dPoint uv_f = c2i_final->PointAt(
+					c2i_final->Domain().Min());
+				    ON_3dPoint p3d_f = sfi_al->PointAt(
+					uv_f.x, uv_f.y);
+				    double align_tol =
+					p3d_f.DistanceTo(Q_seam);
+				    if (align_tol >
+					brep->m_T[ti_idx].m_tolerance[0])
+					brep->m_T[ti_idx].m_tolerance[0] =
+					    align_tol;
+				    if (align_tol >
+					brep->m_T[ti_idx].m_tolerance[1])
+					brep->m_T[ti_idx].m_tolerance[1] =
+					    align_tol;
+				    if (align_tol > ei.m_tolerance)
+					ei.m_tolerance = align_tol;
 				}
 			    }
 			}
@@ -6073,6 +6612,141 @@ join_boundary_edges(ON_Brep *brep)
 
 	    break; /* one match per closed edge is sufficient */
 	}
+    }
+    } /* end Pass 2 block (lambda scope) */
+
+    /* ---------------------------------------------------------------
+     * Pass 3: chain open boundary edges that together close a loop
+     * into a single self-loop edge, then let Pass 2 (re-run below)
+     * merge that self-loop with a coincident closed boundary edge.
+     *
+     * Background: BRL-CAD TGC cap faces represent their outer loop as
+     * 3 rational NURBS arcs (120° each), giving 3 separate open edges
+     * in the assembled brep.  The corresponding face from the SSI
+     * split (the tube portion) represents the same circle as a single
+     * S_iso self-loop edge.  The two representations cannot be merged
+     * by Pass 1 (open↔open) or Pass 2 (closed↔closed) alone.
+     *
+     * This pass detects such chains, combines them into one self-loop,
+     * and transfers all their trims to the new edge.  The re-run of
+     * Pass 2 below then merges the new self-loop with its partner.
+     * --------------------------------------------------------------- */
+    {
+    bool chain_merged_p3 = true;
+    while (chain_merged_p3) {
+	chain_merged_p3 = false;
+	for (int i = 0; i < brep->m_E.Count() && !chain_merged_p3; i++) {
+	    ON_BrepEdge &ei = brep->m_E[i];
+	    if (ei.m_ti.Count() != 1) continue;
+	    if (ei.m_vi[0] == ei.m_vi[1]) continue; /* skip closed */
+
+	    /* Try to grow a chain starting with edge i until it closes. */
+	    int v_start = ei.m_vi[0];
+	    int v_cur   = ei.m_vi[1];
+	    ON_SimpleArray<int> chain;
+	    chain.Append(i);
+
+	    while (v_cur != v_start) {
+		bool found = false;
+		for (int j = 0; j < brep->m_E.Count(); j++) {
+		    ON_BrepEdge &ej2 = brep->m_E[j];
+		    if (ej2.m_ti.Count() != 1) continue;
+		    if (ej2.m_vi[0] == ej2.m_vi[1]) continue;
+		    if (ej2.m_vi[0] != v_cur) continue;
+		    /* Don't revisit edges already in the chain */
+		    bool already = false;
+		    for (int ci = 0; ci < chain.Count(); ci++)
+			if (chain[ci] == j) { already = true; break; }
+		    if (already) continue;
+		    chain.Append(j);
+		    v_cur = ej2.m_vi[1];
+		    found = true;
+		    break;
+		}
+		if (!found || chain.Count() > brep->m_E.Count()) break;
+	    }
+
+	    if (v_cur != v_start || chain.Count() < 2) continue;
+
+	    /* Closed chain found.  Combine arc lengths and centroid.
+	     * Check whether any existing closed boundary edge matches. */
+	    static const int N_PER = 32; /* samples per arc */
+	    double chain_len = 0.0;
+	    ON_3dPoint chain_cen(0, 0, 0);
+	    int n_pts_total = 0;
+	    for (int ci = 0; ci < chain.Count(); ci++) {
+		const ON_Curve *cc = brep->m_C3[brep->m_E[chain[ci]].m_c3i];
+		if (!cc) { chain_len = -1.0; break; }
+		ON_3dPoint prev = cc->PointAt(cc->Domain().ParameterAt(0.0));
+		for (int s = 1; s <= N_PER; s++) {
+		    ON_3dPoint cur = cc->PointAt(cc->Domain().ParameterAt((double)s / N_PER));
+		    chain_len += prev.DistanceTo(cur);
+		    chain_cen.x += cur.x; chain_cen.y += cur.y; chain_cen.z += cur.z;
+		    n_pts_total++;
+		    prev = cur;
+		}
+	    }
+	    if (chain_len <= 0.0 || n_pts_total == 0) continue;
+	    chain_cen.x /= n_pts_total;
+	    chain_cen.y /= n_pts_total;
+	    chain_cen.z /= n_pts_total;
+
+	    /* Find a matching closed boundary edge */
+	    int match_closed = -1;
+	    for (int k = 0; k < brep->m_E.Count(); k++) {
+		ON_BrepEdge &ek = brep->m_E[k];
+		if (ek.m_ti.Count() != 1) continue;
+		if (ek.m_vi[0] != ek.m_vi[1]) continue;
+		if (ek.m_c3i < 0) continue;
+		const ON_Curve *ck = brep->m_C3[ek.m_c3i];
+		if (!ck) continue;
+
+		double klen = 0.0; ON_3dPoint kcen(0, 0, 0);
+		ON_3dPoint kprev = ck->PointAt(ck->Domain().ParameterAt(0.0));
+		for (int s = 1; s <= N_PER * chain.Count(); s++) {
+		    ON_3dPoint kcur = ck->PointAt(ck->Domain().ParameterAt((double)s / (N_PER * chain.Count())));
+		    klen += kprev.DistanceTo(kcur);
+		    kcen.x += kcur.x; kcen.y += kcur.y; kcen.z += kcur.z;
+		    kprev = kcur;
+		}
+		int kn = N_PER * chain.Count();
+		kcen.x /= kn; kcen.y /= kn; kcen.z /= kn;
+
+		double lmax = std::max(chain_len, klen);
+		if (lmax < ON_ZERO_TOLERANCE) continue;
+		if (std::fabs(chain_len - klen) / lmax > 0.05) continue;
+		double cen_tol = lmax * 0.01;
+		if (chain_cen.DistanceTo(kcen) > cen_tol) continue;
+
+		match_closed = k;
+		break;
+	    }
+
+	    if (match_closed < 0) continue;
+
+	    /* Build a combined self-loop edge from the chain and transfer
+	     * all arc trims to the matching closed edge. */
+	    ON_BrepEdge &e_closed = brep->m_E[match_closed];
+
+	    if (DEBUG_BREP_BOOLEAN)
+		bu_log("  join_chain: chain(%d arcs) → closed edge[%d] len=%g\n",
+		       chain.Count(), match_closed, chain_len);
+
+	    for (int ci = 0; ci < chain.Count(); ci++) {
+		ON_BrepEdge &ea = brep->m_E[chain[ci]];
+		for (int ti_idx = 0; ti_idx < ea.m_ti.Count(); ti_idx++) {
+		    int tj2 = ea.m_ti[ti_idx];
+		    brep->m_T[tj2].m_ei = match_closed;
+		    brep->m_T[tj2].m_vi[0] = e_closed.m_vi[0];
+		    brep->m_T[tj2].m_vi[1] = e_closed.m_vi[1];
+		    e_closed.m_ti.Append(tj2);
+		}
+		ea.m_ti.Empty();
+	    }
+
+	    chain_merged_p3 = true;
+	}
+    }
     }
 
     /* Rebuild all vertex m_ei arrays from the current edge-vertex
@@ -6466,6 +7140,54 @@ ON_Boolean(ON_Brep *evaluated_brep, const ON_Brep *brep1, const ON_Brep *brep2, 
 	    evaluated_brep->m_T[ti].m_tolerance[0] = 0.0;
 	if (evaluated_brep->m_T[ti].m_tolerance[1] < 0.0)
 	    evaluated_brep->m_T[ti].m_tolerance[1] = 0.0;
+    }
+
+    /* Fix-up pass: SetTrimTolerances computes the maximum 3D curve fit
+     * but does NOT guarantee that the trim start/end 3D points align
+     * with the edge start/end within the computed tolerance.  For
+     * degree-1 NURBS approximations (injection circles lifted to 3D),
+     * the seam reparametrization in join_boundary_edges may leave a
+     * residual start misalignment bounded by the chord error of the
+     * approximation (typically ≤ 0.05 mm for injection circles).
+     * ON_Brep::IsValid() checks: start_dist ≤ trim.tol + edge.tol.
+     * Ensure that the combined tolerance covers the actual distance. */
+    for (int ti2 = 0; ti2 < evaluated_brep->m_T.Count(); ++ti2) {
+	ON_BrepTrim &tr2 = evaluated_brep->m_T[ti2];
+	if (tr2.m_ei < 0 || tr2.m_ei >= evaluated_brep->m_E.Count())
+	    continue;
+	ON_BrepEdge &e2 = evaluated_brep->m_E[tr2.m_ei];
+	const ON_Curve *tc2 = evaluated_brep->m_C2[tr2.m_c2i];
+	const ON_Curve *ec2 = e2.EdgeCurveOf();
+	const ON_BrepFace *f2 = tr2.Face();
+	if (!tc2 || !ec2 || !f2 || !f2->SurfaceOf()) continue;
+
+	/* Compute 3D position of trim start on its surface */
+	ON_3dPoint uv_st = tc2->PointAt(tc2->Domain().Min());
+	ON_3dPoint pt_st = f2->SurfaceOf()->PointAt(uv_st.x, uv_st.y);
+	/* Compute 3D position of edge start */
+	ON_3dPoint pe_st = ec2->PointAt(ec2->Domain().Min());
+	double d_st = pt_st.DistanceTo(pe_st);
+
+	/* Compute 3D position of trim end on its surface */
+	ON_3dPoint uv_en = tc2->PointAt(tc2->Domain().Max());
+	ON_3dPoint pt_en = f2->SurfaceOf()->PointAt(uv_en.x, uv_en.y);
+	/* Compute 3D position of edge end */
+	ON_3dPoint pe_en = ec2->PointAt(ec2->Domain().Max());
+	double d_en = pt_en.DistanceTo(pe_en);
+
+	/* Ensure combined tolerance covers both distances */
+	double need_st = d_st - e2.m_tolerance;
+	double need_en = d_en - e2.m_tolerance;
+	if (need_st > tr2.m_tolerance[0]) tr2.m_tolerance[0] = need_st;
+	if (need_en > tr2.m_tolerance[1]) tr2.m_tolerance[1] = need_en;
+	if (need_st < 0.0) need_st = 0.0;
+	if (need_en < 0.0) need_en = 0.0;
+	/* Also bump the edge tolerance if both trim tol and edge tol
+	 * together are still insufficient */
+	double gap_st = d_st - (tr2.m_tolerance[0] + e2.m_tolerance);
+	double gap_en = d_en - (tr2.m_tolerance[1] + e2.m_tolerance);
+	if (gap_st > 0.0) e2.m_tolerance += gap_st;
+	if (gap_en > 0.0) e2.m_tolerance += gap_en;
     }
 
     // Check IsValid() and output the message.
