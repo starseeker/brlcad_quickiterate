@@ -1000,10 +1000,34 @@ from `mp_gvp` (no DMP indirection).
    `mged_curr_pane` is always non-NULL and the pane field is set whenever the
    rate flag is set in chgview.c).  All 26 mged .c files compile cleanly.
 
-   **Remaining work (Step 7.5 onwards)**:
-   - Migrate `doevent.c` from legacy `GET_MGED_DM` + `set_curr_dm` to pane-based dispatch
-   - Migrate `dozoom.c` vectorThreshold `set_curr_dm` restore guards to panes
-   - Migrate `fbserv.c` `scdlp` restore and `share.c` dlist-regen path to panes
+   **Step 7.5** ✅ (Session 19) — Migrate all remaining `set_curr_dm()` callers
+   to `set_curr_pane()`.  `set_curr_dm()` is now only called by `set_curr_pane()`
+   itself.
+
+   - `doevent.c`: `doEvent()` now uses `GET_MGED_PANE` (new macro in `mged_dm.h`)
+     to find the pane for the X11 event window, then calls `set_curr_pane`.
+     `struct mged_dm *save_dm_list` replaced by `struct mged_pane *save_pane`.
+   - `dozoom.c`: the three vectorThreshold restore guards changed from
+     `if (s->mged_curr_dm != save_dm_list) set_curr_dm(...)` to
+     `if (s->mged_curr_pane != save_pane) set_curr_pane(...)`.
+   - `fbserv.c` `fbserv_new_client_handler`: uses `save_pane` + `set_curr_pane`
+     for restore.  The `else set_curr_dm(dlp)` fallback in
+     `fbserv_existing_client_handler` removed.
+   - `share.c`: `createDListAll` call path now uses pane save/restore loop.
+   - `mged.c` `mged_finish`: `set_curr_dm(s, MGED_DM_NULL)` replaced with
+     direct `s->mged_curr_dm = MGED_DM_NULL` (inside pane-already-freed loop).
+   - `attach.c`: `mged_attach()` saves/restores `o_pane` on `gui_setup` error.
+     `release()` fallback uses direct assignment rather than `set_curr_dm`.
+   - `cmd.c` `f_postscript`: uses `dml_pane` + `set_curr_pane` for restore.
+   - `cmd_win set`: already migrated to `set_curr_pane` in Step 7.4.
+
+   **`set_curr_dm()` is now called only from `set_curr_pane()` itself** and from
+   the `set_curr_dm` function definition.  All external callers eliminated.
+   26 mged .c files compile cleanly with -Werror.
+
+   **Remaining work (Step 7.6 onwards)**:
+   - Update `set_curr_pane()` comment to note `set_curr_dm` is internal-only
+   - Migrate `clone.c` and other remaining `mged_curr_dm->dm_*` direct accesses
    - `f_attach`/`mged_attach()`/`mged_dm_init()`: convert to Obol-only path
    - Delete `struct mged_dm`, `DMP`/`fbp`/`clients` macros, `dm-generic.c`
 

@@ -195,15 +195,19 @@ f_share(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *ar
 			dlp1->dm_dlist_state->dl_active = dlp1->dm_mged_variables->mv_dlist;
 
 			if (dlp1->dm_mged_variables->mv_dlist) {
-			    struct mged_dm *save_dlp;
+			    /* Step 7.5: use pane-based save/restore. */
+			    struct mged_pane *save_p = s->mged_curr_pane;
+			    struct mged_pane *dlp1_pane = MGED_PANE_NULL;
+			    for (size_t _pi = 0; _pi < BU_PTBL_LEN(&active_pane_set); _pi++) {
+				struct mged_pane *_mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, _pi);
+				if (_mp->mp_dm == dlp1) { dlp1_pane = _mp; break; }
+			    }
+			    if (dlp1_pane) set_curr_pane(s, dlp1_pane);
 
-			    save_dlp = s->mged_curr_dm;
-
-			    set_curr_dm(s, dlp1);
 			    createDListAll(s, NULL);
 
 			    /* restore */
-			    set_curr_dm(s, save_dlp);
+			    set_curr_pane(s, save_p);
 			}
 
 			dlp1->dm_dirty = 1;

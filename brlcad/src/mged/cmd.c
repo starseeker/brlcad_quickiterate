@@ -1593,6 +1593,7 @@ f_postscript(ClientData clientData, Tcl_Interp *interpreter, int argc, const cha
 {
     int status;
     struct mged_dm *dml;
+    struct mged_pane *dml_pane;  /* Step 7.5: save pane too */
     struct _view_state *vsp;
     struct cmdtab *ctp = (struct cmdtab *)clientData;
     MGED_CK_CMD(ctp);
@@ -1610,6 +1611,7 @@ f_postscript(ClientData clientData, Tcl_Interp *interpreter, int argc, const cha
 	return TCL_OK;
 
     dml = s->mged_curr_dm;
+    dml_pane = s->mged_curr_pane;
     s->gedp->ged_gvp = view_state->vs_gvp;
     status = mged_attach(s, "postscript", argc, argv);
     if (status == TCL_ERROR)
@@ -1618,7 +1620,6 @@ f_postscript(ClientData clientData, Tcl_Interp *interpreter, int argc, const cha
     vsp = view_state;  /* save state info pointer */
 
     bu_free((void *)menu_state, "f_postscript: menu_state");
-    /* Stage 7: use explicit mged_curr_dm assignment for ternary-macro safety. */
     s->mged_curr_dm->dm_menu_state = dml->dm_menu_state;
 
     scroll_top = dml->dm_scroll_top;
@@ -1630,12 +1631,10 @@ f_postscript(ClientData clientData, Tcl_Interp *interpreter, int argc, const cha
     if (DMP) dm_set_dirty(DMP, 1);
     refresh(s);
 
-    /* Stage 7: restore explicitly via mged_curr_dm so this assignment is an
-     * lvalue even after the view_state macro is eventually changed to a
-     * ternary expression (Step 6). */
+    /* Step 7.5: restore pane (replaces set_curr_dm + explicit dm assignment). */
     s->mged_curr_dm->dm_view_state = vsp;
     status = Tcl_Eval(interpreter, "release");
-    set_curr_dm(s, dml);
+    set_curr_pane(s, dml_pane);
     s->gedp->ged_gvp = view_state->vs_gvp;
 
     return status;

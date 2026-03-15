@@ -651,6 +651,22 @@ extern void mged_pane_free_resources(struct mged_pane *mp);
     \
 }
 
+/* Step 7.5: pane-based variant of GET_MGED_DM for doevent.c migration.
+ * Finds the mged_pane whose legacy dm window-id matches `id`. */
+#define GET_MGED_PANE(p, id) { \
+    \
+    (p) = MGED_PANE_NULL; \
+    for (size_t dm_ind = 0; dm_ind < BU_PTBL_LEN(&active_pane_set); dm_ind++) { \
+	struct mged_pane *_mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, dm_ind); \
+	if (_mp->mp_dm && _mp->mp_dm->dm_dmp && \
+	    (id) == dm_get_id(_mp->mp_dm->dm_dmp)) { \
+	    (p) = _mp; \
+	    break; \
+	} \
+    } \
+    \
+}
+
 extern double frametime;		/* defined in mged.c */
 extern int dm_pipe[];			/* defined in mged.c */
 extern int update_views;		/* defined in mged.c */

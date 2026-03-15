@@ -152,7 +152,8 @@ found:
 	    struct mged_pane *p2 = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
 	    if (p2->mp_dm == dlp) { mp = p2; break; }
 	}
-	if (mp) set_curr_pane(s, mp); else set_curr_dm(MGED_STATE, dlp);
+	/* Step 7.5: always use set_curr_pane; if no wrapper pane found, keep current. */
+	if (mp) set_curr_pane(s, mp);
     }
     for (i = MAX_CLIENTS-1; i >= 0; i--) {
 	if (clients[i].c_fd == 0)
@@ -281,7 +282,8 @@ fbserv_new_client_handler(ClientData clientData, int UNUSED(mask))
 #endif
 {
     struct mged_state *s = MGED_STATE;
-    struct mged_dm *scdlp;  /* save current dm_list pointer */
+    /* Step 7.5: use pane for save/restore (was scdlp). */
+    struct mged_pane *save_pane = s->mged_curr_pane;
 
 #ifdef USE_TCL_CHAN
     struct mged_dm *dlp = (struct mged_dm *)clientData;
@@ -302,17 +304,10 @@ fbserv_new_client_handler(ClientData clientData, int UNUSED(mask))
     if (dlp == NULL)
 	return;
 
-    /* save */
-    scdlp = s->mged_curr_dm;
-
-    {
-	/* Find wrapper pane for dlp to call set_curr_pane. */
-	struct mged_pane *mp = NULL;
-	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
-	    struct mged_pane *p2 = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	    if (p2->mp_dm == dlp) { mp = p2; break; }
-	}
-	if (mp) set_curr_pane(s, mp); else set_curr_dm(MGED_STATE, dlp);
+    /* Find wrapper pane for dlp and make it current. */
+    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	if (mp->mp_dm == dlp) { set_curr_pane(s, mp); break; }
     }
 
 #ifdef USE_TCL_CHAN
@@ -324,7 +319,7 @@ fbserv_new_client_handler(ClientData clientData, int UNUSED(mask))
 #endif
 
     /* restore */
-    set_curr_dm(MGED_STATE, scdlp);
+    set_curr_pane(MGED_STATE, save_pane);
 }
 
 void

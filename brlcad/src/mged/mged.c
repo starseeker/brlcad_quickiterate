@@ -1795,7 +1795,8 @@ mged_finish(struct mged_state *s, int exitcode)
 		mged_slider_free_vls(p);
 	    }
 	    bu_free(p, "mged_finish: mged_dm");
-	    set_curr_dm(s, MGED_DM_NULL);
+	    /* Step 7.5: pane already removed; just null the dm pointer. */
+	    s->mged_curr_dm = MGED_DM_NULL;
 	}
     }
 
