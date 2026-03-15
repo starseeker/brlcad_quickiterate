@@ -1965,7 +1965,6 @@ int
 f_postscript(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *argv[])
 {
     int status;
-    struct mged_dm *dml;
     struct mged_pane *dml_pane;
     struct _view_state *vsp;
     struct cmdtab *ctp = (struct cmdtab *)clientData;
@@ -1984,7 +1983,7 @@ f_postscript(ClientData clientData, Tcl_Interp *interpreter, int argc, const cha
 	return TCL_OK;
 
     /* Step 7.7: save current pane's mp_dm directly (replaces saving mged_curr_dm). */
-    dml = s->mged_curr_pane->mp_dm;
+    /* Step 7.16: dml (mged_dm) no longer needed; use pane directly for resource access. */
     dml_pane = s->mged_curr_pane;
     s->gedp->ged_gvp = view_state->vs_gvp;
     status = mged_attach(s, "postscript", argc, argv);
@@ -1993,10 +1992,11 @@ f_postscript(ClientData clientData, Tcl_Interp *interpreter, int argc, const cha
 
     vsp = view_state;  /* save state info pointer */
 
-    /* After mged_attach, the postscript pane is current; its mp_dm is the new
-     * postscript mged_dm.  Access it via mged_curr_pane->mp_dm. */
+    /* After mged_attach, the postscript pane is current; its resources are pane-owned.
+     * Step 7.16: Update the new pane's menu_state from the old pane's menu_state. */
     bu_free((void *)menu_state, "f_postscript: menu_state");
-    s->mged_curr_pane->mp_dm->dm_menu_state = dml->dm_menu_state;
+    s->mged_curr_pane->mp_menu_state = dml_pane->mp_menu_state;
+    ++s->mged_curr_pane->mp_menu_state->ms_rc;   /* increment ref count since now shared */
 
     scroll_top = dml_pane->mp_scroll_top;
     scroll_active = dml_pane->mp_scroll_active;
@@ -2007,6 +2007,8 @@ f_postscript(ClientData clientData, Tcl_Interp *interpreter, int argc, const cha
     if (DMP) dm_set_dirty(DMP, 1);
     refresh(s);
 
+    /* Step 7.16: view_state is still dm-owned; update the dm's view_state pointer
+     * so that the postscript dm outputs to the right view. */
     s->mged_curr_pane->mp_dm->dm_view_state = vsp;
     status = Tcl_Eval(interpreter, "release");
     set_curr_pane(s, dml_pane);
