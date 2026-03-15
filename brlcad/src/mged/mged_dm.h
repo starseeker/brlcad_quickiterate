@@ -381,28 +381,16 @@ struct _menu_state {
  * ----------------------------------------------------------------------- */
 
 struct mged_pane {
-    bsg_view          *mp_gvp;       /* the view this pane displays (mp_dmp == NULL for Obol) */
-    struct cmd_list   *mp_cmd_tie;   /* Tcl command-history link (canonical; replaces dm_tie) */
-    struct bu_list     mp_p_vlist;   /* predictor vlist (Step 7.12: sole location; dm_p_vlist removed) */
-    struct trail       mp_trails[NUM_TRAILS]; /* predictor trails (mirrors dm_trails) */
-    int                mp_ndrawn;    /* count of objects drawn (mirrors dm_ndrawn) */
+    bsg_view          *mp_gvp;       /* the view this pane displays */
+    struct cmd_list   *mp_cmd_tie;   /* Tcl command-history link */
+    struct bu_list     mp_p_vlist;   /* predictor vlist */
+    struct trail       mp_trails[NUM_TRAILS]; /* predictor trails */
+    int                mp_ndrawn;    /* count of objects drawn */
 
-    /* Step 7.18: libdm handle fields moved from mged_dm to mged_pane.
-     * NULL for Obol panes (created by f_new_obol_view_ptr()).
-     * Non-NULL for legacy dm panes (created by mged_attach / "attach ogl" etc.).
-     * The mp_dmp != NULL test replaces the old mp_dm != NULL is-dm-pane check. */
-    struct dm		*mp_dmp;   /* libdm handle (NULL for Obol panes) */
-    struct fb		*mp_fbp;   /* framebuffer overlay (NULL if not open) */
-    int			mp_netfd;   /* fbserv listen socket (-1 if inactive) */
-#ifdef USE_TCL_CHAN
-    Tcl_Channel		mp_netchan; /* Tcl channel wrapping mp_netfd */
-#endif
-    struct client	mp_clients[MAX_CLIENTS]; /* fbserv client table */
-    int			mp_dirty;   /* true if expose/configure event received */
-    int			mp_mapped;  /* true if window is mapped/visible */
+    /* Step 7.20: libdm handle fields (mp_dmp, mp_fbp, mp_netfd, mp_netchan,
+     * mp_clients, mp_dirty, mp_mapped) removed — Obol-only mode, always NULL/0. */
 
-    /* Per-pane shareable resources.  Allocated and ref-counted.
-     * Allocated by mged_pane_init_resources(); freed by mged_pane_free_resources(). */
+    /* Per-pane shareable resources.  Allocated and ref-counted. */
     struct _view_state      *mp_view_state;
     struct _adc_state       *mp_adc_state;
     struct _menu_state      *mp_menu_state;
@@ -425,9 +413,7 @@ struct mged_pane {
     struct bu_vls   mp_adc_name;    /* "$::mged_display(%path,adc)" */
 
     /* Step 7.15: Non-lifecycle state fields moved from mged_dm to mged_pane.
-     * Step 7.18: mp_dirty and mp_mapped also moved here (previously dm_dirty/dm_mapped).
-     * All pane state is now consolidated in mged_pane. */
-    int mp_owner;            /* true if this pane owns the view info */
+     * Step 7.20: mp_owner/mp_dirty/mp_mapped removed (libdm-only fields). */
     int mp_am_mode;          /* alternate mouse mode */
     int mp_perspective_angle;/* current perspective-table index (0-3) */
     int mp_adc_auto;         /* adc auto-clear flag */
@@ -485,16 +471,10 @@ extern void mged_pane_init_resources(struct mged_state *s, struct mged_pane *mp)
  */
 extern void mged_pane_free_resources(struct mged_pane *mp);
 
-/* Step 7.18: DMP, DMP_dirty, fbp, clients, mapped macros now go directly through
- * mged_curr_pane->mp_* (no mged_dm intermediate struct).
- * Step 7.19: mp_dmp is ALWAYS NULL (libdm attach removed).  Code guarded by
- * "if (!DMP)" is dead but kept for the next cleanup pass. */
-#define DMP (s->mged_curr_pane->mp_dmp)
-#define DMP_dirty s->mged_curr_pane->mp_dirty
-#define fbp s->mged_curr_pane->mp_fbp
-#define clients s->mged_curr_pane->mp_clients
-#define mapped s->mged_curr_pane->mp_mapped
-#define owner s->mged_curr_pane->mp_owner
+/* Step 7.20: DMP/DMP_dirty/fbp/clients/mapped/owner macros removed —
+ * mp_dmp/mp_fbp/mp_dirty/mp_mapped/mp_clients/mp_owner fields deleted from
+ * mged_pane (Obol-only mode; libdm completely removed from MGED). */
+/* Step 7.20: owner macro removed — mp_owner field deleted from mged_pane. */
 #define am_mode s->mged_curr_pane->mp_am_mode
 #define perspective_angle s->mged_curr_pane->mp_perspective_angle
 /* Step 7.15: zclip_ptr macro removed — dm_zclip_ptr was dead (never used). */
