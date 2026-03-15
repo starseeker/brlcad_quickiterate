@@ -67,30 +67,30 @@ int
 doEvent(ClientData clientData, XEvent *eventPtr)
 {
     struct mged_state *s = (struct mged_state *)clientData;
-    struct mged_dm *save_dm_list;
+    /* Step 7.5: use pane-based save/restore (was mged_dm*). */
+    struct mged_pane *save_pane;
+    struct mged_pane *ev_pane;
     int status;
 
     if (eventPtr->type == DestroyNotify || (unsigned long)eventPtr->xany.window == 0 || !MGED_STATE)
 	return TCL_OK;
 
-    // The set_curr_dm logic here appears to be important for Multipane mode -
-    // it doesn't do much if only one dm is up, but if the set_curr_dm calls
-    // are removed MGED doesn't update the multipane views correctly.
-    save_dm_list = s->mged_curr_dm;
-    GET_MGED_DM(s->mged_curr_dm, (unsigned long)eventPtr->xany.window);
+    /* Save current pane; find pane for this X window. */
+    save_pane = s->mged_curr_pane;
+    GET_MGED_PANE(ev_pane, (unsigned long)eventPtr->xany.window);
 
     /* it's an event for a window that I'm not handling */
-    if (s->mged_curr_dm == MGED_DM_NULL) {
-	if (save_dm_list)
-	    MGED_CK_STATE(s);
-	set_curr_dm(s, save_dm_list);
+    if (ev_pane == MGED_PANE_NULL) {
+	set_curr_pane(s, save_pane);
 	return TCL_OK;
     }
 
-    /* Stage 7 guard: Obol panes have dm_dmp==NULL and are handled by
+    set_curr_pane(s, ev_pane);
+
+    /* DMP null-check: Obol panes have dm_dmp==NULL and are handled by
      * obol_view Tk widgets, not by the libdm X11 event dispatch. */
     if (!DMP) {
-	set_curr_dm(s, save_dm_list);
+	set_curr_pane(s, save_pane);
 	return TCL_OK;
     }
 
@@ -100,9 +100,7 @@ doEvent(ClientData clientData, XEvent *eventPtr)
 
     /* no further processing of this event */
     if (status != TCL_OK) {
-	if (save_dm_list)
-	    MGED_CK_STATE(s);
-	set_curr_dm(s, save_dm_list);
+	set_curr_pane(s, save_pane);
 	return status;
     }
 
@@ -141,9 +139,7 @@ doEvent(ClientData clientData, XEvent *eventPtr)
 	status = TCL_RETURN;
     }
 
-    if (save_dm_list)
-	MGED_CK_STATE(s);
-    set_curr_dm(s, save_dm_list);
+    set_curr_pane(s, save_pane);
     return status;
 }
 #else

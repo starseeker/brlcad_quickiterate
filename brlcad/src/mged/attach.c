@@ -597,8 +597,10 @@ release(struct mged_state *s, char *name, int need_close)
 	}
 	if (restore_pane)
 	    set_curr_pane(s, restore_pane);
-	else
-	    set_curr_dm(s, save_dm_list);  /* wrapper pane not found, fall back */
+	else {
+	    /* wrapper pane not found (race or shutdown); just keep the dm pointer */
+	    s->mged_curr_dm = save_dm_list;
+	}
     } else {
 	/* Current dm was released; find next available dm wrapper pane. */
 	struct mged_pane *next_pane = NULL;
@@ -611,7 +613,7 @@ release(struct mged_state *s, char *name, int need_close)
 	} else {
 	    /* No more dm panes; clear both current-pane and current-dm. */
 	    s->mged_curr_pane = MGED_PANE_NULL;
-	    set_curr_dm(s, MGED_DM_NULL);
+	    s->mged_curr_dm = MGED_DM_NULL;
 	}
     }
     return TCL_OK;
@@ -794,12 +796,14 @@ int
 mged_attach(struct mged_state *s, const char *wp_name, int argc, const char *argv[])
 {
     struct mged_dm *o_dm;
+    struct mged_pane *o_pane;  /* Step 7.5: save current pane too */
 
     if (!wp_name) {
 	return TCL_ERROR;
     }
 
     o_dm = s->mged_curr_dm;
+    o_pane = s->mged_curr_pane;
     BU_ALLOC(s->mged_curr_dm, struct mged_dm);
 
     /* initialize predictor stuff */
@@ -826,12 +830,15 @@ mged_attach(struct mged_state *s, const char *wp_name, int argc, const char *arg
 	if (dname && strlen(dname) > 0) {
 	    if (gui_setup(s, dname) == TCL_ERROR) {
 		bu_free((void *)s->mged_curr_dm, "f_attach: dm_list");
-		set_curr_dm(s, o_dm);
+		/* Step 7.5: restore both pane and dm on gui_setup failure. */
+		s->mged_curr_dm = o_dm;
+		s->mged_curr_pane = o_pane;
 		return TCL_ERROR;
 	    }
 	} else if (gui_setup(s, (char *)NULL) == TCL_ERROR) {
 	    bu_free((void *)s->mged_curr_dm, "f_attach: dm_list");
-	    set_curr_dm(s, o_dm);
+	    s->mged_curr_dm = o_dm;
+	    s->mged_curr_pane = o_pane;
 	    return TCL_ERROR;
 	}
     }
