@@ -308,7 +308,7 @@ new_edit_mats(struct mged_state *s)
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
 	if (!mp->mp_dm) continue;  /* skip Obol panes */
-	if (!mp->mp_dm->dm_owner) continue;
+	if (!mp->mp_owner) continue;
 
 	set_curr_pane(s, mp);
 	{
@@ -1226,7 +1226,7 @@ event_check(struct mged_state *s, int non_blocking)
 	/* Step 6.b: use active_pane_set (covers both legacy dm and Obol panes). */
 	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	    if (mp->mp_dm && !mp->mp_dm->dm_owner) continue;
+	    if (!mp->mp_owner) continue;
 
 	    set_curr_pane(s, mp);
 

@@ -1620,10 +1620,10 @@ f_postscript(ClientData clientData, Tcl_Interp *interpreter, int argc, const cha
     bu_free((void *)menu_state, "f_postscript: menu_state");
     s->mged_curr_pane->mp_dm->dm_menu_state = dml->dm_menu_state;
 
-    scroll_top = dml->dm_scroll_top;
-    scroll_active = dml->dm_scroll_active;
-    scroll_y = dml->dm_scroll_y;
-    memmove((void *)scroll_array, (void *)dml->dm_scroll_array, sizeof(struct scroll_item *) * 6);
+    scroll_top = dml_pane->mp_scroll_top;
+    scroll_active = dml_pane->mp_scroll_active;
+    scroll_y = dml_pane->mp_scroll_y;
+    memmove((void *)scroll_array, (void *)dml_pane->mp_scroll_array, sizeof(struct scroll_item *) * 6);
 
     DMP_dirty = 1;
     if (DMP) dm_set_dirty(DMP, 1);

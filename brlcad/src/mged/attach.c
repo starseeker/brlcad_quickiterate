@@ -182,6 +182,15 @@ mged_pane_init_resources(struct mged_state *s, struct mged_pane *mp)
 	BU_LIST_INIT(&mp->mp_p_vlist);
 	predictor_init_pane(mp);
 	mp->mp_ndrawn = 0;
+	/* Step 7.15: Initialize scalar state fields that dm_var_init used to set
+	 * on the mged_dm.  These now live exclusively in the pane.
+	 * dm_dirty/dm_mapped remain in the dm (dm-window-event-specific). */
+	mp->mp_owner            = 1;
+	mp->mp_am_mode          = AMM_IDLE;
+	mp->mp_perspective_angle = 0;
+	mp->mp_adc_auto         = 1;
+	mp->mp_grid_auto_size   = 1;
+	/* mouse_dx, mouse_dy, omx, omy, knobs, work_pt, scroll_* zero-init via BU_ALLOC/BU_GET. */
 	return;
     }
 
@@ -261,6 +270,15 @@ mged_pane_init_resources(struct mged_state *s, struct mged_pane *mp)
     BU_LIST_INIT(&mp->mp_p_vlist);
     predictor_init_pane(mp);
     mp->mp_ndrawn = 0;
+
+    /* Step 7.15: Initialize scalar state for Obol panes.
+     * dm_dirty/dm_mapped remain in the dm struct (dm-window-event-specific). */
+    mp->mp_owner            = 1;
+    mp->mp_am_mode          = AMM_IDLE;
+    mp->mp_perspective_angle = 0;
+    mp->mp_adc_auto         = 1;
+    mp->mp_grid_auto_size   = 1;
+    /* mouse/knob/scroll fields zero-init via BU_ALLOC/BU_GET. */
 }
 
 /*
@@ -1099,17 +1117,15 @@ dm_var_init(struct mged_state *s, struct mged_dm *target_dm, struct mged_dm *ndm
     ndm->dm_view_state->vs_rc = 1;
     view_ring_init(ndm->dm_view_state, (struct _view_state *)NULL);
 
-    /* Step 7.10: All scalars use ndm directly. */
-    ndm->dm_dirty = 1;
+    /* Step 7.15: Scalar state (owner, am_mode, adc_auto, grid_auto_size, etc.) moved
+     * from mged_dm to mged_pane; initialized in mged_pane_init_resources().
+     * dm_dirty and dm_mapped remain in the dm (dm-window-event-specific). */
+    ndm->dm_dirty  = 1;
+    ndm->dm_mapped = 1;
+    ndm->dm_netfd  = -1;
     if (target_dm->dm_dmp) {
 	dm_set_dirty(target_dm->dm_dmp, 1);
     }
-    ndm->dm_mapped = 1;
-    ndm->dm_netfd = -1;
-    ndm->dm_owner = 1;
-    ndm->dm_am_mode = AMM_IDLE;
-    ndm->dm_adc_auto = 1;
-    ndm->dm_grid_auto_size = 1;
 }
 
 

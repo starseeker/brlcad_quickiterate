@@ -364,34 +364,14 @@ struct mged_dm {
     Tcl_Channel		dm_netchan;
 #endif
     struct client	dm_clients[MAX_CLIENTS];
-    int			dm_dirty;			/* true if received an expose or configuration event */
-    int			dm_mapped;
-    int			dm_owner;			/* true if owner of the view info */
-    int			dm_am_mode;			/* alternate mouse mode */
-    /* Step 7.13: dm_ndrawn removed — use mp_ndrawn on mged_pane. */
-    int			dm_perspective_angle;
-    int			*dm_zclip_ptr;
-    /* Step 7.12: dm_p_vlist removed — predictor vlist lives in mp_p_vlist on mged_pane. */
-    /* Step 7.13: dm_trails removed — use mp_trails on mged_pane. */
-/* Step 7.11: dm_tie removed — use mp_cmd_tie on the mged_pane instead. */
-
-    int			dm_adc_auto;
-    int			dm_grid_auto_size;
-    int			_dm_mouse_dx;
-    int			_dm_mouse_dy;
-    int			_dm_omx;
-    int			_dm_omy;
-    int			_dm_knobs[8];
-    point_t		_dm_work_pt;
-
-    /* Step 7.13: Tcl display variable name VLS fields removed from mged_dm.
-     * Use mp_fps_name etc. on mged_pane (populated by mged_pane_link_vars). */
-
-    /* Slider stuff */
-    int			dm_scroll_top;
-    int			dm_scroll_active;
-    int			dm_scroll_y;
-    struct scroll_item	*dm_scroll_array[6];
+    int			dm_dirty;   /* true if received expose/configure event (dm-specific) */
+    int			dm_mapped;  /* window is mapped/visible (dm-specific) */
+    /* Step 7.15: dm_owner, dm_am_mode, dm_perspective_angle, dm_zclip_ptr removed — use mp_* on mged_pane. */
+    /* Step 7.15: dm_adc_auto, dm_grid_auto_size removed — use mp_* on mged_pane. */
+    /* Step 7.15: mouse/work/knob/scroll fields removed — use mp_* on mged_pane. */
+    /* Step 7.13: dm_ndrawn, dm_trails, VLS name fields removed — use mp_* on mged_pane. */
+    /* Step 7.12: dm_p_vlist removed — use mp_p_vlist on mged_pane. */
+    /* Step 7.11: dm_tie removed — use mp_cmd_tie on mged_pane. */
 
     /* Shareable Resources */
     struct _view_state	*dm_view_state;
@@ -475,6 +455,31 @@ struct mged_pane {
     struct bu_vls   mp_center_name; /* "$::mged_display(%path,center)" */
     struct bu_vls   mp_size_name;   /* "$::mged_display(%path,size)" */
     struct bu_vls   mp_adc_name;    /* "$::mged_display(%path,adc)" */
+
+    /* Step 7.15: Non-lifecycle state fields moved from mged_dm to mged_pane.
+     * For wrapper panes these are initialized in mged_pane_init_resources()
+     * with the same values dm_var_init() previously set on the mged_dm.
+     * For Obol panes they get the same sensible defaults.
+     * Note: dm_dirty and dm_mapped remain in mged_dm (dm-window-event-specific). */
+    int mp_owner;            /* true if this pane owns the view info */
+    int mp_am_mode;          /* alternate mouse mode */
+    int mp_perspective_angle;/* current perspective-table index (0-3) */
+    int mp_adc_auto;         /* adc auto-clear flag */
+    int mp_grid_auto_size;   /* auto grid-size flag */
+
+    /* Mouse/knob state */
+    int mp_mouse_dx;
+    int mp_mouse_dy;
+    int mp_omx;
+    int mp_omy;
+    int mp_knobs[8];
+    point_t mp_work_pt;
+
+    /* Scroll-widget state */
+    int mp_scroll_top;
+    int mp_scroll_active;
+    int mp_scroll_y;
+    struct scroll_item *mp_scroll_array[6];
 };
 
 #define MGED_PANE_NULL ((struct mged_pane *)NULL)
@@ -520,17 +525,17 @@ extern void mged_pane_free_resources(struct mged_pane *mp);
  * For legacy dm wrapper panes (mp_dm != NULL), DMP gives the real dm pointer.
  * Step 7.10: mged_curr_dm removed from mged_state; lifecycle code uses ndm/cdm
  * local pointers.  DMP is used as an rvalue only via the pane->mp_dm path.
- * DMP_dirty and other mp_dm->dm_* macros below are only reached after DMP
- * has been confirmed non-NULL (i.e., the code path already checked DMP first). */
+ * Step 7.15: Most state fields (owner, am_mode, etc.) moved to pane.  dm_dirty
+ * and dm_mapped remain in mged_dm (they are dm-window-event-specific). */
 #define DMP (s->mged_curr_pane->mp_dm ? s->mged_curr_pane->mp_dm->dm_dmp : (struct dm *)NULL)
 #define DMP_dirty s->mged_curr_pane->mp_dm->dm_dirty
 #define fbp s->mged_curr_pane->mp_dm->dm_fbp
 #define clients s->mged_curr_pane->mp_dm->dm_clients
 #define mapped s->mged_curr_pane->mp_dm->dm_mapped
-#define owner s->mged_curr_pane->mp_dm->dm_owner
-#define am_mode s->mged_curr_pane->mp_dm->dm_am_mode
-#define perspective_angle s->mged_curr_pane->mp_dm->dm_perspective_angle
-#define zclip_ptr s->mged_curr_pane->mp_dm->dm_zclip_ptr
+#define owner s->mged_curr_pane->mp_owner
+#define am_mode s->mged_curr_pane->mp_am_mode
+#define perspective_angle s->mged_curr_pane->mp_perspective_angle
+/* Step 7.15: zclip_ptr macro removed — dm_zclip_ptr was dead (never used). */
 
 /* Step 7.2: mged_curr_pane is always non-NULL after startup (init_pane created
  * in mged_main before any attach).  Direct mp_* access — no ternary fallback
@@ -564,21 +569,22 @@ extern void mged_pane_free_resources(struct mged_pane *mp);
  * dm_cmd_hook was always dm_commands — use dm_commands() directly.
  * viewpoint_hook/eventHandler were never assigned or called (dead). */
 
-#define adc_auto s->mged_curr_pane->mp_dm->dm_adc_auto
-#define grid_auto_size s->mged_curr_pane->mp_dm->dm_grid_auto_size
+/* Step 7.15: adc_auto, grid_auto_size, mouse/knob/scroll fields moved from mged_dm to mged_pane. */
+#define adc_auto s->mged_curr_pane->mp_adc_auto
+#define grid_auto_size s->mged_curr_pane->mp_grid_auto_size
 
 /* Names of macros must be different than actual struct element */
-#define dm_mouse_dx s->mged_curr_pane->mp_dm->_dm_mouse_dx
-#define dm_mouse_dy s->mged_curr_pane->mp_dm->_dm_mouse_dy
-#define dm_omx s->mged_curr_pane->mp_dm->_dm_omx
-#define dm_omy s->mged_curr_pane->mp_dm->_dm_omy
-#define dm_knobs s->mged_curr_pane->mp_dm->_dm_knobs
-#define dm_work_pt s->mged_curr_pane->mp_dm->_dm_work_pt
+#define dm_mouse_dx s->mged_curr_pane->mp_mouse_dx
+#define dm_mouse_dy s->mged_curr_pane->mp_mouse_dy
+#define dm_omx s->mged_curr_pane->mp_omx
+#define dm_omy s->mged_curr_pane->mp_omy
+#define dm_knobs s->mged_curr_pane->mp_knobs
+#define dm_work_pt s->mged_curr_pane->mp_work_pt
 
-#define scroll_top s->mged_curr_pane->mp_dm->dm_scroll_top
-#define scroll_active s->mged_curr_pane->mp_dm->dm_scroll_active
-#define scroll_y s->mged_curr_pane->mp_dm->dm_scroll_y
-#define scroll_array s->mged_curr_pane->mp_dm->dm_scroll_array
+#define scroll_top s->mged_curr_pane->mp_scroll_top
+#define scroll_active s->mged_curr_pane->mp_scroll_active
+#define scroll_y s->mged_curr_pane->mp_scroll_y
+#define scroll_array s->mged_curr_pane->mp_scroll_array
 
 #define VIEWSIZE	(view_state->vs_gvp->gv_size)	/* Width of viewing cube */
 #define VIEWFACTOR	(1/view_state->vs_gvp->gv_scale)
