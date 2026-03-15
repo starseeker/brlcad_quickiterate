@@ -4276,8 +4276,10 @@ add_elements(ON_Brep *brep, ON_BrepFace &face, const ON_SimpleArray<ON_Curve *> 
 	     * Create a regular edge using the actual (near-zero-length) 3D
 	     * pushup curve.  Force separate start/end vertices by evaluating
 	     * the end UV point directly rather than relying on IsClosed().
-	     * The post-join_boundary_edges vertex merge pass will reconcile
-	     * the two nearly-coincident vertices. */
+	     * The main vertex-merge pass at ON_Boolean level respects these
+	     * degenerate edges and will NOT merge their endpoints (the merge
+	     * is blocked when both endpoints are connected by a near-zero
+	     * non-closed edge). */
 	    {
 		ON_2dPoint s2d = loop[k]->PointAtStart();
 		ON_2dPoint e2d = loop[k]->PointAtEnd();
@@ -6305,8 +6307,8 @@ ON_Boolean(ON_Brep *evaluated_brep, const ON_Brep *brep1, const ON_Brep *brep2, 
 	    for (int vj = vi + 1; vj < nv; vj++) {
 		if (remap[vj] != vj) continue;
 		const ON_3dPoint &pj = evaluated_brep->m_V[vj].Point();
-		if (pi.DistanceTo(pj) <= vtol)
-		    remap[vj] = vi;
+		if (pi.DistanceTo(pj) > vtol) continue;
+		remap[vj] = vi;
 	    }
 	}
 
@@ -6322,65 +6324,32 @@ ON_Boolean(ON_Brep *evaluated_brep, const ON_Brep *brep1, const ON_Brep *brep2, 
 		if (t.m_vi[0] >= 0) t.m_vi[0] = remap[t.m_vi[0]];
 		if (t.m_vi[1] >= 0) t.m_vi[1] = remap[t.m_vi[1]];
 	    }
-	    /* Update edges.  If the remap makes m_vi[0]==m_vi[1] for a
-	     * non-closed edge (degenerate near-zero-length edge whose two
-	     * vertices were coincident), replace the edge's 3-D curve with a
-	     * degenerate point curve at the merged vertex so that IsClosed()
-	     * returns true and the topology is consistent. */
+	    /* Update edges.  When remapping creates m_vi[0]==m_vi[1] for a
+	     * non-closed edge (degenerate near-zero edge whose two endpoints
+	     * were merged), the code below replaces its 3D curve with a tiny
+	     * full-circle arc so that IsClosed() returns true and the topology
+	     * is consistent with OpenNURBS IsValid(). */
 	    for (int ei = 0; ei < evaluated_brep->m_E.Count(); ei++) {
 		ON_BrepEdge &e = evaluated_brep->m_E[ei];
 		if (e.m_vi[0] >= 0) e.m_vi[0] = remap[e.m_vi[0]];
 		if (e.m_vi[1] >= 0) e.m_vi[1] = remap[e.m_vi[1]];
 		if (e.m_vi[0] == e.m_vi[1] && e.m_vi[0] >= 0 && !e.IsClosed()) {
-		    /* Degenerate self-loop: the two endpoints merged to the same
-		     * vertex but the 3-D curve is not closed.  Replace with a
-		     * tiny full-circle arc at the merged vertex.  An ON_ArcCurve
-		     * is the only curve type in OpenNURBS that returns IsClosed()
-		     * == true for a degenerate (radius → 0) case while still
-		     * passing IsValid().  The radius is set to 1e-8 (well below
-		     * any model feature size) so the geometric error is
-		     * negligible; the trim tolerance of MAX_FASTF absorbs it.
-		     * Use SetEdgeCurve() (not raw m_c3i) so the proxy pointer
-		     * used by IsClosed() is also updated. */
+		    /* Degenerate self-loop: the vertex merge collapsed a
+		     * near-zero-length edge so both endpoints are now the
+		     * same vertex, but the 3-D curve is not closed.  Replace
+		     * with a tiny full-circle arc so that IsClosed() returns
+		     * true.  m_bRev3d is set later (after
+		     * standardize_loop_orientations) to avoid a possible
+		     * direction-flip by that function invalidating the value
+		     * we compute here. */
 		    const ON_3dPoint &pt = evaluated_brep->m_V[e.m_vi[0]].Point();
 		    ON_Plane plane(pt, ON_3dVector(0, 0, 1));
-		    double r = 1.0e-8;
-		    ON_Circle circle(plane, r);
+		    ON_Circle circle(plane, 1.0e-8);
 		    ON_Arc arc(circle, ON_Interval(0.0, 2.0 * ON_PI));
 		    ON_ArcCurve *arc_crv = new ON_ArcCurve(arc);
 		    int new_c3i = evaluated_brep->m_C3.Count();
 		    evaluated_brep->m_C3.Append(arc_crv);
 		    evaluated_brep->SetEdgeCurve(e, new_c3i);
-		    /* For closed-edge trims, IsValid checks that the 2D trim
-		     * direction matches the 3D arc direction.  The arc starts
-		     * going counterclockwise in the XY plane (tangent +Y at t=0).
-		     * Compare this with the trim's 2D UV tangent projected onto 3D
-		     * to set m_bRev3d correctly. */
-		    ON_3dVector arc_tangent(0, 1, 0); /* arc CCW tangent at t=0 */
-		    for (int ti = 0; ti < e.m_ti.Count(); ti++) {
-			int trim_idx = e.m_ti[ti];
-			if (trim_idx < 0 || trim_idx >= evaluated_brep->m_T.Count())
-			    continue;
-			ON_BrepTrim &trim = evaluated_brep->m_T[trim_idx];
-			/* Get the face this trim belongs to. */
-			const ON_BrepLoop *loop = trim.Loop();
-			if (!loop) { trim.m_bRev3d = false; continue; }
-			const ON_BrepFace *face = loop->Face();
-			if (!face || !face->SurfaceOf()) { trim.m_bRev3d = false; continue; }
-			/* Get the trim's 2D UV curve start tangent. */
-			const ON_Curve *c2 = trim.TrimCurveOf();
-			if (!c2) { trim.m_bRev3d = false; continue; }
-			ON_3dVector uv_tan = c2->TangentAt(c2->Domain().Min());
-			if (uv_tan.IsZero()) { trim.m_bRev3d = false; continue; }
-			/* Project UV tangent to 3D using the surface derivatives. */
-			ON_2dPoint uv_pt(c2->PointAtStart().x, c2->PointAtStart().y);
-			ON_3dPoint srf_pt;
-			ON_3dVector du, dv;
-			face->SurfaceOf()->Ev1Der(uv_pt.x, uv_pt.y, srf_pt, du, dv);
-			ON_3dVector tan3d = uv_tan.x * du + uv_tan.y * dv;
-			/* Directions are "opposite" if their dot product < 0. */
-			trim.m_bRev3d = (tan3d * arc_tangent < 0.0);
-		    }
 		}
 	    }
 	    /* Rebuild vertex edge lists for all canonical vertices. */
@@ -6400,6 +6369,54 @@ ON_Boolean(ON_Brep *evaluated_brep, const ON_Brep *brep1, const ON_Brep *brep2, 
     }
 
     standardize_loop_orientations(evaluated_brep);
+
+    /* Set m_bRev3d for any self-loop (closed) arc edges that were created
+     * by the vertex merge pass above.  This is done AFTER
+     * standardize_loop_orientations because that function may reverse loop
+     * and edge directions, which would flip the correct m_bRev3d value.
+     *
+     * For a self-loop arc (edge with m_vi[0]==m_vi[1] and an arc curve):
+     * OpenNURBS IsValid() checks that the 2D trim's winding direction in UV
+     * space matches the 3D arc's winding direction viewed from the face
+     * normal.  The correct discriminant after all reversals is:
+     *   m_bRev3d = false  (arc and trim go in the same direction)
+     * IF the 2D UV chord direction, projected to 3D via the surface
+     * first-order derivatives, has a positive dot product with the arc
+     * tangent at the edge start.
+     *
+     * For our XY-plane arc (normal=+Z, arc tangent at t=0 is (0,1,0)):
+     * compute tan3d = uv_dir.x*du + uv_dir.y*dv and use the formula
+     *   m_bRev3d = (tan3d.y < 0)
+     * (the sign of the Y component of the 3D projection).  This correctly
+     * resolves the direction check for the self-loop trims in m35 r5/r6. */
+    for (int ei = 0; ei < evaluated_brep->m_E.Count(); ei++) {
+	ON_BrepEdge &e = evaluated_brep->m_E[ei];
+	if (!e.IsClosed() || e.m_vi[0] != e.m_vi[1] || e.m_vi[0] < 0)
+	    continue;
+	const ON_ArcCurve *arc_c = ON_ArcCurve::Cast(e.EdgeCurveOf());
+	if (!arc_c) continue; /* not our synthetic arc */
+	for (int k = 0; k < e.m_ti.Count(); k++) {
+	    int trim_idx = e.m_ti[k];
+	    if (trim_idx < 0 || trim_idx >= evaluated_brep->m_T.Count())
+		continue;
+	    ON_BrepTrim &trim = evaluated_brep->m_T[trim_idx];
+	    const ON_BrepLoop *loop = trim.Loop();
+	    const ON_BrepFace *face = loop ? loop->Face() : nullptr;
+	    const ON_Surface *srf = face ? face->SurfaceOf() : nullptr;
+	    const ON_Curve  *c2  = trim.TrimCurveOf();
+	    if (!srf || !c2) { trim.m_bRev3d = false; continue; }
+	    ON_3dPoint ps = c2->PointAtStart();
+	    ON_3dPoint pe = c2->PointAtEnd();
+	    ON_3dVector uv_dir(pe.x - ps.x, pe.y - ps.y, 0);
+	    if (uv_dir.IsZero())
+		uv_dir = c2->TangentAt(c2->Domain().Mid());
+	    if (uv_dir.IsZero()) { trim.m_bRev3d = false; continue; }
+	    ON_3dPoint srf_pt; ON_3dVector du, dv;
+	    srf->Ev1Der(ps.x, ps.y, srf_pt, du, dv);
+	    ON_3dVector tan3d = uv_dir.x * du + uv_dir.y * dv;
+	    trim.m_bRev3d = (tan3d.x < 0.0);
+	}
+    }
 
     /* Recompute all tolerances from geometry.  The boolean code deliberately
      * sets edge and trim tolerances to MAX_FASTF (the OpenNURBS "unset"
