@@ -225,9 +225,9 @@ struct mged_state {
 
     /* Display related */
     /* Step 7.10: mged_curr_dm removed — use mged_curr_pane->mp_dm for the
-     * current pane's mged_dm, or mged_dm_init_state for the sentinel dm. */
+     * current pane (Step 7.18: mged_dm eliminated; sentinel is s->mged_init_pane). */
     struct mged_pane *mged_curr_pane;  /* Step 7: current pane; always non-NULL after init */
-    struct mged_pane *mged_init_pane;  /* Step 7.2: startup sentinel wrapper (wraps mged_dm_init_state) */
+    struct mged_pane *mged_init_pane;  /* Step 7.2: startup sentinel pane (Step 7.18: no longer wraps mged_dm_init_state) */
     char *dpy_string;
     struct bu_list *vlfree;
 
@@ -525,7 +525,7 @@ void init_oedit(struct mged_state *s);
 void init_sedit(struct mged_state *s);
 
 /* share.c */
-void usurp_all_resources(struct mged_dm *dlp1, struct mged_dm *dlp2);
+void usurp_all_resources(struct mged_pane *p1, struct mged_pane *p2);
 
 /* set.c */
 extern void set_absolute_tran(struct mged_state *);

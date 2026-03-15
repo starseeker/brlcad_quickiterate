@@ -236,7 +236,7 @@ createDListSolid(void *vlist_ctx, bsg_shape *sp)
     /* Step 6.b: use active_pane_set. */
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (!mp->mp_dm) continue;  /* skip Obol panes */
+	if (!mp->mp_dmp) continue;  /* skip Obol panes */
 	set_curr_pane(s, mp);
 	if (mapped &&
 		dm_get_displaylist(DMP) &&
@@ -303,7 +303,7 @@ freeDListsAll(void *data, unsigned int dlist, int range)
     struct mged_pane *save_pane = s->mged_curr_pane;
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (!mp->mp_dm) continue;  /* skip Obol panes */
+	if (!mp->mp_dmp) continue;  /* skip Obol panes */
 	set_curr_pane(s, mp);
 	if (dm_get_displaylist(DMP) && mged_variables->mv_dlist) {
 	    (void)dm_make_current(DMP);

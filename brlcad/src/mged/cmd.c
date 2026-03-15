@@ -1459,8 +1459,8 @@ f_tie(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, const ch
 	for (BU_LIST_FOR (clp, cmd_list, &head_cmd_list.l)) {
 	    bu_vls_trunc(&vls, 0);
 	    /* Step 7.4: cl_tie is mged_pane*; get dm pathname via mp_dm */
-	    if (clp->cl_tie && clp->cl_tie->mp_dm && clp->cl_tie->mp_dm->dm_dmp) {
-		struct bu_vls *pn = dm_get_pathname(clp->cl_tie->mp_dm->dm_dmp);
+	    if (clp->cl_tie && clp->cl_tie->mp_dmp) {
+		struct bu_vls *pn = dm_get_pathname(clp->cl_tie->mp_dmp);
 		if (pn && bu_vls_strlen(pn)) {
 		    bu_vls_printf(&vls, "%s %s", bu_vls_cstr(&clp->cl_name), bu_vls_cstr(pn));
 		    Tcl_AppendElement(interpreter, bu_vls_cstr(&vls));
@@ -1472,8 +1472,8 @@ f_tie(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, const ch
 	}
 
 	bu_vls_trunc(&vls, 0);
-	if (clp->cl_tie && clp->cl_tie->mp_dm && clp->cl_tie->mp_dm->dm_dmp) {
-	    struct bu_vls *pn = dm_get_pathname(clp->cl_tie->mp_dm->dm_dmp);
+	if (clp->cl_tie && clp->cl_tie->mp_dmp) {
+	    struct bu_vls *pn = dm_get_pathname(clp->cl_tie->mp_dmp);
 	    if (pn && bu_vls_strlen(pn)) {
 		bu_vls_printf(&vls, "%s %s", bu_vls_cstr(&clp->cl_name), bu_vls_cstr(pn));
 		Tcl_AppendElement(interpreter, bu_vls_cstr(&vls));
@@ -1526,8 +1526,8 @@ f_tie(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, const ch
     /* print out the display manager that we're tied to */
     if (argc == 2) {
 	/* Step 7.4: cl_tie is mged_pane*; get dm pathname via mp_dm */
-	if (clp->cl_tie && clp->cl_tie->mp_dm && clp->cl_tie->mp_dm->dm_dmp) {
-	    struct bu_vls *pn = dm_get_pathname(clp->cl_tie->mp_dm->dm_dmp);
+	if (clp->cl_tie && clp->cl_tie->mp_dmp) {
+	    struct bu_vls *pn = dm_get_pathname(clp->cl_tie->mp_dmp);
 	    if (pn && bu_vls_strlen(pn)) {
 		Tcl_AppendElement(interpreter, bu_vls_cstr(pn));
 	    }
@@ -1548,8 +1548,8 @@ f_tie(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, const ch
     struct mged_pane *tlp = MGED_PANE_NULL;
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (!mp->mp_dm) continue;
-	struct bu_vls *pn = dm_get_pathname(mp->mp_dm->dm_dmp);
+	if (!mp->mp_dmp) continue;
+	struct bu_vls *pn = dm_get_pathname(mp->mp_dmp);
 	if (pn && !bu_vls_strcmp(&vls, pn)) {
 	    tlp = mp;
 	    break;
@@ -1702,8 +1702,8 @@ f_winset(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
     /* Step 6.b: f_winset fallback: search active_pane_set for dm wrapper by pathname. */
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (!mp->mp_dm) continue;
-	struct bu_vls *pn = dm_get_pathname(mp->mp_dm->dm_dmp);
+	if (!mp->mp_dmp) continue;
+	struct bu_vls *pn = dm_get_pathname(mp->mp_dmp);
 	if (pn && BU_STR_EQUAL(argv[1], bu_vls_cstr(pn))) {
 	    set_curr_pane(s, mp);
 
@@ -2080,7 +2080,7 @@ cmd_blast(ClientData clientData, Tcl_Interp *UNUSED(interpreter), int argc, cons
 		ged_exec_autoview(s->gedp, 1, (const char **)av);
 		s->update_views = 1;
 		/* Also update view_ring scale for legacy dm wrapper panes. */
-		if (mp->mp_dm && mp->mp_view_state) {
+		if (mp->mp_dmp && mp->mp_view_state) {
 		    struct view_ring *vrp;
 		    (void)mged_svbase(s);
 		    for (BU_LIST_FOR(vrp, view_ring, &mp->mp_view_state->vs_headView.l))

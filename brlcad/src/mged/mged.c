@@ -307,7 +307,7 @@ new_edit_mats(struct mged_state *s)
     /* Step 6.b: use active_pane_set. */
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (!mp->mp_dm) continue;  /* skip Obol panes */
+	if (!mp->mp_dmp) continue;  /* skip Obol panes */
 	if (!mp->mp_owner) continue;
 
 	set_curr_pane(s, mp);
@@ -1534,8 +1534,8 @@ refresh(struct mged_state *s)
     if (s->update_views) {
 	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	    if (!mp->mp_dm) continue;  /* skip Obol panes */
-	    mp->mp_dm->dm_dirty = 1;
+	    if (!mp->mp_dmp) continue;  /* skip Obol panes */
+	    mp->mp_dirty = 1;
 	}
     }
 
@@ -1553,7 +1553,7 @@ refresh(struct mged_state *s)
 	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
 	    /* skip Obol panes — they render via obol_notify_views below */
-	    if (!mp->mp_dm) continue;
+	    if (!mp->mp_dmp) continue;
 
 	    /*
 	     * if something has changed, then go update the display.
@@ -1719,18 +1719,18 @@ refresh(struct mged_state *s)
      * Step 6.b: the rendering loop above now uses active_pane_set directly.
      * This obol_notify_views call handles Obol panes that were skipped above. */
     {
-	int has_obol_pane = (s->mged_curr_pane && !s->mged_curr_pane->mp_dm);
+	int has_obol_pane = (s->mged_curr_pane && !s->mged_curr_pane->mp_dmp);
 	if (!has_obol_pane) {
 	    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 		struct mged_pane *pmp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-		if (pmp && !pmp->mp_dm) { has_obol_pane = 1; break; }
+		if (pmp && !pmp->mp_dmp) { has_obol_pane = 1; break; }
 	    }
 	}
 	if (s->interp && (obol_needs_refresh || do_time) && has_obol_pane) {
 	    /* Update Tcl HUD display variables for each Obol pane (skip wrappers). */
 	    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 		struct mged_pane *pmp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-		if (pmp && !pmp->mp_dm)
+		if (pmp && !pmp->mp_dmp)
 		    obol_update_title_vars(s, pmp);
 	    }
 	    (void)Tcl_Eval(s->interp, "catch {obol_notify_views}");
@@ -1773,34 +1773,28 @@ mged_finish(struct mged_state *s, int exitcode)
 	}
     }
 
-    /* Step 6.c: Release all displays via active_pane_set. */
+    /* Step 6.c/7.18: Release all displays via active_pane_set. */
     {
-	/* First pass: free all legacy dm wrapper panes. */
+	/* First pass: free all legacy dm panes (mp_dmp != NULL). */
 	size_t pi = 0;
 	while (pi < BU_PTBL_LEN(&active_pane_set)) {
 	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	    if (!mp || !mp->mp_dm) { pi++; continue; }
+	    if (!mp || !mp->mp_dmp) { pi++; continue; }
 
-	    struct mged_dm *p = mp->mp_dm;
 	    bu_ptbl_rm(&active_pane_set, (long *)mp);
 	    /* pi stays at same index since list shrunk */
 
+	    if (mp->mp_dmp) {
+		dm_close(mp->mp_dmp);
+		mp->mp_dmp = NULL;
+	    }
 	    mged_pane_free_resources(mp);
 	    BU_PUT(mp, struct mged_pane);
-
-	    if (p->dm_dmp) {
-		dm_close(p->dm_dmp);
-		/* Step 7.12: dm_p_vlist removed from mged_dm. */
-		/* Step 7.13: mged_slider_free_vls removed — dm VLS name fields deleted. */
-	    }
-	    bu_free(p, "mged_finish: mged_dm");
-	    /* Step 7.10: mged_curr_dm removed from mged_state; no pointer to null. */
 	}
     }
 
-    /* Step 7.2: Free the startup sentinel init pane (wraps mged_dm_init_state).
-     * mged_pane_free_resources() is a no-op for wrapper panes (mp_dm != NULL).
-     * Clear mged_curr_pane BEFORE BU_PUT to avoid a use-after-free. */
+    /* Step 7.2: Free the startup sentinel init pane.
+     * Step 7.18: mged_dm_init_state removed; sentinel is just the pane. */
     if (s->mged_init_pane) {
 	if (s->mged_curr_pane == s->mged_init_pane)
 	    s->mged_curr_pane = MGED_PANE_NULL;
@@ -1809,18 +1803,13 @@ mged_finish(struct mged_state *s, int exitcode)
 	s->mged_init_pane = MGED_PANE_NULL;
     }
 
-    /* Free the initial "nu" sentinel dm (never in active_pane_set). */
-    if (mged_dm_init_state) {
-	bu_free(mged_dm_init_state, "mged_finish: mged_dm_init_state");
-	mged_dm_init_state = NULL;
-    }
+    /* Step 7.18: mged_dm_init_state free removed (global eliminated). */
 
-    /* Release remaining Obol panes (mp_dm == NULL).
-     * Legacy dm wrapper panes (mp_dm != NULL) were freed in the loop above. */
+    /* Release remaining Obol panes (mp_dmp == NULL).
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
 	/* Skip NULL entries and legacy dm wrappers (already freed above). */
-	if (!mp || mp->mp_dm)
+	if (!mp || mp->mp_dmp)
 	    continue;
 	if (mp->mp_gvp) {
 	    struct tclcad_view_data *tvd =
@@ -1956,9 +1945,7 @@ main(int argc, char *argv[])
     mged_global_db_ctx.init_flag = 1;
 
     char *attach = (char *)NULL;
-    /* Step 7.10: mged_curr_dm removed from mged_state; allocate sentinel dm directly. */
-    BU_ALLOC(mged_dm_init_state, struct mged_dm);
-    mged_dm_init_state->dm_netfd = -1;
+    /* Step 7.18: mged_dm_init_state removed; sentinel is s->mged_init_pane. */
     s->mged_init_pane = MGED_PANE_NULL;
     /* mged_curr_pane will be set to the init sentinel pane after resources
      * are allocated (Step 7.2 init_pane creation, below).  Zero it now. */
@@ -2143,19 +2130,16 @@ main(int argc, char *argv[])
     /* register application provided routines */
     /* Step 7.14: dm_cmd_hook removed — always dm_commands; no assignment needed. */
 
-    /* Step 7.17: ALL resources (including view_state) are now owned by the
-     * sentinel pane (mged_init_pane).  mged_pane_init_resources() allocates them.
-     * No resource allocation on mged_dm_init_state itself. */
+    /* Step 7.17/7.18: ALL resources are owned by the sentinel pane (mged_init_pane).
+     * mged_pane_init_resources() allocates them; no separate mged_dm_init_state. */
 
-    /* Step 7.2: Create a sentinel wrapper pane for mged_dm_init_state so that
-     * mged_curr_pane is always non-NULL.  This avoids crashes from NULL dereferences
-     * in the ternary macros before a real dm/Obol pane is attached.
-     * Step 7.17: mged_pane_init_resources() allocates ALL 9 resources in the pane
-     * (including view_state) since s->mged_curr_pane is NULL → defaults path. */
+    /* Step 7.2: Create the startup sentinel pane so that mged_curr_pane is
+     * always non-NULL.  This avoids crashes from NULL dereferences in the
+     * pane macros before a real dm/Obol pane is attached.
+     * Step 7.18: no mged_dm allocated; pane is fully self-contained. */
     BU_GET(s->mged_init_pane, struct mged_pane);
-    s->mged_init_pane->mp_dm  = mged_dm_init_state;
     s->mged_init_pane->mp_gvp = NULL;  /* no view until a dm is attached */
-    mged_pane_init_resources(s, s->mged_init_pane);  /* owns all 9 resources */
+    mged_pane_init_resources(s, s->mged_init_pane);  /* owns all 9 resources + libdm fields */
     s->mged_curr_pane = s->mged_init_pane;
 
     MAT_IDN(view_state->vs_ModelDelta);

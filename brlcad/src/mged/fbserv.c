@@ -125,16 +125,16 @@ fbserv_existing_client_handler(ClientData clientData, int UNUSED(mask))
     int fd = (uint16_t)((long)(uintptr_t)clientData & 0xFFFF);
 
     int npp;			/* number of processed packages */
-    struct mged_dm *dlp = MGED_DM_NULL;
+    struct mged_pane *dlp = MGED_PANE_NULL;
     struct mged_pane *save_pane;
 
     /* Step 6.b: search active_pane_set for matching fd. */
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (!mp->mp_dm) continue;
+	if (!mp->mp_dmp) continue;
 	for (i = MAX_CLIENTS-1; i >= 0; i--)
-	    if (fd == mp->mp_dm->dm_clients[i].c_fd) {
-		dlp = mp->mp_dm;
+	    if (fd == mp->mp_clients[i].c_fd) {
+		dlp = mp;
 		goto found;
 	    }
     }
@@ -150,7 +150,7 @@ found:
 	struct mged_pane *mp = NULL;
 	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	    struct mged_pane *p2 = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	    if (p2->mp_dm == dlp) { mp = p2; break; }
+	    if (p2 == dlp) { mp = p2; break; }
 	}
 	/* Step 7.5: always use set_curr_pane; if no wrapper pane found, keep current. */
 	if (mp) set_curr_pane(s, mp);
@@ -294,9 +294,9 @@ fbserv_new_client_handler(ClientData clientData, int UNUSED(mask))
     /* Step 6.b: search active_pane_set by dm_netfd. */
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (!mp->mp_dm) continue;
-	if (fd == mp->mp_dm->dm_netfd) {
-	    dlp = mp->mp_dm;
+	if (!mp->mp_dmp) continue;
+	if (fd == mp->mp_netfd) {
+	    dlp = mp;
 	    break;
 	}
     }
@@ -307,7 +307,7 @@ fbserv_new_client_handler(ClientData clientData, int UNUSED(mask))
     /* Find wrapper pane for dlp and make it current. */
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (mp->mp_dm == dlp) { set_curr_pane(s, mp); break; }
+	if (mp == dlp) { set_curr_pane(s, mp); break; }
     }
 
 #ifdef USE_TCL_CHAN
@@ -335,37 +335,37 @@ fbserv_set_port(const struct bu_structparse *UNUSED(sp), const char *UNUSED(c1),
 
     /* Step 7.7: access dm_netfd/dm_netchan via the pane's mp_dm pointer rather
      * than through s->mged_curr_dm.  The !DMP guard above ensures mp_dm != NULL. */
-    struct mged_dm *cdm = s->mged_curr_pane->mp_dm;
+    struct mged_pane *cdm = s->mged_curr_pane;
 
 #define MAX_PORT_TRIES 100
 
     /* Check to see if previously active --- if so then deactivate */
 #ifdef USE_TCL_CHAN
-    if (cdm->dm_netchan != NULL) {
+    if (cdm->mp_netchan != NULL) {
 	/* first drop all clients */
 	for (i = 0; i < MAX_CLIENTS; ++i)
 	    fbserv_drop_client(i);
 
-	ClientData fd = (ClientData)cdm->dm_netfd;
-	Tcl_DeleteChannelHandler(cdm->dm_netchan, (Tcl_ChannelProc *)fbserv_new_client_handler, fd);
+	ClientData fd = (ClientData)cdm->mp_netfd;
+	Tcl_DeleteChannelHandler(cdm->mp_netchan, (Tcl_ChannelProc *)fbserv_new_client_handler, fd);
 
 	if (dm_interp(DMP) != NULL)
-	    Tcl_Close((Tcl_Interp *)dm_interp(DMP), cdm->dm_netchan);
+	    Tcl_Close((Tcl_Interp *)dm_interp(DMP), cdm->mp_netchan);
 
-	cdm->dm_netchan = NULL;
+	cdm->mp_netchan = NULL;
 
-	closesocket(cdm->dm_netfd);
-	cdm->dm_netfd = -1;
+	closesocket(cdm->mp_netfd);
+	cdm->mp_netfd = -1;
     }
 #else
-    if (cdm->dm_netfd >= 0) {
+    if (cdm->mp_netfd >= 0) {
 	/* first drop all clients */
 	for (i = 0; i < MAX_CLIENTS; ++i)
 	    fbserv_drop_client(i);
 
-	Tcl_DeleteFileHandler(cdm->dm_netfd);
-	close(cdm->dm_netfd);
-	cdm->dm_netfd = -1;
+	Tcl_DeleteFileHandler(cdm->mp_netfd);
+	close(cdm->mp_netfd);
+	cdm->mp_netfd = -1;
     }
 #endif
 
@@ -407,9 +407,9 @@ fbserv_set_port(const struct bu_structparse *UNUSED(sp), const char *UNUSED(c1),
 	sprintf(hostname, "localhost");
 
 	if (dm_interp(DMP) != NULL)
-	    cdm->dm_netchan = Tcl_OpenTcpServer((Tcl_Interp *)dm_interp(DMP), port, hostname, fbserv_new_client_handler, (ClientData)cdm);
+	    cdm->mp_netchan = Tcl_OpenTcpServer((Tcl_Interp *)dm_interp(DMP), port, hostname, fbserv_new_client_handler, (ClientData)cdm);
 
-	if (cdm->dm_netchan == NULL)
+	if (cdm->mp_netchan == NULL)
 	    ++port;
 	else
 	    break;
@@ -420,7 +420,7 @@ fbserv_set_port(const struct bu_structparse *UNUSED(sp), const char *UNUSED(c1),
 	else
 	    sprintf(portname, "%d", mged_variables->mv_port);
 
-	if ((cdm->dm_netfd = pkg_permserver(portname, 0, 0, communications_error)) < 0)
+	if ((cdm->mp_netfd = pkg_permserver(portname, 0, 0, communications_error)) < 0)
 	    ++mged_variables->mv_port;
 	else
 	    break;
@@ -428,17 +428,17 @@ fbserv_set_port(const struct bu_structparse *UNUSED(sp), const char *UNUSED(c1),
     }
 
 #ifdef USE_TCL_CHAN
-    if (cdm->dm_netchan == NULL) {
+    if (cdm->mp_netchan == NULL) {
 	mged_variables->mv_port = save_port;
 	mged_variables->mv_listen = 0;
 	bu_log("fbserv_set_port: failed to hang a listen on ports %d - %d\n",
 		mged_variables->mv_port, mged_variables->mv_port + MAX_PORT_TRIES - 1);
     } else {
 	mged_variables->mv_port = port;
-	Tcl_GetChannelHandle(cdm->dm_netchan, TCL_READABLE, (ClientData *)&cdm->dm_netfd);
+	Tcl_GetChannelHandle(cdm->mp_netchan, TCL_READABLE, (ClientData *)&cdm->mp_netfd);
     }
 #else
-    if (cdm->dm_netfd < 0) {
+    if (cdm->mp_netfd < 0) {
 	mged_variables->mv_port = save_port;
 	mged_variables->mv_listen = 0;
 	bu_log("fbserv_set_port: failed to hang a listen on ports %d - %d\n",
@@ -447,8 +447,8 @@ fbserv_set_port(const struct bu_structparse *UNUSED(sp), const char *UNUSED(c1),
 	// Need to pass a few things to fbserv_new_client_handler. ncdata's
 	// lifetime is governed by the needs of the Tcl file handlers, so it
 	// has to be freed once fbserv_new_client_handler is done.
-	Tcl_CreateFileHandler(cdm->dm_netfd, TCL_READABLE,
-		fbserv_new_client_handler, (ClientData)(size_t)cdm->dm_netfd);
+	Tcl_CreateFileHandler(cdm->mp_netfd, TCL_READABLE,
+		fbserv_new_client_handler, (ClientData)(size_t)cdm->mp_netfd);
     }
 #endif
 }

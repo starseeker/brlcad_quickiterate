@@ -44,48 +44,22 @@
 #define RESOURCE_TYPE_RUBBER_BAND	6
 #define RESOURCE_TYPE_VIEW		7
 
-/* Step 7.16: SHARE_RESOURCE now accesses resources via dm->dm_pane->mp_*
- * instead of dm->dm_* (the 8 non-view resources moved to the pane).
- * The macro parameters use the mp_* field names (e.g. mp_adc_state). */
+/* Step 7.18: SHARE_RESOURCE now accesses resources directly on the pane (dlp is mged_pane*).
+ * dlp->dm_pane->mp_* replaced by dlp->mp_* since dlp IS the pane. */
 #define SHARE_RESOURCE(uflag, str, resource, rc, dlp1, dlp2, vls, error_msg) \
     do { \
 	if (uflag) { \
 	    struct str *strp; \
 \
-	    if (dlp1->dm_pane->resource->rc > 1) {   /* must be sharing this resource */ \
-		--dlp1->dm_pane->resource->rc; \
-		strp = dlp1->dm_pane->resource; \
-		BU_ALLOC(dlp1->dm_pane->resource, struct str); \
-		*dlp1->dm_pane->resource = *strp;        /* struct copy */ \
-		dlp1->dm_pane->resource->rc = 1; \
-	    } \
-	} else { \
-	    /* must not be sharing this resource */ \
-	    if (dlp1->dm_pane->resource != dlp2->dm_pane->resource) { \
-		if (!--dlp2->dm_pane->resource->rc) \
-		    bu_free((void *)dlp2->dm_pane->resource, error_msg); \
-\
-		dlp2->dm_pane->resource = dlp1->dm_pane->resource; \
-		++dlp1->dm_pane->resource->rc; \
-	    } \
-	} \
-    } while (0)
-
-/* SHARE_RESOURCE_DM: used for dm-owned fields (dm_view_state) that are NOT
- * yet moved to the pane.  Operates on dlp->field directly (old-style). */
-#define SHARE_RESOURCE_DM(uflag, str, resource, rc, dlp1, dlp2, vls, error_msg) \
-    do { \
-	if (uflag) { \
-	    struct str *strp; \
-\
-	    if (dlp1->resource->rc > 1) { \
+	    if (dlp1->resource->rc > 1) {   /* must be sharing this resource */ \
 		--dlp1->resource->rc; \
 		strp = dlp1->resource; \
 		BU_ALLOC(dlp1->resource, struct str); \
-		*dlp1->resource = *strp; \
+		*dlp1->resource = *strp;        /* struct copy */ \
 		dlp1->resource->rc = 1; \
 	    } \
 	} else { \
+	    /* must not be sharing this resource */ \
 	    if (dlp1->resource != dlp2->resource) { \
 		if (!--dlp2->resource->rc) \
 		    bu_free((void *)dlp2->resource, error_msg); \
@@ -104,7 +78,7 @@ extern struct bu_structparse grid_vparse[];
 extern struct bu_structparse rubber_band_vparse[];
 extern struct bu_structparse mged_vparse[];
 
-void free_all_resources(struct mged_dm *dlp);
+void free_all_resources(struct mged_pane *dlp);
 
 /*
  * SYNOPSIS
@@ -128,8 +102,8 @@ f_share(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *ar
     struct mged_state *s = ctp->s;
 
     int uflag = 0;		/* unshare flag */
-    struct mged_dm *dlp1 = MGED_DM_NULL;
-    struct mged_dm *dlp2 = MGED_DM_NULL;
+    struct mged_pane *dlp1 = MGED_PANE_NULL;
+    struct mged_pane *dlp2 = MGED_PANE_NULL;
     struct bu_vls vls = BU_VLS_INIT_ZERO;
 
     if (argc != 4) {
@@ -146,36 +120,36 @@ f_share(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *ar
 	++argv;
     }
 
-    /* Step 6.b: search active_pane_set for legacy dm wrapper by pathname. */
+    /* Step 6.b/7.18: search active_pane_set for legacy dm wrapper by pathname. */
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (!mp->mp_dm) continue;
-	struct bu_vls *pname = dm_get_pathname(mp->mp_dm->dm_dmp);
+	if (!mp->mp_dmp) continue;
+	struct bu_vls *pname = dm_get_pathname(mp->mp_dmp);
 	if (BU_STR_EQUAL(argv[2], bu_vls_cstr(pname))) {
-	    dlp1 = mp->mp_dm;
+	    dlp1 = mp;
 	    break;
 	}
     }
 
-    if (dlp1 == MGED_DM_NULL) {
+    if (dlp1 == MGED_PANE_NULL) {
 	Tcl_AppendResult(interpreter, "share: unrecognized path name - ", argv[2], "\n", (char *)NULL);
 	bu_vls_free(&vls);
 	return TCL_ERROR;
     }
 
     if (!uflag) {
-	/* Step 6.b: search active_pane_set for legacy dm wrapper by pathname. */
+	/* Step 6.b/7.18: search active_pane_set for legacy dm wrapper by pathname. */
 	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	    if (!mp->mp_dm) continue;
-	    struct bu_vls *pname = dm_get_pathname(mp->mp_dm->dm_dmp);
+	    if (!mp->mp_dmp) continue;
+	    struct bu_vls *pname = dm_get_pathname(mp->mp_dmp);
 	    if (BU_STR_EQUAL(argv[3], bu_vls_cstr(pname))) {
-		dlp2 = mp->mp_dm;
+		dlp2 = mp;
 		break;
 	    }
 	}
 
-	if (dlp2 == MGED_DM_NULL) {
+	if (dlp2 == MGED_PANE_NULL) {
 	    Tcl_AppendResult(interpreter, "share: unrecognized path name - ", argv[3], "\n", (char *)NULL);
 	    bu_vls_free(&vls);
 	    return TCL_ERROR;
@@ -213,24 +187,19 @@ f_share(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *ar
 		struct dm *dmp1;
 		struct dm *dmp2 = (struct dm *)NULL;
 
-		dmp1 = dlp1->dm_dmp;
-		if (dlp2 != (struct mged_dm *)NULL)
-		    dmp2 = dlp2->dm_dmp;
+		dmp1 = dlp1->mp_dmp;
+		if (dlp2 != MGED_PANE_NULL)
+		    dmp2 = dlp2->mp_dmp;
 
 		if (dm_share_dlist(dmp1, dmp2) == TCL_OK) {
 		    SHARE_RESOURCE(uflag, _dlist_state, mp_dlist_state, dl_rc, dlp1, dlp2, vls, "share: dlist_state");
 		    if (uflag) {
-			dlp1->dm_pane->mp_dlist_state->dl_active = dlp1->dm_pane->mp_mged_variables->mv_dlist;
+			dlp1->mp_dlist_state->dl_active = dlp1->mp_mged_variables->mv_dlist;
 
-			if (dlp1->dm_pane->mp_mged_variables->mv_dlist) {
-			    /* Step 7.5: use pane-based save/restore. */
+			if (dlp1->mp_mged_variables->mv_dlist) {
+			    /* Step 7.5/7.18: use pane-based save/restore. */
 			    struct mged_pane *save_p = s->mged_curr_pane;
-			    struct mged_pane *dlp1_pane = MGED_PANE_NULL;
-			    for (size_t _pi = 0; _pi < BU_PTBL_LEN(&active_pane_set); _pi++) {
-				struct mged_pane *_mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, _pi);
-				if (_mp->mp_dm == dlp1) { dlp1_pane = _mp; break; }
-			    }
-			    if (dlp1_pane) set_curr_pane(s, dlp1_pane);
+			    set_curr_pane(s, dlp1);
 
 			    createDListAll(s, NULL);
 
@@ -238,12 +207,12 @@ f_share(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *ar
 			    set_curr_pane(s, save_p);
 			}
 
-			dlp1->dm_dirty = 1;
-			if (dlp1->dm_dmp) dm_set_dirty(dlp1->dm_dmp, 1);
+			dlp1->mp_dirty = 1;
+			if (dlp1->mp_dmp) dm_set_dirty(dlp1->mp_dmp, 1);
 		    } else {
-			dlp1->dm_dirty = dlp2->dm_dirty = 1;
-			if (dlp1->dm_dmp) dm_set_dirty(dlp1->dm_dmp, 1);
-			if (dlp2->dm_dmp) dm_set_dirty(dlp2->dm_dmp, 1);
+			dlp1->mp_dirty = dlp2->mp_dirty = 1;
+			if (dlp1->mp_dmp) dm_set_dirty(dlp1->mp_dmp, 1);
+			if (dlp2->mp_dmp) dm_set_dirty(dlp2->mp_dmp, 1);
 		    }
 		}
 	    }
@@ -268,20 +237,20 @@ f_share(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *ar
 	    else if (argv[1][1] == 'i' || argv[1][1] == 'I') {
 		if (!uflag) {
 		    /* free dlp2's view_state resources if currently not sharing */
-		    if (dlp2->dm_pane && dlp2->dm_pane->mp_view_state->vs_rc == 1)
-			view_ring_destroy(dlp2->dm_pane->mp_view_state);
+		    if (dlp2->mp_view_state && dlp2->mp_view_state->vs_rc == 1)
+			view_ring_destroy(dlp2->mp_view_state);
 		}
 
-		/* Step 7.17: view_state now in pane (mp_view_state); use SHARE_RESOURCE. */
+		/* Step 7.17/7.18: view_state in pane (mp_view_state); use SHARE_RESOURCE. */
 		SHARE_RESOURCE(uflag, _view_state, mp_view_state, vs_rc, dlp1, dlp2, vls, "share: view_state");
 
 		if (uflag) {
 		    struct _view_state *ovsp;
-		    ovsp = dlp1->dm_pane->mp_view_state;
+		    ovsp = dlp1->mp_view_state;
 
 		    /* initialize dlp1's view_state */
-		    if (ovsp != dlp1->dm_pane->mp_view_state)
-			view_ring_init(dlp1->dm_pane->mp_view_state, ovsp);
+		    if (ovsp != dlp1->mp_view_state)
+			view_ring_init(dlp1->mp_view_state, ovsp);
 		}
 	    } else {
 		bu_vls_printf(&vls, "share: resource type '%s' unknown\n", argv[1]);
@@ -302,8 +271,8 @@ f_share(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *ar
 
     if (!uflag) {
 	s->update_views = 1;  /* Stage 7: notify Obol path on share change */
-	dlp2->dm_dirty = 1;	/* need to redraw this guy */
-	if (dlp2->dm_dmp) dm_set_dirty(dlp2->dm_dmp, 1);
+	dlp2->mp_dirty = 1;	/* need to redraw this guy */
+	if (dlp2->mp_dmp) dm_set_dirty(dlp2->mp_dmp, 1);
     }
 
     bu_vls_free(&vls);
@@ -419,14 +388,13 @@ f_rset (ClientData clientData, Tcl_Interp *interpreter, int argc, const char *ar
 /*
  * dlp1 takes control of dlp2's pane resources. dlp2 is
  * probably on its way out (i.e. being destroyed).
- * Step 7.16: resources are owned by pane (dm_pane->mp_*); transfer them
- * from dlp2's pane to dlp1's pane via the dm_pane back-pointer.
+ * Step 7.18: dlp1 and dlp2 are now mged_pane * directly (no dm_pane indirection).
  */
 void
-usurp_all_resources(struct mged_dm *dlp1, struct mged_dm *dlp2)
+usurp_all_resources(struct mged_pane *dlp1, struct mged_pane *dlp2)
 {
-    struct mged_pane *p1 = dlp1->dm_pane;
-    struct mged_pane *p2 = dlp2->dm_pane;
+    struct mged_pane *p1 = dlp1;
+    struct mged_pane *p2 = dlp2;
 
     if (!p1 || !p2) return;
 
@@ -462,7 +430,7 @@ usurp_all_resources(struct mged_dm *dlp1, struct mged_dm *dlp2)
     if (p2->mp_dlist_state && !--p2->mp_dlist_state->dl_rc)
 	bu_free(p2->mp_dlist_state,    "usurp: p2 dlist_state");
 
-    /* Step 7.17: view_state is now pane-owned too; usurp it like the others. */
+    /* Step 7.17/7.18: view_state is pane-owned; usurp it like the others. */
     if (p1->mp_view_state && !--p1->mp_view_state->vs_rc) {
 	view_ring_destroy(p1->mp_view_state);
 	bu_free((void *)p1->mp_view_state, "usurp: p1 view_state");
@@ -483,14 +451,14 @@ usurp_all_resources(struct mged_dm *dlp1, struct mged_dm *dlp2)
 
 
 /*
- * - decrement the reference count of all resources (all 9, now pane-owned)
+ * - decrement the reference count of all resources (all 9, pane-owned)
  * - free all resources that are not being used
- * Step 7.17: view_state also pane-owned; accessed via dlp->dm_pane->mp_view_state
+ * Step 7.18: dlp is now mged_pane * directly.
  */
 void
-free_all_resources(struct mged_dm *dlp)
+free_all_resources(struct mged_pane *dlp)
 {
-    struct mged_pane *pane = dlp->dm_pane;
+    struct mged_pane *pane = dlp;
 
     if (!pane) return;
 
@@ -531,27 +499,28 @@ free_all_resources(struct mged_dm *dlp)
 
 
 void
-share_dlist(struct mged_dm *dlp2)
+share_dlist(struct mged_pane *dlp2)
 {
-    /* Stage 7 (step 5.14): guard for NULL dm_dmp (initial "nu" mged_dm). */
-    if (!dlp2->dm_dmp || !dm_get_displaylist(dlp2->dm_dmp))
+    /* Step 7.18: dlp2 is now mged_pane *.
+     * Guard for NULL mp_dmp (Obol panes / initial sentinel). */
+    if (!dlp2->mp_dmp || !dm_get_displaylist(dlp2->mp_dmp))
 	return;
 
-    /* Step 6.b: search active_pane_set for matching legacy dm wrapper. */
+    /* Step 6.b/7.18: search active_pane_set for matching legacy dm wrapper. */
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (!mp->mp_dm) continue;
-	struct mged_dm *dlp1 = mp->mp_dm;
+	if (!mp->mp_dmp) continue;
+	struct mged_pane *dlp1 = mp;
 	if (dlp1 != dlp2 &&
-	    dm_get_type(dlp1->dm_dmp) == dm_get_type(dlp2->dm_dmp) && dm_get_dname(dlp1->dm_dmp) && dm_get_dname(dlp2->dm_dmp) &&
-	    !bu_vls_strcmp(dm_get_dname(dlp1->dm_dmp), dm_get_dname(dlp2->dm_dmp))) {
-	    if (dm_share_dlist(dlp1->dm_dmp, dlp2->dm_dmp) == TCL_OK) {
+	    dm_get_type(dlp1->mp_dmp) == dm_get_type(dlp2->mp_dmp) && dm_get_dname(dlp1->mp_dmp) && dm_get_dname(dlp2->mp_dmp) &&
+	    !bu_vls_strcmp(dm_get_dname(dlp1->mp_dmp), dm_get_dname(dlp2->mp_dmp))) {
+	    if (dm_share_dlist(dlp1->mp_dmp, dlp2->mp_dmp) == TCL_OK) {
 		struct bu_vls vls = BU_VLS_INIT_ZERO;
 
 		SHARE_RESOURCE(0, _dlist_state, mp_dlist_state, dl_rc, dlp1, dlp2, vls, "share: dlist_state");
-		dlp1->dm_dirty = dlp2->dm_dirty = 1;
-		dm_set_dirty(dlp1->dm_dmp, 1);
-		dm_set_dirty(dlp2->dm_dmp, 1);
+		dlp1->mp_dirty = dlp2->mp_dirty = 1;
+		dm_set_dirty(dlp1->mp_dmp, 1);
+		dm_set_dirty(dlp2->mp_dmp, 1);
 		bu_vls_free(&vls);
 	    }
 
