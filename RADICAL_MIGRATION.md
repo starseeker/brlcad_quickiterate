@@ -1025,9 +1025,29 @@ from `mp_gvp` (no DMP indirection).
    the `set_curr_dm` function definition.  All external callers eliminated.
    26 mged .c files compile cleanly with -Werror.
 
-   **Remaining work (Step 7.6 onwards)**:
-   - Update `set_curr_pane()` comment to note `set_curr_dm` is internal-only
-   - Migrate `clone.c` and other remaining `mged_curr_dm->dm_*` direct accesses
+   **Step 7.6** ✅ (Session 20) — Migrate remaining `mged_curr_dm->dm_*` direct
+   accesses to use `mged_curr_pane` fields:
+   - `titles.c` `dotitles()`: all six `dm_*_name` Tcl variable name references
+     changed to `s->mged_curr_pane->mp_*_name` (center, size, aet, ang, adc ×2, fps).
+     `mged_pane_link_vars()` is already called for both legacy-dm wrapper panes and
+     Obol panes, so `mp_*_name` is always populated.
+   - `dozoom.c`: `dm_ndrawn` accumulations changed to `mp_ndrawn`, making
+     `mp_ndrawn` the authoritative drawn-object counter for all pane types.
+   - `usepen.c`: `mp_dm ? mp_dm->dm_ndrawn : mp_ndrawn` ternary simplified to
+     always use `mp_ndrawn` (safe now that dozoom writes mp_ndrawn).
+   - `clone.c`: `mged_curr_dm != mged_dm_init_state || mged_curr_pane` replaced
+     with `mged_curr_pane != mged_init_pane` (always-true condition fixed).
+   - `edsol.c` `get_rotation_vertex()`: display name obtained from
+     `mp->mp_dm->dm_dmp` (legacy) or `mp->mp_gvp->gv_name` (Obol) instead of
+     `mged_curr_dm->dm_dmp`.
+   - `share.c` `usurp_all_resources()`: `MGED_STATE->mged_curr_dm->dm_dlist_state`
+     replaced with `dlp2->dm_dlist_state` (correct free of the dying dm's state).
+   - `attach.c` `set_curr_pane()` comment updated to note that `set_curr_dm()`
+     is now internal-only.
+
+      **Remaining work (Step 7.7 onwards)**:
+   - Migrate `set.c` `save_m_dmp`/`save_dlp` patterns to use `mged_pane` directly
+   - Migrate `fbserv.c` `dm_netchan`/`dm_netfd` fields to `mged_pane` or Obol overlay
    - `f_attach`/`mged_attach()`/`mged_dm_init()`: convert to Obol-only path
    - Delete `struct mged_dm`, `DMP`/`fbp`/`clients` macros, `dm-generic.c`
 
