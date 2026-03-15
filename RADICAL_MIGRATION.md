@@ -1223,7 +1223,46 @@ from `mp_gvp` (no DMP indirection).
    **After Step 7.14**: `struct mged_dm` no longer has any function pointer fields.
    The `dm` command calls `dm_commands()` directly.  The VR viewpoint hook is gone.
 
-   **Remaining work (Step 7.15 onwards)**:
+### Step 7.15 — Move scalar/array pane state fields from `mged_dm` to `mged_pane`
+
+   Removed from `mged_dm`: `dm_owner`, `dm_am_mode`, `dm_perspective_angle`,
+   `dm_zclip_ptr`, `dm_adc_auto`, `dm_grid_auto_size`, `dm_mouse_dx/dy`, `dm_omx/omy`,
+   `dm_knobs[8]`, `dm_work_pt`, `dm_scroll_top/active/y`, `dm_scroll_array[6]`.
+   All moved to `mged_pane` as `mp_*` equivalents.
+   `dm_var_init()` no longer sets these; `mged_pane_init_resources()` does.
+   Updated macros: `am_mode`, `perspective_angle`, `owner`, `adc_auto`, `grid_auto_size`,
+   `mouse_dx/dy`, `omx/omy`, `knobs`, `work_pt`, `scroll_*` all go through `mged_curr_pane`.
+
+### Step 7.16 — Transfer ownership of 8 non-view shareable resources from `mged_dm` to `mged_pane`
+
+   Removed from `mged_dm`: `dm_adc_state`, `dm_menu_state`, `dm_rubber_band`,
+   `dm_mged_variables`, `dm_color_scheme`, `dm_grid_state`, `dm_axes_state`,
+   `dm_dlist_state`.
+   Added to `mged_dm`: `dm_pane` back-pointer to the owning `mged_pane`.
+   The 8 resources are now allocated in `mged_pane_init_resources()` (wrapper path)
+   and freed in `mged_pane_free_resources()` with ref counting.
+   Pane creation in `mged_attach()` was moved BEFORE `mged_dm_init()` so that
+   `ndm->dm_pane->mp_mged_variables` is available for `dm_set_perspective()`.
+   `dm_var_init()` no longer allocates any resources (view_state was still there).
+   `share.c`: `SHARE_RESOURCE` macro updated to use `dlp->dm_pane->mp_*`.
+   `free_all_resources`/`usurp_all_resources` rewritten to operate via pane pointers.
+   `set.c`: `mp->mp_dm->dm_dlist_state` → `mp->mp_dlist_state`.
+
+### Step 7.17 — Move `dm_view_state` from `mged_dm` to `mged_pane`; `mged_dm` has NO resource fields
+
+   Removed from `mged_dm`: `dm_view_state`.
+   `struct mged_dm` now contains ONLY: `dm_dmp`, `dm_fbp`, `dm_netfd`, `dm_netchan`,
+   `dm_clients[]`, `dm_dirty`, `dm_mapped`, and `dm_pane` back-pointer.
+   All 9 shareable resources live in `mged_pane::mp_*`.
+   `view_ring_destroy()` signature changed to take `struct _view_state *vsp` directly
+   (removes the last `struct mged_dm *` dependency from chgview.c helpers).
+   `dm_var_init()` now allocates `npane->mp_view_state` (not `ndm->dm_view_state`).
+   `mged.c` startup: all resource allocations removed from `mged_dm_init_state`;
+   `mged_pane_init_resources()` handles everything for the sentinel init_pane.
+   `share.c`: `SHARE_RESOURCE_DM` macro deleted; view_state sharing uses the same
+   `SHARE_RESOURCE` path via `dm_pane->mp_view_state`.
+
+   **Remaining work (Step 7.18 onwards)**:
    - `f_attach`/`mged_attach()`/`mged_dm_init()`: convert to Obol-only path
    - Delete `struct mged_dm`, `DMP`/`fbp`/`clients` macros, `dm-generic.c`
 
