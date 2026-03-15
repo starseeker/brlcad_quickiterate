@@ -1104,14 +1104,16 @@ to_deleteProc(ClientData clientData)
 
 	    // There is a top level command created in the Tcl interp that is the name
 	    // of the dm.  Clear that command.
-	    struct bu_vls *dm_tcl_cmd = dm_get_pathname((struct dm *)gdvp->dmp);
-	    if (dm_tcl_cmd && bu_vls_strlen(dm_tcl_cmd))
-		Tcl_DeleteCommand(top->to_interp, bu_vls_cstr(dm_tcl_cmd));
+	    if (gdvp->dmp) {
+		struct bu_vls *dm_tcl_cmd = dm_get_pathname((struct dm *)gdvp->dmp);
+		if (dm_tcl_cmd && bu_vls_strlen(dm_tcl_cmd))
+		    Tcl_DeleteCommand(top->to_interp, bu_vls_cstr(dm_tcl_cmd));
 
-	    // Close the dm.  This is not done by libged because libged only manages the
-	    // data bv knows about.  From bv's perspective, dmp is just a pointer
-	    // to an opaque data structure it knows nothing about.
-	    (void)dm_close((struct dm *)gdvp->dmp);
+		// Close the dm.  This is not done by libged because libged only manages the
+		// data bv knows about.  From bv's perspective, dmp is just a pointer
+		// to an opaque data structure it knows nothing about.
+		(void)dm_close((struct dm *)gdvp->dmp);
+	    }
 
 	    // Delete libtclcad specific parts of data - ged_free (called by
 	    // ged_close) will handle freeing the primary bv list entries.
@@ -1343,6 +1345,11 @@ to_bg(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
+    if (!gdvp->dmp) {
+	bu_vls_printf(gedp->ged_result_str, "%s: no display manager open for view %s", argv[0], argv[1]);
+	return BRLCAD_ERROR;
+    }
+
     /* get background color */
     if (argc == 2) {
 	unsigned char *dm_bg;
@@ -1440,6 +1447,9 @@ to_bounds(struct ged *gedp,
      * use it for controlling the location of the zclipping plane in
      * dm-ogl.c. dm-X.c uses dm_clipmin and dm_clipmax.
      */
+    if (!gdvp->dmp)
+	return BRLCAD_OK;
+
     if (dm_get_clipmax((struct dm *)gdvp->dmp) && (*dm_get_clipmax((struct dm *)gdvp->dmp))[2] <= BSG_VIEW_MAX)
 	dm_set_bound((struct dm *)gdvp->dmp, 1.0);
     else
@@ -1475,6 +1485,9 @@ to_configure(struct ged *gedp,
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
     }
+
+    if (!gdvp->dmp)
+	return BRLCAD_OK;
 
     /* configure the display manager window */
     status = dm_configure_win((struct dm *)gdvp->dmp, 0);
@@ -3292,6 +3305,11 @@ to_fontsize(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
+    if (!gdvp->dmp) {
+	bu_vls_printf(gedp->ged_result_str, "%s: no display manager open for view %s", argv[0], argv[1]);
+	return BRLCAD_ERROR;
+    }
+
     /* get the font size */
     if (argc == 2) {
 	bu_vls_printf(gedp->ged_result_str, "%d", dm_get_fontsize((struct dm *)gdvp->dmp));
@@ -3741,6 +3759,11 @@ to_light(struct ged *gedp,
     bsg_view *gdvp = bsg_scene_find_view(&gedp->ged_views, argv[1]);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
+	return BRLCAD_ERROR;
+    }
+
+    if (!gdvp->dmp) {
+	bu_vls_printf(gedp->ged_result_str, "%s: no display manager open for view %s", argv[0], argv[1]);
 	return BRLCAD_ERROR;
     }
 
@@ -4860,6 +4883,11 @@ to_pix(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
+    if (!gdvp->dmp) {
+	bu_vls_printf(gedp->ged_result_str, "%s: no display manager open for view %s", argv[0], argv[1]);
+	return BRLCAD_ERROR;
+    }
+
     if (!BU_STR_EQUIV(dm_get_type((struct dm *)gdvp->dmp), "wgl") && !BU_STR_EQUIV(dm_get_type((struct dm *)gdvp->dmp), "ogl")) {
 	bu_vls_printf(gedp->ged_result_str, "%s: not yet supported for this display manager (i.e. must be OpenGL based)", argv[0]);
 	return BRLCAD_OK;
@@ -4942,6 +4970,11 @@ to_png(struct ged *gedp,
     bsg_view *gdvp = bsg_scene_find_view(&gedp->ged_views, argv[1]);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
+	return BRLCAD_ERROR;
+    }
+
+    if (!gdvp->dmp) {
+	bu_vls_printf(gedp->ged_result_str, "%s: no display manager open for view %s", argv[0], argv[1]);
 	return BRLCAD_ERROR;
     }
 
@@ -5986,6 +6019,11 @@ to_transparency(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
+    if (!gdvp->dmp) {
+	bu_vls_printf(gedp->ged_result_str, "%s: no display manager open for view %s", argv[0], argv[1]);
+	return BRLCAD_ERROR;
+    }
+
     /* get transparency flag */
     if (argc == 2) {
 	bu_vls_printf(gedp->ged_result_str, "%d", dm_get_transparency((struct dm *)gdvp->dmp));
@@ -6350,6 +6388,11 @@ to_zbuffer(struct ged *gedp,
     bsg_view *gdvp = bsg_scene_find_view(&gedp->ged_views, argv[1]);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
+	return BRLCAD_ERROR;
+    }
+
+    if (!gdvp->dmp) {
+	bu_vls_printf(gedp->ged_result_str, "%s: no display manager open for view %s", argv[0], argv[1]);
 	return BRLCAD_ERROR;
     }
 
