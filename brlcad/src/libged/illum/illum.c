@@ -26,8 +26,6 @@
 #include "common.h"
 #include <string.h>
 
-#include "dm.h" // For labelvert - see if we really need the dm_set_dirty call there...
-
 #include "ged.h"
 #include "../ged_private.h"
 
@@ -78,9 +76,6 @@ ged_labelvert_core(struct ged *gedp, int argc, const char *argv[])
     _ged_cvt_vlblock_to_solids(gedp, vbp, "_LABELVERT_", 0);
 
     bsg_vlblock_free(vbp);
-    struct dm *dmp = (struct dm *)gedp->ged_gvp->dmp;
-    if (dmp)
-	dm_set_dirty(dmp, 1);
     return BRLCAD_OK;
 }
 

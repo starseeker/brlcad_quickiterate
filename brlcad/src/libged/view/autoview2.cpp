@@ -25,7 +25,6 @@
 
 #include "common.h"
 #include "bu/opt.h"
-#include "dm.h"
 #include "../ged_private.h"
 
 /*

@@ -50,7 +50,6 @@
 #include "raytrace.h"
 
 #include "bsg/defines.h"
-#include "dm.h"
 
 #include "../../ged_private.h"
 #include "../ged_bot.h"
