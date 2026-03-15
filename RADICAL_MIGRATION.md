@@ -1192,7 +1192,24 @@ from `mp_gvp` (no DMP indirection).
    **After Step 7.12**: `struct mged_dm` no longer has `dm_p_vlist`.  Predictor
    vlists live exclusively in `mged_pane::mp_p_vlist`.
 
-   **Remaining work (Step 7.13 onwards)**:
+   **Step 7.13** ✅ (Session 24) — Remove dead `mged_dm` fields and dead functions:
+   - `mged_dm.h`: Removed `dm_ndrawn`, `dm_trails[NUM_TRAILS]` (completely unused in
+     code), and all Tcl display variable name VLS fields (`dm_fps_name`, `dm_aet_name`,
+     `dm_ang_name`, `dm_center_name`, `dm_size_name`, `dm_adc_name`) — these were only
+     ever written (by `mged_link_vars`), never read.  All HUD variable names now live
+     exclusively in `mged_pane::mp_fps_name` etc.
+   - `attach.c`: Removed functions `mged_slider_init_vls()`, `mged_slider_free_vls()`,
+     and `mged_link_vars()` (all dead).  Removed call sites:
+     `mged_link_vars(ndm)` in `mged_attach()`, `mged_slider_free_vls(cdm)` in
+     `release()`.
+   - `mged.c`: Removed `mged_slider_free_vls(p)` in `mged_finish()` and
+     `mged_link_vars(mged_dm_init_state)` in startup.
+   - `mged.h`: Removed `mged_link_vars` and `mged_slider_free_vls` declarations.
+
+   **After Step 7.13**: `struct mged_dm` no longer has any trail, ndrawn, or VLS name
+   fields.  HUD variable names are populated by `mged_pane_link_vars()` exclusively.
+
+   **Remaining work (Step 7.14 onwards)**:
    - `f_attach`/`mged_attach()`/`mged_dm_init()`: convert to Obol-only path
    - Delete `struct mged_dm`, `DMP`/`fbp`/`clients` macros, `dm-generic.c`
 
