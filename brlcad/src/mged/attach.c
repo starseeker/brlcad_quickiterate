@@ -223,9 +223,11 @@ mged_pane_init_resources(struct mged_state *s, struct mged_pane *mp)
 	bu_vls_init(&mp->mp_center_name);
 	bu_vls_init(&mp->mp_size_name);
 	bu_vls_init(&mp->mp_adc_name);
-	/* Predictor state for legacy dm pane: lives in mged_dm, accessed via
-	 * pv_head/pane_trails macros through mged_curr_dm.  Init the wrapper's
-	 * inline fields anyway so they're not left uninitialised. */
+	/* Predictor state for legacy dm wrapper pane: Step 7.8 moved the
+	 * authoritative vlist and trails into the pane (mp_p_vlist / mp_trails)
+	 * so that pv_head/pane_trails macros always use the pane fields.
+	 * predictor_init_pane() is called here; mged_attach() no longer calls
+	 * predictor_init(s) (which would have written to the old pane). */
 	BU_LIST_INIT(&mp->mp_p_vlist);
 	predictor_init_pane(mp);
 	mp->mp_ndrawn = 0;
@@ -333,6 +335,10 @@ mged_pane_free_resources(struct mged_pane *mp)
 	bu_vls_free(&mp->mp_center_name);
 	bu_vls_free(&mp->mp_size_name);
 	bu_vls_free(&mp->mp_adc_name);
+	/* Step 7.8: mp_p_vlist is now the predictor vlist for wrapper panes
+	 * (pv_head macro simplified to always use mp_p_vlist).  Free it here
+	 * before clearing the shared pointers. */
+	BSG_FREE_VLIST(&rt_vlfree, &mp->mp_p_vlist);
 	/* Clear shared pointers so they're not dangling after the mged_dm
 	 * resources are freed. */
 	mp->mp_adc_state = NULL;
@@ -393,8 +399,10 @@ mged_dm_init(
 
     dm_var_init(s, o_dm);
 
-    /* register application provided routines */
-    cmd_hook = dm_commands;
+    /* Step 7.8: explicit mged_curr_dm field access — the cmd_hook macro now
+     * expands to mged_curr_pane->mp_dm->dm_cmd_hook, which at this point would
+     * reference the OLD pane's dm.  Set the NEW dm's hook directly. */
+    s->mged_curr_dm->dm_cmd_hook = dm_commands;
 
     /* In case the user wants swrast in headless mode, pass the view in the
      * context slot.  Other dms will either not use the ctx argument or will
@@ -810,9 +818,13 @@ mged_attach(struct mged_state *s, const char *wp_name, int argc, const char *arg
     o_pane = s->mged_curr_pane;
     BU_ALLOC(s->mged_curr_dm, struct mged_dm);
 
-    /* initialize predictor stuff */
+    /* Step 7.8: Initialize dm_p_vlist so that BSG_FREE_VLIST in release() /
+     * mged_finish() is a safe no-op.  The predictor vlist for wrapper panes
+     * now lives in mp_p_vlist (pane), not dm_p_vlist; predictor_init_pane()
+     * is called inside mged_pane_init_resources() when the wrapper pane is
+     * registered after mged_dm_init() succeeds.  Removed: predictor_init(s)
+     * which would have (incorrectly) initialised the OLD pane's trails. */
     BU_LIST_INIT(&s->mged_curr_dm->dm_p_vlist);
-    predictor_init(s);
 
     /* Only need to do this once */
     if (tkwin == NULL && BU_STR_EQUIV(dm_graphics_system(wp_name), "Tk")) {
@@ -1129,41 +1141,51 @@ dm_var_init(struct mged_state *s, struct mged_dm *target_dm)
 
     BU_ALLOC(s->mged_curr_dm->dm_view_state, struct _view_state);
     *s->mged_curr_dm->dm_view_state = *target_dm->dm_view_state;		/* struct copy */
-    BU_ALLOC(view_state->vs_gvp, bsg_view);
-    BU_GET(view_state->vs_gvp->callbacks, struct bu_ptbl);
-    bu_ptbl_init(view_state->vs_gvp->callbacks, 8, "bv callbacks");
+    /* Step 7.8: Use s->mged_curr_dm->dm_view_state->vs_gvp explicitly here.
+     * The view_state macro expands to s->mged_curr_pane->mp_view_state, which at
+     * call time refers to the OLD pane (mged_curr_pane has not been updated yet).
+     * We must initialise the NEW dm's vs_gvp directly to avoid corrupting the
+     * old pane's view state. */
+    bsg_view *new_vs_gvp;
+    BU_ALLOC(new_vs_gvp, bsg_view);
+    BU_GET(new_vs_gvp->callbacks, struct bu_ptbl);
+    bu_ptbl_init(new_vs_gvp->callbacks, 8, "bv callbacks");
 
-    *view_state->vs_gvp = *target_dm->dm_view_state->vs_gvp;	/* struct copy */
+    *new_vs_gvp = *target_dm->dm_view_state->vs_gvp;	/* struct copy */
 
-    BU_GET(view_state->vs_gvp->gv_objs.db_objs, struct bu_ptbl);
-    bu_ptbl_init(view_state->vs_gvp->gv_objs.db_objs, 8, "view_objs init");
+    BU_GET(new_vs_gvp->gv_objs.db_objs, struct bu_ptbl);
+    bu_ptbl_init(new_vs_gvp->gv_objs.db_objs, 8, "view_objs init");
 
-    BU_GET(view_state->vs_gvp->gv_objs.view_objs, struct bu_ptbl);
-    bu_ptbl_init(view_state->vs_gvp->gv_objs.view_objs, 8, "view_objs init");
+    BU_GET(new_vs_gvp->gv_objs.view_objs, struct bu_ptbl);
+    bu_ptbl_init(new_vs_gvp->gv_objs.view_objs, 8, "view_objs init");
 
-    bsg_scene_root_create(view_state->vs_gvp);
+    bsg_scene_root_create(new_vs_gvp);
 
-    view_state->vs_gvp->vset = &s->gedp->ged_views;
-    view_state->vs_gvp->independent = 0;
+    new_vs_gvp->vset = &s->gedp->ged_views;
+    new_vs_gvp->independent = 0;
 
-    view_state->vs_gvp->gv_clientData = (void *)view_state;
-    view_state->vs_gvp->gv_s->adaptive_plot_csg = 0;
-    view_state->vs_gvp->gv_s->redraw_on_zoom = 0;
-    view_state->vs_gvp->gv_s->point_scale = 1.0;
-    view_state->vs_gvp->gv_s->curve_scale = 1.0;
-    view_state->vs_rc = 1;
+    new_vs_gvp->gv_clientData = (void *)s->mged_curr_dm->dm_view_state;
+    new_vs_gvp->gv_s->adaptive_plot_csg = 0;
+    new_vs_gvp->gv_s->redraw_on_zoom = 0;
+    new_vs_gvp->gv_s->point_scale = 1.0;
+    new_vs_gvp->gv_s->curve_scale = 1.0;
+    s->mged_curr_dm->dm_view_state->vs_gvp = new_vs_gvp;
+    s->mged_curr_dm->dm_view_state->vs_rc = 1;
     view_ring_init(s->mged_curr_dm->dm_view_state, (struct _view_state *)NULL);
 
-    DMP_dirty = 1;
+    /* Step 7.8: Use explicit s->mged_curr_dm->dm_* for scalar fields.
+     * The macros now expand to mged_curr_pane->mp_dm->dm_*, which at this
+     * point references the OLD pane's dm (not the new dm being initialised). */
+    s->mged_curr_dm->dm_dirty = 1;
     if (target_dm->dm_dmp) {
 	dm_set_dirty(target_dm->dm_dmp, 1);
     }
-    mapped = 1;
+    s->mged_curr_dm->dm_mapped = 1;
     s->mged_curr_dm->dm_netfd = -1;
-    owner = 1;
-    am_mode = AMM_IDLE;
-    adc_auto = 1;
-    grid_auto_size = 1;
+    s->mged_curr_dm->dm_owner = 1;
+    s->mged_curr_dm->dm_am_mode = AMM_IDLE;
+    s->mged_curr_dm->dm_adc_auto = 1;
+    s->mged_curr_dm->dm_grid_auto_size = 1;
 }
 
 

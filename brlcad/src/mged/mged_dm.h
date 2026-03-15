@@ -524,15 +524,28 @@ extern void mged_pane_init_resources(struct mged_state *s, struct mged_pane *mp)
  * Safe to call even if init_resources was never called (all pointers are NULL).
  */
 extern void mged_pane_free_resources(struct mged_pane *mp);
+
+/* Step 7.8: All remaining macros that formerly used mged_curr_dm now go
+ * through mged_curr_pane->mp_dm instead.  This removes the last direct
+ * mged_curr_dm dependencies from business-logic code.
+ *
+ * DMP (dm pointer) keeps the mged_curr_dm path for now because it is used
+ * as an lvalue in mged_dm_init() via dm_open().  All other dm-only macros
+ * are safe to redirect through the pane because they are only ever accessed
+ * in code paths that are already guarded by "if (!DMP) return;" or by a
+ * "if (!mp->mp_dm) continue;" loop guard — so mp_dm is guaranteed non-NULL
+ * at every call site.  dm_var_init() / mged_dm_init() / the mged.c startup
+ * block all use explicit s->mged_curr_dm->dm_* instead of these macros, so
+ * the circular dependency is broken. */
 #define DMP s->mged_curr_dm->dm_dmp
-#define DMP_dirty s->mged_curr_dm->dm_dirty
-#define fbp s->mged_curr_dm->dm_fbp
-#define clients s->mged_curr_dm->dm_clients
-#define mapped s->mged_curr_dm->dm_mapped
-#define owner s->mged_curr_dm->dm_owner
-#define am_mode s->mged_curr_dm->dm_am_mode
-#define perspective_angle s->mged_curr_dm->dm_perspective_angle
-#define zclip_ptr s->mged_curr_dm->dm_zclip_ptr
+#define DMP_dirty s->mged_curr_pane->mp_dm->dm_dirty
+#define fbp s->mged_curr_pane->mp_dm->dm_fbp
+#define clients s->mged_curr_pane->mp_dm->dm_clients
+#define mapped s->mged_curr_pane->mp_dm->dm_mapped
+#define owner s->mged_curr_pane->mp_dm->dm_owner
+#define am_mode s->mged_curr_pane->mp_dm->dm_am_mode
+#define perspective_angle s->mged_curr_pane->mp_dm->dm_perspective_angle
+#define zclip_ptr s->mged_curr_pane->mp_dm->dm_zclip_ptr
 
 /* Step 7.2: mged_curr_pane is always non-NULL after startup (init_pane created
  * in mged_main before any attach).  Direct mp_* access — no ternary fallback
@@ -549,38 +562,39 @@ extern void mged_pane_free_resources(struct mged_pane *mp);
 #define axes_state s->mged_curr_pane->mp_axes_state
 #define dlist_state s->mged_curr_pane->mp_dlist_state
 
-/* pv_head / pane_trails: INTENTIONAL EXCEPTION to the Step 7.3 simplification.
- * These two macros still use ternary logic because the predictor vlist and
- * trails live in different places for the two pane types:
- *  - Obol panes (mp_dm == NULL): state is in mged_pane.mp_p_vlist / mp_trails
- *  - Legacy dm wrappers (mp_dm != NULL): state is in mged_dm.dm_p_vlist /
- *    dm_trails; set_curr_pane() redirects mged_curr_dm → mp_dm, so accessing
- *    through mged_curr_dm is correct and consistent with dm_var_init.
- * Unlike the resource macros (view_state etc.), for which the wrapper's mp_*
- * and dm->dm_* are the SAME pointer (shared), predictor state is per-dm and
- * not exposed via mp_* on the wrapper. */
-#define pv_head (!s->mged_curr_pane->mp_dm ? &s->mged_curr_pane->mp_p_vlist : &s->mged_curr_dm->dm_p_vlist)
-#define pane_trails (!s->mged_curr_pane->mp_dm ? s->mged_curr_pane->mp_trails : s->mged_curr_dm->dm_trails)
+/* Step 7.8: pv_head / pane_trails simplified from ternary to always use pane
+ * fields.  mged_pane_init_resources() initialises mp_p_vlist and mp_trails
+ * for BOTH Obol panes and legacy dm wrapper panes (via predictor_init_pane),
+ * so the pane's fields are always valid.  mged_dm_init() / dm_var_init()
+ * no longer call predictor_init(s) before the wrapper pane is registered;
+ * predictor_init_pane(pane) is called inside mged_pane_init_resources()
+ * after the wrapper pane is fully constructed.
+ *
+ * dm_p_vlist is kept BU_LIST_INIT'd in mged_attach() so that the legacy
+ * BSG_FREE_VLIST call in release() / mged_finish() remains a safe no-op. */
+#define pv_head (&s->mged_curr_pane->mp_p_vlist)
+#define pane_trails (s->mged_curr_pane->mp_trails)
 
-#define cmd_hook s->mged_curr_dm->dm_cmd_hook
-#define viewpoint_hook s->mged_curr_dm->dm_viewpoint_hook
-#define eventHandler s->mged_curr_dm->dm_eventHandler
+/* Step 7.8: cmd_hook / viewpoint_hook / eventHandler through pane. */
+#define cmd_hook s->mged_curr_pane->mp_dm->dm_cmd_hook
+#define viewpoint_hook s->mged_curr_pane->mp_dm->dm_viewpoint_hook
+#define eventHandler s->mged_curr_pane->mp_dm->dm_eventHandler
 
-#define adc_auto s->mged_curr_dm->dm_adc_auto
-#define grid_auto_size s->mged_curr_dm->dm_grid_auto_size
+#define adc_auto s->mged_curr_pane->mp_dm->dm_adc_auto
+#define grid_auto_size s->mged_curr_pane->mp_dm->dm_grid_auto_size
 
 /* Names of macros must be different than actual struct element */
-#define dm_mouse_dx s->mged_curr_dm->_dm_mouse_dx
-#define dm_mouse_dy s->mged_curr_dm->_dm_mouse_dy
-#define dm_omx s->mged_curr_dm->_dm_omx
-#define dm_omy s->mged_curr_dm->_dm_omy
-#define dm_knobs s->mged_curr_dm->_dm_knobs
-#define dm_work_pt s->mged_curr_dm->_dm_work_pt
+#define dm_mouse_dx s->mged_curr_pane->mp_dm->_dm_mouse_dx
+#define dm_mouse_dy s->mged_curr_pane->mp_dm->_dm_mouse_dy
+#define dm_omx s->mged_curr_pane->mp_dm->_dm_omx
+#define dm_omy s->mged_curr_pane->mp_dm->_dm_omy
+#define dm_knobs s->mged_curr_pane->mp_dm->_dm_knobs
+#define dm_work_pt s->mged_curr_pane->mp_dm->_dm_work_pt
 
-#define scroll_top s->mged_curr_dm->dm_scroll_top
-#define scroll_active s->mged_curr_dm->dm_scroll_active
-#define scroll_y s->mged_curr_dm->dm_scroll_y
-#define scroll_array s->mged_curr_dm->dm_scroll_array
+#define scroll_top s->mged_curr_pane->mp_dm->dm_scroll_top
+#define scroll_active s->mged_curr_pane->mp_dm->dm_scroll_active
+#define scroll_y s->mged_curr_pane->mp_dm->dm_scroll_y
+#define scroll_array s->mged_curr_pane->mp_dm->dm_scroll_array
 
 #define VIEWSIZE	(view_state->vs_gvp->gv_size)	/* Width of viewing cube */
 #define VIEWFACTOR	(1/view_state->vs_gvp->gv_scale)
