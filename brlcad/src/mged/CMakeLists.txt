@@ -18,7 +18,6 @@ set(
   cmd.cpp
   color_scheme.c
   columns.c
-  dm-generic.c
   dodraw.c
   doevent.c
   dozoom.c
