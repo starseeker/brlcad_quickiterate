@@ -302,7 +302,6 @@ cs_set_bg(const struct bu_structparse *UNUSED(sdp),
     struct mged_state *s = (struct mged_state *)data;
     MGED_CK_STATE(s);
     struct mged_pane *save_pane = s->mged_curr_pane;
-    struct mged_dm *save_curr_m_dmp = s->mged_curr_dm;
     struct bu_vls vls = BU_VLS_INIT_ZERO;
 
     bu_vls_printf(&vls, "dm bg %d %d %d",
@@ -324,7 +323,6 @@ cs_set_bg(const struct bu_structparse *UNUSED(sdp),
 
     bu_vls_free(&vls);
     set_curr_pane(s, save_pane);
-    if (!save_pane) set_curr_dm(s, save_curr_m_dmp);
     s->gedp->ged_gvp = cbv;
 }
 

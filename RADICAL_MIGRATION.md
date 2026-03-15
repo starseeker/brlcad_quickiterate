@@ -959,14 +959,31 @@ from `mp_gvp` (no DMP indirection).
 
 6. **Remove `mged_dm` and `active_dm_set`** ✅ (Steps 6.a–6.c done) —
    `active_dm_set` is fully gone.  `active_pane_set` is the sole pane registry.
-   Remaining work: delete `struct mged_dm`, the `DMP`/`fbp`/`clients` macros,
-   and `src/mged/dm-generic.c`.  This is Step 7.
 
-7. **Remove `attach` command's dm backend** — `f_attach`/`mged_attach()`/`mged_dm_init()`
-   currently contain the dm_open path for the legacy GL path.  Once step 6 is done,
-   `gui_setup()` becomes the sole Tk + Obol initialization function and `f_attach`
-   only creates Obol panes (or is removed, since the Obol path in mview.tcl already
-   uses `new_obol_view_ptr` + `obol_view` directly).
+7. **Remove `attach` command's dm backend** (Step 7.1–7.3 done in Session 18):
+
+   **Step 7.1a** ✅ — `mged_attach()` calls `set_curr_pane(s, wrapper_pane)` after
+   creating the legacy dm wrapper pane.  `mged_curr_pane` is now non-NULL after
+   any `attach` command.
+
+   **Step 7.1b** ✅ — `release()` uses `set_curr_pane()` (not `set_curr_dm()`) to
+   update both `mged_curr_pane` and `mged_curr_dm` when releasing a dm.  The named
+   dm switch uses `set_curr_pane(s, mp)` for save/restore.
+
+   **Step 7.2** ✅ — Startup creates a sentinel "init pane" (`s->mged_init_pane`)
+   that wraps `mged_dm_init_state`.  `mged_curr_pane` is set to `init_pane` right
+   after resources are allocated (before any `attach`), so `mged_curr_pane` is
+   **always non-NULL** after startup.  `mged_finish()` frees `mged_init_pane`.
+
+   **Step 7.3** ✅ — Ternary macros (`view_state`, `adc_state`, `menu_state`,
+   `rubber_band`, `mged_variables`, `color_scheme`, `grid_state`, `axes_state`,
+   `dlist_state`, `pv_head`, `pane_trails`) simplified to direct `mp_*` access
+   (no `? mged_curr_pane : mged_curr_dm` fallback).  Dead-code `if (!save_pane)
+   set_curr_dm(...)` lines removed from all 10 affected files.
+
+   **Remaining work (Step 7.4 onwards)**:
+   - `f_attach`/`mged_attach()`/`mged_dm_init()`: convert to Obol-only path
+   - Delete `struct mged_dm`, `DMP`/`fbp`/`clients` macros, `dm-generic.c`
 
 **Key files to update (Stage 7 MGED work):**
 

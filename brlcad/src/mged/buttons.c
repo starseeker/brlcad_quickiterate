@@ -1050,7 +1050,6 @@ stateChange(struct mged_state *s, int UNUSED(oldstate), int newstate)
 int
 chg_state(struct mged_state *s, int from, int to, char *str)
 {
-    struct mged_dm *save_dm_list;
     struct bu_vls vls = BU_VLS_INIT_ZERO;
 
     if (s->global_editing_state != from) {
@@ -1064,7 +1063,6 @@ chg_state(struct mged_state *s, int from, int to, char *str)
 
     {
 	struct mged_pane *save_pane = s->mged_curr_pane;
-	save_dm_list = s->mged_curr_dm;
 	/* Step 6.b: active_pane_set covers all pane types. */
 	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
@@ -1072,7 +1070,6 @@ chg_state(struct mged_state *s, int from, int to, char *str)
 	    new_mats(s);
 	}
 	set_curr_pane(s, save_pane);
-	if (!save_pane) set_curr_dm(s, save_dm_list);
     }
 
     bu_vls_printf(&vls, "%s(state)", MGED_DISPLAY_VAR);

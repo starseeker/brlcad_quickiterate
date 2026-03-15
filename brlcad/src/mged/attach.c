@@ -118,27 +118,23 @@ set_curr_pane(struct mged_state *s, struct mged_pane *mp)
 {
     if (!s || !s->gedp)
 	return;
-    /* Track the active Obol pane directly on mged_state for convenient
-     * access by refresh(), overlay code, and Step 6 migration. */
     s->mged_curr_pane = mp;
     if (!mp) {
 	s->gedp->ged_gvp = NULL;
 	return;
     }
-    s->gedp->ged_gvp = mp->mp_gvp;
+    /* Step 7.2: init_pane has mp_gvp == NULL (no view yet); don't clobber
+     * ged_gvp when restoring to the init sentinel pane. */
+    if (mp->mp_gvp)
+	s->gedp->ged_gvp = mp->mp_gvp;
 
-    /* Stage 7 Step 6.a: for legacy dm wrapper panes (mp_dm != NULL) redirect
-     * mged_curr_dm to the actual mged_dm so that DMP is non-NULL and legacy
-     * GL drawing continues to work.  For Obol panes (mp_dm == NULL) redirect
-     * to the null-sentinel so that DMP == NULL and all legacy libdm guards
-     * fire cleanly. */
+    /* For legacy dm wrapper panes (mp_dm != NULL) redirect mged_curr_dm to
+     * the actual mged_dm so DMP is non-NULL and legacy GL drawing works.
+     * For Obol panes (mp_dm == NULL) redirect to the null-sentinel so
+     * DMP == NULL and all legacy libdm guards fire cleanly. */
     if (mp->mp_dm) {
-	/* Legacy dm wrapper: restore the real dm so DMP works. */
 	s->mged_curr_dm = mp->mp_dm;
     } else {
-	/* Obol pane: point mged_curr_dm at the "nu" headless init dm so that
-	 * DMP == NULL.  The ternary macros (view_state, color_scheme, etc.)
-	 * prefer mp->mp_* because mged_curr_pane is now non-NULL. */
 	if (mged_dm_init_state)
 	    s->mged_curr_dm = mged_dm_init_state;
     }
@@ -487,7 +483,8 @@ release(struct mged_state *s, char *name, int need_close)
 	    if (mp->mp_dm != s->mged_curr_dm) {
 		save_dm_list = s->mged_curr_dm;
 		p = mp->mp_dm;
-		set_curr_dm(s, p);
+		/* Step 7.1b: switch to the named pane (sets mged_curr_pane too). */
+		set_curr_pane(s, mp);
 	    }
 	    break;
 	}
@@ -587,16 +584,32 @@ release(struct mged_state *s, char *name, int need_close)
     mged_slider_free_vls(s->mged_curr_dm);
     bu_free((void *)s->mged_curr_dm, "release: s->mged_curr_dm");
 
-    if (save_dm_list != MGED_DM_NULL)
-	set_curr_dm(s, save_dm_list);
-    else {
-	/* Find a remaining legacy dm wrapper pane to become current. */
-	struct mged_dm *fallback = MGED_DM_NULL;
+    /* Step 7.1b: update mged_curr_pane alongside mged_curr_dm. */
+    if (save_dm_list != MGED_DM_NULL) {
+	/* Restore previous dm: find its wrapper pane and set_curr_pane. */
+	struct mged_pane *restore_pane = NULL;
 	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	    if (mp && mp->mp_dm) { fallback = mp->mp_dm; break; }
+	    if (mp && mp->mp_dm == save_dm_list) { restore_pane = mp; break; }
 	}
-	set_curr_dm(s, fallback ? fallback : MGED_DM_NULL);
+	if (restore_pane)
+	    set_curr_pane(s, restore_pane);
+	else
+	    set_curr_dm(s, save_dm_list);  /* wrapper pane not found, fall back */
+    } else {
+	/* Current dm was released; find next available dm wrapper pane. */
+	struct mged_pane *next_pane = NULL;
+	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	    if (mp && mp->mp_dm) { next_pane = mp; break; }
+	}
+	if (next_pane) {
+	    set_curr_pane(s, next_pane);
+	} else {
+	    /* No more dm panes; clear both current-pane and current-dm. */
+	    s->mged_curr_pane = MGED_PANE_NULL;
+	    set_curr_dm(s, MGED_DM_NULL);
+	}
     }
     return TCL_OK;
 }
@@ -884,6 +897,9 @@ mged_attach(struct mged_state *s, const char *wp_name, int argc, const char *arg
 	mged_pane_init_resources(s, pane);   /* shares dm resource ptrs */
 	mged_pane_link_vars(pane);           /* populate HUD var names */
 	bu_ptbl_ins(&active_pane_set, (long *)pane);
+	/* Step 7.1a: make the new wrapper pane the active context so
+	 * mged_curr_pane is non-NULL after attach (ternary macros use mp_*). */
+	set_curr_pane(s, pane);
     }
 
     return TCL_OK;

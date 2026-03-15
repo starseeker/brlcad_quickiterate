@@ -95,7 +95,6 @@ void
 adc_set_scroll(struct mged_state *s)
 {
     struct mged_pane *save_pane = s->mged_curr_pane;
-    struct mged_dm *save_dm = s->mged_curr_dm;
 
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
@@ -109,7 +108,6 @@ adc_set_scroll(struct mged_state *s)
     }
 
     set_curr_pane(s, save_pane);
-    if (!save_pane) set_curr_dm(s, save_dm);
 }
 
 
