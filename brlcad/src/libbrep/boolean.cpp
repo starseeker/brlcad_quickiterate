@@ -1665,24 +1665,23 @@ get_subcurves_inside_faces(
 
     }
 
-    /* ── Complementary-arc injection ──────────────────────────────────────
+    /* ── Full inner-circle injection ──────────────────────────────────────
      * When the SSI between a flat cap (face1) and a cone/cylinder (face2)
      * produces a curve that lies entirely on the south-iso boundary of face2
-     * (v ≈ vdom2.Min()), the OpenNURBS SSI algorithm typically returns only
-     * one arc — the one whose u-parameter decreases from u_start to u_end
-     * without crossing the periodic seam.  The complementary arc (u going
-     * from u_end up to u_start, monotonically increasing) is never returned
-     * as a separate SSI event, so it ends up missing from the cap face's
-     * intersection curves.  Without it, split_trimmed_face can only produce
-     * a half-moon shaped inner region instead of the correct full inner
-     * circle, leading to a misclassified outer annular ring.
+     * (v ≈ vdom2.Min()), the OpenNURBS SSI algorithm returns only the arc
+     * that does not cross the periodic seam.  The complementary arc is never
+     * returned as a separate event, so the cap face's intersection curves are
+     * incomplete.
      *
-     * Detect this situation: if curveB is entirely at v ≈ vdom2.Min() and
-     * its u at the end is less than its u at the start (a partial arc, not
-     * a full circle), generate the complementary arc by sampling face2's
-     * surface along v = vdom2.Min() for u ∈ [u_end, u_start], projecting
-     * each sample onto face1, and recording the resulting UV polyline as an
-     * additional subcurve for face1. */
+     * Fix: when this situation is detected, replace the NURBS bottom arc in
+     * subcurves_on1 with a single CLOSED polyline that samples the ENTIRE
+     * inner circle — first traversing the bottom-arc range that curveB already
+     * covers (u from u_start down to u_end), then the complementary range
+     * (u from u_end up to u_start going around), and finally closing back to
+     * the first point.  A closed curve skips the link_curves joining step and
+     * is fed directly as a closed ssx_curve to split_trimmed_face, avoiding
+     * the floating-point IsClosed() tolerance problems that arise when trying
+     * to join two separate open arcs. */
     {
 	const ON_Surface *surf2 = brep2->m_S[brep2->m_F[face_i2].m_si];
 	const ON_Surface *surf1 = brep1->m_S[brep1->m_F[face_i1].m_si];
@@ -1693,61 +1692,87 @@ get_subcurves_inside_faces(
 
 	bool at_south = ON_NearZero(cB_s.y - vdom2.Min(), INTERSECTION_TOL * 100.0) &&
 			ON_NearZero(cB_e.y - vdom2.Min(), INTERSECTION_TOL * 100.0);
-	/* is_partial: start u ≠ end u (open arc, not a degenerate point) */
 	bool is_partial = !ON_NearZero(cB_s.x - cB_e.x, INTERSECTION_TOL);
 
-	/* Only inject the complement when u_end < u_start so the complementary
-	 * arc (u from u_end to u_start, increasing) lies entirely within the
-	 * surface's u-domain without crossing the periodic seam. */
 	if (at_south && is_partial && cB_e.x < cB_s.x) {
-	    /* The complementary arc runs from end_pt (projection at u_end)
-	     * to start_pt (projection at u_start) through the interior.
-	     * Find the bottom arc that was just added to subcurves_on1 —
-	     * its start/end are the EXACT UV endpoints we must reuse so that
-	     * link_curves() can join the two arcs into one closed loop. */
-	    const ON_Curve *bot_arc = subcurves_on1.Count() > 0
-				     ? subcurves_on1[subcurves_on1.Count() - 1]
-				     : NULL;
-
-	    const int N = 8;
-	    ON_3dPointArray uvpts;
-	    /* Use a generous point-to-surface projection tolerance: the
-	     * sampled points lie on face2's boundary iso and may be several
-	     * millimetres from face1's surface (the two cap planes are
-	     * slightly tilted relative to each other for concentric TGCs
-	     * with different H directions).  We want the foot-of-perpendicular
-	     * on face1 regardless of stand-off distance. */
+	    /* Use a generous projection tolerance proportional to the arc
+	     * span: tilted TGC cap planes can be several millimetres apart
+	     * over the inner-circle diameter, so (span * 1000) in UV units
+	     * gives a stand-off tolerance large enough to catch the nearest
+	     * point even for the most tilted pair encountered in practice. */
 	    const double proj_tol = (cB_s.x - cB_e.x) * 1000.0 + INTERSECTION_TOL;
+	    /* N_ARC: sample points per half-circle (8 gives sub-degree accuracy
+	     * for a semicircle; the full polyline will have 2*N_ARC+1 points). */
+	    const int N_ARC = 8;
 
-	    /* First point: EXACTLY the end of the bottom arc so that the
-	     * two arcs are guaranteed to chain in link_curves. */
-	    if (bot_arc) {
-		uvpts.Append(bot_arc->PointAtEnd());
-	    }
-
-	    for (int k = 1; k < N; k++) {
-		double u = cB_e.x + (cB_s.x - cB_e.x) * k / (double)N;
+	    /* ---- bottom arc: u from u_start → u_end, project onto face1 ---- */
+	    ON_3dPointArray uvpts;
+	    for (int k = 0; k <= N_ARC; k++) {
+		double u = cB_s.x + (cB_e.x - cB_s.x) * k / (double)N_ARC;
 		ON_3dPoint pt3d = surf2->PointAt(u, vdom2.Min());
 		ON_ClassArray<ON_PX_EVENT> px;
 		if (ON_Intersect(pt3d, *surf1, px, proj_tol) && px.Count() > 0) {
 		    ON_2dPoint uv1(px[0].m_b[0], px[0].m_b[1]);
-		    if (!is_point_outside_loop(uv1, face1_loops[0])) {
+		    if (!is_point_outside_loop(uv1, face1_loops[0]))
 			uvpts.Append(ON_3dPoint(uv1.x, uv1.y, 0.0));
-		    }
+		}
+	    }
+	    /* ---- complementary arc: the OTHER half of the inner circle.
+	     * curveB covers u ∈ [cB_e.x, cB_s.x] (= [0.464, 0.964] in the
+	     * example).  The missing complementary half crosses the periodic
+	     * seam: u goes from cB_s.x FORWARD past u=1/0 to cB_e.x.  Wrap
+	     * each u value modulo 1 so surf2->PointAt() receives a valid param. */
+	    ON_Interval udom2 = surf2->Domain(0);
+	    double u_span_comp = udom2.Max() - cB_s.x + cB_e.x - udom2.Min();
+	    for (int k = 1; k <= N_ARC; k++) {
+		double u_raw = cB_s.x + u_span_comp * k / (double)N_ARC;
+		/* wrap into [udom2.Min(), udom2.Max()) */
+		double u_period = udom2.Length();
+		double u = u_raw;
+		while (u >= udom2.Max()) u -= u_period;
+		while (u <  udom2.Min()) u += u_period;
+		ON_3dPoint pt3d = surf2->PointAt(u, vdom2.Min());
+		ON_ClassArray<ON_PX_EVENT> px;
+		if (ON_Intersect(pt3d, *surf1, px, proj_tol) && px.Count() > 0) {
+		    ON_2dPoint uv1(px[0].m_b[0], px[0].m_b[1]);
+		    if (!is_point_outside_loop(uv1, face1_loops[0]))
+			uvpts.Append(ON_3dPoint(uv1.x, uv1.y, 0.0));
 		}
 	    }
 
-	    /* Last point: EXACTLY the start of the bottom arc. */
-	    if (bot_arc) {
-		uvpts.Append(bot_arc->PointAtStart());
+	    /* Deduplicate consecutive identical UV points (can arise when
+	     * is_point_outside_loop rejects some samples, leaving gaps). */
+	    {
+		ON_3dPointArray dedup;
+		for (int di = 0; di < uvpts.Count(); di++) {
+		    if (dedup.Count() == 0 ||
+			uvpts[di].DistanceTo(dedup[dedup.Count()-1]) > INTERSECTION_TOL)
+			dedup.Append(uvpts[di]);
+		}
+		uvpts = dedup;
 	    }
 
-	    if (uvpts.Count() >= 3) {
-		ON_PolylineCurve *comp = new ON_PolylineCurve(uvpts);
-		if (DEBUG_BREP_BOOLEAN)
-		    bu_log("  complementary arc ADDED for face%d: %d pts\n",
-			   face_i1, uvpts.Count());
-		subcurves_on1.Append(comp);
+	    if (uvpts.Count() >= 4) {
+		/* Close the polyline exactly. */
+		uvpts.Append(uvpts[0]);
+
+		ON_PolylineCurve *circle = new ON_PolylineCurve(uvpts);
+		if (circle->IsValid()) {
+		    /* Replace the NURBS bottom arc with the full-circle polyline. */
+		    if (subcurves_on1.Count() > 0) {
+			delete subcurves_on1[subcurves_on1.Count() - 1];
+			subcurves_on1.Remove();
+		    }
+		    if (DEBUG_BREP_BOOLEAN)
+			bu_log("  full inner-circle polyline ADDED for face%d: %d pts\n",
+			       face_i1, uvpts.Count());
+		    subcurves_on1.Append(circle);
+		} else {
+		    /* Polyline is degenerate; discard it and keep the NURBS arc. */
+		    delete circle;
+		}
+	    } else if (DEBUG_BREP_BOOLEAN) {
+		bu_log("  inner-circle: only %d pts (need >=4), not added\n", uvpts.Count());
 	    }
 	}
     }
@@ -3773,7 +3798,13 @@ free_loops(std::vector<ON_SimpleArray<ON_Curve *> > &loops)
  * split_face_into_loops) are recursed into so that every internal vertex
  * is included as a shoelace polygon vertex.  Without recursion, a
  * polycurve that goes A→B→C→A would be treated as the straight chord A→A,
- * collapsing the area to zero even when the true enclosed area is large. */
+ * collapsing the area to zero even when the true enclosed area is large.
+ *
+ * ON_PolylineCurve entries (e.g. the complementary-arc polylines injected
+ * by get_subcurves_inside_faces) are similarly expanded: each polyline
+ * vertex is used as a shoelace polygon vertex.  Without expansion only the
+ * endpoint is used, zeroing the area of any loop whose NURBS arc partner
+ * has nearly-antipodal endpoints. */
 static void
 shoelace_accumulate(const ON_Curve *c, ON_3dPoint &prev, double &shoelace)
 {
@@ -3782,6 +3813,16 @@ shoelace_accumulate(const ON_Curve *c, ON_3dPoint &prev, double &shoelace)
     if (pc) {
 	for (int i = 0; i < pc->Count(); i++) {
 	    shoelace_accumulate(pc->SegmentCurve(i), prev, shoelace);
+	}
+	return;
+    }
+    const ON_PolylineCurve *plc = ON_PolylineCurve::Cast(c);
+    if (plc) {
+	const ON_Polyline &pts = plc->m_pline;
+	for (int i = 1; i < pts.Count(); i++) {
+	    ON_3dPoint curr(pts[i]);
+	    shoelace += prev.x * curr.y - curr.x * prev.y;
+	    prev = curr;
 	}
 	return;
     }
