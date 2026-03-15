@@ -41,9 +41,9 @@
 int
 to_is_viewable(bsg_view *gdvp)
 {
-    /* dm is gone; only dm-backed views (dmp != NULL) used the Tk winfo viewable
-     * check.  Return non-zero only when a legacy dm is present so callers skip
-     * dm draw paths for Obol views. */
+    /* With libdm removed from libtclcad, only dm-backed views (dmp != NULL)
+     * use legacy dm draw paths.  Return non-zero only when a dm backend is
+     * present so callers can skip dm draws for Obol views. */
     return gdvp->dmp != NULL;
 }
 
