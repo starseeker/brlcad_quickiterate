@@ -373,8 +373,10 @@ mged_dm_init(
      * OLD pane's view; we need the NEW dm's freshly-allocated vs_gvp. */
     void *ctx = s->mged_curr_dm->dm_view_state->vs_gvp;
     struct dm *dmp = dm_open(ctx, (void *)s->interp, dm_type, argc-1, argv);
-    if (!dmp)
+    if (!dmp) {
+	Tcl_AppendResult(s->interp, "dm_open(", dm_type, ") failed\n", (char *)NULL);
 	return TCL_ERROR;
+    }
     s->mged_curr_dm->dm_dmp = dmp;
 
     /*XXXX this eventually needs to move into Ogl's private structure */
@@ -510,7 +512,9 @@ release(struct mged_state *s, char *name, int need_close)
 	 * mged_attach()'s Bad: label, mged_curr_pane is still the OLD pane so
 	 * the DMP macro would return the old dm's dmp (not the new bad dm's).
 	 * mged_curr_dm always points to the dm being released in both the
-	 * name-given path (set_curr_pane was called) and the name-NULL Bad: path. */
+	 * name-given path (set_curr_pane was called) and the name-NULL Bad: path.
+	 * mged_curr_dm is always non-NULL here: set via BU_ALLOC in mged_attach
+	 * before the Bad: label can be reached. */
 	return TCL_OK;  /* Ignore: headless/null dm — nothing to release */
 
     if (s->mged_curr_dm->dm_fbp) {
@@ -921,7 +925,7 @@ mged_attach(struct mged_state *s, const char *wp_name, int argc, const char *arg
     /* Step 7.9: Use s->mged_curr_dm->dm_dmp (the new bad dm) not DMP.
      * At this point mged_curr_pane is still the OLD pane, so the DMP
      * macro would return the old dm's dmp rather than the new (bad) dm's. */
-    if (s->mged_curr_dm->dm_dmp != (struct dm *)0)
+    if (s->mged_curr_dm->dm_dmp != NULL)
 	release(s, (char *)NULL, 1);  /* release() will call dm_close */
     else
 	release(s, (char *)NULL, 0);  /* release() will not call dm_close */
