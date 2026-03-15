@@ -1791,7 +1791,7 @@ mged_finish(struct mged_state *s, int exitcode)
 
 	    if (p->dm_dmp) {
 		dm_close(p->dm_dmp);
-		BSG_FREE_VLIST(s->vlfree, &p->dm_p_vlist);
+		/* Step 7.12: dm_p_vlist removed from mged_dm. */
 		mged_slider_free_vls(p);
 	    }
 	    bu_free(p, "mged_finish: mged_dm");
@@ -2131,7 +2131,7 @@ main(int argc, char *argv[])
     curr_cmd_list = &head_cmd_list;
 
     /* initialize predictor stuff */
-    BU_LIST_INIT(&mged_dm_init_state->dm_p_vlist);
+    /* Step 7.12: dm_p_vlist removed from mged_dm; no BU_LIST_INIT needed. */
     predictor_init(s);
 
     /* Stage 7 (step 5.14): The initial mged_dm struct serves as a null/"nu"

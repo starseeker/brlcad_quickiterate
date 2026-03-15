@@ -560,7 +560,7 @@ release(struct mged_state *s, char *name, int need_close, struct mged_dm *bad_dm
     if (need_close)
 	dm_close(cdm->dm_dmp);
 
-    BSG_FREE_VLIST(s->vlfree, &cdm->dm_p_vlist);
+    /* Step 7.12: dm_p_vlist removed from mged_dm; predictor vlist lives in mp_p_vlist on pane. */
     /* Step 6.c: active_dm_set no longer maintained; pane was removed above. */
     mged_slider_free_vls(cdm);
     bu_free((void *)cdm, "release: mged_dm");
@@ -785,7 +785,7 @@ mged_attach(struct mged_state *s, const char *wp_name, int argc, const char *arg
      * is called inside mged_pane_init_resources() when the wrapper pane is
      * registered after mged_dm_init() succeeds.  Removed: predictor_init(s)
      * which would have (incorrectly) initialised the OLD pane's trails. */
-    BU_LIST_INIT(&ndm->dm_p_vlist);
+    /* Step 7.12: dm_p_vlist removed; predictor vlist is in mp_p_vlist (pane). */
 
     /* Only need to do this once */
     if (tkwin == NULL && BU_STR_EQUIV(dm_graphics_system(wp_name), "Tk")) {

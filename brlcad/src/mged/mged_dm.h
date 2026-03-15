@@ -371,7 +371,7 @@ struct mged_dm {
     int			dm_ndrawn;
     int			dm_perspective_angle;
     int			*dm_zclip_ptr;
-    struct bu_list	dm_p_vlist;			/* predictor vlist */
+    /* Step 7.12: dm_p_vlist removed — predictor vlist lives in mp_p_vlist on mged_pane. */
     struct trail	dm_trails[NUM_TRAILS];
 /* Step 7.11: dm_tie removed — use mp_cmd_tie on the mged_pane instead. */
 
@@ -429,12 +429,10 @@ struct mged_dm {
  *  - Obol panes created by `f_new_obol_view_ptr` have mp_dm == NULL and are
  *    registered in both `active_pane_set` AND `ged_views`.
  *
- * `set_curr_pane()` sets `s->gedp->ged_gvp` from `mp->mp_gvp`, sets
- * `s->mged_curr_pane = mp`, AND redirects `s->mged_curr_dm` to the headless
- * "nu" init dm (`mged_dm_init_state`) so that `DMP == NULL` and all legacy
- * libdm drawing guards fire cleanly.  The ternary macros prefer `mp->mp_*`
- * because `mged_curr_pane` is now non-NULL.  Next: remove `struct mged_dm`
- * and the DMP macros (Step 7).
+ * `set_curr_pane()` sets `s->gedp->ged_gvp` from `mp->mp_gvp` and sets
+ * `s->mged_curr_pane = mp`.  Step 7.10 removed `s->mged_curr_dm` from
+ * `mged_state`; DMP is now a ternary through `mged_curr_pane->mp_dm`.
+ * Next: remove resource fields from `struct mged_dm` (Step 7.12+).
  *
  * See RADICAL_MIGRATION.md, "MGED refactoring for libdm removal", steps 2-6.
  * ----------------------------------------------------------------------- */
@@ -442,7 +440,7 @@ struct mged_dm {
 struct mged_pane {
     bsg_view          *mp_gvp;       /* the view this pane displays (dmp == NULL for Obol) */
     struct cmd_list   *mp_cmd_tie;   /* Tcl command-history link (canonical; replaces dm_tie) */
-    struct bu_list     mp_p_vlist;   /* predictor vlist (mirrors dm_p_vlist) */
+    struct bu_list     mp_p_vlist;   /* predictor vlist (Step 7.12: sole location; dm_p_vlist removed) */
     struct trail       mp_trails[NUM_TRAILS]; /* predictor trails (mirrors dm_trails) */
     int                mp_ndrawn;    /* count of objects drawn (mirrors dm_ndrawn) */
 
@@ -452,8 +450,8 @@ struct mged_pane {
      *
      * When mp_dm != NULL this mged_pane is a thin wrapper: the mp_* resource
      * pointers below are SHARED with the mged_dm (not separately allocated).
-     * set_curr_pane() redirects s->mged_curr_dm to mp_dm for these panes so
-     * that DMP is non-NULL and legacy GL drawing still works.
+     * Step 7.10: mged_curr_dm removed from mged_state; DMP is ternary through
+     * mged_curr_pane->mp_dm.
      * mged_pane_free_resources() skips freeing the shared pointers. */
     struct mged_dm    *mp_dm;
 
@@ -521,14 +519,14 @@ extern void mged_pane_init_resources(struct mged_state *s, struct mged_pane *mp)
  */
 extern void mged_pane_free_resources(struct mged_pane *mp);
 
-/* Step 7.9: DMP is now a conditional expression through mged_curr_pane.
+/* Step 7.9/7.10: DMP is now a conditional expression through mged_curr_pane.
  * For Obol panes (mp_dm == NULL), DMP evaluates to NULL so all legacy
  * "if (!DMP) return;" guards fire cleanly without NULL pointer dereference.
  * For legacy dm wrapper panes (mp_dm != NULL), DMP gives the real dm pointer.
- * The single lvalue use of DMP (dm_open assignment in mged_dm_init) was
- * replaced with explicit s->mged_curr_dm->dm_dmp access (Step 7.9).
- * DMP is still used as an lvalue inside release() and other lifecycle
- * functions where mged_curr_pane is correctly set. */
+ * Step 7.10: mged_curr_dm removed from mged_state; lifecycle code uses ndm/cdm
+ * local pointers.  DMP is used as an rvalue only via the pane->mp_dm path.
+ * DMP_dirty and other mp_dm->dm_* macros below are only reached after DMP
+ * has been confirmed non-NULL (i.e., the code path already checked DMP first). */
 #define DMP (s->mged_curr_pane->mp_dm ? s->mged_curr_pane->mp_dm->dm_dmp : (struct dm *)NULL)
 #define DMP_dirty s->mged_curr_pane->mp_dm->dm_dirty
 #define fbp s->mged_curr_pane->mp_dm->dm_fbp
