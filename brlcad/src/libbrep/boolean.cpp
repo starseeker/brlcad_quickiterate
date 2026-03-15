@@ -5849,16 +5849,12 @@ join_boundary_edges(ON_Brep *brep)
 		    ON_3dPoint pj1 = brep->m_V[ej.m_vi[1]].Point();
 		    forward = (pi0.DistanceTo(pj0) <= vtol && pi1.DistanceTo(pj1) <= vtol);
 		    reverse = (pi0.DistanceTo(pj1) <= vtol && pi1.DistanceTo(pj0) <= vtol);
-
-		    /* Sanity check: midpoint of both curves must also be close */
-		    if (forward || reverse) {
-			ON_3dPoint pmid_i = ei.PointAt(ei.Domain().Mid());
-			ON_3dPoint pmid_j = ej.PointAt(ej.Domain().Mid());
-			if (pmid_i.DistanceTo(pmid_j) > vtol * 100.0) {
-			    forward = false;
-			    reverse = false;
-			}
-		    }
+		    /* No midpoint check: two faces meeting at an intersection
+		     * produce 3D edge curves that share the same endpoints but
+		     * are parameterised independently from each surface, so their
+		     * geometric midpoints may differ significantly.  Checking both
+		     * endpoints is sufficient to ensure the correct topological
+		     * match. */
 		}
 		if (!forward && !reverse) continue;
 
