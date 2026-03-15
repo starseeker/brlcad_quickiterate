@@ -1087,7 +1087,43 @@ from `mp_gvp` (no DMP indirection).
    - `mged_pane_free_resources()` for wrapper panes: `BSG_FREE_VLIST(&rt_vlfree,
      &mp->mp_p_vlist)` added — wrapper pane now owns the predictor vlist.
 
-   **Remaining work (Step 7.9 onwards)**:
+   **Step 7.9** ✅ (Session 23) — Migrate `DMP` macro from `mged_curr_dm->dm_dmp`
+   to a conditional pane-based expression; remove dead `set_curr_dm()`:
+   - `mged_dm.h`: `#define DMP` changed to:
+     `(s->mged_curr_pane->mp_dm ? s->mged_curr_pane->mp_dm->dm_dmp : (struct dm *)NULL)`
+     For Obol panes (mp_dm == NULL), DMP evaluates to NULL so all `if (!DMP) return;`
+     guards fire without a NULL dereference.  `extern set_curr_dm` declaration removed.
+   - `attach.c` `set_curr_dm()`: Deleted.  The function had no callers after Step 7.5.
+     Its ged_gvp / gv_grid update logic was partially done by `set_curr_pane()`; the
+     gv_grid update was moved inline into `set_curr_pane()` for wrapper panes.
+   - `attach.c` `set_curr_pane()`: Removed `else { mged_curr_dm = mged_dm_init_state }`
+     path for Obol panes — no longer needed since DMP is ternary.  Kept
+     `mged_curr_dm = mp->mp_dm` for legacy wrapper panes (lifecycle code still reads it).
+   - `attach.c` `mged_dm_init()`: All DMP and `view_state->vs_gvp` uses replaced with
+     explicit `s->mged_curr_dm->dm_dmp` / `s->mged_curr_dm->dm_view_state->vs_gvp`.
+     Also fixes the Step 7.2 carry-over bug: `view_state->vs_gvp` expanded to the OLD
+     pane's view; replaced with the NEW dm's view (`dm_var_init` bug first fixed in 7.8
+     for dm_var_init itself, now fixed here too).
+   - `attach.c` `mged_attach()`: Added local `ndmp = s->mged_curr_dm->dm_dmp` after
+     `mged_dm_init()` succeeds; replaced 6 DMP uses before `set_curr_pane()` with `ndmp`.
+     Moved `mged_fb_open()` to AFTER `set_curr_pane()` so DMP / fbp correctly reference
+     the new pane's dm.
+   - `attach.c` `release()`: `else if (!DMP)` guard changed to
+     `else if (!s->mged_curr_dm->dm_dmp)`; `if (fbp)` block changed to
+     `if (s->mged_curr_dm->dm_fbp)` with explicit `dm_fbp` access throughout;
+     `dm_close(DMP)` changed to `dm_close(s->mged_curr_dm->dm_dmp)`.
+     This fixes a bug introduced by Step 7.8: in the `Bad:` path (name=NULL),
+     `mged_curr_pane` is still the OLD pane, so fbp and DMP macros would have
+     referenced the old dm's framebuffer / dmp instead of the new (bad) dm's.
+   - `attach.c` `Bad:` label: `if (DMP != ...)` changed to
+     `if (s->mged_curr_dm->dm_dmp != ...)` for the same reason.
+
+   **After Step 7.9**:  `mged_curr_dm` is a purely-lifecycle field.  No macro
+   expansion goes through it.  It is only read/written directly in: `set_curr_pane()`
+   (update for wrapper panes), `release()`, `mged_attach()`, `dm_var_init()`,
+   `mged_dm_init()`, `mged.c` startup.
+
+   **Remaining work (Step 7.10 onwards)**:
    - `f_attach`/`mged_attach()`/`mged_dm_init()`: convert to Obol-only path
    - Delete `struct mged_dm`, `DMP`/`fbp`/`clients` macros, `dm-generic.c`
 

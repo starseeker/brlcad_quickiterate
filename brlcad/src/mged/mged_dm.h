@@ -415,10 +415,6 @@ struct mged_dm {
     int			(*dm_eventHandler)(void);
 };
 
-/* If we're changing the active DM, use this function so
- * libged also gets the word. */
-extern void set_curr_dm(struct mged_state *s, struct mged_dm *nl);
-
 #define MGED_DM_NULL ((struct mged_dm *)NULL)
 
 /* -----------------------------------------------------------------------
@@ -525,19 +521,15 @@ extern void mged_pane_init_resources(struct mged_state *s, struct mged_pane *mp)
  */
 extern void mged_pane_free_resources(struct mged_pane *mp);
 
-/* Step 7.8: All remaining macros that formerly used mged_curr_dm now go
- * through mged_curr_pane->mp_dm instead.  This removes the last direct
- * mged_curr_dm dependencies from business-logic code.
- *
- * DMP (dm pointer) keeps the mged_curr_dm path for now because it is used
- * as an lvalue in mged_dm_init() via dm_open().  All other dm-only macros
- * are safe to redirect through the pane because they are only ever accessed
- * in code paths that are already guarded by "if (!DMP) return;" or by a
- * "if (!mp->mp_dm) continue;" loop guard — so mp_dm is guaranteed non-NULL
- * at every call site.  dm_var_init() / mged_dm_init() / the mged.c startup
- * block all use explicit s->mged_curr_dm->dm_* instead of these macros, so
- * the circular dependency is broken. */
-#define DMP s->mged_curr_dm->dm_dmp
+/* Step 7.9: DMP is now a conditional expression through mged_curr_pane.
+ * For Obol panes (mp_dm == NULL), DMP evaluates to NULL so all legacy
+ * "if (!DMP) return;" guards fire cleanly without NULL pointer dereference.
+ * For legacy dm wrapper panes (mp_dm != NULL), DMP gives the real dm pointer.
+ * The single lvalue use of DMP (dm_open assignment in mged_dm_init) was
+ * replaced with explicit s->mged_curr_dm->dm_dmp access (Step 7.9).
+ * DMP is still used as an lvalue inside release() and other lifecycle
+ * functions where mged_curr_pane is correctly set. */
+#define DMP (s->mged_curr_pane->mp_dm ? s->mged_curr_pane->mp_dm->dm_dmp : (struct dm *)NULL)
 #define DMP_dirty s->mged_curr_pane->mp_dm->dm_dirty
 #define fbp s->mged_curr_pane->mp_dm->dm_fbp
 #define clients s->mged_curr_pane->mp_dm->dm_clients
