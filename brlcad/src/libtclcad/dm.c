@@ -375,6 +375,8 @@ dmo_drawViewAxes_tcl(void *clientData, int argc, const char **argv)
     if (!dmop || !dmop->interp)
 	return BRLCAD_ERROR;
 
+    if (!dmop->dmo_dmp) return TCL_OK;  /* Obol path: no-op */
+
     if (argc != 11) {
 	/* return help message */
 	bu_vls_printf(&vls, "helplib_alias dm_drawViewAxes %s", argv[1]);
@@ -590,6 +592,8 @@ dmo_drawDataAxes_tcl(void *clientData, int argc, const char **argv)
 
     if (!dmop || !dmop->interp)
 	return BRLCAD_ERROR;
+
+    if (!dmop->dmo_dmp) return TCL_OK;  /* Obol path: no-op */
 
     if (argc != 9) {
 	/* return help message */
@@ -816,6 +820,8 @@ dmo_drawModelAxes_tcl(void *clientData, int argc, const char **argv)
 
     if (!dmop || !dmop->interp)
 	return BRLCAD_ERROR;
+
+    if (!dmop->dmo_dmp) return TCL_OK;  /* Obol path: no-op */
 
     if (argc != 20) {
 	/* return help message */
@@ -1222,6 +1228,8 @@ dmo_drawScale_tcl(void *clientData, int argc, const char **argv)
     if (!dmop || !dmop->interp)
 	return BRLCAD_ERROR;
 
+    if (!dmop->dmo_dmp) return TCL_OK;  /* Obol path: no-op */
+
     return dmo_drawScale_cmd(dmop, argc-1, argv+1);
 }
 
@@ -1239,6 +1247,8 @@ dmo_drawSList(struct dm_obj *dmop,
 
     if (!dmop)
 	return BRLCAD_ERROR;
+
+    if (!dmop->dmo_dmp) return TCL_OK;  /* Obol path: no-op */
 
     int dm_transparency = dm_get_transparency(dmop->dmo_dmp);
     if (dm_transparency) {
@@ -1348,6 +1358,8 @@ dmo_fg_tcl(void *clientData, int argc, const char **argv)
     if (!dmop || !dmop->interp)
 	return BRLCAD_ERROR;
 
+    if (!dmop->dmo_dmp) return TCL_OK;  /* Obol path: no-op */
+
     obj = Tcl_GetObjResult(dmop->interp);
     if (Tcl_IsShared(obj))
 	obj = Tcl_DuplicateObj(obj);
@@ -1417,6 +1429,8 @@ dmo_bg_tcl(void *clientData, int argc, const char **argv)
     if (!dmop || !dmop->interp)
 	return BRLCAD_ERROR;
 
+    if (!dmop->dmo_dmp) return TCL_OK;  /* Obol path: no-op */
+
     obj = Tcl_GetObjResult(dmop->interp);
     if (Tcl_IsShared(obj))
 	obj = Tcl_DuplicateObj(obj);
@@ -1482,6 +1496,8 @@ dmo_lineWidth_tcl(void *clientData, int argc, const char **argv)
     if (!dmop || !dmop->interp)
 	return BRLCAD_ERROR;
 
+    if (!dmop->dmo_dmp) return TCL_OK;  /* Obol path: no-op */
+
     obj = Tcl_GetObjResult(dmop->interp);
     if (Tcl_IsShared(obj))
 	obj = Tcl_DuplicateObj(obj);
@@ -1542,6 +1558,8 @@ dmo_lineStyle_tcl(void *clientData, int argc, const char **argv)
     if (!dmop || !dmop->interp)
 	return BRLCAD_ERROR;
 
+    if (!dmop->dmo_dmp) return TCL_OK;  /* Obol path: no-op */
+
     obj = Tcl_GetObjResult(dmop->interp);
     if (Tcl_IsShared(obj))
 	obj = Tcl_DuplicateObj(obj);
@@ -1601,6 +1619,8 @@ dmo_configure_tcl(void *clientData, int argc, const char **argv)
     if (!dmop || !dmop->interp)
 	return BRLCAD_ERROR;
 
+    if (!dmop->dmo_dmp) return TCL_OK;  /* Obol path: no-op */
+
     if (argc != 2) {
 	struct bu_vls vls = BU_VLS_INIT_ZERO;
 
@@ -1641,6 +1661,8 @@ dmo_zclip_tcl(void *clientData, int argc, const char **argv)
 
     if (!dmop || !dmop->interp)
 	return BRLCAD_ERROR;
+
+    if (!dmop->dmo_dmp) return TCL_OK;  /* Obol path: no-op */
 
     obj = Tcl_GetObjResult(dmop->interp);
     if (Tcl_IsShared(obj))
@@ -1693,6 +1715,8 @@ dmo_zbuffer_tcl(void *clientData, int argc, const char **argv)
     if (!dmop || !dmop->interp)
 	return BRLCAD_ERROR;
 
+    if (!dmop->dmo_dmp) return TCL_OK;  /* Obol path: no-op */
+
     obj = Tcl_GetObjResult(dmop->interp);
     if (Tcl_IsShared(obj))
 	obj = Tcl_DuplicateObj(obj);
@@ -1743,6 +1767,8 @@ dmo_light_tcl(void *clientData, int argc, const char **argv)
 
     if (!dmop || !dmop->interp)
 	return BRLCAD_ERROR;
+
+    if (!dmop->dmo_dmp) return TCL_OK;  /* Obol path: no-op */
 
     obj = Tcl_GetObjResult(dmop->interp);
     if (Tcl_IsShared(obj))
@@ -1796,6 +1822,8 @@ dmo_transparency_tcl(void *clientData, int argc, const char **argv)
     if (!dmop || !dmop->interp)
 	return BRLCAD_ERROR;
 
+    if (!dmop->dmo_dmp) return TCL_OK;  /* Obol path: no-op */
+
     obj = Tcl_GetObjResult(dmop->interp);
     if (Tcl_IsShared(obj))
 	obj = Tcl_DuplicateObj(obj);
@@ -1848,6 +1876,8 @@ dmo_depthMask_tcl(void *clientData, int argc, const char **argv)
 
     if (!dmop || !dmop->interp)
 	return BRLCAD_ERROR;
+
+    if (!dmop->dmo_dmp) return TCL_OK;  /* Obol path: no-op */
 
     obj = Tcl_GetObjResult(dmop->interp);
     if (Tcl_IsShared(obj))
@@ -1903,6 +1933,8 @@ dmo_bounds_tcl(void *clientData, int argc, const char **argv)
 
     if (!dmop || !dmop->interp)
 	return BRLCAD_ERROR;
+
+    if (!dmop->dmo_dmp) return TCL_OK;  /* Obol path: no-op */
 
     obj = Tcl_GetObjResult(dmop->interp);
     if (Tcl_IsShared(obj))
@@ -1978,6 +2010,8 @@ dmo_perspective_tcl(void *clientData, int argc, const char **argv)
 
     if (!dmop || !dmop->interp)
 	return BRLCAD_ERROR;
+
+    if (!dmop->dmo_dmp) return TCL_OK;  /* Obol path: no-op */
 
     obj = Tcl_GetObjResult(dmop->interp);
     if (Tcl_IsShared(obj))
@@ -2069,6 +2103,8 @@ dmo_png_tcl(void *clientData, int argc, const char **argv)
     if (!dmop || !dmop->interp)
 	return BRLCAD_ERROR;
 
+    if (!dmop->dmo_dmp) return TCL_OK;  /* Obol path: no-op */
+
     return dmo_png_cmd(dmop, argc-1, argv+1);
 }
 
@@ -2090,6 +2126,8 @@ dmo_clearBufferAfter_tcl(void *clientData, int argc, const char **argv)
 
     if (!dmop || !dmop->interp)
 	return BRLCAD_ERROR;
+
+    if (!dmop->dmo_dmp) return TCL_OK;  /* Obol path: no-op */
 
     obj = Tcl_GetObjResult(dmop->interp);
     if (Tcl_IsShared(obj))
@@ -2142,6 +2180,8 @@ dmo_debug_tcl(void *clientData, int argc, const char **argv)
     if (!dmop || !dmop->interp)
 	return BRLCAD_ERROR;
 
+    if (!dmop->dmo_dmp) return TCL_OK;  /* Obol path: no-op */
+
     obj = Tcl_GetObjResult(dmop->interp);
     if (Tcl_IsShared(obj))
 	obj = Tcl_DuplicateObj(obj);
@@ -2191,6 +2231,8 @@ dmo_logfile_tcl(void *clientData, int argc, const char **argv)
     if (!dmop || !dmop->interp)
 	return BRLCAD_ERROR;
 
+    if (!dmop->dmo_dmp) return TCL_OK;  /* Obol path: no-op */
+
     obj = Tcl_GetObjResult(dmop->interp);
     if (Tcl_IsShared(obj))
 	obj = Tcl_DuplicateObj(obj);
@@ -2233,6 +2275,8 @@ dmo_flush_tcl(void *clientData, int UNUSED(argc), const char **UNUSED(argv))
     if (!dmop)
 	return BRLCAD_ERROR;
 
+    if (!dmop->dmo_dmp) return TCL_OK;  /* Obol path: no-op */
+
     if (dmop->dmo_dmp->i->dm_flush) {
 	dmop->dmo_dmp->i->dm_flush(dmop->dmo_dmp);
     }
@@ -2255,6 +2299,8 @@ dmo_sync_tcl(void *clientData, int UNUSED(argc), const char **UNUSED(argv))
 
     if (!dmop)
 	return BRLCAD_ERROR;
+
+    if (!dmop->dmo_dmp) return TCL_OK;  /* Obol path: no-op */
 
     if (dmop->dmo_dmp->i->dm_sync) {
 	dmop->dmo_dmp->i->dm_sync(dmop->dmo_dmp);
@@ -2280,6 +2326,8 @@ dmo_size_tcl(void *clientData, int argc, const char **argv)
 
     if (!dmop || !dmop->interp)
 	return BRLCAD_ERROR;
+
+    if (!dmop->dmo_dmp) return TCL_OK;  /* Obol path: no-op */
 
     obj = Tcl_GetObjResult(dmop->interp);
     if (Tcl_IsShared(obj))
@@ -2346,6 +2394,8 @@ dmo_get_aspect_tcl(void *clientData, int argc, const char **argv)
 
     if (!dmop || !dmop->interp)
 	return BRLCAD_ERROR;
+
+    if (!dmop->dmo_dmp) return TCL_OK;  /* Obol path: no-op */
 
     if (argc != 2) {
 	bu_vls_printf(&vls, "helplib_alias dm_getaspect %s", argv[1]);
@@ -2534,7 +2584,8 @@ dmo_deleteProc(ClientData clientData)
 #endif
 
     bu_vls_free(&dmop->dmo_name);
-    (void)dm_close(dmop->dmo_dmp);
+    if (dmop->dmo_dmp)
+	(void)dm_close(dmop->dmo_dmp);
     BU_LIST_DEQUEUE(&dmop->l);
     bu_free((void *)dmop, "dmo_deleteProc: dmop");
 
@@ -2621,7 +2672,7 @@ static int
 dmo_open_tcl(ClientData UNUSED(clientData), Tcl_Interp *interp, int argc, char **argv)
 {
     struct dm_obj *dmop;
-    struct dm *dmp;
+    struct dm *dmp = DM_NULL;
     struct bu_vls vls = BU_VLS_INIT_ZERO;
     int name_index = 1;
     const char *type = NULL;
@@ -2670,6 +2721,12 @@ dmo_open_tcl(ClientData UNUSED(clientData), Tcl_Interp *interp, int argc, char *
     if (BU_STR_EQUAL(argv[2], "wgl"))
 	type = argv[2];
 
+    /* Obol path: "obol" display type is handled by the obol_view Tk widget.
+     * A dm_obj is created with dmo_dmp = NULL; all draw sub-commands are
+     * no-ops.  The view is rendered by obol_view and obol_scene_assemble. */
+    if (BU_STR_EQUAL(argv[2], "obol"))
+	type = argv[2];
+
     if (!type) {
 	Tcl_AppendStringsToObj(obj,
 			       "Unsupported display manager type - ",
@@ -2706,19 +2763,25 @@ dmo_open_tcl(ClientData UNUSED(clientData), Tcl_Interp *interp, int argc, char *
 	    av[i+newargs] = argv[i];
 	av[i+newargs] = (const char *)NULL;
 
-	if ((dmp = dm_open(NULL, (void *)interp, type, ac, av)) == DM_NULL) {
-	    if (Tcl_IsShared(obj))
-		obj = Tcl_DuplicateObj(obj);
+	/* Obol path: skip dm_open — leave dmp NULL; the obol_view Tk widget
+	 * is already created (or will be) by the caller.  Just register a
+	 * dm_obj wrapper so Tcl scripts that call $dm drawbegin/drawend get
+	 * silent no-ops rather than errors. */
+	if (!BU_STR_EQUAL(type, "obol")) {
+	    if ((dmp = dm_open(NULL, (void *)interp, type, ac, av)) == DM_NULL) {
+		if (Tcl_IsShared(obj))
+		    obj = Tcl_DuplicateObj(obj);
 
-	    Tcl_AppendStringsToObj(obj,
-				   "dmo_open_tcl: Failed to open - ",
-				   argv[name_index],
-				   "\n",
-				   (char *)NULL);
-	    bu_free((void *)av, "dmo_open_tcl: av");
+		Tcl_AppendStringsToObj(obj,
+				       "dmo_open_tcl: Failed to open - ",
+				       argv[name_index],
+				       "\n",
+				       (char *)NULL);
+		bu_free((void *)av, "dmo_open_tcl: av");
 
-	    Tcl_SetObjResult(interp, obj);
-	    return BRLCAD_ERROR;
+		Tcl_SetObjResult(interp, obj);
+		return BRLCAD_ERROR;
+	    }
 	}
 
 	bu_free((void *)av, "dmo_open_tcl: av");
@@ -2730,9 +2793,11 @@ dmo_open_tcl(ClientData UNUSED(clientData), Tcl_Interp *interp, int argc, char *
     /* initialize dm_obj */
     bu_vls_init(&dmop->dmo_name);
     bu_vls_strcpy(&dmop->dmo_name, argv[name_index]);
-    dmop->dmo_dmp = dmp;
-    VSETALL(dmop->dmo_dmp->i->dm_clipmin, -2048.0);
-    VSETALL(dmop->dmo_dmp->i->dm_clipmax, 2047.0);
+    dmop->dmo_dmp = dmp;  /* NULL for Obol path */
+    if (dmp) {
+	VSETALL(dmop->dmo_dmp->i->dm_clipmin, -2048.0);
+	VSETALL(dmop->dmo_dmp->i->dm_clipmax, 2047.0);
+    }
     dmop->dmo_drawLabelsHook = (int (*)(struct dm *, struct rt_wdb *, const char *, mat_t, int *, ClientData))0;
 
 #ifdef USE_FBSERV
@@ -2761,8 +2826,9 @@ dmo_open_tcl(ClientData UNUSED(clientData), Tcl_Interp *interp, int argc, char *
     bu_vls_free(&vls);
 
 #ifdef USE_FBSERV
-    /* open the framebuffer */
-    dmo_openFb(dmop);
+    /* open the framebuffer — only for dm backends that provide one */
+    if (dmop->dmo_dmp)
+	dmo_openFb(dmop);
 #endif
 
     /* Return new function name as result */
