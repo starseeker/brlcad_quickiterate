@@ -66,7 +66,7 @@ set(
   libtclcad
   libged
   libwdb
-  libdm
+  # Step 8: libdm removed — MGED is now Obol-only; no dm_* symbols linked.
   libnmg
   ${WS2_32_LIBRARY}
   ${OPENGL32_LIBRARY}
