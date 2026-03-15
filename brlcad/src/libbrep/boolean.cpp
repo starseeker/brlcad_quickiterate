@@ -1702,32 +1702,32 @@ get_subcurves_inside_faces(
 	     * point even for the most tilted pair encountered in practice. */
 	    const double proj_tol = (cB_s.x - cB_e.x) * 1000.0 + INTERSECTION_TOL;
 	    /* N_ARC: sample points per half-circle (8 gives sub-degree accuracy
-	     * for a semicircle; the full polyline will have 2*N_ARC+1 points). */
+	     * for a semicircle; the full polyline will have 2*N_ARC+1 points).
+	     * N_FULL = 2*N_ARC total samples for the full circle. */
 	    const int N_ARC = 8;
 
-	    /* ---- bottom arc: u from u_start → u_end, project onto face1 ---- */
-	    ON_3dPointArray uvpts;
-	    for (int k = 0; k <= N_ARC; k++) {
-		double u = cB_s.x + (cB_e.x - cB_s.x) * k / (double)N_ARC;
-		ON_3dPoint pt3d = surf2->PointAt(u, vdom2.Min());
-		ON_ClassArray<ON_PX_EVENT> px;
-		if (ON_Intersect(pt3d, *surf1, px, proj_tol) && px.Count() > 0) {
-		    ON_2dPoint uv1(px[0].m_b[0], px[0].m_b[1]);
-		    if (!is_point_outside_loop(uv1, face1_loops[0]))
-			uvpts.Append(ON_3dPoint(uv1.x, uv1.y, 0.0));
-		}
-	    }
-	    /* ---- complementary arc: the OTHER half of the inner circle.
-	     * curveB covers u ∈ [cB_e.x, cB_s.x] (= [0.464, 0.964] in the
-	     * example).  The missing complementary half crosses the periodic
-	     * seam: u goes from cB_s.x FORWARD past u=1/0 to cB_e.x.  Wrap
-	     * each u value modulo 1 so surf2->PointAt() receives a valid param. */
+	    /* ---- Full circle: sample 2*N_ARC equally-spaced points starting
+	     * at cB_s.x and advancing by one full period.
+	     *
+	     * The original code sampled a "bottom arc" (u_start → u_end,
+	     * decreasing) then a "complementary arc" (u_start → u_end,
+	     * seam-crossing, increasing) — both arcs starting from u_start.
+	     * The connection chord from the bottom arc's end (u_end) to the
+	     * complementary arc's start (u_start+ε) created a ~158° diagonal
+	     * chord through the polygon, making it self-intersecting (figure-8).
+	     * A self-intersecting polygon gives wrong ray-cast results in
+	     * point_loop_location(), so test points inside the inner circle
+	     * were not reliably excluded from the annular region, causing
+	     * incorrect face classification.
+	     *
+	     * Fix: advance u continuously from cB_s.x by one full period.
+	     * Adjacent samples are ~22° apart; no long diagonal chords. */
 	    ON_Interval udom2 = surf2->Domain(0);
-	    double u_span_comp = udom2.Max() - cB_s.x + cB_e.x - udom2.Min();
-	    for (int k = 1; k <= N_ARC; k++) {
-		double u_raw = cB_s.x + u_span_comp * k / (double)N_ARC;
-		/* wrap into [udom2.Min(), udom2.Max()) */
-		double u_period = udom2.Length();
+	    double u_period = udom2.Length();
+	    const int N_FULL = 2 * N_ARC;
+	    ON_3dPointArray uvpts;
+	    for (int k = 0; k < N_FULL; k++) {
+		double u_raw = cB_s.x + u_period * (double)k / N_FULL;
 		double u = u_raw;
 		while (u >= udom2.Max()) u -= u_period;
 		while (u <  udom2.Min()) u += u_period;
@@ -5223,7 +5223,8 @@ face_brep_location(const TrimmedFace *tface, const ON_Brep *brep, ON_SimpleArray
     ON_3dPoint test_pt3d = tface->m_face->PointAt(test_pt2d.x, test_pt2d.y);
 
     if (DEBUG_BREP_BOOLEAN) {
-	bu_log("valid test point: (%g, %g, %g)\n", test_pt3d.x, test_pt3d.y, test_pt3d.z);
+	bu_log("valid test point: (%g, %g, %g) [UV: %g, %g]\n", test_pt3d.x, test_pt3d.y, test_pt3d.z,
+	       test_pt2d.x, test_pt2d.y);
     }
 
     if (is_point_on_brep_surface(test_pt3d, brep, surf_tree)) {
