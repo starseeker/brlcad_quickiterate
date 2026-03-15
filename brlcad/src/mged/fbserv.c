@@ -333,35 +333,39 @@ fbserv_set_port(const struct bu_structparse *UNUSED(sp), const char *UNUSED(c1),
      * Obol panes (dm_dmp == NULL).  Obol has its own fb overlay mechanism. */
     if (!DMP) return;
 
+    /* Step 7.7: access dm_netfd/dm_netchan via the pane's mp_dm pointer rather
+     * than through s->mged_curr_dm.  The !DMP guard above ensures mp_dm != NULL. */
+    struct mged_dm *cdm = s->mged_curr_pane->mp_dm;
+
 #define MAX_PORT_TRIES 100
 
     /* Check to see if previously active --- if so then deactivate */
 #ifdef USE_TCL_CHAN
-    if (s->mged_curr_dm->dm_netchan != NULL) {
+    if (cdm->dm_netchan != NULL) {
 	/* first drop all clients */
 	for (i = 0; i < MAX_CLIENTS; ++i)
 	    fbserv_drop_client(i);
 
-	ClientData fd = (ClientData)s->mged_curr_dm->dm_netfd;
-	Tcl_DeleteChannelHandler(s->mged_curr_dm->dm_netchan, (Tcl_ChannelProc *)fbserv_new_client_handler, fd);
+	ClientData fd = (ClientData)cdm->dm_netfd;
+	Tcl_DeleteChannelHandler(cdm->dm_netchan, (Tcl_ChannelProc *)fbserv_new_client_handler, fd);
 
 	if (dm_interp(DMP) != NULL)
-	    Tcl_Close((Tcl_Interp *)dm_interp(DMP), s->mged_curr_dm->dm_netchan);
+	    Tcl_Close((Tcl_Interp *)dm_interp(DMP), cdm->dm_netchan);
 
-	s->mged_curr_dm->dm_netchan = NULL;
+	cdm->dm_netchan = NULL;
 
-	closesocket(s->mged_curr_dm->dm_netfd);
-	s->mged_curr_dm->dm_netfd = -1;
+	closesocket(cdm->dm_netfd);
+	cdm->dm_netfd = -1;
     }
 #else
-    if (s->mged_curr_dm->dm_netfd >= 0) {
+    if (cdm->dm_netfd >= 0) {
 	/* first drop all clients */
 	for (i = 0; i < MAX_CLIENTS; ++i)
 	    fbserv_drop_client(i);
 
-	Tcl_DeleteFileHandler(s->mged_curr_dm->dm_netfd);
-	close(s->mged_curr_dm->dm_netfd);
-	s->mged_curr_dm->dm_netfd = -1;
+	Tcl_DeleteFileHandler(cdm->dm_netfd);
+	close(cdm->dm_netfd);
+	cdm->dm_netfd = -1;
     }
 #endif
 
@@ -403,9 +407,9 @@ fbserv_set_port(const struct bu_structparse *UNUSED(sp), const char *UNUSED(c1),
 	sprintf(hostname, "localhost");
 
 	if (dm_interp(DMP) != NULL)
-	    s->mged_curr_dm->dm_netchan = Tcl_OpenTcpServer((Tcl_Interp *)dm_interp(DMP), port, hostname, fbserv_new_client_handler, (ClientData)s->mged_curr_dm);
+	    cdm->dm_netchan = Tcl_OpenTcpServer((Tcl_Interp *)dm_interp(DMP), port, hostname, fbserv_new_client_handler, (ClientData)cdm);
 
-	if (s->mged_curr_dm->dm_netchan == NULL)
+	if (cdm->dm_netchan == NULL)
 	    ++port;
 	else
 	    break;
@@ -416,7 +420,7 @@ fbserv_set_port(const struct bu_structparse *UNUSED(sp), const char *UNUSED(c1),
 	else
 	    sprintf(portname, "%d", mged_variables->mv_port);
 
-	if ((s->mged_curr_dm->dm_netfd = pkg_permserver(portname, 0, 0, communications_error)) < 0)
+	if ((cdm->dm_netfd = pkg_permserver(portname, 0, 0, communications_error)) < 0)
 	    ++mged_variables->mv_port;
 	else
 	    break;
@@ -424,17 +428,17 @@ fbserv_set_port(const struct bu_structparse *UNUSED(sp), const char *UNUSED(c1),
     }
 
 #ifdef USE_TCL_CHAN
-    if (s->mged_curr_dm->dm_netchan == NULL) {
+    if (cdm->dm_netchan == NULL) {
 	mged_variables->mv_port = save_port;
 	mged_variables->mv_listen = 0;
 	bu_log("fbserv_set_port: failed to hang a listen on ports %d - %d\n",
 		mged_variables->mv_port, mged_variables->mv_port + MAX_PORT_TRIES - 1);
     } else {
 	mged_variables->mv_port = port;
-	Tcl_GetChannelHandle(s->mged_curr_dm->dm_netchan, TCL_READABLE, (ClientData *)&s->mged_curr_dm->dm_netfd);
+	Tcl_GetChannelHandle(cdm->dm_netchan, TCL_READABLE, (ClientData *)&cdm->dm_netfd);
     }
 #else
-    if (s->mged_curr_dm->dm_netfd < 0) {
+    if (cdm->dm_netfd < 0) {
 	mged_variables->mv_port = save_port;
 	mged_variables->mv_listen = 0;
 	bu_log("fbserv_set_port: failed to hang a listen on ports %d - %d\n",
@@ -443,8 +447,8 @@ fbserv_set_port(const struct bu_structparse *UNUSED(sp), const char *UNUSED(c1),
 	// Need to pass a few things to fbserv_new_client_handler. ncdata's
 	// lifetime is governed by the needs of the Tcl file handlers, so it
 	// has to be freed once fbserv_new_client_handler is done.
-	Tcl_CreateFileHandler(s->mged_curr_dm->dm_netfd, TCL_READABLE,
-		fbserv_new_client_handler, (ClientData)(size_t)s->mged_curr_dm->dm_netfd);
+	Tcl_CreateFileHandler(cdm->dm_netfd, TCL_READABLE,
+		fbserv_new_client_handler, (ClientData)(size_t)cdm->dm_netfd);
     }
 #endif
 }

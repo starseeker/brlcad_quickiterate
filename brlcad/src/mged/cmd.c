@@ -1593,7 +1593,7 @@ f_postscript(ClientData clientData, Tcl_Interp *interpreter, int argc, const cha
 {
     int status;
     struct mged_dm *dml;
-    struct mged_pane *dml_pane;  /* Step 7.5: save pane too */
+    struct mged_pane *dml_pane;
     struct _view_state *vsp;
     struct cmdtab *ctp = (struct cmdtab *)clientData;
     MGED_CK_CMD(ctp);
@@ -1610,7 +1610,8 @@ f_postscript(ClientData clientData, Tcl_Interp *interpreter, int argc, const cha
     if (s->gedp == GED_NULL)
 	return TCL_OK;
 
-    dml = s->mged_curr_dm;
+    /* Step 7.7: save current pane's mp_dm directly (replaces saving mged_curr_dm). */
+    dml = s->mged_curr_pane->mp_dm;
     dml_pane = s->mged_curr_pane;
     s->gedp->ged_gvp = view_state->vs_gvp;
     status = mged_attach(s, "postscript", argc, argv);
@@ -1619,8 +1620,10 @@ f_postscript(ClientData clientData, Tcl_Interp *interpreter, int argc, const cha
 
     vsp = view_state;  /* save state info pointer */
 
+    /* After mged_attach, the postscript pane is current; its mp_dm is the new
+     * postscript mged_dm.  Access it via mged_curr_pane->mp_dm. */
     bu_free((void *)menu_state, "f_postscript: menu_state");
-    s->mged_curr_dm->dm_menu_state = dml->dm_menu_state;
+    s->mged_curr_pane->mp_dm->dm_menu_state = dml->dm_menu_state;
 
     scroll_top = dml->dm_scroll_top;
     scroll_active = dml->dm_scroll_active;
@@ -1631,8 +1634,7 @@ f_postscript(ClientData clientData, Tcl_Interp *interpreter, int argc, const cha
     if (DMP) dm_set_dirty(DMP, 1);
     refresh(s);
 
-    /* Step 7.5: restore pane (replaces set_curr_dm + explicit dm assignment). */
-    s->mged_curr_dm->dm_view_state = vsp;
+    s->mged_curr_pane->mp_dm->dm_view_state = vsp;
     status = Tcl_Eval(interpreter, "release");
     set_curr_pane(s, dml_pane);
     s->gedp->ged_gvp = view_state->vs_gvp;
