@@ -122,16 +122,16 @@ fbserv_existing_client_handler(ClientData clientData, int UNUSED(mask))
     int fd = (uint16_t)((long)(uintptr_t)clientData & 0xFFFF);
 
     int npp;			/* number of processed packages */
-    struct mged_dm *dlp = MGED_DM_NULL;
+    struct mged_pane *dlp = MGED_PANE_NULL;
     struct mged_pane *save_pane;
 
     /* Step 6.b: search active_pane_set for matching fd. */
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (!mp->mp_dm) continue;
+	if (!mp->mp_dmp) continue;
 	for (i = MAX_CLIENTS-1; i >= 0; i--)
-	    if (fd == mp->mp_dm->dm_clients[i].c_fd) {
-		dlp = mp->mp_dm;
+	    if (fd == mp->mp_clients[i].c_fd) {
+		dlp = mp;
 		goto found;
 	    }
     }
@@ -147,7 +147,7 @@ found:
 	struct mged_pane *mp = NULL;
 	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	    struct mged_pane *p2 = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	    if (p2->mp_dm == dlp) { mp = p2; break; }
+	    if (p2 == dlp) { mp = p2; break; }
 	}
 	/* Step 7.5: always use set_curr_pane; if no wrapper pane found, keep current. */
 	if (mp) set_curr_pane(s, mp);
@@ -274,7 +274,7 @@ fbserv_new_client_handler(ClientData clientData,
     /* Find wrapper pane for dlp and make it current. */
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (mp->mp_dm == dlp) { set_curr_pane(s, mp); break; }
+	if (mp == dlp) { set_curr_pane(s, mp); break; }
     }
 
     /* Extract the native OS handle from the connected channel and wrap it
@@ -300,7 +300,7 @@ fbserv_set_port(const struct bu_structparse *UNUSED(sp), const char *UNUSED(c1),
 
     /* Step 7.7: access dm_netfd/dm_netchan via the pane's mp_dm pointer rather
      * than through s->mged_curr_dm.  The !DMP guard above ensures mp_dm != NULL. */
-    struct mged_dm *cdm = s->mged_curr_pane->mp_dm;
+    struct mged_pane *cdm = s->mged_curr_pane;
 
 #define MAX_PORT_TRIES 100
 
@@ -313,7 +313,7 @@ fbserv_set_port(const struct bu_structparse *UNUSED(sp), const char *UNUSED(c1),
 	/* Close the server channel; this unregisters the accept callback and
 	 * closes the underlying listen socket. */
 	if (dm_interp(DMP) != NULL)
-	    Tcl_Close((Tcl_Interp *)dm_interp(DMP), cdm->dm_netchan);
+	    Tcl_Close((Tcl_Interp *)dm_interp(DMP), cdm->mp_netchan);
 
 	s->mged_curr_dm->dm_netchan = NULL;
 	s->mged_curr_dm->dm_netfd = -1;
@@ -350,7 +350,7 @@ fbserv_set_port(const struct bu_structparse *UNUSED(sp), const char *UNUSED(c1),
 		    fbserv_new_client_handler, (ClientData)s->mged_curr_dm);
 	}
 
-	if (cdm->dm_netchan == NULL)
+	if (cdm->mp_netchan == NULL)
 	    ++port;
 	else
 	    break;

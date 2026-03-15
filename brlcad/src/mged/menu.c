@@ -1440,12 +1440,12 @@ mmenu_set(struct mged_state *s, int index, struct menu_item *value)
     s->update_views = 1;
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (!mp->mp_dm) continue;  /* skip Obol panes */
+	if (!mp->mp_dmp) continue;  /* skip Obol panes */
 	if (menu_state == mp->mp_menu_state &&
 	    mp->mp_mged_variables->mv_faceplate &&
 	    mp->mp_mged_variables->mv_orig_gui) {
-	    mp->mp_dm->dm_dirty = 1;
-	    dm_set_dirty(mp->mp_dm->dm_dmp, 1);
+	    mp->mp_dirty = 1;
+	    dm_set_dirty(mp->mp_dmp, 1);
 	}
     }
 }
@@ -1461,7 +1461,7 @@ mmenu_set_all(struct mged_state *s, int index, struct menu_item *value)
     save_pane = s->mged_curr_pane;
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (!mp->mp_dm) continue;  /* skip Obol panes */
+	if (!mp->mp_dmp) continue;  /* skip Obol panes */
 	if (mp->mp_cmd_tie)
 	    curr_cmd_list = mp->mp_cmd_tie;
 

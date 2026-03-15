@@ -54,8 +54,7 @@
 
 // FIXME: Globals
 /* Geometry display instances used by MGED */
-/* Step 6.c: active_dm_set removed; all pane tracking via active_pane_set. */
-struct mged_dm *mged_dm_init_state = NULL;
+/* Step 7.18: mged_dm_init_state removed; startup sentinel is s->mged_init_pane. */
 
 /* Stage 7 (libdm removal): Obol pane set — tracks mged_pane objects for
  * all panes (Obol and legacy dm wrappers).  See RADICAL_MIGRATION.md. */
@@ -147,9 +146,10 @@ mged_pane_release(struct mged_pane *mp)
 /*
  * mged_pane_init_resources — allocate and initialise per-pane overlay state.
  *
- * Copies default values from mged_dm_init_state (the "nu" dm set up at
- * startup).  Must be called after mged_dm_init_state has been populated.
- * Called by f_new_obol_view_ptr() immediately after allocating the mged_pane.
+ * Called for both legacy dm panes (from mged_attach) and Obol panes (from
+ * f_new_obol_view_ptr).  Step 7.18: single unified path; no mp_dm branching.
+ * Copies initial resource values from s->mged_curr_pane if available, or from
+ * s->mged_init_pane as fallback, or from hardcoded defaults.
  */
 void
 mged_pane_init_resources(struct mged_state *s, struct mged_pane *mp)
@@ -157,163 +157,70 @@ mged_pane_init_resources(struct mged_state *s, struct mged_pane *mp)
     if (!mp)
 	return;
 
-    /* Step 7.16: for legacy dm wrapper panes (mp_dm != NULL) the pane OWNS the
-     * 8 non-view shareable resources.  Allocate them here; copy initial values
-     * from the currently-active pane (s->mged_curr_pane) if available, or from
-     * hardcoded defaults when this is the sentinel init_pane (no prev pane yet).
-     * The view_state remains dm-owned for now: borrow from mp_dm->dm_view_state.
-     * Set dm_pane back-pointer so share.c can reach the pane from the dm. */
-    if (mp->mp_dm) {
-	struct mged_pane *src = (s && s->mged_curr_pane) ? s->mged_curr_pane : NULL;
+    /* Source for copying initial resource values. */
+    struct mged_pane *src = (s && s->mged_curr_pane) ? s->mged_curr_pane : NULL;
+    /* Fallback: the sentinel init_pane (created before any dm/obol attaches). */
+    struct mged_pane *init_src = (s && s->mged_init_pane && s->mged_init_pane != mp)
+				 ? s->mged_init_pane : NULL;
+    if (!src && init_src) src = init_src;
 
-	BU_ALLOC(mp->mp_adc_state, struct _adc_state);
-	if (src && src->mp_adc_state)
-	    *mp->mp_adc_state = *src->mp_adc_state;
-	else if (mged_dm_init_state && mged_dm_init_state->dm_pane &&
-		 mged_dm_init_state->dm_pane->mp_adc_state)
-	    *mp->mp_adc_state = *mged_dm_init_state->dm_pane->mp_adc_state;
-	else { mp->mp_adc_state->adc_a1 = mp->mp_adc_state->adc_a2 = 45.0; }
-	mp->mp_adc_state->adc_rc = 1;
-
-	BU_ALLOC(mp->mp_menu_state, struct _menu_state);
-	if (src && src->mp_menu_state)
-	    *mp->mp_menu_state = *src->mp_menu_state;
-	mp->mp_menu_state->ms_rc = 1;
-
-	BU_ALLOC(mp->mp_rubber_band, struct _rubber_band);
-	if (src && src->mp_rubber_band)
-	    *mp->mp_rubber_band = *src->mp_rubber_band;
-	else
-	    *mp->mp_rubber_band = default_rubber_band;
-	mp->mp_rubber_band->rb_rc = 1;
-
-	BU_ALLOC(mp->mp_mged_variables, struct _mged_variables);
-	if (src && src->mp_mged_variables)
-	    *mp->mp_mged_variables = *src->mp_mged_variables;
-	else
-	    *mp->mp_mged_variables = default_mged_variables;
-	mp->mp_mged_variables->mv_rc     = 1;
-	mp->mp_mged_variables->mv_dlist   = mged_default_dlist;
-	mp->mp_mged_variables->mv_listen  = 0;
-	mp->mp_mged_variables->mv_port    = 0;
-	mp->mp_mged_variables->mv_fb      = 0;
-
-	BU_ALLOC(mp->mp_color_scheme, struct _color_scheme);
-	/* color_scheme always resets to default (matches old dm_var_init behaviour) */
-	if (mged_dm_init_state && mged_dm_init_state->dm_pane &&
-	    mged_dm_init_state->dm_pane->mp_color_scheme)
-	    *mp->mp_color_scheme = *mged_dm_init_state->dm_pane->mp_color_scheme;
-	else
-	    *mp->mp_color_scheme = default_color_scheme;
-	mp->mp_color_scheme->cs_rc = 1;
-
-	BU_ALLOC(mp->mp_grid_state, struct bsg_grid_state);
-	if (src && src->mp_grid_state)
-	    *mp->mp_grid_state = *src->mp_grid_state;
-	else
-	    *mp->mp_grid_state = default_grid_state;
-	mp->mp_grid_state->rc = 1;
-
-	BU_ALLOC(mp->mp_axes_state, struct _axes_state);
-	if (src && src->mp_axes_state)
-	    *mp->mp_axes_state = *src->mp_axes_state;
-	else
-	    *mp->mp_axes_state = default_axes_state;
-	mp->mp_axes_state->ax_rc = 1;
-
-	BU_ALLOC(mp->mp_dlist_state, struct _dlist_state);
-	mp->mp_dlist_state->dl_rc = 1;
-
-	/* Step 7.17: view_state is now pane-owned.
-	 * For the sentinel init_pane (no prev pane: src == NULL), allocate with defaults.
-	 * For subsequent dms: leave mp_view_state = NULL; dm_var_init() will allocate it. */
-	if (!src) {
-	    /* init_pane case: allocate a fresh view_state with identity matrices. */
-	    BU_ALLOC(mp->mp_view_state, struct _view_state);
-	    mp->mp_view_state->vs_rc = 1;
-	    mp->mp_view_state->vs_gvp = NULL;  /* no view for the sentinel */
-	    view_ring_init(mp->mp_view_state, (struct _view_state *)NULL);
-	} else {
-	    /* Regular mged_attach pane: dm_var_init() will allocate mp_view_state. */
-	    mp->mp_view_state = NULL;
-	}
-
-	/* Step 7.16: register back-pointer so share.c can reach pane from dm. */
-	mp->mp_dm->dm_pane = mp;
-
-	/* Init HUD VLS names (owned by mged_pane, not by mged_dm). */
-	bu_vls_init(&mp->mp_fps_name);
-	bu_vls_init(&mp->mp_aet_name);
-	bu_vls_init(&mp->mp_ang_name);
-	bu_vls_init(&mp->mp_center_name);
-	bu_vls_init(&mp->mp_size_name);
-	bu_vls_init(&mp->mp_adc_name);
-	/* Predictor state for legacy dm wrapper pane. */
-	BU_LIST_INIT(&mp->mp_p_vlist);
-	predictor_init_pane(mp);
-	mp->mp_ndrawn = 0;
-	/* Step 7.15 scalar state. */
-	mp->mp_owner            = 1;
-	mp->mp_am_mode          = AMM_IDLE;
-	mp->mp_perspective_angle = 0;
-	mp->mp_adc_auto         = 1;
-	mp->mp_grid_auto_size   = 1;
-	return;
-    }
-
-    /* Step 7.16: For Obol panes, copy initial resource values from the sentinel
-     * pane's resources (mged_dm_init_state->dm_pane->mp_*) rather than from the
-     * now-removed dm_* fields.  If the sentinel pane hasn't been created yet,
-     * use hardcoded defaults. */
-    struct mged_pane *init_src = (mged_dm_init_state && mged_dm_init_state->dm_pane) ?
-				  mged_dm_init_state->dm_pane : NULL;
+    /* Step 7.18: Initialize libdm fields to safe/null defaults.
+     * mp_dmp is set later by mged_dm_init() (dm attach) or stays NULL (Obol). */
+    mp->mp_dmp    = NULL;
+    mp->mp_fbp    = NULL;
+    mp->mp_netfd  = -1;
+    mp->mp_dirty  = 1;
+    mp->mp_mapped = 1;
+    /* mp_netchan and mp_clients zero-initialized by BU_GET. */
 
     BU_ALLOC(mp->mp_adc_state, struct _adc_state);
-    if (init_src && init_src->mp_adc_state)
-	*mp->mp_adc_state = *init_src->mp_adc_state;
+    if (src && src->mp_adc_state)
+	*mp->mp_adc_state = *src->mp_adc_state;
     else { mp->mp_adc_state->adc_a1 = mp->mp_adc_state->adc_a2 = 45.0; }
     mp->mp_adc_state->adc_rc = 1;
 
     BU_ALLOC(mp->mp_menu_state, struct _menu_state);
-    if (init_src && init_src->mp_menu_state)
-	*mp->mp_menu_state = *init_src->mp_menu_state;
+    if (src && src->mp_menu_state)
+	*mp->mp_menu_state = *src->mp_menu_state;
     mp->mp_menu_state->ms_rc = 1;
 
     BU_ALLOC(mp->mp_rubber_band, struct _rubber_band);
-    if (init_src && init_src->mp_rubber_band)
-	*mp->mp_rubber_band = *init_src->mp_rubber_band;
+    if (src && src->mp_rubber_band)
+	*mp->mp_rubber_band = *src->mp_rubber_band;
     else
 	*mp->mp_rubber_band = default_rubber_band;
     mp->mp_rubber_band->rb_rc = 1;
 
     BU_ALLOC(mp->mp_mged_variables, struct _mged_variables);
-    if (init_src && init_src->mp_mged_variables)
-	*mp->mp_mged_variables = *init_src->mp_mged_variables;
+    if (src && src->mp_mged_variables)
+	*mp->mp_mged_variables = *src->mp_mged_variables;
     else
 	*mp->mp_mged_variables = default_mged_variables;
-    mp->mp_mged_variables->mv_rc = 1;
-    mp->mp_mged_variables->mv_dlist = 0; /* Obol panes never use display lists */
+    mp->mp_mged_variables->mv_rc     = 1;
+    /* dm panes use dlist if available; Obol panes never use display lists.
+     * If mp_gvp is NULL at this point it's a dm-attach pane → enable dlist. */
+    mp->mp_mged_variables->mv_dlist  = (mp->mp_gvp == NULL) ? mged_default_dlist : 0;
     mp->mp_mged_variables->mv_listen = 0;
-    mp->mp_mged_variables->mv_port = 0;
-    mp->mp_mged_variables->mv_fb = 0;
+    mp->mp_mged_variables->mv_port   = 0;
+    mp->mp_mged_variables->mv_fb     = 0;
 
     BU_ALLOC(mp->mp_color_scheme, struct _color_scheme);
-    if (init_src && init_src->mp_color_scheme)
-	*mp->mp_color_scheme = *init_src->mp_color_scheme;
+    if (src && src->mp_color_scheme)
+	*mp->mp_color_scheme = *src->mp_color_scheme;
     else
 	*mp->mp_color_scheme = default_color_scheme;
     mp->mp_color_scheme->cs_rc = 1;
 
     BU_ALLOC(mp->mp_grid_state, struct bsg_grid_state);
-    if (init_src && init_src->mp_grid_state)
-	*mp->mp_grid_state = *init_src->mp_grid_state;
+    if (src && src->mp_grid_state)
+	*mp->mp_grid_state = *src->mp_grid_state;
     else
 	*mp->mp_grid_state = default_grid_state;
     mp->mp_grid_state->rc = 1;
 
     BU_ALLOC(mp->mp_axes_state, struct _axes_state);
-    if (init_src && init_src->mp_axes_state)
-	*mp->mp_axes_state = *init_src->mp_axes_state;
+    if (src && src->mp_axes_state)
+	*mp->mp_axes_state = *src->mp_axes_state;
     else
 	*mp->mp_axes_state = default_axes_state;
     mp->mp_axes_state->ax_rc = 1;
@@ -321,25 +228,37 @@ mged_pane_init_resources(struct mged_state *s, struct mged_pane *mp)
     BU_ALLOC(mp->mp_dlist_state, struct _dlist_state);
     mp->mp_dlist_state->dl_rc = 1;
 
-    /* mp_view_state: a lightweight _view_state wrapper so the ternary macros
-     * (view_state, etc.) can safely dereference vs_gvp for Obol panes.
-     * The underlying bsg_view (vs_gvp) is owned by GED (ged_free_views) and
-     * must NOT be freed here — only the _view_state shell is ours. */
+    /* view_state:
+     * - dm-attach / sentinel (mp->mp_gvp == NULL): allocate shell; dm_var_init fills it.
+     * - Obol (mp->mp_gvp != NULL): borrow GED-owned view. */
     BU_ALLOC(mp->mp_view_state, struct _view_state);
-    mp->mp_view_state->vs_rc = 1;
-    mp->mp_view_state->vs_gvp = mp->mp_gvp;  /* borrow GED-owned view */
-    /* Step 7.17: copy vs_model2objview/vs_objview2model/vs_ModelDelta defaults from sentinel. */
-    if (init_src && init_src->mp_view_state) {
-	MAT_COPY(mp->mp_view_state->vs_model2objview,
-		 init_src->mp_view_state->vs_model2objview);
-	MAT_COPY(mp->mp_view_state->vs_objview2model,
-		 init_src->mp_view_state->vs_objview2model);
-	MAT_COPY(mp->mp_view_state->vs_ModelDelta,
-		 init_src->mp_view_state->vs_ModelDelta);
+    mp->mp_view_state->vs_rc  = 1;
+    mp->mp_view_state->vs_gvp = mp->mp_gvp;  /* NULL for dm/sentinel, real for Obol */
+    if (mp->mp_gvp == NULL) {
+	/* dm-attach or sentinel: plain init; dm_var_init will fill vs_gvp. */
+	view_ring_init(mp->mp_view_state, (struct _view_state *)NULL);
+	if (src && src->mp_view_state) {
+	    MAT_COPY(mp->mp_view_state->vs_model2objview,
+		     src->mp_view_state->vs_model2objview);
+	    MAT_COPY(mp->mp_view_state->vs_objview2model,
+		     src->mp_view_state->vs_objview2model);
+	    MAT_COPY(mp->mp_view_state->vs_ModelDelta,
+		     src->mp_view_state->vs_ModelDelta);
+	}
+    } else {
+	/* Obol pane: copy matrix defaults from init_src if available. */
+	view_ring_init(mp->mp_view_state, (struct _view_state *)NULL);
+	if (src && src->mp_view_state) {
+	    MAT_COPY(mp->mp_view_state->vs_model2objview,
+		     src->mp_view_state->vs_model2objview);
+	    MAT_COPY(mp->mp_view_state->vs_objview2model,
+		     src->mp_view_state->vs_objview2model);
+	    MAT_COPY(mp->mp_view_state->vs_ModelDelta,
+		     src->mp_view_state->vs_ModelDelta);
+	}
     }
-    view_ring_init(mp->mp_view_state, (struct _view_state *)NULL);
 
-    /* Initialize Tcl HUD variable name storage; populated by mged_pane_link_vars(). */
+    /* HUD Tcl variable name storage. */
     bu_vls_init(&mp->mp_fps_name);
     bu_vls_init(&mp->mp_aet_name);
     bu_vls_init(&mp->mp_ang_name);
@@ -347,19 +266,18 @@ mged_pane_init_resources(struct mged_state *s, struct mged_pane *mp)
     bu_vls_init(&mp->mp_size_name);
     bu_vls_init(&mp->mp_adc_name);
 
-    /* Predictor vlist and trails (Step 5.15). */
+    /* Predictor vlist and trails. */
     BU_LIST_INIT(&mp->mp_p_vlist);
     predictor_init_pane(mp);
     mp->mp_ndrawn = 0;
 
-    /* Step 7.15: Initialize scalar state for Obol panes.
-     * dm_dirty/dm_mapped remain in the dm struct (dm-window-event-specific). */
+    /* Step 7.15 scalar state. */
     mp->mp_owner            = 1;
     mp->mp_am_mode          = AMM_IDLE;
     mp->mp_perspective_angle = 0;
     mp->mp_adc_auto         = 1;
     mp->mp_grid_auto_size   = 1;
-    /* mouse/knob/scroll fields zero-init via BU_ALLOC/BU_GET. */
+    /* mouse/knob/scroll fields zero-init via BU_GET. */
 }
 
 /*
@@ -367,6 +285,9 @@ mged_pane_init_resources(struct mged_state *s, struct mged_pane *mp)
  *
  * Safe to call even if mged_pane_init_resources was never called (all
  * pointers default to NULL from BU_GET).
+ * Step 7.18: unified path (no mp_dm branching).
+ * Note: mp_dmp is NOT freed here — caller must call dm_close().
+ *       mp_fbp is NOT freed here — caller must call fb_close_existing().
  */
 void
 mged_pane_free_resources(struct mged_pane *mp)
@@ -374,95 +295,46 @@ mged_pane_free_resources(struct mged_pane *mp)
     if (!mp)
 	return;
 
-    /* Step 7.16: wrapper panes now OWN the 8 non-view resources (allocated in
-     * mged_pane_init_resources).  Free them with reference counting (the share
-     * command may have raised the rc above 1).
-     * Step 7.17: view_state is now also pane-owned; free it with ref counting too. */
-    if (mp->mp_dm) {
-	if (mp->mp_adc_state      && !--mp->mp_adc_state->adc_rc)
-	    bu_free(mp->mp_adc_state,      "wrapper mp_adc_state");
-	mp->mp_adc_state = NULL;
+    if (mp->mp_adc_state && !--mp->mp_adc_state->adc_rc)
+	bu_free(mp->mp_adc_state, "mp_adc_state");
+    mp->mp_adc_state = NULL;
 
-	if (mp->mp_menu_state     && !--mp->mp_menu_state->ms_rc)
-	    bu_free(mp->mp_menu_state,     "wrapper mp_menu_state");
-	mp->mp_menu_state = NULL;
+    if (mp->mp_menu_state && !--mp->mp_menu_state->ms_rc)
+	bu_free(mp->mp_menu_state, "mp_menu_state");
+    mp->mp_menu_state = NULL;
 
-	if (mp->mp_rubber_band    && !--mp->mp_rubber_band->rb_rc)
-	    bu_free(mp->mp_rubber_band,    "wrapper mp_rubber_band");
-	mp->mp_rubber_band = NULL;
+    if (mp->mp_rubber_band && !--mp->mp_rubber_band->rb_rc)
+	bu_free(mp->mp_rubber_band, "mp_rubber_band");
+    mp->mp_rubber_band = NULL;
 
-	if (mp->mp_mged_variables && !--mp->mp_mged_variables->mv_rc)
-	    bu_free(mp->mp_mged_variables, "wrapper mp_mged_variables");
-	mp->mp_mged_variables = NULL;
+    if (mp->mp_mged_variables && !--mp->mp_mged_variables->mv_rc)
+	bu_free(mp->mp_mged_variables, "mp_mged_variables");
+    mp->mp_mged_variables = NULL;
 
-	if (mp->mp_color_scheme   && !--mp->mp_color_scheme->cs_rc)
-	    bu_free(mp->mp_color_scheme,   "wrapper mp_color_scheme");
-	mp->mp_color_scheme = NULL;
+    if (mp->mp_color_scheme && !--mp->mp_color_scheme->cs_rc)
+	bu_free(mp->mp_color_scheme, "mp_color_scheme");
+    mp->mp_color_scheme = NULL;
 
-	if (mp->mp_grid_state     && !--mp->mp_grid_state->rc)
-	    bu_free(mp->mp_grid_state,     "wrapper mp_grid_state");
-	mp->mp_grid_state = NULL;
+    if (mp->mp_grid_state && !--mp->mp_grid_state->rc)
+	bu_free(mp->mp_grid_state, "mp_grid_state");
+    mp->mp_grid_state = NULL;
 
-	if (mp->mp_axes_state     && !--mp->mp_axes_state->ax_rc)
-	    bu_free(mp->mp_axes_state,     "wrapper mp_axes_state");
-	mp->mp_axes_state = NULL;
+    if (mp->mp_axes_state && !--mp->mp_axes_state->ax_rc)
+	bu_free(mp->mp_axes_state, "mp_axes_state");
+    mp->mp_axes_state = NULL;
 
-	/* dlist_state: special — it doesn't make sense to save display list info
-	 * to the sentinel, so always free it. */
-	if (mp->mp_dlist_state) {
-	    if (!--mp->mp_dlist_state->dl_rc)
-		bu_free(mp->mp_dlist_state, "wrapper mp_dlist_state");
-	    mp->mp_dlist_state = NULL;
-	}
+    if (mp->mp_dlist_state && !--mp->mp_dlist_state->dl_rc)
+	bu_free(mp->mp_dlist_state, "mp_dlist_state");
+    mp->mp_dlist_state = NULL;
 
-	/* Step 7.17: view_state is now pane-owned; free with ref counting.
-	 * view_ring items freed first, then the _view_state shell. */
-	if (mp->mp_view_state) {
-	    if (!--mp->mp_view_state->vs_rc) {
-		view_ring_destroy(mp->mp_view_state);
-		/* vs_gvp for wrapper panes is registered in ged_views and freed separately */
-		bu_free(mp->mp_view_state, "wrapper mp_view_state");
-	    }
-	    mp->mp_view_state = NULL;
-	}
-
-	/* Clear back-pointer. */
-	if (mp->mp_dm) mp->mp_dm->dm_pane = NULL;
-
-	BSG_FREE_VLIST(&rt_vlfree, &mp->mp_p_vlist);
-
-	bu_vls_free(&mp->mp_fps_name);
-	bu_vls_free(&mp->mp_aet_name);
-	bu_vls_free(&mp->mp_ang_name);
-	bu_vls_free(&mp->mp_center_name);
-	bu_vls_free(&mp->mp_size_name);
-	bu_vls_free(&mp->mp_adc_name);
-
-	mp->mp_dm = NULL;
-	return;
-    }
-
-    if (mp->mp_adc_state)       { bu_free(mp->mp_adc_state, "mp_adc_state");             mp->mp_adc_state = NULL; }
-    if (mp->mp_menu_state)      { bu_free(mp->mp_menu_state, "mp_menu_state");            mp->mp_menu_state = NULL; }
-    if (mp->mp_rubber_band)     { bu_free(mp->mp_rubber_band, "mp_rubber_band");          mp->mp_rubber_band = NULL; }
-    if (mp->mp_mged_variables)  { bu_free(mp->mp_mged_variables, "mp_mged_variables");   mp->mp_mged_variables = NULL; }
-    if (mp->mp_color_scheme)    { bu_free(mp->mp_color_scheme, "mp_color_scheme");        mp->mp_color_scheme = NULL; }
-    if (mp->mp_grid_state)      { bu_free(mp->mp_grid_state, "mp_grid_state");            mp->mp_grid_state = NULL; }
-    if (mp->mp_axes_state)      { bu_free(mp->mp_axes_state, "mp_axes_state");            mp->mp_axes_state = NULL; }
-    if (mp->mp_dlist_state)     { bu_free(mp->mp_dlist_state, "mp_dlist_state");          mp->mp_dlist_state = NULL; }
-    /* mp_view_state: the _view_state shell is ours; vs_gvp inside is owned
-     * by GED and must NOT be freed here.  The view_ring items allocated by
-     * view_ring_init() are freed here. */
     if (mp->mp_view_state) {
-	struct view_ring *vrp;
-	while (BU_LIST_NON_EMPTY(&mp->mp_view_state->vs_headView.l)) {
-	    vrp = BU_LIST_FIRST(view_ring, &mp->mp_view_state->vs_headView.l);
-	    BU_LIST_DEQUEUE(&vrp->l);
-	    bu_free((void *)vrp, "mged_pane view_ring");
+	if (!--mp->mp_view_state->vs_rc) {
+	    view_ring_destroy(mp->mp_view_state);
+	    /* vs_gvp for dm panes: registered in ged_views, freed separately.
+	     * vs_gvp for Obol panes: also GED-owned, do NOT free here. */
+	    mp->mp_view_state->vs_gvp = NULL;
+	    bu_free(mp->mp_view_state, "mp_view_state");
 	}
-	/* vs_gvp is owned by GED — do NOT free it here. */
-	mp->mp_view_state->vs_gvp = NULL;
-	bu_free(mp->mp_view_state, "mp_view_state");
 	mp->mp_view_state = NULL;
     }
 
@@ -473,37 +345,39 @@ mged_pane_free_resources(struct mged_pane *mp)
     bu_vls_free(&mp->mp_center_name);
     bu_vls_free(&mp->mp_size_name);
     bu_vls_free(&mp->mp_adc_name);
+
+    BSG_FREE_VLIST(&rt_vlfree, &mp->mp_p_vlist);
 }
 
 int
 mged_dm_init(
 	struct mged_state *s,
-	struct mged_dm *o_dm,
-	struct mged_dm *ndm,
+	struct mged_pane *o_pane,
+	struct mged_pane *pane,
 	const char *dm_type,
 	int argc,
 	const char *argv[])
 {
     struct bu_vls vls = BU_VLS_INIT_ZERO;
 
-    /* Step 7.10: Pass ndm explicitly to dm_var_init instead of via s->mged_curr_dm. */
-    dm_var_init(s, o_dm, ndm);
+    /* Step 7.18: dm_var_init takes mged_pane * directly. */
+    dm_var_init(s, o_pane, pane);
 
     /* Step 7.14: dm_cmd_hook removed — always dm_commands; no assignment needed. */
 
-    /* Step 7.17: view_state now in pane (dm_var_init sets npane->mp_view_state). */
-    void *ctx = ndm->dm_pane->mp_view_state->vs_gvp;
+    /* Step 7.17/7.18: view_state now in pane (dm_var_init sets pane->mp_view_state). */
+    void *ctx = pane->mp_view_state->vs_gvp;
     struct dm *dmp = dm_open(ctx, (void *)s->interp, dm_type, argc-1, argv);
     if (!dmp) {
 	Tcl_AppendResult(s->interp, "dm_open(", dm_type, ") failed\n", (char *)NULL);
 	return TCL_ERROR;
     }
-    ndm->dm_dmp = dmp;
+    pane->mp_dmp = dmp;
 
     /*XXXX this eventually needs to move into Ogl's private structure */
-    dm_set_vp(dmp, &ndm->dm_pane->mp_view_state->vs_gvp->gv_scale);
-    /* Step 7.16: mged_variables now in pane (dm_pane->mp_mged_variables). */
-    dm_set_perspective(dmp, ndm->dm_pane->mp_mged_variables->mv_perspective_mode);
+    dm_set_vp(dmp, &pane->mp_view_state->vs_gvp->gv_scale);
+    /* Step 7.16/7.18: mged_variables now in pane. */
+    dm_set_perspective(dmp, pane->mp_mged_variables->mv_perspective_mode);
 
 #ifdef HAVE_TK
     if (dm_graphical(dmp) && !BU_STR_EQUAL(dm_get_dm_name(dmp), "swrast")) {
@@ -528,8 +402,7 @@ mged_dm_init(
 void
 mged_fb_open(struct mged_state *s)
 {
-    /* Step 7.9: DMP goes through mged_curr_pane->mp_dm.  mged_fb_open is
-     * called after set_curr_pane() so the pane's mp_dm is the new dm.
+    /* Step 7.18: DMP goes directly through mged_curr_pane->mp_dmp.
      * Guard against Obol panes (DMP==NULL) for safety. */
     if (!DMP)
 	return;
@@ -542,12 +415,10 @@ mged_fb_open(struct mged_state *s)
 
 
 static int
-release(struct mged_state *s, char *name, int need_close, struct mged_dm *bad_dm)
+release(struct mged_state *s, char *name, int need_close, struct mged_pane *bad_pane)
 {
-    /* Step 7.10: cdm — the mged_dm being released.
-     * For name-given path: set to s->mged_curr_pane->mp_dm after set_curr_pane().
-     * For name=NULL (Bad:) path: set to bad_dm passed from mged_attach(). */
-    struct mged_dm *cdm = MGED_DM_NULL;
+    /* Step 7.18: cdm removed; cpane is the pane being released. */
+    struct mged_pane *cpane = MGED_PANE_NULL;
     struct mged_pane *save_pane = MGED_PANE_NULL; /* pane to restore to after release */
     struct bu_vls *pathname = NULL;
 
@@ -560,17 +431,16 @@ release(struct mged_state *s, char *name, int need_close, struct mged_dm *bad_dm
 	/* Step 6.c: search active_pane_set for the named dm wrapper. */
 	for (size_t i = 0; i < BU_PTBL_LEN(&active_pane_set); i++) {
 	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, i);
-	    if (!mp || !mp->mp_dm || !mp->mp_dm->dm_dmp)
+	    if (!mp || !mp->mp_dmp)
 		continue;
 
-	    pathname = dm_get_pathname(mp->mp_dm->dm_dmp);
+	    pathname = dm_get_pathname(mp->mp_dmp);
 	    if (!BU_STR_EQUAL(name, bu_vls_cstr(pathname)))
 		continue;
 
 	    /* found it */
 	    if (mp != s->mged_curr_pane) {
-		save_pane = s->mged_curr_pane;  /* Step 7.10: save pane not dm */
-		/* Step 7.1b: switch to the named pane (updates mged_curr_pane). */
+		save_pane = s->mged_curr_pane;
 		set_curr_pane(s, mp);
 	    }
 	    found_mp = mp;
@@ -578,7 +448,7 @@ release(struct mged_state *s, char *name, int need_close, struct mged_dm *bad_dm
 	}
 
 	if (found_mp == MGED_PANE_NULL) {
-	    /* Step 6.c: "release .mged0.ul" called from releasemv in mview.tcl
+	    /* "release .mged0.ul" called from releasemv in mview.tcl
 	     * for Obol panes — look them up by name in active_pane_set. */
 	    struct mged_pane *mp = mged_pane_find_by_name(name);
 	    if (mp) {
@@ -611,18 +481,17 @@ release(struct mged_state *s, char *name, int need_close, struct mged_dm *bad_dm
 	    Tcl_AppendResult(s->interp, "release: ", name, " not found\n", (char *)NULL);
 	    return TCL_ERROR;
 	}
-	/* Step 7.10: cdm from the (now-active) current pane's mp_dm. */
-	cdm = s->mged_curr_pane->mp_dm;
+	cpane = found_mp; /* now the current pane after set_curr_pane() */
     } else {
-	/* name == NULL: Bad: path from mged_attach. bad_dm is the newly
-	 * allocated (but failed to initialise) dm. */
-	cdm = bad_dm;
-	if (!cdm || !cdm->dm_dmp)
+	/* name == NULL: Bad: path from mged_attach. bad_pane is the newly
+	 * allocated (but failed to initialize) pane. */
+	cpane = bad_pane;
+	if (!cpane || !cpane->mp_dmp)
 	    /* Nothing to release for headless/null dm. */
 	    return TCL_OK;
     }
 
-    if (cdm->dm_fbp) {
+    if (cpane->mp_fbp) {
 	if (mged_variables->mv_listen) {
 	    /* drop all clients */
 	    mged_variables->mv_listen = 0;
@@ -630,75 +499,45 @@ release(struct mged_state *s, char *name, int need_close, struct mged_dm *bad_dm
 	}
 
 	/* release framebuffer resources */
-	fb_close_existing(cdm->dm_fbp);
-	cdm->dm_fbp = (struct fb *)NULL;
+	fb_close_existing(cpane->mp_fbp);
+	cpane->mp_fbp = (struct fb *)NULL;
     }
 
     /*
-     * This saves the state of the resources to the "nu" display
-     * manager, which is beneficial only if closing the last display
-     * manager. So when another display manager is opened, it looks
-     * like the last one the user had open.
+     * Save the state of the resources to the "nu" sentinel init_pane,
+     * which is beneficial only if closing the last display manager.
+     * So when another display manager is opened, it looks like the last one.
+     * Step 7.18: usurp_all_resources now takes mged_pane * directly.
      */
+    usurp_all_resources(s->mged_init_pane, cpane);
 
-    /*
-     * Step 7.16: usurp_all_resources now operates via dm_pane back-pointers.
-     * Transfer the dying wrapper pane's 8 resources to the sentinel init_pane
-     * BEFORE mged_pane_free_resources nulls the wrapper's resource pointers.
-     * This saves settings for the next dm to inherit (e.g. grid settings).
-     */
-    usurp_all_resources(mged_dm_init_state, cdm);
-
-    /* Stage 7 Step 6.a: Remove the thin mged_pane wrapper for this legacy dm
-     * pane from active_pane_set.  After usurp_all_resources() above, the
-     * wrapper's mp_* resource pointers are already NULL-ed (resources moved to
-     * the sentinel pane), so mged_pane_free_resources() is a safe resource no-op. */
-    {
-	struct mged_pane *wrapper = MGED_PANE_NULL;
-	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
-	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	    if (mp && mp->mp_dm == cdm) {
-		wrapper = mp;
-		break;
-	    }
-	}
-	if (wrapper) {
-	    /* Step 7.11: dm_tie removed from mged_dm; clear via wrapper pane's
-	     * mp_cmd_tie (the canonical cmd_tie field) before freeing the pane. */
-	    if (wrapper->mp_cmd_tie) {
-		wrapper->mp_cmd_tie->cl_tie = MGED_PANE_NULL;
-		wrapper->mp_cmd_tie = CMD_LIST_NULL;
-	    }
-	    bu_ptbl_rm(&active_pane_set, (long *)wrapper);
-	    mged_pane_free_resources(wrapper);  /* resources already moved to sentinel */
-	    BU_PUT(wrapper, struct mged_pane);
-	}
+    /* Clear cmd_tie before freeing the pane. */
+    if (cpane->mp_cmd_tie) {
+	cpane->mp_cmd_tie->cl_tie = MGED_PANE_NULL;
+	cpane->mp_cmd_tie = CMD_LIST_NULL;
     }
 
-    /* Step 7.11: dm_tie removed from mged_dm; cmd_tie was cleared in the
-     * wrapper pane block above (both name-given and Bad: paths). */
+    /* Remove the pane from active_pane_set. */
+    bu_ptbl_rm(&active_pane_set, (long *)cpane);
 
-    if (need_close)
-	dm_close(cdm->dm_dmp);
+    /* mged_pane_free_resources: resources already moved to sentinel by usurp. */
+    mged_pane_free_resources(cpane);
 
-    /* Step 7.12: dm_p_vlist removed from mged_dm; predictor vlist lives in mp_p_vlist on pane. */
-    /* Step 6.c: active_dm_set no longer maintained; pane was removed above. */
-    /* Step 7.13: mged_slider_free_vls(cdm) removed — dm VLS name fields deleted. */
-    bu_free((void *)cdm, "release: mged_dm");
+    if (need_close && cpane->mp_dmp)
+	dm_close(cpane->mp_dmp);
+    cpane->mp_dmp = NULL;
 
-    /* Step 7.10: Restore pane context.
-     * save_pane: was set only when we needed to switch to the named pane for
-     * release (i.e. the named dm was not the already-active pane's dm).
-     * Restore it now that the named dm has been freed. */
+    BU_PUT(cpane, struct mged_pane);
+
+    /* Restore pane context. */
     if (save_pane != MGED_PANE_NULL) {
-	/* Restore to the pane that was active before we switched. */
 	set_curr_pane(s, save_pane);
     } else {
 	/* Current pane was released; find next available dm wrapper pane. */
 	struct mged_pane *next_pane = NULL;
 	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	    if (mp && mp->mp_dm) { next_pane = mp; break; }
+	    if (mp && mp->mp_dmp) { next_pane = mp; break; }
 	}
 	if (next_pane) {
 	    set_curr_pane(s, next_pane);
@@ -741,7 +580,7 @@ f_release(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *
 	bu_vls_free(&vls);
 	return status;
     } else
-	return release(s, (char *)NULL, 1, s->mged_curr_pane ? s->mged_curr_pane->mp_dm : NULL);
+	return release(s, (char *)NULL, 1, s->mged_curr_pane);
 }
 
 
@@ -886,27 +725,14 @@ gui_setup(struct mged_state *s, const char *dstr)
 int
 mged_attach(struct mged_state *s, const char *wp_name, int argc, const char *argv[])
 {
-    struct mged_dm *o_dm;       /* old/previous dm (save before alloc) */
-    struct mged_dm *ndm;        /* Step 7.10: new dm (replaces s->mged_curr_dm) */
-    struct mged_pane *o_pane;   /* Step 7.5: save current pane too */
+    struct mged_pane *o_pane;   /* old/previous pane (save before alloc) */
 
     if (!wp_name) {
 	return TCL_ERROR;
     }
 
-    /* Step 7.10: o_dm = pane's dm (or sentinel if init pane).
-     * Allocate ndm directly without storing into mged_state. */
-    o_dm = s->mged_curr_pane ? s->mged_curr_pane->mp_dm : mged_dm_init_state;
-    o_pane = s->mged_curr_pane;
-    BU_ALLOC(ndm, struct mged_dm);
-
-    /* Step 7.8: Initialize dm_p_vlist so that BSG_FREE_VLIST in release() /
-     * mged_finish() is a safe no-op.  The predictor vlist for wrapper panes
-     * now lives in mp_p_vlist (pane), not dm_p_vlist; predictor_init_pane()
-     * is called inside mged_pane_init_resources() when the wrapper pane is
-     * registered after mged_dm_init() succeeds.  Removed: predictor_init(s)
-     * which would have (incorrectly) initialised the OLD pane's trails. */
-    /* Step 7.12: dm_p_vlist removed; predictor vlist is in mp_p_vlist (pane). */
+    /* Step 7.18: o_pane = current pane (or sentinel if no pane yet). */
+    o_pane = s->mged_curr_pane ? s->mged_curr_pane : s->mged_init_pane;
 
     /* Only need to do this once */
     if (tkwin == NULL && BU_STR_EQUIV(dm_graphics_system(wp_name), "Tk")) {
@@ -927,41 +753,32 @@ mged_attach(struct mged_state *s, const char *wp_name, int argc, const char *arg
 
 	if (dname && strlen(dname) > 0) {
 	    if (gui_setup(s, dname) == TCL_ERROR) {
-		bu_free((void *)ndm, "f_attach: ndm on gui_setup failure");
 		s->mged_curr_pane = o_pane;
 		return TCL_ERROR;
 	    }
 	} else if (gui_setup(s, (char *)NULL) == TCL_ERROR) {
-	    bu_free((void *)ndm, "f_attach: ndm on gui_setup failure");
 	    s->mged_curr_pane = o_pane;
 	    return TCL_ERROR;
 	}
     }
 
-    /* Step 7.16: Create the wrapper pane and allocate its resources BEFORE
-     * mged_dm_init() so that ndm->dm_pane->mp_mged_variables is available
+    /* Step 7.18: Create the pane and allocate its resources BEFORE
+     * mged_dm_init() so that pane->mp_mged_variables is available
      * for dm_set_perspective() inside mged_dm_init().
      * Pane is added to active_pane_set here so that release() can find and
      * clean it up on the Bad: error path. */
     struct mged_pane *pane;
     BU_GET(pane, struct mged_pane);
-    pane->mp_dm      = ndm;
     pane->mp_gvp     = NULL;      /* set after mged_dm_init creates the view */
     pane->mp_cmd_tie = NULL;
-    mged_pane_init_resources(s, pane);   /* allocates 8 resources; sets ndm->dm_pane = pane */
+    mged_pane_init_resources(s, pane);   /* allocates all 9 resources + libdm fields */
     bu_ptbl_ins(&active_pane_set, (long *)pane);
 
-    /* Step 6.c: active_dm_set no longer maintained (pane registered in active_pane_set below). */
-
-    if (!wp_name) {
-	return TCL_ERROR;
-    }
-
-    if (mged_dm_init(s, o_dm, ndm, wp_name, argc, argv) == TCL_ERROR) {
+    if (mged_dm_init(s, o_pane, pane, wp_name, argc, argv) == TCL_ERROR) {
 	goto Bad;
     }
 
-    /* Step 7.17: dm_var_init sets pane->mp_view_state directly (pane owns view_state).
+    /* Step 7.17/7.18: dm_var_init sets pane->mp_view_state directly.
      * Sync gvp from pane's view_state (which was just set by dm_var_init). */
     pane->mp_gvp = pane->mp_view_state->vs_gvp;
 
@@ -975,10 +792,8 @@ mged_attach(struct mged_state *s, const char *wp_name, int argc, const char *arg
 	cs_set_bg(sdp, name, base, value, s);
     }
 
-    /* Step 7.13: mged_link_vars(ndm) removed — dm VLS name fields deleted. */
-
-    /* Step 7.9/7.10: Use ndm->dm_dmp directly throughout. */
-    struct dm *ndmp = ndm->dm_dmp;
+    /* Step 7.9/7.10/7.18: Use pane->mp_dmp directly throughout. */
+    struct dm *ndmp = pane->mp_dmp;
 
     Tcl_ResetResult(s->interp);
     const char *dm_name = dm_get_dm_name(ndmp);
@@ -987,7 +802,7 @@ mged_attach(struct mged_state *s, const char *wp_name, int argc, const char *arg
 	Tcl_AppendResult(s->interp, "ATTACHING ", dm_name, " (", dm_lname,	")\n", (char *)NULL);
     }
 
-    share_dlist(ndm);
+    share_dlist(pane);
 
     if (dm_get_displaylist(ndmp) && mged_variables->mv_dlist && !dlist_state->dl_active) {
 	createDListAll(s, NULL);
@@ -1012,7 +827,7 @@ mged_attach(struct mged_state *s, const char *wp_name, int argc, const char *arg
 			  "%s", bu_vls_cstr(dm_path));
 	}
 	mged_pane_link_vars(pane);           /* populate HUD var names */
-	/* Step 7.1a / 7.10: set_curr_pane makes DMP = pane->mp_dm->dm_dmp
+	/* Step 7.1a / 7.10/7.18: set_curr_pane makes DMP = pane->mp_dmp
 	 * (the new dm) so mged_fb_open() below correctly opens on the new dm. */
 	set_curr_pane(s, pane);
     }
@@ -1026,12 +841,12 @@ mged_attach(struct mged_state *s, const char *wp_name, int argc, const char *arg
  Bad:
     Tcl_AppendResult(s->interp, "attach(", argv[argc - 1], "): BAD\n", (char *)NULL);
 
-    /* Step 7.10: Pass ndm (the new bad dm) explicitly to release().
+    /* Step 7.18: Pass pane (the failed new pane) explicitly to release().
      * mged_curr_pane is still the OLD pane so the Bad: path must not
      * try to release via the old pane's dm.
-     * Step 7.16: the pane was already added to active_pane_set before dm_init,
-     * so release() will find and free it (including the 8 pane-owned resources). */
-    release(s, (char *)NULL, (ndm->dm_dmp != NULL) ? 1 : 0, ndm);
+     * The pane was already added to active_pane_set before dm_init,
+     * so release() will find and free it. */
+    release(s, (char *)NULL, (pane->mp_dmp != NULL) ? 1 : 0, pane);
 
     return TCL_ERROR;
 }
@@ -1177,24 +992,34 @@ f_dm(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *argv[
 }
 
 void
-dm_var_init(struct mged_state *s, struct mged_dm *target_dm, struct mged_dm *ndm)
+dm_var_init(struct mged_state *s, struct mged_pane *target_pane, struct mged_pane *npane)
 {
-    /* Step 7.17: view_state is now pane-owned.  ndm->dm_pane is the new pane
-     * (set in mged_pane_init_resources() before dm_var_init is called via mged_dm_init).
-     * Allocate mp_view_state in the new pane; copy settings from target_dm's pane. */
-    struct mged_pane *npane = ndm->dm_pane;
-    struct mged_pane *opane = target_dm->dm_pane;
+    /* Step 7.18: dm_var_init now takes mged_pane * directly.
+     * npane's mp_view_state was initialized to a placeholder shell by
+     * mged_pane_init_resources(); here we replace it with a proper live
+     * view_state that contains a new bsg_view. */
+    struct mged_pane *opane = target_pane;
+
+    if (npane->mp_view_state) {
+	/* Free the placeholder shell allocated by mged_pane_init_resources(). */
+	if (!--npane->mp_view_state->vs_rc) {
+	    view_ring_destroy(npane->mp_view_state);
+	    bu_free(npane->mp_view_state, "dm_var_init: placeholder view_state");
+	}
+	npane->mp_view_state = NULL;
+    }
 
     BU_ALLOC(npane->mp_view_state, struct _view_state);
-    *npane->mp_view_state = *opane->mp_view_state;		/* struct copy */
-    /* Allocate a fresh vs_gvp for the new pane.
-     * Do not use view_state macro (still refers to old pane's view state). */
+    if (opane && opane->mp_view_state)
+	*npane->mp_view_state = *opane->mp_view_state;	/* struct copy */
+    /* Allocate a fresh vs_gvp for the new pane. */
     bsg_view *new_vs_gvp;
     BU_ALLOC(new_vs_gvp, bsg_view);
     BU_GET(new_vs_gvp->callbacks, struct bu_ptbl);
     bu_ptbl_init(new_vs_gvp->callbacks, 8, "bv callbacks");
 
-    *new_vs_gvp = *opane->mp_view_state->vs_gvp;	/* struct copy */
+    if (opane && opane->mp_view_state && opane->mp_view_state->vs_gvp)
+	*new_vs_gvp = *opane->mp_view_state->vs_gvp;	/* struct copy */
 
     BU_GET(new_vs_gvp->gv_objs.db_objs, struct bu_ptbl);
     bu_ptbl_init(new_vs_gvp->gv_objs.db_objs, 8, "view_objs init");
@@ -1216,14 +1041,13 @@ dm_var_init(struct mged_state *s, struct mged_dm *target_dm, struct mged_dm *ndm
     npane->mp_view_state->vs_rc = 1;
     view_ring_init(npane->mp_view_state, (struct _view_state *)NULL);
 
-    /* Step 7.15: Scalar state (owner, am_mode, adc_auto, grid_auto_size, etc.) moved
-     * from mged_dm to mged_pane; initialized in mged_pane_init_resources().
-     * dm_dirty and dm_mapped remain in the dm (dm-window-event-specific). */
-    ndm->dm_dirty  = 1;
-    ndm->dm_mapped = 1;
-    ndm->dm_netfd  = -1;
-    if (target_dm->dm_dmp) {
-	dm_set_dirty(target_dm->dm_dmp, 1);
+    /* Step 7.18: mp_dirty, mp_mapped, mp_netfd are now pane fields.
+     * mged_pane_init_resources() set mp_netfd=-1, mp_dirty=1, mp_mapped=1. */
+    npane->mp_dirty  = 1;
+    npane->mp_mapped = 1;
+    npane->mp_netfd  = -1;
+    if (opane && opane->mp_dmp) {
+	dm_set_dirty(opane->mp_dmp, 1);
     }
 }
 
@@ -1268,12 +1092,12 @@ f_get_dm_list(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, 
 	return TCL_ERROR;
     }
 
-    /* Step 6.c: enumerate dm wrappers via active_pane_set. */
+    /* Step 6.c/7.18: enumerate dm wrappers via active_pane_set. */
     for (size_t i = 0; i < BU_PTBL_LEN(&active_pane_set); i++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, i);
-	if (!mp || !mp->mp_dm || !mp->mp_dm->dm_dmp)
+	if (!mp || !mp->mp_dmp)
 	    continue;
-	struct bu_vls *pn = dm_get_pathname(mp->mp_dm->dm_dmp);
+	struct bu_vls *pn = dm_get_pathname(mp->mp_dmp);
 	if (pn && bu_vls_strlen(pn))
 	    Tcl_AppendElement(interpreter, bu_vls_cstr(pn));
     }

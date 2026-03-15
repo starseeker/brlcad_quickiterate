@@ -1240,8 +1240,8 @@ get_rotation_vertex(struct mged_state *s)
 
     /* Step 7.6: use pane for display name (replaces mged_curr_dm->dm_dmp access). */
     const struct bu_vls *dnvp = NULL;
-    if (s->mged_curr_pane->mp_dm && s->mged_curr_pane->mp_dm->dm_dmp)
-	dnvp = dm_get_dname(s->mged_curr_pane->mp_dm->dm_dmp);
+    if (s->mged_curr_pane->mp_dmp)
+	dnvp = dm_get_dname(s->mged_curr_pane->mp_dmp);
     else if (s->mged_curr_pane->mp_gvp && bu_vls_strlen(&s->mged_curr_pane->mp_gvp->gv_name))
 	dnvp = &s->mged_curr_pane->mp_gvp->gv_name;
 

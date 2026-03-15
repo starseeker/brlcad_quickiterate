@@ -1262,9 +1262,32 @@ from `mp_gvp` (no DMP indirection).
    `share.c`: `SHARE_RESOURCE_DM` macro deleted; view_state sharing uses the same
    `SHARE_RESOURCE` path via `dm_pane->mp_view_state`.
 
-   **Remaining work (Step 7.18 onwards)**:
+### Step 7.18 — Flatten `mged_dm` into `mged_pane`; delete `struct mged_dm` ✅ (Session 25)
+
+   All remaining `mged_dm` fields (`dm_dmp`, `dm_fbp`, `dm_netfd`, `dm_netchan`,
+   `dm_clients`, `dm_dirty`, `dm_mapped`) moved to `mged_pane` as `mp_dmp`, `mp_fbp`,
+   `mp_netfd`, `mp_netchan`, `mp_clients`, `mp_dirty`, `mp_mapped`.
+
+   - `struct mged_dm` deleted from `mged_dm.h`.
+   - `mp_dm` field removed from `mged_pane`; Obol-vs-dm check is now `mp_dmp != NULL`.
+   - `mged_dm_init_state` global eliminated; startup sentinel is `s->mged_init_pane`.
+   - `DMP` macro: `s->mged_curr_pane->mp_dmp` (no more `mp_dm ? mp_dm->dm_dmp : NULL`).
+   - `DMP_dirty`, `fbp`, `clients`, `mapped` macros go directly through `mged_curr_pane->mp_*`.
+   - `dm_var_init()` / `mged_dm_init()` take `mged_pane *` instead of `mged_dm *`.
+   - `mged_attach()`: no `ndm` allocation; pane is created directly and passed to `mged_dm_init`.
+   - `release()` signature: `struct mged_pane *bad_pane` replaces `struct mged_dm *bad_dm`.
+   - `usurp_all_resources()` / `free_all_resources()` / `share_dlist()`: take `mged_pane *`.
+   - `SHARE_RESOURCE` macro: `dlp->mp_*` directly (no more `dlp->dm_pane->mp_*`).
+   - `fbserv.c`: `cdm` is now `struct mged_pane *`; `mp_netfd`/`mp_fbp`/`mp_clients` direct.
+   - `mged_pane_init_resources()` / `mged_pane_free_resources()`: unified single path.
+   - All 27 mged .c files compile cleanly with -Werror.
+
+   **After Step 7.18**: `struct mged_dm` no longer exists.  All pane state is in
+   `mged_pane`.  The `mp_dmp != NULL` test distinguishes dm panes from Obol panes.
+
+   **Remaining work (Step 7.19 onwards)**:
    - `f_attach`/`mged_attach()`/`mged_dm_init()`: convert to Obol-only path
-   - Delete `struct mged_dm`, `DMP`/`fbp`/`clients` macros, `dm-generic.c`
+   - Delete `DMP`/`fbp`/`clients`/`mapped` macros, `dm-generic.c`
 
 **Key files to update (Stage 7 MGED work):**
 
