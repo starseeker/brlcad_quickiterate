@@ -981,7 +981,29 @@ from `mp_gvp` (no DMP indirection).
    (no `? mged_curr_pane : mged_curr_dm` fallback).  Dead-code `if (!save_pane)
    set_curr_dm(...)` lines removed from all 10 affected files.
 
-   **Remaining work (Step 7.4 onwards)**:
+   **Step 7.4** ✅ (Session 19) — Migrate `cmd_list::cl_tie` from `mged_dm *` to
+   `mged_pane *`; remove `edit_rate_*_dm` fields from `mged_edit_state`.
+
+   *7.4a* `cmd_list::cl_tie` is now `struct mged_pane *` (was `struct mged_dm *`).
+   `f_tie` in `cmd.c` now finds and stores a `mged_pane*` directly.  Tie/untie
+   logic uses `mp_cmd_tie` as the back-link (clears `mp_cmd_tie = CMD_LIST_NULL`)
+   and keeps `mp_dm->dm_tie` in sync for legacy-dm wrappers.  `release()` in
+   `attach.c` clears both `cl_tie` and `dm_tie` on teardown.  The two
+   `set_curr_dm(s, curr_cmd_list->cl_tie)` calls in `mged.c` (`stdin_input` and
+   `stdin_input_Tcl`) are replaced with `set_curr_pane(s, curr_cmd_list->cl_tie)`.
+   The `cmd_win set` handler in `cmd.c` likewise uses `set_curr_pane`.
+
+   *7.4b* `mged_edit_state::edit_rate_{mr,or,vr,mt,vt}_dm` fields removed.  The
+   five matching assignments in `chgview.c` are gone.  `event_check` in `mged.c`
+   no longer has `else set_curr_dm(…, edit_rate_*_dm)` fallbacks — it calls
+   `set_curr_pane(s, s->s_edit->edit_rate_*_pane)` directly (safe because
+   `mged_curr_pane` is always non-NULL and the pane field is set whenever the
+   rate flag is set in chgview.c).  All 26 mged .c files compile cleanly.
+
+   **Remaining work (Step 7.5 onwards)**:
+   - Migrate `doevent.c` from legacy `GET_MGED_DM` + `set_curr_dm` to pane-based dispatch
+   - Migrate `dozoom.c` vectorThreshold `set_curr_dm` restore guards to panes
+   - Migrate `fbserv.c` `scdlp` restore and `share.c` dlist-regen path to panes
    - `f_attach`/`mged_attach()`/`mged_dm_init()`: convert to Obol-only path
    - Delete `struct mged_dm`, `DMP`/`fbp`/`clients` macros, `dm-generic.c`
 
