@@ -2890,6 +2890,11 @@ to_mouse_rect(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
+    if (gdvp->dmp) {
+	gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
+	gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
+    }
+
     dx = x - gdvp->gv_prevMouseX;
     dy = gdvp->gv_height - y - gdvp->gv_prevMouseY;
 

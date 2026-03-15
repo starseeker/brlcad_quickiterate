@@ -44,6 +44,10 @@ to_is_viewable(bsg_view *gdvp)
 {
     int result_int;
 
+    /* Obol path: when dmp is NULL, dm_get_pathname returns NULL and we fall
+     * through to return 0 (not viewable).  This is the correct behavior: it
+     * causes the caller to skip legacy dm draw calls, which is right because
+     * the obol_view widget handles rendering for this view instead. */
     const struct bu_vls *pathvls = dm_get_pathname((struct dm *)gdvp->dmp);
     if (!pathvls || !bu_vls_strlen(pathvls)) {
 	return 0;
