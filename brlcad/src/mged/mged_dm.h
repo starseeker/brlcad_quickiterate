@@ -687,7 +687,7 @@ extern int doEvent(ClientData, void *);
 #endif
 
 /* defined in attach.c */
-extern void dm_var_init(struct mged_state *s, struct mged_dm *target_dm);
+extern void dm_var_init(struct mged_state *s, struct mged_dm *target_dm, struct mged_dm *ndm);
 
 /* defined in dm-generic.c */
 extern int common_dm(struct mged_state *s, int argc, const char *argv[]);

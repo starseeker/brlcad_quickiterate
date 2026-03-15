@@ -1123,7 +1123,42 @@ from `mp_gvp` (no DMP indirection).
    (update for wrapper panes), `release()`, `mged_attach()`, `dm_var_init()`,
    `mged_dm_init()`, `mged.c` startup.
 
-   **Remaining work (Step 7.10 onwards)**:
+   **Step 7.10** ✅ (Session 24) — Remove `mged_curr_dm` field from `mged_state`:
+   - `mged.h`: `mged_curr_dm` field deleted; comment added explaining replacement paths.
+   - `mged_dm.h`: `dm_var_init` extern updated to include explicit `ndm` parameter.
+   - `attach.c` `dm_var_init(s, target_dm)` → `dm_var_init(s, target_dm, ndm)`: All
+     `s->mged_curr_dm->` replaced with `ndm->`.  The `ndm` parameter is the new dm
+     being initialised; `target_dm` is the source dm whose resources are copied.
+   - `attach.c` `mged_dm_init(s, o_dm, ...)` → `mged_dm_init(s, o_dm, ndm, ...)`: Passes
+     `ndm` to `dm_var_init()` and uses it for all field access (cmd_hook, dm_dmp, views,
+     perspective).
+   - `attach.c` `mged_attach()`: `BU_ALLOC(s->mged_curr_dm, ...)` replaced with
+     `BU_ALLOC(ndm, ...)`.  `o_dm` obtained from `s->mged_curr_pane->mp_dm` (or sentinel).
+     All subsequent uses of `s->mged_curr_dm` replaced with `ndm` or `ndm->*`.
+     `share_dlist`, `ged_gvp`, pane creation all use `ndm` directly.
+   - `attach.c` `set_curr_pane()`: `s->mged_curr_dm = mp->mp_dm` update removed (field gone).
+     Function comment updated: DMP is ternary through pane, no dm redirect needed.
+   - `attach.c` `release()`:
+     - Signature: `release(s, name, need_close, bad_dm)` — `bad_dm` is only used
+       when `name == NULL` (Bad: path from mged_attach).
+     - `save_dm_list` replaced with `save_pane` (saves previous `mged_curr_pane`).
+     - `if (mp->mp_dm != s->mged_curr_dm)` → `if (mp != s->mged_curr_pane)`.
+     - Local `cdm` pointer: for name-given path `cdm = s->mged_curr_pane->mp_dm`
+       (set_curr_pane already called); for name=NULL path `cdm = bad_dm`.
+     - End-of-function restore: `set_curr_pane(s, save_pane)` (no dm pointer search).
+     - `s->mged_curr_dm = MGED_DM_NULL` at end removed.
+     - `f_release` updated: name-given calls `release(s, name, 1, NULL)`;
+       name-NULL calls `release(s, NULL, 1, s->mged_curr_pane->mp_dm)`.
+   - `mged.c` startup: `BU_ALLOC(mged_dm_init_state, ...)` direct (no `s->mged_curr_dm`).
+     All ~20 `s->mged_curr_dm->` accesses replaced with `mged_dm_init_state->`.
+     `mged_link_vars(mged_dm_init_state)` direct.
+   - `mged.c` `mged_finish()`: `s->mged_curr_dm = MGED_DM_NULL` removed.
+
+   **After Step 7.10**: `mged_curr_dm` is gone from `mged_state`.  `mged_dm_init_state`
+   is the sole global `mged_dm *` (sentinel/headless dm).  `set_curr_pane()` no longer
+   touches any dm field.  The `DMP` macro goes through `mged_curr_pane->mp_dm` only.
+
+   **Remaining work (Step 7.11 onwards)**:
    - `f_attach`/`mged_attach()`/`mged_dm_init()`: convert to Obol-only path
    - Delete `struct mged_dm`, `DMP`/`fbp`/`clients` macros, `dm-generic.c`
 

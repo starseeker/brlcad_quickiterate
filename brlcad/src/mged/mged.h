@@ -224,7 +224,8 @@ struct mged_state {
     struct bu_vls mged_prompt;
 
     /* Display related */
-    struct mged_dm *mged_curr_dm;  /* legacy libdm pane (NULL when Obol-only) */
+    /* Step 7.10: mged_curr_dm removed — use mged_curr_pane->mp_dm for the
+     * current pane's mged_dm, or mged_dm_init_state for the sentinel dm. */
     struct mged_pane *mged_curr_pane;  /* Step 7: current pane; always non-NULL after init */
     struct mged_pane *mged_init_pane;  /* Step 7.2: startup sentinel wrapper (wraps mged_dm_init_state) */
     char *dpy_string;

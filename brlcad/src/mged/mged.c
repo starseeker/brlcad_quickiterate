@@ -1795,8 +1795,7 @@ mged_finish(struct mged_state *s, int exitcode)
 		mged_slider_free_vls(p);
 	    }
 	    bu_free(p, "mged_finish: mged_dm");
-	    /* Step 7.5: pane already removed; just null the dm pointer. */
-	    s->mged_curr_dm = MGED_DM_NULL;
+	    /* Step 7.10: mged_curr_dm removed from mged_state; no pointer to null. */
 	}
     }
 
@@ -1958,10 +1957,9 @@ main(int argc, char *argv[])
     mged_global_db_ctx.init_flag = 1;
 
     char *attach = (char *)NULL;
-    BU_ALLOC(s->mged_curr_dm, struct mged_dm);
-    /* Step 6.c: active_dm_set no longer maintained; only mged_dm_init_state sentinel kept. */
-    mged_dm_init_state = s->mged_curr_dm;
-    s->mged_curr_dm->dm_netfd = -1;
+    /* Step 7.10: mged_curr_dm removed from mged_state; allocate sentinel dm directly. */
+    BU_ALLOC(mged_dm_init_state, struct mged_dm);
+    mged_dm_init_state->dm_netfd = -1;
     s->mged_init_pane = MGED_PANE_NULL;
     /* mged_curr_pane will be set to the init sentinel pane after resources
      * are allocated (Step 7.2 init_pane creation, below).  Zero it now. */
@@ -2133,7 +2131,7 @@ main(int argc, char *argv[])
     curr_cmd_list = &head_cmd_list;
 
     /* initialize predictor stuff */
-    BU_LIST_INIT(&s->mged_curr_dm->dm_p_vlist);
+    BU_LIST_INIT(&mged_dm_init_state->dm_p_vlist);
     predictor_init(s);
 
     /* Stage 7 (step 5.14): The initial mged_dm struct serves as a null/"nu"
@@ -2144,39 +2142,37 @@ main(int argc, char *argv[])
     /* DMP == NULL intentionally: no dm_open("nu") call */
 
     /* register application provided routines */
-    s->mged_curr_dm->dm_cmd_hook = dm_commands;
+    /* Step 7.10: Use mged_dm_init_state directly (mged_curr_dm removed). */
+    mged_dm_init_state->dm_cmd_hook = dm_commands;
 
-    /* Stage 7: Use explicit s->mged_curr_dm->dm_* for BU_ALLOC here so these
-     * allocations remain lvalues after the macros are changed to ternary
-     * expressions in Step 6. */
-    BU_ALLOC(s->mged_curr_dm->dm_rubber_band, struct _rubber_band);
-    *s->mged_curr_dm->dm_rubber_band = default_rubber_band;	/* struct copy */
+    BU_ALLOC(mged_dm_init_state->dm_rubber_band, struct _rubber_band);
+    *mged_dm_init_state->dm_rubber_band = default_rubber_band;	/* struct copy */
 
-    BU_ALLOC(s->mged_curr_dm->dm_mged_variables, struct _mged_variables);
-    *s->mged_curr_dm->dm_mged_variables = default_mged_variables;	/* struct copy */
+    BU_ALLOC(mged_dm_init_state->dm_mged_variables, struct _mged_variables);
+    *mged_dm_init_state->dm_mged_variables = default_mged_variables;	/* struct copy */
 
-    BU_ALLOC(s->mged_curr_dm->dm_color_scheme, struct _color_scheme);
-    *s->mged_curr_dm->dm_color_scheme = default_color_scheme;	/* struct copy */
+    BU_ALLOC(mged_dm_init_state->dm_color_scheme, struct _color_scheme);
+    *mged_dm_init_state->dm_color_scheme = default_color_scheme;	/* struct copy */
 
-    BU_ALLOC(s->mged_curr_dm->dm_grid_state, struct bsg_grid_state);
-    *s->mged_curr_dm->dm_grid_state = default_grid_state;	/* struct copy */
+    BU_ALLOC(mged_dm_init_state->dm_grid_state, struct bsg_grid_state);
+    *mged_dm_init_state->dm_grid_state = default_grid_state;	/* struct copy */
 
-    BU_ALLOC(s->mged_curr_dm->dm_axes_state, struct _axes_state);
-    *s->mged_curr_dm->dm_axes_state = default_axes_state;	/* struct copy */
+    BU_ALLOC(mged_dm_init_state->dm_axes_state, struct _axes_state);
+    *mged_dm_init_state->dm_axes_state = default_axes_state;	/* struct copy */
 
-    BU_ALLOC(s->mged_curr_dm->dm_adc_state, struct _adc_state);
-    s->mged_curr_dm->dm_adc_state->adc_rc = 1;
-    s->mged_curr_dm->dm_adc_state->adc_a1 = s->mged_curr_dm->dm_adc_state->adc_a2 = 45.0;
+    BU_ALLOC(mged_dm_init_state->dm_adc_state, struct _adc_state);
+    mged_dm_init_state->dm_adc_state->adc_rc = 1;
+    mged_dm_init_state->dm_adc_state->adc_a1 = mged_dm_init_state->dm_adc_state->adc_a2 = 45.0;
 
-    BU_ALLOC(s->mged_curr_dm->dm_menu_state, struct _menu_state);
-    s->mged_curr_dm->dm_menu_state->ms_rc = 1;
+    BU_ALLOC(mged_dm_init_state->dm_menu_state, struct _menu_state);
+    mged_dm_init_state->dm_menu_state->ms_rc = 1;
 
-    BU_ALLOC(s->mged_curr_dm->dm_dlist_state, struct _dlist_state);
-    s->mged_curr_dm->dm_dlist_state->dl_rc = 1;
+    BU_ALLOC(mged_dm_init_state->dm_dlist_state, struct _dlist_state);
+    mged_dm_init_state->dm_dlist_state->dl_rc = 1;
 
-    BU_ALLOC(s->mged_curr_dm->dm_view_state, struct _view_state);
-    s->mged_curr_dm->dm_view_state->vs_rc = 1;
-    view_ring_init(s->mged_curr_dm->dm_view_state, (struct _view_state *)NULL);
+    BU_ALLOC(mged_dm_init_state->dm_view_state, struct _view_state);
+    mged_dm_init_state->dm_view_state->vs_rc = 1;
+    view_ring_init(mged_dm_init_state->dm_view_state, (struct _view_state *)NULL);
     MAT_IDN(view_state->vs_ModelDelta);
 
     /* Step 7.2: Create a sentinel wrapper pane for mged_dm_init_state so that
@@ -2223,7 +2219,7 @@ main(int argc, char *argv[])
 
     mmenu_init(s);
     btn_head_menu(s, 0, 0, 0);
-    mged_link_vars(s->mged_curr_dm);
+    mged_link_vars(mged_dm_init_state);
 
     bu_vls_printf(&s->input_str, "set version \"%s\"", brlcad_ident("Geometry Editor (MGED)"));
     (void)Tcl_Eval(s->interp, bu_vls_addr(&s->input_str));
