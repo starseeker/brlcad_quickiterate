@@ -55,7 +55,7 @@
 //DebugPlot *dplot = NULL;
 
 // Whether to output the debug messages about b-rep booleans.
-#define DEBUG_BREP_BOOLEAN 0
+#define DEBUG_BREP_BOOLEAN 1
 
 
 struct IntersectPoint {
