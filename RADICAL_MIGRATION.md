@@ -1025,11 +1025,269 @@ from `mp_gvp` (no DMP indirection).
    the `set_curr_dm` function definition.  All external callers eliminated.
    26 mged .c files compile cleanly with -Werror.
 
-   **Remaining work (Step 7.6 onwards)**:
-   - Update `set_curr_pane()` comment to note `set_curr_dm` is internal-only
-   - Migrate `clone.c` and other remaining `mged_curr_dm->dm_*` direct accesses
+   **Step 7.6** ✅ (Session 20) — Migrate remaining `mged_curr_dm->dm_*` direct
+   accesses to use `mged_curr_pane` fields:
+   - `titles.c` `dotitles()`: all six `dm_*_name` Tcl variable name references
+     changed to `s->mged_curr_pane->mp_*_name` (center, size, aet, ang, adc ×2, fps).
+     `mged_pane_link_vars()` is already called for both legacy-dm wrapper panes and
+     Obol panes, so `mp_*_name` is always populated.
+   - `dozoom.c`: `dm_ndrawn` accumulations changed to `mp_ndrawn`, making
+     `mp_ndrawn` the authoritative drawn-object counter for all pane types.
+   - `usepen.c`: `mp_dm ? mp_dm->dm_ndrawn : mp_ndrawn` ternary simplified to
+     always use `mp_ndrawn` (safe now that dozoom writes mp_ndrawn).
+   - `clone.c`: `mged_curr_dm != mged_dm_init_state || mged_curr_pane` replaced
+     with `mged_curr_pane != mged_init_pane` (always-true condition fixed).
+   - `edsol.c` `get_rotation_vertex()`: display name obtained from
+     `mp->mp_dm->dm_dmp` (legacy) or `mp->mp_gvp->gv_name` (Obol) instead of
+     `mged_curr_dm->dm_dmp`.
+   - `share.c` `usurp_all_resources()`: `MGED_STATE->mged_curr_dm->dm_dlist_state`
+     replaced with `dlp2->dm_dlist_state` (correct free of the dying dm's state).
+   - `attach.c` `set_curr_pane()` comment updated to note that `set_curr_dm()`
+     is now internal-only.
+
+      **Step 7.7** ✅ (Session 21) — Migrate `save_m_dmp`/`save_dlp` patterns and
+   fbserv.c to use pane pointers:
+   - `set.c` `set_scroll_private()`: `save_m_dmp = s->mged_curr_dm` replaced with
+     `save_mv = save_pane->mp_mged_variables`; comparison `mp->mp_mged_variables ==
+     save_m_dmp->dm_mged_variables` simplified to `mp->mp_mged_variables == save_mv`.
+   - `set.c` `set_dlist()`: `save_dlp = s->mged_curr_dm` replaced with
+     `save_mv = save_pane->mp_mged_variables`; both `dm_mged_variables != save_dlp->…`
+     comparisons replaced with `!= save_mv`.
+   - `fbserv.c` `fbserv_set_port()`: `cdm = s->mged_curr_pane->mp_dm` introduced as a
+     local after the `!DMP` guard; all `s->mged_curr_dm->dm_netchan/dm_netfd` replaced
+     with `cdm->dm_netchan/dm_netfd` (the `!DMP` guard already ensures `mp_dm != NULL`).
+   - `cmd.c` `f_postscript()`: `dml = s->mged_curr_pane->mp_dm` replaces
+     `dml = s->mged_curr_dm`; post-`mged_attach` dm field accesses changed from
+     `s->mged_curr_dm->dm_*` to `s->mged_curr_pane->mp_dm->dm_*`.
+
+      **Step 7.8** ✅ (Session 22) — Migrate remaining `mged_curr_dm`-based macros
+   to go through `mged_curr_pane->mp_dm`:
+   - 22 macros changed: `DMP_dirty`, `fbp`, `clients`, `mapped`, `owner`, `am_mode`,
+     `perspective_angle`, `zclip_ptr`, `cmd_hook`, `viewpoint_hook`, `eventHandler`,
+     `adc_auto`, `grid_auto_size`, `dm_mouse_dx/dy`, `dm_omx/omy`, `dm_knobs`,
+     `dm_work_pt`, `scroll_top/active/y/array`.  All are only accessed in code paths
+     guarded by `if (!DMP) return;` or `if (!mp->mp_dm) continue;`, so `mp_dm != NULL`
+     is guaranteed at every call site.  `DMP` itself keeps the `mged_curr_dm->dm_dmp`
+     path for now (used as an lvalue in `mged_dm_init()`).
+   - `pv_head` and `pane_trails` simplified from ternary to always use `mp_p_vlist` /
+     `mp_trails` from the pane.  `mged_pane_init_resources()` for wrapper panes already
+     called `predictor_init_pane(pane)`, so both Obol and legacy-dm wrapper panes have
+     properly initialised predictor state in the pane fields.
+   - `dm_var_init()` in `attach.c`: (a) **bug fix** — replaced `view_state->vs_gvp`
+     (which expanded to the OLD pane's view_state) with a local `new_vs_gvp` pointer
+     that initialises `s->mged_curr_dm->dm_view_state->vs_gvp` directly; (b) scalar
+     field initialisations at the bottom (`DMP_dirty`, `mapped`, `owner`, `am_mode`,
+     `adc_auto`, `grid_auto_size`) changed to explicit `s->mged_curr_dm->dm_*`.
+   - `mged_dm_init()` in `attach.c`: `cmd_hook = dm_commands` → explicit
+     `s->mged_curr_dm->dm_cmd_hook = dm_commands`.
+   - `mged_attach()` in `attach.c`: `predictor_init(s)` removed (it incorrectly
+     targeted the OLD pane's trails); replaced by `predictor_init_pane(pane)` inside
+     `mged_pane_init_resources()`.  `BU_LIST_INIT(&dm_p_vlist)` kept for safe no-op
+     teardown in `release()` / `mged_finish()`.
+   - `mged_pane_free_resources()` for wrapper panes: `BSG_FREE_VLIST(&rt_vlfree,
+     &mp->mp_p_vlist)` added — wrapper pane now owns the predictor vlist.
+
+   **Step 7.9** ✅ (Session 23) — Migrate `DMP` macro from `mged_curr_dm->dm_dmp`
+   to a conditional pane-based expression; remove dead `set_curr_dm()`:
+   - `mged_dm.h`: `#define DMP` changed to:
+     `(s->mged_curr_pane->mp_dm ? s->mged_curr_pane->mp_dm->dm_dmp : (struct dm *)NULL)`
+     For Obol panes (mp_dm == NULL), DMP evaluates to NULL so all `if (!DMP) return;`
+     guards fire without a NULL dereference.  `extern set_curr_dm` declaration removed.
+   - `attach.c` `set_curr_dm()`: Deleted.  The function had no callers after Step 7.5.
+     Its ged_gvp / gv_grid update logic was partially done by `set_curr_pane()`; the
+     gv_grid update was moved inline into `set_curr_pane()` for wrapper panes.
+   - `attach.c` `set_curr_pane()`: Removed `else { mged_curr_dm = mged_dm_init_state }`
+     path for Obol panes — no longer needed since DMP is ternary.  Kept
+     `mged_curr_dm = mp->mp_dm` for legacy wrapper panes (lifecycle code still reads it).
+   - `attach.c` `mged_dm_init()`: All DMP and `view_state->vs_gvp` uses replaced with
+     explicit `s->mged_curr_dm->dm_dmp` / `s->mged_curr_dm->dm_view_state->vs_gvp`.
+     Also fixes the Step 7.2 carry-over bug: `view_state->vs_gvp` expanded to the OLD
+     pane's view; replaced with the NEW dm's view (`dm_var_init` bug first fixed in 7.8
+     for dm_var_init itself, now fixed here too).
+   - `attach.c` `mged_attach()`: Added local `ndmp = s->mged_curr_dm->dm_dmp` after
+     `mged_dm_init()` succeeds; replaced 6 DMP uses before `set_curr_pane()` with `ndmp`.
+     Moved `mged_fb_open()` to AFTER `set_curr_pane()` so DMP / fbp correctly reference
+     the new pane's dm.
+   - `attach.c` `release()`: `else if (!DMP)` guard changed to
+     `else if (!s->mged_curr_dm->dm_dmp)`; `if (fbp)` block changed to
+     `if (s->mged_curr_dm->dm_fbp)` with explicit `dm_fbp` access throughout;
+     `dm_close(DMP)` changed to `dm_close(s->mged_curr_dm->dm_dmp)`.
+     This fixes a bug introduced by Step 7.8: in the `Bad:` path (name=NULL),
+     `mged_curr_pane` is still the OLD pane, so fbp and DMP macros would have
+     referenced the old dm's framebuffer / dmp instead of the new (bad) dm's.
+   - `attach.c` `Bad:` label: `if (DMP != ...)` changed to
+     `if (s->mged_curr_dm->dm_dmp != ...)` for the same reason.
+
+   **After Step 7.9**:  `mged_curr_dm` is a purely-lifecycle field.  No macro
+   expansion goes through it.  It is only read/written directly in: `set_curr_pane()`
+   (update for wrapper panes), `release()`, `mged_attach()`, `dm_var_init()`,
+   `mged_dm_init()`, `mged.c` startup.
+
+   **Step 7.10** ✅ (Session 24) — Remove `mged_curr_dm` field from `mged_state`:
+   - `mged.h`: `mged_curr_dm` field deleted; comment added explaining replacement paths.
+   - `mged_dm.h`: `dm_var_init` extern updated to include explicit `ndm` parameter.
+   - `attach.c` `dm_var_init(s, target_dm)` → `dm_var_init(s, target_dm, ndm)`: All
+     `s->mged_curr_dm->` replaced with `ndm->`.  The `ndm` parameter is the new dm
+     being initialised; `target_dm` is the source dm whose resources are copied.
+   - `attach.c` `mged_dm_init(s, o_dm, ...)` → `mged_dm_init(s, o_dm, ndm, ...)`: Passes
+     `ndm` to `dm_var_init()` and uses it for all field access (cmd_hook, dm_dmp, views,
+     perspective).
+   - `attach.c` `mged_attach()`: `BU_ALLOC(s->mged_curr_dm, ...)` replaced with
+     `BU_ALLOC(ndm, ...)`.  `o_dm` obtained from `s->mged_curr_pane->mp_dm` (or sentinel).
+     All subsequent uses of `s->mged_curr_dm` replaced with `ndm` or `ndm->*`.
+     `share_dlist`, `ged_gvp`, pane creation all use `ndm` directly.
+   - `attach.c` `set_curr_pane()`: `s->mged_curr_dm = mp->mp_dm` update removed (field gone).
+     Function comment updated: DMP is ternary through pane, no dm redirect needed.
+   - `attach.c` `release()`:
+     - Signature: `release(s, name, need_close, bad_dm)` — `bad_dm` is only used
+       when `name == NULL` (Bad: path from mged_attach).
+     - `save_dm_list` replaced with `save_pane` (saves previous `mged_curr_pane`).
+     - `if (mp->mp_dm != s->mged_curr_dm)` → `if (mp != s->mged_curr_pane)`.
+     - Local `cdm` pointer: for name-given path `cdm = s->mged_curr_pane->mp_dm`
+       (set_curr_pane already called); for name=NULL path `cdm = bad_dm`.
+     - End-of-function restore: `set_curr_pane(s, save_pane)` (no dm pointer search).
+     - `s->mged_curr_dm = MGED_DM_NULL` at end removed.
+     - `f_release` updated: name-given calls `release(s, name, 1, NULL)`;
+       name-NULL calls `release(s, NULL, 1, s->mged_curr_pane->mp_dm)`.
+   - `mged.c` startup: `BU_ALLOC(mged_dm_init_state, ...)` direct (no `s->mged_curr_dm`).
+     All ~20 `s->mged_curr_dm->` accesses replaced with `mged_dm_init_state->`.
+     `mged_link_vars(mged_dm_init_state)` direct.
+   - `mged.c` `mged_finish()`: `s->mged_curr_dm = MGED_DM_NULL` removed.
+
+   **After Step 7.10**: `mged_curr_dm` is gone from `mged_state`.  `mged_dm_init_state`
+   is the sole global `mged_dm *` (sentinel/headless dm).  `set_curr_pane()` no longer
+   touches any dm field.  The `DMP` macro goes through `mged_curr_pane->mp_dm` only.
+
+   **Step 7.11** ✅ (Session 24) — Remove `dm_tie` from `struct mged_dm`:
+   - `mged_dm.h`: `dm_tie` field deleted from `struct mged_dm`; `mp_cmd_tie` comment
+     updated to "canonical" (no longer "mirrors dm_tie").
+   - `cmd.c` `f_tie()`: removed `tlp->mp_dm->dm_tie = clp` update (redundant with
+     `tlp->mp_cmd_tie = clp`).  `mp_cmd_tie` is now the sole tie tracking field.
+   - `cmd.c` `cmd_close()` and `f_winset()` untie paths: removed
+     `clp->cl_tie->mp_dm->dm_tie = CMD_LIST_NULL` updates.
+   - `attach.c` `release()`: moved cmd_tie clearing into the wrapper-pane cleanup
+     block (before `BU_PUT`), clearing `wrapper->mp_cmd_tie` while the pane is
+     still alive.  Removed the separate `cdm->dm_tie` check block.
+   - `attach.c` `mged_attach()`: `pane->mp_cmd_tie = ndm->dm_tie` → `= NULL`
+     (ndm->dm_tie was always NULL for newly-allocated dm anyway).
+
+   **After Step 7.11**: `struct mged_dm` no longer has `dm_tie`.  The command-window
+   tie is tracked exclusively in `mged_pane::mp_cmd_tie`.
+
+   **Step 7.12** ✅ (Session 24) — Remove `dm_p_vlist` from `struct mged_dm`:
+   - `mged_dm.h`: `dm_p_vlist` field deleted; comment updated.  `mp_p_vlist` in
+     `mged_pane` is now the only predictor vlist location.  Comment on `mp_p_vlist`
+     in `mged_pane` struct updated.  Other stale `mged_curr_dm` comment references
+     in `mged_dm.h` cleaned up.  DMP macro comment block updated.
+   - `attach.c` `mged_attach()`: `BU_LIST_INIT(&ndm->dm_p_vlist)` replaced with
+     comment (field removed).
+   - `attach.c` `release()`: `BSG_FREE_VLIST(&cdm->dm_p_vlist)` replaced with
+     comment (list was always empty — wrapper pane's predictor data lives in
+     `mp_p_vlist`).
+   - `mged.c` startup: `BU_LIST_INIT(&mged_dm_init_state->dm_p_vlist)` replaced
+     with comment.
+   - `mged.c` `mged_finish()`: `BSG_FREE_VLIST(&p->dm_p_vlist)` replaced with
+     comment.
+
+   **After Step 7.12**: `struct mged_dm` no longer has `dm_p_vlist`.  Predictor
+   vlists live exclusively in `mged_pane::mp_p_vlist`.
+
+   **Step 7.13** ✅ (Session 24) — Remove dead `mged_dm` fields and dead functions:
+   - `mged_dm.h`: Removed `dm_ndrawn`, `dm_trails[NUM_TRAILS]` (completely unused in
+     code), and all Tcl display variable name VLS fields (`dm_fps_name`, `dm_aet_name`,
+     `dm_ang_name`, `dm_center_name`, `dm_size_name`, `dm_adc_name`) — these were only
+     ever written (by `mged_link_vars`), never read.  All HUD variable names now live
+     exclusively in `mged_pane::mp_fps_name` etc.
+   - `attach.c`: Removed functions `mged_slider_init_vls()`, `mged_slider_free_vls()`,
+     and `mged_link_vars()` (all dead).  Removed call sites:
+     `mged_link_vars(ndm)` in `mged_attach()`, `mged_slider_free_vls(cdm)` in
+     `release()`.
+   - `mged.c`: Removed `mged_slider_free_vls(p)` in `mged_finish()` and
+     `mged_link_vars(mged_dm_init_state)` in startup.
+   - `mged.h`: Removed `mged_link_vars` and `mged_slider_free_vls` declarations.
+
+   **After Step 7.13**: `struct mged_dm` no longer has any trail, ndrawn, or VLS name
+   fields.  HUD variable names are populated by `mged_pane_link_vars()` exclusively.
+
+   **Step 7.14** ✅ (Session 24) — Remove hook function pointers from `struct mged_dm`:
+   - `mged_dm.h`: Removed `dm_cmd_hook`, `dm_viewpoint_hook`, `dm_eventHandler` from
+     `struct mged_dm`.  Removed corresponding macros (`cmd_hook`, `viewpoint_hook`,
+     `eventHandler`).
+   - `attach.c` `mged_dm_init()`: Removed `ndm->dm_cmd_hook = dm_commands` (field gone).
+   - `attach.c` `dm_cmd()`: Replaced `if (!cmd_hook) { ... } return cmd_hook(...)` with
+     direct `return dm_commands(...)` call (dm_cmd_hook was always dm_commands).
+   - `mged.c` startup: Removed `mged_dm_init_state->dm_cmd_hook = dm_commands`.
+   - `mged.c` `refresh()`: Removed `if (viewpoint_hook) (*viewpoint_hook)()` (VR hook;
+     `viewpoint_hook` was never assigned a non-NULL value — always NULL/dead).
+
+   **After Step 7.14**: `struct mged_dm` no longer has any function pointer fields.
+   The `dm` command calls `dm_commands()` directly.  The VR viewpoint hook is gone.
+
+### Step 7.15 — Move scalar/array pane state fields from `mged_dm` to `mged_pane`
+
+   Removed from `mged_dm`: `dm_owner`, `dm_am_mode`, `dm_perspective_angle`,
+   `dm_zclip_ptr`, `dm_adc_auto`, `dm_grid_auto_size`, `dm_mouse_dx/dy`, `dm_omx/omy`,
+   `dm_knobs[8]`, `dm_work_pt`, `dm_scroll_top/active/y`, `dm_scroll_array[6]`.
+   All moved to `mged_pane` as `mp_*` equivalents.
+   `dm_var_init()` no longer sets these; `mged_pane_init_resources()` does.
+   Updated macros: `am_mode`, `perspective_angle`, `owner`, `adc_auto`, `grid_auto_size`,
+   `mouse_dx/dy`, `omx/omy`, `knobs`, `work_pt`, `scroll_*` all go through `mged_curr_pane`.
+
+### Step 7.16 — Transfer ownership of 8 non-view shareable resources from `mged_dm` to `mged_pane`
+
+   Removed from `mged_dm`: `dm_adc_state`, `dm_menu_state`, `dm_rubber_band`,
+   `dm_mged_variables`, `dm_color_scheme`, `dm_grid_state`, `dm_axes_state`,
+   `dm_dlist_state`.
+   Added to `mged_dm`: `dm_pane` back-pointer to the owning `mged_pane`.
+   The 8 resources are now allocated in `mged_pane_init_resources()` (wrapper path)
+   and freed in `mged_pane_free_resources()` with ref counting.
+   Pane creation in `mged_attach()` was moved BEFORE `mged_dm_init()` so that
+   `ndm->dm_pane->mp_mged_variables` is available for `dm_set_perspective()`.
+   `dm_var_init()` no longer allocates any resources (view_state was still there).
+   `share.c`: `SHARE_RESOURCE` macro updated to use `dlp->dm_pane->mp_*`.
+   `free_all_resources`/`usurp_all_resources` rewritten to operate via pane pointers.
+   `set.c`: `mp->mp_dm->dm_dlist_state` → `mp->mp_dlist_state`.
+
+### Step 7.17 — Move `dm_view_state` from `mged_dm` to `mged_pane`; `mged_dm` has NO resource fields
+
+   Removed from `mged_dm`: `dm_view_state`.
+   `struct mged_dm` now contains ONLY: `dm_dmp`, `dm_fbp`, `dm_netfd`, `dm_netchan`,
+   `dm_clients[]`, `dm_dirty`, `dm_mapped`, and `dm_pane` back-pointer.
+   All 9 shareable resources live in `mged_pane::mp_*`.
+   `view_ring_destroy()` signature changed to take `struct _view_state *vsp` directly
+   (removes the last `struct mged_dm *` dependency from chgview.c helpers).
+   `dm_var_init()` now allocates `npane->mp_view_state` (not `ndm->dm_view_state`).
+   `mged.c` startup: all resource allocations removed from `mged_dm_init_state`;
+   `mged_pane_init_resources()` handles everything for the sentinel init_pane.
+   `share.c`: `SHARE_RESOURCE_DM` macro deleted; view_state sharing uses the same
+   `SHARE_RESOURCE` path via `dm_pane->mp_view_state`.
+
+### Step 7.18 — Flatten `mged_dm` into `mged_pane`; delete `struct mged_dm` ✅ (Session 25)
+
+   All remaining `mged_dm` fields (`dm_dmp`, `dm_fbp`, `dm_netfd`, `dm_netchan`,
+   `dm_clients`, `dm_dirty`, `dm_mapped`) moved to `mged_pane` as `mp_dmp`, `mp_fbp`,
+   `mp_netfd`, `mp_netchan`, `mp_clients`, `mp_dirty`, `mp_mapped`.
+
+   - `struct mged_dm` deleted from `mged_dm.h`.
+   - `mp_dm` field removed from `mged_pane`; Obol-vs-dm check is now `mp_dmp != NULL`.
+   - `mged_dm_init_state` global eliminated; startup sentinel is `s->mged_init_pane`.
+   - `DMP` macro: `s->mged_curr_pane->mp_dmp` (no more `mp_dm ? mp_dm->dm_dmp : NULL`).
+   - `DMP_dirty`, `fbp`, `clients`, `mapped` macros go directly through `mged_curr_pane->mp_*`.
+   - `dm_var_init()` / `mged_dm_init()` take `mged_pane *` instead of `mged_dm *`.
+   - `mged_attach()`: no `ndm` allocation; pane is created directly and passed to `mged_dm_init`.
+   - `release()` signature: `struct mged_pane *bad_pane` replaces `struct mged_dm *bad_dm`.
+   - `usurp_all_resources()` / `free_all_resources()` / `share_dlist()`: take `mged_pane *`.
+   - `SHARE_RESOURCE` macro: `dlp->mp_*` directly (no more `dlp->dm_pane->mp_*`).
+   - `fbserv.c`: `cdm` is now `struct mged_pane *`; `mp_netfd`/`mp_fbp`/`mp_clients` direct.
+   - `mged_pane_init_resources()` / `mged_pane_free_resources()`: unified single path.
+   - All 27 mged .c files compile cleanly with -Werror.
+
+   **After Step 7.18**: `struct mged_dm` no longer exists.  All pane state is in
+   `mged_pane`.  The `mp_dmp != NULL` test distinguishes dm panes from Obol panes.
+
+   **Remaining work (Step 7.19 onwards)**:
    - `f_attach`/`mged_attach()`/`mged_dm_init()`: convert to Obol-only path
-   - Delete `struct mged_dm`, `DMP`/`fbp`/`clients` macros, `dm-generic.c`
+   - Delete `DMP`/`fbp`/`clients`/`mapped` macros, `dm-generic.c`
 
 **Key files to update (Stage 7 MGED work):**
 

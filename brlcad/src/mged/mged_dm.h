@@ -355,71 +355,10 @@ struct _menu_state {
     struct menu_item	*ms_menus[NMENU];    /* base of menu items array */
 };
 
-
-struct mged_dm {
-    struct dm		*dm_dmp;
-    struct fb		*dm_fbp;
-    int			dm_netfd;			/* socket used to listen for connections */
-#ifdef USE_TCL_CHAN
-    Tcl_Channel		dm_netchan;
-#endif
-    struct client	dm_clients[MAX_CLIENTS];
-    int			dm_dirty;			/* true if received an expose or configuration event */
-    int			dm_mapped;
-    int			dm_owner;			/* true if owner of the view info */
-    int			dm_am_mode;			/* alternate mouse mode */
-    int			dm_ndrawn;
-    int			dm_perspective_angle;
-    int			*dm_zclip_ptr;
-    struct bu_list	dm_p_vlist;			/* predictor vlist */
-    struct trail	dm_trails[NUM_TRAILS];
-    struct cmd_list	*dm_tie;
-
-    int			dm_adc_auto;
-    int			dm_grid_auto_size;
-    int			_dm_mouse_dx;
-    int			_dm_mouse_dy;
-    int			_dm_omx;
-    int			_dm_omy;
-    int			_dm_knobs[8];
-    point_t		_dm_work_pt;
-
-    /* Tcl variable names for display info */
-    struct bu_vls	dm_fps_name;
-    struct bu_vls	dm_aet_name;
-    struct bu_vls	dm_ang_name;
-    struct bu_vls	dm_center_name;
-    struct bu_vls	dm_size_name;
-    struct bu_vls	dm_adc_name;
-
-    /* Slider stuff */
-    int			dm_scroll_top;
-    int			dm_scroll_active;
-    int			dm_scroll_y;
-    struct scroll_item	*dm_scroll_array[6];
-
-    /* Shareable Resources */
-    struct _view_state	*dm_view_state;
-    struct _adc_state	*dm_adc_state;
-    struct _menu_state	*dm_menu_state;
-    struct _rubber_band	*dm_rubber_band;
-    struct _mged_variables *dm_mged_variables;
-    struct _color_scheme	*dm_color_scheme;
-    struct bsg_grid_state *dm_grid_state;
-    struct _axes_state	*dm_axes_state;
-    struct _dlist_state	*dm_dlist_state;
-
-    /* Hooks */
-    int			(*dm_cmd_hook)(int, const char **, void *);
-    void			(*dm_viewpoint_hook)(void);
-    int			(*dm_eventHandler)(void);
-};
-
-/* If we're changing the active DM, use this function so
- * libged also gets the word. */
-extern void set_curr_dm(struct mged_state *s, struct mged_dm *nl);
-
-#define MGED_DM_NULL ((struct mged_dm *)NULL)
+/* Step 7.18: struct mged_dm deleted.  All fields (dm_dmp, dm_fbp, dm_netfd,
+ * dm_netchan, dm_clients, dm_dirty, dm_mapped) moved into mged_pane as mp_*.
+ * mged_dm_init_state global removed; startup sentinel is s->mged_init_pane.
+ * mp_dm field removed from mged_pane; Obol vs. dm distinction via mp_dmp. */
 
 /* -----------------------------------------------------------------------
  * Stage 7 — MGED libdm removal: mged_pane + active_pane_set
@@ -433,39 +372,37 @@ extern void set_curr_dm(struct mged_state *s, struct mged_dm *nl);
  *  - Obol panes created by `f_new_obol_view_ptr` have mp_dm == NULL and are
  *    registered in both `active_pane_set` AND `ged_views`.
  *
- * `set_curr_pane()` sets `s->gedp->ged_gvp` from `mp->mp_gvp`, sets
- * `s->mged_curr_pane = mp`, AND redirects `s->mged_curr_dm` to the headless
- * "nu" init dm (`mged_dm_init_state`) so that `DMP == NULL` and all legacy
- * libdm drawing guards fire cleanly.  The ternary macros prefer `mp->mp_*`
- * because `mged_curr_pane` is now non-NULL.  Next: remove `struct mged_dm`
- * and the DMP macros (Step 7).
+ * `set_curr_pane()` sets `s->gedp->ged_gvp` from `mp->mp_gvp` and sets
+ * `s->mged_curr_pane = mp`.  Step 7.18 removed `struct mged_dm` entirely;
+ * all libdm fields (mp_dmp, mp_fbp, mp_netfd, etc.) are now on mged_pane.
+ * Next: remove dm-generic.c, migrate draw/refresh to Obol.
  *
- * See RADICAL_MIGRATION.md, "MGED refactoring for libdm removal", steps 2-6.
+ * See RADICAL_MIGRATION.md, "MGED refactoring for libdm removal", steps 2-7.
  * ----------------------------------------------------------------------- */
 
 struct mged_pane {
-    bsg_view          *mp_gvp;       /* the view this pane displays (dmp == NULL for Obol) */
-    struct cmd_list   *mp_cmd_tie;   /* Tcl command-history link (mirrors dm_tie) */
-    struct bu_list     mp_p_vlist;   /* predictor vlist (mirrors dm_p_vlist) */
+    bsg_view          *mp_gvp;       /* the view this pane displays (mp_dmp == NULL for Obol) */
+    struct cmd_list   *mp_cmd_tie;   /* Tcl command-history link (canonical; replaces dm_tie) */
+    struct bu_list     mp_p_vlist;   /* predictor vlist (Step 7.12: sole location; dm_p_vlist removed) */
     struct trail       mp_trails[NUM_TRAILS]; /* predictor trails (mirrors dm_trails) */
     int                mp_ndrawn;    /* count of objects drawn (mirrors dm_ndrawn) */
 
-    /* Stage 7 Step 6.a: back-pointer to the legacy mged_dm for "thin wrapper"
-     * panes created by mged_attach() when the user runs "attach ogl" etc.
-     * NULL for Obol panes created by f_new_obol_view_ptr().
-     *
-     * When mp_dm != NULL this mged_pane is a thin wrapper: the mp_* resource
-     * pointers below are SHARED with the mged_dm (not separately allocated).
-     * set_curr_pane() redirects s->mged_curr_dm to mp_dm for these panes so
-     * that DMP is non-NULL and legacy GL drawing still works.
-     * mged_pane_free_resources() skips freeing the shared pointers. */
-    struct mged_dm    *mp_dm;
+    /* Step 7.18: libdm handle fields moved from mged_dm to mged_pane.
+     * NULL for Obol panes (created by f_new_obol_view_ptr()).
+     * Non-NULL for legacy dm panes (created by mged_attach / "attach ogl" etc.).
+     * The mp_dmp != NULL test replaces the old mp_dm != NULL is-dm-pane check. */
+    struct dm		*mp_dmp;   /* libdm handle (NULL for Obol panes) */
+    struct fb		*mp_fbp;   /* framebuffer overlay (NULL if not open) */
+    int			mp_netfd;   /* fbserv listen socket (-1 if inactive) */
+#ifdef USE_TCL_CHAN
+    Tcl_Channel		mp_netchan; /* Tcl channel wrapping mp_netfd */
+#endif
+    struct client	mp_clients[MAX_CLIENTS]; /* fbserv client table */
+    int			mp_dirty;   /* true if expose/configure event received */
+    int			mp_mapped;  /* true if window is mapped/visible */
 
-    /* Per-pane state (mirrors the shareable resources in mged_dm).  For Obol
-     * panes (mp_dm == NULL) these are allocated and initialized by
-     * mged_pane_init_resources() and freed by mged_pane_free_resources().
-     * For legacy dm wrappers (mp_dm != NULL) these point directly to the
-     * corresponding dm_* fields of mp_dm and must NOT be freed here. */
+    /* Per-pane shareable resources.  Allocated and ref-counted.
+     * Allocated by mged_pane_init_resources(); freed by mged_pane_free_resources(). */
     struct _view_state      *mp_view_state;
     struct _adc_state       *mp_adc_state;
     struct _menu_state      *mp_menu_state;
@@ -486,6 +423,29 @@ struct mged_pane {
     struct bu_vls   mp_center_name; /* "$::mged_display(%path,center)" */
     struct bu_vls   mp_size_name;   /* "$::mged_display(%path,size)" */
     struct bu_vls   mp_adc_name;    /* "$::mged_display(%path,adc)" */
+
+    /* Step 7.15: Non-lifecycle state fields moved from mged_dm to mged_pane.
+     * Step 7.18: mp_dirty and mp_mapped also moved here (previously dm_dirty/dm_mapped).
+     * All pane state is now consolidated in mged_pane. */
+    int mp_owner;            /* true if this pane owns the view info */
+    int mp_am_mode;          /* alternate mouse mode */
+    int mp_perspective_angle;/* current perspective-table index (0-3) */
+    int mp_adc_auto;         /* adc auto-clear flag */
+    int mp_grid_auto_size;   /* auto grid-size flag */
+
+    /* Mouse/knob state */
+    int mp_mouse_dx;
+    int mp_mouse_dy;
+    int mp_omx;
+    int mp_omy;
+    int mp_knobs[8];
+    point_t mp_work_pt;
+
+    /* Scroll-widget state */
+    int mp_scroll_top;
+    int mp_scroll_active;
+    int mp_scroll_y;
+    struct scroll_item *mp_scroll_array[6];
 };
 
 #define MGED_PANE_NULL ((struct mged_pane *)NULL)
@@ -512,10 +472,10 @@ extern void mged_pane_release(struct mged_pane *mp);
 
 /**
  * Allocate and initialize the per-pane overlay state (mp_view_state,
- * mp_color_scheme, etc.) for an Obol mged_pane.  Copies initial values
- * from mged_dm_init_state so the new pane starts with the same defaults
- * as a legacy dm pane.  Must be called after mged_dm_init_state has been
- * populated (i.e. after the nu-dm is set up in mged main()).
+ * mp_color_scheme, etc.) for an mged_pane (Obol or legacy dm).
+ * Copies initial values from the currently-active pane (s->mged_curr_pane)
+ * or from s->mged_init_pane as fallback.
+ * Step 7.18: unified single path; no mp_dm branching.
  */
 extern void mged_pane_init_resources(struct mged_state *s, struct mged_pane *mp);
 
@@ -524,15 +484,19 @@ extern void mged_pane_init_resources(struct mged_state *s, struct mged_pane *mp)
  * Safe to call even if init_resources was never called (all pointers are NULL).
  */
 extern void mged_pane_free_resources(struct mged_pane *mp);
-#define DMP s->mged_curr_dm->dm_dmp
-#define DMP_dirty s->mged_curr_dm->dm_dirty
-#define fbp s->mged_curr_dm->dm_fbp
-#define clients s->mged_curr_dm->dm_clients
-#define mapped s->mged_curr_dm->dm_mapped
-#define owner s->mged_curr_dm->dm_owner
-#define am_mode s->mged_curr_dm->dm_am_mode
-#define perspective_angle s->mged_curr_dm->dm_perspective_angle
-#define zclip_ptr s->mged_curr_dm->dm_zclip_ptr
+
+/* Step 7.18: DMP, DMP_dirty, fbp, clients, mapped macros now go directly through
+ * mged_curr_pane->mp_* (no mged_dm intermediate struct).
+ * Obol panes have mp_dmp == NULL so the "if (!DMP)" guards still work. */
+#define DMP (s->mged_curr_pane->mp_dmp)
+#define DMP_dirty s->mged_curr_pane->mp_dirty
+#define fbp s->mged_curr_pane->mp_fbp
+#define clients s->mged_curr_pane->mp_clients
+#define mapped s->mged_curr_pane->mp_mapped
+#define owner s->mged_curr_pane->mp_owner
+#define am_mode s->mged_curr_pane->mp_am_mode
+#define perspective_angle s->mged_curr_pane->mp_perspective_angle
+/* Step 7.15: zclip_ptr macro removed — dm_zclip_ptr was dead (never used). */
 
 /* Step 7.2: mged_curr_pane is always non-NULL after startup (init_pane created
  * in mged_main before any attach).  Direct mp_* access — no ternary fallback
@@ -549,38 +513,39 @@ extern void mged_pane_free_resources(struct mged_pane *mp);
 #define axes_state s->mged_curr_pane->mp_axes_state
 #define dlist_state s->mged_curr_pane->mp_dlist_state
 
-/* pv_head / pane_trails: INTENTIONAL EXCEPTION to the Step 7.3 simplification.
- * These two macros still use ternary logic because the predictor vlist and
- * trails live in different places for the two pane types:
- *  - Obol panes (mp_dm == NULL): state is in mged_pane.mp_p_vlist / mp_trails
- *  - Legacy dm wrappers (mp_dm != NULL): state is in mged_dm.dm_p_vlist /
- *    dm_trails; set_curr_pane() redirects mged_curr_dm → mp_dm, so accessing
- *    through mged_curr_dm is correct and consistent with dm_var_init.
- * Unlike the resource macros (view_state etc.), for which the wrapper's mp_*
- * and dm->dm_* are the SAME pointer (shared), predictor state is per-dm and
- * not exposed via mp_* on the wrapper. */
-#define pv_head (!s->mged_curr_pane->mp_dm ? &s->mged_curr_pane->mp_p_vlist : &s->mged_curr_dm->dm_p_vlist)
-#define pane_trails (!s->mged_curr_pane->mp_dm ? s->mged_curr_pane->mp_trails : s->mged_curr_dm->dm_trails)
+/* Step 7.8: pv_head / pane_trails simplified from ternary to always use pane
+ * fields.  mged_pane_init_resources() initialises mp_p_vlist and mp_trails
+ * for BOTH Obol panes and legacy dm wrapper panes (via predictor_init_pane),
+ * so the pane's fields are always valid.  mged_dm_init() / dm_var_init()
+ * no longer call predictor_init(s) before the wrapper pane is registered;
+ * predictor_init_pane(pane) is called inside mged_pane_init_resources()
+ * after the wrapper pane is fully constructed.
+ *
+ * dm_p_vlist is kept BU_LIST_INIT'd in mged_attach() so that the legacy
+ * BSG_FREE_VLIST call in release() / mged_finish() remains a safe no-op. */
+#define pv_head (&s->mged_curr_pane->mp_p_vlist)
+#define pane_trails (s->mged_curr_pane->mp_trails)
 
-#define cmd_hook s->mged_curr_dm->dm_cmd_hook
-#define viewpoint_hook s->mged_curr_dm->dm_viewpoint_hook
-#define eventHandler s->mged_curr_dm->dm_eventHandler
+/* Step 7.14: cmd_hook/viewpoint_hook/eventHandler macros removed.
+ * dm_cmd_hook was always dm_commands — use dm_commands() directly.
+ * viewpoint_hook/eventHandler were never assigned or called (dead). */
 
-#define adc_auto s->mged_curr_dm->dm_adc_auto
-#define grid_auto_size s->mged_curr_dm->dm_grid_auto_size
+/* Step 7.15: adc_auto, grid_auto_size, mouse/knob/scroll fields moved from mged_dm to mged_pane. */
+#define adc_auto s->mged_curr_pane->mp_adc_auto
+#define grid_auto_size s->mged_curr_pane->mp_grid_auto_size
 
 /* Names of macros must be different than actual struct element */
-#define dm_mouse_dx s->mged_curr_dm->_dm_mouse_dx
-#define dm_mouse_dy s->mged_curr_dm->_dm_mouse_dy
-#define dm_omx s->mged_curr_dm->_dm_omx
-#define dm_omy s->mged_curr_dm->_dm_omy
-#define dm_knobs s->mged_curr_dm->_dm_knobs
-#define dm_work_pt s->mged_curr_dm->_dm_work_pt
+#define dm_mouse_dx s->mged_curr_pane->mp_mouse_dx
+#define dm_mouse_dy s->mged_curr_pane->mp_mouse_dy
+#define dm_omx s->mged_curr_pane->mp_omx
+#define dm_omy s->mged_curr_pane->mp_omy
+#define dm_knobs s->mged_curr_pane->mp_knobs
+#define dm_work_pt s->mged_curr_pane->mp_work_pt
 
-#define scroll_top s->mged_curr_dm->dm_scroll_top
-#define scroll_active s->mged_curr_dm->dm_scroll_active
-#define scroll_y s->mged_curr_dm->dm_scroll_y
-#define scroll_array s->mged_curr_dm->dm_scroll_array
+#define scroll_top s->mged_curr_pane->mp_scroll_top
+#define scroll_active s->mged_curr_pane->mp_scroll_active
+#define scroll_y s->mged_curr_pane->mp_scroll_y
+#define scroll_array s->mged_curr_pane->mp_scroll_array
 
 #define VIEWSIZE	(view_state->vs_gvp->gv_size)	/* Width of viewing cube */
 #define VIEWFACTOR	(1/view_state->vs_gvp->gv_scale)
@@ -640,11 +605,11 @@ extern void mged_pane_free_resources(struct mged_pane *mp);
 
 #define GET_MGED_DM(p, id) { \
     \
-    (p) = MGED_DM_NULL; \
+    (p) = MGED_PANE_NULL; \
     for (size_t dm_ind = 0; dm_ind < BU_PTBL_LEN(&active_pane_set); dm_ind++) { \
 	struct mged_pane *_mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, dm_ind); \
-	if (_mp->mp_dm && (id) == dm_get_id(_mp->mp_dm->dm_dmp)) { \
-	    (p) = _mp->mp_dm; \
+	if (_mp->mp_dmp && (id) == dm_get_id(_mp->mp_dmp)) { \
+	    (p) = _mp; \
 	    break; \
 	} \
     } \
@@ -658,8 +623,7 @@ extern void mged_pane_free_resources(struct mged_pane *mp);
     (p) = MGED_PANE_NULL; \
     for (size_t dm_ind = 0; dm_ind < BU_PTBL_LEN(&active_pane_set); dm_ind++) { \
 	struct mged_pane *_mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, dm_ind); \
-	if (_mp->mp_dm && _mp->mp_dm->dm_dmp && \
-	    (id) == dm_get_id(_mp->mp_dm->dm_dmp)) { \
+	if (_mp->mp_dmp && (id) == dm_get_id(_mp->mp_dmp)) { \
 	    (p) = _mp; \
 	    break; \
 	} \
@@ -671,7 +635,7 @@ extern double frametime;		/* defined in mged.c */
 extern int dm_pipe[];			/* defined in mged.c */
 extern int update_views;		/* defined in mged.c */
 /* active_dm_set removed (Step 6.c); use active_pane_set instead */
-extern struct mged_dm *mged_dm_init_state;
+/* mged_dm_init_state removed (Step 7.18); startup sentinel is s->mged_init_pane */
 
 /* defined in doevent.c */
 #ifdef HAVE_X11_TYPES
@@ -681,7 +645,7 @@ extern int doEvent(ClientData, void *);
 #endif
 
 /* defined in attach.c */
-extern void dm_var_init(struct mged_state *s, struct mged_dm *target_dm);
+extern void dm_var_init(struct mged_state *s, struct mged_pane *target_pane, struct mged_pane *npane);
 
 /* defined in dm-generic.c */
 extern int common_dm(struct mged_state *s, int argc, const char *argv[]);

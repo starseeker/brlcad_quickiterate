@@ -224,9 +224,10 @@ struct mged_state {
     struct bu_vls mged_prompt;
 
     /* Display related */
-    struct mged_dm *mged_curr_dm;  /* legacy libdm pane (NULL when Obol-only) */
+    /* Step 7.10: mged_curr_dm removed — use mged_curr_pane->mp_dm for the
+     * current pane (Step 7.18: mged_dm eliminated; sentinel is s->mged_init_pane). */
     struct mged_pane *mged_curr_pane;  /* Step 7: current pane; always non-NULL after init */
-    struct mged_pane *mged_init_pane;  /* Step 7.2: startup sentinel wrapper (wraps mged_dm_init_state) */
+    struct mged_pane *mged_init_pane;  /* Step 7.2: startup sentinel pane (Step 7.18: no longer wraps mged_dm_init_state) */
     char *dpy_string;
     struct bu_list *vlfree;
 
@@ -381,8 +382,7 @@ extern struct run_rt head_run_rt;
 
 /* attach.c */
 int mged_attach(struct mged_state *s, const char *wp_name, int argc, const char *argv[]);
-void mged_link_vars(struct mged_dm *p);
-void mged_slider_free_vls(struct mged_dm *p);
+/* Step 7.13: mged_link_vars and mged_slider_free_vls removed (dm VLS name fields deleted). */
 int gui_setup(struct mged_state *s, const char *dstr);
 
 
@@ -396,7 +396,7 @@ void size_reset(struct mged_state *s);
 void solid_list_callback(struct mged_state *s);
 
 extern void view_ring_init(struct _view_state *vsp1, struct _view_state *vsp2); /* defined in chgview.c */
-extern void view_ring_destroy(struct mged_dm *dlp);
+extern void view_ring_destroy(struct _view_state *vsp); /* Step 7.17: now takes view_state directly */
 
 /* cmd.c */
 int cmdline(struct mged_state *s, struct bu_vls *vp, int record);
@@ -525,7 +525,7 @@ void init_oedit(struct mged_state *s);
 void init_sedit(struct mged_state *s);
 
 /* share.c */
-void usurp_all_resources(struct mged_dm *dlp1, struct mged_dm *dlp2);
+void usurp_all_resources(struct mged_pane *p1, struct mged_pane *p2);
 
 /* set.c */
 extern void set_absolute_tran(struct mged_state *);

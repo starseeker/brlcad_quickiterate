@@ -911,7 +911,7 @@ edit_com(struct mged_state *s,
 		s->update_views = 1;
 
 		/* Also update view_ring scale for legacy dm wrapper panes. */
-		if (mp->mp_dm && mp->mp_view_state) {
+		if (mp->mp_dmp && mp->mp_view_state) {
 		    struct view_ring *vrp;
 		    (void)mged_svbase(s);
 		    for (BU_LIST_FOR(vrp, view_ring, &mp->mp_view_state->vs_headView.l))
@@ -975,7 +975,7 @@ cmd_autoview(ClientData clientData, Tcl_Interp *interp, int argc, const char *ar
 	    view_state->vs_flag = 1;
 
 	    /* Also update view_ring scale for legacy dm wrapper panes. */
-	    if (mp->mp_dm && mp->mp_view_state) {
+	    if (mp->mp_dmp && mp->mp_view_state) {
 		struct view_ring *vrp;
 		(void)mged_svbase(s);
 		for (BU_LIST_FOR(vrp, view_ring, &mp->mp_view_state->vs_headView.l))
@@ -2285,13 +2285,13 @@ f_svbase(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[]
 
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (!mp->mp_dm) continue;  /* skip Obol panes */
+	if (!mp->mp_dmp) continue;  /* skip Obol panes */
 	/* if sharing view while faceplate and original gui (i.e. button menu, sliders) are on */
 	if (mp->mp_view_state == view_state &&
 	    mp->mp_mged_variables->mv_faceplate &&
 	    mp->mp_mged_variables->mv_orig_gui) {
-	    mp->mp_dm->dm_dirty = 1;
-	    dm_set_dirty(mp->mp_dm->dm_dmp, 1);
+	    mp->mp_dirty = 1;
+	    dm_set_dirty(mp->mp_dmp, 1);
 	}
     }
 
@@ -2442,12 +2442,16 @@ view_ring_init(struct _view_state *vsp1, struct _view_state *vsp2)
 
 
 void
-view_ring_destroy(struct mged_dm *dlp)
+/* Step 7.17: view_ring_destroy now takes a _view_state * directly, removing
+ * the dependency on struct mged_dm (which no longer has dm_view_state). */
+view_ring_destroy(struct _view_state *vsp)
 {
     struct view_ring *vrp;
 
-    while (BU_LIST_NON_EMPTY(&dlp->dm_view_state->vs_headView.l)) {
-	vrp = BU_LIST_FIRST(view_ring, &dlp->dm_view_state->vs_headView.l);
+    if (!vsp) return;
+
+    while (BU_LIST_NON_EMPTY(&vsp->vs_headView.l)) {
+	vrp = BU_LIST_FIRST(view_ring, &vsp->vs_headView.l);
 	BU_LIST_DEQUEUE(&vrp->l);
 	bu_free((void *)vrp, "view_ring_destroy: vrp");
     }

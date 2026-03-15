@@ -1075,9 +1075,8 @@ cmd_cmd_win(ClientData clientData, Tcl_Interp *interpreter, int argc, const char
 
 	BU_LIST_DEQUEUE(&clp->l);
 	if (clp->cl_tie != NULL) {
-	    clp->cl_tie->mp_cmd_tie = CMD_LIST_NULL;  /* Step 7.4: mp_cmd_tie not dm_tie */
-	    if (clp->cl_tie->mp_dm)
-		clp->cl_tie->mp_dm->dm_tie = CMD_LIST_NULL;
+	    clp->cl_tie->mp_cmd_tie = CMD_LIST_NULL;  /* Step 7.4/7.11: mp_cmd_tie is canonical */
+	    /* Step 7.11: dm_tie removed from mged_dm */
 	}
 	bu_vls_free(&clp->cl_more_default);
 	bu_vls_free(&clp->cl_name);
@@ -1460,8 +1459,8 @@ f_tie(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, const ch
 	for (BU_LIST_FOR (clp, cmd_list, &head_cmd_list.l)) {
 	    bu_vls_trunc(&vls, 0);
 	    /* Step 7.4: cl_tie is mged_pane*; get dm pathname via mp_dm */
-	    if (clp->cl_tie && clp->cl_tie->mp_dm && clp->cl_tie->mp_dm->dm_dmp) {
-		struct bu_vls *pn = dm_get_pathname(clp->cl_tie->mp_dm->dm_dmp);
+	    if (clp->cl_tie && clp->cl_tie->mp_dmp) {
+		struct bu_vls *pn = dm_get_pathname(clp->cl_tie->mp_dmp);
 		if (pn && bu_vls_strlen(pn)) {
 		    bu_vls_printf(&vls, "%s %s", bu_vls_cstr(&clp->cl_name), bu_vls_cstr(pn));
 		    Tcl_AppendElement(interpreter, bu_vls_cstr(&vls));
@@ -1473,8 +1472,8 @@ f_tie(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, const ch
 	}
 
 	bu_vls_trunc(&vls, 0);
-	if (clp->cl_tie && clp->cl_tie->mp_dm && clp->cl_tie->mp_dm->dm_dmp) {
-	    struct bu_vls *pn = dm_get_pathname(clp->cl_tie->mp_dm->dm_dmp);
+	if (clp->cl_tie && clp->cl_tie->mp_dmp) {
+	    struct bu_vls *pn = dm_get_pathname(clp->cl_tie->mp_dmp);
 	    if (pn && bu_vls_strlen(pn)) {
 		bu_vls_printf(&vls, "%s %s", bu_vls_cstr(&clp->cl_name), bu_vls_cstr(pn));
 		Tcl_AppendElement(interpreter, bu_vls_cstr(&vls));
@@ -1514,11 +1513,9 @@ f_tie(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, const ch
     }
 
     if (uflag) {
-	/* Step 7.4: cl_tie is mged_pane*; clear mp_cmd_tie + dm back-ptr */
+	/* Step 7.11: dm_tie removed from mged_dm; mp_cmd_tie is canonical */
 	if (clp->cl_tie) {
 	    clp->cl_tie->mp_cmd_tie = CMD_LIST_NULL;
-	    if (clp->cl_tie->mp_dm)
-		clp->cl_tie->mp_dm->dm_tie = CMD_LIST_NULL;
 	}
 	clp->cl_tie = MGED_PANE_NULL;
 
@@ -1529,8 +1526,8 @@ f_tie(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, const ch
     /* print out the display manager that we're tied to */
     if (argc == 2) {
 	/* Step 7.4: cl_tie is mged_pane*; get dm pathname via mp_dm */
-	if (clp->cl_tie && clp->cl_tie->mp_dm && clp->cl_tie->mp_dm->dm_dmp) {
-	    struct bu_vls *pn = dm_get_pathname(clp->cl_tie->mp_dm->dm_dmp);
+	if (clp->cl_tie && clp->cl_tie->mp_dmp) {
+	    struct bu_vls *pn = dm_get_pathname(clp->cl_tie->mp_dmp);
 	    if (pn && bu_vls_strlen(pn)) {
 		Tcl_AppendElement(interpreter, bu_vls_cstr(pn));
 	    }
@@ -1551,8 +1548,8 @@ f_tie(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, const ch
     struct mged_pane *tlp = MGED_PANE_NULL;
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (!mp->mp_dm) continue;
-	struct bu_vls *pn = dm_get_pathname(mp->mp_dm->dm_dmp);
+	if (!mp->mp_dmp) continue;
+	struct bu_vls *pn = dm_get_pathname(mp->mp_dmp);
 	if (pn && !bu_vls_strcmp(&vls, pn)) {
 	    tlp = mp;
 	    break;
@@ -1569,8 +1566,7 @@ f_tie(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, const ch
     /* clear old cl_tie back-link */
     if (clp->cl_tie) {
 	clp->cl_tie->mp_cmd_tie = CMD_LIST_NULL;
-	if (clp->cl_tie->mp_dm)
-	    clp->cl_tie->mp_dm->dm_tie = CMD_LIST_NULL;
+	/* Step 7.11: dm_tie removed from mged_dm */
     }
 
     clp->cl_tie = tlp;
@@ -1580,8 +1576,7 @@ f_tie(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, const ch
 	tlp->mp_cmd_tie->cl_tie = MGED_PANE_NULL;
 
     tlp->mp_cmd_tie = clp;
-    if (tlp->mp_dm)
-	tlp->mp_dm->dm_tie = clp;
+    /* Step 7.11: tlp->mp_dm->dm_tie removed; mp_cmd_tie is canonical */
 
     bu_vls_free(&vls);
     return TCL_OK;
@@ -1592,8 +1587,7 @@ int
 f_postscript(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *argv[])
 {
     int status;
-    struct mged_dm *dml;
-    struct mged_pane *dml_pane;  /* Step 7.5: save pane too */
+    struct mged_pane *dml_pane;
     struct _view_state *vsp;
     struct cmdtab *ctp = (struct cmdtab *)clientData;
     MGED_CK_CMD(ctp);
@@ -1610,7 +1604,8 @@ f_postscript(ClientData clientData, Tcl_Interp *interpreter, int argc, const cha
     if (s->gedp == GED_NULL)
 	return TCL_OK;
 
-    dml = s->mged_curr_dm;
+    /* Step 7.7: save current pane's mp_dm directly (replaces saving mged_curr_dm). */
+    /* Step 7.16: dml (mged_dm) no longer needed; use pane directly for resource access. */
     dml_pane = s->mged_curr_pane;
     s->gedp->ged_gvp = view_state->vs_gvp;
     status = mged_attach(s, "postscript", argc, argv);
@@ -1619,20 +1614,23 @@ f_postscript(ClientData clientData, Tcl_Interp *interpreter, int argc, const cha
 
     vsp = view_state;  /* save state info pointer */
 
+    /* After mged_attach, the postscript pane is current; its resources are pane-owned.
+     * Step 7.16: Update the new pane's menu_state from the old pane's menu_state. */
     bu_free((void *)menu_state, "f_postscript: menu_state");
-    s->mged_curr_dm->dm_menu_state = dml->dm_menu_state;
+    s->mged_curr_pane->mp_menu_state = dml_pane->mp_menu_state;
+    ++s->mged_curr_pane->mp_menu_state->ms_rc;   /* increment ref count since now shared */
 
-    scroll_top = dml->dm_scroll_top;
-    scroll_active = dml->dm_scroll_active;
-    scroll_y = dml->dm_scroll_y;
-    memmove((void *)scroll_array, (void *)dml->dm_scroll_array, sizeof(struct scroll_item *) * 6);
+    scroll_top = dml_pane->mp_scroll_top;
+    scroll_active = dml_pane->mp_scroll_active;
+    scroll_y = dml_pane->mp_scroll_y;
+    memmove((void *)scroll_array, (void *)dml_pane->mp_scroll_array, sizeof(struct scroll_item *) * 6);
 
     DMP_dirty = 1;
     if (DMP) dm_set_dirty(DMP, 1);
     refresh(s);
 
-    /* Step 7.5: restore pane (replaces set_curr_dm + explicit dm assignment). */
-    s->mged_curr_dm->dm_view_state = vsp;
+    /* Step 7.17: view_state now in pane; update pane's mp_view_state for postscript output. */
+    s->mged_curr_pane->mp_view_state = vsp;
     status = Tcl_Eval(interpreter, "release");
     set_curr_pane(s, dml_pane);
     s->gedp->ged_gvp = view_state->vs_gvp;
@@ -1704,8 +1702,8 @@ f_winset(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
     /* Step 6.b: f_winset fallback: search active_pane_set for dm wrapper by pathname. */
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (!mp->mp_dm) continue;
-	struct bu_vls *pn = dm_get_pathname(mp->mp_dm->dm_dmp);
+	if (!mp->mp_dmp) continue;
+	struct bu_vls *pn = dm_get_pathname(mp->mp_dmp);
 	if (pn && BU_STR_EQUAL(argv[1], bu_vls_cstr(pn))) {
 	    set_curr_pane(s, mp);
 
@@ -2082,7 +2080,7 @@ cmd_blast(ClientData clientData, Tcl_Interp *UNUSED(interpreter), int argc, cons
 		ged_exec_autoview(s->gedp, 1, (const char **)av);
 		s->update_views = 1;
 		/* Also update view_ring scale for legacy dm wrapper panes. */
-		if (mp->mp_dm && mp->mp_view_state) {
+		if (mp->mp_dmp && mp->mp_view_state) {
 		    struct view_ring *vrp;
 		    (void)mged_svbase(s);
 		    for (BU_LIST_FOR(vrp, view_ring, &mp->mp_view_state->vs_headView.l))

@@ -66,7 +66,7 @@ dozoom(struct mged_state *s, int which_eye)
      */
     struct mged_pane *save_pane = s->mged_curr_pane;
 
-    s->mged_curr_dm->dm_ndrawn = 0;
+    s->mged_curr_pane->mp_ndrawn = 0;
     inv_viewsize = view_state->vs_gvp->gv_isize;
 
     struct bsg_camera _vcam;
@@ -150,9 +150,8 @@ dozoom(struct mged_state *s, int which_eye)
 	 * mged_curr_pane/dm to change. Restore via pane (Step 7.5). */
 	if (s->mged_curr_pane != save_pane) set_curr_pane(s, save_pane);
 
-	/* Step 5.15: accumulate drawn count via struct field directly to avoid
-	 * conflict with the local "ndrawn" variable (the macro would shadow it). */
-	s->mged_curr_dm->dm_ndrawn += ndrawn;
+	/* Step 7.6: accumulate drawn count in mp_ndrawn (authoritative counter). */
+	s->mged_curr_pane->mp_ndrawn += ndrawn;
 
 	/* disable write to depth buffer */
 	dm_set_depth_mask(DMP, 0);
@@ -175,10 +174,7 @@ dozoom(struct mged_state *s, int which_eye)
      * mged_curr_pane/dm to change. Restore via pane (Step 7.5). */
     if (s->mged_curr_pane != save_pane) set_curr_pane(s, save_pane);
 
-    s->mged_curr_dm->dm_ndrawn += ndrawn;
-
-
-    /* draw predictor vlist */
+    s->mged_curr_pane->mp_ndrawn += ndrawn;
     if (mged_variables->mv_predictor) {
 	dm_set_fg(DMP,
 		       color_scheme->cs_predictor[0],
@@ -213,8 +209,8 @@ dozoom(struct mged_state *s, int which_eye)
 	    r, g, b, mged_variables->mv_linewidth, mged_variables->mv_dlist, 1,
 	    geometry_default_color, 0, mged_variables->mv_dlist);
 
-    /* Step 5.15: accumulate via struct field directly (avoid macro/local conflict). */
-    s->mged_curr_dm->dm_ndrawn += ndrawn;
+    /* Step 7.6: accumulate drawn count in mp_ndrawn (authoritative counter). */
+    s->mged_curr_pane->mp_ndrawn += ndrawn;
 
     /* The vectorThreshold stuff in libdm may turn the Tcl-crank causing
      * mged_curr_pane/dm to change. Restore via pane (Step 7.5). */
@@ -240,7 +236,7 @@ createDListSolid(void *vlist_ctx, bsg_shape *sp)
     /* Step 6.b: use active_pane_set. */
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (!mp->mp_dm) continue;  /* skip Obol panes */
+	if (!mp->mp_dmp) continue;  /* skip Obol panes */
 	set_curr_pane(s, mp);
 	if (mapped &&
 		dm_get_displaylist(DMP) &&
@@ -307,7 +303,7 @@ freeDListsAll(void *data, unsigned int dlist, int range)
     struct mged_pane *save_pane = s->mged_curr_pane;
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (!mp->mp_dm) continue;  /* skip Obol panes */
+	if (!mp->mp_dmp) continue;  /* skip Obol panes */
 	set_curr_pane(s, mp);
 	if (dm_get_displaylist(DMP) && mged_variables->mv_dlist) {
 	    (void)dm_make_current(DMP);
