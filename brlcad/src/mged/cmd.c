@@ -1538,13 +1538,13 @@ f_tie(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, const ch
     else
 	bu_vls_strcpy(&vls, argv[2]);
 
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	/* Stage 7 (step 5.14): skip the initial "nu" entry with no dm. */
-	if (!m_dmp->dm_dmp) continue;
-	struct bu_vls *pn = dm_get_pathname(m_dmp->dm_dmp);
+    /* Step 6.b: search active_pane_set (covers dm wrapper panes by gv_name). */
+    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	if (!mp->mp_dm) continue;
+	struct bu_vls *pn = dm_get_pathname(mp->mp_dm->dm_dmp);
 	if (pn && !bu_vls_strcmp(&vls, pn)) {
-	    dlp = m_dmp;
+	    dlp = mp->mp_dm;
 	    break;
 	}
     }
@@ -1687,19 +1687,16 @@ f_winset(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
 	}
     }
 
-    /* Legacy dm path fallback: loop active_dm_set matching by dm pathname.
-     * Reached only for dm panes that don't yet have a mged_pane wrapper
-     * in active_pane_set (e.g., attached before this code was in place). */
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	/* Stage 7 (step 5.14): skip the initial "nu" entry with no dm. */
-	if (!p->dm_dmp) continue;
-	struct bu_vls *pn = dm_get_pathname(p->dm_dmp);
+    /* Step 6.b: f_winset fallback: search active_pane_set for dm wrapper by pathname. */
+    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	if (!mp->mp_dm) continue;
+	struct bu_vls *pn = dm_get_pathname(mp->mp_dm->dm_dmp);
 	if (pn && BU_STR_EQUAL(argv[1], bu_vls_cstr(pn))) {
-	    set_curr_dm(s, p);
+	    set_curr_pane(s, mp);
 
-	    if (s->mged_curr_dm->dm_tie)
-		curr_cmd_list = s->mged_curr_dm->dm_tie;
+	    if (s->mged_curr_pane->mp_cmd_tie)
+		curr_cmd_list = s->mged_curr_pane->mp_cmd_tie;
 	    else
 		curr_cmd_list = &head_cmd_list;
 
@@ -2047,70 +2044,43 @@ cmd_blast(ClientData clientData, Tcl_Interp *UNUSED(interpreter), int argc, cons
     if (ret)
 	return TCL_ERROR;
 
-    /* update and resize the views */
-    struct mged_dm *save_m_dmp = s->mged_curr_dm;
-    struct cmd_list *save_cmd_list = curr_cmd_list;
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	int non_empty = 0; /* start out empty */
-
-	/* Step 5.17: skip null-dm sentinel before set_curr_dm. */
-	if (!m_dmp->dm_dmp) continue;
-
-	set_curr_dm(s, m_dmp);
-
-	if (s->mged_curr_dm->dm_tie) {
-	    curr_cmd_list = s->mged_curr_dm->dm_tie;
-	} else {
-	    curr_cmd_list = &head_cmd_list;
-	}
-
-	s->gedp->ged_gvp = view_state->vs_gvp;
-
-	{
-	    bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
-	    non_empty = (root && BU_PTBL_LEN(&root->children) > 0) ? 1 : 0;
-	}
-
-	if (mged_variables->mv_autosize && non_empty) {
-	    struct view_ring *vrp;
-	    const char *av[1] = {"autoview"};
-	    ged_exec_autoview(s->gedp, 1, (const char **)av);
-
-	    (void)mged_svbase(s);
-
-	    for (BU_LIST_FOR(vrp, view_ring, &view_state->vs_headView.l)) {
-		vrp->vr_scale = view_state->vs_gvp->gv_scale;
-	    }
-	}
-    }
-
-    set_curr_dm(s, save_m_dmp);
-    curr_cmd_list = save_cmd_list;
-    s->gedp->ged_gvp = view_state->vs_gvp;
-
-    /* Stage 7: also apply autoview to Obol panes (active_pane_set).
-     * Step 6.a: skip legacy dm wrapper panes (mp_dm != NULL). */
+    /* update and resize the views; Step 6.b: use active_pane_set. */
     {
 	struct mged_pane *save_pane = s->mged_curr_pane;
+	struct mged_dm *save_m_dmp = s->mged_curr_dm;
+	struct cmd_list *save_cmd_list = curr_cmd_list;
 	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	    if (mp->mp_dm) continue;  /* skip legacy dm wrappers */
 	    int non_empty = 0;
+
 	    set_curr_pane(s, mp);
+	    if (s->mged_curr_pane->mp_cmd_tie)
+		curr_cmd_list = s->mged_curr_pane->mp_cmd_tie;
+	    else
+		curr_cmd_list = &head_cmd_list;
+
+	    s->gedp->ged_gvp = view_state->vs_gvp;
 	    {
-		bsg_shape *root = bsg_scene_root_get(mp->mp_gvp);
+		bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
 		non_empty = (root && BU_PTBL_LEN(&root->children) > 0) ? 1 : 0;
 	    }
 	    if (mged_variables->mv_autosize && non_empty) {
 		const char *av[1] = {"autoview"};
 		ged_exec_autoview(s->gedp, 1, (const char **)av);
 		s->update_views = 1;
+		/* Also update view_ring scale for legacy dm wrapper panes. */
+		if (mp->mp_dm && mp->mp_view_state) {
+		    struct view_ring *vrp;
+		    (void)mged_svbase(s);
+		    for (BU_LIST_FOR(vrp, view_ring, &mp->mp_view_state->vs_headView.l))
+			vrp->vr_scale = view_state->vs_gvp->gv_scale;
+		}
 	    }
 	}
 	set_curr_pane(s, save_pane);
-	/* Restore mged_curr_dm after set_curr_pane may have redirected it. */
 	if (!save_pane) set_curr_dm(s, save_m_dmp);
+	curr_cmd_list = save_cmd_list;
+	s->gedp->ged_gvp = view_state->vs_gvp;
     }
 
     return TCL_OK;

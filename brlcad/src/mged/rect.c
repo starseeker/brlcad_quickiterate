@@ -73,11 +73,12 @@ rb_set_dirty_flag(const struct bu_structparse *UNUSED(sdp),
 {
     struct mged_state *s = (struct mged_state *)data;
     MGED_CK_STATE(s);
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	if (m_dmp->dm_rubber_band == rubber_band) {
-	    m_dmp->dm_dirty = 1;
-	    if (m_dmp->dm_dmp) dm_set_dirty(m_dmp->dm_dmp, 1);
+    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	if (!mp->mp_dm) continue;  /* skip Obol panes */
+	if (mp->mp_rubber_band == rubber_band) {
+	    mp->mp_dm->dm_dirty = 1;
+	    dm_set_dirty(mp->mp_dm->dm_dmp, 1);
 	}
     }
 }

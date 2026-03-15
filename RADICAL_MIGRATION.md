@@ -934,20 +934,30 @@ from `mp_gvp` (no DMP indirection).
    dm panes also have wrappers in `active_pane_set`), making Step 6 (full removal of
    `active_dm_set` and `struct mged_dm`) achievable in a subsequent session.
 
-   **Remaining work for Step 6 proper**: migrate all `active_dm_set` rendering loops
-   in `refresh()` to use `active_pane_set` (checking `mp_gvp->dmp` for GL drawing),
-   then delete `struct mged_dm`, `active_dm_set`, `DMP`/`fbp` macros, and
-   `dm-generic.c`.  The `f_attach` / `mged_dm_init` dm_open path can then be
-   redirected to create Obol panes only (Step 7).
+   **Remaining work for Step 6 proper**: migrated (Step 6.b below) — all rendering
+   loops now use `active_pane_set`.  Remaining: delete `struct mged_dm`,
+   `active_dm_set`, `DMP`/`fbp` macros, and `dm-generic.c`.
+
+6.b **✅ Migrate all `active_dm_set` iteration loops to `active_pane_set`** —
+   All 15 files that had `active_dm_set` rendering/dirty/update loops have been
+   migrated to use `active_pane_set` with `if (!mp->mp_dm) continue` guards:
+   `adc.c`, `axes.c`, `grid.c`, `color_scheme.c`, `menu.c`, `rect.c`, `edsol.c`,
+   `buttons.c`, `chgview.c`, `cmd.c`, `set.c`, `mged.c`, `share.c`, `dozoom.c`,
+   `fbserv.c`.  The `GET_MGED_DM` macro in `mged_dm.h` also migrated.  Paired
+   `active_dm_set` + Obol `active_pane_set` loops throughout (added in earlier
+   sessions) are collapsed to a single unified `active_pane_set` loop.
+
+   `active_dm_set` now only appears in `attach.c` (insert/remove at dm attach/detach)
+   and `mged.c` (init/free at startup/shutdown).  These are Step 6.c.
 
 6. **Remove `mged_dm` and `active_dm_set`** — Once all panes use `mged_pane` and
    no remaining mged code references `DMP` unconditionally, delete `struct mged_dm`,
    `active_dm_set`, the `DMP`/`fbp`/`clients` macros, and everything in
    `src/mged/dm-generic.c`.  Prerequisites now met: all DMP uses are guarded;
    `mged_curr_pane` tracks the active Obol pane; the startup "nu" dm_open has been
-   removed (step 5.14); `active_pane_set` is the complete pane registry (step 6.a).
-   Remaining blocker: migrate the `active_dm_set` rendering loops in `refresh()` to
-   use `active_pane_set`, then remove `struct mged_dm` / `active_dm_set`.
+   removed (step 5.14); `active_pane_set` is the complete pane registry (step 6.a+6.b).
+   Remaining blocker: remove `struct mged_dm` / `active_dm_set` insert/remove in
+   `attach.c` and startup/shutdown in `mged.c` (Step 6.c).
 
 7. **Remove `attach` command's dm backend** — `f_attach`/`mged_attach()`/`mged_dm_init()`
    currently contain the dm_open path for the legacy GL path.  Once step 6 is done,

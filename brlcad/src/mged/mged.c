@@ -302,16 +302,16 @@ sig3(int UNUSED(sig))
 void
 new_edit_mats(struct mged_state *s)
 {
-    struct mged_dm *save_dm_list;
+    struct mged_pane *save_pane = s->mged_curr_pane;
+    struct mged_dm *save_dm_list = s->mged_curr_dm;
 
-    save_dm_list = s->mged_curr_dm;
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	if (!p->dm_dmp) continue;  /* skip null-dm sentinel */
-	if (!p->dm_owner)
-	    continue;
+    /* Step 6.b: use active_pane_set. */
+    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	if (!mp->mp_dm) continue;  /* skip Obol panes */
+	if (!mp->mp_dm->dm_owner) continue;
 
-	set_curr_dm(s, p);
+	set_curr_pane(s, mp);
 	{
 	    struct bsg_camera _mc;
 	    bsg_view_get_camera(view_state->vs_gvp, &_mc);
@@ -319,14 +319,15 @@ new_edit_mats(struct mged_state *s)
 	}
 	bn_mat_inv(view_state->vs_objview2model, view_state->vs_model2objview);
 
-	/* Keep rt_edit’s own cached matrix in sync for external users */
+	/* Keep rt_edit's own cached matrix in sync for external users */
 	MAT_COPY(MEDIT(s)->model2objview, view_state->vs_model2objview);
 
 	view_state->vs_flag = 1;
 	s->update_views = 1;
     }
 
-    set_curr_dm(s, save_dm_list);
+    set_curr_pane(s, save_pane);
+    if (!save_pane) set_curr_dm(s, save_dm_list);
 }
 
 
@@ -1238,138 +1239,69 @@ event_check(struct mged_state *s, int non_blocking)
 	    edobj = save_edflag;
     }
 
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	if (!p->dm_dmp) continue;  /* skip null-dm sentinel */
-	if (!p->dm_owner)
-	    continue;
+    {
+	struct mged_pane *save_pane = s->mged_curr_pane;
+	/* Step 6.b: use active_pane_set (covers both legacy dm and Obol panes). */
+	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	    if (mp->mp_dm && !mp->mp_dm->dm_owner) continue;
 
-	set_curr_dm(s, p);
+	    set_curr_pane(s, mp);
 
-	if (view_state->k.rot_m_flag) {
-	    struct bu_vls vls = BU_VLS_INIT_ZERO;
-
-	    non_blocking++;
-	    bu_vls_printf(&vls, "knob -o %c -i -m ax %f ay %f az %f\n",
-			  view_state->k.origin_m,
-			  view_state->k.rot_m[X],
-			  view_state->k.rot_m[Y],
-			  view_state->k.rot_m[Z]);
-
-	    Tcl_Eval(s->interp, bu_vls_addr(&vls));
-	    bu_vls_free(&vls);
+	    if (view_state->k.rot_m_flag) {
+		struct bu_vls vls = BU_VLS_INIT_ZERO;
+		non_blocking++;
+		bu_vls_printf(&vls, "knob -o %c -i -m ax %f ay %f az %f\n",
+			      view_state->k.origin_m,
+			      view_state->k.rot_m[X],
+			      view_state->k.rot_m[Y],
+			      view_state->k.rot_m[Z]);
+		Tcl_Eval(s->interp, bu_vls_addr(&vls));
+		bu_vls_free(&vls);
+	    }
+	    if (view_state->k.tra_m_flag) {
+		struct bu_vls vls = BU_VLS_INIT_ZERO;
+		non_blocking++;
+		bu_vls_printf(&vls, "knob -i -m aX %f aY %f aZ %f\n",
+			      view_state->k.tra_m[X] * 0.05 * view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local,
+			      view_state->k.tra_m[Y] * 0.05 * view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local,
+			      view_state->k.tra_m[Z] * 0.05 * view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local);
+		Tcl_Eval(s->interp, bu_vls_addr(&vls));
+		bu_vls_free(&vls);
+	    }
+	    if (view_state->k.rot_v_flag) {
+		struct bu_vls vls = BU_VLS_INIT_ZERO;
+		non_blocking++;
+		bu_vls_printf(&vls, "knob -o %c -i -v ax %f ay %f az %f\n",
+			      view_state->k.origin_v,
+			      view_state->k.rot_v[X],
+			      view_state->k.rot_v[Y],
+			      view_state->k.rot_v[Z]);
+		Tcl_Eval(s->interp, bu_vls_addr(&vls));
+		bu_vls_free(&vls);
+	    }
+	    if (view_state->k.tra_v_flag) {
+		struct bu_vls vls = BU_VLS_INIT_ZERO;
+		non_blocking++;
+		bu_vls_printf(&vls, "knob -i -v aX %f aY %f aZ %f",
+			      view_state->k.tra_v[X] * 0.05 * view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local,
+			      view_state->k.tra_v[Y] * 0.05 * view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local,
+			      view_state->k.tra_v[Z] * 0.05 * view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local);
+		Tcl_Eval(s->interp, bu_vls_addr(&vls));
+		bu_vls_free(&vls);
+	    }
+	    if (view_state->k.sca_flag) {
+		struct bu_vls vls = BU_VLS_INIT_ZERO;
+		non_blocking++;
+		bu_vls_printf(&vls, "zoom %f",
+			      1.0 / (1.0 - (view_state->k.sca / 10.0)));
+		Tcl_Eval(s->interp, bu_vls_addr(&vls));
+		bu_vls_free(&vls);
+	    }
 	}
-	if (view_state->k.tra_m_flag) {
-	    struct bu_vls vls = BU_VLS_INIT_ZERO;
-
-	    non_blocking++;
-	    bu_vls_printf(&vls, "knob -i -m aX %f aY %f aZ %f\n",
-			  view_state->k.tra_m[X] * 0.05 * view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local,
-			  view_state->k.tra_m[Y] * 0.05 * view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local,
-			  view_state->k.tra_m[Z] * 0.05 * view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local);
-
-	    Tcl_Eval(s->interp, bu_vls_addr(&vls));
-	    bu_vls_free(&vls);
-	}
-	if (view_state->k.rot_v_flag) {
-	    struct bu_vls vls = BU_VLS_INIT_ZERO;
-
-	    non_blocking++;
-	    bu_vls_printf(&vls, "knob -o %c -i -v ax %f ay %f az %f\n",
-			  view_state->k.origin_v,
-			  view_state->k.rot_v[X],
-			  view_state->k.rot_v[Y],
-			  view_state->k.rot_v[Z]);
-
-	    Tcl_Eval(s->interp, bu_vls_addr(&vls));
-	    bu_vls_free(&vls);
-	}
-	if (view_state->k.tra_v_flag) {
-	    struct bu_vls vls = BU_VLS_INIT_ZERO;
-
-	    non_blocking++;
-	    bu_vls_printf(&vls, "knob -i -v aX %f aY %f aZ %f",
-			  view_state->k.tra_v[X] * 0.05 * view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local,
-			  view_state->k.tra_v[Y] * 0.05 * view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local,
-			  view_state->k.tra_v[Z] * 0.05 * view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local);
-
-	    Tcl_Eval(s->interp, bu_vls_addr(&vls));
-	    bu_vls_free(&vls);
-	}
-	if (view_state->k.sca_flag) {
-	    struct bu_vls vls = BU_VLS_INIT_ZERO;
-
-	    non_blocking++;
-	    bu_vls_printf(&vls, "zoom %f",
-			  1.0 / (1.0 - (view_state->k.sca / 10.0)));
-	    Tcl_Eval(s->interp, bu_vls_addr(&vls));
-	    bu_vls_free(&vls);
-	}
-
-	set_curr_dm(s, save_dm_list);
+	set_curr_pane(s, save_pane);
+	if (!save_pane) set_curr_dm(s, save_dm_list);
     }
-
-    /* Stage 7: apply view rate knobs to Obol panes (active_pane_set).
-     * Step 6.a: skip legacy dm wrapper panes (mp_dm != NULL) — their knob
-     * handling is done by the active_dm_set loop above. */
-    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
-	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (mp->mp_dm) continue;  /* skip legacy dm wrappers */
-	set_curr_pane(s, mp);
-
-	if (mp->mp_view_state && mp->mp_view_state->k.rot_m_flag) {
-	    struct bu_vls vls = BU_VLS_INIT_ZERO;
-	    non_blocking++;
-	    bu_vls_printf(&vls, "knob -o %c -i -m ax %f ay %f az %f\n",
-			  mp->mp_view_state->k.origin_m,
-			  mp->mp_view_state->k.rot_m[X],
-			  mp->mp_view_state->k.rot_m[Y],
-			  mp->mp_view_state->k.rot_m[Z]);
-	    Tcl_Eval(s->interp, bu_vls_addr(&vls));
-	    bu_vls_free(&vls);
-	}
-	if (mp->mp_view_state && mp->mp_view_state->k.tra_m_flag) {
-	    /* Added to match legacy dm loop coverage (rot_m, tra_m, rot_v, tra_v, sca). */
-	    struct bu_vls vls = BU_VLS_INIT_ZERO;
-	    non_blocking++;
-	    bu_vls_printf(&vls, "knob -i -m aX %f aY %f aZ %f\n",
-			  mp->mp_view_state->k.tra_m[X] * 0.05 * mp->mp_view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local,
-			  mp->mp_view_state->k.tra_m[Y] * 0.05 * mp->mp_view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local,
-			  mp->mp_view_state->k.tra_m[Z] * 0.05 * mp->mp_view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local);
-	    Tcl_Eval(s->interp, bu_vls_addr(&vls));
-	    bu_vls_free(&vls);
-	}
-	if (mp->mp_view_state && mp->mp_view_state->k.rot_v_flag) {
-	    struct bu_vls vls = BU_VLS_INIT_ZERO;
-	    non_blocking++;
-	    bu_vls_printf(&vls, "knob -o %c -i -v ax %f ay %f az %f\n",
-			  mp->mp_view_state->k.origin_v,
-			  mp->mp_view_state->k.rot_v[X],
-			  mp->mp_view_state->k.rot_v[Y],
-			  mp->mp_view_state->k.rot_v[Z]);
-	    Tcl_Eval(s->interp, bu_vls_addr(&vls));
-	    bu_vls_free(&vls);
-	}
-	if (mp->mp_view_state && mp->mp_view_state->k.tra_v_flag) {
-	    struct bu_vls vls = BU_VLS_INIT_ZERO;
-	    non_blocking++;
-	    bu_vls_printf(&vls, "knob -i -v aX %f aY %f aZ %f",
-			  mp->mp_view_state->k.tra_v[X] * 0.05 * mp->mp_view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local,
-			  mp->mp_view_state->k.tra_v[Y] * 0.05 * mp->mp_view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local,
-			  mp->mp_view_state->k.tra_v[Z] * 0.05 * mp->mp_view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local);
-	    Tcl_Eval(s->interp, bu_vls_addr(&vls));
-	    bu_vls_free(&vls);
-	}
-	if (mp->mp_view_state && mp->mp_view_state->k.sca_flag) {
-	    struct bu_vls vls = BU_VLS_INIT_ZERO;
-	    non_blocking++;
-	    bu_vls_printf(&vls, "zoom %f", 1.0 / (1.0 - (mp->mp_view_state->k.sca / 10.0)));
-	    Tcl_Eval(s->interp, bu_vls_addr(&vls));
-	    bu_vls_free(&vls);
-	}
-	set_curr_pane(s, NULL);
-    }
-    set_curr_dm(s, save_dm_list);
 
     return non_blocking;
 }
@@ -1617,177 +1549,167 @@ refresh(struct mged_state *s)
      * path that sets vs_flag=1 also sets s->update_views=1, Step 5.6).
      * The vs_flag scan is removed; dm_dirty is driven purely by
      * s->update_views. */
+    /* Step 6.b: dm_dirty scan uses active_pane_set. */
     if (s->update_views) {
-	for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	    struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	    if (!p->dm_dmp) continue;  /* skip null-dm sentinel */
-	    p->dm_dirty = 1;
+	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	    if (!mp->mp_dm) continue;  /* skip Obol panes */
+	    mp->mp_dm->dm_dirty = 1;
 	}
     }
 
-    /* Clear vs_flag on all panes.  Step 5.16: vs_flag no longer drives dm_dirty
-     * (s->update_views handles that above); clearing it here is still correct
-     * housekeeping so stale flags don't accumulate.  Must be done in a separate
-     * loop from the dm_dirty scan because dm_view_state may be shared. */
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	if (!p->dm_view_state)
-	    continue;
-	p->dm_view_state->vs_flag = 0;
-    }
-    /* Also clear vs_flag for Obol panes.
-     * Step 6.a: skip legacy dm wrappers — the dm's vs_flag is cleared by
-     * the active_dm_set loop above (same underlying mp_view_state). */
+    /* Clear vs_flag on all panes (Step 5.16: housekeeping only). */
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
-	struct mged_pane *pmp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (pmp->mp_dm) continue;  /* skip legacy dm wrappers */
-	if (pmp->mp_view_state) pmp->mp_view_state->vs_flag = 0;
+	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	if (mp->mp_view_state) mp->mp_view_state->vs_flag = 0;
     }
 
     s->update_views = 0;
 
-    save_dm_list = s->mged_curr_dm;
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
+    {
+	struct mged_pane *save_pane = s->mged_curr_pane;
+	save_dm_list = s->mged_curr_dm;
+	/* Step 6.b: rendering loop uses active_pane_set. */
+	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	    /* skip Obol panes — they render via obol_notify_views below */
+	    if (!mp->mp_dm) continue;
 
-	/* Step 5.17: skip null-dm entries (the startup sentinel and Obol-mode
-	 * redirect) before calling set_curr_dm — avoids the unnecessary
-	 * mged_curr_dm redirect for entries that carry no real display manager.
-	 * Previously this guard was placed after set_curr_dm. */
-	if (!p->dm_dmp) continue;
+	    /*
+	     * if something has changed, then go update the display.
+	     * Otherwise, we are happy with the view we have
+	     */
+	    set_curr_pane(s, mp);
 
-	/*
-	 * if something has changed, then go update the display.
-	 * Otherwise, we are happy with the view we have
-	 */
-	set_curr_dm(s, p);
+	    if (mapped && DMP_dirty) {
+		int restore_zbuffer = 0;
 
-	if (mapped && DMP_dirty) {
-	    int restore_zbuffer = 0;
-
-	    if (mged_variables->mv_fb &&
-		dm_get_zbuffer(DMP)) {
-		restore_zbuffer = 1;
-		(void)dm_make_current(DMP);
-		(void)dm_set_zbuffer(DMP, 0);
-	    }
-
-	    DMP_dirty = 0;
-	    do_time = 1;
-	    VMOVE(geometry_default_color, color_scheme->cs_geo_def);
-
-	    if (s->dbip != DBI_NULL) {
-		if (do_overlay) {
-		    bu_vls_trunc(&overlay_vls, 0);
-		    create_text_overlay(s, &overlay_vls);
-		    do_overlay = 0;
+		if (mged_variables->mv_fb &&
+		    dm_get_zbuffer(DMP)) {
+		    restore_zbuffer = 1;
+		    (void)dm_make_current(DMP);
+		    (void)dm_set_zbuffer(DMP, 0);
 		}
 
-		/* XXX VR hack */
-		if (viewpoint_hook)  (*viewpoint_hook)();
-	    }
-
-	    if (mged_variables->mv_predictor)
-		predictor_frame(s);
-
-	    if (dm_get_dirty(DMP)) {
-
-		dm_draw_begin(DMP);	/* update displaylist prolog */
+		DMP_dirty = 0;
+		do_time = 1;
+		VMOVE(geometry_default_color, color_scheme->cs_geo_def);
 
 		if (s->dbip != DBI_NULL) {
-		    /* do framebuffer underlay */
-		    if (mged_variables->mv_fb && !mged_variables->mv_fb_overlay) {
-			if (mged_variables->mv_fb_all)
-			    fb_refresh(fbp, 0, 0, dm_get_width(DMP), dm_get_height(DMP));
-			else if (mged_variables->mv_mouse_behavior != 'z')
-			    paint_rect_area(s);
+		    if (do_overlay) {
+			bu_vls_trunc(&overlay_vls, 0);
+			create_text_overlay(s, &overlay_vls);
+			do_overlay = 0;
 		    }
 
-		    /* do framebuffer overlay for entire window */
-		    if (mged_variables->mv_fb &&
-			    mged_variables->mv_fb_overlay &&
-			    mged_variables->mv_fb_all) {
-			fb_refresh(fbp, 0, 0, dm_get_width(DMP), dm_get_height(DMP));
+		    /* XXX VR hack */
+		    if (viewpoint_hook)  (*viewpoint_hook)();
+		}
 
-			if (restore_zbuffer)
-			    dm_set_zbuffer(DMP, 1);
-		    } else {
-			if (restore_zbuffer)
-			    dm_set_zbuffer(DMP, 1);
+		if (mged_variables->mv_predictor)
+		    predictor_frame(s);
 
-			/* Draw each solid in its proper place on the
-			 * screen by applying zoom, rotation, &
-			 * translation.  Calls dm_loadmatrix() and
-			 * dm_draw_vlist().
-			 */
+		if (dm_get_dirty(DMP)) {
 
-			if (dm_get_stereo(DMP) == 0 ||
-				mged_variables->mv_eye_sep_dist <= 0) {
-			    /* Normal viewing */
-			    dozoom(s, 0);
-			} else {
-			    /* Stereo viewing */
-			    dozoom(s, 1);
-			    dozoom(s, 2);
+		    dm_draw_begin(DMP);	/* update displaylist prolog */
+
+		    if (s->dbip != DBI_NULL) {
+			/* do framebuffer underlay */
+			if (mged_variables->mv_fb && !mged_variables->mv_fb_overlay) {
+			    if (mged_variables->mv_fb_all)
+				fb_refresh(fbp, 0, 0, dm_get_width(DMP), dm_get_height(DMP));
+			    else if (mged_variables->mv_mouse_behavior != 'z')
+				paint_rect_area(s);
 			}
 
-			/* do framebuffer overlay in rectangular area */
+			/* do framebuffer overlay for entire window */
 			if (mged_variables->mv_fb &&
 				mged_variables->mv_fb_overlay &&
-				mged_variables->mv_mouse_behavior != 'z')
-			    paint_rect_area(s);
+				mged_variables->mv_fb_all) {
+			    fb_refresh(fbp, 0, 0, dm_get_width(DMP), dm_get_height(DMP));
+
+			    if (restore_zbuffer)
+				dm_set_zbuffer(DMP, 1);
+			} else {
+			    if (restore_zbuffer)
+				dm_set_zbuffer(DMP, 1);
+
+			    /* Draw each solid in its proper place on the
+			     * screen by applying zoom, rotation, &
+			     * translation.  Calls dm_loadmatrix() and
+			     * dm_draw_vlist().
+			     */
+
+			    if (dm_get_stereo(DMP) == 0 ||
+				    mged_variables->mv_eye_sep_dist <= 0) {
+				/* Normal viewing */
+				dozoom(s, 0);
+			    } else {
+				/* Stereo viewing */
+				dozoom(s, 1);
+				dozoom(s, 2);
+			    }
+
+			    /* do framebuffer overlay in rectangular area */
+			    if (mged_variables->mv_fb &&
+				    mged_variables->mv_fb_overlay &&
+				    mged_variables->mv_mouse_behavior != 'z')
+				paint_rect_area(s);
+			}
+
+
+			/* Restore to non-rotated, full brightness */
+			dm_hud_begin(DMP);
+
+			/* only if not doing overlay */
+			if (!mged_variables->mv_fb ||
+				mged_variables->mv_fb_overlay != 2) {
+			    if (rubber_band->rb_active || rubber_band->rb_draw)
+				draw_rect(s);
+
+			    if (grid_state->draw)
+				draw_grid(s);
+
+			    /* Compute and display angle/distance cursor */
+			    if (adc_state->adc_draw)
+				adcursor(s);
+
+			    if (axes_state->ax_view_draw)
+				draw_v_axes(s);
+
+			    if (axes_state->ax_model_draw)
+				draw_m_axes(s);
+
+			    if (axes_state->ax_edit_draw &&
+				    (s->global_editing_state == ST_S_EDIT || s->global_editing_state == ST_O_EDIT))
+				draw_e_axes(s);
+
+			    /* Display titles, etc., if desired */
+			    bu_vls_strcpy(&tmp_vls, bu_vls_addr(&overlay_vls));
+			    dotitles(s, &tmp_vls);
+			    bu_vls_trunc(&tmp_vls, 0);
+			}
 		    }
-
-
-		    /* Restore to non-rotated, full brightness */
-		    dm_hud_begin(DMP);
 
 		    /* only if not doing overlay */
 		    if (!mged_variables->mv_fb ||
 			    mged_variables->mv_fb_overlay != 2) {
-			if (rubber_band->rb_active || rubber_band->rb_draw)
-			    draw_rect(s);
-
-			if (grid_state->draw)
-			    draw_grid(s);
-
-			/* Compute and display angle/distance cursor */
-			if (adc_state->adc_draw)
-			    adcursor(s);
-
-			if (axes_state->ax_view_draw)
-			    draw_v_axes(s);
-
-			if (axes_state->ax_model_draw)
-			    draw_m_axes(s);
-
-			if (axes_state->ax_edit_draw &&
-				(s->global_editing_state == ST_S_EDIT || s->global_editing_state == ST_O_EDIT))
-			    draw_e_axes(s);
-
-			/* Display titles, etc., if desired */
-			bu_vls_strcpy(&tmp_vls, bu_vls_addr(&overlay_vls));
-			dotitles(s, &tmp_vls);
-			bu_vls_trunc(&tmp_vls, 0);
+			/* Draw center dot */
+			dm_set_fg(DMP,
+				color_scheme->cs_center_dot[0],
+				color_scheme->cs_center_dot[1],
+				color_scheme->cs_center_dot[2], 1, 1.0);
+			dm_draw_point_2d(DMP, 0.0, 0.0);
 		    }
+
+		    dm_draw_end(DMP);
+		    dm_set_dirty(DMP, 0);
+
 		}
-
-		/* only if not doing overlay */
-		if (!mged_variables->mv_fb ||
-			mged_variables->mv_fb_overlay != 2) {
-		    /* Draw center dot */
-		    dm_set_fg(DMP,
-			    color_scheme->cs_center_dot[0],
-			    color_scheme->cs_center_dot[1],
-			    color_scheme->cs_center_dot[2], 1, 1.0);
-		    dm_draw_point_2d(DMP, 0.0, 0.0);
-		}
-
-		dm_draw_end(DMP);
-		dm_set_dirty(DMP, 0);
-
 	    }
 	}
+	set_curr_pane(s, save_pane);
+	if (!save_pane) set_curr_dm(s, save_dm_list);
     }
 
     /* a frame was drawn */
@@ -1799,8 +1721,6 @@ refresh(struct mged_state *s)
 	    frametime = 0.9 * frametime + 0.1 * elapsed_time / 1000000LL;
 	}
     }
-
-    set_curr_dm(s, save_dm_list);
 
     bu_vls_free(&overlay_vls);
     bu_vls_free(&tmp_vls);
@@ -1818,16 +1738,8 @@ refresh(struct mged_state *s)
      * drawn (do_time) — the latter handles shared-view cases where both
      * dm and Obol panes display the same scene.
      *
-     * Step 6.a: the guard now checks for Obol-only panes (mp_dm == NULL) to
-     * avoid spurious obol_notify_views calls in pure legacy-dm mode.
-     * s->mged_curr_pane without mp_dm (an Obol pane is active) is the fast
-     * path; otherwise scan active_pane_set for any Obol pane.
-     *
-     * MIGRATION NOTE (Stage 7): Once all active_dm_set entries have been
-     * migrated to the active_pane_set / mged_pane model and all libdm drawing
-     * has been removed from the loop above, this obol_notify_views call will
-     * be the only rendering dispatch in refresh(), and the obol_needs_refresh
-     * / do_time conditions will be the only dirty-tracking logic. */
+     * Step 6.b: the rendering loop above now uses active_pane_set directly.
+     * This obol_notify_views call handles Obol panes that were skipped above. */
     {
 	int has_obol_pane = (s->mged_curr_pane && !s->mged_curr_pane->mp_dm);
 	if (!has_obol_pane) {

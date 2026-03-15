@@ -886,78 +886,50 @@ edit_com(struct mged_state *s,
 
     /* update and resize the views */
 
-    save_m_dmp = s->mged_curr_dm;
-    save_cmd_list = curr_cmd_list;
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	int non_empty = 0; /* start out empty */
-
-	/* Step 5.17: skip null-dm sentinel before set_curr_dm. */
-	if (!m_dmp->dm_dmp) continue;
-
-	set_curr_dm(s, m_dmp);
-
-	if (s->mged_curr_dm->dm_tie) {
-	    curr_cmd_list = s->mged_curr_dm->dm_tie;
-	} else {
-	    curr_cmd_list = &head_cmd_list;
-	}
-
-	s->gedp->ged_gvp = view_state->vs_gvp;
-
-	{
-	    bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
-	    non_empty = (root && BU_PTBL_LEN(&root->children) > 0) ? 1 : 0;
-	}
-
-	/* If we went from blank screen to non-blank, resize */
-	if (mged_variables->mv_autosize && initial_blank_screen && non_empty) {
-	    struct view_ring *vrp;
-	    char *av[2];
-
-	    av[0] = "autoview";
-	    av[1] = (char *)0;
-	    ged_exec_autoview(s->gedp, 1, (const char **)av);
-
-	    (void)mged_svbase(s);
-
-	    for (BU_LIST_FOR(vrp, view_ring, &view_state->vs_headView.l)) {
-		vrp->vr_scale = view_state->vs_gvp->gv_scale;
-	    }
-	}
-    }
-
-    set_curr_dm(s, save_m_dmp);
-    curr_cmd_list = save_cmd_list;
-    s->gedp->ged_gvp = view_state->vs_gvp;
-
-    /* Stage 7: also apply autoview to Obol panes (active_pane_set).
-     * Step 6.a: skip legacy dm wrapper panes (mp_dm != NULL). */
     {
 	struct mged_pane *save_pane = s->mged_curr_pane;
+	save_m_dmp = s->mged_curr_dm;
+	save_cmd_list = curr_cmd_list;
+	/* Step 6.b: active_pane_set covers all pane types. */
 	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	    if (mp->mp_dm) continue;  /* skip legacy dm wrappers */
 	    int non_empty = 0;
 
 	    set_curr_pane(s, mp);
 
+	    if (s->mged_curr_pane->mp_cmd_tie)
+		curr_cmd_list = s->mged_curr_pane->mp_cmd_tie;
+	    else
+		curr_cmd_list = &head_cmd_list;
+
+	    s->gedp->ged_gvp = view_state->vs_gvp;
+
 	    {
-		bsg_shape *root = bsg_scene_root_get(mp->mp_gvp);
+		bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
 		non_empty = (root && BU_PTBL_LEN(&root->children) > 0) ? 1 : 0;
 	    }
 
+	    /* If we went from blank screen to non-blank, resize */
 	    if (mged_variables->mv_autosize && initial_blank_screen && non_empty) {
 		char *av[2];
 		av[0] = "autoview";
 		av[1] = (char *)0;
 		ged_exec_autoview(s->gedp, 1, (const char **)av);
 		s->update_views = 1;
+
+		/* Also update view_ring scale for legacy dm wrapper panes. */
+		if (mp->mp_dm && mp->mp_view_state) {
+		    struct view_ring *vrp;
+		    (void)mged_svbase(s);
+		    for (BU_LIST_FOR(vrp, view_ring, &mp->mp_view_state->vs_headView.l))
+			vrp->vr_scale = view_state->vs_gvp->gv_scale;
+		}
 	    }
 	}
 	set_curr_pane(s, save_pane);
-	/* Restore mged_curr_dm after set_curr_pane may have redirected it. */
 	if (!save_pane) set_curr_dm(s, save_m_dmp);
+	curr_cmd_list = save_cmd_list;
+	s->gedp->ged_gvp = view_state->vs_gvp;
     }
 
     return TCL_OK;
@@ -987,72 +959,43 @@ cmd_autoview(ClientData clientData, Tcl_Interp *interp, int argc, const char *ar
 	return TCL_OK;
     }
 
-    save_m_dmp = s->mged_curr_dm;
-    save_cmd_list = curr_cmd_list;
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	struct view_ring *vrp;
-
-	/* Step 5.17: skip null-dm sentinel before set_curr_dm. */
-	if (!m_dmp->dm_dmp) continue;
-
-	set_curr_dm(s, m_dmp);
-
-	if (s->mged_curr_dm->dm_tie) {
-	    curr_cmd_list = s->mged_curr_dm->dm_tie;
-	} else {
-	    curr_cmd_list = &head_cmd_list;
-	}
-
-	s->gedp->ged_gvp = view_state->vs_gvp;
-
-	{
-	    int ac = 1;
-	    const char *av[3];
-
-	    av[0] = "autoview";
-	    av[1] = NULL;
-	    av[2] = NULL;
-
-	    if (argc > 1) {
-		av[1] = argv[1];
-		ac = 2;
-	    }
-
-	    ged_exec_autoview(s->gedp, ac, (const char **)av);
-	    s->update_views = 1;
-	    view_state->vs_flag = 1;
-	}
-	(void)mged_svbase(s);
-
-	for (BU_LIST_FOR(vrp, view_ring, &view_state->vs_headView.l)) {
-	    vrp->vr_scale = view_state->vs_gvp->gv_scale;
-	}
-    }
-    set_curr_dm(s, save_m_dmp);
-    curr_cmd_list = save_cmd_list;
-    s->gedp->ged_gvp = view_state->vs_gvp;
-
-    /* Stage 7: also apply autoview to Obol panes (active_pane_set).
-     * Step 6.a: skip legacy dm wrapper panes (mp_dm != NULL). */
     {
 	struct mged_pane *save_pane = s->mged_curr_pane;
+	save_m_dmp = s->mged_curr_dm;
+	save_cmd_list = curr_cmd_list;
 	int ac = 1;
 	const char *av[3];
 	av[0] = "autoview";
 	av[1] = (argc > 1) ? argv[1] : NULL;
 	av[2] = NULL;
 	if (argc > 1) ac = 2;
+	/* Step 6.b: active_pane_set covers all pane types. */
 	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	    if (mp->mp_dm) continue;  /* skip legacy dm wrappers */
+
 	    set_curr_pane(s, mp);
+	    if (s->mged_curr_pane->mp_cmd_tie)
+		curr_cmd_list = s->mged_curr_pane->mp_cmd_tie;
+	    else
+		curr_cmd_list = &head_cmd_list;
+
+	    s->gedp->ged_gvp = view_state->vs_gvp;
 	    ged_exec_autoview(s->gedp, ac, (const char **)av);
 	    s->update_views = 1;
+	    view_state->vs_flag = 1;
+
+	    /* Also update view_ring scale for legacy dm wrapper panes. */
+	    if (mp->mp_dm && mp->mp_view_state) {
+		struct view_ring *vrp;
+		(void)mged_svbase(s);
+		for (BU_LIST_FOR(vrp, view_ring, &mp->mp_view_state->vs_headView.l))
+		    vrp->vr_scale = view_state->vs_gvp->gv_scale;
+	    }
 	}
 	set_curr_pane(s, save_pane);
-	/* Restore mged_curr_dm after set_curr_pane may have redirected it. */
 	if (!save_pane) set_curr_dm(s, save_m_dmp);
+	curr_cmd_list = save_cmd_list;
+	s->gedp->ged_gvp = view_state->vs_gvp;
     }
 
     return TCL_OK;
@@ -2351,15 +2294,15 @@ f_svbase(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[]
 
     status = mged_svbase(s);
 
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	if (!m_dmp->dm_dmp) continue;  /* skip null-dm sentinel */
+    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	if (!mp->mp_dm) continue;  /* skip Obol panes */
 	/* if sharing view while faceplate and original gui (i.e. button menu, sliders) are on */
-	if (m_dmp->dm_view_state == view_state &&
-	    m_dmp->dm_mged_variables->mv_faceplate &&
-	    m_dmp->dm_mged_variables->mv_orig_gui) {
-	    m_dmp->dm_dirty = 1;
-	    dm_set_dirty(m_dmp->dm_dmp, 1);
+	if (mp->mp_view_state == view_state &&
+	    mp->mp_mged_variables->mv_faceplate &&
+	    mp->mp_mged_variables->mv_orig_gui) {
+	    mp->mp_dm->dm_dirty = 1;
+	    dm_set_dirty(mp->mp_dm->dm_dmp, 1);
 	}
     }
 

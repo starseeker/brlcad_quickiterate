@@ -118,13 +118,13 @@ f_share(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *ar
 	++argv;
     }
 
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	/* Stage 7 (step 5.14): skip initial "nu" entry with no dm. */
-	if (!m_dmp->dm_dmp) continue;
-	struct bu_vls *pname = dm_get_pathname(m_dmp->dm_dmp);
+    /* Step 6.b: search active_pane_set for legacy dm wrapper by pathname. */
+    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	if (!mp->mp_dm) continue;
+	struct bu_vls *pname = dm_get_pathname(mp->mp_dm->dm_dmp);
 	if (BU_STR_EQUAL(argv[2], bu_vls_cstr(pname))) {
-	    dlp1 = m_dmp;
+	    dlp1 = mp->mp_dm;
 	    break;
 	}
     }
@@ -136,13 +136,13 @@ f_share(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *ar
     }
 
     if (!uflag) {
-	for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	    struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	    /* Stage 7 (step 5.14): skip initial "nu" entry with no dm. */
-	    if (!m_dmp->dm_dmp) continue;
-	    struct bu_vls *pname = dm_get_pathname(m_dmp->dm_dmp);
+	/* Step 6.b: search active_pane_set for legacy dm wrapper by pathname. */
+	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	    if (!mp->mp_dm) continue;
+	    struct bu_vls *pname = dm_get_pathname(mp->mp_dm->dm_dmp);
 	    if (BU_STR_EQUAL(argv[3], bu_vls_cstr(pname))) {
-		dlp2 = m_dmp;
+		dlp2 = mp->mp_dm;
 		break;
 	    }
 	}
@@ -458,12 +458,11 @@ share_dlist(struct mged_dm *dlp2)
     if (!dlp2->dm_dmp || !dm_get_displaylist(dlp2->dm_dmp))
 	return;
 
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *dlp1 = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	/* Stage 7 (step 5.14): skip entries with no dm (initial "nu" state).
-	 * dlp2->dm_dmp is guaranteed non-NULL by the guard at function entry. */
-	if (!dlp1->dm_dmp)
-	    continue;
+    /* Step 6.b: search active_pane_set for matching legacy dm wrapper. */
+    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	if (!mp->mp_dm) continue;
+	struct mged_dm *dlp1 = mp->mp_dm;
 	if (dlp1 != dlp2 &&
 	    dm_get_type(dlp1->dm_dmp) == dm_get_type(dlp2->dm_dmp) && dm_get_dname(dlp1->dm_dmp) && dm_get_dname(dlp2->dm_dmp) &&
 	    !bu_vls_strcmp(dm_get_dname(dlp1->dm_dmp), dm_get_dname(dlp2->dm_dmp))) {

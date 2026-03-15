@@ -652,10 +652,10 @@ extern void mged_pane_free_resources(struct mged_pane *mp);
 #define GET_MGED_DM(p, id) { \
     \
     (p) = MGED_DM_NULL; \
-    for (size_t dm_ind = 0; dm_ind < BU_PTBL_LEN(&active_dm_set); dm_ind++) { \
-	struct mged_dm *tp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, dm_ind); \
-	if ((id) == dm_get_id(tp->dm_dmp)) { \
-	    (p) = tp; \
+    for (size_t dm_ind = 0; dm_ind < BU_PTBL_LEN(&active_pane_set); dm_ind++) { \
+	struct mged_pane *_mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, dm_ind); \
+	if (_mp->mp_dm && (id) == dm_get_id(_mp->mp_dm->dm_dmp)) { \
+	    (p) = _mp->mp_dm; \
 	    break; \
 	} \
     } \

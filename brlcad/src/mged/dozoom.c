@@ -231,18 +231,17 @@ createDListSolid(void *vlist_ctx, bsg_shape *sp)
 {
     struct mged_state *s = (struct mged_state *)vlist_ctx;
     MGED_CK_STATE(s);
-    struct mged_dm *save_dlp;
+    struct mged_pane *save_pane = s->mged_curr_pane;
+    struct mged_dm *save_dlp = s->mged_curr_dm;
 
-    save_dlp = s->mged_curr_dm;
-
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *dlp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	/* Stage 7 (step 5.14): skip entries with no dm (initial "nu" state). */
-	if (!dlp->dm_dmp)
-	    continue;
-	if (dlp->dm_mapped &&
-		dm_get_displaylist(dlp->dm_dmp) &&
-		dlp->dm_mged_variables->mv_dlist) {
+    /* Step 6.b: use active_pane_set. */
+    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	if (!mp->mp_dm) continue;  /* skip Obol panes */
+	set_curr_pane(s, mp);
+	if (mapped &&
+		dm_get_displaylist(DMP) &&
+		mged_variables->mv_dlist) {
 	    if (sp->s_dlist == 0)
 		sp->s_dlist = dm_gen_dlists(DMP, 1);
 
@@ -260,11 +259,12 @@ createDListSolid(void *vlist_ctx, bsg_shape *sp)
 	    (void)dm_end_dlist(DMP);
 	}
 
-	dlp->dm_dirty = 1;
+	DMP_dirty = 1;
 	dm_set_dirty(DMP, 1);
     }
 
-    set_curr_dm(s, save_dlp);
+    set_curr_pane(s, save_pane);
+    if (!save_pane) set_curr_dm(s, save_dlp);
 }
 
 /*
@@ -301,20 +301,23 @@ freeDListsAll(void *data, unsigned int dlist, int range)
 {
     struct mged_state *s = (struct mged_state *)data;
     MGED_CK_STATE(s);
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *dlp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	/* Stage 7 (step 5.14): skip entries with no dm (initial "nu" state). */
-	if (!dlp->dm_dmp)
-	    continue;
-	if (dm_get_displaylist(dlp->dm_dmp) &&
-	    dlp->dm_mged_variables->mv_dlist) {
+    /* Step 6.b: use active_pane_set. */
+    struct mged_pane *save_pane = s->mged_curr_pane;
+    struct mged_dm *save_dlp = s->mged_curr_dm;
+    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	if (!mp->mp_dm) continue;  /* skip Obol panes */
+	set_curr_pane(s, mp);
+	if (dm_get_displaylist(DMP) && mged_variables->mv_dlist) {
 	    (void)dm_make_current(DMP);
-	    (void)dm_free_dlists(dlp->dm_dmp, dlist, range);
+	    (void)dm_free_dlists(DMP, dlist, range);
 	}
 
-	dlp->dm_dirty = 1;
+	DMP_dirty = 1;
 	dm_set_dirty(DMP, 1);
     }
+    set_curr_pane(s, save_pane);
+    if (!save_pane) set_curr_dm(s, save_dlp);
 }
 
 

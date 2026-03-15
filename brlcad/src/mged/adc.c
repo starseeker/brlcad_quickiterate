@@ -77,14 +77,15 @@ static char adc_syntax4[] = "\
 void
 adc_set_dirty_flag(struct mged_state *s)
 {
-    /* Stage 7: notify the Obol path via update_views. */
+    /* Stage 7 Step 6.b: use active_pane_set (covers all panes including
+     * legacy dm wrappers); Obol panes get update_views only. */
     s->update_views = 1;
-    for (size_t i = 0; i < BU_PTBL_LEN(&active_dm_set); i++) {
-	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, i);
-	if (!m_dmp->dm_dmp) continue;  /* skip null-dm sentinel */
-	if (m_dmp->dm_adc_state == adc_state) {
-	    m_dmp->dm_dirty = 1;
-	    dm_set_dirty(m_dmp->dm_dmp, 1);
+    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	if (!mp->mp_dm) continue;  /* skip Obol panes */
+	if (mp->mp_adc_state == adc_state) {
+	    mp->mp_dm->dm_dirty = 1;
+	    dm_set_dirty(mp->mp_dm->dm_dmp, 1);
 	}
     }
 }
@@ -93,20 +94,22 @@ adc_set_dirty_flag(struct mged_state *s)
 void
 adc_set_scroll(struct mged_state *s)
 {
-    struct mged_dm *save_m_dmp = s->mged_curr_dm;
+    struct mged_pane *save_pane = s->mged_curr_pane;
+    struct mged_dm *save_dm = s->mged_curr_dm;
 
-    for (size_t i = 0; i < BU_PTBL_LEN(&active_dm_set); i++) {
-	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, i);
-	if (!m_dmp->dm_dmp) continue;  /* skip null-dm sentinel */
-	if (m_dmp->dm_adc_state == adc_state) {
-	    set_curr_dm(s, m_dmp);
+    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	if (!mp->mp_dm) continue;  /* skip Obol panes */
+	if (mp->mp_adc_state == adc_state) {
+	    set_curr_pane(s, mp);
 	    set_scroll(s);
 	    DMP_dirty = 1;
 	    dm_set_dirty(DMP, 1);
 	}
     }
 
-    set_curr_dm(s, save_m_dmp);
+    set_curr_pane(s, save_pane);
+    if (!save_pane) set_curr_dm(s, save_dm);
 }
 
 

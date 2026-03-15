@@ -78,12 +78,12 @@ grid_set_dirty_flag(const struct bu_structparse *UNUSED(sdp),
     MGED_CK_STATE(s);
     /* Stage 7: notify the Obol path via update_views. */
     s->update_views = 1;
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	if (!m_dmp->dm_dmp) continue;  /* skip null-dm sentinel */
-	if (m_dmp->dm_grid_state == grid_state) {
-	    m_dmp->dm_dirty = 1;
-	    dm_set_dirty(m_dmp->dm_dmp, 1);
+    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	if (!mp->mp_dm) continue;  /* skip Obol panes */
+	if (mp->mp_grid_state == grid_state) {
+	    mp->mp_dm->dm_dirty = 1;
+	    dm_set_dirty(mp->mp_dm->dm_dmp, 1);
 	}
     }
 }
@@ -112,10 +112,11 @@ set_grid_draw(const struct bu_structparse *sdp,
 
 	grid_state->res_h = res;
 	grid_state->res_v = res;
-	for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	    struct mged_dm *dlp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	    if (dlp->dm_grid_state == grid_state)
-		dlp->dm_grid_auto_size = 0;
+	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	    if (!mp->mp_dm) continue;  /* skip Obol panes */
+	    if (mp->mp_grid_state == grid_state)
+		mp->mp_dm->dm_grid_auto_size = 0;
 	}
     }
 }
@@ -136,10 +137,10 @@ set_grid_res(const struct bu_structparse *sdp,
     if (!grid_auto_size)
 	return;
 
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *dlp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	    if (dlp->dm_grid_state == grid_state)
-		dlp->dm_grid_auto_size = 0;
+    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	    if (mp->mp_dm && mp->mp_grid_state == grid_state)
+		mp->mp_dm->dm_grid_auto_size = 0;
     }
 }
 
@@ -439,21 +440,13 @@ update_grids(struct mged_state *s, fastf_t sf)
     struct bu_vls save_result = BU_VLS_INIT_ZERO;
     struct bu_vls cmd = BU_VLS_INIT_ZERO;
 
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *dlp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	dlp->dm_grid_state->res_h *= sf;
-	dlp->dm_grid_state->res_v *= sf;
-	VSCALE(dlp->dm_grid_state->anchor, dlp->dm_grid_state->anchor, sf);
-    }
-    /* Stage 7: scale grid for Obol panes as well (skip legacy dm wrappers). */
+    /* Step 6.b: iterate active_pane_set for all pane types. */
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
-	struct mged_pane *pmp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (pmp->mp_dm) continue;  /* skip legacy dm wrappers */
-	if (pmp->mp_grid_state) {
-	    pmp->mp_grid_state->res_h *= sf;
-	    pmp->mp_grid_state->res_v *= sf;
-	    VSCALE(pmp->mp_grid_state->anchor, pmp->mp_grid_state->anchor, sf);
-	}
+	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	if (!mp->mp_grid_state) continue;
+	mp->mp_grid_state->res_h *= sf;
+	mp->mp_grid_state->res_v *= sf;
+	VSCALE(mp->mp_grid_state->anchor, mp->mp_grid_state->anchor, sf);
     }
 
     bu_vls_strcpy(&save_result, Tcl_GetStringResult(s->interp));
