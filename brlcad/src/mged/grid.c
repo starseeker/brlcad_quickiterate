@@ -116,7 +116,7 @@ set_grid_draw(const struct bu_structparse *sdp,
 	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
 	    if (!mp->mp_dm) continue;  /* skip Obol panes */
 	    if (mp->mp_grid_state == grid_state)
-		mp->mp_dm->dm_grid_auto_size = 0;
+		mp->mp_grid_auto_size = 0;
 	}
     }
 }
@@ -141,7 +141,7 @@ set_grid_res(const struct bu_structparse *sdp,
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
 	if (!mp->mp_dm) continue;
 	if (mp->mp_grid_state == grid_state)
-	    mp->mp_dm->dm_grid_auto_size = 0;
+	    mp->mp_grid_auto_size = 0;
     }
 }
 
