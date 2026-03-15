@@ -5496,9 +5496,11 @@ get_face_intersection_curves(
 		{
 		    ON_Plane p1, p2;
 		    const double flat_tol = INTERSECTION_TOL * 100.0;
-		    if (surf1->IsPlanar(&p1, flat_tol) &&
-			surf2->IsPlanar(&p2, flat_tol) &&
+		    bool s1_planar = surf1->IsPlanar(&p1, flat_tol);
+		    bool s2_planar = surf2->IsPlanar(&p2, flat_tol);
+		    if (s1_planar && s2_planar &&
 			p1.Normal().IsParallelTo(p2.Normal(), 0.01)) {
+			bu_log("  skip_parallel_normals i=%d j=%d\n", i, j);
 			continue;
 		    }
 		}
@@ -5555,6 +5557,7 @@ get_face_intersection_curves(
 				       NULL,
 				       st1[brep1->m_F[i].m_si],
 				       st2[brep2->m_F[j].m_si]);
+		bu_log("SSI face_pair i=%d j=%d results=%d\n", i, j, results);
 		if (results <= 0) {
 		    continue;
 		}
@@ -5570,6 +5573,9 @@ get_face_intersection_curves(
 
 			get_subcurves_inside_faces(subcurves_on1,
 						   subcurves_on2, brep1, brep2, i, j, &events[k]);
+
+			bu_log("  event k=%d type=%d subcurves_on1=%d subcurves_on2=%d\n",
+			       k, (int)events[k].m_type, subcurves_on1.Count(), subcurves_on2.Count());
 
 			for (int l = 0; l < subcurves_on1.Count(); ++l) {
 			    SSICurve ssi_on1;
