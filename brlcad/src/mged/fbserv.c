@@ -286,11 +286,11 @@ fbserv_new_client_handler(ClientData clientData, int UNUSED(mask))
     struct mged_pane *save_pane = s->mged_curr_pane;
 
 #ifdef USE_TCL_CHAN
-    struct mged_dm *dlp = (struct mged_dm *)clientData;
+    struct mged_pane *dlp = (struct mged_pane *)clientData;
 #else
     uintptr_t datafd = (uintptr_t)clientData;
     int fd = (int)((int32_t)datafd & 0xFFFF);   /* fd's will be small */
-    struct mged_dm *dlp = NULL;
+    struct mged_pane *dlp = NULL;
     /* Step 6.b: search active_pane_set by dm_netfd. */
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);

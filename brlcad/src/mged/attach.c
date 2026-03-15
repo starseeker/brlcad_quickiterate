@@ -66,10 +66,10 @@ extern struct _rubber_band default_rubber_band;
 extern struct _mged_variables default_mged_variables;
 extern struct bsg_grid_state default_grid_state;
 extern struct _axes_state default_axes_state;
-extern void share_dlist(struct mged_dm *dlp2);	/* defined in share.c */
+extern void share_dlist(struct mged_pane *dlp2);	/* defined in share.c */
 int mged_default_dlist = 0;   /* This variable is available via Tcl for controlling use of display lists */
 
-static fastf_t windowbounds[6] = { (int)BSG_VIEW_MIN, (int)BSG_VIEW_MAX, (int)BSG_VIEW_MIN, (int)BSG_VIEW_MAX, (int)BSG_VIEW_MIN, (int)BSG_VIEW_MAX };
+/* Step 7.19: windowbounds removed — dm_set_win_bounds() no longer called. */
 
 /**
  * set_curr_pane — make a mged_pane the active view source.
@@ -165,7 +165,7 @@ mged_pane_init_resources(struct mged_state *s, struct mged_pane *mp)
     if (!src && init_src) src = init_src;
 
     /* Step 7.18: Initialize libdm fields to safe/null defaults.
-     * mp_dmp is set later by mged_dm_init() (dm attach) or stays NULL (Obol). */
+     * Step 7.19: mp_dmp is always NULL (libdm attach path removed). */
     mp->mp_dmp    = NULL;
     mp->mp_fbp    = NULL;
     mp->mp_netfd  = -1;
@@ -197,9 +197,8 @@ mged_pane_init_resources(struct mged_state *s, struct mged_pane *mp)
     else
 	*mp->mp_mged_variables = default_mged_variables;
     mp->mp_mged_variables->mv_rc     = 1;
-    /* dm panes use dlist if available; Obol panes never use display lists.
-     * If mp_gvp is NULL at this point it's a dm-attach pane → enable dlist. */
-    mp->mp_mged_variables->mv_dlist  = (mp->mp_gvp == NULL) ? mged_default_dlist : 0;
+    /* Step 7.19: libdm display-list path removed; mv_dlist is always 0. */
+    mp->mp_mged_variables->mv_dlist  = 0;
     mp->mp_mged_variables->mv_listen = 0;
     mp->mp_mged_variables->mv_port   = 0;
     mp->mp_mged_variables->mv_fb     = 0;
@@ -229,33 +228,21 @@ mged_pane_init_resources(struct mged_state *s, struct mged_pane *mp)
     mp->mp_dlist_state->dl_rc = 1;
 
     /* view_state:
-     * - dm-attach / sentinel (mp->mp_gvp == NULL): allocate shell; dm_var_init fills it.
-     * - Obol (mp->mp_gvp != NULL): borrow GED-owned view. */
+     * - sentinel (mp->mp_gvp == NULL): allocate shell with NULL vs_gvp.
+     * - Obol pane (mp->mp_gvp != NULL): link to the live bsg_view.
+     * Step 7.19: dm-attach path removed; the sentinel case is the only case
+     * where mp_gvp == NULL here. */
     BU_ALLOC(mp->mp_view_state, struct _view_state);
     mp->mp_view_state->vs_rc  = 1;
-    mp->mp_view_state->vs_gvp = mp->mp_gvp;  /* NULL for dm/sentinel, real for Obol */
-    if (mp->mp_gvp == NULL) {
-	/* dm-attach or sentinel: plain init; dm_var_init will fill vs_gvp. */
-	view_ring_init(mp->mp_view_state, (struct _view_state *)NULL);
-	if (src && src->mp_view_state) {
-	    MAT_COPY(mp->mp_view_state->vs_model2objview,
-		     src->mp_view_state->vs_model2objview);
-	    MAT_COPY(mp->mp_view_state->vs_objview2model,
-		     src->mp_view_state->vs_objview2model);
-	    MAT_COPY(mp->mp_view_state->vs_ModelDelta,
-		     src->mp_view_state->vs_ModelDelta);
-	}
-    } else {
-	/* Obol pane: copy matrix defaults from init_src if available. */
-	view_ring_init(mp->mp_view_state, (struct _view_state *)NULL);
-	if (src && src->mp_view_state) {
-	    MAT_COPY(mp->mp_view_state->vs_model2objview,
-		     src->mp_view_state->vs_model2objview);
-	    MAT_COPY(mp->mp_view_state->vs_objview2model,
-		     src->mp_view_state->vs_objview2model);
-	    MAT_COPY(mp->mp_view_state->vs_ModelDelta,
-		     src->mp_view_state->vs_ModelDelta);
-	}
+    mp->mp_view_state->vs_gvp = mp->mp_gvp;
+    view_ring_init(mp->mp_view_state, (struct _view_state *)NULL);
+    if (src && src->mp_view_state) {
+	MAT_COPY(mp->mp_view_state->vs_model2objview,
+		 src->mp_view_state->vs_model2objview);
+	MAT_COPY(mp->mp_view_state->vs_objview2model,
+		 src->mp_view_state->vs_objview2model);
+	MAT_COPY(mp->mp_view_state->vs_ModelDelta,
+		 src->mp_view_state->vs_ModelDelta);
     }
 
     /* HUD Tcl variable name storage. */
@@ -351,63 +338,24 @@ mged_pane_free_resources(struct mged_pane *mp)
 
 int
 mged_dm_init(
-	struct mged_state *s,
-	struct mged_pane *o_pane,
-	struct mged_pane *pane,
-	const char *dm_type,
-	int argc,
-	const char *argv[])
+	struct mged_state *UNUSED(s),
+	struct mged_pane *UNUSED(o_pane),
+	struct mged_pane *UNUSED(pane),
+	const char *UNUSED(dm_type),
+	int UNUSED(argc),
+	const char *UNUSED(argv[]))
 {
-    struct bu_vls vls = BU_VLS_INIT_ZERO;
-
-    /* Step 7.18: dm_var_init takes mged_pane * directly. */
-    dm_var_init(s, o_pane, pane);
-
-    /* Step 7.14: dm_cmd_hook removed — always dm_commands; no assignment needed. */
-
-    /* Step 7.17/7.18: view_state now in pane (dm_var_init sets pane->mp_view_state). */
-    void *ctx = pane->mp_view_state->vs_gvp;
-    struct dm *dmp = dm_open(ctx, (void *)s->interp, dm_type, argc-1, argv);
-    if (!dmp) {
-	Tcl_AppendResult(s->interp, "dm_open(", dm_type, ") failed\n", (char *)NULL);
-	return TCL_ERROR;
-    }
-    pane->mp_dmp = dmp;
-
-    /*XXXX this eventually needs to move into Ogl's private structure */
-    dm_set_vp(dmp, &pane->mp_view_state->vs_gvp->gv_scale);
-    /* Step 7.16/7.18: mged_variables now in pane. */
-    dm_set_perspective(dmp, pane->mp_mged_variables->mv_perspective_mode);
-
-#ifdef HAVE_TK
-    if (dm_graphical(dmp) && !BU_STR_EQUAL(dm_get_dm_name(dmp), "swrast")) {
-	Tk_DeleteGenericHandler(doEvent, (ClientData)s);
-	Tk_CreateGenericHandler(doEvent, (ClientData)s);
-    }
-#endif
-    (void)dm_configure_win(dmp, 0);
-
-    struct bu_vls *pathname = dm_get_pathname(dmp);
-    if (pathname && bu_vls_strlen(pathname)) {
-	bu_vls_printf(&vls, "mged_bind_dm %s", bu_vls_cstr(pathname));
-	Tcl_Eval(s->interp, bu_vls_cstr(&vls));
-    }
-    bu_vls_free(&vls);
-
-    return TCL_OK;
+    /* Step 7.19: mged_dm_init() removed — libdm plugin creation eliminated.
+     * mged_attach() now creates Obol panes directly (no dm_open call).
+     * This stub is retained so that any out-of-tree callers get a clean
+     * compile error rather than a link error. */
+    return TCL_ERROR;
 }
 
 
 
-void
-mged_fb_open(struct mged_state *s)
-{
-    /* Step 7.18: DMP goes directly through mged_curr_pane->mp_dmp.
-     * Guard against Obol panes (DMP==NULL) for safety. */
-    if (!DMP)
-	return;
-    fbp = dm_get_fb(DMP);
-}
+/* Step 7.19: mged_fb_open() removed — framebuffer-over-dm path eliminated.
+ * Obol panes use their own fb overlay mechanism; no libdm fb handle needed. */
 
 
 /* Step 7.13: mged_slider_init_vls, mged_slider_free_vls, mged_link_vars removed.
@@ -415,79 +363,68 @@ mged_fb_open(struct mged_state *s)
 
 
 static int
-release(struct mged_state *s, char *name, int need_close, struct mged_pane *bad_pane)
+release(struct mged_state *s, char *name, int UNUSED(need_close), struct mged_pane *bad_pane)
 {
-    /* Step 7.18: cdm removed; cpane is the pane being released. */
+    /* Step 7.18: cpane is the pane being released. */
     struct mged_pane *cpane = MGED_PANE_NULL;
     struct mged_pane *save_pane = MGED_PANE_NULL; /* pane to restore to after release */
-    struct bu_vls *pathname = NULL;
 
     if (name != NULL) {
-	struct mged_pane *found_mp = MGED_PANE_NULL;
-
 	if (BU_STR_EQUAL("nu", name))
 	    return TCL_OK;  /* Ignore */
 
-	/* Step 6.c: search active_pane_set for the named dm wrapper. */
-	for (size_t i = 0; i < BU_PTBL_LEN(&active_pane_set); i++) {
-	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, i);
-	    if (!mp || !mp->mp_dmp)
-		continue;
+	/* Step 7.19: libdm path removed; search all panes by gv_name. */
+	struct mged_pane *mp = mged_pane_find_by_name(name);
+	if (mp) {
+	    bsg_view *gvp = mp->mp_gvp;
+	    int is_curr = (mp == s->mged_curr_pane);
 
-	    pathname = dm_get_pathname(mp->mp_dmp);
-	    if (!BU_STR_EQUAL(name, bu_vls_cstr(pathname)))
-		continue;
+	    /* Save settings to sentinel before releasing. */
+	    usurp_all_resources(s->mged_init_pane, mp);
 
-	    /* found it */
-	    if (mp != s->mged_curr_pane) {
-		save_pane = s->mged_curr_pane;
-		set_curr_pane(s, mp);
+	    /* Clear cmd_tie before freeing the pane. */
+	    if (mp->mp_cmd_tie) {
+		mp->mp_cmd_tie->cl_tie = MGED_PANE_NULL;
+		mp->mp_cmd_tie = CMD_LIST_NULL;
 	    }
-	    found_mp = mp;
-	    break;
-	}
 
-	if (found_mp == MGED_PANE_NULL) {
-	    /* "release .mged0.ul" called from releasemv in mview.tcl
-	     * for Obol panes — look them up by name in active_pane_set. */
-	    struct mged_pane *mp = mged_pane_find_by_name(name);
-	    if (mp) {
-		bsg_view *gvp = mp->mp_gvp;
+	    /* Remove the pane from active_pane_set and free the struct. */
+	    mged_pane_release(mp);
 
-		/* Remove the pane from active_pane_set and free the struct. */
-		mged_pane_release(mp);
+	    /* Teardown the bsg_view: remove from scene, free tclcad user
+	     * data, remove from ged_free_views, then free the view. */
+	    if (gvp && s->gedp) {
+		bsg_scene_rm_view(&s->gedp->ged_views, gvp);
+		bu_ptbl_rm(&s->gedp->ged_free_views, (long *)gvp);
 
-		/* Teardown the bsg_view: remove from scene, free tclcad user
-		 * data, remove from ged_free_views, then free the view. */
-		if (gvp && s->gedp) {
-		    bsg_scene_rm_view(&s->gedp->ged_views, gvp);
-		    bu_ptbl_rm(&s->gedp->ged_free_views, (long *)gvp);
-
-		    struct tclcad_view_data *tvd =
-			(struct tclcad_view_data *)gvp->u_data;
-		    if (tvd) {
-			bu_vls_free(&tvd->gdv_edit_motion_delta_callback);
-			bu_vls_free(&tvd->gdv_callback);
-			BU_PUT(tvd, struct tclcad_view_data);
-			gvp->u_data = NULL;
-		    }
-
-		    bsg_view_free(gvp);
-		    bu_free((void *)gvp, "release obol pane: bsg_view");
+		struct tclcad_view_data *tvd =
+		    (struct tclcad_view_data *)gvp->u_data;
+		if (tvd) {
+		    bu_vls_free(&tvd->gdv_edit_motion_delta_callback);
+		    bu_vls_free(&tvd->gdv_callback);
+		    BU_PUT(tvd, struct tclcad_view_data);
+		    gvp->u_data = NULL;
 		}
-		return TCL_OK;
+
+		bsg_view_free(gvp);
+		bu_free((void *)gvp, "release pane: bsg_view");
 	    }
 
-	    Tcl_AppendResult(s->interp, "release: ", name, " not found\n", (char *)NULL);
-	    return TCL_ERROR;
+	    /* If we released the current pane, restore to init sentinel. */
+	    if (is_curr)
+		set_curr_pane(s, s->mged_init_pane);
+
+	    return TCL_OK;
 	}
-	cpane = found_mp; /* now the current pane after set_curr_pane() */
+
+	Tcl_AppendResult(s->interp, "release: ", name, " not found\n", (char *)NULL);
+	return TCL_ERROR;
     } else {
-	/* name == NULL: Bad: path from mged_attach. bad_pane is the newly
-	 * allocated (but failed to initialize) pane. */
+	/* name == NULL: release the specified bad_pane (or current pane via
+	 * f_release).  Step 7.19: mp_dmp is always NULL in Obol-only mode,
+	 * so do NOT skip cleanup based on mp_dmp. */
 	cpane = bad_pane;
-	if (!cpane || !cpane->mp_dmp)
-	    /* Nothing to release for headless/null dm. */
+	if (!cpane)
 	    return TCL_OK;
     }
 
@@ -523,9 +460,7 @@ release(struct mged_state *s, char *name, int need_close, struct mged_pane *bad_
     /* mged_pane_free_resources: resources already moved to sentinel by usurp. */
     mged_pane_free_resources(cpane);
 
-    if (need_close && cpane->mp_dmp)
-	dm_close(cpane->mp_dmp);
-    cpane->mp_dmp = NULL;
+    /* Step 7.19: mp_dmp is always NULL (no libdm attach). */
 
     BU_PUT(cpane, struct mged_pane);
 
@@ -533,17 +468,17 @@ release(struct mged_state *s, char *name, int need_close, struct mged_pane *bad_
     if (save_pane != MGED_PANE_NULL) {
 	set_curr_pane(s, save_pane);
     } else {
-	/* Current pane was released; find next available dm wrapper pane. */
+	/* Current pane was released; find next available pane. */
 	struct mged_pane *next_pane = NULL;
 	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	    if (mp && mp->mp_dmp) { next_pane = mp; break; }
+	    if (mp) { next_pane = mp; break; }
 	}
 	if (next_pane) {
 	    set_curr_pane(s, next_pane);
 	} else {
-	    /* No more dm panes; clear mged_curr_pane. */
-	    s->mged_curr_pane = MGED_PANE_NULL;
+	    /* No more panes; fall back to sentinel. */
+	    set_curr_pane(s, s->mged_init_pane);
 	}
     }
     return TCL_OK;
@@ -584,21 +519,8 @@ f_release(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *
 }
 
 
-static void
-print_valid_dm(Tcl_Interp *interpreter)
-{
-    Tcl_AppendResult(interpreter, "\tThe following display manager types are valid: ", (char *)NULL);
-    struct bu_vls dm_types = BU_VLS_INIT_ZERO;
-    dm_list_types(&dm_types, " ");
-
-    if (bu_vls_strlen(&dm_types)) {
-	Tcl_AppendResult(interpreter, bu_vls_cstr(&dm_types), (char *)NULL);
-    } else {
-	Tcl_AppendResult(interpreter, "NONE AVAILABLE", (char *)NULL);
-    }
-    bu_vls_free(&dm_types);
-    Tcl_AppendResult(interpreter, "\n", (char *)NULL);
-}
+/* Step 7.19: print_valid_dm() removed — dm type list no longer exposed.
+ * libdm attach path eliminated; attach always creates Obol panes. */
 
 
 int
@@ -614,22 +536,18 @@ f_attach(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
 	bu_vls_printf(&vls, "help attach");
 	Tcl_Eval(interpreter, bu_vls_addr(&vls));
 	bu_vls_free(&vls);
-	print_valid_dm(interpreter);
-
+	Tcl_AppendResult(interpreter,
+		"\tStep 7.19: use new_obol_view_ptr + obol_view instead.\n",
+		(char *)NULL);
 	return TCL_ERROR;
     }
 
-    if (BU_STR_EQUAL(argv[argc-1], "nu")) {
-	/* nothing to do */
+    /* Step 7.19: "nu" is still accepted as a no-op for backward compat. */
+    if (BU_STR_EQUAL(argv[argc-1], "nu"))
 	return TCL_OK;
-    }
 
-    if (!dm_valid_type(argv[argc-1], NULL)) {
-	Tcl_AppendResult(interpreter, "attach(", argv[argc - 1], "): BAD\n", (char *)NULL);
-	print_valid_dm(interpreter);
-	return TCL_ERROR;
-    }
-
+    /* Step 7.19: libdm attach path removed.  All types now create Obol panes.
+     * Legacy callers (scripts that do "attach ogl") get an Obol pane silently. */
     return mged_attach(s, argv[argc - 1], argc, argv);
 }
 
@@ -725,222 +643,112 @@ gui_setup(struct mged_state *s, const char *dstr)
 int
 mged_attach(struct mged_state *s, const char *wp_name, int argc, const char *argv[])
 {
-    struct mged_pane *o_pane;   /* old/previous pane (save before alloc) */
-
-    if (!wp_name) {
+    /* Step 7.19: Obol-only attach path.  The legacy libdm plugin creation
+     * (dm_open → mged_dm_init) is removed.  mged_attach now creates a pure
+     * Obol pane (bsg_view with NULL dmp) regardless of the requested dm type.
+     * gui_setup() is still called to initialise Tk for obol_view widget support.
+     * Callers that previously expected a live libdm handle should use the Tcl
+     * new_obol_view_ptr / obol_view path from mview.tcl instead. */
+    if (!wp_name)
 	return TCL_ERROR;
-    }
 
-    /* Step 7.18: o_pane = current pane (or sentinel if no pane yet). */
-    o_pane = s->mged_curr_pane ? s->mged_curr_pane : s->mged_init_pane;
-
-    /* Only need to do this once */
-    if (tkwin == NULL && BU_STR_EQUIV(dm_graphics_system(wp_name), "Tk")) {
-	/* Stage 7 (step 5.14): Parse the optional "-d display_string" from argv
-	 * without opening a temporary "nu" dm.  Previously dm_open("nu") was
-	 * used as a throwaway option-parser; we now scan argv directly.
-	 * This removes the second dm_open("nu") call from the attach path. */
+    /* Initialise Tk once, scanning argv for an optional "-d display" override. */
+    if (tkwin == NULL) {
 	const char *dname = NULL;
 	for (int i = 1; i < argc - 1; i++) {
-	    /* argv[argc-1] is the dm type (wp_name); the value for -d must
-	     * appear before it, so i+1 < argc-1 ensures we never read the dm
-	     * type name as the display string value. */
 	    if (BU_STR_EQUAL(argv[i], "-d") && i + 1 < argc - 1) {
 		dname = argv[i + 1];
 		break;
 	    }
 	}
-
-	if (dname && strlen(dname) > 0) {
-	    if (gui_setup(s, dname) == TCL_ERROR) {
-		s->mged_curr_pane = o_pane;
-		return TCL_ERROR;
-	    }
-	} else if (gui_setup(s, (char *)NULL) == TCL_ERROR) {
-	    s->mged_curr_pane = o_pane;
+	if (gui_setup(s, (dname && strlen(dname)) ? dname : (char *)NULL) == TCL_ERROR)
 	    return TCL_ERROR;
-	}
     }
 
-    /* Step 7.18: Create the pane and allocate its resources BEFORE
-     * mged_dm_init() so that pane->mp_mged_variables is available
-     * for dm_set_perspective() inside mged_dm_init().
-     * Pane is added to active_pane_set here so that release() can find and
-     * clean it up on the Bad: error path. */
+    /* Allocate a new bsg_view (no libdm handle — Obol renderer). */
+    bsg_view *gvp;
+    BU_ALLOC(gvp, bsg_view);
+
+    struct bu_ptbl *callbacks;
+    BU_GET(callbacks, struct bu_ptbl);
+    bu_ptbl_init(callbacks, 8, "bv callbacks");
+
+    bu_vls_init(&gvp->gv_name);
+    bu_vls_sprintf(&gvp->gv_name, "%s", wp_name);
+
+    /* Allocate tclcad_view_data (expected by libtclcad go_refresh / go_draw_solid). */
+    struct tclcad_view_data *tvd;
+    BU_GET(tvd, struct tclcad_view_data);
+    bu_vls_init(&tvd->gdv_edit_motion_delta_callback);
+    tvd->gdv_edit_motion_delta_callback_cnt = 0;
+    bu_vls_init(&tvd->gdv_callback);
+    tvd->gdv_callback_cnt = 0;
+    tvd->gedp = s->gedp;
+    gvp->u_data = (void *)tvd;
+    gvp->dmp = NULL;  /* no libdm handle */
+
+    bsg_view_init(gvp, &s->gedp->ged_views);
+    bsg_scene_root_create(gvp);
+    gvp->callbacks = callbacks;
+    bsg_scene_add_view(&s->gedp->ged_views, gvp);
+    bu_ptbl_ins(&s->gedp->ged_free_views, (long *)gvp);
+
+    gvp->gv_s->point_scale = 1.0;
+    gvp->gv_s->curve_scale = 1.0;
+
+    /* Framebuffer: not connected for Obol panes (fb overlay is follow-on work). */
+    tvd->gdv_fbs.fbs_listener.fbsl_fbsp = &tvd->gdv_fbs;
+    tvd->gdv_fbs.fbs_listener.fbsl_fd   = -1;
+    tvd->gdv_fbs.fbs_listener.fbsl_port = -1;
+    tvd->gdv_fbs.fbs_fbp                = FB_NULL;
+    tvd->gdv_fbs.fbs_callback           = NULL;
+    tvd->gdv_fbs.fbs_clientData         = gvp;
+    tvd->gdv_fbs.fbs_interp             = s->interp;
+
+    /* Create and register the mged_pane (mp_gvp set before init_resources so
+     * the Obol code path runs, not the dm-shell path). */
     struct mged_pane *pane;
     BU_GET(pane, struct mged_pane);
-    pane->mp_gvp     = NULL;      /* set after mged_dm_init creates the view */
+    pane->mp_gvp     = gvp;
     pane->mp_cmd_tie = NULL;
-    mged_pane_init_resources(s, pane);   /* allocates all 9 resources + libdm fields */
+    BU_LIST_INIT(&pane->mp_p_vlist);
+    mged_pane_init_resources(s, pane);
+    mged_pane_link_vars(pane);
     bu_ptbl_ins(&active_pane_set, (long *)pane);
 
-    if (mged_dm_init(s, o_pane, pane, wp_name, argc, argv) == TCL_ERROR) {
-	goto Bad;
-    }
-
-    /* Step 7.17/7.18: dm_var_init sets pane->mp_view_state directly.
-     * Sync gvp from pane's view_state (which was just set by dm_var_init). */
-    pane->mp_gvp = pane->mp_view_state->vs_gvp;
-
-    /* initialize the background color */
-    {
-	/* need dummy values for func signature--they are unused in the func */
-	const struct bu_structparse *sdp = 0;
-	const char name[] = "name";
-	void *base = 0;
-	const char value[] = "value";
-	cs_set_bg(sdp, name, base, value, s);
-    }
-
-    /* Step 7.9/7.10/7.18: Use pane->mp_dmp directly throughout. */
-    struct dm *ndmp = pane->mp_dmp;
-
-    Tcl_ResetResult(s->interp);
-    const char *dm_name = dm_get_dm_name(ndmp);
-    const char *dm_lname = dm_get_dm_lname(ndmp);
-    if (dm_name && dm_lname) {
-	Tcl_AppendResult(s->interp, "ATTACHING ", dm_name, " (", dm_lname,	")\n", (char *)NULL);
-    }
-
-    share_dlist(pane);
-
-    if (dm_get_displaylist(ndmp) && mged_variables->mv_dlist && !dlist_state->dl_active) {
-	createDListAll(s, NULL);
-	dlist_state->dl_active = 1;
-    }
-
-    (void)dm_make_current(ndmp);
-    (void)dm_set_win_bounds(ndmp, windowbounds);
-
-    s->gedp->ged_gvp = pane->mp_view_state->vs_gvp;
+    /* Sync ged_gvp and gv_grid from the new pane. */
+    s->gedp->ged_gvp = gvp;
     s->gedp->ged_gvp->gv_s->gv_grid = *pane->mp_grid_state; /* struct copy */
 
-    /* Step 6.c: pane already in active_pane_set (added before mged_dm_init above).
-     * Finalize: set gv_name from dm pathname, link vars, make current. */
-    {
-	/* Set gv_name from dm pathname so mged_pane_find_by_name finds it. */
-	struct bu_vls *dm_path = dm_get_pathname(ndmp);
-	if (dm_path && bu_vls_strlen(dm_path)) {
-	    if (!BU_VLS_IS_INITIALIZED(&pane->mp_view_state->vs_gvp->gv_name))
-		bu_vls_init(&pane->mp_view_state->vs_gvp->gv_name);
-	    bu_vls_sprintf(&pane->mp_view_state->vs_gvp->gv_name,
-			  "%s", bu_vls_cstr(dm_path));
-	}
-	mged_pane_link_vars(pane);           /* populate HUD var names */
-	/* Step 7.1a / 7.10/7.18: set_curr_pane makes DMP = pane->mp_dmp
-	 * (the new dm) so mged_fb_open() below correctly opens on the new dm. */
-	set_curr_pane(s, pane);
-    }
+    set_curr_pane(s, pane);
 
-    /* Step 7.9: mged_fb_open is called AFTER set_curr_pane so that DMP
-     * (and fbp) correctly refer to the new pane's dm. */
-    mged_fb_open(s);
-
+    Tcl_ResetResult(s->interp);
+    Tcl_AppendResult(s->interp,
+	    "ATTACHING obol (Obol scene-graph renderer)\n", (char *)NULL);
     return TCL_OK;
-
- Bad:
-    Tcl_AppendResult(s->interp, "attach(", argv[argc - 1], "): BAD\n", (char *)NULL);
-
-    /* Step 7.18: Pass pane (the failed new pane) explicitly to release().
-     * mged_curr_pane is still the OLD pane so the Bad: path must not
-     * try to release via the old pane's dm.
-     * The pane was already added to active_pane_set before dm_init,
-     * so release() will find and free it. */
-    release(s, (char *)NULL, (pane->mp_dmp != NULL) ? 1 : 0, pane);
-
-    return TCL_ERROR;
 }
 
 
 #define MAX_ATTACH_RETRIES 100
 
 void
-get_attached(struct mged_state *s)
+get_attached(struct mged_state *UNUSED(s))
 {
-    char *tok;
-    int inflimit = MAX_ATTACH_RETRIES;
-    int ret;
-    struct bu_vls avail_types = BU_VLS_INIT_ZERO;
-    struct bu_vls wanted_type = BU_VLS_INIT_ZERO;
-    struct bu_vls prompt = BU_VLS_INIT_ZERO;
-
-    const char *DELIM = " ";
-
-    dm_list_types(&avail_types, DELIM);
-
-    bu_vls_sprintf(&prompt, "attach (nu");
-    for (tok = strtok(bu_vls_addr(&avail_types), " "); tok; tok = strtok(NULL, " ")) {
-	if (BU_STR_EQUAL(tok, "nu"))
-	    continue;
-	if (BU_STR_EQUAL(tok, "plot"))
-	    continue;
-	if (BU_STR_EQUAL(tok, "postscript"))
-	    continue;
-	bu_vls_printf(&prompt, " %s", tok);
-    }
-    bu_vls_printf(&prompt, ")[nu]? ");
-
-    bu_vls_free(&avail_types);
-
-    while (inflimit > 0) {
-	bu_log("%s", bu_vls_cstr(&prompt));
-
-	ret = bu_vls_gets(&wanted_type, stdin);
-	if (ret < 0) {
-	    /* handle EOF */
-	    bu_log("\n");
-	    bu_vls_free(&wanted_type);
-	    bu_vls_free(&prompt);
-	    return;
-	}
-
-	if (bu_vls_strlen(&wanted_type) == 0 || BU_STR_EQUAL(bu_vls_addr(&wanted_type), "nu")) {
-	    /* Nothing more to do. */
-	    bu_vls_free(&wanted_type);
-	    bu_vls_free(&prompt);
-	    return;
-	}
-
-	/* trim whitespace before comparisons (but not before checking empty) */
-	bu_vls_trimspace(&wanted_type);
-
-	if (dm_valid_type(bu_vls_cstr(&wanted_type), NULL)) {
-	    break;
-	}
-
-	/* Not a valid choice, loop. */
-	inflimit--;
-    }
-
-    bu_vls_free(&prompt);
-
-    if (inflimit <= 0) {
-	bu_log("\nInfinite loop protection, attach aborted!\n");
-	bu_vls_free(&wanted_type);
-	return;
-    }
-
-    bu_log("Starting an %s display manager\n", bu_vls_cstr(&wanted_type));
-
-    int argc = 1;
-    const char *argv[3];
-    argv[0] = "";
-    argv[1] = "";
-    argv[2] = (char *)NULL;
-    (void)mged_attach(s, bu_vls_cstr(&wanted_type), argc, argv);
-    bu_vls_free(&wanted_type);
+    /* Step 7.19: libdm attach prompt removed.  In the Obol-only world, display
+     * panes are created via the Tcl new_obol_view_ptr / obol_view commands
+     * from mview.tcl rather than via a terminal dm-type prompt. */
 }
 
 
 /*
  * Run a display manager specific command(s).
+ * Step 7.19: libdm removed; all subcommands now return "nu" or an error.
  */
 int
 f_dm(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *argv[])
 {
     struct cmdtab *ctp = (struct cmdtab *)clientData;
     MGED_CK_CMD(ctp);
-    struct mged_state *s = ctp->s;
     struct bu_vls vls = BU_VLS_INIT_ZERO;
 
     if (argc < 2) {
@@ -950,22 +758,11 @@ f_dm(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *argv[
 	return TCL_ERROR;
     }
 
-    if (BU_STR_EQUAL(argv[1], "valid")) {
-	if (argc < 3) {
-	    bu_vls_printf(&vls, "help dm");
-	    Tcl_Eval(interpreter, bu_vls_addr(&vls));
-	    bu_vls_free(&vls);
-	    return TCL_ERROR;
-	}
-	if (dm_valid_type(argv[argc-1], NULL)) {
-	    Tcl_AppendResult(interpreter, argv[argc-1], (char *)NULL);
-	}
+    /* "dm valid <type>": no libdm types are valid in Obol-only mode. */
+    if (BU_STR_EQUAL(argv[1], "valid"))
 	return TCL_OK;
-    }
 
-    /* Stage 7 (step 5.14): DMP is NULL when no display manager has been
-     * attached yet (the initial "nu" mged_dm has dm_dmp==NULL).  Return
-     * sensible errors for the informational subcommands. */
+    /* "dm type": always "nu" (no libdm attached). */
     if (BU_STR_EQUAL(argv[1], "type")) {
 	if (argc != 2) {
 	    bu_vls_printf(&vls, "help dm");
@@ -973,83 +770,20 @@ f_dm(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *argv[
 	    bu_vls_free(&vls);
 	    return TCL_ERROR;
 	}
-	if (!DMP) {
-	    Tcl_AppendResult(interpreter, "nu", (char *)NULL);
-	    return TCL_OK;
-	}
-	Tcl_AppendResult(interpreter, dm_get_type(DMP), (char *)NULL);
+	Tcl_AppendResult(interpreter, "nu", (char *)NULL);
 	return TCL_OK;
     }
 
-    if (!DMP) {
-	Tcl_AppendResult(interpreter,
-		"dm: no display manager attached\n", (char *)NULL);
-	return TCL_ERROR;
-    }
-
-    /* Step 7.14: dm_cmd_hook removed; dm_commands is the universal handler. */
-    return dm_commands(argc-1, argv+1, (void *)s);
+    /* All other subcommands: no display manager available. */
+    Tcl_AppendResult(interpreter,
+	    "dm: no display manager attached (Obol-only mode)\n", (char *)NULL);
+    return TCL_ERROR;
 }
 
-void
-dm_var_init(struct mged_state *s, struct mged_pane *target_pane, struct mged_pane *npane)
-{
-    /* Step 7.18: dm_var_init now takes mged_pane * directly.
-     * npane's mp_view_state was initialized to a placeholder shell by
-     * mged_pane_init_resources(); here we replace it with a proper live
-     * view_state that contains a new bsg_view. */
-    struct mged_pane *opane = target_pane;
-
-    if (npane->mp_view_state) {
-	/* Free the placeholder shell allocated by mged_pane_init_resources(). */
-	if (!--npane->mp_view_state->vs_rc) {
-	    view_ring_destroy(npane->mp_view_state);
-	    bu_free(npane->mp_view_state, "dm_var_init: placeholder view_state");
-	}
-	npane->mp_view_state = NULL;
-    }
-
-    BU_ALLOC(npane->mp_view_state, struct _view_state);
-    if (opane && opane->mp_view_state)
-	*npane->mp_view_state = *opane->mp_view_state;	/* struct copy */
-    /* Allocate a fresh vs_gvp for the new pane. */
-    bsg_view *new_vs_gvp;
-    BU_ALLOC(new_vs_gvp, bsg_view);
-    BU_GET(new_vs_gvp->callbacks, struct bu_ptbl);
-    bu_ptbl_init(new_vs_gvp->callbacks, 8, "bv callbacks");
-
-    if (opane && opane->mp_view_state && opane->mp_view_state->vs_gvp)
-	*new_vs_gvp = *opane->mp_view_state->vs_gvp;	/* struct copy */
-
-    BU_GET(new_vs_gvp->gv_objs.db_objs, struct bu_ptbl);
-    bu_ptbl_init(new_vs_gvp->gv_objs.db_objs, 8, "view_objs init");
-
-    BU_GET(new_vs_gvp->gv_objs.view_objs, struct bu_ptbl);
-    bu_ptbl_init(new_vs_gvp->gv_objs.view_objs, 8, "view_objs init");
-
-    bsg_scene_root_create(new_vs_gvp);
-
-    new_vs_gvp->vset = &s->gedp->ged_views;
-    new_vs_gvp->independent = 0;
-
-    new_vs_gvp->gv_clientData = (void *)npane->mp_view_state;
-    new_vs_gvp->gv_s->adaptive_plot_csg = 0;
-    new_vs_gvp->gv_s->redraw_on_zoom = 0;
-    new_vs_gvp->gv_s->point_scale = 1.0;
-    new_vs_gvp->gv_s->curve_scale = 1.0;
-    npane->mp_view_state->vs_gvp = new_vs_gvp;
-    npane->mp_view_state->vs_rc = 1;
-    view_ring_init(npane->mp_view_state, (struct _view_state *)NULL);
-
-    /* Step 7.18: mp_dirty, mp_mapped, mp_netfd are now pane fields.
-     * mged_pane_init_resources() set mp_netfd=-1, mp_dirty=1, mp_mapped=1. */
-    npane->mp_dirty  = 1;
-    npane->mp_mapped = 1;
-    npane->mp_netfd  = -1;
-    if (opane && opane->mp_dmp) {
-	dm_set_dirty(opane->mp_dmp, 1);
-    }
-}
+/* Step 7.19: dm_var_init() removed — it was the libdm view-initialisation
+ * helper that created a bsg_view inside a _view_state for a legacy dm pane.
+ * mged_attach() now creates views directly via bsg_view_init (Obol path).
+ * mged_pane_init_resources() handles the Obol view_state for new panes. */
 
 
 /* Step 7.13: mged_link_vars() removed.  The dm's dm_fps_name etc. VLS fields
@@ -1092,14 +826,13 @@ f_get_dm_list(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, 
 	return TCL_ERROR;
     }
 
-    /* Step 6.c/7.18: enumerate dm wrappers via active_pane_set. */
+    /* Step 7.19: libdm removed; enumerate Obol panes by gv_name instead. */
     for (size_t i = 0; i < BU_PTBL_LEN(&active_pane_set); i++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, i);
-	if (!mp || !mp->mp_dmp)
+	if (!mp || !mp->mp_gvp)
 	    continue;
-	struct bu_vls *pn = dm_get_pathname(mp->mp_dmp);
-	if (pn && bu_vls_strlen(pn))
-	    Tcl_AppendElement(interpreter, bu_vls_cstr(pn));
+	if (bu_vls_strlen(&mp->mp_gvp->gv_name))
+	    Tcl_AppendElement(interpreter, bu_vls_cstr(&mp->mp_gvp->gv_name));
     }
     return TCL_OK;
 }

@@ -487,7 +487,8 @@ extern void mged_pane_free_resources(struct mged_pane *mp);
 
 /* Step 7.18: DMP, DMP_dirty, fbp, clients, mapped macros now go directly through
  * mged_curr_pane->mp_* (no mged_dm intermediate struct).
- * Obol panes have mp_dmp == NULL so the "if (!DMP)" guards still work. */
+ * Step 7.19: mp_dmp is ALWAYS NULL (libdm attach removed).  Code guarded by
+ * "if (!DMP)" is dead but kept for the next cleanup pass. */
 #define DMP (s->mged_curr_pane->mp_dmp)
 #define DMP_dirty s->mged_curr_pane->mp_dirty
 #define fbp s->mged_curr_pane->mp_fbp
@@ -499,10 +500,8 @@ extern void mged_pane_free_resources(struct mged_pane *mp);
 /* Step 7.15: zclip_ptr macro removed — dm_zclip_ptr was dead (never used). */
 
 /* Step 7.2: mged_curr_pane is always non-NULL after startup (init_pane created
- * in mged_main before any attach).  Direct mp_* access — no ternary fallback
- * to mged_curr_dm->dm_* needed.  dm_var_init and the mged.c startup block
- * both use explicit s->mged_curr_dm->dm_<field> access, so they are unaffected
- * by these macros becoming non-ternary. */
+ * in mged_main before any attach).  Direct mp_* access — no ternary fallback.
+ * Step 7.19: dm_var_init removed; Obol-only path creates bsg_views directly. */
 #define view_state s->mged_curr_pane->mp_view_state
 #define adc_state s->mged_curr_pane->mp_adc_state
 #define menu_state s->mged_curr_pane->mp_menu_state
@@ -515,14 +514,8 @@ extern void mged_pane_free_resources(struct mged_pane *mp);
 
 /* Step 7.8: pv_head / pane_trails simplified from ternary to always use pane
  * fields.  mged_pane_init_resources() initialises mp_p_vlist and mp_trails
- * for BOTH Obol panes and legacy dm wrapper panes (via predictor_init_pane),
- * so the pane's fields are always valid.  mged_dm_init() / dm_var_init()
- * no longer call predictor_init(s) before the wrapper pane is registered;
- * predictor_init_pane(pane) is called inside mged_pane_init_resources()
- * after the wrapper pane is fully constructed.
- *
- * dm_p_vlist is kept BU_LIST_INIT'd in mged_attach() so that the legacy
- * BSG_FREE_VLIST call in release() / mged_finish() remains a safe no-op. */
+ * for Obol panes (via predictor_init_pane), so the pane's fields are always valid.
+ * Step 7.19: mged_dm_init / dm_var_init removed; pane creation uses bsg_view_init. */
 #define pv_head (&s->mged_curr_pane->mp_p_vlist)
 #define pane_trails (s->mged_curr_pane->mp_trails)
 
@@ -645,33 +638,19 @@ extern int doEvent(ClientData, void *);
 #endif
 
 /* defined in attach.c */
-extern void dm_var_init(struct mged_state *s, struct mged_pane *target_pane, struct mged_pane *npane);
 
-/* defined in dm-generic.c */
-extern int common_dm(struct mged_state *s, int argc, const char *argv[]);
-extern void view_state_flag_hook(const struct bu_structparse *, const char *, void *,const char *, void *);
-extern void dirty_hook(const struct bu_structparse *, const char *, void *,const char *, void *);
-extern void zclip_hook(const struct bu_structparse *, const char *, void *,const char *, void *);
+/* Step 7.19: dm_var_init() removed — Obol-only attach path eliminated the
+ * libdm view-init step.  Pane views are created by bsg_view_init() directly. */
+
+/* Step 7.19: common_dm, view_state_flag_hook, dirty_hook, zclip_hook, dm_commands,
+ * set_hook_data, and mged_view_hook_state removed — dm-generic.c deleted.
+ * The dm set/hook machinery is no longer needed in Obol-only mode. */
 
 /* external sp_hook functions */
 extern void cs_set_bg(const struct bu_structparse *, const char *, void *, const char *, void *); /* defined in color_scheme.c */
 
 /* defined in setup.c */
 extern void mged_rtCmdNotify(int);
-
-/* indices into which_dm[] */
-#define DM_PLOT_INDEX 0
-#define DM_PS_INDEX 1
-
-struct mged_view_hook_state {
-    struct mged_state    *hs_s;          /* back-pointer to session state (Step 6.a) */
-    struct dm *hs_dmp;
-    struct _view_state *vs;
-    int *dirty_global;
-};
-extern void *set_hook_data(struct mged_state *s, struct mged_view_hook_state *hs);
-
-int dm_commands(int argc, const char *argv[], void *data);
 
 
 #endif /* MGED_MGED_DM_H */
