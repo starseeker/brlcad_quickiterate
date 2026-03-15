@@ -826,18 +826,11 @@ be_accept(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), c
 	return TCL_OK;
     }
 
-    for (size_t i = 0; i < BU_PTBL_LEN(&active_dm_set); i++) {
-	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, i);
-	if (!m_dmp->dm_mged_variables) continue;
-	if (m_dmp->dm_mged_variables->mv_transform == 'e')
-	    m_dmp->dm_mged_variables->mv_transform = 'v';
-    }
-    /* Stage 7: also reset for Obol panes (skip legacy dm wrappers). */
+    /* Step 6.b: active_pane_set covers all pane types. */
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
-	struct mged_pane *pmp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (pmp->mp_dm) continue;  /* skip legacy dm wrappers */
-	if (pmp->mp_mged_variables && pmp->mp_mged_variables->mv_transform == 'e')
-	    pmp->mp_mged_variables->mv_transform = 'v';
+	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	if (mp->mp_mged_variables && mp->mp_mged_variables->mv_transform == 'e')
+	    mp->mp_mged_variables->mv_transform = 'v';
     }
 
     {
@@ -903,18 +896,11 @@ be_reject(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), c
     mged_color_soltab(s);
     (void)chg_state(s, s->global_editing_state, ST_VIEW, "Edit Reject");
 
-    for (size_t i = 0; i < BU_PTBL_LEN(&active_dm_set); i++) {
-	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, i);
-	if (!m_dmp->dm_mged_variables) continue;
-	if (m_dmp->dm_mged_variables->mv_transform == 'e')
-	    m_dmp->dm_mged_variables->mv_transform = 'v';
-    }
-    /* Stage 7: also reset for Obol panes (skip legacy dm wrappers). */
+    /* Step 6.b: active_pane_set covers all pane types. */
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
-	struct mged_pane *pmp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (pmp->mp_dm) continue;  /* skip legacy dm wrappers */
-	if (pmp->mp_mged_variables && pmp->mp_mged_variables->mv_transform == 'e')
-	    pmp->mp_mged_variables->mv_transform = 'v';
+	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	if (mp->mp_mged_variables && mp->mp_mged_variables->mv_transform == 'e')
+	    mp->mp_mged_variables->mv_transform = 'v';
     }
 
     {
@@ -1076,26 +1062,18 @@ chg_state(struct mged_state *s, int from, int to, char *str)
 
     stateChange(s, from, to);
 
-    save_dm_list = s->mged_curr_dm;
-    for (size_t i = 0; i < BU_PTBL_LEN(&active_dm_set); i++) {
-	struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, i);
-	if (!p->dm_dmp) continue;  /* skip null-dm sentinel */
-	set_curr_dm(s, p);
-
-	new_mats(s);
+    {
+	struct mged_pane *save_pane = s->mged_curr_pane;
+	save_dm_list = s->mged_curr_dm;
+	/* Step 6.b: active_pane_set covers all pane types. */
+	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	    set_curr_pane(s, mp);
+	    new_mats(s);
+	}
+	set_curr_pane(s, save_pane);
+	if (!save_pane) set_curr_dm(s, save_dm_list);
     }
-
-    set_curr_dm(s, save_dm_list);
-    /* Stage 7: apply new_mats to Obol panes as well (skip legacy dm wrappers). */
-    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
-	struct mged_pane *pmp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (pmp->mp_dm) continue;  /* skip legacy dm wrappers */
-	set_curr_pane(s, pmp);
-	new_mats(s);
-    }
-    set_curr_pane(s, NULL);
-    /* Restore mged_curr_dm after set_curr_pane may have redirected it. */
-    set_curr_dm(s, save_dm_list);
 
     bu_vls_printf(&vls, "%s(state)", MGED_DISPLAY_VAR);
     Tcl_SetVar(s->interp, bu_vls_addr(&vls), state_str[s->global_editing_state], TCL_GLOBAL_ONLY);

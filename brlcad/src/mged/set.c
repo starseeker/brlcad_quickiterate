@@ -140,12 +140,13 @@ set_dirty_flag(const struct bu_structparse *UNUSED(sdp),
     MGED_CK_STATE(s);
     /* Stage 7: notify the Obol path via update_views. */
     s->update_views = 1;
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	if (!m_dmp->dm_dmp) continue;  /* skip null-dm sentinel */
-	if (m_dmp->dm_mged_variables == mged_variables) {
-	    m_dmp->dm_dirty = 1;
-	    dm_set_dirty(m_dmp->dm_dmp, 1);
+    /* Step 6.b: use active_pane_set. */
+    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	if (!mp->mp_dm) continue;  /* skip Obol panes */
+	if (mp->mp_mged_variables == mged_variables) {
+	    mp->mp_dm->dm_dirty = 1;
+	    dm_set_dirty(mp->mp_dm->dm_dmp, 1);
 	}
     }
 }
@@ -322,15 +323,15 @@ set_scroll_private(const struct bu_structparse *UNUSED(sdp),
 {
     struct mged_state *s = (struct mged_state *)data;
     MGED_CK_STATE(s);
-    struct mged_dm *save_m_dmp;
+    struct mged_pane *save_pane = s->mged_curr_pane;
+    struct mged_dm *save_m_dmp = s->mged_curr_dm;
 
-    save_m_dmp = s->mged_curr_dm;
-
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	if (!m_dmp->dm_dmp) continue;  /* skip null-dm sentinel */
-	if (m_dmp->dm_mged_variables == save_m_dmp->dm_mged_variables) {
-	    set_curr_dm(s, m_dmp);
+    /* Step 6.b: use active_pane_set. */
+    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	if (!mp->mp_dm) continue;  /* skip Obol panes */
+	if (mp->mp_mged_variables == save_m_dmp->dm_mged_variables) {
+	    set_curr_pane(s, mp);
 
 	    if (mged_variables->mv_faceplate && mged_variables->mv_orig_gui) {
 		if (mged_variables->mv_sliders)	/* zero slider variables */
@@ -343,7 +344,8 @@ set_scroll_private(const struct bu_structparse *UNUSED(sdp),
 	}
     }
 
-    set_curr_dm(s, save_m_dmp);
+    set_curr_pane(s, save_pane);
+    if (!save_pane) set_curr_dm(s, save_m_dmp);
 }
 
 
@@ -396,32 +398,27 @@ set_dlist(const struct bu_structparse *UNUSED(sdp),
 {
     struct mged_state *s = (struct mged_state *)data;
     MGED_CK_STATE(s);
-    struct mged_dm *save_dlp;
-
-    /* save current display manager */
-    save_dlp = s->mged_curr_dm;
+    struct mged_pane *save_pane = s->mged_curr_pane;
+    struct mged_dm *save_dlp = s->mged_curr_dm;
 
     if (mged_variables->mv_dlist) {
 	/* create display lists */
 
-	/* for each display manager dlp1 that shares its dm_mged_variables with save_dlp */
-	for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
+	/* Step 6.b: for each wrapper pane that shares mged_variables with save_dlp */
+	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	    if (!mp->mp_dm) continue;  /* skip Obol panes */
 
-	    struct mged_dm *dlp1 = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	    /* Stage 7 (step 5.14): skip initial "nu" entry with no dm. */
-	    if (!dlp1->dm_dmp) continue;
-
-	    if (dlp1->dm_mged_variables != save_dlp->dm_mged_variables) {
+	    if (mp->mp_mged_variables != save_dlp->dm_mged_variables)
 		continue;
-	    }
 
-	    if (dm_get_displaylist(dlp1->dm_dmp) &&
-		dlp1->dm_dlist_state->dl_active == 0) {
-		set_curr_dm(s, dlp1);
+	    if (dm_get_displaylist(mp->mp_dm->dm_dmp) &&
+		mp->mp_dm->dm_dlist_state->dl_active == 0) {
+		set_curr_pane(s, mp);
 		createDListAll((void *)s, NULL);
-		dlp1->dm_dlist_state->dl_active = 1;
-		dlp1->dm_dirty = 1;
-		dm_set_dirty(dlp1->dm_dmp, 1);
+		mp->mp_dm->dm_dlist_state->dl_active = 1;
+		mp->mp_dm->dm_dirty = 1;
+		dm_set_dirty(mp->mp_dm->dm_dmp, 1);
 	    }
 	}
     } else {
@@ -429,45 +426,43 @@ set_dlist(const struct bu_structparse *UNUSED(sdp),
 	 * Free display lists if not being used by another display manager
 	 */
 
-	/* for each display manager dlp1 that shares its dm_mged_variables with save_dlp */
-	for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
+	/* Step 6.b: for each wrapper pane that shares mged_variables with save_dlp */
+	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
 
-	    struct mged_dm *dlp1 = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-
-	    if (!dlp1->dm_dmp) continue;  /* skip null-dm sentinel */
-	    if (dlp1->dm_mged_variables != save_dlp->dm_mged_variables)
+	    if (!mp->mp_dm) continue;  /* skip Obol panes */
+	    if (mp->mp_mged_variables != save_dlp->dm_mged_variables)
 		continue;
 
-	    if (dlp1->dm_dlist_state->dl_active) {
-		/* for each display manager dlp2 that is sharing display lists with dlp1 */
-		struct mged_dm *dlp2 = MGED_DM_NULL;
-		for (size_t dj = 0; dj < BU_PTBL_LEN(&active_dm_set); dj++) {
-		    struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, dj);  /* was di: bug */
+	    if (mp->mp_dm->dm_dlist_state->dl_active) {
+		/* for each wrapper pane mp2 that is sharing display lists with mp */
+		struct mged_pane *mp2 = MGED_PANE_NULL;
+		for (size_t pj = 0; pj < BU_PTBL_LEN(&active_pane_set); pj++) {
+		    struct mged_pane *m2 = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pj);
 
-		    if (!m_dmp->dm_dmp) continue;  /* skip null-dm sentinel */
-		    if (m_dmp->dm_dlist_state != dlp1->dm_dlist_state) {
+		    if (!m2->mp_dm) continue;  /* skip Obol panes */
+		    if (m2->mp_dm->dm_dlist_state != mp->mp_dm->dm_dlist_state)
 			continue;
-		    }
 
-		    /* found a dlp2 that is actively using dlp1's display lists */
-		    if (dlp2 && dlp2->dm_mged_variables->mv_dlist) {
-			dlp2 = m_dmp;
+		    /* found mp2 that is actively using mp's display lists */
+		    if (mp2 && mp2->mp_mged_variables->mv_dlist) {
+			mp2 = m2;
 			break;
 		    }
 		}
 
 		/* these display lists are not being used, so free them */
-		if (dlp2 == MGED_DM_NULL) {
-		    dlp1->dm_dlist_state->dl_active = 0;
+		if (mp2 == MGED_PANE_NULL) {
+		    mp->mp_dm->dm_dlist_state->dl_active = 0;
 
 		    /* Free each shape's display list individually via scene-root children */
 		    bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
 		    size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
-		    (void)dm_make_current(dlp1->dm_dmp);
+		    (void)dm_make_current(mp->mp_dm->dm_dmp);
 		    for (size_t si = 0; si < nshapes; si++) {
 			bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
 			if (sp->s_dlist) {
-			    (void)dm_free_dlists(dlp1->dm_dmp, sp->s_dlist, 1);
+			    (void)dm_free_dlists(mp->mp_dm->dm_dmp, sp->s_dlist, 1);
 			    sp->s_dlist = 0;
 			}
 		    }
@@ -476,8 +471,8 @@ set_dlist(const struct bu_structparse *UNUSED(sdp),
 	}
     }
 
-    /* restore current display manager */
-    set_curr_dm(s, save_dlp);
+    set_curr_pane(s, save_pane);
+    if (!save_pane) set_curr_dm(s, save_dlp);
 }
 
 
