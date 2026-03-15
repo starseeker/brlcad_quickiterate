@@ -66,7 +66,7 @@ dozoom(struct mged_state *s, int which_eye)
      */
     struct mged_pane *save_pane = s->mged_curr_pane;
 
-    s->mged_curr_dm->dm_ndrawn = 0;
+    s->mged_curr_pane->mp_ndrawn = 0;
     inv_viewsize = view_state->vs_gvp->gv_isize;
 
     struct bsg_camera _vcam;
@@ -150,9 +150,8 @@ dozoom(struct mged_state *s, int which_eye)
 	 * mged_curr_pane/dm to change. Restore via pane (Step 7.5). */
 	if (s->mged_curr_pane != save_pane) set_curr_pane(s, save_pane);
 
-	/* Step 5.15: accumulate drawn count via struct field directly to avoid
-	 * conflict with the local "ndrawn" variable (the macro would shadow it). */
-	s->mged_curr_dm->dm_ndrawn += ndrawn;
+	/* Step 7.6: accumulate drawn count in mp_ndrawn (authoritative counter). */
+	s->mged_curr_pane->mp_ndrawn += ndrawn;
 
 	/* disable write to depth buffer */
 	dm_set_depth_mask(DMP, 0);
@@ -175,10 +174,7 @@ dozoom(struct mged_state *s, int which_eye)
      * mged_curr_pane/dm to change. Restore via pane (Step 7.5). */
     if (s->mged_curr_pane != save_pane) set_curr_pane(s, save_pane);
 
-    s->mged_curr_dm->dm_ndrawn += ndrawn;
-
-
-    /* draw predictor vlist */
+    s->mged_curr_pane->mp_ndrawn += ndrawn;
     if (mged_variables->mv_predictor) {
 	dm_set_fg(DMP,
 		       color_scheme->cs_predictor[0],
@@ -213,8 +209,8 @@ dozoom(struct mged_state *s, int which_eye)
 	    r, g, b, mged_variables->mv_linewidth, mged_variables->mv_dlist, 1,
 	    geometry_default_color, 0, mged_variables->mv_dlist);
 
-    /* Step 5.15: accumulate via struct field directly (avoid macro/local conflict). */
-    s->mged_curr_dm->dm_ndrawn += ndrawn;
+    /* Step 7.6: accumulate drawn count in mp_ndrawn (authoritative counter). */
+    s->mged_curr_pane->mp_ndrawn += ndrawn;
 
     /* The vectorThreshold stuff in libdm may turn the Tcl-crank causing
      * mged_curr_pane/dm to change. Restore via pane (Step 7.5). */

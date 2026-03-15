@@ -100,18 +100,22 @@ void set_curr_dm(struct mged_state *s, struct mged_dm *nc)
 }
 
 /**
- * set_curr_pane — make an Obol mged_pane the active view source.
+ * set_curr_pane — make a mged_pane the active view source.
  *
- * Stage 7 (libdm removal): this is the counterpart of set_curr_dm() for
- * Obol panes tracked in active_pane_set.  It sets s->gedp->ged_gvp to the
- * pane's bsg_view AND redirects s->mged_curr_dm to the headless "nu" init dm
- * (mged_dm_init_state) so that DMP == NULL and all legacy libdm drawing guards
- * fire cleanly.  The ternary macros prefer mp->mp_* because mged_curr_pane is
- * non-NULL.
+ * Stage 7 (libdm removal): this is the primary pane-switching function.
+ * It sets s->gedp->ged_gvp to the pane's bsg_view AND (for legacy dm
+ * wrapper panes only) redirects s->mged_curr_dm to the wrapped mged_dm so
+ * DMP is non-NULL.  For Obol panes, it redirects s->mged_curr_dm to the
+ * null-sentinel (mged_dm_init_state) so DMP == NULL and all legacy libdm
+ * guards fire cleanly.
  *
- * When all panes have been migrated to mged_pane (step 6), set_curr_dm and
- * the DMP macros will be removed and set_curr_pane will become the sole
- * pane-switching function.
+ * set_curr_dm() is now internal to this file and is only called for legacy
+ * dm init during startup.  All external callers that previously called
+ * set_curr_dm() now call set_curr_pane() instead (Step 7.5 migration).
+ *
+ * The ternary macros prefer mp->mp_* because mged_curr_pane is non-NULL.
+ * Once mged_dm and the DMP macros are removed (Step 7.6+), set_curr_pane
+ * will become the sole pane-switching function without the dm redirect.
  */
 void
 set_curr_pane(struct mged_state *s, struct mged_pane *mp)

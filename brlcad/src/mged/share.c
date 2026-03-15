@@ -416,7 +416,7 @@ usurp_all_resources(struct mged_dm *dlp1, struct mged_dm *dlp2)
 
     /* it doesn't make sense to save display list info */
     if (!--dlp2->dm_dlist_state->dl_rc)
-	bu_free((void *)MGED_STATE->mged_curr_dm->dm_dlist_state, "usurp_all_resources: _dlist_state");
+	bu_free((void *)dlp2->dm_dlist_state, "usurp_all_resources: _dlist_state");
 }
 
 
