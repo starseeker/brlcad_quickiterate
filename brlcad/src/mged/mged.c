@@ -1792,7 +1792,7 @@ mged_finish(struct mged_state *s, int exitcode)
 	    if (p->dm_dmp) {
 		dm_close(p->dm_dmp);
 		/* Step 7.12: dm_p_vlist removed from mged_dm. */
-		mged_slider_free_vls(p);
+		/* Step 7.13: mged_slider_free_vls removed — dm VLS name fields deleted. */
 	    }
 	    bu_free(p, "mged_finish: mged_dm");
 	    /* Step 7.10: mged_curr_dm removed from mged_state; no pointer to null. */
@@ -2219,7 +2219,7 @@ main(int argc, char *argv[])
 
     mmenu_init(s);
     btn_head_menu(s, 0, 0, 0);
-    mged_link_vars(mged_dm_init_state);
+    /* Step 7.13: mged_link_vars removed — dm VLS name fields deleted; sentinel dm has no dmp anyway. */
 
     bu_vls_printf(&s->input_str, "set version \"%s\"", brlcad_ident("Geometry Editor (MGED)"));
     (void)Tcl_Eval(s->interp, bu_vls_addr(&s->input_str));

@@ -368,11 +368,11 @@ struct mged_dm {
     int			dm_mapped;
     int			dm_owner;			/* true if owner of the view info */
     int			dm_am_mode;			/* alternate mouse mode */
-    int			dm_ndrawn;
+    /* Step 7.13: dm_ndrawn removed — use mp_ndrawn on mged_pane. */
     int			dm_perspective_angle;
     int			*dm_zclip_ptr;
     /* Step 7.12: dm_p_vlist removed — predictor vlist lives in mp_p_vlist on mged_pane. */
-    struct trail	dm_trails[NUM_TRAILS];
+    /* Step 7.13: dm_trails removed — use mp_trails on mged_pane. */
 /* Step 7.11: dm_tie removed — use mp_cmd_tie on the mged_pane instead. */
 
     int			dm_adc_auto;
@@ -384,13 +384,8 @@ struct mged_dm {
     int			_dm_knobs[8];
     point_t		_dm_work_pt;
 
-    /* Tcl variable names for display info */
-    struct bu_vls	dm_fps_name;
-    struct bu_vls	dm_aet_name;
-    struct bu_vls	dm_ang_name;
-    struct bu_vls	dm_center_name;
-    struct bu_vls	dm_size_name;
-    struct bu_vls	dm_adc_name;
+    /* Step 7.13: Tcl display variable name VLS fields removed from mged_dm.
+     * Use mp_fps_name etc. on mged_pane (populated by mged_pane_link_vars). */
 
     /* Slider stuff */
     int			dm_scroll_top;

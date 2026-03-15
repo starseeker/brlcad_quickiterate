@@ -382,8 +382,7 @@ extern struct run_rt head_run_rt;
 
 /* attach.c */
 int mged_attach(struct mged_state *s, const char *wp_name, int argc, const char *argv[]);
-void mged_link_vars(struct mged_dm *p);
-void mged_slider_free_vls(struct mged_dm *p);
+/* Step 7.13: mged_link_vars and mged_slider_free_vls removed (dm VLS name fields deleted). */
 int gui_setup(struct mged_state *s, const char *dstr);
 
 

@@ -399,30 +399,8 @@ mged_fb_open(struct mged_state *s)
 }
 
 
-void
-mged_slider_init_vls(struct mged_dm *p)
-{
-    bu_vls_init(&p->dm_fps_name);
-    bu_vls_init(&p->dm_aet_name);
-    bu_vls_init(&p->dm_ang_name);
-    bu_vls_init(&p->dm_center_name);
-    bu_vls_init(&p->dm_size_name);
-    bu_vls_init(&p->dm_adc_name);
-}
-
-
-void
-mged_slider_free_vls(struct mged_dm *p)
-{
-    if (BU_VLS_IS_INITIALIZED(&p->dm_fps_name)) {
-	bu_vls_free(&p->dm_fps_name);
-	bu_vls_free(&p->dm_aet_name);
-	bu_vls_free(&p->dm_ang_name);
-	bu_vls_free(&p->dm_center_name);
-	bu_vls_free(&p->dm_size_name);
-	bu_vls_free(&p->dm_adc_name);
-    }
-}
+/* Step 7.13: mged_slider_init_vls, mged_slider_free_vls, mged_link_vars removed.
+ * Pane HUD VLS names are populated exclusively by mged_pane_link_vars(). */
 
 
 static int
@@ -562,7 +540,7 @@ release(struct mged_state *s, char *name, int need_close, struct mged_dm *bad_dm
 
     /* Step 7.12: dm_p_vlist removed from mged_dm; predictor vlist lives in mp_p_vlist on pane. */
     /* Step 6.c: active_dm_set no longer maintained; pane was removed above. */
-    mged_slider_free_vls(cdm);
+    /* Step 7.13: mged_slider_free_vls(cdm) removed — dm VLS name fields deleted. */
     bu_free((void *)cdm, "release: mged_dm");
 
     /* Step 7.10: Restore pane context.
@@ -837,7 +815,7 @@ mged_attach(struct mged_state *s, const char *wp_name, int argc, const char *arg
 	cs_set_bg(sdp, name, base, value, s);
     }
 
-    mged_link_vars(ndm);
+    /* Step 7.13: mged_link_vars(ndm) removed — dm VLS name fields deleted. */
 
     /* Step 7.9/7.10: Use ndm->dm_dmp directly throughout. */
     struct dm *ndmp = ndm->dm_dmp;
@@ -1146,25 +1124,9 @@ dm_var_init(struct mged_state *s, struct mged_dm *target_dm, struct mged_dm *ndm
 }
 
 
-void
-mged_link_vars(struct mged_dm *p)
-{
-    /* Stage 7 (step 5.14): dm_dmp may be NULL for the initial "nu" mged_dm
-     * (mged_dm_init_state).  Skip link_vars when there is no dm pathname to
-     * use as the Tcl variable name prefix. */
-    if (!p->dm_dmp)
-	return;
-    mged_slider_init_vls(p);
-    struct bu_vls *pn = dm_get_pathname(p->dm_dmp);
-    if (pn) {
-	bu_vls_printf(&p->dm_fps_name, "%s(%s,fps)", MGED_DISPLAY_VAR,	bu_vls_cstr(pn));
-	bu_vls_printf(&p->dm_aet_name, "%s(%s,aet)", MGED_DISPLAY_VAR,	bu_vls_cstr(pn));
-	bu_vls_printf(&p->dm_ang_name, "%s(%s,ang)", MGED_DISPLAY_VAR,	bu_vls_cstr(pn));
-	bu_vls_printf(&p->dm_center_name, "%s(%s,center)", MGED_DISPLAY_VAR, bu_vls_cstr(pn));
-	bu_vls_printf(&p->dm_size_name, "%s(%s,size)", MGED_DISPLAY_VAR, bu_vls_cstr(pn));
-	bu_vls_printf(&p->dm_adc_name, "%s(%s,adc)", MGED_DISPLAY_VAR,	bu_vls_cstr(pn));
-    }
-}
+/* Step 7.13: mged_link_vars() removed.  The dm's dm_fps_name etc. VLS fields
+ * were the only output and they were never read after being set.  Pane HUD
+ * variable names are populated by mged_pane_link_vars() instead. */
 
 
 /* Stage 7: Set up Tcl HUD display variable names for an Obol mged_pane.
