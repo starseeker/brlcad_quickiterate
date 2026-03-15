@@ -1209,7 +1209,21 @@ from `mp_gvp` (no DMP indirection).
    **After Step 7.13**: `struct mged_dm` no longer has any trail, ndrawn, or VLS name
    fields.  HUD variable names are populated by `mged_pane_link_vars()` exclusively.
 
-   **Remaining work (Step 7.14 onwards)**:
+   **Step 7.14** ✅ (Session 24) — Remove hook function pointers from `struct mged_dm`:
+   - `mged_dm.h`: Removed `dm_cmd_hook`, `dm_viewpoint_hook`, `dm_eventHandler` from
+     `struct mged_dm`.  Removed corresponding macros (`cmd_hook`, `viewpoint_hook`,
+     `eventHandler`).
+   - `attach.c` `mged_dm_init()`: Removed `ndm->dm_cmd_hook = dm_commands` (field gone).
+   - `attach.c` `dm_cmd()`: Replaced `if (!cmd_hook) { ... } return cmd_hook(...)` with
+     direct `return dm_commands(...)` call (dm_cmd_hook was always dm_commands).
+   - `mged.c` startup: Removed `mged_dm_init_state->dm_cmd_hook = dm_commands`.
+   - `mged.c` `refresh()`: Removed `if (viewpoint_hook) (*viewpoint_hook)()` (VR hook;
+     `viewpoint_hook` was never assigned a non-NULL value — always NULL/dead).
+
+   **After Step 7.14**: `struct mged_dm` no longer has any function pointer fields.
+   The `dm` command calls `dm_commands()` directly.  The VR viewpoint hook is gone.
+
+   **Remaining work (Step 7.15 onwards)**:
    - `f_attach`/`mged_attach()`/`mged_dm_init()`: convert to Obol-only path
    - Delete `struct mged_dm`, `DMP`/`fbp`/`clients` macros, `dm-generic.c`
 

@@ -1582,8 +1582,7 @@ refresh(struct mged_state *s)
 			do_overlay = 0;
 		    }
 
-		    /* XXX VR hack */
-		    if (viewpoint_hook)  (*viewpoint_hook)();
+		    /* XXX VR hook — Step 7.14: viewpoint_hook removed (dead); VR not supported. */
 		}
 
 		if (mged_variables->mv_predictor)
@@ -2142,8 +2141,7 @@ main(int argc, char *argv[])
     /* DMP == NULL intentionally: no dm_open("nu") call */
 
     /* register application provided routines */
-    /* Step 7.10: Use mged_dm_init_state directly (mged_curr_dm removed). */
-    mged_dm_init_state->dm_cmd_hook = dm_commands;
+    /* Step 7.14: dm_cmd_hook removed — always dm_commands; no assignment needed. */
 
     BU_ALLOC(mged_dm_init_state->dm_rubber_band, struct _rubber_band);
     *mged_dm_init_state->dm_rubber_band = default_rubber_band;	/* struct copy */

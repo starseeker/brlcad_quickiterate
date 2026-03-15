@@ -405,9 +405,9 @@ struct mged_dm {
     struct _dlist_state	*dm_dlist_state;
 
     /* Hooks */
-    int			(*dm_cmd_hook)(int, const char **, void *);
-    void			(*dm_viewpoint_hook)(void);
-    int			(*dm_eventHandler)(void);
+    /* Step 7.14: dm_cmd_hook removed — always dm_commands; call directly. */
+    /* Step 7.14: dm_viewpoint_hook removed — never assigned or called (dead). */
+    /* Step 7.14: dm_eventHandler removed — never assigned or called (dead). */
 };
 
 #define MGED_DM_NULL ((struct mged_dm *)NULL)
@@ -560,10 +560,9 @@ extern void mged_pane_free_resources(struct mged_pane *mp);
 #define pv_head (&s->mged_curr_pane->mp_p_vlist)
 #define pane_trails (s->mged_curr_pane->mp_trails)
 
-/* Step 7.8: cmd_hook / viewpoint_hook / eventHandler through pane. */
-#define cmd_hook s->mged_curr_pane->mp_dm->dm_cmd_hook
-#define viewpoint_hook s->mged_curr_pane->mp_dm->dm_viewpoint_hook
-#define eventHandler s->mged_curr_pane->mp_dm->dm_eventHandler
+/* Step 7.14: cmd_hook/viewpoint_hook/eventHandler macros removed.
+ * dm_cmd_hook was always dm_commands — use dm_commands() directly.
+ * viewpoint_hook/eventHandler were never assigned or called (dead). */
 
 #define adc_auto s->mged_curr_pane->mp_dm->dm_adc_auto
 #define grid_auto_size s->mged_curr_pane->mp_dm->dm_grid_auto_size
