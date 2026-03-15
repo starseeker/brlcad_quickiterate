@@ -1436,18 +1436,8 @@ mmenu_set(struct mged_state *s, int index, struct menu_item *value)
     Tcl_DStringFree(&ds_menu);
     bu_vls_free(&menu_string);
 
-    /* Stage 7 Step 6.b: use active_pane_set. */
+    /* Step 7.20: mp_dmp removed; update_views triggers Obol refresh. */
     s->update_views = 1;
-    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
-	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (!mp->mp_dmp) continue;  /* skip Obol panes */
-	if (menu_state == mp->mp_menu_state &&
-	    mp->mp_mged_variables->mv_faceplate &&
-	    mp->mp_mged_variables->mv_orig_gui) {
-	    mp->mp_dirty = 1;
-	    dm_set_dirty(mp->mp_dmp, 1);
-	}
-    }
 }
 
 
@@ -1461,7 +1451,7 @@ mmenu_set_all(struct mged_state *s, int index, struct menu_item *value)
     save_pane = s->mged_curr_pane;
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (!mp->mp_dmp) continue;  /* skip Obol panes */
+	/* Step 7.20: mp_dmp removed; iterate all panes. */
 	if (mp->mp_cmd_tie)
 	    curr_cmd_list = mp->mp_cmd_tie;
 
@@ -1475,44 +1465,9 @@ mmenu_set_all(struct mged_state *s, int index, struct menu_item *value)
 
 
 void
-mged_highlight_menu_item(struct mged_state *s, struct menu_item *mptr, int y)
+mged_highlight_menu_item(struct mged_state *UNUSED(s), struct menu_item *UNUSED(mptr), int UNUSED(y))
 {
-    /* Stage 7 guard: skip libdm overlay drawing for Obol panes */
-    if (!DMP) return;
-
-    switch (mptr->menu_arg) {
-	case BV_RATE_TOGGLE:
-	    if (mged_variables->mv_rateknobs) {
-		dm_set_fg(DMP,
-			       color_scheme->cs_menu_text1[0],
-			       color_scheme->cs_menu_text1[1],
-			       color_scheme->cs_menu_text1[2], 1, 1.0);
-		dm_draw_string_2d(DMP, "Rate",
-				  GED2PM1(MENUX), GED2PM1(y-15), 0, 0);
-		dm_set_fg(DMP,
-			       color_scheme->cs_menu_text2[0],
-			       color_scheme->cs_menu_text2[1],
-			       color_scheme->cs_menu_text2[2], 1, 1.0);
-		dm_draw_string_2d(DMP, "/Abs",
-				  GED2PM1(MENUX+4*40), GED2PM1(y-15), 0, 0);
-	    } else {
-		dm_set_fg(DMP,
-			       color_scheme->cs_menu_text2[0],
-			       color_scheme->cs_menu_text2[1],
-			       color_scheme->cs_menu_text2[2], 1, 1.0);
-		dm_draw_string_2d(DMP, "Rate/",
-				  GED2PM1(MENUX), GED2PM1(y-15), 0, 0);
-		dm_set_fg(DMP,
-			       color_scheme->cs_menu_text1[0],
-			       color_scheme->cs_menu_text1[1],
-			       color_scheme->cs_menu_text1[2], 1, 1.0);
-		dm_draw_string_2d(DMP, "Abs",
-				  GED2PM1(MENUX+5*40), GED2PM1(y-15), 0, 0);
-	    }
-	    break;
-	default:
-	    break;
-    }
+    /* Step 7.20: libdm removed — no-op. */
 }
 
 
@@ -1522,82 +1477,9 @@ mged_highlight_menu_item(struct mged_state *s, struct menu_item *mptr, int y)
  * menu item will be indicated with an arrow.
  */
 void
-mmenu_display(struct mged_state *s, int y_top)
+mmenu_display(struct mged_state *UNUSED(s), int UNUSED(y_top))
 {
-    /* Stage 7 guard: skip libdm overlay drawing for Obol panes */
-    if (!DMP) return;
-
-    static int menu, item;
-    struct menu_item **m;
-    struct menu_item *mptr;
-    int y = y_top;
-
-    menu_state->ms_top = y - MENU_DY / 2;
-    dm_set_fg(DMP,
-		   color_scheme->cs_menu_line[0],
-		   color_scheme->cs_menu_line[1],
-		   color_scheme->cs_menu_line[2], 1, 1.0);
-
-    dm_set_line_attr(DMP, mged_variables->mv_linewidth, 0);
-
-    dm_draw_line_2d(DMP,
-		    GED2PM1(MENUXLIM), GED2PM1(menu_state->ms_top),
-		    GED2PM1((int)BSG_VIEW_MIN), GED2PM1(menu_state->ms_top));
-
-    for (menu=0, m = menu_state->ms_menus; m - menu_state->ms_menus < NMENU; m++, menu++) {
-	if (*m == NULL) continue;
-	for (item=0, mptr = *m; mptr->menu_string[0] != '\0' && y > TITLE_YBASE; mptr++, y += MENU_DY, item++) {
-	    if ((*m == (struct menu_item *)second_menu
-		 && (mptr->menu_arg == BV_RATE_TOGGLE
-		     || mptr->menu_arg == BV_EDIT_TOGGLE
-		     || mptr->menu_arg == BV_EYEROT_TOGGLE)))
-		mged_highlight_menu_item(s, mptr, y);
-	    else {
-		if (mptr == *m)
-		    dm_set_fg(DMP,
-				   color_scheme->cs_menu_title[0],
-				   color_scheme->cs_menu_title[1],
-				   color_scheme->cs_menu_title[2], 1, 1.0);
-		else
-		    dm_set_fg(DMP,
-				   color_scheme->cs_menu_text2[0],
-				   color_scheme->cs_menu_text2[1],
-				   color_scheme->cs_menu_text2[2], 1, 1.0);
-		dm_draw_string_2d(DMP, mptr->menu_string,
-				  GED2PM1(MENUX), GED2PM1(y-15), 0, 0);
-	    }
-	    dm_set_fg(DMP,
-			   color_scheme->cs_menu_line[0],
-			   color_scheme->cs_menu_line[1],
-			   color_scheme->cs_menu_line[2], 1, 1.0);
-	    dm_draw_line_2d(DMP,
-			    GED2PM1(MENUXLIM), GED2PM1(y+(MENU_DY/2)),
-			    GED2PM1((int)BSG_VIEW_MIN), GED2PM1(y+(MENU_DY/2)));
-	    if (menu_state->ms_cur_item == item && menu_state->ms_cur_menu == menu && menu_state->ms_flag) {
-		/* prefix item selected with "==>" */
-		dm_set_fg(DMP,
-			       color_scheme->cs_menu_arrow[0],
-			       color_scheme->cs_menu_arrow[1],
-			       color_scheme->cs_menu_arrow[2], 1, 1.0);
-		dm_draw_string_2d(DMP, "==>",
-				  GED2PM1((int)BSG_VIEW_MIN), GED2PM1(y-15), 0, 0);
-	    }
-	}
-    }
-
-    if (y == y_top)
-	return;	/* no active menus */
-
-    dm_set_fg(DMP,
-		   color_scheme->cs_menu_line[0],
-		   color_scheme->cs_menu_line[1],
-		   color_scheme->cs_menu_line[2], 1, 1.0);
-
-    dm_set_line_attr(DMP, mged_variables->mv_linewidth, 0);
-
-    dm_draw_line_2d(DMP,
-		    GED2PM1(MENUXLIM), GED2PM1(menu_state->ms_top-1),
-		    GED2PM1(MENUXLIM), GED2PM1(y-(MENU_DY/2)));
+    /* Step 7.20: libdm removed — no-op. */
 }
 
 

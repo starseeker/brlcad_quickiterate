@@ -114,7 +114,6 @@ set_e_axes_pos(struct mged_state *s, int both)
     const int local_arb_faces[5][24] = rt_arb_faces;
 
     s->update_views = 1;
-    if (DMP) dm_set_dirty(DMP, 1);
     switch (MEDIT(s)->es_int.idb_type) {
 	case ID_ARB8:
 	    if (s->global_editing_state == ST_O_EDIT) {
@@ -1238,11 +1237,9 @@ get_rotation_vertex(struct mged_state *s)
     }
     bu_vls_printf(&str, ") [%d]: ", rt_arb_vertices[type][loc]);
 
-    /* Step 7.6: use pane for display name (replaces mged_curr_dm->dm_dmp access). */
+    /* Step 7.20: mp_dmp removed; use gv_name directly. */
     const struct bu_vls *dnvp = NULL;
-    if (s->mged_curr_pane->mp_dmp)
-	dnvp = dm_get_dname(s->mged_curr_pane->mp_dmp);
-    else if (s->mged_curr_pane->mp_gvp && bu_vls_strlen(&s->mged_curr_pane->mp_gvp->gv_name))
+    if (s->mged_curr_pane->mp_gvp && bu_vls_strlen(&s->mged_curr_pane->mp_gvp->gv_name))
 	dnvp = &s->mged_curr_pane->mp_gvp->gv_name;
 
     bu_vls_printf(&cmd, "cad_input_dialog .get_vertex %s {Need vertex for solid rotate}\
@@ -1291,12 +1288,7 @@ get_file_name(struct mged_state *s, char *str)
 	bu_free((void *)dir, "get_file_name: directory string");
     }
 
-    if (DMP && dm_get_pathname(DMP)) {
-	bu_vls_printf(&cmd,
-		"getFile %s %s {{{All Files} {*}}} {Get File}",
-		bu_vls_addr(dm_get_pathname(DMP)),
-		bu_vls_addr(&varname_vls));
-    }
+    /* Step 7.20: DMP removed; skip the GUI file dialog. */
     bu_vls_free(&varname_vls);
 
     if (Tcl_Eval(s->interp, bu_vls_addr(&cmd))) {
@@ -2690,13 +2682,7 @@ sedit(struct mged_state *s)
 		RT_BOT_CK_MAGIC(bot);
 		old_mode = bot->mode;
 		sprintf(mode, " %d", old_mode - 1);
-		if (DMP && dm_get_pathname(DMP)) {
-		    ret_tcl = Tcl_VarEval(s->interp, "cad_radio", " .bot_mode_radio ",
-			    bu_vls_addr(dm_get_pathname(DMP)), " _bot_mode_result",
-			    " \"BOT Mode\"", "  \"Select the desired mode\"", mode,
-			    " { surface volume plate plate/nocosine }",
-			    " { \"In surface mode, each triangle represents part of a zero thickness surface and no volume is enclosed\" \"In volume mode, the triangles are expected to enclose a volume and that volume becomes the solid\" \"In plate mode, each triangle represents a plate with a specified thickness\" \"In plate/nocosine mode, each triangle represents a plate with a specified thickness, but the LOS thickness reported by the raytracer is independent of obliquity angle\" } ", (char *)NULL);
-		}
+		/* Step 7.20: DMP removed — GUI dialog unavailable. */
 		if (ret_tcl != TCL_OK) {
 		    Tcl_AppendResult(s->interp, "Mode selection failed!\n", (char *)NULL);
 		    break;
@@ -2730,13 +2716,7 @@ sedit(struct mged_state *s)
 
 		RT_BOT_CK_MAGIC(bot);
 		sprintf(orient, " %d", bot->orientation - 1);
-		if (DMP && dm_get_pathname(DMP)) {
-		    ret_tcl = Tcl_VarEval(s->interp, "cad_radio", " .bot_orient_radio ",
-			    bu_vls_addr(dm_get_pathname(DMP)), " _bot_orient_result",
-			    " \"BOT Face Orientation\"", "  \"Select the desired orientation\"", orient,
-			    " { none right-hand-rule left-hand-rule }",
-			    " { \"No orientation means that there is no particular order for the vertices of the triangles\" \"right-hand-rule means that the vertices of each triangle are ordered such that the right-hand-rule produces an outward pointing normal\"  \"left-hand-rule means that the vertices of each triangle are ordered such that the left-hand-rule produces an outward pointing normal\" } ", (char *)NULL);
-		}
+		/* Step 7.20: DMP removed — GUI dialog unavailable. */
 		if (ret_tcl != TCL_OK) {
 		    Tcl_AppendResult(s->interp, "Face orientation selection failed!\n", (char *)NULL);
 		    break;
@@ -2823,19 +2803,7 @@ sedit(struct mged_state *s)
 		    cur_settings[5] = '1';
 		}
 
-		if (DMP && dm_get_pathname(DMP)) {
-		    ret_tcl = Tcl_VarEval(s->interp,
-			    "cad_list_buts",
-			    " .bot_list_flags ",
-			    bu_vls_addr(dm_get_pathname(DMP)),
-			    " _bot_flags_result ",
-			    cur_settings,
-			    " \"BOT Flags\"",
-			    " \"Select the desired flags\"",
-			    " { {Use vertex normals} {Use single precision ray-tracing} }",
-			    " { {This selection indicates that surface normals at hit points should be interpolated from vertex normals} {This selection indicates that the prepped form of the BOT triangles should use single precision to save memory} } ",
-			    (char *)NULL);
-		}
+		/* Step 7.20: DMP removed — GUI dialog unavailable. */
 		if (ret_tcl != TCL_OK) {
 		    bu_log("ERROR: cad_list_buts: %s\n", Tcl_GetStringResult(s->interp));
 		    break;
@@ -2908,14 +2876,7 @@ sedit(struct mged_state *s)
 		else
 		    sprintf(fmode, " %d", BU_BITTEST(bot->face_mode, 0)?1:0);
 
-		if (DMP && dm_get_pathname(DMP)) {
-		    ret_tcl = Tcl_VarEval(s->interp, "cad_radio", " .bot_fmode_radio ", bu_vls_addr(dm_get_pathname(DMP)),
-			    " _bot_fmode_result ", "\"BOT Face Mode\"",
-			    " \"Select the desired face mode\"", fmode,
-			    " { {Thickness centered about hit point} {Thickness appended to hit point} }",
-			    " { {This selection will place the plate thickness centered about the hit point} {This selection will place the plate thickness rayward of the hit point} } ",
-			    (char *)NULL);
-		}
+		/* Step 7.20: DMP removed — GUI dialog unavailable. */
 		if (ret_tcl != TCL_OK) {
 		    bu_log("ERROR: cad_radio: %s\n", Tcl_GetStringResult(s->interp));
 		    break;
@@ -5154,7 +5115,6 @@ sedit(struct mged_state *s)
     replot_editing_solid(s);
 
     if (s->update_views) {
-	if (DMP) dm_set_dirty(DMP, 1);
 	struct bu_vls vls = BU_VLS_INIT_ZERO;
 
 	bu_vls_printf(&vls, "active_edit_callback");
@@ -7691,7 +7651,6 @@ f_sedit_reset(ClientData clientData, Tcl_Interp *interp, int argc, const char *U
 
     set_e_axes_pos(s, 1);
     s->update_views = 1;
-    if (DMP) dm_set_dirty(DMP, 1);
 
     /* active edit callback */
     bu_vls_printf(&vls, "active_edit_callback");
@@ -7756,7 +7715,6 @@ f_oedit_reset(ClientData clientData, Tcl_Interp *interp, int argc, const char *U
 
     new_edit_mats(s);
     s->update_views = 1;
-    if (DMP) dm_set_dirty(DMP, 1);
 
     /* active edit callback */
     bu_vls_printf(&vls, "active_edit_callback");
@@ -7795,7 +7753,6 @@ f_oedit_apply(ClientData clientData, Tcl_Interp *interp, int UNUSED(argc), const
     init_oedit_vars(s);
     new_edit_mats(s);
     s->update_views = 1;
-    if (DMP) dm_set_dirty(DMP, 1);
 
     /* active edit callback */
     bu_vls_printf(&vls, "active_edit_callback");

@@ -76,16 +76,8 @@ grid_set_dirty_flag(const struct bu_structparse *UNUSED(sdp),
 {
     struct mged_state *s = (struct mged_state *)data;
     MGED_CK_STATE(s);
-    /* Stage 7: notify the Obol path via update_views. */
+    /* Step 7.20: mp_dmp removed; update_views triggers Obol refresh. */
     s->update_views = 1;
-    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
-	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (!mp->mp_dmp) continue;  /* skip Obol panes */
-	if (mp->mp_grid_state == grid_state) {
-	    mp->mp_dirty = 1;
-	    dm_set_dirty(mp->mp_dmp, 1);
-	}
-    }
 }
 
 
@@ -112,9 +104,9 @@ set_grid_draw(const struct bu_structparse *sdp,
 
 	grid_state->res_h = res;
 	grid_state->res_v = res;
+	/* Step 7.20: mp_dmp removed; iterate all panes. */
 	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	    if (!mp->mp_dmp) continue;  /* skip Obol panes */
 	    if (mp->mp_grid_state == grid_state)
 		mp->mp_grid_auto_size = 0;
 	}
@@ -137,9 +129,9 @@ set_grid_res(const struct bu_structparse *sdp,
     if (!grid_auto_size)
 	return;
 
+    /* Step 7.20: mp_dmp removed; iterate all panes. */
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (!mp->mp_dmp) continue;
 	if (mp->mp_grid_state == grid_state)
 	    mp->mp_grid_auto_size = 0;
     }
@@ -147,99 +139,9 @@ set_grid_res(const struct bu_structparse *sdp,
 
 
 void
-draw_grid(struct mged_state *s)
+draw_grid(struct mged_state *UNUSED(s))
 {
-    /* Stage 7 guard: skip libdm overlay drawing for Obol panes */
-    if (!DMP) return;
-
-    int i, j;
-    int nh, nv;
-    int nv_dots, nh_dots;
-    fastf_t fx, fy;
-    fastf_t sf;
-    fastf_t inv_sf;
-    point_t model_grid_anchor;
-    point_t view_grid_anchor;
-    point_t view_lleft_corner;
-    point_t view_grid_anchor_local;
-    point_t view_lleft_corner_local;
-    point_t view_grid_start_pt_local;
-    fastf_t inv_grid_res_h;
-    fastf_t inv_grid_res_v;
-    fastf_t inv_aspect;
-
-    if (s->dbip == DBI_NULL ||
-	ZERO(grid_state->res_h) ||
-	ZERO(grid_state->res_v))
-	return;
-
-    inv_grid_res_h= 1.0 / grid_state->res_h;
-    inv_grid_res_v= 1.0 / grid_state->res_v;
-
-    sf = view_state->vs_gvp->gv_scale*s->dbip->dbi_base2local;
-
-    /* sanity - don't draw the grid if it would fill the screen */
-    {
-	int width = dm_get_width(DMP);
-	fastf_t pixel_size = 2.0 * sf / (fastf_t)width;
-
-	if (grid_state->res_h < pixel_size || grid_state->res_v < pixel_size)
-	    return;
-    }
-
-    inv_sf = 1.0 / sf;
-    inv_aspect = 1.0 / dm_get_aspect(DMP);
-
-    nv_dots = 2.0 * inv_aspect * sf * inv_grid_res_v + (2 * grid_state->res_major_v);
-    nh_dots = 2.0 * sf * inv_grid_res_h + (2 * grid_state->res_major_h);
-
-    VSCALE(model_grid_anchor, grid_state->anchor, s->dbip->dbi_local2base);
-    { struct bsg_camera _gca; bsg_view_get_camera(view_state->vs_gvp, &_gca); MAT4X3PNT(view_grid_anchor, _gca.model2view, model_grid_anchor); }
-    VSCALE(view_grid_anchor_local, view_grid_anchor, sf);
-
-    VSET(view_lleft_corner, -1.0, -inv_aspect, 0.0);
-    VSCALE(view_lleft_corner_local, view_lleft_corner, sf);
-    nh = (view_grid_anchor_local[X] - view_lleft_corner_local[X]) * inv_grid_res_h;
-    nv = (view_grid_anchor_local[Y] - view_lleft_corner_local[Y]) * inv_grid_res_v;
-
-    {
-	int nmh, nmv;
-
-	nmh = nh / grid_state->res_major_h + 1;
-	nmv = nv / grid_state->res_major_v + 1;
-	VSET(view_grid_start_pt_local,
-	     view_grid_anchor_local[X] - (nmh * grid_state->res_h * grid_state->res_major_h),
-	     view_grid_anchor_local[Y] - (nmv * grid_state->res_v * grid_state->res_major_v),
-	     0.0);
-    }
-
-    dm_set_fg(DMP,
-		   color_scheme->cs_grid[0],
-		   color_scheme->cs_grid[1],
-		   color_scheme->cs_grid[2], 1, 1.0);
-    dm_set_line_attr(DMP, 1, 0);		/* solid lines */
-
-    /* draw horizontal dots */
-    for (i = 0; i < nv_dots; i += grid_state->res_major_v) {
-	fy = (view_grid_start_pt_local[Y] + (i * grid_state->res_v)) * inv_sf;
-
-	for (j = 0; j < nh_dots; ++j) {
-	    fx = (view_grid_start_pt_local[X] + (j * grid_state->res_h)) * inv_sf;
-	    dm_draw_point_2d(DMP, fx, fy * dm_get_aspect(DMP));
-	}
-    }
-
-    /* draw vertical dots */
-    if (grid_state->res_major_v != 1) {
-	for (i = 0; i < nh_dots; i += grid_state->res_major_h) {
-	    fx = (view_grid_start_pt_local[X] + (i * grid_state->res_h)) * inv_sf;
-
-	    for (j = 0; j < nv_dots; ++j) {
-		fy = (view_grid_start_pt_local[Y] + (j * grid_state->res_v)) * inv_sf;
-		dm_draw_point_2d(DMP, fx, fy * dm_get_aspect(DMP));
-	    }
-	}
-    }
+    /* Step 7.20: libdm removed — no-op (was only called from dm rendering loop). */
 }
 
 

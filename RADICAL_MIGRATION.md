@@ -1285,9 +1285,38 @@ from `mp_gvp` (no DMP indirection).
    **After Step 7.18**: `struct mged_dm` no longer exists.  All pane state is in
    `mged_pane`.  The `mp_dmp != NULL` test distinguishes dm panes from Obol panes.
 
-   **Remaining work (Step 7.19 onwards)**:
-   - `f_attach`/`mged_attach()`/`mged_dm_init()`: convert to Obol-only path
-   - Delete `DMP`/`fbp`/`clients`/`mapped` macros, `dm-generic.c`
+### Step 7.19 — Remove libdm attach path; delete dm-generic.c; eliminate dm render loop ✅ (Session 26)
+
+   - `f_attach()` / `mged_attach()` / `mged_dm_init()`: removed entirely; Obol-only.
+   - `dm-generic.c` deleted (all libdm glue removed from CMakeLists.txt).
+   - `refresh()` dm render loop removed; only `obol_notify_views()` remains.
+   - `drain_background_geom()` calls `do_view_changed(QG_VIEW_DRAWN)` on AABB/OBB/LoD progress.
+   - `mged_attach()` is now empty (no libdm path); only `f_new_obol_view_ptr` is active.
+
+### Step 7.20 — Delete all libdm fields from `mged_pane`; 27 mged files clean ✅ (Session 26)
+
+   - `mp_dmp`, `mp_fbp`, `mp_netfd`, `mp_netchan`, `mp_clients`, `mp_dirty`, `mp_mapped`,
+     `mp_owner` fields deleted from `mged_pane`.
+   - `DMP`, `DMP_dirty`, `fbp`, `clients`, `mapped`, `owner` macros deleted from `mged_dm.h`.
+   - `GET_MGED_DM` / `GET_MGED_PANE` macros simplified to always return `MGED_PANE_NULL`.
+   - All drawing functions that called `dm_set_fg`, `dm_draw_*`, `dm_set_line_attr`, etc.
+     are now stubs (`/* no-op */`) or have their DMP blocks removed:
+     - `dotitles()`, `screen_vls()` → no-op stubs
+     - `draw_rect()`, `paint_rect_area()`, `rt_rect_area()` → no-op stubs
+     - `scroll_display()`, `mmenu_display()`, `mged_highlight_menu_item()` → no-op stubs
+     - `predictor_frame()` → no-op stub
+     - `draw_grid()`, `draw_adc_lines()`, `draw_axes()` → already guarded (were already no-ops)
+   - `fbserv.c`: completely rewritten as a single `fbserv_set_port` no-op stub.
+   - `share.c`: `'d'` case (dm_share_dlist) removed; `share_dlist()` is a no-op stub.
+   - 27 mged .c files compile cleanly with -Werror and 0 warnings.
+
+   **After Step 7.20**: `mged_pane` is fully libdm-free.  MGED is Obol-only.
+   `DMP` is gone; all drawing goes through the Obol path.
+
+   **Remaining work (Stage 8)**:
+   - Remove `libdm` from CMakeLists link dependencies for `mged`
+   - Remove libdm header includes from mged source files
+   - Delete `src/libdm/` (except fb_* raster helpers for rtwizard)
 
 **Key files to update (Stage 7 MGED work):**
 

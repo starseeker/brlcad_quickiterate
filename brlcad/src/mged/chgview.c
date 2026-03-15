@@ -240,7 +240,6 @@ mged_librt_knob_edit_apply(struct mged_state *s,
     /* Update MGED's cached edit matrices and mark for redraw */
     new_edit_mats(s);
     s->update_views = 1;
-    if (DMP) dm_set_dirty(DMP, 1);
 
     /* Synchronize MGED es_edclass (used by token_should_edit, knob printouts, rate loop) */
     if (did_rot) {
@@ -414,7 +413,6 @@ mged_erot(struct mged_state *s,
     struct bsg_camera _vsview_cam;
     bsg_view_get_camera(view_state->vs_gvp, &_vsview_cam);
     s->update_views = 1;
-    if (DMP) dm_set_dirty(DMP, 1);
 
     switch (coords) {
 	case 'm':
@@ -557,7 +555,6 @@ mged_etran(struct mged_state *s,
 
 	new_edit_mats(s);
 	s->update_views = 1;
-	if (DMP) dm_set_dirty(DMP, 1);
     }
 
     return TCL_OK;
@@ -870,7 +867,6 @@ edit_com(struct mged_state *s,
     }
 
     s->update_views = 1;
-    if (DMP) dm_set_dirty(DMP, 1);
 
     if (flag_R_noresize) {
 	/* we're done */
@@ -908,14 +904,6 @@ edit_com(struct mged_state *s,
 		av[1] = (char *)0;
 		ged_exec_autoview(s->gedp, 1, (const char **)av);
 		s->update_views = 1;
-
-		/* Also update view_ring scale for legacy dm wrapper panes. */
-		if (mp->mp_dmp && mp->mp_view_state) {
-		    struct view_ring *vrp;
-		    (void)mged_svbase(s);
-		    for (BU_LIST_FOR(vrp, view_ring, &mp->mp_view_state->vs_headView.l))
-			vrp->vr_scale = view_state->vs_gvp->gv_scale;
-		}
 	    }
 	}
 	set_curr_pane(s, save_pane);
@@ -972,14 +960,6 @@ cmd_autoview(ClientData clientData, Tcl_Interp *interp, int argc, const char *ar
 	    ged_exec_autoview(s->gedp, ac, (const char **)av);
 	    s->update_views = 1;
 	    view_state->vs_flag = 1;
-
-	    /* Also update view_ring scale for legacy dm wrapper panes. */
-	    if (mp->mp_dmp && mp->mp_view_state) {
-		struct view_ring *vrp;
-		(void)mged_svbase(s);
-		for (BU_LIST_FOR(vrp, view_ring, &mp->mp_view_state->vs_headView.l))
-		    vrp->vr_scale = view_state->vs_gvp->gv_scale;
-	    }
 	}
 	set_curr_pane(s, save_pane);
 	curr_cmd_list = save_cmd_list;
@@ -1042,8 +1022,6 @@ f_regdebug(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv
 
     Tcl_AppendResult(interp, "regdebug=", debug_str, "\n", (char *)NULL);
 
-    if (DMP) dm_set_debug(DMP, regdebug);
-
     return TCL_OK;
 }
 
@@ -1062,7 +1040,6 @@ cmd_zap(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), con
     CHECK_DBI_NULL;
 
     s->update_views = 1;
-    if (DMP) dm_set_dirty(DMP, 1);
     s->gedp->ged_destroy_vlist_callback = freeDListsAll;
 
     /* FIRST, reject any editing in progress */
@@ -1438,7 +1415,6 @@ f_ill(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     }
 
     s->update_views = 1;
-    if (DMP) dm_set_dirty(DMP, 1);
 
     if (path_piece) {
 	for (i = 0; path_piece[i] != 0; ++i) {
@@ -1520,7 +1496,6 @@ f_sed(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     }
 
     s->update_views = 1;
-    if (DMP) dm_set_dirty(DMP, 1);
 
     button(s, BE_S_ILLUMINATE);	/* To ST_S_PICK */
 
@@ -1929,7 +1904,6 @@ f_knob(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	 * code keying on s->update_views (rather than vs_flag alone) behaves
 	 * identically. */
 	s->update_views = 1;
-	if (DMP) dm_set_dirty(DMP, 1);
 	view_state->vs_flag = 1;
     }
 
@@ -1955,7 +1929,6 @@ f_knob(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
      * added, but for now preserve behavior.*/
     if (view_abs_scale_changed && !view_do_tran && !view_do_rot) {
 	s->update_views = 1;
-	if (DMP) dm_set_dirty(DMP, 1);
 	view_state->vs_flag = 1;
 	/* Absolute translations already refreshed in abs_zoom via set_absolute_* */
     }
@@ -2252,11 +2225,6 @@ mged_svbase(struct mged_state *s)
     }
 
     if (mged_variables->mv_faceplate && mged_variables->mv_orig_gui) {
-	/* Step 5.17: DMP_dirty is only meaningful for legacy dm panes. */
-	if (DMP) {
-	    DMP_dirty = 1;
-	    dm_set_dirty(DMP, 1);
-	}
 	s->update_views = 1;
     }
 
@@ -2288,17 +2256,7 @@ f_svbase(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[]
 
     status = mged_svbase(s);
 
-    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
-	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (!mp->mp_dmp) continue;  /* skip Obol panes */
-	/* if sharing view while faceplate and original gui (i.e. button menu, sliders) are on */
-	if (mp->mp_view_state == view_state &&
-	    mp->mp_mged_variables->mv_faceplate &&
-	    mp->mp_mged_variables->mv_orig_gui) {
-	    mp->mp_dirty = 1;
-	    dm_set_dirty(mp->mp_dmp, 1);
-	}
-    }
+    /* Step 7.20: mp_dmp removed; dm_dirty loop removed. */
 
     return status;
 }

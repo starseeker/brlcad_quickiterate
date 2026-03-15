@@ -248,17 +248,8 @@ cs_set_dirty_flag(const struct bu_structparse *UNUSED(sdp),
 {
     struct mged_state *s = (struct mged_state *)data;
     MGED_CK_STATE(s);
-    /* Stage 7: notify the Obol path via update_views in addition to the
-     * legacy dm_dirty flag. */
+    /* Step 7.20: mp_dmp removed; update_views triggers Obol refresh. */
     s->update_views = 1;
-    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
-	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (!mp->mp_dmp) continue;  /* skip Obol panes */
-	if (mp->mp_color_scheme == color_scheme) {
-	    mp->mp_dirty = 1;
-	    dm_set_dirty(mp->mp_dmp, 1);
-	}
-    }
 }
 
 
@@ -310,16 +301,9 @@ cs_set_bg(const struct bu_structparse *UNUSED(sdp),
 		  color_scheme->cs_bg[2]);
 
     bsg_view *cbv = s->gedp->ged_gvp;
-    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
-	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (!mp->mp_dmp) continue;  /* skip Obol panes */
-	if (mp->mp_color_scheme == color_scheme) {
-	    mp->mp_dirty = 1;
-	    dm_set_dirty(mp->mp_dmp, 1);
-	    set_curr_pane(s, mp);
-	    Tcl_Eval(s->interp, bu_vls_addr(&vls));
-	}
-    }
+    /* Step 7.20: mp_dmp removed; just trigger Obol refresh. */
+    s->update_views = 1;
+    (void)cbv;
 
     bu_vls_free(&vls);
     set_curr_pane(s, save_pane);

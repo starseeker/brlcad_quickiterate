@@ -51,7 +51,6 @@ mged_color_soltab(struct mged_state *s)
 {
     bsg_color_soltab(s->gedp->ged_gvp);
     s->update_views = 1;		/* re-write control list with new colors */
-    if (DMP) dm_set_dirty(DMP, 1);
 }
 
 

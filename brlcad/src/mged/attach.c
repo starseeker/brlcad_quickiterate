@@ -164,14 +164,8 @@ mged_pane_init_resources(struct mged_state *s, struct mged_pane *mp)
 				 ? s->mged_init_pane : NULL;
     if (!src && init_src) src = init_src;
 
-    /* Step 7.18: Initialize libdm fields to safe/null defaults.
-     * Step 7.19: mp_dmp is always NULL (libdm attach path removed). */
-    mp->mp_dmp    = NULL;
-    mp->mp_fbp    = NULL;
-    mp->mp_netfd  = -1;
-    mp->mp_dirty  = 1;
-    mp->mp_mapped = 1;
-    /* mp_netchan and mp_clients zero-initialized by BU_GET. */
+    /* Step 7.20: libdm fields (mp_dmp/mp_fbp/mp_netfd/mp_dirty/mp_mapped)
+     * removed from mged_pane — no init needed. */
 
     BU_ALLOC(mp->mp_adc_state, struct _adc_state);
     if (src && src->mp_adc_state)
@@ -259,7 +253,6 @@ mged_pane_init_resources(struct mged_state *s, struct mged_pane *mp)
     mp->mp_ndrawn = 0;
 
     /* Step 7.15 scalar state. */
-    mp->mp_owner            = 1;
     mp->mp_am_mode          = AMM_IDLE;
     mp->mp_perspective_angle = 0;
     mp->mp_adc_auto         = 1;
@@ -428,17 +421,7 @@ release(struct mged_state *s, char *name, int UNUSED(need_close), struct mged_pa
 	    return TCL_OK;
     }
 
-    if (cpane->mp_fbp) {
-	if (mged_variables->mv_listen) {
-	    /* drop all clients */
-	    mged_variables->mv_listen = 0;
-	    fbserv_set_port(NULL, NULL, NULL, NULL, s);
-	}
-
-	/* release framebuffer resources */
-	fb_close_existing(cpane->mp_fbp);
-	cpane->mp_fbp = (struct fb *)NULL;
-    }
+    /* Step 7.20: mp_fbp/mp_clients removed — no framebuffer teardown needed. */
 
     /*
      * Save the state of the resources to the "nu" sentinel init_pane,
