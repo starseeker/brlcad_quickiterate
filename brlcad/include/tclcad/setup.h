@@ -33,7 +33,8 @@
 #include "bu/cmd.h"
 #include "bu/process.h"
 #include "tcl.h"
-#include "dm.h"
+/* Stage 9: dm.h removed — no dm types are used in function declarations in
+ * this header.  Source files that need dm_* symbols include dm.h directly. */
 #include "tclcad/defines.h"
 
 __BEGIN_DECLS

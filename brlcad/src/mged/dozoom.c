@@ -46,175 +46,9 @@ unsigned char geometry_default_color[] = { 255, 0, 0 };
  * screen position for the object.
  */
 void
-dozoom(struct mged_state *s, int which_eye)
+dozoom(struct mged_state *UNUSED(s), int UNUSED(which_eye))
 {
-    /* Stage 7 guard: skip libdm drawing for Obol panes */
-    if (!DMP) return;
-
-    int ndrawn = 0;
-    fastf_t inv_viewsize = 0.0;
-    mat_t newmat = MAT_INIT_ZERO;
-    matp_t mat = newmat;
-    short r = -1;
-    short g = -1;
-    short b = -1;
-
-    /*
-     * The vectorThreshold stuff in libdm may turn the
-     * Tcl-crank causing mged_curr_pane/dm to change.
-     * Step 7.5: use pane for save/restore.
-     */
-    struct mged_pane *save_pane = s->mged_curr_pane;
-
-    s->mged_curr_pane->mp_ndrawn = 0;
-    inv_viewsize = view_state->vs_gvp->gv_isize;
-
-    struct bsg_camera _vcam;
-    bsg_view_get_camera(view_state->vs_gvp, &_vcam);
-
-    /*
-     * Draw all solids not involved in an edit.
-     */
-    if (_vcam.perspective < SMALL_FASTF && EQUAL(view_state->vs_gvp->gv_eye_pos[Z], 1.0)) {
-	mat = _vcam.model2view;
-    } else {
-	/*
-	 * There are two strategies that could be used:
-	 * 1) Assume a standard head location w.r.t. the
-	 * screen, and fix the perspective angle.
-	 * 2) Based upon the perspective angle, compute
-	 * where the head should be to achieve that field of view.
-	 * Try strategy #2 for now.
-	 */
-	fastf_t to_eye_scr;	/* screen space dist to eye */
-	fastf_t eye_delta_scr;	/* scr, 1/2 inter-occular dist */
-	point_t l, h, eye;
-
-	/* Determine where eye should be */
-	to_eye_scr = 1 / tan(_vcam.perspective * DEG2RAD * 0.5);
-
-#define SCR_WIDTH_PHYS 330	/* Assume a 330 mm wide screen */
-
-	eye_delta_scr = mged_variables->mv_eye_sep_dist * 0.5 / SCR_WIDTH_PHYS;
-
-	VSET(l, -1.0, -1.0, -1.0);
-	VSET(h, 1.0, 1.0, 200.0);
-	if (which_eye) {
-	    printf("d=%gscr, d=%gmm, delta=%gscr\n", to_eye_scr, to_eye_scr * SCR_WIDTH_PHYS, eye_delta_scr);
-	    VPRINT("l", l);
-	    VPRINT("h", h);
-	}
-	VSET(eye, 0.0, 0.0, to_eye_scr);
-
-	switch (which_eye) {
-	    case 0:
-		/* Non-stereo case */
-		mat = _vcam.model2view;
-		if (EQUAL(view_state->vs_gvp->gv_eye_pos[Z], 1.0)) {
-		    /* This way works, with reasonable Z-clipping */
-		    persp_mat(perspective_mat, _vcam.perspective,
-			    (fastf_t)1.0f, (fastf_t)0.01f, (fastf_t)1.0e10f, (fastf_t)1.0f);
-		} else {
-		    /* This way does not have reasonable Z-clipping,
-		     * but includes shear, for GDurf's testing.
-		     */
-		    deering_persp_mat(perspective_mat, l, h, view_state->vs_gvp->gv_eye_pos);
-		}
-		break;
-	    case 1:
-		/* R */
-		mat = _vcam.model2view;
-		eye[X] = eye_delta_scr;
-		deering_persp_mat(perspective_mat, l, h, eye);
-		break;
-	    case 2:
-		/* L */
-		mat = _vcam.model2view;
-		eye[X] = -eye_delta_scr;
-		deering_persp_mat(perspective_mat, l, h, eye);
-		break;
-	}
-	bn_mat_mul(newmat, perspective_mat, mat);
-	mat = newmat;
-    }
-
-    dm_loadmatrix(DMP, mat, which_eye);
-
-    if (dm_get_transparency(DMP)) {
-	/* First, draw opaque stuff */
-	ndrawn = dm_draw_bsg_view(DMP, view_state->vs_gvp, 1.0, inv_viewsize,
-				  r, g, b, mged_variables->mv_linewidth, mged_variables->mv_dlist, 0,
-				  geometry_default_color, 1, mged_variables->mv_dlist);
-
-	/* The vectorThreshold stuff in libdm may turn the Tcl-crank causing
-	 * mged_curr_pane/dm to change. Restore via pane (Step 7.5). */
-	if (s->mged_curr_pane != save_pane) set_curr_pane(s, save_pane);
-
-	/* Step 7.6: accumulate drawn count in mp_ndrawn (authoritative counter). */
-	s->mged_curr_pane->mp_ndrawn += ndrawn;
-
-	/* disable write to depth buffer */
-	dm_set_depth_mask(DMP, 0);
-
-	/* Second, draw transparent stuff */
-	ndrawn = dm_draw_bsg_view(DMP, view_state->vs_gvp, 0.0, inv_viewsize,
-				  r, g, b, mged_variables->mv_linewidth, mged_variables->mv_dlist, 0,
-				  geometry_default_color, 0, mged_variables->mv_dlist);
-
-	/* re-enable write of depth buffer */
-	dm_set_depth_mask(DMP, 1);
-
-    } else {
-	ndrawn = dm_draw_bsg_view(DMP, view_state->vs_gvp, 1.0, inv_viewsize,
-				  r, g, b, mged_variables->mv_linewidth, mged_variables->mv_dlist, 0,
-				  geometry_default_color, 1, mged_variables->mv_dlist);
-    }
-
-    /* The vectorThreshold stuff in libdm may turn the Tcl-crank causing
-     * mged_curr_pane/dm to change. Restore via pane (Step 7.5). */
-    if (s->mged_curr_pane != save_pane) set_curr_pane(s, save_pane);
-
-    s->mged_curr_pane->mp_ndrawn += ndrawn;
-    if (mged_variables->mv_predictor) {
-	dm_set_fg(DMP,
-		       color_scheme->cs_predictor[0],
-		       color_scheme->cs_predictor[1],
-		       color_scheme->cs_predictor[2], 1, 1.0);
-	/* Step 5.15: pv_head macro returns pointer to active pane's vlist head. */
-	dm_draw_vlist(DMP, (struct bsg_vlist *)pv_head);
-    }
-
-    /*
-     * Draw all solids involved in editing.
-     * They may be getting transformed away from the other solids.
-     */
-    if (s->global_editing_state == ST_VIEW)
-	return;
-
-    if (_vcam.perspective <= 0) {
-	mat = view_state->vs_model2objview;
-    } else {
-	bn_mat_mul(newmat, perspective_mat, view_state->vs_model2objview);
-	mat = newmat;
-    }
-    dm_loadmatrix(DMP, mat, which_eye);
-    inv_viewsize /= MEDIT(s)->model_changes[15];
-    dm_set_fg(DMP,
-		   color_scheme->cs_geo_hl[0],
-		   color_scheme->cs_geo_hl[1],
-		   color_scheme->cs_geo_hl[2], 1, 1.0);
-
-
-    ndrawn = dm_draw_bsg_view(DMP, view_state->vs_gvp, 1.0, inv_viewsize,
-	    r, g, b, mged_variables->mv_linewidth, mged_variables->mv_dlist, 1,
-	    geometry_default_color, 0, mged_variables->mv_dlist);
-
-    /* Step 7.6: accumulate drawn count in mp_ndrawn (authoritative counter). */
-    s->mged_curr_pane->mp_ndrawn += ndrawn;
-
-    /* The vectorThreshold stuff in libdm may turn the Tcl-crank causing
-     * mged_curr_pane/dm to change. Restore via pane (Step 7.5). */
-    if (s->mged_curr_pane != save_pane) set_curr_pane(s, save_pane);
+    /* Step 7.20: libdm removed — no-op (rendering loop removed in Step 7.19). */
 }
 
 
@@ -227,42 +61,11 @@ dozoom(struct mged_state *s, int which_eye)
  * display manager that has already created the display list)
  */
 void
-createDListSolid(void *vlist_ctx, bsg_shape *sp)
+createDListSolid(void *vlist_ctx, bsg_shape *UNUSED(sp))
 {
+    /* Step 7.20: libdm display lists removed — no-op. */
     struct mged_state *s = (struct mged_state *)vlist_ctx;
     MGED_CK_STATE(s);
-    struct mged_pane *save_pane = s->mged_curr_pane;
-
-    /* Step 6.b: use active_pane_set. */
-    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
-	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (!mp->mp_dmp) continue;  /* skip Obol panes */
-	set_curr_pane(s, mp);
-	if (mapped &&
-		dm_get_displaylist(DMP) &&
-		mged_variables->mv_dlist) {
-	    if (sp->s_dlist == 0)
-		sp->s_dlist = dm_gen_dlists(DMP, 1);
-
-	    dm_set_dirty(DMP, 1);
-	    (void)dm_make_current(DMP);
-	    (void)dm_begin_dlist(DMP, sp->s_dlist);
-	    if (sp->s_iflag == UP)
-		(void)dm_set_fg(DMP, 255, 255, 255, 0, sp->s_os->transparency);
-	    else
-		(void)dm_set_fg(DMP,
-			(unsigned char)sp->s_color[0],
-			(unsigned char)sp->s_color[1],
-			(unsigned char)sp->s_color[2], 0, sp->s_os->transparency);
-	    (void)dm_draw_vlist(DMP, (struct bsg_vlist *)&sp->s_vlist);
-	    (void)dm_end_dlist(DMP);
-	}
-
-	DMP_dirty = 1;
-	dm_set_dirty(DMP, 1);
-    }
-
-    set_curr_pane(s, save_pane);
 }
 
 /*
@@ -295,25 +98,11 @@ createDListAll(void *vlist_ctx, struct display_list *gdlp)
  * that support display lists and have them activated.
  */
 void
-freeDListsAll(void *data, unsigned int dlist, int range)
+freeDListsAll(void *data, unsigned int UNUSED(dlist), int UNUSED(range))
 {
+    /* Step 7.20: libdm display lists removed — no-op. */
     struct mged_state *s = (struct mged_state *)data;
     MGED_CK_STATE(s);
-    /* Step 6.b: use active_pane_set. */
-    struct mged_pane *save_pane = s->mged_curr_pane;
-    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
-	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (!mp->mp_dmp) continue;  /* skip Obol panes */
-	set_curr_pane(s, mp);
-	if (dm_get_displaylist(DMP) && mged_variables->mv_dlist) {
-	    (void)dm_make_current(DMP);
-	    (void)dm_free_dlists(DMP, dlist, range);
-	}
-
-	DMP_dirty = 1;
-	dm_set_dirty(DMP, 1);
-    }
-    set_curr_pane(s, save_pane);
 }
 
 

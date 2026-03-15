@@ -120,16 +120,7 @@ f_share(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *ar
 	++argv;
     }
 
-    /* Step 6.b/7.18: search active_pane_set for legacy dm wrapper by pathname. */
-    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
-	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (!mp->mp_dmp) continue;
-	struct bu_vls *pname = dm_get_pathname(mp->mp_dmp);
-	if (BU_STR_EQUAL(argv[2], bu_vls_cstr(pname))) {
-	    dlp1 = mp;
-	    break;
-	}
-    }
+    /* Step 7.20: mp_dmp removed — dm pathname lookup always fails. */
 
     if (dlp1 == MGED_PANE_NULL) {
 	Tcl_AppendResult(interpreter, "share: unrecognized path name - ", argv[2], "\n", (char *)NULL);
@@ -138,16 +129,7 @@ f_share(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *ar
     }
 
     if (!uflag) {
-	/* Step 6.b/7.18: search active_pane_set for legacy dm wrapper by pathname. */
-	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
-	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	    if (!mp->mp_dmp) continue;
-	    struct bu_vls *pname = dm_get_pathname(mp->mp_dmp);
-	    if (BU_STR_EQUAL(argv[3], bu_vls_cstr(pname))) {
-		dlp2 = mp;
-		break;
-	    }
-	}
+	/* Step 7.20: mp_dmp removed — dm pathname lookup always fails. */
 
 	if (dlp2 == MGED_PANE_NULL) {
 	    Tcl_AppendResult(interpreter, "share: unrecognized path name - ", argv[3], "\n", (char *)NULL);
@@ -183,39 +165,7 @@ f_share(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *ar
 	    break;
 	case 'd':
 	case 'D':
-	    {
-		struct dm *dmp1;
-		struct dm *dmp2 = (struct dm *)NULL;
-
-		dmp1 = dlp1->mp_dmp;
-		if (dlp2 != MGED_PANE_NULL)
-		    dmp2 = dlp2->mp_dmp;
-
-		if (dm_share_dlist(dmp1, dmp2) == TCL_OK) {
-		    SHARE_RESOURCE(uflag, _dlist_state, mp_dlist_state, dl_rc, dlp1, dlp2, vls, "share: dlist_state");
-		    if (uflag) {
-			dlp1->mp_dlist_state->dl_active = dlp1->mp_mged_variables->mv_dlist;
-
-			if (dlp1->mp_mged_variables->mv_dlist) {
-			    /* Step 7.5/7.18: use pane-based save/restore. */
-			    struct mged_pane *save_p = s->mged_curr_pane;
-			    set_curr_pane(s, dlp1);
-
-			    createDListAll(s, NULL);
-
-			    /* restore */
-			    set_curr_pane(s, save_p);
-			}
-
-			dlp1->mp_dirty = 1;
-			if (dlp1->mp_dmp) dm_set_dirty(dlp1->mp_dmp, 1);
-		    } else {
-			dlp1->mp_dirty = dlp2->mp_dirty = 1;
-			if (dlp1->mp_dmp) dm_set_dirty(dlp1->mp_dmp, 1);
-			if (dlp2->mp_dmp) dm_set_dirty(dlp2->mp_dmp, 1);
-		    }
-		}
-	    }
+	    /* Step 7.20: mp_dmp removed — dlist sharing no-op. */
 	    break;
 	case 'g':
 	case 'G':
@@ -270,9 +220,7 @@ f_share(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *ar
     }
 
     if (!uflag) {
-	s->update_views = 1;  /* Stage 7: notify Obol path on share change */
-	dlp2->mp_dirty = 1;	/* need to redraw this guy */
-	if (dlp2->mp_dmp) dm_set_dirty(dlp2->mp_dmp, 1);
+	s->update_views = 1;  /* Step 7.20: notify Obol path on share change. */
     }
 
     bu_vls_free(&vls);
@@ -499,34 +447,9 @@ free_all_resources(struct mged_pane *dlp)
 
 
 void
-share_dlist(struct mged_pane *dlp2)
+share_dlist(struct mged_pane *UNUSED(dlp2))
 {
-    /* Step 7.18: dlp2 is now mged_pane *.
-     * Guard for NULL mp_dmp (Obol panes / initial sentinel). */
-    if (!dlp2->mp_dmp || !dm_get_displaylist(dlp2->mp_dmp))
-	return;
-
-    /* Step 6.b/7.18: search active_pane_set for matching legacy dm wrapper. */
-    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
-	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (!mp->mp_dmp) continue;
-	struct mged_pane *dlp1 = mp;
-	if (dlp1 != dlp2 &&
-	    dm_get_type(dlp1->mp_dmp) == dm_get_type(dlp2->mp_dmp) && dm_get_dname(dlp1->mp_dmp) && dm_get_dname(dlp2->mp_dmp) &&
-	    !bu_vls_strcmp(dm_get_dname(dlp1->mp_dmp), dm_get_dname(dlp2->mp_dmp))) {
-	    if (dm_share_dlist(dlp1->mp_dmp, dlp2->mp_dmp) == TCL_OK) {
-		struct bu_vls vls = BU_VLS_INIT_ZERO;
-
-		SHARE_RESOURCE(0, _dlist_state, mp_dlist_state, dl_rc, dlp1, dlp2, vls, "share: dlist_state");
-		dlp1->mp_dirty = dlp2->mp_dirty = 1;
-		dm_set_dirty(dlp1->mp_dmp, 1);
-		dm_set_dirty(dlp2->mp_dmp, 1);
-		bu_vls_free(&vls);
-	    }
-
-	    break;
-	}
-    }
+    /* Step 7.20: mp_dmp removed — no-op. */
 }
 
 

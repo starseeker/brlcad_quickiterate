@@ -304,11 +304,9 @@ new_edit_mats(struct mged_state *s)
 {
     struct mged_pane *save_pane = s->mged_curr_pane;
 
-    /* Step 6.b: use active_pane_set. */
+    /* Step 7.20: mp_dmp/mp_owner removed; iterate all panes. */
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	if (!mp->mp_dmp) continue;  /* skip Obol panes */
-	if (!mp->mp_owner) continue;
 
 	set_curr_pane(s, mp);
 	{
@@ -347,7 +345,6 @@ mged_view_callback(bsg_view *gvp,
     }
     vsp->vs_flag = 1;
     s->update_views = 1;
-    if (DMP) dm_set_dirty(DMP, 1);
 }
 
 
@@ -1226,8 +1223,7 @@ event_check(struct mged_state *s, int non_blocking)
 	/* Step 6.b: use active_pane_set (covers both legacy dm and Obol panes). */
 	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	    if (!mp->mp_owner) continue;
-
+	    /* Step 7.20: mp_owner removed. */
 	    set_curr_pane(s, mp);
 
 	    if (view_state->k.rot_m_flag) {
@@ -1504,42 +1500,17 @@ std_out_or_err(ClientData clientData, int UNUSED(mask))
 void
 refresh(struct mged_state *s)
 {
-    struct bu_vls overlay_vls = BU_VLS_INIT_ZERO;
-    struct bu_vls tmp_vls = BU_VLS_INIT_ZERO;
-    int do_overlay = 1;
-    int64_t elapsed_time, start_time = bu_gettime();
-    int do_time = 0;
-
     /* Print any text output that has accumulated to the command prompt
      * TODO - this is currently a no-op because the gui_output callback
      * is still in the old form of trying to immediately print the bu_log
      * output to the interp. */
     mged_pr_output(s->interp);
 
-    /* Stage 7: capture update_views before resetting it so the Obol path
-     * below can decide whether to notify Obol panes.  All view-command
-     * paths now set both vs_flag AND s->update_views (Step 6.a, verified
-     * by inspection: every vs_flag=1 site in mged is within 8 lines of
-     * a s->update_views=1 assignment), so obol_needs_refresh is fully
-     * determined by s->update_views alone. */
+    /* Step 7.19: capture update_views before resetting it so the Obol path
+     * below can decide whether to notify Obol panes. */
     int obol_needs_refresh = s->update_views;
 
-    /* Set dm_dirty on each legacy dm pane when views need redraw.
-     * Step 5.16: vs_flag is no longer the authoritative dirty signal —
-     * s->update_views now subsumes it (verified by inspection: every code
-     * path that sets vs_flag=1 also sets s->update_views=1, Step 5.6).
-     * The vs_flag scan is removed; dm_dirty is driven purely by
-     * s->update_views. */
-    /* Step 6.b: dm_dirty scan uses active_pane_set. */
-    if (s->update_views) {
-	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
-	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	    if (!mp->mp_dmp) continue;  /* skip Obol panes */
-	    mp->mp_dirty = 1;
-	}
-    }
-
-    /* Clear vs_flag on all panes (Step 5.16: housekeeping only). */
+    /* Clear vs_flag on all panes (housekeeping). */
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
 	if (mp->mp_view_state) mp->mp_view_state->vs_flag = 0;
@@ -1547,194 +1518,18 @@ refresh(struct mged_state *s)
 
     s->update_views = 0;
 
-    {
-	struct mged_pane *save_pane = s->mged_curr_pane;
-	/* Step 6.b: rendering loop uses active_pane_set. */
+    /* Step 7.19: Obol path — notify all obol_view Tk widgets to re-render.
+     * Since libdm is removed, obol_notify_views is now the ONLY rendering path.
+     * obol_notify_views calls obol_scene_assemble() + SoGLRenderAction on each
+     * live obol_view widget.  This is a no-op when no obol_view widgets exist. */
+    if (s->interp && obol_needs_refresh) {
+	/* Update Tcl HUD display variables for each pane. */
 	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
-	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	    /* skip Obol panes — they render via obol_notify_views below */
-	    if (!mp->mp_dmp) continue;
-
-	    /*
-	     * if something has changed, then go update the display.
-	     * Otherwise, we are happy with the view we have
-	     */
-	    set_curr_pane(s, mp);
-
-	    if (mapped && DMP_dirty) {
-		int restore_zbuffer = 0;
-
-		if (mged_variables->mv_fb &&
-		    dm_get_zbuffer(DMP)) {
-		    restore_zbuffer = 1;
-		    (void)dm_make_current(DMP);
-		    (void)dm_set_zbuffer(DMP, 0);
-		}
-
-		DMP_dirty = 0;
-		do_time = 1;
-		VMOVE(geometry_default_color, color_scheme->cs_geo_def);
-
-		if (s->dbip != DBI_NULL) {
-		    if (do_overlay) {
-			bu_vls_trunc(&overlay_vls, 0);
-			create_text_overlay(s, &overlay_vls);
-			do_overlay = 0;
-		    }
-
-		    /* XXX VR hook — Step 7.14: viewpoint_hook removed (dead); VR not supported. */
-		}
-
-		if (mged_variables->mv_predictor)
-		    predictor_frame(s);
-
-		if (dm_get_dirty(DMP)) {
-
-		    dm_draw_begin(DMP);	/* update displaylist prolog */
-
-		    if (s->dbip != DBI_NULL) {
-			/* do framebuffer underlay */
-			if (mged_variables->mv_fb && !mged_variables->mv_fb_overlay) {
-			    if (mged_variables->mv_fb_all)
-				fb_refresh(fbp, 0, 0, dm_get_width(DMP), dm_get_height(DMP));
-			    else if (mged_variables->mv_mouse_behavior != 'z')
-				paint_rect_area(s);
-			}
-
-			/* do framebuffer overlay for entire window */
-			if (mged_variables->mv_fb &&
-				mged_variables->mv_fb_overlay &&
-				mged_variables->mv_fb_all) {
-			    fb_refresh(fbp, 0, 0, dm_get_width(DMP), dm_get_height(DMP));
-
-			    if (restore_zbuffer)
-				dm_set_zbuffer(DMP, 1);
-			} else {
-			    if (restore_zbuffer)
-				dm_set_zbuffer(DMP, 1);
-
-			    /* Draw each solid in its proper place on the
-			     * screen by applying zoom, rotation, &
-			     * translation.  Calls dm_loadmatrix() and
-			     * dm_draw_vlist().
-			     */
-
-			    if (dm_get_stereo(DMP) == 0 ||
-				    mged_variables->mv_eye_sep_dist <= 0) {
-				/* Normal viewing */
-				dozoom(s, 0);
-			    } else {
-				/* Stereo viewing */
-				dozoom(s, 1);
-				dozoom(s, 2);
-			    }
-
-			    /* do framebuffer overlay in rectangular area */
-			    if (mged_variables->mv_fb &&
-				    mged_variables->mv_fb_overlay &&
-				    mged_variables->mv_mouse_behavior != 'z')
-				paint_rect_area(s);
-			}
-
-
-			/* Restore to non-rotated, full brightness */
-			dm_hud_begin(DMP);
-
-			/* only if not doing overlay */
-			if (!mged_variables->mv_fb ||
-				mged_variables->mv_fb_overlay != 2) {
-			    if (rubber_band->rb_active || rubber_band->rb_draw)
-				draw_rect(s);
-
-			    if (grid_state->draw)
-				draw_grid(s);
-
-			    /* Compute and display angle/distance cursor */
-			    if (adc_state->adc_draw)
-				adcursor(s);
-
-			    if (axes_state->ax_view_draw)
-				draw_v_axes(s);
-
-			    if (axes_state->ax_model_draw)
-				draw_m_axes(s);
-
-			    if (axes_state->ax_edit_draw &&
-				    (s->global_editing_state == ST_S_EDIT || s->global_editing_state == ST_O_EDIT))
-				draw_e_axes(s);
-
-			    /* Display titles, etc., if desired */
-			    bu_vls_strcpy(&tmp_vls, bu_vls_addr(&overlay_vls));
-			    dotitles(s, &tmp_vls);
-			    bu_vls_trunc(&tmp_vls, 0);
-			}
-		    }
-
-		    /* only if not doing overlay */
-		    if (!mged_variables->mv_fb ||
-			    mged_variables->mv_fb_overlay != 2) {
-			/* Draw center dot */
-			dm_set_fg(DMP,
-				color_scheme->cs_center_dot[0],
-				color_scheme->cs_center_dot[1],
-				color_scheme->cs_center_dot[2], 1, 1.0);
-			dm_draw_point_2d(DMP, 0.0, 0.0);
-		    }
-
-		    dm_draw_end(DMP);
-		    dm_set_dirty(DMP, 0);
-
-		}
-	    }
+	    struct mged_pane *pmp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	    if (pmp)
+		obol_update_title_vars(s, pmp);
 	}
-	set_curr_pane(s, save_pane);
-    }
-
-    /* a frame was drawn */
-    if (do_time) {
-	elapsed_time = bu_gettime() - start_time;
-	/* Only use reasonable measurements */
-	if (elapsed_time > 10LL && elapsed_time < 30000000LL) {
-	    /* Smoothly transition to new speed */
-	    frametime = 0.9 * frametime + 0.1 * elapsed_time / 1000000LL;
-	}
-    }
-
-    bu_vls_free(&overlay_vls);
-    bu_vls_free(&tmp_vls);
-
-    /* Obol path: notify all obol_view Tk widgets to re-render.
-     * When libtclcad's obol_view is used (mged Obol path), the standard
-     * dm_draw_begin/dozoom/dm_draw_end loop above is a no-op because the
-     * null display manager is the only active DMP.  Instead, obol_notify_views
-     * calls obol_scene_assemble() + SoGLRenderAction on each live obol_view
-     * widget so that geometry changes (draw, erase, view commands) are
-     * immediately visible.  This is a no-op when no obol_view widgets exist.
-     *
-     * Only call obol_notify_views when something has actually changed
-     * (obol_needs_refresh was set above), or when a legacy dm frame was
-     * drawn (do_time) — the latter handles shared-view cases where both
-     * dm and Obol panes display the same scene.
-     *
-     * Step 6.b: the rendering loop above now uses active_pane_set directly.
-     * This obol_notify_views call handles Obol panes that were skipped above. */
-    {
-	int has_obol_pane = (s->mged_curr_pane && !s->mged_curr_pane->mp_dmp);
-	if (!has_obol_pane) {
-	    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
-		struct mged_pane *pmp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-		if (pmp && !pmp->mp_dmp) { has_obol_pane = 1; break; }
-	    }
-	}
-	if (s->interp && (obol_needs_refresh || do_time) && has_obol_pane) {
-	    /* Update Tcl HUD display variables for each Obol pane (skip wrappers). */
-	    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
-		struct mged_pane *pmp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-		if (pmp && !pmp->mp_dmp)
-		    obol_update_title_vars(s, pmp);
-	    }
-	    (void)Tcl_Eval(s->interp, "catch {obol_notify_views}");
-	}
+	(void)Tcl_Eval(s->interp, "catch {obol_notify_views}");
     }
 }
 
@@ -1773,28 +1568,8 @@ mged_finish(struct mged_state *s, int exitcode)
 	}
     }
 
-    /* Step 6.c/7.18: Release all displays via active_pane_set. */
-    {
-	/* First pass: free all legacy dm panes (mp_dmp != NULL). */
-	size_t pi = 0;
-	while (pi < BU_PTBL_LEN(&active_pane_set)) {
-	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	    if (!mp || !mp->mp_dmp) { pi++; continue; }
-
-	    bu_ptbl_rm(&active_pane_set, (long *)mp);
-	    /* pi stays at same index since list shrunk */
-
-	    if (mp->mp_dmp) {
-		dm_close(mp->mp_dmp);
-		mp->mp_dmp = NULL;
-	    }
-	    mged_pane_free_resources(mp);
-	    BU_PUT(mp, struct mged_pane);
-	}
-    }
-
-    /* Step 7.2: Free the startup sentinel init pane.
-     * Step 7.18: mged_dm_init_state removed; sentinel is just the pane. */
+    /* Step 7.19: Release all panes via active_pane_set (Obol-only, single pass).
+     * Free sentinel init_pane first, then all active panes. */
     if (s->mged_init_pane) {
 	if (s->mged_curr_pane == s->mged_init_pane)
 	    s->mged_curr_pane = MGED_PANE_NULL;
@@ -1803,13 +1578,10 @@ mged_finish(struct mged_state *s, int exitcode)
 	s->mged_init_pane = MGED_PANE_NULL;
     }
 
-    /* Step 7.18: mged_dm_init_state free removed (global eliminated). */
-
-    /* Release remaining Obol panes (mp_dmp == NULL).
+    /* Release remaining Obol panes. */
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	/* Skip NULL entries and legacy dm wrappers (already freed above). */
-	if (!mp || mp->mp_dmp)
+	if (!mp)
 	    continue;
 	if (mp->mp_gvp) {
 	    struct tclcad_view_data *tvd =
@@ -1960,9 +1732,9 @@ main(int argc, char *argv[])
     bu_setprogname(argv[0]);
 
 #if defined(HAVE_TK)
-    if (dm_have_graphics()) {
-	s->classic_mged = 0;
-    }
+    /* Step 8: dm_have_graphics() removed; Obol always provides a GL context
+     * when Tk is available. */
+    s->classic_mged = 0;
 #endif
 
     bu_optind = 1;
@@ -1995,10 +1767,10 @@ main(int argc, char *argv[])
 		run_in_foreground = 0;  /* run in background */
 		break;
 	    case 'v':	/* print a lot of version information */
-		printf("%s%s%s%s%s%s\n",
+		printf("%s%s%s%s\n",
 		       brlcad_ident("MGED Geometry Editor"),
-		       dm_version(),
-		       fb_version(),
+		       /* Step 8: dm_version() removed — libdm decoupled from mged. */
+		       /* Stage 9: fb_version() removed — libdm not linked; fb_* unavailable. */
 		       rt_version(),
 		       bn_version(),
 		       bu_version());
@@ -2145,7 +1917,6 @@ main(int argc, char *argv[])
     MAT_IDN(view_state->vs_ModelDelta);
 
     am_mode = AMM_IDLE;
-    owner = 1;
     frametime = 1;
 
     MAT_IDN(MEDIT(s)->model_changes);
@@ -2377,14 +2148,7 @@ main(int argc, char *argv[])
 
     } /* interactive */
 
-    /* XXX total hack that fixes a dm init issue on Mac OS X where the
-     * dm first opens filled with garbage.
-     * Stage 7 (step 5.14): guard for NULL DMP (nu dm now has dm_dmp==NULL). */
-    if (DMP) {
-	unsigned char *dm_bg;
-	dm_get_bg(&dm_bg, NULL, DMP);
-	dm_set_bg(DMP, dm_bg[0], dm_bg[1], dm_bg[2], dm_bg[0], dm_bg[1], dm_bg[2]);
-    }
+    /* Step 7.19: Mac OS X dm-init hack removed (DMP is always NULL). */
 
     /* initialize a display manager */
     if (s->interactive && s->classic_mged) {

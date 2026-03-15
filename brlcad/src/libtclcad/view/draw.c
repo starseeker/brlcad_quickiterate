@@ -28,6 +28,7 @@
 #include "dm/view.h"
 #include "ged.h"
 #include "tclcad.h"
+#include "dm.h" /* Stage 9: explicit include; no longer pulled via tclcad headers */
 #include "bsg/util.h"
 
 /* Private headers */

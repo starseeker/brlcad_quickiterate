@@ -50,7 +50,7 @@ cmd_overlay(ClientData clientData, Tcl_Interp *interp, int argc, const char *arg
     Tcl_DStringInit(&ds);
 
     if (s->gedp->ged_gvp)
-	s->gedp->ged_gvp->dmp = DMP ? (void *)DMP : NULL;
+	s->gedp->ged_gvp->dmp = NULL; /* Step 7.20: DMP removed. */
     ret = ged_exec(s->gedp, argc, argv);
     Tcl_DStringAppend(&ds, bu_vls_addr(s->gedp->ged_result_str), -1);
     Tcl_DStringResult(interp, &ds);
@@ -62,7 +62,6 @@ cmd_overlay(ClientData clientData, Tcl_Interp *interp, int argc, const char *arg
 	return TCL_ERROR;
 
     s->update_views = 1;
-    if (DMP) dm_set_dirty(DMP, 1);
 
     return ret;
 }

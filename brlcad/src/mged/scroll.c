@@ -311,10 +311,6 @@ second_menu_scroll_display(fastf_t *f, struct scroll_item *mptr, struct mged_sta
 	    return;
     }
 
-    dm_set_fg(DMP,
-	    color_scheme->cs_slider_text2[0],
-	    color_scheme->cs_slider_text2[1],
-	    color_scheme->cs_slider_text2[2], 1, 1.0);
 }
 
 /* Handle edit mode values for a given scroll item.
@@ -390,10 +386,6 @@ edit_scroll_display(fastf_t *f, struct scroll_item *mptr, struct mged_state *s)
 	    return 0;
     }
 
-    dm_set_fg(DMP,
-	    color_scheme->cs_slider_text1[0],
-	    color_scheme->cs_slider_text1[1],
-	    color_scheme->cs_slider_text1[2], 1, 1.0);
     return 1;
 }
 
@@ -447,10 +439,6 @@ view_scroll_display(fastf_t *f, struct scroll_item *mptr, struct mged_state *s)
 	    return;
     }
 
-    dm_set_fg(DMP,
-	    color_scheme->cs_slider_text2[0],
-	    color_scheme->cs_slider_text2[1],
-	    color_scheme->cs_slider_text2[2], 1, 1.0);
 }
 
 /************************************************************************
@@ -465,81 +453,10 @@ view_scroll_display(fastf_t *f, struct scroll_item *mptr, struct mged_state *s)
  * position used.
  */
 int
-scroll_display(struct mged_state *s, int y_top)
+scroll_display(struct mged_state *UNUSED(s), int y_top)
 {
-    /* Stage 7 guard: skip libdm overlay drawing for Obol panes */
-    if (!DMP) return y_top;
-
-    int y;
-    struct scroll_item *mptr;
-    struct scroll_item **m;
-    int xpos;
-    int second_menu = -1;
-    fastf_t f = 0;
-
-    scroll_top = y_top;
-    y = y_top;
-
-    dm_set_line_attr(DMP, mged_variables->mv_linewidth, 0);
-
-    /* Precompute if any edit mode could be active */
-    int edit_flag = 0;
-    if (EDIT_ROTATE && mged_variables->mv_transform == 'e') edit_flag = 1;
-    else if (EDIT_TRAN && mged_variables->mv_transform == 'e') edit_flag = 1;
-    else if (EDIT_SCALE && mged_variables->mv_transform == 'e') edit_flag = 1;
-
-    for (m = &scroll_array[0]; *m != NULL; m++) {
-	++second_menu;
-	for (mptr = *m; mptr->scroll_string[0] != '\0'; mptr++) {
-	    y += SCROLL_DY;		/* y is now bottom line pos */
-
-	    f = 0.0;
-	    int did_op = 0;
-
-	    if (second_menu) {
-		/* ADC menu has priority when present */
-		second_menu_scroll_display(&f, mptr, s);
-		did_op = 1;
-	    } else if (edit_flag) {
-		/* Try edit logic first */
-		did_op = edit_scroll_display(&f, mptr, s);
-	    }
-
-	    if (!did_op && !second_menu) {
-		/* Fallback to view (non-edit) logic */
-		view_scroll_display(&f, mptr, s);
-	    }
-
-	    if (f > 0)
-		xpos = (f + SL_TOL) * BSG_VIEW_MAX;
-	    else if (f < 0)
-		xpos = (f - SL_TOL) * -MENUXLIM;
-	    else
-		xpos = 0;
-
-	    dm_draw_string_2d(DMP, mptr->scroll_string,
-		    GED2PM1(xpos), GED2PM1(y-SCROLL_DY/2), 0, 0);
-	    dm_set_fg(DMP,
-		    color_scheme->cs_slider_line[0],
-		    color_scheme->cs_slider_line[1],
-		    color_scheme->cs_slider_line[2], 1, 1.0);
-	    dm_draw_line_2d(DMP,
-		    GED2PM1((int)BSG_VIEW_MAX), GED2PM1(y),
-		    GED2PM1(MENUXLIM), GED2PM1(y));
-	}
-    }
-
-    if (y != y_top) {
-	/* Sliders were drawn, so make left vert edge */
-	dm_set_fg(DMP,
-		color_scheme->cs_slider_line[0],
-		color_scheme->cs_slider_line[1],
-		color_scheme->cs_slider_line[2], 1, 1.0);
-	dm_draw_line_2d(DMP,
-		GED2PM1(MENUXLIM), GED2PM1(scroll_top-1),
-		GED2PM1(MENUXLIM), GED2PM1(y));
-    }
-    return y;
+    /* Step 7.20: libdm removed — no-op. */
+    return y_top;
 }
 
 

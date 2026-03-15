@@ -1285,9 +1285,91 @@ from `mp_gvp` (no DMP indirection).
    **After Step 7.18**: `struct mged_dm` no longer exists.  All pane state is in
    `mged_pane`.  The `mp_dmp != NULL` test distinguishes dm panes from Obol panes.
 
-   **Remaining work (Step 7.19 onwards)**:
-   - `f_attach`/`mged_attach()`/`mged_dm_init()`: convert to Obol-only path
-   - Delete `DMP`/`fbp`/`clients`/`mapped` macros, `dm-generic.c`
+### Step 7.19 — Remove libdm attach path; delete dm-generic.c; eliminate dm render loop ✅ (Session 26)
+
+   - `f_attach()` / `mged_attach()` / `mged_dm_init()`: removed entirely; Obol-only.
+   - `dm-generic.c` deleted (all libdm glue removed from CMakeLists.txt).
+   - `refresh()` dm render loop removed; only `obol_notify_views()` remains.
+   - `drain_background_geom()` calls `do_view_changed(QG_VIEW_DRAWN)` on AABB/OBB/LoD progress.
+   - `mged_attach()` is now empty (no libdm path); only `f_new_obol_view_ptr` is active.
+
+### Step 7.20 — Delete all libdm fields from `mged_pane`; 27 mged files clean ✅ (Session 26)
+
+   - `mp_dmp`, `mp_fbp`, `mp_netfd`, `mp_netchan`, `mp_clients`, `mp_dirty`, `mp_mapped`,
+     `mp_owner` fields deleted from `mged_pane`.
+   - `DMP`, `DMP_dirty`, `fbp`, `clients`, `mapped`, `owner` macros deleted from `mged_dm.h`.
+   - `GET_MGED_DM` / `GET_MGED_PANE` macros simplified to always return `MGED_PANE_NULL`.
+   - All drawing functions that called `dm_set_fg`, `dm_draw_*`, `dm_set_line_attr`, etc.
+     are now stubs (`/* no-op */`) or have their DMP blocks removed:
+     - `dotitles()`, `screen_vls()` → no-op stubs
+     - `draw_rect()`, `paint_rect_area()`, `rt_rect_area()` → no-op stubs
+     - `scroll_display()`, `mmenu_display()`, `mged_highlight_menu_item()` → no-op stubs
+     - `predictor_frame()` → no-op stub
+     - `draw_grid()`, `draw_adc_lines()`, `draw_axes()` → already guarded (were already no-ops)
+   - `fbserv.c`: completely rewritten as a single `fbserv_set_port` no-op stub.
+   - `share.c`: `'d'` case (dm_share_dlist) removed; `share_dlist()` is a no-op stub.
+   - 27 mged .c files compile cleanly with -Werror and 0 warnings.
+
+   **After Step 7.20**: `mged_pane` is fully libdm-free.  MGED is Obol-only.
+   `DMP` is gone; all drawing goes through the Obol path.
+
+### Stage 8 — Remove `libdm` from mged CMakeLists; scrub libdm includes ✅ (Session 27)
+
+   - `mged_dm.h`: `#include "dm.h"` removed (struct dm no longer referenced).
+     `pkg.h` retained for `struct pkg_conn` in `struct client`.
+   - `rect.c`: direct `#include "dm.h"` removed (all drawing functions are
+     no-op stubs, no libdm types used).
+   - `mged.c`: `dm_have_graphics()` replaced with always-true expression;
+     `dm_version()` removed from the `-v` version output.
+   - `doevent.c`: X11 event handler bodies (`doEvent` inside `#ifdef
+     HAVE_X11_TYPES`) replaced with no-op stubs; `motion_event_handler`
+     replaced with a no-op stub.  All libdm (DMP, dm_doevent, dm_configure_win,
+     etc.) calls removed from this file.
+   - `mged_dm.h`: dead `extern int dm_pipe[]` declaration removed.
+   - `CMakeLists.txt`: `libdm` removed from `mged_libs`.
+   - 27 mged .c files compile cleanly with -Werror and 0 warnings.
+   - Build (cmake --build --target mged) produces no new undefined-reference
+     errors; the pre-existing libObol/libOpenGL.so.0 link failure is unrelated.
+
+   **Note**: `dm.h` is still transitively included via `libtclcad` →
+   `tclcad/draw.h` → `dm.h`.  This is a libtclcad coupling that will be
+   addressed when libtclcad is migrated.  mged itself no longer references
+   any libdm symbols directly.
+
+### Stage 9 — Remove `dm.h` from tclcad public headers; clean mged_dm.h ✅ (Session 28)
+
+   - `tclcad/draw.h`: `#include "dm.h"` replaced with `#include "dm/fbserv.h"`.
+     Only `struct fbserv_obj` (in `struct tclcad_view_data::gdv_fbs`) was needed.
+   - `tclcad/misc.h`: `#include "dm.h"` replaced with `#include "dm/view.h"`.
+     Only `struct dm_view_data` (in `struct tclcad_ged_data::go_dmv`) was needed.
+   - `tclcad/setup.h`: `#include "dm.h"` removed entirely.
+     No dm types appear in any function declaration in this header.
+   - `mged_dm.h`: `struct client` / `c_pkg` (`struct pkg_conn *`) deleted — unused
+     by all mged .c files (fbserv.c is a no-op stub since Stage 8).
+     `#include "pkg.h"` removed (only needed for `c_pkg`).
+   - `mged.c`: `fb_version()` removed from `-v` output (was missed in Stage 8;
+     `fb_version` is declared in `dm.h` which mged no longer includes).
+   - `mged/attach.c`: `FB_NULL` → `NULL` in two fbserv init sites
+     (`FB_NULL` defined in `dm.h`, no longer available).
+   - `libtclcad/mouse.c`, `polygons.c`, `wrapper.c`, `view/draw.c`,
+     `view/refresh.c`, `view/util.c`: explicit `#include "dm.h"` added.
+     These source files use dm_* functions but were relying on the transitive
+     pull through `tclcad/misc.h`; they now declare their own dependency.
+   - All 27 mged .c files: 0 errors, 0 warnings with -Werror.
+   - Transitive `dm.h` chain verified absent for all 27 mged files.
+   - All libtclcad .c files: 0 errors, 0 warnings.
+
+   **Result**: `mged` compilation no longer sees `dm.h` (or any of its
+   subsidiary headers like `dm/defines.h`, `dm/view.h`, `dm/util.h`) through
+   any transitive include path.  The libdm-to-mged coupling at the header
+   level is fully eliminated.
+
+   **Remaining work (Stage 10)**:
+   - Delete `src/libdm/` rendering plugins (`glx/`, `qtgl/`, `swrast/`, `wgl/`,
+     `postscript/`, `plot/`, `txt/`, `X/`); retain fb_* raster helpers
+   - Remove `libdm` from `libged` and `libtclcad` link deps (requires migrating
+     those libraries' draw calls to Obol)
+   - Remove `libdm` from `source_dirs.cmake` `libged_deps` / `libtclcad_deps`
 
 **Key files to update (Stage 7 MGED work):**
 

@@ -32,7 +32,9 @@
 #include "common.h"
 #include "bu/process.h"
 #include "tcl.h"
-#include "dm.h"
+/* Stage 9: dm.h replaced with dm/view.h — only struct dm_view_data is needed
+ * in this header (for struct tclcad_ged_data::go_dmv). */
+#include "dm/view.h"
 #include "ged.h"
 #include "tclcad/defines.h"
 
