@@ -68,7 +68,6 @@
 #include "icv/io.h"
 #include "icv/ops.h"
 #include "icv/crop.h"
-#include "dm.h"
 
 #ifdef HAVE_GL_GL_H
 #  include <GL/gl.h>

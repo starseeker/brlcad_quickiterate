@@ -111,12 +111,8 @@ ged_overlay_core(struct ged *gedp, int argc, const char *argv[])
 	return BRLCAD_ERROR;
     }
 
+    /* dmp may be NULL in the Obol rendering path; only needed for write_fb */
     dmp = (struct dm *)gedp->ged_gvp->dmp;
-    if (!dmp) {
-	bu_vls_printf(gedp->ged_result_str, ": no display manager currently active");
-	bu_vls_free(&vname);
-	return BRLCAD_ERROR;
-    }
 
     /* must be wanting help */
     if (argc == 1) {
@@ -136,17 +132,18 @@ ged_overlay_core(struct ged *gedp, int argc, const char *argv[])
     }
 
     if (!write_fb && NEAR_ZERO(size, VUNITIZE_TOL)) {
-	if (!gedp->ged_gvp) {
-	    bu_vls_printf(gedp->ged_result_str, ": no character size specified, and could not determine default value");
-	    bu_vls_free(&vname);
-	    return BRLCAD_ERROR;
-	}
 	size = gedp->ged_gvp->gv_scale * 0.01;
     }
 
     argc = opt_ret;
 
     if (write_fb) {
+	/* Framebuffer overlay requires a display manager backend */
+	if (!dmp) {
+	    bu_vls_printf(gedp->ged_result_str, ": framebuffer overlay requires a display manager backend (not available in Obol rendering path)");
+	    bu_vls_free(&vname);
+	    return BRLCAD_ERROR;
+	}
 	fbp = dm_get_fb(dmp);
 	if (!fbp) {
 	    bu_vls_printf(gedp->ged_result_str, ": display manager does not have a framebuffer");
