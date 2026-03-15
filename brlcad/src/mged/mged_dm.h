@@ -355,6 +355,8 @@ struct _menu_state {
     struct menu_item	*ms_menus[NMENU];    /* base of menu items array */
 };
 
+/* Step 7.16: forward declaration so mged_dm can hold a back-pointer. */
+struct mged_pane;
 
 struct mged_dm {
     struct dm		*dm_dmp;
@@ -373,16 +375,17 @@ struct mged_dm {
     /* Step 7.12: dm_p_vlist removed — use mp_p_vlist on mged_pane. */
     /* Step 7.11: dm_tie removed — use mp_cmd_tie on mged_pane. */
 
-    /* Shareable Resources */
+    /* Step 7.16: back-pointer to the owning mged_pane.  The pane owns the
+     * 8 non-view shareable resources (mp_adc_state … mp_dlist_state).
+     * dm_view_state remains dm-owned for now (complex view-ring lifecycle). */
+    struct mged_pane	*dm_pane;		/* owning wrapper pane */
+
+    /* Shareable Resources — view_state remains dm-owned (Step 7.16).
+     * All other resource pointers are REMOVED (they live in dm_pane->mp_*). */
     struct _view_state	*dm_view_state;
-    struct _adc_state	*dm_adc_state;
-    struct _menu_state	*dm_menu_state;
-    struct _rubber_band	*dm_rubber_band;
-    struct _mged_variables *dm_mged_variables;
-    struct _color_scheme	*dm_color_scheme;
-    struct bsg_grid_state *dm_grid_state;
-    struct _axes_state	*dm_axes_state;
-    struct _dlist_state	*dm_dlist_state;
+    /* Step 7.16: dm_adc_state, dm_menu_state, dm_rubber_band, dm_mged_variables,
+     * dm_color_scheme, dm_grid_state, dm_axes_state, dm_dlist_state removed —
+     * use dm_pane->mp_* for all 8 non-view shareable resources. */
 
     /* Hooks */
     /* Step 7.14: dm_cmd_hook removed — always dm_commands; call directly. */

@@ -2143,44 +2143,28 @@ main(int argc, char *argv[])
     /* register application provided routines */
     /* Step 7.14: dm_cmd_hook removed — always dm_commands; no assignment needed. */
 
-    BU_ALLOC(mged_dm_init_state->dm_rubber_band, struct _rubber_band);
-    *mged_dm_init_state->dm_rubber_band = default_rubber_band;	/* struct copy */
-
-    BU_ALLOC(mged_dm_init_state->dm_mged_variables, struct _mged_variables);
-    *mged_dm_init_state->dm_mged_variables = default_mged_variables;	/* struct copy */
-
-    BU_ALLOC(mged_dm_init_state->dm_color_scheme, struct _color_scheme);
-    *mged_dm_init_state->dm_color_scheme = default_color_scheme;	/* struct copy */
-
-    BU_ALLOC(mged_dm_init_state->dm_grid_state, struct bsg_grid_state);
-    *mged_dm_init_state->dm_grid_state = default_grid_state;	/* struct copy */
-
-    BU_ALLOC(mged_dm_init_state->dm_axes_state, struct _axes_state);
-    *mged_dm_init_state->dm_axes_state = default_axes_state;	/* struct copy */
-
-    BU_ALLOC(mged_dm_init_state->dm_adc_state, struct _adc_state);
-    mged_dm_init_state->dm_adc_state->adc_rc = 1;
-    mged_dm_init_state->dm_adc_state->adc_a1 = mged_dm_init_state->dm_adc_state->adc_a2 = 45.0;
-
-    BU_ALLOC(mged_dm_init_state->dm_menu_state, struct _menu_state);
-    mged_dm_init_state->dm_menu_state->ms_rc = 1;
-
-    BU_ALLOC(mged_dm_init_state->dm_dlist_state, struct _dlist_state);
-    mged_dm_init_state->dm_dlist_state->dl_rc = 1;
-
+    /* Step 7.16: The 8 non-view resources are now owned by the sentinel pane
+     * (mged_init_pane).  mged_pane_init_resources() below allocates them.
+     * Only dm_view_state is still allocated directly on mged_dm_init_state. */
     BU_ALLOC(mged_dm_init_state->dm_view_state, struct _view_state);
     mged_dm_init_state->dm_view_state->vs_rc = 1;
     view_ring_init(mged_dm_init_state->dm_view_state, (struct _view_state *)NULL);
-    MAT_IDN(view_state->vs_ModelDelta);
 
     /* Step 7.2: Create a sentinel wrapper pane for mged_dm_init_state so that
      * mged_curr_pane is always non-NULL.  This avoids crashes from NULL dereferences
-     * in the ternary macros before a real dm/Obol pane is attached. */
+     * in the ternary macros before a real dm/Obol pane is attached.
+     * Step 7.16: mged_pane_init_resources() now allocates the 8 non-view resources
+     * in the pane (since s->mged_curr_pane is NULL at this point, it uses defaults)
+     * and sets mged_dm_init_state->dm_pane = init_pane. */
     BU_GET(s->mged_init_pane, struct mged_pane);
     s->mged_init_pane->mp_dm  = mged_dm_init_state;
     s->mged_init_pane->mp_gvp = NULL;  /* no view until a dm is attached */
-    mged_pane_init_resources(s, s->mged_init_pane);  /* shares init-dm resource ptrs */
+    mged_pane_init_resources(s, s->mged_init_pane);  /* owns 8 resources + borrows view_state */
+    /* borrow view_state from dm (dm_var_init didn't run for the sentinel) */
+    s->mged_init_pane->mp_view_state = mged_dm_init_state->dm_view_state;
     s->mged_curr_pane = s->mged_init_pane;
+
+    MAT_IDN(view_state->vs_ModelDelta);
 
     am_mode = AMM_IDLE;
     owner = 1;

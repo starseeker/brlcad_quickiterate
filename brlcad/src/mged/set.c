@@ -415,10 +415,10 @@ set_dlist(const struct bu_structparse *UNUSED(sdp),
 		continue;
 
 	    if (dm_get_displaylist(mp->mp_dm->dm_dmp) &&
-		mp->mp_dm->dm_dlist_state->dl_active == 0) {
+		mp->mp_dlist_state->dl_active == 0) {
 		set_curr_pane(s, mp);
 		createDListAll((void *)s, NULL);
-		mp->mp_dm->dm_dlist_state->dl_active = 1;
+		mp->mp_dlist_state->dl_active = 1;
 		mp->mp_dm->dm_dirty = 1;
 		dm_set_dirty(mp->mp_dm->dm_dmp, 1);
 	    }
@@ -436,14 +436,14 @@ set_dlist(const struct bu_structparse *UNUSED(sdp),
 	    if (mp->mp_mged_variables != save_mv)
 		continue;
 
-	    if (mp->mp_dm->dm_dlist_state->dl_active) {
+	    if (mp->mp_dlist_state->dl_active) {
 		/* for each wrapper pane mp2 that is sharing display lists with mp */
 		struct mged_pane *mp2 = MGED_PANE_NULL;
 		for (size_t pj = 0; pj < BU_PTBL_LEN(&active_pane_set); pj++) {
 		    struct mged_pane *m2 = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pj);
 
 		    if (!m2->mp_dm) continue;  /* skip Obol panes */
-		    if (m2->mp_dm->dm_dlist_state != mp->mp_dm->dm_dlist_state)
+		    if (m2->mp_dlist_state != mp->mp_dlist_state)
 			continue;
 
 		    /* found mp2 that is actively using mp's display lists */
@@ -455,7 +455,7 @@ set_dlist(const struct bu_structparse *UNUSED(sdp),
 
 		/* these display lists are not being used, so free them */
 		if (mp2 == MGED_PANE_NULL) {
-		    mp->mp_dm->dm_dlist_state->dl_active = 0;
+		    mp->mp_dlist_state->dl_active = 0;
 
 		    /* Free each shape's display list individually via scene-root children */
 		    bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
