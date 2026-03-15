@@ -40,9 +40,10 @@
 #include "common.h"
 
 /* Step 8: dm.h removed — struct dm no longer used in mged_pane (all
- * mp_dmp/libdm fields deleted in Step 7.20). */
+ * mp_dmp/libdm fields deleted in Step 7.20).
+ * Step 9: pkg.h removed — struct client / c_pkg deleted (no mged .c
+ * file used struct client; fbserv is a no-op stub). */
 
-#include "pkg.h" /* struct pkg_conn (struct client::c_pkg) */
 #include "ged.h"
 
 #include "mged.h"
@@ -113,14 +114,9 @@ struct trail {
 #	define MAX_CLIENTS 32
 #endif
 
-struct client {
-    int			c_fd;
-#ifdef USE_TCL_CHAN
-    Tcl_Channel         c_chan;
-    Tcl_FileProc        *c_handler;
-#endif
-    struct pkg_conn	*c_pkg;
-};
+/* Step 9: struct client / c_pkg removed — fbserv is a no-op stub (Stage 8),
+ * and no mged .c file references struct client or c_pkg.
+ * pkg.h include also removed since it was only needed for struct pkg_conn here. */
 
 
 /* mged command variables for affecting the user environment */

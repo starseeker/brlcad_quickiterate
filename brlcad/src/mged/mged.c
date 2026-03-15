@@ -1767,10 +1767,10 @@ main(int argc, char *argv[])
 		run_in_foreground = 0;  /* run in background */
 		break;
 	    case 'v':	/* print a lot of version information */
-		printf("%s%s%s%s%s\n",
+		printf("%s%s%s%s\n",
 		       brlcad_ident("MGED Geometry Editor"),
 		       /* Step 8: dm_version() removed — libdm decoupled from mged. */
-		       fb_version(),
+		       /* Stage 9: fb_version() removed — libdm not linked; fb_* unavailable. */
 		       rt_version(),
 		       bn_version(),
 		       bu_version());

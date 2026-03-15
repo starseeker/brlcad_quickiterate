@@ -31,7 +31,10 @@
 
 #include "common.h"
 #include "tcl.h"
-#include "dm.h"
+/* Stage 9: dm.h replaced with dm/fbserv.h — only struct fbserv_obj is needed
+ * in this header (for struct tclcad_view_data::gdv_fbs).  The full dm.h
+ * is no longer pulled transitively into every mged translation unit. */
+#include "dm/fbserv.h"
 #include "ged.h"
 #include "tclcad/defines.h"
 

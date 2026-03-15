@@ -1336,10 +1336,40 @@ from `mp_gvp` (no DMP indirection).
    addressed when libtclcad is migrated.  mged itself no longer references
    any libdm symbols directly.
 
-   **Remaining work (Stage 9)**:
-   - Delete `src/libdm/` (except fb_* raster helpers for rtwizard)
-   - Remove `dm.h` include from `tclcad/draw.h` (libtclcad migration)
-   - Replace `struct client::c_pkg` with a simpler fd/Tcl handle
+### Stage 9 — Remove `dm.h` from tclcad public headers; clean mged_dm.h ✅ (Session 28)
+
+   - `tclcad/draw.h`: `#include "dm.h"` replaced with `#include "dm/fbserv.h"`.
+     Only `struct fbserv_obj` (in `struct tclcad_view_data::gdv_fbs`) was needed.
+   - `tclcad/misc.h`: `#include "dm.h"` replaced with `#include "dm/view.h"`.
+     Only `struct dm_view_data` (in `struct tclcad_ged_data::go_dmv`) was needed.
+   - `tclcad/setup.h`: `#include "dm.h"` removed entirely.
+     No dm types appear in any function declaration in this header.
+   - `mged_dm.h`: `struct client` / `c_pkg` (`struct pkg_conn *`) deleted — unused
+     by all mged .c files (fbserv.c is a no-op stub since Stage 8).
+     `#include "pkg.h"` removed (only needed for `c_pkg`).
+   - `mged.c`: `fb_version()` removed from `-v` output (was missed in Stage 8;
+     `fb_version` is declared in `dm.h` which mged no longer includes).
+   - `mged/attach.c`: `FB_NULL` → `NULL` in two fbserv init sites
+     (`FB_NULL` defined in `dm.h`, no longer available).
+   - `libtclcad/mouse.c`, `polygons.c`, `wrapper.c`, `view/draw.c`,
+     `view/refresh.c`, `view/util.c`: explicit `#include "dm.h"` added.
+     These source files use dm_* functions but were relying on the transitive
+     pull through `tclcad/misc.h`; they now declare their own dependency.
+   - All 27 mged .c files: 0 errors, 0 warnings with -Werror.
+   - Transitive `dm.h` chain verified absent for all 27 mged files.
+   - All libtclcad .c files: 0 errors, 0 warnings.
+
+   **Result**: `mged` compilation no longer sees `dm.h` (or any of its
+   subsidiary headers like `dm/defines.h`, `dm/view.h`, `dm/util.h`) through
+   any transitive include path.  The libdm-to-mged coupling at the header
+   level is fully eliminated.
+
+   **Remaining work (Stage 10)**:
+   - Delete `src/libdm/` rendering plugins (`glx/`, `qtgl/`, `swrast/`, `wgl/`,
+     `postscript/`, `plot/`, `txt/`, `X/`); retain fb_* raster helpers
+   - Remove `libdm` from `libged` and `libtclcad` link deps (requires migrating
+     those libraries' draw calls to Obol)
+   - Remove `libdm` from `source_dirs.cmake` `libged_deps` / `libtclcad_deps`
 
 **Key files to update (Stage 7 MGED work):**
 
