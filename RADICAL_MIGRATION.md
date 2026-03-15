@@ -1174,7 +1174,25 @@ from `mp_gvp` (no DMP indirection).
    **After Step 7.11**: `struct mged_dm` no longer has `dm_tie`.  The command-window
    tie is tracked exclusively in `mged_pane::mp_cmd_tie`.
 
-   **Remaining work (Step 7.12 onwards)**:
+   **Step 7.12** ✅ (Session 24) — Remove `dm_p_vlist` from `struct mged_dm`:
+   - `mged_dm.h`: `dm_p_vlist` field deleted; comment updated.  `mp_p_vlist` in
+     `mged_pane` is now the only predictor vlist location.  Comment on `mp_p_vlist`
+     in `mged_pane` struct updated.  Other stale `mged_curr_dm` comment references
+     in `mged_dm.h` cleaned up.  DMP macro comment block updated.
+   - `attach.c` `mged_attach()`: `BU_LIST_INIT(&ndm->dm_p_vlist)` replaced with
+     comment (field removed).
+   - `attach.c` `release()`: `BSG_FREE_VLIST(&cdm->dm_p_vlist)` replaced with
+     comment (list was always empty — wrapper pane's predictor data lives in
+     `mp_p_vlist`).
+   - `mged.c` startup: `BU_LIST_INIT(&mged_dm_init_state->dm_p_vlist)` replaced
+     with comment.
+   - `mged.c` `mged_finish()`: `BSG_FREE_VLIST(&p->dm_p_vlist)` replaced with
+     comment.
+
+   **After Step 7.12**: `struct mged_dm` no longer has `dm_p_vlist`.  Predictor
+   vlists live exclusively in `mged_pane::mp_p_vlist`.
+
+   **Remaining work (Step 7.13 onwards)**:
    - `f_attach`/`mged_attach()`/`mged_dm_init()`: convert to Obol-only path
    - Delete `struct mged_dm`, `DMP`/`fbp`/`clients` macros, `dm-generic.c`
 
