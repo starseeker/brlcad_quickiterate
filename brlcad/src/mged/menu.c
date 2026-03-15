@@ -1456,11 +1456,9 @@ mmenu_set_all(struct mged_state *s, int index, struct menu_item *value)
 {
     struct cmd_list *save_cmd_list;
     struct mged_pane *save_pane;
-    struct mged_dm *save_dm_list;
 
     save_cmd_list = curr_cmd_list;
     save_pane = s->mged_curr_pane;
-    save_dm_list = s->mged_curr_dm;
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
 	if (!mp->mp_dm) continue;  /* skip Obol panes */
@@ -1473,7 +1471,6 @@ mmenu_set_all(struct mged_state *s, int index, struct menu_item *value)
 
     curr_cmd_list = save_cmd_list;
     set_curr_pane(s, save_pane);
-    if (!save_pane) set_curr_dm(s, save_dm_list);
 }
 
 

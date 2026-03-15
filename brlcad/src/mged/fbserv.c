@@ -127,7 +127,6 @@ fbserv_existing_client_handler(ClientData clientData, int UNUSED(mask))
     int npp;			/* number of processed packages */
     struct mged_dm *dlp = MGED_DM_NULL;
     struct mged_pane *save_pane;
-    struct mged_dm *scdlp;  /* save current dm_list pointer */
 
     /* Step 6.b: search active_pane_set for matching fd. */
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
@@ -145,7 +144,6 @@ fbserv_existing_client_handler(ClientData clientData, int UNUSED(mask))
 found:
     /* save */
     save_pane = s->mged_curr_pane;
-    scdlp = s->mged_curr_dm;
 
     {
 	/* Find wrapper pane for dlp to call set_curr_pane. */
@@ -189,7 +187,6 @@ found:
 
     /* restore */
     set_curr_pane(s, save_pane);
-    if (!save_pane) set_curr_dm(MGED_STATE, scdlp);
 }
 
 

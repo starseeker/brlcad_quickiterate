@@ -708,7 +708,6 @@ edit_com(struct mged_state *s,
 	 int argc,
 	 const char *argv[])
 {
-    struct mged_dm *save_m_dmp;
     struct cmd_list *save_cmd_list;
     int ret;
     int initial_blank_screen = 1;
@@ -888,7 +887,6 @@ edit_com(struct mged_state *s,
 
     {
 	struct mged_pane *save_pane = s->mged_curr_pane;
-	save_m_dmp = s->mged_curr_dm;
 	save_cmd_list = curr_cmd_list;
 	/* Step 6.b: active_pane_set covers all pane types. */
 	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
@@ -927,7 +925,6 @@ edit_com(struct mged_state *s,
 	    }
 	}
 	set_curr_pane(s, save_pane);
-	if (!save_pane) set_curr_dm(s, save_m_dmp);
 	curr_cmd_list = save_cmd_list;
 	s->gedp->ged_gvp = view_state->vs_gvp;
     }
@@ -941,7 +938,6 @@ cmd_autoview(ClientData clientData, Tcl_Interp *interp, int argc, const char *ar
     struct cmdtab *ctp = (struct cmdtab *)clientData;
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
-    struct mged_dm *save_m_dmp;
     struct cmd_list *save_cmd_list;
 
     if (argc > 2) {
@@ -961,7 +957,6 @@ cmd_autoview(ClientData clientData, Tcl_Interp *interp, int argc, const char *ar
 
     {
 	struct mged_pane *save_pane = s->mged_curr_pane;
-	save_m_dmp = s->mged_curr_dm;
 	save_cmd_list = curr_cmd_list;
 	int ac = 1;
 	const char *av[3];
@@ -993,7 +988,6 @@ cmd_autoview(ClientData clientData, Tcl_Interp *interp, int argc, const char *ar
 	    }
 	}
 	set_curr_pane(s, save_pane);
-	if (!save_pane) set_curr_dm(s, save_m_dmp);
 	curr_cmd_list = save_cmd_list;
 	s->gedp->ged_gvp = view_state->vs_gvp;
     }

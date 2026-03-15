@@ -303,7 +303,6 @@ void
 new_edit_mats(struct mged_state *s)
 {
     struct mged_pane *save_pane = s->mged_curr_pane;
-    struct mged_dm *save_dm_list = s->mged_curr_dm;
 
     /* Step 6.b: use active_pane_set. */
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
@@ -327,7 +326,6 @@ new_edit_mats(struct mged_state *s)
     }
 
     set_curr_pane(s, save_pane);
-    if (!save_pane) set_curr_dm(s, save_dm_list);
 }
 
 
@@ -994,7 +992,6 @@ mged_process_char(struct mged_state *s, char ch)
 int
 event_check(struct mged_state *s, int non_blocking)
 {
-    struct mged_dm *save_dm_list;
     int save_edflag;
 
     /* Let cool Tk event handler do most of the work */
@@ -1025,7 +1022,6 @@ event_check(struct mged_state *s, int non_blocking)
     /*********************************
      * Handle rate-based processing *
      *********************************/
-    save_dm_list = s->mged_curr_dm;
     if (MEDIT(s)->k.rot_m_flag) {
 	struct bu_vls vls = BU_VLS_INIT_ZERO;
 	char save_coords;
@@ -1300,7 +1296,6 @@ event_check(struct mged_state *s, int non_blocking)
 	    }
 	}
 	set_curr_pane(s, save_pane);
-	if (!save_pane) set_curr_dm(s, save_dm_list);
     }
 
     return non_blocking;
@@ -1522,7 +1517,6 @@ std_out_or_err(ClientData clientData, int UNUSED(mask))
 void
 refresh(struct mged_state *s)
 {
-    struct mged_dm *save_dm_list;
     struct bu_vls overlay_vls = BU_VLS_INIT_ZERO;
     struct bu_vls tmp_vls = BU_VLS_INIT_ZERO;
     int do_overlay = 1;
@@ -1568,7 +1562,6 @@ refresh(struct mged_state *s)
 
     {
 	struct mged_pane *save_pane = s->mged_curr_pane;
-	save_dm_list = s->mged_curr_dm;
 	/* Step 6.b: rendering loop uses active_pane_set. */
 	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
@@ -1709,7 +1702,6 @@ refresh(struct mged_state *s)
 	    }
 	}
 	set_curr_pane(s, save_pane);
-	if (!save_pane) set_curr_dm(s, save_dm_list);
     }
 
     /* a frame was drawn */
@@ -1818,6 +1810,17 @@ mged_finish(struct mged_state *s, int exitcode)
 	    bu_free(p, "mged_finish: mged_dm");
 	    set_curr_dm(s, MGED_DM_NULL);
 	}
+    }
+
+    /* Step 7.2: Free the startup sentinel init pane (wraps mged_dm_init_state).
+     * mged_pane_free_resources() is a no-op for wrapper panes (mp_dm != NULL).
+     * Clear mged_curr_pane BEFORE BU_PUT to avoid a use-after-free. */
+    if (s->mged_init_pane) {
+	if (s->mged_curr_pane == s->mged_init_pane)
+	    s->mged_curr_pane = MGED_PANE_NULL;
+	mged_pane_free_resources(s->mged_init_pane);
+	BU_PUT(s->mged_init_pane, struct mged_pane);
+	s->mged_init_pane = MGED_PANE_NULL;
     }
 
     /* Free the initial "nu" sentinel dm (never in active_pane_set). */
@@ -1971,9 +1974,9 @@ main(int argc, char *argv[])
     /* Step 6.c: active_dm_set no longer maintained; only mged_dm_init_state sentinel kept. */
     mged_dm_init_state = s->mged_curr_dm;
     s->mged_curr_dm->dm_netfd = -1;
-    /* Stage 7 (libdm removal): no initial Obol pane until the Tcl startup
-     * scripts call new_obol_view_ptr.  active_pane_set (BU_PTBL_INIT_ZERO)
-     * needs no explicit init; mged_curr_pane tracks the active Obol pane. */
+    s->mged_init_pane = MGED_PANE_NULL;
+    /* mged_curr_pane will be set to the init sentinel pane after resources
+     * are allocated (Step 7.2 init_pane creation, below).  Zero it now. */
     s->mged_curr_pane = MGED_PANE_NULL;
 
     setmode(fileno(stdin), O_BINARY);
@@ -2187,6 +2190,15 @@ main(int argc, char *argv[])
     s->mged_curr_dm->dm_view_state->vs_rc = 1;
     view_ring_init(s->mged_curr_dm->dm_view_state, (struct _view_state *)NULL);
     MAT_IDN(view_state->vs_ModelDelta);
+
+    /* Step 7.2: Create a sentinel wrapper pane for mged_dm_init_state so that
+     * mged_curr_pane is always non-NULL.  This avoids crashes from NULL dereferences
+     * in the ternary macros before a real dm/Obol pane is attached. */
+    BU_GET(s->mged_init_pane, struct mged_pane);
+    s->mged_init_pane->mp_dm  = mged_dm_init_state;
+    s->mged_init_pane->mp_gvp = NULL;  /* no view until a dm is attached */
+    mged_pane_init_resources(s, s->mged_init_pane);  /* shares init-dm resource ptrs */
+    s->mged_curr_pane = s->mged_init_pane;
 
     am_mode = AMM_IDLE;
     owner = 1;

@@ -232,7 +232,8 @@ struct mged_state {
 
     /* Display related */
     struct mged_dm *mged_curr_dm;  /* legacy libdm pane (NULL when Obol-only) */
-    struct mged_pane *mged_curr_pane;  /* Stage 7: current Obol pane; NULL when using legacy dm */
+    struct mged_pane *mged_curr_pane;  /* Step 7: current pane; always non-NULL after init */
+    struct mged_pane *mged_init_pane;  /* Step 7.2: startup sentinel wrapper (wraps mged_dm_init_state) */
     char *dpy_string;
     struct bu_list *vlfree;
 

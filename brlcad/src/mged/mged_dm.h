@@ -534,34 +534,33 @@ extern void mged_pane_free_resources(struct mged_pane *mp);
 #define perspective_angle s->mged_curr_dm->dm_perspective_angle
 #define zclip_ptr s->mged_curr_dm->dm_zclip_ptr
 
-/* Stage 7 (Step 6 transition): per-pane state macros prefer mged_curr_pane
- * (Obol path) when set, falling back to mged_curr_dm (legacy dm path).
- * All BU_ALLOC(macro_name, type) and direct pointer-assignment sites have
- * been changed to use s->mged_curr_dm->dm_<field> explicitly (in attach.c
- * dm_var_init and mged.c main), so these ternary definitions are safe. */
-#define view_state (s->mged_curr_pane ? s->mged_curr_pane->mp_view_state : s->mged_curr_dm->dm_view_state)
-#define adc_state (s->mged_curr_pane ? s->mged_curr_pane->mp_adc_state : s->mged_curr_dm->dm_adc_state)
-#define menu_state (s->mged_curr_pane ? s->mged_curr_pane->mp_menu_state : s->mged_curr_dm->dm_menu_state)
-#define rubber_band (s->mged_curr_pane ? s->mged_curr_pane->mp_rubber_band : s->mged_curr_dm->dm_rubber_band)
-#define mged_variables (s->mged_curr_pane ? s->mged_curr_pane->mp_mged_variables : s->mged_curr_dm->dm_mged_variables)
-#define color_scheme (s->mged_curr_pane ? s->mged_curr_pane->mp_color_scheme : s->mged_curr_dm->dm_color_scheme)
-#define grid_state (s->mged_curr_pane ? s->mged_curr_pane->mp_grid_state : s->mged_curr_dm->dm_grid_state)
-#define axes_state (s->mged_curr_pane ? s->mged_curr_pane->mp_axes_state : s->mged_curr_dm->dm_axes_state)
-#define dlist_state (s->mged_curr_pane ? s->mged_curr_pane->mp_dlist_state : s->mged_curr_dm->dm_dlist_state)
+/* Step 7.2: mged_curr_pane is always non-NULL after startup (init_pane created
+ * in mged_main before any attach).  Direct mp_* access — no ternary fallback
+ * to mged_curr_dm->dm_* needed.  dm_var_init and the mged.c startup block
+ * both use explicit s->mged_curr_dm->dm_<field> access, so they are unaffected
+ * by these macros becoming non-ternary. */
+#define view_state s->mged_curr_pane->mp_view_state
+#define adc_state s->mged_curr_pane->mp_adc_state
+#define menu_state s->mged_curr_pane->mp_menu_state
+#define rubber_band s->mged_curr_pane->mp_rubber_band
+#define mged_variables s->mged_curr_pane->mp_mged_variables
+#define color_scheme s->mged_curr_pane->mp_color_scheme
+#define grid_state s->mged_curr_pane->mp_grid_state
+#define axes_state s->mged_curr_pane->mp_axes_state
+#define dlist_state s->mged_curr_pane->mp_dlist_state
 
-/* Predictor vlist and trails: prefer mged_curr_pane (Obol path) when set.
- * pv_head is a pointer to the per-pane bu_list head; pane_trails decays to a
- * pointer to the NUM_TRAILS-element trail array so pane_trails[i] is lvalue.
- * (Step 5.15)
- * Step 6.a: when mged_curr_pane is a legacy dm wrapper (mp_dm != NULL) the
- * predictor state lives in the mged_dm, not in the thin mged_pane wrapper.
- * Use mged_curr_dm (which set_curr_pane has pointed at mp_dm) for those.
- * NOTE: dm_ndrawn/mp_ndrawn is NOT exposed as a macro because "ndrawn"
- * conflicts with local variable names in dozoom.c — callers use the
- * struct fields directly (s->mged_curr_dm->dm_ndrawn or
- * s->mged_curr_pane->mp_ndrawn). */
-#define pv_head (s->mged_curr_pane && !s->mged_curr_pane->mp_dm ? &s->mged_curr_pane->mp_p_vlist : &s->mged_curr_dm->dm_p_vlist)
-#define pane_trails (s->mged_curr_pane && !s->mged_curr_pane->mp_dm ? s->mged_curr_pane->mp_trails : s->mged_curr_dm->dm_trails)
+/* pv_head / pane_trails: INTENTIONAL EXCEPTION to the Step 7.3 simplification.
+ * These two macros still use ternary logic because the predictor vlist and
+ * trails live in different places for the two pane types:
+ *  - Obol panes (mp_dm == NULL): state is in mged_pane.mp_p_vlist / mp_trails
+ *  - Legacy dm wrappers (mp_dm != NULL): state is in mged_dm.dm_p_vlist /
+ *    dm_trails; set_curr_pane() redirects mged_curr_dm → mp_dm, so accessing
+ *    through mged_curr_dm is correct and consistent with dm_var_init.
+ * Unlike the resource macros (view_state etc.), for which the wrapper's mp_*
+ * and dm->dm_* are the SAME pointer (shared), predictor state is per-dm and
+ * not exposed via mp_* on the wrapper. */
+#define pv_head (!s->mged_curr_pane->mp_dm ? &s->mged_curr_pane->mp_p_vlist : &s->mged_curr_dm->dm_p_vlist)
+#define pane_trails (!s->mged_curr_pane->mp_dm ? s->mged_curr_pane->mp_trails : s->mged_curr_dm->dm_trails)
 
 #define cmd_hook s->mged_curr_dm->dm_cmd_hook
 #define viewpoint_hook s->mged_curr_dm->dm_viewpoint_hook

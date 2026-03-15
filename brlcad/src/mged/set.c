@@ -345,7 +345,6 @@ set_scroll_private(const struct bu_structparse *UNUSED(sdp),
     }
 
     set_curr_pane(s, save_pane);
-    if (!save_pane) set_curr_dm(s, save_m_dmp);
 }
 
 
@@ -472,7 +471,6 @@ set_dlist(const struct bu_structparse *UNUSED(sdp),
     }
 
     set_curr_pane(s, save_pane);
-    if (!save_pane) set_curr_dm(s, save_dlp);
 }
 
 

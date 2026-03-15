@@ -59,12 +59,10 @@ illuminate(struct mged_state *s, int y) {
      * solids which are drawn.
      * Step 5.15: use mp_ndrawn when in Obol pane context.
      */
-    /* Step 5.15/6.a: use mp_ndrawn for Obol panes; for legacy dm
-     * wrappers (mp_dm != NULL) use the dm's dm_ndrawn directly. */
+    /* Step 7.2: mged_curr_pane is always non-NULL. For legacy dm wrapper
+     * panes (mp_dm != NULL) use dm_ndrawn; for Obol panes use mp_ndrawn. */
     int active_ndrawn;
-    if (!s->mged_curr_pane)
-	active_ndrawn = s->mged_curr_dm->dm_ndrawn;
-    else if (s->mged_curr_pane->mp_dm)
+    if (s->mged_curr_pane->mp_dm)
 	active_ndrawn = s->mged_curr_pane->mp_dm->dm_ndrawn;
     else
 	active_ndrawn = s->mged_curr_pane->mp_ndrawn;
@@ -116,12 +114,10 @@ f_aip(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	return TCL_ERROR;
     }
 
-    /* Step 5.15/6.a: use mp_ndrawn for Obol panes; for legacy dm
-     * wrappers (mp_dm != NULL) use the dm's dm_ndrawn directly. */
+    /* Step 7.2: mged_curr_pane is always non-NULL. For legacy dm wrapper
+     * panes (mp_dm != NULL) use dm_ndrawn; for Obol panes use mp_ndrawn. */
     int active_ndrawn;
-    if (!s->mged_curr_pane)
-	active_ndrawn = s->mged_curr_dm->dm_ndrawn;
-    else if (s->mged_curr_pane->mp_dm)
+    if (s->mged_curr_pane->mp_dm)
 	active_ndrawn = s->mged_curr_pane->mp_dm->dm_ndrawn;
     else
 	active_ndrawn = s->mged_curr_pane->mp_ndrawn;

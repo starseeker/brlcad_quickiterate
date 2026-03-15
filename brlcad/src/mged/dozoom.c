@@ -232,7 +232,6 @@ createDListSolid(void *vlist_ctx, bsg_shape *sp)
     struct mged_state *s = (struct mged_state *)vlist_ctx;
     MGED_CK_STATE(s);
     struct mged_pane *save_pane = s->mged_curr_pane;
-    struct mged_dm *save_dlp = s->mged_curr_dm;
 
     /* Step 6.b: use active_pane_set. */
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
@@ -264,7 +263,6 @@ createDListSolid(void *vlist_ctx, bsg_shape *sp)
     }
 
     set_curr_pane(s, save_pane);
-    if (!save_pane) set_curr_dm(s, save_dlp);
 }
 
 /*
@@ -303,7 +301,6 @@ freeDListsAll(void *data, unsigned int dlist, int range)
     MGED_CK_STATE(s);
     /* Step 6.b: use active_pane_set. */
     struct mged_pane *save_pane = s->mged_curr_pane;
-    struct mged_dm *save_dlp = s->mged_curr_dm;
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
 	if (!mp->mp_dm) continue;  /* skip Obol panes */
@@ -317,7 +314,6 @@ freeDListsAll(void *data, unsigned int dlist, int range)
 	dm_set_dirty(DMP, 1);
     }
     set_curr_pane(s, save_pane);
-    if (!save_pane) set_curr_dm(s, save_dlp);
 }
 
 

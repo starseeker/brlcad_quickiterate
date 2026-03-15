@@ -2047,7 +2047,6 @@ cmd_blast(ClientData clientData, Tcl_Interp *UNUSED(interpreter), int argc, cons
     /* update and resize the views; Step 6.b: use active_pane_set. */
     {
 	struct mged_pane *save_pane = s->mged_curr_pane;
-	struct mged_dm *save_m_dmp = s->mged_curr_dm;
 	struct cmd_list *save_cmd_list = curr_cmd_list;
 	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
@@ -2078,7 +2077,6 @@ cmd_blast(ClientData clientData, Tcl_Interp *UNUSED(interpreter), int argc, cons
 	    }
 	}
 	set_curr_pane(s, save_pane);
-	if (!save_pane) set_curr_dm(s, save_m_dmp);
 	curr_cmd_list = save_cmd_list;
 	s->gedp->ged_gvp = view_state->vs_gvp;
     }
