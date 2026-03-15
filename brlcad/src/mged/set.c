@@ -324,13 +324,15 @@ set_scroll_private(const struct bu_structparse *UNUSED(sdp),
     struct mged_state *s = (struct mged_state *)data;
     MGED_CK_STATE(s);
     struct mged_pane *save_pane = s->mged_curr_pane;
-    struct mged_dm *save_m_dmp = s->mged_curr_dm;
+    /* Step 7.7: compare via pane's mp_mged_variables (works for both Obol and
+     * legacy dm wrapper panes; mged_curr_pane->mp_mged_variables is always valid). */
+    struct _mged_variables *save_mv = save_pane->mp_mged_variables;
 
     /* Step 6.b: use active_pane_set. */
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
 	if (!mp->mp_dm) continue;  /* skip Obol panes */
-	if (mp->mp_mged_variables == save_m_dmp->dm_mged_variables) {
+	if (mp->mp_mged_variables == save_mv) {
 	    set_curr_pane(s, mp);
 
 	    if (mged_variables->mv_faceplate && mged_variables->mv_orig_gui) {
@@ -398,17 +400,18 @@ set_dlist(const struct bu_structparse *UNUSED(sdp),
     struct mged_state *s = (struct mged_state *)data;
     MGED_CK_STATE(s);
     struct mged_pane *save_pane = s->mged_curr_pane;
-    struct mged_dm *save_dlp = s->mged_curr_dm;
+    /* Step 7.7: compare via pane's mp_mged_variables instead of mged_curr_dm. */
+    struct _mged_variables *save_mv = save_pane->mp_mged_variables;
 
     if (mged_variables->mv_dlist) {
 	/* create display lists */
 
-	/* Step 6.b: for each wrapper pane that shares mged_variables with save_dlp */
+	/* Step 6.b: for each wrapper pane that shares mged_variables with save_pane */
 	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
 	    if (!mp->mp_dm) continue;  /* skip Obol panes */
 
-	    if (mp->mp_mged_variables != save_dlp->dm_mged_variables)
+	    if (mp->mp_mged_variables != save_mv)
 		continue;
 
 	    if (dm_get_displaylist(mp->mp_dm->dm_dmp) &&
@@ -425,12 +428,12 @@ set_dlist(const struct bu_structparse *UNUSED(sdp),
 	 * Free display lists if not being used by another display manager
 	 */
 
-	/* Step 6.b: for each wrapper pane that shares mged_variables with save_dlp */
+	/* Step 6.b: for each wrapper pane that shares mged_variables with save_pane */
 	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
 
 	    if (!mp->mp_dm) continue;  /* skip Obol panes */
-	    if (mp->mp_mged_variables != save_dlp->dm_mged_variables)
+	    if (mp->mp_mged_variables != save_mv)
 		continue;
 
 	    if (mp->mp_dm->dm_dlist_state->dl_active) {

@@ -298,6 +298,10 @@ fbserv_set_port(const struct bu_structparse *UNUSED(sp), const char *UNUSED(c1),
      * Obol panes (dm_dmp == NULL).  Obol has its own fb overlay mechanism. */
     if (!DMP) return;
 
+    /* Step 7.7: access dm_netfd/dm_netchan via the pane's mp_dm pointer rather
+     * than through s->mged_curr_dm.  The !DMP guard above ensures mp_dm != NULL. */
+    struct mged_dm *cdm = s->mged_curr_pane->mp_dm;
+
 #define MAX_PORT_TRIES 100
 
     /* Check to see if previously active --- if so then deactivate */
@@ -309,7 +313,7 @@ fbserv_set_port(const struct bu_structparse *UNUSED(sp), const char *UNUSED(c1),
 	/* Close the server channel; this unregisters the accept callback and
 	 * closes the underlying listen socket. */
 	if (dm_interp(DMP) != NULL)
-	    Tcl_Close((Tcl_Interp *)dm_interp(DMP), s->mged_curr_dm->dm_netchan);
+	    Tcl_Close((Tcl_Interp *)dm_interp(DMP), cdm->dm_netchan);
 
 	s->mged_curr_dm->dm_netchan = NULL;
 	s->mged_curr_dm->dm_netfd = -1;
@@ -346,7 +350,7 @@ fbserv_set_port(const struct bu_structparse *UNUSED(sp), const char *UNUSED(c1),
 		    fbserv_new_client_handler, (ClientData)s->mged_curr_dm);
 	}
 
-	if (s->mged_curr_dm->dm_netchan == NULL)
+	if (cdm->dm_netchan == NULL)
 	    ++port;
 	else
 	    break;

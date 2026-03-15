@@ -1045,9 +1045,22 @@ from `mp_gvp` (no DMP indirection).
    - `attach.c` `set_curr_pane()` comment updated to note that `set_curr_dm()`
      is now internal-only.
 
-      **Remaining work (Step 7.7 onwards)**:
-   - Migrate `set.c` `save_m_dmp`/`save_dlp` patterns to use `mged_pane` directly
-   - Migrate `fbserv.c` `dm_netchan`/`dm_netfd` fields to `mged_pane` or Obol overlay
+      **Step 7.7** ✅ (Session 21) — Migrate `save_m_dmp`/`save_dlp` patterns and
+   fbserv.c to use pane pointers:
+   - `set.c` `set_scroll_private()`: `save_m_dmp = s->mged_curr_dm` replaced with
+     `save_mv = save_pane->mp_mged_variables`; comparison `mp->mp_mged_variables ==
+     save_m_dmp->dm_mged_variables` simplified to `mp->mp_mged_variables == save_mv`.
+   - `set.c` `set_dlist()`: `save_dlp = s->mged_curr_dm` replaced with
+     `save_mv = save_pane->mp_mged_variables`; both `dm_mged_variables != save_dlp->…`
+     comparisons replaced with `!= save_mv`.
+   - `fbserv.c` `fbserv_set_port()`: `cdm = s->mged_curr_pane->mp_dm` introduced as a
+     local after the `!DMP` guard; all `s->mged_curr_dm->dm_netchan/dm_netfd` replaced
+     with `cdm->dm_netchan/dm_netfd` (the `!DMP` guard already ensures `mp_dm != NULL`).
+   - `cmd.c` `f_postscript()`: `dml = s->mged_curr_pane->mp_dm` replaces
+     `dml = s->mged_curr_dm`; post-`mged_attach` dm field accesses changed from
+     `s->mged_curr_dm->dm_*` to `s->mged_curr_pane->mp_dm->dm_*`.
+
+      **Remaining work (Step 7.8 onwards)**:
    - `f_attach`/`mged_attach()`/`mged_dm_init()`: convert to Obol-only path
    - Delete `struct mged_dm`, `DMP`/`fbp`/`clients` macros, `dm-generic.c`
 
