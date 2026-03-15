@@ -4249,7 +4249,68 @@ add_elements(ON_Brep *brep, ON_BrepFace &face, const ON_SimpleArray<ON_Curve *> 
 	    ON_Surface::ISO iso_type = srf->IsIsoparametric(*loop[k]);
 	    if (iso_type == ON_Surface::W_iso || iso_type == ON_Surface::S_iso ||
 		iso_type == ON_Surface::E_iso || iso_type == ON_Surface::N_iso) {
-		/* Boundary iso: create a proper singular trim (e.g. TGC apex). */
+		/* Boundary iso: create a proper singular trim (e.g. TGC apex).
+		 *
+		 * The Boolean evaluator may produce a near-zero-length 2D curve
+		 * that does not lie exactly on a single iso-parameter line (e.g.
+		 * a corner point that is technically on both the E and N
+		 * boundaries).  When SetTrimIsoFlags later calls IsIsoparametric
+		 * again on this curve it may return not_iso or a different iso,
+		 * which conflicts with the OpenNURBS IsValid requirements.
+		 *
+		 * Fix: build a replacement 2D curve whose endpoints lie exactly
+		 * on the detected boundary so that IsIsoparametric reliably
+		 * returns the correct boundary iso both now and after any future
+		 * SetTrimIsoFlags call.
+		 *
+		 * The start UV is taken from the preceding trim's endpoint
+		 * (loop continuity), snapped to the detected boundary.  The end
+		 * UV is the snapped version of the original curve's end point.
+		 * After building the replacement, re-query IsIsoparametric on it
+		 * so the iso type passed to NewSingularTrim always matches what
+		 * the replacement curve reports. */
+		ON_Interval udom = srf->Domain(0);
+		ON_Interval vdom = srf->Domain(1);
+
+		/* Determine the start UV: prefer the exact endpoint of the
+		 * previous trim (loop continuity) when available. */
+		ON_2dPoint start_uv = loop[k]->PointAtStart();
+		if (k > 0 && brep->m_T.Count() > 0) {
+		    const ON_Curve *prev_c2 =
+			brep->m_T.Last()->TrimCurveOf();
+		    if (prev_c2)
+			start_uv = prev_c2->PointAtEnd();
+		}
+		ON_2dPoint end_uv = loop[k]->PointAtEnd();
+
+		/* Snap both endpoints to the detected boundary so the
+		 * replacement curve lies exactly on it. */
+		if (iso_type == ON_Surface::N_iso) {
+		    start_uv.y = vdom.Max(); end_uv.y = vdom.Max();
+		} else if (iso_type == ON_Surface::S_iso) {
+		    start_uv.y = vdom.Min(); end_uv.y = vdom.Min();
+		} else if (iso_type == ON_Surface::E_iso) {
+		    start_uv.x = udom.Max(); end_uv.x = udom.Max();
+		} else { /* W_iso */
+		    start_uv.x = udom.Min(); end_uv.x = udom.Min();
+		}
+
+		ON_NurbsCurve *iso_c2d = new ON_NurbsCurve(2, false, 2, 2);
+		iso_c2d->SetCV(0, ON_3dPoint(start_uv.x, start_uv.y, 0));
+		iso_c2d->SetCV(1, ON_3dPoint(end_uv.x, end_uv.y, 0));
+		iso_c2d->MakeClampedUniformKnotVector();
+
+		/* Re-query iso type from the replacement curve — it may differ
+		 * from the original detection (e.g. a corner point classifies as
+		 * E_iso rather than N_iso after snapping). */
+		ON_Surface::ISO actual_iso = srf->IsIsoparametric(*iso_c2d);
+		if (actual_iso == ON_Surface::W_iso ||
+		    actual_iso == ON_Surface::S_iso ||
+		    actual_iso == ON_Surface::E_iso ||
+		    actual_iso == ON_Surface::N_iso) {
+		    iso_type = actual_iso;
+		}
+
 		int i;
 		ON_3dPoint vtx = c3d->PointAtStart();
 		for (i = brep->m_V.Count() - 1; i >= 0; i--) {
@@ -4261,7 +4322,7 @@ add_elements(ON_Brep *brep, ON_BrepFace &face, const ON_SimpleArray<ON_Curve *> 
 		    i = brep->m_V.Count();
 		    brep->NewVertex(c3d->PointAtStart(), 0.0);
 		}
-		int ti = brep->AddTrimCurve(loop[k]);
+		int ti = brep->AddTrimCurve(iso_c2d);
 		ON_BrepTrim &trim = brep->NewSingularTrim(brep->m_V[i], breploop, iso_type, ti);
 		trim.m_tolerance[0] = trim.m_tolerance[1] = MAX_FASTF;
 		delete c3d;
@@ -6245,50 +6306,7 @@ ON_Boolean(ON_Brep *evaluated_brep, const ON_Brep *brep1, const ON_Brep *brep2, 
 		    add_elements(evaluated_brep, new_face, t_face->m_innerloop[k], ON_BrepLoop::inner);
 		}
 
-		/* SetTrimIsoFlags recomputes m_iso for all trims using
-		 * IsIsoparametric on their 2D curves.  For singular trims
-		 * (degenerate near-zero-length curves at surface-boundary
-		 * corners), the function may return not_iso instead of the
-		 * correct boundary iso, corrupting the value that
-		 * add_elements set via NewSingularTrim.
-		 *
-		 * Save m_iso for all singular trims in this face before
-		 * calling SetTrimIsoFlags, then restore any that were reset
-		 * to a non-boundary value. */
-		ON_SimpleArray<int> sing_ti;
-		ON_SimpleArray<int> sing_iso;
-		for (int li = 0; li < new_face.LoopCount(); li++) {
-		    const ON_BrepLoop &lp =
-			evaluated_brep->m_L[new_face.m_li[li]];
-		    for (int ti = 0; ti < lp.TrimCount(); ti++) {
-			const ON_BrepTrim &tr =
-			    evaluated_brep->m_T[lp.m_ti[ti]];
-			if (tr.m_type == ON_BrepTrim::singular) {
-			    sing_ti.Append(lp.m_ti[ti]);
-			    sing_iso.Append((int)tr.m_iso);
-			}
-		    }
-		}
-
 		evaluated_brep->SetTrimIsoFlags(new_face);
-
-		/* Restore m_iso for singular trims that were incorrectly reset. */
-		for (int si = 0; si < sing_ti.Count(); si++) {
-		    ON_BrepTrim &tr = evaluated_brep->m_T[sing_ti[si]];
-		    int saved = sing_iso[si];
-		    if (tr.m_iso != ON_Surface::W_iso &&
-			tr.m_iso != ON_Surface::S_iso &&
-			tr.m_iso != ON_Surface::E_iso &&
-			tr.m_iso != ON_Surface::N_iso) {
-			if (saved == (int)ON_Surface::W_iso ||
-			    saved == (int)ON_Surface::S_iso ||
-			    saved == (int)ON_Surface::E_iso ||
-			    saved == (int)ON_Surface::N_iso) {
-			    tr.m_iso = (ON_Surface::ISO)saved;
-			}
-		    }
-		}
-
 		const ON_BrepFace &original_face = i >= face_count1 ? brep2->m_F[i - face_count1] : brep1->m_F[i];
 		if (original_face.m_bRev ^ t_face->m_rev) {
 		    evaluated_brep->FlipFace(new_face);
