@@ -528,7 +528,8 @@ release(struct mged_state *s, char *name, int need_close, struct mged_dm *bad_dm
     /* Stage 7 Step 6.a: Remove the thin mged_pane wrapper for this legacy dm
      * pane from active_pane_set BEFORE usurp_all_resources() nulls out the
      * dm's resource pointers — the wrapper shares those pointers, so the
-     * wrapper must be cleaned up while they are still valid. */
+     * wrapper must be cleaned up while they are still valid.
+     * Step 7.11: also clear the cmd_tie here while the wrapper is still live. */
     {
 	struct mged_pane *wrapper = MGED_PANE_NULL;
 	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
@@ -539,6 +540,12 @@ release(struct mged_state *s, char *name, int need_close, struct mged_dm *bad_dm
 	    }
 	}
 	if (wrapper) {
+	    /* Step 7.11: dm_tie removed from mged_dm; clear via wrapper pane's
+	     * mp_cmd_tie (the canonical cmd_tie field) before freeing the pane. */
+	    if (wrapper->mp_cmd_tie) {
+		wrapper->mp_cmd_tie->cl_tie = MGED_PANE_NULL;
+		wrapper->mp_cmd_tie = CMD_LIST_NULL;
+	    }
 	    bu_ptbl_rm(&active_pane_set, (long *)wrapper);
 	    mged_pane_free_resources(wrapper);  /* skips dm-owned resources */
 	    BU_PUT(wrapper, struct mged_pane);
@@ -547,14 +554,8 @@ release(struct mged_state *s, char *name, int need_close, struct mged_dm *bad_dm
 
     usurp_all_resources(mged_dm_init_state, cdm);
 
-    /* If this display is being referenced by a command window, then
-     * remove the reference.  Step 7.4: cl_tie now points to a mged_pane;
-     * clear via the wrapper pane's mp_cmd_tie (already removed from active_pane_set
-     * above), then null the dm_tie back-pointer on the dm itself. */
-    if (cdm->dm_tie != NULL) {
-	cdm->dm_tie->cl_tie = MGED_PANE_NULL;
-	cdm->dm_tie = CMD_LIST_NULL;
-    }
+    /* Step 7.11: dm_tie removed from mged_dm; cmd_tie was cleared in the
+     * wrapper pane block above (both name-given and Bad: paths). */
 
     if (need_close)
 	dm_close(cdm->dm_dmp);
@@ -878,7 +879,7 @@ mged_attach(struct mged_state *s, const char *wp_name, int argc, const char *arg
 	BU_GET(pane, struct mged_pane);
 	pane->mp_dm      = ndm;
 	pane->mp_gvp     = ndm->dm_view_state->vs_gvp;
-	pane->mp_cmd_tie = ndm->dm_tie;
+	pane->mp_cmd_tie = NULL;  /* Step 7.11: dm_tie removed; tie set later by f_tie */
 	mged_pane_init_resources(s, pane);   /* shares dm resource ptrs */
 	mged_pane_link_vars(pane);           /* populate HUD var names */
 	bu_ptbl_ins(&active_pane_set, (long *)pane);

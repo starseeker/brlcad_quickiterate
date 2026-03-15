@@ -1158,7 +1158,23 @@ from `mp_gvp` (no DMP indirection).
    is the sole global `mged_dm *` (sentinel/headless dm).  `set_curr_pane()` no longer
    touches any dm field.  The `DMP` macro goes through `mged_curr_pane->mp_dm` only.
 
-   **Remaining work (Step 7.11 onwards)**:
+   **Step 7.11** ✅ (Session 24) — Remove `dm_tie` from `struct mged_dm`:
+   - `mged_dm.h`: `dm_tie` field deleted from `struct mged_dm`; `mp_cmd_tie` comment
+     updated to "canonical" (no longer "mirrors dm_tie").
+   - `cmd.c` `f_tie()`: removed `tlp->mp_dm->dm_tie = clp` update (redundant with
+     `tlp->mp_cmd_tie = clp`).  `mp_cmd_tie` is now the sole tie tracking field.
+   - `cmd.c` `cmd_close()` and `f_winset()` untie paths: removed
+     `clp->cl_tie->mp_dm->dm_tie = CMD_LIST_NULL` updates.
+   - `attach.c` `release()`: moved cmd_tie clearing into the wrapper-pane cleanup
+     block (before `BU_PUT`), clearing `wrapper->mp_cmd_tie` while the pane is
+     still alive.  Removed the separate `cdm->dm_tie` check block.
+   - `attach.c` `mged_attach()`: `pane->mp_cmd_tie = ndm->dm_tie` → `= NULL`
+     (ndm->dm_tie was always NULL for newly-allocated dm anyway).
+
+   **After Step 7.11**: `struct mged_dm` no longer has `dm_tie`.  The command-window
+   tie is tracked exclusively in `mged_pane::mp_cmd_tie`.
+
+   **Remaining work (Step 7.12 onwards)**:
    - `f_attach`/`mged_attach()`/`mged_dm_init()`: convert to Obol-only path
    - Delete `struct mged_dm`, `DMP`/`fbp`/`clients` macros, `dm-generic.c`
 

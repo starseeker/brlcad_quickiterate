@@ -373,7 +373,7 @@ struct mged_dm {
     int			*dm_zclip_ptr;
     struct bu_list	dm_p_vlist;			/* predictor vlist */
     struct trail	dm_trails[NUM_TRAILS];
-    struct cmd_list	*dm_tie;
+/* Step 7.11: dm_tie removed — use mp_cmd_tie on the mged_pane instead. */
 
     int			dm_adc_auto;
     int			dm_grid_auto_size;
@@ -441,7 +441,7 @@ struct mged_dm {
 
 struct mged_pane {
     bsg_view          *mp_gvp;       /* the view this pane displays (dmp == NULL for Obol) */
-    struct cmd_list   *mp_cmd_tie;   /* Tcl command-history link (mirrors dm_tie) */
+    struct cmd_list   *mp_cmd_tie;   /* Tcl command-history link (canonical; replaces dm_tie) */
     struct bu_list     mp_p_vlist;   /* predictor vlist (mirrors dm_p_vlist) */
     struct trail       mp_trails[NUM_TRAILS]; /* predictor trails (mirrors dm_trails) */
     int                mp_ndrawn;    /* count of objects drawn (mirrors dm_ndrawn) */

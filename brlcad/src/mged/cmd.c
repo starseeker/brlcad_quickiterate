@@ -1075,9 +1075,8 @@ cmd_cmd_win(ClientData clientData, Tcl_Interp *interpreter, int argc, const char
 
 	BU_LIST_DEQUEUE(&clp->l);
 	if (clp->cl_tie != NULL) {
-	    clp->cl_tie->mp_cmd_tie = CMD_LIST_NULL;  /* Step 7.4: mp_cmd_tie not dm_tie */
-	    if (clp->cl_tie->mp_dm)
-		clp->cl_tie->mp_dm->dm_tie = CMD_LIST_NULL;
+	    clp->cl_tie->mp_cmd_tie = CMD_LIST_NULL;  /* Step 7.4/7.11: mp_cmd_tie is canonical */
+	    /* Step 7.11: dm_tie removed from mged_dm */
 	}
 	bu_vls_free(&clp->cl_more_default);
 	bu_vls_free(&clp->cl_name);
@@ -1514,11 +1513,9 @@ f_tie(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, const ch
     }
 
     if (uflag) {
-	/* Step 7.4: cl_tie is mged_pane*; clear mp_cmd_tie + dm back-ptr */
+	/* Step 7.11: dm_tie removed from mged_dm; mp_cmd_tie is canonical */
 	if (clp->cl_tie) {
 	    clp->cl_tie->mp_cmd_tie = CMD_LIST_NULL;
-	    if (clp->cl_tie->mp_dm)
-		clp->cl_tie->mp_dm->dm_tie = CMD_LIST_NULL;
 	}
 	clp->cl_tie = MGED_PANE_NULL;
 
@@ -1569,8 +1566,7 @@ f_tie(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, const ch
     /* clear old cl_tie back-link */
     if (clp->cl_tie) {
 	clp->cl_tie->mp_cmd_tie = CMD_LIST_NULL;
-	if (clp->cl_tie->mp_dm)
-	    clp->cl_tie->mp_dm->dm_tie = CMD_LIST_NULL;
+	/* Step 7.11: dm_tie removed from mged_dm */
     }
 
     clp->cl_tie = tlp;
@@ -1580,8 +1576,7 @@ f_tie(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, const ch
 	tlp->mp_cmd_tie->cl_tie = MGED_PANE_NULL;
 
     tlp->mp_cmd_tie = clp;
-    if (tlp->mp_dm)
-	tlp->mp_dm->dm_tie = clp;
+    /* Step 7.11: tlp->mp_dm->dm_tie removed; mp_cmd_tie is canonical */
 
     bu_vls_free(&vls);
     return TCL_OK;
