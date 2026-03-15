@@ -385,28 +385,24 @@ bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 return BRLCAD_ERROR;
     }
 
-    /* Get fb mode */
+    /* Get fb mode — use gv_fb_mode which is stored on the bsg_view */
     if (argc == 2) {
-struct tclcad_view_data *tvd = (struct tclcad_view_data *)gdvp->u_data;
-bu_vls_printf(gedp->ged_result_str, "%d", tvd->gdv_fbs.fbs_mode);
-return BRLCAD_OK;
+	bu_vls_printf(gedp->ged_result_str, "%d", gdvp->gv_s->gv_fb_mode);
+	return BRLCAD_OK;
     }
 
     /* Set fb mode */
     if (bu_sscanf(argv[2], "%d", &mode) != 1) {
-bu_vls_printf(gedp->ged_result_str, "set_fb_mode: bad value - %s\n", argv[2]);
-return BRLCAD_ERROR;
+	bu_vls_printf(gedp->ged_result_str, "set_fb_mode: bad value - %s\n", argv[2]);
+	return BRLCAD_ERROR;
     }
 
     if (mode < 0)
-mode = 0;
+	mode = 0;
     else if (TCLCAD_OBJ_FB_MODE_OVERLAY < mode)
-mode = TCLCAD_OBJ_FB_MODE_OVERLAY;
+	mode = TCLCAD_OBJ_FB_MODE_OVERLAY;
 
-    {
-struct tclcad_view_data *tvd = (struct tclcad_view_data *)gdvp->u_data;
-tvd->gdv_fbs.fbs_mode = mode;
-    }
+    gdvp->gv_s->gv_fb_mode = mode;
     to_refresh_view(gdvp);
 
     return BRLCAD_OK;

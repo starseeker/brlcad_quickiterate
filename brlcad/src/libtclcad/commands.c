@@ -1343,10 +1343,38 @@ to_bg(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    /* dm is going away — background color is managed by the Obol renderer */
+    /* get background color — read from Obol view settings */
+    if (argc == 2) {
+	struct tclcad_view_data *tvd = (struct tclcad_view_data *)gdvp->u_data;
+	bu_vls_printf(gedp->ged_result_str, "%d %d %d",
+		(int)tvd->gdv_bg[0],
+		(int)tvd->gdv_bg[1],
+		(int)tvd->gdv_bg[2]);
+	return BRLCAD_OK;
+    }
+
+    /* set background color */
+    if (bu_sscanf(argv[2], "%d", &r) != 1 ||
+	    bu_sscanf(argv[3], "%d", &g) != 1 ||
+	    bu_sscanf(argv[4], "%d", &b) != 1)
+	goto bad_color;
+
+    /* validate color */
+    if (r < 0 || 255 < r ||
+	    g < 0 || 255 < g ||
+	    b < 0 || 255 < b)
+	goto bad_color;
+
+    {
+	struct tclcad_view_data *tvd = (struct tclcad_view_data *)gdvp->u_data;
+	tvd->gdv_bg[0] = (unsigned char)r;
+	tvd->gdv_bg[1] = (unsigned char)g;
+	tvd->gdv_bg[2] = (unsigned char)b;
+    }
+
+    to_refresh_view(gdvp);
     return BRLCAD_OK;
-    /* suppress -Wunused for the label below */
-    if (0) goto bad_color;
+
 bad_color:
     bu_vls_printf(gedp->ged_result_str, "%s: %s %s %s", argv[0], argv[2], argv[3], argv[4]);
     return BRLCAD_ERROR;
@@ -1386,13 +1414,30 @@ to_bounds(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    /* get window bounds */
+    /* get window bounds — return the view's near/far clip in GED units */
     if (argc == 2) {
-	/* dm is going away — bounds were dm-specific clip planes */
+	fastf_t near_clip = -gdvp->gv_size;
+	fastf_t far_clip  =  gdvp->gv_size;
+	bu_vls_printf(gedp->ged_result_str,
+		"%g %g %g %g %g %g",
+		near_clip, far_clip,
+		near_clip, far_clip,
+		near_clip, far_clip);
 	return BRLCAD_OK;
     }
 
-    /* set window bounds — dm is going away; no-op */
+    /* set window bounds — store in scan/bounds but Obol manages the frustum */
+    if (bu_sscanf(argv[2], "%lf %lf %lf %lf %lf %lf",
+		&scan[0], &scan[1],
+		&scan[2], &scan[3],
+		&scan[4], &scan[5]) != 6) {
+	bu_vls_printf(gedp->ged_result_str, "%s: invalid bounds - %s", argv[0], argv[2]);
+	return BRLCAD_ERROR;
+    }
+    VMOVE(bounds, scan);
+    VMOVE(&bounds[3], &scan[3]);
+    /* Obol renderer manages its own frustum; notify to pick up any side effects */
+    to_refresh_view(gdvp);
     return BRLCAD_OK;
 }
 
@@ -1421,12 +1466,7 @@ to_configure(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    if (!gdvp->dmp)
-	return BRLCAD_OK;
-
-    /* configure the display manager window — dm is going away; no-op */
-
-    /* configure the rect command dims */
+    /* configure: update rect dims and notify Obol renderer */
     {
 	char cdimX[32];
 	char cdimY[32];
@@ -3231,9 +3271,27 @@ to_fontsize(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    /* dm is going away — font size was dm-specific state */
+    /* get fontsize */
+    if (argc == 2) {
+	struct tclcad_view_data *tvd = (struct tclcad_view_data *)gdvp->u_data;
+	bu_vls_printf(gedp->ged_result_str, "%d", tvd->gdv_fontsize);
+	return BRLCAD_OK;
+    }
+
+    /* set fontsize */
+    if (bu_sscanf(argv[2], "%d", &fontsize) != 1)
+	goto bad_fontsize;
+    if (fontsize < 0)
+	goto bad_fontsize;
+
+    {
+	struct tclcad_view_data *tvd = (struct tclcad_view_data *)gdvp->u_data;
+	tvd->gdv_fontsize = fontsize;
+    }
+
+    to_refresh_view(gdvp);
     return BRLCAD_OK;
-    if (0) goto bad_fontsize;
+
 bad_fontsize:
     bu_vls_printf(gedp->ged_result_str, "%s: %s", argv[0], argv[2]);
     return BRLCAD_ERROR;
@@ -3669,7 +3727,25 @@ to_light(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    /* dm is going away — lighting was dm-specific state */
+    /* get light */
+    if (argc == 2) {
+	struct tclcad_view_data *tvd = (struct tclcad_view_data *)gdvp->u_data;
+	bu_vls_printf(gedp->ged_result_str, "%d", tvd->gdv_light);
+	return BRLCAD_OK;
+    }
+
+    /* set light */
+    if (bu_sscanf(argv[2], "%d", &light) != 1) {
+	bu_vls_printf(gedp->ged_result_str, "%s: invalid light flag - %s", argv[0], argv[2]);
+	return BRLCAD_ERROR;
+    }
+
+    {
+	struct tclcad_view_data *tvd = (struct tclcad_view_data *)gdvp->u_data;
+	tvd->gdv_light = light;
+    }
+
+    to_refresh_view(gdvp);
     return BRLCAD_OK;
 }
 
@@ -4727,8 +4803,21 @@ to_pix(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    /* dm is going away — screen capture requires Obol renderer */
-    bu_vls_printf(gedp->ged_result_str, "%s: screen capture requires Obol renderer path", argv[0]);
+    /* Delegate screen capture to the obol_view widget's screengrab subcommand.
+     * Migration: obol_view widget must implement:
+     *   obol_view_screengrab <viewname> pix <filename>
+     * to write a raw PIX file from the offscreen render buffer. */
+    if (current_top && current_top->to_interp) {
+	struct bu_vls cmd = BU_VLS_INIT_ZERO;
+	bu_vls_printf(&cmd, "catch {obol_view_screengrab %s pix %s}",
+		argv[1], argv[2]);
+	int ret = Tcl_Eval(current_top->to_interp, bu_vls_cstr(&cmd));
+	bu_vls_free(&cmd);
+	if (ret == TCL_OK)
+	    return BRLCAD_OK;
+    }
+    bu_vls_printf(gedp->ged_result_str,
+	    "%s: pix screen capture not available (obol_view_screengrab not registered)", argv[0]);
     return BRLCAD_ERROR;
 }
 
@@ -4741,19 +4830,6 @@ to_png(struct ged *gedp,
 	const char *usage,
 	int UNUSED(maxargs))
 {
-    png_structp png_p;
-    png_infop info_p;
-    FILE *fp = NULL;
-    unsigned char **rows = NULL;
-    unsigned char *pixels;
-    static int bytes_per_pixel = 3;
-    static int bits_per_channel = 8;  /* bits per color channel */
-    int i = 0;
-    int width = 0;
-    int height = 0;
-    int make_ret = 0;
-    int bytes_per_line;
-
     /* initialize result */
     bu_vls_trunc(gedp->ged_result_str, 0);
 
@@ -4773,8 +4849,21 @@ to_png(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    /* dm is going away — screen capture requires Obol renderer */
-    bu_vls_printf(gedp->ged_result_str, "%s: screen capture requires Obol renderer path", argv[0]);
+    /* Delegate to the obol_view widget's PNG screengrab subcommand.
+     * Migration: obol_view widget must implement:
+     *   obol_view_screengrab <viewname> png <filename>
+     * to write a PNG file via Qt's grabFramebuffer(). */
+    if (current_top && current_top->to_interp) {
+	struct bu_vls cmd = BU_VLS_INIT_ZERO;
+	bu_vls_printf(&cmd, "catch {obol_view_screengrab %s png %s}",
+		argv[1], argv[2]);
+	int ret = Tcl_Eval(current_top->to_interp, bu_vls_cstr(&cmd));
+	bu_vls_free(&cmd);
+	if (ret == TCL_OK)
+	    return BRLCAD_OK;
+    }
+    bu_vls_printf(gedp->ged_result_str,
+	    "%s: PNG screen capture not available (obol_view_screengrab not registered)", argv[0]);
     return BRLCAD_ERROR;
 }
 #endif
@@ -5753,7 +5842,25 @@ to_transparency(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    /* dm is going away — transparency was dm-specific rendering state */
+    /* get transparency */
+    if (argc == 2) {
+	struct tclcad_view_data *tvd = (struct tclcad_view_data *)gdvp->u_data;
+	bu_vls_printf(gedp->ged_result_str, "%d", tvd->gdv_transparency);
+	return BRLCAD_OK;
+    }
+
+    /* set transparency */
+    if (bu_sscanf(argv[2], "%d", &transparency) != 1) {
+	bu_vls_printf(gedp->ged_result_str, "%s: invalid transparency value - %s", argv[0], argv[2]);
+	return BRLCAD_ERROR;
+    }
+
+    {
+	struct tclcad_view_data *tvd = (struct tclcad_view_data *)gdvp->u_data;
+	tvd->gdv_transparency = transparency;
+    }
+
+    to_refresh_view(gdvp);
     return BRLCAD_OK;
 }
 
@@ -6103,7 +6210,30 @@ to_zbuffer(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    /* dm is going away — zbuffer was dm-specific rendering state */
+    /* get zbuffer */
+    if (argc == 2) {
+	struct tclcad_view_data *tvd = (struct tclcad_view_data *)gdvp->u_data;
+	bu_vls_printf(gedp->ged_result_str, "%d", tvd->gdv_zbuffer);
+	return BRLCAD_OK;
+    }
+
+    /* set zbuffer */
+    if (bu_sscanf(argv[2], "%d", &zbuffer) != 1) {
+	bu_vls_printf(gedp->ged_result_str, "Usage: %s %s", argv[0], usage);
+	return BRLCAD_ERROR;
+    }
+
+    if (zbuffer < 0)
+	zbuffer = 0;
+    else if (1 < zbuffer)
+	zbuffer = 1;
+
+    {
+	struct tclcad_view_data *tvd = (struct tclcad_view_data *)gdvp->u_data;
+	tvd->gdv_zbuffer = zbuffer;
+    }
+
+    to_refresh_view(gdvp);
     return BRLCAD_OK;
 }
 

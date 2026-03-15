@@ -1441,9 +1441,73 @@ from `mp_gvp` (no DMP indirection).
    - `libtclcad/CMakeLists.txt`: removed stale `DM_WITH_RT` comment.
    - Build: libtclcad compiles and links clean with zero errors/warnings.
 
+   **Stage 12** ✅ (Session 32) — Restored user-facing features with Obol as foundation.
+
+   **Guiding principle**: internal implementation can change; the Tcl command interface
+   (the contract between MGED/Archer scripts and libtclcad) must be preserved.
+
+   Changes:
+
+   - `view/util.c` — `to_is_viewable`: now returns 1 for **all** registered views
+     (Obol views have `dmp=NULL` but are fully functional).  The old `dmp != NULL`
+     guard was only relevant to the removed dm draw calls.
+
+   - `view/refresh.c` — `to_refresh_view`: now dispatches correctly for both view
+     types:
+     - Legacy dm view (`dmp != NULL`): calls `go_refresh()` as before.
+     - Obol view (`dmp == NULL`): calls `Tcl_Eval("catch {obol_notify_views}")`,
+       triggering all live `obol_view` Tk widgets to re-assemble and re-render.
+     `to_refresh_all_views` simplified — the per-view loop now handles Obol notify,
+     so the duplicate `obol_notify_views` at the end was removed.
+
+   - `include/tclcad/draw.h` — `struct tclcad_view_data` gains five Obol rendering
+     settings fields (replacing former dm API calls):
+     - `gdv_bg[3]` — background RGB (0-255); replaces `dm_set_bg` / `dm_get_bg`
+     - `gdv_light` — headlight enable; replaces `dm_set_light` / `dm_get_light`
+     - `gdv_zbuffer` — zbuffer enable; replaces `dm_set_zbuffer`
+     - `gdv_transparency` — transparency enable; replaces `dm_set_transparency`
+     - `gdv_fontsize` — font size (0=default); replaces `dm_set_fontsize`
+
+   - `commands.c` — restored functional get/set bodies for:
+     - `to_bg`: reads/writes `tvd->gdv_bg[3]`; triggers `to_refresh_view`.
+     - `to_light`: reads/writes `tvd->gdv_light`; triggers `to_refresh_view`.
+     - `to_zbuffer`: reads/writes `tvd->gdv_zbuffer`; triggers `to_refresh_view`.
+     - `to_transparency`: reads/writes `tvd->gdv_transparency`; triggers refresh.
+     - `to_fontsize`: reads/writes `tvd->gdv_fontsize`; triggers `to_refresh_view`.
+     - `to_bounds` (GET): returns near/far clip derived from `gv_size`.
+     - `to_bounds` (SET): parses bounds, triggers `to_refresh_view` (Obol manages
+       its own frustum — stored bounds are advisory).
+     - `to_configure`: removed dead `dmp != NULL` gate; now always updates rect
+       dims and fires `to_refresh_view` for all view types.
+     - `to_pix` / `to_png`: delegate to `obol_view_screengrab <view> {pix|png} <file>`
+       Tcl command; returns clear error if `obol_view_screengrab` not registered.
+
+   - `fb.c` — `to_set_fb_mode`: now reads/writes `gdvp->gv_s->gv_fb_mode`
+     (already a field on `bsg_view_settings`); triggers `to_refresh_view`.
+
+   **Migration guide** — Tcl command interface preserved; internal backing changed:
+
+   | Old Tcl command | Old backing | New backing |
+   |---|---|---|
+   | `$ged bg $view R G B` | `dm_set_bg(dmp,r,g,b)` | `tvd->gdv_bg[3]` + `obol_notify_views` |
+   | `$ged light $view 0|1` | `dm_set_light(dmp,l)` | `tvd->gdv_light` + `obol_notify_views` |
+   | `$ged zbuffer $view 0|1` | `dm_set_zbuffer(dmp,z)` | `tvd->gdv_zbuffer` + `obol_notify_views` |
+   | `$ged transparency $view 0|1` | `dm_set_transparency(dmp,t)` | `tvd->gdv_transparency` + `obol_notify_views` |
+   | `$ged fontsize $view N` | `dm_set_fontsize(dmp,n)` | `tvd->gdv_fontsize` + `obol_notify_views` |
+   | `$ged set_fb_mode $view N` | `tvd->gdv_fbs.fbs_mode` | `gdvp->gv_s->gv_fb_mode` |
+   | `$ged png $view file.png` | `dm_get_display_image()` + libpng | `obol_view_screengrab $view png file.png` |
+   | `$ged pix $view file.pix` | `dm_get_display_image()` | `obol_view_screengrab $view pix file.pix` |
+
+   **Outstanding work** (obol_view widget side — not in libtclcad):
+   - `obol_view_screengrab <view> png|pix <file>`: Qt widget must implement this
+     Tcl command using `QOpenGLWidget::grabFramebuffer()` to support `png`/`pix`.
+   - `obol_view` should read `tvd->gdv_bg[3]` and `tvd->gdv_light` on each render
+     to set `viewport_.setBackgroundColor()` and toggle the scene's directional light.
+   - Framebuffer compositing for `rt` output: `gv_fb_mode` is stored; the Obol
+     texture overlay for rt-rendered pixels is future work.
+
    **Long-term remaining work**:
    - Delete `src/libdm/` rendering plugins once all frontends have migrated to Obol.
-   - Implement Obol-path screen capture (`to_pix`/`to_png`) via Qt grabFramebuffer.
    - Implement Obol-path framebuffer compositing for `rt` output display.
 
 **Key files to update (Stage 7 MGED work):**

@@ -49,6 +49,18 @@ struct tclcad_view_data {
     struct bu_vls	gdv_callback;
     int			gdv_callback_cnt;
     struct fbserv_obj	gdv_fbs;
+
+    /* Obol rendering settings — stored here so the Tcl get/set commands
+     * (bg, light, zbuffer, transparency, fontsize) have stable backing
+     * storage regardless of whether a dm backend is present.  The Obol
+     * renderer reads these from the obol_view Tk widget's update callback
+     * via obol_notify_views.  Migration note: these replace the former
+     * dm_get_bg / dm_set_bg / dm_get_light / ... dm_ API calls. */
+    unsigned char	gdv_bg[3];	/**< @brief background RGB [0,255] */
+    int			gdv_light;	/**< @brief headlight enable flag */
+    int			gdv_zbuffer;	/**< @brief zbuffer enable flag */
+    int			gdv_transparency; /**< @brief transparency enable */
+    int			gdv_fontsize;	/**< @brief font size (0 = default) */
 };
 
 TCLCAD_EXPORT extern void go_refresh(struct ged *gedp,

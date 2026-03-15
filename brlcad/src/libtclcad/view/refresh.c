@@ -53,7 +53,6 @@ go_refresh(struct ged *gedp, bsg_view *gdvp)
 void
 to_refresh_view(bsg_view *gdvp)
 {
-
     if (current_top == NULL)
 	return;
 
@@ -61,8 +60,17 @@ to_refresh_view(bsg_view *gdvp)
     if (!tgd->go_dmv.refresh_on)
 	return;
 
-    if (to_is_viewable(gdvp))
+    if (!to_is_viewable(gdvp))
+	return;
+
+    if (gdvp->dmp) {
+	/* Legacy dm-backed view — call go_refresh which does dm draw work. */
 	go_refresh(current_top->to_gedp, gdvp);
+    } else {
+	/* Obol view — notify all obol_view widgets to re-render. */
+	if (current_top->to_interp)
+	    (void)Tcl_Eval(current_top->to_interp, "catch {obol_notify_views}");
+    }
 }
 
 void
@@ -75,13 +83,6 @@ to_refresh_all_views(struct tclcad_obj *top)
 	gdvp = (bsg_view *)BU_PTBL_GET(views, i);
 	to_refresh_view(gdvp);
     }
-
-    /* Obol path: notify obol_view Tk widgets to re-render.
-     * When apps (archer, etc.) use obol_view for display, to_refresh_view
-     * above is a no-op because gdvp->dmp is null.  obol_notify_views
-     * ensures all live obol_view widgets call obol_scene_assemble + render. */
-    if (top && top->to_gedp && top->to_interp)
-	(void)Tcl_Eval(top->to_interp, "catch {obol_notify_views}");
 }
 
 int
