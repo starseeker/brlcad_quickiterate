@@ -34,7 +34,7 @@
 #include "../view/view.h"
 
 
-static void
+void
 go_draw(bsg_view *gdvp)
 {
     /* dm rendering path removed; Obol rendering is handled by obol_view widget. */

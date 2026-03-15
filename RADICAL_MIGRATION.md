@@ -1410,14 +1410,41 @@ from `mp_gvp` (no DMP indirection).
      `tkImgFmtPIX.c` (no dm_ calls in these files).
    - Removed duplicate `#include "dm.h"` from `libtclcad/commands.c`.
 
-   **Remaining work (Stage 11)**:
-   - Remove `libdm` from `source_dirs.cmake` `libtclcad_deps`: requires
-     eliminating all remaining dm_ call sites in libtclcad core, or splitting
-     the dm-heavy code (`dm.c`, `fb.c`, `commands.c`, `mouse.c`, `polygons.c`,
-     `wrapper.c`, `view/draw.c`, `view/refresh.c`, `view/util.c`) into a
-     separate plugin so they can keep the libdm dep without it being library-wide.
-   - Long-term: delete `src/libdm/` rendering plugins once all frontends have
-     migrated to the Obol renderer.
+   **Stage 11** ✅ (Session 31) — Eliminated libdm from libtclcad entirely.
+   Lean-towards-elimination approach: all dm_ and fb_* call sites removed.
+   - `mouse.c`, `polygons.c`: removed `dm_get_width/height` sync blocks (use
+     `gv_width/gv_height` directly); removed `dm_get_pathname` Tk-bind setup
+     (dm-path Tk bindings irrelevant in Obol); removed `#include "dm.h"`.
+   - `wrapper.c`: removed `dm_get_width/height` and `dm_set_perspective` blocks;
+     removed `#include "dm.h"`.
+   - `view/util.c`: replaced `to_is_viewable` body with `return gdvp->dmp != NULL`
+     (eliminates `dm_get_pathname` + Tcl `winfo viewable` call); removed
+     `#include "dm.h"`.
+   - `view/draw.c`: stripped all dm_ draw calls (`dm_loadmatrix`, `dm_draw_dlist`,
+     `dm_draw_vlist`, `dm_set_fg`, `dm_set_line_attr`, `dm_set_depth_mask`); `go_draw`
+     and `go_draw_solid` are now Obol-only stubs; removed `dm.h` / `dm/view.h`.
+   - `view/refresh.c`: `go_refresh_draw` and `go_refresh` are now Obol-only stubs;
+     removed `#define DM_WITH_RT` and `#include "dm.h"`.
+   - `commands.c`: replaced all `dm_get_width/height` with `gv_width/gv_height`;
+     replaced `dm_get_pathname` with `NULL`; stubbed `to_bg`, `to_bounds`,
+     `to_configure`, `to_fontsize`, `to_light`, `to_transparency`, `to_zbuffer`
+     (dm-state setters → no-op); `to_pix`/`to_png` return error "use Obol path";
+     removed `dm_open` call from `to_new_view` (all views now Obol, dmp=NULL);
+     dlist callbacks (`to_create_vlist_callback_solid`, `to_destroy_vlist_callback`)
+     are no-ops (Obol uses scene graph, not dm dlists); removed `#include "dm.h"`.
+   - `dm.c`: replaced with complete stub (all 30+ `dmo_*_tcl` subcommands return
+     `TCL_OK`; no `dm_open` call; `dmo_dmp = NULL`); removed `#include "dm.h"`.
+   - `fb.c`: `to_open_fb` → `return TCL_OK` stub; all `fbo_*` Tcl commands return
+     `TCL_ERROR` with "dm backend going away" message; removed `#include "dm.h"` and
+     `#include "../libdm/include/private.h"`.
+   - `source_dirs.cmake`: removed `libdm` from `libtclcad_deps`.
+   - `libtclcad/CMakeLists.txt`: removed stale `DM_WITH_RT` comment.
+   - Build: libtclcad compiles and links clean with zero errors/warnings.
+
+   **Long-term remaining work**:
+   - Delete `src/libdm/` rendering plugins once all frontends have migrated to Obol.
+   - Implement Obol-path screen capture (`to_pix`/`to_png`) via Qt grabFramebuffer.
+   - Implement Obol-path framebuffer compositing for `rt` output display.
 
 **Key files to update (Stage 7 MGED work):**
 

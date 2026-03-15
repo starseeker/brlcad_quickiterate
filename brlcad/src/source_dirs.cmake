@@ -61,7 +61,7 @@ set_deps(libged     "libicv;libanalyze;libwdb;liboptical;libbsg;libbu")
 set_deps(libfft     "")
 set_deps(libpc      "")
 set_deps(libqtcad   "libged;libdm;libbsg;libbn;libbu")
-set_deps(libtclcad  "libged;libdm;libbsg;libbn;libbu")
+set_deps(libtclcad  "libged;libbsg;libbn;libbu")
 
 
 # Applications
