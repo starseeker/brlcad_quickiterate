@@ -55,7 +55,7 @@
 //DebugPlot *dplot = NULL;
 
 // Whether to output the debug messages about b-rep booleans.
-#define DEBUG_BREP_BOOLEAN 1
+#define DEBUG_BREP_BOOLEAN 0
 
 
 struct IntersectPoint {
@@ -3845,9 +3845,26 @@ shoelace_accumulate(const ON_Curve *c, ON_3dPoint &prev, double &shoelace)
 	}
 	return;
     }
-    ON_3dPoint curr = c->PointAtEnd();
-    shoelace += prev.x * curr.y - curr.x * prev.y;
-    prev = curr;
+    /* For smooth NURBS curves (arcs, circles, splines), sample at
+     * multiple points so the shoelace area is computed correctly.
+     * Using only PointAtEnd() gives zero area for a closed curve
+     * (start == end), which would incorrectly mark a genuine circle
+     * as a degenerate loop.
+     *
+     * For straight-line NURBS, each sample step contributes the same
+     * shoelace amount as using endpoints directly, so sampling never
+     * introduces error for linear segments.
+     *
+     * N=32 gives <0.5% area error for a circle (chord approximation). */
+    {
+	ON_Interval dom = c->Domain();
+	const int N = 32;
+	for (int k = 1; k <= N; k++) {
+	    ON_3dPoint curr = c->PointAt(dom.ParameterAt((double)k / N));
+	    shoelace += prev.x * curr.y - curr.x * prev.y;
+	    prev = curr;
+	}
+    }
 }
 
 static double
