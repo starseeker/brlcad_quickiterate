@@ -4252,57 +4252,111 @@ add_elements(ON_Brep *brep, ON_BrepFace &face, const ON_SimpleArray<ON_Curve *> 
 		/* Boundary iso: create a proper singular trim (e.g. TGC apex).
 		 *
 		 * The Boolean evaluator may produce a near-zero-length 2D curve
-		 * that does not lie exactly on a single iso-parameter line (e.g.
-		 * a corner point that is technically on both the E and N
-		 * boundaries).  When SetTrimIsoFlags later calls IsIsoparametric
-		 * again on this curve it may return not_iso or a different iso,
-		 * which conflicts with the OpenNURBS IsValid requirements.
+		 * whose start and end UV lie within ~1 ULP of a surface boundary
+		 * but are not exactly on it (e.g. a corner point where v is
+		 * 0.99999993 instead of exactly 1.0).  IsIsoparametric detects
+		 * the correct boundary by looking at the closest axis-aligned
+		 * edge, but any subsequent SetTrimIsoFlags call re-runs the same
+		 * test and may return not_iso if the deviation from the boundary
+		 * exceeds its internal tolerance.  OpenNURBS IsValid then rejects
+		 * the trim because m_iso != IsIsoparametric(c2d).
 		 *
 		 * Fix: build a replacement 2D curve whose endpoints lie exactly
-		 * on the detected boundary so that IsIsoparametric reliably
-		 * returns the correct boundary iso both now and after any future
-		 * SetTrimIsoFlags call.
+		 * on the detected boundary (by snapping the iso-coordinate to the
+		 * exact surface domain edge), so that any future IsIsoparametric
+		 * call reliably returns the correct boundary iso.
 		 *
-		 * The start UV is taken from the preceding trim's endpoint
-		 * (loop continuity), snapped to the detected boundary.  The end
-		 * UV is the snapped version of the original curve's end point.
-		 * After building the replacement, re-query IsIsoparametric on it
-		 * so the iso type passed to NewSingularTrim always matches what
-		 * the replacement curve reports. */
+		 * Start endpoint: use the exact last CV of the preceding trim
+		 * (loop continuity), with the iso-coordinate snapped to the
+		 * boundary.  The preceding trim's last CV is ALSO snapped in-
+		 * place so that its PointAtEnd() agrees with our new start.
+		 *
+		 * End endpoint: use loop[k]->PointAtEnd() with the same snap
+		 * (this is also the start of the next trim; in practice it is
+		 * already on the boundary so the snap is a no-op). */
 		ON_Interval udom = srf->Domain(0);
 		ON_Interval vdom = srf->Domain(1);
 
-		/* Determine the start UV: prefer the exact endpoint of the
-		 * previous trim (loop continuity) when available. */
+		/* Build start UV: take u/v from the preceding trim's last CV. */
 		ON_2dPoint start_uv = loop[k]->PointAtStart();
 		if (k > 0 && brep->m_T.Count() > 0) {
-		    const ON_Curve *prev_c2 =
-			brep->m_T.Last()->TrimCurveOf();
-		    if (prev_c2)
-			start_uv = prev_c2->PointAtEnd();
+		    ON_BrepTrim &prev = brep->m_T[brep->m_T.Count() - 1];
+		    if (prev.m_c2i >= 0 && prev.m_c2i < brep->m_C2.Count()) {
+			ON_Curve *prev_c = brep->m_C2[prev.m_c2i];
+			if (prev_c) {
+			    /* Convert to NURBS form so we can access and snap
+			     * the last control vertex regardless of the actual
+			     * curve type (polyline, NurbsCurve, etc.). */
+			    ON_NurbsCurve *pnc =
+				ON_NurbsCurve::Cast(prev_c);
+			    ON_NurbsCurve nurbs_tmp;
+			    if (!pnc) {
+				if (prev_c->GetNurbForm(nurbs_tmp) == 0)
+				    pnc = NULL;
+				else
+				    pnc = &nurbs_tmp;
+			    }
+			    if (pnc && pnc->CVCount() > 0) {
+				int last = pnc->CVCount() - 1;
+				ON_3dPoint cv;
+				pnc->GetCV(last, cv);
+				/* Snap the iso-coordinate to the exact boundary
+				 * and update the preceding trim's stored curve
+				 * so PointAtEnd() matches our new start UV. */
+				if (iso_type == ON_Surface::N_iso)
+				    cv.y = vdom.Max();
+				else if (iso_type == ON_Surface::S_iso)
+				    cv.y = vdom.Min();
+				else if (iso_type == ON_Surface::E_iso)
+				    cv.x = udom.Max();
+				else /* W_iso */
+				    cv.x = udom.Min();
+				if (pnc == &nurbs_tmp) {
+				    /* Replace the stored curve with the
+				     * modified NURBS copy. */
+				    nurbs_tmp.SetCV(last, cv);
+				    ON_NurbsCurve *new_nc = (ON_NurbsCurve *)nurbs_tmp.DuplicateCurve();
+				    delete brep->m_C2[prev.m_c2i];
+				    brep->m_C2[prev.m_c2i] = new_nc;
+				} else {
+				    pnc->SetCV(last, cv);
+				}
+				start_uv = ON_2dPoint(cv.x, cv.y);
+			    }
+			}
+		    }
+		} else {
+		    /* k == 0: no preceding trim; snap from loop curve's start. */
+		    if (iso_type == ON_Surface::N_iso)
+			start_uv.y = vdom.Max();
+		    else if (iso_type == ON_Surface::S_iso)
+			start_uv.y = vdom.Min();
+		    else if (iso_type == ON_Surface::E_iso)
+			start_uv.x = udom.Max();
+		    else
+			start_uv.x = udom.Min();
 		}
+
+		/* Build end UV: snap the iso-coordinate from loop[k]'s end. */
 		ON_2dPoint end_uv = loop[k]->PointAtEnd();
+		if (iso_type == ON_Surface::N_iso)
+		    end_uv.y = vdom.Max();
+		else if (iso_type == ON_Surface::S_iso)
+		    end_uv.y = vdom.Min();
+		else if (iso_type == ON_Surface::E_iso)
+		    end_uv.x = udom.Max();
+		else
+		    end_uv.x = udom.Min();
 
-		/* Snap both endpoints to the detected boundary so the
-		 * replacement curve lies exactly on it. */
-		if (iso_type == ON_Surface::N_iso) {
-		    start_uv.y = vdom.Max(); end_uv.y = vdom.Max();
-		} else if (iso_type == ON_Surface::S_iso) {
-		    start_uv.y = vdom.Min(); end_uv.y = vdom.Min();
-		} else if (iso_type == ON_Surface::E_iso) {
-		    start_uv.x = udom.Max(); end_uv.x = udom.Max();
-		} else { /* W_iso */
-		    start_uv.x = udom.Min(); end_uv.x = udom.Min();
-		}
-
+		/* Build the replacement iso-line c2d. */
 		ON_NurbsCurve *iso_c2d = new ON_NurbsCurve(2, false, 2, 2);
 		iso_c2d->SetCV(0, ON_3dPoint(start_uv.x, start_uv.y, 0));
 		iso_c2d->SetCV(1, ON_3dPoint(end_uv.x, end_uv.y, 0));
 		iso_c2d->MakeClampedUniformKnotVector();
 
-		/* Re-query iso type from the replacement curve — it may differ
-		 * from the original detection (e.g. a corner point classifies as
-		 * E_iso rather than N_iso after snapping). */
+		/* Re-query iso from the replacement curve to confirm it lies
+		 * exactly on the boundary (it should — both CVs are on the
+		 * boundary, so IsIsoparametric returns the correct iso). */
 		ON_Surface::ISO actual_iso = srf->IsIsoparametric(*iso_c2d);
 		if (actual_iso == ON_Surface::W_iso ||
 		    actual_iso == ON_Surface::S_iso ||
