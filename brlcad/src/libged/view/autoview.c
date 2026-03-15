@@ -24,7 +24,6 @@
  */
 
 #include "common.h"
-#include "dm.h"
 #include "../ged_private.h"
 
 extern int ged_autoview2_core(struct ged *gedp, int argc, const char *argv[]);

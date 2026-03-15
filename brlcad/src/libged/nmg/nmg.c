@@ -33,8 +33,6 @@
 #include "rt/geom.h"
 #include "wdb.h"
 
-#include "dm.h"  // For labelface - see if the dm_set_dirty is really needed
-
 #include "ged.h"
 #include "../ged_private.h"
 
@@ -172,10 +170,6 @@ ged_labelface_core(struct ged *gedp, int argc, const char *argv[])
     _ged_cvt_vlblock_to_solids(gedp, vbp, "_LABELFACE_", 0);
 
     bsg_vlblock_free(vbp);
-
-    struct dm *dmp = (struct dm *)gedp->ged_gvp->dmp;
-    if (dmp)
-	dm_set_dirty(dmp, 1);
     return BRLCAD_OK;
 }
 
