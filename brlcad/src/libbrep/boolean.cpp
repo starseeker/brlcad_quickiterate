@@ -55,7 +55,7 @@
 //DebugPlot *dplot = NULL;
 
 // Whether to output the debug messages about b-rep booleans.
-#define DEBUG_BREP_BOOLEAN 0
+#define DEBUG_BREP_BOOLEAN 1
 
 
 struct IntersectPoint {
@@ -5595,6 +5595,10 @@ categorize_trimmed_faces(
 		// Visited before, don't need to test again
 		continue;
 	    }
+
+	    if (DEBUG_BREP_BOOLEAN)
+		bu_log("  classify face[%d] split[%d]: innerloops=%zu outersegs=%d\n",
+		       i, j, splitted[j]->m_innerloop.size(), splitted[j]->m_outerloop.Count());
 
 	    int face_location = -1;
 	    try {
