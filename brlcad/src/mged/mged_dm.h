@@ -27,20 +27,11 @@
  * manager (`dm_dmp`) and a large collection of per-pane overlay/UI state.
  * It is the primary reason MGED still depends on libdm.
  *
- * The planned refactoring replaces `mged_dm` + `active_dm_set` with a leaner
- * `mged_pane` struct + `active_pane_set` (see RADICAL_MIGRATION.md, Stage 7
- * "MGED refactoring for libdm removal").  Key steps:
- *
- *  1. Guard every `DMP` use with `if (!DMP)` so Obol panes (dmp==NULL) can
- *     coexist with legacy dm panes without crashing.
- *  2. Introduce `mged_pane` carrying only the non-dm per-pane state.
- *  3. `f_winset` / `set_curr_dm` migrate to `active_pane_set` lookup.
- *  4. Once all rendering is Obol, delete `mged_dm`, the DMP/fbp macros, and
- *     `src/mged/dm-generic.c`.
- *
- * Until that migration is complete, Obol panes created via `f_new_obol_view_ptr`
- * are tracked separately in the `::obol_pane_gvp` Tcl array and bypass the
- * `active_dm_set` infrastructure entirely.
+ * Stage 7 (Steps 6.a-6.c) replaces `mged_dm` + `active_dm_set` with a leaner
+ * `mged_pane` struct + `active_pane_set` (see RADICAL_MIGRATION.md).
+ * All `active_dm_set` iteration loops are now migrated; `active_dm_set` is no
+ * longer maintained.  Next step: delete `struct mged_dm`, the DMP/fbp macros,
+ * and `src/mged/dm-generic.c` (Step 7).
  */
 
 #ifndef MGED_MGED_DM_H
@@ -436,21 +427,20 @@ extern void set_curr_dm(struct mged_state *s, struct mged_dm *nl);
  * `mged_pane` is the lightweight per-pane struct that replaces `mged_dm`
  * once libdm is fully removed from MGED.  It carries only the non-dm
  * per-pane state.  `active_pane_set` (a bu_ptbl of mged_pane*) replaces
- * `active_dm_set`.  For now both coexist:
+ * `active_dm_set`.  Step 6.c done: `active_dm_set` is no longer maintained.
  *
- *  - Legacy dm panes remain in `active_dm_set` (unchanged).
- *  - Obol panes created by `f_new_obol_view_ptr` are registered in BOTH
- *    `active_pane_set` AND `ged_views`, replacing the old `::obol_pane_gvp`
- *    Tcl-variable bridge.
+ *  - Legacy dm panes are tracked via their `mged_pane` wrapper (mp_dm != NULL).
+ *  - Obol panes created by `f_new_obol_view_ptr` have mp_dm == NULL and are
+ *    registered in both `active_pane_set` AND `ged_views`.
  *
  * `set_curr_pane()` sets `s->gedp->ged_gvp` from `mp->mp_gvp`, sets
  * `s->mged_curr_pane = mp`, AND redirects `s->mged_curr_dm` to the headless
  * "nu" init dm (`mged_dm_init_state`) so that `DMP == NULL` and all legacy
  * libdm drawing guards fire cleanly.  The ternary macros prefer `mp->mp_*`
- * because `mged_curr_pane` is now non-NULL.  Once all panes are migrated to
- * `mged_pane`, `set_curr_dm` and the DMP macros can be removed (Step 6).
+ * because `mged_curr_pane` is now non-NULL.  Next: remove `struct mged_dm`
+ * and the DMP macros (Step 7).
  *
- * See RADICAL_MIGRATION.md, "MGED refactoring for libdm removal", steps 2-3.
+ * See RADICAL_MIGRATION.md, "MGED refactoring for libdm removal", steps 2-6.
  * ----------------------------------------------------------------------- */
 
 struct mged_pane {
@@ -665,7 +655,7 @@ extern void mged_pane_free_resources(struct mged_pane *mp);
 extern double frametime;		/* defined in mged.c */
 extern int dm_pipe[];			/* defined in mged.c */
 extern int update_views;		/* defined in mged.c */
-extern struct bu_ptbl active_dm_set;	/* defined in attach.c */
+/* active_dm_set removed (Step 6.c); use active_pane_set instead */
 extern struct mged_dm *mged_dm_init_state;
 
 /* defined in doevent.c */

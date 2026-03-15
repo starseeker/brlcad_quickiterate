@@ -1795,50 +1795,42 @@ mged_finish(struct mged_state *s, int exitcode)
 	}
     }
 
-    /* Release all displays */
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
+    /* Step 6.c: Release all displays via active_pane_set. */
+    {
+	/* First pass: free all legacy dm wrapper panes. */
+	size_t pi = 0;
+	while (pi < BU_PTBL_LEN(&active_pane_set)) {
+	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	    if (!mp || !mp->mp_dm) { pi++; continue; }
 
-	bu_ptbl_rm(&active_dm_set, (long *)p);
+	    struct mged_dm *p = mp->mp_dm;
+	    bu_ptbl_rm(&active_pane_set, (long *)mp);
+	    /* pi stays at same index since list shrunk */
 
-	if (p) {
-	    /* Stage 7 Step 6.a: also free the thin mged_pane wrapper for this
-	     * legacy dm pane if one was created by mged_attach(). */
+	    mged_pane_free_resources(mp);
+	    BU_PUT(mp, struct mged_pane);
+
 	    if (p->dm_dmp) {
-		for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
-		    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-		    if (mp && mp->mp_dm == p) {
-			bu_ptbl_rm(&active_pane_set, (long *)mp);
-			mged_pane_free_resources(mp);
-			BU_PUT(mp, struct mged_pane);
-			break;
-		    }
-		}
-	    }
-	    if (p->dm_dmp) {
-		/* Stage 7 (step 5.14): dm_dmp is NULL for the initial "nu"
-		 * mged_dm (mged_dm_init_state) since the dm_open("nu") call
-		 * was removed.  Only close dm and free vlist when dm_dmp exists. */
 		dm_close(p->dm_dmp);
 		BSG_FREE_VLIST(s->vlfree, &p->dm_p_vlist);
 		mged_slider_free_vls(p);
 	    }
-	    bu_free(p, "release: mged_curr_dm");
+	    bu_free(p, "mged_finish: mged_dm");
+	    set_curr_dm(s, MGED_DM_NULL);
 	}
-
-	set_curr_dm(s, MGED_DM_NULL);
     }
-    bu_ptbl_free(&active_dm_set);
 
-    /* Stage 7 (MGED libdm removal): Release all Obol panes.
-     * The bsg_view for each pane is owned by gedp->ged_free_views and freed
-     * by ged_close(); here we only free tclcad_view_data user-data and the
-     * mged_pane struct itself so they do not leak on orderly shutdown.
-     * Step 6.a: legacy dm wrapper panes (mp_dm != NULL) were already freed
-     * by the active_dm_set loop above; skip them here. */
+    /* Free the initial "nu" sentinel dm (never in active_pane_set). */
+    if (mged_dm_init_state) {
+	bu_free(mged_dm_init_state, "mged_finish: mged_dm_init_state");
+	mged_dm_init_state = NULL;
+    }
+
+    /* Release remaining Obol panes (mp_dm == NULL).
+     * Legacy dm wrapper panes (mp_dm != NULL) were freed in the loop above. */
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	/* Skip NULL entries and legacy dm wrappers (already cleaned up above). */
+	/* Skip NULL entries and legacy dm wrappers (already freed above). */
 	if (!mp || mp->mp_dm)
 	    continue;
 	if (mp->mp_gvp) {
@@ -1976,8 +1968,7 @@ main(int argc, char *argv[])
 
     char *attach = (char *)NULL;
     BU_ALLOC(s->mged_curr_dm, struct mged_dm);
-    bu_ptbl_init(&active_dm_set, 8, "dm set");
-    bu_ptbl_ins(&active_dm_set, (long *)s->mged_curr_dm);
+    /* Step 6.c: active_dm_set no longer maintained; only mged_dm_init_state sentinel kept. */
     mged_dm_init_state = s->mged_curr_dm;
     s->mged_curr_dm->dm_netfd = -1;
     /* Stage 7 (libdm removal): no initial Obol pane until the Tcl startup

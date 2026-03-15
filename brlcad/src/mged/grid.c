@@ -139,8 +139,9 @@ set_grid_res(const struct bu_structparse *sdp,
 
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
-	    if (mp->mp_dm && mp->mp_grid_state == grid_state)
-		mp->mp_dm->dm_grid_auto_size = 0;
+	if (!mp->mp_dm) continue;
+	if (mp->mp_grid_state == grid_state)
+	    mp->mp_dm->dm_grid_auto_size = 0;
     }
 }
 
