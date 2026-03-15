@@ -1555,12 +1555,24 @@ get_subcurves_inside_faces(
 	     * meet at a single point in 3-D even though they have a finite
 	     * intersection arc in the UV domain of each surface.  The
 	     * degenerate 2-D subcurves produced from these intervals cannot
-	     * be assembled into valid loop trims by add_elements. */
+	     * be assembled into valid loop trims by add_elements.
+	     *
+	     * Exception: a closed 3-D curve (e.g. a full circle) whose
+	     * domain exactly covers the full period has PointAt(min) ==
+	     * PointAt(max) by construction, but is geometrically valid.
+	     * Only reject an interval when it is a strict sub-interval of
+	     * the 3-D curve domain OR the 3-D curve is not closed. */
 	    {
-		ON_3dPoint p3s = event->m_curve3d->PointAt(intervals_3d[j].Min());
-		ON_3dPoint p3e = event->m_curve3d->PointAt(intervals_3d[j].Max());
-		if (p3s.DistanceTo(p3e) < INTERSECTION_TOL)
-		    continue;
+		ON_Interval c3d_dom = event->m_curve3d->Domain();
+		bool full_domain =
+		    ON_NearZero(intervals_3d[j].Min() - c3d_dom.Min(), ON_ZERO_TOLERANCE) &&
+		    ON_NearZero(intervals_3d[j].Max() - c3d_dom.Max(), ON_ZERO_TOLERANCE);
+		if (!(full_domain && event->m_curve3d->IsClosed())) {
+		    ON_3dPoint p3s = event->m_curve3d->PointAt(intervals_3d[j].Min());
+		    ON_3dPoint p3e = event->m_curve3d->PointAt(intervals_3d[j].Max());
+		    if (p3s.DistanceTo(p3e) < INTERSECTION_TOL)
+			continue;
+		}
 	    }
 	    ON_Interval interval_on2 = interval_3d_to_2d(intervals_3d[j],
 							 event->m_curveB, event->m_curve3d, &brep2->m_F[face_i2]);
@@ -1625,12 +1637,19 @@ get_subcurves_inside_faces(
 					 event->m_curve3d, &brep2->m_F[face_i2]);
 
 	for (size_t j = 0; j < intervals_3d.size(); ++j) {
-	    /* Skip degenerate 3-D sub-intervals (same check as above). */
+	    /* Skip degenerate 3-D sub-intervals (same check as above, with
+	     * the same exception for full closed curves). */
 	    {
-		ON_3dPoint p3s = event->m_curve3d->PointAt(intervals_3d[j].Min());
-		ON_3dPoint p3e = event->m_curve3d->PointAt(intervals_3d[j].Max());
-		if (p3s.DistanceTo(p3e) < INTERSECTION_TOL)
-		    continue;
+		ON_Interval c3d_dom = event->m_curve3d->Domain();
+		bool full_domain =
+		    ON_NearZero(intervals_3d[j].Min() - c3d_dom.Min(), ON_ZERO_TOLERANCE) &&
+		    ON_NearZero(intervals_3d[j].Max() - c3d_dom.Max(), ON_ZERO_TOLERANCE);
+		if (!(full_domain && event->m_curve3d->IsClosed())) {
+		    ON_3dPoint p3s = event->m_curve3d->PointAt(intervals_3d[j].Min());
+		    ON_3dPoint p3e = event->m_curve3d->PointAt(intervals_3d[j].Max());
+		    if (p3s.DistanceTo(p3e) < INTERSECTION_TOL)
+			continue;
+		}
 	    }
 	    ON_Interval interval_on1 = interval_3d_to_2d(intervals_3d[j],
 							 event->m_curveA, event->m_curve3d, &brep1->m_F[face_i1]);
@@ -5496,11 +5515,9 @@ get_face_intersection_curves(
 		{
 		    ON_Plane p1, p2;
 		    const double flat_tol = INTERSECTION_TOL * 100.0;
-		    bool s1_planar = surf1->IsPlanar(&p1, flat_tol);
-		    bool s2_planar = surf2->IsPlanar(&p2, flat_tol);
-		    if (s1_planar && s2_planar &&
+		    if (surf1->IsPlanar(&p1, flat_tol) &&
+			surf2->IsPlanar(&p2, flat_tol) &&
 			p1.Normal().IsParallelTo(p2.Normal(), 0.01)) {
-			bu_log("  skip_parallel_normals i=%d j=%d\n", i, j);
 			continue;
 		    }
 		}
@@ -5557,7 +5574,6 @@ get_face_intersection_curves(
 				       NULL,
 				       st1[brep1->m_F[i].m_si],
 				       st2[brep2->m_F[j].m_si]);
-		bu_log("SSI face_pair i=%d j=%d results=%d\n", i, j, results);
 		if (results <= 0) {
 		    continue;
 		}
@@ -5573,9 +5589,6 @@ get_face_intersection_curves(
 
 			get_subcurves_inside_faces(subcurves_on1,
 						   subcurves_on2, brep1, brep2, i, j, &events[k]);
-
-			bu_log("  event k=%d type=%d subcurves_on1=%d subcurves_on2=%d\n",
-			       k, (int)events[k].m_type, subcurves_on1.Count(), subcurves_on2.Count());
 
 			for (int l = 0; l < subcurves_on1.Count(); ++l) {
 			    SSICurve ssi_on1;
