@@ -23,7 +23,6 @@
 #include "ged.h"
 #include "bsg/util.h"
 #include "tclcad.h"
-#include "dm.h" /* Stage 9: explicit include; no longer pulled via tclcad headers */
 
 /* Private headers */
 #include "./tclcad_private.h"
@@ -67,10 +66,6 @@ to_autoview_func(struct ged *gedp,
     for (i = 0; i < BU_PTBL_LEN(views); i++) {
 	gdvp = (bsg_view *)BU_PTBL_GET(views, i);
 	if (to_is_viewable(gdvp)) {
-	    if (gdvp->dmp) {
-	        gedp->ged_gvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
-	        gedp->ged_gvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
-	    }
 	}
     }
 
@@ -287,20 +282,12 @@ to_view_func_common(struct ged *gedp,
 
     bu_free(av, "free av copy");
 
-    /* Keep the view's perspective in sync with its corresponding display manager */
-    if (gdvp->dmp) { struct bsg_camera _wp; bsg_view_get_camera(gdvp, &_wp); dm_set_perspective((struct dm *)gdvp->dmp, _wp.perspective); }
-
-    if (gdvp->gv_s->adaptive_plot_csg &&
+        if (gdvp->gv_s->adaptive_plot_csg &&
 	gdvp->gv_s->redraw_on_zoom)
     {
 	char *gr_av[] = {"redraw", NULL};
 
 	ged_exec_redraw(gedp, 1, (const char **)gr_av);
-
-	if (gdvp->dmp) {
-	    gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
-	    gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
-	}
     }
 
     if (ret == BRLCAD_OK) {
@@ -406,9 +393,6 @@ to_dm_func(struct ged *gedp,
     ret = (*func)(gedp, ac, (const char **)av);
 
     bu_free(av, "free av copy");
-
-    /* Keep the view's perspective in sync with its corresponding display manager */
-    if (gdvp->dmp) { struct bsg_camera _wp; bsg_view_get_camera(gdvp, &_wp); dm_set_perspective((struct dm *)gdvp->dmp, _wp.perspective); }
 
     return ret;
 }

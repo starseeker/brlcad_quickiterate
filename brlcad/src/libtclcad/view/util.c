@@ -33,7 +33,6 @@
 #include "bu/units.h"
 #include "ged.h"
 #include "tclcad.h"
-#include "dm.h" /* Stage 9: explicit include; no longer pulled via tclcad headers */
 
 /* Private headers */
 #include "../tclcad_private.h"
@@ -42,38 +41,10 @@
 int
 to_is_viewable(bsg_view *gdvp)
 {
-    int result_int;
-
-    /* Obol path: when dmp is NULL, dm_get_pathname returns NULL and we fall
-     * through to return 0 (not viewable).  This is the correct behavior: it
-     * causes the caller to skip legacy dm draw calls, which is right because
-     * the obol_view widget handles rendering for this view instead. */
-    const struct bu_vls *pathvls = dm_get_pathname((struct dm *)gdvp->dmp);
-    if (!pathvls || !bu_vls_strlen(pathvls)) {
-	return 0;
-    }
-
-    /* stash any existing result so we can inspect our own */
-    Tcl_Obj *saved_result = Tcl_GetObjResult(current_top->to_interp);
-    Tcl_IncrRefCount(saved_result);
-
-    const char *pathname = bu_vls_cstr(pathvls);
-    if (pathname && tclcad_eval(current_top->to_interp, "winfo viewable", 1, &pathname) != TCL_OK) {
-	return 0;
-    }
-
-    Tcl_Obj *our_result = Tcl_GetObjResult(current_top->to_interp);
-    Tcl_GetIntFromObj(current_top->to_interp, our_result, &result_int);
-
-    /* restore previous result */
-    Tcl_SetObjResult(current_top->to_interp, saved_result);
-    Tcl_DecrRefCount(saved_result);
-
-    if (!result_int) {
-	return 0;
-    }
-
-    return 1;
+    /* dm is gone; only dm-backed views (dmp != NULL) used the Tk winfo viewable
+     * check.  Return non-zero only when a legacy dm is present so callers skip
+     * dm draw paths for Obol views. */
+    return gdvp->dmp != NULL;
 }
 
 /*

@@ -25,10 +25,8 @@
 /** @} */
 
 #include "common.h"
-#include "dm/view.h"
 #include "ged.h"
 #include "tclcad.h"
-#include "dm.h" /* Stage 9: explicit include; no longer pulled via tclcad headers */
 #include "bsg/util.h"
 
 /* Private headers */
@@ -36,181 +34,11 @@
 #include "../view/view.h"
 
 
-struct path_match_data {
-    struct db_full_path *s_fpath;
-    struct db_i *dbip;
-};
-
-static struct bu_hash_entry *
-key_matches_paths(struct bu_hash_tbl *t, void *udata)
-{
-    struct path_match_data *data = (struct path_match_data *)udata;
-    struct db_full_path entry_fpath;
-    uint8_t *key;
-    char *path_string;
-    struct bu_hash_entry *entry = bu_hash_next(t, NULL);
-
-    while (entry) {
-	(void)bu_hash_key(entry, &key, NULL);
-	path_string = (char *)key;
-	if (db_string_to_path(&entry_fpath, data->dbip, path_string) < 0) {
-	    continue;
-	}
-
-	if (db_full_path_match_top(&entry_fpath, data->s_fpath)) {
-	    db_free_full_path(&entry_fpath);
-	    return entry;
-	}
-
-	db_free_full_path(&entry_fpath);
-	entry = bu_hash_next(t, entry);
-    }
-
-    return NULL;
-}
-
 static void
-go_draw_solid(bsg_view *gdvp, bsg_shape *sp)
-{
-    struct tclcad_view_data *tvd = (struct tclcad_view_data *)gdvp->u_data;
-    struct ged *gedp = tvd->gedp;
-    struct tclcad_ged_data *tgd = (struct tclcad_ged_data *)gedp->u_data;
-    struct dm *dmp = (struct dm *)gdvp->dmp;
-    struct bu_hash_entry *entry;
-    struct dm_path_edit_params *params = NULL;
-    mat_t save_mat, edit_model2view;
-    struct path_match_data data;
-
-    if (!sp->s_u_data)
-	return;
-
-    /* Obol path (Stage 7 migration): when the view has no display manager,
-     * skip libdm drawing.  The obol_view widget / QgObolView handles rendering
-     * for this view via obol_scene_assemble(). */
-    if (!dmp)
-	return;
-
-    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
-
-    data.s_fpath = &bdata->s_fullpath;
-    data.dbip = gedp->dbip;
-    entry = key_matches_paths(tgd->go_dmv.edited_paths, &data);
-
-    if (entry != NULL) {
-	params = (struct dm_path_edit_params *)bu_hash_value(entry, NULL);
-    }
-    if (params) {
-	struct bsg_camera _dv;
-	bsg_view_get_camera(gdvp, &_dv);
-	MAT_COPY(save_mat, _dv.model2view);
-	bn_mat_mul(edit_model2view, _dv.model2view, params->edit_mat);
-	dm_loadmatrix(dmp, edit_model2view, 0);
-    }
-
-    if (tgd->go_dmv.dlist_on) {
-	dm_draw_dlist(dmp, sp->s_dlist);
-    } else {
-	if (sp->s_iflag == UP)
-	    (void)dm_set_fg(dmp, 255, 255, 255, 0, sp->s_os->transparency);
-	else
-	    (void)dm_set_fg(dmp,
-			    (unsigned char)sp->s_color[0],
-			    (unsigned char)sp->s_color[1],
-			    (unsigned char)sp->s_color[2], 0, sp->s_os->transparency);
-
-	if (sp->s_os->s_dmode == 4) {
-	    (void)dm_draw_vlist_hidden_line(dmp, (struct bsg_vlist *)&sp->s_vlist);
-	} else {
-	    (void)dm_draw_vlist(dmp, (struct bsg_vlist *)&sp->s_vlist);
-	}
-    }
-    if (params) {
-	dm_loadmatrix(dmp, save_mat, 0);
-    }
-}
-
-/* Draw all display lists */
-static int
-go_draw_dlist(bsg_view *gdvp)
-{
-    bsg_shape *sp;
-    int line_style = -1;
-    struct dm *dmp = (struct dm *)gdvp->dmp;
-
-    /* Obol path: no display manager, nothing to draw via libdm. */
-    if (!dmp)
-	return BRLCAD_OK;
-
-    bsg_shape *root = bsg_scene_root_get(gdvp);
-    size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
-
-    if (dm_get_transparency(dmp)) {
-	/* First, draw opaque stuff */
-	for (size_t si = 0; si < nshapes; si++) {
-	    sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
-	    if (sp->s_os->transparency < 1.0)
-		continue;
-
-	    if (line_style != sp->s_soldash) {
-		line_style = sp->s_soldash;
-		(void)dm_set_line_attr(dmp, dm_get_linewidth(dmp), line_style);
-	    }
-
-	    go_draw_solid(gdvp, sp);
-	}
-
-	/* disable write to depth buffer */
-	(void)dm_set_depth_mask(dmp, 0);
-
-	/* Second, draw transparent stuff */
-	for (size_t si = 0; si < nshapes; si++) {
-	    sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
-	    /* already drawn above */
-	    if (ZERO(sp->s_os->transparency - 1.0))
-		continue;
-
-	    if (line_style != sp->s_soldash) {
-		line_style = sp->s_soldash;
-		(void)dm_set_line_attr(dmp, dm_get_linewidth(dmp), line_style);
-	    }
-
-	    go_draw_solid(gdvp, sp);
-	}
-
-	/* re-enable write to depth buffer */
-	(void)dm_set_depth_mask(dmp, 1);
-    } else {
-	for (size_t si = 0; si < nshapes; si++) {
-	    sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
-	    if (line_style != sp->s_soldash) {
-		line_style = sp->s_soldash;
-		(void)dm_set_line_attr(dmp, dm_get_linewidth(dmp), line_style);
-	    }
-
-	    go_draw_solid(gdvp, sp);
-	}
-    }
-
-    return BRLCAD_OK;
-}
-
-void
 go_draw(bsg_view *gdvp)
 {
-    /* Obol path: no display manager, rendering is handled by obol_view widget. */
-    if (!gdvp->dmp)
-	return;
-
-    struct bsg_camera _gdvc;
-    bsg_view_get_camera(gdvp, &_gdvc);
-    (void)dm_loadmatrix((struct dm *)gdvp->dmp, _gdvc.model2view, 0);
-
-    if (SMALL_FASTF < _gdvc.perspective)
-	(void)dm_loadpmatrix((struct dm *)gdvp->dmp, _gdvc.pmat);
-    else
-	(void)dm_loadpmatrix((struct dm *)gdvp->dmp, (fastf_t *)NULL);
-
-    go_draw_dlist(gdvp);
+    /* dm rendering path removed; Obol rendering is handled by obol_view widget. */
+    (void)gdvp;
 }
 
 int
