@@ -54,12 +54,11 @@
 
 // FIXME: Globals
 /* Geometry display instances used by MGED */
-struct bu_ptbl active_dm_set = BU_PTBL_INIT_ZERO;  /* set of active display managers */
+/* Step 6.c: active_dm_set removed; all pane tracking via active_pane_set. */
 struct mged_dm *mged_dm_init_state = NULL;
 
 /* Stage 7 (libdm removal): Obol pane set — tracks mged_pane objects for
- * Obol-rendered panes created by f_new_obol_view_ptr.  This coexists with
- * active_dm_set during the transition.  See RADICAL_MIGRATION.md step 2. */
+ * all panes (Obol and legacy dm wrappers).  See RADICAL_MIGRATION.md. */
 struct bu_ptbl active_pane_set = BU_PTBL_INIT_ZERO;
 
 
@@ -119,30 +118,38 @@ set_curr_pane(struct mged_state *s, struct mged_pane *mp)
 {
     if (!s || !s->gedp)
 	return;
-    /* Track the active Obol pane directly on mged_state for convenient
-     * access by refresh(), overlay code, and Step 6 migration. */
     s->mged_curr_pane = mp;
     if (!mp) {
 	s->gedp->ged_gvp = NULL;
 	return;
     }
-    s->gedp->ged_gvp = mp->mp_gvp;
+    /* Step 7.2: init_pane has mp_gvp == NULL (no view yet); don't clobber
+     * ged_gvp when restoring to the init sentinel pane. */
+    if (mp->mp_gvp)
+	s->gedp->ged_gvp = mp->mp_gvp;
 
-    /* Stage 7: also point mged_curr_dm at the "nu" headless init dm so
-     * that DMP == NULL and all legacy libdm drawing guards fire cleanly.
-     * The ternary macros (view_state, color_scheme, etc.) prefer mp->mp_*
-     * because mged_curr_pane is now non-NULL.  mged_dm_init_state is always
-     * non-NULL once the startup code has run. */
-    if (mged_dm_init_state)
-	s->mged_curr_dm = mged_dm_init_state;
+    /* For legacy dm wrapper panes (mp_dm != NULL) redirect mged_curr_dm to
+     * the actual mged_dm so DMP is non-NULL and legacy GL drawing works.
+     * For Obol panes (mp_dm == NULL) redirect to the null-sentinel so
+     * DMP == NULL and all legacy libdm guards fire cleanly. */
+    if (mp->mp_dm) {
+	s->mged_curr_dm = mp->mp_dm;
+    } else {
+	if (mged_dm_init_state)
+	    s->mged_curr_dm = mged_dm_init_state;
+    }
 }
 
 /**
- * mged_pane_find_by_name — look up an Obol pane by its gv_name.
+ * mged_pane_find_by_name — look up a pane by its gv_name.
  *
  * Searches active_pane_set for a mged_pane whose mp_gvp->gv_name matches
- * `name`.  Returns MGED_PANE_NULL if not found.  Used by f_winset and any
- * future code that needs to resolve a Tk widget path to a mged_pane.
+ * `name`.  Returns MGED_PANE_NULL if not found.
+ *
+ * Step 6.a: active_pane_set now contains BOTH Obol panes (mp_dm == NULL,
+ * gv_name = Tk widget path) and legacy dm wrapper panes (mp_dm != NULL,
+ * gv_name = dm pathname).  This function finds both.  Used by f_winset
+ * and any code that needs to resolve a pane name to a mged_pane.
  */
 struct mged_pane *
 mged_pane_find_by_name(const char *name)
@@ -190,6 +197,36 @@ mged_pane_init_resources(struct mged_state *s, struct mged_pane *mp)
 {
     if (!mp)
 	return;
+
+    /* Stage 7 Step 6.a: for legacy dm wrapper panes (mp_dm != NULL), share
+     * the mged_dm's resource pointers directly rather than allocating new
+     * ones.  The mged_dm's resources are managed by dm_var_init / release /
+     * usurp_all_resources; do NOT free them in mged_pane_free_resources. */
+    if (mp->mp_dm) {
+	mp->mp_adc_state      = mp->mp_dm->dm_adc_state;
+	mp->mp_menu_state     = mp->mp_dm->dm_menu_state;
+	mp->mp_rubber_band    = mp->mp_dm->dm_rubber_band;
+	mp->mp_mged_variables = mp->mp_dm->dm_mged_variables;
+	mp->mp_color_scheme   = mp->mp_dm->dm_color_scheme;
+	mp->mp_grid_state     = mp->mp_dm->dm_grid_state;
+	mp->mp_axes_state     = mp->mp_dm->dm_axes_state;
+	mp->mp_dlist_state    = mp->mp_dm->dm_dlist_state;
+	mp->mp_view_state     = mp->mp_dm->dm_view_state;
+	/* Init HUD VLS names (owned by mged_pane, not by mged_dm). */
+	bu_vls_init(&mp->mp_fps_name);
+	bu_vls_init(&mp->mp_aet_name);
+	bu_vls_init(&mp->mp_ang_name);
+	bu_vls_init(&mp->mp_center_name);
+	bu_vls_init(&mp->mp_size_name);
+	bu_vls_init(&mp->mp_adc_name);
+	/* Predictor state for legacy dm pane: lives in mged_dm, accessed via
+	 * pv_head/pane_trails macros through mged_curr_dm.  Init the wrapper's
+	 * inline fields anyway so they're not left uninitialised. */
+	BU_LIST_INIT(&mp->mp_p_vlist);
+	predictor_init_pane(mp);
+	mp->mp_ndrawn = 0;
+	return;
+    }
 
     BU_ALLOC(mp->mp_adc_state, struct _adc_state);
     if (mged_dm_init_state && mged_dm_init_state->dm_adc_state)
@@ -280,6 +317,33 @@ mged_pane_free_resources(struct mged_pane *mp)
 {
     if (!mp)
 	return;
+
+    /* Stage 7 Step 6.a: for legacy dm wrapper panes (mp_dm != NULL), the
+     * mp_* resource pointers are owned by the mged_dm and will be freed by
+     * release() / usurp_all_resources().  Only free the HUD VLS names which
+     * are owned by the mged_pane itself. */
+    if (mp->mp_dm) {
+	bu_vls_free(&mp->mp_fps_name);
+	bu_vls_free(&mp->mp_aet_name);
+	bu_vls_free(&mp->mp_ang_name);
+	bu_vls_free(&mp->mp_center_name);
+	bu_vls_free(&mp->mp_size_name);
+	bu_vls_free(&mp->mp_adc_name);
+	/* Clear shared pointers so they're not dangling after the mged_dm
+	 * resources are freed. */
+	mp->mp_adc_state = NULL;
+	mp->mp_menu_state = NULL;
+	mp->mp_rubber_band = NULL;
+	mp->mp_mged_variables = NULL;
+	mp->mp_color_scheme = NULL;
+	mp->mp_grid_state = NULL;
+	mp->mp_axes_state = NULL;
+	mp->mp_dlist_state = NULL;
+	mp->mp_view_state = NULL;
+	mp->mp_dm = NULL;
+	return;
+    }
+
     if (mp->mp_adc_state)       { bu_free(mp->mp_adc_state, "mp_adc_state");             mp->mp_adc_state = NULL; }
     if (mp->mp_menu_state)      { bu_free(mp->mp_menu_state, "mp_menu_state");            mp->mp_menu_state = NULL; }
     if (mp->mp_rubber_band)     { bu_free(mp->mp_rubber_band, "mp_rubber_band");          mp->mp_rubber_band = NULL; }
@@ -405,29 +469,29 @@ release(struct mged_state *s, char *name, int need_close)
 	if (BU_STR_EQUAL("nu", name))
 	    return TCL_OK;  /* Ignore */
 
-	for (size_t i = 0; i < BU_PTBL_LEN(&active_dm_set); i++) {
-	    struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, i);
-	    if (!m_dmp || !m_dmp->dm_dmp)
+	/* Step 6.c: search active_pane_set for the named dm wrapper. */
+	for (size_t i = 0; i < BU_PTBL_LEN(&active_pane_set); i++) {
+	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, i);
+	    if (!mp || !mp->mp_dm || !mp->mp_dm->dm_dmp)
 		continue;
 
-	    pathname = dm_get_pathname(m_dmp->dm_dmp);
+	    pathname = dm_get_pathname(mp->mp_dm->dm_dmp);
 	    if (!BU_STR_EQUAL(name, bu_vls_cstr(pathname)))
 		continue;
 
 	    /* found it */
-	    if (p != s->mged_curr_dm) {
+	    if (mp->mp_dm != s->mged_curr_dm) {
 		save_dm_list = s->mged_curr_dm;
-		p = m_dmp;
-		set_curr_dm(s, p);
+		p = mp->mp_dm;
+		/* Step 7.1b: switch to the named pane (sets mged_curr_pane too). */
+		set_curr_pane(s, mp);
 	    }
 	    break;
 	}
 
 	if (p == MGED_DM_NULL) {
-	    /* Stage 7 (MGED libdm migration): Obol panes are registered in
-	     * active_pane_set, not active_dm_set.  Check there before
-	     * reporting an error, so that "release .mged0.ul" (called from
-	     * releasemv in mview.tcl) correctly tears down Obol panes. */
+	    /* Step 6.c: "release .mged0.ul" called from releasemv in mview.tcl
+	     * for Obol panes — look them up by name in active_pane_set. */
 	    struct mged_pane *mp = mged_pane_find_by_name(name);
 	    if (mp) {
 		bsg_view *gvp = mp->mp_gvp;
@@ -483,29 +547,73 @@ release(struct mged_state *s, char *name, int need_close)
      * manager. So when another display manager is opened, it looks
      * like the last one the user had open.
      */
+
+    /* Stage 7 Step 6.a: Remove the thin mged_pane wrapper for this legacy dm
+     * pane from active_pane_set BEFORE usurp_all_resources() nulls out the
+     * dm's resource pointers — the wrapper shares those pointers, so the
+     * wrapper must be cleaned up while they are still valid. */
+    {
+	struct mged_pane *wrapper = MGED_PANE_NULL;
+	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	    if (mp && mp->mp_dm == s->mged_curr_dm) {
+		wrapper = mp;
+		break;
+	    }
+	}
+	if (wrapper) {
+	    bu_ptbl_rm(&active_pane_set, (long *)wrapper);
+	    mged_pane_free_resources(wrapper);  /* skips dm-owned resources */
+	    BU_PUT(wrapper, struct mged_pane);
+	}
+    }
+
     usurp_all_resources(mged_dm_init_state, s->mged_curr_dm);
 
     /* If this display is being referenced by a command window, then
-     * remove the reference.
-     */
-    if (s->mged_curr_dm->dm_tie != NULL)
-	s->mged_curr_dm->dm_tie->cl_tie = (struct mged_dm *)NULL;
+     * remove the reference.  Step 7.4: cl_tie now points to a mged_pane;
+     * clear via the wrapper pane's mp_cmd_tie (already removed from active_pane_set
+     * above), then null the dm_tie back-pointer on the dm itself. */
+    if (s->mged_curr_dm->dm_tie != NULL) {
+	s->mged_curr_dm->dm_tie->cl_tie = MGED_PANE_NULL;
+	s->mged_curr_dm->dm_tie = CMD_LIST_NULL;
+    }
 
     if (need_close)
 	dm_close(DMP);
 
     BSG_FREE_VLIST(s->vlfree, &s->mged_curr_dm->dm_p_vlist);
-    bu_ptbl_rm(&active_dm_set, (long *)s->mged_curr_dm);
+    /* Step 6.c: active_dm_set no longer maintained; pane was removed above. */
     mged_slider_free_vls(s->mged_curr_dm);
     bu_free((void *)s->mged_curr_dm, "release: s->mged_curr_dm");
 
-    if (save_dm_list != MGED_DM_NULL)
-	set_curr_dm(s, save_dm_list);
-    else {
-	if (BU_PTBL_LEN(&active_dm_set) > 0) {
-	    set_curr_dm(s, (struct mged_dm *)BU_PTBL_GET(&active_dm_set, 0));
+    /* Step 7.1b: update mged_curr_pane alongside mged_curr_dm. */
+    if (save_dm_list != MGED_DM_NULL) {
+	/* Restore previous dm: find its wrapper pane and set_curr_pane. */
+	struct mged_pane *restore_pane = NULL;
+	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	    if (mp && mp->mp_dm == save_dm_list) { restore_pane = mp; break; }
+	}
+	if (restore_pane)
+	    set_curr_pane(s, restore_pane);
+	else {
+	    /* wrapper pane not found (race or shutdown); just keep the dm pointer */
+	    s->mged_curr_dm = save_dm_list;
+	}
+    } else {
+	/* Current dm was released; find next available dm wrapper pane. */
+	struct mged_pane *next_pane = NULL;
+	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	    if (mp && mp->mp_dm) { next_pane = mp; break; }
+	}
+	if (next_pane) {
+	    set_curr_pane(s, next_pane);
 	} else {
-	    set_curr_dm(s, MGED_DM_NULL);
+	    /* No more dm panes; clear both current-pane and current-dm. */
+	    s->mged_curr_pane = MGED_PANE_NULL;
+	    s->mged_curr_dm = MGED_DM_NULL;
 	}
     }
     return TCL_OK;
@@ -688,12 +796,14 @@ int
 mged_attach(struct mged_state *s, const char *wp_name, int argc, const char *argv[])
 {
     struct mged_dm *o_dm;
+    struct mged_pane *o_pane;  /* Step 7.5: save current pane too */
 
     if (!wp_name) {
 	return TCL_ERROR;
     }
 
     o_dm = s->mged_curr_dm;
+    o_pane = s->mged_curr_pane;
     BU_ALLOC(s->mged_curr_dm, struct mged_dm);
 
     /* initialize predictor stuff */
@@ -720,17 +830,20 @@ mged_attach(struct mged_state *s, const char *wp_name, int argc, const char *arg
 	if (dname && strlen(dname) > 0) {
 	    if (gui_setup(s, dname) == TCL_ERROR) {
 		bu_free((void *)s->mged_curr_dm, "f_attach: dm_list");
-		set_curr_dm(s, o_dm);
+		/* Step 7.5: restore both pane and dm on gui_setup failure. */
+		s->mged_curr_dm = o_dm;
+		s->mged_curr_pane = o_pane;
 		return TCL_ERROR;
 	    }
 	} else if (gui_setup(s, (char *)NULL) == TCL_ERROR) {
 	    bu_free((void *)s->mged_curr_dm, "f_attach: dm_list");
-	    set_curr_dm(s, o_dm);
+	    s->mged_curr_dm = o_dm;
+	    s->mged_curr_pane = o_pane;
 	    return TCL_ERROR;
 	}
     }
 
-    bu_ptbl_ins(&active_dm_set, (long *)s->mged_curr_dm);
+    /* Step 6.c: active_dm_set no longer maintained (pane registered in active_pane_set below). */
 
     if (!wp_name) {
 	return TCL_ERROR;
@@ -772,6 +885,32 @@ mged_attach(struct mged_state *s, const char *wp_name, int argc, const char *arg
 
     s->gedp->ged_gvp = s->mged_curr_dm->dm_view_state->vs_gvp;
     s->gedp->ged_gvp->gv_s->gv_grid = *s->mged_curr_dm->dm_grid_state; /* struct copy */
+
+    /* Step 6.c: Register the new legacy dm pane in active_pane_set.
+     * The mged_pane is a thin wrapper: mp_dm points back to the mged_dm, and
+     * the mp_* resource pointers are shared with the dm (not new allocations).
+     * active_pane_set is now the sole pane registry (active_dm_set removed). */
+    {
+	/* Set gv_name from dm pathname so mged_pane_find_by_name finds it. */
+	struct bu_vls *dm_path = dm_get_pathname(DMP);
+	if (dm_path && bu_vls_strlen(dm_path)) {
+	    if (!BU_VLS_IS_INITIALIZED(&s->mged_curr_dm->dm_view_state->vs_gvp->gv_name))
+		bu_vls_init(&s->mged_curr_dm->dm_view_state->vs_gvp->gv_name);
+	    bu_vls_sprintf(&s->mged_curr_dm->dm_view_state->vs_gvp->gv_name,
+			  "%s", bu_vls_cstr(dm_path));
+	}
+	struct mged_pane *pane;
+	BU_GET(pane, struct mged_pane);
+	pane->mp_dm      = s->mged_curr_dm;
+	pane->mp_gvp     = s->mged_curr_dm->dm_view_state->vs_gvp;
+	pane->mp_cmd_tie = s->mged_curr_dm->dm_tie;
+	mged_pane_init_resources(s, pane);   /* shares dm resource ptrs */
+	mged_pane_link_vars(pane);           /* populate HUD var names */
+	bu_ptbl_ins(&active_pane_set, (long *)pane);
+	/* Step 7.1a: make the new wrapper pane the active context so
+	 * mged_curr_pane is non-NULL after attach (ternary macros use mp_*). */
+	set_curr_pane(s, pane);
+    }
 
     return TCL_OK;
 
@@ -1080,12 +1219,12 @@ f_get_dm_list(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, 
 	return TCL_ERROR;
     }
 
-    for (size_t i = 0; i < BU_PTBL_LEN(&active_dm_set); i++) {
-	struct mged_dm *dlp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, i);
-	/* Stage 7 (step 5.14): dm_dmp is NULL for the initial "nu" mged_dm. */
-	if (!dlp->dm_dmp)
+    /* Step 6.c: enumerate dm wrappers via active_pane_set. */
+    for (size_t i = 0; i < BU_PTBL_LEN(&active_pane_set); i++) {
+	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, i);
+	if (!mp || !mp->mp_dm || !mp->mp_dm->dm_dmp)
 	    continue;
-	struct bu_vls *pn = dm_get_pathname(dlp->dm_dmp);
+	struct bu_vls *pn = dm_get_pathname(mp->mp_dm->dm_dmp);
 	if (pn && bu_vls_strlen(pn))
 	    Tcl_AppendElement(interpreter, bu_vls_cstr(pn));
     }

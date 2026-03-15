@@ -87,12 +87,12 @@ ax_set_dirty_flag(const struct bu_structparse *UNUSED(sdp),
      * path (dm_dirty) so that obol_notify_views fires when axes settings
      * change. */
     s->update_views = 1;
-    for (size_t i = 0; i < BU_PTBL_LEN(&active_dm_set); i++) {
-	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, i);
-	if (!m_dmp->dm_dmp) continue;  /* skip null-dm sentinel */
-	if (m_dmp->dm_axes_state == axes_state) {
-	    m_dmp->dm_dirty = 1;
-	    dm_set_dirty(m_dmp->dm_dmp, 1);
+    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	if (!mp->mp_dm) continue;  /* skip Obol panes */
+	if (mp->mp_axes_state == axes_state) {
+	    mp->mp_dm->dm_dirty = 1;
+	    dm_set_dirty(mp->mp_dm->dm_dmp, 1);
 	}
     }
 }

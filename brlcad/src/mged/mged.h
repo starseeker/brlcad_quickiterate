@@ -159,14 +159,7 @@ struct mged_edit_state {
     // DM pointers - used by the editing code to stash the active display
     // pane when a knob rate event begins so the knob event loop can
     // restore the correct pane context.
-    // Legacy (libdm) path: mged_dm pointer.
-    // Obol path: mged_pane pointer (set when mged_curr_pane is non-NULL).
-    struct mged_dm *edit_rate_mr_dm;
-    struct mged_dm *edit_rate_or_dm;
-    struct mged_dm *edit_rate_vr_dm;
-    struct mged_dm *edit_rate_mt_dm;
-    struct mged_dm *edit_rate_vt_dm;
-    // Stage 7: Obol pane equivalents for the above.
+    // Step 7.4: only mged_pane* survives; edit_rate_*_dm removed.
     struct mged_pane *edit_rate_mr_pane;
     struct mged_pane *edit_rate_or_pane;
     struct mged_pane *edit_rate_vr_pane;
@@ -232,7 +225,8 @@ struct mged_state {
 
     /* Display related */
     struct mged_dm *mged_curr_dm;  /* legacy libdm pane (NULL when Obol-only) */
-    struct mged_pane *mged_curr_pane;  /* Stage 7: current Obol pane; NULL when using legacy dm */
+    struct mged_pane *mged_curr_pane;  /* Step 7: current pane; always non-NULL after init */
+    struct mged_pane *mged_init_pane;  /* Step 7.2: startup sentinel wrapper (wraps mged_dm_init_state) */
     char *dpy_string;
     struct bu_list *vlfree;
 
@@ -355,7 +349,7 @@ struct mged_hist {
 /* internal variables related to the command window(s) */
 struct cmd_list {
     struct bu_list l;
-    struct mged_dm *cl_tie;        /* the drawing window that we're tied to */
+    struct mged_pane *cl_tie;      /* Step 7.4: drawing pane we're tied to (was mged_dm*) */
     struct mged_hist *cl_cur_hist;
     struct bu_vls cl_more_default;
     struct bu_vls cl_name;

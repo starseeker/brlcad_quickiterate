@@ -1436,16 +1436,16 @@ mmenu_set(struct mged_state *s, int index, struct menu_item *value)
     Tcl_DStringFree(&ds_menu);
     bu_vls_free(&menu_string);
 
-    /* Stage 7: notify the Obol path. */
+    /* Stage 7 Step 6.b: use active_pane_set. */
     s->update_views = 1;
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *dlp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	if (!dlp->dm_dmp) continue;  /* skip null-dm sentinel */
-	if (menu_state == dlp->dm_menu_state &&
-	    dlp->dm_mged_variables->mv_faceplate &&
-	    dlp->dm_mged_variables->mv_orig_gui) {
-	    dlp->dm_dirty = 1;
-	    dm_set_dirty(dlp->dm_dmp, 1);
+    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	if (!mp->mp_dm) continue;  /* skip Obol panes */
+	if (menu_state == mp->mp_menu_state &&
+	    mp->mp_mged_variables->mv_faceplate &&
+	    mp->mp_mged_variables->mv_orig_gui) {
+	    mp->mp_dm->dm_dirty = 1;
+	    dm_set_dirty(mp->mp_dm->dm_dmp, 1);
 	}
     }
 }
@@ -1455,22 +1455,22 @@ void
 mmenu_set_all(struct mged_state *s, int index, struct menu_item *value)
 {
     struct cmd_list *save_cmd_list;
-    struct mged_dm *save_dm_list;
+    struct mged_pane *save_pane;
 
     save_cmd_list = curr_cmd_list;
-    save_dm_list = s->mged_curr_dm;
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	if (!p->dm_dmp) continue;  /* skip null-dm sentinel */
-	if (p->dm_tie)
-	    curr_cmd_list = p->dm_tie;
+    save_pane = s->mged_curr_pane;
+    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	if (!mp->mp_dm) continue;  /* skip Obol panes */
+	if (mp->mp_cmd_tie)
+	    curr_cmd_list = mp->mp_cmd_tie;
 
-	set_curr_dm(s, p);
+	set_curr_pane(s, mp);
 	mmenu_set(s, index, value);
     }
 
     curr_cmd_list = save_cmd_list;
-    set_curr_dm(s, save_dm_list);
+    set_curr_pane(s, save_pane);
 }
 
 

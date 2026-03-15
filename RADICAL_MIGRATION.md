@@ -878,20 +878,158 @@ from `mp_gvp` (no DMP indirection).
    - All redundant `if (m_dmp->dm_dmp) dm_set_dirty(...)` replaced with direct
      `dm_set_dirty(...)` calls (null check now at loop top)
 
-6. **Remove `mged_dm` and `active_dm_set`** — Once all panes use `mged_pane` and
-   no remaining mged code references `DMP` unconditionally, delete `struct mged_dm`,
-   `active_dm_set`, the `DMP`/`fbp`/`clients` macros, and everything in
-   `src/mged/dm-generic.c`.  Prerequisites now met: all DMP uses are guarded;
-   `mged_curr_pane` tracks the active Obol pane; the startup "nu" dm_open has been
-   removed (step 5.14).  Remaining blocker: the legacy `f_attach` / `mged_dm_init`
-   dm_open path (for `attach ogl` etc.) must be removed, along with all
-   `mged_curr_dm` dereferences that don't yet have Obol equivalents.
+6.a **✅ Register legacy dm panes in `active_pane_set` (Step 6 prep)** —
+   `active_pane_set` is promoted from an Obol-only registry to the **complete pane
+   registry** covering both Obol panes and legacy GL panes.
 
-7. **Remove `attach` command's dm backend** — `f_attach`/`mged_attach()`/`mged_dm_init()`
-   currently contain the dm_open path for the legacy GL path.  Once step 6 is done,
-   `gui_setup()` becomes the sole Tk + Obol initialization function and `f_attach`
-   only creates Obol panes (or is removed, since the Obol path in mview.tcl already
-   uses `new_obol_view_ptr` + `obol_view` directly).
+   **Data model change** — `struct mged_pane` gains a new `mp_dm` field:
+   - `mp_dm == NULL`: Obol pane (created by `f_new_obol_view_ptr`).  `mp_*` resource
+     pointers are owned by the `mged_pane` itself; freed by `mged_pane_free_resources`.
+   - `mp_dm != NULL`: *thin wrapper* around a legacy `mged_dm` (created in
+     `mged_attach()`).  `mp_*` resource pointers are SHARED with the `mged_dm` and
+     must NOT be freed by `mged_pane_free_resources`.
+
+   **`mged_attach()` changes**:
+   - After `mged_dm_init()` succeeds, sets `gv_name` on the dm's `vs_gvp` to the dm
+     pathname (so `mged_pane_find_by_name` can find it).
+   - Allocates a thin `mged_pane` wrapper with `mp_dm = s->mged_curr_dm`, `mp_gvp =
+     vs_gvp`, shared resource pointers, `mp_cmd_tie = dm->dm_tie`.
+   - Calls `mged_pane_init_resources` (shares dm ptrs) and `mged_pane_link_vars`.
+   - Inserts wrapper into `active_pane_set`.
+
+   **`release()` changes**: finds the thin wrapper via `mp_dm == s->mged_curr_dm` and
+   removes/frees it from `active_pane_set` BEFORE `usurp_all_resources()` nulls the
+   dm pointers.  `mged_pane_free_resources` skips freeing shared pointers when
+   `mp_dm != NULL`.
+
+   **`set_curr_pane()` change**: when `mp->mp_dm != NULL`, redirects
+   `s->mged_curr_dm = mp->mp_dm` (restores the real dm for legacy GL drawing) instead
+   of redirecting to the null sentinel.  The ternary macros (`view_state` etc.) still
+   return `mp_*` values (which equal `dm->dm_*` since they're shared).
+
+   **`pv_head` / `pane_trails` macros** updated: use `dm_p_vlist` / `dm_trails` when
+   `mged_curr_pane->mp_dm != NULL` (predictor state lives in the `mged_dm` for
+   wrappers; the wrapper's inline fields are unused and kept zero-init'd).
+
+   **`refresh()` guards**: All `active_pane_set` loops that handle Obol-only concerns
+   gain `if (mp->mp_dm) continue` guards:
+   - View-rate knob loop
+   - `vs_flag` clear loop
+   - `obol_notify_views` condition: now checks for Obol-only panes (`mp_dm == NULL`)
+     rather than `BU_PTBL_LEN(&active_pane_set) > 0` (which would always be true).
+
+   **`mged_finish()` shutdown**: the `active_dm_set` shutdown loop now also removes
+   and frees the thin wrapper from `active_pane_set` before freeing the `mged_dm`.
+   The `active_pane_set` shutdown loop skips entries with `mp_dm != NULL` (already
+   freed by `active_dm_set` loop).
+
+   **`f_winset` / `mged_pane_find_by_name`**: no code changes needed — the existing
+   `mged_pane_find_by_name` + `set_curr_pane` path already handles both pane types
+   correctly since they're both in `active_pane_set` with a valid `gv_name`.  The
+   `active_dm_set` fallback in `f_winset` is retained as a safety net for dm panes
+   attached before this code was in place.
+
+   **Result**: `active_pane_set` is now the authoritative source of truth for all
+   active panes.  `active_dm_set` is now redundant (all its entries that have real
+   dm panes also have wrappers in `active_pane_set`), making Step 6 (full removal of
+   `active_dm_set` and `struct mged_dm`) achievable in a subsequent session.
+
+   **Remaining work for Step 6 proper**: migrated (Step 6.b below) — all rendering
+   loops now use `active_pane_set`.  Remaining: delete `struct mged_dm`,
+   `active_dm_set`, `DMP`/`fbp` macros, and `dm-generic.c`.
+
+6.b **✅ Migrate all `active_dm_set` iteration loops to `active_pane_set`** —
+   All 15 files that had `active_dm_set` rendering/dirty/update loops have been
+   migrated to use `active_pane_set` with `if (!mp->mp_dm) continue` guards:
+   `adc.c`, `axes.c`, `grid.c`, `color_scheme.c`, `menu.c`, `rect.c`, `edsol.c`,
+   `buttons.c`, `chgview.c`, `cmd.c`, `set.c`, `mged.c`, `share.c`, `dozoom.c`,
+   `fbserv.c`.  The `GET_MGED_DM` macro in `mged_dm.h` also migrated.  Paired
+   `active_dm_set` + Obol `active_pane_set` loops throughout (added in earlier
+   sessions) are collapsed to a single unified `active_pane_set` loop.
+
+   `active_dm_set` now only appears in `attach.c` (insert/remove at dm attach/detach)
+   and `mged.c` (init/free at startup/shutdown).  These are Step 6.c.
+
+6.c **✅ Remove `active_dm_set` insert/remove/init/free** —
+   `bu_ptbl_ins`/`bu_ptbl_rm` in `attach.c` and `bu_ptbl_init`/`bu_ptbl_ins`/
+   `bu_ptbl_free` in `mged.c` all removed.  `mged_finish` shutdown loop migrated
+   to iterate `active_pane_set` for legacy dm wrapper panes (mp_dm != NULL) and
+   free them directly.  `active_dm_set` definition removed from `attach.c`;
+   `extern active_dm_set` declaration removed from `mged_dm.h`.
+
+6. **Remove `mged_dm` and `active_dm_set`** ✅ (Steps 6.a–6.c done) —
+   `active_dm_set` is fully gone.  `active_pane_set` is the sole pane registry.
+
+7. **Remove `attach` command's dm backend** (Step 7.1–7.3 done in Session 18):
+
+   **Step 7.1a** ✅ — `mged_attach()` calls `set_curr_pane(s, wrapper_pane)` after
+   creating the legacy dm wrapper pane.  `mged_curr_pane` is now non-NULL after
+   any `attach` command.
+
+   **Step 7.1b** ✅ — `release()` uses `set_curr_pane()` (not `set_curr_dm()`) to
+   update both `mged_curr_pane` and `mged_curr_dm` when releasing a dm.  The named
+   dm switch uses `set_curr_pane(s, mp)` for save/restore.
+
+   **Step 7.2** ✅ — Startup creates a sentinel "init pane" (`s->mged_init_pane`)
+   that wraps `mged_dm_init_state`.  `mged_curr_pane` is set to `init_pane` right
+   after resources are allocated (before any `attach`), so `mged_curr_pane` is
+   **always non-NULL** after startup.  `mged_finish()` frees `mged_init_pane`.
+
+   **Step 7.3** ✅ — Ternary macros (`view_state`, `adc_state`, `menu_state`,
+   `rubber_band`, `mged_variables`, `color_scheme`, `grid_state`, `axes_state`,
+   `dlist_state`, `pv_head`, `pane_trails`) simplified to direct `mp_*` access
+   (no `? mged_curr_pane : mged_curr_dm` fallback).  Dead-code `if (!save_pane)
+   set_curr_dm(...)` lines removed from all 10 affected files.
+
+   **Step 7.4** ✅ (Session 19) — Migrate `cmd_list::cl_tie` from `mged_dm *` to
+   `mged_pane *`; remove `edit_rate_*_dm` fields from `mged_edit_state`.
+
+   *7.4a* `cmd_list::cl_tie` is now `struct mged_pane *` (was `struct mged_dm *`).
+   `f_tie` in `cmd.c` now finds and stores a `mged_pane*` directly.  Tie/untie
+   logic uses `mp_cmd_tie` as the back-link (clears `mp_cmd_tie = CMD_LIST_NULL`)
+   and keeps `mp_dm->dm_tie` in sync for legacy-dm wrappers.  `release()` in
+   `attach.c` clears both `cl_tie` and `dm_tie` on teardown.  The two
+   `set_curr_dm(s, curr_cmd_list->cl_tie)` calls in `mged.c` (`stdin_input` and
+   `stdin_input_Tcl`) are replaced with `set_curr_pane(s, curr_cmd_list->cl_tie)`.
+   The `cmd_win set` handler in `cmd.c` likewise uses `set_curr_pane`.
+
+   *7.4b* `mged_edit_state::edit_rate_{mr,or,vr,mt,vt}_dm` fields removed.  The
+   five matching assignments in `chgview.c` are gone.  `event_check` in `mged.c`
+   no longer has `else set_curr_dm(…, edit_rate_*_dm)` fallbacks — it calls
+   `set_curr_pane(s, s->s_edit->edit_rate_*_pane)` directly (safe because
+   `mged_curr_pane` is always non-NULL and the pane field is set whenever the
+   rate flag is set in chgview.c).  All 26 mged .c files compile cleanly.
+
+   **Step 7.5** ✅ (Session 19) — Migrate all remaining `set_curr_dm()` callers
+   to `set_curr_pane()`.  `set_curr_dm()` is now only called by `set_curr_pane()`
+   itself.
+
+   - `doevent.c`: `doEvent()` now uses `GET_MGED_PANE` (new macro in `mged_dm.h`)
+     to find the pane for the X11 event window, then calls `set_curr_pane`.
+     `struct mged_dm *save_dm_list` replaced by `struct mged_pane *save_pane`.
+   - `dozoom.c`: the three vectorThreshold restore guards changed from
+     `if (s->mged_curr_dm != save_dm_list) set_curr_dm(...)` to
+     `if (s->mged_curr_pane != save_pane) set_curr_pane(...)`.
+   - `fbserv.c` `fbserv_new_client_handler`: uses `save_pane` + `set_curr_pane`
+     for restore.  The `else set_curr_dm(dlp)` fallback in
+     `fbserv_existing_client_handler` removed.
+   - `share.c`: `createDListAll` call path now uses pane save/restore loop.
+   - `mged.c` `mged_finish`: `set_curr_dm(s, MGED_DM_NULL)` replaced with
+     direct `s->mged_curr_dm = MGED_DM_NULL` (inside pane-already-freed loop).
+   - `attach.c`: `mged_attach()` saves/restores `o_pane` on `gui_setup` error.
+     `release()` fallback uses direct assignment rather than `set_curr_dm`.
+   - `cmd.c` `f_postscript`: uses `dml_pane` + `set_curr_pane` for restore.
+   - `cmd_win set`: already migrated to `set_curr_pane` in Step 7.4.
+
+   **`set_curr_dm()` is now called only from `set_curr_pane()` itself** and from
+   the `set_curr_dm` function definition.  All external callers eliminated.
+   26 mged .c files compile cleanly with -Werror.
+
+   **Remaining work (Step 7.6 onwards)**:
+   - Update `set_curr_pane()` comment to note `set_curr_dm` is internal-only
+   - Migrate `clone.c` and other remaining `mged_curr_dm->dm_*` direct accesses
+   - `f_attach`/`mged_attach()`/`mged_dm_init()`: convert to Obol-only path
+   - Delete `struct mged_dm`, `DMP`/`fbp`/`clients` macros, `dm-generic.c`
 
 **Key files to update (Stage 7 MGED work):**
 

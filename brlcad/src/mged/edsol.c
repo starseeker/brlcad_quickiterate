@@ -277,9 +277,9 @@ set_e_axes_pos(struct mged_state *s, int both)
 
 	MAT_IDN(MEDIT(s)->acc_rot_sol);
 
-	for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	    struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	    m_dmp->dm_mged_variables->mv_transform = 'e';
+	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	    mp->mp_mged_variables->mv_transform = 'e';
 	}
     }
 }
