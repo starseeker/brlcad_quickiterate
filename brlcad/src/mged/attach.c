@@ -352,8 +352,7 @@ mged_dm_init(
     /* Step 7.10: Pass ndm explicitly to dm_var_init instead of via s->mged_curr_dm. */
     dm_var_init(s, o_dm, ndm);
 
-    /* Step 7.10: Use ndm directly throughout — mged_curr_dm field removed. */
-    ndm->dm_cmd_hook = dm_commands;
+    /* Step 7.14: dm_cmd_hook removed — always dm_commands; no assignment needed. */
 
     void *ctx = ndm->dm_view_state->vs_gvp;
     struct dm *dmp = dm_open(ctx, (void *)s->interp, dm_type, argc-1, argv);
@@ -1019,18 +1018,8 @@ f_dm(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *argv[
 	return TCL_ERROR;
     }
 
-    if (!cmd_hook) {
-	const char *dm_name = dm_get_dm_name(DMP);
-	if (dm_name) {
-	    Tcl_AppendResult(interpreter, "The '", dm_name,
-		    "' display manager does not support local commands.\n",
-		    (char *)NULL);
-	}
-	return TCL_ERROR;
-    }
-
-
-    return cmd_hook(argc-1, argv+1, (void *)s);
+    /* Step 7.14: dm_cmd_hook removed; dm_commands is the universal handler. */
+    return dm_commands(argc-1, argv+1, (void *)s);
 }
 
 void
