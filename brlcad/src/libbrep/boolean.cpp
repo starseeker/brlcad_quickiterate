@@ -5593,6 +5593,12 @@ standardize_loop_orientations(ON_Brep *brep)
 		for (int trim_idx = 0; trim_idx < reversed_loop.TrimCount(); ++trim_idx) {
 		    ON_BrepTrim *trim = reversed_loop.Trim(trim_idx);
 
+		    // Skip singular trims: they are degenerate points on a boundary,
+		    // have no edge, and reversing them corrupts their m_iso flag.
+		    if (trim->m_type == ON_BrepTrim::singular) {
+			continue;
+		    }
+
 		    // Replace trim curve2d with a reversed copy.
 		    // We'll use a previously made curve, or else
 		    // make a new one.
@@ -6239,7 +6245,50 @@ ON_Boolean(ON_Brep *evaluated_brep, const ON_Brep *brep1, const ON_Brep *brep2, 
 		    add_elements(evaluated_brep, new_face, t_face->m_innerloop[k], ON_BrepLoop::inner);
 		}
 
+		/* SetTrimIsoFlags recomputes m_iso for all trims using
+		 * IsIsoparametric on their 2D curves.  For singular trims
+		 * (degenerate near-zero-length curves at surface-boundary
+		 * corners), the function may return not_iso instead of the
+		 * correct boundary iso, corrupting the value that
+		 * add_elements set via NewSingularTrim.
+		 *
+		 * Save m_iso for all singular trims in this face before
+		 * calling SetTrimIsoFlags, then restore any that were reset
+		 * to a non-boundary value. */
+		ON_SimpleArray<int> sing_ti;
+		ON_SimpleArray<int> sing_iso;
+		for (int li = 0; li < new_face.LoopCount(); li++) {
+		    const ON_BrepLoop &lp =
+			evaluated_brep->m_L[new_face.m_li[li]];
+		    for (int ti = 0; ti < lp.TrimCount(); ti++) {
+			const ON_BrepTrim &tr =
+			    evaluated_brep->m_T[lp.m_ti[ti]];
+			if (tr.m_type == ON_BrepTrim::singular) {
+			    sing_ti.Append(lp.m_ti[ti]);
+			    sing_iso.Append((int)tr.m_iso);
+			}
+		    }
+		}
+
 		evaluated_brep->SetTrimIsoFlags(new_face);
+
+		/* Restore m_iso for singular trims that were incorrectly reset. */
+		for (int si = 0; si < sing_ti.Count(); si++) {
+		    ON_BrepTrim &tr = evaluated_brep->m_T[sing_ti[si]];
+		    int saved = sing_iso[si];
+		    if (tr.m_iso != ON_Surface::W_iso &&
+			tr.m_iso != ON_Surface::S_iso &&
+			tr.m_iso != ON_Surface::E_iso &&
+			tr.m_iso != ON_Surface::N_iso) {
+			if (saved == (int)ON_Surface::W_iso ||
+			    saved == (int)ON_Surface::S_iso ||
+			    saved == (int)ON_Surface::E_iso ||
+			    saved == (int)ON_Surface::N_iso) {
+			    tr.m_iso = (ON_Surface::ISO)saved;
+			}
+		    }
+		}
+
 		const ON_BrepFace &original_face = i >= face_count1 ? brep2->m_F[i - face_count1] : brep1->m_F[i];
 		if (original_face.m_bRev ^ t_face->m_rev) {
 		    evaluated_brep->FlipFace(new_face);
