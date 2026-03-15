@@ -1371,6 +1371,54 @@ from `mp_gvp` (no DMP indirection).
      those libraries' draw calls to Obol)
    - Remove `libdm` from `source_dirs.cmake` `libged_deps` / `libtclcad_deps`
 
+### Stage 10 — Remove `libdm` from `libged` core deps; add Obol-path guards in libtclcad (Sessions 29–30)
+
+   **libged — libdm dependency eliminated at library level** (Session 29):
+   - Removed unused `#include "dm.h"` from 6 libged plugin files with no dm
+     function calls: `autoview.c`, `get_autoview.c`, `how.c`, `bot_dump.cpp`,
+     `autoview2.cpp`, `snap.c`.
+   - Removed `dm_set_dirty` calls from `illum.c` and `nmg.c` (only dm usage,
+     already dmp-guarded, no-op in Obol path; `#include "dm.h"` removed too).
+   - Fixed `overlay/CMakeLists.txt`: added explicit `libdm` dep (was leaking in
+     transitively through libged, which no longer has that dep).
+   - **`source_dirs.cmake`**: removed `libdm` from `libged_deps` — libged core
+     sources never call any dm function.  The 5 dm-using plugins (`fbclear`,
+     `fb2pix`, `pix2fb`, `png2fb`, `libged/dm/`) declare `libdm` individually.
+   - **libged no longer has a compile-time dependency on libdm**.
+
+   **libtclcad — Obol-path safety guards** (Session 29):
+   All dm function calls in libtclcad are now guarded so the Obol path
+   (`dmp == NULL`) does not crash or corrupt view state:
+   - `mouse.c`, `polygons.c`, `wrapper.c`: `dm_get_width/height` assignments
+     wrapped in `if (gdvp->dmp)` guards; local width vars use `gdvp->gv_width`
+     directly in the Obol path.
+   - `view/draw.c`: early `return` before all dm draw calls when `dmp == NULL`.
+   - `commands.c`: dmp guards added to `to_bg`, `to_bounds`, `to_configure`,
+     `to_fontsize`, `to_light`, `to_pix`, `to_png`, `to_transparency`,
+     `to_zbuffer`, and the dm_close in the view cleanup loop.
+   - `dm.c`: `"obol"` added as a recognized type in `dmo_open_tcl` — creates a
+     `dm_obj` with `dmo_dmp = NULL`; 25 sub-command functions guarded with
+     `if (!dmop->dmo_dmp) return TCL_OK;`; `dm_close` and `dmo_openFb` guarded.
+   - libged fb commands (`fbclear`, `fb2pix`, `pix2fb`, `png2fb`): improved
+     error message explaining framebuffer ops need a dm backend.
+
+   **Remaining cleanup** (Session 30):
+   - `overlay.c`: moved dmp-NULL check from top-level to inside `write_fb` path
+     only — plot/vector overlay now works in the Obol path; only framebuffer
+     pixel writes require a dm backend.
+   - Removed unused `#include "dm.h"` from `libtclcad/init.c`, `fbserv.c`,
+     `tkImgFmtPIX.c` (no dm_ calls in these files).
+   - Removed duplicate `#include "dm.h"` from `libtclcad/commands.c`.
+
+   **Remaining work (Stage 11)**:
+   - Remove `libdm` from `source_dirs.cmake` `libtclcad_deps`: requires
+     eliminating all remaining dm_ call sites in libtclcad core, or splitting
+     the dm-heavy code (`dm.c`, `fb.c`, `commands.c`, `mouse.c`, `polygons.c`,
+     `wrapper.c`, `view/draw.c`, `view/refresh.c`, `view/util.c`) into a
+     separate plugin so they can keep the libdm dep without it being library-wide.
+   - Long-term: delete `src/libdm/` rendering plugins once all frontends have
+     migrated to the Obol renderer.
+
 **Key files to update (Stage 7 MGED work):**
 
 | File | Change |
