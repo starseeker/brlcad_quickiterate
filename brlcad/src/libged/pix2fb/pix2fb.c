@@ -185,7 +185,7 @@ ged_pix2fb_core(struct ged *gedp, int argc, const char *argv[])
 
     struct dm *dmp = (struct dm *)gedp->ged_gvp->dmp;
     if (!dmp) {
-	bu_vls_printf(gedp->ged_result_str, ": no current display manager set\n");
+	bu_vls_printf(gedp->ged_result_str, "framebuffer operations require a display manager backend; use the rt command to raytrace to a file in the Obol rendering path");
 	return BRLCAD_ERROR;
     }
 
