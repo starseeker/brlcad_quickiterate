@@ -1664,6 +1664,93 @@ get_subcurves_inside_faces(
 	}
 
     }
+
+    /* ── Complementary-arc injection ──────────────────────────────────────
+     * When the SSI between a flat cap (face1) and a cone/cylinder (face2)
+     * produces a curve that lies entirely on the south-iso boundary of face2
+     * (v ≈ vdom2.Min()), the OpenNURBS SSI algorithm typically returns only
+     * one arc — the one whose u-parameter decreases from u_start to u_end
+     * without crossing the periodic seam.  The complementary arc (u going
+     * from u_end up to u_start, monotonically increasing) is never returned
+     * as a separate SSI event, so it ends up missing from the cap face's
+     * intersection curves.  Without it, split_trimmed_face can only produce
+     * a half-moon shaped inner region instead of the correct full inner
+     * circle, leading to a misclassified outer annular ring.
+     *
+     * Detect this situation: if curveB is entirely at v ≈ vdom2.Min() and
+     * its u at the end is less than its u at the start (a partial arc, not
+     * a full circle), generate the complementary arc by sampling face2's
+     * surface along v = vdom2.Min() for u ∈ [u_end, u_start], projecting
+     * each sample onto face1, and recording the resulting UV polyline as an
+     * additional subcurve for face1. */
+    {
+	const ON_Surface *surf2 = brep2->m_S[brep2->m_F[face_i2].m_si];
+	const ON_Surface *surf1 = brep1->m_S[brep1->m_F[face_i1].m_si];
+	ON_Interval vdom2 = surf2->Domain(1);
+
+	ON_2dPoint cB_s = event->m_curveB->PointAtStart();
+	ON_2dPoint cB_e = event->m_curveB->PointAtEnd();
+
+	bool at_south = ON_NearZero(cB_s.y - vdom2.Min(), INTERSECTION_TOL * 100.0) &&
+			ON_NearZero(cB_e.y - vdom2.Min(), INTERSECTION_TOL * 100.0);
+	/* is_partial: start u ≠ end u (open arc, not a degenerate point) */
+	bool is_partial = !ON_NearZero(cB_s.x - cB_e.x, INTERSECTION_TOL);
+
+	/* Only inject the complement when u_end < u_start so the complementary
+	 * arc (u from u_end to u_start, increasing) lies entirely within the
+	 * surface's u-domain without crossing the periodic seam. */
+	if (at_south && is_partial && cB_e.x < cB_s.x) {
+	    /* The complementary arc runs from end_pt (projection at u_end)
+	     * to start_pt (projection at u_start) through the interior.
+	     * Find the bottom arc that was just added to subcurves_on1 —
+	     * its start/end are the EXACT UV endpoints we must reuse so that
+	     * link_curves() can join the two arcs into one closed loop. */
+	    const ON_Curve *bot_arc = subcurves_on1.Count() > 0
+				     ? subcurves_on1[subcurves_on1.Count() - 1]
+				     : NULL;
+
+	    const int N = 8;
+	    ON_3dPointArray uvpts;
+	    /* Use a generous point-to-surface projection tolerance: the
+	     * sampled points lie on face2's boundary iso and may be several
+	     * millimetres from face1's surface (the two cap planes are
+	     * slightly tilted relative to each other for concentric TGCs
+	     * with different H directions).  We want the foot-of-perpendicular
+	     * on face1 regardless of stand-off distance. */
+	    const double proj_tol = (cB_s.x - cB_e.x) * 1000.0 + INTERSECTION_TOL;
+
+	    /* First point: EXACTLY the end of the bottom arc so that the
+	     * two arcs are guaranteed to chain in link_curves. */
+	    if (bot_arc) {
+		uvpts.Append(bot_arc->PointAtEnd());
+	    }
+
+	    for (int k = 1; k < N; k++) {
+		double u = cB_e.x + (cB_s.x - cB_e.x) * k / (double)N;
+		ON_3dPoint pt3d = surf2->PointAt(u, vdom2.Min());
+		ON_ClassArray<ON_PX_EVENT> px;
+		if (ON_Intersect(pt3d, *surf1, px, proj_tol) && px.Count() > 0) {
+		    ON_2dPoint uv1(px[0].m_b[0], px[0].m_b[1]);
+		    if (!is_point_outside_loop(uv1, face1_loops[0])) {
+			uvpts.Append(ON_3dPoint(uv1.x, uv1.y, 0.0));
+		    }
+		}
+	    }
+
+	    /* Last point: EXACTLY the start of the bottom arc. */
+	    if (bot_arc) {
+		uvpts.Append(bot_arc->PointAtStart());
+	    }
+
+	    if (uvpts.Count() >= 3) {
+		ON_PolylineCurve *comp = new ON_PolylineCurve(uvpts);
+		if (DEBUG_BREP_BOOLEAN)
+		    bu_log("  complementary arc ADDED for face%d: %d pts\n",
+			   face_i1, uvpts.Count());
+		subcurves_on1.Append(comp);
+	    }
+	}
+    }
 }
 
 
@@ -5634,6 +5721,60 @@ get_evaluated_faces(const ON_Brep *brep1, const ON_Brep *brep2, op_type operatio
 		if (dm > 0.0 && dn / dm < 0.01 && bbm.IsPointIn(bbn.Center())) {
 		    delete carray[n].m_curve;
 		    carray[n].m_curve = NULL;
+		}
+	    }
+	}
+
+	/* Remove near-straight "chord" intersection curves that share reversed
+	 * endpoints with a genuinely curved arc in the same face.
+	 *
+	 * When the SSI between two nearly-coplanar cap faces (e.g. two TGC bases
+	 * that share a vertex but have slightly different axis directions) produces
+	 * a chord — the straight-line intersection of their two planes — that chord
+	 * shares its endpoints (in reverse order) with the correct inner-circle arc
+	 * coming from the tube-face SSI.  Together the chord and the arc form a
+	 * closed half-moon loop that splits the cap face incorrectly.
+	 *
+	 * Criterion: open curve m is "chord-like" if |mid(m) − midpoint(start,end)|
+	 * is less than 5% of |start − end|.  If a second open curve n exists whose
+	 * endpoints are the reverse of m's AND n is curved (ratio ≥ 5%), m is
+	 * the spurious chord and is removed. */
+	for (int m = 0; m < carray.Count(); m++) {
+	    ON_Curve *cm = carray[m].m_curve;
+	    if (!cm || cm->IsClosed()) continue;
+	    ON_3dPoint ms3 = cm->PointAtStart();
+	    ON_3dPoint me3 = cm->PointAtEnd();
+	    ON_3dPoint mm3 = cm->PointAt(cm->Domain().Mid());
+	    double len_m = ms3.DistanceTo(me3);
+	    if (len_m < INTERSECTION_TOL) continue;
+	    ON_3dPoint seg_mid_m = (ms3 + me3) * 0.5;
+	    double straight_ratio = mm3.DistanceTo(seg_mid_m) / len_m;
+	    if (straight_ratio >= 0.05) continue; /* curved — keep */
+
+	    /* m looks like a chord; search for a curved arc with reversed endpoints */
+	    for (int n = 0; n < carray.Count(); n++) {
+		if (n == m) continue;
+		ON_Curve *cn = carray[n].m_curve;
+		if (!cn || cn->IsClosed()) continue;
+		ON_3dPoint ns3 = cn->PointAtStart();
+		ON_3dPoint ne3 = cn->PointAtEnd();
+		/* Reversed endpoints: m.start ≈ n.end  AND  m.end ≈ n.start */
+		const double ep_tol = INTERSECTION_TOL * 100.0;
+		if (ms3.DistanceTo(ne3) > ep_tol) continue;
+		if (me3.DistanceTo(ns3) > ep_tol) continue;
+		ON_3dPoint nm3 = cn->PointAt(cn->Domain().Mid());
+		double len_n = ns3.DistanceTo(ne3);
+		if (len_n < INTERSECTION_TOL) continue;
+		ON_3dPoint seg_mid_n = (ns3 + ne3) * 0.5;
+		double n_ratio = nm3.DistanceTo(seg_mid_n) / len_n;
+		if (n_ratio >= 0.05) {
+		    /* n is curved and m is straight → m is the spurious chord */
+		    if (DEBUG_BREP_BOOLEAN)
+			bu_log("  Removing chord [face %d curve %d, straight_ratio=%g]\n",
+			       i, m, straight_ratio);
+		    delete carray[m].m_curve;
+		    carray[m].m_curve = NULL;
+		    break;
 		}
 	    }
 	}
