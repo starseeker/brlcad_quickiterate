@@ -1667,21 +1667,18 @@ get_subcurves_inside_faces(
 
     /* ── Full inner-circle injection ──────────────────────────────────────
      * When the SSI between a flat cap (face1) and a cone/cylinder (face2)
-     * produces a curve that lies entirely on the south-iso boundary of face2
-     * (v ≈ vdom2.Min()), the OpenNURBS SSI algorithm returns only the arc
-     * that does not cross the periodic seam.  The complementary arc is never
-     * returned as a separate event, so the cap face's intersection curves are
-     * incomplete.
+     * produces a curve that lies entirely on the south-iso (v ≈ vdom2.Min())
+     * or north-iso (v ≈ vdom2.Max()) boundary of face2, the OpenNURBS SSI
+     * algorithm returns only the arc that does not cross the periodic seam.
+     * The complementary arc is never returned as a separate event, so the
+     * cap face's intersection curves are incomplete.
      *
-     * Fix: when this situation is detected, replace the NURBS bottom arc in
+     * Fix: when this situation is detected, replace the NURBS partial arc in
      * subcurves_on1 with a single CLOSED polyline that samples the ENTIRE
-     * inner circle — first traversing the bottom-arc range that curveB already
-     * covers (u from u_start down to u_end), then the complementary range
-     * (u from u_end up to u_start going around), and finally closing back to
-     * the first point.  A closed curve skips the link_curves joining step and
-     * is fed directly as a closed ssx_curve to split_trimmed_face, avoiding
-     * the floating-point IsClosed() tolerance problems that arise when trying
-     * to join two separate open arcs. */
+     * inner circle uniformly.  A closed curve skips the link_curves joining
+     * step and is fed directly as a closed ssx_curve to split_trimmed_face,
+     * avoiding the floating-point IsClosed() tolerance problems that arise
+     * when trying to join two separate open arcs. */
     {
 	const ON_Surface *surf2 = brep2->m_S[brep2->m_F[face_i2].m_si];
 	const ON_Surface *surf1 = brep1->m_S[brep1->m_F[face_i1].m_si];
@@ -1692,36 +1689,39 @@ get_subcurves_inside_faces(
 
 	bool at_south = ON_NearZero(cB_s.y - vdom2.Min(), INTERSECTION_TOL * 100.0) &&
 			ON_NearZero(cB_e.y - vdom2.Min(), INTERSECTION_TOL * 100.0);
+	bool at_north = ON_NearZero(cB_s.y - vdom2.Max(), INTERSECTION_TOL * 100.0) &&
+			ON_NearZero(cB_e.y - vdom2.Max(), INTERSECTION_TOL * 100.0);
 	bool is_partial = !ON_NearZero(cB_s.x - cB_e.x, INTERSECTION_TOL);
 
-	if (at_south && is_partial && cB_e.x < cB_s.x) {
+	if ((at_south || at_north) && is_partial) {
+	    /* v value at which to sample the tube surface for projection.
+	     * South boundary → v=vdom2.Min(); North boundary → v=vdom2.Max(). */
+	    const double v_boundary = at_south ? vdom2.Min() : vdom2.Max();
+
 	    /* Use a generous projection tolerance proportional to the arc
 	     * span: tilted TGC cap planes can be several millimetres apart
 	     * over the inner-circle diameter, so (span * 1000) in UV units
 	     * gives a stand-off tolerance large enough to catch the nearest
 	     * point even for the most tilted pair encountered in practice. */
-	    const double proj_tol = (cB_s.x - cB_e.x) * 1000.0 + INTERSECTION_TOL;
-	    /* N_ARC: sample points per half-circle (8 gives sub-degree accuracy
-	     * for a semicircle; the full polyline will have 2*N_ARC+1 points).
-	     * N_FULL = 2*N_ARC total samples for the full circle. */
-	    const int N_ARC = 8;
+	    const double u_span = std::fabs(cB_s.x - cB_e.x);
+	    const double proj_tol = u_span * 1000.0 + INTERSECTION_TOL;
+	    /* N_ARC: sample points per half-circle; N_FULL = 2*N_ARC total
+	     * for the full circle.  Use N_ARC=16 (N_FULL=32, 11.25° per step)
+	     * rather than 8 to ensure that no chord of the resulting polygon
+	     * falls within the 1° ANGLE_TOL of the fixed 45° ray direction
+	     * used by point_loop_location() (which would filter the crossing
+	     * and cause the inner-loop exclusion test to fail). */
+	    const int N_ARC = 16;
 
-	    /* ---- Full circle: sample 2*N_ARC equally-spaced points starting
-	     * at cB_s.x and advancing by one full period.
+	    /* ---- Full circle: sample N_FULL equally-spaced points starting
+	     * at cB_s.x and advancing by one full period, then close back.
 	     *
-	     * The original code sampled a "bottom arc" (u_start → u_end,
-	     * decreasing) then a "complementary arc" (u_start → u_end,
-	     * seam-crossing, increasing) — both arcs starting from u_start.
-	     * The connection chord from the bottom arc's end (u_end) to the
-	     * complementary arc's start (u_start+ε) created a ~158° diagonal
-	     * chord through the polygon, making it self-intersecting (figure-8).
-	     * A self-intersecting polygon gives wrong ray-cast results in
-	     * point_loop_location(), so test points inside the inner circle
-	     * were not reliably excluded from the annular region, causing
-	     * incorrect face classification.
-	     *
-	     * Fix: advance u continuously from cB_s.x by one full period.
-	     * Adjacent samples are ~22° apart; no long diagonal chords. */
+	     * The injection replaces the NURBS partial arc returned by the
+	     * SSI (which covers only the non-seam-crossing part of the circle)
+	     * with a complete closed polyline.  The uniform forward sweep from
+	     * cB_s.x covers the full circle regardless of arc direction.
+	     * Adjacent samples are ~11.25° apart, ensuring no chord aligns
+	     * with the 45° ray used by point_loop_location(). */
 	    ON_Interval udom2 = surf2->Domain(0);
 	    double u_period = udom2.Length();
 	    const int N_FULL = 2 * N_ARC;
@@ -1731,7 +1731,7 @@ get_subcurves_inside_faces(
 		double u = u_raw;
 		while (u >= udom2.Max()) u -= u_period;
 		while (u <  udom2.Min()) u += u_period;
-		ON_3dPoint pt3d = surf2->PointAt(u, vdom2.Min());
+		ON_3dPoint pt3d = surf2->PointAt(u, v_boundary);
 		ON_ClassArray<ON_PX_EVENT> px;
 		if (ON_Intersect(pt3d, *surf1, px, proj_tol) && px.Count() > 0) {
 		    ON_2dPoint uv1(px[0].m_b[0], px[0].m_b[1]);
@@ -4350,14 +4350,31 @@ add_elements(ON_Brep *brep, ON_BrepFace &face, const ON_SimpleArray<ON_Curve *> 
 
 	ON_Curve *c3d = NULL;
 	// First, try the ON_Surface::Pushup() method.
-	// If Pushup() does not succeed, use sampling method.
+	// If Pushup() does not succeed, or if it returns an invalid curve
+	// (e.g. a PolylineCurve with coincident endpoints for a closed
+	// injection polyline), fall back to the uniform sampling method.
 	c3d = ON_Surface_Pushup(face.SurfaceOf(), *(loop[k]), NULL);
+	if (c3d && !c3d->IsValid()) {
+	    delete c3d;
+	    c3d = NULL;
+	}
 	if (!c3d) {
+	    /* Sample at 100 uniform intervals.  For closed 2D input curves
+	     * do NOT add a duplicate closing point: ON_PolylineCurve marks
+	     * a polyline invalid when the last point coincides with any
+	     * neighbor, and the edge self-loop is still created correctly
+	     * because PointAtEnd() == PointAtStart() in UV → same 3D
+	     * vertex is reused by add_elements' end_idx search. */
 	    ON_3dPointArray ptarray(101);
 	    for (int l = 0; l <= 100; l++) {
-		ON_3dPoint pt2d;
-		pt2d = loop[k]->PointAt(loop[k]->Domain().ParameterAt(l / 100.0));
-		ptarray.Append(face.SurfaceOf()->PointAt(pt2d.x, pt2d.y));
+		ON_3dPoint pt2d = loop[k]->PointAt(
+		    loop[k]->Domain().ParameterAt(l / 100.0));
+		ON_3dPoint p3d = face.SurfaceOf()->PointAt(pt2d.x, pt2d.y);
+		/* Skip duplicate closing point for closed curves */
+		if (l == 100 && loop[k]->IsClosed() &&
+		    p3d.DistanceTo(ptarray[0]) < ON_ZERO_TOLERANCE * 10.0)
+		    break;
+		ptarray.Append(p3d);
 	    }
 	    c3d = new ON_PolylineCurve(ptarray);
 	}
@@ -4610,6 +4627,18 @@ add_elements(ON_Brep *brep, ON_BrepFace &face, const ON_SimpleArray<ON_Curve *> 
 	}
 
 	brep->AddEdgeCurve(c3d);
+	if (DEBUG_BREP_BOOLEAN) {
+	    int c3i = brep->m_C3.Count() - 1;
+	    bool cv = brep->m_C3[c3i] && brep->m_C3[c3i]->IsValid();
+	    bu_log("  add_elements c3i=%d loop[%d] type=%s valid=%s\n",
+		   c3i, k,
+		   ON_PolylineCurve::Cast(c3d) ? "polyline" : "nurbs",
+		   cv ? "yes" : "NO");
+	    if (!cv) {
+		ON_PolylineCurve *plc = ON_PolylineCurve::Cast(c3d);
+		if (plc) bu_log("    pline count=%d\n", plc->m_pline.Count());
+	    }
+	}
 	int ti = brep->AddTrimCurve(loop[k]);
 	ON_BrepEdge &edge = brep->NewEdge(brep->m_V[start_idx], brep->m_V[end_idx],
 					  brep->m_C3.Count() - 1, (const ON_Interval *)0, MAX_FASTF);
@@ -6073,14 +6102,43 @@ join_boundary_edges(ON_Brep *brep)
 
     /* ---------------------------------------------------------------
      * Pass 2: closed boundary edges (e.g. hole circles).
-     * Two closed boundary edges are coincident when their 3-D bounding
-     * boxes are nearly equal AND their arc-lengths are nearly equal.
-     * For circles (the common case in brep boolean output) this is
-     * both necessary and sufficient.  Because the edges may start at
-     * different angles CombineCoincidentEdges() cannot be used (it
-     * requires matching vertices).  Instead we directly transfer the
-     * trim from the redundant edge to the surviving edge.
+     * Two closed boundary edges are coincident when their arc lengths
+     * and 3-D centroids agree.
+     *
+     * GetBoundingBox() is unreliable for this purpose because rational
+     * NURBS arcs (used for TGC circles) have control points outside the
+     * actual curve; the resulting control-polygon bbox can be 20–50%
+     * larger than the true bbox.  Arc length and centroid are independent
+     * of NURBS parameterisation, so they correctly identify coincident
+     * circles regardless of how each face's surface represents the curve.
+     *
+     * Two closed curves are coincident when:
+     *   (a) arc lengths agree within 5%, AND
+     *   (b) 3-D centroids agree within 1% of the arc length.
+     * This cleanly separates circles of different radii (arc-length
+     * filter) and circles in different planes (centroid filter).
+     *
+     * Because the edges may start at different angles
+     * CombineCoincidentEdges() cannot be used (it requires matching
+     * vertices).  Instead we directly transfer the trim from the
+     * redundant edge to the surviving edge.
      * --------------------------------------------------------------- */
+    {
+    /* Helper: sample a closed curve for arc length and centroid. */
+    auto curve_arc_centroid = [](const ON_Curve *c, double &arc_len, ON_3dPoint &cen) {
+	static const int NS = 64;
+	arc_len = 0.0;
+	cen = ON_3dPoint(0, 0, 0);
+	ON_3dPoint prev = c->PointAt(c->Domain().ParameterAt(0.0));
+	for (int s = 1; s <= NS; s++) {
+	    ON_3dPoint cur = c->PointAt(c->Domain().ParameterAt((double)s / NS));
+	    arc_len += prev.DistanceTo(cur);
+	    cen.x += cur.x; cen.y += cur.y; cen.z += cur.z;
+	    prev = cur;
+	}
+	cen.x /= NS; cen.y /= NS; cen.z /= NS;
+    };
+
     for (int i = 0; i < brep->m_E.Count(); i++) {
 	ON_BrepEdge &ei = brep->m_E[i];
 	if (ei.m_ti.Count() != 1) continue;
@@ -6097,18 +6155,26 @@ join_boundary_edges(ON_Brep *brep)
 	    const ON_Curve *cj3 = brep->m_C3[ej.m_c3i];
 	    if (!ci3 || !cj3) continue;
 
-	    /* Compare bounding boxes: for circles the bbox fully
-	     * characterises the geometry (center + radius + plane). */
-	    ON_BoundingBox bb_i, bb_j;
-	    ci3->GetBoundingBox(bb_i);
-	    cj3->GetBoundingBox(bb_j);
-	    double scale = bb_i.Diagonal().Length();
-	    if (scale < ON_ZERO_TOLERANCE) scale = 1.0;
-	    static const double BBOX_REL_TOL = 0.01; /* 1% of bbox diagonal */
-	    const double bb_tol = scale * BBOX_REL_TOL;
+	    double len_i, len_j;
+	    ON_3dPoint cen_i, cen_j;
+	    curve_arc_centroid(ci3, len_i, cen_i);
+	    curve_arc_centroid(cj3, len_j, cen_j);
 
-	    if (bb_i.m_min.DistanceTo(bb_j.m_min) > bb_tol) continue;
-	    if (bb_i.m_max.DistanceTo(bb_j.m_max) > bb_tol) continue;
+	    double len_max = std::max(len_i, len_j);
+	    if (len_max < ON_ZERO_TOLERANCE) continue;
+
+	    /* (a) arc lengths within 5% */
+	    static const double LEN_REL_TOL = 0.05;
+	    if (std::fabs(len_i - len_j) / len_max > LEN_REL_TOL) continue;
+
+	    /* (b) centroids within 1% of arc length */
+	    double cen_tol = len_max * 0.01;
+	    if (cen_i.DistanceTo(cen_j) > cen_tol) continue;
+
+	    if (DEBUG_BREP_BOOLEAN) {
+		bu_log("  join_closed edge[%d] vs edge[%d]: len_i=%g len_j=%g cen_dist=%g tol=%g MATCH\n",
+		       i, j, len_i, len_j, cen_i.DistanceTo(cen_j), cen_tol);
+	    }
 
 	    int tj = ej.m_ti[0];
 
@@ -6377,6 +6443,141 @@ join_boundary_edges(ON_Brep *brep)
 
 	    break; /* one match per closed edge is sufficient */
 	}
+    }
+    } /* end Pass 2 block (lambda scope) */
+
+    /* ---------------------------------------------------------------
+     * Pass 3: chain open boundary edges that together close a loop
+     * into a single self-loop edge, then let Pass 2 (re-run below)
+     * merge that self-loop with a coincident closed boundary edge.
+     *
+     * Background: BRL-CAD TGC cap faces represent their outer loop as
+     * 3 rational NURBS arcs (120° each), giving 3 separate open edges
+     * in the assembled brep.  The corresponding face from the SSI
+     * split (the tube portion) represents the same circle as a single
+     * S_iso self-loop edge.  The two representations cannot be merged
+     * by Pass 1 (open↔open) or Pass 2 (closed↔closed) alone.
+     *
+     * This pass detects such chains, combines them into one self-loop,
+     * and transfers all their trims to the new edge.  The re-run of
+     * Pass 2 below then merges the new self-loop with its partner.
+     * --------------------------------------------------------------- */
+    {
+    bool chain_merged_p3 = true;
+    while (chain_merged_p3) {
+	chain_merged_p3 = false;
+	for (int i = 0; i < brep->m_E.Count() && !chain_merged_p3; i++) {
+	    ON_BrepEdge &ei = brep->m_E[i];
+	    if (ei.m_ti.Count() != 1) continue;
+	    if (ei.m_vi[0] == ei.m_vi[1]) continue; /* skip closed */
+
+	    /* Try to grow a chain starting with edge i until it closes. */
+	    int v_start = ei.m_vi[0];
+	    int v_cur   = ei.m_vi[1];
+	    ON_SimpleArray<int> chain;
+	    chain.Append(i);
+
+	    while (v_cur != v_start) {
+		bool found = false;
+		for (int j = 0; j < brep->m_E.Count(); j++) {
+		    ON_BrepEdge &ej2 = brep->m_E[j];
+		    if (ej2.m_ti.Count() != 1) continue;
+		    if (ej2.m_vi[0] == ej2.m_vi[1]) continue;
+		    if (ej2.m_vi[0] != v_cur) continue;
+		    /* Don't revisit edges already in the chain */
+		    bool already = false;
+		    for (int ci = 0; ci < chain.Count(); ci++)
+			if (chain[ci] == j) { already = true; break; }
+		    if (already) continue;
+		    chain.Append(j);
+		    v_cur = ej2.m_vi[1];
+		    found = true;
+		    break;
+		}
+		if (!found || chain.Count() > brep->m_E.Count()) break;
+	    }
+
+	    if (v_cur != v_start || chain.Count() < 2) continue;
+
+	    /* Closed chain found.  Combine arc lengths and centroid.
+	     * Check whether any existing closed boundary edge matches. */
+	    static const int N_PER = 32; /* samples per arc */
+	    double chain_len = 0.0;
+	    ON_3dPoint chain_cen(0, 0, 0);
+	    int n_pts_total = 0;
+	    for (int ci = 0; ci < chain.Count(); ci++) {
+		const ON_Curve *cc = brep->m_C3[brep->m_E[chain[ci]].m_c3i];
+		if (!cc) { chain_len = -1.0; break; }
+		ON_3dPoint prev = cc->PointAt(cc->Domain().ParameterAt(0.0));
+		for (int s = 1; s <= N_PER; s++) {
+		    ON_3dPoint cur = cc->PointAt(cc->Domain().ParameterAt((double)s / N_PER));
+		    chain_len += prev.DistanceTo(cur);
+		    chain_cen.x += cur.x; chain_cen.y += cur.y; chain_cen.z += cur.z;
+		    n_pts_total++;
+		    prev = cur;
+		}
+	    }
+	    if (chain_len <= 0.0 || n_pts_total == 0) continue;
+	    chain_cen.x /= n_pts_total;
+	    chain_cen.y /= n_pts_total;
+	    chain_cen.z /= n_pts_total;
+
+	    /* Find a matching closed boundary edge */
+	    int match_closed = -1;
+	    for (int k = 0; k < brep->m_E.Count(); k++) {
+		ON_BrepEdge &ek = brep->m_E[k];
+		if (ek.m_ti.Count() != 1) continue;
+		if (ek.m_vi[0] != ek.m_vi[1]) continue;
+		if (ek.m_c3i < 0) continue;
+		const ON_Curve *ck = brep->m_C3[ek.m_c3i];
+		if (!ck) continue;
+
+		double klen = 0.0; ON_3dPoint kcen(0, 0, 0);
+		ON_3dPoint kprev = ck->PointAt(ck->Domain().ParameterAt(0.0));
+		for (int s = 1; s <= N_PER * chain.Count(); s++) {
+		    ON_3dPoint kcur = ck->PointAt(ck->Domain().ParameterAt((double)s / (N_PER * chain.Count())));
+		    klen += kprev.DistanceTo(kcur);
+		    kcen.x += kcur.x; kcen.y += kcur.y; kcen.z += kcur.z;
+		    kprev = kcur;
+		}
+		int kn = N_PER * chain.Count();
+		kcen.x /= kn; kcen.y /= kn; kcen.z /= kn;
+
+		double lmax = std::max(chain_len, klen);
+		if (lmax < ON_ZERO_TOLERANCE) continue;
+		if (std::fabs(chain_len - klen) / lmax > 0.05) continue;
+		double cen_tol = lmax * 0.01;
+		if (chain_cen.DistanceTo(kcen) > cen_tol) continue;
+
+		match_closed = k;
+		break;
+	    }
+
+	    if (match_closed < 0) continue;
+
+	    /* Build a combined self-loop edge from the chain and transfer
+	     * all arc trims to the matching closed edge. */
+	    ON_BrepEdge &e_closed = brep->m_E[match_closed];
+
+	    if (DEBUG_BREP_BOOLEAN)
+		bu_log("  join_chain: chain(%d arcs) → closed edge[%d] len=%g\n",
+		       chain.Count(), match_closed, chain_len);
+
+	    for (int ci = 0; ci < chain.Count(); ci++) {
+		ON_BrepEdge &ea = brep->m_E[chain[ci]];
+		for (int ti_idx = 0; ti_idx < ea.m_ti.Count(); ti_idx++) {
+		    int tj2 = ea.m_ti[ti_idx];
+		    brep->m_T[tj2].m_ei = match_closed;
+		    brep->m_T[tj2].m_vi[0] = e_closed.m_vi[0];
+		    brep->m_T[tj2].m_vi[1] = e_closed.m_vi[1];
+		    e_closed.m_ti.Append(tj2);
+		}
+		ea.m_ti.Empty();
+	    }
+
+	    chain_merged_p3 = true;
+	}
+    }
     }
 
     /* Rebuild all vertex m_ei arrays from the current edge-vertex
