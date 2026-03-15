@@ -1732,9 +1732,9 @@ main(int argc, char *argv[])
     bu_setprogname(argv[0]);
 
 #if defined(HAVE_TK)
-    if (dm_have_graphics()) {
-	s->classic_mged = 0;
-    }
+    /* Step 8: dm_have_graphics() removed; Obol always provides a GL context
+     * when Tk is available. */
+    s->classic_mged = 0;
 #endif
 
     bu_optind = 1;
@@ -1767,9 +1767,9 @@ main(int argc, char *argv[])
 		run_in_foreground = 0;  /* run in background */
 		break;
 	    case 'v':	/* print a lot of version information */
-		printf("%s%s%s%s%s%s\n",
+		printf("%s%s%s%s%s\n",
 		       brlcad_ident("MGED Geometry Editor"),
-		       dm_version(),
+		       /* Step 8: dm_version() removed — libdm decoupled from mged. */
 		       fb_version(),
 		       rt_version(),
 		       bn_version(),

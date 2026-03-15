@@ -1313,10 +1313,33 @@ from `mp_gvp` (no DMP indirection).
    **After Step 7.20**: `mged_pane` is fully libdm-free.  MGED is Obol-only.
    `DMP` is gone; all drawing goes through the Obol path.
 
-   **Remaining work (Stage 8)**:
-   - Remove `libdm` from CMakeLists link dependencies for `mged`
-   - Remove libdm header includes from mged source files
+### Stage 8 — Remove `libdm` from mged CMakeLists; scrub libdm includes ✅ (Session 27)
+
+   - `mged_dm.h`: `#include "dm.h"` removed (struct dm no longer referenced).
+     `pkg.h` retained for `struct pkg_conn` in `struct client`.
+   - `rect.c`: direct `#include "dm.h"` removed (all drawing functions are
+     no-op stubs, no libdm types used).
+   - `mged.c`: `dm_have_graphics()` replaced with always-true expression;
+     `dm_version()` removed from the `-v` version output.
+   - `doevent.c`: X11 event handler bodies (`doEvent` inside `#ifdef
+     HAVE_X11_TYPES`) replaced with no-op stubs; `motion_event_handler`
+     replaced with a no-op stub.  All libdm (DMP, dm_doevent, dm_configure_win,
+     etc.) calls removed from this file.
+   - `mged_dm.h`: dead `extern int dm_pipe[]` declaration removed.
+   - `CMakeLists.txt`: `libdm` removed from `mged_libs`.
+   - 27 mged .c files compile cleanly with -Werror and 0 warnings.
+   - Build (cmake --build --target mged) produces no new undefined-reference
+     errors; the pre-existing libObol/libOpenGL.so.0 link failure is unrelated.
+
+   **Note**: `dm.h` is still transitively included via `libtclcad` →
+   `tclcad/draw.h` → `dm.h`.  This is a libtclcad coupling that will be
+   addressed when libtclcad is migrated.  mged itself no longer references
+   any libdm symbols directly.
+
+   **Remaining work (Stage 9)**:
    - Delete `src/libdm/` (except fb_* raster helpers for rtwizard)
+   - Remove `dm.h` include from `tclcad/draw.h` (libtclcad migration)
+   - Replace `struct client::c_pkg` with a simpler fd/Tcl handle
 
 **Key files to update (Stage 7 MGED work):**
 

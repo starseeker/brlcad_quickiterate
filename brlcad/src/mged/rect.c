@@ -29,7 +29,7 @@
 
 #include "vmath.h"
 #include "ged.h"
-#include "dm.h"
+/* Step 8: dm.h removed — all drawing functions in rect.c are no-op stubs. */
 #include "./mged.h"
 #include "bsg/util.h"
 #include "./mged_dm.h"

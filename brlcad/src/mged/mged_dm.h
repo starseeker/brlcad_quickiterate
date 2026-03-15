@@ -39,9 +39,10 @@
 
 #include "common.h"
 
-#include "dm.h"	/* struct dm */
+/* Step 8: dm.h removed — struct dm no longer used in mged_pane (all
+ * mp_dmp/libdm fields deleted in Step 7.20). */
 
-#include "pkg.h" /* struct pkg_conn */
+#include "pkg.h" /* struct pkg_conn (struct client::c_pkg) */
 #include "ged.h"
 
 #include "mged.h"
@@ -583,7 +584,7 @@ extern void mged_pane_free_resources(struct mged_pane *mp);
 #define GET_MGED_PANE(p, id) { (void)(id); (p) = MGED_PANE_NULL; }
 
 extern double frametime;		/* defined in mged.c */
-extern int dm_pipe[];			/* defined in mged.c */
+/* Step 8: dm_pipe[] extern removed — dead declaration; no definition in mged.c */
 extern int update_views;		/* defined in mged.c */
 /* active_dm_set removed (Step 6.c); use active_pane_set instead */
 /* mged_dm_init_state removed (Step 7.18); startup sentinel is s->mged_init_pane */
