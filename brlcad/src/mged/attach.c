@@ -571,10 +571,13 @@ release(struct mged_state *s, char *name, int need_close)
     usurp_all_resources(mged_dm_init_state, s->mged_curr_dm);
 
     /* If this display is being referenced by a command window, then
-     * remove the reference.
-     */
-    if (s->mged_curr_dm->dm_tie != NULL)
-	s->mged_curr_dm->dm_tie->cl_tie = (struct mged_dm *)NULL;
+     * remove the reference.  Step 7.4: cl_tie now points to a mged_pane;
+     * clear via the wrapper pane's mp_cmd_tie (already removed from active_pane_set
+     * above), then null the dm_tie back-pointer on the dm itself. */
+    if (s->mged_curr_dm->dm_tie != NULL) {
+	s->mged_curr_dm->dm_tie->cl_tie = MGED_PANE_NULL;
+	s->mged_curr_dm->dm_tie = CMD_LIST_NULL;
+    }
 
     if (need_close)
 	dm_close(DMP);

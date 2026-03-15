@@ -605,8 +605,9 @@ mged_process_char(struct mged_state *s, char ch)
 #else
 	    if (Tcl_CommandComplete(bu_vls_addr(&s->input_str_prefix))) {
 		curr_cmd_list = &head_cmd_list;
+		/* Step 7.4: cl_tie is now mged_pane* */
 		if (curr_cmd_list->cl_tie)
-		    set_curr_dm(s, curr_cmd_list->cl_tie);
+		    set_curr_pane(s, curr_cmd_list->cl_tie);
 
 		reset_Tty(fileno(stdin)); /* Backwards compatibility */
 		(void)signal(SIGINT, SIG_IGN);
@@ -1026,11 +1027,8 @@ event_check(struct mged_state *s, int non_blocking)
 	struct bu_vls vls = BU_VLS_INIT_ZERO;
 	char save_coords;
 
-	/* Stage 7: prefer Obol pane when the event came from one. */
-	if (s->s_edit->edit_rate_mr_pane)
-	    set_curr_pane(s, s->s_edit->edit_rate_mr_pane);
-	else
-	    set_curr_dm(s, s->s_edit->edit_rate_mr_dm);
+	/* Step 7.4: always use pane (edit_rate_*_dm removed). */
+	set_curr_pane(s, s->s_edit->edit_rate_mr_pane);
 	save_coords = mged_variables->mv_coords;
 	mged_variables->mv_coords = 'm';
 
@@ -1064,11 +1062,8 @@ event_check(struct mged_state *s, int non_blocking)
 	struct bu_vls vls = BU_VLS_INIT_ZERO;
 	char save_coords;
 
-	/* Stage 7: prefer Obol pane when the event came from one. */
-	if (s->s_edit->edit_rate_or_pane)
-	    set_curr_pane(s, s->s_edit->edit_rate_or_pane);
-	else
-	    set_curr_dm(s, s->s_edit->edit_rate_or_dm);
+	/* Step 7.4: always use pane (edit_rate_*_dm removed). */
+	set_curr_pane(s, s->s_edit->edit_rate_or_pane);
 	save_coords = mged_variables->mv_coords;
 	mged_variables->mv_coords = 'o';
 
@@ -1102,11 +1097,8 @@ event_check(struct mged_state *s, int non_blocking)
 	struct bu_vls vls = BU_VLS_INIT_ZERO;
 	char save_coords;
 
-	/* Stage 7: prefer Obol pane when the event came from one. */
-	if (s->s_edit->edit_rate_vr_pane)
-	    set_curr_pane(s, s->s_edit->edit_rate_vr_pane);
-	else
-	    set_curr_dm(s, s->s_edit->edit_rate_vr_dm);
+	/* Step 7.4: always use pane (edit_rate_*_dm removed). */
+	set_curr_pane(s, s->s_edit->edit_rate_vr_pane);
 	save_coords = mged_variables->mv_coords;
 	mged_variables->mv_coords = 'v';
 
@@ -1140,11 +1132,8 @@ event_check(struct mged_state *s, int non_blocking)
 	char save_coords;
 	struct bu_vls vls = BU_VLS_INIT_ZERO;
 
-	/* Stage 7: prefer Obol pane when the event came from one. */
-	if (s->s_edit->edit_rate_mt_pane)
-	    set_curr_pane(s, s->s_edit->edit_rate_mt_pane);
-	else
-	    set_curr_dm(s, s->s_edit->edit_rate_mt_dm);
+	/* Step 7.4: always use pane (edit_rate_*_dm removed). */
+	set_curr_pane(s, s->s_edit->edit_rate_mt_pane);
 	save_coords = mged_variables->mv_coords;
 	mged_variables->mv_coords = 'm';
 
@@ -1177,11 +1166,8 @@ event_check(struct mged_state *s, int non_blocking)
 	char save_coords;
 	struct bu_vls vls = BU_VLS_INIT_ZERO;
 
-	/* Stage 7: prefer Obol pane when the event came from one. */
-	if (s->s_edit->edit_rate_vt_pane)
-	    set_curr_pane(s, s->s_edit->edit_rate_vt_pane);
-	else
-	    set_curr_dm(s, s->s_edit->edit_rate_vt_dm);
+	/* Step 7.4: always use pane (edit_rate_*_dm removed). */
+	set_curr_pane(s, s->s_edit->edit_rate_vt_pane);
 	save_coords = mged_variables->mv_coords;
 	mged_variables->mv_coords = 'v';
 
@@ -1378,8 +1364,9 @@ stdin_input(ClientData clientData, int UNUSED(mask))
 
 	if (Tcl_CommandComplete(bu_vls_addr(&s->input_str_prefix))) {
 	    curr_cmd_list = &head_cmd_list;
+	    /* Step 7.4: cl_tie is now mged_pane* */
 	    if (curr_cmd_list->cl_tie)
-		set_curr_dm(s, curr_cmd_list->cl_tie);
+		set_curr_pane(s, curr_cmd_list->cl_tie);
 
 	    if (cmdline(s, &s->input_str_prefix, 1) == CMD_MORE) {
 		/* Remove newline */

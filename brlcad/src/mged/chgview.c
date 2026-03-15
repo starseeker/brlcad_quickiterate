@@ -285,14 +285,12 @@ mged_knob_edit_process(struct mged_state *s,
                     if (incr_flag) MEDIT(s)->k.rot_m[axis] += fval;
                     else MEDIT(s)->k.rot_m[axis] = fval;
                     MEDIT(s)->k.origin_m = origin;
-                    s->s_edit->edit_rate_mr_dm = s->mged_curr_dm;
                     s->s_edit->edit_rate_mr_pane = s->mged_curr_pane;
                     break;
                 case 'o':
                     if (incr_flag) MEDIT(s)->k.rot_o[axis] += fval;
                     else MEDIT(s)->k.rot_o[axis] = fval;
                     MEDIT(s)->k.origin_o = origin;
-                    s->s_edit->edit_rate_or_dm = s->mged_curr_dm;
                     s->s_edit->edit_rate_or_pane = s->mged_curr_pane;
                     break;
                 case 'v':
@@ -300,7 +298,6 @@ mged_knob_edit_process(struct mged_state *s,
                     if (incr_flag) MEDIT(s)->k.rot_v[axis] += fval;
                     else MEDIT(s)->k.rot_v[axis] = fval;
                     MEDIT(s)->k.origin_v = origin;
-                    s->s_edit->edit_rate_vr_dm = s->mged_curr_dm;
                     s->s_edit->edit_rate_vr_pane = s->mged_curr_pane;
                     break;
             }
@@ -347,14 +344,12 @@ mged_knob_edit_process(struct mged_state *s,
                 case 'o':
                     if (incr_flag) MEDIT(s)->k.tra_m[axis] += fval;
                     else MEDIT(s)->k.tra_m[axis] = fval;
-                    s->s_edit->edit_rate_mt_dm = s->mged_curr_dm;
                     s->s_edit->edit_rate_mt_pane = s->mged_curr_pane;
                     break;
                 case 'v':
                 default:
                     if (incr_flag) MEDIT(s)->k.tra_v[axis] += fval;
                     else MEDIT(s)->k.tra_v[axis] = fval;
-                    s->s_edit->edit_rate_vt_dm = s->mged_curr_dm;
                     s->s_edit->edit_rate_vt_pane = s->mged_curr_pane;
                     break;
             }

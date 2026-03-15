@@ -1074,8 +1074,11 @@ cmd_cmd_win(ClientData clientData, Tcl_Interp *interpreter, int argc, const char
 	    curr_cmd_list = &head_cmd_list;
 
 	BU_LIST_DEQUEUE(&clp->l);
-	if (clp->cl_tie != NULL)
-	    clp->cl_tie->dm_tie = CMD_LIST_NULL;
+	if (clp->cl_tie != NULL) {
+	    clp->cl_tie->mp_cmd_tie = CMD_LIST_NULL;  /* Step 7.4: mp_cmd_tie not dm_tie */
+	    if (clp->cl_tie->mp_dm)
+		clp->cl_tie->mp_dm->dm_tie = CMD_LIST_NULL;
+	}
 	bu_vls_free(&clp->cl_more_default);
 	bu_vls_free(&clp->cl_name);
 	bu_free((void *)clp, "cmd_close: clp");
@@ -1115,7 +1118,8 @@ cmd_cmd_win(ClientData clientData, Tcl_Interp *interpreter, int argc, const char
 	}
 
 	if (curr_cmd_list->cl_tie) {
-	    set_curr_dm(s, curr_cmd_list->cl_tie);
+	    /* Step 7.4: cl_tie is now mged_pane*; use set_curr_pane */
+	    set_curr_pane(s, curr_cmd_list->cl_tie);
 
 	    if (s->gedp != GED_NULL)
 		s->gedp->ged_gvp = view_state->vs_gvp;
@@ -1443,7 +1447,6 @@ f_tie(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, const ch
 {
     int uflag = 0;		/* untie flag */
     struct cmd_list *clp;
-    struct mged_dm *dlp = MGED_DM_NULL;
     struct bu_vls vls = BU_VLS_INIT_ZERO;
 
     if (argc < 1 || 3 < argc) {
@@ -1456,8 +1459,9 @@ f_tie(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, const ch
     if (argc == 1) {
 	for (BU_LIST_FOR (clp, cmd_list, &head_cmd_list.l)) {
 	    bu_vls_trunc(&vls, 0);
-	    if (clp->cl_tie && clp->cl_tie->dm_dmp) {
-		struct bu_vls *pn = dm_get_pathname(clp->cl_tie->dm_dmp);
+	    /* Step 7.4: cl_tie is mged_pane*; get dm pathname via mp_dm */
+	    if (clp->cl_tie && clp->cl_tie->mp_dm && clp->cl_tie->mp_dm->dm_dmp) {
+		struct bu_vls *pn = dm_get_pathname(clp->cl_tie->mp_dm->dm_dmp);
 		if (pn && bu_vls_strlen(pn)) {
 		    bu_vls_printf(&vls, "%s %s", bu_vls_cstr(&clp->cl_name), bu_vls_cstr(pn));
 		    Tcl_AppendElement(interpreter, bu_vls_cstr(&vls));
@@ -1469,8 +1473,8 @@ f_tie(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, const ch
 	}
 
 	bu_vls_trunc(&vls, 0);
-	if (clp->cl_tie && clp->cl_tie->dm_dmp) {
-	    struct bu_vls *pn = dm_get_pathname(clp->cl_tie->dm_dmp);
+	if (clp->cl_tie && clp->cl_tie->mp_dm && clp->cl_tie->mp_dm->dm_dmp) {
+	    struct bu_vls *pn = dm_get_pathname(clp->cl_tie->mp_dm->dm_dmp);
 	    if (pn && bu_vls_strlen(pn)) {
 		bu_vls_printf(&vls, "%s %s", bu_vls_cstr(&clp->cl_name), bu_vls_cstr(pn));
 		Tcl_AppendElement(interpreter, bu_vls_cstr(&vls));
@@ -1510,10 +1514,13 @@ f_tie(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, const ch
     }
 
     if (uflag) {
-	if (clp->cl_tie)
-	    clp->cl_tie->dm_tie = (struct cmd_list *)NULL;
-
-	clp->cl_tie = (struct mged_dm *)NULL;
+	/* Step 7.4: cl_tie is mged_pane*; clear mp_cmd_tie + dm back-ptr */
+	if (clp->cl_tie) {
+	    clp->cl_tie->mp_cmd_tie = CMD_LIST_NULL;
+	    if (clp->cl_tie->mp_dm)
+		clp->cl_tie->mp_dm->dm_tie = CMD_LIST_NULL;
+	}
+	clp->cl_tie = MGED_PANE_NULL;
 
 	bu_vls_free(&vls);
 	return TCL_OK;
@@ -1521,8 +1528,9 @@ f_tie(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, const ch
 
     /* print out the display manager that we're tied to */
     if (argc == 2) {
-	if (clp->cl_tie && clp->cl_tie->dm_dmp) {
-	    struct bu_vls *pn = dm_get_pathname(clp->cl_tie->dm_dmp);
+	/* Step 7.4: cl_tie is mged_pane*; get dm pathname via mp_dm */
+	if (clp->cl_tie && clp->cl_tie->mp_dm && clp->cl_tie->mp_dm->dm_dmp) {
+	    struct bu_vls *pn = dm_get_pathname(clp->cl_tie->mp_dm->dm_dmp);
 	    if (pn && bu_vls_strlen(pn)) {
 		Tcl_AppendElement(interpreter, bu_vls_cstr(pn));
 	    }
@@ -1538,35 +1546,42 @@ f_tie(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, const ch
     else
 	bu_vls_strcpy(&vls, argv[2]);
 
-    /* Step 6.b: search active_pane_set (covers dm wrapper panes by gv_name). */
+    /* Step 7.4: search active_pane_set for the named dm wrapper pane; set both
+     * cl_tie (pane*) and the pane's mp_cmd_tie back-link. */
+    struct mged_pane *tlp = MGED_PANE_NULL;
     for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
 	if (!mp->mp_dm) continue;
 	struct bu_vls *pn = dm_get_pathname(mp->mp_dm->dm_dmp);
 	if (pn && !bu_vls_strcmp(&vls, pn)) {
-	    dlp = mp->mp_dm;
+	    tlp = mp;
 	    break;
 	}
     }
 
-    if (dlp == MGED_DM_NULL) {
+    if (tlp == MGED_PANE_NULL) {
 	Tcl_AppendResult(interpreter, "f_tie: unrecognized path name - ",
 			 bu_vls_addr(&vls), "\n", (char *)NULL);
 	bu_vls_free(&vls);
 	return TCL_ERROR;
     }
 
-    /* already tied */
-    if (clp->cl_tie)
-	clp->cl_tie->dm_tie = (struct cmd_list *)NULL;
+    /* clear old cl_tie back-link */
+    if (clp->cl_tie) {
+	clp->cl_tie->mp_cmd_tie = CMD_LIST_NULL;
+	if (clp->cl_tie->mp_dm)
+	    clp->cl_tie->mp_dm->dm_tie = CMD_LIST_NULL;
+    }
 
-    clp->cl_tie = dlp;
+    clp->cl_tie = tlp;
 
-    /* already tied */
-    if (dlp->dm_tie)
-	dlp->dm_tie->cl_tie = (struct mged_dm *)NULL;
+    /* clear existing tie on the target pane */
+    if (tlp->mp_cmd_tie)
+	tlp->mp_cmd_tie->cl_tie = MGED_PANE_NULL;
 
-    dlp->dm_tie = clp;
+    tlp->mp_cmd_tie = clp;
+    if (tlp->mp_dm)
+	tlp->mp_dm->dm_tie = clp;
 
     bu_vls_free(&vls);
     return TCL_OK;
