@@ -1183,8 +1183,10 @@ to_poly_circ_mode_func(Tcl_Interp *interp,
     gdvp->gv_prevMouseY = y;
     gdvp->gv_tcl.gv_polygon_mode = BSG_POLY_CIRCLE_MODE;
 
-    gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
-    gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
+    if (gdvp->dmp) {
+        gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
+        gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
+    }
     bsg_screen_to_view(gdvp, &fx, &fy, x, y);
     VSET(v_pt, fx, fy, gdvp->gv_tcl.gv_data_vZ);
     int snapped = 0;
@@ -1266,8 +1268,10 @@ to_poly_cont_build_func(Tcl_Interp *interp,
     gdvp->gv_prevMouseY = y;
     gdvp->gv_tcl.gv_polygon_mode = BSG_POLY_CONTOUR_MODE;
 
-    gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
-    gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
+    if (gdvp->dmp) {
+        gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
+        gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
+    }
     bsg_screen_to_view(gdvp, &fx, &fy, x, y);
     VSET(v_pt, fx, fy, gdvp->gv_tcl.gv_data_vZ);
     int snapped = 0;
@@ -1636,8 +1640,10 @@ to_poly_ell_mode_func(Tcl_Interp *interp,
     gdvp->gv_prevMouseY = y;
     gdvp->gv_tcl.gv_polygon_mode = TCLCAD_POLY_ELLIPSE_MODE;
 
-    gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
-    gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
+    if (gdvp->dmp) {
+        gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
+        gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
+    }
     bsg_screen_to_view(gdvp, &fx, &fy, x, y);
     VSET(v_pt, fx, fy, gdvp->gv_tcl.gv_data_vZ);
     int snapped = 0;
@@ -1816,8 +1822,10 @@ to_poly_rect_mode_func(Tcl_Interp *interp,
     else
 	gdvp->gv_tcl.gv_polygon_mode = TCLCAD_POLY_RECTANGLE_MODE;
 
-    gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
-    gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
+    if (gdvp->dmp) {
+        gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
+        gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
+    }
     bsg_screen_to_view(gdvp, &fx, &fy, x, y);
     VSET(v_pt, fx, fy, gdvp->gv_tcl.gv_data_vZ);
     int snapped = 0;
