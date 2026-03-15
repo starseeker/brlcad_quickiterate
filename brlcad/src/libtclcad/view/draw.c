@@ -137,6 +137,10 @@ go_draw_dlist(bsg_view *gdvp)
     int line_style = -1;
     struct dm *dmp = (struct dm *)gdvp->dmp;
 
+    /* Obol path: no display manager, nothing to draw via libdm. */
+    if (!dmp)
+	return BRLCAD_OK;
+
     bsg_shape *root = bsg_scene_root_get(gdvp);
     size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
 
@@ -193,6 +197,10 @@ go_draw_dlist(bsg_view *gdvp)
 void
 go_draw(bsg_view *gdvp)
 {
+    /* Obol path: no display manager, rendering is handled by obol_view widget. */
+    if (!gdvp->dmp)
+	return;
+
     struct bsg_camera _gdvc;
     bsg_view_get_camera(gdvp, &_gdvc);
     (void)dm_loadmatrix((struct dm *)gdvp->dmp, _gdvc.model2view, 0);
