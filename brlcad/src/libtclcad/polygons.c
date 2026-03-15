@@ -36,6 +36,7 @@
 #include "bsg/util.h"
 #include "bg/lseg.h"
 #include "tclcad.h"
+#include "dm.h" /* Stage 9: explicit include; no longer pulled via tclcad headers */
 
 /* Private headers */
 #include "./tclcad_private.h"

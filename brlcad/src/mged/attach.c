@@ -683,7 +683,7 @@ mged_attach(struct mged_state *s, const char *wp_name, int argc, const char *arg
     tvd->gdv_fbs.fbs_listener.fbsl_fbsp = &tvd->gdv_fbs;
     tvd->gdv_fbs.fbs_listener.fbsl_fd   = -1;
     tvd->gdv_fbs.fbs_listener.fbsl_port = -1;
-    tvd->gdv_fbs.fbs_fbp                = FB_NULL;
+    tvd->gdv_fbs.fbs_fbp                = NULL; /* Stage 9: FB_NULL (dm.h) → NULL */
     tvd->gdv_fbs.fbs_callback           = NULL;
     tvd->gdv_fbs.fbs_clientData         = gvp;
     tvd->gdv_fbs.fbs_interp             = s->interp;
@@ -942,7 +942,7 @@ f_new_obol_view_ptr(ClientData clientData, Tcl_Interp *interpreter,
     tvd->gdv_fbs.fbs_listener.fbsl_fbsp = &tvd->gdv_fbs;
     tvd->gdv_fbs.fbs_listener.fbsl_fd   = -1;
     tvd->gdv_fbs.fbs_listener.fbsl_port = -1;
-    tvd->gdv_fbs.fbs_fbp                = FB_NULL;
+    tvd->gdv_fbs.fbs_fbp                = NULL; /* Stage 9: FB_NULL (dm.h) → NULL */
     tvd->gdv_fbs.fbs_callback           = NULL;
     tvd->gdv_fbs.fbs_clientData         = gvp;
     tvd->gdv_fbs.fbs_interp             = interpreter;

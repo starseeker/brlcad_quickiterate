@@ -40,9 +40,10 @@
 #include "common.h"
 
 /* Step 8: dm.h removed — struct dm no longer used in mged_pane (all
- * mp_dmp/libdm fields deleted in Step 7.20). */
+ * mp_dmp/libdm fields deleted in Step 7.20).
+ * Step 9: pkg.h removed — struct client / c_pkg deleted (no mged .c
+ * file used struct client; fbserv is a no-op stub). */
 
-#include "pkg.h" /* struct pkg_conn (struct client::c_pkg) */
 #include "ged.h"
 
 #include "mged.h"
