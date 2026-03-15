@@ -41,10 +41,11 @@
 int
 to_is_viewable(bsg_view *gdvp)
 {
-    /* With libdm removed from libtclcad, only dm-backed views (dmp != NULL)
-     * use legacy dm draw paths.  Return non-zero only when a dm backend is
-     * present so callers can skip dm draws for Obol views. */
-    return gdvp->dmp != NULL;
+    /* All registered bsg_view objects are viewable — both legacy dm-backed
+     * views (dmp != NULL) and Obol views (dmp == NULL).  The dm draw calls
+     * that previously gated on this function have been removed; the remaining
+     * callers (to_refresh_view, wrapper.c) now work correctly for Obol. */
+    return gdvp != NULL;
 }
 
 /*
