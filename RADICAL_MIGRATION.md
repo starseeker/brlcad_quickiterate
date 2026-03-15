@@ -950,14 +950,17 @@ from `mp_gvp` (no DMP indirection).
    `active_dm_set` now only appears in `attach.c` (insert/remove at dm attach/detach)
    and `mged.c` (init/free at startup/shutdown).  These are Step 6.c.
 
-6. **Remove `mged_dm` and `active_dm_set`** — Once all panes use `mged_pane` and
-   no remaining mged code references `DMP` unconditionally, delete `struct mged_dm`,
-   `active_dm_set`, the `DMP`/`fbp`/`clients` macros, and everything in
-   `src/mged/dm-generic.c`.  Prerequisites now met: all DMP uses are guarded;
-   `mged_curr_pane` tracks the active Obol pane; the startup "nu" dm_open has been
-   removed (step 5.14); `active_pane_set` is the complete pane registry (step 6.a+6.b).
-   Remaining blocker: remove `struct mged_dm` / `active_dm_set` insert/remove in
-   `attach.c` and startup/shutdown in `mged.c` (Step 6.c).
+6.c **✅ Remove `active_dm_set` insert/remove/init/free** —
+   `bu_ptbl_ins`/`bu_ptbl_rm` in `attach.c` and `bu_ptbl_init`/`bu_ptbl_ins`/
+   `bu_ptbl_free` in `mged.c` all removed.  `mged_finish` shutdown loop migrated
+   to iterate `active_pane_set` for legacy dm wrapper panes (mp_dm != NULL) and
+   free them directly.  `active_dm_set` definition removed from `attach.c`;
+   `extern active_dm_set` declaration removed from `mged_dm.h`.
+
+6. **Remove `mged_dm` and `active_dm_set`** ✅ (Steps 6.a–6.c done) —
+   `active_dm_set` is fully gone.  `active_pane_set` is the sole pane registry.
+   Remaining work: delete `struct mged_dm`, the `DMP`/`fbp`/`clients` macros,
+   and `src/mged/dm-generic.c`.  This is Step 7.
 
 7. **Remove `attach` command's dm backend** — `f_attach`/`mged_attach()`/`mged_dm_init()`
    currently contain the dm_open path for the legacy GL path.  Once step 6 is done,
