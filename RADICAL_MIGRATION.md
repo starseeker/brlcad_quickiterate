@@ -1060,7 +1060,34 @@ from `mp_gvp` (no DMP indirection).
      `dml = s->mged_curr_dm`; post-`mged_attach` dm field accesses changed from
      `s->mged_curr_dm->dm_*` to `s->mged_curr_pane->mp_dm->dm_*`.
 
-      **Remaining work (Step 7.8 onwards)**:
+      **Step 7.8** ✅ (Session 22) — Migrate remaining `mged_curr_dm`-based macros
+   to go through `mged_curr_pane->mp_dm`:
+   - 22 macros changed: `DMP_dirty`, `fbp`, `clients`, `mapped`, `owner`, `am_mode`,
+     `perspective_angle`, `zclip_ptr`, `cmd_hook`, `viewpoint_hook`, `eventHandler`,
+     `adc_auto`, `grid_auto_size`, `dm_mouse_dx/dy`, `dm_omx/omy`, `dm_knobs`,
+     `dm_work_pt`, `scroll_top/active/y/array`.  All are only accessed in code paths
+     guarded by `if (!DMP) return;` or `if (!mp->mp_dm) continue;`, so `mp_dm != NULL`
+     is guaranteed at every call site.  `DMP` itself keeps the `mged_curr_dm->dm_dmp`
+     path for now (used as an lvalue in `mged_dm_init()`).
+   - `pv_head` and `pane_trails` simplified from ternary to always use `mp_p_vlist` /
+     `mp_trails` from the pane.  `mged_pane_init_resources()` for wrapper panes already
+     called `predictor_init_pane(pane)`, so both Obol and legacy-dm wrapper panes have
+     properly initialised predictor state in the pane fields.
+   - `dm_var_init()` in `attach.c`: (a) **bug fix** — replaced `view_state->vs_gvp`
+     (which expanded to the OLD pane's view_state) with a local `new_vs_gvp` pointer
+     that initialises `s->mged_curr_dm->dm_view_state->vs_gvp` directly; (b) scalar
+     field initialisations at the bottom (`DMP_dirty`, `mapped`, `owner`, `am_mode`,
+     `adc_auto`, `grid_auto_size`) changed to explicit `s->mged_curr_dm->dm_*`.
+   - `mged_dm_init()` in `attach.c`: `cmd_hook = dm_commands` → explicit
+     `s->mged_curr_dm->dm_cmd_hook = dm_commands`.
+   - `mged_attach()` in `attach.c`: `predictor_init(s)` removed (it incorrectly
+     targeted the OLD pane's trails); replaced by `predictor_init_pane(pane)` inside
+     `mged_pane_init_resources()`.  `BU_LIST_INIT(&dm_p_vlist)` kept for safe no-op
+     teardown in `release()` / `mged_finish()`.
+   - `mged_pane_free_resources()` for wrapper panes: `BSG_FREE_VLIST(&rt_vlfree,
+     &mp->mp_p_vlist)` added — wrapper pane now owns the predictor vlist.
+
+   **Remaining work (Step 7.9 onwards)**:
    - `f_attach`/`mged_attach()`/`mged_dm_init()`: convert to Obol-only path
    - Delete `struct mged_dm`, `DMP`/`fbp`/`clients` macros, `dm-generic.c`
 
