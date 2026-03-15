@@ -55,7 +55,7 @@ ged_fbclear_core(struct ged *gedp, int argc, const char *argv[])
     GED_CHECK_ARGC_GT_0(gedp, argc, BRLCAD_ERROR);
 
     if (!gedp->ged_gvp || !gedp->ged_gvp->dmp) {
-	bu_vls_printf(gedp->ged_result_str, "no display manager currently active");
+	bu_vls_printf(gedp->ged_result_str, "framebuffer operations require a display manager backend; use the rt command to raytrace to a file in the Obol rendering path");
 	return BRLCAD_ERROR;
     }
 
