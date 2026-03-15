@@ -3935,7 +3935,13 @@ loop_is_degenerate(const ON_SimpleArray<ON_Curve *> &loop)
     if (pt1.DistanceTo(pt2) < INTERSECTION_TOL) {
 	return true;
     }
-    if (bbox_diag > INTERSECTION_TOL && area / (bbox_diag * bbox_diag) < 1e-3) {
+    /* Use a tight threshold so only genuine floating-point noise from
+     * there-and-back paths (area ≈ 1e-18) is caught, not valid narrow
+     * slivers (area ≈ 0.0006).  There-and-back shoelace area is exactly
+     * zero in theory; the residual is at most ~n * eps * coord² ≈ 1e-15.
+     * A valid narrow face piece has area proportional to its width which
+     * is always >> 1e-10 for any geometrically meaningful face. */
+    if (bbox_diag > INTERSECTION_TOL && area / (bbox_diag * bbox_diag) < 1e-10) {
 	return true;
     }
     return false;
@@ -3999,9 +4005,13 @@ split_trimmed_face(
     }
     delete face_outerloop;
 
-    /* 1% relative tolerance for the coextension area comparison.
-     * Defined once here; used inside the ssx_curves loop. */
-    static const double COEXT_AREA_TOL = 0.01;
+    /* 0.001% relative tolerance for the coextension area comparison.
+     * This tight threshold ensures the guard fires only for genuine
+     * there-and-back degenerate complements where ssx_area == orig_face_area
+     * within floating-point precision (difference ≈ 1e-18), while NOT
+     * firing for valid narrow sliver complements where the difference
+     * can be 0.05% or more of the original face area. */
+    static const double COEXT_AREA_TOL = 1e-5;
 
     for (int i = 0; i < ssx_curves.Count(); ++i) {
 	std::vector<ON_SimpleArray<ON_Curve *> > ssx_loops;
