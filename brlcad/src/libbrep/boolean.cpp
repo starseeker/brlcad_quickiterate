@@ -6341,10 +6341,54 @@ ON_Boolean(ON_Brep *evaluated_brep, const ON_Brep *brep1, const ON_Brep *brep2, 
 		     * true.  m_bRev3d is set later (after
 		     * standardize_loop_orientations) to avoid a possible
 		     * direction-flip by that function invalidating the value
-		     * we compute here. */
-		    const ON_3dPoint &pt = evaluated_brep->m_V[e.m_vi[0]].Point();
-		    ON_Plane plane(pt, ON_3dVector(0, 0, 1));
-		    ON_Circle circle(plane, 1.0e-8);
+		     * we compute here.
+		     *
+		     * Orient the arc plane so that the arc's tangent at t=0
+		     * (= plane Y-axis) aligns with the 3D projection of the
+		     * trim's UV chord direction.  This guarantees that after
+		     * standardize_loop_orientations (which reverses both the
+		     * trim curve and the edge arc together if the loop is
+		     * reversed), the trim and arc still run in the same
+		     * direction, so m_bRev3d = false for all self-loop trims.
+		     *
+		     * The plane Y-axis is set to normalize(tan3d) where
+		     * tan3d = uv_dir.x * du + uv_dir.y * dv. */
+		    const ON_3dPoint &vpt = evaluated_brep->m_V[e.m_vi[0]].Point();
+		    /* Find the 3D direction from the first usable trim. */
+		    ON_3dVector yaxis(0, 1, 0); /* fallback */
+		    for (int k = 0; k < e.m_ti.Count(); k++) {
+			int ti = e.m_ti[k];
+			if (ti < 0 || ti >= evaluated_brep->m_T.Count()) continue;
+			const ON_BrepTrim &tr = evaluated_brep->m_T[ti];
+			const ON_BrepLoop *lp = tr.Loop();
+			const ON_BrepFace *fc = lp ? lp->Face() : nullptr;
+			const ON_Surface  *sf = fc ? fc->SurfaceOf() : nullptr;
+			const ON_Curve    *cv = tr.TrimCurveOf();
+			if (!sf || !cv) continue;
+			ON_3dPoint ps = cv->PointAtStart();
+			ON_3dPoint pe = cv->PointAtEnd();
+			ON_3dVector uvd(pe.x - ps.x, pe.y - ps.y, 0);
+			if (uvd.IsZero())
+			    uvd = cv->TangentAt(cv->Domain().Mid());
+			if (uvd.IsZero()) continue;
+			ON_3dPoint srfpt; ON_3dVector du, dv;
+			sf->Ev1Der(ps.x, ps.y, srfpt, du, dv);
+			ON_3dVector tan3d = uvd.x * du + uvd.y * dv;
+			if (tan3d.IsZero()) continue;
+			tan3d.Unitize();
+			yaxis = tan3d;
+			break;
+		    }
+		    /* Build a plane with Y-axis = yaxis (arc tangent at t=0).
+		     * The radius is chosen small enough to be well below any
+		     * model feature size while remaining numerically stable. */
+		    static const double DEGENERATE_ARC_RADIUS = 1.0e-8;
+		    ON_3dVector xaxis = ON_CrossProduct(yaxis, ON_3dVector(0, 0, 1));
+		    if (xaxis.IsZero())
+			xaxis = ON_CrossProduct(yaxis, ON_3dVector(1, 0, 0));
+		    xaxis.Unitize();
+		    ON_Plane plane(vpt, xaxis, yaxis);
+		    ON_Circle circle(plane, DEGENERATE_ARC_RADIUS);
 		    ON_Arc arc(circle, ON_Interval(0.0, 2.0 * ON_PI));
 		    ON_ArcCurve *arc_crv = new ON_ArcCurve(arc);
 		    int new_c3i = evaluated_brep->m_C3.Count();
@@ -6373,48 +6417,24 @@ ON_Boolean(ON_Brep *evaluated_brep, const ON_Brep *brep1, const ON_Brep *brep2, 
     /* Set m_bRev3d for any self-loop (closed) arc edges that were created
      * by the vertex merge pass above.  This is done AFTER
      * standardize_loop_orientations because that function may reverse loop
-     * and edge directions, which would flip the correct m_bRev3d value.
+     * and edge directions.
      *
-     * For a self-loop arc (edge with m_vi[0]==m_vi[1] and an arc curve):
-     * OpenNURBS IsValid() checks that the 2D trim's winding direction in UV
-     * space matches the 3D arc's winding direction viewed from the face
-     * normal.  The correct discriminant after all reversals is:
-     *   m_bRev3d = false  (arc and trim go in the same direction)
-     * IF the 2D UV chord direction, projected to 3D via the surface
-     * first-order derivatives, has a positive dot product with the arc
-     * tangent at the edge start.
-     *
-     * For our XY-plane arc (normal=+Z, arc tangent at t=0 is (0,1,0)):
-     * compute tan3d = uv_dir.x*du + uv_dir.y*dv and use the formula
-     *   m_bRev3d = (tan3d.y < 0)
-     * (the sign of the Y component of the 3D projection).  This correctly
-     * resolves the direction check for the self-loop trims in m35 r5/r6. */
+     * By construction, the arc plane was oriented so that the arc's tangent
+     * at t=0 (the plane's Y-axis) aligns with the 3D projection of the trim's
+     * UV chord direction.  This means the trim and arc always run in the SAME
+     * direction, regardless of whether standardize_loop_orientations reversed
+     * the loop (which reverses both the trim curve and the arc edge curve
+     * together, preserving their relative direction).  Therefore m_bRev3d is
+     * always false for these synthetic self-loop arc trims. */
     for (int ei = 0; ei < evaluated_brep->m_E.Count(); ei++) {
 	ON_BrepEdge &e = evaluated_brep->m_E[ei];
 	if (!e.IsClosed() || e.m_vi[0] != e.m_vi[1] || e.m_vi[0] < 0)
 	    continue;
-	const ON_ArcCurve *arc_c = ON_ArcCurve::Cast(e.EdgeCurveOf());
-	if (!arc_c) continue; /* not our synthetic arc */
+	if (!ON_ArcCurve::Cast(e.EdgeCurveOf())) continue; /* not our arc */
 	for (int k = 0; k < e.m_ti.Count(); k++) {
 	    int trim_idx = e.m_ti[k];
-	    if (trim_idx < 0 || trim_idx >= evaluated_brep->m_T.Count())
-		continue;
-	    ON_BrepTrim &trim = evaluated_brep->m_T[trim_idx];
-	    const ON_BrepLoop *loop = trim.Loop();
-	    const ON_BrepFace *face = loop ? loop->Face() : nullptr;
-	    const ON_Surface *srf = face ? face->SurfaceOf() : nullptr;
-	    const ON_Curve  *c2  = trim.TrimCurveOf();
-	    if (!srf || !c2) { trim.m_bRev3d = false; continue; }
-	    ON_3dPoint ps = c2->PointAtStart();
-	    ON_3dPoint pe = c2->PointAtEnd();
-	    ON_3dVector uv_dir(pe.x - ps.x, pe.y - ps.y, 0);
-	    if (uv_dir.IsZero())
-		uv_dir = c2->TangentAt(c2->Domain().Mid());
-	    if (uv_dir.IsZero()) { trim.m_bRev3d = false; continue; }
-	    ON_3dPoint srf_pt; ON_3dVector du, dv;
-	    srf->Ev1Der(ps.x, ps.y, srf_pt, du, dv);
-	    ON_3dVector tan3d = uv_dir.x * du + uv_dir.y * dv;
-	    trim.m_bRev3d = (tan3d.x < 0.0);
+	    if (trim_idx >= 0 && trim_idx < evaluated_brep->m_T.Count())
+		evaluated_brep->m_T[trim_idx].m_bRev3d = false;
 	}
     }
 
