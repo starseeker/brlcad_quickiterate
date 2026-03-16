@@ -563,20 +563,21 @@ init_sedit(struct mged_state *s)
 
     struct ged_bv_data *bdata = (struct ged_bv_data *)illump->s_u_data;
 
-    /* Destroy any previous rt_edit state and create a fresh one for this solid.
-     * This replaces the blank rt_edit created at startup (or from a prior edit).
-     * The Tcl "edit_solid_flag" link must be re-established on the new struct. */
-    if (MEDIT(s)) {
-	Tcl_UnlinkVar(s->interp, "edit_solid_flag");
-	rt_edit_destroy(MEDIT(s));
-    }
-    MEDIT(s) = rt_edit_create(&bdata->s_fullpath, s->dbip, &s->tol.tol, view_state->vs_gvp);
-    if (!MEDIT(s)) {
+    /* Reinitialise the single persistent rt_edit struct with the new solid.
+     * rt_edit_reinit() frees any prior primitive data (ipe_ptr, es_int) and
+     * reloads from the database, keeping the same allocated struct so that
+     * MEDIT(s) is never NULL and pointers into it (such as the Tcl
+     * "edit_solid_flag" link) remain valid across editing sessions. */
+    Tcl_UnlinkVar(s->interp, "edit_solid_flag");   /* safe if not currently linked */
+    if (rt_edit_reinit(MEDIT(s), &bdata->s_fullpath, s->dbip, &s->tol.tol, view_state->vs_gvp) != BRLCAD_OK) {
 	Tcl_AppendResult(s->interp, "init_sedit(",
 			 LAST_SOLID(bdata)->d_namep,
 			 "):  solid import failure\n", (char *)NULL);
 	return;
     }
+    /* Re-establish the Tcl link.  The address &MEDIT(s)->edit_flag is stable
+     * (same struct, never reallocated), but we unlink+relink to ensure a clean
+     * binding after every new editing session. */
     Tcl_LinkVar(s->interp, "edit_solid_flag", (char *)&MEDIT(s)->edit_flag, TCL_LINK_INT);
     MEDIT(s)->mv_context = mged_variables->mv_context;
     MEDIT(s)->vlfree = &rt_vlfree;
@@ -1163,9 +1164,7 @@ sedit_apply(struct mged_state *s, int accept_flag)
 
     /* make sure we are in solid edit mode */
     if (!illump) {
-	Tcl_UnlinkVar(s->interp, "edit_solid_flag");
-	rt_edit_destroy(MEDIT(s));
-	MEDIT(s) = NULL;
+	rt_edit_reset(MEDIT(s));
 	mmenu_set(s, MENU_L1, NULL);
 	mmenu_set(s, MENU_L2, NULL);
 	return TCL_OK;
@@ -1173,9 +1172,7 @@ sedit_apply(struct mged_state *s, int accept_flag)
 
     /* write editing changes out to disc */
     if (!illump->s_u_data) {
-	Tcl_UnlinkVar(s->interp, "edit_solid_flag");
-	rt_edit_destroy(MEDIT(s));
-	MEDIT(s) = NULL;
+	rt_edit_reset(MEDIT(s));
 	mmenu_set(s, MENU_L1, NULL);
 	mmenu_set(s, MENU_L2, NULL);
 	return TCL_ERROR;
@@ -1184,9 +1181,7 @@ sedit_apply(struct mged_state *s, int accept_flag)
     dp = LAST_SOLID(bdata);
     if (!dp) {
 	/* sanity check, unexpected error */
-	Tcl_UnlinkVar(s->interp, "edit_solid_flag");
-	rt_edit_destroy(MEDIT(s));
-	MEDIT(s) = NULL;
+	rt_edit_reset(MEDIT(s));
 	mmenu_set(s, MENU_L1, NULL);
 	mmenu_set(s, MENU_L2, NULL);
 	return TCL_ERROR;
@@ -1224,9 +1219,7 @@ sedit_apply(struct mged_state *s, int accept_flag)
 	if (accept_flag) {
 	    rt_db_free_internal(&MEDIT(s)->es_int);
 	}
-	Tcl_UnlinkVar(s->interp, "edit_solid_flag");
-	rt_edit_destroy(MEDIT(s));
-	MEDIT(s) = NULL;
+	rt_edit_reset(MEDIT(s));
 	mmenu_set(s, MENU_L1, NULL);
 	mmenu_set(s, MENU_L2, NULL);
 	return TCL_ERROR;				/* FAIL */
@@ -1235,10 +1228,13 @@ sedit_apply(struct mged_state *s, int accept_flag)
     if (accept_flag) {
 	menu_state->ms_flag = 0;
 	movedir = 0;
-	MEDIT(s)->edit_flag = -1;
 	s->s_edit->es_edclass = EDIT_CLASS_NULL;
 
-	rt_db_free_internal(&MEDIT(s)->es_int);
+	/* Reset the persistent rt_edit to idle: frees es_int, ipe_ptr and all
+	 * per-solid state without freeing the struct itself.  MEDIT(s) remains
+	 * non-NULL so ill_common() and other callers are always safe. */
+	rt_edit_reset(MEDIT(s));
+	MEDIT(s)->edit_flag = -1;
     } else {
 	/* rt_db_put_internal frees the internal representation as a side effect.
 	 * Since we are in "apply but stay editing" mode (sed_apply command),
@@ -1254,9 +1250,6 @@ sedit_apply(struct mged_state *s, int accept_flag)
 	}
     }
 
-    Tcl_UnlinkVar(s->interp, "edit_solid_flag");
-    rt_edit_destroy(MEDIT(s));
-    MEDIT(s) = NULL;
     mmenu_set(s, MENU_L1, NULL);
     mmenu_set(s, MENU_L2, NULL);
     return TCL_OK;
@@ -1296,9 +1289,8 @@ sedit_reject(struct mged_state *s)
 	struct display_list *next_gdlp;
 	struct bv_scene_obj *sp;
 	if (!illump->s_u_data) {
-	    Tcl_UnlinkVar(s->interp, "edit_solid_flag");
-	    rt_edit_destroy(MEDIT(s));
-	    MEDIT(s) = NULL;
+	    /* No solid data to replot; just reset to idle and clean up menus. */
+	    rt_edit_reset(MEDIT(s));
 	    mmenu_set(s, MENU_L1, NULL);
 	    mmenu_set(s, MENU_L2, NULL);
 	    return;
@@ -1323,10 +1315,12 @@ sedit_reject(struct mged_state *s)
 
     menu_state->ms_flag = 0;
     movedir = 0;
-    MEDIT(s)->edit_flag = -1;
     s->s_edit->es_edclass = EDIT_CLASS_NULL;
 
-    rt_db_free_internal(&MEDIT(s)->es_int);
+    /* Reset the persistent rt_edit to idle: frees es_int (the modified copy),
+     * ipe_ptr and all per-solid state.  MEDIT(s) stays non-NULL. */
+    rt_edit_reset(MEDIT(s));
+    MEDIT(s)->edit_flag = -1;
 }
 
 int

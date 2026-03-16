@@ -366,6 +366,36 @@ RT_EXPORT extern void
 rt_edit_destroy(struct rt_edit *s);
 
 /**
+ * Reset an rt_edit back to an idle/empty state without freeing the struct
+ * itself.  This frees any loaded primitive data (es_int, ipe_ptr, es_ckpt,
+ * comb_insts) and resets all edit-state fields to their initial values, but
+ * leaves the rt_edit struct, its edit_map, and its log_str allocated and
+ * usable.  The pointer returned by rt_edit_create() remains valid after this
+ * call and can be reloaded with a new solid by calling rt_edit_reinit().
+ *
+ * Use this instead of rt_edit_destroy()+rt_edit_create() when a single
+ * persistent rt_edit should be kept alive across multiple editing sessions
+ * (e.g. in MGED where MEDIT(s) must never be NULL).
+ */
+RT_EXPORT extern void
+rt_edit_reset(struct rt_edit *s);
+
+/**
+ * Reload an existing (reset or newly created) rt_edit with solid data from
+ * @a dfp inside database @a dbip.  Equivalent to rt_edit_create() but reuses
+ * the already-allocated struct rather than allocating a new one.
+ *
+ * Calls rt_edit_reset() first to discard any previous solid data, then
+ * imports the solid, sets up the primitive-specific private state, and
+ * computes the path matrix and initial keypoint.
+ *
+ * @return BRLCAD_OK on success, BRLCAD_ERROR if the solid import fails.
+ */
+RT_EXPORT extern int
+rt_edit_reinit(struct rt_edit *s, struct db_full_path *dfp, struct db_i *dbip,
+               struct bn_tol *tol, struct bview *v);
+
+/**
  * Set a string parameter in the edit struct's e_str[] array.
  *
  * @param s      The edit struct to update.

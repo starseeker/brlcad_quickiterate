@@ -211,6 +211,126 @@ rt_edit_destroy(struct rt_edit *s)
     BU_PUT(s, struct rt_edit);
 }
 
+
+void
+rt_edit_reset(struct rt_edit *s)
+{
+    if (!s)
+	return;
+
+    struct rt_db_internal *ip = &s->es_int;
+
+    /* Free primitive-specific private state.  Must happen before
+     * rt_db_free_internal() because the destructor needs the correct
+     * idb_type to dispatch. */
+    if (s->ipe_ptr) {
+	if (ip->idb_type > 0 && EDOBJ[ip->idb_type].ft_prim_edit_destroy)
+	    (*EDOBJ[ip->idb_type].ft_prim_edit_destroy)(s->ipe_ptr);
+	s->ipe_ptr = NULL;
+    }
+
+    /* Free stored solid and checkpoint data, clear comb-instance table */
+    rt_db_free_internal(&s->es_int);
+    bu_free_external(&s->es_ckpt);
+    BU_EXTERNAL_INIT(&s->es_ckpt);
+    bu_ptbl_reset(&s->comb_insts);
+
+    /* Clear the edit-callback map (will be repopulated by
+     * mged_edit_clbk_sync() at the next init_sedit call) */
+    rt_edit_map_clear(s->m);
+
+    /* Reset all per-edit-session fields to initial values, matching the
+     * state produced by rt_edit_create(NULL, NULL, NULL, NULL). */
+    MAT_IDN(s->acc_rot_sol);
+    MAT_IDN(s->e_invmat);
+    MAT_IDN(s->e_mat);
+    MAT_IDN(s->incr_change);
+    MAT_IDN(s->model_changes);
+    VSETALL(s->curr_e_axes_pos, 0.0);
+    VSETALL(s->e_axes_pos, 0.0);
+    VSETALL(s->e_keypoint, 0.0);
+    VSETALL(s->e_mparam, 0.0);
+    memset(s->e_para, 0, sizeof(s->e_para));
+    memset(s->e_str, 0, sizeof(s->e_str));
+
+    bv_knobs_reset(&s->k, 0);
+    s->k.origin_m = '\0';
+    s->k.origin_o = '\0';
+    s->k.origin_v = '\0';
+    s->k.rot_m_udata = NULL;
+    s->k.rot_o_udata = NULL;
+    s->k.rot_v_udata = NULL;
+    s->k.sca_udata = NULL;
+    s->k.tra_m_udata = NULL;
+    s->k.tra_v_udata = NULL;
+
+    s->acc_sc_sol = 1.0;
+    s->acc_sc_obj = 1.0;
+    VSETALL(s->acc_sc, 1.0);
+    s->base2local = 1.0;
+    s->e_inpara = 0;
+    s->e_nstr = 0;
+    s->e_keyfixed = 0;
+    s->e_keytag = NULL;
+    s->e_mvalid = 0;
+    s->edit_flag = 0;
+    s->edit_mode = RT_EDIT_DEFAULT;
+    s->es_scale = 0.0;
+    s->local2base = 1.0;
+    s->mv_context = 0;
+    s->snap.enabled = 0;
+    s->snap.spacing = 1.0;
+    s->u_ptr = NULL;
+    s->update_views = 0;
+    s->vlfree = NULL;
+
+    bu_vls_trunc(s->log_str, 0);
+}
+
+
+int
+rt_edit_reinit(struct rt_edit *s, struct db_full_path *dfp, struct db_i *dbip,
+               struct bn_tol *tol, struct bview *v)
+{
+    if (!s)
+	return BRLCAD_ERROR;
+
+    /* Reset to a clean idle state first */
+    rt_edit_reset(s);
+
+    s->tol = tol;
+    s->vp = v;
+
+    if (!dfp || !dbip) {
+	/* Idle init with no solid — same as rt_edit_create(NULL, ...) */
+	if (dfp && DB_FULL_PATH_CUR_DIR(dfp) && EDOBJ[DB_FULL_PATH_CUR_DIR(dfp)->d_minor_type].ft_prim_edit_create)
+	    s->ipe_ptr = (*EDOBJ[DB_FULL_PATH_CUR_DIR(dfp)->d_minor_type].ft_prim_edit_create)(NULL);
+	return BRLCAD_OK;
+    }
+
+    s->local2base = dbip->dbi_local2base;
+    s->base2local = dbip->dbi_base2local;
+
+    if (rt_db_get_internal(&s->es_int, DB_FULL_PATH_CUR_DIR(dfp), dbip, NULL, &rt_uniresource) < 0)
+	return BRLCAD_ERROR;
+
+    RT_CK_DB_INTERNAL(&s->es_int);
+
+    /* Set up primitive-specific private edit state */
+    if (EDOBJ[DB_FULL_PATH_CUR_DIR(dfp)->d_minor_type].ft_prim_edit_create)
+	s->ipe_ptr = (*EDOBJ[DB_FULL_PATH_CUR_DIR(dfp)->d_minor_type].ft_prim_edit_create)(s);
+
+    /* Compute aggregate path matrix and its inverse */
+    (void)db_path_to_mat(dbip, dfp, s->e_mat, dfp->fp_len - 1, &rt_uniresource);
+    bn_mat_inv(s->e_invmat, s->e_mat);
+
+    /* Establish initial keypoint */
+    s->e_keytag = "";
+    rt_get_solid_keypoint(s, &s->e_keypoint, &s->e_keytag, s->e_mat);
+
+    return BRLCAD_OK;
+}
+
 void
 rt_edit_set_str(struct rt_edit *s, int index, const char *str)
 {
