@@ -1217,7 +1217,7 @@ to_poly_cont_build_func(Tcl_Interp *interp,
 			int UNUSED(argc),
 			const char *argv[],
 			const char *usage,
-			int doBind)
+			int UNUSED(doBind))
 {
     int ac;
     char *av[7];

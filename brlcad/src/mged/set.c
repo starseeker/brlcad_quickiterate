@@ -389,8 +389,6 @@ set_dlist(const struct bu_structparse *UNUSED(sdp),
     struct mged_state *s = (struct mged_state *)data;
     MGED_CK_STATE(s);
     struct mged_pane *save_pane = s->mged_curr_pane;
-    /* Step 7.7: compare via pane's mp_mged_variables instead of mged_curr_dm. */
-    struct _mged_variables *save_mv = save_pane->mp_mged_variables;
 
     /* Step 7.20: display list loops removed (mp_dmp gone). */
     set_curr_pane(s, save_pane);

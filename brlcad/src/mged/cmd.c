@@ -2036,11 +2036,6 @@ cmd_draw(ClientData clientData, Tcl_Interp *UNUSED(interpreter), int argc, const
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
 
-    bsg_view *gvp = NULL;
-
-    if (s->gedp)
-	gvp = s->gedp->ged_gvp;
-
     /* Step 7.20: DMP removed — gv_width/height not set from dm. */
 
     return edit_com(s, argc, argv);

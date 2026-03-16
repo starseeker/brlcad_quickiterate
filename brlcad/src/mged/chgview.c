@@ -999,7 +999,6 @@ f_regdebug(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv
 {
     struct cmdtab *ctp = (struct cmdtab *)clientData;
     MGED_CK_CMD(ctp);
-    struct mged_state *s = ctp->s;
     static int regdebug = 0;
     static char debug_str[10];
 

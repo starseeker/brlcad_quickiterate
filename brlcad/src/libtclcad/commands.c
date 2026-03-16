@@ -1440,8 +1440,6 @@ to_configure(struct ged *gedp,
 	const char *usage,
 	int UNUSED(maxargs))
 {
-    int status;
-
     /* initialize result */
     bu_vls_trunc(gedp->ged_result_str, 0);
 
@@ -6011,10 +6009,6 @@ to_zclip(struct ged *gedp,
 static void
 to_create_vlist_callback_solid(void *UNUSED(ctx), bsg_shape *sp)
 {
-    bsg_view *gdvp;
-    int first = 1;
-    struct tclcad_ged_data *tgd = (struct tclcad_ged_data *)current_top->to_gedp->u_data;
-
     /* dm display lists are going away with libdm; Obol uses its own scene graph */
     (void)sp;
 }
@@ -6039,9 +6033,6 @@ to_create_vlist_callback(void *ctx, struct display_list *gdlp)
 static void
 to_destroy_vlist_callback(void *UNUSED(ctx), unsigned int dlist, int range)
 {
-    bsg_view *gdvp;
-    struct tclcad_ged_data *tgd = (struct tclcad_ged_data *)current_top->to_gedp->u_data;
-
     /* dm display lists are going away with libdm; Obol uses its own scene graph */
     (void)dlist; (void)range;
 }
