@@ -1540,6 +1540,36 @@ from `mp_gvp` (no DMP indirection).
    - Delete `src/libdm/` rendering plugins once all frontends have migrated to Obol.
    - Implement Obol-path framebuffer compositing for `rt` output display.
 
+   **Stage 14** ✅ (Session 34) — Fix build errors from dead-code leftovers; delete orphaned files.
+
+   Changes:
+   - `src/libtclcad/commands.c`: Removed unused local variables in `to_configure`
+     (`status`), `to_create_vlist_callback_solid` (`gdvp`, `first`, `tgd`), and
+     `to_destroy_vlist_callback` (`gdvp`, `tgd`).  These were stubs left over from
+     the libdm vlist-callback path.
+   - `src/libtclcad/polygons.c`: Marked `doBind` parameter `UNUSED` in the
+     polygon-append helper — the bind step was removed with libdm.
+   - `src/libtclcad/init.c`: Updated the misleading `/* Initialize libdm */`
+     comment to reflect that `Dm_Init` is now a no-op stub.
+   - `src/mged/adc.c`: Deleted dead static `draw_ticks()` function (was only
+     called from the removed dm rendering loop).
+   - `src/mged/chgview.c`: Removed unused `mged_state *s` declaration in
+     `f_regdebug` (display-manager debug command; no dm handle is available).
+   - `src/mged/cmd.c`: Removed unused `bsg_view *gvp` from `cmd_draw`; updated
+     stale `f_winset` comments that referred to "legacy dm wrappers" — all panes
+     are now Obol-only.
+   - `src/mged/predictor.c`: Deleted dead static `push_trail()` and `poly_trail()`
+     functions (were only called from `predictor_frame()` which is a no-op stub).
+   - `src/mged/scroll.c`: Deleted dead static helpers `second_menu_scroll_display`,
+     `edit_scroll_display`, `view_scroll_display` (called only by `scroll_display()`
+     which is already a no-op stub).
+   - `src/mged/set.c`: Removed unused `save_mv` in `set_dlist`.
+   - `src/mged/attach.c`: Updated stale comments about "legacy dm wrappers" and
+     "mp_dm == NULL" — all panes are now Obol panes with no dm handle.
+   - `src/mged/dm-generic.c`: **Deleted** from disk.  The file was already removed
+     from `CMakeLists.txt` in Step 7.19; removing the source prevents confusion.
+     The `mged_dm.h` stub comment already documented its deletion.
+
 **Key files to update (Stage 7 MGED work):**
 
 | File | Change |

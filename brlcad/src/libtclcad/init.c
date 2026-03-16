@@ -184,7 +184,7 @@ tclcad_init(Tcl_Interp *interp, int init_gui, struct bu_vls *tlog)
 	return TCL_ERROR;
     }
 
-    /* Initialize libdm */
+    /* Initialize dm/fb Tcl commands (stubbed; dm backend removed in favour of Obol) */
     if (Dm_Init(interp) == TCL_ERROR) {
 	if (tlog)
 	    bu_vls_printf(tlog, "Dm_Init ERROR:\n%s\n", Tcl_GetStringResult(interp));
