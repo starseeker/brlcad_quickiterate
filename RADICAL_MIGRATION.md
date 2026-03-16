@@ -1498,13 +1498,43 @@ from `mp_gvp` (no DMP indirection).
    | `$ged png $view file.png` | `dm_get_display_image()` + libpng | `obol_view_screengrab $view png file.png` |
    | `$ged pix $view file.pix` | `dm_get_display_image()` | `obol_view_screengrab $view pix file.pix` |
 
-   **Outstanding work** (obol_view widget side — not in libtclcad):
-   - `obol_view_screengrab <view> png|pix <file>`: Qt widget must implement this
-     Tcl command using `QOpenGLWidget::grabFramebuffer()` to support `png`/`pix`.
-   - `obol_view` should read `tvd->gdv_bg[3]` and `tvd->gdv_light` on each render
-     to set `viewport_.setBackgroundColor()` and toggle the scene's directional light.
-   - Framebuffer compositing for `rt` output: `gv_fb_mode` is stored; the Obol
-     texture overlay for rt-rendered pixels is future work.
+   **Stage 13** ✅ (Session 33) — Wire `obol_view` widget to `tclcad_view_data` render settings.
+
+   Changes (all in `src/libtclcad/obol_view.cpp` + `src/libtclcad/init.c`):
+
+   - `ObolViewWidget` struct gains `bg_r/bg_g/bg_b` float cache fields
+     (initialized to `0.2f` = the previous hardcoded background).
+
+   - New `obol_view_apply_render_settings(w)` helper — called at the top of
+     every `obol_view_do_render()`:
+     - Reads `tvd->gdv_bg[3]` from the attached `bsg_view->u_data`; converts
+       0–255 bytes to 0.0–1.0 floats; stores in `w->bg_r/g/b`.
+     - HW path: calls `w->render_mgr.setBackgroundColor(SbColor4f(r,g,b,1))`.
+     - SW path: `obol_view_render_sw()` now uses `w->bg_r/g/b` instead of the
+       hardcoded `0.2f, 0.2f, 0.2f`.
+     - Reads `tvd->gdv_light`; enables/disables `child[0]` (the
+       `SoDirectionalLight` placed by `obol_scene_create()`) via `dl->on`.
+     - If `tvd == NULL` (view has no tclcad data), defaults: bg=0.2 grey, light on.
+
+   - New `obol_view_screengrab_impl(w, format, filename, interp)` helper —
+     uses `SoOffscreenRenderer` regardless of HW/SW rendering path:
+     - `format == "pix"`: writes raw RGB bytes.
+     - `format == "png"`: delegates to `SoOffscreenRenderer::writeToFile(..., "png")`.
+     - Applies render settings and camera sync before the offscreen render.
+
+   - New `screengrab png|pix <filename>` subcommand on the widget instance.
+
+   - New top-level Tcl command `obol_view_screengrab <viewname> png|pix <file>`:
+     - Iterates `s_obol_view_instances`; finds the widget whose `bsg_view->gv_name`
+       matches `viewname`; delegates to `obol_view_screengrab_impl`.
+     - Registered as `Obol_View_Screengrab_Cmd` in `init.c` alongside
+       `obol_init` / `obol_view` / `obol_notify_views`.
+     - This is the command `to_pix()` / `to_png()` in `commands.c` call.
+
+   **Outstanding work** (remaining after Stage 13):
+   - Framebuffer compositing for `rt` output: `gv_fb_mode` is stored on
+     `gv_s->gv_fb_mode`; the Obol texture overlay for rt-rendered pixels is
+     future work (requires an `rt` backend that writes to an Obol texture node).
 
    **Long-term remaining work**:
    - Delete `src/libdm/` rendering plugins once all frontends have migrated to Obol.

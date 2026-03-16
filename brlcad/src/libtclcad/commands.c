@@ -1100,18 +1100,8 @@ to_deleteProc(ClientData clientData)
 	for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
 	    gdvp = (bsg_view *)BU_PTBL_GET(views, i);
 
-	    // There is a top level command created in the Tcl interp that is the name
-	    // of the dm.  Clear that command.
-	    if (gdvp->dmp) {
-		struct bu_vls *dm_tcl_cmd = NULL;
-		if (dm_tcl_cmd && bu_vls_strlen(dm_tcl_cmd))
-		    Tcl_DeleteCommand(top->to_interp, bu_vls_cstr(dm_tcl_cmd));
-
-		// Close the dm.  This is not done by libged because libged only manages the
-		// data bv knows about.  From bv's perspective, dmp is just a pointer
-		// to an opaque data structure it knows nothing about.
-		
-	    }
+	    // With libdm removed, dmp is always NULL for Obol views; no dm
+	    // Tcl command or dm context to clean up here.
 
 	    // Delete libtclcad specific parts of data - ged_free (called by
 	    // ged_close) will handle freeing the primary bv list entries.
@@ -1605,14 +1595,8 @@ to_constrain_tmode(struct ged *gedp,
     gdvp->gv_prevMouseY = y;
     gdvp->gv_tcl.gv_polygon_mode = TCLCAD_CONSTRAINED_TRANSLATE_MODE;
 
-    if (NULL) {
-	bu_vls_printf(&bindings, "bind %s <Motion> {%s mouse_constrain_trans %s %s %%x %%y}; break",
-		bu_vls_addr(NULL),
-		bu_vls_addr(&current_top->to_gedp->go_name),
-		bu_vls_addr(&gdvp->gv_name),
-		argv[2]);
-	Tcl_Eval(current_top->to_interp, bu_vls_addr(&bindings));
-    }
+    /* Obol path: motion bindings are wired through obol_view events directly;
+     * no Tk 'bind' on a dm pathname is needed. */
     bu_vls_free(&bindings);
 
     return BRLCAD_OK;
@@ -2803,264 +2787,10 @@ to_data_vZ(struct ged *gedp,
 static void
 to_init_default_bindings(bsg_view *gdvp)
 {
-    struct bu_vls bindings = BU_VLS_INIT_ZERO;
-
-    if (NULL) {
-	struct bu_vls *pathvls = NULL;
-	if (pathvls) {
-	    bu_vls_printf(&bindings, "bind %s <Configure> {%s configure %s; break}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s <Enter> {focus %s; break}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(pathvls));
-	    bu_vls_printf(&bindings, "bind %s <Expose> {%s handle_expose %s %%c; break}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "catch {wm protocol %s WM_DELETE_WINDOW {%s delete_view %s; break}}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-
-	    /* Mouse Bindings */
-	    bu_vls_printf(&bindings, "bind %s <2> {%s vslew %s %%x %%y; focus %s; break}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name),
-		    bu_vls_addr(pathvls));
-	    bu_vls_printf(&bindings, "bind %s <1> {%s zoom %s 0.5; focus %s; break}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name),
-		    bu_vls_addr(pathvls));
-	    bu_vls_printf(&bindings, "bind %s <3> {%s zoom %s 2.0; focus %s;  break}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name),
-		    bu_vls_addr(pathvls));
-	    bu_vls_printf(&bindings, "bind %s <4> {%s zoom %s 1.1; break}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s <5> {%s zoom %s 0.9; break}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s <MouseWheel> {if {%%D < 0} {%s zoom %s 0.9} else {%s zoom %s 1.1}; break}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-
-	    /* Idle Mode */
-	    bu_vls_printf(&bindings, "bind %s <ButtonRelease> {%s idle_mode %s}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s <KeyRelease-Control_L> {%s idle_mode %s}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s <KeyRelease-Control_R> {%s idle_mode %s}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s <KeyRelease-Shift_L> {%s idle_mode %s}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s <KeyRelease-Shift_R> {%s idle_mode %s}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s <KeyRelease-Alt_L> {%s idle_mode %s; break}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s <KeyRelease-Alt_R> {%s idle_mode %s; break}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-
-	    /* Rotate Mode */
-	    bu_vls_printf(&bindings, "bind %s <Control-ButtonRelease-1> {%s idle_mode %s}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s <Control-ButtonPress-1> {%s rotate_mode %s %%x %%y}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s <Control-ButtonPress-2> {%s rotate_mode %s %%x %%y}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s <Control-ButtonPress-3> {%s rotate_mode %s %%x %%y}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-
-	    /* Translate Mode */
-	    bu_vls_printf(&bindings, "bind %s <Shift-ButtonRelease-1> {%s idle_mode %s}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s <Shift-ButtonPress-1> {%s translate_mode %s %%x %%y}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s <Shift-ButtonPress-2> {%s translate_mode %s %%x %%y}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s <Shift-ButtonPress-3> {%s translate_mode %s %%x %%y}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-
-	    /* Scale Mode */
-	    bu_vls_printf(&bindings, "bind %s <Control-Shift-ButtonRelease-1> {%s idle_mode %s}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s <Control-Shift-ButtonPress-1> {%s scale_mode %s %%x %%y}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s <Control-Shift-ButtonPress-2> {%s scale_mode %s %%x %%y}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s <Control-Shift-ButtonPress-3> {%s scale_mode %s %%x %%y}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-
-	    /* Constrained Rotate Mode */
-	    bu_vls_printf(&bindings, "bind %s <Control-Lock-ButtonRelease-1> {%s idle_mode %s}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s <Control-Lock-ButtonPress-1> {%s constrain_rmode %s x %%x %%y; break}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s <Control-Lock-ButtonPress-2> {%s constrain_rmode %s y %%x %%y; break}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s <Control-Lock-ButtonPress-3> {%s constrain_rmode %s z %%x %%y; break}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-
-	    /* Constrained Translate Mode */
-	    bu_vls_printf(&bindings, "bind %s <Shift-Lock-ButtonRelease-1> {%s idle_mode %s; break}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s <Shift-Lock-ButtonPress-1> {%s constrain_tmode %s x %%x %%y; break}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s <Shift-Lock-ButtonPress-2> {%s constrain_tmode %s y %%x %%y; break}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s <Shift-Lock-ButtonPress-3> {%s constrain_tmode %s z %%x %%y; break}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-
-	    /* Key Bindings */
-	    bu_vls_printf(&bindings, "bind %s 3 {%s aet %s 35 25; break}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s 4 {%s aet %s 45 45; break}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s f {%s aet %s 0 0; break}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s F {%s aet %s 0 0; break}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s R {%s aet %s 180 0; break}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s r {%s aet %s 270 0; break}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s l {%s aet %s 90 0; break}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s L {%s aet %s 90 0; break}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s t {%s aet %s 270 90; break}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s T {%s aet %s 270 90; break}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s b {%s aet %s 270 -90; break}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s B {%s aet %s 270 -90; break}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s + {%s zoom %s 2.0; break}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s = {%s zoom %s 2.0; break}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s _ {%s zoom %s 0.5; break}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s - {%s zoom %s 0.5; break}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s <Key-Left> {%s rot %s -v 0 1 0; break}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s <Key-Right> {%s rot %s -v 0 -1 0; break}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s <Key-Up> {%s rot %s -v 1 0 0; break}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-	    bu_vls_printf(&bindings, "bind %s <Key-Down> {%s rot %s -v -1 0 0; break}; ",
-		    bu_vls_addr(pathvls),
-		    bu_vls_addr(&current_top->to_gedp->go_name),
-		    bu_vls_addr(&gdvp->gv_name));
-
-	    Tcl_Eval(current_top->to_interp, bu_vls_addr(&bindings));
-	}
-    }
-    bu_vls_free(&bindings);
+    /* Obol path: Tk widget event bindings (Configure/Expose/Mouse/Key) are
+     * wired through the obol_view instance command, not through a dm widget
+     * Tk pathname.  Legacy dm-based Tk bind strings are no longer needed. */
+    (void)gdvp;
 }
 
 
@@ -3650,9 +3380,6 @@ to_idle_mode(struct ged *gedp,
 	     mode == TCLCAD_CONSTRAINED_TRANSLATE_MODE))
     {
 	const char *av[3];
-
-	gdvp->gv_width = gdvp->gv_width;
-	gdvp->gv_height = gdvp->gv_height;
 
 	gedp->ged_gvp = gdvp;
 	av[0] = "grid";
@@ -4759,9 +4486,7 @@ to_paint_rect_area(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    
-
-    /* dm/fb is going away; fb_refresh is a no-op in Obol path */
+    /* Obol path: framebuffer rect painting is handled by obol_view; no-op here. */
     return BRLCAD_OK;
 }
 
@@ -5509,9 +5234,6 @@ to_screen2model(struct ged *gedp,
 	bu_vls_printf(gedp->ged_result_str, "Usage: %s %s", argv[0], usage);
 	return BRLCAD_ERROR;
     }
-
-    gdvp->gv_width = gdvp->gv_width;
-    gdvp->gv_height = gdvp->gv_height;
     bsg_screen_to_view(gdvp, &x, &y, x, y);
     VSET(view, x, y, 0.0);
     { struct bsg_camera _cam; bsg_view_get_camera(gdvp, &_cam);
@@ -5561,9 +5283,6 @@ to_screen2view(struct ged *gedp,
 	bu_vls_printf(gedp->ged_result_str, "Usage: %s %s", argv[0], usage);
 	return BRLCAD_ERROR;
     }
-
-    gdvp->gv_width = gdvp->gv_width;
-    gdvp->gv_height = gdvp->gv_height;
     bsg_screen_to_view(gdvp, &x, &y, x, y);
     VSET(view, x, y, 0.0);
 
@@ -5665,9 +5384,6 @@ to_snap_view(struct ged *gedp,
     /* convert double to fastf_t */
     fvx = vx;
     fvy = vy;
-
-    gdvp->gv_width = gdvp->gv_width;
-    gdvp->gv_height = gdvp->gv_height;
     gdvp->gv_base2local = gedp->dbip->dbi_base2local;
 
     gedp->ged_gvp = gdvp;
@@ -6148,9 +5864,6 @@ to_vslew(struct ged *gedp,
 
     if (ret == BRLCAD_OK) {
 	if (gdvp->gv_s->gv_grid.snap) {
-
-	    gdvp->gv_width = gdvp->gv_width;
-	    gdvp->gv_height = gdvp->gv_height;
 
 	    gedp->ged_gvp = gdvp;
 	    av[0] = "grid";
