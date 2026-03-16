@@ -177,7 +177,9 @@ qtgl_xmit_scanlines(struct fb *ifp, int ybase, int nlines, int xbase, int npix)
 static void
 qt_destroy(struct qtglinfo *qi)
 {
+#ifndef BRLCAD_ENABLE_OBOL
     delete qi->mw;
+#endif
     delete qi->qapp;
     free(qi->av[0]);
     free(qi->av);
@@ -322,7 +324,11 @@ qtgl_configureWindow(struct fb *ifp, int width, int height)
 static void
 qtgl_do_event(struct fb *ifp)
 {
+#ifndef BRLCAD_ENABLE_OBOL
     QTGL(ifp)->mw->update();
+#else
+    (void)ifp;
+#endif
 }
 
 static int
@@ -799,7 +805,9 @@ qtgl_writerect(struct fb *ifp, int xmin, int ymin, int width, int height, const 
 	}
     }
 
+#ifndef BRLCAD_ENABLE_OBOL
     QTGL(ifp)->mw->update();
+#endif
 
     return width*height;
 }
@@ -840,7 +848,9 @@ qtgl_bwwriterect(struct fb *ifp, int xmin, int ymin, int width, int height, cons
 	}
     }
 
+#ifndef BRLCAD_ENABLE_OBOL
     QTGL(ifp)->mw->update();
+#endif
 
     return width*height;
 }

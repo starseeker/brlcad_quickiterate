@@ -36,6 +36,7 @@
 #include "bu/log.h"
 #include "bu/malloc.h"
 #include "bu/vls.h"
+#include "qtcad/defines.h"
 #ifndef BRLCAD_ENABLE_OBOL
 /* dm.h and the legacy QgGL / QgSW headers are only needed when Obol is not
  * available.  In Obol builds the rendering is handled by QgObolView /
