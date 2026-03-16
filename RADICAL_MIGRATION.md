@@ -1725,10 +1725,37 @@ from `mp_gvp` (no DMP indirection).
    - `grep '#include.*dm\.h' QgObolView.h` returns empty (dm.h is not directly
      included by the Obol view widget any more).
 
+   **Stage 18** ✅ (Session 37) — Move `fb_common_*` declarations to `dm/util.h`; switch
+   `tkImgFmtPIX.c` from `dm.h` to `dm/util.h`.
+
+   Goals:
+   - `libtclcad/tkImgFmtPIX.c` used `fb_common_name_size` and `fb_common_file_size`
+     from `dm.h` for PIX image format width/height detection.  Including the full
+     `dm.h` dragged in `bsg.h`, `raytrace.h`, `analyze.h` and other heavy headers
+     into the Tcl PIX format handler.
+   - `dm/util.h` already contains the `fb_sim_*` helper declarations (which are
+     similar in spirit) and only includes `common.h`, `vmath.h`, and `dm/defines.h`.
+
+   Changes:
+   - `include/dm/util.h`: Added `fb_common_file_size`, `fb_common_image_size`,
+     and `fb_common_name_size` declarations inside the existing
+     `__BEGIN_DECLS`/`__END_DECLS` block, after the `fb_sim_bwreadrect` entry.
+   - `src/libtclcad/tkImgFmtPIX.c`: Changed `#include "dm.h"` to
+     `#include "dm/util.h"`.  The only dm-related functions used in this file are
+     `fb_common_name_size` and `fb_common_file_size`, both now declared in
+     `dm/util.h`.
+
+   **Verification:**
+   - `libtclcad` builds clean.
+   - Full build passes with zero errors.
+
    **Long-term remaining work for qged / Obol:**
-   - The 3 `fb_*` symbols still require `libdm` at link time.  A future stage
-     should implement an Obol-native texture-node path for rt framebuffer
-     compositing so that qged no longer needs to link against libdm at all.
+   - The 3 `fb_*` symbols (`fb_getwidth`, `fb_getheight`, `fb_readrect`) still
+     require an explicit `target_link_libraries(qged libdm)`.  Attempting to rely
+     on transitive resolution through libged fails with GNU ld's
+     "DSO missing from command line" error.  A future stage should implement an
+     Obol-native texture-node path for rt framebuffer compositing so that qged
+     no longer needs to link against libdm at all.
    - `QgSW.h` and `QgGL.h` still include `dm.h` — these headers (and their
      non-Obol sources) will be deleted when the non-Obol fallback path is retired.
 
