@@ -223,13 +223,6 @@ calc_adc_dst(struct mged_state *s)
 }
 
 
-static void
-draw_ticks(struct mged_state *UNUSED(s), fastf_t UNUSED(angle))
-{
-    /* Step 7.20: libdm drawing removed — no-op. */
-}
-
-
 /**
  * Compute and display the angle/distance cursor.
  * Step 7.20: libdm removed — this is now a no-op (was only called from
