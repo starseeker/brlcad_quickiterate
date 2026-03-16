@@ -18,7 +18,8 @@
 
 #pragma once
 
-#include "aqregex.hpp"
+#include "inline_scanner.hpp"
+#include <cctype>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -72,80 +73,93 @@ struct InlineContext {
         const std::string& text,
         std::vector<std::string>& stash)
 {
-    // Match:  pass:<subs>[<content>]
-    // <subs> is optional letters (c, q, …); <content> may not contain ']'.
-    // We also handle the single-plus passthrough (+mono+ is already handled by
-    // sub_quotes, but triple-plus +++raw+++ needs pass treatment).
-    static const aqrx::regex rx(
-        R"(pass:([a-z]*)(\[(?:[^\]\\]|\\.)*\]))",
-        aqrx::ECMAScript | aqrx::optimize);
+    // Fast path: no "pass:" in text → nothing to do.
+    if (text.find("pass:") == std::string::npos) { return text; }
 
     std::string out;
     out.reserve(text.size());
+    const std::size_t n = text.size();
 
-    auto begin = aqrx::sregex_iterator(text.begin(), text.end(), rx);
-    auto end   = aqrx::sregex_iterator{};
-    std::size_t last = 0;
+    for (std::size_t i = 0; i < n; ) {
+        // Scan for "pass:" (5 bytes)
+        if (i + 5 <= n &&
+            text[i]   == 'p' && text[i+1] == 'a' && text[i+2] == 's' &&
+            text[i+3] == 's' && text[i+4] == ':') {
 
-    for (auto it = begin; it != end; ++it) {
-        const aqrx::smatch& m = *it;
-        auto pos   = static_cast<std::size_t>(m.position());
-        auto len   = static_cast<std::size_t>(m.length());
-        out.append(text, last, pos - last);
+            std::size_t j = i + 5;
+            // Consume optional lowercase subs spec (e.g. "c", "q", "cq")
+            const std::size_t spec_start = j;
+            while (j < n && text[j] >= 'a' && text[j] <= 'z') { ++j; }
 
-        const std::string subs_spec = m[1].str();   // "c", "q", "", …
-        // Extract content: strip surrounding [ ]
-        std::string content_raw = m[2].str();
-        if (content_raw.size() >= 2) {
-            content_raw = content_raw.substr(1, content_raw.size() - 2);
-        }
-        // Unescape any \] inside the content
-        std::string content;
-        for (std::size_t i = 0; i < content_raw.size(); ++i) {
-            if (content_raw[i] == '\\' && i + 1 < content_raw.size() &&
-                content_raw[i + 1] == ']') {
-                content += ']';
-                ++i;
-            } else {
-                content += content_raw[i];
-            }
-        }
+            // Must be followed by '['
+            if (j < n && text[j] == '[') {
+                const std::size_t bracket_open = j;
+                ++j;  // consume '['
 
-        // Apply requested substitutions to the pass content
-        // (specialchars is default for pass:c[]; quotes for pass:q[])
-        if (!subs_spec.empty()) {
-            if (subs_spec.find('c') != std::string::npos) {
-                // specialchars only
-                std::string esc;
-                esc.reserve(content.size());
-                for (char c : content) {
-                    switch (c) {
-                        case '&': esc += "&amp;";  break;
-                        case '<': esc += "&lt;";   break;
-                        case '>': esc += "&gt;";   break;
-                        default:  esc += c;        break;
+                // Scan for ']', treating '\]' as an escaped bracket.
+                bool found_close = false;
+                while (j < n) {
+                    if (text[j] == '\\' && j + 1 < n && text[j+1] == ']') {
+                        j += 2;  // skip escaped ']'
+                    } else if (text[j] == ']') {
+                        found_close = true;
+                        break;
+                    } else {
+                        ++j;
                     }
                 }
-                content = std::move(esc);
+
+                if (found_close) {
+                    // Extract subs spec string
+                    const std::string subs_spec(text, spec_start,
+                                                bracket_open - spec_start);
+
+                    // Extract content, unescaping '\]'
+                    std::string content;
+                    content.reserve(j - bracket_open - 1);
+                    for (std::size_t k = bracket_open + 1; k < j; ) {
+                        if (text[k] == '\\' && k + 1 < j && text[k+1] == ']') {
+                            content += ']';
+                            k += 2;
+                        } else {
+                            content += text[k++];
+                        }
+                    }
+
+                    // Apply requested substitutions to the pass content
+                    if (!subs_spec.empty()) {
+                        if (subs_spec.find('c') != std::string::npos) {
+                            std::string esc;
+                            esc.reserve(content.size());
+                            for (char c2 : content) {
+                                switch (c2) {
+                                    case '&': esc += "&amp;";  break;
+                                    case '<': esc += "&lt;";   break;
+                                    case '>': esc += "&gt;";   break;
+                                    default:  esc += c2;       break;
+                                }
+                            }
+                            content = std::move(esc);
+                        }
+                        if (subs_spec.find('q') != std::string::npos) {
+                            content = "\x05q\x05" + content;
+                        }
+                    }
+
+                    out += '\x02';
+                    out += std::to_string(stash.size());
+                    out += '\x03';
+                    stash.push_back(std::move(content));
+                    i = j + 1;  // past ']'
+                    continue;
+                }
+                // No matching ']' found — fall through to emit 'p' literally.
             }
-            // pass:q[]: quotes substitution applied after restore (see note below)
-            // We just stash the raw content and mark it for q-subs
-            if (subs_spec.find('q') != std::string::npos) {
-                // Mark as needing quotes by prefixing with a sentinel
-                content = "\x05q\x05" + content;
-            }
+            // Not a valid pass macro (no '[' or no ']') — emit 'p' and move on.
         }
-
-        // Build placeholder:  STX index ETX
-        out += '\x02';
-        out += std::to_string(stash.size());
-        out += '\x03';
-        stash.push_back(std::move(content));
-
-        last = pos + len;
+        out += text[i++];
     }
 
-    out.append(text, last);
     return out;
 }
 
@@ -184,128 +198,16 @@ struct InlineContext {
 
 namespace detail {
 
-/// Replace the first capture group of a regex with open+text+close.
-inline std::string apply_quote_rx(
-        const std::string& text,
-        const aqrx::regex&  rx,
-        const std::string& open_tag,
-        const std::string& close_tag)
-{
-    return aqrx::regex_replace(text, rx,
-        open_tag + "$1" + close_tag);
-}
+/// (No longer used — kept as an empty namespace to avoid downstream breaks.)
 
 } // namespace detail
 
 /// Apply inline quote substitutions (*bold*, _italic_, etc.).
+///
+/// Delegates to scan_inline_quotes() from inline_scanner.hpp — a single-pass
+/// hand-written scanner that requires no regex engine.
 [[nodiscard]] inline std::string sub_quotes(const std::string& text) {
-    std::string out = text;
-
-    // --- Unconstrained (double markers, no boundary restriction) -------------
-
-    // **strong**
-    {
-        static const aqrx::regex rx(R"(\*\*(.+?)\*\*)",
-                                   aqrx::ECMAScript | aqrx::optimize);
-        out = aqrx::regex_replace(out, rx, "<strong>$1</strong>");
-    }
-    // __emphasis__
-    {
-        static const aqrx::regex rx(R"(__(.+?)__)",
-                                   aqrx::ECMAScript | aqrx::optimize);
-        out = aqrx::regex_replace(out, rx, "<em>$1</em>");
-    }
-    // ``monospace``
-    {
-        static const aqrx::regex rx(R"(``(.+?)``)",
-                                   aqrx::ECMAScript | aqrx::optimize);
-        out = aqrx::regex_replace(out, rx, "<code>$1</code>");
-    }
-    // ##highlight##
-    {
-        static const aqrx::regex rx(R"(##(.+?)##)",
-                                   aqrx::ECMAScript | aqrx::optimize);
-        out = aqrx::regex_replace(out, rx, "<mark>$1</mark>");
-    }
-    // ^^superscript^^
-    {
-        static const aqrx::regex rx(R"(\^\^(.+?)\^\^)",
-                                   aqrx::ECMAScript | aqrx::optimize);
-        out = aqrx::regex_replace(out, rx, "<sup>$1</sup>");
-    }
-    // ~~subscript~~
-    {
-        static const aqrx::regex rx(R"(~~(.+?)~~)",
-                                   aqrx::ECMAScript | aqrx::optimize);
-        out = aqrx::regex_replace(out, rx, "<sub>$1</sub>");
-    }
-
-    // --- Constrained (single markers, requires non-word boundary) ------------
-    //
-    // aqrx::regex (ECMAScript) does not support lookbehind, so we capture the
-    // character before the opening marker in group $1 and re-emit it.
-    // The lookahead (?=[^*a-zA-Z0-9]|$) for the closing boundary IS supported.
-    //
-    // Bug #4 fix: exclude '/' and ':' as the preceding character to avoid
-    // false positives in URLs (e.g. https://*host*/path).
-    //
-    // NOTE: We intentionally use [a-zA-Z0-9] rather than \w in boundary checks.
-    // \w includes '_', which is also the italic delimiter.  Using \w would
-    // prevent adjacent spans like *bold*_italic_ or _italic_*bold* from
-    // matching, because the closing '*' followed by '_' (or opening '*'
-    // preceded by '_') would be wrongly rejected as being "inside a word".
-
-    // *strong*
-    {
-        static const aqrx::regex rx(
-            R"((^|[^*a-zA-Z0-9/:])\*(\S|\S.*?\S)\*(?=[^*a-zA-Z0-9]|$))",
-            aqrx::ECMAScript | aqrx::optimize);
-        out = aqrx::regex_replace(out, rx, "$1<strong>$2</strong>");
-    }
-    // _emphasis_
-    {
-        static const aqrx::regex rx(
-            R"((^|[^_a-zA-Z0-9])_(\S|\S.*?\S)_(?=[^_a-zA-Z0-9]|$))",
-            aqrx::ECMAScript | aqrx::optimize);
-        out = aqrx::regex_replace(out, rx, "$1<em>$2</em>");
-    }
-    // `monospace`
-    {
-        static const aqrx::regex rx(
-            R"((^|[^`a-zA-Z0-9])`(\S|\S.*?\S)`(?=[^`a-zA-Z0-9]|$))",
-            aqrx::ECMAScript | aqrx::optimize);
-        out = aqrx::regex_replace(out, rx, "$1<code>$2</code>");
-    }
-    // +monospace+ (legacy)
-    {
-        static const aqrx::regex rx(
-            R"((^|[^+a-zA-Z0-9])\+(\S|\S.*?\S)\+(?=[^+a-zA-Z0-9]|$))",
-            aqrx::ECMAScript | aqrx::optimize);
-        out = aqrx::regex_replace(out, rx, "$1<code>$2</code>");
-    }
-    // #highlight#
-    // Content must start and end with an alphanumeric character to avoid
-    // false positives on option values like "#/#/#" or "#,#".
-    {
-        static const aqrx::regex rx(
-            R"((^|[^#a-zA-Z0-9])#([a-zA-Z0-9][^#\n]*[a-zA-Z0-9]|[a-zA-Z0-9])#(?=[^#a-zA-Z0-9]|$))",
-            aqrx::ECMAScript | aqrx::optimize);
-        out = aqrx::regex_replace(out, rx, "$1<mark>$2</mark>");
-    }
-    // ^superscript^
-    {
-        static const aqrx::regex rx(R"(\^(\S+?)\^)",
-                                   aqrx::ECMAScript | aqrx::optimize);
-        out = aqrx::regex_replace(out, rx, "<sup>$1</sup>");
-    }
-    // ~subscript~
-    {
-        static const aqrx::regex rx(R"(~(\S+?)~)",
-                                   aqrx::ECMAScript | aqrx::optimize);
-        out = aqrx::regex_replace(out, rx, "<sub>$1</sub>");
-    }
-
-    return out;
+    return scan_inline_quotes(text);
 }
 
 /// Replace placeholders (inserted by extract_pass_macros) with stashed content.
@@ -353,20 +255,12 @@ inline std::string apply_quote_rx(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Expand {attribute-name} references using the supplied attribute map.
-/// Behaviour for unknown attributes is controlled by the 'attribute-missing'
-/// entry in @p attrs:
-///   skip (default) – leave the reference as-is
-///   warn           – leave as-is and emit a WARNING to stderr
-///   drop           – replace the reference with an empty string
 [[nodiscard]] inline std::string sub_attributes(
         const std::string&                                    text,
         const std::unordered_map<std::string, std::string>&   attrs)
 {
     // Fast path: no opening brace → nothing to do.
     if (text.find('{') == std::string::npos) { return text; }
-
-    static const aqrx::regex rx(R"(\{([\w][\w\-]*)\})",
-                                aqrx::ECMAScript | aqrx::optimize);
 
     // Resolve attribute-missing policy (default: skip)
     std::string missing_policy = "skip";
@@ -377,33 +271,45 @@ inline std::string apply_quote_rx(
 
     std::string out;
     out.reserve(text.size());
+    const std::size_t n = text.size();
 
-    auto begin = aqrx::sregex_iterator(text.begin(), text.end(), rx);
-    auto end   = aqrx::sregex_iterator{};
+    for (std::size_t i = 0; i < n; ) {
+        if (text[i] != '{') { out += text[i++]; continue; }
 
-    std::size_t last_pos = 0;
-    for (auto it = begin; it != end; ++it) {
-        const aqrx::smatch& m = *it;
-        // Append text before this match
-        out.append(text, last_pos, static_cast<std::size_t>(m.position()) - last_pos);
+        // Check if valid attribute reference: {name} where name = \w[\w\-]*
+        std::size_t j = i + 1;
+        if (j >= n) { out += text[i++]; continue; }
 
-        const std::string& name = m[1].str();
-        auto ai = attrs.find(name);
-        if (ai != attrs.end()) {
-            out += ai->second;
-        } else if (missing_policy == "drop") {
-            // drop: replace with empty string
-        } else {
-            if (missing_policy == "warn") {
-                std::cerr << "asciiquack: WARNING: skipping reference to missing attribute: "
-                          << name << "\n";
-            }
-            out += m[0].str();  // leave unknown references intact (skip / warn)
+        const char fc = text[j];
+        if (!std::isalnum(static_cast<unsigned char>(fc)) && fc != '_') {
+            out += text[i++]; continue;
         }
-        last_pos = static_cast<std::size_t>(m.position()) +
-                   static_cast<std::size_t>(m.length());
+
+        // Scan name: word chars and hyphens
+        while (j < n && (std::isalnum(static_cast<unsigned char>(text[j])) ||
+                          text[j] == '_' || text[j] == '-')) {
+            ++j;
+        }
+
+        if (j < n && text[j] == '}') {
+            std::string name(text, i + 1, j - i - 1);
+            auto ai = attrs.find(name);
+            if (ai != attrs.end()) {
+                out += ai->second;
+            } else if (missing_policy == "drop") {
+                // drop: replace with empty string
+            } else {
+                if (missing_policy == "warn") {
+                    std::cerr << "asciiquack: WARNING: skipping reference to missing attribute: "
+                              << name << "\n";
+                }
+                out.append(text, i, j - i + 1);  // leave {name} as-is
+            }
+            i = j + 1;  // past '}'
+        } else {
+            out += text[i++];  // not a valid reference, emit '{' literally
+        }
     }
-    out.append(text, last_pos);
     return out;
 }
 
@@ -414,78 +320,65 @@ inline std::string apply_quote_rx(
 /// Apply typographic replacements:
 ///   --          →  em-dash (&#8212;)
 ///   ...         →  ellipsis (&#8230;&#8203;)
-///   (C)/(c)     →  © (&#169;)
-///   (R)/(r)     →  ® (&#174;)
-///   (TM)/(tm)   →  ™ (&#8482;)
-///   '           →  right single quotation mark in certain contexts
+///   (C)/(R)/(TM) →  ©/®/™
+///   arrows/smart apostrophe
 [[nodiscard]] inline std::string sub_replacements(const std::string& text) {
     std::string out = text;
 
-    // Em-dash: -- (but not --- or longer runs).
-    // Asciidoctor converts -- to em-dash only when adjacent to whitespace:
-    //   " -- "  (surrounded by spaces) → thin-space + em-dash + thin-space
-    //   "-- "   at start of inline text (list continuation) → thin-space + em-dash + thin-space
-    //   " --"   at end of inline text → thin-space + em-dash
-    // This avoids falsely converting option prefixes like --help or write--.
-    {
-        // " -- " (space -- space) → thin-space + em-dash + thin-space
-        static const aqrx::regex rx_spaced(R"( -- )",
-                                           aqrx::ECMAScript | aqrx::optimize);
-        out = aqrx::regex_replace(out, rx_spaced, "&#8201;&#8212;&#8201;");
-        // "-- " at start of string (e.g. list-item continuation "-- body")
-        // → thin-space + em-dash + thin-space, consuming the trailing space
-        static const aqrx::regex rx_start(R"(^-- )",
-                                          aqrx::ECMAScript | aqrx::optimize);
-        out = aqrx::regex_replace(out, rx_start, "&#8201;&#8212;&#8201;");
-        // " --" at end of string (space before -- at end of text)
-        static const aqrx::regex rx_end(R"( --$)",
-                                        aqrx::ECMAScript | aqrx::optimize);
-        out = aqrx::regex_replace(out, rx_end, "&#8201;&#8212;");
+    // Helper: replace all occurrences of a fixed string.
+    auto replace_all = [](std::string& s, std::string_view from, std::string_view to) {
+        std::size_t pos = 0;
+        while ((pos = s.find(from, pos)) != std::string::npos) {
+            s.replace(pos, from.size(), to);
+            pos += to.size();
+        }
+    };
+
+    // Em-dash handling (order matters: interior first, then start, then end).
+    replace_all(out, " -- ", "&#8201;&#8212;&#8201;");
+    if (out.size() >= 3 &&
+        out[0] == '-' && out[1] == '-' && out[2] == ' ') {
+        out = "&#8201;&#8212;&#8201;" + out.substr(3);
     }
-    // Ellipsis: ...
     {
-        static const aqrx::regex rx(R"(\.\.\.)");
-        out = aqrx::regex_replace(out, rx, "&#8230;&#8203;");
+        const std::size_t sz = out.size();
+        if (sz >= 3 &&
+            out[sz-3] == ' ' && out[sz-2] == '-' && out[sz-1] == '-') {
+            out.resize(sz - 3);
+            out += "&#8201;&#8212;";
+        }
     }
-    // Copyright: only uppercase (C) → ©   (Asciidoctor is case-sensitive here)
+
+    // Ellipsis
+    replace_all(out, "...", "&#8230;&#8203;");
+
+    // Copyright / Registered / Trademark  (uppercase only, Asciidoctor-compatible)
+    replace_all(out, "(C)",  "&#169;");
+    replace_all(out, "(R)",  "&#174;");
+    replace_all(out, "(TM)", "&#8482;");
+
+    // Arrows (note: by this stage '<' is already "&lt;" and '>' is "&gt;")
+    replace_all(out, "-&gt;", "&#8594;");
+    replace_all(out, "&lt;-", "&#8592;");
+    replace_all(out, "=&gt;", "&#8658;");
+    replace_all(out, "&lt;=", "&#8656;");
+
+    // Smart apostrophe: word'word → word&#8217;word
     {
-        static const aqrx::regex rx(R"(\(C\))");
-        out = aqrx::regex_replace(out, rx, "&#169;");
-    }
-    // Registered: only uppercase (R) → ®
-    {
-        static const aqrx::regex rx(R"(\(R\))");
-        out = aqrx::regex_replace(out, rx, "&#174;");
-    }
-    // Trademark: only uppercase TM
-    {
-        static const aqrx::regex rx(R"(\(TM\))");
-        out = aqrx::regex_replace(out, rx, "&#8482;");
-    }
-    // Arrow replacements (Asciidoctor typographic replacements):
-    //   -> → &#8594; (→ right arrow)
-    //   <- → &#8592; (← left arrow)
-    //   => → &#8658; (⇒ double right arrow)
-    //   <= → &#8656; (⇐ double left arrow)
-    // Note: sub_specialchars runs before sub_replacements in the normal pipeline,
-    // so by the time these patterns are applied '<' has been escaped to '&lt;' and
-    // '>' to '&gt;'.  The regex patterns below match those HTML entities, which is
-    // why stashed inline code (``...``) is already safe (it bypasses this step).
-    {
-        static const aqrx::regex rx_rarr(R"(\-&gt;)", aqrx::ECMAScript | aqrx::optimize);
-        static const aqrx::regex rx_larr(R"(&lt;\-)", aqrx::ECMAScript | aqrx::optimize);
-        static const aqrx::regex rx_rArr(R"(=&gt;)",  aqrx::ECMAScript | aqrx::optimize);
-        static const aqrx::regex rx_lArr(R"(&lt;=)",  aqrx::ECMAScript | aqrx::optimize);
-        out = aqrx::regex_replace(out, rx_rarr, "&#8594;");
-        out = aqrx::regex_replace(out, rx_larr, "&#8592;");
-        out = aqrx::regex_replace(out, rx_rArr, "&#8658;");
-        out = aqrx::regex_replace(out, rx_lArr, "&#8656;");
-    }
-    // Smart apostrophe: word' or 'word
-    {
-        static const aqrx::regex rx(R"((\w)'(\w))",
-                                   aqrx::ECMAScript | aqrx::optimize);
-        out = aqrx::regex_replace(out, rx, "$1&#8217;$2");
+        std::string result;
+        result.reserve(out.size());
+        const std::size_t sz = out.size();
+        for (std::size_t i = 0; i < sz; ++i) {
+            if (out[i] == '\'' && i > 0 && i + 1 < sz) {
+                const char prev = out[i-1];
+                const char next = out[i+1];
+                const bool pw = std::isalnum(static_cast<unsigned char>(prev)) || prev == '_';
+                const bool nw = std::isalnum(static_cast<unsigned char>(next)) || next == '_';
+                if (pw && nw) { result += "&#8217;"; continue; }
+            }
+            result += out[i];
+        }
+        out = std::move(result);
     }
 
     return out;
@@ -496,288 +389,285 @@ inline std::string apply_quote_rx(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Apply inline macro substitutions (links, images, xrefs, anchors).
+///
+/// Single left-to-right pass over the text.  No regex required.
 [[nodiscard]] inline std::string sub_macros(const std::string& text) {
-    std::string out = text;
 
-    // Inline anchor: [[id]] or [[id, reftext]]
-    {
-        static const aqrx::regex rx(R"(\[\[([A-Za-z_:][A-Za-z0-9_\-.:]*)(?:,\s*([^\]]+))?\]\])",
-                                   aqrx::ECMAScript | aqrx::optimize);
-        out = aqrx::regex_replace(out, rx, R"(<a id="$1"></a>)");
-    }
+    // ── Helpers ──────────────────────────────────────────────────────────────
 
-    // Xref: <<id>> or <<id,text>>
-    {
-        static const aqrx::regex rx(R"(&lt;&lt;([A-Za-z0-9_\-#/.:{]+?)(?:,\s*(.*?))?\s*&gt;&gt;)",
-                                   aqrx::ECMAScript | aqrx::optimize);
-        // Replace with a link; text defaults to the id.
-        std::string after;
-        {
-            auto begin = aqrx::sregex_iterator(out.begin(), out.end(), rx);
-            auto end   = aqrx::sregex_iterator{};
-            std::size_t last = 0;
-            for (auto it = begin; it != end; ++it) {
-                const aqrx::smatch& m = *it;
-                after.append(out, last, static_cast<std::size_t>(m.position()) - last);
-                const std::string& id   = m[1].str();
-                std::string        disp = m[2].matched ? m[2].str() : id;
-                after += "<a href=\"#" + id + "\">" + disp + "</a>";
-                last = static_cast<std::size_t>(m.position()) +
-                       static_cast<std::size_t>(m.length());
-            }
-            after.append(out, last);
+    // True if text[pos..] starts with the given prefix.
+    auto sw = [&](std::size_t pos, std::string_view prefix) -> bool {
+        if (pos + prefix.size() > text.size()) { return false; }
+        return text.compare(pos, prefix.size(), prefix.data(), prefix.size()) == 0;
+    };
+
+    // Find the first unescaped ']' starting from after_open.
+    auto close_bracket = [&](std::size_t after_open) -> std::size_t {
+        for (std::size_t k = after_open; k < text.size(); ++k) {
+            if (text[k] == ']') { return k; }
         }
-        out = std::move(after);
-    }
+        return std::string::npos;
+    };
 
-    // xref: macro form  xref:id[text]
-    {
-        static const aqrx::regex rx(R"(xref:([A-Za-z0-9_\-#/.:{]+)\[([^\]]*)\])",
-                                   aqrx::ECMAScript | aqrx::optimize);
-        std::string after;
-        {
-            auto begin = aqrx::sregex_iterator(out.begin(), out.end(), rx);
-            auto end   = aqrx::sregex_iterator{};
-            std::size_t last = 0;
-            for (auto it = begin; it != end; ++it) {
-                const aqrx::smatch& m = *it;
-                after.append(out, last, static_cast<std::size_t>(m.position()) - last);
-                const std::string& id   = m[1].str();
-                std::string        disp = m[2].str().empty() ? id : m[2].str();
-                after += "<a href=\"#" + id + "\">" + disp + "</a>";
-                last = static_cast<std::size_t>(m.position()) +
-                       static_cast<std::size_t>(m.length());
+    // Parse inline image bracket: "alt,width=N,height=N" etc.
+    auto parse_img_bracket = [](const std::string& bracket,
+                                std::string& alt,
+                                std::string& width_val,
+                                std::string& height_val) {
+        alt.clear(); width_val.clear(); height_val.clear();
+        std::istringstream ss(bracket);
+        std::string tok;
+        bool first = true;
+        while (std::getline(ss, tok, ',')) {
+            auto b = tok.find_first_not_of(" \t");
+            auto e = tok.find_last_not_of(" \t");
+            if (b == std::string::npos) { first = false; continue; }
+            tok = tok.substr(b, e - b + 1);
+            auto eq = tok.find('=');
+            if (eq == std::string::npos) {
+                if (first) { alt = tok; }
+            } else {
+                std::string key = tok.substr(0, eq);
+                std::string val = tok.substr(eq + 1);
+                if (key == "width")  { width_val  = val; }
+                if (key == "height") { height_val = val; }
             }
-            after.append(out, last);
+            first = false;
         }
-        out = std::move(after);
-    }
+    };
 
-    // Explicit link macro: link:url[text]
-    // Matches any URL (absolute or relative), not just http/https.
-    {
-        static const aqrx::regex rx(R"(link:([^\[]+)\[([^\]]*)\])",
-                                   aqrx::ECMAScript | aqrx::optimize);
-        std::string after;
-        {
-            auto begin = aqrx::sregex_iterator(out.begin(), out.end(), rx);
-            auto end   = aqrx::sregex_iterator{};
-            std::size_t last = 0;
-            for (auto it = begin; it != end; ++it) {
-                const aqrx::smatch& m = *it;
-                after.append(out, last, static_cast<std::size_t>(m.position()) - last);
-                const std::string& url  = m[1].str();
-                std::string        disp = m[2].str().empty() ? url : m[2].str();
-                after += "<a href=\"" + url + "\">" + disp + "</a>";
-                last = static_cast<std::size_t>(m.position()) +
-                       static_cast<std::size_t>(m.length());
+    std::string out;
+    out.reserve(text.size() + 64);
+    const std::size_t n = text.size();
+
+    for (std::size_t i = 0; i < n; ) {
+        const char c = text[i];
+
+        // ── [[anchor]] ──────────────────────────────────────────────────────
+        if (c == '[' && sw(i, "[[")) {
+            std::size_t j = i + 2;
+            if (j < n && (std::isalpha(static_cast<unsigned char>(text[j])) ||
+                          text[j] == '_' || text[j] == ':')) {
+                const std::size_t id_s = j;
+                while (j < n && (std::isalnum(static_cast<unsigned char>(text[j])) ||
+                                  text[j]=='_' || text[j]=='-' ||
+                                  text[j]=='.' || text[j]==':')) { ++j; }
+                const std::size_t id_e = j;
+                if (j < n && text[j] == ',') {
+                    // skip reftext
+                    while (j < n && !(j + 1 < n && text[j]==']' && text[j+1]==']')) { ++j; }
+                }
+                if (j + 1 < n && text[j]==']' && text[j+1]==']') {
+                    out += "<a id=\"";
+                    out.append(text, id_s, id_e - id_s);
+                    out += "\"></a>";
+                    i = j + 2;
+                    continue;
+                }
             }
-            after.append(out, last);
         }
-        out = std::move(after);
-    }
 
-    // Auto-link bare URLs: https://... or http://...
-    // Avoid re-linking already-wrapped anchors by not matching inside href="..."
-    // We use a simple approach: match URL not immediately inside a quote.
-    {
-        static const aqrx::regex rx(R"((https?://[^\s<>\[\]"]+))",
-                                   aqrx::ECMAScript | aqrx::optimize);
-        // Only replace if not already inside an href attribute
-        std::string after;
-        auto begin = aqrx::sregex_iterator(out.begin(), out.end(), rx);
-        auto end   = aqrx::sregex_iterator{};
-        std::size_t last = 0;
-        for (auto it = begin; it != end; ++it) {
-            const aqrx::smatch& m = *it;
-            std::size_t match_pos = static_cast<std::size_t>(m.position());
-            // Check that the character before this URL is not a double-quote
-            // (which would mean we're inside an href="..." attribute)
-            bool in_href = (match_pos > 0 && out[match_pos - 1] == '"');
-            after.append(out, last, match_pos - last);
+        // ── &lt;&lt;id[,text]&gt;&gt; ────────────────────────────────────
+        if (c == '&' && sw(i, "&lt;&lt;")) {
+            std::size_t j = i + 8;
+            const std::size_t id_s = j;
+            while (j < n && text[j] != ',' && !sw(j, "&gt;")) { ++j; }
+            if (j > id_s) {
+                std::size_t id_e = j;
+                while (id_e > id_s && (text[id_e-1]==' '||text[id_e-1]=='\t')) { --id_e; }
+                std::string id(text, id_s, id_e - id_s);
+                std::string disp = id;
+                if (j < n && text[j] == ',') {
+                    ++j;
+                    while (j < n && (text[j]==' '||text[j]=='\t')) { ++j; }
+                    const std::size_t disp_s = j;
+                    while (j < n && !sw(j, "&gt;")) { ++j; }
+                    std::size_t disp_e = j;
+                    while (disp_e > disp_s && (text[disp_e-1]==' '||text[disp_e-1]=='\t')) { --disp_e; }
+                    if (disp_e > disp_s) { disp = std::string(text, disp_s, disp_e - disp_s); }
+                }
+                if (sw(j, "&gt;&gt;")) {
+                    out += "<a href=\"#"; out += id; out += "\">"; out += disp; out += "</a>";
+                    i = j + 8;
+                    continue;
+                }
+            }
+        }
+
+        // ── xref:id[text] ────────────────────────────────────────────────
+        if (c == 'x' && sw(i, "xref:")) {
+            std::size_t j = i + 5;
+            const std::size_t id_s = j;
+            while (j < n && text[j] != '[' && text[j] != ' ' && text[j] != '\t') { ++j; }
+            if (j > id_s && j < n && text[j] == '[') {
+                std::string id(text, id_s, j - id_s);
+                const std::size_t cls = close_bracket(j + 1);
+                if (cls != std::string::npos) {
+                    std::string txt(text, j + 1, cls - j - 1);
+                    if (txt.empty()) { txt = id; }
+                    out += "<a href=\"#"; out += id; out += "\">"; out += txt; out += "</a>";
+                    i = cls + 1;
+                    continue;
+                }
+            }
+        }
+
+        // ── link:url[text] ───────────────────────────────────────────────
+        if (c == 'l' && sw(i, "link:")) {
+            std::size_t j = i + 5;
+            const std::size_t url_s = j;
+            while (j < n && text[j] != '[') { ++j; }
+            if (j > url_s && j < n) {
+                std::string url(text, url_s, j - url_s);
+                const std::size_t cls = close_bracket(j + 1);
+                if (cls != std::string::npos) {
+                    std::string txt(text, j + 1, cls - j - 1);
+                    if (txt.empty()) { txt = url; }
+                    out += "<a href=\""; out += url; out += "\">"; out += txt; out += "</a>";
+                    i = cls + 1;
+                    continue;
+                }
+            }
+        }
+
+        // ── https?://url  (auto-link) ────────────────────────────────────
+        if (c == 'h' && (sw(i, "https://") || sw(i, "http://"))) {
+            const bool in_href = (!out.empty() && out.back() == '"');
+            std::size_t j = i;
+            while (j < n && text[j] != ' ' && text[j] != '\t' && text[j] != '\n' &&
+                   text[j] != '<' && text[j] != '>' && text[j] != '[' &&
+                   text[j] != ']' && text[j] != '"') {
+                ++j;
+            }
             if (in_href) {
-                after += m[0].str();
+                out.append(text, i, j - i);
             } else {
-                after += "<a href=\"" + m[1].str() + "\">" + m[1].str() + "</a>";
+                std::string url(text, i, j - i);
+                out += "<a href=\""; out += url; out += "\">"; out += url; out += "</a>";
             }
-            last = match_pos + static_cast<std::size_t>(m.length());
+            i = j;
+            continue;
         }
-        after.append(out, last);
-        out = std::move(after);
-    }
 
-    // Inline image: image:path[attrs]
-    // The bracket content follows AsciiDoc attribute list syntax:
-    //   [alt,width=N]    – first positional param is alt text
-    //   [width=N]        – only named param; alt text defaults to empty
-    // Named attributes (width=, height=) are emitted as HTML attributes.
-    {
-        static const aqrx::regex rx(R"(image:([^\[]+)\[([^\]]*)\])",
-                                   aqrx::ECMAScript | aqrx::optimize);
-        std::string after;
-        auto begin = aqrx::sregex_iterator(out.begin(), out.end(), rx);
-        auto end   = aqrx::sregex_iterator{};
-        std::size_t last = 0;
-        for (auto it = begin; it != end; ++it) {
-            const aqrx::smatch& m = *it;
-            after.append(out, last, static_cast<std::size_t>(m.position()) - last);
+        // ── image:path[attrs]  (inline image, not image::) ───────────────
+        if (c == 'i' && sw(i, "image:") &&
+            !(i + 6 < n && text[i + 6] == ':')) {
+            std::size_t j = i + 6;
+            const std::size_t tgt_s = j;
+            while (j < n && text[j] != '[') { ++j; }
+            if (j > tgt_s && j < n) {
+                std::string target(text, tgt_s, j - tgt_s);
+                const std::size_t cls = close_bracket(j + 1);
+                if (cls != std::string::npos) {
+                    std::string bracket(text, j + 1, cls - j - 1);
+                    std::string alt, width_val, height_val;
+                    parse_img_bracket(bracket, alt, width_val, height_val);
+                    out += "<span class=\"image\"><img src=\"";
+                    out += target;
+                    out += "\" alt=\"";
+                    out += sub_specialchars(alt);
+                    out += "\"";
+                    if (!width_val.empty())  { out += " width=\"";  out += width_val;  out += "\""; }
+                    if (!height_val.empty()) { out += " height=\""; out += height_val; out += "\""; }
+                    out += "></span>";
+                    i = cls + 1;
+                    continue;
+                }
+            }
+        }
 
-            const std::string& target  = m[1].str();
-            const std::string& bracket = m[2].str();
+        // ── kbd:[keys] ───────────────────────────────────────────────────
+        if (c == 'k' && sw(i, "kbd:[")) {
+            std::size_t j = i + 4;  // points to '['
+            const std::size_t cls = close_bracket(j + 1);
+            if (cls != std::string::npos) {
+                std::string keys_str(text, j + 1, cls - j - 1);
+                std::string keys_html;
+                std::istringstream ks(keys_str);
+                std::string kpart;
+                bool first_key = true;
+                while (std::getline(ks, kpart, '+')) {
+                    while (!kpart.empty() && kpart.front() == ' ') { kpart.erase(0, 1); }
+                    while (!kpart.empty() && kpart.back()  == ' ') { kpart.pop_back(); }
+                    if (!first_key) { keys_html += "+"; }
+                    keys_html += "<kbd>" + kpart + "</kbd>";
+                    first_key = false;
+                }
+                out += "<span class=\"keyseq\">"; out += keys_html; out += "</span>";
+                i = cls + 1;
+                continue;
+            }
+        }
 
-            // Parse bracket: split on commas, first token without '=' is alt.
-            std::string alt_text;
-            std::string width_val;
-            std::string height_val;
-            {
-                std::istringstream ss(bracket);
-                std::string tok;
-                bool first_tok = true;
-                while (std::getline(ss, tok, ',')) {
-                    // Trim leading/trailing whitespace
-                    auto b = tok.find_first_not_of(" \t");
-                    auto e = tok.find_last_not_of(" \t");
-                    if (b == std::string::npos) { first_tok = false; continue; }
-                    tok = tok.substr(b, e - b + 1);
+        // ── btn:[label] ──────────────────────────────────────────────────
+        if (c == 'b' && sw(i, "btn:[")) {
+            std::size_t j = i + 4;  // points to '['
+            const std::size_t cls = close_bracket(j + 1);
+            if (cls != std::string::npos) {
+                std::string label(text, j + 1, cls - j - 1);
+                out += "<b class=\"button\">"; out += label; out += "</b>";
+                i = cls + 1;
+                continue;
+            }
+        }
 
-                    auto eq = tok.find('=');
-                    if (eq == std::string::npos) {
-                        // Positional param
-                        if (first_tok) { alt_text = tok; }
+        // ── menu:name[items] ─────────────────────────────────────────────
+        if (c == 'm' && sw(i, "menu:")) {
+            std::size_t j = i + 5;
+            const std::size_t menu_s = j;
+            while (j < n && text[j] != '[') { ++j; }
+            if (j > menu_s && j < n) {
+                std::string menu_str(text, menu_s, j - menu_s);
+                while (!menu_str.empty() && menu_str.back() == ' ') { menu_str.pop_back(); }
+                const std::size_t cls = close_bracket(j + 1);
+                if (cls != std::string::npos) {
+                    std::string items_str(text, j + 1, cls - j - 1);
+                    std::string html = "<span class=\"menuseq\"><span class=\"menu\">";
+                    html += menu_str;
+                    html += "</span>";
+                    if (!items_str.empty()) {
+                        std::istringstream is(items_str);
+                        std::string part;
+                        while (std::getline(is, part, '>')) {
+                            while (!part.empty() && part.front() == ' ') { part.erase(0, 1); }
+                            while (!part.empty() && part.back()  == ' ') { part.pop_back(); }
+                            if (!part.empty()) {
+                                html += "<span class=\"caret\">&#8250;</span>"
+                                        "<span class=\"menuitem\">" + part + "</span>";
+                            }
+                        }
+                    }
+                    html += "</span>";
+                    out += html;
+                    i = cls + 1;
+                    continue;
+                }
+            }
+        }
+
+        // ── stem/latexmath/asciimath:[expr] ──────────────────────────────
+        if ((c == 's' && sw(i, "stem:[")) ||
+            (c == 'l' && sw(i, "latexmath:[")) ||
+            (c == 'a' && sw(i, "asciimath:["))) {
+            std::size_t bracket_pos = text.find('[', i);
+            if (bracket_pos != std::string::npos) {
+                const std::size_t cls = close_bracket(bracket_pos + 1);
+                if (cls != std::string::npos) {
+                    std::string kind(text, i, bracket_pos - i);
+                    std::string expr(text, bracket_pos + 1, cls - bracket_pos - 1);
+                    if (kind == "asciimath") {
+                        out += "`"; out += expr; out += "`";
                     } else {
-                        std::string key = tok.substr(0, eq);
-                        std::string val = tok.substr(eq + 1);
-                        if (key == "width")  { width_val  = val; }
-                        if (key == "height") { height_val = val; }
+                        out += "\\("; out += expr; out += "\\)";
                     }
-                    first_tok = false;
+                    i = cls + 1;
+                    continue;
                 }
             }
-
-            std::string html = "<span class=\"image\"><img src=\""
-                             + target
-                             + "\" alt=\""
-                             + sub_specialchars(alt_text) + "\"";
-            if (!width_val.empty())  { html += " width=\""  + width_val  + "\""; }
-            if (!height_val.empty()) { html += " height=\"" + height_val + "\""; }
-            html += "></span>";
-            after += html;
-
-            last = static_cast<std::size_t>(m.position()) +
-                   static_cast<std::size_t>(m.length());
         }
-        after.append(out, last);
-        out = std::move(after);
-    }
 
-    // ── UI macros ─────────────────────────────────────────────────────────────
-
-    // kbd:[key] or kbd:[key+key+…]
-    {
-        static const aqrx::regex rx(R"(kbd:\[([^\]]+)\])",
-                                   aqrx::ECMAScript | aqrx::optimize);
-        std::string after;
-        auto begin = aqrx::sregex_iterator(out.begin(), out.end(), rx);
-        auto end   = aqrx::sregex_iterator{};
-        std::size_t last = 0;
-        for (auto it = begin; it != end; ++it) {
-            const aqrx::smatch& m = *it;
-            after.append(out, last, static_cast<std::size_t>(m.position()) - last);
-            // Split on '+' to render individual keys
-            std::string keys_str = m[1].str();
-            std::string keys_html;
-            std::istringstream ks(keys_str);
-            std::string key_part;
-            bool first_key = true;
-            while (std::getline(ks, key_part, '+')) {
-                // trim whitespace
-                while (!key_part.empty() && key_part.front() == ' ') { key_part.erase(0, 1); }
-                while (!key_part.empty() && key_part.back()  == ' ') { key_part.pop_back(); }
-                if (!first_key) { keys_html += "+"; }
-                keys_html += "<kbd>" + key_part + "</kbd>";
-                first_key = false;
-            }
-            after += "<span class=\"keyseq\">" + keys_html + "</span>";
-            last = static_cast<std::size_t>(m.position()) + static_cast<std::size_t>(m.length());
-        }
-        after.append(out, last);
-        out = std::move(after);
-    }
-
-    // btn:[label]
-    {
-        static const aqrx::regex rx(R"(btn:\[([^\]]+)\])",
-                                   aqrx::ECMAScript | aqrx::optimize);
-        out = aqrx::regex_replace(out, rx, R"(<b class="button">$1</b>)");
-    }
-
-    // menu:Menu[Item > SubItem]  or  menu:Menu[]
-    {
-        static const aqrx::regex rx(R"(menu:([^\[]+)\[([^\]]*)\])",
-                                   aqrx::ECMAScript | aqrx::optimize);
-        std::string after;
-        auto begin = aqrx::sregex_iterator(out.begin(), out.end(), rx);
-        auto end   = aqrx::sregex_iterator{};
-        std::size_t last = 0;
-        for (auto it = begin; it != end; ++it) {
-            const aqrx::smatch& m = *it;
-            after.append(out, last, static_cast<std::size_t>(m.position()) - last);
-            std::string menu_str = m[1].str();
-            // trim
-            while (!menu_str.empty() && menu_str.back() == ' ') { menu_str.pop_back(); }
-            std::string items_str = m[2].str();
-            std::string html = "<span class=\"menuseq\"><span class=\"menu\">" + menu_str + "</span>";
-            if (!items_str.empty()) {
-                // Split on '>' or ','
-                std::istringstream is(items_str);
-                std::string part;
-                while (std::getline(is, part, '>')) {
-                    while (!part.empty() && part.front() == ' ') { part.erase(0, 1); }
-                    while (!part.empty() && part.back()  == ' ') { part.pop_back(); }
-                    if (!part.empty()) {
-                        html += "<span class=\"caret\">&#8250;</span>"
-                                "<span class=\"menuitem\">" + part + "</span>";
-                    }
-                }
-            }
-            html += "</span>";
-            after += html;
-            last = static_cast<std::size_t>(m.position()) + static_cast<std::size_t>(m.length());
-        }
-        after.append(out, last);
-        out = std::move(after);
-    }
-
-    // ── Inline stem / math macros ─────────────────────────────────────────────
-    // stem:[expr]      → \(expr\)
-    // latexmath:[expr] → \(expr\)
-    // asciimath:[expr] → `expr`  (rendered by MathJax ASCIIMath)
-    if (out.find("stem:") != std::string::npos ||
-        out.find("latexmath:") != std::string::npos ||
-        out.find("asciimath:") != std::string::npos) {
-        static const aqrx::regex math_rx(
-            R"((stem|latexmath|asciimath):\[([^\]]*)\])",
-            aqrx::ECMAScript | aqrx::optimize);
-        std::string after;
-        auto begin = aqrx::sregex_iterator(out.begin(), out.end(), math_rx);
-        auto end   = aqrx::sregex_iterator{};
-        std::size_t last = 0;
-        for (auto it = begin; it != end; ++it) {
-            const aqrx::smatch& m = *it;
-            after.append(out, last, static_cast<std::size_t>(m.position()) - last);
-            std::string kind = m[1].str();
-            std::string expr = m[2].str();
-            if (kind == "asciimath") {
-                after += "`" + expr + "`";
-            } else {
-                // LaTeX inline: \(expr\)
-                after += "\\(" + expr + "\\)";
-            }
-            last = static_cast<std::size_t>(m.position()) +
-                   static_cast<std::size_t>(m.length());
-        }
-        after.append(out, last);
-        out = std::move(after);
+        out += c;
+        ++i;
     }
 
     return out;
@@ -789,11 +679,6 @@ inline std::string apply_quote_rx(
 
 /// Apply counter:/counter2: and footnote:/footnoteref: macros to @p text,
 /// updating the mutable state in @p ctx.
-///
-/// Returns the transformed text:
-///   - counter:name  →  incremented value (string) inserted inline
-///   - counter2:name →  empty string (counter is incremented but not emitted)
-///   - footnote:[text] →  inline superscript reference; text added to ctx.footnotes
 [[nodiscard]] inline std::string sub_macros_with_ctx(
         const std::string& text,
         InlineContext& ctx)
@@ -801,112 +686,127 @@ inline std::string apply_quote_rx(
     std::string out = text;
 
     // ── counter: / counter2: ─────────────────────────────────────────────────
-    // Format:  counter:name[initial]  or  counter2:name[initial]
-    // counter: returns the (incremented) value; counter2: does not return it.
     if (out.find("counter") != std::string::npos && ctx.counters) {
-        static const aqrx::regex rx(
-            R"((counter2?):(\w[\w\-]*)(?:\[([^\]]*)\])?)",
-            aqrx::ECMAScript | aqrx::optimize);
         std::string after;
-        auto begin = aqrx::sregex_iterator(out.begin(), out.end(), rx);
-        auto end   = aqrx::sregex_iterator{};
-        std::size_t last = 0;
-        for (auto it = begin; it != end; ++it) {
-            const aqrx::smatch& m = *it;
-            after.append(out, last, static_cast<std::size_t>(m.position()) - last);
+        after.reserve(out.size());
+        const std::size_t n = out.size();
 
-            std::string kind    = m[1].str();  // "counter" or "counter2"
-            std::string name    = m[2].str();
-            std::string initial = m[3].matched ? m[3].str() : "1";
+        for (std::size_t i = 0; i < n; ) {
+            // Check for "counter:" or "counter2:"
+            if (i + 8 <= n && out[i]=='c' && out[i+1]=='o' && out[i+2]=='u' &&
+                out[i+3]=='n' && out[i+4]=='t' && out[i+5]=='e' && out[i+6]=='r') {
+                std::size_t j = i + 7;
+                const bool is2 = (j < n && out[j] == '2');
+                if (is2) { ++j; }
+                if (j < n && out[j] == ':') {
+                    ++j;
+                    // Parse name: \w[\w\-]*
+                    const std::size_t name_s = j;
+                    while (j < n && (std::isalnum(static_cast<unsigned char>(out[j])) ||
+                                     out[j] == '_' || out[j] == '-')) {
+                        ++j;
+                    }
+                    if (j > name_s) {
+                        std::string name(out, name_s, j - name_s);
+                        // Optional [initial]
+                        std::string initial = "1";
+                        if (j < n && out[j] == '[') {
+                            const std::size_t cls = out.find(']', j + 1);
+                            if (cls != std::string::npos) {
+                                initial = out.substr(j + 1, cls - j - 1);
+                                j = cls + 1;
+                            }
+                        }
 
-            // Determine if alpha or numeric
-            bool alpha = (!initial.empty() &&
-                          std::isalpha(static_cast<unsigned char>(initial[0])));
-            auto cit = ctx.counters->find(name);
-            int val;
-            if (cit == ctx.counters->end()) {
-                // Initialise
-                if (alpha) {
-                    val = static_cast<int>(
-                        std::tolower(static_cast<unsigned char>(initial[0])) - 'a' + 1);
-                } else {
-                    try { val = std::stoi(initial); } catch (...) { val = 1; }
+                        const bool alpha = !initial.empty() &&
+                                           std::isalpha(static_cast<unsigned char>(initial[0]));
+                        auto cit = ctx.counters->find(name);
+                        int val;
+                        if (cit == ctx.counters->end()) {
+                            if (alpha) {
+                                val = static_cast<int>(
+                                    std::tolower(static_cast<unsigned char>(initial[0])) - 'a' + 1);
+                            } else {
+                                try { val = std::stoi(initial); } catch (...) { val = 1; }
+                            }
+                            (*ctx.counters)[name] = val;
+                        } else {
+                            ++cit->second;
+                            val = cit->second;
+                        }
+
+                        if (!is2) {  // counter2: emits nothing
+                            if (alpha) {
+                                after += static_cast<char>('a' + (val - 1));
+                            } else {
+                                after += std::to_string(val);
+                            }
+                        }
+                        i = j;
+                        continue;
+                    }
                 }
-                (*ctx.counters)[name] = val;
-            } else {
-                ++cit->second;
-                val = cit->second;
             }
-
-            if (kind == "counter") {
-                if (alpha) {
-                    after += static_cast<char>('a' + (val - 1));
-                } else {
-                    after += std::to_string(val);
-                }
-            }
-            // counter2: emits nothing
-
-            last = static_cast<std::size_t>(m.position()) +
-                   static_cast<std::size_t>(m.length());
+            after += out[i++];
         }
-        after.append(out, last);
         out = std::move(after);
     }
 
     // ── footnote:[text] / footnoteref:[id,text] ───────────────────────────────
     if (out.find("footnote") != std::string::npos && ctx.footnotes) {
-        // footnote:[body text]
-        static const aqrx::regex fn_rx(
-            R"(footnote(?:ref)?:\[([^\]]*)\])",
-            aqrx::ECMAScript | aqrx::optimize);
         std::string after;
-        auto begin = aqrx::sregex_iterator(out.begin(), out.end(), fn_rx);
-        auto end   = aqrx::sregex_iterator{};
-        std::size_t last = 0;
+        after.reserve(out.size());
+        const std::size_t n = out.size();
 
-        for (auto it = begin; it != end; ++it) {
-            const aqrx::smatch& m = *it;
-            after.append(out, last, static_cast<std::size_t>(m.position()) - last);
+        for (std::size_t i = 0; i < n; ) {
+            // Check for "footnote:" or "footnoteref:"
+            if (i + 9 <= n && out.compare(i, 8, "footnote") == 0) {
+                std::size_t j = i + 8;
+                const bool is_ref = (j + 3 <= n && out.compare(j, 3, "ref") == 0);
+                if (is_ref) { j += 3; }
+                if (j < n && out[j] == ':') {
+                    ++j;
+                    if (j < n && out[j] == '[') {
+                        const std::size_t cls = out.find(']', j + 1);
+                        if (cls != std::string::npos) {
+                            std::string content(out, j + 1, cls - j - 1);
+                            std::string fn_id;
+                            std::string fn_text;
+                            const auto comma = content.find(',');
+                            if (comma != std::string::npos) {
+                                fn_id   = content.substr(0, comma);
+                                fn_text = content.substr(comma + 1);
+                                while (!fn_text.empty() && fn_text.front() == ' ') { fn_text.erase(0, 1); }
+                            } else {
+                                fn_text = content;
+                            }
 
-            std::string content = m[1].str();
-            // Check for footnoteref format: id,text  or  id (back-reference)
-            std::string fn_id;
-            std::string fn_text;
-            auto comma = content.find(',');
-            if (comma != std::string::npos) {
-                fn_id   = content.substr(0, comma);
-                fn_text = content.substr(comma + 1);
-                while (!fn_text.empty() && fn_text.front() == ' ') { fn_text.erase(0, 1); }
-            } else {
-                // May be a back-reference (id only, no text) or anonymous footnote
-                fn_text = content;
-            }
+                            int fn_num = 0;
+                            if (!fn_id.empty()) {
+                                for (const auto& e : *ctx.footnotes) {
+                                    if (e.id == fn_id) { fn_num = e.number; break; }
+                                }
+                            }
+                            if (fn_num == 0) {
+                                fn_num = static_cast<int>(ctx.footnotes->size()) + 1;
+                                ctx.footnotes->push_back({fn_num, fn_id, fn_text});
+                            }
 
-            // Look up existing footnote by id, or create a new one
-            int fn_num = 0;
-            if (!fn_id.empty()) {
-                for (const auto& e : *ctx.footnotes) {
-                    if (e.id == fn_id) { fn_num = e.number; break; }
+                            const std::string fn_s = std::to_string(fn_num);
+                            after += "<sup class=\"footnote\">"
+                                     "<a id=\"_footnoteref_" + fn_s + "\" "
+                                     "class=\"footnote\" "
+                                     "href=\"#_footnotedef_" + fn_s + "\" "
+                                     "title=\"View footnote.\">" +
+                                     fn_s + "</a></sup>";
+                            i = cls + 1;
+                            continue;
+                        }
+                    }
                 }
             }
-            if (fn_num == 0) {
-                fn_num = static_cast<int>(ctx.footnotes->size()) + 1;
-                ctx.footnotes->push_back({fn_num, fn_id, fn_text});
-            }
-
-            // Inline marker
-            after += "<sup class=\"footnote\">"
-                     "<a id=\"_footnoteref_" + std::to_string(fn_num) + "\" "
-                     "class=\"footnote\" "
-                     "href=\"#_footnotedef_" + std::to_string(fn_num) + "\" "
-                     "title=\"View footnote.\">" +
-                     std::to_string(fn_num) + "</a></sup>";
-
-            last = static_cast<std::size_t>(m.position()) +
-                   static_cast<std::size_t>(m.length());
+            after += out[i++];
         }
-        after.append(out, last);
         out = std::move(after);
     }
 
@@ -915,9 +815,11 @@ inline std::string apply_quote_rx(
 
 /// Replace trailing " +" with <br>.
 [[nodiscard]] inline std::string sub_post_replacements(const std::string& text) {
-    static const aqrx::regex rx(R"( \+$)",
-                                aqrx::ECMAScript | aqrx::optimize);
-    return aqrx::regex_replace(text, rx, "<br>");
+    const std::size_t n = text.size();
+    if (n >= 2 && text[n-1] == '+' && text[n-2] == ' ') {
+        return std::string(text, 0, n - 2) + "<br>";
+    }
+    return text;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1012,17 +914,29 @@ inline std::string apply_quote_rx(
             (c >= 'A' && c <= 'Z') ? (c + ('a' - 'A')) : c);
     }
 
-    // 2. Strip HTML tags
+    // 2. Strip HTML tags: anything between < and >
     {
-        static const aqrx::regex tag_rx(R"(<[^>]+>)",
-                                       aqrx::ECMAScript | aqrx::optimize);
-        id = aqrx::regex_replace(id, tag_rx, "");
+        std::string out2;
+        out2.reserve(id.size());
+        bool in_tag = false;
+        for (char c2 : id) {
+            if (c2 == '<') { in_tag = true; }
+            else if (c2 == '>') { in_tag = false; }
+            else if (!in_tag) { out2 += c2; }
+        }
+        id = std::move(out2);
     }
-    // 3. Strip HTML entities
+    // 3. Strip HTML entities: &...; sequences
     {
-        static const aqrx::regex ent_rx(R"(&[^;]+;)",
-                                       aqrx::ECMAScript | aqrx::optimize);
-        id = aqrx::regex_replace(id, ent_rx, "");
+        std::string out2;
+        out2.reserve(id.size());
+        bool in_ent = false;
+        for (char c2 : id) {
+            if (c2 == '&') { in_ent = true; }
+            else if (c2 == ';' && in_ent) { in_ent = false; }
+            else if (!in_ent) { out2 += c2; }
+        }
+        id = std::move(out2);
     }
 
     // 4. Replace runs of unwanted characters with the separator

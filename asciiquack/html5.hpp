@@ -16,7 +16,6 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
-#include "aqregex.hpp"
 #include <string>
 #include <unordered_map>
 
@@ -1197,42 +1196,43 @@ private:
 
     /// Replace HTML-escaped callout markers (``&lt;N&gt;``) in verbatim source
     /// text with styled callout badges.  Each callout gets an anchor so the
-    /// corresponding colist item can link back to it.
-    ///
-    /// @p block_id  is used to generate unique per-block anchor ids.
-    /// @p counters  (out) maps callout number → count of occurrences so that
-    ///              convert_colist can emit matching badges.
+    /// Scan @p escaped_source for callout markers &lt;N&gt; and replace each
+    /// with an HTML anchor badge.  No regex needed.
     static std::string substitute_callouts(const std::string& escaped_source,
                                            const std::string& block_id)
     {
-        // After verbatim() the < and > are already HTML-escaped.
-        // Match &lt;N&gt; where N is one or more digits.
-        static const aqrx::regex co_rx(R"(&lt;(\d+)&gt;)",
-                                      aqrx::ECMAScript | aqrx::optimize);
         std::string result;
         result.reserve(escaped_source.size());
-        auto begin = aqrx::sregex_iterator(escaped_source.begin(),
-                                          escaped_source.end(), co_rx);
-        auto end   = aqrx::sregex_iterator{};
-        std::size_t last = 0;
-        for (auto it = begin; it != end; ++it) {
-            const aqrx::smatch& m = *it;
-            result.append(escaped_source, last,
-                          static_cast<std::size_t>(m.position()) - last);
-            std::string num = m[1].str();
-            // Emit an anchor so the callout list item can link back.
-            // Build the badge in one append sequence to minimise allocations.
-            const std::string& anchor_id_mid = block_id.empty() ? num : block_id + "-" + num;
-            result.reserve(result.size() + 28 + anchor_id_mid.size() + num.size());
-            result += "<b id=\"CO";
-            result += anchor_id_mid;
-            result += "\" class=\"conum\">(";
-            result += num;
-            result += ")</b>";
-            last = static_cast<std::size_t>(m.position()) +
-                   static_cast<std::size_t>(m.length());
+        const std::size_t n = escaped_source.size();
+
+        for (std::size_t i = 0; i < n; ) {
+            // Look for "&lt;" (4 bytes)
+            if (i + 4 <= n &&
+                escaped_source[i]   == '&' && escaped_source[i+1] == 'l' &&
+                escaped_source[i+2] == 't' && escaped_source[i+3] == ';') {
+                std::size_t j = i + 4;
+                const std::size_t num_start = j;
+                // Consume digits
+                while (j < n && escaped_source[j] >= '0' && escaped_source[j] <= '9') { ++j; }
+                const std::size_t num_len = j - num_start;
+                // Check for "&gt;" (4 bytes) immediately after digits
+                if (num_len > 0 && j + 4 <= n &&
+                    escaped_source[j]   == '&' && escaped_source[j+1] == 'g' &&
+                    escaped_source[j+2] == 't' && escaped_source[j+3] == ';') {
+                    std::string num(escaped_source, num_start, num_len);
+                    const std::string& mid = block_id.empty() ? num : block_id + "-" + num;
+                    result.reserve(result.size() + 28 + mid.size() + num.size());
+                    result += "<b id=\"CO";
+                    result += mid;
+                    result += "\" class=\"conum\">(";
+                    result += num;
+                    result += ")</b>";
+                    i = j + 4;
+                    continue;
+                }
+            }
+            result += escaped_source[i++];
         }
-        result.append(escaped_source, last);
         return result;
     }
 
