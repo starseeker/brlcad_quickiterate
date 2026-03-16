@@ -56,17 +56,6 @@
 
 if(NOT COMMAND ADD_ASCIIDOC)
 
-  # Locate asciiquack – look in the ext install tree first, then the PATH.
-  find_program(
-    ASCIIQUACK_EXECUTABLE
-    asciiquack
-    HINTS
-      ${CMAKE_BINARY_DIR}
-      ${BRLCAD_EXT_NOINSTALL_DIR}/${BIN_DIR}
-      ${BRLCAD_EXT_DIR}/install/${BIN_DIR}
-  )
-  mark_as_advanced(ASCIIQUACK_EXECUTABLE)
-
   # ─────────────────────────────────────────────────────────────────────
   # Internal helper: run asciiquack to produce a single output file.
   # Called as a CMake -P script via add_custom_command.
@@ -94,11 +83,15 @@ if(NOT COMMAND ADD_ASCIIDOC)
       set(adoc_files ${${in_adoc_files}})
     endif()
 
-    if(NOT ASCIIQUACK_EXECUTABLE)
-      # asciiquack not found – just register the source files so the
-      # build system knows about them without attempting conversion.
+    # Prefer the asciiquack target built from misc/tools/asciiquack.
+    if(TARGET asciiquack)
+      set(_aq_cmd "$<TARGET_FILE:asciiquack>")
+      set(_aq_deps asciiquack)
+    else()
+      # asciiquack target not available – just register source files.
+      message(WARNING "ADD_ASCIIDOC: asciiquack target not found; "
+                      "AsciiDoc documentation will not be built.")
       foreach(adoc_file ${adoc_files})
-        set(src "${CMAKE_CURRENT_SOURCE_DIR}/${adoc_file}")
         cmakefiles("${adoc_file}")
       endforeach()
       return()
@@ -161,12 +154,12 @@ if(NOT COMMAND ADD_ASCIIDOC)
 
         add_custom_command(
           OUTPUT "${_outfile}"
-          COMMAND "${ASCIIQUACK_EXECUTABLE}"
+          COMMAND "${_aq_cmd}"
                   -b "${_backend}"
                   -d "${_doctype}"
                   -o "${_outfile}"
                   "${_src}"
-          DEPENDS "${_src}"
+          DEPENDS "${_src}" ${_aq_deps}
           COMMENT "asciiquack: ${_stem} (${_FMT})"
           VERBATIM
         )
