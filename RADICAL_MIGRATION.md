@@ -1643,8 +1643,56 @@ from `mp_gvp` (no DMP indirection).
      retired.
    - Implement Obol-path framebuffer compositing for `rt` output display
      (replace `fb_readrect`/`fb_*` overlay with an Obol texture node).
-   - `fb-qtgl.cpp` and `fb-swrast.cpp` still reference `dm.h` / dm-gl.h; these
-     files will be cleaned up when the corresponding plugins are removed.
+   - `fb-swrast.cpp` still references `dm.h` / dm-gl.h; this file will be cleaned
+     up when the swrast plugin is removed.
+   - `fb-qtgl.cpp` is now clean (guards removed — file only compiles in non-Obol builds).
+
+   **Stage 16** ✅ (Session 36) — Skip dm-qtgl build in Obol; clean up Obol guards from fb-qtgl.cpp;
+   guard dm_init_msgs and DM_SWRAST in Obol; fix doevent.c unused function.
+
+   Changes:
+   - `src/mged/doevent.c`: Removed orphaned `motion_event_handler` forward declaration
+     and stub definition.  The function was declared+defined but never called; the
+     `doEvent()` stub was already a no-op.
+   - `src/libdm/qtgl/CMakeLists.txt`: Changed guard from
+     `if(BRLCAD_ENABLE_QT AND BRLCAD_ENABLE_OPENGL)` to
+     `if(BRLCAD_ENABLE_QT AND BRLCAD_ENABLE_OPENGL AND NOT BRLCAD_ENABLE_OBOL)`.
+     The `dm-qtgl` plugin is the Qt OpenGL display manager that is completely
+     replaced by Obol (`QgObolView`).  In Obol builds it would never be loaded by
+     qged, so building it wastes time and produces a dead artifact.
+     The `QTGL_SRCS` list also reverts to the canonical form (qtglwin.cpp always
+     included) since the whole block is now skipped under Obol.
+   - `src/libdm/qtgl/fb-qtgl.cpp`: Removed all `#ifndef BRLCAD_ENABLE_OBOL` guards.
+     Since the file is now compiled **only** in non-Obol builds (through the outer
+     CMakeLists.txt guard), the per-function guards were unnecessary boilerplate.
+     `qtglwin.h` include, `QgGLWin *mw` member, `qt_destroy`, `qtgl_do_event`,
+     `fb_qtgl_open`, and both `mw->update()` calls are all restored to their clean,
+     unconditional form.
+   - `src/qged/QgEdApp.cpp`: Wrapped the `dm_init_msgs()` check with
+     `#ifndef BRLCAD_ENABLE_OBOL`.  In Obol builds neither dm-qtgl nor dm-swrast is
+     loaded (dm-qtgl is not built; dm-swrast is built but is a headless plugin not
+     touched by the Qt frontend), so `dm_init_msgs()` is always empty.  Skipping it
+     also removes `dm_init_msgs` from `qged`'s undefined-symbol list.
+   - `src/libqtcad/QgModel.cpp`: Wrapped `bu_setenv("DM_SWRAST", "1", 1)` with
+     `#ifndef BRLCAD_ENABLE_OBOL`.  The `DM_SWRAST` env var tells libdm to expose
+     the swrast backend in `dm_list_types`; in Obol builds this is irrelevant since
+     the Qt frontend never uses libdm for display.
+   - `src/source_dirs.cmake`: Added an explanatory comment to the `libqtcad`
+     `set_deps` entry noting that the `libdm` dependency is only present in non-Obol
+     builds.  The actual conditional link logic lives in
+     `src/libqtcad/CMakeLists.txt`.
+
+   **Verification:**
+   - Full build succeeds with zero errors.
+   - `nm --undefined-only bin/qged` no longer lists `dm_init_msgs`.
+   - `libexec/dm/dm-qtgl.so` is **not** present in the Obol build.
+   - Only three `fb_*` symbols remain (`fb_getwidth`, `fb_getheight`, `fb_readrect`);
+     all three are used by `QgObolView::render_fb_overlay()` for rt pixel compositing.
+
+   **Remaining dm_* usage in qged binary:**
+   - `fb_getwidth` / `fb_getheight` / `fb_readrect` in `QgObolView.h`: these are
+     the libdm framebuffer raster helpers used to read back an rt render.  They will
+     be replaced by an Obol texture-node path in a future stage.
 
 **Key files to update (Stage 7 MGED work):**
 

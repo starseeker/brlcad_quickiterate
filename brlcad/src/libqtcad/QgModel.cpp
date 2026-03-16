@@ -313,7 +313,12 @@ QgModel::QgModel(QObject *p, const char *npath)
     // Set up new cmd data (not yet done by default in ged_init
     gedp->dbi_state = new DbiState(gedp);
     gedp->new_cmd_forms = 1;
+#ifndef BRLCAD_ENABLE_OBOL
+    /* DM_SWRAST tells libdm to expose the swrast display manager as a valid
+     * choice when listing dm backends.  In Obol builds the dm-swrast plugin
+     * is not loaded by the Qt frontend, so this env var is irrelevant. */
     bu_setenv("DM_SWRAST", "1", 1);
+#endif
 
     // Register as DbiState observer so we receive change notifications
     {

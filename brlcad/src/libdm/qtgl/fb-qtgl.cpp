@@ -66,19 +66,13 @@ extern struct fb qtgl_interface;
 }
 
 #include <QApplication>
-#ifndef BRLCAD_ENABLE_OBOL
-/* qtglwin.h uses QgGL from libqtcad.  When Obol is the rendering backend
- * QgGL is not compiled into libqtcad, so the stand-alone window is disabled. */
-#  include "qtglwin.h"
-#endif
+#include "qtglwin.h"
 
 struct qtglinfo {
     int ac;
     char **av;
     QApplication *qapp = NULL;
-#ifndef BRLCAD_ENABLE_OBOL
     QgGLWin *mw = NULL;
-#endif
 
     int cmap_size;		/* hardware colormap size */
     int win_width;              /* actual window width */
@@ -177,9 +171,7 @@ qtgl_xmit_scanlines(struct fb *ifp, int ybase, int nlines, int xbase, int npix)
 static void
 qt_destroy(struct qtglinfo *qi)
 {
-#ifndef BRLCAD_ENABLE_OBOL
     delete qi->mw;
-#endif
     delete qi->qapp;
     free(qi->av[0]);
     free(qi->av);
@@ -324,11 +316,7 @@ qtgl_configureWindow(struct fb *ifp, int width, int height)
 static void
 qtgl_do_event(struct fb *ifp)
 {
-#ifndef BRLCAD_ENABLE_OBOL
     QTGL(ifp)->mw->update();
-#else
-    (void)ifp;
-#endif
 }
 
 static int
@@ -401,9 +389,6 @@ fb_qtgl_open(struct fb *ifp, const char *UNUSED(file), int width, int height)
     qi->win_width = qi->vp_width = width;
     qi->win_height = qi->vp_width = height;
 
-#ifndef BRLCAD_ENABLE_OBOL
-    /* Stand-alone Qt GL window (requires QgGL from libqtcad).  Disabled when
-     * Obol is the rendering backend since QgGL is no longer compiled. */
     qi->qapp = new QApplication(qi->ac, qi->av);
 
     QSurfaceFormat fmt;
@@ -428,11 +413,6 @@ fb_qtgl_open(struct fb *ifp, const char *UNUSED(file), int width, int height)
     fbps.data = (void *)dmp;
 
     return qtgl_open_existing(ifp, width, height, &fbps);
-#else
-    /* Obol build: stand-alone qtgl framebuffer window not supported. */
-    fb_log("fb_qtgl: stand-alone window not available in Obol builds\n");
-    return -1;
-#endif
 }
 
 static struct fb_platform_specific *
@@ -805,9 +785,7 @@ qtgl_writerect(struct fb *ifp, int xmin, int ymin, int width, int height, const 
 	}
     }
 
-#ifndef BRLCAD_ENABLE_OBOL
     QTGL(ifp)->mw->update();
-#endif
 
     return width*height;
 }
@@ -848,9 +826,7 @@ qtgl_bwwriterect(struct fb *ifp, int xmin, int ymin, int width, int height, cons
 	}
     }
 
-#ifndef BRLCAD_ENABLE_OBOL
     QTGL(ifp)->mw->update();
-#endif
 
     return width*height;
 }

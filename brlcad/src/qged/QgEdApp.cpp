@@ -406,14 +406,21 @@ QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode) :QAppl
 	w->console->printString("\n");
 	have_msg = 1;
     }
-    std::string dm_msgs(dm_init_msgs());
-    if (dm_msgs.size()) {
-	if (dm_msgs.find("qtgl") != std::string::npos || dm_msgs.find("swrast") != std::string::npos) {
-	    w->console->printString(dm_msgs.c_str());
-	    w->console->printString("\n");
-	    have_msg = 1;
+#ifndef BRLCAD_ENABLE_OBOL
+    /* In Obol builds the dm-qtgl and dm-swrast plugins are not built and
+     * therefore not loaded, so dm_init_msgs() will always be empty.  Skip the
+     * check to avoid an unnecessary call into libdm. */
+    {
+	std::string dm_msgs(dm_init_msgs());
+	if (dm_msgs.size()) {
+	    if (dm_msgs.find("qtgl") != std::string::npos || dm_msgs.find("swrast") != std::string::npos) {
+		w->console->printString(dm_msgs.c_str());
+		w->console->printString("\n");
+		have_msg = 1;
+	    }
 	}
     }
+#endif /* !BRLCAD_ENABLE_OBOL */
 
     // If we did write any messages, need to restore the prompt
     if (have_msg) {
