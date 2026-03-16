@@ -59,10 +59,6 @@
 extern int doMotion;			/* defined in buttons.c */
 
 #ifdef HAVE_X11_TYPES
-static void motion_event_handler(struct mged_state *, XMotionEvent *);
-#endif
-
-#ifdef HAVE_X11_TYPES
 int
 doEvent(ClientData UNUSED(clientData), XEvent *UNUSED(eventPtr))
 {
@@ -76,15 +72,4 @@ int
 doEvent(ClientData UNUSED(clientData), void *UNUSED(eventPtr)) {
     return TCL_OK;
 }
-#endif /* HAVE_X11_XLIB_H */
-
-#ifdef HAVE_X11_TYPES
-/* Step 8: motion_event_handler removed — libdm mouse event dispatch
- * is no longer used.  Obol panes handle mouse events via Qt/Tk bindings.
- * The function prototype is kept to satisfy the forward declaration above. */
-static void
-motion_event_handler(struct mged_state *UNUSED(s), XMotionEvent *UNUSED(xmotion))
-{
-    /* no-op */
-}
-#endif /* HAVE_X11_XLIB_H */
+#endif /* HAVE_X11_TYPES */
