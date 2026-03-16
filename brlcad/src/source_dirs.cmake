@@ -57,11 +57,11 @@ set_deps(libanalyze "librt;libbn;libbu")
 set_deps(liboptical "librt;libbn;libbu")
 set_deps(libicv     "libbn;libbu")
 set_deps(libdm      "librt;libbsg;libicv;libbn;libpkg;libbu")
-set_deps(libged     "libicv;libanalyze;libwdb;liboptical;libdm;libbsg;libbu")
+set_deps(libged     "libicv;libanalyze;libwdb;liboptical;libbsg;libbu")
 set_deps(libfft     "")
 set_deps(libpc      "")
 set_deps(libqtcad   "libged;libdm;libbsg;libbn;libbu")
-set_deps(libtclcad  "libged;libdm;libbsg;libbn;libbu")
+set_deps(libtclcad  "libged;libbsg;libbn;libbu")
 
 
 # Applications

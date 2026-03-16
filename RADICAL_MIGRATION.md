@@ -1371,6 +1371,175 @@ from `mp_gvp` (no DMP indirection).
      those libraries' draw calls to Obol)
    - Remove `libdm` from `source_dirs.cmake` `libged_deps` / `libtclcad_deps`
 
+### Stage 10 — Remove `libdm` from `libged` core deps; add Obol-path guards in libtclcad (Sessions 29–30)
+
+   **libged — libdm dependency eliminated at library level** (Session 29):
+   - Removed unused `#include "dm.h"` from 6 libged plugin files with no dm
+     function calls: `autoview.c`, `get_autoview.c`, `how.c`, `bot_dump.cpp`,
+     `autoview2.cpp`, `snap.c`.
+   - Removed `dm_set_dirty` calls from `illum.c` and `nmg.c` (only dm usage,
+     already dmp-guarded, no-op in Obol path; `#include "dm.h"` removed too).
+   - Fixed `overlay/CMakeLists.txt`: added explicit `libdm` dep (was leaking in
+     transitively through libged, which no longer has that dep).
+   - **`source_dirs.cmake`**: removed `libdm` from `libged_deps` — libged core
+     sources never call any dm function.  The 5 dm-using plugins (`fbclear`,
+     `fb2pix`, `pix2fb`, `png2fb`, `libged/dm/`) declare `libdm` individually.
+   - **libged no longer has a compile-time dependency on libdm**.
+
+   **libtclcad — Obol-path safety guards** (Session 29):
+   All dm function calls in libtclcad are now guarded so the Obol path
+   (`dmp == NULL`) does not crash or corrupt view state:
+   - `mouse.c`, `polygons.c`, `wrapper.c`: `dm_get_width/height` assignments
+     wrapped in `if (gdvp->dmp)` guards; local width vars use `gdvp->gv_width`
+     directly in the Obol path.
+   - `view/draw.c`: early `return` before all dm draw calls when `dmp == NULL`.
+   - `commands.c`: dmp guards added to `to_bg`, `to_bounds`, `to_configure`,
+     `to_fontsize`, `to_light`, `to_pix`, `to_png`, `to_transparency`,
+     `to_zbuffer`, and the dm_close in the view cleanup loop.
+   - `dm.c`: `"obol"` added as a recognized type in `dmo_open_tcl` — creates a
+     `dm_obj` with `dmo_dmp = NULL`; 25 sub-command functions guarded with
+     `if (!dmop->dmo_dmp) return TCL_OK;`; `dm_close` and `dmo_openFb` guarded.
+   - libged fb commands (`fbclear`, `fb2pix`, `pix2fb`, `png2fb`): improved
+     error message explaining framebuffer ops need a dm backend.
+
+   **Remaining cleanup** (Session 30):
+   - `overlay.c`: moved dmp-NULL check from top-level to inside `write_fb` path
+     only — plot/vector overlay now works in the Obol path; only framebuffer
+     pixel writes require a dm backend.
+   - Removed unused `#include "dm.h"` from `libtclcad/init.c`, `fbserv.c`,
+     `tkImgFmtPIX.c` (no dm_ calls in these files).
+   - Removed duplicate `#include "dm.h"` from `libtclcad/commands.c`.
+
+   **Stage 11** ✅ (Session 31) — Eliminated libdm from libtclcad entirely.
+   Lean-towards-elimination approach: all dm_ and fb_* call sites removed.
+   - `mouse.c`, `polygons.c`: removed `dm_get_width/height` sync blocks (use
+     `gv_width/gv_height` directly); removed `dm_get_pathname` Tk-bind setup
+     (dm-path Tk bindings irrelevant in Obol); removed `#include "dm.h"`.
+   - `wrapper.c`: removed `dm_get_width/height` and `dm_set_perspective` blocks;
+     removed `#include "dm.h"`.
+   - `view/util.c`: replaced `to_is_viewable` body with `return gdvp->dmp != NULL`
+     (eliminates `dm_get_pathname` + Tcl `winfo viewable` call); removed
+     `#include "dm.h"`.
+   - `view/draw.c`: stripped all dm_ draw calls (`dm_loadmatrix`, `dm_draw_dlist`,
+     `dm_draw_vlist`, `dm_set_fg`, `dm_set_line_attr`, `dm_set_depth_mask`); `go_draw`
+     and `go_draw_solid` are now Obol-only stubs; removed `dm.h` / `dm/view.h`.
+   - `view/refresh.c`: `go_refresh_draw` and `go_refresh` are now Obol-only stubs;
+     removed `#define DM_WITH_RT` and `#include "dm.h"`.
+   - `commands.c`: replaced all `dm_get_width/height` with `gv_width/gv_height`;
+     replaced `dm_get_pathname` with `NULL`; stubbed `to_bg`, `to_bounds`,
+     `to_configure`, `to_fontsize`, `to_light`, `to_transparency`, `to_zbuffer`
+     (dm-state setters → no-op); `to_pix`/`to_png` return error "use Obol path";
+     removed `dm_open` call from `to_new_view` (all views now Obol, dmp=NULL);
+     dlist callbacks (`to_create_vlist_callback_solid`, `to_destroy_vlist_callback`)
+     are no-ops (Obol uses scene graph, not dm dlists); removed `#include "dm.h"`.
+   - `dm.c`: replaced with complete stub (all 30+ `dmo_*_tcl` subcommands return
+     `TCL_OK`; no `dm_open` call; `dmo_dmp = NULL`); removed `#include "dm.h"`.
+   - `fb.c`: `to_open_fb` → `return TCL_OK` stub; all `fbo_*` Tcl commands return
+     `TCL_ERROR` with "dm backend going away" message; removed `#include "dm.h"` and
+     `#include "../libdm/include/private.h"`.
+   - `source_dirs.cmake`: removed `libdm` from `libtclcad_deps`.
+   - `libtclcad/CMakeLists.txt`: removed stale `DM_WITH_RT` comment.
+   - Build: libtclcad compiles and links clean with zero errors/warnings.
+
+   **Stage 12** ✅ (Session 32) — Restored user-facing features with Obol as foundation.
+
+   **Guiding principle**: internal implementation can change; the Tcl command interface
+   (the contract between MGED/Archer scripts and libtclcad) must be preserved.
+
+   Changes:
+
+   - `view/util.c` — `to_is_viewable`: now returns 1 for **all** registered views
+     (Obol views have `dmp=NULL` but are fully functional).  The old `dmp != NULL`
+     guard was only relevant to the removed dm draw calls.
+
+   - `view/refresh.c` — `to_refresh_view`: now dispatches correctly for both view
+     types:
+     - Legacy dm view (`dmp != NULL`): calls `go_refresh()` as before.
+     - Obol view (`dmp == NULL`): calls `Tcl_Eval("catch {obol_notify_views}")`,
+       triggering all live `obol_view` Tk widgets to re-assemble and re-render.
+     `to_refresh_all_views` simplified — the per-view loop now handles Obol notify,
+     so the duplicate `obol_notify_views` at the end was removed.
+
+   - `include/tclcad/draw.h` — `struct tclcad_view_data` gains five Obol rendering
+     settings fields (replacing former dm API calls):
+     - `gdv_bg[3]` — background RGB (0-255); replaces `dm_set_bg` / `dm_get_bg`
+     - `gdv_light` — headlight enable; replaces `dm_set_light` / `dm_get_light`
+     - `gdv_zbuffer` — zbuffer enable; replaces `dm_set_zbuffer`
+     - `gdv_transparency` — transparency enable; replaces `dm_set_transparency`
+     - `gdv_fontsize` — font size (0=default); replaces `dm_set_fontsize`
+
+   - `commands.c` — restored functional get/set bodies for:
+     - `to_bg`: reads/writes `tvd->gdv_bg[3]`; triggers `to_refresh_view`.
+     - `to_light`: reads/writes `tvd->gdv_light`; triggers `to_refresh_view`.
+     - `to_zbuffer`: reads/writes `tvd->gdv_zbuffer`; triggers `to_refresh_view`.
+     - `to_transparency`: reads/writes `tvd->gdv_transparency`; triggers refresh.
+     - `to_fontsize`: reads/writes `tvd->gdv_fontsize`; triggers `to_refresh_view`.
+     - `to_bounds` (GET): returns near/far clip derived from `gv_size`.
+     - `to_bounds` (SET): parses bounds, triggers `to_refresh_view` (Obol manages
+       its own frustum — stored bounds are advisory).
+     - `to_configure`: removed dead `dmp != NULL` gate; now always updates rect
+       dims and fires `to_refresh_view` for all view types.
+     - `to_pix` / `to_png`: delegate to `obol_view_screengrab <view> {pix|png} <file>`
+       Tcl command; returns clear error if `obol_view_screengrab` not registered.
+
+   - `fb.c` — `to_set_fb_mode`: now reads/writes `gdvp->gv_s->gv_fb_mode`
+     (already a field on `bsg_view_settings`); triggers `to_refresh_view`.
+
+   **Migration guide** — Tcl command interface preserved; internal backing changed:
+
+   | Old Tcl command | Old backing | New backing |
+   |---|---|---|
+   | `$ged bg $view R G B` | `dm_set_bg(dmp,r,g,b)` | `tvd->gdv_bg[3]` + `obol_notify_views` |
+   | `$ged light $view 0|1` | `dm_set_light(dmp,l)` | `tvd->gdv_light` + `obol_notify_views` |
+   | `$ged zbuffer $view 0|1` | `dm_set_zbuffer(dmp,z)` | `tvd->gdv_zbuffer` + `obol_notify_views` |
+   | `$ged transparency $view 0|1` | `dm_set_transparency(dmp,t)` | `tvd->gdv_transparency` + `obol_notify_views` |
+   | `$ged fontsize $view N` | `dm_set_fontsize(dmp,n)` | `tvd->gdv_fontsize` + `obol_notify_views` |
+   | `$ged set_fb_mode $view N` | `tvd->gdv_fbs.fbs_mode` | `gdvp->gv_s->gv_fb_mode` |
+   | `$ged png $view file.png` | `dm_get_display_image()` + libpng | `obol_view_screengrab $view png file.png` |
+   | `$ged pix $view file.pix` | `dm_get_display_image()` | `obol_view_screengrab $view pix file.pix` |
+
+   **Stage 13** ✅ (Session 33) — Wire `obol_view` widget to `tclcad_view_data` render settings.
+
+   Changes (all in `src/libtclcad/obol_view.cpp` + `src/libtclcad/init.c`):
+
+   - `ObolViewWidget` struct gains `bg_r/bg_g/bg_b` float cache fields
+     (initialized to `0.2f` = the previous hardcoded background).
+
+   - New `obol_view_apply_render_settings(w)` helper — called at the top of
+     every `obol_view_do_render()`:
+     - Reads `tvd->gdv_bg[3]` from the attached `bsg_view->u_data`; converts
+       0–255 bytes to 0.0–1.0 floats; stores in `w->bg_r/g/b`.
+     - HW path: calls `w->render_mgr.setBackgroundColor(SbColor4f(r,g,b,1))`.
+     - SW path: `obol_view_render_sw()` now uses `w->bg_r/g/b` instead of the
+       hardcoded `0.2f, 0.2f, 0.2f`.
+     - Reads `tvd->gdv_light`; enables/disables `child[0]` (the
+       `SoDirectionalLight` placed by `obol_scene_create()`) via `dl->on`.
+     - If `tvd == NULL` (view has no tclcad data), defaults: bg=0.2 grey, light on.
+
+   - New `obol_view_screengrab_impl(w, format, filename, interp)` helper —
+     uses `SoOffscreenRenderer` regardless of HW/SW rendering path:
+     - `format == "pix"`: writes raw RGB bytes.
+     - `format == "png"`: delegates to `SoOffscreenRenderer::writeToFile(..., "png")`.
+     - Applies render settings and camera sync before the offscreen render.
+
+   - New `screengrab png|pix <filename>` subcommand on the widget instance.
+
+   - New top-level Tcl command `obol_view_screengrab <viewname> png|pix <file>`:
+     - Iterates `s_obol_view_instances`; finds the widget whose `bsg_view->gv_name`
+       matches `viewname`; delegates to `obol_view_screengrab_impl`.
+     - Registered as `Obol_View_Screengrab_Cmd` in `init.c` alongside
+       `obol_init` / `obol_view` / `obol_notify_views`.
+     - This is the command `to_pix()` / `to_png()` in `commands.c` call.
+
+   **Outstanding work** (remaining after Stage 13):
+   - Framebuffer compositing for `rt` output: `gv_fb_mode` is stored on
+     `gv_s->gv_fb_mode`; the Obol texture overlay for rt-rendered pixels is
+     future work (requires an `rt` backend that writes to an Obol texture node).
+
+   **Long-term remaining work**:
+   - Delete `src/libdm/` rendering plugins once all frontends have migrated to Obol.
+   - Implement Obol-path framebuffer compositing for `rt` output display.
+
 **Key files to update (Stage 7 MGED work):**
 
 | File | Change |

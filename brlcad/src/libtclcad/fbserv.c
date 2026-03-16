@@ -36,7 +36,6 @@
 #include <tcl.h>
 #include "bio.h"
 #include "bnetwork.h"
-#include "dm.h"
 #include "tclcad.h"
 
 /* We need to use different Tcl I/O mechanisms on different

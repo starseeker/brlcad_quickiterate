@@ -39,7 +39,6 @@
 #include "bu/path.h"
 #include "bu/vls.h"
 #include "bn.h"
-#include "dm.h"
 #include "raytrace.h"
 #include "tclcad.h"
 
@@ -52,6 +51,7 @@
 extern int Obol_View_Cmd(ClientData, Tcl_Interp *, int, const char **);
 extern int Obol_Init_Cmd(ClientData, Tcl_Interp *, int, const char **);
 extern int Obol_Notify_Views_Cmd(ClientData, Tcl_Interp *, int, const char **);
+extern int Obol_View_Screengrab_Cmd(ClientData, Tcl_Interp *, int, const char **);
 #endif
 
 
@@ -277,6 +277,10 @@ tclcad_init(Tcl_Interp *interp, int init_gui, struct bu_vls *tlog)
     Tcl_CreateCommand(interp, "obol_view", Obol_View_Cmd,
 		      (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL);
     Tcl_CreateCommand(interp, "obol_notify_views", Obol_Notify_Views_Cmd,
+		      (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL);
+    /* obol_view_screengrab <viewname> png|pix <file> — screen capture; called
+     * by libtclcad to_pix() / to_png() which delegate to this command. */
+    Tcl_CreateCommand(interp, "obol_view_screengrab", Obol_View_Screengrab_Cmd,
 		      (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL);
 #endif
 #endif /* BRLCAD_ENABLE_OBOL */

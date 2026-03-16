@@ -36,7 +36,6 @@
 #include "bsg/util.h"
 #include "bg/lseg.h"
 #include "tclcad.h"
-#include "dm.h" /* Stage 9: explicit include; no longer pulled via tclcad headers */
 
 /* Private headers */
 #include "./tclcad_private.h"
@@ -1122,14 +1121,6 @@ to_poly_circ_mode(struct ged *gedp,
     argv[1] = argv[0];
     ret = to_poly_circ_mode_func(current_top->to_interp, gedp, gdvp, argc-1, argv+1, usage);
 
-    struct bu_vls *pathname = dm_get_pathname((struct dm *)gdvp->dmp);
-    if (pathname && bu_vls_strlen(pathname)) {
-	bu_vls_printf(&bindings, "bind %s <Motion> {%s mouse_poly_circ %s %%x %%y}",
-		      bu_vls_cstr(pathname),
-		      bu_vls_cstr(&current_top->to_gedp->go_name),
-		      bu_vls_cstr(&gdvp->gv_name));
-	Tcl_Eval(current_top->to_interp, bu_vls_cstr(&bindings));
-    }
     bu_vls_free(&bindings);
 
     to_refresh_view(gdvp);
@@ -1183,8 +1174,6 @@ to_poly_circ_mode_func(Tcl_Interp *interp,
     gdvp->gv_prevMouseY = y;
     gdvp->gv_tcl.gv_polygon_mode = BSG_POLY_CIRCLE_MODE;
 
-    gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
-    gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
     bsg_screen_to_view(gdvp, &fx, &fy, x, y);
     VSET(v_pt, fx, fy, gdvp->gv_tcl.gv_data_vZ);
     int snapped = 0;
@@ -1266,8 +1255,6 @@ to_poly_cont_build_func(Tcl_Interp *interp,
     gdvp->gv_prevMouseY = y;
     gdvp->gv_tcl.gv_polygon_mode = BSG_POLY_CONTOUR_MODE;
 
-    gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
-    gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
     bsg_screen_to_view(gdvp, &fx, &fy, x, y);
     VSET(v_pt, fx, fy, gdvp->gv_tcl.gv_data_vZ);
     int snapped = 0;
@@ -1305,14 +1292,6 @@ to_poly_cont_build_func(Tcl_Interp *interp,
 	(void)to_data_polygons_func(interp, gedp, gdvp, ac, (const char **)av);
 	bu_vls_free(&plist);
 
-	struct bu_vls *pathname = dm_get_pathname((struct dm *)gdvp->dmp);
-	if (doBind && pathname && bu_vls_strlen(pathname)) {
-	    bu_vls_printf(&bindings, "bind %s <Motion> {%s mouse_poly_cont %s %%x %%y}",
-			  bu_vls_cstr(pathname),
-			  bu_vls_cstr(&current_top->to_gedp->go_name),
-			  bu_vls_cstr(&gdvp->gv_name));
-	    Tcl_Eval(interp, bu_vls_cstr(&bindings));
-	}
 	bu_vls_free(&bindings);
     } else {
 	struct bu_vls i_vls = BU_VLS_INIT_ZERO;
@@ -1575,14 +1554,6 @@ to_poly_ell_mode(struct ged *gedp,
     argv[1] = argv[0];
     ret = to_poly_ell_mode_func(current_top->to_interp, gedp, gdvp, argc-1, argv+1, usage);
 
-    struct bu_vls *pathname = dm_get_pathname((struct dm *)gdvp->dmp);
-    if (pathname && bu_vls_strlen(pathname)) {
-	bu_vls_printf(&bindings, "bind %s <Motion> {%s mouse_poly_ell %s %%x %%y}",
-		      bu_vls_cstr(pathname),
-		      bu_vls_cstr(&current_top->to_gedp->go_name),
-		      bu_vls_cstr(&gdvp->gv_name));
-	Tcl_Eval(current_top->to_interp, bu_vls_cstr(&bindings));
-    }
     bu_vls_free(&bindings);
 
     to_refresh_view(gdvp);
@@ -1636,8 +1607,6 @@ to_poly_ell_mode_func(Tcl_Interp *interp,
     gdvp->gv_prevMouseY = y;
     gdvp->gv_tcl.gv_polygon_mode = TCLCAD_POLY_ELLIPSE_MODE;
 
-    gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
-    gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
     bsg_screen_to_view(gdvp, &fx, &fy, x, y);
     VSET(v_pt, fx, fy, gdvp->gv_tcl.gv_data_vZ);
     int snapped = 0;
@@ -1742,14 +1711,6 @@ to_poly_rect_mode(struct ged *gedp,
     argv[1] = argv[0];
     ret = to_poly_rect_mode_func(current_top->to_interp, gedp, gdvp, argc-1, argv+1, usage);
 
-    struct bu_vls *pathname = dm_get_pathname((struct dm *)gdvp->dmp);
-    if (pathname && bu_vls_strlen(pathname)) {
-	bu_vls_printf(&bindings, "bind %s <Motion> {%s mouse_poly_rect %s %%x %%y}",
-		      bu_vls_cstr(pathname),
-		      bu_vls_cstr(&current_top->to_gedp->go_name),
-		      bu_vls_cstr(&gdvp->gv_name));
-	Tcl_Eval(current_top->to_interp, bu_vls_cstr(&bindings));
-    }
     bu_vls_free(&bindings);
 
     to_refresh_view(gdvp);
@@ -1816,8 +1777,6 @@ to_poly_rect_mode_func(Tcl_Interp *interp,
     else
 	gdvp->gv_tcl.gv_polygon_mode = TCLCAD_POLY_RECTANGLE_MODE;
 
-    gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
-    gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
     bsg_screen_to_view(gdvp, &fx, &fy, x, y);
     VSET(v_pt, fx, fy, gdvp->gv_tcl.gv_data_vZ);
     int snapped = 0;

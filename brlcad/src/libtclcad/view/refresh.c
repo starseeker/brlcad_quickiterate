@@ -27,9 +27,7 @@
 #include "common.h"
 #include "bu/units.h"
 #include "ged.h"
-#define DM_WITH_RT
 #include "tclcad.h"
-#include "dm.h" /* Stage 9: explicit include; no longer pulled via tclcad headers */
 
 /* Private headers */
 #include "../tclcad_private.h"
@@ -38,139 +36,23 @@
 void
 go_refresh_draw(struct ged *gedp, bsg_view *gdvp, int restore_zbuffer)
 {
-    struct tclcad_view_data *tvd = (struct tclcad_view_data *)gdvp->u_data;
-    struct tclcad_ged_data *tgd = (struct tclcad_ged_data *)current_top->to_gedp->u_data;
-    struct rt_wdb *wdbp = wdb_dbopen(gedp->dbip, RT_WDB_TYPE_DB_DEFAULT);
-    if (tvd->gdv_fbs.fbs_mode == TCLCAD_OBJ_FB_MODE_OVERLAY) {
-	if (gdvp->gv_s->gv_rect.draw) {
-	    go_draw(gdvp);
-
-	    // TODO - I wouldn't expect these values to differ from the dbi
-	    // versions, but to preserve the old behavior where the factors
-	    // were passed explicitly we stash and restore.  Need to figure
-	    // out whether this is ever needed (shouldn't be?)
-	    double l2b = gdvp->gv_local2base;
-	    double b2l = gdvp->gv_base2local;
-	    gdvp->gv_local2base = gedp->dbip->dbi_local2base;
-	    gdvp->gv_base2local = gedp->dbip->dbi_base2local;
-	    dm_draw_viewobjs(wdbp, gdvp, &tgd->go_dmv);
-	    gdvp->gv_local2base = l2b;
-	    gdvp->gv_base2local = b2l;
-
-	    /* disable write to depth buffer */
-	    (void)dm_set_depth_mask((struct dm *)gdvp->dmp, 0);
-
-	    fb_refresh(tvd->gdv_fbs.fbs_fbp,
-		       gdvp->gv_s->gv_rect.pos[X], gdvp->gv_s->gv_rect.pos[Y],
-		       gdvp->gv_s->gv_rect.dim[X], gdvp->gv_s->gv_rect.dim[Y]);
-
-	    /* enable write to depth buffer */
-	    (void)dm_set_depth_mask((struct dm *)gdvp->dmp, 1);
-
-	    if (gdvp->gv_s->gv_rect.line_width)
-		dm_draw_rect((struct dm *)gdvp->dmp, &gdvp->gv_s->gv_rect);
-	} else {
-	    /* disable write to depth buffer */
-	    (void)dm_set_depth_mask((struct dm *)gdvp->dmp, 0);
-
-	    fb_refresh(tvd->gdv_fbs.fbs_fbp, 0, 0,
-		       dm_get_width((struct dm *)gdvp->dmp), dm_get_height((struct dm *)gdvp->dmp));
-
-	    /* enable write to depth buffer */
-	    (void)dm_set_depth_mask((struct dm *)gdvp->dmp, 1);
-	}
-
-	if (restore_zbuffer) {
-	    (void)dm_set_zbuffer((struct dm *)gdvp->dmp, 1);
-	}
-
-	return;
-    } else if (tvd->gdv_fbs.fbs_mode == TCLCAD_OBJ_FB_MODE_INTERLAY) {
-	go_draw(gdvp);
-
-	/* disable write to depth buffer */
-	(void)dm_set_depth_mask((struct dm *)gdvp->dmp, 0);
-
-	if (gdvp->gv_s->gv_rect.draw) {
-	    fb_refresh(tvd->gdv_fbs.fbs_fbp,
-		       gdvp->gv_s->gv_rect.pos[X], gdvp->gv_s->gv_rect.pos[Y],
-		       gdvp->gv_s->gv_rect.dim[X], gdvp->gv_s->gv_rect.dim[Y]);
-	} else
-	    fb_refresh(tvd->gdv_fbs.fbs_fbp, 0, 0,
-		       dm_get_width((struct dm *)gdvp->dmp), dm_get_height((struct dm *)gdvp->dmp));
-
-	/* enable write to depth buffer */
-	(void)dm_set_depth_mask((struct dm *)gdvp->dmp, 1);
-
-	if (restore_zbuffer) {
-	    (void)dm_set_zbuffer((struct dm *)gdvp->dmp, 1);
-	}
-    } else {
-	if (tvd->gdv_fbs.fbs_mode == TCLCAD_OBJ_FB_MODE_UNDERLAY) {
-	    /* disable write to depth buffer */
-	    (void)dm_set_depth_mask((struct dm *)gdvp->dmp, 0);
-
-	    if (gdvp->gv_s->gv_rect.draw) {
-		fb_refresh(tvd->gdv_fbs.fbs_fbp,
-			   gdvp->gv_s->gv_rect.pos[X], gdvp->gv_s->gv_rect.pos[Y],
-			   gdvp->gv_s->gv_rect.dim[X], gdvp->gv_s->gv_rect.dim[Y]);
-	    } else
-		fb_refresh(tvd->gdv_fbs.fbs_fbp, 0, 0,
-			   dm_get_width((struct dm *)gdvp->dmp), dm_get_height((struct dm *)gdvp->dmp));
-
-	    /* enable write to depth buffer */
-	    (void)dm_set_depth_mask((struct dm *)gdvp->dmp, 1);
-	}
-
-	if (restore_zbuffer) {
-	    (void)dm_set_zbuffer((struct dm *)gdvp->dmp, 1);
-	}
-
-	go_draw(gdvp);
-    }
-
-    // TODO - I wouldn't expect these values to differ from the dbi versions,
-    // but to preserve the old behavior where the factors were passed
-    // explicitly we stash and restore.  Need to figure out whether this is
-    // ever needed (shouldn't be?)
-    double l2b = gdvp->gv_local2base;
-    double b2l = gdvp->gv_base2local;
-    gdvp->gv_local2base = gedp->dbip->dbi_local2base;
-    gdvp->gv_base2local = gedp->dbip->dbi_base2local;
-    dm_draw_viewobjs(wdbp, gdvp, &tgd->go_dmv);
-    gdvp->gv_local2base = l2b;
-    gdvp->gv_base2local = b2l;
+    /* dm rendering path removed; all dm_ draw calls eliminated. */
+    (void)gedp;
+    (void)gdvp;
+    (void)restore_zbuffer;
 }
 
 void
 go_refresh(struct ged *gedp, bsg_view *gdvp)
 {
-    int restore_zbuffer = 0;
-
-    /* Obol path (Stage 7 migration): when the view has no display manager
-     * (dmp == NULL, meaning the view is rendered by an obol_view Tcl widget
-     * or QgObolView rather than a libdm plugin), skip all dm_draw_* calls.
-     * The obol_notify_views call in to_refresh_all_views() handles rendering
-     * for those views. */
-    if (!gdvp->dmp)
-	return;
-
-    /* Turn off the zbuffer if the framebuffer is active AND the zbuffer is on. */
-    struct tclcad_view_data *tvd = (struct tclcad_view_data *)gdvp->u_data;
-    if (tvd->gdv_fbs.fbs_mode != TCLCAD_OBJ_FB_MODE_OFF && dm_get_zbuffer((struct dm *)gdvp->dmp)) {
-	(void)dm_set_zbuffer((struct dm *)gdvp->dmp, 0);
-	restore_zbuffer = 1;
-    }
-
-    (void)dm_draw_begin((struct dm *)gdvp->dmp);
-    go_refresh_draw(gedp, gdvp, restore_zbuffer);
-    (void)dm_draw_end((struct dm *)gdvp->dmp);
+    /* dm rendering path removed; only Obol path is active. */
+    (void)gedp;
+    (void)gdvp;
 }
 
 void
 to_refresh_view(bsg_view *gdvp)
 {
-
     if (current_top == NULL)
 	return;
 
@@ -178,8 +60,17 @@ to_refresh_view(bsg_view *gdvp)
     if (!tgd->go_dmv.refresh_on)
 	return;
 
-    if (to_is_viewable(gdvp))
+    if (!to_is_viewable(gdvp))
+	return;
+
+    if (gdvp->dmp) {
+	/* Legacy dm-backed view — call go_refresh which does dm draw work. */
 	go_refresh(current_top->to_gedp, gdvp);
+    } else {
+	/* Obol view — notify all obol_view widgets to re-render. */
+	if (current_top->to_interp)
+	    (void)Tcl_Eval(current_top->to_interp, "catch {obol_notify_views}");
+    }
 }
 
 void
@@ -192,13 +83,6 @@ to_refresh_all_views(struct tclcad_obj *top)
 	gdvp = (bsg_view *)BU_PTBL_GET(views, i);
 	to_refresh_view(gdvp);
     }
-
-    /* Obol path: notify obol_view Tk widgets to re-render.
-     * When apps (archer, etc.) use obol_view for display, to_refresh_view
-     * above is a no-op because gdvp->dmp is null.  obol_notify_views
-     * ensures all live obol_view widgets call obol_scene_assemble + render. */
-    if (top && top->to_gedp && top->to_interp)
-	(void)Tcl_Eval(top->to_interp, "catch {obol_notify_views}");
 }
 
 int

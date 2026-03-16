@@ -24,7 +24,6 @@
 #include "bsg.h"
 #include "bsg/util.h"
 #include "tclcad.h"
-#include "dm.h" /* Stage 9: explicit include; no longer pulled via tclcad headers */
 
 /* Private headers */
 #include "./tclcad_private.h"
@@ -105,13 +104,9 @@ to_mouse_append_pnt_common(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
-    gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
     bsg_screen_to_view(gdvp, &x, &y, x, y);
     VSET(view, x, y, 0.0);
 
-    gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
-    gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
 
     gedp->ged_gvp = gdvp;
     int snapped = 0;
@@ -198,8 +193,6 @@ to_mouse_brep_selection_append(struct ged *gedp,
     gdvp->gv_prevMouseY = screen_pt[Y];
 
     /* convert screen point to model-space start point and direction */
-    gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
-    gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
     bsg_screen_to_view(gdvp, &view_pt[X], &view_pt[Y], screen_pt[X], screen_pt[Y]);
     view_pt[Z] = 1.0;
 
@@ -245,18 +238,6 @@ to_mouse_brep_selection_append(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bu_vls *dname = dm_get_pathname((struct dm *)gdvp->dmp);
-    if (dname && bu_vls_strlen(dname)) {
-	bu_vls_printf(&bindings, "bind %s <Motion> {%s mouse_brep_selection_translate %s %s %%x %%y; "
-		      "%s brep %s plot SCV}",
-		      bu_vls_cstr(dname),
-		      bu_vls_cstr(&current_top->to_gedp->go_name),
-		      bu_vls_cstr(&gdvp->gv_name),
-		      brep_name,
-		      bu_vls_cstr(&current_top->to_gedp->go_name),
-		      brep_name);
-	Tcl_Eval(current_top->to_interp, bu_vls_cstr(&bindings));
-    }
     bu_vls_free(&bindings);
 
     bu_free((void *)brep_name, "brep_name");
@@ -309,16 +290,12 @@ to_mouse_brep_selection_translate(struct ged *gedp,
     }
 
     /* convert screen-space delta to model-space delta */
-    gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
-    gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
     bsg_screen_to_view(gdvp, &view_start[X], &view_start[Y], gdvp->gv_prevMouseX, gdvp->gv_prevMouseY);
     view_start[Z] = 1;
     { struct bsg_camera _mvc; bsg_view_get_camera(gdvp, &_mvc);
       MAT4X3PNT(model_start, _mvc.view2model, view_start);
     }
 
-    gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
-    gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
     bsg_screen_to_view(gdvp, &view_end[X], &view_end[Y], screen_end[X], screen_end[Y]);
     view_end[Z] = 1;
     { struct bsg_camera _mvc; bsg_view_get_camera(gdvp, &_mvc);
@@ -538,7 +515,7 @@ to_mouse_constrain_trans(struct ged *gedp,
     else if (gdvp->gv_maxMouseDelta < dy)
 	dy = gdvp->gv_maxMouseDelta;
 
-    width = dm_get_width((struct dm *)gdvp->dmp);
+    width = gdvp->gv_width;
     inv_width = 1.0 / (fastf_t)width;
     dx *= inv_width * gdvp->gv_size * gedp->dbip->dbi_local2base;
     dy *= inv_width * gdvp->gv_size * gedp->dbip->dbi_local2base;
@@ -623,8 +600,6 @@ to_mouse_find_arb_edge(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
-    gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
     bsg_screen_to_view(gdvp, &x, &y, x, y);
     VSET(view, x, y, 0.0);
 
@@ -686,8 +661,6 @@ to_mouse_find_bot_edge(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
-    gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
     bsg_screen_to_view(gdvp, &x, &y, x, y);
     VSET(view, x, y, 0.0);
 
@@ -748,8 +721,6 @@ to_mouse_find_bot_pnt(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
-    gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
     bsg_screen_to_view(gdvp, &x, &y, x, y);
     VSET(view, x, y, 0.0);
 
@@ -811,8 +782,6 @@ to_mouse_find_metaball_pnt(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
-    gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
     bsg_screen_to_view(gdvp, &x, &y, x, y);
     VSET(view, x, y, 0.0);
     { struct bsg_camera _mvc; bsg_view_get_camera(gdvp, &_mvc);
@@ -877,8 +846,6 @@ to_mouse_find_pipe_pnt(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
-    gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
     bsg_screen_to_view(gdvp, &x, &y, x, y);
     VSET(view, x, y, 0.0);
     { struct bsg_camera _mvc; bsg_view_get_camera(gdvp, &_mvc);
@@ -954,8 +921,6 @@ to_mouse_joint_select(
     gdvp->gv_prevMouseY = screen_pt[Y];
 
     /* convert screen point to model-space start point and direction */
-    gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
-    gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
     bsg_screen_to_view(gdvp, &view_pt[X], &view_pt[Y], screen_pt[X], screen_pt[Y]);
     view_pt[Z] = 1.0;
 
@@ -1001,15 +966,6 @@ to_mouse_joint_select(
 	return BRLCAD_ERROR;
     }
 
-    struct bu_vls *dname = dm_get_pathname((struct dm *)gdvp->dmp);
-    if (dname) {
-	bu_vls_printf(&bindings, "bind %s <Motion> {%s mouse_joint_selection_translate %s %s %%x %%y}",
-		      bu_vls_cstr(dname),
-		      bu_vls_cstr(&current_top->to_gedp->go_name),
-		      bu_vls_cstr(&gdvp->gv_name),
-		      joint_name);
-	Tcl_Eval(current_top->to_interp, bu_vls_cstr(&bindings));
-    }
     bu_vls_free(&bindings);
 
     bu_free((void *)joint_name, "joint_name");
@@ -1063,16 +1019,12 @@ to_mouse_joint_selection_translate(
     }
 
     /* convert screen-space delta to model-space delta */
-    gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
-    gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
     bsg_screen_to_view(gdvp, &view_start[X], &view_start[Y], gdvp->gv_prevMouseX, gdvp->gv_prevMouseY);
     view_start[Z] = 1;
     { struct bsg_camera _mvc; bsg_view_get_camera(gdvp, &_mvc);
       MAT4X3PNT(model_start, _mvc.view2model, view_start);
     }
 
-    gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
-    gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
     bsg_screen_to_view(gdvp, &view_end[X], &view_end[Y], screen_end[X], screen_end[Y]);
     view_end[Z] = 1;
     { struct bsg_camera _mvc; bsg_view_get_camera(gdvp, &_mvc);
@@ -1229,7 +1181,7 @@ to_mouse_move_arb_edge(struct ged *gedp,
     else if (gdvp->gv_maxMouseDelta < dy)
 	dy = gdvp->gv_maxMouseDelta;
 
-    width = dm_get_width((struct dm *)gdvp->dmp);
+    width = gdvp->gv_width;
     inv_width = 1.0 / (fastf_t)width;
     /* ged_move_arb_edge expects things to be in local units */
     dx *= inv_width * gdvp->gv_size * gedp->dbip->dbi_base2local;
@@ -1327,7 +1279,7 @@ to_mouse_move_arb_face(struct ged *gedp,
     else if (gdvp->gv_maxMouseDelta < dy)
 	dy = gdvp->gv_maxMouseDelta;
 
-    width = dm_get_width((struct dm *)gdvp->dmp);
+    width = gdvp->gv_width;
     inv_width = 1.0 / (fastf_t)width;
     /* ged_move_arb_face expects things to be in local units */
     dx *= inv_width * gdvp->gv_size * gedp->dbip->dbi_base2local;
@@ -1425,7 +1377,7 @@ to_mouse_move_bot_pnt(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    width = dm_get_width((struct dm *)gdvp->dmp);
+    width = gdvp->gv_width;
     inv_width = 1.0 / (fastf_t)width;
 
     if (rflag) {
@@ -1503,8 +1455,6 @@ to_mouse_move_bot_pnt(struct ged *gedp,
 	  MAT_COPY(v2m_mat, _mvc.view2model);
 	}
 
-	gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
-	gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
 	bsg_screen_to_view(gdvp, &dx, &dy, x, y);
 	dz = view[Z];
 
@@ -1599,7 +1549,7 @@ to_mouse_move_bot_pnts(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    width = dm_get_width((struct dm *)gdvp->dmp);
+    width = gdvp->gv_width;
     inv_width = 1.0 / (fastf_t)width;
 
     dx = x - gdvp->gv_prevMouseX;
@@ -1728,7 +1678,7 @@ to_mouse_move_pnt_common(struct ged *gedp,
     else if (gdvp->gv_maxMouseDelta < dy)
 	dy = gdvp->gv_maxMouseDelta;
 
-    width = dm_get_width((struct dm *)gdvp->dmp);
+    width = gdvp->gv_width;
     inv_width = 1.0 / (fastf_t)width;
     /* ged_pipe_move_pnt expects things to be in local units */
     dx *= inv_width * gdvp->gv_size * gedp->dbip->dbi_base2local;
@@ -1933,7 +1883,7 @@ to_mouse_oscale(struct ged *gedp,
     else if (gdvp->gv_maxMouseDelta < dy)
 	dy = gdvp->gv_maxMouseDelta;
 
-    width = dm_get_width((struct dm *)gdvp->dmp);
+    width = gdvp->gv_width;
     inv_width = 1.0 / (fastf_t)width;
     dx *= inv_width * gdvp->gv_sscale;
     dy *= inv_width * gdvp->gv_sscale;
@@ -2040,7 +1990,7 @@ to_mouse_otranslate(struct ged *gedp,
     else if (gdvp->gv_maxMouseDelta < dy)
 	dy = gdvp->gv_maxMouseDelta;
 
-    width = dm_get_width((struct dm *)gdvp->dmp);
+    width = gdvp->gv_width;
     inv_width = 1.0 / (fastf_t)width;
     /* ged_otranslate expects things to be in local units */
     dx *= inv_width * gdvp->gv_size * gedp->dbip->dbi_base2local;
@@ -2218,8 +2168,6 @@ to_mouse_poly_circ_func(Tcl_Interp *interp,
     gdvp->gv_prevMouseX = x;
     gdvp->gv_prevMouseY = y;
 
-    gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
-    gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
     bsg_screen_to_view(gdvp, &fx, &fy, x, y);
 
     int snapped = 0;
@@ -2394,8 +2342,6 @@ to_mouse_poly_cont_func(Tcl_Interp *interp,
     gdvp->gv_prevMouseX = x;
     gdvp->gv_prevMouseY = y;
 
-    gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
-    gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
     bsg_screen_to_view(gdvp, &fx, &fy, x, y);
     VSET(v_pt, fx, fy, gdvp->gv_tcl.gv_data_vZ);
 
@@ -2540,8 +2486,6 @@ to_mouse_poly_ell_func(Tcl_Interp *interp,
     gdvp->gv_prevMouseY = y;
 
 
-    gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
-    gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
     bsg_screen_to_view(gdvp, &fx, &fy, x, y);
 
     int snapped = 0;
@@ -2727,8 +2671,6 @@ to_mouse_poly_rect_func(Tcl_Interp *interp,
     gdvp->gv_prevMouseX = x;
     gdvp->gv_prevMouseY = y;
 
-    gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
-    gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
     bsg_screen_to_view(gdvp, &fx, &fy, x, y);
 
     int snapped = 0;
@@ -2855,7 +2797,7 @@ to_mouse_rect(struct ged *gedp,
     }
 
     dx = x - gdvp->gv_prevMouseX;
-    dy = dm_get_height((struct dm *)gdvp->dmp) - y - gdvp->gv_prevMouseY;
+    dy = gdvp->gv_height - y - gdvp->gv_prevMouseY;
 
     bu_vls_printf(&dx_vls, "%d", dx);
     bu_vls_printf(&dy_vls, "%d", dy);
@@ -3110,7 +3052,7 @@ to_mouse_rotate_arb_face(struct ged *gedp,
 	else if ((_gdvp)->gv_maxMouseDelta < _dy) \
 	    _dy = (_gdvp)->gv_maxMouseDelta; \
  \
-	_width = dm_get_width((struct dm *)(_gdvp)->dmp); \
+	_width = (_gdvp)->gv_width; \
 	_inv_width = 1.0 / (fastf_t)_width; \
 	_dx *= _inv_width * (_gdvp)->gv_sscale; \
 	_dy *= _inv_width * (_gdvp)->gv_sscale; \
@@ -3431,7 +3373,7 @@ to_mouse_pscale(struct ged *gedp,
     else if (gdvp->gv_maxMouseDelta < dy)
 	dy = gdvp->gv_maxMouseDelta;
 
-    width = dm_get_width((struct dm *)gdvp->dmp);
+    width = gdvp->gv_width;
     inv_width = 1.0 / (fastf_t)width;
     dx *= inv_width * gdvp->gv_sscale;
     dy *= inv_width * gdvp->gv_sscale;
@@ -3527,7 +3469,7 @@ to_mouse_ptranslate(struct ged *gedp,
     else if (gdvp->gv_maxMouseDelta < dy)
 	dy = gdvp->gv_maxMouseDelta;
 
-    width = dm_get_width((struct dm *)gdvp->dmp);
+    width = gdvp->gv_width;
     inv_width = 1.0 / (fastf_t)width;
     /* ged_ptranslate expects things to be in local units */
     dx *= inv_width * gdvp->gv_size * gedp->dbip->dbi_base2local;
@@ -3622,7 +3564,7 @@ to_mouse_trans(struct ged *gedp,
     else if (gdvp->gv_maxMouseDelta < dy)
 	dy = gdvp->gv_maxMouseDelta;
 
-    width = dm_get_width((struct dm *)gdvp->dmp);
+    width = gdvp->gv_width;
     inv_width = 1.0 / (fastf_t)width;
     dx *= inv_width * gdvp->gv_size * gedp->dbip->dbi_local2base;
     dy *= inv_width * gdvp->gv_size * gedp->dbip->dbi_local2base;
