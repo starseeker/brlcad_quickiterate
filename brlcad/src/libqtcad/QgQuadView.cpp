@@ -40,7 +40,9 @@
 
 #include "common.h"
 
+#include <QEvent>
 #include <QGridLayout>
+#include <QMouseEvent>
 #include <QtGlobal>
 
 #include "bu/str.h"

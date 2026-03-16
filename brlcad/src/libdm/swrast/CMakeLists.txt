@@ -6,7 +6,9 @@ set(SWRAST_SRCS dm-swrast.cpp fb-swrast.cpp ../dm-gl.c ../dm-gl_lod.cpp)
 # used by swrast code.  If we are building without Qt, swrast can still be used
 # in a "headless" configuration, with screengrab able to retrieve and save
 # images of the drawn scene.
-if(BRLCAD_ENABLE_QT)
+# When Obol is the rendering backend, QgSW is no longer compiled into libqtcad,
+# so swrastwin.cpp (which uses QgSW) must also be excluded.
+if(BRLCAD_ENABLE_QT AND NOT BRLCAD_ENABLE_OBOL)
   find_package_qt(REQUIRED)
 
   add_definitions(-DSWRAST_QT)
@@ -19,7 +21,11 @@ if(BRLCAD_ENABLE_QT)
   endif(Qt6Widgets_FOUND)
 
   distclean(moc_swrastwin.cpp_parameters)
-endif(BRLCAD_ENABLE_QT)
+elseif(BRLCAD_ENABLE_QT)
+  # Qt available but Obol is the rendering backend; find Qt for any Qt deps
+  # in the non-swrastwin sources.
+  find_package_qt(REQUIRED)
+endif(BRLCAD_ENABLE_QT AND NOT BRLCAD_ENABLE_OBOL)
 
 include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}
@@ -39,7 +45,8 @@ add_definitions(-DUSE_MGL_NAMESPACE)
 set(SWRAST_SRCS ${SWRAST_SRCS} ${swrast_moc_srcs})
 
 dm_plugin_library(dm-swrast SHARED ${SWRAST_SRCS})
-if(BRLCAD_ENABLE_QT)
+if(BRLCAD_ENABLE_QT AND NOT BRLCAD_ENABLE_OBOL)
+  # libqtcad is needed for QgSW / swrastwin; skip when Obol is active.
   if(Qt6Widgets_FOUND)
     target_link_libraries(
       dm-swrast
@@ -61,9 +68,19 @@ if(BRLCAD_ENABLE_QT)
       Qt5::Widgets
     )
   endif(Qt6Widgets_FOUND)
+elseif(BRLCAD_ENABLE_QT)
+  # Obol build: no swrastwin, no libqtcad dep needed.
+  if(Qt6Widgets_FOUND)
+    target_link_libraries(dm-swrast libdm libbu ${OSMESA_LIBRARY} Qt6::Core Qt6::Widgets)
+  else()
+    target_link_libraries(dm-swrast libdm libbu ${OSMESA_LIBRARY} Qt5::Core Qt5::Widgets)
+  endif(Qt6Widgets_FOUND)
 else(BRLCAD_ENABLE_QT)
   target_link_libraries(dm-swrast libdm libbu ${OSMESA_LIBRARY})
-endif(BRLCAD_ENABLE_QT)
+endif(BRLCAD_ENABLE_QT AND NOT BRLCAD_ENABLE_OBOL)
+if(BRLCAD_ENABLE_OBOL)
+  set_property(TARGET dm-swrast APPEND PROPERTY COMPILE_DEFINITIONS BRLCAD_ENABLE_OBOL)
+endif(BRLCAD_ENABLE_OBOL)
 set_property(TARGET dm-swrast APPEND PROPERTY COMPILE_DEFINITIONS BRLCADBUILD HAVE_CONFIG_H OSMESA)
 validate_style(dm-swrast "${SWRAST_SRCS}")
 

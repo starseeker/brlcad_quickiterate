@@ -60,6 +60,10 @@ set_deps(libdm      "librt;libbsg;libicv;libbn;libpkg;libbu")
 set_deps(libged     "libicv;libanalyze;libwdb;liboptical;libbsg;libbu")
 set_deps(libfft     "")
 set_deps(libpc      "")
+# Note: when BRLCAD_ENABLE_OBOL is ON, libqtcad does NOT link libdm (the
+# QgGL/QgSW widgets that need libdm are excluded from the build).  The libdm
+# entry here reflects the maximum non-Obol dependency set; see
+# src/libqtcad/CMakeLists.txt for the actual conditional link logic.
 set_deps(libqtcad   "libged;libdm;libbsg;libbn;libbu")
 set_deps(libtclcad  "libged;libbsg;libbn;libbu")
 

@@ -85,12 +85,14 @@ extern void
 qdm_open_server_handler(struct fbserv_obj *fbsp);
 extern void
 qdm_close_server_handler(struct fbserv_obj *fbsp);
-#ifdef BRLCAD_OPENGL
+#ifndef BRLCAD_ENABLE_OBOL
+#  ifdef BRLCAD_OPENGL
 extern void
 qdm_open_client_handler(struct fbserv_obj *fbsp, int i, void *data);
-#endif
+#  endif
 extern void
 qdm_open_sw_client_handler(struct fbserv_obj *fbsp, int i, void *data);
+#endif /* !BRLCAD_ENABLE_OBOL */
 #ifdef BRLCAD_ENABLE_OBOL
 extern void
 qdm_open_obol_client_handler(struct fbserv_obj *fbsp, int i, void *data);

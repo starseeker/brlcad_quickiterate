@@ -144,7 +144,9 @@
 #include "qtcad/QgSignalFlags.h"
 
 extern "C" {
-#include "dm.h"
+/* dm/fbserv.h (via dm/defines.h) provides struct fb, struct fbserv_obj, and
+ * the minimal fb_getwidth/fb_getheight/fb_readrect declarations.  The full
+ * dm.h is not needed by QgObolView. */
 #include "dm/fbserv.h"
 }
 
