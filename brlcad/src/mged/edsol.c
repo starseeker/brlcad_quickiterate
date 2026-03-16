@@ -568,7 +568,7 @@ init_sedit(struct mged_state *s)
      * reloads from the database, keeping the same allocated struct so that
      * MEDIT(s) is never NULL and pointers into it (such as the Tcl
      * "edit_solid_flag" link) remain valid across editing sessions. */
-    Tcl_UnlinkVar(s->interp, "edit_solid_flag");   /* safe if not currently linked */
+    Tcl_UnlinkVar(s->interp, "edit_solid_flag");   /* Tcl_UnlinkVar is void; no-op if not currently linked */
     if (rt_edit_reinit(MEDIT(s), &bdata->s_fullpath, s->dbip, &s->tol.tol, view_state->vs_gvp) != BRLCAD_OK) {
 	Tcl_AppendResult(s->interp, "init_sedit(",
 			 LAST_SOLID(bdata)->d_namep,

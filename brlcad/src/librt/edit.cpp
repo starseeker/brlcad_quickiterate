@@ -254,6 +254,8 @@ rt_edit_reset(struct rt_edit *s)
     memset(s->e_str, 0, sizeof(s->e_str));
 
     bv_knobs_reset(&s->k, 0);
+    /* bv_knobs_reset() clears numeric knob fields (rates + absolutes) but
+     * does NOT touch origin_m/o/v or *_udata pointers; clear those here. */
     s->k.origin_m = '\0';
     s->k.origin_o = '\0';
     s->k.origin_v = '\0';
@@ -302,7 +304,9 @@ rt_edit_reinit(struct rt_edit *s, struct db_full_path *dfp, struct db_i *dbip,
     s->vp = v;
 
     if (!dfp || !dbip) {
-	/* Idle init with no solid — same as rt_edit_create(NULL, ...) */
+	/* Idle init with no solid — matches rt_edit_create(NULL, NULL, ...) behavior.
+	 * ft_prim_edit_create is called with NULL (not s) because there is no solid
+	 * internal yet; the callee is expected to create an empty private state. */
 	if (dfp && DB_FULL_PATH_CUR_DIR(dfp) && EDOBJ[DB_FULL_PATH_CUR_DIR(dfp)->d_minor_type].ft_prim_edit_create)
 	    s->ipe_ptr = (*EDOBJ[DB_FULL_PATH_CUR_DIR(dfp)->d_minor_type].ft_prim_edit_create)(NULL);
 	return BRLCAD_OK;

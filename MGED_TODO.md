@@ -141,7 +141,7 @@ These are tracked items found in the code that need to be resolved:
 - [x] **Line 665** – `TODO - this needs dbip` — resolved: implementation already correctly threads `s->dbip` through `rt_matrix_transform`; updated comment
 - [x] **Line 765** – `TODO - this needs to move to the ft_edit_xy callbacks as MATRIX_EDIT` — already done: `objedit_mouse` delegates to `ft_edit_xy`; updated comment to reflect current state
 - [x] **Line 779, 823** – `TODO - not using this anymore, revert/fix` — dead commented-out code removed
-- [x] **Line 1240** – `XXX hack to restore MEDIT(s)->es_int` — not a hack; `rt_db_put_internal` frees the internal as a side effect; re-reading is the correct approach for `sed_apply`. Replaced XXX with explanatory comment.
+- [x] **Line 1240** – `XXX hack to restore MEDIT(s)->es_int` — not a hack; `rt_db_put_internal` frees the internal as a side effect; re-reading is the correct approach for `sed_apply`. `sedit_apply`/`sedit_reject` now use `rt_edit_reset()` on accept, preserving the persistent struct (session 8).
 - [x] **Line 1417** – `XXX This really should use import/export interface` — the labeling now dispatches to `ft_labels` which IS the right interface. Replaced XXX with proper doc comment.
 - [x] **Line 1429** – `TODO - is es_int the same as ip here?` — answered yes; updated to use `ip` directly; removed TODO
 - [x] **Lines 1963, 2022** – `TODO - write to a vls so parent code can do Tcl_AppendResult` — fixed: now uses `Tcl_AppendResult` directly
@@ -504,7 +504,7 @@ New regression tests should follow the pattern in `brlcad/regress/mged/`:
 - [x] Fix `ft_xform` dbip threading concern (implementation already correct; updated comment)
 - [x] MATRIX_EDIT XY path already delegated to `ft_edit_xy` callbacks; updated comment
 - [x] Fix output to use `Tcl_AppendResult` (edsol.c ARB8 plane-calc errors, formerly `bu_log`)
-- [x] Fix `init_sedit` to call `rt_edit_create` — **DONE**: creates fresh `rt_edit` for the selected solid
+- [x] Fix `init_sedit` to call `rt_edit_reinit` — **DONE (session 8)**: `init_sedit` now uses `rt_edit_reinit()` to reload the persistent `rt_edit` with a new solid; `rt_edit_reset()` added to librt for in-place teardown without NULL-ing the pointer
 - [x] Fix `f_ill` missing `init_sedit` call for ST_S_PICK state — **DONE**: critical fix enabling the `sed` command
 - [x] Resolve all callback-placement "should we call here?" TODOs in metaball, pipe, nmg, ars, bot, vol
 - [x] Resolve all NMG XXX comments (Fall through, e_mparam, Nothing to do here)
@@ -635,6 +635,26 @@ New regression tests should follow the pattern in `brlcad/regress/mged/`:
 - **VOL verified**: Generated 10×10×10 unsigned-char volume; `sed` + `sscale` + `p 2` + `accept` passes after the export5 fix.
 - **DSP verified**: Generated 50×50 unsigned-short big-endian displacement map; `sed` + `sscale` + `p 2` + `accept` passes. stom[15]=0.5 confirmed.
 - All 27+ primitive types in the `EDOBJ[]` table now have verified `sed` + edit + `accept` round-trips in `-c` mode.
+
+### Session 8 (2026-03-16) — Rebase verification + crash fix
+
+- **Context**: After a rebase, verified all previously completed work and fixed two regressions.
+
+- **Build fix: duplicate `cmd_screengrab` in `cmd.c`**
+  - A second `cmd_screengrab` function had been appended after the file's "Local Variables" footer (called non-existent `ged_exec_screengrab`).
+  - Fix: removed the duplicate definition.
+
+- **Crash fix: segfault on second `sed` invocation**
+  - Root cause: `sedit_apply` and `sedit_reject` called `rt_edit_destroy(MEDIT(s))` + `MEDIT(s) = NULL` on every accept/reject. `ill_common()` in `buttons.c` unconditionally dereferences `MEDIT(s)->model_changes` at the start of every new `sed` → segfault on second `sed`.
+  - Also: `sedit_reject`'s normal path called `rt_db_free_internal` but left `ipe_ptr` dangling — use-after-free on next `init_sedit`.
+  - Fix: Implemented a single persistent `rt_edit` that is never freed mid-session:
+    - Added `rt_edit_reset(struct rt_edit *)` to `librt/edit.cpp` + `include/rt/edit.h`: frees primitive data in-place (ipe_ptr, es_int, es_ckpt, resets comb_insts, clears edit map) without freeing the struct. MEDIT(s) stays non-NULL.
+    - Added `rt_edit_reinit(struct rt_edit *, dfp, dbip, tol, v)` to same: reloads a new solid into an existing rt_edit (calls reset then re-imports).
+    - Rewrote `init_sedit` to use `rt_edit_reinit` instead of `rt_edit_destroy + rt_edit_create`.
+    - All `Tcl_UnlinkVar + rt_edit_destroy + MEDIT(s)=NULL` in `sedit_apply` replaced with `rt_edit_reset(MEDIT(s))`.
+    - All `Tcl_UnlinkVar + rt_edit_destroy + MEDIT(s)=NULL` in `sedit_reject` replaced with `rt_edit_reset(MEDIT(s))`.
+
+- **Re-verification results**: All 27+ primitives re-verified with `sed`+`accept` (back-to-back, multiple primitives in same session) — no crashes. EBM/VOL/DSP file-referenced primitives verified with `B` + `sed` + `sscale` + `accept`. Reject correctly reverts without use-after-free.
 
 ### Session 7 (2026-03-06)
 
