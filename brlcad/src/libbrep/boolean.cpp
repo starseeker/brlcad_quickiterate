@@ -55,7 +55,7 @@
 //DebugPlot *dplot = NULL;
 
 // Whether to output the debug messages about b-rep booleans.
-#define DEBUG_BREP_BOOLEAN 0
+#define DEBUG_BREP_BOOLEAN 1
 
 
 struct IntersectPoint {
@@ -747,7 +747,8 @@ is_loop_valid(const ON_SimpleArray<ON_Curve *> &loop, double tolerance, ON_PolyC
 	    if (loop[i] && loop[i - 1] && loop[i]->PointAtStart().DistanceTo(loop[i - 1]->PointAtEnd()) < ON_ZERO_TOLERANCE) {
 		append_to_polycurve(loop[i]->Duplicate(), *polycurve);
 	    } else {
-		bu_log("The input loop is not continuous.\n");
+		double gap = (loop[i] && loop[i-1]) ? loop[i]->PointAtStart().DistanceTo(loop[i-1]->PointAtEnd()) : -1.0;
+		bu_log("The input loop is not continuous (seg %d→%d gap=%g loop.Count=%d).\n", i-1, i, gap, loop.Count());
 		ret = false;
 	    }
 	}
@@ -1567,7 +1568,15 @@ get_subcurves_inside_faces(
 	     * domain exactly covers the full period has PointAt(min) ==
 	     * PointAt(max) by construction, but is geometrically valid.
 	     * Only reject an interval when it is a strict sub-interval of
-	     * the 3-D curve domain OR the 3-D curve is not closed. */
+	     * the 3-D curve domain OR the 3-D curve is not closed.
+	     *
+	     * Additional check for degenerate closed curves: even a
+	     * full-period closed curve is discarded when its 3-D bounding
+	     * box diagonal is smaller than INTERSECTION_TOL.  Such curves
+	     * arise at corner junctions where an ARB face barely touches a
+	     * curved surface — the SSI returns a tiny closed NURBS circle
+	     * of near-zero radius that, if kept, becomes an unmatched
+	     * naked edge in the assembled brep. */
 	    {
 		ON_Interval c3d_dom = event->m_curve3d->Domain();
 		bool full_domain =
@@ -1578,6 +1587,14 @@ get_subcurves_inside_faces(
 		    ON_3dPoint p3e = event->m_curve3d->PointAt(intervals_3d[j].Max());
 		    if (p3s.DistanceTo(p3e) < INTERSECTION_TOL)
 			continue;
+		} else {
+		    /* Closed full-domain curve: check the 3-D bounding-box
+		     * diagonal.  A tiny circle (radius ≪ 1) is degenerate. */
+		    ON_BoundingBox bb;
+		    if (event->m_curve3d->GetBoundingBox(bb)) {
+			if (bb.Diagonal().Length() < INTERSECTION_TOL)
+			    continue;
+		    }
 		}
 	    }
 	    ON_Interval interval_on2 = interval_3d_to_2d(intervals_3d[j],
@@ -1644,7 +1661,8 @@ get_subcurves_inside_faces(
 
 	for (size_t j = 0; j < intervals_3d.size(); ++j) {
 	    /* Skip degenerate 3-D sub-intervals (same check as above, with
-	     * the same exception for full closed curves). */
+	     * the same exception for full closed curves and the same
+	     * degenerate-bounding-box check for tiny closed circles). */
 	    {
 		ON_Interval c3d_dom = event->m_curve3d->Domain();
 		bool full_domain =
@@ -1655,6 +1673,12 @@ get_subcurves_inside_faces(
 		    ON_3dPoint p3e = event->m_curve3d->PointAt(intervals_3d[j].Max());
 		    if (p3s.DistanceTo(p3e) < INTERSECTION_TOL)
 			continue;
+		} else {
+		    ON_BoundingBox bb;
+		    if (event->m_curve3d->GetBoundingBox(bb)) {
+			if (bb.Diagonal().Length() < INTERSECTION_TOL)
+			    continue;
+		    }
 		}
 	    }
 	    ON_Interval interval_on1 = interval_3d_to_2d(intervals_3d[j],
@@ -3518,6 +3542,36 @@ split_face_into_loops(
 	}
     }
 
+    /* Second deduplication: merge intersection events that land at nearly
+     * the same UV position on the outer loop even when their SSI curve
+     * parameters differ.  This occurs when two adjacent faces of a
+     * subtracted solid (e.g. adjacent ARB8 faces sharing an edge) each
+     * produce an SSI curve that crosses the TGC outer loop at essentially
+     * the same UV point.  The arc of the outer loop between the two
+     * crossing points is then nearly zero (≪ ON_ZERO_TOLERANCE in UV
+     * space).  That near-zero arc survives the loop-pairing step and
+     * becomes a degenerate trim in the assembled brep — a naked edge
+     * that makes the brep non-solid.
+     *
+     * Fix: after sorting by SSI curve parameter, remove any clx_point
+     * whose UV position on the outer loop (m_pt) is within INTERSECTION_TOL
+     * of the PREVIOUS point's UV position.  This collapses the near-zero
+     * outer arc to a single crossing event, eliminating the degenerate
+     * trim without creating a UV gap in subsequent brep face loops. */
+    {
+	for (int i = clx_points.Count() - 1; i >= 1; i--) {
+	    const IntersectPoint &prev = clx_points[i - 1];
+	    const IntersectPoint &curr = clx_points[i];
+	    if (curr.m_pt.DistanceTo(prev.m_pt) < INTERSECTION_TOL) {
+		clx_points.Remove(i);
+	    }
+	}
+	/* Re-assign curve_pos after deduplication. */
+	for (int i = 0; i < clx_points.Count(); i++) {
+	    clx_points[i].m_curve_pos = i;
+	}
+    }
+
     // classify intersection points
     ON_SimpleArray<IntersectPoint> new_pts;
     double curve_min_t = linked_curve.Domain().Min();
@@ -4706,59 +4760,16 @@ add_elements(ON_Brep *brep, ON_BrepFace &face, const ON_SimpleArray<ON_Curve *> 
 	     * trims have boundary iso and (b) m_iso == IsIsoparametric result,
 	     * which are contradictory for interior-position degenerate trims.
 	     *
-	     * Create a regular edge using the actual (near-zero-length) 3D
-	     * pushup curve.  Force separate start/end vertices by evaluating
-	     * the end UV point directly rather than relying on IsClosed().
-	     * The main vertex-merge pass at ON_Boolean level respects these
-	     * degenerate edges and will NOT merge their endpoints (the merge
-	     * is blocked when both endpoints are connected by a near-zero
-	     * non-closed edge). */
-	    {
-		ON_2dPoint s2d = loop[k]->PointAtStart();
-		ON_2dPoint e2d = loop[k]->PointAtEnd();
-		/* Start vertex: reuse previous trim's end vertex when k>0. */
-		int svi;
-		if (k > 0 && brep->m_T.Count() > 0) {
-		    svi = brep->m_T.Last()->m_vi[1];
-		} else {
-		    ON_3dPoint svtx = face.SurfaceOf()->PointAt(s2d.x, s2d.y);
-		    svi = brep->m_V.Count();
-		    for (int vi = brep->m_V.Count() - 1; vi >= 0; vi--) {
-			if (brep->m_V[vi].Point().DistanceTo(svtx) < ON_ZERO_TOLERANCE) {
-			    svi = vi; break;
-			}
-		    }
-		    if (svi == brep->m_V.Count())
-			brep->NewVertex(svtx, 0.0);
-		}
-		/* End vertex: always evaluate from UV end (ignore IsClosed).
-		 * This guarantees m_vi[0] != m_vi[1] so the edge is not
-		 * treated as "closed" by OpenNURBS. */
-		ON_3dPoint evtx = face.SurfaceOf()->PointAt(e2d.x, e2d.y);
-		int evi = brep->m_V.Count();
-		for (int vi = brep->m_V.Count() - 1; vi >= 0; vi--) {
-		    if (brep->m_V[vi].Point().DistanceTo(evtx) < ON_ZERO_TOLERANCE) {
-			evi = vi; break;
-		    }
-		}
-		if (evi == brep->m_V.Count())
-		    brep->NewVertex(evtx, 0.0);
-		/* If start and end landed on the same existing vertex, nudge
-		 * the end to a fresh vertex to avoid m_vi[0]==m_vi[1] with
-		 * a non-closed curve (which OpenNURBS rejects). */
-		if (evi == svi) {
-		    evi = brep->m_V.Count();
-		    brep->NewVertex(evtx, 0.0);
-		}
-		brep->AddEdgeCurve(c3d);
-		int ti = brep->AddTrimCurve(loop[k]);
-		ON_BrepEdge &edge = brep->NewEdge(brep->m_V[svi], brep->m_V[evi],
-						  brep->m_C3.Count() - 1,
-						  (const ON_Interval *)0, MAX_FASTF);
-		ON_BrepTrim &trim = brep->NewTrim(edge, 0, breploop, ti);
-		trim.m_tolerance[0] = trim.m_tolerance[1] = MAX_FASTF;
-		continue;
-	    }
+	     * Skip the trim entirely.  The outer-loop deduplication in
+	     * split_face_into_loops now prevents near-zero arcs between
+	     * adjacent SSI entry points from reaching this code path.  Any
+	     * residual near-zero trims that do reach here (e.g. from
+	     * floating-point rounding) are degenerate and produce naked edges
+	     * if kept; skipping them is safe because the next trim's start
+	     * vertex is inherited from the previous trim's end vertex via
+	     * m_T.Last()->m_vi[1], preserving loop continuity. */
+	    delete c3d;
+	    continue;
 	}
 
 	ON_2dPoint start = loop[k]->PointAtStart(), end = loop[k]->PointAtEnd();
