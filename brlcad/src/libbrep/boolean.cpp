@@ -1709,6 +1709,19 @@ get_subcurves_inside_faces(
 	const ON_Surface *surf1 = brep1->m_S[brep1->m_F[face_i1].m_si];
 	ON_Interval vdom2 = surf2->Domain(1);
 
+	/* Inner-circle injection is only needed for non-planar (curved)
+	 * surfaces such as TGC cylinders and cones.  When both surfaces
+	 * are planar the "boundary arc" interpretation is meaningless, and
+	 * the at_south/at_north test can fire spuriously (the SSI curve in
+	 * a planar face's UV can land near v≈1 simply because the
+	 * intersection is close to one trim edge).  Skip the injection when
+	 * surf2 is planar to avoid replacing a valid open split curve with a
+	 * degenerate closed polyline that collapses the face split. */
+	ON_Plane dummy_plane;
+	if (surf2->IsPlanar(&dummy_plane, INTERSECTION_TOL * 100.0)) goto skip_inner_circle;
+	(void)dummy_plane;
+
+	{
 	ON_2dPoint cB_s = event->m_curveB->PointAtStart();
 	ON_2dPoint cB_e = event->m_curveB->PointAtEnd();
 
@@ -1800,6 +1813,8 @@ get_subcurves_inside_faces(
 		bu_log("  inner-circle: only %d pts (need >=4), not added\n", uvpts.Count());
 	    }
 	}
+	} /* end non-planar surf2 block */
+	skip_inner_circle: ;
     }
 }
 
@@ -6001,6 +6016,19 @@ get_evaluated_faces(const ON_Brep *brep1, const ON_Brep *brep2, op_type operatio
 	}
 
 	ON_ClassArray<LinkedCurve> linked_curves = link_curves(curves_array[i]);
+
+	if (DEBUG_BREP_BOOLEAN) {
+	    bu_log("split_trimmed_face: i=%d curves_array_count=%d linked_curves=%d\n",
+		   i, curves_array[i].Count(), linked_curves.Count());
+	    for (int dbg = 0; dbg < curves_array[i].Count(); dbg++) {
+		if (!curves_array[i][dbg].m_curve) continue;
+		ON_3dPoint ps = curves_array[i][dbg].m_curve->PointAtStart();
+		ON_3dPoint pe = curves_array[i][dbg].m_curve->PointAtEnd();
+		bu_log("  carray[%d]: start=(%g,%g) end=(%g,%g) closed=%d\n",
+		       dbg, ps.x, ps.y, pe.x, pe.y,
+		       (int)curves_array[i][dbg].m_curve->IsClosed());
+	    }
+	}
 
 	ON_SimpleArray<TrimmedFace *> splitted = split_trimmed_face(first, linked_curves);
 	trimmed_faces.Append(splitted);
