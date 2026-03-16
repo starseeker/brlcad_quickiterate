@@ -2420,6 +2420,83 @@ static void test_manpage_dlist_no_double_bold() {
     end_test();
 }
 
+static void test_manpage_dlist_nested_italic_in_bold_term() {
+    begin_test("manpage: dlist term with nested bold+italic ends with \\fR to prevent font bleed");
+
+    // A term like *-p _x y z_* generates \fB\-p \fIx y z\fP\fP.
+    // groff tracks only one "previous font" slot: after the inner \fP restores
+    // from italic to bold, the prev slot holds italic.  The outer \fP then
+    // restores to italic instead of Roman, bleeding italic into the body text.
+    // The fix: emit \fR after every dlist term to unconditionally reset to Roman.
+    const std::string src =
+        "= cmd(1)\n"
+        "\n"
+        "== Options\n"
+        "\n"
+        "*-p _x y z_*::\n"
+        "Rotation pivot point. Default is 0 0 0.\n"
+        "\n"
+        "*-h*::\n"
+        "Help.\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    // The nested term must be followed immediately by \fR before the newline,
+    // so that groff's font state is reset to Roman before the body text.
+    // The term itself: \fB\-p \fIx y z\fP\fP  followed by \fR\n
+    EXPECT_CONTAINS(out, "\\fB\\-p \\fIx y z\\fP\\fP\\fR\n");
+
+    // The body text must appear verbatim; no \fI wrapping should occur.
+    EXPECT_CONTAINS(out, "Rotation pivot point. Default is 0 0 0.");
+
+    // A simple single-level bold term also gets \fR (harmless no-op there).
+    EXPECT_CONTAINS(out, "\\fB\\-h\\fP\\fR\n");
+
+    end_test();
+}
+
+static void test_manpage_unicode_to_troff() {
+    begin_test("manpage: common Unicode characters converted to troff sequences");
+
+    const std::string src =
+        "= test(1)\n"
+        "\n"
+        "== Description\n"
+        "\n"
+        // × U+00D7 multiplication sign → \(mu
+        "azimuth \xc3\x97 elevation\n"
+        "\n"
+        // ½ U+00BD vulgar fraction one half → 1/2
+        "2\xc2\xbd-ton truck\n"
+        "\n"
+        // — U+2014 em dash → \(em
+        "top \xe2\x80\x94 creates a wrapper\n"
+        "\n"
+        // − U+2212 minus sign → \-
+        "range \xe2\x88\x92 60 to 60\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    EXPECT_CONTAINS(out, "azimuth \\(mu elevation");
+    EXPECT_CONTAINS(out, "21/2\\-ton truck");
+    EXPECT_CONTAINS(out, "top \\(em creates a wrapper");
+    EXPECT_CONTAINS(out, "range \\- 60 to 60");
+
+    // Must NOT contain raw UTF-8 bytes for these characters in man output
+    EXPECT(out.find("\xc3\x97") == std::string::npos);  // no raw ×
+    EXPECT(out.find("\xc2\xbd") == std::string::npos);  // no raw ½
+    EXPECT(out.find("\xe2\x80\x94") == std::string::npos);  // no raw —
+    EXPECT(out.find("\xe2\x88\x92") == std::string::npos);  // no raw −
+
+    end_test();
+}
+
 static void test_manpage_backend_auto_doctype() {
     begin_test("manpage: -b manpage backend auto-implies doctype=manpage");
 
@@ -7156,6 +7233,8 @@ int main(int argc, char* argv[]) {
     test_manpage_th_mansource_manmanual();
     test_manpage_alpha_volnum();
     test_manpage_dlist_no_double_bold();
+    test_manpage_dlist_nested_italic_in_bold_term();
+    test_manpage_unicode_to_troff();
     test_manpage_backend_auto_doctype();
     test_manpage_backend_indoctype();
     test_manpage_empty_term_suppressed();
