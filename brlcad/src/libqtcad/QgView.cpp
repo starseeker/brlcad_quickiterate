@@ -26,7 +26,6 @@
 
 #include "common.h"
 
-#include <algorithm>
 #include "bg/polygon.h"
 #include "bsg.h"
 #include "qtcad/QgView.h"
@@ -423,6 +422,8 @@ QgView::set_lmouse_move_default(int mm)
 }
 
 #else /* BRLCAD_ENABLE_OBOL — QgView is a no-op stub; Obol path uses QgObolView */
+
+#include <algorithm>
 
 QgView::QgView(QWidget *parent, int /*type*/, void * /*fbp*/)
     : QWidget(parent)
