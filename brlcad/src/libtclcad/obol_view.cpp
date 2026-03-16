@@ -79,6 +79,8 @@ extern "C" {
 #include "bsg/defines.h"
 #include "bsg/util.h"
 #include "ged/defines.h"
+/* tclcad_view_data — contains gdv_bg/gdv_light/gdv_zbuffer etc. */
+#include "tclcad/draw.h"
 }
 
 /* ── Platform HW GL guards ───────────────────────────────────────────────── */
@@ -125,6 +127,7 @@ extern "C" {
 #include <Inventor/SoPath.h>
 #include <Inventor/nodes/SoSeparator.h>
 #include <Inventor/nodes/SoPerspectiveCamera.h>
+#include <Inventor/nodes/SoDirectionalLight.h>
 #ifdef OBOL_BUILD_DUAL_GL
 #  include <OSMesa/gl.h>
 #  include <OSMesa/osmesa.h>
@@ -180,6 +183,12 @@ struct ObolViewWidget {
     /* HW GL: SoRenderManager drives rendering into the platform GL context.  */
     SoRenderManager  render_mgr;
     bool             render_mgr_active = false;
+
+    /* Cached render settings from tclcad_view_data (updated each frame by
+     * obol_view_apply_render_settings).  Range [0, 1]. */
+    float            bg_r = 0.2f;
+    float            bg_g = 0.2f;
+    float            bg_b = 0.2f;
 
 #ifdef OBOL_HW_GLX
     /* X11/GLX */
@@ -596,7 +605,7 @@ obol_view_render_sw(ObolViewWidget *w)
 
     SbViewportRegion vp((short)w->width, (short)w->height);
     SoOffscreenRenderer renderer(vp);
-    renderer.setBackgroundColor(SbColor(0.2f, 0.2f, 0.2f));
+    renderer.setBackgroundColor(SbColor(w->bg_r, w->bg_g, w->bg_b));
     if (!renderer.render(w->obol_root)) return;
 
     const unsigned char *buf = renderer.getBuffer();
@@ -620,6 +629,119 @@ obol_view_render_sw(ObolViewWidget *w)
 
 
 /* ======================================================================== *
+ * Render settings helper — reads tclcad_view_data fields and applies them  *
+ * to the Obol scene (background color, headlight enable).                  *
+ *                                                                           *
+ * Called at the start of obol_view_do_render() so every frame picks up the *
+ * latest values from bg/light/zbuffer Tcl commands.                        *
+ * ======================================================================== */
+
+static void
+obol_view_apply_render_settings(ObolViewWidget *w)
+{
+    if (!w || !w->bsgv) return;
+
+    struct tclcad_view_data *tvd =
+	(struct tclcad_view_data *)w->bsgv->u_data;
+
+    /* ── Background color ───────────────────────────────────────────────── */
+    float r = 0.2f, g = 0.2f, b = 0.2f;   /* defaults match original */
+    if (tvd) {
+	r = (float)tvd->gdv_bg[0] / 255.0f;
+	g = (float)tvd->gdv_bg[1] / 255.0f;
+	b = (float)tvd->gdv_bg[2] / 255.0f;
+    }
+
+    /* HW paths use the SoRenderManager background. */
+    if (w->use_hw && w->render_mgr_active) {
+	w->render_mgr.setBackgroundColor(SbColor4f(r, g, b, 1.0f));
+    }
+    /* SW path: background is set inline in obol_view_render_sw() below via
+     * obol_view_get_bg_color() so we store it on the widget. */
+    w->bg_r = r;  w->bg_g = g;  w->bg_b = b;
+
+    /* ── Headlight (directional light — always child[0] of obol_root) ───── */
+    if (w->obol_root && w->obol_root->getNumChildren() > 0) {
+	SoNode *child0 = w->obol_root->getChild(0);
+	if (child0->isOfType(SoDirectionalLight::getClassTypeId())) {
+	    SoDirectionalLight *dl = static_cast<SoDirectionalLight *>(child0);
+	    bool want_on = !tvd || (tvd->gdv_light != 0);
+	    dl->on.setValue(want_on);
+	}
+    }
+}
+
+
+/* ======================================================================== *
+ * Offscreen screengrab — renders the current scene to a pixel buffer and   *
+ * writes a PNG or raw PIX file.  Works regardless of HW/SW rendering path. *
+ * ======================================================================== */
+
+static int
+obol_view_screengrab_impl(ObolViewWidget *w, const char *format,
+			  const char *filename, Tcl_Interp *interp)
+{
+    if (!w->obol_root || !w->bsgv) {
+	if (interp)
+	    Tcl_AppendResult(interp, "screengrab: no scene attached", (char *)NULL);
+	return TCL_ERROR;
+    }
+
+    obol_view_apply_render_settings(w);
+    obol_scene_assemble(w->obol_root, w->bsgv);
+    SoCamera *cam = obol_view_find_camera(w);
+    if (cam) obol_view_sync_cam_from_bsg(cam, w->bsgv);
+
+    SbViewportRegion vp((short)w->width, (short)w->height);
+    SoOffscreenRenderer renderer(vp);
+    renderer.setBackgroundColor(SbColor(w->bg_r, w->bg_g, w->bg_b));
+    renderer.setComponents(SoOffscreenRenderer::RGB);
+
+    if (!renderer.render(w->obol_root)) {
+	if (interp)
+	    Tcl_AppendResult(interp, "screengrab: offscreen render failed", (char *)NULL);
+	return TCL_ERROR;
+    }
+
+    /* renderer.getBuffer() returns RGB triplets, width*height*3 bytes. */
+    const unsigned char *pixels = renderer.getBuffer();
+    if (!pixels) {
+	if (interp)
+	    Tcl_AppendResult(interp, "screengrab: no pixel buffer", (char *)NULL);
+	return TCL_ERROR;
+    }
+
+    FILE *fp = fopen(filename, "wb");
+    if (!fp) {
+	if (interp)
+	    Tcl_AppendResult(interp, "screengrab: cannot open ", filename, (char *)NULL);
+	return TCL_ERROR;
+    }
+
+    bool ok = false;
+    if (BU_STR_EQUAL(format, "pix")) {
+	/* Raw RGB PIX: pixels are already in the right format. */
+	size_t npx = (size_t)w->width * (size_t)w->height * 3;
+	ok = (fwrite(pixels, 1, npx, fp) == npx);
+    } else {
+	/* PNG via SoOffscreenRenderer's built-in PNG writer. */
+	fclose(fp);
+	fp = nullptr;
+	ok = renderer.writeToFile(SbString(filename), SbName("png"));
+    }
+
+    if (fp) fclose(fp);
+
+    if (!ok) {
+	if (interp)
+	    Tcl_AppendResult(interp, "screengrab: write failed: ", filename, (char *)NULL);
+	return TCL_ERROR;
+    }
+    return TCL_OK;
+}
+
+
+/* ======================================================================== *
  * Unified render entry — dispatches to the active path                     *
  * ======================================================================== */
 
@@ -627,6 +749,8 @@ static void
 obol_view_do_render(ObolViewWidget *w)
 {
     if (!w) return;
+    /* Apply bg-color / light settings before every frame. */
+    obol_view_apply_render_settings(w);
 #ifdef OBOL_HW_GLX
     if (w->use_hw) { obol_view_render_hw_glx(w);  return; }
 #endif
@@ -953,6 +1077,16 @@ Tcl_SetResult(interp, buf, TCL_VOLATILE);
 return TCL_OK;
     }
 
+    /* ── screengrab format filename ── */
+    if (BU_STR_EQUAL(sub, "screengrab")) {
+	if (argc < 4) {
+	    Tcl_AppendResult(interp, argv[0],
+		" screengrab png|pix <filename>", (char *)NULL);
+	    return TCL_ERROR;
+	}
+	return obol_view_screengrab_impl(w, argv[2], argv[3], interp);
+    }
+
     Tcl_AppendResult(interp, "unknown subcommand: ", sub, (char *)NULL);
     return TCL_ERROR;
 }
@@ -1138,6 +1272,47 @@ Obol_Notify_Views_Cmd(ClientData UNUSED(clientData), Tcl_Interp *UNUSED(interp),
 	if (w) obol_view_do_render(w);
     }
     return TCL_OK;
+}
+
+
+/* ======================================================================== *
+ * "obol_view_screengrab" — top-level Tcl command                           *
+ *                                                                           *
+ * Usage:                                                                    *
+ *   obol_view_screengrab <viewname> png|pix <filename>                      *
+ *                                                                           *
+ * Looks up the first live obol_view widget whose attached bsg_view has the *
+ * given name, then delegates to obol_view_screengrab_impl().               *
+ *                                                                           *
+ * This is the entry point called by libtclcad's to_pix() / to_png().       *
+ * ======================================================================== */
+
+extern "C" int
+Obol_View_Screengrab_Cmd(ClientData UNUSED(cd), Tcl_Interp *interp,
+			 int argc, const char **argv)
+{
+    if (argc < 4) {
+	Tcl_AppendResult(interp,
+	    "usage: obol_view_screengrab <viewname> png|pix <filename>",
+	    (char *)NULL);
+	return TCL_ERROR;
+    }
+
+    const char *viewname = argv[1];
+    const char *format   = argv[2];
+    const char *filename = argv[3];
+
+    /* Find the widget whose bsg_view name matches. */
+    for (ObolViewWidget *w : s_obol_view_instances) {
+	if (!w || !w->bsgv) continue;
+	if (BU_STR_EQUAL(bu_vls_cstr(&w->bsgv->gv_name), viewname))
+	    return obol_view_screengrab_impl(w, format, filename, interp);
+    }
+
+    Tcl_AppendResult(interp,
+	"obol_view_screengrab: no obol_view attached to view '",
+	viewname, "'", (char *)NULL);
+    return TCL_ERROR;
 }
 
 /* ======================================================================== *
