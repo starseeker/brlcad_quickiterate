@@ -362,12 +362,53 @@ private:
                     }
                 }
             }
-            // Plain text: escape backslash and minus
-            char c = text[i];
-            if (c == '\\') { out += "\\\\"; }
-            else if (c == '-') { out += "\\-"; }
-            else { out += c; }
-            ++i;
+            // Plain text: escape backslash and minus, and convert common
+            // Unicode characters to troff special-character sequences so that
+            // they render correctly with groff -Tascii / -Tutf8.
+            {
+                unsigned char b0 = static_cast<unsigned char>(text[i]);
+                // 2-byte UTF-8: 0xC2 prefix
+                if (b0 == 0xC2 && i + 1 < text.size()) {
+                    unsigned char b1 = static_cast<unsigned char>(text[i+1]);
+                    if (b1 == 0xBD) { out += "1/2"; i += 2; continue; }  // ½ U+00BD
+                    if (b1 == 0xBE) { out += "3/4"; i += 2; continue; }  // ¾ U+00BE
+                    if (b1 == 0xBC) { out += "1/4"; i += 2; continue; }  // ¼ U+00BC
+                    if (b1 == 0xB1) { out += "\\(+-"; i += 2; continue; } // ± U+00B1
+                    if (b1 == 0xB7) { out += "\\(md"; i += 2; continue; } // · U+00B7
+                }
+                // 2-byte UTF-8: 0xC3 prefix
+                if (b0 == 0xC3 && i + 1 < text.size()) {
+                    unsigned char b1 = static_cast<unsigned char>(text[i+1]);
+                    if (b1 == 0x97) { out += "\\(mu"; i += 2; continue; } // × U+00D7
+                    if (b1 == 0xB7) { out += "\\(di"; i += 2; continue; } // ÷ U+00F7
+                }
+                // 3-byte UTF-8: 0xE2 prefix
+                if (b0 == 0xE2 && i + 2 < text.size()) {
+                    unsigned char b1 = static_cast<unsigned char>(text[i+1]);
+                    unsigned char b2 = static_cast<unsigned char>(text[i+2]);
+                    if (b1 == 0x80) {
+                        if (b2 == 0x94) { out += "\\(em"; i += 3; continue; } // — U+2014
+                        if (b2 == 0x93) { out += "\\(en"; i += 3; continue; } // – U+2013
+                        if (b2 == 0x90) { out += "\\-";   i += 3; continue; } // ‐ U+2010
+                        if (b2 == 0x98) { out += "'";     i += 3; continue; } // ' U+2018
+                        if (b2 == 0x99) { out += "'";     i += 3; continue; } // ' U+2019
+                        if (b2 == 0x9C) { out += "\"";   i += 3; continue; }  // " U+201C
+                        if (b2 == 0x9D) { out += "\"";   i += 3; continue; }  // " U+201D
+                        if (b2 == 0xA2) { out += "\\(bu"; i += 3; continue; } // • U+2022
+                    }
+                    if (b1 == 0x88) {
+                        if (b2 == 0x92) { out += "\\-";   i += 3; continue; } // − U+2212 (minus sign)
+                        if (b2 == 0x86) { out += "\\(->"; i += 3; continue; } // → U+2192
+                        if (b2 == 0x90) { out += "\\(<-"; i += 3; continue; } // ← U+2190
+                        if (b2 == 0xA5) { out += "\\(bu"; i += 3; continue; } // ∞ → bullet fallback
+                    }
+                }
+                char c = text[i];
+                if (c == '\\') { out += "\\\\"; }
+                else if (c == '-') { out += "\\-"; }
+                else { out += c; }
+                ++i;
+            }
         }
         // If the output line starts with '.' or '\'' it would be interpreted as a
         // troff macro. Prepend \& (zero-width non-printing character) to avoid that.
@@ -831,8 +872,17 @@ private:
             // explicitly present in the source.
             // Use DocBook-style .PP term .RS 4 body .RE instead of .TP, so that
             // the term appears on its own line with the body indented below it.
+            //
+            // Append \fR after the term to unconditionally reset to Roman font.
+            // Without this, a term with nested markup (e.g. *-p _x y z_*)
+            // generates \fB...\fI...\fP\fP where groff tracks only one previous-
+            // font slot: the second \fP restores to italic instead of Roman,
+            // bleeding italic into all body text that follows.  \fR is harmless
+            // when the term has no markup or single-level markup (already Roman
+            // at that point).  This matches DocBook XSL's behaviour of always
+            // ending term lines with an explicit \fR.
             out << ".sp\n";
-            out << combined_term << "\n";
+            out << combined_term << "\\fR\n";
             out << ".RS 4\n";
             if (!body_item.source().empty()) {
                 out << inline_subs(body_item.source(), doc) << '\n';

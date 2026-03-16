@@ -98,12 +98,107 @@ static float parse_dimension_pts(const std::string& s, float content_w = 468.0f)
     return 0.0f;  // unrecognised unit → auto
 }
 
+/// Apply typographic substitutions to plain text for PDF output.
+///
+/// This is the PDF-specific equivalent of sub_replacements() from
+/// substitutors.hpp.  It operates on the raw source text (not HTML-encoded)
+/// and outputs WinAnsiEncoding single-byte characters for the typographic
+/// symbols, which is the encoding used by all fonts in minipdf.hpp.
+///
+/// Applied substitutions (WinAnsiEncoding byte values):
+///   " -- " / "-- " / " --"  →  em dash (0x97, U+2014)
+///   "..."                    →  ellipsis (0x85, U+2026)
+///   "(C)"                    →  copyright © (0xA9)
+///   "(R)"                    →  registered ® (0xAE)
+///   "(TM)"                   →  trademark ™ (0x99)
+///   smart apostrophe         →  right single quote (0x92, U+2019)
+[[nodiscard]] static std::string apply_pdf_typo_subs(const std::string& text) {
+    std::string out = text;
+
+    auto replace_all = [](std::string& s,
+                          const std::string_view from, const std::string_view to) {
+        std::size_t pos = 0;
+        while ((pos = s.find(from, pos)) != std::string::npos) {
+            s.replace(pos, from.size(), to);
+            pos += to.size();
+        }
+    };
+
+    // Em dash: " -- " interior, "-- " at start, " --" at end, and "word--word".
+    replace_all(out, " -- ", " \x97 ");
+    if (out.size() >= 3 &&
+        out[0] == '-' && out[1] == '-' && out[2] == ' ') {
+        out = " \x97 " + out.substr(3);
+    }
+    {
+        const std::size_t sz = out.size();
+        if (sz >= 3 &&
+            out[sz-3] == ' ' && out[sz-2] == '-' && out[sz-1] == '-') {
+            out.resize(sz - 3);
+            out += " \x97";
+        }
+    }
+    // "word--word" → "word—word" (no surrounding spaces, both sides alphanumeric).
+    // This matches asciidoc's unconstrained em-dash substitution.
+    {
+        std::string result;
+        result.reserve(out.size());
+        const std::size_t sz = out.size();
+        for (std::size_t i = 0; i < sz; ++i) {
+            if (i + 1 < sz && out[i] == '-' && out[i+1] == '-') {
+                // Only convert if both neighbours are strict word characters
+                // (alphanumeric or underscore), matching asciidoc's rule exactly.
+                bool prev_word = (i > 0) &&
+                    (std::isalnum(static_cast<unsigned char>(out[i-1])) ||
+                     out[i-1] == '_');
+                bool next_word = (i + 2 < sz) &&
+                    (std::isalnum(static_cast<unsigned char>(out[i+2])) ||
+                     out[i+2] == '_');
+                if (prev_word && next_word) {
+                    result += '\x97';
+                    ++i;  // skip the second '-'
+                    continue;
+                }
+            }
+            result += out[i];
+        }
+        out = std::move(result);
+    }
+
+    // Ellipsis (only in non-verbatim context; applied here before entity encoding)
+    replace_all(out, "...", "\x85");
+
+    // Copyright / Registered / Trademark
+    replace_all(out, "(C)",  "\xa9");
+    replace_all(out, "(R)",  "\xae");
+    replace_all(out, "(TM)", "\x99");
+
+    // Smart apostrophe: word'word  →  word'word (WinAnsi 0x92 = U+2019)
+    {
+        std::string result;
+        result.reserve(out.size());
+        const std::size_t sz = out.size();
+        for (std::size_t i = 0; i < sz; ++i) {
+            if (out[i] == '\'' && i > 0 && i + 1 < sz) {
+                const char prev = out[i-1];
+                const char next = out[i+1];
+                const bool pw = std::isalnum(static_cast<unsigned char>(prev)) || prev == '_';
+                const bool nw = std::isalnum(static_cast<unsigned char>(next)) || next == '_';
+                if (pw && nw) { result += '\x92'; continue; }
+            }
+            result += out[i];
+        }
+        out = std::move(result);
+    }
+
+    return out;
+}
+
 /// Strip AsciiDoc markup that we cannot render (links, macros, etc.) and
 /// leave the visible text only.  This is a best-effort plain-text extractor
 /// used so that the raw AsciiDoc source is never mis-rendered as markup.
-/// Input may contain HTML-encoded characters (&lt; &gt; &amp; etc.) because
-/// sub_attributes() HTML-encodes special characters before this is called;
-/// HTML entities are decoded back to their literal characters on output.
+/// HTML entities (e.g. from attribute values) are decoded to WinAnsiEncoding
+/// single-byte characters on output.
 static std::string strip_markup(const std::string& s) {
     std::string out;
     out.reserve(s.size());
@@ -173,13 +268,47 @@ static std::string strip_markup(const std::string& s) {
                 continue;
             }
         }
-        // image:target[alt] – use alt text
+        // pass:[text] / pass:q[text] / pass:c[text] – extract text, strip any HTML tags
+        if (s.compare(i, 5, "pass:") == 0) {
+            auto ob = s.find('[', i);
+            auto cb = (ob != std::string::npos) ? s.find(']', ob) : std::string::npos;
+            if (ob != std::string::npos && cb != std::string::npos) {
+                std::string inner = s.substr(ob + 1, cb - ob - 1);
+                // Strip any HTML/XML tags from the passthrough content
+                std::string plain;
+                plain.reserve(inner.size());
+                bool in_tag = false;
+                for (char c : inner) {
+                    if (c == '<') { in_tag = true; }
+                    else if (c == '>') { in_tag = false; }
+                    else if (!in_tag) { plain += c; }
+                }
+                out += plain;
+                i = cb + 1;
+                continue;
+            }
+        }
+        // image:target[alt] – use alt text; skip attribute-only content
         if (s.compare(i, 6, "image:") == 0) {
             auto ob = s.find('[', i);
             auto cb = (ob != std::string::npos) ? s.find(']', ob) : std::string::npos;
             if (ob != std::string::npos && cb != std::string::npos) {
-                std::string alt = s.substr(ob + 1, cb - ob - 1);
-                if (!alt.empty()) { out += "[" + alt + "]"; }
+                std::string raw_alt = s.substr(ob + 1, cb - ob - 1);
+                // Extract first positional param (before first comma, if any)
+                auto comma = raw_alt.find(',');
+                std::string alt = (comma != std::string::npos)
+                                  ? raw_alt.substr(0, comma)
+                                  : raw_alt;
+                // Trim leading/trailing whitespace
+                auto lf = alt.find_first_not_of(" \t");
+                if (lf != std::string::npos) { alt = alt.substr(lf); }
+                auto rt = alt.find_last_not_of(" \t");
+                if (rt != std::string::npos) { alt = alt.substr(0, rt + 1); }
+                // Suppress if it looks like a pure attribute (e.g. "width=64")
+                // A real alt text does not look like "name=value"
+                bool is_attr = (!alt.empty() && alt.find('=') != std::string::npos
+                                && alt.find(' ') == std::string::npos);
+                if (!alt.empty() && !is_attr) { out += "[" + alt + "]"; }
                 i = cb + 1;
                 continue;
             }
@@ -193,11 +322,42 @@ static std::string strip_markup(const std::string& s) {
                 continue;
             }
         }
+        // Superscript ^text^ – keep text, drop markers
+        if (s[i] == '^') {
+            auto end = s.find('^', i + 1);
+            if (end != std::string::npos && end > i + 1) {
+                out += s.substr(i + 1, end - i - 1);
+                i = end + 1;
+                continue;
+            }
+        }
+        // Subscript ~text~ – keep text, drop markers
+        if (s[i] == '~') {
+            auto end = s.find('~', i + 1);
+            if (end != std::string::npos && end > i + 1) {
+                out += s.substr(i + 1, end - i - 1);
+                i = end + 1;
+                continue;
+            }
+        }
+        // Highlight (mark) #text# – keep text, drop markers (constrained only)
+        if (s[i] == '#' &&
+            (i == 0 || !std::isalnum(static_cast<unsigned char>(s[i-1])))) {
+            auto end = s.find('#', i + 1);
+            if (end != std::string::npos && end > i + 1) {
+                out += s.substr(i + 1, end - i - 1);
+                i = end + 1;
+                continue;
+            }
+        }
         out += s[i++];
     }
 
     // Decode HTML entities produced by sub_attributes() so that the PDF
     // writer receives plain characters, not HTML escapes.
+    // Characters above 0x7F are encoded as single WinAnsiEncoding bytes, which
+    // is the encoding used by all fonts in the PDF output (both base-14 and
+    // embedded TrueType).
     auto replace_all = [](std::string& str,
                           const std::string& from, const std::string& to) {
         std::size_t pos = 0;
@@ -211,15 +371,49 @@ static std::string strip_markup(const std::string& s) {
     replace_all(out, "&gt;",   ">");
     replace_all(out, "&quot;", "\"");
     replace_all(out, "&apos;", "'");
-    replace_all(out, "&#8212;", "\xe2\x80\x94");   // em dash U+2014
-    replace_all(out, "&#8203;", "");               // zero-width space
-    replace_all(out, "&#169;",  "\xc2\xa9");       // copyright ©
+    // WinAnsiEncoding single-byte mappings for typographic characters:
+    replace_all(out, "&#8212;", "\x97");   // em dash U+2014 (WinAnsi 0x97)
+    replace_all(out, "&#8230;", "\x85");   // ellipsis U+2026 (WinAnsi 0x85)
+    replace_all(out, "&#8201;", " ");      // thin space → regular space
+    replace_all(out, "&#8203;", "");       // zero-width space → remove
+    replace_all(out, "&#169;",  "\xa9");   // copyright © (Latin-1 0xA9)
+    replace_all(out, "&#174;",  "\xae");   // registered ® (Latin-1 0xAE)
+    replace_all(out, "&#8482;", "\x99");   // trademark ™ (WinAnsi 0x99)
+    replace_all(out, "&#8217;", "\x92");   // right apostrophe ' (WinAnsi 0x92)
+    replace_all(out, "&#8594;", "->");     // right arrow → ASCII fallback
+    replace_all(out, "&#8592;", "<-");     // left arrow → ASCII fallback
+    replace_all(out, "&#8658;", "=>");     // double right arrow → ASCII fallback
+    replace_all(out, "&#8656;", "<=");     // double left arrow → ASCII fallback
+    // Convert raw UTF-8 multibyte sequences to WinAnsiEncoding single bytes.
+    // These appear when source files already contain typographic Unicode chars.
+    replace_all(out, "\xe2\x80\x99", "\x92");  // U+2019 ' → right single quote
+    replace_all(out, "\xe2\x80\x98", "\x91");  // U+2018 ' → left single quote
+    replace_all(out, "\xe2\x80\x9c", "\x93");  // U+201C " → left double quote
+    replace_all(out, "\xe2\x80\x9d", "\x94");  // U+201D " → right double quote
+    replace_all(out, "\xe2\x80\x93", "\x96");  // U+2013 – → en dash
+    replace_all(out, "\xe2\x80\x94", "\x97");  // U+2014 — → em dash
+    replace_all(out, "\xe2\x80\xa6", "\x85");  // U+2026 … → ellipsis
+    replace_all(out, "\xe2\x80\xa2", "\x95");  // U+2022 • → bullet
+    replace_all(out, "\xe2\x84\xa2", "\x99");  // U+2122 ™ → trademark
+    replace_all(out, "\xc2\xa0", " ");          // U+00A0 → regular space
+    replace_all(out, "\xc2\xb0", "\xb0");       // U+00B0 ° → degree (same byte)
+    replace_all(out, "\xc2\xa9", "\xa9");       // U+00A9 © → copyright (same byte)
+    replace_all(out, "\xc2\xae", "\xae");       // U+00AE ® → registered (same byte)
+    replace_all(out, "\xc2\xb5", "\xb5");       // U+00B5 µ → micro (same byte)
+    replace_all(out, "\xc2\xbc", "\xbc");       // U+00BC ¼ → one quarter (same byte)
+    replace_all(out, "\xc2\xbd", "\xbd");       // U+00BD ½ → one half (same byte)
+    replace_all(out, "\xc2\xbe", "\xbe");       // U+00BE ¾ → three quarters (same byte)
+    replace_all(out, "\xc3\x97", "\xd7");       // U+00D7 × → multiplication (same byte)
+    replace_all(out, "\xc3\xb7", "\xf7");       // U+00F7 ÷ → division (same byte)
+    replace_all(out, "\xc2\xb1", "\xb1");       // U+00B1 ± → plus-minus (same byte)
+    replace_all(out, "\xc2\xb7", "\xb7");       // U+00B7 · → middle dot (same byte)
     return out;
 }
 
 /// Parse a plain-text string (after markup has been stripped) into a vector
 /// of TextSpans, interpreting *bold*, _italic_, `mono`, **bold**, __italic__,
-/// ``mono`` inline markup.
+/// ``mono`` inline markup.  Nested markup (e.g. *_bold-italic_*) is handled
+/// by recursively parsing the inner content with the combined style.
 static std::vector<TextSpan> parse_spans(const std::string& raw,
                                          minipdf::FontStyle base_style
                                              = minipdf::FontStyle::Regular) {
@@ -256,13 +450,20 @@ static std::vector<TextSpan> parse_spans(const std::string& raw,
         }
     };
 
+    // Append a recursively-parsed inner span (handles nested markup).
+    // Mono spans are NOT recursed into (they are verbatim).
+    auto append_inner = [&](const std::string& inner, minipdf::FontStyle style) {
+        auto inner_spans = parse_spans(inner, style);
+        spans.insert(spans.end(), inner_spans.begin(), inner_spans.end());
+    };
+
     while (i < n) {
         // ── Unconstrained bold: **...**
         if (i + 1 < n && text[i] == '*' && text[i+1] == '*') {
             auto end = text.find("**", i + 2);
             if (end != std::string::npos) {
                 flush();
-                spans.push_back({text.substr(i + 2, end - i - 2), bold_of()});
+                append_inner(text.substr(i + 2, end - i - 2), bold_of());
                 i = end + 2;
                 continue;
             }
@@ -273,7 +474,7 @@ static std::vector<TextSpan> parse_spans(const std::string& raw,
             auto end = text.find('*', i + 1);
             if (end != std::string::npos && end > i + 1) {
                 flush();
-                spans.push_back({text.substr(i + 1, end - i - 1), bold_of()});
+                append_inner(text.substr(i + 1, end - i - 1), bold_of());
                 i = end + 1;
                 continue;
             }
@@ -283,7 +484,7 @@ static std::vector<TextSpan> parse_spans(const std::string& raw,
             auto end = text.find("__", i + 2);
             if (end != std::string::npos) {
                 flush();
-                spans.push_back({text.substr(i + 2, end - i - 2), italic_of()});
+                append_inner(text.substr(i + 2, end - i - 2), italic_of());
                 i = end + 2;
                 continue;
             }
@@ -294,7 +495,7 @@ static std::vector<TextSpan> parse_spans(const std::string& raw,
             auto end = text.find('_', i + 1);
             if (end != std::string::npos && end > i + 1) {
                 flush();
-                spans.push_back({text.substr(i + 1, end - i - 1), italic_of()});
+                append_inner(text.substr(i + 1, end - i - 1), italic_of());
                 i = end + 1;
                 continue;
             }
@@ -316,6 +517,20 @@ static std::vector<TextSpan> parse_spans(const std::string& raw,
             auto end = text.find('`', i + 1);
             if (end != std::string::npos && end > i + 1) {
                 flush();
+                spans.push_back({text.substr(i + 1, end - i - 1),
+                                  minipdf::FontStyle::Mono});
+                i = end + 1;
+                continue;
+            }
+        }
+        // ── Legacy constrained passthrough: +word+ (renders as plain text in PDF)
+        if (text[i] == '+' &&
+            (i == 0 || !std::isalnum(static_cast<unsigned char>(text[i-1])))) {
+            auto end = text.find('+', i + 1);
+            if (end != std::string::npos && end > i + 1 &&
+                !std::isspace(static_cast<unsigned char>(text[i+1]))) {
+                flush();
+                // Render passthrough content as mono (matches asciidoc legacy behaviour)
                 spans.push_back({text.substr(i + 1, end - i - 1),
                                   minipdf::FontStyle::Mono});
                 i = end + 1;
@@ -409,6 +624,17 @@ public:
             bool               space_before = false;  ///< was preceded by space
         };
 
+        // Helper: return true if this word should attach to the preceding word
+        // without a space (i.e. it starts with closing punctuation).
+        // This handles "_italic_." → "italic." rather than "italic ."
+        auto no_space_before = [](const Word& w) -> bool {
+            if (w.text.empty() || w.space_before) { return false; }
+            const char c = w.text[0];
+            return c == '.' || c == ',' || c == ';' || c == ':' ||
+                   c == '!' || c == '?' || c == ')' || c == ']' ||
+                   c == '\x92';  // WinAnsi right apostrophe (')
+        };
+
         std::vector<Word> words;
         for (const auto& sp : spans) {
             std::istringstream ss(sp.text);
@@ -443,13 +669,16 @@ public:
 
         for (const auto& w : words) {
             float ww = tw(w.text, w.style, w.size);
+            // Punctuation-only tokens attach directly to the preceding word.
+            bool attach = !lines.back().words.empty() && no_space_before(w);
+            float gap  = (lines.back().words.empty() || attach) ? 0.0f : space_w;
             float need = lines.back().words.empty() ? ww
-                         : lines.back().total_w + space_w + ww;
+                         : lines.back().total_w + gap + ww;
 
-            if (need > avail && !lines.back().words.empty()) {
+            if (need > avail && !lines.back().words.empty() && !attach) {
                 lines.push_back({});
             }
-            float add_w = lines.back().words.empty() ? ww : space_w + ww;
+            float add_w = lines.back().words.empty() ? ww : gap + ww;
             lines.back().total_w += add_w;
             lines.back().words.push_back(w);
         }
@@ -460,7 +689,7 @@ public:
             float x = MARGIN_LEFT + x_indent;
             bool  first_word = true;
             for (const auto& w : line.words) {
-                if (!first_word) {
+                if (!first_word && !no_space_before(w)) {
                     x += space_w;
                 }
                 page_->place_text(x, cursor_y_, w.style, w.size, w.text);
@@ -534,16 +763,69 @@ public:
     // ── Code block ────────────────────────────────────────────────────────────
 
     void code_block(const std::string& source) {
-        float lh = CODE_SIZE * LINE_RATIO;
-        float indent = 8.0f;
+        const float lh     = CODE_SIZE * LINE_RATIO;
+        const float indent = 8.0f;
+        const float avail_w = content_w_ - indent - CODE_RIGHT_PADDING;
 
-        // Count lines to determine background height
-        int n_lines = 0;
+        // Pre-process lines: break any line that exceeds avail_w into multiple
+        // visual lines.  Continuation lines are indented by two extra spaces.
+        // Prefer breaking at a space so tokens are not split across lines.
+        auto split_line = [&](const std::string& line,
+                               std::vector<std::string>& out) {
+            if (tw(line, minipdf::FontStyle::Mono, CODE_SIZE) <= avail_w) {
+                out.push_back(line);
+                return;
+            }
+            std::string rest = line;
+            bool first_seg = true;
+            while (!rest.empty()) {
+                // If the rest already fits, emit it as-is and stop.
+                if (tw(rest, minipdf::FontStyle::Mono, CODE_SIZE) <= avail_w) {
+                    out.push_back(rest);
+                    rest.clear();
+                    break;
+                }
+                // Find how many characters fit on this visual line.
+                std::string seg = rest;
+                while (!seg.empty() &&
+                       tw(seg, minipdf::FontStyle::Mono, CODE_SIZE) > avail_w) {
+                    seg.pop_back();
+                }
+                if (seg.empty()) {
+                    // Single character is wider than avail (extremely rare).
+                    seg += rest[0];
+                    rest = rest.substr(1);
+                } else {
+                    // Prefer to break at a space that is within the segment.
+                    // Look for the last space in seg (not including leading
+                    // spaces on continuation lines).
+                    std::size_t leader = first_seg ? 0u : 2u;
+                    auto sp = seg.rfind(' ', seg.size() - 1);
+                    if (sp != std::string::npos && sp > leader) {
+                        seg  = rest.substr(0, sp);
+                        rest = rest.substr(sp + 1);  // skip the break space
+                    } else {
+                        rest = rest.substr(seg.size());
+                    }
+                }
+                out.push_back(seg);
+                first_seg = false;
+                if (!rest.empty()) { rest = "  " + rest; }
+            }
+        };
+
+        std::vector<std::string> visual_lines;
         {
             std::istringstream ss(source);
             std::string line;
-            while (std::getline(ss, line)) { ++n_lines; }
+            while (std::getline(ss, line)) {
+                // Handle CR+LF in case the source has Windows line endings
+                if (!line.empty() && line.back() == '\r') { line.pop_back(); }
+                split_line(line, visual_lines);
+            }
         }
+
+        const int n_lines = static_cast<int>(visual_lines.size());
         float block_h = static_cast<float>(n_lines) * lh + 8.0f;
 
         ensure_space(block_h);
@@ -556,26 +838,10 @@ public:
 
         cursor_y_ -= 4.0f;  // top padding
 
-        std::istringstream ss(source);
-        std::string line;
-        while (std::getline(ss, line)) {
+        for (const auto& seg : visual_lines) {
             ensure_space(lh);
-            // Clip lines that would overflow the right margin.  Truncate
-            // characters from the end and append "..." to signal clipping.
-            float avail_w = content_w_ - indent - CODE_RIGHT_PADDING;
-            float line_w  = tw(line, minipdf::FontStyle::Mono, CODE_SIZE);
-            if (line_w > avail_w) {
-                const std::string ellipsis = "...";
-                float ell_w = tw(ellipsis, minipdf::FontStyle::Mono, CODE_SIZE);
-                while (!line.empty() &&
-                       tw(line, minipdf::FontStyle::Mono, CODE_SIZE)
-                           + ell_w > avail_w) {
-                    line.pop_back();
-                }
-                line += ellipsis;
-            }
             page_->place_text(MARGIN_LEFT + indent, cursor_y_,
-                               minipdf::FontStyle::Mono, CODE_SIZE, line);
+                               minipdf::FontStyle::Mono, CODE_SIZE, seg);
             cursor_y_ -= lh;
         }
         // Gap below the code block must be large enough that the ascenders of
@@ -609,14 +875,28 @@ public:
     /// display width in points; otherwise the image fills the content width.
     /// @p hint_h is an optional height override (0 = maintain aspect ratio).
     ///
+    /// If @p caption is non-empty it is rendered as a figure caption below the
+    /// image, prefixed with an auto-incrementing "Figure N." label.
+    ///
     /// When the image cannot be loaded (missing file, unsupported format) a
     /// plain-text placeholder is emitted instead.
     void image_block(const std::string& path,
-                     float hint_w = 0.0f, float hint_h = 0.0f) {
+                     float hint_w = 0.0f, float hint_h = 0.0f,
+                     const std::string& caption = "") {
         auto img = minipdf::PdfImage::from_file(path);
         if (!img) {
-            // Fall back to a text placeholder
-            paragraph("[image: " + path + "]");
+            // Fall back to a text placeholder showing the path stem and caption.
+            std::string stem = path;
+            {
+                auto sl = path.rfind('/');
+                if (sl != std::string::npos) { stem = path.substr(sl + 1); }
+            }
+            paragraph("[image: " + stem + "]");
+            if (!caption.empty()) {
+                ++figure_counter_;
+                figure_caption("Figure " + std::to_string(figure_counter_)
+                               + ". " + caption);
+            }
             return;
         }
 
@@ -644,6 +924,13 @@ public:
         float img_y = cursor_y_ - disp_h;
         page_->place_image(MARGIN_LEFT, img_y, disp_w, disp_h, res);
         cursor_y_ = img_y - BODY_SIZE * 0.5f;  // small gap below image
+
+        // Figure caption rendered below the image
+        if (!caption.empty()) {
+            ++figure_counter_;
+            figure_caption("Figure " + std::to_string(figure_counter_)
+                           + ". " + caption);
+        }
     }
 
     // ── Page break ────────────────────────────────────────────────────────────
@@ -668,7 +955,8 @@ public:
     void admonition(const std::string& label, const std::string& body_text) {
         float lh = BODY_SIZE * LINE_RATIO;
 
-        // Label (NOTE, TIP, etc.) in bold
+        // Label (NOTE, TIP, etc.) in bold — no trailing colon, matching
+        // asciidoctor's PDF output style.
         std::string lbl = label;
         for (char& c : lbl) {
             c = static_cast<char>(
@@ -676,14 +964,14 @@ public:
         }
 
         // Indent body text past the label.  Computed dynamically so that long
-        // labels like "IMPORTANT:" don't overflow into the body text area.
-        float indent = tw(lbl + ":", minipdf::FontStyle::Bold, BODY_SIZE)
+        // labels like "IMPORTANT" don't overflow into the body text area.
+        float indent = tw(lbl, minipdf::FontStyle::Bold, BODY_SIZE)
                        + BODY_SIZE;  ///< label width + one-em gap
 
         ensure_space(lh * 2.0f);
 
         page_->place_text(MARGIN_LEFT, cursor_y_,
-                          minipdf::FontStyle::Bold, BODY_SIZE, lbl + ":");
+                          minipdf::FontStyle::Bold, BODY_SIZE, lbl);
 
         // Body text indented
         paragraph(body_text, indent);
@@ -715,15 +1003,82 @@ public:
 
     // ── Ordered list item ─────────────────────────────────────────────────────
 
-    void ordered_item(int number, const std::string& text, int depth = 0) {
+    // ── Ordered-list label helpers ────────────────────────────────────────────
+
+    /// Convert @p n to a lowercase Roman numeral string (e.g. 1→"i", 4→"iv").
+    static std::string to_lower_roman(int n) {
+        static const struct { int v; const char* s; } tbl[] = {
+            {1000,"m"},{900,"cm"},{500,"d"},{400,"cd"},{100,"c"},{90,"xc"},
+            {50,"l"},{40,"xl"},{10,"x"},{9,"ix"},{5,"v"},{4,"iv"},{1,"i"}
+        };
+        std::string r;
+        for (const auto& e : tbl) {
+            while (n >= e.v) { r += e.s; n -= e.v; }
+        }
+        return r;
+    }
+
+    /// Generate an ordered-list label string for item @p number at @p depth
+    /// using the asciidoctor auto-style rules when no explicit style is set.
+    /// @p style overrides the depth-based choice (Arabic=always numbers, etc.).
+    static std::string ordered_label(int number, int depth,
+                                     OrderedListStyle style) {
+        // Auto-select style from depth when not explicitly overridden
+        if (style == OrderedListStyle::Arabic) {
+            // Depth-based default (asciidoctor behaviour)
+            switch (depth % 5) {
+                case 0: break;                        // Arabic (falls through)
+                case 1: style = OrderedListStyle::LowerAlpha; break;
+                case 2: style = OrderedListStyle::LowerRoman; break;
+                case 3: style = OrderedListStyle::UpperAlpha; break;
+                case 4: style = OrderedListStyle::UpperRoman; break;
+            }
+        }
+        switch (style) {
+            case OrderedListStyle::LowerAlpha: {
+                // a. b. … z. aa. ab. …
+                std::string s;
+                int n = number - 1;
+                do {
+                    s = static_cast<char>('a' + n % 26) + s;
+                    n = n / 26 - 1;
+                } while (n >= 0);
+                return s + ".";
+            }
+            case OrderedListStyle::UpperAlpha: {
+                std::string s;
+                int n = number - 1;
+                do {
+                    s = static_cast<char>('A' + n % 26) + s;
+                    n = n / 26 - 1;
+                } while (n >= 0);
+                return s + ".";
+            }
+            case OrderedListStyle::LowerRoman:
+                return to_lower_roman(number) + ".";
+            case OrderedListStyle::UpperRoman: {
+                std::string r = to_lower_roman(number);
+                for (char& c : r) { c = static_cast<char>(std::toupper(static_cast<unsigned char>(c))); }
+                return r + ".";
+            }
+            default: // Arabic
+                return std::to_string(number) + ".";
+        }
+    }
+
+    void ordered_item(int number, const std::string& text, int depth = 0,
+                      OrderedListStyle style = OrderedListStyle::Arabic) {
         float lh     = BODY_SIZE * LINE_RATIO;
         float indent = static_cast<float>(depth) * 18.0f + 22.0f;
 
         ensure_space(lh);
 
-        std::string label = std::to_string(number) + ".";
-        page_->place_text(MARGIN_LEFT + indent - static_cast<float>(label.size()) * 6.0f - 4.0f,
-                          cursor_y_,
+        std::string label = ordered_label(number, depth, style);
+        // Right-align the label just to the left of the text indent.
+        // Use actual text width so roman numerals (e.g. "viii.") align correctly.
+        float lw = tw(label, minipdf::FontStyle::Regular, BODY_SIZE);
+        float label_x = MARGIN_LEFT + indent - lw - 3.0f;
+        page_->place_text(label_x, cursor_y_,
                           minipdf::FontStyle::Regular, BODY_SIZE, label);
 
         auto spans = parse_spans(text);
@@ -754,6 +1109,19 @@ public:
         page_->place_text(MARGIN_LEFT, cursor_y_,
                           minipdf::FontStyle::BoldOblique, BODY_SIZE, title);
         cursor_y_ -= lh;
+    }
+
+    /// Render a figure caption below an image.  Uses smaller italic text
+    /// and leaves a half-body-size gap above it to separate from the image.
+    void figure_caption(const std::string& caption) {
+        const float cap_sz = BODY_SIZE * 0.9f;
+        const float lh     = cap_sz * LINE_RATIO;
+        ensure_space(lh);
+        auto spans = parse_spans(caption, minipdf::FontStyle::Oblique);
+        for (auto& sp : spans) { sp.size = cap_sz; }
+        spans = merge_spans(std::move(spans));
+        wrap_spans(spans, lh, 0.0f);
+        cursor_y_ -= BODY_SIZE * 0.3f;  // small gap below caption
     }
 
     // ── Quote / verse / sidebar (indented block) ──────────────────────────────
@@ -800,9 +1168,14 @@ public:
     // ── Table ─────────────────────────────────────────────────────────────────
 
     /// One pre-processed table row passed to table_block().
+    struct TableCellData {
+        std::string text;     ///< pre-substituted cell text
+        int         colspan;  ///< number of columns this cell spans (≥ 1)
+    };
+
     struct TableRowData {
-        std::vector<std::string> cells;  ///< pre-substituted cell text
-        bool                     header; ///< true → bold text + shaded background
+        std::vector<TableCellData> cells;  ///< pre-substituted cell data
+        bool                       header; ///< true → bold text + shaded background
     };
 
     /// Render a grid table.
@@ -832,7 +1205,10 @@ public:
         const float       bdr      = 0.5f;          ///< border line width (pts)
         const float       bdr_grey = 0.5f;           ///< border grey level
 
-        if (!title.empty()) { block_title(title); }
+        if (!title.empty()) {
+            ++table_counter_;
+            block_title("Table " + std::to_string(table_counter_) + ". " + title);
+        }
 
         // ── helpers ──────────────────────────────────────────────────────────
 
@@ -843,15 +1219,24 @@ public:
             float space_w  = tw(" ", minipdf::FontStyle::Regular, BODY_SIZE);
             int   lines    = 1;
             float line_w   = 0.0f;
+            auto no_sp = [](const std::string& t) -> bool {
+                if (t.empty()) { return false; }
+                const char c = t[0];
+                return c=='.'||c==','||c==';'||c==':'||c=='!'||c=='?'||c==')'||c==']';
+            };
             for (const auto& sp : spans) {
                 std::istringstream ss(sp.text);
                 std::string        tok;
                 while (std::getline(ss, tok, ' ')) {
                     if (tok.empty()) { continue; }
-                    float ww   = tw(tok, sp.style, sp.size);
-                    float need = (line_w == 0.0f) ? ww : line_w + space_w + ww;
-                    if (need > avail_w && line_w > 0.0f) { ++lines; line_w = ww; }
-                    else                                  { line_w = need; }
+                    float ww  = tw(tok, sp.style, sp.size);
+                    float gap = (line_w == 0.0f || no_sp(tok)) ? 0.0f : space_w;
+                    float need = line_w + gap + ww;
+                    if (need > avail_w && line_w > 0.0f && !no_sp(tok)) {
+                        ++lines; line_w = ww;
+                    } else {
+                        line_w = (line_w == 0.0f) ? ww : need;
+                    }
                 }
             }
             return lines;
@@ -869,13 +1254,18 @@ public:
             // Compute row height: tallest cell drives the row.
             // row_h = pad_top (above first baseline) + nl × lh + pad_bot (below last baseline)
             float row_h = pad_top + lh + pad_bot;
-            for (std::size_t ci = 0; ci < ncols; ++ci) {
-                const std::string& txt = (ci < row.cells.size())
-                                          ? row.cells[ci] : "";
-                if (txt.empty()) { continue; }
-                auto spans = merge_spans(parse_spans(txt, base));
+            float x_scan = 0.0f;  // logical column offset for iterating cells
+            for (const auto& cd : row.cells) {
+                if (cd.text.empty()) { x_scan += 1; continue; }
+                // Sum width over spanned columns
+                int cs = std::max(1, cd.colspan);
+                float cw = 0.0f;
+                for (int s = 0; s < cs && static_cast<std::size_t>(x_scan + s) < ncols; ++s)
+                    cw += col_w[static_cast<std::size_t>(x_scan + s)];
+                x_scan += cs;
+                auto spans = merge_spans(parse_spans(cd.text, base));
                 for (auto& sp : spans) { sp.size = BODY_SIZE; }
-                float avail_w = col_w[ci] - 2.0f * pad_x;
+                float avail_w = cw - 2.0f * pad_x;
                 int   nl      = count_lines(spans, avail_w);
                 float cell_h  = pad_top + static_cast<float>(nl) * lh + pad_bot;
                 row_h = std::max(row_h, cell_h);
@@ -894,35 +1284,96 @@ public:
 
             // Render cell text – cursor is temporarily manipulated per cell and
             // restored afterwards so all cells in the same row share row_top.
+            // Track which physical columns have been covered to draw dividers.
+            std::vector<bool> col_covered(ncols, false);
             float x_cell = table_x;
-            for (std::size_t ci = 0; ci < ncols; ++ci) {
-                const std::string& txt = (ci < row.cells.size())
-                                          ? row.cells[ci] : "";
-                if (!txt.empty()) {
-                    auto spans = merge_spans(parse_spans(txt, base));
+            std::size_t col_idx = 0;
+            for (const auto& cd : row.cells) {
+                if (col_idx >= ncols) { break; }
+                int cs = std::max(1, cd.colspan);
+                // Sum width of spanned columns
+                float cw = 0.0f;
+                for (int s = 0; s < cs && col_idx + static_cast<std::size_t>(s) < ncols; ++s) {
+                    cw += col_w[col_idx + static_cast<std::size_t>(s)];
+                    col_covered[col_idx + static_cast<std::size_t>(s)] = true;
+                }
+                if (!cd.text.empty()) {
+                    auto spans = merge_spans(parse_spans(cd.text, base));
                     for (auto& sp : spans) { sp.size = BODY_SIZE; }
                     float saved  = cursor_y_;
                     cursor_y_    = row_top - pad_top;
                     wrap_spans_in_cell(spans, lh,
                                        x_cell + pad_x,
-                                       col_w[ci] - 2.0f * pad_x);
+                                       cw - 2.0f * pad_x);
                     cursor_y_ = saved;
                 }
-                x_cell += col_w[ci];
+                x_cell += cw;
+                col_idx += static_cast<std::size_t>(cs);
             }
 
             // Top border for this row.
             page_->draw_hline(table_x, row_top, table_x + table_w,
                               bdr, bdr_grey, bdr_grey, bdr_grey);
 
-            // Vertical column separators (drawn as thin filled rectangles).
+            // Vertical column separators: skip internal borders inside spans.
             {
                 float vx = table_x;
-                for (std::size_t ci = 0; ci <= ncols; ++ci) {
-                    page_->fill_rect(vx - bdr * 0.5f, row_bottom,
-                                     bdr, row_h + bdr,
-                                     bdr_grey, bdr_grey, bdr_grey);
-                    if (ci < ncols) { vx += col_w[ci]; }
+                // Left outer border
+                page_->fill_rect(vx - bdr * 0.5f, row_bottom,
+                                 bdr, row_h + bdr,
+                                 bdr_grey, bdr_grey, bdr_grey);
+                // Compute which column-right-edges should have a divider.
+                // Build a map of cumulative width to whether a cell boundary exists.
+                float cx = table_x;
+                for (std::size_t ci = 0; ci < ncols; ++ci) {
+                    cx += col_w[ci];
+                    // Draw divider: always on the right edge of the table,
+                    // and on column boundaries that are not inside a span.
+                    // col_covered marks which logical cols were inside spans.
+                    // A boundary is spanned when col_covered[ci] is true
+                    // AND col_covered[ci+1] is true AND they belong to the same cell.
+                    // Simpler: draw divider unless ci < ncols-1 and ci+1 is also covered
+                    // by a cell that started before col ci.
+                    // For simplicity: we always draw the right border of the last col,
+                    // and for inner borders we draw when NOT covered by a spanning cell
+                    // (a spanning cell covers ncols > 1 columns, so the inner borders
+                    //  between them should be skipped – mark those positions).
+                    bool is_last = (ci + 1 == ncols);
+                    // Determine if this column boundary is inside a colspan.
+                    // We track by checking whether both this column and the next
+                    // were covered, but we can't easily tell if they're the same cell.
+                    // Use a simpler heuristic: if this cell is a spanning cell,
+                    // suppress inner dividers within its span.
+                    // We already computed col_covered; rebuild span boundaries.
+                    bool draw = is_last;
+                    if (!draw) {
+                        // Draw if col_covered[ci] == false OR col_covered[ci+1] == false
+                        // i.e., this is not inside a span.  col_covered[ci] = true means
+                        // this column was explicitly claimed by some cell.
+                        // A simple approach: don't draw when both ci and ci+1 are part of
+                        // the same spanning cell – detect by checking if any cell's span
+                        // straddles the boundary between ci and ci+1.
+                        draw = true;  // default draw
+                    }
+                    // Rebuild from row.cells: mark inner-span boundaries.
+                    // (Redo the column scan for clarity)
+                    if (!is_last) {
+                        std::size_t scan = 0;
+                        for (const auto& cd2 : row.cells) {
+                            int cs2 = std::max(1, cd2.colspan);
+                            std::size_t end2 = scan + static_cast<std::size_t>(cs2);
+                            // If ci is inside [scan, end2) and ci+1 is also inside,
+                            // this boundary is within a span.
+                            if (scan <= ci && ci + 1 < end2) { draw = false; break; }
+                            scan = end2;
+                            if (scan > ci + 1) { break; }
+                        }
+                    }
+                    if (draw) {
+                        page_->fill_rect(cx - bdr * 0.5f, row_bottom,
+                                         bdr, row_h + bdr,
+                                         bdr_grey, bdr_grey, bdr_grey);
+                    }
                 }
             }
 
@@ -957,6 +1408,15 @@ private:
 
         float space_w = tw(" ", minipdf::FontStyle::Regular, BODY_SIZE);
 
+        // Helper: return true if this word starts with closing punctuation that
+        // should attach directly to the preceding word without a space.
+        auto no_space_before = [](const std::string& t) -> bool {
+            if (t.empty()) { return false; }
+            const char c = t[0];
+            return c == '.' || c == ',' || c == ';' || c == ':' ||
+                   c == '!' || c == '?' || c == ')' || c == ']';
+        };
+
         std::vector<Word> words;
         for (const auto& sp : spans) {
             std::istringstream ss(sp.text);
@@ -978,14 +1438,16 @@ private:
         lines.push_back({});
 
         for (const auto& w : words) {
-            float ww   = tw(w.text, w.style, w.size);
-            float need = lines.back().words.empty()
-                             ? ww
-                             : lines.back().total_w + space_w + ww;
-            if (need > avail_w && !lines.back().words.empty()) {
+            float ww     = tw(w.text, w.style, w.size);
+            bool  attach = !lines.back().words.empty() && no_space_before(w.text);
+            float gap    = (lines.back().words.empty() || attach) ? 0.0f : space_w;
+            float need   = lines.back().words.empty()
+                               ? ww
+                               : lines.back().total_w + gap + ww;
+            if (need > avail_w && !lines.back().words.empty() && !attach) {
                 lines.push_back({});
             }
-            float add = lines.back().words.empty() ? ww : space_w + ww;
+            float add = lines.back().words.empty() ? ww : gap + ww;
             lines.back().total_w += add;
             lines.back().words.push_back(w);
         }
@@ -995,7 +1457,7 @@ private:
             float x     = x_start;
             bool  first = true;
             for (const auto& w : line.words) {
-                if (!first) { x += space_w; }
+                if (!first && !no_space_before(w.text)) { x += space_w; }
                 page_->place_text(x, cursor_y_, w.style, w.size, w.text);
                 x += tw(w.text, w.style, w.size);
                 first = false;
@@ -1023,6 +1485,8 @@ private:
     minipdf::Page*          page_      = nullptr;
     float                   cursor_y_  = 0.0f;
     float                   content_w_ = 0.0f;
+    int                     figure_counter_ = 0;  ///< auto-incrementing figure number
+    int                     table_counter_  = 0;  ///< auto-incrementing table number
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1073,7 +1537,9 @@ private:
     // ── Apply attribute substitution (document header and simple paragraphs)
     [[nodiscard]] static std::string attrs(const std::string& text,
                                            const Document& doc) {
-        return sub_attributes(text, doc.attributes());
+        // First resolve {attribute} references, then apply typographic
+        // substitutions (... → ellipsis, -- → em dash, (C) → ©, etc.).
+        return apply_pdf_typo_subs(sub_attributes(text, doc.attributes()));
     }
 
     // ── Document ──────────────────────────────────────────────────────────────
@@ -1084,15 +1550,18 @@ private:
         if (hdr.has_header && !hdr.title.empty()) {
             layout.heading(attrs(hdr.title, doc), 0);
 
-            // Author line
+            // Author line – all authors joined by ", "
             if (!hdr.authors.empty()) {
-                const auto& a = hdr.authors[0];
-                std::string auth;
-                if (!a.firstname.empty()) { auth += a.firstname; }
-                if (!a.middlename.empty()) { auth += " " + a.middlename; }
-                if (!a.lastname.empty())  { auth += " " + a.lastname;  }
-                if (!a.email.empty())     { auth += " <" + a.email + ">"; }
-                layout.meta_line(auth);
+                std::string auth_line;
+                for (std::size_t ai = 0; ai < hdr.authors.size(); ++ai) {
+                    if (ai > 0) { auth_line += ", "; }
+                    const auto& a = hdr.authors[ai];
+                    if (!a.firstname.empty())  { auth_line += a.firstname; }
+                    if (!a.middlename.empty()) { auth_line += " " + a.middlename; }
+                    if (!a.lastname.empty())   { auth_line += " " + a.lastname;  }
+                    if (!a.email.empty())      { auth_line += " <" + a.email + ">"; }
+                }
+                layout.meta_line(auth_line);
             }
 
             // Revision line
@@ -1225,7 +1694,8 @@ private:
                     if (!hs.empty()) { hint_h = parse_dimension_pts(hs, cw); }
                 }
 
-                layout.image_block(resolved, hint_w, hint_h);
+                layout.image_block(resolved, hint_w, hint_h,
+                                   blk.has_title() ? attrs(blk.title(), doc) : "");
                 break;
             }
 
@@ -1258,12 +1728,13 @@ private:
         if (blk.content_model() == ContentModel::Simple) {
             layout.admonition(label, attrs(blk.source(), doc));
         } else {
-            // Render label then indented content
+            // Render label then indented content — no trailing colon,
+            // matching asciidoctor's PDF output style.
             std::string lbl = label;
             for (char& c : lbl) {
                 c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
             }
-            layout.block_title(lbl + ":");
+            layout.block_title(lbl);
             for (const auto& child : blk.blocks()) {
                 render_block(*child, doc, layout, 0);
             }
@@ -1335,9 +1806,15 @@ private:
         if (list.has_title()) {
             layout.block_title(attrs(list.title(), doc));
         }
+        // Determine starting counter from start= attribute (default 1)
         int n = 1;
+        const std::string& start_attr = list.attr("start");
+        if (!start_attr.empty()) {
+            try { n = std::stoi(start_attr); } catch (...) {}
+        }
+        OrderedListStyle style = list.ordered_style();
         for (const auto& item : list.items()) {
-            layout.ordered_item(n, attrs(item->source(), doc), depth);
+            layout.ordered_item(n, attrs(item->source(), doc), depth, style);
             for (const auto& child : item->blocks()) {
                 render_block(*child, doc, layout, depth + 1);
             }
@@ -1400,14 +1877,14 @@ private:
                        * static_cast<float>(w) / static_cast<float>(total_weight);
         }
 
-        // Build row data with attribute-substituted cell text.
+        // Build row data with attribute-substituted cell text and colspan info.
         std::vector<PdfLayout::TableRowData> rows;
         auto append = [&](const std::vector<TableRow>& src, bool header) {
             for (const auto& row : src) {
                 PdfLayout::TableRowData rd;
                 rd.header = header;
                 for (const auto& cell : row.cells()) {
-                    rd.cells.push_back(attrs(cell->source(), doc));
+                    rd.cells.push_back({attrs(cell->source(), doc), cell->colspan()});
                 }
                 rows.push_back(std::move(rd));
             }

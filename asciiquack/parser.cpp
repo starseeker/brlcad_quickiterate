@@ -25,6 +25,12 @@
 #include <stdexcept>
 #include <unordered_set>
 
+// Block-line scanner and attribute-list parser (C API — always compiled).
+extern "C" {
+#include "block_scanner.h"
+#include "attr_list.h"
+}
+
 namespace asciiquack {
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -104,20 +110,13 @@ std::optional<DelimiterInfo> classify_delimiter(std::string_view line) noexcept 
 /// {name, value}.  Returns nullopt otherwise.
 std::optional<std::pair<std::string,std::string>>
 try_parse_attribute_entry(const std::string& line) {
-    // Pattern: :name: optional-value
-    //          :!name: (unset)
-    static const aqrx::regex rx(R"(^:(!?[\w][\w\-' ]*):(?:[ \t]+(.*))?$)",
-                                aqrx::ECMAScript | aqrx::optimize);
-    aqrx::smatch m;
-    if (!aqrx::regex_match(line, m, rx)) { return std::nullopt; }
-
-    std::string name  = m[1].str();
-    std::string value = m[2].matched ? m[2].str() : "";
+    AqBlockScanResult r = aq_scan_block_line(line.c_str(), line.size());
+    if (r.type != AQ_BT_ATTR_ENTRY) { return std::nullopt; }
+    std::string name(line.data() + r.caps[0].off, r.caps[0].len);
+    std::string value = r.caps[1].len
+        ? std::string(line.data() + r.caps[1].off, r.caps[1].len) : "";
     trim(name);
     trim(value);
-
-    // Trailing ' \' continuation is not handled here (multi-line attributes);
-    // a single-line value is sufficient for the initial translation.
     return std::make_pair(std::move(name), std::move(value));
 }
 
@@ -148,53 +147,26 @@ parse_attribute_list(const std::string& line) {
     std::unordered_map<std::string, std::string> result;
     if (line.size() < 2) { return result; }
 
-    // Strip outer [ ] (possibly [[...]])
-    std::string inner;
+    // Handle [[anchor,reftext]] specially
     if (line.size() >= 4 && line[0] == '[' && line[1] == '[') {
-        // [[anchor,reftext]]
-        inner = line.substr(2, line.size() - 4);
+        std::string inner = line.substr(2, line.size() - 4);
         result["anchor"] = inner;
         return result;
     }
-    inner = line.substr(1, line.size() - 2);
+
+    // Strip outer [ ]
+    std::string inner = line.substr(1, line.size() - 2);
     if (inner.empty()) { return result; }
 
-    // Split on commas (respecting quoted values)
-    std::vector<std::string> parts;
-    std::string cur;
-    bool in_quotes = false;
-    for (char c : inner) {
-        if (c == '"') {
-            in_quotes = !in_quotes;
-        } else if (c == ',' && !in_quotes) {
-            trim(cur);
-            parts.push_back(cur);
-            cur.clear();
-        } else {
-            cur += c;
-        }
-    }
-    trim(cur);
-    if (!cur.empty()) { parts.push_back(std::move(cur)); }
-
-    for (std::size_t i = 0; i < parts.size(); ++i) {
-        const std::string& p = parts[i];
-        auto eq = p.find('=');
-        if (eq != std::string::npos) {
-            std::string k = p.substr(0, eq);
-            std::string v = p.substr(eq + 1);
-            trim(k); trim(v);
-            // Strip surrounding quotes from value
-            if (v.size() >= 2 && v.front() == '"' && v.back() == '"') {
-                v = v.substr(1, v.size() - 2);
-            }
-            result[k] = std::move(v);
-        } else {
-            if (i == 0) { result["1"] = p; }
-            else        { result[std::to_string(i + 1)] = p; }
-        }
-    }
-
+    // Delegate to the hand-written attr-list parser in block_scanner_hand.c.
+    aq_parse_attr_list(
+        inner.c_str(), inner.size(),
+        [](void *ud, const char *k, std::size_t klen,
+           const char *v, std::size_t vlen) {
+            auto& m = *static_cast<std::unordered_map<std::string,std::string>*>(ud);
+            m[std::string(k, klen)] = std::string(v, vlen);
+        },
+        &result);
     return result;
 }
 
@@ -209,59 +181,33 @@ struct ListMatch {
 };
 
 std::optional<ListMatch> match_list_item(const std::string& line) {
-    // Unordered: optional leading whitespace, then - or * (1-5) or • (U+2022)
-    {
-        static const aqrx::regex rx(
-            R"(^([ \t]*)(-|\*{1,5})[ \t]+(.+)$)",
-            aqrx::ECMAScript | aqrx::optimize);
-        aqrx::smatch m;
-        if (aqrx::regex_match(line, m, rx)) {
-            return ListMatch{ListType::Unordered, m[2].str(), m[3].str()};
+    // Guard: exclude table rows (lines starting with '|').
+    if (!line.empty() && line[0] == '|') { return std::nullopt; }
+
+    AqBlockScanResult r = aq_scan_block_line(line.c_str(), line.size());
+
+    // Helper: extract one scanner capture as std::string.
+    auto cap = [&](int i) -> std::string {
+        if (r.caps[i].len == 0) { return {}; }
+        return std::string(line.data() + r.caps[i].off, r.caps[i].len);
+    };
+
+    switch (r.type) {
+        case AQ_BT_LIST_UNORD:
+            return ListMatch{ListType::Unordered, cap(0), cap(1)};
+        case AQ_BT_LIST_ORD:
+            return ListMatch{ListType::Ordered, cap(0), cap(1)};
+        case AQ_BT_LIST_DESCRIPT: {
+            // caps[0]=term (trimmed), caps[1]=separator, caps[2]=body
+            std::string term = cap(0);
+            trim(term);  // defensive: scanner already skips leading WS
+            return ListMatch{ListType::Description, cap(1), cap(2), std::move(term)};
         }
+        case AQ_BT_LIST_CALLOUT:
+            return ListMatch{ListType::Callout, cap(0), cap(1)};
+        default:
+            return std::nullopt;
     }
-    // Ordered: optional leading whitespace, then .{1,5} or 1. or a. or A. or i) or I)
-    {
-        static const aqrx::regex rx(
-            R"(^([ \t]*)(\.*\.|[0-9]+\.|[a-zA-Z]\.|[IVXivx]+\))[ \t]+(.+)$)",
-            aqrx::ECMAScript | aqrx::optimize);
-        aqrx::smatch m;
-        if (aqrx::regex_match(line, m, rx)) {
-            return ListMatch{ListType::Ordered, m[2].str(), m[3].str()};
-        }
-    }
-    // Description: term:: [optional text]  or  term;;
-    // Guard: exclude lines that start with '|' (table rows/separators – Bug #7)
-    if (line.empty() || line[0] != '|') {
-        // Primary pattern: term followed by :: or ;; (term must start with
-        // a non-whitespace char; single-character terms are allowed).
-        static const aqrx::regex rx(
-            R"(^(?!//[^/])([ \t]*)([^ \t].*?)(:{2,4}|;;)(?:$|[ \t]+(.+)$))",
-            aqrx::ECMAScript | aqrx::optimize);
-        aqrx::smatch m;
-        if (aqrx::regex_match(line, m, rx)) {
-            return ListMatch{ListType::Description, m[3].str(), m[4].matched ? m[4].str() : "", m[2].str()};
-        }
-        // Empty-term pattern: a line that is exactly "::" or "::" followed by
-        // body text.  This is valid AsciiDoc and is used in generated synopses.
-        static const aqrx::regex empty_rx(
-            R"(^(:{2,4}|;;)(?:$|[ \t]+(.+)$))",
-            aqrx::ECMAScript | aqrx::optimize);
-        aqrx::smatch em;
-        if (aqrx::regex_match(line, em, empty_rx)) {
-            return ListMatch{ListType::Description, em[1].str(), em[2].matched ? em[2].str() : ""};
-        }
-    }
-    // Callout: <N> text or <.> text
-    {
-        static const aqrx::regex rx(
-            R"(^<(\d+|\.)>[ \t]+(.+)$)",
-            aqrx::ECMAScript | aqrx::optimize);
-        aqrx::smatch m;
-        if (aqrx::regex_match(line, m, rx)) {
-            return ListMatch{ListType::Callout, m[1].str(), m[2].str()};
-        }
-    }
-    return std::nullopt;
 }
 
 // ── Image macro detection ──────────────────────────────────────────────────────
@@ -272,17 +218,24 @@ struct ImageMacro {
     std::unordered_map<std::string, std::string> attrs;
 };
 
+// Return the filename stem (no directory, no extension) from a path,
+// matching asciidoctor's default alt-text derivation for block images.
+static std::string stem_from_path(const std::string& target) {
+    auto slash = target.find_last_of("/\\");
+    std::string name = (slash != std::string::npos) ? target.substr(slash + 1) : target;
+    auto dot = name.rfind('.');
+    if (dot != std::string::npos) { name = name.substr(0, dot); }
+    return name;
+}
+
 std::optional<ImageMacro> match_block_image(const std::string& line) {
-    static const aqrx::regex rx(
-        R"(^image::(\S[^\[]*)\[(.*)\]$)",
-        aqrx::ECMAScript | aqrx::optimize);
-    aqrx::smatch m;
-    if (!aqrx::regex_match(line, m, rx)) { return std::nullopt; }
+    AqBlockScanResult r = aq_scan_block_line(line.c_str(), line.size());
+    if (r.type != AQ_BT_BLOCK_IMAGE) { return std::nullopt; }
     ImageMacro img;
-    img.target = m[1].str();
-    std::string attr_str = "[" + m[2].str() + "]";
+    img.target = std::string(line.data() + r.caps[0].off, r.caps[0].len);
+    std::string attr_str = "[" + std::string(line.data() + r.caps[1].off, r.caps[1].len) + "]";
     img.attrs  = parse_attribute_list(attr_str);
-    img.alt    = img.attrs.count("1") ? img.attrs["1"] : img.target;
+    img.alt    = img.attrs.count("1") ? img.attrs["1"] : stem_from_path(img.target);
     return img;
 }
 
@@ -295,15 +248,13 @@ struct MediaMacro {
 };
 
 std::optional<MediaMacro> match_block_media(const std::string& line) {
-    static const aqrx::regex rx(
-        R"(^(video|audio)::(\S[^\[]*)\[(.*)\]$)",
-        aqrx::ECMAScript | aqrx::optimize);
-    aqrx::smatch m;
-    if (!aqrx::regex_match(line, m, rx)) { return std::nullopt; }
+    AqBlockScanResult r = aq_scan_block_line(line.c_str(), line.size());
+    if (r.type != AQ_BT_BLOCK_MEDIA) { return std::nullopt; }
     MediaMacro mm;
-    mm.context = (m[1].str() == "video") ? BlockContext::Video : BlockContext::Audio;
-    mm.target  = m[2].str();
-    std::string attr_str = "[" + m[3].str() + "]";
+    std::string mtype(line.data() + r.caps[0].off, r.caps[0].len);
+    mm.context = (mtype == "video") ? BlockContext::Video : BlockContext::Audio;
+    mm.target  = std::string(line.data() + r.caps[1].off, r.caps[1].len);
+    std::string attr_str = "[" + std::string(line.data() + r.caps[2].off, r.caps[2].len) + "]";
     mm.attrs   = parse_attribute_list(attr_str);
     return mm;
 }
@@ -411,18 +362,36 @@ bool evaluate_ifeval(const std::string& expr, const Document& doc) {
     std::string expanded = sub_attributes(expr, doc.attributes());
     trim(expanded);
 
-    // Tokenise: find the operator
-    static const aqrx::regex op_rx(R"(\s*(==|!=|<=|>=|<|>)\s*)",
-                                   aqrx::ECMAScript | aqrx::optimize);
-    aqrx::sregex_iterator it(expanded.begin(), expanded.end(), op_rx);
-    aqrx::sregex_iterator end_it;
-    if (it == end_it) { return false; }  // no operator found
+    // Find the leftmost two- or one-character comparison operator.
+    // Scan left-to-right, skipping whitespace on both sides.
+    const std::size_t n = expanded.size();
+    std::string op;
+    std::size_t op_pos = std::string::npos;
+    std::size_t op_len = 0;
 
-    const aqrx::smatch& m = *it;
-    std::string lhs_raw = expanded.substr(0, static_cast<std::size_t>(m.position()));
-    std::string op      = m[1].str();
-    std::string rhs_raw = expanded.substr(static_cast<std::size_t>(m.position()) +
-                                          static_cast<std::size_t>(m.length()));
+    for (std::size_t i = 0; i < n; ) {
+        if (expanded[i] == ' ' || expanded[i] == '\t') { ++i; continue; }
+        // Try two-char operators first
+        if (i + 1 < n) {
+            std::string_view two(expanded.data() + i, 2);
+            if (two == "==" || two == "!=" || two == "<=" || two == ">=") {
+                op = std::string(two);
+                op_pos = i; op_len = 2;
+                break;
+            }
+        }
+        if (expanded[i] == '<' || expanded[i] == '>') {
+            op = std::string(1, expanded[i]);
+            op_pos = i; op_len = 1;
+            break;
+        }
+        ++i;
+    }
+
+    if (op_pos == std::string::npos) { return false; }
+
+    std::string lhs_raw = expanded.substr(0, op_pos);
+    std::string rhs_raw = expanded.substr(op_pos + op_len);
     trim(lhs_raw); trim(rhs_raw);
 
     // Strip surrounding quotes
@@ -544,16 +513,8 @@ void handle_include(const std::string& line, Reader& reader, Document& doc) {
 // ── Thematic break / page break detection ────────────────────────────────────
 
 bool is_thematic_break(const std::string& line) noexcept {
-    // ''' (three or more single-quotes)
-    if (line.size() >= 3) {
-        bool all_apos = true;
-        for (char c : line) { if (c != '\'') { all_apos = false; break; } }
-        if (all_apos) { return true; }
-    }
-    // Markdown-style: --- or * * * or _ _ _
-    static const aqrx::regex rx(R"(^ {0,3}([-*_])( *)\1\2\1$)",
-                                aqrx::ECMAScript | aqrx::optimize);
-    return aqrx::regex_match(line, rx);
+    // Delegate to the hand-written scanner which already handles all cases.
+    return aq_scan_block_line(line.c_str(), line.size()).type == AQ_BT_THEMATIC_BREAK;
 }
 
 bool is_page_break(const std::string& line) noexcept {
@@ -562,95 +523,143 @@ bool is_page_break(const std::string& line) noexcept {
 
 // ── Author line detection / parsing ──────────────────────────────────────────
 
-bool looks_like_author_line(const std::string& line) {
-    // Author line: FirstName [Middle] [Last] [<email>]
-    // OR a semicolon-separated list of such entries:
-    //   "Author One; Author Two; Author Three"
-    // Must start with a word char and not look like an attribute entry.
-    if (line.empty() || line[0] == ':') { return false; }
-    // Lines that end with sentence-ending punctuation are prose, not author names
-    // (e.g., "Preamble text." or "Body content.").
-    // Exception: if the line contains an email in angle brackets, it is always
-    // treated as an author line regardless of the final character.
-    const bool has_email = (line.find('<') != std::string::npos);
-    if (!has_email) {
-        char last = line.back();
-        if (last == '.' || last == '?' || last == '!' || last == ',') {
+/// Return true if @p s is a valid author name word: starts with a letter/digit/
+/// underscore, then has word chars, hyphens, apostrophes, or dots.
+static bool is_author_word(const std::string& s) {
+    if (s.empty()) { return false; }
+    if (!std::isalnum(static_cast<unsigned char>(s[0])) && s[0] != '_') { return false; }
+    for (char c : s) {
+        if (!std::isalnum(static_cast<unsigned char>(c)) &&
+            c != '_' && c != '-' && c != '\'' && c != '.') {
             return false;
         }
     }
-    static const aqrx::regex rx(
-        R"(^(\w[\w\-'.]*)(?: +(\w[\w\-'.]*))?(?: +(\w[\w\-'.]*))?(?: +<([^>]+)>)?$)",
-        aqrx::ECMAScript | aqrx::optimize);
-    // Try to match the whole line as a single author first.
-    if (aqrx::regex_match(line, rx)) { return true; }
-    // Also accept a semicolon-separated list of individual author entries,
-    // as produced by the db2adoc converter (and used in BRL-CAD docs).
-    // Every segment separated by "; " must itself look like a valid author.
-    if (line.find("; ") != std::string::npos) {
-        std::string rest = line;
-        while (true) {
-            auto sep = rest.find("; ");
-            std::string part = (sep != std::string::npos) ? rest.substr(0, sep) : rest;
-            // Trim leading/trailing whitespace.
-            auto first = part.find_first_not_of(" \t");
-            auto last_pos  = part.find_last_not_of(" \t");
-            if (first == std::string::npos) { return false; }
-            part = part.substr(first, last_pos - first + 1);
-            if (!aqrx::regex_match(part, rx)) { return false; }
-            if (sep == std::string::npos) { break; }
-            rest = rest.substr(sep + 2);
+    return true;
+}
+
+/// Try to parse a single author entry "Word [Word [Word]] [<email>]".
+/// Returns false if the part doesn't look like an author name.
+static bool parse_single_author(const std::string& part, AuthorInfo& out) {
+    out = {};
+    if (part.empty()) { return false; }
+
+    // Find optional email in angle brackets — must appear at the END of the
+    // string (with only whitespace after the closing '>').
+    std::string name_part = part;
+    auto email_open = name_part.rfind('<');
+    if (email_open != std::string::npos) {
+        auto email_close = name_part.find('>', email_open);
+        if (email_close != std::string::npos) {
+            // Verify that only whitespace follows the '>'
+            bool only_ws_after = true;
+            for (std::size_t k = email_close + 1; k < name_part.size(); ++k) {
+                if (name_part[k] != ' ' && name_part[k] != '\t') {
+                    only_ws_after = false;
+                    break;
+                }
+            }
+            if (only_ws_after) {
+                out.email = name_part.substr(email_open + 1,
+                                             email_close - email_open - 1);
+                name_part = name_part.substr(0, email_open);
+                while (!name_part.empty() && name_part.back() == ' ') {
+                    name_part.pop_back();
+                }
+            }
         }
-        return true;
     }
-    return false;
+
+    // Split name_part on spaces into up to 3 words
+    std::vector<std::string> words;
+    {
+        std::size_t i = 0;
+        const std::size_t n = name_part.size();
+        while (i < n) {
+            while (i < n && name_part[i] == ' ') ++i;
+            if (i >= n) break;
+            std::size_t ws = name_part.find(' ', i);
+            words.push_back(name_part.substr(i, ws == std::string::npos ? std::string::npos : ws - i));
+            i = (ws == std::string::npos) ? n : ws + 1;
+        }
+    }
+
+    if (words.empty()) { return false; }
+    if (!is_author_word(words[0])) { return false; }
+
+    out.firstname = words[0];
+    if (words.size() == 2) {
+        if (!is_author_word(words[1])) { return false; }
+        out.lastname = words[1];
+    } else if (words.size() >= 3) {
+        if (!is_author_word(words[1]) || !is_author_word(words[2])) { return false; }
+        out.middlename = words[1];
+        out.lastname   = words[2];
+        // More than 3 words → not a valid author line
+        if (words.size() > 3) { return false; }
+    }
+    return true;
+}
+
+bool looks_like_author_line(const std::string& line) {
+    if (line.empty() || line[0] == ':') { return false; }
+    const bool has_email = (line.find('<') != std::string::npos);
+    if (!has_email) {
+        char last = line.back();
+        if (last == '.' || last == '?' || last == '!' || last == ',') { return false; }
+    }
+    // Check each "; "-separated segment
+    std::string rest = line;
+    while (true) {
+        auto sep = rest.find("; ");
+        std::string part = (sep != std::string::npos) ? rest.substr(0, sep) : rest;
+        auto first = part.find_first_not_of(" \t");
+        auto last_pos = part.find_last_not_of(" \t");
+        if (first == std::string::npos) { return false; }
+        part = part.substr(first, last_pos - first + 1);
+        AuthorInfo dummy;
+        if (!parse_single_author(part, dummy)) { return false; }
+        if (sep == std::string::npos) { break; }
+        rest = rest.substr(sep + 2);
+    }
+    return true;
 }
 
 std::vector<AuthorInfo> do_parse_author_line(const std::string& line) {
     std::vector<AuthorInfo> authors;
-    // Split on "; "
     std::string rest = line;
     while (true) {
         auto sep = rest.find("; ");
         std::string part = (sep != std::string::npos) ? rest.substr(0, sep) : rest;
         trim(part);
-
-        static const aqrx::regex rx(
-            R"(^(\w[\w\-'.]*)(?: +(\w[\w\-'.]*))?(?: +(\w[\w\-'.]*))?(?: +<([^>]+)>)?$)",
-            aqrx::ECMAScript | aqrx::optimize);
-        aqrx::smatch m;
-        if (aqrx::regex_match(part, m, rx)) {
-            AuthorInfo a;
-            a.firstname  = m[1].str();
-            // Decide which captures are middle vs last
-            if (m[3].matched) {
-                a.middlename = m[2].str();
-                a.lastname   = m[3].str();
-            } else if (m[2].matched) {
-                a.lastname   = m[2].str();
-            }
-            if (m[4].matched) { a.email = m[4].str(); }
+        AuthorInfo a;
+        if (parse_single_author(part, a)) {
             authors.push_back(std::move(a));
         }
-
         if (sep == std::string::npos) { break; }
         rest = rest.substr(sep + 2);
     }
     return authors;
 }
 
-bool looks_like_revision_line(const std::string& line) {
+/// Return true if @p line looks like a revision line:
+///   v1.0, 1.0.3, v1.0,2024-01-01: remark, or 2024-01-01
+static bool looks_like_revision_line(const std::string& line) {
     if (line.empty()) { return false; }
-    // v1.0 or 1.0,date  or just a date
-    static const aqrx::regex rx(
-        R"(^v?\d[\w.\-]*(?:,.*)?$|^\d{4}-\d{2}-\d{2}$)",
-        aqrx::ECMAScript | aqrx::optimize);
-    return aqrx::regex_match(line, rx);
+    std::size_t i = 0;
+    if (line[i] == 'v') { ++i; }
+    if (i >= line.size() || !std::isdigit(static_cast<unsigned char>(line[i]))) { return false; }
+    // Accept digits, letters, '.', '-' (version chars)
+    while (i < line.size() &&
+           (std::isalnum(static_cast<unsigned char>(line[i])) ||
+            line[i] == '.' || line[i] == '-')) {
+        ++i;
+    }
+    // Either end of string, or followed by comma (date/remark separator)
+    return i == line.size() || line[i] == ',';
 }
 
 RevisionInfo do_parse_revision_line(const std::string& line) {
     RevisionInfo rev;
-    // Optional leading 'v'
     std::string s = line;
     if (!s.empty() && s[0] == 'v') { s = s.substr(1); }
 
@@ -670,9 +679,19 @@ RevisionInfo do_parse_revision_line(const std::string& line) {
             trim(rev.date);
         }
     } else {
-        // Could be just a version or just a date
-        static const aqrx::regex date_rx(R"(^\d{4}-\d{2}-\d{2}$)");
-        if (aqrx::regex_match(s, date_rx)) {
+        // Check if it's a bare ISO date: YYYY-MM-DD
+        bool is_date = (s.size() == 10 &&
+                        std::isdigit(static_cast<unsigned char>(s[0])) &&
+                        std::isdigit(static_cast<unsigned char>(s[1])) &&
+                        std::isdigit(static_cast<unsigned char>(s[2])) &&
+                        std::isdigit(static_cast<unsigned char>(s[3])) &&
+                        s[4] == '-' &&
+                        std::isdigit(static_cast<unsigned char>(s[5])) &&
+                        std::isdigit(static_cast<unsigned char>(s[6])) &&
+                        s[7] == '-' &&
+                        std::isdigit(static_cast<unsigned char>(s[8])) &&
+                        std::isdigit(static_cast<unsigned char>(s[9])));
+        if (is_date) {
             rev.date = s;
         } else {
             rev.number = s;
@@ -801,13 +820,23 @@ void Parser::parse_document_header(Reader& reader, Document& doc) {
             // For doctype: manpage, parse "name(volnum)" from the title
             // e.g. "git-commit(1)" → manname="git-commit", manvolnum="1"
             // e.g. "analyze(nged)"  → manname="analyze",   manvolnum="nged"
+            // Pattern: anything up to last '(', then alnum chars, then ')'
             if (doc.doctype() == "manpage") {
-                static const aqrx::regex manpage_rx(R"(^(.+?)\(([a-zA-Z0-9]+)\)$)",
-                    aqrx::ECMAScript | aqrx::optimize);
-                aqrx::smatch mm;
-                if (aqrx::regex_match(title, mm, manpage_rx)) {
-                    doc.set_attr("manname",   mm[1].str());
-                    doc.set_attr("manvolnum", mm[2].str());
+                auto paren_open  = title.rfind('(');
+                if (paren_open != std::string::npos &&
+                    title.back() == ')') {
+                    std::string volnum = title.substr(paren_open + 1,
+                                                      title.size() - paren_open - 2);
+                    bool alnum_only = !volnum.empty();
+                    for (char c2 : volnum) {
+                        if (!std::isalnum(static_cast<unsigned char>(c2))) {
+                            alnum_only = false; break;
+                        }
+                    }
+                    if (alnum_only) {
+                        doc.set_attr("manname",   title.substr(0, paren_open));
+                        doc.set_attr("manvolnum", volnum);
+                    }
                 }
             }
 
@@ -901,19 +930,22 @@ void Parser::parse_document_header(Reader& reader, Document& doc) {
     }
 
     // ── Post-header manpage title fix-up ──────────────────────────────────────
-    // If the file set :doctype: manpage via an attribute entry (processed above)
-    // but the title was already parsed before that attribute was seen, the
-    // manname/manvolnum attributes will not have been extracted from the title.
-    // Re-run the extraction now so that the .TH header is correct even when
-    // the user does not pass -b manpage / -d manpage on the command line.
     if (doc.doctype() == "manpage" && !doc.has_attr("manname")) {
         const std::string& title = doc.doctitle();
-        static const aqrx::regex manpage_rx(R"(^(.+?)\(([a-zA-Z0-9]+)\)$)",
-            aqrx::ECMAScript | aqrx::optimize);
-        aqrx::smatch mm;
-        if (aqrx::regex_match(title, mm, manpage_rx)) {
-            doc.set_attr("manname",   mm[1].str());
-            doc.set_attr("manvolnum", mm[2].str());
+        auto paren_open = title.rfind('(');
+        if (paren_open != std::string::npos && title.back() == ')') {
+            std::string volnum = title.substr(paren_open + 1,
+                                              title.size() - paren_open - 2);
+            bool alnum_only = !volnum.empty();
+            for (char c2 : volnum) {
+                if (!std::isalnum(static_cast<unsigned char>(c2))) {
+                    alnum_only = false; break;
+                }
+            }
+            if (alnum_only) {
+                doc.set_attr("manname",   title.substr(0, paren_open));
+                doc.set_attr("manvolnum", volnum);
+            }
         }
     }
 }
@@ -982,15 +1014,22 @@ int Parser::section_level(const std::string& line) {
 
 std::string Parser::section_title_text(const std::string& line) {
     if (line.empty() || line[0] != '=') { return line; }
+    // Use the scanner's capture which already trims the setext marker.
+    AqBlockScanResult r = aq_scan_block_line(line.c_str(), line.size());
+    if (r.type == AQ_BT_SECTION_TITLE && r.caps[1].len > 0) {
+        return std::string(line.data() + r.caps[1].off, r.caps[1].len);
+    }
+    // Setext-style or plain: skip leading '=' chars and whitespace,
+    // then strip optional trailing '=' run.
     std::size_t i = 0;
     while (i < line.size() && line[i] == '=') { ++i; }
-    // Skip whitespace after '='
     while (i < line.size() && (line[i] == ' ' || line[i] == '\t')) { ++i; }
     std::string text = line.substr(i);
-    // Strip optional trailing '== ...' markers
-    static const aqrx::regex trailing_rx(R"([ \t]+=+\s*$)",
-                                        aqrx::ECMAScript | aqrx::optimize);
-    text = aqrx::regex_replace(text, trailing_rx, "");
+    // Strip optional trailing ' ==...' setext marker
+    std::size_t j = text.size();
+    while (j > 0 && text[j-1] == '=') { --j; }
+    while (j > 0 && (text[j-1] == ' ' || text[j-1] == '\t')) { --j; }
+    if (j < text.size()) { text.resize(j); }
     return text;
 }
 
@@ -1445,8 +1484,28 @@ bool Parser::parse_next_block(Reader& reader, Block& parent) {
 
     // ── Paragraph (including admonition paragraph) ─────────────────────────────
     {
+        // If the pending style is an admonition keyword (note, tip, warning,
+        // important, caution) applied to a paragraph block, convert the block
+        // to a Simple admonition — matching asciidoctor's behaviour where
+        // [NOTE]\ntext and [NOTE]\n====\ntext\n==== both produce admonitions.
+        auto style_it = pending_attrs.find("1");
+        bool pending_is_admonition = (style_it != pending_attrs.end()) &&
+            (to_lower(style_it->second) == "note"      ||
+             to_lower(style_it->second) == "tip"       ||
+             to_lower(style_it->second) == "warning"   ||
+             to_lower(style_it->second) == "important" ||
+             to_lower(style_it->second) == "caution");
+
         auto block = parse_paragraph(reader, parent, pending_attrs);
         if (block) {
+            if (pending_is_admonition &&
+                    block->context() == BlockContext::Paragraph) {
+                std::string lbl = style_it->second;
+                block->set_context(BlockContext::Admonition);
+                block->set_content_model(ContentModel::Simple);
+                block->set_attr("name",    to_lower(lbl));
+                block->set_attr("caption", lbl);
+            }
             apply_block_attributes(*block, pending_attrs, pending_title, pending_id);
             parent.append(block);
         }
@@ -1861,7 +1920,19 @@ std::shared_ptr<List> Parser::parse_list(
                         auto sub_list = parse_list(reader, *item,
                                                    list_type, nxt, sub_attrs);
                         if (sub_list) { item->append(sub_list); }
-                        continue;
+                        // After attaching the sub-list, continue collecting only
+                        // if the next line is another list item or an explicit '+'
+                        // continuation.  A plain paragraph line after the sub-list
+                        // belongs to the parent context, not this list item.
+                        {
+                            auto after = reader.peek_line();
+                            if (!after) { break; }
+                            std::string after_str{*after};
+                            if (is_blank(after_str)) { break; }
+                            if (after_str == "+") { continue; }
+                            if (match_list_item(after_str)) { continue; }
+                            break;
+                        }
                     } else if (next_level < root_level) {
                         // Shallower item – return to parent
                         break;

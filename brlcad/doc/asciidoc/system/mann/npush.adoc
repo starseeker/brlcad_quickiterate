@@ -194,6 +194,93 @@ sph_011/
 ....
 
 
+[[npush_depth_properties]]
+== Properties of Depth-Limited Push
+
+The *-d* option has several properties that are worth understanding before use.
+
+[[npush_depth_prop_boundary]]
+=== Depth is counted at comb boundaries
+
+The depth counter advances each time the push crosses into a new comb (combination) object â one level per comb boundary. It does _not_ advance at internal boolean-operator nodes within a single comb's tree. For example, a region that contains two solids unioned together is one comb and contributes one level of depth, regardless of how many boolean operators appear inside it.
+
+
+[[npush_depth_prop_copies]]
+=== Copies may be required when the same object appears at multiple depths
+
+When the same comb or solid appears at two different depth levels within the push scope, and those depths fall on different sides of the __max_depth__ boundary, the algorithm must produce different post-push tree content for each depth context. Without *-f* this situation is reported as a conflict and the operation fails; with *-f* the algorithm creates copies as needed to satisfy both contexts.
+
+Consider a tree where region `r` appears once at depth 1 (directly under the top-level group) and once at depth 2 (via an intermediate grouping comb), and in both cases the accumulated matrix from the root to `r` evaluates to the same value T20:
+
+
+....
+
+top/
+    u [T20] r/R
+            u solid
+    u [T10] grp/
+            u [T10] r/R
+                    u solid
+  
+....
+
+With *-d 2* the solid reached via `top/r` is at depth 2, which is within the limit, so its parameters can be updated directly (apply-to-solid). The solid reached via `top/grp/r` is at depth 3, which exceeds the limit, so its parameters must remain unchanged and the matrix must be left in the tree above it instead. Because `r` cannot simultaneously apply and not apply its matrix to the same solid, a copy of `r` is required. With *-f* the result is:
+
+
+....
+
+top/
+    u r/R
+            u solid (parameters updated with T20 applied)
+    u grp/
+            u r_0/R (copy of r)
+                    u [T20] solid_0 (copy of solid, parameters unchanged)
+  
+....
+
+
+[[npush_depth_prop_conservative]]
+=== Copy creation is conservative
+
+When *-d* and *-f* are used together, the algorithm uses the depth at which each comb object appears as part of its instance identity. This ensures correctness in all cases: a comb appearing at depth D1 and the same comb at depth D2 (with the same accumulated matrix) are always treated as potentially distinct instances when a depth limit is active.
+
+In practice this is the right behavior whenever the comb's subtree has solids that span the __max_depth__ boundary depending on which depth context is used. In cases where the same comb appears at multiple depths but all of its solid descendants are well within the depth limit from every context, the algorithm may still create copies even though the post-push trees would be identical. This is an accepted tradeoff: the conservative strategy is simple and always correct. Any redundant copies created this way will be geometrically identical to their originals and can be cleaned up manually if desired.
+
+
+[[npush_depth_prop_leaf_combs]]
+=== A comb at exactly max_depth with multiple matrix contexts is not a conflict
+
+When a comb appears at exactly __max_depth__ through every path in the push scope â never shallower â it is a push leaf in all contexts. Its internal tree content is never read or modified by the push; only the matrix stored on the reference to it (in its parent comb) is updated. Multiple parents can therefore each hold a different matrix above the same comb without any conflict: no copy of the comb is required.
+
+The following tree illustrates this with *-d 2*:
+
+
+....
+
+sph_011/
+        u sph11_f/
+                u [T10] sph11_g/   â depth 2 = max_depth
+                        u sph11.s
+        u sph11_h/
+                u [T20] sph11_g/   â depth 2 = max_depth
+                        u sph11.s
+  
+....
+
+`sph11_g` appears at depth 2 via both `sph11_f` and `sph11_h`. Because depth 2 equals __max_depth__, `sph11_g` is a push leaf in both contexts. The push accumulates the IDN matrices from `sph_011` down through `sph11_f` and `sph11_h`, leaving the T10 and T20 references to `sph11_g` at the leaf boundary. No copies are needed.
+
+Note that this is the depth-limited analog of the <<npush_region_same_region_multi_path,region-halted push property>>. In both cases the object is a comb leaf whose internal content the push never touches, so multiple matrix contexts are harmless. The difference is that the region boundary is type-based while the depth boundary is count-based.
+
+If the same comb appears at both a depth strictly less than __max_depth__ (non-leaf) and at __max_depth__ (leaf) somewhere in the tree, it is no longer a pure comb leaf: the non-leaf context causes the push to modify its internal tree. In that situation the leaf contexts do require copies, and *-f* must be used.
+
+
+[[npush_depth_prop_ext]]
+=== External object impact is not guaranteed
+
+Unlike a full push with *-f*, a depth-limited push does not guarantee that shared objects referenced from outside the push scope are updated. The depth limit constrains how far changes propagate. Objects outside the push scope may therefore continue to reference intermediate combs or solids whose definitions have changed, which may or may not affect their geometry depending on the specific tree structure. Use *-L* to explicitly prevent any changes from affecting objects outside the specified tree.
+
+
+
 [[npush_special_depths]]
 == Pushing relative to Regions and Shapes
 
@@ -339,6 +426,68 @@ sph_016/
 Unlike sph16a and sph16_1, sph_016 has not seen any changes to its volumetric definition. sph_016 is the "top level" object specified for this push, and as such constitutes a reliable termination point for any need to propagate tree changes. Even if any combs elsewhere in the database reference sph_016, they will not see any volumetric changes as a consequence of the operation and do not need to redefine their trees to preserve original sph_016 trees for external use in copies of sph_016.
 
 
+[[npush_region_push_props]]
+== Properties of Region-Halted Push
+
+[[npush_region_boundary]]
+=== The push boundary is object-type based
+
+With *-r* the push terminates at the first region encountered in each tree branch. Unlike a depth-limited push, this boundary is determined by object type (whether a comb has its region flag set) rather than by a counted depth from the root. Matrices are accumulated through all non-region combs and placed on the reference that leads into the region. The region's internal tree and the primitives inside it are never touched by the push.
+
+
+[[npush_region_same_region_multi_path]]
+=== The same region at different matrix contexts is not a conflict
+
+Because regions are leaves under *-r*, their internal content is never modified. If the same region appears in multiple places in the tree with different accumulated matrices, each parent simply holds a separate reference to the same region with a different matrix. No copy of the region is required. The following example illustrates this property:
+
+
+....
+
+sph_019/                        â before push
+        u [T10] sph19_a/
+                u [T10] sph19.r/R
+                        u sph19.s
+        u [T15] sph19_b/
+                u [T5]  sph19.r/R
+                        u sph19.s
+        u [T30] sph19.r/R
+                        u sph19.s
+  
+....
+
+After a region-halted push, sph19_a and sph19_b lose their top-level matrices (pushed down to the region reference), while the direct reference to sph19.r keeps its matrix and the region itself is unchanged:
+
+
+....
+
+sph_019/                        â after npush -r
+        u sph19_a/
+                u [T20] sph19.r/R
+                        u sph19.s
+        u sph19_b/
+                u [T20] sph19.r/R
+                        u sph19.s
+        u [T30] sph19.r/R
+                        u sph19.s
+  
+....
+
+sph19.r is referenced three times with two distinct accumulated matrices (T20 and T30). No copy is created because the region's content is unaffected by the push.
+
+
+[[npush_region_genuine_conflict]]
+=== Genuine conflicts still require force
+
+A real conflict arises when the same _non-region_ comb or solid appears in multiple branches with different accumulated matrices, and none of those branches have a region boundary above them within the push scope. In that situation *npush* without *-f* will report a conflict and refuse to proceed, because the object's database content cannot simultaneously satisfy two different matrix contexts. Adding *-f* instructs *npush* to create copies as needed.
+
+
+[[npush_region_ext_impact]]
+=== External object impact is not guaranteed
+
+A region-halted push does not modify regions or primitives inside them. Objects outside the push scope that share those regions or primitives will therefore not see volumetric changes from the push. Non-region combs above the region boundary may be modified (their child-reference matrices are updated), but this only affects parents that are part of the push scope. Use *-L* to explicitly prevent any changes from reaching objects outside the specified tree.
+
+
+
 [[search_options]]
 == OPTIONS
 
@@ -356,7 +505,7 @@ Force creation of new objects if necessary to avoid conflicts while fully pushin
 
 
 *-r*::
-Halt push operations at the hierarchy level above regions.
+Halt push operations at the hierarchy level above regions. See <<npush_region_push_props,the region-halted push>> discussion of the properties of this mode.
 
 
 *-s*::
@@ -364,7 +513,7 @@ Halt push operations at the hierarchy level above solids.
 
 
 *-d max_depth*::
-Halt push operations at the hierarchy level specified by __max_depth__.
+Halt push operations at the hierarchy level specified by __max_depth__. See <<npush_depth_properties,the depth limited push section>> for a description of the properties of depth-limited push that are worth understanding before using this option.
 
 
 
@@ -401,3 +550,5 @@ Push all matrices under given group down to the solid level (matrices will sit b
 ....
 
 ====
+
+
