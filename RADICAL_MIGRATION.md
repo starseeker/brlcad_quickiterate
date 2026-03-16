@@ -1694,6 +1694,44 @@ from `mp_gvp` (no DMP indirection).
      the libdm framebuffer raster helpers used to read back an rt render.  They will
      be replaced by an Obol texture-node path in a future stage.
 
+   **Stage 17** ✅ (Session 36) — Move minimal fb_* declarations to `dm/defines.h`;
+   drop `#include "dm.h"` from `QgObolView.h`.
+
+   Goals:
+   - `QgObolView.h` no longer includes the full `dm.h` (which drags in `bsg.h`,
+     `raytrace.h`, `analyze.h`, `ged/defines.h` and many other heavy headers).
+   - The 3 functions used for rt framebuffer compositing (`fb_getwidth`,
+     `fb_getheight`, `fb_readrect`) are declared in the minimal `dm/defines.h`
+     header which is already transitively available via `dm/fbserv.h`.
+
+   Changes:
+   - `include/dm/defines.h`:
+     - Added `__BEGIN_DECLS` / `__END_DECLS` block after the `struct fb`
+       definition with declarations for `fb_getwidth`, `fb_getheight`, and
+       `fb_readrect`.  This is the canonical place since `struct fb` (the
+       parameter type) is defined right above.  The full fb_* API remains in
+       `dm.h`; only these three I/O helpers needed by the Obol framebuffer
+       overlay are forward-declared here.
+   - `src/qged/QgObolView.h`:
+     - Replaced `#include "dm.h"` + `#include "dm/fbserv.h"` with just
+       `#include "dm/fbserv.h"`.  `dm/fbserv.h` already includes `dm/defines.h`
+       which now has the needed `fb_getwidth/fb_getheight/fb_readrect`
+       declarations plus the `struct fbserv_obj` definition.
+
+   **Verification:**
+   - Full build succeeds with zero errors.
+   - `nm --undefined-only bin/qged` still shows the same 3 `fb_*` symbols (they
+     are still needed at link time since the implementations are in `libdm`).
+   - `grep '#include.*dm\.h' QgObolView.h` returns empty (dm.h is not directly
+     included by the Obol view widget any more).
+
+   **Long-term remaining work for qged / Obol:**
+   - The 3 `fb_*` symbols still require `libdm` at link time.  A future stage
+     should implement an Obol-native texture-node path for rt framebuffer
+     compositing so that qged no longer needs to link against libdm at all.
+   - `QgSW.h` and `QgGL.h` still include `dm.h` — these headers (and their
+     non-Obol sources) will be deleted when the non-Obol fallback path is retired.
+
 **Key files to update (Stage 7 MGED work):**
 
 | File | Change |
