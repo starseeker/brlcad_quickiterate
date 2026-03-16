@@ -3618,10 +3618,14 @@ find_overlap_boundary_curves(
 
 	    ON_SimpleArray<ON_X_EVENT> events;
 	    ON_CurveArray overlap2d;
-	    bu_log("find_overlap_boundary_curves: CSX i=%d j=%zu knot=%.6f\n", i, j, surf1_knot.c);
+	    if (DEBUG_BREP_INTERSECT) {
+		bu_log("find_overlap_boundary_curves: CSX i=%d j=%zu knot=%.6f\n", i, j, surf1_knot.c);
+	    }
 	    ON_Intersect(surf1_isocurve, surf2, events, isect_tol,
 			 overlap_tol, 0, 0, 0, &overlap2d);
-	    bu_log("find_overlap_boundary_curves: CSX i=%d j=%zu done events=%d\n", i, j, events.Count());
+	    if (DEBUG_BREP_INTERSECT) {
+		bu_log("find_overlap_boundary_curves: CSX i=%d j=%zu done events=%d\n", i, j, events.Count());
+	    }
 
 	    //dplot->IsoCSX(events, surf1_isocurve, is_surfA_iso);
 	    //dplot->WriteLog();
