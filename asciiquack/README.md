@@ -16,11 +16,11 @@ duck:: ascii
 ----
 ```
 
-**asciiquack** is a fast, self-contained C++17 AsciiDoc processor compatible
-with [Asciidoctor](https://asciidoctor.org/).  It converts `.adoc` source files
-to HTML5, PDF, DocBook 5, and troff/groff man pages — with no Ruby runtime, no
-gem dependencies, and no system dependencies.  It is buildable with just a C++17
-compiler and standard libraries.
+**asciiquack** is a fast, self-contained C++17 AsciiDoc processor derived from and
+mostly compatible with [Asciidoctor](https://asciidoctor.org/).  It converts `.adoc`
+source files to HTML5, PDF, DocBook 5, and troff/groff man pages.  It is self contained
+and buildable with just a C++17 compiler and standard libraries - no external packages need to
+be installed.
 
 ## Usage
 
@@ -140,9 +140,10 @@ implementation - making AsciiDoc processing self contained wasn't possible with
 available tools.
 
 Creating a C++ version of asciidoctor was a possibility, but as a manual effort
-it would have consumed more time than could be justified.  However, experimentation
-in 2026 proved the translation problem was amenable to agentic AI methods - which
-is how we ended up with asciiquack.
+it would have consumed more time than could be justified (9-12 weeks for basic
+functionality + testing was the initial estimate from Copilot).  However, experimentation
+in 2026 proved the translation problem was amenable to agentic AI methods.  Which
+is how we ended up with asciiquack - largely in the course of a single weekend.
 
 The feature set we're focusing on is the one needed for BRL-CAD documentation.  We
 are NOT aiming to duplicate the entirity of asciidoctor's feature set (even with AI,
