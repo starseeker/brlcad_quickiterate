@@ -26,6 +26,7 @@
 
 #include "common.h"
 
+#include <algorithm>
 #include "bg/polygon.h"
 #include "bsg.h"
 #include "qtcad/QgView.h"
@@ -35,6 +36,14 @@ extern "C" {
 #include "bu/malloc.h"
 }
 
+/* --------------------------------------------------------------------------
+ * When Obol is the rendering backend, QgView is a no-op stub: QgEdMainWindow
+ * uses QgObolView / QgObolSwrastView exclusively and QgView is never
+ * instantiated.  The QgGL / QgSW widgets and all dm_* calls are guarded below
+ * so that libqtcad does not need to link against libdm in Obol builds.
+ * -------------------------------------------------------------------------- */
+
+#ifndef BRLCAD_ENABLE_OBOL
 
 QgView::QgView(QWidget *parent, int type, struct fb *fbp)
     : QWidget(parent)
@@ -118,19 +127,6 @@ QgView::view_type()
 	return QgView_SW;
 
     return -1;
-}
-
-
-void
-QgView::save_image([[maybe_unused]] int quad)
-{
-}
-
-void
-QgView::do_view_changed()
-{
-    QTCAD_SLOT("QgView::do_view_changed", 1);
-    emit changed(this);
 }
 
 void
@@ -426,6 +422,68 @@ QgView::set_lmouse_move_default(int mm)
     }
 }
 
+#else /* BRLCAD_ENABLE_OBOL — QgView is a no-op stub; Obol path uses QgObolView */
+
+QgView::QgView(QWidget *parent, int /*type*/, void * /*fbp*/)
+    : QWidget(parent)
+{
+    this->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    l = new QBoxLayout(QBoxLayout::LeftToRight, this);
+    l->setSpacing(0);
+    l->setContentsMargins(0, 0, 0, 0);
+}
+
+QgView::~QgView() {}
+
+bool   QgView::isValid()                  { return false; }
+int    QgView::view_type()                { return -1; }
+void   QgView::need_update(unsigned long long) {}
+bsg_view *QgView::view()                  { return nullptr; }
+void   QgView::set_view(bsg_view *)       {}
+void   QgView::stash_hashes()             {}
+bool   QgView::diff_hashes()              { return false; }
+void   QgView::aet(double, double, double) {}
+void   QgView::set_current(int)           {}
+int    QgView::current()                  { return 0; }
+
+void
+QgView::add_event_filter(QObject *o)
+{
+    curr_event_filter = o;
+    filters.push_back(o);
+}
+
+void
+QgView::clear_event_filter(QObject *o)
+{
+    if (o) {
+	filters.erase(std::remove(filters.begin(), filters.end(), o), filters.end());
+    } else {
+	filters.clear();
+    }
+    curr_event_filter = nullptr;
+}
+
+void   QgView::set_draw_custom(void (*)(bsg_view *, void *), void *) {}
+void   QgView::enableDefaultKeyBindings()    {}
+void   QgView::disableDefaultKeyBindings()   {}
+void   QgView::enableDefaultMouseBindings()  {}
+void   QgView::disableDefaultMouseBindings() {}
+void   QgView::set_lmouse_move_default(int)  {}
+
+#endif /* BRLCAD_ENABLE_OBOL */
+
+void
+QgView::save_image([[maybe_unused]] int quad)
+{
+}
+
+void
+QgView::do_view_changed()
+{
+    QTCAD_SLOT("QgView::do_view_changed", 1);
+    emit changed(this);
+}
 
 void
 QgView::do_init_done()

@@ -31,7 +31,10 @@
 extern "C" {
 #include "bu/ptbl.h"
 #include "bsg.h"
-#include "dm.h"
+#ifndef BRLCAD_ENABLE_OBOL
+/* dm.h is only needed by QgQuadView for the legacy libdm rendering path. */
+#  include "dm.h"
+#endif
 }
 
 #include "qtcad/defines.h"

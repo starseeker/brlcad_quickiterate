@@ -30,7 +30,12 @@ extern "C" {
 #include "bu/ptbl.h"
 #include "bg/polygon.h"
 #include "bsg.h"
-#include "dm.h"
+#ifndef BRLCAD_ENABLE_OBOL
+/* dm.h (struct dm, struct fb) is only needed for the legacy libdm rendering
+ * path (QgGL / QgSW).  When Obol is the rendering backend these types are not
+ * used by QgView. */
+#  include "dm.h"
+#endif
 }
 
 #include <vector>
@@ -38,23 +43,31 @@ extern "C" {
 #include <QObject>
 #include <QWidget>
 #include "qtcad/defines.h"
-#include "qtcad/QgSW.h"
-#ifdef BRLCAD_OPENGL
-#  include "qtcad/QgGL.h"
-#endif
+#ifndef BRLCAD_ENABLE_OBOL
+#  include "qtcad/QgSW.h"
+#  ifdef BRLCAD_OPENGL
+#    include "qtcad/QgGL.h"
+#  endif
+#endif /* !BRLCAD_ENABLE_OBOL */
 
 #define QgView_AUTO 0
 #define QgView_SW 1
-#ifdef BRLCAD_OPENGL
-#  define QgView_GL 2
-#endif
+#ifndef BRLCAD_ENABLE_OBOL
+#  ifdef BRLCAD_OPENGL
+#    define QgView_GL 2
+#  endif
+#endif /* !BRLCAD_ENABLE_OBOL */
 
 class QTCAD_EXPORT QgView : public QWidget
 {
     Q_OBJECT
 
     public:
+#ifndef BRLCAD_ENABLE_OBOL
 	explicit QgView(QWidget *parent = nullptr, int type = 0, struct fb *fbp = nullptr);
+#else
+	explicit QgView(QWidget *parent = nullptr, int type = 0, void *fbp = nullptr);
+#endif
 	~QgView();
 
 	int view_type();
@@ -69,8 +82,10 @@ class QTCAD_EXPORT QgView : public QWidget
 	bool isValid();
 
 	bsg_view * view();
+#ifndef BRLCAD_ENABLE_OBOL
 	struct dm * dmp();
 	struct fb * ifp();
+#endif
 
 	void set_view(bsg_view *);
 
@@ -108,10 +123,12 @@ class QTCAD_EXPORT QgView : public QWidget
 
     private:
         QBoxLayout *l = nullptr;
+#ifndef BRLCAD_ENABLE_OBOL
 	QgSW *canvas_sw = nullptr;
-#ifdef BRLCAD_OPENGL
+#  ifdef BRLCAD_OPENGL
         QgGL *canvas_gl = nullptr;
-#endif
+#  endif
+#endif /* !BRLCAD_ENABLE_OBOL */
 	std::vector<QObject *> filters;
 };
 

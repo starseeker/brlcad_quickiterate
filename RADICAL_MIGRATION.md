@@ -1570,6 +1570,82 @@ from `mp_gvp` (no DMP indirection).
      from `CMakeLists.txt` in Step 7.19; removing the source prevents confusion.
      The `mged_dm.h` stub comment already documented its deletion.
 
+   **Stage 15** ✅ (Session 35) — Remove `libdm` from `libqtcad` link deps when Obol is
+   enabled; exclude `QgGL`/`QgSW` from the build; guard non-Obol fbserv handlers.
+
+   Goals:
+   - When `BRLCAD_ENABLE_OBOL` is ON, `libqtcad` no longer links against `libdm`.
+   - `QgGL.cpp` and `QgSW.cpp` (the libdm-backed Qt rendering widgets) are **excluded**
+     from the `libqtcad` build when Obol is enabled.  They are only compiled in
+     non-Obol builds (as the fallback path for `QgQuadView` / `c4`).
+   - The libdm swrast and qtgl plugins are updated in parallel: `swrastwin.cpp` and
+     `qtglwin.cpp` (which depend on `QgSW` / `QgGL`) are also excluded when Obol is
+     enabled.  The remaining core dm-swrast / dm-qtgl C/C++ files compile cleanly
+     without the Qt window wrappers.
+
+   Changes:
+   - `src/libqtcad/CMakeLists.txt`:
+     - Added Obol detection block (`brlcad_find_package(Obol)` with `NOT DEFINED`
+       guard) so `BRLCAD_ENABLE_OBOL` is known when libqtcad is first configured.
+     - `QgSW.cpp` moved into `if(NOT BRLCAD_ENABLE_OBOL)` block.
+     - `QgGL.cpp` moved into `if(NOT BRLCAD_ENABLE_OBOL AND OPENGL_LIBS)` block.
+     - `QgSW` / `QgGL` MOC header entries moved into same guards.
+     - `list(REMOVE_ITEM QTCAD_LIBS libdm)` applied when `BRLCAD_ENABLE_OBOL`.
+     - `BRLCAD_ENABLE_OBOL` compile definition propagated to `libqtcad` target.
+   - `include/qtcad/QgView.h`:
+     - `#include "dm.h"` guarded with `#ifndef BRLCAD_ENABLE_OBOL`.
+     - `#include "qtcad/QgSW.h"` / `QgGL.h` guarded the same way.
+     - `struct dm * dmp()` / `struct fb * ifp()` methods guarded.
+     - `canvas_sw` / `canvas_gl` private members guarded.
+     - Constructor signature uses `void *fbp` in the Obol build.
+   - `include/qtcad/QgQuadView.h`:
+     - Removed unnecessary `#include "dm.h"` (guarded with `#ifndef
+       BRLCAD_ENABLE_OBOL`; no dm_* functions used in QgQuadView.cpp itself).
+   - `src/libqtcad/QgView.cpp`:
+     - All `QgGL`/`QgSW`/`dm_*` implementation guarded under
+       `#ifndef BRLCAD_ENABLE_OBOL`.
+     - Added compact `#else` branch: no-op stubs for all methods so the class
+       still satisfies `QgQuadView` (which may be compiled even when Obol is active).
+   - `src/libdm/CMakeLists.txt`:
+     - Added Obol detection block (same guard pattern) so `BRLCAD_ENABLE_OBOL` is
+       available when the swrast/qtgl sub-dirs are processed.
+   - `src/libdm/qtgl/CMakeLists.txt`:
+     - `qtglwin.cpp` excluded from `QTGL_SRCS` when `BRLCAD_ENABLE_OBOL`.
+     - MOC processing of `qtglwin.h` skipped when `BRLCAD_ENABLE_OBOL`.
+     - `libqtcad` link dep skipped for `dm-qtgl` when `BRLCAD_ENABLE_OBOL`.
+     - `BRLCAD_ENABLE_OBOL` compile definition added to `dm-qtgl` target.
+   - `src/libdm/qtgl/fb-qtgl.cpp`:
+     - `#include "qtglwin.h"` and `QgGLWin *mw` member guarded with
+       `#ifndef BRLCAD_ENABLE_OBOL`.
+     - `fb_qtgl_open()` stand-alone window path guarded; Obol builds return `-1`
+       with a log message.
+   - `src/libdm/swrast/CMakeLists.txt`:
+     - `swrastwin.cpp` now only added when `BRLCAD_ENABLE_QT AND NOT
+       BRLCAD_ENABLE_OBOL` (was `BRLCAD_ENABLE_QT`).
+     - `libqtcad` link dep for `dm-swrast` skipped when `BRLCAD_ENABLE_OBOL`.
+     - `BRLCAD_ENABLE_OBOL` compile definition added to `dm-swrast` target.
+   - `src/qged/fbserv.cpp`:
+     - `#include "dm.h"`, `#include "qtcad/QgGL.h"`, `#include "qtcad/QgSW.h"`
+       all guarded with `#ifndef BRLCAD_ENABLE_OBOL`.
+     - `qdm_open_client_handler()` and `qdm_open_sw_client_handler()` wrapped in
+       `#ifndef BRLCAD_ENABLE_OBOL` block.
+   - `src/qged/fbserv.h`:
+     - Declarations for `qdm_open_client_handler` / `qdm_open_sw_client_handler`
+       guarded with `#ifndef BRLCAD_ENABLE_OBOL`.
+   - `src/qged/QgEdApp.cpp`:
+     - Registration of `qdm_open_client_handler` / `qdm_open_sw_client_handler`
+       into `gedp->ged_fbs` guarded with `#ifndef BRLCAD_ENABLE_OBOL`.
+
+   **Long-term remaining work**:
+   - Delete `src/libdm/` rendering plugins once all frontends have migrated to Obol.
+   - `QgSW.h` / `QgGL.h` still include `dm.h` — those headers (and their non-Obol
+     users) will be removed in a future stage once the non-Obol fallback path is
+     retired.
+   - Implement Obol-path framebuffer compositing for `rt` output display
+     (replace `fb_readrect`/`fb_*` overlay with an Obol texture node).
+   - `fb-qtgl.cpp` and `fb-swrast.cpp` still reference `dm.h` / dm-gl.h; these
+     files will be cleaned up when the corresponding plugins are removed.
+
 **Key files to update (Stage 7 MGED work):**
 
 | File | Change |

@@ -22,6 +22,18 @@ if(BRLCAD_ENABLE_QT)
   set(QG_DIRS ${QG_DIRS} ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR} ${OPENGL_INCLUDE_DIR_GL})
 endif(BRLCAD_ENABLE_QT)
 
+# Detect Obol early so we know whether to exclude the libdm-backed widgets
+# (QgGL / QgSW).  The detection is guarded so we don't call brlcad_find_package
+# twice if qged or libtclcad already ran it (they both set the CACHE variable).
+if(BRLCAD_ENABLE_QT AND NOT DEFINED BRLCAD_ENABLE_OBOL)
+  brlcad_find_package(Obol)
+  if(TARGET Obol::Obol)
+    set(BRLCAD_ENABLE_OBOL ON CACHE BOOL "Obol scene-graph library available" FORCE)
+  else()
+    set(BRLCAD_ENABLE_OBOL OFF CACHE BOOL "Obol scene-graph library available" FORCE)
+  endif()
+endif()
+
 # We build the resources in at this level, but list them out
 # in the subdirectories
 add_subdirectory(images)
@@ -47,7 +59,6 @@ set(
   QgModel.cpp
   QgPolyFilter.cpp
   QgQuadView.cpp
-  QgSW.cpp
   QgSelectFilter.cpp
   QgToolPalette.cpp
   QgTreeSelectionModel.cpp
@@ -56,9 +67,15 @@ set(
   QgView.cpp
   QgViewCtrl.cpp
 )
-if(OPENGL_LIBS)
-  set(qtcad_srcs ${qtcad_srcs} QgGL.cpp)
-endif(OPENGL_LIBS)
+# QgSW and QgGL use dm_open() from libdm.  When Obol is available the
+# rendering is handled by QgObolView / QgObolSwrastView, so these legacy
+# libdm-backed widgets are excluded from the build.
+if(NOT BRLCAD_ENABLE_OBOL)
+  list(APPEND qtcad_srcs QgSW.cpp)
+  if(OPENGL_LIBS)
+    list(APPEND qtcad_srcs QgGL.cpp)
+  endif(OPENGL_LIBS)
+endif(NOT BRLCAD_ENABLE_OBOL)
 
 # We need to run Qt's Meta-Object Compiler on some of the
 # libqtcad headers - prepare that list here.  We will also
@@ -82,7 +99,6 @@ set(
   QgModel
   QgPolyFilter
   QgQuadView
-  QgSW
   QgSelectFilter
   QgToolPalette
   QgTreeSelectionModel
@@ -90,9 +106,12 @@ set(
   QgView
   QgViewCtrl
 )
-if(OPENGL_LIBS)
-  set(qth_names ${qth_names} QgGL)
-endif(OPENGL_LIBS)
+if(NOT BRLCAD_ENABLE_OBOL)
+  list(APPEND qth_names QgSW)
+  if(OPENGL_LIBS)
+    list(APPEND qth_names QgGL)
+  endif(OPENGL_LIBS)
+endif(NOT BRLCAD_ENABLE_OBOL)
 
 foreach(qh ${qth_names})
   set(qtcad_moc_hdrs ${qtcad_moc_hdrs} ${QTCAD_HDR_DIR}/${qh}.h)
@@ -103,6 +122,13 @@ if(BRLCAD_ENABLE_QT)
   set(USE_OBJECT_LIBS OFF)
   set(QTCAD_SRCS ${qtcad_srcs})
   set(QTCAD_LIBS ${libqtcad_deps})
+
+  # When Obol handles all rendering, libdm is no longer needed by libqtcad
+  # (QgGL/QgSW are excluded above; fb_* functions are accessed via Obol's
+  # bundled Mesa rather than the dm framebuffer path).
+  if(BRLCAD_ENABLE_OBOL)
+    list(REMOVE_ITEM QTCAD_LIBS libdm)
+  endif(BRLCAD_ENABLE_OBOL)
 
   if(Qt6Widgets_FOUND)
     qt6_wrap_cpp(qtcad_moc_srcs ${qtcad_moc_hdrs})
@@ -120,6 +146,9 @@ if(BRLCAD_ENABLE_QT)
   if(OPENGL_LIBS)
     set_property(TARGET libqtcad APPEND PROPERTY COMPILE_DEFINITIONS "QT_SYSTEM_OPENGL")
   endif(OPENGL_LIBS)
+  if(BRLCAD_ENABLE_OBOL)
+    set_property(TARGET libqtcad APPEND PROPERTY COMPILE_DEFINITIONS "BRLCAD_ENABLE_OBOL")
+  endif(BRLCAD_ENABLE_OBOL)
 
   distclean(qtcad_resources.qrc.depends)
   # Generate the cpp_parameters cleanup commands for the headers
