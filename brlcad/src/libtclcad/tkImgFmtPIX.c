@@ -63,6 +63,7 @@
 #include "vmath.h"
 #include "bu/malloc.h"
 #include "bn.h"
+#include "dm.h"
 #include "tk.h"
 
 #include "tclcad.h"

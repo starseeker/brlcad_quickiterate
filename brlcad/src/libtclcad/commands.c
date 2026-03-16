@@ -4498,15 +4498,6 @@ to_pix(struct ged *gedp,
 	const char *usage,
 	int UNUSED(maxargs))
 {
-    FILE *fp = NULL;
-    unsigned char *scanline;
-    unsigned char *pixels;
-    static int bytes_per_pixel = 3;
-    int i = 0;
-    int height = 0;
-    int make_ret = 0;
-    int bytes_per_line;
-
     /* initialize result */
     bu_vls_trunc(gedp->ged_result_str, 0);
 
