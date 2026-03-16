@@ -1616,10 +1616,10 @@ f_winset(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
 
     /* print pathname of drawing window with primary focus */
     if (argc == 1) {
-	/* Step 6.a: active_pane_set now covers ALL panes (both Obol and legacy dm
-	 * wrappers set up by mged_attach).  The pane identity is gv_name, which
-	 * is set to the Tk widget path by new_obol_view_ptr (Obol) or to the
-	 * dm pathname by mged_attach (legacy dm wrapper).  Check here first. */
+	/* Step 7.20: All panes are now Obol panes; active_pane_set contains only
+	 * Obol panes.  The pane identity is gv_name (set to the Tk widget path
+	 * by new_obol_view_ptr).  Return the name of the pane whose bsg_view
+	 * matches the current view. */
 	if (s->gedp && s->gedp->ged_gvp) {
 	    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
 		struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
@@ -1631,16 +1631,12 @@ f_winset(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
 		}
 	    }
 	}
-	/* Step 7.20: DMP removed — no dm path name. */
+	/* No matching pane found — return empty string. */
 	return TCL_OK;
     }
 
-    /* Step 6.a: active_pane_set now covers ALL panes (both Obol and legacy
-     * dm wrappers).  mged_pane_find_by_name() searches by gv_name so it
-     * finds Obol panes (by Tk widget path) and legacy dm wrappers (by dm
-     * pathname) in one call.  set_curr_pane() handles both: for Obol panes
-     * (mp_dm == NULL) it redirects mged_curr_dm to the null sentinel; for
-     * legacy dm wrappers (mp_dm != NULL) it restores the real dm. */
+    /* Step 7.20: active_pane_set contains only Obol panes.
+     * mged_pane_find_by_name() searches by gv_name (Tk widget path). */
     {
 	struct mged_pane *mp = mged_pane_find_by_name(argv[1]);
 	if (mp) {
@@ -1652,8 +1648,6 @@ f_winset(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
 	    return TCL_OK;
 	}
     }
-
-    /* Step 7.20: mp_dmp removed — dm-by-pathname fallback removed. */
 
     Tcl_AppendResult(interpreter, "Unrecognized pathname - ", argv[1],
 		     "\n", (char *)NULL);

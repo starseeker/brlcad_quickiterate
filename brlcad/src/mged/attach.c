@@ -56,8 +56,8 @@
 /* Geometry display instances used by MGED */
 /* Step 7.18: mged_dm_init_state removed; startup sentinel is s->mged_init_pane. */
 
-/* Stage 7 (libdm removal): Obol pane set — tracks mged_pane objects for
- * all panes (Obol and legacy dm wrappers).  See RADICAL_MIGRATION.md. */
+/* Stage 7 (libdm removal): Obol pane set — tracks all mged_pane objects.
+ * Step 7.20: all panes are now Obol panes (no legacy dm wrappers remain). */
 struct bu_ptbl active_pane_set = BU_PTBL_INIT_ZERO;
 
 
@@ -104,10 +104,9 @@ set_curr_pane(struct mged_state *s, struct mged_pane *mp)
  * Searches active_pane_set for a mged_pane whose mp_gvp->gv_name matches
  * `name`.  Returns MGED_PANE_NULL if not found.
  *
- * Step 6.a: active_pane_set now contains BOTH Obol panes (mp_dm == NULL,
- * gv_name = Tk widget path) and legacy dm wrapper panes (mp_dm != NULL,
- * gv_name = dm pathname).  This function finds both.  Used by f_winset
- * and any code that needs to resolve a pane name to a mged_pane.
+ * Step 7.20: All panes are Obol panes identified by their Tk widget path
+ * stored in gv_name.  Used by f_winset and any code that needs to resolve
+ * a pane name to a mged_pane.
  */
 struct mged_pane *
 mged_pane_find_by_name(const char *name)
