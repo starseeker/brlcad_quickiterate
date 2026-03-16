@@ -307,14 +307,18 @@ QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode) :QAppl
     {
 	QgView *disp = w->CurrentDisplay();
 	int type = disp ? disp->view_type() : 0;
-#ifdef BRLCAD_OPENGL
+#ifndef BRLCAD_ENABLE_OBOL
+#  ifdef BRLCAD_OPENGL
 	if (type == QgView_GL) {
 	    gedp->ged_fbs->fbs_open_client_handler = &qdm_open_client_handler;
 	}
-#endif
+#  endif
 	if (type == QgView_SW) {
 	    gedp->ged_fbs->fbs_open_client_handler = &qdm_open_sw_client_handler;
 	}
+#else
+	(void)type;
+#endif /* !BRLCAD_ENABLE_OBOL */
     }
     gedp->ged_fbs->fbs_close_client_handler = &qdm_close_client_handler;
 

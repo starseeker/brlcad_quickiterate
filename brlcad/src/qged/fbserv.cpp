@@ -36,12 +36,17 @@
 #include "bu/log.h"
 #include "bu/malloc.h"
 #include "bu/vls.h"
-#include "dm.h"
+#ifndef BRLCAD_ENABLE_OBOL
+/* dm.h and the legacy QgGL / QgSW headers are only needed when Obol is not
+ * available.  In Obol builds the rendering is handled by QgObolView /
+ * QgObolSwrastView and dm_get_ctx / dm_get_udata are never called. */
+#  include "dm.h"
+#  ifdef BRLCAD_OPENGL
+#    include "qtcad/QgGL.h"
+#  endif
+#  include "qtcad/QgSW.h"
+#endif /* !BRLCAD_ENABLE_OBOL */
 #include "./fbserv.h"
-#ifdef BRLCAD_OPENGL
-#  include "qtcad/QgGL.h"
-#endif
-#include "qtcad/QgSW.h"
 #ifdef BRLCAD_ENABLE_OBOL
 #  include "QgObolView.h"
 #endif
@@ -200,6 +205,10 @@ qdm_close_server_handler(struct fbserv_obj *fbsp)
     delete nl;
 }
 
+#ifndef BRLCAD_ENABLE_OBOL
+/* qdm_open_client_handler and qdm_open_sw_client_handler require the libdm
+ * QgGL / QgSW widgets.  They are unused (and excluded) in Obol builds where
+ * QgEdMainWindow sets qdm_open_obol_client_handler instead. */
 #ifdef BRLCAD_OPENGL
 void
 qdm_open_client_handler(struct fbserv_obj *fbsp, int i, void *data)
@@ -239,6 +248,7 @@ qdm_open_sw_client_handler(struct fbserv_obj *fbsp, int i, void *data)
 	QObject::connect(s, &QFBSocket::updated, ctx, &QgSW::need_update, Qt::QueuedConnection);
     }
 }
+#endif /* !BRLCAD_ENABLE_OBOL */
 
 #ifdef BRLCAD_ENABLE_OBOL
 /* Obol path: the view widget pointer is stored in fbs_clientData by do_obol_init().
