@@ -359,9 +359,11 @@ The and operator operates like the logical AND operator - TRUE only if both expr
 
 
 *-above[>/</=val]* _expression_::
-The above operator applies the expression to every object above the current full path to that object, and returns TRUE if one or more of them satisfies the expression. E.g., searching with -above -name s\* on /component/region.r/start_comb.c/prim1.s would return TRUE for /component and /component/region.r as start_comb.c is below both of them, but would return FALSE for any deeper objects (i.e., prim1.s in this example).
+The above operator applies the expression to every object below the current path in the tree hierarchy, and returns TRUE if one or more of them satisfies the expression. An object passes -above when it is above (has in its subtree) at least one object that matches. E.g., searching with -above -name s\* on /component/region.r/start_comb.c/prim1.s would return TRUE for /component and /component/region.r as start_comb.c is below both of them, but would return FALSE for any deeper objects (i.e., prim1.s in this example).
 +
 Optionally, inequality and equality constraints on depth can be appended to the operator to limit what relative depths are accepted as matches.
++
+Note: using _-above_ as the expression within another _-above_ (e.g., **-above -above -name X**) is valid but will be slower than the normal case because the internal optimization for -above cannot be applied to the inner -above expression. Such constructs are rare in practice and will still produce correct results.
 
 
 *-not* _expression_ (a.k.a. !)::
@@ -477,7 +479,7 @@ Find all objects in the database that are elliptical tori. Note that a path of "
 ====
 **search / -type region -below -type region**
 
-Find all instances of objects of type region that contain a region. This searches for regions being used within the subtrees of other regions, which is considered bad practice in BRL-CAD.
+Find all instances of objects of type region that are nested within another region. This searches for regions being used within the subtrees of other regions, which is considered bad practice in BRL-CAD.
 
 ====
 
@@ -495,7 +497,7 @@ Find all instances of objects of type combination that are not below regions and
 ====
 **search / -type comb -below -type region ! -type region**
 
-Find all instances of combinations that are not regions and do not contain regions.
+Find all instances of combinations that are not regions and are located within a region (below a region in the hierarchy).
 
 ====
 
@@ -792,3 +794,5 @@ Bugs resulting from incorrect parsing of shell pattern expressions are the resul
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org
+
+
