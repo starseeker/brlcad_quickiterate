@@ -1749,13 +1749,56 @@ from `mp_gvp` (no DMP indirection).
    - `libtclcad` builds clean.
    - Full build passes with zero errors.
 
-   **Long-term remaining work for qged / Obol:**
-   - The 3 `fb_*` symbols (`fb_getwidth`, `fb_getheight`, `fb_readrect`) still
-     require an explicit `target_link_libraries(qged libdm)`.  Attempting to rely
-     on transitive resolution through libged fails with GNU ld's
-     "DSO missing from command line" error.  A future stage should implement an
-     Obol-native texture-node path for rt framebuffer compositing so that qged
-     no longer needs to link against libdm at all.
+   **Stage 19** ✅ (Session 37) — Guard dm-ogl / dm-qtgl from Obol builds; minor
+   QgQuadView / QgView cleanup.
+
+   **Stage 20** ✅ (Session 38) — Replace `struct fb` with Obol-native pixel buffer
+   in the embedded-raytracing (`ert`) path; eliminate `libdm` from qged link deps
+   in Obol builds.
+
+   Goals:
+   - Remove the last 3 `fb_*` symbol references (`fb_getwidth`, `fb_getheight`,
+     `fb_readrect`) from `QgObolView`.
+   - Eliminate `target_link_libraries(qged libdm)` (and the same for `qged_test`
+     and `qged_pipeline_test`) so that qged links zero libdm symbols in Obol builds.
+   - Replace `fbs_pkg_switch()` / `fbs_new_client()` calls (also from libdm) with
+     Obol-native equivalents implemented directly in `fbserv.cpp`.
+
+   Changes:
+   - `include/dm/fbserv.h`: Added MSG_FB* / MSG_RETURN / MSG_NORETURN protocol
+     constants (guarded with `#ifndef MSG_FBOPEN`) so they are available without
+     including `dm.h`.  Added `fbs_pixbuf`, `fbs_pixbuf_w`, `fbs_pixbuf_h` fields
+     to `struct fbserv_obj` for the Obol raw-pixel path.
+   - `include/dm/defines.h`: Updated comment on the minimal fb_* declarations
+     to clarify they are for the legacy path only.
+   - `src/libged/dm/ert.cpp`: In the Obol path (no `dmp`), allocate
+     `fbs->fbs_pixbuf` / `fbs_pixbuf_w` / `fbs_pixbuf_h` directly instead of
+     opening a `/dev/mem` framebuffer (`fb_open("/dev/mem", ...)`).  The
+     `fbs_fbp` field stays NULL in Obol builds.
+   - `src/libged/ged.cpp`: Free `fbs_pixbuf` before `BU_PUT(gedp->ged_fbs, ...)`
+     on teardown.
+   - `src/qged/fbserv.cpp`: Added `#ifdef BRLCAD_ENABLE_OBOL` section with
+     Obol-native fbserv packet handlers (`obol_rfbopen`, `obol_rfbclose`,
+     `obol_rfbclear`, `obol_rfbwrite`, `obol_rfbwriterect`, etc.), the
+     `obol_fbs_pkg_switch()` table, and `qdm_obol_new_client()`.  In
+     `QFBSocket::client_handler()`: set `pkc_server_data = fbsp` (not
+     `fbsp->fbs_fbp`) in Obol builds.  In `QFBServer::on_Connect()`: use
+     `obol_fbs_pkg_switch()` and `qdm_obol_new_client()` instead of the libdm
+     equivalents.
+   - `src/qged/QgObolView.h`: Both `_paintFbOverlay()` methods (in
+     `QgObolView` and `QgObolSwrastView`) now read pixels directly from
+     `fbs_->fbs_pixbuf` / `fbs_pixbuf_w` / `fbs_pixbuf_h` — no `fb_readrect`,
+     `fb_getwidth`, or `fb_getheight` calls.  Removed the `fb_buf_` member from
+     both classes (no longer needed).  Updated include comment to clarify that
+     `struct fb` / `fb_*` functions are not used.
+   - `src/qged/CMakeLists.txt`: Removed `target_link_libraries(qged libdm)`,
+     `target_link_libraries(qged_test libdm)`, and
+     `target_link_libraries(qged_pipeline_test libdm)` from the Obol sections.
+
+   **Verification:**
+   - `ert.cpp`, `ged.cpp`, `libdm/fbserv.c` all compile clean after header
+     changes.
+   - Zero `fb_*` symbols undefined in qged Obol builds.
    - `QgSW.h` and `QgGL.h` still include `dm.h` — these headers (and their
      non-Obol sources) will be deleted when the non-Obol fallback path is retired.
 

@@ -144,9 +144,10 @@
 #include "qtcad/QgSignalFlags.h"
 
 extern "C" {
-/* dm/fbserv.h (via dm/defines.h) provides struct fb, struct fbserv_obj, and
- * the minimal fb_getwidth/fb_getheight/fb_readrect declarations.  The full
- * dm.h is not needed by QgObolView. */
+/* dm/fbserv.h provides struct fbserv_obj (with the fbs_pixbuf/w/h fields used
+ * by _paintFbOverlay) and the fbserv wire-protocol MSG_FB* constants.
+ * struct fb and the fb_getwidth/fb_getheight/fb_readrect functions are NOT
+ * needed by QgObolView in Obol builds — the full dm.h is never included. */
 #include "dm/fbserv.h"
 }
 
@@ -1008,29 +1009,24 @@ private:
 	return ctx.fetch_add(1, std::memory_order_relaxed);
     }
 
-    // ── Stage 7: framebuffer overlay ─────────────────────────────────────
+    // ── Stage 20: framebuffer overlay (Obol-native pixel buffer) ─────────
 
     /** Composite rt framebuffer pixels on top of the Obol 3D scene.
      *  Called at the end of paintGL() (single-view path) when an embedded
-     *  rt framebuffer is present and gv_fb_mode is non-zero. */
+     *  rt framebuffer is present and gv_fb_mode is non-zero.
+     *
+     *  Stage 20: reads directly from fbs_->fbs_pixbuf (raw RGB pixel buffer
+     *  written by the Obol-native fbserv packet handlers) — no struct fb or
+     *  libdm functions required. */
     void _paintFbOverlay() {
-	if (!fbs_ || !fbs_->fbs_fbp || !bsg_v_ || !bsg_v_->gv_s)
+	if (!fbs_ || !fbs_->fbs_pixbuf || !bsg_v_ || !bsg_v_->gv_s)
 	    return;
 	if (!bsg_v_->gv_s->gv_fb_mode)
 	    return;   /* framebuffer display disabled */
-	int fw = fb_getwidth(fbs_->fbs_fbp);
-	int fh = fb_getheight(fbs_->fbs_fbp);
-	if (fw <= 0 || fh <= 0)
-	    return;
-	/* Resize cached buffer only when dimensions change. */
-	size_t needed = (size_t)fw * fh * 3;
-	if (fb_buf_.size() != needed)
-	    fb_buf_.resize(needed);
-	int nread = fb_readrect(fbs_->fbs_fbp, 0, 0, fw, fh, fb_buf_.data());
-	if (nread < fw * fh)
-	    return;
+	int fw = fbs_->fbs_pixbuf_w;
+	int fh = fbs_->fbs_pixbuf_h;
 	/* libfb origin is bottom-left; QImage origin is top-left — flip Y. */
-	QImage img(fb_buf_.data(), fw, fh, fw * 3, QImage::Format_RGB888);
+	QImage img(fbs_->fbs_pixbuf, fw, fh, fw * 3, QImage::Format_RGB888);
 	QPainter p(this);
 	p.drawImage(rect(), img.mirrored(false, true));
     }
@@ -1104,8 +1100,7 @@ private:
     uint32_t         cacheContext_ = allocCacheContext();
     bsg_shape       *selectedShape_ = nullptr;  /* Stage 5: current selection */
     bool             init_done_emitted_ = false; /* guard: emit init_done() only once */
-    struct fbserv_obj *fbs_ = nullptr;  /* Stage 7: embedded rt framebuffer (not owned) */
-    std::vector<unsigned char> fb_buf_; /* Stage 7: cached pixel buffer for fb overlay */
+    struct fbserv_obj *fbs_ = nullptr;  /* Stage 20: embedded rt framebuffer (not owned) */
 };
 
 
@@ -1515,23 +1510,14 @@ private:
     // ── Stage 7: framebuffer overlay ──────────────────────────────────────
 
     void _paintFbOverlay() {
-	if (!fbs_ || !fbs_->fbs_fbp || !bsg_v_ || !bsg_v_->gv_s)
+	if (!fbs_ || !fbs_->fbs_pixbuf || !bsg_v_ || !bsg_v_->gv_s)
 	    return;
 	if (!bsg_v_->gv_s->gv_fb_mode)
 	    return;
-	int fw = fb_getwidth(fbs_->fbs_fbp);
-	int fh = fb_getheight(fbs_->fbs_fbp);
-	if (fw <= 0 || fh <= 0)
-	    return;
-	/* Resize cached buffer only when dimensions change. */
-	size_t needed = (size_t)fw * fh * 3;
-	if (fb_buf_.size() != needed)
-	    fb_buf_.resize(needed);
-	int nread = fb_readrect(fbs_->fbs_fbp, 0, 0, fw, fh, fb_buf_.data());
-	if (nread < fw * fh)
-	    return;
+	int fw = fbs_->fbs_pixbuf_w;
+	int fh = fbs_->fbs_pixbuf_h;
 	/* libfb origin is bottom-left; QImage origin is top-left — flip Y. */
-	QImage img(fb_buf_.data(), fw, fh, fw * 3, QImage::Format_RGB888);
+	QImage img(fbs_->fbs_pixbuf, fw, fh, fw * 3, QImage::Format_RGB888);
 	QPainter p(this);
 	p.drawImage(rect(), img.mirrored(false, true));
     }
@@ -1571,8 +1557,7 @@ private:
     QPointF              lastMousePos_;
     bsg_shape           *selectedShape_ = nullptr;
     bool                 init_done_emitted_ = false;
-    struct fbserv_obj   *fbs_ = nullptr;  /* Stage 7: embedded rt framebuffer (not owned) */
-    std::vector<unsigned char> fb_buf_;   /* Stage 7: cached pixel buffer for fb overlay */
+    struct fbserv_obj   *fbs_ = nullptr;  /* Stage 20: embedded rt framebuffer (not owned) */
 };
 
 #endif /* OBOL_BUILD_DUAL_GL */

@@ -119,10 +119,9 @@ if(BRLCAD_ENABLE_QT)
   endif(Qt6Widgets_FOUND)
   if(BRLCAD_ENABLE_OBOL AND TARGET Obol::Obol)
     target_link_libraries(qged Obol::Obol)
-    # QgObolView.h uses fb_readrect/fb_getwidth/fb_getheight from libdm for
-    # the rt framebuffer overlay.  libqtcad no longer links libdm in Obol
-    # builds, so we add it here explicitly.
-    target_link_libraries(qged libdm)
+    # Stage 20: QgObolView no longer calls fb_readrect/fb_getwidth/fb_getheight.
+    # The Obol-native fbserv packet handlers write directly into fbs_pixbuf, so
+    # qged no longer needs an explicit libdm link in Obol builds.
     # QgObolView.h uses QOpenGLWidget from Qt6::OpenGLWidgets
     if(Qt6Widgets_FOUND)
       find_package(Qt6 COMPONENTS OpenGLWidgets QUIET)
@@ -160,7 +159,7 @@ if(BRLCAD_ENABLE_QT)
   endif()
   if(BRLCAD_ENABLE_OBOL AND TARGET Obol::Obol)
     target_link_libraries(qged_test Obol::Obol)
-    target_link_libraries(qged_test libdm)
+    # Stage 20: libdm no longer needed in Obol builds (fbs_pixbuf path).
     if(Qt6Widgets_FOUND AND TARGET Qt6::OpenGLWidgets)
       target_link_libraries(qged_test Qt6::OpenGLWidgets)
     endif()
@@ -196,7 +195,7 @@ if(BRLCAD_ENABLE_QT)
   endif()
   if(BRLCAD_ENABLE_OBOL AND TARGET Obol::Obol)
     target_link_libraries(qged_pipeline_test Obol::Obol)
-    target_link_libraries(qged_pipeline_test libdm)
+    # Stage 20: libdm no longer needed in Obol builds (fbs_pixbuf path).
     if(Qt6Widgets_FOUND AND TARGET Qt6::OpenGLWidgets)
       target_link_libraries(qged_pipeline_test Qt6::OpenGLWidgets)
     endif()
