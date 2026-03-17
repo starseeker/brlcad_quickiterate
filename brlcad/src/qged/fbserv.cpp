@@ -52,6 +52,208 @@
 #  include "QgObolView.h"
 #endif
 
+#ifdef BRLCAD_ENABLE_OBOL
+/* ──────────────────────────────────────────────────────────────────────────
+ * Obol-native framebuffer protocol handlers.
+ *
+ * In the Obol path there is no struct fb / libdm backend.  Pixels sent by rt
+ * over the fbserv TCP connection are written directly into fbsp->fbs_pixbuf.
+ * pkc_server_data is set to the struct fbserv_obj * (not struct fb *).
+ * ────────────────────────────────────────────────────────────────────────── */
+
+static void
+obol_rfbopen(struct pkg_conn *pcp, char *buf)
+{
+    struct fbserv_obj *fbsp = (struct fbserv_obj *)pcp->pkc_server_data;
+    char rbuf[5*NET_LONG_LEN+1] = {0};
+    int want = 5*NET_LONG_LEN;
+    (void)pkg_plong(&rbuf[0*NET_LONG_LEN], 0);                  /* ret = success */
+    (void)pkg_plong(&rbuf[1*NET_LONG_LEN], fbsp->fbs_pixbuf_w); /* max_width  */
+    (void)pkg_plong(&rbuf[2*NET_LONG_LEN], fbsp->fbs_pixbuf_h); /* max_height */
+    (void)pkg_plong(&rbuf[3*NET_LONG_LEN], fbsp->fbs_pixbuf_w); /* width  */
+    (void)pkg_plong(&rbuf[4*NET_LONG_LEN], fbsp->fbs_pixbuf_h); /* height */
+    if (pkg_send(MSG_RETURN, rbuf, want, pcp) != want)
+	bu_log("obol_rfbopen: pkg_send error\n");
+    free(buf);
+}
+
+static void
+obol_rfbclose(struct pkg_conn *pcp, char *buf)
+{
+    char rbuf[NET_LONG_LEN+1] = {0};
+    (void)pkg_plong(&rbuf[0], 0);
+    (void)pkg_send(MSG_RETURN, rbuf, NET_LONG_LEN, pcp);
+    free(buf);
+}
+
+static void
+obol_rfbfree(struct pkg_conn *pcp, char *buf)
+{
+    char rbuf[NET_LONG_LEN+1] = {0};
+    if (pkg_send(MSG_RETURN, rbuf, NET_LONG_LEN, pcp) != NET_LONG_LEN)
+	bu_log("obol_rfbfree: pkg_send error\n");
+    free(buf);
+}
+
+static void
+obol_rfbclear(struct pkg_conn *pcp, char *buf)
+{
+    struct fbserv_obj *fbsp = (struct fbserv_obj *)pcp->pkc_server_data;
+    char rbuf[NET_LONG_LEN+1] = {0};
+    if (buf && fbsp->fbs_pixbuf) {
+	unsigned char r = (unsigned char)buf[0];
+	unsigned char g = (unsigned char)buf[1];
+	unsigned char b = (unsigned char)buf[2];
+	size_t npix = (size_t)fbsp->fbs_pixbuf_w * fbsp->fbs_pixbuf_h;
+	for (size_t k = 0; k < npix; k++) {
+	    fbsp->fbs_pixbuf[k*3+0] = r;
+	    fbsp->fbs_pixbuf[k*3+1] = g;
+	    fbsp->fbs_pixbuf[k*3+2] = b;
+	}
+    }
+    (void)pkg_plong(rbuf, 0);
+    (void)pkg_send(MSG_RETURN, rbuf, NET_LONG_LEN, pcp);
+    free(buf);
+}
+
+/* MSG_FBWRITE: write a scanline starting at (x,y), num pixels */
+static void
+obol_rfbwrite(struct pkg_conn *pcp, char *buf)
+{
+    struct fbserv_obj *fbsp = (struct fbserv_obj *)pcp->pkc_server_data;
+    char rbuf[NET_LONG_LEN+1] = {0};
+    if (!buf) {
+	bu_log("obol_rfbwrite: null buffer\n");
+	return;
+    }
+    long x   = pkg_glong(&buf[0*NET_LONG_LEN]);
+    long y   = pkg_glong(&buf[1*NET_LONG_LEN]);
+    long num = pkg_glong(&buf[2*NET_LONG_LEN]);
+    if (fbsp->fbs_pixbuf && x >= 0 && y >= 0 && num > 0
+	    && y < fbsp->fbs_pixbuf_h && x + num <= fbsp->fbs_pixbuf_w) {
+	size_t off     = ((size_t)y * fbsp->fbs_pixbuf_w + x) * 3;
+	size_t to_copy = (size_t)num * 3;
+	memcpy(&fbsp->fbs_pixbuf[off], &buf[3*NET_LONG_LEN], to_copy);
+    }
+    int type = pcp->pkc_type;
+    if (type < MSG_NORETURN) {
+	(void)pkg_plong(&rbuf[0], num);
+	(void)pkg_send(MSG_RETURN, rbuf, NET_LONG_LEN, pcp);
+    }
+    free(buf);
+}
+
+/* MSG_FBWRITERECT: write a rectangle of pixels */
+static void
+obol_rfbwriterect(struct pkg_conn *pcp, char *buf)
+{
+    struct fbserv_obj *fbsp = (struct fbserv_obj *)pcp->pkc_server_data;
+    char rbuf[NET_LONG_LEN+1] = {0};
+    if (!buf) {
+	bu_log("obol_rfbwriterect: null buffer\n");
+	return;
+    }
+    int x = (int)pkg_glong(&buf[0*NET_LONG_LEN]);
+    int y = (int)pkg_glong(&buf[1*NET_LONG_LEN]);
+    int w = (int)pkg_glong(&buf[2*NET_LONG_LEN]);
+    int h = (int)pkg_glong(&buf[3*NET_LONG_LEN]);
+    if (fbsp->fbs_pixbuf && w > 0 && h > 0
+	    && x >= 0 && y >= 0
+	    && x + w <= fbsp->fbs_pixbuf_w
+	    && y + h <= fbsp->fbs_pixbuf_h) {
+	for (int row = 0; row < h; row++) {
+	    size_t dst_off = ((size_t)(y + row) * fbsp->fbs_pixbuf_w + x) * 3;
+	    size_t src_off = (size_t)4*NET_LONG_LEN + (size_t)row * w * 3;
+	    memcpy(&fbsp->fbs_pixbuf[dst_off], &buf[src_off], (size_t)w * 3);
+	}
+    }
+    int type = pcp->pkc_type;
+    if (type < MSG_NORETURN) {
+	(void)pkg_plong(&rbuf[0], w * h);
+	(void)pkg_send(MSG_RETURN, rbuf, NET_LONG_LEN, pcp);
+    }
+    free(buf);
+}
+
+/* MSG_FBREAD, MSG_FBREADRECT, MSG_FBRMAP, MSG_FBWMAP, etc.:
+ * rt does not send these in the embedded-raytrace use case, but we must
+ * provide a handler entry (or NULL) for every slot.  A NULL handler causes
+ * pkg_process() to log an error; send an empty-success reply instead. */
+static void
+obol_rfbnoop_return(struct pkg_conn *pcp, char *buf)
+{
+    char rbuf[NET_LONG_LEN+1] = {0};
+    (void)pkg_plong(&rbuf[0], 0);
+    (void)pkg_send(MSG_RETURN, rbuf, NET_LONG_LEN, pcp);
+    free(buf);
+}
+
+static void
+obol_rfbflush(struct pkg_conn *pcp, char *buf)
+{
+    char rbuf[NET_LONG_LEN+1] = {0};
+    (void)pkg_plong(&rbuf[0], 0);
+    (void)pkg_send(MSG_RETURN, rbuf, NET_LONG_LEN, pcp);
+    free(buf);
+}
+
+static struct pkg_switch *
+obol_fbs_pkg_switch(void)
+{
+    static struct pkg_switch pswitch[] = {
+	{ MSG_FBOPEN,        obol_rfbopen,        "Open Framebuffer",  NULL },
+	{ MSG_FBCLOSE,       obol_rfbclose,        "Close Framebuffer", NULL },
+	{ MSG_FBCLEAR,       obol_rfbclear,        "Clear Framebuffer", NULL },
+	{ MSG_FBREAD,        obol_rfbnoop_return,  "Read Pixels",       NULL },
+	{ MSG_FBWRITE,       obol_rfbwrite,        "Write Pixels",      NULL },
+	{ MSG_FBWRITE + MSG_NORETURN, obol_rfbwrite, "Asynch write",    NULL },
+	{ MSG_FBREADRECT,    obol_rfbnoop_return,  "Read Rectangle",    NULL },
+	{ MSG_FBWRITERECT,   obol_rfbwriterect,    "Write Rectangle",   NULL },
+	{ MSG_FBWRITERECT + MSG_NORETURN, obol_rfbwriterect, "Asynch write rect", NULL },
+	{ MSG_FBFLUSH,       obol_rfbflush,        "Flush",             NULL },
+	{ MSG_FBFREE,        obol_rfbfree,         "Free Framebuffer",  NULL },
+	{ MSG_FBRMAP,        obol_rfbnoop_return,  "R Map",             NULL },
+	{ MSG_FBWMAP,        obol_rfbnoop_return,  "W Map",             NULL },
+	{ MSG_FBHELP,        obol_rfbnoop_return,  "Help Request",      NULL },
+	{ MSG_FBCURSOR,      obol_rfbnoop_return,  "Cursor",            NULL },
+	{ MSG_FBGETCURSOR,   obol_rfbnoop_return,  "Get Cursor",        NULL },
+	{ MSG_FBSCURSOR,     obol_rfbnoop_return,  "Screen Cursor",     NULL },
+	{ MSG_FBWINDOW,      obol_rfbnoop_return,  "Window",            NULL },
+	{ MSG_FBZOOM,        obol_rfbnoop_return,  "Zoom",              NULL },
+	{ MSG_FBVIEW,        obol_rfbnoop_return,  "View",              NULL },
+	{ MSG_FBGETVIEW,     obol_rfbnoop_return,  "Get View",          NULL },
+	{ MSG_FBSETCURSOR,   obol_rfbnoop_return,  "Set Cursor",        NULL },
+	{ MSG_FBBWREADRECT,  obol_rfbnoop_return,  "BW Read Rectangle", NULL },
+	{ MSG_FBBWWRITERECT, obol_rfbnoop_return,  "BW Write Rectangle",NULL },
+	{ 0, NULL, NULL, NULL }
+    };
+    return pswitch;
+}
+
+/* Obol-native client registration: mirrors fbs_new_client() from libdm but
+ * does not call fbs_setup_socket() (Qt manages socket options) and does not
+ * link against libdm. */
+static int
+qdm_obol_new_client(struct fbserv_obj *fbsp, struct pkg_conn *pcp, void *data)
+{
+    if (pcp == PKC_ERROR)
+	return -1;
+
+    for (int i = MAX_CLIENTS - 1; i >= 0; i--) {
+	if (fbsp->fbs_clients[i].fbsc_fd != 0)
+	    continue;
+	fbsp->fbs_clients[i].fbsc_fd   = pcp->pkc_fd;
+	fbsp->fbs_clients[i].fbsc_pkg  = pcp;
+	fbsp->fbs_clients[i].fbsc_fbsp = fbsp;
+	(*fbsp->fbs_open_client_handler)(fbsp, i, data);
+	return i;
+    }
+    bu_log("qdm_obol_new_client: too many clients\n");
+    pkg_close(pcp);
+    return -1;
+}
+#endif /* BRLCAD_ENABLE_OBOL */
+
 void
 QFBSocket::client_handler()
 {
@@ -61,8 +263,14 @@ QFBSocket::client_handler()
     // Get the current libpkg connection
     struct pkg_conn *pkc = fbsp->fbs_clients[ind].fbsc_pkg;
 
-    // Set the current framebuffer pointer for callback functions
+    // Set the server-data pointer for the pkg_switch callback functions.
+    // Legacy path: handlers cast pkc_server_data to struct fb *.
+    // Obol  path: handlers cast pkc_server_data to struct fbserv_obj *.
+#ifdef BRLCAD_ENABLE_OBOL
+    pkc->pkc_server_data = (void *)fbsp;
+#else
     pkc->pkc_server_data = (void *)fbsp->fbs_fbp;
+#endif
 
     // Read data.  NOTE:  we're using the Qt read routines rather than
     // pkg_suckin, so we can't call fbs_existing_client_hander from libdm.
@@ -143,7 +351,12 @@ QFBServer::on_Connect()
     BU_GET(pc, struct pkg_conn);
     pc->pkc_magic = PKG_MAGIC;
     pc->pkc_fd = fd;
+#ifdef BRLCAD_ENABLE_OBOL
+    /* Obol path: use the Obol-native pkg_switch that writes into fbs_pixbuf. */
+    pc->pkc_switch = obol_fbs_pkg_switch();
+#else
     pc->pkc_switch = fbs_pkg_switch();
+#endif
     pc->pkc_errlog = 0;
     pc->pkc_left = -1;
     pc->pkc_buf = (char *)0;
@@ -151,7 +364,11 @@ QFBServer::on_Connect()
     pc->pkc_strpos = 0;
     pc->pkc_incur = pc->pkc_inend = 0;
 
+#ifdef BRLCAD_ENABLE_OBOL
+    fs->ind = qdm_obol_new_client(fbsp, pc, (void *)fs);
+#else
     fs->ind = fbs_new_client(fbsp, pc, (void *)fs);
+#endif
     if (fs->ind == -1) {
 	bu_log("new connection failed");
 	BU_PUT(pc, struct pkg_conn);
