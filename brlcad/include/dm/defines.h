@@ -79,9 +79,9 @@ struct fb_plugin {
     const struct fb * const p;
 };
 
-/* Minimal framebuffer I/O helpers declared here so that code which only needs
- * to read pixel data (e.g. QgObolView's rt overlay) can include this header
- * rather than the full dm.h.  Full fb_* API remains in dm.h. */
+/* Minimal framebuffer I/O helpers.  These are still used by the non-Obol
+ * libdm path (QgGL, QgSW, mged fbserv).  In Obol builds QgObolView reads
+ * pixels directly from fbs_pixbuf and no longer calls these functions. */
 __BEGIN_DECLS
 DM_EXPORT extern int fb_getwidth(struct fb *ifp);
 DM_EXPORT extern int fb_getheight(struct fb *ifp);

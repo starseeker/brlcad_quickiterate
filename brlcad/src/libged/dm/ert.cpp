@@ -78,31 +78,27 @@ ged_ert_core(struct ged *gedp, int argc, const char *argv[])
 	height = dm_get_height(dmp);
     } else {
 	/* Obol path: no display manager (view owned by QgObolView / obol_view
-	 * Tk widget).  Use a memory-backed framebuffer and read view dimensions
-	 * from the bsg_view.  The Obol widget overlays the pixels when painting. */
+	 * Tk widget).  Allocate a raw RGB pixel buffer directly in the fbserv
+	 * object — no struct fb / libdm in-memory backend needed.  The Obol
+	 * widget reads fbs_pixbuf directly in _paintFbOverlay(). */
 	width  = gedp->ged_gvp->gv_width;
 	height = gedp->ged_gvp->gv_height;
 	if (width <= 0 || height <= 0) {
 	    bu_vls_printf(gedp->ged_result_str, "view has no valid dimensions for embedded raytracing\n");
 	    return BRLCAD_ERROR;
 	}
-	/* Reuse any existing fb of the right size; otherwise (re-)open one. */
 	struct fbserv_obj *fbs = gedp->ged_fbs;
-	if (fbs->fbs_fbp &&
-	    fb_getwidth(fbs->fbs_fbp) == width &&
-	    fb_getheight(fbs->fbs_fbp) == height) {
-	    fbp = fbs->fbs_fbp;
-	} else {
-	    if (fbs->fbs_fbp) {
-		fb_close(fbs->fbs_fbp);
-		fbs->fbs_fbp = NULL;
-	    }
-	    fbp = fb_open("/dev/mem", width, height);
-	    if (!fbp) {
-		bu_vls_printf(gedp->ged_result_str, "could not open in-memory framebuffer for embedded raytracing\n");
-		return BRLCAD_ERROR;
-	    }
+	/* Reallocate pixel buffer only when dimensions change. */
+	if (!fbs->fbs_pixbuf || fbs->fbs_pixbuf_w != width || fbs->fbs_pixbuf_h != height) {
+	    if (fbs->fbs_pixbuf)
+		bu_free(fbs->fbs_pixbuf, "fbs_pixbuf");
+	    fbs->fbs_pixbuf = (unsigned char *)bu_calloc((size_t)width * height * 3,
+							 sizeof(unsigned char), "fbs_pixbuf");
+	    fbs->fbs_pixbuf_w = width;
+	    fbs->fbs_pixbuf_h = height;
 	}
+	/* fbs_fbp stays NULL — the Obol pkg_switch writes to fbs_pixbuf. */
+	fbp = NULL;
     }
 
     if (!ged_who_argc(gedp)) {

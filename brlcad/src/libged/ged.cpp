@@ -261,8 +261,11 @@ ged_free(struct ged *gedp)
 
     bu_ptbl_free(&gedp->ged_subp);
 
-    if (gedp->ged_fbs)
+    if (gedp->ged_fbs) {
+	if (gedp->ged_fbs->fbs_pixbuf)
+	    bu_free(gedp->ged_fbs->fbs_pixbuf, "fbs_pixbuf");
 	BU_PUT(gedp->ged_fbs, struct fbserv_obj);
+    }
 
     bu_ptbl_free(&gedp->editor_opts);
     bu_ptbl_free(&gedp->terminal_opts);
