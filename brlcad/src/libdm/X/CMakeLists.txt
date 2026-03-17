@@ -1,6 +1,9 @@
 set(X_SRCS dm-X.c color.c if_X24.c)
 
-if(BRLCAD_ENABLE_X11 AND BRLCAD_ENABLE_TK)
+# When Obol is the rendering backend, mged/archer create Obol panes directly
+# and the X11 display manager plugin is never loaded.  Skip the build in that
+# case so Obol binaries remain free of libdm rendering symbols.
+if(NOT BRLCAD_ENABLE_OBOL AND BRLCAD_ENABLE_X11 AND BRLCAD_ENABLE_TK)
   find_package(X11)
 
   set(TCL_ENABLE_TK ON)
@@ -43,7 +46,7 @@ if(BRLCAD_ENABLE_X11 AND BRLCAD_ENABLE_TK)
 
     plugin_setup(dm-X dm)
   endif(TCL_FOUND AND TK_FOUND)
-endif(BRLCAD_ENABLE_X11 AND BRLCAD_ENABLE_TK)
+endif(NOT BRLCAD_ENABLE_OBOL AND BRLCAD_ENABLE_X11 AND BRLCAD_ENABLE_TK)
 
 cmakefiles(
   CMakeLists.txt

@@ -8,7 +8,14 @@ if(TARGET libtclcad)
     set(RTWIZARD_SRCS ${RTWIZARD_SRCS} rtwizard.rc)
   endif(HAVE_WINDOWS_H)
 
-  brlcad_addexec(rtwizard "${RTWIZARD_SRCS}" "libtclcad;librt;libdm;liboptical;libicv;Threads::Threads;${M_LIBRARY}")
+  # In Obol builds libdm is not needed: all rendering goes through the Obol
+  # scene-graph, and libtclcad no longer links libdm in that configuration.
+  if(BRLCAD_ENABLE_OBOL)
+    set(RTWIZARD_LIBS "libtclcad;librt;liboptical;libicv;Threads::Threads;${M_LIBRARY}")
+  else()
+    set(RTWIZARD_LIBS "libtclcad;librt;libdm;liboptical;libicv;Threads::Threads;${M_LIBRARY}")
+  endif()
+  brlcad_addexec(rtwizard "${RTWIZARD_SRCS}" "${RTWIZARD_LIBS}")
   target_include_directories(rtwizard BEFORE PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
   add_target_deps(rtwizard rt rtedge fbserv fb-png fb-pix fbclear fblabel fbfree fbline fb-fb pix-bw bwmod bw-pix pixmatte pix-fb tkpng TclIndexBld dm_plugins)
 
