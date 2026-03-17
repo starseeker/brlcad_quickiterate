@@ -6,7 +6,7 @@ Replace BRL-CAD's immediate-mode `libdm`/`libbsg` drawing stack with the
 **Obol** scene-graph library (our Coin3D/Open Inventor fork).  All user-facing
 functionality in MGED, Archer, rtwizard, and qged must be preserved.
 Implementation improvements and bug-fixes are welcome; sub-optimal legacy
-behaviour does not need to be preserved.
+behavior does not need to be preserved.
 
 The migration is largely complete for the Obol build path (`BRLCAD_ENABLE_OBOL`).
 What remains is deleting the now-dead code and finishing rtwizard.
@@ -228,6 +228,114 @@ to drop non-Obol builds entirely:
 registered for backward compatibility with legacy scripts.  Once archer and
 mged scripts no longer call `dm_open` directly, this file and its Tcl command
 registrations can be deleted.
+
+### 7. Stubbed functionality — post-migration check list
+
+The following features were **working** in the libdm path but are currently
+**no-op stubs** in the Obol path.  Each item must be re-examined after
+libdm/libbsg deletion and implemented using the Obol/Coin3D mechanism
+described.  See `MGED_TODO.md` for day-to-day tracking; this list captures
+the user-visible scope.
+
+#### 7a. 2D overlay rendering (mged/archer)
+
+All of the items below previously called `dm_draw_line_2d`, `dm_draw_string_2d`,
+`dm_set_line_attr`, and related libdm 2D drawing APIs.  Their source files now
+contain no-op stubs tagged **Step 7.20**.  The Obol replacement is a
+screen-space `SoAnnotation` subtree rendered after the 3D scene; each overlay
+can share a single `SoOrthographicCamera` and use `SoLineSet`/`SoText2` nodes.
+
+| Feature | Source file | Former user-visible result | Obol approach |
+|---------|-------------|---------------------------|---------------|
+| **ADC (Angle/Distance Cursor)** | `mged/adc.c` → `adcursor()` | Two cursor lines with angle + distance readout drawn over the 3D view | `SoAnnotation` + `SoLineSet` (two lines) + `SoText2` label nodes; position/angles driven by `adc_state` |
+| **Edit axes indicator** | `mged/axes.c` → `draw_e_axes()` | Colored XYZ arrows at the current edit origin | `SoAnnotation` + per-axis `SoLineSet`/`SoCone` in a screen-corner or at-edit-point camera-relative transform |
+| **Model axes indicator** | `mged/axes.c` → `draw_m_axes()` | Colored XYZ arrows at the model origin | Same `SoAnnotation` mechanism; size/position driven by `axes_state` |
+| **View axes indicator** | `mged/axes.c` → `draw_v_axes()` | Colored XYZ arrows in a fixed screen corner | Small fixed-size `SoAnnotation` corner inset; common in Coin3D viewer examples |
+| **Grid overlay** | `mged/grid.c` → `draw_grid()` | Evenly-spaced grid lines on the model plane | `SoCoordinate3` + `SoLineSet` grid computed from `grid_state`; toggle with `SoSwitch` |
+| **Rubber-band rectangle** | `mged/rect.c` → `draw_rect()` | Draggable selection rectangle drawn over the view | `SoAnnotation` + `SoLineSet` (4 edges) updated each mouse-move event |
+| **Rubber-band FB paint** | `mged/rect.c` → `paint_rect_area()` | Pixel region of the framebuffer painted as a rectangle | Replace with `SoTexture2`-based overlay fed from `fbs_pixbuf`, or simply remove (superseded by full `ert` fbserv overlay) |
+| **Rubber-band raytrace** | `mged/rect.c` → `rt_rect_area()` | `rt` subprocess launched on the rubber-band region; result composited into the view | Port the `fbs_pixbuf` approach from `qged/ert.cpp` to mged's Obol pane; launch `rt` with `--rect` args |
+| **Predictor frame** | `mged/predictor.c` → `predictor_frame()` | Ghost wireframe view-frustum preview for velocity navigation | `SoLineSet` under an `SoMatrixTransform` updated from `predictor_state`; toggle with `SoSwitch` |
+| **On-screen scroll sliders** | `mged/scroll.c` → `scroll_display()` | Interactive translation/rotation sliders drawn in the view area | Replace with Tk `Scale` widgets docked below each `obol_view` pane; slider callbacks already update `bsg_view` via `knob` dispatch |
+| **In-view button menus** | `mged/menu.c` → `mmenu_display()`, `mged_highlight_menu_item()` | Pop-up function menus drawn directly inside the 3D view | Replace with Tk popup menus (`tk_popup`) or a dedicated Tk frame; the `mmenu_select()` / `mmenu_parms()` selection logic is intact |
+| **HUD title text** | `mged/titles.c` → `screen_vls()`, `dotitles()` | Model name, editing state, view size, AET drawn as text in the view | `obol_update_title_vars()` already writes `$aet`, `$center`, `$size` Tcl vars; the Tk label display (`titles.tcl`) must be wired to these vars and to `obol_notify_views`; actual in-view text can use `SoText2` under `SoAnnotation` if desired |
+
+#### 7b. MGED framebuffer server (mged fbserv)
+
+`mged/fbserv.c` → `fbserv_set_port()` is a no-op.
+
+- **Former behavior**: MGED opened an in-process libdm framebuffer (`/dev/wl`
+  or `fbserv`), accepted `rt` output via pkg protocol, and composited the pixel
+  data onto the display manager surface (`mp_fbp` overlay).
+- **Current state**: `mged_pane` has no `mp_fbp` or `mp_netfd`; all removed in
+  Step 7.20.  The `mv_listen` / `mv_port` mged variables exist but the hook
+  (`fbserv_set_port`) does nothing.
+- **Obol approach**: Port the `fbs_pixbuf` + `qdm_obol_new_client` mechanism
+  from `qged/fbserv.cpp` to the mged Tcl/`obol_view` path.  The `obol_view`
+  widget already has an `_paintFbOverlay` hook in `QgObolView`; a parallel
+  `obol_view_paint_fb_overlay()` should be added to `libtclcad/obol_view.cpp`.
+  The `fbs_pixbuf` buffer on `fbserv_obj` is then uploaded as a `SoTexture2`
+  overlay node on each frame.
+
+#### 7c. OpenGL display lists (mged/dozoom.c)
+
+`dozoom()`, `createDListSolid()`, `createDListAll()`, `freeDListsAll()` are
+all no-op stubs (Step 7.20).
+
+- **Former behavior**: Every solid's vlist was compiled into a GL display
+  list; `dozoom` iterated the list and called `glCallList` for each visible
+  shape, implementing view-frustum culling with the libdm matrix stack.
+- **Current state**: Obol's `SoGLRenderAction` handles all GL calls; the
+  per-shape `SoNode*` stored in `bsg_shape::s_obol_node` is the replacement.
+- **Action**: Verify that the Coin3D caching (`SoSeparator::renderCaching =
+  ON`) provides equivalent per-shape cache performance.  If profiling shows a
+  bottleneck, evaluate `SoVBO` or `SoVertexBuffer` caching for heavy BoT meshes.
+
+#### 7d. X11 / libdm event dispatch (mged/doevent.c)
+
+`doEvent()` (the X11 `XAnyEvent` handler) was removed in Stage 8; mged now
+relies entirely on Obol/Qt event routing through the `obol_view` Tk widget.
+
+- **Check**: Confirm that all keyboard shortcuts (`f`, `R`, `c`, etc.) and
+  mouse button bindings that previously flowed through `doEvent` are correctly
+  bound in the Obol Tk widget event table (`obol_view.cpp`
+  `bind_obol_view_events()`).  Specifically verify: left/middle/right mouse
+  drag for rotate/translate/zoom; `<ButtonRelease>` to terminate rubber-band
+  rectangle; `<KeyPress>` for single-key shortcuts.
+
+#### 7e. Display-list sharing between panes (mged/share.c)
+
+`share_dlist()` is a no-op; the `'d'`/`'D'` branch of `f_share()` is silently
+skipped.
+
+- **Former behavior**: Two panes could share a single GL display-list context
+  so that compiled geometry was not duplicated in GPU memory.
+- **Current state**: Each `mged_pane` / `obol_view` widget has its own
+  `SoSceneManager`; geometry nodes (`SoNode*`) are ref-counted and shared via
+  the `bsg_shape::s_obol_node` pointer, providing an equivalent benefit at the
+  scene-graph level.
+- **Action**: Document (or assert) that `SoNode` ref-counting gives the same
+  single-upload guarantee; remove the dead `share_dlist` stub once confirmed.
+
+#### 7f. `to_fb_rect` Tcl command (libtclcad/commands.c)
+
+`to_fb_rect()` returns `BRLCAD_OK` immediately in the Obol path.
+
+- **Former behavior**: Painted a rectangular region of the framebuffer
+  surface in the view.
+- **Obol approach**: If this is still needed (e.g. by archer scripts), route
+  it through the same `fbs_pixbuf` overlay described in §7b above.  If no
+  callers remain after removing libdm, delete the command registration.
+
+#### 7g. `go_draw()` in libtclcad (libtclcad/view/draw.c)
+
+`go_draw()` is a one-line no-op returning immediately.
+
+- **Former behavior**: Called `dm_draw_vlist` on every display-list entry to
+  repaint the Tk window synchronously.
+- **Obol approach**: Already replaced by `obol_notify_views`; all callers of
+  `go_draw` should be audited to confirm they now call (or indirectly trigger)
+  `obol_notify_views` instead.
 
 ---
 
