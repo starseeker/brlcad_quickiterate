@@ -91,10 +91,10 @@ add_custom_target(dm_plugins ALL DEPENDS dm_plugins_sentinel)
 set_target_properties(dm_plugins PROPERTIES FOLDER "BRL-CAD Plugins")
 
 # Backend implementations
-# Detect Obol early so we can guard the Qt-backed rendering plugins.
-# Both qtgl and swrast use libqtcad's QgGL / QgSW classes; when Obol is
-# the rendering backend those classes are excluded from libqtcad, so we must
-# also exclude the libdm plugins that depend on them.
+# Detect Obol early so we can guard the GL rendering plugins.
+# When Obol is the rendering backend, all GL-backed libdm plugins (qtgl,
+# swrast, glx, X, wgl) are replaced by the Obol/Coin3D scene-graph path and
+# must be excluded to keep Obol binaries free of libdm rendering symbols.
 if(BRLCAD_ENABLE_QT AND NOT DEFINED BRLCAD_ENABLE_OBOL)
   brlcad_find_package(Obol)
   if(TARGET Obol::Obol)

@@ -1,3 +1,9 @@
+# All tests in this directory attach the libdm swrast plugin (dm_open("swrast"))
+# for rendering.  In Obol builds the libdm swrast plugin is not built; the Obol
+# equivalent tests are qged_test and qged_pipeline_test which use
+# QgObolSwrastView (Coin3D / OSMesa).  Skip all libdm draw tests when Obol is
+# the rendering backend.
+
 set(
   test_deps
   dm-swrast
@@ -12,21 +18,6 @@ set(
   ged-view
   ged-zap
 )
-
-# If the in-source moss.g is a stub (no real geometry), use the properly-built
-# share/db/moss.g instead.  The draw tests accept an optional second positional
-# argument that names the directory containing moss.g so that control images
-# (first arg, source dir) and moss.g (second arg, binary dir) can differ.
-set(_DRAW_TEST_MOSS_G "${CMAKE_CURRENT_BINARY_DIR}/moss.g")
-set(_SHARE_MOSS_G "${CMAKE_BINARY_DIR}/${DATA_DIR}/db/moss.g")
-add_custom_command(
-  OUTPUT "${_DRAW_TEST_MOSS_G}"
-  COMMAND ${CMAKE_COMMAND} -E copy_if_different "${_SHARE_MOSS_G}" "${_DRAW_TEST_MOSS_G}"
-  DEPENDS moss.g
-  COMMENT "Copying share/db/moss.g to draw-test binary directory"
-)
-add_custom_target(draw_test_moss_g DEPENDS "${_DRAW_TEST_MOSS_G}")
-distclean("${_DRAW_TEST_MOSS_G}")
 
 set(
   basic_view_test_ctrls
@@ -57,16 +48,6 @@ set(
   v025_ctrl.png
   v026_ctrl.png
 )
-brlcad_addexec(ged_test_draw "basic.cpp;util.cpp" "libged;libdm" TEST)
-if(TARGET ged_test_draw)
-  foreach(tdp ${test_deps})
-    if (TARGET tdp)
-      add_dependencies(ged_test_draw ${tdp})
-    endif ()
-  endforeach()
-  add_dependencies(ged_test_draw draw_test_moss_g)
-endif(TARGET ged_test_draw)
-brlcad_add_test(NAME ged_test_drawing_basic COMMAND ged_test_draw -c "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}")
 
 set(
   faceplate_test_ctrls
@@ -80,16 +61,6 @@ set(
   fp008_ctrl.png
   fp009_ctrl.png
 )
-brlcad_addexec(ged_test_faceplate "faceplate.cpp;util.cpp" "libged;libdm" TEST)
-if(TARGET ged_test_faceplate)
-  foreach(tdp ${test_deps})
-    if (TARGET tdp)
-      add_dependencies(ged_test_faceplate ${tdp})
-    endif ()
-  endforeach()
-  add_dependencies(ged_test_faceplate draw_test_moss_g)
-endif(TARGET ged_test_faceplate)
-brlcad_add_test(NAME ged_test_drawing_faceplate COMMAND ged_test_faceplate -c "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}")
 
 set(
   lod_test_ctrls
@@ -100,17 +71,6 @@ set(
   lod005_ctrl.png
   lod006_ctrl.png
 )
-brlcad_addexec(ged_test_lod "lod.cpp;util.cpp" "libged;libdm" TEST)
-if(TARGET ged_test_lod)
-  foreach(tdp ${test_deps})
-    if (TARGET tdp)
-      add_dependencies(ged_test_lod ${tdp})
-    endif ()
-  endforeach()
-  add_dependencies(ged_test_lod draw_test_moss_g)
-endif(TARGET ged_test_lod)
-brlcad_add_test(NAME ged_test_drawing_lod COMMAND ged_test_lod -c "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}")
-distclean(${CMAKE_CURRENT_BINARY_DIR}/moss_lod_tmp.g)
 
 set(
   select_test_ctrls
@@ -158,19 +118,6 @@ set(
   select023_ctrl.png
   select024_ctrl.png
 )
-brlcad_addexec(ged_test_select_draw "select.cpp;util.cpp" "libged;libdm" TEST)
-if(TARGET ged_test_select_draw)
-  foreach(tdp ${test_deps})
-    if (TARGET tdp)
-      add_dependencies(ged_test_select_draw ${tdp})
-    endif ()
-  endforeach()
-  add_dependencies(ged_test_select_draw draw_test_moss_g)
-endif(TARGET ged_test_select_draw)
-brlcad_add_test(NAME ged_test_drawing_select COMMAND ged_test_select_draw -c "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}")
-distclean(${CMAKE_CURRENT_BINARY_DIR}/moss_select_tmp.g)
-distclean(${CMAKE_CURRENT_BINARY_DIR}/moss_tmp.g)
-distclean(${CMAKE_CURRENT_BINARY_DIR}/moss_aet_tmp.g)
 
 set(
   quad_test_ctrls
@@ -207,17 +154,6 @@ set(
   quad_03_007_ctrl.png
   quad_03_008_ctrl.png
 )
-brlcad_addexec(ged_test_quad quad.cpp "libged;libdm" TEST)
-if(TARGET ged_test_quad)
-  foreach(tdp ${test_deps})
-    if (TARGET tdp)
-      add_dependencies(ged_test_quad ${tdp})
-    endif ()
-  endforeach()
-  add_dependencies(ged_test_quad draw_test_moss_g)
-endif(TARGET ged_test_quad)
-brlcad_add_test(NAME ged_test_drawing_quad COMMAND ged_test_quad -c "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}")
-distclean(${CMAKE_CURRENT_BINARY_DIR}/moss_quad_tmp.g)
 
 # The idea here is to test view stability across resize events
 set(
@@ -231,15 +167,127 @@ set(
   aet_03_001_ctrl.png
   aet_03_002_ctrl.png
 )
-brlcad_addexec(ged_test_aet "aet.cpp;util.cpp" "libged;libdm" TEST)
-if(TARGET ged_test_aet)
-  foreach(tdp ${test_deps})
-    if (TARGET tdp)
-      add_dependencies(ged_test_aet ${tdp})
-    endif ()
-  endforeach()
-  add_dependencies(ged_test_aet draw_test_moss_g)
-endif(TARGET ged_test_aet)
+
+if(NOT BRLCAD_ENABLE_OBOL)
+
+  # If the in-source moss.g is a stub (no real geometry), use the properly-built
+  # share/db/moss.g instead.  The draw tests accept an optional second positional
+  # argument that names the directory containing moss.g so that control images
+  # (first arg, source dir) and moss.g (second arg, binary dir) can differ.
+  set(_DRAW_TEST_MOSS_G "${CMAKE_CURRENT_BINARY_DIR}/moss.g")
+  set(_SHARE_MOSS_G "${CMAKE_BINARY_DIR}/${DATA_DIR}/db/moss.g")
+  add_custom_command(
+    OUTPUT "${_DRAW_TEST_MOSS_G}"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${_SHARE_MOSS_G}" "${_DRAW_TEST_MOSS_G}"
+    DEPENDS moss.g
+    COMMENT "Copying share/db/moss.g to draw-test binary directory"
+  )
+  add_custom_target(draw_test_moss_g DEPENDS "${_DRAW_TEST_MOSS_G}")
+  distclean("${_DRAW_TEST_MOSS_G}")
+
+  brlcad_addexec(ged_test_draw "basic.cpp;util.cpp" "libged;libdm" TEST)
+  if(TARGET ged_test_draw)
+    foreach(tdp ${test_deps})
+      if (TARGET tdp)
+        add_dependencies(ged_test_draw ${tdp})
+      endif ()
+    endforeach()
+    add_dependencies(ged_test_draw draw_test_moss_g)
+  endif(TARGET ged_test_draw)
+  brlcad_add_test(NAME ged_test_drawing_basic COMMAND ged_test_draw -c "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}")
+
+  brlcad_addexec(ged_test_faceplate "faceplate.cpp;util.cpp" "libged;libdm" TEST)
+  if(TARGET ged_test_faceplate)
+    foreach(tdp ${test_deps})
+      if (TARGET tdp)
+        add_dependencies(ged_test_faceplate ${tdp})
+      endif ()
+    endforeach()
+    add_dependencies(ged_test_faceplate draw_test_moss_g)
+  endif(TARGET ged_test_faceplate)
+  brlcad_add_test(NAME ged_test_drawing_faceplate COMMAND ged_test_faceplate -c "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}")
+
+  brlcad_addexec(ged_test_lod "lod.cpp;util.cpp" "libged;libdm" TEST)
+  if(TARGET ged_test_lod)
+    foreach(tdp ${test_deps})
+      if (TARGET tdp)
+        add_dependencies(ged_test_lod ${tdp})
+      endif ()
+    endforeach()
+    add_dependencies(ged_test_lod draw_test_moss_g)
+  endif(TARGET ged_test_lod)
+  brlcad_add_test(NAME ged_test_drawing_lod COMMAND ged_test_lod -c "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}")
+  distclean(${CMAKE_CURRENT_BINARY_DIR}/moss_lod_tmp.g)
+
+  brlcad_addexec(ged_test_select_draw "select.cpp;util.cpp" "libged;libdm" TEST)
+  if(TARGET ged_test_select_draw)
+    foreach(tdp ${test_deps})
+      if (TARGET tdp)
+        add_dependencies(ged_test_select_draw ${tdp})
+      endif ()
+    endforeach()
+    add_dependencies(ged_test_select_draw draw_test_moss_g)
+  endif(TARGET ged_test_select_draw)
+  brlcad_add_test(NAME ged_test_drawing_select COMMAND ged_test_select_draw -c "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}")
+  distclean(${CMAKE_CURRENT_BINARY_DIR}/moss_select_tmp.g)
+  distclean(${CMAKE_CURRENT_BINARY_DIR}/moss_tmp.g)
+  distclean(${CMAKE_CURRENT_BINARY_DIR}/moss_aet_tmp.g)
+
+  brlcad_addexec(ged_test_quad quad.cpp "libged;libdm" TEST)
+  if(TARGET ged_test_quad)
+    foreach(tdp ${test_deps})
+      if (TARGET tdp)
+        add_dependencies(ged_test_quad ${tdp})
+      endif ()
+    endforeach()
+    add_dependencies(ged_test_quad draw_test_moss_g)
+  endif(TARGET ged_test_quad)
+  brlcad_add_test(NAME ged_test_drawing_quad COMMAND ged_test_quad -c "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}")
+  distclean(${CMAKE_CURRENT_BINARY_DIR}/moss_quad_tmp.g)
+
+  brlcad_addexec(ged_test_aet "aet.cpp;util.cpp" "libged;libdm" TEST)
+  if(TARGET ged_test_aet)
+    foreach(tdp ${test_deps})
+      if (TARGET tdp)
+        add_dependencies(ged_test_aet ${tdp})
+      endif ()
+    endforeach()
+    add_dependencies(ged_test_aet draw_test_moss_g)
+  endif(TARGET ged_test_aet)
+
+  # DrawPipeline visual test (uses GenericTwin.g for BoT-heavy testing)
+  brlcad_addexec(ged_test_drawpipeline "drawpipeline_test.cpp;util.cpp" "libged;libdm" TEST)
+  if(TARGET ged_test_drawpipeline)
+    foreach(tdp ${test_deps})
+      if(TARGET ${tdp})
+        add_dependencies(ged_test_drawpipeline ${tdp})
+      endif()
+    endforeach()
+    add_dependencies(ged_test_drawpipeline Generic_Twin.g)
+  endif()
+  brlcad_add_test(NAME ged_test_drawpipeline_generic
+    COMMAND ged_test_drawpipeline
+      "${CMAKE_BINARY_DIR}/${DATA_DIR}/db/faa/Generic_Twin.g"
+      "${CMAKE_CURRENT_BINARY_DIR}/dp_test_output"
+  )
+
+  # gsh --new-cmds + swrast smoke test (uses moss.g, validates DbiState draw path)
+  brlcad_addexec(ged_test_gsh_draw "gsh_draw_test.cpp;util.cpp" "libged;libdm" TEST)
+  if(TARGET ged_test_gsh_draw)
+    foreach(tdp ${test_deps})
+      if(TARGET ${tdp})
+        add_dependencies(ged_test_gsh_draw ${tdp})
+      endif()
+    endforeach()
+    add_dependencies(ged_test_gsh_draw draw_test_moss_g)
+  endif()
+  brlcad_add_test(NAME ged_test_gsh_draw_moss
+    COMMAND ged_test_gsh_draw
+      "${CMAKE_CURRENT_BINARY_DIR}/moss.g"
+      "${CMAKE_CURRENT_BINARY_DIR}/gsh_draw_output"
+  )
+
+endif(NOT BRLCAD_ENABLE_OBOL)
 
 cmakefiles(
   README
@@ -248,50 +296,21 @@ cmakefiles(
   moss.png
   rook.g
   util.cpp
+  basic.cpp
+  faceplate.cpp
+  lod.cpp
+  select.cpp
+  quad.cpp
+  aet.cpp
   drawpipeline_test.cpp
+  gsh_draw_test.cpp
+  CMakeLists.txt
   ${basic_view_test_ctrls}
   ${faceplate_test_ctrls}
   ${lod_test_ctrls}
   ${select_test_ctrls}
   ${quad_test_ctrls}
   ${aet_test_ctrls}
-)
-
-# DrawPipeline visual test (uses GenericTwin.g for BoT-heavy testing)
-brlcad_addexec(ged_test_drawpipeline "drawpipeline_test.cpp;util.cpp" "libged;libdm" TEST)
-if(TARGET ged_test_drawpipeline)
-  foreach(tdp ${test_deps})
-    if(TARGET ${tdp})
-      add_dependencies(ged_test_drawpipeline ${tdp})
-    endif()
-  endforeach()
-  add_dependencies(ged_test_drawpipeline Generic_Twin.g)
-endif()
-brlcad_add_test(NAME ged_test_drawpipeline_generic
-  COMMAND ged_test_drawpipeline
-    "${CMAKE_BINARY_DIR}/${DATA_DIR}/db/faa/Generic_Twin.g"
-    "${CMAKE_CURRENT_BINARY_DIR}/dp_test_output"
-)
-
-# gsh --new-cmds + swrast smoke test (uses moss.g, validates DbiState draw path)
-brlcad_addexec(ged_test_gsh_draw "gsh_draw_test.cpp;util.cpp" "libged;libdm" TEST)
-if(TARGET ged_test_gsh_draw)
-  foreach(tdp ${test_deps})
-    if(TARGET ${tdp})
-      add_dependencies(ged_test_gsh_draw ${tdp})
-    endif()
-  endforeach()
-  add_dependencies(ged_test_gsh_draw draw_test_moss_g)
-endif()
-brlcad_add_test(NAME ged_test_gsh_draw_moss
-  COMMAND ged_test_gsh_draw
-    "${CMAKE_CURRENT_BINARY_DIR}/moss.g"
-    "${CMAKE_CURRENT_BINARY_DIR}/gsh_draw_output"
-)
-
-cmakefiles(
-  gsh_draw_test.cpp
-  CMakeLists.txt
 )
 
 # Local Variables:
