@@ -1,11 +1,9 @@
 # Main libdm library
 set(
   LIBDM_SRCS
-  null/dm-Null.c
   null/if_null.c
   txt/if_debug.c
   asize.c
-  dm-generic.c
   dm_init.cpp
   fb_plugins.cpp
   dm_util.c
@@ -19,7 +17,6 @@ set(
   if_mem.c
   if_remote.c
   if_stack.c
-  view.c
   vers.c
 )
 # dm_plugins.cpp contains the dm_open/dm_have_graphics/dm_list_types/… API
@@ -27,8 +24,26 @@ set(
 # rendering plugins are present so dm_backends is always empty; these
 # functions are replaced by lightweight stubs in dm_obol_stubs.cpp that
 # return NULL/0/"nu" immediately without consulting the map.
+#
+# view.c contains the dm-rendering visitor and draw helper functions
+# (dm_draw_faceplate, dm_draw_viewobjs, dm_draw_objs, dm_draw_arrow, …).
+# All callers (QgGL.cpp, QgSW.cpp, gsh.cpp USE_DM block) are themselves
+# gated with NOT BRLCAD_ENABLE_OBOL, so in Obol builds this entire file is
+# dead code and can be excluded from the build.
+#
+# dm-generic.c supplies accessor helpers for struct dm (dm_get_width,
+# dm_graphical, dm_close, …).  These are only called from view.c (excluded
+# above in Obol) and from dm_plugins.cpp (excluded above in Obol builds).
+#
+# null/dm-Null.c provides the dm_null fallback display manager; it is only
+# referenced from dm_plugins.cpp via dm_null.i->dm_open (excluded in Obol).
 if(NOT BRLCAD_ENABLE_OBOL)
-  list(APPEND LIBDM_SRCS dm_plugins.cpp)
+  list(APPEND LIBDM_SRCS
+    null/dm-Null.c
+    dm-generic.c
+    dm_plugins.cpp
+    view.c
+  )
 else()
   list(APPEND LIBDM_SRCS dm_obol_stubs.cpp)
 endif()
@@ -159,9 +174,10 @@ set(
 # dm-gl_lod.cpp is in LIBDMGL_SRCS along with dm-gl.c; in non-Obol+OpenGL
 # builds both are registered by brlcad_addlib, but in Obol builds libdmgl is
 # skipped so dm-gl_lod.cpp needs explicit registration here.
-# Similarly, dm_plugins.cpp is only compiled in non-Obol builds, so register
-# it here for Obol builds.  dm_obol_stubs.cpp is only compiled in Obol builds,
-# so register it for non-Obol builds.
+# Similarly, dm_plugins.cpp, dm-generic.c, view.c, and null/dm-Null.c are only
+# compiled in non-Obol builds, so register them here for Obol builds.
+# dm_obol_stubs.cpp is only compiled in Obol builds, so register it for
+# non-Obol builds.
 if(BRLCAD_ENABLE_OBOL)
   list(APPEND libdm_ignore_files
     adc.c
@@ -174,6 +190,9 @@ if(BRLCAD_ENABLE_OBOL)
     scale.c
     dm-gl_lod.cpp
     dm_plugins.cpp
+    dm-generic.c
+    view.c
+    null/dm-Null.c
   )
 else()
   list(APPEND libdm_ignore_files
