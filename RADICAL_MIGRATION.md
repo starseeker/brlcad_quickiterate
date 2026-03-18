@@ -286,6 +286,40 @@ Remaining steps (source-directory deletion requires committing to Obol-only):
 1. Remove the now-dead source directories from disk (git rm) and update
    `cmakefiles()` lists.
 
+### 2d. Gate dm rendering core from Obol builds — Complete (Stage 30)
+
+**Stage 30 moves `dm-generic.c`, `view.c`, and `null/dm-Null.c` into the
+`NOT BRLCAD_ENABLE_OBOL` conditional block in `src/libdm/CMakeLists.txt`,
+eliminating the last dm-rendering symbols from `libdm.so` in Obol builds.**
+
+Background:
+- `dm-generic.c` supplies the ~70 accessor / mutator helpers for `struct dm`
+  (`dm_get_width`, `dm_graphical`, `dm_close`, `dm_set_bg`, …).  In Obol
+  builds these are only called from `view.c` (now excluded) and from
+  `dm_plugins.cpp` (already excluded since Stage 29).
+- `view.c` contains the dm-rendering visitor and draw helpers —
+  `dm_draw_faceplate`, `dm_draw_viewobjs`, `dm_draw_objs`, `dm_draw_arrow`,
+  `dm_draw_arrows`, `dm_draw_polys`, `dm_draw_lines`, `dm_draw_labels`, etc.
+  All external callers (`QgGL.cpp`, `QgSW.cpp`, `gsh.cpp` USE_DM block) were
+  already gated NOT BRLCAD_ENABLE_OBOL in earlier stages, so this entire file
+  is dead code in Obol builds.
+- `null/dm-Null.c` provides `dm_null`, the always-present no-op display
+  manager.  The only reference to `dm_null` is in `dm_plugins.cpp`
+  (`dm_null.i->dm_open(...)` in the "nu" branch) which was excluded in
+  Stage 29, so `dm_null` is unreferenced in Obol builds.
+
+Changes made (Stage 30):
+- **`src/libdm/CMakeLists.txt`**: `null/dm-Null.c`, `dm-generic.c`, and
+  `view.c` moved from the always-compiled `LIBDM_SRCS` list into the
+  `if(NOT BRLCAD_ENABLE_OBOL)` conditional block (alongside `dm_plugins.cpp`
+  and the 2D overlay helpers).  `cmakefiles()` registration updated.
+
+Result: in Obol builds `libdm.so` now exports **only** the fb API
+(`fb_open`, `fb_write`, `fb_close`, …), the fb utility helpers
+(`fb_common_file_size`, …), the fbserv infrastructure, and the dm-open
+stub functions (`dm_open` → `DM_NULL`, `dm_have_graphics` → 0, …).  No
+`dm_draw_*`, no `dm_get_width`, no `dm_null`, no plugin loading.
+
 ### 2c. Split dm_plugins.cpp and gate dm_open in Obol builds — Complete (Stage 29)
 
 **Stage 29 splits `dm_plugins.cpp` into a fb-only `fb_plugins.cpp` (always
