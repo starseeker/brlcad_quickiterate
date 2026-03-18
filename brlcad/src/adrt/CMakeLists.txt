@@ -61,8 +61,10 @@ set(
 brlcad_manage_files(tie_HDRS ${INCLUDE_DIR}/tie)
 
 # Tcl/Tk based ISST
+# isst.c opens an X11/ogl display manager via dm_open — not compatible with
+# Obol builds where libdm has no GL rendering backend.
 
-if(BRLCAD_ENABLE_OPENGL AND BRLCAD_ENABLE_TK)
+if(NOT BRLCAD_ENABLE_OBOL AND BRLCAD_ENABLE_OPENGL AND BRLCAD_ENABLE_TK)
   set(isst_dirs ${OPENGL_INCLUDE_DIR_GL} ${OPENGL_INCLUDE_DIR_GLX})
   set(local_isst_dirs ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/librender)
 
@@ -85,7 +87,7 @@ if(BRLCAD_ENABLE_OPENGL AND BRLCAD_ENABLE_TK)
   endif(isst_dirs)
   target_include_directories(isst BEFORE PRIVATE ${local_isst_dirs})
   add_target_deps(isst isst_tcl_cp TclIndexBld dm_plugins)
-endif(BRLCAD_ENABLE_OPENGL AND BRLCAD_ENABLE_TK)
+endif(NOT BRLCAD_ENABLE_OBOL AND BRLCAD_ENABLE_OPENGL AND BRLCAD_ENABLE_TK)
 
 cmakefiles(isst.tcl)
 cmakefiles(isst.c)

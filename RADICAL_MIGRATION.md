@@ -285,9 +285,43 @@ Changes made (Stage 27):
 Remaining steps (source-directory deletion requires committing to Obol-only):
 1. Remove the now-dead source directories from disk (git rm) and update
    `cmakefiles()` lists.
-3. Slim core `libdm` further: consider whether `dm_plugins.cpp` /
-   `dm_init.cpp` can be replaced by minimal stubs once `adrt/isst.c` and
-   `libged/dm/dm.c` no longer call `dm_open`.
+2. Split `dm_plugins.cpp` into `fb_plugins.cpp` (fb_open/fb_set_interface)
+   and `dm_plugins.cpp` (dm_open only), then gate the dm-only half; this
+   allows `dm_init.cpp` and the remaining `dm_plugins.cpp` to also be gated.
+
+### 2b. Gate final dm_open callers in Obol builds — Complete (Stage 28)
+
+**Stage 28 removed all remaining `dm_open` call sites from Obol build paths,
+and also gates `gsh`/`adrt/isst`/`util/plot3-dm` from depending on libdm.**
+
+Changes made (Stage 28):
+
+- **`src/libged/dm/CMakeLists.txt`**: In Obol builds only `ert.cpp` is
+  compiled (its Obol path is already `dmp == NULL`-safe from Stage 20).
+  `dm.c` (the `dm` GED command, which calls `dm_open`) and `screengrab.c`
+  (which calls `dm_get_fb`, `dm_get_display_image`, etc.) are excluded.
+  The Obol plugin links `libged + libbu` only — no libdm.
+
+- **`src/gtools/gsh/gsh.cpp`**: `#define USE_DM 1` is now gated with
+  `#ifndef BRLCAD_ENABLE_OBOL`.  The `DisplayHash` class and both its
+  methods, `GshState::view_checkpoint()` and `GshState::view_update()`, are
+  wrapped with `#ifdef USE_DM`.  Call sites in `GshState::GshState()` and
+  `GshState::eval()` are similarly guarded.
+
+- **`src/gtools/gsh/CMakeLists.txt`**: Obol branch links `libged + libbu`
+  only; non-Obol branch links `libged + libdm + libbu` and adds the
+  `dm_plugins` build-time dependency.
+
+- **`src/adrt/CMakeLists.txt`**: `isst` (which calls `dm_open`) is now
+  built only when `NOT BRLCAD_ENABLE_OBOL AND BRLCAD_ENABLE_OPENGL AND
+  BRLCAD_ENABLE_TK`.
+
+- **`src/util/CMakeLists.txt`**: `plot3-dm` (which calls `dm_open` via
+  X11/ogl) is now built only when `NOT BRLCAD_ENABLE_OBOL AND BRLCAD_ENABLE_TK`.
+
+After Stage 28, `dm_open` has **no remaining callers in Obol builds** (all
+former callers are either `NOT BRLCAD_ENABLE_OBOL`-gated or already excluded
+by the TK/OpenGL guard which implies non-Obol).
 
 ### 3. Delete `src/libbsg/` and `include/bsg/`
 
