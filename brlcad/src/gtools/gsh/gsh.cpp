@@ -40,7 +40,12 @@
 #include "bsg.h"
 #include "bsg/util.h"
 
-#define USE_DM 1
+/* In Obol builds display-manager rendering is handled by Coin3D/Obol; the
+ * dm_* layer (dm_open, dm_draw_objs, etc.) is not present.  Gate all USE_DM
+ * code so that gsh compiles and links without libdm in Obol builds. */
+#ifndef BRLCAD_ENABLE_OBOL
+#  define USE_DM 1
+#endif
 #ifdef USE_DM
 #  define DM_WITH_RT
 #  include "dm.h"
@@ -150,6 +155,7 @@ ProcessIOHandler::read()
     return lcpy;
 }
 
+#ifdef USE_DM
 class DisplayHash {
     public:
 	bool hash(struct ged *, bool, bool);
@@ -214,6 +220,7 @@ DisplayHash::dirty(struct ged *gedp, const DisplayHash &o)
 	dm_set_dirty(dmp, 1);
     }
 }
+#endif /* USE_DM */
 
 /* The overall state of the gsh application is encapsulated by a state class
  * called GshState.  It defines the method for executing libged commands and
@@ -241,9 +248,11 @@ class GshState {
 	size_t listeners_cnt();
 
 	// Display management
+#ifdef USE_DM
 	void view_checkpoint();
 	void view_update();
 	DisplayHash prev_hash;
+#endif /* USE_DM */
 
 	struct ged *gedp;
 	std::string gfile;  // Mostly used to test the post_opendb callback
@@ -375,7 +384,9 @@ GshState::GshState()
     BU_GET(gedp, struct ged);
     ged_init(gedp);
 
+#ifdef USE_DM
     view_checkpoint();
+#endif /* USE_DM */
 
     // Assign gsh specific open/close db handlers to the gedp
     ged_clbk_set(gedp, "opendb", BU_CLBK_PRE, &gsh_pre_opendb_clbk, (void *)this);
@@ -428,12 +439,16 @@ GshState::eval(int argc, const char **argv)
 
     // We've got a valid GED command. Before any BRL-CAD logic is executed,
     // stash the state of the view info so we can recognize changes.
+#ifdef USE_DM
     view_checkpoint();
+#endif /* USE_DM */
 
     int gret = ged_exec(gedp, argc, argv);
 
+#ifdef USE_DM
     if (!(gret & BRLCAD_ERROR))
 	view_update();
+#endif /* USE_DM */
 
     return gret;
 }
@@ -496,13 +511,13 @@ GshState::disconnect(struct ged_subprocess *p, bu_process_io_t t)
 	p->end_clbk(0, NULL, NULL, p->end_clbk_data);
 }
 
+#ifdef USE_DM
 void
 GshState::view_checkpoint()
 {
-#ifdef USE_DM
     prev_hash.hash(gedp, false, new_cmd_forms);
-#endif
 }
+#endif /* USE_DM */
 
 void
 GshState::subprocess_output()
@@ -563,10 +578,10 @@ GshState::listeners_cnt()
     return listeners.size();
 }
 
+#ifdef USE_DM
 void
 GshState::view_update()
 {
-#ifdef USE_DM
     DisplayHash hashes;
     if (!hashes.hash(gedp, true, new_cmd_forms))
 	return;
@@ -584,8 +599,8 @@ GshState::view_update()
 	dm_draw_objs(v, NULL, NULL);
 	dm_draw_end(dmp);
     }
-#endif
 }
+#endif /* USE_DM */
 
 // The primary interaction thread managing the command line
 // input from the user.  Must not be the main thread of the

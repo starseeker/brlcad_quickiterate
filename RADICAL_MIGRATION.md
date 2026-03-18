@@ -187,6 +187,41 @@ Changes made (Stage 25):
   fallback uses a plain `stat()` call instead.  CMakeLists Obol branch links
   `libbu + ${PNG_LIBRARIES}` only (no libdm).
 
+### 1d. pix-fb and bw-fb — libdm-free in Obol builds — Complete (Stage 34)
+
+**`pix-fb` (write a raw .pix file to the framebuffer) and `bw-fb` (write a BW
+file to the framebuffer) now have Obol paths that speak the fbserv PKG wire
+protocol directly, with no libdm dependency.**
+
+In addition, `BRLCAD_ENABLE_OBOL` detection is now performed at the **top level**
+(`brlcad/CMakeLists.txt`) right after `include(BRLCAD_Find_Package)` so that the
+flag is available uniformly to every subdirectory without relying on per-directory
+`brlcad_find_package(Obol)` calls.
+
+Files changed:
+
+- **`brlcad/CMakeLists.txt`**: Added `brlcad_find_package(Obol)` block with
+  `BRLCAD_ENABLE_OBOL` / `BRLCAD_OBOL_DUAL_GL` cache variables set before the
+  `verbose_add_subdirectory("" src)` call.  Child CMakeLists keep their own
+  `if(NOT DEFINED BRLCAD_ENABLE_OBOL)` guards as incremental-reconfigure fallbacks.
+
+- **`src/fb/pix-fb.c`**: `#ifdef BRLCAD_ENABLE_OBOL` path opens a PKG connection
+  to fbserv (`pkg_open`), sends `MSG_FBOPEN`, then sends the pixel data row-by-row
+  (or multi-row where applicable) via `MSG_FBWRITERECT`, and closes with
+  `MSG_FBCLOSE`.  Supports `-c` (clear), `-i` (inverse), `-m` (multi-line), offsets,
+  and autosize.  `pkg_waitfor(MSG_RETURN, …)` used for synchronous acknowledgement.
+  Non-Obol `#else` path is the unchanged original `fb_open` / `fb_write` /
+  `fb_writerect` / `fb_close` code.
+
+- **`src/fb/bw-fb.c`**: `#ifdef BRLCAD_ENABLE_OBOL` path uses `MSG_FBBWWRITERECT`
+  (1 byte/pixel; the server expands each byte to R=G=B).  Selective color-plane
+  loading (`-R`/`-G`/`-B`) is unsupported in the Obol path (exits with a clear
+  error if a partial subset is requested).  Non-Obol `#else` path unchanged.
+
+- **`src/fb/CMakeLists.txt`**: `pix-fb` and `bw-fb` each have an Obol branch
+  linking `libbu + libpkg` only (no libdm, no dm_plugins).  `fb-bw` and `fb-fb`
+  moved into the `NOT BRLCAD_ENABLE_OBOL` block since they have no Obol path yet.
+
 ### 1b. fb-pix — libdm-free in Obol builds — Complete (Stage 26)
 
 **`fb-pix` (write framebuffer contents to a raw .pix file) now has an Obol path
@@ -233,7 +268,7 @@ The standalone `fbserv` binary participates in the rtwizard pipeline:
 `rt -F port` → pixbuf fbserv → `fb-png -F port outfile.png` works in Obol builds
 end-to-end with no libdm anywhere in the chain.
 
-### 2. Delete libdm rendering plugins (CMake gating complete — file deletion pending)
+### 2. Delete libdm rendering plugins (CMake gating complete — Stage 27 progress)
 
 All GL rendering plugins are now **skipped in CMake** when `BRLCAD_ENABLE_OBOL`
 (Stage 22 completed dm-swrast; Stages 19–21 did qtgl/glx/X/wgl).
@@ -253,15 +288,190 @@ CMake gating status:
 | `src/libdm/postscript/` | n/a — no GL, always built | No replacement needed              |
 | `src/libdm/txt/`     | n/a — no GL, always built   | No replacement needed               |
 
-Remaining steps for a clean delete:
+### 2a. Slim libdm core in Obol builds — Complete (Stage 27)
+
+**Stage 27 gated `libdmgl` and the 2D overlay rendering helpers from Obol
+builds, further trimming libdm's footprint when Obol is the renderer.**
+
+Changes made (Stage 27):
+
+- **`src/libdm/CMakeLists.txt`**: `libdmgl` (`dm-gl.c`, `dm-gl_lod.cpp`) is
+  now built only when `NOT BRLCAD_ENABLE_OBOL AND BRLCAD_ENABLE_OPENGL`.  All
+  five GL rendering plugins already skip `libdmgl` in Obol builds via their
+  own `NOT BRLCAD_ENABLE_OBOL` guards, so this change makes the exclusion
+  explicit in the library itself.
+
+  The following pure 2D overlay rendering source files are also excluded from
+  the Obol `libdm` build (they have no callers in Obol code paths):
+  `adc.c`, `axes.c`, `clip.c`, `grid.c`, `labels.c`, `options.c`, `rect.c`,
+  `scale.c`.  In non-Obol builds all eight files are compiled as before.
+
+- **`src/libdm/view.c`**: Added `#ifndef BRLCAD_ENABLE_OBOL` guards around
+  all internal calls into the gated files:
+  - `dm_draw_faceplate()`: model-axes, view-axes, view-scale, ADC-cursor,
+    grid, and rect blocks all guarded.
+  - `dm_draw_visitor()`: `dm_draw_scene_axes()` call guarded.
+  - `dm_draw_viewobjs()`: both `dm_draw_data_axes()` calls guarded;
+    `dm_draw_prim_labels()` block guarded.
+
+  In Obol builds all 2D overlay rendering is handled by Coin3D
+  `SoAnnotation` subtrees, so these no-ops are correct.
+
+Remaining steps (source-directory deletion requires committing to Obol-only):
 1. Remove the now-dead source directories from disk (git rm) and update
    `cmakefiles()` lists.
-2. Delete `libdmgl` (`dm-gl.c`, `dm-gl_lod.cpp`) once no plugin uses it in
-   Obol builds.
-3. Slim core `libdm` to fb_* helpers only (`fb_generic.c`, `fb_log.c`,
-   `fb_paged_io.c`, `fb_rect.c`, `fb_util.c`, `fbserv.c`, `if_disk.c`,
-   `if_mem.c`, `if_remote.c`, `if_stack.c`), or fold those into a new
-   `libfb` if fully separating from the `dm` namespace is desired.
+
+### 2d. Gate dm rendering core from Obol builds — Complete (Stage 30)
+
+**Stage 30 moves `dm-generic.c`, `view.c`, and `null/dm-Null.c` into the
+`NOT BRLCAD_ENABLE_OBOL` conditional block in `src/libdm/CMakeLists.txt`,
+eliminating the last dm-rendering symbols from `libdm.so` in Obol builds.**
+
+Background:
+- `dm-generic.c` supplies the ~70 accessor / mutator helpers for `struct dm`
+  (`dm_get_width`, `dm_graphical`, `dm_close`, `dm_set_bg`, …).  In Obol
+  builds these are only called from `view.c` (now excluded) and from
+  `dm_plugins.cpp` (already excluded since Stage 29).
+- `view.c` contains the dm-rendering visitor and draw helpers —
+  `dm_draw_faceplate`, `dm_draw_viewobjs`, `dm_draw_objs`, `dm_draw_arrow`,
+  `dm_draw_arrows`, `dm_draw_polys`, `dm_draw_lines`, `dm_draw_labels`, etc.
+  All external callers (`QgGL.cpp`, `QgSW.cpp`, `gsh.cpp` USE_DM block) were
+  already gated NOT BRLCAD_ENABLE_OBOL in earlier stages, so this entire file
+  is dead code in Obol builds.
+- `null/dm-Null.c` provides `dm_null`, the always-present no-op display
+  manager.  The only reference to `dm_null` is in `dm_plugins.cpp`
+  (`dm_null.i->dm_open(...)` in the "nu" branch) which was excluded in
+  Stage 29, so `dm_null` is unreferenced in Obol builds.
+
+Changes made (Stage 30):
+- **`src/libdm/CMakeLists.txt`**: `null/dm-Null.c`, `dm-generic.c`, and
+  `view.c` moved from the always-compiled `LIBDM_SRCS` list into the
+  `if(NOT BRLCAD_ENABLE_OBOL)` conditional block (alongside `dm_plugins.cpp`
+  and the 2D overlay helpers).  `cmakefiles()` registration updated.
+
+Result: in Obol builds `libdm.so` now exports **only** the fb API
+(`fb_open`, `fb_write`, `fb_close`, …), the fb utility helpers
+(`fb_common_file_size`, …), the fbserv infrastructure, and the dm-open
+stub functions (`dm_open` → `DM_NULL`, `dm_have_graphics` → 0, …).  No
+`dm_draw_*`, no `dm_get_width`, no `dm_null`, no plugin loading.
+
+### 2c. Split dm_plugins.cpp and gate dm_open in Obol builds — Complete (Stage 29)
+
+**Stage 29 splits `dm_plugins.cpp` into a fb-only `fb_plugins.cpp` (always
+compiled) and a dm-only `dm_plugins.cpp` (non-Obol only), gates the dm plugin
+loading loop in `dm_init.cpp`, and provides lightweight Obol stubs for the
+`dm_open` family of functions.**
+
+Changes made (Stage 29):
+
+- **`src/libdm/fb_plugins.cpp`** *(new)*: Contains the framebuffer plugin API
+  implementations — `fb_open`, `fb_set_interface`, `fb_get_platform_specific`,
+  `fb_put_platform_specific`, `fb_genhelp`.  These read only `fb_backends` and
+  have no dependency on dm rendering plugins.  Compiled in ALL builds.
+
+- **`src/libdm/dm_plugins.cpp`** *(trimmed)*: Now contains only the dm
+  rendering plugin API — `dm_open`, `dm_have_graphics`, `dm_graphics_system`,
+  `dm_list_types`, `dm_validXType`, `dm_valid_type`, `dm_bestXType`,
+  `dm_default_type`.  Compiled only when `NOT BRLCAD_ENABLE_OBOL`.
+
+- **`src/libdm/dm_obol_stubs.cpp`** *(new)*: Provides stub implementations of
+  all 8 dm rendering API functions for Obol builds.  Stubs return `DM_NULL`,
+  `0`, `NULL`, or `"nu"` immediately without consulting any backend map.
+  Compiled only when `BRLCAD_ENABLE_OBOL`.
+
+- **`src/libdm/dm_init.cpp`**: The dm plugin loading loop (file scan, dlopen,
+  `dm_plugin_info` / `fb_plugin_info` symbol lookup) is now wrapped with
+  `#ifndef BRLCAD_ENABLE_OBOL`.  In Obol builds, `libdm_init` still populates
+  `fb_backends` with the four built-in interfaces (null, debug, mem, stack) but
+  skips the entire dynamic plugin scan.  The `get_dm_map()` singleton, the
+  `dm_handles` set, and their associated headers (`<set>`, `<algorithm>`,
+  `<cctype>`, `bu/dylib.h`, `bu/file.h`) are all excluded via `#ifndef`.
+
+- **`src/libdm/CMakeLists.txt`**: `fb_plugins.cpp` added to `LIBDM_SRCS`
+  unconditionally.  `dm_plugins.cpp` appended only when
+  `NOT BRLCAD_ENABLE_OBOL`; `dm_obol_stubs.cpp` appended when
+  `BRLCAD_ENABLE_OBOL`.  `cmakefiles()` registration updated so both new
+  files appear in distribution tarballs regardless of which build variant is
+  active.
+
+After Stage 29, in Obol builds, libdm:
+- Never scans or dlopen's any dm rendering plugin
+- Never allocates or populates `dm_backends` (the pointer stays `NULL`)
+- Exposes the dm_open/dm_have_graphics/… API via zero-overhead stubs
+- Still fully populates `fb_backends` for the built-in fb interfaces
+
+### 2b. Gate / re-express final dm_open callers in Obol builds — Complete (Stage 28)
+
+**Stage 28 both gates `dm_open` call sites from Obol build paths and replaces
+libdm-backed command implementations with equivalent Obol-aware paths that
+operate directly on `fbs_pixbuf` and `bsg_view`.**
+
+Changes made (Stage 28a — gating):
+
+- **`src/gtools/gsh/gsh.cpp`**: `#define USE_DM 1` is now gated with
+  `#ifndef BRLCAD_ENABLE_OBOL`.  The `DisplayHash` class and both its
+  methods, `GshState::view_checkpoint()` and `GshState::view_update()`, are
+  wrapped with `#ifdef USE_DM`.  Call sites in `GshState::GshState()` and
+  `GshState::eval()` are similarly guarded.
+
+- **`src/gtools/gsh/CMakeLists.txt`**: Obol branch links `libged + libbu`
+  only; non-Obol branch links `libged + libdm + libbu`.
+
+- **`src/adrt/CMakeLists.txt`**: `isst` (which calls `dm_open`) is now
+  built only when `NOT BRLCAD_ENABLE_OBOL AND BRLCAD_ENABLE_OPENGL AND
+  BRLCAD_ENABLE_TK`.
+
+- **`src/util/CMakeLists.txt`**: `plot3-dm` (which calls `dm_open` via
+  X11/ogl) is now built only when `NOT BRLCAD_ENABLE_OBOL AND BRLCAD_ENABLE_TK`.
+
+Changes made (Stage 28b — Obol-aware `dm` GED command):
+
+- **`src/libged/dm/CMakeLists.txt`**: `GEDPL_DEFINITIONS = BRLCAD_ENABLE_OBOL`
+  in Obol builds; plugin links `libged + libbu` only (no libdm).
+
+- **`src/libged/dm/dm.c`**: Every subcommand has `#ifdef BRLCAD_ENABLE_OBOL`
+  early-return paths that use `bsg_view` fields directly (no `struct dm *`):
+
+  | subcommand | Obol behaviour |
+  |---|---|
+  | `type` / `types` | returns `"obol"` |
+  | `list` | enumerates `bsg_view` instances by `gv_name` |
+  | `width` / `height` | reads `gv_width` / `gv_height` from the current view |
+  | `attach` | resolves/creates view without calling `dm_open` |
+  | `debug` | returns `0` (no libdm debug level) |
+  | `get` | reports `gv_name`, `gv_width`, `gv_height`, type `obol` |
+  | `set` | redirects user to application-layer commands |
+  | `bg` | returns default gradient; redirects user to `to_bg`/`obol_view` |
+  | `initmsg` | reports "Obol rendering backend active" |
+
+- **`src/libged/dm/screengrab.c`**: Obol path reads from `fbs_pixbuf`
+  (packed RGB888, populated by `ert`) into `icv_image`; `dm.h` not included.
+
+Changes made (Stage 28c — Obol-aware fb GED commands):
+
+- **`src/libged/fbclear/fbclear.c`**: Obol path clears `fbs_pixbuf` with
+  the requested colour, sets `gv_fb_mode = 2`, and calls
+  `ged_refresh_handler` to trigger a repaint.
+
+- **`src/libged/pix2fb/pix2fb.c`**: Obol path reads raw RGB888 data from
+  the `.pix` file descriptor directly into `fbs_pixbuf` row by row, then
+  calls `ged_refresh_handler`.
+
+- **`src/libged/fb2pix/fb2pix.c`**: Obol path writes `fbs_pixbuf` rows to
+  the output file as raw RGB888 (same `.pix` wire format), respecting the
+  `-i` inversion flag.
+
+- **`src/libged/png2fb/png2fb.c`**: Obol path uses `icv_read` to decode the
+  PNG, converts `double [0,1]` pixel data to RGB888, fills `fbs_pixbuf`, and
+  calls `ged_refresh_handler`.
+
+- All four fb plugin **CMakeLists.txt** files: `GEDPL_DEFINITIONS =
+  BRLCAD_ENABLE_OBOL`; link `libged + libbu` (png2fb also adds `libicv`);
+  no `libdm` in Obol builds.
+
+After Stage 28, `dm_open` has **no remaining callers in Obol builds** and
+`libdm` has **no remaining link dependencies in Obol builds** for the ged
+plugins above.
 
 ### 3. Delete `src/libbsg/` and `include/bsg/`
 

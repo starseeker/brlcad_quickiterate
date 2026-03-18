@@ -458,6 +458,9 @@ if (bu_sscanf(argv[2], "%d", &port) != 1) {
 }
 
 if (port >= 0) {
+#ifndef BRLCAD_ENABLE_OBOL
+    /* Tcl fbserv channel callbacks live in fbserv.c, which is not compiled
+     * in Obol builds.  The Obol path uses the Qt-native fbserv in qged. */
     tvd->gdv_fbs.fbs_is_listening = &tclcad_is_listening;
     tvd->gdv_fbs.fbs_listen_on_port = &tclcad_listen_on_port;
     tvd->gdv_fbs.fbs_open_server_handler = &tclcad_open_server_handler;
@@ -465,8 +468,11 @@ if (port >= 0) {
     tvd->gdv_fbs.fbs_open_client_handler = &tclcad_open_client_handler;
     tvd->gdv_fbs.fbs_close_client_handler = &tclcad_close_client_handler;
     fbs_open(&tvd->gdv_fbs, port);
+#endif /* !BRLCAD_ENABLE_OBOL */
 } else {
+#ifndef BRLCAD_ENABLE_OBOL
     fbs_close(&tvd->gdv_fbs);
+#endif /* !BRLCAD_ENABLE_OBOL */
 }
 bu_vls_printf(gedp->ged_result_str, "%d", tvd->gdv_fbs.fbs_listener.fbsl_port);
 return BRLCAD_OK;

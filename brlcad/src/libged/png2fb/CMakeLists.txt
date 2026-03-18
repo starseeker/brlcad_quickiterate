@@ -1,4 +1,11 @@
-set(PLUGIN_LIBS libged libdm libbu)
+if(BRLCAD_ENABLE_OBOL)
+  # png2fb Obol path uses icv to decode PNG; no libdm needed.
+  set(PLUGIN_LIBS libged libicv libbu)
+  set(GEDPL_DEFINITIONS BRLCAD_ENABLE_OBOL)
+else()
+  set(PLUGIN_LIBS libged libdm libbu)
+  set(GEDPL_DEFINITIONS "")
+endif()
 
 ged_plugin_library(ged-png2fb
   png2fb.c

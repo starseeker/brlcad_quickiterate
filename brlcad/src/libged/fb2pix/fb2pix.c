@@ -33,9 +33,10 @@
 
 #include "bu/app.h"
 #include "bu/getopt.h"
-#include "dm.h"
-
-#include "pkg.h"
+#ifndef BRLCAD_ENABLE_OBOL
+#  include "dm.h"
+#  include "pkg.h"
+#endif
 #include "ged.h"
 
 
@@ -105,7 +106,6 @@ fb2pix_get_args(int argc, char **argv)
 int
 ged_fb2pix_core(struct ged *gedp, int argc, const char *argv[])
 {
-    int ret;
     char usage[] = "Usage: fb-pix [-h -i -c] \n\
 	[-s squaresize] [-w width] [-n height] [file.pix]\n";
 
@@ -113,19 +113,6 @@ ged_fb2pix_core(struct ged *gedp, int argc, const char *argv[])
 
     if (!gedp->ged_gvp) {
 	bu_vls_printf(gedp->ged_result_str, ": no current view set\n");
-	return BRLCAD_ERROR;
-    }
-
-    struct dm *dmp = (struct dm *)gedp->ged_gvp->dmp;
-    if (!dmp) {
-	bu_vls_printf(gedp->ged_result_str, "framebuffer operations require a display manager backend; use the rt command to raytrace to a file in the Obol rendering path");
-	return BRLCAD_ERROR;
-    }
-
-    struct fb *fbp = dm_get_fb(dmp);
-
-    if (!fbp) {
-	bu_vls_printf(gedp->ged_result_str, "display manager does not have a framebuffer");
 	return BRLCAD_ERROR;
     }
 
@@ -145,6 +132,46 @@ ged_fb2pix_core(struct ged *gedp, int argc, const char *argv[])
 	return GED_HELP;
     }
 
+#ifdef BRLCAD_ENABLE_OBOL
+    /* Obol path: read from fbs_pixbuf (packed RGB888, bottom-left origin)
+     * and write it as a raw .pix file. */
+    {
+	struct fbserv_obj *fbs = gedp->ged_fbs;
+	if (!fbs || !fbs->fbs_pixbuf) {
+	    bu_vls_printf(gedp->ged_result_str,
+			  "fb2pix: no framebuffer data (run ert first)\n");
+	    if (outfp && outfp != stdout) fclose(outfp);
+	    return BRLCAD_ERROR;
+	}
+	int w = (screen_width  > 0) ? screen_width  : fbs->fbs_pixbuf_w;
+	int h = (screen_height > 0) ? screen_height : fbs->fbs_pixbuf_h;
+	w = (w > fbs->fbs_pixbuf_w) ? fbs->fbs_pixbuf_w : w;
+	h = (h > fbs->fbs_pixbuf_h) ? fbs->fbs_pixbuf_h : h;
+	setmode(fileno(outfp), O_BINARY);
+	for (int row = 0; row < h; row++) {
+	    int src_row = inverse ? row : (fbs->fbs_pixbuf_h - 1 - row);
+	    if (src_row < 0 || src_row >= fbs->fbs_pixbuf_h)
+		src_row = 0;
+	    unsigned char *rowp = fbs->fbs_pixbuf + (size_t)src_row * fbs->fbs_pixbuf_w * 3;
+	    fwrite(rowp, 3, (size_t)w, outfp);
+	}
+	if (outfp != stdout) fclose(outfp);
+	return BRLCAD_OK;
+    }
+#else
+    struct dm *dmp = (struct dm *)gedp->ged_gvp->dmp;
+    if (!dmp) {
+	bu_vls_printf(gedp->ged_result_str, "framebuffer operations require a display manager backend");
+	return BRLCAD_ERROR;
+    }
+
+    struct fb *fbp = dm_get_fb(dmp);
+    if (!fbp) {
+	bu_vls_printf(gedp->ged_result_str, "display manager does not have a framebuffer");
+	return BRLCAD_ERROR;
+    }
+
+    int ret;
     setmode(fileno(stdout), O_BINARY);
 
     ret = fb_write_fp(fbp, outfp,
@@ -162,6 +189,7 @@ ged_fb2pix_core(struct ged *gedp, int argc, const char *argv[])
     }
 
     return BRLCAD_ERROR;
+#endif /* BRLCAD_ENABLE_OBOL */
 }
 
 #include "../include/plugin.h"

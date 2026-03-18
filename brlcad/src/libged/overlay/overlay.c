@@ -74,8 +74,6 @@ ged_overlay_core(struct ged *gedp, int argc, const char *argv[])
     int width = 0; /* may need to specify for some formats (such as PIX) */
     int write_fb = 0;
     int zoom = 0;
-    struct dm *dmp = NULL;
-    struct fb *fbp = NULL;
     struct bu_vls vname = BU_VLS_INIT_ZERO;
     struct bu_list *vlfree = &rt_vlfree;
 
@@ -111,9 +109,6 @@ ged_overlay_core(struct ged *gedp, int argc, const char *argv[])
 	return BRLCAD_ERROR;
     }
 
-    /* dmp may be NULL in the Obol rendering path; only needed for write_fb */
-    dmp = (struct dm *)gedp->ged_gvp->dmp;
-
     /* must be wanting help */
     if (argc == 1) {
 	_ged_cmd_help(gedp, usage, d);
@@ -136,21 +131,6 @@ ged_overlay_core(struct ged *gedp, int argc, const char *argv[])
     }
 
     argc = opt_ret;
-
-    if (write_fb) {
-	/* Framebuffer overlay requires a display manager backend */
-	if (!dmp) {
-	    bu_vls_printf(gedp->ged_result_str, ": framebuffer overlay requires a display manager backend (not available in Obol rendering path)");
-	    bu_vls_free(&vname);
-	    return BRLCAD_ERROR;
-	}
-	fbp = dm_get_fb(dmp);
-	if (!fbp) {
-	    bu_vls_printf(gedp->ged_result_str, ": display manager does not have a framebuffer");
-	    bu_vls_free(&vname);
-	    return BRLCAD_ERROR;
-	}
-    }
 
     /* must be wanting help */
     if (!argc) {
@@ -308,11 +288,63 @@ ged_overlay_core(struct ged *gedp, int argc, const char *argv[])
 	    return BRLCAD_ERROR;
 	}
 
-	ret = fb_read_icv(fbp, img, 0, 0, 0, 0,	scr_xoff, scr_yoff, clear, zoom, inverse, 0, 0, gedp->ged_result_str);
-
-	(void)dm_draw_begin(dmp);
-	fb_refresh(fbp, 0, 0, fb_getwidth(fbp), fb_getheight(fbp));
-	(void)dm_draw_end(dmp);
+#ifdef BRLCAD_ENABLE_OBOL
+	/* Obol path: write image directly into fbs_pixbuf and trigger repaint.
+	 * No libdm framebuffer or display manager needed. */
+	{
+	    int ow = (int)img->width;
+	    int oh = (int)img->height;
+	    struct fbserv_obj *fbs = gedp->ged_fbs;
+	    if (fbs) {
+		if (!fbs->fbs_pixbuf || fbs->fbs_pixbuf_w != ow || fbs->fbs_pixbuf_h != oh) {
+		    if (fbs->fbs_pixbuf)
+			bu_free(fbs->fbs_pixbuf, "fbs_pixbuf");
+		    fbs->fbs_pixbuf = (unsigned char *)bu_calloc((size_t)ow * oh * 3, 1, "fbs_pixbuf");
+		    fbs->fbs_pixbuf_w = ow;
+		    fbs->fbs_pixbuf_h = oh;
+		}
+		{
+		    double *dp = img->data;
+		    unsigned char *pp = fbs->fbs_pixbuf;
+		    size_t npix = (size_t)ow * oh;
+		    int nc = (img->color_space == ICV_COLOR_SPACE_RGB) ? 3 : 1;
+		    for (size_t i = 0; i < npix; i++, pp += 3) {
+			pp[0] = (unsigned char)(dp[i * nc + 0] * 255.0 + 0.5);
+			pp[1] = (nc >= 2) ? (unsigned char)(dp[i * nc + 1] * 255.0 + 0.5) : pp[0];
+			pp[2] = (nc >= 3) ? (unsigned char)(dp[i * nc + 2] * 255.0 + 0.5) : pp[0];
+		    }
+		}
+		if (gedp->ged_gvp && gedp->ged_gvp->gv_s)
+		    gedp->ged_gvp->gv_s->gv_fb_mode = 2;
+	    }
+	}
+	if (gedp->ged_refresh_handler)
+	    (*gedp->ged_refresh_handler)(gedp->ged_refresh_clientdata);
+	ret = BRLCAD_OK;
+#else
+	/* Non-Obol path: use libdm embedded framebuffer. */
+	{
+	    struct dm *dmp = (struct dm *)gedp->ged_gvp->dmp;
+	    struct fb *fbp;
+	    if (!dmp) {
+		bu_vls_printf(gedp->ged_result_str, ": framebuffer overlay requires a display manager backend");
+		icv_destroy(img);
+		bu_vls_free(&vname);
+		return BRLCAD_ERROR;
+	    }
+	    fbp = dm_get_fb(dmp);
+	    if (!fbp) {
+		bu_vls_printf(gedp->ged_result_str, ": display manager does not have a framebuffer");
+		icv_destroy(img);
+		bu_vls_free(&vname);
+		return BRLCAD_ERROR;
+	    }
+	    ret = fb_read_icv(fbp, img, 0, 0, 0, 0, scr_xoff, scr_yoff, clear, zoom, inverse, 0, 0, gedp->ged_result_str);
+	    (void)dm_draw_begin(dmp);
+	    fb_refresh(fbp, 0, 0, fb_getwidth(fbp), fb_getheight(fbp));
+	    (void)dm_draw_end(dmp);
+	}
+#endif /* BRLCAD_ENABLE_OBOL */
 
 	icv_destroy(img);
 	bu_vls_free(&vname);

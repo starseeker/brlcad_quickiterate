@@ -63,30 +63,20 @@ ged_ert_core(struct ged *gedp, int argc, const char *argv[])
 	return BRLCAD_ERROR;
     }
 
-    struct dm *dmp = (struct dm *)gedp->ged_gvp->dmp;
     struct fb *fbp = NULL;
     int width, height;
 
-    if (dmp) {
-	/* Standard libdm path: get the embedded framebuffer from the dm. */
-	fbp = dm_get_fb(dmp);
-	if (!fbp) {
-	    bu_vls_printf(gedp->ged_result_str, "attached display manager has no embedded framebuffer\n");
-	    return BRLCAD_ERROR;
-	}
-	width  = dm_get_width(dmp);
-	height = dm_get_height(dmp);
-    } else {
-	/* Obol path: no display manager (view owned by QgObolView / obol_view
-	 * Tk widget).  Allocate a raw RGB pixel buffer directly in the fbserv
-	 * object — no struct fb / libdm in-memory backend needed.  The Obol
-	 * widget reads fbs_pixbuf directly in _paintFbOverlay(). */
-	width  = gedp->ged_gvp->gv_width;
-	height = gedp->ged_gvp->gv_height;
-	if (width <= 0 || height <= 0) {
-	    bu_vls_printf(gedp->ged_result_str, "view has no valid dimensions for embedded raytracing\n");
-	    return BRLCAD_ERROR;
-	}
+#ifdef BRLCAD_ENABLE_OBOL
+    /* Obol path: view owned by QgObolView / obol_view Tk widget.  Allocate a
+     * raw RGB pixel buffer in the fbserv object; no struct fb or libdm backend
+     * needed.  The Obol widget reads fbs_pixbuf directly in _paintFbOverlay(). */
+    width  = gedp->ged_gvp->gv_width;
+    height = gedp->ged_gvp->gv_height;
+    if (width <= 0 || height <= 0) {
+	bu_vls_printf(gedp->ged_result_str, "view has no valid dimensions for embedded raytracing\n");
+	return BRLCAD_ERROR;
+    }
+    {
 	struct fbserv_obj *fbs = gedp->ged_fbs;
 	/* Reallocate pixel buffer only when dimensions change. */
 	if (!fbs->fbs_pixbuf || fbs->fbs_pixbuf_w != width || fbs->fbs_pixbuf_h != height) {
@@ -100,6 +90,40 @@ ged_ert_core(struct ged *gedp, int argc, const char *argv[])
 	/* fbs_fbp stays NULL — the Obol pkg_switch writes to fbs_pixbuf. */
 	fbp = NULL;
     }
+#else
+    {
+	struct dm *dmp = (struct dm *)gedp->ged_gvp->dmp;
+	if (dmp) {
+	    /* Standard libdm path: get the embedded framebuffer from the dm. */
+	    fbp = dm_get_fb(dmp);
+	    if (!fbp) {
+		bu_vls_printf(gedp->ged_result_str, "attached display manager has no embedded framebuffer\n");
+		return BRLCAD_ERROR;
+	    }
+	    width  = dm_get_width(dmp);
+	    height = dm_get_height(dmp);
+	} else {
+	    /* Non-Obol build but no display manager attached — fall back to
+	     * the same raw pixel-buffer path used in Obol. */
+	    width  = gedp->ged_gvp->gv_width;
+	    height = gedp->ged_gvp->gv_height;
+	    if (width <= 0 || height <= 0) {
+		bu_vls_printf(gedp->ged_result_str, "view has no valid dimensions for embedded raytracing\n");
+		return BRLCAD_ERROR;
+	    }
+	    struct fbserv_obj *fbs = gedp->ged_fbs;
+	    if (!fbs->fbs_pixbuf || fbs->fbs_pixbuf_w != width || fbs->fbs_pixbuf_h != height) {
+		if (fbs->fbs_pixbuf)
+		    bu_free(fbs->fbs_pixbuf, "fbs_pixbuf");
+		fbs->fbs_pixbuf = (unsigned char *)bu_calloc((size_t)width * height * 3,
+							     sizeof(unsigned char), "fbs_pixbuf");
+		fbs->fbs_pixbuf_w = width;
+		fbs->fbs_pixbuf_h = height;
+	    }
+	    fbp = NULL;
+	}
+    }
+#endif /* BRLCAD_ENABLE_OBOL */
 
     if (!ged_who_argc(gedp)) {
 	bu_vls_printf(gedp->ged_result_str, "no objects displayed\n");
