@@ -29,7 +29,10 @@
 #include <ctype.h>
 #include <string.h>
 #include "icv.h"
-#include "dm.h"
+#ifndef BRLCAD_ENABLE_OBOL
+#  include "dm.h"
+#endif
+#include "dm/fbserv.h"
 
 #include "../ged_private.h"
 
@@ -59,25 +62,18 @@ screengrab_image_mime(struct bu_vls *msg, size_t argc, const char **argv, void *
 int
 ged_screen_grab_core(struct ged *gedp, int argc, const char *argv[])
 {
-    struct dm *dmp = NULL;
     int i;
     int print_help = 0;
-    int bytes_per_pixel = 0;
-    int bytes_per_line = 0;
     int grab_fb = 0;
-    unsigned char **rows = NULL;
-    unsigned char *idata = NULL;
-    struct icv_image *bif = NULL;	/**< icv image container for saving images */
-    struct fb *fbp = NULL;
     struct bu_vls dm_name = BU_VLS_INIT_ZERO;
     bu_mime_image_t type = BU_MIME_IMAGE_AUTO;
     static char usage[] = "Usage: screengrab [-h] [-F] [-D name] [--format fmt] [file.img]\n";
 
     struct bu_opt_desc d[5];
-    BU_OPT(d[0], "h", "help",           "",     NULL,             &print_help,       "Print help and exit");
-    BU_OPT(d[1], "F", "fb",             "",     NULL,             &grab_fb,          "screengrab framebuffer instead of scene display");
-    BU_OPT(d[2], "D", "dm",             "name", &bu_opt_vls,      &dm_name,          "name of DM to screengrab");
-    BU_OPT(d[3], "",  "format",         "fmt",  &screengrab_image_mime,      &type,             "output image file format");
+    BU_OPT(d[0], "h", "help",   "",     NULL,                 &print_help, "Print help and exit");
+    BU_OPT(d[1], "F", "fb",     "",     NULL,                 &grab_fb,    "screengrab framebuffer instead of scene display");
+    BU_OPT(d[2], "D", "dm",     "name", &bu_opt_vls,          &dm_name,    "name of DM to screengrab");
+    BU_OPT(d[3], "",  "format", "fmt",  &screengrab_image_mime, &type,     "output image file format");
     BU_OPT_NULL(d[4]);
 
     GED_CHECK_VIEW(gedp, BRLCAD_ERROR);
@@ -97,6 +93,54 @@ ged_screen_grab_core(struct ged *gedp, int argc, const char *argv[])
     }
 
     argc = opt_ret;
+
+    /* must be wanting help */
+    if (!argc) {
+	_ged_cmd_help(gedp, usage, d);
+	bu_vls_free(&dm_name);
+	return GED_HELP;
+    }
+
+#ifdef BRLCAD_ENABLE_OBOL
+    {
+	/* Obol path: no libdm display manager.  Read from fbs_pixbuf when
+	 * available (populated by ert / embedded raytracing).  The scene
+	 * display grab (non -F) is not supported without a GL framebuffer;
+	 * only the framebuffer overlay (-F) path is meaningful here. */
+	struct fbserv_obj *fbs = gedp->ged_fbs;
+	if (!fbs || !fbs->fbs_pixbuf) {
+	    bu_vls_printf(gedp->ged_result_str,
+			 "screengrab: no framebuffer data available in Obol path "
+			 "(run ert first to populate the framebuffer)\n");
+	    bu_vls_free(&dm_name);
+	    return BRLCAD_ERROR;
+	}
+	int fw = fbs->fbs_pixbuf_w;
+	int fh = fbs->fbs_pixbuf_h;
+	struct icv_image *bif = icv_create(fw, fh, ICV_COLOR_SPACE_RGB);
+	if (!bif) {
+	    bu_vls_printf(gedp->ged_result_str, "screengrab: could not create icv_image\n");
+	    bu_vls_free(&dm_name);
+	    return BRLCAD_ERROR;
+	}
+	/* fbs_pixbuf is packed RGB888, bottom-left origin — matches icv row 0. */
+	for (int row = 0; row < fh; row++) {
+	    unsigned char *rowp = fbs->fbs_pixbuf + (size_t)row * fw * 3;
+	    icv_writeline(bif, row, rowp, ICV_DATA_UCHAR);
+	}
+	icv_write(bif, argv[0], type);
+	icv_destroy(bif);
+	bu_vls_free(&dm_name);
+	return BRLCAD_OK;
+    }
+#else
+    struct dm *dmp = NULL;
+    int bytes_per_pixel = 0;
+    int bytes_per_line = 0;
+    unsigned char **rows = NULL;
+    unsigned char *idata = NULL;
+    struct icv_image *bif = NULL;
+    struct fb *fbp = NULL;
 
     struct dm *cdmp = (gedp->ged_gvp) ? (struct dm *)gedp->ged_gvp->dmp : NULL;
 
@@ -133,12 +177,6 @@ ged_screen_grab_core(struct ged *gedp, int argc, const char *argv[])
 	    bu_vls_printf(gedp->ged_result_str, ": display manager does not have a framebuffer");
 	    return BRLCAD_ERROR;
 	}
-    }
-
-    /* must be wanting help */
-    if (!argc) {
-	_ged_cmd_help(gedp, usage, d);
-	return GED_HELP;
     }
 
     /* create image file */
@@ -178,6 +216,7 @@ ged_screen_grab_core(struct ged *gedp, int argc, const char *argv[])
     icv_destroy(bif);
 
     return BRLCAD_OK;
+#endif /* BRLCAD_ENABLE_OBOL */
 }
 
 /*
