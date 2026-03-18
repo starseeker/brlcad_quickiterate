@@ -154,45 +154,27 @@ if {[info exists ::use_gui]} {
      set eye_pt [lrange [lindex $vdata 2] 1 end]
    }
 
-   # Obol path: render directly to the output file (no fbserv process needed).
-   # rtimage auto-dispatches to rtimage_file when _outfile is provided.
-   if {[info commands obol_init] ne "" && \
-	   [info exists ::RtWizard::wizard_state(output_filename)]} {
+   # Route all rendering through the TCP fbserv path.
+   # In Obol builds the standalone fbserv uses the libdm-free pixbuf backend
+   # (Stage 24); in non-Obol builds it uses the traditional /dev/mem driver.
+   # The PKG wire protocol is identical in both cases, so rt, rtedge, fblabel,
+   # fbclear, fb-png and fb-pix all work unchanged against either backend.
 
-      set rtimage_dict [dict create \
-	  _dbfile $::RtWizard::wizard_state(dbFile) \
-	  _outfile $::RtWizard::wizard_state(output_filename) \
-	  _w $::RtWizard::wizard_state(width) \
-	  _n $::RtWizard::wizard_state(scanlines) \
-	  _viewsize $viewsize \
-	  _orientation $orientation \
-	  _eye_pt $eye_pt \
-	  _perspective $::RtWizard::wizard_state(perspective) \
-	  _bgcolor $::RtWizard::wizard_state(bg_color) \
-	  _ecolor $::RtWizard::wizard_state(e_color) \
-	  _necolor $::RtWizard::wizard_state(ne_color) \
-	  _occmode $::RtWizard::wizard_state(occmode) \
-	  _gamma $::RtWizard::wizard_state(ghost_intensity) \
-	  _color_objects $::RtWizard::wizard_state(color_objlist) \
-	  _ghost_objects $::RtWizard::wizard_state(ghost_objlist) \
-	  _edge_objects $::RtWizard::wizard_state(line_objlist) \
-	  _benchmark_mode $::benchmark_mode \
-	  _log_file $::RtWizard::wizard_state(log_file) \
-	  _pid_filename $::RtWizard::wizard_state(pid_filename)]
+   # Traditional fbserv-based path.
 
-      ::cadwidgets::rtimage $rtimage_dict
-      # rtimage_file wrote the result directly to _outfile; nothing more to do.
-
-   } else {
-      # Traditional fbserv-based path.
-
-      # Get an in-memory framebuffer, if we don't already have a type set
-      if {![info exists ::RtWizard::wizard_state(fbserv_device)]} {
-	 set ::RtWizard::wizard_state(fbserv_device) /dev/mem
-	 set fbtype_specified 0
+   # Select the in-memory framebuffer device, if we don't already have a type set.
+   # In Obol builds use "obol_pixbuf" (an arbitrary non-empty string accepted by
+   # the Stage-24 pixbuf fbserv); in non-Obol builds use the libdm /dev/mem driver.
+   if {![info exists ::RtWizard::wizard_state(fbserv_device)]} {
+      if {[info commands obol_init] ne ""} {
+	 set ::RtWizard::wizard_state(fbserv_device) obol_pixbuf
       } else {
-	 set fbtype_specified 1
+	 set ::RtWizard::wizard_state(fbserv_device) /dev/mem
       }
+      set fbtype_specified 0
+   } else {
+      set fbtype_specified 1
+   }
 
       # We need a port number for the fbserv.
       if {![info exists ::RtWizard::wizard_state(fbserv_port)]} {
@@ -265,7 +247,8 @@ if {[info exists ::use_gui]} {
 	 }
       }
 
-      if {$::RtWizard::wizard_state(fbserv_device) == "/dev/mem"} {
+      if {$::RtWizard::wizard_state(fbserv_device) == "/dev/mem" || \
+	  $::RtWizard::wizard_state(fbserv_device) == "obol_pixbuf"} {
 	  if {[info exists fbserv_pid]} {
 	     if {$::tcl_platform(platform) == "windows"} {
 		 set kill_cmd [auto_execok taskkill]
@@ -279,7 +262,7 @@ if {[info exists ::use_gui]} {
 	     }
 	  }
       }
-   }; # end fbserv path
+   }
 }
 
 # Local Variables:
