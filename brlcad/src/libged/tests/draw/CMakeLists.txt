@@ -169,6 +169,9 @@ set(
 )
 
 if(NOT BRLCAD_ENABLE_OBOL)
+  # Skip all libdm draw tests in Obol builds; see the comment at the top of
+  # this file for the rationale.  Obol equivalents are qged_test and
+  # qged_pipeline_test (use QgObolSwrastView instead of dm_open("swrast")).
 
   # If the in-source moss.g is a stub (no real geometry), use the properly-built
   # share/db/moss.g instead.  The draw tests accept an optional second positional

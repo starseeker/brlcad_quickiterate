@@ -5,6 +5,7 @@ set(SWRAST_SRCS dm-swrast.cpp fb-swrast.cpp ../dm-gl.c ../dm-gl_lod.cpp)
 # not through the libdm swrast plugin.  Skip the entire plugin in Obol builds
 # so Obol binaries carry no libdm rendering symbols.
 if(NOT BRLCAD_ENABLE_OBOL)
+  # OSMesa is required for non-Obol builds; the plugin cannot be built without it.
   brlcad_find_package(OSMESA REQUIRED)
 
   # Qt is used for the stand-alone FB window, but other than that should not be
