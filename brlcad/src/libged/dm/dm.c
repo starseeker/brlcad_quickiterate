@@ -66,6 +66,10 @@ _dm_cmd_msgs(void *bs, int argc, const char **argv, const char *us, const char *
     return 0;
 }
 
+#ifndef BRLCAD_ENABLE_OBOL
+/* _dm_name_lookup and _dm_find are only called in non-Obol dm_* subcommand
+ * paths that have a struct dm *.  Obol builds have no libdm display manager
+ * so these helpers are excluded to avoid unused-function warnings. */
 struct dm *
 _dm_name_lookup(struct _ged_dm_info *gd, const char *dm_name)
 {
@@ -140,6 +144,7 @@ _dm_find(struct _ged_dm_info *gd, struct bu_vls *name)
 
     return _dm_name_lookup(gd, bu_vls_cstr(name));
 }
+#endif /* !BRLCAD_ENABLE_OBOL */
 
 int
 _dm_cmd_bg(void *ds, int argc, const char **argv)
@@ -771,7 +776,6 @@ _dm_cmd_attach(void *ds, int argc, const char **argv)
     bu_vls_free(&view_name);
 
     return BRLCAD_OK;
-#endif /* BRLCAD_ENABLE_OBOL */
 }
 
 int

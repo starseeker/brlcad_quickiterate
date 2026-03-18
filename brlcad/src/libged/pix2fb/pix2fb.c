@@ -41,9 +41,13 @@
 
 #include "bu/getopt.h"
 #include "bu/snooze.h"
-#include "dm.h"
+#ifndef BRLCAD_ENABLE_OBOL
+#  include "dm.h"
+#  include "pkg.h"
+#else
+#  include <string.h>
+#endif
 
-#include "pkg.h"
 #include "ged.h"
 
 
@@ -174,28 +178,12 @@ pix2fb_get_args(int argc, char **argv)
 int
 ged_pix2fb_core(struct ged *gedp, int argc, const char *argv[])
 {
-    int ret;
-
     GED_CHECK_ARGC_GT_0(gedp, argc, BRLCAD_ERROR);
 
     if (!gedp->ged_gvp) {
 	bu_vls_printf(gedp->ged_result_str, ": no current view set\n");
 	return BRLCAD_ERROR;
     }
-
-    struct dm *dmp = (struct dm *)gedp->ged_gvp->dmp;
-    if (!dmp) {
-	bu_vls_printf(gedp->ged_result_str, "framebuffer operations require a display manager backend; use the rt command to raytrace to a file in the Obol rendering path");
-	return BRLCAD_ERROR;
-    }
-
-    struct fb *fbp = dm_get_fb(dmp);
-
-    if (!fbp) {
-	bu_vls_printf(gedp->ged_result_str, "display manager does not have a framebuffer");
-	return BRLCAD_ERROR;
-    }
-
 
     /* initialize result */
     bu_vls_trunc(gedp->ged_result_str, 0);
@@ -211,20 +199,72 @@ ged_pix2fb_core(struct ged *gedp, int argc, const char *argv[])
 	return GED_HELP;
     }
 
-    ret = fb_read_fd(fbp, infd,
-		     file_width, file_height,
-		     file_xoff, file_yoff,
-		     scr_width, scr_height,
-		     scr_xoff, scr_yoff,
-		     fileinput, file_name, one_line_only, multiple_lines,
-		     autosize, inverse, clear, zoom,
-		     gedp->ged_result_str);
+#ifdef BRLCAD_ENABLE_OBOL
+    /* Obol path: load raw RGB888 .pix data into fbs_pixbuf and request a
+     * repaint via the application refresh handler. */
+    {
+	struct fbserv_obj *fbs = gedp->ged_fbs;
+	int w = (int)((scr_width  > 0) ? (size_t)scr_width  : file_width);
+	int h = (int)((scr_height > 0) ? (size_t)scr_height : file_height);
+	if (w <= 0) w = 512;
+	if (h <= 0) h = 512;
+
+	if (fbs) {
+	    if (!fbs->fbs_pixbuf || fbs->fbs_pixbuf_w != w || fbs->fbs_pixbuf_h != h) {
+		if (fbs->fbs_pixbuf)
+		    bu_free(fbs->fbs_pixbuf, "fbs_pixbuf");
+		fbs->fbs_pixbuf = (unsigned char *)bu_calloc((size_t)w * h * 3, 1, "fbs_pixbuf");
+		fbs->fbs_pixbuf_w = w;
+		fbs->fbs_pixbuf_h = h;
+	    }
+	    /* Read file_height rows of file_width RGB pixels.
+	     * .pix files are bottom-left origin; fbs_pixbuf uses the same
+	     * convention, so direct row reads are correct. */
+	    size_t row_bytes = file_width * 3;
+	    unsigned char *rowbuf = (unsigned char *)bu_malloc(row_bytes, "pix2fb row");
+	    for (size_t row = 0; row < file_height && row < (size_t)h; row++) {
+		ssize_t nr = read(infd, rowbuf, row_bytes);
+		if (nr <= 0) break;
+		size_t dest_row = inverse ? (size_t)h - 1 - row : row;
+		size_t copy_cols = ((size_t)w < file_width) ? (size_t)w : file_width;
+		memcpy(fbs->fbs_pixbuf + dest_row * (size_t)w * 3, rowbuf, copy_cols * 3);
+	    }
+	    bu_free(rowbuf, "pix2fb row");
+	    if (gedp->ged_gvp && gedp->ged_gvp->gv_s)
+		gedp->ged_gvp->gv_s->gv_fb_mode = 2;
+	}
+	if (infd != 0) close(infd);
+	bu_snooze(BU_SEC2USEC(pause_sec));
+	if (gedp->ged_refresh_handler)
+	    (*gedp->ged_refresh_handler)(gedp->ged_refresh_clientdata);
+	return BRLCAD_OK;
+    }
+#else
+    struct dm *dmp = (struct dm *)gedp->ged_gvp->dmp;
+    if (!dmp) {
+	bu_vls_printf(gedp->ged_result_str, "framebuffer operations require a display manager backend");
+	return BRLCAD_ERROR;
+    }
+
+    struct fb *fbp = dm_get_fb(dmp);
+    if (!fbp) {
+	bu_vls_printf(gedp->ged_result_str, "display manager does not have a framebuffer");
+	return BRLCAD_ERROR;
+    }
+
+    int ret = fb_read_fd(fbp, infd,
+			 file_width, file_height,
+			 file_xoff, file_yoff,
+			 scr_width, scr_height,
+			 scr_xoff, scr_yoff,
+			 fileinput, file_name, one_line_only, multiple_lines,
+			 autosize, inverse, clear, zoom,
+			 gedp->ged_result_str);
 
     if (infd != 0)
 	close(infd);
 
     bu_snooze(BU_SEC2USEC(pause_sec));
-
 
     if (ret == BRLCAD_OK) {
 	(void)dm_draw_begin(dmp);
@@ -234,6 +274,7 @@ ged_pix2fb_core(struct ged *gedp, int argc, const char *argv[])
     }
 
     return BRLCAD_ERROR;
+#endif /* BRLCAD_ENABLE_OBOL */
 }
 
 

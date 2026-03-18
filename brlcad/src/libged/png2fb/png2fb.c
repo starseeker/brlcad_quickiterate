@@ -30,7 +30,11 @@
 
 #include "bio.h"
 #include "bu/getopt.h"
-#include "dm.h"
+#ifndef BRLCAD_ENABLE_OBOL
+#  include "dm.h"
+#else
+#  include "icv.h"
+#endif
 #include "ged.h"
 
 static int multiple_lines = 0;	/* Streamlined operation */
@@ -135,26 +139,10 @@ png2fb_get_args(int argc, char **argv)
 int
 ged_png2fb_core(struct ged *gedp, int argc, const char *argv[])
 {
-    int ret;
-
     GED_CHECK_ARGC_GT_0(gedp, argc, BRLCAD_ERROR);
-
 
     if (!gedp->ged_gvp) {
 	bu_vls_printf(gedp->ged_result_str, "no current view set\n");
-	return BRLCAD_ERROR;
-    }
-
-    struct dm *dmp = (struct dm *)gedp->ged_gvp->dmp;
-    if (!dmp) {
-	bu_vls_printf(gedp->ged_result_str, "framebuffer operations require a display manager backend; use the rt command to raytrace to a file in the Obol rendering path");
-	return BRLCAD_ERROR;
-    }
-
-    struct fb *fbp = dm_get_fb(dmp);
-
-    if (!fbp) {
-	bu_vls_printf(gedp->ged_result_str, "display manager does not have a framebuffer");
 	return BRLCAD_ERROR;
     }
 
@@ -172,14 +160,65 @@ ged_png2fb_core(struct ged *gedp, int argc, const char *argv[])
 	return GED_HELP;
     }
 
-    ret = fb_read_png(fbp, fp_in,
-		      file_xoff, file_yoff,
-		      scr_xoff, scr_yoff,
-		      clear, zoom, inverse,
-		      one_line_only, multiple_lines,
-		      verbose, header_only,
-		      def_screen_gamma,
-		      gedp->ged_result_str);
+#ifdef BRLCAD_ENABLE_OBOL
+    /* Obol path: use icv to decode the PNG, then copy pixels into
+     * fbs_pixbuf and request a repaint via the application refresh handler. */
+    {
+	struct fbserv_obj *fbs = gedp->ged_fbs;
+	struct icv_image *img = icv_read(file_name, BU_MIME_IMAGE_PNG, 0, 0);
+	if (fp_in && fp_in != stdin) { fclose(fp_in); fp_in = NULL; }
+	if (!img) {
+	    bu_vls_printf(gedp->ged_result_str, "png2fb: failed to read PNG '%s'\n", file_name);
+	    return BRLCAD_ERROR;
+	}
+	int w = (int)img->width;
+	int h = (int)img->height;
+	if (fbs) {
+	    if (!fbs->fbs_pixbuf || fbs->fbs_pixbuf_w != w || fbs->fbs_pixbuf_h != h) {
+		if (fbs->fbs_pixbuf) bu_free(fbs->fbs_pixbuf, "fbs_pixbuf");
+		fbs->fbs_pixbuf = (unsigned char *)bu_calloc((size_t)w * h * 3, 1, "fbs_pixbuf");
+		fbs->fbs_pixbuf_w = w;
+		fbs->fbs_pixbuf_h = h;
+	    }
+	    /* icv stores pixels as double [0,1]; convert to RGB888. */
+	    double *dp = img->data;
+	    unsigned char *pp = fbs->fbs_pixbuf;
+	    size_t npix = (size_t)w * h;
+	    int nc = (img->color_space == ICV_COLOR_SPACE_RGB) ? 3 : 1;
+	    for (size_t i = 0; i < npix; i++, pp += 3) {
+		pp[0] = (unsigned char)(dp[i * nc + 0] * 255.0 + 0.5);
+		pp[1] = (nc >= 2) ? (unsigned char)(dp[i * nc + 1] * 255.0 + 0.5) : pp[0];
+		pp[2] = (nc >= 3) ? (unsigned char)(dp[i * nc + 2] * 255.0 + 0.5) : pp[0];
+	    }
+	    if (gedp->ged_gvp && gedp->ged_gvp->gv_s)
+		gedp->ged_gvp->gv_s->gv_fb_mode = 2;
+	}
+	icv_destroy(img);
+	if (gedp->ged_refresh_handler)
+	    (*gedp->ged_refresh_handler)(gedp->ged_refresh_clientdata);
+	return BRLCAD_OK;
+    }
+#else
+    struct dm *dmp = (struct dm *)gedp->ged_gvp->dmp;
+    if (!dmp) {
+	bu_vls_printf(gedp->ged_result_str, "framebuffer operations require a display manager backend");
+	return BRLCAD_ERROR;
+    }
+
+    struct fb *fbp = dm_get_fb(dmp);
+    if (!fbp) {
+	bu_vls_printf(gedp->ged_result_str, "display manager does not have a framebuffer");
+	return BRLCAD_ERROR;
+    }
+
+    int ret = fb_read_png(fbp, fp_in,
+			  file_xoff, file_yoff,
+			  scr_xoff, scr_yoff,
+			  clear, zoom, inverse,
+			  one_line_only, multiple_lines,
+			  verbose, header_only,
+			  def_screen_gamma,
+			  gedp->ged_result_str);
 
     if (fp_in != stdin)
 	fclose(fp_in);
@@ -192,6 +231,7 @@ ged_png2fb_core(struct ged *gedp, int argc, const char *argv[])
 	return BRLCAD_OK;
 
     return BRLCAD_ERROR;
+#endif /* BRLCAD_ENABLE_OBOL */
 }
 
 

@@ -1,4 +1,10 @@
-set(PLUGIN_LIBS libged libdm libbu)
+if(BRLCAD_ENABLE_OBOL)
+  set(PLUGIN_LIBS libged libbu)
+  set(GEDPL_DEFINITIONS BRLCAD_ENABLE_OBOL)
+else()
+  set(PLUGIN_LIBS libged libdm libbu)
+  set(GEDPL_DEFINITIONS "")
+endif()
 
 ged_plugin_library(ged-pix2fb
   pix2fb.c
