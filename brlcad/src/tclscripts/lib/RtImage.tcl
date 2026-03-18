@@ -77,12 +77,12 @@ proc rtimage_file {rtimage_dict} {
 
     if {$::tcl_platform(platform) == "windows"} {
 	if {[catch {set dir $env(TMP)}]} {
-	    return "rtimage_file: env(TMP) does not exist"
+	    return "rtimage_file: env(TMP) is not set; a writable temp directory is required for rendering"
 	}
     } else {
 	set dir "/tmp"
 	if {![file exists $dir]} {
-	    return "rtimage_file: $dir does not exist"
+	    return "rtimage_file: $dir does not exist; a writable temp directory is required for rendering"
 	}
     }
 
