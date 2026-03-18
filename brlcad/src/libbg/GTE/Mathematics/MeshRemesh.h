@@ -164,9 +164,27 @@ namespace gte
                 maxLength = targetLength * static_cast<Real>(1.4);
             }
 
-            // Adaptive remeshing iterations
+            // Adaptive remeshing iterations.
+            // The vertex-count cap guards against unbounded mesh growth when the
+            // target is much smaller than the current average edge length (e.g.
+            // targetVertexCount = 10 × original): each SplitLongEdges pass can
+            // up to quadruple the triangle count, so without a cap the mesh would
+            // explode over 10 iterations.  We stop early once we have accumulated
+            // at least 4× the requested vertex count; CollapseShortEdges and the
+            // subsequent CVT pass will redistribute them correctly.
+            size_t vertexCap = (params.targetVertexCount > 0)
+                ? params.targetVertexCount * 4
+                : std::numeric_limits<size_t>::max();
+
             for (size_t iter = 0; iter < 10; ++iter)
             {
+                // Stop if the mesh has grown far beyond the target — further
+                // splitting would only waste memory and time.
+                if (vertices.size() > vertexCap)
+                {
+                    break;
+                }
+
                 bool changed = false;
 
                 // Split long edges
@@ -506,10 +524,8 @@ namespace gte
             Real maxLength,
             bool preserveBoundary)
         {
-            bool changed = false;
+            // Build edge-to-triangle map (needed to identify boundary edges).
             std::map<EdgeKey, std::vector<size_t>> edgeToTriangles;
-
-            // Build edge-to-triangle map
             for (size_t ti = 0; ti < triangles.size(); ++ti)
             {
                 auto const& tri = triangles[ti];
@@ -521,14 +537,23 @@ namespace gte
                 }
             }
 
-            // Find edges to split
-            std::vector<EdgeKey> toSplit;
+            // Collect ALL edges to split and create their midpoint vertices in
+            // one pass.  Using a map from EdgeKey to new vertex index ensures
+            // each shared edge gets exactly one midpoint vertex so adjacent
+            // triangles remain watertight after the split.
+            //
+            // This replaces the previous sequential approach that rebuilt the
+            // entire triangle list and edge map after each individual edge split
+            // (O(K * T) total), which caused severe performance degradation when
+            // many edges needed splitting.  The batch approach rebuilds the
+            // triangle list only once (O(T + E) total).
+            std::map<EdgeKey, int32_t> splitEdges;
             for (auto const& entry : edgeToTriangles)
             {
                 EdgeKey const& edge = entry.first;
                 auto const& tris = entry.second;
 
-                // Skip boundary edges if requested
+                // Skip boundary edges if requested.
                 if (preserveBoundary && tris.size() == 1)
                 {
                     continue;
@@ -537,95 +562,105 @@ namespace gte
                 Real length = Length(vertices[edge.v1] - vertices[edge.v0]);
                 if (length > maxLength)
                 {
-                    toSplit.push_back(edge);
+                    Vector3<Real> midpoint = (vertices[edge.v0] + vertices[edge.v1]) * static_cast<Real>(0.5);
+                    int32_t newVertex = static_cast<int32_t>(vertices.size());
+                    vertices.push_back(midpoint);
+                    splitEdges[edge] = newVertex;
                 }
             }
 
-            // Split edges
-            for (auto const& edge : toSplit)
+            if (splitEdges.empty())
             {
-                // Check if this edge still exists in the current edge map.
-                // A previous split in this same pass may have subdivided it
-                // (replacing it with two shorter edges), so we must not assume
-                // it is still present.
-                auto edgeIt = edgeToTriangles.find(edge);
-                if (edgeIt == edgeToTriangles.end())
+                return false;
+            }
+
+            // Rebuild the triangle list in a single O(T) pass.  For each
+            // triangle we check how many of its three edges are being split
+            // (0, 1, 2, or 3) and emit the appropriate sub-triangles, using
+            // the shared midpoint vertices created above.
+            std::vector<std::array<int32_t, 3>> newTriangles;
+            newTriangles.reserve(triangles.size() * 4); // worst case: all 3 edges split
+
+            for (auto const& tri : triangles)
+            {
+                int32_t v0 = tri[0], v1 = tri[1], v2 = tri[2];
+
+                auto it01 = splitEdges.find(EdgeKey(v0, v1));
+                auto it12 = splitEdges.find(EdgeKey(v1, v2));
+                auto it20 = splitEdges.find(EdgeKey(v2, v0));
+
+                bool s01 = (it01 != splitEdges.end());
+                bool s12 = (it12 != splitEdges.end());
+                bool s20 = (it20 != splitEdges.end());
+
+                if (!s01 && !s12 && !s20)
                 {
-                    continue;
+                    // No edges split — keep triangle unchanged.
+                    newTriangles.push_back(tri);
                 }
-
-                auto const& tris = edgeIt->second;
-
-                // Create new vertex at midpoint
-                Vector3<Real> midpoint = (vertices[edge.v0] + vertices[edge.v1]) * static_cast<Real>(0.5);
-                int32_t newVertex = static_cast<int32_t>(vertices.size());
-                vertices.push_back(midpoint);
-
-                // Build the set of triangle indices that contain this edge.
-                std::set<size_t> splitSet(tris.begin(), tris.end());
-
-                // Build the replacement triangle list.  Every triangle that does
-                // NOT contain the edge is kept unchanged; every triangle that DOES
-                // contain the edge is replaced by the two sub-triangles produced by
-                // inserting the midpoint vertex.  This preserves the entire mesh —
-                // previously the code only kept the 2-4 adjacent triangles and
-                // discarded all others, which caused all faces to be lost.
-                std::vector<std::array<int32_t, 3>> allNewTriangles;
-                allNewTriangles.reserve(triangles.size() + tris.size());
-
-                for (size_t ti = 0; ti < triangles.size(); ++ti)
+                else if (s01 && !s12 && !s20)
                 {
-                    if (splitSet.count(ti) == 0)
-                    {
-                        // Not adjacent to the split edge — keep unchanged.
-                        allNewTriangles.push_back(triangles[ti]);
-                    }
-                    else
-                    {
-                        // Replace with two sub-triangles.
-                        auto const& tri = triangles[ti];
-                        bool edgeFound = false;
-                        for (int i = 0; i < 3; ++i)
-                        {
-                            int j = (i + 1) % 3;
-                            EdgeKey triEdge(tri[i], tri[j]);
-                            if (triEdge == edge)
-                            {
-                                int v0 = tri[i];
-                                int v1 = tri[j];
-                                int v2 = tri[(j + 1) % 3];
-                                allNewTriangles.push_back({ v0, newVertex, v2 });
-                                allNewTriangles.push_back({ newVertex, v1, v2 });
-                                changed = true;
-                                edgeFound = true;
-                                break;
-                            }
-                        }
-                        if (!edgeFound)
-                        {
-                            // Safety: edge not found in this triangle; keep it.
-                            allNewTriangles.push_back(triangles[ti]);
-                        }
-                    }
+                    // Split edge (v0,v1) at m; new internal edge (m,v2).
+                    int32_t m = it01->second;
+                    newTriangles.push_back({ v0, m, v2 });
+                    newTriangles.push_back({ m, v1, v2 });
                 }
-
-                triangles = std::move(allNewTriangles);
-
-                // Rebuild edge map for the next iteration.
-                edgeToTriangles.clear();
-                for (size_t ti = 0; ti < triangles.size(); ++ti)
+                else if (!s01 && s12 && !s20)
                 {
-                    auto const& tri = triangles[ti];
-                    for (int i = 0; i < 3; ++i)
-                    {
-                        int j = (i + 1) % 3;
-                        EdgeKey e(tri[i], tri[j]);
-                        edgeToTriangles[e].push_back(ti);
-                    }
+                    // Split edge (v1,v2) at m; new internal edge (v0,m).
+                    int32_t m = it12->second;
+                    newTriangles.push_back({ v0, v1, m });
+                    newTriangles.push_back({ v0, m, v2 });
+                }
+                else if (!s01 && !s12 && s20)
+                {
+                    // Split edge (v2,v0) at m; new internal edge (v1,m).
+                    int32_t m = it20->second;
+                    newTriangles.push_back({ v0, v1, m });
+                    newTriangles.push_back({ m, v1, v2 });
+                }
+                else if (s01 && s12 && !s20)
+                {
+                    // Cut the v1 corner; split remaining quad via diagonal (m01,v2).
+                    int32_t m01 = it01->second;
+                    int32_t m12 = it12->second;
+                    newTriangles.push_back({ m01, v1, m12 });
+                    newTriangles.push_back({ v0, m01, v2 });
+                    newTriangles.push_back({ m01, m12, v2 });
+                }
+                else if (s01 && !s12 && s20)
+                {
+                    // Cut the v0 corner; split remaining quad via diagonal (m01,v2).
+                    int32_t m01 = it01->second;
+                    int32_t m20 = it20->second;
+                    newTriangles.push_back({ v0, m01, m20 });
+                    newTriangles.push_back({ m01, v1, v2 });
+                    newTriangles.push_back({ m01, v2, m20 });
+                }
+                else if (!s01 && s12 && s20)
+                {
+                    // Cut the v2 corner; split remaining quad via diagonal (v0,m12).
+                    int32_t m12 = it12->second;
+                    int32_t m20 = it20->second;
+                    newTriangles.push_back({ m12, v2, m20 });
+                    newTriangles.push_back({ v0, v1, m12 });
+                    newTriangles.push_back({ v0, m12, m20 });
+                }
+                else
+                {
+                    // All three edges split → standard 1-to-4 uniform subdivision.
+                    int32_t m01 = it01->second;
+                    int32_t m12 = it12->second;
+                    int32_t m20 = it20->second;
+                    newTriangles.push_back({ v0, m01, m20 });
+                    newTriangles.push_back({ m01, v1, m12 });
+                    newTriangles.push_back({ m20, m12, v2 });
+                    newTriangles.push_back({ m01, m12, m20 });
                 }
             }
 
-            return changed;
+            triangles = std::move(newTriangles);
+            return true; // splitEdges was non-empty so the mesh was changed
         }
 
         // Collapse edges shorter than minLength
