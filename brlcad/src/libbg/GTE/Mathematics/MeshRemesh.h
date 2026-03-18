@@ -544,62 +544,74 @@ namespace gte
             // Split edges
             for (auto const& edge : toSplit)
             {
-                auto const& tris = edgeToTriangles[edge];
-                
+                // Check if this edge still exists in the current edge map.
+                // A previous split in this same pass may have subdivided it
+                // (replacing it with two shorter edges), so we must not assume
+                // it is still present.
+                auto edgeIt = edgeToTriangles.find(edge);
+                if (edgeIt == edgeToTriangles.end())
+                {
+                    continue;
+                }
+
+                auto const& tris = edgeIt->second;
+
                 // Create new vertex at midpoint
                 Vector3<Real> midpoint = (vertices[edge.v0] + vertices[edge.v1]) * static_cast<Real>(0.5);
                 int32_t newVertex = static_cast<int32_t>(vertices.size());
                 vertices.push_back(midpoint);
 
-                // Update triangles
-                std::vector<std::array<int32_t, 3>> newTriangles;
-                std::set<size_t> processedTriangles;
+                // Build the set of triangle indices that contain this edge.
+                std::set<size_t> splitSet(tris.begin(), tris.end());
 
-                for (size_t ti : tris)
+                // Build the replacement triangle list.  Every triangle that does
+                // NOT contain the edge is kept unchanged; every triangle that DOES
+                // contain the edge is replaced by the two sub-triangles produced by
+                // inserting the midpoint vertex.  This preserves the entire mesh —
+                // previously the code only kept the 2-4 adjacent triangles and
+                // discarded all others, which caused all faces to be lost.
+                std::vector<std::array<int32_t, 3>> allNewTriangles;
+                allNewTriangles.reserve(triangles.size() + tris.size());
+
+                for (size_t ti = 0; ti < triangles.size(); ++ti)
                 {
-                    if (processedTriangles.count(ti) > 0)
+                    if (splitSet.count(ti) == 0)
                     {
-                        continue;
-                    }
-                    processedTriangles.insert(ti);
-
-                    auto const& tri = triangles[ti];
-                    
-                    // Find which edge to split
-                    int edgeIndex = -1;
-                    for (int i = 0; i < 3; ++i)
-                    {
-                        int j = (i + 1) % 3;
-                        EdgeKey triEdge(tri[i], tri[j]);
-                        if (triEdge == edge)
-                        {
-                            edgeIndex = i;
-                            break;
-                        }
-                    }
-
-                    if (edgeIndex >= 0)
-                    {
-                        int v0 = tri[edgeIndex];
-                        int v1 = tri[(edgeIndex + 1) % 3];
-                        int v2 = tri[(edgeIndex + 2) % 3];
-
-                        // Create two new triangles
-                        newTriangles.push_back({ v0, newVertex, v2 });
-                        newTriangles.push_back({ newVertex, v1, v2 });
-                        changed = true;
+                        // Not adjacent to the split edge — keep unchanged.
+                        allNewTriangles.push_back(triangles[ti]);
                     }
                     else
                     {
-                        newTriangles.push_back(tri);
+                        // Replace with two sub-triangles.
+                        auto const& tri = triangles[ti];
+                        bool edgeFound = false;
+                        for (int i = 0; i < 3; ++i)
+                        {
+                            int j = (i + 1) % 3;
+                            EdgeKey triEdge(tri[i], tri[j]);
+                            if (triEdge == edge)
+                            {
+                                int v0 = tri[i];
+                                int v1 = tri[j];
+                                int v2 = tri[(j + 1) % 3];
+                                allNewTriangles.push_back({ v0, newVertex, v2 });
+                                allNewTriangles.push_back({ newVertex, v1, v2 });
+                                changed = true;
+                                edgeFound = true;
+                                break;
+                            }
+                        }
+                        if (!edgeFound)
+                        {
+                            // Safety: edge not found in this triangle; keep it.
+                            allNewTriangles.push_back(triangles[ti]);
+                        }
                     }
                 }
 
-                // Replace triangles
-                triangles.clear();
-                triangles = newTriangles;
-                
-                // Rebuild edge map for next iteration
+                triangles = std::move(allNewTriangles);
+
+                // Rebuild edge map for the next iteration.
                 edgeToTriangles.clear();
                 for (size_t ti = 0; ti < triangles.size(); ++ti)
                 {
