@@ -22,6 +22,11 @@
  *
  * Program to take PNG (Portable Network Graphics) files and send them to a framebuffer.
  *
+ * In Obol builds this tool speaks the fbserv PKG wire protocol
+ * (MSG_FBOPEN / MSG_FBWRITERECT / MSG_FBCLOSE) directly via libpkg,
+ * with no libdm dependency.  The PNG decoding is identical in both
+ * paths.  The -z (zoom) and -m (multi-line) options are silently
+ * ignored in the Obol path; -c (clear) and -i (inverse) work normally.
  */
 
 #include "common.h"
@@ -37,8 +42,13 @@
 #include "bu/log.h"
 #include "bu/malloc.h"
 #include "vmath.h"
-#include "dm.h"
+
+#ifndef BRLCAD_ENABLE_OBOL
+#  include "dm.h"
+#endif
+
 #include "pkg.h"
+#include "dm/fbserv.h"   /* MSG_FB* constants */
 
 
 static png_color_16 def_backgrd={ 0, 0, 0, 0, 0 };
@@ -166,9 +176,8 @@ int
 main(int argc, char **argv)
 {
     int y;
-    struct fb *fbp;
     int i;
-    int xout, yout, m, xstart;
+    int xout, yout, xstart;
     png_structp png_p;
     png_infop info_p;
     char header[8];
@@ -308,13 +317,6 @@ main(int argc, char **argv)
     if (scr_height == 0)
 	scr_height = file_height;
 
-    if ((fbp = fb_open(framebuffer, scr_width, scr_height)) == NULL)
-	bu_exit(12, NULL);
-
-    /* Get the screen size we were given */
-    scr_width = fb_getwidth(fbp);
-    scr_height = fb_getheight(fbp);
-
     /* compute number of pixels to be output to screen */
     if (scr_xoff < 0) {
 	xout = scr_width + scr_xoff;
@@ -337,82 +339,254 @@ main(int argc, char **argv)
 	bu_exit(0, NULL);			/* off screen */
     V_MIN(yout, (file_height-file_yoff));
 
-    /* Only in the simplest case use multi-line writes */
-    if (!one_line_only && multiple_lines > 0 && !inverse && !zoom &&
-	xout == file_width && file_xoff == 0 &&
-	file_width <= scr_width) {
-	scanpix *= multiple_lines;
+#ifdef BRLCAD_ENABLE_OBOL
+
+    /* ---------------------------------------------------------------- */
+    /* Obol path: PKG wire protocol                                      */
+    /* ---------------------------------------------------------------- */
+
+#define PNGFB_NET_LONG_LEN 4
+
+    if (!framebuffer) {
+	(void)fputs(usage, stderr);
+	bu_exit(12, "png-fb: -F framebuffer is required in Obol builds\n");
     }
 
-    scanbytes = scanpix * sizeof(RGBpixel);
+    {
+	struct pkg_conn *pc;
+	char hostbuf[256];
+	char portbuf[64];
+	char openbuf[2*PNGFB_NET_LONG_LEN + 2];
+	char retbuf[5*PNGFB_NET_LONG_LEN + 4];
+	const char *colon;
+	int srv_w, srv_h;
+	unsigned char *wrectbuf;
+	int wrectlen;
 
-    if (clear) {
-	fb_clear(fbp, PIXEL_NULL);
-    }
-    if (zoom) {
-	/* Zoom in, and center the display.  Use square zoom. */
-	int newzoom;
-	newzoom = scr_width/xout;
-	V_MIN(newzoom, scr_height/yout);
+	/* Encode / decode helpers */
+#define pngfb_plong(buf, val) do { \
+    unsigned char *_p = (unsigned char *)(buf); \
+    unsigned long _v = (unsigned long)(val); \
+    _p[0]=(unsigned char)((_v>>24)&0xff); _p[1]=(unsigned char)((_v>>16)&0xff); \
+    _p[2]=(unsigned char)((_v>>8)&0xff);  _p[3]=(unsigned char)((_v)&0xff); } while(0)
+#define pngfb_glong(buf) ( \
+    (((unsigned long)((const unsigned char *)(buf))[0])<<24) | \
+    (((unsigned long)((const unsigned char *)(buf))[1])<<16) | \
+    (((unsigned long)((const unsigned char *)(buf))[2])<< 8) | \
+     ((unsigned long)((const unsigned char *)(buf))[3]) )
 
-	if (inverse) {
-	    fb_view(fbp,
-		    scr_xoff+xout/2, scr_height-1-(scr_yoff+yout/2),
-		    newzoom, newzoom);
+	/* Parse "host:port" or "port" */
+	colon = strrchr(framebuffer, ':');
+	if (colon && colon != framebuffer) {
+	    size_t hlen = (size_t)(colon - framebuffer);
+	    if (hlen >= sizeof(hostbuf)) hlen = sizeof(hostbuf) - 1;
+	    memcpy(hostbuf, framebuffer, hlen);
+	    hostbuf[hlen] = '\0';
+	    snprintf(portbuf, sizeof(portbuf), "%s", colon + 1);
 	} else {
-	    fb_view(fbp,
-		    scr_xoff+xout/2, scr_yoff+yout/2,
-		    newzoom, newzoom);
+	    snprintf(hostbuf, sizeof(hostbuf), "localhost");
+	    snprintf(portbuf, sizeof(portbuf), "%s", colon ? colon + 1 : framebuffer);
+	}
+
+	/* Connect to fbserv */
+	pc = pkg_open(hostbuf, portbuf, 0, 0, 0, NULL, NULL);
+	if (pc == PKC_ERROR)
+	    bu_exit(12, "png-fb: cannot connect to fbserv at %s:%s\n", hostbuf, portbuf);
+
+	/* MSG_FBOPEN */
+	memset(openbuf, 0, sizeof(openbuf));
+	pngfb_plong(&openbuf[0*PNGFB_NET_LONG_LEN], (unsigned long)scr_width);
+	pngfb_plong(&openbuf[1*PNGFB_NET_LONG_LEN], (unsigned long)scr_height);
+	if (pkg_send(MSG_FBOPEN, openbuf, 2*PNGFB_NET_LONG_LEN, pc) < 2*PNGFB_NET_LONG_LEN) {
+	    pkg_close(pc);
+	    bu_exit(1, "png-fb: MSG_FBOPEN send failed\n");
+	}
+	if (pkg_waitfor(MSG_RETURN, retbuf, sizeof(retbuf), pc) < 5*PNGFB_NET_LONG_LEN) {
+	    pkg_close(pc);
+	    bu_exit(1, "png-fb: MSG_FBOPEN reply too short\n");
+	}
+	if (pngfb_glong(&retbuf[0*PNGFB_NET_LONG_LEN]) != 0) {
+	    pkg_close(pc);
+	    bu_exit(1, "png-fb: fbserv refused open\n");
+	}
+	srv_w = (int)pngfb_glong(&retbuf[3*PNGFB_NET_LONG_LEN]);
+	srv_h = (int)pngfb_glong(&retbuf[4*PNGFB_NET_LONG_LEN]);
+	if (scr_width > srv_w)  scr_width  = srv_w;
+	if (scr_height > srv_h) scr_height = srv_h;
+
+	/* Recompute extents now that we have actual server dimensions */
+	if (scr_xoff < 0) {
+	    xout    = scr_width + scr_xoff;
+	    xstart  = 0;
+	} else {
+	    xout    = scr_width - scr_xoff;
+	    xstart  = scr_xoff;
+	}
+	if (xout < 0) {
+	    pkg_close(pc);
+	    return 0;
+	}
+	V_MIN(xout, (file_width - file_xoff));
+	yout = scr_height - scr_yoff;
+	if (yout < 0) {
+	    pkg_close(pc);
+	    return 0;
+	}
+	V_MIN(yout, (file_height - file_yoff));
+
+	if (zoom)
+	    fprintf(stderr, "png-fb: -z (zoom) is not supported in Obol builds, ignored\n");
+
+	/* Optional clear */
+	if (clear) {
+	    char clearbuf[3] = {0, 0, 0};
+	    char clearret[PNGFB_NET_LONG_LEN + 1];
+	    (void)pkg_send(MSG_FBCLEAR, clearbuf, 3, pc);
+	    (void)pkg_waitfor(MSG_RETURN, clearret, sizeof(clearret), pc);
+	}
+
+	/* Allocate write-rect buffer: 4 longs header + xout * 3 bytes per row */
+	wrectlen = 4*PNGFB_NET_LONG_LEN + xout * 3;
+	wrectbuf = (unsigned char *)bu_malloc((size_t)wrectlen, "wrectbuf");
+
+	/* Write rows via MSG_FBWRITERECT, one row at a time */
+	if (!inverse) {
+	    /* Normal: bottom to top (fb y=scr_yoff is PNG row from bottom) */
+	    int line = file_height - file_yoff - 1;
+	    for (y = scr_yoff; y < scr_yoff + yout; y++) {
+		char wret[PNGFB_NET_LONG_LEN + 1];
+		const unsigned char *src = scanline[line--] + 3*file_xoff;
+		pngfb_plong(&wrectbuf[0*PNGFB_NET_LONG_LEN], (unsigned long)xstart);
+		pngfb_plong(&wrectbuf[1*PNGFB_NET_LONG_LEN], (unsigned long)y);
+		pngfb_plong(&wrectbuf[2*PNGFB_NET_LONG_LEN], (unsigned long)xout);
+		pngfb_plong(&wrectbuf[3*PNGFB_NET_LONG_LEN], 1UL);
+		memcpy(&wrectbuf[4*PNGFB_NET_LONG_LEN], src, (size_t)xout * 3);
+		if (pkg_send(MSG_FBWRITERECT, (char *)wrectbuf, wrectlen, pc) < wrectlen)
+		    break;
+		(void)pkg_waitfor(MSG_RETURN, wret, sizeof(wret), pc);
+	    }
+	} else {
+	    /* Inverse: top to bottom */
+	    int line = file_height - file_yoff - 1;
+	    for (y = scr_height-1-scr_yoff; y >= scr_height-scr_yoff-yout; y--) {
+		char wret[PNGFB_NET_LONG_LEN + 1];
+		const unsigned char *src = scanline[line--] + 3*file_xoff;
+		pngfb_plong(&wrectbuf[0*PNGFB_NET_LONG_LEN], (unsigned long)xstart);
+		pngfb_plong(&wrectbuf[1*PNGFB_NET_LONG_LEN], (unsigned long)y);
+		pngfb_plong(&wrectbuf[2*PNGFB_NET_LONG_LEN], (unsigned long)xout);
+		pngfb_plong(&wrectbuf[3*PNGFB_NET_LONG_LEN], 1UL);
+		memcpy(&wrectbuf[4*PNGFB_NET_LONG_LEN], src, (size_t)xout * 3);
+		if (pkg_send(MSG_FBWRITERECT, (char *)wrectbuf, wrectlen, pc) < wrectlen)
+		    break;
+		(void)pkg_waitfor(MSG_RETURN, wret, sizeof(wret), pc);
+	    }
+	}
+
+	/* MSG_FBCLOSE */
+	{
+	    char closeret[PNGFB_NET_LONG_LEN + 1];
+	    (void)pkg_send(MSG_FBCLOSE, NULL, 0, pc);
+	    (void)pkg_waitfor(MSG_RETURN, closeret, sizeof(closeret), pc);
+	}
+
+	bu_free(wrectbuf, "wrectbuf");
+	pkg_close(pc);
+    }
+
+#else /* !BRLCAD_ENABLE_OBOL */
+
+    {
+	struct fb *fbp;
+	int m;
+
+	scanbytes = scanpix * sizeof(RGBpixel);
+
+	if ((fbp = fb_open(framebuffer, scr_width, scr_height)) == NULL)
+	    bu_exit(12, NULL);
+
+	/* Get the screen size we were given */
+	scr_width = fb_getwidth(fbp);
+	scr_height = fb_getheight(fbp);
+
+	/* Only in the simplest case use multi-line writes */
+	if (!one_line_only && multiple_lines > 0 && !inverse && !zoom &&
+	    xout == file_width && file_xoff == 0 &&
+	    file_width <= scr_width) {
+	    scanpix *= multiple_lines;
+	}
+
+	if (clear) {
+	    fb_clear(fbp, PIXEL_NULL);
+	}
+	if (zoom) {
+	    /* Zoom in, and center the display.  Use square zoom. */
+	    int newzoom;
+	    newzoom = scr_width/xout;
+	    V_MIN(newzoom, scr_height/yout);
+
+	    if (inverse) {
+		fb_view(fbp,
+			scr_xoff+xout/2, scr_height-1-(scr_yoff+yout/2),
+			newzoom, newzoom);
+	    } else {
+		fb_view(fbp,
+			scr_xoff+xout/2, scr_yoff+yout/2,
+			newzoom, newzoom);
+	    }
+	}
+
+	if (multiple_lines) {
+	    /* Bottom to top with multi-line reads & writes */
+	    int height=file_height;
+	    for (y = scr_yoff; y < scr_yoff + yout; y += multiple_lines) {
+		/* Don't over-write */
+		if (y + height > scr_yoff + yout)
+		    height = scr_yoff + yout - y;
+		if (height <= 0) break;
+		m = fb_writerect(fbp, scr_xoff, y,
+				 file_width, height,
+				 scanline[file_yoff++]);
+		if (m != file_width*height) {
+		    fprintf(stderr,
+			    "png-fb: fb_writerect(x=%d, y=%d, w=%d, h=%d) failure, ret=%d, s/b=%d\n",
+			    scr_xoff, y,
+			    file_width, height, m, scanbytes);
+		}
+	    }
+	} else if (!inverse) {
+	    /* Normal way -- bottom to top */
+	    int line=file_height-file_yoff-1;
+	    for (y = scr_yoff; y < scr_yoff + yout; y++) {
+		m = fb_write(fbp, xstart, y, scanline[line--]+(3*file_xoff), xout);
+		if (m != xout) {
+		    fprintf(stderr,
+			    "png-fb: fb_write(x=%d, y=%d, npix=%d) ret=%d, s/b=%d\n",
+			    scr_xoff, y, xout,
+			    m, xout);
+		}
+	    }
+	} else {
+	    /* Inverse -- top to bottom */
+	    int line=file_height-file_yoff-1;
+	    for (y = scr_height-1-scr_yoff; y >= scr_height-scr_yoff-yout; y--) {
+		m = fb_write(fbp, xstart, y, scanline[line--]+(3*file_xoff), xout);
+		if (m != xout) {
+		    fprintf(stderr,
+			    "png-fb: fb_write(x=%d, y=%d, npix=%d) ret=%d, s/b=%d\n",
+			    scr_xoff, y, xout,
+			    m, xout);
+		}
+	    }
+	}
+	if (fb_close(fbp) < 0) {
+	    fprintf(stderr, "png-fb: Warning: fb_close() error\n");
 	}
     }
 
-    if (multiple_lines) {
-	/* Bottom to top with multi-line reads & writes */
-	int height=file_height;
-	for (y = scr_yoff; y < scr_yoff + yout; y += multiple_lines) {
-	    /* Don't over-write */
-	    if (y + height > scr_yoff + yout)
-		height = scr_yoff + yout - y;
-	    if (height <= 0) break;
-	    m = fb_writerect(fbp, scr_xoff, y,
-			     file_width, height,
-			     scanline[file_yoff++]);
-	    if (m != file_width*height) {
-		fprintf(stderr,
-			"png-fb: fb_writerect(x=%d, y=%d, w=%d, h=%d) failure, ret=%d, s/b=%d\n",
-			scr_xoff, y,
-			file_width, height, m, scanbytes);
-	    }
-	}
-    } else if (!inverse) {
-	/* Normal way -- bottom to top */
-	int line=file_height-file_yoff-1;
-	for (y = scr_yoff; y < scr_yoff + yout; y++) {
-	    m = fb_write(fbp, xstart, y, scanline[line--]+(3*file_xoff), xout);
-	    if (m != xout) {
-		fprintf(stderr,
-			"png-fb: fb_write(x=%d, y=%d, npix=%d) ret=%d, s/b=%d\n",
-			scr_xoff, y, xout,
-			m, xout);
-	    }
-	}
-    } else {
-	/* Inverse -- top to bottom */
-	int line=file_height-file_yoff-1;
-	for (y = scr_height-1-scr_yoff; y >= scr_height-scr_yoff-yout; y--) {
-	    m = fb_write(fbp, xstart, y, scanline[line--]+(3*file_xoff), xout);
-	    if (m != xout) {
-		fprintf(stderr,
-			"png-fb: fb_write(x=%d, y=%d, npix=%d) ret=%d, s/b=%d\n",
-			scr_xoff, y, xout,
-			m, xout);
-	    }
-	}
-    }
-    if (fb_close(fbp) < 0) {
-	fprintf(stderr, "png-fb: Warning: fb_close() error\n");
-    }
+#endif /* BRLCAD_ENABLE_OBOL */
 
+    bu_free(image, "image");
+    bu_free(scanline, "scanline");
     return 0;
 }
 

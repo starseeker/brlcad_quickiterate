@@ -23,26 +23,35 @@
  * This program is intended to be used to clear a frame buffer
  * to black, or to the specified color
  *
+ * In Obol builds this tool speaks the fbserv PKG wire protocol
+ * (MSG_FBOPEN / MSG_FBCLEAR / MSG_FBCLOSE) directly via libpkg,
+ * with no libdm dependency.  The -c (clear-and-reset) flag is
+ * accepted but the colormap/viewport reset has no effect in Obol.
+ *
  */
 
 #include "common.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "bu/app.h"
 #include "bu/color.h"
 #include "bu/getopt.h"
 #include "bu/exit.h"
-#include "dm.h"
-#include "pkg.h"
 
-#ifdef HAVE_WINSOCK_H
-#  include <winsock.h>
+#ifndef BRLCAD_ENABLE_OBOL
+#  include "dm.h"
 #endif
+
+#include "pkg.h"
+#include "dm/fbserv.h"   /* MSG_FB* constants */
 
 
 static char *framebuffer = NULL;
+#ifndef BRLCAD_ENABLE_OBOL
 static struct fb *fbp;
+#endif
 static int scr_width = 0;		/* use default size */
 static int scr_height = 0;
 static int clear_and_reset = 0;
@@ -86,6 +95,127 @@ get_args(int argc, char **argv)
     return 1;		/* OK */
 }
 
+
+#ifdef BRLCAD_ENABLE_OBOL
+
+/* ------------------------------------------------------------------ */
+/* Obol path: direct PKG wire protocol (no libdm)                      */
+/* ------------------------------------------------------------------ */
+
+#define FBCLEAR_NET_LONG_LEN 4
+
+static void
+fbclear_plong(char *buf, unsigned long val)
+{
+    unsigned char *p = (unsigned char *)buf;
+    p[0] = (unsigned char)((val >> 24) & 0xff);
+    p[1] = (unsigned char)((val >> 16) & 0xff);
+    p[2] = (unsigned char)((val >>  8) & 0xff);
+    p[3] = (unsigned char)((val      ) & 0xff);
+}
+
+static unsigned long
+fbclear_glong(const char *buf)
+{
+    const unsigned char *p = (const unsigned char *)buf;
+    unsigned long u = p[0]; u <<= 8;
+    u |= p[1]; u <<= 8;
+    u |= p[2]; u <<= 8;
+    return u | p[3];
+}
+
+int
+main(int argc, char **argv)
+{
+    struct pkg_conn *pc;
+    char hostbuf[256];
+    char portbuf[64];
+    char openbuf[2*FBCLEAR_NET_LONG_LEN + 2];
+    char retbuf[5*FBCLEAR_NET_LONG_LEN + 4];
+    char clearbuf[3];
+    char closeret[FBCLEAR_NET_LONG_LEN + 1];
+    const char *colon;
+    unsigned char r = 0, g = 0, b = 0;
+
+    bu_setprogname(argv[0]);
+    if (!get_args(argc, argv)) {
+	(void)fputs(usage, stderr);
+	bu_exit(1, NULL);
+    }
+
+    if (!framebuffer) {
+	(void)fputs(usage, stderr);
+	bu_exit(12, "fbclear: -F framebuffer is required in Obol builds\n");
+    }
+
+    if (clear_and_reset)
+	fprintf(stderr, "fbclear: -c (colormap/viewport reset) is not functional in Obol builds\n");
+
+    /* Parse color from remaining arguments */
+    if (bu_optind + 3 == argc) {
+	r = (unsigned char)atoi(argv[bu_optind+0]);
+	g = (unsigned char)atoi(argv[bu_optind+1]);
+	b = (unsigned char)atoi(argv[bu_optind+2]);
+    } else if (bu_optind + 1 == argc) {
+	r = g = b = (unsigned char)atoi(argv[bu_optind]);
+    } else if (bu_optind != argc) {
+	fprintf(stderr, "fbclear: extra arguments ignored\n");
+    }
+
+    /* Parse "host:port" or "port" */
+    colon = strrchr(framebuffer, ':');
+    if (colon && colon != framebuffer) {
+	size_t hlen = (size_t)(colon - framebuffer);
+	if (hlen >= sizeof(hostbuf)) hlen = sizeof(hostbuf) - 1;
+	memcpy(hostbuf, framebuffer, hlen);
+	hostbuf[hlen] = '\0';
+	snprintf(portbuf, sizeof(portbuf), "%s", colon + 1);
+    } else {
+	snprintf(hostbuf, sizeof(hostbuf), "localhost");
+	snprintf(portbuf, sizeof(portbuf), "%s", colon ? colon + 1 : framebuffer);
+    }
+
+    /* Connect to fbserv */
+    pc = pkg_open(hostbuf, portbuf, 0, 0, 0, NULL, NULL);
+    if (pc == PKC_ERROR)
+	bu_exit(12, "fbclear: cannot connect to fbserv at %s:%s\n", hostbuf, portbuf);
+
+    /* MSG_FBOPEN */
+    memset(openbuf, 0, sizeof(openbuf));
+    fbclear_plong(&openbuf[0*FBCLEAR_NET_LONG_LEN], (unsigned long)scr_width);
+    fbclear_plong(&openbuf[1*FBCLEAR_NET_LONG_LEN], (unsigned long)scr_height);
+    if (pkg_send(MSG_FBOPEN, openbuf, 2*FBCLEAR_NET_LONG_LEN, pc) < 2*FBCLEAR_NET_LONG_LEN) {
+	pkg_close(pc);
+	bu_exit(1, "fbclear: MSG_FBOPEN send failed\n");
+    }
+    if (pkg_waitfor(MSG_RETURN, retbuf, sizeof(retbuf), pc) < 5*FBCLEAR_NET_LONG_LEN) {
+	pkg_close(pc);
+	bu_exit(1, "fbclear: MSG_FBOPEN reply too short\n");
+    }
+    if (fbclear_glong(&retbuf[0*FBCLEAR_NET_LONG_LEN]) != 0) {
+	pkg_close(pc);
+	bu_exit(1, "fbclear: fbserv refused open\n");
+    }
+
+    /* MSG_FBCLEAR: payload is 3 bytes [R, G, B] */
+    clearbuf[0] = (char)r;
+    clearbuf[1] = (char)g;
+    clearbuf[2] = (char)b;
+    if (pkg_send(MSG_FBCLEAR, clearbuf, 3, pc) < 3) {
+	pkg_close(pc);
+	bu_exit(1, "fbclear: MSG_FBCLEAR send failed\n");
+    }
+    (void)pkg_waitfor(MSG_RETURN, closeret, sizeof(closeret), pc);
+
+    /* MSG_FBCLOSE */
+    (void)pkg_send(MSG_FBCLOSE, NULL, 0, pc);
+    (void)pkg_waitfor(MSG_RETURN, closeret, sizeof(closeret), pc);
+
+    pkg_close(pc);
+    return 0;
+}
+
+#else /* !BRLCAD_ENABLE_OBOL ---------------------------------------- */
 
 int
 main(int argc, char **argv)
@@ -141,6 +271,8 @@ main(int argc, char **argv)
     (void)fb_close(fbp);
     return 0;
 }
+
+#endif /* BRLCAD_ENABLE_OBOL */
 
 
 /*
