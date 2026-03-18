@@ -187,6 +187,41 @@ Changes made (Stage 25):
   fallback uses a plain `stat()` call instead.  CMakeLists Obol branch links
   `libbu + ${PNG_LIBRARIES}` only (no libdm).
 
+### 1d. pix-fb and bw-fb — libdm-free in Obol builds — Complete (Stage 34)
+
+**`pix-fb` (write a raw .pix file to the framebuffer) and `bw-fb` (write a BW
+file to the framebuffer) now have Obol paths that speak the fbserv PKG wire
+protocol directly, with no libdm dependency.**
+
+In addition, `BRLCAD_ENABLE_OBOL` detection is now performed at the **top level**
+(`brlcad/CMakeLists.txt`) right after `include(BRLCAD_Find_Package)` so that the
+flag is available uniformly to every subdirectory without relying on per-directory
+`brlcad_find_package(Obol)` calls.
+
+Files changed:
+
+- **`brlcad/CMakeLists.txt`**: Added `brlcad_find_package(Obol)` block with
+  `BRLCAD_ENABLE_OBOL` / `BRLCAD_OBOL_DUAL_GL` cache variables set before the
+  `verbose_add_subdirectory("" src)` call.  Child CMakeLists keep their own
+  `if(NOT DEFINED BRLCAD_ENABLE_OBOL)` guards as incremental-reconfigure fallbacks.
+
+- **`src/fb/pix-fb.c`**: `#ifdef BRLCAD_ENABLE_OBOL` path opens a PKG connection
+  to fbserv (`pkg_open`), sends `MSG_FBOPEN`, then sends the pixel data row-by-row
+  (or multi-row where applicable) via `MSG_FBWRITERECT`, and closes with
+  `MSG_FBCLOSE`.  Supports `-c` (clear), `-i` (inverse), `-m` (multi-line), offsets,
+  and autosize.  `pkg_waitfor(MSG_RETURN, …)` used for synchronous acknowledgement.
+  Non-Obol `#else` path is the unchanged original `fb_open` / `fb_write` /
+  `fb_writerect` / `fb_close` code.
+
+- **`src/fb/bw-fb.c`**: `#ifdef BRLCAD_ENABLE_OBOL` path uses `MSG_FBBWWRITERECT`
+  (1 byte/pixel; the server expands each byte to R=G=B).  Selective color-plane
+  loading (`-R`/`-G`/`-B`) is unsupported in the Obol path (exits with a clear
+  error if a partial subset is requested).  Non-Obol `#else` path unchanged.
+
+- **`src/fb/CMakeLists.txt`**: `pix-fb` and `bw-fb` each have an Obol branch
+  linking `libbu + libpkg` only (no libdm, no dm_plugins).  `fb-bw` and `fb-fb`
+  moved into the `NOT BRLCAD_ENABLE_OBOL` block since they have no Obol path yet.
+
 ### 1b. fb-pix — libdm-free in Obol builds — Complete (Stage 26)
 
 **`fb-pix` (write framebuffer contents to a raw .pix file) now has an Obol path
