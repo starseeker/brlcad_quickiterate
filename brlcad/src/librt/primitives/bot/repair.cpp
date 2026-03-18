@@ -670,20 +670,24 @@ try_patch_repair(struct rt_bot_internal *bot, manifold::Manifold& gm_out)
     std::vector<int32_t> adj;
     gte::MeshRepair<double>::ConnectFacets(tp, adj);
 
-    // Seed the patch with faces incident to problematic topology.
-    // We use GTE's adjacency array (adj == -2 flags excess/non-manifold edges)
-    // rather than bg_trimesh_solid2's excess field: bg_trimesh_solid2 puts
-    // excess edge half-edges into the 'unmatched' bucket, not 'excess'.
+    // Seed the patch with faces incident to ANY problematic topology.
+    //
+    // By the time this pass is reached both LSCM passes have already failed,
+    // so there is no benefit in distinguishing open-boundary edges (adj == -1)
+    // from excess/non-manifold edges (adj == -2).  Any face that touches an
+    // edge with adj < 0 is in a region that the earlier hole-filling passes
+    // could not handle; pull ALL such faces into the initial patch so the
+    // growth loop has the full problem region to work with from the start.
     std::unordered_set<int32_t> patch;
 
-    // Any face that touches an excess edge (adj == -2) is seeded.
     for (int f = 0; f < nf; f++)
 	for (int e = 0; e < 3; e++)
-	    if (adj[(size_t)f * 3 + (size_t)e] == -2)
+	    if (adj[(size_t)f * 3 + (size_t)e] < 0)
 		patch.insert((int32_t)f);
 
     // Also seed from misoriented edges and non-manifold vertices via
-    // bg_trimesh_solid2.
+    // bg_trimesh_solid2 — these have adj >= 0 so the adj < 0 scan above
+    // would not catch them.  Both seeding sources are unioned into the patch.
     {
 	std::vector<double> bv((size_t)nv * 3);
 	std::vector<int>    bf((size_t)nf * 3);
