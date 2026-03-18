@@ -1,6 +1,14 @@
 #  ************ libdm tests *************
 
-brlcad_addexec(dm_test dm_test.c "libdm;libbu" TEST)
+# dm_test exercises dm_open/dm_get_name/dm_close which are part of the GL
+# display manager rendering API (dm-generic.c).  In Obol builds those
+# functions are excluded; the test has no meaningful work to do anyway since
+# no GL backends are loaded.
+if(NOT BRLCAD_ENABLE_OBOL)
+  brlcad_addexec(dm_test dm_test.c "libdm;libbu" TEST)
+else()
+  cmakefiles(dm_test.c)
+endif(NOT BRLCAD_ENABLE_OBOL)
 
 #TODO - these should be portable without X11, but we need to set up the Tk Xlib
 # and provide an appropriate include first...

@@ -81,6 +81,14 @@ set(DM_LOCAL_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR} ${PNG_INCLUDE_DIRS} ${BRLC
 # Note - libdm_deps is defined by ${BRLCAD_SOURCE_DIR}/src/source_dirs.cmake
 brlcad_addlib(libdm "${LIBDM_SRCS}" "${libdm_deps};${PNG_LIBRARIES}" "${DM_INCLUDE_DIRS}" "${DM_LOCAL_INCLUDE_DIRS}")
 set_target_properties(libdm PROPERTIES VERSION 20.0.1 SOVERSION 20)
+# Propagate BRLCAD_ENABLE_OBOL as a C preprocessor define so that #ifndef
+# BRLCAD_ENABLE_OBOL guards in dm_init.cpp and dm_obol_stubs.cpp are active.
+if(BRLCAD_ENABLE_OBOL)
+  if(TARGET libdm-obj)
+    target_compile_definitions(libdm-obj PRIVATE BRLCAD_ENABLE_OBOL)
+  endif()
+  target_compile_definitions(libdm PRIVATE BRLCAD_ENABLE_OBOL)
+endif(BRLCAD_ENABLE_OBOL)
 if(TARGET profont_ProFont_ttf_cp)
   add_dependencies(libdm profont_ProFont_ttf_cp)
 endif(TARGET profont_ProFont_ttf_cp)
