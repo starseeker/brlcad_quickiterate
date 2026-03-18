@@ -655,109 +655,114 @@ try_patch_repair(struct rt_bot_internal *bot, manifold::Manifold& gm_out)
     if (nv == 0 || nf == 0)
 	return false;
 
-    // Convert to BRL-CAD flat arrays for topology analysis.
-    std::vector<double> bv((size_t)nv * 3);
-    std::vector<int>    bf((size_t)nf * 3);
-    for (int i = 0; i < nv; i++) {
-	bv[3*i] = vp[i][0]; bv[3*i+1] = vp[i][1]; bv[3*i+2] = vp[i][2];
-    }
-    for (int i = 0; i < nf; i++) {
-	bf[3*i] = tp[i][0]; bf[3*i+1] = tp[i][1]; bf[3*i+2] = tp[i][2];
-    }
-
-    // Locate topological errors (excess edges, misoriented edges,
-    // non-manifold vertices).  Unmatched edges (open holes) are intentionally
-    // not seeded — those are addressed by hole-filling after patch removal.
-    struct bg_trimesh_solid_errors errs = BG_TRIMESH_SOLID_ERRORS_INIT_NULL;
-    bg_trimesh_solid2(nv, nf, bv.data(), bf.data(), &errs);
-
     // Build vertex-to-face adjacency.
     std::vector<std::vector<int32_t>> vert_faces((size_t)nv);
     for (int f = 0; f < nf; f++)
 	for (int k = 0; k < 3; k++)
 	    vert_faces[(size_t)tp[f][k]].push_back((int32_t)f);
 
-    // Seed the patch with faces incident to problematic topology.
-    std::unordered_set<int32_t> patch;
-
-    auto add_edge_faces = [&](int va, int vb) {
-	for (int32_t f : vert_faces[(size_t)va]) {
-	    bool hva = false, hvb = false;
-	    for (int k = 0; k < 3; k++) {
-		if (tp[f][k] == va) hva = true;
-		if (tp[f][k] == vb) hvb = true;
-	    }
-	    if (hva && hvb) patch.insert(f);
-	}
-    };
-
-    for (int i = 0; i < errs.excess.count; i++)
-	add_edge_faces(errs.excess.edges[2*i], errs.excess.edges[2*i+1]);
-    for (int i = 0; i < errs.misoriented.count; i++)
-	add_edge_faces(errs.misoriented.edges[2*i], errs.misoriented.edges[2*i+1]);
-    for (int i = 0; i < errs.non_manifold_verts.count; i++) {
-	int v = errs.non_manifold_verts.verts[i];
-	for (int32_t f : vert_faces[(size_t)v])
-	    patch.insert(f);
-    }
-
-    bg_free_trimesh_solid_errors(&errs);
-
-    if (patch.empty())
-	return false;
-
-    // Build face-to-face adjacency.
+    // Build face-to-face adjacency up front (needed for both seeding and
+    // boundary detection).
     // ConnectFacets sets adj[f*3+e] to:
     //   >= 0 : index of the one adjacent face (manifold edge)
     //   -1   : no adjacent face (open boundary / hole)
     //   -2   : non-manifold edge — 3+ faces share this edge
-    //
-    // For patch boundary detection we count an edge as being on the patch
-    // boundary only when adj == -1 (true mesh boundary) or when adj >= 0 and
-    // the adjacent face is NOT in the patch.  We deliberately exclude adj == -2
-    // (excess/non-manifold edges): since all faces on an excess edge were seeded
-    // into the patch, those edges are interior to the patch and must not be
-    // counted as boundary edges — counting them would give every vertex on an
-    // excess edge a falsely inflated boundary degree and prevent the boundary
-    // from ever appearing simple.
     std::vector<int32_t> adj;
     gte::MeshRepair<double>::ConnectFacets(tp, adj);
 
-    // Helper that returns true iff edge e of face f is on the patch boundary.
-    auto is_patch_boundary = [&](int32_t f, int e) -> bool {
+    // Seed the patch with faces incident to problematic topology.
+    // We use GTE's adjacency array (adj == -2 flags excess/non-manifold edges)
+    // rather than bg_trimesh_solid2's excess field: bg_trimesh_solid2 puts
+    // excess edge half-edges into the 'unmatched' bucket, not 'excess'.
+    std::unordered_set<int32_t> patch;
+
+    // Any face that touches an excess edge (adj == -2) is seeded.
+    for (int f = 0; f < nf; f++)
+	for (int e = 0; e < 3; e++)
+	    if (adj[(size_t)f * 3 + (size_t)e] == -2)
+		patch.insert((int32_t)f);
+
+    // Also seed from misoriented edges and non-manifold vertices via
+    // bg_trimesh_solid2.
+    {
+	std::vector<double> bv((size_t)nv * 3);
+	std::vector<int>    bf((size_t)nf * 3);
+	for (int i = 0; i < nv; i++) {
+	    bv[3*i] = vp[i][0]; bv[3*i+1] = vp[i][1]; bv[3*i+2] = vp[i][2];
+	}
+	for (int i = 0; i < nf; i++) {
+	    bf[3*i] = tp[i][0]; bf[3*i+1] = tp[i][1]; bf[3*i+2] = tp[i][2];
+	}
+	struct bg_trimesh_solid_errors errs = BG_TRIMESH_SOLID_ERRORS_INIT_NULL;
+	bg_trimesh_solid2(nv, nf, bv.data(), bf.data(), &errs);
+
+	auto add_edge_faces = [&](int va, int vb) {
+	    for (int32_t f : vert_faces[(size_t)va]) {
+		bool hva = false, hvb = false;
+		for (int k = 0; k < 3; k++) {
+		    if (tp[f][k] == va) hva = true;
+		    if (tp[f][k] == vb) hvb = true;
+		}
+		if (hva && hvb) patch.insert(f);
+	    }
+	};
+
+	for (int i = 0; i < errs.misoriented.count; i++)
+	    add_edge_faces(errs.misoriented.edges[2*i], errs.misoriented.edges[2*i+1]);
+	for (int i = 0; i < errs.non_manifold_verts.count; i++) {
+	    int v = errs.non_manifold_verts.verts[i];
+	    for (int32_t f : vert_faces[(size_t)v])
+		patch.insert(f);
+	}
+	bg_free_trimesh_solid_errors(&errs);
+    }
+
+    if (patch.empty())
+	return false;
+
+    // Helper: for a NON-PATCH face's edge e, returns true iff this edge is on
+    // the "hole boundary" — i.e. the edge has no adjacent face in the non-patch
+    // region.  This is the correct perspective for determining where the mesh
+    // will have open holes after the patch faces are removed.
+    //
+    // Computing boundary degree from patch-face edges is INCORRECT for excess-
+    // edge cases: an excess/extra triangle can have edges with adj == -1 (no
+    // adjacent face) that are purely internal to the error region (e.g. an edge
+    // that only exists because of the spurious extra face).  Such edges produce
+    // spurious degree-1 vertices that prevent the boundary from appearing simple.
+    //
+    // By looking at NON-PATCH faces only, those internal-excess edges are
+    // invisible — only the genuine ring where patch meets non-patch is counted.
+    auto is_hole_boundary = [&](int32_t f, int e) -> bool {
 	int32_t adj_f = adj[(size_t)f * 3 + (size_t)e];
-	if (adj_f == -1) return true;                         // true mesh boundary
-	if (adj_f < 0)   return false;                        // -2: excess edge, interior
-	return patch.count(adj_f) == 0;                       // manifold, other face not in patch
+	if (adj_f < 0)  return true;               // -1: mesh hole; -2: excess edge
+	return patch.count(adj_f) != 0;            // adj face is in patch → hole boundary
     };
 
-    // Grow the patch until its boundary has only degree-2 vertices.
+    // Grow the patch until the hole boundary (edges of non-patch faces that
+    // border the patch or are open) has only degree-2 vertices.
     //
-    // A simple closed boundary requires every boundary vertex to have exactly
-    // 2 incident boundary edges (one entering, one leaving).  Vertices with
-    // degree != 2 (branching at 3+, dangling at 1) prevent LSCM/CDT from
-    // working correctly on the boundary loop.
+    // A simple closed boundary requires every hole-boundary vertex to appear on
+    // exactly 2 hole-boundary edges.  Vertices with degree != 2 (branching at
+    // 3+, dangling at 1) prevent LSCM/CDT from producing a valid triangulation.
     //
-    // For each non-simple vertex we pull in ALL faces incident to it so it
-    // becomes an interior vertex of the patch.  We repeat until either the
-    // boundary is simple or we can no longer add faces.
-    //
-    // The max_patch limit is applied AFTER growth (not inside the loop) so
-    // that it does not cut off growth mid-way and leave the boundary in a
-    // non-simple state that would cause the verify below to spuriously fail.
+    // For each non-simple vertex we pull ALL its incident faces into the patch
+    // so it becomes an interior patch vertex.  We repeat until the boundary is
+    // simple or no further expansion is possible.
     for (;;) {
-	std::map<int32_t, int> bnd_degree;
-	for (int32_t f : patch) {
+	std::map<int32_t, int> hole_degree;
+	for (int f = 0; f < nf; f++) {
+	    if (patch.count((int32_t)f)) continue;
 	    for (int e = 0; e < 3; e++) {
-		if (is_patch_boundary(f, e)) {
-		    bnd_degree[tp[f][e]]++;
-		    bnd_degree[tp[f][(e+1)%3]]++;
+		if (is_hole_boundary((int32_t)f, e)) {
+		    hole_degree[tp[f][e]]++;
+		    hole_degree[tp[f][(e+1)%3]]++;
 		}
 	    }
 	}
 
 	std::vector<int32_t> bad_verts;
-	for (auto const& kv : bnd_degree)
+	for (auto const& kv : hole_degree)
 	    if (kv.second != 2)
 		bad_verts.push_back(kv.first);
 
@@ -777,24 +782,23 @@ try_patch_repair(struct rt_bot_internal *bot, manifold::Manifold& gm_out)
 	    break;
     }
 
-    // Reject if the patch grew larger than half the mesh (the problem region
-    // is too large to repair safely via this approach).
-    const size_t max_patch = std::max((size_t)3, (size_t)nf / 2);
-    if (patch.size() > max_patch)
+    // Reject if the patch consumed the whole mesh — nothing left to keep.
+    if (patch.size() >= (size_t)nf)
 	return false;
 
-    // Verify the boundary is actually simple before proceeding.
+    // Verify the hole boundary is actually simple before proceeding.
     {
-	std::map<int32_t, int> bnd_degree;
-	for (int32_t f : patch) {
+	std::map<int32_t, int> hole_degree;
+	for (int f = 0; f < nf; f++) {
+	    if (patch.count((int32_t)f)) continue;
 	    for (int e = 0; e < 3; e++) {
-		if (is_patch_boundary(f, e)) {
-		    bnd_degree[tp[f][e]]++;
-		    bnd_degree[tp[f][(e+1)%3]]++;
+		if (is_hole_boundary((int32_t)f, e)) {
+		    hole_degree[tp[f][e]]++;
+		    hole_degree[tp[f][(e+1)%3]]++;
 		}
 	    }
 	}
-	for (auto const& kv : bnd_degree)
+	for (auto const& kv : hole_degree)
 	    if (kv.second != 2)
 		return false;
     }
@@ -842,13 +846,14 @@ try_patch_repair(struct rt_bot_internal *bot, manifold::Manifold& gm_out)
 	patch_v3d.push_back(vp[(size_t)gv]);
 
     // Trace the boundary loop: ordered sequence of boundary vertices (global).
-    // Each boundary vertex has exactly 2 boundary-edge neighbors (degree-2),
-    // so we can walk the loop unambiguously.
-    // Build undirected boundary-edge adjacency (unique neighbors per vertex).
+    // Each hole-boundary vertex has exactly 2 hole-boundary edge neighbors,
+    // so the loop can be walked unambiguously.
+    // Build undirected boundary-edge adjacency from the non-patch perspective.
     std::map<int32_t, std::vector<int32_t>> bnd_nbrs;
-    for (int32_t f : patch) {
+    for (int f = 0; f < nf; f++) {
+	if (patch.count((int32_t)f)) continue;
 	for (int e = 0; e < 3; e++) {
-	    if (is_patch_boundary(f, e)) {
+	    if (is_hole_boundary((int32_t)f, e)) {
 		int32_t va = tp[f][e];
 		int32_t vb = tp[f][(e+1)%3];
 		auto& na = bnd_nbrs[va];
