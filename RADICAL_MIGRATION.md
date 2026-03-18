@@ -157,32 +157,35 @@ are `qged_test` and `qged_pipeline_test` (use `QgObolSwrastView`).
 
 ## What Remains
 
-### 1. rtwizard — Obol headless pipeline — Complete (Stage 23)
+### 1. rtwizard — Obol-backed fbserv pipeline — Complete (Stage 25)
 
-**File-based rendering path implemented.**  Two files changed:
+**rtwizard now routes all rendering through the TCP fbserv path in both Obol and
+non-Obol builds.**  The Obol fbserv (Stage 24) uses the libdm-free `pixbuf_server`
+backend; the traditional non-Obol fbserv uses the `/dev/mem` libdm driver.  The PKG
+wire protocol is identical in both cases so `rt`, `rtedge`, `fblabel`, `fbclear`,
+`fb-png`, and `fb-pix` work unchanged against either backend.
 
-- **`src/tclscripts/lib/RtImage.tcl`**: New `cadwidgets::rtimage_file` proc renders
-  all rt/rtedge passes directly to temp `.pix` files (no fbserv port needed).
-  Ghost compositing reuses the identical `pix-bw → bwmod → bw-pix → pixmatte`
-  chain that the original path already used for file-to-file steps.
-  Edge compositing uses `pixmatte -e` to overlay edge pixels on the accumulated
-  color/ghost image.  Final output written via `pix-png` (PNG) or plain file
-  copy (`.pix`).  `rtimage` auto-dispatches to `rtimage_file` when `_outfile`
-  key is present in the dict.
+Changes made (Stage 25):
 
-- **`src/tclscripts/rtwizard/rtwizard`**: Headless path (`else` branch) now has
-  an Obol sub-branch guarded by `[info commands obol_init] ne ""`.  When Obol is
-  active and `output_filename` is set:  fbserv spawn/kill and `fb-png`/`fb-pix`
-  readback are skipped; `_outfile` is passed directly to `rtimage` so
-  `rtimage_file` handles everything.  The original fbserv path is preserved in
-  the `else` arm for non-Obol builds.
+- **`src/tclscripts/rtwizard/rtwizard`**: The Stage-23 Obol-specific `rtimage_file`
+  branch is removed.  The headless `else` block now uses a single fbserv path for
+  both Obol and non-Obol builds.  The only difference is the device string: Obol
+  builds use `"obol_pixbuf"` (accepted by the Stage-24 pixbuf fbserv); non-Obol
+  builds use `"/dev/mem"`.  The kill-fbserv guard now covers both device strings.
 
-The `PictureType*.itcl` GUI classes still call `[$::fbp getFrameBuffer]` → their
-fbserv path is unchanged; the GUI compositor has no dependency on the Obol path.
+- **`src/fb/fb-png.c`**: Obol path speaks the fbserv PKG wire protocol directly
+  via libpkg (MSG_FBOPEN → read rows via MSG_FBREADRECT → MSG_FBCLOSE).  No libdm
+  symbols used.  Non-Obol path (inside `#else`) is unchanged.
 
-Remaining dependency: `pix-png` (used by `rtimage_file` for `.png` output) links
-`libdm` at present.  Once `libdm` is fully removed, replace with `icv` or a
-`libicv`-based conversion.
+- **`src/fb/CMakeLists.txt`**: `fb-png` Obol branch links
+  `libbu + libpkg + ${PNG_LIBRARIES}` only (no libdm, no dm_plugins).
+  Added `brlcad_find_package(PNG REQUIRED)` at the top so `${PNG_LIBRARIES}` is
+  defined in this file.
+
+- **`src/util/pix-png.c`** / **`src/util/CMakeLists.txt`**: Obol branch guards
+  both `fb_common_file_size()` calls with `#ifndef BRLCAD_ENABLE_OBOL`; the autosize
+  fallback uses a plain `stat()` call instead.  CMakeLists Obol branch links
+  `libbu + ${PNG_LIBRARIES}` only (no libdm).
 
 ### 1a. fbserv — Obol-backed pixel-buffer server — Complete (Stage 24)
 
@@ -207,10 +210,9 @@ Three files changed:
   `pixbuf_server.c` and links only `libbu + libpkg` (no libdm, no dm_plugins).
   Non-Obol branch unchanged.
 
-The standalone `fbserv` binary now participates in the rtwizard pipeline as an
-optional alternative: `rt -F port` → pixbuf fbserv → `fb-png -F port outfile.png`
-still works in Obol builds.  The Stage 23 file-based path (`-o file.pix`) is
-generally preferred for new headless workflows.
+The standalone `fbserv` binary participates in the rtwizard pipeline:
+`rt -F port` → pixbuf fbserv → `fb-png -F port outfile.png` works in Obol builds
+end-to-end with no libdm anywhere in the chain.
 
 ### 2. Delete libdm rendering plugins (CMake gating complete — file deletion pending)
 
