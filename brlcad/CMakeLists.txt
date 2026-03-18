@@ -2221,6 +2221,29 @@ mark_as_advanced(BUILD_TESTING)
 # Set up the BRL-CAD wrapper around find_package
 include(BRLCAD_Find_Package)
 
+# Detect Obol here at the top level so that BRLCAD_ENABLE_OBOL is available
+# uniformly to every subdirectory (fb, fbserv, libdm, libtclcad, libqtcad,
+# etc.) regardless of which components are requested or what order they are
+# processed in.  The per-library CMakeLists.txt files keep their own
+# brlcad_find_package(Obol) calls inside "if(NOT DEFINED BRLCAD_ENABLE_OBOL)"
+# guards so they remain correct for incremental re-configure scenarios.
+if(NOT DEFINED BRLCAD_ENABLE_OBOL)
+  brlcad_find_package(Obol)
+  if(TARGET Obol::Obol)
+    set(BRLCAD_ENABLE_OBOL ON CACHE BOOL "Obol scene-graph library available" FORCE)
+    message(STATUS "Obol found (top-level) — BRLCAD_ENABLE_OBOL=ON")
+    get_target_property(_obol_iface Obol::Obol INTERFACE_COMPILE_DEFINITIONS)
+    if(_obol_iface AND "${_obol_iface}" MATCHES "OBOL_BUILD_DUAL_GL")
+      set(BRLCAD_OBOL_DUAL_GL ON CACHE BOOL "Obol built with dual-GL (OSMesa) support" FORCE)
+    else()
+      set(BRLCAD_OBOL_DUAL_GL OFF CACHE BOOL "Obol built with dual-GL (OSMesa) support" FORCE)
+    endif()
+  else()
+    set(BRLCAD_ENABLE_OBOL OFF CACHE BOOL "Obol scene-graph library available" FORCE)
+    set(BRLCAD_OBOL_DUAL_GL OFF CACHE BOOL "Obol built with dual-GL (OSMesa) support" FORCE)
+  endif()
+endif(NOT DEFINED BRLCAD_ENABLE_OBOL)
+
 
 ###
 # traverse into the source tree with intentional ordering

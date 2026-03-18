@@ -25,11 +25,17 @@
  * This allows an offset into both the display and source file.
  * The color planes to be loaded are also selectable.
  *
+ * In Obol builds this tool speaks the fbserv PKG wire protocol
+ * (MSG_FBOPEN / MSG_FBBWWRITERECT / MSG_FBCLOSE) directly via libpkg,
+ * with no libdm dependency.  Selective color-plane loading (-R/-G/-B)
+ * is not supported in the Obol path.
  */
 
 #include "common.h"
 
+#include <math.h>
 #include <stdlib.h>
+#include <string.h>
 #ifdef HAVE_SYS_TYPES_H
 #  include <sys/types.h>
 #endif
@@ -47,15 +53,23 @@
 #include "bu/exit.h"
 #include "bu/log.h"
 #include "vmath.h"
-#include "dm.h"
+
+#ifndef BRLCAD_ENABLE_OBOL
+#  include "dm.h"
+#endif
+
+#include "pkg.h"
+#include "dm/fbserv.h"   /* MSG_FB* constants */
 
 
-int skipbytes(int fd, b_off_t num);
+static int skipbytes(int fd, b_off_t num);
 
 #define MAX_LINE (16*1024)	/* Largest output scan line length */
 
 static char ibuf[MAX_LINE];
+#ifndef BRLCAD_ENABLE_OBOL
 static RGBpixel obuf[MAX_LINE];
+#endif
 
 static int fileinput = 0;		/* file of pipe on input? */
 static int autosize = 0;		/* !0 to autosize input */
@@ -76,7 +90,9 @@ static int blueflag  = 0;
 static char *framebuffer = NULL;
 static char *file_name;
 static int infd;
+#ifndef BRLCAD_ENABLE_OBOL
 static struct fb *fbp;
+#endif
 
 static char usage[] = "\
 Usage: bw-fb [-a -i -c -z -R -G -B] [-F framebuffer]\n\
@@ -181,6 +197,229 @@ get_args(int argc, char **argv)
     return 1;		/* OK */
 }
 
+
+#ifdef BRLCAD_ENABLE_OBOL
+
+/* ------------------------------------------------------------------ */
+/* Obol path: direct PKG wire protocol (no libdm)                      */
+/* ------------------------------------------------------------------ */
+
+/* NET_LONG_LEN is 4 bytes, matching pkg_glong / pkg_plong encoding   */
+#define BWFB_NET_LONG_LEN 4
+
+/* Encode a 32-bit big-endian unsigned long into buf (same as htonl). */
+static void
+bwfb_plong(char *buf, unsigned long val)
+{
+    unsigned char *p = (unsigned char *)buf;
+    p[0] = (unsigned char)((val >> 24) & 0xff);
+    p[1] = (unsigned char)((val >> 16) & 0xff);
+    p[2] = (unsigned char)((val >>  8) & 0xff);
+    p[3] = (unsigned char)((val      ) & 0xff);
+}
+
+/* Decode a 32-bit big-endian unsigned long from buf (same as ntohl). */
+static unsigned long
+bwfb_glong(const char *buf)
+{
+    const unsigned char *p = (const unsigned char *)buf;
+    unsigned long u = p[0]; u <<= 8;
+    u |= p[1]; u <<= 8;
+    u |= p[2]; u <<= 8;
+    return u | p[3];
+}
+
+int
+main(int argc, char **argv)
+{
+    int y;
+    struct pkg_conn *pc;
+    long xout, yout;
+    long xstart, xskip;
+    char openbuf[2*BWFB_NET_LONG_LEN + 2];
+    char retbuf[5*BWFB_NET_LONG_LEN + 4];
+    char hostbuf[256];
+    char portbuf[64];
+    const char *colon;
+    unsigned char *wrectbuf;
+    int bw_per_row;
+
+    bu_setprogname(argv[0]);
+
+    if (!get_args(argc, argv)) {
+	(void)fputs(usage, stderr);
+	bu_exit(1, NULL);
+    }
+
+    if (!framebuffer) {
+	(void)fputs(usage, stderr);
+	bu_exit(12, "bw-fb: -F framebuffer is required in Obol builds\n");
+    }
+
+    /* Selective color-plane loading is not available in the Obol path */
+    if (redflag || greenflag || blueflag) {
+	if (!(redflag && greenflag && blueflag)) {
+	    bu_exit(1, "bw-fb: selective color-plane loading (-R/-G/-B) is not supported in Obol builds\n");
+	}
+    }
+
+    /* autosize input? */
+    if (fileinput && autosize) {
+	struct stat st;
+	if (fstat(infd, &st) == 0 && st.st_size > 0) {
+	    size_t npix = (size_t)st.st_size;
+	    double sqrtval = sqrt((double)npix);
+	    size_t w = (size_t)sqrtval;
+	    if (w > 0 && w * w == npix) {
+		file_width = file_height = w;
+	    } else {
+		fprintf(stderr, "bw-fb: unable to autosize\n");
+	    }
+	} else {
+	    fprintf(stderr, "bw-fb: unable to autosize\n");
+	}
+    }
+
+    /* If screen size was not set, track the file size */
+    if (scr_width == 0)
+	scr_width = (int)file_width;
+    if (scr_height == 0)
+	scr_height = (int)file_height;
+
+    /* Parse "host:port" or "port" */
+    colon = strrchr(framebuffer, ':');
+    if (colon && colon != framebuffer) {
+	size_t hlen = (size_t)(colon - framebuffer);
+	if (hlen >= sizeof(hostbuf)) hlen = sizeof(hostbuf) - 1;
+	memcpy(hostbuf, framebuffer, hlen);
+	hostbuf[hlen] = '\0';
+	snprintf(portbuf, sizeof(portbuf), "%s", colon + 1);
+    } else {
+	snprintf(hostbuf, sizeof(hostbuf), "localhost");
+	snprintf(portbuf, sizeof(portbuf), "%s", colon ? colon + 1 : framebuffer);
+    }
+
+    /* Connect to fbserv */
+    pc = pkg_open(hostbuf, portbuf, 0, 0, 0, NULL, NULL);
+    if (pc == PKC_ERROR) {
+	bu_exit(12, "bw-fb: cannot connect to fbserv at %s:%s\n",
+		hostbuf, portbuf);
+    }
+
+    /* MSG_FBOPEN: [width(4B)][height(4B)] */
+    memset(openbuf, 0, sizeof(openbuf));
+    bwfb_plong(&openbuf[0*BWFB_NET_LONG_LEN], (unsigned long)scr_width);
+    bwfb_plong(&openbuf[1*BWFB_NET_LONG_LEN], (unsigned long)scr_height);
+    if (pkg_send(MSG_FBOPEN, openbuf, 2*BWFB_NET_LONG_LEN, pc) < 2*BWFB_NET_LONG_LEN) {
+	pkg_close(pc);
+	bu_exit(1, "bw-fb: MSG_FBOPEN send failed\n");
+    }
+
+    /* Response: [ret(4B)][max_w(4B)][max_h(4B)][w(4B)][h(4B)] */
+    if (pkg_waitfor(MSG_RETURN, retbuf, sizeof(retbuf), pc) < 5*BWFB_NET_LONG_LEN) {
+	pkg_close(pc);
+	bu_exit(1, "bw-fb: MSG_FBOPEN reply too short\n");
+    }
+    if (bwfb_glong(&retbuf[0*BWFB_NET_LONG_LEN]) != 0) {
+	pkg_close(pc);
+	bu_exit(1, "bw-fb: fbserv refused open\n");
+    }
+    {
+	int srv_w = (int)bwfb_glong(&retbuf[3*BWFB_NET_LONG_LEN]);
+	int srv_h = (int)bwfb_glong(&retbuf[4*BWFB_NET_LONG_LEN]);
+	if (scr_width  > srv_w) scr_width  = srv_w;
+	if (scr_height > srv_h) scr_height = srv_h;
+    }
+
+    /* Clear if requested */
+    if (clear) {
+	char clearbuf[4] = {0, 0, 0, 0};
+	char clearret[BWFB_NET_LONG_LEN + 1];
+	(void)pkg_send(MSG_FBCLEAR, clearbuf, 3, pc);
+	(void)pkg_waitfor(MSG_RETURN, clearret, sizeof(clearret), pc);
+    }
+
+    /* Zoom not supported in Obol path */
+    if (zoom) {
+	fprintf(stderr, "bw-fb: -z (zoom) not supported in Obol builds, ignored\n");
+    }
+
+    /* Compute output extents */
+    if (scr_xoff < 0) {
+	xout   = scr_width + scr_xoff;
+	xskip  = (-scr_xoff);
+	xstart = 0;
+    } else {
+	xout   = scr_width - scr_xoff;
+	xskip  = 0;
+	xstart = scr_xoff;
+    }
+    CLAMP(xout, 0, (long)(file_width - (size_t)file_xoff));
+
+    if (inverse)
+	scr_yoff = (-scr_yoff);
+
+    yout = scr_height - scr_yoff;
+    CLAMP(yout, 0, (long)(file_height - (size_t)file_yoff));
+
+    if (xout > MAX_LINE) {
+	fprintf(stderr, "bw-fb: can't output %ld pixel lines.\n", xout);
+	pkg_close(pc);
+	return 2;
+    }
+
+    /* Each MSG_FBBWWRITERECT packet: 4 longs header + xout bytes of BW data */
+    bw_per_row = (int)xout;
+    wrectbuf = (unsigned char *)bu_malloc(4*BWFB_NET_LONG_LEN + (size_t)bw_per_row, "wrectbuf");
+
+    if (file_yoff != 0) skipbytes(infd, (b_off_t)file_yoff * (b_off_t)file_width);
+
+    for (y = inverse ? (scr_height - 1 - scr_yoff) : scr_yoff;
+	 inverse ? (y >= scr_height - scr_yoff - yout) : (y < scr_yoff + yout);
+	 y += inverse ? -1 : 1) {
+	int n;
+
+	if (y < 0 || y >= scr_height) {
+	    skipbytes(infd, (b_off_t)file_width);
+	    continue;
+	}
+	if (file_xoff + xskip != 0)
+	    skipbytes(infd, (b_off_t)(file_xoff + xskip));
+	n = bu_mread(infd, ibuf, bw_per_row);
+	if (n <= 0) break;
+
+	bwfb_plong((char *)&wrectbuf[0*BWFB_NET_LONG_LEN], (unsigned long)xstart);
+	bwfb_plong((char *)&wrectbuf[1*BWFB_NET_LONG_LEN], (unsigned long)y);
+	bwfb_plong((char *)&wrectbuf[2*BWFB_NET_LONG_LEN], (unsigned long)bw_per_row);
+	bwfb_plong((char *)&wrectbuf[3*BWFB_NET_LONG_LEN], 1UL);
+	memcpy(&wrectbuf[4*BWFB_NET_LONG_LEN], ibuf, (size_t)n);
+	{
+	    int sendlen = 4*BWFB_NET_LONG_LEN + n;
+	    char wret[BWFB_NET_LONG_LEN + 1];
+	    if (pkg_send(MSG_FBBWWRITERECT, (char *)wrectbuf, sendlen, pc) < sendlen)
+		break;
+	    (void)pkg_waitfor(MSG_RETURN, wret, sizeof(wret), pc);
+	}
+
+	/* slop at end of line? */
+	if ((size_t)file_xoff + xskip + xout < file_width)
+	    skipbytes(infd, (b_off_t)(file_width - (size_t)file_xoff - xskip - xout));
+    }
+
+    /* MSG_FBCLOSE */
+    {
+	char closeret[BWFB_NET_LONG_LEN + 1];
+	(void)pkg_send(MSG_FBCLOSE, NULL, 0, pc);
+	(void)pkg_waitfor(MSG_RETURN, closeret, sizeof(closeret), pc);
+    }
+
+    pkg_close(pc);
+    bu_free(wrectbuf, "wrectbuf");
+
+    return 0;
+}
+
+#else /* !BRLCAD_ENABLE_OBOL ---------------------------------------- */
 
 int
 main(int argc, char **argv)
@@ -335,6 +574,8 @@ general:
     fb_close(fbp);
     return 0;
 }
+
+#endif /* BRLCAD_ENABLE_OBOL */
 
 
 /*
