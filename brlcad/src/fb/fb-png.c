@@ -23,11 +23,16 @@
  * Program to take a frame buffer image and write a PNG (Portable
  * Network Graphics) format file.
  *
+ * In Obol builds this tool speaks the fbserv PKG wire protocol
+ * (MSG_FBOPEN / MSG_FBREAD / MSG_FBCLOSE) directly via libpkg, with
+ * no libdm dependency.  The non-Obol path is unchanged and uses the
+ * libdm fb_open / fb_read / fb_close API.
  */
 
 #include "common.h"
 
 #include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
 #include "png.h"
 
@@ -38,13 +43,15 @@
 #include "bu/log.h"
 #include "bu/malloc.h"
 #include "vmath.h"
-#include "dm.h"
 
-#include "pkg.h"
-
-
+#ifndef BRLCAD_ENABLE_OBOL
+#  include "dm.h"
 /* in cmap-crunch.c */
 extern void cmap_crunch(RGBpixel (*scan_buf), int pixel_ct, ColorMap *colormap);
+#endif
+
+#include "pkg.h"
+#include "dm/fbserv.h"   /* MSG_FB* constants */
 
 
 static int crunch = 0;		/* Color map crunch? */
@@ -120,6 +127,192 @@ get_args(int argc, char **argv)
 }
 
 
+#ifdef BRLCAD_ENABLE_OBOL
+
+/* ------------------------------------------------------------------ */
+/* Obol path: direct PKG wire protocol (no libdm)                      */
+/* ------------------------------------------------------------------ */
+
+/* NET_LONG_LEN is 4 bytes, matching pkg_glong / pkg_plong encoding   */
+#define FBPNG_NET_LONG_LEN 4
+
+/* Encode a 32-bit big-endian unsigned long into buf (same as htonl). */
+static void
+fbpng_plong(char *buf, unsigned long val)
+{
+    unsigned char *p = (unsigned char *)buf;
+    p[0] = (unsigned char)((val >> 24) & 0xff);
+    p[1] = (unsigned char)((val >> 16) & 0xff);
+    p[2] = (unsigned char)((val >>  8) & 0xff);
+    p[3] = (unsigned char)((val      ) & 0xff);
+}
+
+/* Decode a 32-bit big-endian unsigned long from buf (same as ntohl). */
+static unsigned long
+fbpng_glong(const char *buf)
+{
+    const unsigned char *p = (const unsigned char *)buf;
+    unsigned long u = p[0]; u <<= 8;
+    u |= p[1]; u <<= 8;
+    u |= p[2]; u <<= 8;
+    return u | p[3];
+}
+
+int
+main(int argc, char **argv)
+{
+    struct pkg_conn *pc;
+    png_structp png_p;
+    png_infop info_p;
+    unsigned char *scanline;
+    int scanbytes;
+    int y;
+    char openbuf[2*FBPNG_NET_LONG_LEN + 2]; /* width + height + empty device */
+    char retbuf[5*FBPNG_NET_LONG_LEN + 4];
+    char hostbuf[256];
+    char portbuf[64];
+    const char *colon;
+
+    char usage[] = "\
+Usage: fb-png [-i -c] [-# nbytes/pixel] [-F framebuffer] [-g gamma]\n\
+\t[-s squaresize] [-w width] [-n height] [file.png]\n";
+
+    screen_height = screen_width = 512;
+    bu_setprogname(argv[0]);
+
+    if (!get_args(argc, argv)) {
+	(void)fputs(usage, stderr);
+	bu_exit(1, NULL);
+    }
+
+    if (!framebuffer) {
+	(void)fputs(usage, stderr);
+	bu_exit(12, "fb-png: -F framebuffer is required in Obol builds\n");
+    }
+
+    /* Parse "host:port" or "port" */
+    colon = strrchr(framebuffer, ':');
+    if (colon && colon != framebuffer) {
+	size_t hlen = (size_t)(colon - framebuffer);
+	if (hlen >= sizeof(hostbuf)) hlen = sizeof(hostbuf) - 1;
+	memcpy(hostbuf, framebuffer, hlen);
+	hostbuf[hlen] = '\0';
+	snprintf(portbuf, sizeof(portbuf), "%s", colon + 1);
+    } else {
+	snprintf(hostbuf, sizeof(hostbuf), "localhost");
+	snprintf(portbuf, sizeof(portbuf), "%s", colon ? colon + 1 : framebuffer);
+    }
+
+    /* Connect to fbserv */
+    pc = pkg_open(hostbuf, portbuf, 0, 0, 0, NULL, NULL);
+    if (pc == PKC_ERROR) {
+	bu_exit(12, "fb-png: cannot connect to fbserv at %s:%s\n",
+		hostbuf, portbuf);
+    }
+
+    /* MSG_FBOPEN: [width(4B)][height(4B)]  (device string is empty) */
+    memset(openbuf, 0, sizeof(openbuf));
+    fbpng_plong(&openbuf[0*FBPNG_NET_LONG_LEN], (unsigned long)screen_width);
+    fbpng_plong(&openbuf[1*FBPNG_NET_LONG_LEN], (unsigned long)screen_height);
+    if (pkg_send(MSG_FBOPEN, openbuf, 2*FBPNG_NET_LONG_LEN, pc) < 2*FBPNG_NET_LONG_LEN) {
+	pkg_close(pc);
+	bu_exit(1, "fb-png: MSG_FBOPEN send failed\n");
+    }
+
+    /* Response: [ret(4B)][max_w(4B)][max_h(4B)][w(4B)][h(4B)] */
+    if (pkg_waitfor(MSG_RETURN, retbuf, sizeof(retbuf), pc) < 5*FBPNG_NET_LONG_LEN) {
+	pkg_close(pc);
+	bu_exit(1, "fb-png: MSG_FBOPEN reply too short\n");
+    }
+    if (fbpng_glong(&retbuf[0*FBPNG_NET_LONG_LEN]) != 0) {
+	pkg_close(pc);
+	bu_exit(1, "fb-png: fbserv refused open\n");
+    }
+    {
+	int srv_w = (int)fbpng_glong(&retbuf[3*FBPNG_NET_LONG_LEN]);
+	int srv_h = (int)fbpng_glong(&retbuf[4*FBPNG_NET_LONG_LEN]);
+	if (screen_width  > srv_w) screen_width  = srv_w;
+	if (screen_height > srv_h) screen_height = srv_h;
+    }
+
+    scanbytes = screen_width * pixbytes;
+    scanline  = (unsigned char *)bu_malloc((size_t)scanbytes, "scanline");
+
+    /* PNG writer setup */
+    png_p = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+    if (!png_p) {
+	pkg_close(pc);
+	bu_exit(EXIT_FAILURE, "Could not create PNG write structure\n");
+    }
+    info_p = png_create_info_struct(png_p);
+    if (!info_p) {
+	pkg_close(pc);
+	bu_exit(EXIT_FAILURE, "Could not create PNG info structure\n");
+    }
+
+    png_init_io(png_p, outfp);
+    png_set_filter(png_p, 0, PNG_FILTER_NONE);
+    png_set_compression_level(png_p, 9);
+    png_set_IHDR(png_p, info_p,
+		 (png_uint_32)screen_width, (png_uint_32)screen_height, 8,
+		 pixbytes == 3 ? PNG_COLOR_TYPE_RGB : PNG_COLOR_TYPE_GRAY,
+		 PNG_INTERLACE_NONE,
+		 PNG_COMPRESSION_TYPE_DEFAULT,
+		 PNG_FILTER_TYPE_DEFAULT);
+    if (out_gamma > 0.0)
+	png_set_gAMA(png_p, info_p, out_gamma);
+    png_write_info(png_p, info_p);
+
+    /* Read rows.  BRL-CAD fb convention: y=0 is the bottom row.
+     * PNG convention: first row written is the top.
+     * Default (inverse=0): start at y=screen_height-1, go down to 0.
+     * Inverse (inverse=1): start at y=0, go up to screen_height-1.
+     */
+    {
+	int start_y = inverse ? 0             : screen_height - 1;
+	int stop_y  = inverse ? screen_height : -1;
+	int step_y  = inverse ? 1             : -1;
+	int msgtype = (pixbytes == 1) ? MSG_FBBWREADRECT : MSG_FBREADRECT;
+	char rrectbuf[4*FBPNG_NET_LONG_LEN + 1];
+
+	for (y = start_y; y != stop_y; y += step_y) {
+	    int got;
+	    /* Use MSG_FBREADRECT: [xmin(4B)][ymin(4B)][w(4B)][h(4B)] */
+	    fbpng_plong(&rrectbuf[0*FBPNG_NET_LONG_LEN], 0);
+	    fbpng_plong(&rrectbuf[1*FBPNG_NET_LONG_LEN], (unsigned long)y);
+	    fbpng_plong(&rrectbuf[2*FBPNG_NET_LONG_LEN], (unsigned long)screen_width);
+	    fbpng_plong(&rrectbuf[3*FBPNG_NET_LONG_LEN], 1); /* one row */
+	    if (pkg_send(msgtype, rrectbuf, 4*FBPNG_NET_LONG_LEN, pc) < 4*FBPNG_NET_LONG_LEN)
+		break;
+	    got = (int)pkg_waitfor(MSG_RETURN, (char *)scanline, scanbytes, pc);
+	    if (got <= 0) {
+		bu_log("fb-png: read of row %d failed (got %d)\n", y, got);
+		break;
+	    }
+	    png_write_row(png_p, scanline);
+	}
+    }
+
+    /* MSG_FBCLOSE */
+    {
+	char closeret[FBPNG_NET_LONG_LEN + 1];
+	(void)pkg_send(MSG_FBCLOSE, NULL, 0, pc);
+	(void)pkg_waitfor(MSG_RETURN, closeret, sizeof(closeret), pc);
+    }
+
+    pkg_close(pc);
+    png_write_end(png_p, NULL);
+
+    bu_free(scanline, "scanline");
+
+    if (outfp != stdout)
+	fclose(outfp);
+
+    return 0;
+}
+
+#else /* !BRLCAD_ENABLE_OBOL ---------------------------------------- */
+
 int
 main(int argc, char **argv)
 {
@@ -136,7 +329,7 @@ main(int argc, char **argv)
 
     char usage[] = "\
 Usage: fb-png [-i -c] [-# nbytes/pixel] [-F framebuffer] [-g gamma]\n\
-	[-s squaresize] [-w width] [-n height] [file.png]\n";
+\t[-s squaresize] [-w width] [-n height] [file.png]\n";
 
     screen_height = screen_width = 512;		/* Defaults */
 
@@ -232,6 +425,8 @@ Usage: fb-png [-i -c] [-# nbytes/pixel] [-F framebuffer] [-g gamma]\n\
     png_write_end(png_p, NULL);
     return 0;
 }
+
+#endif /* BRLCAD_ENABLE_OBOL */
 
 
 /*

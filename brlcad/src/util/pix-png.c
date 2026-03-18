@@ -44,7 +44,9 @@
 #include "bu/log.h"
 #include "bu/malloc.h"
 #include "bn.h"
-#include "dm.h"
+#ifndef BRLCAD_ENABLE_OBOL
+#  include "dm.h"
+#endif
 
 
 #define BYTESPERPIXEL 3
@@ -186,7 +188,9 @@ int
 main(int argc, char *argv[])
 {
     size_t i;
+#ifndef BRLCAD_ENABLE_OBOL
     size_t w, h;
+#endif
     unsigned char *scanbuf;
     unsigned char **rows;
     struct stat sb;
@@ -216,12 +220,30 @@ main(int argc, char *argv[])
 
     /* autosize input? */
     if (fileinput && autosize) {
+#ifndef BRLCAD_ENABLE_OBOL
 	if (fb_common_file_size(&w, &h, file_name, 3)) {
 	    file_width = w;
 	    file_height = h;
 	} else {
 	    bu_log("%s: unable to autosize\n", bu_getprogname());
 	}
+#else
+	/* Obol build: autosize via stat() rather than libdm */
+	{
+	    struct stat file_stat;
+	    if (file_name && stat(file_name, &file_stat) == 0 && file_stat.st_size > 0) {
+		size_t npix = (size_t)file_stat.st_size / 3;
+		size_t sq = (size_t)(sqrt((double)npix) + 0.5);
+		if (sq * sq == npix) {
+		    file_width = file_height = sq;
+		} else {
+		    bu_log("%s: unable to autosize\n", bu_getprogname());
+		}
+	    } else {
+		bu_log("%s: unable to autosize\n", bu_getprogname());
+	    }
+	}
+#endif
     }
 
     /* allocate space for the image */
@@ -244,6 +266,7 @@ main(int argc, char *argv[])
     if (SIZE * sizeof(unsigned char) < (size_t)sb.st_size) {
 	bu_log("WARNING: Output PNG image dimensions are smaller than the PIX input image\n");
 	bu_log("Input image is %lu pixels, output image is %zu pixels\n", (unsigned long)sb.st_size / 3, SIZE * sizeof(unsigned char) / 3);
+#ifndef BRLCAD_ENABLE_OBOL
 	if (fb_common_file_size(&w, &h, file_name, 3)) {
 	    bu_log("Input PIX dimensions appear to be %zux%zu pixels.  ", w, h);
 	    if (w == h) {
@@ -252,6 +275,7 @@ main(int argc, char *argv[])
 		bu_log("Try using the -w%zu -n%zu options.\n", w, h);
 	    }
 	}
+#endif
     }
 
     /* write out the data */

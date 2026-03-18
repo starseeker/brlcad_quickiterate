@@ -109,6 +109,7 @@ The macros `view_state`, `adc_state`, etc. resolve through `mged_curr_pane->mp_*
 | `libged`    | Removed from `libged_deps` core  |
 | `libqtcad`  | Removed (`QgSW`/`QgGL` excluded) |
 | `qged`      | Removed (Stage 20)               |
+| `rtwizard`  | Removed (Stage 21)               |
 
 ### Key libtclcad changes — Complete
 
@@ -134,51 +135,133 @@ The macros `view_state`, `adc_state`, etc. resolve through `mged_curr_pane->mp_*
 - `fbserv.cpp` Obol path: `obol_fbs_pkg_switch()` table +
   `qdm_obol_new_client()` handle the fbserv protocol natively.
 
-### dm plugin gating — Complete
+### dm plugin gating — Complete (Stage 22)
+
+All GL rendering plugins are now **not built** when `BRLCAD_ENABLE_OBOL`.
 
 - `dm-qtgl` plugin: **not built** when `BRLCAD_ENABLE_OBOL`.
 - `dm-ogl` (glx) plugin: **not built** when `BRLCAD_ENABLE_OBOL`.
-- `dm-swrast` plugin: still built (headless/test use); `swrastwin.cpp` and
-  `libqtcad` link skipped when Obol.
+- `dm-X` (X11) plugin: **not built** when `BRLCAD_ENABLE_OBOL`.
+- `dm-wgl` (WGL/Windows) plugin: **not built** when `BRLCAD_ENABLE_OBOL`.
+- `dm-swrast` plugin: **not built** when `BRLCAD_ENABLE_OBOL` (Stage 22).
+  Obol uses `QgObolSwrastView` (Coin3D/OSMesa) for headless/swrast rendering.
 - `QgSW.cpp` / `QgGL.cpp`: excluded from `libqtcad` build when Obol.
+
+### libdm draw test gating — Complete (Stage 22)
+
+All tests in `src/libged/tests/draw/` use `dm_open("swrast")` (libdm) and are
+guarded with `if(NOT BRLCAD_ENABLE_OBOL)`.  The Obol draw-pipeline equivalents
+are `qged_test` and `qged_pipeline_test` (use `QgObolSwrastView`).
 
 ---
 
 ## What Remains
 
-### 1. rtwizard — Obol offscreen rendering
+### 1. rtwizard — Obol-backed fbserv pipeline — Complete (Stage 25)
 
-`rtwizard` links `libdm` today (`src/rtwizard/CMakeLists.txt`).
+**rtwizard now routes all rendering through the TCP fbserv path in both Obol and
+non-Obol builds.**  The Obol fbserv (Stage 24) uses the libdm-free `pixbuf_server`
+backend; the traditional non-Obol fbserv uses the `/dev/mem` libdm driver.  The PKG
+wire protocol is identical in both cases so `rt`, `rtedge`, `fblabel`, `fbclear`,
+`fb-png`, and `fb-pix` work unchanged against either backend.
 
-- Gate `libdm` dep on `NOT BRLCAD_ENABLE_OBOL`.
-- Replace pixel-compositing pipeline with `SoOffscreenRenderer` +
-  `CoinOSMesaContextManager` for headless rendering.
-- rtwizard's `rt` backend writes pixel data; composite into an Obol texture
-  node or write directly from `SoOffscreenRenderer`.
+Changes made (Stage 25):
 
-### 2. Delete libdm rendering plugins
+- **`src/tclscripts/rtwizard/rtwizard`**: The Stage-23 Obol-specific `rtimage_file`
+  branch is removed.  The headless `else` block now uses a single fbserv path for
+  both Obol and non-Obol builds.  The only difference is the device string: Obol
+  builds use `"obol_pixbuf"` (accepted by the Stage-24 pixbuf fbserv); non-Obol
+  builds use `"/dev/mem"`.  The kill-fbserv guard now covers both device strings.
 
-With all consumers removed in Obol builds, the following directories can be
-deleted (or unconditionally skipped in CMake and later removed from disk):
+- **`src/fb/fb-png.c`**: Obol path speaks the fbserv PKG wire protocol directly
+  via libpkg (MSG_FBOPEN → read rows via MSG_FBREADRECT → MSG_FBCLOSE).  No libdm
+  symbols used.  Non-Obol path (inside `#else`) is unchanged.
 
-| Directory            | Replacement                  |
-|----------------------|------------------------------|
-| `src/libdm/qtgl/`    | `QgObolView` (already skipped)|
-| `src/libdm/glx/`     | `obol_view` HW GLX path      |
-| `src/libdm/swrast/`  | OSMesa `obol_view` SW path   |
-| `src/libdm/wgl/`     | `obol_view` HW WGL path      |
-| `src/libdm/X/`       | `obol_view` (Tk/X handled)   |
-| `src/libdm/null/`    | No replacement needed        |
-| `src/libdm/plot/`    | No replacement needed        |
-| `src/libdm/postscript/` | No replacement needed     |
-| `src/libdm/txt/`     | No replacement needed        |
+- **`src/fb/CMakeLists.txt`**: `fb-png` Obol branch links
+  `libbu + libpkg + ${PNG_LIBRARIES}` only (no libdm, no dm_plugins).
+  Added `brlcad_find_package(PNG REQUIRED)` at the top so `${PNG_LIBRARIES}` is
+  defined in this file.
 
-After plugins are gone:
-- Delete libdmgl (`dm-gl.c`, `dm-gl_lod.cpp`).
-- Slim core `libdm` to fb_* helpers only (`fb_generic.c`, `fb_log.c`,
-  `fb_paged_io.c`, `fb_rect.c`, `fb_util.c`, `fbserv.c`, `if_disk.c`,
-  `if_mem.c`, `if_remote.c`, `if_stack.c`), or fold those into a new
-  `libfb` if fully separating from the `dm` namespace is desired.
+- **`src/util/pix-png.c`** / **`src/util/CMakeLists.txt`**: Obol branch guards
+  both `fb_common_file_size()` calls with `#ifndef BRLCAD_ENABLE_OBOL`; the autosize
+  fallback uses a plain `stat()` call instead.  CMakeLists Obol branch links
+  `libbu + ${PNG_LIBRARIES}` only (no libdm).
+
+### 1b. fb-pix — libdm-free in Obol builds — Complete (Stage 26)
+
+**`fb-pix` (write framebuffer contents to a raw .pix file) now has an Obol path
+that speaks the fbserv PKG wire protocol directly, with no libdm dependency.**
+
+Two files changed:
+
+- **`src/fb/fb-pix.c`**: `#ifdef BRLCAD_ENABLE_OBOL` path connects to the fbserv
+  TCP port using raw libpkg — `MSG_FBOPEN` handshake, `MSG_FBREADRECT` one row at a
+  time, writes raw RGB bytes to the output file, then `MSG_FBCLOSE`.  No libdm
+  symbols used.  Non-Obol `#else` path is the unchanged original `fb_open` /
+  `fb_read` / `fb_close` code (including the colormap-crunch option).
+
+- **`src/fb/CMakeLists.txt`**: `fb-pix` Obol branch links `libbu + libpkg` only
+  (no libdm, no dm_plugins, no cmap-crunch.c).  Non-Obol branch unchanged.
+
+The full rtwizard pipeline for `.pix` output is now also libdm-free in Obol builds:
+`rt -F port` → pixbuf fbserv → `fb-pix -F port outfile.pix` with no libdm anywhere.
+
+### 1a. fbserv — Obol-backed pixel-buffer server — Complete (Stage 24)
+
+**Question: Could `fbserv` be backed by Obol and remain functional (TCP protocol
+still works, just no libdm/fb)?**  **Yes — done.**
+
+Three files changed:
+
+- **`src/fbserv/pixbuf_server.c`** (new): Implements all PKG handler functions
+  (`fb_server_fb_open`, `fb_server_fb_write`, `fb_server_fb_readrect`, etc.) using
+  a `malloc()`'d RGB pixel buffer (`g_pixbuf`) instead of a `struct fb *` from
+  libdm.  The same wire protocol is preserved bit-for-bit.  Supported operations:
+  FBOPEN/FBCLOSE/FBFREE, FBCLEAR, FBREAD/FBWRITE, FBREADRECT/FBWRITERECT,
+  FBBWREADRECT/FBBWWRITERECT, FBFLUSH.  Cursor/colormap/view/zoom operations
+  return success stubs so old client code doesn't break.  No libdm symbols used.
+
+- **`src/fbserv/fbserv.c`**: All `fb_*` calls in `main_loop()` and `main()`
+  wrapped with `#ifndef BRLCAD_ENABLE_OBOL`.  Also guards `#include "dm.h"`,
+  `_fb_disk_enable`, and the `fb_log()` override function.
+
+- **`src/fbserv/CMakeLists.txt`**: Conditional compile — Obol branch uses
+  `pixbuf_server.c` and links only `libbu + libpkg` (no libdm, no dm_plugins).
+  Non-Obol branch unchanged.
+
+The standalone `fbserv` binary participates in the rtwizard pipeline:
+`rt -F port` → pixbuf fbserv → `fb-png -F port outfile.png` works in Obol builds
+end-to-end with no libdm anywhere in the chain.
+
+### 2. Delete libdm rendering plugins (CMake gating complete — file deletion pending)
+
+All GL rendering plugins are now **skipped in CMake** when `BRLCAD_ENABLE_OBOL`
+(Stage 22 completed dm-swrast; Stages 19–21 did qtgl/glx/X/wgl).
+The source directories remain on disk; a future stage will delete them.
+
+CMake gating status:
+
+| Directory            | CMake guard when Obol ON    | Replacement                        |
+|----------------------|-----------------------------|-------------------------------------|
+| `src/libdm/qtgl/`    | ✅ `NOT BRLCAD_ENABLE_OBOL` | `QgObolView`                        |
+| `src/libdm/glx/`     | ✅ `NOT BRLCAD_ENABLE_OBOL` | `obol_view` HW GLX path             |
+| `src/libdm/wgl/`     | ✅ `NOT BRLCAD_ENABLE_OBOL` | `obol_view` HW WGL path             |
+| `src/libdm/X/`       | ✅ `NOT BRLCAD_ENABLE_OBOL` | `obol_view` (Tk/X handled)          |
+| `src/libdm/swrast/`  | ✅ `NOT BRLCAD_ENABLE_OBOL` | `QgObolSwrastView` (Coin3D/OSMesa)  |
+| `src/libdm/null/`    | n/a — no GL, always built   | No replacement needed               |
+| `src/libdm/plot/`    | n/a — no GL, always built   | No replacement needed               |
+| `src/libdm/postscript/` | n/a — no GL, always built | No replacement needed              |
+| `src/libdm/txt/`     | n/a — no GL, always built   | No replacement needed               |
+
+Remaining steps for a clean delete:
+1. Remove the now-dead source directories from disk (git rm) and update
+   `cmakefiles()` lists.
+2. Delete `libdmgl` (`dm-gl.c`, `dm-gl_lod.cpp`) once no plugin uses it in
+   Obol builds.
+3. Slim core `libdm` to fb_* helpers only (`fb_generic.c`, `fb_log.c`,
+   `fb_paged_io.c`, `fb_rect.c`, `fb_util.c`, `fbserv.c`, `if_disk.c`,
+   `if_mem.c`, `if_remote.c`, `if_stack.c`), or fold those into a new
+   `libfb` if fully separating from the `dm` namespace is desired.
 
 ### 3. Delete `src/libbsg/` and `include/bsg/`
 

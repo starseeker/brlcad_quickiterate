@@ -103,48 +103,6 @@ if {[info exists ::use_gui]} {
      }
    }
 
-   # Get an in-memory framebuffer, if we don't already have a type set
-   if {![info exists ::RtWizard::wizard_state(fbserv_device)]} {
-      set ::RtWizard::wizard_state(fbserv_device) /dev/mem
-      set fbtype_specified 0
-   } else {
-      set fbtype_specified 1
-   }
-
-   # We need a port number for the fbserv.
-   if {![info exists ::RtWizard::wizard_state(fbserv_port)]} {
-      set ::RtWizard::wizard_state(fbserv_port) 0
-      set port_number_specified 0
-   } else {
-      set port_number_specified 1
-   }
-   # Check whether the framebuffer already exists.  If it does, and if
-   # it was specified on the command line, go with it.
-   if { [catch {exec [file join [bu_dir bin] fblabel] -F $::RtWizard::wizard_state(fbserv_port) 1 1 " "} error ] && $error == 12} {
-      catch {exec [file join [bu_dir bin] fbserv] -w $::RtWizard::wizard_state(width) -n $::RtWizard::wizard_state(scanlines) $::RtWizard::wizard_state(fbserv_port) $::RtWizard::wizard_state(fbserv_device) &} pid
-      if {[info exists pid]} {
-	set fbserv_pid $pid
-	# Wait a few milliseconds to make sure fbserv has completed its work and is available
-	while { [catch {exec [file join [bu_dir bin] fblabel] -F $::RtWizard::wizard_state(fbserv_port) 1 1 " "} error] && $error == 12} {after 300}
-      } else {
-	if {$::RtWizard::wizard_state(verbose)} {puts "fbserv port $::RtWizard::wizard_state(fbserv_port) failed!"}
-	incr ::RtWizard::wizard_state(fbserv_port)
-      }
-   }
-
-   # If we didn't have a pre-specified port number and the default didn't work, start counting up
-   if { ! $port_number_specified && ! [info exists fbserv_pid] } {
-       incr ::RtWizard::wizard_state(fbserv_port)
-       while { ! [catch {exec [file join [bu_dir bin] fbclear] -F $::RtWizard::wizard_state(fbserv_port) } error ] } {
-	     if {$::RtWizard::wizard_state(verbose)} {puts "fbserv port $::RtWizard::wizard_state(fbserv_port) is already in use."}
-	     incr ::RtWizard::wizard_state(fbserv_port)
-       }
-      catch {exec [file join [bu_dir bin] fbserv] -w $::RtWizard::wizard_state(width) -n $::RtWizard::wizard_state(scanlines) $::RtWizard::wizard_state(fbserv_port) $::RtWizard::wizard_state(fbserv_device) &} pid
-      set fbserv_pid $pid
-      # Wait a few milliseconds to make sure fbserv has completed its work and is available
-      while { [catch {exec [file join [bu_dir bin] fblabel] -F $::RtWizard::wizard_state(fbserv_port) 1 1 " "} error] && $error == 12 } {after 300}
-   }
-
    # Either we're using a specified view model, or we're deducing one based on user options
    if {[info exists ::RtWizard::wizard_state(viewsize)] && [info exists ::RtWizard::wizard_state(orientation)] && [info exists ::RtWizard::wizard_state(eye_pt)]} {
      set viewsize $::RtWizard::wizard_state(viewsize)
@@ -196,57 +154,112 @@ if {[info exists ::use_gui]} {
      set eye_pt [lrange [lindex $vdata 2] 1 end]
    }
 
-   # populate a dictionary to pass to rtimage
-   set rtimage_dict [dict create \
-       _dbfile $::RtWizard::wizard_state(dbFile) \
-       _port $::RtWizard::wizard_state(fbserv_port) \
-       _w $::RtWizard::wizard_state(width) \
-       _n $::RtWizard::wizard_state(scanlines) \
-       _viewsize $viewsize \
-       _orientation $orientation \
-       _eye_pt $eye_pt \
-       _perspective $::RtWizard::wizard_state(perspective) \
-       _bgcolor $::RtWizard::wizard_state(bg_color) \
-       _ecolor $::RtWizard::wizard_state(e_color) \
-       _necolor $::RtWizard::wizard_state(ne_color)\
-       _occmode $::RtWizard::wizard_state(occmode) \
-       _gamma $::RtWizard::wizard_state(ghost_intensity) \
-       _color_objects  $::RtWizard::wizard_state(color_objlist) \
-       _ghost_objects  $::RtWizard::wizard_state(ghost_objlist) \
-       _edge_objects  $::RtWizard::wizard_state(line_objlist) \
-       _benchmark_mode  $::benchmark_mode \
-       _log_file  $::RtWizard::wizard_state(log_file) \
-       _pid_filename $::RtWizard::wizard_state(pid_filename)
-       ]
+   # Route all rendering through the TCP fbserv path.
+   # In Obol builds the standalone fbserv uses the libdm-free pixbuf backend
+   # (Stage 24); in non-Obol builds it uses the traditional /dev/mem driver.
+   # The PKG wire protocol is identical in both cases, so rt, rtedge, fblabel,
+   # fbclear, fb-png and fb-pix all work unchanged against either backend.
 
+   # Traditional fbserv-based path.
 
-    ::cadwidgets::rtimage $rtimage_dict
-
-   if {[info exists ::RtWizard::wizard_state(output_filename)]} {
-      set output_generated 0
-      if {[file extension $::RtWizard::wizard_state(output_filename)] == ".png"} {
-	 exec [file join [bu_dir bin] fb-png] -w $::RtWizard::wizard_state(width) -n $::RtWizard::wizard_state(scanlines) -F $::RtWizard::wizard_state(fbserv_port) $::RtWizard::wizard_state(output_filename)
-	 set output_generated 1
+   # Select the in-memory framebuffer device, if we don't already have a type set.
+   # In Obol builds use "obol_pixbuf" (an arbitrary non-empty string accepted by
+   # the Stage-24 pixbuf fbserv); in non-Obol builds use the libdm /dev/mem driver.
+   if {![info exists ::RtWizard::wizard_state(fbserv_device)]} {
+      if {[info commands obol_init] ne ""} {
+	 set ::RtWizard::wizard_state(fbserv_device) obol_pixbuf
+      } else {
+	 set ::RtWizard::wizard_state(fbserv_device) /dev/mem
       }
-      if {!$output_generated} {
-	 exec [file join [bu_dir bin] fb-pix] -w $::RtWizard::wizard_state(width) -n $::RtWizard::wizard_state(scanlines) -F $::RtWizard::wizard_state(fbserv_port) $::RtWizard::wizard_state(output_filename)
-	 set output_generated 1
-      }
-
+      set fbtype_specified 0
+   } else {
+      set fbtype_specified 1
    }
 
+      # We need a port number for the fbserv.
+      if {![info exists ::RtWizard::wizard_state(fbserv_port)]} {
+	 set ::RtWizard::wizard_state(fbserv_port) 0
+	 set port_number_specified 0
+      } else {
+	 set port_number_specified 1
+      }
+      # Check whether the framebuffer already exists.  If it does, and if
+      # it was specified on the command line, go with it.
+      if { [catch {exec [file join [bu_dir bin] fblabel] -F $::RtWizard::wizard_state(fbserv_port) 1 1 " "} error ] && $error == 12} {
+	 catch {exec [file join [bu_dir bin] fbserv] -w $::RtWizard::wizard_state(width) -n $::RtWizard::wizard_state(scanlines) $::RtWizard::wizard_state(fbserv_port) $::RtWizard::wizard_state(fbserv_device) &} pid
+	 if {[info exists pid]} {
+	    set fbserv_pid $pid
+	    # Wait a few milliseconds to make sure fbserv has completed its work and is available
+	    while { [catch {exec [file join [bu_dir bin] fblabel] -F $::RtWizard::wizard_state(fbserv_port) 1 1 " "} error] && $error == 12} {after 300}
+	 } else {
+	    if {$::RtWizard::wizard_state(verbose)} {puts "fbserv port $::RtWizard::wizard_state(fbserv_port) failed!"}
+	    incr ::RtWizard::wizard_state(fbserv_port)
+	 }
+      }
 
-   if {$::RtWizard::wizard_state(fbserv_device) == "/dev/mem"} {
-       if {[info exists fbserv_pid]} {
-	  if {$::tcl_platform(platform) == "windows"} {
-	      set kill_cmd [auto_execok taskkill]
-	      set kill_args [list $kill_cmd "/F" "/PID" $fbserv_pid]
-	  } else {
-	      set kill_cmd [auto_execok kill]
-	      set kill_args [list $kill_cmd $fbserv_pid]
+      # If we didn't have a pre-specified port number and the default didn't work, start counting up
+      if { ! $port_number_specified && ! [info exists fbserv_pid] } {
+	  incr ::RtWizard::wizard_state(fbserv_port)
+	  while { ! [catch {exec [file join [bu_dir bin] fbclear] -F $::RtWizard::wizard_state(fbserv_port) } error ] } {
+		if {$::RtWizard::wizard_state(verbose)} {puts "fbserv port $::RtWizard::wizard_state(fbserv_port) is already in use."}
+		incr ::RtWizard::wizard_state(fbserv_port)
 	  }
-	  if {$kill_cmd != ""} {
-	      exec {*}$kill_args
+	 catch {exec [file join [bu_dir bin] fbserv] -w $::RtWizard::wizard_state(width) -n $::RtWizard::wizard_state(scanlines) $::RtWizard::wizard_state(fbserv_port) $::RtWizard::wizard_state(fbserv_device) &} pid
+	 set fbserv_pid $pid
+	 # Wait a few milliseconds to make sure fbserv has completed its work and is available
+	 while { [catch {exec [file join [bu_dir bin] fblabel] -F $::RtWizard::wizard_state(fbserv_port) 1 1 " "} error] && $error == 12 } {after 300}
+      }
+
+      # populate a dictionary to pass to rtimage
+      set rtimage_dict [dict create \
+	  _dbfile $::RtWizard::wizard_state(dbFile) \
+	  _port $::RtWizard::wizard_state(fbserv_port) \
+	  _w $::RtWizard::wizard_state(width) \
+	  _n $::RtWizard::wizard_state(scanlines) \
+	  _viewsize $viewsize \
+	  _orientation $orientation \
+	  _eye_pt $eye_pt \
+	  _perspective $::RtWizard::wizard_state(perspective) \
+	  _bgcolor $::RtWizard::wizard_state(bg_color) \
+	  _ecolor $::RtWizard::wizard_state(e_color) \
+	  _necolor $::RtWizard::wizard_state(ne_color)\
+	  _occmode $::RtWizard::wizard_state(occmode) \
+	  _gamma $::RtWizard::wizard_state(ghost_intensity) \
+	  _color_objects  $::RtWizard::wizard_state(color_objlist) \
+	  _ghost_objects  $::RtWizard::wizard_state(ghost_objlist) \
+	  _edge_objects  $::RtWizard::wizard_state(line_objlist) \
+	  _benchmark_mode  $::benchmark_mode \
+	  _log_file  $::RtWizard::wizard_state(log_file) \
+	  _pid_filename $::RtWizard::wizard_state(pid_filename)
+	  ]
+
+      ::cadwidgets::rtimage $rtimage_dict
+
+      if {[info exists ::RtWizard::wizard_state(output_filename)]} {
+	 set output_generated 0
+	 if {[file extension $::RtWizard::wizard_state(output_filename)] == ".png"} {
+	    exec [file join [bu_dir bin] fb-png] -w $::RtWizard::wizard_state(width) -n $::RtWizard::wizard_state(scanlines) -F $::RtWizard::wizard_state(fbserv_port) $::RtWizard::wizard_state(output_filename)
+	    set output_generated 1
+	 }
+	 if {!$output_generated} {
+	    exec [file join [bu_dir bin] fb-pix] -w $::RtWizard::wizard_state(width) -n $::RtWizard::wizard_state(scanlines) -F $::RtWizard::wizard_state(fbserv_port) $::RtWizard::wizard_state(output_filename)
+	    set output_generated 1
+	 }
+      }
+
+      if {$::RtWizard::wizard_state(fbserv_device) == "/dev/mem" || \
+	  $::RtWizard::wizard_state(fbserv_device) == "obol_pixbuf"} {
+	  if {[info exists fbserv_pid]} {
+	     if {$::tcl_platform(platform) == "windows"} {
+		 set kill_cmd [auto_execok taskkill]
+		 set kill_args [list $kill_cmd "/F" "/PID" $fbserv_pid]
+	     } else {
+		 set kill_cmd [auto_execok kill]
+		 set kill_args [list $kill_cmd $fbserv_pid]
+	     }
+	     if {$kill_cmd != ""} {
+		 exec {*}$kill_args
+	     }
 	  }
       }
    }

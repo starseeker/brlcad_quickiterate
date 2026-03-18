@@ -84,7 +84,9 @@
 #include "bu/malloc.h"
 #include "bu/snooze.h"
 #include "vmath.h"
-#include "dm.h"
+#ifndef BRLCAD_ENABLE_OBOL
+#  include "dm.h"
+#endif
 #include "pkg.h"
 
 
@@ -108,14 +110,20 @@ struct pkg_conn *clients[MAX_CLIENTS];
 
 int verbose = 0;
 
-/* from server.c */
+/* from server.c / pixbuf_server.c */
 extern const struct pkg_switch pkg_switch[];
+#ifndef BRLCAD_ENABLE_OBOL
 extern struct fb *fb_server_fbp;
+#endif
 extern fd_set *fb_server_select_list;
 extern int *fb_server_max_fd;
 extern int fb_server_got_fb_free;       /* !0 => we have received an fb_free */
 extern int fb_server_refuse_fb_free;    /* !0 => don't accept fb_free() */
 extern int fb_server_retain_on_close;   /* !0 => we are holding a reusable FB open */
+#ifdef BRLCAD_ENABLE_OBOL
+/* pixbuf_server.c provides this function to propagate command-line -w/-n/-s */
+extern void pixbuf_server_set_defaults(int w, int h);
+#endif
 
 
 /* Hidden args: -p<port_num> -F<frame_buffer> */
@@ -311,10 +319,12 @@ main_loop(void)
 	struct timeval tv;
 	int i;
 
+#ifndef BRLCAD_ENABLE_OBOL
 	if (fb_server_fbp) {
 	    if (fb_poll_rate(fb_server_fbp) > 0)
 		refresh_rate = fb_poll_rate(fb_server_fbp);
 	}
+#endif
 
 	infds = select_list;	/* struct copy */
 
@@ -323,17 +333,21 @@ main_loop(void)
 	if ((select(max_fd+1, &infds, (fd_set *)0, (fd_set *)0, (struct timeval *)&tv) == 0)) {
 	    /* Process fb events while waiting for client */
 	    /*printf("select timeout waiting for client\n");*/
+#ifndef BRLCAD_ENABLE_OBOL
 	    if (fb_server_fbp) {
 		if (fb_poll(fb_server_fbp)) {
 		    return;
 		}
 	    }
+#endif
 	    continue;
 	}
+#ifndef BRLCAD_ENABLE_OBOL
 	/* Handle any events from the framebuffer */
 	if (fb_is_set_fd(fb_server_fbp, &infds)) {
 	    fb_poll(fb_server_fbp);
 	}
+#endif
 
 	/* Accept any new client connections */
 	if (netfd > 0 && FD_ISSET(netfd, &infds)) {
@@ -394,8 +408,10 @@ main(int argc, char **argv)
 
     max_fd = 0;
 
+#ifndef BRLCAD_ENABLE_OBOL
     /* No disk files on remote machine */
     _fb_disk_enable = 0;
+#endif
     memset((void *)clients, 0, sizeof(struct pkg_conn *) * MAX_CLIENTS);
 
 #ifdef SIGPIPE
@@ -434,10 +450,16 @@ main(int argc, char **argv)
     if (framebuffer != NULL) {
 	fb_server_retain_on_close = 1;	/* don't ever close the frame buffer */
 
+#ifndef BRLCAD_ENABLE_OBOL
 	/* open a frame buffer */
 	if ((fb_server_fbp = fb_open(framebuffer, width, height)) == FB_NULL)
 	    bu_exit(1, NULL);
 	max_fd = fb_set_fd(fb_server_fbp, &select_list);
+#else
+	/* Obol path: pixbuf is allocated lazily on MSG_FBOPEN.
+	 * Propagate command-line dimensions as defaults. */
+	pixbuf_server_set_defaults(width, height);
+#endif
 
 	/* check/default port */
 	if (port_set) {
@@ -528,7 +550,11 @@ main(int argc, char **argv)
  * This version should work on practically any machine, but
  * it serves to highlight the grossness of the varargs package
  * requiring the size of a parameter to be known at compile time.
+ *
+ * In Obol builds this override is not needed because libdm (libfb)
+ * is not linked; the pixbuf handlers write to stderr directly.
  */
+#ifndef BRLCAD_ENABLE_OBOL
 void
 fb_log(const char *fmt, ...)
 {
@@ -558,7 +584,7 @@ fb_log(const char *fmt, ...)
 	fflush(stderr);
     }
 }
-
+#endif /* !BRLCAD_ENABLE_OBOL */
 
 #endif /* _WIN32 */
 

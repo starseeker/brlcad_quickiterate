@@ -1,6 +1,9 @@
 set(WGL_SRCS dm-wgl.c if_wgl.c)
 
-if(WIN32 AND BRLCAD_ENABLE_OPENGL AND BRLCAD_ENABLE_TK)
+# When Obol is the rendering backend, mged/archer create Obol panes directly
+# and the WGL display manager plugin is never loaded.  Skip the build in that
+# case so Obol binaries remain free of libdm rendering symbols.
+if(NOT BRLCAD_ENABLE_OBOL AND WIN32 AND BRLCAD_ENABLE_OPENGL AND BRLCAD_ENABLE_TK)
   find_package(OpenGL)
 
   set(TCL_ENABLE_TK ON)
@@ -46,7 +49,7 @@ if(WIN32 AND BRLCAD_ENABLE_OPENGL AND BRLCAD_ENABLE_TK)
 
     plugin_setup(dm-wgl dm)
   endif(TCL_FOUND AND TK_FOUND)
-endif(WIN32 AND BRLCAD_ENABLE_OPENGL AND BRLCAD_ENABLE_TK)
+endif(NOT BRLCAD_ENABLE_OBOL AND WIN32 AND BRLCAD_ENABLE_OPENGL AND BRLCAD_ENABLE_TK)
 
 cmakefiles(
   CMakeLists.txt
