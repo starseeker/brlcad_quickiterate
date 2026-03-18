@@ -285,9 +285,51 @@ Changes made (Stage 27):
 Remaining steps (source-directory deletion requires committing to Obol-only):
 1. Remove the now-dead source directories from disk (git rm) and update
    `cmakefiles()` lists.
-2. Split `dm_plugins.cpp` into `fb_plugins.cpp` (fb_open/fb_set_interface)
-   and `dm_plugins.cpp` (dm_open only), then gate the dm-only half; this
-   allows `dm_init.cpp` and the remaining `dm_plugins.cpp` to also be gated.
+
+### 2c. Split dm_plugins.cpp and gate dm_open in Obol builds — Complete (Stage 29)
+
+**Stage 29 splits `dm_plugins.cpp` into a fb-only `fb_plugins.cpp` (always
+compiled) and a dm-only `dm_plugins.cpp` (non-Obol only), gates the dm plugin
+loading loop in `dm_init.cpp`, and provides lightweight Obol stubs for the
+`dm_open` family of functions.**
+
+Changes made (Stage 29):
+
+- **`src/libdm/fb_plugins.cpp`** *(new)*: Contains the framebuffer plugin API
+  implementations — `fb_open`, `fb_set_interface`, `fb_get_platform_specific`,
+  `fb_put_platform_specific`, `fb_genhelp`.  These read only `fb_backends` and
+  have no dependency on dm rendering plugins.  Compiled in ALL builds.
+
+- **`src/libdm/dm_plugins.cpp`** *(trimmed)*: Now contains only the dm
+  rendering plugin API — `dm_open`, `dm_have_graphics`, `dm_graphics_system`,
+  `dm_list_types`, `dm_validXType`, `dm_valid_type`, `dm_bestXType`,
+  `dm_default_type`.  Compiled only when `NOT BRLCAD_ENABLE_OBOL`.
+
+- **`src/libdm/dm_obol_stubs.cpp`** *(new)*: Provides stub implementations of
+  all 8 dm rendering API functions for Obol builds.  Stubs return `DM_NULL`,
+  `0`, `NULL`, or `"nu"` immediately without consulting any backend map.
+  Compiled only when `BRLCAD_ENABLE_OBOL`.
+
+- **`src/libdm/dm_init.cpp`**: The dm plugin loading loop (file scan, dlopen,
+  `dm_plugin_info` / `fb_plugin_info` symbol lookup) is now wrapped with
+  `#ifndef BRLCAD_ENABLE_OBOL`.  In Obol builds, `libdm_init` still populates
+  `fb_backends` with the four built-in interfaces (null, debug, mem, stack) but
+  skips the entire dynamic plugin scan.  The `get_dm_map()` singleton, the
+  `dm_handles` set, and their associated headers (`<set>`, `<algorithm>`,
+  `<cctype>`, `bu/dylib.h`, `bu/file.h`) are all excluded via `#ifndef`.
+
+- **`src/libdm/CMakeLists.txt`**: `fb_plugins.cpp` added to `LIBDM_SRCS`
+  unconditionally.  `dm_plugins.cpp` appended only when
+  `NOT BRLCAD_ENABLE_OBOL`; `dm_obol_stubs.cpp` appended when
+  `BRLCAD_ENABLE_OBOL`.  `cmakefiles()` registration updated so both new
+  files appear in distribution tarballs regardless of which build variant is
+  active.
+
+After Stage 29, in Obol builds, libdm:
+- Never scans or dlopen's any dm rendering plugin
+- Never allocates or populates `dm_backends` (the pointer stays `NULL`)
+- Exposes the dm_open/dm_have_graphics/… API via zero-overhead stubs
+- Still fully populates `fb_backends` for the built-in fb interfaces
 
 ### 2b. Gate / re-express final dm_open callers in Obol builds — Complete (Stage 28)
 

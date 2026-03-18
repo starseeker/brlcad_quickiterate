@@ -7,7 +7,7 @@ set(
   asize.c
   dm-generic.c
   dm_init.cpp
-  dm_plugins.cpp
+  fb_plugins.cpp
   dm_util.c
   fb_generic.c
   fb_log.c
@@ -22,6 +22,16 @@ set(
   view.c
   vers.c
 )
+# dm_plugins.cpp contains the dm_open/dm_have_graphics/dm_list_types/… API
+# implemented against the dm_backends plugin map.  In Obol builds no GL
+# rendering plugins are present so dm_backends is always empty; these
+# functions are replaced by lightweight stubs in dm_obol_stubs.cpp that
+# return NULL/0/"nu" immediately without consulting the map.
+if(NOT BRLCAD_ENABLE_OBOL)
+  list(APPEND LIBDM_SRCS dm_plugins.cpp)
+else()
+  list(APPEND LIBDM_SRCS dm_obol_stubs.cpp)
+endif()
 # In Obol builds the GL rendering plugins are replaced by the Obol/Coin3D
 # scene-graph path.  The 2D overlay drawing helpers (ADC cursor, axes, grid,
 # rect, scale, labels, clipping) and the options parser are only used by
@@ -149,6 +159,9 @@ set(
 # dm-gl_lod.cpp is in LIBDMGL_SRCS along with dm-gl.c; in non-Obol+OpenGL
 # builds both are registered by brlcad_addlib, but in Obol builds libdmgl is
 # skipped so dm-gl_lod.cpp needs explicit registration here.
+# Similarly, dm_plugins.cpp is only compiled in non-Obol builds, so register
+# it here for Obol builds.  dm_obol_stubs.cpp is only compiled in Obol builds,
+# so register it for non-Obol builds.
 if(BRLCAD_ENABLE_OBOL)
   list(APPEND libdm_ignore_files
     adc.c
@@ -160,6 +173,11 @@ if(BRLCAD_ENABLE_OBOL)
     rect.c
     scale.c
     dm-gl_lod.cpp
+    dm_plugins.cpp
+  )
+else()
+  list(APPEND libdm_ignore_files
+    dm_obol_stubs.cpp
   )
 endif(BRLCAD_ENABLE_OBOL)
 cmakefiles(${libdm_ignore_files})

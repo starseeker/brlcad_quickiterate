@@ -27,16 +27,21 @@
 
 #include "common.h"
 
-#include <algorithm>
-#include <cctype>
 #include <map>
-#include <set>
 #include <string>
+
+#ifndef BRLCAD_ENABLE_OBOL
+#  include <algorithm>
+#  include <cctype>
+#  include <set>
+#endif
 
 #include "bu/defines.h"
 #include "bu/app.h"
-#include "bu/dylib.h"
-#include "bu/file.h"
+#ifndef BRLCAD_ENABLE_OBOL
+#  include "bu/dylib.h"
+#  include "bu/file.h"
+#endif
 #include "bu/malloc.h"
 #include "bu/str.h"
 #include "bu/vls.h"
@@ -44,10 +49,12 @@
 #include "./include/private.h"
 
 // Meyers singletons
+#ifndef BRLCAD_ENABLE_OBOL
 static std::map<std::string, const struct dm *> &get_dm_map() {
     static std::map<std::string, const struct dm *> dm_map;
     return dm_map;
 }
+#endif /* !BRLCAD_ENABLE_OBOL */
 static std::map<std::string, const struct fb *> &get_fb_map() {
     static std::map<std::string, const struct fb *> fb_map;
     return fb_map;
@@ -56,7 +63,9 @@ static std::map<std::string, const struct fb *> &get_fb_map() {
 void *dm_backends;
 void *fb_backends;
 
+#ifndef BRLCAD_ENABLE_OBOL
 static std::set<void *> dm_handles;
+#endif /* !BRLCAD_ENABLE_OBOL */
 struct bu_vls init_msgs = BU_VLS_INIT_ZERO;
 
 const char *
@@ -71,6 +80,10 @@ libdm_init(void)
 {
     bu_vls_init(&init_msgs);
 
+#ifndef BRLCAD_ENABLE_OBOL
+    /* Load dm (and fb) plugins from the dm libexec directory.  In Obol builds
+     * all GL rendering plugins are excluded from the build, so this loop would
+     * find nothing and is skipped entirely to avoid unnecessary I/O. */
     const char *ppath = bu_dir(NULL, 0, BU_DIR_LIBEXEC, "dm", NULL);
     char **dm_filenames;
     struct bu_vls plugin_pattern = BU_VLS_INIT_ZERO;
@@ -185,6 +198,7 @@ libdm_init(void)
     bu_vls_free(&plugin_pattern);
 
     dm_backends = (void *)&get_dm_map();
+#endif /* !BRLCAD_ENABLE_OBOL */
 
     // Populate the built-in if_* backends
     std::string nullkey("/dev/null");
@@ -203,6 +217,7 @@ libdm_init(void)
 static void
 libdm_clear(void)
 {
+#ifndef BRLCAD_ENABLE_OBOL
     get_dm_map().clear();
     std::set<void *>::reverse_iterator h_it;
     /* unload in reverse in case symbols are referential */
@@ -211,6 +226,7 @@ libdm_clear(void)
 	bu_dlclose(handle);
     }
     dm_handles.clear();
+#endif /* !BRLCAD_ENABLE_OBOL */
 
     bu_vls_free(&init_msgs);
 }
