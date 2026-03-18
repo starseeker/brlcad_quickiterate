@@ -316,6 +316,11 @@ dm_draw_faceplate(bsg_view *v)
 	(void)dm_draw_point_2d(dmp, 0.0, 0.0);
     }
 
+/* In Obol builds the 2D overlay rendering code (axes, ADC cursor, grid, scale,
+ * rect) is handled by Coin3D SoAnnotation nodes; the libdm helper functions
+ * (dm_draw_hud_axes, dm_draw_adc, dm_draw_grid, dm_draw_scale, dm_draw_rect)
+ * are not compiled.  Skip these blocks when BRLCAD_ENABLE_OBOL is set. */
+#ifndef BRLCAD_ENABLE_OBOL
     /* Model axes */
     if (v->gv_s->gv_model_axes.draw) {
 	point_t map;
@@ -376,6 +381,7 @@ dm_draw_faceplate(bsg_view *v)
     /* Draw rect */
     if (v->gv_s->gv_rect.draw && v->gv_s->gv_rect.line_width)
 	dm_draw_rect(dmp, &v->gv_s->gv_rect);
+#endif /* !BRLCAD_ENABLE_OBOL */
 
     /* View parameters - drawn last so the FPS incorporates as much as possible
      * of the drawing work. */
@@ -672,8 +678,10 @@ dm_draw_visitor(bsg_shape *s, const bsg_traversal_state *state, void *user_data)
     if (!(s->s_type_flags & BSG_NODE_MESH_LOD))
 	dm_add_arrows(dmp, s);
 
+#ifndef BRLCAD_ENABLE_OBOL
     if (s->s_type_flags & BSG_NODE_AXES)
 	dm_draw_scene_axes(dmp, s);
+#endif /* !BRLCAD_ENABLE_OBOL */
 
     if (s->s_type_flags & BSG_NODE_LABELS)
 	dm_draw_label(dmp, s);
@@ -695,11 +703,13 @@ dm_draw_viewobjs(struct rt_wdb *wdbp, bsg_view *v, struct dm_view_data *vd)
     if (v->gv_tcl.gv_sdata_arrows.gdas_draw)
 	dm_draw_arrows(dmp, &v->gv_tcl.gv_sdata_arrows, sf);
 
+#ifndef BRLCAD_ENABLE_OBOL
     if (v->gv_tcl.gv_data_axes.draw)
 	dm_draw_data_axes(dmp, sf, &v->gv_tcl.gv_data_axes);
 
     if (v->gv_tcl.gv_sdata_axes.draw)
 	dm_draw_data_axes(dmp, sf, &v->gv_tcl.gv_sdata_axes);
+#endif /* !BRLCAD_ENABLE_OBOL */
 
     if (v->gv_tcl.gv_data_lines.gdls_draw)
 	dm_draw_lines(dmp, &v->gv_tcl.gv_data_lines);
@@ -747,6 +757,7 @@ dm_draw_viewobjs(struct rt_wdb *wdbp, bsg_view *v, struct dm_view_data *vd)
     }
 
     /* Draw labels */
+#ifndef BRLCAD_ENABLE_OBOL
     if (wdbp && vd && v->gv_tcl.gv_prim_labels.gos_draw) {
 	struct bsg_camera _cm;
 	bsg_view_get_camera(v, &_cm);
@@ -759,6 +770,7 @@ dm_draw_viewobjs(struct rt_wdb *wdbp, bsg_view *v, struct dm_view_data *vd)
 			   NULL, NULL);
 	}
     }
+#endif /* !BRLCAD_ENABLE_OBOL */
 
     /* Restore non-HUD settings. */
     (void)dm_hud_end(dmp);

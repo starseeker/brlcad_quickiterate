@@ -4,10 +4,7 @@ set(
   null/dm-Null.c
   null/if_null.c
   txt/if_debug.c
-  adc.c
   asize.c
-  axes.c
-  clip.c
   dm-generic.c
   dm_init.cpp
   dm_plugins.cpp
@@ -18,18 +15,30 @@ set(
   fb_rect.c
   fb_util.c
   fbserv.c
-  grid.c
   if_disk.c
   if_mem.c
   if_remote.c
   if_stack.c
-  labels.c
-  options.c
-  rect.c
-  scale.c
   view.c
   vers.c
 )
+# In Obol builds the GL rendering plugins are replaced by the Obol/Coin3D
+# scene-graph path.  The 2D overlay drawing helpers (ADC cursor, axes, grid,
+# rect, scale, labels, clipping) and the options parser are only used by
+# those plugins and by the non-Obol dm_draw_faceplate/dm_draw_viewobjs paths
+# in view.c.  Excluding them from Obol builds keeps libdm trim.
+if(NOT BRLCAD_ENABLE_OBOL)
+  list(APPEND LIBDM_SRCS
+    adc.c
+    axes.c
+    clip.c
+    grid.c
+    labels.c
+    options.c
+    rect.c
+    scale.c
+  )
+endif(NOT BRLCAD_ENABLE_OBOL)
 set_property(SOURCE dm_obj.c APPEND PROPERTY COMPILE_DEFINITIONS FB_USE_INTERNAL_API)
 set_property(
   SOURCE dm_init.cpp
@@ -56,8 +65,10 @@ endif(TARGET profont_ProFont_ttf_cp)
 # Many of the backends use the same OpenGL drawing logic for much of their
 # functionality.  If OpenGL support is available, We encapsulate the common
 # elements of this logic in a libdmgl library used by those plugins.
+# When Obol is the rendering backend all GL plugins are skipped, so libdmgl
+# is never referenced and should not be built.
 set(LIBDMGL_SRCS dm-gl.c dm-gl_lod.cpp)
-if(BRLCAD_ENABLE_OPENGL)
+if(NOT BRLCAD_ENABLE_OBOL AND BRLCAD_ENABLE_OPENGL)
   find_package(OpenGL)
 
   if(OPENGL_opengl_LIBRARY)
@@ -69,7 +80,7 @@ if(BRLCAD_ENABLE_OPENGL)
 
   brlcad_addlib(libdmgl "${LIBDMGL_SRCS}" "libdm;libbn;libbu;${OPENGL_LIBS}" "${DM_INCLUDE_DIRS}" "")
   set_target_properties(libdmgl PROPERTIES VERSION 20.0.1 SOVERSION 20)
-endif(BRLCAD_ENABLE_OPENGL)
+endif(NOT BRLCAD_ENABLE_OBOL AND BRLCAD_ENABLE_OPENGL)
 
 add_custom_command(
   OUTPUT "${CMAKE_BINARY_DIR}/dm_plugins.sentinel"
@@ -119,6 +130,8 @@ set(
   CMakeLists.txt
   README
   TODO
+  # dm-gl.c is in LIBDMGL_SRCS; it is always registered here so that it
+  # appears in source distributions even when OpenGL is disabled.
   dm-gl.c
   dm-gl.h
   if_TEMPLATE.c
@@ -131,6 +144,24 @@ set(
   fontstash/glfontstash.h
   fontstash/stb_truetype.h
 )
+# Register Obol-gated source files so they appear in distribution tarballs
+# even when BRLCAD_ENABLE_OBOL is set and they are not compiled.
+# dm-gl_lod.cpp is in LIBDMGL_SRCS along with dm-gl.c; in non-Obol+OpenGL
+# builds both are registered by brlcad_addlib, but in Obol builds libdmgl is
+# skipped so dm-gl_lod.cpp needs explicit registration here.
+if(BRLCAD_ENABLE_OBOL)
+  list(APPEND libdm_ignore_files
+    adc.c
+    axes.c
+    clip.c
+    grid.c
+    labels.c
+    options.c
+    rect.c
+    scale.c
+    dm-gl_lod.cpp
+  )
+endif(BRLCAD_ENABLE_OBOL)
 cmakefiles(${libdm_ignore_files})
 
 # Local Variables:

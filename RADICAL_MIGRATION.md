@@ -233,7 +233,7 @@ The standalone `fbserv` binary participates in the rtwizard pipeline:
 `rt -F port` → pixbuf fbserv → `fb-png -F port outfile.png` works in Obol builds
 end-to-end with no libdm anywhere in the chain.
 
-### 2. Delete libdm rendering plugins (CMake gating complete — file deletion pending)
+### 2. Delete libdm rendering plugins (CMake gating complete — Stage 27 progress)
 
 All GL rendering plugins are now **skipped in CMake** when `BRLCAD_ENABLE_OBOL`
 (Stage 22 completed dm-swrast; Stages 19–21 did qtgl/glx/X/wgl).
@@ -253,15 +253,41 @@ CMake gating status:
 | `src/libdm/postscript/` | n/a — no GL, always built | No replacement needed              |
 | `src/libdm/txt/`     | n/a — no GL, always built   | No replacement needed               |
 
-Remaining steps for a clean delete:
+### 2a. Slim libdm core in Obol builds — Complete (Stage 27)
+
+**Stage 27 gated `libdmgl` and the 2D overlay rendering helpers from Obol
+builds, further trimming libdm's footprint when Obol is the renderer.**
+
+Changes made (Stage 27):
+
+- **`src/libdm/CMakeLists.txt`**: `libdmgl` (`dm-gl.c`, `dm-gl_lod.cpp`) is
+  now built only when `NOT BRLCAD_ENABLE_OBOL AND BRLCAD_ENABLE_OPENGL`.  All
+  five GL rendering plugins already skip `libdmgl` in Obol builds via their
+  own `NOT BRLCAD_ENABLE_OBOL` guards, so this change makes the exclusion
+  explicit in the library itself.
+
+  The following pure 2D overlay rendering source files are also excluded from
+  the Obol `libdm` build (they have no callers in Obol code paths):
+  `adc.c`, `axes.c`, `clip.c`, `grid.c`, `labels.c`, `options.c`, `rect.c`,
+  `scale.c`.  In non-Obol builds all eight files are compiled as before.
+
+- **`src/libdm/view.c`**: Added `#ifndef BRLCAD_ENABLE_OBOL` guards around
+  all internal calls into the gated files:
+  - `dm_draw_faceplate()`: model-axes, view-axes, view-scale, ADC-cursor,
+    grid, and rect blocks all guarded.
+  - `dm_draw_visitor()`: `dm_draw_scene_axes()` call guarded.
+  - `dm_draw_viewobjs()`: both `dm_draw_data_axes()` calls guarded;
+    `dm_draw_prim_labels()` block guarded.
+
+  In Obol builds all 2D overlay rendering is handled by Coin3D
+  `SoAnnotation` subtrees, so these no-ops are correct.
+
+Remaining steps (source-directory deletion requires committing to Obol-only):
 1. Remove the now-dead source directories from disk (git rm) and update
    `cmakefiles()` lists.
-2. Delete `libdmgl` (`dm-gl.c`, `dm-gl_lod.cpp`) once no plugin uses it in
-   Obol builds.
-3. Slim core `libdm` to fb_* helpers only (`fb_generic.c`, `fb_log.c`,
-   `fb_paged_io.c`, `fb_rect.c`, `fb_util.c`, `fbserv.c`, `if_disk.c`,
-   `if_mem.c`, `if_remote.c`, `if_stack.c`), or fold those into a new
-   `libfb` if fully separating from the `dm` namespace is desired.
+3. Slim core `libdm` further: consider whether `dm_plugins.cpp` /
+   `dm_init.cpp` can be replaced by minimal stubs once `adrt/isst.c` and
+   `libged/dm/dm.c` no longer call `dm_open`.
 
 ### 3. Delete `src/libbsg/` and `include/bsg/`
 
