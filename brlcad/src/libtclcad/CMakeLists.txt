@@ -25,7 +25,6 @@ set(
   dm.c
   eval.c
   fb.c
-  fbserv.c
   global.c
   init.c
   mouse.c
@@ -43,6 +42,14 @@ set(
   view/util.c
   wrapper.c
 )
+# fbserv.c provides Tcl channel callbacks for the framebuffer server,
+# including calls to fbs_pkg_switch() (which returns struct-fb-backed PKG
+# handlers) and fbs_new_client / fbs_existing_client_handler.  In Obol
+# builds the struct-fb API is not compiled into libdm, and the Tcl fbserv
+# path is replaced by the Qt-native fbserv in qged.  Exclude from Obol.
+if(NOT BRLCAD_ENABLE_OBOL)
+  list(APPEND LIBTCLCAD_SRCS fbserv.c)
+endif(NOT BRLCAD_ENABLE_OBOL)
 
 # Obol-backed Tk 3D view widget (platform-neutral; no native GL window needed)
 #

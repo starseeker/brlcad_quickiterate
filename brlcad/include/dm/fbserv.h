@@ -41,6 +41,12 @@
 #define DM_FBSERV_H
 
 #include "common.h"
+#include "bio.h"
+#include "bnetwork.h"
+#include "bsocket.h"
+#include "bu/defines.h"
+#include "bu/log.h"
+#include "bu/vls.h"
 #include "pkg.h"
 #include "dm/defines.h"
 
@@ -137,12 +143,190 @@ struct fbserv_obj {
     int fbs_pixbuf_h;           /**< @brief pixel buffer height (0 when unused) */
 };
 
-DM_EXPORT extern int fbs_open(struct fbserv_obj *fbsp, int port);
-DM_EXPORT extern int fbs_close(struct fbserv_obj *fbsp);
 DM_EXPORT extern struct pkg_switch *fbs_pkg_switch(void);
-DM_EXPORT extern void fbs_setup_socket(int fd);
-DM_EXPORT extern int fbs_new_client(struct fbserv_obj *fbsp, struct pkg_conn *pcp, void *data);
-DM_EXPORT extern void fbs_existing_client_handler(void *clientData, int mask);
+
+/*
+ * The following five functions provide the generic TCP communication setup
+ * for the framebuffer server object.  They have no struct-fb / libdm
+ * dependencies; moving them here as static inline removes the libdm link
+ * requirement from Obol builds and from any code that needs only the
+ * communication plumbing (not the full struct-fb rendering path).
+ *
+ * fbs_pkg_switch() (above) returns the legacy struct-fb-backed PKG handler
+ * table and stays in libdm/fbserv.c.  Obol callers use their own pkg_switch.
+ */
+
+/* Internal helper: tear down a single client slot. */
+static inline void
+fbs_drop_client(struct fbserv_obj *fbsp, int sub)
+{
+    if (fbsp->fbs_clients[sub].fbsc_pkg != PKC_NULL) {
+	pkg_close(fbsp->fbs_clients[sub].fbsc_pkg);
+	fbsp->fbs_clients[sub].fbsc_pkg = PKC_NULL;
+    }
+    if (fbsp->fbs_clients[sub].fbsc_fd != 0) {
+	(*fbsp->fbs_close_client_handler)(fbsp, sub);
+	fbsp->fbs_clients[sub].fbsc_fd = 0;
+    }
+}
+
+
+static inline int
+fbs_open(struct fbserv_obj *fbsp, int port)
+{
+    int i;
+    int available_port = port;
+    int have_listen = 0;
+
+    if ((*fbsp->fbs_is_listening)(fbsp))
+	return BRLCAD_OK;
+
+    if (available_port < 0)
+	available_port = 5559;
+    else if (available_port < 1024)
+	available_port += 5559;
+
+    for (i = 0; i < MAX_PORT_TRIES; ++i) {
+	if (!(*fbsp->fbs_listen_on_port)(fbsp, available_port))
+	    ++available_port;
+	else {
+	    have_listen = 1;
+	    break;
+	}
+    }
+
+    if (!have_listen) {
+	if (fbsp->msgs)
+	    bu_vls_printf(fbsp->msgs, "fbs_open: failed to hang a listen on ports %d - %d\n",
+			 port, available_port);
+	fbsp->fbs_listener.fbsl_port = -1;
+	return BRLCAD_ERROR;
+    }
+
+    fbsp->fbs_listener.fbsl_port = available_port;
+    (*fbsp->fbs_open_server_handler)(fbsp);
+    return BRLCAD_OK;
+}
+
+
+static inline int
+fbs_close(struct fbserv_obj *fbsp)
+{
+    int i;
+    for (i = 0; i < MAX_CLIENTS; ++i)
+	fbs_drop_client(fbsp, i);
+
+    (*fbsp->fbs_close_server_handler)(fbsp);
+
+    if (0 <= fbsp->fbs_listener.fbsl_fd)
+	close(fbsp->fbs_listener.fbsl_fd);
+    fbsp->fbs_listener.fbsl_fd  = -1;
+    fbsp->fbs_listener.fbsl_port = -1;
+
+    return BRLCAD_OK;
+}
+
+
+static inline void
+fbs_setup_socket(int fd)
+{
+    int on     = 1;
+    int retval = 0;
+
+#if defined(SO_KEEPALIVE)
+    if ((retval = setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, (char *)&on, sizeof(on))) < 0)
+	bu_log("setsockopt (SO_KEEPALIVE) error return: %d", retval);
+#endif
+#if defined(SO_RCVBUF)
+    {
+	int m = -1, n = -1, val, size;
+	for (size = 256; size > 16; size /= 2) {
+	    val = size * 1024;
+	    m = setsockopt(fd, SOL_SOCKET, SO_RCVBUF, (char *)&val, sizeof(val));
+	    val = size * 1024;
+	    n = setsockopt(fd, SOL_SOCKET, SO_SNDBUF, (char *)&val, sizeof(val));
+	    if (m >= 0 && n >= 0) break;
+	}
+	if (m < 0 || n < 0)
+	    bu_log("setup_socket: setsockopt()");
+    }
+#endif
+}
+
+
+static inline int
+fbs_new_client(struct fbserv_obj *fbsp, struct pkg_conn *pcp, void *data)
+{
+    int i;
+    if (pcp == PKC_ERROR)
+	return -1;
+
+    for (i = MAX_CLIENTS - 1; i >= 0; i--) {
+	if (fbsp->fbs_clients[i].fbsc_fd != 0)
+	    continue;
+
+	fbsp->fbs_clients[i].fbsc_fd   = pcp->pkc_fd;
+	fbsp->fbs_clients[i].fbsc_pkg  = pcp;
+	fbsp->fbs_clients[i].fbsc_fbsp = fbsp;
+	fbs_setup_socket(pcp->pkc_fd);
+
+	(*fbsp->fbs_open_client_handler)(fbsp, i, data);
+	return i;
+    }
+
+    bu_log("fbs_new_client: too many clients\n");
+    pkg_close(pcp);
+    return -1;
+}
+
+
+/*
+ * Process one round of data from all existing clients.
+ *
+ * pkc_server_data is set differently depending on the rendering path:
+ *   Non-Obol: handlers cast it to (struct fb *) — use fbs_fbp.
+ *   Obol:     handlers cast it to (struct fbserv_obj *) — use fbsp itself.
+ */
+static inline void
+fbs_existing_client_handler(void *clientData, int UNUSED(mask))
+{
+    int i;
+    struct fbserv_client *fbscp = (struct fbserv_client *)clientData;
+    struct fbserv_obj *fbsp = fbscp->fbsc_fbsp;
+    int fd = fbscp->fbsc_fd;
+#ifdef BRLCAD_ENABLE_OBOL
+    void *server_data = (void *)fbsp;
+#else
+    void *server_data = (void *)fbsp->fbs_fbp;
+#endif
+
+    for (i = MAX_CLIENTS - 1; i >= 0; i--) {
+	if (fbsp->fbs_clients[i].fbsc_fd == 0)
+	    continue;
+
+	fbsp->fbs_clients[i].fbsc_pkg->pkc_server_data = server_data;
+
+	if ((pkg_process(fbsp->fbs_clients[i].fbsc_pkg)) < 0)
+	    bu_log("pkg_process error encountered (1)\n");
+
+	if (fbsp->fbs_clients[i].fbsc_fd != fd)
+	    continue;
+
+	if (pkg_suckin(fbsp->fbs_clients[i].fbsc_pkg) <= 0) {
+	    fbs_drop_client(fbsp, i);
+	    continue;
+	}
+
+	if ((pkg_process(fbsp->fbs_clients[i].fbsc_pkg)) < 0)
+	    bu_log("pkg_process error encountered (2)\n");
+    }
+
+    if (fbsp->fbs_callback != (void (*)(void *))FBS_CALLBACK_NULL) {
+	void (*cfp)(void *);
+	cfp = (void (*)(void *))fbsp->fbs_callback;
+	cfp(fbsp->fbs_clientData);
+    }
+}
 
 
 __END_DECLS
