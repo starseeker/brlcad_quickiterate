@@ -187,6 +187,10 @@ namespace gte
         //
         // numCandidates: number of random candidates per site (default 10 for speed;
         // higher values (e.g. 20) give slightly better distribution at higher cost).
+        //
+        // Performance: uses a 3-D k-d tree with periodic rebuilds to reduce the
+        // per-candidate nearest-neighbour query from O(n) to O(log n), giving
+        // O(numSites * numCandidates * log(numSites)) overall instead of O(n^2).
         bool ComputeInitialSamplingFarthestPoint(
             size_t numSites,
             unsigned int seed = 12345,
@@ -237,22 +241,63 @@ namespace gte
                 return v0 + u * (v1 - v0) + v * (v2 - v0);
             };
 
-            // Helper: minimum squared 3D distance from p to all current seeds
-            auto minDistSq = [&](Point3 const& p) -> Real
+            // K-D tree accelerated minimum-distance query.
+            //
+            // The k-d tree covers mSites[0..treeSize).  Sites added since the
+            // last rebuild are in the linear tail mSites[treeSize..end).  This
+            // gives O(log n) average query cost instead of O(n), while keeping
+            // the rebuild cost amortised to O(sqrt(n)*log(n)) per site.
+            //
+            // Rebuild interval: floor(sqrt(numSites)), clamped to [64, 512].
+            // Lower bound (64): avoids rebuilding too frequently when numSites is small,
+            // keeping per-site rebuild cost reasonable.
+            // Upper bound (512): caps the linear buffer scan cost for very large inputs,
+            // ensuring the buffer never dominates the O(log n) tree query.
+            KDTree3D kdTree;
+            size_t treeSize = 0;
+            size_t rebuildEvery = static_cast<size_t>(
+                std::max(64.0, std::min(512.0, std::sqrt(static_cast<double>(numSites)))));
+
+            // Returns min squared 3D distance from p to any current site.
+            // If the distance drops below 'cap' the function returns early —
+            // the caller uses this to skip candidates that cannot beat the
+            // current best.
+            auto minDistSqFast = [&](Point3 const& p, Real cap) -> Real
             {
-                Real best = std::numeric_limits<Real>::max();
-                for (auto const& s : mSites)
+                Real best = kdTree.nearestDistSqCapped(p, cap);
+                for (size_t j = treeSize; j < mSites.size(); ++j)
                 {
-                    Real dx = p[0] - s[0];
-                    Real dy = p[1] - s[1];
-                    Real dz = p[2] - s[2];
+                    Real dx = p[0] - mSites[j][0];
+                    Real dy = p[1] - mSites[j][1];
+                    Real dz = p[2] - mSites[j][2];
                     Real d2 = dx * dx + dy * dy + dz * dz;
                     if (d2 < best)
                     {
                         best = d2;
+                        if (best < cap)
+                        {
+                            return best;  // closer than cap → this candidate is disqualified
+                        }
                     }
                 }
                 return best;
+            };
+
+            // Rebuild the k-d tree from all current sites when the linear
+            // buffer has grown to rebuildEvery entries.
+            auto maybeRebuild = [&]()
+            {
+                if (mSites.size() - treeSize >= rebuildEvery)
+                {
+                    std::vector<Point3> pts3;
+                    pts3.reserve(mSites.size());
+                    for (auto const& s : mSites)
+                    {
+                        pts3.push_back(Point3{s[0], s[1], s[2]});
+                    }
+                    kdTree.build(std::move(pts3));
+                    treeSize = mSites.size();
+                }
             };
 
             mSites.clear();
@@ -272,16 +317,22 @@ namespace gte
                 mSites.push_back(site);
             }
 
-            // Subsequent sites: best of numCandidates random candidates
+            // Subsequent sites: best of numCandidates random candidates.
+            // The first candidate uses an uncapped query to establish bestD.
+            // All subsequent candidates use the capped query (early-exit) so
+            // that candidates which cannot beat the current best are rejected
+            // as soon as a nearby existing site is encountered.
             for (size_t i = 1; i < numSites; ++i)
             {
+                maybeRebuild();
+
                 Point3 bestPt = samplePoint();
-                Real bestD = minDistSq(bestPt);
+                Real bestD = minDistSqFast(bestPt, std::numeric_limits<Real>::max());
 
                 for (size_t k = 1; k < numCandidates; ++k)
                 {
                     Point3 candidate = samplePoint();
-                    Real d = minDistSq(candidate);
+                    Real d = minDistSqFast(candidate, bestD);
                     if (d > bestD)
                     {
                         bestD  = d;
@@ -761,6 +812,91 @@ namespace gte
         }
 
     private:
+        // ── Simple static 3-D k-d tree (nearest-distance-squared only) ──────────
+        //
+        // Points are stored in "split order": for the sub-range [lo, hi) the
+        // median element (mid = (lo+hi)/2) is the current node's split plane;
+        // the left subtree covers [lo, mid) and the right subtree [mid+1, hi).
+        // The same flat vectors are used for both building and searching — no
+        // heap pointers are needed, so cache behaviour is good.
+        struct KDTree3D
+        {
+            std::vector<Point3>  pts;  // points in split order
+            std::vector<int32_t> ax;   // split axis (0/1/2) for each node
+
+            bool empty() const { return pts.empty(); }
+
+            // Build from a point set (src is taken by value; sorted in-place).
+            void build(std::vector<Point3> src)
+            {
+                int32_t n = static_cast<int32_t>(src.size());
+                pts.resize(n);
+                ax.resize(n);
+                buildRange(src, 0, n, 0);
+            }
+
+            // Nearest squared distance to q, capped at 'bound'.
+            // Returns the true minimum if it is ≤ bound; may return any value
+            // ≤ bound otherwise (early exit).  This is sufficient for the
+            // "is this candidate beaten?" test in ComputeInitialSamplingFarthestPoint.
+            Real nearestDistSqCapped(Point3 const& q, Real bound) const
+            {
+                Real best = bound;
+                if (!pts.empty())
+                {
+                    searchRange(0, static_cast<int32_t>(pts.size()), 0, q, best);
+                }
+                return best;
+            }
+
+        private:
+            void buildRange(std::vector<Point3>& src,
+                            int32_t lo, int32_t hi, int32_t depth)
+            {
+                if (lo >= hi) return;
+                int32_t mid = (lo + hi) / 2;
+                int32_t a   = depth % 3;
+                std::nth_element(
+                    src.begin() + lo,
+                    src.begin() + mid,
+                    src.begin() + hi,
+                    [a](Point3 const& u, Point3 const& v)
+                    { return u[a] < v[a]; });
+                pts[mid] = src[mid];
+                ax [mid] = a;
+                buildRange(src, lo,     mid,    depth + 1);
+                buildRange(src, mid+1,  hi,     depth + 1);
+            }
+
+            void searchRange(int32_t lo, int32_t hi, int32_t depth,
+                             Point3 const& q, Real& best) const
+            {
+                if (lo >= hi) return;
+                int32_t mid = (lo + hi) / 2;
+                Real dx = q[0] - pts[mid][0];
+                Real dy = q[1] - pts[mid][1];
+                Real dz = q[2] - pts[mid][2];
+                Real d2 = dx*dx + dy*dy + dz*dz;
+                if (d2 < best) best = d2;
+
+                int32_t a    = ax[mid];
+                Real    diff = q[a] - pts[mid][a];
+                if (diff <= static_cast<Real>(0))
+                {
+                    searchRange(lo,    mid,    depth+1, q, best);
+                    if (diff*diff < best)
+                        searchRange(mid+1, hi, depth+1, q, best);
+                }
+                else
+                {
+                    searchRange(mid+1, hi,     depth+1, q, best);
+                    if (diff*diff < best)
+                        searchRange(lo, mid,   depth+1, q, best);
+                }
+            }
+        };
+        // ── End KDTree3D ─────────────────────────────────────────────────────────
+
         // Find nearest site to a 3D point
         int32_t FindNearestSite(Point3 const& point3D) const
         {
