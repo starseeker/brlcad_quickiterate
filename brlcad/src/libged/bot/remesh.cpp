@@ -234,16 +234,44 @@ bot_remesh_gte(struct rt_bot_internal **obot, struct ged *gedp, struct rt_bot_in
     // Target ten times the original vert count
     size_t nb_pts = bot->num_vertices * 10;
 
-    // Remesh using GTE MeshRemesh (CVT-based remeshing)
+    // Pre-process: split super-long / thin edges so the CVT remesh has a
+    // more tractable input surface.  We run the adaptive edge-operations
+    // loop (split + collapse + flip) without Lloyd relaxation so topology
+    // is regularised without moving vertices off the surface.
+    {
+	gte::MeshRemesh<double>::Parameters preParams;
+	preParams.targetVertexCount = nb_pts;
+	preParams.lloydIterations = 0;   // edge ops only, no Lloyd
+	if (!gte::MeshRemesh<double>::Remesh(vertices, triangles, preParams)) {
+	    bu_vls_printf(gedp->ged_result_str, "GTE pre-processing failed (empty mesh input)\n");
+	    return BRLCAD_ERROR;
+	}
+    }
+
+    if (triangles.empty()) {
+	bu_vls_printf(gedp->ged_result_str, "GTE pre-processing produced an empty mesh\n");
+	return BRLCAD_ERROR;
+    }
+
+    // Remesh using GTE CVT (creates a brand-new uniform triangulation that
+    // matches Geogram's remesh_smooth: sample → Lloyd → RDT).
     gte::MeshRemesh<double>::Parameters remeshParams;
     remeshParams.targetVertexCount = nb_pts;
     remeshParams.useAnisotropic = true;
     remeshParams.anisotropyScale = 2*0.02;
-    if (!gte::MeshRemesh<double>::Remesh(vertices, triangles, remeshParams)) {
-	bu_vls_printf(gedp->ged_result_str, "GTE remeshing failed: mesh may be non-manifold, "
-		      "contain degenerate triangles, or be too small for the requested vertex count\n");
+
+    std::vector<gte::Vector3<double>> outVertices;
+    std::vector<std::array<int32_t, 3>> outTriangles;
+    if (!gte::MeshRemesh<double>::RemeshCVT(vertices, triangles,
+					    outVertices, outTriangles,
+					    remeshParams)) {
+	bu_vls_printf(gedp->ged_result_str, "GTE CVT remeshing failed: mesh may be "
+		      "non-manifold, contain degenerate triangles, or be too small "
+		      "for the requested vertex count\n");
 	return BRLCAD_ERROR;
     }
+    vertices  = std::move(outVertices);
+    triangles = std::move(outTriangles);
 
     // See if we have a solid
     manifold::MeshGL gmm;
