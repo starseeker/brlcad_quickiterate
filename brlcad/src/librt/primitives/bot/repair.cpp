@@ -51,7 +51,21 @@
 #include <Mathematics/MeshRemesh.h>
 #include <Mathematics/LSCMParameterization.h>
 
+#if defined(__GNUC__) && !defined(__clang__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wfloat-equal"
+#endif
+#if defined(__clang__)
+#  pragma clang diagnostic push
+#  pragma clang diagnostic ignored "-Wfloat-equal"
+#endif
 #include "../../../libbg/detria.hpp"
+#if defined(__GNUC__) && !defined(__clang__)
+#  pragma GCC diagnostic pop
+#endif
+#if defined(__clang__)
+#  pragma clang diagnostic pop
+#endif
 
 #include "bu/parallel.h"
 #include "bg/trimesh.h"
