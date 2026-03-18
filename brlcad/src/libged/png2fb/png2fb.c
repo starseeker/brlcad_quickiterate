@@ -30,7 +30,11 @@
 
 #include "bio.h"
 #include "bu/getopt.h"
-#include "dm.h"
+#ifndef BRLCAD_ENABLE_OBOL
+#  include "dm.h"
+#else
+#  include "icv.h"
+#endif
 #include "ged.h"
 
 struct png2fb_state {
@@ -141,27 +145,12 @@ png2fb_get_args(struct png2fb_state *s, int argc, char **argv)
 int
 ged_png2fb_core(struct ged *gedp, int argc, const char *argv[])
 {
-    int ret;
-
     GED_CHECK_ARGC_GT_0(gedp, argc, BRLCAD_ERROR);
 
     struct png2fb_state p2fbs = PNG2FB_STATE_INIT_ZERO;
 
     if (!gedp->ged_gvp) {
 	bu_vls_printf(gedp->ged_result_str, "no current view set\n");
-	return BRLCAD_ERROR;
-    }
-
-    struct dm *dmp = (struct dm *)gedp->ged_gvp->dmp;
-    if (!dmp) {
-	bu_vls_printf(gedp->ged_result_str, "framebuffer operations require a display manager backend; use the rt command to raytrace to a file in the Obol rendering path");
-	return BRLCAD_ERROR;
-    }
-
-    struct fb *fbp = dm_get_fb(dmp);
-
-    if (!fbp) {
-	bu_vls_printf(gedp->ged_result_str, "display manager does not have a framebuffer");
 	return BRLCAD_ERROR;
     }
 
@@ -199,6 +188,7 @@ ged_png2fb_core(struct ged *gedp, int argc, const char *argv[])
 	return BRLCAD_OK;
 
     return BRLCAD_ERROR;
+#endif /* BRLCAD_ENABLE_OBOL */
 }
 
 

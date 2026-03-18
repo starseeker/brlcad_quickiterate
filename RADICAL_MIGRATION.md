@@ -289,18 +289,13 @@ Remaining steps (source-directory deletion requires committing to Obol-only):
    and `dm_plugins.cpp` (dm_open only), then gate the dm-only half; this
    allows `dm_init.cpp` and the remaining `dm_plugins.cpp` to also be gated.
 
-### 2b. Gate final dm_open callers in Obol builds — Complete (Stage 28)
+### 2b. Gate / re-express final dm_open callers in Obol builds — Complete (Stage 28)
 
-**Stage 28 removed all remaining `dm_open` call sites from Obol build paths,
-and also gates `gsh`/`adrt/isst`/`util/plot3-dm` from depending on libdm.**
+**Stage 28 both gates `dm_open` call sites from Obol build paths and replaces
+libdm-backed command implementations with equivalent Obol-aware paths that
+operate directly on `fbs_pixbuf` and `bsg_view`.**
 
-Changes made (Stage 28):
-
-- **`src/libged/dm/CMakeLists.txt`**: In Obol builds only `ert.cpp` is
-  compiled (its Obol path is already `dmp == NULL`-safe from Stage 20).
-  `dm.c` (the `dm` GED command, which calls `dm_open`) and `screengrab.c`
-  (which calls `dm_get_fb`, `dm_get_display_image`, etc.) are excluded.
-  The Obol plugin links `libged + libbu` only — no libdm.
+Changes made (Stage 28a — gating):
 
 - **`src/gtools/gsh/gsh.cpp`**: `#define USE_DM 1` is now gated with
   `#ifndef BRLCAD_ENABLE_OBOL`.  The `DisplayHash` class and both its
@@ -309,8 +304,7 @@ Changes made (Stage 28):
   `GshState::eval()` are similarly guarded.
 
 - **`src/gtools/gsh/CMakeLists.txt`**: Obol branch links `libged + libbu`
-  only; non-Obol branch links `libged + libdm + libbu` and adds the
-  `dm_plugins` build-time dependency.
+  only; non-Obol branch links `libged + libdm + libbu`.
 
 - **`src/adrt/CMakeLists.txt`**: `isst` (which calls `dm_open`) is now
   built only when `NOT BRLCAD_ENABLE_OBOL AND BRLCAD_ENABLE_OPENGL AND
@@ -319,9 +313,54 @@ Changes made (Stage 28):
 - **`src/util/CMakeLists.txt`**: `plot3-dm` (which calls `dm_open` via
   X11/ogl) is now built only when `NOT BRLCAD_ENABLE_OBOL AND BRLCAD_ENABLE_TK`.
 
-After Stage 28, `dm_open` has **no remaining callers in Obol builds** (all
-former callers are either `NOT BRLCAD_ENABLE_OBOL`-gated or already excluded
-by the TK/OpenGL guard which implies non-Obol).
+Changes made (Stage 28b — Obol-aware `dm` GED command):
+
+- **`src/libged/dm/CMakeLists.txt`**: `GEDPL_DEFINITIONS = BRLCAD_ENABLE_OBOL`
+  in Obol builds; plugin links `libged + libbu` only (no libdm).
+
+- **`src/libged/dm/dm.c`**: Every subcommand has `#ifdef BRLCAD_ENABLE_OBOL`
+  early-return paths that use `bsg_view` fields directly (no `struct dm *`):
+
+  | subcommand | Obol behaviour |
+  |---|---|
+  | `type` / `types` | returns `"obol"` |
+  | `list` | enumerates `bsg_view` instances by `gv_name` |
+  | `width` / `height` | reads `gv_width` / `gv_height` from the current view |
+  | `attach` | resolves/creates view without calling `dm_open` |
+  | `debug` | returns `0` (no libdm debug level) |
+  | `get` | reports `gv_name`, `gv_width`, `gv_height`, type `obol` |
+  | `set` | redirects user to application-layer commands |
+  | `bg` | returns default gradient; redirects user to `to_bg`/`obol_view` |
+  | `initmsg` | reports "Obol rendering backend active" |
+
+- **`src/libged/dm/screengrab.c`**: Obol path reads from `fbs_pixbuf`
+  (packed RGB888, populated by `ert`) into `icv_image`; `dm.h` not included.
+
+Changes made (Stage 28c — Obol-aware fb GED commands):
+
+- **`src/libged/fbclear/fbclear.c`**: Obol path clears `fbs_pixbuf` with
+  the requested colour, sets `gv_fb_mode = 2`, and calls
+  `ged_refresh_handler` to trigger a repaint.
+
+- **`src/libged/pix2fb/pix2fb.c`**: Obol path reads raw RGB888 data from
+  the `.pix` file descriptor directly into `fbs_pixbuf` row by row, then
+  calls `ged_refresh_handler`.
+
+- **`src/libged/fb2pix/fb2pix.c`**: Obol path writes `fbs_pixbuf` rows to
+  the output file as raw RGB888 (same `.pix` wire format), respecting the
+  `-i` inversion flag.
+
+- **`src/libged/png2fb/png2fb.c`**: Obol path uses `icv_read` to decode the
+  PNG, converts `double [0,1]` pixel data to RGB888, fills `fbs_pixbuf`, and
+  calls `ged_refresh_handler`.
+
+- All four fb plugin **CMakeLists.txt** files: `GEDPL_DEFINITIONS =
+  BRLCAD_ENABLE_OBOL`; link `libged + libbu` (png2fb also adds `libicv`);
+  no `libdm` in Obol builds.
+
+After Stage 28, `dm_open` has **no remaining callers in Obol builds** and
+`libdm` has **no remaining link dependencies in Obol builds** for the ged
+plugins above.
 
 ### 3. Delete `src/libbsg/` and `include/bsg/`
 

@@ -62,7 +62,6 @@ screengrab_image_mime(struct bu_vls *msg, size_t argc, const char **argv, void *
 int
 ged_screen_grab_core(struct ged *gedp, int argc, const char *argv[])
 {
-    int i;
     int print_help = 0;
     int grab_fb = 0;
     struct bu_vls dm_name = BU_VLS_INIT_ZERO;
@@ -135,6 +134,7 @@ ged_screen_grab_core(struct ged *gedp, int argc, const char *argv[])
     }
 #else
     struct dm *dmp = NULL;
+    int i = 0;
     int bytes_per_pixel = 0;
     int bytes_per_line = 0;
     unsigned char **rows = NULL;

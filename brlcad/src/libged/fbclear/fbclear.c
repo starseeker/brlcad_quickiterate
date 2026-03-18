@@ -37,7 +37,9 @@
 #  include <winsock.h>
 #endif
 
-#include "dm.h"
+#ifndef BRLCAD_ENABLE_OBOL
+#  include "dm.h"
+#endif
 #include "ged.h"
 
 
@@ -49,56 +51,78 @@ ged_fbclear_core(struct ged *gedp, int argc, const char *argv[])
 {
     static const char usage[] = "\nUsage: fbclear [rgb]";
 
-    int ret;
-    unsigned char clearColor[3] = {0.0, 0.0 ,0.0};
+    unsigned char clearColor[3] = {0, 0, 0};
 
     GED_CHECK_ARGC_GT_0(gedp, argc, BRLCAD_ERROR);
-
-    if (!gedp->ged_gvp || !gedp->ged_gvp->dmp) {
-	bu_vls_printf(gedp->ged_result_str, "framebuffer operations require a display manager backend; use the rt command to raytrace to a file in the Obol rendering path");
-	return BRLCAD_ERROR;
-    }
-
-    struct dm *dmp = (struct dm *)gedp->ged_gvp->dmp;
-    struct fb *fbp = dm_get_fb(dmp);
-
-    if (!fbp) {
-	bu_vls_printf(gedp->ged_result_str, "display manager does not have a framebuffer");
-	return BRLCAD_ERROR;
-    }
 
     /* initialize result */
     bu_vls_trunc(gedp->ged_result_str, 0);
 
     if (argc == 2) {
 	int r, g, b;
-
 	if (sscanf(argv[1], "%d %d %d", &r, &g, &b) != 3) {
-	    bu_log("fb_clear: bad color spec - %s", argv[1]);
+	    bu_log("fbclear: bad color spec - %s", argv[1]);
 	    return BRLCAD_ERROR;
 	}
-
-	clearColor[RED] = FB_CONSTRAIN(r, 0, 255);
-	clearColor[GRN] = FB_CONSTRAIN(g, 0, 255);
-	clearColor[BLU] = FB_CONSTRAIN(b, 0, 255);
-
+	clearColor[0] = (unsigned char)FB_CONSTRAIN(r, 0, 255);
+	clearColor[1] = (unsigned char)FB_CONSTRAIN(g, 0, 255);
+	clearColor[2] = (unsigned char)FB_CONSTRAIN(b, 0, 255);
     } else if (argc > 2) {
 	bu_vls_printf(gedp->ged_result_str, "Usage: %s %s", argv[0], usage);
 	return BRLCAD_ERROR;
     }
 
-    ret = fb_clear(fbp, clearColor);
-
-    if (ret)
+#ifdef BRLCAD_ENABLE_OBOL
+    /* Obol path: no libdm framebuffer.  Clear fbs_pixbuf directly and
+     * notify the application to repaint. */
+    {
+	struct fbserv_obj *fbs = gedp->ged_fbs;
+	int w = (gedp->ged_gvp && gedp->ged_gvp->gv_width  > 0) ? gedp->ged_gvp->gv_width  : 512;
+	int h = (gedp->ged_gvp && gedp->ged_gvp->gv_height > 0) ? gedp->ged_gvp->gv_height : 512;
+	if (fbs) {
+	    if (!fbs->fbs_pixbuf || fbs->fbs_pixbuf_w != w || fbs->fbs_pixbuf_h != h) {
+		if (fbs->fbs_pixbuf)
+		    bu_free(fbs->fbs_pixbuf, "fbs_pixbuf");
+		fbs->fbs_pixbuf = (unsigned char *)bu_calloc((size_t)w * h * 3, 1, "fbs_pixbuf");
+		fbs->fbs_pixbuf_w = w;
+		fbs->fbs_pixbuf_h = h;
+	    }
+	    size_t npix = (size_t)w * h;
+	    unsigned char *p = fbs->fbs_pixbuf;
+	    for (size_t i = 0; i < npix; i++, p += 3) {
+		p[0] = clearColor[0];
+		p[1] = clearColor[1];
+		p[2] = clearColor[2];
+	    }
+	    if (gedp->ged_gvp && gedp->ged_gvp->gv_s)
+		gedp->ged_gvp->gv_s->gv_fb_mode = 2;
+	}
+	if (gedp->ged_refresh_handler)
+	    (*gedp->ged_refresh_handler)(gedp->ged_refresh_clientdata);
+	return BRLCAD_OK;
+    }
+#else
+    if (!gedp->ged_gvp || !gedp->ged_gvp->dmp) {
+	bu_vls_printf(gedp->ged_result_str, "fbclear requires a display manager backend");
 	return BRLCAD_ERROR;
-
-    (void)dm_draw_begin(dmp);
-    fb_refresh(fbp, 0, 0, fb_getwidth(fbp), fb_getheight(fbp));
-    (void)dm_draw_end(dmp);
-
-    dm_set_dirty(dmp, 1);
-
-    return BRLCAD_OK;
+    }
+    {
+	struct dm *dmp = (struct dm *)gedp->ged_gvp->dmp;
+	struct fb *fbp = dm_get_fb(dmp);
+	if (!fbp) {
+	    bu_vls_printf(gedp->ged_result_str, "display manager does not have a framebuffer");
+	    return BRLCAD_ERROR;
+	}
+	int ret = fb_clear(fbp, clearColor);
+	if (ret)
+	    return BRLCAD_ERROR;
+	(void)dm_draw_begin(dmp);
+	fb_refresh(fbp, 0, 0, fb_getwidth(fbp), fb_getheight(fbp));
+	(void)dm_draw_end(dmp);
+	dm_set_dirty(dmp, 1);
+	return BRLCAD_OK;
+    }
+#endif /* BRLCAD_ENABLE_OBOL */
 }
 
 #include "../include/plugin.h"
