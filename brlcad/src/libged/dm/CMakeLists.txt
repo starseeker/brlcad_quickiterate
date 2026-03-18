@@ -1,16 +1,18 @@
+set(DM_SRCS
+  dm.c
+  ert.cpp
+  screengrab.c
+)
+
 if(BRLCAD_ENABLE_OBOL)
-  # In Obol builds the display-manager command (dm.c) and screengrab (screengrab.c)
-  # both call dm_open / dm_* which have no Obol replacement.  Only ert.cpp is
-  # needed: its Obol path is already guarded and provides embedded raytracing.
-  set(DM_SRCS ert.cpp)
+  # In Obol builds the dm_* symbols (dm_open, dm_get_fb, etc.) are absent.
+  # dm.c and screengrab.c are compiled with BRLCAD_ENABLE_OBOL defined so
+  # their Obol code paths are active; they link against libged+libbu only.
   set(PLUGIN_LIBS libged libbu)
+  set(GEDPL_DEFINITIONS BRLCAD_ENABLE_OBOL)
 else()
-  set(DM_SRCS
-    dm.c
-    ert.cpp
-    screengrab.c
-  )
   set(PLUGIN_LIBS libged libdm libbu)
+  set(GEDPL_DEFINITIONS "")
 endif()
 
 ged_plugin_library(ged-dm
@@ -20,9 +22,7 @@ ged_plugin_library(ged-dm
 
 cmakefiles(
   CMakeLists.txt
-  dm.c
-  ert.cpp
-  screengrab.c
+  ${DM_SRCS}
 )
 
 # Local Variables:

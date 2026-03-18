@@ -154,6 +154,23 @@ _dm_cmd_bg(void *ds, int argc, const char **argv)
 
     struct _ged_dm_info *gd = (struct _ged_dm_info *)ds;
     struct ged *gedp = gd->gedp;
+
+#ifdef BRLCAD_ENABLE_OBOL
+    /* In Obol builds the background color is managed by the Obol/Coin3D
+     * scene-graph renderer at the application level (see to_bg / obol_view
+     * Tcl commands).  This command cannot modify the Obol background; use
+     * the Tcl "to_bg" or "obol_view bg" commands from the application
+     * layer instead.
+     *
+     * We return the standard default black/navy gradient as a courtesy. */
+    if (!argc) {
+	bu_vls_printf(gedp->ged_result_str, "0/0/0->0/0/50\n");
+	return BRLCAD_OK;
+    }
+    bu_vls_printf(gedp->ged_result_str,
+		  "Obol background color is set via the application (to_bg / obol_view bg).\n");
+    return BRLCAD_OK;
+#else
     struct dm *cdmp = _dm_find(gd, NULL);
     if (!cdmp)
 	return BRLCAD_ERROR;
@@ -198,6 +215,7 @@ _dm_cmd_bg(void *ds, int argc, const char **argv)
     dm_set_bg(cdmp, n_bg1[0], n_bg1[1], n_bg1[2], n_bg2[0], n_bg2[1], n_bg2[2]);
 
     return BRLCAD_OK;
+#endif /* BRLCAD_ENABLE_OBOL */
 }
 
 int
@@ -213,6 +231,15 @@ _dm_cmd_debug(void *ds, int argc, const char **argv)
 
     struct _ged_dm_info *gd = (struct _ged_dm_info *)ds;
     struct ged *gedp = gd->gedp;
+
+#ifdef BRLCAD_ENABLE_OBOL
+    /* Obol/Coin3D rendering has no libdm debug level.  Report 0; silently
+     * ignore any set request. */
+    if (!argc) {
+	bu_vls_printf(gedp->ged_result_str, "0\n");
+    }
+    return BRLCAD_OK;
+#else
     struct dm *cdmp = _dm_find(gd, NULL);
     if (!cdmp)
 	return BRLCAD_ERROR;
@@ -227,6 +254,7 @@ _dm_cmd_debug(void *ds, int argc, const char **argv)
 	return BRLCAD_ERROR;
     dm_set_debug(cdmp, lvl);
     return BRLCAD_OK;
+#endif /* BRLCAD_ENABLE_OBOL */
 }
 
 int
@@ -241,6 +269,13 @@ _dm_cmd_type(void *ds, int argc, const char **argv)
     argc--; argv++;
 
     struct _ged_dm_info *gd = (struct _ged_dm_info *)ds;
+
+#ifdef BRLCAD_ENABLE_OBOL
+    /* In Obol builds there is no libdm display manager — views are rendered
+     * by the Obol/Coin3D scene graph.  Report the type as "obol". */
+    bu_vls_printf(gd->gedp->ged_result_str, "obol\n");
+    return BRLCAD_OK;
+#else
     struct dm *cdmp = _dm_find(gd, NULL);
     if (!cdmp) {
 	return BRLCAD_ERROR;
@@ -248,6 +283,7 @@ _dm_cmd_type(void *ds, int argc, const char **argv)
 
     bu_vls_printf(gd->gedp->ged_result_str, "%s\n", dm_get_type(cdmp));
     return BRLCAD_OK;
+#endif
 }
 
 int
@@ -263,12 +299,19 @@ _dm_cmd_types(void *ds, int argc, const char **argv)
 
     struct _ged_dm_info *gd = (struct _ged_dm_info *)ds;
 
+#ifdef BRLCAD_ENABLE_OBOL
+    /* In Obol builds rendering is performed by the Obol/Coin3D scene-graph
+     * renderer.  Only the "obol" type is active. */
+    bu_vls_printf(gd->gedp->ged_result_str, "obol\n");
+    return BRLCAD_OK;
+#else
     struct bu_vls list = BU_VLS_INIT_ZERO;
     dm_list_types(&list, "\n");
     bu_vls_printf(gd->gedp->ged_result_str, "%s\n", bu_vls_cstr(&list));
     bu_vls_free(&list);
 
     return BRLCAD_OK;
+#endif
 }
 
 int
@@ -282,8 +325,14 @@ _dm_cmd_initmsg(void *ds, int argc, const char **argv)
 
     struct _ged_dm_info *gd = (struct _ged_dm_info *)ds;
 
+#ifdef BRLCAD_ENABLE_OBOL
+    bu_vls_printf(gd->gedp->ged_result_str,
+		  "Obol rendering backend active (no libdm plugin initialization).\n");
+    return BRLCAD_OK;
+#else
     bu_vls_printf(gd->gedp->ged_result_str, "%s\n", dm_init_msgs());
     return BRLCAD_OK;
+#endif
 }
 
 int
@@ -299,6 +348,26 @@ _dm_cmd_list(void *ds, int argc, const char **argv)
 
     struct _ged_dm_info *gd = (struct _ged_dm_info *)ds;
     struct ged *gedp = gd->gedp;
+
+#ifdef BRLCAD_ENABLE_OBOL
+    /* In Obol builds each bsg_view is rendered by the Obol/Coin3D scene
+     * graph (no struct dm * attached).  Report each known view by its
+     * gv_name with type "obol". */
+    struct bu_ptbl *views = bsg_scene_views(&gedp->ged_views);
+    if (!views || !BU_PTBL_LEN(views)) {
+	bu_vls_printf(gedp->ged_result_str, ": no views defined in GED\n");
+	return BRLCAD_ERROR;
+    }
+    for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
+	bsg_view *gdvp = (bsg_view *)BU_PTBL_GET(views, i);
+	if (gd->verbosity) {
+	    bu_vls_printf(gedp->ged_result_str, " %s (obol)\n", bu_vls_cstr(&gdvp->gv_name));
+	} else {
+	    bu_vls_printf(gedp->ged_result_str, "%s\n", bu_vls_cstr(&gdvp->gv_name));
+	}
+    }
+    return BRLCAD_OK;
+#else
 
     bsg_view *cv = gedp->ged_gvp;
     struct dm *cdmp = (struct dm *)cv->dmp;
@@ -341,6 +410,7 @@ _dm_cmd_list(void *ds, int argc, const char **argv)
     }
 
     return BRLCAD_OK;
+#endif /* BRLCAD_ENABLE_OBOL */
 }
 
 int
@@ -354,6 +424,22 @@ _dm_cmd_get(void *ds, int argc, const char **argv)
 
     argc--; argv++;
 
+#ifdef BRLCAD_ENABLE_OBOL
+    /* In Obol builds there are no libdm internal variables.  Report the
+     * Obol view's width and height as the only relevant geometry. */
+    struct _ged_dm_info *gd = (struct _ged_dm_info *)ds;
+    struct ged *gedp = gd->gedp;
+    if (!gedp->ged_gvp) {
+	bu_vls_printf(gedp->ged_result_str, ": no current view set\n");
+	return BRLCAD_ERROR;
+    }
+    bu_vls_printf(gedp->ged_result_str,
+		  "Obol view \"%s\": width=%d height=%d type=obol\n",
+		  bu_vls_cstr(&gedp->ged_gvp->gv_name),
+		  gedp->ged_gvp->gv_width,
+		  gedp->ged_gvp->gv_height);
+    return BRLCAD_OK;
+#else
     struct bu_vls dm_name = BU_VLS_INIT_ZERO;
 
     struct bu_opt_desc d[2];
@@ -402,6 +488,7 @@ _dm_cmd_get(void *ds, int argc, const char **argv)
     }
 
     return BRLCAD_ERROR;
+#endif /* BRLCAD_ENABLE_OBOL */
 }
 
 int
@@ -415,6 +502,16 @@ _dm_cmd_set(void *ds, int argc, const char **argv)
 
     argc--; argv++;
 
+#ifdef BRLCAD_ENABLE_OBOL
+    /* In Obol builds there are no libdm internal variables to set.
+     * Application-level settings (background, lighting, etc.) are managed
+     * through the Obol scene graph. */
+    struct _ged_dm_info *gd_obol = (struct _ged_dm_info *)ds;
+    bu_vls_printf(gd_obol->gedp->ged_result_str,
+		  "Obol rendering path has no dm internal variables; "
+		  "use application settings commands instead.\n");
+    return BRLCAD_OK;
+#else
     struct bu_vls dm_name = BU_VLS_INIT_ZERO;
 
     struct bu_opt_desc d[2];
@@ -463,6 +560,7 @@ _dm_cmd_set(void *ds, int argc, const char **argv)
     }
 
     return BRLCAD_OK;
+#endif /* BRLCAD_ENABLE_OBOL */
 }
 
 int
@@ -494,6 +592,44 @@ _dm_cmd_attach(void *ds, int argc, const char **argv)
 	bu_vls_free(&view_name);
 	return BRLCAD_ERROR;
     }
+
+#ifdef BRLCAD_ENABLE_OBOL
+    /* In Obol builds views are already rendered by the Obol/Coin3D backend —
+     * there is no libdm plugin to open.  Accept any type name (ignored) and
+     * resolve/create the target view just like the non-Obol path does, then
+     * return success without calling dm_open. */
+    {
+	bsg_view *target_view = NULL;
+	if (bu_vls_strlen(&view_name)) {
+	    struct bu_ptbl *views = bsg_scene_views(&gedp->ged_views);
+	    for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
+		bsg_view *tview = (bsg_view *)BU_PTBL_GET(views, i);
+		if (!bu_vls_strcmp(&view_name, &tview->gv_name)) {
+		    target_view = tview;
+		    break;
+		}
+	    }
+	} else {
+	    target_view = gedp->ged_gvp;
+	}
+	if (!target_view) {
+	    BU_GET(target_view, bsg_view);
+	    bsg_view_init(target_view, &gedp->ged_views);
+	    bsg_scene_root_create(target_view);
+	    bsg_scene_add_view(&gedp->ged_views, target_view);
+	    bu_ptbl_ins(&gedp->ged_free_views, (long *)target_view);
+	}
+	if (!target_view->gv_width)  target_view->gv_width  = 512;
+	if (!target_view->gv_height) target_view->gv_height = 512;
+	const char *vn = bu_vls_cstr(&target_view->gv_name);
+	bu_vls_printf(gedp->ged_result_str,
+		      "Obol view \"%s\" is active (type %s rendered by Obol/Coin3D).\n",
+		      vn, argc ? argv[0] : "obol");
+	bu_vls_free(&dm_name);
+	bu_vls_free(&view_name);
+	return BRLCAD_OK;
+    }
+#endif /* BRLCAD_ENABLE_OBOL */
 
     if (ac == 1 && !bu_vls_strlen(&dm_name)) {
 	// No name - generate one
@@ -635,6 +771,7 @@ _dm_cmd_attach(void *ds, int argc, const char **argv)
     bu_vls_free(&view_name);
 
     return BRLCAD_OK;
+#endif /* BRLCAD_ENABLE_OBOL */
 }
 
 int
@@ -648,8 +785,18 @@ _dm_cmd_width(void *ds, int argc, const char **argv)
 
     argc--; argv++;
 
-    struct bu_vls tmpname = BU_VLS_INIT_ZERO;
     struct _ged_dm_info *gd = (struct _ged_dm_info *)ds;
+
+#ifdef BRLCAD_ENABLE_OBOL
+    /* In Obol builds use the view's gv_width directly. */
+    if (!gd->gedp->ged_gvp) {
+	bu_vls_printf(gd->gedp->ged_result_str, ": no current view set\n");
+	return BRLCAD_ERROR;
+    }
+    bu_vls_printf(gd->gedp->ged_result_str, "%d\n", gd->gedp->ged_gvp->gv_width);
+    return BRLCAD_OK;
+#else
+    struct bu_vls tmpname = BU_VLS_INIT_ZERO;
     bu_vls_sprintf(&tmpname, "%s", argv[0]);
     struct dm *cdmp = _dm_find(gd, &tmpname);
     bu_vls_free(&tmpname);
@@ -658,6 +805,7 @@ _dm_cmd_width(void *ds, int argc, const char **argv)
     }
     bu_vls_printf(gd->gedp->ged_result_str, "%d\n", dm_get_width(cdmp));
     return BRLCAD_OK;
+#endif /* BRLCAD_ENABLE_OBOL */
 }
 
 int
@@ -671,8 +819,18 @@ _dm_cmd_height(void *ds, int argc, const char **argv)
 
     argc--; argv++;
 
-    struct bu_vls tmpname = BU_VLS_INIT_ZERO;
     struct _ged_dm_info *gd = (struct _ged_dm_info *)ds;
+
+#ifdef BRLCAD_ENABLE_OBOL
+    /* In Obol builds use the view's gv_height directly. */
+    if (!gd->gedp->ged_gvp) {
+	bu_vls_printf(gd->gedp->ged_result_str, ": no current view set\n");
+	return BRLCAD_ERROR;
+    }
+    bu_vls_printf(gd->gedp->ged_result_str, "%d\n", gd->gedp->ged_gvp->gv_height);
+    return BRLCAD_OK;
+#else
+    struct bu_vls tmpname = BU_VLS_INIT_ZERO;
     bu_vls_sprintf(&tmpname, "%s", argv[0]);
     struct dm *cdmp = _dm_find(gd, &tmpname);
     bu_vls_free(&tmpname);
@@ -682,6 +840,7 @@ _dm_cmd_height(void *ds, int argc, const char **argv)
 
     bu_vls_printf(gd->gedp->ged_result_str, "%d\n", dm_get_height(cdmp));
     return BRLCAD_OK;
+#endif /* BRLCAD_ENABLE_OBOL */
 }
 
 const struct bu_cmdtab _dm_cmds[] = {
