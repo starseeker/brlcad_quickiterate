@@ -184,6 +184,34 @@ Remaining dependency: `pix-png` (used by `rtimage_file` for `.png` output) links
 `libdm` at present.  Once `libdm` is fully removed, replace with `icv` or a
 `libicv`-based conversion.
 
+### 1a. fbserv — Obol-backed pixel-buffer server — Complete (Stage 24)
+
+**Question: Could `fbserv` be backed by Obol and remain functional (TCP protocol
+still works, just no libdm/fb)?**  **Yes — done.**
+
+Three files changed:
+
+- **`src/fbserv/pixbuf_server.c`** (new): Implements all PKG handler functions
+  (`fb_server_fb_open`, `fb_server_fb_write`, `fb_server_fb_readrect`, etc.) using
+  a `malloc()`'d RGB pixel buffer (`g_pixbuf`) instead of a `struct fb *` from
+  libdm.  The same wire protocol is preserved bit-for-bit.  Supported operations:
+  FBOPEN/FBCLOSE/FBFREE, FBCLEAR, FBREAD/FBWRITE, FBREADRECT/FBWRITERECT,
+  FBBWREADRECT/FBBWWRITERECT, FBFLUSH.  Cursor/colormap/view/zoom operations
+  return success stubs so old client code doesn't break.  No libdm symbols used.
+
+- **`src/fbserv/fbserv.c`**: All `fb_*` calls in `main_loop()` and `main()`
+  wrapped with `#ifndef BRLCAD_ENABLE_OBOL`.  Also guards `#include "dm.h"`,
+  `_fb_disk_enable`, and the `fb_log()` override function.
+
+- **`src/fbserv/CMakeLists.txt`**: Conditional compile — Obol branch uses
+  `pixbuf_server.c` and links only `libbu + libpkg` (no libdm, no dm_plugins).
+  Non-Obol branch unchanged.
+
+The standalone `fbserv` binary now participates in the rtwizard pipeline as an
+optional alternative: `rt -F port` → pixbuf fbserv → `fb-png -F port outfile.png`
+still works in Obol builds.  The Stage 23 file-based path (`-o file.pix`) is
+generally preferred for new headless workflows.
+
 ### 2. Delete libdm rendering plugins (CMake gating complete — file deletion pending)
 
 All GL rendering plugins are now **skipped in CMake** when `BRLCAD_ENABLE_OBOL`
