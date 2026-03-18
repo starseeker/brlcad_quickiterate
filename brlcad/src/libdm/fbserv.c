@@ -29,6 +29,13 @@
 
 #include "common.h"
 
+#ifndef BRLCAD_ENABLE_OBOL
+/* In Obol builds the struct-fb API is not used.  fbs_open/close/setup_socket/
+ * new_client/existing_client_handler are now static-inline in dm/fbserv.h
+ * and need no libdm link.  Only fbs_pkg_switch() and the fbs_rfb* PKG
+ * message handlers (which operate on struct fb*) remain here, and they are
+ * not needed in Obol builds. */
+
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
@@ -38,20 +45,6 @@
 #include "raytrace.h"
 #include "dm.h"
 #include "./include/private.h"
-
-static void
-drop_client(struct fbserv_obj *fbsp, int sub)
-{
-    if (fbsp->fbs_clients[sub].fbsc_pkg != PKC_NULL) {
-	pkg_close(fbsp->fbs_clients[sub].fbsc_pkg);
-	fbsp->fbs_clients[sub].fbsc_pkg = PKC_NULL;
-    }
-
-    if (fbsp->fbs_clients[sub].fbsc_fd != 0) {
-	(*fbsp->fbs_close_client_handler)(fbsp, sub);
-	fbsp->fbs_clients[sub].fbsc_fd = 0;
-    }
-}
 
 
 /*
@@ -685,218 +678,48 @@ fbs_rfbhelp(struct pkg_conn *pcp, char *buf)
 }
 
 
-int
-fbs_open(struct fbserv_obj *fbsp, int port)
-{
-    int i;
-    int available_port = port;
-
-    /* Already listening; nothing more to do. */
-    if ((*fbsp->fbs_is_listening)(fbsp)) {
-	return BRLCAD_OK;
-    }
-
-    if (available_port < 0) {
-	available_port = 5559;
-    } else if (available_port < 1024) {
-	available_port += 5559;
-    }
-
-    /* Try a reasonable number of times to hang a listen */
-    int have_listen = 0;
-    for (i = 0; i < MAX_PORT_TRIES; ++i) {
-	/*
-	 * Hang an unending listen for PKG connections
-	 */
-	if (!(*fbsp->fbs_listen_on_port)(fbsp, available_port)) {
-	    ++available_port;
-	} else {
-	    have_listen = 1;
-	    break;
-	}
-    }
-
-    if (!have_listen) {
-	if (fbsp->msgs)
-	    bu_vls_printf(fbsp->msgs, "fbs_open: failed to hang a listen on ports %d - %d\n", port, available_port);
-	fbsp->fbs_listener.fbsl_port = -1;
-	return BRLCAD_ERROR;
-    }
-
-    fbsp->fbs_listener.fbsl_port = available_port;
-
-    (*fbsp->fbs_open_server_handler)(fbsp);
-
-    return BRLCAD_OK;
-}
-
-
-int
-fbs_close(struct fbserv_obj *fbsp)
-{
-    int i;
-
-    /* first drop all clients */
-    for (i = 0; i < MAX_CLIENTS; ++i)
-	drop_client(fbsp, i);
-
-    (*fbsp->fbs_close_server_handler)(fbsp);
-
-    if (0 <= fbsp->fbs_listener.fbsl_fd)
-	close(fbsp->fbs_listener.fbsl_fd);
-    fbsp->fbs_listener.fbsl_fd = -1;
-    fbsp->fbs_listener.fbsl_port = -1;
-
-    return BRLCAD_OK;
-}
-
 struct pkg_switch *
 fbs_pkg_switch(void)
 {
     static struct pkg_switch pswitch[] = {
-	{ MSG_FBOPEN, fbs_rfbopen, "Open Framebuffer", NULL },
-	{ MSG_FBCLOSE, fbs_rfbclose, "Close Framebuffer", NULL },
-	{ MSG_FBCLEAR, fbs_rfbclear, "Clear Framebuffer", NULL },
-	{ MSG_FBREAD, fbs_rfbread, "Read Pixels", NULL },
-	{ MSG_FBWRITE, fbs_rfbwrite, "Write Pixels", NULL },
-	{ MSG_FBWRITE + MSG_NORETURN, fbs_rfbwrite, "Asynch write", NULL },
-	{ MSG_FBCURSOR, fbs_rfbcursor, "Cursor", NULL },
-	{ MSG_FBGETCURSOR, fbs_rfbgetcursor, "Get Cursor", NULL },  /*NEW*/
-	{ MSG_FBSCURSOR, fbs_rfbscursor, "Screen Cursor", NULL }, /*OLD*/
-	{ MSG_FBWINDOW, fbs_rfbwindow, "Window", NULL },  /*OLD*/
-	{ MSG_FBZOOM, fbs_rfbzoom, "Zoom", NULL },  /*OLD*/
-	{ MSG_FBVIEW, fbs_rfbview, "View", NULL },  /*NEW*/
-	{ MSG_FBGETVIEW, fbs_rfbgetview, "Get View", NULL },  /*NEW*/
-	{ MSG_FBRMAP, fbs_rfbrmap, "R Map", NULL },
-	{ MSG_FBWMAP, fbs_rfbwmap, "W Map", NULL },
-	{ MSG_FBHELP, fbs_rfbhelp, "Help Request", NULL },
-	{ MSG_ERROR, fbs_rfbunknown, "Error Message", NULL },
-	{ MSG_CLOSE, fbs_rfbunknown, "Close Connection", NULL },
-	{ MSG_FBREADRECT, fbs_rfbreadrect, "Read Rectangle", NULL },
-	{ MSG_FBWRITERECT, fbs_rfbwriterect, "Write Rectangle", NULL },
-	{ MSG_FBWRITERECT + MSG_NORETURN, fbs_rfbwriterect, "Write Rectangle", NULL },
-	{ MSG_FBBWREADRECT, fbs_rfbbwreadrect, "Read BW Rectangle", NULL },
-	{ MSG_FBBWWRITERECT, fbs_rfbbwwriterect, "Write BW Rectangle", NULL },
-	{ MSG_FBBWWRITERECT+MSG_NORETURN, fbs_rfbbwwriterect, "Write BW Rectangle", NULL },
-	{ MSG_FBFLUSH, fbs_rfbflush, "Flush Output", NULL },
-	{ MSG_FBFLUSH + MSG_NORETURN, fbs_rfbflush, "Flush Output", NULL },
-	{ MSG_FBFREE, fbs_rfbfree, "Free Resources", NULL },
-	{ MSG_FBPOLL, fbs_rfbpoll, "Handle Events", NULL },
-	{ MSG_FBSETCURSOR, fbs_rfbsetcursor, "Set Cursor Shape", NULL },
-	{ MSG_FBSETCURSOR + MSG_NORETURN, fbs_rfbsetcursor, "Set Cursor Shape", NULL },
+	{ MSG_FBOPEN,                         fbs_rfbopen,        "Open Framebuffer",       NULL },
+	{ MSG_FBCLOSE,                        fbs_rfbclose,       "Close Framebuffer",      NULL },
+	{ MSG_FBCLEAR,                        fbs_rfbclear,       "Clear Framebuffer",      NULL },
+	{ MSG_FBREAD,                         fbs_rfbread,        "Read Pixels",            NULL },
+	{ MSG_FBWRITE,                        fbs_rfbwrite,       "Write Pixels",           NULL },
+	{ MSG_FBWRITE + MSG_NORETURN,         fbs_rfbwrite,       "Asynch write",           NULL },
+	{ MSG_FBCURSOR,                       fbs_rfbcursor,      "Cursor",                 NULL },
+	{ MSG_FBGETCURSOR,                    fbs_rfbgetcursor,   "Get Cursor",             NULL },
+	{ MSG_FBSCURSOR,                      fbs_rfbscursor,     "Screen Cursor",          NULL },
+	{ MSG_FBWINDOW,                       fbs_rfbwindow,      "Window",                 NULL },
+	{ MSG_FBZOOM,                         fbs_rfbzoom,        "Zoom",                   NULL },
+	{ MSG_FBVIEW,                         fbs_rfbview,        "View",                   NULL },
+	{ MSG_FBGETVIEW,                      fbs_rfbgetview,     "Get View",               NULL },
+	{ MSG_FBRMAP,                         fbs_rfbrmap,        "R Map",                  NULL },
+	{ MSG_FBWMAP,                         fbs_rfbwmap,        "W Map",                  NULL },
+	{ MSG_FBHELP,                         fbs_rfbhelp,        "Help Request",           NULL },
+	{ MSG_ERROR,                          fbs_rfbunknown,     "Error Message",          NULL },
+	{ MSG_CLOSE,                          fbs_rfbunknown,     "Close Connection",       NULL },
+	{ MSG_FBREADRECT,                     fbs_rfbreadrect,    "Read Rectangle",         NULL },
+	{ MSG_FBWRITERECT,                    fbs_rfbwriterect,   "Write Rectangle",        NULL },
+	{ MSG_FBWRITERECT + MSG_NORETURN,     fbs_rfbwriterect,   "Write Rectangle",        NULL },
+	{ MSG_FBBWREADRECT,                   fbs_rfbbwreadrect,  "Read BW Rectangle",      NULL },
+	{ MSG_FBBWWRITERECT,                  fbs_rfbbwwriterect, "Write BW Rectangle",     NULL },
+	{ MSG_FBBWWRITERECT + MSG_NORETURN,   fbs_rfbbwwriterect, "Write BW Rectangle",     NULL },
+	{ MSG_FBFLUSH,                        fbs_rfbflush,       "Flush Output",           NULL },
+	{ MSG_FBFLUSH + MSG_NORETURN,         fbs_rfbflush,       "Flush Output",           NULL },
+	{ MSG_FBFREE,                         fbs_rfbfree,        "Free Resources",         NULL },
+	{ MSG_FBPOLL,                         fbs_rfbpoll,        "Handle Events",          NULL },
+	{ MSG_FBSETCURSOR,                    fbs_rfbsetcursor,   "Set Cursor Shape",       NULL },
+	{ MSG_FBSETCURSOR + MSG_NORETURN,     fbs_rfbsetcursor,   "Set Cursor Shape",       NULL },
 	{ 0, NULL, NULL, NULL }
     };
 
     return (struct pkg_switch *)pswitch;
 }
 
-void
-fbs_setup_socket(int fd)
-{
-    int on     = 1;
-    int retval = 0;
 
-#if defined(SO_KEEPALIVE)
-    /* FIXME: better to show an error message but need thread considerations for strerror */
-    if ((retval = setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, (char *)&on, sizeof(on))) < 0) {
-	bu_log("setsockopt (SO_KEEPALIVE) error return: %d", retval);
-    }
-#endif
-#if defined(SO_RCVBUF)
-    /* try to set our buffers up larger */
-    {
-	int m = -1;
-	int n = -1;
-	int val;
-	int size;
-
-	for (size = 256; size > 16; size /= 2) {
-	    val = size * 1024;
-	    m = setsockopt(fd, SOL_SOCKET, SO_RCVBUF,
-			   (char *)&val, sizeof(val));
-	    val = size * 1024;
-	    n = setsockopt(fd, SOL_SOCKET, SO_SNDBUF,
-			   (char *)&val, sizeof(val));
-	    if (m >= 0 && n >= 0) break;
-	}
-
-	if (m < 0 || n < 0)
-	    bu_log("setup_socket: setsockopt()");
-    }
-#endif
-}
-
-/*
- * Process arrivals from existing clients.
- */
-void
-fbs_existing_client_handler(void *clientData, int UNUSED(mask))
-{
-    register int i;
-    struct fbserv_client *fbscp = (struct fbserv_client *)clientData;
-    struct fbserv_obj *fbsp = fbscp->fbsc_fbsp;
-    int fd = fbscp->fbsc_fd;
-    struct fb *curr_fbp = fbsp->fbs_fbp;
-
-    for (i = MAX_CLIENTS - 1; i >= 0; i--) {
-	if (fbsp->fbs_clients[i].fbsc_fd == 0)
-	    continue;
-
-	fbsp->fbs_clients[i].fbsc_pkg->pkc_server_data = (void *)curr_fbp;
-
-	if ((pkg_process(fbsp->fbs_clients[i].fbsc_pkg)) < 0)
-	    bu_log("pkg_process error encountered (1)\n");
-
-	if (fbsp->fbs_clients[i].fbsc_fd != fd)
-	    continue;
-
-	if (pkg_suckin(fbsp->fbs_clients[i].fbsc_pkg) <= 0) {
-	    /* Probably EOF */
-	    drop_client(fbsp, i);
-
-	    continue;
-	}
-
-	if ((pkg_process(fbsp->fbs_clients[i].fbsc_pkg)) < 0)
-	    bu_log("pkg_process error encountered (2)\n");
-    }
-
-    if (fbsp->fbs_callback != (void (*)(void *))FBS_CALLBACK_NULL) {
-	/* need to cast func pointer explicitly to get the function call */
-	void (*cfp)(void *);
-	cfp = (void (*)(void *))fbsp->fbs_callback;
-	cfp(fbsp->fbs_clientData);
-    }
-}
-
-
-int
-fbs_new_client(struct fbserv_obj *fbsp, struct pkg_conn *pcp, void *data)
-{
-    if (pcp == PKC_ERROR)
-	return -1;
-
-    for (int i = MAX_CLIENTS - 1; i >= 0; i--) {
-	/* this slot is being used */
-	if (fbsp->fbs_clients[i].fbsc_fd != 0)
-	    continue;
-
-	/* Found an available slot */
-	fbsp->fbs_clients[i].fbsc_fd = pcp->pkc_fd;
-	fbsp->fbs_clients[i].fbsc_pkg = pcp;
-	fbsp->fbs_clients[i].fbsc_fbsp = fbsp;
-	fbs_setup_socket(pcp->pkc_fd);
-
-	(*fbsp->fbs_open_client_handler)(fbsp, i, data);
-
-	return i;
-    }
-
-    bu_log("fbs_new_client: too many clients\n");
-    pkg_close(pcp);
-
-    return -1;
-}
+#endif /* !BRLCAD_ENABLE_OBOL */
 
 
 /*

@@ -1,22 +1,8 @@
 # Main libdm library
 set(
   LIBDM_SRCS
-  null/if_null.c
-  txt/if_debug.c
   asize.c
   dm_init.cpp
-  fb_plugins.cpp
-  dm_util.c
-  fb_generic.c
-  fb_log.c
-  fb_paged_io.c
-  fb_rect.c
-  fb_util.c
-  fbserv.c
-  if_disk.c
-  if_mem.c
-  if_remote.c
-  if_stack.c
   vers.c
 )
 # dm_plugins.cpp contains the dm_open/dm_have_graphics/dm_list_types/… API
@@ -37,11 +23,36 @@ set(
 #
 # null/dm-Null.c provides the dm_null fallback display manager; it is only
 # referenced from dm_plugins.cpp via dm_null.i->dm_open (excluded in Obol).
+#
+# The struct-fb sources (fb_generic.c, fb_plugins.cpp, fbserv.c, etc.) provide
+# the full libfb/framebuffer API backed by device plugins.  In Obol builds the
+# communication infrastructure functions (fbs_open/close/setup_socket/
+# new_client/existing_client_handler) live as static-inline in dm/fbserv.h,
+# while fbs_pkg_switch() and the fbs_rfb* PKG message handlers in fbserv.c
+# are not needed because Obol callers use obol_fbs_pkg_switch().  All other
+# struct-fb sources (fb_generic.c, if_disk.c, etc.) are likewise unused.
+#
+# dm_util.c, fb_log.c, fb_util.c provide helpers that are only called by the
+# struct-fb / rendering plugins; all those callers are gated themselves.
 if(NOT BRLCAD_ENABLE_OBOL)
   list(APPEND LIBDM_SRCS
+    null/if_null.c
     null/dm-Null.c
+    txt/if_debug.c
     dm-generic.c
     dm_plugins.cpp
+    dm_util.c
+    fb_generic.c
+    fb_log.c
+    fb_paged_io.c
+    fb_plugins.cpp
+    fb_rect.c
+    fb_util.c
+    fbserv.c
+    if_disk.c
+    if_mem.c
+    if_remote.c
+    if_stack.c
     view.c
   )
 else()
