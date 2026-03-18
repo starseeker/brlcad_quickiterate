@@ -102,7 +102,7 @@ namespace gte
                 : targetEdgeLength(static_cast<Real>(0))
                 , targetVertexCount(0)
                 , lloydIterations(5)
-                , newtonIterations(5)
+                , newtonIterations(30)
                 , smoothIterations(3)
                 , smoothingFactor(static_cast<Real>(0.5))
                 , minEdgeLength(static_cast<Real>(0))
@@ -315,6 +315,15 @@ namespace gte
                 *outIterations = cvt.GetIterationsCompleted();
             }
 
+            // Newton/L-BFGS optimization after Lloyd.
+            // Matches Geogram's CVT::Newton_iterations(nb_Newton_iter=30, Newton_m=7).
+            // Newton converges much faster than Lloyd, typically 5–10× fewer
+            // equivalent function evaluations for the same quality improvement.
+            if (params.newtonIterations > 0)
+            {
+                cvt.NewtonIterations(params.newtonIterations);
+            }
+
             std::vector<Vec3> seeds3;
             if (!cvt.ComputeRDT(seeds3, outTriangles))
             {
@@ -327,6 +336,10 @@ namespace gte
             {
                 outVertices.push_back(Vector3<Real>{s[0], s[1], s[2]});
             }
+
+            // Post-CVT surface adjustment: snap output vertices to the original
+            // surface.  Matches Geogram's mesh_adjust_surface(M_out, M_in).
+            MeshAdjustSurface(outVertices, outTriangles, inVertices, inTriangles);
 
             // Optional post-CVT edge-flip quality pass.
             if (params.postFlipEdges)
@@ -468,6 +481,13 @@ namespace gte
                 *outIterations = cvt.GetIterationsCompleted();
             }
 
+            // Newton/L-BFGS optimization after Lloyd (anisotropic 6D path).
+            // Matches Geogram's CVT::Newton_iterations(nb_Newton_iter=30, Newton_m=7).
+            if (params.newtonIterations > 0)
+            {
+                cvt.NewtonIterations(params.newtonIterations);
+            }
+
             std::vector<Vec3> seeds3;
             if (!cvt.ComputeRDT(seeds3, outTriangles))
             {
@@ -480,6 +500,10 @@ namespace gte
             {
                 outVertices.push_back(Vector3<Real>{s[0], s[1], s[2]});
             }
+
+            // Post-CVT surface adjustment: snap output vertices to the original
+            // surface.  Matches Geogram's mesh_adjust_surface(M_out, M_in).
+            MeshAdjustSurface(outVertices, outTriangles, inVertices, inTriangles);
 
             // Optional post-CVT edge-flip quality pass (same as isotropic path).
             if (params.postFlipEdges)
@@ -1484,6 +1508,119 @@ namespace gte
             }
 
             return (edgeCount > 0) ? (totalLength / static_cast<Real>(edgeCount)) : static_cast<Real>(1);
+        }
+
+        // ── MeshAdjustSurface ─────────────────────────────────────────────────
+        //
+        // Post-CVT surface adjustment: project each output vertex to the nearest
+        // point on the original (input) surface mesh.
+        //
+        // Translation of Geogram's mesh_adjust_surface() from
+        // geogram/src/lib/geogram/mesh/mesh_remesh.cpp.  Geogram fires a
+        // bidirectional ray along each vertex normal and finds the nearest
+        // intersection with the reference surface.  Our implementation uses
+        // nearest-point-on-triangle projection which is equivalent for typical
+        // CVT output meshes and does not require ray intersection infrastructure.
+        //
+        // Algorithm:
+        //   1. Build per-triangle AABB extents for early-out pruning.
+        //   2. For each output vertex, scan all input triangles with AABB early-
+        //      out and find the nearest point on the reference surface.
+        //   3. Move the output vertex to that nearest point.
+        static void MeshAdjustSurface(
+            std::vector<Vector3<Real>>& outVertices,
+            std::vector<std::array<int32_t, 3>> const& /*outTriangles*/,
+            std::vector<Vector3<Real>> const& inVertices,
+            std::vector<std::array<int32_t, 3>> const& inTriangles)
+        {
+            if (inVertices.empty() || inTriangles.empty() || outVertices.empty())
+            {
+                return;
+            }
+
+            // Per-triangle AABB for early-out in the nearest-point scan.
+            struct TriBounds
+            {
+                Real minX, minY, minZ, maxX, maxY, maxZ;
+                int32_t idx;
+            };
+            std::vector<TriBounds> bounds;
+            bounds.reserve(inTriangles.size());
+            for (size_t ti = 0; ti < inTriangles.size(); ++ti)
+            {
+                auto const& t = inTriangles[ti];
+                Vector3<Real> const& a = inVertices[t[0]];
+                Vector3<Real> const& b = inVertices[t[1]];
+                Vector3<Real> const& c = inVertices[t[2]];
+                TriBounds tb;
+                tb.minX = std::min({a[0], b[0], c[0]});
+                tb.minY = std::min({a[1], b[1], c[1]});
+                tb.minZ = std::min({a[2], b[2], c[2]});
+                tb.maxX = std::max({a[0], b[0], c[0]});
+                tb.maxY = std::max({a[1], b[1], c[1]});
+                tb.maxZ = std::max({a[2], b[2], c[2]});
+                tb.idx  = static_cast<int32_t>(ti);
+                bounds.push_back(tb);
+            }
+
+            // Closest point on triangle (a,b,c) to point p.
+            // Ericson "Real-Time Collision Detection" §5.1.5.
+            auto projectOnTri = [](
+                Vector3<Real> const& p,
+                Vector3<Real> const& a,
+                Vector3<Real> const& b,
+                Vector3<Real> const& c) -> Vector3<Real>
+            {
+                Vector3<Real> ab = b - a, ac = c - a, ap = p - a;
+                Real d1 = Dot(ab, ap), d2 = Dot(ac, ap);
+                if (d1 <= Real(0) && d2 <= Real(0)) return a;
+
+                Vector3<Real> bp = p - b;
+                Real d3 = Dot(ab, bp), d4 = Dot(ac, bp);
+                if (d3 >= Real(0) && d4 <= d3) return b;
+
+                Vector3<Real> cp = p - c;
+                Real d5 = Dot(ab, cp), d6 = Dot(ac, cp);
+                if (d6 >= Real(0) && d5 <= d6) return c;
+
+                Real vc = d1*d4 - d3*d2;
+                if (vc <= Real(0) && d1 >= Real(0) && d3 <= Real(0))
+                    return a + (d1 / (d1 - d3)) * ab;
+
+                Real vb = d5*d2 - d1*d6;
+                if (vb <= Real(0) && d2 >= Real(0) && d6 <= Real(0))
+                    return a + (d2 / (d2 - d6)) * ac;
+
+                Real va = d3*d6 - d5*d4;
+                if (va <= Real(0) && (d4-d3) >= Real(0) && (d5-d6) >= Real(0))
+                    return b + ((d4-d3) / ((d4-d3) + (d5-d6))) * (c - b);
+
+                Real inv = Real(1) / (va + vb + vc);
+                return a + (vb*inv)*ab + (vc*inv)*ac;
+            };
+
+            for (auto& ov : outVertices)
+            {
+                Real bestDistSq = std::numeric_limits<Real>::max();
+                Vector3<Real> bestPt = ov;
+
+                for (auto const& tb : bounds)
+                {
+                    // AABB minimum distance squared to ov
+                    Real dx = std::max(Real(0), std::max(tb.minX - ov[0], ov[0] - tb.maxX));
+                    Real dy = std::max(Real(0), std::max(tb.minY - ov[1], ov[1] - tb.maxY));
+                    Real dz = std::max(Real(0), std::max(tb.minZ - ov[2], ov[2] - tb.maxZ));
+                    if (dx*dx + dy*dy + dz*dz >= bestDistSq) continue;
+
+                    auto const& t = inTriangles[tb.idx];
+                    Vector3<Real> pt = projectOnTri(ov,
+                        inVertices[t[0]], inVertices[t[1]], inVertices[t[2]]);
+                    Vector3<Real> diff = pt - ov;
+                    Real dSq = Dot(diff, diff);
+                    if (dSq < bestDistSq) { bestDistSq = dSq; bestPt = pt; }
+                }
+                ov = bestPt;
+            }
         }
 
         static Real EstimateEdgeLengthFromVertexCount(

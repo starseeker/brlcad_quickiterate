@@ -615,27 +615,330 @@ namespace gte
             return true;
         }
         
-        // Newton iterations (simplified version focusing on Lloyd)
-        // Full Newton requires Hessian computation which is complex
-        // For now, this is an alias for Lloyd with tighter convergence
-        bool NewtonIterations(size_t numIterations)
+        // Newton iterations using L-BFGS optimization.
+        //
+        // Direct translation of Geogram's CVT::Newton_iterations() which calls
+        //   HLBFGS optimizer with funcgrad_CB = RVD_->compute_CVT_func_grad.
+        //
+        // The CVT energy and gradient are:
+        //   E       = sum_i integral_{V_i} ||x - p_i||^2 dA
+        //   ∇_{p_i}E = 2 * m_i * (p_i - c_i)       (m_i = area(V_i), c_i = centroid)
+        //
+        // Both are computed via SurfaceRVDN::ForEachPolygon (same walk as Lloyd).
+        // The energy proxy uses f = sum_i m_i * ||p_i - c_i||^2 which has the
+        // same gradient as E and is zero at the optimum.
+        //
+        // m  = number of L-BFGS history pairs (7 matches Geogram's Newton_m default)
+        bool NewtonIterations(size_t numIterations, size_t histSize = 7)
         {
-            // For a full Newton implementation, we would need:
-            // 1. Compute energy gradient
-            // 2. Approximate Hessian (BFGS)
-            // 3. Solve linear system
-            // 4. Line search
+            if (mSites.empty())
+            {
+                return false;
+            }
+
+            size_t numSeeds = mSites.size();
+            size_t totalVars = numSeeds * N;
+
+            // ── Helpers to flatten / unflatten site positions ──────────────────
+            std::vector<Real> x(totalVars);
+            auto flattenSites = [&]()
+            {
+                for (size_t i = 0; i < numSeeds; ++i)
+                    for (size_t d = 0; d < N; ++d)
+                        x[i * N + d] = mSites[i][d];
+            };
+            auto unflattenX = [&](std::vector<Real> const& xv)
+            {
+                for (size_t i = 0; i < numSeeds; ++i)
+                    for (size_t d = 0; d < N; ++d)
+                        mSites[i][d] = xv[i * N + d];
+            };
+            // ── Build lifted vertices and seeds arrays ─────────────────────────
+            // (same logic as LloydIterations — factored so the line-search can
+            //  rebuild them after each trial step)
+            auto buildLiftedAndSeeds = [&](
+                std::vector<std::array<Real, N>>& liftedArr,
+                std::vector<std::array<Real, N>>& seedsArr,
+                Real& normalScale)
+            {
+                seedsArr.resize(numSeeds);
+                for (size_t s = 0; s < numSeeds; ++s)
+                    for (size_t d = 0; d < N; ++d) seedsArr[s][d] = mSites[s][d];
+
+                normalScale = static_cast<Real>(0);
+                if constexpr (N > 3)
+                {
+                    for (size_t s = 0; s < numSeeds; ++s)
+                    {
+                        Real ns = static_cast<Real>(0);
+                        for (size_t d = 3; d < N; ++d) ns += mSites[s][d] * mSites[s][d];
+                        normalScale += std::sqrt(ns);
+                    }
+                    if (numSeeds > 0) normalScale /= static_cast<Real>(numSeeds);
+                }
+
+                liftedArr.resize(mSurfaceVertices.size());
+                if constexpr (N > 3)
+                {
+                    std::vector<std::array<Real, 3>> vertNorm(
+                        mSurfaceVertices.size(), {Real(0), Real(0), Real(0)});
+                    for (auto const& tri : mSurfaceTriangles)
+                    {
+                        Point3 const& v0 = mSurfaceVertices[tri[0]];
+                        Point3 const& v1 = mSurfaceVertices[tri[1]];
+                        Point3 const& v2 = mSurfaceVertices[tri[2]];
+                        Point3 fn = Cross(v1 - v0, v2 - v0);
+                        for (int lv = 0; lv < 3; ++lv)
+                        {
+                            vertNorm[tri[lv]][0] += fn[0];
+                            vertNorm[tri[lv]][1] += fn[1];
+                            vertNorm[tri[lv]][2] += fn[2];
+                        }
+                    }
+                    for (size_t v = 0; v < mSurfaceVertices.size(); ++v)
+                    {
+                        liftedArr[v][0] = mSurfaceVertices[v][0];
+                        liftedArr[v][1] = mSurfaceVertices[v][1];
+                        liftedArr[v][2] = mSurfaceVertices[v][2];
+                        Real nx = vertNorm[v][0], ny = vertNorm[v][1], nz = vertNorm[v][2];
+                        Real len = std::sqrt(nx*nx + ny*ny + nz*nz);
+                        if (len > static_cast<Real>(1e-10))
+                        { nx /= len; ny /= len; nz /= len; }
+                        if constexpr (N >= 6)
+                        {
+                            liftedArr[v][3] = nx * normalScale;
+                            liftedArr[v][4] = ny * normalScale;
+                            liftedArr[v][5] = nz * normalScale;
+                        }
+                        for (size_t d = 6; d < N; ++d) liftedArr[v][d] = static_cast<Real>(0);
+                    }
+                }
+                else
+                {
+                    for (size_t v = 0; v < mSurfaceVertices.size(); ++v)
+                    {
+                        liftedArr[v][0] = mSurfaceVertices[v][0];
+                        liftedArr[v][1] = mSurfaceVertices[v][1];
+                        liftedArr[v][2] = mSurfaceVertices[v][2];
+                    }
+                }
+            };
+
+            // ── Compute CVT gradient and energy proxy ──────────────────────────
+            // gradient g[i*N+d] = 2 * m_i * (p_i^d - c_i^d)
+            // energy   f        = sum_i m_i * ||p_i - c_i||^2
+            // Both via SurfaceRVDN::ForEachPolygon walk.
+            auto computeGradient = [&](std::vector<Real>& gOut, Real& fOut) -> bool
+            {
+                DelaunayNN<Real, N> delaunay(20);
+                delaunay.SetVertices(numSeeds, mSites.data());
+
+                std::vector<std::array<Real, N>> liftedArr;
+                std::vector<std::array<Real, N>> seedsArr;
+                Real normalScale;
+                buildLiftedAndSeeds(liftedArr, seedsArr, normalScale);
+
+                SurfaceRVDN<Real, N> rvd;
+                rvd.Initialize(liftedArr, mSurfaceTriangles, seedsArr, delaunay);
+
+                std::vector<std::array<Real, N>> mg(numSeeds);
+                std::vector<Real> m_area(numSeeds, static_cast<Real>(0));
+                for (auto& a : mg) a.fill(static_cast<Real>(0));
+
+                rvd.ForEachPolygon([&](
+                    int32_t seed, int32_t /*facet*/,
+                    RVDPolygon<Real, N> const& P,
+                    bool /*compChanged*/, int32_t /*compID*/)
+                {
+                    const size_t nv = P.nb_vertices();
+                    for (size_t i = 1; i + 1 < nv; ++i)
+                    {
+                        Real ea = Real(0), eb = Real(0), ec = Real(0);
+                        for (size_t d = 0; d < N; ++d)
+                        {
+                            Real e0 = P.V[0].pos[d] - P.V[i].pos[d];
+                            Real e1 = P.V[i].pos[d] - P.V[i+1].pos[d];
+                            Real e2 = P.V[i+1].pos[d] - P.V[0].pos[d];
+                            ea += e0*e0; eb += e1*e1; ec += e2*e2;
+                        }
+                        ea = std::sqrt(ea); eb = std::sqrt(eb); ec = std::sqrt(ec);
+                        Real hs = Real(0.5) * (ea + eb + ec);
+                        Real A2 = hs * (hs - ea) * (hs - eb) * (hs - ec);
+                        Real area = std::sqrt(std::max(A2, Real(0)));
+                        Real inv3 = area / Real(3);
+                        for (size_t d = 0; d < N; ++d)
+                            mg[seed][d] += inv3 * (P.V[0].pos[d] + P.V[i].pos[d] + P.V[i+1].pos[d]);
+                        m_area[seed] += area;
+                    }
+                });
+
+                gOut.assign(totalVars, static_cast<Real>(0));
+                fOut = static_cast<Real>(0);
+                for (size_t s = 0; s < numSeeds; ++s)
+                {
+                    if (m_area[s] > static_cast<Real>(1e-30))
+                    {
+                        Real inv_m = static_cast<Real>(1) / m_area[s];
+                        for (size_t d = 0; d < N; ++d)
+                        {
+                            Real c_d    = mg[s][d] * inv_m;           // centroid dim d
+                            Real p_d    = mSites[s][d];
+                            Real diff   = p_d - c_d;
+                            gOut[s*N+d] = Real(2) * m_area[s] * diff;  // gradient
+                            fOut       += m_area[s] * diff * diff;     // energy proxy
+                        }
+                    }
+                }
+                return true;
+            };
+
+            // ── L-BFGS main loop ───────────────────────────────────────────────
+            // Direct translation of the HLBFGS algorithm used by Geogram's
+            // Optimizer::create("HLBFGS") backend.
             //
-            // This is complex and Lloyd works well for our use case.
-            // We'll use Lloyd with tighter convergence as a practical alternative.
-            
-            Real savedThreshold = mConvergenceThreshold;
-            mConvergenceThreshold *= static_cast<Real>(0.1);  // Tighter convergence
-            
-            bool result = LloydIterations(numIterations);
-            
-            mConvergenceThreshold = savedThreshold;
-            return result;
+            // Two-loop recursion (Nocedal 1980):
+            //   q = g
+            //   for i = k-1 downto k-m:  α_i = ρ_i*(s_i·q); q -= α_i*y_i
+            //   r = γ_k * q   (γ_k = (s_{k-1}·y_{k-1})/(y_{k-1}·y_{k-1}))
+            //   for i = k-m upto k-1:  β_i = ρ_i*(y_i·r); r += s_i*(α_i-β_i)
+            //   direction d = -r
+            //
+            // Line search: backtracking Armijo (sufficient decrease condition).
+            //   c1 = 1e-4 (standard value matching Geogram's HLBFGS)
+            flattenSites();
+
+            // L-BFGS history
+            using VecN = std::vector<Real>;
+            std::vector<VecN> s_hist, y_hist;
+            std::vector<Real> rho_hist;
+
+            VecN g(totalVars);
+            Real f;
+            if (!computeGradient(g, f))
+            {
+                return false;
+            }
+
+            for (size_t iter = 0; iter < numIterations; ++iter)
+            {
+                // Check gradient convergence
+                Real gNorm = static_cast<Real>(0);
+                for (Real gi : g) gNorm += gi * gi;
+                gNorm = std::sqrt(gNorm);
+                if (gNorm < mConvergenceThreshold * static_cast<Real>(totalVars))
+                {
+                    if (mVerbose)
+                        std::cout << "Newton converged after " << iter << " iters\n";
+                    break;
+                }
+
+                // ── Two-loop L-BFGS direction ──────────────────────────────
+                VecN q = g;
+                size_t hs = s_hist.size();
+                VecN alpha_v(hs, Real(0));
+
+                for (int i = static_cast<int>(hs) - 1; i >= 0; --i)
+                {
+                    Real si = Real(0);
+                    for (size_t j = 0; j < totalVars; ++j) si += s_hist[i][j] * q[j];
+                    alpha_v[i] = rho_hist[i] * si;
+                    for (size_t j = 0; j < totalVars; ++j) q[j] -= alpha_v[i] * y_hist[i][j];
+                }
+
+                VecN r = q;
+                if (hs > 0)
+                {
+                    Real sy = Real(0), yy = Real(0);
+                    for (size_t j = 0; j < totalVars; ++j)
+                    {
+                        sy += s_hist.back()[j] * y_hist.back()[j];
+                        yy += y_hist.back()[j] * y_hist.back()[j];
+                    }
+                    Real gamma = (yy > Real(1e-30)) ? sy / yy : Real(1);
+                    for (size_t j = 0; j < totalVars; ++j) r[j] *= gamma;
+                }
+
+                for (size_t i = 0; i < hs; ++i)
+                {
+                    Real beta = Real(0);
+                    for (size_t j = 0; j < totalVars; ++j) beta += rho_hist[i] * y_hist[i][j] * r[j];
+                    for (size_t j = 0; j < totalVars; ++j) r[j] += s_hist[i][j] * (alpha_v[i] - beta);
+                }
+
+                VecN d(totalVars);
+                for (size_t j = 0; j < totalVars; ++j) d[j] = -r[j];
+
+                // Check d is a descent direction
+                Real dotGD = Real(0);
+                for (size_t j = 0; j < totalVars; ++j) dotGD += g[j] * d[j];
+                if (dotGD >= Real(0))
+                {
+                    // Reset to gradient descent
+                    s_hist.clear(); y_hist.clear(); rho_hist.clear();
+                    for (size_t j = 0; j < totalVars; ++j) d[j] = -g[j];
+                    dotGD = -gNorm * gNorm;
+                }
+
+                // ── Armijo backtracking line search ────────────────────────
+                static constexpr Real c1 = static_cast<Real>(1e-4);
+                Real alpha = Real(1);
+                VecN x_new(totalVars), g_new(totalVars);
+                Real f_new;
+                bool lineOk = false;
+
+                for (int ls = 0; ls < 16; ++ls)
+                {
+                    for (size_t j = 0; j < totalVars; ++j) x_new[j] = x[j] + alpha * d[j];
+                    unflattenX(x_new);
+                    if (computeGradient(g_new, f_new) && f_new <= f + c1 * alpha * dotGD)
+                    {
+                        lineOk = true;
+                        break;
+                    }
+                    alpha *= Real(0.5);
+                }
+
+                if (!lineOk)
+                {
+                    unflattenX(x); // restore
+                    break;
+                }
+
+                // ── Update L-BFGS history ──────────────────────────────────
+                VecN s_k(totalVars), y_k(totalVars);
+                for (size_t j = 0; j < totalVars; ++j)
+                {
+                    s_k[j] = x_new[j] - x[j];
+                    y_k[j] = g_new[j] - g[j];
+                }
+                Real sy = Real(0);
+                for (size_t j = 0; j < totalVars; ++j) sy += s_k[j] * y_k[j];
+
+                if (sy > Real(1e-30))
+                {
+                    s_hist.push_back(std::move(s_k));
+                    y_hist.push_back(std::move(y_k));
+                    rho_hist.push_back(Real(1) / sy);
+                    if (s_hist.size() > histSize)
+                    {
+                        s_hist.erase(s_hist.begin());
+                        y_hist.erase(y_hist.begin());
+                        rho_hist.erase(rho_hist.begin());
+                    }
+                }
+
+                x = std::move(x_new);
+                g = std::move(g_new);
+                f = f_new;
+
+                if (mVerbose)
+                {
+                    std::cout << "Newton iter " << (iter + 1)
+                              << ": f=" << f << " |g|=" << gNorm << "\n";
+                }
+            }
+
+            return true;
         }
         
         // Set convergence threshold
