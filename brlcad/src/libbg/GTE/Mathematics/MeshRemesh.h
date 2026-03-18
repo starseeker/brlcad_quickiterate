@@ -670,7 +670,6 @@ namespace gte
             Real minLength,
             bool preserveBoundary)
         {
-            bool changed = false;
             std::map<EdgeKey, std::vector<size_t>> edgeToTriangles;
 
             // Build edge-to-triangle map
@@ -705,26 +704,67 @@ namespace gte
                 }
             }
 
-            // Collapse edges (merge v1 into v0)
+            if (toCollapse.empty())
+            {
+                return false;
+            }
+
+            // Union-Find to track which vertices have been merged.
+            // vertex_parent[i] is the canonical (surviving) vertex for vertex i.
+            //
+            // This replaces the previous O(K * T) sequential approach that scanned
+            // all T triangles once per collapsed edge (K collapses total).  The
+            // union-find batch approach reduces the collapse loop to O(K * alpha(V))
+            // and defers the actual triangle update to a single O(T) remapping pass.
+            std::vector<int32_t> vertex_parent(vertices.size());
+            for (size_t i = 0; i < vertices.size(); ++i)
+            {
+                vertex_parent[i] = static_cast<int32_t>(i);
+            }
+
+            // Iterative find with path-halving (avoids deep recursion on large meshes).
+            auto findRoot = [&](int32_t v) -> int32_t
+            {
+                while (vertex_parent[v] != v)
+                {
+                    vertex_parent[v] = vertex_parent[vertex_parent[v]]; // path halving
+                    v = vertex_parent[v];
+                }
+                return v;
+            };
+
+            // Batch all edge collapses: merge the canonical v1 into the canonical v0.
+            bool changed = false;
             for (auto const& edge : toCollapse)
             {
-                // Collapse v1 into v0 by moving v0 to midpoint
-                Vector3<Real> midpoint = (vertices[edge.v0] + vertices[edge.v1]) * static_cast<Real>(0.5);
-                vertices[edge.v0] = midpoint;
+                int32_t v0 = findRoot(edge.v0);
+                int32_t v1 = findRoot(edge.v1);
 
-                // Update all triangles using v1 to use v0 instead
-                for (auto& tri : triangles)
+                if (v0 == v1)
                 {
-                    for (int i = 0; i < 3; ++i)
-                    {
-                        if (tri[i] == edge.v1)
-                        {
-                            tri[i] = edge.v0;
-                        }
-                    }
+                    continue; // Already merged by a prior collapse in this batch
                 }
 
+                // Move v0 to midpoint and redirect v1 to v0.
+                Vector3<Real> midpoint = (vertices[v0] + vertices[v1]) * static_cast<Real>(0.5);
+                vertices[v0] = midpoint;
+                vertex_parent[v1] = v0;
+
                 changed = true;
+            }
+
+            if (!changed)
+            {
+                return false;
+            }
+
+            // Apply the vertex remapping to all triangles in a single O(T) pass.
+            for (auto& tri : triangles)
+            {
+                for (int i = 0; i < 3; ++i)
+                {
+                    tri[i] = findRoot(tri[i]);
+                }
             }
 
             // Remove degenerate triangles
@@ -736,7 +776,7 @@ namespace gte
                     validTriangles.push_back(tri);
                 }
             }
-            triangles = validTriangles;
+            triangles = std::move(validTriangles);
 
             return changed;
         }
