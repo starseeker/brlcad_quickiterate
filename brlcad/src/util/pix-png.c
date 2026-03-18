@@ -230,9 +230,9 @@ main(int argc, char *argv[])
 #else
 	/* Obol build: autosize via stat() rather than libdm */
 	{
-	    struct stat asb;
-	    if (file_name && stat(file_name, &asb) == 0 && asb.st_size > 0) {
-		size_t npix = (size_t)asb.st_size / 3;
+	    struct stat file_stat;
+	    if (file_name && stat(file_name, &file_stat) == 0 && file_stat.st_size > 0) {
+		size_t npix = (size_t)file_stat.st_size / 3;
 		size_t sq = (size_t)(sqrt((double)npix) + 0.5);
 		if (sq * sq == npix) {
 		    file_width = file_height = sq;

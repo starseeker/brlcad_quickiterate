@@ -187,6 +187,25 @@ Changes made (Stage 25):
   fallback uses a plain `stat()` call instead.  CMakeLists Obol branch links
   `libbu + ${PNG_LIBRARIES}` only (no libdm).
 
+### 1b. fb-pix — libdm-free in Obol builds — Complete (Stage 26)
+
+**`fb-pix` (write framebuffer contents to a raw .pix file) now has an Obol path
+that speaks the fbserv PKG wire protocol directly, with no libdm dependency.**
+
+Two files changed:
+
+- **`src/fb/fb-pix.c`**: `#ifdef BRLCAD_ENABLE_OBOL` path connects to the fbserv
+  TCP port using raw libpkg — `MSG_FBOPEN` handshake, `MSG_FBREADRECT` one row at a
+  time, writes raw RGB bytes to the output file, then `MSG_FBCLOSE`.  No libdm
+  symbols used.  Non-Obol `#else` path is the unchanged original `fb_open` /
+  `fb_read` / `fb_close` code (including the colormap-crunch option).
+
+- **`src/fb/CMakeLists.txt`**: `fb-pix` Obol branch links `libbu + libpkg` only
+  (no libdm, no dm_plugins, no cmap-crunch.c).  Non-Obol branch unchanged.
+
+The full rtwizard pipeline for `.pix` output is now also libdm-free in Obol builds:
+`rt -F port` → pixbuf fbserv → `fb-pix -F port outfile.pix` with no libdm anywhere.
+
 ### 1a. fbserv — Obol-backed pixel-buffer server — Complete (Stage 24)
 
 **Question: Could `fbserv` be backed by Obol and remain functional (TCP protocol
