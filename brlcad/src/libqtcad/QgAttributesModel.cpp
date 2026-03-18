@@ -93,11 +93,7 @@ QgAttributesModel::add_Children(const char *name, QgKeyValNode *curr_node)
 {
     if (BU_STR_EQUAL(name, "color")) {
 	QString val(bu_avs_get(avs, name));
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-	QStringList vals = val.split(QRegExp("/"));
-#else
-	QStringList vals = val.split(QRegularExpression("/"));
-#endif
+	QStringList vals = val.split("/");
 	(void)add_pair("r", vals.at(0).toLocal8Bit(), curr_node, db5_standardize_attribute(name));
 	(void)add_pair("g", vals.at(1).toLocal8Bit(), curr_node, db5_standardize_attribute(name));
 	(void)add_pair("b", vals.at(2).toLocal8Bit(), curr_node, db5_standardize_attribute(name));

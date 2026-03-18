@@ -23,6 +23,11 @@ INPUT += \"${CMAKE_SOURCE_DIR}/include//bv.h\""
   set(
     lib_inputs
     "${lib_inputs}
+INPUT += \"${CMAKE_SOURCE_DIR}/include/bsg.h\""
+  )
+  set(
+    lib_inputs
+    "${lib_inputs}
 INPUT += \"${CMAKE_SOURCE_DIR}/include/bio.h\""
   )
   set(
@@ -52,7 +57,7 @@ INPUT += \"${CMAKE_SOURCE_DIR}/include/bsocket.h\""
     libbu
     libbn
     libbg
-    libbv
+    libbsg
     libnmg
     libbrep
     libfft
@@ -232,10 +237,10 @@ set(
   intro.dox
   libanalyze.dox
   libbg.dox
+  libbsg.dox
   libbn.dox
   libbrep.dox
   libbu.dox
-  libbv.dox
   libdm.dox
   libdm.dox
   libfft.dox

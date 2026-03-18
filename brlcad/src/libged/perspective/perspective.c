@@ -47,7 +47,9 @@ ged_perspective_core(struct ged *gedp, int argc, const char *argv[])
 
     /* get the perspective angle */
     if (argc == 1) {
-	bu_vls_printf(gedp->ged_result_str, "%g", gedp->ged_gvp->gv_perspective);
+	struct bsg_camera _cv;
+	bsg_view_get_camera(gedp->ged_gvp, &_cv);
+	bu_vls_printf(gedp->ged_result_str, "%g", _cv.perspective);
 	return BRLCAD_OK;
     }
 
@@ -58,16 +60,20 @@ ged_perspective_core(struct ged *gedp, int argc, const char *argv[])
 	    return BRLCAD_ERROR;
 	}
 
-	gedp->ged_gvp->gv_perspective = perspective;
-
-	if (SMALL_FASTF < gedp->ged_gvp->gv_perspective) {
-	    persp_mat(gedp->ged_gvp->gv_pmat, gedp->ged_gvp->gv_perspective,
+	{
+	    struct bsg_camera _cv;
+	    bsg_view_get_camera(gedp->ged_gvp, &_cv);
+	    _cv.perspective = perspective;
+	    if (SMALL_FASTF < _cv.perspective) {
+		persp_mat(_cv.pmat, _cv.perspective,
 			  (fastf_t)1.0f, (fastf_t)0.01f, (fastf_t)1.0e10f, (fastf_t)1.0f);
-	} else {
-	    MAT_COPY(gedp->ged_gvp->gv_pmat, bn_mat_identity);
+	    } else {
+		MAT_COPY(_cv.pmat, bn_mat_identity);
+	    }
+	    bsg_view_set_camera(gedp->ged_gvp, &_cv);
 	}
 
-	bv_update(gedp->ged_gvp);
+	bsg_view_update(gedp->ged_gvp);
 
 	return BRLCAD_OK;
     }

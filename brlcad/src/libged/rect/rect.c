@@ -84,7 +84,7 @@ rect_vls_print(struct ged *gedp)
  * position and dimensions in normalized view coordinates.
  */
 static void
-rect_image2view(struct bv_interactive_rect_state *grsp)
+rect_image2view(struct bsg_interactive_rect_state *grsp)
 {
     grsp->x = (grsp->pos[X] / (fastf_t)grsp->cdim[X] - 0.5) * 2.0;
     grsp->y = ((0.5 - (grsp->cdim[Y] - grsp->pos[Y]) / (fastf_t)grsp->cdim[Y]) / grsp->aspect * 2.0);
@@ -97,7 +97,7 @@ rect_image2view(struct bv_interactive_rect_state *grsp)
  * Adjust the rubber band rectangle to have the same aspect ratio as the window.
  */
 static void
-rect_adjust_for_zoom(struct bv_interactive_rect_state *grsp)
+rect_adjust_for_zoom(struct bsg_interactive_rect_state *grsp)
 {
     fastf_t width, height;
 
@@ -231,8 +231,12 @@ rect_zoom(struct ged *gedp)
     rect_adjust_for_zoom(&gedp->ged_gvp->gv_s->gv_rect);
 
     /* find old view center */
-    MAT_DELTAS_GET_NEG(old_model_center, gedp->ged_gvp->gv_center);
-    MAT4X3PNT(old_view_center, gedp->ged_gvp->gv_model2view, old_model_center);
+    { struct bsg_camera _cv; bsg_view_get_camera(gedp->ged_gvp, &_cv);
+      MAT_DELTAS_GET_NEG(old_model_center, _cv.center);
+    }
+    { struct bsg_camera _cv; bsg_view_get_camera(gedp->ged_gvp, &_cv);
+      MAT4X3PNT(old_view_center, _cv.model2view, old_model_center);
+    }
 
     /* calculate new view center */
     VSET(new_view_center,
@@ -241,7 +245,9 @@ rect_zoom(struct ged *gedp)
 	 old_view_center[Z]);
 
     /* find new model center */
-    MAT4X3PNT(new_model_center, gedp->ged_gvp->gv_view2model, new_view_center);
+    { struct bsg_camera _cv; bsg_view_get_camera(gedp->ged_gvp, &_cv);
+      MAT4X3PNT(new_model_center, _cv.view2model, new_view_center);
+    }
 
     /* zoom in to fill rectangle */
     if (gedp->ged_gvp->gv_s->gv_rect.width >= 0.0)
@@ -263,9 +269,11 @@ rect_zoom(struct ged *gedp)
 	return BRLCAD_OK;
 
     /* set the new model center */
-    MAT_DELTAS_VEC_NEG(gedp->ged_gvp->gv_center, new_model_center);
+    { struct bsg_camera _cv; bsg_view_get_camera(gedp->ged_gvp, &_cv);
+      MAT_DELTAS_VEC_NEG(_cv.center, new_model_center);
+    }
     gedp->ged_gvp->gv_scale *= sf;
-    bv_update(gedp->ged_gvp);
+    bsg_view_update(gedp->ged_gvp);
 
     return BRLCAD_OK;
 }

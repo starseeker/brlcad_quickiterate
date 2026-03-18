@@ -30,8 +30,11 @@
 
 extern "C" {
 #include "bu/ptbl.h"
-#include "bv.h"
-#include "dm.h"
+#include "bsg.h"
+#ifndef BRLCAD_ENABLE_OBOL
+/* dm.h is only needed by QgQuadView for the legacy libdm rendering path. */
+#  include "dm.h"
+#endif
 }
 
 #include "qtcad/defines.h"
@@ -67,7 +70,7 @@ class QTCAD_EXPORT QgQuadView : public QWidget
 	QgView *get(const QPoint &p); // Test is global point coordinates correspond to one of the quad view
 	QgView *get(QEvent *e); // Given a MouseButtonPress QEvent, see if the point identifies a view
 	QgView *curr_view(); // return the currently selected view
-	struct bview * view(int quadrant_id = UPPER_RIGHT_QUADRANT);
+	bsg_view * view(int quadrant_id = UPPER_RIGHT_QUADRANT);
 
 	void select(int quadrant_num);
 	void select(const char *id); // valid inputs: ur, ul, ll and lr
@@ -95,7 +98,7 @@ class QTCAD_EXPORT QgQuadView : public QWidget
 	void set_lmouse_move_default(int);
 
     private:
-        bool eventFilter(QObject*, QEvent*);
+bool eventFilter(QObject*, QEvent*) override;
         QgView *createView(unsigned int index);
         QGridLayout *createLayout();
 

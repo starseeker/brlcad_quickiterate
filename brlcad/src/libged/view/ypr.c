@@ -49,8 +49,10 @@ ged_ypr_core(struct ged *gedp, int argc, const char *argv[])
     /* return Viewrot as yaw, pitch and roll */
     if (argc == 1) {
 	point_t pt = VINIT_ZERO;
+	struct bsg_camera _yc;
+	bsg_view_get_camera(gedp->ged_gvp, &_yc);
 
-	bn_mat_trn(mat, gedp->ged_gvp->gv_rotation);
+	bn_mat_trn(mat, _yc.rotation);
 	anim_v_unpermute(mat);
 
 	if (anim_mat2ypr(mat, pt) == 2) {
@@ -84,8 +86,13 @@ ged_ypr_core(struct ged *gedp, int argc, const char *argv[])
 
     anim_dy_p_r2mat(mat, V3ARGS(ypr));
     anim_v_permute(mat);
-    bn_mat_trn(gedp->ged_gvp->gv_rotation, mat);
-    bv_update(gedp->ged_gvp);
+    {
+	struct bsg_camera _yc;
+	bsg_view_get_camera(gedp->ged_gvp, &_yc);
+	bn_mat_trn(_yc.rotation, mat);
+	bsg_view_set_camera(gedp->ged_gvp, &_yc);
+    }
+    bsg_view_update(gedp->ged_gvp);
 
     return BRLCAD_OK;
 }

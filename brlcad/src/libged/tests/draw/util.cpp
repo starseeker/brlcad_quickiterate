@@ -30,7 +30,7 @@
 #include <fstream>
 
 #include <bu.h>
-#include <bv/lod.h>
+#include "bsg/lod.h"
 #include <icv.h>
 #define DM_WITH_RT
 #include <dm.h>
@@ -54,10 +54,10 @@ ged_changed_callback(struct db_i *UNUSED(dbip), struct directory *dp, int mode, 
 
     // Need to invalidate any LoD caches associated with this dp
     if (dp->d_minor_type == DB5_MINORTYPE_BRLCAD_BOT && ctx->gedp) {
-	unsigned long long key = bv_mesh_lod_key_get(ctx->gedp->ged_lod, dp->d_namep);
+	unsigned long long key = bsg_mesh_lod_key_get(ctx->gedp->ged_lod, dp->d_namep);
 	if (key) {
-	    bv_mesh_lod_clear_cache(ctx->gedp->ged_lod, key);
-	    bv_mesh_lod_key_put(ctx->gedp->ged_lod, dp->d_namep, 0);
+	    bsg_mesh_lod_clear_cache(ctx->gedp->ged_lod, key);
+	    bsg_mesh_lod_key_put(ctx->gedp->ged_lod, dp->d_namep, 0);
 	}
     }
 
@@ -84,11 +84,11 @@ ged_changed_callback(struct db_i *UNUSED(dbip), struct directory *dp, int mode, 
 extern "C" void
 dm_refresh(struct ged *gedp)
 {
-    struct bview *v= gedp->ged_gvp;
+    bsg_view *v= gedp->ged_gvp;
     DbiState *dbis = (DbiState *)gedp->dbi_state;
     BViewState *bvs = dbis->get_view_state(v);
     dbis->update();
-    std::unordered_set<struct bview *> uset;
+    std::unordered_set<bsg_view *> uset;
     uset.insert(v);
     bvs->redraw(NULL, uset, 1);
 

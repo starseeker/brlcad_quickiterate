@@ -315,7 +315,6 @@ set(
   get_solid_kp.c
   path.c
   pnts_util.c
-  points_eval.c
   polyclip.cpp
   qray.cpp
   tab_complete.cpp
@@ -324,8 +323,17 @@ set(
   vutil.c
   view/data_lines.c
   wdb_importFg4Section.c
-  wireframe_eval.c
 )
+
+# Conditionally include Obol scene assembler when the Obol library is available.
+# brlcad_find_package(Obol) is called by qged/CMakeLists.txt; if Obol was found
+# we compile and link obol_scene.cpp here as well so that qged can call
+# obol_scene_assemble() via libged.
+brlcad_find_package(Obol)
+if(TARGET Obol::Obol)
+  list(APPEND LIBGED_SOURCES obol_scene.cpp)
+  message(STATUS "libged: adding Obol scene assembler (obol_scene.cpp)")
+endif(TARGET Obol::Obol)
 
 set_property(
   SOURCE ged_init.cpp
@@ -343,6 +351,9 @@ set(
   ${WINSOCK_LIB}
   ${M_LIBRARY}
 )
+if(TARGET Obol::Obol)
+  list(APPEND GED_LIBS Obol::Obol)
+endif(TARGET Obol::Obol)
 
 # Local include directories
 # includes from plugins
@@ -355,11 +366,22 @@ set(
   ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${CMAKE_CURRENT_BINARY_DIR}
 )
+if(TARGET Obol::Obol)
+  list(APPEND GED_LOCAL_INCLUDE_DIRS ${Obol_INCLUDE_DIR})
+endif(TARGET Obol::Obol)
 
 brlcad_addlib(libged "${LIBGED_SOURCES}" "${GED_LIBS}" "" "${GED_LOCAL_INCLUDE_DIRS}"
   UNITY_BUILD_SKIP ged_init.cpp
 )
 set_target_properties(libged PROPERTIES VERSION 20.0.1 SOVERSION 20)
+if(TARGET Obol::Obol)
+  # Apply BRLCAD_ENABLE_OBOL to both the shared library and the OBJECT library
+  # (if USE_OBJECT_LIBS is on, sources are compiled via libged-obj, not libged).
+  target_compile_definitions(libged PRIVATE BRLCAD_ENABLE_OBOL)
+  if(USE_OBJECT_LIBS AND TARGET libged-obj)
+    target_compile_definitions(libged-obj PRIVATE BRLCAD_ENABLE_OBOL)
+  endif()
+endif(TARGET Obol::Obol)
 if (LIBGED_STATIC_CORE)
   target_link_libraries(libged PRIVATE libged_plugin_deps)
   if (TARGET libged-static)
@@ -672,6 +694,7 @@ set(
   include/plugin.h
   joint/joint.h
   osg.cpp
+  obol_scene.h
   pnts_util.h
   qray.h
 )

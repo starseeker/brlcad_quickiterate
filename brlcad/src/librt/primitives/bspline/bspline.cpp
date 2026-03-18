@@ -91,7 +91,7 @@ struct nurb_hit {
     extern void rt_brep_curve(struct curvature *cvp, struct hit *hitp, struct soltab *stp);
     extern void rt_brep_uv(struct application *ap, struct soltab *stp, struct hit *hitp, struct uvcoord *uvp);
     extern void rt_brep_free(struct soltab *stp);
-    extern int rt_brep_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *tol, const struct bview *UNUSED(info));
+    extern int rt_brep_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *tol, const bsg_view *UNUSED(info));
 
 #endif /* CONVERT_TO_BREP */
 
@@ -556,7 +556,7 @@ rt_nurb_free(struct soltab *stp)
 
 
 int
-rt_nurb_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *tol, const struct bview *UNUSED(info))
+rt_nurb_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *tol, const bsg_view *UNUSED(info))
 {
     struct rt_nurb_internal *sip;
 
@@ -636,10 +636,10 @@ rt_nurb_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_t
 
 	vp = c->ctl_points;
 	for (i = 0; i < c->s_size[0]; i++) {
-	    BV_ADD_VLIST(vlfree, vhead, vp, BV_VLIST_LINE_MOVE);
+	    BSG_ADD_VLIST(vlfree, vhead, vp, BSG_VLIST_LINE_MOVE);
 	    vp += coords;
 	    for (j = 1; j < c->s_size[1]; j++) {
-		BV_ADD_VLIST(vlfree, vhead, vp, BV_VLIST_LINE_DRAW);
+		BSG_ADD_VLIST(vlfree, vhead, vp, BSG_VLIST_LINE_DRAW);
 		vp += coords;
 	    }
 	}
@@ -649,9 +649,9 @@ rt_nurb_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_t
 
 	    stride = c->s_size[1] * coords;
 	    vp = &c->ctl_points[j * coords];
-	    BV_ADD_VLIST(vlfree, vhead, vp, BV_VLIST_LINE_MOVE);
+	    BSG_ADD_VLIST(vlfree, vhead, vp, BSG_VLIST_LINE_MOVE);
 	    for (i = 0; i < c->s_size[0]; i++) {
-		BV_ADD_VLIST(vlfree, vhead, vp, BV_VLIST_LINE_DRAW);
+		BSG_ADD_VLIST(vlfree, vhead, vp, BSG_VLIST_LINE_DRAW);
 		vp += stride;
 	    }
 	}

@@ -644,7 +644,9 @@ int ged_check_core(struct ged *gedp, int argc, const char *argv[])
 	if (options.getfromview) {
 	    point_t eye_model;
 	    quat_t quat;
-	    quat_mat2quat(quat, gedp->ged_gvp->gv_rotation);
+	    struct bsg_camera _cam;
+	    bsg_view_get_camera(gedp->ged_gvp, &_cam);
+	    quat_mat2quat(quat, _cam.rotation);
 	    _ged_rt_set_eye_model(gedp, eye_model);
 	    analyze_set_view_information(state, gedp->ged_gvp->gv_size, &eye_model, &quat);
 	}

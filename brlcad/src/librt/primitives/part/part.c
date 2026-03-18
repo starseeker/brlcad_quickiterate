@@ -965,7 +965,7 @@ rt_part_hemisphere(register point_t (*ov), register fastf_t *v, fastf_t *a, fast
 
 
 int
-rt_part_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_tess_tol *UNUSED(ttol), const struct bn_tol *UNUSED(tol), const struct bview *UNUSED(info))
+rt_part_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_tess_tol *UNUSED(ttol), const struct bn_tol *UNUSED(tol), const bsg_view *UNUSED(info))
 {
     struct rt_part_internal *pip;
     point_t tail;
@@ -990,21 +990,21 @@ rt_part_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_t
 	VSET(c, 0, 0, pip->part_vrad);
 
 	rt_ell_16pnts(&sphere_rim[0][X], pip->part_V, a, b);
-	BV_ADD_VLIST(vlfree, vhead, sphere_rim[15], BV_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vhead, sphere_rim[15], BSG_VLIST_LINE_MOVE);
 	for (i=0; i<16; i++) {
-	    BV_ADD_VLIST(vlfree, vhead, sphere_rim[i], BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(vlfree, vhead, sphere_rim[i], BSG_VLIST_LINE_DRAW);
 	}
 
 	rt_ell_16pnts(&sphere_rim[0][X], pip->part_V, b, c);
-	BV_ADD_VLIST(vlfree, vhead, sphere_rim[15], BV_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vhead, sphere_rim[15], BSG_VLIST_LINE_MOVE);
 	for (i=0; i<16; i++) {
-	    BV_ADD_VLIST(vlfree, vhead, sphere_rim[i], BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(vlfree, vhead, sphere_rim[i], BSG_VLIST_LINE_DRAW);
 	}
 
 	rt_ell_16pnts(&sphere_rim[0][X], pip->part_V, a, c);
-	BV_ADD_VLIST(vlfree, vhead, sphere_rim[15], BV_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vhead, sphere_rim[15], BSG_VLIST_LINE_MOVE);
 	for (i=0; i<16; i++) {
-	    BV_ADD_VLIST(vlfree, vhead, sphere_rim[i], BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(vlfree, vhead, sphere_rim[i], BSG_VLIST_LINE_DRAW);
 	}
 	return 0;		/* OK */
     }
@@ -1028,44 +1028,44 @@ rt_part_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_t
     rt_part_hemisphere(hhemi, tail, as, bs, hs);
 
     /* Draw V end hemisphere */
-    BV_ADD_VLIST(vlfree, vhead, vhemi[0], BV_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, vhemi[0], BSG_VLIST_LINE_MOVE);
     for (i=7; i >= 0; i--) {
-	BV_ADD_VLIST(vlfree, vhead, vhemi[i], BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, vhemi[i], BSG_VLIST_LINE_DRAW);
     }
-    BV_ADD_VLIST(vlfree, vhead, vhemi[8], BV_VLIST_LINE_DRAW);
-    BV_ADD_VLIST(vlfree, vhead, vhemi[12], BV_VLIST_LINE_DRAW);
-    BV_ADD_VLIST(vlfree, vhead, vhemi[10], BV_VLIST_LINE_DRAW);
-    BV_ADD_VLIST(vlfree, vhead, vhemi[4], BV_VLIST_LINE_DRAW);
-    BV_ADD_VLIST(vlfree, vhead, vhemi[2], BV_VLIST_LINE_MOVE);
-    BV_ADD_VLIST(vlfree, vhead, vhemi[9], BV_VLIST_LINE_DRAW);
-    BV_ADD_VLIST(vlfree, vhead, vhemi[12], BV_VLIST_LINE_DRAW);
-    BV_ADD_VLIST(vlfree, vhead, vhemi[11], BV_VLIST_LINE_DRAW);
-    BV_ADD_VLIST(vlfree, vhead, vhemi[6], BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, vhemi[8], BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, vhemi[12], BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, vhemi[10], BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, vhemi[4], BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, vhemi[2], BSG_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, vhemi[9], BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, vhemi[12], BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, vhemi[11], BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, vhemi[6], BSG_VLIST_LINE_DRAW);
 
     /* Draw H end hemisphere */
-    BV_ADD_VLIST(vlfree, vhead, hhemi[0], BV_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, hhemi[0], BSG_VLIST_LINE_MOVE);
     for (i=7; i >= 0; i--) {
-	BV_ADD_VLIST(vlfree, vhead, hhemi[i], BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, hhemi[i], BSG_VLIST_LINE_DRAW);
     }
-    BV_ADD_VLIST(vlfree, vhead, hhemi[8], BV_VLIST_LINE_DRAW);
-    BV_ADD_VLIST(vlfree, vhead, hhemi[12], BV_VLIST_LINE_DRAW);
-    BV_ADD_VLIST(vlfree, vhead, hhemi[10], BV_VLIST_LINE_DRAW);
-    BV_ADD_VLIST(vlfree, vhead, hhemi[4], BV_VLIST_LINE_DRAW);
-    BV_ADD_VLIST(vlfree, vhead, hhemi[2], BV_VLIST_LINE_MOVE);
-    BV_ADD_VLIST(vlfree, vhead, hhemi[9], BV_VLIST_LINE_DRAW);
-    BV_ADD_VLIST(vlfree, vhead, hhemi[12], BV_VLIST_LINE_DRAW);
-    BV_ADD_VLIST(vlfree, vhead, hhemi[11], BV_VLIST_LINE_DRAW);
-    BV_ADD_VLIST(vlfree, vhead, hhemi[6], BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, hhemi[8], BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, hhemi[12], BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, hhemi[10], BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, hhemi[4], BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, hhemi[2], BSG_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, hhemi[9], BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, hhemi[12], BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, hhemi[11], BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, hhemi[6], BSG_VLIST_LINE_DRAW);
 
     /* Draw 4 connecting lines */
-    BV_ADD_VLIST(vlfree, vhead, vhemi[0], BV_VLIST_LINE_MOVE);
-    BV_ADD_VLIST(vlfree, vhead, hhemi[0], BV_VLIST_LINE_DRAW);
-    BV_ADD_VLIST(vlfree, vhead, vhemi[2], BV_VLIST_LINE_MOVE);
-    BV_ADD_VLIST(vlfree, vhead, hhemi[2], BV_VLIST_LINE_DRAW);
-    BV_ADD_VLIST(vlfree, vhead, vhemi[4], BV_VLIST_LINE_MOVE);
-    BV_ADD_VLIST(vlfree, vhead, hhemi[4], BV_VLIST_LINE_DRAW);
-    BV_ADD_VLIST(vlfree, vhead, vhemi[6], BV_VLIST_LINE_MOVE);
-    BV_ADD_VLIST(vlfree, vhead, hhemi[6], BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, vhemi[0], BSG_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, hhemi[0], BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, vhemi[2], BSG_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, hhemi[2], BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, vhemi[4], BSG_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, hhemi[4], BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, vhemi[6], BSG_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, hhemi[6], BSG_VLIST_LINE_DRAW);
 
     return 0;
 }

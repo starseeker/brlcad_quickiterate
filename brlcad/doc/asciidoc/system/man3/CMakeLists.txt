@@ -1,6 +1,5 @@
 set(
   man3_EN
-  libbv.adoc
   libicv.adoc
   libpkg.adoc
   librt.adoc

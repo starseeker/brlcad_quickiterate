@@ -36,7 +36,7 @@
 int
 go_data_arrows(Tcl_Interp *interp,
 	       struct ged *gedp,
-	       struct bview *gdvp,
+	       bsg_view *gdvp,
 	       int argc,
 	       const char *argv[],
 	       const char *usage)
@@ -79,7 +79,7 @@ to_data_arrows(struct ged *gedp,
 	       const char *usage,
 	       int UNUSED(maxargs))
 {
-    struct bview *gdvp;
+    bsg_view *gdvp;
     int ret;
 
     /* initialize result */
@@ -96,7 +96,7 @@ to_data_arrows(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    gdvp = bv_set_find_view(&gedp->ged_views, argv[1]);
+    gdvp = bsg_scene_find_view(&gedp->ged_views, argv[1]);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -115,11 +115,11 @@ to_data_arrows(struct ged *gedp,
 int
 to_data_arrows_func(Tcl_Interp *interp,
 		    struct ged *gedp,
-		    struct bview *gdvp,
+		    bsg_view *gdvp,
 		    int argc,
 		    const char *argv[])
 {
-    struct bv_data_arrow_state *gdasp;
+    struct bsg_data_arrow_state *gdasp;
 
     if (argv[0][0] == 's')
 	gdasp = &gdvp->gv_tcl.gv_sdata_arrows;

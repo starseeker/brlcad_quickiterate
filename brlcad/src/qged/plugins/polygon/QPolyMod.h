@@ -100,15 +100,15 @@ class QPolyMod : public QWidget
 	void toggle_grid_snapping(bool);
 
     protected:
-	bool eventFilter(QObject *, QEvent *);
+	bool eventFilter(QObject *, QEvent *) override;
 
     private:
-	void poly_type_settings(struct bv_polygon *ip);
+	void poly_type_settings(struct bsg_polygon *ip);
 	int poly_cnt = 0;
-	struct bv_scene_obj *p = NULL;
+	bsg_shape *p = nullptr;
 	bool do_bool = false;
 
-	QgPolyFilter *cf = NULL;
+	QgPolyFilter *cf = nullptr;
 	QPolyUpdateFilter *puf;
 	QPolySelectFilter *psf;
 	QPolyPointFilter *ppf;

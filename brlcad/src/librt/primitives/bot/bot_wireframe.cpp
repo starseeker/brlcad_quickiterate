@@ -120,7 +120,7 @@ face_area(struct rt_bot_internal *bot, size_t face_num)
  *   and creating wireframe edges
  **********************************************************/
 extern "C" int
-rt_bot_adaptive_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bn_tol *UNUSED(tol), const struct bview *UNUSED(v), fastf_t UNUSED(s_size))
+rt_bot_adaptive_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bn_tol *UNUSED(tol), const bsg_view *UNUSED(v), fastf_t UNUSED(s_size))
 {
     struct rt_bot_internal *bot;
     struct bu_list *vlfree = &rt_vlfree;
@@ -299,16 +299,16 @@ rt_bot_adaptive_plot(struct bu_list *vhead, struct rt_db_internal *ip, const str
 
     for (unsigned int j = 0; j < bot->num_faces; j++) {
 	if (vert_edge_status[bot->faces[j*3+0]] &&  vert_edge_status[bot->faces[j*3+1]]) {
-	    BV_ADD_VLIST(vlfree, vhead, &(bot->vertices[bot->faces[j*3+0]*3]), BV_VLIST_LINE_MOVE);
-	    BV_ADD_VLIST(vlfree, vhead, &(bot->vertices[bot->faces[j*3+1]*3]), BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(vlfree, vhead, &(bot->vertices[bot->faces[j*3+0]*3]), BSG_VLIST_LINE_MOVE);
+	    BSG_ADD_VLIST(vlfree, vhead, &(bot->vertices[bot->faces[j*3+1]*3]), BSG_VLIST_LINE_DRAW);
 	}
 	if (vert_edge_status[bot->faces[j*3+1]] &&  vert_edge_status[bot->faces[j*3+2]]) {
-	    BV_ADD_VLIST(vlfree, vhead, &(bot->vertices[bot->faces[j*3+1]*3]), BV_VLIST_LINE_MOVE);
-	    BV_ADD_VLIST(vlfree, vhead, &(bot->vertices[bot->faces[j*3+2]*3]), BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(vlfree, vhead, &(bot->vertices[bot->faces[j*3+1]*3]), BSG_VLIST_LINE_MOVE);
+	    BSG_ADD_VLIST(vlfree, vhead, &(bot->vertices[bot->faces[j*3+2]*3]), BSG_VLIST_LINE_DRAW);
 	}
 	if (vert_edge_status[bot->faces[j*3+2]] &&  vert_edge_status[bot->faces[j*3+0]]) {
-	    BV_ADD_VLIST(vlfree, vhead, &(bot->vertices[bot->faces[j*3+2]*3]), BV_VLIST_LINE_MOVE);
-	    BV_ADD_VLIST(vlfree, vhead, &(bot->vertices[bot->faces[j*3+0]*3]), BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(vlfree, vhead, &(bot->vertices[bot->faces[j*3+2]*3]), BSG_VLIST_LINE_MOVE);
+	    BSG_ADD_VLIST(vlfree, vhead, &(bot->vertices[bot->faces[j*3+0]*3]), BSG_VLIST_LINE_DRAW);
 	}
     }
 

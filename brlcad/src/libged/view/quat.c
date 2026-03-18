@@ -48,7 +48,8 @@ ged_quat_core(struct ged *gedp, int argc, const char *argv[])
 
     /* return Viewrot as a quaternion */
     if (argc == 1) {
-	quat_mat2quat(quat, gedp->ged_gvp->gv_rotation);
+	{ struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+	  quat_mat2quat(quat, _cm.rotation); }
 	bu_vls_printf(gedp->ged_result_str, "%.12g %.12g %.12g %.12g", V4ARGS(quat));
 	return BRLCAD_OK;
     }
@@ -70,8 +71,10 @@ ged_quat_core(struct ged *gedp, int argc, const char *argv[])
     }
     HMOVE(quat, scan);
 
-    quat_quat2mat(gedp->ged_gvp->gv_rotation, quat);
-    bv_update(gedp->ged_gvp);
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      quat_quat2mat(_cm.rotation, quat);
+      bsg_view_set_camera(gedp->ged_gvp, &_cm); }
+    bsg_view_update(gedp->ged_gvp);
 
     return BRLCAD_OK;
 }

@@ -40,11 +40,11 @@ QgAppExecDialog::QgAppExecDialog(QWidget *pparent, QString executable, QStringLi
     setLayout(dlayout);
     dlayout->addWidget(console);
     dlayout->addWidget(buttonBox);
-    logfile = NULL;
+    logfile = nullptr;
     if (lfile.length() > 0) {
 	logfile = new QFile(lfile);
 	if (!logfile->open(QIODevice::Append | QIODevice::Text)) {
-	    logfile = NULL;
+	    logfile = nullptr;
 	    return;
 	}
 	QTextStream log_stream(logfile);

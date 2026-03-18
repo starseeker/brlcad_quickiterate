@@ -54,6 +54,43 @@ __BEGIN_DECLS
 #define FBS_CALLBACK_NULL (void (*)(void))NULL
 #define FBSERV_OBJ_NULL (struct fbserv_obj *)NULL
 
+/*
+ * Framebuffer protocol message types.  These are defined here (in addition to
+ * dm.h) so that code that handles the fbserv wire protocol without linking
+ * the full libdm — e.g. an Obol-native pixel-buffer server — can use them
+ * without pulling in all of dm.h.
+ */
+#ifndef MSG_FBOPEN
+#  define MSG_FBOPEN        1
+#  define MSG_FBCLOSE       2
+#  define MSG_FBCLEAR       3
+#  define MSG_FBREAD        4
+#  define MSG_FBWRITE       5
+#  define MSG_FBCURSOR      6
+#  define MSG_FBWINDOW      7
+#  define MSG_FBZOOM        8
+#  define MSG_FBSCURSOR     9
+#  define MSG_FBVIEW        10
+#  define MSG_FBGETVIEW     11
+#  define MSG_FBRMAP        12
+#  define MSG_FBWMAP        13
+#  define MSG_FBHELP        14
+#  define MSG_FBREADRECT    15
+#  define MSG_FBWRITERECT   16
+#  define MSG_FBFLUSH       17
+#  define MSG_FBFREE        18
+#  define MSG_FBGETCURSOR   19
+#  define MSG_DATA          20
+#  define MSG_RETURN        21
+#  define MSG_CLOSE         22
+#  define MSG_ERROR         23
+#  define MSG_FBPOLL        30
+#  define MSG_FBSETCURSOR   31
+#  define MSG_FBBWREADRECT  32
+#  define MSG_FBBWWRITERECT 33
+#  define MSG_NORETURN     100
+#endif /* MSG_FBOPEN */
+
 struct fbserv_obj;
 
 struct fbserv_listener {
@@ -75,7 +112,7 @@ struct fbserv_client {
 
 
 struct fbserv_obj {
-    struct fb *fbs_fbp;                            /**< @brief framebuffer pointer */
+    struct fb *fbs_fbp;                            /**< @brief framebuffer pointer (legacy libdm path; NULL in Obol builds) */
     void *fbs_interp;                              /**< @brief interpreter */
     struct fbserv_listener fbs_listener;           /**< @brief data for listening */
     struct fbserv_client fbs_clients[MAX_CLIENTS]; /**< @brief connected clients */
@@ -91,6 +128,13 @@ struct fbserv_obj {
     void *fbs_clientData;
     struct bu_vls *msgs;
     int fbs_mode;                                  /**< @brief 0-off, 1-underlay, 2-interlay, 3-overlay */
+
+    /* Obol path: raw RGB pixel buffer that replaces fbs_fbp when BRLCAD_ENABLE_OBOL
+     * is active.  Allocated/resized by the ert command; freed on ged teardown.
+     * Stride is fbs_pixbuf_w * 3 bytes (packed RGB888, libfb bottom-left origin). */
+    unsigned char *fbs_pixbuf;  /**< @brief raw RGB pixel data (NULL when unused) */
+    int fbs_pixbuf_w;           /**< @brief pixel buffer width  (0 when unused) */
+    int fbs_pixbuf_h;           /**< @brief pixel buffer height (0 when unused) */
 };
 
 DM_EXPORT extern int fbs_open(struct fbserv_obj *fbsp, int port);

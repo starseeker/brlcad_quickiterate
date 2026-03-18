@@ -55,15 +55,19 @@ ged_model2grid_lu_core(struct ged *gedp, int argc, const char *argv[])
     if (argc != 4)
 	goto bad;
 
-    MAT4X3PNT(mo_view_pt, gedp->ged_gvp->gv_model2view, model_pt);
+    {
+	struct bsg_camera _cam;
+	bsg_view_get_camera(gedp->ged_gvp, &_cam);
+	MAT4X3PNT(mo_view_pt, _cam.model2view, model_pt);
 
-    if (sscanf(argv[1], "%lf", &scan[X]) != 1 ||
-	sscanf(argv[2], "%lf", &scan[Y]) != 1 ||
-	sscanf(argv[3], "%lf", &scan[Z]) != 1)
-	goto bad;
+	if (sscanf(argv[1], "%lf", &scan[X]) != 1 ||
+	    sscanf(argv[2], "%lf", &scan[Y]) != 1 ||
+	    sscanf(argv[3], "%lf", &scan[Z]) != 1)
+	    goto bad;
 
-    VSCALE(model_pt, scan, l2bval);
-    MAT4X3PNT(view_pt, gedp->ged_gvp->gv_model2view, model_pt);
+	VSCALE(model_pt, scan, l2bval);
+	MAT4X3PNT(view_pt, _cam.model2view, model_pt);
+    }
     VSUB2(diff, view_pt, mo_view_pt);
     f = gedp->ged_gvp->gv_scale * b2lval;
     VSCALE(diff, diff, f);

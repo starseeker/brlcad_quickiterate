@@ -48,14 +48,10 @@ ell_tool()
 }
 
 extern "C" {
-    struct qged_tool_impl ell_tool_impl = {
-	ell_tool
-    };
+    const struct qged_tool ell_tool_s = { "Ellipsoid Edit", ell_tool, 1000 };
+    const struct qged_tool *ell_tools[] = { &ell_tool_s, nullptr };
 
-    const struct qged_tool ell_tool_s = { &ell_tool_impl, 1000 };
-    const struct qged_tool *ell_tools[] = { &ell_tool_s, NULL };
-
-    static const struct qged_plugin pinfo = { QGED_OC_TOOL_PLUGIN, ell_tools, 1 };
+    static const struct qged_plugin pinfo = { QGED_OC_TOOL_PLUGIN, QGED_PLUGIN_API_VERSION, ell_tools, 1 };
 
     COMPILER_DLLEXPORT const struct qged_plugin *qged_plugin_info()
     {

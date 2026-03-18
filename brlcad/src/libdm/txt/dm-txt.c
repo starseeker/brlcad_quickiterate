@@ -191,7 +191,7 @@ txt_drawPoints3D(struct dm *UNUSED(dmp), int UNUSED(npoints), point_t *UNUSED(po
 
 
 static int
-txt_drawVList(struct dm *UNUSED(dmp), struct bv_vlist *UNUSED(vp))
+txt_drawVList(struct dm *UNUSED(dmp), struct bsg_vlist *UNUSED(vp))
 {
     bu_log("drawVList called\n");
     return 0;
@@ -199,7 +199,7 @@ txt_drawVList(struct dm *UNUSED(dmp), struct bv_vlist *UNUSED(vp))
 
 
 static int
-txt_drawVListHiddenLine(struct dm *UNUSED(dmp), struct bv_vlist *UNUSED(vp))
+txt_drawVListHiddenLine(struct dm *UNUSED(dmp), struct bsg_vlist *UNUSED(vp))
 {
     bu_log("drawVListHiddenLine called\n");
     return 0;
@@ -207,7 +207,7 @@ txt_drawVListHiddenLine(struct dm *UNUSED(dmp), struct bv_vlist *UNUSED(vp))
 
 
 static int
-txt_draw_obj(struct dm *UNUSED(dmp), struct bv_scene_obj *UNUSED(s))
+txt_draw_obj(struct dm *UNUSED(dmp), bsg_shape *UNUSED(s))
 {
     bu_log("draw_obj called\n");
     return 0;
@@ -215,7 +215,7 @@ txt_draw_obj(struct dm *UNUSED(dmp), struct bv_scene_obj *UNUSED(s))
 
 
 static int
-txt_draw(struct dm *dmp, struct bv_vlist *(*callback_function)(void *), void **data)
+txt_draw(struct dm *dmp, struct bsg_vlist *(*callback_function)(void *), void **data)
 {
     bu_log("draw called\n");
     return dmp == NULL && callback_function == NULL && data == NULL;

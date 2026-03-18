@@ -1204,7 +1204,7 @@ rt_revolve_free(struct soltab *stp)
 #define VVECT_INIT16 {VINIT_ZERO, VINIT_ZERO, VINIT_ZERO, VINIT_ZERO, VINIT_ZERO, VINIT_ZERO, VINIT_ZERO, VINIT_ZERO, VINIT_ZERO, VINIT_ZERO, VINIT_ZERO, VINIT_ZERO, VINIT_ZERO, VINIT_ZERO, VINIT_ZERO, VINIT_ZERO}
 
 int
-rt_revolve_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *UNUSED(tol), const struct bview *UNUSED(info))
+rt_revolve_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *UNUSED(tol), const bsg_view *UNUSED(info))
 {
     struct rt_revolve_internal *rip;
 
@@ -1338,16 +1338,16 @@ rt_revolve_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct b
 	    VSCALE(cir[j], ucir[j], verts[i][X]);
 	    VADD3(ell[j], rip->v3d, cir[j], height);
 	}
-	BV_ADD_VLIST(vlfree, vhead, ell[0], BV_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vhead, ell[0], BSG_VLIST_LINE_MOVE);
 	for (j=1; j<narc; j++) {
-	    BV_ADD_VLIST(vlfree, vhead, ell[j], BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(vlfree, vhead, ell[j], BSG_VLIST_LINE_DRAW);
 	}
 	if (narc < 16) {
 	    VSCALE(cir[narc], rEnd, verts[i][X]);
 	    VADD3(ell[narc], rip->v3d, cir[narc], height);
-	    BV_ADD_VLIST(vlfree, vhead, ell[narc], BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(vlfree, vhead, ell[narc], BSG_VLIST_LINE_DRAW);
 	} else {
-	    BV_ADD_VLIST(vlfree, vhead, ell[0], BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(vlfree, vhead, ell[0], BSG_VLIST_LINE_DRAW);
 	}
     }
 
@@ -1383,14 +1383,14 @@ rt_revolve_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct b
 		VJOIN1(add, rip->v3d, verts[endcount[j]][Y], rip->axis3d);
 		VJOIN1(add2, add, verts[endcount[j]][X], ucir[i]);
 		VJOIN1(add3, add, verts[endcount[j+1]][X], ucir[i]);
-		BV_ADD_VLIST(vlfree, vhead, add2, BV_VLIST_LINE_MOVE);
-		BV_ADD_VLIST(vlfree, vhead, add3, BV_VLIST_LINE_DRAW);
+		BSG_ADD_VLIST(vlfree, vhead, add2, BSG_VLIST_LINE_MOVE);
+		BSG_ADD_VLIST(vlfree, vhead, add3, BSG_VLIST_LINE_DRAW);
 		j++;
 	    } else {
 		VJOIN1(add, rip->v3d, verts[endcount[j]][Y], rip->axis3d);
 		VJOIN1(add2, add, verts[endcount[j]][X], ucir[i]);
-		BV_ADD_VLIST(vlfree, vhead, add, BV_VLIST_LINE_MOVE);
-		BV_ADD_VLIST(vlfree, vhead, add2, BV_VLIST_LINE_DRAW);
+		BSG_ADD_VLIST(vlfree, vhead, add, BSG_VLIST_LINE_MOVE);
+		BSG_ADD_VLIST(vlfree, vhead, add2, BSG_VLIST_LINE_DRAW);
 	    }
 	}
     }
@@ -1402,22 +1402,22 @@ rt_revolve_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct b
 		VJOIN1(add, rip->v3d, verts[endcount[j]][Y], rip->axis3d);
 		VJOIN1(add2, add, verts[endcount[j]][X], rEnd);
 		VJOIN1(add3, add, verts[endcount[j+1]][X], rEnd);
-		BV_ADD_VLIST(vlfree, vhead, add2, BV_VLIST_LINE_MOVE);
-		BV_ADD_VLIST(vlfree, vhead, add3, BV_VLIST_LINE_DRAW);
+		BSG_ADD_VLIST(vlfree, vhead, add2, BSG_VLIST_LINE_MOVE);
+		BSG_ADD_VLIST(vlfree, vhead, add3, BSG_VLIST_LINE_DRAW);
 		j++;
 	    } else {
 		VJOIN1(add, rip->v3d, verts[endcount[j]][Y], rip->axis3d);
 		VJOIN1(add2, add, verts[endcount[j]][X], rEnd);
-		BV_ADD_VLIST(vlfree, vhead, add, BV_VLIST_LINE_MOVE);
-		BV_ADD_VLIST(vlfree, vhead, add2, BV_VLIST_LINE_DRAW);
+		BSG_ADD_VLIST(vlfree, vhead, add, BSG_VLIST_LINE_MOVE);
+		BSG_ADD_VLIST(vlfree, vhead, add2, BSG_VLIST_LINE_DRAW);
 	    }
 	}
 	for (j=0; j<nadd; j+=2) {
 	    if (!ZERO(verts[endcount[j]][Y] - verts[endcount[j+1]][Y])) {
 		VJOIN1(add, rip->v3d, verts[endcount[j]][Y], rip->axis3d);
 		VJOIN1(add2, rip->v3d, verts[endcount[j+1]][Y], rip->axis3d);
-		BV_ADD_VLIST(vlfree, vhead, add, BV_VLIST_LINE_MOVE);
-		BV_ADD_VLIST(vlfree, vhead, add2, BV_VLIST_LINE_DRAW);
+		BSG_ADD_VLIST(vlfree, vhead, add, BSG_VLIST_LINE_MOVE);
+		BSG_ADD_VLIST(vlfree, vhead, add2, BSG_VLIST_LINE_DRAW);
 	    }
 	}
     }

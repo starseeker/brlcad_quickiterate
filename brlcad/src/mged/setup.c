@@ -34,7 +34,7 @@
 #include "vmath.h"
 #include "bu/app.h"
 #include "bn.h"
-#include "bv/util.h"
+#include "bsg/util.h"
 #include "tclcad.h"
 #include "ged.h"
 
@@ -191,6 +191,8 @@ static struct cmdtab mged_cmdtab[] = {
     {MGED_CMD_MAGIC, "get_comb", cmd_ged_plain_wrapper, ged_exec_get_comb, NULL},
     {MGED_CMD_MAGIC, "get_dbip", cmd_ged_plain_wrapper, ged_exec_get_dbip, NULL}, // TODO - this needs to go away
     {MGED_CMD_MAGIC, "get_dm_list", f_get_dm_list, GED_FUNC_PTR_NULL, NULL},
+    {MGED_CMD_MAGIC, "gvp_ptr", f_gvp_ptr, GED_FUNC_PTR_NULL, NULL},
+    {MGED_CMD_MAGIC, "new_obol_view_ptr", f_new_obol_view_ptr, GED_FUNC_PTR_NULL, NULL},
     {MGED_CMD_MAGIC, "get_more_default", cmd_get_more_default, GED_FUNC_PTR_NULL, NULL},
     {MGED_CMD_MAGIC, "get_sed", f_get_sedit, GED_FUNC_PTR_NULL, NULL},
     {MGED_CMD_MAGIC, "get_sed_menus", f_get_sedit_menus, GED_FUNC_PTR_NULL, NULL},
@@ -481,6 +483,7 @@ mged_refresh_handler(void *clientdata)
     struct mged_state *s = (struct mged_state *)clientdata;
     MGED_CK_STATE(s);
 
+    s->update_views = 1;
     view_state->vs_flag = 1;
     refresh(s);
 }
@@ -566,18 +569,23 @@ mged_setup(struct mged_state *s)
     mged_global_db_ctx.old_dbip = NULL;
     mged_global_db_ctx.post_open_cnt = 0;
 
-    BU_ALLOC(view_state->vs_gvp, struct bview);
-    bv_init(view_state->vs_gvp, NULL);
+    BU_ALLOC(view_state->vs_gvp, bsg_view);
+    bsg_view_init(view_state->vs_gvp, NULL);
+    bsg_scene_root_create(view_state->vs_gvp);
     BU_GET(view_state->vs_gvp->callbacks, struct bu_ptbl);
     bu_ptbl_init(view_state->vs_gvp->callbacks, 8, "bv callbacks");
 
     view_state->vs_gvp->gv_callback = mged_view_callback;
     view_state->vs_gvp->gv_clientData = (void *)view_state;
-    MAT_DELTAS_GET_NEG(view_state->vs_orig_pos, view_state->vs_gvp->gv_center);
+    {
+	struct bsg_camera _sc;
+	bsg_view_get_camera(view_state->vs_gvp, &_sc);
+	MAT_DELTAS_GET_NEG(view_state->vs_orig_pos, _sc.center);
+    }
 
     view_state->vs_gvp->vset = &s->gedp->ged_views;
 
-    bv_set_add_view(&s->gedp->ged_views, view_state->vs_gvp);
+    bsg_scene_add_view(&s->gedp->ged_views, view_state->vs_gvp);
     bu_ptbl_ins(&s->gedp->ged_free_views, (long *)view_state->vs_gvp);
     s->gedp->ged_gvp = view_state->vs_gvp;
 

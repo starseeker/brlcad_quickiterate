@@ -70,7 +70,7 @@ struct dm *
 _dm_name_lookup(struct _ged_dm_info *gd, const char *dm_name)
 {
     struct dm *cdmp = NULL;
-    struct bview *gdvp = NULL;
+    bsg_view *gdvp = NULL;
     struct dm *ndmp = NULL;
 
     if (!gd) {
@@ -82,14 +82,14 @@ _dm_name_lookup(struct _ged_dm_info *gd, const char *dm_name)
     }
 
     struct ged *gedp = gd->gedp;
-    struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+    struct bu_ptbl *views = bsg_scene_views(&gedp->ged_views);
     if (!BU_PTBL_LEN(views)) {
 	bu_vls_printf(gedp->ged_result_str, ": no views defined in GED\n");
 	return NULL;
     }
     int dm_cnt = 0;
     for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
-	gdvp = (struct bview *)BU_PTBL_GET(views, i);
+	gdvp = (bsg_view *)BU_PTBL_GET(views, i);
 	if (!gdvp->dmp)
 	    continue;
 	dm_cnt++;
@@ -100,7 +100,7 @@ _dm_name_lookup(struct _ged_dm_info *gd, const char *dm_name)
     }
 
     for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
-	gdvp = (struct bview *)BU_PTBL_GET(views, i);
+	gdvp = (bsg_view *)BU_PTBL_GET(views, i);
 	ndmp = (struct dm *)gdvp->dmp;
 	if (ndmp && BU_STR_EQUAL(dm_name, bu_vls_cstr(dm_get_pathname(ndmp)))) {
 	    cdmp = ndmp;
@@ -300,7 +300,7 @@ _dm_cmd_list(void *ds, int argc, const char **argv)
     struct _ged_dm_info *gd = (struct _ged_dm_info *)ds;
     struct ged *gedp = gd->gedp;
 
-    struct bview *cv = gedp->ged_gvp;
+    bsg_view *cv = gedp->ged_gvp;
     struct dm *cdmp = (struct dm *)cv->dmp;
     if (cdmp) {
 	// Current dmp first, if we have a current instance
@@ -311,14 +311,14 @@ _dm_cmd_list(void *ds, int argc, const char **argv)
 	}
     }
 
-    struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+    struct bu_ptbl *views = bsg_scene_views(&gedp->ged_views);
     if (!BU_PTBL_LEN(views) && !cdmp) {
 	bu_vls_printf(gedp->ged_result_str, ": no views defined in GED\n");
 	return BRLCAD_ERROR;
     }
     int dm_cnt = 0;
     for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
-	struct bview *gdvp = (struct bview *)BU_PTBL_GET(views, i);
+	bsg_view *gdvp = (bsg_view *)BU_PTBL_GET(views, i);
 	if (!gdvp->dmp)
 	    continue;
 	dm_cnt++;
@@ -329,7 +329,7 @@ _dm_cmd_list(void *ds, int argc, const char **argv)
     }
 
     for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
-	struct bview *gdvp = (struct bview *)BU_PTBL_GET(views, i);
+	bsg_view *gdvp = (bsg_view *)BU_PTBL_GET(views, i);
 	struct dm *ndmp = (struct dm *)gdvp->dmp;
 	if (!ndmp || ndmp == cdmp)
 	    continue;
@@ -499,9 +499,9 @@ _dm_cmd_attach(void *ds, int argc, const char **argv)
 	// No name - generate one
 	bu_vls_sprintf(&dm_name, "%s-0", argv[0]);
 	int exists = 0;
-	struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+	struct bu_ptbl *views = bsg_scene_views(&gedp->ged_views);
 	for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
-	    struct bview *gdvp = (struct bview *)BU_PTBL_GET(views, i);
+	    bsg_view *gdvp = (bsg_view *)BU_PTBL_GET(views, i);
 	    struct dm *ndmp = (struct dm *)gdvp->dmp;
 	    if (!ndmp)
 		continue;
@@ -515,7 +515,7 @@ _dm_cmd_attach(void *ds, int argc, const char **argv)
 	    bu_vls_incr(&dm_name, NULL, "0:0:0:0:-", NULL, NULL);
 	    exists = 0;
 	    for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
-		struct bview *gdvp = (struct bview *)BU_PTBL_GET(views, i);
+		bsg_view *gdvp = (bsg_view *)BU_PTBL_GET(views, i);
 		struct dm *ndmp = (struct dm *)gdvp->dmp;
 		if (!ndmp)
 		    continue;
@@ -544,9 +544,9 @@ _dm_cmd_attach(void *ds, int argc, const char **argv)
 	}
 	// Have name - see if it already exists
 	int exists = 0;
-	struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+	struct bu_ptbl *views = bsg_scene_views(&gedp->ged_views);
 	for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
-	    struct bview *gdvp = (struct bview *)BU_PTBL_GET(views, i);
+	    bsg_view *gdvp = (bsg_view *)BU_PTBL_GET(views, i);
 	    struct dm *ndmp = (struct dm *)gdvp->dmp;
 	    if (!ndmp)
 		continue;
@@ -563,11 +563,11 @@ _dm_cmd_attach(void *ds, int argc, const char **argv)
 	}
     }
 
-    struct bview *target_view = NULL;
+    bsg_view *target_view = NULL;
     if (bu_vls_strlen(&view_name)) {
-	struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+	struct bu_ptbl *views = bsg_scene_views(&gedp->ged_views);
 	for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
-	    struct bview *tview = (struct bview *)BU_PTBL_GET(views, i);
+	    bsg_view *tview = (bsg_view *)BU_PTBL_GET(views, i);
 	    if (!bu_vls_strcmp(&view_name, &tview->gv_name)) {
 		target_view = tview;
 		break;
@@ -578,9 +578,10 @@ _dm_cmd_attach(void *ds, int argc, const char **argv)
     }
 
     if (!target_view) {
-	BU_GET(target_view, struct bview);
-	bv_init(target_view, &gedp->ged_views);
-	bv_set_add_view(&gedp->ged_views, target_view);
+	BU_GET(target_view, bsg_view);
+	bsg_view_init(target_view, &gedp->ged_views);
+	bsg_scene_root_create(target_view);
+	bsg_scene_add_view(&gedp->ged_views, target_view);
 	// This view is being created by GED, so it needs to be cleaned
 	// up by GED as well
 	bu_ptbl_ins(&gedp->ged_free_views, (long *)target_view);
@@ -624,7 +625,7 @@ _dm_cmd_attach(void *ds, int argc, const char **argv)
     dm_configure_win(dmp, 0);
     dm_set_pathname(dmp, bu_vls_cstr(&dm_name));
     dm_set_zbuffer(dmp, 1);
-    fastf_t windowbounds[6] = { -1, 1, -1, 1, (int)BV_MIN, (int)BV_MAX };
+    fastf_t windowbounds[6] = { -1, 1, -1, 1, (int)BSG_VIEW_MIN, (int)BSG_VIEW_MAX };
     dm_set_win_bounds(dmp, windowbounds);
 
     // We have the dmp - let the view know

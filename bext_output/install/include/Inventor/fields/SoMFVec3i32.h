@@ -1,0 +1,71 @@
+#ifndef OBOL_SOMFVEC3I32_H
+#define OBOL_SOMFVEC3I32_H
+
+/**************************************************************************\
+ * Copyright (c) Kongsberg Oil & Gas Technologies AS
+ * All rights reserved.
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ * 
+ * Redistributions of source code must retain the above copyright notice,
+ * this list of conditions and the following disclaimer.
+ * 
+ * Redistributions in binary form must reproduce the above copyright
+ * notice, this list of conditions and the following disclaimer in the
+ * documentation and/or other materials provided with the distribution.
+ * 
+ * Neither the name of the copyright holder nor the names of its
+ * contributors may be used to endorse or promote products derived from
+ * this software without specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+\**************************************************************************/
+
+#include <Inventor/fields/SoMField.h>
+#include <Inventor/fields/SoSubField.h>
+#include <Inventor/SbVec3i32.h>
+
+/*!
+  \class SoMFVec3i32 SoMFVec3i32.h Inventor/fields/SoMFVec3i32.h
+  \brief Field type holding a array of 3-component 32-bit integer vectors.
+
+  \ingroup coin_fields
+
+  SoMFVec3i32 is a multi-valued field that stores
+  an array of values of type SbVec3i32.
+  It inherits all field functionality from SoMField: value change notification,
+  field connections, and Inventor file I/O.
+
+  \sa SoMField, SoField
+*/
+class OBOL_DLL_API SoMFVec3i32 : public SoMField {
+  typedef SoMField inherited;
+
+  SO_MFIELD_HEADER(SoMFVec3i32, SbVec3i32, const SbVec3i32 &);
+  SO_MFIELD_SETVALUESPOINTER_HEADER(SbVec3i32);
+  SO_MFIELD_SETVALUESPOINTER_HEADER(int32_t);
+
+public:
+  static void initClass(void);
+
+  void setValues(int start, int num, const int32_t xyz[][3]);
+  void set1Value(int idx, int32_t x, int32_t y, int32_t z);
+  void set1Value(int idx, const int32_t xyz[3]);
+  void setValue(int32_t x, int32_t y, int32_t z);
+  void setValue(const int32_t xyz[3]);
+
+}; // SoMFVec3i32
+
+#endif // !OBOL_SOMFVEC3I32_H

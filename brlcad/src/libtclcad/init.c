@@ -39,13 +39,20 @@
 #include "bu/path.h"
 #include "bu/vls.h"
 #include "bn.h"
-#include "dm.h"
 #include "raytrace.h"
 #include "tclcad.h"
 
 /* Private headers */
 #include "brlcad_version.h"
 #include "./tclcad_private.h"
+
+/* Obol Tcl/Tk widget — only compiled when BRLCAD_ENABLE_OBOL is set */
+#ifdef BRLCAD_ENABLE_OBOL
+extern int Obol_View_Cmd(ClientData, Tcl_Interp *, int, const char **);
+extern int Obol_Init_Cmd(ClientData, Tcl_Interp *, int, const char **);
+extern int Obol_Notify_Views_Cmd(ClientData, Tcl_Interp *, int, const char **);
+extern int Obol_View_Screengrab_Cmd(ClientData, Tcl_Interp *, int, const char **);
+#endif
 
 
 int
@@ -177,7 +184,7 @@ tclcad_init(Tcl_Interp *interp, int init_gui, struct bu_vls *tlog)
 	return TCL_ERROR;
     }
 
-    /* Initialize libdm */
+    /* Initialize dm/fb Tcl commands (stubbed; dm backend removed in favour of Obol) */
     if (Dm_Init(interp) == TCL_ERROR) {
 	if (tlog)
 	    bu_vls_printf(tlog, "Dm_Init ERROR:\n%s\n", Tcl_GetStringResult(interp));
@@ -253,6 +260,30 @@ tclcad_init(Tcl_Interp *interp, int init_gui, struct bu_vls *tlog)
 	if (!tkwin) return TCL_ERROR;
     }
 #endif
+
+#ifdef BRLCAD_ENABLE_OBOL
+    /* Register Obol Tcl commands when the library was compiled with Obol.
+     * "obol_init" initialises SoDB/SoNodeKit/SoInteraction once per process.
+     * "obol_view" creates a platform-neutral Tk 3D view widget.
+     * "obol_notify_views" triggers a redraw on all live obol_view instances;
+     *   called by mged refresh() and libtclcad to_refresh_view() so geometry
+     *   changes propagate to Obol-rendered windows without needing X11 events.
+     * Registered unconditionally (regardless of init_gui) so that apps such
+     * as rtwizard that call tclcad_init with init_gui=0 and later bring up
+     * Tk themselves can still detect and use obol_view. */
+#ifdef HAVE_TK
+    Tcl_CreateCommand(interp, "obol_init", Obol_Init_Cmd,
+		      (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL);
+    Tcl_CreateCommand(interp, "obol_view", Obol_View_Cmd,
+		      (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL);
+    Tcl_CreateCommand(interp, "obol_notify_views", Obol_Notify_Views_Cmd,
+		      (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL);
+    /* obol_view_screengrab <viewname> png|pix <file> — screen capture; called
+     * by libtclcad to_pix() / to_png() which delegate to this command. */
+    Tcl_CreateCommand(interp, "obol_view_screengrab", Obol_View_Screengrab_Cmd,
+		      (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL);
+#endif
+#endif /* BRLCAD_ENABLE_OBOL */
 
     return TCL_OK;
 }

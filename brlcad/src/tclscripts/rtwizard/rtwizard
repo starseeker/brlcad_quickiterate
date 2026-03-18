@@ -83,6 +83,8 @@ if {[info exists ::benchmark_mode]} {
 # If we're launching without enough arguments to fully specify an rtwizard
 # run or a gui run has been specifically requested, go graphical
 if {[info exists ::use_gui]} {
+   # Initialize Obol renderer if available (no-op when not compiled with Obol)
+   if {[info commands obol_init] ne ""} { obol_init }
    # Load the actual Raytrace Wizard GUI
    package require RaytraceWizard
    if {[info exists argv]} {exit}

@@ -32,6 +32,7 @@
 #include "bu/app.h"
 #include "bu/file.h"
 #include "bu/getopt.h"
+#include "bu/ptbl.h"
 
 
 #include "../ged_private.h"
@@ -72,8 +73,6 @@ basename_without_suffix(const char *p1, const char *suff)
 int
 ged_saveview_core(struct ged *gedp, int argc, const char *argv[])
 {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
     int i;
     FILE *fp;
     char *base;
@@ -157,8 +156,10 @@ ged_saveview_core(struct ged *gedp, int argc, const char *argv[])
 
     /* Do not specify -v option to rt; batch jobs must print everything. -Mike */
     fprintf(fp, "#!/bin/sh\n%s -M ", rtcmd);
-    if (gedp->ged_gvp->gv_perspective > 0)
-	fprintf(fp, "-p%g ", gedp->ged_gvp->gv_perspective);
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      if (_cm.perspective > 0)
+	  fprintf(fp, "-p%g ", _cm.perspective);
+    }
     for (i = 2; i < argc; i++)
 	fprintf(fp, "%s ", argv[i]);
 
@@ -170,11 +171,28 @@ ged_saveview_core(struct ged *gedp, int argc, const char *argv[])
     }
     fprintf(fp, " '%s'\\\n ", inputg);
 
-    gdlp = BU_LIST_NEXT(display_list, gedp->i->ged_gdp->gd_headDisplay);
-    while (BU_LIST_NOT_HEAD(gdlp, gedp->i->ged_gdp->gd_headDisplay)) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-	fprintf(fp, "'%s' ", bu_vls_addr(&gdlp->dl_path));
-	gdlp = next_gdlp;
+    /* Phase 2e: enumerate drawn top-level objects from scene-root children */
+    {
+	bsg_view *_sv = gedp->ged_gvp;
+	bsg_shape *_root = _sv ? bsg_scene_root_get(_sv) : NULL;
+	if (_root && BU_PTBL_IS_INITIALIZED(&_root->children)) {
+	    struct bu_ptbl drawn_tops;
+	    bu_ptbl_init(&drawn_tops, 8, "saveview_tops");
+	    for (size_t _si = 0; _si < BU_PTBL_LEN(&_root->children); _si++) {
+		bsg_shape *_sp = (bsg_shape *)BU_PTBL_GET(&_root->children, _si);
+		if (!_sp || !_sp->s_u_data) continue;
+		struct ged_bv_data *_bd = (struct ged_bv_data *)_sp->s_u_data;
+		if (!_bd->s_fullpath.fp_len) continue;
+		struct directory *_dp = _bd->s_fullpath.fp_names[0];
+		if (_dp->d_addr == RT_DIR_PHONY_ADDR) continue;
+		if (bu_ptbl_ins_unique(&drawn_tops, (long *)_dp) < 0) continue;
+	    }
+	    for (size_t _ti = 0; _ti < BU_PTBL_LEN(&drawn_tops); _ti++) {
+		struct directory *_dp = (struct directory *)BU_PTBL_GET(&drawn_tops, _ti);
+		fprintf(fp, "'%s' ", _dp->d_namep);
+	    }
+	    bu_ptbl_free(&drawn_tops);
+	}
     }
 
     fprintf(fp, "\\\n 2>> %s\\\n", outlog);

@@ -9,6 +9,7 @@ set(
   obr.h
   pca.h
   plane.h
+  pnts.h
   polygon.h
   polygon_types.h
   sat.h

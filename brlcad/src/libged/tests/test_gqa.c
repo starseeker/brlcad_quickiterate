@@ -27,8 +27,9 @@
 
 #include <stdio.h>
 #include <bu.h>
-#include <bv.h>
+#include <bsg.h>
 #include <ged.h>
+#include "bsg/util.h"
 
 int
 main(int ac, char *av[]) {
@@ -55,19 +56,28 @@ main(int ac, char *av[]) {
     // we're only after ffff00 colored data)
     //
     // (TODO - this will need to be redone if/when the new drawing setup takes
-    // over - there (at least for now) we would do a bv_find_obj on the view
+    // over - there (at least for now) we would do a bsg_view_find_shape on the view
     // with the gqa overlap view object's name (gqa:overlaps) to find the
-    // bv_scene_obj, and then iterate over that object's child objects to get
+    // bsg_shape, and then iterate over that object's child objects to get
     // the different colored vlists...)
-    struct display_list *gdlp;
-    struct bv_scene_obj *vdata = NULL;
-    for (BU_LIST_FOR(gdlp, display_list, (struct bu_list *)ged_dl(gedp))) {
-	if (!BU_STR_EQUAL(bu_vls_cstr(&gdlp->dl_path), "OVERLAPSffff00"))
-	    continue;
-	printf("found %s;\n", bu_vls_cstr(&gdlp->dl_path));
-	vdata = BU_LIST_NEXT(bv_scene_obj, &gdlp->dl_head_scene_obj);
-	break;
+    bsg_shape *vdata = NULL;
+
+    /* Phase 2e: use scene-root children and find by path name */
+    bsg_shape *root = bsg_scene_root_get(gedp->ged_gvp);
+    size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
+    for (size_t si = 0; si < nshapes; si++) {
+	bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+	if (!sp->s_u_data) continue;
+	struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+	if (bdata->s_fullpath.fp_len == 0) continue;
+	struct directory *top = bdata->s_fullpath.fp_names[0];
+	if (BU_STR_EQUAL(top->d_namep, "OVERLAPSffff00")) {
+	    printf("found %s;\n", top->d_namep);
+	    vdata = sp;
+	    break;
+	}
     }
+    /* Phase 2e: dl_head_scene_obj removed; root->children is the only source */
 
     if (vdata) {
 	FILE *fp;
@@ -75,7 +85,7 @@ main(int ac, char *av[]) {
 	if (!fp)
 	    bu_exit(EXIT_FAILURE, "Could not open %s for writing\n", gqa_plot_fname);
 	printf("Writing plot data to %s for inspection with overlay command\n", gqa_plot_fname);
-	bv_vlist_to_uplot(fp, &vdata->s_vlist);
+	bsg_vlist_to_uplot(fp, &vdata->s_vlist);
 	fclose(fp);
     } else {
 	bu_exit(EXIT_FAILURE, "No GQA plotting data found.\n");

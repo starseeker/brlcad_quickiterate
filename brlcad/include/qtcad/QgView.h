@@ -29,8 +29,13 @@
 extern "C" {
 #include "bu/ptbl.h"
 #include "bg/polygon.h"
-#include "bv.h"
-#include "dm.h"
+#include "bsg.h"
+#ifndef BRLCAD_ENABLE_OBOL
+/* dm.h (struct dm, struct fb) is only needed for the legacy libdm rendering
+ * path (QgGL / QgSW).  When Obol is the rendering backend these types are not
+ * used by QgView. */
+#  include "dm.h"
+#endif
 }
 
 #include <vector>
@@ -38,23 +43,31 @@ extern "C" {
 #include <QObject>
 #include <QWidget>
 #include "qtcad/defines.h"
-#include "qtcad/QgSW.h"
-#ifdef BRLCAD_OPENGL
-#  include "qtcad/QgGL.h"
-#endif
+#ifndef BRLCAD_ENABLE_OBOL
+#  include "qtcad/QgSW.h"
+#  ifdef BRLCAD_OPENGL
+#    include "qtcad/QgGL.h"
+#  endif
+#endif /* !BRLCAD_ENABLE_OBOL */
 
 #define QgView_AUTO 0
 #define QgView_SW 1
-#ifdef BRLCAD_OPENGL
-#  define QgView_GL 2
-#endif
+#ifndef BRLCAD_ENABLE_OBOL
+#  ifdef BRLCAD_OPENGL
+#    define QgView_GL 2
+#  endif
+#endif /* !BRLCAD_ENABLE_OBOL */
 
 class QTCAD_EXPORT QgView : public QWidget
 {
     Q_OBJECT
 
     public:
-	explicit QgView(QWidget *parent = nullptr, int type = 0, struct fb *fbp = NULL);
+#ifndef BRLCAD_ENABLE_OBOL
+	explicit QgView(QWidget *parent = nullptr, int type = 0, struct fb *fbp = nullptr);
+#else
+	explicit QgView(QWidget *parent = nullptr, int type = 0, void *fbp = nullptr);
+#endif
 	~QgView();
 
 	int view_type();
@@ -68,16 +81,18 @@ class QTCAD_EXPORT QgView : public QWidget
 
 	bool isValid();
 
-	struct bview * view();
+	bsg_view * view();
+#ifndef BRLCAD_ENABLE_OBOL
 	struct dm * dmp();
 	struct fb * ifp();
+#endif
 
-	void set_view(struct bview *);
+	void set_view(bsg_view *);
 
 	void aet(double a, double e, double t);
 
-	QObject *curr_event_filter = NULL;
-	void set_draw_custom(void (*draw_custom)(struct bview *, void *), void *draw_udata);
+	QObject *curr_event_filter = nullptr;
+	void set_draw_custom(void (*draw_custom)(bsg_view *, void *), void *draw_udata);
 
 	// Wrappers around Qt's facility for adding eventFilter objects to
 	// widgets.  This is how custom key binding modes are enabled and
@@ -107,11 +122,13 @@ class QTCAD_EXPORT QgView : public QWidget
 	void set_lmouse_move_default(int);
 
     private:
-        QBoxLayout *l = NULL;
-	QgSW *canvas_sw = NULL;
-#ifdef BRLCAD_OPENGL
-        QgGL *canvas_gl = NULL;
-#endif
+        QBoxLayout *l = nullptr;
+#ifndef BRLCAD_ENABLE_OBOL
+	QgSW *canvas_sw = nullptr;
+#  ifdef BRLCAD_OPENGL
+        QgGL *canvas_gl = nullptr;
+#  endif
+#endif /* !BRLCAD_ENABLE_OBOL */
 	std::vector<QObject *> filters;
 };
 

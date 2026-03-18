@@ -58,6 +58,11 @@ DM_EXPORT int fb_sim_readrect(struct fb *ifp, int xmin, int ymin, int width, int
 
 DM_EXPORT int fb_sim_bwreadrect(struct fb *ifp, int xmin, int ymin, int width, int height, unsigned char *pp);
 
+/* Framebuffer image-size helpers used by image format handlers (e.g. PIX). */
+DM_EXPORT extern int fb_common_file_size(size_t *widthp, size_t *heightp, const char *filename, int pixel_size);
+DM_EXPORT extern int fb_common_image_size(size_t *widthp, size_t *heightp, size_t npixels);
+DM_EXPORT extern int fb_common_name_size(size_t *widthp, size_t *heightp, const char *name);
+
 __END_DECLS
 
 #endif /* DM_UTIL_H */

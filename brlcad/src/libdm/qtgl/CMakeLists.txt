@@ -1,6 +1,11 @@
 set(QTGL_SRCS dm-qtgl.cpp fb-qtgl.cpp qtglwin.cpp)
 
-if(BRLCAD_ENABLE_QT AND BRLCAD_ENABLE_OPENGL)
+# dm-qtgl is the Qt OpenGL display manager plugin.  It depends on the QgGL
+# widget from libqtcad.  When Obol is the rendering backend, QgGL is replaced
+# by QgObolView and the dm-qtgl plugin is never loaded by qged.  Building it
+# in Obol configurations would just waste build time and produce a plugin that
+# is never used.
+if(BRLCAD_ENABLE_QT AND BRLCAD_ENABLE_OPENGL AND NOT BRLCAD_ENABLE_OBOL)
   find_package_qt(REQUIRED)
 
   include_directories(
@@ -28,34 +33,13 @@ if(BRLCAD_ENABLE_QT AND BRLCAD_ENABLE_OPENGL)
   else()
     qt5_wrap_cpp(qtgl_moc_srcs qtglwin.h)
   endif(Qt6Widgets_FOUND)
-  set(QTGL_SRCS ${QTGL_SRCS} ${qtgl_moc_srcs})
+  list(APPEND QTGL_SRCS ${qtgl_moc_srcs})
 
   dm_plugin_library(dm-qtgl SHARED ${QTGL_SRCS})
   if(Qt6Widgets_FOUND)
-    target_link_libraries(
-      dm-qtgl
-      libqtcad
-      libdmgl
-      libdm
-      libbu
-      Qt6::Core
-      Qt6::Widgets
-      Qt6::OpenGL
-      Qt6::OpenGLWidgets
-      ${OPENGL_LIBS}
-    )
+    target_link_libraries(dm-qtgl libqtcad libdmgl libdm libbu Qt6::Core Qt6::Widgets Qt6::OpenGL Qt6::OpenGLWidgets ${OPENGL_LIBS})
   else()
-    target_link_libraries(
-      dm-qtgl
-      libqtcad
-      libdmgl
-      libdm
-      libbu
-      Qt5::Core
-      Qt5::Widgets
-      Qt5::OpenGL
-      ${OPENGL_LIBS}
-    )
+    target_link_libraries(dm-qtgl libqtcad libdmgl libdm libbu Qt5::Core Qt5::Widgets Qt5::OpenGL ${OPENGL_LIBS})
   endif(Qt6Widgets_FOUND)
   set_property(TARGET dm-qtgl APPEND PROPERTY COMPILE_DEFINITIONS BRLCADBUILD HAVE_CONFIG_H)
   validate_style(dm-qtgl "${QTGL_SRCS}")
@@ -63,7 +47,7 @@ if(BRLCAD_ENABLE_QT AND BRLCAD_ENABLE_OPENGL)
   plugin_setup(dm-qtgl dm)
 
   distclean(moc_qtglwin.cpp_parameters)
-endif(BRLCAD_ENABLE_QT AND BRLCAD_ENABLE_OPENGL)
+endif(BRLCAD_ENABLE_QT AND BRLCAD_ENABLE_OPENGL AND NOT BRLCAD_ENABLE_OBOL)
 
 cmakefiles(
   CMakeLists.txt

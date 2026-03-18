@@ -42,6 +42,7 @@
 
 #include "./mged.h"
 #include "./mged_dm.h"
+#include "bsg/util.h"
 #include "./sedit.h"
 #include "./cmd.h"
 #include "./f_cmd.h"
@@ -73,11 +74,13 @@ f_make(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	const char *av[8];
 	char center[512];
 	char scale[128];
+	struct bsg_camera _mc;
+	bsg_view_get_camera(view_state->vs_gvp, &_mc);
 
 	sprintf(center, "%.17f %.17f %.17f",
-		(ZERO(view_state->vs_gvp->gv_center[MDX])) ? 0.0 : -view_state->vs_gvp->gv_center[MDX],
-		(ZERO(view_state->vs_gvp->gv_center[MDY])) ? 0.0 : -view_state->vs_gvp->gv_center[MDY],
-		(ZERO(view_state->vs_gvp->gv_center[MDZ])) ? 0.0 : -view_state->vs_gvp->gv_center[MDZ]);
+		(ZERO(_mc.center[MDX])) ? 0.0 : -_mc.center[MDX],
+		(ZERO(_mc.center[MDY])) ? 0.0 : -_mc.center[MDY],
+		(ZERO(_mc.center[MDZ])) ? 0.0 : -_mc.center[MDZ]);
 	sprintf(scale, "%.17f", view_state->vs_gvp->gv_scale * 2.0);
 
 	av[0] = argv[0];
@@ -123,7 +126,6 @@ mged_rot_obj(struct mged_state *s, int iflag, fastf_t *argvect)
     vect_t v_work;
 
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
 
     if (movedir != ROTARROW) {
 	/* NOT in object rotate mode - put it in obj rot */
@@ -249,7 +251,6 @@ f_sc_obj(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[]
     }
 
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
 
     MAT_IDN(incr);
 
@@ -332,7 +333,6 @@ f_tr_obj(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[]
     /* Remainder of code concerns object edit case */
 
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
 
     MAT_IDN(incr);
     MAT_IDN(old);

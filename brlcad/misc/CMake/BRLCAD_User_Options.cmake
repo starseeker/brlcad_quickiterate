@@ -93,12 +93,27 @@ if(BRLCAD_ENABLE_MINIMAL)
   set(BRLCAD_EXTRADOCS "OFF")
 endif(BRLCAD_ENABLE_MINIMAL)
 
-# Enable Aqua widgets on Mac OSX.  This impacts Tcl/Tk building and OpenGL
-# building. Not currently working - needs work in at least Tk CMake logic
-# (probably more), and the display manager/framebuffer codes are known to
-# depend on either GLX or WGL specifically in their current forms.
-option(BRLCAD_ENABLE_AQUA "Use Aqua instead of X11 whenever possible on OSX." OFF)
+# Enable native Aqua (Cocoa) widgets on macOS instead of X11.
+#
+# When ON:
+#  - X11 is disabled (BRLCAD_ENABLE_X11 set OFF)
+#  - Tk must be built with --enable-aqua (see bext tk/tk_configure.cmake.in
+#    and brlcad/misc/Notes/aqua_tk_notes.md for required bext changes)
+#  - libtclcad compiles obol_view_macos.mm for NSOpenGL HW rendering
+#  - TCL_TK_SYSTEM_GRAPHICS is set to "aqua" so FindTCL validates the
+#    installed Tk windowing system
+#
+# The legacy display-manager (dm-ogl) and framebuffer codes still depend on
+# GLX/WGL.  For the obol_view HW GL path these are not used — obol_view
+# drives SoRenderManager directly into a native NSOpenGLView.
+option(BRLCAD_ENABLE_AQUA "Use Aqua (Cocoa) instead of X11 on macOS." OFF)
 mark_as_advanced(BRLCAD_ENABLE_AQUA)
+
+# When Aqua is requested, tell FindTCL to require an Aqua-windowing Tk.
+if(BRLCAD_ENABLE_AQUA)
+  set(TCL_TK_SYSTEM_GRAPHICS "aqua"
+    CACHE STRING "Require Aqua windowing system for Tk" FORCE)
+endif(BRLCAD_ENABLE_AQUA)
 
 # Install example BRL-CAD Geometry Files
 option(BRLCAD_INSTALL_EXAMPLE_GEOMETRY "Install the example BRL-CAD geometry files." ON)

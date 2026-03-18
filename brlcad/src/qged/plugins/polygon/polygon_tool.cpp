@@ -81,20 +81,11 @@ polygon_tool_modify()
 }
 
 extern "C" {
-    struct qged_tool_impl polygon_tool_create_impl = {
-	polygon_tool_create
-    };
+    const struct qged_tool polygon_tool_create_s = { "Polygon Create", polygon_tool_create, 100 };
+    const struct qged_tool polygon_tool_modify_s = { "Polygon Modify", polygon_tool_modify, 101 };
+    const struct qged_tool *polygon_tools[] = { &polygon_tool_create_s, &polygon_tool_modify_s, nullptr };
 
-    struct qged_tool_impl polygon_tool_modify_impl = {
-	polygon_tool_modify
-    };
-
-
-    const struct qged_tool polygon_tool_create_s = { &polygon_tool_create_impl, 100 };
-    const struct qged_tool polygon_tool_modify_s = { &polygon_tool_modify_impl, 101 };
-    const struct qged_tool *polygon_tools[] = { &polygon_tool_create_s, &polygon_tool_modify_s, NULL };
-
-    static const struct qged_plugin pinfo = { QGED_VC_TOOL_PLUGIN, polygon_tools, 2 };
+    static const struct qged_plugin pinfo = { QGED_VC_TOOL_PLUGIN, QGED_PLUGIN_API_VERSION, polygon_tools, 2 };
 
     COMPILER_DLLEXPORT const struct qged_plugin *qged_plugin_info()
     {

@@ -58,7 +58,9 @@ ged_model2view_lu_core(struct ged *gedp, int argc, const char *argv[])
 	goto bad;
 
     VSCALE(model_pt, model_pt, l2bval);
-    MAT4X3PNT(view_pt, gedp->ged_gvp->gv_model2view, model_pt);
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      MAT4X3PNT(view_pt, _cm.model2view, model_pt);
+    }
     f = gedp->ged_gvp->gv_scale * b2lval;
     VSCALE(view_pt, view_pt, f);
     bn_encode_vect(gedp->ged_result_str, view_pt, 1);

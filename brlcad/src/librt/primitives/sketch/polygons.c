@@ -35,7 +35,9 @@
 #include "bu/opt.h"
 #include "bu/str.h"
 #include "bu/vls.h"
-#include "bv.h"
+#include "bsg.h"
+#include "bsg.h"
+#include "bsg/util.h"
 #include "bg/polygon.h"
 #include "rt/defines.h"
 #include "rt/directory.h"
@@ -60,8 +62,8 @@ struct contour_node {
     struct bu_list head;
 };
 
-struct bv_scene_obj *
-db_sketch_to_scene_obj(const char *sname, struct db_i *dbip, struct directory *dp, struct bview *sv, int flags)
+bsg_shape *
+db_sketch_to_scene_obj(const char *sname, struct db_i *dbip, struct directory *dp, bsg_view *sv, int flags)
 {
     if (!sv)
 	return NULL;
@@ -90,8 +92,8 @@ db_sketch_to_scene_obj(const char *sname, struct db_i *dbip, struct directory *d
     }
 
     // Have a sketch - create an empty polygon
-    struct bv_polygon *p;
-    BU_GET(p, struct bv_polygon);
+    struct bsg_polygon *p;
+    BU_GET(p, struct bsg_polygon);
 
     /* Start translating the sketch info into a polygon */
     all_segment_nodes = (struct segment_node *)bu_calloc(sketch_ip->curve.count, sizeof(struct segment_node), "all_segment_nodes");
@@ -205,10 +207,10 @@ end:
     bu_free((void *)all_segment_nodes, "all_segment_nodes");
 
     /* Create the scene object here so we can read a default color */
-    struct bv_scene_obj *s = bv_create_polygon_obj(sv, flags, p);
+    bsg_shape *s = bsg_create_polygon_obj(sv, flags, p);
     if (!s) {
 	bg_polygon_free(&p->polygon);
-	BU_PUT(p, struct bv_polygon);
+	BU_PUT(p, struct bsg_polygon);
 	return NULL;
     }
     bu_vls_init(&s->s_name);
@@ -250,26 +252,28 @@ end:
 	}
 	val = bu_avs_get(&lavs, "POLYGON_TYPE");
 	if (BU_STR_EQUAL(val, "CIRCLE")) {
-	    p->type = BV_POLYGON_CIRCLE;
+	    p->type = BSG_POLYGON_CIRCLE;
 	}
 	if (BU_STR_EQUAL(val, "ELLIPSE")) {
-	    p->type = BV_POLYGON_ELLIPSE;
+	    p->type = BSG_POLYGON_ELLIPSE;
 	}
 	if (BU_STR_EQUAL(val, "RECTANGLE")) {
-	    p->type = BV_POLYGON_RECTANGLE;
+	    p->type = BSG_POLYGON_RECTANGLE;
 	}
 	if (BU_STR_EQUAL(val, "SQUARE")) {
-	    p->type = BV_POLYGON_SQUARE;
+	    p->type = BSG_POLYGON_SQUARE;
 	}
 	if (BU_STR_EQUAL(val, "GENERAL")) {
-	    p->type = BV_POLYGON_GENERAL;
+	    p->type = BSG_POLYGON_GENERAL;
 	}
 
 	// See if we have a stored view
 	if (have_view) {
 	    val = bu_avs_get(&lavs, "VIEWSCALE");
 	    if (val) {
-		bu_opt_fastf_t(NULL, 1, (const char **)&val, (void *)&sv->gv_scale);
+		fastf_t _scale = 0.0;
+		bu_opt_fastf_t(NULL, 1, (const char **)&val, (void *)&_scale);
+		bsg_view_set_scale(sv, _scale);
 	    } else {
 		have_view = 0;
 	    }
@@ -287,7 +291,9 @@ end:
 		    bu_opt_fastf_t(NULL, 1, (const char **)&av[1], (void *)&quat[1]);
 		    bu_opt_fastf_t(NULL, 1, (const char **)&av[2], (void *)&quat[2]);
 		    bu_opt_fastf_t(NULL, 1, (const char **)&av[3], (void *)&quat[3]);
-		    quat_quat2mat(sv->gv_rotation, quat);
+		    { struct bsg_camera _cam; bsg_view_get_camera(sv, &_cam);
+		    quat_quat2mat(_cam.rotation, quat);
+		    bsg_view_set_camera(sv, &_cam); }
 		}
 		bu_free(lp, "val cpy");
 	    } else {
@@ -307,7 +313,9 @@ end:
 		    bu_opt_fastf_t(NULL, 1, (const char **)&av[1], (void *)&quat[1]);
 		    bu_opt_fastf_t(NULL, 1, (const char **)&av[2], (void *)&quat[2]);
 		    bu_opt_fastf_t(NULL, 1, (const char **)&av[3], (void *)&quat[3]);
-		    quat_quat2mat(sv->gv_center, quat);
+		    { struct bsg_camera _cam; bsg_view_get_camera(sv, &_cam);
+		    quat_quat2mat(_cam.center, quat);
+		    bsg_view_set_camera(sv, &_cam); }
 		}
 		bu_free(lp, "val cpy");
 	    } else {
@@ -323,17 +331,17 @@ end:
     }
 
     /* Have new polygon, now update view object vlist */
-    bv_polygon_vlist(s);
+    bsg_polygon_vlist(s);
 
     rt_db_free_internal(&intern);
     return s;
 }
 
 struct directory *
-db_scene_obj_to_sketch(struct db_i *dbip, const char *sname, struct bv_scene_obj *s)
+db_scene_obj_to_sketch(struct db_i *dbip, const char *sname, bsg_shape *s)
 {
     // Make sure we have a view polygon
-    if (!(s->s_type_flags & BV_VIEWONLY) || !(s->s_type_flags & BV_POLYGONS)) {
+    if (!(s->s_type_flags & BSG_NODE_VIEWONLY) || !(s->s_type_flags & BSG_NODE_POLYGONS)) {
 	return NULL;
     }
 
@@ -350,7 +358,7 @@ db_scene_obj_to_sketch(struct db_i *dbip, const char *sname, struct bv_scene_obj
     struct rt_sketch_internal *sketch_ip;
     struct line_seg *lsg;
 
-    struct bv_polygon *p = (struct bv_polygon *)s->s_i_data;
+    struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
     for (size_t j = 0; j < p->polygon.num_contours; ++j)
 	num_verts += p->polygon.contour[j].num_points;
 
@@ -440,16 +448,16 @@ db_scene_obj_to_sketch(struct db_i *dbip, const char *sname, struct bv_scene_obj
 	bu_vls_sprintf(&val, "%g", p->fill_delta);
 	bu_avs_add(&lavs, "POLYGON_FILL_DELTA", bu_vls_cstr(&val));
 	switch (p->type) {
-	    case BV_POLYGON_CIRCLE:
+	    case BSG_POLYGON_CIRCLE:
 		bu_vls_sprintf(&val, "CIRCLE");
 		break;
-	    case BV_POLYGON_ELLIPSE:
+	    case BSG_POLYGON_ELLIPSE:
 		bu_vls_sprintf(&val, "ELLIPSE");
 		break;
-	    case BV_POLYGON_RECTANGLE:
+	    case BSG_POLYGON_RECTANGLE:
 		bu_vls_sprintf(&val, "RECTANGLE");
 		break;
-	    case BV_POLYGON_SQUARE:
+	    case BSG_POLYGON_SQUARE:
 		bu_vls_sprintf(&val, "SQUARE");
 		break;
 	    default:
@@ -458,14 +466,15 @@ db_scene_obj_to_sketch(struct db_i *dbip, const char *sname, struct bv_scene_obj
 	}
 	bu_avs_add(&lavs, "POLYGON_TYPE", bu_vls_cstr(&val));
 	// Save view
-	bu_vls_sprintf(&val, "%.15e", s->s_v->gv_scale);
+	bu_vls_sprintf(&val, "%.15e", bsg_view_scale(s->s_v));
 	bu_avs_add(&lavs, "VIEWSCALE", bu_vls_cstr(&val));
 	quat_t rquat;
-	quat_mat2quat(rquat, s->s_v->gv_rotation);
+	quat_t cquat;
+	{ struct bsg_camera _cam; bsg_view_get_camera(s->s_v, &_cam);
+	quat_mat2quat(rquat, _cam.rotation);
+	quat_mat2quat(cquat, _cam.center); }
 	bu_vls_sprintf(&val, "%.15e %.15e %.15e %.15e", V4ARGS(rquat));
 	bu_avs_add(&lavs, "ROTATION", bu_vls_cstr(&val));
-	quat_t cquat;
-	quat_mat2quat(cquat, s->s_v->gv_center);
 	bu_vls_sprintf(&val, "%.15e %.15e %.15e %.15e", V4ARGS(cquat));
 	bu_avs_add(&lavs, "CENTER", bu_vls_cstr(&val));
     }

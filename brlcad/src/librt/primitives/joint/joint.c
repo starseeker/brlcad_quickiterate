@@ -223,7 +223,7 @@ rt_joint_free(struct soltab *stp)
  */
 #define LOCATION_RADIUS 5
 int
-rt_joint_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_tess_tol *UNUSED(ttol), const struct bn_tol *UNUSED(tol), const struct bview *UNUSED(info))
+rt_joint_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_tess_tol *UNUSED(ttol), const struct bn_tol *UNUSED(tol), const bsg_view *UNUSED(info))
 {
     struct rt_joint_internal *jip;
     point_t a = {LOCATION_RADIUS, 0, 0};
@@ -244,19 +244,19 @@ rt_joint_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_
     rt_ell_16pnts(bottom, jip->location, b, c);
     rt_ell_16pnts(middle, jip->location, a, c);
 
-    BV_ADD_VLIST(vlfree, vhead, &top[15*ELEMENTS_PER_VECT], BV_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, &top[15*ELEMENTS_PER_VECT], BSG_VLIST_LINE_MOVE);
     for (i = 0; i < 16; i++) {
-	BV_ADD_VLIST(vlfree, vhead, &top[i*ELEMENTS_PER_VECT], BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, &top[i*ELEMENTS_PER_VECT], BSG_VLIST_LINE_DRAW);
     }
 
-    BV_ADD_VLIST(vlfree, vhead, &bottom[15*ELEMENTS_PER_VECT], BV_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, &bottom[15*ELEMENTS_PER_VECT], BSG_VLIST_LINE_MOVE);
     for (i = 0; i < 16; i++) {
-	BV_ADD_VLIST(vlfree, vhead, &bottom[i*ELEMENTS_PER_VECT], BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, &bottom[i*ELEMENTS_PER_VECT], BSG_VLIST_LINE_DRAW);
     }
 
-    BV_ADD_VLIST(vlfree, vhead, &middle[15*ELEMENTS_PER_VECT], BV_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, &middle[15*ELEMENTS_PER_VECT], BSG_VLIST_LINE_MOVE);
     for (i = 0; i < 16; i++) {
-	BV_ADD_VLIST(vlfree, vhead, &middle[i*ELEMENTS_PER_VECT], BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, &middle[i*ELEMENTS_PER_VECT], BSG_VLIST_LINE_DRAW);
     }
 
 

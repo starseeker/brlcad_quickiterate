@@ -1,0 +1,3 @@
+[submodule "obol"]
+	path = obol
+	url = https://github.com/starseeker/obol

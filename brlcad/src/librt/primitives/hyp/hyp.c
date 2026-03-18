@@ -631,7 +631,7 @@ rt_hyp_free(struct soltab *stp)
 
 
 int
-rt_hyp_plot(struct bu_list *vhead, struct rt_db_internal *incoming, const struct bg_tess_tol *UNUSED(ttol), const struct bn_tol *UNUSED(tol), const struct bview *UNUSED(info))
+rt_hyp_plot(struct bu_list *vhead, struct rt_db_internal *incoming, const struct bg_tess_tol *UNUSED(ttol), const struct bn_tol *UNUSED(tol), const bsg_view *UNUSED(info))
 {
     int i, j;		/* loop indices */
     struct rt_hyp_internal *hyp_in;
@@ -707,9 +707,9 @@ rt_hyp_plot(struct bu_list *vhead, struct rt_db_internal *incoming, const struct
 	VADD4(ell[15], hyp->hyp_V, heightAxis[i], majorAxis[1], minorAxis[4]);
 
 	/* draw ellipse */
-	BV_ADD_VLIST(vlfree, vhead, ell[15], BV_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vhead, ell[15], BSG_VLIST_LINE_MOVE);
 	for (j = 0; j < 16; j++) {
-	    BV_ADD_VLIST(vlfree, vhead, ell[j], BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(vlfree, vhead, ell[j], BSG_VLIST_LINE_DRAW);
 	}
 
 	/* add ellipse's points to ribs */
@@ -720,9 +720,9 @@ rt_hyp_plot(struct bu_list *vhead, struct rt_db_internal *incoming, const struct
 
     /* draw ribs */
     for (i = 0; i < 16; i++) {
-	BV_ADD_VLIST(vlfree, vhead, ribs[i][0], BV_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vhead, ribs[i][0], BSG_VLIST_LINE_MOVE);
 	for (j = 1; j < 7; j++) {
-	    BV_ADD_VLIST(vlfree, vhead, ribs[i][j], BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(vlfree, vhead, ribs[i][j], BSG_VLIST_LINE_DRAW);
 	}
 
     }

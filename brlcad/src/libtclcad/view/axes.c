@@ -35,8 +35,8 @@
 
 int
 to_axes(struct ged *gedp,
-	struct bview *gdvp,
-	struct bv_axes *gasp,
+	bsg_view *gdvp,
+	struct bsg_axes *gasp,
 	int argc,
 	const char *argv[],
 	const char *usage)
@@ -444,7 +444,7 @@ bad:
 int
 go_data_axes(Tcl_Interp *interp,
 	     struct ged *gedp,
-	     struct bview *gdvp,
+	     bsg_view *gdvp,
 	     int argc,
 	     const char *argv[],
 	     const char *usage)
@@ -486,7 +486,7 @@ to_data_axes(struct ged *gedp,
 	     const char *usage,
 	     int UNUSED(maxargs))
 {
-    struct bview *gdvp;
+    bsg_view *gdvp;
     int ret;
 
     /* initialize result */
@@ -503,7 +503,7 @@ to_data_axes(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    gdvp = bv_set_find_view(&gedp->ged_views, argv[1]);
+    gdvp = bsg_scene_find_view(&gedp->ged_views, argv[1]);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -521,11 +521,11 @@ to_data_axes(struct ged *gedp,
 int
 to_data_axes_func(Tcl_Interp *interp,
 		  struct ged *gedp,
-		  struct bview *gdvp,
+		  bsg_view *gdvp,
 		  int argc,
 		  const char *argv[])
 {
-    struct bv_data_axes_state *gdasp;
+    struct bsg_data_axes_state *gdasp;
 
     if (argv[0][0] == 's')
 	gdasp = &gdvp->gv_tcl.gv_sdata_axes;
@@ -698,7 +698,7 @@ to_model_axes(struct ged *gedp,
 	      const char *usage,
 	      int UNUSED(maxargs))
 {
-    struct bview *gdvp;
+    bsg_view *gdvp;
 
     /* initialize result */
     bu_vls_trunc(gedp->ged_result_str, 0);
@@ -714,7 +714,7 @@ to_model_axes(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    gdvp = bv_set_find_view(&gedp->ged_views, argv[1]);
+    gdvp = bsg_scene_find_view(&gedp->ged_views, argv[1]);
     if (!gdvp) {
         bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
         return BRLCAD_ERROR;
@@ -725,7 +725,7 @@ to_model_axes(struct ged *gedp,
 
 int
 go_view_axes(struct ged *gedp,
-	     struct bview *gdvp,
+	     bsg_view *gdvp,
 	     int argc,
 	     const char *argv[],
 	     const char *usage)
@@ -756,7 +756,7 @@ to_view_axes(struct ged *gedp,
 	     const char *usage,
 	     int UNUSED(maxargs))
 {
-    struct bview *gdvp;
+    bsg_view *gdvp;
 
     /* initialize result */
     bu_vls_trunc(gedp->ged_result_str, 0);
@@ -772,7 +772,7 @@ to_view_axes(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    gdvp = bv_set_find_view(&gedp->ged_views, argv[1]);
+    gdvp = bsg_scene_find_view(&gedp->ged_views, argv[1]);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;

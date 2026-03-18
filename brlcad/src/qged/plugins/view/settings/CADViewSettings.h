@@ -29,7 +29,7 @@
 #include <QGroupBox>
 #include <QCheckBox>
 #include <QComboBox>
-#include "bv/defines.h"
+#include "bsg/defines.h"
 
 class CADViewSettings : public QWidget
 {
@@ -71,6 +71,8 @@ class CADViewSettings : public QWidget
 	void view_refresh(unsigned long long);
 	void view_update_int(int);
 	void view_update();
+	void fb_state_changed(int);
+	void params_state_changed(int);
 };
 
 // Local Variables:

@@ -27,6 +27,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QVBoxLayout>
+#include <QHBoxLayout>
 
 #include "bu/opt.h"
 #include "bu/malloc.h"
@@ -151,6 +152,63 @@ CADViewSettings::CADViewSettings(QWidget *)
     wl->addLayout(fbl);
     wl->addWidget(params_grp);
 
+    wl->addWidget(grid_ckbx);
+    ckbx_connect_update(grid_ckbx, this);
+
+    wl->addWidget(mdlaxes_ckbx);
+    ckbx_connect_update(mdlaxes_ckbx, this);
+
+    // View Parameters group: overall on/off plus per-element sub-options
+    params_grp = new QGroupBox("View Parameters");
+    params_ckbx = new QCheckBox("Show Parameters");
+    params_size_ckbx = new QCheckBox("Size");
+    params_center_ckbx = new QCheckBox("Center");
+    params_az_ckbx = new QCheckBox("Azimuth");
+    params_el_ckbx = new QCheckBox("Elevation");
+    params_tw_ckbx = new QCheckBox("Twist");
+    fps_ckbx = new QCheckBox("FPS");
+
+    // Sub-options start disabled; enabled when params is on
+    params_size_ckbx->setEnabled(false);
+    params_center_ckbx->setEnabled(false);
+    params_az_ckbx->setEnabled(false);
+    params_el_ckbx->setEnabled(false);
+    params_tw_ckbx->setEnabled(false);
+    fps_ckbx->setEnabled(false);
+
+    QVBoxLayout *params_vl = new QVBoxLayout;
+    params_vl->addWidget(params_ckbx);
+    QVBoxLayout *sub_vl = new QVBoxLayout;
+    sub_vl->setContentsMargins(16, 0, 0, 0);
+    sub_vl->addWidget(params_size_ckbx);
+    sub_vl->addWidget(params_center_ckbx);
+    sub_vl->addWidget(params_az_ckbx);
+    sub_vl->addWidget(params_el_ckbx);
+    sub_vl->addWidget(params_tw_ckbx);
+    sub_vl->addWidget(fps_ckbx);
+    params_vl->addLayout(sub_vl);
+    params_grp->setLayout(params_vl);
+    wl->addWidget(params_grp);
+
+    ckbx_connect_update(params_ckbx, this);
+    ckbx_connect_update(params_size_ckbx, this);
+    ckbx_connect_update(params_center_ckbx, this);
+    ckbx_connect_update(params_az_ckbx, this);
+    ckbx_connect_update(params_el_ckbx, this);
+    ckbx_connect_update(params_tw_ckbx, this);
+    ckbx_connect_update(fps_ckbx, this);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+    QObject::connect(params_ckbx, &QCheckBox::checkStateChanged, this, &CADViewSettings::params_state_changed);
+#else
+    QObject::connect(params_ckbx, &QCheckBox::stateChanged, this, &CADViewSettings::params_state_changed);
+#endif
+
+    wl->addWidget(scale_ckbx);
+    ckbx_connect_update(scale_ckbx, this);
+
+    wl->addWidget(viewaxes_ckbx);
+    ckbx_connect_update(viewaxes_ckbx, this);
+
     this->setLayout(wl);
 }
 
@@ -179,6 +237,27 @@ CADViewSettings::view_update_int(int)
 /* Read current view state and update all widgets to match, without
  * triggering a spurious write-back via the signal connections. */
 void
+CADViewSettings::fb_state_changed(int state)
+{
+    bool on = (state == Qt::Checked);
+    fbo_ckbx->setEnabled(on);
+    if (!on)
+	fbo_ckbx->setCheckState(Qt::Unchecked);
+}
+
+void
+CADViewSettings::params_state_changed(int state)
+{
+    bool on = (state == Qt::Checked);
+    params_size_ckbx->setEnabled(on);
+    params_center_ckbx->setEnabled(on);
+    params_az_ckbx->setEnabled(on);
+    params_el_ckbx->setEnabled(on);
+    params_tw_ckbx->setEnabled(on);
+    fps_ckbx->setEnabled(on);
+}
+
+void
 CADViewSettings::checkbox_refresh(unsigned long long)
 {
     QgModel *m = ((QgEdApp *)qApp)->mdl;
@@ -187,6 +266,7 @@ CADViewSettings::checkbox_refresh(unsigned long long)
     struct ged *gedp = m->gedp;
     if (!gedp)
 	return;
+    bsg_view *v = gedp->ged_gvp;
     struct bview *v = gedp->ged_gvp;
     if (!v)
 	return;
@@ -232,6 +312,7 @@ CADViewSettings::view_refresh(unsigned long long)
     struct ged *gedp = m->gedp;
     if (!gedp)
 	return;
+    bsg_view *v = gedp->ged_gvp;
     struct bview *v = gedp->ged_gvp;
     if (!v)
 	return;
