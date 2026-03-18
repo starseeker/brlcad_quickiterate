@@ -4,16 +4,16 @@ if(MSVC)
   add_definitions(-D_CONSOLE -DIF_WGL)
 endif(MSVC)
 
-if(BRLCAD_ENABLE_TK)
+if(NOT BRLCAD_ENABLE_OBOL AND BRLCAD_ENABLE_TK)
   brlcad_addexec(bombardier bombardier.c "libtclcad;libbu;${TK_LIBRARY};${TCL_LIBRARY}")
   brlcad_addexec(plot3-dm plot3-dm.c "libtclcad;libdm;libbsg;libbu;${TK_LIBRARY};${TCL_LIBRARY};${M_LIBRARY}")
   add_target_deps(plot3-dm dm_plugins)
-else(BRLCAD_ENABLE_TK)
+else(NOT BRLCAD_ENABLE_OBOL AND BRLCAD_ENABLE_TK)
   cmakefiles(
     bombardier.c
     plot3-dm.c
   )
-endif(BRLCAD_ENABLE_TK)
+endif(NOT BRLCAD_ENABLE_OBOL AND BRLCAD_ENABLE_TK)
 
 brlcad_adddata(plot3-dm.c sample_applications)
 
