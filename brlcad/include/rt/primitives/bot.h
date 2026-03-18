@@ -190,6 +190,9 @@ struct rt_bot_repair_info {
     fastf_t max_hole_area;
     fastf_t max_hole_area_percent;
     int strict;
+    int auto_remesh;             /**< Post-repair quality check + auto-remesh if quality is poor (default 0 = off) */
+    fastf_t remesh_quality_ar;   /**< Aspect ratio threshold for auto-remesh; 0 = use default (3.0) */
+    fastf_t remesh_time_limit;   /**< Wall-clock time limit (seconds) for RemeshCVT Lloyd iterations; 0 = no limit */
 };
 
 /* For now the default upper hole size limit will be 5 percent of the mesh
@@ -199,8 +202,35 @@ struct rt_bot_repair_info {
  * By default, don't return a mesh that can't pass the lint solid raytracing
  * tests.  This isn't always desirable - sometimes manifold is enough even if
  * the mesh is not otherwise well behaved - so it is an user settable param.
+ *
+ * auto_remesh defaults to 0 (off).  When enabled it runs a Verdict-style
+ * quality evaluation after repair and, if the median aspect ratio exceeds
+ * remesh_quality_ar (default 3.0), attempts RemeshCVT to improve triangle
+ * quality.  The manifold property is re-verified after remesh; if it is
+ * lost the pre-remesh output is returned unchanged.
+ *
+ * Manifold preservation in RemeshCVT:
+ *   The multi-nerve RDT inside RemeshCVT removes "peninsula" triangles from
+ *   thin-edge faces, leaving open boundary holes in the output.  The
+ *   auto_remesh path patches these holes with MeshHoleFilling (LSCM) before
+ *   checking manifold, so the result is always manifold on well-formed inputs.
+ *   On pathological inputs (near-degenerate geometry after repair) the
+ *   isotropic CVT fallback is tried before reverting to the pre-remesh mesh.
+ *
+ * NOTE: When the high AR reflects physical geometry (stringers, cross-
+ * supports), RemeshCVT improves triangle quality but the shape stays high-AR
+ * by necessity.  auto_remesh is opt-in (default off) because callers should
+ * decide whether to remesh vs. accept the physically correct AR.
+ * remesh_time_limit sets a wall-clock time budget (seconds) for the Lloyd
+ * relaxation loop inside RemeshCVT.  When the budget is exhausted after the
+ * current iteration completes, the loop stops early and the RDT is extracted
+ * from the partially-converged sites.  The result is still a valid remesh —
+ * just with fewer quality improvement iterations.  Set to 0 (default) for no
+ * limit.  A value of 5.0 seconds is a reasonable budget for interactive use.
  */
-#define RT_BOT_REPAIR_INFO_INIT {0.0, 5.0, 1};
+/* Field order: max_hole_area, max_hole_area_percent, strict,
+ *              auto_remesh, remesh_quality_ar, remesh_time_limit */
+#define RT_BOT_REPAIR_INFO_INIT {0.0, 5.0, 1, 0, 0.0, 0.0}
 
 /* Function to attempt repairing a non-manifold BoT.  Returns 1 if ibot was
  * already manifold (obot will contain NULL), 0 if a manifold BoT was created

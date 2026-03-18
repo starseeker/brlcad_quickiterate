@@ -4,9 +4,7 @@ brlcad_find_package(manifold REQUIRED)
 brlcad_find_package(mmesh REQUIRED)
 brlcad_find_package(OPENNURBS REQUIRED SYSPATTERN openNURBS)
 brlcad_find_package(REGEX REQUIRED)
-brlcad_find_package(Geogram REQUIRED SYSPATTERN geogram)
 find_package_gte(REQUIRED)
-add_definitions(-DUSE_GEOGRAM)
 
 if(BRLCAD_ENABLE_OPENCL)
   add_definitions(-DUSE_OPENCL)
@@ -409,7 +407,6 @@ set(
   ${OPENCL_LIBS}
   ${librt_deps}
   ${OPENNURBS_LIBRARIES}
-  ${Geogram_LIBRARY}
   mmesh::mmesh
   ${REGEX_LIBRARIES}
   ${WINSOCK_LIB}
@@ -419,7 +416,7 @@ set(
 )
 
 # Include directories needed by librt users
-set(RT_INCLUDE_DIRS ${OPENNURBS_INCLUDE_DIRS} ${OPENCL_INCLUDE_DIRS} ${GTE_INCLUDE_DIR})
+set(RT_INCLUDE_DIRS ${OPENNURBS_INCLUDE_DIRS} ${OPENCL_INCLUDE_DIRS} ${BRLCAD_SOURCE_DIR}/src/libbg/GTE ${GTE_INCLUDE_DIR})
 
 # locally used but not needed by users of the library
 set(
@@ -427,7 +424,6 @@ set(
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_CURRENT_SOURCE_DIR}/vds
   ${REGEX_INCLUDE_DIRS}
-  ${Geogram_INCLUDE_DIR}
 )
 # FIXME: needs materialX
 #  ${CMAKE_CURRENT_SOURCE_DIR}/../../../MaterialXSource/source
