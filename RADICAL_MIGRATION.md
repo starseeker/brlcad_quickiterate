@@ -157,21 +157,32 @@ are `qged_test` and `qged_pipeline_test` (use `QgObolSwrastView`).
 
 ## What Remains
 
-### 1. rtwizard — Obol offscreen rendering (headless pipeline)
+### 1. rtwizard — Obol headless pipeline — Complete (Stage 23)
 
-`rtwizard` CMakeLists no longer links `libdm` in Obol builds (Stage 21).
-The GUI mode already calls `obol_init` at startup.  What remains is the
-headless pixel-compositing pipeline:
+**File-based rendering path implemented.**  Two files changed:
 
-- Replace the `fbserv`-subprocess + `rt` pipeline used in `PictureType*.itcl`
-  with an `SoOffscreenRenderer` + `CoinOSMesaContextManager` path for headless
-  rendering.
-- Implement a `rtwizard_obol_render` Tcl command (or extend `obol_view_screengrab`)
-  that composites multiple rt passes using `SoTexture2` overlay nodes and writes
-  the final image directly without needing an external `fbserv` process.
-- The `rtwizard` Tcl script already guards `obol_init` with
-  `[info commands obol_init] ne ""`; the rendering dispatch in each
-  `PictureType*.itcl` needs an analogous Obol branch.
+- **`src/tclscripts/lib/RtImage.tcl`**: New `cadwidgets::rtimage_file` proc renders
+  all rt/rtedge passes directly to temp `.pix` files (no fbserv port needed).
+  Ghost compositing reuses the identical `pix-bw → bwmod → bw-pix → pixmatte`
+  chain that the original path already used for file-to-file steps.
+  Edge compositing uses `pixmatte -e` to overlay edge pixels on the accumulated
+  color/ghost image.  Final output written via `pix-png` (PNG) or plain file
+  copy (`.pix`).  `rtimage` auto-dispatches to `rtimage_file` when `_outfile`
+  key is present in the dict.
+
+- **`src/tclscripts/rtwizard/rtwizard`**: Headless path (`else` branch) now has
+  an Obol sub-branch guarded by `[info commands obol_init] ne ""`.  When Obol is
+  active and `output_filename` is set:  fbserv spawn/kill and `fb-png`/`fb-pix`
+  readback are skipped; `_outfile` is passed directly to `rtimage` so
+  `rtimage_file` handles everything.  The original fbserv path is preserved in
+  the `else` arm for non-Obol builds.
+
+The `PictureType*.itcl` GUI classes still call `[$::fbp getFrameBuffer]` → their
+fbserv path is unchanged; the GUI compositor has no dependency on the Obol path.
+
+Remaining dependency: `pix-png` (used by `rtimage_file` for `.png` output) links
+`libdm` at present.  Once `libdm` is fully removed, replace with `icv` or a
+`libicv`-based conversion.
 
 ### 2. Delete libdm rendering plugins (CMake gating complete — file deletion pending)
 
