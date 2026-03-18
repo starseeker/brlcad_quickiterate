@@ -27,6 +27,7 @@
 #include <string.h>
 
 #include "vmath.h"
+#include "bsg/util.h"
 
 #include "./mged.h"
 #include "./sedit.h"
@@ -461,9 +462,12 @@ bv_vrestore(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc),
     struct mged_state *s = ctp->s;
      /* restore to saved view */
     if (vsaved) {
+	struct bsg_camera _rc;
+	bsg_view_get_camera(view_state->vs_gvp, &_rc);
 	view_state->vs_gvp->gv_scale = sav_vscale;
-	MAT_COPY(view_state->vs_gvp->gv_rotation, sav_viewrot);
-	MAT_COPY(view_state->vs_gvp->gv_center, sav_toviewcenter);
+	MAT_COPY(_rc.rotation, sav_viewrot);
+	MAT_COPY(_rc.center, sav_toviewcenter);
+	bsg_view_set_camera(view_state->vs_gvp, &_rc);
 	new_mats(s);
 
 	(void)mged_svbase(s);
@@ -480,9 +484,13 @@ bv_vsave(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), ch
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
      /* save current view */
-    sav_vscale = view_state->vs_gvp->gv_scale;
-    MAT_COPY(sav_viewrot, view_state->vs_gvp->gv_rotation);
-    MAT_COPY(sav_toviewcenter, view_state->vs_gvp->gv_center);
+    {
+	struct bsg_camera _sc;
+	bsg_view_get_camera(view_state->vs_gvp, &_sc);
+	sav_vscale = view_state->vs_gvp->gv_scale;
+	MAT_COPY(sav_viewrot, _sc.rotation);
+	MAT_COPY(sav_toviewcenter, _sc.center);
+    }
     vsaved = 1;
     return TCL_OK;
 }
@@ -551,30 +559,15 @@ bv_35_25(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), ch
 /* returns 0 if error, !0 if success */
 static int
 ill_common(struct mged_state *s) {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
-    int is_empty = 1;
+    bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
 
-    /* Common part of illumination */
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	if (BU_LIST_NON_EMPTY(&gdlp->dl_head_scene_obj)) {
-	    is_empty = 0;
-	    break;
-	}
-
-	gdlp = next_gdlp;
-    }
-
-    if (is_empty) {
+    if (!root || BU_PTBL_LEN(&root->children) == 0) {
 	Tcl_AppendResult(s->interp, "no solids in view\n", (char *)NULL);
 	return 0;	/* BAD */
     }
 
-    illum_gdlp = gdlp;
-    illump = BU_LIST_NEXT(bv_scene_obj, &gdlp->dl_head_scene_obj);/* any valid solid would do */
+    illum_gdlp = GED_DISPLAY_LIST_NULL;
+    illump = (bsg_shape *)BU_PTBL_GET(&root->children, 0); /* any valid solid would do */
     illump->s_iflag = UP;
     edobj = 0;		/* sanity */
     edsol = 0;		/* sanity */
@@ -637,7 +630,6 @@ be_o_scale(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), 
     edobj = BE_O_SCALE;
     movedir = SARROW;
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
     set_e_axes_pos(s, 1);
 
     MEDIT(s)->k.sca_abs = MEDIT(s)->acc_sc_obj - 1.0;
@@ -660,7 +652,6 @@ be_o_xscale(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc),
     edobj = BE_O_XSCALE;
     movedir = SARROW;
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
     set_e_axes_pos(s, 1);
 
     MEDIT(s)->k.sca_abs = MEDIT(s)->acc_sc[0] - 1.0;
@@ -683,7 +674,6 @@ be_o_yscale(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc),
     edobj = BE_O_YSCALE;
     movedir = SARROW;
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
     set_e_axes_pos(s, 1);
 
     MEDIT(s)->k.sca_abs = MEDIT(s)->acc_sc[1] - 1.0;
@@ -706,7 +696,6 @@ be_o_zscale(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc),
     edobj = BE_O_ZSCALE;
     movedir = SARROW;
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
     set_e_axes_pos(s, 1);
 
     MEDIT(s)->k.sca_abs = MEDIT(s)->acc_sc[2] - 1.0;
@@ -729,7 +718,6 @@ be_o_x(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), char
     edobj = BE_O_X;
     movedir = RARROW;
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
     set_e_axes_pos(s, 1);
     return TCL_OK;
 }
@@ -748,7 +736,6 @@ be_o_y(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), char
     edobj = BE_O_Y;
     movedir = UARROW;
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
     set_e_axes_pos(s, 1);
     return TCL_OK;
 }
@@ -767,7 +754,6 @@ be_o_xy(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), cha
     edobj = BE_O_XY;
     movedir = UARROW | RARROW;
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
     set_e_axes_pos(s, 1);
     return TCL_OK;
 }
@@ -786,7 +772,6 @@ be_o_rotate(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc),
     edobj = BE_O_ROTATE;
     movedir = ROTARROW;
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
     set_e_axes_pos(s, 1);
     return TCL_OK;
 }
@@ -808,7 +793,7 @@ be_accept(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), c
 	mmenu_set_all(s, MENU_L1, NULL);
 	mmenu_set_all(s, MENU_L2, NULL);
 
-	dl_set_iflag((struct bu_list *)ged_dl(s->gedp), DOWN);
+	bsg_set_iflag(s->gedp->ged_gvp, DOWN);
 
 	illum_gdlp = GED_DISPLAY_LIST_NULL;
 	illump = NULL;
@@ -833,10 +818,11 @@ be_accept(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), c
 	return TCL_OK;
     }
 
-    for (size_t i = 0; i < BU_PTBL_LEN(&active_dm_set); i++) {
-	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, i);
-	if (m_dmp->dm_mged_variables->mv_transform == 'e')
-	    m_dmp->dm_mged_variables->mv_transform = 'v';
+    /* Step 6.b: active_pane_set covers all pane types. */
+    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	if (mp->mp_mged_variables && mp->mp_mged_variables->mv_transform == 'e')
+	    mp->mp_mged_variables->mv_transform = 'v';
     }
 
     {
@@ -858,7 +844,6 @@ be_reject(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), c
     struct mged_state *s = ctp->s;
 
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
 
     /* Reject edit */
 
@@ -897,15 +882,16 @@ be_reject(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), c
     illump = NULL;		/* None selected */
 
     /* Clear illumination flags */
-    dl_set_iflag((struct bu_list *)ged_dl(s->gedp), DOWN);
+    bsg_set_iflag(s->gedp->ged_gvp, DOWN);
 
     mged_color_soltab(s);
     (void)chg_state(s, s->global_editing_state, ST_VIEW, "Edit Reject");
 
-    for (size_t i = 0; i < BU_PTBL_LEN(&active_dm_set); i++) {
-	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, i);
-	if (m_dmp->dm_mged_variables->mv_transform == 'e')
-	    m_dmp->dm_mged_variables->mv_transform = 'v';
+    /* Step 6.b: active_pane_set covers all pane types. */
+    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	if (mp->mp_mged_variables && mp->mp_mged_variables->mv_transform == 'e')
+	    mp->mp_mged_variables->mv_transform = 'v';
     }
 
     {
@@ -1055,7 +1041,6 @@ stateChange(struct mged_state *s, int UNUSED(oldstate), int newstate)
 int
 chg_state(struct mged_state *s, int from, int to, char *str)
 {
-    struct mged_dm *save_dm_list;
     struct bu_vls vls = BU_VLS_INIT_ZERO;
 
     if (s->global_editing_state != from) {
@@ -1067,15 +1052,16 @@ chg_state(struct mged_state *s, int from, int to, char *str)
 
     stateChange(s, from, to);
 
-    save_dm_list = s->mged_curr_dm;
-    for (size_t i = 0; i < BU_PTBL_LEN(&active_dm_set); i++) {
-	struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, i);
-	set_curr_dm(s, p);
-
-	new_mats(s);
+    {
+	struct mged_pane *save_pane = s->mged_curr_pane;
+	/* Step 6.b: active_pane_set covers all pane types. */
+	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	    set_curr_pane(s, mp);
+	    new_mats(s);
+	}
+	set_curr_pane(s, save_pane);
     }
-
-    set_curr_dm(s, save_dm_list);
 
     bu_vls_printf(&vls, "%s(state)", MGED_DISPLAY_VAR);
     Tcl_SetVar(s->interp, bu_vls_addr(&vls), state_str[s->global_editing_state], TCL_GLOBAL_ONLY);

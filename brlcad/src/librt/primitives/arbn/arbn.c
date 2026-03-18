@@ -419,7 +419,7 @@ rt_arbn_free(struct soltab *stp)
  * Note that the vectors will be drawn in no special order.
  */
 int
-rt_arbn_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_tess_tol *UNUSED(ttol), const struct bn_tol *tol, const struct bview *UNUSED(info))
+rt_arbn_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_tess_tol *UNUSED(ttol), const struct bn_tol *tol, const bsg_view *UNUSED(info))
 {
     struct rt_arbn_internal *aip;
     size_t i;
@@ -470,12 +470,12 @@ rt_arbn_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_t
 		if (next_k != 0) continue;
 
 		if (point_count <= 0) {
-		    BV_ADD_VLIST(vlfree, vhead, pt, BV_VLIST_LINE_MOVE);
+		    BSG_ADD_VLIST(vlfree, vhead, pt, BSG_VLIST_LINE_MOVE);
 		    VMOVE(a, pt);
 		} else if (point_count == 1) {
 		    VSUB2(dist, pt, a);
 		    if (MAGSQ(dist) < tol->dist_sq) continue;
-		    BV_ADD_VLIST(vlfree, vhead, pt, BV_VLIST_LINE_DRAW);
+		    BSG_ADD_VLIST(vlfree, vhead, pt, BSG_VLIST_LINE_DRAW);
 		    VMOVE(b, pt);
 		} else {
 		    VSUB2(dist, pt, a);
@@ -488,7 +488,7 @@ rt_arbn_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_t
 		    VPRINT(" a", a);
 		    VPRINT(" b", b);
 		    VPRINT("pt", pt);
-		    BV_ADD_VLIST(vlfree, vhead, pt, BV_VLIST_LINE_DRAW);	/* draw it */
+		    BSG_ADD_VLIST(vlfree, vhead, pt, BSG_VLIST_LINE_DRAW);	/* draw it */
 		}
 		point_count++;
 	    }

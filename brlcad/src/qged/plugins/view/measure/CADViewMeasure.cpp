@@ -59,10 +59,10 @@ CADViewMeasure::CADViewMeasure(QWidget *)
 
     report_radians = new QCheckBox("Report angle in radians");
     wl->addWidget(report_radians);
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-    QObject::connect(report_radians, &QCheckBox::stateChanged, this, &CADViewMeasure::adjust_text);
-#else
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
     QObject::connect(report_radians, &QCheckBox::checkStateChanged, this, &CADViewMeasure::adjust_text);
+#else
+    QObject::connect(report_radians, &QCheckBox::stateChanged, this, &CADViewMeasure::adjust_text);
 #endif
 
     ma_label = new QLabel("Measured Angle (deg):");
@@ -88,7 +88,7 @@ CADViewMeasure::CADViewMeasure(QWidget *)
 CADViewMeasure::~CADViewMeasure()
 {
     if (s)
-	bv_obj_put(s);
+	bsg_shape_put(s);
 }
 
 void
@@ -161,7 +161,7 @@ CADViewMeasure::eventFilter(QObject *, QEvent *e)
     struct ged *gedp = m->gedp;
     if (!gedp || !gedp->ged_gvp)
 	return false;
-    struct bview *v = gedp->ged_gvp;
+    bsg_view *v = gedp->ged_gvp;
 
     f3d->dbip = gedp->dbip;
 
@@ -175,7 +175,7 @@ CADViewMeasure::eventFilter(QObject *, QEvent *e)
     // the libqtcad logic.
     QObject::connect(mf, &QgMeasureFilter::view_updated, this, &CADViewMeasure::do_filter_view_update);
 
-    bool ret = mf->eventFilter(NULL, e);
+    bool ret = mf->eventFilter(nullptr, e);
 
     // Retrieve the scene object from the libqtcad data container
     s = mf->s;

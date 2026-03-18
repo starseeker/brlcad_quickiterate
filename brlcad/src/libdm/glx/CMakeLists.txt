@@ -1,6 +1,9 @@
 set(OGL_SRCS dm-ogl.c if_ogl.c)
 
-if(BRLCAD_ENABLE_X11 AND BRLCAD_ENABLE_TK AND BRLCAD_ENABLE_OPENGL)
+# When Obol is the rendering backend, mged creates Obol panes directly (no
+# dm_open call) so the dm-ogl X11/OpenGL plugin is never loaded.  Skip the
+# entire build in that case to keep the Obol binary clean.
+if(NOT BRLCAD_ENABLE_OBOL AND BRLCAD_ENABLE_X11 AND BRLCAD_ENABLE_TK AND BRLCAD_ENABLE_OPENGL)
   set(TCL_ENABLE_TK ON)
   find_package_tcl(TCL)
   find_package(X11)
@@ -67,7 +70,7 @@ if(BRLCAD_ENABLE_X11 AND BRLCAD_ENABLE_TK AND BRLCAD_ENABLE_OPENGL)
       plugin_setup(dm-ogl dm)
     endif(XOPENGL_gl_LIBRARY)
   endif(TCL_FOUND AND TK_FOUND)
-endif(BRLCAD_ENABLE_X11 AND BRLCAD_ENABLE_TK AND BRLCAD_ENABLE_OPENGL)
+endif(NOT BRLCAD_ENABLE_OBOL AND BRLCAD_ENABLE_X11 AND BRLCAD_ENABLE_TK AND BRLCAD_ENABLE_OPENGL)
 
 mark_as_advanced(XOPENGL_gldispatch_LIBRARY)
 

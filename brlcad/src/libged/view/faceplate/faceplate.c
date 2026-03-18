@@ -34,7 +34,7 @@
 #include "bu/color.h"
 #include "bu/opt.h"
 #include "bu/vls.h"
-#include "bv.h"
+#include "bsg.h"
 
 #include "../../ged_private.h"
 #include "../ged_view.h"
@@ -83,7 +83,7 @@ _fp_cmd_center_dot(void *ds, int argc, const char **argv)
 
     struct _ged_fp_info *gd = (struct _ged_fp_info *)ds;
     struct ged *gedp = gd->gedp;
-    struct bview *v = gedp->ged_gvp;
+    bsg_view *v = gedp->ged_gvp;
 
     if (!argc) {
 	if (gd->verbosity) {
@@ -143,7 +143,7 @@ _fp_cmd_fb(void *ds, int argc, const char **argv)
 
     struct _ged_fp_info *gd = (struct _ged_fp_info *)ds;
     struct ged *gedp = gd->gedp;
-    struct bview *v = gedp->ged_gvp;
+    bsg_view *v = gedp->ged_gvp;
 
     if (!argc) {
 	bu_vls_printf(gedp->ged_result_str, "%d", v->gv_s->gv_fb_mode);
@@ -185,7 +185,7 @@ _fp_cmd_scale(void *ds, int argc, const char **argv)
 
     struct _ged_fp_info *gd = (struct _ged_fp_info *)ds;
     struct ged *gedp = gd->gedp;
-    struct bview *v = gedp->ged_gvp;
+    bsg_view *v = gedp->ged_gvp;
 
     if (!argc) {
 	if (gd->verbosity) {
@@ -245,7 +245,7 @@ _fp_cmd_params(void *ds, int argc, const char **argv)
 
     struct _ged_fp_info *gd = (struct _ged_fp_info *)ds;
     struct ged *gedp = gd->gedp;
-    struct bview *v = gedp->ged_gvp;
+    bsg_view *v = gedp->ged_gvp;
 
     if (!argc) {
 	if (gd->verbosity) {

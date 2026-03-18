@@ -28,6 +28,7 @@
 
 #include "vmath.h"
 #include "bn.h"
+#include "bsg/util.h"
 #include "ged.h"
 
 #include "./mged.h"
@@ -82,101 +83,29 @@ ax_set_dirty_flag(const struct bu_structparse *UNUSED(sdp),
 {
     struct mged_state *s = (struct mged_state *)data;
     MGED_CK_STATE(s);
-    for (size_t i = 0; i < BU_PTBL_LEN(&active_dm_set); i++) {
-	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, i);
-	if (m_dmp->dm_axes_state == axes_state) {
-	    m_dmp->dm_dirty = 1;
-	    dm_set_dirty(m_dmp->dm_dmp, 1);
-	}
-    }
+    /* Step 7.20: mp_dmp removed; update_views triggers Obol refresh. */
+    s->update_views = 1;
 }
 
 
 void
-draw_e_axes(struct mged_state *s)
+draw_e_axes(struct mged_state *UNUSED(s))
 {
-    point_t v_ap1;                 /* axes position in view coordinates */
-    point_t v_ap2;                 /* axes position in view coordinates */
-    mat_t rot_mat;
-    struct bv_axes gas;
-
-    if (s->global_editing_state == ST_S_EDIT) {
-	MAT4X3PNT(v_ap1, view_state->vs_gvp->gv_model2view, MEDIT(s)->e_axes_pos);
-	MAT4X3PNT(v_ap2, view_state->vs_gvp->gv_model2view, MEDIT(s)->curr_e_axes_pos);
-    } else if (s->global_editing_state == ST_O_EDIT) {
-	point_t m_ap2;
-
-	MAT4X3PNT(v_ap1, view_state->vs_gvp->gv_model2view, MEDIT(s)->e_keypoint);
-	MAT4X3PNT(m_ap2, MEDIT(s)->model_changes, MEDIT(s)->e_keypoint);
-	MAT4X3PNT(v_ap2, view_state->vs_gvp->gv_model2view, m_ap2);
-    } else
-	return;
-
-    memset(&gas, 0, sizeof(struct bv_axes));
-    gas.label_flag = 1;
-    VMOVE(gas.axes_pos, v_ap1);
-    gas.axes_size = axes_state->ax_edit_size1 * INV_BV;
-    VMOVE(gas.axes_color, color_scheme->cs_edit_axes1);
-    VMOVE(gas.label_color, color_scheme->cs_edit_axes_label1);
-    gas.line_width = axes_state->ax_edit_linewidth1;
-
-    dm_draw_hud_axes(DMP, view_state->vs_gvp->gv_size, view_state->vs_gvp->gv_rotation, &gas);
-
-    memset(&gas, 0, sizeof(struct bv_axes));
-    gas.label_flag = 1;
-    VMOVE(gas.axes_pos, v_ap2);
-    gas.axes_size = axes_state->ax_edit_size2 * INV_BV;
-    VMOVE(gas.axes_color, color_scheme->cs_edit_axes2);
-    VMOVE(gas.label_color, color_scheme->cs_edit_axes_label2);
-    gas.line_width = axes_state->ax_edit_linewidth2;
-
-    bn_mat_mul(rot_mat, view_state->vs_gvp->gv_rotation, MEDIT(s)->acc_rot_sol);
-    dm_draw_hud_axes(DMP, view_state->vs_gvp->gv_size, rot_mat, &gas);
+    /* Step 7.20: libdm removed — no-op (was only called from dm rendering loop). */
 }
 
 
 void
-draw_m_axes(struct mged_state *s)
+draw_m_axes(struct mged_state *UNUSED(s))
 {
-    point_t m_ap;			/* axes position in model coordinates, mm */
-    point_t v_ap;			/* axes position in view coordinates */
-    struct bv_axes gas;
-
-    VSCALE(m_ap, axes_state->ax_model_pos, s->dbip->dbi_local2base);
-    MAT4X3PNT(v_ap, view_state->vs_gvp->gv_model2view, m_ap);
-
-    memset(&gas, 0, sizeof(struct bv_axes));
-    gas.label_flag = 1;
-    VMOVE(gas.axes_pos, v_ap);
-    gas.axes_size = axes_state->ax_model_size * INV_BV;
-    VMOVE(gas.axes_color, color_scheme->cs_model_axes);
-    VMOVE(gas.label_color, color_scheme->cs_model_axes_label);
-    gas.line_width = axes_state->ax_model_linewidth;
-
-    dm_draw_hud_axes(DMP, view_state->vs_gvp->gv_size, view_state->vs_gvp->gv_rotation, &gas);
+    /* Step 7.20: libdm removed — no-op. */
 }
 
 
 void
-draw_v_axes(struct mged_state *s)
+draw_v_axes(struct mged_state *UNUSED(s))
 {
-    point_t v_ap;			/* axes position in view coordinates */
-    struct bv_axes gas;
-
-    VSET(v_ap,
-	 axes_state->ax_view_pos[X] * INV_BV,
-	 axes_state->ax_view_pos[Y] * INV_BV / dm_get_aspect(DMP),
-	 0.0);
-
-    memset(&gas, 0, sizeof(struct bv_axes));
-    gas.label_flag = 1;
-    VMOVE(gas.axes_pos, v_ap);
-    gas.axes_size = axes_state->ax_view_size * INV_BV;
-    VMOVE(gas.axes_color, color_scheme->cs_view_axes);
-    VMOVE(gas.label_color, color_scheme->cs_view_axes_label);
-    gas.line_width = axes_state->ax_view_linewidth;
-
-    dm_draw_hud_axes(DMP, view_state->vs_gvp->gv_size, view_state->vs_gvp->gv_rotation, &gas);
+    /* Step 7.20: libdm removed — no-op. */
 }
 
 

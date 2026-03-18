@@ -33,6 +33,7 @@
 #include "wdb.h"
 
 #include "../edit_private.h"
+#include "bsg/util.h"
 
 #define ECMD_METABALL_PT_NEXT		30121
 #define ECMD_METABALL_PT_PREV		30122
@@ -401,6 +402,8 @@ ecmd_metaball_pt_pick(struct rt_edit *s)
 {
     struct rt_metaball_internal *metaball=
 	(struct rt_metaball_internal *)s->es_int.idb_ptr;
+    struct bsg_camera _cam;
+    bsg_view_get_camera(s->vp, &_cam);
     struct rt_metaball_edit *m = (struct rt_metaball_edit *)s->ipe_ptr;
     point_t new_pt;
     struct wdb_metaball_pnt *ps;
@@ -432,7 +435,7 @@ ecmd_metaball_pt_pick(struct rt_edit *s)
 
     /* get a direction vector in model space corresponding to z-direction in view */
     VSET(work, 0.0, 0.0, 1.0);
-    MAT4X3VEC(dir, s->vp->gv_view2model, work);
+    MAT4X3VEC(dir, _cam.view2model, work);
 
     for (BU_LIST_FOR(ps, wdb_metaball_pnt, &metaball->metaball_ctrl_head)) {
 	fastf_t dist;
@@ -604,6 +607,8 @@ rt_edit_metaball_edit_xy(
     vect_t pos_view = VINIT_ZERO;       /* Unrotated view space pos */
     vect_t temp = VINIT_ZERO;
     struct rt_db_internal *ip = &s->es_int;
+    struct bsg_camera _cam;
+    bsg_view_get_camera(s->vp, &_cam);
     bu_clbk_t f = NULL;
     void *d = NULL;
 
@@ -625,10 +630,10 @@ rt_edit_metaball_edit_xy(
 	case ECMD_METABALL_PT_PICK:
 	case ECMD_METABALL_PT_MOV:
 	case ECMD_METABALL_PT_ADD:
-	    MAT4X3PNT(pos_view, s->vp->gv_model2view, s->curr_e_axes_pos);
+	    MAT4X3PNT(pos_view, _cam.model2view, s->curr_e_axes_pos);
 	    pos_view[X] = mousevec[X];
 	    pos_view[Y] = mousevec[Y];
-	    MAT4X3PNT(temp, s->vp->gv_view2model, pos_view);
+	    MAT4X3PNT(temp, _cam.view2model, pos_view);
 	    MAT4X3PNT(s->e_mparam, s->e_invmat, temp);
 	    s->e_mvalid = 1;
 	    break;

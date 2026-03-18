@@ -19,8 +19,19 @@
  */
 /** @file mged/mged_dm.h
  *
- * Header file for communication with the display manager.
+ * Header file for MGED's per-pane display state.
  *
+ * MIGRATION NOTE (Stage 7 — libdm removal):
+ *
+ * The central struct here, `mged_dm`, currently owns both the libdm display
+ * manager (`dm_dmp`) and a large collection of per-pane overlay/UI state.
+ * It is the primary reason MGED still depends on libdm.
+ *
+ * Stage 7 (Steps 6.a-6.c) replaces `mged_dm` + `active_dm_set` with a leaner
+ * `mged_pane` struct + `active_pane_set` (see RADICAL_MIGRATION.md).
+ * All `active_dm_set` iteration loops are now migrated; `active_dm_set` is no
+ * longer maintained.  Next step: delete `struct mged_dm`, the DMP/fbp macros,
+ * and `src/mged/dm-generic.c` (Step 7).
  */
 
 #ifndef MGED_MGED_DM_H
@@ -28,9 +39,11 @@
 
 #include "common.h"
 
-#include "dm.h"	/* struct dm */
+/* Step 8: dm.h removed — struct dm no longer used in mged_pane (all
+ * mp_dmp/libdm fields deleted in Step 7.20).
+ * Step 9: pkg.h removed — struct client / c_pkg deleted (no mged .c
+ * file used struct client; fbserv is a no-op stub). */
 
-#include "pkg.h" /* struct pkg_conn */
 #include "ged.h"
 
 #include "mged.h"
@@ -101,14 +114,9 @@ struct trail {
 #	define MAX_CLIENTS 32
 #endif
 
-struct client {
-    int			c_fd;
-#ifdef USE_TCL_CHAN
-    Tcl_Channel         c_chan;
-    Tcl_FileProc        *c_handler;
-#endif
-    struct pkg_conn	*c_pkg;
-};
+/* Step 9: struct client / c_pkg removed — fbserv is a no-op stub (Stage 8),
+ * and no mged .c file references struct client or c_pkg.
+ * pkg.h include also removed since it was only needed for struct pkg_conn here. */
 
 
 /* mged command variables for affecting the user environment */
@@ -216,7 +224,7 @@ struct _view_state {
     int		vs_rc;
     int		vs_flag;
 
-    struct bview *vs_gvp;
+    bsg_view *vs_gvp;
     mat_t	vs_model2objview;
     mat_t	vs_objview2model;
     mat_t	vs_ModelDelta;		/* changes to Viewrot this frame */
@@ -226,7 +234,7 @@ struct _view_state {
     struct view_ring	*vs_last_view;
 
     /* Rate stuff */
-    struct bview_knobs k;
+    bsg_knobs k;
 
     /* Virtual trackball stuff */
     point_t	vs_orig_pos;
@@ -344,110 +352,169 @@ struct _menu_state {
     struct menu_item	*ms_menus[NMENU];    /* base of menu items array */
 };
 
+/* Step 7.18: struct mged_dm deleted.  All fields (dm_dmp, dm_fbp, dm_netfd,
+ * dm_netchan, dm_clients, dm_dirty, dm_mapped) moved into mged_pane as mp_*.
+ * mged_dm_init_state global removed; startup sentinel is s->mged_init_pane.
+ * mp_dm field removed from mged_pane; Obol vs. dm distinction via mp_dmp. */
 
-struct mged_dm {
-    struct dm		*dm_dmp;
-    struct fb		*dm_fbp;
-    int			dm_netfd;			/* socket used to listen for connections */
-#ifdef USE_TCL_CHAN
-    Tcl_Channel		dm_netchan;
-#endif
-    struct client	dm_clients[MAX_CLIENTS];
-    int			dm_dirty;			/* true if received an expose or configuration event */
-    int			dm_mapped;
-    int			dm_owner;			/* true if owner of the view info */
-    int			dm_am_mode;			/* alternate mouse mode */
-    int			dm_ndrawn;
-    int			dm_perspective_angle;
-    int			*dm_zclip_ptr;
-    struct bu_list	dm_p_vlist;			/* predictor vlist */
-    struct trail	dm_trails[NUM_TRAILS];
-    struct cmd_list	*dm_tie;
+/* -----------------------------------------------------------------------
+ * Stage 7 — MGED libdm removal: mged_pane + active_pane_set
+ *
+ * `mged_pane` is the lightweight per-pane struct that replaces `mged_dm`
+ * once libdm is fully removed from MGED.  It carries only the non-dm
+ * per-pane state.  `active_pane_set` (a bu_ptbl of mged_pane*) replaces
+ * `active_dm_set`.  Step 6.c done: `active_dm_set` is no longer maintained.
+ *
+ *  - Legacy dm panes are tracked via their `mged_pane` wrapper (mp_dm != NULL).
+ *  - Obol panes created by `f_new_obol_view_ptr` have mp_dm == NULL and are
+ *    registered in both `active_pane_set` AND `ged_views`.
+ *
+ * `set_curr_pane()` sets `s->gedp->ged_gvp` from `mp->mp_gvp` and sets
+ * `s->mged_curr_pane = mp`.  Step 7.18 removed `struct mged_dm` entirely;
+ * all libdm fields (mp_dmp, mp_fbp, mp_netfd, etc.) are now on mged_pane.
+ * Next: remove dm-generic.c, migrate draw/refresh to Obol.
+ *
+ * See RADICAL_MIGRATION.md, "MGED refactoring for libdm removal", steps 2-7.
+ * ----------------------------------------------------------------------- */
 
-    int			dm_adc_auto;
-    int			dm_grid_auto_size;
-    int			_dm_mouse_dx;
-    int			_dm_mouse_dy;
-    int			_dm_omx;
-    int			_dm_omy;
-    int			_dm_knobs[8];
-    point_t		_dm_work_pt;
+struct mged_pane {
+    bsg_view          *mp_gvp;       /* the view this pane displays */
+    struct cmd_list   *mp_cmd_tie;   /* Tcl command-history link */
+    struct bu_list     mp_p_vlist;   /* predictor vlist */
+    struct trail       mp_trails[NUM_TRAILS]; /* predictor trails */
+    int                mp_ndrawn;    /* count of objects drawn */
 
-    /* Tcl variable names for display info */
-    struct bu_vls	dm_fps_name;
-    struct bu_vls	dm_aet_name;
-    struct bu_vls	dm_ang_name;
-    struct bu_vls	dm_center_name;
-    struct bu_vls	dm_size_name;
-    struct bu_vls	dm_adc_name;
+    /* Step 7.20: libdm handle fields (mp_dmp, mp_fbp, mp_netfd, mp_netchan,
+     * mp_clients, mp_dirty, mp_mapped) removed — Obol-only mode, always NULL/0. */
 
-    /* Slider stuff */
-    int			dm_scroll_top;
-    int			dm_scroll_active;
-    int			dm_scroll_y;
-    struct scroll_item	*dm_scroll_array[6];
+    /* Per-pane shareable resources.  Allocated and ref-counted. */
+    struct _view_state      *mp_view_state;
+    struct _adc_state       *mp_adc_state;
+    struct _menu_state      *mp_menu_state;
+    struct _rubber_band     *mp_rubber_band;
+    struct _mged_variables  *mp_mged_variables;
+    struct _color_scheme    *mp_color_scheme;
+    struct bsg_grid_state   *mp_grid_state;
+    struct _axes_state      *mp_axes_state;
+    struct _dlist_state     *mp_dlist_state;
 
-    /* Shareable Resources */
-    struct _view_state	*dm_view_state;
-    struct _adc_state	*dm_adc_state;
-    struct _menu_state	*dm_menu_state;
-    struct _rubber_band	*dm_rubber_band;
-    struct _mged_variables *dm_mged_variables;
-    struct _color_scheme	*dm_color_scheme;
-    struct bv_grid_state *dm_grid_state;
-    struct _axes_state	*dm_axes_state;
-    struct _dlist_state	*dm_dlist_state;
+    /* Tcl display variable names (mirrors dm_fps_name, dm_aet_name, etc.).
+     * Initialized by mged_pane_link_vars() when the pane is registered.
+     * Used by dotitles() (Step 7.20: dotitles uses these directly). */
+    struct bu_vls   mp_fps_name;    /* "$::mged_display(%path,fps)" */
+    struct bu_vls   mp_aet_name;    /* "$::mged_display(%path,aet)" */
+    struct bu_vls   mp_ang_name;    /* "$::mged_display(%path,ang)" */
+    struct bu_vls   mp_center_name; /* "$::mged_display(%path,center)" */
+    struct bu_vls   mp_size_name;   /* "$::mged_display(%path,size)" */
+    struct bu_vls   mp_adc_name;    /* "$::mged_display(%path,adc)" */
 
-    /* Hooks */
-    int			(*dm_cmd_hook)(int, const char **, void *);
-    void			(*dm_viewpoint_hook)(void);
-    int			(*dm_eventHandler)(void);
+    /* Step 7.15: Non-lifecycle state fields moved from mged_dm to mged_pane.
+     * Step 7.20: mp_owner/mp_dirty/mp_mapped removed (libdm-only fields). */
+    int mp_am_mode;          /* alternate mouse mode */
+    int mp_perspective_angle;/* current perspective-table index (0-3) */
+    int mp_adc_auto;         /* adc auto-clear flag */
+    int mp_grid_auto_size;   /* auto grid-size flag */
+
+    /* Mouse/knob state */
+    int mp_mouse_dx;
+    int mp_mouse_dy;
+    int mp_omx;
+    int mp_omy;
+    int mp_knobs[8];
+    point_t mp_work_pt;
+
+    /* Scroll-widget state */
+    int mp_scroll_top;
+    int mp_scroll_active;
+    int mp_scroll_y;
+    struct scroll_item *mp_scroll_array[6];
 };
 
-/* If we're changing the active DM, use this function so
- * libged also gets the word. */
-extern void set_curr_dm(struct mged_state *s, struct mged_dm *nl);
+#define MGED_PANE_NULL ((struct mged_pane *)NULL)
 
-#define MGED_DM_NULL ((struct mged_dm *)NULL)
-#define DMP s->mged_curr_dm->dm_dmp
-#define DMP_dirty s->mged_curr_dm->dm_dirty
-#define fbp s->mged_curr_dm->dm_fbp
-#define clients s->mged_curr_dm->dm_clients
-#define mapped s->mged_curr_dm->dm_mapped
-#define owner s->mged_curr_dm->dm_owner
-#define am_mode s->mged_curr_dm->dm_am_mode
-#define perspective_angle s->mged_curr_dm->dm_perspective_angle
-#define zclip_ptr s->mged_curr_dm->dm_zclip_ptr
+extern struct bu_ptbl active_pane_set;       /* defined in attach.c */
+extern void set_curr_pane(struct mged_state *s, struct mged_pane *mp);
+extern void mged_pane_link_vars(struct mged_pane *mp);  /* in attach.c */
+extern void obol_update_title_vars(struct mged_state *s, struct mged_pane *mp);  /* in titles.c */
 
-#define view_state s->mged_curr_dm->dm_view_state
-#define adc_state s->mged_curr_dm->dm_adc_state
-#define menu_state s->mged_curr_dm->dm_menu_state
-#define rubber_band s->mged_curr_dm->dm_rubber_band
-#define mged_variables s->mged_curr_dm->dm_mged_variables
-#define color_scheme s->mged_curr_dm->dm_color_scheme
-#define grid_state s->mged_curr_dm->dm_grid_state
-#define axes_state s->mged_curr_dm->dm_axes_state
-#define dlist_state s->mged_curr_dm->dm_dlist_state
+/**
+ * Find the mged_pane in active_pane_set whose gv_name matches `name`.
+ * Step 6.a: active_pane_set covers both Obol panes and legacy dm wrappers.
+ * Returns MGED_PANE_NULL if not found.
+ */
+extern struct mged_pane *mged_pane_find_by_name(const char *name);
 
-#define cmd_hook s->mged_curr_dm->dm_cmd_hook
-#define viewpoint_hook s->mged_curr_dm->dm_viewpoint_hook
-#define eventHandler s->mged_curr_dm->dm_eventHandler
+/**
+ * Release an Obol pane: remove it from active_pane_set and free it.
+ * Call this when the corresponding obol_view Tk widget is destroyed.
+ * The caller is responsible for destroying the bsg_view separately
+ * (it is tracked in ged_free_views).
+ */
+extern void mged_pane_release(struct mged_pane *mp);
 
-#define adc_auto s->mged_curr_dm->dm_adc_auto
-#define grid_auto_size s->mged_curr_dm->dm_grid_auto_size
+/**
+ * Allocate and initialize the per-pane overlay state (mp_view_state,
+ * mp_color_scheme, etc.) for an mged_pane (Obol or legacy dm).
+ * Copies initial values from the currently-active pane (s->mged_curr_pane)
+ * or from s->mged_init_pane as fallback.
+ * Step 7.18: unified single path; no mp_dm branching.
+ */
+extern void mged_pane_init_resources(struct mged_state *s, struct mged_pane *mp);
+
+/**
+ * Free the per-pane overlay state allocated by mged_pane_init_resources().
+ * Safe to call even if init_resources was never called (all pointers are NULL).
+ */
+extern void mged_pane_free_resources(struct mged_pane *mp);
+
+/* Step 7.20: DMP/DMP_dirty/fbp/clients/mapped/owner macros removed —
+ * mp_dmp/mp_fbp/mp_dirty/mp_mapped/mp_clients/mp_owner fields deleted from
+ * mged_pane (Obol-only mode; libdm completely removed from MGED). */
+/* Step 7.20: owner macro removed — mp_owner field deleted from mged_pane. */
+#define am_mode s->mged_curr_pane->mp_am_mode
+#define perspective_angle s->mged_curr_pane->mp_perspective_angle
+/* Step 7.15: zclip_ptr macro removed — dm_zclip_ptr was dead (never used). */
+
+/* Step 7.2: mged_curr_pane is always non-NULL after startup (init_pane created
+ * in mged_main before any attach).  Direct mp_* access — no ternary fallback.
+ * Step 7.19: dm_var_init removed; Obol-only path creates bsg_views directly. */
+#define view_state s->mged_curr_pane->mp_view_state
+#define adc_state s->mged_curr_pane->mp_adc_state
+#define menu_state s->mged_curr_pane->mp_menu_state
+#define rubber_band s->mged_curr_pane->mp_rubber_band
+#define mged_variables s->mged_curr_pane->mp_mged_variables
+#define color_scheme s->mged_curr_pane->mp_color_scheme
+#define grid_state s->mged_curr_pane->mp_grid_state
+#define axes_state s->mged_curr_pane->mp_axes_state
+#define dlist_state s->mged_curr_pane->mp_dlist_state
+
+/* Step 7.8: pv_head / pane_trails simplified from ternary to always use pane
+ * fields.  mged_pane_init_resources() initialises mp_p_vlist and mp_trails
+ * for Obol panes (via predictor_init_pane), so the pane's fields are always valid.
+ * Step 7.19: mged_dm_init / dm_var_init removed; pane creation uses bsg_view_init. */
+#define pv_head (&s->mged_curr_pane->mp_p_vlist)
+#define pane_trails (s->mged_curr_pane->mp_trails)
+
+/* Step 7.14: cmd_hook/viewpoint_hook/eventHandler macros removed.
+ * dm_cmd_hook was always dm_commands — use dm_commands() directly.
+ * viewpoint_hook/eventHandler were never assigned or called (dead). */
+
+/* Step 7.15: adc_auto, grid_auto_size, mouse/knob/scroll fields moved from mged_dm to mged_pane. */
+#define adc_auto s->mged_curr_pane->mp_adc_auto
+#define grid_auto_size s->mged_curr_pane->mp_grid_auto_size
 
 /* Names of macros must be different than actual struct element */
-#define dm_mouse_dx s->mged_curr_dm->_dm_mouse_dx
-#define dm_mouse_dy s->mged_curr_dm->_dm_mouse_dy
-#define dm_omx s->mged_curr_dm->_dm_omx
-#define dm_omy s->mged_curr_dm->_dm_omy
-#define dm_knobs s->mged_curr_dm->_dm_knobs
-#define dm_work_pt s->mged_curr_dm->_dm_work_pt
+#define dm_mouse_dx s->mged_curr_pane->mp_mouse_dx
+#define dm_mouse_dy s->mged_curr_pane->mp_mouse_dy
+#define dm_omx s->mged_curr_pane->mp_omx
+#define dm_omy s->mged_curr_pane->mp_omy
+#define dm_knobs s->mged_curr_pane->mp_knobs
+#define dm_work_pt s->mged_curr_pane->mp_work_pt
 
-#define scroll_top s->mged_curr_dm->dm_scroll_top
-#define scroll_active s->mged_curr_dm->dm_scroll_active
-#define scroll_y s->mged_curr_dm->dm_scroll_y
-#define scroll_array s->mged_curr_dm->dm_scroll_array
+#define scroll_top s->mged_curr_pane->mp_scroll_top
+#define scroll_active s->mged_curr_pane->mp_scroll_active
+#define scroll_y s->mged_curr_pane->mp_scroll_y
+#define scroll_array s->mged_curr_pane->mp_scroll_array
 
 #define VIEWSIZE	(view_state->vs_gvp->gv_size)	/* Width of viewing cube */
 #define VIEWFACTOR	(1/view_state->vs_gvp->gv_scale)
@@ -505,24 +572,18 @@ extern void set_curr_dm(struct mged_state *s, struct mged_dm *nl);
 
 #define BV_MAXFUNC	64	/* largest code used */
 
-#define GET_MGED_DM(p, id) { \
-    \
-    (p) = MGED_DM_NULL; \
-    for (size_t dm_ind = 0; dm_ind < BU_PTBL_LEN(&active_dm_set); dm_ind++) { \
-	struct mged_dm *tp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, dm_ind); \
-	if ((id) == dm_get_id(tp->dm_dmp)) { \
-	    (p) = tp; \
-	    break; \
-	} \
-    } \
-    \
-}
+/* Step 7.20: GET_MGED_DM — mp_dmp removed, always returns NULL. */
+#define GET_MGED_DM(p, id) { (void)(id); (p) = MGED_PANE_NULL; }
+
+/* Step 7.20: GET_MGED_PANE — mp_dmp removed, always returns NULL.
+ * (was: find pane by legacy dm window-id) */
+#define GET_MGED_PANE(p, id) { (void)(id); (p) = MGED_PANE_NULL; }
 
 extern double frametime;		/* defined in mged.c */
-extern int dm_pipe[];			/* defined in mged.c */
+/* Step 8: dm_pipe[] extern removed — dead declaration; no definition in mged.c */
 extern int update_views;		/* defined in mged.c */
-extern struct bu_ptbl active_dm_set;	/* defined in attach.c */
-extern struct mged_dm *mged_dm_init_state;
+/* active_dm_set removed (Step 6.c); use active_pane_set instead */
+/* mged_dm_init_state removed (Step 7.18); startup sentinel is s->mged_init_pane */
 
 /* defined in doevent.c */
 #ifdef HAVE_X11_TYPES
@@ -532,32 +593,19 @@ extern int doEvent(ClientData, void *);
 #endif
 
 /* defined in attach.c */
-extern void dm_var_init(struct mged_state *s, struct mged_dm *target_dm);
 
-/* defined in dm-generic.c */
-extern int common_dm(struct mged_state *s, int argc, const char *argv[]);
-extern void view_state_flag_hook(const struct bu_structparse *, const char *, void *,const char *, void *);
-extern void dirty_hook(const struct bu_structparse *, const char *, void *,const char *, void *);
-extern void zclip_hook(const struct bu_structparse *, const char *, void *,const char *, void *);
+/* Step 7.19: dm_var_init() removed — Obol-only attach path eliminated the
+ * libdm view-init step.  Pane views are created by bsg_view_init() directly. */
+
+/* Step 7.19: common_dm, view_state_flag_hook, dirty_hook, zclip_hook, dm_commands,
+ * set_hook_data, and mged_view_hook_state removed — dm-generic.c deleted.
+ * The dm set/hook machinery is no longer needed in Obol-only mode. */
 
 /* external sp_hook functions */
 extern void cs_set_bg(const struct bu_structparse *, const char *, void *, const char *, void *); /* defined in color_scheme.c */
 
 /* defined in setup.c */
 extern void mged_rtCmdNotify(int);
-
-/* indices into which_dm[] */
-#define DM_PLOT_INDEX 0
-#define DM_PS_INDEX 1
-
-struct mged_view_hook_state {
-    struct dm *hs_dmp;
-    struct _view_state *vs;
-    int *dirty_global;
-};
-extern void *set_hook_data(struct mged_state *s, struct mged_view_hook_state *hs);
-
-int dm_commands(int argc, const char *argv[], void *data);
 
 
 #endif /* MGED_MGED_DM_H */

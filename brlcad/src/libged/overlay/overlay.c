@@ -28,7 +28,7 @@
 
 #include "bu/path.h"
 #include "bu/mime.h"
-#include "bv/vlist.h"
+#include "bsg/vlist.h"
 #include "icv.h"
 #include "dm.h"
 
@@ -111,12 +111,8 @@ ged_overlay_core(struct ged *gedp, int argc, const char *argv[])
 	return BRLCAD_ERROR;
     }
 
+    /* dmp may be NULL in the Obol rendering path; only needed for write_fb */
     dmp = (struct dm *)gedp->ged_gvp->dmp;
-    if (!dmp) {
-	bu_vls_printf(gedp->ged_result_str, ": no display manager currently active");
-	bu_vls_free(&vname);
-	return BRLCAD_ERROR;
-    }
 
     /* must be wanting help */
     if (argc == 1) {
@@ -136,17 +132,18 @@ ged_overlay_core(struct ged *gedp, int argc, const char *argv[])
     }
 
     if (!write_fb && NEAR_ZERO(size, VUNITIZE_TOL)) {
-	if (!gedp->ged_gvp) {
-	    bu_vls_printf(gedp->ged_result_str, ": no character size specified, and could not determine default value");
-	    bu_vls_free(&vname);
-	    return BRLCAD_ERROR;
-	}
 	size = gedp->ged_gvp->gv_scale * 0.01;
     }
 
     argc = opt_ret;
 
     if (write_fb) {
+	/* Framebuffer overlay requires a display manager backend */
+	if (!dmp) {
+	    bu_vls_printf(gedp->ged_result_str, ": framebuffer overlay requires a display manager backend (not available in Obol rendering path)");
+	    bu_vls_free(&vname);
+	    return BRLCAD_ERROR;
+	}
 	fbp = dm_get_fb(dmp);
 	if (!fbp) {
 	    bu_vls_printf(gedp->ged_result_str, ": display manager does not have a framebuffer");
@@ -177,7 +174,7 @@ ged_overlay_core(struct ged *gedp, int argc, const char *argv[])
     }
 
     if (!write_fb) {
-	struct bv_vlblock*vbp;
+	struct bsg_vlblock*vbp;
 
 	struct bu_vls nroot = BU_VLS_INIT_ZERO;
 	if (!BU_STR_EQUAL(bu_vls_cstr(&vname), "_PLOT_OVERLAY_")) {
@@ -202,7 +199,7 @@ ged_overlay_core(struct ged *gedp, int argc, const char *argv[])
 		bu_vls_free(&vname);
 		return BRLCAD_ERROR;
 	    }
-	    vbp = bv_vlblock_init(vlfree, 32);
+	    vbp = bsg_vlblock_init(vlfree, 32);
 	    for (size_t i = 0; i < count; i++) {
 		if ((fp = fopen(files[i], "rb")) == NULL) {
 		    bu_vls_printf(gedp->ged_result_str, "ged_overlay_core: failed to open file - %s\n", files[i]);
@@ -214,7 +211,7 @@ ged_overlay_core(struct ged *gedp, int argc, const char *argv[])
 		ret = rt_uplot_to_vlist(vbp, fp, size, gedp->i->ged_gdp->gd_uplotOutputMode);
 		fclose(fp);
 		if (ret < 0) {
-		    bv_vlblock_free(vbp);
+		    bsg_vlblock_free(vbp);
 		    bu_argv_free(count, files);
 		    bu_vls_free(&nroot);
 		    bu_vls_free(&vname);
@@ -223,11 +220,11 @@ ged_overlay_core(struct ged *gedp, int argc, const char *argv[])
 	    }
 	    bu_argv_free(count, files);
 	} else {
-	    vbp = bv_vlblock_init(vlfree, 32);
+	    vbp = bsg_vlblock_init(vlfree, 32);
 	    ret = rt_uplot_to_vlist(vbp, fp, size, gedp->i->ged_gdp->gd_uplotOutputMode);
 	    fclose(fp);
 	    if (ret < 0) {
-		bv_vlblock_free(vbp);
+		bsg_vlblock_free(vbp);
 		bu_vls_free(&nroot);
 		bu_vls_free(&vname);
 		return BRLCAD_ERROR;
@@ -235,13 +232,13 @@ ged_overlay_core(struct ged *gedp, int argc, const char *argv[])
 	}
 
 	if (gedp->new_cmd_forms) {
-	    struct bview *v = gedp->ged_gvp;
-	    bv_vlblock_obj(vbp, v, bu_vls_cstr(&nroot));
+	    bsg_view *v = gedp->ged_gvp;
+	    bsg_vlblock_obj(vbp, v, bu_vls_cstr(&nroot));
 	} else {
 	    _ged_cvt_vlblock_to_solids(gedp, vbp, bu_vls_cstr(&vname), 0);
 	}
 
-	bv_vlblock_free(vbp);
+	bsg_vlblock_free(vbp);
 	bu_vls_free(&nroot);
 	bu_vls_free(&vname);
 

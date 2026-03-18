@@ -39,6 +39,7 @@
 #include "wdb.h"
 
 #include "../edit_private.h"
+#include "bsg/util.h"
 
 #define ECMD_PIPE_SELECT	15028	/* Pick pipe point */
 #define ECMD_PIPE_SPLIT		15029	/* Split a pipe segment into two */
@@ -448,6 +449,8 @@ find_pipe_pnt_nearest_pnt(struct rt_edit *s, const struct bu_list *pipe_hd, cons
     fastf_t min_dist = MAX_FASTF;
     vect_t dir, work;
 
+    struct bsg_camera _cam;
+    bsg_view_get_camera(s->vp, &_cam);
     tmp_tol.magic = BN_TOL_MAGIC;
     tmp_tol.dist = 0.0;
     tmp_tol.dist_sq = tmp_tol.dist * tmp_tol.dist;
@@ -456,7 +459,7 @@ find_pipe_pnt_nearest_pnt(struct rt_edit *s, const struct bu_list *pipe_hd, cons
 
     /* get a direction vector in model space corresponding to z-direction in view */
     VSET(work, 0.0, 0.0, 1.0);
-    MAT4X3VEC(dir, s->vp->gv_view2model, work);
+    MAT4X3VEC(dir, _cam.view2model, work);
 
     for (BU_LIST_FOR(ps, wdb_pipe_pnt, pipe_hd)) {
 	fastf_t dist;
@@ -1212,6 +1215,8 @@ rt_edit_pipe_edit_xy(
     vect_t pos_view = VINIT_ZERO;       /* Unrotated view space pos */
     vect_t temp = VINIT_ZERO;
     struct rt_db_internal *ip = &s->es_int;
+    struct bsg_camera _cam;
+    bsg_view_get_camera(s->vp, &_cam);
     bu_clbk_t f = NULL;
     void *d = NULL;
 
@@ -1236,10 +1241,10 @@ rt_edit_pipe_edit_xy(
 	case ECMD_PIPE_PT_ADD:
 	case ECMD_PIPE_PT_INS:
 	case ECMD_PIPE_PT_MOVE:
-	    MAT4X3PNT(pos_view, s->vp->gv_model2view, s->curr_e_axes_pos);
+	    MAT4X3PNT(pos_view, _cam.model2view, s->curr_e_axes_pos);
 	    pos_view[X] = mousevec[X];
 	    pos_view[Y] = mousevec[Y];
-	    MAT4X3PNT(temp, s->vp->gv_view2model, pos_view);
+	    MAT4X3PNT(temp, _cam.view2model, pos_view);
 	    MAT4X3PNT(s->e_mparam, s->e_invmat, temp);
 	    s->e_mvalid = 1;
 	    break;

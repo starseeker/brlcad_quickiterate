@@ -25,6 +25,7 @@
 
 
 #include "vmath.h"
+#include "bsg/util.h"
 
 #include "./sedit.h"
 #include "./mged.h"
@@ -137,13 +138,9 @@ set_dirty_flag(const struct bu_structparse *UNUSED(sdp),
 {
     struct mged_state *s = (struct mged_state *)data;
     MGED_CK_STATE(s);
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	if (m_dmp->dm_mged_variables == mged_variables) {
-	    m_dmp->dm_dirty = 1;
-	    dm_set_dirty(m_dmp->dm_dmp, 1);
-	}
-    }
+    /* Stage 7: notify the Obol path via update_views. */
+    s->update_views = 1;
+    /* Step 7.20: mp_dmp removed; update_views triggers Obol refresh. */
 }
 
 
@@ -318,27 +315,27 @@ set_scroll_private(const struct bu_structparse *UNUSED(sdp),
 {
     struct mged_state *s = (struct mged_state *)data;
     MGED_CK_STATE(s);
-    struct mged_dm *save_m_dmp;
+    struct mged_pane *save_pane = s->mged_curr_pane;
+    /* Step 7.7: compare via pane's mp_mged_variables (works for both Obol and
+     * legacy dm wrapper panes; mged_curr_pane->mp_mged_variables is always valid). */
+    struct _mged_variables *save_mv = save_pane->mp_mged_variables;
 
-    save_m_dmp = s->mged_curr_dm;
-
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	if (m_dmp->dm_mged_variables == save_m_dmp->dm_mged_variables) {
-	    set_curr_dm(s, m_dmp);
+    /* Step 7.20: mp_dmp removed; iterate all panes. */
+    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	if (mp->mp_mged_variables == save_mv) {
+	    set_curr_pane(s, mp);
 
 	    if (mged_variables->mv_faceplate && mged_variables->mv_orig_gui) {
 		if (mged_variables->mv_sliders)	/* zero slider variables */
 		    mged_svbase(s);
 
 		set_scroll(s);		/* set scroll_array for drawing the scroll bars */
-		DMP_dirty = 1;
-		dm_set_dirty(DMP, 1);
 	    }
 	}
     }
 
-    set_curr_dm(s, save_m_dmp);
+    set_curr_pane(s, save_pane);
 }
 
 
@@ -356,8 +353,10 @@ set_absolute_tran(struct mged_state *s)
 void
 set_absolute_view_tran(struct mged_state *s)
 {
+    struct bsg_camera _cam;
+    bsg_view_get_camera(view_state->vs_gvp, &_cam);
     /* calculate absolute_tran */
-    MAT4X3PNT(view_state->k.tra_v_abs, view_state->vs_gvp->gv_model2view, view_state->vs_orig_pos);
+    MAT4X3PNT(view_state->k.tra_v_abs, _cam.model2view, view_state->vs_orig_pos);
     /* This is used in f_knob()  ---- needed in case absolute_tran is set from Tcl */
     VMOVE(view_state->k.tra_v_abs_last, view_state->k.tra_v_abs);
 }
@@ -368,9 +367,11 @@ set_absolute_model_tran(struct mged_state *s)
 {
     point_t new_pos;
     point_t diff;
+    struct bsg_camera _cam;
 
+    bsg_view_get_camera(view_state->vs_gvp, &_cam);
     /* calculate absolute_model_tran */
-    MAT_DELTAS_GET_NEG(new_pos, view_state->vs_gvp->gv_center);
+    MAT_DELTAS_GET_NEG(new_pos, _cam.center);
     VSUB2(diff, view_state->vs_orig_pos, new_pos);
     VSCALE(view_state->k.tra_m_abs, diff, 1/view_state->vs_gvp->gv_scale);
     /* This is used in f_knob()  ---- needed in case absolute_model_tran is set from Tcl */
@@ -387,88 +388,10 @@ set_dlist(const struct bu_structparse *UNUSED(sdp),
 {
     struct mged_state *s = (struct mged_state *)data;
     MGED_CK_STATE(s);
-    struct mged_dm *save_dlp;
+    struct mged_pane *save_pane = s->mged_curr_pane;
 
-    /* save current display manager */
-    save_dlp = s->mged_curr_dm;
-
-    if (mged_variables->mv_dlist) {
-	/* create display lists */
-
-	/* for each display manager dlp1 that shares its dm_mged_variables with save_dlp */
-	for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-
-	    struct mged_dm *dlp1 = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-
-	    if (dlp1->dm_mged_variables != save_dlp->dm_mged_variables) {
-		continue;
-	    }
-
-	    if (dm_get_displaylist(dlp1->dm_dmp) &&
-		dlp1->dm_dlist_state->dl_active == 0) {
-		set_curr_dm(s, dlp1);
-		createDLists((void *)s, (struct bu_list *)ged_dl(s->gedp));
-		dlp1->dm_dlist_state->dl_active = 1;
-		dlp1->dm_dirty = 1;
-		dm_set_dirty(dlp1->dm_dmp, 1);
-	    }
-	}
-    } else {
-	/*
-	 * Free display lists if not being used by another display manager
-	 */
-
-	/* for each display manager dlp1 that shares its dm_mged_variables with save_dlp */
-	for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-
-	    struct mged_dm *dlp1 = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-
-	    if (dlp1->dm_mged_variables != save_dlp->dm_mged_variables)
-		continue;
-
-	    if (dlp1->dm_dlist_state->dl_active) {
-		/* for each display manager dlp2 that is sharing display lists with dlp1 */
-		struct mged_dm *dlp2 = MGED_DM_NULL;
-		for (size_t dj = 0; dj < BU_PTBL_LEN(&active_dm_set); dj++) {
-		    struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-
-		    if (m_dmp->dm_dlist_state != dlp1->dm_dlist_state) {
-			continue;
-		    }
-
-		    /* found a dlp2 that is actively using dlp1's display lists */
-		    if (dlp2 && dlp2->dm_mged_variables->mv_dlist) {
-			dlp2 = m_dmp;
-			break;
-		    }
-		}
-
-		/* these display lists are not being used, so free them */
-		if (dlp2 == MGED_DM_NULL) {
-		    struct display_list *gdlp;
-		    struct display_list *next_gdlp;
-
-		    dlp1->dm_dlist_state->dl_active = 0;
-
-		    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-		    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-			next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-			(void)dm_make_current(dlp1->dm_dmp);
-			(void)dm_free_dlists(dlp1->dm_dmp,
-				      BU_LIST_FIRST(bv_scene_obj, &gdlp->dl_head_scene_obj)->s_dlist,
-				      BU_LIST_LAST(bv_scene_obj, &gdlp->dl_head_scene_obj)->s_dlist -
-				      BU_LIST_FIRST(bv_scene_obj, &gdlp->dl_head_scene_obj)->s_dlist + 1);
-
-			gdlp = next_gdlp;
-		    }
-		}
-	    }
-	}
-    }
-
-    /* restore current display manager */
-    set_curr_dm(s, save_dlp);
+    /* Step 7.20: display list loops removed (mp_dmp gone). */
+    set_curr_pane(s, save_pane);
 }
 
 
@@ -488,10 +411,11 @@ set_perspective(const struct bu_structparse *sdp,
 	mged_variables->mv_perspective_mode = 0;
 
     /* keep view object in sync */
-    view_state->vs_gvp->gv_perspective = mged_variables->mv_perspective;
-
-    /* keep display manager in sync */
-    dm_set_perspective(DMP, mged_variables->mv_perspective_mode);
+    {
+	struct bsg_camera _sp; bsg_view_get_camera(view_state->vs_gvp, &_sp);
+	_sp.perspective = mged_variables->mv_perspective;
+	bsg_view_set_camera(view_state->vs_gvp, &_sp);
+    }
 
     set_dirty_flag(sdp, name, base, value, data);
 }
@@ -510,10 +434,11 @@ establish_perspective(const struct bu_structparse *sdp,
 	perspective_table[perspective_angle] : -1;
 
     /* keep view object in sync */
-    view_state->vs_gvp->gv_perspective = mged_variables->mv_perspective;
-
-    /* keep display manager in sync */
-    dm_set_perspective(DMP, mged_variables->mv_perspective_mode);
+    {
+	struct bsg_camera _sp; bsg_view_get_camera(view_state->vs_gvp, &_sp);
+	_sp.perspective = mged_variables->mv_perspective;
+	bsg_view_set_camera(view_state->vs_gvp, &_sp);
+    }
 
     set_dirty_flag(sdp, name, base, value, data);
 }
@@ -552,10 +477,11 @@ toggle_perspective(const struct bu_structparse *sdp,
     mged_variables->mv_perspective = perspective_table[perspective_angle];
 
     /* keep view object in sync */
-    view_state->vs_gvp->gv_perspective = mged_variables->mv_perspective;
-
-    /* keep display manager in sync */
-    dm_set_perspective(DMP, mged_variables->mv_perspective_mode);
+    {
+	struct bsg_camera _sp; bsg_view_get_camera(view_state->vs_gvp, &_sp);
+	_sp.perspective = mged_variables->mv_perspective;
+	bsg_view_set_camera(view_state->vs_gvp, &_sp);
+    }
 
     set_dirty_flag(sdp, name, base, value, data);
 }
@@ -570,7 +496,11 @@ set_coords(const struct bu_structparse *UNUSED(sdp),
 {
     struct mged_state *s = (struct mged_state *)data;
     MGED_CK_STATE(s);
-    view_state->vs_gvp->gv_coord = mged_variables->mv_coords;
+    {
+	struct bsg_camera _sc; bsg_view_get_camera(view_state->vs_gvp, &_sc);
+	_sc.coord = mged_variables->mv_coords;
+	bsg_view_set_camera(view_state->vs_gvp, &_sc);
+    }
 }
 
 
@@ -583,7 +513,11 @@ set_rotate_about(const struct bu_structparse *UNUSED(sdp),
 {
     struct mged_state *s = (struct mged_state *)data;
     MGED_CK_STATE(s);
-    view_state->vs_gvp->gv_rotate_about = mged_variables->mv_rotate_about;
+    {
+	struct bsg_camera _sr; bsg_view_get_camera(view_state->vs_gvp, &_sr);
+	_sr.rotate_about = mged_variables->mv_rotate_about;
+	bsg_view_set_camera(view_state->vs_gvp, &_sr);
+    }
 }
 
 

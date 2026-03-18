@@ -51,10 +51,10 @@ class QTCAD_EXPORT QgGeomImport : public QObject
     Q_OBJECT
 
     public:
-	QgGeomImport(QWidget *pparent = NULL);
+	QgGeomImport(QWidget *pparent = nullptr);
 	~QgGeomImport();
 
-	QString gfile(const char *tfile = NULL);
+	QString gfile(const char *tfile = nullptr);
 
 	bool enable_conversion = true;
 

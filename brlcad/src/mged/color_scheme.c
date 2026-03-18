@@ -248,13 +248,8 @@ cs_set_dirty_flag(const struct bu_structparse *UNUSED(sdp),
 {
     struct mged_state *s = (struct mged_state *)data;
     MGED_CK_STATE(s);
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	if (m_dmp->dm_color_scheme == color_scheme) {
-	    m_dmp->dm_dirty = 1;
-	    dm_set_dirty(m_dmp->dm_dmp, 1);
-	}
-    }
+    /* Step 7.20: mp_dmp removed; update_views triggers Obol refresh. */
+    s->update_views = 1;
 }
 
 
@@ -297,7 +292,7 @@ cs_set_bg(const struct bu_structparse *UNUSED(sdp),
 {
     struct mged_state *s = (struct mged_state *)data;
     MGED_CK_STATE(s);
-    struct mged_dm *save_curr_m_dmp = s->mged_curr_dm;
+    struct mged_pane *save_pane = s->mged_curr_pane;
     struct bu_vls vls = BU_VLS_INIT_ZERO;
 
     bu_vls_printf(&vls, "dm bg %d %d %d",
@@ -305,25 +300,13 @@ cs_set_bg(const struct bu_structparse *UNUSED(sdp),
 		  color_scheme->cs_bg[1],
 		  color_scheme->cs_bg[2]);
 
-    // set_curr_dm will update ged_gvp, but we don't
-    // want that here - stash the current ged_gvp
-    // state.  Need to rethink how we're managing
-    // the notion of the "current" dm in situations
-    // where we act on all dm instances.  set_curr_dm
-    // should probably be replaced with get_next_dm
-    struct bview *cbv = s->gedp->ged_gvp;
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	if (m_dmp->dm_color_scheme == color_scheme) {
-	    m_dmp->dm_dirty = 1;
-	    dm_set_dirty(m_dmp->dm_dmp, 1);
-	    set_curr_dm(s, m_dmp);
-	    Tcl_Eval(s->interp, bu_vls_addr(&vls));
-	}
-    }
+    bsg_view *cbv = s->gedp->ged_gvp;
+    /* Step 7.20: mp_dmp removed; just trigger Obol refresh. */
+    s->update_views = 1;
+    (void)cbv;
 
     bu_vls_free(&vls);
-    set_curr_dm(s, save_curr_m_dmp);
+    set_curr_pane(s, save_pane);
     s->gedp->ged_gvp = cbv;
 }
 

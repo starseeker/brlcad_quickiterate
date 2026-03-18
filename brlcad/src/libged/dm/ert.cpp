@@ -64,15 +64,41 @@ ged_ert_core(struct ged *gedp, int argc, const char *argv[])
     }
 
     struct dm *dmp = (struct dm *)gedp->ged_gvp->dmp;
-    if (!dmp) {
-	bu_vls_printf(gedp->ged_result_str, "no current display manager set\n");
-	return BRLCAD_ERROR;
-    }
+    struct fb *fbp = NULL;
+    int width, height;
 
-    struct fb *fbp = dm_get_fb(dmp);
-    if (!fbp) {
-	bu_vls_printf(gedp->ged_result_str, "attached display manager has no embedded framebuffer\n");
-	return BRLCAD_ERROR;
+    if (dmp) {
+	/* Standard libdm path: get the embedded framebuffer from the dm. */
+	fbp = dm_get_fb(dmp);
+	if (!fbp) {
+	    bu_vls_printf(gedp->ged_result_str, "attached display manager has no embedded framebuffer\n");
+	    return BRLCAD_ERROR;
+	}
+	width  = dm_get_width(dmp);
+	height = dm_get_height(dmp);
+    } else {
+	/* Obol path: no display manager (view owned by QgObolView / obol_view
+	 * Tk widget).  Allocate a raw RGB pixel buffer directly in the fbserv
+	 * object — no struct fb / libdm in-memory backend needed.  The Obol
+	 * widget reads fbs_pixbuf directly in _paintFbOverlay(). */
+	width  = gedp->ged_gvp->gv_width;
+	height = gedp->ged_gvp->gv_height;
+	if (width <= 0 || height <= 0) {
+	    bu_vls_printf(gedp->ged_result_str, "view has no valid dimensions for embedded raytracing\n");
+	    return BRLCAD_ERROR;
+	}
+	struct fbserv_obj *fbs = gedp->ged_fbs;
+	/* Reallocate pixel buffer only when dimensions change. */
+	if (!fbs->fbs_pixbuf || fbs->fbs_pixbuf_w != width || fbs->fbs_pixbuf_h != height) {
+	    if (fbs->fbs_pixbuf)
+		bu_free(fbs->fbs_pixbuf, "fbs_pixbuf");
+	    fbs->fbs_pixbuf = (unsigned char *)bu_calloc((size_t)width * height * 3,
+							 sizeof(unsigned char), "fbs_pixbuf");
+	    fbs->fbs_pixbuf_w = width;
+	    fbs->fbs_pixbuf_h = height;
+	}
+	/* fbs_fbp stays NULL — the Obol pkg_switch writes to fbs_pixbuf. */
+	fbp = NULL;
     }
 
     if (!ged_who_argc(gedp)) {
@@ -107,9 +133,6 @@ ged_ert_core(struct ged *gedp, int argc, const char *argv[])
     args.push_back(std::to_string(fbs->fbs_listener.fbsl_port));
     args.push_back(std::string("-M"));
 
-    int width = dm_get_width(dmp);
-    int height = dm_get_height(dmp);
-
     args.push_back(std::string("-w"));
     args.push_back(std::to_string(width));
     args.push_back(std::string("-n"));
@@ -118,9 +141,13 @@ ged_ert_core(struct ged *gedp, int argc, const char *argv[])
     double aspect = (double)width/(double)height;
     bu_vls_sprintf(&wstr, "%.14e", aspect);
     args.push_back(std::string(bu_vls_cstr(&wstr)));
-    if (gedp->ged_gvp->gv_perspective > 0) {
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      if (_cm.perspective > 0) {
+    }
+	struct bsg_camera _cam;
+	bsg_view_get_camera(gedp->ged_gvp, &_cam);
 	args.push_back(std::string("-p"));
-	bu_vls_sprintf(&wstr, "%.14e", gedp->ged_gvp->gv_perspective);
+	bu_vls_sprintf(&wstr, "%.14e", _cam.perspective);
 	args.push_back(std::string(bu_vls_cstr(&wstr)));
     }
 

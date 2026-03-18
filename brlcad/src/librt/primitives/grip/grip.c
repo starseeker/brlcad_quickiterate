@@ -197,7 +197,7 @@ rt_grp_free(struct soltab *stp)
  *
  */
 int
-rt_grp_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_tess_tol *UNUSED(ttol), const struct bn_tol *UNUSED(tol), const struct bview *UNUSED(info))
+rt_grp_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_tess_tol *UNUSED(ttol), const struct bn_tol *UNUSED(tol), const bsg_view *UNUSED(info))
 {
     struct rt_grip_internal *gip;
     vect_t xbase, ybase;	/* perpendiculars to normal */
@@ -226,21 +226,21 @@ rt_grp_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
     VADD2(y_1, gip->center, ybase);
     VSUB2(y_2, gip->center, ybase);
 
-    BV_ADD_VLIST(vlfree, vhead, x_1, BV_VLIST_LINE_MOVE); /* the base */
-    BV_ADD_VLIST(vlfree, vhead, y_1, BV_VLIST_LINE_DRAW);
-    BV_ADD_VLIST(vlfree, vhead, x_2, BV_VLIST_LINE_DRAW);
-    BV_ADD_VLIST(vlfree, vhead, y_2, BV_VLIST_LINE_DRAW);
-    BV_ADD_VLIST(vlfree, vhead, x_1, BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, x_1, BSG_VLIST_LINE_MOVE); /* the base */
+    BSG_ADD_VLIST(vlfree, vhead, y_1, BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, x_2, BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, y_2, BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, x_1, BSG_VLIST_LINE_DRAW);
 
     VSCALE(tip, gip->normal, gip->mag);
     VADD2(tip, gip->center, tip);
 
-    BV_ADD_VLIST(vlfree, vhead, x_1,  BV_VLIST_LINE_MOVE); /* the sides */
-    BV_ADD_VLIST(vlfree, vhead, tip, BV_VLIST_LINE_DRAW);
-    BV_ADD_VLIST(vlfree, vhead, x_2,  BV_VLIST_LINE_DRAW);
-    BV_ADD_VLIST(vlfree, vhead, y_1,  BV_VLIST_LINE_MOVE);
-    BV_ADD_VLIST(vlfree, vhead, tip, BV_VLIST_LINE_DRAW);
-    BV_ADD_VLIST(vlfree, vhead, y_2,  BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, x_1,  BSG_VLIST_LINE_MOVE); /* the sides */
+    BSG_ADD_VLIST(vlfree, vhead, tip, BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, x_2,  BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, y_1,  BSG_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, tip, BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, y_2,  BSG_VLIST_LINE_DRAW);
     return 0;
 }
 

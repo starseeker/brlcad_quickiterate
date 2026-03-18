@@ -303,6 +303,10 @@ db_open(const char *name, const char *mode)
     BN_TOL_INIT_SET_TOL(&dbip->dbi_wdbp_inmem_a->wdb_tol);
     BG_TESS_TOL_INIT_SET_TOL(&dbip->dbi_wdbp_inmem_a->wdb_ttol);
 
+    /* Start the background drawing-data pipeline.  This is non-fatal if it
+     * fails (e.g. for in-memory databases with no filename). */
+    db_cache_start(dbip);
+
     return dbip;
 }
 
@@ -510,6 +514,9 @@ db_close(register struct db_i *dbip)
 	dbip->dbi_filepath = NULL; /* sanity */
     }
 
+    /* Stop the background drawing pipeline before destroying the internal */
+    db_cache_stop(dbip);
+
     dbip->dbi_magic = (uint32_t)0x10101010;
     db_i_internal_destroy(dbip->i);
     bu_free((char *)dbip, "struct db_i");
@@ -644,7 +651,7 @@ db_i_internal_create(void)
     struct db_i_internal *i;
     BU_GET(i, struct db_i_internal);
     i->dbi_magic = DBI_MAGIC;
-
+    /* BU_GET zero-initializes all other fields (mesh_c, dcache, draw_pipeline, etc.) */
     return i;
 }
 
@@ -654,8 +661,13 @@ db_i_internal_destroy(struct db_i_internal *i)
     if (!i)
 	return;
 
+    /* draw_pipeline and dcache are managed by cache_drawing.cpp.
+     * db_cache_stop() must be called (and already is, from db_close())
+     * before we get here.  If for some reason it wasn't called, the
+     * resources will leak but we won't crash. */
+
     if (i->mesh_c)
-	bv_mesh_lod_context_destroy(i->mesh_c);
+	bsg_mesh_lod_context_destroy(i->mesh_c);
 
     BU_PUT(i, struct db_i_internal);
 }

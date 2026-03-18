@@ -102,12 +102,14 @@ ged_rtwizard_core(struct ged *gedp, int argc, const char *argv[])
     /* initialize result */
     bu_vls_trunc(gedp->ged_result_str, 0);
 
-    if (gedp->ged_gvp->gv_perspective > 0)
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      if (_cm.perspective > 0)
 	/* rtwizard --no_gui -perspective p -i db.g --viewsize size --orientation "A B C D" --eye_pt "X Y Z" */
 	args = argc + 1 + 1 + 1 + 2 + 2 + 2 + 2 + 2;
-    else
+      else
 	/* rtwizard --no_gui -i db.g --viewsize size --orientation "A B C D" --eye_pt "X Y Z" */
 	args = argc + 1 + 1 + 1 + 2 + 2 + 2 + 2;
+    }
 
     gd_rt_cmd = (char **)bu_calloc(args, sizeof(char *), "alloc gd_rt_cmd");
 
@@ -119,7 +121,11 @@ ged_rtwizard_core(struct ged *gedp, int argc, const char *argv[])
     }
 
     _ged_rt_set_eye_model(gedp, eye_model);
-    quat_mat2quat(quat, gedp->ged_gvp->gv_rotation);
+    {
+	struct bsg_camera _cam;
+	bsg_view_get_camera(gedp->ged_gvp, &_cam);
+	quat_mat2quat(quat, _cam.rotation);
+    }
 
     bu_vls_printf(&size_vls, "%.15e", gedp->ged_gvp->gv_size);
     bu_vls_printf(&orient_vls, "%.15e %.15e %.15e %.15e", V4ARGS(quat));
@@ -135,10 +141,12 @@ ged_rtwizard_core(struct ged *gedp, int argc, const char *argv[])
     *vp++ = "--eye_pt";
     *vp++ = bu_vls_addr(&eye_vls);
 
-    if (gedp->ged_gvp->gv_perspective > 0) {
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      if (_cm.perspective > 0) {
 	*vp++ = "--perspective";
-	(void)sprintf(pstring, "%g", gedp->ged_gvp->gv_perspective);
+	(void)sprintf(pstring, "%g", _cm.perspective);
 	*vp++ = pstring;
+      }
     }
 
     *vp++ = "-i";

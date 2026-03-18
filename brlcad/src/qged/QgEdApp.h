@@ -33,8 +33,9 @@
 #include <QMap>
 #include <QSet>
 #include <QModelIndex>
+#include <QTimer>
 
-#include "bv.h"
+#include "bsg.h"
 #include "raytrace.h"
 #include "ged.h"
 #include "qtcad/QgModel.h"
@@ -59,10 +60,10 @@ class QgEdApp : public QApplication
 	QgEdApp(int &argc, char *argv[], int swrast_mode = 0, int quad_mode = 0);
 	~QgEdApp();
 
-	int run_cmd(struct bu_vls *msg, int argc, const char **argv);
-	int load_g_file(const char *gfile = NULL, bool do_conversion = true);
+	[[nodiscard]] int run_cmd(struct bu_vls *msg, int argc, const char **argv);
+	[[nodiscard]] int load_g_file(const char *gfile = nullptr, bool do_conversion = true);
 
-	QgModel *mdl = NULL;
+	QgModel *mdl = nullptr;
 
     signals:
 	void view_update(unsigned long long);
@@ -96,14 +97,57 @@ class QgEdApp : public QApplication
 	void run_qcmd(const QString &command);
 	void element_selected(QgToolPaletteElement *el);
 
+	// Slot connected to the background-geometry drain timer.
+	// Called every ~100 ms; drains DbiState::drain_geom_results() and
+	// emits view_update when new bounding-box data has arrived.
+	// This is the notification-bundling mechanism: multiple background bbox
+	// results that arrive within one timer interval are coalesced into a
+	// single view_update emission rather than triggering a repaint for each
+	// individual result.
+	void drain_background_geom();
+
     public:
-	QgEdMainWindow *w = NULL;
+	QgEdMainWindow *w = nullptr;
+
+    private slots:
+	// Internal slot that performs the actual work once the event loop is
+	// re-entered after a batch of coalesced do_view_changed calls.
+	void flush_view_changed_();
 
     private:
 	std::vector<char *> tmp_av;
 	unsigned long long select_hash = 0;
 	long history_mark_start = -1;
 	long history_mark_end = -1;
+
+	// Periodic timer for draining background geometry results.
+	// Fires every BG_GEOM_DRAIN_INTERVAL_MS milliseconds.
+	static constexpr int BG_GEOM_DRAIN_INTERVAL_MS = 100;
+	QTimer *geom_drain_timer_ = nullptr;
+
+	// Tracks how many LoD results have been processed across all drain
+	// calls so far for the current file.  Used to detect when new LoD
+	// data has arrived and a full scene redraw is needed.
+	size_t last_lod_count_ = 0;
+
+	// Tracks how many OBBs have been integrated so far for the current file.
+	// Used to trigger a scene redraw (bvs->redraw()) when OBBs arrive so
+	// that the AABB -> OBB placeholder wireframe transition is rendered.
+	size_t last_obb_count_ = 0;
+
+	// Tracks how many AABB bounding boxes have been integrated.  When the
+	// AABB stage is delayed (BRLCAD_CACHE_AABB_DELAY_MS set), shapes start
+	// with have_bbox=0 and no view object.  As AABBs arrive and this count
+	// advances, do_view_changed(QG_VIEW_DRAWN) is called so that the
+	// missing-view-obj scan in BViewState::redraw() runs bot_adaptive_plot
+	// which late-populates the bbox and draws the AABB placeholder.
+	size_t last_aabb_count_ = 0;
+
+	// Coalescing flags for do_view_changed.  When a do_view_changed call
+	// arrives while a queued invocation is already pending, the new flags
+	// are OR-ed in here so that the single queued call handles everything.
+	unsigned long long pending_view_flags_ = 0;
+	bool view_change_pending_ = false;
 };
 
 #endif // QGEDAPP_H

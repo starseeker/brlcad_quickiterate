@@ -65,12 +65,12 @@ class QEll : public QWidget
 	void update_viewobj_name(const QString &);
 
     protected:
-	bool eventFilter(QObject *, QEvent *);
+	bool eventFilter(QObject *, QEvent *) override;
 
     private:
-	struct directory *dp = NULL;
+	struct directory *dp = nullptr;
 	struct rt_ell_internal ell;
-	struct bv_scene_obj *p = NULL;
+	bsg_shape *p = nullptr;
 	struct bu_vls oname = BU_VLS_INIT_ZERO;
 };
 

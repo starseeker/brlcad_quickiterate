@@ -39,6 +39,7 @@
 #include "wdb.h"
 #include "rt/db4.h"
 #include "ged/view.h"
+#include "bsg/util.h"
 
 #include "./mged.h"
 #include "./sedit.h"
@@ -113,7 +114,6 @@ set_e_axes_pos(struct mged_state *s, int both)
     const int local_arb_faces[5][24] = rt_arb_faces;
 
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
     switch (MEDIT(s)->es_int.idb_type) {
 	case ID_ARB8:
 	    if (s->global_editing_state == ST_O_EDIT) {
@@ -276,9 +276,9 @@ set_e_axes_pos(struct mged_state *s, int both)
 
 	MAT_IDN(MEDIT(s)->acc_rot_sol);
 
-	for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	    struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	    m_dmp->dm_mged_variables->mv_transform = 'e';
+	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	    mp->mp_mged_variables->mv_transform = 'e';
 	}
     }
 }
@@ -1089,10 +1089,8 @@ init_sedit_vars(struct mged_state *s)
 void
 replot_editing_solid(struct mged_state *s)
 {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
     mat_t mat;
-    struct bv_scene_obj *sp;
+    bsg_shape *sp;
     struct directory *illdp;
 
     if (!illump) {
@@ -1103,24 +1101,19 @@ replot_editing_solid(struct mged_state *s)
     struct ged_bv_data *bdata = (struct ged_bv_data *)illump->s_u_data;
     illdp = LAST_SOLID(bdata);
 
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-	    if (sp->s_u_data) {
-		bdata = (struct ged_bv_data *)sp->s_u_data;
-		if (LAST_SOLID(bdata) == illdp) {
-		    (void)db_path_to_mat(s->dbip, &bdata->s_fullpath, mat, bdata->s_fullpath.fp_len-1, &rt_uniresource);
-		    (void)replot_modified_solid(s, sp, &MEDIT(s)->es_int, mat);
-		}
+    bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
+    size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
+    for (size_t si = 0; si < nshapes; si++) {
+	sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+	if (sp->s_u_data) {
+	    bdata = (struct ged_bv_data *)sp->s_u_data;
+	    if (LAST_SOLID(bdata) == illdp) {
+		(void)db_path_to_mat(s->dbip, &bdata->s_fullpath, mat, bdata->s_fullpath.fp_len-1, &rt_uniresource);
+		(void)replot_modified_solid(s, sp, &MEDIT(s)->es_int, mat);
 	    }
 	}
-
-	gdlp = next_gdlp;
     }
 }
-
 
 void
 transform_editing_solid(
@@ -1244,7 +1237,10 @@ get_rotation_vertex(struct mged_state *s)
     }
     bu_vls_printf(&str, ") [%d]: ", rt_arb_vertices[type][loc]);
 
-    const struct bu_vls *dnvp = dm_get_dname(s->mged_curr_dm->dm_dmp);
+    /* Step 7.20: mp_dmp removed; use gv_name directly. */
+    const struct bu_vls *dnvp = NULL;
+    if (s->mged_curr_pane->mp_gvp && bu_vls_strlen(&s->mged_curr_pane->mp_gvp->gv_name))
+	dnvp = &s->mged_curr_pane->mp_gvp->gv_name;
 
     bu_vls_printf(&cmd, "cad_input_dialog .get_vertex %s {Need vertex for solid rotate}\
  {%s} vertex_num %d 0 {{ summary \"Enter a vertex number to rotate about.\"}} OK",
@@ -1292,12 +1288,7 @@ get_file_name(struct mged_state *s, char *str)
 	bu_free((void *)dir, "get_file_name: directory string");
     }
 
-    if (dm_get_pathname(DMP)) {
-	bu_vls_printf(&cmd,
-		"getFile %s %s {{{All Files} {*}}} {Get File}",
-		bu_vls_addr(dm_get_pathname(DMP)),
-		bu_vls_addr(&varname_vls));
-    }
+    /* Step 7.20: DMP removed; skip the GUI file dialog. */
     bu_vls_free(&varname_vls);
 
     if (Tcl_Eval(s->interp, bu_vls_addr(&cmd))) {
@@ -2691,13 +2682,7 @@ sedit(struct mged_state *s)
 		RT_BOT_CK_MAGIC(bot);
 		old_mode = bot->mode;
 		sprintf(mode, " %d", old_mode - 1);
-		if (dm_get_pathname(DMP)) {
-		    ret_tcl = Tcl_VarEval(s->interp, "cad_radio", " .bot_mode_radio ",
-			    bu_vls_addr(dm_get_pathname(DMP)), " _bot_mode_result",
-			    " \"BOT Mode\"", "  \"Select the desired mode\"", mode,
-			    " { surface volume plate plate/nocosine }",
-			    " { \"In surface mode, each triangle represents part of a zero thickness surface and no volume is enclosed\" \"In volume mode, the triangles are expected to enclose a volume and that volume becomes the solid\" \"In plate mode, each triangle represents a plate with a specified thickness\" \"In plate/nocosine mode, each triangle represents a plate with a specified thickness, but the LOS thickness reported by the raytracer is independent of obliquity angle\" } ", (char *)NULL);
-		}
+		/* Step 7.20: DMP removed — GUI dialog unavailable. */
 		if (ret_tcl != TCL_OK) {
 		    Tcl_AppendResult(s->interp, "Mode selection failed!\n", (char *)NULL);
 		    break;
@@ -2731,13 +2716,7 @@ sedit(struct mged_state *s)
 
 		RT_BOT_CK_MAGIC(bot);
 		sprintf(orient, " %d", bot->orientation - 1);
-		if (dm_get_pathname(DMP)) {
-		    ret_tcl = Tcl_VarEval(s->interp, "cad_radio", " .bot_orient_radio ",
-			    bu_vls_addr(dm_get_pathname(DMP)), " _bot_orient_result",
-			    " \"BOT Face Orientation\"", "  \"Select the desired orientation\"", orient,
-			    " { none right-hand-rule left-hand-rule }",
-			    " { \"No orientation means that there is no particular order for the vertices of the triangles\" \"right-hand-rule means that the vertices of each triangle are ordered such that the right-hand-rule produces an outward pointing normal\"  \"left-hand-rule means that the vertices of each triangle are ordered such that the left-hand-rule produces an outward pointing normal\" } ", (char *)NULL);
-		}
+		/* Step 7.20: DMP removed — GUI dialog unavailable. */
 		if (ret_tcl != TCL_OK) {
 		    Tcl_AppendResult(s->interp, "Face orientation selection failed!\n", (char *)NULL);
 		    break;
@@ -2824,19 +2803,7 @@ sedit(struct mged_state *s)
 		    cur_settings[5] = '1';
 		}
 
-		if (dm_get_pathname(DMP)) {
-		    ret_tcl = Tcl_VarEval(s->interp,
-			    "cad_list_buts",
-			    " .bot_list_flags ",
-			    bu_vls_addr(dm_get_pathname(DMP)),
-			    " _bot_flags_result ",
-			    cur_settings,
-			    " \"BOT Flags\"",
-			    " \"Select the desired flags\"",
-			    " { {Use vertex normals} {Use single precision ray-tracing} }",
-			    " { {This selection indicates that surface normals at hit points should be interpolated from vertex normals} {This selection indicates that the prepped form of the BOT triangles should use single precision to save memory} } ",
-			    (char *)NULL);
-		}
+		/* Step 7.20: DMP removed — GUI dialog unavailable. */
 		if (ret_tcl != TCL_OK) {
 		    bu_log("ERROR: cad_list_buts: %s\n", Tcl_GetStringResult(s->interp));
 		    break;
@@ -2909,14 +2876,7 @@ sedit(struct mged_state *s)
 		else
 		    sprintf(fmode, " %d", BU_BITTEST(bot->face_mode, 0)?1:0);
 
-		if (dm_get_pathname(DMP)) {
-		    ret_tcl = Tcl_VarEval(s->interp, "cad_radio", " .bot_fmode_radio ", bu_vls_addr(dm_get_pathname(DMP)),
-			    " _bot_fmode_result ", "\"BOT Face Mode\"",
-			    " \"Select the desired face mode\"", fmode,
-			    " { {Thickness centered about hit point} {Thickness appended to hit point} }",
-			    " { {This selection will place the plate thickness centered about the hit point} {This selection will place the plate thickness rayward of the hit point} } ",
-			    (char *)NULL);
-		}
+		/* Step 7.20: DMP removed — GUI dialog unavailable. */
 		if (ret_tcl != TCL_OK) {
 		    bu_log("ERROR: cad_radio: %s\n", Tcl_GetStringResult(s->interp));
 		    break;
@@ -3167,6 +3127,7 @@ sedit(struct mged_state *s)
 	    pr_prompt(s);
 	    fixv--;
 	    MEDIT(s)->edit_flag = ECMD_ARB_ROTATE_FACE;
+	    s->update_views = 1;
 	    view_state->vs_flag = 1;	/* draw arrow, etc. */
 	    set_e_axes_pos(s, 1);
 	    break;
@@ -3598,11 +3559,15 @@ sedit(struct mged_state *s)
 		switch (mged_variables->mv_rotate_about) {
 		    case 'v':       /* View Center */
 			VSET(work, 0.0, 0.0, 0.0);
-			MAT4X3PNT(rot_point, view_state->vs_gvp->gv_view2model, work);
+			{ struct bsg_camera _cm; bsg_view_get_camera(view_state->vs_gvp, &_cm);
+			  MAT4X3PNT(rot_point, _cm.view2model, work);
+			}
 			break;
 		    case 'e':       /* Eye */
 			VSET(work, 0.0, 0.0, 1.0);
-			MAT4X3PNT(rot_point, view_state->vs_gvp->gv_view2model, work);
+			{ struct bsg_camera _cm; bsg_view_get_camera(view_state->vs_gvp, &_cm);
+			  MAT4X3PNT(rot_point, _cm.view2model, work);
+			}
 			break;
 		    case 'm':       /* Model Center */
 			VSETALL(rot_point, 0.0);
@@ -3955,7 +3920,9 @@ sedit(struct mged_state *s)
 
 			/* Get view direction vector */
 			VSET(view_z_dir, 0.0, 0.0, 1.0);
-			MAT4X3VEC(view_dir, view_state->vs_gvp->gv_view2model, view_z_dir);
+			{ struct bsg_camera _cm; bsg_view_get_camera(view_state->vs_gvp, &_cm);
+			  MAT4X3VEC(view_dir, _cm.view2model, view_z_dir);
+			}
 
 			/* intersect line through new_pt with plane of loop */
 			if (bg_isect_line3_plane(&dist, new_pt, view_dir, pl, &s->tol.tol) < 1) {
@@ -4108,7 +4075,9 @@ sedit(struct mged_state *s)
 
 			/* Get view direction vector */
 			VSET(view_z_dir, 0.0, 0.0, 1.0);
-			MAT4X3VEC(view_dir, view_state->vs_gvp->gv_view2model, view_z_dir);
+			{ struct bsg_camera _cm; bsg_view_get_camera(view_state->vs_gvp, &_cm);
+			  MAT4X3VEC(view_dir, _cm.view2model, view_z_dir);
+			}
 
 			/* intersect line through new_pt with plane of loop */
 			if (bg_isect_line3_plane(&dist, new_pt, view_dir, pl, &s->tol.tol) < 1) {
@@ -4207,6 +4176,7 @@ sedit(struct mged_state *s)
 		es_eu = (struct edgeuse *)NULL;
 
 		replot_editing_solid(s);
+		s->update_views = 1;
 		view_state->vs_flag = 1;
 	    }
 	    break;
@@ -4414,7 +4384,9 @@ sedit(struct mged_state *s)
 
 		/* Get view direction vector */
 		VSET(z_dir, 0.0, 0.0, 1.0);
-		MAT4X3VEC(view_dir, view_state->vs_gvp->gv_view2model, z_dir);
+		{ struct bsg_camera _cm; bsg_view_get_camera(view_state->vs_gvp, &_cm);
+		  MAT4X3VEC(view_dir, _cm.view2model, z_dir);
+		}
 		find_ars_nearest_pnt(&es_ars_crv, &es_ars_col, ars, pick_pt, view_dir);
 		VMOVE(es_pt, &ars->curves[es_ars_crv][es_ars_col*3]);
 		VSCALE(selected_pt, es_pt, s->dbip->dbi_base2local);
@@ -4736,7 +4708,9 @@ sedit(struct mged_state *s)
 		     * that passes through ARS point being moved
 		     */
 		    VSET(view_dir, 0.0, 0.0, 1.0);
-		    MAT4X3VEC(view_pl, view_state->vs_gvp->gv_view2model, view_dir);
+		    { struct bsg_camera _cm; bsg_view_get_camera(view_state->vs_gvp, &_cm);
+		      MAT4X3VEC(view_pl, _cm.view2model, view_dir);
+		    }
 		    VUNITIZE(view_pl);
 		    view_pl[W] = VDOT(view_pl, &ars->curves[es_ars_crv][es_ars_col*3]);
 
@@ -4789,7 +4763,9 @@ sedit(struct mged_state *s)
 		     * that passes through ARS point being moved
 		     */
 		    VSET(view_dir, 0.0, 0.0, 1.0);
-		    MAT4X3VEC(view_pl, view_state->vs_gvp->gv_view2model, view_dir);
+		    { struct bsg_camera _cm; bsg_view_get_camera(view_state->vs_gvp, &_cm);
+		      MAT4X3VEC(view_pl, _cm.view2model, view_dir);
+		    }
 		    VUNITIZE(view_pl);
 		    view_pl[W] = VDOT(view_pl, &ars->curves[es_ars_crv][es_ars_col*3]);
 
@@ -4841,7 +4817,9 @@ sedit(struct mged_state *s)
 		     * that passes through ARS point being moved
 		     */
 		    VSET(view_dir, 0.0, 0.0, 1.0);
-		    MAT4X3VEC(view_pl, view_state->vs_gvp->gv_view2model, view_dir);
+		    { struct bsg_camera _cm; bsg_view_get_camera(view_state->vs_gvp, &_cm);
+		      MAT4X3VEC(view_pl, _cm.view2model, view_dir);
+		    }
 		    VUNITIZE(view_pl);
 		    view_pl[W] = VDOT(view_pl, &ars->curves[es_ars_crv][es_ars_col*3]);
 
@@ -5033,7 +5011,9 @@ sedit(struct mged_state *s)
 
 		/* get a direction vector in model space corresponding to z-direction in view */
 		VSET(work, 0.0, 0.0, 1.0);
-		MAT4X3VEC(dir, view_state->vs_gvp->gv_view2model, work);
+		{ struct bsg_camera _cm; bsg_view_get_camera(view_state->vs_gvp, &_cm);
+		  MAT4X3VEC(dir, _cm.view2model, work);
+		}
 
 		for (BU_LIST_FOR(ps, wdb_metaball_pnt, &metaball->metaball_ctrl_head)) {
 		    fastf_t dist;
@@ -5135,7 +5115,6 @@ sedit(struct mged_state *s)
     replot_editing_solid(s);
 
     if (s->update_views) {
-	dm_set_dirty(DMP, 1);
 	struct bu_vls vls = BU_VLS_INIT_ZERO;
 
 	bu_vls_printf(&vls, "active_edit_callback");
@@ -5156,12 +5135,16 @@ update_edit_absolute_tran(struct mged_state *s, vect_t view_pos)
     vect_t diff;
     fastf_t inv_Viewscale = 1/view_state->vs_gvp->gv_scale;
 
-    MAT4X3PNT(model_pos, view_state->vs_gvp->gv_view2model, view_pos);
+    { struct bsg_camera _cm; bsg_view_get_camera(view_state->vs_gvp, &_cm);
+      MAT4X3PNT(model_pos, _cm.view2model, view_pos);
+    }
     VSUB2(diff, model_pos, MEDIT(s)->e_axes_pos);
     VSCALE(MEDIT(s)->k.tra_m_abs, diff, inv_Viewscale);
     VMOVE(MEDIT(s)->k.tra_m_abs_last, MEDIT(s)->k.tra_m_abs);
 
-    MAT4X3PNT(ea_view_pos, view_state->vs_gvp->gv_model2view, MEDIT(s)->e_axes_pos);
+    { struct bsg_camera _cm; bsg_view_get_camera(view_state->vs_gvp, &_cm);
+      MAT4X3PNT(ea_view_pos, _cm.model2view, MEDIT(s)->e_axes_pos);
+    }
     VSUB2(MEDIT(s)->k.tra_v_abs, view_pos, ea_view_pos);
     VMOVE(MEDIT(s)->k.tra_v_abs_last, MEDIT(s)->k.tra_v_abs);
 }
@@ -5234,10 +5217,14 @@ sedit_mouse(struct mged_state *s, const vect_t mousevec)
 		point_t pt;
 		vect_t delta;
 
-		MAT4X3PNT(pos_view, view_state->vs_gvp->gv_model2view, MEDIT(s)->curr_e_axes_pos);
+		{ struct bsg_camera _cm; bsg_view_get_camera(view_state->vs_gvp, &_cm);
+		  MAT4X3PNT(pos_view, _cm.model2view, MEDIT(s)->curr_e_axes_pos);
+		}
 		pos_view[X] = mousevec[X];
 		pos_view[Y] = mousevec[Y];
-		MAT4X3PNT(pt, view_state->vs_gvp->gv_view2model, pos_view);
+		{ struct bsg_camera _cm; bsg_view_get_camera(view_state->vs_gvp, &_cm);
+		  MAT4X3PNT(pt, _cm.view2model, pos_view);
+		}
 
 		/* Need vector from current vertex/keypoint
 		 * to desired new location.
@@ -5260,10 +5247,14 @@ sedit_mouse(struct mged_state *s, const vect_t mousevec)
 	     * Leave desired location in MEDIT(s)->e_mparam.
 	     */
 
-	    MAT4X3PNT(pos_view, view_state->vs_gvp->gv_model2view, MEDIT(s)->curr_e_axes_pos);
+	    { struct bsg_camera _cm; bsg_view_get_camera(view_state->vs_gvp, &_cm);
+	      MAT4X3PNT(pos_view, _cm.model2view, MEDIT(s)->curr_e_axes_pos);
+	    }
 	    pos_view[X] = mousevec[X];
 	    pos_view[Y] = mousevec[Y];
-	    MAT4X3PNT(temp, view_state->vs_gvp->gv_view2model, pos_view);
+	    { struct bsg_camera _cm; bsg_view_get_camera(view_state->vs_gvp, &_cm);
+	      MAT4X3PNT(temp, _cm.view2model, pos_view);
+	    }
 	    MAT4X3PNT(MEDIT(s)->e_mparam, MEDIT(s)->e_invmat, temp);
 	    MEDIT(s)->e_mvalid = 1;	/* MEDIT(s)->e_mparam is valid */
 	    /* Leave the rest to code in sedit(s) */
@@ -5277,11 +5268,15 @@ sedit_mouse(struct mged_state *s, const vect_t mousevec)
 		    (struct rt_tgc_internal *)MEDIT(s)->es_int.idb_ptr;
 		RT_TGC_CK_MAGIC(tgc);
 
-		MAT4X3PNT(pos_view, view_state->vs_gvp->gv_model2view, MEDIT(s)->curr_e_axes_pos);
+		{ struct bsg_camera _cm; bsg_view_get_camera(view_state->vs_gvp, &_cm);
+		  MAT4X3PNT(pos_view, _cm.model2view, MEDIT(s)->curr_e_axes_pos);
+		}
 		pos_view[X] = mousevec[X];
 		pos_view[Y] = mousevec[Y];
 		/* Do NOT change pos_view[Z] ! */
-		MAT4X3PNT(temp, view_state->vs_gvp->gv_view2model, pos_view);
+		{ struct bsg_camera _cm; bsg_view_get_camera(view_state->vs_gvp, &_cm);
+		  MAT4X3PNT(temp, _cm.view2model, pos_view);
+		}
 		MAT4X3PNT(tr_temp, MEDIT(s)->e_invmat, temp);
 		VSUB2(tgc->h, tr_temp, tgc->v);
 	    }
@@ -5294,11 +5289,15 @@ sedit_mouse(struct mged_state *s, const vect_t mousevec)
 		    (struct rt_extrude_internal *)MEDIT(s)->es_int.idb_ptr;
 		RT_EXTRUDE_CK_MAGIC(extr);
 
-		MAT4X3PNT(pos_view, view_state->vs_gvp->gv_model2view, MEDIT(s)->curr_e_axes_pos);
+		{ struct bsg_camera _cm; bsg_view_get_camera(view_state->vs_gvp, &_cm);
+		  MAT4X3PNT(pos_view, _cm.model2view, MEDIT(s)->curr_e_axes_pos);
+		}
 		pos_view[X] = mousevec[X];
 		pos_view[Y] = mousevec[Y];
 		/* Do NOT change pos_view[Z] ! */
-		MAT4X3PNT(temp, view_state->vs_gvp->gv_view2model, pos_view);
+		{ struct bsg_camera _cm; bsg_view_get_camera(view_state->vs_gvp, &_cm);
+		  MAT4X3PNT(temp, _cm.view2model, pos_view);
+		}
 		MAT4X3PNT(tr_temp, MEDIT(s)->e_invmat, temp);
 		VSUB2(extr->h, tr_temp, extr->V);
 	    }
@@ -5311,11 +5310,15 @@ sedit_mouse(struct mged_state *s, const vect_t mousevec)
 
 		RT_CLINE_CK_MAGIC(cli);
 
-		MAT4X3PNT(pos_view, view_state->vs_gvp->gv_model2view, MEDIT(s)->curr_e_axes_pos);
+		{ struct bsg_camera _cm; bsg_view_get_camera(view_state->vs_gvp, &_cm);
+		  MAT4X3PNT(pos_view, _cm.model2view, MEDIT(s)->curr_e_axes_pos);
+		}
 		pos_view[X] = mousevec[X];
 		pos_view[Y] = mousevec[Y];
 		/* Do NOT change pos_view[Z] ! */
-		MAT4X3PNT(temp, view_state->vs_gvp->gv_view2model, pos_view);
+		{ struct bsg_camera _cm; bsg_view_get_camera(view_state->vs_gvp, &_cm);
+		  MAT4X3PNT(temp, _cm.view2model, pos_view);
+		}
 		MAT4X3PNT(tr_temp, MEDIT(s)->e_invmat, temp);
 		VSUB2(cli->h, tr_temp, cli->v);
 	    }
@@ -5324,28 +5327,40 @@ sedit_mouse(struct mged_state *s, const vect_t mousevec)
 	case PTARB:
 	    /* move an arb point to indicated point */
 	    /* point is located at es_values[es_menu*3] */
-	    MAT4X3PNT(pos_view, view_state->vs_gvp->gv_model2view, MEDIT(s)->curr_e_axes_pos);
+	    { struct bsg_camera _cm; bsg_view_get_camera(view_state->vs_gvp, &_cm);
+	      MAT4X3PNT(pos_view, _cm.model2view, MEDIT(s)->curr_e_axes_pos);
+	    }
 	    pos_view[X] = mousevec[X];
 	    pos_view[Y] = mousevec[Y];
-	    MAT4X3PNT(temp, view_state->vs_gvp->gv_view2model, pos_view);
+	    { struct bsg_camera _cm; bsg_view_get_camera(view_state->vs_gvp, &_cm);
+	      MAT4X3PNT(temp, _cm.view2model, pos_view);
+	    }
 	    MAT4X3PNT(pos_model, MEDIT(s)->e_invmat, temp);
 	    editarb(s, pos_model);
 
 	    break;
 	case EARB:
-	    MAT4X3PNT(pos_view, view_state->vs_gvp->gv_model2view, MEDIT(s)->curr_e_axes_pos);
+	    { struct bsg_camera _cm; bsg_view_get_camera(view_state->vs_gvp, &_cm);
+	      MAT4X3PNT(pos_view, _cm.model2view, MEDIT(s)->curr_e_axes_pos);
+	    }
 	    pos_view[X] = mousevec[X];
 	    pos_view[Y] = mousevec[Y];
-	    MAT4X3PNT(temp, view_state->vs_gvp->gv_view2model, pos_view);
+	    { struct bsg_camera _cm; bsg_view_get_camera(view_state->vs_gvp, &_cm);
+	      MAT4X3PNT(temp, _cm.view2model, pos_view);
+	    }
 	    MAT4X3PNT(pos_model, MEDIT(s)->e_invmat, temp);
 	    editarb(s, pos_model);
 
 	    break;
 	case ECMD_ARB_MOVE_FACE:
-	    MAT4X3PNT(pos_view, view_state->vs_gvp->gv_model2view, MEDIT(s)->curr_e_axes_pos);
+	    { struct bsg_camera _cm; bsg_view_get_camera(view_state->vs_gvp, &_cm);
+	      MAT4X3PNT(pos_view, _cm.model2view, MEDIT(s)->curr_e_axes_pos);
+	    }
 	    pos_view[X] = mousevec[X];
 	    pos_view[Y] = mousevec[Y];
-	    MAT4X3PNT(temp, view_state->vs_gvp->gv_view2model, pos_view);
+	    { struct bsg_camera _cm; bsg_view_get_camera(view_state->vs_gvp, &_cm);
+	      MAT4X3PNT(temp, _cm.view2model, pos_view);
+	    }
 	    MAT4X3PNT(pos_model, MEDIT(s)->e_invmat, temp);
 	    /* change D of planar equation */
 	    es_peqn[es_menu][W]=VDOT(&es_peqn[es_menu][0], pos_model);
@@ -5369,11 +5384,15 @@ sedit_mouse(struct mged_state *s, const vect_t mousevec)
 
 		RT_BOT_CK_MAGIC(bot);
 
-		MAT4X3PNT(pos_view, view_state->vs_gvp->gv_model2view, MEDIT(s)->curr_e_axes_pos);
+		{ struct bsg_camera _cm; bsg_view_get_camera(view_state->vs_gvp, &_cm);
+		  MAT4X3PNT(pos_view, _cm.model2view, MEDIT(s)->curr_e_axes_pos);
+		}
 		pos_view[X] = mousevec[X];
 		pos_view[Y] = mousevec[Y];
 
-		tmp_vert = rt_bot_find_v_nearest_pt2(bot, pos_view, view_state->vs_gvp->gv_model2view);
+		{ struct bsg_camera _cm; bsg_view_get_camera(view_state->vs_gvp, &_cm);
+		  tmp_vert = rt_bot_find_v_nearest_pt2(bot, pos_view, _cm.model2view);
+		}
 		if (tmp_vert < 0) {
 		    Tcl_AppendResult(s->interp, "ECMD_BOT_PICKV: unable to find a vertex!\n", (char *)NULL);
 		    mged_print_result(s, TCL_ERROR);
@@ -5398,11 +5417,15 @@ sedit_mouse(struct mged_state *s, const vect_t mousevec)
 
 		RT_BOT_CK_MAGIC(bot);
 
-		MAT4X3PNT(pos_view, view_state->vs_gvp->gv_model2view, MEDIT(s)->curr_e_axes_pos);
+		{ struct bsg_camera _cm; bsg_view_get_camera(view_state->vs_gvp, &_cm);
+		  MAT4X3PNT(pos_view, _cm.model2view, MEDIT(s)->curr_e_axes_pos);
+		}
 		pos_view[X] = mousevec[X];
 		pos_view[Y] = mousevec[Y];
 
-		if (rt_bot_find_e_nearest_pt2(&vert1, &vert2, bot, pos_view, view_state->vs_gvp->gv_model2view)) {
+		{ struct bsg_camera _cm; bsg_view_get_camera(view_state->vs_gvp, &_cm);
+		  if (rt_bot_find_e_nearest_pt2(&vert1, &vert2, bot, pos_view, _cm.model2view)) {
+		}
 		    Tcl_AppendResult(s->interp, "ECMD_BOT_PICKE: unable to find an edge!\n", (char *)NULL);
 		    mged_print_result(s, TCL_ERROR);
 		    return;
@@ -5432,9 +5455,13 @@ sedit_mouse(struct mged_state *s, const vect_t mousevec)
 		RT_BOT_CK_MAGIC(bot);
 
 		VSET(tmp, mousevec[X], mousevec[Y], 0.0);
-		MAT4X3PNT(start_pt, view_state->vs_gvp->gv_view2model, tmp);
+		{ struct bsg_camera _cm; bsg_view_get_camera(view_state->vs_gvp, &_cm);
+		  MAT4X3PNT(start_pt, _cm.view2model, tmp);
+		}
 		VSET(tmp, 0, 0, 1);
-		MAT4X3VEC(dir, view_state->vs_gvp->gv_view2model, tmp);
+		{ struct bsg_camera _cm; bsg_view_get_camera(view_state->vs_gvp, &_cm);
+		  MAT4X3VEC(dir, _cm.view2model, tmp);
+		}
 
 		bu_vls_strcat(&vls, " {");
 		hits = 0;
@@ -5495,15 +5522,21 @@ sedit_mouse(struct mged_state *s, const vect_t mousevec)
 		tmp_tol.perp = 0.0;
 		tmp_tol.para = 1 - tmp_tol.perp;
 
-		MAT4X3PNT(pos_view, view_state->vs_gvp->gv_model2view, MEDIT(s)->curr_e_axes_pos);
+		{ struct bsg_camera _cm; bsg_view_get_camera(view_state->vs_gvp, &_cm);
+		  MAT4X3PNT(pos_view, _cm.model2view, MEDIT(s)->curr_e_axes_pos);
+		}
 		pos_view[X] = mousevec[X];
 		pos_view[Y] = mousevec[Y];
-		if ((e = nmg_find_e_nearest_pt2(&m->magic, pos_view,
-						view_state->vs_gvp->gv_model2view, s->vlfree, &tmp_tol)) == (struct edge *)NULL) {
-		    Tcl_AppendResult(s->interp, "ECMD_NMG_EPICK: unable to find an edge\n",
-				     (char *)NULL);
-		    mged_print_result(s, TCL_ERROR);
-		    return;
+		{
+		    struct bsg_camera _cm2;
+		    bsg_view_get_camera(view_state->vs_gvp, &_cm2);
+		    if ((e = nmg_find_e_nearest_pt2(&m->magic, pos_view,
+						    _cm2.model2view, s->vlfree, &tmp_tol)) == (struct edge *)NULL) {
+			Tcl_AppendResult(s->interp, "ECMD_NMG_EPICK: unable to find an edge\n",
+					 (char *)NULL);
+			mged_print_result(s, TCL_ERROR);
+			return;
+		    }
 		}
 		es_eu = e->eu_p;
 		NMG_CK_EDGEUSE(es_eu);
@@ -5541,10 +5574,14 @@ sedit_mouse(struct mged_state *s, const vect_t mousevec)
 	case ECMD_METABALL_PT_MOV:
 	case ECMD_METABALL_PT_ADD:
 
-	    MAT4X3PNT(pos_view, view_state->vs_gvp->gv_model2view, MEDIT(s)->curr_e_axes_pos);
+	    { struct bsg_camera _cm; bsg_view_get_camera(view_state->vs_gvp, &_cm);
+	      MAT4X3PNT(pos_view, _cm.model2view, MEDIT(s)->curr_e_axes_pos);
+	    }
 	    pos_view[X] = mousevec[X];
 	    pos_view[Y] = mousevec[Y];
-	    MAT4X3PNT(temp, view_state->vs_gvp->gv_view2model, pos_view);
+	    { struct bsg_camera _cm; bsg_view_get_camera(view_state->vs_gvp, &_cm);
+	      MAT4X3PNT(temp, _cm.view2model, pos_view);
+	    }
 	    MAT4X3PNT(MEDIT(s)->e_mparam, MEDIT(s)->e_invmat, temp);
 	    MEDIT(s)->e_mvalid = 1;
 
@@ -5680,7 +5717,9 @@ objedit_mouse(struct mged_state *s, const vect_t mousevec)
 	if (movedir & UARROW)
 	    pos_view[Y] = mousevec[Y];
 
-	MAT4X3PNT(pos_model, view_state->vs_gvp->gv_view2model, pos_view); /* NOT objview */
+	{ struct bsg_camera _cm; bsg_view_get_camera(view_state->vs_gvp, &_cm);
+	  MAT4X3PNT(pos_model, _cm.view2model, pos_view); /* NOT objview */
+	}
 	MAT4X3PNT(tr_temp, MEDIT(s)->model_changes, temp);
 	VSUB2(tr_temp, pos_model, tr_temp);
 	MAT_DELTAS_VEC(incr_mat, tr_temp);
@@ -5932,9 +5971,7 @@ void oedit_reject(struct mged_state *s);
 static void
 oedit_apply(struct mged_state *s, int continue_editing)
 {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
-    struct bv_scene_obj *sp;
+    bsg_shape *sp;
     /* matrices used to accept editing done from a depth
      * >= 2 from the top of the illuminated path
      */
@@ -5985,11 +6022,11 @@ oedit_apply(struct mged_state *s, int continue_editing)
     MEDIT(s)->model_changes[15] = 1000000000;	/* => small ratio */
 
     /* Now, recompute new chunks of displaylist */
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+    {
+	bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
+	size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
+	for (size_t si = 0; si < nshapes; si++) {
+	    sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
 	    if (sp->s_iflag == DOWN)
 		continue;
 	    (void)replot_original_solid(s, sp);
@@ -5998,8 +6035,6 @@ oedit_apply(struct mged_state *s, int continue_editing)
 		sp->s_iflag = DOWN;
 	    }
 	}
-
-	gdlp = next_gdlp;
     }
 }
 
@@ -6007,9 +6042,7 @@ oedit_apply(struct mged_state *s, int continue_editing)
 void
 oedit_accept(struct mged_state *s)
 {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
-    struct bv_scene_obj *sp;
+    bsg_shape *sp;
 
     if (s->dbip == DBI_NULL)
 	return;
@@ -6017,18 +6050,16 @@ oedit_accept(struct mged_state *s)
     if (s->dbip->dbi_read_only) {
 	oedit_reject(s);
 
-	gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-	while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	    for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+	{
+	    bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
+	    size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
+	    for (size_t si = 0; si < nshapes; si++) {
+		sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
 		if (sp->s_iflag == DOWN)
 		    continue;
 		(void)replot_original_solid(s, sp);
 		sp->s_iflag = DOWN;
 	    }
-
-	    gdlp = next_gdlp;
 	}
 
 	bu_log("Sorry, this database is READ-ONLY\n");
@@ -6111,6 +6142,7 @@ f_eqn(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     replot_editing_solid(s);
 
     /* update display information */
+    s->update_views = 1;
     view_state->vs_flag = 1;
 
     return TCL_OK;
@@ -6269,26 +6301,20 @@ sedit_reject(struct mged_state *s)
 
     /* Restore the original solid everywhere */
     {
-	struct display_list *gdlp;
-	struct display_list *next_gdlp;
-	struct bv_scene_obj *sp;
+	bsg_shape *sp;
 	if (!illump->s_u_data)
 	    return;
 	struct ged_bv_data *bdata = (struct ged_bv_data *)illump->s_u_data;
 
-	gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-	while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	    for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-		if (!sp->s_u_data)
-		    continue;
-		struct ged_bv_data *bdatas = (struct ged_bv_data *)sp->s_u_data;
-		if (LAST_SOLID(bdatas) == LAST_SOLID(bdata))
-		    (void)replot_original_solid(s, sp);
-	    }
-
-	    gdlp = next_gdlp;
+	bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
+	size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
+	for (size_t si = 0; si < nshapes; si++) {
+	    sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+	    if (!sp->s_u_data)
+		continue;
+	    struct ged_bv_data *bdatas = (struct ged_bv_data *)sp->s_u_data;
+	    if (LAST_SOLID(bdatas) == LAST_SOLID(bdata))
+		(void)replot_original_solid(s, sp);
 	}
     }
 
@@ -7061,6 +7087,7 @@ sedit_vpick(struct mged_state *s, point_t v_pos)
 	get_solid_keypoint(s, MEDIT(s)->e_keypoint, &MEDIT(s)->e_keytag, &MEDIT(s)->es_int, MEDIT(s)->e_mat);
     }
     chg_state(s, ST_S_VPICK, ST_S_EDIT, "Vertex Pick Complete");
+    s->update_views = 1;
     view_state->vs_flag = 1;
 }
 
@@ -7197,6 +7224,7 @@ f_keypoint(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv
 	    return TCL_ERROR;
     }
 
+    s->update_views = 1;
     view_state->vs_flag = 1;
     return TCL_OK;
 }
@@ -7623,7 +7651,6 @@ f_sedit_reset(ClientData clientData, Tcl_Interp *interp, int argc, const char *U
 
     set_e_axes_pos(s, 1);
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
 
     /* active edit callback */
     bu_vls_printf(&vls, "active_edit_callback");
@@ -7688,7 +7715,6 @@ f_oedit_reset(ClientData clientData, Tcl_Interp *interp, int argc, const char *U
 
     new_edit_mats(s);
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
 
     /* active edit callback */
     bu_vls_printf(&vls, "active_edit_callback");
@@ -7727,7 +7753,6 @@ f_oedit_apply(ClientData clientData, Tcl_Interp *interp, int UNUSED(argc), const
     init_oedit_vars(s);
     new_edit_mats(s);
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
 
     /* active edit callback */
     bu_vls_printf(&vls, "active_edit_callback");

@@ -621,7 +621,9 @@ ged_find_bot_edge_nearest_pnt_core(struct ged *gedp, int argc, const char *argv[
     }
 
     botip = (struct rt_bot_internal *)intern.idb_ptr;
-    (void)rt_bot_find_e_nearest_pt2(&vi1, &vi2, botip, view, gedp->ged_gvp->gv_model2view);
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      (void)rt_bot_find_e_nearest_pt2(&vi1, &vi2, botip, view, _cm.model2view);
+    }
     bu_vls_printf(gedp->ged_result_str, "%d %d", vi1, vi2);
 
     rt_db_free_internal(&intern);
@@ -681,7 +683,9 @@ ged_find_bot_pnt_nearest_pnt_core(struct ged *gedp, int argc, const char *argv[]
     botip = (struct rt_bot_internal *)intern.idb_ptr;
     VMOVE(view, scan); /* convert double to fastf_t */
 
-    nearest_pt = rt_bot_find_v_nearest_pt2(botip, view, gedp->ged_gvp->gv_model2view);
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      nearest_pt = rt_bot_find_v_nearest_pt2(botip, view, _cm.model2view);
+    }
     bu_vls_printf(gedp->ged_result_str, "%d", nearest_pt);
 
     rt_db_free_internal(&intern);

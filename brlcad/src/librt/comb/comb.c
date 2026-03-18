@@ -52,6 +52,7 @@
 #include "bn.h"
 #include "rt/db5.h"
 #include "raytrace.h"
+#include "bsg/defines.h"
 
 /**
  * Number of bytes used for each value of DB5HDR_WIDTHCODE_*
@@ -1306,6 +1307,47 @@ rt_comb_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, c
     }
 
     return (failed) ? BRLCAD_ERROR : BRLCAD_OK;
+}
+
+
+/* forward declaration of the evaluated-wireframe engine (comb_scene_obj.c) */
+extern int rt_comb_eval_m3(bsg_shape *s,
+			   struct db_i *dbip,
+			   const struct bg_tess_tol *ttol,
+			   const struct bn_tol *tol);
+
+/* rt_comb_scene_obj                                                        */
+/*                                                                           */
+/* ft_scene_obj implementation for combination (comb) objects.               */
+/*                                                                           */
+/* Mode 3 (evaluated wireframe): delegates to rt_comb_eval_m3() which       */
+/* was migrated from libged/wireframe_eval.c.  The Boolean evaluation engine */
+/* lives entirely in librt: no draw_update_data_t access.                    */
+/*                                                                           */
+/* All other modes: combs are containers — their geometry comes from the     */
+/* leaf primitives beneath them, each drawn via its own ft_scene_obj         */
+/* callback.  Return BRLCAD_OK immediately; draw_scene iterates children.   */
+int
+rt_comb_scene_obj(bsg_shape *s,
+		  struct directory *UNUSED(dp),
+		  struct db_i *dbip,
+		  const struct bg_tess_tol *ttol,
+		  const struct bn_tol *tol,
+		  const bsg_view *UNUSED(v))
+{
+    if (!s)
+	return BRLCAD_ERROR;
+
+    /* Mode 3: evaluated wireframe using the BigE engine */
+    if (s->s_os && s->s_os->s_dmode == 3) {
+	int ret = rt_comb_eval_m3(s, dbip, ttol, tol);
+	s->current = (ret == BRLCAD_OK) ? 1 : 0;
+	return ret;
+    }
+
+    /* All other modes: container no-op.  Leaf ft_scene_obj callbacks
+     * (rt_bot_scene_obj, rt_generic_scene_obj, etc.) produce the geometry. */
+    return BRLCAD_OK;
 }
 
 /*

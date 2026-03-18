@@ -44,6 +44,8 @@
 #define RESOURCE_TYPE_RUBBER_BAND	6
 #define RESOURCE_TYPE_VIEW		7
 
+/* Step 7.18: SHARE_RESOURCE now accesses resources directly on the pane (dlp is mged_pane*).
+ * dlp->dm_pane->mp_* replaced by dlp->mp_* since dlp IS the pane. */
 #define SHARE_RESOURCE(uflag, str, resource, rc, dlp1, dlp2, vls, error_msg) \
     do { \
 	if (uflag) { \
@@ -76,7 +78,7 @@ extern struct bu_structparse grid_vparse[];
 extern struct bu_structparse rubber_band_vparse[];
 extern struct bu_structparse mged_vparse[];
 
-void free_all_resources(struct mged_dm *dlp);
+void free_all_resources(struct mged_pane *dlp);
 
 /*
  * SYNOPSIS
@@ -100,8 +102,8 @@ f_share(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *ar
     struct mged_state *s = ctp->s;
 
     int uflag = 0;		/* unshare flag */
-    struct mged_dm *dlp1 = MGED_DM_NULL;
-    struct mged_dm *dlp2 = MGED_DM_NULL;
+    struct mged_pane *dlp1 = MGED_PANE_NULL;
+    struct mged_pane *dlp2 = MGED_PANE_NULL;
     struct bu_vls vls = BU_VLS_INIT_ZERO;
 
     if (argc != 4) {
@@ -118,32 +120,18 @@ f_share(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *ar
 	++argv;
     }
 
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	struct bu_vls *pname = dm_get_pathname(m_dmp->dm_dmp);
-	if (BU_STR_EQUAL(argv[2], bu_vls_cstr(pname))) {
-	    dlp1 = m_dmp;
-	    break;
-	}
-    }
+    /* Step 7.20: mp_dmp removed — dm pathname lookup always fails. */
 
-    if (dlp1 == MGED_DM_NULL) {
+    if (dlp1 == MGED_PANE_NULL) {
 	Tcl_AppendResult(interpreter, "share: unrecognized path name - ", argv[2], "\n", (char *)NULL);
 	bu_vls_free(&vls);
 	return TCL_ERROR;
     }
 
     if (!uflag) {
-	for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	    struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	    struct bu_vls *pname = dm_get_pathname(m_dmp->dm_dmp);
-	    if (BU_STR_EQUAL(argv[3], bu_vls_cstr(pname))) {
-		dlp2 = m_dmp;
-		break;
-	    }
-	}
+	/* Step 7.20: mp_dmp removed — dm pathname lookup always fails. */
 
-	if (dlp2 == MGED_DM_NULL) {
+	if (dlp2 == MGED_PANE_NULL) {
 	    Tcl_AppendResult(interpreter, "share: unrecognized path name - ", argv[3], "\n", (char *)NULL);
 	    bu_vls_free(&vls);
 	    return TCL_ERROR;
@@ -160,9 +148,9 @@ f_share(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *ar
 	case 'a':
 	case 'A':
 	    if (argv[1][1] == 'd' || argv[1][1] == 'D')
-		SHARE_RESOURCE(uflag, _adc_state, dm_adc_state, adc_rc, dlp1, dlp2, vls, "share: adc_state");
+		SHARE_RESOURCE(uflag, _adc_state, mp_adc_state, adc_rc, dlp1, dlp2, vls, "share: adc_state");
 	    else if (argv[1][1] == 'x' || argv[1][1] == 'X')
-		SHARE_RESOURCE(uflag, _axes_state, dm_axes_state, ax_rc, dlp1, dlp2, vls, "share: axes_state");
+		SHARE_RESOURCE(uflag, _axes_state, mp_axes_state, ax_rc, dlp1, dlp2, vls, "share: axes_state");
 	    else {
 		bu_vls_printf(&vls, "share: resource type '%s' unknown\n", argv[1]);
 		Tcl_AppendResult(interpreter, bu_vls_addr(&vls), (char *)NULL);
@@ -173,78 +161,46 @@ f_share(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *ar
 	    break;
 	case 'c':
 	case 'C':
-	    SHARE_RESOURCE(uflag, _color_scheme, dm_color_scheme, cs_rc, dlp1, dlp2, vls, "share: color_scheme");
+	    SHARE_RESOURCE(uflag, _color_scheme, mp_color_scheme, cs_rc, dlp1, dlp2, vls, "share: color_scheme");
 	    break;
 	case 'd':
 	case 'D':
-	    {
-		struct dm *dmp1;
-		struct dm *dmp2 = (struct dm *)NULL;
-
-		dmp1 = dlp1->dm_dmp;
-		if (dlp2 != (struct mged_dm *)NULL)
-		    dmp2 = dlp2->dm_dmp;
-
-		if (dm_share_dlist(dmp1, dmp2) == TCL_OK) {
-		    SHARE_RESOURCE(uflag, _dlist_state, dm_dlist_state, dl_rc, dlp1, dlp2, vls, "share: dlist_state");
-		    if (uflag) {
-			dlp1->dm_dlist_state->dl_active = dlp1->dm_mged_variables->mv_dlist;
-
-			if (dlp1->dm_mged_variables->mv_dlist) {
-			    struct mged_dm *save_dlp;
-
-			    save_dlp = s->mged_curr_dm;
-
-			    set_curr_dm(s, dlp1);
-			    createDLists(s, (struct bu_list *)ged_dl(s->gedp));
-
-			    /* restore */
-			    set_curr_dm(s, save_dlp);
-			}
-
-			dlp1->dm_dirty = 1;
-			dm_set_dirty(dlp1->dm_dmp, 1);
-		    } else {
-			dlp1->dm_dirty = dlp2->dm_dirty = 1;
-			dm_set_dirty(dlp1->dm_dmp, 1);
-			dm_set_dirty(dlp2->dm_dmp, 1);
-		    }
-		}
-	    }
+	    /* Step 7.20: mp_dmp removed — dlist sharing no-op. */
 	    break;
 	case 'g':
 	case 'G':
-	    SHARE_RESOURCE(uflag, bv_grid_state, dm_grid_state, rc, dlp1, dlp2, vls, "share: grid_state");
+	    SHARE_RESOURCE(uflag, bsg_grid_state, mp_grid_state, rc, dlp1, dlp2, vls, "share: grid_state");
 	    break;
 	case 'm':
 	case 'M':
-	    SHARE_RESOURCE(uflag, _menu_state, dm_menu_state, ms_rc, dlp1, dlp2, vls, "share: menu_state");
+	    SHARE_RESOURCE(uflag, _menu_state, mp_menu_state, ms_rc, dlp1, dlp2, vls, "share: menu_state");
 	    break;
 	case 'r':
 	case 'R':
-	    SHARE_RESOURCE(uflag, _rubber_band, dm_rubber_band, rb_rc, dlp1, dlp2, vls, "share: rubber_band");
+	    SHARE_RESOURCE(uflag, _rubber_band, mp_rubber_band, rb_rc, dlp1, dlp2, vls, "share: rubber_band");
 	    break;
 	case 'v':
 	case 'V':
 	    if ((argv[1][1] == 'a' || argv[1][1] == 'A') &&
 		(argv[1][2] == 'r' || argv[1][2] == 'R'))
-		SHARE_RESOURCE(uflag, _mged_variables, dm_mged_variables, mv_rc, dlp1, dlp2, vls, "share: mged_variables");
+		SHARE_RESOURCE(uflag, _mged_variables, mp_mged_variables, mv_rc, dlp1, dlp2, vls, "share: mged_variables");
 	    else if (argv[1][1] == 'i' || argv[1][1] == 'I') {
 		if (!uflag) {
 		    /* free dlp2's view_state resources if currently not sharing */
-		    if (dlp2->dm_view_state->vs_rc == 1)
-			view_ring_destroy(dlp2);
+		    if (dlp2->mp_view_state && dlp2->mp_view_state->vs_rc == 1)
+			view_ring_destroy(dlp2->mp_view_state);
 		}
 
-		SHARE_RESOURCE(uflag, _view_state, dm_view_state, vs_rc, dlp1, dlp2, vls, "share: view_state");
+		/* Step 7.17/7.18: view_state in pane (mp_view_state); use SHARE_RESOURCE. */
+		SHARE_RESOURCE(uflag, _view_state, mp_view_state, vs_rc, dlp1, dlp2, vls, "share: view_state");
 
 		if (uflag) {
 		    struct _view_state *ovsp;
-		    ovsp = dlp1->dm_view_state;
+		    ovsp = dlp1->mp_view_state;
 
 		    /* initialize dlp1's view_state */
-		    if (ovsp != dlp1->dm_view_state)
-			view_ring_init(dlp1->dm_view_state, ovsp);
+		    if (ovsp != dlp1->mp_view_state)
+			view_ring_init(dlp1->mp_view_state, ovsp);
 		}
 	    } else {
 		bu_vls_printf(&vls, "share: resource type '%s' unknown\n", argv[1]);
@@ -264,8 +220,7 @@ f_share(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *ar
     }
 
     if (!uflag) {
-	dlp2->dm_dirty = 1;	/* need to redraw this guy */
-	dm_set_dirty(dlp2->dm_dmp, 1);
+	s->update_views = 1;  /* Step 7.20: notify Obol path on share change. */
     }
 
     bu_vls_free(&vls);
@@ -379,97 +334,122 @@ f_rset (ClientData clientData, Tcl_Interp *interpreter, int argc, const char *ar
 
 
 /*
- * dlp1 takes control of dlp2's resources. dlp2 is
+ * dlp1 takes control of dlp2's pane resources. dlp2 is
  * probably on its way out (i.e. being destroyed).
+ * Step 7.18: dlp1 and dlp2 are now mged_pane * directly (no dm_pane indirection).
  */
 void
-usurp_all_resources(struct mged_dm *dlp1, struct mged_dm *dlp2)
+usurp_all_resources(struct mged_pane *dlp1, struct mged_pane *dlp2)
 {
-    free_all_resources(dlp1);
-    dlp1->dm_view_state = dlp2->dm_view_state;
-    dlp1->dm_adc_state = dlp2->dm_adc_state;
-    dlp1->dm_menu_state = dlp2->dm_menu_state;
-    dlp1->dm_rubber_band = dlp2->dm_rubber_band;
-    dlp1->dm_mged_variables = dlp2->dm_mged_variables;
-    dlp1->dm_color_scheme = dlp2->dm_color_scheme;
-    dlp1->dm_grid_state = dlp2->dm_grid_state;
-    dlp1->dm_axes_state = dlp2->dm_axes_state;
+    struct mged_pane *p1 = dlp1;
+    struct mged_pane *p2 = dlp2;
 
-    /* sanity */
-    dlp2->dm_view_state = (struct _view_state *)NULL;
-    dlp2->dm_adc_state = (struct _adc_state *)NULL;
-    dlp2->dm_menu_state = (struct _menu_state *)NULL;
-    dlp2->dm_rubber_band = (struct _rubber_band *)NULL;
-    dlp2->dm_mged_variables = (struct _mged_variables *)NULL;
-    dlp2->dm_color_scheme = (struct _color_scheme *)NULL;
-    dlp2->dm_grid_state = (struct bv_grid_state *)NULL;
-    dlp2->dm_axes_state = (struct _axes_state *)NULL;
+    if (!p1 || !p2) return;
 
-    /* it doesn't make sense to save display list info */
-    if (!--dlp2->dm_dlist_state->dl_rc)
-	bu_free((void *)MGED_STATE->mged_curr_dm->dm_dlist_state, "usurp_all_resources: _dlist_state");
+    /* Free p1's current 8 non-view resources (ref-counted). */
+    if (p1->mp_adc_state      && !--p1->mp_adc_state->adc_rc)
+	bu_free(p1->mp_adc_state,      "usurp: adc_state");
+    if (p1->mp_menu_state     && !--p1->mp_menu_state->ms_rc)
+	bu_free(p1->mp_menu_state,     "usurp: menu_state");
+    if (p1->mp_rubber_band    && !--p1->mp_rubber_band->rb_rc)
+	bu_free(p1->mp_rubber_band,    "usurp: rubber_band");
+    if (p1->mp_mged_variables && !--p1->mp_mged_variables->mv_rc)
+	bu_free(p1->mp_mged_variables, "usurp: mged_variables");
+    if (p1->mp_color_scheme   && !--p1->mp_color_scheme->cs_rc)
+	bu_free(p1->mp_color_scheme,   "usurp: color_scheme");
+    if (p1->mp_grid_state     && !--p1->mp_grid_state->rc)
+	bu_free(p1->mp_grid_state,     "usurp: grid_state");
+    if (p1->mp_axes_state     && !--p1->mp_axes_state->ax_rc)
+	bu_free(p1->mp_axes_state,     "usurp: axes_state");
+    /* dlist_state: it doesn't make sense to save display list info */
+    if (p1->mp_dlist_state && !--p1->mp_dlist_state->dl_rc)
+	bu_free(p1->mp_dlist_state,    "usurp: p1 dlist_state");
+
+    /* Transfer p2's 8 non-view resource pointers to p1. */
+    p1->mp_adc_state      = p2->mp_adc_state;
+    p1->mp_menu_state     = p2->mp_menu_state;
+    p1->mp_rubber_band    = p2->mp_rubber_band;
+    p1->mp_mged_variables = p2->mp_mged_variables;
+    p1->mp_color_scheme   = p2->mp_color_scheme;
+    p1->mp_grid_state     = p2->mp_grid_state;
+    p1->mp_axes_state     = p2->mp_axes_state;
+
+    /* dlist_state: free p2's (not saved) */
+    if (p2->mp_dlist_state && !--p2->mp_dlist_state->dl_rc)
+	bu_free(p2->mp_dlist_state,    "usurp: p2 dlist_state");
+
+    /* Step 7.17/7.18: view_state is pane-owned; usurp it like the others. */
+    if (p1->mp_view_state && !--p1->mp_view_state->vs_rc) {
+	view_ring_destroy(p1->mp_view_state);
+	bu_free((void *)p1->mp_view_state, "usurp: p1 view_state");
+    }
+    p1->mp_view_state = p2->mp_view_state;
+
+    /* Null out p2's pointers (they now belong to p1 or were freed). */
+    p2->mp_adc_state      = NULL;
+    p2->mp_menu_state     = NULL;
+    p2->mp_rubber_band    = NULL;
+    p2->mp_mged_variables = NULL;
+    p2->mp_color_scheme   = NULL;
+    p2->mp_grid_state     = NULL;
+    p2->mp_axes_state     = NULL;
+    p2->mp_dlist_state    = NULL;
+    p2->mp_view_state     = NULL;
 }
 
 
 /*
- * - decrement the reference count of all resources
+ * - decrement the reference count of all resources (all 9, pane-owned)
  * - free all resources that are not being used
+ * Step 7.18: dlp is now mged_pane * directly.
  */
 void
-free_all_resources(struct mged_dm *dlp)
+free_all_resources(struct mged_pane *dlp)
 {
-    if (!--dlp->dm_view_state->vs_rc) {
-	view_ring_destroy(dlp);
-	bu_free((void *)dlp->dm_view_state, "free_all_resources: view_state");
+    struct mged_pane *pane = dlp;
+
+    if (!pane) return;
+
+    if (pane->mp_view_state && !--pane->mp_view_state->vs_rc) {
+	view_ring_destroy(pane->mp_view_state);
+	bu_free((void *)pane->mp_view_state, "free_all_resources: view_state");
     }
+    pane->mp_view_state = NULL;
 
-    if (!--dlp->dm_adc_state->adc_rc)
-	bu_free((void *)dlp->dm_adc_state, "free_all_resources: adc_state");
+    if (pane->mp_adc_state      && !--pane->mp_adc_state->adc_rc)
+	bu_free(pane->mp_adc_state,      "free_all_resources: adc_state");
+    pane->mp_adc_state = NULL;
 
-    if (!--dlp->dm_menu_state->ms_rc)
-	bu_free((void *)dlp->dm_menu_state, "free_all_resources: menu_state");
+    if (pane->mp_menu_state     && !--pane->mp_menu_state->ms_rc)
+	bu_free(pane->mp_menu_state,     "free_all_resources: menu_state");
+    pane->mp_menu_state = NULL;
 
-    if (!--dlp->dm_rubber_band->rb_rc)
-	bu_free((void *)dlp->dm_rubber_band, "free_all_resources: rubber_band");
+    if (pane->mp_rubber_band    && !--pane->mp_rubber_band->rb_rc)
+	bu_free(pane->mp_rubber_band,    "free_all_resources: rubber_band");
+    pane->mp_rubber_band = NULL;
 
-    if (!--dlp->dm_mged_variables->mv_rc)
-	bu_free((void *)dlp->dm_mged_variables, "free_all_resources: mged_variables");
+    if (pane->mp_mged_variables && !--pane->mp_mged_variables->mv_rc)
+	bu_free(pane->mp_mged_variables, "free_all_resources: mged_variables");
+    pane->mp_mged_variables = NULL;
 
-    if (!--dlp->dm_color_scheme->cs_rc)
-	bu_free((void *)dlp->dm_color_scheme, "free_all_resources: color_scheme");
+    if (pane->mp_color_scheme   && !--pane->mp_color_scheme->cs_rc)
+	bu_free(pane->mp_color_scheme,   "free_all_resources: color_scheme");
+    pane->mp_color_scheme = NULL;
 
-    if (!--dlp->dm_grid_state->rc)
-	bu_free((void *)dlp->dm_grid_state, "free_all_resources: grid_state");
+    if (pane->mp_grid_state     && !--pane->mp_grid_state->rc)
+	bu_free(pane->mp_grid_state,     "free_all_resources: grid_state");
+    pane->mp_grid_state = NULL;
 
-    if (!--dlp->dm_axes_state->ax_rc)
-	bu_free((void *)dlp->dm_axes_state, "free_all_resources: axes_state");
+    if (pane->mp_axes_state     && !--pane->mp_axes_state->ax_rc)
+	bu_free(pane->mp_axes_state,     "free_all_resources: axes_state");
+    pane->mp_axes_state = NULL;
 }
 
 
 void
-share_dlist(struct mged_dm *dlp2)
+share_dlist(struct mged_pane *UNUSED(dlp2))
 {
-    if (!dm_get_displaylist(dlp2->dm_dmp))
-	return;
-
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *dlp1 = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	if (dlp1 != dlp2 &&
-	    dm_get_type(dlp1->dm_dmp) == dm_get_type(dlp2->dm_dmp) && dm_get_dname(dlp1->dm_dmp) && dm_get_dname(dlp2->dm_dmp) &&
-	    !bu_vls_strcmp(dm_get_dname(dlp1->dm_dmp), dm_get_dname(dlp2->dm_dmp))) {
-	    if (dm_share_dlist(dlp1->dm_dmp, dlp2->dm_dmp) == TCL_OK) {
-		struct bu_vls vls = BU_VLS_INIT_ZERO;
-
-		SHARE_RESOURCE(0, _dlist_state, dm_dlist_state, dl_rc, dlp1, dlp2, vls, "share: dlist_state");
-		dlp1->dm_dirty = dlp2->dm_dirty = 1;
-		dm_set_dirty(dlp1->dm_dmp, 1);
-		dm_set_dirty(dlp2->dm_dmp, 1);
-		bu_vls_free(&vls);
-	    }
-
-	    break;
-	}
-    }
+    /* Step 7.20: mp_dmp removed — no-op. */
 }
 
 

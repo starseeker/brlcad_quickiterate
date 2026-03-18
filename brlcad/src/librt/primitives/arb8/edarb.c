@@ -34,6 +34,7 @@
 #include "rt/primitives/arb8.h"
 #include "rt/db4.h"
 #include "../edit_private.h"
+#include "bsg/util.h"
 
 #define EARB			4009
 #define PTARB			4010
@@ -1169,12 +1170,14 @@ arb_mv_pnt_to(struct rt_edit *s, const vect_t mousevec)
     vect_t pos_view = VINIT_ZERO;	/* Unrotated view space pos */
     vect_t temp = VINIT_ZERO;
     vect_t pos_model = VINIT_ZERO;	/* Rotated screen space pos */
+    struct bsg_camera _cam;
+    bsg_view_get_camera(s->vp, &_cam);
     /* move an arb point to indicated point */
     /* point is located at es_values[a->edit_menu*3] */
-    MAT4X3PNT(pos_view, s->vp->gv_model2view, s->curr_e_axes_pos);
+    MAT4X3PNT(pos_view, _cam.model2view, s->curr_e_axes_pos);
     pos_view[X] = mousevec[X];
     pos_view[Y] = mousevec[Y];
-    MAT4X3PNT(temp, s->vp->gv_view2model, pos_view);
+    MAT4X3PNT(temp, _cam.view2model, pos_view);
     MAT4X3PNT(pos_model, s->e_invmat, temp);
     editarb(s, pos_model);
 }
@@ -1185,10 +1188,12 @@ edarb_mousevec(struct rt_edit *s, const vect_t mousevec)
     vect_t pos_view = VINIT_ZERO;	/* Unrotated view space pos */
     vect_t temp = VINIT_ZERO;
     vect_t pos_model = VINIT_ZERO;	/* Rotated screen space pos */
-    MAT4X3PNT(pos_view, s->vp->gv_model2view, s->curr_e_axes_pos);
+    struct bsg_camera _cam;
+    bsg_view_get_camera(s->vp, &_cam);
+    MAT4X3PNT(pos_view, _cam.model2view, s->curr_e_axes_pos);
     pos_view[X] = mousevec[X];
     pos_view[Y] = mousevec[Y];
-    MAT4X3PNT(temp, s->vp->gv_view2model, pos_view);
+    MAT4X3PNT(temp, _cam.view2model, pos_view);
     MAT4X3PNT(pos_model, s->e_invmat, temp);
     editarb(s, pos_model);
 }
@@ -1200,10 +1205,12 @@ edarb_move_face_mousevec(struct rt_edit *s, const vect_t mousevec)
     vect_t pos_view = VINIT_ZERO;	/* Unrotated view space pos */
     vect_t temp = VINIT_ZERO;
     vect_t pos_model = VINIT_ZERO;	/* Rotated screen space pos */
-    MAT4X3PNT(pos_view, s->vp->gv_model2view, s->curr_e_axes_pos);
+    struct bsg_camera _cam;
+    bsg_view_get_camera(s->vp, &_cam);
+    MAT4X3PNT(pos_view, _cam.model2view, s->curr_e_axes_pos);
     pos_view[X] = mousevec[X];
     pos_view[Y] = mousevec[Y];
-    MAT4X3PNT(temp, s->vp->gv_view2model, pos_view);
+    MAT4X3PNT(temp, _cam.view2model, pos_view);
     MAT4X3PNT(pos_model, s->e_invmat, temp);
     /* change D of planar equation */
     a->es_peqn[a->edit_menu][W]=VDOT(&a->es_peqn[a->edit_menu][0], pos_model);

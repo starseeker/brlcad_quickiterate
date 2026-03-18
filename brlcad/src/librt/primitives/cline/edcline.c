@@ -33,6 +33,7 @@
 #include "wdb.h"
 
 #include "../edit_private.h"
+#include "bsg/util.h"
 
 #define ECMD_CLINE_SCALE_H	29077	/* scale height vector */
 #define ECMD_CLINE_MOVE_H	29078	/* move end of height vector */
@@ -271,14 +272,16 @@ ecmd_cline_move_h_mousevec(struct rt_edit *s, const vect_t mousevec)
     vect_t temp = VINIT_ZERO;
     struct rt_cline_internal *cli =
 	(struct rt_cline_internal *)s->es_int.idb_ptr;
+    struct bsg_camera _cam;
+    bsg_view_get_camera(s->vp, &_cam);
 
     RT_CLINE_CK_MAGIC(cli);
 
-    MAT4X3PNT(pos_view, s->vp->gv_model2view, s->curr_e_axes_pos);
+    MAT4X3PNT(pos_view, _cam.model2view, s->curr_e_axes_pos);
     pos_view[X] = mousevec[X];
     pos_view[Y] = mousevec[Y];
     /* Do NOT change pos_view[Z] ! */
-    MAT4X3PNT(temp, s->vp->gv_view2model, pos_view);
+    MAT4X3PNT(temp, _cam.view2model, pos_view);
     MAT4X3PNT(tr_temp, s->e_invmat, temp);
     VSUB2(cli->h, tr_temp, cli->v);
 }

@@ -31,7 +31,7 @@
 #include "vmath.h"
 #include "bu/getopt.h"
 #include "bn.h"
-#include "bv/util.h"
+#include "bsg/util.h"
 #include "raytrace.h"
 #include "rt/edit.h"
 #include "nmg.h"
@@ -241,7 +241,6 @@ mged_librt_knob_edit_apply(struct mged_state *s,
     /* Update MGED's cached edit matrices and mark for redraw */
     new_edit_mats(s);
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
 
     /* Synchronize MGED es_edclass (used by token_should_edit, knob printouts, rate loop) */
     if (did_rot) {
@@ -285,20 +284,20 @@ mged_knob_edit_process(struct mged_state *s,
                     if (incr_flag) MEDIT(s)->k.rot_m[axis] += fval;
                     else MEDIT(s)->k.rot_m[axis] = fval;
                     MEDIT(s)->k.origin_m = origin;
-                    s->s_edit->edit_rate_mr_dm = s->mged_curr_dm;
+                    s->s_edit->edit_rate_mr_pane = s->mged_curr_pane;
                     break;
                 case 'o':
                     if (incr_flag) MEDIT(s)->k.rot_o[axis] += fval;
                     else MEDIT(s)->k.rot_o[axis] = fval;
                     MEDIT(s)->k.origin_o = origin;
-                    s->s_edit->edit_rate_or_dm = s->mged_curr_dm;
+                    s->s_edit->edit_rate_or_pane = s->mged_curr_pane;
                     break;
                 case 'v':
                 default:
                     if (incr_flag) MEDIT(s)->k.rot_v[axis] += fval;
                     else MEDIT(s)->k.rot_v[axis] = fval;
                     MEDIT(s)->k.origin_v = origin;
-                    s->s_edit->edit_rate_vr_dm = s->mged_curr_dm;
+                    s->s_edit->edit_rate_vr_pane = s->mged_curr_pane;
                     break;
             }
             return BRLCAD_OK;
@@ -344,13 +343,13 @@ mged_knob_edit_process(struct mged_state *s,
                 case 'o':
                     if (incr_flag) MEDIT(s)->k.tra_m[axis] += fval;
                     else MEDIT(s)->k.tra_m[axis] = fval;
-                    s->s_edit->edit_rate_mt_dm = s->mged_curr_dm;
+                    s->s_edit->edit_rate_mt_pane = s->mged_curr_pane;
                     break;
                 case 'v':
                 default:
                     if (incr_flag) MEDIT(s)->k.tra_v[axis] += fval;
                     else MEDIT(s)->k.tra_v[axis] = fval;
-                    s->s_edit->edit_rate_vt_dm = s->mged_curr_dm;
+                    s->s_edit->edit_rate_vt_pane = s->mged_curr_pane;
                     break;
             }
             return BRLCAD_OK;
@@ -412,8 +411,9 @@ mged_erot(struct mged_state *s,
     int save_edflag;
     mat_t temp1, temp2;
 
+    struct bsg_camera _vsview_cam;
+    bsg_view_get_camera(view_state->vs_gvp, &_vsview_cam);
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
 
     switch (coords) {
 	case 'm':
@@ -426,11 +426,11 @@ mged_erot(struct mged_state *s,
 	    bn_mat_mul(newrot, temp2, temp1);
 	    break;
 	case 'v':
-	    bn_mat_inv(temp1, view_state->vs_gvp->gv_rotation);
+	    bn_mat_inv(temp1, _vsview_cam.rotation);
 
 	    /* transform into model rotations */
 	    bn_mat_mul(temp2, temp1, newrot);
-	    bn_mat_mul(newrot, temp2, view_state->vs_gvp->gv_rotation);
+	    bn_mat_mul(newrot, temp2, _vsview_cam.rotation);
 	    break;
     }
 
@@ -463,11 +463,11 @@ mged_erot(struct mged_state *s,
 	switch (rotate_about) {
 	    case 'v':       /* View Center */
 		VSET(work, 0.0, 0.0, 0.0);
-		MAT4X3PNT(point, view_state->vs_gvp->gv_view2model, work);
+		MAT4X3PNT(point, _vsview_cam.view2model, work);
 		break;
 	    case 'e':       /* Eye */
 		VSET(work, 0.0, 0.0, 1.0);
-		MAT4X3PNT(point, view_state->vs_gvp->gv_view2model, work);
+		MAT4X3PNT(point, _vsview_cam.view2model, work);
 		break;
 	    case 'm':       /* Model Center */
 		VSETALL(point, 0.0);
@@ -515,6 +515,8 @@ mged_etran(struct mged_state *s,
     mat_t xlatemat;
 
     /* compute delta */
+    struct bsg_camera _vsview_cam;
+    bsg_view_get_camera(view_state->vs_gvp, &_vsview_cam);
     switch (coords) {
 	case 'm':
 	    VSCALE(delta, tvec, s->dbip->dbi_local2base);
@@ -526,8 +528,8 @@ mged_etran(struct mged_state *s,
 	case 'v':
 	default:
 	    VSCALE(p2, tvec, s->dbip->dbi_local2base / view_state->vs_gvp->gv_scale);
-	    MAT4X3PNT(work, view_state->vs_gvp->gv_view2model, p2);
-	    MAT_DELTAS_GET_NEG(vcenter, view_state->vs_gvp->gv_center);
+	    MAT4X3PNT(work, _vsview_cam.view2model, p2);
+	    MAT_DELTAS_GET_NEG(vcenter, _vsview_cam.center);
 	    VSUB2(delta, work, vcenter);
 
 	    break;
@@ -554,7 +556,6 @@ mged_etran(struct mged_state *s,
 
 	new_edit_mats(s);
 	s->update_views = 1;
-	dm_set_dirty(DMP, 1);
     }
 
     return TCL_OK;
@@ -619,6 +620,7 @@ cmd_center(ClientData clientData,
 
     if (argc > 1) {
 	(void)mged_svbase(s);
+	s->update_views = 1;
 	view_state->vs_flag = 1;
     }
 
@@ -660,6 +662,7 @@ cmd_size(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[]
 	}
 
 	if (argc > 1) {
+	    s->update_views = 1;
 	    view_state->vs_flag = 1;
 	}
 
@@ -684,6 +687,7 @@ size_reset(struct mged_state *s)
     const char *av[1] = {"autoview"};
     ged_exec_autoview(s->gedp, 1, (const char **)av);
     view_state->vs_gvp->gv_i_scale = view_state->vs_gvp->gv_scale;
+    s->update_views = 1;
     view_state->vs_flag = 1;
 }
 
@@ -696,9 +700,6 @@ edit_com(struct mged_state *s,
 	 int argc,
 	 const char *argv[])
 {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
-    struct mged_dm *save_m_dmp;
     struct cmd_list *save_cmd_list;
     int ret;
     int initial_blank_screen = 1;
@@ -713,18 +714,11 @@ edit_com(struct mged_state *s,
 
     CHECK_DBI_NULL;
 
-    /* Common part of illumination */
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	if (BU_LIST_NON_EMPTY(&gdlp->dl_head_scene_obj)) {
+    /* Check whether the screen is currently blank */
+    {
+	bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
+	if (root && BU_PTBL_LEN(&root->children) > 0)
 	    initial_blank_screen = 0;
-	    break;
-	}
-
-	gdlp = next_gdlp;
     }
 
     /* check args for "-A" (attributes) and "-o" and "-R" */
@@ -874,7 +868,6 @@ edit_com(struct mged_state *s,
     }
 
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
 
     if (flag_R_noresize) {
 	/* we're done */
@@ -883,55 +876,41 @@ edit_com(struct mged_state *s,
 
     /* update and resize the views */
 
-    save_m_dmp = s->mged_curr_dm;
-    save_cmd_list = curr_cmd_list;
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	int non_empty = 0; /* start out empty */
+    {
+	struct mged_pane *save_pane = s->mged_curr_pane;
+	save_cmd_list = curr_cmd_list;
+	/* Step 6.b: active_pane_set covers all pane types. */
+	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	    int non_empty = 0;
 
-	set_curr_dm(s, m_dmp);
+	    set_curr_pane(s, mp);
 
-	if (s->mged_curr_dm->dm_tie) {
-	    curr_cmd_list = s->mged_curr_dm->dm_tie;
-	} else {
-	    curr_cmd_list = &head_cmd_list;
+	    if (s->mged_curr_pane->mp_cmd_tie)
+		curr_cmd_list = s->mged_curr_pane->mp_cmd_tie;
+	    else
+		curr_cmd_list = &head_cmd_list;
+
+	    s->gedp->ged_gvp = view_state->vs_gvp;
+
+	    {
+		bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
+		non_empty = (root && BU_PTBL_LEN(&root->children) > 0) ? 1 : 0;
+	    }
+
+	    /* If we went from blank screen to non-blank, resize */
+	    if (mged_variables->mv_autosize && initial_blank_screen && non_empty) {
+		char *av[2];
+		av[0] = "autoview";
+		av[1] = (char *)0;
+		ged_exec_autoview(s->gedp, 1, (const char **)av);
+		s->update_views = 1;
+	    }
 	}
-
+	set_curr_pane(s, save_pane);
+	curr_cmd_list = save_cmd_list;
 	s->gedp->ged_gvp = view_state->vs_gvp;
-
-	gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-
-	while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	    if (BU_LIST_NON_EMPTY(&gdlp->dl_head_scene_obj)) {
-		non_empty = 1;
-		break;
-	    }
-
-	    gdlp = next_gdlp;
-	}
-
-	/* If we went from blank screen to non-blank, resize */
-	if (mged_variables->mv_autosize && initial_blank_screen && non_empty) {
-	    struct view_ring *vrp;
-	    char *av[2];
-
-	    av[0] = "autoview";
-	    av[1] = (char *)0;
-	    ged_exec_autoview(s->gedp, 1, (const char **)av);
-
-	    (void)mged_svbase(s);
-
-	    for (BU_LIST_FOR(vrp, view_ring, &view_state->vs_headView.l)) {
-		vrp->vr_scale = view_state->vs_gvp->gv_scale;
-	    }
-	}
     }
-
-    set_curr_dm(s, save_m_dmp);
-    curr_cmd_list = save_cmd_list;
-    s->gedp->ged_gvp = view_state->vs_gvp;
 
     return TCL_OK;
 }
@@ -942,7 +921,6 @@ cmd_autoview(ClientData clientData, Tcl_Interp *interp, int argc, const char *ar
     struct cmdtab *ctp = (struct cmdtab *)clientData;
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
-    struct mged_dm *save_m_dmp;
     struct cmd_list *save_cmd_list;
 
     if (argc > 2) {
@@ -960,47 +938,34 @@ cmd_autoview(ClientData clientData, Tcl_Interp *interp, int argc, const char *ar
 	return TCL_OK;
     }
 
-    save_m_dmp = s->mged_curr_dm;
-    save_cmd_list = curr_cmd_list;
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	struct view_ring *vrp;
+    {
+	struct mged_pane *save_pane = s->mged_curr_pane;
+	save_cmd_list = curr_cmd_list;
+	int ac = 1;
+	const char *av[3];
+	av[0] = "autoview";
+	av[1] = (argc > 1) ? argv[1] : NULL;
+	av[2] = NULL;
+	if (argc > 1) ac = 2;
+	/* Step 6.b: active_pane_set covers all pane types. */
+	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
 
-	set_curr_dm(s, m_dmp);
+	    set_curr_pane(s, mp);
+	    if (s->mged_curr_pane->mp_cmd_tie)
+		curr_cmd_list = s->mged_curr_pane->mp_cmd_tie;
+	    else
+		curr_cmd_list = &head_cmd_list;
 
-	if (s->mged_curr_dm->dm_tie) {
-	    curr_cmd_list = s->mged_curr_dm->dm_tie;
-	} else {
-	    curr_cmd_list = &head_cmd_list;
-	}
-
-	s->gedp->ged_gvp = view_state->vs_gvp;
-
-	{
-	    int ac = 1;
-	    const char *av[3];
-
-	    av[0] = "autoview";
-	    av[1] = NULL;
-	    av[2] = NULL;
-
-	    if (argc > 1) {
-		av[1] = argv[1];
-		ac = 2;
-	    }
-
+	    s->gedp->ged_gvp = view_state->vs_gvp;
 	    ged_exec_autoview(s->gedp, ac, (const char **)av);
+	    s->update_views = 1;
 	    view_state->vs_flag = 1;
 	}
-	(void)mged_svbase(s);
-
-	for (BU_LIST_FOR(vrp, view_ring, &view_state->vs_headView.l)) {
-	    vrp->vr_scale = view_state->vs_gvp->gv_scale;
-	}
+	set_curr_pane(s, save_pane);
+	curr_cmd_list = save_cmd_list;
+	s->gedp->ged_gvp = view_state->vs_gvp;
     }
-    set_curr_dm(s, save_m_dmp);
-    curr_cmd_list = save_cmd_list;
-    s->gedp->ged_gvp = view_state->vs_gvp;
 
     return TCL_OK;
 }
@@ -1034,7 +999,6 @@ f_regdebug(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv
 {
     struct cmdtab *ctp = (struct cmdtab *)clientData;
     MGED_CK_CMD(ctp);
-    struct mged_state *s = ctp->s;
     static int regdebug = 0;
     static char debug_str[10];
 
@@ -1058,8 +1022,6 @@ f_regdebug(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv
 
     Tcl_AppendResult(interp, "regdebug=", debug_str, "\n", (char *)NULL);
 
-    dm_set_debug(DMP, regdebug);
-
     return TCL_OK;
 }
 
@@ -1078,7 +1040,6 @@ cmd_zap(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), con
     CHECK_DBI_NULL;
 
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
     s->gedp->ged_destroy_vlist_callback = freeDListsAll;
 
     /* FIRST, reject any editing in progress */
@@ -1114,6 +1075,8 @@ f_status(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[]
     struct cmdtab *ctp = (struct cmdtab *)clientData;
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
+    struct bsg_camera _vsview_cam;
+    bsg_view_get_camera(view_state->vs_gvp, &_vsview_cam);
 
     struct bu_vls vls = BU_VLS_INIT_ZERO;
 
@@ -1134,10 +1097,10 @@ f_status(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[]
 	Tcl_AppendResult(interp, bu_vls_addr(&vls), (char *)NULL);
 	bu_vls_free(&vls);
 
-	mged_bn_mat_print(interp, "toViewcenter", view_state->vs_gvp->gv_center);
-	mged_bn_mat_print(interp, "Viewrot", view_state->vs_gvp->gv_rotation);
-	mged_bn_mat_print(interp, "model2view", view_state->vs_gvp->gv_model2view);
-	mged_bn_mat_print(interp, "view2model", view_state->vs_gvp->gv_view2model);
+	mged_bn_mat_print(interp, "toViewcenter", _vsview_cam.center);
+	mged_bn_mat_print(interp, "Viewrot", _vsview_cam.rotation);
+	mged_bn_mat_print(interp, "model2view", _vsview_cam.model2view);
+	mged_bn_mat_print(interp, "view2model", _vsview_cam.view2model);
 
 	if (s->global_editing_state != ST_VIEW) {
 	    mged_bn_mat_print(interp, "model2objview", view_state->vs_model2objview);
@@ -1174,22 +1137,22 @@ f_status(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[]
     }
 
     if (BU_STR_EQUAL(argv[1], "toViewcenter")) {
-	mged_bn_mat_print(interp, "toViewcenter", view_state->vs_gvp->gv_center);
+	mged_bn_mat_print(interp, "toViewcenter", _vsview_cam.center);
 	return TCL_OK;
     }
 
     if (BU_STR_EQUAL(argv[1], "Viewrot")) {
-	mged_bn_mat_print(interp, "Viewrot", view_state->vs_gvp->gv_rotation);
+	mged_bn_mat_print(interp, "Viewrot", _vsview_cam.rotation);
 	return TCL_OK;
     }
 
     if (BU_STR_EQUAL(argv[1], "model2view")) {
-	mged_bn_mat_print(interp, "model2view", view_state->vs_gvp->gv_model2view);
+	mged_bn_mat_print(interp, "model2view", _vsview_cam.model2view);
 	return TCL_OK;
     }
 
     if (BU_STR_EQUAL(argv[1], "view2model")) {
-	mged_bn_mat_print(interp, "view2model", view_state->vs_gvp->gv_view2model);
+	mged_bn_mat_print(interp, "view2model", _vsview_cam.view2model);
 	return TCL_OK;
     }
 
@@ -1231,6 +1194,7 @@ f_refresh(ClientData clientData, Tcl_Interp *interp, int argc, const char *UNUSE
 	return TCL_ERROR;
     }
 
+    s->update_views = 1;
     view_state->vs_flag = 1;
     return TCL_OK;
 }
@@ -1245,11 +1209,8 @@ f_ill(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     struct cmdtab *ctp = (struct cmdtab *)clientData;
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
     struct directory *dp;
-    struct bv_scene_obj *sp;
-    struct bv_scene_obj *lastfound = NULL;
+    bsg_shape *lastfound = NULL;
     int i, j;
     int nmatch;
     int c;
@@ -1376,12 +1337,11 @@ f_ill(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	goto bail_out;
     }
 
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+    {
+	bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
+	size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
+	for (size_t si = 0; si < nshapes; si++) {
+	    bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
 	    int a_new_match;
 	    if (!sp->s_u_data)
 		continue;
@@ -1416,8 +1376,6 @@ f_ill(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 
 	    sp->s_iflag = DOWN;
 	}
-
-	gdlp = next_gdlp;
     }
 
     if (nmatch == 0) {
@@ -1455,7 +1413,6 @@ f_ill(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     }
 
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
 
     if (path_piece) {
 	for (i = 0; path_piece[i] != 0; ++i) {
@@ -1503,8 +1460,6 @@ f_sed(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     struct cmdtab *ctp = (struct cmdtab *)clientData;
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
     int is_empty = 1;
 
     CHECK_DBI_NULL;
@@ -1525,17 +1480,12 @@ f_sed(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     }
 
     /* Common part of illumination */
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	if (BU_LIST_NON_EMPTY(&gdlp->dl_head_scene_obj)) {
+    {
+	bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
+	if (!root || BU_PTBL_LEN(&root->children) == 0)
+	    is_empty = 1;
+	else
 	    is_empty = 0;
-	    break;
-	}
-
-	gdlp = next_gdlp;
     }
 
     if (is_empty) {
@@ -1544,7 +1494,6 @@ f_sed(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     }
 
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
 
     button(s, BE_S_ILLUMINATE);	/* To ST_S_PICK */
 
@@ -1566,7 +1515,7 @@ f_sed(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 }
 
 static void
-update_knob_rate_flags(struct bview_knobs *k, int is_edit)
+update_knob_rate_flags(bsg_knobs *k, int is_edit)
 {
     if (!k) return;
     k->rot_m_flag = (!ZERO(k->rot_m[X]) || !ZERO(k->rot_m[Y]) || !ZERO(k->rot_m[Z]));
@@ -1596,8 +1545,10 @@ update_all_rate_flags(struct mged_state *s)
     }
     if (s && s->s_edit && MEDIT(s))
 	update_knob_rate_flags(&MEDIT(s)->k, 1);
-    if (view_state)
+    if (view_state) {
+	s->update_views = 1;
 	view_state->vs_flag = 1;
+    }
 }
 
 
@@ -1709,9 +1660,9 @@ knob_apply_misc(struct mged_state *s,
 		const char *token)
 {
     if (BU_STR_EQUAL(token, "zap") || BU_STR_EQUAL(token, "zero")) {
-	bv_knobs_reset(&view_state->vs_gvp->k, 0);
+	bsg_knobs_reset(&view_state->vs_gvp->k, 0);
 	if (MEDIT(s)) {
-	    bv_knobs_reset(&MEDIT(s)->k, BV_KNOBS_RATE);
+	    bsg_knobs_reset(&MEDIT(s)->k, BSG_KNOBS_RATE);
 	}
 	view_state->k = view_state->vs_gvp->k;
 	update_all_rate_flags(s);
@@ -1741,6 +1692,8 @@ f_knob(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     struct cmdtab *ctp = (struct cmdtab *)clientData;
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
+    struct bsg_camera _vsview_cam;
+    bsg_view_get_camera(view_state->vs_gvp, &_vsview_cam);
 
     int incr_flag = 0;	/* interpret values as increments */
     int view_flag = 0;	/* manipulate view using view coords */
@@ -1859,19 +1812,24 @@ f_knob(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 		    struct rt_edit *re = MEDIT(s);
 		    if (!re)
 			goto usage;
-		    struct bview *v = view_state->vs_gvp;
-		    char save_coord = v->gv_coord;
-		    v->gv_coord = mged_variables->mv_coords;
+		    bsg_view *v = view_state->vs_gvp;
+		    struct bsg_camera _vc;
+		    bsg_view_get_camera(v, &_vc);
+		    char save_coord = _vc.coord;
+		    _vc.coord = mged_variables->mv_coords;
+		    bsg_view_set_camera(v, &_vc);
 		    if (rt_edit_knob_cmd_process(re,
 				&edit_rvec, &edit_do_rot,
 				&edit_tvec, &edit_do_tran,
 				&edit_do_sca,
 				v, token, fval,
 				origin, incr_flag, NULL) != BRLCAD_OK) {
-			v->gv_coord = save_coord;
+			_vc.coord = save_coord;
+			bsg_view_set_camera(v, &_vc);
 			goto usage;
 		    }
-		    v->gv_coord = save_coord;
+		    _vc.coord = save_coord;
+		    bsg_view_set_camera(v, &_vc);
 		} else {
 		    if (mged_knob_edit_process(s, ke, fval, incr_flag, origin,
 				edit_rvec, &edit_do_rot,
@@ -1887,7 +1845,7 @@ f_knob(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 		    view_state->vs_gvp->gv_base2local = s->dbip->dbi_base2local;
 		}
 		int model_mode = model_flag || (mged_variables->mv_coords == 'm' && !view_flag);
-		if (bv_knobs_cmd_process(&view_rvec, &view_do_rot, &view_tvec, &view_do_tran,
+		if (bsg_knobs_cmd_process(&view_rvec, &view_do_rot, &view_tvec, &view_do_tran,
 			    view_state->vs_gvp,
 			    token, fval,
 			    origin, model_mode, incr_flag) != BRLCAD_OK) {
@@ -1917,21 +1875,21 @@ f_knob(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	}
 
 	if (view_do_tran) {
-	    bv_knobs_tran(view_state->vs_gvp, view_tvec, model_mode_final);
+	    bsg_knobs_tran(view_state->vs_gvp, view_tvec, model_mode_final);
 	}
 
 	if (view_do_rot) {
 	    /* Save old rotation for MGED-only predictor (deprecated) */
 	    mat_t old_rot, old_rot_inv, delta, delta_inv;
-	    MAT_COPY(old_rot, view_state->vs_gvp->gv_rotation);
+	    MAT_COPY(old_rot, _vsview_cam.rotation);
 
-	    bv_knobs_rot(view_state->vs_gvp, view_rvec, origin, vcoords,
+	    bsg_knobs_rot(view_state->vs_gvp, view_rvec, origin, vcoords,
 		    (vcoords == 'o') ? MEDIT(s)->acc_rot_sol : NULL,
 		    NULL);
 
 	    /* MGED-only predictor maintenance (remove when predictor removed) */
 	    bn_mat_inv(old_rot_inv, old_rot);
-	    bn_mat_mul(delta, view_state->vs_gvp->gv_rotation, old_rot_inv);
+	    bn_mat_mul(delta, _vsview_cam.rotation, old_rot_inv);
 	    bn_mat_inv(delta_inv, delta);
 	    wrt_view(s, view_state->vs_ModelDelta, delta_inv, view_state->vs_ModelDelta);
 	}
@@ -1942,7 +1900,6 @@ f_knob(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	 * code keying on s->update_views (rather than vs_flag alone) behaves
 	 * identically. */
 	s->update_views = 1;
-	dm_set_dirty(DMP, 1);
 	view_state->vs_flag = 1;
     }
 
@@ -1968,19 +1925,18 @@ f_knob(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
      * added, but for now preserve behavior.*/
     if (view_abs_scale_changed && !view_do_tran && !view_do_rot) {
 	s->update_views = 1;
-	dm_set_dirty(DMP, 1);
 	view_state->vs_flag = 1;
 	/* Absolute translations already refreshed in abs_zoom via set_absolute_* */
     }
 
-    /* Sync view_state->k with current bview knobs before rate flag calc */
+    /* Sync view_state->k with current bsg_view knobs before rate flag calc */
     if (view_state && view_state->vs_gvp)
 	view_state->k = view_state->vs_gvp->k;
 
     /* Update rate flags */
     update_all_rate_flags(s);
 
-    /* Synchronize MGED's authoritative knob state into the active bview so that
+    /* Synchronize MGED's authoritative knob state into the active bsg_view so that
      * subsequent "view knob" (libged) commands see the accumulated rates and
      * absolute values.  Without this, mixing "knob ..." then "view knob ..."
      * would drop the earlier MGED changes because vs_gvp->k lags behind
@@ -2050,6 +2006,7 @@ mged_zoom(struct mged_state *s, double val)
 	ret = redraw_visible_objects(s);
     }
 
+    s->update_views = 1;
     view_state->vs_flag = 1;
 
     return ret;
@@ -2169,6 +2126,7 @@ cmd_setview(ClientData clientData, Tcl_Interp *interp, int argc, const char *arg
 	set_absolute_tran(s);
     }
 
+    s->update_views = 1;
     view_state->vs_flag = 1;
 
     return TCL_OK;
@@ -2181,6 +2139,8 @@ f_slewview(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv
     struct cmdtab *ctp = (struct cmdtab *)clientData;
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
+    struct bsg_camera _vsview_cam;
+    bsg_view_get_camera(view_state->vs_gvp, &_vsview_cam);
     int ret;
     Tcl_DString ds;
     point_t old_model_center;
@@ -2193,7 +2153,7 @@ f_slewview(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv
     }
 
     /* this is for the ModelDelta calculation below */
-    MAT_DELTAS_GET_NEG(old_model_center, view_state->vs_gvp->gv_center);
+    MAT_DELTAS_GET_NEG(old_model_center, _vsview_cam.center);
 
     Tcl_DStringInit(&ds);
 
@@ -2205,10 +2165,12 @@ f_slewview(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv
 	return TCL_ERROR;
     }
 
+    s->update_views = 1;
     view_state->vs_flag = 1;
 
-    /* all this for ModelDelta */
-    MAT_DELTAS_GET_NEG(new_model_center, view_state->vs_gvp->gv_center);
+    /* all this for ModelDelta - re-fetch camera to get updated center */
+    bsg_view_get_camera(view_state->vs_gvp, &_vsview_cam);
+    MAT_DELTAS_GET_NEG(new_model_center, _vsview_cam.center);
     VSUB2(diff, new_model_center, old_model_center);
     MAT_IDN(delta);
     MAT_DELTAS_VEC(delta, diff);
@@ -2223,7 +2185,9 @@ f_slewview(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv
 int
 mged_svbase(struct mged_state *s)
 {
-    MAT_DELTAS_GET_NEG(view_state->vs_orig_pos, view_state->vs_gvp->gv_center);
+    struct bsg_camera _vsview_cam;
+    bsg_view_get_camera(view_state->vs_gvp, &_vsview_cam);
+    MAT_DELTAS_GET_NEG(view_state->vs_orig_pos, _vsview_cam.center);
     view_state->vs_gvp->gv_i_scale = view_state->vs_gvp->gv_scale;
 
     /* Snapshot object absolute rotations (not previously reset by svbase)
@@ -2235,7 +2199,7 @@ mged_svbase(struct mged_state *s)
     VMOVE(saved_rot_o_abs_last, view_state->k.rot_o_abs_last);
 
     /* Reset all absolute knob baselines */
-    bv_knobs_reset(&view_state->k, 2);
+    bsg_knobs_reset(&view_state->k, 2);
 
     /* Restore object absolute rotations to preserve legacy behavior
      * TODO - for now we're preserving existing behavior, but should these
@@ -2249,14 +2213,13 @@ mged_svbase(struct mged_state *s)
     // mode is involved with viewstate - need to study in more detail. */
     view_state->vs_gvp->gv_a_scale = 0.0;
 
-    /* Sync active bview knob struct */
+    /* Sync active bsg_view knob struct */
     if (view_state->vs_gvp) {
 	view_state->vs_gvp->k = view_state->k;
     }
 
     if (mged_variables->mv_faceplate && mged_variables->mv_orig_gui) {
-	s->mged_curr_dm->dm_dirty = 1;
-	dm_set_dirty(DMP, 1);
+	s->update_views = 1;
     }
 
     return TCL_OK;
@@ -2287,16 +2250,7 @@ f_svbase(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[]
 
     status = mged_svbase(s);
 
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	/* if sharing view while faceplate and original gui (i.e. button menu, sliders) are on */
-	if (m_dmp->dm_view_state == view_state &&
-	    m_dmp->dm_mged_variables->mv_faceplate &&
-	    m_dmp->dm_mged_variables->mv_orig_gui) {
-	    m_dmp->dm_dirty = 1;
-	    dm_set_dirty(m_dmp->dm_dmp, 1);
-	}
-    }
+    /* Step 7.20: mp_dmp removed; dm_dirty loop removed. */
 
     return status;
 }
@@ -2341,6 +2295,7 @@ setview(struct mged_state *s,
 	set_absolute_tran(s);
     }
 
+    s->update_views = 1;
     view_state->vs_flag = 1;
 }
 
@@ -2361,12 +2316,14 @@ slewview(struct mged_state *s, vect_t view_pos)
     char ybuf[32];
     char zbuf[32];
 
+    struct bsg_camera _vsview_cam;
+    bsg_view_get_camera(view_state->vs_gvp, &_vsview_cam);
     if (s->gedp == GED_NULL) {
 	return;
     }
 
     /* this is for the ModelDelta calculation below */
-    MAT_DELTAS_GET_NEG(old_model_center, view_state->vs_gvp->gv_center);
+    MAT_DELTAS_GET_NEG(old_model_center, _vsview_cam.center);
 
     snprintf(xbuf, 32, "%f", view_pos[X]);
     snprintf(ybuf, 32, "%f", view_pos[Y]);
@@ -2379,8 +2336,9 @@ slewview(struct mged_state *s, vect_t view_pos)
     av[4] = (char *)0;
     ged_exec_slew(s->gedp, 4, (const char **)av);
 
-    /* all this for ModelDelta */
-    MAT_DELTAS_GET_NEG(new_model_center, view_state->vs_gvp->gv_center);
+    /* all this for ModelDelta - re-fetch camera to get updated center */
+    bsg_view_get_camera(view_state->vs_gvp, &_vsview_cam);
+    MAT_DELTAS_GET_NEG(new_model_center, _vsview_cam.center);
     VSUB2(diff, new_model_center, old_model_center);
     MAT_IDN(delta);
     MAT_DELTAS_VEC(delta, diff);
@@ -2388,6 +2346,7 @@ slewview(struct mged_state *s, vect_t view_pos)
 
     set_absolute_tran(s);
 
+    s->update_views = 1;
     view_state->vs_flag = 1;
 }
 
@@ -2440,12 +2399,16 @@ view_ring_init(struct _view_state *vsp1, struct _view_state *vsp2)
 
 
 void
-view_ring_destroy(struct mged_dm *dlp)
+/* Step 7.17: view_ring_destroy now takes a _view_state * directly, removing
+ * the dependency on struct mged_dm (which no longer has dm_view_state). */
+view_ring_destroy(struct _view_state *vsp)
 {
     struct view_ring *vrp;
 
-    while (BU_LIST_NON_EMPTY(&dlp->dm_view_state->vs_headView.l)) {
-	vrp = BU_LIST_FIRST(view_ring, &dlp->dm_view_state->vs_headView.l);
+    if (!vsp) return;
+
+    while (BU_LIST_NON_EMPTY(&vsp->vs_headView.l)) {
+	vrp = BU_LIST_FIRST(view_ring, &vsp->vs_headView.l);
 	BU_LIST_DEQUEUE(&vrp->l);
 	bu_free((void *)vrp, "view_ring_destroy: vrp");
     }
@@ -2470,6 +2433,8 @@ f_view_ring(ClientData clientData, Tcl_Interp *interp, int argc, const char *arg
     struct cmdtab *ctp = (struct cmdtab *)clientData;
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
+    struct bsg_camera _vsview_cam;
+    bsg_view_get_camera(view_state->vs_gvp, &_vsview_cam);
     int n;
     struct view_ring *vrp;
     struct view_ring *lv;
@@ -2491,10 +2456,10 @@ f_view_ring(ClientData clientData, Tcl_Interp *interp, int argc, const char *arg
 	}
 
 	/* save current Viewrot */
-	MAT_COPY(view_state->vs_current_view->vr_rot_mat, view_state->vs_gvp->gv_rotation);
+	MAT_COPY(view_state->vs_current_view->vr_rot_mat, _vsview_cam.rotation);
 
 	/* save current toViewcenter */
-	MAT_COPY(view_state->vs_current_view->vr_tvc_mat, view_state->vs_gvp->gv_center);
+	MAT_COPY(view_state->vs_current_view->vr_tvc_mat, _vsview_cam.center);
 
 	/* save current Viewscale */
 	view_state->vs_current_view->vr_scale = view_state->vs_gvp->gv_scale;
@@ -2529,10 +2494,10 @@ f_view_ring(ClientData clientData, Tcl_Interp *interp, int argc, const char *arg
 	}
 
 	/* save current Viewrot */
-	MAT_COPY(view_state->vs_current_view->vr_rot_mat, view_state->vs_gvp->gv_rotation);
+	MAT_COPY(view_state->vs_current_view->vr_rot_mat, _vsview_cam.rotation);
 
 	/* save current toViewcenter */
-	MAT_COPY(view_state->vs_current_view->vr_tvc_mat, view_state->vs_gvp->gv_center);
+	MAT_COPY(view_state->vs_current_view->vr_tvc_mat, _vsview_cam.center);
 
 	/* save current Viewscale */
 	view_state->vs_current_view->vr_scale = view_state->vs_gvp->gv_scale;
@@ -2544,8 +2509,11 @@ f_view_ring(ClientData clientData, Tcl_Interp *interp, int argc, const char *arg
 	    view_state->vs_current_view = BU_LIST_FIRST(view_ring, &view_state->vs_headView.l);
 	}
 
-	MAT_COPY(view_state->vs_gvp->gv_rotation, view_state->vs_current_view->vr_rot_mat);
-	MAT_COPY(view_state->vs_gvp->gv_center, view_state->vs_current_view->vr_tvc_mat);
+	{ struct bsg_camera _cam;
+	bsg_view_get_camera(view_state->vs_gvp, &_cam);
+	MAT_COPY(_cam.rotation, view_state->vs_current_view->vr_rot_mat);
+	MAT_COPY(_cam.center, view_state->vs_current_view->vr_tvc_mat);
+	bsg_view_set_camera(view_state->vs_gvp, &_cam); }
 	view_state->vs_gvp->gv_scale = view_state->vs_current_view->vr_scale;
 
 	new_mats(s);
@@ -2569,10 +2537,10 @@ f_view_ring(ClientData clientData, Tcl_Interp *interp, int argc, const char *arg
 	}
 
 	/* save current Viewrot */
-	MAT_COPY(view_state->vs_current_view->vr_rot_mat, view_state->vs_gvp->gv_rotation);
+	MAT_COPY(view_state->vs_current_view->vr_rot_mat, _vsview_cam.rotation);
 
 	/* save current toViewcenter */
-	MAT_COPY(view_state->vs_current_view->vr_tvc_mat, view_state->vs_gvp->gv_center);
+	MAT_COPY(view_state->vs_current_view->vr_tvc_mat, _vsview_cam.center);
 
 	/* save current Viewscale */
 	view_state->vs_current_view->vr_scale = view_state->vs_gvp->gv_scale;
@@ -2584,8 +2552,11 @@ f_view_ring(ClientData clientData, Tcl_Interp *interp, int argc, const char *arg
 	    view_state->vs_current_view = BU_LIST_LAST(view_ring, &view_state->vs_headView.l);
 	}
 
-	MAT_COPY(view_state->vs_gvp->gv_rotation, view_state->vs_current_view->vr_rot_mat);
-	MAT_COPY(view_state->vs_gvp->gv_center, view_state->vs_current_view->vr_tvc_mat);
+	{ struct bsg_camera _cam;
+	bsg_view_get_camera(view_state->vs_gvp, &_cam);
+	MAT_COPY(_cam.rotation, view_state->vs_current_view->vr_rot_mat);
+	MAT_COPY(_cam.center, view_state->vs_current_view->vr_tvc_mat);
+	bsg_view_set_camera(view_state->vs_gvp, &_cam); }
 	view_state->vs_gvp->gv_scale = view_state->vs_current_view->vr_scale;
 
 	new_mats(s);
@@ -2605,10 +2576,10 @@ f_view_ring(ClientData clientData, Tcl_Interp *interp, int argc, const char *arg
 	}
 
 	/* save current Viewrot */
-	MAT_COPY(view_state->vs_current_view->vr_rot_mat, view_state->vs_gvp->gv_rotation);
+	MAT_COPY(view_state->vs_current_view->vr_rot_mat, _vsview_cam.rotation);
 
 	/* save current toViewcenter */
-	MAT_COPY(view_state->vs_current_view->vr_tvc_mat, view_state->vs_gvp->gv_center);
+	MAT_COPY(view_state->vs_current_view->vr_tvc_mat, _vsview_cam.center);
 
 	/* save current Viewscale */
 	view_state->vs_current_view->vr_scale = view_state->vs_gvp->gv_scale;
@@ -2616,8 +2587,11 @@ f_view_ring(ClientData clientData, Tcl_Interp *interp, int argc, const char *arg
 	save_last_view = view_state->vs_last_view;
 	view_state->vs_last_view = view_state->vs_current_view;
 	view_state->vs_current_view = save_last_view;
-	MAT_COPY(view_state->vs_gvp->gv_rotation, view_state->vs_current_view->vr_rot_mat);
-	MAT_COPY(view_state->vs_gvp->gv_center, view_state->vs_current_view->vr_tvc_mat);
+	{ struct bsg_camera _cam;
+	bsg_view_get_camera(view_state->vs_gvp, &_cam);
+	MAT_COPY(_cam.rotation, view_state->vs_current_view->vr_rot_mat);
+	MAT_COPY(_cam.center, view_state->vs_current_view->vr_tvc_mat);
+	bsg_view_set_camera(view_state->vs_gvp, &_cam); }
 	view_state->vs_gvp->gv_scale = view_state->vs_current_view->vr_scale;
 
 	new_mats(s);
@@ -2664,8 +2638,8 @@ f_view_ring(ClientData clientData, Tcl_Interp *interp, int argc, const char *arg
 		view_state->vs_current_view = view_state->vs_last_view;
 	    }
 
-	    MAT_COPY(view_state->vs_gvp->gv_rotation, view_state->vs_current_view->vr_rot_mat);
-	    MAT_COPY(view_state->vs_gvp->gv_center, view_state->vs_current_view->vr_tvc_mat);
+	    MAT_COPY(_vsview_cam.rotation, view_state->vs_current_view->vr_rot_mat);
+	    MAT_COPY(_vsview_cam.center, view_state->vs_current_view->vr_tvc_mat);
 	    view_state->vs_gvp->gv_scale = view_state->vs_current_view->vr_scale;
 	    new_mats(s);
 	    (void)mged_svbase(s);
@@ -2708,18 +2682,21 @@ f_view_ring(ClientData clientData, Tcl_Interp *interp, int argc, const char *arg
 	}
 
 	/* save current Viewrot */
-	MAT_COPY(view_state->vs_current_view->vr_rot_mat, view_state->vs_gvp->gv_rotation);
+	MAT_COPY(view_state->vs_current_view->vr_rot_mat, _vsview_cam.rotation);
 
 	/* save current toViewcenter */
-	MAT_COPY(view_state->vs_current_view->vr_tvc_mat, view_state->vs_gvp->gv_center);
+	MAT_COPY(view_state->vs_current_view->vr_tvc_mat, _vsview_cam.center);
 
 	/* save current Viewscale */
 	view_state->vs_current_view->vr_scale = view_state->vs_gvp->gv_scale;
 
 	view_state->vs_last_view = view_state->vs_current_view;
 	view_state->vs_current_view = vrp;
-	MAT_COPY(view_state->vs_gvp->gv_rotation, view_state->vs_current_view->vr_rot_mat);
-	MAT_COPY(view_state->vs_gvp->gv_center, view_state->vs_current_view->vr_tvc_mat);
+	{ struct bsg_camera _cam;
+	bsg_view_get_camera(view_state->vs_gvp, &_cam);
+	MAT_COPY(_cam.rotation, view_state->vs_current_view->vr_rot_mat);
+	MAT_COPY(_cam.center, view_state->vs_current_view->vr_tvc_mat);
+	bsg_view_set_camera(view_state->vs_gvp, &_cam); }
 	view_state->vs_gvp->gv_scale = view_state->vs_current_view->vr_scale;
 
 	new_mats(s);
@@ -2766,6 +2743,8 @@ cmd_mrot(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[]
     struct cmdtab *ctp = (struct cmdtab *)clientData;
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
+    struct bsg_camera _vsview_cam;
+    bsg_view_get_camera(view_state->vs_gvp, &_vsview_cam);
     Tcl_DString ds;
 
     if (s->gedp == GED_NULL) {
@@ -2796,7 +2775,7 @@ cmd_mrot(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[]
 	    return TCL_ERROR;
 	}
 
-	return mged_erot(s, view_state->vs_gvp->gv_coord, view_state->vs_gvp->gv_rotate_about, rmat);
+	return mged_erot(s, _vsview_cam.coord, _vsview_cam.rotate_about, rmat);
     } else {
 	int ret;
 
@@ -2810,6 +2789,7 @@ cmd_mrot(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[]
 	    return TCL_ERROR;
 	}
 
+	s->update_views = 1;
 	view_state->vs_flag = 1;
 
 	return TCL_OK;
@@ -2840,6 +2820,7 @@ cmd_vrot(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[]
 	return TCL_ERROR;
     }
 
+    s->update_views = 1;
     view_state->vs_flag = 1;
     set_absolute_tran(s);
 
@@ -2853,6 +2834,8 @@ cmd_rot(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     struct cmdtab *ctp = (struct cmdtab *)clientData;
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
+    struct bsg_camera _vsview_cam;
+    bsg_view_get_camera(view_state->vs_gvp, &_vsview_cam);
     Tcl_DString ds;
 
     if (s->gedp == GED_NULL) {
@@ -2872,7 +2855,7 @@ cmd_rot(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	    return TCL_ERROR;
 	}
 
-	return mged_erot(s, coord, view_state->vs_gvp->gv_rotate_about, rmat);
+	return mged_erot(s, coord, _vsview_cam.rotate_about, rmat);
     } else {
 	int ret;
 
@@ -2886,6 +2869,7 @@ cmd_rot(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	    return TCL_ERROR;
 	}
 
+	s->update_views = 1;
 	view_state->vs_flag = 1;
 
 	return TCL_OK;
@@ -2899,6 +2883,8 @@ cmd_arot(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[]
     struct cmdtab *ctp = (struct cmdtab *)clientData;
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
+    struct bsg_camera _vsview_cam;
+    bsg_view_get_camera(view_state->vs_gvp, &_vsview_cam);
     Tcl_DString ds;
     /* static const char *usage = "x y z angle"; */
 
@@ -2918,7 +2904,7 @@ cmd_arot(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[]
 	    return TCL_ERROR;
 	}
 
-	return mged_erot(s, view_state->vs_gvp->gv_coord, view_state->vs_gvp->gv_rotate_about, rmat);
+	return mged_erot(s, _vsview_cam.coord, _vsview_cam.rotate_about, rmat);
     } else {
 	int ret;
 	Tcl_DStringInit(&ds);
@@ -2928,6 +2914,7 @@ cmd_arot(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[]
 	if (ret != BRLCAD_OK) {
 	    return TCL_ERROR;
 	}
+	s->update_views = 1;
 	view_state->vs_flag = 1;
 	return TCL_OK;
     }
@@ -2973,6 +2960,7 @@ cmd_tra(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	    return TCL_ERROR;
 	}
 
+	s->update_views = 1;
 	view_state->vs_flag = 1;
 
 	return TCL_OK;
@@ -3116,8 +3104,8 @@ mged_vscale(struct mged_state *s, fastf_t sfactor)
 
     view_state->vs_gvp->gv_scale *= sfactor;
 
-    if (view_state->vs_gvp->gv_scale < BV_MINVIEWSIZE) {
-	view_state->vs_gvp->gv_scale = BV_MINVIEWSIZE;
+    if (view_state->vs_gvp->gv_scale < BSG_MINVIEWSIZE) {
+	view_state->vs_gvp->gv_scale = BSG_MINVIEWSIZE;
     }
 
     f = view_state->vs_gvp->gv_scale / view_state->vs_gvp->gv_i_scale;
@@ -3220,6 +3208,7 @@ cmd_sca(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	    view_state->vs_gvp->gv_a_scale = 1.0 - f;
 	}
 
+	s->update_views = 1;
 	view_state->vs_flag = 1;
 
 	return TCL_OK;

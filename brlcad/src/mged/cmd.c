@@ -49,7 +49,7 @@
 #include "bu/path.h"
 #include "bu/time.h"
 #include "bn.h"
-#include "bv/util.h"
+#include "bsg/util.h"
 #include "rt/edit.h"
 #include "rt/geom.h"
 #include "ged.h"
@@ -407,7 +407,6 @@ cmd_ged_erase_wrapper(ClientData clientData, Tcl_Interp *interpreter, int argc, 
 
     solid_list_callback(s);
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
 
     return TCL_OK;
 }
@@ -481,7 +480,6 @@ cmd_ged_gqa(ClientData clientData, Tcl_Interp *interpreter, int argc, const char
 	return TCL_ERROR;
 
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
 
     return TCL_OK;
 }
@@ -856,6 +854,7 @@ cmd_ged_view_wrapper(ClientData clientData, Tcl_Interp *interpreter, int argc, c
 	return TCL_ERROR;
 
     (void)mged_svbase(s);
+    s->update_views = 1;
     view_state->vs_flag = 1;
 
     return TCL_OK;
@@ -880,7 +879,7 @@ cmd_ged_dm_wrapper(ClientData clientData, Tcl_Interp *interpreter, int argc, con
 
     if (!s->gedp->ged_gvp)
 	s->gedp->ged_gvp = view_state->vs_gvp;
-    s->gedp->ged_gvp->dmp = (void *)s->mged_curr_dm->dm_dmp;
+    s->gedp->ged_gvp->dmp = NULL; /* Step 7.20: DMP removed. */
 
     ret = (*ctp->ged_func)(s->gedp, argc, (const char **)argv);
     GED_OUTPUT;
@@ -918,13 +917,11 @@ cmd_screengrab(ClientData clientData, Tcl_Interp *interpreter, int argc, const c
 	return TCL_OK;
 
     /* Force the scene to be rendered before reading pixels. */
-    DMP_dirty = 1;
-    dm_set_dirty(DMP, 1);
     refresh(s);
 
     if (!s->gedp->ged_gvp)
 	s->gedp->ged_gvp = view_state->vs_gvp;
-    s->gedp->ged_gvp->dmp = (void *)s->mged_curr_dm->dm_dmp;
+    s->gedp->ged_gvp->dmp = NULL; /* Step 7.20: DMP removed. */
 
     ret = (*ctp->ged_func)(s->gedp, argc, (const char **)argv);
     GED_OUTPUT;
@@ -1115,8 +1112,10 @@ cmd_cmd_win(ClientData clientData, Tcl_Interp *interpreter, int argc, const char
 	    curr_cmd_list = &head_cmd_list;
 
 	BU_LIST_DEQUEUE(&clp->l);
-	if (clp->cl_tie != NULL)
-	    clp->cl_tie->dm_tie = CMD_LIST_NULL;
+	if (clp->cl_tie != NULL) {
+	    clp->cl_tie->mp_cmd_tie = CMD_LIST_NULL;  /* Step 7.4/7.11: mp_cmd_tie is canonical */
+	    /* Step 7.11: dm_tie removed from mged_dm */
+	}
 	bu_vls_free(&clp->cl_more_default);
 	bu_vls_free(&clp->cl_name);
 	bu_free((void *)clp, "cmd_close: clp");
@@ -1156,7 +1155,8 @@ cmd_cmd_win(ClientData clientData, Tcl_Interp *interpreter, int argc, const char
 	}
 
 	if (curr_cmd_list->cl_tie) {
-	    set_curr_dm(s, curr_cmd_list->cl_tie);
+	    /* Step 7.4: cl_tie is now mged_pane*; use set_curr_pane */
+	    set_curr_pane(s, curr_cmd_list->cl_tie);
 
 	    if (s->gedp != GED_NULL)
 		s->gedp->ged_gvp = view_state->vs_gvp;
@@ -1484,7 +1484,6 @@ f_tie(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, const ch
 {
     int uflag = 0;		/* untie flag */
     struct cmd_list *clp;
-    struct mged_dm *dlp = MGED_DM_NULL;
     struct bu_vls vls = BU_VLS_INIT_ZERO;
 
     if (argc < 1 || 3 < argc) {
@@ -1497,29 +1496,15 @@ f_tie(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, const ch
     if (argc == 1) {
 	for (BU_LIST_FOR (clp, cmd_list, &head_cmd_list.l)) {
 	    bu_vls_trunc(&vls, 0);
-	    if (clp->cl_tie) {
-		struct bu_vls *pn = dm_get_pathname(clp->cl_tie->dm_dmp);
-		if (pn && bu_vls_strlen(pn)) {
-		    bu_vls_printf(&vls, "%s %s", bu_vls_cstr(&clp->cl_name), bu_vls_cstr(pn));
-		    Tcl_AppendElement(interpreter, bu_vls_cstr(&vls));
-		}
-	    } else {
-		bu_vls_printf(&vls, "%s {}", bu_vls_cstr(&clp->cl_name));
-		Tcl_AppendElement(interpreter, bu_vls_cstr(&vls));
-	    }
-	}
-
-	bu_vls_trunc(&vls, 0);
-	if (clp->cl_tie) {
-	    struct bu_vls *pn = dm_get_pathname(clp->cl_tie->dm_dmp);
-	    if (pn && bu_vls_strlen(pn)) {
-		bu_vls_printf(&vls, "%s %s", bu_vls_cstr(&clp->cl_name), bu_vls_cstr(pn));
-		Tcl_AppendElement(interpreter, bu_vls_cstr(&vls));
-	    }
-	} else {
+	    /* Step 7.20: mp_dmp removed — always show empty tie. */
 	    bu_vls_printf(&vls, "%s {}", bu_vls_cstr(&clp->cl_name));
 	    Tcl_AppendElement(interpreter, bu_vls_cstr(&vls));
 	}
+
+	bu_vls_trunc(&vls, 0);
+/* Step 7.20: mp_dmp removed — always show empty tie. */
+	bu_vls_printf(&vls, "%s {}", bu_vls_cstr(&clp->cl_name));
+	Tcl_AppendElement(interpreter, bu_vls_cstr(&vls));
 
 	bu_vls_free(&vls);
 	return TCL_OK;
@@ -1551,10 +1536,11 @@ f_tie(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, const ch
     }
 
     if (uflag) {
-	if (clp->cl_tie)
-	    clp->cl_tie->dm_tie = (struct cmd_list *)NULL;
-
-	clp->cl_tie = (struct mged_dm *)NULL;
+	/* Step 7.11: dm_tie removed from mged_dm; mp_cmd_tie is canonical */
+	if (clp->cl_tie) {
+	    clp->cl_tie->mp_cmd_tie = CMD_LIST_NULL;
+	}
+	clp->cl_tie = MGED_PANE_NULL;
 
 	bu_vls_free(&vls);
 	return TCL_OK;
@@ -1562,14 +1548,8 @@ f_tie(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, const ch
 
     /* print out the display manager that we're tied to */
     if (argc == 2) {
-	if (clp->cl_tie) {
-	    struct bu_vls *pn = dm_get_pathname(clp->cl_tie->dm_dmp);
-	    if (pn && bu_vls_strlen(pn)) {
-		Tcl_AppendElement(interpreter, bu_vls_cstr(pn));
-	    }
-	} else {
-	    Tcl_AppendElement(interpreter, "");
-	}
+	/* Step 7.20: mp_dmp removed — no dm pathname. */
+	Tcl_AppendElement(interpreter, "");
 	bu_vls_free(&vls);
 	return TCL_OK;
     }
@@ -1579,33 +1559,30 @@ f_tie(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, const ch
     else
 	bu_vls_strcpy(&vls, argv[2]);
 
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	struct bu_vls *pn = dm_get_pathname(m_dmp->dm_dmp);
-	if (pn && !bu_vls_strcmp(&vls, pn)) {
-	    dlp = m_dmp;
-	    break;
-	}
-    }
+    /* Step 7.20: mp_dmp removed — search by pane name (Obol only). */
+    struct mged_pane *tlp = mged_pane_find_by_name(bu_vls_cstr(&vls));
 
-    if (dlp == MGED_DM_NULL) {
+    if (tlp == MGED_PANE_NULL) {
 	Tcl_AppendResult(interpreter, "f_tie: unrecognized path name - ",
 			 bu_vls_addr(&vls), "\n", (char *)NULL);
 	bu_vls_free(&vls);
 	return TCL_ERROR;
     }
 
-    /* already tied */
-    if (clp->cl_tie)
-	clp->cl_tie->dm_tie = (struct cmd_list *)NULL;
+    /* clear old cl_tie back-link */
+    if (clp->cl_tie) {
+	clp->cl_tie->mp_cmd_tie = CMD_LIST_NULL;
+	/* Step 7.11: dm_tie removed from mged_dm */
+    }
 
-    clp->cl_tie = dlp;
+    clp->cl_tie = tlp;
 
-    /* already tied */
-    if (dlp->dm_tie)
-	dlp->dm_tie->cl_tie = (struct mged_dm *)NULL;
+    /* clear existing tie on the target pane */
+    if (tlp->mp_cmd_tie)
+	tlp->mp_cmd_tie->cl_tie = MGED_PANE_NULL;
 
-    dlp->dm_tie = clp;
+    tlp->mp_cmd_tie = clp;
+    /* Step 7.11: tlp->mp_dm->dm_tie removed; mp_cmd_tie is canonical */
 
     bu_vls_free(&vls);
     return TCL_OK;
@@ -1616,7 +1593,7 @@ int
 f_postscript(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *argv[])
 {
     int status;
-    struct mged_dm *dml;
+    struct mged_pane *dml_pane;
     struct _view_state *vsp;
     struct cmdtab *ctp = (struct cmdtab *)clientData;
     MGED_CK_CMD(ctp);
@@ -1633,7 +1610,9 @@ f_postscript(ClientData clientData, Tcl_Interp *interpreter, int argc, const cha
     if (s->gedp == GED_NULL)
 	return TCL_OK;
 
-    dml = s->mged_curr_dm;
+    /* Step 7.7: save current pane's mp_dm directly (replaces saving mged_curr_dm). */
+    /* Step 7.16: dml (mged_dm) no longer needed; use pane directly for resource access. */
+    dml_pane = s->mged_curr_pane;
     s->gedp->ged_gvp = view_state->vs_gvp;
     status = mged_attach(s, "postscript", argc, argv);
     if (status == TCL_ERROR)
@@ -1641,21 +1620,22 @@ f_postscript(ClientData clientData, Tcl_Interp *interpreter, int argc, const cha
 
     vsp = view_state;  /* save state info pointer */
 
+    /* After mged_attach, the postscript pane is current; its resources are pane-owned.
+     * Step 7.16: Update the new pane's menu_state from the old pane's menu_state. */
     bu_free((void *)menu_state, "f_postscript: menu_state");
-    menu_state = dml->dm_menu_state;
+    s->mged_curr_pane->mp_menu_state = dml_pane->mp_menu_state;
+    ++s->mged_curr_pane->mp_menu_state->ms_rc;   /* increment ref count since now shared */
 
-    scroll_top = dml->dm_scroll_top;
-    scroll_active = dml->dm_scroll_active;
-    scroll_y = dml->dm_scroll_y;
-    memmove((void *)scroll_array, (void *)dml->dm_scroll_array, sizeof(struct scroll_item *) * 6);
-
-    DMP_dirty = 1;
-    dm_set_dirty(DMP, 1);
+    scroll_top = dml_pane->mp_scroll_top;
+    scroll_active = dml_pane->mp_scroll_active;
+    scroll_y = dml_pane->mp_scroll_y;
+    memmove((void *)scroll_array, (void *)dml_pane->mp_scroll_array, sizeof(struct scroll_item *) * 6);
     refresh(s);
 
-    view_state = vsp;  /* restore state info pointer */
+    /* Step 7.17: view_state now in pane; update pane's mp_view_state for postscript output. */
+    s->mged_curr_pane->mp_view_state = vsp;
     status = Tcl_Eval(interpreter, "release");
-    set_curr_dm(s, dml);
+    set_curr_pane(s, dml_pane);
     s->gedp->ged_gvp = view_state->vs_gvp;
 
     return status;
@@ -1680,28 +1660,35 @@ f_winset(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
 
     /* print pathname of drawing window with primary focus */
     if (argc == 1) {
-	struct bu_vls *pn = dm_get_pathname(DMP);
-	if (pn && bu_vls_strlen(pn)) {
-	    Tcl_AppendResult(interpreter, bu_vls_cstr(pn), (char *)NULL);
+	/* Step 7.20: All panes are now Obol panes; active_pane_set contains only
+	 * Obol panes.  The pane identity is gv_name (set to the Tk widget path
+	 * by new_obol_view_ptr).  Return the name of the pane whose bsg_view
+	 * matches the current view. */
+	if (s->gedp && s->gedp->ged_gvp) {
+	    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+		struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+		if (mp && mp->mp_gvp == s->gedp->ged_gvp) {
+		    const char *nm = bu_vls_cstr(&mp->mp_gvp->gv_name);
+		    if (nm && nm[0])
+			Tcl_AppendResult(interpreter, nm, (char *)NULL);
+		    return TCL_OK;
+		}
+	    }
 	}
+	/* No matching pane found — return empty string. */
 	return TCL_OK;
     }
 
-    /* change primary focus to window argv[1] */
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	struct bu_vls *pn = dm_get_pathname(p->dm_dmp);
-	if (pn && BU_STR_EQUAL(argv[1], bu_vls_cstr(pn))) {
-	    set_curr_dm(s, p);
-
-	    if (s->mged_curr_dm->dm_tie)
-		curr_cmd_list = s->mged_curr_dm->dm_tie;
+    /* Step 7.20: active_pane_set contains only Obol panes.
+     * mged_pane_find_by_name() searches by gv_name (Tk widget path). */
+    {
+	struct mged_pane *mp = mged_pane_find_by_name(argv[1]);
+	if (mp) {
+	    set_curr_pane(s, mp);
+	    if (mp->mp_cmd_tie)
+		curr_cmd_list = mp->mp_cmd_tie;
 	    else
 		curr_cmd_list = &head_cmd_list;
-
-	    if (s->gedp != GED_NULL)
-		s->gedp->ged_gvp = view_state->vs_gvp;
-
 	    return TCL_OK;
 	}
     }
@@ -1950,7 +1937,6 @@ cmd_units(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *
     sf = s->dbip->dbi_base2local / sf;
     update_grids(s,sf);
     s->update_views = 1;
-    dm_set_dirty(DMP, 1);
 
     return TCL_OK;
 }
@@ -2043,54 +2029,36 @@ cmd_blast(ClientData clientData, Tcl_Interp *UNUSED(interpreter), int argc, cons
     if (ret)
 	return TCL_ERROR;
 
-    /* update and resize the views */
-    struct mged_dm *save_m_dmp = s->mged_curr_dm;
-    struct cmd_list *save_cmd_list = curr_cmd_list;
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	int non_empty = 0; /* start out empty */
+    /* update and resize the views; Step 6.b: use active_pane_set. */
+    {
+	struct mged_pane *save_pane = s->mged_curr_pane;
+	struct cmd_list *save_cmd_list = curr_cmd_list;
+	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	    int non_empty = 0;
 
-	set_curr_dm(s, m_dmp);
+	    set_curr_pane(s, mp);
+	    if (s->mged_curr_pane->mp_cmd_tie)
+		curr_cmd_list = s->mged_curr_pane->mp_cmd_tie;
+	    else
+		curr_cmd_list = &head_cmd_list;
 
-	if (s->mged_curr_dm->dm_tie) {
-	    curr_cmd_list = s->mged_curr_dm->dm_tie;
-	} else {
-	    curr_cmd_list = &head_cmd_list;
+	    s->gedp->ged_gvp = view_state->vs_gvp;
+	    {
+		bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
+		non_empty = (root && BU_PTBL_LEN(&root->children) > 0) ? 1 : 0;
+	    }
+	    if (mged_variables->mv_autosize && non_empty) {
+		const char *av[1] = {"autoview"};
+		ged_exec_autoview(s->gedp, 1, (const char **)av);
+		s->update_views = 1;
+
+	    }
 	}
-
+	set_curr_pane(s, save_pane);
+	curr_cmd_list = save_cmd_list;
 	s->gedp->ged_gvp = view_state->vs_gvp;
-
-	gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-
-	while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	    if (BU_LIST_NON_EMPTY(&gdlp->dl_head_scene_obj)) {
-		non_empty = 1;
-		break;
-	    }
-
-	    gdlp = next_gdlp;
-	}
-
-	if (mged_variables->mv_autosize && non_empty) {
-	    struct view_ring *vrp;
-	    const char *av[1] = {"autoview"};
-	    ged_exec_autoview(s->gedp, 1, (const char **)av);
-
-	    (void)mged_svbase(s);
-
-	    for (BU_LIST_FOR(vrp, view_ring, &view_state->vs_headView.l)) {
-		vrp->vr_scale = view_state->vs_gvp->gv_scale;
-	    }
-	}
     }
-
-    set_curr_dm(s, save_m_dmp);
-    curr_cmd_list = save_cmd_list;
-    s->gedp->ged_gvp = view_state->vs_gvp;
 
     return TCL_OK;
 }
@@ -2106,15 +2074,7 @@ cmd_draw(ClientData clientData, Tcl_Interp *UNUSED(interpreter), int argc, const
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
 
-    struct bview *gvp = NULL;
-
-    if (s->gedp)
-	gvp = s->gedp->ged_gvp;
-
-    if (gvp && DMP) {
-	gvp->gv_width = dm_get_width(DMP);
-	gvp->gv_height = dm_get_height(DMP);
-    }
+    /* Step 7.20: DMP removed — gv_width/height not set from dm. */
 
     return edit_com(s, argc, argv);
 }
@@ -2314,38 +2274,25 @@ _view_is_baseline_reset(int argc, const char * const *argv)
 struct _view_cache {
     int   valid;
 
-    /* Scalars */
+    /* Non-camera scalar fields */
     fastf_t gv_scale;
     fastf_t gv_i_scale;
     fastf_t gv_a_scale;
     fastf_t gv_size;
     fastf_t gv_isize;
-    fastf_t gv_perspective;
     fastf_t gv_local2base;
     fastf_t gv_base2local;
-    char    gv_coord;
-    char    gv_rotate_about;
 
-    /* Vectors */
-    vect_t gv_eye_pos;
-    vect_t gv_keypoint;
-    vect_t gv_aet;
-
-    /* Matrices */
-    mat_t gv_rotation;
-    mat_t gv_center;
-    mat_t gv_model2view;
-    mat_t gv_view2model;
-    mat_t gv_pmodel2view;
-    mat_t gv_pmat;
+    /* Camera state */
+    struct bsg_camera camera;
 
     /* Knob state (optional) */
     int have_knobs;
-    struct bview_knobs k;
+    bsg_knobs k;
 };
 
 static void
-_view_cache_save(struct _view_cache *c, struct bview *v, int include_knobs)
+_view_cache_save(struct _view_cache *c, bsg_view *v, int include_knobs)
 {
     if (!c || !v) return;
     c->valid = 1;
@@ -2355,22 +2302,10 @@ _view_cache_save(struct _view_cache *c, struct bview *v, int include_knobs)
     c->gv_a_scale     = v->gv_a_scale;
     c->gv_size        = v->gv_size;
     c->gv_isize       = v->gv_isize;
-    c->gv_perspective = v->gv_perspective;
     c->gv_local2base  = v->gv_local2base;
     c->gv_base2local  = v->gv_base2local;
-    c->gv_coord       = v->gv_coord;
-    c->gv_rotate_about= v->gv_rotate_about;
 
-    VMOVE(c->gv_eye_pos,  v->gv_eye_pos);
-    VMOVE(c->gv_keypoint, v->gv_keypoint);
-    VMOVE(c->gv_aet,      v->gv_aet);
-
-    MAT_COPY(c->gv_rotation,    v->gv_rotation);
-    MAT_COPY(c->gv_center,      v->gv_center);
-    MAT_COPY(c->gv_model2view,  v->gv_model2view);
-    MAT_COPY(c->gv_view2model,  v->gv_view2model);
-    MAT_COPY(c->gv_pmodel2view, v->gv_pmodel2view);
-    MAT_COPY(c->gv_pmat,        v->gv_pmat);
+    bsg_view_get_camera(v, &c->camera);
 
     c->have_knobs = include_knobs;
     if (include_knobs) {
@@ -2379,7 +2314,7 @@ _view_cache_save(struct _view_cache *c, struct bview *v, int include_knobs)
 }
 
 static void
-_view_cache_restore(const struct _view_cache *c, struct bview *v)
+_view_cache_restore(const struct _view_cache *c, bsg_view *v)
 {
     if (!c || !v || !c->valid) return;
 
@@ -2388,22 +2323,10 @@ _view_cache_restore(const struct _view_cache *c, struct bview *v)
     v->gv_a_scale     = c->gv_a_scale;
     v->gv_size        = c->gv_size;
     v->gv_isize       = c->gv_isize;
-    v->gv_perspective = c->gv_perspective;
     v->gv_local2base  = c->gv_local2base;
     v->gv_base2local  = c->gv_base2local;
-    v->gv_coord       = c->gv_coord;
-    v->gv_rotate_about= c->gv_rotate_about;
 
-    VMOVE(v->gv_eye_pos,  c->gv_eye_pos);
-    VMOVE(v->gv_keypoint, c->gv_keypoint);
-    VMOVE(v->gv_aet,      c->gv_aet);
-
-    MAT_COPY(v->gv_rotation,    c->gv_rotation);
-    MAT_COPY(v->gv_center,      c->gv_center);
-    MAT_COPY(v->gv_model2view,  c->gv_model2view);
-    MAT_COPY(v->gv_view2model,  c->gv_view2model);
-    MAT_COPY(v->gv_pmodel2view, c->gv_pmodel2view);
-    MAT_COPY(v->gv_pmat,        c->gv_pmat);
+    bsg_view_set_camera(v, &c->camera);
 
     if (c->have_knobs) {
 	v->k = c->k;
@@ -2411,8 +2334,9 @@ _view_cache_restore(const struct _view_cache *c, struct bview *v)
 }
 
 static void
-_view_copy_to_staging(struct bview *dst, struct bview *src, struct mged_state *s, int include_knobs)
+_view_copy_to_staging(bsg_view *dst, bsg_view *src, struct mged_state *s, int include_knobs)
 {
+    struct bsg_camera _cam;
     if (!dst || !src) return;
 
     dst->gv_scale       = src->gv_scale;
@@ -2420,24 +2344,13 @@ _view_copy_to_staging(struct bview *dst, struct bview *src, struct mged_state *s
     dst->gv_a_scale     = src->gv_a_scale;
     dst->gv_size        = src->gv_size;
     dst->gv_isize       = src->gv_isize;
-    dst->gv_coord       = src->gv_coord;
-    dst->gv_rotate_about= src->gv_rotate_about;
-    dst->gv_perspective = src->gv_perspective;
 
     /* Update db unit conversions */
     dst->gv_local2base = (s->dbip) ? s->dbip->dbi_local2base : 1.0;
     dst->gv_base2local = (s->dbip) ? s->dbip->dbi_base2local : 1.0;
 
-    VMOVE(dst->gv_eye_pos,  src->gv_eye_pos);
-    VMOVE(dst->gv_keypoint, src->gv_keypoint);
-    VMOVE(dst->gv_aet,      src->gv_aet);
-
-    MAT_COPY(dst->gv_rotation,    src->gv_rotation);
-    MAT_COPY(dst->gv_center,      src->gv_center);
-    MAT_COPY(dst->gv_model2view,  src->gv_model2view);
-    MAT_COPY(dst->gv_view2model,  src->gv_view2model);
-    MAT_COPY(dst->gv_pmodel2view, src->gv_pmodel2view);
-    MAT_COPY(dst->gv_pmat,        src->gv_pmat);
+    bsg_view_get_camera(src, &_cam);
+    bsg_view_set_camera(dst, &_cam);
 
     if (include_knobs) {
 	dst->k = src->k;
@@ -2445,8 +2358,9 @@ _view_copy_to_staging(struct bview *dst, struct bview *src, struct mged_state *s
 }
 
 static void
-_view_copy_from_staging(struct bview *dst, struct bview *src, int include_knobs)
+_view_copy_from_staging(bsg_view *dst, bsg_view *src, int include_knobs)
 {
+    struct bsg_camera _cam;
     if (!dst || !src) return;
 
     dst->gv_scale       = src->gv_scale;
@@ -2454,20 +2368,9 @@ _view_copy_from_staging(struct bview *dst, struct bview *src, int include_knobs)
     dst->gv_a_scale     = src->gv_a_scale;
     dst->gv_size        = src->gv_size;
     dst->gv_isize       = src->gv_isize;
-    dst->gv_coord       = src->gv_coord;
-    dst->gv_rotate_about= src->gv_rotate_about;
-    dst->gv_perspective = src->gv_perspective;
 
-    VMOVE(dst->gv_eye_pos,  src->gv_eye_pos);
-    VMOVE(dst->gv_keypoint, src->gv_keypoint);
-    VMOVE(dst->gv_aet,      src->gv_aet);
-
-    MAT_COPY(dst->gv_rotation,    src->gv_rotation);
-    MAT_COPY(dst->gv_center,      src->gv_center);
-    MAT_COPY(dst->gv_model2view,  src->gv_model2view);
-    MAT_COPY(dst->gv_view2model,  src->gv_view2model);
-    MAT_COPY(dst->gv_pmodel2view, src->gv_pmodel2view);
-    MAT_COPY(dst->gv_pmat,        src->gv_pmat);
+    bsg_view_get_camera(src, &_cam);
+    bsg_view_set_camera(dst, &_cam);
 
     if (include_knobs) {
 	dst->k = src->k;
@@ -2494,6 +2397,7 @@ _view_update_rate_flags_viewonly(struct mged_state *s)
 				!ZERO(view_state->k.tra_m[Y]) ||
 				!ZERO(view_state->k.tra_m[Z])) ? 1 : 0;
     view_state->k.sca_flag = (!ZERO(view_state->k.sca)) ? 1 : 0;
+    s->update_views = 1;
     view_state->vs_flag = 1;
 }
 
@@ -2513,7 +2417,7 @@ _view_maybe_baseline_reset(struct mged_state *s, int do_reset)
  * transform & knob state.  This deliberately ignores display list contents,
  * settings pointers, and unrelated UI fields to minimize false positives. */
 static unsigned long long
-_view_mutation_hash(struct mged_state *ms, struct bview *v)
+_view_mutation_hash(struct mged_state *ms, bsg_view *v)
 {
     if (!v) return 0ULL;
 
@@ -2526,27 +2430,14 @@ _view_mutation_hash(struct mged_state *ms, struct bview *v)
     bu_data_hash_update(state, &v->gv_a_scale, sizeof(v->gv_a_scale));
     bu_data_hash_update(state, &v->gv_size, sizeof(v->gv_size));
     bu_data_hash_update(state, &v->gv_isize, sizeof(v->gv_isize));
-    bu_data_hash_update(state, &v->gv_perspective, sizeof(v->gv_perspective));
 
-    /* Orientation / position / projection related */
-    bu_data_hash_update(state, &v->gv_center, sizeof(mat_t));
-    bu_data_hash_update(state, &v->gv_rotation, sizeof(mat_t));
-    bu_data_hash_update(state, &v->gv_model2view, sizeof(mat_t));
-    bu_data_hash_update(state, &v->gv_view2model, sizeof(mat_t));
-    bu_data_hash_update(state, &v->gv_pmodel2view, sizeof(mat_t));
-    bu_data_hash_update(state, &v->gv_pmat, sizeof(mat_t));
-
-    /* Camera descriptive vectors */
-    bu_data_hash_update(state, &v->gv_eye_pos, sizeof(vect_t));
-    bu_data_hash_update(state, &v->gv_keypoint, sizeof(vect_t));
-    bu_data_hash_update(state, &v->gv_aet, sizeof(vect_t));
-
-    /* Coordinate & rotate about modes */
-    bu_data_hash_update(state, &v->gv_coord, sizeof(char));
-    bu_data_hash_update(state, &v->gv_rotate_about, sizeof(char));
+    /* Camera state */
+    { struct bsg_camera _cam;
+    bsg_view_get_camera(v, &_cam);
+    bu_data_hash_update(state, &_cam, sizeof(_cam)); }
 
     /* Knob state (rates + absolute values + flags + origins) */
-    bv_knobs_hash(&v->k, state);
+    bsg_knobs_hash(&v->k, state);
 
     /*
      * If we are in an edit mode (solid or object) include the active edit
@@ -2569,7 +2460,7 @@ _view_mutation_hash(struct mged_state *ms, struct bview *v)
 	bu_data_hash_update(state, &e->acc_sc_obj, sizeof(e->acc_sc_obj));
 	bu_data_hash_update(state, &e->acc_sc, sizeof(e->acc_sc));
 	/* Edit knob state */
-	bv_knobs_hash(&e->k, state);
+	bsg_knobs_hash(&e->k, state);
     }
 
     unsigned long long hv = bu_data_hash_val(state);
@@ -2599,12 +2490,12 @@ cmd_view(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
     const int is_knob = _view_is_knob(argc, argv);
     const int baseline_reset = _view_is_baseline_reset(argc, argv);
 
-    struct bview *mged_view = view_state->vs_gvp;
+    bsg_view *mged_view = view_state->vs_gvp;
 
     /* Determine staging context */
     int shared_view = 0;
     int created_temp = 0;
-    struct bview *staging = NULL;
+    bsg_view *staging = NULL;
 
     if (s->gedp->ged_gvp) {
 	if (s->gedp->ged_gvp == mged_view) {
@@ -2615,8 +2506,9 @@ cmd_view(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
 	}
     } else {
 	/* No existing ged_gvp: create ephemeral staging view */
-	staging = (struct bview *)bu_calloc(1, sizeof(struct bview), "temporary staging bview");
-	bv_init(staging, NULL);
+	staging = (bsg_view *)bu_calloc(1, sizeof(bsg_view), "temporary staging bsg_view");
+	bsg_view_init(staging, NULL);
+	bsg_scene_root_create(staging);
 	created_temp = 1;
 	/* Carry over dimensions for screen-dependent ops */
 	if (mged_view) {
@@ -2632,7 +2524,7 @@ cmd_view(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
     }
 
     /* Snapshot knob state for rollback on error (shared or distinct) */
-    struct bview_knobs pre_knob;
+    bsg_knobs pre_knob;
     int have_pre_knob = 0;
     if (is_knob && mged_view) {
 	pre_knob = (shared_view ? mged_view->k : staging->k);
@@ -2647,7 +2539,7 @@ cmd_view(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
 	staging->gv_base2local = (s->dbip) ? s->dbip->dbi_base2local : 1.0;
     }
 
-    /* For knob operations, ensure the staging (or shared) bview's knob struct
+    /* For knob operations, ensure the staging (or shared) bsg_view's knob struct
      * reflects the current MGED knob state (view_state->k).  This preserves
      * prior "knob ..." (MGED) adjustments when switching to "view knob ...".
      * (We already sync view knob results back into view_state->k after each
@@ -2673,8 +2565,10 @@ cmd_view(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
 	    if (!created_temp)
 		_view_cache_restore(&prev, staging);
 	    else {
-		bv_free(staging);
-		bu_free(staging, "free staging bview");
+		{ bsg_shape *_sr = bsg_scene_root_get(staging);
+		  if (_sr) { bsg_scene_root_set(staging, NULL); bsg_node_free(_sr, 1); } }
+		bsg_view_free(staging);
+		bu_free(staging, "free staging bsg_view");
 		s->gedp->ged_gvp = NULL;
 	    }
 	}
@@ -2696,8 +2590,10 @@ cmd_view(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
 	    if (!created_temp) {
 		_view_cache_restore(&prev, staging);
 	    } else {
-		bv_free(staging);
-		bu_free(staging, "free staging bview");
+		{ bsg_shape *_sr = bsg_scene_root_get(staging);
+		  if (_sr) { bsg_scene_root_set(staging, NULL); bsg_node_free(_sr, 1); } }
+		bsg_view_free(staging);
+		bu_free(staging, "free staging bsg_view");
 		s->gedp->ged_gvp = NULL;
 	    }
 	}
@@ -2707,6 +2603,7 @@ cmd_view(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
     /* Success: propagate staging->MGED if distinct */
     if (!shared_view) {
 	_view_copy_from_staging(mged_view, staging, is_knob);
+	s->update_views = 1;
 	view_state->vs_flag = 1;
     }
 
@@ -2735,8 +2632,10 @@ cmd_view(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
 	    }
 	} else {
 	    /* Ephemeral staging freed; detach from ged */
-	    bv_free(staging);
-	    bu_free(staging, "free staging bview");
+	    { bsg_shape *_sr = bsg_scene_root_get(staging);
+	      if (_sr) { bsg_scene_root_set(staging, NULL); bsg_node_free(_sr, 1); } }
+	    bsg_view_free(staging);
+	    bu_free(staging, "free staging bsg_view");
 	    s->gedp->ged_gvp = NULL;
 	}
     }

@@ -74,8 +74,8 @@
 #include "ged.h"
 #include "wdb.h"
 
-/* Needed to define struct bv_scene_obj */
-#include "bv/defines.h"
+/* Needed to define bsg_shape */
+#include "bsg/defines.h"
 
 // We have to use different I/O mechanisms based on which
 // platform we're on.  Make a define to key off of.
@@ -156,15 +156,15 @@ struct mged_edit_state {
     // a few additional MGED-only slots, hence mged_edit_state
     struct rt_edit *e;
 
-    // DM pointers - used by the editing code to stash current dm pointers for
-    // later restoration when editing.  Not 100% sure yet what the purpose is -
-    // seems to be allowing for the possibility of a change of mged_curr_dm
-    // mid-edit?
-    struct mged_dm *edit_rate_mr_dm;
-    struct mged_dm *edit_rate_or_dm;
-    struct mged_dm *edit_rate_vr_dm;
-    struct mged_dm *edit_rate_mt_dm;
-    struct mged_dm *edit_rate_vt_dm;
+    // DM pointers - used by the editing code to stash the active display
+    // pane when a knob rate event begins so the knob event loop can
+    // restore the correct pane context.
+    // Step 7.4: only mged_pane* survives; edit_rate_*_dm removed.
+    struct mged_pane *edit_rate_mr_pane;
+    struct mged_pane *edit_rate_or_pane;
+    struct mged_pane *edit_rate_vr_pane;
+    struct mged_pane *edit_rate_mt_pane;
+    struct mged_pane *edit_rate_vt_pane;
 
     // TODO - can we eliminate these?
     int es_edclass;            /* type of editing class for this solid */
@@ -224,7 +224,10 @@ struct mged_state {
     struct bu_vls mged_prompt;
 
     /* Display related */
-    struct mged_dm *mged_curr_dm;
+    /* Step 7.10: mged_curr_dm removed — use mged_curr_pane->mp_dm for the
+     * current pane (Step 7.18: mged_dm eliminated; sentinel is s->mged_init_pane). */
+    struct mged_pane *mged_curr_pane;  /* Step 7: current pane; always non-NULL after init */
+    struct mged_pane *mged_init_pane;  /* Step 7.2: startup sentinel pane (Step 7.18: no longer wraps mged_dm_init_state) */
     char *dpy_string;
     struct bu_list *vlfree;
 
@@ -267,7 +270,7 @@ extern void sig2(int);
 extern void sig3(int);
 
 /* mged.c */
-extern void mged_view_callback(struct bview *gvp, void *clientData);
+extern void mged_view_callback(bsg_view *gvp, void *clientData);
 
 /* buttons.c */
 extern void button(struct mged_state *s, int bnum);
@@ -291,7 +294,7 @@ void history_setup(void);
 extern int movedir;  /* RARROW | UARROW | SARROW | ROTARROW */
 
 extern struct display_list *illum_gdlp; /* Pointer to solid in solid table to be illuminated */
-extern struct bv_scene_obj *illump; /* == 0 if none, else points to ill. solid */
+extern bsg_shape *illump; /* == 0 if none, else points to ill. solid */
 extern int ipathpos; /* path index of illuminated element */
 extern int sedraw; /* apply solid editing changes */
 extern int edobj; /* object editing options */
@@ -347,7 +350,7 @@ struct mged_hist {
 /* internal variables related to the command window(s) */
 struct cmd_list {
     struct bu_list l;
-    struct mged_dm *cl_tie;        /* the drawing window that we're tied to */
+    struct mged_pane *cl_tie;      /* Step 7.4: drawing pane we're tied to (was mged_dm*) */
     struct mged_hist *cl_cur_hist;
     struct bu_vls cl_more_default;
     struct bu_vls cl_name;
@@ -379,8 +382,7 @@ extern struct run_rt head_run_rt;
 
 /* attach.c */
 int mged_attach(struct mged_state *s, const char *wp_name, int argc, const char *argv[]);
-void mged_link_vars(struct mged_dm *p);
-void mged_slider_free_vls(struct mged_dm *p);
+/* Step 7.13: mged_link_vars and mged_slider_free_vls removed (dm VLS name fields deleted). */
 int gui_setup(struct mged_state *s, const char *dstr);
 
 
@@ -394,7 +396,7 @@ void size_reset(struct mged_state *s);
 void solid_list_callback(struct mged_state *s);
 
 extern void view_ring_init(struct _view_state *vsp1, struct _view_state *vsp2); /* defined in chgview.c */
-extern void view_ring_destroy(struct mged_dm *dlp);
+extern void view_ring_destroy(struct _view_state *vsp); /* Step 7.17: now takes view_state directly */
 
 /* cmd.c */
 int cmdline(struct mged_state *s, struct bu_vls *vp, int record);
@@ -407,14 +409,13 @@ void vls_col_item(struct bu_vls *str, const char *cp);
 void vls_col_eol(struct bu_vls *str);
 
 /* dodraw.c */
-int replot_modified_solid(struct mged_state *s, struct bv_scene_obj *sp, struct rt_db_internal *ip, const mat_t mat);
-int replot_original_solid(struct mged_state *s, struct bv_scene_obj *sp);
-void add_solid_path_to_result(Tcl_Interp *interpreter, struct bv_scene_obj *sp);
+int replot_modified_solid(struct mged_state *s, bsg_shape *sp, struct rt_db_internal *ip, const mat_t mat);
+int replot_original_solid(struct mged_state *s, bsg_shape *sp);
+void add_solid_path_to_result(Tcl_Interp *interpreter, bsg_shape *sp);
 int redraw_visible_objects(struct mged_state *s);
 
 /* dozoom.c */
-void createDLists(void *, struct bu_list *hdlp);
-void createDListSolid(void *, struct bv_scene_obj *);
+void createDListSolid(void *, bsg_shape *);
 void createDListAll(void *, struct display_list *);
 void freeDListsAll(void *, unsigned int dlist, int range);
 
@@ -481,6 +482,7 @@ extern void draw_grid(struct mged_state *s);
 /* predictor.c */
 extern void predictor_frame(struct mged_state *s);
 extern void predictor_init(struct mged_state *s);
+extern void predictor_init_pane(struct mged_pane *mp); /* Step 5.15 */
 
 /* usepen.c */
 void wrt_view(struct mged_state *s, mat_t out, const mat_t change, const mat_t in);
@@ -523,7 +525,7 @@ void init_oedit(struct mged_state *s);
 void init_sedit(struct mged_state *s);
 
 /* share.c */
-void usurp_all_resources(struct mged_dm *dlp1, struct mged_dm *dlp2);
+void usurp_all_resources(struct mged_pane *p1, struct mged_pane *p2);
 
 /* set.c */
 extern void set_absolute_tran(struct mged_state *);

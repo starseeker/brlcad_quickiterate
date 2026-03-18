@@ -43,7 +43,7 @@ class QTCAD_EXPORT QgColorRGB: public QWidget
     Q_OBJECT
 
     public:
-	QgColorRGB(QWidget *p = NULL, QString lstr = QString("Color:"), QColor dcolor = QColor(Qt::red));
+	QgColorRGB(QWidget *p = nullptr, QString lstr = QString("Color:"), QColor dcolor = QColor(Qt::red));
 	~QgColorRGB();
 
 	QLineEdit *rgbtext;

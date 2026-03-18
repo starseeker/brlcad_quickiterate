@@ -72,7 +72,7 @@ GEDShellCompleter::GEDShellCompleter(
 void
 GEDShellCompleter::updateCompletionModel(const QString& console_txt)
 {
-    setModel(NULL);
+    setModel(nullptr);
     if (console_txt.isEmpty())
 	return;
 
@@ -88,7 +88,7 @@ GEDShellCompleter::updateCompletionModel(const QString& console_txt)
     // Break the console text down into an argc/argv array, so we can examine
     // the components
     int ac = 0;
-    char **av = NULL;
+    char **av = nullptr;
     av = (char **)bu_calloc(strlen(ct) + 1, sizeof(char *), "av array");
     ac = bu_argv_from_string(av, strlen(ct), ct);
     if (!ac) {
@@ -100,7 +100,7 @@ GEDShellCompleter::updateCompletionModel(const QString& console_txt)
     // If we only have 1 argument, it needs to be a command of some sort
     if (ac == 1) {
 	char *seed = av[0];
-	const char **completions = NULL;
+	const char **completions = nullptr;
 	int completion_cnt = ged_cmd_completions(&completions, seed);
 	QStringList clist = QStringList();
 	for (int i = 0; i < completion_cnt; i++) {
@@ -122,13 +122,12 @@ GEDShellCompleter::updateCompletionModel(const QString& console_txt)
 
     // If we've got more than one argument, the last element (the one we are
     // looking to complete) is some sort of db geometry object/path element.
-    // TODO - does QComplete allow for mid-string insertions?
 
     if (!gedp)
 	return;
 
     char *seed = av[ac - 1];
-    const char **completions = NULL;
+    const char **completions = nullptr;
     struct bu_vls prefix = BU_VLS_INIT_ZERO;
     int completion_cnt = ged_geom_completions(&completions, &prefix, gedp->dbip, seed);
     ((QgConsole *)(parent()))->split_slash = 0;
@@ -189,7 +188,6 @@ class QgConsole::pqImplementation :
 	    return this->font();
 	}
 
-	// TODO - figure out how to implement this...
 	bool consolidateHistory(size_t start, size_t end)
 	{
 	    if (start > end)
@@ -211,9 +209,8 @@ class QgConsole::pqImplementation :
 
 	std::string historyAt(size_t ind)
 	{
-	    const char *cmd = CommandHistory.at(ind).toLocal8Bit().data();
-	    std::string scmd(cmd);
-	    return scmd;
+	    QByteArray ba = CommandHistory.at(ind).toLocal8Bit();
+	    return std::string(ba.constData(), ba.size());
 	}
 
 	// Try to keep the scrollbar slider from getting too small to be usable
@@ -539,10 +536,7 @@ QgConsole::QgConsole(QWidget* Parent) :
     Implementation(new pqImplementation(*this))
 {
     QVBoxLayout* const l = new QVBoxLayout(this);
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-    // TODO - figure out what to do for Qt6 here...
-    l->setMargin(0);
-#endif
+    l->setContentsMargins(0, 0, 0, 0);
     l->addWidget(this->Implementation);
     QObject::connect(this, &QgConsole::queued_log, this, &QgConsole::printStringBeforePrompt);
 }
@@ -606,9 +600,9 @@ void QgConsole::detach(struct ged_subprocess *p, int t)
     std::map<std::pair<struct ged_subprocess *, int>, QConsoleListener *>::iterator l_it, si_it, so_it, e_it;
     l_it = listeners.find(std::make_pair(p,t));
 
-    struct ged_subprocess *process = NULL;
-    ged_io_func_t callback = NULL;
-    void *gdata = NULL;
+    struct ged_subprocess *process = nullptr;
+    ged_io_func_t callback = nullptr;
+    void *gdata = nullptr;
 
     if (l_it != listeners.end()) {
 	bu_log("Stop listening: %d\n", (int)t);

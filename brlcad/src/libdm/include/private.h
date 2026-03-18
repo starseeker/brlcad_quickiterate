@@ -55,8 +55,8 @@ extern void *fb_backends;
 #define DIVBY4096(x) (((double)(x))*INV_4096)
 #define GED_TO_Xx(_dmp, x) ((int)((DIVBY4096(x)+0.5)*_dmp->i->dm_width))
 #define GED_TO_Xy(_dmp, x) ((int)((0.5-DIVBY4096(x))*_dmp->i->dm_height))
-#define Xx_TO_GED(_dmp, x) ((int)(((x)/(double)_dmp->i->dm_width - 0.5) * BV_RANGE))
-#define Xy_TO_GED(_dmp, x) ((int)((0.5 - (x)/(double)_dmp->i->dm_height) * BV_RANGE))
+#define Xx_TO_GED(_dmp, x) ((int)(((x)/(double)_dmp->i->dm_width - 0.5) * BSG_VIEW_RANGE))
+#define Xy_TO_GED(_dmp, x) ((int)((0.5 - (x)/(double)_dmp->i->dm_height) * BSG_VIEW_RANGE))
 
 /* +-2048 to +-1 */
 #define GED_TO_PM1(x) (((fastf_t)(x))*INV_BV)
@@ -191,8 +191,8 @@ __END_DECLS
     static int _dmtype##_drawPoint2D(struct dm *dmp, fastf_t x, fastf_t y); \
     static int _dmtype##_drawPoint3D(struct dm *dmp, point_t point); \
     static int _dmtype##_drawPoints3D(struct dm *dmp, int npoints, point_t *points); \
-    static int _dmtype##_drawVList(struct dm *dmp, struct bv_vlist *vp); \
-    static int _dmtype##_draw(struct dm *dmp, struct bv_vlist *(*callback_function)(void *), void **data); \
+    static int _dmtype##_drawVList(struct dm *dmp, struct bsg_vlist *vp); \
+    static int _dmtype##_draw(struct dm *dmp, struct bsg_vlist *(*callback_function)(void *), void **data); \
     static int _dmtype##_setFGColor(struct dm *dmp, unsigned char r, unsigned char g, unsigned char b, int strict, fastf_t transparency); \
     static int _dmtype##_setBGColor(struct dm *dmp, unsigned char r, unsigned char g, unsigned char b); \
     static int _dmtype##_setLineAttr(struct dm *dmp, int width, int style); \

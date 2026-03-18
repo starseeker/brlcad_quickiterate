@@ -34,6 +34,7 @@
 #include "wdb.h"
 
 #include "../edit_private.h"
+#include "bsg/util.h"
 
 #define ECMD_BOT_PICKV		30061	/* pick a BOT vertex */
 #define ECMD_BOT_PICKE		30062	/* pick a BOT edge */
@@ -594,16 +595,18 @@ ecmd_bot_pickv(struct rt_edit *s, const vect_t mousevec)
     int tmp_vert;
     char tmp_msg[256];
     point_t selected_pt;
+    struct bsg_camera _cam;
+    bsg_view_get_camera(s->vp, &_cam);
     bu_clbk_t f = NULL;
     void *d = NULL;
 
     RT_BOT_CK_MAGIC(bot);
 
-    MAT4X3PNT(pos_view, s->vp->gv_model2view, s->curr_e_axes_pos);
+    MAT4X3PNT(pos_view, _cam.model2view, s->curr_e_axes_pos);
     pos_view[X] = mousevec[X];
     pos_view[Y] = mousevec[Y];
 
-    tmp_vert = rt_bot_find_v_nearest_pt2(bot, pos_view, s->vp->gv_model2view);
+    tmp_vert = rt_bot_find_v_nearest_pt2(bot, pos_view, _cam.model2view);
     if (tmp_vert < 0) {
 	bu_vls_printf(s->log_str, "ECMD_BOT_PICKV: unable to find a vertex!\n");
 	rt_edit_map_clbk_get(&f, &d, s->m, ECMD_PRINT_RESULTS, BU_CLBK_DURING);
@@ -634,16 +637,18 @@ ecmd_bot_picke(struct rt_edit *s, const vect_t mousevec)
     int vert1, vert2;
     char tmp_msg[256];
     point_t from_pt, to_pt;
+    struct bsg_camera _cam;
+    bsg_view_get_camera(s->vp, &_cam);
     bu_clbk_t f = NULL;
     void *d = NULL;
 
     RT_BOT_CK_MAGIC(bot);
 
-    MAT4X3PNT(pos_view, s->vp->gv_model2view, s->curr_e_axes_pos);
+    MAT4X3PNT(pos_view, _cam.model2view, s->curr_e_axes_pos);
     pos_view[X] = mousevec[X];
     pos_view[Y] = mousevec[Y];
 
-    if (rt_bot_find_e_nearest_pt2(&vert1, &vert2, bot, pos_view, s->vp->gv_model2view)) {
+    if (rt_bot_find_e_nearest_pt2(&vert1, &vert2, bot, pos_view, _cam.model2view)) {
 	bu_vls_printf(s->log_str, "ECMD_BOT_PICKE: unable to find an edge!\n");
 	rt_edit_map_clbk_get(&f, &d, s->m, ECMD_PRINT_RESULTS, BU_CLBK_DURING);
 	if (f)
@@ -678,12 +683,14 @@ ecmd_bot_pickt(struct rt_edit *s, const vect_t mousevec)
     point_t pt1, pt2, pt3;
     struct bu_vls vls = BU_VLS_INIT_ZERO;
 
+    struct bsg_camera _cam;
+    bsg_view_get_camera(s->vp, &_cam);
     RT_BOT_CK_MAGIC(bot);
 
     VSET(tmp, mousevec[X], mousevec[Y], 0.0);
-    MAT4X3PNT(start_pt, s->vp->gv_view2model, tmp);
+    MAT4X3PNT(start_pt, _cam.view2model, tmp);
     VSET(tmp, 0, 0, 1);
-    MAT4X3VEC(dir, s->vp->gv_view2model, tmp);
+    MAT4X3VEC(dir, _cam.view2model, tmp);
 
     bu_vls_strcat(&vls, " {");
     hits = 0;
@@ -797,8 +804,11 @@ rt_edit_bot_edit_xy(
     vect_t pos_view = VINIT_ZERO;       /* Unrotated view space pos */
     vect_t temp = VINIT_ZERO;
     struct rt_db_internal *ip = &s->es_int;
+    struct bsg_camera _cam;
     bu_clbk_t f = NULL;
     void *d = NULL;
+
+    bsg_view_get_camera(s->vp, &_cam);
 
     switch (s->edit_flag) {
 	case RT_PARAMS_EDIT_SCALE:
@@ -827,10 +837,10 @@ rt_edit_bot_edit_xy(
 	case ECMD_BOT_MOVEV:
 	case ECMD_BOT_MOVEE:
 	case ECMD_BOT_MOVET:
-	    MAT4X3PNT(pos_view, s->vp->gv_model2view, s->curr_e_axes_pos);
+	    MAT4X3PNT(pos_view, _cam.model2view, s->curr_e_axes_pos);
 	    pos_view[X] = mousevec[X];
 	    pos_view[Y] = mousevec[Y];
-	    MAT4X3PNT(temp, s->vp->gv_view2model, pos_view);
+	    MAT4X3PNT(temp, _cam.view2model, pos_view);
 	    MAT4X3PNT(s->e_mparam, s->e_invmat, temp);
 	    s->e_mvalid = 1;
 	    break;

@@ -41,12 +41,12 @@ lint_data::lint_data()
 {
     color = NULL;
     vlfree = &rt_vlfree;
-    vbp = bv_vlblock_init(vlfree, 32);
+    vbp = bsg_vlblock_init(vlfree, 32);
 }
 
 lint_data::~lint_data()
 {
-    bv_vlblock_free(vbp);
+    bsg_vlblock_free(vbp);
     vbp = NULL;
     vlfree = NULL;
 }
@@ -347,9 +347,9 @@ ged_lint_core(struct ged *gedp, int argc, const char *argv[])
     }
 
     if (visualize) {
-	struct bview *view = gedp->ged_gvp;
+	bsg_view *view = gedp->ged_gvp;
 	if (gedp->new_cmd_forms) {
-	    bv_vlblock_obj(ldata.vbp, view, "lint_visual");
+	    bsg_vlblock_obj(ldata.vbp, view, "lint_visual");
 	} else {
 	    _ged_cvt_vlblock_to_solids(gedp, ldata.vbp, "lint_visual", 0);
 	}

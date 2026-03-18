@@ -33,6 +33,7 @@
 #include "wdb.h"
 
 #include "../edit_private.h"
+#include "bsg/util.h"
 
 #define ECMD_EXTR_SCALE_H	27073	/* scale extrusion vector */
 #define ECMD_EXTR_MOV_H		27074	/* move end of extrusion vector */
@@ -304,13 +305,15 @@ ecmd_extr_mov_h_mousevec(struct rt_edit *s, const vect_t mousevec)
     vect_t temp = VINIT_ZERO;
     struct rt_extrude_internal *extr =
 	(struct rt_extrude_internal *)s->es_int.idb_ptr;
+    struct bsg_camera _cam;
+    bsg_view_get_camera(s->vp, &_cam);
     RT_EXTRUDE_CK_MAGIC(extr);
 
-    MAT4X3PNT(pos_view, s->vp->gv_model2view, s->curr_e_axes_pos);
+    MAT4X3PNT(pos_view, _cam.model2view, s->curr_e_axes_pos);
     pos_view[X] = mousevec[X];
     pos_view[Y] = mousevec[Y];
     /* Do NOT change pos_view[Z] ! */
-    MAT4X3PNT(temp, s->vp->gv_view2model, pos_view);
+    MAT4X3PNT(temp, _cam.view2model, pos_view);
     MAT4X3PNT(tr_temp, s->e_invmat, temp);
     VSUB2(extr->h, tr_temp, extr->V);
 }

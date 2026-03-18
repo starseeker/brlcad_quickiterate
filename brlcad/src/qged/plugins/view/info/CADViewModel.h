@@ -30,7 +30,7 @@
 
 #ifndef Q_MOC_RUN
 #include "bu/avs.h"
-#include "bv.h"
+#include "bsg.h"
 #include "raytrace.h"
 #include "ged.h"
 #endif

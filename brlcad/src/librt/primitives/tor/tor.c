@@ -1060,7 +1060,7 @@ tor_ellipse_points(
 }
 
 int
-rt_tor_adaptive_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bn_tol *tol, const struct bview *v, fastf_t s_size)
+rt_tor_adaptive_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bn_tol *tol, const bsg_view *v, fastf_t s_size)
 {
     vect_t a, b, tor_a, tor_b, tor_h, center;
     fastf_t mag_a, mag_b, mag_h;
@@ -1155,7 +1155,7 @@ rt_tor_adaptive_plot(struct bu_list *vhead, struct rt_db_internal *ip, const str
  * ti.a, ti.b perpendicular, to CENTER of torus (for top, bottom)
  */
 int
-rt_tor_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *UNUSED(tol), const struct bview *UNUSED(info))
+rt_tor_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *UNUSED(tol), const bsg_view *UNUSED(info))
 {
     fastf_t alpha;
     fastf_t beta;
@@ -1254,17 +1254,17 @@ rt_tor_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
     /* Draw lengthwise (around outside rim) */
     for (w = 0; w < nw; w++) {
 	len = nlen-1;
-	BV_ADD_VLIST(vlfree, vhead, TOR_PTA(w, len), BV_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vhead, TOR_PTA(w, len), BSG_VLIST_LINE_MOVE);
 	for (len = 0; len < nlen; len++) {
-	    BV_ADD_VLIST(vlfree, vhead, TOR_PTA(w, len), BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(vlfree, vhead, TOR_PTA(w, len), BSG_VLIST_LINE_DRAW);
 	}
     }
     /* Draw around the "width" (1 cross section) */
     for (len = 0; len < nlen; len++) {
 	w = nw-1;
-	BV_ADD_VLIST(vlfree, vhead, TOR_PTA(w, len), BV_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vhead, TOR_PTA(w, len), BSG_VLIST_LINE_MOVE);
 	for (w = 0; w < nw; w++) {
-	    BV_ADD_VLIST(vlfree, vhead, TOR_PTA(w, len), BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(vlfree, vhead, TOR_PTA(w, len), BSG_VLIST_LINE_DRAW);
 	}
     }
 

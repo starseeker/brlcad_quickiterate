@@ -38,8 +38,8 @@
 #include "rt/db4.h"
 #include "raytrace.h"
 #include "rt/geom.h"
-#include "bv/defines.h"
-#include "bv/util.h"
+#include "bsg/defines.h"
+#include "bsg/util.h"
 #include "ged.h"
 #include "include/plugin.h"
 
@@ -71,11 +71,10 @@ struct vd_curve {
 #define VD_CURVE_NULL   ((struct vd_curve *)NULL)
 
 struct ged_drawable {
-    struct bu_list              *gd_headDisplay;        /**< @brief  head of display list */
     struct bu_list              *gd_headVDraw;          /**< @brief  head of vdraw list */
     struct vd_curve             *gd_currVHead;          /**< @brief  current vdraw head */
 
-    ged_drawable_notify_func_t  gd_rtCmdNotify; /**< @brief  function called when rt command completes */
+    ged_rt_notify_func_t        gd_rtCmdNotify; /**< @brief  function called when rt command completes */
 
     int                         gd_uplotOutputMode;     /**< @brief  output mode for unix plots */
 
@@ -195,7 +194,7 @@ struct ged_callback_state {
  */
 GED_EXPORT extern void ged_refresh_cb(struct ged *);
 GED_EXPORT extern void ged_output_handler_cb(struct ged *, char *);
-GED_EXPORT extern void ged_create_vlist_solid_cb(struct ged *, struct bv_scene_obj *);
+GED_EXPORT extern void ged_create_vlist_solid_cb(struct ged *, bsg_shape *);
 GED_EXPORT extern void ged_create_vlist_display_list_cb(struct ged *, struct display_list *);
 GED_EXPORT extern void ged_destroy_vlist_cb(struct ged *, unsigned int, int);
 GED_EXPORT extern void ged_io_handler_cb(struct ged *, void *, int);
@@ -203,16 +202,17 @@ GED_EXPORT extern void ged_io_handler_cb(struct ged *, void *, int);
 /* Data for tree walk */
 struct draw_data_t {
     struct db_i *dbip;
-    struct bv_scene_group *g;
-    struct bview *v;
-    struct bv_obj_settings *vs;
+    bsg_group *g;
+    bsg_view *v;
+    bsg_material *vs;
     const struct bn_tol *tol;
     const struct bg_tess_tol *ttol;
     struct bu_color c;
     int color_inherit;
     int bool_op;
     struct resource *res;
-    struct bv_mesh_lod_context *mesh_c;
+    bsg_mesh_lod_context *mesh_c;
+    struct DbiState *dbis; /* NULL when called outside DbiState context */
 
     /* To avoid the need for multiple subtree walking
      * functions, we also set up to support a bounding
@@ -258,14 +258,13 @@ GED_EXPORT extern int _ged_combadd2(struct ged *gedp,
 /* defined in display_list.c */
 GED_EXPORT extern void _dl_eraseAllNamesFromDisplay(struct ged *gedp, const char *name, const int skip_first);
 GED_EXPORT extern void _dl_eraseAllPathsFromDisplay(struct ged *gedp, const char *path, const int skip_first);
-extern void _dl_freeDisplayListItem(struct ged *gedp, struct display_list *gdlp);
-GED_EXPORT extern int dl_bounding_sph(struct bu_list *hdlp, vect_t *min, vect_t *max, int pflag);
+GED_EXPORT extern int bsg_bounding_sph(bsg_view *v, vect_t *min, vect_t *max, int pflag);
 
-GED_EXPORT extern void color_soltab(struct bv_scene_obj *sp);
+GED_EXPORT extern void color_soltab(bsg_shape *sp);
 
 /* defined in draw.c */
 GED_EXPORT extern void _ged_cvt_vlblock_to_solids(struct ged *gedp,
-				       struct bv_vlblock *vbp,
+				       struct bsg_vlblock *vbp,
 				       const char *name,
 				       int copy);
 
@@ -447,8 +446,8 @@ _ged_sort_existing_objs(struct db_i *dbip, int argc, const char *argv[], struct 
 GED_EXPORT extern int ged_view_data_lines(struct ged *gedp, int argc, const char *argv[]);
 
 
-GED_EXPORT extern void ged_push_scene_obj(struct ged *gedp, struct bv_scene_obj *sp);
-GED_EXPORT extern struct bv_scene_obj *ged_pop_scene_obj(struct ged *gedp);
+GED_EXPORT extern void ged_push_scene_obj(struct ged *gedp, bsg_shape *sp);
+GED_EXPORT extern bsg_shape *ged_pop_scene_obj(struct ged *gedp);
 
 GED_EXPORT extern int
 _ged_subcmd_help(struct ged *gedp, struct bu_opt_desc *gopts, const struct bu_cmdtab *cmds,

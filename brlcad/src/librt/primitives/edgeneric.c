@@ -34,6 +34,7 @@
 #include "wdb.h"
 
 #include "./edit_private.h"
+#include "bsg/util.h"
 
 void
 edit_abs_tra(struct rt_edit *s, vect_t view_pos)
@@ -43,12 +44,14 @@ edit_abs_tra(struct rt_edit *s, vect_t view_pos)
     vect_t diff;
     fastf_t inv_Viewscale = 1/s->vp->gv_scale;
 
-    MAT4X3PNT(model_pos, s->vp->gv_view2model, view_pos);
+    struct bsg_camera _cam;
+    bsg_view_get_camera(s->vp, &_cam);
+    MAT4X3PNT(model_pos, _cam.view2model, view_pos);
     VSUB2(diff, model_pos, s->e_axes_pos);
     VSCALE(s->k.tra_m_abs, diff, inv_Viewscale);
     VMOVE(s->k.tra_m_abs_last, s->k.tra_m_abs);
 
-    MAT4X3PNT(ea_view_pos, s->vp->gv_model2view, s->e_axes_pos);
+    MAT4X3PNT(ea_view_pos, _cam.model2view, s->e_axes_pos);
     VSUB2(s->k.tra_v_abs, view_pos, ea_view_pos);
     VMOVE(s->k.tra_v_abs_last, s->k.tra_v_abs);
 }
@@ -147,6 +150,8 @@ edit_srot(struct rt_edit *s)
     mat_t mat, mat1, edit;
     struct rt_db_internal *ip = &s->es_int;
 
+    struct bsg_camera _cam;
+    bsg_view_get_camera(s->vp, &_cam);
     if (s->e_inpara) {
 	static mat_t invsolr;
 	/*
@@ -174,14 +179,14 @@ edit_srot(struct rt_edit *s)
     }
     /* Apply changes to solid */
     /* xlate keypoint to origin, rotate, then put back. */
-    switch (s->vp->gv_rotate_about) {
+    switch (_cam.rotate_about) {
 	case 'v':       /* View Center */
 	    VSET(work, 0.0, 0.0, 0.0);
-	    MAT4X3PNT(rot_point, s->vp->gv_view2model, work);
+	    MAT4X3PNT(rot_point, _cam.view2model, work);
 	    break;
 	case 'e':       /* Eye */
 	    VSET(work, 0.0, 0.0, 1.0);
-	    MAT4X3PNT(rot_point, s->vp->gv_view2model, work);
+	    MAT4X3PNT(rot_point, _cam.view2model, work);
 	    break;
 	case 'm':       /* Model Center */
 	    VSETALL(rot_point, 0.0);
@@ -357,10 +362,12 @@ edit_stra_xy(vect_t *pos_view,
     vect_t raw_mp = VINIT_ZERO;         /* raw model position */
     mat_t mat;
 
-    MAT4X3PNT((*pos_view), s->vp->gv_model2view, s->curr_e_axes_pos);
+    struct bsg_camera _cam;
+    bsg_view_get_camera(s->vp, &_cam);
+    MAT4X3PNT((*pos_view), _cam.model2view, s->curr_e_axes_pos);
     (*pos_view)[X] = mousevec[X];
     (*pos_view)[Y] = mousevec[Y];
-    MAT4X3PNT(pt, s->vp->gv_view2model, (*pos_view));
+    MAT4X3PNT(pt, _cam.view2model, (*pos_view));
 
     /* Need vector from current vertex/keypoint
      * to desired new location.
@@ -462,6 +469,8 @@ edit_tra_xy(vect_t *pos_view,
 	)
 {
     mat_t incr_mat;
+    struct bsg_camera _cam;
+    bsg_view_get_camera(s->vp, &_cam);
     MAT_IDN(incr_mat);
 
     vect_t temp, pos_model;
@@ -490,7 +499,7 @@ edit_tra_xy(vect_t *pos_view,
 	    (*pos_view)[Y] = mousevec[Y];
     }
 
-    MAT4X3PNT(pos_model, s->vp->gv_view2model, *pos_view);/* NOT objview */
+    MAT4X3PNT(pos_model, _cam.view2model, *pos_view);/* NOT objview */
 
     edit_mtra(s, pos_model);
 }

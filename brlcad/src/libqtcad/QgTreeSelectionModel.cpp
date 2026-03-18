@@ -41,10 +41,8 @@ QgTreeSelectionModel::clear_all()
     QgModel *m = treeview->m;
 
     DbiState *dbis = (DbiState *)m->gedp->dbi_state;
-    std::vector<BSelectState *> sv = dbis->get_selected_states(NULL);
-    BSelectState *ss = sv[0];
+    SelectionSet *ss = dbis->get_selection_set(nullptr);
     ss->clear();
-    ss->characterize();
 }
 
 void
@@ -55,51 +53,39 @@ QgTreeSelectionModel::select(const QItemSelection &selection, QItemSelectionMode
     struct ged *gedp = m->gedp;
 
     DbiState *dbis = (DbiState *)gedp->dbi_state;
-    std::vector<BSelectState *> ssv = dbis->get_selected_states(NULL);
+    SelectionSet *ss = dbis->get_selection_set(nullptr);
 
-    if (ssv.size() != 1)
-	return;
-
-    BSelectState *ss = ssv[0];
-
-#if 0
+    // Materialise the index list on the stack to avoid per-element heap
+    // allocation; using a local value also fixes the Windows crash described at
+    // https://stackoverflow.com/q/15123109/2037687 because the QModelIndexList
+    // outlives any internal Qt temporary that selection.indexes() might create.
     QModelIndexList dl = selection.indexes();
-    for (long int i = 0; i < dl.size(); i++) {
-	QgItem *snode = static_cast<QgItem *>(dl.at(i).internalPointer());
-#else
-    // Above should work (and does on Linux) - using a Windows workaround from
-    // https://stackoverflow.com/q/15123109/2037687 for the moment...
-    QModelIndexList *dl = new QModelIndexList(selection.indexes());
-    for (long int i = 0; i < dl->size(); i++) {
-	QgItem *snode = static_cast<QgItem *>(dl->at(i).internalPointer());
-#endif
+    for (const QModelIndex &idx : dl) {
+	QgItem *snode = static_cast<QgItem *>(idx.internalPointer());
 
 	// If we are selecting an already selected node, clear it
 	if (flags & QItemSelectionModel::Select && ss->is_selected(snode->path_hash())) {
 	    if (!(QGuiApplication::keyboardModifiers().testFlag(Qt::ShiftModifier))) {
-		if (flags & QItemSelectionModel::Clear && ss->selected.size() > 1) {
+		if (flags & QItemSelectionModel::Clear && ss->selected().size() > 1) {
 		    ss->clear();
-		    std::vector<unsigned long long> path_hashes = snode->path_items();
-		    ss->select_hpath(path_hashes);
+		    ss->select(DbiPath(snode->path_items()), false);
 		} else {
-		    std::vector<unsigned long long> path_hashes = snode->path_items();
-		    ss->deselect_hpath(path_hashes);
+		    ss->deselect(DbiPath(snode->path_items()), false);
 		}
 	    }
 	} else {
 	    if (flags & QItemSelectionModel::Clear)
 		ss->clear();
 
-	    std::vector<unsigned long long> path_hashes = snode->path_items();
-	    ss->select_hpath(path_hashes);
+	    ss->select(DbiPath(snode->path_items()), false);
 	}
     }
 
     // Done manipulating paths - update metadata
-    ss->characterize();
+    ss->recompute_hierarchy();
 
     unsigned long long sflags = QG_VIEW_SELECT;
-    if (ss->draw_sync())
+    if (ss->sync_to_all_views())
 	sflags |= QG_VIEW_REFRESH;
 
     emit treeview->view_changed(sflags);
@@ -114,12 +100,7 @@ QgTreeSelectionModel::select(const QModelIndex &index, QItemSelectionModel::Sele
     struct ged *gedp = m->gedp;
 
     DbiState *dbis = (DbiState *)gedp->dbi_state;
-    std::vector<BSelectState *> ssv = dbis->get_selected_states(NULL);
-
-    if (ssv.size() != 1)
-	return;
-
-    BSelectState *ss = ssv[0];
+    SelectionSet *ss = dbis->get_selection_set(nullptr);
 
     if (flags & QItemSelectionModel::Clear)
 	ss->clear();
@@ -129,10 +110,10 @@ QgTreeSelectionModel::select(const QModelIndex &index, QItemSelectionModel::Sele
 	ss->clear();
 
 	// Done manipulating paths - update metadata
-	ss->characterize();
+	ss->recompute_hierarchy();
 
 	unsigned long long sflags = QG_VIEW_SELECT;
-	if (ss->draw_sync())
+	if (ss->sync_to_all_views())
 	    sflags |= QG_VIEW_REFRESH;
 
 	emit treeview->view_changed(sflags);
@@ -144,33 +125,30 @@ QgTreeSelectionModel::select(const QModelIndex &index, QItemSelectionModel::Sele
 
 	// If we are selecting an already selected node, clear it
 	if (flags & QItemSelectionModel::Select && ss->is_selected(snode->path_hash())) {
-	    std::vector<unsigned long long> path_hashes = snode->path_items();
-	    ss->deselect_hpath(path_hashes);
+	    ss->deselect(DbiPath(snode->path_items()), false);
 	    // Done manipulating paths - update metadata
-	    ss->characterize();
+	    ss->recompute_hierarchy();
 	    unsigned long long sflags = QG_VIEW_SELECT;
-	    if (ss->draw_sync())
+	    if (ss->sync_to_all_views())
 		sflags |= QG_VIEW_REFRESH;
 	    emit treeview->view_changed(sflags);
 	    emit treeview->m->layoutChanged();
 	    return;
 	}
 
-	std::vector<unsigned long long> path_hashes = snode->path_items();
-	ss->select_hpath(path_hashes);
+	ss->select(DbiPath(snode->path_items()), false);
 
     } else {
 
-	std::vector<unsigned long long> path_hashes = snode->path_items();
-	ss->deselect_hpath(path_hashes);
+	ss->deselect(DbiPath(snode->path_items()), false);
 
     }
 
     // Done manipulating paths - update metadata
-    ss->characterize();
+    ss->recompute_hierarchy();
 
     unsigned long long sflags = QG_VIEW_SELECT;
-    if (ss->draw_sync())
+    if (ss->sync_to_all_views())
 	sflags |= QG_VIEW_REFRESH;
 
     emit treeview->view_changed(sflags);

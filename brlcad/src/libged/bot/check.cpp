@@ -271,33 +271,33 @@ draw_edges(struct ged *gedp, struct rt_bot_internal *bot, int num_edges, int edg
     point_t a,b;
     unsigned char draw_color[3];
     bu_color_to_rgb_chars(color, draw_color);
-    struct bv_vlblock *vbp;
+    struct bsg_vlblock *vbp;
     struct bu_list local_vlist;
 
     BU_LIST_INIT(&local_vlist);
-    vbp = bv_vlblock_init(&local_vlist, 32);
+    vbp = bsg_vlblock_init(&local_vlist, 32);
 
     for (int curr_edge = 0; curr_edge < num_edges; curr_edge++) {
 	int p1 = edges[curr_edge*2];
 	int p2 = edges[curr_edge*2+1];
 	VSET(a, bot->vertices[p1*3], bot->vertices[p1*3+1], bot->vertices[p1*3+2]);
 	VSET(b, bot->vertices[p2*3], bot->vertices[p2*3+1], bot->vertices[p2*3+2]);
-	vhead = bv_vlblock_find(vbp, draw_color[0], draw_color[1], draw_color[2]);
-	BV_ADD_VLIST(vbp->free_vlist_hd, vhead, a, BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(vbp->free_vlist_hd, vhead, b, BV_VLIST_LINE_DRAW);
+	vhead = bsg_vlblock_find(vbp, draw_color[0], draw_color[1], draw_color[2]);
+	BSG_ADD_VLIST(vbp->free_vlist_hd, vhead, a, BSG_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vbp->free_vlist_hd, vhead, b, BSG_VLIST_LINE_DRAW);
     }
 
     if (gedp->new_cmd_forms) {
 	struct bu_vls nroot = BU_VLS_INIT_ZERO;
 	bu_vls_sprintf(&nroot, "bot_check::%s", draw_name);
-	struct bview *view = gedp->ged_gvp;
-	bv_vlblock_obj(vbp, view, bu_vls_cstr(&nroot));
+	bsg_view *view = gedp->ged_gvp;
+	bsg_vlblock_obj(vbp, view, bu_vls_cstr(&nroot));
 	bu_vls_free(&nroot);
     } else {
 	_ged_cvt_vlblock_to_solids(gedp, vbp, draw_name, 0);
     }
-    bv_vlist_cleanup(&local_vlist);
-    bv_vlblock_free(vbp);
+    bsg_vlist_cleanup(&local_vlist);
+    bsg_vlblock_free(vbp);
 }
 
 static int

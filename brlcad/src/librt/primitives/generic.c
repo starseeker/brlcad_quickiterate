@@ -32,7 +32,17 @@
 
 
 #include "bn.h"
+#include "bsg/util.h"
+#include "bsg/vlist.h"
 #include "raytrace.h"
+
+/* Obol vlist-to-scene-node bridge.  Defined in generic_obol.cpp; compiled
+ * only when BRLCAD_ENABLE_OBOL is set.  Called after the vlist has been
+ * generated to also produce an Obol SoNode for the Obol rendering path.
+ * The function is a no-op if the vlist is empty or Obol is unavailable. */
+#ifdef BRLCAD_ENABLE_OBOL
+extern void rt_generic_vlist_to_obol(bsg_shape *s);
+#endif
 
 /**
  * Apply a 4x4 transformation matrix to the internal form of a solid.
@@ -249,13 +259,13 @@ rt_generic_form(struct bu_vls *logstr, const struct rt_functab *ftp)
 }
 
 static int
-rt_wireframe_plot(struct bv_scene_obj *s, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *tol, const struct bview *v)
+rt_wireframe_plot(bsg_shape *s, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *tol, const bsg_view *v)
 {
     // If we meet the conditions for an adaptive wireframe, do that
     if (v && s->adaptive_wireframe && ip->idb_meth->ft_adaptive_plot) {
 
         ip->idb_meth->ft_adaptive_plot(&s->s_vlist, ip, tol, v, s->s_size);
-        s->s_type_flags |= BV_CSG_LOD;
+        s->s_type_flags |= BSG_NODE_CSG_LOD;
 
 	return BRLCAD_OK;
     }
@@ -264,14 +274,14 @@ rt_wireframe_plot(struct bv_scene_obj *s, struct rt_db_internal *ip, const struc
     if (ip->idb_meth->ft_plot)
 	ip->idb_meth->ft_plot(&s->s_vlist, ip, ttol, tol, s->s_v);
 
-    // If we didn't have a plotting method, we have an empty bv_scene_obj,
+    // If we didn't have a plotting method, we have an empty bsg_shape,
     // which is fine.  Otherwise, we're good to go - either way, return
     // BRLCAD_OK.
     return BRLCAD_OK;
 }
 
 static int
-rt_shaded_plot(struct bv_scene_obj *s, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *tol)
+rt_shaded_plot(bsg_shape *s, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *tol)
 {
     if (!ip->idb_meth || !ip->idb_meth->ft_tessellate) {
         bu_log("ERROR: tessellation support not available\n");
@@ -297,26 +307,76 @@ rt_shaded_plot(struct bv_scene_obj *s, struct rt_db_internal *ip, const struct b
  * Used for solid types that don't have any special modes beyond basic and adaptive
  * plotting
  */
-int
-rt_generic_scene_obj(struct bv_scene_obj *s, struct directory *dp, struct db_i *dbip, const struct bg_tess_tol *ttol, const struct bn_tol *tol, const struct bview *v)
+RT_EXPORT int
+rt_generic_scene_obj(bsg_shape *s, struct directory *dp, struct db_i *dbip, const struct bg_tess_tol *ttol, const struct bn_tol *tol, const bsg_view *v)
 {
     int ret = BRLCAD_ERROR;
 
     if (!s || !dp || !dbip)
 	return BRLCAD_ERROR;
 
+    /* Lazy AABB / placeholder handling: when the async AABB pipeline has not
+     * yet delivered results for this primitive, s->have_bbox == 0.  Rather
+     * than cracking the rt_db_internal (which may be expensive for large
+     * primitives), draw the tightest available placeholder wireframe.
+     *
+     * The OBB corner data in s->s_obb_pts and the flag s->s_have_obb are
+     * pre-populated by draw_scene()'s setup phase from the async pipeline
+     * results (DbiState::obbs).  This callback therefore does NOT need any
+     * access to DbiState — all state flows through bsg_shape fields.
+     *
+     * Architectural note: this is the per-primitive implementation of the
+     * placeholder behaviour that was previously scattered across draw_scene()
+     * in libged.  As the migration toward ft_scene_obj-as-primary-dispatch
+     * proceeds, more of the logic currently in draw_scene will move here. */
+    /* Lazy AABB / placeholder handling: only applies in adaptive (v != NULL)
+     * mode where the async pipeline delivers bboxes progressively.  In
+     * non-adaptive mode (v == NULL) we always proceed to crack the internal
+     * and draw immediately, just as the old draw_scene fallback did. */
+    if (v && !s->have_bbox) {
+	s->csg_obj = 1;
+	s->mesh_obj = 0;
+	if (s->s_have_obb) {
+	    bsg_shape *vo = bsg_shape_for_view(s, (bsg_view *)v);
+	    if (!vo)
+		vo = bsg_shape_get_view_obj(s, (bsg_view *)v);
+	    vo->csg_obj = 1;
+	    vo->mesh_obj = 0;
+	    if (!vo->draw_data && BU_LIST_IS_EMPTY(&vo->s_vlist)) {
+		point_t obb_pts[8];
+		for (int k = 0; k < 8; k++)
+		    VSET(obb_pts[k], s->s_obb_pts[k*3+0],
+			 s->s_obb_pts[k*3+1], s->s_obb_pts[k*3+2]);
+		bsg_vlist_arb8(vo->vlfree, &vo->s_vlist, (const point_t *)obb_pts);
+		vo->s_placeholder = 2;
+	    }
+	}
+	/* No AABB and no OBB → no-op; will be retried on next redraw. */
+	return BRLCAD_OK;
+    }
+
     // In the generic case we don't have cached data, so we need to proceed straight
     // to the rt_db_internal.  In some cases (like BoTs) we DON'T want to do this in
     // all cases, since cracking the internal on large BoTs can be be relatively slow,
     // but in most cases it's what we need to do.
+    //
+    // We call rt_db_get_internal with NULL mat (identity), leaving the object in
+    // object-space coordinates.  This is consistent with the target architecture
+    // where the renderer applies s_mat at draw time rather than baking the transform
+    // into the cracked internal.  For in-place transform application to an already-
+    // cracked internal, ft_mat (rt_##name##_mat) would be used instead.
+    //
+    // Use s->s_res if available (set by draw_scene's setup phase); fall back to the
+    // global default resource if not (e.g. when called outside the DbiState context).
+    struct resource *res = s->s_res ? s->s_res : &rt_uniresource;
     struct rt_db_internal intern;
-    if (rt_db_get_internal(&intern, dp, dbip, NULL, &rt_uniresource) < 0)
+    if (rt_db_get_internal(&intern, dp, dbip, NULL, res) < 0)
 	return BRLCAD_ERROR;
     RT_CK_DB_INTERNAL(&intern);
 
     // Clear out existing vlists - if we're calling this, we definitely don't want
     // any old data to linger.
-    BV_FREE_VLIST(s->vlfree, &s->s_vlist);
+    BSG_FREE_VLIST(s->vlfree, &s->s_vlist);
 
 #if 0
     // NOTE - above call stages the vlist memory for reuse.  If we need
@@ -326,8 +386,8 @@ rt_generic_scene_obj(struct bv_scene_obj *s, struct directory *dp, struct db_i *
     struct bu_list *p;
     while (BU_LIST_WHILE(p, bu_list, &s->s_vlist)) {
 	BU_LIST_DEQUEUE(p);
-	struct bv_vlist *pv = (struct bv_vlist *)p;
-	BU_FREE(pv, struct bv_vlist);
+	struct bsg_vlist *pv = (struct bsg_vlist *)p;
+	BU_FREE(pv, struct bsg_vlist);
     }
 #endif
 
@@ -366,6 +426,14 @@ rt_generic_scene_obj(struct bv_scene_obj *s, struct directory *dp, struct db_i *
 
     // Done with internal contents
     rt_db_free_internal(&intern);
+
+    /* Convert the generated vlist to an Obol SoNode for the Obol rendering
+     * path.  This is the compatibility-shim step described in
+     * RADICAL_MIGRATION.md Stage 1: vlists produced above are converted to
+     * Obol nodes so that obol_scene_assemble() can render this shape. */
+#ifdef BRLCAD_ENABLE_OBOL
+    rt_generic_vlist_to_obol(s);
+#endif
 
     return BRLCAD_OK;
 }

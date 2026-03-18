@@ -68,6 +68,10 @@ main(int ac, char *av[]) {
 	return 2;
     }
 
+    /* If an explicit moss.g directory is provided as av[2], use it; otherwise
+     * fall back to the control image directory (av[1]). */
+    const char *moss_dir = (uac >= 3) ? av[2] : av[1];
+
     bool clear_images = !keep_images;
 
     /* Enable all the experimental logic */
@@ -79,7 +83,7 @@ main(int ac, char *av[]) {
     }
 
     /* Open the temp file, then dbconcat argv[1] into it */
-    bu_vls_sprintf(&fname, "%s/moss.g", av[1]);
+    bu_vls_sprintf(&fname, "%s/moss.g", moss_dir);
     gedp = ged_open("db", bu_vls_cstr(&fname), 1);
 
     // Set up new cmd data (not yet done by default in ged_open
@@ -97,7 +101,7 @@ main(int ac, char *av[]) {
     s_av[4] = NULL;
     ged_exec_dm(gedp, 4, s_av);
 
-    struct bview *v = gedp->ged_gvp;
+    bsg_view *v = gedp->ged_gvp;
     struct dm *dmp = (struct dm *)v->dmp;
     dm_set_width(dmp, 512);
     dm_set_height(dmp, 512);

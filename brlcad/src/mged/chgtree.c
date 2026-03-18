@@ -38,6 +38,8 @@
 #include "wdb.h"
 #include "rt/geom.h"
 
+#include "bsg/util.h"
+
 #include "./sedit.h"
 #include "./mged.h"
 #include "./mged_dm.h"
@@ -139,36 +141,23 @@ f_copy_inv(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv
 }
 
 
-struct bv_scene_obj *
+bsg_shape *
 find_solid_with_path(struct mged_state *s, struct db_full_path *pathp)
 {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
-    struct bv_scene_obj *sp;
+    bsg_shape *ret = (bsg_shape *)NULL;
     int count = 0;
-    struct bv_scene_obj *ret = (struct bv_scene_obj *)NULL;
 
     RT_CK_FULL_PATH(pathp);
 
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-	    if (!sp->s_u_data)
-		continue;
-	    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
-
-	    if (!db_identical_full_paths(pathp, &bdata->s_fullpath)) continue;
-
-	    /* Paths are the same */
-	    illum_gdlp = gdlp;
-	    ret = sp;
-	    count++;
-	}
-
-	gdlp = next_gdlp;
+    struct bu_ptbl matches = BU_PTBL_INIT_ZERO;
+    ged_find_shapes_by_path(s->gedp, view_state->vs_gvp, pathp, &matches);
+    for (size_t i = 0; i < BU_PTBL_LEN(&matches); i++) {
+	bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&matches, i);
+	illum_gdlp = GED_DISPLAY_LIST_NULL;
+	ret = sp;
+	count++;
     }
+    bu_ptbl_free(&matches);
 
     if (count > 1) {
 	struct bu_vls tmp_vls = BU_VLS_INIT_ZERO;
@@ -198,12 +187,9 @@ cmd_oed(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     struct cmdtab *ctp = (struct cmdtab *)clientData;
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
     struct db_full_path lhs;
     struct db_full_path rhs;
     struct db_full_path both;
-    int is_empty = 1;
 
     CHECK_DBI_NULL;
 
@@ -220,22 +206,13 @@ cmd_oed(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	return TCL_ERROR;
     }
 
-    /* Common part of illumination */
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	if (BU_LIST_NON_EMPTY(&gdlp->dl_head_scene_obj)) {
-	    is_empty = 0;
-	    break;
+    /* Check that the view has some shapes */
+    {
+	bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
+	if (!root || BU_PTBL_LEN(&root->children) == 0) {
+	    Tcl_AppendResult(interp, "no solids in view", (char *)NULL);
+	    return TCL_ERROR;
 	}
-
-	gdlp = next_gdlp;
-    }
-
-    if (is_empty) {
-	Tcl_AppendResult(interp, "no solids in view", (char *)NULL);
-	return TCL_ERROR;
     }
 
     if (db_string_to_path(&lhs, s->dbip, argv[1]) < 0) {
@@ -259,8 +236,12 @@ cmd_oed(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     db_append_full_path(&both, &rhs);
 
     /* Patterned after ill_common() ... */
-    illum_gdlp = gdlp;
-    illump = BU_LIST_NEXT(bv_scene_obj, &gdlp->dl_head_scene_obj);/* any valid solid would do */
+    illum_gdlp = GED_DISPLAY_LIST_NULL;
+    {
+	bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
+	illump = (root && BU_PTBL_LEN(&root->children) > 0)
+	    ? (bsg_shape *)BU_PTBL_GET(&root->children, 0) : NULL;
+    }
     edobj = 0;		/* sanity */
     movedir = 0;		/* No edit modes set */
     MAT_IDN(MEDIT(s)->model_changes);	/* No changes yet */

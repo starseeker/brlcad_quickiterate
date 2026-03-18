@@ -57,7 +57,9 @@ ged_grid2view_lu_core(struct ged *gedp, int argc, const char *argv[])
 	goto bad;
     scan[Z] = 0.0;
 
-    MAT4X3PNT(mo_view_pt, gedp->ged_gvp->gv_model2view, model_pt);
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      MAT4X3PNT(mo_view_pt, _cm.model2view, model_pt);
+    }
     f = gedp->ged_gvp->gv_scale * gedp->dbip->dbi_base2local;
     VSCALE(mo_view_pt, mo_view_pt, f);
     VADD2(view_pt, mo_view_pt, scan);
