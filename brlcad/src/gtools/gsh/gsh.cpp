@@ -384,7 +384,7 @@ GshState::GshState()
     BU_GET(gedp, struct ged);
     ged_init(gedp);
 
-    #ifdef USE_DM
+#ifdef USE_DM
     view_checkpoint();
 #endif /* USE_DM */
 
