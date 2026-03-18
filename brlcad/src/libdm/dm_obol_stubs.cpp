@@ -102,61 +102,6 @@ dm_default_type(void)
 }
 
 
-/*
- * Stubs for dm-generic.c accessors that some code calls via runtime checks
- * (e.g. "if (dmp) { dm_get_fb(dmp); }").  In Obol builds dmp is always NULL
- * so these are never reached, but the linker still needs the symbols.
- */
-
-extern "C" struct fb *
-dm_get_fb(struct dm *UNUSED(dmp))
-{
-    return NULL;
-}
-
-
-extern "C" int
-dm_get_width(struct dm *UNUSED(dmp))
-{
-    return 0;
-}
-
-
-extern "C" int
-dm_get_height(struct dm *UNUSED(dmp))
-{
-    return 0;
-}
-
-
-extern "C" int
-dm_draw_begin(struct dm *UNUSED(dmp))
-{
-    return 0;
-}
-
-
-extern "C" int
-dm_draw_end(struct dm *UNUSED(dmp))
-{
-    return 0;
-}
-
-
-extern "C" const char *
-dm_get_name(const struct dm *UNUSED(dmp))
-{
-    return NULL;
-}
-
-
-extern "C" int
-dm_close(struct dm *UNUSED(dmp))
-{
-    return 0;
-}
-
-
 // Local Variables:
 // tab-width: 8
 // mode: C++
