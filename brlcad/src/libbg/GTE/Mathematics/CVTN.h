@@ -378,12 +378,29 @@ namespace gte
             return mSites.size();
         }
         
-        // Lloyd iterations - move sites to centroids of Voronoi cells.
+        // Lloyd iterations - move sites to centroids of their Voronoi cells.
+        //
+        // This is a direct translation of Geogram's CVT::Lloyd_iterations():
+        //   for each iteration:
+        //     delaunay->set_vertices(sites)        [O(n log n) with KD-tree NN]
+        //     RVD->compute_centroids(mg, m)         [walk-based O(n_tri) per iter]
+        //     sites = mg / m
+        //
+        // The centroid computation uses SurfaceRVDN::ForEachPolygon() which
+        // implements Geogram's compute_surfacic_with_cnx_priority walk — the
+        // correct polygon-clipping approach that gives EXACT Voronoi cell
+        // centroids, unlike the old brute-force triangle-assignment approach
+        // which was O(n_triangles * n_seeds) per iteration.
+        //
+        // With the KD-tree-backed DelaunayNN:
+        //   - BuildDelaunay:       O(n log n)   was O(n²)
+        //   - ComputeCentroids:    O(n_tri · k) was O(n_tri · n_seeds)
+        // where k is the average number of Delaunay neighbors per seed (~20).
+        //
         // If a time limit has been set via SetTimeLimit(), the loop stops
         // after the current iteration completes once the wall-clock deadline
-        // is reached, and returns true (partial convergence is acceptable).
-        // The number of iterations actually completed is stored in
-        // mIterationsCompleted and can be queried via GetIterationsCompleted().
+        // is reached.  The number of iterations actually completed is stored
+        // in mIterationsCompleted and can be queried via GetIterationsCompleted().
         bool LloydIterations(size_t numIterations)
         {
             if (mSites.empty())
@@ -403,47 +420,181 @@ namespace gte
                         std::chrono::duration<double>(mTimeLimitSeconds));
             }
 
+            size_t numSeeds = mSites.size();
+
             for (size_t iter = 0; iter < numIterations; ++iter)
             {
-                // Create Delaunay for current sites
+                // ── Step 1: Build Delaunay over current N-D sites ──────────────
+                // With the KD-tree-backed NearestNeighborSearchN this is O(n log n)
+                // instead of the previous O(n²).
                 DelaunayNN<Real, N> delaunay(20);
-                delaunay.SetVertices(mSites.size(), mSites.data());
-                
-                // Create RVD
-                RestrictedVoronoiDiagramN<Real, N> rvd;
-                rvd.Initialize(&delaunay, mSurfaceVertices, mSurfaceTriangles, mSites);
-                
-                // Compute centroids
-                std::vector<PointN> centroids;
-                if (!rvd.ComputeCentroids(centroids))
+                delaunay.SetVertices(numSeeds, mSites.data());
+
+                // ── Step 2: Build N-D lifted mesh vertices ─────────────────────
+                // For N=3 (isotropic): identity — dims 0–2 are 3D position.
+                // For N=6 (anisotropic): append scaled vertex normals so that the
+                // Sutherland-Hodgman polygon clipping uses the correct N-D metric.
+                // This matches the lifting done in ComputeRDT's multinerve path and
+                // in RemeshCVTAnisotropic (MeshRemesh.h).
+                std::vector<std::array<Real, N>> liftedArr(mSurfaceVertices.size());
+
+                // Estimate normal scale from current sites' dims 3-N-1 magnitudes
+                // (same formula as RestrictedVoronoiDiagramN::ComputeCentroids).
+                Real normalScale = static_cast<Real>(0);
+                if constexpr (N > 3)
                 {
-                    return false;
+                    for (size_t s = 0; s < numSeeds; ++s)
+                    {
+                        Real ns = static_cast<Real>(0);
+                        for (size_t d = 3; d < N; ++d) ns += mSites[s][d] * mSites[s][d];
+                        normalScale += std::sqrt(ns);
+                    }
+                    if (numSeeds > 0)
+                        normalScale /= static_cast<Real>(numSeeds);
                 }
-                
-                // Compute max movement
+
+                if constexpr (N > 3)
+                {
+                    // Accumulate area-weighted face normals per vertex
+                    std::vector<std::array<Real, 3>> vertNorm(
+                        mSurfaceVertices.size(), {Real(0), Real(0), Real(0)});
+                    for (auto const& tri : mSurfaceTriangles)
+                    {
+                        Point3 const& v0 = mSurfaceVertices[tri[0]];
+                        Point3 const& v1 = mSurfaceVertices[tri[1]];
+                        Point3 const& v2 = mSurfaceVertices[tri[2]];
+                        Point3 fn = Cross(v1 - v0, v2 - v0);
+                        for (int lv = 0; lv < 3; ++lv)
+                        {
+                            vertNorm[tri[lv]][0] += fn[0];
+                            vertNorm[tri[lv]][1] += fn[1];
+                            vertNorm[tri[lv]][2] += fn[2];
+                        }
+                    }
+                    for (size_t v = 0; v < mSurfaceVertices.size(); ++v)
+                    {
+                        liftedArr[v][0] = mSurfaceVertices[v][0];
+                        liftedArr[v][1] = mSurfaceVertices[v][1];
+                        liftedArr[v][2] = mSurfaceVertices[v][2];
+                        Real nx = vertNorm[v][0], ny = vertNorm[v][1], nz = vertNorm[v][2];
+                        Real len = std::sqrt(nx*nx + ny*ny + nz*nz);
+                        if (len > static_cast<Real>(1e-10))
+                        {
+                            nx /= len; ny /= len; nz /= len;
+                        }
+                        if constexpr (N >= 6)
+                        {
+                            liftedArr[v][3] = nx * normalScale;
+                            liftedArr[v][4] = ny * normalScale;
+                            liftedArr[v][5] = nz * normalScale;
+                        }
+                        for (size_t d = 6; d < N; ++d)
+                            liftedArr[v][d] = static_cast<Real>(0);
+                    }
+                }
+                else
+                {
+                    // N=3: copy 3D positions directly (no lifting needed)
+                    for (size_t v = 0; v < mSurfaceVertices.size(); ++v)
+                    {
+                        liftedArr[v][0] = mSurfaceVertices[v][0];
+                        liftedArr[v][1] = mSurfaceVertices[v][1];
+                        liftedArr[v][2] = mSurfaceVertices[v][2];
+                    }
+                }
+
+                // ── Step 3: Convert N-D sites to std::array for SurfaceRVDN ──
+                std::vector<std::array<Real, N>> seedsArr(numSeeds);
+                for (size_t s = 0; s < numSeeds; ++s)
+                    for (size_t d = 0; d < N; ++d) seedsArr[s][d] = mSites[s][d];
+
+                // ── Step 4: Walk the surface and accumulate N-D centroids ──────
+                // Uses SurfaceRVDN::ForEachPolygon — a direct translation of
+                // Geogram's compute_surfacic_with_cnx_priority walk.  For each
+                // (seed, facet) restricted polygon, we fan-triangulate and
+                // accumulate area-weighted N-D centroids exactly as Geogram does
+                // in its CVT::Lloyd_iterations / compute_centroids callback.
+                SurfaceRVDN<Real, N> rvd;
+                rvd.Initialize(liftedArr, mSurfaceTriangles, seedsArr, delaunay);
+
+                std::vector<std::array<Real, N>> mg(numSeeds);
+                std::vector<Real>               m(numSeeds, static_cast<Real>(0));
+                for (auto& a : mg) a.fill(static_cast<Real>(0));
+
+                rvd.ForEachPolygon([&](
+                    int32_t seed, int32_t /*facet*/,
+                    RVDPolygon<Real, N> const& P,
+                    bool /*compChanged*/, int32_t /*compID*/)
+                {
+                    const size_t nv = P.nb_vertices();
+                    for (size_t i = 1; i + 1 < nv; ++i)
+                    {
+                        // N-D triangle area (Heron's formula on N-D edge lengths).
+                        // Direct translation of Geom::triangle_area<DIM>() from
+                        // geogram/src/lib/geogram/basic/geometry_nd.h.
+                        Real ea = Real(0), eb = Real(0), ec = Real(0);
+                        for (size_t d = 0; d < N; ++d)
+                        {
+                            Real e0 = P.V[0].pos[d] - P.V[i].pos[d];
+                            Real e1 = P.V[i].pos[d] - P.V[i+1].pos[d];
+                            Real e2 = P.V[i+1].pos[d] - P.V[0].pos[d];
+                            ea += e0 * e0;
+                            eb += e1 * e1;
+                            ec += e2 * e2;
+                        }
+                        ea = std::sqrt(ea);
+                        eb = std::sqrt(eb);
+                        ec = std::sqrt(ec);
+                        Real hs = Real(0.5) * (ea + eb + ec);
+                        Real A2 = hs * (hs - ea) * (hs - eb) * (hs - ec);
+                        Real area = std::sqrt(std::max(A2, Real(0)));
+
+                        Real inv3 = area / Real(3);
+                        for (size_t d = 0; d < N; ++d)
+                        {
+                            mg[seed][d] += inv3 * (P.V[0].pos[d]
+                                                 + P.V[i].pos[d]
+                                                 + P.V[i+1].pos[d]);
+                        }
+                        m[seed] += area;
+                    }
+                });
+
+                // ── Step 5: Update sites = mg / m  ─────────────────────────────
+                // Matches Geogram's normalization:
+                //   if(m[j] > 1e-30) points_[j] = mg[j] / m[j];
                 Real maxMovement = static_cast<Real>(0);
-                for (size_t i = 0; i < mSites.size(); ++i)
+                for (size_t i = 0; i < numSeeds; ++i)
                 {
-                    Real dist = Distance(mSites[i], centroids[i]);
-                    maxMovement = std::max(maxMovement, dist);
+                    if (m[i] > static_cast<Real>(1e-30))
+                    {
+                        Real inv_m = static_cast<Real>(1) / m[i];
+                        Real dSq   = static_cast<Real>(0);
+                        for (size_t d = 0; d < N; ++d)
+                        {
+                            Real newCoord = mg[i][d] * inv_m;
+                            Real diff     = mSites[i][d] - newCoord;
+                            dSq          += diff * diff;
+                            mSites[i][d]  = newCoord;
+                        }
+                        maxMovement = std::max(maxMovement, std::sqrt(dSq));
+                    }
                 }
-                
-                // Update sites
-                mSites = centroids;
+
                 ++mIterationsCompleted;
-                
+
                 if (mVerbose)
                 {
-                    std::cout << "Lloyd iteration " << (iter + 1) 
+                    std::cout << "Lloyd iteration " << (iter + 1)
                               << ": max movement = " << maxMovement << "\n";
                 }
-                
+
                 // Check convergence
                 if (maxMovement < mConvergenceThreshold)
                 {
                     if (mVerbose)
                     {
-                        std::cout << "Converged after " << (iter + 1) 
+                        std::cout << "Converged after " << (iter + 1)
                                   << " iterations\n";
                     }
                     break;
@@ -460,7 +611,7 @@ namespace gte
                     break;
                 }
             }
-            
+
             return true;
         }
         

@@ -633,6 +633,13 @@ namespace gte
                     }
                 }
             }
+
+            // Build a 3D KD-tree over the seed 3D positions (first 3 dims of each
+            // N-D seed).  This accelerates FindNearestSeed() from O(n_seeds) to
+            // O(log n_seeds) for each of the O(n_facets) outer-loop calls.
+            // Matching Geogram's find_seed_near_facet which uses the Delaunay ANN
+            // for the starting facet lookup.
+            BuildSeedKDTree(seeds);
         }
 
         // -----------------------------------------------------------------
@@ -809,35 +816,34 @@ namespace gte
 
     private:
         // -----------------------------------------------------------------
-        // Find the nearest seed to the centroid of mesh facet f in N-D
-        // (translation of find_seed_near_facet).
+        // Find the nearest seed to the centroid of mesh facet f in N-D.
+        // Uses a 3D KD-tree over the seed positions (first 3 dims) built
+        // during Initialize() for O(log n_seeds) instead of O(n_seeds).
+        // Translation of find_seed_near_facet().
         // -----------------------------------------------------------------
         int32_t FindNearestSeed(int32_t f) const
         {
             auto const& tri = (*mTris)[f];
-            PointN c{};
-            for (int i = 0; i < 3; ++i)
+            // 3D centroid of the mesh facet (use first 3 N-D dims)
+            Real cx = ((*mLiftedVerts)[tri[0]][0] + (*mLiftedVerts)[tri[1]][0] + (*mLiftedVerts)[tri[2]][0]) / Real(3);
+            Real cy = ((*mLiftedVerts)[tri[0]][1] + (*mLiftedVerts)[tri[1]][1] + (*mLiftedVerts)[tri[2]][1]) / Real(3);
+            Real cz = ((*mLiftedVerts)[tri[0]][2] + (*mLiftedVerts)[tri[1]][2] + (*mLiftedVerts)[tri[2]][2]) / Real(3);
+
+            if (!mSeedKDTree.empty())
             {
-                for (size_t d = 0; d < N; ++d)
-                {
-                    c[d] += (*mLiftedVerts)[tri[i]][d];
-                }
-            }
-            for (size_t d = 0; d < N; ++d)
-            {
-                c[d] /= Real(3);
+                return mSeedKDTree.nearest(cx, cy, cz);
             }
 
+            // Fallback: brute-force (should not normally be reached)
             int32_t nearest = 0;
             Real    minD    = std::numeric_limits<Real>::max();
             for (size_t s = 0; s < mSeeds->size(); ++s)
             {
-                Real dist = DistSq(c, (*mSeeds)[s]);
-                if (dist < minD)
-                {
-                    minD    = dist;
-                    nearest = static_cast<int32_t>(s);
-                }
+                Real dx = cx - (*mSeeds)[s][0];
+                Real dy = cy - (*mSeeds)[s][1];
+                Real dz = cz - (*mSeeds)[s][2];
+                Real d2 = dx*dx + dy*dy + dz*dz;
+                if (d2 < minD) { minD = d2; nearest = static_cast<int32_t>(s); }
             }
             return nearest;
         }
@@ -1025,6 +1031,102 @@ namespace gte
         }
 
         // -----------------------------------------------------------------
+        // 3D KD-tree over the seed 3D positions (first 3 dims), used to
+        // accelerate FindNearestSeed() from O(n_seeds) to O(log n_seeds).
+        //
+        // Identical structure to KDTree3D in CVTN.h: "split-order" flat
+        // array, axis cycling 0→1→2, nth_element median-split.
+        // Returns the original seed index of the nearest seed.
+        // -----------------------------------------------------------------
+        struct SeedKDTree3D
+        {
+            struct Entry { Real x, y, z; int32_t idx; int32_t ax; };
+            std::vector<Entry> nodes;
+
+            bool empty() const { return nodes.empty(); }
+
+            void build(std::vector<PointN> const& seeds)
+            {
+                size_t n = seeds.size();
+                nodes.resize(n);
+                std::vector<int32_t> order(n);
+                for (size_t i = 0; i < n; ++i) order[i] = static_cast<int32_t>(i);
+                buildRange(seeds, order, 0, static_cast<int32_t>(n), 0);
+            }
+
+            int32_t nearest(Real qx, Real qy, Real qz) const
+            {
+                Real bestD = std::numeric_limits<Real>::max();
+                int32_t bestIdx = 0;
+                search(0, static_cast<int32_t>(nodes.size()), qx, qy, qz, bestD, bestIdx);
+                return bestIdx;
+            }
+
+        private:
+            void buildRange(std::vector<PointN> const& seeds,
+                            std::vector<int32_t>& order,
+                            int32_t lo, int32_t hi, int32_t depth)
+            {
+                if (lo >= hi) return;
+                int32_t mid = (lo + hi) / 2;
+                int32_t a   = depth % 3;
+                std::nth_element(
+                    order.begin() + lo,
+                    order.begin() + mid,
+                    order.begin() + hi,
+                    [&](int32_t u, int32_t v) {
+                        return seeds[u][a] < seeds[v][a];
+                    });
+                int32_t oi = order[mid];
+                nodes[mid] = { seeds[oi][0], seeds[oi][1], seeds[oi][2], oi, a };
+                buildRange(seeds, order, lo,     mid,    depth + 1);
+                buildRange(seeds, order, mid + 1, hi,    depth + 1);
+            }
+
+            void search(int32_t lo, int32_t hi,
+                        Real qx, Real qy, Real qz,
+                        Real& bestD, int32_t& bestIdx) const
+            {
+                if (lo >= hi) return;
+                int32_t mid = (lo + hi) / 2;
+                auto const& nd = nodes[mid];
+                Real dx = qx - nd.x, dy = qy - nd.y, dz = qz - nd.z;
+                Real d2 = dx*dx + dy*dy + dz*dz;
+                if (d2 < bestD) { bestD = d2; bestIdx = nd.idx; }
+
+                Real diff;
+                switch (nd.ax)
+                {
+                    case 0: diff = qx - nd.x; break;
+                    case 1: diff = qy - nd.y; break;
+                    default: diff = qz - nd.z; break;
+                }
+
+                if (diff <= Real(0))
+                {
+                    search(lo, mid, qx, qy, qz, bestD, bestIdx);
+                    if (diff * diff < bestD)
+                        search(mid + 1, hi, qx, qy, qz, bestD, bestIdx);
+                }
+                else
+                {
+                    search(mid + 1, hi, qx, qy, qz, bestD, bestIdx);
+                    if (diff * diff < bestD)
+                        search(lo, mid, qx, qy, qz, bestD, bestIdx);
+                }
+            }
+        };
+        // -----------------------------------------------------------------
+
+        void BuildSeedKDTree(std::vector<PointN> const& seeds)
+        {
+            if (!seeds.empty())
+            {
+                mSeedKDTree.build(seeds);
+            }
+        }
+
+        // -----------------------------------------------------------------
         // Data members
         // -----------------------------------------------------------------
         std::vector<PointN> const*                 mLiftedVerts = nullptr;
@@ -1034,6 +1136,9 @@ namespace gte
         size_t                                      mNumFacets   = 0;
 
         std::vector<int32_t>                        mFacetAdj;
+
+        // 3D KD-tree over seed 3D positions for O(log n) FindNearestSeed
+        SeedKDTree3D                                mSeedKDTree;
 
         // (facet, seed) → connected-component ID
         std::unordered_map<uint64_t, int32_t>       mFacetSeedComp;
