@@ -707,21 +707,49 @@ try_patch_repair(struct rt_bot_internal *bot, manifold::Manifold& gm_out)
 	return false;
 
     // Build face-to-face adjacency.
+    // ConnectFacets sets adj[f*3+e] to:
+    //   >= 0 : index of the one adjacent face (manifold edge)
+    //   -1   : no adjacent face (open boundary / hole)
+    //   -2   : non-manifold edge — 3+ faces share this edge
+    //
+    // For patch boundary detection we count an edge as being on the patch
+    // boundary only when adj == -1 (true mesh boundary) or when adj >= 0 and
+    // the adjacent face is NOT in the patch.  We deliberately exclude adj == -2
+    // (excess/non-manifold edges): since all faces on an excess edge were seeded
+    // into the patch, those edges are interior to the patch and must not be
+    // counted as boundary edges — counting them would give every vertex on an
+    // excess edge a falsely inflated boundary degree and prevent the boundary
+    // from ever appearing simple.
     std::vector<int32_t> adj;
     gte::MeshRepair<double>::ConnectFacets(tp, adj);
 
-    // Grow the patch until its boundary has only degree-2 vertices.
-    // (See main function comment for the rationale.)
-    const size_t max_patch = std::max((size_t)3, (size_t)nf / 2);
-    for (;;) {
-	if (patch.size() >= max_patch)
-	    break;
+    // Helper that returns true iff edge e of face f is on the patch boundary.
+    auto is_patch_boundary = [&](int32_t f, int e) -> bool {
+	int32_t adj_f = adj[(size_t)f * 3 + (size_t)e];
+	if (adj_f == -1) return true;                         // true mesh boundary
+	if (adj_f < 0)   return false;                        // -2: excess edge, interior
+	return patch.count(adj_f) == 0;                       // manifold, other face not in patch
+    };
 
+    // Grow the patch until its boundary has only degree-2 vertices.
+    //
+    // A simple closed boundary requires every boundary vertex to have exactly
+    // 2 incident boundary edges (one entering, one leaving).  Vertices with
+    // degree != 2 (branching at 3+, dangling at 1) prevent LSCM/CDT from
+    // working correctly on the boundary loop.
+    //
+    // For each non-simple vertex we pull in ALL faces incident to it so it
+    // becomes an interior vertex of the patch.  We repeat until either the
+    // boundary is simple or we can no longer add faces.
+    //
+    // The max_patch limit is applied AFTER growth (not inside the loop) so
+    // that it does not cut off growth mid-way and leave the boundary in a
+    // non-simple state that would cause the verify below to spuriously fail.
+    for (;;) {
 	std::map<int32_t, int> bnd_degree;
 	for (int32_t f : patch) {
 	    for (int e = 0; e < 3; e++) {
-		int32_t adj_f = adj[(size_t)f * 3 + (size_t)e];
-		if (adj_f < 0 || patch.count(adj_f) == 0) {
+		if (is_patch_boundary(f, e)) {
 		    bnd_degree[tp[f][e]]++;
 		    bnd_degree[tp[f][(e+1)%3]]++;
 		}
@@ -749,13 +777,18 @@ try_patch_repair(struct rt_bot_internal *bot, manifold::Manifold& gm_out)
 	    break;
     }
 
-    // Verify the boundary is actually simple.
+    // Reject if the patch grew larger than half the mesh (the problem region
+    // is too large to repair safely via this approach).
+    const size_t max_patch = std::max((size_t)3, (size_t)nf / 2);
+    if (patch.size() > max_patch)
+	return false;
+
+    // Verify the boundary is actually simple before proceeding.
     {
 	std::map<int32_t, int> bnd_degree;
 	for (int32_t f : patch) {
 	    for (int e = 0; e < 3; e++) {
-		int32_t adj_f = adj[(size_t)f * 3 + (size_t)e];
-		if (adj_f < 0 || patch.count(adj_f) == 0) {
+		if (is_patch_boundary(f, e)) {
 		    bnd_degree[tp[f][e]]++;
 		    bnd_degree[tp[f][(e+1)%3]]++;
 		}
@@ -815,8 +848,7 @@ try_patch_repair(struct rt_bot_internal *bot, manifold::Manifold& gm_out)
     std::map<int32_t, std::vector<int32_t>> bnd_nbrs;
     for (int32_t f : patch) {
 	for (int e = 0; e < 3; e++) {
-	    int32_t adj_f = adj[(size_t)f * 3 + (size_t)e];
-	    if (adj_f < 0 || patch.count(adj_f) == 0) {
+	    if (is_patch_boundary(f, e)) {
 		int32_t va = tp[f][e];
 		int32_t vb = tp[f][(e+1)%3];
 		auto& na = bnd_nbrs[va];
