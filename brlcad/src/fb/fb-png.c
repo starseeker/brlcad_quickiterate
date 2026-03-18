@@ -134,7 +134,7 @@ get_args(int argc, char **argv)
 /* ------------------------------------------------------------------ */
 
 /* NET_LONG_LEN is 4 bytes, matching pkg_glong / pkg_plong encoding   */
-#define FBPNG_NLL 4
+#define FBPNG_NET_LONG_LEN 4
 
 /* Encode a 32-bit big-endian unsigned long into buf (same as htonl). */
 static void
@@ -167,8 +167,8 @@ main(int argc, char **argv)
     unsigned char *scanline;
     int scanbytes;
     int y;
-    char openbuf[2*FBPNG_NLL + 2]; /* width + height + empty device */
-    char retbuf[5*FBPNG_NLL + 4];
+    char openbuf[2*FBPNG_NET_LONG_LEN + 2]; /* width + height + empty device */
+    char retbuf[5*FBPNG_NET_LONG_LEN + 4];
     char hostbuf[256];
     char portbuf[64];
     const char *colon;
@@ -212,25 +212,25 @@ Usage: fb-png [-i -c] [-# nbytes/pixel] [-F framebuffer] [-g gamma]\n\
 
     /* MSG_FBOPEN: [width(4B)][height(4B)]  (device string is empty) */
     memset(openbuf, 0, sizeof(openbuf));
-    fbpng_plong(&openbuf[0*FBPNG_NLL], (unsigned long)screen_width);
-    fbpng_plong(&openbuf[1*FBPNG_NLL], (unsigned long)screen_height);
-    if (pkg_send(MSG_FBOPEN, openbuf, 2*FBPNG_NLL, pc) < 2*FBPNG_NLL) {
+    fbpng_plong(&openbuf[0*FBPNG_NET_LONG_LEN], (unsigned long)screen_width);
+    fbpng_plong(&openbuf[1*FBPNG_NET_LONG_LEN], (unsigned long)screen_height);
+    if (pkg_send(MSG_FBOPEN, openbuf, 2*FBPNG_NET_LONG_LEN, pc) < 2*FBPNG_NET_LONG_LEN) {
 	pkg_close(pc);
 	bu_exit(1, "fb-png: MSG_FBOPEN send failed\n");
     }
 
     /* Response: [ret(4B)][max_w(4B)][max_h(4B)][w(4B)][h(4B)] */
-    if (pkg_waitfor(MSG_RETURN, retbuf, sizeof(retbuf), pc) < 5*FBPNG_NLL) {
+    if (pkg_waitfor(MSG_RETURN, retbuf, sizeof(retbuf), pc) < 5*FBPNG_NET_LONG_LEN) {
 	pkg_close(pc);
 	bu_exit(1, "fb-png: MSG_FBOPEN reply too short\n");
     }
-    if (fbpng_glong(&retbuf[0*FBPNG_NLL]) != 0) {
+    if (fbpng_glong(&retbuf[0*FBPNG_NET_LONG_LEN]) != 0) {
 	pkg_close(pc);
 	bu_exit(1, "fb-png: fbserv refused open\n");
     }
     {
-	int srv_w = (int)fbpng_glong(&retbuf[3*FBPNG_NLL]);
-	int srv_h = (int)fbpng_glong(&retbuf[4*FBPNG_NLL]);
+	int srv_w = (int)fbpng_glong(&retbuf[3*FBPNG_NET_LONG_LEN]);
+	int srv_h = (int)fbpng_glong(&retbuf[4*FBPNG_NET_LONG_LEN]);
 	if (screen_width  > srv_w) screen_width  = srv_w;
 	if (screen_height > srv_h) screen_height = srv_h;
     }
@@ -273,16 +273,16 @@ Usage: fb-png [-i -c] [-# nbytes/pixel] [-F framebuffer] [-g gamma]\n\
 	int stop_y  = inverse ? screen_height : -1;
 	int step_y  = inverse ? 1             : -1;
 	int msgtype = (pixbytes == 1) ? MSG_FBBWREADRECT : MSG_FBREADRECT;
-	char rrectbuf[4*FBPNG_NLL + 1];
+	char rrectbuf[4*FBPNG_NET_LONG_LEN + 1];
 
 	for (y = start_y; y != stop_y; y += step_y) {
 	    int got;
 	    /* Use MSG_FBREADRECT: [xmin(4B)][ymin(4B)][w(4B)][h(4B)] */
-	    fbpng_plong(&rrectbuf[0*FBPNG_NLL], 0);
-	    fbpng_plong(&rrectbuf[1*FBPNG_NLL], (unsigned long)y);
-	    fbpng_plong(&rrectbuf[2*FBPNG_NLL], (unsigned long)screen_width);
-	    fbpng_plong(&rrectbuf[3*FBPNG_NLL], 1); /* one row */
-	    if (pkg_send(msgtype, rrectbuf, 4*FBPNG_NLL, pc) < 4*FBPNG_NLL)
+	    fbpng_plong(&rrectbuf[0*FBPNG_NET_LONG_LEN], 0);
+	    fbpng_plong(&rrectbuf[1*FBPNG_NET_LONG_LEN], (unsigned long)y);
+	    fbpng_plong(&rrectbuf[2*FBPNG_NET_LONG_LEN], (unsigned long)screen_width);
+	    fbpng_plong(&rrectbuf[3*FBPNG_NET_LONG_LEN], 1); /* one row */
+	    if (pkg_send(msgtype, rrectbuf, 4*FBPNG_NET_LONG_LEN, pc) < 4*FBPNG_NET_LONG_LEN)
 		break;
 	    got = (int)pkg_waitfor(MSG_RETURN, (char *)scanline, scanbytes, pc);
 	    if (got <= 0) {
@@ -295,7 +295,7 @@ Usage: fb-png [-i -c] [-# nbytes/pixel] [-F framebuffer] [-g gamma]\n\
 
     /* MSG_FBCLOSE */
     {
-	char closeret[FBPNG_NLL + 1];
+	char closeret[FBPNG_NET_LONG_LEN + 1];
 	(void)pkg_send(MSG_FBCLOSE, NULL, 0, pc);
 	(void)pkg_waitfor(MSG_RETURN, closeret, sizeof(closeret), pc);
     }
