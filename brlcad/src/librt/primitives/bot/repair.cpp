@@ -42,12 +42,30 @@
 
 #include "manifold/manifold.h"
 
+#include <Mathematics/Vector2.h>
 #include <Mathematics/Vector3.h>
 #include <Mathematics/MeshRepair.h>
 #include <Mathematics/MeshHoleFilling.h>
 #include <Mathematics/MeshPreprocessing.h>
 #include <Mathematics/MeshQuality.h>
 #include <Mathematics/MeshRemesh.h>
+#include <Mathematics/LSCMParameterization.h>
+
+#if defined(__GNUC__) && !defined(__clang__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wfloat-equal"
+#endif
+#if defined(__clang__)
+#  pragma clang diagnostic push
+#  pragma clang diagnostic ignored "-Wfloat-equal"
+#endif
+#include "../../../libbg/detria.hpp"
+#if defined(__GNUC__) && !defined(__clang__)
+#  pragma GCC diagnostic pop
+#endif
+#if defined(__clang__)
+#  pragma clang diagnostic pop
+#endif
 
 #include "bu/parallel.h"
 #include "bg/trimesh.h"
@@ -263,6 +281,32 @@ lint_worker_data::shoot(int ind, bool reverse)
     if (bad_faces && bad_faces->find(curr_tri) != bad_faces->end())
 	return;
 
+    // Skip triangles too thin for reliable ray-triangle intersection math.
+    // Compute minimum altitude = 2*area / longest_edge.  If the minimum
+    // altitude is smaller than the backout displacement (SQRT_SMALL_FASTF)
+    // the ray origin cannot be meaningfully placed off the surface and
+    // intersection results are unreliable -- a miss would be a false failure.
+    {
+	const double *p0 = &bot->vertices[bot->faces[ind*3+0]*3];
+	const double *p1 = &bot->vertices[bot->faces[ind*3+1]*3];
+	const double *p2 = &bot->vertices[bot->faces[ind*3+2]*3];
+	vect_t e01, e12, e20, cross;
+	VSUB2(e01, p1, p0);
+	VSUB2(e12, p2, p1);
+	VSUB2(e20, p0, p2);
+	VCROSS(cross, e01, e12);
+	double area2 = MAGNITUDE(cross);  /* 2 * triangle area */
+	double l01 = MAGNITUDE(e01);
+	double l12 = MAGNITUDE(e12);
+	double l20 = MAGNITUDE(e20);
+	double max_edge = l01;
+	if (l12 > max_edge) max_edge = l12;
+	if (l20 > max_edge) max_edge = l20;
+	/* min altitude = area2 / max_edge; skip if below backout threshold */
+	if (max_edge < SQRT_SMALL_FASTF || area2 / max_edge < SQRT_SMALL_FASTF)
+	    return;
+    }
+
     // Triangle passes filters, continue processing
     vect_t rnorm, n, backout;
     if (!bot_face_normal(&n, bot, ind))
@@ -401,7 +445,7 @@ bot_repair_lint(struct rt_bot_internal *bot)
      * Note that we are deliberately using onehit=1 for the miss test to check
      * the intersection behavior of the individual triangles */
     if (!bot_check(state, _hit_noop, _miss_err, 1, false, ncpus)) {
-	//bu_log("unexpected_miss\n");
+	bu_log("rt_bot_repair lint: unexpected miss\n");
 	ret = 1;
 	goto bot_lint_cleanup;
     }
@@ -410,7 +454,7 @@ bot_repair_lint(struct rt_bot_internal *bot)
      * Thin face pairings are a common artifact of coplanar faces in boolean
      * evaluations */
     if (!bot_check(state, _tc_hit, _miss_err, 0, false, ncpus)){
-	//bu_log("thin_volume\n");
+	bu_log("rt_bot_repair lint: thin volume\n");
 	ret = 2;
 	goto bot_lint_cleanup;
     }
@@ -419,7 +463,7 @@ bot_repair_lint(struct rt_bot_internal *bot)
      * When testing for faces that are too close to a given face, we need to
      * reverse the ray direction */
     if (!bot_check(state, _ck_up_hit, _miss_noop, 0, true, ncpus)){
-	//bu_log("close_face\n");
+	bu_log("rt_bot_repair lint: close face\n");
 	ret = 2;
 	goto bot_lint_cleanup;
     }
@@ -428,7 +472,7 @@ bot_repair_lint(struct rt_bot_internal *bot)
      * Checking for the case where we end up with a hit from a triangle other
      * than the one we derive the ray from. */
     if (!bot_check(state, _uh_hit, _miss_noop, 0, false, ncpus)){
-	//bu_log("unexpected_hit\n");
+	bu_log("rt_bot_repair lint: unexpected hit\n");
 	ret = 2;
 	goto bot_lint_cleanup;
     }
@@ -598,6 +642,457 @@ gte_to_bot(std::vector<gte::Vector3<double>> const& vertices,
     return nbot;
 }
 
+// Helper: attempt patch repair by identifying topologically problematic faces,
+// growing a connected region around them until its boundary forms simple closed
+// loops, removing the patch faces, projecting all patch vertices (boundary AND
+// interior orphans) into 2D via LSCM, and retriangulating with CDT (detria).
+//
+// The current LSCM hole-filling passes (1 and 2) only ADD triangles — they
+// cannot handle topology that has too many triangles in a region (excess edges,
+// severely mis-oriented regions) because the hole-boundary walker expects a
+// simple closed loop but finds branching or dead-end points.
+//
+// This pass takes the complementary approach:
+//  1. Use bg_trimesh_solid2 to locate faces incident to topological errors
+//     (excess edges, misoriented edges, non-manifold vertices).
+//  2. Grow a connected "patch" around those faces via BFS until the boundary
+//     has only degree-2 vertices (simple closed loop, no branching).
+//  3. Remove the patch faces from the mesh.
+//  4. Apply full LSCM parameterization to ALL patch vertices (boundary pinned
+//     to a unit circle; interior vertices solved via cotangent Laplacian) to
+//     obtain a 2D UV embedding of the patch region.
+//  5. Run CDT (detria) on the 2D UV positions with the boundary loop as a
+//     constraint, incorporating the interior vertices as Steiner points.
+//  6. Map the CDT triangles back to 3D global vertex indices and check manifold.
+//  7. Fall back to boundary-only LSCM hole-fill (discarding interior points)
+//     if LSCM or CDT fails.
+//
+// Returns true and sets gm_out on success.
+static bool
+try_patch_repair(struct rt_bot_internal *bot, manifold::Manifold& gm_out)
+{
+    // Fresh GTE representation with standard pre-processing.
+    std::vector<gte::Vector3<double>> vp;
+    std::vector<std::array<int32_t, 3>> tp;
+    bot_to_gte(vp, tp, bot);
+
+    int nv = (int)vp.size();
+    int nf = (int)tp.size();
+    if (nv == 0 || nf == 0)
+	return false;
+
+    // Build vertex-to-face adjacency.
+    std::vector<std::vector<int32_t>> vert_faces((size_t)nv);
+    for (int f = 0; f < nf; f++)
+	for (int k = 0; k < 3; k++)
+	    vert_faces[(size_t)tp[f][k]].push_back((int32_t)f);
+
+    // Build face-to-face adjacency up front (needed for both seeding and
+    // boundary detection).
+    // ConnectFacets sets adj[f*3+e] to:
+    //   >= 0 : index of the one adjacent face (manifold edge)
+    //   -1   : no adjacent face (open boundary / hole)
+    //   -2   : non-manifold edge — 3+ faces share this edge
+    std::vector<int32_t> adj;
+    gte::MeshRepair<double>::ConnectFacets(tp, adj);
+
+    // Seed the patch with faces incident to ANY problematic topology.
+    //
+    // By the time this pass is reached both LSCM passes have already failed,
+    // so there is no benefit in distinguishing open-boundary edges (adj == -1)
+    // from excess/non-manifold edges (adj == -2).  Any face that touches an
+    // edge with adj < 0 is in a region that the earlier hole-filling passes
+    // could not handle; pull ALL such faces into the initial patch so the
+    // growth loop has the full problem region to work with from the start.
+    std::unordered_set<int32_t> patch;
+
+    for (int f = 0; f < nf; f++)
+	for (int e = 0; e < 3; e++)
+	    if (adj[(size_t)f * 3 + (size_t)e] < 0)
+		patch.insert((int32_t)f);
+
+    // Also seed from misoriented edges and non-manifold vertices via
+    // bg_trimesh_solid2 — these have adj >= 0 so the adj < 0 scan above
+    // would not catch them.  Both seeding sources are unioned into the patch.
+    {
+	std::vector<double> bv((size_t)nv * 3);
+	std::vector<int>    bf((size_t)nf * 3);
+	for (int i = 0; i < nv; i++) {
+	    bv[3*i] = vp[i][0]; bv[3*i+1] = vp[i][1]; bv[3*i+2] = vp[i][2];
+	}
+	for (int i = 0; i < nf; i++) {
+	    bf[3*i] = tp[i][0]; bf[3*i+1] = tp[i][1]; bf[3*i+2] = tp[i][2];
+	}
+	struct bg_trimesh_solid_errors errs = BG_TRIMESH_SOLID_ERRORS_INIT_NULL;
+	bg_trimesh_solid2(nv, nf, bv.data(), bf.data(), &errs);
+
+	auto add_edge_faces = [&](int va, int vb) {
+	    for (int32_t f : vert_faces[(size_t)va]) {
+		bool hva = false, hvb = false;
+		for (int k = 0; k < 3; k++) {
+		    if (tp[f][k] == va) hva = true;
+		    if (tp[f][k] == vb) hvb = true;
+		}
+		if (hva && hvb) patch.insert(f);
+	    }
+	};
+
+	for (int i = 0; i < errs.misoriented.count; i++)
+	    add_edge_faces(errs.misoriented.edges[2*i], errs.misoriented.edges[2*i+1]);
+	for (int i = 0; i < errs.non_manifold_verts.count; i++) {
+	    int v = errs.non_manifold_verts.verts[i];
+	    for (int32_t f : vert_faces[(size_t)v])
+		patch.insert(f);
+	}
+	bg_free_trimesh_solid_errors(&errs);
+    }
+
+    if (patch.empty())
+	return false;
+
+    // Helper: for a NON-PATCH face's edge e, returns true iff this edge is on
+    // the "hole boundary" — i.e. the edge has no adjacent face in the non-patch
+    // region.  This is the correct perspective for determining where the mesh
+    // will have open holes after the patch faces are removed.
+    //
+    // Computing boundary degree from patch-face edges is INCORRECT for excess-
+    // edge cases: an excess/extra triangle can have edges with adj == -1 (no
+    // adjacent face) that are purely internal to the error region (e.g. an edge
+    // that only exists because of the spurious extra face).  Such edges produce
+    // spurious degree-1 vertices that prevent the boundary from appearing simple.
+    //
+    // By looking at NON-PATCH faces only, those internal-excess edges are
+    // invisible — only the genuine ring where patch meets non-patch is counted.
+    auto is_hole_boundary = [&](int32_t f, int e) -> bool {
+	int32_t adj_f = adj[(size_t)f * 3 + (size_t)e];
+	if (adj_f < 0)  return true;               // -1: mesh hole; -2: excess edge
+	return patch.count(adj_f) != 0;            // adj face is in patch → hole boundary
+    };
+
+    // Grow the patch until the hole boundary (edges of non-patch faces that
+    // border the patch or are open) has only degree-2 vertices.
+    //
+    // A simple closed boundary requires every hole-boundary vertex to appear on
+    // exactly 2 hole-boundary edges.  Vertices with degree != 2 (branching at
+    // 3+, dangling at 1) prevent LSCM/CDT from producing a valid triangulation.
+    //
+    // For each non-simple vertex we pull ALL its incident faces into the patch
+    // so it becomes an interior patch vertex.  We repeat until the boundary is
+    // simple or no further expansion is possible.
+    for (;;) {
+	std::map<int32_t, int> hole_degree;
+	for (int f = 0; f < nf; f++) {
+	    if (patch.count((int32_t)f)) continue;
+	    for (int e = 0; e < 3; e++) {
+		if (is_hole_boundary((int32_t)f, e)) {
+		    hole_degree[tp[f][e]]++;
+		    hole_degree[tp[f][(e+1)%3]]++;
+		}
+	    }
+	}
+
+	std::vector<int32_t> bad_verts;
+	for (auto const& kv : hole_degree)
+	    if (kv.second != 2)
+		bad_verts.push_back(kv.first);
+
+	if (bad_verts.empty())
+	    break;
+
+	bool expanded = false;
+	for (int32_t v : bad_verts) {
+	    for (int32_t f : vert_faces[(size_t)v]) {
+		if (patch.count(f) == 0) {
+		    patch.insert(f);
+		    expanded = true;
+		}
+	    }
+	}
+	if (!expanded)
+	    break;
+    }
+
+    // Reject if the patch consumed the whole mesh — nothing left to keep.
+    if (patch.size() >= (size_t)nf)
+	return false;
+
+    // Verify the hole boundary is actually simple before proceeding.
+    {
+	std::map<int32_t, int> hole_degree;
+	for (int f = 0; f < nf; f++) {
+	    if (patch.count((int32_t)f)) continue;
+	    for (int e = 0; e < 3; e++) {
+		if (is_hole_boundary((int32_t)f, e)) {
+		    hole_degree[tp[f][e]]++;
+		    hole_degree[tp[f][(e+1)%3]]++;
+		}
+	    }
+	}
+	for (auto const& kv : hole_degree)
+	    if (kv.second != 2)
+		return false;
+    }
+
+    // Classify all patch vertices as boundary (shared with non-patch faces)
+    // or interior (only in patch faces, would be orphaned after removal).
+    std::vector<int> face_ref_count((size_t)nv, 0);
+    std::vector<int> patch_ref_count((size_t)nv, 0);
+    for (int f = 0; f < nf; f++) {
+	bool in_p = (patch.count((int32_t)f) > 0);
+	for (int k = 0; k < 3; k++) {
+	    face_ref_count[tp[f][k]]++;
+	    if (in_p) patch_ref_count[tp[f][k]]++;
+	}
+    }
+
+    // Build compact patch vertex array (boundary first, then interior) and a
+    // global-to-local index map.
+    std::vector<int32_t> patch_verts_global; // local index → global vertex index
+    std::vector<int32_t> bnd_verts_local;    // local indices of boundary vertices
+    std::vector<int32_t> int_verts_local;    // local indices of interior vertices
+    std::vector<int32_t> g2l((size_t)nv, -1);
+
+    for (int v = 0; v < nv; v++) {
+	if (patch_ref_count[v] == 0) continue;
+	int32_t loc = (int32_t)patch_verts_global.size();
+	patch_verts_global.push_back((int32_t)v);
+	g2l[(size_t)v] = loc;
+	if (patch_ref_count[v] < face_ref_count[v])
+	    bnd_verts_local.push_back(loc);
+	else
+	    int_verts_local.push_back(loc);
+    }
+
+    // Patch triangles in local indices (needed for the LSCM cotangent Laplacian).
+    std::vector<std::array<int32_t, 3>> patch_tris_local;
+    patch_tris_local.reserve(patch.size());
+    for (int32_t f : patch)
+	patch_tris_local.push_back({g2l[tp[f][0]], g2l[tp[f][1]], g2l[tp[f][2]]});
+
+    // 3D positions of patch vertices (local order).
+    std::vector<gte::Vector3<double>> patch_v3d;
+    patch_v3d.reserve(patch_verts_global.size());
+    for (int32_t gv : patch_verts_global)
+	patch_v3d.push_back(vp[(size_t)gv]);
+
+    // Trace the boundary loop: ordered sequence of boundary vertices (global).
+    // Each hole-boundary vertex has exactly 2 hole-boundary edge neighbors,
+    // so the loop can be walked unambiguously.
+    // Build undirected boundary-edge adjacency from the non-patch perspective.
+    std::map<int32_t, std::vector<int32_t>> bnd_nbrs;
+    for (int f = 0; f < nf; f++) {
+	if (patch.count((int32_t)f)) continue;
+	for (int e = 0; e < 3; e++) {
+	    if (is_hole_boundary((int32_t)f, e)) {
+		int32_t va = tp[f][e];
+		int32_t vb = tp[f][(e+1)%3];
+		auto& na = bnd_nbrs[va];
+		if (std::find(na.begin(), na.end(), vb) == na.end())
+		    na.push_back(vb);
+		auto& nb = bnd_nbrs[vb];
+		if (std::find(nb.begin(), nb.end(), va) == nb.end())
+		    nb.push_back(va);
+	    }
+	}
+    }
+
+    if (bnd_nbrs.empty())
+	return false;
+
+    // Walk the loop.
+    std::vector<int32_t> bnd_loop_global;
+    {
+	int32_t start = bnd_nbrs.begin()->first;
+	int32_t cur = start, prev = -1;
+	do {
+	    bnd_loop_global.push_back(cur);
+	    int32_t nxt = -1;
+	    for (int32_t nb : bnd_nbrs[cur])
+		if (nb != prev) { nxt = nb; break; }
+	    if (nxt < 0) break;
+	    prev = cur;
+	    cur = nxt;
+	} while (cur != start);
+    }
+
+    if ((int)bnd_loop_global.size() < 3)
+	return false;
+
+    // If the loop didn't close (boundary has multiple disjoint loops), skip the
+    // CDT path and fall through to the boundary-only LSCM fallback below.
+    bool single_loop = (bnd_loop_global.size() == bnd_nbrs.size());
+
+    if (single_loop) {
+	// Convert boundary loop to local indices.
+	std::vector<int32_t> bnd_loop_local;
+	bnd_loop_local.reserve(bnd_loop_global.size());
+	for (int32_t gv : bnd_loop_global)
+	    bnd_loop_local.push_back(g2l[(size_t)gv]);
+
+	// LSCM parameterization: project all patch vertices to 2D.
+	//
+	// If there are no interior vertices, MapBoundaryToCircle is sufficient
+	// (returns UV only for boundary vertices, parallel to bnd_loop_local).
+	// Otherwise, Parameterize() solves the cotangent Laplacian for interior
+	// UV positions given the patch triangulation; it returns UV for ALL patch
+	// vertices indexed by local vertex index.
+	std::vector<gte::Vector2<double>> all_uv;
+	bool lscm_ok = false;
+
+	if (int_verts_local.empty()) {
+	    lscm_ok = gte::LSCMParameterization<double>::MapBoundaryToCircle(
+		patch_v3d, bnd_loop_local, all_uv);
+	    // Expand uv (parallel to bnd_loop_local) into a full-size array
+	    // indexed by local vertex index so the CDT loop below is uniform.
+	    if (lscm_ok) {
+		std::vector<gte::Vector2<double>> full_uv(
+		    patch_verts_global.size(), gte::Vector2<double>{0.0, 0.0});
+		for (int i = 0; i < (int)bnd_loop_local.size(); i++)
+		    full_uv[(size_t)bnd_loop_local[i]] = all_uv[i];
+		all_uv = std::move(full_uv);
+	    }
+	} else {
+	    // Full LSCM: boundary pinned to circle, interior solved via CG.
+	    // The patch_tris_local triangulation is used only for setting up
+	    // the cotangent weights; it is replaced by the CDT output.
+	    lscm_ok = gte::LSCMParameterization<double>::Parameterize(
+		patch_v3d, bnd_loop_local, int_verts_local,
+		patch_tris_local, all_uv);
+	    // all_uv is indexed by local patch vertex index (same as all_patch_verts).
+	}
+
+	if (lscm_ok && !all_uv.empty()) {
+	    // Build 2D point array for detria (UV coordinates).
+	    std::vector<detria::PointD> tpnts;
+	    tpnts.reserve(patch_verts_global.size());
+	    for (auto const& uv : all_uv) {
+		detria::PointD pt;
+		pt.x = uv[0];
+		pt.y = uv[1];
+		tpnts.push_back(pt);
+	    }
+
+	    detria::Triangulation<detria::PointD, int> dtri;
+	    dtri.setPoints(tpnts);
+
+	    // Add the boundary loop as the outer polygon constraint.
+	    // addPolylineAutoDetectType determines CW vs CCW automatically.
+	    std::vector<int> bnd_int(bnd_loop_local.begin(), bnd_loop_local.end());
+	    dtri.addPolylineAutoDetectType(bnd_int);
+
+	    // Interior patch vertices are treated as unconstrained Steiner
+	    // points — detria includes all supplied points in the triangulation.
+
+	    if (dtri.triangulate(true /* Delaunay */)) {
+		// Try both winding orders; keep whichever gives a manifold mesh.
+		for (bool cw : {false, true}) {
+		    std::vector<std::array<int32_t, 3>> cdt_local;
+		    dtri.forEachTriangle(
+			[&](const detria::Triangle<int>& t) {
+			    cdt_local.push_back({(int32_t)t.x,
+						 (int32_t)t.y,
+						 (int32_t)t.z});
+			}, cw);
+
+		    if (cdt_local.empty()) continue;
+
+		    // Build combined mesh: non-patch faces + CDT faces,
+		    // all in global vertex indices.
+		    std::vector<std::array<int32_t, 3>> tcombined;
+		    tcombined.reserve((size_t)nf - patch.size() + cdt_local.size());
+		    for (int f = 0; f < nf; f++)
+			if (patch.count((int32_t)f) == 0)
+			    tcombined.push_back(tp[f]);
+		    for (auto const& ct : cdt_local)
+			tcombined.push_back({
+			    patch_verts_global[(size_t)ct[0]],
+			    patch_verts_global[(size_t)ct[1]],
+			    patch_verts_global[(size_t)ct[2]]});
+
+		    // Compact the vertex array (drops unreferenced vertices that
+		    // were not included in the CDT output, e.g. interior verts
+		    // outside the UV polygon boundary).
+		    std::vector<bool> ref_cdt((size_t)nv, false);
+		    for (auto const& t : tcombined)
+			for (int k = 0; k < 3; k++)
+			    ref_cdt[(size_t)t[k]] = true;
+
+		    std::vector<int32_t> remap_cdt((size_t)nv, -1);
+		    std::vector<gte::Vector3<double>> vcompact;
+		    vcompact.reserve((size_t)nv);
+		    for (int i = 0; i < nv; i++) {
+			if (ref_cdt[(size_t)i]) {
+			    remap_cdt[(size_t)i] = (int32_t)vcompact.size();
+			    vcompact.push_back(vp[(size_t)i]);
+			}
+		    }
+		    for (auto& t : tcombined)
+			for (int k = 0; k < 3; k++)
+			    t[k] = remap_cdt[(size_t)t[k]];
+
+		    manifold::MeshGL gmm;
+		    gte_to_manifold(&gmm, vcompact, tcombined);
+		    manifold::Manifold gm(gmm);
+		    // Accept only a positive-volume result: negative volume means
+		    // the CDT triangles are wound opposite the surrounding mesh,
+		    // producing a geometrically inside-out solid that passes the
+		    // topological Manifold check but fails the raytracing lint test.
+		    if (gm.Status() == manifold::Manifold::Error::NoError && gm.Volume() >= 0) {
+			gm_out = gm;
+			return true;
+		    }
+		}
+	    }
+	}
+    }
+
+    // Fallback: discard interior vertices, remove patch faces, compact, and
+    // fill the resulting hole with boundary-only LSCM.
+    std::vector<std::array<int32_t, 3>> tnew;
+    tnew.reserve((size_t)nf - patch.size());
+    for (int f = 0; f < nf; f++)
+	if (patch.count((int32_t)f) == 0)
+	    tnew.push_back(tp[f]);
+
+    if (tnew.empty())
+	return false;
+
+    std::vector<bool> ref2((size_t)nv, false);
+    for (auto const& t : tnew)
+	for (int k = 0; k < 3; k++)
+	    ref2[(size_t)t[k]] = true;
+
+    std::vector<int32_t> vremap2((size_t)nv, -1);
+    std::vector<gte::Vector3<double>> vnew;
+    vnew.reserve((size_t)nv);
+    for (int i = 0; i < nv; i++) {
+	if (ref2[(size_t)i]) {
+	    vremap2[(size_t)i] = (int32_t)vnew.size();
+	    vnew.push_back(vp[(size_t)i]);
+	}
+    }
+    for (auto& t : tnew)
+	for (int k = 0; k < 3; k++)
+	    t[k] = vremap2[(size_t)t[k]];
+
+    gte::MeshHoleFilling<double>::Parameters fp;
+    fp.maxArea      = 1e30;
+    fp.method       = gte::MeshHoleFilling<double>::TriangulationMethod::LSCM;
+    fp.autoFallback = true;
+    gte::MeshHoleFilling<double>::FillHoles(vnew, tnew, fp);
+
+    manifold::MeshGL gmm;
+    gte_to_manifold(&gmm, vnew, tnew);
+    manifold::Manifold gm(gmm);
+    if (gm.Status() != manifold::Manifold::Error::NoError)
+	return false;
+    if (gm.Volume() < 0)
+	return false;
+
+    gm_out = gm;
+    return true;
+}
+
 int
 rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct rt_bot_repair_info *settings)
 {
@@ -690,6 +1185,9 @@ rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct
     // Helper: attempt LSCM hole fill on (v, t) and check Manifold.
     // Returns true and writes the result Manifold into gm_out on success.
     // The area check (filled area >= original) guards against fill removing geometry.
+    // Volume must be non-negative: a negative-volume manifold is topologically
+    // valid but geometrically inside-out (all face normals inverted), which
+    // would fail the raytracing lint check with spurious unexpected-miss errors.
     auto try_fill = [&](std::vector<gte::Vector3<double>> v,
 			std::vector<std::array<int32_t, 3>> t,
 			double ref_area,
@@ -703,15 +1201,80 @@ rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct
 	manifold::Manifold gm(gmm);
 	if (gm.Status() != manifold::Manifold::Error::NoError)
 	    return false;
+	if (gm.Volume() < 0)
+	    return false;
 	gm_out = gm;
 	return true;
     };
+
+    // --- Pass 0: remove purely-extra faces ---
+    //
+    // A "purely extra" face has ≥1 adj == -2 edge (it sits on a non-manifold
+    // edge shared by 3+ faces) AND ≥1 adj == -1 edge (it introduces an open
+    // boundary that would not exist without it).  These are spurious duplicate
+    // triangles — e.g. from FASTGEN4 duplicate CTRI records — whose removal
+    // alone resolves the non-manifold condition without any hole-filling.
+    //
+    // This must be attempted BEFORE the LSCM passes because MeshHoleFilling
+    // needs a clean open boundary to triangulate; purely-extra faces pollute
+    // the adjacency so no simple boundary can be found.
+    {
+	std::vector<int32_t> adj0;
+	gte::MeshRepair<double>::ConnectFacets(triangles, adj0);
+	bu_log("rt_bot_repair: pass 0 scan: %d faces\n", (int)triangles.size());
+
+	std::vector<std::array<int32_t, 3>> t_pruned;
+	t_pruned.reserve(triangles.size());
+	for (int f = 0; f < (int)triangles.size(); f++) {
+	    bool has_excess = false, has_open = false;
+	    for (int e = 0; e < 3; e++) {
+		int a = adj0[(size_t)f * 3 + (size_t)e];
+		if (a == -2) has_excess = true;
+		if (a == -1) has_open  = true;
+	    }
+	    if (has_excess || has_open)
+		bu_log("  f%d v(%d,%d,%d) adj=(%d,%d,%d) excess=%d open=%d\n",
+		       f, triangles[f][0], triangles[f][1], triangles[f][2],
+		       adj0[f*3+0], adj0[f*3+1], adj0[f*3+2],
+		       (int)has_excess, (int)has_open);
+	    if (!(has_excess && has_open))
+		t_pruned.push_back(triangles[f]);
+	}
+	bu_log("rt_bot_repair: pass 0: %d pruned to %d\n",
+	       (int)triangles.size(), (int)t_pruned.size());
+	}
+
+	if (t_pruned.size() < triangles.size()) {
+	    manifold::MeshGL gmm0;
+	    gte_to_manifold(&gmm0, vertices, t_pruned);
+	    manifold::Manifold gm0(gmm0);
+	    if (gm0.Status() == manifold::Manifold::Error::NoError && gm0.Volume() >= 0) {
+		bu_log("rt_bot_repair: pass 0 (remove excess faces) succeeded\n");
+		manifold::MeshGL omesh = gm0.GetMeshGL();
+		struct rt_bot_internal *nbot = manifold_to_bot(&omesh);
+		if (settings->strict) {
+		    int lint_ret = bot_repair_lint(nbot);
+		    if (lint_ret) {
+			bu_log("Error - new BoT does not pass lint test!\n");
+			rt_bot_internal_free(nbot);
+			BU_PUT(nbot, struct rt_bot_internal);
+			/* fall through to passes 1-3 */
+			goto pass1;
+		    }
+		}
+		*obot = nbot;
+		return 0;
+	    }
+	}
+    }
+pass1:
 
     // --- Pass 1: straightforward LSCM fill --------------------------------
     //
     // This handles the common case: holes with simple boundary loops.
     manifold::Manifold gmanifold;
     if (!try_fill(vertices, triangles, area, gmanifold)) {
+	bu_log("rt_bot_repair: pass 1 (LSCM fill) failed\n");
 
 	// --- Pass 2: SplitNonManifoldVertices then LSCM fill -----------------
 	//
@@ -749,12 +1312,30 @@ rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct
 	gte::MeshRepair<double>::ReorientFacetsAntiMoebius(v2, t2, adj2);
 	gte::MeshRepair<double>::SplitNonManifoldVertices(v2, t2, adj2);
 	if (!try_fill(v2, t2, area, gmanifold)) {
-	    // Both passes failed to produce a manifold mesh
-	    return -1;
+	    bu_log("rt_bot_repair: pass 2 (split+LSCM) failed\n");
+
+	    // --- Pass 3: Patch repair ---
+	    //
+	    // Both LSCM passes failed.  The mesh likely has topologically-excess
+	    // geometry (edges shared by 3+ faces, severely mis-oriented regions,
+	    // or non-manifold vertices whose fans cannot be split cleanly) that
+	    // causes the hole-boundary walker to branch mid-loop and abandon the
+	    // hole unfilled.
+	    //
+	    // This pass takes the complementary approach: instead of adding
+	    // triangles to fill holes, it REMOVES the faces in the problematic
+	    // region and then fills the resulting clean hole(s) with LSCM.  The
+	    // "patch" region is grown from the error-incident faces until its
+	    // boundary is a simple closed loop with no branching vertices.
+	    if (!try_patch_repair(bot, gmanifold)) {
+		// All three passes failed to produce a manifold mesh
+		return -1;
+	    }
 	}
     }
 
     // Output is manifold, make a new bot
+    bu_log("rt_bot_repair: gmanifold volume=%.6g\n", gmanifold.Volume());
     manifold::MeshGL omesh = gmanifold.GetMeshGL();
     struct rt_bot_internal *nbot = manifold_to_bot(&omesh);
 
