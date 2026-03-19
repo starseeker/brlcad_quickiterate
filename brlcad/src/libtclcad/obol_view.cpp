@@ -78,6 +78,12 @@ extern "C" {
 #include "bu/log.h"
 #include "bsg/defines.h"
 #include "bsg/util.h"
+/* OpenNURBS headers (pulled in via ged/defines.h → brep) define an enum
+ * member 'None'.  X11/Xlib.h above defines 'None' as a macro.  Undefine it
+ * before the OpenNURBS include chain to avoid the conflict. */
+#ifdef None
+#  undef None
+#endif
 #include "ged/defines.h"
 /* tclcad_view_data — contains gdv_bg/gdv_light/gdv_zbuffer etc. */
 #include "tclcad/draw.h"
