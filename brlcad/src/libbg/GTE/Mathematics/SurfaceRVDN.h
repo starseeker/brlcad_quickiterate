@@ -792,10 +792,30 @@ namespace gte
                             }
                         }
 
-                        // Record this (facet,seed) → component mapping
-                        if (touchesBorder)
+                        // Always record this (facet,seed) pair to prevent it being
+                        // pushed to adjacentSeeds again when other seeds overwrite
+                        // facetStamp[f].  Border-touching pairs get a valid component
+                        // ID (consumed by GetFacetSeedComponent for RDT generation);
+                        // all other pairs (empty polygon or interior-only coverage)
+                        // get sentinel -1, which causes GetFacetSeedComponent to
+                        // return -1 and the RDT code to skip them (correct behavior).
                         {
-                            mFacetSeedComp[FacetSeedKey(f, curS)] = mCurrentComp;
+                            auto key = FacetSeedKey(f, curS);
+                            auto it = mFacetSeedComp.find(key);
+                            if (it == mFacetSeedComp.end())
+                            {
+                                // First time seeing this (f, curS): insert with real
+                                // component ID if border-touching, else sentinel -1.
+                                mFacetSeedComp.emplace(key,
+                                    touchesBorder ? mCurrentComp : int32_t(-1));
+                            }
+                            else if (touchesBorder && it->second < 0)
+                            {
+                                // Upgrade from sentinel to real component ID: this
+                                // facet was seen before as interior-only but now
+                                // a bisector was found (can happen after stamp flip).
+                                it->second = mCurrentComp;
+                            }
                         }
                     } // inner facets loop
 
