@@ -124,65 +124,46 @@ neighborhoods eagerly, each requiring a 20-NN query in a 6D KD-tree of 32580 poi
 While the KD-tree is fast (O(k log n)), for N=6 dimensions the curse of dimensionality
 means many subtrees are explored. Total: 32580 × 20 × ~35 iterations = severe slowdown.
 
+## Changes Made (Session 4)
+
+### `DelaunayNN.h` — Lazy neighborhood computation ✅
+
+Implemented Priority 1 exactly as designed in the TODO:
+
+1. **`UpdateNeighborhoods()`** now only resets the cache state:
+   ```cpp
+   mNeighborhoods.clear();
+   mNeighborhoods.resize(this->mNumVertices);
+   mComputed.assign(this->mNumVertices, false);
+   // KD-tree was already built by SetVertices() → mNNSearch.SetPoints()
+   ```
+
+2. **`GetNeighbors(v)`** computes and caches on first access:
+   ```cpp
+   if (!mComputed[v]) {
+       ComputeNeighborhood(v);
+       mComputed[v] = true;
+   }
+   return mNeighborhoods[v];
+   ```
+
+3. **`ComputeNeighborhood()`** made `const` (writes to `mutable` cache).
+
+4. **`EnlargeNeighborhood(v, nb)`** sets `mComputed[v] = true` after fetching.
+
+5. **`mNeighborhoods` and `mComputed`** declared `mutable` for const-correct lazy cache.
+
+**Expected performance impact**: For `bot remesh 4002.1.t0` with 32580 seeds:
+- **Before**: 32580 × 20-NN queries per iteration (all seeds, eager) → hung
+- **After**: Only seeds visited by `SurfaceRVDN::ForEachPolygon` have neighborhoods
+  computed. In practice each BFS walk traverses O(n_facets × k) seed cells. With
+  n_facets=64184 and average 6 seeds per facet, only ~6000–10000 unique seeds are
+  ever visited per iteration. That is 3–5× fewer NN queries than the eager approach,
+  and they are computed lazily as needed during the BFS walk.
+
 ## NEXT SESSION TODO
 
-### Priority 1: Fix DelaunayNN::UpdateNeighborhoods() performance
-
-**Problem**: Called in every Lloyd/Newton iteration, rebuilds all 32580 neighborhoods.
-
-**Fix options** (in order of preference):
-1. **Lazy neighborhood computation** (easiest, highest impact):
-   - In `UpdateNeighborhoods()`, only build the NN search structure; don't precompute any neighborhoods
-   - In `ComputeNeighborhood(i)`, compute on first access and cache in mNeighborhoods[i]
-   - Use `mNeighborhoods[i].empty()` as "not computed yet" flag
-   - But need to handle `EnlargeNeighborhood()` calls correctly
-   - This avoids computing neighborhoods for seeds that are never visited during `ForEachPolygon`
-
-2. **Cache DelaunayNN across iterations** (medium difficulty):
-   - In `CVTN::AccumulateCentroids()`, accept a pre-built `DelaunayNN` as parameter
-   - In `LloydIterations()`, build it once and update incrementally each iteration
-   - Between iterations, only update the NN search with new seed positions (rebuild KD-tree)
-   - Don't recompute neighborhoods — invalidate cache and compute lazily
-
-3. **Match Geogram's on-demand neighborhood enlargement**:
-   - Geogram's `ClipCellFacet` calls `get_neighbors(seed)` which only returns a
-     fixed initial set, and `enlarge_neighborhood(seed, new_size)` queries for more
-   - The key is that only the seeds actually visited in `ForEachPolygon` have their
-     neighborhoods computed, not all 32580 seeds
-   - Geogram doesn't call `UpdateNeighborhoods()` at all — it just has the NN search
-     structure available and queries on demand
-
-**Recommended implementation**:
-In `DelaunayNN.h`, change `UpdateNeighborhoods()` to NOT precompute any neighborhoods:
-```cpp
-void UpdateNeighborhoods() {
-    // Just ensure the NN search structure is built; neighborhoods are
-    // computed lazily on first access via GetNeighbors() / EnlargeNeighborhood()
-    mNeighborhoods.clear();
-    mNeighborhoods.resize(this->mNumVertices);
-    mComputed.assign(this->mNumVertices, false);
-    // (NN search structure already built by SetVertices → BuildIndex())
-}
-```
-Then in `GetNeighbors(v)`:
-```cpp
-std::vector<int32_t> GetNeighbors(int32_t v) {
-    if (!mComputed[v]) {
-        ComputeNeighborhood(v);
-        mComputed[v] = true;
-    }
-    return mNeighborhoods[v];
-}
-```
-And in `EnlargeNeighborhood(v, nb)`:
-```cpp
-void EnlargeNeighborhood(int32_t v, size_t nb) {
-    // Query for nb neighbors (already have v's current neighborhood)
-    // Just call FindKNearestNeighborsToPoint(v, nb, ...) and store
-}
-```
-
-### Priority 2: Avoid rebuilding DelaunayNN every AccumulateCentroids call
+### Priority 2: Avoid rebuilding DelaunayNN every AccumulateCentroids call (optional)
 
 Currently `AccumulateCentroids` creates a new `DelaunayNN` and `SurfaceRVDN` every call.
 With lazy neighborhoods, the per-call cost is just:
@@ -190,14 +171,18 @@ With lazy neighborhoods, the per-call cost is just:
 - The BFS walk in ForEachPolygon: O(facets × k) = main work (this is good)
 - Per-accessed neighborhood: O(k log n) = only for visited seeds (lazy)
 
-This should reduce the total overhead significantly.
+This should already be fast enough. Profile first before optimising further.
 
-### Priority 3: Parallelism
-After fixing lazy neighborhoods, consider OpenMP parallelism in `ForEachPolygon`
+### Priority 3: Testing
+
+Once CVT runs to completion:
+1. Test all BoT objects in Generic_Twin.g.
+2. Record timing for each stage (repair / preproc / cvt / adjust).
+3. Compare output mesh quality to Geogram reference.
+4. The timing instrumentation in `remesh.cpp` (`bu_log` calls) can be kept for now.
+
+### Priority 4: Parallelism (optional)
+
+After confirming Priority 3, consider OpenMP parallelism in `ForEachPolygon`
 for additional speedup, matching Geogram's parallel RVD computation.
-
-### Priority 4: Testing
-Once CVT runs to completion, test all BoT objects in Generic_Twin.g.
-The timing instrumentation added to `remesh.cpp` (with `bu_log` timing calls)
-can be kept for now to monitor performance during development.
 
