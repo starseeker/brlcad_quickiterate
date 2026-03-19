@@ -282,10 +282,17 @@ lint_worker_data::shoot(int ind, bool reverse)
 	return;
 
     // Skip triangles too thin for reliable ray-triangle intersection math.
-    // Compute minimum altitude = 2*area / longest_edge.  If the minimum
-    // altitude is smaller than the backout displacement (SQRT_SMALL_FASTF)
-    // the ray origin cannot be meaningfully placed off the surface and
-    // intersection results are unreliable -- a miss would be a false failure.
+    // Two complementary checks guard against false "unexpected miss" results:
+    //
+    //  1. Absolute: min altitude < SQRT_SMALL_FASTF — nearly degenerate on any
+    //     scale; the ray origin cannot be meaningfully placed off the surface.
+    //
+    //  2. Relative: min altitude < max_edge * SQRT_SMALL_FASTF — catches
+    //     "super-thin" triangles whose aspect ratio (max_edge / min_alt) exceeds
+    //     ~5.5e7.  For such triangles the near-zero determinant in the
+    //     Möller-Trumbore ray-triangle intersection makes hit/miss unreliable
+    //     regardless of the triangle's absolute size, producing false
+    //     "unexpected miss" lint failures on otherwise valid repaired meshes.
     {
 	const double *p0 = &bot->vertices[bot->faces[ind*3+0]*3];
 	const double *p1 = &bot->vertices[bot->faces[ind*3+1]*3];
@@ -302,8 +309,12 @@ lint_worker_data::shoot(int ind, bool reverse)
 	double max_edge = l01;
 	if (l12 > max_edge) max_edge = l12;
 	if (l20 > max_edge) max_edge = l20;
-	/* min altitude = area2 / max_edge; skip if below backout threshold */
+	/* absolute: min altitude < backout threshold */
 	if (max_edge < SQRT_SMALL_FASTF || area2 / max_edge < SQRT_SMALL_FASTF)
+	    return;
+	/* relative: aspect ratio > 1/SQRT_SMALL_FASTF — super-thin triangles
+	 * whose intersection determinant is too small to trust */
+	if (area2 < max_edge * max_edge * SQRT_SMALL_FASTF)
 	    return;
     }
 
@@ -1191,18 +1202,46 @@ rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct
     auto try_fill = [&](std::vector<gte::Vector3<double>> v,
 			std::vector<std::array<int32_t, 3>> t,
 			double ref_area,
-			manifold::Manifold& gm_out) -> bool {
+			manifold::Manifold& gm_out,
+			const char *pass_name = "") -> bool {
+	size_t tcount_before = t.size();
 	gte::MeshHoleFilling<double>::FillHoles(v, t, fillParams);
 	double new_a = gte_mesh_area(v, t);
-	if (new_a < ref_area)
+	bu_log("rt_bot_repair: %s try_fill: %zu faces before fill, %zu after, area %.6g vs ref %.6g\n",
+	       pass_name, tcount_before, t.size(), new_a, ref_area);
+	if (new_a < ref_area) {
+	    bu_log("rt_bot_repair: %s try_fill: area decreased, rejecting\n", pass_name);
 	    return false;
+	}
 	manifold::MeshGL gmm;
 	gte_to_manifold(&gmm, v, t);
 	manifold::Manifold gm(gmm);
-	if (gm.Status() != manifold::Manifold::Error::NoError)
+	if (gm.Status() != manifold::Manifold::Error::NoError) {
+	    bu_log("rt_bot_repair: %s try_fill: manifold status error %d\n", pass_name, (int)gm.Status());
 	    return false;
-	if (gm.Volume() < 0)
-	    return false;
+	}
+	if (gm.Volume() < 0) {
+	    // Reorientation produced a consistently-wound but inside-out mesh.
+	    // Flip all face normals and retry the manifold check.
+	    bu_log("rt_bot_repair: %s try_fill: negative volume %.6g, trying flipped normals\n",
+		   pass_name, gm.Volume());
+	    gte::MeshPreprocessing<double>::InvertNormals(t);
+	    manifold::MeshGL gmm2;
+	    gte_to_manifold(&gmm2, v, t);
+	    manifold::Manifold gm2(gmm2);
+	    if (gm2.Status() != manifold::Manifold::Error::NoError) {
+		bu_log("rt_bot_repair: %s try_fill: flipped manifold status error %d\n",
+		       pass_name, (int)gm2.Status());
+		return false;
+	    }
+	    if (gm2.Volume() < 0) {
+		bu_log("rt_bot_repair: %s try_fill: flipped volume still negative %.6g\n",
+		       pass_name, gm2.Volume());
+		return false;
+	    }
+	    gm_out = gm2;
+	    return true;
+	}
 	gm_out = gm;
 	return true;
     };
@@ -1242,7 +1281,6 @@ rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct
 	}
 	bu_log("rt_bot_repair: pass 0: %d pruned to %d\n",
 	       (int)triangles.size(), (int)t_pruned.size());
-	}
 
 	if (t_pruned.size() < triangles.size()) {
 	    manifold::MeshGL gmm0;
@@ -1273,7 +1311,7 @@ pass1:
     //
     // This handles the common case: holes with simple boundary loops.
     manifold::Manifold gmanifold;
-    if (!try_fill(vertices, triangles, area, gmanifold)) {
+    if (!try_fill(vertices, triangles, area, gmanifold, "pass1")) {
 	bu_log("rt_bot_repair: pass 1 (LSCM fill) failed\n");
 
 	// --- Pass 2: SplitNonManifoldVertices then LSCM fill -----------------
@@ -1311,7 +1349,7 @@ pass1:
 	gte::MeshRepair<double>::ConnectFacets(t2, adj2);
 	gte::MeshRepair<double>::ReorientFacetsAntiMoebius(v2, t2, adj2);
 	gte::MeshRepair<double>::SplitNonManifoldVertices(v2, t2, adj2);
-	if (!try_fill(v2, t2, area, gmanifold)) {
+	if (!try_fill(v2, t2, area, gmanifold, "pass2")) {
 	    bu_log("rt_bot_repair: pass 2 (split+LSCM) failed\n");
 
 	    // --- Pass 3: Patch repair ---
