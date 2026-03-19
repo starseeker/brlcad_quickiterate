@@ -755,6 +755,8 @@ try_patch_repair(struct rt_bot_internal *bot, manifold::Manifold& gm_out)
     if (patch.size() >= (size_t)nf)
 	return false;
 
+    bu_log("rt_bot_repair: patch_repair: patch=%zu/%d faces\n", patch.size(), nf);
+
     // Classify all patch vertices as boundary (shared with non-patch faces)
     // or interior (only in patch faces, would be orphaned after removal).
     std::vector<int> face_ref_count((size_t)nv, 0);
@@ -839,6 +841,9 @@ try_patch_repair(struct rt_bot_internal *bot, manifold::Manifold& gm_out)
 
     if ((int)bnd_loop_global.size() < 3)
 	return false;
+
+    bu_log("rt_bot_repair: patch_repair: bnd_nbrs=%zu bnd_loop=%zu single=%d\n",
+	   bnd_nbrs.size(), bnd_loop_global.size(), (int)(bnd_loop_global.size() == bnd_nbrs.size()));
 
     // If the loop didn't close (boundary has multiple disjoint loops), use the
     // per-loop CDT path below.  Otherwise use the single-loop CDT path.
@@ -1051,6 +1056,7 @@ try_patch_repair(struct rt_bot_internal *bot, manifold::Manifold& gm_out)
 	// C) LSCM + CDT for each sub-patch.
 	std::vector<std::array<int32_t, 3>> ml_cdt;
 	bool ml_ok = !lcomps.empty();
+	bu_log("rt_bot_repair: patch_repair: multi-loop lcomps=%zu\n", lcomps.size());
 
 	for (int ci = 0; ci < (int)lcomps.size() && ml_ok; ci++) {
 	    // Sub-patch faces for this component.
@@ -1061,6 +1067,8 @@ try_patch_repair(struct rt_bot_internal *bot, manifold::Manifold& gm_out)
 		bu_log("rt_bot_repair: per-loop CDT[%d]: sub-patch empty, failing\n", ci);
 		ml_ok = false; break;
 	    }
+	    bu_log("rt_bot_repair: per-loop CDT[%d]: sp=%zu faces, loop=%zu verts\n",
+		   ci, sp.size(), lcomps[ci].loop.size());
 
 	    const std::vector<int32_t>& sp_loop = lcomps[ci].loop;
 
@@ -1129,7 +1137,11 @@ try_patch_repair(struct rt_bot_internal *bot, manifold::Manifold& gm_out)
 			sp_inner_loops.push_back(std::move(inner_loop));
 		    // If the inner loop isn't simple, the sub-patch is too complex
 		    // for CDT — give up on this component.
-		    else { ml_ok = false; break; }
+		    else {
+			bu_log("rt_bot_repair: per-loop CDT[%d]: inner loop not simple (comp=%zu loop=%zu), failing\n",
+			       ci, comp_verts.size(), inner_loop.size());
+			ml_ok = false; break;
+		    }
 		}
 	    }
 	    if (!ml_ok) break;
@@ -1201,7 +1213,11 @@ try_patch_repair(struct rt_bot_internal *bot, manifold::Manifold& gm_out)
 		sp_lscm = gte::LSCMParameterization<double>::Parameterize(
 		    sp_v3d, sp_loop_loc, sp_int_loc, sp_tris_loc, sp_uv);
 	    }
-	    if (!sp_lscm || sp_uv.empty()) { ml_ok = false; break; }
+	    if (!sp_lscm || sp_uv.empty()) {
+		bu_log("rt_bot_repair: per-loop CDT[%d]: LSCM failed sp=%zu bnd=%zu int=%zu\n",
+		       ci, sp.size(), sp_bnd_loc.size(), sp_int_loc.size());
+		ml_ok = false; break;
+	    }
 
 	    // CDT via detria: outer polygon + inner hole constraints.
 	    std::vector<detria::PointD> sp_pts;
@@ -1222,7 +1238,10 @@ try_patch_repair(struct rt_bot_internal *bot, manifold::Manifold& gm_out)
 		sp_dtri.addPolylineAutoDetectType(inner_int);
 	    }
 
-	    if (!sp_dtri.triangulate(true)) { ml_ok = false; break; }
+	    if (!sp_dtri.triangulate(true)) {
+		bu_log("rt_bot_repair: per-loop CDT[%d]: detria triangulate failed\n", ci);
+		ml_ok = false; break;
+	    }
 
 	    bool sp_cdt_ok = false;
 	    for (bool cw : {false, true}) {
@@ -1238,7 +1257,10 @@ try_patch_repair(struct rt_bot_internal *bot, manifold::Manifold& gm_out)
 		sp_cdt_ok = true;
 		break;
 	    }
-	    if (!sp_cdt_ok) { ml_ok = false; break; }
+	    if (!sp_cdt_ok) {
+		bu_log("rt_bot_repair: per-loop CDT[%d]: CDT output empty\n", ci);
+		ml_ok = false; break;
+	    }
 	}
 
 	// D) Combine and check Manifold.
@@ -1264,6 +1286,8 @@ try_patch_repair(struct rt_bot_internal *bot, manifold::Manifold& gm_out)
 	    manifold::MeshGL gmm_ml;
 	    gte_to_manifold(&gmm_ml, mvc, tcomb);
 	    manifold::Manifold gm_ml(gmm_ml);
+	    bu_log("rt_bot_repair: per-loop CDT combined manifold status=%d vol=%.6g\n",
+		   (int)gm_ml.Status(), gm_ml.Volume());
 	    if (gm_ml.Status() == manifold::Manifold::Error::NoError) {
 		if (gm_ml.Volume() >= 0) { gm_out = gm_ml; return true; }
 		// Try flipping all faces.
@@ -1279,6 +1303,8 @@ try_patch_repair(struct rt_bot_internal *bot, manifold::Manifold& gm_out)
 
     // Fallback: discard interior vertices, remove patch faces, compact, and
     // fill the resulting hole with boundary-only LSCM.
+    bu_log("rt_bot_repair: patch_repair: falling back to GTE LSCM fill (non-patch=%zu)\n",
+	   (size_t)nf - patch.size());
     std::vector<std::array<int32_t, 3>> tnew;
     tnew.reserve((size_t)nf - patch.size());
     for (int f = 0; f < nf; f++)
