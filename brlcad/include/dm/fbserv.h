@@ -156,6 +156,17 @@ DM_EXPORT extern struct pkg_switch *fbs_pkg_switch(void);
  * table and stays in libdm/fbserv.c.  Obol callers use their own pkg_switch.
  */
 
+/* The static-inline helpers below are intended to be called from toolkit-
+ * specific fbserv implementations (libtclcad, qged, libged/dm/ert.cpp).
+ * Any translation unit that includes fbserv.h (via ged/defines.h → dm/fbserv.h)
+ * but does not call these helpers would produce -Wunused-function warnings.
+ * Suppress them explicitly so that the header remains includable everywhere.
+ */
+#if defined(__GNUC__) || defined(__clang__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wunused-function"
+#endif
+
 /* Internal helper: tear down a single client slot. */
 static inline void
 fbs_drop_client(struct fbserv_obj *fbsp, int sub)
@@ -328,6 +339,9 @@ fbs_existing_client_handler(void *clientData, int UNUSED(mask))
     }
 }
 
+#if defined(__GNUC__) || defined(__clang__)
+#  pragma GCC diagnostic pop
+#endif
 
 __END_DECLS
 
