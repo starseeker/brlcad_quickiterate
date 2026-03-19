@@ -116,7 +116,7 @@ extern "C" {
 #  pragma GCC diagnostic ignored "-Wfloat-equal"
 #endif
 #include <Inventor/SoDB.h>
-#include <Inventor/SoNodeKit.h>
+#include <Inventor/nodekits/SoNodeKit.h>
 #include <Inventor/SoInteraction.h>
 #include <Inventor/SbViewportRegion.h>
 #include <Inventor/SoOffscreenRenderer.h>
@@ -136,7 +136,7 @@ extern "C" {
 #  pragma GCC diagnostic pop
 #endif
 
-#include "../../libged/obol_scene.h"   /* obol_scene_create/assemble/clear */
+#include "../libged/obol_scene.h"   /* obol_scene_create/assemble/clear */
 
 #include <string>
 #include <cstring>

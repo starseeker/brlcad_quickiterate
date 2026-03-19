@@ -24,40 +24,45 @@ set(
 # null/dm-Null.c provides the dm_null fallback display manager; it is only
 # referenced from dm_plugins.cpp via dm_null.i->dm_open (excluded in Obol).
 #
-# The struct-fb sources (fb_generic.c, fb_plugins.cpp, fbserv.c, etc.) provide
-# the full libfb/framebuffer API backed by device plugins.  In Obol builds the
-# communication infrastructure functions (fbs_open/close/setup_socket/
-# new_client/existing_client_handler) live as static-inline in dm/fbserv.h,
-# while fbs_pkg_switch() and the fbs_rfb* PKG message handlers in fbserv.c
-# are not needed because Obol callers use obol_fbs_pkg_switch().  All other
-# struct-fb sources (fb_generic.c, if_disk.c, etc.) are likewise unused.
+# dm_util.c provides helpers only called by the rendering plugins and view.c,
+# all of which are already gated NOT BRLCAD_ENABLE_OBOL.
 #
-# dm_util.c, fb_log.c, fb_util.c provide helpers that are only called by the
-# struct-fb / rendering plugins; all those callers are gated themselves.
+# The struct-fb sources (fb_generic.c, fb_plugins.cpp, etc.) provide the
+# full libfb/framebuffer API backed by device plugins.  These ARE compiled
+# in Obol builds because tools like "rt" use fb_open("host:port", …) to
+# write rendered pixels to fbserv via the remote device (if_remote.c/PKG).
+# fbserv.c is included but guards its fbs_pkg_switch()/fbs_rfb* handlers
+# with #ifndef BRLCAD_ENABLE_OBOL since Obol callers use obol_fbs_pkg_switch().
 if(NOT BRLCAD_ENABLE_OBOL)
   list(APPEND LIBDM_SRCS
-    null/if_null.c
     null/dm-Null.c
-    txt/if_debug.c
     dm-generic.c
     dm_plugins.cpp
     dm_util.c
-    fb_generic.c
-    fb_log.c
-    fb_paged_io.c
-    fb_plugins.cpp
-    fb_rect.c
-    fb_util.c
-    fbserv.c
-    if_disk.c
-    if_mem.c
-    if_remote.c
-    if_stack.c
     view.c
   )
 else()
   list(APPEND LIBDM_SRCS dm_obol_stubs.cpp)
 endif()
+# struct-fb device drivers and generic API: compiled in all builds.
+# rt and similar tools use fb_open("host:port", …) → if_remote.c → PKG
+# to write rendered pixels to fbserv, so this infrastructure must be
+# present even in Obol builds that skip the dm rendering stack.
+list(APPEND LIBDM_SRCS
+  null/if_null.c
+  txt/if_debug.c
+  fb_generic.c
+  fb_log.c
+  fb_paged_io.c
+  fb_plugins.cpp
+  fb_rect.c
+  fb_util.c
+  fbserv.c
+  if_disk.c
+  if_mem.c
+  if_remote.c
+  if_stack.c
+)
 # In Obol builds the GL rendering plugins are replaced by the Obol/Coin3D
 # scene-graph path.  The 2D overlay drawing helpers (ADC cursor, axes, grid,
 # rect, scale, labels, clipping) and the options parser are only used by
