@@ -54,7 +54,9 @@
 #include "icv.h"
 #include "raytrace.h"
 #include "bu/cv.h"
-#include "dm.h"
+#ifndef BRLCAD_ENABLE_OBOL
+#  include "dm.h"
+#endif
 #include "bsg/plot3.h"
 #include "photonmap.h"
 #include "scanline.h"
@@ -62,8 +64,20 @@
 #include "./rtuif.h"
 #include "./ext.h"
 
-
+/* Unified framebuffer macros: abstract over struct fb (non-Obol) vs.
+ * struct rt_fb_pkg PKG-direct (Obol) so the rendering logic below
+ * can remain readable without duplicating every fb_write call.       */
+#ifdef BRLCAD_ENABLE_OBOL
+#  define RT_FB_TYPE     struct rt_fb_pkg
+#  define RT_FB_NULL_VAL RT_FB_PKG_NULL
+#  define rt_fb_write(fp, x, y, pix, n)  rt_fb_pkg_write(fp, x, y, pix, (size_t)(n))
+extern struct rt_fb_pkg *fbp;		/* PKG-direct framebuffer handle */
+#else
+#  define RT_FB_TYPE     struct fb
+#  define RT_FB_NULL_VAL FB_NULL
+#  define rt_fb_write(fp, x, y, pix, n)  fb_write(fp, x, y, pix, n)
 extern struct fb *fbp;			/* Framebuffer handle */
+#endif
 
 extern int curframe;		/* from main.c */
 extern double airdensity;	/* from opt.c */
@@ -73,7 +87,11 @@ extern plane_t kut_plane;       /* from opt.c */
 extern struct icv_image *bif;
 extern struct floatpixel *curr_float_frame;	/* buffer of full frame */
 extern fastf_t** timeTable_init(int x, int y);  /* from heatgraph.c */
+#ifndef BRLCAD_ENABLE_OBOL
 extern void timeTable_process(fastf_t **timeTable, struct application *UNUSED(app), struct fb *efbp); /* from heatgraph.c */
+#else
+extern void timeTable_process(fastf_t **timeTable, struct application *UNUSED(app), struct rt_fb_pkg *efbp); /* from heatgraph.c */
+#endif
 extern void free_scanlines(int, struct scanline *);
 extern struct scanline* alloc_scanlines(int);
 
@@ -191,7 +209,7 @@ view_pixel(struct application *ap)
     RGBpixel white = {255, 255, 255};
 
     bu_semaphore_acquire(BU_SEM_SYSCALL);
-    (void)fb_write(fbp, ap->a_x, ap->a_y, (unsigned char *)white, 1);
+    (void)rt_fb_write(fbp, ap->a_x, ap->a_y, (unsigned char *)white, 1);
     bu_semaphore_release(BU_SEM_SYSCALL);
 #endif
 
@@ -315,10 +333,10 @@ view_pixel(struct application *ap)
 		    bu_semaphore_release(BU_SEM_SYSCALL);
 		}
 
-		if (fbp != FB_NULL) {
+		if (fbp != RT_FB_NULL_VAL) {
 		    /* Framebuffer output */
 		    bu_semaphore_acquire(BU_SEM_SYSCALL);
-		    npix = fb_write(fbp, ap->a_x, ap->a_y,
+		    npix = rt_fb_write(fbp, ap->a_x, ap->a_y,
 				    (const unsigned char *)p, 1);
 		    bu_semaphore_release(BU_SEM_SYSCALL);
 		    if (npix < 1)
@@ -459,7 +477,7 @@ view_pixel(struct application *ap)
 		long spread;
 		size_t npix = 0;
 
-		if (fbp == FB_NULL)
+		if (fbp == RT_FB_NULL_VAL)
 		    bu_exit(EXIT_FAILURE, "Incremental rendering with no framebuffer?");
 
 		spread = (1<<(incr_nlevel-incr_level))-1;
@@ -469,12 +487,12 @@ view_pixel(struct application *ap)
 		    if (sub_grid_mode) {
 			if (dy < sub_ymin || dy > sub_ymax)
 			    continue;
-			npix = fb_write(fbp, sub_xmin, yy,
+			npix = rt_fb_write(fbp, sub_xmin, yy,
 					(unsigned char *)scanline[yy].sl_buf+3*sub_xmin,
 					sub_xmax-sub_xmin+1);
 			if (npix != (size_t)sub_xmax-(size_t)sub_xmin+1) break;
 		    } else {
-			npix = fb_write(fbp, 0, yy,
+			npix = rt_fb_write(fbp, 0, yy,
 					(unsigned char *)scanline[yy].sl_buf,
 					width);
 			if (npix != width) break;
@@ -488,15 +506,15 @@ view_pixel(struct application *ap)
 	case BUFMODE_ACC:
 	case BUFMODE_SCANLINE:
 	case BUFMODE_DYNAMIC:
-	    if (fbp != FB_NULL) {
+	    if (fbp != RT_FB_NULL_VAL) {
 		size_t npix;
 		bu_semaphore_acquire(BU_SEM_SYSCALL);
 		if (sub_grid_mode) {
-		    npix = fb_write(fbp, sub_xmin, ap->a_y,
+		    npix = rt_fb_write(fbp, sub_xmin, ap->a_y,
 				    (unsigned char *)scanline[ap->a_y].sl_buf+3*sub_xmin,
 				    sub_xmax-sub_xmin+1);
 		} else {
-		    npix = fb_write(fbp, 0, ap->a_y,
+		    npix = rt_fb_write(fbp, 0, ap->a_y,
 				    (unsigned char *)scanline[ap->a_y].sl_buf, width);
 		}
 		bu_semaphore_release(BU_SEM_SYSCALL);

@@ -42,18 +42,28 @@
 #include "vmath.h"
 #include "icv.h"
 #include "raytrace.h"
-#include "dm.h"
+#ifndef BRLCAD_ENABLE_OBOL
+#  include "dm.h"
+#endif
 
 #include "./rtuif.h"
 #include "./ext.h"
 
+#ifdef BRLCAD_ENABLE_OBOL
+#  define RT_FB_NULL_VAL RT_FB_PKG_NULL
+#  define rt_fb_write(fp, x, y, pix, n)  rt_fb_pkg_write(fp, x, y, pix, (size_t)(n))
+extern struct rt_fb_pkg *fbp;
+#else
+#  define RT_FB_NULL_VAL FB_NULL
+#  define rt_fb_write(fp, x, y, pix, n)  fb_write(fp, x, y, pix, n)
+extern	struct fb *fbp;
+#endif
 
 /* lighting models */
 #define	LGT_BW		0
 #define	LGT_FLOAT	1
 
 
-extern	struct fb *fbp;
 extern	FILE	*outfp;
 extern	fastf_t	viewsize;
 extern	int	lightmodel;

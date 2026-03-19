@@ -42,13 +42,22 @@
 #include "vmath.h"
 #include "icv.h"
 #include "raytrace.h"
-#include "dm.h"
+#ifndef BRLCAD_ENABLE_OBOL
+#  include "dm.h"
+#endif
 
 #include "./rtuif.h"
 #include "./ext.h"
 
-
+#ifdef BRLCAD_ENABLE_OBOL
+#  define RT_FB_NULL_VAL RT_FB_PKG_NULL
+#  define rt_fb_write(fp, x, y, pix, n)  rt_fb_pkg_write(fp, x, y, pix, (size_t)(n))
+extern struct rt_fb_pkg *fbp;
+#else
+#  define RT_FB_NULL_VAL FB_NULL
+#  define rt_fb_write(fp, x, y, pix, n)  fb_write(fp, x, y, pix, n)
 extern	struct fb *fbp;
+#endif
 extern	FILE	*outfp;
 extern	fastf_t	viewsize;
 
@@ -141,20 +150,20 @@ view_eol(struct application *ap)
 			bu_semaphore_release(BU_SEM_SYSCALL);
 		}
 	}
-	if (fbp != FB_NULL)
+	if (fbp != RT_FB_NULL_VAL)
 	{
 		if (rtg_parallel)
 		{
 			bu_semaphore_acquire(BU_SEM_SYSCALL);
 		}
-		fb_write(fbp, 0, ap->a_y, scanbuf, width);
+		rt_fb_write(fbp, 0, ap->a_y, scanbuf, width);
 		if (rtg_parallel)
 		{
 			bu_semaphore_release(BU_SEM_SYSCALL);
 		}
 	}
 
-	if (bif == NULL && fbp == FB_NULL && outfp == NULL)
+	if (bif == NULL && fbp == RT_FB_NULL_VAL && outfp == NULL)
 		bu_log("rtdepth: strange, no end of line actions taken.\n");
 }
 
