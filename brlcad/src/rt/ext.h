@@ -27,7 +27,12 @@
 #define RT_EXT_H
 
 #include "optical.h"
-#include "dm.h"
+#ifndef BRLCAD_ENABLE_OBOL
+#  include "dm.h"
+#else
+#  include "pkg.h"
+#  include "./rt_fb_pkg.h"
+#endif
 #include "bu/parallel.h" /* for MAX_PSW */
 #include "bu/ptbl.h"
 
@@ -176,7 +181,9 @@ enum {
     CLT_ACCUM = (1<<1)      /* TODO */
 };
 
+#ifndef BRLCAD_ENABLE_OBOL
 extern void clt_connect_fb(struct fb *fbp);
+#endif
 
 extern void clt_view_init(unsigned int mode);
 extern void clt_run(int cur_pixel, int last_pixel);

@@ -57,7 +57,9 @@
 #include "bu/vls.h"
 #include "vmath.h"
 #include "raytrace.h"
-#include "dm.h"
+#ifndef BRLCAD_ENABLE_OBOL
+#  include "dm.h"
+#endif
 #include "pkg.h"
 
 /* private */
@@ -72,7 +74,11 @@ extern const char title[];
 
 
 /***** Variables shared with viewing model *** */
+#ifdef BRLCAD_ENABLE_OBOL
+struct rt_fb_pkg *fbp = RT_FB_PKG_NULL; /* PKG-direct framebuffer handle */
+#else
 struct fb	*fbp = FB_NULL;	/* Framebuffer handle */
+#endif
 FILE		*outfp = NULL;		/* optional pixel output file */
 struct icv_image *bif = NULL;
 
@@ -143,23 +149,46 @@ memory_summary(void)
 int fb_setup(void) {
     /* Framebuffer is desired */
     size_t xx, yy;
-    int zoom;
 
     /* make sure width/height are set via -g/-G */
     grid_sync_dimensions(viewsize);
 
     /* Ask for a fb big enough to hold the image, at least 512. */
-    /* This is so MGED-invoked "postage stamps" get zoomed up big
-     * enough to see.
-     */
     xx = yy = 512;
     if (xx < width || yy < height) {
 	xx = width;
 	yy = height;
     }
 
+#ifdef BRLCAD_ENABLE_OBOL
     bu_semaphore_acquire(BU_SEM_SYSCALL);
-    fbp = fb_open(framebuffer, xx, yy);
+    fbp = rt_fb_pkg_open(framebuffer, (int)xx, (int)yy);
+    bu_semaphore_release(BU_SEM_SYSCALL);
+    if (fbp == RT_FB_PKG_NULL) {
+	fprintf(stderr, "rt:  can't open frame buffer via PKG\n");
+	return 12;
+    }
+
+    bu_semaphore_acquire(BU_SEM_SYSCALL);
+    /* If fb came out smaller than requested, do less work */
+    if (width > (size_t)fbp->width)
+	width = (size_t)fbp->width;
+    if (height > (size_t)fbp->height)
+	height = (size_t)fbp->height;
+
+    /* If fb is lots bigger (>= 2X), zoom up & center */
+    if (width > 0 && height > 0) {
+	int zoom = fbp->width / (int)width;
+	if (fbp->height / (int)height < zoom)
+	    zoom = fbp->height / (int)height;
+	(void)rt_fb_pkg_view(fbp, (int)(width/2), (int)(height/2), zoom, zoom);
+    }
+    bu_semaphore_release(BU_SEM_SYSCALL);
+#else
+    int zoom;
+
+    bu_semaphore_acquire(BU_SEM_SYSCALL);
+    fbp = fb_open(framebuffer, (int)xx, (int)yy);
     bu_semaphore_release(BU_SEM_SYSCALL);
     if (fbp == FB_NULL) {
 	fprintf(stderr, "rt:  can't open frame buffer\n");
@@ -177,17 +206,18 @@ int fb_setup(void) {
 
     /* If fb is lots bigger (>= 2X), zoom up & center */
     if (width > 0 && height > 0) {
-	zoom = fbwidth/width;
+	zoom = (int)(fbwidth/width);
 	if (fbheight/height < (size_t)zoom) {
-	    zoom = fb_getheight(fbp)/height;
+	    zoom = (int)(fb_getheight(fbp)/height);
 	}
-	(void)fb_view(fbp, width/2, height/2, zoom, zoom);
+	(void)fb_view(fbp, (int)(width/2), (int)(height/2), zoom, zoom);
     }
     bu_semaphore_release(BU_SEM_SYSCALL);
 
-#ifdef USE_OPENCL
+#  ifdef USE_OPENCL
     clt_connect_fb(fbp);
-#endif
+#  endif
+#endif /* BRLCAD_ENABLE_OBOL */
     return 0;
 }
 
@@ -608,9 +638,16 @@ int main(int argc, char *argv[])
 	frame_retval = do_frame(curframe);
 	if (frame_retval != 0) {
 	    /* Release the framebuffer, if any */
+#ifdef BRLCAD_ENABLE_OBOL
+	    if (fbp != RT_FB_PKG_NULL) {
+		rt_fb_pkg_close(fbp);
+		fbp = RT_FB_PKG_NULL;
+	    }
+#else
 	    if (fbp != FB_NULL) {
 		fb_close(fbp);
 	    }
+#endif
 	    ret = 1;
 	    goto rt_cleanup;
 	}
@@ -685,9 +722,16 @@ int main(int argc, char *argv[])
     }
 
     /* Release the framebuffer, if any */
+#ifdef BRLCAD_ENABLE_OBOL
+    if (fbp != RT_FB_PKG_NULL) {
+	rt_fb_pkg_close(fbp);
+	fbp = RT_FB_PKG_NULL;
+    }
+#else
     if (fbp != FB_NULL) {
 	fb_close(fbp);
     }
+#endif
 
 rt_cleanup:
     /* Clean up objv memory, if necessary */
