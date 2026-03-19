@@ -47,7 +47,9 @@
 #include "bu/vls.h"
 #include "vmath.h"
 #include "raytrace.h"
-#include "dm.h"
+#ifndef BRLCAD_ENABLE_OBOL
+#  include "dm.h"
+#endif
 #include "icv.h"
 
 #include "./rtuif.h"
@@ -608,6 +610,7 @@ extern double airdensity;
 static unsigned int clt_mode;           /* Active render buffers */
 static uint8_t clt_o[2];		/* Sub buffer offsets in bytes: {CLT_COLOR, MAX} */
 
+#ifndef BRLCAD_ENABLE_OBOL
 static struct fb *clt_fbp = FB_NULL;
 
 
@@ -616,6 +619,7 @@ clt_connect_fb(struct fb *fbp)
 {
     clt_fbp = fbp;
 }
+#endif /* !BRLCAD_ENABLE_OBOL */
 
 void
 clt_view_init(unsigned int mode)
@@ -647,7 +651,9 @@ clt_run(int cur_pixel, int last_pixel)
     struct application a;
 
     ssize_t size;
+#ifndef BRLCAD_ENABLE_OBOL
     ssize_t count;
+#endif
 
     npix = last_pixel-cur_pixel+1;
     size = npix * clt_o[1];
@@ -694,6 +700,7 @@ clt_run(int cur_pixel, int last_pixel)
 
     pixelp = pixels + cur_pixel*clt_o[1];
 
+#ifndef BRLCAD_ENABLE_OBOL
     if (clt_fbp != FB_NULL) {
         bu_semaphore_acquire(BU_SEM_SYSCALL);
         count = fb_write(clt_fbp, a_x, a_y, pixelp, npix);
@@ -701,6 +708,7 @@ clt_run(int cur_pixel, int last_pixel)
         if (count < npix)
             bu_exit(EXIT_FAILURE, "pixel fb_write error");
     }
+#endif
     if (outfp) {
         bu_semaphore_acquire(BU_SEM_SYSCALL);
         if (bu_fseek(outfp, cur_pixel*clt_o[1], 0) != 0)
