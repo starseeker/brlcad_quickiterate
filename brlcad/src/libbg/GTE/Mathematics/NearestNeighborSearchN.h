@@ -37,6 +37,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <numeric>
 #include <queue>
 #include <vector>
 
@@ -223,7 +224,7 @@ namespace gte
                 ax.resize(n);
                 // Initialise index array
                 std::vector<int32_t> order(n);
-                for (size_t i = 0; i < n; ++i) { order[i] = static_cast<int32_t>(i); }
+                std::iota(order.begin(), order.end(), 0);
                 buildRange(src, order, 0, static_cast<int32_t>(n), 0);
             }
 

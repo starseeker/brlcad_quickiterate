@@ -1074,7 +1074,7 @@ namespace gte
                     order.begin() + lo,
                     order.begin() + mid,
                     order.begin() + hi,
-                    [&](int32_t u, int32_t v) {
+                    [&seeds, a](int32_t u, int32_t v) {
                         return seeds[u][a] < seeds[v][a];
                     });
                 int32_t oi = order[mid];

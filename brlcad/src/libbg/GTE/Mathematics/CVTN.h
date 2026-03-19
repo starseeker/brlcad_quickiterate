@@ -424,141 +424,15 @@ namespace gte
 
             for (size_t iter = 0; iter < numIterations; ++iter)
             {
-                // ── Step 1: Build Delaunay over current N-D sites ──────────────
-                // With the KD-tree-backed NearestNeighborSearchN this is O(n log n)
-                // instead of the previous O(n²).
-                DelaunayNN<Real, N> delaunay(20);
-                delaunay.SetVertices(numSeeds, mSites.data());
-
-                // ── Step 2: Build N-D lifted mesh vertices ─────────────────────
-                // For N=3 (isotropic): identity — dims 0–2 are 3D position.
-                // For N=6 (anisotropic): append scaled vertex normals so that the
-                // Sutherland-Hodgman polygon clipping uses the correct N-D metric.
-                // This matches the lifting done in ComputeRDT's multinerve path and
-                // in RemeshCVTAnisotropic (MeshRemesh.h).
-                std::vector<std::array<Real, N>> liftedArr(mSurfaceVertices.size());
-
-                // Estimate normal scale from current sites' dims 3-N-1 magnitudes
-                // (same formula as RestrictedVoronoiDiagramN::ComputeCentroids).
-                Real normalScale = static_cast<Real>(0);
-                if constexpr (N > 3)
+                // ── Steps 1–4: compute area-weighted N-D centroids via walk ───
+                // Uses BuildLiftedVertices + AccumulateCentroids helpers to
+                // eliminate duplication with NewtonIterations.
+                std::vector<std::array<Real, N>> mg;
+                std::vector<Real> m;
+                if (!AccumulateCentroids(mg, m))
                 {
-                    for (size_t s = 0; s < numSeeds; ++s)
-                    {
-                        Real ns = static_cast<Real>(0);
-                        for (size_t d = 3; d < N; ++d) ns += mSites[s][d] * mSites[s][d];
-                        normalScale += std::sqrt(ns);
-                    }
-                    if (numSeeds > 0)
-                        normalScale /= static_cast<Real>(numSeeds);
+                    return false;
                 }
-
-                if constexpr (N > 3)
-                {
-                    // Accumulate area-weighted face normals per vertex
-                    std::vector<std::array<Real, 3>> vertNorm(
-                        mSurfaceVertices.size(), {Real(0), Real(0), Real(0)});
-                    for (auto const& tri : mSurfaceTriangles)
-                    {
-                        Point3 const& v0 = mSurfaceVertices[tri[0]];
-                        Point3 const& v1 = mSurfaceVertices[tri[1]];
-                        Point3 const& v2 = mSurfaceVertices[tri[2]];
-                        Point3 fn = Cross(v1 - v0, v2 - v0);
-                        for (int lv = 0; lv < 3; ++lv)
-                        {
-                            vertNorm[tri[lv]][0] += fn[0];
-                            vertNorm[tri[lv]][1] += fn[1];
-                            vertNorm[tri[lv]][2] += fn[2];
-                        }
-                    }
-                    for (size_t v = 0; v < mSurfaceVertices.size(); ++v)
-                    {
-                        liftedArr[v][0] = mSurfaceVertices[v][0];
-                        liftedArr[v][1] = mSurfaceVertices[v][1];
-                        liftedArr[v][2] = mSurfaceVertices[v][2];
-                        Real nx = vertNorm[v][0], ny = vertNorm[v][1], nz = vertNorm[v][2];
-                        Real len = std::sqrt(nx*nx + ny*ny + nz*nz);
-                        if (len > static_cast<Real>(1e-10))
-                        {
-                            nx /= len; ny /= len; nz /= len;
-                        }
-                        if constexpr (N >= 6)
-                        {
-                            liftedArr[v][3] = nx * normalScale;
-                            liftedArr[v][4] = ny * normalScale;
-                            liftedArr[v][5] = nz * normalScale;
-                        }
-                        for (size_t d = 6; d < N; ++d)
-                            liftedArr[v][d] = static_cast<Real>(0);
-                    }
-                }
-                else
-                {
-                    // N=3: copy 3D positions directly (no lifting needed)
-                    for (size_t v = 0; v < mSurfaceVertices.size(); ++v)
-                    {
-                        liftedArr[v][0] = mSurfaceVertices[v][0];
-                        liftedArr[v][1] = mSurfaceVertices[v][1];
-                        liftedArr[v][2] = mSurfaceVertices[v][2];
-                    }
-                }
-
-                // ── Step 3: Convert N-D sites to std::array for SurfaceRVDN ──
-                std::vector<std::array<Real, N>> seedsArr(numSeeds);
-                for (size_t s = 0; s < numSeeds; ++s)
-                    for (size_t d = 0; d < N; ++d) seedsArr[s][d] = mSites[s][d];
-
-                // ── Step 4: Walk the surface and accumulate N-D centroids ──────
-                // Uses SurfaceRVDN::ForEachPolygon — a direct translation of
-                // Geogram's compute_surfacic_with_cnx_priority walk.  For each
-                // (seed, facet) restricted polygon, we fan-triangulate and
-                // accumulate area-weighted N-D centroids exactly as Geogram does
-                // in its CVT::Lloyd_iterations / compute_centroids callback.
-                SurfaceRVDN<Real, N> rvd;
-                rvd.Initialize(liftedArr, mSurfaceTriangles, seedsArr, delaunay);
-
-                std::vector<std::array<Real, N>> mg(numSeeds);
-                std::vector<Real>               m(numSeeds, static_cast<Real>(0));
-                for (auto& a : mg) a.fill(static_cast<Real>(0));
-
-                rvd.ForEachPolygon([&](
-                    int32_t seed, int32_t /*facet*/,
-                    RVDPolygon<Real, N> const& P,
-                    bool /*compChanged*/, int32_t /*compID*/)
-                {
-                    const size_t nv = P.nb_vertices();
-                    for (size_t i = 1; i + 1 < nv; ++i)
-                    {
-                        // N-D triangle area (Heron's formula on N-D edge lengths).
-                        // Direct translation of Geom::triangle_area<DIM>() from
-                        // geogram/src/lib/geogram/basic/geometry_nd.h.
-                        Real ea = Real(0), eb = Real(0), ec = Real(0);
-                        for (size_t d = 0; d < N; ++d)
-                        {
-                            Real e0 = P.V[0].pos[d] - P.V[i].pos[d];
-                            Real e1 = P.V[i].pos[d] - P.V[i+1].pos[d];
-                            Real e2 = P.V[i+1].pos[d] - P.V[0].pos[d];
-                            ea += e0 * e0;
-                            eb += e1 * e1;
-                            ec += e2 * e2;
-                        }
-                        ea = std::sqrt(ea);
-                        eb = std::sqrt(eb);
-                        ec = std::sqrt(ec);
-                        Real hs = Real(0.5) * (ea + eb + ec);
-                        Real A2 = hs * (hs - ea) * (hs - eb) * (hs - ec);
-                        Real area = std::sqrt(std::max(A2, Real(0)));
-
-                        Real inv3 = area / Real(3);
-                        for (size_t d = 0; d < N; ++d)
-                        {
-                            mg[seed][d] += inv3 * (P.V[0].pos[d]
-                                                 + P.V[i].pos[d]
-                                                 + P.V[i+1].pos[d]);
-                        }
-                        m[seed] += area;
-                    }
-                });
 
                 // ── Step 5: Update sites = mg / m  ─────────────────────────────
                 // Matches Geogram's normalization:
@@ -653,124 +527,17 @@ namespace gte
                     for (size_t d = 0; d < N; ++d)
                         mSites[i][d] = xv[i * N + d];
             };
-            // ── Build lifted vertices and seeds arrays ─────────────────────────
-            // (same logic as LloydIterations — factored so the line-search can
-            //  rebuild them after each trial step)
-            auto buildLiftedAndSeeds = [&](
-                std::vector<std::array<Real, N>>& liftedArr,
-                std::vector<std::array<Real, N>>& seedsArr,
-                Real& normalScale)
-            {
-                seedsArr.resize(numSeeds);
-                for (size_t s = 0; s < numSeeds; ++s)
-                    for (size_t d = 0; d < N; ++d) seedsArr[s][d] = mSites[s][d];
 
-                normalScale = static_cast<Real>(0);
-                if constexpr (N > 3)
-                {
-                    for (size_t s = 0; s < numSeeds; ++s)
-                    {
-                        Real ns = static_cast<Real>(0);
-                        for (size_t d = 3; d < N; ++d) ns += mSites[s][d] * mSites[s][d];
-                        normalScale += std::sqrt(ns);
-                    }
-                    if (numSeeds > 0) normalScale /= static_cast<Real>(numSeeds);
-                }
-
-                liftedArr.resize(mSurfaceVertices.size());
-                if constexpr (N > 3)
-                {
-                    std::vector<std::array<Real, 3>> vertNorm(
-                        mSurfaceVertices.size(), {Real(0), Real(0), Real(0)});
-                    for (auto const& tri : mSurfaceTriangles)
-                    {
-                        Point3 const& v0 = mSurfaceVertices[tri[0]];
-                        Point3 const& v1 = mSurfaceVertices[tri[1]];
-                        Point3 const& v2 = mSurfaceVertices[tri[2]];
-                        Point3 fn = Cross(v1 - v0, v2 - v0);
-                        for (int lv = 0; lv < 3; ++lv)
-                        {
-                            vertNorm[tri[lv]][0] += fn[0];
-                            vertNorm[tri[lv]][1] += fn[1];
-                            vertNorm[tri[lv]][2] += fn[2];
-                        }
-                    }
-                    for (size_t v = 0; v < mSurfaceVertices.size(); ++v)
-                    {
-                        liftedArr[v][0] = mSurfaceVertices[v][0];
-                        liftedArr[v][1] = mSurfaceVertices[v][1];
-                        liftedArr[v][2] = mSurfaceVertices[v][2];
-                        Real nx = vertNorm[v][0], ny = vertNorm[v][1], nz = vertNorm[v][2];
-                        Real len = std::sqrt(nx*nx + ny*ny + nz*nz);
-                        if (len > static_cast<Real>(1e-10))
-                        { nx /= len; ny /= len; nz /= len; }
-                        if constexpr (N >= 6)
-                        {
-                            liftedArr[v][3] = nx * normalScale;
-                            liftedArr[v][4] = ny * normalScale;
-                            liftedArr[v][5] = nz * normalScale;
-                        }
-                        for (size_t d = 6; d < N; ++d) liftedArr[v][d] = static_cast<Real>(0);
-                    }
-                }
-                else
-                {
-                    for (size_t v = 0; v < mSurfaceVertices.size(); ++v)
-                    {
-                        liftedArr[v][0] = mSurfaceVertices[v][0];
-                        liftedArr[v][1] = mSurfaceVertices[v][1];
-                        liftedArr[v][2] = mSurfaceVertices[v][2];
-                    }
-                }
-            };
-
-            // ── Compute CVT gradient and energy proxy ──────────────────────────
+            // ── Compute CVT gradient and energy proxy via AccumulateCentroids ──
             // gradient g[i*N+d] = 2 * m_i * (p_i^d - c_i^d)
             // energy   f        = sum_i m_i * ||p_i - c_i||^2
-            // Both via SurfaceRVDN::ForEachPolygon walk.
+            // Both are zero at the CVT optimum (seed positions = centroids).
             auto computeGradient = [&](std::vector<Real>& gOut, Real& fOut) -> bool
             {
-                DelaunayNN<Real, N> delaunay(20);
-                delaunay.SetVertices(numSeeds, mSites.data());
-
-                std::vector<std::array<Real, N>> liftedArr;
-                std::vector<std::array<Real, N>> seedsArr;
-                Real normalScale;
-                buildLiftedAndSeeds(liftedArr, seedsArr, normalScale);
-
-                SurfaceRVDN<Real, N> rvd;
-                rvd.Initialize(liftedArr, mSurfaceTriangles, seedsArr, delaunay);
-
-                std::vector<std::array<Real, N>> mg(numSeeds);
-                std::vector<Real> m_area(numSeeds, static_cast<Real>(0));
-                for (auto& a : mg) a.fill(static_cast<Real>(0));
-
-                rvd.ForEachPolygon([&](
-                    int32_t seed, int32_t /*facet*/,
-                    RVDPolygon<Real, N> const& P,
-                    bool /*compChanged*/, int32_t /*compID*/)
-                {
-                    const size_t nv = P.nb_vertices();
-                    for (size_t i = 1; i + 1 < nv; ++i)
-                    {
-                        Real ea = Real(0), eb = Real(0), ec = Real(0);
-                        for (size_t d = 0; d < N; ++d)
-                        {
-                            Real e0 = P.V[0].pos[d] - P.V[i].pos[d];
-                            Real e1 = P.V[i].pos[d] - P.V[i+1].pos[d];
-                            Real e2 = P.V[i+1].pos[d] - P.V[0].pos[d];
-                            ea += e0*e0; eb += e1*e1; ec += e2*e2;
-                        }
-                        ea = std::sqrt(ea); eb = std::sqrt(eb); ec = std::sqrt(ec);
-                        Real hs = Real(0.5) * (ea + eb + ec);
-                        Real A2 = hs * (hs - ea) * (hs - eb) * (hs - ec);
-                        Real area = std::sqrt(std::max(A2, Real(0)));
-                        Real inv3 = area / Real(3);
-                        for (size_t d = 0; d < N; ++d)
-                            mg[seed][d] += inv3 * (P.V[0].pos[d] + P.V[i].pos[d] + P.V[i+1].pos[d]);
-                        m_area[seed] += area;
-                    }
-                });
+                std::vector<std::array<Real, N>> mg;
+                std::vector<Real> m_area;
+                if (!AccumulateCentroids(mg, m_area))
+                    return false;
 
                 gOut.assign(totalVars, static_cast<Real>(0));
                 fOut = static_cast<Real>(0);
@@ -781,11 +548,11 @@ namespace gte
                         Real inv_m = static_cast<Real>(1) / m_area[s];
                         for (size_t d = 0; d < N; ++d)
                         {
-                            Real c_d    = mg[s][d] * inv_m;           // centroid dim d
+                            Real c_d    = mg[s][d] * inv_m;
                             Real p_d    = mSites[s][d];
                             Real diff   = p_d - c_d;
-                            gOut[s*N+d] = Real(2) * m_area[s] * diff;  // gradient
-                            fOut       += m_area[s] * diff * diff;     // energy proxy
+                            gOut[s*N+d] = Real(2) * m_area[s] * diff;
+                            fOut       += m_area[s] * diff * diff;
                         }
                     }
                 }
@@ -1407,7 +1174,147 @@ namespace gte
             Point3 cross = Cross(edge1, edge2);
             return Length(cross) * static_cast<Real>(0.5);
         }
-        
+
+        // ── Shared helper: build lifted N-D vertices + seed array ─────────────
+        //
+        // Used by LloydIterations and NewtonIterations::computeGradient.
+        // For N=3 (isotropic): identity — first 3 dims = 3D position.
+        // For N=6 (anisotropic): appends scaled vertex normals to produce the
+        //   N-D metric embedding matching Geogram's set_anisotropy().
+        //
+        // Computes the normalScale from current sites (dims 3..N-1 magnitudes)
+        // and also fills seedsArr from mSites.
+        void BuildLiftedVertices(
+            std::vector<std::array<Real, N>>& liftedArr,
+            std::vector<std::array<Real, N>>& seedsArr,
+            Real& normalScale) const
+        {
+            size_t numSeeds = mSites.size();
+
+            seedsArr.resize(numSeeds);
+            for (size_t s = 0; s < numSeeds; ++s)
+                for (size_t d = 0; d < N; ++d) seedsArr[s][d] = mSites[s][d];
+
+            // Normal scale: mean magnitude of the normal dims (3..N-1) of the sites
+            normalScale = static_cast<Real>(0);
+            if constexpr (N > 3)
+            {
+                for (size_t s = 0; s < numSeeds; ++s)
+                {
+                    Real ns = static_cast<Real>(0);
+                    for (size_t d = 3; d < N; ++d) ns += mSites[s][d] * mSites[s][d];
+                    normalScale += std::sqrt(ns);
+                }
+                if (numSeeds > 0) normalScale /= static_cast<Real>(numSeeds);
+            }
+
+            liftedArr.resize(mSurfaceVertices.size());
+
+            if constexpr (N > 3)
+            {
+                // Area-weighted vertex normals (same as Geogram's compute_normals)
+                std::vector<std::array<Real, 3>> vertNorm(
+                    mSurfaceVertices.size(), {Real(0), Real(0), Real(0)});
+                for (auto const& tri : mSurfaceTriangles)
+                {
+                    Point3 const& v0 = mSurfaceVertices[tri[0]];
+                    Point3 const& v1 = mSurfaceVertices[tri[1]];
+                    Point3 const& v2 = mSurfaceVertices[tri[2]];
+                    Point3 fn = Cross(v1 - v0, v2 - v0);
+                    for (int lv = 0; lv < 3; ++lv)
+                    {
+                        vertNorm[tri[lv]][0] += fn[0];
+                        vertNorm[tri[lv]][1] += fn[1];
+                        vertNorm[tri[lv]][2] += fn[2];
+                    }
+                }
+                for (size_t v = 0; v < mSurfaceVertices.size(); ++v)
+                {
+                    liftedArr[v][0] = mSurfaceVertices[v][0];
+                    liftedArr[v][1] = mSurfaceVertices[v][1];
+                    liftedArr[v][2] = mSurfaceVertices[v][2];
+                    Real nx = vertNorm[v][0], ny = vertNorm[v][1], nz = vertNorm[v][2];
+                    Real len = std::sqrt(nx*nx + ny*ny + nz*nz);
+                    if (len > static_cast<Real>(1e-10))
+                    { nx /= len; ny /= len; nz /= len; }
+                    if constexpr (N >= 6)
+                    {
+                        liftedArr[v][3] = nx * normalScale;
+                        liftedArr[v][4] = ny * normalScale;
+                        liftedArr[v][5] = nz * normalScale;
+                    }
+                    for (size_t d = 6; d < N; ++d) liftedArr[v][d] = static_cast<Real>(0);
+                }
+            }
+            else
+            {
+                // N=3: copy 3D positions directly
+                for (size_t v = 0; v < mSurfaceVertices.size(); ++v)
+                {
+                    liftedArr[v][0] = mSurfaceVertices[v][0];
+                    liftedArr[v][1] = mSurfaceVertices[v][1];
+                    liftedArr[v][2] = mSurfaceVertices[v][2];
+                }
+            }
+        }
+
+        // ── Shared helper: accumulate N-D centroids via SurfaceRVDN walk ──────
+        //
+        // Used by LloydIterations (to compute centroid update) and
+        // NewtonIterations (to compute gradient and energy proxy).
+        //
+        // Fills mg[s][d] = sum(area * centroid[d]) and m_area[s] = sum(area)
+        // for each seed s.  Returns false if the walk produces no polygons.
+        bool AccumulateCentroids(
+            std::vector<std::array<Real, N>>& mg,
+            std::vector<Real>&               m_area) const
+        {
+            size_t numSeeds = mSites.size();
+
+            DelaunayNN<Real, N> delaunay(20);
+            delaunay.SetVertices(numSeeds, mSites.data());
+
+            std::vector<std::array<Real, N>> liftedArr, seedsArr;
+            Real normalScale;
+            BuildLiftedVertices(liftedArr, seedsArr, normalScale);
+
+            SurfaceRVDN<Real, N> rvd;
+            rvd.Initialize(liftedArr, mSurfaceTriangles, seedsArr, delaunay);
+
+            mg.assign(numSeeds, {});
+            for (auto& a : mg) a.fill(static_cast<Real>(0));
+            m_area.assign(numSeeds, static_cast<Real>(0));
+
+            rvd.ForEachPolygon([&](
+                int32_t seed, int32_t /*facet*/,
+                RVDPolygon<Real, N> const& P,
+                bool /*compChanged*/, int32_t /*compID*/)
+            {
+                const size_t nv = P.nb_vertices();
+                for (size_t i = 1; i + 1 < nv; ++i)
+                {
+                    // N-D triangle area (Heron's formula)
+                    Real ea = Real(0), eb = Real(0), ec = Real(0);
+                    for (size_t d = 0; d < N; ++d)
+                    {
+                        Real e0 = P.V[0].pos[d] - P.V[i].pos[d];
+                        Real e1 = P.V[i].pos[d] - P.V[i+1].pos[d];
+                        Real e2 = P.V[i+1].pos[d] - P.V[0].pos[d];
+                        ea += e0*e0; eb += e1*e1; ec += e2*e2;
+                    }
+                    ea = std::sqrt(ea); eb = std::sqrt(eb); ec = std::sqrt(ec);
+                    Real hs = Real(0.5)*(ea+eb+ec);
+                    Real A2 = hs*(hs-ea)*(hs-eb)*(hs-ec);
+                    Real area = std::sqrt(std::max(A2, Real(0)));
+                    Real inv3 = area / Real(3);
+                    for (size_t d = 0; d < N; ++d)
+                        mg[seed][d] += inv3*(P.V[0].pos[d]+P.V[i].pos[d]+P.V[i+1].pos[d]);
+                    m_area[seed] += area;
+                }
+            });
+            return true;
+        }
+
     private:
         std::vector<Point3> mSurfaceVertices;                    // 3D mesh vertices
         std::vector<std::array<int32_t, 3>> mSurfaceTriangles;   // Triangle indices
