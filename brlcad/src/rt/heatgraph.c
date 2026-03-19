@@ -39,7 +39,9 @@
 #include "bu/parallel.h"
 #include "vmath.h"
 #include "raytrace.h"
-#include "dm.h"
+#ifndef BRLCAD_ENABLE_OBOL
+#  include "dm.h"
+#endif
 #include "bsg/plot3.h"
 #include "scanline.h"
 
@@ -180,7 +182,11 @@ timeTable_singleProcess(struct application *app, fastf_t **timeTable, fastf_t *t
  * heat graph based on time taken for each pixel.
  */
 void
+#ifdef BRLCAD_ENABLE_OBOL
+timeTable_process(fastf_t **timeTable, struct application *UNUSED(app), struct rt_fb_pkg *out_fbp)
+#else
 timeTable_process(fastf_t **timeTable, struct application *UNUSED(app), struct fb *out_fbp)
+#endif
 {
     fastf_t maxTime = -MAX_FASTF;		/* The 255 value */
     fastf_t minTime = MAX_FASTF; 		/* The 1 value */
@@ -248,6 +254,15 @@ timeTable_process(fastf_t **timeTable, struct application *UNUSED(app), struct f
 	    p[1]=Gcolor;
 	    p[2]=Bcolor;
 
+#ifdef BRLCAD_ENABLE_OBOL
+	    if (out_fbp != RT_FB_PKG_NULL) {
+		bu_semaphore_acquire(BU_SEM_SYSCALL);
+		npix = (int)rt_fb_pkg_write(out_fbp, x, y, (unsigned char *)p, 1);
+		bu_semaphore_release(BU_SEM_SYSCALL);
+		if (npix < 1)
+		    bu_exit(EXIT_FAILURE, "pixel rt_fb_pkg_write error");
+	    }
+#else
 	    if (out_fbp != FB_NULL) {
 		bu_semaphore_acquire(BU_SEM_SYSCALL);
 		npix = fb_write(out_fbp, x, y, (unsigned char *)p, 1);
@@ -255,13 +270,22 @@ timeTable_process(fastf_t **timeTable, struct application *UNUSED(app), struct f
 		if (npix < 1)
 		    bu_exit(EXIT_FAILURE, "pixel fb_write error");
 	    }
+#endif
 	}
     }
+#ifdef BRLCAD_ENABLE_OBOL
+    if (out_fbp != RT_FB_PKG_NULL) {
+	zoomH = out_fbp->height / (int)height;
+	zoomW = out_fbp->width / (int)width;
+	(void)rt_fb_pkg_view(out_fbp, (int)(width/2), (int)(height/2), zoomH, zoomW);
+    }
+#else
     if (out_fbp != FB_NULL) {
       zoomH = fb_getheight(out_fbp) / height;
       zoomW = fb_getwidth(out_fbp) / width;
       (void)fb_view(out_fbp, width/2, height/2, zoomH, zoomW);
     }
+#endif
 }
 
 

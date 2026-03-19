@@ -91,7 +91,9 @@
 
 #include "vmath.h"
 #include "raytrace.h"
-#include "dm.h"
+#ifndef BRLCAD_ENABLE_OBOL
+#  include "dm.h"
+#endif
 #include "bu/parse.h"
 #include "bu/parallel.h"
 #include "bu/log.h"
@@ -101,8 +103,17 @@
 #include "./rtuif.h"
 #include "./ext.h"
 
-
-#define COSTOL 0.91    /* normals differ if dot product < COSTOL */
+#ifdef BRLCAD_ENABLE_OBOL
+#  define RT_FB_NULL_VAL RT_FB_PKG_NULL
+#  define rt_fb_write(fp, x, y, pix, n)  rt_fb_pkg_write(fp, x, y, pix, (size_t)(n))
+#  define rt_fb_read(fp, x, y, pix, n)   rt_fb_pkg_read(fp, x, y, pix, (size_t)(n))
+extern struct rt_fb_pkg *fbp;
+#else
+#  define RT_FB_NULL_VAL FB_NULL
+#  define rt_fb_write(fp, x, y, pix, n)  fb_write(fp, x, y, pix, n)
+#  define rt_fb_read(fp, x, y, pix, n)   fb_read(fp, x, y, pix, n)
+extern struct fb *fbp;	/* Framebuffer handle */
+#endif
 #define OBLTOL 0.1     /* high obliquity if cosine of angle < OBLTOL ! */
 #define is_Odd(_a)      ((_a)&01)
 #define ARCTAN_87 19.08
@@ -112,7 +123,6 @@
 #endif
 
 
-extern struct fb *fbp;	/* Framebuffer handle */
 extern fastf_t viewsize;
 extern int lightmodel;
 extern size_t width, height;
@@ -629,7 +639,7 @@ view_2init(struct application *UNUSED(ap), char *UNUSED(framename))
      * Determine if the framebuffer is readable.
      */
     if (overlay || blend)
-	if (fb_read(fbp, 0, 0, fb_bg_color, 1) < 0)
+	if (rt_fb_read(fbp, 0, 0, fb_bg_color, 1) < 0)
 	    bu_exit(EXIT_FAILURE, "rt_edge: specified framebuffer is not readable, cannot merge.\n");
 
     /*
@@ -702,7 +712,7 @@ view_eol(struct application *ap)
 		 * Write this pixel
 		 */
 		bu_semaphore_acquire(BU_SEM_SYSCALL);
-		fb_write(fbp, i, ap->a_y, &scanline[cpu][i*3], 1);
+		rt_fb_write(fbp, i, ap->a_y, &scanline[cpu][i*3], 1);
 		bu_semaphore_release(BU_SEM_SYSCALL);
 	    }
 	}
@@ -720,7 +730,7 @@ view_eol(struct application *ap)
 	fastf_t hsv[3];
 
 	bu_semaphore_acquire(BU_SEM_SYSCALL);
-	if (fb_read(fbp, 0, ap->a_y, blendline[cpu], per_processor_chunk) < 0)
+	if (rt_fb_read(fbp, 0, ap->a_y, blendline[cpu], per_processor_chunk) < 0)
 	    bu_exit(EXIT_FAILURE, "rtedge: error reading from framebuffer.\n");
 	bu_semaphore_release(BU_SEM_SYSCALL);
 
@@ -754,7 +764,7 @@ view_eol(struct application *ap)
 		    left[BLU] = blendline[cpu][(i-1)*3+BLU];
 
 		    bu_semaphore_acquire(BU_SEM_SYSCALL);
-		    fb_read(fbp, i, ap->a_y - 1, down, 1);
+		    rt_fb_read(fbp, i, ap->a_y - 1, down, 1);
 		    bu_semaphore_release(BU_SEM_SYSCALL);
 
 		    if (diffpixel(left, fb_bg_color)) {
@@ -806,7 +816,7 @@ view_eol(struct application *ap)
 		     * wrong scanline.
 		     */
 		    bu_semaphore_acquire(BU_SEM_SYSCALL);
-		    fb_write(fbp, i, ap->a_y, rgb, 1);
+		    rt_fb_write(fbp, i, ap->a_y, rgb, 1);
 		    bu_semaphore_release(BU_SEM_SYSCALL);
 
 		    replace_down = 0;
@@ -827,16 +837,16 @@ view_eol(struct application *ap)
 	 * Write the blendline to the framebuffer.
 	 */
 	bu_semaphore_acquire(BU_SEM_SYSCALL);
-	fb_write(fbp, 0, ap->a_y, blendline[cpu], per_processor_chunk);
+	rt_fb_write(fbp, 0, ap->a_y, blendline[cpu], per_processor_chunk);
 	bu_semaphore_release(BU_SEM_SYSCALL);
     } /* end blend */
 
-    else if (fbp != FB_NULL) {
+    else if (fbp != RT_FB_NULL_VAL) {
 	/*
 	 * Simple whole scanline write to a framebuffer.
 	 */
 	bu_semaphore_acquire(BU_SEM_SYSCALL);
-	fb_write(fbp, 0, ap->a_y, scanline[cpu], per_processor_chunk);
+	rt_fb_write(fbp, 0, ap->a_y, scanline[cpu], per_processor_chunk);
 	bu_semaphore_release(BU_SEM_SYSCALL);
     }
 
@@ -874,8 +884,8 @@ view_cleanup(struct rt_i *UNUSED(rtip))
  */
 void draw_pixel(const double x, const double y, const RGBpixel pixel)
 {
-    if (fbp != FB_NULL) {
-        (void)fb_write(fbp, x, y, pixel, 1);
+    if (fbp != RT_FB_NULL_VAL) {
+        (void)rt_fb_write(fbp, x, y, pixel, 1);
     }
     else if (bif) {
 	RGBpixel ptmp;
