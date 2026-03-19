@@ -281,6 +281,32 @@ lint_worker_data::shoot(int ind, bool reverse)
     if (bad_faces && bad_faces->find(curr_tri) != bad_faces->end())
 	return;
 
+    // Skip triangles too thin for reliable ray-triangle intersection math.
+    // Compute minimum altitude = 2*area / longest_edge.  If the minimum
+    // altitude is smaller than the backout displacement (SQRT_SMALL_FASTF)
+    // the ray origin cannot be meaningfully placed off the surface and
+    // intersection results are unreliable -- a miss would be a false failure.
+    {
+	const double *p0 = &bot->vertices[bot->faces[ind*3+0]*3];
+	const double *p1 = &bot->vertices[bot->faces[ind*3+1]*3];
+	const double *p2 = &bot->vertices[bot->faces[ind*3+2]*3];
+	vect_t e01, e12, e20, cross;
+	VSUB2(e01, p1, p0);
+	VSUB2(e12, p2, p1);
+	VSUB2(e20, p0, p2);
+	VCROSS(cross, e01, e12);
+	double area2 = MAGNITUDE(cross);  /* 2 * triangle area */
+	double l01 = MAGNITUDE(e01);
+	double l12 = MAGNITUDE(e12);
+	double l20 = MAGNITUDE(e20);
+	double max_edge = l01;
+	if (l12 > max_edge) max_edge = l12;
+	if (l20 > max_edge) max_edge = l20;
+	/* min altitude = area2 / max_edge; skip if below backout threshold */
+	if (max_edge < SQRT_SMALL_FASTF || area2 / max_edge < SQRT_SMALL_FASTF)
+	    return;
+    }
+
     // Triangle passes filters, continue processing
     vect_t rnorm, n, backout;
     if (!bot_face_normal(&n, bot, ind))
@@ -419,7 +445,7 @@ bot_repair_lint(struct rt_bot_internal *bot)
      * Note that we are deliberately using onehit=1 for the miss test to check
      * the intersection behavior of the individual triangles */
     if (!bot_check(state, _hit_noop, _miss_err, 1, false, ncpus)) {
-	//bu_log("unexpected_miss\n");
+	bu_log("rt_bot_repair lint: unexpected miss\n");
 	ret = 1;
 	goto bot_lint_cleanup;
     }
@@ -428,7 +454,7 @@ bot_repair_lint(struct rt_bot_internal *bot)
      * Thin face pairings are a common artifact of coplanar faces in boolean
      * evaluations */
     if (!bot_check(state, _tc_hit, _miss_err, 0, false, ncpus)){
-	//bu_log("thin_volume\n");
+	bu_log("rt_bot_repair lint: thin volume\n");
 	ret = 2;
 	goto bot_lint_cleanup;
     }
@@ -437,7 +463,7 @@ bot_repair_lint(struct rt_bot_internal *bot)
      * When testing for faces that are too close to a given face, we need to
      * reverse the ray direction */
     if (!bot_check(state, _ck_up_hit, _miss_noop, 0, true, ncpus)){
-	//bu_log("close_face\n");
+	bu_log("rt_bot_repair lint: close face\n");
 	ret = 2;
 	goto bot_lint_cleanup;
     }
@@ -446,7 +472,7 @@ bot_repair_lint(struct rt_bot_internal *bot)
      * Checking for the case where we end up with a hit from a triangle other
      * than the one we derive the ray from. */
     if (!bot_check(state, _uh_hit, _miss_noop, 0, false, ncpus)){
-	//bu_log("unexpected_hit\n");
+	bu_log("rt_bot_repair lint: unexpected hit\n");
 	ret = 2;
 	goto bot_lint_cleanup;
     }
@@ -1007,7 +1033,11 @@ try_patch_repair(struct rt_bot_internal *bot, manifold::Manifold& gm_out)
 		    manifold::MeshGL gmm;
 		    gte_to_manifold(&gmm, vcompact, tcombined);
 		    manifold::Manifold gm(gmm);
-		    if (gm.Status() == manifold::Manifold::Error::NoError) {
+		    // Accept only a positive-volume result: negative volume means
+		    // the CDT triangles are wound opposite the surrounding mesh,
+		    // producing a geometrically inside-out solid that passes the
+		    // topological Manifold check but fails the raytracing lint test.
+		    if (gm.Status() == manifold::Manifold::Error::NoError && gm.Volume() >= 0) {
 			gm_out = gm;
 			return true;
 		    }
@@ -1055,6 +1085,8 @@ try_patch_repair(struct rt_bot_internal *bot, manifold::Manifold& gm_out)
     gte_to_manifold(&gmm, vnew, tnew);
     manifold::Manifold gm(gmm);
     if (gm.Status() != manifold::Manifold::Error::NoError)
+	return false;
+    if (gm.Volume() < 0)
 	return false;
 
     gm_out = gm;
@@ -1153,6 +1185,9 @@ rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct
     // Helper: attempt LSCM hole fill on (v, t) and check Manifold.
     // Returns true and writes the result Manifold into gm_out on success.
     // The area check (filled area >= original) guards against fill removing geometry.
+    // Volume must be non-negative: a negative-volume manifold is topologically
+    // valid but geometrically inside-out (all face normals inverted), which
+    // would fail the raytracing lint check with spurious unexpected-miss errors.
     auto try_fill = [&](std::vector<gte::Vector3<double>> v,
 			std::vector<std::array<int32_t, 3>> t,
 			double ref_area,
@@ -1166,15 +1201,80 @@ rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct
 	manifold::Manifold gm(gmm);
 	if (gm.Status() != manifold::Manifold::Error::NoError)
 	    return false;
+	if (gm.Volume() < 0)
+	    return false;
 	gm_out = gm;
 	return true;
     };
+
+    // --- Pass 0: remove purely-extra faces ---
+    //
+    // A "purely extra" face has ≥1 adj == -2 edge (it sits on a non-manifold
+    // edge shared by 3+ faces) AND ≥1 adj == -1 edge (it introduces an open
+    // boundary that would not exist without it).  These are spurious duplicate
+    // triangles — e.g. from FASTGEN4 duplicate CTRI records — whose removal
+    // alone resolves the non-manifold condition without any hole-filling.
+    //
+    // This must be attempted BEFORE the LSCM passes because MeshHoleFilling
+    // needs a clean open boundary to triangulate; purely-extra faces pollute
+    // the adjacency so no simple boundary can be found.
+    {
+	std::vector<int32_t> adj0;
+	gte::MeshRepair<double>::ConnectFacets(triangles, adj0);
+	bu_log("rt_bot_repair: pass 0 scan: %d faces\n", (int)triangles.size());
+
+	std::vector<std::array<int32_t, 3>> t_pruned;
+	t_pruned.reserve(triangles.size());
+	for (int f = 0; f < (int)triangles.size(); f++) {
+	    bool has_excess = false, has_open = false;
+	    for (int e = 0; e < 3; e++) {
+		int a = adj0[(size_t)f * 3 + (size_t)e];
+		if (a == -2) has_excess = true;
+		if (a == -1) has_open  = true;
+	    }
+	    if (has_excess || has_open)
+		bu_log("  f%d v(%d,%d,%d) adj=(%d,%d,%d) excess=%d open=%d\n",
+		       f, triangles[f][0], triangles[f][1], triangles[f][2],
+		       adj0[f*3+0], adj0[f*3+1], adj0[f*3+2],
+		       (int)has_excess, (int)has_open);
+	    if (!(has_excess && has_open))
+		t_pruned.push_back(triangles[f]);
+	}
+	bu_log("rt_bot_repair: pass 0: %d pruned to %d\n",
+	       (int)triangles.size(), (int)t_pruned.size());
+	}
+
+	if (t_pruned.size() < triangles.size()) {
+	    manifold::MeshGL gmm0;
+	    gte_to_manifold(&gmm0, vertices, t_pruned);
+	    manifold::Manifold gm0(gmm0);
+	    if (gm0.Status() == manifold::Manifold::Error::NoError && gm0.Volume() >= 0) {
+		bu_log("rt_bot_repair: pass 0 (remove excess faces) succeeded\n");
+		manifold::MeshGL omesh = gm0.GetMeshGL();
+		struct rt_bot_internal *nbot = manifold_to_bot(&omesh);
+		if (settings->strict) {
+		    int lint_ret = bot_repair_lint(nbot);
+		    if (lint_ret) {
+			bu_log("Error - new BoT does not pass lint test!\n");
+			rt_bot_internal_free(nbot);
+			BU_PUT(nbot, struct rt_bot_internal);
+			/* fall through to passes 1-3 */
+			goto pass1;
+		    }
+		}
+		*obot = nbot;
+		return 0;
+	    }
+	}
+    }
+pass1:
 
     // --- Pass 1: straightforward LSCM fill --------------------------------
     //
     // This handles the common case: holes with simple boundary loops.
     manifold::Manifold gmanifold;
     if (!try_fill(vertices, triangles, area, gmanifold)) {
+	bu_log("rt_bot_repair: pass 1 (LSCM fill) failed\n");
 
 	// --- Pass 2: SplitNonManifoldVertices then LSCM fill -----------------
 	//
@@ -1212,6 +1312,7 @@ rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct
 	gte::MeshRepair<double>::ReorientFacetsAntiMoebius(v2, t2, adj2);
 	gte::MeshRepair<double>::SplitNonManifoldVertices(v2, t2, adj2);
 	if (!try_fill(v2, t2, area, gmanifold)) {
+	    bu_log("rt_bot_repair: pass 2 (split+LSCM) failed\n");
 
 	    // --- Pass 3: Patch repair ---
 	    //
@@ -1234,6 +1335,7 @@ rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct
     }
 
     // Output is manifold, make a new bot
+    bu_log("rt_bot_repair: gmanifold volume=%.6g\n", gmanifold.Volume());
     manifold::MeshGL omesh = gmanifold.GetMeshGL();
     struct rt_bot_internal *nbot = manifold_to_bot(&omesh);
 
