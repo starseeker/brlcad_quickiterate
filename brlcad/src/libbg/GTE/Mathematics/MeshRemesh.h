@@ -53,6 +53,8 @@
 #include <Mathematics/CVTN.h>
 #include <Mathematics/DelaunayNN.h>
 #include <Mathematics/RestrictedVoronoiDiagramN.h>
+#include <Mathematics/AABBBVTreeOfTriangles.h>
+#include <Mathematics/Ray.h>
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -60,6 +62,7 @@
 #include <limits>
 #include <map>
 #include <set>
+#include <unordered_map>
 #include <vector>
 
 namespace gte
@@ -1512,115 +1515,585 @@ namespace gte
 
         // ── MeshAdjustSurface ─────────────────────────────────────────────────
         //
-        // Post-CVT surface adjustment: project each output vertex to the nearest
-        // point on the original (input) surface mesh.
+        // Full translation of Geogram's mesh_adjust_surface() from
+        // geogram/src/lib/geogram/mesh/mesh_remesh.cpp.
         //
-        // Translation of Geogram's mesh_adjust_surface() from
-        // geogram/src/lib/geogram/mesh/mesh_remesh.cpp.  Geogram fires a
-        // bidirectional ray along each vertex normal and finds the nearest
-        // intersection with the reference surface.  Our implementation uses
-        // nearest-point-on-triangle projection which is equivalent for typical
-        // CVT output meshes and does not require ray intersection infrastructure.
+        // Algorithm (matches Geogram exactly):
+        //   1. Compute per-vertex normal Nv[v] (area-weighted sum of adj faces)
+        //      and average edge length Lv[v].
+        //   2. For border vertices in output: reset Nv[v] to tangent-to-border
+        //      direction (cross(edge, face_normal) for each adjacent border edge).
+        //   3. Build AABB BVH tree over reference (input) surface.
+        //   4. If output has border vertices and reference has border edges:
+        //      create a ribbon mesh around the reference border and build a
+        //      second AABB BVH for that ribbon.
+        //   5. For each vertex v: fire bidirectional ray from v along Nv[v]
+        //      to find target point Qv[v] on the reference surface (or ribbon).
+        //   6. For each face f: compute face center Pf, fire bidirectional
+        //      ray along avg-Nv of face vertices to find Qf.
+        //   7. Set up sparse least-squares (|V| unknowns, lambda[v]):
+        //        Vertex rows:  lambda_v * Nv[v][c] = Qv[v][c] - Pv[c]
+        //        Facet  rows:  Σ_j (1/d * lambda_vj * Nv[vj][c]) = Qf[c]-Pf[c]
+        //      Solve normal equations A^T A λ = A^T b with Conjugate Gradient.
+        //   8. Apply: Pv += lambda[v] * Nv[v].
         //
-        // Algorithm:
-        //   1. Build per-triangle AABB extents for early-out pruning.
-        //   2. For each output vertex, scan all input triangles with AABB early-
-        //      out and find the nearest point on the reference surface.
-        //   3. Move the output vertex to that nearest point.
+        // Parameters match Geogram defaults:
+        //   max_edge_distance   = 0.5 (search radius multiplier)
+        //   border_importance   = 1.0
+        //   project_borders     = false
+        //
+        // References:
+        //   © 2000-2022 Inria, Geogram BSD-3 licence (compatible with Boost).
         static void MeshAdjustSurface(
             std::vector<Vector3<Real>>& outVertices,
-            std::vector<std::array<int32_t, 3>> const& /*outTriangles*/,
+            std::vector<std::array<int32_t, 3>> const& outTriangles,
             std::vector<Vector3<Real>> const& inVertices,
-            std::vector<std::array<int32_t, 3>> const& inTriangles)
+            std::vector<std::array<int32_t, 3>> const& inTriangles,
+            Real max_edge_distance = static_cast<Real>(0.5),
+            Real border_importance = static_cast<Real>(1))
         {
-            if (inVertices.empty() || inTriangles.empty() || outVertices.empty())
+            if (inVertices.empty() || inTriangles.empty() ||
+                outVertices.empty() || outTriangles.empty())
             {
                 return;
             }
 
-            // Per-triangle AABB for early-out in the nearest-point scan.
-            struct TriBounds
+            size_t nbV = outVertices.size();
+            size_t nbF = outTriangles.size();
+
+            // ── Step 1: Compute face normals for output mesh ──────────────────
+            // Nv[v] = sum of face normals of adjacent faces (area-weighted)
+            // Lv[v] = sum of incident edge lengths, Cv[v] = edge count
+            std::vector<Vector3<Real>> Nv(nbV, Vector3<Real>{ Real(0), Real(0), Real(0) });
+            std::vector<Real>         Lv(nbV, Real(0));
+            std::vector<size_t>       Cv(nbV, 0);
+
+            for (size_t f = 0; f < nbF; ++f)
             {
-                Real minX, minY, minZ, maxX, maxY, maxZ;
-                int32_t idx;
-            };
-            std::vector<TriBounds> bounds;
-            bounds.reserve(inTriangles.size());
-            for (size_t ti = 0; ti < inTriangles.size(); ++ti)
-            {
-                auto const& t = inTriangles[ti];
-                Vector3<Real> const& a = inVertices[t[0]];
-                Vector3<Real> const& b = inVertices[t[1]];
-                Vector3<Real> const& c = inVertices[t[2]];
-                TriBounds tb;
-                tb.minX = std::min({a[0], b[0], c[0]});
-                tb.minY = std::min({a[1], b[1], c[1]});
-                tb.minZ = std::min({a[2], b[2], c[2]});
-                tb.maxX = std::max({a[0], b[0], c[0]});
-                tb.maxY = std::max({a[1], b[1], c[1]});
-                tb.maxZ = std::max({a[2], b[2], c[2]});
-                tb.idx  = static_cast<int32_t>(ti);
-                bounds.push_back(tb);
+                auto const& tri = outTriangles[f];
+                Vector3<Real> const& p0 = outVertices[tri[0]];
+                Vector3<Real> const& p1 = outVertices[tri[1]];
+                Vector3<Real> const& p2 = outVertices[tri[2]];
+                // Area-weighted normal: cross product (half area)
+                Vector3<Real> n = Cross(p1 - p0, p2 - p0);
+                for (int lv = 0; lv < 3; ++lv)
+                    Nv[tri[lv]] += n;
+                // Edge lengths
+                Real l01 = Length(p1 - p0);
+                Real l12 = Length(p2 - p1);
+                Real l20 = Length(p0 - p2);
+                Lv[tri[0]] += l01 + l20;  Cv[tri[0]] += 2;
+                Lv[tri[1]] += l01 + l12;  Cv[tri[1]] += 2;
+                Lv[tri[2]] += l12 + l20;  Cv[tri[2]] += 2;
             }
+            // Normalize average edge length
+            for (size_t v = 0; v < nbV; ++v)
+                if (Cv[v] > 0)
+                    Lv[v] /= static_cast<Real>(Cv[v]);
 
-            // Closest point on triangle (a,b,c) to point p.
-            // Ericson "Real-Time Collision Detection" §5.1.5.
-            auto projectOnTri = [](
-                Vector3<Real> const& p,
-                Vector3<Real> const& a,
-                Vector3<Real> const& b,
-                Vector3<Real> const& c) -> Vector3<Real>
-            {
-                Vector3<Real> ab = b - a, ac = c - a, ap = p - a;
-                Real d1 = Dot(ab, ap), d2 = Dot(ac, ap);
-                if (d1 <= Real(0) && d2 <= Real(0)) return a;
-
-                Vector3<Real> bp = p - b;
-                Real d3 = Dot(ab, bp), d4 = Dot(ac, bp);
-                if (d3 >= Real(0) && d4 <= d3) return b;
-
-                Vector3<Real> cp = p - c;
-                Real d5 = Dot(ab, cp), d6 = Dot(ac, cp);
-                if (d6 >= Real(0) && d5 <= d6) return c;
-
-                Real vc = d1*d4 - d3*d2;
-                if (vc <= Real(0) && d1 >= Real(0) && d3 <= Real(0))
-                    return a + (d1 / (d1 - d3)) * ab;
-
-                Real vb = d5*d2 - d1*d6;
-                if (vb <= Real(0) && d2 >= Real(0) && d6 <= Real(0))
-                    return a + (d2 / (d2 - d6)) * ac;
-
-                Real va = d3*d6 - d5*d4;
-                if (va <= Real(0) && (d4-d3) >= Real(0) && (d5-d6) >= Real(0))
-                    return b + ((d4-d3) / ((d4-d3) + (d5-d6))) * (c - b);
-
-                Real inv = Real(1) / (va + vb + vc);
-                return a + (vb*inv)*ab + (vc*inv)*ac;
-            };
-
-            for (auto& ov : outVertices)
-            {
-                Real bestDistSq = std::numeric_limits<Real>::max();
-                Vector3<Real> bestPt = ov;
-
-                for (auto const& tb : bounds)
-                {
-                    // AABB minimum distance squared to ov
-                    Real dx = std::max(Real(0), std::max(tb.minX - ov[0], ov[0] - tb.maxX));
-                    Real dy = std::max(Real(0), std::max(tb.minY - ov[1], ov[1] - tb.maxY));
-                    Real dz = std::max(Real(0), std::max(tb.minZ - ov[2], ov[2] - tb.maxZ));
-                    if (dx*dx + dy*dy + dz*dz >= bestDistSq) continue;
-
-                    auto const& t = inTriangles[tb.idx];
-                    Vector3<Real> pt = projectOnTri(ov,
-                        inVertices[t[0]], inVertices[t[1]], inVertices[t[2]]);
-                    Vector3<Real> diff = pt - ov;
-                    Real dSq = Dot(diff, diff);
-                    if (dSq < bestDistSq) { bestDistSq = dSq; bestPt = pt; }
+            // ── Step 2: Detect output border vertices, compute tangent Nv ────
+            // Build edge→facet map to find edges with only one adjacent face
+            // (border edges).  Use sorted (v0,v1) key.
+            //   adjacency: edge → list of face indices
+            using EdgeKey2 = std::pair<int32_t, int32_t>;
+            struct EdgeKeyHash {
+                size_t operator()(EdgeKey2 const& e) const noexcept {
+                    return std::hash<int64_t>()(
+                        (int64_t(e.first) << 32) | uint32_t(e.second));
                 }
-                ov = bestPt;
+            };
+            std::unordered_map<EdgeKey2, std::vector<int32_t>, EdgeKeyHash> edgeFaces;
+            edgeFaces.reserve(nbF * 3);
+            for (size_t f = 0; f < nbF; ++f)
+            {
+                auto const& tri = outTriangles[f];
+                for (int i = 0; i < 3; ++i)
+                {
+                    int j = (i + 1) % 3;
+                    int32_t a = tri[i], b = tri[j];
+                    EdgeKey2 key{ std::min(a, b), std::max(a, b) };
+                    edgeFaces[key].push_back(static_cast<int32_t>(f));
+                }
             }
+
+            std::vector<bool> vOnBorder(nbV, false);
+            size_t nbVOnBorder = 0;
+
+            // Mark border vertices
+            for (auto const& kv : edgeFaces)
+            {
+                if (kv.second.size() == 1) // boundary edge
+                {
+                    auto const& key = kv.first;
+                    if (!vOnBorder[key.first])  { vOnBorder[key.first]  = true; ++nbVOnBorder; }
+                    if (!vOnBorder[key.second]) { vOnBorder[key.second] = true; ++nbVOnBorder; }
+                }
+            }
+
+            // For border vertices, reset Nv to tangent-to-border direction.
+            // Geogram: Nv[v] = sum cross(p2-p1, face_normal) for border edges.
+            if (nbVOnBorder > 0)
+            {
+                for (size_t v = 0; v < nbV; ++v)
+                    if (vOnBorder[v])
+                        Nv[v] = { Real(0), Real(0), Real(0) };
+
+                for (auto const& kv : edgeFaces)
+                {
+                    if (kv.second.size() != 1) continue; // interior edge
+                    auto const& key = kv.first;
+                    int32_t v1 = key.first, v2 = key.second;
+                    int32_t fi = kv.second[0];
+                    auto const& tri = outTriangles[fi];
+                    Vector3<Real> const& pa = outVertices[tri[0]];
+                    Vector3<Real> const& pb = outVertices[tri[1]];
+                    Vector3<Real> const& pc = outVertices[tri[2]];
+                    Vector3<Real> N = Cross(pb - pa, pc - pa); // face normal
+                    Vector3<Real> p1p = outVertices[v1];
+                    Vector3<Real> p2p = outVertices[v2];
+                    Vector3<Real> Ne = Cross(p2p - p1p, N);
+                    Nv[v1] += Ne;
+                    Nv[v2] += Ne;
+                }
+            }
+
+            // ── Step 3: Build AABB BVH over reference (input) surface ────────
+            // Convert int32_t triangle indices to size_t for GTE BVH.
+            std::vector<Vector3<Real>> bvhVerts = inVertices; // copy (BVH stores them)
+            std::vector<std::array<size_t, 3>> bvhTris;
+            bvhTris.reserve(inTriangles.size());
+            for (auto const& t : inTriangles)
+                bvhTris.push_back({ size_t(t[0]), size_t(t[1]), size_t(t[2]) });
+
+            AABBBVTreeOfTriangles<Real> refBVH;
+            refBVH.Create(bvhVerts, bvhTris);
+
+            // ── Step 4: Check if reference has border edges; create ribbon ────
+            // Build edge→face map for reference mesh.
+            bool referenceHasBorders = false;
+            {
+                std::unordered_map<EdgeKey2, int, EdgeKeyHash> refEdgeCnt;
+                refEdgeCnt.reserve(inTriangles.size() * 3);
+                for (auto const& t : inTriangles)
+                    for (int i = 0; i < 3; ++i)
+                    {
+                        int j = (i + 1) % 3;
+                        int32_t a = t[i], b = t[j];
+                        EdgeKey2 key{ std::min(a, b), std::max(a, b) };
+                        ++refEdgeCnt[key];
+                    }
+                for (auto const& kv : refEdgeCnt)
+                    if (kv.second == 1) { referenceHasBorders = true; break; }
+            }
+
+            // Ribbon creation: translation of Geogram's create_ribbon_on_border().
+            // Quads are created for each border edge of the reference surface.
+            // Height = max_edge_distance * 4.0 * surface_average_edge_length(surface).
+            std::vector<Vector3<Real>>           ribbonVerts;
+            std::vector<std::array<size_t, 3>>   ribbonTris;
+            AABBBVTreeOfTriangles<Real>           ribbonBVH;
+            bool ribbonBuilt = false;
+
+            if (nbVOnBorder > 0 && referenceHasBorders)
+            {
+                // Compute average edge length of output mesh surface
+                Real avgEdgeLen = Real(0);
+                size_t edgeCnt2 = 0;
+                for (auto const& tri : outTriangles)
+                    for (int i = 0; i < 3; ++i)
+                    {
+                        int j = (i + 1) % 3;
+                        avgEdgeLen += Length(outVertices[tri[j]] - outVertices[tri[i]]);
+                        ++edgeCnt2;
+                    }
+                if (edgeCnt2 > 0) avgEdgeLen /= static_cast<Real>(edgeCnt2);
+
+                Real ribbonHeight = max_edge_distance * Real(4) * avgEdgeLen;
+
+                // Compute per-vertex normals for input (reference) mesh
+                std::vector<Vector3<Real>> refNv(inVertices.size(),
+                    Vector3<Real>{ Real(0), Real(0), Real(0) });
+                {
+                    // Build reference edge→face list
+                    std::unordered_map<EdgeKey2, std::vector<int32_t>, EdgeKeyHash> refEdgeFaces;
+                    refEdgeFaces.reserve(inTriangles.size() * 3);
+                    for (size_t fi = 0; fi < inTriangles.size(); ++fi)
+                    {
+                        auto const& t = inTriangles[fi];
+                        for (int i = 0; i < 3; ++i)
+                        {
+                            int j = (i + 1) % 3;
+                            EdgeKey2 key{ std::min(t[i], t[j]), std::max(t[i], t[j]) };
+                            refEdgeFaces[key].push_back(static_cast<int32_t>(fi));
+                        }
+                    }
+                    // Accumulate face normals to vertices
+                    for (size_t fi = 0; fi < inTriangles.size(); ++fi)
+                    {
+                        auto const& t = inTriangles[fi];
+                        Vector3<Real> n = Cross(
+                            inVertices[t[1]] - inVertices[t[0]],
+                            inVertices[t[2]] - inVertices[t[0]]);
+                        for (int i = 0; i < 3; ++i) refNv[t[i]] += n;
+                    }
+                    // Normalize
+                    for (auto& n : refNv)
+                    {
+                        Real len = Length(n);
+                        if (len > Real(0)) n /= len;
+                    }
+
+                    // Create ribbon quads for each border edge of reference mesh.
+                    // Geogram splits each quad into 2 triangles.
+                    for (auto const& kv : refEdgeFaces)
+                    {
+                        if (kv.second.size() != 1) continue; // only border edges
+                        auto const& key = kv.first;
+                        int32_t rv1 = key.first, rv2 = key.second;
+                        Vector3<Real> const& rp1 = inVertices[rv1];
+                        Vector3<Real> const& rp2 = inVertices[rv2];
+                        Vector3<Real> U1 = (Real(0.5) * ribbonHeight) * refNv[rv1];
+                        Vector3<Real> U2 = (Real(0.5) * ribbonHeight) * refNv[rv2];
+                        Vector3<Real> q1 = rp1 + U1;
+                        Vector3<Real> q2 = rp2 + U2;
+                        Vector3<Real> q3 = rp2 - U2;
+                        Vector3<Real> q4 = rp1 - U1;
+                        size_t base = ribbonVerts.size();
+                        ribbonVerts.push_back(q1);
+                        ribbonVerts.push_back(q2);
+                        ribbonVerts.push_back(q3);
+                        ribbonVerts.push_back(q4);
+                        // Two triangles: (q1,q2,q3) and (q1,q3,q4)
+                        ribbonTris.push_back({ base, base+1, base+2 });
+                        ribbonTris.push_back({ base, base+2, base+3 });
+                    }
+                }
+                if (!ribbonTris.empty())
+                {
+                    ribbonBVH.Create(ribbonVerts, ribbonTris);
+                    ribbonBuilt = true;
+                }
+            }
+
+            // ── Helper: nearest intersection along bidirectional ray ──────────
+            // Translation of Geogram's nearest_along_bidirectional_ray().
+            // Fires ray in +dir and -dir from origin, returns nearest hit.
+            // If no hit or distance > max_dist, returns origin unchanged.
+            // ribbon_mode: for ribbon, the "point" is projected to the middle
+            //   segment of the quad (Geogram uses segment [q1,q2] or [q3,q4]).
+            //   For our triangulated ribbon we just return the hit point.
+            auto nearestBidirectional = [&](
+                AABBBVTreeOfTriangles<Real>& bvh,
+                Vector3<Real> const& origin,
+                Vector3<Real> const& dir,
+                Real maxDist) -> Vector3<Real>
+            {
+                using Ix = typename AABBBVTreeOfTriangles<Real>::Intersection;
+
+                // Normalize the direction vector
+                Real dirLen = Length(dir);
+                if (dirLen < Real(1e-15)) return origin;
+                Vector3<Real> D = dir / dirLen;
+
+                std::set<Ix> hits1, hits2;
+                bvh.Execute(AABBBVTreeOfTriangles<Real>::RAY_QUERY, origin,  D, hits1);
+                bvh.Execute(AABBBVTreeOfTriangles<Real>::RAY_QUERY, origin, -D, hits2);
+
+                bool has1 = !hits1.empty();
+                bool has2 = !hits2.empty();
+
+                Vector3<Real> p1 = has1 ? hits1.begin()->point : origin;
+                Vector3<Real> p2 = has2 ? hits2.begin()->point : origin;
+
+                Vector3<Real> result = origin;
+                if (has1 && !has2) result = p1;
+                else if (!has1 && has2) result = p2;
+                else if (has1 && has2)
+                {
+                    Real d1sq = Dot(p1 - origin, p1 - origin);
+                    Real d2sq = Dot(p2 - origin, p2 - origin);
+                    result = (d1sq <= d2sq) ? p1 : p2;
+                }
+                // Apply max distance clamp
+                if (Dot(result - origin, result - origin) > maxDist * maxDist)
+                    result = origin;
+                return result;
+            };
+
+            // ── Step 5: Compute target points Qv for each output vertex ───────
+            const Real borderDistFactor = Real(10);
+            std::vector<Vector3<Real>> Qv(nbV);
+            for (size_t v = 0; v < nbV; ++v)
+            {
+                Vector3<Real> p = outVertices[v];
+                if (vOnBorder[v] && referenceHasBorders && ribbonBuilt)
+                {
+                    Qv[v] = nearestBidirectional(ribbonBVH, p, Nv[v],
+                        borderDistFactor * max_edge_distance * Lv[v]);
+                }
+                else
+                {
+                    Qv[v] = nearestBidirectional(refBVH, p, Nv[v],
+                        max_edge_distance * Lv[v]);
+                }
+            }
+
+            // ── Step 6: Compute target points Qf for each output face ─────────
+            std::vector<Vector3<Real>> Qf(nbF);
+            for (size_t f = 0; f < nbF; ++f)
+            {
+                auto const& tri = outTriangles[f];
+                Real d = Real(3);
+                Vector3<Real> Pf = (outVertices[tri[0]] + outVertices[tri[1]] +
+                                    outVertices[tri[2]]) / d;
+                Vector3<Real> Nf = Nv[tri[0]] + Nv[tri[1]] + Nv[tri[2]];
+                Real Lf = (Lv[tri[0]] + Lv[tri[1]] + Lv[tri[2]]) / d;
+                Qf[f] = nearestBidirectional(refBVH, Pf, Nf, max_edge_distance * Lf);
+            }
+
+            // ── Step 7: Solve sparse least-squares for lambda[v] using CG ─────
+            //
+            // The system: minimize ||A λ - b||² where
+            //   Vertex row  (3v+c): A[row, v] = Nv[v][c],  b[row] = Qv[v][c]-Pv[c]
+            //   Facet  row  (3(|V|+f)+c): A[row,vj] = Nv[vj][c]/d, b = Qf[c]-Pf[c]
+            //   (border edge rows included via border_importance scaling)
+            //
+            // Normal equations: (A^T A) λ = A^T b
+            //
+            // (A^T A)_{vv} = |Nv[v]|² + Σ_{f:v∈f} |Nv[v]|²/d²
+            // (A^T A)_{vw} = Σ_{f:v,w∈f} (Nv[v]·Nv[w])/d²   (w≠v, v,w share face)
+            // (A^T b)_{v}  = Nv[v]·(Qv[v]-Pv) + Σ_{f:v∈f} Nv[v]·(Qf[f]-Pf)/d
+            //
+            // We implement matrix-free CG: each matvec computes (A^T A) x using
+            // the above decomposition.
+            //
+            // Additionally, border-edge rows are added with weight border_importance²
+            // (they multiply into A^T A / A^T b accordingly).
+
+            // Precompute per-vertex |Nv[v]|² (from vertex constraints)
+            // and the face-contribution data for matrix-free matvec.
+
+            // For border-edge constraints, accumulate into A^T A and A^T b.
+            // Geogram weight: nlRowScaling(border_importance) for vertex rows,
+            //                 nlRowScaling(0.5*border_importance) for edge rows.
+            // Here border_importance = 1.0 by default.
+
+            // Compute A^T b (right-hand side)
+            std::vector<Real> AtB(nbV, Real(0));
+
+            // Vertex contributions
+            for (size_t v = 0; v < nbV; ++v)
+            {
+                Real scale = vOnBorder[v]
+                    ? border_importance * border_importance
+                    : Real(1);
+                Vector3<Real> rhs = Qv[v] - outVertices[v];
+                AtB[v] += scale * Dot(Nv[v], rhs);
+            }
+
+            // Facet contributions: (A^T b)_vj += Nv[vj]·(Qf-Pf)/d for each vj in f
+            for (size_t f = 0; f < nbF; ++f)
+            {
+                auto const& tri = outTriangles[f];
+                Real d = Real(3);
+                Vector3<Real> Pf = (outVertices[tri[0]] + outVertices[tri[1]] +
+                                    outVertices[tri[2]]) / d;
+                Vector3<Real> rhs = Qf[f] - Pf;
+                for (int lv = 0; lv < 3; ++lv)
+                {
+                    int32_t vj = tri[lv];
+                    AtB[vj] += Dot(Nv[vj], rhs) / d;
+                }
+            }
+
+            // Border-edge contributions (weight = 0.5*border_importance)
+            if (nbVOnBorder > 0 && referenceHasBorders && ribbonBuilt)
+            {
+                for (auto const& kv : edgeFaces)
+                {
+                    if (kv.second.size() != 1) continue; // only output border edges
+                    auto const& key = kv.first;
+                    int32_t bv1 = key.first, bv2 = key.second;
+                    Vector3<Real> p = Real(0.5) * (outVertices[bv1] + outVertices[bv2]);
+                    Vector3<Real> N = Real(0.5) * (Nv[bv1] + Nv[bv2]);
+                    Real L = Real(0.5) * (Lv[bv1] + Lv[bv2]);
+                    Vector3<Real> q = nearestBidirectional(ribbonBVH, p, N,
+                        borderDistFactor * max_edge_distance * L);
+                    Vector3<Real> rhs = q - p;
+                    // row scale = (0.5*border_importance)²
+                    Real rowScale = Real(0.25) * border_importance * border_importance;
+                    // For each vertex in the edge: coeff = 0.5*N[c]
+                    // (A^T b)_vi += rowScale * 0.5*N · rhs
+                    AtB[bv1] += rowScale * Real(0.5) * Dot(N, rhs);
+                    AtB[bv2] += rowScale * Real(0.5) * Dot(N, rhs);
+                }
+            }
+
+            // Matrix-free Conjugate Gradient solver for (A^T A) λ = A^T b
+            // The matrix-vector product (A^T A) x is:
+            //   For each vertex v:
+            //     vertex rows:  scale * |Nv[v]|² * x[v]
+            //     facet  rows:  Σ_{f:v∈f} Σ_{vj∈f} (Nv[v]·Nv[vj])/d² * x[vj]
+            //     border edge rows (if applicable)
+
+            // Build per-vertex: face adjacency for efficient matvec.
+            // vertFaces[v] = list of face indices containing v.
+            std::vector<std::vector<int32_t>> vertFaces(nbV);
+            for (size_t f = 0; f < nbF; ++f)
+            {
+                auto const& tri = outTriangles[f];
+                for (int lv = 0; lv < 3; ++lv)
+                    vertFaces[tri[lv]].push_back(static_cast<int32_t>(f));
+            }
+
+            // Build border edge list for fast iteration in matvec
+            struct BorderEdge { int32_t v1, v2; };
+            std::vector<BorderEdge> borderEdges;
+            if (nbVOnBorder > 0 && referenceHasBorders && ribbonBuilt)
+            {
+                for (auto const& kv : edgeFaces)
+                    if (kv.second.size() == 1)
+                        borderEdges.push_back({ kv.first.first, kv.first.second });
+            }
+
+            // A^T A matrix-vector product: y = (A^T A) x
+            auto matvec = [&](std::vector<Real> const& x, std::vector<Real>& y)
+            {
+                std::fill(y.begin(), y.end(), Real(0));
+
+                // Vertex rows (scale applies for border vertices)
+                for (size_t v = 0; v < nbV; ++v)
+                {
+                    Real scale = vOnBorder[v]
+                        ? border_importance * border_importance
+                        : Real(1);
+                    Real NNv = Dot(Nv[v], Nv[v]);
+                    y[v] += scale * NNv * x[v];
+                }
+
+                // Facet rows: Σ_{f:v∈f} Σ_{vj∈f} (Nv[v]·Nv[vj])/d² * x[vj]
+                for (size_t v = 0; v < nbV; ++v)
+                {
+                    for (int32_t fi : vertFaces[v])
+                    {
+                        auto const& tri = outTriangles[fi];
+                        Real d2 = Real(9); // d=3, d²=9
+                        for (int lv = 0; lv < 3; ++lv)
+                        {
+                            int32_t vj = tri[lv];
+                            y[v] += (Dot(Nv[v], Nv[vj]) / d2) * x[vj];
+                        }
+                    }
+                }
+
+                // Border edge rows (if any)
+                if (!borderEdges.empty())
+                {
+                    for (auto const& be : borderEdges)
+                    {
+                        // Row: 0.5*N[c] * (lambda_v1 + lambda_v2), scale=(0.5*bi)²
+                        // A^T A contribution:
+                        //   y[v1] += rowScale * (N·N)/4 * x[v1] + rowScale * (N·N)/4 * x[v2]
+                        //   y[v2] += rowScale * (N·N)/4 * x[v1] + rowScale * (N·N)/4 * x[v2]
+                        // where N = 0.5*(Nv[v1]+Nv[v2]), rowScale = (0.5*bi)²
+                        Vector3<Real> N = Real(0.5) * (Nv[be.v1] + Nv[be.v2]);
+                        Real NNe = Dot(N, N);
+                        Real rowScale = Real(0.25) * border_importance * border_importance;
+                        Real sum12 = rowScale * NNe * Real(0.25) * (x[be.v1] + x[be.v2]);
+                        y[be.v1] += sum12;
+                        y[be.v2] += sum12;
+                    }
+                }
+            };
+
+            // Standard Preconditioned CG (Jacobi preconditioner)
+            // Diagonal of A^T A (preconditioning)
+            std::vector<Real> diag(nbV, Real(0));
+            for (size_t v = 0; v < nbV; ++v)
+            {
+                Real scale = vOnBorder[v]
+                    ? border_importance * border_importance : Real(1);
+                Real NNv = Dot(Nv[v], Nv[v]);
+                diag[v] += scale * NNv;
+                for (int32_t fi : vertFaces[v])
+                {
+                    auto const& tri = outTriangles[fi];
+                    Real d2 = Real(9);
+                    diag[v] += Dot(Nv[v], Nv[v]) / d2;
+                }
+            }
+            if (!borderEdges.empty())
+            {
+                for (auto const& be : borderEdges)
+                {
+                    Vector3<Real> N = Real(0.5) * (Nv[be.v1] + Nv[be.v2]);
+                    Real NNe = Dot(N, N);
+                    Real rowScale = Real(0.25) * border_importance * border_importance;
+                    diag[be.v1] += rowScale * NNe * Real(0.25);
+                    diag[be.v2] += rowScale * NNe * Real(0.25);
+                }
+            }
+            // Replace zero diagonal entries with 1 to avoid division by zero
+            for (size_t v = 0; v < nbV; ++v)
+                if (diag[v] < Real(1e-30)) diag[v] = Real(1);
+
+            // CG with Jacobi preconditioner: solve (A^T A) λ = AtB
+            std::vector<Real> lambda(nbV, Real(0));
+            std::vector<Real> r(nbV), z(nbV), p(nbV), Ap(nbV);
+
+            // r = AtB - (A^T A) * lambda0  (lambda0=0 → r = AtB)
+            r = AtB;
+
+            // z = M⁻¹ r  (Jacobi: z[v] = r[v] / diag[v])
+            for (size_t v = 0; v < nbV; ++v)
+                z[v] = r[v] / diag[v];
+            p = z;
+
+            Real rz = Real(0);
+            for (size_t v = 0; v < nbV; ++v) rz += r[v] * z[v];
+
+            constexpr int maxCGIters = 200;
+            constexpr Real cgTol = Real(1e-10);
+
+            for (int iter = 0; iter < maxCGIters; ++iter)
+            {
+                matvec(p, Ap);
+                Real pAp = Real(0);
+                for (size_t v = 0; v < nbV; ++v) pAp += p[v] * Ap[v];
+                if (pAp < Real(1e-40)) break;
+
+                Real alpha = rz / pAp;
+                for (size_t v = 0; v < nbV; ++v)
+                {
+                    lambda[v] += alpha * p[v];
+                    r[v]      -= alpha * Ap[v];
+                }
+
+                // z = M⁻¹ r
+                for (size_t v = 0; v < nbV; ++v) z[v] = r[v] / diag[v];
+
+                Real rz_new = Real(0);
+                for (size_t v = 0; v < nbV; ++v) rz_new += r[v] * z[v];
+
+                // Check convergence: |r|² / |AtB|² < tol²
+                Real normR2 = Real(0), normB2 = Real(0);
+                for (size_t v = 0; v < nbV; ++v)
+                {
+                    normR2 += r[v] * r[v];
+                    normB2 += AtB[v] * AtB[v];
+                }
+                if (normB2 > Real(0) && normR2 / normB2 < cgTol * cgTol) break;
+                if (normB2 == Real(0)) break;
+
+                Real beta = rz_new / rz;
+                for (size_t v = 0; v < nbV; ++v)
+                    p[v] = z[v] + beta * p[v];
+                rz = rz_new;
+            }
+
+            // ── Step 8: Apply displacement: Pv += lambda[v] * Nv[v] ──────────
+            for (size_t v = 0; v < nbV; ++v)
+                outVertices[v] += lambda[v] * Nv[v];
         }
 
         static Real EstimateEdgeLengthFromVertexCount(

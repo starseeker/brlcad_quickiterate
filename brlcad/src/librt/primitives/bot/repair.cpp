@@ -1242,7 +1242,6 @@ rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct
 	}
 	bu_log("rt_bot_repair: pass 0: %d pruned to %d\n",
 	       (int)triangles.size(), (int)t_pruned.size());
-	}
 
 	if (t_pruned.size() < triangles.size()) {
 	    manifold::MeshGL gmm0;
