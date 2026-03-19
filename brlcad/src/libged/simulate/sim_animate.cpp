@@ -55,18 +55,21 @@
 #include "bu/vls.h"
 #include "icv.h"
 
+#include "rt/calc.h"
+#include "rt/db_io.h"
 #include "ged.h"
 
 #include "sim_animate.hpp"
 
 
 /* ------------------------------------------------------------------ */
-/* RIFF/AVI MJPEG writer                                               */
+/* RIFF/AVI MJPEG writer (only needed when libjpeg is available)       */
 /* ------------------------------------------------------------------ */
 
 namespace
 {
 
+#ifdef HAVE_JPEGLIB_H
 
 /* Write a 4-byte little-endian uint32 to a file. */
 static void
@@ -274,6 +277,8 @@ write_mjpeg_avi(const std::vector<std::vector<unsigned char> > &frames,
     return BRLCAD_OK;
 }
 
+#endif /* HAVE_JPEGLIB_H */
+
 
 /* ------------------------------------------------------------------ */
 /* Camera mathematics                                                  */
@@ -452,18 +457,14 @@ SimAnimState::SimAnimState(const SimAnimOptions &opts,
     : m_opts(opts), m_gedp(gedp), m_scene_path(scene_path),
       m_frame_count(0)
 {
-    /* Create a temporary directory for PIX frames */
-    char tmpdir_buf[MAXPATHLEN];
-    bu_dir(tmpdir_buf, MAXPATHLEN, BU_DIR_TEMP, "sim_frames_XXXXXX", NULL);
-
-    if (!bu_temp_dir_make(tmpdir_buf)) {
-	m_tmpdir = std::string(tmpdir_buf);
-    } else {
-	/* Fallback: use the system temp dir with a fixed name */
-	bu_dir(tmpdir_buf, MAXPATHLEN, BU_DIR_TEMP, NULL);
-	m_tmpdir = std::string(tmpdir_buf) + "/sim_frames";
-	bu_mkdir(m_tmpdir.c_str());
-    }
+    /* Create a temporary directory for PIX frames, using the process ID
+     * to avoid collisions between concurrent runs. */
+    char tmpbase[MAXPATHLEN];
+    bu_dir(tmpbase, MAXPATHLEN, BU_DIR_TEMP, NULL);
+    std::ostringstream dss;
+    dss << std::string(tmpbase) << "/sim_frames_" << (long)bu_pid();
+    m_tmpdir = dss.str();
+    bu_mkdir(m_tmpdir.c_str());
 }
 
 
@@ -493,34 +494,25 @@ SimAnimState::framePixPath(int frame_num) const
 int
 SimAnimState::getSceneCenter(double center[3]) const
 {
-    /* Use the GED "bb -q" command to get the bounding box of the scene
-     * object, then take its midpoint as the center. */
-    const char *bb_argv[4];
-    bb_argv[0] = "bb";
-    bb_argv[1] = "-q";
-    bb_argv[2] = m_scene_path.c_str();
-    bb_argv[3] = NULL;
-
-    bu_vls_trunc(m_gedp->ged_result_str, 0);
-    if (ged_exec(m_gedp, 3, bb_argv) != BRLCAD_OK) {
-	/* Could not query; use origin */
+    /* Use rt_bound_internal to compute the axis-aligned bounding box
+     * of the scene object, then take its midpoint as the center. */
+    struct directory *dp = db_lookup(m_gedp->dbip,
+				     m_scene_path.c_str(), LOOKUP_QUIET);
+    if (!dp) {
 	center[0] = center[1] = center[2] = 0.0;
 	return BRLCAD_ERROR;
     }
 
-    /* The -q flag makes bb output: "xmin ymin zmin xmax ymax zmax" */
-    double x0, y0, z0, x1, y1, z1;
-    const char *res = bu_vls_addr(m_gedp->ged_result_str);
-    if (sscanf(res, "%lf %lf %lf %lf %lf %lf",
-	       &x0, &y0, &z0, &x1, &y1, &z1) == 6) {
-	center[0] = 0.5 * (x0 + x1);
-	center[1] = 0.5 * (y0 + y1);
-	center[2] = 0.5 * (z0 + z1);
-	return BRLCAD_OK;
+    point_t rpp_min, rpp_max;
+    if (rt_bound_internal(m_gedp->dbip, dp, rpp_min, rpp_max) < 0) {
+	center[0] = center[1] = center[2] = 0.0;
+	return BRLCAD_ERROR;
     }
 
-    center[0] = center[1] = center[2] = 0.0;
-    return BRLCAD_ERROR;
+    center[0] = 0.5 * (rpp_min[X] + rpp_max[X]);
+    center[1] = 0.5 * (rpp_min[Y] + rpp_max[Y]);
+    center[2] = 0.5 * (rpp_min[Z] + rpp_max[Z]);
+    return BRLCAD_OK;
 }
 
 
@@ -716,52 +708,22 @@ SimAnimState::readPixToJpeg(const std::string &pix_path,
 	return BRLCAD_ERROR;
     }
 
-    /* Encode to JPEG in memory using a temporary file */
-    char tmp_path[MAXPATHLEN];
-    bu_dir(tmp_path, MAXPATHLEN, BU_DIR_TEMP, "sim_frame_XXXXXX.jpg", NULL);
-    FILE *tmpfp = bu_temp_file(tmp_path, sizeof(tmp_path));
-    if (!tmpfp) {
+    /* Write JPEG to a named temporary file, then read the bytes back */
+    char tmp_jpg[MAXPATHLEN];
+    bu_dir(tmp_jpg, MAXPATHLEN, BU_DIR_TEMP, NULL);
+    std::ostringstream tss;
+    tss << std::string(tmp_jpg) << "/sim_jpgtmp_" << (long)bu_pid() << ".jpg";
+    std::string tmp_jpg_path = tss.str();
+
+    if (icv_write(img, tmp_jpg_path.c_str(), BU_MIME_IMAGE_JPEG) != BRLCAD_OK) {
 	icv_destroy(img);
 	return BRLCAD_ERROR;
     }
-
-    /* Use icv_write with JPEG format; quality 85 is the default in jpeg.c */
-    int ret = icv_write(img, NULL, BU_MIME_IMAGE_JPEG);
     icv_destroy(img);
 
-    if (ret != BRLCAD_OK) {
-	fclose(tmpfp);
-	bu_file_delete(tmp_path);
-	return BRLCAD_ERROR;
-    }
-
-    /* icv_write to NULL writes to stdout so we need a different approach.
-     * Use a named temp file via fopen and write directly. */
-    fclose(tmpfp);
-    bu_file_delete(tmp_path);
-
-    /* Re-open as named temp file */
-    FILE *jfp = bu_temp_file(tmp_path, sizeof(tmp_path));
-    if (!jfp)
-	return BRLCAD_ERROR;
-
-    /* Re-read img and write JPEG to the temp file */
-    img = icv_read(pix_path.c_str(), BU_MIME_IMAGE_PIX,
-		   (size_t)m_opts.width, (size_t)m_opts.height);
-    if (!img) {
-	fclose(jfp);
-	bu_file_delete(tmp_path);
-	return BRLCAD_ERROR;
-    }
-
-    icv_write(img, tmp_path, BU_MIME_IMAGE_JPEG);
-    icv_destroy(img);
-    fclose(jfp);
-
-    /* Read JPEG bytes from the temp file */
-    FILE *rfp = fopen(tmp_path, "rb");
+    FILE *rfp = fopen(tmp_jpg_path.c_str(), "rb");
     if (!rfp) {
-	bu_file_delete(tmp_path);
+	bu_file_delete(tmp_jpg_path.c_str());
 	return BRLCAD_ERROR;
     }
     fseek(rfp, 0, SEEK_END);
@@ -774,7 +736,7 @@ SimAnimState::readPixToJpeg(const std::string &pix_path,
 	    jpeg_data.clear();
     }
     fclose(rfp);
-    bu_file_delete(tmp_path);
+    bu_file_delete(tmp_jpg_path.c_str());
 
     return jpeg_data.empty() ? BRLCAD_ERROR : BRLCAD_OK;
 
