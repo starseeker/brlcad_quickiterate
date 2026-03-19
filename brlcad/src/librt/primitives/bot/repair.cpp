@@ -1057,7 +1057,10 @@ try_patch_repair(struct rt_bot_internal *bot, manifold::Manifold& gm_out)
 	    std::unordered_set<int32_t> sp;
 	    for (int f = 0; f < nf; f++)
 		if (face_lbl[(size_t)f] == ci) sp.insert((int32_t)f);
-	    if (sp.empty()) { ml_ok = false; break; }
+	    if (sp.empty()) {
+		bu_log("rt_bot_repair: per-loop CDT[%d]: sub-patch empty, failing\n", ci);
+		ml_ok = false; break;
+	    }
 
 	    const std::vector<int32_t>& sp_loop = lcomps[ci].loop;
 
@@ -1068,20 +1071,68 @@ try_patch_repair(struct rt_bot_internal *bot, manifold::Manifold& gm_out)
 		return nb >= 0 && sp.count(nb) > 0;
 	    };
 
-	    // Verify sub-patch boundary is exactly the expected loop.
-	    {
-		std::set<int32_t> sp_bv;
-		for (int f = 0; f < nf; f++) {
-		    if (sp.count((int32_t)f)) continue;
-		    for (int e = 0; e < 3; e++)
-			if (is_sp_bnd((int32_t)f, e)) {
-			    sp_bv.insert(tp[f][e]);
-			    sp_bv.insert(tp[f][(e+1)%3]);
-			}
+	    // Find all boundary loops of the sub-patch: one outer (= lcomps[ci].loop)
+	    // and zero or more inner holes (non-patch faces entirely surrounded by sp).
+	    // Build the sub-patch boundary edge graph.
+	    std::map<int32_t, std::vector<int32_t>> sp_bnd_nbrs;
+	    for (int f = 0; f < nf; f++) {
+		if (sp.count((int32_t)f)) continue;
+		for (int e = 0; e < 3; e++) {
+		    if (is_sp_bnd((int32_t)f, e)) {
+			int32_t va = tp[f][e], vb = tp[f][(e+1)%3];
+			auto& na = sp_bnd_nbrs[va];
+			if (std::find(na.begin(), na.end(), vb) == na.end())
+			    na.push_back(vb);
+			auto& nb = sp_bnd_nbrs[vb];
+			if (std::find(nb.begin(), nb.end(), va) == nb.end())
+			    nb.push_back(va);
+		    }
 		}
-		if (sp_bv.size() != lcomps[ci].verts.size())
-		    { ml_ok = false; break; }
 	    }
+	    // Enumerate connected components; classify as outer or inner loops.
+	    std::vector<std::vector<int32_t>> sp_inner_loops;
+	    {
+		std::unordered_set<int32_t> outer_set(
+		    lcomps[ci].verts.begin(), lcomps[ci].verts.end());
+		std::unordered_set<int32_t> sp_seen;
+		for (auto const& kv : sp_bnd_nbrs) {
+		    if (sp_seen.count(kv.first)) continue;
+		    // BFS: collect vertices of this component.
+		    std::vector<int32_t> comp_verts;
+		    bool is_outer = outer_set.count(kv.first) > 0;
+		    std::queue<int32_t> bq;
+		    bq.push(kv.first);
+		    while (!bq.empty()) {
+			int32_t v = bq.front(); bq.pop();
+			if (sp_seen.count(v)) continue;
+			sp_seen.insert(v);
+			comp_verts.push_back(v);
+			for (int32_t nb : sp_bnd_nbrs.at(v))
+			    if (!sp_seen.count(nb)) bq.push(nb);
+		    }
+		    if (is_outer) continue;  // outer loop, already have it
+		    // Walk this inner loop.
+		    std::vector<int32_t> inner_loop;
+		    {
+			int32_t start = comp_verts[0], cur = start, prev = -1;
+			do {
+			    inner_loop.push_back(cur);
+			    int32_t nxt = -1;
+			    for (int32_t nb : sp_bnd_nbrs.at(cur))
+				if (nb != prev) { nxt = nb; break; }
+			    if (nxt < 0) break;
+			    prev = cur; cur = nxt;
+			} while (cur != start);
+		    }
+		    if ((int)inner_loop.size() >= 3 &&
+			inner_loop.size() == comp_verts.size())
+			sp_inner_loops.push_back(std::move(inner_loop));
+		    // If the inner loop isn't simple, the sub-patch is too complex
+		    // for CDT — give up on this component.
+		    else { ml_ok = false; break; }
+		}
+	    }
+	    if (!ml_ok) break;
 
 	    // Build local vertex index for sub-patch.
 	    std::vector<int32_t> sp_vg;
@@ -1119,6 +1170,20 @@ try_patch_repair(struct rt_bot_internal *bot, manifold::Manifold& gm_out)
 	    sp_loop_loc.reserve(sp_loop.size());
 	    for (int32_t gv : sp_loop) sp_loop_loc.push_back(sp_g2l[(size_t)gv]);
 
+	    // Inner-loop vertices are on the sub-patch boundary but are not
+	    // pinned to the LSCM circle — treat them as interior LSCM points.
+	    if (!sp_inner_loops.empty()) {
+		std::unordered_set<int32_t> outer_loc_set(
+		    sp_loop_loc.begin(), sp_loop_loc.end());
+		std::unordered_set<int32_t> int_set(
+		    sp_int_loc.begin(), sp_int_loc.end());
+		for (int32_t loc : sp_bnd_loc)
+		    if (!outer_loc_set.count(loc) && !int_set.count(loc)) {
+			sp_int_loc.push_back(loc);
+			int_set.insert(loc);
+		    }
+	    }
+
 	    // LSCM parameterization.
 	    std::vector<gte::Vector2<double>> sp_uv;
 	    bool sp_lscm = false;
@@ -1138,7 +1203,7 @@ try_patch_repair(struct rt_bot_internal *bot, manifold::Manifold& gm_out)
 	    }
 	    if (!sp_lscm || sp_uv.empty()) { ml_ok = false; break; }
 
-	    // CDT via detria.
+	    // CDT via detria: outer polygon + inner hole constraints.
 	    std::vector<detria::PointD> sp_pts;
 	    sp_pts.reserve(sp_vg.size());
 	    for (auto const& uv : sp_uv) {
@@ -1149,6 +1214,13 @@ try_patch_repair(struct rt_bot_internal *bot, manifold::Manifold& gm_out)
 	    sp_dtri.setPoints(sp_pts);
 	    std::vector<int> sp_bnd_int(sp_loop_loc.begin(), sp_loop_loc.end());
 	    sp_dtri.addPolylineAutoDetectType(sp_bnd_int);
+	    // Add inner hole loops as additional constraints.
+	    for (auto const& il : sp_inner_loops) {
+		std::vector<int> inner_int;
+		inner_int.reserve(il.size());
+		for (int32_t gv : il) inner_int.push_back(sp_g2l[(size_t)gv]);
+		sp_dtri.addPolylineAutoDetectType(inner_int);
+	    }
 
 	    if (!sp_dtri.triangulate(true)) { ml_ok = false; break; }
 
