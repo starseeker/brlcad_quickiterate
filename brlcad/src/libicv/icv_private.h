@@ -50,6 +50,12 @@ extern int ppm_write(icv_image_t *bif, FILE *fp);
 ICV_EXPORT extern icv_image_t* rle_read(FILE *fp);
 ICV_EXPORT extern int rle_write(icv_image_t *bif, FILE *fp);
 
+/* defined in jpeg.c (only when HAVE_JPEGLIB_H is set) */
+#ifdef HAVE_JPEGLIB_H
+extern icv_image_t *jpeg_read(FILE *fp);
+extern int jpeg_write(icv_image_t *bif, FILE *fp, int quality);
+#endif
+
 #endif /* ICV_PRIVATE_H */
 
 /*

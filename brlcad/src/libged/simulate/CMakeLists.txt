@@ -49,13 +49,14 @@ set(
   rt_instance.cpp
   rt_motion_state.cpp
   rt_roi_collision_shape.cpp
+  sim_animate.cpp
   simulation.cpp
   utility.cpp
 )
 
 set(SIM_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/simulate)
 set(SIM_SYSTEM_INCLUDE_DIRS ${BULLET_INCLUDE_DIR})
-set(SIM_LIBS libged libbu libbv ${BULLET_LIBRARIES})
+set(SIM_LIBS libged libbu libbv libicv ${BULLET_LIBRARIES})
 
 ged_plugin_library(ged-simulate
   ${bullet_srcs}
@@ -75,6 +76,7 @@ cmakefiles(
   rt_instance.hpp
   rt_motion_state.hpp
   rt_roi_collision_shape.hpp
+  sim_animate.hpp
   simulation.hpp
   tests/CMakeLists.txt
   tests/simulate_test.cpp

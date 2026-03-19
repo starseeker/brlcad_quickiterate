@@ -59,6 +59,7 @@ icv_guess_file_format(const char *filename, struct bu_vls *trimmedname)
     CMP(BMP);
     CMP(BW);
     CMP(DPIX)
+    CMP(JPEG)
 #undef CMP
 
     /* no format header found, copy the name as it is */
@@ -74,6 +75,10 @@ icv_guess_file_format(const char *filename, struct bu_vls *trimmedname)
     CMP(BW, bw);
     CMP(DPIX, dpix);
 #undef CMP
+#define CMP2(name, ext1, ext2) if (!bu_strncmp(filename+strlen(filename)-strlen(#ext1)-1, "."#ext1, strlen(#ext1)+1) || \
+				    !bu_strncmp(filename+strlen(filename)-strlen(#ext2)-1, "."#ext2, strlen(#ext2)+1)) return BU_MIME_IMAGE_##name;
+    CMP2(JPEG, jpg, jpeg);
+#undef CMP2
     /* defaulting to PIX */
     return BU_MIME_IMAGE_PIX;
 }
@@ -113,6 +118,13 @@ icv_read(const char *filename, bu_mime_image_t format, size_t width, size_t heig
 	    break;
 	case BU_MIME_IMAGE_RLE :
 	    oimg = rle_read(fp);
+	    break;
+	case BU_MIME_IMAGE_JPEG :
+#ifdef HAVE_JPEGLIB_H
+	    oimg = jpeg_read(fp);
+#else
+	    bu_log("icv_read: JPEG support not compiled in\n");
+#endif
 	    break;
 	default:
 	    bu_log("icv_read not implemented for this format\n");
@@ -168,6 +180,14 @@ icv_write(icv_image_t *bif, const char *filename, bu_mime_image_t format)
 	    break;
 	case BU_MIME_IMAGE_RLE :
 	    ret = rle_write(bif, fp);
+	    break;
+	case BU_MIME_IMAGE_JPEG :
+#ifdef HAVE_JPEGLIB_H
+	    ret = jpeg_write(bif, fp, 85);
+#else
+	    bu_log("icv_write: JPEG support not compiled in\n");
+	    ret = BRLCAD_ERROR;
+#endif
 	    break;
 	default:
 	    ret = pix_write(bif, fp);
