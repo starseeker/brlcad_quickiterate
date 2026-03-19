@@ -844,6 +844,93 @@ try_patch_repair(struct rt_bot_internal *bot, manifold::Manifold& gm_out)
 		return false;
     }
 
+    // After the degree-2 growth pass the boundary may still consist of
+    // multiple disconnected simple loops (each vertex has degree 2, but there
+    // is no single cycle that visits all boundary vertices).  In that case the
+    // single-loop walk below captures only one small loop and the CDT/LSCM
+    // paths produce incorrect geometry.
+    //
+    // Fix: count connected components of the boundary graph.  While there are
+    // more than one, absorb all non-patch faces incident to any boundary
+    // vertex (bridging the gaps between loops), then re-run the degree-2
+    // simplicity repair so the boundary stays well-formed.  Repeat until a
+    // single loop is achieved or no further expansion is possible.
+    for (int ml_iter = 0; ml_iter < 50 && patch.size() < (size_t)nf; ml_iter++) {
+	// Build boundary neighbor graph.
+	std::map<int32_t, std::vector<int32_t>> ml_nbrs;
+	for (int f = 0; f < nf; f++) {
+	    if (patch.count((int32_t)f)) continue;
+	    for (int e = 0; e < 3; e++) {
+		if (is_hole_boundary((int32_t)f, e)) {
+		    int32_t va = tp[f][e], vb = tp[f][(e+1)%3];
+		    auto& na = ml_nbrs[va];
+		    if (std::find(na.begin(), na.end(), vb) == na.end())
+			na.push_back(vb);
+		    auto& nb = ml_nbrs[vb];
+		    if (std::find(nb.begin(), nb.end(), va) == nb.end())
+			nb.push_back(va);
+		}
+	    }
+	}
+	if (ml_nbrs.empty())
+	    break;
+
+	// BFS: count connected components of the boundary graph.
+	std::unordered_set<int32_t> visited;
+	int n_comps = 0;
+	for (auto const& kv : ml_nbrs) {
+	    if (visited.count(kv.first)) continue;
+	    n_comps++;
+	    std::queue<int32_t> bfsq;
+	    bfsq.push(kv.first);
+	    while (!bfsq.empty()) {
+		int32_t v = bfsq.front(); bfsq.pop();
+		if (visited.count(v)) continue;
+		visited.insert(v);
+		for (int32_t nb : ml_nbrs.at(v))
+		    if (!visited.count(nb)) bfsq.push(nb);
+	    }
+	}
+	if (n_comps <= 1)
+	    break;  // Single boundary loop — CDT/LSCM can proceed.
+
+	// Multiple loops: absorb all non-patch faces incident to any boundary
+	// vertex to bridge the gaps between the loops.
+	bool grew = false;
+	for (auto const& kv : ml_nbrs)
+	    for (int32_t f : vert_faces[(size_t)kv.first])
+		if (patch.count(f) == 0) { patch.insert(f); grew = true; }
+	if (!grew)
+	    break;
+
+	// Re-run degree-2 simplicity repair on the expanded patch boundary.
+	for (;;) {
+	    std::map<int32_t, int> hd2;
+	    for (int f = 0; f < nf; f++) {
+		if (patch.count((int32_t)f)) continue;
+		for (int e = 0; e < 3; e++) {
+		    if (is_hole_boundary((int32_t)f, e)) {
+			hd2[tp[f][e]]++;
+			hd2[tp[f][(e+1)%3]]++;
+		    }
+		}
+	    }
+	    std::vector<int32_t> bv2;
+	    for (auto const& kv2 : hd2)
+		if (kv2.second != 2) bv2.push_back(kv2.first);
+	    if (bv2.empty()) break;
+	    bool exp2 = false;
+	    for (int32_t v : bv2)
+		for (int32_t f : vert_faces[(size_t)v])
+		    if (patch.count(f) == 0) { patch.insert(f); exp2 = true; }
+	    if (!exp2) break;
+	}
+    }
+
+    // Reject if the multi-loop merger consumed the entire mesh.
+    if (patch.size() >= (size_t)nf)
+	return false;
+
     // Classify all patch vertices as boundary (shared with non-patch faces)
     // or interior (only in patch faces, would be orphaned after removal).
     std::vector<int> face_ref_count((size_t)nv, 0);
@@ -932,6 +1019,11 @@ try_patch_repair(struct rt_bot_internal *bot, manifold::Manifold& gm_out)
     // If the loop didn't close (boundary has multiple disjoint loops), skip the
     // CDT path and fall through to the boundary-only LSCM fallback below.
     bool single_loop = (bnd_loop_global.size() == bnd_nbrs.size());
+
+    bu_log("rt_bot_repair: patch_repair: patch=%zu bnd_total=%zu walked=%zu single_loop=%d"
+	   " patch_verts=%zu bnd=%zu int=%zu\n",
+	   patch.size(), bnd_nbrs.size(), bnd_loop_global.size(), (int)single_loop,
+	   patch_verts_global.size(), bnd_verts_local.size(), int_verts_local.size());
 
     if (single_loop) {
 	// Convert boundary loop to local indices.
@@ -1048,9 +1140,29 @@ try_patch_repair(struct rt_bot_internal *bot, manifold::Manifold& gm_out)
 		    // the CDT triangles are wound opposite the surrounding mesh,
 		    // producing a geometrically inside-out solid that passes the
 		    // topological Manifold check but fails the raytracing lint test.
-		    if (gm.Status() == manifold::Manifold::Error::NoError && gm.Volume() >= 0) {
-			gm_out = gm;
-			return true;
+		    if (gm.Status() == manifold::Manifold::Error::NoError) {
+			if (gm.Volume() >= 0) {
+			    bu_log("rt_bot_repair: patch_repair: CDT cw=%d ok, volume=%.6g\n",
+				   (int)cw, gm.Volume());
+			    gm_out = gm;
+			    return true;
+			}
+			// Volume negative: patch triangles are wound opposite the
+			// surrounding mesh.  Flip them and retry rather than
+			// falling through to the next winding order.
+			gte::MeshPreprocessing<double>::InvertNormals(tcombined);
+			manifold::MeshGL gmm2;
+			gte_to_manifold(&gmm2, vcompact, tcombined);
+			manifold::Manifold gm2(gmm2);
+			bu_log("rt_bot_repair: patch_repair: CDT cw=%d inverted: status=%d volume=%.6g\n",
+			       (int)cw, (int)gm2.Status(), gm2.Volume());
+			if (gm2.Status() == manifold::Manifold::Error::NoError && gm2.Volume() >= 0) {
+			    gm_out = gm2;
+			    return true;
+			}
+		    } else {
+			bu_log("rt_bot_repair: patch_repair: CDT cw=%d manifold status=%d\n",
+			       (int)cw, (int)gm.Status());
 		    }
 		}
 	    }
@@ -1097,8 +1209,18 @@ try_patch_repair(struct rt_bot_internal *bot, manifold::Manifold& gm_out)
     manifold::Manifold gm(gmm);
     if (gm.Status() != manifold::Manifold::Error::NoError)
 	return false;
-    if (gm.Volume() < 0)
-	return false;
+    if (gm.Volume() < 0) {
+	// The filled mesh is consistently wound but globally inverted.
+	// Flip all face normals and retry — mirrors the try_fill logic.
+	gte::MeshPreprocessing<double>::InvertNormals(tnew);
+	manifold::MeshGL gmm2;
+	gte_to_manifold(&gmm2, vnew, tnew);
+	manifold::Manifold gm2(gmm2);
+	if (gm2.Status() != manifold::Manifold::Error::NoError || gm2.Volume() < 0)
+	    return false;
+	gm_out = gm2;
+	return true;
+    }
 
     gm_out = gm;
     return true;
