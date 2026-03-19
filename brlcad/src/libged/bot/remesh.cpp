@@ -26,6 +26,7 @@
 #include "common.h"
 
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <vector>
 
@@ -195,6 +196,12 @@ gte_to_manifold(manifold::MeshGL *gmm,
 static int
 bot_remesh_gte(struct rt_bot_internal **obot, struct ged *gedp, struct rt_bot_internal *bot)
 {
+    auto t0 = std::chrono::steady_clock::now();
+    auto elapsed = [&t0]() -> double {
+	auto now = std::chrono::steady_clock::now();
+	return std::chrono::duration<double>(now - t0).count();
+    };
+
     // Load the BoT vertices and faces into GTE data structures
     std::vector<gte::Vector3<double>> vertices(bot->num_vertices);
     for (size_t i = 0; i < bot->num_vertices; i++) {
@@ -208,6 +215,8 @@ bot_remesh_gte(struct rt_bot_internal **obot, struct ged *gedp, struct rt_bot_in
 	triangles[i][1] = bot->faces[3*i+1];
 	triangles[i][2] = bot->faces[3*i+2];
     }
+
+    bu_log("remesh_gte: loaded  %.2fs\n", elapsed());
 
     // Initial mesh repair using GTE
     {
@@ -231,6 +240,8 @@ bot_remesh_gte(struct rt_bot_internal **obot, struct ged *gedp, struct rt_bot_in
 	gte::MeshRepair<double>::Repair(vertices, triangles, repairParams);
     }
 
+    bu_log("remesh_gte: repair  %.2fs\n", elapsed());
+
     // Target ten times the original vert count
     size_t nb_pts = bot->num_vertices * 10;
 
@@ -247,6 +258,9 @@ bot_remesh_gte(struct rt_bot_internal **obot, struct ged *gedp, struct rt_bot_in
 	    return BRLCAD_ERROR;
 	}
     }
+
+    bu_log("remesh_gte: preproc %.2fs  (%zu verts, %zu faces)\n",
+	   elapsed(), vertices.size(), triangles.size());
 
     if (triangles.empty()) {
 	bu_vls_printf(gedp->ged_result_str, "GTE pre-processing produced an empty mesh\n");
@@ -270,6 +284,7 @@ bot_remesh_gte(struct rt_bot_internal **obot, struct ged *gedp, struct rt_bot_in
 		      "for the requested vertex count\n");
 	return BRLCAD_ERROR;
     }
+    bu_log("remesh_gte: cvt     %.2fs\n", elapsed());
     vertices  = std::move(outVertices);
     triangles = std::move(outTriangles);
 

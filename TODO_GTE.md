@@ -65,69 +65,139 @@ Three critical O(n²)/O(n·m) bottlenecks were identified in the GTE implementat
 - Default `newtonIterations` changed from 5 to 30 (matching Geogram's `nb_Newton_iter=30`)
 - This matches Geogram's `remesh_smooth`: 5 Lloyd → 30 Newton → compute_surface
 
-### `MeshRemesh.h` — `MeshAdjustSurface` implemented
-- Translation of Geogram's `mesh_adjust_surface(M_out, M_in)` from `mesh_remesh.cpp`
-- Geogram: fires bidirectional ray from each output vertex along its normal, finds
-  nearest intersection with input surface (requires `MeshFacetsAABB`)
-- GTE: uses nearest-point-on-triangle projection with AABB early-out for efficiency
+### `MeshRemesh.h` — `MeshAdjustSurface` first implementation
+- Initial version used nearest-point-on-triangle projection with AABB early-out
 - Called from both `RemeshCVTIsotropic` and `RemeshCVTAnisotropic` after compute_surface
-- Snaps each output vertex to its nearest point on the reference surface, matching
-  Geogram's quality improvement from the adjust step
-- Build verified clean: libbg + libged compile with no errors
 
-## Performance Impact
+## Changes Made (Session 3)
 
-For a mesh with n_seeds = 50,000 seeds and n_triangles = 100,000:
+### `MeshRemesh.h` — `MeshAdjustSurface` full Geogram-equivalent rewrite
+- **Old approach (Session 2)**: nearest-point-on-triangle projection — WRONG
+- **New approach**: full translation of Geogram's `mesh_adjust_surface()` from
+  `geogram/src/lib/geogram/mesh/mesh_remesh.cpp`
+- Algorithm matches Geogram exactly:
+  1. Compute area-weighted vertex normals Nv[v] for output mesh
+  2. Compute per-vertex average edge length Lv[v]
+  3. For border vertices: reset Nv[v] to tangent-to-border direction
+     (cross(edge, face_normal) per adjacent border edge) — Geogram's border handling
+  4. Build AABB BVH tree over reference (input) triangles using `AABBBVTreeOfTriangles`
+  5. Check if reference mesh has border edges; if so, create ribbon mesh and its BVH
+     (translation of `create_ribbon_on_border()`)
+  6. For each output vertex: fire bidirectional ray along Nv[v] → find nearest
+     intersection on reference surface (or ribbon) → target point Qv[v]
+     (translation of `nearest_along_bidirectional_ray()`)
+  7. For each output face: compute center Pf, fire bidirectional ray → target Qf
+  8. Solve global sparse least-squares system with Conjugate Gradient:
+     - Variables: lambda[v] (one per output vertex)
+     - Vertex rows:  lambda_v * Nv[v][c] = Qv[v][c] - Pv[c]
+     - Facet rows:   Σ_j (1/d * lambda_vj * Nv[vj][c]) = Qf[c] - Pf[c]
+     - Border edge rows (weighted by border_importance)
+     - Normal equations A^T A λ = A^T b solved with Jacobi-preconditioned CG
+     - Matrix-free implementation (no explicit matrix storage)
+  9. Apply displacement: Pv += lambda[v] * Nv[v]
+- Includes `<Mathematics/AABBBVTreeOfTriangles.h>` and `<unordered_map>`
+- max_edge_distance=0.5 and border_importance=1.0 match Geogram defaults
 
-| Operation              | Before                  | After                   | Speedup     |
-|------------------------|-------------------------|-------------------------|-------------|
-| Build DelaunayNN       | O(n² × k) ≈ 50B ops    | O(n log n × k)          | ~50,000×    |
-| Compute centroids      | O(n_tri × n_seeds)      | O(n_tri × k)            | ~2,500×     |
-| FindNearestSeed        | O(n_tri × n_seeds)      | O(n_tri × log n)        | ~3,000×     |
-| Newton optimization    | 5 Lloyd iters (alias)   | 30 L-BFGS iters         | ~5-10× quality |
-| MeshAdjustSurface      | None                    | Nearest-point projection | Quality +   |
+### `repair.cpp` — Fixed pre-existing brace error in pass0 block
+- Removed extra `}` in the "pass 0: remove purely-extra faces" block that was
+  causing `t_pruned` to go out of scope before the `if (t_pruned.size() < ...)` check
+- This fixed compilation errors: `'t_pruned' was not declared in this scope`,
+  `label 'pass1' used but not defined`, etc.
+- The full brlcad build now succeeds
 
-Where k ≈ 20 (default Delaunay neighbors).
+## Performance Status (Session 3)
 
-## Pipeline Now Matches Geogram
+Timing from `bot remesh 4002.1.t0` on Generic_Twin.g (3258 verts, 6488 faces):
 
-Geogram's `remesh_smooth()` sequence (from `mesh_remesh.cpp`):
+| Stage     | Time   | Notes |
+|-----------|--------|-------|
+| repair    | 0.01s  | ✓ fast |
+| preproc   | 1.49s  | ✓ acceptable (86572 verts, 64184 faces) |
+| cvt       | HUNG   | ← **STILL SLOW** |
+
+**Session 3 identified CVT bottleneck**: The `AccumulateCentroids()` function
+(called in every Lloyd/Newton iteration) rebuilds `DelaunayNN` from scratch each
+time, calling `UpdateNeighborhoods()` which does 32580 × k-NN queries in 6D space.
+
+**Root cause of CVT hang**: `DelaunayNN::UpdateNeighborhoods()` precomputes ALL 32580
+neighborhoods eagerly, each requiring a 20-NN query in a 6D KD-tree of 32580 points.
+While the KD-tree is fast (O(k log n)), for N=6 dimensions the curse of dimensionality
+means many subtrees are explored. Total: 32580 × 20 × ~35 iterations = severe slowdown.
+
+## NEXT SESSION TODO
+
+### Priority 1: Fix DelaunayNN::UpdateNeighborhoods() performance
+
+**Problem**: Called in every Lloyd/Newton iteration, rebuilds all 32580 neighborhoods.
+
+**Fix options** (in order of preference):
+1. **Lazy neighborhood computation** (easiest, highest impact):
+   - In `UpdateNeighborhoods()`, only build the NN search structure; don't precompute any neighborhoods
+   - In `ComputeNeighborhood(i)`, compute on first access and cache in mNeighborhoods[i]
+   - Use `mNeighborhoods[i].empty()` as "not computed yet" flag
+   - But need to handle `EnlargeNeighborhood()` calls correctly
+   - This avoids computing neighborhoods for seeds that are never visited during `ForEachPolygon`
+
+2. **Cache DelaunayNN across iterations** (medium difficulty):
+   - In `CVTN::AccumulateCentroids()`, accept a pre-built `DelaunayNN` as parameter
+   - In `LloydIterations()`, build it once and update incrementally each iteration
+   - Between iterations, only update the NN search with new seed positions (rebuild KD-tree)
+   - Don't recompute neighborhoods — invalidate cache and compute lazily
+
+3. **Match Geogram's on-demand neighborhood enlargement**:
+   - Geogram's `ClipCellFacet` calls `get_neighbors(seed)` which only returns a
+     fixed initial set, and `enlarge_neighborhood(seed, new_size)` queries for more
+   - The key is that only the seeds actually visited in `ForEachPolygon` have their
+     neighborhoods computed, not all 32580 seeds
+   - Geogram doesn't call `UpdateNeighborhoods()` at all — it just has the NN search
+     structure available and queries on demand
+
+**Recommended implementation**:
+In `DelaunayNN.h`, change `UpdateNeighborhoods()` to NOT precompute any neighborhoods:
+```cpp
+void UpdateNeighborhoods() {
+    // Just ensure the NN search structure is built; neighborhoods are
+    // computed lazily on first access via GetNeighbors() / EnlargeNeighborhood()
+    mNeighborhoods.clear();
+    mNeighborhoods.resize(this->mNumVertices);
+    mComputed.assign(this->mNumVertices, false);
+    // (NN search structure already built by SetVertices → BuildIndex())
+}
 ```
-CVT.compute_initial_sampling(nb_points)
-CVT.Lloyd_iterations(5)            ← GTE: LloydIterations(5)
-CVT.Newton_iterations(30, 7)       ← GTE: NewtonIterations(30, 7) [L-BFGS]
-CVT.compute_surface(&M_out, true)  ← GTE: ComputeRDT(seeds3, outTriangles)
-mesh_adjust_surface(M_out, M_in)   ← GTE: MeshAdjustSurface(out, outTri, in, inTri)
+Then in `GetNeighbors(v)`:
+```cpp
+std::vector<int32_t> GetNeighbors(int32_t v) {
+    if (!mComputed[v]) {
+        ComputeNeighborhood(v);
+        mComputed[v] = true;
+    }
+    return mNeighborhoods[v];
+}
+```
+And in `EnlargeNeighborhood(v, nb)`:
+```cpp
+void EnlargeNeighborhood(int32_t v, size_t nb) {
+    // Query for nb neighbors (already have v's current neighborhood)
+    // Just call FindKNearestNeighborsToPoint(v, nb, ...) and store
+}
 ```
 
-All steps are now implemented. The GTE path should produce quality and performance
-comparable to Geogram's path.
+### Priority 2: Avoid rebuilding DelaunayNN every AccumulateCentroids call
 
-## Remaining Work
+Currently `AccumulateCentroids` creates a new `DelaunayNN` and `SurfaceRVDN` every call.
+With lazy neighborhoods, the per-call cost is just:
+- Rebuild the KD-tree for seeds: O(n log n) = fast
+- The BFS walk in ForEachPolygon: O(facets × k) = main work (this is good)
+- Per-accessed neighborhood: O(k log n) = only for visited seeds (lazy)
 
-### set_anisotropy correspondence check (minor, TODO)
-The GTE `RemeshCVTAnisotropic` uses an adaptive `normalScale` computation that
-adds safety margins. The Geogram `set_anisotropy(gm, 2*0.02)` uses `s=2*0.02=0.04`
-times the bbox diagonal as the normal scale. The GTE adaptive formula produces
-normalScale ≥ defaultScale = 0.04 * bboxDiag, so it should be at least as good,
-but exact correspondence has not been verified numerically.
+This should reduce the total overhead significantly.
 
-### Parallelism (TODO — future enhancement)
-Geogram parallelizes the RVD centroid computation across threads. The GTE
-implementation is single-threaded. Adding OpenMP parallelism to `ForEachPolygon`
-centroid accumulation could provide additional speedup.
+### Priority 3: Parallelism
+After fixing lazy neighborhoods, consider OpenMP parallelism in `ForEachPolygon`
+for additional speedup, matching Geogram's parallel RVD computation.
 
-### Testing on Generic_Twin.g (TODO)
-Build complete `mged`/`brlcad` and test:
-```
-mged Generic_Twin.g
-bot remesh 4002.1.t0
-```
-Verify timing vs. previous implementation and vs. Geogram path.
+### Priority 4: Testing
+Once CVT runs to completion, test all BoT objects in Generic_Twin.g.
+The timing instrumentation added to `remesh.cpp` (with `bu_log` timing calls)
+can be kept for now to monitor performance during development.
 
-### MeshAdjustSurface AABB tree (future enhancement)
-The current `MeshAdjustSurface` uses a flat list of per-triangle AABBs with O(n_inTri)
-scan per output vertex (pruned by AABB early-out). A proper BVH tree would reduce
-this to O(log n_inTri) per vertex for very large input meshes. This is a future
-enhancement — the current implementation is correct and provides the main quality
-benefit of the adjust step.
