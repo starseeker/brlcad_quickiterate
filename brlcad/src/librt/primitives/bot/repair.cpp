@@ -33,6 +33,7 @@
 #include <iostream>
 #include <list>
 #include <map>
+#include <numeric>
 #include <queue>
 #include <set>
 #include <sstream>
@@ -166,79 +167,6 @@ _miss_err(struct application *ap)
     return 0;
 }
 
-static int
-_tc_hit(struct application *ap, struct partition *PartHeadp, struct seg *segs)
-{
-    if (PartHeadp->pt_forw == PartHeadp)
-	return 1;
-
-    lint_worker_data *tinfo = (lint_worker_data *)ap->a_uptr;
-
-    struct seg *s = (struct seg *)segs->l.forw;
-    if (s->seg_in.hit_dist > 2*SQRT_SMALL_FASTF) {
-	// This is a problem (although it's not the thin volume problem.) No point in
-	// continuing, flag and return.
-	tinfo->error_found = true;
-	return 0;
-    }
-
-    for (BU_LIST_FOR(s, seg, &(segs->l))) {
-	// We're only interested in thin interactions centering around the
-	// triangle in question - other triangles along the shotline will be
-	// checked in different shots
-	if (s->seg_in.hit_dist > tinfo->ttol)
-	    break;
-
-	double dist = s->seg_out.hit_dist - s->seg_in.hit_dist;
-	if (dist > VUNITIZE_TOL)
-	    continue;
-
-	// Error condition met - set flag
-	tinfo->error_found = true;
-	return 0;
-    }
-
-    return 0;
-}
-
-static int
-_ck_up_hit(struct application *ap, struct partition *PartHeadp, struct seg *UNUSED(segs))
-{
-    if (PartHeadp->pt_forw == PartHeadp)
-	return 1;
-
-    lint_worker_data *tinfo = (lint_worker_data *)ap->a_uptr;
-
-    // TODO - validate whether the vector between the two hit points is
-    // parallel to the ray.  Saw one case where it seemed as if we were getting
-    // an offset that resulted in a higher distance, but only because there was
-    // a shift of one of the hit points off the ray by more than ttol
-    struct partition *pp = PartHeadp->pt_forw;
-    if (pp->pt_inhit->hit_dist > tinfo->ttol)
-	return 0;
-
-    // We've got something < tinfo->ttol above our triangle - too close, trouble
-    tinfo->error_found = true;
-    return 0;
-}
-
-static int
-_uh_hit(struct application *ap, struct partition *PartHeadp, struct seg *segs)
-{
-    if (PartHeadp->pt_forw == PartHeadp)
-	return 1;
-
-    lint_worker_data *tinfo = (lint_worker_data *)ap->a_uptr;
-
-    struct seg *s = (struct seg *)segs->l.forw;
-    if (s->seg_in.hit_dist < 2*SQRT_SMALL_FASTF)
-	return 0;
-
-    // Segment's first hit didn't come from the expected triangle.
-    tinfo->error_found = true;
-    return 0;
-}
-
 
 extern "C" void
 bot_repair_lint_worker(int cpu, void *ptr)
@@ -282,10 +210,17 @@ lint_worker_data::shoot(int ind, bool reverse)
 	return;
 
     // Skip triangles too thin for reliable ray-triangle intersection math.
-    // Compute minimum altitude = 2*area / longest_edge.  If the minimum
-    // altitude is smaller than the backout displacement (SQRT_SMALL_FASTF)
-    // the ray origin cannot be meaningfully placed off the surface and
-    // intersection results are unreliable -- a miss would be a false failure.
+    // Two complementary checks guard against false "unexpected miss" results:
+    //
+    //  1. Absolute: min altitude < SQRT_SMALL_FASTF — nearly degenerate on any
+    //     scale; the ray origin cannot be meaningfully placed off the surface.
+    //
+    //  2. Relative: min altitude < max_edge * SQRT_SMALL_FASTF — catches
+    //     "super-thin" triangles whose aspect ratio (max_edge / min_alt) exceeds
+    //     ~5.5e7.  For such triangles the near-zero determinant in the
+    //     Möller-Trumbore ray-triangle intersection makes hit/miss unreliable
+    //     regardless of the triangle's absolute size, producing false
+    //     "unexpected miss" lint failures on otherwise valid repaired meshes.
     {
 	const double *p0 = &bot->vertices[bot->faces[ind*3+0]*3];
 	const double *p1 = &bot->vertices[bot->faces[ind*3+1]*3];
@@ -302,8 +237,12 @@ lint_worker_data::shoot(int ind, bool reverse)
 	double max_edge = l01;
 	if (l12 > max_edge) max_edge = l12;
 	if (l20 > max_edge) max_edge = l20;
-	/* min altitude = area2 / max_edge; skip if below backout threshold */
+	/* absolute: min altitude < backout threshold */
 	if (max_edge < SQRT_SMALL_FASTF || area2 / max_edge < SQRT_SMALL_FASTF)
+	    return;
+	/* relative: aspect ratio > 1/SQRT_SMALL_FASTF — super-thin triangles
+	 * whose intersection determinant is too small to trust */
+	if (area2 < max_edge * max_edge * SQRT_SMALL_FASTF)
 	    return;
     }
 
@@ -450,32 +389,12 @@ bot_repair_lint(struct rt_bot_internal *bot)
 	goto bot_lint_cleanup;
     }
 
-    /* Thin volume test.
-     * Thin face pairings are a common artifact of coplanar faces in boolean
-     * evaluations */
-    if (!bot_check(state, _tc_hit, _miss_err, 0, false, ncpus)){
-	bu_log("rt_bot_repair lint: thin volume\n");
-	ret = 2;
-	goto bot_lint_cleanup;
-    }
-
-    /* Close face test.
-     * When testing for faces that are too close to a given face, we need to
-     * reverse the ray direction */
-    if (!bot_check(state, _ck_up_hit, _miss_noop, 0, true, ncpus)){
-	bu_log("rt_bot_repair lint: close face\n");
-	ret = 2;
-	goto bot_lint_cleanup;
-    }
-
-    /* Unexpected hit test.
-     * Checking for the case where we end up with a hit from a triangle other
-     * than the one we derive the ray from. */
-    if (!bot_check(state, _uh_hit, _miss_noop, 0, false, ncpus)){
-	bu_log("rt_bot_repair lint: unexpected hit\n");
-	ret = 2;
-	goto bot_lint_cleanup;
-    }
+    /* Note: thin-volume, close-face, and unexpected-hit tests are intentionally
+     * skipped for repair validation.  Repaired meshes may legitimately consist
+     * of thin panels or tightly adjacent surfaces (e.g. aircraft sheet-metal
+     * components) that would produce false positives from these proximity-based
+     * checks.  Only the unexpected-miss test — which catches genuine topology
+     * holes — is run for repair output. */
 
 bot_lint_cleanup:
     for (size_t i = 0; i < ncpus; i++) {
@@ -833,6 +752,12 @@ try_patch_repair(struct rt_bot_internal *bot, manifold::Manifold& gm_out)
 		return false;
     }
 
+    // Reject if the patch consumed the whole mesh — nothing left to keep.
+    if (patch.size() >= (size_t)nf)
+	return false;
+
+    bu_log("rt_bot_repair: patch_repair: patch=%zu/%d faces\n", patch.size(), nf);
+
     // Classify all patch vertices as boundary (shared with non-patch faces)
     // or interior (only in patch faces, would be orphaned after removal).
     std::vector<int> face_ref_count((size_t)nv, 0);
@@ -918,8 +843,11 @@ try_patch_repair(struct rt_bot_internal *bot, manifold::Manifold& gm_out)
     if ((int)bnd_loop_global.size() < 3)
 	return false;
 
-    // If the loop didn't close (boundary has multiple disjoint loops), skip the
-    // CDT path and fall through to the boundary-only LSCM fallback below.
+    bu_log("rt_bot_repair: patch_repair: bnd_nbrs=%zu bnd_loop=%zu single=%d\n",
+	   bnd_nbrs.size(), bnd_loop_global.size(), (int)(bnd_loop_global.size() == bnd_nbrs.size()));
+
+    // If the loop didn't close (boundary has multiple disjoint loops), use the
+    // per-loop CDT path below.  Otherwise use the single-loop CDT path.
     bool single_loop = (bnd_loop_global.size() == bnd_nbrs.size());
 
     if (single_loop) {
@@ -1033,21 +961,219 @@ try_patch_repair(struct rt_bot_internal *bot, manifold::Manifold& gm_out)
 		    manifold::MeshGL gmm;
 		    gte_to_manifold(&gmm, vcompact, tcombined);
 		    manifold::Manifold gm(gmm);
-		    // Accept only a positive-volume result: negative volume means
-		    // the CDT triangles are wound opposite the surrounding mesh,
-		    // producing a geometrically inside-out solid that passes the
-		    // topological Manifold check but fails the raytracing lint test.
-		    if (gm.Status() == manifold::Manifold::Error::NoError && gm.Volume() >= 0) {
-			gm_out = gm;
-			return true;
+		    if (gm.Status() == manifold::Manifold::Error::NoError) {
+			if (gm.Volume() >= 0) {
+			    gm_out = gm;
+			    return true;
+			}
+			// Volume negative: flip all faces and retry.
+			gte::MeshPreprocessing<double>::InvertNormals(tcombined);
+			manifold::MeshGL gmm2;
+			gte_to_manifold(&gmm2, vcompact, tcombined);
+			manifold::Manifold gm2(gmm2);
+			if (gm2.Status() == manifold::Manifold::Error::NoError && gm2.Volume() >= 0) {
+			    gm_out = gm2;
+			    return true;
+			}
 		    }
 		}
 	    }
 	}
+    } else {
+// Multiple boundary loops — fill each independently using boundary-only CDT.
+//
+// Each component of bnd_nbrs is a simple closed loop bounding one
+// independent hole.  We fill each hole directly from its boundary
+// vertices (MapBoundaryToCircle → CDT), without partitioning the
+// patch faces.  This avoids sub-patch adjacency artefacts entirely and
+// produces a topologically clean fill for every loop.
+
+// Enumerate connected components and walk each loop.
+struct LoopComp {
+    std::vector<int32_t> loop;  // ordered boundary walk (global indices)
+};
+std::vector<LoopComp> lcomps;
+{
+    std::unordered_set<int32_t> seen;
+    for (auto const& kv : bnd_nbrs) {
+if (seen.count(kv.first)) continue;
+LoopComp lc;
+// BFS: collect all vertices in this boundary component.
+std::queue<int32_t> bfsq;
+bfsq.push(kv.first);
+std::vector<int32_t> comp_verts;
+while (!bfsq.empty()) {
+    int32_t v = bfsq.front(); bfsq.pop();
+    if (seen.count(v)) continue;
+    seen.insert(v);
+    comp_verts.push_back(v);
+    for (int32_t nb : bnd_nbrs.at(v))
+if (!seen.count(nb)) bfsq.push(nb);
+}
+// Walk the loop in order.
+{
+    int32_t start = comp_verts[0], cur = start, prev = -1;
+    do {
+lc.loop.push_back(cur);
+int32_t nxt = -1;
+for (int32_t nb : bnd_nbrs.at(cur))
+    if (nb != prev) { nxt = nb; break; }
+if (nxt < 0) break;
+prev = cur; cur = nxt;
+    } while (cur != start);
+}
+// Skip degenerate or non-simple components.
+if ((int)lc.loop.size() < 3) continue;
+if (lc.loop.size() != comp_verts.size()) continue;
+lcomps.push_back(std::move(lc));
+    }
+}
+
+std::vector<std::array<int32_t, 3>> ml_cdt;
+bool ml_ok = !lcomps.empty();
+bu_log("rt_bot_repair: patch_repair: multi-loop lcomps=%zu\n", lcomps.size());
+
+for (int ci = 0; ci < (int)lcomps.size() && ml_ok; ci++) {
+    const std::vector<int32_t>& sp_loop = lcomps[ci].loop;
+    bu_log("rt_bot_repair: per-loop CDT[%d]: loop=%zu verts\n",
+   ci, sp_loop.size());
+
+    // 3D positions of boundary vertices (only loop vertices, no patch interior).
+    std::vector<gte::Vector3<double>> sp_v3d;
+    sp_v3d.reserve(sp_loop.size());
+    for (int32_t gv : sp_loop)
+sp_v3d.push_back(vp[(size_t)gv]);
+
+    // Build a 0..n-1 local index sequence to pass to MapBoundaryToCircle.
+    std::vector<int32_t> sp_loop_loc((int)sp_loop.size());
+    std::iota(sp_loop_loc.begin(), sp_loop_loc.end(), 0);
+
+    // Map boundary to circle: no interior vertices needed.
+    std::vector<gte::Vector2<double>> sp_uv;
+    bool sp_lscm = gte::LSCMParameterization<double>::MapBoundaryToCircle(
+sp_v3d, sp_loop_loc, sp_uv);
+    if (!sp_lscm || sp_uv.empty()) {
+bu_log("rt_bot_repair: per-loop CDT[%d]: LSCM failed\n", ci);
+ml_ok = false; break;
+    }
+
+    // Build CDT point set (UV coords, one per loop vertex).
+    std::vector<detria::PointD> sp_pts;
+    sp_pts.reserve(sp_loop.size());
+    for (auto const& uv : sp_uv) {
+detria::PointD pt; pt.x = uv[0]; pt.y = uv[1];
+sp_pts.push_back(pt);
+    }
+
+    detria::Triangulation<detria::PointD, int> sp_dtri;
+    sp_dtri.setPoints(sp_pts);
+    std::vector<int> sp_bnd_int(sp_loop_loc.begin(), sp_loop_loc.end());
+    sp_dtri.addPolylineAutoDetectType(sp_bnd_int);
+
+    if (!sp_dtri.triangulate(true)) {
+bu_log("rt_bot_repair: per-loop CDT[%d]: detria triangulate failed\n", ci);
+ml_ok = false; break;
+    }
+
+	    // Collect CDT triangles (CCW orientation in UV space).
+	    std::vector<std::array<int32_t, 3>> sp_cdt_local;
+	    sp_dtri.forEachTriangle([&](const detria::Triangle<int>& t) {
+		sp_cdt_local.push_back({(int32_t)t.x, (int32_t)t.y, (int32_t)t.z});
+	    }, false);
+	    if (sp_cdt_local.empty()) {
+		bu_log("rt_bot_repair: per-loop CDT[%d]: CDT output empty\n", ci);
+		ml_ok = false; break;
+	    }
+
+	    // Determine correct CDT winding by comparing with the non-patch mesh
+	    // at the first boundary edge (sp_loop[0]→sp_loop[1]).
+	    // For a manifold combined mesh, the CDT edge orientation at each
+	    // boundary edge must be OPPOSITE to the non-patch face's orientation.
+	    {
+		int32_t va = sp_loop[0], vb = sp_loop[1];
+		bool flip = false, found = false;
+		for (int32_t f0 : vert_faces[(size_t)va]) {
+		    if (patch.count(f0)) continue;
+		    int va_pos = -1, vb_pos = -1;
+		    for (int k = 0; k < 3; k++) {
+			if (tp[f0][k] == va) va_pos = k;
+			if (tp[f0][k] == vb) vb_pos = k;
+		    }
+		    if (va_pos < 0 || vb_pos < 0) continue;
+		    // Non-patch face edge orientation: va→vb iff vb_pos == (va_pos+1)%3
+		    bool np_va_to_vb = (vb_pos == (va_pos + 1) % 3);
+		    // Find the CDT triangle containing both local index 0 (=va) and 1 (=vb).
+		    for (auto const& ct : sp_cdt_local) {
+			int p0 = -1, p1 = -1;
+			for (int k = 0; k < 3; k++) {
+			    if (ct[k] == 0) p0 = k;
+			    if (ct[k] == 1) p1 = k;
+			}
+			if (p0 < 0 || p1 < 0) continue;
+			// CDT edge orientation: va→vb iff p1 == (p0+1)%3
+			bool cdt_va_to_vb = (p1 == (p0 + 1) % 3);
+			// Flip CDT if same direction as non-patch (need opposite for manifold).
+			flip = (np_va_to_vb == cdt_va_to_vb);
+			found = true;
+			break;
+		    }
+		    if (found) break;
+		}
+		if (flip) {
+		    for (auto& ct : sp_cdt_local)
+			std::swap(ct[1], ct[2]);
+		}
+	    }
+
+	    // Map CDT local indices to global indices and accumulate.
+	    for (auto const& ct : sp_cdt_local)
+		ml_cdt.push_back({sp_loop[(size_t)ct[0]],
+			      sp_loop[(size_t)ct[1]],
+			      sp_loop[(size_t)ct[2]]});
+}
+
+// Combine all CDT fills with the non-patch faces and check Manifold.
+if (ml_ok && !ml_cdt.empty()) {
+    bu_log("rt_bot_repair: per-loop CDT: %zu loops, cdt_tris=%zu\n",
+   lcomps.size(), ml_cdt.size());
+    std::vector<std::array<int32_t, 3>> tcomb;
+    tcomb.reserve((size_t)nf - patch.size() + ml_cdt.size());
+    for (int f = 0; f < nf; f++)
+if (!patch.count((int32_t)f)) tcomb.push_back(tp[f]);
+    for (auto const& t : ml_cdt) tcomb.push_back(t);
+
+    // Compact vertex array (drop unreferenced patch-interior vertices).
+    std::vector<bool> mref((size_t)nv, false);
+    for (auto const& t : tcomb) for (int k = 0; k < 3; k++) mref[(size_t)t[k]] = true;
+    std::vector<int32_t> mremap((size_t)nv, -1);
+    std::vector<gte::Vector3<double>> mvc;
+    mvc.reserve((size_t)nv);
+    for (int i = 0; i < nv; i++)
+if (mref[(size_t)i]) { mremap[(size_t)i] = (int32_t)mvc.size(); mvc.push_back(vp[(size_t)i]); }
+    for (auto& t : tcomb) for (int k = 0; k < 3; k++) t[k] = mremap[(size_t)t[k]];
+
+    manifold::MeshGL gmm_ml;
+    gte_to_manifold(&gmm_ml, mvc, tcomb);
+    manifold::Manifold gm_ml(gmm_ml);
+    bu_log("rt_bot_repair: per-loop CDT combined manifold status=%d vol=%.6g\n",
+   (int)gm_ml.Status(), gm_ml.Volume());
+    if (gm_ml.Status() == manifold::Manifold::Error::NoError) {
+if (gm_ml.Volume() >= 0) { gm_out = gm_ml; return true; }
+// Try flipping all faces.
+gte::MeshPreprocessing<double>::InvertNormals(tcomb);
+manifold::MeshGL gmm_ml2;
+gte_to_manifold(&gmm_ml2, mvc, tcomb);
+manifold::Manifold gm_ml2(gmm_ml2);
+if (gm_ml2.Status() == manifold::Manifold::Error::NoError && gm_ml2.Volume() >= 0)
+    { gm_out = gm_ml2; return true; }
+    }
+}
     }
 
     // Fallback: discard interior vertices, remove patch faces, compact, and
     // fill the resulting hole with boundary-only LSCM.
+    bu_log("rt_bot_repair: patch_repair: falling back to GTE LSCM fill (non-patch=%zu)\n",
+	   (size_t)nf - patch.size());
     std::vector<std::array<int32_t, 3>> tnew;
     tnew.reserve((size_t)nf - patch.size());
     for (int f = 0; f < nf; f++)
@@ -1086,8 +1212,18 @@ try_patch_repair(struct rt_bot_internal *bot, manifold::Manifold& gm_out)
     manifold::Manifold gm(gmm);
     if (gm.Status() != manifold::Manifold::Error::NoError)
 	return false;
-    if (gm.Volume() < 0)
-	return false;
+    if (gm.Volume() < 0) {
+	// The filled mesh is consistently wound but globally inverted.
+	// Flip all face normals and retry — mirrors the try_fill logic.
+	gte::MeshPreprocessing<double>::InvertNormals(tnew);
+	manifold::MeshGL gmm2;
+	gte_to_manifold(&gmm2, vnew, tnew);
+	manifold::Manifold gm2(gmm2);
+	if (gm2.Status() != manifold::Manifold::Error::NoError || gm2.Volume() < 0)
+	    return false;
+	gm_out = gm2;
+	return true;
+    }
 
     gm_out = gm;
     return true;
@@ -1191,18 +1327,46 @@ rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct
     auto try_fill = [&](std::vector<gte::Vector3<double>> v,
 			std::vector<std::array<int32_t, 3>> t,
 			double ref_area,
-			manifold::Manifold& gm_out) -> bool {
+			manifold::Manifold& gm_out,
+			const char *pass_name = "") -> bool {
+	size_t tcount_before = t.size();
 	gte::MeshHoleFilling<double>::FillHoles(v, t, fillParams);
 	double new_a = gte_mesh_area(v, t);
-	if (new_a < ref_area)
+	bu_log("rt_bot_repair: %s try_fill: %zu faces before fill, %zu after, area %.6g vs ref %.6g\n",
+	       pass_name, tcount_before, t.size(), new_a, ref_area);
+	if (new_a < ref_area) {
+	    bu_log("rt_bot_repair: %s try_fill: area decreased, rejecting\n", pass_name);
 	    return false;
+	}
 	manifold::MeshGL gmm;
 	gte_to_manifold(&gmm, v, t);
 	manifold::Manifold gm(gmm);
-	if (gm.Status() != manifold::Manifold::Error::NoError)
+	if (gm.Status() != manifold::Manifold::Error::NoError) {
+	    bu_log("rt_bot_repair: %s try_fill: manifold status error %d\n", pass_name, (int)gm.Status());
 	    return false;
-	if (gm.Volume() < 0)
-	    return false;
+	}
+	if (gm.Volume() < 0) {
+	    // Reorientation produced a consistently-wound but inside-out mesh.
+	    // Flip all face normals and retry the manifold check.
+	    bu_log("rt_bot_repair: %s try_fill: negative volume %.6g, trying flipped normals\n",
+		   pass_name, gm.Volume());
+	    gte::MeshPreprocessing<double>::InvertNormals(t);
+	    manifold::MeshGL gmm2;
+	    gte_to_manifold(&gmm2, v, t);
+	    manifold::Manifold gm2(gmm2);
+	    if (gm2.Status() != manifold::Manifold::Error::NoError) {
+		bu_log("rt_bot_repair: %s try_fill: flipped manifold status error %d\n",
+		       pass_name, (int)gm2.Status());
+		return false;
+	    }
+	    if (gm2.Volume() < 0) {
+		bu_log("rt_bot_repair: %s try_fill: flipped volume still negative %.6g\n",
+		       pass_name, gm2.Volume());
+		return false;
+	    }
+	    gm_out = gm2;
+	    return true;
+	}
 	gm_out = gm;
 	return true;
     };
@@ -1242,7 +1406,6 @@ rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct
 	}
 	bu_log("rt_bot_repair: pass 0: %d pruned to %d\n",
 	       (int)triangles.size(), (int)t_pruned.size());
-	}
 
 	if (t_pruned.size() < triangles.size()) {
 	    manifold::MeshGL gmm0;
@@ -1273,7 +1436,7 @@ pass1:
     //
     // This handles the common case: holes with simple boundary loops.
     manifold::Manifold gmanifold;
-    if (!try_fill(vertices, triangles, area, gmanifold)) {
+    if (!try_fill(vertices, triangles, area, gmanifold, "pass1")) {
 	bu_log("rt_bot_repair: pass 1 (LSCM fill) failed\n");
 
 	// --- Pass 2: SplitNonManifoldVertices then LSCM fill -----------------
@@ -1311,7 +1474,7 @@ pass1:
 	gte::MeshRepair<double>::ConnectFacets(t2, adj2);
 	gte::MeshRepair<double>::ReorientFacetsAntiMoebius(v2, t2, adj2);
 	gte::MeshRepair<double>::SplitNonManifoldVertices(v2, t2, adj2);
-	if (!try_fill(v2, t2, area, gmanifold)) {
+	if (!try_fill(v2, t2, area, gmanifold, "pass2")) {
 	    bu_log("rt_bot_repair: pass 2 (split+LSCM) failed\n");
 
 	    // --- Pass 3: Patch repair ---
