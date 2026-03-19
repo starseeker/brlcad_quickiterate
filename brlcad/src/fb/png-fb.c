@@ -32,6 +32,7 @@
 #include "common.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "bio.h"
 
@@ -53,7 +54,9 @@
 
 static png_color_16 def_backgrd={ 0, 0, 0, 0, 0 };
 static unsigned char **scanline;	/* 1 scanline pixel buffer */
+#ifndef BRLCAD_ENABLE_OBOL
 static int scanbytes;		/* # of bytes of scanline */
+#endif
 static int scanpix;		/* # of pixels of scanline */
 
 static int multiple_lines = 0;	/* Streamlined operation */
