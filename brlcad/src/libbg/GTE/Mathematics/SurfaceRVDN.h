@@ -1862,6 +1862,10 @@ namespace gte
         //            repair_connect_facets(M)
         //            repair_reorient_facets_anti_moebius(M)
         //            repair_split_non_manifold_vertices(M)
+        //
+        // This exactly matches Geogram's mesh_postprocess_RDT (mesh_repair.cpp).
+        // No further peninsula removal or vertex merging is done after this step
+        // (Geogram does not have any such extra steps).
         {
             std::vector<int32_t> adj;
             RDTRepair::ConnectFacets(rawTris, adj);
@@ -1870,38 +1874,6 @@ namespace gte
 
             // Update nRaw to reflect any vertices added by SplitNonManifoldVertices.
             nRaw = static_cast<int32_t>(rawVerts.size());
-        }
-
-        // Step 5d: Second peninsula-removal pass.
-        // After the topology repair in Step 5c, SplitNonManifoldVertices may have
-        // introduced new vertices with low triangle incidence (degree-1 vertices).
-        // A second peninsula pass cleans up these isolated flaps, matching the
-        // significant output reduction that Geogram achieves from its repair steps.
-        {
-            bool changed = true;
-            while (changed)
-            {
-                changed = false;
-                std::vector<int32_t> inc(nRaw, 0);
-                for (auto const& tri : rawTris)
-                {
-                    ++inc[tri[0]];
-                    ++inc[tri[1]];
-                    ++inc[tri[2]];
-                }
-                auto end2 = std::remove_if(rawTris.begin(), rawTris.end(),
-                    [&](std::array<int32_t,3> const& tri) -> bool
-                    {
-                        if (inc[tri[0]] == 1 || inc[tri[1]] == 1 ||
-                            inc[tri[2]] == 1)
-                        {
-                            changed = true;
-                            return true;
-                        }
-                        return false;
-                    });
-                rawTris.erase(end2, rawTris.end());
-            }
         }
 
         if (rawTris.empty())
@@ -2075,6 +2047,7 @@ namespace gte
                 }
             }
         }
+        fprintf(stderr, "  [RDT-diag] after 5e (merge)=%zu\n", rawTris.size());
 
         // ── 5f. Re-run topology repair after merge. ──────────────────────────
         //
@@ -2127,6 +2100,7 @@ namespace gte
         {
             return false;
         }
+
         std::vector<int32_t> remap(nRaw, -1);
         int32_t nextV = 0;
         for (auto const& tri : rawTris)
