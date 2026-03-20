@@ -72,15 +72,43 @@ namespace gte
             return true;
         }
 
-        // Thread-safe read under per-vertex spinlock.
-        // Matches Geogram's PackedArrays::get_array (thread-safe variant):
-        // reads are serialized with concurrent EnlargeNeighborhood writes.
+        // Lock-free read — port of Geogram's PackedArrays::get_array
+        // (lock=false path that is safe because data is written before size,
+        // and size is stored with memory_order_release / loaded with
+        // memory_order_acquire):
+        //
+        //   Writer (EnlargeNeighborhood):
+        //     1. hold spinlock
+        //     2. write data into flat array
+        //     3. store size with release  ← synchronization point
+        //     4. release spinlock
+        //
+        //   Reader (GetNeighbors):
+        //     1. load size with acquire   ← synchronization point
+        //     2. copy data from flat array
+        //
+        // If the reader sees the new size it sees all the new data (release
+        // happened-before acquire). If it sees the old size it reads the
+        // old, complete data. Never a torn read.
+        // Vertices that exceed FLAT_K fall back to the locked overflow path.
         std::vector<int32_t> GetNeighbors(int32_t v) const override
         {
             if (v < 0 || static_cast<size_t>(v) >= this->mNumVertices)
                 return {};
+
+            uint32_t sz = mFlatSizes[v].load(std::memory_order_acquire);
+
+            if (sz != OVERFLOW_MARKER)
+            {
+                // Lock-free path: data written before size, acquire sees it.
+                size_t vi = static_cast<size_t>(v) * FLAT_K;
+                return std::vector<int32_t>(
+                    mFlatData.get() + vi,
+                    mFlatData.get() + vi + sz);
+            }
+            // Overflow path (rare): lock needed.
             AcquireLock(static_cast<size_t>(v));
-            std::vector<int32_t> result = mNeighborhoods[v];
+            std::vector<int32_t> result = mOverflow[v];
             ReleaseLock(static_cast<size_t>(v));
             return result;
         }
@@ -89,38 +117,63 @@ namespace gte
         {
             if (v < 0 || static_cast<size_t>(v) >= this->mNumVertices)
                 return 0;
-            return mNeighborhoods[v].size();
+            uint32_t sz = mFlatSizes[v].load(std::memory_order_acquire);
+            if (sz != OVERFLOW_MARKER) return sz;
+            AcquireLock(static_cast<size_t>(v));
+            size_t r = mOverflow[v].size();
+            ReleaseLock(static_cast<size_t>(v));
+            return r;
         }
 
-        // Thread-safe enlargement: per-vertex spinlock ensures each
-        // neighbourhood is expanded at most once across concurrent threads,
-        // matching Geogram's enlarge_neighborhood with lock_array/unlock_array.
+        // Thread-safe enlargement: per-vertex spinlock; writes data before
+        // updating size with memory_order_release so GetNeighbors can read
+        // lock-free (matching Geogram's enlarge_neighborhood + PackedArrays).
         void EnlargeNeighborhood(int32_t v, size_t newSize)
         {
             if (v < 0 || static_cast<size_t>(v) >= this->mNumVertices)
                 return;
 
-            // Per-vertex spinlock (Geogram: neighbors_.lock_array(v)).
             AcquireLock(static_cast<size_t>(v));
 
-            if (newSize > mNeighborhoods[v].size())
+            uint32_t cur = mFlatSizes[v].load(std::memory_order_relaxed);
+            size_t   curSz = (cur == OVERFLOW_MARKER)
+                                ? mOverflow[v].size() : cur;
+
+            if (newSize > curSz)
             {
-                // Re-query for newSize neighbors.
                 size_t k = std::min(newSize, this->mNumVertices - 1);
                 std::vector<size_t> raw(k + 1);
                 std::vector<Real>   sqd(k + 1);
                 size_t found = mNNSearch.FindKNearestNeighborsToPoint(
                     v, k, raw.data(), sqd.data());
 
-                mNeighborhoods[v].clear();
-                mNeighborhoods[v].reserve(found);
+                // Filter (match Geogram duplicate-point handling).
+                std::vector<int32_t> tmp;
+                tmp.reserve(found);
                 for (size_t j = 0; j < found; ++j)
                 {
                     int32_t nb = static_cast<int32_t>(raw[j]);
                     if (nb == v) continue;
-                    // Geogram: skip if duplicate (dist==0) and nb < v.
                     if (sqd[j] == static_cast<Real>(0) && nb < v) continue;
-                    mNeighborhoods[v].push_back(nb);
+                    tmp.push_back(nb);
+                }
+
+                if (tmp.size() <= FLAT_K)
+                {
+                    // Write data first, THEN update size (release).
+                    size_t vi = static_cast<size_t>(v) * FLAT_K;
+                    for (size_t j = 0; j < tmp.size(); ++j)
+                        mFlatData[vi + j] = tmp[j];
+                    mFlatSizes[v].store(
+                        static_cast<uint32_t>(tmp.size()),
+                        std::memory_order_release);
+                }
+                else
+                {
+                    // Overflow: lock is already held so readers will block.
+                    mOverflow[v] = std::move(tmp);
+                    mFlatSizes[v].store(OVERFLOW_MARKER,
+                                        std::memory_order_release);
                 }
             }
 
@@ -138,18 +191,40 @@ namespace gte
         size_t GetNumVertices()        const   { return this->mNumVertices;  }
 
     private:
+        // Maximum neighbors stored in the lock-free flat array.
+        // 256 comfortably exceeds the ~30–80 used in practice (SR check
+        // rarely grows beyond 60 even on complex meshes).
+        static constexpr size_t   FLAT_K          = 256;
+        static constexpr uint32_t OVERFLOW_MARKER = 0xFFFFFFFFu;
+
+        // ── Flat pre-allocated neighbourhood storage ──────────────────────────
+        // mFlatData[v * FLAT_K .. v * FLAT_K + mFlatSizes[v]) holds the
+        // neighbours of vertex v.  Written before mFlatSizes[v] is updated
+        // (release), so readers can load mFlatSizes[v] (acquire) and then
+        // safely read mFlatData without a lock.
+        std::unique_ptr<int32_t[]>                  mFlatData;
+        std::unique_ptr<std::atomic<uint32_t>[]>    mFlatSizes;
+
+        // Fallback for the rare case that a vertex needs > FLAT_K neighbours.
+        std::vector<std::vector<int32_t>>           mOverflow;
+
         // ── Eager parallel neighbourhood precomputation ───────────────────────
-        // Geogram: parallel_for(0, nb_vertices, store_neighbors_CB, grain=1).
-        // Each vertex independently queries the shared (read-only) KD-tree.
         void UpdateNeighborhoods()
         {
             size_t n = this->mNumVertices;
-            mNeighborhoods.assign(n, {});
 
-            // Allocate per-vertex spinlocks, all in "unlocked" (0) state.
+            // Allocate flat storage.
+            mFlatData  = std::make_unique<int32_t[]>(n * FLAT_K);
+            mFlatSizes = std::make_unique<std::atomic<uint32_t>[]>(n);
+            mOverflow.assign(n, {});
+
+            // Allocate per-vertex spinlocks, all unlocked (0).
             mLocks = std::make_unique<std::atomic<uint8_t>[]>(n);
             for (size_t i = 0; i < n; ++i)
+            {
+                mFlatSizes[i].store(0, std::memory_order_relaxed);
                 mLocks[i].store(0, std::memory_order_relaxed);
+            }
 
             // Partition vertices across hardware threads.
             unsigned int hw = std::thread::hardware_concurrency();
@@ -174,24 +249,28 @@ namespace gte
                         size_t found = mNNSearch.FindKNearestNeighborsToPoint(
                             static_cast<int32_t>(i), k,
                             raw.data(), sqd.data());
-                        auto& nb = mNeighborhoods[i];
-                        nb.clear();
-                        nb.reserve(found);
-                        for (size_t j = 0; j < found; ++j)
+
+                        // Fill flat array; threads write disjoint ranges.
+                        size_t vi  = i * FLAT_K;
+                        size_t out = 0;
+                        for (size_t j = 0; j < found && out < FLAT_K; ++j)
                         {
                             int32_t idx = static_cast<int32_t>(raw[j]);
                             if (idx == static_cast<int32_t>(i)) continue;
                             if (sqd[j] == static_cast<Real>(0)
                                 && idx < static_cast<int32_t>(i)) continue;
-                            nb.push_back(idx);
+                            mFlatData[vi + out++] = idx;
                         }
+                        // Release store: data written before size is visible.
+                        mFlatSizes[i].store(static_cast<uint32_t>(out),
+                                            std::memory_order_release);
                     }
                 });
             }
             for (auto& th : threads) th.join();
         }
 
-        // ── Per-vertex spinlock (Geogram: PackedArrays::lock/unlock_array) ────
+        // ── Per-vertex spinlock ───────────────────────────────────────────────
         void AcquireLock(size_t v) const
         {
             uint8_t expected = 0;
@@ -210,9 +289,8 @@ namespace gte
         }
 
         size_t mDefaultNbNeighbors;
-        NearestNeighborSearchN<Real, N>           mNNSearch;
-        std::vector<std::vector<int32_t>>         mNeighborhoods;
-        mutable std::unique_ptr<std::atomic<uint8_t>[]> mLocks;
+        NearestNeighborSearchN<Real, N>                  mNNSearch;
+        mutable std::unique_ptr<std::atomic<uint8_t>[]>  mLocks;
     };
 
     template <typename Real, size_t N>
