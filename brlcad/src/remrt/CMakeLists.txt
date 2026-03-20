@@ -1,4 +1,4 @@
-if(NOT WIN32)
+if(NOT WIN32 AND NOT BRLCAD_ENABLE_OBOL)
   brlcad_addexec(remrt "../rt/opt.c;ihost.c;remrt.c" "liboptical;libdm")
   target_include_directories(remrt BEFORE PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
   add_target_deps(remrt dm_plugins)
@@ -7,7 +7,7 @@ if(NOT WIN32)
   target_include_directories(rtsrv BEFORE PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
   set_property(TARGET rtsrv APPEND PROPERTY COMPILE_DEFINITIONS "RTSRV")
   add_target_deps(rtsrv dm_plugins)
-endif(NOT WIN32)
+endif(NOT WIN32 AND NOT BRLCAD_ENABLE_OBOL)
 
 cmakefiles(
   ihost.c
