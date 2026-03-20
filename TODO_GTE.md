@@ -320,3 +320,148 @@ seeds at a surface fold; p99 quality is excellent across all sizes.
   already has steps 5a-5f but may need an additional sliver-removal step for very high
   target-to-input ratios.
 
+## Changes Made (Session 11)
+
+Investigated Geogram differences and performance, removed debug instrumentation,
+and added structural caching to reduce per-iteration overhead.
+
+### Debug output removal
+- Removed all `std::cerr` timing/diagnostic output from `MeshRemesh.h`, `CVTN.h`,
+  and `SurfaceRVDN.h`. Removed `#include <iostream>` from these files.
+- Removed `dbgClipCalls`, `dbgFindNearestCalls`, `dbgAdjSeedsProcessed` counters
+  and their timing blocks from `SurfaceRVDN::ForEachPolygon`.
+
+### K=30 to match Geogram default
+- `AccumulateCentroids` now uses `DelaunayNN<Real,N>(30)` instead of `(20)`.
+  Geogram's `Delaunay` constructor sets `default_nb_neighbors_ = 30` and
+  precomputes 30 neighbors per vertex during `set_vertices()`.
+- Larger initial K reduces the frequency of `EnlargeNeighborhood` calls in
+  Newton mode (checkSR=true), improving CVT time from ~108s → ~88s on
+  `4002.1.t0` (64K faces, 32K seeds).
+
+### Cached lifted vertices in CVTN
+- Added `mCachedLiftedArr` + `mLiftedArrValid` private members to `CVTN`.
+  The N-D lifted vertex array (vertex positions + scaled normals) depends only
+  on `mSurfaceVertices`, `mSurfaceTriangles`, and `mNormalScale` — none of which
+  change between Lloyd/Newton iterations.
+- `BuildLiftedVertices` now returns from cache on subsequent calls, bypassing
+  O(n_verts) normal-accumulation loop.
+- `SetNormalScale()` and `Initialize()` invalidate the cache.
+
+### Cached SurfaceRVDN mesh setup in CVTN
+- Added `mCachedRVD` + `mRVDMeshInitDone` private members to `CVTN`.
+  `SurfaceRVDN::Initialize()` has been split into:
+  - `InitMeshOnly(liftedVerts, tris)`: builds adjacency table once per mesh
+    (O(n_faces) work), called only when mesh changes.
+  - `UpdateSeeds(seeds, delaunay)`: rebuilds seed KD-tree (O(n_seeds log n_seeds)),
+    called each iteration.
+  - `SetLiftedVerts(liftedVerts)`: rebinds pointer without rebuilding anything.
+  - `BuildFacetAdjacency()`: extracted private helper for the adjacency table build.
+- `AccumulateCentroids` now calls `InitMeshOnly` only on the first call and
+  `UpdateSeeds` on every call, saving ~35ms/iter × 35 iters ≈ 1.2s.
+
+### Performance results (4002.1.t0, 64K faces, 32K seeds)
+| Session | Total CVT time |
+|---------|---------------|
+| 10      | ~109s          |
+| 11      | ~88s (+19%)    |
+
+The improvement comes primarily from K=30 (reduces SR enlargement calls in Newton).
+
+### 30-bot pass rate
+Random sample of 30 BoTs from Generic_Twin.g: all 30 pass (100% pass rate).
+
+## NEXT SESSION TODO
+
+### Priority 1: Further Newton speedup
+- The main bottleneck (88s total on 4002.1.t0) is 30 Newton iterations × ~3s each.
+- Geogram achieves similar quality much faster via multi-threading (`parallel_for`).
+- Potential single-threaded speedups:
+  - Use nanoflann (available at `src/libbg/nanoflann.hpp`) for faster KNN queries,
+    especially for `EnlargeNeighborhood` calls.
+  - Pre-compute all 30 neighbors upfront at the start of each AccumulateCentroids
+    call (matching Geogram's eager computation during `set_vertices`).
+  - Reduce Newton iterations from 30 to 10-15 for practical use (add energy
+    convergence criterion to early-exit).
+
+### Priority 2: Quality on degenerate inputs
+- `7052.1.t0` (8 verts, 6 faces thin panel) and `7010.1.t0` (10 verts, 8 faces)
+  fail with "mesh too small" / "empty after preprocessing". Pre-existing issues.
+
+## Changes Made (Session 12)
+
+Three performance improvements matching the problem statement:
+nanoflann KNN, Newton energy-convergence early-exit, C++17 thread parallelism.
+
+### 1. nanoflann KD-tree backend (NearestNeighborSearchN.h)
+
+- Replaced the custom `KDTreeND` (hand-rolled split-order KD-tree) with
+  nanoflann's `KDTreeSingleIndexAdaptor<L2_Adaptor>`.
+- nanoflann uses a AABB-based KD-tree with better spatial pruning and a
+  compile-time dimension parameter (N=3 isotropic, N=6 anisotropic), which
+  is especially beneficial for high-dimensional queries.
+- `DataAdaptor` struct provides the nanoflann dataset interface (three
+  mandatory methods: `kdtree_get_point_count`, `kdtree_get_pt`, `kdtree_get_bbox`).
+- `leaf_max_size=10` (nanoflann default). `n_thread_build=1` (single-threaded
+  build to avoid overhead on small seed sets).
+- The public interface (`SetPoints`, `FindNearestNeighbor`, `FindKNearestNeighbors`,
+  `FindKNearestNeighborsToPoint`, `DistanceSquared`) is unchanged.
+
+### 2. Newton energy-convergence early-exit (CVTN.h)
+
+- Added energy-change convergence check after each L-BFGS step:
+  `|f_new - f_old| / (|f_old| + 1e-30) < 1e-6`
+- Stops Newton iterations once the CVT energy stops improving significantly,
+  matching the spirit of Geogram's HLBFGS convergence criterion.
+- In practice reduces Newton iterations from 30 down to ~15-20 on typical
+  meshes, halving Newton time.
+
+### 3. C++17 thread parallelism in AccumulateCentroids (CVTN.h + SurfaceRVDN.h)
+
+- `AccumulateCentroids` now spawns `std::thread::hardware_concurrency()` threads.
+- The facet range `[0, numFacets)` is split into contiguous sub-ranges.
+- Each thread creates its own `SurfaceRVDN` (via `ShareMeshFrom(mCachedRVD)` —
+  copies the prebuilt adjacency table pointer without rebuilding it) and its
+  own `DelaunayNN` (built from `mSites` — avoids data races on lazy
+  `mNeighborhoods`/`mComputed` caches that GetNeighbors/EnlargeNeighborhood mutate).
+- Each thread accumulates its own partial `mg_parts[t]`/`ma_parts[t]` arrays.
+- After all threads join, partial accumulators are merged into the final
+  `mg`/`m_area` arrays.
+- `SurfaceRVDN::ShareMeshFrom()` new method: copies mesh adjacency + pointers
+  from source SurfaceRVDN without rebuilding the adjacency table.
+- `SurfaceRVDN::ForEachPolygon_SeedsPriority(action, fBegin, fEnd)` new ranged
+  overload: BFS stays within `[fBegin, fEnd)`, facets outside the range are
+  skipped (handled by their respective thread's outer loop).
+
+### Performance results (4002.1.t0, 64K faces, ~32K seeds, 4 CPU cores)
+
+| Session | CVT wall time | Notes |
+|---------|--------------|-------|
+| 11      | ~88s         | K=30, adjacency cached |
+| 12      | ~31s         | +nanoflann +Newton early-exit +4-thread parallel |
+
+4-core speedup: 88s → 31s = **65% faster** (2.8x).
+User-time: 90s (3× wall time), confirming ~3 out of 4 cores utilized.
+
+### 20-bot pass rate
+Random sample of 20 BoTs: 19/20 pass (1 pre-existing failure: `7010.1.t0`,
+8-face degenerate mesh collapses to 0 faces after preprocessing).
+
+## NEXT SESSION TODO
+
+### Priority 1: Output quality validation
+- Add an aspect-ratio histogram check on remeshed outputs to confirm
+  the parallel centroid accumulation doesn't degrade CVT quality.
+- Compare AR stats between session 11 (single-threaded) and session 12.
+
+### Priority 2: Degenerate mesh fallback
+- `7010.1.t0`, `7052.1.t0` fail due to pre-processing producing empty/too-small
+  meshes.  Consider a minimum-face threshold and a "skip CVT" fallback that
+  returns the preprocessed mesh directly.
+
+### Priority 3: Thread count tuning
+- `AccumulateCentroids` currently uses `hardware_concurrency()` threads.
+  For small meshes (< 1000 facets), the thread overhead may exceed the gain.
+  Add a `minFacetsPerThread` threshold (e.g. 500 facets) to avoid spawning
+  more threads than needed.
+

@@ -58,6 +58,7 @@
 #include <Mathematics/Ray.h>
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <limits>
@@ -446,17 +447,16 @@ namespace gte
             std::vector<Vec6> sites6D(rawSites.size());
 
             // Build a 3D NN search over the input vertices once.
-            NearestNeighborSearchN<Real, 3> vertNN3D;
+            // Keep pts3 alive for the duration of vertNN3D use to avoid dangling pointer.
+            std::vector<Vector<3, Real>> pts3(verts3.size());
+            for (size_t v = 0; v < verts3.size(); ++v)
             {
-                std::vector<Vector<3, Real>> pts3(verts3.size());
-                for (size_t v = 0; v < verts3.size(); ++v)
-                {
-                    pts3[v][0] = verts3[v][0];
-                    pts3[v][1] = verts3[v][1];
-                    pts3[v][2] = verts3[v][2];
-                }
-                vertNN3D.SetPoints(pts3.size(), pts3.data());
+                pts3[v][0] = verts3[v][0];
+                pts3[v][1] = verts3[v][1];
+                pts3[v][2] = verts3[v][2];
             }
+            NearestNeighborSearchN<Real, 3> vertNN3D;
+            vertNN3D.SetPoints(pts3.size(), pts3.data());
 
             for (size_t s = 0; s < rawSites.size(); ++s)
             {

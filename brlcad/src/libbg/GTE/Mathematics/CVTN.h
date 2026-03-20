@@ -32,10 +32,11 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <iostream>
 #include <limits>
 #include <map>
+#include <mutex>
 #include <random>
+#include <thread>
 #include <vector>
 
 namespace gte
@@ -71,6 +72,8 @@ namespace gte
             , mTimeLimitSeconds(0.0)
             , mIterationsCompleted(0)
             , mNormalScale(static_cast<Real>(0))
+            , mLiftedArrValid(false)
+            , mRVDMeshInitDone(false)
         {
         }
         
@@ -87,6 +90,8 @@ namespace gte
             
             mSurfaceVertices = surfaceVertices;
             mSurfaceTriangles = surfaceTriangles;
+            mLiftedArrValid = false;   // invalidate cached lifted vertices
+            mRVDMeshInitDone = false;  // invalidate cached RVD mesh setup
             
             return true;
         }
@@ -702,7 +707,22 @@ namespace gte
 
                 x = std::move(x_new);
                 g = std::move(g_new);
+
+                // Energy-change convergence: stop when the improvement is tiny
+                // compared to the current energy value.  This prevents spending
+                // many L-BFGS iterations once the CVT has effectively converged,
+                // matching the spirit of Geogram's HLBFGS convergence criterion.
+                // Threshold 1e-6 relative to f matches Geogram's default tolerance.
+                static constexpr Real ENERGY_REL_TOL = static_cast<Real>(1e-6);
+                Real fChange = std::abs(f_new - f);
+                Real fBase   = std::abs(f) + static_cast<Real>(1e-30);
                 f = f_new;
+                if (fChange / fBase < ENERGY_REL_TOL)
+                {
+                    if (mVerbose)
+                        std::cout << "Newton energy-converged after " << (iter + 1) << " iters\n";
+                    break;
+                }
 
                 if (mVerbose)
                 {
@@ -726,7 +746,14 @@ namespace gte
         // Passing 0 resets to the dynamic-derivation behaviour (the default
         // when CVTN is first constructed), which may be useful in custom
         // workflows that compute the scale incrementally.
-        void SetNormalScale(Real s) { mNormalScale = s; }
+        void SetNormalScale(Real s)
+        {
+            if (s != mNormalScale)
+            {
+                mNormalScale = s;
+                mLiftedArrValid = false;  // invalidate cached lifted vertices
+            }
+        }
 
         Real GetNormalScale() const { return mNormalScale; }
 
@@ -1212,11 +1239,9 @@ namespace gte
         // For N=6 (anisotropic): appends scaled vertex normals to produce the
         //   N-D metric embedding matching Geogram's set_anisotropy().
         //
-        // Computes the normalScale from mNormalScale (fixed, set once by
-        // SetNormalScale()) when available, otherwise falls back to deriving
-        // it from the current seed normal magnitudes.  The fixed-scale path
-        // matches Geogram's behaviour: set_anisotropy() pins the scale once
-        // and does not re-derive it per-iteration.
+        // The liftedArr result is cached in mCachedLiftedArr because the mesh
+        // vertices and normalScale never change between Lloyd/Newton iterations.
+        // Only seedsArr changes (seeds move each iteration).
         void BuildLiftedVertices(
             std::vector<std::array<Real, N>>& liftedArr,
             std::vector<std::array<Real, N>>& seedsArr,
@@ -1251,7 +1276,17 @@ namespace gte
                 }
             }
 
-            liftedArr.resize(mSurfaceVertices.size());
+            // Use the cached liftedArr when valid (normalScale and mesh haven't changed).
+            // Computing lifted vertices from scratch is O(n_verts) but for large meshes
+            // (86K verts, N=6) it takes ~12ms per call and never changes between iterations.
+            if (mLiftedArrValid)
+            {
+                liftedArr = mCachedLiftedArr;
+                return;
+            }
+
+            // Build the lifted array from scratch.
+            mCachedLiftedArr.resize(mSurfaceVertices.size());
 
             if constexpr (N > 3)
             {
@@ -1273,20 +1308,20 @@ namespace gte
                 }
                 for (size_t v = 0; v < mSurfaceVertices.size(); ++v)
                 {
-                    liftedArr[v][0] = mSurfaceVertices[v][0];
-                    liftedArr[v][1] = mSurfaceVertices[v][1];
-                    liftedArr[v][2] = mSurfaceVertices[v][2];
+                    mCachedLiftedArr[v][0] = mSurfaceVertices[v][0];
+                    mCachedLiftedArr[v][1] = mSurfaceVertices[v][1];
+                    mCachedLiftedArr[v][2] = mSurfaceVertices[v][2];
                     Real nx = vertNorm[v][0], ny = vertNorm[v][1], nz = vertNorm[v][2];
                     Real len = std::sqrt(nx*nx + ny*ny + nz*nz);
                     if (len > static_cast<Real>(1e-10))
                     { nx /= len; ny /= len; nz /= len; }
                     if constexpr (N >= 6)
                     {
-                        liftedArr[v][3] = nx * normalScale;
-                        liftedArr[v][4] = ny * normalScale;
-                        liftedArr[v][5] = nz * normalScale;
+                        mCachedLiftedArr[v][3] = nx * normalScale;
+                        mCachedLiftedArr[v][4] = ny * normalScale;
+                        mCachedLiftedArr[v][5] = nz * normalScale;
                     }
-                    for (size_t d = 6; d < N; ++d) liftedArr[v][d] = static_cast<Real>(0);
+                    for (size_t d = 6; d < N; ++d) mCachedLiftedArr[v][d] = static_cast<Real>(0);
                 }
             }
             else
@@ -1294,17 +1329,30 @@ namespace gte
                 // N=3: copy 3D positions directly
                 for (size_t v = 0; v < mSurfaceVertices.size(); ++v)
                 {
-                    liftedArr[v][0] = mSurfaceVertices[v][0];
-                    liftedArr[v][1] = mSurfaceVertices[v][1];
-                    liftedArr[v][2] = mSurfaceVertices[v][2];
+                    mCachedLiftedArr[v][0] = mSurfaceVertices[v][0];
+                    mCachedLiftedArr[v][1] = mSurfaceVertices[v][1];
+                    mCachedLiftedArr[v][2] = mSurfaceVertices[v][2];
                 }
             }
+
+            mLiftedArrValid = true;
+            liftedArr = mCachedLiftedArr;
         }
 
         // ── Shared helper: accumulate N-D centroids via SurfaceRVDN walk ──────
         //
-        // Used by LloydIterations (to compute centroid update) and
-        // NewtonIterations (to compute gradient and energy proxy).
+        // Uses C++17 std::thread to parallelize across hardware threads.
+        // The facet range [0, numFacets) is split into nThreads contiguous
+        // sub-ranges.  Each thread runs its own ForEachPolygon_SeedsPriority
+        // on its sub-range with its own local state (facet_is_marked, seed_stamp)
+        // and its own partial mg/m_area accumulator.  Partial results are merged
+        // after all threads complete.
+        //
+        // Correctness: every facet in [0, numFacets) is processed by exactly
+        // the thread that owns it.  Within-range BFS stays in the range;
+        // facets outside the range are handled by their respective thread's
+        // outer loop via FindNearestSeed().  This matches Geogram's parallel
+        // for_each_triangle pattern (each thread owns a contiguous tile).
         //
         // checkSR: when false (Lloyd mode), ClipCellFacet uses initial
         //   neighborhood only (no enlargement) — matching Geogram's
@@ -1318,36 +1366,63 @@ namespace gte
             std::vector<Real>&               m_area,
             bool                             checkSR = true) const
         {
-            size_t numSeeds = mSites.size();
+            size_t numSeeds  = mSites.size();
+            size_t numFacets = mSurfaceTriangles.size();
 
-            DelaunayNN<Real, N> delaunay(20);
+            // Build seedsArr from current site positions.
+            // Rebuilt each iteration as seeds move.
+            std::vector<std::array<Real, N>> seedsArr(numSeeds);
+            for (size_t s = 0; s < numSeeds; ++s)
+                for (size_t d = 0; d < N; ++d) seedsArr[s][d] = mSites[s][d];
+
+            // Populate lifted-vertex cache if needed.
+            // mCachedLiftedArr is stable (member of CVTN), valid for lifetime
+            // of this CVTN object.
+            if (!mLiftedArrValid)
+            {
+                std::vector<std::array<Real, N>> dummy, dummySeeds;
+                Real dummyNS;
+                BuildLiftedVertices(dummy, dummySeeds, dummyNS);
+            }
+
+            // Build DelaunayNN over current seed positions.
+            // K=30 matches Geogram's default_nb_neighbors_=30.
+            DelaunayNN<Real, N> delaunay(30);
             delaunay.SetVertices(numSeeds, mSites.data());
 
-            std::vector<std::array<Real, N>> liftedArr, seedsArr;
-            Real normalScale;
-            BuildLiftedVertices(liftedArr, seedsArr, normalScale);
+            // Set up the cached SurfaceRVDN (adjacency built once per mesh).
+            mCachedRVD.SetCheckSR(checkSR);
+            if (!mRVDMeshInitDone)
+            {
+                mCachedRVD.InitMeshOnly(mCachedLiftedArr, mSurfaceTriangles);
+                mRVDMeshInitDone = true;
+            }
+            else
+            {
+                mCachedRVD.SetLiftedVerts(mCachedLiftedArr);
+            }
+            mCachedRVD.UpdateSeeds(seedsArr, delaunay);
 
-            SurfaceRVDN<Real, N> rvd;
-            // checkSR=false: Lloyd clips with initial 20 neighbors only (no
-            //   enlargement), matching Geogram's set_check_SR(false) before
-            //   Lloyd_iterations().  checkSR=true: Newton uses full SR-based
-            //   neighborhood enlargement for correctness.
-            rvd.SetCheckSR(checkSR);
-            rvd.Initialize(liftedArr, mSurfaceTriangles, seedsArr, delaunay);
+            // Determine thread count: use hardware concurrency, capped at
+            // numFacets (no point in more threads than facets).
+            unsigned int hwThreads = std::thread::hardware_concurrency();
+            // hardware_concurrency() returns 0 when the value is not computable.
+            if (hwThreads == 0) hwThreads = 1;
+            size_t nThreads = static_cast<size_t>(hwThreads);
+            if (nThreads > numFacets) nThreads = numFacets;
+            if (nThreads < 1) nThreads = 1;
 
-            mg.assign(numSeeds, {});
-            for (auto& a : mg) a.fill(static_cast<Real>(0));
-            m_area.assign(numSeeds, static_cast<Real>(0));
-
-            rvd.ForEachPolygon([&](
-                int32_t seed, int32_t /*facet*/,
+            // Lambda for computing the area-weighted centroid contribution from
+            // a single RVD polygon — shared by all per-thread callbacks.
+            auto accumPoly = [&](
+                int32_t seed,
                 RVDPolygon<Real, N> const& P,
-                bool /*compChanged*/, int32_t /*compID*/)
+                std::vector<std::array<Real, N>>& mg_local,
+                std::vector<Real>& m_area_local)
             {
                 const size_t nv = P.nb_vertices();
                 for (size_t i = 1; i + 1 < nv; ++i)
                 {
-                    // N-D triangle area (Heron's formula)
                     Real ea = Real(0), eb = Real(0), ec = Real(0);
                     for (size_t d = 0; d < N; ++d)
                     {
@@ -1357,15 +1432,78 @@ namespace gte
                         ea += e0*e0; eb += e1*e1; ec += e2*e2;
                     }
                     ea = std::sqrt(ea); eb = std::sqrt(eb); ec = std::sqrt(ec);
-                    Real hs = Real(0.5)*(ea+eb+ec);
-                    Real A2 = hs*(hs-ea)*(hs-eb)*(hs-ec);
+                    Real hs   = Real(0.5)*(ea+eb+ec);
+                    Real A2   = hs*(hs-ea)*(hs-eb)*(hs-ec);
                     Real area = std::sqrt(std::max(A2, Real(0)));
                     Real inv3 = area / Real(3);
                     for (size_t d = 0; d < N; ++d)
-                        mg[seed][d] += inv3*(P.V[0].pos[d]+P.V[i].pos[d]+P.V[i+1].pos[d]);
-                    m_area[seed] += area;
+                        mg_local[seed][d] += inv3*(P.V[0].pos[d]+P.V[i].pos[d]+P.V[i+1].pos[d]);
+                    m_area_local[seed] += area;
                 }
-            });
+            };
+
+            // Per-thread partial accumulators and thread objects.
+            // Each thread has its own SurfaceRVDN instance (shared read-only
+            // data via const pointers, independent mutable state).
+            std::vector<std::vector<std::array<Real, N>>> mg_parts(nThreads);
+            std::vector<std::vector<Real>>                 ma_parts(nThreads);
+            std::vector<std::thread>                       threads;
+            threads.reserve(nThreads);
+
+            size_t facetsPerThread = (numFacets + nThreads - 1) / nThreads;
+
+            for (size_t t = 0; t < nThreads; ++t)
+            {
+                int32_t fBegin = static_cast<int32_t>(t * facetsPerThread);
+                int32_t fEnd   = static_cast<int32_t>(
+                    std::min((t + 1) * facetsPerThread, numFacets));
+
+                mg_parts[t].assign(numSeeds, {});
+                for (auto& a : mg_parts[t]) a.fill(static_cast<Real>(0));
+                ma_parts[t].assign(numSeeds, static_cast<Real>(0));
+
+                threads.emplace_back([&, t, fBegin, fEnd]()
+                {
+                    // Each thread gets its own SurfaceRVDN that shares the
+                    // prebuilt mesh adjacency from mCachedRVD (no rebuild),
+                    // and its own DelaunayNN (avoids data races on lazy
+                    // mNeighborhoods/mComputed caches in DelaunayNN).
+                    DelaunayNN<Real, N> delaunay_t(30);
+                    delaunay_t.SetVertices(numSeeds, mSites.data());
+
+                    SurfaceRVDN<Real, N> rvd_t;
+                    rvd_t.SetCheckSR(checkSR);
+                    rvd_t.ShareMeshFrom(mCachedRVD);
+                    rvd_t.UpdateSeeds(seedsArr, delaunay_t);
+
+                    auto& mg_t  = mg_parts[t];
+                    auto& ma_t  = ma_parts[t];
+
+                    rvd_t.ForEachPolygon_SeedsPriority(
+                        [&](int32_t seed, int32_t /*facet*/,
+                            RVDPolygon<Real, N> const& P)
+                        {
+                            accumPoly(seed, P, mg_t, ma_t);
+                        },
+                        fBegin, fEnd);
+                });
+            }
+
+            for (auto& th : threads) th.join();
+
+            // Merge partial accumulators.
+            mg.assign(numSeeds, {});
+            for (auto& a : mg) a.fill(static_cast<Real>(0));
+            m_area.assign(numSeeds, static_cast<Real>(0));
+            for (size_t t = 0; t < nThreads; ++t)
+            {
+                for (size_t s = 0; s < numSeeds; ++s)
+                {
+                    for (size_t d = 0; d < N; ++d)
+                        mg[s][d] += mg_parts[t][s][d];
+                    m_area[s] += ma_parts[t][s];
+                }
+            }
             return true;
         }
 
@@ -1378,5 +1516,20 @@ namespace gte
         double mTimeLimitSeconds;                                 // 0 = no limit
         size_t mIterationsCompleted;                              // Iters completed in last LloydIterations() call
         Real mNormalScale;  // Fixed normal-component scale (0 = derive from seeds each call)
+
+        // Cached lifted mesh vertices (position + scaled normals in N-D).
+        // Computed once from mSurfaceVertices + mSurfaceTriangles + mNormalScale
+        // and reused across all AccumulateCentroids calls.  Invalidated when
+        // mNormalScale changes (via SetNormalScale) or when Initialize is called.
+        mutable std::vector<std::array<Real, N>> mCachedLiftedArr;
+        mutable bool mLiftedArrValid = false;
+
+        // Cached SurfaceRVDN with the mesh adjacency table built once.
+        // The mesh adjacency (mFacetAdj) depends only on mSurfaceTriangles and
+        // never changes between iterations.  The seed KD-tree is updated via
+        // UpdateSeeds() on each AccumulateCentroids call (O(n_seeds log n_seeds)
+        // instead of O(n_faces) for full Initialize).
+        mutable SurfaceRVDN<Real, N> mCachedRVD;
+        mutable bool mRVDMeshInitDone = false;
     };
 }

@@ -590,6 +590,18 @@ namespace gte
         bool GetCheckSR() const       { return mCheckSR; }
 
         // -----------------------------------------------------------------
+        // Rebind the lifted-vertices pointer without rebuilding anything.
+        // Used when AccumulateCentroids's mCachedLiftedArr is reallocated
+        // (first time the cache is built) but the adjacency table is already
+        // valid and doesn't need to be rebuilt.
+        // LIFETIME: liftedVerts must outlive this SurfaceRVDN instance.
+        // -----------------------------------------------------------------
+        void SetLiftedVerts(std::vector<PointN> const& liftedVerts)
+        {
+            mLiftedVerts = &liftedVerts;
+        }
+
+        // -----------------------------------------------------------------
         // Initialize with surface mesh and seeds.
         // liftedVerts: N-D positions of mesh vertices.
         // tris:        triangle connectivity (integer indices into liftedVerts).
@@ -608,71 +620,54 @@ namespace gte
             mDelaunay    = &delaunay;
             mNumFacets   = tris.size();
 
-            // Per-facet edge adjacency table: mFacetAdj[f*3 + e] = adjacent facet
-            // through edge (tri[e], tri[(e+1)%3]), or -1 if boundary.
-            mFacetAdj.assign(mNumFacets * 3, int32_t(-1));
+            BuildFacetAdjacency();
+            BuildSeedKDTree(seeds);
+        }
 
-            // Build edge→triangle map.  Entry (-2,-2) flags a non-manifold
-            // edge (3+ incident triangles); those are treated as boundaries.
-            // Entry (f,-1) flags an unmatched (boundary) edge.
-            // Matching Geogram's repair_connect_facets which marks non-manifold
-            // edges as NON_MANIFOLD and does NOT set adjacency for them.
-            using EKey = uint64_t;
-            static constexpr int32_t NM = -2;  // non-manifold sentinel
-            std::unordered_map<EKey, std::pair<int32_t, int32_t>> edgeMap;
-            edgeMap.reserve(mNumFacets * 3);
+        // -----------------------------------------------------------------
+        // Thread-parallel initialization: shares the prebuilt mesh adjacency
+        // from another SurfaceRVDN (no rebuild), then binds its own seeds
+        // and a per-thread delaunay.
+        //
+        // Called once per thread before the parallel ForEachPolygon.
+        // The source SurfaceRVDN must have been initialized via InitMeshOnly()
+        // or Initialize() and must outlive this object.
+        // -----------------------------------------------------------------
+        void ShareMeshFrom(SurfaceRVDN const& src)
+        {
+            mLiftedVerts = src.mLiftedVerts;
+            mTris        = src.mTris;
+            mNumFacets   = src.mNumFacets;
+            mFacetAdj    = src.mFacetAdj;   // copy adjacency (read-only shared)
+            // mSeeds, mDelaunay, mSeedKDTree filled by UpdateSeeds()
+        }
 
-            for (size_t f = 0; f < mNumFacets; ++f)
-            {
-                auto const& tri = (*mTris)[f];
-                for (int e = 0; e < 3; ++e)
-                {
-                    EKey key = EdgeKey(tri[e], tri[(e + 1) % 3]);
-                    auto [it, ok] = edgeMap.emplace(key, std::make_pair(-1, -1));
-                    (void)ok;
-                    if (it->second.first == NM)
-                    {
-                        // Already flagged non-manifold — stay flagged
-                    }
-                    else if (it->second.first < 0)
-                    {
-                        it->second.first  = static_cast<int32_t>(f);
-                    }
-                    else if (it->second.second < 0)
-                    {
-                        it->second.second = static_cast<int32_t>(f);
-                    }
-                    else
-                    {
-                        // Third triangle on this edge → non-manifold; treat as boundary
-                        it->second = {NM, NM};
-                    }
-                }
-            }
 
-            for (size_t f = 0; f < mNumFacets; ++f)
-            {
-                auto const& tri = (*mTris)[f];
-                for (int e = 0; e < 3; ++e)
-                {
-                    EKey key = EdgeKey(tri[e], tri[(e + 1) % 3]);
-                    auto it  = edgeMap.find(key);
-                    if (it != edgeMap.end())
-                    {
-                        int32_t f0 = it->second.first;
-                        int32_t f1 = it->second.second;
-                        // Skip non-manifold edges (f0==NM) and boundary edges (f1<0)
-                        if (f0 == NM || f1 < 0) { continue; }
-                        mFacetAdj[f * 3 + e] = (f0 == static_cast<int32_t>(f)) ? f1 : f0;
-                    }
-                }
-            }
+        // InitMeshOnly builds the adjacency table (O(n_facets) work) and
+        // stores pointers to liftedVerts and tris.
+        // -----------------------------------------------------------------
+        void InitMeshOnly(
+            std::vector<PointN> const&                     liftedVerts,
+            std::vector<std::array<int32_t, 3>> const&     tris)
+        {
+            mLiftedVerts = &liftedVerts;
+            mTris        = &tris;
+            mNumFacets   = tris.size();
 
-            // Build a 3D KD-tree over the seed 3D positions (first 3 dims of each
-            // N-D seed).  This accelerates FindNearestSeed() from O(n_seeds) to
-            // O(log n_seeds) for each of the O(n_facets) outer-loop calls.
-            // Matching Geogram's find_seed_near_facet which uses the Delaunay ANN
-            // for the starting facet lookup.
+            BuildFacetAdjacency();
+        }
+
+        // -----------------------------------------------------------------
+        // Update seeds and rebuild the seed KD-tree.  Called once per
+        // Lloyd or Newton iteration after seeds move.  Much cheaper than
+        // Initialize() since it skips the adjacency-table build.
+        // -----------------------------------------------------------------
+        void UpdateSeeds(
+            std::vector<PointN> const&                     seeds,
+            DelaunayNN<Real, N>&                           delaunay)
+        {
+            mSeeds    = &seeds;
+            mDelaunay = &delaunay;
             BuildSeedKDTree(seeds);
         }
 
@@ -857,6 +852,207 @@ namespace gte
                 } // seed deque loop
             } // outer facet loop
         }
+
+        // -----------------------------------------------------------------
+        // Walk the surface using SEEDS-PRIORITY order (Geogram's
+        // compute_surfacic_with_seeds_priority).  This is the correct mode
+        // for centroid computation (Lloyd/Newton iterations).
+        //
+        // Key difference from ForEachPolygon (cnx-priority):
+        //   - Each facet is permanently marked once (facet_is_marked[f]).
+        //     No overwriting → O(n_facets × avg_seeds_per_facet) clips.
+        //   - Inner adjacent_seeds loop processes ALL seeds intersecting the
+        //     current facet before moving to the next one.
+        //   - seed_stamp[s] = curF prevents the same seed being pushed
+        //     twice for the same facet.
+        //
+        // Action signature:
+        //   action(int32_t seed, int32_t facet,
+        //          RVDPolygon<Real,N> const& poly)
+        //
+        // No component tracking — only needed for ComputeRDT multi-nerve,
+        // which uses ForEachPolygon (cnx-priority).
+        // -----------------------------------------------------------------
+        template <typename Action>
+        void ForEachPolygon_SeedsPriority(Action&& action)
+        {
+            const size_t numSeeds   = mSeeds->size();
+            const size_t numFacets  = mNumFacets;
+
+            // Permanent boolean: marks a facet once it has been pushed to
+            // adjacent_facets (prevents re-visiting it for any seed).
+            std::vector<bool>    facet_is_marked(numFacets, false);
+            // seed_stamp[s] = index of the last facet that stamped seed s
+            // into the adjacent_seeds stack.  Prevents pushing the same
+            // seed twice for the same facet.
+            static constexpr int32_t NO_FACET = int32_t(-1);
+            std::vector<int32_t> seed_stamp(numSeeds, NO_FACET);
+
+            // adjacent_facets: stack of (facet, starting_seed) pairs.
+            // Each facet appears at most once (guarded by facet_is_marked).
+            struct FacetSeed { int32_t f, s; };
+            std::stack<FacetSeed>  adjacent_facets;
+            std::stack<int32_t>    adjacent_seeds;
+
+            // Reusable ping-pong clip buffers (persist across clips to
+            // avoid repeated heap allocations in the inner loop).
+            Polygon P_orig, P1, P2;
+            int32_t P_orig_idx = int32_t(-1);
+
+            // Outer loop: seed each unmarked facet.
+            // For a fully connected mesh this fires once (first unvisited facet
+            // of the connected component).  For fragmented meshes it fires once
+            // per connected component.
+            for (int32_t startF = 0; startF < static_cast<int32_t>(numFacets); ++startF)
+            {
+                if (facet_is_marked[startF]) { continue; }
+
+                facet_is_marked[startF] = true;
+                int32_t s0 = FindNearestSeed(startF);
+                adjacent_facets.push({startF, s0});
+
+                // Propagate along the facet-graph of the surface.
+                while (!adjacent_facets.empty())
+                {
+                    int32_t curF = adjacent_facets.top().f;
+                    int32_t curS = adjacent_facets.top().s;
+                    adjacent_facets.pop();
+
+                    // Re-initialize from mesh facet only when it changes.
+                    if (P_orig_idx != curF)
+                    {
+                        InitPolygon(curF, P_orig);
+                        P_orig_idx = curF;
+                    }
+
+                    // Propagate along the Delaunay 1-skeleton: this inner loop
+                    // traverses all seeds whose Voronoi cell intersects curF.
+                    seed_stamp[curS] = curF;
+                    adjacent_seeds.push(curS);
+
+                    while (!adjacent_seeds.empty())
+                    {
+                        int32_t s = adjacent_seeds.top();
+                        adjacent_seeds.pop();
+
+                        // Clip curF against seed s's Voronoi cell.
+                        Polygon* poly = ClipCellFacet(s, P_orig, P1, P2);
+
+                        if (!poly->empty())
+                        {
+                            action(s, curF, *poly);
+                        }
+
+                        // Propagate to adjacent facets (via mesh edges) and
+                        // adjacent seeds (via Voronoi bisectors).
+                        for (auto const& v : poly->V)
+                        {
+                            // Adjacent facet: mark permanently and push once.
+                            if (v.adjFacet >= 0
+                                && !facet_is_marked[v.adjFacet])
+                            {
+                                facet_is_marked[v.adjFacet] = true;
+                                adjacent_facets.push({v.adjFacet, s});
+                            }
+                            // Adjacent seed: push if not yet stamped for curF.
+                            if (v.adjSeed >= 0
+                                && seed_stamp[v.adjSeed] != curF)
+                            {
+                                seed_stamp[v.adjSeed] = curF;
+                                adjacent_seeds.push(v.adjSeed);
+                            }
+                        }
+                    } // inner seeds loop
+                } // adjacent_facets loop
+            } // outer facet loop
+        }
+
+        // -----------------------------------------------------------------
+        // Range-limited variant of ForEachPolygon_SeedsPriority:
+        // only processes facets in [fBegin, fEnd).  Adjacent-facet propagation
+        // stays within the same range (facets outside the range are skipped).
+        // This is safe because the outer loop guarantees every facet in the
+        // range is eventually seeded via FindNearestSeed, so no facet is missed.
+        //
+        // Used by AccumulateCentroids to split work across std::threads,
+        // where each thread processes its own contiguous range of facets and
+        // accumulates an independent partial centroid result.
+        // -----------------------------------------------------------------
+        template <typename Action>
+        void ForEachPolygon_SeedsPriority(Action&& action,
+                                          int32_t fBegin, int32_t fEnd)
+        {
+            if (fBegin >= fEnd) { return; }
+            const size_t numSeeds = mSeeds->size();
+
+            std::vector<bool>    facet_is_marked(mNumFacets, false);
+            static constexpr int32_t NO_FACET = int32_t(-1);
+            std::vector<int32_t> seed_stamp(numSeeds, NO_FACET);
+
+            struct FacetSeed { int32_t f, s; };
+            std::stack<FacetSeed> adjacent_facets;
+            std::stack<int32_t>   adjacent_seeds;
+
+            Polygon P_orig, P1, P2;
+            int32_t P_orig_idx = int32_t(-1);
+
+            for (int32_t startF = fBegin; startF < fEnd; ++startF)
+            {
+                if (facet_is_marked[startF]) { continue; }
+
+                facet_is_marked[startF] = true;
+                int32_t s0 = FindNearestSeed(startF);
+                adjacent_facets.push({startF, s0});
+
+                while (!adjacent_facets.empty())
+                {
+                    int32_t curF = adjacent_facets.top().f;
+                    int32_t curS = adjacent_facets.top().s;
+                    adjacent_facets.pop();
+
+                    if (P_orig_idx != curF)
+                    {
+                        InitPolygon(curF, P_orig);
+                        P_orig_idx = curF;
+                    }
+
+                    seed_stamp[curS] = curF;
+                    adjacent_seeds.push(curS);
+
+                    while (!adjacent_seeds.empty())
+                    {
+                        int32_t s = adjacent_seeds.top();
+                        adjacent_seeds.pop();
+
+                        Polygon* poly = ClipCellFacet(s, P_orig, P1, P2);
+
+                        if (!poly->empty())
+                        {
+                            action(s, curF, *poly);
+                        }
+
+                        for (auto const& v : poly->V)
+                        {
+                            // Adjacent facet: only within [fBegin, fEnd).
+                            if (v.adjFacet >= fBegin && v.adjFacet < fEnd
+                                && !facet_is_marked[v.adjFacet])
+                            {
+                                facet_is_marked[v.adjFacet] = true;
+                                adjacent_facets.push({v.adjFacet, s});
+                            }
+                            // Adjacent seed: push if not yet stamped for curF.
+                            if (v.adjSeed >= 0
+                                && seed_stamp[v.adjSeed] != curF)
+                            {
+                                seed_stamp[v.adjSeed] = curF;
+                                adjacent_seeds.push(v.adjSeed);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
 
         // Returns the connected-component ID of seed s on facet f, or -1 if
         // not recorded (the polygon didn't touch any Voronoi boundary on f).
@@ -1088,6 +1284,73 @@ namespace gte
         // -----------------------------------------------------------------
         // Helper utilities
         // -----------------------------------------------------------------
+
+        // Build per-facet edge adjacency table.  Called from Initialize()
+        // and InitMeshOnly().  Separated so it can be called once when the
+        // mesh is set up, not once per AccumulateCentroids call.
+        void BuildFacetAdjacency()
+        {
+            // Per-facet edge adjacency table: mFacetAdj[f*3 + e] = adjacent facet
+            // through edge (tri[e], tri[(e+1)%3]), or -1 if boundary.
+            mFacetAdj.assign(mNumFacets * 3, int32_t(-1));
+
+            // Build edge→triangle map.  Entry (-2,-2) flags a non-manifold
+            // edge (3+ incident triangles); those are treated as boundaries.
+            // Entry (f,-1) flags an unmatched (boundary) edge.
+            // Matching Geogram's repair_connect_facets which marks non-manifold
+            // edges as NON_MANIFOLD and does NOT set adjacency for them.
+            using EKey = uint64_t;
+            static constexpr int32_t NM = -2;  // non-manifold sentinel
+            std::unordered_map<EKey, std::pair<int32_t, int32_t>> edgeMap;
+            edgeMap.reserve(mNumFacets * 3);
+
+            for (size_t f = 0; f < mNumFacets; ++f)
+            {
+                auto const& tri = (*mTris)[f];
+                for (int e = 0; e < 3; ++e)
+                {
+                    EKey key = EdgeKey(tri[e], tri[(e + 1) % 3]);
+                    auto [it, ok] = edgeMap.emplace(key, std::make_pair(-1, -1));
+                    (void)ok;
+                    if (it->second.first == NM)
+                    {
+                        // Already flagged non-manifold — stay flagged
+                    }
+                    else if (it->second.first < 0)
+                    {
+                        it->second.first  = static_cast<int32_t>(f);
+                    }
+                    else if (it->second.second < 0)
+                    {
+                        it->second.second = static_cast<int32_t>(f);
+                    }
+                    else
+                    {
+                        // Third triangle on this edge → non-manifold; treat as boundary
+                        it->second = {NM, NM};
+                    }
+                }
+            }
+
+            for (size_t f = 0; f < mNumFacets; ++f)
+            {
+                auto const& tri = (*mTris)[f];
+                for (int e = 0; e < 3; ++e)
+                {
+                    EKey key = EdgeKey(tri[e], tri[(e + 1) % 3]);
+                    auto it  = edgeMap.find(key);
+                    if (it != edgeMap.end())
+                    {
+                        int32_t f0 = it->second.first;
+                        int32_t f1 = it->second.second;
+                        // Skip non-manifold edges (f0==NM) and boundary edges (f1<0)
+                        if (f0 == NM || f1 < 0) { continue; }
+                        mFacetAdj[f * 3 + e] = (f0 == static_cast<int32_t>(f)) ? f1 : f0;
+                    }
+                }
+            }
+        }
+
         static Real DistSq(PointN const& a, PointN const& b)
         {
             Real s = Real(0);
