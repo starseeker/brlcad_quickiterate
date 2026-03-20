@@ -52,6 +52,7 @@
 #include <Mathematics/CVT6D.h>
 #include <Mathematics/CVTN.h>
 #include <Mathematics/DelaunayNN.h>
+#include <Mathematics/NearestNeighborSearchN.h>
 #include <Mathematics/RestrictedVoronoiDiagramN.h>
 #include <Mathematics/AABBBVTreeOfTriangles.h>
 #include <Mathematics/Ray.h>
@@ -440,8 +441,23 @@ namespace gte
             // Augment each seed with the interpolated surface normal.
             // For each seed, find the nearest input vertex and use its scaled normal.
             // This converts the 3D seeds to proper 6D positions (pos + scaled normal).
+            // Use a 3D KD-tree for O(log n) per seed instead of O(n) brute force.
             auto const& rawSites = cvt.GetSites();
             std::vector<Vec6> sites6D(rawSites.size());
+
+            // Build a 3D NN search over the input vertices once.
+            NearestNeighborSearchN<Real, 3> vertNN3D;
+            {
+                std::vector<Vector<3, Real>> pts3(verts3.size());
+                for (size_t v = 0; v < verts3.size(); ++v)
+                {
+                    pts3[v][0] = verts3[v][0];
+                    pts3[v][1] = verts3[v][1];
+                    pts3[v][2] = verts3[v][2];
+                }
+                vertNN3D.SetPoints(pts3.size(), pts3.data());
+            }
+
             for (size_t s = 0; s < rawSites.size(); ++s)
             {
                 // Copy 3D position
@@ -449,21 +465,14 @@ namespace gte
                 sites6D[s][1] = rawSites[s][1];
                 sites6D[s][2] = rawSites[s][2];
 
-                // Find nearest input vertex to get normal at this seed position
-                Real minDistSq = std::numeric_limits<Real>::max();
-                size_t nearestVert = 0;
-                for (size_t v = 0; v < verts3.size(); ++v)
-                {
-                    Real dx = verts3[v][0] - rawSites[s][0];
-                    Real dy = verts3[v][1] - rawSites[s][1];
-                    Real dz = verts3[v][2] - rawSites[s][2];
-                    Real dSq = dx * dx + dy * dy + dz * dz;
-                    if (dSq < minDistSq)
-                    {
-                        minDistSq = dSq;
-                        nearestVert = v;
-                    }
-                }
+                // Find nearest input vertex via KD-tree: O(log n) instead of O(n)
+                Vector<3, Real> qPt;
+                qPt[0] = rawSites[s][0];
+                qPt[1] = rawSites[s][1];
+                qPt[2] = rawSites[s][2];
+                int32_t nearestVert = vertNN3D.FindNearestNeighbor(qPt);
+                if (nearestVert < 0)
+                    nearestVert = 0;
 
                 sites6D[s][3] = normals[nearestVert][0];
                 sites6D[s][4] = normals[nearestVert][1];
