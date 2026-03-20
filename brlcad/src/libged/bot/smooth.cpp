@@ -19,7 +19,7 @@
  */
  /** @file libged/bot/smooth.cpp
   *
-  * Smooth a BoT using GTE-style Jacobi-Laplace smoother.
+  * Smooth a BoT using Jacobi-Laplace smoother.
   *
   */
 
@@ -43,7 +43,7 @@
 #  pragma clang diagnostic push
 #  pragma clang diagnostic ignored "-Wfloat-equal"
 #endif
-#include "bg/gte/BotSmooth.h"
+#include "../../libbg/GTE/Mathematics/BotSmooth.h"
 #if defined(__GNUC__) && !defined(__clang__)
 #  pragma GCC diagnostic pop
 #elif defined(__clang__)

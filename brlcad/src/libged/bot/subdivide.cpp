@@ -43,7 +43,7 @@
 #  pragma clang diagnostic push
 #  pragma clang diagnostic ignored "-Wfloat-equal"
 #endif
-#include "bg/gte/BotSubdivide.h"
+#include "../../libbg/GTE/Mathematics/BotSubdivide.h"
 #if defined(__GNUC__) && !defined(__clang__)
 #  pragma GCC diagnostic pop
 #elif defined(__clang__)
