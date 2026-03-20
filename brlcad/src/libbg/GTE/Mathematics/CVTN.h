@@ -70,6 +70,7 @@ namespace gte
             , mVerbose(false)
             , mTimeLimitSeconds(0.0)
             , mIterationsCompleted(0)
+            , mNormalScale(static_cast<Real>(0))
         {
         }
         
@@ -427,9 +428,12 @@ namespace gte
                 // ── Steps 1–4: compute area-weighted N-D centroids via walk ───
                 // Uses BuildLiftedVertices + AccumulateCentroids helpers to
                 // eliminate duplication with NewtonIterations.
+                // checkSR=false: Lloyd uses initial neighborhood only, no SR
+                // enlargement — matching Geogram's set_check_SR(false) call
+                // before Lloyd_iterations().
                 std::vector<std::array<Real, N>> mg;
                 std::vector<Real> m;
-                if (!AccumulateCentroids(mg, m))
+                if (!AccumulateCentroids(mg, m, false))
                 {
                     return false;
                 }
@@ -532,11 +536,13 @@ namespace gte
             // gradient g[i*N+d] = 2 * m_i * (p_i^d - c_i^d)
             // energy   f        = sum_i m_i * ||p_i - c_i||^2
             // Both are zero at the CVT optimum (seed positions = centroids).
+            // checkSR=true: Newton uses full SR-based neighborhood enlargement,
+            // matching Geogram's set_check_SR(true) call before Newton_iterations().
             auto computeGradient = [&](std::vector<Real>& gOut, Real& fOut) -> bool
             {
                 std::vector<std::array<Real, N>> mg;
                 std::vector<Real> m_area;
-                if (!AccumulateCentroids(mg, m_area))
+                if (!AccumulateCentroids(mg, m_area, true))
                     return false;
 
                 gOut.assign(totalVars, static_cast<Real>(0));
@@ -708,6 +714,22 @@ namespace gte
             return true;
         }
         
+        // Set the fixed normal-component scale to use in BuildLiftedVertices
+        // and ComputeRDT.  Call this after SetSites() in the anisotropic
+        // (N>3) path so that the 6-D metric remains consistent across all
+        // Lloyd and Newton iterations.  A value of 0 (default) causes
+        // BuildLiftedVertices to re-derive the scale from the current seed
+        // normal magnitudes — correct for the initial call but may drift
+        // as seeds move during optimisation.  Matching Geogram's fixed
+        // set_anisotropy() scale.
+        //
+        // Passing 0 resets to the dynamic-derivation behaviour (the default
+        // when CVTN is first constructed), which may be useful in custom
+        // workflows that compute the scale incrementally.
+        void SetNormalScale(Real s) { mNormalScale = s; }
+
+        Real GetNormalScale() const { return mNormalScale; }
+
         // Set convergence threshold
         void SetConvergenceThreshold(Real threshold)
         {
@@ -829,23 +851,31 @@ namespace gte
                 // ------------------------------------------------------------
                 std::vector<PointN> liftedVerts(mSurfaceVertices.size());
 
-                // Estimate normal scale from the sites' dims 3-N-1 magnitudes
-                // (same formula as RestrictedVoronoiDiagramN::ComputeCentroids)
+                // Normal scale: use fixed mNormalScale if set (set once before
+                // the CVT loop by SetNormalScale()), otherwise derive from seeds.
+                // Matching Geogram's set_anisotropy() which pins the scale once.
                 Real normalScale = static_cast<Real>(0);
                 if constexpr (N > 3)
                 {
-                    for (size_t s = 0; s < numSeeds; ++s)
+                    if (mNormalScale > static_cast<Real>(0))
                     {
-                        Real normSq = static_cast<Real>(0);
-                        for (size_t d = 3; d < N; ++d)
-                        {
-                            normSq += mSites[s][d] * mSites[s][d];
-                        }
-                        normalScale += std::sqrt(normSq);
+                        normalScale = mNormalScale;
                     }
-                    if (numSeeds > 0)
+                    else
                     {
-                        normalScale /= static_cast<Real>(numSeeds);
+                        for (size_t s = 0; s < numSeeds; ++s)
+                        {
+                            Real normSq = static_cast<Real>(0);
+                            for (size_t d = 3; d < N; ++d)
+                            {
+                                normSq += mSites[s][d] * mSites[s][d];
+                            }
+                            normalScale += std::sqrt(normSq);
+                        }
+                        if (numSeeds > 0)
+                        {
+                            normalScale /= static_cast<Real>(numSeeds);
+                        }
                     }
                 }
 
@@ -1182,8 +1212,11 @@ namespace gte
         // For N=6 (anisotropic): appends scaled vertex normals to produce the
         //   N-D metric embedding matching Geogram's set_anisotropy().
         //
-        // Computes the normalScale from current sites (dims 3..N-1 magnitudes)
-        // and also fills seedsArr from mSites.
+        // Computes the normalScale from mNormalScale (fixed, set once by
+        // SetNormalScale()) when available, otherwise falls back to deriving
+        // it from the current seed normal magnitudes.  The fixed-scale path
+        // matches Geogram's behaviour: set_anisotropy() pins the scale once
+        // and does not re-derive it per-iteration.
         void BuildLiftedVertices(
             std::vector<std::array<Real, N>>& liftedArr,
             std::vector<std::array<Real, N>>& seedsArr,
@@ -1195,17 +1228,27 @@ namespace gte
             for (size_t s = 0; s < numSeeds; ++s)
                 for (size_t d = 0; d < N; ++d) seedsArr[s][d] = mSites[s][d];
 
-            // Normal scale: mean magnitude of the normal dims (3..N-1) of the sites
+            // Normal scale: use the fixed mNormalScale if set (preferred),
+            // otherwise derive from current seed normal-component magnitudes.
+            // Geogram pins this scale once via set_anisotropy() so that the
+            // 6-D metric remains consistent across all Lloyd/Newton iterations.
             normalScale = static_cast<Real>(0);
             if constexpr (N > 3)
             {
-                for (size_t s = 0; s < numSeeds; ++s)
+                if (mNormalScale > static_cast<Real>(0))
                 {
-                    Real ns = static_cast<Real>(0);
-                    for (size_t d = 3; d < N; ++d) ns += mSites[s][d] * mSites[s][d];
-                    normalScale += std::sqrt(ns);
+                    normalScale = mNormalScale;
                 }
-                if (numSeeds > 0) normalScale /= static_cast<Real>(numSeeds);
+                else
+                {
+                    for (size_t s = 0; s < numSeeds; ++s)
+                    {
+                        Real ns = static_cast<Real>(0);
+                        for (size_t d = 3; d < N; ++d) ns += mSites[s][d] * mSites[s][d];
+                        normalScale += std::sqrt(ns);
+                    }
+                    if (numSeeds > 0) normalScale /= static_cast<Real>(numSeeds);
+                }
             }
 
             liftedArr.resize(mSurfaceVertices.size());
@@ -1263,11 +1306,17 @@ namespace gte
         // Used by LloydIterations (to compute centroid update) and
         // NewtonIterations (to compute gradient and energy proxy).
         //
+        // checkSR: when false (Lloyd mode), ClipCellFacet uses initial
+        //   neighborhood only (no enlargement) — matching Geogram's
+        //   RVD_->set_check_SR(false) call before Lloyd_iterations().
+        //   When true (Newton / compute_surface), full SR enlargement.
+        //
         // Fills mg[s][d] = sum(area * centroid[d]) and m_area[s] = sum(area)
         // for each seed s.  Returns false if the walk produces no polygons.
         bool AccumulateCentroids(
             std::vector<std::array<Real, N>>& mg,
-            std::vector<Real>&               m_area) const
+            std::vector<Real>&               m_area,
+            bool                             checkSR = true) const
         {
             size_t numSeeds = mSites.size();
 
@@ -1279,6 +1328,11 @@ namespace gte
             BuildLiftedVertices(liftedArr, seedsArr, normalScale);
 
             SurfaceRVDN<Real, N> rvd;
+            // checkSR=false: Lloyd clips with initial 20 neighbors only (no
+            //   enlargement), matching Geogram's set_check_SR(false) before
+            //   Lloyd_iterations().  checkSR=true: Newton uses full SR-based
+            //   neighborhood enlargement for correctness.
+            rvd.SetCheckSR(checkSR);
             rvd.Initialize(liftedArr, mSurfaceTriangles, seedsArr, delaunay);
 
             mg.assign(numSeeds, {});
@@ -1323,5 +1377,6 @@ namespace gte
         bool mVerbose;                                            // Output progress
         double mTimeLimitSeconds;                                 // 0 = no limit
         size_t mIterationsCompleted;                              // Iters completed in last LloydIterations() call
+        Real mNormalScale;  // Fixed normal-component scale (0 = derive from seeds each call)
     };
 }

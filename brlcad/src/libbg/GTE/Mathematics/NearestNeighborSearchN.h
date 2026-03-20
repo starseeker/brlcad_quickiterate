@@ -94,7 +94,7 @@ namespace gte
             }
             Real bestD = std::numeric_limits<Real>::max();
             int32_t bestIdx = 0;
-            mKDTree.nearest(query, 0, static_cast<int32_t>(mNumPoints), 0, bestD, bestIdx);
+            mKDTree.nearest(query, 0, static_cast<int32_t>(mNumPoints), 0, bestD, bestIdx, static_cast<Real>(0));
             return bestIdx;
         }
 
@@ -143,7 +143,7 @@ namespace gte
             using Pair = std::pair<Real, int32_t>;
             std::priority_queue<Pair> heap;
             Real worstD = std::numeric_limits<Real>::max();
-            mKDTree.knearest(query, k, 0, static_cast<int32_t>(mNumPoints), 0, heap, worstD);
+            mKDTree.knearest(query, k, 0, static_cast<int32_t>(mNumPoints), 0, heap, worstD, static_cast<Real>(0));
 
             size_t found = heap.size();
             neighbors.resize(found);
@@ -229,11 +229,24 @@ namespace gte
             }
 
             // Nearest-neighbor search: sets bestD/bestIdx to the closest point.
+            //
+            // dPartial is the accumulated incremental distance from the query to
+            // the current subtree's AABB — used for early-out pruning.  This is
+            // ANN's "incremental distance" technique (Arya & Mount, 1998) and
+            // gives much tighter pruning in high dimensions (N=6) than the naive
+            // single-axis test diff²<bestD.
+            //
+            // How it works: when recursing into the "far" side of a split (the
+            // side that does NOT contain the query along the split axis), the min
+            // possible distance from the query to any point in that subtree is at
+            // least sqrt(dPartial + diff²).  We can prune the subtree if
+            // dPartial + diff² >= bestD.
             void nearest(PointN const& q,
                          int32_t lo, int32_t hi, int32_t depth,
-                         Real& bestD, int32_t& bestIdx) const
+                         Real& bestD, int32_t& bestIdx,
+                         Real dPartial) const
             {
-                if (lo >= hi) { return; }
+                if (lo >= hi || dPartial >= bestD) { return; }
                 int32_t mid = (lo + hi) / 2;
 
                 Real d = distSq(q, pts[mid]);
@@ -241,30 +254,39 @@ namespace gte
 
                 int32_t a    = ax[mid];
                 Real    diff = q[static_cast<size_t>(a)] - pts[mid][static_cast<size_t>(a)];
+                Real    dFar = dPartial + diff * diff;
 
-                // Recurse into the closer half first for better pruning
+                // Recurse into the closer half first for better pruning.
+                // For the far half, add diff² to dPartial before testing.
                 if (diff <= static_cast<Real>(0))
                 {
-                    nearest(q, lo, mid, depth + 1, bestD, bestIdx);
-                    if (diff * diff < bestD)
-                        nearest(q, mid + 1, hi, depth + 1, bestD, bestIdx);
+                    nearest(q, lo, mid, depth + 1, bestD, bestIdx, dPartial);
+                    if (dFar < bestD)
+                        nearest(q, mid + 1, hi, depth + 1, bestD, bestIdx, dFar);
                 }
                 else
                 {
-                    nearest(q, mid + 1, hi, depth + 1, bestD, bestIdx);
-                    if (diff * diff < bestD)
-                        nearest(q, lo, mid, depth + 1, bestD, bestIdx);
+                    nearest(q, mid + 1, hi, depth + 1, bestD, bestIdx, dPartial);
+                    if (dFar < bestD)
+                        nearest(q, lo, mid, depth + 1, bestD, bestIdx, dFar);
                 }
             }
 
             // K-nearest search: maintains a max-heap of k best (distSq, idx) pairs.
-            // worstD is the current heap maximum; subtrees with min-box-dist > worstD
-            // are pruned.
+            // worstD is the current heap maximum; subtrees whose incremental AABB
+            // distance (dPartial) exceeds worstD are pruned.
+            //
+            // dPartial is the ANN-style incremental distance accumulator described
+            // above.  Passing it down through the recursion gives O(log n) average
+            // query complexity even in N=6 dimensional space, matching the pruning
+            // efficiency of ANN's kd-tree.
             void knearest(PointN const& q, size_t k,
                           int32_t lo, int32_t hi, int32_t depth,
-                          std::priority_queue<Pair>& heap, Real& worstD) const
+                          std::priority_queue<Pair>& heap, Real& worstD,
+                          Real dPartial) const
             {
-                if (lo >= hi) { return; }
+                // Prune: entire subtree is guaranteed farther than current k-th best
+                if (lo >= hi || (heap.size() >= k && dPartial >= worstD)) { return; }
                 int32_t mid = (lo + hi) / 2;
 
                 Real d = distSq(q, pts[mid]);
@@ -282,18 +304,19 @@ namespace gte
 
                 int32_t a    = ax[mid];
                 Real    diff = q[static_cast<size_t>(a)] - pts[mid][static_cast<size_t>(a)];
+                Real    dFar = dPartial + diff * diff;
 
                 if (diff <= static_cast<Real>(0))
                 {
-                    knearest(q, k, lo, mid, depth + 1, heap, worstD);
-                    if (diff * diff < worstD)
-                        knearest(q, k, mid + 1, hi, depth + 1, heap, worstD);
+                    knearest(q, k, lo, mid, depth + 1, heap, worstD, dPartial);
+                    if (heap.size() < k || dFar < worstD)
+                        knearest(q, k, mid + 1, hi, depth + 1, heap, worstD, dFar);
                 }
                 else
                 {
-                    knearest(q, k, mid + 1, hi, depth + 1, heap, worstD);
-                    if (diff * diff < worstD)
-                        knearest(q, k, lo, mid, depth + 1, heap, worstD);
+                    knearest(q, k, mid + 1, hi, depth + 1, heap, worstD, dPartial);
+                    if (heap.size() < k || dFar < worstD)
+                        knearest(q, k, lo, mid, depth + 1, heap, worstD, dFar);
                 }
             }
 

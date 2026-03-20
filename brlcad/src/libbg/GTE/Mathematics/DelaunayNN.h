@@ -93,20 +93,22 @@ namespace gte
             return mNNSearch.FindNearestNeighbor(query);
         }
         
-        // Get neighbors of a vertex
+        // Get neighbors of a vertex.
+        // Computes and caches on first access (lazy evaluation).
         std::vector<int32_t> GetNeighbors(int32_t vertexIndex) const override
         {
             if (vertexIndex < 0 || static_cast<size_t>(vertexIndex) >= this->mNumVertices)
             {
                 return {};
             }
-            
-            if (static_cast<size_t>(vertexIndex) < mNeighborhoods.size())
+
+            if (!mComputed[vertexIndex])
             {
-                return mNeighborhoods[vertexIndex];
+                ComputeNeighborhood(vertexIndex);
+                mComputed[vertexIndex] = true;
             }
-            
-            return {};
+
+            return mNeighborhoods[vertexIndex];
         }
         
         // Get number of neighbors for a vertex
@@ -125,8 +127,9 @@ namespace gte
             return 0;
         }
         
-        // Enlarge neighborhood for a specific vertex
-        // This allows dynamic adjustment of neighborhood size for CVT
+        // Enlarge neighborhood for a specific vertex.
+        // Fetches more neighbors from the NN search structure when the
+        // security-radius criterion requires more than the default k.
         void EnlargeNeighborhood(int32_t vertexIndex, size_t newSize)
         {
             if (vertexIndex < 0 || static_cast<size_t>(vertexIndex) >= this->mNumVertices)
@@ -137,6 +140,7 @@ namespace gte
             if (static_cast<size_t>(vertexIndex) >= mNeighborhoods.size())
             {
                 mNeighborhoods.resize(this->mNumVertices);
+                mComputed.assign(this->mNumVertices, false);
             }
             
             auto& neighbors = mNeighborhoods[vertexIndex];
@@ -155,6 +159,7 @@ namespace gte
                     newNeighbors.end());
                 
                 neighbors = newNeighbors;
+                mComputed[vertexIndex] = true;
             }
         }
         
@@ -171,20 +176,28 @@ namespace gte
         }
         
     private:
-        // Update neighborhoods for all vertices
+        // Update neighborhoods — LAZY version.
+        //
+        // Only resets the cache state; no neighborhood is computed here.
+        // Actual computation happens on the first GetNeighbors() or
+        // EnlargeNeighborhood() call for each vertex.
+        //
+        // This exactly matches Geogram's DelaunayNN behaviour where
+        // set_vertices() just (re)builds the ANN search structure and
+        // GetNeighbors queries it on demand.  In practice only the seeds
+        // actually visited by SurfaceRVDN::ForEachPolygon ever need their
+        // neighborhoods computed, so eager computation is wasteful.
         void UpdateNeighborhoods()
         {
             mNeighborhoods.clear();
             mNeighborhoods.resize(this->mNumVertices);
-            
-            for (size_t i = 0; i < this->mNumVertices; ++i)
-            {
-                ComputeNeighborhood(static_cast<int32_t>(i));
-            }
+            mComputed.assign(this->mNumVertices, false);
+            // The NN search structure was already built by SetVertices()
+            // via mNNSearch.SetPoints(). Nothing else to do here.
         }
         
-        // Compute neighborhood for a single vertex
-        void ComputeNeighborhood(int32_t vertexIndex)
+        // Compute neighborhood for a single vertex (called lazily)
+        void ComputeNeighborhood(int32_t vertexIndex) const
         {
             std::vector<int32_t> neighbors;
             std::vector<Real> distances;
@@ -224,7 +237,8 @@ namespace gte
         size_t mDefaultNbNeighbors;                    // Default number of neighbors
         NearestNeighborSearchN<Real, N> mNNSearch;     // NN search structure
         std::vector<PointN> mVertexCopy;               // Copy of vertices for NN search
-        std::vector<std::vector<int32_t>> mNeighborhoods;  // Stored neighborhoods
+        mutable std::vector<std::vector<int32_t>> mNeighborhoods;  // Cached neighborhoods (lazy)
+        mutable std::vector<bool> mComputed;           // True once neighborhood[i] is cached
     };
     
     // Factory function implementation for DelaunayN

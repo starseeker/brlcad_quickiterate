@@ -283,6 +283,10 @@ namespace gte
 
                     // Walk forward: traverse adj through edge starting at oldV.
                     // Matching Geogram's repair_split_non_manifold_vertices forward pass.
+                    // Guard: if the destination corner is already visited (visited in a
+                    // prior outer-loop fan or in the current walk creating a cycle), stop
+                    // the walk.  Without this guard the walk can infinite-loop on
+                    // non-manifold adjacency graphs that have cycles not including face f.
                     size_t  curF  = f;
                     int     curLv = lv;
                     bool    hitBoundary = false;
@@ -299,6 +303,10 @@ namespace gte
                         for (int k = 0; k < 3; ++k)
                             if (tris[(size_t)nxtF][k] == oldV) { found = k; break; }
                         if (found < 0) { hitBoundary = true; break; }  // lost v (shouldn't happen)
+
+                        // Guard against within-walk cycles and already-claimed corners.
+                        if (cVisited[(size_t)nxtF*3 + (size_t)found]) { break; }
+
                         curF  = (size_t)nxtF;
                         curLv = found;
                     }
@@ -318,6 +326,10 @@ namespace gte
                             for (int k = 0; k < 3; ++k)
                                 if (tris[(size_t)prevF][k] == oldV) { found = k; break; }
                             if (found < 0) { break; }
+
+                            // Guard: stop if destination is already visited.
+                            if (cVisited[(size_t)prevF*3 + (size_t)found]) { break; }
+
                             curF  = (size_t)prevF;
                             curLv = found;
                             cVisited[curF*3 + (size_t)curLv] = true;
@@ -427,7 +439,15 @@ namespace gte
                 Real l = DotDiff(vk.pos, pi, pj);
                 int  s = Sgn2(l, d);
 
-                // Edge crosses the bisector boundary
+                // Edge crosses the bisector boundary.
+                // Direct translation of Geogram's clip_by_plane_fast condition:
+                //   if(status != prev_status && (prev_status != 0))
+                // This fires when the previous vertex is NOT on the bisector
+                // and the current vertex has a different sign — including when
+                // the current vertex is exactly on the bisector (s==0).
+                // A vertex with s==0 is NOT added to the output (since the
+                // guard below is `if (s > 0)`), but an intersection point IS
+                // generated at that boundary vertex.
                 if (s != prevS && prevS != 0)
                 {
                     // Barycentric coordinate lambda1 (weight for prev vertex)
@@ -554,6 +574,20 @@ namespace gte
         using PointN  = std::array<Real, N>;
         using Polygon = RVDPolygon<Real, N>;
         using Vertex  = RVDVertex<Real, N>;
+
+        SurfaceRVDN() = default;
+
+        // -----------------------------------------------------------------
+        // Security-radius mode (default: true).
+        // When true (Newton iterations / compute_surface), ClipCellFacet
+        // enlarges the neighborhood until the security-radius criterion is
+        // met — matching Geogram's check_SR=true path.
+        // When false (Lloyd iterations), ClipCellFacet clips with the
+        // initial neighborhood only and returns immediately — matching
+        // Geogram's RVD_->set_check_SR(false) call before Lloyd_iterations().
+        // -----------------------------------------------------------------
+        void SetCheckSR(bool checkSR) { mCheckSR = checkSR; }
+        bool GetCheckSR() const       { return mCheckSR; }
 
         // -----------------------------------------------------------------
         // Initialize with surface mesh and seeds.
@@ -897,8 +931,9 @@ namespace gte
         // Direct translation of Geogram's clip_by_cell_SR: uses a dynamic
         // neighborhood that is enlarged iteratively (matching Geogram's
         // enlarge_neighborhood loop) until the security-radius criterion is
-        // satisfied, i.e. all remaining unprocessed neighbors are farther
-        // than 2*R from the seed (where R = max polygon vertex distance).
+        // satisfied, i.e. the next neighbor is farther than 4.1*R² from
+        // the seed (where R² = max squared distance from seed to polygon vertices).
+        // When mCheckSR=false (Lloyd mode), clips with initial neighbors only.
         // Ping-pong clipping: returns pointer to the result polygon.
         // -----------------------------------------------------------------
         Polygon* ClipCellFacet(
@@ -924,6 +959,8 @@ namespace gte
             // Direct translation of Geogram's clip_by_cell_SR:
             // Iteratively enlarge the neighborhood until the security radius
             // criterion is met (dij > 4.1*R2 for the next unclipped neighbor).
+            // When mCheckSR=false (Lloyd mode), exits after the first pass
+            // without enlarging — matching Geogram's check_SR=false path.
             // jj tracks the position up to which we have already clipped;
             // only newly-added neighbors are sorted and clipped on each
             // enlargement pass, matching Geogram's incremental jj advance.
@@ -953,8 +990,13 @@ namespace gte
                     PointN const& pj = (*mSeeds)[j];
                     Real dij = DistSq(pi, pj);
 
-                    // Security radius: if d(pi,pj) > 2*R the remaining
-                    // neighbors (sorted) cannot affect the polygon.
+                    // Security radius: if d(pi,pj) > 4.1*R² the remaining
+                    // neighbors (all farther away, since the list is sorted)
+                    // cannot affect the polygon any further.
+                    // Factor 4.1 matches Geogram's clip_by_cell_SR exactly.
+                    // Geogram's comment: "A little bit more than 4, because
+                    // when exact predicates are used, we need to include
+                    // tangent bisectors in the computation."
                     if (dij > Real(4.1) * R2)
                     {
                         srSatisfied = true;
@@ -981,6 +1023,15 @@ namespace gte
                 if (srSatisfied)
                 {
                     break;  // security radius satisfied; done
+                }
+
+                // All current neighbors processed and SR not yet satisfied.
+                // When check_SR is disabled (Lloyd mode), exit immediately
+                // without enlarging — matching Geogram's:
+                //   if(!check_SR_) { return; }
+                if (!mCheckSR)
+                {
+                    break;
                 }
 
                 // All current neighbors processed and SR not yet satisfied:
@@ -1010,9 +1061,20 @@ namespace gte
                 {
                     break;  // enlargement made no progress
                 }
-                // Sort the new suffix by distance and merge into neighbors.
-                std::sort(newNeighbors.begin() + static_cast<ptrdiff_t>(prevSize),
-                    newNeighbors.end(),
+                // Sort the FULL enlarged list by distance to the seed.
+                //
+                // After EnlargeNeighborhood(), the stored list is a fresh
+                // FindKNearestNeighborsToPoint() result.  The underlying
+                // KD-tree returns results by popping a max-heap (decreasing
+                // distance), then filling from back to front so the final
+                // array is ascending — BUT the removal of the self-index
+                // and the heap's internal ordering can shift entries.
+                // Sorting the full list is the safest approach and directly
+                // matches Geogram: enlarge_neighborhood() always gives a
+                // fully sorted list and the caller advances jj past the old
+                // prefix (which, after sorting, contains the same prevSize
+                // nearest elements as before — safe to skip).
+                std::sort(newNeighbors.begin(), newNeighbors.end(),
                     [&](int32_t a, int32_t b) {
                         return DistSq(pi, (*mSeeds)[a]) < DistSq(pi, (*mSeeds)[b]);
                     });
@@ -1163,6 +1225,11 @@ namespace gte
         // (facet, seed) → connected-component ID
         std::unordered_map<uint64_t, int32_t>       mFacetSeedComp;
         int32_t                                     mCurrentComp = 0;
+
+        // Security-radius mode flag (default true).
+        // When false (Lloyd), ClipCellFacet exits after the first pass
+        // without enlarging — matching Geogram's check_SR=false.
+        bool                                        mCheckSR = true;
     };
 
 

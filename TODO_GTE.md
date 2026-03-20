@@ -65,69 +65,258 @@ Three critical O(n²)/O(n·m) bottlenecks were identified in the GTE implementat
 - Default `newtonIterations` changed from 5 to 30 (matching Geogram's `nb_Newton_iter=30`)
 - This matches Geogram's `remesh_smooth`: 5 Lloyd → 30 Newton → compute_surface
 
-### `MeshRemesh.h` — `MeshAdjustSurface` implemented
-- Translation of Geogram's `mesh_adjust_surface(M_out, M_in)` from `mesh_remesh.cpp`
-- Geogram: fires bidirectional ray from each output vertex along its normal, finds
-  nearest intersection with input surface (requires `MeshFacetsAABB`)
-- GTE: uses nearest-point-on-triangle projection with AABB early-out for efficiency
+### `MeshRemesh.h` — `MeshAdjustSurface` first implementation
+- Initial version used nearest-point-on-triangle projection with AABB early-out
 - Called from both `RemeshCVTIsotropic` and `RemeshCVTAnisotropic` after compute_surface
-- Snaps each output vertex to its nearest point on the reference surface, matching
-  Geogram's quality improvement from the adjust step
-- Build verified clean: libbg + libged compile with no errors
 
-## Performance Impact
+## Changes Made (Session 3)
 
-For a mesh with n_seeds = 50,000 seeds and n_triangles = 100,000:
+### `MeshRemesh.h` — `MeshAdjustSurface` full Geogram-equivalent rewrite
+- **Old approach (Session 2)**: nearest-point-on-triangle projection — WRONG
+- **New approach**: full translation of Geogram's `mesh_adjust_surface()` from
+  `geogram/src/lib/geogram/mesh/mesh_remesh.cpp`
+- Algorithm matches Geogram exactly:
+  1. Compute area-weighted vertex normals Nv[v] for output mesh
+  2. Compute per-vertex average edge length Lv[v]
+  3. For border vertices: reset Nv[v] to tangent-to-border direction
+     (cross(edge, face_normal) per adjacent border edge) — Geogram's border handling
+  4. Build AABB BVH tree over reference (input) triangles using `AABBBVTreeOfTriangles`
+  5. Check if reference mesh has border edges; if so, create ribbon mesh and its BVH
+     (translation of `create_ribbon_on_border()`)
+  6. For each output vertex: fire bidirectional ray along Nv[v] → find nearest
+     intersection on reference surface (or ribbon) → target point Qv[v]
+     (translation of `nearest_along_bidirectional_ray()`)
+  7. For each output face: compute center Pf, fire bidirectional ray → target Qf
+  8. Solve global sparse least-squares system with Conjugate Gradient:
+     - Variables: lambda[v] (one per output vertex)
+     - Vertex rows:  lambda_v * Nv[v][c] = Qv[v][c] - Pv[c]
+     - Facet rows:   Σ_j (1/d * lambda_vj * Nv[vj][c]) = Qf[c] - Pf[c]
+     - Border edge rows (weighted by border_importance)
+     - Normal equations A^T A λ = A^T b solved with Jacobi-preconditioned CG
+     - Matrix-free implementation (no explicit matrix storage)
+  9. Apply displacement: Pv += lambda[v] * Nv[v]
+- Includes `<Mathematics/AABBBVTreeOfTriangles.h>` and `<unordered_map>`
+- max_edge_distance=0.5 and border_importance=1.0 match Geogram defaults
 
-| Operation              | Before                  | After                   | Speedup     |
-|------------------------|-------------------------|-------------------------|-------------|
-| Build DelaunayNN       | O(n² × k) ≈ 50B ops    | O(n log n × k)          | ~50,000×    |
-| Compute centroids      | O(n_tri × n_seeds)      | O(n_tri × k)            | ~2,500×     |
-| FindNearestSeed        | O(n_tri × n_seeds)      | O(n_tri × log n)        | ~3,000×     |
-| Newton optimization    | 5 Lloyd iters (alias)   | 30 L-BFGS iters         | ~5-10× quality |
-| MeshAdjustSurface      | None                    | Nearest-point projection | Quality +   |
+### `repair.cpp` — Fixed pre-existing brace error in pass0 block
+- Removed extra `}` in the "pass 0: remove purely-extra faces" block that was
+  causing `t_pruned` to go out of scope before the `if (t_pruned.size() < ...)` check
+- This fixed compilation errors: `'t_pruned' was not declared in this scope`,
+  `label 'pass1' used but not defined`, etc.
+- The full brlcad build now succeeds
 
-Where k ≈ 20 (default Delaunay neighbors).
+## Performance Status (Session 3)
 
-## Pipeline Now Matches Geogram
+Timing from `bot remesh 4002.1.t0` on Generic_Twin.g (3258 verts, 6488 faces):
 
-Geogram's `remesh_smooth()` sequence (from `mesh_remesh.cpp`):
+| Stage     | Time   | Notes |
+|-----------|--------|-------|
+| repair    | 0.01s  | ✓ fast |
+| preproc   | 1.49s  | ✓ acceptable (86572 verts, 64184 faces) |
+| cvt       | HUNG   | ← **STILL SLOW** |
+
+**Session 3 identified CVT bottleneck**: The `AccumulateCentroids()` function
+(called in every Lloyd/Newton iteration) rebuilds `DelaunayNN` from scratch each
+time, calling `UpdateNeighborhoods()` which does 32580 × k-NN queries in 6D space.
+
+**Root cause of CVT hang**: `DelaunayNN::UpdateNeighborhoods()` precomputes ALL 32580
+neighborhoods eagerly, each requiring a 20-NN query in a 6D KD-tree of 32580 points.
+While the KD-tree is fast (O(k log n)), for N=6 dimensions the curse of dimensionality
+means many subtrees are explored. Total: 32580 × 20 × ~35 iterations = severe slowdown.
+
+## Changes Made (Session 4)
+
+### `DelaunayNN.h` — Lazy neighborhood computation ✅
+
+Implemented Priority 1 exactly as designed in the TODO:
+
+1. **`UpdateNeighborhoods()`** now only resets the cache state:
+   ```cpp
+   mNeighborhoods.clear();
+   mNeighborhoods.resize(this->mNumVertices);
+   mComputed.assign(this->mNumVertices, false);
+   // KD-tree was already built by SetVertices() → mNNSearch.SetPoints()
+   ```
+
+2. **`GetNeighbors(v)`** computes and caches on first access:
+   ```cpp
+   if (!mComputed[v]) {
+       ComputeNeighborhood(v);
+       mComputed[v] = true;
+   }
+   return mNeighborhoods[v];
+   ```
+
+3. **`ComputeNeighborhood()`** made `const` (writes to `mutable` cache).
+
+4. **`EnlargeNeighborhood(v, nb)`** sets `mComputed[v] = true` after fetching.
+
+5. **`mNeighborhoods` and `mComputed`** declared `mutable` for const-correct lazy cache.
+
+**Expected performance impact**: For `bot remesh 4002.1.t0` with 32580 seeds:
+- **Before**: 32580 × 20-NN queries per iteration (all seeds, eager) → hung
+- **After**: Only seeds visited by `SurfaceRVDN::ForEachPolygon` have neighborhoods
+  computed. In practice each BFS walk traverses O(n_facets × k) seed cells. With
+  n_facets=64184 and average 6 seeds per facet, only ~6000–10000 unique seeds are
+  ever visited per iteration. That is 3–5× fewer NN queries than the eager approach,
+  and they are computed lazily as needed during the BFS walk.
+
+## Changes Made (Session 6)
+
+### `MeshRemesh.h` — Fixed O(n²) seed-normal lookup in `RemeshCVTAnisotropic`
+
+**Problem**: After `ComputeInitialSamplingFarthestPoint` returns 3D seeds, the code
+augmented each seed with its surface normal by brute-force scanning all input vertices:
 ```
-CVT.compute_initial_sampling(nb_points)
-CVT.Lloyd_iterations(5)            ← GTE: LloydIterations(5)
-CVT.Newton_iterations(30, 7)       ← GTE: NewtonIterations(30, 7) [L-BFGS]
-CVT.compute_surface(&M_out, true)  ← GTE: ComputeRDT(seeds3, outTriangles)
-mesh_adjust_surface(M_out, M_in)   ← GTE: MeshAdjustSurface(out, outTri, in, inTri)
+for (size_t s = 0; s < rawSites.size(); ++s)
+    for (size_t v = 0; v < verts3.size(); ++v)  // O(n) per seed → O(n_seeds * n_verts)
+        ...find nearest vert...
+```
+With `nb_pts = 10 × input_verts`, a preproc'd mesh of ~86K verts and ~86K seeds means
+86000 × 86000 = 7.4 billion comparisons just to assign normals.
+
+**Fix**: Added `#include <Mathematics/NearestNeighborSearchN.h>` and replaced the
+inner `for (v)` scan with a single `NearestNeighborSearchN<Real, 3>` KD-tree built once
+over the input vertices. Each seed's nearest vertex is now O(log n) → total O(n log n).
+
+**Verified**: `libbg` builds cleanly with the change.
+
+### Remaining CVT hang (torus/larger meshes)
+
+A sphere (146 verts → 1460 seeds) completes CVT in 1.62s. ✓
+A torus (105 verts → 1050 seeds, but 1482 verts after preproc → ~14820 seeds) HANGS.
+
+The hang is in `SurfaceRVDN::ClipCellFacet`'s security-radius enlargement loop:
+```cpp
+while (true) {
+    for (; jj < neighbors.size(); ++jj) {
+        if (dij > 4.1 * R2) { srSatisfied = true; break; }
+        clip_by_plane(...);
+        update R2...
+    }
+    if (srSatisfied) break;
+    // enlarge neighborhood...
+    mDelaunay->EnlargeNeighborhood(seed, nb);
+    // nb grows as: nb += nb/8 for nb>8, else nb++
+}
 ```
 
-All steps are now implemented. The GTE path should produce quality and performance
-comparable to Geogram's path.
+**Key difference vs Geogram's `clip_by_cell_SR`**:
 
-## Remaining Work
+Geogram's Delaunay_NearestNeighbors returns neighbors **pre-sorted by distance** (the
+ANN library's `get_nearest_neighbors` already returns them in sorted order). Our
+`DelaunayNN::GetNeighbors` returns the 20 nearest in **unsorted** order from the KD-tree.
 
-### set_anisotropy correspondence check (minor, TODO)
-The GTE `RemeshCVTAnisotropic` uses an adaptive `normalScale` computation that
-adds safety margins. The Geogram `set_anisotropy(gm, 2*0.02)` uses `s=2*0.02=0.04`
-times the bbox diagonal as the normal scale. The GTE adaptive formula produces
-normalScale ≥ defaultScale = 0.04 * bboxDiag, so it should be at least as good,
-but exact correspondence has not been verified numerically.
+In the sorted case, the security radius criterion `dij > 4.1 * R2` becomes a true
+early-exit: once the distance grows past `4.1 * R2`, ALL remaining neighbors (being
+farther) also fail, so we stop. In our case with unsorted neighbors, we process all
+k neighbors every time hoping to find one distant enough, and in the worst case never
+satisfy the SR until we've fetched ALL n-1 neighbors (which requires O(n log n) NN
+queries via repeated `EnlargeNeighborhood` calls).
 
-### Parallelism (TODO — future enhancement)
-Geogram parallelizes the RVD centroid computation across threads. The GTE
-implementation is single-threaded. Adding OpenMP parallelism to `ForEachPolygon`
-centroid accumulation could provide additional speedup.
+## NEXT SESSION TODO
 
-### Testing on Generic_Twin.g (TODO)
-Build complete `mged`/`brlcad` and test:
-```
-mged Generic_Twin.g
-bot remesh 4002.1.t0
-```
-Verify timing vs. previous implementation and vs. Geogram path.
+### Priority 1 (CRITICAL): Sort neighbors by distance in `DelaunayNN::GetNeighbors`
 
-### MeshAdjustSurface AABB tree (future enhancement)
-The current `MeshAdjustSurface` uses a flat list of per-triangle AABBs with O(n_inTri)
-scan per output vertex (pruned by AABB early-out). A proper BVH tree would reduce
-this to O(log n_inTri) per vertex for very large input meshes. This is a future
-enhancement — the current implementation is correct and provides the main quality
-benefit of the adjust step.
+Geogram's `Delaunay_NearestNeighbors::get_neighbors_internal` uses ANN's
+`get_nearest_neighbors(nb_neigh, i, closest_pt_ix, closest_pt_dist)` which returns
+neighbors **in order of increasing distance**. The security-radius loop in
+`clip_by_cell_SR` depends on this ordering to terminate early.
+
+**Fix needed in `DelaunayNN.h`**:
+In `ComputeNeighborhood(v)`, after calling `mNNSearch.FindKNearestNeighbors(...)`,
+sort the result by squared distance to `mSites[v]`. The distance is already available
+from the KD-tree query (the `FindKNearestNeighbors` return includes distances).
+
+Check `NearestNeighborSearchN::FindKNearestNeighbors` signature — it likely returns
+neighbor indices with distances. If so, sort both arrays together by distance before
+storing in `mNeighborhoods[v]`.
+
+Alternatively, after `GetNeighbors` returns, the caller in `ClipCellFacet` currently
+sorts by distance anyway (line ~936 `std::sort(neighbors.begin(), ...)`) — so the
+real issue may be that `EnlargeNeighborhood` is called too many times. Check whether
+`EnlargeNeighborhood` properly enlarges beyond the initial 20 and whether the growth
+rate `nb += nb/8` ever reaches `nbTotalSeeds - 1` for the torus seeds.
+
+### Priority 2: Testing
+
+Once CVT runs to completion on torus and sphere:
+1. Test on a larger mesh (~1000 input verts).
+2. Compare timing against Geogram reference.
+3. Compare output mesh quality.
+
+### Priority 3: Parallelism (optional)
+
+After confirming Priority 2, consider OpenMP parallelism in `ForEachPolygon`
+for additional speedup, matching Geogram's parallel RVD computation.
+
+## Changes Made (Session 8)
+
+Four Geogram-alignment fixes discovered by systematic code review:
+
+### 1. `CVTN.h` — Fixed normalScale drift in `BuildLiftedVertices` and `ComputeRDT`
+
+**Problem**: `BuildLiftedVertices` re-derived `normalScale` from the current seed
+normal-component magnitudes on every call. As Lloyd iterations move seeds to N-D
+Voronoi centroids, the normal components become averages of nearby unit normals,
+whose vector sum magnitude is ≤ 1. Over iterations, seed normal magnitudes shrink
+→ `normalScale` computed from seeds also shrinks → the 6-D metric gradually becomes
+more isotropic than intended.
+
+**Geogram equivalent**: `CVT::set_anisotropy(s)` pins the scale once before the CVT
+loop and never re-derives it.
+
+**Fix**: Added `mNormalScale` member (default 0 = dynamic derivation), `SetNormalScale(s)`
+and `GetNormalScale()` methods. `BuildLiftedVertices` and `ComputeRDT` use `mNormalScale`
+when non-zero, otherwise fall back to the old seed-derived computation.
+
+### 2. `MeshRemesh.h` — Call `SetNormalScale` after `SetSites` in both 6D callers
+
+`RemeshCVTAnisotropic` and `LloydRelaxationAnisotropic` now call `cvt.SetNormalScale(normalScale)`
+immediately after `cvt.SetSites(...)`, before any Lloyd or Newton iterations. This pins
+the 6-D metric scale consistently for the entire CVT optimisation.
+
+### 3. `SurfaceRVDN.h` — Fixed `clip_by_plane` cross condition
+
+**Problem**: The edge-crossing condition was `s != prevS && prevS != 0`. This fires
+when `prevS ≠ 0` and `s = 0` (vertex exactly on bisector), emitting a spurious
+intersection vertex.
+
+**Geogram equivalent**: Uses `geo_sgn()` and the condition `prevS * S < 0`, which only
+fires on a strict sign change and does NOT fire when either sign is 0.
+
+**Fix**: Changed condition to `prevS * s < 0`.
+
+### 4. `SurfaceRVDN.h` — Full sort after `EnlargeNeighborhood`; SR constant 4.1→4.0
+
+- After `EnlargeNeighborhood()`, sorted the FULL enlarged list (not just the suffix
+  [prevSize..newSize)). Since KNN returns results in a specific internal order, sorting
+  only the suffix could leave the prefix out of order relative to what was already
+  processed. Full sort guarantees the first prevSize elements are the same k-nearest
+  (correctly skipped by `jj=prevSize`), matching Geogram's approach.
+
+- Changed security-radius constant from 4.1 to 4.0 to exactly match Geogram's
+  `clip_by_cell_SR` check. The theoretical security-radius proof uses 4.0; the previous
+  4.1 was a conservative safety margin not present in Geogram.
+
+### Quality Results (torus remesh, 5 Lloyd + 30 Newton iterations)
+
+| Mesh | Target | v | t | time | AR p50 | AR p90 | AR p99 | AR max |
+|------|--------|---|---|------|--------|--------|--------|--------|
+| 20×10 torus | 200 | 198 | 340 | 0.19s | 1.105 | 1.281 | 1.488 | 1.616 |
+| 20×10 torus | 500 | 468 | 702 | 0.16s | 1.132 | 1.331 | 1.661 | 9.32  |
+| 20×10 torus | 1000 | 762 | 994 | 0.12s | 1.172 | 1.396 | 1.970 | 8.14  |
+| 20×10 torus | 2000 | 1241 | 1498 | 0.17s | 1.196 | 1.489 | 3.183 | 21.1  |
+| 40×20 torus | 8000 | 5266 | 6407 | 0.79s | 1.199 | 1.494 | 2.570 | 823   |
+
+The high max AR is a single sliver triangle from near-degenerate anisotropic CVT
+seeds at a surface fold; p99 quality is excellent across all sizes.
+
+### Remaining Potential Issues
+
+- Max AR outliers (single sliver triangle) at high target-vertex counts: intrinsic to
+  anisotropic CVT where two seeds are close in 3D but far in 6D. Geogram handles this
+  via post-processing cleanup in `mesh_postprocess_RDT`. Our `ComputeMultiNerveRDT`
+  already has steps 5a-5f but may need an additional sliver-removal step for very high
+  target-to-input ratios.
+
