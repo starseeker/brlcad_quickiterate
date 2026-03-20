@@ -425,6 +425,7 @@ namespace gte
 
             for (size_t iter = 0; iter < numIterations; ++iter)
             {
+                auto t_lloyd_iter = std::chrono::steady_clock::now();
                 // ── Steps 1–4: compute area-weighted N-D centroids via walk ───
                 // Uses BuildLiftedVertices + AccumulateCentroids helpers to
                 // eliminate duplication with NewtonIterations.
@@ -436,6 +437,11 @@ namespace gte
                 if (!AccumulateCentroids(mg, m, false))
                 {
                     return false;
+                }
+                {
+                    auto t_now = std::chrono::steady_clock::now();
+                    double dt = std::chrono::duration<double>(t_now - t_lloyd_iter).count();
+                    std::cerr << "    Lloyd iter " << (iter+1) << " AccumulateCentroids: " << dt << "s\n";
                 }
 
                 // ── Step 5: Update sites = mg / m  ─────────────────────────────
@@ -1320,12 +1326,22 @@ namespace gte
         {
             size_t numSeeds = mSites.size();
 
+            auto t0 = std::chrono::steady_clock::now();
+
             DelaunayNN<Real, N> delaunay(20);
             delaunay.SetVertices(numSeeds, mSites.data());
+            {
+                auto t1 = std::chrono::steady_clock::now();
+                std::cerr << "      DelaunayNN build: " << std::chrono::duration<double>(t1-t0).count() << "s\n";
+            }
 
             std::vector<std::array<Real, N>> liftedArr, seedsArr;
             Real normalScale;
             BuildLiftedVertices(liftedArr, seedsArr, normalScale);
+            {
+                auto t2 = std::chrono::steady_clock::now();
+                std::cerr << "      BuildLiftedVerts: " << std::chrono::duration<double>(t2-t0).count() << "s\n";
+            }
 
             SurfaceRVDN<Real, N> rvd;
             // checkSR=false: Lloyd clips with initial 20 neighbors only (no
@@ -1334,6 +1350,10 @@ namespace gte
             //   neighborhood enlargement for correctness.
             rvd.SetCheckSR(checkSR);
             rvd.Initialize(liftedArr, mSurfaceTriangles, seedsArr, delaunay);
+            {
+                auto t3 = std::chrono::steady_clock::now();
+                std::cerr << "      RVD Initialize: " << std::chrono::duration<double>(t3-t0).count() << "s\n";
+            }
 
             mg.assign(numSeeds, {});
             for (auto& a : mg) a.fill(static_cast<Real>(0));
@@ -1366,6 +1386,10 @@ namespace gte
                     m_area[seed] += area;
                 }
             });
+            {
+                auto t4 = std::chrono::steady_clock::now();
+                std::cerr << "      ForEachPolygon: " << std::chrono::duration<double>(t4-t0).count() << "s\n";
+            }
             return true;
         }
 

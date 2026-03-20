@@ -58,8 +58,10 @@
 #include <Mathematics/Ray.h>
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <iostream>
 #include <limits>
 #include <map>
 #include <set>
@@ -431,12 +433,20 @@ namespace gte
                 return false;
             }
 
+            // Timing helper for CVT sub-steps (uses std::chrono, no external deps)
+            auto t_cvt0 = std::chrono::steady_clock::now();
+            auto cvtElapsed = [&t_cvt0]() -> double {
+                auto now = std::chrono::steady_clock::now();
+                return std::chrono::duration<double>(now - t_cvt0).count();
+            };
+
             // Use farthest-point sampling (Mitchell's best-candidate) to match
             // Geogram's evenly-spaced initial distribution, then augment to 6D.
             if (!cvt.ComputeInitialSamplingFarthestPoint(params.targetVertexCount))
             {
                 return false;
             }
+            std::cerr << "  cvt: sampling done " << cvtElapsed() << "s\n";
 
             // Augment each seed with the interpolated surface normal.
             // For each seed, find the nearest input vertex and use its scaled normal.
@@ -446,17 +456,16 @@ namespace gte
             std::vector<Vec6> sites6D(rawSites.size());
 
             // Build a 3D NN search over the input vertices once.
-            NearestNeighborSearchN<Real, 3> vertNN3D;
+            // Keep pts3 alive for the duration of vertNN3D use to avoid dangling pointer.
+            std::vector<Vector<3, Real>> pts3(verts3.size());
+            for (size_t v = 0; v < verts3.size(); ++v)
             {
-                std::vector<Vector<3, Real>> pts3(verts3.size());
-                for (size_t v = 0; v < verts3.size(); ++v)
-                {
-                    pts3[v][0] = verts3[v][0];
-                    pts3[v][1] = verts3[v][1];
-                    pts3[v][2] = verts3[v][2];
-                }
-                vertNN3D.SetPoints(pts3.size(), pts3.data());
+                pts3[v][0] = verts3[v][0];
+                pts3[v][1] = verts3[v][1];
+                pts3[v][2] = verts3[v][2];
             }
+            NearestNeighborSearchN<Real, 3> vertNN3D;
+            vertNN3D.SetPoints(pts3.size(), pts3.data());
 
             for (size_t s = 0; s < rawSites.size(); ++s)
             {
@@ -478,6 +487,7 @@ namespace gte
                 sites6D[s][4] = normals[nearestVert][1];
                 sites6D[s][5] = normals[nearestVert][2];
             }
+            std::cerr << "  cvt: normal augment done " << cvtElapsed() << "s\n";
             cvt.SetSites(sites6D);
             // Pin the metric scale to the value used for site initialisation.
             // Without this, BuildLiftedVertices re-derives normalScale each
@@ -491,10 +501,12 @@ namespace gte
             {
                 cvt.SetTimeLimit(params.lloydTimeLimit);
             }
+            std::cerr << "  cvt: starting Lloyd " << params.lloydIterations << " iters...\n";
             if (params.lloydIterations > 0 && !cvt.LloydIterations(params.lloydIterations))
             {
                 return false;
             }
+            std::cerr << "  cvt: Lloyd done " << cvtElapsed() << "s\n";
             if (outIterations != nullptr)
             {
                 *outIterations = cvt.GetIterationsCompleted();
@@ -504,7 +516,9 @@ namespace gte
             // Matches Geogram's CVT::Newton_iterations(nb_Newton_iter=30, Newton_m=7).
             if (params.newtonIterations > 0)
             {
+                std::cerr << "  cvt: starting Newton " << params.newtonIterations << " iters...\n";
                 cvt.NewtonIterations(params.newtonIterations);
+                std::cerr << "  cvt: Newton done " << cvtElapsed() << "s\n";
             }
 
             std::vector<Vec3> seeds3;

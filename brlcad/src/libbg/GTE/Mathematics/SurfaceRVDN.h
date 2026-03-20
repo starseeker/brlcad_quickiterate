@@ -22,10 +22,12 @@
 #include <Mathematics/DelaunayNN.h>
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <deque>
 #include <functional>
+#include <iostream>
 #include <limits>
 #include <map>
 #include <numeric>
@@ -717,6 +719,13 @@ namespace gte
             Polygon P_orig, P1, P2;
             int32_t P_orig_idx = int32_t(-1);
 
+            // Diagnostics counters
+            size_t dbgClipCalls = 0;
+            size_t dbgFindNearestCalls = 0;
+            size_t dbgAdjSeedsProcessed = 0;
+
+            auto t_fep0 = std::chrono::steady_clock::now();
+
             // Outer loop: seed all unvisited facets (discovers disconnected components)
             for (size_t startF = 0; startF < mNumFacets; ++startF)
             {
@@ -725,6 +734,7 @@ namespace gte
                     continue;
                 }
 
+                ++dbgFindNearestCalls;
                 int32_t nearSeed = FindNearestSeed(static_cast<int32_t>(startF));
                 adjacentSeeds.push_back({static_cast<int32_t>(startF), nearSeed});
 
@@ -765,6 +775,7 @@ namespace gte
                         }
 
                         // Clip facet f against curS's Voronoi cell
+                        ++dbgClipCalls;
                         Polygon* poly = ClipCellFacet(curS, P_orig, P1, P2);
 
                         // If this (facet,seed) pair was already recorded from a previous
@@ -854,8 +865,19 @@ namespace gte
                     } // inner facets loop
 
                     ++mCurrentComp;
+                    ++dbgAdjSeedsProcessed;
                 } // seed deque loop
             } // outer facet loop
+
+            {
+                auto t_fep1 = std::chrono::steady_clock::now();
+                double dt = std::chrono::duration<double>(t_fep1 - t_fep0).count();
+                std::cerr << "      FEP: clipCalls=" << dbgClipCalls
+                          << " findNearest=" << dbgFindNearestCalls
+                          << " adjSeeds=" << dbgAdjSeedsProcessed
+                          << " mapSz=" << mFacetSeedComp.size()
+                          << " time=" << dt << "s\n";
+            }
         }
 
         // Returns the connected-component ID of seed s on facet f, or -1 if
