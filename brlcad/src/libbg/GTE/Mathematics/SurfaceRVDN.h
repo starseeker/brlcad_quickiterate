@@ -22,12 +22,10 @@
 #include <Mathematics/DelaunayNN.h>
 #include <algorithm>
 #include <array>
-#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <deque>
 #include <functional>
-#include <iostream>
 #include <limits>
 #include <map>
 #include <numeric>
@@ -592,6 +590,17 @@ namespace gte
         bool GetCheckSR() const       { return mCheckSR; }
 
         // -----------------------------------------------------------------
+        // Rebind the lifted-vertices pointer without rebuilding anything.
+        // Used when AccumulateCentroids's mCachedLiftedArr is reallocated
+        // (first time the cache is built) but the adjacency table is already
+        // valid and doesn't need to be rebuilt.
+        // -----------------------------------------------------------------
+        void SetLiftedVerts(std::vector<PointN> const& liftedVerts)
+        {
+            mLiftedVerts = &liftedVerts;
+        }
+
+        // -----------------------------------------------------------------
         // Initialize with surface mesh and seeds.
         // liftedVerts: N-D positions of mesh vertices.
         // tris:        triangle connectivity (integer indices into liftedVerts).
@@ -610,71 +619,38 @@ namespace gte
             mDelaunay    = &delaunay;
             mNumFacets   = tris.size();
 
-            // Per-facet edge adjacency table: mFacetAdj[f*3 + e] = adjacent facet
-            // through edge (tri[e], tri[(e+1)%3]), or -1 if boundary.
-            mFacetAdj.assign(mNumFacets * 3, int32_t(-1));
+            BuildFacetAdjacency();
+            BuildSeedKDTree(seeds);
+        }
 
-            // Build edge→triangle map.  Entry (-2,-2) flags a non-manifold
-            // edge (3+ incident triangles); those are treated as boundaries.
-            // Entry (f,-1) flags an unmatched (boundary) edge.
-            // Matching Geogram's repair_connect_facets which marks non-manifold
-            // edges as NON_MANIFOLD and does NOT set adjacency for them.
-            using EKey = uint64_t;
-            static constexpr int32_t NM = -2;  // non-manifold sentinel
-            std::unordered_map<EKey, std::pair<int32_t, int32_t>> edgeMap;
-            edgeMap.reserve(mNumFacets * 3);
+        // -----------------------------------------------------------------
+        // Two-stage initialization for caching: call InitMeshOnly() once
+        // when the mesh changes, then UpdateSeeds() each iteration.
+        // InitMeshOnly builds the adjacency table (O(n_facets) work) and
+        // stores pointers to liftedVerts and tris.
+        // -----------------------------------------------------------------
+        void InitMeshOnly(
+            std::vector<PointN> const&                     liftedVerts,
+            std::vector<std::array<int32_t, 3>> const&     tris)
+        {
+            mLiftedVerts = &liftedVerts;
+            mTris        = &tris;
+            mNumFacets   = tris.size();
 
-            for (size_t f = 0; f < mNumFacets; ++f)
-            {
-                auto const& tri = (*mTris)[f];
-                for (int e = 0; e < 3; ++e)
-                {
-                    EKey key = EdgeKey(tri[e], tri[(e + 1) % 3]);
-                    auto [it, ok] = edgeMap.emplace(key, std::make_pair(-1, -1));
-                    (void)ok;
-                    if (it->second.first == NM)
-                    {
-                        // Already flagged non-manifold — stay flagged
-                    }
-                    else if (it->second.first < 0)
-                    {
-                        it->second.first  = static_cast<int32_t>(f);
-                    }
-                    else if (it->second.second < 0)
-                    {
-                        it->second.second = static_cast<int32_t>(f);
-                    }
-                    else
-                    {
-                        // Third triangle on this edge → non-manifold; treat as boundary
-                        it->second = {NM, NM};
-                    }
-                }
-            }
+            BuildFacetAdjacency();
+        }
 
-            for (size_t f = 0; f < mNumFacets; ++f)
-            {
-                auto const& tri = (*mTris)[f];
-                for (int e = 0; e < 3; ++e)
-                {
-                    EKey key = EdgeKey(tri[e], tri[(e + 1) % 3]);
-                    auto it  = edgeMap.find(key);
-                    if (it != edgeMap.end())
-                    {
-                        int32_t f0 = it->second.first;
-                        int32_t f1 = it->second.second;
-                        // Skip non-manifold edges (f0==NM) and boundary edges (f1<0)
-                        if (f0 == NM || f1 < 0) { continue; }
-                        mFacetAdj[f * 3 + e] = (f0 == static_cast<int32_t>(f)) ? f1 : f0;
-                    }
-                }
-            }
-
-            // Build a 3D KD-tree over the seed 3D positions (first 3 dims of each
-            // N-D seed).  This accelerates FindNearestSeed() from O(n_seeds) to
-            // O(log n_seeds) for each of the O(n_facets) outer-loop calls.
-            // Matching Geogram's find_seed_near_facet which uses the Delaunay ANN
-            // for the starting facet lookup.
+        // -----------------------------------------------------------------
+        // Update seeds and rebuild the seed KD-tree.  Called once per
+        // Lloyd or Newton iteration after seeds move.  Much cheaper than
+        // Initialize() since it skips the adjacency-table build.
+        // -----------------------------------------------------------------
+        void UpdateSeeds(
+            std::vector<PointN> const&                     seeds,
+            DelaunayNN<Real, N>&                           delaunay)
+        {
+            mSeeds    = &seeds;
+            mDelaunay = &delaunay;
             BuildSeedKDTree(seeds);
         }
 
@@ -719,13 +695,6 @@ namespace gte
             Polygon P_orig, P1, P2;
             int32_t P_orig_idx = int32_t(-1);
 
-            // Diagnostics counters
-            size_t dbgClipCalls = 0;
-            size_t dbgFindNearestCalls = 0;
-            size_t dbgAdjSeedsProcessed = 0;
-
-            auto t_fep0 = std::chrono::steady_clock::now();
-
             // Outer loop: seed all unvisited facets (discovers disconnected components)
             for (size_t startF = 0; startF < mNumFacets; ++startF)
             {
@@ -734,7 +703,6 @@ namespace gte
                     continue;
                 }
 
-                ++dbgFindNearestCalls;
                 int32_t nearSeed = FindNearestSeed(static_cast<int32_t>(startF));
                 adjacentSeeds.push_back({static_cast<int32_t>(startF), nearSeed});
 
@@ -775,7 +743,6 @@ namespace gte
                         }
 
                         // Clip facet f against curS's Voronoi cell
-                        ++dbgClipCalls;
                         Polygon* poly = ClipCellFacet(curS, P_orig, P1, P2);
 
                         // If this (facet,seed) pair was already recorded from a previous
@@ -865,19 +832,8 @@ namespace gte
                     } // inner facets loop
 
                     ++mCurrentComp;
-                    ++dbgAdjSeedsProcessed;
                 } // seed deque loop
             } // outer facet loop
-
-            {
-                auto t_fep1 = std::chrono::steady_clock::now();
-                double dt = std::chrono::duration<double>(t_fep1 - t_fep0).count();
-                std::cerr << "      FEP: clipCalls=" << dbgClipCalls
-                          << " findNearest=" << dbgFindNearestCalls
-                          << " adjSeeds=" << dbgAdjSeedsProcessed
-                          << " mapSz=" << mFacetSeedComp.size()
-                          << " time=" << dt << "s\n";
-            }
         }
 
         // -----------------------------------------------------------------
@@ -1224,6 +1180,73 @@ namespace gte
         // -----------------------------------------------------------------
         // Helper utilities
         // -----------------------------------------------------------------
+
+        // Build per-facet edge adjacency table.  Called from Initialize()
+        // and InitMeshOnly().  Separated so it can be called once when the
+        // mesh is set up, not once per AccumulateCentroids call.
+        void BuildFacetAdjacency()
+        {
+            // Per-facet edge adjacency table: mFacetAdj[f*3 + e] = adjacent facet
+            // through edge (tri[e], tri[(e+1)%3]), or -1 if boundary.
+            mFacetAdj.assign(mNumFacets * 3, int32_t(-1));
+
+            // Build edge→triangle map.  Entry (-2,-2) flags a non-manifold
+            // edge (3+ incident triangles); those are treated as boundaries.
+            // Entry (f,-1) flags an unmatched (boundary) edge.
+            // Matching Geogram's repair_connect_facets which marks non-manifold
+            // edges as NON_MANIFOLD and does NOT set adjacency for them.
+            using EKey = uint64_t;
+            static constexpr int32_t NM = -2;  // non-manifold sentinel
+            std::unordered_map<EKey, std::pair<int32_t, int32_t>> edgeMap;
+            edgeMap.reserve(mNumFacets * 3);
+
+            for (size_t f = 0; f < mNumFacets; ++f)
+            {
+                auto const& tri = (*mTris)[f];
+                for (int e = 0; e < 3; ++e)
+                {
+                    EKey key = EdgeKey(tri[e], tri[(e + 1) % 3]);
+                    auto [it, ok] = edgeMap.emplace(key, std::make_pair(-1, -1));
+                    (void)ok;
+                    if (it->second.first == NM)
+                    {
+                        // Already flagged non-manifold — stay flagged
+                    }
+                    else if (it->second.first < 0)
+                    {
+                        it->second.first  = static_cast<int32_t>(f);
+                    }
+                    else if (it->second.second < 0)
+                    {
+                        it->second.second = static_cast<int32_t>(f);
+                    }
+                    else
+                    {
+                        // Third triangle on this edge → non-manifold; treat as boundary
+                        it->second = {NM, NM};
+                    }
+                }
+            }
+
+            for (size_t f = 0; f < mNumFacets; ++f)
+            {
+                auto const& tri = (*mTris)[f];
+                for (int e = 0; e < 3; ++e)
+                {
+                    EKey key = EdgeKey(tri[e], tri[(e + 1) % 3]);
+                    auto it  = edgeMap.find(key);
+                    if (it != edgeMap.end())
+                    {
+                        int32_t f0 = it->second.first;
+                        int32_t f1 = it->second.second;
+                        // Skip non-manifold edges (f0==NM) and boundary edges (f1<0)
+                        if (f0 == NM || f1 < 0) { continue; }
+                        mFacetAdj[f * 3 + e] = (f0 == static_cast<int32_t>(f)) ? f1 : f0;
+                    }
+                }
+            }
+        }
+
         static Real DistSq(PointN const& a, PointN const& b)
         {
             Real s = Real(0);

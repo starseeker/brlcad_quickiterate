@@ -32,7 +32,6 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <iostream>
 #include <limits>
 #include <map>
 #include <random>
@@ -71,6 +70,8 @@ namespace gte
             , mTimeLimitSeconds(0.0)
             , mIterationsCompleted(0)
             , mNormalScale(static_cast<Real>(0))
+            , mLiftedArrValid(false)
+            , mRVDMeshInitDone(false)
         {
         }
         
@@ -87,6 +88,8 @@ namespace gte
             
             mSurfaceVertices = surfaceVertices;
             mSurfaceTriangles = surfaceTriangles;
+            mLiftedArrValid = false;   // invalidate cached lifted vertices
+            mRVDMeshInitDone = false;  // invalidate cached RVD mesh setup
             
             return true;
         }
@@ -425,7 +428,6 @@ namespace gte
 
             for (size_t iter = 0; iter < numIterations; ++iter)
             {
-                auto t_lloyd_iter = std::chrono::steady_clock::now();
                 // ── Steps 1–4: compute area-weighted N-D centroids via walk ───
                 // Uses BuildLiftedVertices + AccumulateCentroids helpers to
                 // eliminate duplication with NewtonIterations.
@@ -437,11 +439,6 @@ namespace gte
                 if (!AccumulateCentroids(mg, m, false))
                 {
                     return false;
-                }
-                {
-                    auto t_now = std::chrono::steady_clock::now();
-                    double dt = std::chrono::duration<double>(t_now - t_lloyd_iter).count();
-                    std::cerr << "    Lloyd iter " << (iter+1) << " AccumulateCentroids: " << dt << "s\n";
                 }
 
                 // ── Step 5: Update sites = mg / m  ─────────────────────────────
@@ -732,7 +729,14 @@ namespace gte
         // Passing 0 resets to the dynamic-derivation behaviour (the default
         // when CVTN is first constructed), which may be useful in custom
         // workflows that compute the scale incrementally.
-        void SetNormalScale(Real s) { mNormalScale = s; }
+        void SetNormalScale(Real s)
+        {
+            if (s != mNormalScale)
+            {
+                mNormalScale = s;
+                mLiftedArrValid = false;  // invalidate cached lifted vertices
+            }
+        }
 
         Real GetNormalScale() const { return mNormalScale; }
 
@@ -1218,11 +1222,9 @@ namespace gte
         // For N=6 (anisotropic): appends scaled vertex normals to produce the
         //   N-D metric embedding matching Geogram's set_anisotropy().
         //
-        // Computes the normalScale from mNormalScale (fixed, set once by
-        // SetNormalScale()) when available, otherwise falls back to deriving
-        // it from the current seed normal magnitudes.  The fixed-scale path
-        // matches Geogram's behaviour: set_anisotropy() pins the scale once
-        // and does not re-derive it per-iteration.
+        // The liftedArr result is cached in mCachedLiftedArr because the mesh
+        // vertices and normalScale never change between Lloyd/Newton iterations.
+        // Only seedsArr changes (seeds move each iteration).
         void BuildLiftedVertices(
             std::vector<std::array<Real, N>>& liftedArr,
             std::vector<std::array<Real, N>>& seedsArr,
@@ -1257,7 +1259,17 @@ namespace gte
                 }
             }
 
-            liftedArr.resize(mSurfaceVertices.size());
+            // Use the cached liftedArr when valid (normalScale and mesh haven't changed).
+            // Computing lifted vertices from scratch is O(n_verts) but for large meshes
+            // (86K verts, N=6) it takes ~12ms per call and never changes between iterations.
+            if (mLiftedArrValid)
+            {
+                liftedArr = mCachedLiftedArr;
+                return;
+            }
+
+            // Build the lifted array from scratch.
+            mCachedLiftedArr.resize(mSurfaceVertices.size());
 
             if constexpr (N > 3)
             {
@@ -1279,20 +1291,20 @@ namespace gte
                 }
                 for (size_t v = 0; v < mSurfaceVertices.size(); ++v)
                 {
-                    liftedArr[v][0] = mSurfaceVertices[v][0];
-                    liftedArr[v][1] = mSurfaceVertices[v][1];
-                    liftedArr[v][2] = mSurfaceVertices[v][2];
+                    mCachedLiftedArr[v][0] = mSurfaceVertices[v][0];
+                    mCachedLiftedArr[v][1] = mSurfaceVertices[v][1];
+                    mCachedLiftedArr[v][2] = mSurfaceVertices[v][2];
                     Real nx = vertNorm[v][0], ny = vertNorm[v][1], nz = vertNorm[v][2];
                     Real len = std::sqrt(nx*nx + ny*ny + nz*nz);
                     if (len > static_cast<Real>(1e-10))
                     { nx /= len; ny /= len; nz /= len; }
                     if constexpr (N >= 6)
                     {
-                        liftedArr[v][3] = nx * normalScale;
-                        liftedArr[v][4] = ny * normalScale;
-                        liftedArr[v][5] = nz * normalScale;
+                        mCachedLiftedArr[v][3] = nx * normalScale;
+                        mCachedLiftedArr[v][4] = ny * normalScale;
+                        mCachedLiftedArr[v][5] = nz * normalScale;
                     }
-                    for (size_t d = 6; d < N; ++d) liftedArr[v][d] = static_cast<Real>(0);
+                    for (size_t d = 6; d < N; ++d) mCachedLiftedArr[v][d] = static_cast<Real>(0);
                 }
             }
             else
@@ -1300,11 +1312,14 @@ namespace gte
                 // N=3: copy 3D positions directly
                 for (size_t v = 0; v < mSurfaceVertices.size(); ++v)
                 {
-                    liftedArr[v][0] = mSurfaceVertices[v][0];
-                    liftedArr[v][1] = mSurfaceVertices[v][1];
-                    liftedArr[v][2] = mSurfaceVertices[v][2];
+                    mCachedLiftedArr[v][0] = mSurfaceVertices[v][0];
+                    mCachedLiftedArr[v][1] = mSurfaceVertices[v][1];
+                    mCachedLiftedArr[v][2] = mSurfaceVertices[v][2];
                 }
             }
+
+            mLiftedArrValid = true;
+            liftedArr = mCachedLiftedArr;
         }
 
         // ── Shared helper: accumulate N-D centroids via SurfaceRVDN walk ──────
@@ -1326,34 +1341,52 @@ namespace gte
         {
             size_t numSeeds = mSites.size();
 
-            auto t0 = std::chrono::steady_clock::now();
+            // Build seedsArr from current site positions.
+            // This must be rebuilt each iteration as seeds move.
+            std::vector<std::array<Real, N>> seedsArr(numSeeds);
+            for (size_t s = 0; s < numSeeds; ++s)
+                for (size_t d = 0; d < N; ++d) seedsArr[s][d] = mSites[s][d];
 
-            DelaunayNN<Real, N> delaunay(20);
+            // Ensure the lifted-vertex cache is populated.
+            // mCachedLiftedArr is a stable member of CVTN, so pointers into it
+            // remain valid for the lifetime of this CVTN object.
+            if (!mLiftedArrValid)
+            {
+                // BuildLiftedVertices reads mNormalScale + mSurfaceVertices + mSurfaceTriangles
+                // and populates mCachedLiftedArr, then sets mLiftedArrValid=true.
+                // The dummy outputs are unused here; what matters is the side-effect.
+                std::vector<std::array<Real, N>> dummy, dummySeeds;
+                Real dummyNS;
+                BuildLiftedVertices(dummy, dummySeeds, dummyNS);
+            }
+
+            // Build DelaunayNN over current seed positions.
+            // Use K=30 to match Geogram's default_nb_neighbors_ (set in Delaunay ctor).
+            // Larger K reduces the frequency of expensive SR-enlargement calls in
+            // Newton iterations (checkSR=true path in ClipCellFacet).
+            // DelaunayNN uses PointN = Vector<N,Real>; use mSites directly.
+            DelaunayNN<Real, N> delaunay(30);
             delaunay.SetVertices(numSeeds, mSites.data());
-            {
-                auto t1 = std::chrono::steady_clock::now();
-                std::cerr << "      DelaunayNN build: " << std::chrono::duration<double>(t1-t0).count() << "s\n";
-            }
 
-            std::vector<std::array<Real, N>> liftedArr, seedsArr;
-            Real normalScale;
-            BuildLiftedVertices(liftedArr, seedsArr, normalScale);
+            // Set up SurfaceRVDN using the cached approach:
+            // - InitMeshOnly: builds adjacency table (cached — skipped after first call)
+            //   The adjacency table depends only on mSurfaceTriangles, never changes.
+            // - SetLiftedVerts: rebind pointer to mCachedLiftedArr (stable member).
+            // - UpdateSeeds: rebuild seed KD-tree (required each iteration).
+            // Together this replaces the full Initialize() call which rebuilt
+            // the adjacency table every iteration at ~35ms/call.
+            mCachedRVD.SetCheckSR(checkSR);
+            if (!mRVDMeshInitDone)
             {
-                auto t2 = std::chrono::steady_clock::now();
-                std::cerr << "      BuildLiftedVerts: " << std::chrono::duration<double>(t2-t0).count() << "s\n";
+                mCachedRVD.InitMeshOnly(mCachedLiftedArr, mSurfaceTriangles);
+                mRVDMeshInitDone = true;
             }
-
-            SurfaceRVDN<Real, N> rvd;
-            // checkSR=false: Lloyd clips with initial 20 neighbors only (no
-            //   enlargement), matching Geogram's set_check_SR(false) before
-            //   Lloyd_iterations().  checkSR=true: Newton uses full SR-based
-            //   neighborhood enlargement for correctness.
-            rvd.SetCheckSR(checkSR);
-            rvd.Initialize(liftedArr, mSurfaceTriangles, seedsArr, delaunay);
+            else
             {
-                auto t3 = std::chrono::steady_clock::now();
-                std::cerr << "      RVD Initialize: " << std::chrono::duration<double>(t3-t0).count() << "s\n";
+                // Rebind lifted verts in case mCachedLiftedArr was just filled.
+                mCachedRVD.SetLiftedVerts(mCachedLiftedArr);
             }
+            mCachedRVD.UpdateSeeds(seedsArr, delaunay);
 
             mg.assign(numSeeds, {});
             for (auto& a : mg) a.fill(static_cast<Real>(0));
@@ -1364,7 +1397,7 @@ namespace gte
             // cnx-priority O(n_facets × seeds²) that caused the CVT hang on large meshes.
             // Seeds-priority is correct for centroid computation (Lloyd/Newton) and
             // exactly matches Geogram's compute_centroids path.
-            rvd.ForEachPolygon_SeedsPriority([&](
+            mCachedRVD.ForEachPolygon_SeedsPriority([&](
                 int32_t seed, int32_t /*facet*/,
                 RVDPolygon<Real, N> const& P)
             {
@@ -1390,10 +1423,6 @@ namespace gte
                     m_area[seed] += area;
                 }
             });
-            {
-                auto t4 = std::chrono::steady_clock::now();
-                std::cerr << "      ForEachPolygon: " << std::chrono::duration<double>(t4-t0).count() << "s\n";
-            }
             return true;
         }
 
@@ -1406,5 +1435,20 @@ namespace gte
         double mTimeLimitSeconds;                                 // 0 = no limit
         size_t mIterationsCompleted;                              // Iters completed in last LloydIterations() call
         Real mNormalScale;  // Fixed normal-component scale (0 = derive from seeds each call)
+
+        // Cached lifted mesh vertices (position + scaled normals in N-D).
+        // Computed once from mSurfaceVertices + mSurfaceTriangles + mNormalScale
+        // and reused across all AccumulateCentroids calls.  Invalidated when
+        // mNormalScale changes (via SetNormalScale) or when Initialize is called.
+        mutable std::vector<std::array<Real, N>> mCachedLiftedArr;
+        mutable bool mLiftedArrValid = false;
+
+        // Cached SurfaceRVDN with the mesh adjacency table built once.
+        // The mesh adjacency (mFacetAdj) depends only on mSurfaceTriangles and
+        // never changes between iterations.  The seed KD-tree is updated via
+        // UpdateSeeds() on each AccumulateCentroids call (O(n_seeds log n_seeds)
+        // instead of O(n_faces) for full Initialize).
+        mutable SurfaceRVDN<Real, N> mCachedRVD;
+        mutable bool mRVDMeshInitDone = false;
     };
 }
