@@ -594,6 +594,7 @@ namespace gte
         // Used when AccumulateCentroids's mCachedLiftedArr is reallocated
         // (first time the cache is built) but the adjacency table is already
         // valid and doesn't need to be rebuilt.
+        // LIFETIME: liftedVerts must outlive this SurfaceRVDN instance.
         // -----------------------------------------------------------------
         void SetLiftedVerts(std::vector<PointN> const& liftedVerts)
         {
@@ -624,8 +625,24 @@ namespace gte
         }
 
         // -----------------------------------------------------------------
-        // Two-stage initialization for caching: call InitMeshOnly() once
-        // when the mesh changes, then UpdateSeeds() each iteration.
+        // Thread-parallel initialization: shares the prebuilt mesh adjacency
+        // from another SurfaceRVDN (no rebuild), then binds its own seeds
+        // and a per-thread delaunay.
+        //
+        // Called once per thread before the parallel ForEachPolygon.
+        // The source SurfaceRVDN must have been initialized via InitMeshOnly()
+        // or Initialize() and must outlive this object.
+        // -----------------------------------------------------------------
+        void ShareMeshFrom(SurfaceRVDN const& src)
+        {
+            mLiftedVerts = src.mLiftedVerts;
+            mTris        = src.mTris;
+            mNumFacets   = src.mNumFacets;
+            mFacetAdj    = src.mFacetAdj;   // copy adjacency (read-only shared)
+            // mSeeds, mDelaunay, mSeedKDTree filled by UpdateSeeds()
+        }
+
+
         // InitMeshOnly builds the adjacency table (O(n_facets) work) and
         // stores pointers to liftedVerts and tris.
         // -----------------------------------------------------------------
@@ -949,6 +966,93 @@ namespace gte
                 } // adjacent_facets loop
             } // outer facet loop
         }
+
+        // -----------------------------------------------------------------
+        // Range-limited variant of ForEachPolygon_SeedsPriority:
+        // only processes facets in [fBegin, fEnd).  Adjacent-facet propagation
+        // stays within the same range (facets outside the range are skipped).
+        // This is safe because the outer loop guarantees every facet in the
+        // range is eventually seeded via FindNearestSeed, so no facet is missed.
+        //
+        // Used by AccumulateCentroids to split work across std::threads,
+        // where each thread processes its own contiguous range of facets and
+        // accumulates an independent partial centroid result.
+        // -----------------------------------------------------------------
+        template <typename Action>
+        void ForEachPolygon_SeedsPriority(Action&& action,
+                                          int32_t fBegin, int32_t fEnd)
+        {
+            if (fBegin >= fEnd) { return; }
+            const size_t numSeeds = mSeeds->size();
+
+            std::vector<bool>    facet_is_marked(mNumFacets, false);
+            static constexpr int32_t NO_FACET = int32_t(-1);
+            std::vector<int32_t> seed_stamp(numSeeds, NO_FACET);
+
+            struct FacetSeed { int32_t f, s; };
+            std::stack<FacetSeed> adjacent_facets;
+            std::stack<int32_t>   adjacent_seeds;
+
+            Polygon P_orig, P1, P2;
+            int32_t P_orig_idx = int32_t(-1);
+
+            for (int32_t startF = fBegin; startF < fEnd; ++startF)
+            {
+                if (facet_is_marked[startF]) { continue; }
+
+                facet_is_marked[startF] = true;
+                int32_t s0 = FindNearestSeed(startF);
+                adjacent_facets.push({startF, s0});
+
+                while (!adjacent_facets.empty())
+                {
+                    int32_t curF = adjacent_facets.top().f;
+                    int32_t curS = adjacent_facets.top().s;
+                    adjacent_facets.pop();
+
+                    if (P_orig_idx != curF)
+                    {
+                        InitPolygon(curF, P_orig);
+                        P_orig_idx = curF;
+                    }
+
+                    seed_stamp[curS] = curF;
+                    adjacent_seeds.push(curS);
+
+                    while (!adjacent_seeds.empty())
+                    {
+                        int32_t s = adjacent_seeds.top();
+                        adjacent_seeds.pop();
+
+                        Polygon* poly = ClipCellFacet(s, P_orig, P1, P2);
+
+                        if (!poly->empty())
+                        {
+                            action(s, curF, *poly);
+                        }
+
+                        for (auto const& v : poly->V)
+                        {
+                            // Adjacent facet: only within [fBegin, fEnd).
+                            if (v.adjFacet >= fBegin && v.adjFacet < fEnd
+                                && !facet_is_marked[v.adjFacet])
+                            {
+                                facet_is_marked[v.adjFacet] = true;
+                                adjacent_facets.push({v.adjFacet, s});
+                            }
+                            // Adjacent seed: push if not yet stamped for curF.
+                            if (v.adjSeed >= 0
+                                && seed_stamp[v.adjSeed] != curF)
+                            {
+                                seed_stamp[v.adjSeed] = curF;
+                                adjacent_seeds.push(v.adjSeed);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
 
         // Returns the connected-component ID of seed s on facet f, or -1 if
         // not recorded (the polygon didn't touch any Voronoi boundary on f).
