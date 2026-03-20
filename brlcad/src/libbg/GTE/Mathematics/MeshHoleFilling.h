@@ -141,11 +141,20 @@ namespace gte
 
             std::unordered_set<int64_t, DirectedEdgeHash> directedEdges;
             directedEdges.reserve(triangles.size() * 3);
+            // Also build directed-edge → third-vertex map (matching geogram's trindex
+            // representation: for face (a,b,c), edge a→b has third vertex c, etc.).
+            // Used to initialise the v2 ("adjacent face third vertex") field of each
+            // working hole triple in TriangulateHole3D, so the adjacent-face normals
+            // used for ear scoring match geogram's triangulate_hole_ear_cutting exactly.
+            std::unordered_map<int64_t, int32_t> edgeToThirdVert;
+            edgeToThirdVert.reserve(triangles.size() * 3);
             for (auto const& tri : triangles)
             {
                 for (int j = 0; j < 3; ++j)
                 {
-                    directedEdges.insert(encodeEdge(tri[j], tri[(j + 1) % 3]));
+                    int64_t key = encodeEdge(tri[j], tri[(j + 1) % 3]);
+                    directedEdges.insert(key);
+                    edgeToThirdVert[key] = tri[(j + 2) % 3];
                 }
             }
 
@@ -203,7 +212,7 @@ namespace gte
 
                 if (params.method == TriangulationMethod::EarClipping3D)
                 {
-                    success = TriangulateHole3D(vertices, hole, newTriangles);
+                    success = TriangulateHole3D(vertices, hole, newTriangles, edgeToThirdVert);
                 }
                 else
                 {
@@ -213,7 +222,7 @@ namespace gte
                     // Fall back to 3D if LSCM somehow fails
                     if (!success && params.autoFallback)
                     {
-                        success = TriangulateHole3D(vertices, hole, newTriangles);
+                        success = TriangulateHole3D(vertices, hole, newTriangles, edgeToThirdVert);
                     }
                 }
                 
@@ -622,11 +631,24 @@ namespace gte
         }
 
         // Triangulate a hole working directly in 3D (no projection)
-        // Ported from Geogram's ear cutting algorithm
+        // Ported from Geogram's ear cutting algorithm (triangulate_hole_ear_cutting)
+        //
+        // Each working-hole triple stores (v0, v1, v2) where:
+        //   v0  = start of the boundary directed edge
+        //   v1  = end of the boundary directed edge (== start of next edge)
+        //   v2  = third vertex of the mesh face adjacent to edge (v0, v1)
+        //
+        // This mirrors geogram's trindex representation exactly.  For the initial
+        // boundary edges v2 is looked up from the supplied edgeToThirdVert map
+        // (built from all existing triangles in FillHoles).  After each ear clip
+        // the newly created triangle (v0, v2_new, v1_ear) becomes the face adjacent
+        // to the new boundary edge (v0, v2_new), so its third vertex is v1_ear —
+        // matching geogram's  hole[best_i1] = T  update step exactly.
         static bool TriangulateHole3D(
             std::vector<Vector3<Real>> const& vertices,
             HoleBoundary const& hole,
-            std::vector<std::array<int32_t, 3>>& triangles)
+            std::vector<std::array<int32_t, 3>>& triangles,
+            std::unordered_map<int64_t, int32_t> const& edgeToThirdVert = {})
         {
             if (hole.vertices.size() < 3)
             {
@@ -639,12 +661,24 @@ namespace gte
                 return true;
             }
             
-            // Create working copy as EdgeTriple (stores 3 consecutive vertices)
+            // EdgeTriple stores (v0, v1, v2): v0→v1 is the boundary edge, v2 is the
+            // third vertex of the mesh face adjacent to that edge.  Matches geogram's
+            // trindex(origin, next_boundary_vertex, interior_face_vertex).
             struct EdgeTriple
             {
-                int32_t v0, v1, v2;  // Three consecutive vertices
+                int32_t v0, v1, v2;
             };
-            
+
+            // Helper: encode directed edge for use with edgeToThirdVert.
+            auto encodeEdge3D = [](int32_t va, int32_t vb) noexcept -> int64_t {
+                return (static_cast<int64_t>(va) << 32) | static_cast<uint32_t>(vb);
+            };
+
+            // Mutable map tracking the adjacent-face third vertex for each current
+            // boundary edge.  Initialised from the caller-supplied map (existing mesh
+            // faces) and updated as new fill triangles are created.
+            std::unordered_map<int64_t, int32_t> adjThirdVert(edgeToThirdVert);
+
             std::vector<EdgeTriple> workingHole;
             workingHole.reserve(hole.vertices.size());
             
@@ -654,7 +688,19 @@ namespace gte
                 EdgeTriple et;
                 et.v0 = hole.vertices[i];
                 et.v1 = hole.vertices[(i + 1) % n];
-                et.v2 = hole.vertices[(i + 2) % n];
+                // Initialise v2 from the adjacent-face map (geogram approach).
+                // Fall back to the next boundary vertex when no adjacent face is
+                // recorded (should not occur for a well-formed manifold mesh, but
+                // provides a safe approximation when the map is absent).
+                auto it = adjThirdVert.find(encodeEdge3D(et.v0, et.v1));
+                if (it != adjThirdVert.end())
+                {
+                    et.v2 = it->second;
+                }
+                else
+                {
+                    et.v2 = hole.vertices[(i + 2) % n];
+                }
                 workingHole.push_back(et);
             }
             
@@ -683,22 +729,34 @@ namespace gte
                     return false; // Failed to find valid ear
                 }
                 
-                size_t nextIdx = (bestIdx + 1) % workingHole.size();
+                size_t nextIdx = (static_cast<size_t>(bestIdx) + 1) % workingHole.size();
                 
-                // Create triangle from best ear
+                // Create triangle from best ear (matches geogram's trindex T)
                 EdgeTriple const& t1 = workingHole[bestIdx];
                 EdgeTriple const& t2 = workingHole[nextIdx];
-                
+                // Triangle = (T1[0], T2[1], T1[1]) in geogram notation
                 triangles.push_back({t1.v0, t2.v1, t1.v1});
                 
-                // Update working hole by merging the two edge triples
+                // Update working hole by replacing the clipped position with the
+                // merged triple, then removing the now-redundant successor triple.
+                //
+                // After clipping ear vertex t1.v1:
+                //   - New boundary edge is (t1.v0, t2.v1)
+                //   - The new face adjacent to this edge is the triangle just created:
+                //     (t1.v0, t2.v1, t1.v1) — so its third vertex is t1.v1.
+                // This matches geogram's:  hole[best_i1] = T  where T carries
+                //   indices = (T1[0], T2[1], T1[1]).
                 EdgeTriple merged;
                 merged.v0 = t1.v0;
                 merged.v1 = t2.v1;
-                merged.v2 = workingHole[(nextIdx + 1) % workingHole.size()].v1;
+                merged.v2 = t1.v1;  // third vertex of newly created adjacent face
+
+                // Record new edge in the map so subsequent iterations see the
+                // updated adjacent face when scoring ears at this boundary edge.
+                adjThirdVert[encodeEdge3D(merged.v0, merged.v1)] = merged.v2;
                 
                 workingHole[bestIdx] = merged;
-                workingHole.erase(workingHole.begin() + nextIdx);
+                workingHole.erase(workingHole.begin() + static_cast<std::ptrdiff_t>(nextIdx));
             }
             
             // Add final triangle
