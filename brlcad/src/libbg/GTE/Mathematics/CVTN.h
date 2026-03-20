@@ -1359,10 +1359,14 @@ namespace gte
             for (auto& a : mg) a.fill(static_cast<Real>(0));
             m_area.assign(numSeeds, static_cast<Real>(0));
 
-            rvd.ForEachPolygon([&](
+            // Use seeds-priority traversal (Geogram's compute_surfacic_with_seeds_priority).
+            // This gives O(n_facets × avg_seeds_per_facet) clips instead of the
+            // cnx-priority O(n_facets × seeds²) that caused the CVT hang on large meshes.
+            // Seeds-priority is correct for centroid computation (Lloyd/Newton) and
+            // exactly matches Geogram's compute_centroids path.
+            rvd.ForEachPolygon_SeedsPriority([&](
                 int32_t seed, int32_t /*facet*/,
-                RVDPolygon<Real, N> const& P,
-                bool /*compChanged*/, int32_t /*compID*/)
+                RVDPolygon<Real, N> const& P)
             {
                 const size_t nv = P.nb_vertices();
                 for (size_t i = 1; i + 1 < nv; ++i)

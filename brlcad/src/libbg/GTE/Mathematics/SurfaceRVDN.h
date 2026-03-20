@@ -880,6 +880,120 @@ namespace gte
             }
         }
 
+        // -----------------------------------------------------------------
+        // Walk the surface using SEEDS-PRIORITY order (Geogram's
+        // compute_surfacic_with_seeds_priority).  This is the correct mode
+        // for centroid computation (Lloyd/Newton iterations).
+        //
+        // Key difference from ForEachPolygon (cnx-priority):
+        //   - Each facet is permanently marked once (facet_is_marked[f]).
+        //     No overwriting → O(n_facets × avg_seeds_per_facet) clips.
+        //   - Inner adjacent_seeds loop processes ALL seeds intersecting the
+        //     current facet before moving to the next one.
+        //   - seed_stamp[s] = curF prevents the same seed being pushed
+        //     twice for the same facet.
+        //
+        // Action signature:
+        //   action(int32_t seed, int32_t facet,
+        //          RVDPolygon<Real,N> const& poly)
+        //
+        // No component tracking — only needed for ComputeRDT multi-nerve,
+        // which uses ForEachPolygon (cnx-priority).
+        // -----------------------------------------------------------------
+        template <typename Action>
+        void ForEachPolygon_SeedsPriority(Action&& action)
+        {
+            const size_t numSeeds   = mSeeds->size();
+            const size_t numFacets  = mNumFacets;
+
+            // Permanent boolean: marks a facet once it has been pushed to
+            // adjacent_facets (prevents re-visiting it for any seed).
+            std::vector<bool>    facet_is_marked(numFacets, false);
+            // seed_stamp[s] = index of the last facet that stamped seed s
+            // into the adjacent_seeds stack.  Prevents pushing the same
+            // seed twice for the same facet.
+            static constexpr int32_t NO_FACET = int32_t(-1);
+            std::vector<int32_t> seed_stamp(numSeeds, NO_FACET);
+
+            // adjacent_facets: stack of (facet, starting_seed) pairs.
+            // Each facet appears at most once (guarded by facet_is_marked).
+            struct FacetSeed { int32_t f, s; };
+            std::stack<FacetSeed>  adjacent_facets;
+            std::stack<int32_t>    adjacent_seeds;
+
+            // Reusable ping-pong clip buffers (persist across clips to
+            // avoid repeated heap allocations in the inner loop).
+            Polygon P_orig, P1, P2;
+            int32_t P_orig_idx = int32_t(-1);
+
+            // Outer loop: seed each unmarked facet.
+            // For a fully connected mesh this fires once (first unvisited facet
+            // of the connected component).  For fragmented meshes it fires once
+            // per connected component.
+            for (int32_t startF = 0; startF < static_cast<int32_t>(numFacets); ++startF)
+            {
+                if (facet_is_marked[startF]) { continue; }
+
+                facet_is_marked[startF] = true;
+                int32_t s0 = FindNearestSeed(startF);
+                adjacent_facets.push({startF, s0});
+
+                // Propagate along the facet-graph of the surface.
+                while (!adjacent_facets.empty())
+                {
+                    int32_t curF = adjacent_facets.top().f;
+                    int32_t curS = adjacent_facets.top().s;
+                    adjacent_facets.pop();
+
+                    // Re-initialize from mesh facet only when it changes.
+                    if (P_orig_idx != curF)
+                    {
+                        InitPolygon(curF, P_orig);
+                        P_orig_idx = curF;
+                    }
+
+                    // Propagate along the Delaunay 1-skeleton: this inner loop
+                    // traverses all seeds whose Voronoi cell intersects curF.
+                    seed_stamp[curS] = curF;
+                    adjacent_seeds.push(curS);
+
+                    while (!adjacent_seeds.empty())
+                    {
+                        int32_t s = adjacent_seeds.top();
+                        adjacent_seeds.pop();
+
+                        // Clip curF against seed s's Voronoi cell.
+                        Polygon* poly = ClipCellFacet(s, P_orig, P1, P2);
+
+                        if (!poly->empty())
+                        {
+                            action(s, curF, *poly);
+                        }
+
+                        // Propagate to adjacent facets (via mesh edges) and
+                        // adjacent seeds (via Voronoi bisectors).
+                        for (auto const& v : poly->V)
+                        {
+                            // Adjacent facet: mark permanently and push once.
+                            if (v.adjFacet >= 0
+                                && !facet_is_marked[v.adjFacet])
+                            {
+                                facet_is_marked[v.adjFacet] = true;
+                                adjacent_facets.push({v.adjFacet, s});
+                            }
+                            // Adjacent seed: push if not yet stamped for curF.
+                            if (v.adjSeed >= 0
+                                && seed_stamp[v.adjSeed] != curF)
+                            {
+                                seed_stamp[v.adjSeed] = curF;
+                                adjacent_seeds.push(v.adjSeed);
+                            }
+                        }
+                    } // inner seeds loop
+                } // adjacent_facets loop
+            } // outer facet loop
+        }
+
         // Returns the connected-component ID of seed s on facet f, or -1 if
         // not recorded (the polygon didn't touch any Voronoi boundary on f).
         int32_t GetFacetSeedComponent(int32_t f, int32_t s) const
