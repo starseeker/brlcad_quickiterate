@@ -31,7 +31,9 @@
 #include "bu/cmd.h"
 #include "bu/opt.h"
 #include "bu/vls.h"
-#include "dm.h"
+#ifndef BRLCAD_ENABLE_OBOL
+#  include "dm.h"
+#endif
 
 #include "../ged_private.h"
 
@@ -636,6 +638,7 @@ _dm_cmd_attach(void *ds, int argc, const char **argv)
     }
 #endif /* BRLCAD_ENABLE_OBOL */
 
+#ifndef BRLCAD_ENABLE_OBOL
     if (ac == 1 && !bu_vls_strlen(&dm_name)) {
 	// No name - generate one
 	bu_vls_sprintf(&dm_name, "%s-0", argv[0]);
@@ -776,6 +779,7 @@ _dm_cmd_attach(void *ds, int argc, const char **argv)
     bu_vls_free(&view_name);
 
     return BRLCAD_OK;
+#endif /* !BRLCAD_ENABLE_OBOL */
 }
 
 int
