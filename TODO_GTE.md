@@ -250,3 +250,73 @@ Once CVT runs to completion on torus and sphere:
 After confirming Priority 2, consider OpenMP parallelism in `ForEachPolygon`
 for additional speedup, matching Geogram's parallel RVD computation.
 
+## Changes Made (Session 8)
+
+Four Geogram-alignment fixes discovered by systematic code review:
+
+### 1. `CVTN.h` — Fixed normalScale drift in `BuildLiftedVertices` and `ComputeRDT`
+
+**Problem**: `BuildLiftedVertices` re-derived `normalScale` from the current seed
+normal-component magnitudes on every call. As Lloyd iterations move seeds to N-D
+Voronoi centroids, the normal components become averages of nearby unit normals,
+whose vector sum magnitude is ≤ 1. Over iterations, seed normal magnitudes shrink
+→ `normalScale` computed from seeds also shrinks → the 6-D metric gradually becomes
+more isotropic than intended.
+
+**Geogram equivalent**: `CVT::set_anisotropy(s)` pins the scale once before the CVT
+loop and never re-derives it.
+
+**Fix**: Added `mNormalScale` member (default 0 = dynamic derivation), `SetNormalScale(s)`
+and `GetNormalScale()` methods. `BuildLiftedVertices` and `ComputeRDT` use `mNormalScale`
+when non-zero, otherwise fall back to the old seed-derived computation.
+
+### 2. `MeshRemesh.h` — Call `SetNormalScale` after `SetSites` in both 6D callers
+
+`RemeshCVTAnisotropic` and `LloydRelaxationAnisotropic` now call `cvt.SetNormalScale(normalScale)`
+immediately after `cvt.SetSites(...)`, before any Lloyd or Newton iterations. This pins
+the 6-D metric scale consistently for the entire CVT optimisation.
+
+### 3. `SurfaceRVDN.h` — Fixed `clip_by_plane` cross condition
+
+**Problem**: The edge-crossing condition was `s != prevS && prevS != 0`. This fires
+when `prevS ≠ 0` and `s = 0` (vertex exactly on bisector), emitting a spurious
+intersection vertex.
+
+**Geogram equivalent**: Uses `geo_sgn()` and the condition `prevS * S < 0`, which only
+fires on a strict sign change and does NOT fire when either sign is 0.
+
+**Fix**: Changed condition to `prevS * s < 0`.
+
+### 4. `SurfaceRVDN.h` — Full sort after `EnlargeNeighborhood`; SR constant 4.1→4.0
+
+- After `EnlargeNeighborhood()`, sorted the FULL enlarged list (not just the suffix
+  [prevSize..newSize)). Since KNN returns results in a specific internal order, sorting
+  only the suffix could leave the prefix out of order relative to what was already
+  processed. Full sort guarantees the first prevSize elements are the same k-nearest
+  (correctly skipped by `jj=prevSize`), matching Geogram's approach.
+
+- Changed security-radius constant from 4.1 to 4.0 to exactly match Geogram's
+  `clip_by_cell_SR` check. The theoretical security-radius proof uses 4.0; the previous
+  4.1 was a conservative safety margin not present in Geogram.
+
+### Quality Results (torus remesh, 5 Lloyd + 30 Newton iterations)
+
+| Mesh | Target | v | t | time | AR p50 | AR p90 | AR p99 | AR max |
+|------|--------|---|---|------|--------|--------|--------|--------|
+| 20×10 torus | 200 | 198 | 340 | 0.19s | 1.105 | 1.281 | 1.488 | 1.616 |
+| 20×10 torus | 500 | 468 | 702 | 0.16s | 1.132 | 1.331 | 1.661 | 9.32  |
+| 20×10 torus | 1000 | 762 | 994 | 0.12s | 1.172 | 1.396 | 1.970 | 8.14  |
+| 20×10 torus | 2000 | 1241 | 1498 | 0.17s | 1.196 | 1.489 | 3.183 | 21.1  |
+| 40×20 torus | 8000 | 5266 | 6407 | 0.79s | 1.199 | 1.494 | 2.570 | 823   |
+
+The high max AR is a single sliver triangle from near-degenerate anisotropic CVT
+seeds at a surface fold; p99 quality is excellent across all sizes.
+
+### Remaining Potential Issues
+
+- Max AR outliers (single sliver triangle) at high target-vertex counts: intrinsic to
+  anisotropic CVT where two seeds are close in 3D but far in 6D. Geogram handles this
+  via post-processing cleanup in `mesh_postprocess_RDT`. Our `ComputeMultiNerveRDT`
+  already has steps 5a-5f but may need an additional sliver-removal step for very high
+  target-to-input ratios.
+

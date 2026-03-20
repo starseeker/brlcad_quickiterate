@@ -479,6 +479,13 @@ namespace gte
                 sites6D[s][5] = normals[nearestVert][2];
             }
             cvt.SetSites(sites6D);
+            // Pin the metric scale to the value used for site initialisation.
+            // Without this, BuildLiftedVertices re-derives normalScale each
+            // iteration from the seed normal magnitudes, which shrinks as
+            // Lloyd moves seeds and their normal components lose unit length.
+            // Geogram pins the scale once via set_anisotropy() — we replicate
+            // that by calling SetNormalScale() with the same value.
+            cvt.SetNormalScale(normalScale);
 
             if (params.lloydTimeLimit > 0.0)
             {
@@ -1276,8 +1283,11 @@ namespace gte
                 sites6D.push_back(site6D);
             }
             
-            // Set initial 6D sites
+            // Set initial 6D sites and pin the normal-component scale.
+            // Geogram pins the scale once via set_anisotropy(); we replicate
+            // that so BuildLiftedVertices uses a consistent scale each iter.
             cvt.SetSites(sites6D);
+            cvt.SetNormalScale(params.anisotropyScale);
             
             // Set convergence threshold
             cvt.SetConvergenceThreshold(static_cast<Real>(1e-4));

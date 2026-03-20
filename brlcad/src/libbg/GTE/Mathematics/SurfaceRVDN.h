@@ -439,8 +439,11 @@ namespace gte
                 Real l = DotDiff(vk.pos, pi, pj);
                 int  s = Sgn2(l, d);
 
-                // Edge crosses the bisector boundary
-                if (s != prevS && prevS != 0)
+                // Edge crosses the bisector boundary (strict sign change;
+                // a vertex exactly on the bisector, s==0, is treated as
+                // "outside" — matching Geogram's clip_by_plane_fast which
+                // uses geo_sgn and the condition prevS*S < 0).
+                if (prevS * s < 0)
                 {
                     // Barycentric coordinate lambda1 (weight for prev vertex)
                     Real denom = Real(2) * (prevL - l);
@@ -935,7 +938,7 @@ namespace gte
 
             // Direct translation of Geogram's clip_by_cell_SR:
             // Iteratively enlarge the neighborhood until the security radius
-            // criterion is met (dij > 4.1*R2 for the next unclipped neighbor).
+            // criterion is met (dij > 4.0*R2 for the next unclipped neighbor).
             // jj tracks the position up to which we have already clipped;
             // only newly-added neighbors are sorted and clipped on each
             // enlargement pass, matching Geogram's incremental jj advance.
@@ -967,7 +970,12 @@ namespace gte
 
                     // Security radius: if d(pi,pj) > 2*R the remaining
                     // neighbors (sorted) cannot affect the polygon.
-                    if (dij > Real(4.1) * R2)
+                    // Factor 4.0 matches Geogram's clip_by_cell_SR exactly
+                    // (the original 4.1 was a conservative safety margin
+                    // not present in Geogram; both are mathematically sound
+                    // but 4.0 is the correct value from the security-radius
+                    // proof for Voronoi clipping).
+                    if (dij > Real(4.0) * R2)
                     {
                         srSatisfied = true;
                         break;
@@ -1022,9 +1030,20 @@ namespace gte
                 {
                     break;  // enlargement made no progress
                 }
-                // Sort the new suffix by distance and merge into neighbors.
-                std::sort(newNeighbors.begin() + static_cast<ptrdiff_t>(prevSize),
-                    newNeighbors.end(),
+                // Sort the FULL enlarged list by distance to the seed.
+                //
+                // After EnlargeNeighborhood(), the stored list is a fresh
+                // FindKNearestNeighborsToPoint() result.  The underlying
+                // KD-tree returns results by popping a max-heap (decreasing
+                // distance), then filling from back to front so the final
+                // array is ascending — BUT the removal of the self-index
+                // and the heap's internal ordering can shift entries.
+                // Sorting the full list is the safest approach and directly
+                // matches Geogram: enlarge_neighborhood() always gives a
+                // fully sorted list and the caller advances jj past the old
+                // prefix (which, after sorting, contains the same prevSize
+                // nearest elements as before — safe to skip).
+                std::sort(newNeighbors.begin(), newNeighbors.end(),
                     [&](int32_t a, int32_t b) {
                         return DistSq(pi, (*mSeeds)[a]) < DistSq(pi, (*mSeeds)[b]);
                     });
