@@ -508,3 +508,45 @@ produces a mesh with open boundaries on fragmented inputs.
   Add a `minFacetsPerThread` threshold (e.g. 500 facets) to avoid spawning
   more threads than needed.
 
+
+## Session 14 Changes
+
+### MeshAdjustSurface ray-query bottleneck fixed (TriangleBVHNearestRay)
+
+**Problem**: `MeshAdjustSurface` was taking 38.7s of 70.5s total CVT time on
+`4002.1.t0` (167K output faces, 32K vertices, 64K input faces).  Root cause:
+`nearestBidirectional` called `bvh.Execute(RAY_QUERY, ..., std::set<Ix>)` which
+collected ALL ray-triangle intersections before selecting the nearest, and did
+this for every query with no early-exit pruning.
+
+**Fix**: Added `TriangleBVHNearestRay<T>` (subclass of `AABBBVTreeOfTriangles<T>`)
+with `FindNearestRayHit()` that directly ports Geogram's
+`ray_nearest_intersection_recursive()`:
+- Slab AABB test with running `tmax = best.parameter` pruning (the dominant
+  optimization — prunes entire subtrees whose nearest entry distance > current best)
+- Near-child-first traversal ordering (visit nearer AABB child first to tighten
+  `tmax` quickly, matching Geogram's `dirinv[coord]` sign approach)
+- Fixed-size `size_t stack[68]` on the C++ call stack — avoids heap allocation
+  on every call (critical for 300K+ queries per `MeshAdjustSurface` invocation)
+- Steps 5 (vertex) and 6 (face) ray-query loops parallelised with `std::thread`
+
+**Result**: MeshAdjustSurface ~38.7s → ~12s.  Total CVT 70.5s → 41s.
+
+**Remaining gap vs Session 12 (31s)**: ~10s unaccounted.  Lloyd+Newton is
+~28s (same as session 12 before the CVT parallelism regression in session 13).
+The CG solver in Step 7 is a candidate — profiling Step 7 is Priority 1 next.
+
+## NEXT SESSION TODO (updated)
+
+### Priority 1: Profile Step 7 CG solver in MeshAdjustSurface
+- Add scoped timing to Steps 3 (BVH build), 5 (vertex rays), 6 (face rays),
+  7 (CG solver), 8 (apply) inside `MeshAdjustSurface` to isolate remaining ~12s.
+- Step 7 CG solver: 32K unknowns, 167K face contributions, 30 iterations.
+  Building `vertFaces[v]` adjacency list and the AtA diagonal may be expensive.
+  Consider pre-sorting face contributions by vertex index.
+
+### Priority 2: Restore Session 12 CVT thread performance
+- Session 12 CVT was 31s total (4 cores).  Session 13 regressed to 69s.
+  With current MeshAdjustSurface fix, we're at 41s.  The remaining 10s is in
+  Lloyd+Newton iterations or MeshAdjustSurface CG.
+- Re-check `AccumulateCentroids` thread count on the CI machine vs session 12.

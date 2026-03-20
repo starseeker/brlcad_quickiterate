@@ -52,7 +52,6 @@
 #include <Mathematics/CVT6D.h>
 #include <Mathematics/CVTN.h>
 #include <Mathematics/DelaunayNN.h>
-#include <cstdio>
 #include <Mathematics/NearestNeighborSearchN.h>
 #include <Mathematics/RestrictedVoronoiDiagramN.h>
 #include <Mathematics/AABBBVTreeOfTriangles.h>
@@ -65,11 +64,177 @@
 #include <limits>
 #include <map>
 #include <set>
+#include <thread>
 #include <unordered_map>
 #include <vector>
 
 namespace gte
 {
+    // ── TriangleBVHNearestRay ─────────────────────────────────────────────────
+    // Subclass of AABBBVTreeOfTriangles that adds a single nearest-hit query
+    // matching Geogram's MeshFacetsAABB::ray_nearest_intersection():
+    //
+    //   • Slab AABB test with running tmax bound: prunes entire subtrees whose
+    //     nearest AABB entry distance exceeds the current best hit distance.
+    //     This is the dominant optimization — O(log N) expected vs O(N) for
+    //     the collect-all Execute(std::set<>) approach.
+    //   • Near-child-first traversal: the child whose AABB centre is nearer along
+    //     the ray direction is visited first.  This tightens tmax early, making
+    //     the pruning more aggressive (matches Geogram's dirinv[coord] ordering).
+    //   • No dynamic memory allocation per query (unlike Execute+std::set).
+    //   • Precomputed 1/direction (dirinv) for vectorised slab tests.
+    //
+    // Direct port of Geogram's ray_nearest_intersection_recursive() / slab AABB.
+    //
+    template <typename T>
+    class TriangleBVHNearestRay : public AABBBVTreeOfTriangles<T>
+    {
+    public:
+        // Result of a single-direction nearest-hit query.
+        struct NearHit
+        {
+            bool        found     = false;
+            Vector3<T>  point     = {};
+            T           parameter = std::numeric_limits<T>::max();
+        };
+
+        // Find the nearest ray-triangle intersection along direction dir from
+        // origin.  Returns NearHit::found = false when no hit exists.
+        //
+        // Parameters:
+        //   origin — ray origin
+        //   dir    — ray direction (need not be unit-length; parameter is in
+        //            units of dir, same convention as GTE FIQuery)
+        NearHit FindNearestRayHit(Vector3<T> const& origin,
+                                  Vector3<T> const& dir) const
+        {
+            NearHit best;
+            if (this->mNodes.empty()) return best;
+
+            // Precompute 1/direction for vectorised slab AABB test.
+            // Use a large finite value for near-zero components so that the
+            // slab test gives +/-inf intervals (correct degenerate handling).
+            T const bigVal = std::numeric_limits<T>::max() * T(0.5);
+            T const eps    = std::numeric_limits<T>::epsilon() * T(8);
+            Vector3<T> dirinv{
+                std::abs(dir[0]) > eps ? T(1) / dir[0] : bigVal,
+                std::abs(dir[1]) > eps ? T(1) / dir[1] : bigVal,
+                std::abs(dir[2]) > eps ? T(1) / dir[2] : bigVal
+            };
+
+            size_t constexpr invalid = std::numeric_limits<size_t>::max();
+
+            // Iterative DFS with a fixed-size C++ call-stack array.
+            // GTE BVTree caps height at 31 (see BVTree.h), so 2*31+4 = 66
+            // entries are always sufficient.  Avoids heap allocation on
+            // every FindNearestRayHit() call (critical for 300K+ queries).
+            size_t stack[68];
+            int top = 0;
+            stack[0] = 0;  // root
+
+            Ray3<T> const ray(origin, dir);
+            FIQuery<T, Ray3<T>, Triangle3<T>> triQuery{};
+
+            while (top >= 0)
+            {
+                size_t nodeIndex = stack[top--];
+                auto const& node = this->mNodes[nodeIndex];
+
+                // Slab AABB test with running tmax = best.parameter.
+                // Prunes this subtree when its nearest entry distance exceeds
+                // the current best.  Direct port of Geogram's:
+                //   ray_nearest_intersection_recursive(..., I.t ...)
+                if (!RayBoxHit(origin, dirinv, node.boundingVolume.box,
+                               best.parameter))
+                    continue;
+
+                if (node.leftChild != invalid)
+                {
+                    // Interior: push far child first so near child is popped
+                    // and processed first (near-child-first ordering).
+                    // "Nearness" = signed distance of AABB centre along ray dir.
+                    T lMid = BoxCentreParam(
+                        this->mNodes[node.leftChild].boundingVolume.box,
+                        origin, dir);
+                    T rMid = BoxCentreParam(
+                        this->mNodes[node.rightChild].boundingVolume.box,
+                        origin, dir);
+                    if (lMid <= rMid)
+                    {
+                        stack[++top] = node.rightChild;   // far  → processed later
+                        stack[++top] = node.leftChild;    // near → processed first
+                    }
+                    else
+                    {
+                        stack[++top] = node.leftChild;
+                        stack[++top] = node.rightChild;
+                    }
+                }
+                else
+                {
+                    // Leaf: test each triangle, keep nearest hit.
+                    for (size_t i = node.minIndex; i <= node.maxIndex; ++i)
+                    {
+                        size_t triIdx = this->mPartition[i];
+                        auto const& tri = this->mTriangles[triIdx];
+                        Triangle3<T> triangle(
+                            this->mVertices[tri[0]],
+                            this->mVertices[tri[1]],
+                            this->mVertices[tri[2]]);
+                        auto r = triQuery(ray, triangle);
+                        if (r.intersect && r.parameter < best.parameter)
+                        {
+                            best.found     = true;
+                            best.point     = r.point;
+                            best.parameter = r.parameter;
+                        }
+                    }
+                }
+            }
+            return best;
+        }
+
+    private:
+        // Slab AABB test with distance bound tmax.
+        // Returns true only if the ray intersects the box at t <= tmax.
+        // Direct port of Geogram's ray_box_intersection(origin, dirinv, box, T).
+        static bool RayBoxHit(Vector3<T> const& origin,
+                              Vector3<T> const& dirinv,
+                              AlignedBox3<T> const& box,
+                              T tmax) noexcept
+        {
+            T tx1 = dirinv[0] * (box.min[0] - origin[0]);
+            T tx2 = dirinv[0] * (box.max[0] - origin[0]);
+            T ty1 = dirinv[1] * (box.min[1] - origin[1]);
+            T ty2 = dirinv[1] * (box.max[1] - origin[1]);
+            T tz1 = dirinv[2] * (box.min[2] - origin[2]);
+            T tz2 = dirinv[2] * (box.max[2] - origin[2]);
+            T tNear = std::max({ std::min(tx1, tx2),
+                                 std::min(ty1, ty2),
+                                 std::min(tz1, tz2) });
+            T tFar  = std::min({ std::max(tx1, tx2),
+                                 std::max(ty1, ty2),
+                                 std::max(tz1, tz2) });
+            // Intersection exists if interval [tNear,tFar] is non-empty and
+            // overlaps [0, tmax].  Geogram's condition: tmax>=0 && tNear<=tFar
+            // && tNear<=T.  (tFar>=0 handles ray starting inside the box.)
+            return tFar >= T(0) && tNear <= tFar && tNear <= tmax;
+        }
+
+        // Signed distance of the box centroid along the ray direction from
+        // origin.  Used for near-child-first ordering (matches Geogram's
+        // dirinv[coord] sign test, generalised to 3D dot product).
+        static T BoxCentreParam(AlignedBox3<T> const& box,
+                                Vector3<T> const& origin,
+                                Vector3<T> const& dir) noexcept
+        {
+            T cx = T(0.5) * (box.min[0] + box.max[0]) - origin[0];
+            T cy = T(0.5) * (box.min[1] + box.max[1]) - origin[1];
+            T cz = T(0.5) * (box.min[2] + box.max[2]) - origin[2];
+            return cx * dir[0] + cy * dir[1] + cz * dir[2];
+        }
+    };
+
     template <typename Real>
     class MeshRemesh
     {
@@ -508,33 +673,22 @@ namespace gte
                 cvt.NewtonIterations(params.newtonIterations);
             }
 
+            std::vector<Vec3> seeds3;
+            if (!cvt.ComputeRDT(seeds3, outTriangles))
             {
-                auto t_rdt = std::chrono::steady_clock::now();
-                std::vector<Vec3> seeds3;
-                if (!cvt.ComputeRDT(seeds3, outTriangles))
-                {
-                    return false;
-                }
-                double rdt_ms = std::chrono::duration<double,std::milli>(
-                    std::chrono::steady_clock::now()-t_rdt).count();
-                std::fprintf(stderr,"  RDT: %.0fms  tris=%zu\n",
-                             rdt_ms, outTriangles.size());
-
-                outVertices.clear();
-                outVertices.reserve(seeds3.size());
-                for (auto const& s : seeds3)
-                {
-                    outVertices.push_back(Vector3<Real>{s[0], s[1], s[2]});
-                }
-
-                auto t_adj = std::chrono::steady_clock::now();
-                // Post-CVT surface adjustment: snap output vertices to the original
-                // surface.  Matches Geogram's mesh_adjust_surface(M_out, M_in).
-                MeshAdjustSurface(outVertices, outTriangles, inVertices, inTriangles);
-                double adj_ms = std::chrono::duration<double,std::milli>(
-                    std::chrono::steady_clock::now()-t_adj).count();
-                std::fprintf(stderr,"  Adjust: %.0fms\n", adj_ms);
+                return false;
             }
+
+            outVertices.clear();
+            outVertices.reserve(seeds3.size());
+            for (auto const& s : seeds3)
+            {
+                outVertices.push_back(Vector3<Real>{s[0], s[1], s[2]});
+            }
+
+            // Post-CVT surface adjustment: snap output vertices to the original
+            // surface.  Matches Geogram's mesh_adjust_surface(M_out, M_in).
+            MeshAdjustSurface(outVertices, outTriangles, inVertices, inTriangles);
 
             // Optional post-CVT edge-flip quality pass (same as isotropic path).
             if (params.postFlipEdges)
@@ -1696,7 +1850,7 @@ namespace gte
             for (auto const& t : inTriangles)
                 bvhTris.push_back({ size_t(t[0]), size_t(t[1]), size_t(t[2]) });
 
-            AABBBVTreeOfTriangles<Real> refBVH;
+            TriangleBVHNearestRay<Real> refBVH;
             refBVH.Create(bvhVerts, bvhTris);
 
             // ── Step 4: Check if reference has border edges; create ribbon ────
@@ -1722,7 +1876,7 @@ namespace gte
             // Height = max_edge_distance * 4.0 * surface_average_edge_length(surface).
             std::vector<Vector3<Real>>           ribbonVerts;
             std::vector<std::array<size_t, 3>>   ribbonTris;
-            AABBBVTreeOfTriangles<Real>           ribbonBVH;
+            TriangleBVHNearestRay<Real>           ribbonBVH;
             bool ribbonBuilt = false;
 
             if (nbVOnBorder > 0 && referenceHasBorders)
@@ -1809,77 +1963,109 @@ namespace gte
             // ── Helper: nearest intersection along bidirectional ray ──────────
             // Translation of Geogram's nearest_along_bidirectional_ray().
             // Fires ray in +dir and -dir from origin, returns nearest hit.
+            // Uses TriangleBVHNearestRay::FindNearestRayHit which matches
+            // Geogram's ray_nearest_intersection: slab AABB test with running
+            // tmax pruning + near-child-first ordering.
             // If no hit or distance > max_dist, returns origin unchanged.
-            // ribbon_mode: for ribbon, the "point" is projected to the middle
-            //   segment of the quad (Geogram uses segment [q1,q2] or [q3,q4]).
-            //   For our triangulated ribbon we just return the hit point.
             auto nearestBidirectional = [&](
-                AABBBVTreeOfTriangles<Real>& bvh,
+                TriangleBVHNearestRay<Real> const& bvh,
                 Vector3<Real> const& origin,
                 Vector3<Real> const& dir,
                 Real maxDist) -> Vector3<Real>
             {
-                using Ix = typename AABBBVTreeOfTriangles<Real>::Intersection;
-
-                // Normalize the direction vector
+                // Normalize direction (FIQuery expects unit direction for
+                // parameter to equal geometric distance).
                 Real dirLen = Length(dir);
                 if (dirLen < Real(1e-15)) return origin;
                 Vector3<Real> D = dir / dirLen;
 
-                std::set<Ix> hits1, hits2;
-                bvh.Execute(AABBBVTreeOfTriangles<Real>::RAY_QUERY, origin,  D, hits1);
-                bvh.Execute(AABBBVTreeOfTriangles<Real>::RAY_QUERY, origin, -D, hits2);
-
-                bool has1 = !hits1.empty();
-                bool has2 = !hits2.empty();
-
-                Vector3<Real> p1 = has1 ? hits1.begin()->point : origin;
-                Vector3<Real> p2 = has2 ? hits2.begin()->point : origin;
+                // Two single-direction nearest-hit queries, no allocation.
+                // This exactly matches Geogram's bidirectional approach:
+                //   bool has_I1 = AABB.ray_nearest_intersection(R1, I1);
+                //   bool has_I2 = AABB.ray_nearest_intersection(R2, I2);
+                auto h1 = bvh.FindNearestRayHit(origin,  D);
+                auto h2 = bvh.FindNearestRayHit(origin, -D);
 
                 Vector3<Real> result = origin;
-                if (has1 && !has2) result = p1;
-                else if (!has1 && has2) result = p2;
-                else if (has1 && has2)
-                {
-                    Real d1sq = Dot(p1 - origin, p1 - origin);
-                    Real d2sq = Dot(p2 - origin, p2 - origin);
-                    result = (d1sq <= d2sq) ? p1 : p2;
-                }
-                // Apply max distance clamp
+                if (h1.found && !h2.found)
+                    result = h1.point;
+                else if (!h1.found && h2.found)
+                    result = h2.point;
+                else if (h1.found && h2.found)
+                    result = (h1.parameter <= h2.parameter) ? h1.point : h2.point;
+
+                // Apply max distance clamp.
                 if (Dot(result - origin, result - origin) > maxDist * maxDist)
                     result = origin;
                 return result;
             };
 
             // ── Step 5: Compute target points Qv for each output vertex ───────
+            // Parallelised over vertices: BVH is read-only (const), each
+            // FindNearestRayHit uses only thread-local data (stack[68]).
             const Real borderDistFactor = Real(10);
             std::vector<Vector3<Real>> Qv(nbV);
-            for (size_t v = 0; v < nbV; ++v)
             {
-                Vector3<Real> p = outVertices[v];
-                if (vOnBorder[v] && referenceHasBorders && ribbonBuilt)
+                size_t nT = std::max(size_t(1),
+                    size_t(std::thread::hardware_concurrency()));
+                nT = std::min(nT, nbV);
+                std::vector<std::thread> threads;
+                threads.reserve(nT);
+                size_t chunk = (nbV + nT - 1) / nT;
+                for (size_t t = 0; t < nT; ++t)
                 {
-                    Qv[v] = nearestBidirectional(ribbonBVH, p, Nv[v],
-                        borderDistFactor * max_edge_distance * Lv[v]);
+                    size_t vBeg = t * chunk;
+                    size_t vEnd = std::min(vBeg + chunk, nbV);
+                    if (vBeg >= vEnd) break;
+                    threads.emplace_back([&, vBeg, vEnd]()
+                    {
+                        for (size_t v = vBeg; v < vEnd; ++v)
+                        {
+                            Vector3<Real> p = outVertices[v];
+                            if (vOnBorder[v] && referenceHasBorders && ribbonBuilt)
+                                Qv[v] = nearestBidirectional(ribbonBVH, p, Nv[v],
+                                    borderDistFactor * max_edge_distance * Lv[v]);
+                            else
+                                Qv[v] = nearestBidirectional(refBVH, p, Nv[v],
+                                    max_edge_distance * Lv[v]);
+                        }
+                    });
                 }
-                else
-                {
-                    Qv[v] = nearestBidirectional(refBVH, p, Nv[v],
-                        max_edge_distance * Lv[v]);
-                }
+                for (auto& th : threads) th.join();
             }
 
             // ── Step 6: Compute target points Qf for each output face ─────────
+            // Parallelised over faces for the same reasons as Step 5.
             std::vector<Vector3<Real>> Qf(nbF);
-            for (size_t f = 0; f < nbF; ++f)
             {
-                auto const& tri = outTriangles[f];
-                Real d = Real(3);
-                Vector3<Real> Pf = (outVertices[tri[0]] + outVertices[tri[1]] +
-                                    outVertices[tri[2]]) / d;
-                Vector3<Real> Nf = Nv[tri[0]] + Nv[tri[1]] + Nv[tri[2]];
-                Real Lf = (Lv[tri[0]] + Lv[tri[1]] + Lv[tri[2]]) / d;
-                Qf[f] = nearestBidirectional(refBVH, Pf, Nf, max_edge_distance * Lf);
+                size_t nT = std::max(size_t(1),
+                    size_t(std::thread::hardware_concurrency()));
+                nT = std::min(nT, nbF);
+                std::vector<std::thread> threads;
+                threads.reserve(nT);
+                size_t chunk = (nbF + nT - 1) / nT;
+                for (size_t t = 0; t < nT; ++t)
+                {
+                    size_t fBeg = t * chunk;
+                    size_t fEnd = std::min(fBeg + chunk, nbF);
+                    if (fBeg >= fEnd) break;
+                    threads.emplace_back([&, fBeg, fEnd]()
+                    {
+                        for (size_t f = fBeg; f < fEnd; ++f)
+                        {
+                            auto const& tri = outTriangles[f];
+                            Real d = Real(3);
+                            Vector3<Real> Pf = (outVertices[tri[0]] +
+                                                outVertices[tri[1]] +
+                                                outVertices[tri[2]]) / d;
+                            Vector3<Real> Nf = Nv[tri[0]] + Nv[tri[1]] + Nv[tri[2]];
+                            Real Lf = (Lv[tri[0]] + Lv[tri[1]] + Lv[tri[2]]) / d;
+                            Qf[f] = nearestBidirectional(refBVH, Pf, Nf,
+                                                          max_edge_distance * Lf);
+                        }
+                    });
+                }
+                for (auto& th : threads) th.join();
             }
 
             // ── Step 7: Solve sparse least-squares for lambda[v] using CG ─────

@@ -20,7 +20,6 @@
 
 #pragma once
 
-#include <cstdio>
 #include <Mathematics/Vector.h>
 #include <Mathematics/Vector3.h>
 #include <Mathematics/DelaunayNN.h>
@@ -1397,8 +1396,6 @@ namespace gte
             DelaunayNN<Real, N> delaunay(30);
             delaunay.SetVertices(numSeeds, mSites.data());
 
-            auto t1 = Clock::now();
-
             // Set up the cached SurfaceRVDN (adjacency built once per mesh).
             mCachedRVD.SetCheckSR(checkSR);
             if (!mRVDMeshInitDone)
@@ -1500,8 +1497,6 @@ namespace gte
 
             for (auto& th : threads) th.join();
 
-            auto t2 = Clock::now();
-
             // Merge partial accumulators.
             mg.assign(numSeeds, {});
             for (auto& a : mg) a.fill(static_cast<Real>(0));
@@ -1514,15 +1509,6 @@ namespace gte
                         mg[s][d] += mg_parts[t][s][d];
                     m_area[s] += ma_parts[t][s];
                 }
-            }
-
-            // Temporary per-phase timing (stderr so it doesn't interfere with
-            // normal output).
-            {
-                double ms_build = std::chrono::duration<double, std::milli>(t1 - t0).count();
-                double ms_work  = std::chrono::duration<double, std::milli>(t2 - t1).count();
-                std::fprintf(stderr, "  AC: build=%.0fms work=%.0fms nT=%zu\n",
-                             ms_build, ms_work, nThreads);
             }
 
             return true;
