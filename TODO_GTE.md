@@ -320,3 +320,78 @@ seeds at a surface fold; p99 quality is excellent across all sizes.
   already has steps 5a-5f but may need an additional sliver-removal step for very high
   target-to-input ratios.
 
+## Changes Made (Session 11)
+
+Investigated Geogram differences and performance, removed debug instrumentation,
+and added structural caching to reduce per-iteration overhead.
+
+### Debug output removal
+- Removed all `std::cerr` timing/diagnostic output from `MeshRemesh.h`, `CVTN.h`,
+  and `SurfaceRVDN.h`. Removed `#include <iostream>` from these files.
+- Removed `dbgClipCalls`, `dbgFindNearestCalls`, `dbgAdjSeedsProcessed` counters
+  and their timing blocks from `SurfaceRVDN::ForEachPolygon`.
+
+### K=30 to match Geogram default
+- `AccumulateCentroids` now uses `DelaunayNN<Real,N>(30)` instead of `(20)`.
+  Geogram's `Delaunay` constructor sets `default_nb_neighbors_ = 30` and
+  precomputes 30 neighbors per vertex during `set_vertices()`.
+- Larger initial K reduces the frequency of `EnlargeNeighborhood` calls in
+  Newton mode (checkSR=true), improving CVT time from ~108s → ~88s on
+  `4002.1.t0` (64K faces, 32K seeds).
+
+### Cached lifted vertices in CVTN
+- Added `mCachedLiftedArr` + `mLiftedArrValid` private members to `CVTN`.
+  The N-D lifted vertex array (vertex positions + scaled normals) depends only
+  on `mSurfaceVertices`, `mSurfaceTriangles`, and `mNormalScale` — none of which
+  change between Lloyd/Newton iterations.
+- `BuildLiftedVertices` now returns from cache on subsequent calls, bypassing
+  O(n_verts) normal-accumulation loop.
+- `SetNormalScale()` and `Initialize()` invalidate the cache.
+
+### Cached SurfaceRVDN mesh setup in CVTN
+- Added `mCachedRVD` + `mRVDMeshInitDone` private members to `CVTN`.
+  `SurfaceRVDN::Initialize()` has been split into:
+  - `InitMeshOnly(liftedVerts, tris)`: builds adjacency table once per mesh
+    (O(n_faces) work), called only when mesh changes.
+  - `UpdateSeeds(seeds, delaunay)`: rebuilds seed KD-tree (O(n_seeds log n_seeds)),
+    called each iteration.
+  - `SetLiftedVerts(liftedVerts)`: rebinds pointer without rebuilding anything.
+  - `BuildFacetAdjacency()`: extracted private helper for the adjacency table build.
+- `AccumulateCentroids` now calls `InitMeshOnly` only on the first call and
+  `UpdateSeeds` on every call, saving ~35ms/iter × 35 iters ≈ 1.2s.
+
+### Performance results (4002.1.t0, 64K faces, 32K seeds)
+| Session | Total CVT time |
+|---------|---------------|
+| 10      | ~109s          |
+| 11      | ~88s (+19%)    |
+
+The improvement comes primarily from K=30 (reduces SR enlargement calls in Newton).
+
+### 30-bot pass rate
+Random sample of 30 BoTs from Generic_Twin.g: all 30 pass (100% pass rate).
+
+## NEXT SESSION TODO
+
+### Priority 1: Further Newton speedup
+- The main bottleneck (88s total on 4002.1.t0) is 30 Newton iterations × ~3s each.
+- Geogram achieves similar quality much faster via multi-threading (`parallel_for`).
+- Potential single-threaded speedups:
+  - Use nanoflann (available at `src/libbg/nanoflann.hpp`) for faster KNN queries,
+    especially for `EnlargeNeighborhood` calls.
+  - Pre-compute all 30 neighbors upfront at the start of each AccumulateCentroids
+    call (matching Geogram's eager computation during `set_vertices`).
+  - Reduce Newton iterations from 30 to 10-15 for practical use (add energy
+    convergence criterion to early-exit).
+
+### Priority 2: Quality on degenerate inputs
+- `7052.1.t0` (8 verts, 6 faces thin panel) fails with "mesh too small".
+  Investigate if this is a pre-existing issue or regression, and add a
+  fallback path for tiny meshes.
+
+### Priority 3: OpenMP parallelism
+- `ForEachPolygon_SeedsPriority` is embarrassingly parallel over independent
+  Voronoi cells. Adding OpenMP would directly match Geogram's `parallel_for`
+  speedup of 4-8x on modern hardware.
+
+
