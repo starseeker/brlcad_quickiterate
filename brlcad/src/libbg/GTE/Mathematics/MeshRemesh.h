@@ -52,6 +52,7 @@
 #include <Mathematics/CVT6D.h>
 #include <Mathematics/CVTN.h>
 #include <Mathematics/DelaunayNN.h>
+#include <cstdio>
 #include <Mathematics/NearestNeighborSearchN.h>
 #include <Mathematics/RestrictedVoronoiDiagramN.h>
 #include <Mathematics/AABBBVTreeOfTriangles.h>
@@ -507,22 +508,33 @@ namespace gte
                 cvt.NewtonIterations(params.newtonIterations);
             }
 
-            std::vector<Vec3> seeds3;
-            if (!cvt.ComputeRDT(seeds3, outTriangles))
             {
-                return false;
-            }
+                auto t_rdt = std::chrono::steady_clock::now();
+                std::vector<Vec3> seeds3;
+                if (!cvt.ComputeRDT(seeds3, outTriangles))
+                {
+                    return false;
+                }
+                double rdt_ms = std::chrono::duration<double,std::milli>(
+                    std::chrono::steady_clock::now()-t_rdt).count();
+                std::fprintf(stderr,"  RDT: %.0fms  tris=%zu\n",
+                             rdt_ms, outTriangles.size());
 
-            outVertices.clear();
-            outVertices.reserve(seeds3.size());
-            for (auto const& s : seeds3)
-            {
-                outVertices.push_back(Vector3<Real>{s[0], s[1], s[2]});
-            }
+                outVertices.clear();
+                outVertices.reserve(seeds3.size());
+                for (auto const& s : seeds3)
+                {
+                    outVertices.push_back(Vector3<Real>{s[0], s[1], s[2]});
+                }
 
-            // Post-CVT surface adjustment: snap output vertices to the original
-            // surface.  Matches Geogram's mesh_adjust_surface(M_out, M_in).
-            MeshAdjustSurface(outVertices, outTriangles, inVertices, inTriangles);
+                auto t_adj = std::chrono::steady_clock::now();
+                // Post-CVT surface adjustment: snap output vertices to the original
+                // surface.  Matches Geogram's mesh_adjust_surface(M_out, M_in).
+                MeshAdjustSurface(outVertices, outTriangles, inVertices, inTriangles);
+                double adj_ms = std::chrono::duration<double,std::milli>(
+                    std::chrono::steady_clock::now()-t_adj).count();
+                std::fprintf(stderr,"  Adjust: %.0fms\n", adj_ms);
+            }
 
             // Optional post-CVT edge-flip quality pass (same as isotropic path).
             if (params.postFlipEdges)

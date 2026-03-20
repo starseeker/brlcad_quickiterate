@@ -128,36 +128,60 @@ namespace gte
         // Thread-safe enlargement: per-vertex spinlock; writes data before
         // updating size with memory_order_release so GetNeighbors can read
         // lock-free (matching Geogram's enlarge_neighborhood + PackedArrays).
+        //
+        // The expensive KD-tree query is performed OUTSIDE the spinlock so
+        // concurrent threads calling EnlargeNeighborhood for different seeds
+        // can run the query in parallel without serialization.  The spinlock
+        // only protects the cheap store step.  Duplicate queries (two threads
+        // enlarging the same seed concurrently) may occasionally occur but
+        // produce correct results (both write valid neighborhood data, the
+        // second writer wins, which is fine).
         void EnlargeNeighborhood(int32_t v, size_t newSize)
         {
             if (v < 0 || static_cast<size_t>(v) >= this->mNumVertices)
                 return;
 
+            // Fast pre-check without the lock: if already big enough, skip.
+            {
+                uint32_t cur = mFlatSizes[v].load(std::memory_order_acquire);
+                size_t   curSz = (cur == OVERFLOW_MARKER)
+                                    ? mOverflow[v].size()   // rare; safe: owner wrote
+                                    : static_cast<size_t>(cur);
+                if (newSize <= curSz) return;
+            }
+
+            // Expensive: KD-tree query runs WITHOUT holding any lock.
+            // Multiple threads may do this concurrently for the same vertex —
+            // that wastes a little work but avoids serialization on the slow
+            // 6D tree traversal.
+            size_t k = std::min(newSize, this->mNumVertices - 1);
+            std::vector<size_t> raw(k + 1);
+            std::vector<Real>   sqd(k + 1);
+            size_t found = mNNSearch.FindKNearestNeighborsToPoint(
+                v, k, raw.data(), sqd.data());
+
+            // Filter (match Geogram duplicate-point handling).
+            std::vector<int32_t> tmp;
+            tmp.reserve(found);
+            for (size_t j = 0; j < found; ++j)
+            {
+                int32_t nb = static_cast<int32_t>(raw[j]);
+                if (nb == v) continue;
+                if (sqd[j] == static_cast<Real>(0) && nb < v) continue;
+                tmp.push_back(nb);
+            }
+
+            // Cheap: commit under lock only if our result is bigger than what
+            // is already there (another thread may have written in the meantime).
             AcquireLock(static_cast<size_t>(v));
 
             uint32_t cur = mFlatSizes[v].load(std::memory_order_relaxed);
             size_t   curSz = (cur == OVERFLOW_MARKER)
-                                ? mOverflow[v].size() : cur;
+                                ? mOverflow[v].size()
+                                : static_cast<size_t>(cur);
 
-            if (newSize > curSz)
+            if (tmp.size() > curSz)
             {
-                size_t k = std::min(newSize, this->mNumVertices - 1);
-                std::vector<size_t> raw(k + 1);
-                std::vector<Real>   sqd(k + 1);
-                size_t found = mNNSearch.FindKNearestNeighborsToPoint(
-                    v, k, raw.data(), sqd.data());
-
-                // Filter (match Geogram duplicate-point handling).
-                std::vector<int32_t> tmp;
-                tmp.reserve(found);
-                for (size_t j = 0; j < found; ++j)
-                {
-                    int32_t nb = static_cast<int32_t>(raw[j]);
-                    if (nb == v) continue;
-                    if (sqd[j] == static_cast<Real>(0) && nb < v) continue;
-                    tmp.push_back(nb);
-                }
-
                 if (tmp.size() <= FLAT_K)
                 {
                     // Write data first, THEN update size (release).
