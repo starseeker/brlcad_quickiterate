@@ -161,28 +161,92 @@ Implemented Priority 1 exactly as designed in the TODO:
   ever visited per iteration. That is 3–5× fewer NN queries than the eager approach,
   and they are computed lazily as needed during the BFS walk.
 
+## Changes Made (Session 6)
+
+### `MeshRemesh.h` — Fixed O(n²) seed-normal lookup in `RemeshCVTAnisotropic`
+
+**Problem**: After `ComputeInitialSamplingFarthestPoint` returns 3D seeds, the code
+augmented each seed with its surface normal by brute-force scanning all input vertices:
+```
+for (size_t s = 0; s < rawSites.size(); ++s)
+    for (size_t v = 0; v < verts3.size(); ++v)  // O(n) per seed → O(n_seeds * n_verts)
+        ...find nearest vert...
+```
+With `nb_pts = 10 × input_verts`, a preproc'd mesh of ~86K verts and ~86K seeds means
+86000 × 86000 = 7.4 billion comparisons just to assign normals.
+
+**Fix**: Added `#include <Mathematics/NearestNeighborSearchN.h>` and replaced the
+inner `for (v)` scan with a single `NearestNeighborSearchN<Real, 3>` KD-tree built once
+over the input vertices. Each seed's nearest vertex is now O(log n) → total O(n log n).
+
+**Verified**: `libbg` builds cleanly with the change.
+
+### Remaining CVT hang (torus/larger meshes)
+
+A sphere (146 verts → 1460 seeds) completes CVT in 1.62s. ✓
+A torus (105 verts → 1050 seeds, but 1482 verts after preproc → ~14820 seeds) HANGS.
+
+The hang is in `SurfaceRVDN::ClipCellFacet`'s security-radius enlargement loop:
+```cpp
+while (true) {
+    for (; jj < neighbors.size(); ++jj) {
+        if (dij > 4.1 * R2) { srSatisfied = true; break; }
+        clip_by_plane(...);
+        update R2...
+    }
+    if (srSatisfied) break;
+    // enlarge neighborhood...
+    mDelaunay->EnlargeNeighborhood(seed, nb);
+    // nb grows as: nb += nb/8 for nb>8, else nb++
+}
+```
+
+**Key difference vs Geogram's `clip_by_cell_SR`**:
+
+Geogram's Delaunay_NearestNeighbors returns neighbors **pre-sorted by distance** (the
+ANN library's `get_nearest_neighbors` already returns them in sorted order). Our
+`DelaunayNN::GetNeighbors` returns the 20 nearest in **unsorted** order from the KD-tree.
+
+In the sorted case, the security radius criterion `dij > 4.1 * R2` becomes a true
+early-exit: once the distance grows past `4.1 * R2`, ALL remaining neighbors (being
+farther) also fail, so we stop. In our case with unsorted neighbors, we process all
+k neighbors every time hoping to find one distant enough, and in the worst case never
+satisfy the SR until we've fetched ALL n-1 neighbors (which requires O(n log n) NN
+queries via repeated `EnlargeNeighborhood` calls).
+
 ## NEXT SESSION TODO
 
-### Priority 2: Avoid rebuilding DelaunayNN every AccumulateCentroids call (optional)
+### Priority 1 (CRITICAL): Sort neighbors by distance in `DelaunayNN::GetNeighbors`
 
-Currently `AccumulateCentroids` creates a new `DelaunayNN` and `SurfaceRVDN` every call.
-With lazy neighborhoods, the per-call cost is just:
-- Rebuild the KD-tree for seeds: O(n log n) = fast
-- The BFS walk in ForEachPolygon: O(facets × k) = main work (this is good)
-- Per-accessed neighborhood: O(k log n) = only for visited seeds (lazy)
+Geogram's `Delaunay_NearestNeighbors::get_neighbors_internal` uses ANN's
+`get_nearest_neighbors(nb_neigh, i, closest_pt_ix, closest_pt_dist)` which returns
+neighbors **in order of increasing distance**. The security-radius loop in
+`clip_by_cell_SR` depends on this ordering to terminate early.
 
-This should already be fast enough. Profile first before optimising further.
+**Fix needed in `DelaunayNN.h`**:
+In `ComputeNeighborhood(v)`, after calling `mNNSearch.FindKNearestNeighbors(...)`,
+sort the result by squared distance to `mSites[v]`. The distance is already available
+from the KD-tree query (the `FindKNearestNeighbors` return includes distances).
 
-### Priority 3: Testing
+Check `NearestNeighborSearchN::FindKNearestNeighbors` signature — it likely returns
+neighbor indices with distances. If so, sort both arrays together by distance before
+storing in `mNeighborhoods[v]`.
 
-Once CVT runs to completion:
-1. Test all BoT objects in Generic_Twin.g.
-2. Record timing for each stage (repair / preproc / cvt / adjust).
-3. Compare output mesh quality to Geogram reference.
-4. The timing instrumentation in `remesh.cpp` (`bu_log` calls) can be kept for now.
+Alternatively, after `GetNeighbors` returns, the caller in `ClipCellFacet` currently
+sorts by distance anyway (line ~936 `std::sort(neighbors.begin(), ...)`) — so the
+real issue may be that `EnlargeNeighborhood` is called too many times. Check whether
+`EnlargeNeighborhood` properly enlarges beyond the initial 20 and whether the growth
+rate `nb += nb/8` ever reaches `nbTotalSeeds - 1` for the torus seeds.
 
-### Priority 4: Parallelism (optional)
+### Priority 2: Testing
 
-After confirming Priority 3, consider OpenMP parallelism in `ForEachPolygon`
+Once CVT runs to completion on torus and sphere:
+1. Test on a larger mesh (~1000 input verts).
+2. Compare timing against Geogram reference.
+3. Compare output mesh quality.
+
+### Priority 3: Parallelism (optional)
+
+After confirming Priority 2, consider OpenMP parallelism in `ForEachPolygon`
 for additional speedup, matching Geogram's parallel RVD computation.
 
