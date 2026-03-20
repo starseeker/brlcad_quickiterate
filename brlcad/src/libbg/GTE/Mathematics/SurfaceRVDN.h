@@ -283,6 +283,10 @@ namespace gte
 
                     // Walk forward: traverse adj through edge starting at oldV.
                     // Matching Geogram's repair_split_non_manifold_vertices forward pass.
+                    // Guard: if the destination corner is already visited (visited in a
+                    // prior outer-loop fan or in the current walk creating a cycle), stop
+                    // the walk.  Without this guard the walk can infinite-loop on
+                    // non-manifold adjacency graphs that have cycles not including face f.
                     size_t  curF  = f;
                     int     curLv = lv;
                     bool    hitBoundary = false;
@@ -299,6 +303,10 @@ namespace gte
                         for (int k = 0; k < 3; ++k)
                             if (tris[(size_t)nxtF][k] == oldV) { found = k; break; }
                         if (found < 0) { hitBoundary = true; break; }  // lost v (shouldn't happen)
+
+                        // Guard against within-walk cycles and already-claimed corners.
+                        if (cVisited[(size_t)nxtF*3 + (size_t)found]) { break; }
+
                         curF  = (size_t)nxtF;
                         curLv = found;
                     }
@@ -318,6 +326,10 @@ namespace gte
                             for (int k = 0; k < 3; ++k)
                                 if (tris[(size_t)prevF][k] == oldV) { found = k; break; }
                             if (found < 0) { break; }
+
+                            // Guard: stop if destination is already visited.
+                            if (cVisited[(size_t)prevF*3 + (size_t)found]) { break; }
+
                             curF  = (size_t)prevF;
                             curLv = found;
                             cVisited[curF*3 + (size_t)curLv] = true;
