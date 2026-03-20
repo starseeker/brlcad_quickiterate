@@ -41,7 +41,9 @@ brlcad_addlib(libicv "${LIBICV_SOURCES}" "${ICV_LIBS}" "" "${LOCAL_ICV_INCLUDE_D
 set_target_properties(libicv PROPERTIES VERSION 20.0.1 SOVERSION 20)
 
 if(JPEG_FOUND)
-  target_compile_definitions(libicv PRIVATE HAVE_JPEGLIB_H=1)
+  # PUBLIC so that any target linking libicv automatically sees HAVE_JPEGLIB_H
+  # and can gate JPEG-dependent code paths without re-detecting libjpeg.
+  target_compile_definitions(libicv PUBLIC HAVE_JPEGLIB_H=1)
 endif(JPEG_FOUND)
 
 if(HIDE_INTERNAL_SYMBOLS)
@@ -59,7 +61,6 @@ cmakefiles(
   pixcii.hpp
   icv_private.h
   rle.hpp
-  jpeg.c
 )
 
 # Local Variables:

@@ -59,20 +59,11 @@ set(SIM_SYSTEM_INCLUDE_DIRS ${BULLET_INCLUDE_DIR})
 set(SIM_LIBS libged libbu libbv libicv ${BULLET_LIBRARIES})
 set(SIM_DEFINITIONS "")
 
-# Detect libjpeg so that MJPEG AVI encoding is enabled when available
-brlcad_find_package(JPEG)
-if(JPEG_FOUND)
-  list(APPEND SIM_DEFINITIONS HAVE_JPEGLIB_H=1)
-  list(APPEND SIM_SYSTEM_INCLUDE_DIRS ${JPEG_INCLUDE_DIR})
-  list(APPEND SIM_LIBS ${JPEG_LIBRARIES})
-endif(JPEG_FOUND)
-
 ged_plugin_library(ged-simulate
   ${bullet_srcs}
   INCLUDES ${SIM_INCLUDE_DIRS}
   SYSTEM_INCLUDES ${SIM_SYSTEM_INCLUDE_DIRS}
   LIBS ${SIM_LIBS}
-  DEFINITIONS ${SIM_DEFINITIONS}
   COMPILE_OPTIONS -Wno-nonnull-compare
   PLUGIN_ONLY
 )
