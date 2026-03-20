@@ -61,7 +61,6 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
-#include <cstdio>
 #include <limits>
 #include <map>
 #include <set>
@@ -2117,7 +2116,6 @@ namespace gte
                 }
                 for (auto& th : threads) th.join();
             }
-            auto tStep6end = SC::now();
 
             // ── Step 7: Solve sparse least-squares for lambda[v] using CG ─────
             //
@@ -2147,7 +2145,6 @@ namespace gte
             // Here border_importance = 1.0 by default.
 
             // Compute A^T b (right-hand side)
-            auto tAtB0 = SC::now();
             std::vector<Real> AtB(nbV, Real(0));
 
             // Vertex contributions
@@ -2159,7 +2156,6 @@ namespace gte
                 Vector3<Real> rhs = Qv[v] - outVertices[v];
                 AtB[v] += scale * Dot(Nv[v], rhs);
             }
-            auto tAtBv = SC::now();
 
             // Facet contributions: (A^T b)_vj += Nv[vj]·(Qf-Pf)/d for each vj in f
             for (size_t f = 0; f < nbF; ++f)
@@ -2175,12 +2171,10 @@ namespace gte
                     AtB[vj] += Dot(Nv[vj], rhs) / d;
                 }
             }
-            auto tAtBf = SC::now();
 
             // Border-edge contributions (weight = 0.5*border_importance).
             // Parallelised over the border edge list: each thread owns a partial
             // AtB vector that is reduced at the end (avoids data races on AtB[]).
-            size_t nBorderEdgesAtB = 0;
             if (nbVOnBorder > 0 && referenceHasBorders && ribbonBuilt)
             {
                 // Collect border edges into a flat vector for parallel indexing.
@@ -2190,7 +2184,6 @@ namespace gte
                 for (auto const& kv : edgeFaces)
                     if (kv.second.size() == 1)
                         beList.push_back({ kv.first.first, kv.first.second });
-                nBorderEdgesAtB = beList.size();
 
                 size_t nT = std::max(size_t(1),
                     size_t(std::thread::hardware_concurrency()));
@@ -2238,14 +2231,6 @@ namespace gte
                         AtB[v] += partAtB[t][v];
             }
 
-            auto tAtBend = SC::now();
-            std::fprintf(stderr,
-                "  AtB sub: V=%.0fms  F=%.0fms  BE=%zu/%.0fms\n",
-                std::chrono::duration<double,std::milli>(tAtBv-tAtB0).count(),
-                std::chrono::duration<double,std::milli>(tAtBf-tAtBv).count(),
-                nBorderEdgesAtB,
-                std::chrono::duration<double,std::milli>(tAtBend-tAtBf).count());
-
             // Matrix-free Conjugate Gradient solver for (A^T A) λ = A^T b
             // The matrix-vector product (A^T A) x is:
             //   For each vertex v:
@@ -2254,7 +2239,6 @@ namespace gte
             //     border edge rows (if applicable)
 
             // Build border edge list for fast iteration in matvec
-            auto tPrep0 = SC::now();
             struct BorderEdge { int32_t v1, v2; };
             std::vector<BorderEdge> borderEdges;
             if (nbVOnBorder > 0 && referenceHasBorders && ribbonBuilt)
@@ -2361,8 +2345,6 @@ namespace gte
                 }
             };
 
-            auto tPrepEnd = SC::now();
-
             // CG with Jacobi preconditioner: solve (A^T A) λ = AtB
             std::vector<Real> lambda(nbV, Real(0));
             std::vector<Real> r(nbV), z(nbV), p(nbV), Ap(nbV);
@@ -2380,16 +2362,10 @@ namespace gte
 
             constexpr int maxCGIters = 200;
             constexpr Real cgTol = Real(1e-10);
-            int cgItersUsed = 0;
-            double tMatvec = 0, tVecOps = 0;
 
             for (int iter = 0; iter < maxCGIters; ++iter)
             {
-                cgItersUsed = iter + 1;
-                auto tMV0 = SC::now();
                 matvec(p, Ap);
-                auto tMV1 = SC::now();
-                tMatvec += std::chrono::duration<double>(tMV1-tMV0).count();
 
                 Real pAp = Real(0);
                 for (size_t v = 0; v < nbV; ++v) pAp += p[v] * Ap[v];
@@ -2422,32 +2398,11 @@ namespace gte
                 for (size_t v = 0; v < nbV; ++v)
                     p[v] = z[v] + beta * p[v];
                 rz = rz_new;
-                tVecOps += std::chrono::duration<double>(SC::now()-tMV1).count();
             }
-            auto tStep7end = SC::now();
 
             // ── Step 8: Apply displacement: Pv += lambda[v] * Nv[v] ──────────
             for (size_t v = 0; v < nbV; ++v)
                 outVertices[v] += lambda[v] * Nv[v];
-
-            // Per-step timing (profiling only — remove before release)
-            {
-                using ms = std::chrono::duration<double, std::milli>;
-                std::fprintf(stderr,
-                    "  Adjust: BVH=%.0fms  Q5=%.0fms  Q6=%.0fms"
-                    "  AtB=%.0fms  Prep=%.0fms  CG=%dits/%.0fms(mv=%.0fms vo=%.0fms)"
-                    "  total=%.0fms  nbV=%zu nbF=%zu\n",
-                    ms(tStep3end-tStep3).count(),
-                    ms(tStep5end-tStep5).count(),
-                    ms(tStep6end-tStep6).count(),
-                    ms(tAtBend-tAtB0).count(),
-                    ms(tPrepEnd-tPrep0).count(),
-                    cgItersUsed,
-                    ms(tStep7end-tPrepEnd).count(),
-                    tMatvec*1000.0, tVecOps*1000.0,
-                    ms(tStep7end-tAdj0).count(),
-                    nbV, nbF);
-            }
         }
 
         static Real EstimateEdgeLengthFromVertexCount(

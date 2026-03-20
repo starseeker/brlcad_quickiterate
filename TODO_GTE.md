@@ -550,3 +550,71 @@ The CG solver in Step 7 is a candidate — profiling Step 7 is Priority 1 next.
   With current MeshAdjustSurface fix, we're at 41s.  The remaining 10s is in
   Lloyd+Newton iterations or MeshAdjustSurface CG.
 - Re-check `AccumulateCentroids` thread count on the CI machine vs session 12.
+
+## Session 15 Changes (build fix + MeshAdjustSurface optimisations)
+
+### Problem diagnosed via step-level profiling
+
+Added scoped `std::chrono` timers to every step of `MeshAdjustSurface`:
+
+```
+BVH=36ms  Q5=2080ms  Q6=1295ms  AtB_V=1ms  AtB_F=1ms  BE=191777/4331ms
+CG=15its/56ms(mv=35ms vo=19ms)  total=7925ms  nbV=209626 nbF=166497
+```
+
+The culprit was the **border-edge AtB loop** (191K sequential `nearestBidirectional`
+queries against `ribbonBVH` = 4.3s of 8s total), **not** the CG solver.
+The CG solver itself runs in 56ms for 15 iterations (fast!).
+
+### Fixes applied
+
+1. **Inline Möller-Trumbore** in `FindNearestRayHit` (new `RayTriangleMT` private
+   static method): direct port of Geogram's `ray_triangle_intersection()`.
+   Replaces GTE `FIQuery<T,Ray3<T>,Triangle3<T>>` which constructed Ray3/Triangle3
+   wrapper objects for each triangle test. Minor speedup (~1s on Q5+Q6).
+
+2. **Precomputed face dot-product coefficients** `faceNN[f][i*3+j]` for the CG
+   matvec: avoids re-computing `Dot(Nv[tri[i]], Nv[tri[j]])` per CG iteration.
+   Replaces vertex-centric `vertFaces[v]` random-access loop with face-centric
+   scatter matching Geogram's OpenNL sparse-matrix approach. Minor speedup.
+
+3. **Parallelised border-edge AtB loop** (main fix): 191K `nearestBidirectional`
+   queries now split across `hardware_concurrency()` threads using per-thread
+   partial `partAtB[t]` vectors, reduced sequentially after join.
+   Result: 4331ms → **1674ms** (2.6× speedup, ~2.7s saved on this mesh).
+
+### Result
+
+| Stage | Session 14 | Session 15 |
+|---|---|---|
+| MeshAdjustSurface | ~12s | **~5.3s** |
+| Total CVT | 41s | **37.5s** |
+
+### Remaining gap vs Session 12 (31s)
+
+~6.5s remaining.  Breakdown from timing:
+- Q5 (vertex ray queries): 2.1s
+- Q6 (face ray queries): 1.3s
+- Border-edge AtB: 1.7s
+- Total MeshAdjust: 5.3s
+- Lloyd+Newton CVT: ~32s
+
+Lloyd+Newton accounts for ~32s — this is the main remaining gap vs Session 12
+(where Lloyd+Newton was ~28s, total 31s). The Session 13 thread regression in
+AccumulateCentroids still needs investigation.
+
+## NEXT SESSION TODO (updated)
+
+### Priority 1: Re-investigate AccumulateCentroids thread regression (Session 13)
+- Session 12 achieved 31s CVT with 4 cores.  Session 13 regressed to 69s.
+  Session 15 is 37.5s (after MeshAdjust fixes).  Lloyd+Newton is ~32s vs ~28s
+  in Session 12 — the ~4s difference is the thread regression.
+- Check CVTN.h `AccumulateCentroids` thread count vs Session 12's implementation.
+  `hardware_concurrency()` may return different values in different build configs.
+  Try capping at 4 threads explicitly and measuring.
+
+### Priority 2: Further parallelize MeshAdjustSurface Q5+Q6
+- Q5 (2.1s) + Q6 (1.3s) already parallelised but could benefit from better
+  load balancing.  Check thread count vs hardware on CI machine.
+- Consider whether the border-edge `partAtB` reduction (nbV=209K) is a bottleneck
+  — could use atomic adds instead of per-thread vectors to reduce memory.
