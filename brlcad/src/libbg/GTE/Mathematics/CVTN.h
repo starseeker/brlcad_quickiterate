@@ -1385,8 +1385,14 @@ namespace gte
                 BuildLiftedVertices(dummy, dummySeeds, dummyNS);
             }
 
-            // Build DelaunayNN over current seed positions.
-            // K=30 matches Geogram's default_nb_neighbors_=30.
+            // Build ONE shared DelaunayNN in the main thread — matches
+            // Geogram's Delaunay_NearestNeighbors::set_vertices() which calls
+            // NN_->set_points() then update_neighbors() (parallel_for over all
+            // vertices).  K=30 matches Geogram's default_nb_neighbors_=30.
+            //
+            // SetVertices eagerly precomputes ALL K=30 neighbourhoods in
+            // parallel, so worker threads only do read-only GetNeighbors() and
+            // thread-safe (per-vertex spinlock) EnlargeNeighborhood() calls.
             DelaunayNN<Real, N> delaunay(30);
             delaunay.SetVertices(numSeeds, mSites.data());
 
@@ -1401,7 +1407,8 @@ namespace gte
             {
                 mCachedRVD.SetLiftedVerts(mCachedLiftedArr);
             }
-            mCachedRVD.UpdateSeeds(seedsArr, delaunay);
+            // mCachedRVD.UpdateSeeds is intentionally omitted: threads call
+            // rvd_t.UpdateSeeds() themselves with the shared delaunay below.
 
             // Determine thread count: use hardware concurrency, capped at
             // numFacets (no point in more threads than facets).
@@ -1443,8 +1450,9 @@ namespace gte
             };
 
             // Per-thread partial accumulators and thread objects.
-            // Each thread has its own SurfaceRVDN instance (shared read-only
-            // data via const pointers, independent mutable state).
+            // Each thread has its own SurfaceRVDN (per-thread mSeedKDTree and
+            // mFacetAdj copy) but shares the single pre-built delaunay — no
+            // per-thread KD-tree rebuild, matching Geogram's architecture.
             std::vector<std::vector<std::array<Real, N>>> mg_parts(nThreads);
             std::vector<std::vector<Real>>                 ma_parts(nThreads);
             std::vector<std::thread>                       threads;
@@ -1464,17 +1472,15 @@ namespace gte
 
                 threads.emplace_back([&, t, fBegin, fEnd]()
                 {
-                    // Each thread gets its own SurfaceRVDN that shares the
-                    // prebuilt mesh adjacency from mCachedRVD (no rebuild),
-                    // and its own DelaunayNN (avoids data races on lazy
-                    // mNeighborhoods/mComputed caches in DelaunayNN).
-                    DelaunayNN<Real, N> delaunay_t(30);
-                    delaunay_t.SetVertices(numSeeds, mSites.data());
-
+                    // Each thread gets its own SurfaceRVDN for its per-thread
+                    // mSeedKDTree and local BFS state, but shares the single
+                    // main-thread delaunay — neighbourhoods are pre-built
+                    // (GetNeighbors is a pure read) and EnlargeNeighborhood
+                    // uses per-vertex spinlocks, so concurrent access is safe.
                     SurfaceRVDN<Real, N> rvd_t;
                     rvd_t.SetCheckSR(checkSR);
                     rvd_t.ShareMeshFrom(mCachedRVD);
-                    rvd_t.UpdateSeeds(seedsArr, delaunay_t);
+                    rvd_t.UpdateSeeds(seedsArr, delaunay);
 
                     auto& mg_t  = mg_parts[t];
                     auto& ma_t  = ma_parts[t];
@@ -1507,7 +1513,7 @@ namespace gte
             return true;
         }
 
-    private:
+
         std::vector<Point3> mSurfaceVertices;                    // 3D mesh vertices
         std::vector<std::array<int32_t, 3>> mSurfaceTriangles;   // Triangle indices
         std::vector<PointN> mSites;                              // N-dimensional sites

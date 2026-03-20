@@ -3,19 +3,20 @@
 // Distributed under the Boost Software License, Version 1.0.
 // https://www.boost.org/LICENSE_1_0.txt
 // https://www.geometrictools.com/License/Boost/LICENSE_1_0.txt
-// File Version: 8.0.2026.02.11
 //
-// Nearest-neighbor based Delaunay triangulation for N dimensions
+// Nearest-neighbor based Delaunay for N dimensions — Geogram architecture.
 //
-// This implements DelaunayN using nearest-neighbor search rather than
-// full Delaunay triangulation. It's specifically designed for CVT operations
-// where full cell structure is not needed.
+// Direct port of Geogram's Delaunay_NearestNeighbors:
+//   • SetVertices builds the KD-tree then eagerly precomputes ALL K=30
+//     neighborhoods in parallel (matching Geogram's update_neighbors()).
+//   • GetNeighbors is a pure read after SetVertices — no lazy computation.
+//   • EnlargeNeighborhood uses per-vertex std::atomic spinlocks matching
+//     Geogram's PackedArrays::lock_array/unlock_array — safe for concurrent
+//     calls from multiple threads on the same DelaunayNN instance.
+//   • FindNearestVertex delegates to the shared KD-tree (thread-safe reads).
 //
-// Based on:
-// - geogram/src/lib/geogram/delaunay/delaunay_nn.cpp (reference implementation)
-// - GTE's DelaunayN.h (interface specification)
-//
-// License: Boost Software License 1.0
+// This lets CVTN::AccumulateCentroids build ONE DelaunayNN per iteration and
+// share it across all worker threads without per-thread KD-tree rebuilds.
 
 #pragma once
 
@@ -23,234 +24,205 @@
 #include <Mathematics/NearestNeighborSearchN.h>
 #include <Mathematics/Logger.h>
 #include <algorithm>
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <thread>
 #include <vector>
 
 namespace gte
 {
-    // Nearest-neighbor based Delaunay for N dimensions
-    // 
-    // This class doesn't compute full Delaunay triangulation (which would be
-    // expensive in high dimensions). Instead, it uses k-nearest neighbors as
-    // a proxy for the Delaunay neighborhood. This is sufficient for CVT
-    // operations and matches geogram's "NN" Delaunay backend.
-    //
-    // Key features:
-    // - Works for any dimension N
-    // - Stores k-nearest neighbors per vertex
-    // - Fast neighbor queries
-    // - Suitable for CVT/Lloyd relaxation
-    //
     template <typename Real, size_t N>
     class DelaunayNN : public DelaunayN<Real, N>
     {
     public:
-        using PointN = typename DelaunayN<Real, N>::PointN;
+        using PointN  = typename DelaunayN<Real, N>::PointN;
         using Simplex = typename DelaunayN<Real, N>::Simplex;
-        
-        // Constructor
-        // defaultNbNeighbors: default number of neighbors to store per vertex
-        DelaunayNN(size_t defaultNbNeighbors = 20)
+
+        explicit DelaunayNN(size_t defaultNbNeighbors = 30)
             : DelaunayN<Real, N>()
             , mDefaultNbNeighbors(defaultNbNeighbors)
-            , mNNSearch()
         {
         }
-        
+
         virtual ~DelaunayNN() = default;
-        
-        // Set vertices and compute neighborhoods
+
+        // Build KD-tree and eagerly precompute ALL K=defaultNbNeighbors
+        // neighborhoods in parallel — matching Geogram's set_vertices() which
+        // calls NN_->set_points() then update_neighbors() with parallel_for.
+        //
+        // After this call the object is immutable (all GetNeighbors calls are
+        // pure reads) until the next SetVertices.
         bool SetVertices(size_t numVertices, PointN const* vertices) override
         {
-            LogAssert(
-                numVertices > 0 && vertices != nullptr,
-                "Invalid arguments.");
-            
+            LogAssert(numVertices > 0 && vertices != nullptr,
+                      "Invalid arguments.");
+
             this->mNumVertices = numVertices;
-            this->mVertices = vertices;
-            
-            // Copy vertices for NN search
-            mVertexCopy.resize(numVertices);
-            for (size_t i = 0; i < numVertices; ++i)
-            {
-                mVertexCopy[i] = vertices[i];
-            }
-            
-            // Build nearest neighbor search structure
-            mNNSearch.SetPoints(numVertices, mVertexCopy.data());
-            
-            // Compute neighborhoods for all vertices
+            this->mVertices    = vertices;
+
+            // Build the KD-tree (once, in the calling thread).
+            mNNSearch.SetPoints(numVertices, vertices);
+
+            // Eagerly compute ALL K=mDefaultNbNeighbors neighborhoods in
+            // parallel, matching Geogram's parallel_for in update_neighbors().
             UpdateNeighborhoods();
-            
+
             return true;
         }
-        
-        // Find nearest vertex to a query point
+
+        // Thread-safe read under per-vertex spinlock.
+        // Matches Geogram's PackedArrays::get_array (thread-safe variant):
+        // reads are serialized with concurrent EnlargeNeighborhood writes.
+        std::vector<int32_t> GetNeighbors(int32_t v) const override
+        {
+            if (v < 0 || static_cast<size_t>(v) >= this->mNumVertices)
+                return {};
+            AcquireLock(static_cast<size_t>(v));
+            std::vector<int32_t> result = mNeighborhoods[v];
+            ReleaseLock(static_cast<size_t>(v));
+            return result;
+        }
+
+        size_t GetNumNeighbors(int32_t v) const
+        {
+            if (v < 0 || static_cast<size_t>(v) >= this->mNumVertices)
+                return 0;
+            return mNeighborhoods[v].size();
+        }
+
+        // Thread-safe enlargement: per-vertex spinlock ensures each
+        // neighbourhood is expanded at most once across concurrent threads,
+        // matching Geogram's enlarge_neighborhood with lock_array/unlock_array.
+        void EnlargeNeighborhood(int32_t v, size_t newSize)
+        {
+            if (v < 0 || static_cast<size_t>(v) >= this->mNumVertices)
+                return;
+
+            // Per-vertex spinlock (Geogram: neighbors_.lock_array(v)).
+            AcquireLock(static_cast<size_t>(v));
+
+            if (newSize > mNeighborhoods[v].size())
+            {
+                // Re-query for newSize neighbors.
+                size_t k = std::min(newSize, this->mNumVertices - 1);
+                std::vector<size_t> raw(k + 1);
+                std::vector<Real>   sqd(k + 1);
+                size_t found = mNNSearch.FindKNearestNeighborsToPoint(
+                    v, k, raw.data(), sqd.data());
+
+                mNeighborhoods[v].clear();
+                mNeighborhoods[v].reserve(found);
+                for (size_t j = 0; j < found; ++j)
+                {
+                    int32_t nb = static_cast<int32_t>(raw[j]);
+                    if (nb == v) continue;
+                    // Geogram: skip if duplicate (dist==0) and nb < v.
+                    if (sqd[j] == static_cast<Real>(0) && nb < v) continue;
+                    mNeighborhoods[v].push_back(nb);
+                }
+            }
+
+            ReleaseLock(static_cast<size_t>(v));
+        }
+
+        // KD-tree nearest vertex (thread-safe: read-only after SetVertices).
         int32_t FindNearestVertex(PointN const& query) const override
         {
             return mNNSearch.FindNearestNeighbor(query);
         }
-        
-        // Get neighbors of a vertex.
-        // Computes and caches on first access (lazy evaluation).
-        std::vector<int32_t> GetNeighbors(int32_t vertexIndex) const override
-        {
-            if (vertexIndex < 0 || static_cast<size_t>(vertexIndex) >= this->mNumVertices)
-            {
-                return {};
-            }
 
-            if (!mComputed[vertexIndex])
-            {
-                ComputeNeighborhood(vertexIndex);
-                mComputed[vertexIndex] = true;
-            }
+        void SetDefaultNbNeighbors(size_t nb) { mDefaultNbNeighbors = nb; }
+        size_t GetDefaultNbNeighbors() const   { return mDefaultNbNeighbors; }
+        size_t GetNumVertices()        const   { return this->mNumVertices;  }
 
-            return mNeighborhoods[vertexIndex];
-        }
-        
-        // Get number of neighbors for a vertex
-        size_t GetNumNeighbors(int32_t vertexIndex) const
-        {
-            if (vertexIndex < 0 || static_cast<size_t>(vertexIndex) >= this->mNumVertices)
-            {
-                return 0;
-            }
-            
-            if (static_cast<size_t>(vertexIndex) < mNeighborhoods.size())
-            {
-                return mNeighborhoods[vertexIndex].size();
-            }
-            
-            return 0;
-        }
-        
-        // Enlarge neighborhood for a specific vertex.
-        // Fetches more neighbors from the NN search structure when the
-        // security-radius criterion requires more than the default k.
-        void EnlargeNeighborhood(int32_t vertexIndex, size_t newSize)
-        {
-            if (vertexIndex < 0 || static_cast<size_t>(vertexIndex) >= this->mNumVertices)
-            {
-                return;
-            }
-            
-            if (static_cast<size_t>(vertexIndex) >= mNeighborhoods.size())
-            {
-                mNeighborhoods.resize(this->mNumVertices);
-                mComputed.assign(this->mNumVertices, false);
-            }
-            
-            auto& neighbors = mNeighborhoods[vertexIndex];
-            
-            if (newSize > neighbors.size())
-            {
-                std::vector<int32_t> newNeighbors;
-                std::vector<Real> distances;
-                
-                mNNSearch.FindKNearestNeighborsToPoint(
-                    vertexIndex, newSize, newNeighbors, distances);
-                
-                // Remove the vertex itself from its neighbors
-                newNeighbors.erase(
-                    std::remove(newNeighbors.begin(), newNeighbors.end(), vertexIndex),
-                    newNeighbors.end());
-                
-                neighbors = newNeighbors;
-                mComputed[vertexIndex] = true;
-            }
-        }
-        
-        // Set default number of neighbors
-        void SetDefaultNbNeighbors(size_t nb)
-        {
-            mDefaultNbNeighbors = nb;
-        }
-        
-        // Get default number of neighbors
-        size_t GetDefaultNbNeighbors() const
-        {
-            return mDefaultNbNeighbors;
-        }
-        
     private:
-        // Update neighborhoods — LAZY version.
-        //
-        // Only resets the cache state; no neighborhood is computed here.
-        // Actual computation happens on the first GetNeighbors() or
-        // EnlargeNeighborhood() call for each vertex.
-        //
-        // This exactly matches Geogram's DelaunayNN behaviour where
-        // set_vertices() just (re)builds the ANN search structure and
-        // GetNeighbors queries it on demand.  In practice only the seeds
-        // actually visited by SurfaceRVDN::ForEachPolygon ever need their
-        // neighborhoods computed, so eager computation is wasteful.
+        // ── Eager parallel neighbourhood precomputation ───────────────────────
+        // Geogram: parallel_for(0, nb_vertices, store_neighbors_CB, grain=1).
+        // Each vertex independently queries the shared (read-only) KD-tree.
         void UpdateNeighborhoods()
         {
-            mNeighborhoods.clear();
-            mNeighborhoods.resize(this->mNumVertices);
-            mComputed.assign(this->mNumVertices, false);
-            // The NN search structure was already built by SetVertices()
-            // via mNNSearch.SetPoints(). Nothing else to do here.
-        }
-        
-        // Compute neighborhood for a single vertex (called lazily)
-        void ComputeNeighborhood(int32_t vertexIndex) const
-        {
-            std::vector<int32_t> neighbors;
-            std::vector<Real> distances;
-            
-            // Query k+1 neighbors (including the vertex itself)
-            size_t k = std::min(mDefaultNbNeighbors, this->mNumVertices - 1);
-            mNNSearch.FindKNearestNeighborsToPoint(
-                vertexIndex, k, neighbors, distances);
-            
-            // Remove the vertex itself and handle duplicates
-            std::vector<int32_t> filteredNeighbors;
-            filteredNeighbors.reserve(k);
-            
-            for (size_t j = 0; j < neighbors.size(); ++j)
+            size_t n = this->mNumVertices;
+            mNeighborhoods.assign(n, {});
+
+            // Allocate per-vertex spinlocks, all in "unlocked" (0) state.
+            mLocks = std::make_unique<std::atomic<uint8_t>[]>(n);
+            for (size_t i = 0; i < n; ++i)
+                mLocks[i].store(0, std::memory_order_relaxed);
+
+            // Partition vertices across hardware threads.
+            unsigned int hw = std::thread::hardware_concurrency();
+            if (hw == 0) hw = 1;
+            size_t nT  = std::min(static_cast<size_t>(hw), n);
+            size_t per = (n + nT - 1) / nT;
+
+            std::vector<std::thread> threads;
+            threads.reserve(nT);
+            for (size_t t = 0; t < nT; ++t)
             {
-                if (neighbors[j] != vertexIndex)
+                size_t b = t * per;
+                size_t e = std::min(b + per, n);
+                threads.emplace_back([this, b, e]()
                 {
-                    // Handle duplicate points (distance ~= 0)
-                    if (distances[j] < static_cast<Real>(1e-10))
+                    size_t k = std::min(mDefaultNbNeighbors,
+                                        this->mNumVertices - 1);
+                    std::vector<size_t> raw(k + 1);
+                    std::vector<Real>   sqd(k + 1);
+                    for (size_t i = b; i < e; ++i)
                     {
-                        // Keep only if this vertex has lower index
-                        // This ensures consistent handling of duplicates
-                        if (neighbors[j] > vertexIndex)
+                        size_t found = mNNSearch.FindKNearestNeighborsToPoint(
+                            static_cast<int32_t>(i), k,
+                            raw.data(), sqd.data());
+                        auto& nb = mNeighborhoods[i];
+                        nb.clear();
+                        nb.reserve(found);
+                        for (size_t j = 0; j < found; ++j)
                         {
-                            continue;  // Skip this duplicate
+                            int32_t idx = static_cast<int32_t>(raw[j]);
+                            if (idx == static_cast<int32_t>(i)) continue;
+                            if (sqd[j] == static_cast<Real>(0)
+                                && idx < static_cast<int32_t>(i)) continue;
+                            nb.push_back(idx);
                         }
                     }
-                    
-                    filteredNeighbors.push_back(neighbors[j]);
-                }
+                });
             }
-            
-            mNeighborhoods[vertexIndex] = filteredNeighbors;
+            for (auto& th : threads) th.join();
         }
-        
-    private:
-        size_t mDefaultNbNeighbors;                    // Default number of neighbors
-        NearestNeighborSearchN<Real, N> mNNSearch;     // NN search structure
-        std::vector<PointN> mVertexCopy;               // Copy of vertices for NN search
-        mutable std::vector<std::vector<int32_t>> mNeighborhoods;  // Cached neighborhoods (lazy)
-        mutable std::vector<bool> mComputed;           // True once neighborhood[i] is cached
+
+        // ── Per-vertex spinlock (Geogram: PackedArrays::lock/unlock_array) ────
+        void AcquireLock(size_t v) const
+        {
+            uint8_t expected = 0;
+            while (!mLocks[v].compare_exchange_weak(
+                       expected, 1,
+                       std::memory_order_acquire,
+                       std::memory_order_relaxed))
+            {
+                expected = 0;
+            }
+        }
+
+        void ReleaseLock(size_t v) const
+        {
+            mLocks[v].store(0, std::memory_order_release);
+        }
+
+        size_t mDefaultNbNeighbors;
+        NearestNeighborSearchN<Real, N>           mNNSearch;
+        std::vector<std::vector<int32_t>>         mNeighborhoods;
+        mutable std::unique_ptr<std::atomic<uint8_t>[]> mLocks;
     };
-    
-    // Factory function implementation for DelaunayN
+
     template <typename Real, size_t N>
-    std::unique_ptr<DelaunayN<Real, N>> CreateDelaunayN(std::string const& method)
+    std::unique_ptr<DelaunayN<Real, N>> CreateDelaunayN(
+        std::string const& method)
     {
         if (method == "NN" || method == "default")
-        {
             return std::make_unique<DelaunayNN<Real, N>>();
-        }
-        
         LogError("Unknown Delaunay method: " + method);
         return nullptr;
     }
 }
+
