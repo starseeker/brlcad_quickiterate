@@ -61,6 +61,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <limits>
 #include <map>
 #include <set>
@@ -132,9 +133,6 @@ namespace gte
             int top = 0;
             stack[0] = 0;  // root
 
-            Ray3<T> const ray(origin, dir);
-            FIQuery<T, Ray3<T>, Triangle3<T>> triQuery{};
-
             while (top >= 0)
             {
                 size_t nodeIndex = stack[top--];
@@ -172,21 +170,25 @@ namespace gte
                 }
                 else
                 {
-                    // Leaf: test each triangle, keep nearest hit.
+                    // Leaf: test each triangle with inline Möller-Trumbore.
+                    // Direct port of Geogram's ray_triangle_intersection()
+                    // (mesh_AABB.cpp).  Avoids constructing GTE Ray3/Triangle3/
+                    // FIQuery objects per triangle — significantly lower overhead.
                     for (size_t i = node.minIndex; i <= node.maxIndex; ++i)
                     {
                         size_t triIdx = this->mPartition[i];
                         auto const& tri = this->mTriangles[triIdx];
-                        Triangle3<T> triangle(
-                            this->mVertices[tri[0]],
-                            this->mVertices[tri[1]],
-                            this->mVertices[tri[2]]);
-                        auto r = triQuery(ray, triangle);
-                        if (r.intersect && r.parameter < best.parameter)
+                        T t;
+                        Vector3<T> pt;
+                        if (RayTriangleMT(origin, dir,
+                                          this->mVertices[tri[0]],
+                                          this->mVertices[tri[1]],
+                                          this->mVertices[tri[2]],
+                                          best.parameter, t, pt))
                         {
                             best.found     = true;
-                            best.point     = r.point;
-                            best.parameter = r.parameter;
+                            best.point     = pt;
+                            best.parameter = t;
                         }
                     }
                 }
@@ -195,6 +197,53 @@ namespace gte
         }
 
     private:
+        // Inline Möller-Trumbore ray-triangle intersection.
+        // Direct port of Geogram's ray_triangle_intersection() from mesh_AABB.cpp.
+        // Returns true and sets t_out/pt_out when the ray hits the triangle at
+        // parameter t in (0, tmax).  No GTE object construction — pure arithmetic.
+        //
+        // Math (Cramer's rule, see Geogram comment):
+        //   N = cross(E1, E2)        (face normal, not unit)
+        //   det = -dot(D, N)         (scalar triple product)
+        //   AO  = O - A
+        //   DAO = cross(AO, D)
+        //   u = dot(E2, DAO) / det
+        //   v = -dot(E1, DAO) / det
+        //   t = dot(AO, N) / det
+        static bool RayTriangleMT(
+            Vector3<T> const& O, Vector3<T> const& D,
+            Vector3<T> const& A, Vector3<T> const& B, Vector3<T> const& C,
+            T tmax, T& t_out, Vector3<T>& pt_out) noexcept
+        {
+            static constexpr T kDetEps = T(1e-20);
+            Vector3<T> E1{ B[0]-A[0], B[1]-A[1], B[2]-A[2] };
+            Vector3<T> E2{ C[0]-A[0], C[1]-A[1], C[2]-A[2] };
+            // N = cross(E1, E2)
+            Vector3<T> N{
+                E1[1]*E2[2] - E1[2]*E2[1],
+                E1[2]*E2[0] - E1[0]*E2[2],
+                E1[0]*E2[1] - E1[1]*E2[0]
+            };
+            T det = -(D[0]*N[0] + D[1]*N[1] + D[2]*N[2]);
+            if (det >= -kDetEps && det <= kDetEps) return false; // parallel
+            T invdet = T(1) / det;
+            // AO = O - A
+            T ax = O[0]-A[0], ay = O[1]-A[1], az = O[2]-A[2];
+            // DAO = cross(AO, D)
+            T daoX = ay*D[2] - az*D[1];
+            T daoY = az*D[0] - ax*D[2];
+            T daoZ = ax*D[1] - ay*D[0];
+            T u =  (E2[0]*daoX + E2[1]*daoY + E2[2]*daoZ) * invdet;
+            if (u < T(0) || u > T(1)) return false;
+            T v = -(E1[0]*daoX + E1[1]*daoY + E1[2]*daoZ) * invdet;
+            if (v < T(0) || u + v > T(1)) return false;
+            T t  =  (ax*N[0] + ay*N[1] + az*N[2]) * invdet;
+            if (t <= T(0) || t >= tmax) return false;
+            t_out  = t;
+            pt_out = { O[0]+t*D[0], O[1]+t*D[1], O[2]+t*D[2] };
+            return true;
+        }
+
         // Slab AABB test with distance bound tmax.
         // Returns true only if the ray intersects the box at t <= tmax.
         // Direct port of Geogram's ray_box_intersection(origin, dirinv, box, T).
@@ -1853,6 +1902,7 @@ namespace gte
             TriangleBVHNearestRay<Real> refBVH;
             refBVH.Create(bvhVerts, bvhTris);
 
+
             // ── Step 4: Check if reference has border edges; create ribbon ────
             // Build edge→face map for reference mesh.
             bool referenceHasBorders = false;
@@ -2067,6 +2117,7 @@ namespace gte
                 }
                 for (auto& th : threads) th.join();
             }
+            auto tStep6end = SC::now();
 
             // ── Step 7: Solve sparse least-squares for lambda[v] using CG ─────
             //
@@ -2096,6 +2147,7 @@ namespace gte
             // Here border_importance = 1.0 by default.
 
             // Compute A^T b (right-hand side)
+            auto tAtB0 = SC::now();
             std::vector<Real> AtB(nbV, Real(0));
 
             // Vertex contributions
@@ -2107,6 +2159,7 @@ namespace gte
                 Vector3<Real> rhs = Qv[v] - outVertices[v];
                 AtB[v] += scale * Dot(Nv[v], rhs);
             }
+            auto tAtBv = SC::now();
 
             // Facet contributions: (A^T b)_vj += Nv[vj]·(Qf-Pf)/d for each vj in f
             for (size_t f = 0; f < nbF; ++f)
@@ -2122,29 +2175,76 @@ namespace gte
                     AtB[vj] += Dot(Nv[vj], rhs) / d;
                 }
             }
+            auto tAtBf = SC::now();
 
-            // Border-edge contributions (weight = 0.5*border_importance)
+            // Border-edge contributions (weight = 0.5*border_importance).
+            // Parallelised over the border edge list: each thread owns a partial
+            // AtB vector that is reduced at the end (avoids data races on AtB[]).
+            size_t nBorderEdgesAtB = 0;
             if (nbVOnBorder > 0 && referenceHasBorders && ribbonBuilt)
             {
+                // Collect border edges into a flat vector for parallel indexing.
+                struct BEPair { int32_t v1, v2; };
+                std::vector<BEPair> beList;
+                beList.reserve(edgeFaces.size() / 2);
                 for (auto const& kv : edgeFaces)
+                    if (kv.second.size() == 1)
+                        beList.push_back({ kv.first.first, kv.first.second });
+                nBorderEdgesAtB = beList.size();
+
+                size_t nT = std::max(size_t(1),
+                    size_t(std::thread::hardware_concurrency()));
+                nT = std::min(nT, beList.size());
+                size_t chunk = (beList.size() + nT - 1) / nT;
+
+                // Per-thread partial AtB contribution vectors (avoid races).
+                std::vector<std::vector<Real>> partAtB(nT,
+                    std::vector<Real>(nbV, Real(0)));
+
+                std::vector<std::thread> threads;
+                threads.reserve(nT);
+                for (size_t t = 0; t < nT; ++t)
                 {
-                    if (kv.second.size() != 1) continue; // only output border edges
-                    auto const& key = kv.first;
-                    int32_t bv1 = key.first, bv2 = key.second;
-                    Vector3<Real> p = Real(0.5) * (outVertices[bv1] + outVertices[bv2]);
-                    Vector3<Real> N = Real(0.5) * (Nv[bv1] + Nv[bv2]);
-                    Real L = Real(0.5) * (Lv[bv1] + Lv[bv2]);
-                    Vector3<Real> q = nearestBidirectional(ribbonBVH, p, N,
-                        borderDistFactor * max_edge_distance * L);
-                    Vector3<Real> rhs = q - p;
-                    // row scale = (0.5*border_importance)²
-                    Real rowScale = Real(0.25) * border_importance * border_importance;
-                    // For each vertex in the edge: coeff = 0.5*N[c]
-                    // (A^T b)_vi += rowScale * 0.5*N · rhs
-                    AtB[bv1] += rowScale * Real(0.5) * Dot(N, rhs);
-                    AtB[bv2] += rowScale * Real(0.5) * Dot(N, rhs);
+                    size_t bBeg = t * chunk;
+                    size_t bEnd = std::min(bBeg + chunk, beList.size());
+                    if (bBeg >= bEnd) break;
+                    threads.emplace_back([&, t, bBeg, bEnd]()
+                    {
+                        auto& local = partAtB[t];
+                        for (size_t bi = bBeg; bi < bEnd; ++bi)
+                        {
+                            int32_t bv1 = beList[bi].v1;
+                            int32_t bv2 = beList[bi].v2;
+                            Vector3<Real> p = Real(0.5) *
+                                (outVertices[bv1] + outVertices[bv2]);
+                            Vector3<Real> N = Real(0.5) * (Nv[bv1] + Nv[bv2]);
+                            Real L = Real(0.5) * (Lv[bv1] + Lv[bv2]);
+                            Vector3<Real> q = nearestBidirectional(ribbonBVH, p, N,
+                                borderDistFactor * max_edge_distance * L);
+                            Vector3<Real> rhs = q - p;
+                            Real rowScale =
+                                Real(0.25) * border_importance * border_importance;
+                            Real contrib = rowScale * Real(0.5) * Dot(N, rhs);
+                            local[bv1] += contrib;
+                            local[bv2] += contrib;
+                        }
+                    });
                 }
+                for (auto& th : threads) th.join();
+
+                // Reduce partial AtB vectors into main AtB.
+                for (size_t t = 0; t < partAtB.size(); ++t)
+                    for (size_t v = 0; v < nbV; ++v)
+                        AtB[v] += partAtB[t][v];
             }
+
+            auto tAtBend = SC::now();
+            std::fprintf(stderr,
+                "  AtB sub: V=%.0fms  F=%.0fms  BE=%zu/%.0fms\n",
+                std::chrono::duration<double,std::milli>(tAtBv-tAtB0).count(),
+                std::chrono::duration<double,std::milli>(tAtBf-tAtBv).count(),
+                nBorderEdgesAtB,
+                std::chrono::duration<double,std::milli>(tAtBend-tAtBf).count());
 
             // Matrix-free Conjugate Gradient solver for (A^T A) λ = A^T b
             // The matrix-vector product (A^T A) x is:
@@ -2153,17 +2253,8 @@ namespace gte
             //     facet  rows:  Σ_{f:v∈f} Σ_{vj∈f} (Nv[v]·Nv[vj])/d² * x[vj]
             //     border edge rows (if applicable)
 
-            // Build per-vertex: face adjacency for efficient matvec.
-            // vertFaces[v] = list of face indices containing v.
-            std::vector<std::vector<int32_t>> vertFaces(nbV);
-            for (size_t f = 0; f < nbF; ++f)
-            {
-                auto const& tri = outTriangles[f];
-                for (int lv = 0; lv < 3; ++lv)
-                    vertFaces[tri[lv]].push_back(static_cast<int32_t>(f));
-            }
-
             // Build border edge list for fast iteration in matvec
+            auto tPrep0 = SC::now();
             struct BorderEdge { int32_t v1, v2; };
             std::vector<BorderEdge> borderEdges;
             if (nbVOnBorder > 0 && referenceHasBorders && ribbonBuilt)
@@ -2173,71 +2264,41 @@ namespace gte
                         borderEdges.push_back({ kv.first.first, kv.first.second });
             }
 
-            // A^T A matrix-vector product: y = (A^T A) x
-            auto matvec = [&](std::vector<Real> const& x, std::vector<Real>& y)
+            // Precompute per-face dot-product coefficients NNij[f][i*3+j] =
+            // Dot(Nv[tri[i]], Nv[tri[j]]) / d²  (d²=9).
+            //
+            // Storing them contiguously allows the matvec to use a face-centric
+            // scatter loop that accesses outTriangles[] sequentially.  This
+            // eliminates the per-iteration random reads into Nv[] that made the
+            // vertex-centric loop slow (300+ms/iter for 200K vertices).  Matches
+            // the approach of Geogram's OpenNL sparse matrix (built once, cheap
+            // matvec).
+            constexpr Real d2inv = Real(1) / Real(9);   // 1/d² where d=3
+            std::vector<std::array<Real, 9>> faceNN(nbF);
+            for (size_t f = 0; f < nbF; ++f)
             {
-                std::fill(y.begin(), y.end(), Real(0));
+                auto const& tri = outTriangles[f];
+                for (int i = 0; i < 3; ++i)
+                    for (int j = 0; j < 3; ++j)
+                        faceNN[f][i*3+j] = Dot(Nv[tri[i]], Nv[tri[j]]) * d2inv;
+            }
 
-                // Vertex rows (scale applies for border vertices)
-                for (size_t v = 0; v < nbV; ++v)
-                {
-                    Real scale = vOnBorder[v]
-                        ? border_importance * border_importance
-                        : Real(1);
-                    Real NNv = Dot(Nv[v], Nv[v]);
-                    y[v] += scale * NNv * x[v];
-                }
-
-                // Facet rows: Σ_{f:v∈f} Σ_{vj∈f} (Nv[v]·Nv[vj])/d² * x[vj]
-                for (size_t v = 0; v < nbV; ++v)
-                {
-                    for (int32_t fi : vertFaces[v])
-                    {
-                        auto const& tri = outTriangles[fi];
-                        Real d2 = Real(9); // d=3, d²=9
-                        for (int lv = 0; lv < 3; ++lv)
-                        {
-                            int32_t vj = tri[lv];
-                            y[v] += (Dot(Nv[v], Nv[vj]) / d2) * x[vj];
-                        }
-                    }
-                }
-
-                // Border edge rows (if any)
-                if (!borderEdges.empty())
-                {
-                    for (auto const& be : borderEdges)
-                    {
-                        // Row: 0.5*N[c] * (lambda_v1 + lambda_v2), scale=(0.5*bi)²
-                        // A^T A contribution:
-                        //   y[v1] += rowScale * (N·N)/4 * x[v1] + rowScale * (N·N)/4 * x[v2]
-                        //   y[v2] += rowScale * (N·N)/4 * x[v1] + rowScale * (N·N)/4 * x[v2]
-                        // where N = 0.5*(Nv[v1]+Nv[v2]), rowScale = (0.5*bi)²
-                        Vector3<Real> N = Real(0.5) * (Nv[be.v1] + Nv[be.v2]);
-                        Real NNe = Dot(N, N);
-                        Real rowScale = Real(0.25) * border_importance * border_importance;
-                        Real sum12 = rowScale * NNe * Real(0.25) * (x[be.v1] + x[be.v2]);
-                        y[be.v1] += sum12;
-                        y[be.v2] += sum12;
-                    }
-                }
-            };
-
-            // Standard Preconditioned CG (Jacobi preconditioner)
-            // Diagonal of A^T A (preconditioning)
+            // Precompute per-vertex diagonal entry for A^T A (Jacobi preconditioner).
+            // diag[v] = scale*|Nv[v]|² + Σ_{f:v∈f} |Nv[v]|²/d²  (+ border edge)
+            // Use face-centric scatter to avoid per-vertex vertFaces lookup.
             std::vector<Real> diag(nbV, Real(0));
             for (size_t v = 0; v < nbV; ++v)
             {
                 Real scale = vOnBorder[v]
                     ? border_importance * border_importance : Real(1);
-                Real NNv = Dot(Nv[v], Nv[v]);
-                diag[v] += scale * NNv;
-                for (int32_t fi : vertFaces[v])
-                {
-                    auto const& tri = outTriangles[fi];
-                    Real d2 = Real(9);
-                    diag[v] += Dot(Nv[v], Nv[v]) / d2;
-                }
+                diag[v] += scale * Dot(Nv[v], Nv[v]);
+            }
+            // Face-centric contribution: faceNN[f][i*3+i] = |Nv[tri[i]]|²/d²
+            for (size_t f = 0; f < nbF; ++f)
+            {
+                auto const& tri = outTriangles[f];
+                for (int i = 0; i < 3; ++i)
+                    diag[tri[i]] += faceNN[f][i*3+i];
             }
             if (!borderEdges.empty())
             {
@@ -2253,6 +2314,54 @@ namespace gte
             // Replace zero diagonal entries with 1 to avoid division by zero
             for (size_t v = 0; v < nbV; ++v)
                 if (diag[v] < Real(1e-30)) diag[v] = Real(1);
+
+            // A^T A matrix-vector product using precomputed face coefficients.
+            // Face-centric scatter loop: accesses outTriangles[] sequentially,
+            // exploiting spatial locality for x[] and y[] reads/writes.
+            // Direct equivalent of OpenNL's nlMultiplyMatrix_BCRS (blocked CRS).
+            auto matvec = [&](std::vector<Real> const& x, std::vector<Real>& y)
+            {
+                std::fill(y.begin(), y.end(), Real(0));
+
+                // Vertex rows (diagonal, scale applies for border vertices)
+                for (size_t v = 0; v < nbV; ++v)
+                {
+                    Real scale = vOnBorder[v]
+                        ? border_importance * border_importance
+                        : Real(1);
+                    y[v] += scale * Dot(Nv[v], Nv[v]) * x[v];
+                }
+
+                // Face rows (face-centric scatter — no random Nv[] access)
+                for (size_t f = 0; f < nbF; ++f)
+                {
+                    auto const& tri = outTriangles[f];
+                    auto const& nn  = faceNN[f];
+                    for (int i = 0; i < 3; ++i)
+                    {
+                        Real yi = nn[i*3+0] * x[tri[0]]
+                                + nn[i*3+1] * x[tri[1]]
+                                + nn[i*3+2] * x[tri[2]];
+                        y[tri[i]] += yi;
+                    }
+                }
+
+                // Border edge rows (if any)
+                if (!borderEdges.empty())
+                {
+                    for (auto const& be : borderEdges)
+                    {
+                        Vector3<Real> N = Real(0.5) * (Nv[be.v1] + Nv[be.v2]);
+                        Real NNe = Dot(N, N);
+                        Real rowScale = Real(0.25) * border_importance * border_importance;
+                        Real sum12 = rowScale * NNe * Real(0.25) * (x[be.v1] + x[be.v2]);
+                        y[be.v1] += sum12;
+                        y[be.v2] += sum12;
+                    }
+                }
+            };
+
+            auto tPrepEnd = SC::now();
 
             // CG with Jacobi preconditioner: solve (A^T A) λ = AtB
             std::vector<Real> lambda(nbV, Real(0));
@@ -2271,10 +2380,17 @@ namespace gte
 
             constexpr int maxCGIters = 200;
             constexpr Real cgTol = Real(1e-10);
+            int cgItersUsed = 0;
+            double tMatvec = 0, tVecOps = 0;
 
             for (int iter = 0; iter < maxCGIters; ++iter)
             {
+                cgItersUsed = iter + 1;
+                auto tMV0 = SC::now();
                 matvec(p, Ap);
+                auto tMV1 = SC::now();
+                tMatvec += std::chrono::duration<double>(tMV1-tMV0).count();
+
                 Real pAp = Real(0);
                 for (size_t v = 0; v < nbV; ++v) pAp += p[v] * Ap[v];
                 if (pAp < Real(1e-40)) break;
@@ -2306,11 +2422,32 @@ namespace gte
                 for (size_t v = 0; v < nbV; ++v)
                     p[v] = z[v] + beta * p[v];
                 rz = rz_new;
+                tVecOps += std::chrono::duration<double>(SC::now()-tMV1).count();
             }
+            auto tStep7end = SC::now();
 
             // ── Step 8: Apply displacement: Pv += lambda[v] * Nv[v] ──────────
             for (size_t v = 0; v < nbV; ++v)
                 outVertices[v] += lambda[v] * Nv[v];
+
+            // Per-step timing (profiling only — remove before release)
+            {
+                using ms = std::chrono::duration<double, std::milli>;
+                std::fprintf(stderr,
+                    "  Adjust: BVH=%.0fms  Q5=%.0fms  Q6=%.0fms"
+                    "  AtB=%.0fms  Prep=%.0fms  CG=%dits/%.0fms(mv=%.0fms vo=%.0fms)"
+                    "  total=%.0fms  nbV=%zu nbF=%zu\n",
+                    ms(tStep3end-tStep3).count(),
+                    ms(tStep5end-tStep5).count(),
+                    ms(tStep6end-tStep6).count(),
+                    ms(tAtBend-tAtB0).count(),
+                    ms(tPrepEnd-tPrep0).count(),
+                    cgItersUsed,
+                    ms(tStep7end-tPrepEnd).count(),
+                    tMatvec*1000.0, tVecOps*1000.0,
+                    ms(tStep7end-tAdj0).count(),
+                    nbV, nbF);
+            }
         }
 
         static Real EstimateEdgeLengthFromVertexCount(
