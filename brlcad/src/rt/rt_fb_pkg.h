@@ -60,6 +60,9 @@ struct rt_fb_pkg {
 
 #define RT_FB_PKG_NULL ((struct rt_fb_pkg *)NULL)
 
+/* RGBpixel is normally defined in dm.h; provide it here for Obol builds. */
+typedef unsigned char RGBpixel[3];
+
 /* ------------------------------------------------------------------ */
 /* Network integer encoding helpers (big-endian, 4 bytes)             */
 /* ------------------------------------------------------------------ */

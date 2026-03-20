@@ -187,6 +187,51 @@ Changes made (Stage 25):
   fallback uses a plain `stat()` call instead.  CMakeLists Obol branch links
   `libbu + ${PNG_LIBRARIES}` only (no libdm).
 
+### 1e. rt family — libdm-free in Obol builds — Complete (Stage 35)
+
+**All `rt`/`rtedge`/`rtxray`/`rtdepth`/`rtedge`/`rtscale`/`reshoot`/`rtsurf`
+and the `librtuif` static support library now build without any `libdm` or
+`struct fb` symbols in Obol builds.**
+
+Files changed:
+
+- **`src/rt/rt_fb_pkg.h`** (new): Header-only `struct rt_fb_pkg` + inline helpers
+  (`rt_fb_pkg_open`, `rt_fb_pkg_write`, `rt_fb_pkg_read`, `rt_fb_pkg_view`,
+  `rt_fb_pkg_close`) that speak the fbserv PKG wire protocol directly.  Also
+  exports `typedef unsigned char RGBpixel[3]` so non-dm-header code can use
+  the pixel type.
+
+- **`src/rt/ext.h`**: `#include "dm.h"` gated `#ifndef BRLCAD_ENABLE_OBOL`; Obol
+  path includes `pkg.h` + `rt_fb_pkg.h`.  The `fbp` extern typed as
+  `struct rt_fb_pkg *` in Obol; `clt_connect_fb(struct fb*)` declaration gated.
+
+- **`src/rt/main.c`**: `fbp` declared as `struct rt_fb_pkg *` in Obol;
+  `fb_setup()` has full Obol (`rt_fb_pkg_open`) / non-Obol (`fb_open`) branches;
+  both `fb_close` call-sites patched.
+
+- **`src/rt/view.c`**, **`viewdepth.c`**, **`viewxray.c`**: `RT_FB_NULL_VAL` /
+  `rt_fb_write` macros defined at top; all `fb_write` / `FB_NULL` uses replaced.
+
+- **`src/rt/viewedge.c`**: Same macro pattern; additionally `rt_fb_read` macro
+  replaces `fb_read` calls.
+
+- **`src/rt/heatgraph.c`**: `timeTable_process` signature gated; body uses
+  `#ifdef BRLCAD_ENABLE_OBOL` for `rt_fb_pkg_write` / `rt_fb_pkg_view`.
+
+- **`src/rt/do.c`**: `clt_fbp` / `clt_connect_fb` / `fb_write` block gated
+  `#ifndef BRLCAD_ENABLE_OBOL`.
+
+- **`src/rt/opt.c`**: `#include "dm.h"` gated `#ifndef BRLCAD_ENABLE_OBOL` (opt.c
+  does not call any fb function directly).
+
+- **`src/rt/worker.c`**: `#include "dm.h"` replaced with `rt_fb_pkg.h` in Obol
+  (provides `RGBpixel` typedef without the full libdm header).
+
+- **`src/rt/CMakeLists.txt`**: `RT_STD_LIBS` uses `libpkg` instead of `libdm`
+  when `BRLCAD_ENABLE_OBOL`; `RT_DM_DEP` / `RT_DM_PLUGINS` / `RT_DM_TXT`
+  variables conditionalize all `add_target_deps(… dm_plugins dm-txt)` calls and
+  individual tool link lists.
+
 ### 1d. pix-fb and bw-fb — libdm-free in Obol builds — Complete (Stage 34)
 
 **`pix-fb` (write a raw .pix file to the framebuffer) and `bw-fb` (write a BW

@@ -38,7 +38,9 @@
 #include "bn/str.h"
 #include "vmath.h"
 #include "raytrace.h"
-#include "dm.h"
+#ifndef BRLCAD_ENABLE_OBOL
+#  include "dm.h"
+#endif
 
 #include "./rtuif.h"
 #include "./ext.h"
