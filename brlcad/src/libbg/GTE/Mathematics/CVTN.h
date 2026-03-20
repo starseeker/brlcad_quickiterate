@@ -428,9 +428,12 @@ namespace gte
                 // ── Steps 1–4: compute area-weighted N-D centroids via walk ───
                 // Uses BuildLiftedVertices + AccumulateCentroids helpers to
                 // eliminate duplication with NewtonIterations.
+                // checkSR=false: Lloyd uses initial neighborhood only, no SR
+                // enlargement — matching Geogram's set_check_SR(false) call
+                // before Lloyd_iterations().
                 std::vector<std::array<Real, N>> mg;
                 std::vector<Real> m;
-                if (!AccumulateCentroids(mg, m))
+                if (!AccumulateCentroids(mg, m, false))
                 {
                     return false;
                 }
@@ -533,11 +536,13 @@ namespace gte
             // gradient g[i*N+d] = 2 * m_i * (p_i^d - c_i^d)
             // energy   f        = sum_i m_i * ||p_i - c_i||^2
             // Both are zero at the CVT optimum (seed positions = centroids).
+            // checkSR=true: Newton uses full SR-based neighborhood enlargement,
+            // matching Geogram's set_check_SR(true) call before Newton_iterations().
             auto computeGradient = [&](std::vector<Real>& gOut, Real& fOut) -> bool
             {
                 std::vector<std::array<Real, N>> mg;
                 std::vector<Real> m_area;
-                if (!AccumulateCentroids(mg, m_area))
+                if (!AccumulateCentroids(mg, m_area, true))
                     return false;
 
                 gOut.assign(totalVars, static_cast<Real>(0));
@@ -1301,11 +1306,17 @@ namespace gte
         // Used by LloydIterations (to compute centroid update) and
         // NewtonIterations (to compute gradient and energy proxy).
         //
+        // checkSR: when false (Lloyd mode), ClipCellFacet uses initial
+        //   neighborhood only (no enlargement) — matching Geogram's
+        //   RVD_->set_check_SR(false) call before Lloyd_iterations().
+        //   When true (Newton / compute_surface), full SR enlargement.
+        //
         // Fills mg[s][d] = sum(area * centroid[d]) and m_area[s] = sum(area)
         // for each seed s.  Returns false if the walk produces no polygons.
         bool AccumulateCentroids(
             std::vector<std::array<Real, N>>& mg,
-            std::vector<Real>&               m_area) const
+            std::vector<Real>&               m_area,
+            bool                             checkSR = true) const
         {
             size_t numSeeds = mSites.size();
 
@@ -1317,6 +1328,11 @@ namespace gte
             BuildLiftedVertices(liftedArr, seedsArr, normalScale);
 
             SurfaceRVDN<Real, N> rvd;
+            // checkSR=false: Lloyd clips with initial 20 neighbors only (no
+            //   enlargement), matching Geogram's set_check_SR(false) before
+            //   Lloyd_iterations().  checkSR=true: Newton uses full SR-based
+            //   neighborhood enlargement for correctness.
+            rvd.SetCheckSR(checkSR);
             rvd.Initialize(liftedArr, mSurfaceTriangles, seedsArr, delaunay);
 
             mg.assign(numSeeds, {});

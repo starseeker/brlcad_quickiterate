@@ -439,11 +439,16 @@ namespace gte
                 Real l = DotDiff(vk.pos, pi, pj);
                 int  s = Sgn2(l, d);
 
-                // Edge crosses the bisector boundary (strict sign change;
-                // a vertex exactly on the bisector, s==0, is treated as
-                // "outside" — matching Geogram's clip_by_plane_fast which
-                // uses geo_sgn and the condition prevS*S < 0).
-                if (prevS * s < 0)
+                // Edge crosses the bisector boundary.
+                // Direct translation of Geogram's clip_by_plane_fast condition:
+                //   if(status != prev_status && (prev_status != 0))
+                // This fires when the previous vertex is NOT on the bisector
+                // and the current vertex has a different sign — including when
+                // the current vertex is exactly on the bisector (s==0).
+                // A vertex with s==0 is NOT added to the output (since the
+                // guard below is `if (s > 0)`), but an intersection point IS
+                // generated at that boundary vertex.
+                if (s != prevS && prevS != 0)
                 {
                     // Barycentric coordinate lambda1 (weight for prev vertex)
                     Real denom = Real(2) * (prevL - l);
@@ -569,6 +574,20 @@ namespace gte
         using PointN  = std::array<Real, N>;
         using Polygon = RVDPolygon<Real, N>;
         using Vertex  = RVDVertex<Real, N>;
+
+        SurfaceRVDN() = default;
+
+        // -----------------------------------------------------------------
+        // Security-radius mode (default: true).
+        // When true (Newton iterations / compute_surface), ClipCellFacet
+        // enlarges the neighborhood until the security-radius criterion is
+        // met — matching Geogram's check_SR=true path.
+        // When false (Lloyd iterations), ClipCellFacet clips with the
+        // initial neighborhood only and returns immediately — matching
+        // Geogram's RVD_->set_check_SR(false) call before Lloyd_iterations().
+        // -----------------------------------------------------------------
+        void SetCheckSR(bool checkSR) { mCheckSR = checkSR; }
+        bool GetCheckSR() const       { return mCheckSR; }
 
         // -----------------------------------------------------------------
         // Initialize with surface mesh and seeds.
@@ -912,8 +931,9 @@ namespace gte
         // Direct translation of Geogram's clip_by_cell_SR: uses a dynamic
         // neighborhood that is enlarged iteratively (matching Geogram's
         // enlarge_neighborhood loop) until the security-radius criterion is
-        // satisfied, i.e. all remaining unprocessed neighbors are farther
-        // than 2*R from the seed (where R = max polygon vertex distance).
+        // satisfied, i.e. the next neighbor is farther than 4.1*R² from
+        // the seed (where R² = max squared distance from seed to polygon vertices).
+        // When mCheckSR=false (Lloyd mode), clips with initial neighbors only.
         // Ping-pong clipping: returns pointer to the result polygon.
         // -----------------------------------------------------------------
         Polygon* ClipCellFacet(
@@ -938,7 +958,9 @@ namespace gte
 
             // Direct translation of Geogram's clip_by_cell_SR:
             // Iteratively enlarge the neighborhood until the security radius
-            // criterion is met (dij > 4.0*R2 for the next unclipped neighbor).
+            // criterion is met (dij > 4.1*R2 for the next unclipped neighbor).
+            // When mCheckSR=false (Lloyd mode), exits after the first pass
+            // without enlarging — matching Geogram's check_SR=false path.
             // jj tracks the position up to which we have already clipped;
             // only newly-added neighbors are sorted and clipped on each
             // enlargement pass, matching Geogram's incremental jj advance.
@@ -968,14 +990,14 @@ namespace gte
                     PointN const& pj = (*mSeeds)[j];
                     Real dij = DistSq(pi, pj);
 
-                    // Security radius: if d(pi,pj) > 2*R the remaining
-                    // neighbors (sorted) cannot affect the polygon.
-                    // Factor 4.0 matches Geogram's clip_by_cell_SR exactly
-                    // (the original 4.1 was a conservative safety margin
-                    // not present in Geogram; both are mathematically sound
-                    // but 4.0 is the correct value from the security-radius
-                    // proof for Voronoi clipping).
-                    if (dij > Real(4.0) * R2)
+                    // Security radius: if d(pi,pj) > 4.1*R² the remaining
+                    // neighbors (all farther away, since the list is sorted)
+                    // cannot affect the polygon any further.
+                    // Factor 4.1 matches Geogram's clip_by_cell_SR exactly.
+                    // Geogram's comment: "A little bit more than 4, because
+                    // when exact predicates are used, we need to include
+                    // tangent bisectors in the computation."
+                    if (dij > Real(4.1) * R2)
                     {
                         srSatisfied = true;
                         break;
@@ -1001,6 +1023,15 @@ namespace gte
                 if (srSatisfied)
                 {
                     break;  // security radius satisfied; done
+                }
+
+                // All current neighbors processed and SR not yet satisfied.
+                // When check_SR is disabled (Lloyd mode), exit immediately
+                // without enlarging — matching Geogram's:
+                //   if(!check_SR_) { return; }
+                if (!mCheckSR)
+                {
+                    break;
                 }
 
                 // All current neighbors processed and SR not yet satisfied:
@@ -1194,6 +1225,11 @@ namespace gte
         // (facet, seed) → connected-component ID
         std::unordered_map<uint64_t, int32_t>       mFacetSeedComp;
         int32_t                                     mCurrentComp = 0;
+
+        // Security-radius mode flag (default true).
+        // When false (Lloyd), ClipCellFacet exits after the first pass
+        // without enlarging — matching Geogram's check_SR=false.
+        bool                                        mCheckSR = true;
     };
 
 
