@@ -143,7 +143,6 @@ ged_simulate_core(ged * const gedp, const int argc, const char ** const argv)
     const char *view_eye_string     = "";
     const char *view_center_string  = "";
     fastf_t     view_size_val       = 0.0;
-    long        view_size_flag      = 0;
 
     const bu_opt_desc options_description[] = {
 	/* Simulation options */
@@ -252,7 +251,6 @@ ged_simulate_core(ged * const gedp, const int argc, const char ** const argv)
     }
 
     if (view_size_val > 0.0) {
-	(void)view_size_flag;
 	anim_opts.has_view_size = true;
 	anim_opts.view_size = view_size_val;
     }

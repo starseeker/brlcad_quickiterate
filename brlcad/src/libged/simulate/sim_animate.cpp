@@ -69,6 +69,17 @@
 namespace
 {
 
+/* Threshold below which a vector length is considered zero. */
+static const double VEC_EPSILON = 1e-10;
+
+/* Default chase-camera parameters (matching render_frames.py convention). */
+static const double CHASE_AZ_DEG  = 225.0;  /**< Azimuth in degrees. */
+static const double CHASE_EL_DEG  =  35.0;  /**< Elevation in degrees. */
+static const double CHASE_DIST_MM = 35000.0; /**< Camera-to-subject distance in mm. */
+
+/* rt process timeout in seconds (5 minutes per frame). */
+static const int RT_TIMEOUT_SECONDS = 300;
+
 #ifdef HAVE_JPEGLIB_H
 
 /* Write a 4-byte little-endian uint32 to a file. */
@@ -324,8 +335,7 @@ look_at_quaternion(const double eye[3], const double look_at[3],
     fwd[1] = look_at[1] - eye[1];
     fwd[2] = look_at[2] - eye[2];
     double flen = std::sqrt(fwd[0]*fwd[0] + fwd[1]*fwd[1] + fwd[2]*fwd[2]);
-    if (flen < 1e-10) {
-	/* eye == look_at: return identity */
+    if (flen < VEC_EPSILON) {
 	quat_out[0] = quat_out[1] = quat_out[2] = 0.0;
 	quat_out[3] = 1.0;
 	return;
@@ -341,8 +351,7 @@ look_at_quaternion(const double eye[3], const double look_at[3],
     right[1] = fwd[2]*up_w[0] - fwd[0]*up_w[2];
     right[2] = fwd[0]*up_w[1] - fwd[1]*up_w[0];
     double rlen = std::sqrt(right[0]*right[0] + right[1]*right[1] + right[2]*right[2]);
-    if (rlen < 1e-10) {
-	/* looking straight up/down: use x-axis as right */
+    if (rlen < VEC_EPSILON) {
 	right[0] = 1.0; right[1] = 0.0; right[2] = 0.0;
     } else {
 	right[0] /= rlen; right[1] /= rlen; right[2] /= rlen;
@@ -522,9 +531,9 @@ SimAnimState::computeChaseCamera(const double center[3],
 				 double quat_out[4]) const
 {
     /* Default chase-camera parameters matching render_frames.py */
-    const double AZ  = 225.0;  /* degrees */
-    const double EL  =  35.0;  /* degrees */
-    const double DIST = 35000.0; /* mm */
+    const double AZ  = CHASE_AZ_DEG;
+    const double EL  = CHASE_EL_DEG;
+    const double DIST = CHASE_DIST_MM;
 
     double off[3];
     az_el_to_offset(AZ, EL, DIST, off);
@@ -598,10 +607,10 @@ SimAnimState::renderFrame(int frame_num)
 		center[1] = m_opts.view_center[1];
 		center[2] = m_opts.view_center[2];
 	    }
-	    double az = m_opts.has_view_ae ? m_opts.view_ae[0] : 225.0;
-	    double el = m_opts.has_view_ae ? m_opts.view_ae[1] :  35.0;
+	    double az = m_opts.has_view_ae ? m_opts.view_ae[0] : CHASE_AZ_DEG;
+	    double el = m_opts.has_view_ae ? m_opts.view_ae[1] : CHASE_EL_DEG;
 	    double off[3];
-	    az_el_to_offset(az, el, 35000.0, off);
+	    az_el_to_offset(az, el, CHASE_DIST_MM, off);
 	    eye[0] = center[0] + off[0];
 	    eye[1] = center[1] + off[1];
 	    eye[2] = center[2] + off[2];
@@ -683,7 +692,7 @@ SimAnimState::renderFrame(int frame_num)
 	return BRLCAD_ERROR;
     }
 
-    int rc = bu_process_wait_n(&proc, 300); /* 5-minute timeout */
+    int rc = bu_process_wait_n(&proc, RT_TIMEOUT_SECONDS);
     if (rc != 0) {
 	bu_log("simulate: rt exited with code %d for frame %d\n",
 	       rc, frame_num);
