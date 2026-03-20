@@ -34,7 +34,11 @@
 #include "vmath.h"
 #include "bn.h"
 #include "raytrace.h"
-#include "dm.h"		/* Added because RGBpixel is now needed in do_pixel() */
+#ifdef BRLCAD_ENABLE_OBOL
+#  include "./rt_fb_pkg.h"  /* RGBpixel typedef + struct rt_fb_pkg */
+#else
+#  include "dm.h"		/* Added because RGBpixel is now needed in do_pixel() */
+#endif
 
 #include "./rtuif.h"
 #include "./ext.h"
