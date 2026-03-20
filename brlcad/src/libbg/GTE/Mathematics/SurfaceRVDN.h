@@ -1536,6 +1536,7 @@ namespace gte
         {
             Real wx = Real(0), wy = Real(0), wz = Real(0);
             Real mass = Real(0);
+            int32_t seed = int32_t(-1);  // which seed owns this component
         };
         std::vector<CompData> comps;
 
@@ -1545,7 +1546,8 @@ namespace gte
         std::map<TriKey, NormAccum> candidates;
 
         // State for the running connected component
-        int32_t prevComp = -1;
+        int32_t prevComp     = -1;
+        int32_t prevSeed     = -1;  // seed that owns prevComp
         Real    curWx = Real(0), curWy = Real(0), curWz = Real(0);
         Real    curMass = Real(0);
 
@@ -1588,6 +1590,7 @@ namespace gte
             comps[comp].wy   = curWy   * scal;
             comps[comp].wz   = curWz   * scal;
             comps[comp].mass = curMass;
+            comps[comp].seed = prevSeed;
         };
 
         // ForEachPolygon callback — direct translation of
@@ -1617,6 +1620,7 @@ namespace gte
             {
                 FinalizeComp(prevComp);
                 prevComp = compID;
+                prevSeed = seed;
                 curWx = curWy = curWz = curMass = Real(0);
             }
 
@@ -1684,15 +1688,72 @@ namespace gte
             return false;
         }
 
-        // ── 3. Build all component centroids (indexed by component ID) ──────
+        // ── 3. Build all component vertices (indexed by component ID) ──────
         // Component IDs are used as vertex indices in the raw triangle list.
         // Ghost components (mass ≈ 0) produce a zero-position vertex that
         // will be removed by the postprocessing step below.
+        //
+        // prefer_seeds: direct translation of Geogram's RDT_PREFER_SEEDS mode
+        // (always set in compute_surface/compute_RDT via CVT::compute_surface).
+        //
+        // For each seed, count how many connected components of its RVC exist.
+        // Seeds with exactly ONE component get their vertex replaced by the
+        // seed's 3D position (rather than the RVC centroid).  Seeds with multiple
+        // components (multi-nerve) keep the per-component RVC centroid so that
+        // each component produces a geometrically distinct vertex.
+        //
+        // Translation of the prefer_seeds post-processing in
+        // GetConnectedComponentsPrimalTriangles::~GetConnectedComponentsPrimalTriangles()
+        // from Geogram's RVD.cpp:
+        //   for each seed s with seed_to_vertex_[s] != MULTI_COMP:
+        //       vertices[vbase + c] = seed_ptr[c]  (3D position)
         std::vector<Vector3<Real>> rawVerts;
         rawVerts.reserve(comps.size());
-        for (auto const& cd : comps)
         {
-            rawVerts.push_back({cd.wx, cd.wy, cd.wz});
+            const size_t numSeeds = seeds.size();
+            // Count components per seed.
+            // Use -1 for "no component yet", -2 for "multiple components" (MULTI_COMP).
+            constexpr int32_t UNINITIALIZED = int32_t(-1);
+            constexpr int32_t MULTI_COMP_ID = int32_t(-2);
+            std::vector<int32_t> seedFirstComp(numSeeds, UNINITIALIZED);
+
+            for (int32_t ci = 0; ci < static_cast<int32_t>(comps.size()); ++ci)
+            {
+                int32_t s = comps[ci].seed;
+                if (s < 0 || s >= static_cast<int32_t>(numSeeds)) { continue; }
+                if (seedFirstComp[s] == UNINITIALIZED)
+                {
+                    seedFirstComp[s] = ci;
+                }
+                else if (seedFirstComp[s] != MULTI_COMP_ID)
+                {
+                    seedFirstComp[s] = MULTI_COMP_ID;
+                }
+            }
+
+            // Build raw vertices: seed position for single-component seeds,
+            // RVC centroid for multi-nerve seeds.
+            for (int32_t ci = 0; ci < static_cast<int32_t>(comps.size()); ++ci)
+            {
+                int32_t s = comps[ci].seed;
+                bool useSeed = (s >= 0 &&
+                                s < static_cast<int32_t>(numSeeds) &&
+                                seedFirstComp[s] != MULTI_COMP_ID);
+                if (useSeed)
+                {
+                    // prefer_seeds: use exact seed 3D position
+                    rawVerts.push_back({
+                        static_cast<Real>(seeds[s][0]),
+                        static_cast<Real>(seeds[s][1]),
+                        static_cast<Real>(seeds[s][2])
+                    });
+                }
+                else
+                {
+                    // Multi-nerve: use component RVC centroid
+                    rawVerts.push_back({comps[ci].wx, comps[ci].wy, comps[ci].wz});
+                }
+            }
         }
         auto nRaw = static_cast<int32_t>(rawVerts.size());
 
