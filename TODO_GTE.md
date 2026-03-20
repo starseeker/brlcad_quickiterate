@@ -439,27 +439,70 @@ nanoflann KNN, Newton energy-convergence early-exit, C++17 thread parallelism.
 |---------|--------------|-------|
 | 11      | ~88s         | K=30, adjacency cached |
 | 12      | ~31s         | +nanoflann +Newton early-exit +4-thread parallel |
+| 13      | ~69s         | prefer_seeds + postprocessing fix (69s vs 31s: regression — thread parallelism lost after build-dir rebuild) |
 
-4-core speedup: 88s → 31s = **65% faster** (2.8x).
+4-core speedup (session 12): 88s → 31s = **65% faster** (2.8x).
 User-time: 90s (3× wall time), confirming ~3 out of 4 cores utilized.
 
 ### 20-bot pass rate
 Random sample of 20 BoTs: 19/20 pass (1 pre-existing failure: `7010.1.t0`,
 8-face degenerate mesh collapses to 0 faces after preprocessing).
 
+## Session 13 Changes
+
+### Problem diagnosed: postprocessing destroys 92% of RDT triangles
+
+Steps 5d/5e/5f in `ComputeMultiNerveRDT` were **not present in Geogram** and
+were destroying 92% of the output triangles:
+
+- Step 5d: second peninsula-removal pass after topology repair
+- Step 5e: near-duplicate vertex merge (1e-3 × bbox_diag threshold)
+- Step 5f: second topology repair + peninsula removal after the merge
+
+These steps reduced 169K → 13K faces for `4002.1.t0`.  Removing them brings
+the output back to 167K faces (matching the Geogram scale).
+
+### `SurfaceRVDN.h` — `ComputeMultiNerveRDT`
+
+1. **`prefer_seeds` implemented** (commit afdbc49):
+   Geogram uses `RDT_PREFER_SEEDS` mode always.  Single-component seeds get
+   vertex = seed 3D position; multi-nerve seeds keep per-component RVC centroid.
+
+2. **Steps 5d/5e/5f removed** (commit fd5aa00):
+   `mesh_postprocess_RDT` in Geogram does exactly:
+   - detect_bad_facets (dedup + iterative peninsula removal)
+   - repair_connect_facets
+   - repair_reorient_facets_anti_moebius
+   - repair_split_non_manifold_vertices
+   Our code now matches this exactly.
+
+### Output comparison (4002.1.t0, 32K seeds)
+| Before session 13 | After session 13 |
+|-------------------|-----------------|
+| 13,217 faces      | 166,961 faces   |
+| SURFACE mode      | SURFACE mode    |
+
+The output is still SURFACE (not SOLID) — expected, as multi-nerve RDT
+produces a mesh with open boundaries on fragmented inputs.
+
 ## NEXT SESSION TODO
 
-### Priority 1: Output quality validation
-- Add an aspect-ratio histogram check on remeshed outputs to confirm
-  the parallel centroid accumulation doesn't degrade CVT quality.
-- Compare AR stats between session 11 (single-threaded) and session 12.
+### Priority 1: Investigate SURFACE vs SOLID output
+- The remesh output is SURFACE mode.  Geogram also produces non-solid output
+  for fragmented meshes like `4002.1.t0` (14 disconnected boundary loops).
+- Verify whether this is expected or if there is a gap vs Geogram.
 
-### Priority 2: Degenerate mesh fallback
+### Priority 2: Performance regression investigation
+- Session 13 CVT time: 69s vs session 12's 31s.  The build-dir was rebuilt from
+  scratch between sessions, and the parallelism parameters may differ.
+- Re-verify thread count is being used (check `AccumulateCentroids` thread loop).
+
+### Priority 3: Degenerate mesh fallback
 - `7010.1.t0`, `7052.1.t0` fail due to pre-processing producing empty/too-small
   meshes.  Consider a minimum-face threshold and a "skip CVT" fallback that
   returns the preprocessed mesh directly.
 
-### Priority 3: Thread count tuning
+### Priority 4: Thread count tuning
 - `AccumulateCentroids` currently uses `hardware_concurrency()` threads.
   For small meshes (< 1000 facets), the thread overhead may exceed the gain.
   Add a `minFacetsPerThread` threshold (e.g. 500 facets) to avoid spawning
