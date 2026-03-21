@@ -31,11 +31,14 @@
 
 #include <vector>
 #include <map>
+#include <unordered_map>
+#include <unordered_set>
 #include <set>
 #include <array>
 #include <cmath>
 #include <algorithm>
 #include <cassert>
+#include <functional>
 
 namespace gte {
 
@@ -50,8 +53,19 @@ inline Vec3 vadd(Vec3 a, Vec3 b){ return {a[0]+b[0], a[1]+b[1], a[2]+b[2]}; }
 inline Vec3 vsub(Vec3 a, Vec3 b){ return {a[0]-b[0], a[1]-b[1], a[2]-b[2]}; }
 inline Vec3 vscl(float s, Vec3 a){ return {s*a[0], s*a[1], s*a[2]}; }
 
+/* Hash for std::pair<int,int> used by unordered containers */
+struct PairHasher {
+    std::size_t operator()(const std::pair<int,int>& p) const noexcept {
+        return std::hash<long long>()(((long long)(unsigned int)p.first << 32)
+                                      | (unsigned int)p.second);
+    }
+};
+
 /* directed-edge → face index; -1 = boundary */
-typedef std::map<std::pair<int,int>, int> HalfedgeMap;
+typedef std::unordered_map<std::pair<int,int>, int, PairHasher> HalfedgeMap;
+
+/* edge (min,max) → midpoint vertex index */
+typedef std::unordered_map<std::pair<int,int>, int, PairHasher> EdgeMidMap;
 
 static HalfedgeMap build_halfedge_map(size_t numF, const int* faces) {
     HalfedgeMap m;
@@ -177,8 +191,8 @@ static bool loop_one_iteration(std::vector<float>& V, std::vector<int>& F,
     auto hm  = build_halfedge_map((size_t)numF, F.data());
     auto bnd  = find_boundary_verts((size_t)numV, (size_t)numF, F.data(), hm);
 
-    /* Sorted edge key → midpoint index */
-    std::map<std::pair<int,int>, int> edge_mid;
+    /* Edge → midpoint index */
+    EdgeMidMap edge_mid;
     std::vector<float> newV = V;  /* starts as copy of original */
 
     /* 1. New positions for existing vertices */
@@ -334,7 +348,7 @@ static bool sqrt3_one_iteration(std::vector<float>& V, std::vector<int>& F, int 
     newF.reserve(numF * 3 * 3);
 
     /* Track which interior edges we've already processed */
-    std::set<std::pair<int,int>> processed_edges;
+    std::unordered_set<std::pair<int,int>, PairHasher> processed_edges;
 
     for (int f = 0; f < numF; ++f) {
         int v[3] = {F[3*f], F[3*f+1], F[3*f+2]};
@@ -474,24 +488,13 @@ static Vec3 sqrt3interp_regular_centroid(const std::vector<float>& V,
 static Vec3 sqrt3interp_irregular_centroid(const std::vector<float>& V,
                                              const HalfedgeMap& hm,
                                              const int* faces, int f,
-                                             const std::vector<bool>& bnd) {
+                                             const std::vector<bool>& bnd,
+                                             const std::vector<int>& valence) {
     int fv[3] = {faces[3*f], faces[3*f+1], faces[3*f+2]};
-    /* Count regular vertices (valence 6 or boundary) */
-    /* Compute valence via fan traversal */
-    auto fan_valence = [&](int v) -> int {
-        int cnt = 0;
-        std::set<int> seen;
-        for (auto& kv : hm) {
-            if (kv.first.first == v && !seen.count(kv.first.second)) {
-                ++cnt; seen.insert(kv.first.second);
-            }
-        }
-        return cnt;
-    };
 
     int nOrdinary = 0;
     for (int j = 0; j < 3; ++j) {
-        int val = fan_valence(fv[j]);
+        int val = valence[fv[j]];
         if (val == 6 || bnd[fv[j]]) ++nOrdinary;
     }
 
@@ -503,7 +506,7 @@ static Vec3 sqrt3interp_irregular_centroid(const std::vector<float>& V,
         int cnt_irregular = 0;
         for (int j = 0; j < 3; ++j) {
             int v = fv[j];
-            int K = fan_valence(v);
+            int K = valence[v];
             if (K == 6 || bnd[v]) continue;
             /* Irregular vertex: use its weights */
             auto w = sqrt3interp_weights(K);
@@ -547,6 +550,10 @@ static bool sqrt3interp_one_iteration(std::vector<float>& V, std::vector<int>& F
     auto hm  = build_halfedge_map((size_t)numF, F.data());
     auto bnd = find_boundary_verts((size_t)numV, (size_t)numF, F.data(), hm);
 
+    /* Precompute vertex valences (outgoing halfedge count per vertex) */
+    std::vector<int> valence(numV, 0);
+    for (auto& kv : hm) ++valence[kv.first.first];
+
     /* Compute centroid positions (using original vertex positions) */
     std::vector<Vec3> centroids(numF);
     for (int f = 0; f < numF; ++f) {
@@ -564,7 +571,7 @@ static bool sqrt3interp_one_iteration(std::vector<float>& V, std::vector<int>& F
             continue;
         }
         /* Regular case: compute using Sqrt3Interp formula */
-        centroids[f] = sqrt3interp_irregular_centroid(V, hm, F.data(), f, bnd);
+        centroids[f] = sqrt3interp_irregular_centroid(V, hm, F.data(), f, bnd, valence);
     }
 
     /* Build new mesh: same topology as Sqrt3 but old vertices don't move */
@@ -583,7 +590,7 @@ static bool sqrt3interp_one_iteration(std::vector<float>& V, std::vector<int>& F
 
     std::vector<int> newF;
     newF.reserve(numF * 3 * 3);
-    std::set<std::pair<int,int>> processed_edges;
+    std::unordered_set<std::pair<int,int>, PairHasher> processed_edges;
 
     for (int f = 0; f < numF; ++f) {
         int v[3] = {F[3*f], F[3*f+1], F[3*f+2]};
@@ -637,6 +644,7 @@ static Vec3 mb_midpoint(const std::vector<float>& V,
                           const HalfedgeMap& hm,
                           const int* faces,
                           const std::vector<bool>& bnd,
+                          const std::vector<int>& valence,
                           int v0, int v1) {
     /* Edge (v0, v1) */
     /* Find opposite vertices */
@@ -673,17 +681,9 @@ static Vec3 mb_midpoint(const std::vector<float>& V,
     Vec3 pc{V[3*c],V[3*c+1],V[3*c+2]};
     Vec3 pd{V[3*d],V[3*d+1],V[3*d+2]};
 
-    /* Determine valence */
-    int val_v0 = 0, val_v1 = 0;
-    {
-        std::set<int> s0, s1;
-        for (auto& kv : hm) {
-            if (kv.first.first==v0) s0.insert(kv.first.second);
-            if (kv.first.first==v1) s1.insert(kv.first.second);
-        }
-        val_v0 = (int)s0.size();
-        val_v1 = (int)s1.size();
-    }
+    /* Determine valence from precomputed array */
+    int val_v0 = valence[v0];
+    int val_v1 = valence[v1];
     bool v0_reg = (val_v0==6 || bnd[v0]);
     bool v1_reg = (val_v1==6 || bnd[v1]);
 
@@ -785,8 +785,12 @@ static bool mb_one_iteration(std::vector<float>& V, std::vector<int>& F) {
     auto hm  = build_halfedge_map((size_t)numF, F.data());
     auto bnd = find_boundary_verts((size_t)numV, (size_t)numF, F.data(), hm);
 
+    /* Precompute vertex valences (outgoing halfedge count per vertex) */
+    std::vector<int> valence(numV, 0);
+    for (auto& kv : hm) ++valence[kv.first.first];
+
     /* Compute midpoints */
-    std::map<std::pair<int,int>, int> edge_mid;
+    EdgeMidMap edge_mid;
     std::vector<float> newV = V;  /* old vertices stay */
 
     for (int f = 0; f < numF; ++f) {
@@ -796,7 +800,7 @@ static bool mb_one_iteration(std::vector<float>& V, std::vector<int>& F) {
             if (edge_mid.count(key)) continue;
             int mid_idx = (int)newV.size()/3;
             edge_mid[key] = mid_idx;
-            Vec3 mp = mb_midpoint(V, hm, F.data(), bnd, v0, v1);
+            Vec3 mp = mb_midpoint(V, hm, F.data(), bnd, valence, v0, v1);
             newV.push_back(mp[0]); newV.push_back(mp[1]); newV.push_back(mp[2]);
         }
     }
@@ -828,7 +832,7 @@ static bool midpoint_one_iteration(std::vector<float>& V, std::vector<int>& F) {
     auto bnd = find_boundary_verts((size_t)numV, (size_t)numF, F.data(), hm);
 
     /* Mark edge midpoints */
-    std::map<std::pair<int,int>, int> edge_mid;
+    EdgeMidMap edge_mid;
     std::vector<float> newV;
 
     for (int f = 0; f < numF; ++f) {
@@ -881,8 +885,9 @@ static bool midpoint_one_iteration(std::vector<float>& V, std::vector<int>& F) {
             if (it == edge_mid.end()) goto skip_vertex;
             mids.push_back(it->second);
         }
-        /* Polygon: mids in reverse (matching OpenMesh's std::reverse) */
-        std::reverse(mids.begin(), mids.end());
+        /* ordered_one_ring returns a CCW ring; fan-triangulate directly
+         * (no reversal needed — reversing would invert triangle winding
+         * and create non-manifold shared edges with the face triangles) */
         /* Fan-triangulate the polygon from mids[0] */
         for (size_t i = 1; i+1 < mids.size(); ++i) {
             newF.push_back(mids[0]);

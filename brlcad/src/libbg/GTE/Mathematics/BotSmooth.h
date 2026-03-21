@@ -132,7 +132,8 @@ static Vec3 clamp_error(Vec3 orig, Vec3 newp, Vec3 n, float tol) {
  * @param numF       Number of input faces
  * @param faces      Input faces (vertex indices)
  * @param component  0=Tangential, 1=Normal, 2=Both
- * @param continuity 0=C0, 1=C1, 2=C2 (C2 intentionally uses the same bi-Laplacian as C1, matching OpenMesh JacobiLaplaceSmootherT effective behavior)
+ * @param continuity 0=C0, 1=C1, 2=C2 (C2 is a no-op matching OpenMesh JacobiLaplaceSmootherT,
+ *                   whose SmootherT base class compute_new_positions() does nothing for C2)
  * @param max_lerr   Max relative local error (<=0: disabled)
  * @param max_aerr   Max absolute local error (<=0: disabled)
  * @param iterations Number of smoothing iterations
@@ -212,12 +213,9 @@ inline bool gte_bot_smooth(
                 /* damping 0.5 */
                 for (int i=0;i<3;++i) new_pos[v][i] = pv[i] + 0.5f*u[i];
             }
-        } else {
-            /* C1 and C2: bi-Laplacian Jacobi with 0.25 damping.
+        } else if (continuity == 1) {
+            /* C1: bi-Laplacian Jacobi with 0.25 damping.
              * Matches OpenMesh JacobiLaplaceSmootherT::compute_new_positions_C1().
-             * OpenMesh JacobiLaplaceSmootherT has no distinct C2 position update
-             * (its SmootherT base class compute_new_positions() C2 case is a no-op),
-             * so C2 uses the same bi-Laplacian as C1.
              * Pass 1: compute umbrellas u[v] = p[v] - sum_nbr(w_e * p[nbr]) * w_v
              * Pass 2: uu[v] = u[v] - sum_nbr(w_e * u[nbr]) * w_v / diag
              * new_pos = p[v] - 0.25 * uu[v]
@@ -251,6 +249,13 @@ inline bool gte_bot_smooth(
                     for (int i=0;i<3;++i) uu[i] /= diag;
                 /* damping 0.25 */
                 for (int i=0;i<3;++i) new_pos[v][i] = pv[i] - 0.25f*uu[i];
+            }
+        } else {
+            /* C2: no-op — matches OpenMesh JacobiLaplaceSmootherT behaviour where the
+             * SmootherT base-class compute_new_positions() does nothing for C2. */
+            for (size_t v=0; v<numV; ++v) {
+                Vec3 pv{outV[3*v],outV[3*v+1],outV[3*v+2]};
+                new_pos[v] = pv;
             }
         }
 
