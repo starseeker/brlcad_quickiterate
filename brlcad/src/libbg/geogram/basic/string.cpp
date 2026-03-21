@@ -148,22 +148,6 @@ namespace GEO {
             return result;
         }
 
-        std::string to_lowercase(const std::string& in) {
-            std::string s = in;
-            for(unsigned int i = 0; i < s.length(); i++) {
-                s[i] = char(tolower(s[i]));
-            }
-            return s;
-        }
-
-        std::string to_uppercase(const std::string& in) {
-            std::string s = in;
-            for(unsigned int i = 0; i < s.length(); i++) {
-                s[i] = char(toupper(s[i]));
-            }
-            return s;
-        }
-
         std::string quote(const std::string& s, char quotes) {
             return char_to_string(quotes) + s + char_to_string(quotes);
         }
@@ -172,14 +156,6 @@ namespace GEO {
             const std::string& haystack, const std::string& needle
         ) {
             return haystack.compare(0, needle.length(), needle) == 0;
-        }
-
-        bool string_ends_with(
-            const std::string& haystack, const std::string& needle
-        ) {
-            size_t l1 = haystack.length();
-            size_t l2 = needle.length();
-            return l1 > l2 && haystack.compare(l1 - l2, l1, needle) == 0;
         }
 
         std::string format(const char* format, ...) {
