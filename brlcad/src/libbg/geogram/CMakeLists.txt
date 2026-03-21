@@ -27,9 +27,6 @@ set(GEOGRAM_SRCS
     basic/string.cpp
     # numerics
     numerics/PCK.cpp
-    numerics/exact_geometry.cpp
-    numerics/expansion_nt.cpp
-    numerics/matrix_util.cpp
     numerics/multi_precision.cpp
     numerics/optimizer.cpp
     numerics/predicates.cpp
