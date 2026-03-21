@@ -562,157 +562,8 @@ namespace GEO {
             desc_ = nullptr;
         }
 
-        int argc() {
-            return geo_argc;
-        }
-
-        char** argv() {
-            return geo_argv;
-        }
-
-        void set_config_file_name(
-            const std::string& filename, bool auto_create
-        ) {
-            config_file_name = filename;
-            auto_create_args = auto_create;
-        }
-
-        std::string get_config_file_name() {
-            return config_file_name;
-        }
-
-        void load_config(
-            const std::string& filename, const std::string& program_name
-        ) {
-            parse_config_file(filename, program_name);
-        }
-
-	void save_config(const std::string& filename) {
-	    std::ofstream out(filename);
-	    if(!out) {
-		Logger::err("CmdLine") << filename << ": could not create"
-				       << std::endl;
-	    }
-	    for(const auto& arg: desc_->args) {
-		const std::string& argname = arg.first;
-		out << argname << "=" <<  get_arg(argname) << std::endl;
-	    }
-	}
 
 
-        bool config_file_loaded() {
-            return loaded_config_file;
-        }
-
-        bool parse(
-            int argc, char** argv, std::vector<std::string>& unparsed_args,
-            const std::string& additional_arg_specs
-        ) {
-            if(!parse_internal(argc, argv, unparsed_args)) {
-                return false;
-            }
-
-            if(arg_is_declared("profile")) {
-                std::string profile = get_arg("profile");
-                if(profile != "default") {
-                    if(!set_profile(profile)) {
-                        return false;
-                    }
-                    // Re-parse args to override values set by profiles
-                    unparsed_args.clear();
-                    parse_internal(argc, argv, unparsed_args);
-                }
-            }
-
-            for(index_t i = 0; i < unparsed_args.size(); ++i) {
-                const std::string& arg = unparsed_args[i];
-                if(
-                    arg == "-h" ||
-                    arg == "-?" ||
-                    arg == "/h" ||
-                    arg == "/?"
-                ) {
-                    show_usage(additional_arg_specs, true);
-                    exit(0);
-                }
-                if(arg == "--help") {
-                    CmdLine::set_arg("log:pretty",false);
-                    man_mode = true;
-                    show_usage(additional_arg_specs, true);
-                    exit(0);
-                }
-                if(arg == "--version" || arg == "--v") {
-                    std::cout << std::endl;
-                    std::cout << "      " << FileSystem::base_name(argv[0])
-                              << " "
-                              << Environment::instance()->get_value("version")
-                              << " (built "
-                              << Environment::instance()->get_value(
-                                  "release_date")
-                              << ")"
-                              << std::endl
-                              << "      Copyright (C) Inria 2000-2022"
-                              << std::endl
-                              << "      License: <https://github.com/BrunoLevy/geogram/blob/main/LICENSE>"
-                              << std::endl
-                              << "      Website: <https://github.com/BrunoLevy/geogram>"
-                              << std::endl;
-                    std::cout << std::endl;
-                    exit(0);
-                }
-            }
-
-            index_t min_unparsed = 0;
-            index_t max_unparsed = 0;
-            std::vector<std::string> additional_args;
-            String::split_string(additional_arg_specs, ' ', additional_args);
-            for(index_t i = 0; i < additional_args.size(); ++i) {
-                const std::string& arg = additional_args[i];
-                if(arg[0] == '<' && arg[arg.length() - 1] == '>') {
-                    ++max_unparsed;
-                } else if(
-                    arg[0] == '<' &&
-                    arg[arg.length() - 2] == '>' &&
-                    arg[arg.length() - 1] == '*'
-                ) {
-                    min_unparsed=0;
-                    max_unparsed=100000;
-                } else {
-                    ++max_unparsed;
-                    ++min_unparsed;
-                }
-            }
-
-            if(
-                unparsed_args.size() > max_unparsed ||
-                unparsed_args.size() < min_unparsed
-            ) {
-                show_usage(additional_arg_specs);
-                return false;
-            }
-
-#ifndef GEOGRAM_PSM
-            nlPrintfFuncs(geogram_printf, geogram_fprintf);
-            nlInitialize(argc, argv);
-#endif
-            if(
-                CmdLine::arg_is_declared("nl:CUDA") &&
-                CmdLine::get_arg_bool("nl:CUDA")
-            ) {
-                geo_cite("DBLP:journals/paapp/BuatoisCL09");
-            }
-
-            // Re-initialize stopwatch so that it will enable
-            // global log if sys:stats is set.
-            Stopwatch::initialize();
-
-            return true;
-        }
-
-        bool parse(int argc, char** argv) {
-            std::vector<std::string> unparsed_args;
-            return parse(argc, argv, unparsed_args, "");
-        }
 
         void declare_arg_group(
             const std::string& name,
@@ -899,46 +750,6 @@ namespace GEO {
             Environment::instance()->set_value(
                 name, String::to_string(value) + "%"
             );
-        }
-
-	void get_arg_groups(std::vector<std::string>& groups) {
-	    groups.clear();
-            for(auto& it : desc_->group_names) {
-		groups.push_back(it);
-            }
-	}
-
-	void get_arg_names_in_group(
-	    const std::string& group, std::vector<std::string>& arg_names
-	) {
-	    arg_names.clear();
-	    auto it = desc_->groups.find(group);
-	    if(it == desc_->groups.end()) {
-		return;
-	    }
-	    const Group& g = it->second;
-	    for(auto jt: g.args) {
-		arg_names.push_back(jt);
-	    }
-	}
-
-        void show_usage(const std::string& additional_args, bool advanced) {
-            std::string program_name = FileSystem::base_name(desc_->argv0);
-            Logger::instance()->set_quiet(false);
-            Logger::out("")
-                << "Usage: " << program_name << " "
-                << additional_args
-                << " <parameter=value>*" << std::endl;
-            if(!advanced) {
-                Logger::out("")
-                    << "Showing basic parameters (use " << program_name
-                    << " -h to see advanced parameters)"
-                    << std::endl;
-            }
-
-            for(auto& it : desc_->group_names) {
-                show_group(it, advanced);
-            }
         }
 
         void get_args(std::vector<std::string>& args) {
@@ -1383,13 +1194,6 @@ namespace {
 
 namespace GEO {
     namespace CmdLine {
-        void set_android_app(android_app* app) {
-            android_app_ = app;
-        }
-
-        android_app* get_android_app() {
-            return android_app_;
-        }
     }
 }
 #endif
