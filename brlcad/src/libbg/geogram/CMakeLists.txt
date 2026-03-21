@@ -32,7 +32,6 @@ set(GEOGRAM_SRCS
     numerics/predicates.cpp
     # bibliography
     bibliography/bibliography.cpp
-    bibliography/embedded_references.cpp
     # delaunay (needed for CVT remeshing and LFS)
     delaunay/delaunay.cpp
     delaunay/delaunay_nn.cpp
@@ -88,7 +87,6 @@ target_include_directories(geogram_brlcad PRIVATE
 )
 
 target_compile_definitions(geogram_brlcad PUBLIC
-    GEOGRAM_WITH_PDEL
     NL_WITH_AMGCL
     BRLCAD_GEOGRAM_EMBED
 )
