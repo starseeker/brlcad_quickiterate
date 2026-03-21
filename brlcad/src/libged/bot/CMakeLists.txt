@@ -3,9 +3,9 @@ brlcad_find_package(manifold REQUIRED)
 
 set(BOT_LIBS libged libbg libbu manifold::manifold)
 
-brlcad_find_package(Geogram REQUIRED SYSPATTERN geogram)
+brlcad_find_package(Geogram SYSPATTERN geogram)
 set(BOT_LOCAL_INCLUDE_DIRS ${BOT_LOCAL_INCLUDE_DIRS} ${Geogram_INCLUDE_DIR})
-set(BOT_LIBS ${BOT_LIBS} ${Geogram_LIBRARY})
+set(BOT_LIBS ${BOT_LIBS} ${Geogram_LIBRARY} geogram_brlcad)
 
 
 if(BRLCAD_ENABLE_OPENVDB)
