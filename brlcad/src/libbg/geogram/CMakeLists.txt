@@ -34,10 +34,8 @@ set(GEOGRAM_SRCS
     bibliography/bibliography.cpp
     bibliography/embedded_references.cpp
     # delaunay (needed for CVT remeshing and LFS)
-    delaunay/LFS.cpp
     delaunay/delaunay.cpp
     delaunay/delaunay_nn.cpp
-    delaunay/parallel_delaunay_3d.cpp
     # mesh
     mesh/mesh.cpp
     mesh/mesh_AABB.cpp
