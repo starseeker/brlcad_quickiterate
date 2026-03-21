@@ -43,7 +43,6 @@
 #include <geogram/basic/common.h>
 #include <geogram/mesh/mesh_repair.h>
 #include <geogram/mesh/mesh_fill_holes.h>
-#include <geogram/mesh/mesh_degree3_vertices.h>
 
 /**
  * \file geogram/mesh/mesh_preprocessing.h

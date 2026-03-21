@@ -44,7 +44,6 @@
 #include <geogram/mesh/mesh_halfedges.h>
 #include <geogram/mesh/mesh_reorder.h>
 #include <geogram/mesh/mesh_preprocessing.h>
-#include <geogram/mesh/mesh_io.h>
 #include <geogram/mesh/mesh_AABB.h>
 #include <geogram/voronoi/CVT.h>
 #include <geogram/NL/nl.h>
@@ -53,7 +52,6 @@
 #include <geogram/basic/progress.h>
 #include <geogram/bibliography/bibliography.h>
 
-#include <geogram/mesh/mesh_io.h>
 
 /****************************************************************************/
 
@@ -107,24 +105,6 @@ namespace GEO {
             }
             catch(const TaskCanceled&) {
                 // TODO_CANCEL
-            }
-        }
-
-        if(M_in.vertices.dimension() == 6 &&
-           CmdLine::get_arg_bool("dbg:save_6d")
-          ) {
-            Logger::out("Remesh")
-                << "Saving source mesh into mesh6.obj6" << std::endl;
-            mesh_save(M_in, "mesh6.obj6");
-            Logger::out("Remesh")
-                << "Saving sampling into points6.txt" << std::endl;
-            std::ofstream out("points6.txt");
-            out << CVT.delaunay()->nb_vertices() << std::endl;
-            for(index_t i = 0; i < CVT.delaunay()->nb_vertices(); i++) {
-                for(coord_index_t c = 0; c < 6; c++) {
-                    out << CVT.delaunay()->vertex_ptr(i)[c] << " ";
-                }
-                out << std::endl;
             }
         }
 

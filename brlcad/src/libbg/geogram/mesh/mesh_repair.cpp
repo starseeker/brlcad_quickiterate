@@ -41,7 +41,6 @@
 #include <geogram/mesh/mesh_geometry.h>
 #include <geogram/mesh/index.h>
 #include <geogram/mesh/mesh_halfedges.h>
-#include <geogram/mesh/mesh_io.h>
 #include <geogram/mesh/mesh_preprocessing.h>
 #include <geogram/points/colocate.h>
 #include <geogram/basic/geometry_nd.h>
