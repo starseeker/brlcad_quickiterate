@@ -42,11 +42,6 @@
 #include "nl_context.h"
 #include "nl_iterative_solvers.h"
 #include "nl_preconditioners.h"
-#include "nl_superlu.h"
-#include "nl_cholmod.h"
-#include "nl_arpack.h"
-#include "nl_mkl.h"
-#include "nl_cuda.h"
 
 /*****************************************************************************/
 
@@ -101,22 +96,7 @@ NLMatrix nlGetCurrentMatrix(void) {
 /*****************************************************************************/
 
 NLboolean nlInitExtension(const char* extension) {
-    if(!strcmp(extension, "SUPERLU")) {
-        return nlInitExtension_SUPERLU();
-    } else if(!strcmp(extension, "CHOLMOD")) {
-        return nlInitExtension_CHOLMOD();
-    } else if(!strcmp(extension, "ARPACK")) {
-        /*
-         * SUPERLU is needed by OpenNL's ARPACK driver
-         * (factorizes the matrix for the shift-invert spectral
-         *  transform).
-         */
-        return nlInitExtension_SUPERLU() && nlInitExtension_ARPACK();
-    } else if(!strcmp(extension, "MKL")) {
-        return nlInitExtension_MKL();
-    } else if(!strcmp(extension, "CUDA")) {
-        return nlInitExtension_CUDA();
-    } else if(!strcmp(extension, "AMGCL")) {
+    if(!strcmp(extension, "AMGCL")) {
 #ifdef NL_WITH_AMGCL
         return NL_TRUE;
 #else
@@ -127,23 +107,7 @@ NLboolean nlInitExtension(const char* extension) {
 }
 
 NLboolean nlExtensionIsInitialized(const char* extension) {
-    if(!strcmp(extension, "SUPERLU")) {
-        return nlExtensionIsInitialized_SUPERLU();
-    } else if(!strcmp(extension, "CHOLMOD")) {
-        return nlExtensionIsInitialized_CHOLMOD();
-    } else if(!strcmp(extension, "ARPACK")) {
-        /*
-         * SUPERLU is needed by OpenNL's ARPACK driver
-         * (factorizes the matrix for the shift-invert spectral
-         *  transform).
-         */
-        return nlExtensionIsInitialized_SUPERLU() &&
-            nlExtensionIsInitialized_ARPACK();
-    } else if(!strcmp(extension, "MKL")) {
-        return nlExtensionIsInitialized_MKL();
-    } else if(!strcmp(extension, "CUDA")) {
-        return nlExtensionIsInitialized_CUDA();
-    } else if(!strcmp(extension, "AMGCL")) {
+    if(!strcmp(extension, "AMGCL")) {
 #ifdef NL_WITH_AMGCL
         return NL_TRUE;
 #else
@@ -1174,9 +1138,6 @@ void nlEigenSolve(void) {
     }
 
     switch(nlCurrentContext->eigen_solver) {
-    case NL_ARPACK_EXT:
-        nlEigenSolve_ARPACK();
-        break;
     default:
         nl_assert_not_reached;
     }
