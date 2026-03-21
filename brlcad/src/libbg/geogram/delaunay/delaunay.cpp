@@ -40,10 +40,6 @@
 #include <geogram/delaunay/delaunay.h>
 #include <geogram/delaunay/delaunay_nn.h>
 
-#ifdef GEOGRAM_WITH_PDEL
-#include <geogram/delaunay/parallel_delaunay_3d.h>
-#endif
-
 #ifdef GEOGRAM_WITH_TETGEN
 #include <geogram/delaunay/delaunay_tetgen.h>
 #endif
@@ -130,11 +126,6 @@ namespace GEO {
 
 #ifdef GEOGRAM_WITH_TRIANGLE
         geo_register_Delaunay_creator(DelaunayTriangle, "triangle");
-#endif
-
-
-#ifdef GEOGRAM_WITH_PDEL
-        geo_register_Delaunay_creator(ParallelDelaunay3d, "PDEL");
 #endif
 
 
