@@ -41,7 +41,6 @@
 #include <geogram/mesh/mesh.h>
 #include <geogram/mesh/mesh_repair.h>
 #include <geogram/mesh/mesh_halfedges.h>
-#include <geogram/mesh/mesh_io.h>
 #include <geogram/mesh/index.h>
 #include <geogram/basic/command_line.h>
 #include <geogram/basic/logger.h>

@@ -41,7 +41,6 @@
 #include <geogram/voronoi/RVD_mesh_builder.h>
 #include <geogram/voronoi/generic_RVD_cell.h>
 #include <geogram/mesh/mesh_geometry.h>
-#include <geogram/mesh/mesh_io.h>
 #include <geogram/basic/argused.h>
 
 namespace {

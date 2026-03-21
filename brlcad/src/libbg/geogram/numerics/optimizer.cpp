@@ -38,7 +38,6 @@
  */
 
 #include <geogram/numerics/optimizer.h>
-#include <geogram/numerics/lbfgs_optimizers.h>
 #include <geogram/basic/logger.h>
 
 namespace GEO {
