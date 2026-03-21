@@ -77,47 +77,7 @@ namespace {
 
 namespace GEO {
 
-    void expand_border(Mesh& M, double epsilon) {
-        if(epsilon == 0.0) {
-            return;
-        }
-        vector<vec3> border_normal;
-        border_normal.assign(M.vertices.nb(), vec3(0.0, 0.0, 0.0));
-        for(index_t f: M.facets) {
-            vec3 N = Geom::mesh_facet_normal(M, f);
-            for(index_t c1: M.facets.corners(f)) {
-                if(M.facet_corners.adjacent_facet(c1) == NO_FACET) {
-                    index_t c2 = M.facets.next_corner_around_facet(f, c1);
-                    index_t v1 = M.facet_corners.vertex(c1);
-                    index_t v2 = M.facet_corners.vertex(c2);
-                    const vec3& p1 = M.vertices.point(v1);
-                    const vec3& p2 = M.vertices.point(v2);
-                    vec3 Ne = cross(p2 - p1, N);
-                    border_normal[v1] += Ne;
-                    border_normal[v2] += Ne;
-                }
-            }
-        }
-        for(index_t v: M.vertices) {
-            double s = length(border_normal[v]);
-            if(s > 0.0) {
-		M.vertices.point(v) +=
-                    epsilon * (1.0 / s) * border_normal[v];
-            }
-        }
-    }
 
-    // == connected components and small facets ================================
-
-    void remove_small_facets(Mesh& M, double min_facet_area) {
-        vector<index_t> remove_f(M.facets.nb(), 0);
-        for(index_t f: M.facets) {
-            if(Geom::mesh_facet_area(M, f, 3) < min_facet_area) {
-                remove_f[f] = 1;
-            }
-        }
-        M.facets.delete_elements(remove_f);
-    }
 
     void remove_small_connected_components(
         Mesh& M, double min_area, index_t min_facets
@@ -182,11 +142,6 @@ namespace GEO {
         }
     }
 
-    void invert_normals(Mesh& M) {
-        for(index_t f: M.facets) {
-            M.facets.flip(f);
-        }
-    }
 
     /************************************************************************/
 
