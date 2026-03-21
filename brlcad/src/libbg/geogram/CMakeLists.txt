@@ -39,11 +39,9 @@ set(GEOGRAM_SRCS
     # delaunay (needed for CVT remeshing and LFS)
     delaunay/LFS.cpp
     delaunay/delaunay.cpp
-    delaunay/delaunay_2d.cpp
     delaunay/delaunay_3d.cpp
     delaunay/delaunay_nn.cpp
     delaunay/parallel_delaunay_3d.cpp
-    delaunay/periodic.cpp
     # mesh
     mesh/mesh.cpp
     mesh/mesh_AABB.cpp
