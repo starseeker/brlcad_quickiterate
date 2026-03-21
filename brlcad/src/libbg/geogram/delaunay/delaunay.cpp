@@ -39,8 +39,6 @@
 
 #include <geogram/delaunay/delaunay.h>
 #include <geogram/delaunay/delaunay_nn.h>
-#include <geogram/delaunay/delaunay_3d.h>
-#include <geogram/delaunay/delaunay_2d.h>
 
 #ifdef GEOGRAM_WITH_PDEL
 #include <geogram/delaunay/parallel_delaunay_3d.h>
@@ -134,15 +132,11 @@ namespace GEO {
         geo_register_Delaunay_creator(DelaunayTriangle, "triangle");
 #endif
 
-        geo_register_Delaunay_creator(Delaunay3d, "BDEL");
 
 #ifdef GEOGRAM_WITH_PDEL
         geo_register_Delaunay_creator(ParallelDelaunay3d, "PDEL");
 #endif
-        geo_register_Delaunay_creator(RegularWeightedDelaunay3d, "BPOW");
 
-        geo_register_Delaunay_creator(Delaunay2d, "BDEL2d");
-        geo_register_Delaunay_creator(RegularWeightedDelaunay2d, "BPOW2d");
 
 #ifndef GEOGRAM_PSM
         geo_register_Delaunay_creator(Delaunay_NearestNeighbors, "NN");
