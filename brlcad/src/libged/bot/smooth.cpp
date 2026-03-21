@@ -116,9 +116,8 @@ smooth_usage(struct bu_vls *str, const char *cmd, struct bu_opt_desc *d) {
     }
 
     bu_vls_printf(str, "Available continuity options are:\n");
-    bu_vls_printf(str, "    0 (C0: shape is continuous, but not the tangent - default)\n");
-    bu_vls_printf(str, "    1 (C1: shape and tangent are continuous)\n");
-    bu_vls_printf(str, "    2 (C2: preserve curvature)\n\n");
+    bu_vls_printf(str, "    0 (C0: shape is continuous, but not the tangent)\n");
+    bu_vls_printf(str, "    1 (C1: shape and tangent are continuous - default)\n\n");
 
     bu_vls_printf(str, "Available component direction options are:\n");
     bu_vls_printf(str, "    0 (smooth in tangential direction - default)\n");
@@ -140,7 +139,7 @@ _bot_cmd_smooth(void* bs, int argc, const char** argv)
     }
 
     int print_help = 0;
-    int continuity = 2;
+    int continuity = 1;
     int direction = 0;
     double max_lerror = 0;
     double max_aerror = 0;
@@ -148,7 +147,7 @@ _bot_cmd_smooth(void* bs, int argc, const char** argv)
 
     struct bu_opt_desc d[7];
     BU_OPT(d[0], "h", "help",              "",         NULL,      &print_help, "Print help");
-    BU_OPT(d[1], "c", "continuity",       "#",  &bu_opt_int,      &continuity, "C0 (0), C1 (1) or C2 (2) continuity");
+    BU_OPT(d[1], "c", "continuity",       "#",  &bu_opt_int,      &continuity, "C0 (0) or C1 (1) continuity (default C1)");
     BU_OPT(d[2], "d", "direction",        "#",  &bu_opt_int,      &direction,  "Tangential (0), Normal (1) or both (2)");
     BU_OPT(d[3], "e", "max-local-error",  "#",  &bu_opt_fastf_t,  &max_lerror, "Maximum local error");
     BU_OPT(d[4], "E", "max-abs-error",    "#",  &bu_opt_fastf_t,  &max_aerror, "Maximum absolute error");
