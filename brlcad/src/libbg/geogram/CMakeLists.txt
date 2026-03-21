@@ -30,8 +30,6 @@ set(GEOGRAM_SRCS
     numerics/multi_precision.cpp
     numerics/optimizer.cpp
     numerics/predicates.cpp
-    # bibliography
-    bibliography/bibliography.cpp
     # delaunay (needed for CVT remeshing and LFS)
     delaunay/delaunay.cpp
     delaunay/delaunay_nn.cpp

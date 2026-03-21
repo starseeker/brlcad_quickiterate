@@ -81,14 +81,6 @@
 
 #endif
 
-#ifndef geo_cite
-#define geo_cite(x)
-#endif
-
-#ifndef geo_cite_with_info
-#define geo_cite_with_info(x,y)
-#endif
-
 #ifndef GEOGRAM_BASIC_LOGGER
 
 namespace GEO {

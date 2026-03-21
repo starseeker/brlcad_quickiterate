@@ -46,7 +46,6 @@
 #include <geogram/basic/process.h>
 #include <geogram/basic/logger.h>
 #include <geogram/basic/algorithm.h>
-#include <geogram/bibliography/bibliography.h>
 
 namespace {
 
@@ -776,12 +775,6 @@ namespace {
             M_(M)
             {
                 geo_debug_assert(e >= b);
-                geo_cite_with_info(
-                    "WEB:SpatialSorting",
-                    "The implementation of spatial sort is inspired by "
-                    "the use of \\verb|std::nth_element()| and the recursive"
-                    " template in the spatial sort package of CGAL"
-                );
 
                 // If the sequence is smaller than the limit, skip it
                 if(index_t(e - b) <= limit) {
@@ -930,12 +923,6 @@ namespace {
             M_(M)
             {
                 geo_debug_assert(e > b);
-                geo_cite_with_info(
-                    "WEB:SpatialSorting",
-                    "The implementation of spatial sort is inspired by "
-                    "the use of \\verb|std::nth_element()| and the recursive"
-                    " template in the spatial sort package of CGAL"
-                );
 
                 // If the sequence is smaller than the limit, skip it
                 if(index_t(e - b) <= limit) {
