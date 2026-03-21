@@ -63,8 +63,6 @@ namespace {
     /**
      * \brief Imports the pre-processing option group
      */
-    void import_arg_group_pre() {
-    }
 
     /**
      * \brief Imports the remeshing option group
@@ -117,14 +115,10 @@ namespace {
     /**
      * \brief Imports the post-processing option group
      */
-    void import_arg_group_post() {
-    }
 
     /**
      * \brief Imports the optimizer option group
      */
-    void import_arg_group_opt() {
-    }
 
     /**
      * \brief Imports the system option group
@@ -156,44 +150,30 @@ namespace {
     /**
      * \brief Imports the reconstruction option group
      */
-    void import_arg_group_co3ne() {
-    }
 
     /**
      * \brief Import the statistics option group
      */
-    void import_arg_group_stat() {
-    }
 
     /**
      * \brief Imports the polyhedral meshing option group
      */
-    void import_arg_group_poly() {
-    }
 
     /**
      * \brief Imports the hex-dominant meshing option group
      */
-    void import_arg_group_hex() {
-    }
 
     /**
      * \brief Imports the quad-dominant meshing option group
      */
-    void import_arg_group_quad() {
-    }
 
     /**
      * \brief Imports the tetrahedral meshing option group
      */
-    void import_arg_group_tet() {
-    }
 
     /**
      * \brief Imports the graphics option group
      */
-    void import_arg_group_gfx() {
-    }
 
     /**
      * \brief Imports the biblio option group
@@ -204,103 +184,48 @@ namespace {
     /**
      * \brief Imports the gui option group.
      */
-    void import_arg_group_gui() {
-    }
 
     /************************************************************************/
 
     /**
      * \brief Sets the CAD profile
      */
-    void set_profile_cad() {
-        set_arg("pre:repair", true);
-        set_arg_percent("pre:margin", 0.05);
-        set_arg("post:repair", true);
-        set_arg("remesh:sharp_edges", true);
-        set_arg("remesh:RVC_centroids", false);
-    }
 
     /**
      * \brief Sets the scanner profile
      */
-    void set_profile_scan() {
-        set_arg("pre:Nsmooth_iter", 3);
-        set_arg("pre:repair", true);
-        set_arg_percent("pre:max_hole_area", 10);
-        set_arg("remesh:anisotropy", 1.0);
-        set_arg_percent("pre:min_comp_area", 3);
-        set_arg_percent("post:min_comp_area", 3);
-    }
 
     /**
      * \brief Sets the conversion profile
      */
-    void set_profile_convert() {
-        set_arg("pre", false);
-        set_arg("post", false);
-        set_arg("remesh", false);
-    }
 
     /**
      * \brief Sets the repair profile
      */
-    void set_profile_repair() {
-        set_arg("pre", true);
-        set_arg("pre:repair", true);
-        set_arg("pre:intersect", true);
-        set_arg("pre:intersect_remove_internal_shells",true);
-        set_arg("post", false);
-        set_arg("remesh", false);
-    }
 
     /**
      * \brief Sets the heal profile
      */
-    void set_profile_heal() {
-        set_arg("remesh", true);
-        set_arg("remesh:multi_nerve", false);
-        set_arg("post", true);
-        set_arg_percent("post:max_hole_area", 10);
-        set_arg_percent("post:min_comp_area", 3);
-    }
 
     /**
      * \brief Sets the reconstruction profile
      */
-    void set_profile_reconstruct() {
-        set_arg("pre", false);
-        set_arg("post", false);
-        set_arg("remesh", false);
-        set_arg("co3ne", true);
-    }
 
     /**
      * \brief Sets the hex-dominant meshing profile
      */
-    void set_profile_hex() {
-        set_arg("hex", true);
-    }
 
     /**
      * \brief Sets the quad-dominant meshing profile
      */
-    void set_profile_quad() {
-        set_arg("quad", true);
-    }
 
     /**
      * \brief Sets the tetrahedral meshing profile
      */
-    void set_profile_tet() {
-        set_arg("tet", true);
-    }
 
     /**
      * \brief Sets the polyhedral meshing profile
      */
-    void set_profile_poly() {
-        set_arg("poly", true);
-    }
 }
 
 namespace GEO {
@@ -330,69 +255,14 @@ namespace GEO {
                 import_arg_group_sys();
             } else if(name == "log") {
                 import_arg_group_log();
-            } else if(name == "pre") {
-                import_arg_group_pre();
             } else if(name == "remesh") {
                 import_arg_group_remesh();
             } else if(name == "algo") {
                 import_arg_group_algo();
-            } else if(name == "post") {
-                import_arg_group_post();
-            } else if(name == "opt") {
-                import_arg_group_opt();
-            } else if(name == "co3ne") {
-                import_arg_group_co3ne();
-            } else if(name == "stat") {
-                import_arg_group_stat();
-            } else if(name == "quad") {
-                import_arg_group_quad();
-            } else if(name == "hex") {
-                import_arg_group_hex();
-            } else if(name == "tet") {
-                import_arg_group_tet();
-            } else if(name == "poly") {
-                import_arg_group_poly();
-            } else if(name == "gfx") {
-                import_arg_group_gfx();
-            } else if(name == "gui") {
-                import_arg_group_gui();
             } else {
                 Logger::instance()->set_quiet(false);
                 Logger::err("CmdLine")
                     << "No such option group: " << name
-                    << std::endl;
-                return false;
-            }
-            return true;
-        }
-
-        bool set_profile(
-            const std::string& name
-        ) {
-            if(name == "cad") {
-                set_profile_cad();
-            } else if(name == "scan") {
-                set_profile_scan();
-            } else if(name == "convert") {
-                set_profile_convert();
-            } else if(name == "repair") {
-                set_profile_repair();
-            } else if(name == "heal") {
-                set_profile_heal();
-            } else if(name == "reconstruct") {
-                set_profile_reconstruct();
-            } else if(name == "tet") {
-                set_profile_tet();
-            } else if(name == "quad") {
-                set_profile_quad();
-            } else if(name == "hex") {
-                set_profile_hex();
-            } else if(name == "poly") {
-                set_profile_poly();
-            } else {
-                Logger::instance()->set_quiet(false);
-                Logger::err("CmdLine")
-                    << "No such profile: " << name
                     << std::endl;
                 return false;
             }
