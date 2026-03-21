@@ -165,66 +165,6 @@ namespace GEO {
         vector<index_t>* levels = nullptr
     );
 
-    /**
-     * \brief Spatially sort a set of vertices in periodic space.
-     * \param[in] nb_vertices total number of vertices, including the
-     *  virtual periodic copies. This is 27 times the number of stored vertices.
-     * \param[in] vertices pointer to the coordinates of the vertices
-     * \param[in,out] sorted_indices a vector of vertex indices, sorted
-     * \param[in] dimension number of vertices coordinates. Only 3 is supported.
-     * \param[in] stride number of doubles between two consecutive vertices
-     *  spatially on exit
-     * \param[in] first index of the first element in \p sorted_indices
-     *  to be sorted
-     * \param[in] last one position past the index of the last element
-     *  in \p sorted_indices to be sorted
-     * \param[in] period the translation vector to be applied in periodic mode
-     */
-    void GEOGRAM_API Hilbert_sort_periodic(
-        index_t nb_vertices, const double* vertices,
-        vector<index_t>& sorted_indices,
-        index_t dimension,
-        index_t stride,
-        vector<index_t>::iterator first,
-        vector<index_t>::iterator last,
-        const vec3& period
-    );
-
-    /**
-     * \brief Spatially sort a set of vertices in periodic space.
-     * \param[in] nb_vertices total number of vertices, including the
-     *  virtual periodic copies. This is 27 times the number of stored vertices.
-     * \param[in] vertices pointer to the coordinates of the vertices
-     * \param[in,out] sorted_indices a vector of vertex indices, sorted
-     * \param[in] dimension number of vertices coordinates. Only 3 is supported.
-     * \param[in] stride number of doubles between two consecutive vertices
-     *  spatially on exit
-     * \param[in] first index of the first element in \p sorted_indices
-     *  to be sorted
-     * \param[in] last one position past the index of the last element
-     *  in \p sorted_indices to be sorted
-     * \param[in] period the translation to be applied in periodic mode,
-     *  translation vector is [ period , period , period ]
-     */
-    inline void Hilbert_sort_periodic(
-        index_t nb_vertices, const double* vertices,
-        vector<index_t>& sorted_indices,
-        index_t dimension,
-        index_t stride,
-        vector<index_t>::iterator first,
-        vector<index_t>::iterator last,
-        double period = 1.0
-    ) {
-        Hilbert_sort_periodic(
-            nb_vertices, vertices,
-            sorted_indices,
-            dimension,
-            stride,
-            first,
-            last,
-            vec3(period, period, period)
-        );
-    }
 }
 
 #endif
