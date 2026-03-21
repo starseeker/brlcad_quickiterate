@@ -988,12 +988,6 @@ namespace {
 
 namespace GEO {
 
-    void mesh_connect_and_reorient_facets_no_check(
-        Mesh& M
-    ) {
-        repair_connect_facets(M);
-        repair_reorient_facets_anti_moebius(M);
-    }
 
     void mesh_repair(
         Mesh& M, MeshRepairMode mode, double colocate_epsilon
@@ -1102,51 +1096,9 @@ namespace GEO {
         }
     }
 
-    void mesh_reorient(Mesh& M, vector<index_t>* moebius_facets) {
-        repair_reorient_facets_anti_moebius(M, moebius_facets);
-    }
 
-    void mesh_detect_colocated_vertices(
-        const Mesh& M, vector<index_t>& v_colocated_index,
-        double colocate_epsilon
-    ) {
-        Geom::colocate(
-            M.vertices.point_ptr(0),
-            coord_index_t(M.vertices.dimension()),
-            M.vertices.nb(),
-            v_colocated_index,
-            colocate_epsilon
-        );
-    }
 
-    void mesh_detect_isolated_vertices(
-        const Mesh& M, vector<index_t>& v_is_isolated
-    ) {
-        v_is_isolated.assign(M.vertices.nb(),1);
-        for(index_t e: M.edges) {
-            v_is_isolated[M.edges.vertex(e,0)] = 0;
-            v_is_isolated[M.edges.vertex(e,1)] = 0;
-        }
-        for(index_t f: M.facets) {
-            for(index_t lv=0; lv<M.facets.nb_vertices(f); ++lv) {
-                v_is_isolated[M.facets.vertex(f,lv)] = 0;
-            }
-        }
-        for(index_t c: M.cells) {
-            for(index_t lv=0; lv<M.cells.nb_vertices(c); ++lv) {
-                v_is_isolated[M.cells.vertex(c,lv)] = 0;
-            }
-        }
-    }
 
-    void mesh_detect_degenerate_facets(
-        const Mesh& M, vector<index_t>& f_is_degenerate
-    ) {
-        f_is_degenerate.resize(M.facets.nb());
-        for(index_t f: M.facets) {
-            f_is_degenerate[f] = facet_is_degenerate(M,f);
-        }
-    }
 
     void mesh_colocate_vertices_no_check(
         Mesh& M, double colocate_epsilon, bool verbose
