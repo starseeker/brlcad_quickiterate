@@ -141,15 +141,6 @@ namespace GEO {
 
     namespace Geom {
 
-        vec2 triangle_circumcenter(
-            const vec2& q1, const vec2& q2, const vec2& q3
-        ) {
-            vec2 p1, p2;
-            vec2 v1, v2;
-            perp(q1, q2, p1, v1);
-            perp(q1, q3, p2, v2);
-            return segments_intersection_pv(p1, v1, p2, v2);
-        }
 
         vec3 perpendicular(const vec3& V) {
             int min_index = 0;
@@ -176,52 +167,6 @@ namespace GEO {
                 break;
             }
             return result;
-        }
-
-        vec3 tetra_circum_center(
-            const vec3& p, const vec3& q,
-            const vec3& r, const vec3& s
-        ) {
-            vec3 qp = q - p;
-            double qp2 = length2(qp);
-            vec3 rp = r - p;
-            double rp2 = length2(rp);
-            vec3 sp = s - p;
-            double sp2 = length2(sp);
-
-            double num_x = det3x3(
-                qp.y, qp.z, qp2,
-                rp.y, rp.z, rp2,
-                sp.y, sp.z, sp2
-            );
-
-            double num_y = det3x3(
-                qp.x, qp.z, qp2,
-                rp.x, rp.z, rp2,
-                sp.x, sp.z, sp2
-            );
-
-            double num_z = det3x3(
-                qp.x, qp.y, qp2,
-                rp.x, rp.y, rp2,
-                sp.x, sp.y, sp2
-            );
-
-            double den = det3x3(
-                qp.x, qp.y, qp.z,
-                rp.x, rp.y, rp.z,
-                sp.x, sp.y, sp.z
-            );
-
-            geo_assert(::fabs(den) > 1e-30);
-
-            den *= 2.0;
-
-            return vec3(
-                p.x + num_x / den,
-                p.y - num_y / den,
-                p.z + num_z / den
-            );
         }
     }
 }
