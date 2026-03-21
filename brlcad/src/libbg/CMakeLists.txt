@@ -1,3 +1,5 @@
+add_subdirectory(geogram)
+
 find_package_eigen(REQUIRED)
 find_package_gte(REQUIRED)
 find_package_spsr(REQUIRED)
