@@ -93,6 +93,13 @@ namespace GEO {
  * \brief Cites a reference.
  * \param [in] ref a string with the bibtex key of the reference.
  */
+#ifdef BRLCAD_GEOGRAM_EMBED
+// Bibliography is disabled in the embedded BRL-CAD build; Biblio::initialize()
+// is never called so bib_refs_ is always empty.  Make the macros true no-ops
+// at compile time rather than emitting dead function calls.
+#define geo_cite(ref)
+#define geo_cite_with_info(ref, info)
+#else
 #ifdef GEO_COMPILER_GCC
 #define geo_cite(ref) ::GEO::Biblio::cite(              \
         ref, __FILE__, __LINE__, __PRETTY_FUNCTION__    \
@@ -116,6 +123,7 @@ namespace GEO {
         ref, __FILE__, __LINE__, __FUNCTION__, info             \
     )
 #endif
+#endif /* BRLCAD_GEOGRAM_EMBED */
 
 
 
