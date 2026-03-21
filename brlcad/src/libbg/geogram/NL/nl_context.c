@@ -40,11 +40,7 @@
 #include "nl_context.h"
 #include "nl_iterative_solvers.h"
 #include "nl_preconditioners.h"
-#include "nl_superlu.h"
-#include "nl_cholmod.h"
 #include "nl_matrix.h"
-#include "nl_mkl.h"
-#include "nl_cuda.h"
 
 #ifdef NL_WITH_AMGCL
 # include "nl_amgcl.h"
@@ -148,38 +144,6 @@ static void nlSetupPreconditioner(void) {
         nlWarning("nlSolve", "Preconditioner not implemented yet for GMRES");
         nlCurrentContext->preconditioner = NL_PRECOND_NONE;
     }
-    if(
-        nlCurrentContext->solver == NL_SUPERLU_EXT &&
-        nlCurrentContext->preconditioner != NL_PRECOND_NONE
-    ) {
-        nlWarning("nlSolve", "Preconditioner not implemented yet for SUPERLU");
-        nlCurrentContext->preconditioner = NL_PRECOND_NONE;
-    }
-    if(
-        nlCurrentContext->solver == NL_CHOLMOD_EXT &&
-        nlCurrentContext->preconditioner != NL_PRECOND_NONE
-    ) {
-        nlWarning("nlSolve", "Preconditioner not implemented yet for CHOLMOD");
-        nlCurrentContext->preconditioner = NL_PRECOND_NONE;
-    }
-    if(
-        nlCurrentContext->solver == NL_PERM_SUPERLU_EXT &&
-        nlCurrentContext->preconditioner != NL_PRECOND_NONE
-    ) {
-        nlWarning(
-            "nlSolve", "Preconditioner not implemented yet for PERMSUPERLU"
-        );
-        nlCurrentContext->preconditioner = NL_PRECOND_NONE;
-    }
-    if(
-        nlCurrentContext->solver == NL_SYMMETRIC_SUPERLU_EXT &&
-        nlCurrentContext->preconditioner != NL_PRECOND_NONE
-    ) {
-        nlWarning(
-            "nlSolve", "Preconditioner not implemented yet for PERMSUPERLU"
-        );
-        nlCurrentContext->preconditioner = NL_PRECOND_NONE;
-    }
 
     nlDeleteMatrix(nlCurrentContext->P);
     nlCurrentContext->P = NULL;
@@ -236,7 +200,6 @@ static NLboolean nlSolveDirect(void) {
 }
 
 static NLboolean nlSolveIterative(void) {
-    NLboolean use_CUDA = NL_FALSE;
     NLdouble* b = nlCurrentContext->b;
     NLdouble* x = nlCurrentContext->x;
     NLuint n = nlCurrentContext->n;
@@ -245,31 +208,6 @@ static NLboolean nlSolveIterative(void) {
     NLMatrix M = nlCurrentContext->M;
     NLMatrix P = nlCurrentContext->P;
 
-    /*
-     * For CUDA: it is implemented for
-     *   all iterative solvers except GMRES
-     *   Jacobi preconditioner
-     */
-    if(nlExtensionIsInitialized_CUDA() &&
-       (nlCurrentContext->solver != NL_GMRES) &&
-       (nlCurrentContext->preconditioner == NL_PRECOND_NONE ||
-        nlCurrentContext->preconditioner == NL_PRECOND_JACOBI)
-      ) {
-        if(nlCurrentContext->verbose) {
-            nl_printf("Using CUDA\n");
-        }
-        use_CUDA = NL_TRUE;
-        blas = nlCUDABlas();
-        if(nlCurrentContext->preconditioner == NL_PRECOND_JACOBI) {
-            P = nlCUDAJacobiPreconditionerNewFromCRSMatrix(M);
-        }
-        M = nlCUDAMatrixNewFromCRSMatrix(M);
-    }
-
-    /*
-     * We do not count CUDA transfers and CUDA matrix construction
-     * when estimating GFlops
-     */
     nlCurrentContext->start_time = nlCurrentTime();
     nlBlasResetStats(blas);
 
@@ -300,11 +238,6 @@ static NLboolean nlSolveIterative(void) {
 
     nlCurrentContext->flops += blas->flops;
 
-    if(use_CUDA) {
-        nlDeleteMatrix(M);
-        nlDeleteMatrix(P);
-    }
-
     return NL_TRUE;
 }
 
@@ -316,13 +249,6 @@ NLboolean nlDefaultSolver(void) {
     case NL_BICGSTAB:
     case NL_GMRES: {
         result = nlSolveIterative();
-    } break;
-
-    case NL_SUPERLU_EXT:
-    case NL_PERM_SUPERLU_EXT:
-    case NL_SYMMETRIC_SUPERLU_EXT:
-    case NL_CHOLMOD_EXT: {
-        result = nlSolveDirect();
     } break;
 
     case NL_AMGCL_EXT: {
