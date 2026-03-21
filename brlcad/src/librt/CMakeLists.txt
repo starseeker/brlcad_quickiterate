@@ -4,7 +4,7 @@ brlcad_find_package(manifold REQUIRED)
 brlcad_find_package(mmesh REQUIRED)
 brlcad_find_package(OPENNURBS REQUIRED SYSPATTERN openNURBS)
 brlcad_find_package(REGEX REQUIRED)
-brlcad_find_package(Geogram REQUIRED SYSPATTERN geogram)
+brlcad_find_package(Geogram SYSPATTERN geogram)
 find_package_gte(REQUIRED)
 add_definitions(-DUSE_GEOGRAM)
 
@@ -412,6 +412,7 @@ set(
   ${librt_deps}
   ${OPENNURBS_LIBRARIES}
   ${Geogram_LIBRARY}
+  geogram_brlcad
   mmesh::mmesh
   ${REGEX_LIBRARIES}
   ${WINSOCK_LIB}
