@@ -1109,49 +1109,6 @@ namespace {
      * \param[in,out] depth iteration depth
      * \param[out] levels if non-null, bounds of each level
      */
-    void compute_BRIO_order_recursive(
-        index_t nb_vertices, const double* vertices,
-        index_t dimension, index_t stride,
-        vector<index_t>& sorted_indices,
-        vector<index_t>::iterator b,
-        vector<index_t>::iterator e,
-        index_t threshold,
-        double ratio,
-        index_t& depth,
-        vector<index_t>* levels
-    ) {
-        geo_debug_assert(e > b);
-
-        vector<index_t>::iterator m = b;
-        if(index_t(e - b) > threshold) {
-            ++depth;
-            m = b + signed_index_t(double(e - b) * ratio);
-            compute_BRIO_order_recursive(
-                nb_vertices, vertices,
-                dimension, stride,
-                sorted_indices, b, m,
-                threshold, ratio, depth,
-                levels
-            );
-        }
-
-        VertexMesh M(nb_vertices, vertices, stride);
-        if(dimension == 3) {
-            HilbertSort3d<Hilbert_vcmp, VertexMesh>(
-                M, m, e
-            );
-        } else if(dimension ==2) {
-            HilbertSort2d<Hilbert_vcmp, VertexMesh>(
-                M, m, e
-            );
-        } else {
-            geo_assert_not_reached;
-        }
-
-        if(levels != nullptr) {
-            levels->push_back(index_t(e - sorted_indices.begin()));
-        }
-    }
 }
 
 /****************************************************************************/
@@ -1256,62 +1213,6 @@ namespace GEO {
 #endif
 
 
-    void compute_Hilbert_order(
-        index_t total_nb_vertices, const double* vertices,
-        vector<index_t>& sorted_indices,
-        index_t first,
-        index_t last,
-        index_t dimension, index_t stride
-    ) {
-        geo_debug_assert(last > first);
-        if(last - first <= 1) {
-            return;
-        }
-        VertexMesh M(total_nb_vertices, vertices, stride);
-        if(dimension == 3) {
-            HilbertSort3d<Hilbert_vcmp, VertexMesh>(
-                M, sorted_indices.begin() + int(first),
-                sorted_indices.begin() + int(last)
-            );
-        } else if(dimension == 2) {
-            HilbertSort2d<Hilbert_vcmp, VertexMesh>(
-                M, sorted_indices.begin() + int(first),
-                sorted_indices.begin() + int(last)
-            );
-        } else {
-            geo_assert_not_reached;
-        }
-    }
-
-    void compute_BRIO_order(
-        index_t nb_vertices, const double* vertices,
-        vector<index_t>& sorted_indices,
-        index_t dimension,
-        index_t stride,
-        index_t threshold,
-        double ratio,
-        vector<index_t>* levels
-    ) {
-        if(levels != nullptr) {
-            levels->clear();
-            levels->push_back(0);
-        }
-        index_t depth = 0;
-        sorted_indices.resize(nb_vertices);
-        for(index_t i = 0; i < nb_vertices; ++i) {
-            sorted_indices[i] = i;
-        }
-
-	GEO::random_shuffle(sorted_indices.begin(), sorted_indices.end());
-
-        compute_BRIO_order_recursive(
-            nb_vertices, vertices,
-            dimension, stride,
-            sorted_indices,
-            sorted_indices.begin(), sorted_indices.end(),
-            threshold, ratio, depth, levels
-        );
-    }
 }
 
 

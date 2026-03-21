@@ -723,27 +723,4 @@ namespace GEO {
         }
     }
 
-    void tessellate_facets(
-        Mesh& M, index_t max_nb_vertices
-    ) {
-        MeshHalfedges MH(M);
-        vector<index_t> delete_f(M.facets.nb(),0);
-        for(index_t f: M.facets) {
-            if(M.facets.nb_vertices(f) > max_nb_vertices) {
-                delete_f[f] = 1;
-                Hole h;
-                for(index_t c: M.facets.corners(f)) {
-                    h.push_back(MeshHalfedges::Halfedge(f,c));
-                }
-                tessellate_hole(MH, h, max_nb_vertices, f);
-            }
-        }
-        delete_f.resize(M.facets.nb());
-        M.facets.delete_elements(delete_f);
-        M.facets.connect();
-        if(max_nb_vertices == 3) {
-            M.facets.is_simplicial();
-        }
-    }
-
 }
