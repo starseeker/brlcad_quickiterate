@@ -38,40 +38,9 @@
  */
 
 #include <geogram/mesh/mesh_geometry.h>
-#include <geogram/delaunay/LFS.h>
-#include <geogram/voronoi/CVT.h>
 #include <geogram/basic/attributes.h>
 #include <geogram/basic/geometry.h>
 #include <geogram/basic/logger.h>
-
-namespace {
-
-    using namespace GEO;
-
-    /**
-     * \brief Computes a sizing field using local feature size
-     * \details The sizing field is stored into the vertex weights
-     *  of the mesh
-     * \param[in] M the mesh
-     * \param[in] LFS the local feature size
-     * \param[in] gradation power to be applied to the sizing field
-     */
-    void compute_sizing_field_lfs(
-        Mesh& M, const LocalFeatureSize& LFS, double gradation
-    ) {
-        // Avoid LFS points that are too close to the surface
-        double min_distance2 = 0.1*surface_average_edge_length(M);
-        min_distance2 = min_distance2 * min_distance2;
-
-        Attribute<double> weight(M.vertices.attributes(),"weight");
-        for(index_t v: M.vertices) {
-            double lfs2 = LFS.squared_lfs(M.vertices.point_ptr(v));
-            lfs2 = std::max(lfs2, min_distance2);
-            double w = pow(lfs2, -2.0 * gradation);
-            weight[v] = w;
-        }
-    }
-}
 
 /****************************************************************************/
 
@@ -257,39 +226,6 @@ namespace GEO {
             Geom::mesh_vertex_normal_ref(M, i) = normalize(
                 Geom::mesh_vertex_normal(M, i)
             );
-        }
-    }
-
-    void compute_sizing_field(
-        Mesh& M, double gradation, index_t nb_lfs_samples
-    ) {
-        if(nb_lfs_samples != 0) {
-            Logger::out("LFS") << "Sampling surface" << std::endl;
-            CentroidalVoronoiTesselation CVT(&M, 3);
-            CVT.compute_initial_sampling(nb_lfs_samples);
-            Logger::out("LFS") << "Optimizing sampling (Lloyd)" << std::endl;
-            CVT.Lloyd_iterations(5);
-            Logger::out("LFS") << "Optimizing sampling (Newton)" << std::endl;
-            CVT.Newton_iterations(10);
-            Logger::out("LFS") << "Computing medial axis" << std::endl;
-            LocalFeatureSize LFS(CVT.nb_points(), CVT.embedding(0));
-            Logger::out("LFS") << "Computing sizing field" << std::endl;
-            compute_sizing_field_lfs(M, LFS, gradation);
-        } else {
-            if(M.vertices.dimension() == 3) {
-                LocalFeatureSize LFS(M.vertices.nb(), M.vertices.point_ptr(0));
-                compute_sizing_field_lfs(M, LFS, gradation);
-            } else {
-                std::vector<double> pts;
-                pts.reserve(M.vertices.nb() * 3);
-                for(index_t v: M.vertices) {
-                    pts.push_back(M.vertices.point_ptr(v)[0]);
-                    pts.push_back(M.vertices.point_ptr(v)[1]);
-                    pts.push_back(M.vertices.point_ptr(v)[2]);
-                }
-                LocalFeatureSize LFS(M.vertices.nb(), pts.data());
-                compute_sizing_field_lfs(M, LFS, gradation);
-            }
         }
     }
 
