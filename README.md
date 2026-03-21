@@ -1,6 +1,7 @@
 BRL-CAD historically used OpenMesh for a number of subdivison
 and smoothing algorithms. We would like to eliminate OpenMesh as a dependency,
 so we are translating the algorithms we need in src/libbg/GTE from OpenMesh.
+Openmesh sources are in the openmesh/ toplevel directory.
 
 Success is defined as removing OpenMesh as a dependency without
 loss of functionality in BRL-CAD's features currently relying on it.  We have
