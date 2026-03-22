@@ -146,9 +146,6 @@ namespace GEO {
  * \def GEO_ARCH_64
  * \brief This macro is set if the current system is a 64 bits architecture.
  *
- * \def GEO_OPENMP
- * \brief This macro is set if OpenMP is supported on the current system.
- *
  * \def GEO_COMPILER_GCC
  * \brief This macro is set if the source code is compiled with GNU's gcc.
  *
@@ -210,9 +207,7 @@ namespace GEO {
 #define GEO_OS_LINUX
 #define GEO_OS_UNIX
 
-#ifndef GEO_OS_ANDROID
 #define GEO_OS_X11
-#endif
 
 
 #if defined(__INTEL_COMPILER)

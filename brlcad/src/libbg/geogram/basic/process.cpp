@@ -47,9 +47,6 @@
 #include <thread>
 #include <chrono>
 
-#ifdef GEO_OPENMP
-#include <omp.h>
-#endif
 
 #ifdef GEO_TBB
 #include <tbb/parallel_for.h>
@@ -188,50 +185,6 @@ namespace {
 
     /************************************************************************/
 
-#ifdef GEO_OPENMP
-
-    /**
-     * \brief OpenMP Thread Manager
-     * \details
-     * OMPThreadManager is an implementation of ThreadManager that uses OpenMP
-     * for running concurrent threads and control critical sections.
-     */
-    class GEOGRAM_API OMPThreadManager : public ThreadManager {
-    public:
-        /**
-         * \brief Creates and initializes the OpenMP ThreadManager
-         */
-        OMPThreadManager() {
-        }
-
-        /** \copydoc GEO::ThreadManager::maximum_concurrent_threads() */
-        virtual index_t maximum_concurrent_threads() {
-            return Process::number_of_cores();
-        }
-
-    protected:
-        /** \brief OMPThreadManager destructor */
-        virtual ~OMPThreadManager() {
-        }
-
-        /** \copydoc GEO::ThreadManager::run_concurrent_threads() */
-        virtual void run_concurrent_threads(
-            ThreadGroup& threads, index_t max_threads
-        ) {
-            // TODO: take max_threads_ into account
-            geo_argused(max_threads);
-
-#pragma omp parallel for schedule(dynamic)
-            for(int i = 0; i < int(threads.size()); i++) {
-                index_t ii = index_t(i);
-                set_thread_id(threads[ii],ii);
-                set_current_thread(threads[ii]);
-                threads[ii]->run();
-            }
-        }
-    };
-
-#endif
 
 #ifdef GEO_TBB
 
@@ -353,12 +306,7 @@ namespace GEO {
             env->add_environment(new ProcessEnvironment);
 
             if(!os_init_threads()) {
-#ifdef GEO_OPENMP
-                Logger::out("Process")
-                    << "Using OpenMP threads"
-                    << std::endl;
-                set_thread_manager(new OMPThreadManager);
-#elif defined(GEO_TBB)
+#if   defined(GEO_TBB)
                 Logger::out("Process")
                     << "Using TBB threads"
                     << std::endl;
@@ -475,14 +423,7 @@ namespace GEO {
         }
 
         bool is_running_threads() {
-#ifdef GEO_OPENMP
-            return (
-                omp_in_parallel() ||
-                (running_threads_invocations_ > 0)
-            );
-#else
             return running_threads_invocations_ > 0;
-#endif
         }
 
         bool multithreading_enabled() {

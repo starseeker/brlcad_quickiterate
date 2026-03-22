@@ -74,10 +74,6 @@
 #endif
 #endif
 
-#ifdef GEO_OS_EMSCRIPTEN
-#include <emscripten.h>
-#include <emscripten/threading.h>
-#endif
 
 #ifndef GEO_TBB
 #define GEO_USE_PTHREAD_MANAGER
@@ -93,47 +89,6 @@ namespace {
 
     using namespace GEO;
 
-#ifdef GEO_OS_ANDROID
-
-    /**
-     * \brief Get the number of cores under Android
-     * \retval the number of cores if the request succeeds
-     * \retval -1 otherwise
-     * \internal
-     * sysconf(_SC_NPROCESSORS_ONLN) and sysconf(_SC_NPROCESSORS_CONF)
-     * is bugged under Android, see:
-     * https://code.google.com/p/android/issues/detail?id=26490
-     */
-    int android_get_number_of_cores() {
-        FILE* fp;
-        int res, i = -1, j = -1;
-        /* open file */
-        fp = fopen("/sys/devices/system/cpu/present", "r");
-        if(fp == 0) {
-            return -1; /* failure */
-        }
-
-        /* read and interpret line */
-        res = fscanf(fp, "%d-%d", &i, &j);
-
-        /* close file */
-        fclose(fp);
-
-        /* interpret result */
-        if(res == 1 && i == 0) {
-            /* single-core */
-            return 1;
-        }
-
-        if(res == 2 && i == 0) {
-            /* 2+ cores */
-            return j + 1;
-        }
-
-        return -1; /* failure */
-    }
-
-#endif
 
 #ifdef GEO_USE_PTHREAD_MANAGER
 
@@ -351,19 +306,7 @@ namespace GEO {
         }
 
         index_t os_number_of_cores() {
-#if defined(GEO_OS_ANDROID)
-            int nb_cores = android_get_number_of_cores();
-            geo_assert(nb_cores > 0);
-            return index_t(nb_cores);
-#elif defined(GEO_OS_EMSCRIPTEN)
-#  ifdef __EMSCRIPTEN_PTHREADS__
-            return index_t(emscripten_num_logical_cores());
-#  else
-            return 1;
-#  endif
-#else
             return index_t(sysconf(_SC_NPROCESSORS_ONLN));
-#endif
         }
 
         size_t os_used_memory() {
