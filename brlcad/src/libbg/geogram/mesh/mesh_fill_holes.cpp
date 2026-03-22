@@ -42,7 +42,7 @@
 #include <geogram/mesh/mesh_repair.h>
 #include <geogram/mesh/mesh_halfedges.h>
 #include <geogram/mesh/index.h>
-#include <geogram/basic/command_line.h>
+#include <geogram/basic/geogram_options.h>
 #include <geogram/basic/logger.h>
 
 #undef geo_debug_assert
@@ -609,7 +609,7 @@ namespace GEO {
                                  << " holes" << std::endl;
 
         HoleFilling algo = LOOP_SPLIT;
-        std::string algo_name = CmdLine::get_arg("algo:hole_filling");
+        std::string algo_name = geo_options().algo_hole_filling;
         if(algo_name == "loop_split") {
             algo = LOOP_SPLIT;
         } else if(algo_name == "Nloop_split") {

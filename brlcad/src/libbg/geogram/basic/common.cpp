@@ -42,6 +42,7 @@
 #include <geogram/basic/logger.h>
 #include <geogram/basic/progress.h>
 #include <geogram/basic/command_line.h>
+#include <geogram/basic/geogram_options.h>
 #include <geogram/basic/stopwatch.h>
 #include <geogram/numerics/multi_precision.h>
 #include <geogram/numerics/predicates.h>
@@ -97,10 +98,7 @@ namespace GEO {
 
             ~GeogramLibSingleton() {
 
-                if(
-                    CmdLine::arg_is_declared("sys:stats") &&
-                    CmdLine::get_arg_bool("sys:stats")
-                ) {
+                if(geo_options().sys_stats) {
                     Logger::div("System Statistics");
                     PCK::show_stats();
                     Process::show_stats();

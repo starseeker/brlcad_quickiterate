@@ -40,6 +40,7 @@
 #include <geogram/basic/command_line.h>
 #include <geogram/basic/command_line_args.h>
 #include <geogram/basic/environment.h>
+#include <geogram/basic/geogram_options.h>
 #include <geogram/basic/logger.h>
 #include <geogram/basic/stopwatch.h>
 #include <geogram/basic/process.h>
@@ -153,6 +154,38 @@ namespace {
 
     /** \brief Pointer to command line private data */
     CommandLineDesc* desc_ = nullptr;
+
+    /**
+     * \brief Syncs a single option key/value into the GeoOptions struct.
+     * \details Called by declare_arg() (for default values) and by all
+     * set_arg() overloads so that typed field access via geo_options()
+     * always reflects the current environment state.
+     * \param[in] name  the option key (e.g. "algo:delaunay")
+     * \param[in] value the option value as a string
+     */
+    void sync_to_geo_options(const std::string& name, const std::string& value) {
+        GEO::GeoOptions& opts = GEO::geo_options();
+        if      (name == "algo:nn_search")
+            opts.algo_nn_search = value;
+        else if (name == "algo:delaunay")
+            opts.algo_delaunay = value;
+        else if (name == "algo:hole_filling")
+            opts.algo_hole_filling = value;
+        else if (name == "algo:predicates")
+            opts.algo_predicates = value;
+        else if (name == "algo:parallel")
+            opts.algo_parallel = GEO::String::to_bool(value);
+        else if (name == "sys:multithread")
+            opts.sys_multithread = GEO::String::to_bool(value);
+        else if (name == "sys:stats")
+            opts.sys_stats = GEO::String::to_bool(value);
+        else if (name == "remesh:multi_nerve")
+            opts.remesh_multi_nerve = GEO::String::to_bool(value);
+        else if (name == "remesh:RVC_centroids")
+            opts.remesh_RVC_centroids = GEO::String::to_bool(value);
+        else if (name == "dbg:save_ANN_histo")
+            opts.dbg_save_ANN_histo = GEO::String::to_bool(value);
+    }
 
     /**
      * \brief Checks if an argument name matches a sub-strung
@@ -454,6 +487,7 @@ namespace GEO {
             desc_->args[name] = arg;
 
             Environment::instance()->set_value(name, default_value);
+            sync_to_geo_options(name, default_value);
 
             std::string group = arg_group(name);
             auto it = desc_->groups.find(group);
@@ -544,6 +578,7 @@ namespace GEO {
                 return false;
             }
             Environment::instance()->set_value(name, value);
+            sync_to_geo_options(name, value);
             return true;
         }
 
@@ -552,7 +587,9 @@ namespace GEO {
             geo_assert_arg_type(
                 type, ARG_INT | ARG_DOUBLE | ARG_PERCENT | ARG_STRING
             );
-            Environment::instance()->set_value(name, String::to_string(value));
+            std::string s = String::to_string(value);
+            Environment::instance()->set_value(name, s);
+            sync_to_geo_options(name, s);
         }
 
         void set_arg(const std::string& name, Numeric::uint32 value) {
@@ -560,7 +597,9 @@ namespace GEO {
             geo_assert_arg_type(
                 type, ARG_INT | ARG_DOUBLE | ARG_PERCENT | ARG_STRING
             );
-            Environment::instance()->set_value(name, String::to_string(value));
+            std::string s = String::to_string(value);
+            Environment::instance()->set_value(name, s);
+            sync_to_geo_options(name, s);
         }
 
         void set_arg(const std::string& name, Numeric::int64 value) {
@@ -568,7 +607,9 @@ namespace GEO {
             geo_assert_arg_type(
                 type, ARG_INT | ARG_DOUBLE | ARG_PERCENT | ARG_STRING
             );
-            Environment::instance()->set_value(name, String::to_string(value));
+            std::string s = String::to_string(value);
+            Environment::instance()->set_value(name, s);
+            sync_to_geo_options(name, s);
         }
 
         void set_arg(const std::string& name, Numeric::uint64 value) {
@@ -576,19 +617,25 @@ namespace GEO {
             geo_assert_arg_type(
                 type, ARG_INT | ARG_DOUBLE | ARG_PERCENT | ARG_STRING
             );
-            Environment::instance()->set_value(name, String::to_string(value));
+            std::string s = String::to_string(value);
+            Environment::instance()->set_value(name, s);
+            sync_to_geo_options(name, s);
         }
 
         void set_arg(const std::string& name, double value) {
             ArgType type = get_arg_type(name);
             geo_assert_arg_type(type, ARG_DOUBLE | ARG_PERCENT | ARG_STRING);
-            Environment::instance()->set_value(name, String::to_string(value));
+            std::string s = String::to_string(value);
+            Environment::instance()->set_value(name, s);
+            sync_to_geo_options(name, s);
         }
 
         void set_arg(const std::string& name, bool value) {
             ArgType type = get_arg_type(name);
             geo_assert_arg_type(type, ARG_BOOL | ARG_STRING);
-            Environment::instance()->set_value(name, String::to_string(value));
+            std::string s = String::to_string(value);
+            Environment::instance()->set_value(name, s);
+            sync_to_geo_options(name, s);
         }
 
         void set_arg_percent(const std::string& name, double value) {
