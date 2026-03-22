@@ -281,11 +281,7 @@ namespace GEO {
         inline void* aligned_malloc(
             size_t size, size_t alignment = GEO_MEMORY_ALIGNMENT
         ) {
-#if   defined(GEO_OS_ANDROID)
-            // Alignment not supported under Android.
-            geo_argused(alignment);
-            return malloc(size);
-#elif defined(GEO_COMPILER_INTEL)
+#if   defined(GEO_COMPILER_INTEL)
             return _mm_malloc(size, alignment);
 #elif defined(GEO_COMPILER_GCC) || defined(GEO_COMPILER_CLANG)
             void* result;
@@ -307,10 +303,7 @@ namespace GEO {
          * \note Memory alignment is not supported under Android.
          */
         inline void aligned_free(void* p) {
-#if   defined(GEO_OS_ANDROID)
-            // Alignment not supported under Android.
-            free(p);
-#elif defined(GEO_COMPILER_INTEL)
+#if   defined(GEO_COMPILER_INTEL)
             _mm_free(p);
 #elif defined(GEO_COMPILER_GCC_FAMILY)
             free(p);
@@ -334,9 +327,7 @@ namespace GEO {
          * \endcode
          * \note Memory alignment is not supported under Android.
          */
-#if   defined(GEO_OS_ANDROID)
-#define geo_decl_aligned(var) var
-#elif defined(GEO_COMPILER_INTEL)
+#if   defined(GEO_COMPILER_INTEL)
 #define geo_decl_aligned(var) __declspec(aligned(GEO_MEMORY_ALIGNMENT)) var
 #elif defined(GEO_COMPILER_GCC_FAMILY)
 #define geo_decl_aligned(var) var __attribute__((aligned(GEO_MEMORY_ALIGNMENT)))
@@ -362,9 +353,7 @@ namespace GEO {
          * \note Memory alignment is not supported under Android.
 	 * \note C++20 has std::assume_aligned()
          */
-#if   defined(GEO_OS_ANDROID)
-#define geo_assume_aligned(var, alignment)
-#elif defined(GEO_COMPILER_INTEL)
+#if   defined(GEO_COMPILER_INTEL)
 #define geo_assume_aligned(var, alignment)      \
         __assume_aligned(var, alignment)
 #elif defined(GEO_COMPILER_CLANG)

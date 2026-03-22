@@ -681,9 +681,6 @@ namespace {
      * \brief Recomputes the width of the terminal
      */
     void update_ui_term_width() {
-#ifdef GEO_OS_EMSCRIPTEN
-        return; // ioctl not implemented under emscripten
-#else
 #ifndef GEO_OS_WINDOWS
         if(is_redirected()) {
             return;
@@ -704,7 +701,6 @@ namespace {
             ui_left_margin = 4;
             ui_right_margin = 4;
         }
-#endif
 #endif
     }
 
@@ -1034,13 +1030,3 @@ namespace GEO {
     }
 }
 
-#ifdef GEO_OS_ANDROID
-namespace {
-    android_app* android_app_ = nullptr;
-}
-
-namespace GEO {
-    namespace CmdLine {
-    }
-}
-#endif

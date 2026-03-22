@@ -42,12 +42,7 @@
 
 #include <geogram/basic/common.h>
 
-#if defined(GEO_OS_LINUX) && defined(GEO_OPENMP)
-#if (__GNUC__ >= 4) && (__GNUC_MINOR__ >= 4) && !defined(GEO_OS_ANDROID)
-#include <parallel/algorithm>
-#define GEO_USE_GCC_PARALLEL_STL
-#endif
-#elif defined(GEO_OS_WINDOWS)
+#if   defined(GEO_OS_WINDOWS)
 #if (_MSC_VER >= 1700)
 #include <ppl.h>
 #define GEO_USE_MSVC_PARALLEL_STL

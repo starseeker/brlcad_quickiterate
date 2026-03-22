@@ -97,19 +97,10 @@ namespace {
             "algo:predicates", "fast",
             "Geometric predicates (fast, exact)"
         );
-#ifdef GEO_OS_ANDROID
-        // NDK's default multithreading seems to be not SMP-compliant
-        // (missing memory barriers in synchronization primitives)
-        declare_arg(
-            "algo:parallel", false,
-            "Use parallel standard algorithms"
-        );
-#else
         declare_arg(
             "algo:parallel", true,
             "Use parallel standard algorithms"
         );
-#endif
     }
 
     /**
