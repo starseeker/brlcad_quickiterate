@@ -56,9 +56,6 @@
 #endif
 #endif
 
-#if defined(_OPENMP)
-#include <omp.h>
-#endif
 
 /******************************************************************************/
 /* Assertions */
@@ -111,28 +108,6 @@ double nlCurrentTime(void) {
 }
 #endif
 
-#if defined(_OPENMP)
-
-static NLuint nl_num_threads = 0;
-
-NLuint nlGetNumCores(void) {
-    return (NLuint)omp_get_num_procs();
-}
-
-NLuint nlGetNumThreads(void) {
-    if(nl_num_threads == 0) {
-        nl_num_threads = (NLuint)omp_get_num_procs();
-        /* nl_printf("OpenNL: using %d threads\n",nl_num_threads); */
-    }
-    return nl_num_threads;
-}
-
-void nlSetNumThreads(NLuint n) {
-    nl_num_threads = n;
-    omp_set_num_threads((int)nl_num_threads);
-}
-
-#else
 
 NLuint nlGetNumCores(void) {
     return 1;
@@ -146,7 +121,6 @@ void nlSetNumThreads(NLuint n) {
     nl_arg_used(n);
 }
 
-#endif
 
 
 /******************************************************************************/

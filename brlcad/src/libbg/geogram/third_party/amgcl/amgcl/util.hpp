@@ -54,21 +54,12 @@ THE SOFTWARE.
  * \endcode
  * If AMGCL_PROFILING is undefined, then AMGCL_TIC and AMGCL_TOC are noop macros.
  */
-#ifdef AMGCL_PROFILING
-#  if !defined(AMGCL_TIC) || !defined(AMGCL_TOC)
-#    include <amgcl/profiler.hpp>
-#    define AMGCL_TIC(name) amgcl::prof.tic(name);
-#    define AMGCL_TOC(name) amgcl::prof.toc(name);
-namespace amgcl { extern profiler<> prof; }
-#  endif
-#else
 #  ifndef AMGCL_TIC
 #    define AMGCL_TIC(name)
 #  endif
 #  ifndef AMGCL_TOC
 #    define AMGCL_TOC(name)
 #  endif
-#endif
 
 #define AMGCL_DEBUG_SHOW(x)                                                    \
     std::cout << std::setw(20) << #x << ": "                                   \
@@ -90,123 +81,13 @@ void precondition(const Condition &condition, const Message &message) {
 #endif
 }
 
-#ifndef AMGCL_NO_BOOST
-
-#define AMGCL_PARAMS_IMPORT_VALUE(p, name)                                     \
-    name( p.get(#name, params().name) )
-
-#define AMGCL_PARAMS_IMPORT_CHILD(p, name)                                     \
-    name( p.get_child(#name, amgcl::detail::empty_ptree()) )
-
-#define AMGCL_PARAMS_EXPORT_VALUE(p, path, name)                               \
-    p.put(std::string(path) + #name, name)
 
 namespace detail {
 
-template <typename T>
-inline void params_export_child(
-        boost::property_tree::ptree &p,
-        const std::string &path,
-        const char *name, const T &obj)
-{
-    obj.get(p, std::string(path) + name + ".");
-}
-
-template <>
-inline void params_export_child(
-        boost::property_tree::ptree &p,
-        const std::string &path, const char *name,
-        const boost::property_tree::ptree &obj)
-{
-    p.add_child(std::string(path) + name, obj);
-}
-
-} // namespace detail
-
-#define AMGCL_PARAMS_EXPORT_CHILD(p, path, name)                               \
-    amgcl::detail::params_export_child(p, path, #name, name)
-
-// Missing parameter action
-#ifndef AMGCL_PARAM_MISSING
-#  define AMGCL_PARAM_MISSING(name) (void)0
-#endif
-
-// Unknown parameter action
-#ifndef AMGCL_PARAM_UNKNOWN
-#  define AMGCL_PARAM_UNKNOWN(name)                                            \
-      std::cerr << "AMGCL WARNING: unknown parameter " << name << std::endl
-#endif
-
-inline void check_params(
-        const boost::property_tree::ptree &p,
-        const std::set<std::string> &names
-        )
-{
-    for(const auto &n : names) {
-        if (!p.count(n)) {
-            AMGCL_PARAM_MISSING(n);
-        }
-    }
-    for(const auto &v : p) {
-        if (!names.count(v.first)) {
-            AMGCL_PARAM_UNKNOWN(v.first);
-        }
-    }
-}
-
-inline void check_params(
-        const boost::property_tree::ptree &p,
-        const std::set<std::string> &names,
-        const std::set<std::string> &opt_names
-        )
-{
-    for(const auto &n : names) {
-        if (!p.count(n)) {
-            AMGCL_PARAM_MISSING(n);
-        }
-    }
-    for(const auto &n : opt_names) {
-        if (!p.count(n)) {
-            AMGCL_PARAM_MISSING(n);
-        }
-    }
-    for(const auto &v : p) {
-        if (!names.count(v.first) && !opt_names.count(v.first)) {
-            AMGCL_PARAM_UNKNOWN(v.first);
-        }
-    }
-}
-
-// Put parameter in form "key=value" into a boost::property_tree::ptree
-inline void put(boost::property_tree::ptree &p, const std::string &param) {
-    size_t eq_pos = param.find('=');
-    if (eq_pos == std::string::npos)
-        throw std::invalid_argument("param in amgcl::put() should have \"key=value\" format!");
-    p.put(param.substr(0, eq_pos), param.substr(eq_pos + 1));
-}
-
-#endif
-
-namespace detail {
-
-#ifndef AMGCL_NO_BOOST
-inline const boost::property_tree::ptree& empty_ptree() {
-    static const boost::property_tree::ptree p;
-    return p;
-}
-#endif
 
 struct empty_params {
     empty_params() {}
 
-#ifndef AMGCL_NO_BOOST
-    empty_params(const boost::property_tree::ptree &p) {
-        for(const auto &v : p) {
-            AMGCL_PARAM_UNKNOWN(v.first);
-        }
-    }
-    void get(boost::property_tree::ptree&, const std::string&) const {}
-#endif
 };
 
 } // namespace detail

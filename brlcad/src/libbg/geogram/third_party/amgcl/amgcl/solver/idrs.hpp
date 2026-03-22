@@ -51,14 +51,6 @@ Bi-orthogonality Properties. ACM Transactions on Mathematical Software, Vol.
 #include <amgcl/solver/detail/default_inner_product.hpp>
 #include <amgcl/util.hpp>
 
-#ifdef MPI_VERSION
-#  include <amgcl/mpi/util.hpp>
-#endif
-
-#ifdef _OPENMP
-#  include <omp.h>
-#endif
-
 namespace amgcl {
 namespace solver {
 
@@ -131,34 +123,6 @@ class idrs {
                   ns_search(false), verbose(false)
             { }
 
-#ifndef AMGCL_NO_BOOST
-            params(const boost::property_tree::ptree &p)
-                : AMGCL_PARAMS_IMPORT_VALUE(p, s),
-                  AMGCL_PARAMS_IMPORT_VALUE(p, omega),
-                  AMGCL_PARAMS_IMPORT_VALUE(p, smoothing),
-                  AMGCL_PARAMS_IMPORT_VALUE(p, replacement),
-                  AMGCL_PARAMS_IMPORT_VALUE(p, maxiter),
-                  AMGCL_PARAMS_IMPORT_VALUE(p, tol),
-                  AMGCL_PARAMS_IMPORT_VALUE(p, abstol),
-                  AMGCL_PARAMS_IMPORT_VALUE(p, ns_search),
-                  AMGCL_PARAMS_IMPORT_VALUE(p, verbose)
-            {
-                check_params(p, {"s", "omega", "smoothing", "replacement",
-                        "maxiter", "tol", "abstol", "ns_search", "verbose"});
-            }
-
-            void get(boost::property_tree::ptree &p, const std::string &path) const {
-                AMGCL_PARAMS_EXPORT_VALUE(p, path, s);
-                AMGCL_PARAMS_EXPORT_VALUE(p, path, omega);
-                AMGCL_PARAMS_EXPORT_VALUE(p, path, smoothing);
-                AMGCL_PARAMS_EXPORT_VALUE(p, path, replacement);
-                AMGCL_PARAMS_EXPORT_VALUE(p, path, maxiter);
-                AMGCL_PARAMS_EXPORT_VALUE(p, path, tol);
-                AMGCL_PARAMS_EXPORT_VALUE(p, path, abstol);
-                AMGCL_PARAMS_EXPORT_VALUE(p, path, ns_search);
-                AMGCL_PARAMS_EXPORT_VALUE(p, path, verbose);
-            }
-#endif
         } prm;
 
         /// Preallocates necessary data structures for the system of size \p n.
@@ -199,13 +163,8 @@ class idrs {
 
 #pragma omp parallel
                 {
-#ifdef _OPENMP
-                    int tid = omp_get_thread_num();
-                    int nt = omp_get_max_threads();
-#else
                     int tid = 0;
                     int nt = 1;
-#endif
 
                     std::mt19937 rng(pid * nt + tid);
                     std::uniform_real_distribution<scalar_type> rnd(-1, 1);

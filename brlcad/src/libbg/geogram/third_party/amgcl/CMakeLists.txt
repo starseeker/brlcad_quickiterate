@@ -34,8 +34,6 @@ target_compile_features(amgcl INTERFACE
     cxx_static_assert
 )
 
-target_compile_definitions(amgcl INTERFACE AMGCL_NO_BOOST)
-
 target_include_directories(amgcl INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
     $<INSTALL_INTERFACE:include>

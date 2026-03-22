@@ -46,9 +46,6 @@ THE SOFTWARE.
  */
 #include <vector>
 #include <algorithm>
-#ifdef _OPENMP
-#include <omp.h>
-#endif
 
 #include <amgcl/backend/interface.hpp>
 #include <amgcl/value_type/interface.hpp>
@@ -435,11 +432,7 @@ void spgemm_rmerge(const AMatrix &A, const BMatrix &B, CMatrix &C) {
         max_row_width = std::max(max_row_width, my_max);
     }
 
-#ifdef _OPENMP
-    const int nthreads = omp_get_max_threads();
-#else
     const int nthreads = 1;
-#endif
 
     std::vector< std::vector<Col> > tmp_col(nthreads);
     std::vector< std::vector<Val> > tmp_val(nthreads);
@@ -455,11 +448,7 @@ void spgemm_rmerge(const AMatrix &A, const BMatrix &B, CMatrix &C) {
 
 #pragma omp parallel
     {
-#ifdef _OPENMP
-        const int tid = omp_get_thread_num();
-#else
         const int tid = 0;
-#endif
 
         Col *t_col = &tmp_col[tid][0];
 
@@ -479,11 +468,7 @@ void spgemm_rmerge(const AMatrix &A, const BMatrix &B, CMatrix &C) {
 
 #pragma omp parallel
     {
-#ifdef _OPENMP
-        const int tid = omp_get_thread_num();
-#else
         const int tid = 0;
-#endif
 
         Col *t_col = tmp_col[tid].data();
         Val *t_val = tmp_val[tid].data();

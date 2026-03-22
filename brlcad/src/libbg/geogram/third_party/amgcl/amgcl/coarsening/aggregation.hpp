@@ -97,22 +97,6 @@ struct aggregation {
         params()
             : over_interp(math::static_rows<typename Backend::value_type>::value == 1 ? 1.5f : 2.0f)
         {}
-
-#ifndef AMGCL_NO_BOOST
-        params(const boost::property_tree::ptree &p)
-            : AMGCL_PARAMS_IMPORT_CHILD(p, aggr),
-              AMGCL_PARAMS_IMPORT_CHILD(p, nullspace),
-              AMGCL_PARAMS_IMPORT_VALUE(p, over_interp)
-        {
-            check_params(p, {"aggr", "nullspace", "over_interp"});
-        }
-
-        void get(boost::property_tree::ptree &p, const std::string &path) const {
-            AMGCL_PARAMS_EXPORT_CHILD(p, path, aggr);
-            AMGCL_PARAMS_EXPORT_CHILD(p, path, nullspace);
-            AMGCL_PARAMS_EXPORT_VALUE(p, path, over_interp);
-        }
-#endif
     } prm;
 
     aggregation(const params &prm = params()) : prm(prm) {}

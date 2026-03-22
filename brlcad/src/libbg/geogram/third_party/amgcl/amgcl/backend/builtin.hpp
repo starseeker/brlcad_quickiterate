@@ -37,9 +37,6 @@ THE SOFTWARE.
 #include <random>
 #include <type_traits>
 
-#ifdef _OPENMP
-#  include <omp.h>
-#endif
 
 #include <amgcl/util.hpp>
 #include <amgcl/backend/interface.hpp>
@@ -381,11 +378,7 @@ std::shared_ptr< crs<Val, Col, Ptr> >
 product(const crs<Val,Col,Ptr> &A, const crs<Val,Col,Ptr> &B, bool sort = false) {
     auto C = std::make_shared< crs<Val,Col,Ptr> >();
 
-#ifdef _OPENMP
-    int nt = omp_get_max_threads();
-#else
     int nt = 1;
-#endif
 
     if (nt > 16) {
         spgemm_rmerge(A, B, *C);
@@ -826,11 +819,7 @@ spectral_radius(const Matrix &A, int power_iters = 0) {
         scalar_type b0_norm = 0;
 #pragma omp parallel
         {
-#ifdef _OPENMP
-            int tid = omp_get_thread_num();
-#else
             int tid = 0;
-#endif
             std::mt19937 rng(tid);
             std::uniform_real_distribution<scalar_type> rnd(-1, 1);
 
@@ -1110,11 +1099,6 @@ struct inner_product_impl<
     typedef typename math::inner_product_impl<V>::return_type return_type;
 
     static return_type get(const Vec1 &x, const Vec2 &y) {
-#ifdef _OPENMP
-        if (omp_get_max_threads() > 1) {
-            return parallel(x, y);
-        } else
-#endif
         {
             return serial(x, y);
         }
@@ -1136,50 +1120,6 @@ struct inner_product_impl<
         return s;
     }
 
-#ifdef _OPENMP
-#  ifndef AMGCL_MAX_OPENMP_THREADS
-#    define AMGCL_MAX_OPENMP_THREADS 64
-#  endif
-    static return_type parallel(const Vec1 &x, const Vec2 &y)
-    {
-        const size_t n = x.size();
-        return_type              _sum_stat[AMGCL_MAX_OPENMP_THREADS];
-        std::vector<return_type> _sum_dyna;
-        return_type              *sum;
-
-        const int nt = omp_get_max_threads();
-
-        if (nt < 64) {
-            sum = _sum_stat;
-            for(int i = 0; i < nt; ++i) {
-                sum[i] = math::zero<return_type>();
-            }
-        } else {
-            _sum_dyna.resize(nt, math::zero<return_type>());
-            sum = _sum_dyna.data();
-        }
-
-#pragma omp parallel
-        {
-            const int tid = omp_get_thread_num();
-
-            return_type s = math::zero<return_type>();
-            return_type c = math::zero<return_type>();
-
-#pragma omp for nowait
-            for(ptrdiff_t i = 0; i < static_cast<ptrdiff_t>(n); ++i) {
-                return_type d = math::inner_product(x[i], y[i]) - c;
-                return_type t = s + d;
-                c = (t - s) - d;
-                s = t;
-            }
-
-            sum[tid] = s;
-        }
-
-        return std::accumulate(sum, sum + nt, math::zero<return_type>());
-    }
-#endif
 };
 
 template <class A, class Vec1, class B, class Vec2 >

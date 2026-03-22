@@ -81,23 +81,6 @@ struct ilut {
 
         params() : p(2), tau(1e-2f), damping(1) {}
 
-#ifndef AMGCL_NO_BOOST
-        params(const boost::property_tree::ptree &p)
-            : AMGCL_PARAMS_IMPORT_VALUE(p, p)
-            , AMGCL_PARAMS_IMPORT_VALUE(p, tau)
-            , AMGCL_PARAMS_IMPORT_VALUE(p, damping)
-            , AMGCL_PARAMS_IMPORT_CHILD(p, solve)
-        {
-            check_params(p, {"p", "tau", "damping", "solve"});
-        }
-
-        void get(boost::property_tree::ptree &p, const std::string &path) const {
-            AMGCL_PARAMS_EXPORT_VALUE(p, path, p);
-            AMGCL_PARAMS_EXPORT_VALUE(p, path, tau);
-            AMGCL_PARAMS_EXPORT_VALUE(p, path, damping);
-            AMGCL_PARAMS_EXPORT_CHILD(p, path, solve);
-        }
-#endif
     } prm;
 
     /// \copydoc amgcl::relaxation::damped_jacobi::damped_jacobi

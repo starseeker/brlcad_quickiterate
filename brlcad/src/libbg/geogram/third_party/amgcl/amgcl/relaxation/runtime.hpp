@@ -33,9 +33,7 @@ THE SOFTWARE.
 
 #include <type_traits>
 
-#ifdef AMGCL_NO_BOOST
 #  error Runtime interface relies on Boost.PropertyTree!
-#endif
 
 #include <boost/property_tree/ptree.hpp>
 
