@@ -156,8 +156,6 @@ class cg {
             static const coef_type one  = math::identity<coef_type>();
             static const coef_type zero = math::zero<coef_type>();
 
-            ios_saver ss(std::cout);
-
             scalar_type norm_rhs = norm(rhs);
             if (norm_rhs < amgcl::detail::eps<scalar_type>(1)) {
                 if (prm.ns_search) {

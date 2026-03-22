@@ -556,47 +556,6 @@ class amg {
     friend std::ostream& operator<<(std::ostream &os, const amg<B, C, R> &a);
 };
 
-/// Sends information about the AMG hierarchy to output stream.
-template <class B, template <class> class C, template <class> class R>
-std::ostream& operator<<(std::ostream &os, const amg<B, C, R> &a)
-{
-    typedef typename amg<B, C, R>::level level;
-    ios_saver ss(os);
-
-    size_t sum_dof = 0;
-    size_t sum_nnz = 0;
-    size_t sum_mem = 0;
-
-    for(const level &lvl : a.levels) {
-        sum_dof += lvl.rows();
-        sum_nnz += lvl.nonzeros();
-        sum_mem += lvl.bytes();
-    }
-
-    os << "Number of levels:    "   << a.levels.size()
-        << "\nOperator complexity: " << std::fixed << std::setprecision(2)
-        << 1.0 * sum_nnz / a.levels.front().nonzeros()
-        << "\nGrid complexity:     " << std::fixed << std::setprecision(2)
-        << 1.0 * sum_dof / a.levels.front().rows()
-        << "\nMemory footprint:    " << human_readable_memory(sum_mem)
-        << "\n\n"
-           "level     unknowns       nonzeros      memory\n"
-           "---------------------------------------------\n";
-
-    size_t depth = 0;
-    for(const level &lvl : a.levels) {
-        os << std::setw(5)  << depth++
-            << std::setw(13) << lvl.rows()
-            << std::setw(15) << lvl.nonzeros()
-            << std::setw(12) << human_readable_memory(lvl.bytes())
-            << " (" << std::setw(5) << std::fixed << std::setprecision(2)
-            << 100.0 * lvl.nonzeros() / sum_nnz
-            << "%)" << std::endl;
-    }
-
-    return os;
-}
-
 } // namespace amgcl
 
 #endif
