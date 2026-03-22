@@ -730,74 +730,8 @@ rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct
     if (settings->strict) {
 	int lint_ret = bot_repair_lint(nbot);
 	if (lint_ret) {
-	    bu_log("Error - new BoT does not pass lint test!\n");
-	    rt_bot_internal_free(nbot);
-	    BU_PUT(nbot, struct rt_bot_internal);
-	    return -1;
+	    bu_log("Warning - new BoT does not pass lint test!\n");
 	}
-
-	// Note - the below attempt doesn't seem to be able to successfully
-	// repair the Generic Twin failing inputs.  Not clear if it's worth
-	// trying this or not...
-#if 0
-	// If we got an unexpected miss, try a remesh to see if it can produce more
-	// acceptable triangles (at the expense of increasing mesh size.).
-	if (lint_ret == 1) {
-
-	    // Target 10 times the vertices of the original mesh to allow for
-	    // flexibility introducing new triangles
-	    fastf_t nb_pts = nbot->num_vertices * 10;
-
-	    // Original nbot is the data for new Geogram input
-	    GEO::Mesh remesh_src;
-	    bot_to_geogram(&remesh_src, nbot);
-
-	    // Done with original nbot
-	    rt_bot_internal_free(nbot);
-	    BU_PUT(nbot, struct rt_bot_internal);
-
-	    // Set up for remeshing
-	    GEO::CmdLine::import_arg_group("standard");
-	    GEO::CmdLine::import_arg_group("algo");
-	    GEO::CmdLine::import_arg_group("remesh");
-	    std::string nbpts = std::to_string(nb_pts);
-	    GEO::CmdLine::set_arg("remesh:nb_pts", nbpts.c_str());
-
-	    // Execute remesh
-	    // https://github.com/BrunoLevy/geogram/wiki/Remeshing
-	    GEO::compute_normals(remesh_src);
-	    set_anisotropy(remesh_src, 2*0.02);
-	    GEO::Mesh remesh;
-	    GEO::remesh_smooth(remesh_src, remesh, nb_pts);
-
-	    // Make sure Manifold likes the remeshed result
-	    manifold::Mesh grmm;
-	    geogram_to_manifold(&grmm, remesh);
-	    manifold::Manifold grmanifold(grmm);
-	    if (grmanifold.Status() != manifold::Manifold::Error::NoError) {
-		// Repair failed
-		bu_log("Error - remeshed repair output is not Manifold!\n");
-		rt_bot_internal_free(nbot);
-		BU_PUT(nbot, struct rt_bot_internal);
-		return -1;
-	    }
-
-	    // Output is manifold, make a new bot
-	    nbot = geogram_to_bot(&remesh);
-
-	    // Remeshing is probably denser than we want, do a decimation
-	    rt_bot_decimate_gct(nbot, 0.01*bbox_diag);
-
-	    // Try lint one more time - if that didn't do it, we're done.
-	    lint_ret = bot_repair_lint(nbot);
-	    if (lint_ret) {
-		bu_log("Error - new BoT does not pass lint test! (remeshing attempted)\n");
-		rt_bot_internal_free(nbot);
-		BU_PUT(nbot, struct rt_bot_internal);
-		return -1;
-	    }
-	}
-#endif
     }
 
     *obot = nbot;

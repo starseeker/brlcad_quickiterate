@@ -41,7 +41,6 @@
 #include <geogram/basic/assert.h>
 #include <geogram/basic/command_line.h>
 #include <geogram/basic/argused.h>
-#include <geogram/basic/file_system.h>
 #include <geogram/basic/process.h>
 
 
@@ -193,14 +192,6 @@ namespace GEO {
 
         if(name == "log:pretty") {
             set_pretty(String::to_bool(value));
-            return true;
-        }
-
-        if(name == "log:file_name") {
-            log_file_name_ = value;
-            if(!log_file_name_.empty()) {
-                register_client(new FileLogger(log_file_name_));
-            }
             return true;
         }
 

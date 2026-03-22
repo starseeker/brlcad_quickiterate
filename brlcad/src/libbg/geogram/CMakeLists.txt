@@ -14,7 +14,6 @@ set(GEOGRAM_SRCS
     basic/counted.cpp
     basic/environment.cpp
     basic/factory.cpp
-    basic/file_system.cpp
     basic/geometry.cpp
     basic/line_stream.cpp
     basic/logger.cpp
