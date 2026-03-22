@@ -43,14 +43,6 @@ THE SOFTWARE.
 #include <stdexcept>
 #include <cstddef>
 
-// If asked explicitly, or if boost is available, enable
-// using boost::propert_tree::ptree as amgcl parameters:
-#ifndef AMGCL_NO_BOOST
-#  include <boost/property_tree/ptree.hpp>
-#endif
-
-#include <amgcl/io/ios_saver.hpp>
-
 /* Performance measurement macros
  *
  * If AMGCL_PROFILING macro is defined at compilation, then AMGCL_TIC(name) and
@@ -402,24 +394,5 @@ struct empty_level {};
 
 } // namespace error
 } // namespace amgcl
-
-namespace std {
-
-// Read pointers from input streams.
-// This allows to exchange pointers through boost::property_tree::ptree.
-template <class T>
-inline istream& operator>>(istream &is, T* &ptr) {
-    amgcl::ios_saver ss(is);
-
-    size_t val;
-    is >> std::hex >> val;
-
-    ptr = reinterpret_cast<T*>(val);
-
-    return is;
-}
-
-} // namespace std
-
 
 #endif
