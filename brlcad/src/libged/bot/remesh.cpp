@@ -34,8 +34,7 @@
 #include "manifold/manifold.h"
 
 #include "geogram/basic/process.h"
-#include <geogram/basic/command_line.h>
-#include <geogram/basic/command_line_args.h>
+#include "geogram/basic/geogram_options.h"
 #include "geogram/mesh/mesh.h"
 #include "geogram/mesh/mesh_geometry.h"
 #include "geogram/mesh/mesh_repair.h"
@@ -230,14 +229,15 @@ bot_remesh_geogram(struct rt_bot_internal **obot, struct ged *gedp, struct rt_bo
 	close(stdout_stashed);
     }
 
-    GEO::CmdLine::import_arg_group("standard");
-    GEO::CmdLine::import_arg_group("algo");
-    GEO::CmdLine::import_arg_group("remesh");
-
     // Target ten times the original vert count
     fastf_t nb_pts = bot->num_vertices * 10;
-    std::string nbpts = std::to_string(nb_pts);
-    GEO::CmdLine::set_arg("remesh:nb_pts", nbpts.c_str());
+
+    // Configure geogram options for this remesh call.
+    // Using GeoOptionsScope ensures any parallel invocations on other threads
+    // are unaffected by these settings.
+    GEO::GeoOptions opts;
+    opts.remesh_multi_nerve = true;
+    GEO::GeoOptionsScope geo_scope(opts);
 
     // Initialize the Geogram mesh
     GEO::Mesh gm;

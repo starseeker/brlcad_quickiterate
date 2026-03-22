@@ -116,6 +116,26 @@ namespace GEO {
         bool        dbg_save_ANN_histo    {false};
 
         // ----------------------------------------------------------------
+        // co3ne group (MESH_REPAIR_RECONSTRUCT path)
+        // ----------------------------------------------------------------
+
+        /** co3ne:min_comp_area — minimum area of connected components
+         *  as a fraction of total mesh area (0.0 = keep all) */
+        double      co3ne_min_comp_area    {0.0};
+
+        /** co3ne:min_comp_facets — minimum facet count of connected components
+         *  (0 = keep all) */
+        unsigned int co3ne_min_comp_facets {0};
+
+        /** co3ne:max_hole_area — maximum area of holes to fill
+         *  as a fraction of total mesh area (0.0 = fill none) */
+        double      co3ne_max_hole_area    {0.0};
+
+        /** co3ne:max_hole_edges — maximum edge count of holes to fill
+         *  (0 = fill none) */
+        unsigned int co3ne_max_hole_edges  {0};
+
+        // ----------------------------------------------------------------
         // Singleton access
         // ----------------------------------------------------------------
 
@@ -126,12 +146,66 @@ namespace GEO {
     };
 
     /**
-     * \brief Convenience alias for GeoOptions::instance().
-     * \return Reference to the global GeoOptions singleton.
+     * \brief Returns a reference to the thread-local override pointer.
+     * \details Used internally by geo_options() and GeoOptionsScope.
+     *  The returned reference points to the per-thread GeoOptions override,
+     *  or nullptr when no override is active for the current thread.
      */
-    inline GeoOptions& geo_options() {
-        return GeoOptions::instance();
+    GEOGRAM_API const GeoOptions*& geo_options_tl_ref();
+
+    /**
+     * \brief Returns the active GeoOptions for the current thread.
+     * \details Returns the thread-local override if one has been installed
+     *  with GeoOptionsScope, otherwise falls back to the process-wide
+     *  singleton.
+     */
+    inline const GeoOptions& geo_options() {
+        const GeoOptions* p = geo_options_tl_ref();
+        return p ? *p : GeoOptions::instance();
     }
+
+    /**
+     * \brief RAII scope guard that installs a per-thread GeoOptions override.
+     * \details Allows parallel callers to use independent configurations
+     *  without mutating global state.  All calls to geo_options() inside the
+     *  scope (on the same thread) return \p opts instead of the global
+     *  singleton.  The previous override (if any) is restored on destruction.
+     *
+     * Typical usage:
+     * \code
+     *   GeoOptions myOpts;
+     *   myOpts.remesh_multi_nerve = false;
+     *   {
+     *       GEO::GeoOptionsScope scope(myOpts);
+     *       GEO::remesh_smooth(meshIn, meshOut, nbPts);
+     *   } // original options restored here
+     * \endcode
+     */
+    class GEOGRAM_API GeoOptionsScope {
+    public:
+        /**
+         * \brief Installs \p opts as the thread-local override.
+         * \param[in] opts options struct to use for this scope.
+         *  The caller is responsible for keeping \p opts alive while the
+         *  scope is active.
+         */
+        explicit GeoOptionsScope(const GeoOptions& opts)
+            : prev_(geo_options_tl_ref())
+        {
+            geo_options_tl_ref() = &opts;
+        }
+
+        /** \brief Restores the previous thread-local override. */
+        ~GeoOptionsScope() {
+            geo_options_tl_ref() = prev_;
+        }
+
+        GeoOptionsScope(const GeoOptionsScope&)            = delete;
+        GeoOptionsScope& operator=(const GeoOptionsScope&) = delete;
+
+    private:
+        const GeoOptions* prev_;
+    };
 
 } // namespace GEO
 

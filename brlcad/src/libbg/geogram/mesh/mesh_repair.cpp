@@ -45,7 +45,7 @@
 #include <geogram/points/colocate.h>
 #include <geogram/basic/geometry_nd.h>
 #include <geogram/basic/stopwatch.h>
-#include <geogram/basic/command_line.h>
+#include <geogram/basic/geogram_options.h>
 #include <geogram/basic/argused.h>
 #include <geogram/basic/algorithm.h>
 #include <stack>
@@ -1017,21 +1017,21 @@ namespace GEO {
             double Marea = Geom::mesh_area(M,3);
             remove_small_connected_components(
                 M,
-                CmdLine::get_arg_percent("co3ne:min_comp_area",Marea),
-                CmdLine::get_arg_uint("co3ne:min_comp_facets")
+                geo_options().co3ne_min_comp_area * Marea,
+                geo_options().co3ne_min_comp_facets
             );
             fill_holes(
                 M,
-                CmdLine::get_arg_percent("co3ne:max_hole_area",Marea),
-                CmdLine::get_arg_uint("co3ne:max_hole_edges")
+                geo_options().co3ne_max_hole_area * Marea,
+                geo_options().co3ne_max_hole_edges
             );
             // We do that one more time, to remove the small
             // connected components
             // yielded by the detected non-manifold edges.
             remove_small_connected_components(
                 M,
-                CmdLine::get_arg_percent("co3ne:min_comp_area",Marea),
-                CmdLine::get_arg_uint("co3ne:min_comp_facets")
+                geo_options().co3ne_min_comp_area * Marea,
+                geo_options().co3ne_min_comp_facets
             );
 
             // We need to do that one more time after removing the
