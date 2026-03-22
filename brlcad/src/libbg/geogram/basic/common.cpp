@@ -46,7 +46,6 @@
 #include <geogram/numerics/multi_precision.h>
 #include <geogram/numerics/predicates.h>
 #include <geogram/delaunay/delaunay.h>
-#include <geogram/version.h>
 
 #include <sstream>
 #include <iomanip>
