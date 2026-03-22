@@ -39,7 +39,7 @@
 
 #include <geogram/points/nn_search.h>
 #include <geogram/points/kd_tree.h>
-#include <geogram/basic/command_line.h>
+#include <geogram/basic/geogram_options.h>
 #include <geogram/basic/logger.h>
 
 /****************************************************************************/
@@ -130,7 +130,7 @@ namespace GEO {
 
         std::string name = name_in;
         if(name == "default") {
-            name = CmdLine::get_arg("algo:nn_search");
+            name = geo_options().algo_nn_search;
         }
 
         NearestNeighborSearch* nns =

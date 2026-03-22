@@ -49,7 +49,7 @@
 #endif
 
 #include <geogram/basic/logger.h>
-#include <geogram/basic/command_line.h>
+#include <geogram/basic/geogram_options.h>
 #include <geogram/basic/process.h>
 #include <geogram/basic/geometry_nd.h>
 #include <geogram/basic/algorithm.h>
@@ -138,7 +138,7 @@ namespace GEO {
 
         std::string name = name_in;
         if(name == "default") {
-            name = CmdLine::get_arg("algo:delaunay");
+            name = geo_options().algo_delaunay;
         }
 
         try {
