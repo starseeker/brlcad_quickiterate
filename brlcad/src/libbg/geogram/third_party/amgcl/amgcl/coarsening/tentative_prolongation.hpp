@@ -72,41 +72,6 @@ struct nullspace_params {
     std::vector<double> B;
 
     nullspace_params() : cols(0) {}
-
-#ifndef AMGCL_NO_BOOST
-    nullspace_params(const boost::property_tree::ptree &p)
-        : cols(p.get("cols", nullspace_params().cols))
-    {
-        double *b = 0;
-        b = p.get("B", b);
-
-        if (b) {
-            size_t rows = 0;
-            rows = p.get("rows", rows);
-
-            precondition(cols > 0,
-                    "Error in nullspace parameters: "
-                    "B is set, but cols is not"
-                    );
-
-            precondition(rows > 0,
-                    "Error in nullspace parameters: "
-                    "B is set, but rows is not"
-                    );
-
-            B.assign(b, b + rows * cols);
-        } else {
-            precondition(cols == 0,
-                    "Error in nullspace parameters: "
-                    "cols > 0, but B is empty"
-                    );
-        }
-
-        check_params(p, {"cols", "rows", "B"});
-    }
-
-    void get(boost::property_tree::ptree&, const std::string&) const {}
-#endif
 };
 
 /// Tentative prolongation operator

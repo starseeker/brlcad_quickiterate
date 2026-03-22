@@ -142,43 +142,6 @@ class amg {
                 allow_rebuild(std::is_same<matrix, build_matrix>::value)
             {}
 
-#ifndef AMGCL_NO_BOOST
-            params(const boost::property_tree::ptree &p)
-                : AMGCL_PARAMS_IMPORT_CHILD(p, coarsening),
-                  AMGCL_PARAMS_IMPORT_CHILD(p, relax),
-                  AMGCL_PARAMS_IMPORT_VALUE(p, coarse_enough),
-                  AMGCL_PARAMS_IMPORT_VALUE(p, direct_coarse),
-                  AMGCL_PARAMS_IMPORT_VALUE(p, max_levels),
-                  AMGCL_PARAMS_IMPORT_VALUE(p, npre),
-                  AMGCL_PARAMS_IMPORT_VALUE(p, npost),
-                  AMGCL_PARAMS_IMPORT_VALUE(p, ncycle),
-                  AMGCL_PARAMS_IMPORT_VALUE(p, pre_cycles),
-                  AMGCL_PARAMS_IMPORT_VALUE(p, allow_rebuild)
-            {
-                check_params(p, {"coarsening", "relax", "coarse_enough",
-                        "direct_coarse", "max_levels", "npre", "npost",
-                        "ncycle",  "pre_cycles", "allow_rebuild"});
-
-                precondition(max_levels > 0, "max_levels should be positive");
-            }
-
-            void get(
-                    boost::property_tree::ptree &p,
-                    const std::string &path = ""
-                    ) const
-            {
-                AMGCL_PARAMS_EXPORT_CHILD(p, path, coarsening);
-                AMGCL_PARAMS_EXPORT_CHILD(p, path, relax);
-                AMGCL_PARAMS_EXPORT_VALUE(p, path, coarse_enough);
-                AMGCL_PARAMS_EXPORT_VALUE(p, path, direct_coarse);
-                AMGCL_PARAMS_EXPORT_VALUE(p, path, max_levels);
-                AMGCL_PARAMS_EXPORT_VALUE(p, path, npre);
-                AMGCL_PARAMS_EXPORT_VALUE(p, path, npost);
-                AMGCL_PARAMS_EXPORT_VALUE(p, path, ncycle);
-                AMGCL_PARAMS_EXPORT_VALUE(p, path, pre_cycles);
-                AMGCL_PARAMS_EXPORT_VALUE(p, path, allow_rebuild);
-            }
-#endif
         } prm;
 
         /// Builds the AMG hierarchy for the system matrix.

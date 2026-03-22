@@ -61,19 +61,6 @@ class pointwise_aggregates {
 
             params() : block_size(1) {}
 
-#ifndef AMGCL_NO_BOOST
-            params(const boost::property_tree::ptree &p)
-                : plain_aggregates::params(p),
-                  AMGCL_PARAMS_IMPORT_VALUE(p, block_size)
-            {
-                check_params(p, {"eps_strong", "block_size"});
-            }
-
-            void get(boost::property_tree::ptree &p, const std::string &path) const {
-                plain_aggregates::params::get(p, path);
-                AMGCL_PARAMS_EXPORT_VALUE(p, path, block_size);
-            }
-#endif
         };
 
         static const ptrdiff_t undefined = -1;

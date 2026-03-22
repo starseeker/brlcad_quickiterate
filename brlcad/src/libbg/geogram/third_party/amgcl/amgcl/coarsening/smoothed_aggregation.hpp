@@ -31,9 +31,6 @@ THE SOFTWARE.
  * \brief  Smoothed aggregation coarsening scheme.
  */
 
-#ifdef _OPENMP
-#  include <omp.h>
-#endif
 
 #include <tuple>
 #include <memory>
@@ -102,26 +99,6 @@ struct smoothed_aggregation {
         int power_iters;
 
         params() : relax(1.0f), estimate_spectral_radius(false), power_iters(0) { }
-
-#ifndef AMGCL_NO_BOOST
-        params(const boost::property_tree::ptree &p)
-            : AMGCL_PARAMS_IMPORT_CHILD(p, aggr),
-              AMGCL_PARAMS_IMPORT_CHILD(p, nullspace),
-              AMGCL_PARAMS_IMPORT_VALUE(p, relax),
-              AMGCL_PARAMS_IMPORT_VALUE(p, estimate_spectral_radius),
-              AMGCL_PARAMS_IMPORT_VALUE(p, power_iters)
-        {
-            check_params(p, {"aggr", "nullspace", "relax", "estimate_spectral_radius", "power_iters"});
-        }
-
-        void get(boost::property_tree::ptree &p, const std::string &path) const {
-            AMGCL_PARAMS_EXPORT_CHILD(p, path, aggr);
-            AMGCL_PARAMS_EXPORT_CHILD(p, path, nullspace);
-            AMGCL_PARAMS_EXPORT_VALUE(p, path, relax);
-            AMGCL_PARAMS_EXPORT_VALUE(p, path, estimate_spectral_radius);
-            AMGCL_PARAMS_EXPORT_VALUE(p, path, power_iters);
-        }
-#endif
     } prm;
 
     smoothed_aggregation(const params &prm = params()) : prm(prm) {}

@@ -208,9 +208,6 @@ static void nlCRSMatrixMult(
         }
     } else {
 
-#if defined(_OPENMP)
-#pragma omp parallel for private(slice)
-#endif
 
         for(slice=0; slice<nslices; ++slice) {
             nlCRSMatrixMultSlice(
@@ -684,9 +681,6 @@ static void nlSparseMatrix_mult_rows(
     NLCoeff* c = NULL;
     NLRowColumn* Ri = NULL;
 
-#if defined(_OPENMP)
-#pragma omp parallel for private(i,ij,c,Ri)
-#endif
 
     for(i=0; i<m; i++) {
         Ri = &(A->row[i]);

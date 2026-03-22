@@ -91,45 +91,6 @@ class cpr_drs {
                 : block_size(math::static_rows<value_type>::value == 1 ? 2 : math::static_rows<value_type>::value),
                   active_rows(0), eps_dd(0.2), eps_ps(0.02) {}
 
-#ifndef AMGCL_NO_BOOST
-            params(const boost::property_tree::ptree &p)
-                : AMGCL_PARAMS_IMPORT_CHILD(p, pprecond),
-                  AMGCL_PARAMS_IMPORT_CHILD(p, sprecond),
-                  AMGCL_PARAMS_IMPORT_VALUE(p, block_size),
-                  AMGCL_PARAMS_IMPORT_VALUE(p, active_rows),
-                  AMGCL_PARAMS_IMPORT_VALUE(p, eps_dd),
-                  AMGCL_PARAMS_IMPORT_VALUE(p, eps_ps)
-            {
-                void  *ptr = 0;
-                size_t n   = 0;
-
-                ptr = p.get("weights",      ptr);
-                n   = p.get("weights_size", n);
-
-                if (ptr) {
-                    precondition(n > 0,
-                            "Error in cpr_wdrs parameters: "
-                            "weights is set, but weights_size is not"
-                            );
-
-                    weights.assign(
-                            static_cast<double*>(ptr),
-                            static_cast<double*>(ptr) + n);
-                }
-
-                check_params(p, {"pprecond", "sprecond", "block_size", "active_rows", "eps_dd", "eps_ps", "weights", "weights_size"});
-            }
-
-            void get(boost::property_tree::ptree &p, const std::string &path = "") const
-            {
-                AMGCL_PARAMS_EXPORT_CHILD(p, path, pprecond);
-                AMGCL_PARAMS_EXPORT_CHILD(p, path, sprecond);
-                AMGCL_PARAMS_EXPORT_VALUE(p, path, block_size);
-                AMGCL_PARAMS_EXPORT_VALUE(p, path, active_rows);
-                AMGCL_PARAMS_EXPORT_VALUE(p, path, eps_dd);
-                AMGCL_PARAMS_EXPORT_VALUE(p, path, eps_ps);
-            }
-#endif
         } prm;
 
         template <class Matrix>

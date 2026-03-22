@@ -214,9 +214,6 @@ namespace GEO {
 #define GEO_OS_X11
 #endif
 
-#if defined(_OPENMP)
-#  define GEO_OPENMP
-#endif
 
 #if defined(__INTEL_COMPILER)
 #  define GEO_COMPILER_INTEL
@@ -243,9 +240,6 @@ namespace GEO {
 #define GEO_OS_WINDOWS
 #define GEO_PROCESSOR_X86
 
-#if defined(_OPENMP)
-#  define GEO_OPENMP
-#endif
 
 #if defined(_MSC_VER)
 #  define GEO_COMPILER_MSVC
@@ -266,9 +260,6 @@ namespace GEO {
 #define GEO_OS_APPLE
 #define GEO_OS_UNIX
 
-#if defined(_OPENMP)
-#  define GEO_OPENMP
-#endif
 
 #if defined(__clang__)
 #  define GEO_COMPILER_CLANG

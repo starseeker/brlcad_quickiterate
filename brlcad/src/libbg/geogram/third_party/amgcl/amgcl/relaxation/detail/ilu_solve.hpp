@@ -63,19 +63,6 @@ class ilu_solve {
 
             params() : iters(2), damping(0.72) {}
 
-#ifndef AMGCL_NO_BOOST
-            params(const boost::property_tree::ptree &p)
-                : AMGCL_PARAMS_IMPORT_VALUE(p, iters)
-                , AMGCL_PARAMS_IMPORT_VALUE(p, damping)
-            {
-                check_params(p, {"iters", "damping"});
-            }
-
-            void get(boost::property_tree::ptree &p, const std::string &path) const {
-                AMGCL_PARAMS_EXPORT_VALUE(p, path, iters);
-                AMGCL_PARAMS_EXPORT_VALUE(p, path, damping);
-            }
-#endif
         } prm;
 
     public:
@@ -146,17 +133,6 @@ class ilu_solve< backend::builtin<value_type, col_type, ptr_type> > {
 
             params() : serial(num_threads() < 4) {}
 
-#ifndef AMGCL_NO_BOOST
-            params(const boost::property_tree::ptree &p)
-                : AMGCL_PARAMS_IMPORT_VALUE(p, serial)
-            {
-                check_params(p, {"serial"});
-            }
-
-            void get(boost::property_tree::ptree &p, const std::string &path) const {
-                AMGCL_PARAMS_EXPORT_VALUE(p, path, serial);
-            }
-#endif
         } prm;
 
         ilu_solve(
@@ -196,19 +172,11 @@ class ilu_solve< backend::builtin<value_type, col_type, ptr_type> > {
 
     private:
         static int num_threads() {
-#ifdef _OPENMP
-            return omp_get_max_threads();
-#else
             return 1;
-#endif
         }
 
         static int thread_id() {
-#ifdef _OPENMP
-            return omp_get_thread_num();
-#else
             return 0;
-#endif
         }
 
         // copies of the input matrices for the fallback (serial)
