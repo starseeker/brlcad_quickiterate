@@ -40,96 +40,10 @@
 #ifndef GEOGRAM_BASIC_COMMAND_LINE_ARGS
 #define GEOGRAM_BASIC_COMMAND_LINE_ARGS
 
-#include <geogram/basic/common.h>
-
-/**
- * \file geogram/basic/command_line_args.h
- * \brief Definitions of standard command line arguments
+/*
+ * The option-management API (import_arg_group, set_profile) has been removed.
+ * Algorithm configuration is done directly through GeoOptions; see
+ * geogram/basic/geogram_options.h.
  */
-
-namespace GEO {
-
-    namespace CmdLine {
-
-        /**
-         * \brief Imports a group of command line arguments.
-         * \details
-         * The behavior of the the Vorpaline library is controlled by several
-         * properties organized in the following groups:
-         *
-         * - global - global options (profile, debug).
-         * - sys - Process settings (FPE, multithreading, ...).
-         * - log - Logger settings.
-         * - standard - standard settings (global + sys + log).
-         * - pre - configuration of the pre-processing phase.
-         * - remesh - configuration of the remeshing phase.
-         * - post - configuration of the post-processing phase.
-         * - algo - fine-tuning of the algorithms.
-         * - opt - fine-tuning of the optimizer.
-         * - co3ne - configuration of the reconstruction phase.
-         * - stat - Statistics settings
-         *
-         * To allow setting the properties from the command line,
-         * users must declare command line arguments and groups for the
-         * Vorpaline properties that they want to control, plus their own
-         * specific command line options. The function import_arg_group()
-         * relieves users of this tiresome and repetitive task by declaring a
-         * whole group of command line arguments.
-         *
-         * The following example illustrates how to use import_arg_group() in
-         * a main program, to declare command line options for the "standard"
-         * and "remesh" Vorpaline property groups:
-         *
-         * \code
-         * int main(int argc, char* argv[]) {
-         *      GEO::initialize();
-         *      import_arg_group("standard");
-         *      import_arg_group("remesh");
-         *      declare_arg("useroption1", "default value", "This controls...");
-         *      declare_arg("useroption2", "default value", "This controls...");
-         *      ...
-         *      return 0;
-         * }
-         * \endcode
-         *
-         * \param[in] name the name of the group to import.
-         * \retval \c true if the group name has been
-         * successfully importe (the name is valid).
-         * \retval \c false otherwise.
-         */
-        bool GEOGRAM_API import_arg_group(
-            const std::string& name
-        );
-
-        /**
-         * \brief Sets the current application profile.
-         * \details A profile is a predefined set of property values that
-         * affect the configuration of the Vorpaline library in order to
-         * perform very specific tasks. Only a single profile can be active at
-         * a time, but nothing prevents from tweaking indivual properties to
-         * fine tune the profile values.
-         *
-         * Vorpaline defines the following profiles:
-         * - cad - configures Vorpaline to process files issued from CAD
-         *   software.
-         * - scan - configures Vorpaline to process files issued from 3D
-         *   scanners.
-         * - convert - performs file conversion only. No remeshing.
-         * - repair - repares small problems in input data, no remeshing.
-         * - heal - repares bigger problems in the input data, using
-         *   remeshing.
-         * - reconstruct - reconstructs a mesh from scratch using the \b
-         *   points of the the input data (input triangles are ignored).
-         *
-         * \param[in] name the name of the profile, as defined above.
-         * \retval \c true if the profile name is valid and has been
-         * successfully set.
-         * \retval \c false otherwise.
-         */
-        bool GEOGRAM_API set_profile(
-            const std::string& name
-        );
-    }
-}
 
 #endif

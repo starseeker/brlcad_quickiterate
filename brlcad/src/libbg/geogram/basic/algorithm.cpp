@@ -43,14 +43,6 @@
 namespace GEO {
 
     bool uses_parallel_algorithm() {
-        static bool initialized = false;
-        static bool result = false;
-        if(!initialized) {
-            result =
-                geo_options().sys_multithread &&
-                geo_options().algo_parallel;
-            initialized = true;
-        }
-        return result;
+        return geo_options().sys_multithread && geo_options().algo_parallel;
     }
 }

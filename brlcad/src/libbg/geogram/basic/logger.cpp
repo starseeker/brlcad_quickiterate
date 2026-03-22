@@ -40,6 +40,7 @@
 #include <geogram/basic/logger.h>
 #include <geogram/basic/assert.h>
 #include <geogram/basic/command_line.h>
+#include <geogram/basic/string.h>
 #include <geogram/basic/argused.h>
 #include <geogram/basic/process.h>
 

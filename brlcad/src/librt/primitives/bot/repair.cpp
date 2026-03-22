@@ -43,7 +43,7 @@
 #include "manifold/manifold.h"
 
 #include "geogram/basic/process.h"
-#include <geogram/basic/command_line.h>
+#include "geogram/basic/geogram_options.h"
 #include "geogram/mesh/mesh.h"
 #include "geogram/mesh/mesh_geometry.h"
 #include "geogram/mesh/mesh_preprocessing.h"
@@ -649,9 +649,13 @@ rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct
 	close(stdout_stashed);
     }
 
-    // Use the default hole filling algorithm
-    GEO::CmdLine::set_arg("algo:hole_filling", "loop_split");
-    GEO::CmdLine::set_arg("algo:nn_search", "BNN");
+    // Configure geogram options for this repair call.
+    // Using GeoOptionsScope ensures any parallel invocations on other threads
+    // are unaffected by these settings.
+    GEO::GeoOptions repair_opts;
+    repair_opts.algo_hole_filling = "loop_split";
+    repair_opts.algo_nn_search = "BNN";
+    GEO::GeoOptionsScope geo_scope(repair_opts);
 
     // Set up a Geogram mesh using the BoT data
     GEO::Mesh gm;
