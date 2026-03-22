@@ -242,66 +242,6 @@ NLuint nlGetNumThreads(void);
  */
 void nlSetNumThreads(NLuint nb_threads);
 
-/**
- * \brief Type for manipulating DLL/shared object/dylib handles.
- */
-typedef void* NLdll;
-
-
-/**
- * \brief Flag for nlOpenDLL(), resolve all symbols when opening the DLL.
- * \see nlOpenDLL()
- */
-#define NL_LINK_NOW    1
-
-/**
- * \brief Flag for nlOpenDLL(), resolve symbols only when they are called.
- * \see nlOpenDLL()
- */
-#define NL_LINK_LAZY   2
-
-/**
- * \brief Flag for nlOpenDLL(), add all loaded symbols to global namespace.
- */
-#define NL_LINK_GLOBAL 4
-
-/**
- * \brief Flag for nlOpenDLL(), do not display messages.
- */
-#define NL_LINK_QUIET  8
-
-/**
- * \brief Flag for nlOpenDLL(), use fallback geogram numerical library if
- *  library is not found in the system.
- */
-#define NL_LINK_USE_FALLBACK 16
-
-/**
- * \brief Dynamically links a DLL/shared object/dylib to the current process.
- * \param[in] filename the file name fo the DLL/shared object/dylib.
- * \param[in] flags an or-combination of NL_LINK_NOW, NL_LINK_LAZY, NL_LINK_GLOBAL,
- *  NL_LINK_QUIET.
- * \return a handle to the DLL/shared object/dylib or NULL if it could not
- *  be found.
- */
-NLdll nlOpenDLL(const char* filename, NLenum flags);
-
-/**
- * \brief Closes a DLL/shared object/dylib.
- * \param[in] handle a handle to a DLL/shared object/dylib that was previously
- *  obtained by nlOpenDLL()
- */
-void nlCloseDLL(NLdll handle);
-
-/**
- * \brief Finds a function in a DLL/shared object/dylib.
- * \param[in] handle a handle to a DLL/shared object/dylib that was previously
- *  obtained by nlOpenDLL()
- * \param[in] funcname the name of the function
- * \return a pointer to the function or NULL if no such function was found
- */
-NLfunc nlFindFunction(NLdll handle, const char* funcname);
-
 /******************************************************************************/
 /* classic macros */
 

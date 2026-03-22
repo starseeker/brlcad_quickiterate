@@ -38,9 +38,6 @@
  */
 
 #include "nl_matrix.h"
-#include "nl_superlu.h"
-#include "nl_cholmod.h"
-#include "nl_mkl.h"
 #include "nl_context.h"
 #include "nl_blas.h"
 
@@ -226,11 +223,7 @@ void nlCRSMatrixConstruct(
     M->n = n;
     M->type = NL_MATRIX_CRS;
     M->destroy_func = (NLDestroyMatrixFunc)nlCRSMatrixDestroy;
-    if(NLMultMatrixVector_MKL != NULL) {
-        M->mult_func = (NLMultMatrixVectorFunc)NLMultMatrixVector_MKL;
-    } else {
-        M->mult_func = (NLMultMatrixVectorFunc)nlCRSMatrixMult;
-    }
+    M->mult_func = (NLMultMatrixVectorFunc)nlCRSMatrixMult;
     M->nslices = nslices;
     M->val = NL_NEW_ARRAY(double, nnz);
     M->rowptr = NL_NEW_ARRAY(NLuint_big, m+1);
@@ -263,11 +256,7 @@ void nlCRSMatrixConstructPattern(
     M->n = n;
     M->type = NL_MATRIX_CRS;
     M->destroy_func = (NLDestroyMatrixFunc)nlCRSMatrixDestroy;
-    if(NLMultMatrixVector_MKL != NULL) {
-        M->mult_func = (NLMultMatrixVectorFunc)NLMultMatrixVector_MKL;
-    } else {
-        M->mult_func = (NLMultMatrixVectorFunc)nlCRSMatrixMult;
-    }
+    M->mult_func = (NLMultMatrixVectorFunc)nlCRSMatrixMult;
     M->nslices = 0;
     M->val = NULL;
     M->rowptr = NL_NEW_ARRAY(NLuint_big, m+1);

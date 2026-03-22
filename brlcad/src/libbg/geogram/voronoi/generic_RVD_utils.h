@@ -160,29 +160,6 @@ namespace GEOGen {
     typedef FacetSeed TetSeed;
     /************************************************************************/
 
-#ifdef GEO_OS_ANDROID
-    // VectorStack uses AlignedAllocator, that is protected
-    // by a global lock under Android (needed because it
-    // seems that malloc() is not SMP-thread-safe under Android).
-
-    /**
-     * \brief A stack of FacetSeed.
-     * \details Used by GEOGen::RestrictedVoronoiDiagram.
-     */
-    typedef VectorStack<FacetSeed> FacetSeedStack;
-
-    /**
-     * \brief A stack of TetSeed.
-     * \details Used by GEOGen::RestrictedVoronoiDiagram.
-     */
-    typedef VectorStack<TetSeed> TetSeedStack;
-
-    /**
-     * \brief A stack of seed indices (index_t).
-     * \details Used by GEOGen::RestrictedVoronoiDiagram.
-     */
-    typedef VectorStack<index_t> SeedStack;
-#else
 
     /**
      * \brief A stack of FacetSeed.
@@ -201,7 +178,6 @@ namespace GEOGen {
      * \details Used by GEOGen::RestrictedVoronoiDiagram.
      */
     typedef std::stack<index_t> SeedStack;
-#endif
 
     /************************************************************************/
 
