@@ -48,7 +48,6 @@
 #include <geogram/basic/line_stream.h>
 
 #include <sstream>
-#include <pthread.h>
 #include <unistd.h>
 #include <limits.h>
 #include <fenv.h>
@@ -74,11 +73,6 @@
 #endif
 #endif
 
-
-#ifndef GEO_TBB
-#define GEO_USE_PTHREAD_MANAGER
-#endif
-
 // Suppresses a warning with CLANG when sigaction is used.
 #if defined(__clang__)
 #pragma clang diagnostic ignored "-Wunknown-pragmas"
@@ -88,82 +82,6 @@
 namespace {
 
     using namespace GEO;
-
-
-#ifdef GEO_USE_PTHREAD_MANAGER
-
-    /**
-     * \brief POSIX Thread ThreadManager
-     * \details
-     * PThreadManager is an implementation of ThreadManager that uses POSIX
-     * threads for running concurrent threads and control critical sections.
-     */
-    class GEOGRAM_API PThreadManager : public ThreadManager {
-    public:
-        /**
-         * \brief Creates and initializes the POSIX ThreadManager
-         */
-        PThreadManager() {
-            pthread_attr_init(&attr_);
-            pthread_attr_setdetachstate(&attr_, PTHREAD_CREATE_JOINABLE);
-        }
-
-        /** \copydoc GEO::ThreadManager::maximum_concurrent_threads() */
-        index_t maximum_concurrent_threads() override {
-            return Process::number_of_cores();
-        }
-
-
-    protected:
-        /** \brief PThreadManager destructor */
-        ~PThreadManager() override {
-            pthread_attr_destroy(&attr_);
-        }
-
-        /**
-         * \brief Pthread_create callback for running a thread
-         * \details This function is passed a void pointer \p thread to a
-         * Thread and invokes the Thread function run().
-         * \param[in] thread_in void pointer to the Thread to be executed.
-         * \return always null pointer.
-         * \see Thread::run()
-         */
-        static void* run_thread(void* thread_in) {
-            Thread* thread = reinterpret_cast<Thread*>(thread_in);
-            // Sets the thread-local-storage instance pointer, so
-            // that Thread::current() can retrieve it.
-            set_current_thread(thread);
-            thread->run();
-            return nullptr;
-        }
-
-        /** \copydoc GEO::ThreadManager::run_concurrent_threads() */
-        void run_concurrent_threads (
-            ThreadGroup& threads, index_t max_threads
-        ) override {
-            // TODO: take max_threads into account
-            geo_argused(max_threads);
-
-            thread_impl_.resize(threads.size());
-            for(index_t i = 0; i < threads.size(); i++) {
-                Thread* T = threads[i];
-                set_thread_id(T,i);
-                pthread_create(
-                    &thread_impl_[i], &attr_, &run_thread, T
-                );
-            }
-            for(index_t i = 0; i < threads.size(); ++i) {
-                pthread_join(thread_impl_[i], nullptr);
-            }
-
-        }
-
-    private:
-        pthread_attr_t attr_;
-        std::vector<pthread_t> thread_impl_;
-    };
-
-#endif
 
     /**
      * \brief Abnormal termination handler
@@ -290,15 +208,8 @@ namespace GEO {
     namespace Process {
 
         bool os_init_threads() {
-#ifdef GEO_USE_PTHREAD_MANAGER
-            Logger::out("Process")
-                << "Using posix threads"
-                << std::endl;
-            set_thread_manager(new PThreadManager);
-            return true;
-#else
+            // Thread management is handled by CXX17ThreadManager in process.cpp
             return false;
-#endif
         }
 
         void os_brute_force_kill() {

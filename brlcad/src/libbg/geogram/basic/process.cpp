@@ -48,11 +48,6 @@
 #include <chrono>
 
 
-#ifdef GEO_TBB
-#include <tbb/parallel_for.h>
-#include <tbb/task_arena.h>
-#endif
-
 namespace {
     using namespace GEO;
 
@@ -185,56 +180,47 @@ namespace {
 
     /************************************************************************/
 
-
-#ifdef GEO_TBB
-
     /**
-     * \brief TBB Thread Manager
+     * \brief C++17 std::thread ThreadManager
      * \details
-     * TBBThreadManager is an implementation of ThreadManager that uses TBB
-     * for running concurrent threads and control critical sections.
+     * CXX17ThreadManager is an implementation of ThreadManager that uses
+     * C++17 std::thread for running concurrent threads.
      */
-    class GEOGRAM_API TBBThreadManager : public ThreadManager {
+    class GEOGRAM_API CXX17ThreadManager : public ThreadManager {
     public:
-        /**
-         * \brief Creates and initializes the TBB ThreadManager
-         */
-        TBBThreadManager() {
-        }
-
         /** \copydoc GEO::ThreadManager::maximum_concurrent_threads() */
-        virtual index_t maximum_concurrent_threads() {
-            return tbb::this_task_arena::max_concurrency();
+        index_t maximum_concurrent_threads() override {
+            return Process::number_of_cores();
         }
 
     protected:
-        /** \brief TBBThreadManager destructor */
-        virtual ~TBBThreadManager() {
+        /** \brief CXX17ThreadManager destructor */
+        ~CXX17ThreadManager() override {
         }
 
         /** \copydoc GEO::ThreadManager::run_concurrent_threads() */
-        virtual void run_concurrent_threads(
+        void run_concurrent_threads(
             ThreadGroup& threads, index_t max_threads
-        ) {
-            tbb::task_arena arena(static_cast<std::int32_t>(max_threads));
-            arena.execute([&threads] {
-                tbb::parallel_for(
-                    tbb::blocked_range<std::size_t>(0, threads.size()),
-                    [&threads](const tbb::blocked_range<std::size_t>& tbb_range) {
-                        for (std::size_t i = tbb_range.begin(); i < tbb_range.end(); ++i) {
-                            index_t ii = static_cast<index_t>(i);
-                            set_thread_id(threads[ii],ii);
-                            set_current_thread(threads[ii]);
-                            threads[ii]->run();
-                        }
-                    }
-                );
-            });
-
+        ) override {
+            // The threads vector is pre-sized by the caller to not exceed
+            // max_threads, so we run all threads in the group.
+            geo_argused(max_threads);
+            std::vector<std::thread> thread_impl;
+            thread_impl.reserve(threads.size());
+            for(index_t i = 0; i < threads.size(); i++) {
+                Thread* T = threads[i];
+                set_thread_id(T, i);
+                thread_impl.emplace_back([T]() {
+                    set_current_thread(T);
+                    T->run();
+                });
+            }
+            for(auto& t : thread_impl) {
+                t.join();
+            }
         }
     };
 
-#endif
 }
 
 
@@ -306,17 +292,10 @@ namespace GEO {
             env->add_environment(new ProcessEnvironment);
 
             if(!os_init_threads()) {
-#if   defined(GEO_TBB)
                 Logger::out("Process")
-                    << "Using TBB threads"
+                    << "Using C++17 threads"
                     << std::endl;
-                set_thread_manager(new TBBThreadManager);
-#else
-                Logger::out("Process")
-                    << "Multithreading not supported, going monothread"
-                    << std::endl;
-                set_thread_manager(new MonoThreadingThreadManager);
-#endif
+                set_thread_manager(new CXX17ThreadManager);
             }
 
             if(
