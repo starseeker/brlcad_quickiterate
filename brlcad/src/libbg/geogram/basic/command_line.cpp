@@ -40,11 +40,9 @@
 #include <geogram/basic/command_line.h>
 #include <geogram/basic/command_line_args.h>
 #include <geogram/basic/environment.h>
-#include <geogram/basic/file_system.h>
 #include <geogram/basic/logger.h>
 #include <geogram/basic/stopwatch.h>
 #include <geogram/basic/process.h>
-#include <geogram/bibliography/bibliography.h>
 #include <geogram/NL/nl.h>
 #include <iostream>
 #include <iomanip>

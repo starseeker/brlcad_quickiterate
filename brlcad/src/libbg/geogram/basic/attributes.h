@@ -45,9 +45,6 @@
 #include <geogram/basic/memory.h>
 #include <geogram/basic/numeric.h>
 #include <geogram/basic/process.h>
-#ifndef BRLCAD_GEOGRAM_EMBED
-#include <geogram/basic/geofile.h>
-#endif
 #include <geogram/basic/logger.h>
 
 #include <map>
@@ -810,21 +807,6 @@ namespace GEO {
             AttributeStore::register_attribute_creator(
                 new TypedAttributeStoreCreator<T>, type_name, typeid(T).name()
             );
-#ifndef BRLCAD_GEOGRAM_EMBED
-            if(type_name == "bool") {
-                GeoFile::register_ascii_attribute_serializer(
-                    type_name,
-                    read_ascii_attribute<bool>,
-                    write_ascii_attribute<bool>
-                );
-            } else {
-                GeoFile::register_ascii_attribute_serializer(
-                    type_name,
-                    read_ascii_attribute<T>,
-                    write_ascii_attribute<T>
-                );
-            }
-#endif
         }
     };
 
