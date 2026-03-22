@@ -88,25 +88,6 @@ class chebyshev {
                   scale(false)
             {}
 
-#ifndef AMGCL_NO_BOOST
-            params(const boost::property_tree::ptree &p)
-                : AMGCL_PARAMS_IMPORT_VALUE(p, degree),
-                  AMGCL_PARAMS_IMPORT_VALUE(p, higher),
-                  AMGCL_PARAMS_IMPORT_VALUE(p, lower),
-                  AMGCL_PARAMS_IMPORT_VALUE(p, power_iters),
-                  AMGCL_PARAMS_IMPORT_VALUE(p, scale)
-            {
-                check_params(p, {"degree", "higher", "lower", "power_iters", "scale"});
-            }
-
-            void get(boost::property_tree::ptree &p, const std::string &path) const {
-                AMGCL_PARAMS_EXPORT_VALUE(p, path, degree);
-                AMGCL_PARAMS_EXPORT_VALUE(p, path, higher);
-                AMGCL_PARAMS_EXPORT_VALUE(p, path, lower);
-                AMGCL_PARAMS_EXPORT_VALUE(p, path, power_iters);
-                AMGCL_PARAMS_EXPORT_VALUE(p, path, scale);
-            }
-#endif
         } prm;
 
         /// \copydoc amgcl::relaxation::damped_jacobi::damped_jacobi

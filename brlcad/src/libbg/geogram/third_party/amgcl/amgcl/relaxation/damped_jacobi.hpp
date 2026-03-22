@@ -62,17 +62,6 @@ struct damped_jacobi {
 
         params(scalar_type damping = 0.72) : damping(damping) {}
 
-#ifndef AMGCL_NO_BOOST
-        params(const boost::property_tree::ptree &p)
-            : AMGCL_PARAMS_IMPORT_VALUE(p, damping)
-        {
-            check_params(p, {"damping"});
-        }
-
-        void get(boost::property_tree::ptree &p, const std::string &path) const {
-            AMGCL_PARAMS_EXPORT_VALUE(p, path, damping);
-        }
-#endif
     } prm;
 
     std::shared_ptr<typename Backend::matrix_diagonal> dia;

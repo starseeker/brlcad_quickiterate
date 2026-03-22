@@ -134,18 +134,6 @@ struct ilup {
 
         params() : k(1) {}
 
-#ifndef AMGCL_NO_BOOST
-        params(const boost::property_tree::ptree &p)
-            : BasePrm(p), AMGCL_PARAMS_IMPORT_VALUE(p, k)
-        {
-            check_params(p, {"k", "damping", "solve"});
-        }
-
-        void get(boost::property_tree::ptree &p, const std::string &path) const {
-            BasePrm::get(p, path);
-            AMGCL_PARAMS_EXPORT_VALUE(p, path, k);
-        }
-#endif
     } prm;
 
     /// \copydoc amgcl::relaxation::damped_jacobi::damped_jacobi
