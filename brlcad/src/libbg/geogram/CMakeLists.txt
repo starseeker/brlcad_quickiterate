@@ -9,7 +9,6 @@ set(GEOGRAM_SRCS
     basic/assert.cpp
     basic/attributes.cpp
     basic/command_line.cpp
-    basic/command_line_args.cpp
     basic/common.cpp
     basic/counted.cpp
     basic/environment.cpp

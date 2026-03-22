@@ -46,4 +46,9 @@ namespace GEO {
         return opts;
     }
 
+    const GeoOptions*& geo_options_tl_ref() {
+        thread_local const GeoOptions* ptr = nullptr;
+        return ptr;
+    }
+
 } // namespace GEO
