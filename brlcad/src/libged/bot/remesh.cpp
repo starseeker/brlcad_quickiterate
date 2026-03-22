@@ -38,7 +38,7 @@
 #include <geogram/basic/command_line_args.h>
 #include "geogram/mesh/mesh.h"
 #include "geogram/mesh/mesh_geometry.h"
-#include "geogram/mesh/mesh_preprocessing.h"
+#include "geogram/mesh/mesh_repair.h"
 #include "geogram/mesh/mesh_remesh.h"
 
 #include "vmath.h"
