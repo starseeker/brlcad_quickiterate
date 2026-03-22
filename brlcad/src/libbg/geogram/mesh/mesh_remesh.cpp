@@ -47,7 +47,7 @@
 #include <geogram/mesh/mesh_AABB.h>
 #include <geogram/voronoi/CVT.h>
 #include <geogram/NL/nl.h>
-#include <geogram/basic/command_line.h>
+#include <geogram/basic/geogram_options.h>
 #include <geogram/basic/stopwatch.h>
 #include <geogram/basic/progress.h>
 
@@ -108,15 +108,13 @@ namespace GEO {
         //   we need this RAM to create the surface now...)
         CVT.RVD()->delete_threads();
 
-        CVT.set_use_RVC_centroids(
-            CmdLine::get_arg_bool("remesh:RVC_centroids")
-        );
-        bool multi_nerve = CmdLine::get_arg_bool("remesh:multi_nerve");
+        CVT.set_use_RVC_centroids(geo_options().remesh_RVC_centroids);
+        bool multi_nerve = geo_options().remesh_multi_nerve;
 
         Logger::out("Remesh") << "Computing RVD..." << std::endl;
 
         CVT.compute_surface(&M_out, multi_nerve);
-        if(CmdLine::get_arg_bool("dbg:save_ANN_histo")) {
+        if(geo_options().dbg_save_ANN_histo) {
             Logger::out("ANN")
                 << "Saving histogram to ANN_histo.dat" << std::endl;
             std::ofstream out("ANN_histo.dat");

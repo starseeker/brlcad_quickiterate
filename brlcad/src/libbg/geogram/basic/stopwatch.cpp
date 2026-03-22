@@ -38,7 +38,8 @@
  */
 
 #include <geogram/basic/stopwatch.h>
-#include <geogram/basic/command_line.h>
+#include <geogram/basic/geogram_options.h>
+#include <geogram/basic/string.h>
 #include <iostream>
 
 namespace GEO {
@@ -48,10 +49,7 @@ namespace GEO {
 
     void Stopwatch::initialize() {
         process_start_time_ = now();
-        global_stats_ =
-            CmdLine::arg_is_declared("sys:stats") &&
-            CmdLine::get_arg_bool("sys:stats") ;
-
+        global_stats_ = geo_options().sys_stats;
     }
 
     void Stopwatch::show_stats() {

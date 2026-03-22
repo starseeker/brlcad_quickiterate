@@ -41,7 +41,7 @@
 #include <geogram/points/nn_search.h>
 #include <geogram/basic/geometry_nd.h>
 #include <geogram/basic/process.h>
-#include <geogram/basic/command_line.h>
+#include <geogram/basic/geogram_options.h>
 #include <geogram/basic/algorithm.h>
 
 namespace {
@@ -235,7 +235,7 @@ namespace GEO {
             old2new.resize(nb_points, NO_INDEX);
             Colocate colocate_obj(NN, old2new, tolerance);
 
-            if(CmdLine::get_arg_bool("sys:multithread")) {
+            if(geo_options().sys_multithread) {
                 parallel_for(
                     0, nb_points,
                     [&colocate_obj](index_t i){ colocate_obj.do_it(i); },

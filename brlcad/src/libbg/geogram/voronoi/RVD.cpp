@@ -49,7 +49,7 @@
 #include <geogram/delaunay/delaunay.h>
 #include <geogram/basic/geometry_nd.h>
 #include <geogram/basic/process.h>
-#include <geogram/basic/command_line.h>
+#include <geogram/basic/geogram_options.h>
 #include <geogram/basic/argused.h>
 #include <geogram/basic/algorithm.h>
 
@@ -2583,7 +2583,7 @@ namespace GEO {
         default:
             geo_assert_not_reached;
         }
-        if(CmdLine::get_arg("algo:predicates") == "exact") {
+        if(geo_options().algo_predicates == "exact") {
             result->set_exact_predicates(true);
         }
         return result;
