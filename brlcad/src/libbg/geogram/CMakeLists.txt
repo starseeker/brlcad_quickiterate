@@ -49,7 +49,6 @@ set(GEOGRAM_SRCS
     voronoi/RVD.cpp
     voronoi/RVD_callback.cpp
     voronoi/RVD_mesh_builder.cpp
-    voronoi/convex_cell.cpp
     voronoi/generic_RVD_cell.cpp
     voronoi/generic_RVD_polygon.cpp
     voronoi/integration_simplex.cpp
