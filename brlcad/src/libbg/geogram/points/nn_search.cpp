@@ -118,7 +118,9 @@ namespace GEO {
     }
 
     NearestNeighborSearch* NearestNeighborSearch::create(
-        coord_index_t dimension, const std::string& name_in
+        coord_index_t dimension,
+        const std::string& name_in,
+        const GeoOptions& opts
     ) {
         geo_register_NearestNeighborSearch_creator(
             BalancedKdTree, "BNN"
@@ -130,7 +132,7 @@ namespace GEO {
 
         std::string name = name_in;
         if(name == "default") {
-            name = geo_options().algo_nn_search;
+            name = opts.algo_nn_search;
         }
 
         NearestNeighborSearch* nns =

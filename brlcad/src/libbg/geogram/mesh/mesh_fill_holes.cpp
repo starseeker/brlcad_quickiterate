@@ -556,7 +556,8 @@ namespace {
 namespace GEO {
 
     void fill_holes(
-        Mesh& M, double max_area, index_t max_edges, bool repair
+        Mesh& M, double max_area, index_t max_edges, bool repair,
+        const GeoOptions& opts
     ) {
 
         if(max_area == 0.0 || max_edges == 0) {
@@ -609,7 +610,7 @@ namespace GEO {
                                  << " holes" << std::endl;
 
         HoleFilling algo = LOOP_SPLIT;
-        std::string algo_name = geo_options().algo_hole_filling;
+        std::string algo_name = opts.algo_hole_filling;
         if(algo_name == "loop_split") {
             algo = LOOP_SPLIT;
         } else if(algo_name == "Nloop_split") {
@@ -687,7 +688,7 @@ namespace GEO {
             // and zero-area facets that need to be eliminated.
             // Note: this also reconstructs the connections between the facets.
             MeshRepairMode mode = MESH_REPAIR_DEFAULT;
-            mesh_repair(M, mode);
+            mesh_repair(M, mode, 0.0, opts);
         }
     }
 

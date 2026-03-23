@@ -53,8 +53,10 @@ namespace GEO {
     CentroidalVoronoiTesselation::instance_ = nullptr;
 
     CentroidalVoronoiTesselation::CentroidalVoronoiTesselation(
-        Mesh* mesh, coord_index_t dim, const std::string& delaunay
+        Mesh* mesh, const GeoOptions& opts,
+        coord_index_t dim, const std::string& delaunay
     ) {
+        opts_ = opts;
         use_RVC_centroids_ = true;
         show_iterations_ = false;
         constrained_cvt_ = false;
@@ -62,8 +64,8 @@ namespace GEO {
             (dim != 0) ? dim : coord_index_t(mesh->vertices.dimension());
         geo_assert(index_t(dimension_) <= mesh->vertices.dimension());
         is_projection_ = true;
-        delaunay_ = Delaunay::create(dimension_, delaunay);
-        RVD_ = RestrictedVoronoiDiagram::create(delaunay_, mesh);
+        delaunay_ = Delaunay::create(dimension_, delaunay, opts_);
+        RVD_ = RestrictedVoronoiDiagram::create(delaunay_, mesh, opts_);
         mesh_ = mesh;
         geo_assert(instance_ == nullptr);
         instance_ = this;
@@ -71,9 +73,11 @@ namespace GEO {
     }
 
     CentroidalVoronoiTesselation::CentroidalVoronoiTesselation(
-        Mesh* mesh, const vector<vec3>& R3_embedding, coord_index_t dim,
+        Mesh* mesh, const GeoOptions& opts,
+        const vector<vec3>& R3_embedding, coord_index_t dim,
         const std::string& delaunay
     ) {
+        opts_ = opts;
         use_RVC_centroids_ = true;
         show_iterations_ = false;
         constrained_cvt_ = false;
@@ -81,12 +85,12 @@ namespace GEO {
             (dim != 0) ? dim : coord_index_t(mesh->vertices.dimension());
         geo_assert(index_t(dimension_) <= mesh->vertices.dimension());
         is_projection_ = (R3_embedding.size() == 0);
-        delaunay_ = Delaunay::create(dimension_, delaunay);
+        delaunay_ = Delaunay::create(dimension_, delaunay, opts_);
         if(is_projection_) {
-            RVD_ = RestrictedVoronoiDiagram::create(delaunay_, mesh);
+            RVD_ = RestrictedVoronoiDiagram::create(delaunay_, mesh, opts_);
         } else {
             RVD_ = RestrictedVoronoiDiagram::create(
-                delaunay_, mesh, R3_embedding
+                delaunay_, mesh, R3_embedding, opts_
             );
         }
         mesh_ = mesh;
@@ -212,13 +216,13 @@ namespace GEO {
         mesh->facets.assign_triangle_mesh(3, vertices_R3, triangles, true);
 
         if(multinerve) {
-            mesh_postprocess_RDT(*mesh);
+            mesh_postprocess_RDT(*mesh, false, opts_);
         } else {
             // The 'repair' phase is needed to reconstruct the
             // facet-facet links, that are not initialized by
             // Mesh::assign_triangle_mesh()
             double radius = bbox_diagonal(*mesh);
-            mesh_repair(*mesh, MESH_REPAIR_DEFAULT, 1e-6 * radius);
+            mesh_repair(*mesh, MESH_REPAIR_DEFAULT, 1e-6 * radius, opts_);
             // TODO: check: is it really good to have some tolerance here,
             //  not sure, may cause some Moebius configs sometimes.
         }

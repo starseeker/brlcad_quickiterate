@@ -410,7 +410,10 @@ namespace GEO {
         ) {
             double l2 = distance2(V0,V1);
             double t = dot(point - V0, V1 - V0);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
             if(t <= 0.0 || l2 == 0.0) {
+#pragma GCC diagnostic pop
                 closest_point = V0;
                 lambda0 = 1.0;
                 lambda1 = 0.0;

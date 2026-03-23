@@ -92,13 +92,14 @@ namespace GEO {
     void GEOGRAM_API remesh_smooth(
         Mesh& M_in, Mesh& M_out,
         index_t nb_points,
+        const GeoOptions& opts,
         coord_index_t dim = 0,
         index_t nb_Lloyd_iter = 5,
         index_t nb_Newton_iter = 30,
         index_t Newton_m = 7,
         bool adjust = true,
-        double adjust_max_edge_distance=0.5,
-	double adjust_border_importance=2.0
+        double adjust_max_edge_distance = 0.5,
+        double adjust_border_importance = 2.0
     );
 
     /**

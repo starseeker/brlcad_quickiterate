@@ -153,8 +153,30 @@ namespace GEO {
          * \endcode
          */
         static Delaunay* create(
-            coord_index_t dim, const std::string& name = "default"
+            coord_index_t dim,
+            const std::string& name,
+            const GeoOptions& opts
         );
+
+        /**
+         * \brief Creates a Delaunay triangulation with default algorithm.
+         */
+        static Delaunay* create(
+            coord_index_t dim, const GeoOptions& opts
+        ) {
+            return create(dim, "default", opts);
+        }
+
+        /**
+         * \brief Applies post-construction options.
+         * \details Subclasses that need options to complete initialization
+         *  (e.g. to select the NN search backend) override this method.
+         *  Called automatically by create() immediately after construction.
+         * \param[in] opts the active GeoOptions.
+         */
+        virtual void apply_options(const GeoOptions& opts) {
+            geo_argused(opts);
+        }
 
 
         /**

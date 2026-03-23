@@ -335,9 +335,10 @@ namespace {
      */
     void detect_bad_facets(
         Mesh& M, bool check_duplicates, vector<index_t>& remove_f,
-        vector<index_t>* old_polygons = nullptr,
-        vector<index_t>* new_polygons = nullptr,
-        bool verbose = false
+        vector<index_t>* old_polygons,
+        vector<index_t>* new_polygons,
+        bool verbose,
+        const GeoOptions& opts
     ) {
         index_t nb_duplicates = 0;
         index_t nb_degenerate = 0;
@@ -361,7 +362,7 @@ namespace {
                 f_sort[f] = f;
             }
             CompareFacets compare_facets(M);
-            GEO::sort(f_sort.begin(), f_sort.end(), compare_facets);
+            GEO::sort(f_sort.begin(), f_sort.end(), compare_facets, opts);
             // Now f_sort[0] ... fsort[nb_facets-1] contains the indices
             // of the sorted facets. This ensures that the indices of the
             // facets with the same vertices (i.e. duplicated facets)
@@ -990,7 +991,8 @@ namespace GEO {
 
 
     void mesh_repair(
-        Mesh& M, MeshRepairMode mode, double colocate_epsilon
+        Mesh& M, MeshRepairMode mode, double colocate_epsilon,
+        const GeoOptions& opts
     ) {
         bool verbose = ((mode & MESH_REPAIR_QUIET) == 0);
 
@@ -998,49 +1000,18 @@ namespace GEO {
         index_t nb_facets_in = M.facets.nb();
 
         if(mode & MESH_REPAIR_COLOCATE) {
-            mesh_colocate_vertices_no_check(M, colocate_epsilon, verbose);
+            mesh_colocate_vertices_no_check(M, colocate_epsilon, verbose, opts);
         }
         if(mode & MESH_REPAIR_TRIANGULATE) {
             M.facets.triangulate();
         }
         mesh_remove_bad_facets_no_check(
-            M, (mode & MESH_REPAIR_DUP_F) != 0
+            M, (mode & MESH_REPAIR_DUP_F) != 0, opts
         );
 
         repair_connect_facets(M);
         repair_reorient_facets_anti_moebius(M);
         repair_split_non_manifold_vertices(M,verbose);
-
-        if(
-            (mode & MESH_REPAIR_RECONSTRUCT) != 0
-        ) {
-            double Marea = Geom::mesh_area(M,3);
-            remove_small_connected_components(
-                M,
-                geo_options().co3ne_min_comp_area * Marea,
-                geo_options().co3ne_min_comp_facets
-            );
-            fill_holes(
-                M,
-                geo_options().co3ne_max_hole_area * Marea,
-                geo_options().co3ne_max_hole_edges
-            );
-            // We do that one more time, to remove the small
-            // connected components
-            // yielded by the detected non-manifold edges.
-            remove_small_connected_components(
-                M,
-                geo_options().co3ne_min_comp_area * Marea,
-                geo_options().co3ne_min_comp_facets
-            );
-
-            // We need to do that one more time after removing the
-            // small component, to ensure that everything is correct.
-            repair_connect_facets(M);
-            repair_reorient_facets_anti_moebius(M);
-            repair_split_non_manifold_vertices(M,verbose);
-
-        }
 
         if((mode & MESH_REPAIR_QUIET) == 0) {
             if(
@@ -1057,11 +1028,11 @@ namespace GEO {
     }
 
     void mesh_postprocess_RDT(
-        Mesh& M, bool verbose
+        Mesh& M, bool verbose, const GeoOptions& opts
     ) {
         vector<index_t> f_is_bad(M.facets.nb(), 0);
         vector<signed_index_t> v_nb_incident(M.vertices.nb(), 0);
-        detect_bad_facets(M, true, f_is_bad, nullptr, nullptr, verbose);
+        detect_bad_facets(M, true, f_is_bad, nullptr, nullptr, verbose, opts);
         bool changed = false;
         do {
             changed = false;
@@ -1101,7 +1072,8 @@ namespace GEO {
 
 
     void mesh_colocate_vertices_no_check(
-        Mesh& M, double colocate_epsilon, bool verbose
+        Mesh& M, double colocate_epsilon, bool verbose,
+        const GeoOptions& opts
     ) {
         vector<index_t> old2new;
 
@@ -1113,12 +1085,13 @@ namespace GEO {
         if(colocate_epsilon == 0.0) {
             nb_new_vertices = Geom::colocate_by_lexico_sort(
                 M.vertices.point_ptr(0), 3, M.vertices.nb(),
-                old2new, M.vertices.dimension()
+                old2new, M.vertices.dimension(), opts
             );
         } else {
             nb_new_vertices = Geom::colocate(
                 M.vertices.point_ptr(0), 3, M.vertices.nb(),
-                old2new, colocate_epsilon, M.vertices.dimension()
+                old2new, colocate_epsilon, M.vertices.dimension(),
+                "default", opts
             );
         }
 
@@ -1167,12 +1140,14 @@ namespace GEO {
 
     /*************************************************************************/
 
-    void mesh_remove_bad_facets_no_check(Mesh& M, bool check_duplicates) {
+    void mesh_remove_bad_facets_no_check(Mesh& M, bool check_duplicates,
+                                         const GeoOptions& opts) {
         vector<index_t> remove_f;
         vector<index_t> old_polygons;
         vector<index_t> new_polygons;
         detect_bad_facets(
-            M, check_duplicates, remove_f, &old_polygons, &new_polygons
+            M, check_duplicates, remove_f, &old_polygons, &new_polygons,
+            false, opts
         );
         index_t current_old_polygon=0;
         if(remove_f.size() != 0) {

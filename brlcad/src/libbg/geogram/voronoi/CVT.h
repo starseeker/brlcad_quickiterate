@@ -86,28 +86,19 @@ namespace GEO {
      */
     CentroidalVoronoiTesselation(
         Mesh* mesh,
+        const GeoOptions& opts,
         coord_index_t dimension = 0,
         const std::string& delaunay = "default"
     );
 
     /**
-     * \brief Constructs a new CentroidalVoronoiTesselation.
-     * \details This constructor should be used when the coordinates of
-     *  the mesh are not related with R3.
-     * \param[in] mesh a pointer to the input mesh
-     * \param[in] R3_embedding (dimension = mesh->nb_vertices()):
-     *  coordinates of the mesh vertices in R3. Ignored
-     *  if size is zero.
-     * \param[in] dimension If set, uses only the dimension first
-     *  coordinates in mesh, else dimension is determined
-     *  by mesh->dimension().
-     * \param[in] delaunay factory name of the implementation of
-     *  Delaunay triangulation. delaunay="default" uses
-     *  ANN and radius of security.
+     * \brief Constructs a new CentroidalVoronoiTesselation with R3 embedding.
      */
     CentroidalVoronoiTesselation(
         Mesh* mesh,
-        const vector<vec3>& R3_embedding, coord_index_t dimension = 0,
+        const GeoOptions& opts,
+        const vector<vec3>& R3_embedding,
+        coord_index_t dimension = 0,
         const std::string& delaunay = "default"
     );
 
@@ -438,6 +429,7 @@ namespace GEO {
     void compute_R3_embedding();
 
     static CentroidalVoronoiTesselation* instance_;
+    GeoOptions opts_;
     bool show_iterations_;
     coord_index_t dimension_;
     Delaunay_var delaunay_;

@@ -39,16 +39,4 @@
 
 #include <geogram/basic/geogram_options.h>
 
-namespace GEO {
-
-    GeoOptions& GeoOptions::instance() {
-        static GeoOptions opts;
-        return opts;
-    }
-
-    const GeoOptions*& geo_options_tl_ref() {
-        thread_local const GeoOptions* ptr = nullptr;
-        return ptr;
-    }
-
-} // namespace GEO
+// GeoOptions is a plain struct with inline defaults; nothing to define here.

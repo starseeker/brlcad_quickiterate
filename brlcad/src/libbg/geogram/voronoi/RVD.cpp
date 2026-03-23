@@ -1527,7 +1527,7 @@ namespace {
                 }
 
                 if(cell_borders_only) {
-                    mesh_repair(M, MESH_REPAIR_TOPOLOGY);
+                    mesh_repair(M, MESH_REPAIR_TOPOLOGY, 0.0, opts_);
                 } else {
                     M.facets.connect();
                 }
@@ -1753,7 +1753,7 @@ namespace {
             }
 
             // Step 3: create search structure
-            mesh_vertices_ = Delaunay::create(dimension_, "NN");
+            mesh_vertices_ = Delaunay::create(dimension_, "NN", opts_);
             index_t nb_vertices = mesh_->vertices.nb();
 
             // TODO: BUG !! mesh_vertices_ keeps a ref. to mesh_vertices
@@ -2538,7 +2538,8 @@ namespace GEO {
 
     RestrictedVoronoiDiagram* RestrictedVoronoiDiagram::create(
         Delaunay* delaunay, Mesh* mesh,
-        const double* R3_embedding, index_t R3_embedding_stride
+        const double* R3_embedding, index_t R3_embedding_stride,
+        const GeoOptions& opts
     ) {
         delaunay->set_stores_neighbors(true);
         RestrictedVoronoiDiagram* result = nullptr;
@@ -2583,9 +2584,10 @@ namespace GEO {
         default:
             geo_assert_not_reached;
         }
-        if(geo_options().algo_predicates == "exact") {
+        if(opts.algo_predicates == "exact") {
             result->set_exact_predicates(true);
         }
+        result->opts_ = opts;
         return result;
     }
 
@@ -2639,7 +2641,7 @@ namespace GEO {
                 dimension(),embedding,simplices,true
             );
             if((mode & RDT_DONT_REPAIR) == 0) {
-                mesh_repair(RDT); // Needed to reorient triangles
+                mesh_repair(RDT, MESH_REPAIR_DEFAULT, 0.0, opts_);
             }
         }
     }
