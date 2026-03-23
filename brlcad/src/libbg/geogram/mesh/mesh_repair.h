@@ -62,8 +62,7 @@ namespace GEO {
         MESH_REPAIR_COLOCATE = 1,     /**< Merges identical vertices          */
         MESH_REPAIR_DUP_F = 2,        /**< Removes duplicated facets          */
         MESH_REPAIR_TRIANGULATE = 4,  /**< Triangulates mesh                  */
-        MESH_REPAIR_RECONSTRUCT = 8,  /**< Post-process result of Co3Ne algo. */
-        MESH_REPAIR_QUIET       = 16, /**< Do not display any message.        */
+        MESH_REPAIR_QUIET       = 8,  /**< Do not display any message.        */
         MESH_REPAIR_DEFAULT =
         MESH_REPAIR_COLOCATE |
         MESH_REPAIR_DUP_F |
@@ -75,14 +74,15 @@ namespace GEO {
      * \brief Fixes some defaults in a mesh.
      * \param[in,out] M the mesh to repair
      * \param[in] mode a combination of #MeshRepairMode flags.
-     *  Combine them with the 'bitwise or' (|) operator.
      * \param[in] colocate_epsilon tolerance used to colocate vertices
      *  (if #MESH_REPAIR_COLOCATE is set in mode).
+     * \param[in] opts algorithm options.
      */
     void GEOGRAM_API mesh_repair(
         Mesh& M,
-        MeshRepairMode mode = MESH_REPAIR_DEFAULT,
-        double colocate_epsilon = 0.0
+        MeshRepairMode mode,
+        double colocate_epsilon,
+        const GeoOptions& opts
     );
 
     /**
@@ -93,7 +93,7 @@ namespace GEO {
      * incident to them).
      */
     void GEOGRAM_API mesh_postprocess_RDT(
-        Mesh& M, bool verbose=false
+        Mesh& M, bool verbose, const GeoOptions& opts
     );
 
     /**
@@ -200,20 +200,17 @@ namespace GEO {
      * \param[in] colocate_epsilon tolerance for merging vertices
      */
     void GEOGRAM_API mesh_colocate_vertices_no_check(
-        Mesh& M, double colocate_epsilon=0.0, bool verbose=false
+        Mesh& M, double colocate_epsilon, bool verbose,
+        const GeoOptions& opts
     );
 
     /**
      * \brief Removes the degenerate and the duplicated facets in a surface
      *  mesh.
-     * \details Does not recompute facet connections (
-     *  one needs to call mesh.facets.connect()).
-     * \param[in] M the mesh
-     * \param[in] check_duplicates if set, removes the duplicated facets
-     *  (facets that have the same vertices, regardless the orientation).
      */
     void GEOGRAM_API mesh_remove_bad_facets_no_check(
-        Mesh& M, bool check_duplicates=true
+        Mesh& M, bool check_duplicates,
+        const GeoOptions& opts
     );
 
     /**

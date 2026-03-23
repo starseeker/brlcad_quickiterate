@@ -214,7 +214,9 @@ bot_remesh_geogram(struct rt_bot_internal **obot, struct ged *gedp, struct rt_bo
     }
 
     // Make sure geogram is initialized
-    GEO::initialize();
+    GEO::GeoOptions opts;
+    opts.remesh_multi_nerve = true;
+    GEO::initialize(GEO::GEOGRAM_INSTALL_NONE, opts);
 
     // Quell logging messages
     GEO::Logger::instance()->unregister_all_clients();
@@ -232,13 +234,6 @@ bot_remesh_geogram(struct rt_bot_internal **obot, struct ged *gedp, struct rt_bo
     // Target ten times the original vert count
     fastf_t nb_pts = bot->num_vertices * 10;
 
-    // Configure geogram options for this remesh call.
-    // Using GeoOptionsScope ensures any parallel invocations on other threads
-    // are unaffected by these settings.
-    GEO::GeoOptions opts;
-    opts.remesh_multi_nerve = true;
-    GEO::GeoOptionsScope geo_scope(opts);
-
     // Initialize the Geogram mesh
     GEO::Mesh gm;
     gm.vertices.assign_points((double *)bot->vertices, 3, bot->num_vertices);
@@ -253,13 +248,13 @@ bot_remesh_geogram(struct rt_bot_internal **obot, struct ged *gedp, struct rt_bo
     // Geogram's internal mesh data
     double bbox_diag = GEO::bbox_diagonal(gm);
     double epsilon = 1e-6 * (0.01 * bbox_diag);
-    GEO::mesh_repair(gm, GEO::MeshRepairMode(GEO::MESH_REPAIR_DEFAULT), epsilon);
+    GEO::mesh_repair(gm, GEO::MeshRepairMode(GEO::MESH_REPAIR_DEFAULT), epsilon, opts);
 
     // https://github.com/BrunoLevy/geogram/wiki/Remeshing
     GEO::compute_normals(gm);
     set_anisotropy(gm, 2*0.02);
     GEO::Mesh remesh;
-    GEO::remesh_smooth(gm, remesh, nb_pts);
+    GEO::remesh_smooth(gm, remesh, nb_pts, opts);
 
     // See if we have a solid
     manifold::MeshGL gmm;

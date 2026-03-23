@@ -43,6 +43,7 @@
 #include <geogram/basic/common.h>
 #include <geogram/basic/numeric.h>
 #include <geogram/basic/logger.h>
+#include <geogram/basic/geogram_options.h>
 
 #include <chrono>
 
@@ -118,7 +119,7 @@ namespace GEO {
         return now() - process_start_time_;
     }
 
-    static void initialize();
+    static void initialize(const GeoOptions& opts);
     static void show_stats();
 
     private:

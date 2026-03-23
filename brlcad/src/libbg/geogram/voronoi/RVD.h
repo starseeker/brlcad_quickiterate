@@ -102,48 +102,34 @@ namespace GEO {
          */
         static RestrictedVoronoiDiagram* create(
             Delaunay* delaunay, Mesh* mesh,
-            const double* R3_embedding, index_t R3_embedding_stride
+            const double* R3_embedding, index_t R3_embedding_stride,
+            const GeoOptions& opts
         );
 
         /**
-         * \brief Creates a RestrictedVoronoiDiagram.
-         *
-         * \details The dimension is determined by \p mesh->dimension().
-         * The first three coordinates of each vertex are supposed to be x,y,z.
-         * (if it is not the case, use
-         *  create(Delaunay*,Mesh*,const double*, index_t) or
-         *  create(Delaunay*,Mesh*,const vector<vec3>&) instead).
-         * \param[in] delaunay the Delaunay triangulation that defines the
-         * Voronoi diagram.
-         * \param[in] mesh the mesh that restricts the Voronoi diagram
+         * \brief Creates a RestrictedVoronoiDiagram (mesh-coordinates shortcut).
          */
         static RestrictedVoronoiDiagram* create(
-            Delaunay* delaunay, Mesh* mesh
+            Delaunay* delaunay, Mesh* mesh,
+            const GeoOptions& opts
         ) {
             return create(
                 delaunay, mesh,
                 (mesh->vertices.nb()>0) ? mesh->vertices.point_ptr(0) : nullptr,
-                mesh->vertices.dimension()
+                mesh->vertices.dimension(),
+                opts
             );
         }
 
         /**
-         * \brief Creates a RestrictedVoronoiDiagram.
-         *
-         * \details Use this function if the nD coordinates of each mesh vertex
-         * are completely unrelated with x,y,z.
-         * The dimension is determined by \p mesh->dimension().
-         * \param[in] delaunay the Delaunay triangulation that defines the
-         * Voronoi diagram.
-         * \param[in] mesh the mesh that restricts the Voronoi diagram
-         * \param[in] R3_embedding gives for each vertex its mapping
-         *  in 3D space.
+         * \brief Creates a RestrictedVoronoiDiagram with R3 embedding vector.
          */
         static RestrictedVoronoiDiagram* create(
             Delaunay* delaunay, Mesh* mesh,
-            const vector<vec3>& R3_embedding
+            const vector<vec3>& R3_embedding,
+            const GeoOptions& opts
         ) {
-            return create(delaunay, mesh, R3_embedding[0].data(), 3);
+            return create(delaunay, mesh, R3_embedding[0].data(), 3, opts);
         }
 
         /**
@@ -718,6 +704,7 @@ namespace GEO {
         ~RestrictedVoronoiDiagram() override;
 
     protected:
+        GeoOptions opts_;
         coord_index_t dimension_;
         Delaunay* delaunay_;
         Mesh* mesh_;

@@ -719,7 +719,10 @@ namespace GEO {
         }
 
         static void scale_value(uint8_t& to, double s) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
             to = uint8_t(double(to)*s != 0.0);
+#pragma GCC diagnostic pop
         }
 
         static void scale_value(int32_t& to, double s) {
@@ -745,7 +748,10 @@ namespace GEO {
         }
 
         static void madd_value(uint8_t& to, double s, uint8_t& from) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
             to = uint8_t(double(to) + s*double(from) != 0.0);
+#pragma GCC diagnostic pop
         }
 
         static void madd_value(int32_t& to, double s, int32_t& from) {

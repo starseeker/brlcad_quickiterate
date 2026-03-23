@@ -63,12 +63,18 @@ namespace GEO {
          */
         struct GeogramLibSingleton {
 
-            static std::optional<GeogramLibSingleton>& instance(int flags) {
-                static std::optional<GeogramLibSingleton> instance(flags);
+            static std::optional<GeogramLibSingleton>& instance(
+                int flags, const GeoOptions& opts
+            ) {
+                static std::optional<GeogramLibSingleton> instance(
+                    std::in_place, flags, opts
+                );
                 return instance;
             }
 
-            GeogramLibSingleton(int flags) {
+            GeogramLibSingleton(int flags, const GeoOptions& opts)
+                : opts_(opts)
+            {
 
                 // When locale is set to non-us countries,
                 // this may cause some problems when reading
@@ -86,7 +92,7 @@ namespace GEO {
                 Process::initialize(flags);
                 Progress::initialize();
                 CmdLine::initialize();
-                Stopwatch::initialize();
+                Stopwatch::initialize(opts_);
                 PCK::initialize();
                 Delaunay::initialize();
 
@@ -98,7 +104,7 @@ namespace GEO {
 
             ~GeogramLibSingleton() {
 
-                if(geo_options().sys_stats) {
+                if(opts_.sys_stats) {
                     Logger::div("System Statistics");
                     PCK::show_stats();
                     Process::show_stats();
@@ -113,15 +119,19 @@ namespace GEO {
                 Environment::terminate();
 
             }
+
+            GeoOptions opts_;
         };
 
     }
 
-    void initialize(int flags) {
-        GeogramLibSingleton::instance(flags);
+    void initialize(int flags, const GeoOptions& opts) {
+        GeogramLibSingleton::instance(flags, opts);
     }
 
     void terminate() {
-        GeogramLibSingleton::instance(GEOGRAM_INSTALL_NONE).reset();
+        GeogramLibSingleton::instance(
+            GEOGRAM_INSTALL_NONE, GeoOptions()
+        ).reset();
     }
 }

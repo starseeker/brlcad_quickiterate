@@ -48,7 +48,11 @@ namespace GEO {
         set_thread_safe(true);
         set_default_nb_neighbors(20);
         set_stores_neighbors(true);
-        NN_ = NearestNeighborSearch::create(dimension);
+        // NN_ is created in apply_options(), called by Delaunay::create().
+    }
+
+    void Delaunay_NearestNeighbors::apply_options(const GeoOptions& opts) {
+        NN_ = NearestNeighborSearch::create(dimension(), opts);
     }
 
     Delaunay_NearestNeighbors::~Delaunay_NearestNeighbors() {

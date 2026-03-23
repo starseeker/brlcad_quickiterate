@@ -134,39 +134,48 @@ namespace GEO {
 #endif
     }
 
-    Delaunay* Delaunay::create(coord_index_t dim, const std::string& name_in) {
+    Delaunay* Delaunay::create(
+        coord_index_t dim,
+        const std::string& name_in,
+        const GeoOptions& opts
+    ) {
 
         std::string name = name_in;
         if(name == "default") {
-            name = geo_options().algo_delaunay;
+            name = opts.algo_delaunay;
         }
 
+        Delaunay* result = nullptr;
         try {
-            Delaunay* d = DelaunayFactory::create_object(name, dim);
-            if(d != nullptr) {
-                return d;
+            result = DelaunayFactory::create_object(name, dim);
+            if(result == nullptr) {
+                Logger::warn("Delaunay")
+                    << "Could not create Delaunay triangulation: " << name
+                    << std::endl;
             }
-
-            Logger::warn("Delaunay")
-                << "Could not create Delaunay triangulation: " << name
-                << std::endl;
         }
         catch(InvalidDimension& ex) {
             Logger::warn("Delaunay") << ex.what() << std::endl;
         }
 
+        if(result == nullptr) {
 #ifdef GEOGRAM_PSM
-        Logger::err("Delaunay")
-            << "Could not create Delaunay triangulation"
-            << std::endl;
-        return nullptr;
+            Logger::err("Delaunay")
+                << "Could not create Delaunay triangulation"
+                << std::endl;
+            return nullptr;
 #else
-        Logger::warn("Delaunay")
-            << "Falling back to NN mode"
-            << std::endl;
-
-        return new Delaunay_NearestNeighbors(dim);
+            Logger::warn("Delaunay")
+                << "Falling back to NN mode"
+                << std::endl;
+            result = new Delaunay_NearestNeighbors(dim);
 #endif
+        }
+
+        if(result != nullptr) {
+            result->apply_options(opts);
+        }
+        return result;
     }
 
     Delaunay::Delaunay(coord_index_t dimension) {

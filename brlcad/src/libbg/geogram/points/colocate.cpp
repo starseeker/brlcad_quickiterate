@@ -219,7 +219,8 @@ namespace GEO {
             vector<index_t>& old2new,
             double tolerance,
             index_t stride,
-            const std::string& nn_algo
+            const std::string& nn_algo,
+            const GeoOptions& opts
         ) {
             if(nb_points == 0) {
                 return 0;
@@ -229,13 +230,13 @@ namespace GEO {
                 stride = dim;
             }
             NearestNeighborSearch_var NN = NearestNeighborSearch::create(
-                dim, nn_algo
+                dim, nn_algo, opts
             );
             NN->set_points(nb_points, points, stride);
             old2new.resize(nb_points, NO_INDEX);
             Colocate colocate_obj(NN, old2new, tolerance);
 
-            if(geo_options().sys_multithread) {
+            if(opts.sys_multithread) {
                 parallel_for(
                     0, nb_points,
                     [&colocate_obj](index_t i){ colocate_obj.do_it(i); },
@@ -270,7 +271,8 @@ namespace GEO {
             coord_index_t dim,
             index_t nb_points,
             vector<index_t>& old2new,
-            index_t stride
+            index_t stride,
+            const GeoOptions& opts
         ) {
             if(nb_points == 0) {
                 return 0;
@@ -282,7 +284,8 @@ namespace GEO {
                 sorted_indices[i] = i;
             }
             GEO::sort(
-                sorted_indices.begin(), sorted_indices.end(), compare_points
+                sorted_indices.begin(), sorted_indices.end(), compare_points,
+                opts
             );
             old2new.assign(nb_points, NO_INDEX);
 
