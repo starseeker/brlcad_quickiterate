@@ -70,30 +70,22 @@ namespace GEO {
             coord_index_t dim,
             index_t nb_points,
             vector<index_t>& old2new,
-            double tolerance = 0.0,
-            index_t stride = 0,
-            const std::string& nn_algo = "default"
+            double tolerance,
+            index_t stride,
+            const std::string& nn_algo,
+            const GeoOptions& opts
         );
 
         /**
-         * \brief Finds sets of identical points in a point set.
-         * \details This version uses a lexicographic sort. It does not
-         *  have a 'tolerance' parameter (only points with exactly
-         *  the same coordinates can be colocated).
-         * \param[in] points the point array
-         * \param[in] dim dimension of the points
-         * \param[in] nb_points number of points
-         * \param[out] old2new an array of size nb_points.
-         * \param[in] stride number of doubles between two consecutive
-         *  points (set to dim if unspecified).
-         * \return the number of unique points
+         * \brief Finds sets of identical points using lexicographic sort.
          */
         index_t GEOGRAM_API colocate_by_lexico_sort(
             const double* points,
             coord_index_t dim,
             index_t nb_points,
             vector<index_t>& old2new,
-            index_t stride
+            index_t stride,
+            const GeoOptions& opts
         );
     }
 }

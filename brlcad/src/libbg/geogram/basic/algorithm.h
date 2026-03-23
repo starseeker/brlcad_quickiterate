@@ -41,6 +41,7 @@
 #define GEOGRAM_BASIC_ALGORITHM
 
 #include <geogram/basic/common.h>
+#include <geogram/basic/geogram_options.h>
 
 #if   defined(GEO_OS_WINDOWS)
 #if (_MSC_VER >= 1700)
@@ -61,31 +62,25 @@ namespace GEO {
 
     /**
      * \brief Checks whether parallel algorithms are used.
-     * \details Some algorithms such as sort() can be used
-     *  in parallel or sequential mode. Behavior is toggled
-     *  by the "algo:parallel" environment variable.
+     * \param[in] opts the active GeoOptions
      * \retval true if parallel algorithms are used.
      * \retval false if sequential algorithms are used.
      */
-    bool GEOGRAM_API uses_parallel_algorithm();
+    bool GEOGRAM_API uses_parallel_algorithm(const GeoOptions& opts);
 
     /**
      * \brief Sorts elements in parallel
-     * \details Sorts elements in the iterator range [\p begin..\p end) using
-     * a parallel version of the standard \c std::sort() algorithm (if
-     * possible). The elements are compared using operator<().
-     * Whether to use the parallel or the standard version of the std::sort()
-     * algorithm is controlled by the "algo:parallel" environment property.
      * \param[in] begin first element to sort
      * \param[in] end one position past the last element to sort
+     * \param[in] opts the active GeoOptions
      * \tparam ITERATOR the type of the iterator
      * \see uses_parallel_algorithm()
      */
     template <typename ITERATOR>
     inline void sort(
-        const ITERATOR& begin, const ITERATOR& end
+        const ITERATOR& begin, const ITERATOR& end, const GeoOptions& opts
     ) {
-        if(uses_parallel_algorithm()) {
+        if(uses_parallel_algorithm(opts)) {
 #if defined(GEO_USE_GCC_PARALLEL_STL)
             __gnu_parallel::sort(begin, end);
 #elif defined(GEO_USE_MSVC_PARALLEL_STL)
@@ -119,9 +114,10 @@ namespace GEO {
      */
     template <typename ITERATOR, typename CMP>
     inline void sort(
-        const ITERATOR& begin, const ITERATOR& end, const CMP& cmp
+        const ITERATOR& begin, const ITERATOR& end, const CMP& cmp,
+        const GeoOptions& opts
     ) {
-        if(uses_parallel_algorithm()) {
+        if(uses_parallel_algorithm(opts)) {
 #if defined(GEO_USE_GCC_PARALLEL_STL)
             __gnu_parallel::sort(begin, end, cmp);
 #elif defined(GEO_USE_MSVC_PARALLEL_STL)

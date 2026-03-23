@@ -85,8 +85,20 @@ namespace GEO {
          * \endcode
          */
         static NearestNeighborSearch* create(
-            coord_index_t dimension, const std::string& name = "default"
+            coord_index_t dimension,
+            const std::string& name,
+            const GeoOptions& opts
         );
+
+        /**
+         * \brief Creates a NearestNeighborSearch with default algorithm.
+         */
+        static NearestNeighborSearch* create(
+            coord_index_t dimension,
+            const GeoOptions& opts
+        ) {
+            return create(dimension, "default", opts);
+        }
 
         /**
          * \brief Sets the points and create the search data structure.

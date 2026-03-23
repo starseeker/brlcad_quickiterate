@@ -69,6 +69,13 @@ namespace GEO {
         Delaunay_NearestNeighbors(coord_index_t dimension);
 
         /**
+         * \brief Selects the NearestNeighborSearch backend from opts.
+         * \details Called automatically by Delaunay::create() after
+         *  construction.  Overrides the base-class no-op.
+         */
+        void apply_options(const GeoOptions& opts) override;
+
+        /**
          * \brief Stores nb neighbors with vertex i.
          * \details By default, Delaunay::default_nb_neighbors()
          *  are stored for each vertex. This function changes

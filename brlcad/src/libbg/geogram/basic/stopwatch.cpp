@@ -47,9 +47,9 @@ namespace GEO {
     double Stopwatch::process_start_time_ = 0.0;
     bool Stopwatch::global_stats_ = false;
 
-    void Stopwatch::initialize() {
+    void Stopwatch::initialize(const GeoOptions& opts) {
         process_start_time_ = now();
-        global_stats_ = geo_options().sys_stats;
+        global_stats_ = opts.sys_stats;
     }
 
     void Stopwatch::show_stats() {

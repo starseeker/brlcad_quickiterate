@@ -59,13 +59,14 @@ namespace GEO {
     void remesh_smooth(
         Mesh& M_in, Mesh& M_out,
         index_t nb_points,
+        const GeoOptions& opts,
         coord_index_t dim,
         index_t nb_Lloyd_iter,
         index_t nb_Newton_iter,
         index_t Newton_m,
         bool adjust,
         double adjust_max_edge_distance,
-	double adjust_border_importance
+        double adjust_border_importance
 
     ) {
 
@@ -77,7 +78,7 @@ namespace GEO {
 
         Stopwatch W("Remesh");
 
-        CentroidalVoronoiTesselation CVT(&M_in);
+        CentroidalVoronoiTesselation CVT(&M_in, opts);
 
         if(nb_points == 0) {
             nb_points = M_in.vertices.nb();
@@ -108,13 +109,13 @@ namespace GEO {
         //   we need this RAM to create the surface now...)
         CVT.RVD()->delete_threads();
 
-        CVT.set_use_RVC_centroids(geo_options().remesh_RVC_centroids);
-        bool multi_nerve = geo_options().remesh_multi_nerve;
+        CVT.set_use_RVC_centroids(opts.remesh_RVC_centroids);
+        bool multi_nerve = opts.remesh_multi_nerve;
 
         Logger::out("Remesh") << "Computing RVD..." << std::endl;
 
         CVT.compute_surface(&M_out, multi_nerve);
-        if(geo_options().dbg_save_ANN_histo) {
+        if(opts.dbg_save_ANN_histo) {
             Logger::out("ANN")
                 << "Saving histogram to ANN_histo.dat" << std::endl;
             std::ofstream out("ANN_histo.dat");

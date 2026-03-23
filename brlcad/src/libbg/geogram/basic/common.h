@@ -41,6 +41,7 @@
 #define GEOGRAM_BASIC_COMMON
 
 #include <geogram/api/defs.h>
+#include <geogram/basic/geogram_options.h>
 
 // iostream should be included before anything else,
 // otherwise 'cin', 'cout' and 'cerr' will be uninitialized.
@@ -102,7 +103,8 @@ namespace GEO {
      * normally. If it is called multiple times, then the supplemental calls
      * have no effect.
      */
-    void GEOGRAM_API initialize(int flags = GEOGRAM_INSTALL_NONE);
+    void GEOGRAM_API initialize(int flags = GEOGRAM_INSTALL_NONE,
+                               const GeoOptions& opts = GeoOptions());
 
     /**
      * \brief Cleans up Geogram

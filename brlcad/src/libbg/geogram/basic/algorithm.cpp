@@ -42,7 +42,7 @@
 
 namespace GEO {
 
-    bool uses_parallel_algorithm() {
-        return geo_options().sys_multithread && geo_options().algo_parallel;
+    bool uses_parallel_algorithm(const GeoOptions& opts) {
+        return opts.sys_multithread && opts.algo_parallel;
     }
 }

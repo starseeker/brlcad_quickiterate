@@ -70,9 +70,10 @@ namespace GEO {
      */
     void GEOGRAM_API fill_holes(
         Mesh& M,
-        double max_area = 0.0,
-        index_t max_edges = max_index_t(),
-        bool repair = true
+        double max_area,
+        index_t max_edges,
+        bool repair,
+        const GeoOptions& opts
     );
 
 

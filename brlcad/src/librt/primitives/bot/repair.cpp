@@ -449,7 +449,8 @@ bot_lint_cleanup:
 }
 
 static void
-bot_to_geogram(GEO::Mesh *gm, struct rt_bot_internal *bot)
+bot_to_geogram(GEO::Mesh *gm, struct rt_bot_internal *bot,
+               const GEO::GeoOptions& opts)
 {
     gm->vertices.assign_points((double *)bot->vertices, 3, bot->num_vertices);
     for (size_t i = 0; i < bot->num_faces; i++) {
@@ -462,7 +463,7 @@ bot_to_geogram(GEO::Mesh *gm, struct rt_bot_internal *bot)
     // After the initial raw load, do a repair pass to set up
     // Geogram's internal mesh data
     double epsilon = 1e-6 * (0.01 * GEO::bbox_diagonal(*gm));
-    GEO::mesh_repair(*gm, GEO::MeshRepairMode(GEO::MESH_REPAIR_DEFAULT), epsilon);
+    GEO::mesh_repair(*gm, GEO::MeshRepairMode(GEO::MESH_REPAIR_DEFAULT), epsilon, opts);
 
     // Per the geobox "mesh repair" function, we need to do some
     // small connected component removal ahead of the fill_holes
@@ -476,7 +477,7 @@ bot_to_geogram(GEO::Mesh *gm, struct rt_bot_internal *bot)
 	GEO::remove_small_connected_components(*gm, min_comp_area);
 	nb_f_removed -= gm->facets.nb();
 	if(nb_f_removed > 0 || nb_f_removed < 0) {
-	    GEO::mesh_repair(*gm, GEO::MESH_REPAIR_DEFAULT, epsilon);
+	    GEO::mesh_repair(*gm, GEO::MESH_REPAIR_DEFAULT, epsilon, opts);
 	}
     }
 }
@@ -633,8 +634,10 @@ rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct
 	close(fnull);
     }
 
-    // Make sure geogram is initialized
-    GEO::initialize();
+    // Make sure geogram is initialized with default options
+    // (algo_hole_filling="loop_split", algo_nn_search="BNN" are GeoOptions defaults)
+    const GEO::GeoOptions repair_opts;
+    GEO::initialize(GEO::GEOGRAM_INSTALL_NONE, repair_opts);
 
      // Quell logging messages
     GEO::Logger::instance()->unregister_all_clients();
@@ -649,17 +652,9 @@ rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct
 	close(stdout_stashed);
     }
 
-    // Configure geogram options for this repair call.
-    // Using GeoOptionsScope ensures any parallel invocations on other threads
-    // are unaffected by these settings.
-    GEO::GeoOptions repair_opts;
-    repair_opts.algo_hole_filling = "loop_split";
-    repair_opts.algo_nn_search = "BNN";
-    GEO::GeoOptionsScope geo_scope(repair_opts);
-
     // Set up a Geogram mesh using the BoT data
     GEO::Mesh gm;
-    bot_to_geogram(&gm, bot);
+    bot_to_geogram(&gm, bot, repair_opts);
 
     // To try to to fill in ALL holes we default to 1e30, which is a
     // value used in the Geogram code for a large hole size.
@@ -677,10 +672,10 @@ rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct
     }
 
     // Do the hole filling.
-    GEO::fill_holes(gm, hole_size);
+    GEO::fill_holes(gm, hole_size, GEO::max_index_t(), true, repair_opts);
 
     // Make sure we're still repaired post filling
-    GEO::mesh_repair(gm, GEO::MeshRepairMode(GEO::MESH_REPAIR_DEFAULT));
+    GEO::mesh_repair(gm, GEO::MeshRepairMode(GEO::MESH_REPAIR_DEFAULT), 0.0, repair_opts);
 
     // Post repair, make sure mesh is still a triangle mesh
     gm.facets.triangulate();
