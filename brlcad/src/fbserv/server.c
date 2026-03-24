@@ -65,6 +65,7 @@ extern int fbserv_require_auth(void);
 extern const char *fbserv_session_token(void);
 extern int fbserv_conn_idx(struct pkg_conn *pcp);
 extern void fbserv_drop_client(int sub);
+extern void fbserv_request_drop(int sub);
 extern int fbserv_client_auth_ok(int idx);
 extern void fbserv_set_client_auth(int idx, int val);
 
@@ -127,9 +128,10 @@ fb_server_fb_auth(struct pkg_conn *pcp, char *buf)
 	fbserv_set_client_auth(idx, 1);
     } else {
 	fb_log("fbserv: MSG_FBAUTH token mismatch from client — dropping\n");
-	/* Use fbserv_drop_client to remove client from clients[] and select_list
-	 * before calling pkg_close, so main_loop doesn't access freed memory. */
-	fbserv_drop_client(idx);
+	/* Request a deferred drop: main_loop will call fbserv_drop_client()
+	 * after pkg_process() returns, so we never free the pkg_conn while
+	 * pkg_process is still iterating over it. */
+	fbserv_request_drop(idx);
     }
 
     if (buf) (void)free(buf);
@@ -165,7 +167,14 @@ fb_server_fb_open(struct pkg_conn *pcp, char *buf)
 	    (void)pkg_plong(&rbuf[3*NET_LONG_LEN], 0);
 	    (void)pkg_plong(&rbuf[4*NET_LONG_LEN], 0);
 	    pkg_send(MSG_RETURN, rbuf, 5*NET_LONG_LEN, pcp);
-	    pkg_close(pcp);
+	    /* Use deferred drop rather than pkg_close() directly: this handler
+	     * is called from pkg_process() which still holds a reference to pcp.
+	     * Freeing pcp here causes a use-after-free in pkg_process's loop. */
+	    if (idx >= 0) {
+		fbserv_request_drop(idx);
+	    } else {
+		pkg_close(pcp);
+	    }
 	    (void)free(buf);
 	    return;
 	}

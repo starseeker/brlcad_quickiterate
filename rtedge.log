@@ -1,37 +1,34 @@
 BRL-CAD Release 7.43.0  RT Hidden-Line Renderer
-    Tue, 24 Mar 2026 17:22:40 UTC, Compilation 5
+    Tue, 24 Mar 2026 17:58:17 UTC, Compilation 0
     @runnervm46oaq
 BRL-CAD Release 7.43.0  The BRL-CAD Ray-Tracing Library
-    Tue, 24 Mar 2026 17:22:40 UTC, Compilation 5
+    Tue, 24 Mar 2026 17:58:17 UTC, Compilation 0
     @runnervm46oaq
 BRL-CAD Release 7.43.0  The BRL-CAD Numerical Computation Library
-    Tue, 24 Mar 2026 17:22:40 UTC, Compilation 5
+    Tue, 24 Mar 2026 17:58:17 UTC, Compilation 0
     @runnervm46oaq
 BRL-CAD Release 7.43.0  The BRL-CAD Utility Library
-    Tue, 24 Mar 2026 17:22:40 UTC, Compilation 5
+    Tue, 24 Mar 2026 17:58:17 UTC, Compilation 0
     @runnervm46oaq
 
 Compile-time debug symbols are available
 Running on runnervm46oaq
 Planning to run with 4 processor(s)
-/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build/bin/rtedge -w 512 -n 512 -B -F 3 -V 1.0 -R -A 0.9 -p 0 -c set fg=0,0,0 -c set bg=0,0,0 -c set om=1 -c set oo=\"component component/power.train\" -c viewsize 6.787387573242200e+03 -c orientation 2.480973490458727e-01 4.765905732660485e-01 7.480973490458729e-01 3.894348305183902e-01 -c eye_pt 1.845382932318572e+04 1.175461729657747e+04 1.044847417329058e+04
+/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build/bin/rtedge -w 512 -n 512 -B -F 5 -V 1.0 -R -A 0.9 -p 0 -c set fg=0,0,0 -c set bg=0,0,0 -c set om=1 -c set oo=\"component\" -c viewsize 6.787387573242200e+03 -c orientation 2.480973490458727e-01 4.765905732660485e-01 7.480973490458729e-01 3.894348305183902e-01 -c eye_pt 1.845382932318572e+04 1.175461729657747e+04 1.044847417329058e+04
 opendb /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build/share/db/m35.g;
 tree component;
 db title:  M35   2 1/2 ton truck
-DIRBUILD: cpu = 0.001441 sec, elapsed = 0.00143 sec
+DIRBUILD: cpu = 0.001469 sec, elapsed = 0.00146 sec
 
-Additional #malloc=10708, #free=10678, #realloc=18 (30 retained)
-0x7f718a81f048 TOL 5.000000e-04 (sq=2.500000e-07) perp=1.000000e-06, para=9.999990e-01
+Additional #malloc=10708, #free=10678, #realloc=17 (30 retained)
+0x7f5daf827048 TOL 5.000000e-04 (sq=2.500000e-07) perp=1.000000e-06, para=9.999990e-01
 Additional #malloc=8194, #free=2, #realloc=1 (8192 retained)
-GETTREE: cpu = 0.246109 sec, elapsed = 0.08552 sec
+GETTREE: cpu = 0.23764 sec, elapsed = 0.08241 sec
 
-Additional #malloc=237308, #free=218118, #realloc=2252 (19190 retained)
+Additional #malloc=237305, #free=218115, #realloc=2250 (19190 retained)
 rtedge: loading occlusion geometry from /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build/share/db/m35.g.
 rtedge: occlusion object 0 = component
-rtedge: occlusion object 1 = component/power.train
 rtedge: got tree for object 0 = component
-rt_gettrees(component/power.train) warning:  no primitives found
-rtedge: got tree for object 1 = component/power.train
 rtedge: occlusion rt_gettrees done.
 rtedge: occlusion prep done.
 rtedge: will perform occlusion testing.
@@ -39,9 +36,9 @@ rtedge: automagically activating overlay mode.
 view_init: will perform simple overlay.
 
 ...................Frame     0...................
-PREP: cpu = 0.005989 sec, elapsed = 0.00599 sec
+PREP: cpu = 0.005572 sec, elapsed = 0.00557 sec
 
-Additional #malloc=309576, #free=260604, #realloc=2339 (48972 retained)
+Additional #malloc=270801, #free=224455, #realloc=2306 (46346 retained)
 NUBSP: 3154 cut, 3155 box (3155 empty)
 Tree: 1123 solids in 890 regions
 Model: X(-1828, 4893), Y(-1250, 1250), Z(0, 2619)
@@ -52,13 +49,13 @@ Size: 6787.39mm
 Grid: (13.2566, 13.2566) mm, (512, 512) pixels
 Beam: radius=6.62831 mm, divergence=0 mm/1mm
 
-SHOT: cpu = 1.13196 sec, elapsed = 0.52222 sec
+SHOT: cpu = 1.1001 sec, elapsed = 0.50801 sec
 
-Additional #malloc=393, #free=27, #realloc=23 (366 retained)
+Additional #malloc=393, #free=27, #realloc=22 (366 retained)
 1390820 solid/ray intersections: 439092 hits + 951728 miss
 pruned 31.6%:  284630 model RPP, 861068 dups skipped, 301514 solid RPP
-Frame  0:     262144 pixels in      0.28 sec =    926335.80 pixels/sec
-Frame  0:     524800 rays   in      0.28 sec =   1854480.85 rays/sec (RTFM)
-Frame  0:     524800 rays   in      1.13 sec =    463620.21 rays/CPU_sec
-Frame  0:     524800 rays   in      0.52 sec =   1004944.30 rays/sec (wallclock)
+Frame  0:     262144 pixels in      0.28 sec =    953165.99 pixels/sec
+Frame  0:     524800 rays   in      0.28 sec =   1908193.63 rays/sec (RTFM)
+Frame  0:     524800 rays   in      1.10 sec =    477048.41 rays/CPU_sec
+Frame  0:     524800 rays   in      0.51 sec =   1033054.60 rays/sec (wallclock)
 
