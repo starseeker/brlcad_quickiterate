@@ -72,6 +72,7 @@ struct fbserv_client {
     struct pkg_conn *fbsc_pkg;
     struct fbserv_obj *fbsc_fbsp;       /**< @brief points to its fbserv object */
     int fbsc_auth_ok;                   /**< @brief !0 = client has sent a valid MSG_FBAUTH */
+    int fbsc_pending_drop;              /**< @brief !0 = drop this client after pkg_process() returns */
 };
 
 
