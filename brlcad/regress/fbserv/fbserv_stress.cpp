@@ -95,8 +95,9 @@
  * Tunables
  * -------------------------------------------------------------------------- */
 
-/** Maximum seconds a worker will keep retrying the TCP connect. */
-static const int MAX_CONNECT_WAIT_SEC = 10;
+/** Maximum seconds a worker will keep retrying the TCP connect.
+ *  Overridable via --timeout on the command line. */
+static int g_connect_timeout_sec = 15;
 
 /** Initial retry interval in milliseconds. */
 static const int RETRY_INTERVAL_MS = 50;
@@ -322,7 +323,7 @@ run_worker(int wid, int base_port, WorkerResult &result)
      * ------------------------------------------------------------------ */
     struct pkg_conn *pc = PKC_ERROR;
     int interval_ms = RETRY_INTERVAL_MS;
-    int64_t deadline = bu_gettime() + BU_SEC2USEC(MAX_CONNECT_WAIT_SEC);
+    int64_t deadline = bu_gettime() + BU_SEC2USEC(g_connect_timeout_sec);
     int attempt = 0;
 
     while (pc == PKC_ERROR && bu_gettime() < deadline) {
@@ -431,6 +432,7 @@ print_usage(const char *prog)
         "Usage: %s [options]\n"
         "  --workers N      number of parallel workers (default: 8)\n"
         "  --base-port P    first port to try (default: 5600)\n"
+        "  --timeout T      seconds to wait for fbserv to become ready (default: 15)\n"
         "  --help           show this help\n",
         prog);
 }
@@ -441,13 +443,20 @@ main(int argc, const char *argv[])
     bu_setprogname(argv[0]);
 
     int num_workers = 8;
-    int base_port   = 5600;
+    /* Default base port: derive a per-invocation offset from the PID so that
+     * two concurrent or rapidly sequential test runs don't collide on the same
+     * port range.  Stays in the 10000-19999 range (well above reserved ports
+     * and away from the typical ephemeral-port range). */
+    int pid_offset = (bu_pid() % 1000) * 10;
+    int base_port  = 10000 + pid_offset;
 
     for (int i = 1; i < argc; i++) {
         if (BU_STR_EQUAL(argv[i], "--workers") && i + 1 < argc) {
             num_workers = atoi(argv[++i]);
         } else if (BU_STR_EQUAL(argv[i], "--base-port") && i + 1 < argc) {
             base_port = atoi(argv[++i]);
+        } else if (BU_STR_EQUAL(argv[i], "--timeout") && i + 1 < argc) {
+            g_connect_timeout_sec = atoi(argv[++i]);
         } else if (BU_STR_EQUAL(argv[i], "--help") || BU_STR_EQUAL(argv[i], "-h")) {
             print_usage(argv[0]);
             return 0;
