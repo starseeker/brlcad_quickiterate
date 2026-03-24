@@ -139,6 +139,15 @@ static int use_tls = 0;
 static int clients_auth[MAX_CLIENTS];
 
 /*
+ * Per-client deferred-drop flag (parallel to clients[]).
+ * Set to 1 inside a pkg_process dispatch handler to request that
+ * main_loop drop this client AFTER pkg_process returns.  We must not
+ * call pkg_close() (which frees the pkg_conn) while pkg_process is
+ * still walking its internal message loop over the same pointer.
+ */
+static int clients_pending_drop[MAX_CLIENTS];
+
+/*
  * TLS server context.  Initialized at startup when HAVE_OPENSSL_SSL_H
  * is defined and -T flag is given (or FBSERV_TLS env var is set).
  */
@@ -166,6 +175,14 @@ int fbserv_client_auth_ok(int idx)   { return clients_auth[idx]; }
 int fbserv_require_auth(void)        { return require_auth; }
 const char *fbserv_session_token(void) { return session_token; }
 void fbserv_set_client_auth(int idx, int val) { clients_auth[idx] = val; }
+
+/* Request that main_loop drop client idx after the current pkg_process
+ * dispatch returns.  Safe to call from inside a handler because it does
+ * NOT free the pkg_conn — pkg_process still needs that pointer. */
+void fbserv_request_drop(int idx) {
+    if (idx >= 0 && idx < MAX_CLIENTS)
+	clients_pending_drop[idx] = 1;
+}
 
 /**
  * Find the clients[] slot index for the given connection.
@@ -351,6 +368,7 @@ fbserv_drop_client(int sub)
     pkg_close(clients[sub]);
     clients[sub] = PKC_NULL;
     clients_auth[sub] = 0;
+    clients_pending_drop[sub] = 0;
 }
 
 static void
@@ -366,6 +384,7 @@ fbserv_new_client(struct pkg_conn *pcp)
 	/* Found an available slot */
 	clients[i] = pcp;
 	clients_auth[i] = 0;  /* not yet authenticated */
+	clients_pending_drop[i] = 0;
 	FD_SET(pcp->pkc_fd, &select_list);
 	V_MAX(max_fd, pcp->pkc_fd);
 	fbserv_setup_socket(pcp->pkc_fd);
@@ -452,7 +471,15 @@ main_loop(void)
 	    if (pkg_process(clients[i]) < 0) {
 		fprintf(stderr, "pkg_process error encountered (1)\n");
 	    }
-	    if (clients[i] == NULL) continue; /* handler may have dropped client */
+	    /* A handler (e.g. token-mismatch auth) may have requested a
+	     * deferred drop.  Act on it now that pkg_process has returned
+	     * and is no longer holding a reference to clients[i]. */
+	    if (clients_pending_drop[i]) {
+		fbserv_drop_client(i);
+		ncloses++;
+		continue;
+	    }
+	    if (clients[i] == NULL) continue;
 	    if (! FD_ISSET(clients[i]->pkc_fd, &infds)) continue;
 	    if (pkg_suckin(clients[i]) <= 0) {
 		/* Probably EOF */
@@ -466,6 +493,11 @@ main_loop(void)
 	    if (clients[i] == NULL) continue;
 	    if (pkg_process(clients[i]) < 0) {
 		fprintf(stderr, "pkg_process error encountered (2)\n");
+	    }
+	    /* Deferred drop from second-pass handler */
+	    if (clients_pending_drop[i]) {
+		fbserv_drop_client(i);
+		ncloses++;
 	    }
 	}
 	if (once_only && nopens > 1 && ncloses > 1)
