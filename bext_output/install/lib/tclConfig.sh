@@ -44,11 +44,11 @@ TCL_LIBS='-ldl -lz_brl  -lpthread -lm'
 
 # Top-level directory in which Tcl's platform-independent files are
 # installed.
-TCL_PREFIX='/home/cyapp/bext_output/install'
+TCL_PREFIX='/home/cyapp/brlcad_quickiterate/bext_output/install'
 
 # Top-level directory in which Tcl's platform-specific files (e.g.
 # executables) are installed.
-TCL_EXEC_PREFIX='/home/cyapp/bext_output/install'
+TCL_EXEC_PREFIX='/home/cyapp/brlcad_quickiterate/bext_output/install'
 
 # Flags to pass to cc when compiling the components of a shared library:
 TCL_SHLIB_CFLAGS='-fPIC'
@@ -57,7 +57,7 @@ TCL_SHLIB_CFLAGS='-fPIC'
 TCL_CFLAGS_WARNING='-Wall -Wpointer-arith'
 
 # Extra flags to pass to cc:
-TCL_EXTRA_CFLAGS=' -pipe -I/home/cyapp/bext_output/install/include'
+TCL_EXTRA_CFLAGS=' -pipe -I/home/cyapp/brlcad_quickiterate/bext_output/install/include'
 
 # Base command to use for combining object files into a shared library:
 TCL_SHLIB_LD='${CC} ${CFLAGS} ${LDFLAGS} -shared'
@@ -79,7 +79,7 @@ TCL_DL_LIBS='-ldl'
 
 # Flags to pass to the compiler when linking object files into
 # an executable tclsh or tcltest binary.
-TCL_LD_FLAGS='-L/home/cyapp/bext_output/install/lib -Wl,--export-dynamic '
+TCL_LD_FLAGS='-L/home/cyapp/brlcad_quickiterate/bext_output/install/lib -Wl,--export-dynamic '
 
 # Flags to pass to cc/ld, such as "-R /usr/local/tcl/lib", that tell the
 # run-time dynamic linker where to look for shared libraries such as
@@ -100,15 +100,15 @@ TCL_LIB_FLAG='-ltcl8.6'
 
 # String to pass to linker to pick up the Tcl library from its
 # build directory.
-TCL_BUILD_LIB_SPEC='-L/home/cyapp/bext/build/tcl/TCL_BLD-prefix/src/TCL_BLD-build -ltcl8.6'
+TCL_BUILD_LIB_SPEC='-L/home/cyapp/bext_quickiterate/tcl/TCL_BLD-prefix/src/TCL_BLD-build -ltcl8.6'
 
 # String to pass to linker to pick up the Tcl library from its
 # installed directory.
-TCL_LIB_SPEC='-L/home/cyapp/bext_output/install/lib -ltcl8.6'
+TCL_LIB_SPEC='-L/home/cyapp/brlcad_quickiterate/bext_output/install/lib -ltcl8.6'
 
 # String to pass to the compiler so that an extension can
 # find installed Tcl headers.
-TCL_INCLUDE_SPEC='-I/home/cyapp/bext_output/install/include'
+TCL_INCLUDE_SPEC='-I/home/cyapp/brlcad_quickiterate/bext_output/install/include'
 
 # Indicates whether a version numbers should be used in -l switches
 # ("ok" means it's safe to use switches like -ltcl7.5;  "nodots" means
@@ -135,7 +135,7 @@ TCL_UNSHARED_LIB_SUFFIX='${VERSION}.a'
 # different place than the directory containing the source files, this
 # points to the location of the sources, not the location where Tcl was
 # compiled.
-TCL_SRC_DIR='/home/cyapp/bext/build/tcl/TCL_BLD-prefix/src/TCL_BLD'
+TCL_SRC_DIR='/home/cyapp/bext_quickiterate/tcl/TCL_BLD-prefix/src/TCL_BLD'
 
 # List of standard directories in which to look for packages during
 # "package require" commands.  Contains the "prefix" directory plus also
@@ -153,17 +153,17 @@ TCL_STUB_LIB_FLAG='-ltclstub8.6'
 
 # String to pass to linker to pick up the Tcl stub library from its
 # build directory.
-TCL_BUILD_STUB_LIB_SPEC='-L/home/cyapp/bext/build/tcl/TCL_BLD-prefix/src/TCL_BLD-build -ltclstub8.6'
+TCL_BUILD_STUB_LIB_SPEC='-L/home/cyapp/bext_quickiterate/tcl/TCL_BLD-prefix/src/TCL_BLD-build -ltclstub8.6'
 
 # String to pass to linker to pick up the Tcl stub library from its
 # installed directory.
-TCL_STUB_LIB_SPEC='-L/home/cyapp/bext_output/install/lib -ltclstub8.6'
+TCL_STUB_LIB_SPEC='-L/home/cyapp/brlcad_quickiterate/bext_output/install/lib -ltclstub8.6'
 
 # Path to the Tcl stub library in the build directory.
-TCL_BUILD_STUB_LIB_PATH='/home/cyapp/bext/build/tcl/TCL_BLD-prefix/src/TCL_BLD-build/libtclstub8.6.a'
+TCL_BUILD_STUB_LIB_PATH='/home/cyapp/bext_quickiterate/tcl/TCL_BLD-prefix/src/TCL_BLD-build/libtclstub8.6.a'
 
 # Path to the Tcl stub library in the install directory.
-TCL_STUB_LIB_PATH='/home/cyapp/bext_output/install/lib/libtclstub8.6.a'
+TCL_STUB_LIB_PATH='/home/cyapp/brlcad_quickiterate/bext_output/install/lib/libtclstub8.6.a'
 
 # Flag, 1: we built Tcl with threads enabled, 0 we didn't
 TCL_THREADS=1

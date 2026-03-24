@@ -1,4 +1,4 @@
-prefix=/home/cyapp/bext_output/install
+prefix=/home/cyapp/brlcad_quickiterate/bext_output/install
 exec_prefix=${prefix}
 includedir=${prefix}/include/geogram1
 libdir=${exec_prefix}/lib

@@ -21,13 +21,13 @@ ITCL_LIB_FILE=libitcl4.2.3.so
 
 # String to pass to linker to pick up the Itcl library from its
 # build directory.
-itcl_BUILD_LIB_SPEC='-L/home/cyapp/bext/build/tcl/TCL_BLD-prefix/src/TCL_BLD-build/pkgs/itcl4.2.3 -litcl4.2.3'
-ITCL_BUILD_LIB_SPEC='-L/home/cyapp/bext/build/tcl/TCL_BLD-prefix/src/TCL_BLD-build/pkgs/itcl4.2.3 -litcl4.2.3'
+itcl_BUILD_LIB_SPEC='-L/home/cyapp/bext_quickiterate/tcl/TCL_BLD-prefix/src/TCL_BLD-build/pkgs/itcl4.2.3 -litcl4.2.3'
+ITCL_BUILD_LIB_SPEC='-L/home/cyapp/bext_quickiterate/tcl/TCL_BLD-prefix/src/TCL_BLD-build/pkgs/itcl4.2.3 -litcl4.2.3'
 
 # String to pass to linker to pick up the Itcl library from its
 # installed directory.
-itcl_LIB_SPEC='-L/home/cyapp/bext_output/install/lib/itcl4.2.3 -litcl4.2.3'
-ITCL_LIB_SPEC='-L/home/cyapp/bext_output/install/lib/itcl4.2.3 -litcl4.2.3'
+itcl_LIB_SPEC='-L/home/cyapp/brlcad_quickiterate/bext_output/install/lib/itcl4.2.3 -litcl4.2.3'
+ITCL_LIB_SPEC='-L/home/cyapp/brlcad_quickiterate/bext_output/install/lib/itcl4.2.3 -litcl4.2.3'
 
 # The name of the Itcl stub library (a .a file):
 itcl_STUB_LIB_FILE=libitclstub4.2.3.a
@@ -35,33 +35,33 @@ ITCL_STUB_LIB_FILE=libitclstub4.2.3.a
 
 # String to pass to linker to pick up the Itcl stub library from its
 # build directory.
-itcl_BUILD_STUB_LIB_SPEC='-L/home/cyapp/bext/build/tcl/TCL_BLD-prefix/src/TCL_BLD-build/pkgs/itcl4.2.3 -litclstub4.2.3'
-ITCL_BUILD_STUB_LIB_SPEC='-L/home/cyapp/bext/build/tcl/TCL_BLD-prefix/src/TCL_BLD-build/pkgs/itcl4.2.3 -litclstub4.2.3'
+itcl_BUILD_STUB_LIB_SPEC='-L/home/cyapp/bext_quickiterate/tcl/TCL_BLD-prefix/src/TCL_BLD-build/pkgs/itcl4.2.3 -litclstub4.2.3'
+ITCL_BUILD_STUB_LIB_SPEC='-L/home/cyapp/bext_quickiterate/tcl/TCL_BLD-prefix/src/TCL_BLD-build/pkgs/itcl4.2.3 -litclstub4.2.3'
 
 # String to pass to linker to pick up the Itcl stub library from its
 # installed directory.
-itcl_STUB_LIB_SPEC='-L/home/cyapp/bext_output/install/lib/itcl4.2.3 -litclstub4.2.3'
-ITCL_STUB_LIB_SPEC='-L/home/cyapp/bext_output/install/lib/itcl4.2.3 -litclstub4.2.3'
+itcl_STUB_LIB_SPEC='-L/home/cyapp/brlcad_quickiterate/bext_output/install/lib/itcl4.2.3 -litclstub4.2.3'
+ITCL_STUB_LIB_SPEC='-L/home/cyapp/brlcad_quickiterate/bext_output/install/lib/itcl4.2.3 -litclstub4.2.3'
 
 # String to pass to linker to pick up the Itcl stub library from its
 # build directory.
-itcl_BUILD_STUB_LIB_PATH='/home/cyapp/bext/build/tcl/TCL_BLD-prefix/src/TCL_BLD-build/pkgs/itcl4.2.3/libitclstub4.2.3.a'
-ITCL_BUILD_STUB_LIB_PATH='/home/cyapp/bext/build/tcl/TCL_BLD-prefix/src/TCL_BLD-build/pkgs/itcl4.2.3/libitclstub4.2.3.a'
+itcl_BUILD_STUB_LIB_PATH='/home/cyapp/bext_quickiterate/tcl/TCL_BLD-prefix/src/TCL_BLD-build/pkgs/itcl4.2.3/libitclstub4.2.3.a'
+ITCL_BUILD_STUB_LIB_PATH='/home/cyapp/bext_quickiterate/tcl/TCL_BLD-prefix/src/TCL_BLD-build/pkgs/itcl4.2.3/libitclstub4.2.3.a'
 
 # String to pass to linker to pick up the Itcl stub library from its
 # installed directory.
-itcl_STUB_LIB_PATH='/home/cyapp/bext_output/install/lib/itcl4.2.3/libitclstub4.2.3.a'
-ITCL_STUB_LIB_PATH='/home/cyapp/bext_output/install/lib/itcl4.2.3/libitclstub4.2.3.a'
+itcl_STUB_LIB_PATH='/home/cyapp/brlcad_quickiterate/bext_output/install/lib/itcl4.2.3/libitclstub4.2.3.a'
+ITCL_STUB_LIB_PATH='/home/cyapp/brlcad_quickiterate/bext_output/install/lib/itcl4.2.3/libitclstub4.2.3.a'
 
 # Location of the top-level source directories from which [incr Tcl]
 # was built.  This is the directory that contains generic, unix, etc.
 # If [incr Tcl] was compiled in a different place than the directory
 # containing the source files, this points to the location of the sources,
 # not the location where [incr Tcl] was compiled.
-itcl_SRC_DIR='/home/cyapp/bext/build/tcl/TCL_BLD-prefix/src/TCL_BLD/pkgs/itcl4.2.3'
-ITCL_SRC_DIR='/home/cyapp/bext/build/tcl/TCL_BLD-prefix/src/TCL_BLD/pkgs/itcl4.2.3'
+itcl_SRC_DIR='/home/cyapp/bext_quickiterate/tcl/TCL_BLD-prefix/src/TCL_BLD/pkgs/itcl4.2.3'
+ITCL_SRC_DIR='/home/cyapp/bext_quickiterate/tcl/TCL_BLD-prefix/src/TCL_BLD/pkgs/itcl4.2.3'
 
 # String to pass to the compiler so that an extension can
 # find installed Itcl headers.
-itcl_INCLUDE_SPEC='-I/home/cyapp/bext/build/tcl/TCL_BLD-prefix/src/TCL_BLD/pkgs/itcl4.2.3/generic'
-ITCL_INCLUDE_SPEC='-I/home/cyapp/bext/build/tcl/TCL_BLD-prefix/src/TCL_BLD/pkgs/itcl4.2.3/generic'
+itcl_INCLUDE_SPEC='-I/home/cyapp/bext_quickiterate/tcl/TCL_BLD-prefix/src/TCL_BLD/pkgs/itcl4.2.3/generic'
+ITCL_INCLUDE_SPEC='-I/home/cyapp/bext_quickiterate/tcl/TCL_BLD-prefix/src/TCL_BLD/pkgs/itcl4.2.3/generic'
