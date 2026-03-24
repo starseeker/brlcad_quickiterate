@@ -74,6 +74,9 @@ add_subdirectory(nirt)
 # NURBS Regression Tests
 add_subdirectory(nurbs)
 
+# fbserv Token-Isolation Stress Tests
+add_subdirectory(fbserv)
+
 # libpkg Regression Tests
 add_subdirectory(pkg)
 
