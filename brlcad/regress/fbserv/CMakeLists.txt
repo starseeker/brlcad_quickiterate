@@ -16,20 +16,19 @@ if(TARGET fbserv AND TARGET libpkg AND TARGET libbu)
   if(TARGET fbserv_stress)
     set_target_properties(fbserv_stress PROPERTIES FOLDER "BRL-CAD Regression Tests/fbserv")
 
-    # Quick variant: 8 workers, base-port 5600.
-    # This exercises the basic parallelism without being too heavy for CI.
+    # Quick variant: 8 workers.  Port allocation is PID-based (so concurrent
+    # ctest instances automatically use distinct port ranges).
     brlcad_add_test(
       NAME regress-fbserv-stress-quick
-      COMMAND fbserv_stress --workers 8 --base-port 5600
+      COMMAND fbserv_stress --workers 8
     )
     brlcad_regression_test(regress-fbserv-stress-quick "fbserv;fbserv_stress" STAND_ALONE TEST_DEFINED)
     distclean(${CMAKE_CURRENT_BINARY_DIR}/regress-fbserv-stress-quick.log)
 
-    # Heavy variant: 32 workers, offset base-port so it doesn't collide with
-    # the quick run if both happen to execute simultaneously.
+    # Heavy variant: 32 workers.  Same PID-based port isolation applies.
     brlcad_add_test(
       NAME regress-fbserv-stress-heavy
-      COMMAND fbserv_stress --workers 32 --base-port 5700
+      COMMAND fbserv_stress --workers 32
     )
     brlcad_regression_test(regress-fbserv-stress-heavy "fbserv;fbserv_stress" STAND_ALONE TEST_DEFINED)
     distclean(${CMAKE_CURRENT_BINARY_DIR}/regress-fbserv-stress-heavy.log)
