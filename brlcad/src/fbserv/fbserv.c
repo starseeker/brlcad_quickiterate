@@ -337,7 +337,7 @@ fbserv_setup_socket(int fd)
 #endif
 }
 
-static void
+void
 fbserv_drop_client(int sub)
 {
     int fd;
@@ -452,6 +452,7 @@ main_loop(void)
 	    if (pkg_process(clients[i]) < 0) {
 		fprintf(stderr, "pkg_process error encountered (1)\n");
 	    }
+	    if (clients[i] == NULL) continue; /* handler may have dropped client */
 	    if (! FD_ISSET(clients[i]->pkc_fd, &infds)) continue;
 	    if (pkg_suckin(clients[i]) <= 0) {
 		/* Probably EOF */

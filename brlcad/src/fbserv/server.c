@@ -64,6 +64,7 @@ int fb_server_retain_on_close = 0;	/* !0 => we are holding a reusable FB open */
 extern int fbserv_require_auth(void);
 extern const char *fbserv_session_token(void);
 extern int fbserv_conn_idx(struct pkg_conn *pcp);
+extern void fbserv_drop_client(int sub);
 extern int fbserv_client_auth_ok(int idx);
 extern void fbserv_set_client_auth(int idx, int val);
 
@@ -126,7 +127,9 @@ fb_server_fb_auth(struct pkg_conn *pcp, char *buf)
 	fbserv_set_client_auth(idx, 1);
     } else {
 	fb_log("fbserv: MSG_FBAUTH token mismatch from client — dropping\n");
-	pkg_close(pcp);
+	/* Use fbserv_drop_client to remove client from clients[] and select_list
+	 * before calling pkg_close, so main_loop doesn't access freed memory. */
+	fbserv_drop_client(idx);
     }
 
     if (buf) (void)free(buf);

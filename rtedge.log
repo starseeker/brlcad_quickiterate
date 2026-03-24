@@ -18,14 +18,14 @@ Planning to run with 4 processor(s)
 opendb /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build/share/db/m35.g;
 tree component;
 db title:  M35   2 1/2 ton truck
-DIRBUILD: cpu = 0.002647 sec, elapsed = 0.00265 sec
+DIRBUILD: cpu = 0.001441 sec, elapsed = 0.00143 sec
 
 Additional #malloc=10708, #free=10678, #realloc=18 (30 retained)
-0x7f06319cf048 TOL 5.000000e-04 (sq=2.500000e-07) perp=1.000000e-06, para=9.999990e-01
+0x7f718a81f048 TOL 5.000000e-04 (sq=2.500000e-07) perp=1.000000e-06, para=9.999990e-01
 Additional #malloc=8194, #free=2, #realloc=1 (8192 retained)
-GETTREE: cpu = 0.122937 sec, elapsed = 0.08788 sec
+GETTREE: cpu = 0.246109 sec, elapsed = 0.08552 sec
 
-Additional #malloc=237305, #free=218115, #realloc=2250 (19190 retained)
+Additional #malloc=237308, #free=218118, #realloc=2252 (19190 retained)
 rtedge: loading occlusion geometry from /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build/share/db/m35.g.
 rtedge: occlusion object 0 = component
 rtedge: occlusion object 1 = component/power.train
@@ -39,7 +39,7 @@ rtedge: automagically activating overlay mode.
 view_init: will perform simple overlay.
 
 ...................Frame     0...................
-PREP: cpu = 0.008459 sec, elapsed = 0.00851 sec
+PREP: cpu = 0.005989 sec, elapsed = 0.00599 sec
 
 Additional #malloc=309576, #free=260604, #realloc=2339 (48972 retained)
 NUBSP: 3154 cut, 3155 box (3155 empty)
@@ -50,13 +50,15 @@ Orientation: 0.248097, 0.476591, 0.748097, 0.389435
 Eye_pos: 18453.8, 11754.6, 10448.5
 Size: 6787.39mm
 Grid: (13.2566, 13.2566) mm, (512, 512) pixels
-Beam: radius=6SHOT: cpu = 1.11026 sec, elapsedSHOT: cpu = 1.12714 sec, elapsed = 0.55365 sec
+Beam: radius=6.62831 mm, divergence=0 mm/1mm
 
-Additional #malloc=393, #free=27, #realloc=24 (366 retained)
+SHOT: cpu = 1.13196 sec, elapsed = 0.52222 sec
+
+Additional #malloc=393, #free=27, #realloc=23 (366 retained)
 1390820 solid/ray intersections: 439092 hits + 951728 miss
 pruned 31.6%:  284630 model RPP, 861068 dups skipped, 301514 solid RPP
-Frame  0:     262144 pixels in      0.28 sec =    930296.27 pixels/sec
-Frame  0:     524800 rays   in      0.28 sec =   1862409.53 rays/sec (RTFM)
-Frame  0:     524800 rays   in      1.13 sec =    465602.38 rays/CPU_sec
-Frame  0:     524800 rays   in      0.55 sec =    947884.42 rays/sec (wallclock)
+Frame  0:     262144 pixels in      0.28 sec =    926335.80 pixels/sec
+Frame  0:     524800 rays   in      0.28 sec =   1854480.85 rays/sec (RTFM)
+Frame  0:     524800 rays   in      1.13 sec =    463620.21 rays/CPU_sec
+Frame  0:     524800 rays   in      0.52 sec =   1004944.30 rays/sec (wallclock)
 
