@@ -626,6 +626,7 @@ fb_server_fb_cursor(struct pkg_conn *pcp, char *buf)
        	return;
     if (pcp == PKC_NULL)
        	return;
+    if (fbserv_guard(pcp, buf) < 0) return;
 
     mode = pkg_glong(&buf[0*NET_LONG_LEN]);
     x = pkg_glong(&buf[1*NET_LONG_LEN]);
@@ -646,6 +647,7 @@ fb_server_fb_getcursor(struct pkg_conn *pcp, char *buf)
     char rbuf[4*NET_LONG_LEN+1];
 
     if (pcp == PKC_NULL) return;
+    if (fbserv_guard(pcp, buf) < 0) return;
 
     ret = fb_getcursor(fb_server_fbp, &mode, &x, &y);
     (void)pkg_plong(&rbuf[0*NET_LONG_LEN], ret);
@@ -669,6 +671,7 @@ fb_server_fb_setcursor(struct pkg_conn *pcp, char *buf)
     if (buf == NULL)
 	return;
     if (pcp == PKC_NULL) return;
+    if (fbserv_guard(pcp, buf) < 0) return;
 
     xbits = pkg_glong(&buf[0*NET_LONG_LEN]);
     ybits = pkg_glong(&buf[1*NET_LONG_LEN]);
@@ -700,6 +703,7 @@ fb_server_fb_scursor(struct pkg_conn *pcp, char *buf)
 	return;
     if (pcp == PKC_NULL)
 	return;
+    if (fbserv_guard(pcp, buf) < 0) return;
 
     mode = pkg_glong(&buf[0*NET_LONG_LEN]);
     x = pkg_glong(&buf[1*NET_LONG_LEN]);
@@ -725,6 +729,7 @@ fb_server_fb_window(struct pkg_conn *pcp, char *buf)
 	return;
     if (pcp == PKC_NULL)
 	return;
+    if (fbserv_guard(pcp, buf) < 0) return;
 
     x = pkg_glong(&buf[0*NET_LONG_LEN]);
     y = pkg_glong(&buf[1*NET_LONG_LEN]);
@@ -749,6 +754,7 @@ fb_server_fb_zoom(struct pkg_conn *pcp, char *buf)
 	return;
     if (pcp == PKC_NULL)
 	return;
+    if (fbserv_guard(pcp, buf) < 0) return;
 
     x = pkg_glong(&buf[0*NET_LONG_LEN]);
     y = pkg_glong(&buf[1*NET_LONG_LEN]);
@@ -771,6 +777,7 @@ fb_server_fb_view(struct pkg_conn *pcp, char *buf)
 	return;
     if (pcp == PKC_NULL)
 	return;
+    if (fbserv_guard(pcp, buf) < 0) return;
 
     xcenter = pkg_glong(&buf[0*NET_LONG_LEN]);
     ycenter = pkg_glong(&buf[1*NET_LONG_LEN]);
@@ -793,6 +800,7 @@ fb_server_fb_getview(struct pkg_conn *pcp, char *buf)
     char rbuf[5*NET_LONG_LEN+1];
 
     if (pcp == PKC_NULL) return;
+    if (fbserv_guard(pcp, buf) < 0) return;
 
     ret = fb_getview(fb_server_fbp, &xcenter, &ycenter, &xzoom, &yzoom);
     (void)pkg_plong(&rbuf[0*NET_LONG_LEN], ret);
@@ -815,6 +823,7 @@ fb_server_fb_rmap(struct pkg_conn *pcp, char *buf)
     unsigned char cm[256*2*3];
 
     if (pcp == PKC_NULL) return;
+    if (fbserv_guard(pcp, buf) < 0) return;
 
     (void)pkg_plong(&rbuf[0*NET_LONG_LEN], fb_rmap(fb_server_fbp, &map));
     for (i = 0; i < 256; i++) {
@@ -847,6 +856,7 @@ fb_server_fb_wmap(struct pkg_conn *pcp, char *buf)
        	return;
     if (pcp == PKC_NULL)
 	return;
+    if (fbserv_guard(pcp, buf) < 0) return;
 
     if (pcp->pkc_len == 0)
 	ret = fb_wmap(fb_server_fbp, COLORMAP_NULL);
@@ -872,6 +882,7 @@ fb_server_fb_flush(struct pkg_conn *pcp, char *buf)
     char rbuf[NET_LONG_LEN+1];
 
     if (pcp == PKC_NULL) return;
+    if (fbserv_guard(pcp, buf) < 0) return;
 
     ret = fb_flush(fb_server_fbp);
 
@@ -889,6 +900,7 @@ static void
 fb_server_fb_poll(struct pkg_conn *pcp, char *buf)
 {
     if (pcp == PKC_NULL) return;
+    if (fbserv_guard(pcp, buf) < 0) return;
 
     (void)fb_poll(fb_server_fbp);
     if (buf)
@@ -910,6 +922,7 @@ fb_server_fb_help(struct pkg_conn *pcp, char *buf)
        	return;
     if (buf == NULL)
        	return;
+    if (fbserv_guard(pcp, buf) < 0) return;
 
     (void)pkg_glong(&buf[0*NET_LONG_LEN]);
 
