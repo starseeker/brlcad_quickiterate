@@ -488,6 +488,49 @@ mged_conn_idx(struct pkg_conn *pcp)
 
 
 /**
+ * Guard for mged data-op handlers: check auth + non-NULL fbp.
+ * Returns 0 on success.  On failure sends a -1 reply, schedules a
+ * deferred drop, frees buf, and returns -1.
+ */
+static int
+mged_data_guard(struct pkg_conn *pcp, char *buf)
+{
+    struct mged_state *s = MGED_STATE;
+    char erbuf[NET_LONG_LEN+1];
+
+    if (pcp == PKC_NULL) {
+	if (buf) (void)free(buf);
+	return -1;
+    }
+
+    if (s->mged_curr_dm->dm_require_auth) {
+	int idx = mged_conn_idx(pcp);
+	if (idx < 0 || !clients[idx].c_auth_ok) {
+	    bu_log("mged fbserv: unauthenticated data request rejected\n");
+	    (void)pkg_plong(erbuf, -1);
+	    pkg_send(MSG_RETURN, erbuf, NET_LONG_LEN, pcp);
+	    if (idx >= 0)
+		clients[idx].c_pending_drop = 1;
+	    else
+		pkg_close(pcp);
+	    if (buf) (void)free(buf);
+	    return -1;
+	}
+    }
+
+    if (fbp == FB_NULL) {
+	bu_log("mged fbserv: data request with null framebuffer\n");
+	(void)pkg_plong(erbuf, -1);
+	pkg_send(MSG_RETURN, erbuf, NET_LONG_LEN, pcp);
+	if (buf) (void)free(buf);
+	return -1;
+    }
+
+    return 0;
+}
+
+
+/**
  * MSG_FBAUTH — session token authentication for MGED's embedded fbserv.
  *
  * Client sends a FBSERV_AUTH_TOKEN_LEN-byte hex string.  If it matches
@@ -591,6 +634,7 @@ fb_server_fb_close(struct pkg_conn *pcp, char *buf)
     struct mged_state *s = MGED_STATE;
     char rbuf[NET_LONG_LEN+1] = {0};
 
+    if (mged_data_guard(pcp, buf) < 0) return;
     /*
      * We are playing FB server so we don't really close the frame
      * buffer.  We should flush output however.
@@ -613,6 +657,7 @@ fb_server_fb_free(struct pkg_conn *pcp, char *buf)
 {
     char rbuf[NET_LONG_LEN+1] = {0};
 
+    if (mged_data_guard(pcp, buf) < 0) return;
     /* Don't really free framebuffer */
     if (pkg_send(MSG_RETURN, rbuf, NET_LONG_LEN, pcp) != NET_LONG_LEN)
 	communications_error("pkg_send fb_free reply\n");
@@ -633,6 +678,7 @@ fb_server_fb_clear(struct pkg_conn *pcp, char *buf)
 	bu_log("fb_server_fb_window: null buffer\n");
 	return;
     }
+    if (mged_data_guard(pcp, buf) < 0) return;
 
     bg[RED] = buf[0];
     bg[GRN] = buf[1];
@@ -660,6 +706,7 @@ fb_server_fb_read(struct pkg_conn *pcp, char *buf)
 	bu_log("fb_server_fb_readrect: null buffer\n");
 	return;
     }
+    if (mged_data_guard(pcp, buf) < 0) return;
 
     x = pkg_glong(&buf[0*NET_LONG_LEN]);
     y = pkg_glong(&buf[1*NET_LONG_LEN]);
@@ -702,6 +749,7 @@ fb_server_fb_write(struct pkg_conn *pcp, char *buf)
 	bu_log("fb_server_fb_readrect: null buffer\n");
 	return;
     }
+    if (mged_data_guard(pcp, buf) < 0) return;
 
     x = pkg_glong(&buf[0*NET_LONG_LEN]);
     y = pkg_glong(&buf[1*NET_LONG_LEN]);
@@ -733,6 +781,7 @@ fb_server_fb_readrect(struct pkg_conn *pcp, char *buf)
 	bu_log("fb_server_fb_readrect: null buffer\n");
 	return;
     }
+    if (mged_data_guard(pcp, buf) < 0) return;
 
     xmin = pkg_glong(&buf[0*NET_LONG_LEN]);
     ymin = pkg_glong(&buf[1*NET_LONG_LEN]);
@@ -778,6 +827,7 @@ fb_server_fb_writerect(struct pkg_conn *pcp, char *buf)
 	bu_log("fb_server_fb_readrect: null buffer\n");
 	return;
     }
+    if (mged_data_guard(pcp, buf) < 0) return;
 
     x = pkg_glong(&buf[0*NET_LONG_LEN]);
     y = pkg_glong(&buf[1*NET_LONG_LEN]);
@@ -812,7 +862,7 @@ fb_server_fb_bwreadrect(struct pkg_conn *pcp, char *buf)
 	bu_log("fb_server_fb_bwreadrect: null buffer\n");
 	return;
     }
-
+    if (mged_data_guard(pcp, buf) < 0) return;
     xmin = pkg_glong(&buf[0*NET_LONG_LEN]);
     ymin = pkg_glong(&buf[1*NET_LONG_LEN]);
     width = pkg_glong(&buf[2*NET_LONG_LEN]);
@@ -858,7 +908,7 @@ fb_server_fb_bwwriterect(struct pkg_conn *pcp, char *buf)
 	bu_log("rfbbwwriterect: null buffer\n");
 	return;
     }
-
+    if (mged_data_guard(pcp, buf) < 0) return;
     x = pkg_glong(&buf[0*NET_LONG_LEN]);
     y = pkg_glong(&buf[1*NET_LONG_LEN]);
     width = pkg_glong(&buf[2*NET_LONG_LEN]);
@@ -888,6 +938,7 @@ fb_server_fb_cursor(struct pkg_conn *pcp, char *buf)
 	bu_log("fb_server_fb_window: null buffer\n");
 	return;
     }
+    if (mged_data_guard(pcp, buf) < 0) return;
 
     mode = pkg_glong(&buf[0*NET_LONG_LEN]);
     x = pkg_glong(&buf[1*NET_LONG_LEN]);
@@ -908,6 +959,7 @@ fb_server_fb_getcursor(struct pkg_conn *pcp, char *buf)
     int mode, x, y;
     char rbuf[4*NET_LONG_LEN+1];
 
+    if (mged_data_guard(pcp, buf) < 0) return;
     ret = fb_getcursor(fbp, &mode, &x, &y);
     (void)pkg_plong(&rbuf[0*NET_LONG_LEN], ret);
     (void)pkg_plong(&rbuf[1*NET_LONG_LEN], mode);
@@ -932,6 +984,7 @@ fb_server_fb_setcursor(struct pkg_conn *pcp, char *buf)
 	bu_log("fb_server_fb_readrect: null buffer\n");
 	return;
     }
+    if (mged_data_guard(pcp, buf) < 0) return;
 
     xbits = pkg_glong(&buf[0*NET_LONG_LEN]);
     ybits = pkg_glong(&buf[1*NET_LONG_LEN]);
@@ -964,6 +1017,7 @@ fb_server_fb_scursor(struct pkg_conn *pcp, char *buf)
 	bu_log("fb_server_fb_open: null buffer\n");
 	return;
     }
+    if (mged_data_guard(pcp, buf) < 0) return;
 
     mode = pkg_glong(&buf[0*NET_LONG_LEN]);
     x = pkg_glong(&buf[1*NET_LONG_LEN]);
@@ -989,6 +1043,7 @@ fb_server_fb_window(struct pkg_conn *pcp, char *buf)
 	bu_log("fb_server_fb_window: null buffer\n");
 	return;
     }
+    if (mged_data_guard(pcp, buf) < 0) return;
 
     x = pkg_glong(&buf[0*NET_LONG_LEN]);
     y = pkg_glong(&buf[1*NET_LONG_LEN]);
@@ -1014,6 +1069,7 @@ fb_server_fb_zoom(struct pkg_conn *pcp, char *buf)
 	bu_log("fb_server_fb_readrect: null buffer\n");
 	return;
     }
+    if (mged_data_guard(pcp, buf) < 0) return;
 
     x = pkg_glong(&buf[0*NET_LONG_LEN]);
     y = pkg_glong(&buf[1*NET_LONG_LEN]);
@@ -1037,6 +1093,7 @@ fb_server_fb_view(struct pkg_conn *pcp, char *buf)
 	bu_log("fb_server_fb_readrect: null buffer\n");
 	return;
     }
+    if (mged_data_guard(pcp, buf) < 0) return;
 
     xcenter = pkg_glong(&buf[0*NET_LONG_LEN]);
     ycenter = pkg_glong(&buf[1*NET_LONG_LEN]);
@@ -1059,6 +1116,7 @@ fb_server_fb_getview(struct pkg_conn *pcp, char *buf)
     int xcenter, ycenter, xzoom, yzoom;
     char rbuf[5*NET_LONG_LEN+1];
 
+    if (mged_data_guard(pcp, buf) < 0) return;
     ret = fb_getview(fbp, &xcenter, &ycenter, &xzoom, &yzoom);
     (void)pkg_plong(&rbuf[0*NET_LONG_LEN], ret);
     (void)pkg_plong(&rbuf[1*NET_LONG_LEN], xcenter);
@@ -1080,6 +1138,7 @@ fb_server_fb_rmap(struct pkg_conn *pcp, char *buf)
     ColorMap map;
     unsigned char cm[256*2*3];
 
+    if (mged_data_guard(pcp, buf) < 0) return;
     (void)pkg_plong(&rbuf[0*NET_LONG_LEN], fb_rmap(fbp, &map));
     for (i = 0; i < 256; i++) {
 	(void)pkg_pshort((char *)(cm+2*(0+i)), map.cm_red[i]);
@@ -1112,6 +1171,7 @@ fb_server_fb_wmap(struct pkg_conn *pcp, char *buf)
 	bu_log("fb_server_fb_wmap: null buffer\n");
 	return;
     }
+    if (mged_data_guard(pcp, buf) < 0) return;
 
     if (pcp->pkc_len == 0)
 	ret = fb_wmap(fbp, COLORMAP_NULL);
@@ -1137,6 +1197,7 @@ fb_server_fb_flush(struct pkg_conn *pcp, char *buf)
     int ret;
     char rbuf[NET_LONG_LEN+1] = {0};
 
+    if (mged_data_guard(pcp, buf) < 0) return;
     ret = fb_flush(fbp);
 
     if (pcp->pkc_type < MSG_NORETURN) {
@@ -1153,7 +1214,7 @@ static void
 fb_server_fb_poll(struct pkg_conn *pcp, char *buf)
 {
     struct mged_state *s = MGED_STATE;
-    if (!pcp) return;
+    if (mged_data_guard(pcp, buf) < 0) return;
     (void)fb_poll(fbp);
     if (buf) (void)free(buf);
 }
@@ -1174,6 +1235,7 @@ fb_server_fb_help(struct pkg_conn *pcp, char *buf)
 	bu_log("fb_server_fb_window: null buffer\n");
 	return;
     }
+    if (mged_data_guard(pcp, buf) < 0) return;
 
     (void)pkg_glong(&buf[0*NET_LONG_LEN]);
 
