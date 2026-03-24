@@ -275,6 +275,12 @@ main(int argc, char *argv[])
 }
 
 
+/* Undefine all local macros to prevent leakage into subsequent files in
+ * Unity/jumbo builds.  CHAR conflicts with Windows SDK type names. */
+#undef INTEGER
+#undef REAL
+#undef CHAR
+
 /*
  * Local Variables:
  * mode: C

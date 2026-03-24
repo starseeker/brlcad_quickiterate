@@ -431,6 +431,18 @@ main(int ac, char **av)
 }
 
 
+/* Undefine all local macros to prevent leakage into subsequent files in
+ * Unity/jumbo builds.  CHAR, SHORT, INT, LONG, FLOAT, and DOUBLE conflict
+ * with Windows SDK type names in winnt.h and must be cleaned up. */
+#undef CHAR
+#undef SHORT
+#undef INT
+#undef LONG
+#undef FLOAT
+#undef DOUBLE
+#undef DECOMPOSE
+#undef RECONSTRUCT
+
 /*
  * Local Variables:
  * mode: C
