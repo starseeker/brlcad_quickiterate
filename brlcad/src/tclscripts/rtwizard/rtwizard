@@ -160,8 +160,16 @@ if {[info exists ::use_gui]} {
       catch {exec [file join [bu_dir bin] fbserv] -A -w $::RtWizard::wizard_state(width) -n $::RtWizard::wizard_state(scanlines) $::RtWizard::wizard_state(fbserv_port) $::RtWizard::wizard_state(fbserv_device) &} pid
       if {[info exists pid]} {
 	set fbserv_pid $pid
-	# Wait a few milliseconds to make sure fbserv has completed its work and is available
-	while { [catch {exec [file join [bu_dir bin] fblabel] -F $::RtWizard::wizard_state(fbserv_port) 1 1 " "} error] && $error == 12} {after 300}
+	# Wait for fbserv to become ready.  Poll fblabel: if it fails because fbserv
+	# has not yet bound to its port ("can't connect"), keep waiting (up to ~9 s).
+	# Stop early if the failure reason changes to something other than connection-
+	# refused (e.g. a token mismatch means another instance already owns the port).
+	set _fb_wait 0
+	while { [catch {exec [file join [bu_dir bin] fblabel] -F $::RtWizard::wizard_state(fbserv_port) 1 1 " "} _fb_err] && $_fb_wait < 30 && [string match {*can't connect*} $_fb_err] } {
+	    after 300
+	    incr _fb_wait
+	}
+	unset -nocomplain _fb_wait _fb_err
       } else {
 	if {$::RtWizard::wizard_state(verbose)} {puts "fbserv port $::RtWizard::wizard_state(fbserv_port) failed!"}
 	incr ::RtWizard::wizard_state(fbserv_port)
@@ -190,8 +198,17 @@ if {[info exists ::use_gui]} {
 	   } else {
 	       if {$::RtWizard::wizard_state(verbose)} {puts "fbserv launch on port $::RtWizard::wizard_state(fbserv_port) failed: $pid"}
 	   }
-	   # Wait for fbserv to become ready; error 12 from fblabel means fb_open not yet available.
-	   while { [catch {exec [file join [bu_dir bin] fblabel] -F $::RtWizard::wizard_state(fbserv_port) 1 1 " "} error] && $error == 12 } {after 300}
+	   # Wait for fbserv to become ready.  Poll fblabel: if it fails because fbserv
+	   # has not yet bound to its port ("can't connect"), keep waiting (up to ~9 s).
+	   # Stop early if the failure reason changes to something other than connection-
+	   # refused — e.g. a token mismatch means another instance already owns the port
+	   # and we should advance to the next candidate immediately.
+	   set _fb_wait 0
+	   while { [catch {exec [file join [bu_dir bin] fblabel] -F $::RtWizard::wizard_state(fbserv_port) 1 1 " "} _fb_err] && $_fb_wait < 30 && [string match {*can't connect*} $_fb_err] } {
+	       after 300
+	       incr _fb_wait
+	   }
+	   unset -nocomplain _fb_wait _fb_err
 	   # Verify that we actually own this fbserv: fblabel must succeed with our
 	   # FBSERV_TOKEN.  If it fails, another rtwizard won the race for this port
 	   # and our token was rejected — advance to the next candidate port and retry.
