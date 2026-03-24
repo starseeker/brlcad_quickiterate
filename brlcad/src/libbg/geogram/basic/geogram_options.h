@@ -40,7 +40,6 @@
 #ifndef GEOGRAM_BASIC_GEOGRAM_OPTIONS
 #define GEOGRAM_BASIC_GEOGRAM_OPTIONS
 
-#include <geogram/api/defs.h>
 #include <string>
 
 /**
