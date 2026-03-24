@@ -41,7 +41,7 @@
 #include <ctype.h>
 #include <stdarg.h>
 
-namespace GEO {
+namespace GEOBRL {
 
     /**
      * \brief Builds the conversion error message
@@ -59,7 +59,7 @@ namespace GEO {
     }
 }
 
-namespace GEO {
+namespace GEOBRL {
 
     namespace String {
 
@@ -247,7 +247,7 @@ namespace GEO {
             std::logic_error(conversion_error(s, type)) {
         }
 
-        const char* ConversionError::what() const GEO_NOEXCEPT {
+        const char* ConversionError::what() const GEOBRL_NOEXCEPT {
             return std::logic_error::what();
         }
     }

@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_BASIC_PROGRESS
-#define GEOGRAM_BASIC_PROGRESS
+#ifndef GEOBRLCAD_BASIC_PROGRESS
+#define GEOBRLCAD_BASIC_PROGRESS
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/logger.h>
@@ -50,7 +50,7 @@
  * \brief Functions and classes for displaying progress bars
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     /**
      * \brief Task progress listener
@@ -73,7 +73,7 @@ namespace GEO {
      * \see Progress
      * \see ProgressTask
      */
-    class GEOGRAM_API ProgressClient : public Counted {
+    class GEOBRLCAD_API ProgressClient : public Counted {
     public:
         /**
          * \brief Starts listening progress
@@ -121,11 +121,11 @@ namespace GEO {
      * \brief Exception thrown when a task is canceled
      * \see Progress::cancel()
      */
-    struct GEOGRAM_API TaskCanceled : std::exception {
+    struct GEOBRLCAD_API TaskCanceled : std::exception {
         /**
          * \brief Gets the string identifying the exception
          */
-        const char* what() const GEO_NOEXCEPT override;
+        const char* what() const GEOBRL_NOEXCEPT override;
     };
 
     /************************************************************************/
@@ -143,18 +143,18 @@ namespace GEO {
          * set a default LoggerClient that logs progress to the console.
          * \note This function is called by the Vorpaline initialization
          * function.
-         * \see GEO::initialize()
+         * \see GEOBRL::initialize()
          * \see CmdLine
          */
-        void GEOGRAM_API initialize();
+        void GEOBRLCAD_API initialize();
 
         /**
          * \brief Cleans up the Progress framework
          * \details This function must be called when the program exits to
          * cleanup the framework. It is called by the Vorpaline cleanup
-         * function \c GEO::terminate().
+         * function \c GEOBRL::terminate().
          */
-        void GEOGRAM_API terminate();
+        void GEOBRLCAD_API terminate();
 
         /**
          * \brief Sets the Progress client
@@ -163,7 +163,7 @@ namespace GEO {
          * it when the Progress terminates.
          * \param[in] client a pointer to a ProgressClient
          */
-        void GEOGRAM_API set_client(ProgressClient* client);
+        void GEOBRLCAD_API set_client(ProgressClient* client);
 
         /**
          * \brief Gets the current task
@@ -173,7 +173,7 @@ namespace GEO {
          * \return a pointer the current ProgressTask if any or a null pointer
          * if there's no current task.
          */
-        GEOGRAM_API const ProgressTask* current_progress_task();
+        GEOBRLCAD_API const ProgressTask* current_progress_task();
 
         /**
          * \brief Cancels the current task
@@ -187,7 +187,7 @@ namespace GEO {
          * \see is_canceled()
          * \see TaskCanceled
          */
-        void GEOGRAM_API cancel();
+        void GEOBRLCAD_API cancel();
 
         /**
          * \brief Checks if the current task is canceled
@@ -196,12 +196,12 @@ namespace GEO {
          * \retval true if the task was canceled with cancel()
          * \retval false otherwise
          */
-        bool GEOGRAM_API is_canceled();
+        bool GEOBRLCAD_API is_canceled();
 
         /**
          * \brief Clears the cancellation flag
          */
-        void GEOGRAM_API clear_canceled();
+        void GEOBRLCAD_API clear_canceled();
     }
 
     /************************************************************************/
@@ -237,7 +237,7 @@ namespace GEO {
      * ProgressTask can be sub-classed by client code, typically to route
      * progress display to a progress bar.
      */
-    class GEOGRAM_API ProgressTask {
+    class GEOBRLCAD_API ProgressTask {
     public:
     /**
      * \brief Creates a logger for a task

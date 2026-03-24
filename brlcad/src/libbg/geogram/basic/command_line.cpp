@@ -42,14 +42,14 @@
 #include <iostream>
 #include <iomanip>
 
-#if defined(GEO_OS_LINUX) || defined(GEO_OS_APPLE)
+#if defined(GEOBRL_OS_LINUX) || defined(GEOBRL_OS_APPLE)
 #include <sys/ioctl.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <termios.h>
 #endif
 
-#ifdef GEO_OS_WINDOWS
+#ifdef GEOBRL_OS_WINDOWS
 #include <io.h> // for _isatty()
 #endif
 
@@ -57,7 +57,7 @@
 
 namespace {
 
-    using namespace GEO;
+    using namespace GEOBRL;
     using namespace CmdLine;
 
     /** Maximum length of a feature name used in ui_feature() formatting */
@@ -117,7 +117,7 @@ namespace {
         static bool initialized = false;
         static bool result;
         if(!initialized) {
-#ifdef GEO_OS_WINDOWS
+#ifdef GEOBRL_OS_WINDOWS
             result = !_isatty(1);
 #else
             result = !isatty(1);
@@ -131,7 +131,7 @@ namespace {
      * \brief Recomputes the width of the terminal
      */
     void update_ui_term_width() {
-#ifndef GEO_OS_WINDOWS
+#ifndef GEOBRL_OS_WINDOWS
         if(is_redirected()) {
             return;
         }
@@ -163,7 +163,7 @@ namespace {
     }
 }
 
-namespace GEO {
+namespace GEOBRL {
 
     namespace CmdLine {
 

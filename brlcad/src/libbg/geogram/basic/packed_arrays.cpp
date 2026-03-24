@@ -43,7 +43,7 @@
 
 namespace {
 
-    using namespace GEO;
+    using namespace GEOBRL;
 
     /**
      * \brief Computes a percentage of a reference value
@@ -61,7 +61,7 @@ namespace {
     }
 }
 
-namespace GEO {
+namespace GEOBRL {
 
     PackedArrays::PackedArrays() {
         nb_arrays_ = 0;

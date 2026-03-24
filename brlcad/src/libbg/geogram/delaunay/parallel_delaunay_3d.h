@@ -37,10 +37,10 @@
  *
  */
 
-#ifndef GEOGRAM_PARALLEL_DELAUNAY_DELAUNAY_3D
-#define GEOGRAM_PARALLEL_DELAUNAY_DELAUNAY_3D
+#ifndef GEOBRLCAD_PARALLEL_DELAUNAY_DELAUNAY_3D
+#define GEOBRLCAD_PARALLEL_DELAUNAY_DELAUNAY_3D
 
-#ifdef GEOGRAM_WITH_PDEL
+#ifdef GEOBRLCAD_WITH_PDEL
 
 #include <geogram/basic/common.h>
 #include <geogram/delaunay/delaunay.h>
@@ -52,7 +52,7 @@
  * \brief Multithreaded implementation of Delaunay in 3d.
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     /**
      * \brief Multithreaded implementation of Delaunay in 3d.
@@ -103,7 +103,7 @@ namespace GEO {
      *  - Stefan Funke , Kurt Mehlhorn and Stefan Naher, "Structural filtering,
      *  a paradigm for efficient and exact geometric programs", 1999
      */
-    class GEOGRAM_API ParallelDelaunay3d : public Delaunay {
+    class GEOBRLCAD_API ParallelDelaunay3d : public Delaunay {
     public:
         /**
          * \brief Constructs a new ParallelDelaunay3d.

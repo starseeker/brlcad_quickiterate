@@ -50,7 +50,7 @@
 
 namespace {
 
-    using namespace GEO;
+    using namespace GEOBRL;
 
     /**
      * \brief Checks whether a halfedge is
@@ -553,7 +553,7 @@ namespace {
 
 /****************************************************************************/
 
-namespace GEO {
+namespace GEOBRL {
 
     void fill_holes(
         Mesh& M, double max_area, index_t max_edges, bool repair,

@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_BASIC_FACTORY
-#define GEOGRAM_BASIC_FACTORY
+#ifndef GEOBRLCAD_BASIC_FACTORY
+#define GEOBRLCAD_BASIC_FACTORY
 
 #include <geogram/basic/memory.h>
 #include <geogram/basic/counted.h>
@@ -52,7 +52,7 @@
  * \brief Generic factory mechanism
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     /**
      * \brief Repository of unique instances
@@ -66,7 +66,7 @@ namespace GEO {
      * templated singleton instances in a central repository guarantees the
      * instances uniqueness.
      */
-    class GEOGRAM_API InstanceRepo {
+    class GEOBRLCAD_API InstanceRepo {
     public:
     /**
      * \brief Type of the Instances stored in the repository

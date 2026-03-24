@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_BASIC_MATRIX
-#define GEOGRAM_BASIC_MATRIX
+#ifndef GEOBRLCAD_BASIC_MATRIX
+#define GEOBRLCAD_BASIC_MATRIX
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/vecg.h>
@@ -49,7 +49,7 @@
  * \brief Generic matrix type
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     /************************************************************************/
 

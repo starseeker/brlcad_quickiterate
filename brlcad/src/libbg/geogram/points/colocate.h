@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_POINTS_COLOCATE
-#define GEOGRAM_POINTS_COLOCATE
+#ifndef GEOBRLCAD_POINTS_COLOCATE
+#define GEOBRLCAD_POINTS_COLOCATE
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/geometry.h>
@@ -49,7 +49,7 @@
  * \brief Functions to merge points with identical or similar locations
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     namespace Geom {
 
@@ -65,7 +65,7 @@ namespace GEO {
          * \param[in] nn_algo factory name for nearest neighbor search.
          * \return the number of unique points
          */
-        index_t GEOGRAM_API colocate(
+        index_t GEOBRLCAD_API colocate(
             const double* points,
             coord_index_t dim,
             index_t nb_points,
@@ -79,7 +79,7 @@ namespace GEO {
         /**
          * \brief Finds sets of identical points using lexicographic sort.
          */
-        index_t GEOGRAM_API colocate_by_lexico_sort(
+        index_t GEOBRLCAD_API colocate_by_lexico_sort(
             const double* points,
             coord_index_t dim,
             index_t nb_points,

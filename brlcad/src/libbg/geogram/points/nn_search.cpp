@@ -44,7 +44,7 @@
 
 /****************************************************************************/
 
-namespace GEO {
+namespace GEOBRL {
 
     NearestNeighborSearch::NearestNeighborSearch(
         coord_index_t dimension

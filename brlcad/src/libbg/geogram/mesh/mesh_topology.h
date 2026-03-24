@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_MESH_MESH_TOPOLOGY
-#define GEOGRAM_MESH_MESH_TOPOLOGY
+#ifndef GEOBRLCAD_MESH_MESH_TOPOLOGY
+#define GEOBRLCAD_MESH_MESH_TOPOLOGY
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/numeric.h>
@@ -49,7 +49,7 @@
  * \brief Functions to query and compare mesh topology
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     class Mesh;
     template <class T>
@@ -63,7 +63,7 @@ namespace GEO {
      * \return the number of connected components
      * \post component.size() == M.nb_facets()
      */
-    index_t GEOGRAM_API get_connected_components(
+    index_t GEOBRLCAD_API get_connected_components(
         const Mesh& M, vector<index_t>& component
     );
 
@@ -76,14 +76,14 @@ namespace GEO {
      * \return the number of connceted components
      * \post component.size() == M.nb_facets()
      */
-    index_t GEOGRAM_API get_connected_components(
+    index_t GEOBRLCAD_API get_connected_components(
         const Mesh& M, Attribute<index_t>& component
     );
 
     /**
      * \brief Computes the number of connected components of a surface Mesh.
      */
-    index_t GEOGRAM_API mesh_nb_connected_components(const Mesh& M);
+    index_t GEOBRLCAD_API mesh_nb_connected_components(const Mesh& M);
 
     /**
      * \brief Computes the Euler-Poincare characteristic of a surfacic
@@ -92,7 +92,7 @@ namespace GEO {
      * \return Xi = V - E + F, where V = number of vertices, E = number of
      *  edges and F = number of faces.
      */
-    signed_index_t GEOGRAM_API mesh_Xi(const Mesh& M);
+    signed_index_t GEOBRLCAD_API mesh_Xi(const Mesh& M);
 
     /**
      * \brief Computes the number of borders of a surface Mesh.
@@ -100,7 +100,7 @@ namespace GEO {
      * \return the number of borders, or -1 if the border is
      *  non-manifold (i.e. has "butterfly" vertices).
      */
-    signed_index_t GEOGRAM_API mesh_nb_borders(const Mesh& M);
+    signed_index_t GEOBRLCAD_API mesh_nb_borders(const Mesh& M);
 
     /**
      * \brief Compares the topological invariants of two surface meshes.
@@ -117,7 +117,7 @@ namespace GEO {
      * \retval true if meshes \p M1 and \p M2 have the same topology,
      * \retval false otherwise.
      */
-    bool GEOGRAM_API meshes_have_same_topology(
+    bool GEOBRLCAD_API meshes_have_same_topology(
         const Mesh& M1, const Mesh& M2, bool verbose = false
     );
 
@@ -126,7 +126,7 @@ namespace GEO {
      *  a way that the signed volume of each connected component is positive
      * \param[in,out] surface_mesh a reference to a surface mesh
      */
-    void GEOGRAM_API reorient_connected_components(Mesh& surface_mesh);
+    void GEOBRLCAD_API reorient_connected_components(Mesh& surface_mesh);
 }
 
 #endif

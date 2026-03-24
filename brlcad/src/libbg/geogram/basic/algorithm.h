@@ -37,16 +37,16 @@
  *
  */
 
-#ifndef GEOGRAM_BASIC_ALGORITHM
-#define GEOGRAM_BASIC_ALGORITHM
+#ifndef GEOBRLCAD_BASIC_ALGORITHM
+#define GEOBRLCAD_BASIC_ALGORITHM
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/geogram_options.h>
 
-#if   defined(GEO_OS_WINDOWS)
+#if   defined(GEOBRL_OS_WINDOWS)
 #if (_MSC_VER >= 1700)
 #include <ppl.h>
-#define GEO_USE_MSVC_PARALLEL_STL
+#define GEOBRL_USE_MSVC_PARALLEL_STL
 #endif
 #endif
 
@@ -58,7 +58,7 @@
  * \brief Wrappers around parallel implementation of STL
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     /**
      * \brief Checks whether parallel algorithms are used.
@@ -66,7 +66,7 @@ namespace GEO {
      * \retval true if parallel algorithms are used.
      * \retval false if sequential algorithms are used.
      */
-    bool GEOGRAM_API uses_parallel_algorithm(const GeoOptions& opts);
+    bool GEOBRLCAD_API uses_parallel_algorithm(const GeoOptions& opts);
 
     /**
      * \brief Sorts elements in parallel
@@ -81,9 +81,9 @@ namespace GEO {
         const ITERATOR& begin, const ITERATOR& end, const GeoOptions& opts
     ) {
         if(uses_parallel_algorithm(opts)) {
-#if defined(GEO_USE_GCC_PARALLEL_STL)
+#if defined(GEOBRL_USE_GCC_PARALLEL_STL)
             __gnu_parallel::sort(begin, end);
-#elif defined(GEO_USE_MSVC_PARALLEL_STL)
+#elif defined(GEOBRL_USE_MSVC_PARALLEL_STL)
             concurrency::parallel_sort(begin, end);
 #else
             std::sort(begin, end);
@@ -118,9 +118,9 @@ namespace GEO {
         const GeoOptions& opts
     ) {
         if(uses_parallel_algorithm(opts)) {
-#if defined(GEO_USE_GCC_PARALLEL_STL)
+#if defined(GEOBRL_USE_GCC_PARALLEL_STL)
             __gnu_parallel::sort(begin, end, cmp);
-#elif defined(GEO_USE_MSVC_PARALLEL_STL)
+#elif defined(GEOBRL_USE_MSVC_PARALLEL_STL)
             concurrency::parallel_sort(begin, end, cmp);
 #else
             std::sort(begin, end, cmp);

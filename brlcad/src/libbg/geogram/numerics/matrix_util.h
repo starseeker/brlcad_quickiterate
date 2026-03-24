@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_NUMERICS_MATRIX_UTIL
-#define GEOGRAM_NUMERICS_MATRIX_UTIL
+#ifndef GEOBRLCAD_NUMERICS_MATRIX_UTIL
+#define GEOBRLCAD_NUMERICS_MATRIX_UTIL
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/numeric.h>
@@ -48,7 +48,7 @@
  * \brief Some utilities for matrix manipulation
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     /**
      * \brief Utilities for manipulating matrices
@@ -72,7 +72,7 @@ namespace GEO {
          * \param[out] eigen_values are in decreasing order
          *  - size = n, must be allocated by caller
          */
-        void GEOGRAM_API semi_definite_symmetric_eigen(
+        void GEOBRLCAD_API semi_definite_symmetric_eigen(
             const double* matrix, index_t n,
             double* eigen_vectors, double* eigen_values
         );

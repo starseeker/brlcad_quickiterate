@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_MESH_MESH_SAMPLING
-#define GEOGRAM_MESH_MESH_SAMPLING
+#ifndef GEOBRLCAD_MESH_MESH_SAMPLING
+#define GEOBRLCAD_MESH_MESH_SAMPLING
 
 #include <geogram/basic/common.h>
 #include <geogram/mesh/mesh.h>
@@ -53,7 +53,7 @@
  *  on surfacic and in volumetric meshes
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     /**
      * \brief Computes the mass of a mesh facet.

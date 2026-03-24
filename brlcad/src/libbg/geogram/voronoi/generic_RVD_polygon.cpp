@@ -41,11 +41,11 @@
 #include <geogram/numerics/predicates.h>
 #include <algorithm>
 
-namespace GEOGen {
+namespace GEOBRLGen {
 
     void Polygon::initialize_from_mesh_facet(
         const Mesh* mesh, index_t facet, bool symbolic,
-        const GEO::Attribute<double>& vertex_weight
+        const GEOBRL::Attribute<double>& vertex_weight
     ) {
         clear();
         if(symbolic) {
@@ -107,14 +107,14 @@ namespace GEOGen {
                     );
                 }
             }
-#ifdef GEO_DEBUG
+#ifdef GEOBRL_DEBUG
             // Sanity check: make sure that the facet is not
             // adjacent to the same facet twice.
             index_t n = mesh->facets.nb_vertices(facet);
             signed_index_t* adj = (signed_index_t*) alloca(
                 sizeof(signed_index_t) * n
             );
-            GEO::Memory::clear(adj, sizeof(signed_index_t) * n);
+            GEOBRL::Memory::clear(adj, sizeof(signed_index_t) * n);
             index_t i = 0;
             for(index_t c = mesh->facets.corners_begin(facet);
                 c < mesh->facets.corners_end(facet); ++c
@@ -178,7 +178,7 @@ namespace GEOGen {
             const double* f0 = mesh->vertices.point_ptr(if0);
             const double* f1 = mesh->vertices.point_ptr(if1);
             const double* f2 = mesh->vertices.point_ptr(if2);
-            return GEO::PCK::side3_SOS(
+            return GEOBRL::PCK::side3_SOS(
                 pi, delaunay->vertex_ptr(b0), delaunay->vertex_ptr(b1), pj,
                 f0, f1, f2, dim
             );
@@ -194,7 +194,7 @@ namespace GEOGen {
             index_t b0 = q.sym().bisector(0);
             index_t e0, e1;
             q.sym().get_boundary_edge(e0, e1);
-            return GEO::PCK::side2_SOS(
+            return GEOBRL::PCK::side2_SOS(
                 pi, delaunay->vertex_ptr(b0), pj,
                 mesh->vertices.point_ptr(e0),
                 mesh->vertices.point_ptr(e1), dim
@@ -207,7 +207,7 @@ namespace GEOGen {
             //   three facets of the surface
             //   (i.e. a vertex v0 of the surface).
             index_t v0 = q.sym().get_boundary_vertex();
-            return GEO::PCK::side1_SOS(
+            return GEOBRL::PCK::side1_SOS(
                 pi, pj, mesh->vertices.point_ptr(v0), dim
             );
         }

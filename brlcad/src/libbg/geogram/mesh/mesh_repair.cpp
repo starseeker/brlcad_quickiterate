@@ -53,7 +53,7 @@
 
 namespace {
 
-    using namespace GEO;
+    using namespace GEOBRL;
 
     /**
      * \brief Tests whether a facet is degenerate.
@@ -362,7 +362,7 @@ namespace {
                 f_sort[f] = f;
             }
             CompareFacets compare_facets(M);
-            GEO::sort(f_sort.begin(), f_sort.end(), compare_facets, opts);
+            GEOBRL::sort(f_sort.begin(), f_sort.end(), compare_facets, opts);
             // Now f_sort[0] ... fsort[nb_facets-1] contains the indices
             // of the sorted facets. This ensures that the indices of the
             // facets with the same vertices (i.e. duplicated facets)
@@ -987,7 +987,7 @@ namespace {
 
 /****************************************************************************/
 
-namespace GEO {
+namespace GEOBRL {
 
 
     void mesh_repair(

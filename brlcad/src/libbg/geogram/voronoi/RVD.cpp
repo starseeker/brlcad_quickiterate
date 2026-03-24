@@ -58,21 +58,21 @@
  * Level 1: RestrictedVoronoiDiagram is the abstract API seen from client code
  * Level 2: RVD_Nd_Impl<DIM> implements RestrictedVoronoiDiagram
  * Level 3: RVD_Nd_Impl<DIM>::GenRestrictedVoronoiDiagram is
- *  an instantiation of GEOGen::RestrictedVoronoiDiagram (from generic_RVD.h)
+ *  an instantiation of GEOBRLGen::RestrictedVoronoiDiagram (from generic_RVD.h)
  *
  * Warning: there are approx. 1000 lines of boring code ahead.
  */
 
 namespace {
 
-    using namespace GEO;
+    using namespace GEOBRL;
 
     /**
      * \brief Generic implementation of RestrictedVoronoiDiagram.
      * \tparam DIM dimension
      */
     template <unsigned int DIM>
-    class RVD_Nd_Impl : public GEO::RestrictedVoronoiDiagram {
+    class RVD_Nd_Impl : public GEOBRL::RestrictedVoronoiDiagram {
 
         /** \brief This class type */
         typedef RVD_Nd_Impl<DIM> thisclass;
@@ -82,7 +82,7 @@ namespace {
 
     public:
         /** \brief Implementation based on the generic version. */
-        typedef GEOGen::RestrictedVoronoiDiagram<DIM>
+        typedef GEOBRLGen::RestrictedVoronoiDiagram<DIM>
         GenRestrictedVoronoiDiagram;
 
         /** \brief Representation of points. */
@@ -1072,7 +1072,7 @@ namespace {
              */
             PolygonCallbackAction(
                 GenRestrictedVoronoiDiagram& RVD,
-                GEO::RVDPolygonCallback& callback
+                GEOBRL::RVDPolygonCallback& callback
             ) :
                 RVD_(RVD),
                 callback_(callback) {
@@ -1087,19 +1087,19 @@ namespace {
              */
             void operator() (
                 index_t v,
-                const GEOGen::Polygon& P
+                const GEOBRLGen::Polygon& P
             ) const {
                 callback_(v, RVD_.current_facet(), P);
             }
 
         protected:
             GenRestrictedVoronoiDiagram& RVD_;
-            GEO::RVDPolygonCallback& callback_;
+            GEOBRL::RVDPolygonCallback& callback_;
         };
 
 
         virtual void compute_with_polygon_callback(
-            GEO::RVDPolygonCallback& polygon_callback
+            GEOBRL::RVDPolygonCallback& polygon_callback
         ) {
             create_threads();
             if(nb_parts() == 0) {
@@ -1126,7 +1126,7 @@ namespace {
         }
 
         virtual void compute_with_polyhedron_callback(
-            GEO::RVDPolyhedronCallback& polyhedron_callback
+            GEOBRL::RVDPolyhedronCallback& polyhedron_callback
         ) {
             create_threads();
             if(nb_parts() == 0) {
@@ -1568,7 +1568,7 @@ namespace {
         /********************************************************************/
 
         void for_each_polygon(
-            GEO::RVDPolygonCallback& callback,
+            GEOBRL::RVDPolygonCallback& callback,
             bool symbolic,
             bool connected_comp_priority,
             bool parallel
@@ -1591,7 +1591,7 @@ namespace {
         /********************************************************************/
 
         void for_each_polyhedron(
-            GEO::RVDPolyhedronCallback& callback,
+            GEOBRL::RVDPolyhedronCallback& callback,
             bool symbolic,
             bool connected_comp_priority,
             bool parallel
@@ -2471,7 +2471,7 @@ namespace {
         /**
          * \copydoc RestrictedVoronoiDiagram::point_allocator()
          */
-        GEOGen::PointAllocator* point_allocator() override {
+        GEOBRLGen::PointAllocator* point_allocator() override {
             return RVD_.point_allocator();
         }
 
@@ -2534,7 +2534,7 @@ namespace {
 
 /****************************************************************************/
 
-namespace GEO {
+namespace GEOBRL {
 
     RestrictedVoronoiDiagram* RestrictedVoronoiDiagram::create(
         Delaunay* delaunay, Mesh* mesh,

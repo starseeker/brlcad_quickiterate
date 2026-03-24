@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_MESH_MESH_PARTITION
-#define GEOGRAM_MESH_MESH_PARTITION
+#ifndef GEOBRLCAD_MESH_MESH_PARTITION
+#define GEOBRLCAD_MESH_MESH_PARTITION
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/numeric.h>
@@ -49,7 +49,7 @@
  * \brief Functions to split a mesh into multiple parts
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     class Mesh;
 
@@ -81,7 +81,7 @@ namespace GEO {
      * \param[in] nb_parts number of parts to create.
      *  Ignored if mode = #MESH_PARTITION_CONNECTED_COMPONENTS
      */
-    void GEOGRAM_API mesh_partition(
+    void GEOBRLCAD_API mesh_partition(
         Mesh& M,
         MeshPartitionMode mode,
         vector<index_t>& facet_ptr,
@@ -104,7 +104,7 @@ namespace GEO {
      * \param[in] nb_parts number of parts to create.
      *  Ignored if mode = #MESH_PARTITION_CONNECTED_COMPONENTS
      */
-    void GEOGRAM_API mesh_partition(
+    void GEOBRLCAD_API mesh_partition(
         Mesh& M,
         MeshPartitionMode mode,
         vector<index_t>& facet_ptr,

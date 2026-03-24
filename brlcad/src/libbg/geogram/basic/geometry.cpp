@@ -41,7 +41,7 @@
 
 namespace {
 
-    using namespace GEO;
+    using namespace GEOBRL;
     using namespace Geom;
 
     /**
@@ -137,7 +137,7 @@ namespace {
 
 /****************************************************************************/
 
-namespace GEO {
+namespace GEOBRL {
 
     namespace Geom {
 

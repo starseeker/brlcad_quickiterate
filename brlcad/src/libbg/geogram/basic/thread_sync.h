@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_BASIC_THREAD_SYNC
-#define GEOGRAM_BASIC_THREAD_SYNC
+#ifndef GEOBRLCAD_BASIC_THREAD_SYNC
+#define GEOBRLCAD_BASIC_THREAD_SYNC
 
 /**
  * \file geogram/basic/thread_sync.h
@@ -55,7 +55,7 @@
 // On Windows/MSCV, we need to use a special implementation
 // of spinlocks because std::atomic_flag in MSVC's stl does
 // not fully implement the norm (lacks a constructor).
-#ifdef GEO_OS_WINDOWS
+#ifdef GEOBRL_OS_WINDOWS
 #include <windows.h>
 #include <intrin.h>
 #pragma intrinsic(_InterlockedCompareExchange16)
@@ -73,10 +73,10 @@
  * \details should be called when a spinlock is spinning
  */
 inline void geo_pause() {
-#ifdef GEO_OS_WINDOWS
+#ifdef GEOBRL_OS_WINDOWS
     YieldProcessor();
 #else
-#  ifdef GEO_PROCESSOR_X86
+#  ifdef GEOBRL_PROCESSOR_X86
 #    ifdef __ICC
     _mm_pause();
 #    else
@@ -88,20 +88,20 @@ inline void geo_pause() {
 
 /*******************************************************************************/
 
-#ifdef GEO_OS_WINDOWS
+#ifdef GEOBRL_OS_WINDOWS
 
 // Windows-specific spinlock implementation.
 // I'd have prefered to use std::atomic_flag for everybody,
 // unfortunately atomic_flag's constructor is not implemented in MSCV's stl,
 // so we reimplement them using atomic compare-exchange functions...
 
-namespace GEO {
+namespace GEOBRL {
     namespace Process {
         /** A lightweight synchronization structure. */
         typedef short spinlock;
 
         /** The initialization value of a spin lock. */
-#       define GEOGRAM_SPINLOCK_INIT 0
+#       define GEOBRLCAD_SPINLOCK_INIT 0
         inline void acquire_spinlock(volatile spinlock& x) {
             while(_InterlockedCompareExchange16(&x, 1, 0) == 1) {
                 // Intel recommends to have a PAUSE asm instruction
@@ -128,7 +128,7 @@ namespace GEO {
 
 #else
 
-namespace GEO {
+namespace GEOBRL {
     namespace Process {
 
         /** The initialization value of a spinlock. */
@@ -138,7 +138,7 @@ namespace GEO {
         // - we are using C++17
         // - the Windows implementation that uses integers rather than
         //   std::atomic_flag needs an initialization value.
-#define GEOGRAM_SPINLOCK_INIT ATOMIC_FLAG_INIT
+#define GEOBRLCAD_SPINLOCK_INIT ATOMIC_FLAG_INIT
 
         /**
          * \brief A lightweight synchronization structure.
@@ -180,7 +180,7 @@ namespace GEO {
 
 /****************************************************************************/
 
-namespace GEO {
+namespace GEOBRL {
     namespace Process {
 
         /**
@@ -261,7 +261,7 @@ namespace GEO {
              */
             void acquire_spinlock(index_t i) {
                 geo_debug_assert(i < size());
-                GEO::Process::acquire_spinlock(spinlocks_[i]);
+                GEOBRL::Process::acquire_spinlock(spinlocks_[i]);
             }
 
             /**
@@ -271,7 +271,7 @@ namespace GEO {
              */
             void release_spinlock(index_t i) {
                 geo_debug_assert(i < size());
-                GEO::Process::release_spinlock(spinlocks_[i]);
+                GEOBRL::Process::release_spinlock(spinlocks_[i]);
             }
 
         private:
@@ -285,7 +285,7 @@ namespace GEO {
 
 /*******************************************************************************/
 
-namespace GEO {
+namespace GEOBRL {
     namespace Process {
 
         /**
@@ -424,7 +424,7 @@ namespace GEO {
 
 /*******************************************************************************/
 
-namespace GEO {
+namespace GEOBRL {
     namespace Process {
         typedef CompactSpinLockArray SpinLockArray;
     }

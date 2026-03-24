@@ -40,7 +40,7 @@
 #include <geogram/basic/algorithm.h>
 #include <geogram/basic/geogram_options.h>
 
-namespace GEO {
+namespace GEOBRL {
 
     bool uses_parallel_algorithm(const GeoOptions& opts) {
         return opts.sys_multithread && opts.algo_parallel;

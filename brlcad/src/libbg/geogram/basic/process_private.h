@@ -38,8 +38,8 @@
  */
 
 
-#ifndef GEOGRAM_BASIC_PROCESS_PRIVATE
-#define GEOGRAM_BASIC_PROCESS_PRIVATE
+#ifndef GEOBRLCAD_BASIC_PROCESS_PRIVATE
+#define GEOBRLCAD_BASIC_PROCESS_PRIVATE
 
 #include <geogram/basic/common.h>
 
@@ -48,7 +48,7 @@
  * \brief Internal functions for process manipulation.
  */
 
-namespace GEO {
+namespace GEOBRL {
     namespace Process {
         bool os_init_threads();
 

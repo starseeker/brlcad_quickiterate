@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_MESH_MESH_HALFEDGES
-#define GEOGRAM_MESH_MESH_HALFEDGES
+#ifndef GEOBRLCAD_MESH_MESH_HALFEDGES
+#define GEOBRLCAD_MESH_MESH_HALFEDGES
 
 #include <geogram/basic/common.h>
 #include <geogram/mesh/mesh.h>
@@ -50,13 +50,13 @@
  * \brief Classes and function for virtually seeing a mesh as a set of halfedges
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     /**
      * \brief Exposes a half-edge like API for
      * traversing a Mesh.
      */
-    class GEOGRAM_API MeshHalfedges {
+    class GEOBRLCAD_API MeshHalfedges {
     public:
     /**
      * \brief Stores a reference to a mesh corner and facet, and

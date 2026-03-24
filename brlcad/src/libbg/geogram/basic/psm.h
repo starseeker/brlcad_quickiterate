@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_BASIC_PSM
-#define GEOGRAM_BASIC_PSM
+#ifndef GEOBRLCAD_BASIC_PSM
+#define GEOBRLCAD_BASIC_PSM
 
 /**
  * \file geogram/basic/psm.h
@@ -50,18 +50,18 @@
 #include <iostream>
 #include <string>
 
-#ifndef GEOGRAM_PSM
-#define GEOGRAM_PSM
+#ifndef GEOBRLCAD_PSM
+#define GEOBRLCAD_PSM
 #endif
 
-#ifndef GEOGRAM_BASIC_ASSERT
+#ifndef GEOBRLCAD_BASIC_ASSERT
 
 #define geo_assert(x) assert(x)
 #define geo_range_assert(x, min_val, max_val)           \
     assert((x) >= (min_val) && (x) <= (max_val))
 #define geo_assert_not_reached assert(0)
 
-#ifdef GEO_DEBUG
+#ifdef GEOBRL_DEBUG
 #define geo_debug_assert(x) assert(x)
 #define geo_debug_range_assert(x, min_val, max_val)     \
     assert((x) >= (min_val) && (x) <= (max_val))
@@ -70,7 +70,7 @@
 #define geo_debug_range_assert(x, min_val, max_val)
 #endif
 
-#ifdef GEO_PARANOID
+#ifdef GEOBRL_PARANOID
 #define geo_parano_assert(x) geo_assert(x)
 #define geo_parano_range_assert(x, min_val, max_val)    \
     geo_range_assert(x, min_val, max_val)
@@ -81,9 +81,9 @@
 
 #endif
 
-#ifndef GEOGRAM_BASIC_LOGGER
+#ifndef GEOBRLCAD_BASIC_LOGGER
 
-namespace GEO {
+namespace GEOBRL {
     namespace Logger {
         inline std::ostream& out(const std::string& name) {
             return std::cout << " [" << name << "]";
@@ -106,6 +106,6 @@ namespace GEO {
 #define FPG_UNCERTAIN_VALUE 0
 #endif
 
-#define GEOGRAM_WITH_PDEL
+#define GEOBRLCAD_WITH_PDEL
 
 #endif

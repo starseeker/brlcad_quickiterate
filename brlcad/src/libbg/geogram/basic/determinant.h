@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_BASIC_DETERMINANT
-#define GEOGRAM_BASIC_DETERMINANT
+#ifndef GEOBRLCAD_BASIC_DETERMINANT
+#define GEOBRLCAD_BASIC_DETERMINANT
 
 #include <geogram/basic/common.h>
 
@@ -47,7 +47,7 @@
  * \brief Determinants for small sizes
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     /************************************************************************/
 

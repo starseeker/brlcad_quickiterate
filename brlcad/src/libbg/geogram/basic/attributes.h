@@ -38,8 +38,8 @@
  */
 
 
-#ifndef GEOGRAM_BASIC_ATTRIBUTES
-#define GEOGRAM_BASIC_ATTRIBUTES
+#ifndef GEOBRLCAD_BASIC_ATTRIBUTES
+#define GEOBRLCAD_BASIC_ATTRIBUTES
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/memory.h>
@@ -57,7 +57,7 @@
  * \brief Generic mechanism for attributes.
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     class AttributeStore;
 
@@ -65,7 +65,7 @@ namespace GEO {
      * \brief Base class for attributes. They are notified
      *  whenever the AttributeStore is modified.
      */
-    class GEOGRAM_API AttributeStoreObserver {
+    class GEOBRLCAD_API AttributeStoreObserver {
     public:
 
     /**
@@ -176,7 +176,7 @@ namespace GEO {
      * \brief Internal class for creating an AttributeStore
      *  from the type name of its elements.
      */
-    class GEOGRAM_API AttributeStoreCreator : public Counted {
+    class GEOBRLCAD_API AttributeStoreCreator : public Counted {
     public:
 
         /**
@@ -208,7 +208,7 @@ namespace GEO {
      *  each time the stored array changes size and/or
      *  base address and/or dimension.
      */
-    class GEOGRAM_API AttributeStore {
+    class GEOBRLCAD_API AttributeStore {
     public:
     /**
      * \brief AttributeStore constructor.
@@ -822,7 +822,7 @@ namespace GEO {
      * \brief Managers a set of attributes attached to
      *  an object.
      */
-    class GEOGRAM_API AttributesManager {
+    class GEOBRLCAD_API AttributesManager {
     public:
     /**
      * \brief Constructs a new empty AttributesManager.
@@ -1714,7 +1714,7 @@ namespace GEO {
      * \brief Access to an attribute as a double regardless its type.
      * \details The attribute can be an element of a vector attribute.
      */
-    class GEOGRAM_API ScalarAttributeAdapterBase :
+    class GEOBRLCAD_API ScalarAttributeAdapterBase :
         public AttributeStoreObserver {
 
     public:

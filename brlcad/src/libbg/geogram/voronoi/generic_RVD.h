@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_VORONOI_GENERIC_RVD
-#define GEOGRAM_VORONOI_GENERIC_RVD
+#ifndef GEOBRLCAD_VORONOI_GENERIC_RVD
+#define GEOBRLCAD_VORONOI_GENERIC_RVD
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/numeric.h>
@@ -59,12 +59,12 @@
  * \file geogram/voronoi/generic_RVD.h
  * \brief Generic implementation of restricted Voronoi diagrams.
  * \note This file contains functions and classes used by the
- *  internal implementation of GEO::GenericVoronoiDiagram.
+ *  internal implementation of GEOBRL::GenericVoronoiDiagram.
  *  They are not meant to be used directly by client
  *  code.
  */
 
-namespace GEOGen {
+namespace GEOBRLGen {
 
     /**
      * \brief Computes the intersection between a surface (Mesh) and a
@@ -72,7 +72,7 @@ namespace GEOGen {
      * \details The surface may be embedded in nD
      * (the Voronoi diagram is then of dimension n).
      * \note This is an internal implementation class, not meant to
-     *  be used directly, use GEO::RestrictedVoronoiDiagram instead.
+     *  be used directly, use GEOBRL::RestrictedVoronoiDiagram instead.
      */
     template <index_t DIM>
     class RestrictedVoronoiDiagram {
@@ -91,22 +91,22 @@ namespace GEOGen {
         /**
          * \brief Used to allocate the generated points.
          */
-        typedef GEOGen::PointAllocator PointAllocator;
+        typedef GEOBRLGen::PointAllocator PointAllocator;
 
         /**
          * \brief Internal representation of vertices.
          */
-        typedef GEOGen::Vertex Vertex;
+        typedef GEOBRLGen::Vertex Vertex;
 
         /**
          * \brief Internal representation of polygons.
          */
-        typedef GEOGen::Polygon Polygon;
+        typedef GEOBRLGen::Polygon Polygon;
 
         /**
          * \brief Internal representation of volumetric cells.
          */
-        typedef GEOGen::ConvexCell Polyhedron;
+        typedef GEOBRLGen::ConvexCell Polyhedron;
 
         /********************************************************************/
 
@@ -117,7 +117,7 @@ namespace GEOGen {
          */
         RestrictedVoronoiDiagram(
             Delaunay* delaunay,
-            GEO::Mesh* mesh
+            GEOBRL::Mesh* mesh
         ) :
             mesh_(mesh),
             delaunay_(delaunay),
@@ -126,7 +126,7 @@ namespace GEOGen {
             check_SR_(true),
             exact_(false)
             {
-                delaunay_nn_ = dynamic_cast<GEO::Delaunay_NearestNeighbors*>(
+                delaunay_nn_ = dynamic_cast<GEOBRL::Delaunay_NearestNeighbors*>(
                     delaunay_
                 );
                 dimension_ = DIM;
@@ -139,10 +139,10 @@ namespace GEOGen {
                 connected_component_changed_ = false;
                 current_connected_component_ = 0;
                 cur_stamp_ = NO_INDEX;
-                current_facet_ = GEO::max_index_t();
-                current_seed_ = GEO::max_index_t();
+                current_facet_ = GEOBRL::max_index_t();
+                current_seed_ = GEOBRL::max_index_t();
                 current_polygon_ = nullptr;
-                current_tet_ = GEO::max_index_t();
+                current_tet_ = GEOBRL::max_index_t();
                 current_polyhedron_ = nullptr;
             }
 
@@ -175,14 +175,14 @@ namespace GEOGen {
         /**
          * \brief Gets the input mesh.
          */
-        const GEO::Mesh* mesh() const {
+        const GEOBRL::Mesh* mesh() const {
             return mesh_;
         }
 
         /**
          * \brief Gets the input mesh.
          */
-        GEO::Mesh* mesh() {
+        GEOBRL::Mesh* mesh() {
             return mesh_;
         }
 
@@ -205,7 +205,7 @@ namespace GEOGen {
          */
         void set_delaunay(Delaunay* delaunay) {
             delaunay_ = delaunay;
-            delaunay_nn_ = dynamic_cast<GEO::Delaunay_NearestNeighbors*>(
+            delaunay_nn_ = dynamic_cast<GEOBRL::Delaunay_NearestNeighbors*>(
                 delaunay_
             );
         }
@@ -213,7 +213,7 @@ namespace GEOGen {
         /**
          * \brief Sets the input mesh.
          */
-        void set_mesh(GEO::Mesh* mesh) {
+        void set_mesh(GEOBRL::Mesh* mesh) {
             mesh_ = mesh;
         }
 
@@ -412,7 +412,7 @@ namespace GEOGen {
                 index_t f,
                 const Polygon& P
             ) const {
-                GEO::geo_argused(f);
+                GEOBRL::geo_argused(f);
                 const_cast<ACTION&> ( do_it_)(v, P);
             }
 
@@ -454,7 +454,7 @@ namespace GEOGen {
                 index_t f,
                 const Polygon& P
             ) const {
-                GEO::geo_argused(f);
+                GEOBRL::geo_argused(f);
                 for(index_t i = 1; i + 1 < P.nb_vertices(); i++) {
                     const_cast<ACTION&> (do_it_)(
                         v, P.vertex(0), P.vertex(i), P.vertex(i + 1)
@@ -499,8 +499,8 @@ namespace GEOGen {
                 index_t f,
                 const Polygon& P
             ) const {
-                GEO::geo_argused(v);
-                GEO::geo_argused(f);
+                GEOBRL::geo_argused(v);
+                GEOBRL::geo_argused(f);
                 for(index_t i = 0; i < P.nb_vertices(); i++) {
                     if(P.vertex(i).check_flag(INTERSECT)) {
                         index_t j = P.next_vertex(i);
@@ -549,7 +549,7 @@ namespace GEOGen {
                 index_t f,
                 const Polygon& P
             ) const {
-                GEO::geo_argused(f);
+                GEOBRL::geo_argused(f);
                 for(index_t i = 0; i < P.nb_vertices(); i++) {
                     if(P.vertex(i).check_flag(ORIGINAL)) {
                         if(P.vertex(i).adjacent_facet() == -1) {
@@ -596,7 +596,7 @@ namespace GEOGen {
                 index_t f,
                 const Polygon& P
             ) const {
-                GEO::geo_argused(f);
+                GEOBRL::geo_argused(f);
                 for(index_t i = 0; i < P.nb_vertices(); i++) {
                     const Vertex& ve = P.vertex(i);
                     // Primal triangles correspond to vertices of
@@ -836,11 +836,11 @@ namespace GEOGen {
             static bool symbolic_compare(
                 const Vertex& p1, const Vertex& p2, index_t center_vertex_id
             ) {
-                GEO::signed_quadindex K1(
+                GEOBRL::signed_quadindex K1(
                     signed_index_t(center_vertex_id),
                     p1.sym()[0], p1.sym()[1], p1.sym()[2]
                 );
-                GEO::signed_quadindex K2(
+                GEOBRL::signed_quadindex K2(
                     signed_index_t(center_vertex_id),
                     p2.sym()[0], p2.sym()[1], p2.sym()[2]
                 );
@@ -1037,7 +1037,7 @@ namespace GEOGen {
                 index_t t,
                 const Polyhedron& C
             ) const {
-                GEO::geo_argused(t);
+                GEOBRL::geo_argused(t);
                 for(index_t it = 0; it < C.max_t(); ++it) {
                     if(C.triangle_is_used(it)) {
                         const SymbolicVertex& sym = C.triangle_dual(it).sym();
@@ -1325,16 +1325,16 @@ namespace GEOGen {
                 facets_end_ = mesh_->facets.nb();
             }
             current_polygon_ = nullptr;
-            GEO::vector<index_t> seed_stamp(
+            GEOBRL::vector<index_t> seed_stamp(
                 delaunay_->nb_vertices(), index_t(-1)
             );
-            GEO::vector<bool> facet_is_marked(facets_end_-facets_begin_, false);
+            GEOBRL::vector<bool> facet_is_marked(facets_end_-facets_begin_, false);
             init_get_neighbors();
 
             FacetSeedStack adjacent_facets;
             SeedStack adjacent_seeds;
             Polygon F;
-            GEO::Attribute<double> vertex_weight;
+            GEOBRL::Attribute<double> vertex_weight;
             vertex_weight.bind_if_is_defined(
                 mesh_->vertices.attributes(), "weight"
             );
@@ -1474,16 +1474,16 @@ namespace GEOGen {
             geo_assert(tets_begin_ != UNSPECIFIED_RANGE);
             geo_assert(tets_end_ != UNSPECIFIED_RANGE);
 
-            GEO::vector<index_t> seed_stamp(
+            GEOBRL::vector<index_t> seed_stamp(
                 delaunay_->nb_vertices(), index_t(-1)
             );
-            GEO::vector<bool> tet_is_marked(tets_end_-tets_begin_, false);
+            GEOBRL::vector<bool> tet_is_marked(tets_end_-tets_begin_, false);
             init_get_neighbors();
 
             TetSeedStack adjacent_tets;
             SeedStack adjacent_seeds;
             Polyhedron C(dimension());
-            GEO::Attribute<double> vertex_weight;
+            GEOBRL::Attribute<double> vertex_weight;
             vertex_weight.bind_if_is_defined(
                 mesh_->vertices.attributes(), "weight"
             );
@@ -1639,7 +1639,7 @@ namespace GEOGen {
             std::stack<index_t> adjacent_tets;
 
             static constexpr index_t NO_STAMP = index_t(-1);
-            GEO::vector<index_t> tet_stamp(
+            GEOBRL::vector<index_t> tet_stamp(
                 tets_end_ - tets_begin_, NO_STAMP
             );
 
@@ -1657,7 +1657,7 @@ namespace GEOGen {
             current_connected_component_ = 0;
             // index_t C_index = tets_end_ + 1; // Unused (see comment later)
 
-            GEO::Attribute<double> vertex_weight;
+            GEOBRL::Attribute<double> vertex_weight;
             vertex_weight.bind_if_is_defined(
                 mesh_->vertices.attributes(),"weight"
             );
@@ -1872,7 +1872,7 @@ namespace GEOGen {
             std::stack<index_t> adjacent_facets;
 
             static constexpr index_t NO_STAMP = index_t(-1);
-            GEO::vector<index_t> facet_stamp(
+            GEOBRL::vector<index_t> facet_stamp(
                 facets_end_ - facets_begin_, NO_STAMP
             );
 
@@ -1885,7 +1885,7 @@ namespace GEOGen {
             current_connected_component_ = 0;
             index_t F_index = facets_end_ + 1;
 
-            GEO::Attribute<double> vertex_weight;
+            GEOBRL::Attribute<double> vertex_weight;
             vertex_weight.bind_if_is_defined(
                 mesh_->vertices.attributes(),"weight"
             );
@@ -2159,13 +2159,13 @@ namespace GEOGen {
                         geo_decl_aligned(double dik);
                         const double* geo_restrict pk = ping->vertex(k).point();
                         geo_assume_aligned(pk, geo_dim_alignment(DIM));
-                        dik = GEO::Geom::distance2(pi, pk, dimension());
+                        dik = GEOBRL::Geom::distance2(pi, pk, dimension());
                         R2 = std::max(R2, dik);
                     }
                     geo_decl_aligned(double dij);
                     const double* geo_restrict pj = delaunay_->vertex_ptr(j);
                     geo_assume_aligned(pj, geo_dim_alignment(DIM));
-                    dij = GEO::Geom::distance2(pi, pj, dimension());
+                    dij = GEOBRL::Geom::distance2(pi, pj, dimension());
                     // A little bit more than 4, because when
                     // exact predicates are used, we need to
                     // include tangent bisectors in the computation.
@@ -2309,13 +2309,13 @@ namespace GEOGen {
                         const double* geo_restrict pk =
                             C.triangle_dual(k).point();
                         geo_assume_aligned(pk, geo_dim_alignment(DIM));
-                        dik = GEO::Geom::distance2(pi, pk, dimension());
+                        dik = GEOBRL::Geom::distance2(pi, pk, dimension());
                         R2 = std::max(R2, dik);
                     }
                     geo_decl_aligned(double dij);
                     const double* geo_restrict pj = delaunay_->vertex_ptr(j);
                     geo_assume_aligned(pj, geo_dim_alignment(DIM));
-                    dij = GEO::Geom::distance2(pi, pj, dimension());
+                    dij = GEOBRL::Geom::distance2(pi, pj, dimension());
                     // A little bit more than 4, because when
                     // exact predicates are used, we need to
                     // include tangent bisectors in the computation.
@@ -2440,14 +2440,14 @@ namespace GEOGen {
         /** @} */
 
     protected:
-        GEO::Mesh* mesh_;
+        GEOBRL::Mesh* mesh_;
         Delaunay* delaunay_;
-        GEO::Delaunay_NearestNeighbors* delaunay_nn_;
+        GEOBRL::Delaunay_NearestNeighbors* delaunay_nn_;
 
         PointAllocator intersections_;
         Polygon* current_polygon_;
         Polygon P1, P2;
-        GEO::vector<index_t> neighbors_;
+        GEOBRL::vector<index_t> neighbors_;
         index_t current_facet_;
         index_t current_seed_;
         Polyhedron* current_polyhedron_;
@@ -2455,7 +2455,7 @@ namespace GEOGen {
 
         // For optimized get_neighbors().
         index_t cur_stamp_;
-        GEO::vector<index_t> stamp_;
+        GEOBRL::vector<index_t> stamp_;
 
         bool symbolic_;
         bool check_SR_;
@@ -2488,12 +2488,12 @@ namespace GEOGen {
     };
 }
 
-namespace GEO {
+namespace GEOBRL {
 
     /**
      * \brief Symbolic representation of a RestrictedVoronoiDiagram vertex.
      */
-    typedef GEOGen::SymbolicVertex SymbolicVertex;
+    typedef GEOBRLGen::SymbolicVertex SymbolicVertex;
 }
 
 #endif

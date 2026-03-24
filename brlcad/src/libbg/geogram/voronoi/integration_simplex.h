@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_VORONOI_INTEGRATION_SIMPLEX
-#define GEOGRAM_VORONOI_INTEGRATION_SIMPLEX
+#ifndef GEOBRLCAD_VORONOI_INTEGRATION_SIMPLEX
+#define GEOBRLCAD_VORONOI_INTEGRATION_SIMPLEX
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/numeric.h>
@@ -53,11 +53,11 @@
  *  the cells of a restricted Voronoi diagram
  */
 
-namespace GEOGen {
+namespace GEOBRLGen {
     class Vertex;
 }
 
-namespace GEO {
+namespace GEOBRL {
 
     class Mesh;
 
@@ -69,7 +69,7 @@ namespace GEO {
      *  an objective function. Sub-classing this class makes it possible
      *  to define new objective functions.
      */
-    class GEOGRAM_API IntegrationSimplex : public Counted {
+    class GEOBRLCAD_API IntegrationSimplex : public Counted {
 
     public:
 
@@ -101,9 +101,9 @@ namespace GEO {
          */
         virtual double eval(
             index_t center_vertex_index,
-            const GEOGen::Vertex& v0,
-            const GEOGen::Vertex& v1,
-            const GEOGen::Vertex& v2,
+            const GEOBRLGen::Vertex& v0,
+            const GEOBRLGen::Vertex& v1,
+            const GEOBRLGen::Vertex& v2,
             index_t t,
             index_t t_adj = NO_INDEX,
             index_t v_adj = NO_INDEX

@@ -39,7 +39,7 @@
 
 #include <geogram/delaunay/delaunay_nn.h>
 
-namespace GEO {
+namespace GEOBRL {
 
     Delaunay_NearestNeighbors::Delaunay_NearestNeighbors(
         coord_index_t dimension

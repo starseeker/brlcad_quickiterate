@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_VORONOI_RVD_MESH_BUILDER
-#define GEOGRAM_VORONOI_RVD_MESH_BUILDER
+#ifndef GEOBRLCAD_VORONOI_RVD_MESH_BUILDER
+#define GEOBRLCAD_VORONOI_RVD_MESH_BUILDER
 
 #include <geogram/basic/common.h>
 #include <geogram/voronoi/generic_RVD.h>
@@ -54,22 +54,22 @@
  * \file geogram/voronoi/RVD_mesh_builder.h
  * \brief Utilities to build meshes derived from restricted Voronoi diagrams.
  * \note This file contains functions and classes used by the internal
- *  implementation of GEO::GenericVoronoiDiagram.
+ *  implementation of GEOBRL::GenericVoronoiDiagram.
  *  They are not meant to be used directly by client code.
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     /**
      * \brief RVDVertexMap maps symbolic vertices to unique ids.
      * \details Symbolic vertices are manipulated by
-     *  GEOGen::RestrictedVoronoiDiagram. This class is
+     *  GEOBRLGen::RestrictedVoronoiDiagram. This class is
      *  used for instance in the implementation of
      *  RVDMeshBuilder.
      * \note This is an internal implementation class, not meant to
-     *  be used directly, use GEO::RestrictedVoronoiDiagram instead.
+     *  be used directly, use GEOBRL::RestrictedVoronoiDiagram instead.
      */
-    class GEOGRAM_API RVDVertexMap {
+    class GEOBRLCAD_API RVDVertexMap {
     public:
     /**
      * \brief Constructs an empty map
@@ -81,10 +81,10 @@ namespace GEO {
      * into a unique identifier.
      * \param[in] center_vertex_id the index of the current Voronoi
      *  seed (provided by action classes in
-     *  GEOGen::RestrictedVoronoiDiagram)
+     *  GEOBRLGen::RestrictedVoronoiDiagram)
      * \param[in] sym the symbolic representation of the vertex
      *  (provided by action classes in
-     *  GEOGen::RestrictedVoronoiDiagram)
+     *  GEOBRLGen::RestrictedVoronoiDiagram)
      * \return a unique identifier for this vertex
      */
     index_t find_or_create_vertex(
@@ -152,7 +152,7 @@ namespace GEO {
      * \details The vertices with the same symbolic information are
      *  merged.
      * \note This is an internal implementation class, not meant to
-     *  be used directly, use GEO::RestrictedVoronoiDiagram instead.
+     *  be used directly, use GEOBRL::RestrictedVoronoiDiagram instead.
      */
     class RVDMeshBuilder {
     public:

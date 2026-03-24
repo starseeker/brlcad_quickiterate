@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_BASIC_STOPWATCH
-#define GEOGRAM_BASIC_STOPWATCH
+#ifndef GEOBRLCAD_BASIC_STOPWATCH
+#define GEOBRLCAD_BASIC_STOPWATCH
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/numeric.h>
@@ -52,7 +52,7 @@
  * \brief Classes for measuring time
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     /**
      * \brief Scope restricted stopwatch
@@ -67,7 +67,7 @@ namespace GEO {
      * } // <- W prints the elapsed time here.
      * \endcode
      */
-    class GEOGRAM_API Stopwatch {
+    class GEOBRLCAD_API Stopwatch {
     public:
     /**
      * \brief Stopwatch constructor

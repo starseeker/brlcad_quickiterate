@@ -39,7 +39,7 @@
 
 #include <geogram/mesh/mesh_halfedges.h>
 
-namespace GEO {
+namespace GEOBRL {
 
     bool MeshHalfedges::move_to_next_around_vertex(Halfedge& H) const {
         geo_debug_assert(halfedge_is_valid(H));

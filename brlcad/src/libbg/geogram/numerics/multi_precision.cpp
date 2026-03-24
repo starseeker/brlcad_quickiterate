@@ -42,7 +42,7 @@
 // This makes sure the compiler will not optimize y = a*x+b
 // with fused multiply-add, this would break the exact
 // predicates.
-#ifdef GEO_COMPILER_MSVC
+#ifdef GEOBRL_COMPILER_MSVC
 #pragma fp_contract(off)
 #endif
 
@@ -53,7 +53,7 @@
 
 namespace {
 
-    using namespace GEO;
+    using namespace GEOBRL;
 
 #ifdef PCK_STATS
     std::vector<index_t> expansion_length_histo_;
@@ -497,7 +497,7 @@ namespace {
     }
 }
 
-namespace GEO {
+namespace GEOBRL {
 
     void grow_expansion_zeroelim(
         const expansion& e, double b, expansion& h
@@ -732,7 +732,7 @@ namespace GEO {
 
 /****************************************************************************/
 
-namespace GEO {
+namespace GEOBRL {
 
     double expansion_splitter_;
     double expansion_epsilon_;
@@ -764,7 +764,7 @@ namespace GEO {
         expansion_splitter_ += 1.0;
     }
 
-    static Process::spinlock expansions_lock = GEOGRAM_SPINLOCK_INIT;
+    static Process::spinlock expansions_lock = GEOBRLCAD_SPINLOCK_INIT;
 
     expansion* expansion::new_expansion_on_heap(index_t capa) {
         Process::acquire_spinlock(expansions_lock);

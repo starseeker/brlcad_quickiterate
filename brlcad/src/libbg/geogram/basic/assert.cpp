@@ -44,7 +44,7 @@
 #include <sstream>
 #include <stdexcept>
 
-#ifdef GEO_OS_WINDOWS
+#ifdef GEOBRL_OS_WINDOWS
 #include <intrin.h> // For __debugbreak()
 #else
 #include <sys/types.h>
@@ -57,10 +57,10 @@
 
 #endif
 
-namespace GEO {
+namespace GEOBRL {
 
     namespace {
-#ifdef GEO_DEBUG
+#ifdef GEOBRL_DEBUG
         AssertMode assert_mode_ = ASSERT_ABORT;
 #else
         AssertMode assert_mode_ = ASSERT_THROW;
@@ -86,7 +86,7 @@ namespace GEO {
     }
 
     void geo_breakpoint() {
-#ifdef GEO_COMPILER_MSVC
+#ifdef GEOBRL_COMPILER_MSVC
         __debugbreak();
 #else
         geo_abort();

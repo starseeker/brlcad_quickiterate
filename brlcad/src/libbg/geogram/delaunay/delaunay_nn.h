@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_DELAUNAY_DELAUNAY_NN
-#define GEOGRAM_DELAUNAY_DELAUNAY_NN
+#ifndef GEOBRLCAD_DELAUNAY_DELAUNAY_NN
+#define GEOBRLCAD_DELAUNAY_DELAUNAY_NN
 
 #include <geogram/basic/common.h>
 #include <geogram/delaunay/delaunay.h>
@@ -50,7 +50,7 @@
  * \brief Implementation of Delaunay using nearest neighbors
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     /**
      * \brief Delaunay interface for NearestNeighbors search.
@@ -60,7 +60,7 @@ namespace GEO {
      * implements neighborhood queries, which are the only ones
      * needed by RestrictedVoronoiDiagram with radius of security.
      */
-    class GEOGRAM_API Delaunay_NearestNeighbors : public Delaunay {
+    class GEOBRLCAD_API Delaunay_NearestNeighbors : public Delaunay {
     public:
         /**
          * \brief Creates a new Delaunay_NearestNeighbors.

@@ -40,11 +40,11 @@
 #include <geogram/delaunay/delaunay.h>
 #include <geogram/delaunay/delaunay_nn.h>
 
-#ifdef GEOGRAM_WITH_TETGEN
+#ifdef GEOBRLCAD_WITH_TETGEN
 #include <geogram/delaunay/delaunay_tetgen.h>
 #endif
 
-#ifdef GEOGRAM_WITH_TRIANGLE
+#ifdef GEOBRLCAD_WITH_TRIANGLE
 #include <geogram/delaunay/delaunay_triangle.h>
 #endif
 
@@ -59,7 +59,7 @@
 
 namespace {
 
-    using namespace GEO;
+    using namespace GEOBRL;
 
     /**
      * \brief Builds the invalid dimension error message
@@ -81,7 +81,7 @@ namespace {
     }
 }
 
-namespace GEO {
+namespace GEOBRL {
 
     Delaunay::InvalidDimension::InvalidDimension(
         coord_index_t dimension,
@@ -91,7 +91,7 @@ namespace GEO {
         std::logic_error(invalid_dimension_error(dimension, name, expected)) {
     }
 
-    const char* Delaunay::InvalidDimension::what() const GEO_NOEXCEPT {
+    const char* Delaunay::InvalidDimension::what() const GEOBRL_NOEXCEPT {
         return std::logic_error::what();
     }
 
@@ -109,10 +109,10 @@ namespace GEO {
         invalid_facets(rhs.invalid_facets) {
     }
 
-    Delaunay::InvalidInput::~InvalidInput() GEO_NOEXCEPT {
+    Delaunay::InvalidInput::~InvalidInput() GEOBRL_NOEXCEPT {
     }
 
-    const char* Delaunay::InvalidInput::what() const GEO_NOEXCEPT {
+    const char* Delaunay::InvalidInput::what() const GEOBRL_NOEXCEPT {
         return std::logic_error::what();
     }
 
@@ -120,16 +120,16 @@ namespace GEO {
 
     void Delaunay::initialize() {
 
-#ifdef GEOGRAM_WITH_TETGEN
+#ifdef GEOBRLCAD_WITH_TETGEN
         geo_register_Delaunay_creator(DelaunayTetgen, "tetgen");
 #endif
 
-#ifdef GEOGRAM_WITH_TRIANGLE
+#ifdef GEOBRLCAD_WITH_TRIANGLE
         geo_register_Delaunay_creator(DelaunayTriangle, "triangle");
 #endif
 
 
-#ifndef GEOGRAM_PSM
+#ifndef GEOBRLCAD_PSM
         geo_register_Delaunay_creator(Delaunay_NearestNeighbors, "NN");
 #endif
     }
@@ -159,7 +159,7 @@ namespace GEO {
         }
 
         if(result == nullptr) {
-#ifdef GEOGRAM_PSM
+#ifdef GEOBRLCAD_PSM
             Logger::err("Delaunay")
                 << "Could not create Delaunay triangulation"
                 << std::endl;

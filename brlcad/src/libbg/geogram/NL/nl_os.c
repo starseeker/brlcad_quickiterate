@@ -47,7 +47,7 @@
 #include <sys/times.h>
 #endif
 
-#if defined(GEO_DYNAMIC_LIBS) && defined(NL_OS_UNIX)
+#if defined(GEOBRL_DYNAMIC_LIBS) && defined(NL_OS_UNIX)
 #include <dlfcn.h>
 #ifdef NL_OS_APPLE
 #  define NL_DLL_EXT ".dylib"

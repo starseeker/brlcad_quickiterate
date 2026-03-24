@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEO_INTERVAL_NT
-#define GEO_INTERVAL_NT
+#ifndef GEOBRL_INTERVAL_NT
+#define GEOBRL_INTERVAL_NT
 
 #include <geogram/numerics/expansion_nt.h>
 #include <geogram/basic/vechg.h>
@@ -58,7 +58,7 @@
 
 // #define INTERVAL_CHECK
 
-namespace GEO {
+namespace GEOBRL {
 
     /**
      * \brief Base class for interval arithmetics.

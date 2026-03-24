@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_BASIC_RANGE
-#define GEOGRAM_BASIC_RANGE
+#ifndef GEOBRLCAD_BASIC_RANGE
+#define GEOBRLCAD_BASIC_RANGE
 
 #include <geogram/basic/numeric.h>
 #include <geogram/basic/memory.h>
@@ -52,7 +52,7 @@
  *  (auto return type).
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     /**
      * \brief Wraps an integer to be used with the range-based for construct.
@@ -169,7 +169,7 @@ namespace GEO {
         const_index_ptr_in_array(
             const index_t* ptr, const index_t* begin, const index_t* end
         ) : ptr_(ptr)
-#ifdef GEO_DEBUG
+#ifdef GEOBRL_DEBUG
           ,begin_(begin),
             end_(end)
 #endif
@@ -204,7 +204,7 @@ namespace GEO {
         }
 
         const_index_ptr_in_array operator+(index_t i) const {
-#ifdef GEO_DEBUG
+#ifdef GEOBRL_DEBUG
             return const_index_ptr_in_array(ptr_ + i, begin_, end_);
 #else
             return const_index_ptr_in_array(ptr_ + i, nullptr, nullptr);
@@ -213,7 +213,7 @@ namespace GEO {
 
     private:
         const index_t* ptr_;
-#ifdef GEO_DEBUG
+#ifdef GEOBRL_DEBUG
         const index_t* begin_;
         const index_t* end_;
 #endif
@@ -230,7 +230,7 @@ namespace GEO {
         index_ptr_in_array(
             index_t* ptr, index_t* begin, index_t* end
         ) : ptr_(ptr)
-#ifdef GEO_DEBUG
+#ifdef GEOBRL_DEBUG
           ,begin_(begin),
             end_(end)
 #endif
@@ -270,7 +270,7 @@ namespace GEO {
         }
 
         index_ptr_in_array operator+(index_t i) const {
-#ifdef GEO_DEBUG
+#ifdef GEOBRL_DEBUG
             return index_ptr_in_array(ptr_ + i, begin_, end_);
 #else
             return index_ptr_in_array(ptr_ + i, nullptr, nullptr);
@@ -278,7 +278,7 @@ namespace GEO {
         }
 
         operator const_index_ptr_in_array() const {
-#ifdef GEO_DEBUG
+#ifdef GEOBRL_DEBUG
             return const_index_ptr_in_array(ptr_, begin_, end_);
 #else
             return const_index_ptr_in_array(ptr_, nullptr, nullptr);
@@ -287,7 +287,7 @@ namespace GEO {
 
     private:
         index_t* ptr_;
-#ifdef GEO_DEBUG
+#ifdef GEOBRL_DEBUG
         index_t* begin_;
         index_t* end_;
 #endif

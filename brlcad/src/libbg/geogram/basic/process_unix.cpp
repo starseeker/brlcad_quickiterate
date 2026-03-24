@@ -39,7 +39,7 @@
 
 #include <geogram/basic/common.h>
 
-#ifdef GEO_OS_UNIX
+#ifdef GEOBRL_OS_UNIX
 
 #include <geogram/basic/process.h>
 #include <geogram/basic/process_private.h>
@@ -62,11 +62,11 @@
 #include <stdio.h>
 #include <new>
 
-#if !defined(GEO_OS_ANDROID) && !defined(GEO_OS_EMSCRIPTEN)
+#if !defined(GEOBRL_OS_ANDROID) && !defined(GEOBRL_OS_EMSCRIPTEN)
 #include <execinfo.h>
 #endif
 
-#ifdef GEO_OS_APPLE
+#ifdef GEOBRL_OS_APPLE
 #include <mach-o/dyld.h>
 #ifdef __x86_64
 #include <xmmintrin.h>
@@ -81,7 +81,7 @@
 
 namespace {
 
-    using namespace GEO;
+    using namespace GEOBRL;
 
     /**
      * \brief Abnormal termination handler
@@ -90,9 +90,9 @@ namespace {
      * <em>Abnormal program termination: message</em>
      * \param[in] message optional message to print
      */
-    GEO_NORETURN_DECL void abnormal_program_termination(
+    GEOBRL_NORETURN_DECL void abnormal_program_termination(
         const char* message = nullptr
-    ) GEO_NORETURN;
+    ) GEOBRL_NORETURN;
 
     void abnormal_program_termination(const char* message) {
         if(message != nullptr) {
@@ -109,7 +109,7 @@ namespace {
      * \details The handler exits the application
      * \param[in] signal signal number
      */
-    GEO_NORETURN_DECL void signal_handler(int signal) GEO_NORETURN;
+    GEOBRL_NORETURN_DECL void signal_handler(int signal) GEOBRL_NORETURN;
 
     void signal_handler(int signal) {
         const char* sigstr = strsignal(signal);
@@ -126,9 +126,9 @@ namespace {
      * \param[in] si signal information structure
      * \param[in] data additional data (unused)
      */
-    GEO_NORETURN_DECL void fpe_signal_handler(
+    GEOBRL_NORETURN_DECL void fpe_signal_handler(
         int signal, siginfo_t* si, void* data
-    ) GEO_NORETURN;
+    ) GEOBRL_NORETURN;
 
     void fpe_signal_handler(int signal, siginfo_t* si, void* data) {
         geo_argused(signal);
@@ -185,7 +185,7 @@ namespace {
     /**
      * \brief Catches uncaught C++ exceptions
      */
-    GEO_NORETURN_DECL void terminate_handler() GEO_NORETURN;
+    GEOBRL_NORETURN_DECL void terminate_handler() GEOBRL_NORETURN;
 
     void terminate_handler() {
         abnormal_program_termination("function terminate() was called");
@@ -194,7 +194,7 @@ namespace {
     /**
      * \brief Catches allocation errors
      */
-    GEO_NORETURN_DECL void memory_exhausted_handler() GEO_NORETURN;
+    GEOBRL_NORETURN_DECL void memory_exhausted_handler() GEOBRL_NORETURN;
 
     void memory_exhausted_handler() {
         abnormal_program_termination("memory exhausted");
@@ -203,7 +203,7 @@ namespace {
 
 /****************************************************************************/
 
-namespace GEO {
+namespace GEOBRL {
 
     namespace Process {
 
@@ -221,7 +221,7 @@ namespace GEO {
         }
 
         size_t os_used_memory() {
-#ifdef GEO_OS_APPLE
+#ifdef GEOBRL_OS_APPLE
             size_t result = 0;
             struct rusage usage;
             if(0 == getrusage(RUSAGE_SELF, &usage)) {
@@ -288,7 +288,7 @@ namespace GEO {
         }
 
         bool os_enable_FPE(bool flag) {
-#if defined(GEO_OS_APPLE) || defined(GEO_OS_EMSCRIPTEN)
+#if defined(GEOBRL_OS_APPLE) || defined(GEOBRL_OS_EMSCRIPTEN)
             geo_argused(flag);
 #else
             int excepts = 0
@@ -351,7 +351,7 @@ namespace GEO {
          */
         std::string os_executable_filename() {
             char buff[PATH_MAX];
-#ifdef GEO_OS_APPLE
+#ifdef GEOBRL_OS_APPLE
             uint32_t len=PATH_MAX;
             if (_NSGetExecutablePath(buff, &len) == 0) {
                 std::string filename(buff);
@@ -373,7 +373,7 @@ namespace GEO {
         }
 
         void os_print_stack_trace() {
-#if !defined(GEO_OS_ANDROID) && !defined(GEO_OS_EMSCRIPTEN)
+#if !defined(GEOBRL_OS_ANDROID) && !defined(GEOBRL_OS_EMSCRIPTEN)
             constexpr int MAX_STACK_FRAMES=128;
             static void *stack_traces[MAX_STACK_FRAMES];
             int i, trace_size = 0;

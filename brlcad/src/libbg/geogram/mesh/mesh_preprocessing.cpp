@@ -49,7 +49,7 @@
 
 namespace {
 
-    using namespace GEO;
+    using namespace GEOBRL;
 
     /**
      * \brief
@@ -75,7 +75,7 @@ namespace {
 
 /****************************************************************************/
 
-namespace GEO {
+namespace GEOBRL {
 
 
 
@@ -159,7 +159,7 @@ namespace GEO {
             }
         }
         if(!to_dissociate.empty()) {
-            GEO::Logger::warn("Mesh")
+            GEOBRL::Logger::warn("Mesh")
                 << to_dissociate.size()
                 << " facets with degree 2 vertices (fixed)"
                 << std::endl;

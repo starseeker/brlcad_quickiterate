@@ -46,7 +46,7 @@
 
 namespace {
 
-    using namespace GEO;
+    using namespace GEOBRL;
 
     /**
      * \brief Finds the nearest point in a mesh facet from a query point.
@@ -380,7 +380,7 @@ namespace {
 
 /****************************************************************************/
 
-namespace GEO {
+namespace GEOBRL {
 
     void MeshFacetsAABB::initialize(Mesh& M, AABBReorderMode reorder_mode) {
         mesh_ = &M;
@@ -590,6 +590,26 @@ namespace GEO {
             }
         }
     }
+
+    bool MeshFacetsAABB::ray_nearest_intersection(
+        const Ray& R, Intersection& I
+    ) const {
+        index_t f = I.f;
+        vec3 dirinv(
+            1.0/R.direction.x,
+            1.0/R.direction.y,
+            1.0/R.direction.z
+        );
+        ray_nearest_intersection_recursive(
+            R, dirinv, I, f, 1, 0, mesh_->facets.nb(), 0
+        );
+        if(I.f != f) {
+            I.p = R.origin + I.t * R.direction;
+            return true;
+        }
+        return false;
+    }
+
 
     void MeshFacetsAABB::ray_nearest_intersection_recursive(
         const Ray& R, const vec3& dirinv, Intersection& I, index_t ignore_f,

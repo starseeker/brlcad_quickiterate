@@ -47,7 +47,7 @@
  *   right linkage modes for OpenNL symbols)
  */
 
-#ifdef GEO_DYNAMIC_LIBS
+#ifdef GEOBRL_DYNAMIC_LIBS
 #define NL_SHARED_LIBS
 #ifdef geogram_EXPORTS
 #define NL_EXPORTS

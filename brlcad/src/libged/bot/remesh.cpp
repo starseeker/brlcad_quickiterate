@@ -174,14 +174,14 @@ bot_remesh_vdb(struct ged *gedp, struct rt_bot_internal *UNUSED(bot), double UNU
 #endif /* OPENVDB_ABI_VERSION_NUMBER */
 
 static void
-geogram_to_manifold(manifold::MeshGL *gmm, GEO::Mesh &gm)
+geogram_to_manifold(manifold::MeshGL *gmm, GEOBRL::Mesh &gm)
 {
-    for (GEO::index_t v = 0; v < gm.vertices.nb(); v++) {
+    for (GEOBRL::index_t v = 0; v < gm.vertices.nb(); v++) {
 	const double *p = gm.vertices.point_ptr(v);
 	for (int i = 0; i < 3; i++)
 	    gmm->vertProperties.insert(gmm->vertProperties.end(), p[i]);
     }
-    for (GEO::index_t f = 0; f < gm.facets.nb(); f++) {
+    for (GEOBRL::index_t f = 0; f < gm.facets.nb(); f++) {
 	for (int i = 0; i < 3; i++) {
 	    // TODO - CW vs CCW orientation handling?
 	    gmm->triVerts.insert(gmm->triVerts.end(), gm.facets.vertex(f, i));
@@ -214,12 +214,12 @@ bot_remesh_geogram(struct rt_bot_internal **obot, struct ged *gedp, struct rt_bo
     }
 
     // Make sure geogram is initialized
-    GEO::GeoOptions opts;
+    GEOBRL::GeoOptions opts;
     opts.remesh_multi_nerve = true;
-    GEO::initialize(GEO::GEOGRAM_INSTALL_NONE, opts);
+    GEOBRL::initialize(GEOBRL::GEOBRLCAD_INSTALL_NONE, opts);
 
     // Quell logging messages
-    GEO::Logger::instance()->unregister_all_clients();
+    GEOBRL::Logger::instance()->unregister_all_clients();
 
     // Put I/O channels back where they belong
     if (fnull != -1) {
@@ -235,10 +235,10 @@ bot_remesh_geogram(struct rt_bot_internal **obot, struct ged *gedp, struct rt_bo
     fastf_t nb_pts = bot->num_vertices * 10;
 
     // Initialize the Geogram mesh
-    GEO::Mesh gm;
+    GEOBRL::Mesh gm;
     gm.vertices.assign_points((double *)bot->vertices, 3, bot->num_vertices);
     for (size_t i = 0; i < bot->num_faces; i++) {
-	GEO::index_t f = gm.facets.create_polygon(3);
+	GEOBRL::index_t f = gm.facets.create_polygon(3);
 	gm.facets.set_vertex(f, 0, bot->faces[3*i+0]);
 	gm.facets.set_vertex(f, 1, bot->faces[3*i+1]);
 	gm.facets.set_vertex(f, 2, bot->faces[3*i+2]);
@@ -246,15 +246,15 @@ bot_remesh_geogram(struct rt_bot_internal **obot, struct ged *gedp, struct rt_bo
 
     // After the initial raw load, do a repair pass to set up
     // Geogram's internal mesh data
-    double bbox_diag = GEO::bbox_diagonal(gm);
+    double bbox_diag = GEOBRL::bbox_diagonal(gm);
     double epsilon = 1e-6 * (0.01 * bbox_diag);
-    GEO::mesh_repair(gm, GEO::MeshRepairMode(GEO::MESH_REPAIR_DEFAULT), epsilon, opts);
+    GEOBRL::mesh_repair(gm, GEOBRL::MeshRepairMode(GEOBRL::MESH_REPAIR_DEFAULT), epsilon, opts);
 
     // https://github.com/BrunoLevy/geogram/wiki/Remeshing
-    GEO::compute_normals(gm);
+    GEOBRL::compute_normals(gm);
     set_anisotropy(gm, 2*0.02);
-    GEO::Mesh remesh;
-    GEO::remesh_smooth(gm, remesh, nb_pts, opts);
+    GEOBRL::Mesh remesh;
+    GEOBRL::remesh_smooth(gm, remesh, nb_pts, opts);
 
     // See if we have a solid
     manifold::MeshGL gmm;
@@ -278,7 +278,7 @@ bot_remesh_geogram(struct rt_bot_internal **obot, struct ged *gedp, struct rt_bo
     nbot->faces = (int *)calloc(nbot->num_faces*3, sizeof(int));
 
     int j = 0;
-    for(GEO::index_t v = 0; v < remesh.vertices.nb(); v++) {
+    for(GEOBRL::index_t v = 0; v < remesh.vertices.nb(); v++) {
 	double gm_v[3];
 	const double *p = remesh.vertices.point_ptr(v);
 	for (int i = 0; i < 3; i++)
@@ -290,7 +290,7 @@ bot_remesh_geogram(struct rt_bot_internal **obot, struct ged *gedp, struct rt_bo
     }
 
     j = 0;
-    for (GEO::index_t f = 0; f < remesh.facets.nb(); f++) {
+    for (GEOBRL::index_t f = 0; f < remesh.facets.nb(); f++) {
 	double tri_verts[3];
 	for (int i = 0; i < 3; i++)
 	    tri_verts[i] = remesh.facets.vertex(f, i);

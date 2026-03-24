@@ -39,7 +39,7 @@
 
 #include <geogram/voronoi/integration_simplex.h>
 
-namespace GEO {
+namespace GEOBRL {
 
     IntegrationSimplex::IntegrationSimplex(
         const Mesh& mesh,

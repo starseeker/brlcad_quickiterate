@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_MESH_INDEX
-#define GEOGRAM_MESH_INDEX
+#ifndef GEOBRLCAD_MESH_INDEX
+#define GEOBRLCAD_MESH_INDEX
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/numeric.h>
@@ -51,7 +51,7 @@
  * \brief Classes for managing tuples of indices
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     /************************************************************************/
 
@@ -273,7 +273,7 @@ namespace GEO {
             indices[0] = i;
             indices[1] = j;
             indices[2] = k;
-            GEO::sort_3(indices);
+            GEOBRL::sort_3(indices);
         }
 
         /**
@@ -495,7 +495,7 @@ namespace GEO {
             indices[1] = j;
             indices[2] = k;
             indices[3] = l;
-            GEO::sort_4(indices);
+            GEOBRL::sort_4(indices);
         }
 
         /**

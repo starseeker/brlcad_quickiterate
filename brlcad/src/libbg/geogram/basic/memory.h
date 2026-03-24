@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_BASIC_MEMORY
-#define GEOGRAM_BASIC_MEMORY
+#ifndef GEOBRLCAD_BASIC_MEMORY
+#define GEOBRLCAD_BASIC_MEMORY
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/assert.h>
@@ -48,7 +48,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#ifdef GEO_OS_WINDOWS
+#ifdef GEOBRL_OS_WINDOWS
 
 #include <windows.h>
 #ifdef min
@@ -68,13 +68,13 @@
 // Linux: 10 Mb
 // Windows: 1 Mb
 // Mac OSX: 512 Kb
-// GEO_HAS_BIG_STACK is defined under Linux
+// GEOBRL_HAS_BIG_STACK is defined under Linux
 // and lets some of the functions that
 // manipulate exact precision numbers
 // allocate temporaries on the stack.
 
-#ifdef GEO_OS_LINUX
-#define GEO_HAS_BIG_STACK
+#ifdef GEOBRL_OS_LINUX
+#define GEOBRL_HAS_BIG_STACK
 #endif
 
 /**
@@ -82,7 +82,7 @@
  * \brief Types and functions for memory manipulation
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     /**
      * \brief Utilities for memory management.
@@ -193,7 +193,7 @@ namespace GEO {
          * - AVX: 32
          * - AVX-512: 64
          */
-#define GEO_MEMORY_ALIGNMENT 64
+#define GEOBRL_MEMORY_ALIGNMENT 64
 
         /**
          * \brief Defines the memory alignment of points in a vector
@@ -262,12 +262,12 @@ namespace GEO {
         /**
          * \brief Gets a point alignment
          * \details This gives the alignment of a point of dimension \p dim
-         * within an array of points aligned on GEO_MEMORY_ALIGNMENT bytes
+         * within an array of points aligned on GEOBRL_MEMORY_ALIGNMENT bytes
          * \param[in] dim the dimension of the point
-         * \see GEO::Memory::PointAlignment
-         * \see GEO_MEMORY_ALIGNMENT
+         * \see GEOBRL::Memory::PointAlignment
+         * \see GEOBRL_MEMORY_ALIGNMENT
          */
-#define geo_dim_alignment(dim) GEO::Memory::PointAlignment<dim>::value
+#define geo_dim_alignment(dim) GEOBRL::Memory::PointAlignment<dim>::value
 
         /**
          * \brief Allocates aligned memory.
@@ -279,15 +279,15 @@ namespace GEO {
          * \note Memory alignment is not supported under Android.
          */
         inline void* aligned_malloc(
-            size_t size, size_t alignment = GEO_MEMORY_ALIGNMENT
+            size_t size, size_t alignment = GEOBRL_MEMORY_ALIGNMENT
         ) {
-#if   defined(GEO_COMPILER_INTEL)
+#if   defined(GEOBRL_COMPILER_INTEL)
             return _mm_malloc(size, alignment);
-#elif defined(GEO_COMPILER_GCC) || defined(GEO_COMPILER_CLANG)
+#elif defined(GEOBRL_COMPILER_GCC) || defined(GEOBRL_COMPILER_CLANG)
             void* result;
             return posix_memalign(&result, alignment, size) == 0
                 ? result : nullptr;
-#elif defined(GEO_COMPILER_MSVC)
+#elif defined(GEOBRL_COMPILER_MSVC)
             return _aligned_malloc(size, alignment);
 #else
             geo_argused(alignment);
@@ -303,11 +303,11 @@ namespace GEO {
          * \note Memory alignment is not supported under Android.
          */
         inline void aligned_free(void* p) {
-#if   defined(GEO_COMPILER_INTEL)
+#if   defined(GEOBRL_COMPILER_INTEL)
             _mm_free(p);
-#elif defined(GEO_COMPILER_GCC_FAMILY)
+#elif defined(GEOBRL_COMPILER_GCC_FAMILY)
             free(p);
-#elif defined(GEO_COMPILER_MSVC)
+#elif defined(GEOBRL_COMPILER_MSVC)
             _aligned_free(p);
 #else
             free(p);
@@ -327,13 +327,13 @@ namespace GEO {
          * \endcode
          * \note Memory alignment is not supported under Android.
          */
-#if   defined(GEO_COMPILER_INTEL)
-#define geo_decl_aligned(var) __declspec(aligned(GEO_MEMORY_ALIGNMENT)) var
-#elif defined(GEO_COMPILER_GCC_FAMILY)
-#define geo_decl_aligned(var) var __attribute__((aligned(GEO_MEMORY_ALIGNMENT)))
-#elif defined(GEO_COMPILER_MSVC)
-#define geo_decl_aligned(var) __declspec(align(GEO_MEMORY_ALIGNMENT)) var
-#elif defined(GEO_COMPILER_EMSCRIPTEN)
+#if   defined(GEOBRL_COMPILER_INTEL)
+#define geo_decl_aligned(var) __declspec(aligned(GEOBRL_MEMORY_ALIGNMENT)) var
+#elif defined(GEOBRL_COMPILER_GCC_FAMILY)
+#define geo_decl_aligned(var) var __attribute__((aligned(GEOBRL_MEMORY_ALIGNMENT)))
+#elif defined(GEOBRL_COMPILER_MSVC)
+#define geo_decl_aligned(var) __declspec(align(GEOBRL_MEMORY_ALIGNMENT)) var
+#elif defined(GEOBRL_COMPILER_EMSCRIPTEN)
 #define geo_decl_aligned(var) var
 #endif
 
@@ -353,13 +353,13 @@ namespace GEO {
          * \note Memory alignment is not supported under Android.
 	 * \note C++20 has std::assume_aligned()
          */
-#if   defined(GEO_COMPILER_INTEL)
+#if   defined(GEOBRL_COMPILER_INTEL)
 #define geo_assume_aligned(var, alignment)      \
         __assume_aligned(var, alignment)
-#elif defined(GEO_COMPILER_CLANG)
+#elif defined(GEOBRL_COMPILER_CLANG)
 #define geo_assume_aligned(var, alignment)
         // GCC __builtin_assume_aligned is not yet supported by clang-3.3
-#elif defined(GEO_COMPILER_GCC)
+#elif defined(GEOBRL_COMPILER_GCC)
 #if __GNUC__ >= 4 && __GNUC_MINOR__ >= 7
 #define geo_assume_aligned(var, alignment)                              \
         *(void**) (&var) = __builtin_assume_aligned(var, alignment)
@@ -370,12 +370,12 @@ namespace GEO {
 #else
 #define geo_assume_aligned(var, alignment)
 #endif
-#elif defined(GEO_COMPILER_MSVC)
+#elif defined(GEOBRL_COMPILER_MSVC)
 #define geo_assume_aligned(var, alignment)
         // TODO: I do not know how to do that with MSVC
-#elif defined(GEO_COMPILER_EMSCRIPTEN)
+#elif defined(GEOBRL_COMPILER_EMSCRIPTEN)
 #define geo_assume_aligned(var, alignment)
-#elif defined(GEO_COMPILER_MINGW)
+#elif defined(GEOBRL_COMPILER_MINGW)
 #define geo_assume_aligned(var, alignment)
 #endif
 
@@ -389,13 +389,13 @@ namespace GEO {
          * double* geo_restrict p = ...;
          * \endcode
          */
-#if   defined(GEO_COMPILER_INTEL)
+#if   defined(GEOBRL_COMPILER_INTEL)
 #define geo_restrict __restrict
-#elif defined(GEO_COMPILER_GCC_FAMILY)
+#elif defined(GEOBRL_COMPILER_GCC_FAMILY)
 #define geo_restrict __restrict__
-#elif defined(GEO_COMPILER_MSVC)
+#elif defined(GEOBRL_COMPILER_MSVC)
 #define geo_restrict __restrict
-#elif defined(GEO_COMPILER_EMSCRIPTEN)
+#elif defined(GEOBRL_COMPILER_EMSCRIPTEN)
 #define geo_restrict
 #endif
 
@@ -407,7 +407,7 @@ namespace GEO {
          * \retval false otherwise
          */
         inline bool is_aligned(
-            void* p, size_t alignment = GEO_MEMORY_ALIGNMENT
+            void* p, size_t alignment = GEOBRL_MEMORY_ALIGNMENT
         ) {
             return (reinterpret_cast<size_t>(p) & (alignment - 1)) == 0;
         }
@@ -417,23 +417,23 @@ namespace GEO {
          */
         inline void* align(void* p) {
             size_t offset = (
-                GEO_MEMORY_ALIGNMENT -
-                (reinterpret_cast<size_t>(p) & (GEO_MEMORY_ALIGNMENT - 1))
-            ) & (GEO_MEMORY_ALIGNMENT - 1);
+                GEOBRL_MEMORY_ALIGNMENT -
+                (reinterpret_cast<size_t>(p) & (GEOBRL_MEMORY_ALIGNMENT - 1))
+            ) & (GEOBRL_MEMORY_ALIGNMENT - 1);
             return reinterpret_cast<char*>(p) + offset;
         }
 
         /**
          * \brief Allocates aligned memory on the stack
          * \brief Allocates \p size bytes on the stack. The returned address
-         * is guaranteed to be aligned on \c GEO_MEMORY_ALIGNMENT bytes. To
+         * is guaranteed to be aligned on \c GEOBRL_MEMORY_ALIGNMENT bytes. To
          * guarantee the memory alignment, the function may allocate more than
-         * \p size, but not more than <tt>GEO_MEMORY_ALIGNMENT - 1</tt>.
+         * \p size, but not more than <tt>GEOBRL_MEMORY_ALIGNMENT - 1</tt>.
          * \param[in] size Number of bytes to allocate.
          * \return An aligned pointer to a memory block of \p size bytes.
          */
 #define geo_aligned_alloca(size)                                        \
-        GEO::Memory::align(alloca(size + GEO_MEMORY_ALIGNMENT - 1))
+        GEOBRL::Memory::align(alloca(size + GEOBRL_MEMORY_ALIGNMENT - 1))
 
         /**
          * \brief An allocator that performs aligned memory allocations
@@ -442,7 +442,7 @@ namespace GEO {
          * containers. It is required for efficient vectorization of the code
          * using vector processing units (SSE,AVX or AVX-512).
          */
-        template <class T, int ALIGN = GEO_MEMORY_ALIGNMENT>
+        template <class T, int ALIGN = GEOBRL_MEMORY_ALIGNMENT>
         class aligned_allocator {
         public:
             /** \brief Element type */
@@ -598,7 +598,7 @@ namespace GEO {
              */
             void destroy(pointer p) {
                 p->~value_type();
-#ifdef GEO_COMPILER_MSVC
+#ifdef GEOBRL_COMPILER_MSVC
                 (void) p; // to avoid a "unreferenced variable" warning
 #endif
             }

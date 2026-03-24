@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_BASIC_ARGUSED
-#define GEOGRAM_BASIC_ARGUSED
+#ifndef GEOBRLCAD_BASIC_ARGUSED
+#define GEOBRLCAD_BASIC_ARGUSED
 
 #include <geogram/basic/common.h>
 
@@ -47,7 +47,7 @@
  * \brief A function to suppress unused parameters compilation warnings
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     /**
      * \brief Suppresses compiler warnings about unused parameters

@@ -38,8 +38,8 @@
  */
 
 
-#ifndef GEOGRAM_DELAUNAY_CAVITY
-#define GEOGRAM_DELAUNAY_CAVITY
+#ifndef GEOBRLCAD_DELAUNAY_CAVITY
+#define GEOBRLCAD_DELAUNAY_CAVITY
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/memory.h>
@@ -60,7 +60,7 @@
 #define CAVITY_STATS(x)
 #endif
 
-namespace GEO {
+namespace GEOBRL {
 
     /**
      * \brief Represents the set of tetrahedra on the boundary

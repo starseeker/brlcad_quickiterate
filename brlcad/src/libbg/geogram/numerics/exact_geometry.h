@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_NUMERICS_EXACT_GEOMETRY
-#define GEOGRAM_NUMERICS_EXACT_GEOMETRY
+#ifndef GEOBRLCAD_NUMERICS_EXACT_GEOBRLMETRY
+#define GEOBRLCAD_NUMERICS_EXACT_GEOBRLMETRY
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/geometry.h>
@@ -49,7 +49,7 @@
 #include <geogram/numerics/predicates.h>
 #include <geogram/numerics/exact_geometry.h>
 
-#ifdef GEOGRAM_WITH_GEOGRAMPLUS
+#ifdef GEOBRLCAD_WITH_GEOBRLCADPLUS
 #include <geogram/geogramplus/numerics/exact_geometry.h>
 #endif
 
@@ -67,11 +67,11 @@
 // else use expansion_nt coordinates.
 // exact_nt coordinates makes the algorithm  10x to 20x faster
 // and have no risk of underflow / overflow.
-#ifdef GEOGRAM_WITH_GEOGRAMPLUS
-#define GEOGRAM_USE_EXACT_NT
+#ifdef GEOBRLCAD_WITH_GEOBRLCADPLUS
+#define GEOBRLCAD_USE_EXACT_NT
 #endif
 
-namespace GEO {
+namespace GEOBRL {
 
     /**
      * \brief vec2 with coordinates as expansions
@@ -201,7 +201,7 @@ namespace GEO {
          * \retval ZERO if the triangle is flat
          * \retval NEGATIVE if the triangle is oriented clockwise
          */
-        Sign GEOGRAM_API orient_2d(
+        Sign GEOBRLCAD_API orient_2d(
             const vec2HE& p0, const vec2HE& p1, const vec2HE& p2
         );
 
@@ -220,7 +220,7 @@ namespace GEO {
          * \retval ZERO if the projected triangle is flat
          * \retval NEGATIVE if the projected triangle is oriented clockwise
          */
-        Sign GEOGRAM_API orient_2d_projected(
+        Sign GEOBRLCAD_API orient_2d_projected(
             const vec3HE& p0, const vec3HE& p1, const vec3HE& p2,
             coord_index_t axis
         );
@@ -236,7 +236,7 @@ namespace GEO {
          * \retval ZERO if the tetrahedron is flat
          * \retval NEGATIVE if the tetrahedron is oriented negatively
          */
-        Sign GEOGRAM_API orient_3d(
+        Sign GEOBRLCAD_API orient_3d(
             const vec3HE& p0, const vec3HE& p1,
             const vec3HE& p2, const vec3HE& p3
         );
@@ -249,7 +249,7 @@ namespace GEO {
          *  expansion_nt (arbitrary precision).
          * \return the sign of(p1-p0)*(p2-p0)
          */
-        Sign GEOGRAM_API dot_2d(
+        Sign GEOBRLCAD_API dot_2d(
             const vec2HE& p0, const vec2HE& p1, const vec2HE& p2
         );
 
@@ -268,7 +268,7 @@ namespace GEO {
          *  the circumscribed circle of p0, p1, p2
          * \retval a coherent perturbation otherwise
          */
-        Sign GEOGRAM_API incircle_2d_SOS_with_lengths(
+        Sign GEOBRLCAD_API incircle_2d_SOS_with_lengths(
             const vec2HE& p0, const vec2HE& p1,
             const vec2HE& p2, const vec2HE& p3,
             double l0, double l1, double l2, double l3
@@ -289,7 +289,7 @@ namespace GEO {
          *  the circumscribed circle of p0, p1, p2
          * \retval a coherent perturbation otherwise
          */
-        Sign GEOGRAM_API incircle_2d_SOS_with_lengths(
+        Sign GEOBRLCAD_API incircle_2d_SOS_with_lengths(
             const vec2HE& p0, const vec2HE& p1,
             const vec2HE& p2, const vec2HE& p3,
             double l0, double l1, double l2, double l3
@@ -336,7 +336,7 @@ namespace GEO {
          * \return the coordinate of the normal vector with the
          *    greatest absolute value
          */
-        coord_index_t GEOGRAM_API triangle_normal_axis(
+        coord_index_t GEOBRLCAD_API triangle_normal_axis(
             const vec3& p1, const vec3& p2, const vec3& p3
         );
 
@@ -348,7 +348,7 @@ namespace GEO {
          *  of them or more are identical)
          * \retval false otherwise
          */
-        bool GEOGRAM_API aligned_3d(
+        bool GEOBRLCAD_API aligned_3d(
             const vec3HE& p0, const vec3HE& p1, const vec3HE& p2
         );
 
@@ -360,7 +360,7 @@ namespace GEO {
          * \retval true if \p p is on the segment \p q1 , \p q2
          * \retval false otherwise
          */
-        bool GEOGRAM_API on_segment_3d(
+        bool GEOBRLCAD_API on_segment_3d(
             const vec3HE& p, const vec3HE& q1, const vec3HE& q2
         );
 
@@ -371,7 +371,7 @@ namespace GEO {
          *   exact coordinates as expansion_nt
          * \return a floating-point approximation of \p p
          */
-        vec3 GEOGRAM_API approximate(const vec3HE& p);
+        vec3 GEOBRLCAD_API approximate(const vec3HE& p);
 
         /**
          * \brief Gets a 2D floating-point approximation of a 2D point
@@ -380,7 +380,7 @@ namespace GEO {
          *   exact coordinates as expansion_nt
          * \return a floating-point approximation of \p p
          */
-        vec2 GEOGRAM_API approximate(const vec2HE& p);
+        vec2 GEOBRLCAD_API approximate(const vec2HE& p);
 
     }
 
@@ -415,27 +415,27 @@ namespace GEO {
 // These optimized functions are written as template specializations
 // (used automatically).
 
-#ifdef GEO_HAS_BIG_STACK
+#ifdef GEOBRL_HAS_BIG_STACK
 
     /**
      * \brief Specialization of det() optimized using low-level API
      */
-    template<> expansion_nt GEOGRAM_API det(const vec2E& v1, const vec2E& v2);
+    template<> expansion_nt GEOBRLCAD_API det(const vec2E& v1, const vec2E& v2);
 
     /**
      * \brief Specialization of dot() optimized using low-level API
      */
-    template<> expansion_nt GEOGRAM_API dot(const vec2E& v1, const vec2E& v2);
+    template<> expansion_nt GEOBRLCAD_API dot(const vec2E& v1, const vec2E& v2);
 
     /**
      * \brief Specialization of dot() optimized using low-level API
      */
-    template<> expansion_nt GEOGRAM_API dot(const vec3E& v1, const vec3E& v2);
+    template<> expansion_nt GEOBRLCAD_API dot(const vec3E& v1, const vec3E& v2);
 
     /**
      * \brief Specialization of mix() optimized using low-level API
      */
-    template<> vec2Hg<expansion_nt> GEOGRAM_API mix(
+    template<> vec2Hg<expansion_nt> GEOBRLCAD_API mix(
         const rationalg<expansion_nt>& t,
         const vecng<2,double>& p1, const vecng<2,double>& p2
     );
@@ -443,7 +443,7 @@ namespace GEO {
     /**
      * \brief Specialization of mix() optimized using low-level API
      */
-    template<> vec3Hg<expansion_nt> GEOGRAM_API mix(
+    template<> vec3Hg<expansion_nt> GEOBRLCAD_API mix(
         const rationalg<expansion_nt>& t,
         const vecng<3,double>& p1, const vecng<3,double>& p2
     );
@@ -451,7 +451,7 @@ namespace GEO {
     /**
      * \brief Specialization of triangle_normal() for vec3E
      */
-    template <> GEOGRAM_API vec3E triangle_normal<vec3E>(
+    template <> GEOBRLCAD_API vec3E triangle_normal<vec3E>(
         const vec3& p1, const vec3& p2, const vec3& p3
     );
 
@@ -465,7 +465,7 @@ namespace GEO {
      *  the (slower and limited) expansion_nt type otherwise.
      */
     namespace exact {
-#ifdef GEOGRAM_USE_EXACT_NT
+#ifdef GEOBRLCAD_USE_EXACT_NT
         typedef exact_nt scalar;     /**< exact number type for scalars */
 #else
         typedef expansion_nt scalar; /**< exact number type for scalars */

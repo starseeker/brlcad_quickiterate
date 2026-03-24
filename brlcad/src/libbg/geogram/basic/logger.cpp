@@ -54,13 +54,13 @@
   As LoggerStreamBuf only stores the pointer for later use, so we can
   ignore the fact that 'this' is not completely formed yet.
 */
-#ifdef GEO_OS_WINDOWS
+#ifdef GEOBRL_OS_WINDOWS
 #pragma warning(disable:4355)
 #endif
 
 
 namespace {
-    using namespace GEO;
+    using namespace GEOBRL;
 
     /**
      * \brief The output stream returned by Logger::err_console()
@@ -72,7 +72,7 @@ namespace {
     class CERRStream : public std::ostream {
     public:
         CERRStream() :
-            std::ostream(new CERRStreamBuff(this)),lock_(GEOGRAM_SPINLOCK_INIT) {
+            std::ostream(new CERRStreamBuff(this)),lock_(GEOBRLCAD_SPINLOCK_INIT) {
         }
         ~CERRStream() override{
         }
@@ -100,7 +100,7 @@ namespace {
     };
 }
 
-namespace GEO {
+namespace GEOBRL {
 
     /************************************************************************/
 
@@ -324,7 +324,7 @@ namespace GEO {
     {
         // Add a default client printing stuff to std::cout
         register_client(new ConsoleLogger());
-#ifdef GEO_DEBUG
+#ifdef GEOBRL_DEBUG
         quiet_ = false;
 #endif
         err_console_ = new CERRStream;

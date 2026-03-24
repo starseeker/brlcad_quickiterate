@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_BASIC_SMART_POINTER
-#define GEOGRAM_BASIC_SMART_POINTER
+#ifndef GEOBRLCAD_BASIC_SMART_POINTER
+#define GEOBRLCAD_BASIC_SMART_POINTER
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/assert.h>
@@ -49,7 +49,7 @@
  * \brief Pointers with automatic reference counting
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     /************************************************************************/
 

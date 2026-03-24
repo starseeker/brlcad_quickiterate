@@ -43,7 +43,7 @@
 #include <algorithm>
 
 namespace {
-    using namespace GEO;
+    using namespace GEOBRL;
 
 #ifdef PCK_STATS
     inline double percent(Numeric::int64 a, Numeric::int64 b) {
@@ -53,7 +53,7 @@ namespace {
 
 }
 
-namespace GEO {
+namespace GEOBRL {
     namespace PCK {
 
 #ifdef PCK_STATS

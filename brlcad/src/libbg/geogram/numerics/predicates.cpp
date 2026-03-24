@@ -42,7 +42,7 @@
 // This makes sure the compiler will not optimize y = a*x+b
 // with fused multiply-add, this would break the exact
 // predicates.
-#ifdef GEO_COMPILER_MSVC
+#ifdef GEOBRL_COMPILER_MSVC
 #pragma fp_contract(off)
 #endif
 
@@ -79,9 +79,9 @@
 
 namespace {
 
-    using namespace GEO;
+    using namespace GEOBRL;
 
-    GEO::PCK::SOSMode SOS_mode_ = GEO::PCK::SOS_ADDRESS;
+    GEOBRL::PCK::SOSMode SOS_mode_ = GEOBRL::PCK::SOS_ADDRESS;
 
     /**
      * \brief Comparator class for nD points using lexicographic order.
@@ -152,7 +152,7 @@ namespace {
      * \param[in] end one position past the pointer to the last point.
      * \param[in] dim the dimension of the points.
      */
-    void GEOGRAM_API SOS_sort(
+    void GEOBRLCAD_API SOS_sort(
         const double** begin, const double** end, index_t dim
     ) {
         if(SOS_mode_ == PCK::SOS_ADDRESS) {
@@ -306,7 +306,7 @@ namespace {
         return FPG_UNCERTAIN_VALUE;
     }
 
-    using namespace GEO;
+    using namespace GEOBRL;
 
     PCK::PredicateStats stats_side1("side1");
     PCK::PredicateStats stats_side2("side2");
@@ -1608,7 +1608,7 @@ namespace {
 
 /****************************************************************************/
 
-namespace GEO {
+namespace GEOBRL {
 
     namespace PCK {
 
@@ -1795,7 +1795,7 @@ namespace GEO {
             return Sign(-result);
         }
 
-        Sign GEOGRAM_API in_circle_2d_SOS(
+        Sign GEOBRLCAD_API in_circle_2d_SOS(
             const double* p0, const double* p1, const double* p2,
             const double* p3
         ) {
@@ -1821,7 +1821,7 @@ namespace GEO {
             return Sign(-side3_exact_SOS(p0, p1, p2, p3, p0, p1, p2, 2));
         }
 
-        Sign GEOGRAM_API in_circle_3d_SOS(
+        Sign GEOBRLCAD_API in_circle_3d_SOS(
             const double* p0, const double* p1, const double* p2,
             const double* p3
         ) {
@@ -1840,7 +1840,7 @@ namespace GEO {
             return Sign(-side3_3d_SOS(p0,p1,p2,p3,p0,p1,p2));
         }
 
-        Sign GEOGRAM_API in_circle_3dlifted_SOS(
+        Sign GEOBRLCAD_API in_circle_3dlifted_SOS(
             const double* p0, const double* p1, const double* p2,
             const double* p3,
             double h0, double h1, double h2, double h3,

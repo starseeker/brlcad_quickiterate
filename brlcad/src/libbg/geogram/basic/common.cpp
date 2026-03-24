@@ -52,7 +52,7 @@
 #include <iomanip>
 #include <optional>
 
-namespace GEO {
+namespace GEOBRL {
 
     namespace {
 
@@ -81,8 +81,8 @@ namespace GEO {
                 // a decimal ',' instead of a '.').
                 // This restores the default behavior for
                 // reading floating-point numbers.
-#ifdef GEO_OS_UNIX
-                if (flags & GEOGRAM_INSTALL_LOCALE) {
+#ifdef GEOBRL_OS_UNIX
+                if (flags & GEOBRLCAD_INSTALL_LOCALE) {
                     setenv("LC_NUMERIC","POSIX",1);
                 }
 #endif
@@ -96,7 +96,7 @@ namespace GEO {
                 Delaunay::initialize();
 
                 // Clear lastest system error
-                if (flags & GEOGRAM_INSTALL_ERRNO) {
+                if (flags & GEOBRLCAD_INSTALL_ERRNO) {
                     errno = 0;
                 }
             }
@@ -130,7 +130,7 @@ namespace GEO {
 
     void terminate() {
         GeogramLibSingleton::instance(
-            GEOGRAM_INSTALL_NONE, GeoOptions()
+            GEOBRLCAD_INSTALL_NONE, GeoOptions()
         ).reset();
     }
 }

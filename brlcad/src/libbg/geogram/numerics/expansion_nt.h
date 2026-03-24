@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_NUMERICS_EXPANSION_NT
-#define GEOGRAM_NUMERICS_EXPANSION_NT
+#ifndef GEOBRLCAD_NUMERICS_EXPANSION_NT
+#define GEOBRLCAD_NUMERICS_EXPANSION_NT
 
 #include <geogram/basic/common.h>
 #include <geogram/numerics/multi_precision.h>
@@ -50,10 +50,10 @@
  * \brief High-level interface to multi-precision arithmetics
  * \details
  *  This file provides a "number-type" that encapsulates a (low-level)
- *  GEO::expansion object.
+ *  GEOBRL::expansion object.
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     class expansion_nt;
 
@@ -67,7 +67,7 @@ namespace GEO {
      *  performance is a concern, the lower-level expansion class may be
      *  used instead.
      */
-    class GEOGRAM_API expansion_nt {
+    class GEOBRLCAD_API expansion_nt {
     public:
 
     /**
@@ -848,7 +848,7 @@ namespace GEO {
      * \retval false otherwise
      */
     inline bool expansion_nt_is_zero(const expansion_nt& x) {
-        return (x.sign() == GEO::ZERO);
+        return (x.sign() == GEOBRL::ZERO);
     }
 
     /**
@@ -901,7 +901,7 @@ namespace GEO {
      *  This gains some performance as compared to using CGAL's
      *  determinant template with expansion_nt.
      */
-    expansion_nt GEOGRAM_API expansion_nt_determinant(
+    expansion_nt GEOBRLCAD_API expansion_nt_determinant(
         const expansion_nt& a00,const expansion_nt& a01,
         const expansion_nt& a10,const expansion_nt& a11
     );
@@ -912,7 +912,7 @@ namespace GEO {
      *  This gains some performance as compared to using CGAL's determinant
      *  template with expansion_nt.
      */
-    expansion_nt GEOGRAM_API expansion_nt_determinant(
+    expansion_nt GEOBRLCAD_API expansion_nt_determinant(
         const expansion_nt& a00,const expansion_nt& a01,const expansion_nt& a02,
         const expansion_nt& a10,const expansion_nt& a11,const expansion_nt& a12,
         const expansion_nt& a20,const expansion_nt& a21,const expansion_nt& a22
@@ -924,7 +924,7 @@ namespace GEO {
      *  This gains some performance as compared to using CGAL's determinant
      *  template with expansion_nt.
      */
-    expansion_nt GEOGRAM_API expansion_nt_determinant(
+    expansion_nt GEOBRLCAD_API expansion_nt_determinant(
         const expansion_nt& a00,const expansion_nt& a01,
         const expansion_nt& a02,const expansion_nt& a03,
         const expansion_nt& a10,const expansion_nt& a11,
@@ -936,7 +936,7 @@ namespace GEO {
     );
 
 // Make things a bit faster if target OS has large stack size
-#ifdef GEO_HAS_BIG_STACK
+#ifdef GEOBRL_HAS_BIG_STACK
 
     /**
      * \brief Specialization of det2x2
@@ -1008,7 +1008,7 @@ namespace GEO {
  * \return a reference to the stream
  */
 inline std::ostream& operator<< (
-    std::ostream& os, const GEO::expansion_nt& a
+    std::ostream& os, const GEOBRL::expansion_nt& a
 ) {
     return os << a.estimate();
 }
@@ -1020,18 +1020,18 @@ inline std::ostream& operator<< (
  * \param[out] a the read expansion_nt
  * \return a reference to the stream
  */
-inline std::istream& operator>> ( std::istream& is, GEO::expansion_nt& a) {
+inline std::istream& operator>> ( std::istream& is, GEOBRL::expansion_nt& a) {
     double d;
     is >> d;
     if (is) {
-        a = GEO::expansion_nt(d);
+        a = GEOBRL::expansion_nt(d);
     }
     return is;
 }
 
 /*****************************************************************************/
 
-namespace GEO {
+namespace GEOBRL {
 
     /**************************************************************************/
 
@@ -1048,7 +1048,7 @@ namespace GEO {
          * \param[in] b_num , b_denom defines b = \p b_num / \p b_denom
          * \return the sign of a - b
          */
-        template<> Sign GEOGRAM_API ratio_compare(
+        template<> Sign GEOBRLCAD_API ratio_compare(
             const expansion_nt& a_num, const expansion_nt& a_denom,
             const expansion_nt& b_num, const expansion_nt& b_denom
         );

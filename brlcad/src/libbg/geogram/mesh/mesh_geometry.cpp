@@ -44,7 +44,7 @@
 
 /****************************************************************************/
 
-namespace GEO {
+namespace GEOBRL {
 
     namespace Geom {
 
@@ -114,7 +114,31 @@ namespace GEO {
         );
     }
 
+    void set_anisotropy(Mesh& M, double s) {
+        if(M.vertices.dimension() < 6) {
+            compute_normals(M);
+        }
+        if(s == 0.0) {
+            unset_anisotropy(M);
+            return;
+        }
+        s *= bbox_diagonal(M);
+        for(index_t i: M.vertices) {
+            Geom::mesh_vertex_normal_ref(M, i) =
+                s * normalize(Geom::mesh_vertex_normal(M, i));
+        }
+    }
 
+    void unset_anisotropy(Mesh& M) {
+        if(M.vertices.dimension() < 6) {
+            return;
+        }
+        for(index_t i: M.vertices) {
+            Geom::mesh_vertex_normal_ref(M, i) = normalize(
+                Geom::mesh_vertex_normal(M, i)
+            );
+        }
+    }
 
     double surface_average_edge_length(const Mesh& M) {
         double result = 0.0;

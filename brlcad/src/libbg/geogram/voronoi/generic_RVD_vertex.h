@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_VORONOI_GENERIC_RVD_VERTEX
-#define GEOGRAM_VORONOI_GENERIC_RVD_VERTEX
+#ifndef GEOBRLCAD_VORONOI_GENERIC_RVD_VERTEX
+#define GEOBRLCAD_VORONOI_GENERIC_RVD_VERTEX
 
 #include <geogram/basic/common.h>
 #include <geogram/mesh/mesh.h>
@@ -52,20 +52,20 @@
  * \brief Types and utilities for manipulating vertices in geometric
  *  and symbolic forms in restricted Voronoi diagrams.
  * \note This file contains functions and classes used by the
- *  internal implementation of GEO::GenericVoronoiDiagram.
- *  Except some special uses, e.g. subclassing GEO::IntegrationSimplex,
+ *  internal implementation of GEOBRL::GenericVoronoiDiagram.
+ *  Except some special uses, e.g. subclassing GEOBRL::IntegrationSimplex,
  *  they are not meant to be used directly by client code.
  */
 
-namespace GEOGen {
+namespace GEOBRLGen {
 
-    using GEO::Delaunay;      /**< \brief type for nD Delaunay triangulation */
-    using GEO::index_t;   /**< \brief type for indices (vertex and facet id) */
-    using GEO::signed_index_t;  /**< \brief type for indices (can be <0)     */
-    using GEO::coord_index_t;   /**< \brief type for coordinate indices      */
-    using GEO::Sign;  /**< \brief type for signs (POSITIVE,ZERO or NEGATIVE) */
+    using GEOBRL::Delaunay;      /**< \brief type for nD Delaunay triangulation */
+    using GEOBRL::index_t;   /**< \brief type for indices (vertex and facet id) */
+    using GEOBRL::signed_index_t;  /**< \brief type for indices (can be <0)     */
+    using GEOBRL::coord_index_t;   /**< \brief type for coordinate indices      */
+    using GEOBRL::Sign;  /**< \brief type for signs (POSITIVE,ZERO or NEGATIVE) */
 
-    using GEO::Mesh;
+    using GEOBRL::Mesh;
 
     /**
      * \brief Small_set is similar to std::set, but with fixed
@@ -197,7 +197,7 @@ namespace GEOGen {
                 *i = *(i - 1);
             }
             *where = x;
-#ifdef GEO_DEBUG
+#ifdef GEOBRL_DEBUG
             for(iterator i = begin(); i != end() - 1; ++i) {
                 geo_debug_assert(*i < *(i + 1));
             }
@@ -244,7 +244,7 @@ namespace GEOGen {
          * \pre \p x is greater than all the stored elements
          */
         void push_back(const T& x) {
-#ifdef GEO_DEBUG
+#ifdef GEOBRL_DEBUG
             for(iterator i = begin(); i != end(); ++i) {
                 geo_debug_assert(*i < x);
             }
@@ -405,13 +405,13 @@ namespace GEOGen {
      * \note This is an internal implementation class, not meant to be
      *  used by client code.
      */
-    class SymbolicVertex : public small_set<GEO::signed_index_t, 3> {
+    class SymbolicVertex : public small_set<GEOBRL::signed_index_t, 3> {
 
         /** \brief This class type */
         typedef SymbolicVertex thisclass;
 
         /** \brief The base class of this class */
-        typedef small_set<GEO::signed_index_t, 3> baseclass;
+        typedef small_set<GEOBRL::signed_index_t, 3> baseclass;
 
     public:
         /**
@@ -703,7 +703,7 @@ namespace GEOGen {
          */
         ~PointAllocator() {
             for(index_t c = 0; c < chunks_.size(); c++) {
-                GEO::Memory::aligned_free(chunks_[c]);
+                GEOBRL::Memory::aligned_free(chunks_[c]);
             }
         }
 
@@ -731,7 +731,7 @@ namespace GEOGen {
         void grow() {
             chunks_.push_back(
                 reinterpret_cast<double*>(
-                    GEO::Memory::aligned_malloc(
+                    GEOBRL::Memory::aligned_malloc(
                         index_t(CHUNK_SIZE) * dimension_ * sizeof(double)
                     )
                 )
@@ -782,7 +782,7 @@ namespace GEOGen {
      *  geometrical and symbolic representations.
      * \note This is an internal implementation class, not meant to be
      *  used by client code (except in some particular case, such as
-     *  subclassing GEO::IntegrationSimplex).
+     *  subclassing GEOBRL::IntegrationSimplex).
      */
     class Vertex {
 
@@ -1023,10 +1023,10 @@ namespace GEOGen {
         ) const {
             double r = 0.0;
             for(index_t c = 0; c < DIM; ++c) {
-                r += GEO::geo_sqr(p2[c] - point()[c]);
-                r -= GEO::geo_sqr(p1[c] - point()[c]);
+                r += GEOBRL::geo_sqr(p2[c] - point()[c]);
+                r -= GEOBRL::geo_sqr(p1[c] - point()[c]);
             }
-            return GEO::geo_sgn(r);
+            return GEOBRL::geo_sgn(r);
         }
 
     private:

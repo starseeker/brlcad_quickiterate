@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_BASIC_COMMON
-#define GEOGRAM_BASIC_COMMON
+#ifndef GEOBRLCAD_BASIC_COMMON
+#define GEOBRLCAD_BASIC_COMMON
 
 /**
  * \brief Basic definitions for the Geogram C API
@@ -59,26 +59,26 @@
  * \brief Linkage declaration for geogram symbols.
  */
 
-#if defined(GEO_DYNAMIC_LIBS)
+#if defined(GEOBRL_DYNAMIC_LIBS)
 #if defined(_MSC_VER)
-#define GEO_IMPORT __declspec(dllimport)
-#define GEO_EXPORT __declspec(dllexport)
+#define GEOBRL_IMPORT __declspec(dllimport)
+#define GEOBRL_EXPORT __declspec(dllexport)
 #elif defined(__GNUC__)
-#define GEO_IMPORT
-#define GEO_EXPORT __attribute__ ((visibility("default")))
+#define GEOBRL_IMPORT
+#define GEOBRL_EXPORT __attribute__ ((visibility("default")))
 #else
-#define GEO_IMPORT
-#define GEO_EXPORT
+#define GEOBRL_IMPORT
+#define GEOBRL_EXPORT
 #endif
 #else
-#define GEO_IMPORT
-#define GEO_EXPORT
+#define GEOBRL_IMPORT
+#define GEOBRL_EXPORT
 #endif
 
 #ifdef geogram_EXPORTS
-#define GEOGRAM_API GEO_EXPORT
+#define GEOBRLCAD_API GEOBRL_EXPORT
 #else
-#define GEOGRAM_API GEO_IMPORT
+#define GEOBRLCAD_API GEOBRL_IMPORT
 #endif
 
 
@@ -89,7 +89,7 @@
  *  the STL should not be exported, else it generates multiply
  *  defined symbols.
  */
-#define NO_GEOGRAM_API
+#define NO_GEOBRLCAD_API
 
 /**
  * \brief Opaque identifier of a mesh.
@@ -156,8 +156,8 @@ typedef int geo_boolean;
  * \details Used by the C API.
  */
 enum {
-    GEO_FALSE = 0,
-    GEO_TRUE = 1
+    GEOBRL_FALSE = 0,
+    GEOBRL_TRUE = 1
 };
 
 // iostream should be included before anything else,
@@ -176,51 +176,51 @@ enum {
  * \details This namespace contains all the Vorpaline classes and functions
  * organized in sub-namespaces.
  */
-namespace GEO {
+namespace GEOBRL {
 
     /**
-     * \brief Symbolic constants for GEO::initialize()
+     * \brief Symbolic constants for GEOBRL::initialize()
      */
     enum {
         /// Do not install error handlers
-        GEOGRAM_INSTALL_NONE = 0,
+        GEOBRLCAD_INSTALL_NONE = 0,
         /// Install Geogram's signal handlers
-        GEOGRAM_INSTALL_HANDLERS = 1,
+        GEOBRLCAD_INSTALL_HANDLERS = 1,
         /// Sets the locale to POSIX
-        GEOGRAM_INSTALL_LOCALE = 2,
+        GEOBRLCAD_INSTALL_LOCALE = 2,
         /// Reset errno to 0
-        GEOGRAM_INSTALL_ERRNO = 4,
+        GEOBRLCAD_INSTALL_ERRNO = 4,
         /// Enable or disable FPE during initialization
-        GEOGRAM_INSTALL_FPE = 8,
+        GEOBRLCAD_INSTALL_FPE = 8,
         /// Enable global citation database
-        GEOGRAM_INSTALL_BIBLIO = 16,
+        GEOBRLCAD_INSTALL_BIBLIO = 16,
         /// Install everything
-        GEOGRAM_INSTALL_ALL = GEOGRAM_INSTALL_HANDLERS
-        | GEOGRAM_INSTALL_LOCALE
-        | GEOGRAM_INSTALL_ERRNO
-        | GEOGRAM_INSTALL_FPE
-        | GEOGRAM_INSTALL_BIBLIO
+        GEOBRLCAD_INSTALL_ALL = GEOBRLCAD_INSTALL_HANDLERS
+        | GEOBRLCAD_INSTALL_LOCALE
+        | GEOBRLCAD_INSTALL_ERRNO
+        | GEOBRLCAD_INSTALL_FPE
+        | GEOBRLCAD_INSTALL_BIBLIO
     };
 
     /**
      * \brief Initialize Geogram
      * \param[in] flags an or combination of
-     *  - GEOGRAM_INSTALL_HANDLERS to install geogram error handlers. This avoid
+     *  - GEOBRLCAD_INSTALL_HANDLERS to install geogram error handlers. This avoid
      *  opening dialog boxes under Windows. This is useful for the automatic
      *  test suite. Else continuous integration tests hang because of the dialog
      *  box. Normal users may want to keep the default Windows behavior, since
      *  geogram error handlers may make debugging more difficult under Windows.
-     * - GEOGRAM_INSTALL_LOCALE to set the locale to POSIX.
-     * - GEOGRAM_INSTALL_ERRNO to clear the last system error.
-     * - GEOGRAM_INSTALL_FPE to enable/disable floating point exceptions.
-     * - GEOGRAM_INSTALL_BIBLIO to enable global citation database.
+     * - GEOBRLCAD_INSTALL_LOCALE to set the locale to POSIX.
+     * - GEOBRLCAD_INSTALL_ERRNO to clear the last system error.
+     * - GEOBRLCAD_INSTALL_FPE to enable/disable floating point exceptions.
+     * - GEOBRLCAD_INSTALL_BIBLIO to enable global citation database.
      * \details This function must be called once at the very beginning of a
      * program to initialize the Vorpaline library. It also installs a exit()
      * handler that calls function terminate() when the program exists
      * normally. If it is called multiple times, then the supplemental calls
      * have no effect.
      */
-    void GEOGRAM_API initialize(int flags = GEOGRAM_INSTALL_NONE,
+    void GEOBRLCAD_API initialize(int flags = GEOBRLCAD_INSTALL_NONE,
                                const GeoOptions& opts = GeoOptions());
 
     /**
@@ -230,196 +230,196 @@ namespace GEO {
      * \warning This function should \b not be called directly.
      * \see initialize()
      */
-    void GEOGRAM_API terminate();
+    void GEOBRLCAD_API terminate();
 }
 
 /**
- * \def GEO_DEBUG
+ * \def GEOBRL_DEBUG
  * \brief This macro is set when compiling in debug mode
  *
- * \def GEO_PARANOID
+ * \def GEOBRL_PARANOID
  * \brief This macro is set when compiling in debug mode
  *
- * \def GEO_OS_LINUX
+ * \def GEOBRL_OS_LINUX
  * \brief This macro is set on Linux systems (Android included).
  *
- * \def GEO_OS_UNIX
+ * \def GEOBRL_OS_UNIX
  * \brief This macro is set on Unix systems (Android included).
  *
- * \def GEO_OS_WINDOWS
+ * \def GEOBRL_OS_WINDOWS
  * \brief This macro is set on Windows systems.
  *
- * \def GEO_OS_APPLE
+ * \def GEOBRL_OS_APPLE
  * \brief This macro is set on Apple systems.
  *
- * \def GEO_OS_ANDROID
- * \brief This macro is set on Android systems (in addition to GEO_OS_LINUX
- * and GEO_OS_UNIX).
+ * \def GEOBRL_OS_ANDROID
+ * \brief This macro is set on Android systems (in addition to GEOBRL_OS_LINUX
+ * and GEOBRL_OS_UNIX).
  *
- * \def GEO_OS_X11
+ * \def GEOBRL_OS_X11
  * \brief This macro is set on X11 is supported on the current system.
  *
- * \def GEO_ARCH_32
+ * \def GEOBRL_ARCH_32
  * \brief This macro is set if the current system is a 32 bits architecture.
  *
- * \def GEO_ARCH_64
+ * \def GEOBRL_ARCH_64
  * \brief This macro is set if the current system is a 64 bits architecture.
  *
- * \def GEO_COMPILER_GCC
+ * \def GEOBRL_COMPILER_GCC
  * \brief This macro is set if the source code is compiled with GNU's gcc.
  *
- * \def GEO_COMPILER_INTEL
+ * \def GEOBRL_COMPILER_INTEL
  * \brief This macro is set if the source code is compiled with Intel's icc.
  *
- * \def GEO_COMPILER_MSVC
+ * \def GEOBRL_COMPILER_MSVC
  * \brief This macro is set if the source code is compiled with Microsoft's
  * Visual C++.
  *
- * \def GEO_NORETURN_DECL
+ * \def GEOBRL_NORETURN_DECL
  * \brief Should be inserted before the prototype of a function that does
  *  not return.
  * \details This helps the compiler determining where the execution flow
  *  goes. This is useful for helping the compiler generate some warnings.
  *   Example of a function prototype for a function that does not return
- *   (note the GEO_NORETURN_DECL keyword before and the GEO_NORETURN
+ *   (note the GEOBRL_NORETURN_DECL keyword before and the GEOBRL_NORETURN
  *    keyword after).
  *   \code
- *      GEO_NORETURN_DECL void GEOGRAM_API geo_abort() GEO_NORETURN;
+ *      GEOBRL_NORETURN_DECL void GEOBRLCAD_API geo_abort() GEOBRL_NORETURN;
  *   \endcode
  *
- * \def GEO_NORETURN
+ * \def GEOBRL_NORETURN
  * \brief Should be inserted after the prototype of a function that does
  *  not return.
  * \details This helps the compiler determining where the execution flow
  *  goes. This is useful for helping the compiler generate some warnings.
  *   Example of a function prototype for a function that does not return
- *   (note the GEO_NORETURN_DECL keyword before and the GEO_NORETURN
+ *   (note the GEOBRL_NORETURN_DECL keyword before and the GEOBRL_NORETURN
  *    keyword after).
  *   \code
- *      GEO_NORETURN_DECL void GEOGRAM_API geo_abort() GEO_NORETURN;
+ *      GEOBRL_NORETURN_DECL void GEOBRLCAD_API geo_abort() GEOBRL_NORETURN;
  *   \endcode
  *
- * \def GEO_NOEXCEPT
+ * \def GEOBRL_NOEXCEPT
  * \brief Indicates that a function does not throw any exception.
  * \details Should be specified at the end of the function prototype.
  * \code
- *    void GEOGRAM_API foobar() GEO_NOEXCEPT;
+ *    void GEOBRLCAD_API foobar() GEOBRL_NOEXCEPT;
  * \encode
  */
 
-#if (defined(NDEBUG) || defined(GEOGRAM_PSM)) && !defined(GEOGRAM_PSM_DEBUG)
-#undef GEO_DEBUG
-#undef GEO_PARANOID
+#if (defined(NDEBUG) || defined(GEOBRLCAD_PSM)) && !defined(GEOBRLCAD_PSM_DEBUG)
+#undef GEOBRL_DEBUG
+#undef GEOBRL_PARANOID
 #else
-#define GEO_DEBUG
-#define GEO_PARANOID
+#define GEOBRL_DEBUG
+#define GEOBRL_PARANOID
 #endif
 
 // =============================== LINUX defines ===========================
 
 #if defined(__ANDROID__)
-#define GEO_OS_ANDROID
+#define GEOBRL_OS_ANDROID
 #endif
 
 #if defined(__linux__)
 
-#define GEO_OS_LINUX
-#define GEO_OS_UNIX
+#define GEOBRL_OS_LINUX
+#define GEOBRL_OS_UNIX
 
-#define GEO_OS_X11
+#define GEOBRL_OS_X11
 
 
 #if defined(__INTEL_COMPILER)
-#  define GEO_COMPILER_INTEL
+#  define GEOBRL_COMPILER_INTEL
 #elif defined(__clang__)
-#  define GEO_COMPILER_CLANG
+#  define GEOBRL_COMPILER_CLANG
 #elif defined(__GNUC__)
-#  define GEO_COMPILER_GCC
+#  define GEOBRL_COMPILER_GCC
 #else
 #  error "Unsupported compiler"
 #endif
 
 // The following works on GCC and ICC
 #if defined(__x86_64)
-#  define GEO_ARCH_64
-#  define GEO_PROCESSOR_X86
+#  define GEOBRL_ARCH_64
+#  define GEOBRL_PROCESSOR_X86
 #else
-#  define GEO_ARCH_32
+#  define GEOBRL_ARCH_32
 #endif
 
 // =============================== WINDOWS defines =========================
 
 #elif defined(_WIN32) || defined(_WIN64)
 
-#define GEO_OS_WINDOWS
-#define GEO_PROCESSOR_X86
+#define GEOBRL_OS_WINDOWS
+#define GEOBRL_PROCESSOR_X86
 
 
 #if defined(_MSC_VER)
-#  define GEO_COMPILER_MSVC
+#  define GEOBRL_COMPILER_MSVC
 #elif defined(__MINGW32__) || defined(__MINGW64__)
-#  define GEO_COMPILER_MINGW
+#  define GEOBRL_COMPILER_MINGW
 #endif
 
 #if defined(_WIN64)
-#  define GEO_ARCH_64
+#  define GEOBRL_ARCH_64
 #else
-#  define GEO_ARCH_32
+#  define GEOBRL_ARCH_32
 #endif
 
 // =============================== APPLE defines ===========================
 
 #elif defined(__APPLE__)
 
-#define GEO_OS_APPLE
-#define GEO_OS_UNIX
+#define GEOBRL_OS_APPLE
+#define GEOBRL_OS_UNIX
 
 
 #if defined(__clang__)
-#  define GEO_COMPILER_CLANG
+#  define GEOBRL_COMPILER_CLANG
 #elif defined(__GNUC__)
-#  define GEO_COMPILER_GCC
+#  define GEOBRL_COMPILER_GCC
 #else
 #  error "Unsupported compiler"
 #endif
 
 #if defined(__x86_64) || defined(__ppc64__) || defined(__arm64__) || defined(__aarch64__) || (defined(__riscv) && __riscv_xlen == 64) || defined(__loongarch_lp64)
-#  define GEO_ARCH_64
+#  define GEOBRL_ARCH_64
 #else
-#  define GEO_ARCH_32
+#  define GEOBRL_ARCH_32
 #endif
 
 // =============================== Emscripten defines  ======================
 
 #elif defined(__EMSCRIPTEN__)
 
-#define GEO_OS_UNIX
-#define GEO_OS_LINUX
-#define GEO_OS_EMSCRIPTEN
-#define GEO_ARCH_64
-#define GEO_COMPILER_EMSCRIPTEN
-#define GEO_COMPILER_CLANG
+#define GEOBRL_OS_UNIX
+#define GEOBRL_OS_LINUX
+#define GEOBRL_OS_EMSCRIPTEN
+#define GEOBRL_ARCH_64
+#define GEOBRL_COMPILER_EMSCRIPTEN
+#define GEOBRL_COMPILER_CLANG
 
 // =============================== Unsupported =============================
 #else
 #error "Unsupported operating system"
 #endif
 
-#if defined(GEO_COMPILER_GCC)   ||              \
-    defined(GEO_COMPILER_CLANG) ||              \
-    defined(GEO_COMPILER_MINGW) ||              \
-    defined(GEO_COMPILER_EMSCRIPTEN)
-#define GEO_COMPILER_GCC_FAMILY
+#if defined(GEOBRL_COMPILER_GCC)   ||              \
+    defined(GEOBRL_COMPILER_CLANG) ||              \
+    defined(GEOBRL_COMPILER_MINGW) ||              \
+    defined(GEOBRL_COMPILER_EMSCRIPTEN)
+#define GEOBRL_COMPILER_GCC_FAMILY
 #endif
 
 #ifdef DOXYGEN_ONLY
 // Keep doxygen happy
-#define GEO_OS_WINDOWS
-#define GEO_OS_APPLE
-#define GEO_OS_ANDROID
-#define GEO_ARCH_32
-#define GEO_COMPILER_INTEL
-#define GEO_COMPILER_MSVC
+#define GEOBRL_OS_WINDOWS
+#define GEOBRL_OS_APPLE
+#define GEOBRL_OS_ANDROID
+#define GEOBRL_ARCH_32
+#define GEOBRL_COMPILER_INTEL
+#define GEOBRL_COMPILER_MSVC
 #endif
 
 /**
@@ -435,35 +435,35 @@ namespace GEO {
 #define CPP_CONCAT(A, B) CPP_CONCAT_(A, B)
 
 #if defined(GOMGEN)
-#define GEO_NORETURN
-#elif defined(GEO_COMPILER_GCC_FAMILY) ||       \
-    defined(GEO_COMPILER_INTEL)
-#define GEO_NORETURN __attribute__((noreturn))
+#define GEOBRL_NORETURN
+#elif defined(GEOBRL_COMPILER_GCC_FAMILY) ||       \
+    defined(GEOBRL_COMPILER_INTEL)
+#define GEOBRL_NORETURN __attribute__((noreturn))
 #else
-#define GEO_NORETURN
+#define GEOBRL_NORETURN
 #endif
 
 #if defined(GOMGEN)
-#define GEO_NORETURN_DECL
-#elif defined(GEO_COMPILER_MSVC)
-#define GEO_NORETURN_DECL __declspec(noreturn)
+#define GEOBRL_NORETURN_DECL
+#elif defined(GEOBRL_COMPILER_MSVC)
+#define GEOBRL_NORETURN_DECL __declspec(noreturn)
 #else
-#define GEO_NORETURN_DECL
+#define GEOBRL_NORETURN_DECL
 #endif
 
-#if defined(GEO_COMPILER_CLANG) || defined(GEO_COMPILER_EMSCRIPTEN)
+#if defined(GEOBRL_COMPILER_CLANG) || defined(GEOBRL_COMPILER_EMSCRIPTEN)
 #if __has_feature(cxx_noexcept)
-#define GEO_NOEXCEPT noexcept
+#define GEOBRL_NOEXCEPT noexcept
 #endif
 #endif
 
 // For Graphite GOM generator (swig is confused by throw() specifier)
 #ifdef GOMGEN
-#define GEO_NOEXCEPT
+#define GEOBRL_NOEXCEPT
 #endif
 
-#ifndef GEO_NOEXCEPT
-#define GEO_NOEXCEPT throw()
+#ifndef GEOBRL_NOEXCEPT
+#define GEOBRL_NOEXCEPT throw()
 #endif
 
 #define FOR(I,UPPERBND) for(index_t I = 0; I<index_t(UPPERBND); ++I)
@@ -471,7 +471,7 @@ namespace GEO {
 // Silence warnings for alloca()
 // We use it at different places to allocate objects on the stack
 // (for instance, in multi-precision predicates).
-#ifdef GEO_COMPILER_CLANG
+#ifdef GEOBRL_COMPILER_CLANG
 #pragma GCC diagnostic ignored "-Walloca"
 #endif
 
