@@ -69,8 +69,6 @@ extern "C" {
 
 #define NL_MATRIX_SPARSE_DYNAMIC 0x1001
 #define NL_MATRIX_CRS            0x1002
-#define NL_MATRIX_SUPERLU_EXT    0x1003
-#define NL_MATRIX_CHOLMOD_EXT    0x1004
 #define NL_MATRIX_FUNCTION       0x1005
 #define NL_MATRIX_OTHER          0x1006
 
@@ -91,8 +89,8 @@ extern "C" {
         /**
          * \brief Matrix type
          * \details One of NL_MATRIX_SPARSE_DYNAMIC,
-         *  NL_MATRIX_CRS, NL_MATRIX_SUPERLU_EXT,
-         *  NL_CHOLDMOD_MATRIX_EXT, NL_MATRIX_FUNCTION,
+         *  NL_MATRIX_CRS,
+         *  NL_MATRIX_FUNCTION,
          *  NL_MATRIX_OTHER
          */
         NLenum type;
@@ -288,8 +286,7 @@ extern "C" {
 
         /**
          * \brief Matrix type
-         * \details One of NL_MATRIX_DYNAMIC, NL_MATRIX_CRS,
-	 *  NL_MATRIX_SUPERLU_EXT, NL_CHOLDMOD_MATRIX_EXT
+         * \details One of NL_MATRIX_DYNAMIC, NL_MATRIX_CRS
          */
         NLenum type;
 
@@ -522,8 +519,7 @@ extern "C" {
 
         /**
          * \brief Matrix type
-         * \details One of NL_MATRIX_DYNAMIC, NL_MATRIX_CRS,
-	 *  NL_MATRIX_SUPERLU_EXT, NL_CHOLDMOD_MATRIX_EXT
+         * \details One of NL_MATRIX_DYNAMIC, NL_MATRIX_CRS
          */
         NLenum type;
 
@@ -782,22 +778,6 @@ extern "C" {
  * \return the number of non-zero entries in \p M
  */
     NLAPI NLuint_big NLAPIENTRY nlMatrixNNZ(NLMatrix M);
-
-/**
- * \brief Factorizes a matrix.
- * \details The corresponding extension needs to be successfully initialized
- *  before calling this function.
- * \param[in] M the input matrix
- * \param[in] solver a direct solver, i.e., one of:
- *   - NL_SUPERLU_EXT
- *   - NL_PERM_SUPERLU_EXT
- *   - NL_SYMMETRIC_SUPERLU_EXT
- *   - NL_CHOLMOD_EXT
- * \return a factorization of \p M, or NULL if \p M is singular. When calling
- *  nlMultMatrixVector() with the result, it solves a linear system (the result
- *  may be thought of as the inverse of \p M).
- */
-    NLAPI NLMatrix NLAPIENTRY nlMatrixFactorize(NLMatrix M, NLenum solver);
 
 /******************************************************************************/
 

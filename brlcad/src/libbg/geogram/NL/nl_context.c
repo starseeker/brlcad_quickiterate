@@ -42,10 +42,6 @@
 #include "nl_preconditioners.h"
 #include "nl_matrix.h"
 
-#ifdef NL_WITH_AMGCL
-# include "nl_amgcl.h"
-#endif
-
 NLContextStruct* nlCurrentContext = NULL;
 
 NLContext nlNewContext(void) {
@@ -164,39 +160,6 @@ static void nlSetupPreconditioner(void) {
     default:
         nl_assert_not_reached;
     }
-
-    if(nlCurrentContext->preconditioner != NL_PRECOND_SSOR) {
-        if(getenv("NL_LOW_MEM") == NULL) {
-            nlMatrixCompress(&nlCurrentContext->M);
-        }
-    }
-}
-
-static NLboolean nlSolveDirect(void) {
-    NLdouble* b = nlCurrentContext->b;
-    NLdouble* x = nlCurrentContext->x;
-    NLuint n = nlCurrentContext->n;
-    NLuint k;
-
-    NLMatrix F = nlMatrixFactorize(
-        nlCurrentContext->M, nlCurrentContext->solver
-    );
-    if(F == NULL) {
-        return NL_FALSE;
-    }
-    for(k=0; k<nlCurrentContext->nb_systems; ++k) {
-        if(nlCurrentContext->no_variables_indirection) {
-            x = (double*)nlCurrentContext->variable_buffer[k].base_address;
-            nl_assert(
-                nlCurrentContext->variable_buffer[k].stride == sizeof(double)
-            );
-        }
-        nlMultMatrixVector(F, b, x);
-        b += n;
-        x += n;
-    }
-    nlDeleteMatrix(F);
-    return NL_TRUE;
 }
 
 static NLboolean nlSolveIterative(void) {
@@ -249,15 +212,6 @@ NLboolean nlDefaultSolver(void) {
     case NL_BICGSTAB:
     case NL_GMRES: {
         result = nlSolveIterative();
-    } break;
-
-    case NL_AMGCL_EXT: {
-#ifdef NL_WITH_AMGCL
-        result = nlSolveAMGCL();
-#else
-        nlError("nlSolve()","AMGCL not supported");
-        result = NL_FALSE;
-#endif
     } break;
 
     default:

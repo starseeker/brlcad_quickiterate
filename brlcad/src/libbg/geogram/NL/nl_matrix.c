@@ -931,25 +931,11 @@ NLMatrix nlCRSMatrixNewFromSparseMatrixSymmetric(NLSparseMatrix* M) {
 void nlMatrixCompress(NLMatrix* M) {
     NLMatrix result = NULL;
 
-    if(
-        (*M)->type == NL_MATRIX_CRS &&
-        nlExtensionIsInitialized_MKL()
-    ) {
-        result = nlMKLMatrixNewFromCRSMatrix((NLCRSMatrix*)*M);
-        nlDeleteMatrix(*M);
-        *M = result;
-        return;
-    }
-
     if((*M)->type != NL_MATRIX_SPARSE_DYNAMIC) {
         return;
     }
 
-    if(nlExtensionIsInitialized_MKL()) {
-        result = nlMKLMatrixNewFromSparseMatrix((NLSparseMatrix*)*M);
-    } else {
-        result = nlCRSMatrixNewFromSparseMatrix((NLSparseMatrix*)*M);
-    }
+    result = nlCRSMatrixNewFromSparseMatrix((NLSparseMatrix*)*M);
     nlDeleteMatrix(*M);
     *M = result;
 }
@@ -961,23 +947,6 @@ NLuint_big nlMatrixNNZ(NLMatrix M) {
         return nlCRSMatrixNNZ((NLCRSMatrix*)M);
     }
     return (NLuint_big)(M->m) * (NLuint_big)(M->n);
-}
-
-NLMatrix nlMatrixFactorize(NLMatrix M, NLenum solver) {
-    NLMatrix result = NULL;
-    switch(solver) {
-    case NL_SUPERLU_EXT:
-    case NL_PERM_SUPERLU_EXT:
-    case NL_SYMMETRIC_SUPERLU_EXT:
-        result = nlMatrixFactorize_SUPERLU(M,solver);
-        break;
-    case NL_CHOLMOD_EXT:
-        result = nlMatrixFactorize_CHOLMOD(M,solver);
-        break;
-    default:
-        nlError("nlMatrixFactorize","unknown solver");
-    }
-    return result;
 }
 
 /*****************************************************************/
@@ -999,8 +968,8 @@ typedef struct {
     /**
      * \brief Matrix type
      * \details One of NL_MATRIX_SPARSE_DYNAMIC,
-     *  NL_MATRIX_CRS, NL_MATRIX_SUPERLU_EXT,
-     *  NL_MATRIX_CHOLDMOD_EXT, NL_MATRIX_FUNCTION,
+     *  NL_MATRIX_CRS,
+     *  NL_MATRIX_FUNCTION,
      *  NL_MATRIX_OTHER
      */
     NLenum type;

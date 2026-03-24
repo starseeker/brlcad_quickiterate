@@ -75,17 +75,6 @@ int NL_FORTRAN_WRAP(xerbla)(char *srname, int *info) {
 #endif
 #endif
 
-#ifdef NL_USE_SUPERLU
-#ifndef NL_USE_BLAS
-#define NL_USE_BLAS
-/*
- * The BLAS included in SuperLU does not have DTPSV,
- * we use the DTPSV embedded in OpenNL.
- */
-#define NEEDS_DTPSV
-#endif
-#endif
-
 #ifndef NL_USE_BLAS
 #define NEEDS_DTPSV
 #endif

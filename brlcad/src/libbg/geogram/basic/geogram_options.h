@@ -62,7 +62,7 @@ namespace GEO {
      * by const reference to algorithm functions.  The default values
      * match the historic CmdLine defaults.
      */
-    struct GEOGRAM_API GeoOptions {
+    struct GeoOptions {
 
         // ----------------------------------------------------------------
         // algo group
