@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_MESH_MESH
-#define GEOGRAM_MESH_MESH
+#ifndef GEOBRLCAD_MESH_MESH
+#define GEOBRLCAD_MESH_MESH
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/range.h>
@@ -59,7 +59,7 @@
  * \brief The class that represents a mesh.
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     class Mesh;
 
@@ -76,7 +76,7 @@ namespace GEO {
      *  and MeshCellFacet).
      * \relates Mesh
      */
-    class GEOGRAM_API MeshSubElementsStore {
+    class GEOBRLCAD_API MeshSubElementsStore {
     public:
 
     /**
@@ -249,7 +249,7 @@ namespace GEO {
      *  vertices, facets and cells.
      * \relates Mesh
      */
-    class GEOGRAM_API MeshElements {
+    class GEOBRLCAD_API MeshElements {
     public:
     MeshElements();
     virtual ~MeshElements();
@@ -308,7 +308,7 @@ namespace GEO {
      * \retval true if \p I contains at least a non-zero value
      * \retval false otherwise
      */
-    static bool has_non_zero(const GEO::vector<index_t>& I) {
+    static bool has_non_zero(const GEOBRL::vector<index_t>& I) {
         for(index_t i = 0; i < I.size(); i++) {
             if(I[i] != 0) {
                 return true;
@@ -328,7 +328,7 @@ namespace GEO {
      * \brief The vertices of a mesh.
      * \relates Mesh
      */
-    class GEOGRAM_API MeshVertices :
+    class GEOBRLCAD_API MeshVertices :
         public MeshSubElementsStore, public MeshElements {
     public:
         MeshVertices(Mesh& mesh);
@@ -686,7 +686,7 @@ namespace GEO {
      * \brief The edges of a mesh.
      * \relates Mesh
      */
-    class GEOGRAM_API MeshEdges :
+    class GEOBRLCAD_API MeshEdges :
         public MeshSubElementsStore, public MeshElements {
     public:
         MeshEdges(Mesh& mesh);
@@ -820,7 +820,7 @@ namespace GEO {
      * \brief Stores the facets of a mesh (low-level store)
      * \relates MeshFacets
      */
-    class GEOGRAM_API MeshFacetsStore : public MeshSubElementsStore {
+    class GEOBRLCAD_API MeshFacetsStore : public MeshSubElementsStore {
     public:
         MeshFacetsStore(Mesh& mesh);
 
@@ -934,7 +934,7 @@ namespace GEO {
      * \brief Stores the facet corners of a mesh (low-level store)
      * \relates MeshFacets
      */
-    class GEOGRAM_API MeshFacetCornersStore : public MeshSubElementsStore {
+    class GEOBRLCAD_API MeshFacetCornersStore : public MeshSubElementsStore {
     public:
         MeshFacetCornersStore(Mesh& mesh);
 
@@ -1120,7 +1120,7 @@ namespace GEO {
      * \brief The facets of a mesh
      * \relates Mesh
      */
-    class GEOGRAM_API MeshFacets : public MeshFacetsStore, public MeshElements {
+    class GEOBRLCAD_API MeshFacets : public MeshFacetsStore, public MeshElements {
     public:
 
         /**
@@ -1723,7 +1723,7 @@ namespace GEO {
         MeshFacetCornersStore& facet_corners_;
         friend class Mesh;
         friend class GeogramIOHandler;
-        friend void GEOGRAM_API tessellate_facets(
+        friend void GEOBRLCAD_API tessellate_facets(
             Mesh& M, index_t max_nb_vertices
         );
     };
@@ -1785,21 +1785,21 @@ namespace GEO {
         /**
          * \brief Maps a cell type to the associated cell descriptor.
          */
-        GEOGRAM_API extern CellDescriptor*
-        cell_type_to_cell_descriptor[GEO::MESH_NB_CELL_TYPES];
+        GEOBRLCAD_API extern CellDescriptor*
+        cell_type_to_cell_descriptor[GEOBRL::MESH_NB_CELL_TYPES];
 
-        GEOGRAM_API extern CellDescriptor tet_descriptor;
-        GEOGRAM_API extern CellDescriptor hex_descriptor;
-        GEOGRAM_API extern CellDescriptor prism_descriptor;
-        GEOGRAM_API extern CellDescriptor pyramid_descriptor;
-        GEOGRAM_API extern CellDescriptor connector_descriptor;
+        GEOBRLCAD_API extern CellDescriptor tet_descriptor;
+        GEOBRLCAD_API extern CellDescriptor hex_descriptor;
+        GEOBRLCAD_API extern CellDescriptor prism_descriptor;
+        GEOBRLCAD_API extern CellDescriptor pyramid_descriptor;
+        GEOBRLCAD_API extern CellDescriptor connector_descriptor;
     }
 
     /**
      * \brief Stores the cells of a mesh (low-level store)
      * \relates MeshCells
      */
-    class GEOGRAM_API MeshCellsStore : public MeshSubElementsStore {
+    class GEOBRLCAD_API MeshCellsStore : public MeshSubElementsStore {
     public:
         MeshCellsStore(Mesh& mesh);
 
@@ -1890,7 +1890,7 @@ namespace GEO {
             geo_debug_assert(c < nb());
             // There seems to be a linkage problem under MSVC for the
             // following assertion check...
-#ifndef GEO_OS_WINDOWS
+#ifndef GEOBRL_OS_WINDOWS
             geo_debug_assert(lv < nb_corners(c));
 #endif
             return corners_begin(c) + lv;
@@ -1999,7 +1999,7 @@ namespace GEO {
      * \brief Stores the cell corners of a mesh (low-level store)
      * \relates MeshCells
      */
-    class GEOGRAM_API MeshCellCornersStore : public MeshSubElementsStore {
+    class GEOBRLCAD_API MeshCellCornersStore : public MeshSubElementsStore {
     public:
         MeshCellCornersStore(Mesh& mesh);
 
@@ -2114,7 +2114,7 @@ namespace GEO {
      * \brief Stores the cell facets of a mesh (low-level store)
      * \relates MeshCells
      */
-    class GEOGRAM_API MeshCellFacetsStore : public MeshSubElementsStore {
+    class GEOBRLCAD_API MeshCellFacetsStore : public MeshSubElementsStore {
     public:
         /**
          * \brief MeshCellFacetsStore constructor
@@ -2210,7 +2210,7 @@ namespace GEO {
      * \brief The cells of a mesh.
      * \relates Mesh
      */
-    class GEOGRAM_API MeshCells : public MeshCellsStore, public MeshElements {
+    class GEOBRLCAD_API MeshCells : public MeshCellsStore, public MeshElements {
     public:
         /**
          * \brief MeshCells constructor
@@ -3071,7 +3071,7 @@ namespace GEO {
      *  optionally volumetric cells. Attributes can be attached
      *  to all elements and sub-elements.
      */
-    class GEOGRAM_API Mesh {
+    class GEOBRLCAD_API Mesh {
     public:
     MeshVertices          vertices;
     MeshEdges             edges;

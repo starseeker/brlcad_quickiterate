@@ -38,14 +38,14 @@
  */
 
 
-#ifndef GEOGRAM_BASIC_VECTOR_ATTRIBUTE
-#define GEOGRAM_BASIC_VECTOR_ATTRIBUTE
+#ifndef GEOBRLCAD_BASIC_VECTOR_ATTRIBUTE
+#define GEOBRLCAD_BASIC_VECTOR_ATTRIBUTE
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/attributes.h>
 #include <geogram/basic/geometry.h>
 
-namespace GEO {
+namespace GEOBRL {
 
     /**
      * \brief An attribute class that can access a vector attribute
@@ -138,7 +138,7 @@ namespace GEO {
 	    return manager_;
 	}
 
-#ifdef GEO_COMPILER_CLANG
+#ifdef GEOBRL_COMPILER_CLANG
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wcast-align"
 #endif
@@ -152,7 +152,7 @@ namespace GEO {
 	    return ((vec_type*)store_observer_.base_addr())[i];
 	}
 
-#ifdef GEO_COMPILER_CLANG
+#ifdef GEOBRL_COMPILER_CLANG
 #pragma clang diagnostic pop
 #endif
 

@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_VORONOI_CVT
-#define GEOGRAM_VORONOI_CVT
+#ifndef GEOBRLCAD_VORONOI_CVT
+#define GEOBRLCAD_VORONOI_CVT
 
 #include <geogram/basic/common.h>
 #include <geogram/voronoi/RVD.h>
@@ -52,7 +52,7 @@
  * \brief Main class for computing centroidal Voronoi tesselations.
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     class RestrictedVoronoiDiagram;
     class ProgressTask;
@@ -66,7 +66,7 @@ namespace GEO {
      *  computations are done by RestrictedVoronoiDiagram, and
      *  the numerical optimization by Optimizer.
      */
-    class GEOGRAM_API CentroidalVoronoiTesselation {
+    class GEOBRLCAD_API CentroidalVoronoiTesselation {
 
         /** \brief This class type */
         typedef CentroidalVoronoiTesselation thisclass;

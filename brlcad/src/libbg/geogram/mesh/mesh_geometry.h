@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_MESH_MESH_GEOMETRY
-#define GEOGRAM_MESH_MESH_GEOMETRY
+#ifndef GEOBRLCAD_MESH_MESH_GEOBRLMETRY
+#define GEOBRLCAD_MESH_MESH_GEOBRLMETRY
 
 #include <geogram/basic/common.h>
 #include <geogram/mesh/mesh.h>
@@ -50,7 +50,7 @@
  * \brief Functions for accessing the geometry in a mesh
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     namespace Geom {
 
@@ -180,7 +180,7 @@ namespace GEO {
                 index_t i = M.facets.corners_begin(f) + 1;
                 i + 1 < M.facets.corners_end(f); i++
             ) {
-                result += GEO::Geom::triangle_area(
+                result += GEOBRL::Geom::triangle_area(
                     p0,
                     M.vertices.point_ptr(M.facet_corners.vertex(i)),
                     M.vertices.point_ptr(M.facet_corners.vertex(i + 1)),
@@ -198,7 +198,7 @@ namespace GEO {
          * \pre dimension >= 3
          * \note the computed vector is not normalized.
          */
-        vec3 GEOGRAM_API  mesh_facet_normal(const Mesh& M, index_t f);
+        vec3 GEOBRLCAD_API  mesh_facet_normal(const Mesh& M, index_t f);
 
         /**
          * \brief Gets the centroid of the vertices of a facet in a mesh.
@@ -271,7 +271,7 @@ namespace GEO {
          *  the facet adjacent to c
          * \pre M.facets.are_simplices() && M.corner_adjacent_facet(c) != -1
          */
-        double GEOGRAM_API mesh_normal_angle(const Mesh& M, index_t c);
+        double GEOBRLCAD_API mesh_normal_angle(const Mesh& M, index_t c);
 
         /**
          * \brief Computes the angle between the normal vectors
@@ -280,7 +280,7 @@ namespace GEO {
          * \param[in] f1 , f2 two facets of the mesh
          * \return the angle between \p f1 and \p f2 in radians
          */
-        double GEOGRAM_API mesh_unsigned_normal_angle(
+        double GEOBRLCAD_API mesh_unsigned_normal_angle(
             const Mesh& M, index_t f1, index_t f2
         );
 
@@ -292,7 +292,7 @@ namespace GEO {
          * \return the area of the mesh \p M computed in dim \p d.
          * \pre dim <= M.vertices.dimension()
          */
-        double GEOGRAM_API mesh_area(const Mesh& M, index_t dim);
+        double GEOBRLCAD_API mesh_area(const Mesh& M, index_t dim);
 
         /**
          * \brief Computes the total surface area of a mesh.
@@ -308,7 +308,7 @@ namespace GEO {
          * \param[in] M a closed surfacic mesh.
          * \return the volume enclosed by \p M.
          */
-        double GEOGRAM_API mesh_enclosed_volume(const Mesh& M);
+        double GEOBRLCAD_API mesh_enclosed_volume(const Mesh& M);
     }
 
     /**
@@ -316,7 +316,7 @@ namespace GEO {
      *  them as additional coordinates.
      * \param[in,out] M the mesh
      */
-    void GEOGRAM_API compute_normals(Mesh& M);
+    void GEOBRLCAD_API compute_normals(Mesh& M);
 
     /**
      * \brief Smoothes a mesh.
@@ -327,7 +327,7 @@ namespace GEO {
      * \param[in] nb_iter number of smoothing iterations
      * \param[in] normals_only if set, only stored normals are smoothed.
      */
-    void GEOGRAM_API simple_Laplacian_smooth(
+    void GEOBRLCAD_API simple_Laplacian_smooth(
         Mesh& M, index_t nb_iter, bool normals_only
     );
 
@@ -337,14 +337,14 @@ namespace GEO {
      * \param[out] xyzmin the lower corner of the bounding box
      * \param[out] xyzmax the upper corner of the bounding box
      */
-    void GEOGRAM_API get_bbox(const Mesh& M, double* xyzmin, double* xyzmax);
+    void GEOBRLCAD_API get_bbox(const Mesh& M, double* xyzmin, double* xyzmax);
 
     /**
      * \brief Computes the length of the bounding box diagonal of a mesh.
      * \param[in] M the mesh
      * \return The length of \p M%'s bounding box diagonal
      */
-    double GEOGRAM_API bbox_diagonal(const Mesh& M);
+    double GEOBRLCAD_API bbox_diagonal(const Mesh& M);
 
     /**
      * \brief Normalizes and scales the stored vertex normals by a factor.
@@ -353,13 +353,13 @@ namespace GEO {
      * \param[in,out] M the mesh
      * \param[in] s the factor used to scale the normals
      */
-    void GEOGRAM_API set_anisotropy(Mesh& M, double s);
+    void GEOBRLCAD_API set_anisotropy(Mesh& M, double s);
 
     /**
      * \brief Normalizes the stored vertex normals.
      * \param[in,out] M the mesh
      */
-    void GEOGRAM_API unset_anisotropy(Mesh& M);
+    void GEOBRLCAD_API unset_anisotropy(Mesh& M);
 
     /**
      * \brief Computes a sizing field using an estimate of lfs
@@ -371,7 +371,7 @@ namespace GEO {
      *  else \p M is resampled (needed if \p M's facets density is
      *  highly irregular).
      */
-    void GEOGRAM_API compute_sizing_field(
+    void GEOBRLCAD_API compute_sizing_field(
         Mesh& M, double gradation = 1.0, index_t nb_lfs_samples = 0
     );
 
@@ -383,7 +383,7 @@ namespace GEO {
      *  equal areas.
      * \param[in,out] M the mesh
      */
-    void GEOGRAM_API normalize_embedding_area(Mesh& M);
+    void GEOBRLCAD_API normalize_embedding_area(Mesh& M);
 
     /**
      * \brief Computes the volume of a cell in a mesh.
@@ -392,7 +392,7 @@ namespace GEO {
      * \return the volume of the cell
      * \pre c < M.cells.nb()
      */
-    double GEOGRAM_API mesh_cell_volume(
+    double GEOBRLCAD_API mesh_cell_volume(
         const Mesh& M, index_t c
     );
 
@@ -401,7 +401,7 @@ namespace GEO {
      * \param[in] M a const reference to the mesh
      * \return the volume of the cells of the mesh
      */
-    double GEOGRAM_API mesh_cells_volume(const Mesh& M);
+    double GEOBRLCAD_API mesh_cells_volume(const Mesh& M);
 
 
     /**
@@ -413,7 +413,7 @@ namespace GEO {
      * \pre c < M.cells.nb() && lf < M.cells
      * \note the computed vector is not normalized
      */
-    vec3 GEOGRAM_API mesh_cell_facet_normal(
+    vec3 GEOBRLCAD_API mesh_cell_facet_normal(
         const Mesh& M, index_t c, index_t lf
     );
 
@@ -422,7 +422,7 @@ namespace GEO {
      * \param[in] M a const reference to a surface mesh
      * \return the average edge length
      */
-    double GEOGRAM_API surface_average_edge_length(
+    double GEOBRLCAD_API surface_average_edge_length(
         const Mesh& M
     );
 

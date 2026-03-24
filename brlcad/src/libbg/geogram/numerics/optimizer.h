@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_NUMERICS_OPTIMIZER
-#define GEOGRAM_NUMERICS_OPTIMIZER
+#ifndef GEOBRLCAD_NUMERICS_OPTIMIZER
+#define GEOBRLCAD_NUMERICS_OPTIMIZER
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/numeric.h>
@@ -55,7 +55,7 @@ class HESSIAN_MATRIX;
  *  to minimize a multivariate function
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     /**
      * \brief Optimizer minimizes a multivariate function.
@@ -74,7 +74,7 @@ namespace GEO {
      * \see OptimizerFactory
      * \see geo_register_Optimizer_creator
      */
-    class GEOGRAM_API Optimizer : public Counted {
+    class GEOBRLCAD_API Optimizer : public Counted {
     public:
         /**
          * \brief Optimizer callback that evaluates a function
@@ -282,7 +282,7 @@ namespace GEO {
      * \relates Optimizer
      */
 #define geo_register_Optimizer_creator(type, name)              \
-    geo_register_creator(GEO::OptimizerFactory, type, name)
+    geo_register_creator(GEOBRL::OptimizerFactory, type, name)
 }
 
 #endif

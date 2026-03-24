@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_VORONOI_GENERIC_RVD_UTILS
-#define GEOGRAM_VORONOI_GENERIC_RVD_UTILS
+#ifndef GEOBRLCAD_VORONOI_GENERIC_RVD_UTILS
+#define GEOBRLCAD_VORONOI_GENERIC_RVD_UTILS
 
 #include <geogram/basic/common.h>
 #include <geogram/voronoi/generic_RVD_vertex.h>
@@ -54,14 +54,14 @@
  *  and volumetric restricted Voronoi diagrams.
  */
 
-namespace GEOGen {
+namespace GEOBRLGen {
 
-    using GEO::NO_INDEX;
+    using GEOBRL::NO_INDEX;
 
     /**
-     * \brief A stack implemented in a GEO::vector.
+     * \brief A stack implemented in a GEOBRL::vector.
      * \details Used by the Android version of
-     *   GEOGen::RestrictedVoronoiDiagram. The
+     *   GEOBRLGen::RestrictedVoronoiDiagram. The
      *   std::stack class has some problems with
      *   multithread memory protection issues (it seems that
      *   a SMP-safe global lock on memory is missing
@@ -102,14 +102,14 @@ namespace GEOGen {
         }
 
     private:
-        GEO::vector<T> rep_;
+        GEOBRL::vector<T> rep_;
     };
 
     /************************************************************************/
 
     /**
      * \brief A (facet,seed) pair.
-     * \details Used by GEOGen::RestrictedVoronoiDiagram
+     * \details Used by GEOBRLGen::RestrictedVoronoiDiagram
      * for propagating over the facet graph and the
      * Delaunay 1-skeleton.
      */
@@ -153,7 +153,7 @@ namespace GEOGen {
 
     /**
      * \brief A (tetrahedron,seed) pair.
-     * \details Used by GEOGen::RestrictedVoronoiDiagram
+     * \details Used by GEOBRLGen::RestrictedVoronoiDiagram
      * for propagating over the tetrahedra graph and the
      * Delaunay 1-skeleton.
      */
@@ -163,19 +163,19 @@ namespace GEOGen {
 
     /**
      * \brief A stack of FacetSeed.
-     * \details Used by GEOGen::RestrictedVoronoiDiagram.
+     * \details Used by GEOBRLGen::RestrictedVoronoiDiagram.
      */
     typedef std::stack<FacetSeed> FacetSeedStack;
 
     /**
      * \brief A stack of TetSeed.
-     * \details Used by GEOGen::RestrictedVoronoiDiagram.
+     * \details Used by GEOBRLGen::RestrictedVoronoiDiagram.
      */
     typedef std::stack<TetSeed> TetSeedStack;
 
     /**
      * \brief A stack of seed indices (index_t).
-     * \details Used by GEOGen::RestrictedVoronoiDiagram.
+     * \details Used by GEOBRLGen::RestrictedVoronoiDiagram.
      */
     typedef std::stack<index_t> SeedStack;
 
@@ -185,7 +185,7 @@ namespace GEOGen {
      * \brief Stores associations between (facet,seed) pairs and the index of
      *  a connected component.
      *
-     * \details Used by GEOGen::RestrictedVoronoiDiagram.
+     * \details Used by GEOBRLGen::RestrictedVoronoiDiagram.
      *  The implementation uses an array of (key,value) vectors,
      *  with dynamic reallocation and linear search.
      *  Experimentally, this significantly reduces the memory

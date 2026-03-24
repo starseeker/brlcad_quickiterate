@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_BASIC_RATIONALG
-#define GEOGRAM_BASIC_RATIONALG
+#ifndef GEOBRLCAD_BASIC_RATIONALG
+#define GEOBRLCAD_BASIC_RATIONALG
 
 #include <geogram/basic/common.h>
 
@@ -47,7 +47,7 @@
  * \brief Generic implementation of rational type
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     /**
      * \brief rationalg (generic rational) is used to compute the

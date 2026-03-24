@@ -44,7 +44,7 @@
 #include <geogram/basic/argused.h>
 
 namespace {
-    using namespace GEO;
+    using namespace GEOBRL;
 
     /**
      * \brief Gets the maximum region index in the mesh, not counting
@@ -553,7 +553,7 @@ namespace {
 }
 
 
-namespace GEO {
+namespace GEOBRL {
 
     RVDCallback::RVDCallback() :
         seed_(index_t(-1)),
@@ -583,7 +583,7 @@ namespace GEO {
     void RVDPolygonCallback::operator() (
         index_t v,
         index_t t,
-        const GEOGen::Polygon& C
+        const GEOBRLGen::Polygon& C
     ) const {
         const_cast<RVDPolygonCallback*>(this)->seed_ = v;
         const_cast<RVDPolygonCallback*>(this)->simplex_ = t;
@@ -655,7 +655,7 @@ namespace GEO {
     }
 
     void RVDPolyhedronCallback::vertex(
-        const double* geometry, const GEOGen::SymbolicVertex& symb
+        const double* geometry, const GEOBRLGen::SymbolicVertex& symb
     ) {
         geo_argused(geometry);
         geo_argused(symb);
@@ -699,7 +699,7 @@ namespace GEO {
     }
 
     void RVDPolyhedronCallback::vertex_internal(
-        const double* geometry, const GEOGen::SymbolicVertex& symb
+        const double* geometry, const GEOBRLGen::SymbolicVertex& symb
     ) {
         if(!facet_is_skipped_) {
             if(use_mesh_) {
@@ -782,8 +782,8 @@ namespace GEO {
 
     void RVDPolyhedronCallback::end() {
 
-        GEO::RVDPolyhedronCallback& callbacks =
-            const_cast<GEO::RVDPolyhedronCallback&>(*this);
+        GEOBRL::RVDPolyhedronCallback& callbacks =
+            const_cast<GEOBRL::RVDPolyhedronCallback&>(*this);
 
         if(simplify_internal_tet_facets_ && seed_ != index_t(-1)) {
             callbacks.end_polyhedron_internal();
@@ -793,11 +793,11 @@ namespace GEO {
     void RVDPolyhedronCallback::operator() (
         index_t v,
         index_t t,
-        const GEOGen::ConvexCell& C
+        const GEOBRLGen::ConvexCell& C
     ) const {
 
-        GEO::RVDPolyhedronCallback& callbacks =
-            const_cast<GEO::RVDPolyhedronCallback&>(*this);
+        GEOBRL::RVDPolyhedronCallback& callbacks =
+            const_cast<GEOBRL::RVDPolyhedronCallback&>(*this);
 
         if(simplify_internal_tet_facets_) {
             if(v != last_seed_) {
@@ -838,13 +838,13 @@ namespace GEO {
 
             callbacks.begin_facet_internal(index_t(v_adj), index_t(t_adj));
 
-            GEOGen::ConvexCell::Corner first(
+            GEOBRLGen::ConvexCell::Corner first(
                 index_t(ct), C.find_triangle_vertex(index_t(ct), cv)
             );
 
-            GEOGen::ConvexCell::Corner c = first;
+            GEOBRLGen::ConvexCell::Corner c = first;
             do {
-                const GEOGen::Vertex& vx = C.triangle_dual(c.t);
+                const GEOBRLGen::Vertex& vx = C.triangle_dual(c.t);
                 callbacks.vertex_internal(vx.point(), vx.sym());
                 C.move_to_next_around_vertex(c);
             } while(c != first);
@@ -944,7 +944,7 @@ namespace GEO {
     }
 
     void BuildRVDMesh::vertex(
-        const double* geometry, const GEOGen::SymbolicVertex& symb
+        const double* geometry, const GEOBRLGen::SymbolicVertex& symb
     ) {
         index_t v = cell_vertex_map_->find_or_create_vertex(seed(), symb);
         if(v >= output_mesh_.vertices.nb()) {

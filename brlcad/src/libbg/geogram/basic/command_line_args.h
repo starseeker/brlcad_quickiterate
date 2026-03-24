@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_BASIC_COMMAND_LINE_ARGS
-#define GEOGRAM_BASIC_COMMAND_LINE_ARGS
+#ifndef GEOBRLCAD_BASIC_COMMAND_LINE_ARGS
+#define GEOBRLCAD_BASIC_COMMAND_LINE_ARGS
 
 /*
  * The option-management API (import_arg_group, set_profile) has been removed.

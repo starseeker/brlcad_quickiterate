@@ -37,15 +37,15 @@
  *
  */
 
-#ifndef GEOGRAM_MESH_MESH_REORDER
-#define GEOGRAM_MESH_MESH_REORDER
+#ifndef GEOBRLCAD_MESH_MESH_REORDER
+#define GEOBRLCAD_MESH_MESH_REORDER
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/numeric.h>
 #include <geogram/basic/memory.h>
 #include <geogram/basic/geometry.h>
 
-#ifndef GEOGRAM_PSM
+#ifndef GEOBRLCAD_PSM
 #include <geogram/mesh/mesh.h>
 #endif
 
@@ -54,10 +54,10 @@
  * \brief Reorders the elements in a mesh to improve data locality
  */
 
-namespace GEO {
+namespace GEOBRL {
 
 
-#ifndef GEOGRAM_PSM
+#ifndef GEOBRLCAD_PSM
 
     /**
      * \brief Strategy for spatial sorting.
@@ -83,7 +83,7 @@ namespace GEO {
      * \param[in] order the reordering scheme, one of MESH_ORDER_HILBERT,
      *  MESH_ORDER_MORTION
      */
-    void GEOGRAM_API mesh_reorder(
+    void GEOBRLCAD_API mesh_reorder(
         Mesh& M, MeshOrder order = MESH_ORDER_HILBERT
     );
 
@@ -101,7 +101,7 @@ namespace GEO {
      * \param[in] order the reordering scheme, one of MESH_ORDER_HILBERT,
      *  MESH_ORDER_MORTION
      */
-    void GEOGRAM_API compute_mesh_elements_spatial_order(
+    void GEOBRLCAD_API compute_mesh_elements_spatial_order(
 	const Mesh& M, MeshElementsFlags elements, vector<index_t>& permutation,
 	MeshOrder order = MESH_ORDER_HILBERT
     );
@@ -128,7 +128,7 @@ namespace GEO {
      * \param[in] dimension number of vertices coordinates
      * \param[in] stride number of doubles between two consecutive vertices
      */
-    void GEOGRAM_API compute_Hilbert_order(
+    void GEOBRLCAD_API compute_Hilbert_order(
         index_t total_nb_vertices, const double* vertices,
         vector<index_t>& sorted_indices,
         index_t first,
@@ -155,7 +155,7 @@ namespace GEO {
      * \param[out] levels if non-nullptr, indices that correspond to level l are
      *   in the range levels[l] (included) ... levels[l+1] (excluded)
      */
-    void GEOGRAM_API compute_BRIO_order(
+    void GEOBRLCAD_API compute_BRIO_order(
         index_t nb_vertices, const double* vertices,
         vector<index_t>& sorted_indices,
         index_t dimension,

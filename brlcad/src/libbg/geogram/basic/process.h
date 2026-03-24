@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_BASIC_PROCESS
-#define GEOGRAM_BASIC_PROCESS
+#ifndef GEOBRLCAD_BASIC_PROCESS
+#define GEOBRLCAD_BASIC_PROCESS
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/thread_sync.h>
@@ -51,7 +51,7 @@
  * \brief Function and classes for process manipulation
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     /**
      * \brief Platform-independent base class for running threads.
@@ -63,7 +63,7 @@ namespace GEO {
      * Thread%s are reference-counted objects. Their allocation and
      * destruction can be automatically managed with Thread_var.
      */
-    class GEOGRAM_API Thread : public Counted {
+    class GEOBRLCAD_API Thread : public Counted {
     public:
 
         /**
@@ -210,7 +210,7 @@ namespace GEO {
      * \note For internal use only.
      * \see Process::set_thread_manager()
      */
-    class GEOGRAM_API ThreadManager : public Counted {
+    class GEOBRLCAD_API ThreadManager : public Counted {
     public:
         /**
          * \brief Runs a group of Thread%s.
@@ -294,7 +294,7 @@ namespace GEO {
      * \details MonoThreadingThreadManager implements a ThreadManager for
      * single thread environments.
      */
-    class GEOGRAM_API MonoThreadingThreadManager : public ThreadManager {
+    class GEOBRLCAD_API MonoThreadingThreadManager : public ThreadManager {
     public:
         /**
          * \copydoc ThreadManager::maximum_concurrent_threads()
@@ -322,18 +322,18 @@ namespace GEO {
 
         /**
          * \brief Initializes GeogramLib
-         * \param[in] flags the flags passed to GEO::initialize()
+         * \param[in] flags the flags passed to GEOBRL::initialize()
          * \details This function must be called once before using
          * any functionality of GeogramLib.
          */
-        void GEOGRAM_API initialize(int flags);
+        void GEOBRLCAD_API initialize(int flags);
 
         /**
          * \brief Terminates GeogramLib
          * \details This function is called automatically when the program
          * exits, so it should never be called directly.
          */
-        void GEOGRAM_API terminate();
+        void GEOBRLCAD_API terminate();
 
 
         /**
@@ -341,18 +341,18 @@ namespace GEO {
          * \param[in] microseconds the time to sleep,
          *  in microseconds.
          */
-        void GEOGRAM_API sleep(index_t microseconds);
+        void GEOBRLCAD_API sleep(index_t microseconds);
 
         /**
          * \brief Displays statistics about the current process
          * \details Displays the maximum used amount of memory.
          */
-        void GEOGRAM_API show_stats();
+        void GEOBRLCAD_API show_stats();
 
         /**
          * \brief Terminates the current process.
          */
-        void GEOGRAM_API brute_force_kill();
+        void GEOBRLCAD_API brute_force_kill();
 
         /**
          * \brief Returns the maximum number of threads that can be running
@@ -360,21 +360,21 @@ namespace GEO {
          * \retval The number of cores if multi-threading is supported
          * \retval 1 otherwise.
          */
-        index_t GEOGRAM_API maximum_concurrent_threads();
+        index_t GEOBRLCAD_API maximum_concurrent_threads();
 
         /**
          * \brief Runs a set of threads simultaneously
          * \details Launches the execution of the threads contained in the
          * vector \p threads and waits for the completion of all of them.
          */
-        void GEOGRAM_API run_threads(ThreadGroup& threads);
+        void GEOBRLCAD_API run_threads(ThreadGroup& threads);
 
         /**
          * \brief Gets the number of available cores
          * \return The number of available cores including the "virtual ones" if
          * hyper-threading is activated.
          */
-        index_t GEOGRAM_API number_of_cores();
+        index_t GEOBRLCAD_API number_of_cores();
 
         /**
          * \brief Sets the thread manager (internal use).
@@ -383,7 +383,7 @@ namespace GEO {
          * Process::initialize() and should not be called explicitly.
          * \note For internal use only
          */
-        void GEOGRAM_API set_thread_manager(ThreadManager* thread_manager);
+        void GEOBRLCAD_API set_thread_manager(ThreadManager* thread_manager);
 
         /**
          * \brief Checks whether threads are running.
@@ -392,7 +392,7 @@ namespace GEO {
          * \retval false otherwise.
          * \see Process::run_threads()
          */
-        bool GEOGRAM_API is_running_threads();
+        bool GEOBRLCAD_API is_running_threads();
 
         /**
          * \brief Enables/disables floating point exceptions
@@ -403,7 +403,7 @@ namespace GEO {
          * \param[in] flag set to \c true to enable FPEs, \c false to disable.
          * \see FPE_enabled()
          */
-        void GEOGRAM_API enable_FPE(bool flag);
+        void GEOBRLCAD_API enable_FPE(bool flag);
 
         /**
          * \brief Gets the status of floating point exceptions
@@ -411,7 +411,7 @@ namespace GEO {
          * \retval false otherwise
          * \see enable_FPE()
          */
-        bool GEOGRAM_API FPE_enabled();
+        bool GEOBRLCAD_API FPE_enabled();
 
         /**
          * \brief Enables/disables multi-threaded computations
@@ -421,7 +421,7 @@ namespace GEO {
          * to disable.
          * \see multithreading_enabled()
          */
-        void GEOGRAM_API enable_multithreading(bool flag);
+        void GEOBRLCAD_API enable_multithreading(bool flag);
 
         /**
          * \brief Gets the status of multi-threading
@@ -429,7 +429,7 @@ namespace GEO {
          * \retval false otherwise
          * \see enable_multithreading()
          */
-        bool GEOGRAM_API multithreading_enabled();
+        bool GEOBRLCAD_API multithreading_enabled();
 
         /**
          * \brief Limits the number of concurrent threads to use
@@ -439,13 +439,13 @@ namespace GEO {
          * \param[in] num_threads maximum number of threads to use.
          * \see max_threads()
          */
-        void GEOGRAM_API set_max_threads(index_t num_threads);
+        void GEOBRLCAD_API set_max_threads(index_t num_threads);
 
         /**
          * \brief Gets the number of allowed concurrent threads
          * \see set_max_threads()
          */
-        index_t GEOGRAM_API max_threads();
+        index_t GEOBRLCAD_API max_threads();
 
         /**
          * \brief Enables interruption of cancelable tasks
@@ -460,7 +460,7 @@ namespace GEO {
          * to disable.
          * \see cancel_enabled()
          */
-        void GEOGRAM_API enable_cancel(bool flag);
+        void GEOBRLCAD_API enable_cancel(bool flag);
 
         /**
          * \brief Gets the status of the cancel mode
@@ -468,25 +468,25 @@ namespace GEO {
          * \retval false otherwise
          * \see enable_cancel()
          */
-        bool GEOGRAM_API cancel_enabled();
+        bool GEOBRLCAD_API cancel_enabled();
 
         /**
          * \brief Gets the currently used memory.
          * \return the used memory in bytes
          */
-        size_t GEOGRAM_API used_memory();
+        size_t GEOBRLCAD_API used_memory();
 
         /**
          * \brief Gets the maximum used memory.
          * \return the maximum used memory in bytes
          */
-        size_t GEOGRAM_API max_used_memory();
+        size_t GEOBRLCAD_API max_used_memory();
 
         /**
          * \brief Gets the full path to the currently
          *  running program.
          */
-        std::string GEOGRAM_API executable_filename();
+        std::string GEOBRLCAD_API executable_filename();
 
         /**
          * \brief Prints a stack trace to the standard error.
@@ -524,7 +524,7 @@ namespace GEO {
      * \param[in] interleaved if set to \c true, indices are allocated to
      * threads with an interleaved pattern.
      */
-    void GEOGRAM_API parallel_for(
+    void GEOBRLCAD_API parallel_for(
         index_t from, index_t to, std::function<void(index_t)> func,
         index_t threads_per_core = 1,
         bool interleaved = false
@@ -556,7 +556,7 @@ namespace GEO {
      * \param[in] threads_per_core number of threads to allocate per physical
      *  core (default is 1).
      */
-    void GEOGRAM_API parallel_for_slice(
+    void GEOBRLCAD_API parallel_for_slice(
         index_t from, index_t to, std::function<void(index_t, index_t)> func,
         index_t threads_per_core = 1
     );
@@ -567,7 +567,7 @@ namespace GEO {
      *  mesh/mesh_reorder.cpp and points/kd_tree.cpp for examples.
      * \param[in] f1 , f2 functions to be called in parallel.
      */
-    void GEOGRAM_API parallel(
+    void GEOBRLCAD_API parallel(
         std::function<void()> f1,
         std::function<void()> f2
     );
@@ -578,7 +578,7 @@ namespace GEO {
      *  mesh/mesh_reorder.cpp and points/kd_tree.cpp for examples.
      * \param[in] f1 , f2 , f3 , f4 functions to be called in parallel.
      */
-    void GEOGRAM_API parallel(
+    void GEOBRLCAD_API parallel(
         std::function<void()> f1,
         std::function<void()> f2,
         std::function<void()> f3,
@@ -592,7 +592,7 @@ namespace GEO {
      * \param[in] f1 , f2 , f3 , f4 , f5 , f6 , f7 , f8 functions
      *  to be called in parallel.
      */
-    void GEOGRAM_API parallel(
+    void GEOBRLCAD_API parallel(
         std::function<void()> f1,
         std::function<void()> f2,
         std::function<void()> f3,

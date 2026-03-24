@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_BASIC_STRING
-#define GEOGRAM_BASIC_STRING
+#ifndef GEOBRLCAD_BASIC_STRING
+#define GEOBRLCAD_BASIC_STRING
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/numeric.h>
@@ -60,7 +60,7 @@
  * \brief Functions for string manipulation
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     /*
      * \brief String manipulation utilities.
@@ -78,7 +78,7 @@ namespace GEO {
          * be ignored and not stored in list \p out (this is true by default).
          * \see join_strings()
          */
-        void GEOGRAM_API split_string(
+        void GEOBRLCAD_API split_string(
             const std::string& in,
             char separator,
             std::vector<std::string>& out,
@@ -96,7 +96,7 @@ namespace GEO {
          * be ignored and not stored in list \p out (this is true by default).
          * \see join_strings()
          */
-        void GEOGRAM_API split_string(
+        void GEOBRLCAD_API split_string(
             const std::string& in,
             const std::string& separator,
             std::vector<std::string>& out,
@@ -116,7 +116,7 @@ namespace GEO {
          * \retval true if the separator was found in the input string
          * \retval false otherwise
          */
-        bool GEOGRAM_API split_string(
+        bool GEOBRLCAD_API split_string(
             const std::string& in,
             char separator,
             std::string& left,
@@ -132,7 +132,7 @@ namespace GEO {
          * \return the joined string
          * \see split_string()
          */
-        std::string GEOGRAM_API join_strings(
+        std::string GEOBRLCAD_API join_strings(
             const std::vector<std::string>& in,
             char separator
         );
@@ -146,7 +146,7 @@ namespace GEO {
          * \return the joined string
          * \see split_string()
          */
-        std::string GEOGRAM_API join_strings(
+        std::string GEOBRLCAD_API join_strings(
             const std::vector<std::string>& in,
             const std::string& separator
         );
@@ -157,7 +157,7 @@ namespace GEO {
          * \param[in,out] s The string to convert
          * \see to_uppercase()
          */
-        std::string GEOGRAM_API to_lowercase(const std::string& s);
+        std::string GEOBRLCAD_API to_lowercase(const std::string& s);
 
         /**
          * \brief Converts a string to uppercase
@@ -165,7 +165,7 @@ namespace GEO {
          * \param[in,out] s The string to convert
          * \see to_lowercase()
          */
-        std::string GEOGRAM_API to_uppercase(const std::string& s);
+        std::string GEOBRLCAD_API to_uppercase(const std::string& s);
 
         /**
          * \brief Creates a one char string
@@ -187,7 +187,7 @@ namespace GEO {
          * \param[in] quotes the quoting char (default is '"')
          * \return the quoted string
          */
-        std::string GEOGRAM_API quote(
+        std::string GEOBRLCAD_API quote(
             const std::string& s, char quotes = '\"'
         );
 
@@ -198,7 +198,7 @@ namespace GEO {
          * \return \c true if \p haystack starts with \p needle, \c false
          * otherwise.
          */
-        bool GEOGRAM_API string_starts_with(
+        bool GEOBRLCAD_API string_starts_with(
             const std::string& haystack, const std::string& needle
         );
 
@@ -209,7 +209,7 @@ namespace GEO {
          * \return \c true if \p haystack ends with \p needle, \c false
          * otherwise.
          */
-        bool GEOGRAM_API string_ends_with(
+        bool GEOBRLCAD_API string_ends_with(
             const std::string& haystack, const std::string& needle
         );
 
@@ -218,9 +218,9 @@ namespace GEO {
          *  arguments. Works like sprintf()
          * \param[in] format the format string
          */
-        std::string GEOGRAM_API format(const char* format, ...)
+        std::string GEOBRLCAD_API format(const char* format, ...)
 #ifndef GOMGEN
-#ifdef GEO_COMPILER_GCC_FAMILY
+#ifdef GEOBRL_COMPILER_GCC_FAMILY
         // Tells the compiler that format is a printf-like format
         // string, so that it can check that the arguments match
         // the format string and bark at you if it is not the case.
@@ -235,7 +235,7 @@ namespace GEO {
 	 *  else returns the time in seconds and a (hh:mm:ss) if time is
 	 *  greater or equal to one minute.
 	 */
-	std::string GEOGRAM_API format_time(double seconds, bool HMS_only=false);
+	std::string GEOBRLCAD_API format_time(double seconds, bool HMS_only=false);
 
         /**
          * \brief Converts a typed value to a string
@@ -311,7 +311,7 @@ namespace GEO {
          * to_bool(), to_int() and to_double() when a string cannot be
          * converted to the desired type.
          */
-        class GEOGRAM_API ConversionError : public std::logic_error {
+        class GEOBRLCAD_API ConversionError : public std::logic_error {
         public:
             /**
              * \brief Constructs a conversion exception
@@ -323,7 +323,7 @@ namespace GEO {
             /**
              * \brief Gets the string identifying the exception
              */
-            const char* what() const GEO_NOEXCEPT override;
+            const char* what() const GEOBRL_NOEXCEPT override;
         };
 
         /**
@@ -383,7 +383,7 @@ namespace GEO {
         inline bool string_to_signed_integer(const char* s, T& value) {
             errno = 0;
             char* end;
-#ifdef GEO_OS_WINDOWS
+#ifdef GEOBRL_OS_WINDOWS
             Numeric::int64 v = _strtoi64(s, &end, 10);
 #else
             Numeric::int64 v = strtoll(s, &end, 10);
@@ -434,7 +434,7 @@ namespace GEO {
         inline bool from_string(const char* s, Numeric::int64& value) {
             errno = 0;
             char* end;
-#ifdef GEO_OS_WINDOWS
+#ifdef GEOBRL_OS_WINDOWS
             value = _strtoi64(s, &end, 10);
 #else
             value = strtoll(s, &end, 10);
@@ -453,7 +453,7 @@ namespace GEO {
         inline bool string_to_unsigned_integer(const char* s, T& value) {
             errno = 0;
             char* end;
-#ifdef GEO_OS_WINDOWS
+#ifdef GEOBRL_OS_WINDOWS
             Numeric::uint64 v = _strtoui64(s, &end, 10);
 #else
             Numeric::uint64 v = strtoull(s, &end, 10);
@@ -503,7 +503,7 @@ namespace GEO {
         inline bool from_string(const char* s, Numeric::uint64& value) {
             errno = 0;
             char* end;
-#ifdef GEO_OS_WINDOWS
+#ifdef GEOBRL_OS_WINDOWS
             value = _strtoui64(s, &end, 10);
 #else
             value = strtoull(s, &end, 10);
@@ -613,7 +613,7 @@ namespace GEO {
          * \param[in] in the input null-terminated wide-char string.
          * \return the UTF8-encoded string in a std::string.
          */
-        std::string GEOGRAM_API wchar_to_UTF8(const wchar_t* in);
+        std::string GEOBRLCAD_API wchar_to_UTF8(const wchar_t* in);
     }
 }
 

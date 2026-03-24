@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_BASIC_ASSERT
-#define GEOGRAM_BASIC_ASSERT
+#ifndef GEOBRLCAD_BASIC_ASSERT
+#define GEOBRLCAD_BASIC_ASSERT
 
 #include <geogram/basic/common.h>
 #include <string>
@@ -48,7 +48,7 @@
  * \brief Assertion checking mechanism
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     /**
      * \brief Assert termination mode
@@ -69,12 +69,12 @@ namespace GEO {
      * \param[in] mode assert termination mode
      * \see AssertMode
      */
-    void GEOGRAM_API set_assert_mode(AssertMode mode);
+    void GEOBRLCAD_API set_assert_mode(AssertMode mode);
 
     /**
      * \brief Returns the current assert termination mode
      */
-    AssertMode GEOGRAM_API assert_mode();
+    AssertMode GEOBRLCAD_API assert_mode();
 
     /**
      * \brief Aborts the program
@@ -82,14 +82,14 @@ namespace GEO {
      * abort() is more difficult to see under debugger, so this creates a
      * segmentation fault by deferencing a null pointer.
      */
-    GEO_NORETURN_DECL void GEOGRAM_API geo_abort() GEO_NORETURN;
+    GEOBRL_NORETURN_DECL void GEOBRLCAD_API geo_abort() GEOBRL_NORETURN;
 
     /**
      * \brief Generates a debugger breakpoint programmatically.
      * \details On Windows, generates a breakpoint using __debugbreak(),
      *  on other systems, calls geo_abort().
      */
-    GEO_NORETURN_DECL void GEOGRAM_API geo_breakpoint() GEO_NORETURN;
+    GEOBRL_NORETURN_DECL void GEOBRLCAD_API geo_breakpoint() GEOBRL_NORETURN;
 
     /**
      * \brief Prints an assertion failure
@@ -100,10 +100,10 @@ namespace GEO {
      * \param[in] file file where the assertion failed
      * \param[in] line line where the assertion failed
      */
-    GEO_NORETURN_DECL void GEOGRAM_API geo_assertion_failed(
+    GEOBRL_NORETURN_DECL void GEOBRLCAD_API geo_assertion_failed(
         const std::string& condition_string,
         const std::string& file, int line
-    ) GEO_NORETURN;
+    ) GEOBRL_NORETURN;
 
     /**
      * \brief Prints a range assertion failure
@@ -116,10 +116,10 @@ namespace GEO {
      * \param[in] file file where the assertion failed
      * \param[in] line line where the assertion failed
      */
-    GEO_NORETURN_DECL void GEOGRAM_API geo_range_assertion_failed(
+    GEOBRL_NORETURN_DECL void GEOBRLCAD_API geo_range_assertion_failed(
         double value, double min_value, double max_value,
         const std::string& file, int line
-    ) GEO_NORETURN;
+    ) GEOBRL_NORETURN;
 
     /**
      * \brief Prints an unreachable location failure
@@ -129,9 +129,9 @@ namespace GEO {
      * \param[in] file file containing the unreachable location
      * \param[in] line line of the unreachable location
      */
-    GEO_NORETURN_DECL void GEOGRAM_API geo_should_not_have_reached(
+    GEOBRL_NORETURN_DECL void GEOBRLCAD_API geo_should_not_have_reached(
         const std::string& file, int line
-    ) GEO_NORETURN;
+    ) GEOBRL_NORETURN;
 }
 
 // Three levels of assert:
@@ -148,7 +148,7 @@ namespace GEO {
  */
 #define geo_assert(x) {                                         \
         if(!(x)) {                                              \
-            GEO::geo_assertion_failed(#x, __FILE__, __LINE__);  \
+            GEOBRL::geo_assertion_failed(#x, __FILE__, __LINE__);  \
         }                                                       \
     }
 
@@ -164,7 +164,7 @@ namespace GEO {
  */
 #define geo_range_assert(x, min_val, max_val) {                         \
         if(((x) < (min_val)) || ((x) > (max_val))) {                    \
-            GEO::geo_range_assertion_failed(x, min_val, max_val,        \
+            GEOBRL::geo_range_assertion_failed(x, min_val, max_val,        \
                                             __FILE__, __LINE__          \
                                            );                           \
         }                                                               \
@@ -175,7 +175,7 @@ namespace GEO {
  * \details
  */
 #define geo_assert_not_reached {                                \
-        GEO::geo_should_not_have_reached(__FILE__, __LINE__);   \
+        GEOBRL::geo_should_not_have_reached(__FILE__, __LINE__);   \
     }
 
 /**
@@ -188,7 +188,7 @@ namespace GEO {
  * \copydoc geo_range_assert()
  * \note This assertion check is only active in debug mode.
  */
-#ifdef GEO_DEBUG
+#ifdef GEOBRL_DEBUG
 #define geo_debug_assert(x) geo_assert(x)
 #define geo_debug_range_assert(x, min_val, max_val) geo_range_assert(x, min_val, max_val)
 #define geo_debug(x) x
@@ -208,7 +208,7 @@ namespace GEO {
  * \copydoc geo_range_assert()
  * \note This assertion check is only active in paranoid mode.
  */
-#ifdef GEO_PARANOID
+#ifdef GEOBRL_PARANOID
 #define geo_parano_assert(x) geo_assert(x)
 #define geo_parano_range_assert(x, min_val, max_val) geo_range_assert(x, min_val, max_val)
 #else

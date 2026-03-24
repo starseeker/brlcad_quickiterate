@@ -42,7 +42,7 @@
 #include <geogram/basic/string.h>
 #include <iostream>
 
-namespace GEO {
+namespace GEOBRL {
 
     double Stopwatch::process_start_time_ = 0.0;
     bool Stopwatch::global_stats_ = false;

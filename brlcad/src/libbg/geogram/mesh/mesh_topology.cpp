@@ -45,7 +45,7 @@
 
 namespace {
 
-    using namespace GEO;
+    using namespace GEOBRL;
 
     /**
      * \brief Computes the number of surface vertices that are not isolated.
@@ -68,7 +68,7 @@ namespace {
     }
 }
 
-namespace GEO {
+namespace GEOBRL {
 
     index_t get_connected_components(
         const Mesh& M, vector<index_t>& component
@@ -96,7 +96,7 @@ namespace GEO {
         return nb_components;
     }
 
-    index_t GEOGRAM_API get_connected_components(
+    index_t GEOBRLCAD_API get_connected_components(
         const Mesh& M, Attribute<index_t>& component
     ) {
         index_t nb_components = 0;

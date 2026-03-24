@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_BASIC_PACKED_ARRAYS
-#define GEOGRAM_BASIC_PACKED_ARRAYS
+#ifndef GEOBRLCAD_BASIC_PACKED_ARRAYS
+#define GEOBRLCAD_BASIC_PACKED_ARRAYS
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/numeric.h>
@@ -50,13 +50,13 @@
  * \brief Efficient storage for array of arrays
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     /**
      * \brief Efficient storage for array of arrays.
      * \details
      * PackedArray is not a two-dimensional array, it is an array of values
-     * where each value is itself an array of \c GEO::index_t.
+     * where each value is itself an array of \c GEOBRL::index_t.
      * PackedArrays provides functions for efficiently setting and getting
      * arrays by \b value (set_array() and get_array()).
      *
@@ -85,7 +85,7 @@ namespace GEO {
      * PackedArrays use SpinLockArray to lock/unlock sub-arrays in a
      * multi-threaded environment.
      */
-    class GEOGRAM_API PackedArrays {
+    class GEOBRLCAD_API PackedArrays {
     public:
     /**
      * \brief Creates a new empty packed array
@@ -116,7 +116,7 @@ namespace GEO {
      * \brief Initializes a packed array
      * \details This allocates storage for storing \p nb_arrays with a
      * capacity of \p Z1_block_size elements of type \c
-     * GEO::index_t. If parameter static_mode is \c true, the
+     * GEOBRL::index_t. If parameter static_mode is \c true, the
      * overflow area is disabled and arrays are constrained to a maximum
      * of \p Z1_block_size elements.
      * \param[in] nb_arrays number of arrays to allocate

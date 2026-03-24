@@ -47,7 +47,7 @@
 
 /****************************************************************************/
 
-namespace GEO {
+namespace GEOBRL {
 
     CentroidalVoronoiTesselation*
     CentroidalVoronoiTesselation::instance_ = nullptr;

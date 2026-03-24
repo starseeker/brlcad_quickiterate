@@ -45,7 +45,7 @@
 
 namespace {
 
-    using namespace GEO;
+    using namespace GEOBRL;
 
     ProgressClient_var progress_client_;
     std::stack<const ProgressTask*> progress_tasks_;
@@ -141,19 +141,19 @@ namespace {
      */
     class TerminalProgressClient : public ProgressClient {
     public:
-        /** \copydoc GEO::ProgressClient::begin() */
+        /** \copydoc GEOBRL::ProgressClient::begin() */
         void begin() override {
             const ProgressTask* task = Progress::current_progress_task();
             CmdLine::ui_progress(task->task_name(), 0, 0);
         }
 
-        /** \copydoc GEO::ProgressClient::progress(index_t,index_t) */
+        /** \copydoc GEOBRL::ProgressClient::progress(index_t,index_t) */
         void progress(index_t step, index_t percent) override {
             const ProgressTask* task = Progress::current_progress_task();
             CmdLine::ui_progress(task->task_name(), step, percent);
         }
 
-        /** \copydoc GEO::ProgressClient::end(bool) */
+        /** \copydoc GEOBRL::ProgressClient::end(bool) */
         void end(bool canceled) override {
             const ProgressTask* task = Progress::current_progress_task();
             double elapsed = Stopwatch::now() - task->start_time();
@@ -175,9 +175,9 @@ namespace {
 
 /****************************************************************************/
 
-namespace GEO {
+namespace GEOBRL {
 
-    const char* TaskCanceled::what() const GEO_NOEXCEPT {
+    const char* TaskCanceled::what() const GEOBRL_NOEXCEPT {
         return "Task canceled";
     }
 

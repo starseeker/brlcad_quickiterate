@@ -42,18 +42,18 @@
 
 #include <random>
 
-#ifdef GEO_COMPILER_EMSCRIPTEN
+#ifdef GEOBRL_COMPILER_EMSCRIPTEN
 #pragma GCC diagnostic ignored "-Wc++11-long-long"
 #endif
 
-namespace GEO {
+namespace GEOBRL {
 
     namespace Numeric {
 
         static std::mt19937_64 random_engine;
 
         bool is_nan(float32 x) {
-#ifdef GEO_COMPILER_MSVC
+#ifdef GEOBRL_COMPILER_MSVC
             return _isnan(x) || !_finite(x);
 #else
             return std::isnan(x) || !std::isfinite(x);
@@ -61,7 +61,7 @@ namespace GEO {
         }
 
         bool is_nan(float64 x) {
-#ifdef GEO_COMPILER_MSVC
+#ifdef GEOBRL_COMPILER_MSVC
             return _isnan(x) || !_finite(x);
 #else
             return std::isnan(x) || !std::isfinite(x);

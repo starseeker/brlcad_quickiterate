@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_NUMERICS_PCK
-#define GEOGRAM_NUMERICS_PCK
+#ifndef GEOBRLCAD_NUMERICS_PCK
+#define GEOBRLCAD_NUMERICS_PCK
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/numeric.h>
@@ -59,7 +59,7 @@
 
 //#define PCK_STATS
 
-namespace GEO {
+namespace GEOBRL {
 
     namespace PCK {
 
@@ -96,7 +96,7 @@ namespace GEO {
          */
 
 #ifdef PCK_STATS
-        class GEOGRAM_API PredicateStats {
+        class GEOBRLCAD_API PredicateStats {
         public:
         PredicateStats(const char* name);
         void log_invoke() {

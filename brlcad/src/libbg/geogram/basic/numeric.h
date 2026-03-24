@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_BASIC_NUMERIC
-#define GEOGRAM_BASIC_NUMERIC
+#ifndef GEOBRLCAD_BASIC_NUMERIC
+#define GEOBRLCAD_BASIC_NUMERIC
 
 #include <geogram/basic/common.h>
 #include <cmath>
@@ -60,7 +60,7 @@
  * \brief Types and functions for numbers manipulation
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     /**
      * \brief Integer constants that represent the sign of a value
@@ -186,32 +186,32 @@ namespace GEO {
         /**
          * \brief Checks whether a 32 bits float is "not a number"
          */
-        bool GEOGRAM_API is_nan(float32 x);
+        bool GEOBRLCAD_API is_nan(float32 x);
 
         /**
          * \brief Checks whether a 64 bits float is "not a number"
          */
-        bool GEOGRAM_API is_nan(float64 x);
+        bool GEOBRLCAD_API is_nan(float64 x);
 
         /**
          * \brief Resets the random number generator.
          */
-        void GEOGRAM_API random_reset();
+        void GEOBRLCAD_API random_reset();
 
         /**
          * \brief Returns a 32 bits integer between 0 and RAND_MAX
          */
-        int32 GEOGRAM_API random_int32();
+        int32 GEOBRLCAD_API random_int32();
 
         /**
          * \brief Returns a 32 bits float between 0 and 1
          */
-        float32 GEOGRAM_API random_float32();
+        float32 GEOBRLCAD_API random_float32();
 
         /**
          * \brief Returns a 64 bits float between 0 and 1
          */
-        float64 GEOGRAM_API random_float64();
+        float64 GEOBRLCAD_API random_float64();
 
         /**
          * \brief Limits helper class that extends std::numeric_limits

@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_VORONOI_GENERIC_RVD_CELL
-#define GEOGRAM_VORONOI_GENERIC_RVD_CELL
+#ifndef GEOBRLCAD_VORONOI_GENERIC_RVD_CELL
+#define GEOBRLCAD_VORONOI_GENERIC_RVD_CELL
 
 #include <geogram/basic/common.h>
 #include <geogram/voronoi/generic_RVD_vertex.h>
@@ -49,24 +49,24 @@
 
 /**
  * \file geogram/voronoi/generic_RVD_cell.h
- * \brief Internal representation of polyhedra for GEO::GenericVoronoiDiagram.
+ * \brief Internal representation of polyhedra for GEOBRL::GenericVoronoiDiagram.
  * \note This file contains functions and classes used by the
- *  internal implementation of GEO::GenericVoronoiDiagram.
+ *  internal implementation of GEOBRL::GenericVoronoiDiagram.
  *  They are not meant to be used directly by client code.
- *  Users who whant similar functionalities may use GEO::ConvexCell instead.
+ *  Users who whant similar functionalities may use GEOBRL::ConvexCell instead.
  */
 
-namespace GEOGen {
+namespace GEOBRLGen {
 
-    using GEO::Mesh;
+    using GEOBRL::Mesh;
 
     /**
      * \brief Computes the intersection between a set of halfspaces.
      * \note This is an internal implementation class used by
-     *  GEO::RestrictedVoronoiDiagram. It is not meant to be
+     *  GEOBRL::RestrictedVoronoiDiagram. It is not meant to be
      *  used directly by client code.
      */
-    class GEOGRAM_API ConvexCell {
+    class GEOBRLCAD_API ConvexCell {
 
         /** \brief This class type */
         typedef ConvexCell thisclass;
@@ -137,7 +137,7 @@ namespace GEOGen {
             t[2] = NO_TRIANGLE;
         }
 
-        GEOGen::Vertex dual_;
+        GEOBRLGen::Vertex dual_;
         index_t v[3];   // The 3 vertices of this triangle
         index_t t[3];   // The 3 triangles adjacent to this triangle
         index_t next_;  // Linked list management.
@@ -230,7 +230,7 @@ namespace GEOGen {
      */
     void initialize_from_mesh_tetrahedron(
         const Mesh* mesh, index_t t, bool symbolic,
-        const GEO::Attribute<double>& vertex_weight
+        const GEOBRL::Attribute<double>& vertex_weight
     );
 
 
@@ -542,11 +542,11 @@ namespace GEOGen {
      * \details Each triangle corresponds to a vertex of the ConvexCell
      *   (combinatorics are stored in dual form).
      * \param[in] t index of the triangle
-     * \return a const reference to the GEOGen::Vertex that corresponds
+     * \return a const reference to the GEOBRLGen::Vertex that corresponds
      *  to the triangle, with both geometrical and combinatorial
      *  representations
      */
-    const GEOGen::Vertex& triangle_dual(index_t t) const {
+    const GEOBRLGen::Vertex& triangle_dual(index_t t) const {
         geo_debug_assert(triangle_is_valid(t));
         return triangles_[t].dual_;
     }
@@ -556,11 +556,11 @@ namespace GEOGen {
      * \details Each triangle corresponds to a vertex of the ConvexCell
      *   (combinatorics are stored in dual form).
      * \param[in] t index of the triangle
-     * \return a reference to the GEOGen::Vertex that corresponds
+     * \return a reference to the GEOBRLGen::Vertex that corresponds
      *  to the triangle, with both geometrical and
      *  combinatorial representations
      */
-    GEOGen::Vertex& triangle_dual(index_t t) {
+    GEOBRLGen::Vertex& triangle_dual(index_t t) {
         geo_debug_assert(triangle_is_valid(t));
         return triangles_[t].dual_;
     }
@@ -1000,7 +1000,7 @@ namespace GEOGen {
                         i, j,
                         exact
                     );
-                    if(s == GEO::NEGATIVE) {
+                    if(s == GEOBRL::NEGATIVE) {
                         append_triangle_to_conflict_list(
                             t, conflict_begin, conflict_end
                         );
@@ -1079,8 +1079,8 @@ namespace GEOGen {
         const double* pj = delaunay->vertex_ptr(j);
         double result = 0;
         for(coord_index_t c = 0; c < DIM; ++c) {
-            result += GEO::geo_sqr(q[c] - pj[c]);
-            result -= GEO::geo_sqr(q[c] - pi[c]);
+            result += GEOBRL::geo_sqr(q[c] - pj[c]);
+            result -= GEOBRL::geo_sqr(q[c] - pi[c]);
         }
         return result;
     }
@@ -1131,7 +1131,7 @@ namespace GEOGen {
                         side<DIM>(
                             mesh, delaunay, triangle_dual(neigh),
                             i, j, exact
-                        ) == GEO::NEGATIVE
+                        ) == GEOBRL::NEGATIVE
                     ) {
                         S.push(neigh);
                         append_triangle_to_conflict_list(
@@ -1164,10 +1164,10 @@ namespace GEOGen {
     template <index_t DIM>
     Sign side(
         const Mesh* mesh, const Delaunay* delaunay,
-        const GEOGen::Vertex& v,
+        const GEOBRLGen::Vertex& v,
         index_t i, index_t j, bool exact
     ) const {
-        Sign result = GEO::ZERO;
+        Sign result = GEOBRL::ZERO;
         if(exact) {
             result = side_exact(
                 mesh, delaunay, v,
@@ -1205,7 +1205,7 @@ namespace GEOGen {
      */
     Sign side_exact(
         const Mesh* mesh, const Delaunay* delaunay,
-        const GEOGen::Vertex& v,
+        const GEOBRLGen::Vertex& v,
         const double* pi, const double* pj,
         coord_index_t dim,
         bool symbolic_is_surface = false
@@ -1227,7 +1227,7 @@ namespace GEOGen {
         index_t conflict_begin, index_t conflict_end,
         index_t& t, index_t& e
     ) const {
-        GEO::geo_argused(conflict_end);
+        GEOBRL::geo_argused(conflict_end);
         t = conflict_begin;
         do {
             for(e = 0; e < 3; ++e) {
@@ -1368,19 +1368,19 @@ namespace GEOGen {
         const Mesh* mesh, index_t t, index_t lf
     ) {
         index_t t2 = mesh->cells.tet_adjacent(t, lf);
-        if(t2 != GEO::NO_CELL && t2 > t) {
+        if(t2 != GEOBRL::NO_CELL && t2 > t) {
             index_t lf2 = mesh->cells.find_tet_adjacent(
                 t2, t
             );
-            geo_debug_assert(lf2 != GEO::NO_FACET);
+            geo_debug_assert(lf2 != GEOBRL::NO_FACET);
             return index_t(4 * t2 + lf2);
         }
         return 4 * t + lf;
     }
 
     private:
-    GEO::vector<Triangle> triangles_;
-    GEO::vector<Vertex> vertices_;
+    GEOBRL::vector<Triangle> triangles_;
+    GEOBRL::vector<Vertex> vertices_;
     index_t first_free_;
     bool v_to_t_dirty_;
     PointAllocator intersections_;

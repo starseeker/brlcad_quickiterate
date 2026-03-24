@@ -40,7 +40,7 @@
 #include <geogram/numerics/optimizer.h>
 #include <geogram/basic/logger.h>
 
-namespace GEO {
+namespace GEOBRL {
 
     Optimizer::Optimizer() :
         n_(0),
@@ -60,7 +60,7 @@ namespace GEO {
 
     Optimizer* Optimizer::create(const std::string& name) {
 
-#ifdef GEOGRAM_WITH_HLBFGS
+#ifdef GEOBRLCAD_WITH_HLBFGS
         geo_register_Optimizer_creator(HLBFGSOptimizer, "default");
         geo_register_Optimizer_creator(HLBFGSOptimizer, "HLBFGS");
         geo_register_Optimizer_creator(HLBFGS_M1QN3Optimizer, "HM1QN3");

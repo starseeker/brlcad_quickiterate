@@ -45,7 +45,7 @@
 
 namespace {
 
-    using namespace GEO;
+    using namespace GEOBRL;
 
     /**
      * \brief Partitions a surface using Hilbert ordering.
@@ -189,7 +189,7 @@ namespace {
 
 /****************************************************************************/
 
-namespace GEO {
+namespace GEOBRL {
 
     void mesh_partition(
         Mesh& M,

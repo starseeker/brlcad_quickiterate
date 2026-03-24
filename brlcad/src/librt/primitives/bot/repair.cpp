@@ -449,12 +449,12 @@ bot_lint_cleanup:
 }
 
 static void
-bot_to_geogram(GEO::Mesh *gm, struct rt_bot_internal *bot,
-               const GEO::GeoOptions& opts)
+bot_to_geogram(GEOBRL::Mesh *gm, struct rt_bot_internal *bot,
+               const GEOBRL::GeoOptions& opts)
 {
     gm->vertices.assign_points((double *)bot->vertices, 3, bot->num_vertices);
     for (size_t i = 0; i < bot->num_faces; i++) {
-	GEO::index_t f = gm->facets.create_polygon(3);
+	GEOBRL::index_t f = gm->facets.create_polygon(3);
 	gm->facets.set_vertex(f, 0, bot->faces[3*i+0]);
 	gm->facets.set_vertex(f, 1, bot->faces[3*i+1]);
 	gm->facets.set_vertex(f, 2, bot->faces[3*i+2]);
@@ -462,35 +462,35 @@ bot_to_geogram(GEO::Mesh *gm, struct rt_bot_internal *bot,
 
     // After the initial raw load, do a repair pass to set up
     // Geogram's internal mesh data
-    double epsilon = 1e-6 * (0.01 * GEO::bbox_diagonal(*gm));
-    GEO::mesh_repair(*gm, GEO::MeshRepairMode(GEO::MESH_REPAIR_DEFAULT), epsilon, opts);
+    double epsilon = 1e-6 * (0.01 * GEOBRL::bbox_diagonal(*gm));
+    GEOBRL::mesh_repair(*gm, GEOBRL::MeshRepairMode(GEOBRL::MESH_REPAIR_DEFAULT), epsilon, opts);
 
     // Per the geobox "mesh repair" function, we need to do some
     // small connected component removal ahead of the fill_holes
     // call  - that was the behavior difference observed between
     // the raw bot manifold run and exporting the mesh into geobox
     // for processing
-    double area = GEO::Geom::mesh_area(*gm,3);
+    double area = GEOBRL::Geom::mesh_area(*gm,3);
     double min_comp_area = 0.03 * area;
     if (min_comp_area > 0.0) {
 	double nb_f_removed = gm->facets.nb();
-	GEO::remove_small_connected_components(*gm, min_comp_area);
+	GEOBRL::remove_small_connected_components(*gm, min_comp_area);
 	nb_f_removed -= gm->facets.nb();
 	if(nb_f_removed > 0 || nb_f_removed < 0) {
-	    GEO::mesh_repair(*gm, GEO::MESH_REPAIR_DEFAULT, epsilon, opts);
+	    GEOBRL::mesh_repair(*gm, GEOBRL::MESH_REPAIR_DEFAULT, epsilon, opts);
 	}
     }
 }
 
 static void
-geogram_to_manifold(manifold::MeshGL *gmm, GEO::Mesh &gm)
+geogram_to_manifold(manifold::MeshGL *gmm, GEOBRL::Mesh &gm)
 {
-    for (GEO::index_t v = 0; v < gm.vertices.nb(); v++) {
+    for (GEOBRL::index_t v = 0; v < gm.vertices.nb(); v++) {
 	const double *p = gm.vertices.point_ptr(v);
 	for (int i = 0; i < 3; i++)
 	    gmm->vertProperties.insert(gmm->vertProperties.end(), p[i]);
     }
-    for (GEO::index_t f = 0; f < gm.facets.nb(); f++) {
+    for (GEOBRL::index_t f = 0; f < gm.facets.nb(); f++) {
 	for (int i = 0; i < 3; i++) {
 	    // TODO - CW vs CCW orientation handling?
 	    gmm->triVerts.insert(gmm->triVerts.end(), gm.facets.vertex(f, i));
@@ -522,7 +522,7 @@ manifold_to_bot(manifold::MeshGL *omesh)
 }
 
 struct rt_bot_internal *
-geogram_to_bot(GEO::Mesh *gm)
+geogram_to_bot(GEOBRL::Mesh *gm)
 {
     struct rt_bot_internal *nbot;
     BU_GET(nbot, struct rt_bot_internal);
@@ -538,7 +538,7 @@ geogram_to_bot(GEO::Mesh *gm)
     nbot->faces = (int *)calloc(nbot->num_faces*3, sizeof(int));
 
     int j = 0;
-    for(GEO::index_t v = 0; v < gm->vertices.nb(); v++) {
+    for(GEOBRL::index_t v = 0; v < gm->vertices.nb(); v++) {
 	double gm_v[3];
 	const double *p = gm->vertices.point_ptr(v);
 	for (int i = 0; i < 3; i++)
@@ -550,7 +550,7 @@ geogram_to_bot(GEO::Mesh *gm)
     }
 
     j = 0;
-    for (GEO::index_t f = 0; f < gm->facets.nb(); f++) {
+    for (GEOBRL::index_t f = 0; f < gm->facets.nb(); f++) {
 	double tri_verts[3];
 	for (int i = 0; i < 3; i++)
 	    tri_verts[i] = gm->facets.vertex(f, i);
@@ -636,11 +636,11 @@ rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct
 
     // Make sure geogram is initialized with default options
     // (algo_hole_filling="loop_split", algo_nn_search="BNN" are GeoOptions defaults)
-    const GEO::GeoOptions repair_opts;
-    GEO::initialize(GEO::GEOGRAM_INSTALL_NONE, repair_opts);
+    const GEOBRL::GeoOptions repair_opts;
+    GEOBRL::initialize(GEOBRL::GEOBRLCAD_INSTALL_NONE, repair_opts);
 
      // Quell logging messages
-    GEO::Logger::instance()->unregister_all_clients();
+    GEOBRL::Logger::instance()->unregister_all_clients();
 
     // Put I/O channels back where they belong
     if (fnull != -1) {
@@ -653,7 +653,7 @@ rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct
     }
 
     // Set up a Geogram mesh using the BoT data
-    GEO::Mesh gm;
+    GEOBRL::Mesh gm;
     bot_to_geogram(&gm, bot, repair_opts);
 
     // To try to to fill in ALL holes we default to 1e30, which is a
@@ -661,10 +661,10 @@ rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct
     double hole_size = 1e30;
 
     // Stash the bounding box diagonal
-    double bbox_diag = GEO::bbox_diagonal(gm);
+    double bbox_diag = GEOBRL::bbox_diagonal(gm);
 
     // See if the settings override the default
-    double area = GEO::Geom::mesh_area(gm,3);
+    double area = GEOBRL::Geom::mesh_area(gm,3);
     if (!NEAR_ZERO(settings->max_hole_area, SMALL_FASTF)) {
 	hole_size = settings->max_hole_area;
     } else if (!NEAR_ZERO(settings->max_hole_area_percent, SMALL_FASTF)) {
@@ -672,10 +672,10 @@ rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct
     }
 
     // Do the hole filling.
-    GEO::fill_holes(gm, hole_size, GEO::max_index_t(), true, repair_opts);
+    GEOBRL::fill_holes(gm, hole_size, GEOBRL::max_index_t(), true, repair_opts);
 
     // Make sure we're still repaired post filling
-    GEO::mesh_repair(gm, GEO::MeshRepairMode(GEO::MESH_REPAIR_DEFAULT), 0.0, repair_opts);
+    GEOBRL::mesh_repair(gm, GEOBRL::MeshRepairMode(GEOBRL::MESH_REPAIR_DEFAULT), 0.0, repair_opts);
 
     // Post repair, make sure mesh is still a triangle mesh
     gm.facets.triangulate();
@@ -685,7 +685,7 @@ rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct
     // cheese mesh.  Can revisit reporting failure if we hit a legit case
     // like that, but we also want to know if something went badly wrong with
     // the hole filling itself and crazy new geometry was added...
-    double new_area = GEO::Geom::mesh_area(gm,3);
+    double new_area = GEOBRL::Geom::mesh_area(gm,3);
     if (new_area < area) {
 	bu_log("Mesh area decreased after hole filling - error\n");
 	return -1;
@@ -697,7 +697,7 @@ rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct
 
     // Sanity check the bounding box diagonal - should be very close to the
     // original value
-    double new_bbox_diag = GEO::bbox_diagonal(gm);
+    double new_bbox_diag = GEOBRL::bbox_diagonal(gm);
     if (!NEAR_EQUAL(bbox_diag, new_bbox_diag, BN_TOL_DIST)) {
 	bu_log("Mesh bounding box is different after hole filling - error\n");
 	return -1;

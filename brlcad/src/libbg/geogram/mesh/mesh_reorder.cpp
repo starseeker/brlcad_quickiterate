@@ -49,7 +49,7 @@
 
 namespace {
 
-    using namespace GEO;
+    using namespace GEOBRL;
 
     /**
      * \brief Splits a sequence into two ordered halves.
@@ -259,7 +259,7 @@ namespace {
 
     /************************************************************************/
 
-#ifndef GEOGRAM_PSM
+#ifndef GEOBRLCAD_PSM
 
     /**
      * \brief Base class for facets ordering.
@@ -936,7 +936,7 @@ namespace {
 
     /************************************************************************/
 
-#ifndef GEOGRAM_PSM
+#ifndef GEOBRLCAD_PSM
 
     /**
      * \brief Sorts the vertices of a mesh according to the Hilbert ordering.
@@ -1100,9 +1100,9 @@ namespace {
 
 /****************************************************************************/
 
-namespace GEO {
+namespace GEOBRL {
 
-#ifndef GEOGRAM_PSM
+#ifndef GEOBRLCAD_PSM
 
     void mesh_reorder(Mesh& M, MeshOrder order) {
 

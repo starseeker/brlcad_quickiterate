@@ -41,7 +41,7 @@
 #include <geogram/mesh/mesh_halfedges.h>
 #include <geogram/numerics/predicates.h>
 
-namespace GEOGen {
+namespace GEOBRLGen {
 
     index_t ConvexCell::plus1mod3_[3] = {1, 2, 0};
     index_t ConvexCell::minus1mod3_[3] = {2, 0, 1};
@@ -72,7 +72,7 @@ namespace GEOGen {
 
     Sign ConvexCell::side_exact(
         const Mesh* mesh, const Delaunay* delaunay,
-        const GEOGen::Vertex& q,
+        const GEOBRLGen::Vertex& q,
         const double* pi, const double* pj,
         coord_index_t dim,
         bool symbolic_is_surface
@@ -93,7 +93,7 @@ namespace GEOGen {
                 // 3d is a special case for side4()
                 //   (intrinsic dim == ambient dim)
                 // therefore embedding tet q0,q1,q2,q3 is not needed.
-                return GEO::PCK::side4_3d_SOS(
+                return GEOBRL::PCK::side4_3d_SOS(
                     pi,
                     delaunay->vertex_ptr(b0),
                     delaunay->vertex_ptr(b1),
@@ -103,7 +103,7 @@ namespace GEOGen {
             } else {
                 geo_debug_assert(cell_id() >= 0);
                 index_t t = index_t(cell_id());
-                return GEO::PCK::side4_SOS(
+                return GEOBRL::PCK::side4_SOS(
                     pi,
                     delaunay->vertex_ptr(b0),
                     delaunay->vertex_ptr(b1),
@@ -140,7 +140,7 @@ namespace GEOGen {
                     mesh->facet_corners.vertex(c+2)
                 );
 
-                return GEO::PCK::side3_SOS(
+                return GEOBRL::PCK::side3_SOS(
                     pi,
                     delaunay->vertex_ptr(b0),
                     delaunay->vertex_ptr(b1),
@@ -152,16 +152,16 @@ namespace GEOGen {
                 index_t t = f / 4;
                 index_t lf = f % 4;
                 index_t j0 = mesh->cells.tet_vertex(
-                    t, GEO::MeshCells::local_tet_facet_vertex_index(lf, 0)
+                    t, GEOBRL::MeshCells::local_tet_facet_vertex_index(lf, 0)
                 );
                 index_t j1 = mesh->cells.tet_vertex(
-                    t, GEO::MeshCells::local_tet_facet_vertex_index(lf, 1)
+                    t, GEOBRL::MeshCells::local_tet_facet_vertex_index(lf, 1)
                 );
                 index_t j2 = mesh->cells.tet_vertex(
-                    t, GEO::MeshCells::local_tet_facet_vertex_index(lf, 2)
+                    t, GEOBRL::MeshCells::local_tet_facet_vertex_index(lf, 2)
                 );
 
-                return GEO::PCK::side3_SOS(
+                return GEOBRL::PCK::side3_SOS(
                     pi,
                     delaunay->vertex_ptr(b0),
                     delaunay->vertex_ptr(b1),
@@ -183,7 +183,7 @@ namespace GEOGen {
             index_t b0 = q.sym().bisector(0);
             index_t e0, e1;
             q.sym().get_boundary_edge(e0, e1);
-            return GEO::PCK::side2_SOS(
+            return GEOBRL::PCK::side2_SOS(
                 pi, delaunay->vertex_ptr(b0), pj,
                 mesh->vertices.point_ptr(e0),
                 mesh->vertices.point_ptr(e1),
@@ -197,7 +197,7 @@ namespace GEOGen {
             //   three facets of the surface
             //   (i.e. a vertex v0 of the surface).
             index_t v0 = q.sym().get_boundary_vertex();
-            return GEO::PCK::side1_SOS(
+            return GEOBRL::PCK::side1_SOS(
                 pi, pj, mesh->vertices.point_ptr(v0), dim
             );
         }
@@ -207,7 +207,7 @@ namespace GEOGen {
 
     void ConvexCell::initialize_from_mesh_tetrahedron(
         const Mesh* mesh, index_t t, bool symbolic,
-        const GEO::Attribute<double>& vertex_weight
+        const GEOBRL::Attribute<double>& vertex_weight
     ) {
         clear();
 
@@ -228,10 +228,10 @@ namespace GEOGen {
 
         set_cell_id(signed_index_t(t));
 
-        set_vertex_id(0, (t0 == signed_index_t(GEO::NO_CELL)) ? 0 : -t0 - 1);
-        set_vertex_id(1, (t1 == signed_index_t(GEO::NO_CELL)) ? 0 : -t1 - 1);
-        set_vertex_id(2, (t2 == signed_index_t(GEO::NO_CELL)) ? 0 : -t2 - 1);
-        set_vertex_id(3, (t3 == signed_index_t(GEO::NO_CELL)) ? 0 : -t3 - 1);
+        set_vertex_id(0, (t0 == signed_index_t(GEOBRL::NO_CELL)) ? 0 : -t0 - 1);
+        set_vertex_id(1, (t1 == signed_index_t(GEOBRL::NO_CELL)) ? 0 : -t1 - 1);
+        set_vertex_id(2, (t2 == signed_index_t(GEOBRL::NO_CELL)) ? 0 : -t2 - 1);
+        set_vertex_id(3, (t3 == signed_index_t(GEOBRL::NO_CELL)) ? 0 : -t3 - 1);
 
         double w0 = 1.0;
         double w1 = 1.0;
@@ -288,15 +288,15 @@ namespace GEOGen {
             index_t v = create_vertex();
             set_vertex_id(v,-1-signed_index_t(f));
         }
-        GEO::vector<GEO::MeshHalfedges::Halfedge> v2h(mesh->vertices.nb());
+        GEOBRL::vector<GEOBRL::MeshHalfedges::Halfedge> v2h(mesh->vertices.nb());
 
-        GEO::MeshHalfedges MH(*mesh);
+        GEOBRL::MeshHalfedges MH(*mesh);
         for(index_t f = 0; f < mesh->facets.nb(); ++f) {
             for(index_t c = mesh->facets.corners_begin(f);
                 c < mesh->facets.corners_end(f); ++c
                ) {
                 index_t v = mesh->facet_corners.vertex(c);
-                v2h[v] = GEO::MeshHalfedges::Halfedge(f, c);
+                v2h[v] = GEOBRL::MeshHalfedges::Halfedge(f, c);
             }
         }
 
@@ -304,7 +304,7 @@ namespace GEOGen {
             index_t fi[3];
             index_t va[3];
             index_t cur = 0;
-            GEO::MeshHalfedges::Halfedge H = v2h[v];
+            GEOBRL::MeshHalfedges::Halfedge H = v2h[v];
             do {
                 //   All the vertices of the input mesh should be
                 // incident to three facets exactly (this is because
@@ -341,7 +341,7 @@ namespace GEOGen {
 
 
     void ConvexCell::convert_to_mesh(Mesh* mesh, bool copy_symbolic_info) {
-        GEO::vector<index_t> tri_to_v(max_t());
+        GEOBRL::vector<index_t> tri_to_v(max_t());
         mesh->clear();
         mesh->vertices.set_dimension(3);
 
@@ -353,11 +353,11 @@ namespace GEOGen {
                 ++cur_v;
             }
         }
-        GEO::Attribute<signed_index_t> facet_id;
+        GEOBRL::Attribute<signed_index_t> facet_id;
         if(copy_symbolic_info) {
             facet_id.bind(mesh->facets.attributes(), "id");
         }
-        GEO::vector<index_t> facet_vertices;
+        GEOBRL::vector<index_t> facet_vertices;
         for(index_t v = 0; v < max_v(); v++) {
             facet_vertices.resize(0);
             signed_index_t t = vertex_triangle(v);

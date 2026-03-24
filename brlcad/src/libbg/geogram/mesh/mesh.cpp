@@ -43,7 +43,7 @@
 #include <geogram/basic/algorithm.h>
 #include <geogram/basic/string.h>
 
-namespace GEO {
+namespace GEOBRL {
 
     MeshSubElementsStore::MeshSubElementsStore(Mesh& mesh) :
         mesh_(mesh),
@@ -670,7 +670,7 @@ namespace GEO {
 
 	// Sanity check: no facet is incident to same vertex
 	// several times
-#ifdef GEO_DEBUG
+#ifdef GEOBRL_DEBUG
         {
             for(index_t f = f_begin; f != f_end; ++f) {
                 for(index_t lv1=0; lv1<nb_vertices(f); ++lv1) {
@@ -903,7 +903,7 @@ namespace GEO {
 
     namespace MeshCellDescriptors {
 
-        GEOGRAM_API CellDescriptor tet_descriptor = {
+        GEOBRLCAD_API CellDescriptor tet_descriptor = {
             4,         // nb_vertices
             4,         // nb_facets
             {3,3,3,3}, // nb_vertices in facet
@@ -923,7 +923,7 @@ namespace GEO {
         };
 
 
-        GEOGRAM_API CellDescriptor hex_descriptor = {
+        GEOBRLCAD_API CellDescriptor hex_descriptor = {
             8,             // nb_vertices
             6,             // nb_facets
             {4,4,4,4,4,4}, // nb_vertices in facet
@@ -946,7 +946,7 @@ namespace GEO {
             }
         };
 
-        GEOGRAM_API CellDescriptor prism_descriptor = {
+        GEOBRLCAD_API CellDescriptor prism_descriptor = {
             6,             // nb_vertices
             5,             // nb_facets
             {3,3,4,4,4},   // nb_vertices in facet
@@ -967,7 +967,7 @@ namespace GEO {
         };
 
 
-        GEOGRAM_API CellDescriptor pyramid_descriptor = {
+        GEOBRLCAD_API CellDescriptor pyramid_descriptor = {
             5,             // nb_vertices
             5,             // nb_facets
             {4,3,3,3,3},   // nb_vertices in facet
@@ -987,7 +987,7 @@ namespace GEO {
             }
         };
 
-        GEOGRAM_API CellDescriptor connector_descriptor = {
+        GEOBRLCAD_API CellDescriptor connector_descriptor = {
             4,             // nb_vertices
             3,             // nb_facets
             {4,3,3},       // nb_vertices in facet
@@ -1005,7 +1005,7 @@ namespace GEO {
             }
         };
 
-        GEOGRAM_API CellDescriptor* cell_type_to_cell_descriptor[5] = {
+        GEOBRLCAD_API CellDescriptor* cell_type_to_cell_descriptor[5] = {
             &tet_descriptor,
             &hex_descriptor,
             &prism_descriptor,
@@ -1059,7 +1059,7 @@ namespace GEO {
     const CellDescriptor& MeshCellsStore::cell_type_to_cell_descriptor(
 	MeshCellType t
     ) {
-	geo_debug_assert(t < GEO::MESH_NB_CELL_TYPES);
+	geo_debug_assert(t < GEOBRL::MESH_NB_CELL_TYPES);
 	return *(MeshCellDescriptors::cell_type_to_cell_descriptor[t]);
     }
 
@@ -1342,10 +1342,10 @@ namespace GEO {
             cell_facets_.set_adjacent_cell(f,NO_CELL);
         }
 
-        GEO::vector<index_t> next_tet_corner_around_vertex(
+        GEOBRL::vector<index_t> next_tet_corner_around_vertex(
             nb() * 4, NO_CORNER
         );
-        GEO::vector<index_t> v2c(vertices_.nb(), NO_CORNER);
+        GEOBRL::vector<index_t> v2c(vertices_.nb(), NO_CORNER);
 
         // Step 1: chain tet corners around vertices and compute v2c
         for(index_t t = 0; t < nb(); ++t) {
@@ -1490,7 +1490,7 @@ namespace GEO {
         }
 
         if(matches.size() == 1) {
-            GEO::Logger::warn("Mesh")
+            GEOBRL::Logger::warn("Mesh")
                 << "Found only one triangular facet adjacent to a quad facet"
                 << std::endl;
             Attribute<bool> weird(attributes(),"weird");
@@ -1536,7 +1536,7 @@ namespace GEO {
         // Sanity check: make sure that we only found a single pair
         // of triangular facets with a common edge that matches the quad.
         if(nb_found > 2) {
-            GEO::Logger::warn("Mesh")
+            GEOBRL::Logger::warn("Mesh")
                 << "Found more than two triangular facets adjacent to a quad"
                 << " ( got " << nb_found << ")"
                 << std::endl;
@@ -1550,7 +1550,7 @@ namespace GEO {
         }
 
         if(nb_found == 0) {
-            GEO::Logger::warn("Mesh")
+            GEOBRL::Logger::warn("Mesh")
                 << "Triangular facets adjacent to a quad have no common edge"
                 << std::endl;
             return false;
@@ -1563,7 +1563,7 @@ namespace GEO {
             adjacent(adj_c2, adj_lf2) != NO_CELL
         ) {
             /*
-              GEO::Logger::warn("Mesh")
+              GEOBRL::Logger::warn("Mesh")
               << "Matching tet facets are not on border (\"thick sliver\")"
               << std::endl;
             */
@@ -1725,7 +1725,7 @@ namespace GEO {
                 }
 
                 // Make sure we get each match once only
-                GEO::sort_unique(matches);
+                GEOBRL::sort_unique(matches);
 
                 // This should not happen, but we keep this
                 // sanity check and notify the user if some
@@ -1752,18 +1752,18 @@ namespace GEO {
             }
         }
         if(weird != 0) {
-            GEO::Logger::warn("Mesh") << "Encountered "
+            GEOBRL::Logger::warn("Mesh") << "Encountered "
                                       << weird
                                       << " invalid connector configurations"
                                       << std::endl;
         } else {
             if(verbose_if_OK) {
-                GEO::Logger::out("Mesh") << "All connectors are OK"
+                GEOBRL::Logger::out("Mesh") << "All connectors are OK"
                                          << std::endl;
             }
         }
         if(remove_trivial_slivers && trivial_slivers.size() != 0) {
-            GEO::Logger::warn("Mesh") << "Removing "
+            GEOBRL::Logger::warn("Mesh") << "Removing "
                                       << trivial_slivers.size()
                                       << " trivial sliver(s)" << std::endl;
 
@@ -1784,7 +1784,7 @@ namespace GEO {
             }
             delete_elements(delete_c);
 
-            GEO::Logger::warn("Mesh")
+            GEOBRL::Logger::warn("Mesh")
 		<< "Re-trying to connect cells" << std::endl;
             connect(false,true);
         }
@@ -1969,13 +1969,13 @@ namespace GEO {
                                  << cells.nb() << std::endl;
             } else {
 
-                index_t nb_cells_by_type[GEO::MESH_NB_CELL_TYPES];
-                for(index_t i=0; i<GEO::MESH_NB_CELL_TYPES; ++i) {
+                index_t nb_cells_by_type[GEOBRL::MESH_NB_CELL_TYPES];
+                for(index_t i=0; i<GEOBRL::MESH_NB_CELL_TYPES; ++i) {
                     nb_cells_by_type[i] = 0;
                 }
 
                 for(index_t c=0; c<cells.nb(); ++c) {
-                    geo_debug_assert(cells.type(c) < GEO::MESH_NB_CELL_TYPES);
+                    geo_debug_assert(cells.type(c) < GEOBRL::MESH_NB_CELL_TYPES);
                     ++nb_cells_by_type[cells.type(c)];
                 }
 
@@ -2252,7 +2252,7 @@ namespace GEO {
 
 namespace {
 
-    using namespace GEO;
+    using namespace GEOBRL;
 
     /**
      * \brief Gets the names of all scalar attributes from an AttributeManager
@@ -2390,7 +2390,7 @@ namespace {
     }
 }
 
-namespace GEO {
+namespace GEOBRL {
 
     std::string Mesh::get_attributes() const {
         std::string result;

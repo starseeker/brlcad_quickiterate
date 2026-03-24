@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_MESH_MESH_PREPROCESSING
-#define GEOGRAM_MESH_MESH_PREPROCESSING
+#ifndef GEOBRLCAD_MESH_MESH_PREPROCESSING
+#define GEOBRLCAD_MESH_MESH_PREPROCESSING
 
 #include <geogram/basic/common.h>
 #include <geogram/mesh/mesh_repair.h>
@@ -49,7 +49,7 @@
  * \brief Functions to pre-process a mesh
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     class Mesh;
 
@@ -61,7 +61,7 @@ namespace GEO {
      * \param[in] min_facet_area facets with an area smaller than
      *  this threshold are removed
      */
-    void GEOGRAM_API remove_small_facets(Mesh& M, double min_facet_area);
+    void GEOBRLCAD_API remove_small_facets(Mesh& M, double min_facet_area);
 
     /**
      * \brief Removes the connected components that have an area
@@ -72,7 +72,7 @@ namespace GEO {
      * \param[in] min_component_facets the connected components with
      *  less than min_component_facets facets are removed
      */
-    void GEOGRAM_API remove_small_connected_components(
+    void GEOBRLCAD_API remove_small_connected_components(
         Mesh& M,
         double min_component_area,
         index_t min_component_facets = 0.0
@@ -83,13 +83,13 @@ namespace GEO {
      *  component has a positive signed volume.
      * \param[in,out] M the mesh to be processed
      */
-    void GEOGRAM_API orient_normals(Mesh& M);
+    void GEOBRLCAD_API orient_normals(Mesh& M);
 
     /**
      * \brief Inverts all the normals of a mesh.
      * \param[in,out] M the mesh to be processed
      */
-    void GEOGRAM_API invert_normals(Mesh& M);
+    void GEOBRLCAD_API invert_normals(Mesh& M);
 
     /**
      * \brief Enlarges a surface by moving the vertices
@@ -105,7 +105,7 @@ namespace GEO {
      * \param[in] epsilon the distance along which border vertices
      *  are shifted
      */
-    void GEOGRAM_API expand_border(Mesh& M, double epsilon);
+    void GEOBRLCAD_API expand_border(Mesh& M, double epsilon);
 
     /**
      * \brief Removes the degree 2 vertices in a surface mesh.
@@ -114,7 +114,7 @@ namespace GEO {
      *   pair of facets adjacent twice. This function disconnects
      *   the concerned facets.
      */
-    void GEOGRAM_API remove_degree2_vertices(Mesh& M);
+    void GEOBRLCAD_API remove_degree2_vertices(Mesh& M);
 }
 
 #endif

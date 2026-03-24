@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_VORONOI_GENERIC_RVD_POLYGON
-#define GEOGRAM_VORONOI_GENERIC_RVD_POLYGON
+#ifndef GEOBRLCAD_VORONOI_GENERIC_RVD_POLYGON
+#define GEOBRLCAD_VORONOI_GENERIC_RVD_POLYGON
 
 #include <geogram/basic/common.h>
 #include <geogram/voronoi/generic_RVD_vertex.h>
@@ -48,17 +48,17 @@
  * \file geogram/voronoi/generic_RVD_polygon.h
  * \brief Internal representation of polygons for GenericVoronoiDiagram.
  * \note This file contains functions and classes used by the internal
- *  implementation of GEO::GenericVoronoiDiagram.
+ *  implementation of GEOBRL::GenericVoronoiDiagram.
  *  They are not meant to be used directly by client code.
  */
 
-namespace GEOGen {
+namespace GEOBRLGen {
 
     /**
      * \brief Internal representation of polygons for GenericVoronoiDiagram.
      * \details Stores both geometrical and symbolic representations.
      * \note This is an internal implementation class used by
-     *  GEO::RestrictedVoronoiDiagram. It is not meant to be
+     *  GEOBRL::RestrictedVoronoiDiagram. It is not meant to be
      *  used directly by client code.
      */
     class Polygon {
@@ -155,7 +155,7 @@ namespace GEOGen {
          */
         void initialize_from_mesh_facet(
             const Mesh* mesh, index_t f, bool symbolic,
-            const GEO::Attribute<double>& vertex_weight
+            const GEOBRL::Attribute<double>& vertex_weight
         );
 
         /**
@@ -279,7 +279,7 @@ namespace GEOGen {
 
             // We compute:
             //    side1(pi,pj,q) = sign(2*q.n - n.m) = sign(2*l - d)
-            GEO::Sign prev_status = GEO::geo_sgn(2.0 * prev_l - d);
+            GEOBRL::Sign prev_status = GEOBRL::geo_sgn(2.0 * prev_l - d);
 
             for(index_t k = 0; k < nb_vertices(); k++) {
                 const Vertex* vk = &(vertex(k));
@@ -294,7 +294,7 @@ namespace GEOGen {
 
                 // We compute:
                 //   side1(pi,pj,q) = sign(2*q.n - n.m) = sign(2*l - d)
-                GEO::Sign status = GEO::geo_sgn(2.0 * l - d);
+                GEOBRL::Sign status = GEOBRL::geo_sgn(2.0 * l - d);
 
                 // If status of edge extremities differ,
                 // then there is an intersection.
@@ -467,7 +467,7 @@ namespace GEOGen {
         );
 
     private:
-        GEO::vector<Vertex> vertex_;
+        GEOBRL::vector<Vertex> vertex_;
     };
 }
 

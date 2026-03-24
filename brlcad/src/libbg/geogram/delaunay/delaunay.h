@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_DELAUNAY_DELAUNAY
-#define GEOGRAM_DELAUNAY_DELAUNAY
+#ifndef GEOBRLCAD_DELAUNAY_DELAUNAY
+#define GEOBRLCAD_DELAUNAY_DELAUNAY
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/counted.h>
@@ -52,7 +52,7 @@
  * \brief Abstract interface for Delaunay
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     class Mesh;
 
@@ -68,7 +68,7 @@ namespace GEO {
      * \see DelaunayFactory
      * \see geo_register_Delaunay_creator
      */
-    class GEOGRAM_API Delaunay : public Counted {
+    class GEOBRLCAD_API Delaunay : public Counted {
     public:
         /**
          * \brief Invalid dimension exception
@@ -92,7 +92,7 @@ namespace GEO {
             /**
              * \brief Gets the string identifying the exception
              */
-            const char* what() const GEO_NOEXCEPT override;
+            const char* what() const GEOBRL_NOEXCEPT override;
         };
 
 
@@ -115,12 +115,12 @@ namespace GEO {
              */
             InvalidInput(const InvalidInput& rhs);
 
-            ~InvalidInput() GEO_NOEXCEPT override;
+            ~InvalidInput() GEOBRL_NOEXCEPT override;
 
             /**
              * \brief Gets the string identifying the exception
              */
-            const char* what() const GEO_NOEXCEPT override;
+            const char* what() const GEOBRL_NOEXCEPT override;
 
             /**
              * \brief An implementation-dependent error code.
@@ -825,7 +825,7 @@ namespace GEO {
      * \relates Delaunay
      */
 #define geo_register_Delaunay_creator(type, name)               \
-    geo_register_creator(GEO::DelaunayFactory, type, name)
+    geo_register_creator(GEOBRL::DelaunayFactory, type, name)
 }
 
 #endif

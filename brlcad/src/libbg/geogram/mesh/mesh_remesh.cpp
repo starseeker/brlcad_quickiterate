@@ -54,7 +54,7 @@
 
 /****************************************************************************/
 
-namespace GEO {
+namespace GEOBRL {
 
     void remesh_smooth(
         Mesh& M_in, Mesh& M_out,
@@ -278,7 +278,7 @@ namespace GEO {
 
     /************************************************************************/
 
-    void GEOGRAM_API mesh_adjust_surface(
+    void GEOBRLCAD_API mesh_adjust_surface(
         Mesh& surface,
         Mesh& reference,
         double max_edge_distance,

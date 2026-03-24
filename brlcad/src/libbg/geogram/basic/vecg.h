@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_BASIC_VECG
-#define GEOGRAM_BASIC_VECG
+#ifndef GEOBRLCAD_BASIC_VECG
+#define GEOBRLCAD_BASIC_VECG
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/numeric.h>
@@ -56,7 +56,7 @@
  * \brief Generic implementation of geometric vectors
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     /**
      * \brief Generic maths vector
@@ -1220,7 +1220,7 @@ namespace GEO {
      */
     template <index_t DIM, class T>
     inline std::ostream& operator<< (
-        std::ostream& out, const GEO::vecng<DIM, T>& v
+        std::ostream& out, const GEOBRL::vecng<DIM, T>& v
     ) {
         const char* sep = "";
         for(index_t i = 0; i < DIM; i++) {
@@ -1242,7 +1242,7 @@ namespace GEO {
      */
     template <index_t DIM, class T>
     inline std::istream& operator>> (
-        std::istream& in, GEO::vecng<DIM, T>& v
+        std::istream& in, GEOBRL::vecng<DIM, T>& v
     ) {
         char c;
         while(isspace(in.peek())) {

@@ -45,7 +45,7 @@
 #include <stdlib.h>
 
 namespace {
-    using namespace GEO;
+    using namespace GEOBRL;
 
     /**
      * \brief Root environment
@@ -54,7 +54,7 @@ namespace {
      */
     class RootEnvironment : public Environment {
     protected:
-        /** \copydoc GEO::Environment::get_local_value() */
+        /** \copydoc GEOBRL::Environment::get_local_value() */
         bool get_local_value(
             const std::string& name, std::string& value
         ) const override {
@@ -66,7 +66,7 @@ namespace {
             return false;
         }
 
-        /** \copydoc GEO::Environment::set_local_value() */
+        /** \copydoc GEOBRL::Environment::set_local_value() */
         bool set_local_value(
             const std::string& name, const std::string& value
         ) override {
@@ -85,7 +85,7 @@ namespace {
     };
 }
 
-namespace GEO {
+namespace GEOBRL {
 
     /************************************************************************/
 
@@ -296,7 +296,7 @@ namespace GEO {
         const std::string& name, std::string& value
     ) const {
         // For the moment, deactivated under Windows
-#ifdef GEO_OS_WINDOWS
+#ifdef GEOBRL_OS_WINDOWS
         geo_argused(name);
         geo_argused(value);
         return false;

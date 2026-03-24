@@ -42,7 +42,7 @@
 
 namespace {
 
-    using namespace GEO;
+    using namespace GEOBRL;
 
     typedef SmartPointer<InstanceRepo::Instance> Instance_var;
 
@@ -54,7 +54,7 @@ namespace {
     }
 }
 
-namespace GEO {
+namespace GEOBRL {
 
     void InstanceRepo::add(const std::string& name, Instance* instance) {
         Registry& r = get_registry();

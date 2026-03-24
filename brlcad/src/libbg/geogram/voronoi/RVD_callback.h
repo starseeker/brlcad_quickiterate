@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_VORONOI_RVD_CALLBACK
-#define GEOGRAM_VORONOI_RVD_CALLBACK
+#ifndef GEOBRLCAD_VORONOI_RVD_CALLBACK
+#define GEOBRLCAD_VORONOI_RVD_CALLBACK
 
 #include <geogram/basic/common.h>
 #include <geogram/voronoi/generic_RVD_vertex.h>
@@ -47,13 +47,13 @@
 #include <geogram/basic/attributes.h>
 #include <geogram/basic/thread_sync.h>
 
-namespace GEOGen {
+namespace GEOBRLGen {
     class SymbolicVertex;
     class Polygon;
     class ConvexCell;
 }
 
-namespace GEO {
+namespace GEOBRL {
     class RVDVertexMap;
     class Mesh;
 }
@@ -64,7 +64,7 @@ namespace GEO {
  *  code that queries the cells of a restricted Voronoi diagram.
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     /***************************************************************/
 
@@ -73,7 +73,7 @@ namespace GEO {
      *  element (polygon or polyhedron) of a restricted Voronoi
      *  diagram traversal.
      */
-    class GEOGRAM_API RVDCallback {
+    class GEOBRLCAD_API RVDCallback {
     public:
 
     /**
@@ -150,7 +150,7 @@ namespace GEO {
      *  cell and a triangle.
      */
 
-    class GEOGRAM_API RVDPolygonCallback : public RVDCallback {
+    class GEOBRLCAD_API RVDPolygonCallback : public RVDCallback {
     public:
 
         /**
@@ -183,7 +183,7 @@ namespace GEO {
         virtual void operator() (
             index_t v,
             index_t t,
-            const GEOGen::Polygon& C
+            const GEOBRLGen::Polygon& C
         ) const;
 
     };
@@ -199,7 +199,7 @@ namespace GEO {
      *  class are called for each intersection between a Voronoi
      *  cell and a tetrahedron.
      */
-    class GEOGRAM_API RVDPolyhedronCallback : public RVDCallback {
+    class GEOBRLCAD_API RVDPolyhedronCallback : public RVDCallback {
     public:
 
         /**
@@ -238,7 +238,7 @@ namespace GEO {
         virtual void operator() (
             index_t v,
             index_t t,
-            const GEOGen::ConvexCell& C
+            const GEOBRLGen::ConvexCell& C
         ) const;
 
 
@@ -271,7 +271,7 @@ namespace GEO {
          * \param[in] symb the symbolic representation of the vertex
          */
         virtual void vertex(
-            const double* geometry, const GEOGen::SymbolicVertex& symb
+            const double* geometry, const GEOBRLGen::SymbolicVertex& symb
         );
 
         /**
@@ -439,7 +439,7 @@ namespace GEO {
          * \see vertex()
          */
         virtual void vertex_internal(
-            const double* geometry, const GEOGen::SymbolicVertex& symb
+            const double* geometry, const GEOBRLGen::SymbolicVertex& symb
         );
 
         /**
@@ -486,7 +486,7 @@ namespace GEO {
         bool facet_is_skipped_;
 
         Mesh mesh_;
-        Attribute<GEOGen::SymbolicVertex> mesh_vertex_sym_;
+        Attribute<GEOBRLGen::SymbolicVertex> mesh_vertex_sym_;
         Attribute<index_t> mesh_facet_seed_;
         Attribute<index_t> mesh_facet_tet_;
         RVDVertexMap* vertex_map_;
@@ -502,7 +502,7 @@ namespace GEO {
      *  the Voronoi cells. Based on set_simplify_xxx(), a smaller number of
      *  polyhedra can be generated.
      */
-    class GEOGRAM_API BuildRVDMesh : public RVDPolyhedronCallback {
+    class GEOBRLCAD_API BuildRVDMesh : public RVDPolyhedronCallback {
     public:
 
         /**
@@ -563,7 +563,7 @@ namespace GEO {
          * \copydoc RVDPolyhedronCallback::vertex()
          */
         void vertex(
-            const double* geometry, const GEOGen::SymbolicVertex& symb
+            const double* geometry, const GEOBRLGen::SymbolicVertex& symb
         ) override;
 
         /**

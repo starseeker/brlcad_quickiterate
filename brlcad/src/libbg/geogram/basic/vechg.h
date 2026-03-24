@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_BASIC_VECHG
-#define GEOGRAM_BASIC_VECHG
+#ifndef GEOBRLCAD_BASIC_VECHG
+#define GEOBRLCAD_BASIC_VECHG
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/vecg.h>
@@ -49,7 +49,7 @@
  * \brief Generic implementation of geometric vectors in homogeneous coordinates
  */
 
-namespace GEO {
+namespace GEOBRL {
 
 
     /************************************************************************/

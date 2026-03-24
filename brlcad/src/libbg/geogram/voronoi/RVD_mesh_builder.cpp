@@ -39,7 +39,7 @@
 
 #include <geogram/voronoi/RVD_mesh_builder.h>
 
-namespace GEO {
+namespace GEOBRL {
 
     RVDVertexMap::RVDVertexMap() :
         nb_vertices_(0) {

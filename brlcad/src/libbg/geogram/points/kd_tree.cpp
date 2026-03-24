@@ -44,8 +44,8 @@
 
 namespace {
 
-    using namespace GEO;
-    using GEO::index_t;
+    using namespace GEOBRL;
+    using GEOBRL::index_t;
 
     /**
      * \brief Comparison functor used to
@@ -102,7 +102,7 @@ namespace {
 
 /****************************************************************************/
 
-namespace GEO {
+namespace GEOBRL {
 
     KdTree::KdTree(coord_index_t dim) :
         NearestNeighborSearch(dim),

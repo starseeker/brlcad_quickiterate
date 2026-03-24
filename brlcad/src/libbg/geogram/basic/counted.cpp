@@ -39,7 +39,7 @@
 
 #include <geogram/basic/counted.h>
 
-namespace GEO {
+namespace GEOBRL {
 
     Counted::~Counted() {
         geo_assert(nb_refs_ == 0);

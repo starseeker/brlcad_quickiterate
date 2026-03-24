@@ -41,7 +41,7 @@
 #include <geogram/basic/logger.h>
 #include <ctype.h>
 
-namespace GEO {
+namespace GEOBRL {
 
     LineInput::LineInput(const std::string& filename) :
         file_name_(filename),
@@ -100,7 +100,7 @@ namespace GEO {
     }
 
 #if 1
-#ifdef GEO_OS_WINDOWS
+#ifdef GEOBRL_OS_WINDOWS
 #define safe_strtok strtok_s
 #else
 #define safe_strtok strtok_r

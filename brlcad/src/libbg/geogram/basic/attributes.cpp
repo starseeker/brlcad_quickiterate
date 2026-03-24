@@ -43,7 +43,7 @@
 #include <geogram/basic/geometry.h>
 #include <algorithm>
 
-namespace GEO {
+namespace GEOBRL {
 
     void AttributeStoreObserver::register_me(AttributeStore* store) {
         store->register_observer(this);
@@ -75,7 +75,7 @@ namespace GEO {
         cached_base_addr_(nullptr),
         cached_size_(0),
         cached_capacity_(0),
-        lock_(GEOGRAM_SPINLOCK_INIT)
+        lock_(GEOBRLCAD_SPINLOCK_INIT)
     {
     }
 

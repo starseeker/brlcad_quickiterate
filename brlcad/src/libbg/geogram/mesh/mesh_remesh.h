@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_MESH_MESH_REMESH
-#define GEOGRAM_MESH_MESH_REMESH
+#ifndef GEOBRLCAD_MESH_MESH_REMESH
+#define GEOBRLCAD_MESH_MESH_REMESH
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/numeric.h>
@@ -48,7 +48,7 @@
  * \brief Functions for remeshing
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     class Mesh;
 
@@ -89,7 +89,7 @@ namespace GEO {
      * remesh_smooth(M_in, M_out, 30000, 6) ;
      * \endcode
      */
-    void GEOGRAM_API remesh_smooth(
+    void GEOBRLCAD_API remesh_smooth(
         Mesh& M_in, Mesh& M_out,
         index_t nb_points,
         const GeoOptions& opts,
@@ -122,7 +122,7 @@ namespace GEO {
      * \details Internally it uses an AABB, hence the order
      *  of the facets of \p reference can be changed.
      */
-    void GEOGRAM_API mesh_adjust_surface(
+    void GEOBRLCAD_API mesh_adjust_surface(
         Mesh& surface,
         Mesh& reference,
         double max_edge_distance=0.5,

@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_BASIC_COUNTED
-#define GEOGRAM_BASIC_COUNTED
+#ifndef GEOBRLCAD_BASIC_COUNTED
+#define GEOBRLCAD_BASIC_COUNTED
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/smart_pointer.h>
@@ -50,7 +50,7 @@
  *  to be used with smart pointers
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     /**
      * \brief Base class for reference-counted objects
@@ -68,7 +68,7 @@ namespace GEO {
      * done automatically by using SmartPointer<T>.
      * \see SmartPointer
      */
-    class GEOGRAM_API Counted {
+    class GEOBRLCAD_API Counted {
     public:
     /**
      * \brief Increments the reference count

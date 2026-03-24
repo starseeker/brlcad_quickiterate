@@ -46,7 +46,7 @@
 
 namespace {
 
-    using namespace GEO;
+    using namespace GEOBRL;
     using namespace CmdLine;
 
     /**
@@ -219,7 +219,7 @@ namespace {
      */
 }
 
-namespace GEO {
+namespace GEOBRL {
 
     namespace CmdLine {
 

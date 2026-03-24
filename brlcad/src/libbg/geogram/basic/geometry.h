@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_BASIC_GEOMETRY
-#define GEOGRAM_BASIC_GEOMETRY
+#ifndef GEOBRLCAD_BASIC_GEOBRLMETRY
+#define GEOBRLCAD_BASIC_GEOBRLMETRY
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/matrix.h>
@@ -48,7 +48,7 @@
  * \brief Geometric functions in 2d and 3d
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     /************************************************************************/
 
@@ -437,7 +437,7 @@ namespace GEO {
          * \param[in] p3 third vertex of the triangle
          * \return the circumcenter of the triangle (\p p1, \p p2, \p p3).
          */
-        vec2 GEOGRAM_API triangle_circumcenter(
+        vec2 GEOBRLCAD_API triangle_circumcenter(
             const vec2& p1, const vec2& p2, const vec2& p3
         );
 
@@ -469,7 +469,7 @@ namespace GEO {
          * \param[in] V a 3d vector
          * \return a 3d vector orthogonal to \p V
          */
-        vec3 GEOGRAM_API perpendicular(const vec3& V);
+        vec3 GEOBRLCAD_API perpendicular(const vec3& V);
 
         /**
          * \brief Computes the signed volume of a 3d tetrahedron
@@ -534,7 +534,7 @@ namespace GEO {
          * \return the circumcenter of the tetrahedron
          *  (\p p1, \p p2, \p p3, \p p4)
          */
-        vec3 GEOGRAM_API tetra_circum_center(
+        vec3 GEOBRLCAD_API tetra_circum_center(
             const vec3& p1, const vec3& p2,
             const vec3& p3, const vec3& p4
         );

@@ -42,7 +42,7 @@ extern "C" {
 #pragma GCC diagnostic ignored "-Wunused-template"
 #endif
 
-#ifdef GEO_COMPILER_MSVC
+#ifdef GEOBRL_COMPILER_MSVC
 #pragma warning( disable : 4244 4018 4458 4267 4701 )
 #endif
 
@@ -140,14 +140,14 @@ template <class Backend> NLboolean nlSolveAMGCL_generic() {
     NLContextStruct* ctxt = (NLContextStruct*)nlGetCurrent();
 
     if(ctxt->verbose) {
-        GEO::Logger::out("AMGCL") << "calling AMGCL solver (built in geogram) "
+        GEOBRL::Logger::out("AMGCL") << "calling AMGCL solver (built in geogram) "
 				  << "(" << Backend::name() << ")"
 				  << std::endl;
     }
 
     if(ctxt->M->type == NL_MATRIX_SPARSE_DYNAMIC) {
         if(ctxt->verbose) {
-            GEO::Logger::out("AMGCL") << "Compressing matrix" << std::endl;
+            GEOBRL::Logger::out("AMGCL") << "Compressing matrix" << std::endl;
         }
         nlMatrixCompress(&ctxt->M);
     }
@@ -174,18 +174,18 @@ template <class Backend> NLboolean nlSolveAMGCL_generic() {
         size_t(n), (rowptr_t*)M->rowptr, (colind_t *)M->colind, M->val
     );
 
-    GEO::Stopwatch* Wbuild = new GEO::Stopwatch("AMGCL build", ctxt->verbose);
+    GEOBRL::Stopwatch* Wbuild = new GEOBRL::Stopwatch("AMGCL build", ctxt->verbose);
 
     Solver solver(M_amgcl,prm);
 
     if(ctxt->verbose) {
-	GEO::Logger::out("AMGCL build") << solver << std::endl;
+	GEOBRL::Logger::out("AMGCL build") << solver << std::endl;
     }
 
     delete Wbuild;
 
     if(ctxt->verbose) {
-	GEO::Logger::out("AMGCL solve") << "Start..." << std::endl;
+	GEOBRL::Logger::out("AMGCL solve") << "Start..." << std::endl;
     }
 
     // Start timer when running iterative solver
@@ -222,7 +222,7 @@ NLboolean nlSolveAMGCL() {
 #else
 
 nlBoolean nlSolveAMGCL() {
-    GEO::Logger::out("AMGCL") << "Not supported" << std::endl;
+    GEOBRL::Logger::out("AMGCL") << "Not supported" << std::endl;
     return NL_FALSE;
 }
 

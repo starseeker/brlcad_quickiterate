@@ -49,7 +49,7 @@
 
 
 namespace {
-    using namespace GEO;
+    using namespace GEOBRL;
 
     ThreadManager_var thread_manager_;
     int running_threads_invocations_ = 0;
@@ -186,9 +186,9 @@ namespace {
      * CXX17ThreadManager is an implementation of ThreadManager that uses
      * C++17 std::thread for running concurrent threads.
      */
-    class GEOGRAM_API CXX17ThreadManager : public ThreadManager {
+    class GEOBRLCAD_API CXX17ThreadManager : public ThreadManager {
     public:
-        /** \copydoc GEO::ThreadManager::maximum_concurrent_threads() */
+        /** \copydoc GEOBRL::ThreadManager::maximum_concurrent_threads() */
         index_t maximum_concurrent_threads() override {
             return Process::number_of_cores();
         }
@@ -198,7 +198,7 @@ namespace {
         ~CXX17ThreadManager() override {
         }
 
-        /** \copydoc GEO::ThreadManager::run_concurrent_threads() */
+        /** \copydoc GEOBRL::ThreadManager::run_concurrent_threads() */
         void run_concurrent_threads(
             ThreadGroup& threads, index_t max_threads
         ) override {
@@ -236,7 +236,7 @@ namespace {
     thread_local Thread* geo_current_thread_ = nullptr;
 }
 
-namespace GEO {
+namespace GEOBRL {
 
     void Thread::set_current(Thread* thread) {
         geo_current_thread_ = thread;
@@ -299,8 +299,8 @@ namespace GEO {
             }
 
             if(
-                (::getenv("GEO_NO_SIGNAL_HANDLER") == nullptr) &&
-                ((flags & GEOGRAM_INSTALL_HANDLERS) != 0)
+                (::getenv("GEOBRL_NO_SIGNAL_HANDLER") == nullptr) &&
+                ((flags & GEOBRLCAD_INSTALL_HANDLERS) != 0)
             ) {
                 os_install_signal_handlers();
             }
@@ -308,7 +308,7 @@ namespace GEO {
             // Initialize Process default values
             enable_multithreading(multithreading_enabled_);
             set_max_threads(number_of_cores());
-            if (flags & GEOGRAM_INSTALL_FPE) {
+            if (flags & GEOBRLCAD_INSTALL_FPE) {
                 enable_FPE(fpe_enabled_);
             }
             enable_cancel(cancel_enabled_);
@@ -364,7 +364,7 @@ namespace GEO {
         index_t number_of_cores() {
             static index_t result = 0;
             if(result == 0) {
-#ifdef GEO_NO_THREAD_LOCAL
+#ifdef GEOBRL_NO_THREAD_LOCAL
                 // Deactivate multithreading if thread_local is
                 // not supported (e.g. with old OS-X).
                 result = 1;
@@ -527,11 +527,11 @@ namespace GEO {
 
 
 namespace {
-    using namespace GEO;
+    using namespace GEOBRL;
 
     /**
-     * \brief Used by the implementation of GEO::parallel()
-     * \see GEO::parallel()
+     * \brief Used by the implementation of GEOBRL::parallel()
+     * \see GEOBRL::parallel()
      */
     class ParallelThread : public Thread {
     public:
@@ -556,8 +556,8 @@ namespace {
 
 
     /**
-     * \brief Used by the implementation of GEO::parallel_for()
-     * \see GEO::parallel_for()
+     * \brief Used by the implementation of GEOBRL::parallel_for()
+     * \see GEOBRL::parallel_for()
      */
     class ParallelForThread : public Thread {
     public:
@@ -590,8 +590,8 @@ namespace {
     };
 
     /**
-     * \brief Used by the implementation of GEO::parallel_for_slice()
-     * \see GEO::parallel_for_slice()
+     * \brief Used by the implementation of GEOBRL::parallel_for_slice()
+     * \see GEOBRL::parallel_for_slice()
      */
     class ParallelForSliceThread : public Thread {
     public:
@@ -621,13 +621,13 @@ namespace {
 
 }
 
-namespace GEO {
+namespace GEOBRL {
 
     void parallel_for(
         index_t from, index_t to, std::function<void(index_t)> func,
         index_t threads_per_core, bool interleaved
     ) {
-#ifdef GEO_OS_WINDOWS
+#ifdef GEOBRL_OS_WINDOWS
         // TODO: This is a limitation of WindowsThreadManager, to be fixed.
         threads_per_core = 1;
 #endif
@@ -682,7 +682,7 @@ namespace GEO {
         index_t from, index_t to, std::function<void(index_t, index_t)> func,
         index_t threads_per_core
     ) {
-#ifdef GEO_OS_WINDOWS
+#ifdef GEOBRL_OS_WINDOWS
         // TODO: This is a limitation of WindowsThreadManager, to be fixed.
         threads_per_core = 1;
 #endif

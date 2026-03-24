@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_BASIC_PERMUTATION
-#define GEOGRAM_BASIC_PERMUTATION
+#ifndef GEOBRLCAD_BASIC_PERMUTATION
+#define GEOBRLCAD_BASIC_PERMUTATION
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/numeric.h>
@@ -49,7 +49,7 @@
  * \brief Functions to manipulate permutations
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     /**
      * \brief Utilities for manipulating permutations

@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_BASIC_LOGGER
-#define GEOGRAM_BASIC_LOGGER
+#ifndef GEOBRLCAD_BASIC_LOGGER
+#define GEOBRLCAD_BASIC_LOGGER
 
 #ifdef __cplusplus
 
@@ -57,7 +57,7 @@
  * \brief Generic logging mechanism
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     class Logger;
     class LoggerStream;
@@ -66,11 +66,11 @@ namespace GEO {
      * \brief Stream buffer used by the LoggerStream%s
      * \details This class is used internally to implement the logger
      * mechanism. Since it inherits a STL class, it is declared as
-     * NO_GEOGRAM_API so that it is not exported when Windows DLLs
+     * NO_GEOBRLCAD_API so that it is not exported when Windows DLLs
      * are generated (doing otherwise would generate multiply defined
      * symbols).
      */
-    class NO_GEOGRAM_API LoggerStreamBuf : public std::stringbuf {
+    class NO_GEOBRLCAD_API LoggerStreamBuf : public std::stringbuf {
     public:
         /**
          * \brief Creates a Logger stream buffer
@@ -103,11 +103,11 @@ namespace GEO {
      * \brief Stream used by the Logger
      * \details This class is used used internally to implement logger
      * mechanism. Since it inherits a STL class, it is declared as
-     * NO_GEOGRAM_API so that it is not exported when Windows DLLs
+     * NO_GEOBRLCAD_API so that it is not exported when Windows DLLs
      * are generated (doing otherwise would generate multiply defined
      * symbols).
      */
-    class NO_GEOGRAM_API LoggerStream : public std::ostream {
+    class NO_GEOBRLCAD_API LoggerStream : public std::ostream {
     public:
         /**
          * \brief Creates a Logger stream
@@ -153,7 +153,7 @@ namespace GEO {
      * It is the responsibility of the derived LoggerClient%s to handle the
      * various kind of messages sent by the Logger appropriately.
      */
-    class GEOGRAM_API LoggerClient : public Counted {
+    class GEOBRLCAD_API LoggerClient : public Counted {
     public:
         /**
          * \brief Creates a new division
@@ -200,7 +200,7 @@ namespace GEO {
     /**
      * \brief Logger client that redirects messages to standard output.
      */
-    class GEOGRAM_API ConsoleLogger : public LoggerClient {
+    class GEOBRLCAD_API ConsoleLogger : public LoggerClient {
     public:
         /**
          * \brief Creates a ConsoleLogger
@@ -288,13 +288,13 @@ namespace GEO {
      * to \c true, which disables all messages, warnings and errors included
      * (set set_quiet()).
      */
-    class GEOGRAM_API Logger : public Environment {
+    class GEOBRLCAD_API Logger : public Environment {
     public:
         /**
          * \brief Initializes the logging system
          * \details This function must be called once at program startup to
          * create and initialize the Logger instance. It is called by
-         * GEO::initialize().
+         * GEOBRL::initialize().
          * \see instance()
          */
         static void initialize();
@@ -302,7 +302,7 @@ namespace GEO {
         /**
          * \brief Terminates the logging system
          * \details This function must be called once when the program ends to
-         * delete the Logger instance. It is called by GEO::terminate()
+         * delete the Logger instance. It is called by GEOBRL::terminate()
          * \see instance()
          */
         static void terminate();
@@ -689,7 +689,7 @@ extern "C" {
      * \param[in] format printf-like format string
      * \see printf
      */
-    int GEOGRAM_API geogram_printf(const char* format, ...);
+    int GEOBRLCAD_API geogram_printf(const char* format, ...);
 
     /**
      * \brief Fprintf-like wrapper to the Logger
@@ -704,15 +704,15 @@ extern "C" {
      * \param[in] format printf-like format string
      * \see fprintf
      */
-    int GEOGRAM_API geogram_fprintf(FILE* out, const char* format, ...);
+    int GEOBRLCAD_API geogram_fprintf(FILE* out, const char* format, ...);
 }
 
 #else
 
 #include <stdlib.h>
 
-#ifndef GEOGRAM_API
-#define GEOGRAM_API
+#ifndef GEOBRLCAD_API
+#define GEOBRLCAD_API
 #endif
 
 /**
@@ -723,7 +723,7 @@ extern "C" {
  * \param[in] format printf-like format string
  * \see printf
  */
-extern int GEOGRAM_API geogram_printf(const char* format, ...);
+extern int GEOBRLCAD_API geogram_printf(const char* format, ...);
 
 /**
  * \brief Fprintf-like wrapper to the Logger
@@ -737,7 +737,7 @@ extern int GEOGRAM_API geogram_printf(const char* format, ...);
  * \param[in] format printf-like format string
  * \see fprintf
  */
-extern int GEOGRAM_API geogram_fprintf(FILE* out, const char* format, ...);
+extern int GEOBRLCAD_API geogram_fprintf(FILE* out, const char* format, ...);
 
 #endif
 

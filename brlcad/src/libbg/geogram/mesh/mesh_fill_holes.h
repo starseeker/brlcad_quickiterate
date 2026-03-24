@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_MESH_MESH_FILL_HOLES
-#define GEOGRAM_MESH_MESH_FILL_HOLES
+#ifndef GEOBRLCAD_MESH_MESH_FILL_HOLES
+#define GEOBRLCAD_MESH_MESH_FILL_HOLES
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/numeric.h>
@@ -48,7 +48,7 @@
  * \brief Functions for filling the holes in a mesh
  */
 
-namespace GEO {
+namespace GEOBRL {
     class Mesh;
 
     /**
@@ -68,7 +68,7 @@ namespace GEO {
      *  are connected to their neighbors and the zero-length edges are
      *  discarted.
      */
-    void GEOGRAM_API fill_holes(
+    void GEOBRLCAD_API fill_holes(
         Mesh& M,
         double max_area,
         index_t max_edges,
@@ -83,7 +83,7 @@ namespace GEO {
      * \param[in] max_nb_vertices maximum number of vertices in
      *  a facet.
      */
-    void GEOGRAM_API tessellate_facets(
+    void GEOBRLCAD_API tessellate_facets(
         Mesh& M, index_t max_nb_vertices
     );
 }

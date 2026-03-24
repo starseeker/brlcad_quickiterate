@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_POINTS_KD_TREE
-#define GEOGRAM_POINTS_KD_TREE
+#ifndef GEOBRLCAD_POINTS_KD_TREE
+#define GEOBRLCAD_POINTS_KD_TREE
 
 #include <geogram/basic/common.h>
 #include <geogram/points/nn_search.h>
@@ -49,12 +49,12 @@
  * \brief An implementation of NearestNeighborSearch with a kd-tree
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     /**
      * \brief Base class for all Kd-tree implementations.
      */
-    class GEOGRAM_API KdTree : public NearestNeighborSearch {
+    class GEOBRLCAD_API KdTree : public NearestNeighborSearch {
     public:
         /**
          * \brief KdTree constructor.
@@ -444,7 +444,7 @@ namespace GEO {
      *  regular to moderately irregular pointsets it works well. For
      *  highly irregular pointsets, AdaptiveKdTree is more efficient.
      */
-    class GEOGRAM_API BalancedKdTree : public KdTree {
+    class GEOBRLCAD_API BalancedKdTree : public KdTree {
     public:
         /**
          * \brief Creates a new BalancedKdTree.
@@ -567,7 +567,7 @@ namespace GEO {
      *  in general Kd-tree query time dominates construction time in
      *  most of the algorithms that use a Kd-tree.
      */
-    class GEOGRAM_API AdaptiveKdTree : public KdTree {
+    class GEOBRLCAD_API AdaptiveKdTree : public KdTree {
     public:
         /**
          * \brief Creates a new BalancedKdTree.

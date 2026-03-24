@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_MESH_MESH_REPAIR
-#define GEOGRAM_MESH_MESH_REPAIR
+#ifndef GEOBRLCAD_MESH_MESH_REPAIR
+#define GEOBRLCAD_MESH_MESH_REPAIR
 
 /**
  * \file mesh_repair.h
@@ -47,7 +47,7 @@
 #include <geogram/basic/common.h>
 #include <geogram/basic/memory.h>
 
-namespace GEO {
+namespace GEOBRL {
 
     class Mesh;
 
@@ -78,7 +78,7 @@ namespace GEO {
      *  (if #MESH_REPAIR_COLOCATE is set in mode).
      * \param[in] opts algorithm options.
      */
-    void GEOGRAM_API mesh_repair(
+    void GEOBRLCAD_API mesh_repair(
         Mesh& M,
         MeshRepairMode mode,
         double colocate_epsilon,
@@ -92,7 +92,7 @@ namespace GEO {
      * removes some degeneracies (vertices with a unique triangle
      * incident to them).
      */
-    void GEOGRAM_API mesh_postprocess_RDT(
+    void GEOBRLCAD_API mesh_postprocess_RDT(
         Mesh& M, bool verbose, const GeoOptions& opts
     );
 
@@ -123,7 +123,7 @@ namespace GEO {
      *  incident to an edge that could not be consistently oriented.
      *  If nullptr, then this information is not returned.
      */
-    void GEOGRAM_API mesh_reorient(
+    void GEOBRLCAD_API mesh_reorient(
         Mesh& M, vector<index_t>* moebius_facets=nullptr
     );
 
@@ -158,7 +158,7 @@ namespace GEO {
      *  mesh vertices is smaller than colocate_epsilon, then they
      *  are colocated.
      */
-    void GEOGRAM_API mesh_detect_colocated_vertices(
+    void GEOBRLCAD_API mesh_detect_colocated_vertices(
         const Mesh& M, vector<index_t>& v_colocated_index,
         double colocate_epsilon=0.0
     );
@@ -173,7 +173,7 @@ namespace GEO {
      *  is equal to 1 if v is isolated or 0 if v is
      *  not isolated.
      */
-    void GEOGRAM_API mesh_detect_isolated_vertices(
+    void GEOBRLCAD_API mesh_detect_isolated_vertices(
         const Mesh& M, vector<index_t>& v_is_isolated
     );
 
@@ -187,7 +187,7 @@ namespace GEO {
      *  is equal to 1 if f is degenerate or 0 if f is
      *  not degenerate.
      */
-    void GEOGRAM_API mesh_detect_degenerate_facets(
+    void GEOBRLCAD_API mesh_detect_degenerate_facets(
         const Mesh& M, vector<index_t>& f_is_degenerate
     );
 
@@ -199,7 +199,7 @@ namespace GEO {
      * \param[in] M the mesh
      * \param[in] colocate_epsilon tolerance for merging vertices
      */
-    void GEOGRAM_API mesh_colocate_vertices_no_check(
+    void GEOBRLCAD_API mesh_colocate_vertices_no_check(
         Mesh& M, double colocate_epsilon, bool verbose,
         const GeoOptions& opts
     );
@@ -208,7 +208,7 @@ namespace GEO {
      * \brief Removes the degenerate and the duplicated facets in a surface
      *  mesh.
      */
-    void GEOGRAM_API mesh_remove_bad_facets_no_check(
+    void GEOBRLCAD_API mesh_remove_bad_facets_no_check(
         Mesh& M, bool check_duplicates,
         const GeoOptions& opts
     );
@@ -219,7 +219,7 @@ namespace GEO {
      * \details This may leave some non-manifold edges, with more than
      *  two facets indicent to them.
      */
-    void GEOGRAM_API mesh_connect_and_reorient_facets_no_check(
+    void GEOBRLCAD_API mesh_connect_and_reorient_facets_no_check(
         Mesh& M
     );
 }

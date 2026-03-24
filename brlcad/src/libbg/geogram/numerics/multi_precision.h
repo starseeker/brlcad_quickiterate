@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_NUMERICS_MULTI_PRECISION
-#define GEOGRAM_NUMERICS_MULTI_PRECISION
+#ifndef GEOBRLCAD_NUMERICS_MULTI_PRECISION
+#define GEOBRLCAD_NUMERICS_MULTI_PRECISION
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/numeric.h>
@@ -60,7 +60,7 @@
  *  Discrete & Computational Geometry 18(3):305-363, October 1997
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     extern double expansion_splitter_;
     extern double expansion_epsilon_;
@@ -194,7 +194,7 @@ namespace GEO {
      *  through the \ref expansion_nt class (expansion number type, that
      *  overloads operators).
      */
-    class GEOGRAM_API expansion {
+    class GEOBRLCAD_API expansion {
     public:
     /**
      * \brief Gets the length of this expansion.
@@ -297,7 +297,7 @@ namespace GEO {
      *  an expansion of capacity \p capa.
      */
     static size_t bytes_on_stack(index_t capa) {
-#ifndef GEO_HAS_BIG_STACK
+#ifndef GEOBRL_HAS_BIG_STACK
         // Note: standard predicates need at least 512, hence the min.
         // index_t(MAX_CAPACITY_ON_STACK) is necessary, else with
         // MAX_CAPACITY_ON_STACK alone the compiler tries to generate a
@@ -330,7 +330,7 @@ namespace GEO {
      * \details It can only be a macro (and not an inline function)
      *  since alloca() cannot be called from inline functions.
      * \arg capa required capacity of the expansion.
-     * \relates GEO::expansion
+     * \relates GEOBRL::expansion
      */
 #ifdef CPPCHECK
     // cppcheck does not understand that the result
@@ -1192,7 +1192,7 @@ namespace GEO {
      *  allocating an expansion on the stack (if smaller)
      *  or on the heap (if larger).
      */
-#ifdef GEO_OS_APPLE
+#ifdef GEOBRL_OS_APPLE
     static constexpr index_t MAX_CAPACITY_ON_STACK = 256;
 #else
     static constexpr index_t MAX_CAPACITY_ON_STACK = 1024;
@@ -1216,7 +1216,7 @@ namespace GEO {
      * \endcode
      * \warning Do not return or use the returned reference outside the
      *  calling function.
-     * \relates GEO::expansion
+     * \relates GEOBRL::expansion
      */
 #define expansion_create(a)                     \
     new_expansion_on_stack(1)->assign(a)
@@ -1233,7 +1233,7 @@ namespace GEO {
      * \endcode
      * \warning Do not return or use the returned reference outside the
      *  calling function.
-     * \relates GEO::expansion
+     * \relates GEOBRL::expansion
      */
 #define expansion_abs(e)                                \
     new_expansion_on_stack(e.length())->assign_abs(e)
@@ -1253,7 +1253,7 @@ namespace GEO {
      * \endcode
      * \warning Do not return or use the returned reference outside the
      * calling function.
-     * \relates GEO::expansion
+     * \relates GEOBRL::expansion
      */
 #define expansion_sum(a, b)                     \
     new_expansion_on_stack(                     \
@@ -1275,7 +1275,7 @@ namespace GEO {
      * \endcode
      * \warning Do not return or use the returned reference outside the
      * calling function.
-     * \relates GEO::expansion
+     * \relates GEOBRL::expansion
      */
 #define expansion_sum3(a, b, c)                 \
     new_expansion_on_stack(                     \
@@ -1299,7 +1299,7 @@ namespace GEO {
      * \endcode
      * \warning Do not return or use the returned reference outside the
      * calling function.
-     * \relates GEO::expansion
+     * \relates GEOBRL::expansion
      */
 
 #define expansion_sum4(a, b, c, d)              \
@@ -1322,7 +1322,7 @@ namespace GEO {
      * \endcode
      * \warning Do not return or use the returned reference outside the
      * calling function.
-     * \relates GEO::expansion
+     * \relates GEOBRL::expansion
      */
 #define expansion_diff(a, b)                    \
     new_expansion_on_stack(                     \
@@ -1344,7 +1344,7 @@ namespace GEO {
      * \endcode
      * \warning Do not return or use the returned reference outside the
      * calling function.
-     * \relates GEO::expansion
+     * \relates GEOBRL::expansion
      */
 #define expansion_product(a, b)                 \
     new_expansion_on_stack(                     \
@@ -1366,7 +1366,7 @@ namespace GEO {
      * \endcode
      * \warning Do not return or use the returned reference outside the
      * calling function.
-     * \relates GEO::expansion
+     * \relates GEOBRL::expansion
      */
 #define expansion_product3(a, b, c)             \
     new_expansion_on_stack(                     \
@@ -1386,7 +1386,7 @@ namespace GEO {
      * \endcode
      * \warning Do not return or use the returned reference outside the
      * calling function.
-     * \relates GEO::expansion
+     * \relates GEOBRL::expansion
      */
 #define expansion_square(a)                     \
     new_expansion_on_stack(                     \
@@ -1406,7 +1406,7 @@ namespace GEO {
      * const expansion& a22 = ...;
      * expansion& d12 = expansion_set2x2(a11,a12,a21,a22);
      * \endcode
-     * \relates GEO::expansion
+     * \relates GEOBRL::expansion
      */
 #define expansion_det2x2(a11, a12, a21, a22)            \
     new_expansion_on_stack(                             \
@@ -1427,7 +1427,7 @@ namespace GEO {
      * \endcode
      * \warning Do not return or use the returned reference outside the
      * calling function.
-     * \relates GEO::expansion
+     * \relates GEOBRL::expansion
      */
 #define expansion_det3x3(a11, a12, a13, a21, a22, a23, a31, a32, a33)   \
     new_expansion_on_stack(                                             \
@@ -1449,7 +1449,7 @@ namespace GEO {
      * \endcode
      * \warning Do not return or use the returned reference outside the
      * calling function.
-     * \relates GEO::expansion
+     * \relates GEOBRL::expansion
      */
 #define expansion_det_111_2x3(a21, a22, a23, a31, a32, a33)             \
     new_expansion_on_stack(                                             \
@@ -1472,7 +1472,7 @@ namespace GEO {
      * \endcode
      * \warning Do not return or use the returned reference outside the
      * calling function.
-     * \relates GEO::expansion
+     * \relates GEOBRL::expansion
      */
 #define expansion_sq_dist(a, b, dim)            \
     new_expansion_on_stack(                     \
@@ -1495,7 +1495,7 @@ namespace GEO {
      * \endcode
      * \warning Do not return or use the returned reference outside the
      * calling function.
-     * \relates GEO::expansion
+     * \relates GEOBRL::expansion
      */
 #define expansion_dot_at(a, b, c, dim)          \
     new_expansion_on_stack(                     \
@@ -1516,7 +1516,7 @@ namespace GEO {
      * \endcode
      * \warning Do not return or use the returned reference outside the
      * calling function.
-     * \relates GEO::expansion
+     * \relates GEOBRL::expansion
      */
 #define expansion_length2(x,y,z)                \
     new_expansion_on_stack(                     \
@@ -1531,7 +1531,7 @@ namespace GEO {
      *  This gains some performance as compared to using CGAL's
      *  determinant template with expansion_nt.
      */
-    Sign GEOGRAM_API sign_of_expansion_determinant(
+    Sign GEOBRLCAD_API sign_of_expansion_determinant(
         const expansion& a00,const expansion& a01,
         const expansion& a10,const expansion& a11
     );
@@ -1542,7 +1542,7 @@ namespace GEO {
      *  This gains some performance as compared to using CGAL's determinant
      *  template with expansion_nt.
      */
-    Sign GEOGRAM_API sign_of_expansion_determinant(
+    Sign GEOBRLCAD_API sign_of_expansion_determinant(
         const expansion& a00,const expansion& a01,const expansion& a02,
         const expansion& a10,const expansion& a11,const expansion& a12,
         const expansion& a20,const expansion& a21,const expansion& a22
@@ -1554,7 +1554,7 @@ namespace GEO {
      *  This gains some performance as compared to using CGAL's determinant
      *  template with expansion_nt.
      */
-    Sign GEOGRAM_API sign_of_expansion_determinant(
+    Sign GEOBRLCAD_API sign_of_expansion_determinant(
         const expansion& a00,const expansion& a01,
         const expansion& a02,const expansion& a03,
         const expansion& a10,const expansion& a11,
@@ -1581,7 +1581,7 @@ namespace GEO {
      *  properties as well.  (That is, if e has one of these properties, so
      *  will h.)
      */
-    void GEOGRAM_API grow_expansion_zeroelim(
+    void GEOBRLCAD_API grow_expansion_zeroelim(
         const expansion& e, double b, expansion& h
     );
 
@@ -1600,7 +1600,7 @@ namespace GEO {
      *  properties as well.  (That is, if e has one of these properties, so
      *  will h.)
      */
-    void GEOGRAM_API scale_expansion_zeroelim(
+    void GEOBRLCAD_API scale_expansion_zeroelim(
         const expansion& e, double b, expansion& h
     );
 
@@ -1619,7 +1619,7 @@ namespace GEO {
      *  properties.
      *
      */
-    void GEOGRAM_API fast_expansion_sum_zeroelim(
+    void GEOBRLCAD_API fast_expansion_sum_zeroelim(
         const expansion& e, const expansion& f, expansion& h
     );
 
@@ -1638,7 +1638,7 @@ namespace GEO {
      *  will be also.)  Does NOT maintain the nonoverlapping or nonadjacent
      *  properties.
      */
-    void GEOGRAM_API fast_expansion_diff_zeroelim(
+    void GEOBRLCAD_API fast_expansion_diff_zeroelim(
         const expansion& e, const expansion& f, expansion& h
     );
 

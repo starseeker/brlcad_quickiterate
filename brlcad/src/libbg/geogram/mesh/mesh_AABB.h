@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_MESH_MESH_AABB
-#define GEOGRAM_MESH_MESH_AABB
+#ifndef GEOBRLCAD_MESH_MESH_AABB
+#define GEOBRLCAD_MESH_MESH_AABB
 
 /**
  * \file mesh_AABB.h
@@ -50,7 +50,7 @@
 #include <geogram/mesh/mesh.h>
 #include <geogram/basic/geometry.h>
 
-namespace GEO {
+namespace GEOBRL {
 
     /**
      * \brief Axis Aligned Bounding Box Tree ordering mode
@@ -361,7 +361,7 @@ namespace GEO {
      * \brief Base class for Axis Aligned Bounding Box trees
      *  of mesh elements with 2d boxes.
      */
-    class GEOGRAM_API MeshAABB2d : public AABB2d {
+    class GEOBRLCAD_API MeshAABB2d : public AABB2d {
     public:
         /**
          * \brief MeshAABB2d constructor.
@@ -387,7 +387,7 @@ namespace GEO {
      * \brief Base class for Axis Aligned Bounding Box trees
      *  of mesh elements with 3d boxes.
      */
-    class GEOGRAM_API MeshAABB3d : public AABB3d {
+    class GEOBRLCAD_API MeshAABB3d : public AABB3d {
     public:
         /**
          * \brief MeshAABB3d constructor.
@@ -414,7 +414,7 @@ namespace GEO {
      * \details Used to quickly compute facet intersection and
      *  to locate the nearest facet from 3d query points.
      */
-    class GEOGRAM_API MeshFacetsAABB : public MeshAABB3d {
+    class GEOBRLCAD_API MeshFacetsAABB : public MeshAABB3d {
     public:
 
         /**
@@ -661,7 +661,7 @@ namespace GEO {
          * \retval true if there was an intersection.
          * \retval false otherwise.
          */
-        bool ray_nearest_intersection(const Ray& R, Intersection& I) const;
+        bool GEOBRLCAD_API ray_nearest_intersection(const Ray& R, Intersection& I) const;
 
         /**
          * \brief Tests whether this surface mesh has an intersection
@@ -854,7 +854,7 @@ namespace GEO {
      * \details Used to quickly find the tetrahedron that contains
      *  a given 3d point.
      */
-    class GEOGRAM_API MeshCellsAABB : public MeshAABB3d {
+    class GEOBRLCAD_API MeshCellsAABB : public MeshAABB3d {
     public:
 
         /**
@@ -1077,7 +1077,7 @@ namespace GEO {
      * \details Used to quickly find the facet that contains
      *  a given 2d point.
      */
-    class GEOGRAM_API MeshFacetsAABB2d : public MeshAABB2d {
+    class GEOBRLCAD_API MeshFacetsAABB2d : public MeshAABB2d {
     public:
 
         /**

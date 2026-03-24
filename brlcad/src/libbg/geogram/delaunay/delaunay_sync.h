@@ -48,7 +48,7 @@
 // more than 127 concurrent threads (16-bits cell status,
 // that contain owner thread id).
 #ifdef GARGANTUA
-#define GEO_CONNECTION_MACHINE
+#define GEOBRL_CONNECTION_MACHINE
 #endif
 
 /**
@@ -56,7 +56,7 @@
  * \brief Synchronization primitives for parallel Delaunay
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     /**
      * \brief An array of cell status codes associates to each tetrahedron
@@ -68,7 +68,7 @@ namespace GEO {
      */
     class CellStatusArray {
     public:
-#ifdef GEO_CONNECTION_MACHINE
+#ifdef GEOBRL_CONNECTION_MACHINE
 	// For machines that can run more than 127 concurrent threads
         typedef uint16_t thread_index_t;
         typedef uint16_t cell_status_t;
@@ -287,7 +287,7 @@ namespace GEO {
          */
         void clear() {
             geo_debug_assert(!Process::is_running_threads());
-#ifdef GEO_DEBUG
+#ifdef GEOBRL_DEBUG
             for(index_t i=0; i<size_; ++i) {
                 geo_debug_assert(cell_thread(i) == FREE_CELL);
             }

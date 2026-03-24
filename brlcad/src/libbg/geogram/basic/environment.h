@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_BASIC_ENVIRONMENT
-#define GEOGRAM_BASIC_ENVIRONMENT
+#ifndef GEOBRLCAD_BASIC_ENVIRONMENT
+#define GEOBRLCAD_BASIC_ENVIRONMENT
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/smart_pointer.h>
@@ -54,7 +54,7 @@
  *  attach observers to them.
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     class Environment;
 
@@ -80,7 +80,7 @@ namespace GEO {
      *     new MyObserver("my_variable");
      * \endcode
      */
-    class GEOGRAM_API VariableObserver {
+    class GEOBRLCAD_API VariableObserver {
     public:
     /**
      * \brief Creates a new variable observer.
@@ -126,7 +126,7 @@ namespace GEO {
      * \details List of variable observers are attached to observed variables
      * in the Environment%s.
      */
-    class GEOGRAM_API VariableObserverList {
+    class GEOBRLCAD_API VariableObserverList {
     public:
     /**
      * \brief Creates an empty list of variable observers.
@@ -208,7 +208,7 @@ namespace GEO {
      * attached to specific properties to capture modifications of their value
      * (for more details see VariableObserver).
      */
-    class GEOGRAM_API Environment : public Counted {
+    class GEOBRLCAD_API Environment : public Counted {
     public:
         /**
          * \brief Gets the root environment

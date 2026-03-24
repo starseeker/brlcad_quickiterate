@@ -46,7 +46,7 @@
 
 namespace {
 
-    using namespace GEO;
+    using namespace GEOBRL;
 
     /**
      * \brief Implements the colocate() algorithm when a tolerance is used.
@@ -208,7 +208,7 @@ namespace {
 
 /****************************************************************************/
 
-namespace GEO {
+namespace GEOBRL {
 
     namespace Geom {
 
@@ -283,7 +283,7 @@ namespace GEO {
             for(index_t i = 0; i < nb_points; i++) {
                 sorted_indices[i] = i;
             }
-            GEO::sort(
+            GEOBRL::sort(
                 sorted_indices.begin(), sorted_indices.end(), compare_points,
                 opts
             );

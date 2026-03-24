@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_BASIC_GEOMETRY_ND
-#define GEOGRAM_BASIC_GEOMETRY_ND
+#ifndef GEOBRLCAD_BASIC_GEOBRLMETRY_ND
+#define GEOBRLCAD_BASIC_GEOBRLMETRY_ND
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/geometry.h>
@@ -49,7 +49,7 @@
  * \brief Geometric functions in arbitrary dimension
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     namespace Geom {
 
@@ -67,7 +67,7 @@ namespace GEO {
         ) {
             double result = 0.0;
             for(coord_index_t i = 0; i < dim; i++) {
-                result += GEO::geo_sqr(double(p2[i]) - double(p1[i]));
+                result += GEOBRL::geo_sqr(double(p2[i]) - double(p1[i]));
             }
             return result;
         }

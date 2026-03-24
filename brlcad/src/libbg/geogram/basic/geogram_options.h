@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_BASIC_GEOGRAM_OPTIONS
-#define GEOGRAM_BASIC_GEOGRAM_OPTIONS
+#ifndef GEOBRLCAD_BASIC_GEOBRLCAD_OPTIONS
+#define GEOBRLCAD_BASIC_GEOBRLCAD_OPTIONS
 
 #include <string>
 
@@ -54,7 +54,7 @@
  * GeoOptions values.
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     /**
      * \brief Typed runtime options for Geogram algorithms.
@@ -111,6 +111,6 @@ namespace GEO {
         bool        dbg_save_ANN_histo    {false};
     };
 
-} // namespace GEO
+} // namespace GEOBRL
 
 #endif

@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_NUMERICS_PREDICATES
-#define GEOGRAM_NUMERICS_PREDICATES
+#ifndef GEOBRLCAD_NUMERICS_PREDICATES
+#define GEOBRLCAD_NUMERICS_PREDICATES
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/numeric.h>
@@ -51,7 +51,7 @@
  */
 
 
-namespace GEO {
+namespace GEOBRL {
 
     /**
      * \brief PCK (Predicate Construction Kit) implements a set of
@@ -77,14 +77,14 @@ namespace GEO {
          *  perturbation. SOS_LEXICO works for points that are generated
          *  dynamically (with no fixed address).
          */
-        void GEOGRAM_API set_SOS_mode(SOSMode m);
+        void GEOBRLCAD_API set_SOS_mode(SOSMode m);
 
         /**
          * \brief Gets the current mode for handling symbolic perturbations.
          * \return one of SOS_ADDRESS, SOS_LEXICO
          * \see set_SOS_mode()
          */
-        SOSMode GEOGRAM_API get_SOS_mode();
+        SOSMode GEOBRLCAD_API get_SOS_mode();
 
         /**
          * \brief Computes the side of a point (given directly)
@@ -102,7 +102,7 @@ namespace GEO {
          *  consistent perturbation, that returns either POSITIVE or NEGATIVE
          * \note Only some specific dimensions are implemented (3,4,6 and 7)
          */
-        Sign GEOGRAM_API side1_SOS(
+        Sign GEOBRLCAD_API side1_SOS(
             const double* p0, const double* p1,
             const double* q0,
             coord_index_t DIM
@@ -128,7 +128,7 @@ namespace GEO {
          *  consistent perturbation, that returns either POSITIVE or NEGATIVE
          * \note Only some specific dimensions are implemented (3,4,6 and 7)
          */
-        Sign GEOGRAM_API side2_SOS(
+        Sign GEOBRLCAD_API side2_SOS(
             const double* p0, const double* p1, const double* p2,
             const double* q0, const double* q1,
             coord_index_t DIM
@@ -157,7 +157,7 @@ namespace GEO {
          *  consistent perturbation, that returns either POSITIVE or NEGATIVE
          * \note Only some specific dimensions are implemented (3,4,6 and 7)
          */
-        Sign GEOGRAM_API side3_SOS(
+        Sign GEOBRLCAD_API side3_SOS(
             const double* p0, const double* p1,
             const double* p2, const double* p3,
             const double* q0, const double* q1, const double* q2,
@@ -190,7 +190,7 @@ namespace GEO {
          *  where \c perturb() denotes a globally
          *  consistent perturbation, that returns either POSITIVE or NEGATIVE
          */
-        Sign GEOGRAM_API side3_3dlifted_SOS(
+        Sign GEOBRLCAD_API side3_3dlifted_SOS(
             const double* p0, const double* p1,
             const double* p2, const double* p3,
             double h0, double h1, double h2, double h3,
@@ -225,7 +225,7 @@ namespace GEO {
          *  consistent perturbation, that returns either POSITIVE or NEGATIVE
          * \note Only some specific dimensions are implemented (3,4,6 and 7)
          */
-        Sign GEOGRAM_API side4_SOS(
+        Sign GEOBRLCAD_API side4_SOS(
             const double* p0,
             const double* p1, const double* p2,
             const double* p3, const double* p4,
@@ -259,7 +259,7 @@ namespace GEO {
          * \retval NEGATIVE if d(p0,q) > d(p4,q)
          * \retval ZERO if d(p0,q) = d(p4,q),
          */
-        Sign GEOGRAM_API side4_3d(
+        Sign GEOBRLCAD_API side4_3d(
             const double* p0,
             const double* p1, const double* p2,
             const double* p3, const double* p4
@@ -290,7 +290,7 @@ namespace GEO {
          *  where \c perturb() denotes a globally
          *  consistent perturbation, that returns either POSITIVE or NEGATIVE
          */
-        Sign GEOGRAM_API side4_3d_SOS(
+        Sign GEOBRLCAD_API side4_3d_SOS(
             const double* p0, const double* p1,
             const double* p2, const double* p3, const double* p4
         );
@@ -310,7 +310,7 @@ namespace GEO {
          *  either POSITIVE or NEGATIVE
          * \pre orient_3d(p0,p1,p2,p3) > 0
          */
-        Sign GEOGRAM_API in_sphere_3d_SOS(
+        Sign GEOBRLCAD_API in_sphere_3d_SOS(
             const double* p0, const double* p1,
             const double* p2, const double* p3,
             const double* p4
@@ -332,7 +332,7 @@ namespace GEO {
          *  either POSITIVE or NEGATIVE
          * \pre \p p3 belongs to the plane yielded by \p p0, \p p1 and \p p2
          */
-        Sign GEOGRAM_API in_circle_2d_SOS(
+        Sign GEOBRLCAD_API in_circle_2d_SOS(
             const double* p0, const double* p1, const double* p2,
             const double* p3
         );
@@ -353,7 +353,7 @@ namespace GEO {
          *  either POSITIVE or NEGATIVE
          * \pre \p p3 belongs to the plane yielded by \p p0, \p p1 and \p p2
          */
-        Sign GEOGRAM_API in_circle_3d_SOS(
+        Sign GEOBRLCAD_API in_circle_3d_SOS(
             const double* p0, const double* p1, const double* p2,
             const double* p3
         );
@@ -382,7 +382,7 @@ namespace GEO {
          * \pre (\p p3, \p h3) belongs to the hyperplane yielded by
          *   (\p p0, \p h0), (\p p1, \p h1) and (\p p2, \p h2)
          */
-        Sign GEOGRAM_API in_circle_3dlifted_SOS(
+        Sign GEOBRLCAD_API in_circle_3dlifted_SOS(
             const double* p0, const double* p1, const double* p2,
             const double* p3,
             double h0, double h1, double h2, double h3,
@@ -398,12 +398,12 @@ namespace GEO {
          * \retval ZERO if the triangle is flat
          * \retval NEGATIVE if the triangle is oriented clockwise
          */
-        Sign GEOGRAM_API orient_2d(
+        Sign GEOBRLCAD_API orient_2d(
             const double* p0, const double* p1, const double* p2
         );
 
 
-#ifndef GEOGRAM_PSM
+#ifndef GEOBRLCAD_PSM
         /**
          * \brief Computes the orientation predicate in 2d.
          * \details Computes the sign of the signed area of
@@ -438,7 +438,7 @@ namespace GEO {
          *  where \c perturb() denotes a globally
          *  consistent perturbation, that returns either POSITIVE or NEGATIVE
          */
-        Sign GEOGRAM_API orient_2dlifted_SOS(
+        Sign GEOBRLCAD_API orient_2dlifted_SOS(
             const double* p0, const double* p1,
             const double* p2, const double* p3,
             double h0, double h1, double h2, double h3
@@ -454,13 +454,13 @@ namespace GEO {
          * \retval ZERO if the tetrahedron is flat
          * \retval NEGATIVE if the tetrahedron is oriented negatively
          */
-        Sign GEOGRAM_API orient_3d(
+        Sign GEOBRLCAD_API orient_3d(
             const double* p0, const double* p1,
             const double* p2, const double* p3
         );
 
 
-#ifndef GEOGRAM_PSM
+#ifndef GEOBRLCAD_PSM
         /**
          * \brief Computes the orientation predicate in 3d.
          * \details Computes the sign of the signed volume of
@@ -495,7 +495,7 @@ namespace GEO {
          * \retval NEGATIVE if p4' lies above the hyperplane
          * \retval ZERO if p4' lies exactly on the hyperplane
          */
-        Sign GEOGRAM_API orient_3dlifted(
+        Sign GEOBRLCAD_API orient_3dlifted(
             const double* p0, const double* p1,
             const double* p2, const double* p3, const double* p4,
             double h0, double h1, double h2, double h3, double h4
@@ -521,7 +521,7 @@ namespace GEO {
          *  where \c perturb() denotes a globally
          *  consistent perturbation, that returns either POSITIVE or NEGATIVE
          */
-        Sign GEOGRAM_API orient_3dlifted_SOS(
+        Sign GEOBRLCAD_API orient_3dlifted_SOS(
             const double* p0, const double* p1,
             const double* p2, const double* p3, const double* p4,
             double h0, double h1, double h2, double h3, double h4
@@ -534,11 +534,11 @@ namespace GEO {
          * \param[in] p0 , p1 , p2 the three points
          * \return the sign of the determinant of the matrix.
          */
-        Sign GEOGRAM_API det_3d(
+        Sign GEOBRLCAD_API det_3d(
             const double* p0, const double* p1, const double* p2
         );
 
-#ifndef GEOGRAM_PSM
+#ifndef GEOBRLCAD_PSM
         /**
          * \brief Computes the sign of the determinant of a 3x3
          *  matrix formed by three 3d points.
@@ -558,12 +558,12 @@ namespace GEO {
          * \param[in] p0 , p1 , p2 , p3 the four points
          * \return the sign of the determinant of the matrix.
          */
-        Sign GEOGRAM_API det_4d(
+        Sign GEOBRLCAD_API det_4d(
             const double* p0, const double* p1,
             const double* p2, const double* p3
         );
 
-#ifndef GEOGRAM_PSM
+#ifndef GEOBRLCAD_PSM
         /**
          * \brief Computes the sign of the determinant of a 4x4
          *  matrix formed by four 4d points.
@@ -586,7 +586,7 @@ namespace GEO {
          * \return the sign of the determinant of the matrix
          *   p0 p1 p2 p4-p3
          */
-        Sign GEOGRAM_API det_compare_4d(
+        Sign GEOBRLCAD_API det_compare_4d(
             const double* p0, const double* p1,
             const double* p2, const double* p3,
             const double* p4
@@ -600,7 +600,7 @@ namespace GEO {
          * \details Function to be tested, use points_are_colinear_3d()
          *  instead.
          */
-        bool GEOGRAM_API aligned_3d(
+        bool GEOBRLCAD_API aligned_3d(
             const double* p0, const double* p1, const double* p2
         );
 
@@ -611,11 +611,11 @@ namespace GEO {
          * \return the sign of the dot product between the vectors
          *  p0p1 and p0p2.
          */
-        Sign GEOGRAM_API dot_3d(
+        Sign GEOBRLCAD_API dot_3d(
             const double* p0, const double* p1, const double* p2
         );
 
-#ifndef GEOGRAM_PSM
+#ifndef GEOBRLCAD_PSM
 
         /**
          * \brief Tests whether three points are aligned.
@@ -650,7 +650,7 @@ namespace GEO {
          * \param[in] v0 , v1 , v2 three vectors.
          * \return the sign of v0.v1 - v0.v2
          */
-        Sign GEOGRAM_API dot_compare_3d(
+        Sign GEOBRLCAD_API dot_compare_3d(
             const double* v0, const double* v1, const double* v2
         );
 
@@ -675,7 +675,7 @@ namespace GEO {
          *  coordinates
          * \retval false otherwise
          */
-        bool GEOGRAM_API points_are_identical_3d(
+        bool GEOBRLCAD_API points_are_identical_3d(
             const double* p1,
             const double* p2
         );
@@ -688,7 +688,7 @@ namespace GEO {
          * \retval true if \p p1, \p p2 and \p p3 are colinear
          * \retbal false otherwise
          */
-        bool GEOGRAM_API points_are_colinear_3d(
+        bool GEOBRLCAD_API points_are_colinear_3d(
             const double* p1,
             const double* p2,
             const double* p3
@@ -736,17 +736,17 @@ namespace GEO {
          *  including the number of calls, the number of exact arithmetics
          *  calls, and the number of Simulation of Simplicity calls.
          */
-        void GEOGRAM_API show_stats();
+        void GEOBRLCAD_API show_stats();
 
         /**
          * \brief Needs to be called before using any predicate.
          */
-        void GEOGRAM_API initialize();
+        void GEOBRLCAD_API initialize();
 
         /**
          * \brief Needs to be called at the end of the program.
          */
-        void GEOGRAM_API terminate();
+        void GEOBRLCAD_API terminate();
     }
 }
 

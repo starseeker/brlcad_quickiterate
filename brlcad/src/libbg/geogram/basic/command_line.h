@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_BASIC_COMMAND_LINE
-#define GEOGRAM_BASIC_COMMAND_LINE
+#ifndef GEOBRLCAD_BASIC_COMMAND_LINE
+#define GEOBRLCAD_BASIC_COMMAND_LINE
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/numeric.h>
@@ -52,7 +52,7 @@
  * through the GeoOptions struct; see geogram/basic/geogram_options.h.
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     /**
      * \brief Console UI utilities used internally by the Logger and Progress
@@ -62,26 +62,26 @@ namespace GEO {
 
         /**
          * \brief Initializes the command line framework.
-         * \details Called by GEO::initialize().
+         * \details Called by GEOBRL::initialize().
          */
-        void GEOGRAM_API initialize();
+        void GEOBRLCAD_API initialize();
 
         /**
          * \brief Cleans up the command line framework.
-         * \details Called by GEO::terminate().
+         * \details Called by GEOBRL::terminate().
          */
-        void GEOGRAM_API terminate();
+        void GEOBRLCAD_API terminate();
 
         /**
          * \brief Gets the width of the console.
          * \return the console width in number of characters.
          */
-        index_t GEOGRAM_API ui_terminal_width();
+        index_t GEOBRLCAD_API ui_terminal_width();
 
         /**
          * \brief Outputs a separator with a title on the console.
          */
-        void GEOGRAM_API ui_separator(
+        void GEOBRLCAD_API ui_separator(
             const std::string& title,
             const std::string& short_title = ""
         );
@@ -89,17 +89,17 @@ namespace GEO {
         /**
          * \brief Outputs a separator without a title on the console.
          */
-        void GEOGRAM_API ui_separator();
+        void GEOBRLCAD_API ui_separator();
 
         /**
          * \brief Closes an opened separator.
          */
-        void GEOGRAM_API ui_close_separator();
+        void GEOBRLCAD_API ui_close_separator();
 
         /**
          * \brief Outputs a message on the console.
          */
-        void GEOGRAM_API ui_message(
+        void GEOBRLCAD_API ui_message(
             const std::string& message,
             index_t wrap_margin
         );
@@ -107,19 +107,19 @@ namespace GEO {
         /**
          * \brief Outputs a message on the console.
          */
-        void GEOGRAM_API ui_message(
+        void GEOBRLCAD_API ui_message(
             const std::string& message
         );
 
         /**
          * \brief Clears the last line.
          */
-        void GEOGRAM_API ui_clear_line();
+        void GEOBRLCAD_API ui_clear_line();
 
         /**
          * \brief Displays a progress bar.
          */
-        void GEOGRAM_API ui_progress(
+        void GEOBRLCAD_API ui_progress(
             const std::string& task_name, index_t val,
             index_t percent, bool clear = true
         );
@@ -127,7 +127,7 @@ namespace GEO {
         /**
          * \brief Displays the time elapsed for a completed task.
          */
-        void GEOGRAM_API ui_progress_time(
+        void GEOBRLCAD_API ui_progress_time(
             const std::string& task_name,
             double elapsed, bool clear = true
         );
@@ -135,7 +135,7 @@ namespace GEO {
         /**
          * \brief Displays the time elapsed for a canceled task.
          */
-        void GEOGRAM_API ui_progress_canceled(
+        void GEOBRLCAD_API ui_progress_canceled(
             const std::string& task_name,
             double elapsed, index_t percent, bool clear = true
         );
@@ -143,7 +143,7 @@ namespace GEO {
         /**
          * \brief Formats a Logger feature name.
          */
-        std::string GEOGRAM_API ui_feature(
+        std::string GEOBRLCAD_API ui_feature(
             const std::string& feature, bool show = true
         );
     }

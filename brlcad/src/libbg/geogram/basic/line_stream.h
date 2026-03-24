@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_BASIC_LINE_STREAM
-#define GEOGRAM_BASIC_LINE_STREAM
+#ifndef GEOBRLCAD_BASIC_LINE_STREAM
+#define GEOBRLCAD_BASIC_LINE_STREAM
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/assert.h>
@@ -53,7 +53,7 @@
  *  fields from each line
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     /**
      * \brief Reads an ASCII file line per line
@@ -79,7 +79,7 @@ namespace GEO {
      * }
      * \endcode
      */
-    class GEOGRAM_API LineInput {
+    class GEOBRLCAD_API LineInput {
     public:
     /**
      * \brief Creates a new line reader from a file
@@ -269,9 +269,9 @@ namespace GEO {
      * \param[in] index index of the erroneous field.
      * \param[in] type the expected type.
      */
-    GEO_NORETURN_DECL void conversion_error(
+    GEOBRL_NORETURN_DECL void conversion_error(
         index_t index, const char* type
-    ) const GEO_NORETURN ;
+    ) const GEOBRL_NORETURN ;
 
     /**
      * \brief Defines the maximum size of a line

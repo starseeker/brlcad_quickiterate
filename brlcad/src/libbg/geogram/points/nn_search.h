@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOGRAM_POINTS_NN_SEARCH
-#define GEOGRAM_POINTS_NN_SEARCH
+#ifndef GEOBRLCAD_POINTS_NN_SEARCH
+#define GEOBRLCAD_POINTS_NN_SEARCH
 
 #include <geogram/basic/common.h>
 #include <geogram/basic/numeric.h>
@@ -51,7 +51,7 @@
  * \brief Abstract interface for nearest neighbor searching
  */
 
-namespace GEO {
+namespace GEOBRL {
 
     /**
      * \brief Abstract interface for nearest neighbor search algorithms.
@@ -66,7 +66,7 @@ namespace GEO {
      * \see NearestNeighborSearchFactory
      * \see geo_register_NearestNeighborSearch_creator
      */
-    class GEOGRAM_API NearestNeighborSearch : public Counted {
+    class GEOBRLCAD_API NearestNeighborSearch : public Counted {
     public:
         /**
          * \brief Creates a new search algorithm
@@ -298,7 +298,7 @@ namespace GEO {
      * \relates NearestNeighborSearch
      */
 #define geo_register_NearestNeighborSearch_creator(type, name)          \
-    geo_register_creator(GEO::NearestNeighborSearchFactory, type, name)
+    geo_register_creator(GEOBRL::NearestNeighborSearchFactory, type, name)
 }
 
 #endif
