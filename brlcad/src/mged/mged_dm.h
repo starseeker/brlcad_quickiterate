@@ -106,7 +106,8 @@ struct client {
     Tcl_Channel         c_chan;
     Tcl_FileProc        *c_handler;
     struct pkg_conn	*c_pkg;
-    int			c_auth_ok;  /**< @brief !0 if client sent a valid MSG_FBAUTH */
+    int			c_auth_ok;         /**< @brief !0 if client sent a valid MSG_FBAUTH */
+    int			c_pending_drop;    /**< @brief !0 = drop after pkg_process() returns */
 };
 
 

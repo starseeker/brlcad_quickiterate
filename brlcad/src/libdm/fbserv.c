@@ -79,6 +79,8 @@ drop_client(struct fbserv_obj *fbsp, int sub)
 	(*fbsp->fbs_close_client_handler)(fbsp, sub);
 	fbsp->fbs_clients[sub].fbsc_fd = 0;
     }
+    fbsp->fbs_clients[sub].fbsc_auth_ok = 0;
+    fbsp->fbs_clients[sub].fbsc_pending_drop = 0;
 }
 
 
@@ -138,8 +140,10 @@ fbs_rfbauth(struct pkg_conn *pcp, char *buf)
 	fbscp->fbsc_auth_ok = 1;
     } else {
 	bu_log("fbserv: MSG_FBAUTH token mismatch from client — dropping\n");
-	pkg_close(pcp);
-	/* pkg_conn is now closed; caller will see an error and drop slot */
+	/* Use deferred drop: pkg_process still holds a reference to pcp.
+	 * Setting fbsc_pending_drop causes fbs_existing_client_handler to
+	 * call drop_client() after pkg_process() returns. */
+	fbscp->fbsc_pending_drop = 1;
     }
 
     if (buf) (void)free(buf);
@@ -169,7 +173,8 @@ fbs_rfbopen(struct pkg_conn *pcp, char *buf)
 	    (void)pkg_plong(&rbuf[3*NET_LONG_LEN], 0);
 	    (void)pkg_plong(&rbuf[4*NET_LONG_LEN], 0);
 	    pkg_send(MSG_RETURN, rbuf, 5*NET_LONG_LEN, pcp);
-	    pkg_close(pcp);
+	    /* Deferred drop: pkg_process still holds pcp; close after return */
+	    fbscp->fbsc_pending_drop = 1;
 	    if (buf) (void)free(buf);
 	    return;
 	}
@@ -976,6 +981,13 @@ fbs_existing_client_handler(void *clientData, int UNUSED(mask))
 	if ((pkg_process(fbsp->fbs_clients[i].fbsc_pkg)) < 0)
 	    bu_log("pkg_process error encountered (1)\n");
 
+	/* Act on deferred drop requested by a handler (e.g. token mismatch).
+	 * We must not call pkg_close() from inside pkg_process's loop. */
+	if (fbsp->fbs_clients[i].fbsc_pending_drop) {
+	    drop_client(fbsp, i);
+	    continue;
+	}
+
 	if (fbsp->fbs_clients[i].fbsc_fd != fd)
 	    continue;
 
@@ -988,6 +1000,12 @@ fbs_existing_client_handler(void *clientData, int UNUSED(mask))
 
 	if ((pkg_process(fbsp->fbs_clients[i].fbsc_pkg)) < 0)
 	    bu_log("pkg_process error encountered (2)\n");
+
+	/* Deferred drop from second-pass handler */
+	if (fbsp->fbs_clients[i].fbsc_pending_drop) {
+	    drop_client(fbsp, i);
+	    continue;
+	}
     }
 
     if (fbsp->fbs_callback != (void (*)(void *))FBS_CALLBACK_NULL) {
@@ -1015,6 +1033,7 @@ fbs_new_client(struct fbserv_obj *fbsp, struct pkg_conn *pcp, void *data)
 	fbsp->fbs_clients[i].fbsc_pkg = pcp;
 	fbsp->fbs_clients[i].fbsc_fbsp = fbsp;
 	fbsp->fbs_clients[i].fbsc_auth_ok = 0;
+	fbsp->fbs_clients[i].fbsc_pending_drop = 0;
 	fbs_setup_socket(pcp->pkc_fd);
 
 	/* Point pkc_server_data at the fbserv_client so handlers can
