@@ -33,6 +33,16 @@
 
 #include <string.h>
 
+/* On Windows, windows.h (pulled in via bsocket.h/winsock2.h earlier in a
+ * Unity/jumbo batch) may define min and max as macros without NOMINMAX.
+ * Undefine them here so that manifold's template min/max definitions in
+ * linalg.h are not corrupted by macro expansion. */
+#ifdef min
+#  undef min
+#endif
+#ifdef max
+#  undef max
+#endif
 #include "manifold/manifold.h"
 
 #include "bu/app.h"

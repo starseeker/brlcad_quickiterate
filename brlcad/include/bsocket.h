@@ -46,6 +46,11 @@
 /* Windows Sockets provides select() and friends */
 #if defined(_WIN32) && !defined(__CYGWIN__)
 #  ifndef _WINSOCKAPI_
+/* Prevent windows.h (pulled in by winsock2.h) from defining min/max macros,
+ * which would conflict with C++ template min/max in e.g. manifold/linalg.h */
+#    ifndef NOMINMAX
+#      define NOMINMAX
+#    endif
 #    include <winsock2.h>
 #  endif
 #endif
