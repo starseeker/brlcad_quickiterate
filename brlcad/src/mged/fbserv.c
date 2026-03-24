@@ -115,6 +115,7 @@ fbserv_drop_client(int sub)
 	clients[sub].c_pkg = PKC_NULL;
 	clients[sub].c_fd = 0;
 	clients[sub].c_auth_ok = 0;
+	clients[sub].c_pending_drop = 0;
     }
 }
 
@@ -157,6 +158,13 @@ found:
 	if ((npp = pkg_process(clients[i].c_pkg)) < 0)
 	    bu_log("pkg_process error encountered (1)\n");
 
+	/* Act on any deferred drop requested by a handler (e.g. token mismatch).
+	 * We must not call pkg_close() from inside pkg_process's dispatch loop. */
+	if (clients[i].c_pending_drop) {
+	    fbserv_drop_client(i);
+	    continue;
+	}
+
 	if (npp > 0) {
 	    DMP_dirty = 1;
 	    dm_set_dirty(DMP, 1);
@@ -174,6 +182,12 @@ found:
 
 	if ((npp = pkg_process(clients[i].c_pkg)) < 0)
 	    bu_log("pkg_process error encountered (2)\n");
+
+	/* Deferred drop from second-pass handler */
+	if (clients[i].c_pending_drop) {
+	    fbserv_drop_client(i);
+	    continue;
+	}
 
 	if (npp > 0) {
 	    DMP_dirty = 1;
@@ -246,6 +260,7 @@ fbserv_new_client(struct pkg_conn *pcp)
 	clients[i].c_pkg = pcp;
 	clients[i].c_fd = pcp->pkc_fd;
 	clients[i].c_auth_ok = 0;
+	clients[i].c_pending_drop = 0;
 	fbserv_setup_socket(pcp->pkc_fd);
 
 #ifdef USE_TCL_CHAN
@@ -510,7 +525,12 @@ fb_server_fb_auth(struct pkg_conn *pcp, char *buf)
 	    clients[idx].c_auth_ok = 1;
     } else {
 	bu_log("mged fbserv: MSG_FBAUTH token mismatch — dropping client\n");
-	pkg_close(pcp);
+	/* Use deferred drop: pkg_process still holds a reference to pcp.
+	 * Freeing it here causes a use-after-free in pkg_process's loop. */
+	if (idx >= 0)
+	    clients[idx].c_pending_drop = 1;
+	else
+	    pkg_close(pcp); /* not tracked — close immediately (safe here) */
     }
 
     if (buf) (void)free(buf);
@@ -540,7 +560,11 @@ fb_server_fb_open(struct pkg_conn *pcp, char *buf)
 	    (void)pkg_plong(&rbuf[3*NET_LONG_LEN], 0);
 	    (void)pkg_plong(&rbuf[4*NET_LONG_LEN], 0);
 	    pkg_send(MSG_RETURN, rbuf, 5*NET_LONG_LEN, pcp);
-	    pkg_close(pcp);
+	    /* Deferred drop: pkg_process still holds pcp; close after it returns */
+	    if (idx >= 0)
+		clients[idx].c_pending_drop = 1;
+	    else
+		pkg_close(pcp);
 	    (void)free(buf);
 	    return;
 	}
