@@ -813,11 +813,25 @@ struct CommandRegistrar {
     }
 #endif
 
+#endif /* BU_PLUGIN_H */
+
 /*
  * Built-in registry implementation (C++ only).
  * This is included in the host library when BU_PLUGIN_IMPLEMENTATION is defined.
+ *
+ * NOTE: This block is intentionally placed OUTSIDE the BU_PLUGIN_H include guard
+ * so that it can be compiled even when bu_plugin.h was previously included without
+ * BU_PLUGIN_IMPLEMENTATION.  In a unity/jumbo build on MSVC (where USE_OBJECT_LIBS
+ * is OFF), multiple source files end up in the same translation unit.  The first file
+ * to include plugin.h sets both LIBGED_PLUGIN_H and BU_PLUGIN_H.  A later file in
+ * the same batch (e.g. ged_init.cpp) that needs the implementation cannot re-trigger
+ * the main guard.  By placing the implementation block here, a direct
+ * "#include <...bu_plugin.h>" after "#define BU_PLUGIN_IMPLEMENTATION" will still
+ * compile the implementation regardless of whether the header was seen before.
+ * BU_PLUGIN_IMPL_H prevents double-compilation within the same TU.
  */
-#if defined(BU_PLUGIN_IMPLEMENTATION) && defined(__cplusplus)
+#if defined(BU_PLUGIN_IMPLEMENTATION) && defined(__cplusplus) && !defined(BU_PLUGIN_IMPL_H)
+#define BU_PLUGIN_IMPL_H
 
 #include <unordered_map>
 #include <unordered_set>
@@ -1283,9 +1297,7 @@ extern "C" {
 
 } /* extern "C" */
 
-#endif /* BU_PLUGIN_IMPLEMENTATION && __cplusplus */
-
-#endif /* BU_PLUGIN_H */
+#endif /* BU_PLUGIN_IMPLEMENTATION && __cplusplus && !BU_PLUGIN_IMPL_H */
 
 /*
  * Local Variables:

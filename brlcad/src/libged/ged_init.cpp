@@ -46,8 +46,18 @@
 #include "bu/vls.h"
 #include "ged.h"
 
-#define BU_PLUGIN_IMPLEMENTATION
+/* Get declarations (BU_PLUGIN_IMPLEMENTATION must NOT be set yet so that
+ * the implementation section, now outside the BU_PLUGIN_H guard, is not
+ * compiled prematurely here - it is compiled by the direct include below). */
 #include "./include/plugin.h"
+/* Pull in the implementation.  The direct include bypasses the LIBGED_PLUGIN_H
+ * guard that plugin.h carries, which is necessary in unity/jumbo builds where
+ * another source file compiled earlier in the same translation unit has already
+ * included plugin.h (setting LIBGED_PLUGIN_H) without BU_PLUGIN_IMPLEMENTATION.
+ * The implementation section in bu_plugin.h is outside BU_PLUGIN_H's guard and
+ * protected by its own BU_PLUGIN_IMPL_H guard to prevent double-compilation. */
+#define BU_PLUGIN_IMPLEMENTATION
+#include "../libbu/bu_plugin.h"
 
 static struct bu_vls init_msgs = BU_VLS_INIT_ZERO;
 
