@@ -368,6 +368,7 @@ brlcad_addlib(libged "${LIBGED_SOURCES}" "${GED_LIBS}" "" "${GED_LOCAL_INCLUDE_D
     fb2pix/fb2pix.c
     pix2fb/pix2fb.c
     png2fb/png2fb.c
+    ged_init.cpp
 )
 set_target_properties(libged PROPERTIES VERSION 20.0.1 SOVERSION 20)
 if (LIBGED_STATIC_CORE)
