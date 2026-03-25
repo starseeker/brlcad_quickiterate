@@ -185,7 +185,10 @@ if {[info exists ::use_gui]} {
    if { ! $port_number_specified && ! [info exists fbserv_pid] } {
        incr ::RtWizard::wizard_state(fbserv_port)
        set fbserv_owned 0
-       while { !$fbserv_owned } {
+       set _fbserv_retries 0
+       set _fbserv_max_retries 50
+       while { !$fbserv_owned && $_fbserv_retries < $_fbserv_max_retries } {
+	   incr _fbserv_retries
 	   # Non-destructive TCP port probe to find a candidate free port.  The old
 	   # approach (fbclear -F $port) was destructive — it would clear another
 	   # running rtwizard's framebuffer as a side effect of the probe.
@@ -218,10 +221,25 @@ if {[info exists ::use_gui]} {
 	       if {$::RtWizard::wizard_state(verbose)} {
 		   puts "fbserv port $::RtWizard::wizard_state(fbserv_port): port collision detected, retrying on next port."
 	       }
+	       # Kill the fbserv we launched on this port — we lost the race and
+	       # cannot own it.  Without this kill the orphaned process lingers,
+	       # consuming the port and causing subsequent retries to spin.
+	       if {[info exists fbserv_pid]} {
+		   if {$::tcl_platform(platform) == "windows"} {
+		       catch {exec taskkill /F /PID $fbserv_pid}
+		   } else {
+		       catch {exec kill $fbserv_pid}
+		   }
+	       }
 	       unset -nocomplain fbserv_pid
 	       incr ::RtWizard::wizard_state(fbserv_port)
 	   }
        }
+       unset -nocomplain _fbserv_retries
+       if { !$fbserv_owned } {
+	   error "rtwizard: could not acquire a framebuffer port after $_fbserv_max_retries attempts"
+       }
+       unset -nocomplain _fbserv_max_retries
    }
 
    # Either we're using a specified view model, or we're deducing one based on user options
