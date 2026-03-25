@@ -87,7 +87,18 @@ fbserv_guard(struct pkg_conn *pcp, char *buf)
 
     if (fbserv_require_auth()) {
 	int idx = fbserv_conn_idx(pcp);
-	if (idx < 0 || !fbserv_client_auth_ok(idx)) {
+	if (idx < 0) {
+	    /* Connection not in clients[] table — should not happen in normal
+	     * operation, but guard defensively.  fbserv_request_drop(-1) is a
+	     * no-op so skip it; just send the error reply and return. */
+	    fb_log("fbserv: request type %d from unregistered connection\n",
+		   pcp ? pcp->pkc_type : -1);
+	    (void)pkg_plong(erbuf, -1);
+	    pkg_send(MSG_RETURN, erbuf, NET_LONG_LEN, pcp);
+	    if (buf) (void)free(buf);
+	    return -1;
+	}
+	if (!fbserv_client_auth_ok(idx)) {
 	    fb_log("fbserv: unauthenticated request type %d rejected\n",
 		   pcp ? pcp->pkc_type : -1);
 	    (void)pkg_plong(erbuf, -1);
