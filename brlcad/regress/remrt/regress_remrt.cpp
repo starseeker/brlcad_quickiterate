@@ -160,14 +160,14 @@ read_remrt_stderr(struct bu_process *proc, RemrtDetected *det, std::string *log_
     if (!ferr)
 	return;
 
-    while (fgets(buf, (int)sizeof(buf), ferr)) {
+    while (fgets(buf, sizeof(buf), ferr)) {
 	if (log_out)
 	    log_out->append(buf);
 
 	/* "Listening at TCP port NNNNN" */
 	const char *p = strstr(buf, "Listening at TCP port ");
 	if (p) {
-	    int port_val = atoi(p + (int)strlen("Listening at TCP port "));
+	    int port_val = atoi(p + strlen("Listening at TCP port "));
 	    if (port_val > 0) {
 		std::lock_guard<std::mutex> lk(det->mtx);
 		det->port = port_val;
@@ -178,7 +178,7 @@ read_remrt_stderr(struct bu_process *proc, RemrtDetected *det, std::string *log_
 	if (!det->port) {
 	    p = strstr(buf, "Assigned LIBPKG permport ");
 	    if (p) {
-		int port_val = atoi(p + (int)strlen("Assigned LIBPKG permport "));
+		int port_val = atoi(p + strlen("Assigned LIBPKG permport "));
 		if (port_val > 0) {
 		    std::lock_guard<std::mutex> lk(det->mtx);
 		    det->port = port_val;
