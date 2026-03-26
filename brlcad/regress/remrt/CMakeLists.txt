@@ -59,7 +59,9 @@ if(TARGET remrt AND TARGET rtsrv AND TARGET pixcmp)
     distclean(
       ${CMAKE_CURRENT_BINARY_DIR}/.remrtrc
       ${CMAKE_CURRENT_BINARY_DIR}/m35_remrt_token.pix
+      ${CMAKE_CURRENT_BINARY_DIR}/m35_remrt_token.pix.0
       ${CMAKE_CURRENT_BINARY_DIR}/m35_remrt_notoken.pix
+      ${CMAKE_CURRENT_BINARY_DIR}/m35_remrt_notoken.pix.0
     )
 
   endif(TARGET regress_remrt)

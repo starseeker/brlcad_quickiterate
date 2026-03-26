@@ -473,6 +473,12 @@ ph_enqueue(struct pkg_conn *pc, char *buf)
 void
 ph_cd(struct pkg_conn *UNUSED(pc), char *buf)
 {
+    /* Strip any trailing whitespace to guard against newlines in the path */
+    {
+	char *p = buf + strlen(buf);
+	while (p > buf && isspace((unsigned char)p[-1]))
+	    *--p = '\0';
+    }
     if (debug)
 	fprintf(stderr, "ph_cd %s\n", buf);
     if (chdir(buf) < 0)
