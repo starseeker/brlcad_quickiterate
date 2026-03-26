@@ -40,7 +40,7 @@
 #ifndef GEOBRLCAD_NUMERICS_OPTIMIZER
 #define GEOBRLCAD_NUMERICS_OPTIMIZER
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 #include <geogram/basic/numeric.h>
 #include <geogram/basic/smart_pointer.h>
 #include <geogram/basic/counted.h>

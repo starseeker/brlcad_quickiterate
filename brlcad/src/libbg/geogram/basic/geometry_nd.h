@@ -40,7 +40,7 @@
 #ifndef GEOBRLCAD_BASIC_GEOBRLMETRY_ND
 #define GEOBRLCAD_BASIC_GEOBRLMETRY_ND
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 #include <geogram/basic/geometry.h>
 #include <geogram/basic/memory.h>
 

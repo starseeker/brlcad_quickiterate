@@ -13,14 +13,12 @@ set(GEOGRAM_SRCS
     basic/factory.cpp
     basic/geogram_options.cpp
     basic/geometry.cpp
-    basic/line_stream.cpp
     basic/logger.cpp
     basic/numeric.cpp
     basic/packed_arrays.cpp
     basic/process.cpp
     basic/process_unix.cpp
     basic/progress.cpp
-    basic/stopwatch.cpp
     basic/string.cpp
     # numerics
     numerics/PCK.cpp
@@ -101,3 +99,4 @@ target_compile_features(geogram_brlcad PUBLIC cxx_std_17)
 if(UNIX)
     target_link_libraries(geogram_brlcad PRIVATE pthread dl)
 endif()
+target_link_libraries(geogram_brlcad PRIVATE libbu)

@@ -40,7 +40,7 @@
 #ifndef GEOBRLCAD_BASIC_COUNTED
 #define GEOBRLCAD_BASIC_COUNTED
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 #include <geogram/basic/smart_pointer.h>
 #include <geogram/basic/assert.h>
 

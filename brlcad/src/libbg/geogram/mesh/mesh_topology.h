@@ -40,7 +40,7 @@
 #ifndef GEOBRLCAD_MESH_MESH_TOPOLOGY
 #define GEOBRLCAD_MESH_MESH_TOPOLOGY
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 #include <geogram/basic/numeric.h>
 #include <geogram/basic/attributes.h>
 

@@ -41,7 +41,7 @@
 #ifndef GEOBRLCAD_BASIC_ATTRIBUTES
 #define GEOBRLCAD_BASIC_ATTRIBUTES
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 #include <geogram/basic/memory.h>
 #include <geogram/basic/numeric.h>
 #include <geogram/basic/process.h>

@@ -40,7 +40,7 @@
 #ifndef GEOBRLCAD_MESH_MESH_PARTITION
 #define GEOBRLCAD_MESH_MESH_PARTITION
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 #include <geogram/basic/numeric.h>
 #include <geogram/basic/memory.h>
 

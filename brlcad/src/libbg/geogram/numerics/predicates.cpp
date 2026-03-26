@@ -37,7 +37,7 @@
  *
  */
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 
 // This makes sure the compiler will not optimize y = a*x+b
 // with fused multiply-add, this would break the exact

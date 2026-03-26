@@ -44,7 +44,6 @@
 #include <geogram/mesh/mesh_preprocessing.h>
 #include <geogram/points/colocate.h>
 #include <geogram/basic/geometry_nd.h>
-#include <geogram/basic/stopwatch.h>
 #include <geogram/basic/geogram_options.h>
 #include <geogram/basic/argused.h>
 #include <geogram/basic/algorithm.h>

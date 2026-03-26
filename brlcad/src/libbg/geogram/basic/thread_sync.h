@@ -45,7 +45,7 @@
  * \brief Functions and classes for process manipulation
  */
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 #include <geogram/basic/numeric.h>
 #include <geogram/basic/assert.h>
 #include <geogram/basic/argused.h>

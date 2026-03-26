@@ -48,8 +48,8 @@
 #include <geogram/voronoi/CVT.h>
 #include <geogram/NL/nl.h>
 #include <geogram/basic/geogram_options.h>
-#include <geogram/basic/stopwatch.h>
 #include <geogram/basic/progress.h>
+#include <chrono>
 
 
 /****************************************************************************/
@@ -76,7 +76,7 @@ namespace GEOBRL {
 
         geo_argused(dim);
 
-        Stopwatch W("Remesh");
+        auto geo_remesh_t0 = std::chrono::system_clock::now();
 
         CentroidalVoronoiTesselation CVT(&M_in, opts);
 
@@ -127,6 +127,11 @@ namespace GEOBRL {
 		M_out, M_in, adjust_max_edge_distance,
 		false, adjust_border_importance
 	    );
+        }
+        {
+            auto geo_remesh_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::system_clock::now() - geo_remesh_t0).count();
+            Logger::out("Remesh") << "Elapsed: " << (0.001 * double(geo_remesh_ms)) << "s" << std::endl;
         }
     }
 

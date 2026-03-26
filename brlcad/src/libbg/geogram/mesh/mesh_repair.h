@@ -44,7 +44,7 @@
  * \file mesh_repair.h
  */
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 #include <geogram/basic/memory.h>
 
 namespace GEOBRL {

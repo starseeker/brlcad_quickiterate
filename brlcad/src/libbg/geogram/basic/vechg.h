@@ -40,7 +40,7 @@
 #ifndef GEOBRLCAD_BASIC_VECHG
 #define GEOBRLCAD_BASIC_VECHG
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 #include <geogram/basic/vecg.h>
 #include <geogram/basic/rationalg.h>
 

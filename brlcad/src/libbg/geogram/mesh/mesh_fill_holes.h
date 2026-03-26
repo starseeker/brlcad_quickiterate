@@ -40,7 +40,7 @@
 #ifndef GEOBRLCAD_MESH_MESH_FILL_HOLES
 #define GEOBRLCAD_MESH_MESH_FILL_HOLES
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 #include <geogram/basic/numeric.h>
 
 /**

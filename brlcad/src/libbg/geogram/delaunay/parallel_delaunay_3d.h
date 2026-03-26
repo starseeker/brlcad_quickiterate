@@ -42,7 +42,7 @@
 
 #ifdef GEOBRLCAD_WITH_PDEL
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 #include <geogram/delaunay/delaunay.h>
 #include <geogram/delaunay/delaunay_sync.h>
 #include <geogram/basic/process.h>

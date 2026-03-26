@@ -40,7 +40,7 @@
 #ifndef GEOBRLCAD_NUMERICS_EXACT_GEOBRLMETRY
 #define GEOBRLCAD_NUMERICS_EXACT_GEOBRLMETRY
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 #include <geogram/basic/geometry.h>
 #include <geogram/basic/vechg.h>
 #include <geogram/numerics/expansion_nt.h>
