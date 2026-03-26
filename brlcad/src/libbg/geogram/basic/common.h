@@ -40,6 +40,7 @@
 #ifndef GEOBRLCAD_BASIC_COMMON
 #define GEOBRLCAD_BASIC_COMMON
 
+
 /**
  * \brief Basic definitions for the Geogram C API
  */
@@ -159,6 +160,8 @@ enum {
     GEOBRL_FALSE = 0,
     GEOBRL_TRUE = 1
 };
+
+#include "geogram/basic/geogram_options.h"
 
 // iostream should be included before anything else,
 // otherwise 'cin', 'cout' and 'cerr' will be uninitialized.
