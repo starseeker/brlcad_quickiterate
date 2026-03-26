@@ -800,8 +800,8 @@ static void
 read_rc_file(void)
 {
     FILE *fp;
-    char *home;
-    char path[128];
+    char path[MAXPATHLEN];
+    char home_dir[MAXPATHLEN] = {0};
 
     if ((fp = fopen(".remrtrc", "r")) != NULL) {
 	source(fp);
@@ -809,8 +809,11 @@ read_rc_file(void)
 	return;
     }
 
-    if ((home = getenv("HOME")) != NULL) {
-	snprintf(path, 128, "%s/.remrtrc", home);
+    /* Use bu_dir for portable home-directory lookup (handles HOME on
+     * POSIX, USERPROFILE/SHGetKnownFolderPath on Windows, etc.). */
+    bu_dir(home_dir, sizeof(home_dir), BU_DIR_HOME, NULL);
+    if (!BU_STR_EMPTY(home_dir)) {
+	snprintf(path, sizeof(path), "%s/.remrtrc", home_dir);
 	if ((fp = fopen(path, "r")) != NULL) {
 	    source(fp);
 	    fclose(fp);
