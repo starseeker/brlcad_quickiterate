@@ -2848,6 +2848,12 @@ cd_host(const int argc, const char **argv)
     } else {
 	bu_log("unknown 'where' string '%s'\n", argv[argpoint]);
     }
+    /* Strip any trailing whitespace (e.g. from newlines in .remrtrc) */
+    if (ihp->ht_path) {
+	char *p = ihp->ht_path + strlen(ihp->ht_path);
+	while (p > ihp->ht_path && isspace((unsigned char)p[-1]))
+	    *--p = '\0';
+    }
     return 0;
 }
 
@@ -3041,12 +3047,15 @@ eat_script(FILE *fp)
     /* A "start" command has been seen, and is saved in buf[] */
     while (!feof(fp)) {
 	int needtree;
+	int found_end;
 	needtree = 0;
+	found_end = 0;
 	/* Gobble until "end" keyword seen */
 	while ((ebuf = rt_read_cmd(fp)) != NULL) {
 	    if (bu_strncmp(ebuf, "end", 3) == 0) {
 		bu_free(ebuf, "end line");
 		ebuf = NULL;
+		found_end = 1;
 		break;
 	    }
 	    if (bu_strncmp(ebuf, "clean", 5) == 0) {
@@ -3059,7 +3068,7 @@ eat_script(FILE *fp)
 	    bu_vls_strcat(&body, ";");
 	    bu_free(ebuf, "script body line");
 	}
-	if (ebuf == (char *)0) {
+	if (!found_end) {
 	    bu_log("unexpected EOF while reading script for frame %d\n", frame);
 	    break;
 	}
