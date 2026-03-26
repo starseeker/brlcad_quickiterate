@@ -66,7 +66,9 @@ namespace GEOBRL {
      * \retval true if parallel algorithms are used.
      * \retval false if sequential algorithms are used.
      */
-    bool GEOBRLCAD_API uses_parallel_algorithm(const GeoOptions& opts);
+    inline bool uses_parallel_algorithm(const GeoOptions& opts) {
+        return opts.sys_multithread && opts.algo_parallel;
+    }
 
     /**
      * \brief Sorts elements in parallel

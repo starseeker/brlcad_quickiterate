@@ -5,11 +5,9 @@
 
 set(GEOGRAM_SRCS
     # basic infrastructure
-    basic/algorithm.cpp
     basic/assert.cpp
     basic/attributes.cpp
     basic/common.cpp
-    basic/counted.cpp
     basic/factory.cpp
     basic/geogram_options.cpp
     basic/geometry.cpp
