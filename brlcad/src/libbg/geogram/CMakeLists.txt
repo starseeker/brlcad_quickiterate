@@ -8,10 +8,8 @@ set(GEOGRAM_SRCS
     basic/algorithm.cpp
     basic/assert.cpp
     basic/attributes.cpp
-    basic/command_line.cpp
     basic/common.cpp
     basic/counted.cpp
-    basic/environment.cpp
     basic/factory.cpp
     basic/geogram_options.cpp
     basic/geometry.cpp
