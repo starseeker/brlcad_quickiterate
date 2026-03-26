@@ -550,20 +550,23 @@ run_subtest(const TestOptions &opts,
 
     /* ------------------------------------------------------------------ */
     /* Verify the output file exists.                                       */
+    /* remrt appends the frame number to the -o argument, so the actual     */
+    /* file on disk is out_pix + ".0" for frame 0.                          */
     /* ------------------------------------------------------------------ */
-    if (!bu_file_exists(out_pix.c_str(), NULL)) {
+    std::string actual_pix = out_pix + ".0";
+    if (!bu_file_exists(actual_pix.c_str(), NULL)) {
 	fprintf(stderr, "regress_remrt [%s]: output file not created: %s\n",
-		label, out_pix.c_str());
+		label, actual_pix.c_str());
 	return 1;
     }
 
     /* Check the file size: a valid .pix must be width*height*3 bytes. */
     long expected_size = (long)image_size * image_size * 3;
     {
-	FILE *fp = fopen(out_pix.c_str(), "rb");
+	FILE *fp = fopen(actual_pix.c_str(), "rb");
 	if (!fp) {
 	    fprintf(stderr, "regress_remrt [%s]: cannot open output %s\n",
-		    label, out_pix.c_str());
+		    label, actual_pix.c_str());
 	    return 1;
 	}
 	fseek(fp, 0, SEEK_END);
@@ -686,16 +689,23 @@ main(int argc, char *argv[])
 	return 1;
     }
 
-    /* Derive a suitable output directory from the test binary's location. */
-    char bindir[MAXPATHLEN] = {0};
-    bu_dir(bindir, sizeof(bindir), BU_DIR_BIN, NULL);
+    /* Derive a suitable output directory from the test's working directory
+     * (CMAKE_CURRENT_BINARY_DIR, set via WORKING_DIRECTORY ctest property).
+     * This keeps output files alongside .remrtrc and simplifies distclean. */
+    char cwd[MAXPATHLEN] = {0};
+    bu_dir(cwd, sizeof(cwd), BU_DIR_CURR, NULL);
 
-    std::string out_token  = std::string(bindir) + "/m35_remrt_token.pix";
-    std::string out_notoken = std::string(bindir) + "/m35_remrt_notoken.pix";
+    /* Base paths passed to remrt via -o.  remrt appends ".N" (frame number)
+     * so the actual files on disk are out_token + ".0", out_notoken + ".0". */
+    std::string out_token   = std::string(cwd) + "/m35_remrt_token.pix";
+    std::string out_notoken = std::string(cwd) + "/m35_remrt_notoken.pix";
 
-    /* Remove any stale outputs from a previous run. */
+    /* Remove any stale outputs (both base name and frame-suffixed) from a
+     * previous run. */
     bu_file_delete(out_token.c_str());
+    bu_file_delete((out_token  + ".0").c_str());
     bu_file_delete(out_notoken.c_str());
+    bu_file_delete((out_notoken + ".0").c_str());
 
     int failures = 0;
 
@@ -714,9 +724,10 @@ main(int argc, char *argv[])
 	failures++;
     } else {
 	/* Pixel-exact comparison against bench/ref/m35.pix. */
+	std::string actual_token = out_token + ".0";
 	fprintf(stderr, "Comparing %s with %s ...\n",
-		out_token.c_str(), opts.refpix_path.c_str());
-	int cmp = run_pixcmp(opts.pixcmp_exe, out_token, opts.refpix_path);
+		actual_token.c_str(), opts.refpix_path.c_str());
+	int cmp = run_pixcmp(opts.pixcmp_exe, actual_token, opts.refpix_path);
 	if (cmp != 0) {
 	    fprintf(stderr,
 		    "FAIL: sub-test 1 pixel comparison: output differs from %s\n"
@@ -745,9 +756,11 @@ main(int argc, char *argv[])
 	fprintf(stderr, "PASS: sub-test 2 (no-token backward-compat render)\n");
     }
 
-    /* Clean up output files. */
+    /* Clean up output files (base name and frame-suffixed). */
     bu_file_delete(out_token.c_str());
+    bu_file_delete((out_token  + ".0").c_str());
     bu_file_delete(out_notoken.c_str());
+    bu_file_delete((out_notoken + ".0").c_str());
 
     if (failures == 0)
 	fprintf(stderr, "\nAll remrt regression sub-tests PASSED.\n");
