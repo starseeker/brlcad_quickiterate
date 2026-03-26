@@ -38,7 +38,6 @@
  */
 
 #include <geogram/basic/string.h>
-#include <ctype.h>
 #include <stdarg.h>
 
 namespace GEOBRL {
@@ -63,101 +62,6 @@ namespace GEOBRL {
 
     namespace String {
 
-        void split_string(
-            const std::string& in,
-            char separator,
-            std::vector<std::string>& out,
-            bool skip_empty_fields
-        ) {
-            size_t length = in.length();
-            size_t start = 0;
-            while(start < length) {
-                size_t end = in.find(separator, start);
-                if(end == std::string::npos) {
-                    end = length;
-                }
-                if(!skip_empty_fields || (end - start > 0)) {
-                    out.push_back(in.substr(start, end - start));
-                }
-                start = end + 1;
-            }
-        }
-
-        void split_string(
-            const std::string& in,
-            const std::string& separator,
-            std::vector<std::string>& out,
-            bool skip_empty_fields
-        ) {
-            size_t length = in.length();
-            size_t start = 0;
-            while(start < length) {
-                size_t end = in.find(separator, start);
-                if(end == std::string::npos) {
-                    end = length;
-                }
-                if(!skip_empty_fields || (end - start > 0)) {
-                    out.push_back(in.substr(start, end - start));
-                }
-                start = end + separator.length();
-            }
-        }
-
-        bool split_string(
-            const std::string& in,
-            char separator,
-            std::string& left,
-            std::string& right
-        ) {
-            size_t p = in.find(separator);
-            if(p == std::string::npos) {
-                left = "";
-                right = "";
-                return false;
-            }
-            left = in.substr(0,p);
-            right = in.substr(p+1,in.length()-p);
-            return true;
-        }
-
-        std::string join_strings(
-            const std::vector<std::string>& in,
-            char separator
-        ) {
-            std::string result;
-            for(unsigned int i = 0; i < in.size(); i++) {
-                if(result.length() != 0) {
-                    result += separator;
-                }
-                result += in[i];
-            }
-            return result;
-        }
-
-        std::string join_strings(
-            const std::vector<std::string>& in,
-            const std::string& separator
-        ) {
-            std::string result;
-            for(unsigned int i = 0; i < in.size(); i++) {
-                if(result.length() != 0) {
-                    result += separator;
-                }
-                result += in[i];
-            }
-            return result;
-        }
-
-        std::string quote(const std::string& s, char quotes) {
-            return char_to_string(quotes) + s + char_to_string(quotes);
-        }
-
-        bool string_starts_with(
-            const std::string& haystack, const std::string& needle
-        ) {
-            return haystack.compare(0, needle.length(), needle) == 0;
-        }
-
         std::string format(const char* format, ...) {
             size_t length = 0;
 
@@ -176,67 +80,6 @@ namespace GEOBRL {
             va_end(arg_ptr);
 
             return result;
-        }
-
-	std::string format_time(double seconds, bool HMS_only) {
-
-	    std::string result;
-	    if(!HMS_only) {
-		result = String::to_display_string(seconds) + "s";
-	    }
-
-	    if(seconds >= 60.0) {
-		while(!HMS_only && result.length() <= 10) {
-		    result += " ";
-		}
-		int S = int(seconds);
-		int H = S / 3600;
-		S = S % 3600;
-		int M = S / 60;
-		S = S % 60;
-		result += String::format("(%02d:%02d:%02d)",H,M,S);
-	    }
-
-	    return result;
-	}
-
-        // Reference: https://stackoverflow.com/questions/148403/
-        //     utf8-to-from-wide-char-conversion-in-stl
-
-        std::string wchar_to_UTF8(const wchar_t* in) {
-            std::string out;
-            unsigned int codepoint = 0;
-            for (; *in != 0;  ++in) {
-                if (*in >= 0xd800 && *in <= 0xdbff) {
-                    codepoint = (unsigned int)(
-                        ((*in - 0xd800) << 10) + 0x10000
-                    );
-                } else {
-                    if (*in >= 0xdc00 && *in <= 0xdfff) {
-                        codepoint |= (unsigned int)(*in - 0xdc00);
-                    } else {
-                        codepoint = (unsigned int)(*in);
-                    }
-
-                    if (codepoint <= 0x7f) {
-                        out.append(1, char(codepoint));
-                    } else if (codepoint <= 0x7ff) {
-                        out.append(1, char(0xc0 | ((codepoint >> 6) & 0x1f)));
-                        out.append(1, char(0x80 | (codepoint & 0x3f)));
-                    } else if (codepoint <= 0xffff) {
-                        out.append(1, char(0xe0 | ((codepoint >> 12) & 0x0f)));
-                        out.append(1, char(0x80 | ((codepoint >> 6) & 0x3f)));
-                        out.append(1, char(0x80 | (codepoint & 0x3f)));
-                    } else {
-                        out.append(1, char(0xf0 | ((codepoint >> 18) & 0x07)));
-                        out.append(1, char(0x80 | ((codepoint >> 12) & 0x3f)));
-                        out.append(1, char(0x80 | ((codepoint >> 6) & 0x3f)));
-                        out.append(1, char(0x80 | (codepoint & 0x3f)));
-                    }
-                    codepoint = 0;
-                }
-            }
-            return out;
         }
 
         /********************************************************************/

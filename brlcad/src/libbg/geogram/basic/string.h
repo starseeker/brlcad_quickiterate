@@ -48,11 +48,9 @@
 #include <stdexcept>
 #include <iomanip>
 
-#include <vector>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-#include <stdio.h>
 #include <limits.h>
 
 /**
@@ -66,152 +64,6 @@ namespace GEOBRL {
      * \brief String manipulation utilities.
      */
     namespace String {
-
-        /**
-         * \brief Splits a string into parts
-         * \details Splits the string \p in into a list of substrings \p out
-         * wherever \p separator occurs.
-         * \param[in] in the input string to split
-         * \param[in] separator the separator character
-         * \param[in] out the resulting list of substrings
-         * \param[in] skip_empty_fields specifies whether empty parts should
-         * be ignored and not stored in list \p out (this is true by default).
-         * \see join_strings()
-         */
-        void GEOBRLCAD_API split_string(
-            const std::string& in,
-            char separator,
-            std::vector<std::string>& out,
-            bool skip_empty_fields = true
-        );
-
-        /**
-         * \brief Splits a string into parts
-         * \details Splits the string \p in into a list of substrings \p out
-         * wherever \p separator occurs.
-         * \param[in] in the input string to split
-         * \param[in] separator the separator string
-         * \param[in] out the resulting list of substrings
-         * \param[in] skip_empty_fields specifies whether empty parts should
-         * be ignored and not stored in list \p out (this is true by default).
-         * \see join_strings()
-         */
-        void GEOBRLCAD_API split_string(
-            const std::string& in,
-            const std::string& separator,
-            std::vector<std::string>& out,
-            bool skip_empty_fields = true
-        );
-
-        /**
-         * \brief Splits a string into two parts.
-         * \param[in] in the input string to split
-         * \param[in] separator the separator character
-         * \param[in] left the part of the input string on the left
-         *   of the separator or the empty string if the separator
-         *   did not appear in the input string
-         * \param[in] right the right of the input string on the left
-         *   of the separator or the empty string if the separator
-         *   did not appear in the input string
-         * \retval true if the separator was found in the input string
-         * \retval false otherwise
-         */
-        bool GEOBRLCAD_API split_string(
-            const std::string& in,
-            char separator,
-            std::string& left,
-            std::string& right
-        );
-
-        /**
-         * \brief Join multiple strings
-         * \details Joins all the strings in list \p in into a single string
-         * with each element separated by the given \p separator character.
-         * \param[in] in the list of strings to join
-         * \param[in] separator the separator character
-         * \return the joined string
-         * \see split_string()
-         */
-        std::string GEOBRLCAD_API join_strings(
-            const std::vector<std::string>& in,
-            char separator
-        );
-
-        /**
-         * \brief Join multiple strings
-         * \details Joins all the strings in list \p in into a single string
-         * with each element separated by the given \p separator string.
-         * \param[in] in the list of strings to join
-         * \param[in] separator the separator string (can be an empty string)
-         * \return the joined string
-         * \see split_string()
-         */
-        std::string GEOBRLCAD_API join_strings(
-            const std::vector<std::string>& in,
-            const std::string& separator
-        );
-
-        /**
-         * \brief Converts a string to lowercase
-         * \details The conversion is done in place in the string \p s.
-         * \param[in,out] s The string to convert
-         * \see to_uppercase()
-         */
-        std::string GEOBRLCAD_API to_lowercase(const std::string& s);
-
-        /**
-         * \brief Converts a string to uppercase
-         * \details The conversion is done in place in the string \p s.
-         * \param[in,out] s The string to convert
-         * \see to_lowercase()
-         */
-        std::string GEOBRLCAD_API to_uppercase(const std::string& s);
-
-        /**
-         * \brief Creates a one char string
-         * \param[in] c the character to convert to a string
-         * \return a string that contains characater \p c
-         */
-        inline std::string char_to_string(char c) {
-            char s[2];
-            s[0] = c;
-            s[1] = '\0';
-            return std::string(s);
-        }
-
-        /**
-         * \brief Adds quotes to a string
-         * \details Adds character \p quote at the beginning and the end of
-         * string \p s and returns the resulting string.
-         * \param[in] s the string to quote
-         * \param[in] quotes the quoting char (default is '"')
-         * \return the quoted string
-         */
-        std::string GEOBRLCAD_API quote(
-            const std::string& s, char quotes = '\"'
-        );
-
-        /**
-         * \brief Checks if a string starts with a substring
-         * \param[in] haystack the input string
-         * \param[in] needle the substring to check
-         * \return \c true if \p haystack starts with \p needle, \c false
-         * otherwise.
-         */
-        bool GEOBRLCAD_API string_starts_with(
-            const std::string& haystack, const std::string& needle
-        );
-
-        /**
-         * \brief Checks if a string ends with a substring
-         * \param[in] haystack the input string
-         * \param[in] needle the substring to check
-         * \return \c true if \p haystack ends with \p needle, \c false
-         * otherwise.
-         */
-        bool GEOBRLCAD_API string_ends_with(
-            const std::string& haystack, const std::string& needle
-        );
 
         /**
          * \brief Creates a string from a format string and additional
@@ -229,14 +81,6 @@ namespace GEOBRL {
 #endif
             ;
 
-	/**
-	 * \brief Converts a time in seconds into a human-readable string
-	 * \param[in] HMS_only if set, always returns a hh:mm:ss string,
-	 *  else returns the time in seconds and a (hh:mm:ss) if time is
-	 *  greater or equal to one minute.
-	 */
-	std::string GEOBRLCAD_API format_time(double seconds, bool HMS_only=false);
-
         /**
          * \brief Converts a typed value to a string
          * \param[in] value the typed value to convert
@@ -249,47 +93,6 @@ namespace GEOBRL {
             // with a sufficient number of digits. This is important
             // to avoid losing precision when using ASCII files.
             out << std::setprecision(17);
-            out << value;
-            return out.str();
-        }
-
-        /**
-         * \brief Converts a typed value to a string for display.
-         * \details Does not keep all significant digits for floating point
-         *   numbers.
-         * \param[in] value the typed value to convert
-         * \return a string that contain the stringified form of the value
-         */
-        template <class T>
-        inline std::string to_display_string(const T& value) {
-            return to_string(value);
-        }
-
-
-        /**
-         * \brief Converts a typed value to a string for display.
-         * \details Does not keep all significant digits for floating point
-         *   numbers.
-         * \param[in] value the typed value to convert
-         * \return a string that contain the stringified form of the value
-         */
-        template <>
-        inline std::string to_display_string(const double& value) {
-            std::ostringstream out;
-            out << value;
-            return out.str();
-        }
-
-        /**
-         * \brief Converts a typed value to a string for display.
-         * \details Does not keep all significant digits for floating point
-         *   numbers.
-         * \param[in] value the typed value to convert
-         * \return a string that contain the stringified form of the value
-         */
-        template <>
-        inline std::string to_display_string(const float& value) {
-            std::ostringstream out;
             out << value;
             return out.str();
         }
@@ -608,12 +411,6 @@ namespace GEOBRL {
             return value;
         }
 
-        /**
-         * \brief Converts a wide char string into an UTF8 string.
-         * \param[in] in the input null-terminated wide-char string.
-         * \return the UTF8-encoded string in a std::string.
-         */
-        std::string GEOBRLCAD_API wchar_to_UTF8(const wchar_t* in);
     }
 }
 
