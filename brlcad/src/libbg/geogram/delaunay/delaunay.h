@@ -40,7 +40,7 @@
 #ifndef GEOBRLCAD_DELAUNAY_DELAUNAY
 #define GEOBRLCAD_DELAUNAY_DELAUNAY
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 #include <geogram/basic/counted.h>
 #include <geogram/basic/smart_pointer.h>
 #include <geogram/basic/packed_arrays.h>

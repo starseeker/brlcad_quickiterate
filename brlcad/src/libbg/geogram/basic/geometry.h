@@ -40,7 +40,7 @@
 #ifndef GEOBRLCAD_BASIC_GEOBRLMETRY
 #define GEOBRLCAD_BASIC_GEOBRLMETRY
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 #include <geogram/basic/matrix.h>
 
 /**

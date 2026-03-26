@@ -40,7 +40,7 @@
 #ifndef GEOBRLCAD_VORONOI_GENERIC_RVD_VERTEX
 #define GEOBRLCAD_VORONOI_GENERIC_RVD_VERTEX
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 #include <geogram/mesh/mesh.h>
 #include <geogram/delaunay/delaunay_nn.h>
 #include <geogram/basic/assert.h>

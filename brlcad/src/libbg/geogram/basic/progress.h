@@ -40,7 +40,7 @@
 #ifndef GEOBRLCAD_BASIC_PROGRESS
 #define GEOBRLCAD_BASIC_PROGRESS
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 #include <geogram/basic/logger.h>
 #include <geogram/basic/counted.h>
 #include <geogram/basic/smart_pointer.h>

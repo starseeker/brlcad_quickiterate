@@ -41,7 +41,7 @@
 #ifndef GEOBRLCAD_DELAUNAY_CAVITY
 #define GEOBRLCAD_DELAUNAY_CAVITY
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 #include <geogram/basic/memory.h>
 #include <geogram/basic/numeric.h>
 #include <string.h>

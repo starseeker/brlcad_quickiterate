@@ -40,7 +40,7 @@
 #ifndef GEOBRLCAD_BASIC_ASSERT
 #define GEOBRLCAD_BASIC_ASSERT
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 #include <string>
 
 /**

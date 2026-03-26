@@ -11,7 +11,7 @@ extern "C" {
 }
 
 #include <geogram/basic/logger.h>
-#include <geogram/basic/stopwatch.h>
+#include <chrono>
 #include <geogram/NL/nl.h>
 #include <geogram/NL/nl_matrix.h>
 
@@ -173,7 +173,7 @@ template <class Backend> NLboolean nlSolveAMGCL_generic() {
         size_t(n), (rowptr_t*)M->rowptr, (colind_t *)M->colind, M->val
     );
 
-    GEOBRL::Stopwatch* Wbuild = new GEOBRL::Stopwatch("AMGCL build", ctxt->verbose);
+    auto geo_amgcl_t0 = std::chrono::system_clock::now();
 
     Solver solver(M_amgcl,prm);
 
@@ -181,7 +181,11 @@ template <class Backend> NLboolean nlSolveAMGCL_generic() {
 	GEOBRL::Logger::out("AMGCL build") << solver << std::endl;
     }
 
-    delete Wbuild;
+    if(ctxt->verbose) {
+        auto geo_amgcl_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now() - geo_amgcl_t0).count();
+        GEOBRL::Logger::out("AMGCL build") << "Elapsed: " << (0.001 * double(geo_amgcl_ms)) << "s" << std::endl;
+    }
 
     if(ctxt->verbose) {
 	GEOBRL::Logger::out("AMGCL solve") << "Start..." << std::endl;

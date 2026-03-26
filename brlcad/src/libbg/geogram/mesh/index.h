@@ -40,7 +40,7 @@
 #ifndef GEOBRLCAD_MESH_INDEX
 #define GEOBRLCAD_MESH_INDEX
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 #include <geogram/basic/numeric.h>
 #include <geogram/basic/argused.h>
 #include <geogram/basic/algorithm.h>

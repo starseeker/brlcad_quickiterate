@@ -37,12 +37,11 @@
  *
  */
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 #include <geogram/basic/process.h>
 #include <geogram/basic/logger.h>
 #include <geogram/basic/progress.h>
 #include <geogram/basic/geogram_options.h>
-#include <geogram/basic/stopwatch.h>
 #include <geogram/numerics/multi_precision.h>
 #include <geogram/numerics/predicates.h>
 #include <geogram/delaunay/delaunay.h>
@@ -89,7 +88,6 @@ namespace GEOBRL {
                 Logger::initialize();
                 Process::initialize(flags);
                 Progress::initialize();
-                Stopwatch::initialize(opts_);
                 PCK::initialize();
                 Delaunay::initialize();
 

@@ -42,6 +42,7 @@
 #include <geogram/basic/string.h>
 #include <geogram/basic/argused.h>
 #include <geogram/basic/process.h>
+#include <bu/log.h>
 
 
 #include <stdlib.h>
@@ -140,19 +141,19 @@ namespace GEOBRL {
     }
 
     void ConsoleLogger::div(const std::string& title) {
-        CmdLine::ui_separator(title);
+        bu_log("====== %s ======\n", title.c_str());
     }
 
     void ConsoleLogger::out(const std::string& str) {
-        CmdLine::ui_message(str);
+        bu_log("%s", str.c_str());
     }
 
     void ConsoleLogger::warn(const std::string& str) {
-        CmdLine::ui_message(str);
+        bu_log("%s", str.c_str());
     }
 
     void ConsoleLogger::err(const std::string& str) {
-        CmdLine::ui_message(str);
+        bu_log("%s", str.c_str());
     }
 
     void ConsoleLogger::status(const std::string& str) {
@@ -215,8 +216,7 @@ namespace GEOBRL {
         quiet_(true),
         pretty_(true),
         minimal_(false),
-        notifying_error_(false),
-	indent_(0)
+        notifying_error_(false)
     {
         // Add a default client printing stuff to std::cout
         register_client(new ConsoleLogger());
@@ -263,9 +263,6 @@ namespace GEOBRL {
             (is_initialized() && !Process::is_running_threads()) ?
             instance()->out_stream(feature) :
             (instance()->err_console() << "    [" << feature << "] ");
-	for(index_t i=0; i<instance_->indent_; ++i) {
-	    result << "| ";
-	}
         return result;
     }
 
@@ -517,7 +514,6 @@ namespace GEOBRL {
     namespace CmdLine {
 
         void terminate() {
-            ui_close_separator();
         }
 
         index_t ui_terminal_width() {
@@ -525,76 +521,6 @@ namespace GEOBRL {
             update_ui_term_width();
             ui_term_width = std::min(ui_term_width, ui_term_width_bkp);
             return ui_term_width;
-        }
-
-        void ui_separator() {
-            if(Logger::instance()->is_quiet() || is_redirected()) {
-                return;
-            }
-
-            update_ui_term_width();
-            ui_separator_opened = true;
-
-            ui_out() << " ";
-            ui_pad(' ', ui_left_margin);
-            ui_pad(
-                '_',
-                sub(ui_terminal_width(), 2 + ui_left_margin + ui_right_margin)
-            );
-            ui_out() << " " << std::endl;
-
-            ui_message("\n");
-        }
-
-        void ui_separator(
-            const std::string& title,
-            const std::string& short_title
-        ) {
-            if(Logger::instance()->is_quiet()) {
-                return;
-            }
-
-            if(is_redirected()) {
-                ui_out() << std::endl;
-                if(short_title != "" && title != "") {
-                    ui_out() << "=[" << short_title << "]====["
-                             << title << "]=" << std::endl;
-                } else {
-                    std::string s = title + short_title;
-                    ui_out() << "=[" << s << "]=" << std::endl;
-                }
-                return;
-            }
-
-            update_ui_term_width();
-            ui_separator_opened = true;
-
-            size_t L = title.length() + short_title.length();
-
-            ui_out() << "   ";
-            ui_pad(' ', ui_left_margin);
-            ui_pad('_', L + 14);
-            ui_out() << std::endl;
-
-            ui_pad(' ', ui_left_margin);
-            if(short_title != "" && title != "") {
-                ui_out() << " _/ ==[" << short_title << "]====["
-                         << title << "]== \\";
-            } else {
-                std::string s = title + short_title;
-                ui_out() << " _/ =====[" << s << "]===== \\";
-            }
-
-            ui_pad(
-                '_',
-                sub(
-                    ui_terminal_width(),
-                    19 + L + ui_left_margin + ui_right_margin
-                )
-            );
-            ui_out() << std::endl;
-
-            ui_message("\n");
         }
 
         void ui_message(const std::string& message) {
@@ -607,10 +533,6 @@ namespace GEOBRL {
         ) {
             if(Logger::instance()->is_quiet()) {
                 return;
-            }
-
-            if(!ui_separator_opened) {
-                ui_separator();
             }
 
             if(is_redirected()) {
@@ -666,27 +588,6 @@ namespace GEOBRL {
 
             ui_pad('\b', ui_terminal_width());
             ui_out() << std::flush;
-        }
-
-        void ui_close_separator() {
-            if(!ui_separator_opened) {
-                return;
-            }
-
-            if(Logger::instance()->is_quiet() || is_redirected()) {
-                return;
-            }
-
-            ui_pad(' ', ui_left_margin);
-            ui_out() << '\\';
-            ui_pad(
-                '_',
-                sub(ui_terminal_width(), 2 + ui_left_margin + ui_right_margin)
-            );
-            ui_out() << '/';
-            ui_out() << std::endl;
-
-            ui_separator_opened = false;
         }
 
         void ui_progress(

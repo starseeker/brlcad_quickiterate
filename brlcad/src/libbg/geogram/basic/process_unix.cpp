@@ -37,7 +37,7 @@
  *
  */
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 
 #ifdef GEOBRL_OS_UNIX
 
@@ -45,7 +45,113 @@
 #include <geogram/basic/process_private.h>
 #include <geogram/basic/logger.h>
 #include <geogram/basic/progress.h>
-#include <geogram/basic/line_stream.h>
+
+// LineInput: inlined from basic/line_stream.h / line_stream.cpp
+#include <geogram/basic/assert.h>
+#include <geogram/basic/numeric.h>
+#include <geogram/basic/string.h>
+#include <cstring>
+#include <stdio.h>
+#include <ctype.h>
+
+namespace GEOBRL {
+    class LineInput {
+    public:
+        LineInput(const std::string& filename) :
+            file_name_(filename), line_num_(0) {
+            F_ = fopen(filename.c_str(), "r");
+            ok_ = (F_ != nullptr);
+            line_[0] = '\0';
+        }
+        ~LineInput() {
+            if(F_ != nullptr) { fclose(F_); F_ = nullptr; }
+        }
+        bool OK() const { return ok_; }
+        bool eof() const { return feof(F_) ? true : false; }
+        bool get_line() {
+            if(F_ == nullptr) return false;
+            line_[0] = '\0';
+            while(!isprint(line_[0]) && line_[0] != '\t') {
+                ++line_num_;
+                if(fgets(line_, MAX_LINE_LEN, F_) == nullptr) return false;
+            }
+            bool check_multiline = true;
+            Numeric::int64 total_length = MAX_LINE_LEN;
+            char* ptr = line_;
+            while(check_multiline) {
+                size_t L = strlen(ptr);
+                total_length -= Numeric::int64(L);
+                ptr = ptr + L - 2;
+                if(*ptr == '\\' && total_length > 0) {
+                    *ptr = ' '; ptr++;
+                    if(fgets(ptr, int(total_length), F_) == nullptr) return false;
+                    ++line_num_;
+                } else {
+                    check_multiline = false;
+                }
+            }
+            if(total_length < 0) {
+                Logger::err("LineInput")
+                    << "MultiLine longer than " << MAX_LINE_LEN << " bytes" << std::endl;
+            }
+            return true;
+        }
+        index_t nb_fields() const { return index_t(field_.size()); }
+        size_t line_number() const { return line_num_; }
+        char* field(index_t i) { geo_assert(i < nb_fields()); return field_[i]; }
+        const char* field(index_t i) const { geo_assert(i < nb_fields()); return field_[i]; }
+        signed_index_t field_as_int(index_t i) const {
+            signed_index_t result = 0;
+            if(!String::from_string(field(i), result)) conversion_error(i, "integer");
+            return result;
+        }
+        index_t field_as_uint(index_t i) const {
+            index_t result = 0;
+            if(!String::from_string(field(i), result)) conversion_error(i, "unsigned integer");
+            return result;
+        }
+        double field_as_double(index_t i) const {
+            double result = 0;
+            if(!String::from_string(field(i), result)) conversion_error(i, "floating point");
+            return result;
+        }
+        bool field_matches(index_t i, const char* s) const {
+            return strcmp(field(i), s) == 0;
+        }
+        void get_fields(const char* separators = " \t\r\n") {
+            field_.resize(0);
+            char* context = nullptr;
+#ifdef GEOBRL_OS_WINDOWS
+            char* tok = strtok_s(line_, separators, &context);
+#else
+            char* tok = strtok_r(line_, separators, &context);
+#endif
+            while(tok != nullptr) {
+                field_.push_back(tok);
+#ifdef GEOBRL_OS_WINDOWS
+                tok = strtok_s(nullptr, separators, &context);
+#else
+                tok = strtok_r(nullptr, separators, &context);
+#endif
+            }
+        }
+        const char* current_line() const { return line_; }
+    private:
+        GEOBRL_NORETURN_DECL void conversion_error(index_t index, const char* type) const GEOBRL_NORETURN {
+            std::ostringstream out;
+            out << "Line " << line_num_ << ": field #" << index
+                << " is not a valid " << type << " value: " << field(index);
+            throw std::logic_error(out.str());
+        }
+        static constexpr index_t MAX_LINE_LEN = 65535;
+        FILE* F_;
+        std::string file_name_;
+        size_t line_num_;
+        char line_[MAX_LINE_LEN];
+        std::vector<char*> field_;
+        bool ok_;
+    };
+}
 
 #include <sstream>
 #include <unistd.h>

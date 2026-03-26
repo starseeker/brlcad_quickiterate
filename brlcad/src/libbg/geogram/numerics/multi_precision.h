@@ -40,7 +40,7 @@
 #ifndef GEOBRLCAD_NUMERICS_MULTI_PRECISION
 #define GEOBRLCAD_NUMERICS_MULTI_PRECISION
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 #include <geogram/basic/numeric.h>
 #include <geogram/basic/memory.h>
 #include <geogram/basic/assert.h>

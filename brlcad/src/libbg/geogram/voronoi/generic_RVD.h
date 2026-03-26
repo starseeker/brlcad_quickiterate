@@ -40,7 +40,7 @@
 #ifndef GEOBRLCAD_VORONOI_GENERIC_RVD
 #define GEOBRLCAD_VORONOI_GENERIC_RVD
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 #include <geogram/basic/numeric.h>
 #include <geogram/voronoi/generic_RVD_utils.h>
 #include <geogram/voronoi/RVD_callback.h>

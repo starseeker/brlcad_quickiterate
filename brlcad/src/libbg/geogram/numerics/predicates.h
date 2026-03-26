@@ -40,7 +40,7 @@
 #ifndef GEOBRLCAD_NUMERICS_PREDICATES
 #define GEOBRLCAD_NUMERICS_PREDICATES
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 #include <geogram/basic/numeric.h>
 #include <geogram/basic/geometry.h>
 #include <geogram/numerics/PCK.h>

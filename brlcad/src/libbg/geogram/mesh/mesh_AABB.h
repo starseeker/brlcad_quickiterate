@@ -46,7 +46,7 @@
  *  geometric queries that operate on a Mesh.
  */
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 #include <geogram/mesh/mesh.h>
 #include <geogram/basic/geometry.h>
 

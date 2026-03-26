@@ -39,12 +39,18 @@
 
 #include <geogram/basic/progress.h>
 #include <geogram/basic/assert.h>
-#include <geogram/basic/stopwatch.h>
+#include <chrono>
 #include <stack>
 
 namespace {
 
     using namespace GEOBRL;
+
+    static inline double geo_now() {
+        auto t = std::chrono::system_clock::now();
+        auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(t.time_since_epoch());
+        return 0.001 * double(ms.count());
+    }
 
     ProgressClient_var progress_client_;
     std::stack<const ProgressTask*> progress_tasks_;
@@ -155,7 +161,7 @@ namespace {
         /** \copydoc GEOBRL::ProgressClient::end(bool) */
         void end(bool canceled) override {
             const ProgressTask* task = Progress::current_progress_task();
-            double elapsed = Stopwatch::now() - task->start_time();
+            double elapsed = geo_now() - task->start_time();
             if(canceled) {
                 CmdLine::ui_progress_canceled(
                     task->task_name(), elapsed, task->percent()
@@ -226,7 +232,7 @@ namespace GEOBRL {
         const std::string& task_name, index_t max_steps, bool quiet
     ) :
         task_name_(task_name),
-        start_time_(Stopwatch::now()),
+        start_time_(geo_now()),
         quiet_(quiet),
         max_steps_(std::max(index_t(1), max_steps)),
         step_(0),
@@ -241,7 +247,7 @@ namespace GEOBRL {
         const std::string& task_name, index_t max_steps
     ) :
         task_name_(task_name),
-        start_time_(Stopwatch::now()),
+        start_time_(geo_now()),
         quiet_(Logger::instance()->is_quiet()),
         max_steps_(std::max(index_t(1), max_steps)),
         step_(0),
@@ -260,7 +266,7 @@ namespace GEOBRL {
     }
 
     void ProgressTask::reset() {
-        start_time_ = Stopwatch::now();
+        start_time_ = geo_now();
         reset_task(this);
         progress(0);
     }

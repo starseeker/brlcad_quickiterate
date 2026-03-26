@@ -40,7 +40,7 @@
 #ifndef GEOBRLCAD_BASIC_ARGUSED
 #define GEOBRLCAD_BASIC_ARGUSED
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 
 /**
  * \file geogram/basic/argused.h

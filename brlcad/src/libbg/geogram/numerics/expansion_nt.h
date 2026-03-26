@@ -40,7 +40,7 @@
 #ifndef GEOBRLCAD_NUMERICS_EXPANSION_NT
 #define GEOBRLCAD_NUMERICS_EXPANSION_NT
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 #include <geogram/numerics/multi_precision.h>
 #include <geogram/basic/matrix.h>
 #include <geogram/basic/rationalg.h>

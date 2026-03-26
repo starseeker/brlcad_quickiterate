@@ -40,7 +40,7 @@
 #ifndef GEOBRLCAD_DELAUNAY_DELAUNAY_NN
 #define GEOBRLCAD_DELAUNAY_DELAUNAY_NN
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 #include <geogram/delaunay/delaunay.h>
 #include <geogram/points/nn_search.h>
 #include <geogram/basic/process.h>

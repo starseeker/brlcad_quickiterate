@@ -42,7 +42,7 @@
 
 #ifdef __cplusplus
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 #include <geogram/basic/counted.h>
 #include <geogram/basic/process.h>
 #include <iostream>
@@ -589,23 +589,6 @@ namespace GEOBRL {
          */
         void notify_status(const std::string& message);
 
-	/**
-	 * \brief Increases number of spaces before each message in out().
-	 * \details Used by Stopwatch
-	 */
-	void indent() {
-	    ++indent_;
-	}
-
-	/**
-	 * \brief Decreases number of spaces before each message in out().
-	 * \details Used by Stopwatch
-	 */
-	void unindent() {
-	    geo_debug_assert(indent_ != 0);
-	    --indent_;
-	}
-
     private:
         static SmartPointer<Logger> instance_;
 
@@ -637,11 +620,8 @@ namespace GEOBRL {
         bool minimal_;
         bool notifying_error_;
 
-	index_t indent_;
-
         friend class LoggerStream;
         friend class LoggerStreamBuf;
-	friend class Stopwatch;
     };
 
     /************************************************************************/
@@ -656,15 +636,6 @@ namespace GEOBRL {
         void GEOBRLCAD_API terminate();
 
         index_t GEOBRLCAD_API ui_terminal_width();
-
-        void GEOBRLCAD_API ui_separator(
-            const std::string& title,
-            const std::string& short_title = ""
-        );
-
-        void GEOBRLCAD_API ui_separator();
-
-        void GEOBRLCAD_API ui_close_separator();
 
         void GEOBRLCAD_API ui_message(
             const std::string& message,
