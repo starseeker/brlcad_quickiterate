@@ -86,6 +86,9 @@ add_subdirectory(red)
 # Repository check
 add_subdirectory(repository)
 
+# remrt Network Distributed RT Regression Tests
+add_subdirectory(remrt)
+
 # rtedge Regression Tests
 add_subdirectory(rtedge)
 
