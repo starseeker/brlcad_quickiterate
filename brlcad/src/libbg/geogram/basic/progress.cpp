@@ -38,7 +38,6 @@
  */
 
 #include <geogram/basic/progress.h>
-#include <geogram/basic/command_line.h>
 #include <geogram/basic/assert.h>
 #include <geogram/basic/stopwatch.h>
 #include <stack>

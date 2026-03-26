@@ -39,7 +39,6 @@
 
 #include <geogram/basic/logger.h>
 #include <geogram/basic/assert.h>
-#include <geogram/basic/command_line.h>
 #include <geogram/basic/string.h>
 #include <geogram/basic/argused.h>
 #include <geogram/basic/process.h>
@@ -166,7 +165,6 @@ namespace GEOBRL {
 
     void Logger::initialize() {
         instance_ = new Logger();
-        Environment::instance()->add_environment(instance_);
     }
 
     void Logger::terminate() {
@@ -175,108 +173,6 @@ namespace GEOBRL {
 
     bool Logger::is_initialized() {
         return (instance_ != nullptr);
-    }
-
-    bool Logger::set_local_value(
-        const std::string& name, const std::string& value
-    ) {
-
-        if(name == "log:quiet") {
-            set_quiet(String::to_bool(value));
-            return true;
-        }
-
-        if(name == "log:minimal") {
-            set_minimal(String::to_bool(value));
-            return true;
-        }
-
-        if(name == "log:pretty") {
-            set_pretty(String::to_bool(value));
-            return true;
-        }
-
-        if(name == "log:features") {
-            std::vector<std::string> features;
-            String::split_string(value, ';', features);
-            log_features_.clear();
-            if(features.size() == 1 && features[0] == "*") {
-                log_everything_ = true;
-            } else {
-                log_everything_ = false;
-                for(size_t i = 0; i < features.size(); i++) {
-                    log_features_.insert(features[i]);
-                }
-            }
-            notify_observers(name);
-            return true;
-        }
-
-        if(name == "log:features_exclude") {
-            std::vector<std::string> features;
-            String::split_string(value, ';', features);
-            log_features_exclude_.clear();
-            for(size_t i = 0; i < features.size(); i++) {
-                log_features_exclude_.insert(features[i]);
-            }
-            notify_observers(name);
-            return true;
-        }
-
-        return false;
-    }
-
-    bool Logger::get_local_value(
-        const std::string& name, std::string& value
-    ) const {
-
-        if(name == "log:quiet") {
-            value = String::to_string(is_quiet());
-            return true;
-        }
-
-        if(name == "log:minimal") {
-            value = String::to_string(is_minimal());
-            return true;
-        }
-
-        if(name == "log:pretty") {
-            value = String::to_string(is_pretty());
-            return true;
-        }
-
-        if(name == "log:file_name") {
-            value = log_file_name_;
-            return true;
-        }
-
-        if(name == "log:features") {
-            if(log_everything_) {
-                value = "*";
-            } else {
-                value = "";
-                for(auto& it : log_features_) {
-                    if(value.length() != 0) {
-                        value += ';';
-                    }
-                    value += it;
-                }
-            }
-            return true;
-        }
-
-        if(name == "log:features_exclude") {
-            value = "";
-            for(auto& it : log_features_exclude_) {
-                if(value.length() != 0) {
-                    value += ';';
-                }
-                value += it;
-            }
-            return true;
-        }
-
-        return false;
     }
 
     void Logger::register_client(LoggerClient* c) {
@@ -527,4 +423,381 @@ namespace GEOBRL {
 }
 
 extern "C" {
+}
+
+// =================== Console UI implementation (formerly command_line.cpp) ===
+
+#if defined(GEOBRL_OS_LINUX) || defined(GEOBRL_OS_APPLE)
+#include <sys/ioctl.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <termios.h>
+#endif
+
+#ifdef GEOBRL_OS_WINDOWS
+#include <io.h>
+#endif
+
+namespace {
+
+    using namespace GEOBRL;
+
+    /** Maximum length of a feature name used in ui_feature() formatting */
+    const unsigned int feature_max_length = 12;
+
+    bool ui_separator_opened = false;
+
+    index_t ui_term_width = 79;
+
+    index_t ui_left_margin = 0;
+
+    index_t ui_right_margin = 0;
+
+    const char working[] = {'|', '/', '-', '\\'};
+
+    index_t working_index = 0;
+
+    const char waves[] = {',', '.', 'o', 'O', '\'', 'O', 'o', '.', ','};
+
+    inline std::ostream& ui_out() {
+        return std::cout;
+    }
+
+    inline void ui_pad(char c, size_t nb) {
+        for(index_t i = 0; i < nb; i++) {
+            std::cout << c;
+        }
+    }
+
+    bool is_redirected() {
+        static bool initialized = false;
+        static bool result;
+        if(!initialized) {
+#ifdef GEOBRL_OS_WINDOWS
+            result = !_isatty(1);
+#else
+            result = !isatty(1);
+#endif
+            initialized = true;
+        }
+        return result || !Logger::instance()->is_pretty();
+    }
+
+    void update_ui_term_width() {
+#ifndef GEOBRL_OS_WINDOWS
+        if(is_redirected()) {
+            return;
+        }
+        struct winsize w;
+        ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
+        ui_term_width = w.ws_col;
+        if(ui_term_width < 20) {
+            ui_term_width = 79;
+        }
+        if(ui_term_width <= 82) {
+            ui_left_margin = 0;
+            ui_right_margin = 0;
+        } else if(ui_term_width < 90) {
+            ui_left_margin = 2;
+            ui_right_margin = 2;
+        } else {
+            ui_left_margin = 4;
+            ui_right_margin = 4;
+        }
+#endif
+    }
+
+    inline size_t sub(size_t a, size_t b) {
+        return a > b ? a - b : 0;
+    }
+}
+
+namespace GEOBRL {
+
+    namespace CmdLine {
+
+        void terminate() {
+            ui_close_separator();
+        }
+
+        index_t ui_terminal_width() {
+            index_t ui_term_width_bkp = ui_term_width;
+            update_ui_term_width();
+            ui_term_width = std::min(ui_term_width, ui_term_width_bkp);
+            return ui_term_width;
+        }
+
+        void ui_separator() {
+            if(Logger::instance()->is_quiet() || is_redirected()) {
+                return;
+            }
+
+            update_ui_term_width();
+            ui_separator_opened = true;
+
+            ui_out() << " ";
+            ui_pad(' ', ui_left_margin);
+            ui_pad(
+                '_',
+                sub(ui_terminal_width(), 2 + ui_left_margin + ui_right_margin)
+            );
+            ui_out() << " " << std::endl;
+
+            ui_message("\n");
+        }
+
+        void ui_separator(
+            const std::string& title,
+            const std::string& short_title
+        ) {
+            if(Logger::instance()->is_quiet()) {
+                return;
+            }
+
+            if(is_redirected()) {
+                ui_out() << std::endl;
+                if(short_title != "" && title != "") {
+                    ui_out() << "=[" << short_title << "]====["
+                             << title << "]=" << std::endl;
+                } else {
+                    std::string s = title + short_title;
+                    ui_out() << "=[" << s << "]=" << std::endl;
+                }
+                return;
+            }
+
+            update_ui_term_width();
+            ui_separator_opened = true;
+
+            size_t L = title.length() + short_title.length();
+
+            ui_out() << "   ";
+            ui_pad(' ', ui_left_margin);
+            ui_pad('_', L + 14);
+            ui_out() << std::endl;
+
+            ui_pad(' ', ui_left_margin);
+            if(short_title != "" && title != "") {
+                ui_out() << " _/ ==[" << short_title << "]====["
+                         << title << "]== \\";
+            } else {
+                std::string s = title + short_title;
+                ui_out() << " _/ =====[" << s << "]===== \\";
+            }
+
+            ui_pad(
+                '_',
+                sub(
+                    ui_terminal_width(),
+                    19 + L + ui_left_margin + ui_right_margin
+                )
+            );
+            ui_out() << std::endl;
+
+            ui_message("\n");
+        }
+
+        void ui_message(const std::string& message) {
+            ui_message(message, feature_max_length + 5);
+        }
+
+        void ui_message(
+            const std::string& message,
+            index_t wrap_margin
+        ) {
+            if(Logger::instance()->is_quiet()) {
+                return;
+            }
+
+            if(!ui_separator_opened) {
+                ui_separator();
+            }
+
+            if(is_redirected()) {
+                ui_out() << message;
+                return;
+            }
+
+            std::string cur = message;
+            size_t maxL =
+                sub(ui_terminal_width(), 4 + ui_left_margin + ui_right_margin);
+            index_t wrap = 0;
+
+            for(;;) {
+                std::size_t newline = cur.find('\n');
+                if(newline != std::string::npos && newline < maxL) {
+                    ui_pad(' ', ui_left_margin);
+                    ui_out() << "| ";
+                    ui_pad(' ', wrap);
+                    ui_out() << cur.substr(0, newline);
+                    ui_pad(' ', sub(maxL,newline));
+                    ui_out() << " |" << std::endl;
+                    cur = cur.substr(newline + 1);
+                } else if(cur.length() > maxL) {
+                    ui_pad(' ', ui_left_margin);
+                    ui_out() << "| ";
+                    ui_pad(' ', wrap);
+                    ui_out() << cur.substr(0, maxL);
+                    ui_out() << " |" << std::endl;
+                    cur = cur.substr(maxL);
+                } else if(cur.length() != 0) {
+                    ui_pad(' ', ui_left_margin);
+                    ui_out() << "| ";
+                    ui_pad(' ', wrap);
+                    ui_out() << cur;
+                    ui_pad(' ', sub(maxL,cur.length()));
+                    ui_out() << " |";
+                    break;
+                } else {
+                    break;
+                }
+
+                if(wrap == 0) {
+                    wrap = wrap_margin;
+                    maxL = sub(maxL,wrap_margin);
+                }
+            }
+        }
+
+        void ui_clear_line() {
+            if(Logger::instance()->is_quiet() || is_redirected()) {
+                return;
+            }
+
+            ui_pad('\b', ui_terminal_width());
+            ui_out() << std::flush;
+        }
+
+        void ui_close_separator() {
+            if(!ui_separator_opened) {
+                return;
+            }
+
+            if(Logger::instance()->is_quiet() || is_redirected()) {
+                return;
+            }
+
+            ui_pad(' ', ui_left_margin);
+            ui_out() << '\\';
+            ui_pad(
+                '_',
+                sub(ui_terminal_width(), 2 + ui_left_margin + ui_right_margin)
+            );
+            ui_out() << '/';
+            ui_out() << std::endl;
+
+            ui_separator_opened = false;
+        }
+
+        void ui_progress(
+            const std::string& task_name, index_t val, index_t percent,
+            bool clear
+        ) {
+            if(Logger::instance()->is_quiet() || is_redirected()) {
+                return;
+            }
+
+            working_index++;
+
+            std::ostringstream os;
+
+            if(percent != val) {
+                os << ui_feature(task_name)
+                   << "("
+                   << working[(working_index % sizeof(working))]
+                   << ")-["
+                   << std::setw(3) << percent
+                   << "%]-["
+                   << std::setw(3) << val
+                   << "]--[";
+            } else {
+                os << ui_feature(task_name)
+                   << "("
+                   << working[(working_index % sizeof(working))]
+                   << ")-["
+                   << std::setw(3) << percent
+                   << "%]--------[";
+            }
+
+            size_t max_L =
+                sub(ui_terminal_width(), 43 + ui_left_margin + ui_right_margin);
+
+            max_L -= size_t(std::log10(std::max(double(val),1.0)));
+            max_L += 2;
+
+            if(val > max_L) {
+                for(index_t i = 0; i < max_L; i++) {
+                    os << waves[((val - i + working_index) % sizeof(waves))];
+                }
+            } else {
+                for(index_t i = 0; i < val; i++) {
+                    os << "o";
+                }
+            }
+            os << " ]";
+
+            if(clear) {
+                ui_clear_line();
+            }
+            ui_message(os.str());
+        }
+
+        void ui_progress_time(
+            const std::string& task_name, double elapsed, bool clear
+        ) {
+            if(Logger::instance()->is_quiet()) {
+                return;
+            }
+
+            std::ostringstream os;
+            os << ui_feature(task_name)
+               << "Elapsed time: " << elapsed
+               << "s\n";
+
+            if(clear) {
+                ui_clear_line();
+            }
+            ui_message(os.str());
+        }
+
+        void ui_progress_canceled(
+            const std::string& task_name,
+            double elapsed, index_t percent, bool clear
+        ) {
+            if(Logger::instance()->is_quiet()) {
+                return;
+            }
+
+            std::ostringstream os;
+            os << ui_feature(task_name)
+               << "Task canceled after " << elapsed
+               << "s (" << percent << "%)\n";
+
+            if(clear) {
+                ui_clear_line();
+            }
+            ui_message(os.str());
+        }
+
+        std::string ui_feature(
+            const std::string& feat_in, bool show
+        ) {
+            if(feat_in.empty()) {
+                return feat_in;
+            }
+
+            if(!show) {
+                return std::string(feature_max_length + 5, ' ');
+            }
+
+            std::string result = feat_in;
+            if(!is_redirected()) {
+                result = result.substr(0, feature_max_length);
+            }
+            if(result.length() < feature_max_length) {
+                result.append(feature_max_length - result.length(), ' ');
+            }
+            return "o-[" + result + "] ";
+        }
+    }
 }

@@ -12,7 +12,6 @@ extern "C" {
 
 #include <geogram/basic/logger.h>
 #include <geogram/basic/stopwatch.h>
-#include <geogram/basic/command_line.h>
 #include <geogram/NL/nl.h>
 #include <geogram/NL/nl_matrix.h>
 

@@ -41,7 +41,6 @@
 #include <geogram/basic/process.h>
 #include <geogram/basic/logger.h>
 #include <geogram/basic/progress.h>
-#include <geogram/basic/command_line.h>
 #include <geogram/basic/geogram_options.h>
 #include <geogram/basic/stopwatch.h>
 #include <geogram/numerics/multi_precision.h>
@@ -90,7 +89,6 @@ namespace GEOBRL {
                 Logger::initialize();
                 Process::initialize(flags);
                 Progress::initialize();
-                CmdLine::initialize();
                 Stopwatch::initialize(opts_);
                 PCK::initialize();
                 Delaunay::initialize();
@@ -115,7 +113,6 @@ namespace GEOBRL {
                 Process::terminate();
                 CmdLine::terminate();
                 Logger::terminate();
-                Environment::terminate();
 
             }
 

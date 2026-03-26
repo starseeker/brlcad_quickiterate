@@ -40,9 +40,7 @@
 #include <geogram/basic/process.h>
 #include <geogram/basic/process_private.h>
 #include <geogram/basic/logger.h>
-#include <geogram/basic/environment.h>
 #include <geogram/basic/string.h>
-#include <geogram/basic/command_line.h>
 #include <geogram/basic/stopwatch.h>
 #include <thread>
 #include <chrono>
@@ -67,116 +65,6 @@ namespace {
     bool cancel_enabled_ = false;
 
     double start_time_ = 0.0;
-
-    /************************************************************************/
-
-    /**
-     * \brief Process Environment
-     * \details This environment exposes and controls the configuration of the
-     * Process module.
-     */
-    class ProcessEnvironment : public Environment {
-    protected:
-        /**
-         * \brief Gets a Process property
-         * \details Retrieves the value of the property \p name and stores it
-         * in \p value. The property must be a valid Process property (see
-         * sys:xxx properties in Vorpaline's help).
-         * \param[in] name name of the property
-         * \param[out] value receives the value of the property
-         * \retval true if the property is a valid Process property
-         * \retval false otherwise
-         * \see Environment::get_value()
-         */
-        bool get_local_value(
-            const std::string& name, std::string& value
-        ) const override {
-            if(name == "sys:nb_cores") {
-                value = String::to_string(Process::number_of_cores());
-                return true;
-            }
-            if(name == "sys:multithread") {
-                value = String::to_string(multithreading_enabled_);
-                return true;
-            }
-            if(name == "sys:max_threads") {
-                value = String::to_string(
-                    Process::maximum_concurrent_threads()
-                );
-                return true;
-            }
-            if(name == "sys:FPE") {
-                value = String::to_string(fpe_enabled_);
-                return true;
-            }
-            if(name == "sys:cancel") {
-                value = String::to_string(cancel_enabled_);
-                return true;
-            }
-            if(name == "sys:assert") {
-                value = assert_mode() == ASSERT_THROW ? "throw" : "abort";
-                return true;
-            }
-            return false;
-        }
-
-        /**
-         * \brief Sets a Process property
-         * \details Sets the property \p name with value \p value in the
-         * Process. The property must be a valid Process property (see sys:xxx
-         * properties in Vorpaline's help) and \p value must be a legal value
-         * for the property.
-         * \param[in] name name of the property
-         * \param[in] value value of the property
-         * \retval true if the property was successfully set
-         * \retval false otherwise
-         * \see Environment::set_value()
-         */
-        bool set_local_value(
-            const std::string& name, const std::string& value
-        ) override {
-            if(name == "sys:multithread") {
-                Process::enable_multithreading(String::to_bool(value));
-                return true;
-            }
-            if(name == "sys:max_threads") {
-                Process::set_max_threads(String::to_uint(value));
-                return true;
-            }
-            if(name == "sys:FPE") {
-                Process::enable_FPE(String::to_bool(value));
-                return true;
-            }
-            if(name == "sys:cancel") {
-                Process::enable_cancel(String::to_bool(value));
-                return true;
-            }
-            if(name == "sys:assert") {
-                if(value == "throw") {
-                    set_assert_mode(ASSERT_THROW);
-                    return true;
-                }
-                if(value == "abort") {
-                    set_assert_mode(ASSERT_ABORT);
-                    return true;
-                }
-                if(value == "breakpoint") {
-                    set_assert_mode(ASSERT_BREAKPOINT);
-                    return true;
-                }
-                Logger::err("Process")
-                    << "Invalid value for property sys:abort: "
-                    << value
-                    << std::endl;
-                return false;
-            }
-            return false;
-        }
-
-        /** ProcessEnvironment destructor */
-        ~ProcessEnvironment() override {
-        }
-    };
 
     /************************************************************************/
 
@@ -287,9 +175,6 @@ namespace GEOBRL {
     namespace Process {
 
         void initialize(int flags) {
-
-            Environment* env = Environment::instance();
-            env->add_environment(new ProcessEnvironment);
 
             if(!os_init_threads()) {
                 Logger::out("Process")

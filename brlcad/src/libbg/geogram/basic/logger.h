@@ -43,7 +43,7 @@
 #ifdef __cplusplus
 
 #include <geogram/basic/common.h>
-#include <geogram/basic/environment.h>
+#include <geogram/basic/counted.h>
 #include <geogram/basic/process.h>
 #include <iostream>
 #include <fstream>
@@ -288,7 +288,7 @@ namespace GEOBRL {
      * to \c true, which disables all messages, warnings and errors included
      * (set set_quiet()).
      */
-    class GEOBRLCAD_API Logger : public Environment {
+    class GEOBRLCAD_API Logger : public Counted {
     public:
         /**
          * \brief Initializes the logging system
@@ -589,38 +589,6 @@ namespace GEOBRL {
          */
         void notify_status(const std::string& message);
 
-        /**
-         * \brief Sets a Logger property
-         * \details Sets the property \p name with value \p value in the
-         * Logger. The property must be a valid Logger property (see log:xxx
-         * properties in Vorpaline's help) and \p value must be a legal value
-         * for the property.
-         * \param[in] name name of the property
-         * \param[in] value value of the property
-         * \retval true if the property was successfully set
-         * \retval false otherwise
-         * \see Environment::set_value()
-         */
-        bool set_local_value(
-            const std::string& name, const std::string& value
-        ) override;
-
-        /**
-         * \brief Gets a Logger property
-         * \details Retrieves the value of the property \p name and stores it
-         * in \p value. The property must be a valid Logger property (see
-         * log:xxx properties in Vorpaline's help).
-         * \param[in] name name of the property
-         * \param[out] value receives the value of the property
-         * \retval true if the property is a valid Logger property
-         * \retval false otherwise
-         * \see Environment::get_value()
-         */
-        bool get_local_value(
-            const std::string& name, std::string& value
-        ) const override;
-
-
 	/**
 	 * \brief Increases number of spaces before each message in out().
 	 * \details Used by Stopwatch
@@ -677,6 +645,57 @@ namespace GEOBRL {
     };
 
     /************************************************************************/
+
+    /**
+     * \brief Console UI utilities used internally by the Logger and Progress
+     *  subsystems.  Previously in command_line.h; consolidated here to
+     *  eliminate that file.
+     */
+    namespace CmdLine {
+
+        void GEOBRLCAD_API terminate();
+
+        index_t GEOBRLCAD_API ui_terminal_width();
+
+        void GEOBRLCAD_API ui_separator(
+            const std::string& title,
+            const std::string& short_title = ""
+        );
+
+        void GEOBRLCAD_API ui_separator();
+
+        void GEOBRLCAD_API ui_close_separator();
+
+        void GEOBRLCAD_API ui_message(
+            const std::string& message,
+            index_t wrap_margin
+        );
+
+        void GEOBRLCAD_API ui_message(
+            const std::string& message
+        );
+
+        void GEOBRLCAD_API ui_clear_line();
+
+        void GEOBRLCAD_API ui_progress(
+            const std::string& task_name, index_t val,
+            index_t percent, bool clear = true
+        );
+
+        void GEOBRLCAD_API ui_progress_time(
+            const std::string& task_name,
+            double elapsed, bool clear = true
+        );
+
+        void GEOBRLCAD_API ui_progress_canceled(
+            const std::string& task_name,
+            double elapsed, index_t percent, bool clear = true
+        );
+
+        std::string GEOBRLCAD_API ui_feature(
+            const std::string& feature, bool show = true
+        );
+    }
 
 }
 

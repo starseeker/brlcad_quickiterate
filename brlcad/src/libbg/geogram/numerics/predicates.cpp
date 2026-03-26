@@ -50,7 +50,6 @@
 #include <geogram/numerics/multi_precision.h>
 #include <geogram/basic/assert.h>
 #include <geogram/basic/logger.h>
-#include <geogram/basic/command_line.h>
 #include <geogram/basic/matrix.h>
 #include <algorithm>
 
