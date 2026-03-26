@@ -40,7 +40,7 @@
 #ifndef GEOBRLCAD_MESH_MESH_PREPROCESSING
 #define GEOBRLCAD_MESH_MESH_PREPROCESSING
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 #include <geogram/mesh/mesh_repair.h>
 #include <geogram/mesh/mesh_fill_holes.h>
 

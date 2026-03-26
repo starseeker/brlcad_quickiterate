@@ -43,7 +43,6 @@
 #include <geogram/mesh/index.h>
 #include <geogram/mesh/mesh_halfedges.h>
 #include <geogram/basic/geometry_nd.h>
-#include <geogram/basic/stopwatch.h>
 
 #include <stack>
 

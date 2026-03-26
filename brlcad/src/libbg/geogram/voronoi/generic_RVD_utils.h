@@ -40,7 +40,7 @@
 #ifndef GEOBRLCAD_VORONOI_GENERIC_RVD_UTILS
 #define GEOBRLCAD_VORONOI_GENERIC_RVD_UTILS
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 #include <geogram/voronoi/generic_RVD_vertex.h>
 #include <geogram/voronoi/generic_RVD_polygon.h>
 #include <geogram/voronoi/generic_RVD_cell.h>

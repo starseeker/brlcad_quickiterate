@@ -40,7 +40,7 @@
 #ifndef GEOBRLCAD_BASIC_PROCESS
 #define GEOBRLCAD_BASIC_PROCESS
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 #include <geogram/basic/thread_sync.h>
 #include <geogram/basic/counted.h>
 #include <geogram/basic/smart_pointer.h>

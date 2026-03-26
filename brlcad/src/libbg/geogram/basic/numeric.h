@@ -40,7 +40,7 @@
 #ifndef GEOBRLCAD_BASIC_NUMERIC
 #define GEOBRLCAD_BASIC_NUMERIC
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 #include <cmath>
 #include <float.h>
 #include <limits.h>

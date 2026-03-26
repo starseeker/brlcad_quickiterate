@@ -40,7 +40,7 @@
 #ifndef GEOBRLCAD_BASIC_SMART_POINTER
 #define GEOBRLCAD_BASIC_SMART_POINTER
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 #include <geogram/basic/assert.h>
 #include <geogram/basic/memory.h>
 

@@ -37,8 +37,8 @@
  *
  */
 
-#ifndef GEOBRLCAD_BASIC_COMMON
-#define GEOBRLCAD_BASIC_COMMON
+#ifndef GEOBRLCAD_BASIC_GEOGRAM_COMMON
+#define GEOBRLCAD_BASIC_GEOGRAM_COMMON
 
 
 /**
@@ -168,7 +168,7 @@ enum {
 #include <iostream>
 
 /**
- * \file geogram/basic/common.h
+ * \file geogram/basic/geogram_common.h
  * \brief Common include file, providing basic definitions. Should be
  *  included before anything else by all header files in Vorpaline.
  */

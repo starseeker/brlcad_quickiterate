@@ -40,7 +40,7 @@
 #ifndef GEOBRLCAD_BASIC_RATIONALG
 #define GEOBRLCAD_BASIC_RATIONALG
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 
 /**
  * \file geogram/basic/rationalg.h

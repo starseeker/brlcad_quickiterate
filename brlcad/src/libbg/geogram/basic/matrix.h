@@ -40,7 +40,7 @@
 #ifndef GEOBRLCAD_BASIC_MATRIX
 #define GEOBRLCAD_BASIC_MATRIX
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 #include <geogram/basic/vecg.h>
 #include <initializer_list>
 

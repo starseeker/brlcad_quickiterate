@@ -40,7 +40,7 @@
 #ifndef GEOBRLCAD_VORONOI_RVD
 #define GEOBRLCAD_VORONOI_RVD
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 #include <geogram/mesh/index.h>
 #include <geogram/mesh/mesh.h>
 #include <geogram/basic/geometry.h>

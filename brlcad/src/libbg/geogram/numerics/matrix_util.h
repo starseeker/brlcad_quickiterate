@@ -40,7 +40,7 @@
 #ifndef GEOBRLCAD_NUMERICS_MATRIX_UTIL
 #define GEOBRLCAD_NUMERICS_MATRIX_UTIL
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 #include <geogram/basic/numeric.h>
 
 /**

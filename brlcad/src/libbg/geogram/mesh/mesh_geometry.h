@@ -40,7 +40,7 @@
 #ifndef GEOBRLCAD_MESH_MESH_GEOBRLMETRY
 #define GEOBRLCAD_MESH_MESH_GEOBRLMETRY
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 #include <geogram/mesh/mesh.h>
 #include <geogram/basic/geometry.h>
 #include <geogram/basic/geometry_nd.h>

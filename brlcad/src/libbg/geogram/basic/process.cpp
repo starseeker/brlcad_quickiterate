@@ -41,13 +41,17 @@
 #include <geogram/basic/process_private.h>
 #include <geogram/basic/logger.h>
 #include <geogram/basic/string.h>
-#include <geogram/basic/stopwatch.h>
 #include <thread>
 #include <chrono>
 
-
 namespace {
     using namespace GEOBRL;
+    static inline double geo_now() {
+        auto t = std::chrono::system_clock::now();
+        auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(t.time_since_epoch());
+        return 0.001 * double(ms.count());
+    }
+
 
     ThreadManager_var thread_manager_;
     int running_threads_invocations_ = 0;
@@ -198,12 +202,13 @@ namespace GEOBRL {
             }
             enable_cancel(cancel_enabled_);
 
-            start_time_ = Stopwatch::now();
+            start_time_ = geo_now();
         }
 
         void show_stats() {
 
-            Stopwatch::show_stats();
+            Logger::out("Process") << "Total elapsed time: "
+                                   << (geo_now() - start_time_) << "s" << std::endl;
 
             const size_t K=size_t(1024);
             const size_t M=K*K;

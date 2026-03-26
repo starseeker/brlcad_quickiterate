@@ -40,7 +40,7 @@
 #ifndef GEOBRLCAD_MESH_MESH_HALFEDGES
 #define GEOBRLCAD_MESH_MESH_HALFEDGES
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 #include <geogram/mesh/mesh.h>
 #include <geogram/mesh/mesh_geometry.h>
 #include <iostream>

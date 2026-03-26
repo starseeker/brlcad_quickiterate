@@ -40,7 +40,7 @@
 #ifndef GEOBRLCAD_BASIC_ALGORITHM
 #define GEOBRLCAD_BASIC_ALGORITHM
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 #include <geogram/basic/geogram_options.h>
 
 #if   defined(GEOBRL_OS_WINDOWS)

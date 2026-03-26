@@ -41,7 +41,7 @@
 #ifndef GEOBRLCAD_BASIC_PROCESS_PRIVATE
 #define GEOBRLCAD_BASIC_PROCESS_PRIVATE
 
-#include <geogram/basic/common.h>
+#include <geogram/basic/geogram_common.h>
 
 /**
  * \file geogram/basic/process_private.h
