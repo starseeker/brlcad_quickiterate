@@ -1321,14 +1321,24 @@ stdin_input(ClientData clientData, int UNUSED(mask))
 	    quit(s); /* does not return */
 	}
 
-	/* If a GED command is already executing in a worker thread, consume and
-	 * discard the line so the channel does not remain readable.  Print a
-	 * brief notice and re-show the prompt; the user can retype after the
-	 * current command finishes. */
+	/* If a GED command is already executing in a worker thread, consume the
+	 * line but buffer it into input_str so the user does not need to retype
+	 * their (potentially complex) command.  Print a brief notice, re-show
+	 * the prompt, then re-echo whatever is now in input_str so the cursor
+	 * is left at the correct position after the partially-typed input. */
 	if (s->cmd_running) {
+	    /* Append this line (without the trailing newline Tcl_Gets strips) to
+	     * whatever the user may already have accumulated in input_str. */
+	    if (Tcl_DStringLength(&ds) > 0)
+		bu_vls_strcat(&s->input_str, Tcl_DStringValue(&ds));
 	    Tcl_DStringFree(&ds);
-	    bu_log("mged: command already running, please wait\n");
+	    s->input_str_index = bu_vls_strlen(&s->input_str);
+
+	    bu_log("\nmged: command already running, please wait\n");
 	    pr_prompt(s);
+	    /* Re-echo so the user can see what they had typed */
+	    if (bu_vls_strlen(&s->input_str))
+		bu_log("%s", bu_vls_addr(&s->input_str));
 	    return;
 	}
 
