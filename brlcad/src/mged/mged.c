@@ -1802,8 +1802,12 @@ main(int argc, char *argv[])
     int run_in_foreground=1;
 
 #ifdef HAVE_PIPE
-    fd_set read_set;
     int result;
+#  ifndef HAVE_WINDOWS_H
+    /* fd_set is used by select() in the fork-based backgrounding path,
+     * which is POSIX-only (fork() and select()-on-pipes unavailable on Windows). */
+    fd_set read_set;
+#  endif
 #endif
 
     BU_GET(MGED_STATE, struct mged_state);
@@ -1946,7 +1950,9 @@ main(int argc, char *argv[])
     (void)signal(SIGINT, cur_sigint);		/* restore */
 #endif /* SIGPIPE && SIGINT */
 
-#ifdef HAVE_PIPE
+#if defined(HAVE_PIPE) && !defined(HAVE_WINDOWS_H)
+    /* fork()-based background detach: POSIX only. fork() and select() on
+     * pipe file descriptors are not available on Windows. */
     if (!s->classic_mged && !run_in_foreground) {
 	pid_t pid;
 
@@ -1993,7 +1999,7 @@ main(int argc, char *argv[])
 	    bu_exit(0, NULL);
 	}
     }
-#endif /* HAVE_PIPE */
+#endif /* HAVE_PIPE && !HAVE_WINDOWS_H */
 
     memset((void *)&head_cmd_list, 0, sizeof(struct cmd_list));
     BU_LIST_INIT(&head_cmd_list.l);
