@@ -276,6 +276,26 @@ mged_pr_output(Tcl_Interp *interp)
     bu_vls_free(&tmp);
 }
 
+
+/**
+ * C-callable wrapper for run_ged_async() for use from C translation units
+ * such as chgview.c.
+ *
+ * Runs ged_exec(s->gedp, argc, argv) on a worker thread while the main
+ * thread pumps the Tcl event loop, allowing intermediate bu_log output from
+ * the command to be drained to the GUI in real-time via the log-drain timer.
+ *
+ * Falls back to a direct, synchronous ged_exec() in classic / non-interactive
+ * mode, matching the behaviour of run_ged_async().
+ */
+int
+mged_ged_exec_async(struct mged_state *s, int argc, const char *argv[])
+{
+    return run_ged_async(s, [&]() -> int {
+	return ged_exec(s->gedp, argc, argv);
+    });
+}
+
 } /* extern "C" */
 
 #define GED_OUTPUT do { \
