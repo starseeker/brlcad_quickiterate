@@ -54,6 +54,7 @@
 #include "bsocket.h"
 #include "bu/app.h"
 #include "bu/interrupt.h"
+#include "bu/vls.h"
 
 /* decls for strict c90 */
 
@@ -800,7 +801,6 @@ static void
 read_rc_file(void)
 {
     FILE *fp;
-    char path[MAXPATHLEN];
     char home_dir[MAXPATHLEN] = {0};
 
     if ((fp = fopen(".remrtrc", "r")) != NULL) {
@@ -813,12 +813,15 @@ read_rc_file(void)
      * POSIX, USERPROFILE/SHGetKnownFolderPath on Windows, etc.). */
     bu_dir(home_dir, sizeof(home_dir), BU_DIR_HOME, NULL);
     if (!BU_STR_EMPTY(home_dir)) {
-	snprintf(path, sizeof(path), "%s/.remrtrc", home_dir);
-	if ((fp = fopen(path, "r")) != NULL) {
+	struct bu_vls path = BU_VLS_INIT_ZERO;
+	bu_vls_sprintf(&path, "%s/.remrtrc", home_dir);
+	if ((fp = fopen(bu_vls_cstr(&path), "r")) != NULL) {
 	    source(fp);
 	    fclose(fp);
+	    bu_vls_free(&path);
 	    return;
 	}
+	bu_vls_free(&path);
     }
 }
 
