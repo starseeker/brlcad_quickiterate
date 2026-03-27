@@ -477,7 +477,7 @@ function(
     # sources out of a unity batch, so the shared target can still be enabled
     # for any sources appended later via target_sources().
     # Targets with fewer than 8 source files are skipped.
-    if(BRLCAD_ENABLE_UNITY_BUILD AND (USE_OBJECT_LIBS OR NOT L_NO_OBJ_UNITY))
+    if(BRLCAD_ENABLE_UNITY_BUILD AND NOT USE_OBJECT_LIBS AND NOT L_NO_OBJ_UNITY)
       set(_all_srcs ${srcslist} ${L_SHARED_SRCS} ${L_STATIC_SRCS})
       list(LENGTH _all_srcs _srcs_count)
       if(_srcs_count GREATER_EQUAL 8)
@@ -486,7 +486,7 @@ function(
           set_source_files_properties(${L_UNITY_BUILD_SKIP} PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
         endif(L_UNITY_BUILD_SKIP)
       endif(_srcs_count GREATER_EQUAL 8)
-    endif(BRLCAD_ENABLE_UNITY_BUILD AND (USE_OBJECT_LIBS OR NOT L_NO_OBJ_UNITY))
+    endif()
   endif(L_SHARED OR (BUILD_SHARED_LIBS AND NOT L_STATIC))
 
   if(L_STATIC OR (BUILD_STATIC_LIBS AND NOT L_SHARED))
