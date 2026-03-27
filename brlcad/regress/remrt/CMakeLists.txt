@@ -28,8 +28,8 @@ if(TARGET remrt AND TARGET rtsrv AND TARGET pixcmp)
     set_target_properties(regress_remrt PROPERTIES FOLDER "BRL-CAD Regression Tests/remrt")
 
     # Paths substituted at cmake configure time.
-    set(M35G_PATH "${DATA_DIR}/db/m35.g")
-    set(REFPIX_PATH "${CMAKE_SOURCE_DIR}/bench/ref/m35.pix")
+    set(M35G_PATH "${PROJECT_BINARY_DIR}/${DATA_DIR}/db/m35.g")
+    set(REFPIX_PATH "${PROJECT_SOURCE_DIR}/bench/ref/m35.pix")
 
     brlcad_add_test(
       NAME regress-remrt
