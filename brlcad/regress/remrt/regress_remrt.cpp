@@ -155,11 +155,23 @@ rtrim(char *buf)
 static void
 read_remrt_stderr(struct bu_process *proc, RemrtDetected *det, std::string *log_out)
 {
-    char buf[4096];
-    FILE *ferr = bu_process_file_open(proc, BU_PROCESS_STDERR);
-    if (!ferr)
+    /* Use raw fd + dup so that fclose() does not close the original fd
+     * and cause a double-close in bu_process_wait_n().                 */
+    int raw_fd = bu_process_fileno(proc, BU_PROCESS_STDERR);
+    if (raw_fd < 0)
 	return;
 
+    int dup_fd = dup(raw_fd);
+    if (dup_fd < 0)
+	return;
+
+    FILE *ferr = fdopen(dup_fd, "rb");
+    if (!ferr) {
+	close(dup_fd);
+	return;
+    }
+
+    char buf[4096];
     while (fgets(buf, sizeof(buf), ferr)) {
 	if (log_out)
 	    log_out->append(buf);
@@ -208,7 +220,7 @@ read_remrt_stderr(struct bu_process *proc, RemrtDetected *det, std::string *log_
 	}
     }
 
-    bu_process_file_close(proc, BU_PROCESS_STDERR);
+    fclose(ferr);   /* closes dup_fd only, not the original raw_fd */
 }
 
 
@@ -219,12 +231,12 @@ read_remrt_stderr(struct bu_process *proc, RemrtDetected *det, std::string *log_
 static void
 drain_stdout(struct bu_process *proc)
 {
-    char buf[4096];
-    FILE *fout = bu_process_file_open(proc, BU_PROCESS_STDOUT);
-    if (!fout)
+    /* Use raw fd (not fdopen) to avoid double-close with bu_process_wait_n. */
+    int fd = bu_process_fileno(proc, BU_PROCESS_STDOUT);
+    if (fd < 0)
 	return;
-    while (fread(buf, 1, sizeof(buf), fout) > 0) {}
-    bu_process_file_close(proc, BU_PROCESS_STDOUT);
+    char buf[4096];
+    while (read(fd, buf, sizeof(buf)) > 0) {}
 }
 
 
@@ -233,23 +245,36 @@ drain_stdout(struct bu_process *proc)
  * workers that run with -d, which produces verbose output).
  */
 static void
+drain_one_channel(struct bu_process *proc, bu_process_io_t channel)
+{
+    /* Read using the raw fd so that bu_process_wait_n() can still
+     * close() the fd later without a double-close / heap corruption. */
+    int fd = bu_process_fileno(proc, channel);
+    if (fd < 0)
+	return;
+    char buf[4096];
+    while (read(fd, buf, sizeof(buf)) > 0) {}
+}
+
+/*
+ * Drain both stdout and stderr of a process concurrently.
+ *
+ * rtsrv in -d (foreground) mode generates several hundred KB of stderr
+ * output (bu_log messages from prep/render).  The Linux pipe buffer is
+ * only 64 KB.  If we drain stdout to EOF first and only then drain stderr,
+ * the stderr pipe fills and the worker blocks before it can flush stdout,
+ * causing a deadlock.  Running both drainers in parallel avoids this.
+ *
+ * We use the raw file descriptor (not fdopen) so that bu_process_wait_n()
+ * can still close() the fds without a double-close / heap corruption.
+ */
+static void
 drain_process(struct bu_process *proc)
 {
-    char buf[4096];
-
-    /* Drain stdout */
-    FILE *fout = bu_process_file_open(proc, BU_PROCESS_STDOUT);
-    if (fout) {
-	while (fread(buf, 1, sizeof(buf), fout) > 0) {}
-	bu_process_file_close(proc, BU_PROCESS_STDOUT);
-    }
-
-    /* Drain stderr */
-    FILE *ferr = bu_process_file_open(proc, BU_PROCESS_STDERR);
-    if (ferr) {
-	while (fread(buf, 1, sizeof(buf), ferr) > 0) {}
-	bu_process_file_close(proc, BU_PROCESS_STDERR);
-    }
+    std::thread t_out(drain_one_channel, proc, BU_PROCESS_STDOUT);
+    std::thread t_err(drain_one_channel, proc, BU_PROCESS_STDERR);
+    t_out.join();
+    t_err.join();
 }
 
 
@@ -452,7 +477,7 @@ run_subtest(const TestOptions &opts,
     if (port <= 0) {
 	fprintf(stderr, "regress_remrt [%s]: could not detect remrt listen port\n", label);
 	/* Kill remrt so threads can finish. */
-	bu_process_wait_n(&remrt_proc, 1000 /* ms */);
+	bu_process_wait_n(&remrt_proc, 1000000 /* us */);
 	stdout_drain_thr.join();
 	stderr_read_thr.join();
 	cleanup_remrtrc();
@@ -515,7 +540,7 @@ run_subtest(const TestOptions &opts,
 
     if (worker_procs.empty()) {
 	fprintf(stderr, "regress_remrt [%s]: no rtsrv workers started\n", label);
-	bu_process_wait_n(&remrt_proc, 1000);
+	bu_process_wait_n(&remrt_proc, 1000000 /* us */);
 	stdout_drain_thr.join();
 	stderr_read_thr.join();
 	cleanup_remrtrc();
@@ -526,19 +551,26 @@ run_subtest(const TestOptions &opts,
     /* Wait for remrt to finish.                                            */
     /* ------------------------------------------------------------------ */
     int remrt_status = bu_process_wait_n(&remrt_proc,
-					 REMRT_WAIT_SEC * 1000 /* ms */);
+					 REMRT_WAIT_SEC * 1000000 /* us */);
 
     /* Join the stderr/stdout reader threads. */
     stdout_drain_thr.join();
     stderr_read_thr.join();
 
-    /* Wait for all rtsrv workers; they exit when remrt closes the PKG
-     * connection after all work is done.                                   */
-    for (size_t i = 0; i < worker_procs.size(); i++) {
-	bu_process_wait_n(&worker_procs[i], RTSRV_WAIT_SEC * 1000);
-    }
+    /* Join worker drain threads FIRST.  Workers exit when remrt closes the
+     * PKG connection (which happens when remrt exits).  Joining here before
+     * calling bu_process_wait_n() avoids a race where bu_process_wait_n()
+     * closes a worker's fd while a drain thread is still read()-ing it; if
+     * that fd number were then reused by the next sub-test, the stale drain
+     * thread would silently drain the new process's pipe.               */
     for (auto &thr : worker_drainers)
 	thr.join();
+
+    /* Now all drain threads have finished — it is safe to call
+     * bu_process_wait_n() which closes the raw fds.                     */
+    for (size_t i = 0; i < worker_procs.size(); i++) {
+	bu_process_wait_n(&worker_procs[i], RTSRV_WAIT_SEC * 1000000 /* us */);
+    }
 
     cleanup_remrtrc();
 
@@ -611,18 +643,18 @@ run_pixcmp(const std::string &pixcmp_exe,
 	return 1;
     }
 
-    /* Drain pixcmp output so the pipe doesn't fill. */
+    /* Drain pixcmp output so the pipe doesn't fill.
+     * Use raw fds to avoid double-close in bu_process_wait_n(). */
     drain_stdout(proc);
     {
-	FILE *ferr = bu_process_file_open(proc, BU_PROCESS_STDERR);
-	if (ferr) {
+	int fd_err = bu_process_fileno(proc, BU_PROCESS_STDERR);
+	if (fd_err >= 0) {
 	    char buf[4096];
-	    while (fread(buf, 1, sizeof(buf), ferr) > 0) {}
-	    bu_process_file_close(proc, BU_PROCESS_STDERR);
+	    while (read(fd_err, buf, sizeof(buf)) > 0) {}
 	}
     }
 
-    return bu_process_wait_n(&proc, 60000 /* ms */);
+    return bu_process_wait_n(&proc, 60000000 /* us */);
 }
 
 
