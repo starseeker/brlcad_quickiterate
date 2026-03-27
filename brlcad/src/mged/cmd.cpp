@@ -1315,7 +1315,7 @@ cmdline(struct mged_state *s, struct bu_vls *vp, int record)
     int64_t finish;
     size_t len;
     const char *cp;
-    const char *result;
+    const char *result = "";
 
     BU_CK_VLS(vp);
 
