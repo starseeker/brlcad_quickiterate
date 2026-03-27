@@ -54,6 +54,7 @@
 #include "bsocket.h"
 #include "bu/app.h"
 #include "bu/interrupt.h"
+#include "bu/time.h"
 #include "bu/vls.h"
 
 /* decls for strict c90 */
@@ -68,7 +69,20 @@ extern pid_t vfork(void);
 extern int fchmod(int fd, mode_t mode);
 #endif
 #if !defined(HAVE_DECL_GETTIMEOFDAY) && !defined(gettimeofday)
+#  ifdef HAVE_WINDOWS_H
+/* Windows does not provide gettimeofday; implement via bu_gettime() */
+static int
+gettimeofday(struct timeval *tp, void *tzp)
+{
+    int64_t t = bu_gettime();
+    (void)tzp;
+    tp->tv_sec  = (long)(t / 1000000);
+    tp->tv_usec = (long)(t % 1000000);
+    return 0;
+}
+#  else
 extern int gettimeofday(struct timeval *, void *);
+#  endif
 #endif
 
 /* FIXME: is this basically FD_COPY()? */
@@ -366,7 +380,7 @@ struct frame *FreeFrame;
 #define SERVERS_NULL ((struct servers *)0)
 
 /* variables shared with viewing model */
-extern double AmbientIntensity;
+/* AmbientIntensity is declared (with correct DLL-import on Windows) via optical/defines.h */
 extern fastf_t azimuth, elevation;
 extern int lightmodel;
 extern int use_air;
@@ -403,7 +417,7 @@ char object_list[512];	/* contains list of "MGED" objects */
 char *our_hostname;
 
 int tcp_listen_fd;
-extern int pkg_permport;	/* libpkg/pkg_permserver() listen port */
+/* pkg_permport is declared (with correct DLL-import on Windows) via pkg.h */
 
 int rem_debug;		/* dispatcher debugging flag */
 
