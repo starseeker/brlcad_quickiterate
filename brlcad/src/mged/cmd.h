@@ -28,6 +28,8 @@
 
 #include "mged.h"
 
+__BEGIN_DECLS
+
 extern int mged_db_search_callback(int, const char **, void *, void*);
 extern int mged_clone_during_callback(int, const char **, void *, void*);
 
@@ -58,7 +60,15 @@ extern int cmd_get_more_default(ClientData, Tcl_Interp *, int, const char *[]);
 extern int cmd_has_embedded_fb(ClientData, Tcl_Interp *, int, const char *[]);
 extern int cmd_hist(ClientData, Tcl_Interp *, int, const char *[]);
 extern int cmd_kill(ClientData, Tcl_Interp *, int, const char *[]);
+/* cmd_list() hides the struct cmd_list tag name in C++ mode; suppress locally */
+#ifdef __cplusplus
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wshadow"
+#endif
 extern int cmd_list(ClientData, Tcl_Interp *, int, const char *[]);
+#ifdef __cplusplus
+#  pragma GCC diagnostic pop
+#endif
 extern int cmd_lm(ClientData, Tcl_Interp *, int, const char *[]);
 extern int cmd_ls(ClientData, Tcl_Interp *, int, const char *[]);
 extern int cmd_mmenu_get(ClientData, Tcl_Interp *, int, const char *[]);
@@ -92,6 +102,8 @@ extern int cmd_view(ClientData, Tcl_Interp *, int, const char *[]);
 extern int cmd_vrot(ClientData, Tcl_Interp *, int, const char *[]);
 extern int cmd_zap(ClientData, Tcl_Interp *, int, const char *[]);
 extern int cmd_zoom(ClientData, Tcl_Interp *, int, const char *[]);
+
+__END_DECLS
 
 #endif /* MGED_CMD_H */
 
