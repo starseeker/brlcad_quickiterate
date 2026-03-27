@@ -420,6 +420,7 @@ void mged_pr_output(Tcl_Interp *interp);
 void mged_sem_log_init(void);
 void mged_start_log_drain_timer(struct mged_state *s);
 void mged_stop_log_drain_timer(struct mged_state *s);
+int mged_ged_exec_async(struct mged_state *s, int argc, const char *argv[]);
 
 /* columns.c */
 void vls_col_item(struct bu_vls *str, const char *cp);
