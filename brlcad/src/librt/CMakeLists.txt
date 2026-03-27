@@ -452,6 +452,7 @@ brlcad_addlib(librt "${LIBRT_SOURCES}" "${LIBRT_LIBS}" "${RT_INCLUDE_DIRS}" "${R
   #   twice.  The many other direct-.c-include patterns in bot make the whole
   #   subdirectory unsafe to batch.
   UNITY_BUILD_SKIP
+    rt_init.cpp
     search.cpp
     search_old.cpp
     primitives/vol/vol_brep.cpp
