@@ -1762,6 +1762,17 @@ brlcad_function_exists(nextafter REQUIRED_LIBS ${M_LIBRARY})
 brlcad_function_exists(nextafterf REQUIRED_LIBS ${M_LIBRARY})
 brlcad_function_exists(ntohll)
 brlcad_function_exists(pipe)
+brlcad_function_exists(_pipe)
+# On Windows, pipe() is not a real CRT symbol; it is a macro in config_win.h
+# that wraps _pipe().  check_function_exists tests for a linkable symbol and
+# therefore misses the macro.  If _pipe was found but pipe was not, treat
+# pipe as available because the config_win.h wrapper makes it usable.
+if(NOT HAVE_PIPE AND HAVE__PIPE)
+  set(HAVE_PIPE 1 CACHE INTERNAL "pipe available via config_win.h macro wrapper")
+  if(CONFIG_H_FILE)
+    config_h_append(BRLCAD "#define HAVE_PIPE 1\n")
+  endif()
+endif()
 brlcad_function_exists(popen) # implies pclose
 brlcad_function_exists(posix_memalign) # IEEE Std 1003.1-2001
 brlcad_function_exists(proc_pidpath) # Mac OS X
@@ -2158,13 +2169,6 @@ verbose_add_subdirectory("" src)
 # library targets are active.
 verbose_add_subdirectory("" include)
 
-# scripts that primarily require rendering
-if(TARGET rt)
-  verbose_add_subdirectory("" sh)
-  verbose_add_subdirectory("" regress)
-  verbose_add_subdirectory("" bench)
-endif(TARGET rt)
-
 # require geometry conversion tools
 verbose_add_subdirectory("" db)
 
@@ -2172,6 +2176,13 @@ verbose_add_subdirectory("" db)
 # NOTE: doc/docbook/resources is added separately (earlier)
 # NOTE: doc/doxygenis added separately (earlier)
 verbose_add_subdirectory("" doc)
+
+# scripts that primarily require rendering
+if(TARGET rt)
+  verbose_add_subdirectory("" sh)
+  verbose_add_subdirectory("" bench)
+  verbose_add_subdirectory("" regress)
+endif(TARGET rt)
 
 # add misc last
 # NOTE: misc/tools is added separately (earlier)
