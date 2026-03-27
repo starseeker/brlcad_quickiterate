@@ -173,7 +173,7 @@ read_remrt_stderr(struct bu_process *proc, RemrtDetected *det, std::string *log_
     }
 
     char buf[4096];
-    while (fgets(buf, sizeof(buf), ferr)) {
+    while (bu_fgets(buf, sizeof(buf), ferr)) {
 	if (log_out)
 	    log_out->append(buf);
 
