@@ -30,6 +30,8 @@
 #include <functional>
 #include <thread>
 
+extern "C" {
+
 #include <stdlib.h>
 #include <math.h>
 #include <time.h>
@@ -43,10 +45,6 @@
 #include "bio.h"
 #include "bresource.h"
 
-#include "tcl.h"
-#ifdef HAVE_TK
-#  include "tk.h"
-#endif
 
 #include "vmath.h"
 #include "bu/getopt.h"
@@ -58,6 +56,12 @@
 #include "rt/edit.h"
 #include "rt/geom.h"
 #include "ged.h"
+
+#include "tcl.h"
+#ifdef HAVE_TK
+#  include "tk.h"
+#endif
+
 #include "tclcad.h"
 
 #include "./mged.h"
@@ -65,9 +69,9 @@
 #include "./mged_dm.h"
 #include "./sedit.h"
 
-extern "C" void mged_finish(struct mged_state *s, int exitcode); /* in mged.c */
-extern "C" void update_grids(struct mged_state *s, fastf_t sf);		/* in grid.c */
-extern "C" void set_localunit_TclVar(struct mged_state *s);		/* in chgmodel.c */
+void mged_finish(struct mged_state *s, int exitcode); /* in mged.c */
+void update_grids(struct mged_state *s, fastf_t sf);		/* in grid.c */
+void set_localunit_TclVar(struct mged_state *s);		/* in chgmodel.c */
 extern void init_qray(void);			/* in qray.c */
 
 
@@ -96,6 +100,7 @@ static struct bu_vls tcl_log_str = BU_VLS_INIT_ZERO;
  * themselves called bu_log (which also acquires BU_SEM_SYSCALL). */
 static int MGED_SEM_LOG = -1;
 
+}
 
 /* Stage 3 internal C++ async helper.
  *
@@ -1121,7 +1126,7 @@ cmd_output_hook(ClientData clientData, Tcl_Interp *interpreter, int argc, const 
 }
 
 
-int
+extern "C" int
 cmd_nop(ClientData UNUSED(clientData), Tcl_Interp *UNUSED(interp), int UNUSED(argc), const char *UNUSED(argv[]))
 {
     return TCL_OK;

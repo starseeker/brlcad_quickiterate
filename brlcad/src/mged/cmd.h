@@ -60,15 +60,6 @@ extern int cmd_get_more_default(ClientData, Tcl_Interp *, int, const char *[]);
 extern int cmd_has_embedded_fb(ClientData, Tcl_Interp *, int, const char *[]);
 extern int cmd_hist(ClientData, Tcl_Interp *, int, const char *[]);
 extern int cmd_kill(ClientData, Tcl_Interp *, int, const char *[]);
-/* cmd_list() hides the struct cmd_list tag name in C++ mode; suppress locally */
-#ifdef __cplusplus
-#  pragma GCC diagnostic push
-#  pragma GCC diagnostic ignored "-Wshadow"
-#endif
-extern int cmd_list(ClientData, Tcl_Interp *, int, const char *[]);
-#ifdef __cplusplus
-#  pragma GCC diagnostic pop
-#endif
 extern int cmd_lm(ClientData, Tcl_Interp *, int, const char *[]);
 extern int cmd_ls(ClientData, Tcl_Interp *, int, const char *[]);
 extern int cmd_mmenu_get(ClientData, Tcl_Interp *, int, const char *[]);
