@@ -53,7 +53,7 @@ if(TARGET remrt AND TARGET rtsrv AND TARGET pixcmp)
     # plus startup overhead may take several minutes.
     brlcad_regression_test(
       regress-remrt "remrt;rtsrv;pixcmp;m35.g;regress_remrt"
-      STAND_ALONE TEST_DEFINED TIMEOUT 600
+      TEST_DEFINED TIMEOUT 600
     )
 
     distclean(
