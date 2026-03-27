@@ -82,6 +82,7 @@
 #include "bu/snooze.h"
 #include "bu/str.h"
 #include "bu/time.h"
+#include "bu/vls.h"
 
 
 /* --------------------------------------------------------------------------
@@ -326,13 +327,14 @@ write_remrtrc(const char *db_dir)
     char cwd[MAXPATHLEN] = {0};
     bu_dir(cwd, sizeof(cwd), BU_DIR_CURR, NULL);
 
-    char rcpath[MAXPATHLEN];
-    snprintf(rcpath, sizeof(rcpath), "%s/.remrtrc", cwd);
+    struct bu_vls rcpath = BU_VLS_INIT_ZERO;
+    bu_vls_sprintf(&rcpath, "%s/.remrtrc", cwd);
 
-    FILE *fp = fopen(rcpath, "w");
+    FILE *fp = fopen(bu_vls_cstr(&rcpath), "w");
     if (!fp) {
 	fprintf(stderr, "regress_remrt: cannot write %s: %s\n",
-		rcpath, strerror(errno));
+		bu_vls_cstr(&rcpath), strerror(errno));
+	bu_vls_free(&rcpath);
 	return -1;
     }
     /* Syntax: host <name> <when> <where> <path>
@@ -355,9 +357,10 @@ cleanup_remrtrc(void)
     char cwd[MAXPATHLEN] = {0};
     bu_dir(cwd, sizeof(cwd), BU_DIR_CURR, NULL);
 
-    char rcpath[MAXPATHLEN];
-    snprintf(rcpath, sizeof(rcpath), "%s/.remrtrc", cwd);
-    bu_file_delete(rcpath);
+    struct bu_vls rcpath = BU_VLS_INIT_ZERO;
+    bu_vls_sprintf(&rcpath, "%s/.remrtrc", cwd);
+    bu_file_delete(bu_vls_cstr(&rcpath));
+    bu_vls_free(&rcpath);
 }
 
 
