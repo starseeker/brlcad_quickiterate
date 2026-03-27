@@ -99,22 +99,29 @@ static int MGED_SEM_LOG = -1;
 
 /* Stage 3 internal C++ async helper.
  *
- * Runs 'func' in a std::thread (the GED worker thread), while the main thread
- * pumps the Tcl event loop so that:
- *  - Tk GUI events remain responsive during long commands
- *  - The log-drain timer fires, flushing accumulated bu_log output to the
- *    command prompt as it arrives rather than all at once after completion
+ * In GUI (non-classic, interactive) mode: runs 'func' in a std::thread while
+ * the main thread pumps the Tcl event loop so that Tk GUI events stay
+ * responsive and the log-drain timer can flush intermediate bu_log output.
+ * s->cmd_running is set to 1 for the duration to guard against re-entrant
+ * stdin_input dispatches.
  *
- * The caller's stack frame remains valid for the entire call because this
- * function blocks until the worker thread has joined.  It is therefore safe
- * for the lambda to capture local variables by reference.
+ * In classic / non-interactive mode: runs 'func' synchronously on the calling
+ * thread without pumping the event loop, so that scripted stdin commands
+ * execute in order without interference from channel handlers.
  *
- * s->cmd_running is set to 1 for the duration so that stdin_input does not
- * dispatch re-entrant commands while the worker thread holds gedp state.
+ * In both cases the caller's stack frame remains valid for the entire call.
  */
 static int
 run_ged_async(struct mged_state *s, std::function<int()> func)
 {
+    /* In classic / non-interactive mode there is no GUI to keep responsive,
+     * and stdin may be a script file.  Pumping the Tcl event loop while a
+     * command runs would cause stdin_input to fire for the next scripted line
+     * while cmd_running==1, dropping it with "command already running".
+     * Run synchronously instead so all scripted commands execute in order. */
+    if (s->classic_mged || !s->interactive)
+	return func();
+
     std::atomic<bool> done{false};
     std::atomic<int>  result{0};
 

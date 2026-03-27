@@ -1444,30 +1444,23 @@ stdin_input(ClientData clientData, int UNUSED(mask))
 void
 std_out_or_err(ClientData clientData, int UNUSED(mask))
 {
-    // TODO - we're already using clientData for something else, and experience
-    // with fbserv makes me wary of trying to change what is being passed
-    // through clientData with an fd - for now, just punt and use the overall
-    // state global.
     struct mged_state *s = MGED_STATE;
 
-    int fd = (int)((long)clientData & 0xFFFF);	/* fd's will be small */
+    /* clientData is the Tcl_Channel wrapping the pipe read end.  We read via
+     * the Tcl channel API so this works correctly on all platforms.  On
+     * Windows, Tcl_MakeFileChannel creates a channel backed by a native
+     * HANDLE with its own internal reader thread; data arrives in Tcl's
+     * channel buffer and must be consumed with Tcl_Read, not read(). */
+    Tcl_Channel chan = (Tcl_Channel)clientData;
     int count;
     struct bu_vls vls = BU_VLS_INIT_ZERO;
     char line[RT_MAXLINE+1] = {0};
     Tcl_Obj *save_result;
 
-    /* Get data from stdout or stderr pipe via direct read.  We use a raw
-     * read() here because the pipe was set up with POSIX dup()/close() and
-     * we want to capture partial lines as they arrive rather than blocking
-     * until a newline is written. */
-    count = read((int)fd, line, RT_MAXLINE);
+    count = Tcl_Read(chan, line, RT_MAXLINE);
 
-    if (count <= 0) {
-	if (count < 0) {
-	    perror("READ ERROR");
-	}
+    if (count <= 0)
 	return;
-    }
 
     line[count] = '\0';
 
@@ -2417,11 +2410,11 @@ main(int argc, char *argv[])
 	/* Redirect stdout/stderr into POSIX pipes so that any C-level output
 	 * (printf, write(1,...), bu_log, etc.) is captured by the GUI.
 	 * Windows supports pipe()/dup()/dup2() through its CRT, so this
-	 * approach works on all platforms when HAVE_PIPE is available. */
+	 * approach works on all platforms when HAVE_PIPE is available.
+	 * NOTE: Tcl_MakeFileChannel on Windows requires a native HANDLE (via
+	 * _get_osfhandle), not the raw CRT fd — see the fix below. */
 #ifdef HAVE_PIPE
 	{
-	    ClientData outpipe, errpipe;
-
 	    (void)close(fileno(stdout));
 
 	    /* since we just closed stdout, fd 1 is what dup() should return */
@@ -2438,15 +2431,29 @@ main(int argc, char *argv[])
 		perror("dup");
 	    (void)close(pipe_err[1]); /* only a write pipe */
 
-	    Tcl_Channel chan;
+	    Tcl_Channel out_chan, err_chan;
 
-	    outpipe = (ClientData)(size_t)pipe_out[0];
-	    chan = Tcl_MakeFileChannel(outpipe, TCL_READABLE);
-	    Tcl_CreateChannelHandler(chan, TCL_READABLE, std_out_or_err, outpipe);
+	    /* On Windows, Tcl_MakeFileChannel expects a native Windows HANDLE,
+	     * not a CRT integer file descriptor.  Passing a raw CRT fd as a
+	     * HANDLE produces an invalid channel whose error state causes Tcl's
+	     * event loop to spin continuously, freezing the GUI.  Use
+	     * _get_osfhandle() to obtain the correct Windows HANDLE from the
+	     * CRT fd.  On POSIX the fd is cast directly, as before. */
+#ifdef HAVE_WINDOWS_H
+	    out_chan = Tcl_MakeFileChannel((ClientData)_get_osfhandle(pipe_out[0]), TCL_READABLE);
+	    err_chan = Tcl_MakeFileChannel((ClientData)_get_osfhandle(pipe_err[0]), TCL_READABLE);
+#else
+	    out_chan = Tcl_MakeFileChannel((ClientData)(size_t)pipe_out[0], TCL_READABLE);
+	    err_chan = Tcl_MakeFileChannel((ClientData)(size_t)pipe_err[0], TCL_READABLE);
+#endif
 
-	    errpipe = (ClientData)(size_t)pipe_err[0];
-	    chan = Tcl_MakeFileChannel(errpipe, TCL_READABLE);
-	    Tcl_CreateChannelHandler(chan, TCL_READABLE, std_out_or_err, errpipe);
+	    /* Register channels with the interpreter so they are tracked and
+	     * kept alive until the interpreter is deleted. */
+	    Tcl_RegisterChannel(s->interp, out_chan);
+	    Tcl_CreateChannelHandler(out_chan, TCL_READABLE, std_out_or_err, out_chan);
+
+	    Tcl_RegisterChannel(s->interp, err_chan);
+	    Tcl_CreateChannelHandler(err_chan, TCL_READABLE, std_out_or_err, err_chan);
 	}
 #endif /* HAVE_PIPE */
     }
