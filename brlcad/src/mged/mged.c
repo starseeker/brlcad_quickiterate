@@ -1321,6 +1321,17 @@ stdin_input(ClientData clientData, int UNUSED(mask))
 	    quit(s); /* does not return */
 	}
 
+	/* If a GED command is already executing in a worker thread, consume and
+	 * discard the line so the channel does not remain readable.  Print a
+	 * brief notice and re-show the prompt; the user can retype after the
+	 * current command finishes. */
+	if (s->cmd_running) {
+	    Tcl_DStringFree(&ds);
+	    bu_log("mged: command already running, please wait\n");
+	    pr_prompt(s);
+	    return;
+	}
+
 	bu_vls_strcat(&s->input_str, Tcl_DStringValue(&ds));
 	Tcl_DStringFree(&ds);
 
@@ -1479,10 +1490,9 @@ refresh(struct mged_state *s)
     int64_t elapsed_time, start_time = bu_gettime();
     int do_time = 0;
 
-    /* Print any text output that has accumulated to the command prompt
-     * TODO - this is currently a no-op because the gui_output callback
-     * is still in the old form of trying to immediately print the bu_log
-     * output to the interp. */
+    /* Flush any accumulated bu_log output to the command prompt.
+     * The log-drain timer handles live streaming during long commands;
+     * this call catches anything produced between timer ticks. */
     mged_pr_output(s->interp);
 
     /* Display Manager / Views */
@@ -1719,6 +1729,9 @@ mged_finish(struct mged_state *s, int exitcode)
     /* no longer send bu_log() output to Tcl */
     bu_log_delete_hook(gui_output, (void *)s);
 
+    /* cancel the periodic log-drain timer before tearing down the interp */
+    mged_stop_log_drain_timer(s);
+
 #ifdef HAVE_PIPE
     /* restore stdout/stderr just in case anyone tries to write before
      * we finally exit (e.g., an atexit() callback).
@@ -1825,6 +1838,8 @@ main(int argc, char *argv[])
     bu_vls_init(&s->scratchline);
     bu_vls_init(&s->mged_prompt);
     s->dpy_string = NULL;
+    s->cmd_running = 0;
+    s->log_drain_timer = NULL;
 
     /* Set up linked lists */
     s->vlfree = &rt_vlfree;
