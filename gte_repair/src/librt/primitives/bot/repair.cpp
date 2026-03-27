@@ -49,8 +49,9 @@
 #include <Mathematics/MeshHoleFilling.h>
 #include <Mathematics/MeshPreprocessing.h>
 #include <Mathematics/MeshQuality.h>
-#include <Mathematics/MeshRemesh.h>
 #include <Mathematics/LSCMParameterization.h>
+
+#include "bn/tol.h"
 
 #if defined(__GNUC__) && !defined(__clang__)
 #  pragma GCC diagnostic push
@@ -650,9 +651,8 @@ try_patch_repair(struct rt_bot_internal *bot, manifold::Manifold& gm_out)
 	    if (adj[(size_t)f * 3 + (size_t)e] < 0)
 		patch.insert((int32_t)f);
 
-    // Also seed from misoriented edges and non-manifold vertices via
-    // bg_trimesh_solid2 — these have adj >= 0 so the adj < 0 scan above
-    // would not catch them.  Both seeding sources are unioned into the patch.
+    // Also seed from misoriented edges via bg_trimesh_solid2 — these have
+    // adj >= 0 so the adj < 0 scan above would not catch them.
     {
 	std::vector<double> bv((size_t)nv * 3);
 	std::vector<int>    bf((size_t)nf * 3);
@@ -678,11 +678,6 @@ try_patch_repair(struct rt_bot_internal *bot, manifold::Manifold& gm_out)
 
 	for (int i = 0; i < errs.misoriented.count; i++)
 	    add_edge_faces(errs.misoriented.edges[2*i], errs.misoriented.edges[2*i+1]);
-	for (int i = 0; i < errs.non_manifold_verts.count; i++) {
-	    int v = errs.non_manifold_verts.verts[i];
-	    for (int32_t f : vert_faces[(size_t)v])
-		patch.insert(f);
-	}
 	bg_free_trimesh_solid_errors(&errs);
     }
 
@@ -1349,6 +1344,13 @@ rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct
 			double ref_area,
 			manifold::Manifold& gm_out,
 			const char *pass_name = "") -> bool {
+	// Stash the bounding box diagonal before fill so we can detect
+	// fill operations that unexpectedly alter the mesh extent.
+	// Hole fill only adds triangles between existing boundary vertices
+	// (no new vertex positions), so the bbox should be exactly unchanged.
+	// This mirrors the identical guard in the Geogram-based repair path.
+	double bbox_diag_before = gte_bbox_diagonal(v);
+
 	size_t tcount_before = t.size();
 	gte::MeshHoleFilling<double>::FillHoles(v, t, fillParams);
 	double new_a = gte_mesh_area(v, t);
@@ -1356,6 +1358,15 @@ rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct
 	       pass_name, tcount_before, t.size(), new_a, ref_area);
 	if (new_a < ref_area) {
 	    bu_log("rt_bot_repair: %s try_fill: area decreased, rejecting\n", pass_name);
+	    return false;
+	}
+
+	// Sanity check the bounding box diagonal — should be very close to
+	// the pre-fill value (BN_TOL_DIST = 0.0005 mm).
+	double bbox_diag_after = gte_bbox_diagonal(v);
+	if (!NEAR_EQUAL(bbox_diag_before, bbox_diag_after, BN_TOL_DIST)) {
+	    bu_log("rt_bot_repair: %s try_fill: bbox diagonal changed after hole fill (before=%.6g after=%.6g), rejecting\n",
+		   pass_name, bbox_diag_before, bbox_diag_after);
 	    return false;
 	}
 	manifold::MeshGL gmm;
@@ -1543,131 +1554,6 @@ pass1:
 	    bu_log("Warning - repaired BoT has lint unexpected-miss on some faces "
 		   "(manifold solid confirmed; likely raytracer precision issue "
 		   "for thin/curved triangles - proceeding with manifold result)\n");
-	}
-    }
-
-    // Post-repair quality check and optional auto-remesh.
-    //
-    // When settings->auto_remesh is enabled, compute Verdict-style mesh quality
-    // metrics (aspect ratio, scaled Jacobian, min angle) on the repaired mesh.
-    // If the median aspect ratio exceeds the threshold, automatically remesh to
-    // improve triangle quality.
-    //
-    // Manifold preservation in RemeshCVT:
-    //   The multi-nerve RDT inside RemeshCVT removes "peninsula" triangles
-    //   from thin-edge faces, leaving open boundary holes in the output.  The
-    //   code below patches these holes with MeshHoleFilling (LSCM) before
-    //   checking manifold, so the result is always manifold on well-formed
-    //   inputs.  An isotropic CVT fallback is tried if hole-filling alone is
-    //   insufficient; if that also fails the pre-remesh mesh is returned.
-    //
-    //   Therefore auto_remesh is intentionally opt-in (default off) since high
-    //   AR may reflect the physical geometry (stringers, cross-supports) and not
-    //   a repair defect.
-    if (settings->auto_remesh) {
-	// Collect vertices and triangles from nbot for quality evaluation
-	std::vector<gte::Vector3<double>> q_verts;
-	std::vector<std::array<int32_t, 3>> q_tris;
-	bot_to_gte(q_verts, q_tris, nbot);
-
-	// Compute aggregate quality (using GTE-native Verdict-equivalent metrics)
-	gte::MeshQuality<double>::MeshMetrics qm =
-	    gte::MeshQuality<double>::ComputeMeshMetricsVec3(q_verts, q_tris);
-
-	double ar_threshold = (settings->remesh_quality_ar > 0.0)
-	    ? (double)settings->remesh_quality_ar
-	    : 3.0;
-
-	bool poor_quality = (qm.totalTriangles > 0 &&
-			     qm.aspectRatio.median > ar_threshold);
-
-	if (poor_quality) {
-	    bu_log("rt_bot_repair: median aspect ratio %.2f exceeds %.2f — auto-remeshing\n",
-		   qm.aspectRatio.median, ar_threshold);
-
-	    // Target the same vertex count as the repaired mesh
-	    size_t nb_pts = nbot->num_vertices;
-
-	    gte::MeshRemesh<double>::Parameters remeshParams;
-	    remeshParams.targetVertexCount = nb_pts;
-	    remeshParams.useAnisotropic    = true;
-	    remeshParams.anisotropyScale   = 0.04; // same as BRL-CAD remesh default
-	    if (settings->remesh_time_limit > 0.0)
-		remeshParams.lloydTimeLimit = settings->remesh_time_limit;
-
-	    // Remesh into separate output containers to avoid aliasing
-	    std::vector<gte::Vector3<double>> rm_verts;
-	    std::vector<std::array<int32_t, 3>> rm_tris;
-	    bool remesh_ok = gte::MeshRemesh<double>::RemeshCVT(q_verts, q_tris, rm_verts, rm_tris, remeshParams);
-
-	    if (!remesh_ok) {
-		bu_log("rt_bot_repair: auto-remesh failed, keeping repaired mesh as-is\n");
-	    } else {
-		// Verify the remeshed result is still manifold.
-		// CVT remesh can leave open boundary edges on thin geometry because
-		// the multi-nerve RDT's peninsula-removal step strips thin-edge
-		// triangles.  Try hole-filling first; if that recovers manifold we
-		// keep it.  If not, retry with isotropic CVT as a final fallback.
-		manifold::MeshGL grmm;
-		gte_to_manifold(&grmm, rm_verts, rm_tris);
-		manifold::Manifold grmanifold(grmm);
-		bool remesh_manifold = (grmanifold.Status() == manifold::Manifold::Error::NoError);
-
-		if (!remesh_manifold) {
-		    // Step 1: Hole-fill the CVT output to patch open boundaries
-		    gte::MeshHoleFilling<double>::Parameters fp;
-		    fp.maxArea      = 1e30;
-		    fp.method       = gte::MeshHoleFilling<double>::TriangulationMethod::LSCM;
-		    fp.autoFallback = true;
-		    gte::MeshHoleFilling<double>::FillHoles(rm_verts, rm_tris, fp);
-		    gte_to_manifold(&grmm, rm_verts, rm_tris);
-		    grmanifold = manifold::Manifold(grmm);
-		    remesh_manifold = (grmanifold.Status() == manifold::Manifold::Error::NoError);
-		}
-
-		if (!remesh_manifold) {
-		    // Step 2: Retry with isotropic CVT
-		    bu_log("rt_bot_repair: anisotropic remesh not manifold after hole-fill — retrying isotropic\n");
-		    gte::MeshRemesh<double>::Parameters isoParams;
-		    isoParams.targetVertexCount = nb_pts;
-		    isoParams.useAnisotropic    = false;
-		    if (settings->remesh_time_limit > 0.0)
-			isoParams.lloydTimeLimit = settings->remesh_time_limit;
-		    std::vector<gte::Vector3<double>> iso_verts;
-		    std::vector<std::array<int32_t, 3>> iso_tris;
-		    bool iso_ok = gte::MeshRemesh<double>::RemeshCVT(q_verts, q_tris, iso_verts, iso_tris, isoParams);
-		    if (iso_ok) {
-			gte_to_manifold(&grmm, iso_verts, iso_tris);
-			grmanifold = manifold::Manifold(grmm);
-			if (grmanifold.Status() == manifold::Manifold::Error::NoError) {
-			    rm_verts = std::move(iso_verts);
-			    rm_tris  = std::move(iso_tris);
-			    remesh_manifold = true;
-			}
-		    }
-		    if (!remesh_manifold) {
-			bu_log("rt_bot_repair: remeshed result is not manifold — keeping repaired mesh\n");
-		    }
-		}
-
-		if (remesh_manifold) {
-		    // Replace nbot with the remeshed version
-		    manifold::MeshGL remeshed_mesh = grmanifold.GetMeshGL();
-		    struct rt_bot_internal *remeshed_bot = manifold_to_bot(&remeshed_mesh);
-
-		    // Run quality check on remeshed result for logging
-		    std::vector<gte::Vector3<double>> r_verts;
-		    std::vector<std::array<int32_t, 3>> r_tris;
-		    bot_to_gte(r_verts, r_tris, remeshed_bot);		    gte::MeshQuality<double>::MeshMetrics qm2 =
-			gte::MeshQuality<double>::ComputeMeshMetricsVec3(r_verts, r_tris);
-		    bu_log("rt_bot_repair: remesh complete — median AR before: %.2f  after: %.2f\n",
-			   qm.aspectRatio.median, qm2.aspectRatio.median);
-
-		    rt_bot_internal_free(nbot);
-		    BU_PUT(nbot, struct rt_bot_internal);
-		    nbot = remeshed_bot;
-		}
-	    }
 	}
     }
 
