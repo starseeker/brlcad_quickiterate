@@ -379,6 +379,25 @@ struct frame *FreeFrame;
 /* --- */
 #define SERVERS_NULL ((struct servers *)0)
 
+
+/*
+ * Look up the servers[] slot that owns a given pkg_conn.
+ * Used by message handlers instead of the fd-as-index idiom
+ * (servers[pc->pkc_fd]), which breaks on Windows because WinSock
+ * socket handles are not small sequential integers and can easily
+ * exceed MAXSERVERS (FD_SETSIZE).
+ */
+static struct servers *
+get_server_by_pc(struct pkg_conn *pc)
+{
+    int i;
+    for (i = 0; i < (int)MAXSERVERS; i++) {
+	if (servers[i].sr_pc == pc)
+	    return &servers[i];
+    }
+    return SERVERS_NULL;
+}
+
 /* variables shared with viewing model */
 /* AmbientIntensity is declared (with correct DLL-import on Windows) via optical/defines.h */
 extern fastf_t azimuth, elevation;
@@ -555,7 +574,7 @@ drop_server(struct servers *sp, char *why)
 
     /* Clear the bits from "clients" now, to prevent further select()s */
     fd = pc->pkc_fd;
-    if (fd <= 3 || fd >= (int)MAXSERVERS) {
+    if (fd < 0) {
 	bu_log("drop_server: fd=%d is unreasonable, forget it!\n", fd);
 	return;
     }
@@ -693,7 +712,26 @@ addclient(struct pkg_conn *pc)
 
     FD_SET(fd, &clients);
 
-    sp = &servers[fd];
+    /* Find the first unused server slot.
+     * The legacy code used &servers[fd] (socket fd as array index), but on
+     * Windows, WinSock socket handles are not small sequential integers and
+     * can easily exceed MAXSERVERS (FD_SETSIZE), causing an out-of-bounds
+     * write.  Use a free-slot search instead. */
+    {
+	int slot = -1, j;
+	for (j = 0; j < (int)MAXSERVERS; j++) {
+	    if (servers[j].sr_pc == PKC_NULL) {
+		slot = j;
+		break;
+	    }
+	}
+	if (slot < 0) {
+	    bu_log("addclient: no free server slots (max=%d)\n", (int)MAXSERVERS);
+	    pkg_close(pc);
+	    return;
+	}
+	sp = &servers[slot];
+    }
     memset((char *)sp, 0, sizeof(*sp));
     sp->sr_pc = pc;
     BU_LIST_INIT(&sp->sr_work);
@@ -741,7 +779,12 @@ check_input(int waittime)
     tv.tv_sec = waittime;
     tv.tv_usec = 0;
 
-    FD_MOVE(&ifdset, &clients);	/* ibits = clients */
+    /* Copy clients fd_set for select().  A direct struct assignment is
+     * portable: on POSIX it copies the bitmask; on Windows (WinSock) it
+     * copies fd_count + fd_array[], correctly preserving socket handles of
+     * any magnitude.  The legacy FD_MOVE macro iterates 0..FD_SETSIZE-1
+     * as integer socket values, silently dropping handles >= FD_SETSIZE. */
+    ifdset = clients;		/* ibits = clients */
     FD_SET(tcp_listen_fd, &ifdset);	/* ibits |= tcp_listen_fd */
     val = select(32, &ifdset, (fd_set *)0, (fd_set *)0, &tv);
     if (val < 0) {
@@ -762,19 +805,24 @@ check_input(int waittime)
 	FD_CLR(tcp_listen_fd, &ifdset);
     }
 
-    /* Fourth, get any new traffic off the network into libpkg buffers */
+    /* Fourth, get any new traffic off the network into libpkg buffers.
+     * Iterate over server slots and check each server's actual socket fd
+     * rather than treating the slot index as a socket fd.  The old idiom
+     * (FD_ISSET(i, ...) where i is both the slot index and the assumed fd)
+     * breaks on Windows where socket handles are not small integers. */
     for (i = 0; i < (int)MAXSERVERS; i++) {
-	if (!feof(stdin) && i == fileno(stdin)) continue;
-	if (!FD_ISSET(i, &ifdset)) continue;
+	int sfd;
 	pc = servers[i].sr_pc;
 	if (pc == PKC_NULL) continue;
+	sfd = pc->pkc_fd;
+	if (!FD_ISSET(sfd, &ifdset)) continue;
 	val = pkg_suckin(pc);
 	if (val < 0) {
 	    drop_server(&servers[i], "pkg_suckin() error");
 	} else if (val == 0) {
 	    drop_server(&servers[i], "EOF");
 	}
-	FD_CLR(i, &ifdset);
+	FD_CLR(sfd, &ifdset);
     }
 
     /* Fifth, handle any new packages now waiting in internal buffers */
@@ -3232,16 +3280,17 @@ ph_dirbuild_reply(struct pkg_conn *pc, char *buf)
 {
     struct servers *sp;
 
-    sp = &servers[pc->pkc_fd];
+    sp = get_server_by_pc(pc);
+    if (sp == SERVERS_NULL) {
+	bu_log("MSG_DIRBUILD_REPLY from unknown connection fd %d\n", pc->pkc_fd);
+	if (buf) (void)free(buf);
+	return;
+    }
     bu_log("%s %s dirbuild OK (%s)\n",
 	   stamp(),
 	   sp->sr_host->ht_name,
 	   buf);
     if (buf) (void)free(buf);
-    if (sp->sr_pc != pc) {
-	bu_log("unexpected MSG_DIRBUILD_REPLY from fd %d\n", pc->pkc_fd);
-	return;
-    }
     if (sp->sr_state != SRST_DOING_DIRBUILD) {
 	bu_log("MSG_DIRBUILD_REPLY in state %d?\n", sp->sr_state);
 	drop_server(sp, "wrong state");
@@ -3261,16 +3310,17 @@ ph_gettrees_reply(struct pkg_conn *pc, char *buf)
 {
     struct servers *sp;
 
-    sp = &servers[pc->pkc_fd];
+    sp = get_server_by_pc(pc);
+    if (sp == SERVERS_NULL) {
+	bu_log("MSG_GETTREES_REPLY from unknown connection fd %d\n", pc->pkc_fd);
+	if (buf) (void)free(buf);
+	return;
+    }
     bu_log("%s %s gettrees OK (%s)\n",
 	   stamp(),
 	   sp->sr_host->ht_name,
 	   buf);
     if (buf) (void)free(buf);
-    if (sp->sr_pc != pc) {
-	bu_log("unexpected MSG_GETTREES_REPLY from fd %d\n", pc->pkc_fd);
-	return;
-    }
     if (sp->sr_state != SRST_DOING_GETTREES) {
 	bu_log("MSG_GETTREES_REPLY in state %s?\n",
 	       state_to_string(sp->sr_state));
@@ -3285,9 +3335,11 @@ static void
 ph_print(struct pkg_conn *pc, char *buf)
 {
     if (print_on) {
+	struct servers *sp = get_server_by_pc(pc);
+	const char *name = (sp && sp->sr_host) ? sp->sr_host->ht_name : "(unknown)";
 	bu_log("%s %s: %s",
 	       stamp(),
-	       servers[pc->pkc_fd].sr_host->ht_name,
+	       name,
 	       buf);
 	if (buf[strlen(buf)-1] != '\n')
 	    bu_log("\n");
@@ -3303,7 +3355,12 @@ ph_version(struct pkg_conn *pc, char *buf)
     const char *tok_prefix;
     const char *recv_token = NULL;
 
-    sp = &servers[pc->pkc_fd];
+    sp = get_server_by_pc(pc);
+    if (sp == SERVERS_NULL) {
+	bu_log("MSG_VERSION from unknown connection fd %d\n", pc->pkc_fd);
+	if (buf) (void)free(buf);
+	return;
+    }
 
     /* Check protocol version (must be exact prefix match) */
     if (bu_strncmp(PROTOCOL_VERSION, buf, strlen(PROTOCOL_VERSION)) != 0) {
@@ -3359,7 +3416,13 @@ ph_cmd(struct pkg_conn *pc, char *buf)
 {
     struct servers *sp;
 
-    sp = &servers[pc->pkc_fd];
+    sp = get_server_by_pc(pc);
+    if (sp == SERVERS_NULL) {
+	bu_log("MSG_CMD from unknown connection fd %d: '%s'\n", pc->pkc_fd, buf);
+	(void)rt_do_cmd((struct rt_i *)0, buf, cmd_tab);
+	if (buf) (void)free(buf);
+	return;
+    }
     bu_log("%s %s: cmd '%s'\n", stamp(), sp->sr_host->ht_name, buf);
     (void)rt_do_cmd((struct rt_i *)0, buf, cmd_tab);
     if (buf) (void)free(buf);
@@ -3386,7 +3449,12 @@ ph_pixels(struct pkg_conn *pc, char *buf)
 
     (void)gettimeofday(&tvnow, (struct timezone *)0);
 
-    sp = &servers[pc->pkc_fd];
+    sp = get_server_by_pc(pc);
+    if (sp == SERVERS_NULL) {
+	bu_log("%s Ignoring MSG_PIXELS from unknown connection fd %d\n",
+	       stamp(), pc->pkc_fd);
+	goto out;
+    }
     if (sp->sr_state != SRST_READY && sp->sr_state != SRST_NEED_TREE &&
 	sp->sr_state != SRST_DOING_GETTREES) {
 	bu_log("%s Ignoring MSG_PIXELS from %s\n",
