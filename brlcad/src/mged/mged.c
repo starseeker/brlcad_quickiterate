@@ -1322,15 +1322,21 @@ stdin_input(ClientData clientData, int UNUSED(mask))
 	}
 
 	/* If a GED command is already executing in a worker thread, consume the
-	 * line but buffer it into input_str so the user does not need to retype
-	 * their (potentially complex) command.  Print a brief notice, re-show
-	 * the prompt, then re-echo whatever is now in input_str so the cursor
-	 * is left at the correct position after the partially-typed input. */
+	 * line so the channel does not remain readable, but replace input_str
+	 * with it (rather than appending) so the user sees only their latest
+	 * pending command, not a concatenation of all commands typed while
+	 * the previous one was running.  Print a brief notice, re-show the
+	 * prompt, then re-echo input_str so the user can see what they had
+	 * typed and press Enter again once the running command finishes. */
 	if (s->cmd_running) {
-	    /* Append this line (without the trailing newline Tcl_Gets strips) to
-	     * whatever the user may already have accumulated in input_str. */
-	    if (Tcl_DStringLength(&ds) > 0)
+	    /* Replace (not append) so only the most-recently typed pending
+	     * command is kept.  If the new line is empty, keep whatever is
+	     * already in input_str unchanged so existing partial input is
+	     * preserved. */
+	    if (Tcl_DStringLength(&ds) > 0) {
+		bu_vls_trunc(&s->input_str, 0);
 		bu_vls_strcat(&s->input_str, Tcl_DStringValue(&ds));
+	    }
 	    Tcl_DStringFree(&ds);
 	    s->input_str_index = bu_vls_strlen(&s->input_str);
 
