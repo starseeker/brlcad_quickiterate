@@ -286,7 +286,15 @@ namespace gte
             // Tolerance: 1e-8 for double; for float-precision Real, 1e-6 would be
             // more appropriate.  Using 1e-8 as a conservative default suitable for
             // both since float accuracy is limited to ~7 decimal digits.
-            uint32_t maxIter = static_cast<uint32_t>(numInterior) * 20u;
+            //
+            // maxIter = 20 * numInterior: the cotangent-Laplacian system is
+            // positive-definite so CG converges in at most numInterior steps in
+            // exact arithmetic.  A factor of 20 provides headroom for finite
+            // precision while keeping the worst case manageable.  In practice
+            // the mesh-repair call site uses boundary-only holes (numInterior == 0),
+            // so this solver path is only exercised by the full Parameterize() API.
+            static constexpr uint32_t kCGIterMultiplier = 20u;
+            uint32_t maxIter = static_cast<uint32_t>(numInterior) * kCGIterMultiplier;
             Real const cgTolerance = static_cast<Real>(1e-8);
 
             std::vector<Real> xu(static_cast<size_t>(numInterior), static_cast<Real>(0));

@@ -360,7 +360,7 @@ namespace gte
                         int32_t j = sortedIdx[static_cast<size_t>(sj)];
                         Real dx = vertices[static_cast<size_t>(j)][0]
                                 - vertices[static_cast<size_t>(i)][0];
-                        if (dx >= epsilon) { break; }  // all further j are farther in x
+                        if (dx > epsilon) { break; }  // all further j are strictly farther in x
                         Real dy = vertices[static_cast<size_t>(i)][1]
                                 - vertices[static_cast<size_t>(j)][1];
                         Real dz = vertices[static_cast<size_t>(i)][2]
