@@ -162,6 +162,11 @@ static char srv_auth_token[REMRT_AUTH_TOKEN_LEN + 1] = {0};
 
 char srv_usage[] = "Usage: rtsrv [-d] [-S token] control-host tcp-port [cmd]\n";
 
+/* forward declarations for log/bomb hook helpers defined later in this file */
+static int rtsrv_log_hook(void *clientdata, void *str);
+static int rtsrv_bomb_hook(void *clientdata, void *str);
+static void rtsrv_install_log_hook(void);
+
 
 int
 main(int argc, char **argv)
@@ -241,6 +246,11 @@ main(int argc, char **argv)
 	}
     }
 #endif
+
+    /* Redirect bu_log() and bu_bomb() through the package connection so
+     * all log output is forwarded to the remrt dispatcher instead of
+     * going to stderr.  Must be done after pcsrv is open. */
+    rtsrv_install_log_hook();
 
     if (argc == 4) {
 	/* Slip one command to dispatcher */
@@ -846,96 +856,79 @@ ph_loglvl(struct pkg_conn *UNUSED(pc), char *buf)
 }
 
 
-/**** Other replacement routines from libbu/log.c ****/
-int bu_log_indent_cur_level = 0; /* formerly RTG.rtg_logindent */
 /*
- * Change indent level by indicated number of characters.  Call with a
- * large negative number to cancel all indentation.
+ * bu_log hook: forwards formatted log strings to the remrt dispatcher
+ * over the package connection.  Replaces the old bu_log() override that
+ * caused LNK2005 multiply-defined-symbol errors on Windows (where the
+ * DLL export from libbu cannot be silently overridden by an object file).
  */
-void
-bu_log_indent_delta(int delta)
+static int
+rtsrv_log_hook(void *clientdata, void *str)
 {
-    if ((bu_log_indent_cur_level += delta) < 0)
-	bu_log_indent_cur_level = 0;
-}
-
-
-/*
- * For multi-line vls generators, honor logindent level like bu_log()
- * does, and prefix the proper number of spaces.  Should be called at
- * the front of each new line.
- */
-void
-bu_log_indent_vls(struct bu_vls *v)
-{
-    bu_vls_spaces(v, bu_log_indent_cur_level);
-}
-
-
-/*
- * Log an error.  This version buffers a full line, to save network
- * traffic.
- */
-int
-bu_log(const char *fmt, ...)
-{
-    va_list vap;
-    char buf[512];		/* a generous output line.  Must be AUTO, else non-PARALLEL. */
-    int ret = 0;
+    int ret;
+    (void)clientdata;
 
     if (print_on == 0)
 	return 0;
 
-    bu_semaphore_acquire(BU_SEM_SYSCALL);
-    va_start(vap, fmt);
-    ret = vsprintf(buf, fmt, vap);
-    va_end(vap);
-
     if (pcsrv == PKC_NULL || pcsrv == PKC_ERROR) {
-	fprintf(stderr, "%s", buf);
-	bu_semaphore_release(BU_SEM_SYSCALL);
-	return ret;
+	fprintf(stderr, "%s", (const char *)str);
+	return 0;
     }
 
     if (debug)
-	fprintf(stderr, "%s", buf);
+	fprintf(stderr, "%s", (const char *)str);
 
-    ret = pkg_send(MSG_PRINT, buf, strlen(buf)+1, pcsrv);
+    ret = pkg_send(MSG_PRINT, (const char *)str, strlen((const char *)str)+1, pcsrv);
     if (ret < 0) {
 	fprintf(stderr, "pkg_send MSG_PRINT failed\n");
 	bu_exit(12, NULL);
     }
-
-    bu_semaphore_release(BU_SEM_SYSCALL);
-    return ret;
+    return 0;
 }
 
 
-/* override libbu's bu_bomb() function.
- *
- * FIXME: should register a bu_bomb() handler instead of this hack.
+/*
+ * bu_bomb hook: forwards the bomb string to the remrt dispatcher before
+ * bu_bomb() terminates the process.
  */
-void
-bu_bomb(const char *str)
+static int
+rtsrv_bomb_hook(void *clientdata, void *str)
 {
-    char *bomb = "RTSRV terminated by bu_bomb()\n";
+    static const char *bomb_msg = "RTSRV terminated by bu_bomb()\n";
     int ret;
+    (void)clientdata;
 
-    ret = pkg_send(MSG_PRINT, (char *)str, strlen(str)+1, pcsrv);
-    if (ret < 0) {
-	fprintf(stderr, "bu_bomb MSG_PRINT failed\n");
-    }
+    if (pcsrv != PKC_NULL && pcsrv != PKC_ERROR) {
+	ret = pkg_send(MSG_PRINT, (const char *)str, strlen((const char *)str)+1, pcsrv);
+	if (ret < 0)
+	    fprintf(stderr, "bu_bomb MSG_PRINT failed\n");
 
-    ret = pkg_send(MSG_PRINT, bomb, strlen(bomb)+1, pcsrv);
-    if (ret < 0) {
-	fprintf(stderr, "bu_bomb MSG_PRINT failed\n");
+	ret = pkg_send(MSG_PRINT, bomb_msg, strlen(bomb_msg)+1, pcsrv);
+	if (ret < 0)
+	    fprintf(stderr, "bu_bomb MSG_PRINT failed\n");
     }
 
     if (debug)
-	fprintf(stderr, "\n%s\n", str);
+	fprintf(stderr, "\n%s\n", (const char *)str);
     fflush(stderr);
 
-    bu_exit(12, NULL);
+    /* bu_bomb() will terminate the process after all hooks return */
+    return 0;
+}
+
+
+/*
+ * Install the log and bomb hooks once the package connection (pcsrv) is
+ * open.  This suppresses the default stderr output from bu_log() so that
+ * all logging goes over the network to the remrt dispatcher instead.
+ */
+static void
+rtsrv_install_log_hook(void)
+{
+    bu_log_hook_delete_all();
+    bu_log_add_hook(rtsrv_log_hook, NULL);
+    bu_bomb_add_hook(rtsrv_bomb_hook, NULL);
 }
 
 
