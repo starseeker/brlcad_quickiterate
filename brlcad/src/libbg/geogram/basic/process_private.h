@@ -50,10 +50,6 @@
 
 namespace GEOBRL {
     namespace Process {
-        bool os_init_threads();
-
-        index_t os_number_of_cores();
-
         size_t os_used_memory();
 
         size_t os_max_used_memory();

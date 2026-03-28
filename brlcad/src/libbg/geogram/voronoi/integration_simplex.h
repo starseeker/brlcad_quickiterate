@@ -42,10 +42,9 @@
 
 #include <geogram/basic/geogram_common.h>
 #include <geogram/basic/numeric.h>
-#include <geogram/basic/counted.h>
-#include <geogram/basic/smart_pointer.h>
 #include <geogram/basic/geometry.h>
 #include <geogram/basic/thread_sync.h>
+#include <memory>
 
 /**
  * \file geogram/voronoi/integration_simplex.h
@@ -69,14 +68,14 @@ namespace GEOBRL {
      *  an objective function. Sub-classing this class makes it possible
      *  to define new objective functions.
      */
-    class GEOBRLCAD_API IntegrationSimplex : public Counted {
+    class GEOBRLCAD_API IntegrationSimplex {
 
     public:
 
         /**
          * \brief IntegrationSimplex destructor.
          */
-        ~IntegrationSimplex() override;
+        virtual ~IntegrationSimplex();
 
         /**
          * \brief Computes the contribution of a given integration
@@ -241,8 +240,7 @@ namespace GEOBRL {
         bool varying_background_;
     };
 
-    typedef SmartPointer<IntegrationSimplex>
-    IntegrationSimplex_var;
+    using IntegrationSimplex_var = std::shared_ptr<IntegrationSimplex>;
 
 }
 

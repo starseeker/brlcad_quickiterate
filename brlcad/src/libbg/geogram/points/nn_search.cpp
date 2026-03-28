@@ -117,7 +117,7 @@ namespace GEOBRL {
     NearestNeighborSearch::~NearestNeighborSearch() {
     }
 
-    NearestNeighborSearch* NearestNeighborSearch::create(
+    std::shared_ptr<NearestNeighborSearch> NearestNeighborSearch::create(
         coord_index_t dimension,
         const std::string& name_in,
         const GeoOptions& opts
@@ -138,7 +138,7 @@ namespace GEOBRL {
         NearestNeighborSearch* nns =
             NearestNeighborSearchFactory::create_object(name, dimension);
         if(nns != nullptr) {
-            return nns;
+            return std::shared_ptr<NearestNeighborSearch>(nns);
         }
 
         Logger::warn("NNSearch")
@@ -147,6 +147,7 @@ namespace GEOBRL {
             << "Falling back to BNN"
             << std::endl;
 
-        return new BalancedKdTree(dimension);
+        NearestNeighborSearch* fallback = new BalancedKdTree(dimension);
+        return std::shared_ptr<NearestNeighborSearch>(fallback);
     }
 }

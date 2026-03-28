@@ -42,8 +42,7 @@
 
 #include <geogram/basic/geogram_common.h>
 #include <geogram/basic/logger.h>
-#include <geogram/basic/counted.h>
-#include <geogram/basic/smart_pointer.h>
+#include <memory>
 
 /**
  * \file geogram/basic/progress.h
@@ -73,7 +72,7 @@ namespace GEOBRL {
      * \see Progress
      * \see ProgressTask
      */
-    class GEOBRLCAD_API ProgressClient : public Counted {
+    class GEOBRLCAD_API ProgressClient {
     public:
         /**
          * \brief Starts listening progress
@@ -107,13 +106,12 @@ namespace GEOBRL {
          */
         virtual void end(bool canceled) = 0;
 
-    protected:
         /** ProgressClient destructor */
-        ~ProgressClient() override;
+        virtual ~ProgressClient();
     };
 
     /** Smart pointer that contains a ProgressClient object */
-    typedef SmartPointer<ProgressClient> ProgressClient_var;
+    using ProgressClient_var = std::shared_ptr<ProgressClient>;
 
     /************************************************************************/
 

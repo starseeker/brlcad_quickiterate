@@ -134,7 +134,7 @@ namespace GEOBRL {
 #endif
     }
 
-    Delaunay* Delaunay::create(
+    std::shared_ptr<Delaunay> Delaunay::create(
         coord_index_t dim,
         const std::string& name_in,
         const GeoOptions& opts
@@ -175,7 +175,7 @@ namespace GEOBRL {
         if(result != nullptr) {
             result->apply_options(opts);
         }
-        return result;
+        return std::shared_ptr<Delaunay>(result);
     }
 
     Delaunay::Delaunay(coord_index_t dimension) {

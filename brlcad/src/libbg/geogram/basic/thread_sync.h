@@ -52,14 +52,8 @@
 #include <vector>
 #include <atomic>
 
-// On Windows/MSCV, we need to use a special implementation
-// of spinlocks because std::atomic_flag in MSVC's stl does
-// not fully implement the norm (lacks a constructor).
 #ifdef GEOBRL_OS_WINDOWS
 #include <windows.h>
-#include <intrin.h>
-#pragma intrinsic(_InterlockedCompareExchange16)
-#pragma intrinsic(_WriteBarrier)
 #endif
 
 // On MacOS, I get many warnings with atomic_flag initialization,
@@ -88,56 +82,13 @@ inline void geo_pause() {
 
 /*******************************************************************************/
 
-#ifdef GEOBRL_OS_WINDOWS
-
-// Windows-specific spinlock implementation.
-// I'd have prefered to use std::atomic_flag for everybody,
-// unfortunately atomic_flag's constructor is not implemented in MSCV's stl,
-// so we reimplement them using atomic compare-exchange functions...
-
-namespace GEOBRL {
-    namespace Process {
-        /** A lightweight synchronization structure. */
-        typedef short spinlock;
-
-        /** The initialization value of a spin lock. */
-#       define GEOBRLCAD_SPINLOCK_INIT 0
-        inline void acquire_spinlock(volatile spinlock& x) {
-            while(_InterlockedCompareExchange16(&x, 1, 0) == 1) {
-                // Intel recommends to have a PAUSE asm instruction
-                // in the spinlock loop. Under MSVC/Windows,
-                // YieldProcessor() is a macro that calls the
-                // (undocumented) _mm_pause() intrinsic function
-                // that generates a PAUSE opcode.
-                YieldProcessor();
-            }
-            // We do not need _ReadBarrier() here since
-            // _InterlockedCompareExchange16
-            // "acts as a full barrier in VC2005" according to the doc
-        }
-
-        inline void release_spinlock(volatile spinlock& x) {
-            _WriteBarrier(); // prevents compiler reordering
-            x = 0;
-        }
-
-    }
-}
-
-/*******************************************************************************/
-
-#else
-
 namespace GEOBRL {
     namespace Process {
 
         /** The initialization value of a spinlock. */
-        // Note: C++20 does not need it anymore, in C++20
-        // std::atomic_flag's constructor initializes it,
-        // we keep it because
-        // - we are using C++17
-        // - the Windows implementation that uses integers rather than
-        //   std::atomic_flag needs an initialization value.
+        // Note: C++20 does not need it anymore; in C++20 std::atomic_flag's
+        // constructor initializes it.  We keep GEOBRLCAD_SPINLOCK_INIT for
+        // C++17 compatibility.
 #define GEOBRLCAD_SPINLOCK_INIT ATOMIC_FLAG_INIT
 
         /**
@@ -176,7 +127,6 @@ namespace GEOBRL {
 
     }
 }
-#endif
 
 /****************************************************************************/
 

@@ -43,13 +43,14 @@
 #ifdef __cplusplus
 
 #include <geogram/basic/geogram_common.h>
-#include <geogram/basic/counted.h>
 #include <geogram/basic/process.h>
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <string>
 #include <set>
+#include <map>
+#include <memory>
 #include <stdlib.h>
 
 /**
@@ -153,7 +154,7 @@ namespace GEOBRL {
      * It is the responsibility of the derived LoggerClient%s to handle the
      * various kind of messages sent by the Logger appropriately.
      */
-    class GEOBRLCAD_API LoggerClient : public Counted {
+    class GEOBRLCAD_API LoggerClient {
     public:
         /**
          * \brief Creates a new division
@@ -189,11 +190,11 @@ namespace GEOBRL {
         /**
          * \brief LoggerClient destructor
          */
-        ~LoggerClient() override;
+        virtual ~LoggerClient();
     };
 
     /** Smart pointer that contains a LoggerClient object */
-    typedef SmartPointer<LoggerClient> LoggerClient_var;
+    using LoggerClient_var = std::shared_ptr<LoggerClient>;
 
     /************************************************************************/
 
@@ -288,7 +289,7 @@ namespace GEOBRL {
      * to \c true, which disables all messages, warnings and errors included
      * (set set_quiet()).
      */
-    class GEOBRLCAD_API Logger : public Counted {
+    class GEOBRLCAD_API Logger {
     public:
         /**
          * \brief Initializes the logging system
@@ -490,6 +491,11 @@ namespace GEOBRL {
             return pretty_;
         }
 
+        /**
+         * \brief Logger destructor
+         */
+        virtual ~Logger();
+
     protected:
         /**
          * \brief Logger default constructor
@@ -497,11 +503,6 @@ namespace GEOBRL {
          * to initialize().
          */
         Logger();
-
-        /**
-         * \brief Logger destructor
-         */
-        ~Logger() override;
 
         /** \copydoc div() */
         std::ostream& div_stream(const std::string& title);
@@ -590,7 +591,7 @@ namespace GEOBRL {
         void notify_status(const std::string& message);
 
     private:
-        static SmartPointer<Logger> instance_;
+        static std::shared_ptr<Logger> instance_;
 
         LoggerStream out_;
         LoggerStream warn_;
@@ -611,8 +612,8 @@ namespace GEOBRL {
         std::string current_feature_;
         bool current_feature_changed_;
 
-        /** Set of registered LoggerClient%s */
-        typedef std::set<LoggerClient_var> LoggerClients;
+        /** Map of registered LoggerClient%s (raw ptr → shared ownership) */
+        typedef std::map<LoggerClient*, std::shared_ptr<LoggerClient>> LoggerClients;
         LoggerClients clients_; // list of registered clients
 
         bool quiet_;

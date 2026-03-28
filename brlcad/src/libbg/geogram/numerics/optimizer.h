@@ -42,10 +42,9 @@
 
 #include <geogram/basic/geogram_common.h>
 #include <geogram/basic/numeric.h>
-#include <geogram/basic/smart_pointer.h>
-#include <geogram/basic/counted.h>
 #include <geogram/basic/assert.h>
 #include <geogram/basic/factory.h>
+#include <memory>
 
 class HESSIAN_MATRIX;
 
@@ -74,7 +73,7 @@ namespace GEOBRL {
      * \see OptimizerFactory
      * \see geo_register_Optimizer_creator
      */
-    class GEOBRLCAD_API Optimizer : public Counted {
+    class GEOBRLCAD_API Optimizer {
     public:
         /**
          * \brief Optimizer callback that evaluates a function
@@ -118,7 +117,7 @@ namespace GEOBRL {
          * Optimizer_var optimizer = Optimizer::create("HLBFGS") ;
          * \endcode
          */
-        static Optimizer* create(const std::string& name = "default");
+        static std::shared_ptr<Optimizer> create(const std::string& name = "default");
 
         /**
          * \brief Minimizes a function, starting from initial value x.
@@ -227,17 +226,17 @@ namespace GEOBRL {
             verbose_ = verb;
         }
 
+        /**
+         * \brief Optimizer destructor
+         */
+        virtual ~Optimizer();
+
     protected:
         /**
          * \brief Optimizer constructor
          * \details Should never be called directly, use create() instead.
          */
         Optimizer();
-
-        /**
-         * \brief Optimizer destructor
-         */
-        ~Optimizer() override;
 
     protected:
         /** Size of the problem */
@@ -264,7 +263,7 @@ namespace GEOBRL {
      * \brief Smart pointer that contains an Optimizer object
      * \relates Optimizer
      */
-    typedef SmartPointer<Optimizer> Optimizer_var;
+    using Optimizer_var = std::shared_ptr<Optimizer>;
 
     /**
      * \brief Optimizer Factory

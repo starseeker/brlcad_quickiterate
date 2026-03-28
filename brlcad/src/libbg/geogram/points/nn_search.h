@@ -42,9 +42,8 @@
 
 #include <geogram/basic/geogram_common.h>
 #include <geogram/basic/numeric.h>
-#include <geogram/basic/smart_pointer.h>
-#include <geogram/basic/counted.h>
 #include <geogram/basic/factory.h>
+#include <memory>
 
 /**
  * \file geogram/points/nn_search.h
@@ -66,7 +65,7 @@ namespace GEOBRL {
      * \see NearestNeighborSearchFactory
      * \see geo_register_NearestNeighborSearch_creator
      */
-    class GEOBRLCAD_API NearestNeighborSearch : public Counted {
+    class GEOBRLCAD_API NearestNeighborSearch {
     public:
         /**
          * \brief Creates a new search algorithm
@@ -84,7 +83,7 @@ namespace GEOBRL {
          *     NearestNeighborSearch::create(3, "ANN");
          * \endcode
          */
-        static NearestNeighborSearch* create(
+        static std::shared_ptr<NearestNeighborSearch> create(
             coord_index_t dimension,
             const std::string& name,
             const GeoOptions& opts
@@ -93,7 +92,7 @@ namespace GEOBRL {
         /**
          * \brief Creates a NearestNeighborSearch with default algorithm.
          */
-        static NearestNeighborSearch* create(
+        static std::shared_ptr<NearestNeighborSearch> create(
             coord_index_t dimension,
             const GeoOptions& opts
         ) {
@@ -253,17 +252,17 @@ namespace GEOBRL {
          */
         virtual void set_exact(bool x);
 
+        /**
+         * \brief NearestNeighborSearch destructor
+         */
+        virtual ~NearestNeighborSearch();
+
     protected:
         /**
          * \brief Constructs a NearestNeighborSearch.
          * \param[in] dimension dimension of the points
          */
         NearestNeighborSearch(coord_index_t dimension);
-
-        /**
-         * \brief NearestNeighborSearch destructor
-         */
-        ~NearestNeighborSearch() override;
 
     protected:
         coord_index_t dimension_;
@@ -277,7 +276,7 @@ namespace GEOBRL {
      * \brief A smart pointer that contains a NearestNeighborSearch object.
      * \relates NearestNeighborSearch
      */
-    typedef SmartPointer<NearestNeighborSearch> NearestNeighborSearch_var;
+    using NearestNeighborSearch_var = std::shared_ptr<NearestNeighborSearch>;
 
     /**
      * \brief NearestNeighborSearch Factory

@@ -65,7 +65,7 @@ namespace GEOBRL {
         geo_assert(index_t(dimension_) <= mesh->vertices.dimension());
         is_projection_ = true;
         delaunay_ = Delaunay::create(dimension_, delaunay, opts_);
-        RVD_ = RestrictedVoronoiDiagram::create(delaunay_, mesh, opts_);
+        RVD_ = RestrictedVoronoiDiagram::create(delaunay_.get(), mesh, opts_);
         mesh_ = mesh;
         geo_assert(instance_ == nullptr);
         instance_ = this;
@@ -87,10 +87,10 @@ namespace GEOBRL {
         is_projection_ = (R3_embedding.size() == 0);
         delaunay_ = Delaunay::create(dimension_, delaunay, opts_);
         if(is_projection_) {
-            RVD_ = RestrictedVoronoiDiagram::create(delaunay_, mesh, opts_);
+            RVD_ = RestrictedVoronoiDiagram::create(delaunay_.get(), mesh, opts_);
         } else {
             RVD_ = RestrictedVoronoiDiagram::create(
-                delaunay_, mesh, R3_embedding, opts_
+                delaunay_.get(), mesh, R3_embedding, opts_
             );
         }
         mesh_ = mesh;
@@ -270,7 +270,7 @@ namespace GEOBRL {
         index_t nb_iter, index_t m
     ) {
         Optimizer_var optimizer = Optimizer::create("HLBFGS");
-        if(optimizer.is_null()) {
+        if(!optimizer) {
             Logger::warn("CVT") << "This geogram was not compiled with HLBFGS"
                                 << " (falling back to Lloyd iterations)"
                                 << std::endl;
@@ -324,9 +324,9 @@ namespace GEOBRL {
         delaunay_->set_vertices(nb_points, x);
         Memory::clear(g, n * sizeof(double));
         f = 0.0;
-        if(!simplex_func_.is_null()) {
+        if(simplex_func_) {
             RVD_->compute_integration_simplex_func_grad(
-                f,g,simplex_func_
+                f,g,simplex_func_.get()
             );
         } else {
             RVD_->compute_CVT_func_grad(f, g);

@@ -43,6 +43,7 @@
 #include <geogram/basic/geogram_common.h>
 #include <geogram/basic/numeric.h>
 #include <geogram/basic/assert.h>
+#include <geogram/basic/memory.h>
 #include <geogram/basic/process.h>
 
 /**

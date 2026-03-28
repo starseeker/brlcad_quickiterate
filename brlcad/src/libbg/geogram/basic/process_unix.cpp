@@ -313,17 +313,8 @@ namespace GEOBRL {
 
     namespace Process {
 
-        bool os_init_threads() {
-            // Thread management is handled by CXX17ThreadManager in process.cpp
-            return false;
-        }
-
         void os_brute_force_kill() {
             kill(getpid(), SIGKILL);
-        }
-
-        index_t os_number_of_cores() {
-            return index_t(sysconf(_SC_NPROCESSORS_ONLN));
         }
 
         size_t os_used_memory() {

@@ -206,7 +206,7 @@ namespace GEOBRL {
                 geo_assert(already_registered_attribute_has_same_type);
             }
         }
-        type_name_to_creator_[element_type_name] = creator;
+        type_name_to_creator_[element_type_name] = AttributeStoreCreator_var(creator);
         typeid_name_to_type_name_[element_typeid_name] = element_type_name;
         type_name_to_typeid_name_[element_type_name] = element_typeid_name;
     }
