@@ -4,6 +4,8 @@
 # compute_normals, remesh_smooth
 # Extracted from geogram/src/lib/geogram/
 
+find_package_gte(REQUIRED)
+
 set(GEOGRAM_SRCS
     # basic infrastructure
     basic/assert.cpp
