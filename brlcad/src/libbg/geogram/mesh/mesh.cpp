@@ -41,7 +41,6 @@
 #include <geogram/basic/permutation.h>
 #include <geogram/basic/logger.h>
 #include <geogram/basic/algorithm.h>
-#include <geogram/basic/string.h>
 
 namespace GEOBRL {
 
@@ -2039,7 +2038,7 @@ namespace GEOBRL {
                     subelements.attributes().find_attribute_store(names[i]);
                 index_t dim = store->dimension();
                 if(dim != 1) {
-                    names_str += ("[" + String::to_string(dim) + "]");
+                    names_str += ("[" + std::to_string(dim) + "]");
                 }
             }
             Logger::out(tag) << "Attributes on " << subelement_name
@@ -2238,7 +2237,7 @@ namespace GEOBRL {
             );
             attribute_name = attribute_name.substr(0, pos2);
             try {
-                component = String::to_uint(component_str);
+                component = static_cast<index_t>(std::stoul(component_str));
             } catch(...) {
                 return false;
             }
@@ -2289,7 +2288,7 @@ namespace {
                         }
                         result +=
                             prefix + "." + attribute_names[i] +
-                            "[" + String::to_string(j) + "]";
+                            "[" + std::to_string(j) + "]";
                     }
                 }
             }

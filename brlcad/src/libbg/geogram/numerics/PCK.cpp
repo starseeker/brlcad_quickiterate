@@ -38,8 +38,8 @@
  */
 
 #include <geogram/numerics/PCK.h>
-#include <geogram/basic/string.h>
 #include <vector>
+#include <cstdio>
 #include <algorithm>
 
 namespace {
@@ -97,34 +97,37 @@ namespace GEOBRL {
             Logger::out("PCK stats") << "Predicate stats for: "
                                      << name_ << std::endl;
 
-            Logger::out("PCK stats")
-                << String::format("   invocations : %12ld",
-                                  Numeric::int64(invoke_count_))
-                << std::endl;
+            {
+                char buf[128];
+                std::snprintf(buf, sizeof(buf), "   invocations : %12lld",
+                    (long long)invoke_count_);
+                Logger::out("PCK stats") << buf << std::endl;
+            }
 
             Numeric::int64 filter_hit_count = invoke_count_ - exact_count_;
 
-            Logger::out("PCK stats")
-                << String::format("    filter hit : %12ld (%3.2f %%)",
-                                  Numeric::int64(filter_hit_count),
-                                  percent(filter_hit_count, invoke_count_)
-                                 )
-                << std::endl;
+            {
+                char buf[128];
+                std::snprintf(buf, sizeof(buf), "    filter hit : %12lld (%3.2f %%)",
+                    (long long)filter_hit_count,
+                    percent(filter_hit_count, invoke_count_));
+                Logger::out("PCK stats") << buf << std::endl;
+            }
 
-            Logger::out("PCK stats")
-                << String::format("         exact : %12ld (%3.2f %%)",
-                                  Numeric::int64(exact_count_),
-                                  percent(exact_count_, invoke_count_)
-                                 )
-                << std::endl;
+            {
+                char buf[128];
+                std::snprintf(buf, sizeof(buf), "         exact : %12lld (%3.2f %%)",
+                    (long long)exact_count_,
+                    percent(exact_count_, invoke_count_));
+                Logger::out("PCK stats") << buf << std::endl;
+            }
 
             if(SOS_count_ != 0 || strstr(name_, "SOS") != nullptr) {
-                Logger::out("PCK stats")
-                    << String::format("           SOS : %12ld (%3.2f %%)",
-                                      Numeric::int64(SOS_count_),
-                                      percent(SOS_count_, invoke_count_)
-                                     )
-                    << std::endl;
+                char buf[128];
+                std::snprintf(buf, sizeof(buf), "           SOS : %12lld (%3.2f %%)",
+                    (long long)SOS_count_,
+                    percent(SOS_count_, invoke_count_));
+                Logger::out("PCK stats") << buf << std::endl;
             }
             Logger::out("PCK stats") << std::endl;
         }

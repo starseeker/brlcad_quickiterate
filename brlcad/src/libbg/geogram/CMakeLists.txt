@@ -18,7 +18,6 @@ set(GEOGRAM_SRCS
     basic/process.cpp
     basic/process_unix.cpp
     basic/progress.cpp
-    basic/string.cpp
     # numerics
     numerics/PCK.cpp
     numerics/multi_precision.cpp
