@@ -734,11 +734,11 @@ namespace GEOBRL {
          *  that corresponds to the vertex
          * \pre !single_precision()
          */
-        template<index_t DIM=3> vecng<DIM,double>& point(index_t v) {
+        template<index_t DIM=3> gte::Vector<int32_t(DIM),double>& point(index_t v) {
             geo_debug_assert(v < nb());
             geo_debug_assert(!single_precision());
             geo_debug_assert(dimension() >= DIM);
-            return *reinterpret_cast<vecng<DIM,double>*>(
+            return *reinterpret_cast<gte::Vector<int32_t(DIM),double>*>(
 		&point_[v*point_.dimension()]
 	    );
         }
@@ -750,13 +750,13 @@ namespace GEOBRL {
          *  that corresponds to the vertex
          * \pre !single_precision()
          */
-        template <index_t DIM=3> const vecng<DIM,double>& point(
+        template <index_t DIM=3> const gte::Vector<int32_t(DIM),double>& point(
 	    index_t v
 	) const {
             geo_debug_assert(v < nb());
             geo_debug_assert(!single_precision());
             geo_debug_assert(dimension() >= DIM);
-            return *reinterpret_cast<const vecng<DIM,double>*>(
+            return *reinterpret_cast<const gte::Vector<int32_t(DIM),double>*>(
 		&point_[v*point_.dimension()]
 	    );
         }
@@ -1286,7 +1286,7 @@ namespace GEOBRL {
 	 * \return a reference to the DIM-d point associated with the corner
 	 * \pre vertices.dimension() >= DIM
 	 */
-	template <index_t DIM=3> vecng<DIM,double>& point(index_t c) {
+	template <index_t DIM=3> gte::Vector<int32_t(DIM),double>& point(index_t c) {
 	    geo_debug_assert(c < nb());
 	    return vertices_.point<DIM>(vertex(c));
 	}
@@ -1298,7 +1298,7 @@ namespace GEOBRL {
 	 *  the corner
 	 * \pre vertices.dimension() >= DIM
 	 */
-	template <index_t DIM=3> const vecng<DIM,double>& point(
+	template <index_t DIM=3> const gte::Vector<int32_t(DIM),double>& point(
 	    index_t c
 	) const {
 	    geo_debug_assert(c < nb());
@@ -1392,7 +1392,7 @@ namespace GEOBRL {
 	 *   the \p lv%th vertex of facet \p f
          * \pre lv < nb_vertices(f)
          */
-	template <index_t DIM=3> const vecng<DIM,double>& point(
+	template <index_t DIM=3> const gte::Vector<int32_t(DIM),double>& point(
 	    index_t f, index_t lv
 	) const {
 	    return vertices_.point<DIM>(vertex(f,lv));
@@ -1406,7 +1406,7 @@ namespace GEOBRL {
 	 *   the \p lv%th vertex of facet \p f
          * \pre lv < nb_vertices(f)
          */
-	template <index_t DIM=3> vecng<DIM,double>& point(
+	template <index_t DIM=3> gte::Vector<int32_t(DIM),double>& point(
 	    index_t f, index_t lv
 	) {
 	    return vertices_.point<DIM>(vertex(f,lv));
@@ -2287,7 +2287,7 @@ namespace GEOBRL {
 	 * \return a reference to the DIM-d point associated with the corner
 	 * \pre vertices.dimension() >= DIM
 	 */
-	template <index_t DIM=3> vecng<DIM,double>& point(index_t c) {
+	template <index_t DIM=3> gte::Vector<int32_t(DIM),double>& point(index_t c) {
 	    geo_debug_assert(c < nb());
 	    return vertices_.point<DIM>(vertex(c));
 	}
@@ -2299,7 +2299,7 @@ namespace GEOBRL {
 	 *  the corner
 	 * \pre vertices.dimension() >= DIM
 	 */
-	template <index_t DIM=3> const vecng<DIM,double>& point(
+	template <index_t DIM=3> const gte::Vector<int32_t(DIM),double>& point(
 	    index_t c
 	) const {
 	    geo_debug_assert(c < nb());
@@ -2488,7 +2488,7 @@ namespace GEOBRL {
 	 *   the \p lv%th vertex of cell \p c
          * \pre lv < nb_vertices(c)
          */
-	template <index_t DIM=3> const vecng<DIM,double>& point(
+	template <index_t DIM=3> const gte::Vector<int32_t(DIM),double>& point(
 	    index_t c, index_t lv
 	) const {
 	    return vertices_.point<DIM>(vertex(c,lv));
@@ -2502,7 +2502,7 @@ namespace GEOBRL {
 	 *   the \p lv%th vertex of cell \p c
          * \pre lv < nb_vertices(c)
          */
-	template <index_t DIM=3> vecng<DIM,double>& point(
+	template <index_t DIM=3> gte::Vector<int32_t(DIM),double>& point(
 	    index_t c, index_t lv
 	) {
 	    return vertices_.point<DIM>(vertex(c,lv));
