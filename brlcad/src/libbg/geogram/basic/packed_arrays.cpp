@@ -39,7 +39,6 @@
 
 #include <geogram/basic/packed_arrays.h>
 #include <geogram/basic/logger.h>
-#include <geogram/basic/string.h>
 
 namespace {
 
@@ -54,10 +53,10 @@ namespace {
      */
     std::string percent_str(index_t num, index_t denom) {
         if(denom == 0) {
-            return String::to_string(num);
+            return std::to_string(num);
         }
         double x = double(num) / double(denom) * 100.0;
-        return String::to_string(num) + "(" + String::to_string(x) + "%)";
+        return std::to_string(num) + "(" + std::to_string(x) + "%)";
     }
 }
 

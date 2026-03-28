@@ -40,7 +40,6 @@
 #include <geogram/basic/process.h>
 #include <geogram/basic/process_private.h>
 #include <geogram/basic/logger.h>
-#include <geogram/basic/string.h>
 #include <thread>
 #include <chrono>
 
@@ -118,16 +117,16 @@ namespace GEOBRL {
 
             std::string s;
             if(mem_G != 0) {
-                s += String::to_string(mem_G)+"G ";
+                s += std::to_string(mem_G)+"G ";
             }
             if(mem_M != 0) {
-                s += String::to_string(mem_M)+"M ";
+                s += std::to_string(mem_M)+"M ";
             }
             if(mem_K != 0) {
-                s += String::to_string(mem_K)+"K ";
+                s += std::to_string(mem_K)+"K ";
             }
             if(r != 0) {
-                s += String::to_string(r);
+                s += std::to_string(r);
             }
 
             Logger::out("Process") << "Maximum used memory: "

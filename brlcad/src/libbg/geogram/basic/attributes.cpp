@@ -39,7 +39,6 @@
 
 #include <geogram/basic/attributes.h>
 #include <geogram/basic/permutation.h>
-#include <geogram/basic/string.h>
 #include <geogram/basic/geometry.h>
 #include <algorithm>
 
@@ -466,9 +465,9 @@ namespace GEOBRL {
                 if(pos+2 > name.length()) {
                     result = index_t(-1);
                 } else {
-                    result = String::to_uint(
+                    result = static_cast<index_t>(std::stoul(
                         name.substr(pos+1, name.length()-pos-2)
-                    );
+                    ));
                 }
             } catch(...) {
                 result = index_t(-1);

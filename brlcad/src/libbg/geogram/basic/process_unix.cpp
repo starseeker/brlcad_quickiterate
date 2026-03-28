@@ -49,8 +49,8 @@
 // LineInput: inlined from basic/line_stream.h / line_stream.cpp
 #include <geogram/basic/assert.h>
 #include <geogram/basic/numeric.h>
-#include <geogram/basic/string.h>
 #include <cstring>
+#include <cerrno>
 #include <stdio.h>
 #include <ctype.h>
 
@@ -101,18 +101,33 @@ namespace GEOBRL {
         char* field(index_t i) { geo_assert(i < nb_fields()); return field_[i]; }
         const char* field(index_t i) const { geo_assert(i < nb_fields()); return field_[i]; }
         signed_index_t field_as_int(index_t i) const {
-            signed_index_t result = 0;
-            if(!String::from_string(field(i), result)) conversion_error(i, "integer");
-            return result;
+            errno = 0;
+            char* end;
+            long long v = strtoll(field(i), &end, 10);
+            if(end == field(i) || *end != '\0' || errno != 0 ||
+               v < std::numeric_limits<signed_index_t>::min() ||
+               v > std::numeric_limits<signed_index_t>::max()) {
+                conversion_error(i, "integer");
+            }
+            return static_cast<signed_index_t>(v);
         }
         index_t field_as_uint(index_t i) const {
-            index_t result = 0;
-            if(!String::from_string(field(i), result)) conversion_error(i, "unsigned integer");
-            return result;
+            errno = 0;
+            char* end;
+            unsigned long long v = strtoull(field(i), &end, 10);
+            if(end == field(i) || *end != '\0' || errno != 0 ||
+               v > std::numeric_limits<index_t>::max()) {
+                conversion_error(i, "unsigned integer");
+            }
+            return static_cast<index_t>(v);
         }
         double field_as_double(index_t i) const {
-            double result = 0;
-            if(!String::from_string(field(i), result)) conversion_error(i, "floating point");
+            errno = 0;
+            char* end;
+            double result = strtod(field(i), &end);
+            if(end == field(i) || *end != '\0' || errno != 0) {
+                conversion_error(i, "floating point");
+            }
             return result;
         }
         bool field_matches(index_t i, const char* s) const {
