@@ -51,6 +51,8 @@
 #include <Mathematics/Vector2.h>
 #include <Mathematics/Vector3.h>
 #include <Mathematics/Vector4.h>
+#include <Mathematics/Matrix4x4.h>
+#include <Mathematics/AlignedBox.h>
 
 namespace GEOBRL {
 
@@ -142,19 +144,19 @@ namespace GEOBRL {
      * \brief Represents a 2x2 matrix.
      * \details Syntax is (mostly) compatible with GLSL.
      */
-    typedef Matrix<2, Numeric::float64> mat2;
+    using mat2 = gte::Matrix<2, 2, double>;
 
     /**
      * \brief Represents a 3x3 matrix.
      * \details Syntax is (mostly) compatible with GLSL.
      */
-    typedef Matrix<3, Numeric::float64> mat3;
+    using mat3 = gte::Matrix<3, 3, double>;
 
     /**
      * \brief Represents a 4x4 matrix.
      * \details Syntax is (mostly) compatible with GLSL.
      */
-    typedef Matrix<4, Numeric::float64> mat4;
+    using mat4 = gte::Matrix<4, 4, double>;
 
     /************************************************************************/
 
@@ -741,32 +743,24 @@ namespace GEOBRL {
     /*******************************************************************/
 
     /**
-     * \brief Axis-aligned bounding box.
+     * \brief Axis-aligned bounding box (3D).
+     * \details Uses gte::AlignedBox with min/max as vec3 members.
      */
-    class Box {
-    public:
-        double xyz_min[3];
-        double xyz_max[3];
-
-        /**
-         * \brief Tests whether a box contains a point.
-         * \param[in] b the point
-         * \return true if this box contains \p b, false otherwise
-         */
-        bool contains(const vec3& b) const {
-            for(coord_index_t c = 0; c < 3; ++c) {
-                if(b[c] < xyz_min[c]) {
-                    return false;
-                }
-                if(b[c] > xyz_max[c]) {
-                    return false;
-                }
-            }
-            return true;
-        }
-    };
+    using Box = gte::AlignedBox<3, double>;
 
     typedef Box Box3d;
+
+    /**
+     * \brief Tests whether a Box contains a point.
+     */
+    inline bool contains(const Box& B, const vec3& p) {
+        for(coord_index_t c = 0; c < 3; ++c) {
+            if(p[c] < B.min[c] || p[c] > B.max[c]) {
+                return false;
+            }
+        }
+        return true;
+    }
 
     /**
      * \brief Tests whether two Boxes have a non-empty intersection.
@@ -777,10 +771,10 @@ namespace GEOBRL {
      */
     inline bool bboxes_overlap(const Box& B1, const Box& B2) {
         for(coord_index_t c = 0; c < 3; ++c) {
-            if(B1.xyz_max[c] < B2.xyz_min[c]) {
+            if(B1.max[c] < B2.min[c]) {
                 return false;
             }
-            if(B1.xyz_min[c] > B2.xyz_max[c]) {
+            if(B1.min[c] > B2.max[c]) {
                 return false;
             }
         }
@@ -796,39 +790,30 @@ namespace GEOBRL {
      */
     inline void bbox_union(Box& target, const Box& B1, const Box& B2) {
         for(coord_index_t c = 0; c < 3; ++c) {
-            target.xyz_min[c] = std::min(B1.xyz_min[c], B2.xyz_min[c]);
-            target.xyz_max[c] = std::max(B1.xyz_max[c], B2.xyz_max[c]);
+            target.min[c] = std::min(B1.min[c], B2.min[c]);
+            target.max[c] = std::max(B1.max[c], B2.max[c]);
         }
     }
 
     /*******************************************************************/
 
     /**
-     * \brief Axis-aligned bounding box.
+     * \brief Axis-aligned bounding box (2D).
+     * \details Uses gte::AlignedBox with min/max as vec2 members.
      */
-    class Box2d {
-    public:
-        double xy_min[2];
-        double xy_max[2];
+    using Box2d = gte::AlignedBox<2, double>;
 
-        /**
-         * \brief Tests whether a box contains a point.
-         * \param[in] b the point
-         * \return true if this box contains \p b, false otherwise
-         */
-        bool contains(const vec2& b) const {
-            for(coord_index_t c = 0; c < 2; ++c) {
-                if(b[c] < xy_min[c]) {
-                    return false;
-                }
-                if(b[c] > xy_max[c]) {
-                    return false;
-                }
+    /**
+     * \brief Tests whether a Box2d contains a point.
+     */
+    inline bool contains(const Box2d& B, const vec2& p) {
+        for(coord_index_t c = 0; c < 2; ++c) {
+            if(p[c] < B.min[c] || p[c] > B.max[c]) {
+                return false;
             }
-            return true;
         }
-    };
-
+        return true;
+    }
 
     /**
      * \brief Tests whether two Box2d have a non-empty intersection.
@@ -839,10 +824,10 @@ namespace GEOBRL {
      */
     inline bool bboxes_overlap(const Box2d& B1, const Box2d& B2) {
         for(coord_index_t c = 0; c < 2; ++c) {
-            if(B1.xy_max[c] < B2.xy_min[c]) {
+            if(B1.max[c] < B2.min[c]) {
                 return false;
             }
-            if(B1.xy_min[c] > B2.xy_max[c]) {
+            if(B1.min[c] > B2.max[c]) {
                 return false;
             }
         }
@@ -858,8 +843,8 @@ namespace GEOBRL {
      */
     inline void bbox_union(Box2d& target, const Box2d& B1, const Box2d& B2) {
         for(coord_index_t c = 0; c < 2; ++c) {
-            target.xy_min[c] = std::min(B1.xy_min[c], B2.xy_min[c]);
-            target.xy_max[c] = std::max(B1.xy_max[c], B2.xy_max[c]);
+            target.min[c] = std::min(B1.min[c], B2.min[c]);
+            target.max[c] = std::max(B1.max[c], B2.max[c]);
         }
     }
 
@@ -1016,7 +1001,7 @@ namespace GEOBRL {
      */
     inline mat4 create_translation_matrix(const vec3& T) {
         mat4 result;
-        result.load_identity();
+        result.MakeIdentity();
         result(3,0) = T[0];
         result(3,1) = T[1];
         result(3,2) = T[2];
@@ -1033,7 +1018,7 @@ namespace GEOBRL {
      */
     inline mat4 create_scaling_matrix(double s) {
         mat4 result;
-        result.load_identity();
+        result.MakeIdentity();
         result(0,0) = s;
         result(1,1) = s;
         result(2,2) = s;

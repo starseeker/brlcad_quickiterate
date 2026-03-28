@@ -89,12 +89,12 @@ namespace {
         const vec3& p,
         const Box& B
     ) {
-        geo_debug_assert(B.contains(p));
-        double result = geo_sqr(p[0] - B.xyz_min[0]);
-        result = std::min(result, geo_sqr(p[0] - B.xyz_max[0]));
+        geo_debug_assert(contains(B, p));
+        double result = geo_sqr(p[0] - B.min[0]);
+        result = std::min(result, geo_sqr(p[0] - B.max[0]));
         for(coord_index_t c = 1; c < 3; ++c) {
-            result = std::min(result, geo_sqr(p[c] - B.xyz_min[c]));
-            result = std::min(result, geo_sqr(p[c] - B.xyz_max[c]));
+            result = std::min(result, geo_sqr(p[c] - B.min[c]));
+            result = std::min(result, geo_sqr(p[c] - B.max[c]));
         }
         return result;
     }
@@ -113,12 +113,12 @@ namespace {
         bool inside = true;
         double result = 0.0;
         for(coord_index_t c = 0; c < 3; c++) {
-            if(p[c] < B.xyz_min[c]) {
+            if(p[c] < B.min[c]) {
                 inside = false;
-                result += geo_sqr(p[c] - B.xyz_min[c]);
-            } else if(p[c] > B.xyz_max[c]) {
+                result += geo_sqr(p[c] - B.min[c]);
+            } else if(p[c] > B.max[c]) {
                 inside = false;
-                result += geo_sqr(p[c] - B.xyz_max[c]);
+                result += geo_sqr(p[c] - B.max[c]);
             }
         }
         if(inside) {
@@ -139,7 +139,7 @@ namespace {
     ) {
         double result = 0.0;
         for(coord_index_t c = 0; c < 3; ++c) {
-            double d = p[c] - 0.5 * (B.xyz_min[c] + B.xyz_max[c]);
+            double d = p[c] - 0.5 * (B.min[c] + B.max[c]);
             result += geo_sqr(d);
         }
         return result;
@@ -344,14 +344,14 @@ namespace {
         //   normally the tests with inf do what they should
         //   (to be tested)
 
-        double tx1 = dirinv[0]*(box.xyz_min[0] - q1[0]);
-        double tx2 = dirinv[0]*(box.xyz_max[0] - q1[0]);
+        double tx1 = dirinv[0]*(box.min[0] - q1[0]);
+        double tx2 = dirinv[0]*(box.max[0] - q1[0]);
 
-        double ty1 = dirinv[1]*(box.xyz_min[1] - q1[1]);
-        double ty2 = dirinv[1]*(box.xyz_max[1] - q1[1]);
+        double ty1 = dirinv[1]*(box.min[1] - q1[1]);
+        double ty2 = dirinv[1]*(box.max[1] - q1[1]);
 
-        double tz1 = dirinv[2]*(box.xyz_min[2] - q1[2]);
-        double tz2 = dirinv[2]*(box.xyz_max[2] - q1[2]);
+        double tz1 = dirinv[2]*(box.min[2] - q1[2]);
+        double tz2 = dirinv[2]*(box.max[2] - q1[2]);
 
         // now compute the intersection of the three intervals
         //      Ix /\ Iy /\ Iz
@@ -405,13 +405,13 @@ namespace GEOBRL {
             [this](Box& B, index_t f) {
                 // Get facet bbox
                 for(coord_index_t coord = 0; coord < 3; ++coord) {
-                    B.xyz_min[coord] = Numeric::max_float64();
-                    B.xyz_max[coord] = -Numeric::max_float64();
+                    B.min[coord] = Numeric::max_float64();
+                    B.max[coord] = -Numeric::max_float64();
                 }
 		for(const auto& p: mesh_->facets.points(f)) {
                     for(coord_index_t coord = 0; coord < 3; ++coord) {
-                        B.xyz_min[coord] = std::min(B.xyz_min[coord], p[coord]);
-                        B.xyz_max[coord] = std::max(B.xyz_max[coord], p[coord]);
+                        B.min[coord] = std::min(B.min[coord], p[coord]);
+                        B.max[coord] = std::max(B.max[coord], p[coord]);
                     }
 		}
             }
