@@ -41,11 +41,11 @@
 #define GEOBRLCAD_BASIC_FACTORY
 
 #include <geogram/basic/memory.h>
-#include <geogram/basic/counted.h>
 #include <string>
 #include <map>
 #include <vector>
 #include <typeinfo>
+#include <memory>
 
 /**
  * \file geogram/basic/factory.h
@@ -69,9 +69,11 @@ namespace GEOBRL {
     class GEOBRLCAD_API InstanceRepo {
     public:
     /**
-     * \brief Type of the Instances stored in the repository
+     * \brief Base type of the Instances stored in the repository.
      */
-    typedef Counted Instance;
+    struct GEOBRLCAD_API Instance {
+        virtual ~Instance() = default;
+    };
 
     /**
      * \brief Gets unique instance from the repository

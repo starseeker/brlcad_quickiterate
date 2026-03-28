@@ -51,6 +51,7 @@
 #include <typeinfo>
 #include <set>
 #include <type_traits>
+#include <memory>
 
 /**
  * \file geogram/basic/attributes.h
@@ -176,13 +177,13 @@ namespace GEOBRL {
      * \brief Internal class for creating an AttributeStore
      *  from the type name of its elements.
      */
-    class GEOBRLCAD_API AttributeStoreCreator : public Counted {
+    class GEOBRLCAD_API AttributeStoreCreator {
     public:
 
         /**
          * \brief AttributeStoreCreator destructor.
          */
-        ~AttributeStoreCreator() override;
+        virtual ~AttributeStoreCreator();
 
         /**
          * \brief Creates a new attribute store.
@@ -201,7 +202,7 @@ namespace GEOBRL {
      * \brief An automatic reference-counted pointer to
      *  an AttributeStoreCreator.
      */
-    typedef SmartPointer<AttributeStoreCreator> AttributeStoreCreator_var;
+    using AttributeStoreCreator_var = std::shared_ptr<AttributeStoreCreator>;
 
     /**
      * \brief Notifies a set of AttributeStoreObservers

@@ -207,14 +207,14 @@ namespace GEOBRL {
      * Returns the Delaunay triangulation.
      */
     Delaunay* delaunay() {
-        return delaunay_;
+        return delaunay_.get();
     }
 
     /**
      * Returns the RestrictedVoronoiDiagram.
      */
     RestrictedVoronoiDiagram* RVD() {
-        return RVD_;
+        return RVD_.get();
     }
 
     /**

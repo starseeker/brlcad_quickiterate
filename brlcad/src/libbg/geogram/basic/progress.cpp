@@ -199,7 +199,7 @@ namespace GEOBRL {
         }
 
         void set_client(ProgressClient* client) {
-            progress_client_ = client;
+            progress_client_ = std::shared_ptr<ProgressClient>(client);
         }
 
         const ProgressTask* current_progress_task() {

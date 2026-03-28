@@ -58,7 +58,7 @@ namespace GEOBRL {
     Optimizer::~Optimizer() {
     }
 
-    Optimizer* Optimizer::create(const std::string& name) {
+    std::shared_ptr<Optimizer> Optimizer::create(const std::string& name) {
 
 #ifdef GEOBRLCAD_WITH_HLBFGS
         geo_register_Optimizer_creator(HLBFGSOptimizer, "default");
@@ -69,7 +69,7 @@ namespace GEOBRL {
 #endif
         Optimizer* opt = OptimizerFactory::create_object(name);
         if(opt != nullptr) {
-            return opt;
+            return std::shared_ptr<Optimizer>(opt);
         }
 
         Logger::err("Optimizer")

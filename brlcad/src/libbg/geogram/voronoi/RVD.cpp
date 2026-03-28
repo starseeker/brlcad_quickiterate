@@ -1702,7 +1702,7 @@ namespace {
          * stores the vertices in a KdTree.
          */
         void prepare_projection() {
-            if(!mesh_vertices_.is_null()) {
+            if(mesh_vertices_) {
                 return;
             }
 
@@ -2536,7 +2536,7 @@ namespace {
 
 namespace GEOBRL {
 
-    RestrictedVoronoiDiagram* RestrictedVoronoiDiagram::create(
+    std::shared_ptr<RestrictedVoronoiDiagram> RestrictedVoronoiDiagram::create(
         Delaunay* delaunay, Mesh* mesh,
         const double* R3_embedding, index_t R3_embedding_stride,
         const GeoOptions& opts
@@ -2588,7 +2588,7 @@ namespace GEOBRL {
             result->set_exact_predicates(true);
         }
         result->opts_ = opts;
-        return result;
+        return std::shared_ptr<RestrictedVoronoiDiagram>(result);
     }
 
     void RestrictedVoronoiDiagram::set_delaunay(Delaunay* delaunay) {

@@ -234,7 +234,7 @@ namespace GEOBRL {
             );
             NN->set_points(nb_points, points, stride);
             old2new.resize(nb_points, NO_INDEX);
-            Colocate colocate_obj(NN, old2new, tolerance);
+            Colocate colocate_obj(NN.get(), old2new, tolerance);
 
             if(opts.sys_multithread) {
                 parallel_for(

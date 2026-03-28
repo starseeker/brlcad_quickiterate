@@ -41,11 +41,10 @@
 #define GEOBRLCAD_DELAUNAY_DELAUNAY
 
 #include <geogram/basic/geogram_common.h>
-#include <geogram/basic/counted.h>
-#include <geogram/basic/smart_pointer.h>
 #include <geogram/basic/packed_arrays.h>
 #include <geogram/basic/factory.h>
 #include <stdexcept>
+#include <memory>
 
 /**
  * \file geogram/delaunay/delaunay.h
@@ -68,7 +67,7 @@ namespace GEOBRL {
      * \see DelaunayFactory
      * \see geo_register_Delaunay_creator
      */
-    class GEOBRLCAD_API Delaunay : public Counted {
+    class GEOBRLCAD_API Delaunay {
     public:
         /**
          * \brief Invalid dimension exception
@@ -152,7 +151,7 @@ namespace GEOBRL {
          * Delaunay_var handler = Delaunay::create(3, "default");
          * \endcode
          */
-        static Delaunay* create(
+        static std::shared_ptr<Delaunay> create(
             coord_index_t dim,
             const std::string& name,
             const GeoOptions& opts
@@ -161,7 +160,7 @@ namespace GEOBRL {
         /**
          * \brief Creates a Delaunay triangulation with default algorithm.
          */
-        static Delaunay* create(
+        static std::shared_ptr<Delaunay> create(
             coord_index_t dim, const GeoOptions& opts
         ) {
             return create(dim, "default", opts);
@@ -645,6 +644,10 @@ namespace GEOBRL {
          */
         virtual index_t region(index_t t) const;
 
+        /**
+         * \brief Delaunay destructor.
+         */
+        virtual ~Delaunay();
 
     protected:
         /**
@@ -659,11 +662,6 @@ namespace GEOBRL {
          * \note This function is never called directly, use create()
          */
         Delaunay(coord_index_t dimension);
-
-        /**
-         * \brief Delaunay destructor.
-         */
-        ~Delaunay() override;
 
         /**
          * \brief Internal implementation for get_neighbors (with vector).
@@ -805,7 +803,7 @@ namespace GEOBRL {
      * \brief Smart pointer that refers to a Delaunay object
      * \relates Delaunay
      */
-    typedef SmartPointer<Delaunay> Delaunay_var;
+    using Delaunay_var = std::shared_ptr<Delaunay>;
 
     /**
      * \brief Delaunay Factory

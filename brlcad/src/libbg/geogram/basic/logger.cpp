@@ -162,10 +162,10 @@ namespace GEOBRL {
 
     /************************************************************************/
 
-    SmartPointer<Logger> Logger::instance_;
+    std::shared_ptr<Logger> Logger::instance_;
 
     void Logger::initialize() {
-        instance_ = new Logger();
+        instance_ = std::shared_ptr<Logger>(new Logger());
     }
 
     void Logger::terminate() {
@@ -177,11 +177,11 @@ namespace GEOBRL {
     }
 
     void Logger::register_client(LoggerClient* c) {
-        clients_.insert(c);
+        clients_[c] = std::shared_ptr<LoggerClient>(c);
     }
 
     void Logger::unregister_client(LoggerClient* c) {
-        geo_debug_assert(clients_.find(c) != clients_.end());
+        geo_debug_assert(clients_.count(c) > 0);
         clients_.erase(c);
     }
 
@@ -190,7 +190,7 @@ namespace GEOBRL {
     }
 
     bool Logger::is_client(LoggerClient* c) const {
-        return clients_.find(c) != clients_.end();
+        return clients_.count(c) > 0;
     }
 
     void Logger::set_quiet(bool flag) {
@@ -242,7 +242,7 @@ namespace GEOBRL {
                 << std::endl;
             geo_abort();
         }
-        return instance_;
+        return instance_.get();
     }
 
     std::ostream& Logger::err_console() {
@@ -295,8 +295,8 @@ namespace GEOBRL {
             current_feature_changed_ = true;
             current_feature_.clear();
             LoggerClients clients = clients_; // clients_ may be modified !
-            for(auto it : clients) {
-                it->div(title);
+            for(auto& it : clients) {
+                it.second->div(title);
             }
         }
         return out_;
@@ -342,8 +342,8 @@ namespace GEOBRL {
                 + message;
 
             LoggerClients clients = clients_; // clients_ may be modified !
-            for(auto it : clients) {
-                it->out(feat_msg);
+            for(auto& it : clients) {
+                it.second->out(feat_msg);
             }
 
             current_feature_changed_ = false;
@@ -357,9 +357,9 @@ namespace GEOBRL {
             + msg;
 
         LoggerClients clients = clients_; // clients_ may be modified !
-        for(auto it : clients) {
-            it->warn(feat_msg);
-            it->status(msg);
+        for(auto& it : clients) {
+            it.second->warn(feat_msg);
+            it.second->status(msg);
         }
 
         current_feature_changed_ = false;
@@ -377,9 +377,9 @@ namespace GEOBRL {
         } else {
             notifying_error_ = true;
             LoggerClients clients = clients_; // clients_ may be modified !
-            for(auto it : clients) {
-                it->err(feat_msg);
-                it->status(msg);
+            for(auto& it : clients) {
+                it.second->err(feat_msg);
+                it.second->status(msg);
             }
             notifying_error_ = false;
         }
@@ -389,8 +389,8 @@ namespace GEOBRL {
 
     void Logger::notify_status(const std::string& message) {
         LoggerClients clients = clients_; // clients_ may be modified !
-        for(auto it : clients) {
-            it->status(message);
+        for(auto& it : clients) {
+            it.second->status(message);
         }
 
         current_feature_changed_ = false;

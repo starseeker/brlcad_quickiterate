@@ -97,7 +97,7 @@ namespace GEOBRL {
          * \return a pointer to the NearestNeighborSearch.
          */
         NearestNeighborSearch* nn_search() {
-            return NN_;
+            return NN_.get();
         }
 
     public:

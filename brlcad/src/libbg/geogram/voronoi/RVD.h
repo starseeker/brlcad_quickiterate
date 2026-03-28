@@ -44,11 +44,10 @@
 #include <geogram/mesh/index.h>
 #include <geogram/mesh/mesh.h>
 #include <geogram/basic/geometry.h>
-#include <geogram/basic/smart_pointer.h>
-#include <geogram/basic/counted.h>
 #include <geogram/basic/attributes.h>
 
 #include <vector>
+#include <memory>
 
 /**
  * \file geogram/voronoi/RVD.h
@@ -86,7 +85,7 @@ namespace GEOBRL {
      * \see CentroidalVoronoiTesselation
      * \see GEOBRLGen::RestrictedVoronoiDiagram
      */
-    class GEOBRLCAD_API RestrictedVoronoiDiagram : public Counted {
+    class GEOBRLCAD_API RestrictedVoronoiDiagram {
     public:
         /**
          * \brief Creates a RestrictedVoronoiDiagram.
@@ -100,7 +99,7 @@ namespace GEOBRL {
          * \param[in] R3_embedding_stride gives the stride between
          *  two consecutive vertices in R3_embedding
          */
-        static RestrictedVoronoiDiagram* create(
+        static std::shared_ptr<RestrictedVoronoiDiagram> create(
             Delaunay* delaunay, Mesh* mesh,
             const double* R3_embedding, index_t R3_embedding_stride,
             const GeoOptions& opts
@@ -109,7 +108,7 @@ namespace GEOBRL {
         /**
          * \brief Creates a RestrictedVoronoiDiagram (mesh-coordinates shortcut).
          */
-        static RestrictedVoronoiDiagram* create(
+        static std::shared_ptr<RestrictedVoronoiDiagram> create(
             Delaunay* delaunay, Mesh* mesh,
             const GeoOptions& opts
         ) {
@@ -124,7 +123,7 @@ namespace GEOBRL {
         /**
          * \brief Creates a RestrictedVoronoiDiagram with R3 embedding vector.
          */
-        static RestrictedVoronoiDiagram* create(
+        static std::shared_ptr<RestrictedVoronoiDiagram> create(
             Delaunay* delaunay, Mesh* mesh,
             const vector<vec3>& R3_embedding,
             const GeoOptions& opts
@@ -688,6 +687,11 @@ namespace GEOBRL {
          */
         virtual GEOBRLGen::PointAllocator* point_allocator() = 0;
 
+        /**
+         * \brief RestrictedVoronoiDiagram destructor
+         */
+        virtual ~RestrictedVoronoiDiagram();
+
     protected:
         /**
          * \brief This constructor is never called directly.
@@ -697,11 +701,6 @@ namespace GEOBRL {
             Delaunay* delaunay, Mesh* mesh,
             const double* R3_embedding, index_t R3_embedding_stride
         );
-
-        /**
-         * \brief RestrictedVoronoiDiagram destructor
-         */
-        ~RestrictedVoronoiDiagram() override;
 
     protected:
         GeoOptions opts_;
@@ -720,8 +719,7 @@ namespace GEOBRL {
     };
 
     /** \brief Smart pointer to a RestrictedVoronoiDiagram object */
-    typedef SmartPointer<RestrictedVoronoiDiagram>
-    RestrictedVoronoiDiagram_var;
+    using RestrictedVoronoiDiagram_var = std::shared_ptr<RestrictedVoronoiDiagram>;
 }
 
 #endif

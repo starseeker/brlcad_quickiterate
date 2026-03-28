@@ -38,15 +38,15 @@
  */
 
 #include <geogram/basic/factory.h>
-#include <geogram/basic/smart_pointer.h>
+#include <memory>
 
 namespace {
 
     using namespace GEOBRL;
 
-    typedef SmartPointer<InstanceRepo::Instance> Instance_var;
+    typedef std::unique_ptr<InstanceRepo::Instance> Instance_uptr;
 
-    typedef std::map<std::string, Instance_var> Registry;
+    typedef std::map<std::string, Instance_uptr> Registry;
 
     Registry& get_registry() {
         static Registry r;
@@ -57,8 +57,7 @@ namespace {
 namespace GEOBRL {
 
     void InstanceRepo::add(const std::string& name, Instance* instance) {
-        Registry& r = get_registry();
-        r[name] = instance;
+        get_registry()[name] = Instance_uptr(instance);
     }
 
     InstanceRepo::Instance* InstanceRepo::get(const std::string& name) {
