@@ -50,7 +50,8 @@ namespace GEOBRL {
 
         vec3 mesh_facet_normal(const Mesh& M, index_t f) {
             vec3 result{0.0, 0.0, 0.0};
-	    for(auto [p1, p2, p3]: M.facets.triangle_points(f)) {
+	    for(const auto& [p1_, p2_, p3_]: M.facets.triangle_points(f)) {
+		const vec3& p1=as_gte<3>(p1_); const vec3& p2=as_gte<3>(p2_); const vec3& p3=as_gte<3>(p3_);
 		result += cross(p2 - p1, p3 - p1);
 	    }
             return result;
@@ -94,7 +95,7 @@ namespace GEOBRL {
             xyzmin[c] = Numeric::max_float64();
             xyzmax[c] = Numeric::min_float64();
         }
-        for(const vec3& p: M.vertices.points()) {
+        for(const auto& p: M.vertices.points()) {
             for(index_t c = 0; c < 3; c++) {
                 xyzmin[c] = std::min(xyzmin[c], p[c]);
                 xyzmax[c] = std::max(xyzmax[c], p[c]);

@@ -340,7 +340,7 @@ namespace {
         index_t n = mesh.facets.nb_vertices(f);
         FOR(lv,n) {
             index_t v = mesh.facets.vertex(f,lv);
-            vec3 W = mesh.vertices.point(v)-C;
+            vec3 W = as_gte<3>(mesh.vertices.point(v))-C;
             P_ind.push_back(v);
             P.push_back(vec2{dot(W,X), dot(W,Y)});
         }

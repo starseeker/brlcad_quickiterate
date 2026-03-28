@@ -220,6 +220,17 @@ namespace GEOBRL {
         return a[0]*b[1] - a[1]*b[0];
     }
 
+    // Zero-copy reinterpret between vecng<N,double> and gte::Vector<N,double>.
+    // Both types store N contiguous doubles, so the cast is layout-safe.
+    template<index_t N>
+    inline gte::Vector<int32_t(N),double>& as_gte(vecng<N,double>& v) {
+        return *reinterpret_cast<gte::Vector<int32_t(N),double>*>(v.data());
+    }
+    template<index_t N>
+    inline const gte::Vector<int32_t(N),double>& as_gte(const vecng<N,double>& v) {
+        return *reinterpret_cast<const gte::Vector<int32_t(N),double>*>(v.data());
+    }
+
     /************************************************************************/
 
     /**

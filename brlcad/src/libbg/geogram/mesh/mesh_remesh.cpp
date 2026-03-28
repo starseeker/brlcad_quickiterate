@@ -149,10 +149,10 @@ namespace GEOBRL {
         const MeshFacetsAABB& AABB, index_t f, vec3& q1, vec3& q2
     ) {
         geo_assert(AABB.mesh()->facets.nb_vertices(f) == 4);
-	vec3 p1 = AABB.mesh()->facets.point(f,0);
-	vec3 p2 = AABB.mesh()->facets.point(f,1);
-	vec3 p3 = AABB.mesh()->facets.point(f,2);
-	vec3 p4 = AABB.mesh()->facets.point(f,3);
+	vec3 p1 = as_gte<3>(AABB.mesh()->facets.point(f,0));
+	vec3 p2 = as_gte<3>(AABB.mesh()->facets.point(f,1));
+	vec3 p3 = as_gte<3>(AABB.mesh()->facets.point(f,2));
+	vec3 p4 = as_gte<3>(AABB.mesh()->facets.point(f,3));
         q1 = 0.5*(p1+p4);
         q2 = 0.5*(p2+p3);
     }
@@ -255,8 +255,8 @@ namespace GEOBRL {
                     index_t c2 = M.facets.next_corner_around_facet(f, c1);
                     index_t v1 = M.facet_corners.vertex(c1);
                     index_t v2 = M.facet_corners.vertex(c2);
-                    const vec3& p1 = M.vertices.point(v1);
-                    const vec3& p2 = M.vertices.point(v2);
+                    const vec3& p1 = as_gte<3>(M.vertices.point(v1));
+                    const vec3& p2 = as_gte<3>(M.vertices.point(v2));
 
                     vec3 U1 = 0.5*height * normalize(Nv[v1]);
                     vec3 U2 = 0.5*height * normalize(Nv[v2]);
@@ -266,10 +266,10 @@ namespace GEOBRL {
                     vec3 q3 = p2 - U2;
                     vec3 q4 = p1 - U1;
 
-		    ribbon.vertices.point(4*cur_border_e  ) = q1;
-		    ribbon.vertices.point(4*cur_border_e+1) = q2;
-		    ribbon.vertices.point(4*cur_border_e+2) = q3;
-		    ribbon.vertices.point(4*cur_border_e+3) = q4;
+		    as_gte<3>(ribbon.vertices.point(4*cur_border_e  )) = q1;
+		    as_gte<3>(ribbon.vertices.point(4*cur_border_e+1)) = q2;
+		    as_gte<3>(ribbon.vertices.point(4*cur_border_e+2)) = q3;
+		    as_gte<3>(ribbon.vertices.point(4*cur_border_e+3)) = q4;
 
                     ribbon.facets.set_vertex(cur_border_e, 0, 4*cur_border_e  );
                     ribbon.facets.set_vertex(cur_border_e, 1, 4*cur_border_e+1);
@@ -395,8 +395,8 @@ namespace GEOBRL {
                     index_t c2 = surface.facets.next_corner_around_facet(f, c1);
                     index_t v1 = surface.facet_corners.vertex(c1);
                     index_t v2 = surface.facet_corners.vertex(c2);
-                    const vec3& p1 = surface.vertices.point(v1);
-                    const vec3& p2 = surface.vertices.point(v2);
+                    const vec3& p1 = as_gte<3>(surface.vertices.point(v1));
+                    const vec3& p2 = as_gte<3>(surface.vertices.point(v2));
                     vec3 Ne = cross(p2 - p1, N);
                     Nv[v1] += Ne;
                     Nv[v2] += Ne;
@@ -427,7 +427,7 @@ namespace GEOBRL {
         // nearest point along Nv
         vector<vec3> Qv(surface.vertices.nb());
         for(index_t v: surface.vertices) {
-            vec3 p = surface.vertices.point(v);
+            vec3 p = as_gte<3>(surface.vertices.point(v));
             if(v_on_border[v] && reference_has_borders) {
                 Qv[v] = nearest_along_bidirectional_ray(
                     border_ribbon_AABB, Ray(p, Nv[v]),
@@ -474,14 +474,14 @@ namespace GEOBRL {
         for(index_t f: surface.facets) {
             index_t d = surface.facets.nb_vertices(f);
 
-            vec3 Nf(0.0, 0.0, 0.0);
+            vec3 Nf{0.0, 0.0, 0.0};
             vec3 Pf;
             double Lf=0.0;
 
             for(index_t lv=0; lv<d; ++lv) {
                 index_t v= surface.facets.vertex(f,lv);
                 Nf += Nv[v];
-                Pf += surface.vertices.point(v);
+                Pf += as_gte<3>(surface.vertices.point(v));
                 Lf += Lv[v];
             }
             Pf = (1.0 / double(d))*Pf;
@@ -517,8 +517,8 @@ namespace GEOBRL {
                         );
                         index_t v1 = surface.facet_corners.vertex(c1);
                         index_t v2 = surface.facet_corners.vertex(c2);
-                        const vec3& p1 = surface.vertices.point(v1);
-                        const vec3& p2 = surface.vertices.point(v2);
+                        const vec3& p1 = as_gte<3>(surface.vertices.point(v1));
+                        const vec3& p2 = as_gte<3>(surface.vertices.point(v2));
                         vec3 p = 0.5*(p1+p2);
                         vec3 N = 0.5*(Nv[v1] + Nv[v2]);
                         vec3 q = nearest_along_bidirectional_ray(
@@ -554,7 +554,7 @@ namespace GEOBRL {
         // the solution of the least squares problem
         // at v
         for(index_t v: surface.vertices) {
-            vec3& p = surface.vertices.point(v);
+            vec3& p = as_gte<3>(surface.vertices.point(v));
             p += nlGetVariable(v)*Nv[v];
         }
 
@@ -562,13 +562,13 @@ namespace GEOBRL {
         if(project_borders && nb_v_on_border != 0 && reference_has_borders) {
             for(index_t v: surface.vertices) {
                 if(v_on_border[v]) {
-                    vec3 p = surface.vertices.point(v);
+                    vec3 p = as_gte<3>(surface.vertices.point(v));
                     vec3 q = nearest_along_bidirectional_ray(
                         border_ribbon_AABB, Ray(p, Nv[v]),
                         border_distance_factor*max_edge_distance*0.5*(Lv[v]),
                         true
                     );
-		    surface.vertices.point(v) = q;
+		    as_gte<3>(surface.vertices.point(v)) = q;
                 }
             }
         }
