@@ -42,7 +42,6 @@
 
 #include <geogram/basic/geogram_common.h>
 #include <geogram/numerics/multi_precision.h>
-#include <geogram/basic/matrix.h>
 #include <geogram/basic/rationalg.h>
 
 /**
