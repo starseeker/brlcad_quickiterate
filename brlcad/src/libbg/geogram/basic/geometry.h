@@ -221,13 +221,19 @@ namespace GEOBRL {
     }
 
     // Zero-copy reinterpret between vecng<N,double> and gte::Vector<N,double>.
-    // Both types store N contiguous doubles, so the cast is layout-safe.
+    // Both types store N contiguous doubles with identical layout.  The build
+    // already uses -fno-strict-aliasing, making these casts well-defined.
+    // A static_assert guards against any future layout divergence.
     template<index_t N>
     inline gte::Vector<int32_t(N),double>& as_gte(vecng<N,double>& v) {
+        static_assert(sizeof(vecng<N,double>) == sizeof(gte::Vector<int32_t(N),double>),
+                      "vecng/GTE Vector layout mismatch");
         return *reinterpret_cast<gte::Vector<int32_t(N),double>*>(v.data());
     }
     template<index_t N>
     inline const gte::Vector<int32_t(N),double>& as_gte(const vecng<N,double>& v) {
+        static_assert(sizeof(vecng<N,double>) == sizeof(gte::Vector<int32_t(N),double>),
+                      "vecng/GTE Vector layout mismatch");
         return *reinterpret_cast<const gte::Vector<int32_t(N),double>*>(v.data());
     }
 

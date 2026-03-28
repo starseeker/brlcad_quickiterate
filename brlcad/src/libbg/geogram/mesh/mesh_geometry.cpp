@@ -50,8 +50,8 @@ namespace GEOBRL {
 
         vec3 mesh_facet_normal(const Mesh& M, index_t f) {
             vec3 result{0.0, 0.0, 0.0};
-	    for(const auto& [p1_, p2_, p3_]: M.facets.triangle_points(f)) {
-		const vec3& p1=as_gte<3>(p1_); const vec3& p2=as_gte<3>(p2_); const vec3& p3=as_gte<3>(p3_);
+	    for(const auto& [ng1, ng2, ng3]: M.facets.triangle_points(f)) {
+		const vec3& p1=as_gte<3>(ng1); const vec3& p2=as_gte<3>(ng2); const vec3& p3=as_gte<3>(ng3);
 		result += cross(p2 - p1, p3 - p1);
 	    }
             return result;
