@@ -45,8 +45,6 @@
 #include <geogram/numerics/predicates.h>
 #include <geogram/delaunay/delaunay.h>
 
-#include <sstream>
-#include <iomanip>
 #include <optional>
 
 namespace GEOBRL {
@@ -60,39 +58,21 @@ namespace GEOBRL {
         struct GeogramLibSingleton {
 
             static std::optional<GeogramLibSingleton>& instance(
-                int flags, const GeoOptions& opts
+                const GeoOptions& opts
             ) {
                 static std::optional<GeogramLibSingleton> instance(
-                    std::in_place, flags, opts
+                    std::in_place, opts
                 );
                 return instance;
             }
 
-            GeogramLibSingleton(int flags, const GeoOptions& opts)
+            GeogramLibSingleton(const GeoOptions& opts)
                 : opts_(opts)
             {
-
-                // When locale is set to non-us countries,
-                // this may cause some problems when reading
-                // floating-point numbers (some locale expect
-                // a decimal ',' instead of a '.').
-                // This restores the default behavior for
-                // reading floating-point numbers.
-#ifdef GEOBRL_OS_UNIX
-                if (flags & GEOBRLCAD_INSTALL_LOCALE) {
-                    setenv("LC_NUMERIC","POSIX",1);
-                }
-#endif
-
-                Process::initialize(flags);
+                Process::initialize();
                 Progress::initialize();
                 PCK::initialize();
                 Delaunay::initialize();
-
-                // Clear lastest system error
-                if (flags & GEOBRLCAD_INSTALL_ERRNO) {
-                    errno = 0;
-                }
             }
 
             ~GeogramLibSingleton() {
@@ -113,13 +93,13 @@ namespace GEOBRL {
 
     }
 
-    void initialize(int flags, const GeoOptions& opts) {
-        GeogramLibSingleton::instance(flags, opts);
+    void initialize(const GeoOptions& opts) {
+        GeogramLibSingleton::instance(opts);
     }
 
     void terminate() {
         GeogramLibSingleton::instance(
-            GEOBRLCAD_INSTALL_NONE, GeoOptions()
+            GeoOptions()
         ).reset();
     }
 }

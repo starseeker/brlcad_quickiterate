@@ -58,8 +58,6 @@ namespace GEOBRL {
 
         bool os_enable_cancel(bool flag);
 
-        void os_install_signal_handlers();
-
         std::string os_executable_filename();
 
         void os_brute_force_kill();

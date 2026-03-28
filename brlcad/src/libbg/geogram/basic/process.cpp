@@ -71,21 +71,11 @@ namespace GEOBRL {
 
     namespace Process {
 
-        void initialize(int flags) {
-
-            if(
-                (::getenv("GEOBRL_NO_SIGNAL_HANDLER") == nullptr) &&
-                ((flags & GEOBRLCAD_INSTALL_HANDLERS) != 0)
-            ) {
-                os_install_signal_handlers();
-            }
+        void initialize() {
 
             // Initialize Process default values
             enable_multithreading(multithreading_enabled_);
             set_max_threads(number_of_cores());
-            if (flags & GEOBRLCAD_INSTALL_FPE) {
-                enable_FPE(fpe_enabled_);
-            }
             enable_cancel(cancel_enabled_);
 
             start_time_ = geo_now();

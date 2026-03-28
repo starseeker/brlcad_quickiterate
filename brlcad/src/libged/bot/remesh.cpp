@@ -216,7 +216,7 @@ bot_remesh_geogram(struct rt_bot_internal **obot, struct ged *gedp, struct rt_bo
     // Make sure geogram is initialized
     GEOBRL::GeoOptions opts;
     opts.remesh_multi_nerve = true;
-    GEOBRL::initialize(GEOBRL::GEOBRLCAD_INSTALL_NONE, opts);
+    GEOBRL::initialize(opts);
 
     // Put I/O channels back where they belong
     if (fnull != -1) {

@@ -169,7 +169,6 @@ namespace GEOBRL {
     };
 }
 
-#include <sstream>
 #include <unistd.h>
 #include <limits.h>
 #include <fenv.h>
@@ -182,7 +181,6 @@ namespace GEOBRL {
 #include <fcntl.h>
 #include <string.h>
 #include <stdio.h>
-#include <new>
 
 #if !defined(GEOBRL_OS_ANDROID) && !defined(GEOBRL_OS_EMSCRIPTEN)
 #include <execinfo.h>
@@ -195,101 +193,13 @@ namespace GEOBRL {
 #endif
 #endif
 
-// Suppresses a warning with CLANG when sigaction is used.
 #if defined(__clang__)
 #pragma clang diagnostic ignored "-Wunknown-pragmas"
-#pragma clang diagnostic ignored "-Wdisabled-macro-expansion"
 #endif
 
 namespace {
 
     using namespace GEOBRL;
-
-    /**
-     * \brief Abnormal termination handler
-     * \details If \p message is
-     * non null, the following message is printed before exiting.
-     * <em>Abnormal program termination: message</em>
-     * \param[in] message optional message to print
-     */
-    GEOBRL_NORETURN_DECL void abnormal_program_termination(
-        const char* message = nullptr
-    ) GEOBRL_NORETURN;
-
-    void abnormal_program_termination(const char* message) {
-        if(message != nullptr) {
-            // Do not use Logger here!
-            std::cout
-                << "Abnormal program termination: "
-                << message << std::endl;
-        }
-        exit(1);
-    }
-
-    /**
-     * \brief Signal handler
-     * \details The handler exits the application
-     * \param[in] signal signal number
-     */
-    GEOBRL_NORETURN_DECL void signal_handler(int signal) GEOBRL_NORETURN;
-
-    void signal_handler(int signal) {
-        const char* sigstr = strsignal(signal);
-        std::ostringstream os;
-        os << "received signal " << signal << " (" << sigstr << ")";
-        Process::os_print_stack_trace();
-        abnormal_program_termination(os.str().c_str());
-    }
-
-    /**
-     * \brief Floating point error handler
-     * \details The handler exits the application
-     * \param[in] signal signal number
-     * \param[in] si signal information structure
-     * \param[in] data additional data (unused)
-     */
-    GEOBRL_NORETURN_DECL void fpe_signal_handler(
-        int signal, siginfo_t* si, void* data
-    ) GEOBRL_NORETURN;
-
-    void fpe_signal_handler(int signal, siginfo_t* si, void* data) {
-        geo_argused(signal);
-        geo_argused(data);
-        const char* error;
-        switch(si->si_code) {
-        case FPE_INTDIV:
-            error = "integer divide by zero";
-            break;
-        case FPE_INTOVF:
-            error = "integer overflow";
-            break;
-        case FPE_FLTDIV:
-            error = "floating point divide by zero";
-            break;
-        case FPE_FLTOVF:
-            error = "floating point overflow";
-            break;
-        case FPE_FLTUND:
-            error = "floating point underflow";
-            break;
-        case FPE_FLTRES:
-            error = "floating point inexact result";
-            break;
-        case FPE_FLTINV:
-            error = "floating point invalid operation";
-            break;
-        case FPE_FLTSUB:
-            error = "subscript out of range";
-            break;
-        default:
-            error = "unknown";
-            break;
-        }
-
-        std::ostringstream os;
-        os << "floating point exception detected: " << error;
-        abnormal_program_termination(os.str().c_str());
-    }
 
     /**
      * \brief Interrupt signal handler
@@ -302,24 +212,6 @@ namespace {
         } else {
             exit(1);
         }
-    }
-
-    /**
-     * \brief Catches uncaught C++ exceptions
-     */
-    GEOBRL_NORETURN_DECL void terminate_handler() GEOBRL_NORETURN;
-
-    void terminate_handler() {
-        abnormal_program_termination("function terminate() was called");
-    }
-
-    /**
-     * \brief Catches allocation errors
-     */
-    GEOBRL_NORETURN_DECL void memory_exhausted_handler() GEOBRL_NORETURN;
-
-    void memory_exhausted_handler() {
-        abnormal_program_termination("memory exhausted");
     }
 }
 
@@ -428,36 +320,6 @@ namespace GEOBRL {
             }
             return true;
         }
-
-        /**
-         * \brief Installs signal handlers
-         * \details
-         * On Unix, this installs handlers for the standard signals.
-         * On Windows, this also installs all kind of exception handling
-         * routines that prevent the application from being blocked by a bad
-         * assertion, a runtime check or runtime error.
-         */
-        void os_install_signal_handlers() {
-            // Install signal handlers
-            signal(SIGSEGV, signal_handler);
-            signal(SIGILL, signal_handler);
-            signal(SIGBUS, signal_handler);
-
-            // Use sigaction for SIGFPE as it provides more details
-            // about the error.
-            struct sigaction sa, old_sa;
-            sa.sa_flags = SA_SIGINFO;
-            sa.sa_sigaction = fpe_signal_handler;
-            sigemptyset(&sa.sa_mask);
-            sigaction(SIGFPE, &sa, &old_sa);
-
-            // Install uncaught c++ exception handlers
-            std::set_terminate(terminate_handler);
-
-            // Install memory allocation handler
-            std::set_new_handler(memory_exhausted_handler);
-        }
-
 
         /**
          * \brief Gets the full path to the current executable.

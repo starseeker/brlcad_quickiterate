@@ -182,49 +182,13 @@ enum {
 namespace GEOBRL {
 
     /**
-     * \brief Symbolic constants for GEOBRL::initialize()
-     */
-    enum {
-        /// Do not install error handlers
-        GEOBRLCAD_INSTALL_NONE = 0,
-        /// Install Geogram's signal handlers
-        GEOBRLCAD_INSTALL_HANDLERS = 1,
-        /// Sets the locale to POSIX
-        GEOBRLCAD_INSTALL_LOCALE = 2,
-        /// Reset errno to 0
-        GEOBRLCAD_INSTALL_ERRNO = 4,
-        /// Enable or disable FPE during initialization
-        GEOBRLCAD_INSTALL_FPE = 8,
-        /// Enable global citation database
-        GEOBRLCAD_INSTALL_BIBLIO = 16,
-        /// Install everything
-        GEOBRLCAD_INSTALL_ALL = GEOBRLCAD_INSTALL_HANDLERS
-        | GEOBRLCAD_INSTALL_LOCALE
-        | GEOBRLCAD_INSTALL_ERRNO
-        | GEOBRLCAD_INSTALL_FPE
-        | GEOBRLCAD_INSTALL_BIBLIO
-    };
-
-    /**
      * \brief Initialize Geogram
-     * \param[in] flags an or combination of
-     *  - GEOBRLCAD_INSTALL_HANDLERS to install geogram error handlers. This avoid
-     *  opening dialog boxes under Windows. This is useful for the automatic
-     *  test suite. Else continuous integration tests hang because of the dialog
-     *  box. Normal users may want to keep the default Windows behavior, since
-     *  geogram error handlers may make debugging more difficult under Windows.
-     * - GEOBRLCAD_INSTALL_LOCALE to set the locale to POSIX.
-     * - GEOBRLCAD_INSTALL_ERRNO to clear the last system error.
-     * - GEOBRLCAD_INSTALL_FPE to enable/disable floating point exceptions.
-     * - GEOBRLCAD_INSTALL_BIBLIO to enable global citation database.
+     * \param[in] opts algorithm options; defaults are appropriate for most uses.
      * \details This function must be called once at the very beginning of a
-     * program to initialize the Vorpaline library. It also installs a exit()
-     * handler that calls function terminate() when the program exists
-     * normally. If it is called multiple times, then the supplemental calls
-     * have no effect.
+     * program to initialize the Vorpaline library.  If it is called multiple
+     * times, then the supplemental calls have no effect.
      */
-    void GEOBRLCAD_API initialize(int flags = GEOBRLCAD_INSTALL_NONE,
-                               const GeoOptions& opts = GeoOptions());
+    void GEOBRLCAD_API initialize(const GeoOptions& opts = GeoOptions());
 
     /**
      * \brief Cleans up Geogram

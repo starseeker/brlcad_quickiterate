@@ -58,11 +58,10 @@ namespace GEOBRL {
 
         /**
          * \brief Initializes GeogramLib
-         * \param[in] flags the flags passed to GEOBRL::initialize()
          * \details This function must be called once before using
          * any functionality of GeogramLib.
          */
-        void GEOBRLCAD_API initialize(int flags);
+        void GEOBRLCAD_API initialize();
 
         /**
          * \brief Terminates GeogramLib
