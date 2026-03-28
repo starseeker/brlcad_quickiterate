@@ -194,9 +194,6 @@ namespace GEOBRL {
         const std::string& element_typeid_name
     ) {
         if(element_type_name_is_known(element_type_name)) {
-            Logger::warn("Attributes") << element_type_name
-                                       << " already registered"
-                                       << std::endl;
             if(element_typeid_name_is_known(element_typeid_name)) {
                 bool already_registered_attribute_has_same_type = (
                     type_name_to_typeid_name_[element_type_name] ==

@@ -91,8 +91,6 @@ namespace GEOBRL {
             ++comp_facets[component[f]];
         }
 
-        Logger::out("Components")
-            << "Nb connected components=" << comp_area.size() << std::endl;
         index_t nb_remove = 0;
         for(index_t c = 0; c < comp_area.size(); c++) {
             if(comp_area[c] < min_area || comp_facets[c] < min_facets) {
@@ -101,13 +99,9 @@ namespace GEOBRL {
         }
 
         if(nb_remove == 0) {
-            Logger::out("Components")
-                << "Mesh does not have small connected component (good)"
-                << std::endl;
             return;
         }
 
-        index_t nb_f_remove = 0;
         vector<index_t> remove_f(M.facets.nb(), 0);
         for(index_t f: M.facets) {
             if(
@@ -115,15 +109,9 @@ namespace GEOBRL {
                 comp_facets[component[f]] < min_facets
             ) {
                 remove_f[f] = 1;
-                nb_f_remove++;
             }
         }
         M.facets.delete_elements(remove_f);
-
-        Logger::out("Components")
-            << "Removed " << nb_remove << " connected components"
-            << "(" << nb_f_remove << " facets)"
-            << std::endl;
     }
 
     // ============== orient_normals ========================================
@@ -159,10 +147,6 @@ namespace GEOBRL {
             }
         }
         if(!to_dissociate.empty()) {
-            GEOBRL::Logger::warn("Mesh")
-                << to_dissociate.size()
-                << " facets with degree 2 vertices (fixed)"
-                << std::endl;
         }
         for(auto f : to_dissociate) {
             for(index_t c: M.facets.corners(f)) {

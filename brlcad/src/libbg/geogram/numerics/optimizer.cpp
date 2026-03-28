@@ -38,7 +38,6 @@
  */
 
 #include <geogram/numerics/optimizer.h>
-#include <geogram/basic/logger.h>
 
 namespace GEOBRL {
 
@@ -72,9 +71,6 @@ namespace GEOBRL {
             return std::shared_ptr<Optimizer>(opt);
         }
 
-        Logger::err("Optimizer")
-            << "Could not create optimizer: " << name
-            << std::endl;
         return nullptr;
     }
 }

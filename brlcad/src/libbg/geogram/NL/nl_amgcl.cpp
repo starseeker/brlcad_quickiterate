@@ -10,7 +10,6 @@ extern "C" {
 #include <geogram/NL/nl_context.h>
 }
 
-#include <geogram/basic/logger.h>
 #include <chrono>
 #include <geogram/NL/nl.h>
 #include <geogram/NL/nl_matrix.h>
@@ -139,14 +138,10 @@ template <class Backend> NLboolean nlSolveAMGCL_generic() {
     NLContextStruct* ctxt = (NLContextStruct*)nlGetCurrent();
 
     if(ctxt->verbose) {
-        GEOBRL::Logger::out("AMGCL") << "calling AMGCL solver (built in geogram) "
-				  << "(" << Backend::name() << ")"
-				  << std::endl;
     }
 
     if(ctxt->M->type == NL_MATRIX_SPARSE_DYNAMIC) {
         if(ctxt->verbose) {
-            GEOBRL::Logger::out("AMGCL") << "Compressing matrix" << std::endl;
         }
         nlMatrixCompress(&ctxt->M);
     }
@@ -178,17 +173,15 @@ template <class Backend> NLboolean nlSolveAMGCL_generic() {
     Solver solver(M_amgcl,prm);
 
     if(ctxt->verbose) {
-	GEOBRL::Logger::out("AMGCL build") << solver << std::endl;
     }
 
     if(ctxt->verbose) {
         auto geo_amgcl_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::system_clock::now() - geo_amgcl_t0).count();
-        GEOBRL::Logger::out("AMGCL build") << "Elapsed: " << (0.001 * double(geo_amgcl_ms)) << "s" << std::endl;
+        (void)geo_amgcl_ms;
     }
 
     if(ctxt->verbose) {
-	GEOBRL::Logger::out("AMGCL solve") << "Start..." << std::endl;
     }
 
     // Start timer when running iterative solver
@@ -225,7 +218,6 @@ NLboolean nlSolveAMGCL() {
 #else
 
 nlBoolean nlSolveAMGCL() {
-    GEOBRL::Logger::out("AMGCL") << "Not supported" << std::endl;
     return NL_FALSE;
 }
 

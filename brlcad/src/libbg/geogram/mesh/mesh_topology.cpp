@@ -40,7 +40,6 @@
 #include <geogram/mesh/mesh_topology.h>
 #include <geogram/mesh/mesh.h>
 #include <geogram/basic/memory.h>
-#include <geogram/basic/logger.h>
 #include <stack>
 
 namespace {

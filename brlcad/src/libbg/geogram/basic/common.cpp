@@ -39,7 +39,6 @@
 
 #include <geogram/basic/geogram_common.h>
 #include <geogram/basic/process.h>
-#include <geogram/basic/logger.h>
 #include <geogram/basic/progress.h>
 #include <geogram/basic/geogram_options.h>
 #include <geogram/numerics/multi_precision.h>
@@ -85,7 +84,6 @@ namespace GEOBRL {
                 }
 #endif
 
-                Logger::initialize();
                 Process::initialize(flags);
                 Progress::initialize();
                 PCK::initialize();
@@ -100,7 +98,6 @@ namespace GEOBRL {
             ~GeogramLibSingleton() {
 
                 if(opts_.sys_stats) {
-                    Logger::div("System Statistics");
                     PCK::show_stats();
                     Process::show_stats();
                 }
@@ -109,9 +106,6 @@ namespace GEOBRL {
 
                 Progress::terminate();
                 Process::terminate();
-                CmdLine::terminate();
-                Logger::terminate();
-
             }
 
             GeoOptions opts_;

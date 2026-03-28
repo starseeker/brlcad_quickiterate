@@ -49,7 +49,7 @@
 #include <geogram/NL/nl.h>
 #include <geogram/basic/geogram_options.h>
 #include <geogram/basic/progress.h>
-#include <chrono>
+#include <fstream>
 
 
 /****************************************************************************/
@@ -75,8 +75,6 @@ namespace GEOBRL {
         }
 
         geo_argused(dim);
-
-        auto geo_remesh_t0 = std::chrono::system_clock::now();
 
         CentroidalVoronoiTesselation CVT(&M_in, opts);
 
@@ -112,12 +110,8 @@ namespace GEOBRL {
         CVT.set_use_RVC_centroids(opts.remesh_RVC_centroids);
         bool multi_nerve = opts.remesh_multi_nerve;
 
-        Logger::out("Remesh") << "Computing RVD..." << std::endl;
-
         CVT.compute_surface(&M_out, multi_nerve);
         if(opts.dbg_save_ANN_histo) {
-            Logger::out("ANN")
-                << "Saving histogram to ANN_histo.dat" << std::endl;
             std::ofstream out("ANN_histo.dat");
             CVT.delaunay()->save_histogram(out);
         }
@@ -127,11 +121,6 @@ namespace GEOBRL {
 		M_out, M_in, adjust_max_edge_distance,
 		false, adjust_border_importance
 	    );
-        }
-        {
-            auto geo_remesh_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::system_clock::now() - geo_remesh_t0).count();
-            Logger::out("Remesh") << "Elapsed: " << (0.001 * double(geo_remesh_ms)) << "s" << std::endl;
         }
     }
 

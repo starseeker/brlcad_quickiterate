@@ -140,35 +140,24 @@ namespace {
 
     /**
      * \brief Logs task progress to the console
-     * \details TerminalProgressClient is an implementation of LoggerClient
-     * that logs progress to the console using console progress functions.
-     * \see CmdLine
+     * \details TerminalProgressClient is a no-op implementation: the Logger
+     * and CmdLine subsystems have been removed from this geogram subset.
      */
     class TerminalProgressClient : public ProgressClient {
     public:
         /** \copydoc GEOBRL::ProgressClient::begin() */
         void begin() override {
-            const ProgressTask* task = Progress::current_progress_task();
-            CmdLine::ui_progress(task->task_name(), 0, 0);
         }
 
         /** \copydoc GEOBRL::ProgressClient::progress(index_t,index_t) */
         void progress(index_t step, index_t percent) override {
-            const ProgressTask* task = Progress::current_progress_task();
-            CmdLine::ui_progress(task->task_name(), step, percent);
+            geo_argused(step);
+            geo_argused(percent);
         }
 
         /** \copydoc GEOBRL::ProgressClient::end(bool) */
         void end(bool canceled) override {
-            const ProgressTask* task = Progress::current_progress_task();
-            double elapsed = geo_now() - task->start_time();
-            if(canceled) {
-                CmdLine::ui_progress_canceled(
-                    task->task_name(), elapsed, task->percent()
-                );
-            } else {
-                CmdLine::ui_progress_time(task->task_name(), elapsed);
-            }
+            geo_argused(canceled);
         }
 
     protected:
@@ -248,7 +237,7 @@ namespace GEOBRL {
     ) :
         task_name_(task_name),
         start_time_(geo_now()),
-        quiet_(Logger::instance()->is_quiet()),
+        quiet_(true),
         max_steps_(std::max(index_t(1), max_steps)),
         step_(0),
         percent_(0)

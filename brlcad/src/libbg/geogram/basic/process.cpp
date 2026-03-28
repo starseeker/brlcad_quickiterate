@@ -39,7 +39,6 @@
 
 #include <geogram/basic/process.h>
 #include <geogram/basic/process_private.h>
-#include <geogram/basic/logger.h>
 #include <thread>
 #include <chrono>
 
@@ -74,10 +73,6 @@ namespace GEOBRL {
 
         void initialize(int flags) {
 
-            Logger::out("Process")
-                << "Using C++17 threads"
-                << std::endl;
-
             if(
                 (::getenv("GEOBRL_NO_SIGNAL_HANDLER") == nullptr) &&
                 ((flags & GEOBRLCAD_INSTALL_HANDLERS) != 0)
@@ -97,41 +92,6 @@ namespace GEOBRL {
         }
 
         void show_stats() {
-
-            Logger::out("Process") << "Total elapsed time: "
-                                   << (geo_now() - start_time_) << "s" << std::endl;
-
-            const size_t K=size_t(1024);
-            const size_t M=K*K;
-            const size_t G=K*M;
-
-            size_t max_mem = Process::max_used_memory() ;
-            size_t r = max_mem;
-
-            size_t mem_G = r / G;
-            r = r % G;
-            size_t mem_M = r / M;
-            r = r % M;
-            size_t mem_K = r / K;
-            r = r % K;
-
-            std::string s;
-            if(mem_G != 0) {
-                s += std::to_string(mem_G)+"G ";
-            }
-            if(mem_M != 0) {
-                s += std::to_string(mem_M)+"M ";
-            }
-            if(mem_K != 0) {
-                s += std::to_string(mem_K)+"K ";
-            }
-            if(r != 0) {
-                s += std::to_string(r);
-            }
-
-            Logger::out("Process") << "Maximum used memory: "
-                                   << max_mem << " (" << s << ")"
-                                   << std::endl;
         }
 
         void terminate() {
@@ -185,24 +145,6 @@ namespace GEOBRL {
             }
             multithreading_initialized_ = true;
             multithreading_enabled_ = flag;
-            if(multithreading_enabled_) {
-                Logger::out("Process")
-                    << "Multithreading enabled" << std::endl
-                    << "Available cores = " << number_of_cores()
-                    << std::endl;
-                // Logger::out("Process")
-                //    << "Max. concurrent threads = "
-                //    << maximum_concurrent_threads() << std::endl ;
-                if(number_of_cores() == 1) {
-                    Logger::warn("Process")
-                        << "Processor is not a multicore"
-                        << "(or multithread is not supported)"
-                        << std::endl;
-                }
-            } else {
-                Logger::out("Process")
-                    << "Multithreading disabled" << std::endl;
-            }
         }
 
         index_t max_threads() {
@@ -222,16 +164,9 @@ namespace GEOBRL {
             if(num_threads == 0) {
                 num_threads = 1;
             } else if(num_threads > number_of_cores()) {
-                Logger::warn("Process")
-                    << "Cannot allocate " << num_threads
-                    << " for multithreading"
-                    << std::endl;
                 num_threads = number_of_cores();
             }
             max_threads_ = num_threads;
-            Logger::out("Process")
-                << "Max used threads = " << max_threads_
-                << std::endl;
         }
 
         index_t maximum_concurrent_threads() {
@@ -265,14 +200,7 @@ namespace GEOBRL {
             cancel_initialized_ = true;
             cancel_enabled_ = flag;
 
-            if(os_enable_cancel(flag)) {
-                Logger::out("Process")
-                    << (flag ? "Cancel mode enabled" : "Cancel mode disabled")
-                    << std::endl;
-            } else {
-                Logger::warn("Process")
-                    << "Cancel mode not implemented" << std::endl;
-            }
+            os_enable_cancel(flag);
         }
     }
 }

@@ -38,7 +38,6 @@
  */
 
 #include <geogram/basic/packed_arrays.h>
-#include <geogram/basic/logger.h>
 
 namespace {
 
@@ -86,29 +85,8 @@ namespace GEOBRL {
             nb_items_in_Z1 += std::min(sz, Z1_block_size_);
         }
 
-        Logger::out("PArrays")
-            << "stats (nb_arrays=" << nb_arrays_
-            << ", Z1 block size=" << Z1_block_size_ << ") "
-            << (static_mode() ? "static" : "dynamic")
-            << std::endl;
-
         index_t Z1_total = nb_arrays_ * Z1_block_size_;
-
-        Logger::out("PArrays")
-            << "Z1 filling:"
-            << percent_str(nb_items_in_Z1, Z1_total) << std::endl;
-
-        if(!static_mode()) {
-            Logger::out("PArrays")
-                << "arrays in ZV:" << percent_str(nb_arrays_in_ZV, nb_arrays_)
-                << std::endl;
-            Logger::out("PArrays")
-                << "items  in Z1:" << percent_str(nb_items_in_Z1, nb_items)
-                << std::endl;
-            Logger::out("PArrays")
-                << "items  in ZV:" << percent_str(nb_items_in_ZV, nb_items)
-                << std::endl;
-        }
+        (void)Z1_total;
     }
 
     PackedArrays::~PackedArrays() {

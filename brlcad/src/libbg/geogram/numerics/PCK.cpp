@@ -89,47 +89,6 @@ namespace GEOBRL {
         }
 
         void PredicateStats::show_stats() {
-
-            if(invoke_count_ == 0) {
-                return;
-            }
-
-            Logger::out("PCK stats") << "Predicate stats for: "
-                                     << name_ << std::endl;
-
-            {
-                char buf[128];
-                std::snprintf(buf, sizeof(buf), "   invocations : %12lld",
-                    (long long)invoke_count_);
-                Logger::out("PCK stats") << buf << std::endl;
-            }
-
-            Numeric::int64 filter_hit_count = invoke_count_ - exact_count_;
-
-            {
-                char buf[128];
-                std::snprintf(buf, sizeof(buf), "    filter hit : %12lld (%3.2f %%)",
-                    (long long)filter_hit_count,
-                    percent(filter_hit_count, invoke_count_));
-                Logger::out("PCK stats") << buf << std::endl;
-            }
-
-            {
-                char buf[128];
-                std::snprintf(buf, sizeof(buf), "         exact : %12lld (%3.2f %%)",
-                    (long long)exact_count_,
-                    percent(exact_count_, invoke_count_));
-                Logger::out("PCK stats") << buf << std::endl;
-            }
-
-            if(SOS_count_ != 0 || strstr(name_, "SOS") != nullptr) {
-                char buf[128];
-                std::snprintf(buf, sizeof(buf), "           SOS : %12lld (%3.2f %%)",
-                    (long long)SOS_count_,
-                    percent(SOS_count_, invoke_count_));
-                Logger::out("PCK stats") << buf << std::endl;
-            }
-            Logger::out("PCK stats") << std::endl;
         }
 #endif
 

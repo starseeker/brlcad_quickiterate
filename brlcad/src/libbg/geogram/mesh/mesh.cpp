@@ -39,7 +39,6 @@
 
 #include <geogram/mesh/mesh.h>
 #include <geogram/basic/permutation.h>
-#include <geogram/basic/logger.h>
 #include <geogram/basic/algorithm.h>
 
 namespace GEOBRL {
@@ -1489,9 +1488,6 @@ namespace GEOBRL {
         }
 
         if(matches.size() == 1) {
-            GEOBRL::Logger::warn("Mesh")
-                << "Found only one triangular facet adjacent to a quad facet"
-                << std::endl;
             Attribute<bool> weird(attributes(),"weird");
             weird[c1] = true;
             for(index_t i=0; i<matches.size(); ++i) {
@@ -1535,10 +1531,6 @@ namespace GEOBRL {
         // Sanity check: make sure that we only found a single pair
         // of triangular facets with a common edge that matches the quad.
         if(nb_found > 2) {
-            GEOBRL::Logger::warn("Mesh")
-                << "Found more than two triangular facets adjacent to a quad"
-                << " ( got " << nb_found << ")"
-                << std::endl;
             Attribute<bool> weird(attributes(),"weird");
             weird[c1] = true;
             for(index_t i=0; i<matches.size(); ++i) {
@@ -1549,9 +1541,6 @@ namespace GEOBRL {
         }
 
         if(nb_found == 0) {
-            GEOBRL::Logger::warn("Mesh")
-                << "Triangular facets adjacent to a quad have no common edge"
-                << std::endl;
             return false;
         }
 
@@ -1750,22 +1739,7 @@ namespace GEOBRL {
                 }
             }
         }
-        if(weird != 0) {
-            GEOBRL::Logger::warn("Mesh") << "Encountered "
-                                      << weird
-                                      << " invalid connector configurations"
-                                      << std::endl;
-        } else {
-            if(verbose_if_OK) {
-                GEOBRL::Logger::out("Mesh") << "All connectors are OK"
-                                         << std::endl;
-            }
-        }
         if(remove_trivial_slivers && trivial_slivers.size() != 0) {
-            GEOBRL::Logger::warn("Mesh") << "Removing "
-                                      << trivial_slivers.size()
-                                      << " trivial sliver(s)" << std::endl;
-
             next_cell_around_vertex.clear();
             v2cell.clear();
 
@@ -1783,8 +1757,6 @@ namespace GEOBRL {
             }
             delete_elements(delete_c);
 
-            GEOBRL::Logger::warn("Mesh")
-		<< "Re-trying to connect cells" << std::endl;
             connect(false,true);
         }
     }
@@ -1945,57 +1917,7 @@ namespace GEOBRL {
     }
 
     void Mesh::show_stats(const std::string& tag) const {
-        index_t nb_borders = 0;
-        for(index_t co = 0; co < facet_corners.nb(); ++co) {
-            if(facet_corners.adjacent_facet(co) == NO_FACET) {
-                nb_borders++;
-            }
-        }
-
-        Logger::out(tag)
-            << (vertices.single_precision() ? "(FP32)" : "(FP64)")
-            << " nb_v:" << vertices.nb()
-            << " nb_e:" << edges.nb()
-            << " nb_f:" << facets.nb()
-            << " nb_b:" << nb_borders
-            << " tri:" << facets.are_simplices()
-            << " dim:" << vertices.dimension()
-            << std::endl;
-
-        if(cells.nb() != 0) {
-            if(cells.are_simplices()) {
-                Logger::out(tag) << " nb_tets:"
-                                 << cells.nb() << std::endl;
-            } else {
-
-                index_t nb_cells_by_type[GEOBRL::MESH_NB_CELL_TYPES];
-                for(index_t i=0; i<GEOBRL::MESH_NB_CELL_TYPES; ++i) {
-                    nb_cells_by_type[i] = 0;
-                }
-
-                for(index_t c=0; c<cells.nb(); ++c) {
-                    geo_debug_assert(cells.type(c) < GEOBRL::MESH_NB_CELL_TYPES);
-                    ++nb_cells_by_type[cells.type(c)];
-                }
-
-                Logger::out(tag) << " Hybrid - nb_cells:"
-                                 << cells.nb() << " "
-                                 << " Tet:" << nb_cells_by_type[0]
-                                 << " Hex:" << nb_cells_by_type[1]
-                                 << " Psm:" << nb_cells_by_type[2]
-                                 << " Pmd:" << nb_cells_by_type[3]
-                                 << " Cnx:" << nb_cells_by_type[4]
-                                 << std::endl;
-            }
-        }
-
-        display_attributes(tag, "vertices", vertices);
-        display_attributes(tag, "edges", edges);
-        display_attributes(tag, "facets", facets);
-        display_attributes(tag, "facet_corners", facet_corners);
-        display_attributes(tag, "cells", cells);
-        display_attributes(tag, "cell_corners", cell_corners);
-        display_attributes(tag, "cell_facets", cell_facets);
+        geo_argused(tag);
     }
 
     void Mesh::assert_is_valid() {
@@ -2025,25 +1947,9 @@ namespace GEOBRL {
         const std::string& tag, const std::string& subelement_name,
         const MeshSubElementsStore& subelements
     ) const {
-        if(subelements.attributes().nb() != 0) {
-            vector<std::string> names;
-            subelements.attributes().list_attribute_names(names);
-            std::string names_str;
-            for(index_t i=0; i<names.size(); ++i) {
-                if(i != 0) {
-                    names_str = names_str + ",";
-                }
-                names_str = names_str + names[i];
-                AttributeStore* store =
-                    subelements.attributes().find_attribute_store(names[i]);
-                index_t dim = store->dimension();
-                if(dim != 1) {
-                    names_str += ("[" + std::to_string(dim) + "]");
-                }
-            }
-            Logger::out(tag) << "Attributes on " << subelement_name
-                             << ": " << names_str << std::endl;
-        }
+        geo_argused(tag);
+        geo_argused(subelement_name);
+        geo_argused(subelements);
     }
 
     index_t Mesh::nb_subelements_types() const {

@@ -12,7 +12,6 @@ set(GEOGRAM_SRCS
     basic/factory.cpp
     basic/geogram_options.cpp
     basic/geometry.cpp
-    basic/logger.cpp
     basic/numeric.cpp
     basic/packed_arrays.cpp
     basic/process.cpp
