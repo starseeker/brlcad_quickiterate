@@ -1,6 +1,7 @@
 # Geogram subset for BRL-CAD
-# Minimal copy supporting: GEO::initialize, mesh_repair, remove_small_connected_components,
-# fill_holes, compute_normals, remesh_smooth
+# Minimal copy supporting the bot remesh command: GEO::initialize, mesh_repair
+# (used internally by CVT/RVD and as pre-processing in libged/bot/remesh.cpp),
+# compute_normals, remesh_smooth
 # Extracted from geogram/src/lib/geogram/
 
 set(GEOGRAM_SRCS
@@ -29,7 +30,6 @@ set(GEOGRAM_SRCS
     # mesh
     mesh/mesh.cpp
     mesh/mesh_AABB.cpp
-    mesh/mesh_fill_holes.cpp
     mesh/mesh_geometry.cpp
     mesh/mesh_halfedges.cpp
     mesh/mesh_partition.cpp
@@ -46,7 +46,7 @@ set(GEOGRAM_SRCS
     voronoi/generic_RVD_cell.cpp
     voronoi/generic_RVD_polygon.cpp
     voronoi/integration_simplex.cpp
-    # points (needed for colocate in mesh_repair, kd_tree for nn_search)
+    # points (needed for colocate in mesh_repair used by CVT/remesh pre-processing)
     points/colocate.cpp
     points/kd_tree.cpp
     points/nn_search.cpp
