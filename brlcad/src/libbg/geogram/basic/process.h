@@ -108,18 +108,15 @@ namespace GEOBRL {
         /**
          * \brief Checks whether threads are running.
          * \retval true if concurrent threads are currently running as an
-         * effect to Process::run_threads().
+         *  effect to parallel_for(), parallel_for_slice(), or parallel().
          * \retval false otherwise.
-         * \see Process::run_threads()
          */
         bool GEOBRLCAD_API is_running_threads();
 
         /**
-         * \brief Enables/disables floating point exceptions
+         * \brief Enables/disables floating point exceptions.
          * \details If FPEs are enabled, then floating point exceptions
-         * raise a SIGFPE signal, otherwise they generate NaNs. FPEs can also
-         * be configured by setting the value of the property "sys:FPE" with
-         * Environment::set_value().
+         * raise a SIGFPE signal, otherwise they generate NaNs.
          * \param[in] flag set to \c true to enable FPEs, \c false to disable.
          * \see FPE_enabled()
          */
@@ -134,9 +131,7 @@ namespace GEOBRL {
         bool GEOBRLCAD_API FPE_enabled();
 
         /**
-         * \brief Enables/disables multi-threaded computations
-         * Multi-threading can also be configured by setting the value of the
-         * property "sys:multithread" with Environment::set_value().
+         * \brief Enables/disables multi-threaded computations.
          * \param[in] flag set to \c true to enable multi-threading, \c false
          * to disable.
          * \see multithreading_enabled()
@@ -152,10 +147,7 @@ namespace GEOBRL {
         bool GEOBRLCAD_API multithreading_enabled();
 
         /**
-         * \brief Limits the number of concurrent threads to use
-         * \details The number of threads can also be configured by setting
-         * the value of the property "sys:max_threads" with
-         * Environment::set_value().
+         * \brief Limits the number of concurrent threads to use.
          * \param[in] num_threads maximum number of threads to use.
          * \see max_threads()
          */
@@ -168,14 +160,12 @@ namespace GEOBRL {
         index_t GEOBRLCAD_API max_threads();
 
         /**
-         * \brief Enables interruption of cancelable tasks
+         * \brief Enables interruption of cancelable tasks.
          * \details This allows to interrupt cancelable tasks by typing
          * CTRL-C in the terminal. This sets a specific handler on the
-         * interrupt signal that calls Progress::cancel() is there is a
+         * interrupt signal that calls Progress::cancel() if there is a
          * running cancelable task. If no task is running, the program is
-         * interrupted. The cancel mode can also be configured by setting the
-         * value of the property "sys:cancel" with
-         * Environment::set_value().
+         * interrupted.
          * \param[in] flag set to \c true to enable cancel mode, \c false
          * to disable.
          * \see cancel_enabled()

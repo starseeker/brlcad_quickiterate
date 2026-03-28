@@ -52,7 +52,7 @@ namespace {
         return 0.001 * double(ms.count());
     }
 
-    int running_threads_invocations_ = 0;
+    std::atomic<int> running_threads_invocations_{0};
 
     bool multithreading_initialized_ = false;
     bool multithreading_enabled_ = true;
