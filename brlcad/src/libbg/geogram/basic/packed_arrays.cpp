@@ -71,22 +71,6 @@ namespace GEOBRL {
     }
 
     void PackedArrays::show_stats() {
-        index_t nb_items_in_Z1 = 0;
-        index_t nb_items_in_ZV = 0;
-        index_t nb_arrays_in_ZV = 0;
-        index_t nb_items = 0;
-        for(index_t i = 0; i < nb_arrays_; i++) {
-            index_t sz = array_size(i);
-            nb_items += sz;
-            if(sz > Z1_block_size_) {
-                nb_items_in_ZV += (sz - Z1_block_size_);
-                nb_arrays_in_ZV++;
-            }
-            nb_items_in_Z1 += std::min(sz, Z1_block_size_);
-        }
-
-        index_t Z1_total = nb_arrays_ * Z1_block_size_;
-        (void)Z1_total;
     }
 
     PackedArrays::~PackedArrays() {
