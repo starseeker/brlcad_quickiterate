@@ -74,6 +74,7 @@ target_include_directories(geogram_brlcad PUBLIC
 )
 target_include_directories(geogram_brlcad PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/third_party/amgcl
+    ${GTE_INCLUDE_DIR}
 )
 
 target_compile_definitions(geogram_brlcad PUBLIC

@@ -343,14 +343,14 @@ namespace {
         //   normally the tests with inf do what they should
         //   (to be tested)
 
-        double tx1 = dirinv.x*(box.xyz_min[0] - q1.x);
-        double tx2 = dirinv.x*(box.xyz_max[0] - q1.x);
+        double tx1 = dirinv[0]*(box.xyz_min[0] - q1[0]);
+        double tx2 = dirinv[0]*(box.xyz_max[0] - q1[0]);
 
-        double ty1 = dirinv.y*(box.xyz_min[1] - q1.y);
-        double ty2 = dirinv.y*(box.xyz_max[1] - q1.y);
+        double ty1 = dirinv[1]*(box.xyz_min[1] - q1[1]);
+        double ty2 = dirinv[1]*(box.xyz_max[1] - q1[1]);
 
-        double tz1 = dirinv.z*(box.xyz_min[2] - q1.z);
-        double tz2 = dirinv.z*(box.xyz_max[2] - q1.z);
+        double tz1 = dirinv[2]*(box.xyz_min[2] - q1[2]);
+        double tz2 = dirinv[2]*(box.xyz_max[2] - q1[2]);
 
         // now compute the intersection of the three intervals
         //      Ix /\ Iy /\ Iz
@@ -594,11 +594,11 @@ namespace GEOBRL {
         const Ray& R, Intersection& I
     ) const {
         index_t f = I.f;
-        vec3 dirinv(
-            1.0/R.direction.x,
-            1.0/R.direction.y,
-            1.0/R.direction.z
-        );
+        vec3 dirinv{
+            1.0/R.direction[0],
+            1.0/R.direction[1],
+            1.0/R.direction[2]
+        };
         ray_nearest_intersection_recursive(
             R, dirinv, I, f, 1, 0, mesh_->facets.nb(), 0
         );

@@ -229,7 +229,7 @@ namespace GEOBRL {
         double height
     ) {
         index_t nb_border_edges=0;
-        vector<vec3> Nv(M.vertices.nb(), vec3(0.0, 0.0, 0.0));
+        vector<vec3> Nv(M.vertices.nb(), vec3{0.0, 0.0, 0.0});
         for(index_t f: M.facets) {
             vec3 N = Geom::mesh_facet_normal(M, f);
             for(index_t c1: M.facets.corners(f)) {
@@ -333,7 +333,7 @@ namespace GEOBRL {
         // For each vertex, direction along which the neighbor
         // on the surface is searched (or the neighbor on the
         // ribbon if it is a vertex on the border)
-        vector<vec3> Nv(surface.vertices.nb(), vec3(0.0, 0.0, 0.0));
+        vector<vec3> Nv(surface.vertices.nb(), vec3{0.0, 0.0, 0.0});
 
         // average edge length incident to vertex
         vector<double> Lv(surface.vertices.nb(), 0.0);
@@ -383,7 +383,7 @@ namespace GEOBRL {
                     index_t v = surface.facet_corners.vertex(c1);
                     v_on_border[v] = true;
                     ++nb_v_on_border;
-                    Nv[v] = vec3(0.0, 0.0, 0.0);
+                    Nv[v] = vec3{0.0, 0.0, 0.0};
                 }
             }
         }

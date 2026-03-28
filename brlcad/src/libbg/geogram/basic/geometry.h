@@ -48,6 +48,10 @@
  * \brief Geometric functions in 2d and 3d
  */
 
+#include <Mathematics/Vector2.h>
+#include <Mathematics/Vector3.h>
+#include <Mathematics/Vector4.h>
+
 namespace GEOBRL {
 
     /************************************************************************/
@@ -56,19 +60,19 @@ namespace GEOBRL {
      * \brief Represents points and vectors in 2d.
      * \details Syntax is (mostly) compatible with GLSL.
      */
-    typedef vecng<2, Numeric::float64> vec2;
+    using vec2 = gte::Vector<2, double>;
 
     /**
      * \brief Represents points and vectors in 3d.
      * \details Syntax is (mostly) compatible with GLSL.
      */
-    typedef vecng<3, Numeric::float64> vec3;
+    using vec3 = gte::Vector<3, double>;
 
     /**
      * \brief Represents points and vectors in 4d.
      * \details Syntax is (mostly) compatible with GLSL.
      */
-    typedef vecng<4, Numeric::float64> vec4;
+    using vec4 = gte::Vector<4, double>;
 
     /**
      * \brief Represents points and vectors in 2d with
@@ -193,12 +197,48 @@ namespace GEOBRL {
         );
     }
 
+    // Free-function shims bridging geogram call sites to GTE API
+    inline double dot(const vec3& a, const vec3& b) { return gte::Dot(a, b); }
+    inline double dot(const vec2& a, const vec2& b) { return gte::Dot(a, b); }
+    inline double dot(const vec4& a, const vec4& b) { return gte::Dot(a, b); }
+    inline vec3 cross(const vec3& a, const vec3& b) { return gte::Cross(a, b); }
+    inline double length(const vec3& v) { return gte::Length(v); }
+    inline double length(const vec2& v) { return gte::Length(v); }
+    inline double length(const vec4& v) { return gte::Length(v); }
+    inline double length2(const vec3& v) { return gte::Dot(v, v); }
+    inline double length2(const vec2& v) { return gte::Dot(v, v); }
+    inline double normalize_result(vec3& v) { return gte::Normalize(v); }
+    inline vec3 normalize(const vec3& v) { vec3 c = v; gte::Normalize(c); return c; }
+    inline vec2 normalize(const vec2& v) { vec2 c = v; gte::Normalize(c); return c; }
+    inline vec3 mix(const vec3& a, const vec3& b, double t) {
+        return (1.0 - t) * a + t * b;
+    }
+    inline vec2 mix(const vec2& a, const vec2& b, double t) {
+        return (1.0 - t) * a + t * b;
+    }
+    inline double det(const vec2& a, const vec2& b) {
+        return a[0]*b[1] - a[1]*b[0];
+    }
+
     /************************************************************************/
 
     /**
      * \brief Geometric functions and utilities.
      */
     namespace Geom {
+
+        inline double distance2(const vec3& p1, const vec3& p2) {
+            vec3 d = p2 - p1; return gte::Dot(d, d);
+        }
+        inline double distance2(const vec2& p1, const vec2& p2) {
+            vec2 d = p2 - p1; return gte::Dot(d, d);
+        }
+        inline double distance(const vec3& p1, const vec3& p2) {
+            return gte::Length(p2 - p1);
+        }
+        inline double distance(const vec2& p1, const vec2& p2) {
+            return gte::Length(p2 - p1);
+        }
 
         /**
          * \brief Computes the barycenter of two points in 3d.
@@ -207,11 +247,11 @@ namespace GEOBRL {
          * \return the barycenter of \p p1 and \p p2
          */
         inline vec3 barycenter(const vec3& p1, const vec3& p2) {
-            return vec3(
-                0.5 * (p1.x + p2.x),
-                0.5 * (p1.y + p2.y),
-                0.5 * (p1.z + p2.z)
-            );
+            return vec3{
+                0.5 * (p1[0] + p2[0]),
+                0.5 * (p1[1] + p2[1]),
+                0.5 * (p1[2] + p2[2])
+            };
         }
 
         /**
@@ -221,10 +261,10 @@ namespace GEOBRL {
          * \return the barycenter of \p p1 and \p p2
          */
         inline vec2 barycenter(const vec2& p1, const vec2& p2) {
-            return vec2(
-                0.5 * (p1.x + p2.x),
-                0.5 * (p1.y + p2.y)
-            );
+            return vec2{
+                0.5 * (p1[0] + p2[0]),
+                0.5 * (p1[1] + p2[1])
+            };
         }
 
         /**
@@ -237,11 +277,11 @@ namespace GEOBRL {
         inline vec3 barycenter(
             const vec3& p1, const vec3& p2, const vec3& p3
         ) {
-            return vec3(
-                (p1.x + p2.x + p3.x) / 3.0,
-                (p1.y + p2.y + p3.y) / 3.0,
-                (p1.z + p2.z + p3.z) / 3.0
-            );
+            return vec3{
+                (p1[0] + p2[0] + p3[0]) / 3.0,
+                (p1[1] + p2[1] + p3[1]) / 3.0,
+                (p1[2] + p2[2] + p3[2]) / 3.0
+            };
         }
 
         /**
@@ -254,10 +294,10 @@ namespace GEOBRL {
         inline vec2 barycenter(
             const vec2& p1, const vec2& p2, const vec2& p3
         ) {
-            return vec2(
-                (p1.x + p2.x + p3.x) / 3.0,
-                (p1.y + p2.y + p3.y) / 3.0
-            );
+            return vec2{
+                (p1[0] + p2[0] + p3[0]) / 3.0,
+                (p1[1] + p2[1] + p3[1]) / 3.0
+            };
         }
 
         /**
@@ -310,7 +350,7 @@ namespace GEOBRL {
          * \return the determinant of \p a and \p b
          */
         inline double det(const vec2& a, const vec2& b) {
-            return a.x * b.y - a.y * b.x;
+            return a[0] * b[1] - a[1] * b[0];
         }
 
         /**
@@ -368,7 +408,7 @@ namespace GEOBRL {
         inline double triangle_area(
             const vec3& p1, const vec3& p2, const vec3& p3
         ) {
-            return triangle_area_3d(p1.data(), p2.data(), p3.data());
+            return triangle_area_3d(&p1[0], &p2[0], &p3[0]);
         }
 
         /**
@@ -448,9 +488,9 @@ namespace GEOBRL {
          */
         inline bool has_nan(const vec3& v) {
             return
-                Numeric::is_nan(v.x) ||
-                Numeric::is_nan(v.y) ||
-                Numeric::is_nan(v.z);
+                Numeric::is_nan(v[0]) ||
+                Numeric::is_nan(v[1]) ||
+                Numeric::is_nan(v[2]);
         }
 
         /**
@@ -460,8 +500,8 @@ namespace GEOBRL {
          */
         inline bool has_nan(const vec2& v) {
             return
-                Numeric::is_nan(v.x) ||
-                Numeric::is_nan(v.y);
+                Numeric::is_nan(v[0]) ||
+                Numeric::is_nan(v[1]);
         }
 
         /**
@@ -501,10 +541,10 @@ namespace GEOBRL {
             const double* p3, const double* p4
         ) {
             return tetra_signed_volume(
-                *reinterpret_cast<const vec3*>(p1),
-                *reinterpret_cast<const vec3*>(p2),
-                *reinterpret_cast<const vec3*>(p3),
-                *reinterpret_cast<const vec3*>(p4)
+                vec3{p1[0], p1[1], p1[2]},
+                vec3{p2[0], p2[1], p2[2]},
+                vec3{p3[0], p3[1], p3[2]},
+                vec3{p4[0], p4[1], p4[2]}
             );
         }
 
@@ -563,9 +603,9 @@ namespace GEOBRL {
             double wq = b + abc;
             double wr = c + abc;
             double s = area / 12.0;
-            Vg.x = s * (wp * p.x + wq * q.x + wr * r.x);
-            Vg.y = s * (wp * p.y + wq * q.y + wr * r.y);
-            Vg.z = s * (wp * p.z + wq * q.z + wr * r.z);
+            Vg[0] = s * (wp * p[0] + wq * q[0] + wr * r[0]);
+            Vg[1] = s * (wp * p[1] + wq * q[1] + wr * r[1]);
+            Vg[2] = s * (wp * p[2] + wq * q[2] + wr * r[2]);
         }
 
         /**
@@ -611,11 +651,11 @@ namespace GEOBRL {
                 t = 1.0 - t;
             }
             double u = 1.0 - s - t;
-            return vec3(
-                u * p1.x + s * p2.x + t * p3.x,
-                u * p1.y + s * p2.y + t * p3.y,
-                u * p1.z + s * p2.z + t * p3.z
-            );
+            return vec3{
+                u * p1[0] + s * p2[0] + t * p3[0],
+                u * p1[1] + s * p2[1] + t * p3[1],
+                u * p1[2] + s * p2[2] + t * p3[2]
+            };
         }
     }
 
@@ -634,10 +674,10 @@ namespace GEOBRL {
          */
         Plane(const vec3& p1, const vec3& p2, const vec3& p3) {
             vec3 n = cross(p2 - p1, p3 - p1);
-            a = n.x;
-            b = n.y;
-            c = n.z;
-            d = -(a * p1.x + b * p1.y + c * p1.z);
+            a = n[0];
+            b = n[1];
+            c = n[2];
+            d = -(a * p1[0] + b * p1[1] + c * p1[2]);
         }
 
         /**
@@ -647,10 +687,10 @@ namespace GEOBRL {
          * \param[in] n the vector
          */
         Plane(const vec3& p, const vec3& n) {
-            a = n.x;
-            b = n.y;
-            c = n.z;
-            d = -(a * p.x + b * p.y + c * p.z);
+            a = n[0];
+            b = n[1];
+            c = n[2];
+            d = -(a * p[0] + b * p[1] + c * p[2]);
         }
 
         /**
@@ -675,7 +715,7 @@ namespace GEOBRL {
          * \brief Gets the normal vector of the plane.
          */
         vec3 normal() const {
-            return vec3(a, b, c);
+            return vec3{a, b, c};
         }
 
         double a, b, c, d;
@@ -960,9 +1000,9 @@ namespace GEOBRL {
     inline mat4 create_translation_matrix(const vec3& T) {
         mat4 result;
         result.load_identity();
-        result(3,0) = T.x;
-        result(3,1) = T.y;
-        result(3,2) = T.z;
+        result(3,0) = T[0];
+        result(3,1) = T[1];
+        result(3,2) = T[2];
         return result;
     }
 

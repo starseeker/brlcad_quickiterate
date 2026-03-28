@@ -49,7 +49,7 @@ namespace GEOBRL {
     namespace Geom {
 
         vec3 mesh_facet_normal(const Mesh& M, index_t f) {
-            vec3 result(0.0, 0.0, 0.0);
+            vec3 result{0.0, 0.0, 0.0};
 	    for(auto [p1, p2, p3]: M.facets.triangle_points(f)) {
 		result += cross(p2 - p1, p3 - p1);
 	    }
@@ -71,7 +71,7 @@ namespace GEOBRL {
             M.vertices.set_dimension(6);
         } else {
             for(index_t i: M.vertices) {
-                Geom::mesh_vertex_normal_ref(M, i) = vec3(0.0, 0.0, 0.0);
+                Geom::mesh_vertex_normal_ref(M, i) = vec3{0.0, 0.0, 0.0};
             }
         }
         for(index_t f: M.facets) {

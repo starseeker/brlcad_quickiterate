@@ -2091,10 +2091,10 @@ namespace {
                                 vec3 vertex_projection;
 
                                 AABB_->nearest_facet(
-                                    vec3(seed_ptr), seed_projection, seed_dist
+                                    vec3{seed_ptr[0], seed_ptr[1], seed_ptr[2]}, seed_projection, seed_dist
                                 );
                                 AABB_->nearest_facet(
-                                    vec3(vertex_ptr),
+                                    vec3{vertex_ptr[0], vertex_ptr[1], vertex_ptr[2]},
                                     vertex_projection, vertex_dist
                                 );
 
@@ -2157,15 +2157,15 @@ namespace {
                     (!prefer_seeds_ || !select_nearest_) && project_on_surface_
                 ) {
                     for(index_t v=0; v<vertices_.size()/3; ++v) {
-                        vec3 p(
+                        vec3 p{
                             vertices_[3*v], vertices_[3*v+1], vertices_[3*v+2]
-                        );
+                        };
                         vec3 q;
                         double sq_dist;
                         AABB_->nearest_facet(p,q,sq_dist);
-                        vertices_[3*v  ] = q.x;
-                        vertices_[3*v+1] = q.y;
-                        vertices_[3*v+2] = q.z;
+                        vertices_[3*v  ] = q[0];
+                        vertices_[3*v+1] = q[1];
+                        vertices_[3*v+2] = q[2];
                     }
                 }
 
