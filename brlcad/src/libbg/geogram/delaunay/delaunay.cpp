@@ -48,7 +48,6 @@
 #include <geogram/delaunay/delaunay_triangle.h>
 #endif
 
-#include <geogram/basic/logger.h>
 #include <geogram/basic/geogram_options.h>
 #include <geogram/basic/process.h>
 #include <geogram/basic/geometry_nd.h>
@@ -148,26 +147,14 @@ namespace GEOBRL {
         Delaunay* result = nullptr;
         try {
             result = DelaunayFactory::create_object(name, dim);
-            if(result == nullptr) {
-                Logger::warn("Delaunay")
-                    << "Could not create Delaunay triangulation: " << name
-                    << std::endl;
-            }
         }
-        catch(InvalidDimension& ex) {
-            Logger::warn("Delaunay") << ex.what() << std::endl;
+        catch(InvalidDimension&) {
         }
 
         if(result == nullptr) {
 #ifdef GEOBRLCAD_PSM
-            Logger::err("Delaunay")
-                << "Could not create Delaunay triangulation"
-                << std::endl;
             return nullptr;
 #else
-            Logger::warn("Delaunay")
-                << "Falling back to NN mode"
-                << std::endl;
             result = new Delaunay_NearestNeighbors(dim);
 #endif
         }

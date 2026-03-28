@@ -40,7 +40,6 @@
 #include <geogram/points/nn_search.h>
 #include <geogram/points/kd_tree.h>
 #include <geogram/basic/geogram_options.h>
-#include <geogram/basic/logger.h>
 
 /****************************************************************************/
 
@@ -140,12 +139,6 @@ namespace GEOBRL {
         if(nns != nullptr) {
             return std::shared_ptr<NearestNeighborSearch>(nns);
         }
-
-        Logger::warn("NNSearch")
-            << "Could not create NNSearch algorithm: " << name
-            << std::endl
-            << "Falling back to BNN"
-            << std::endl;
 
         NearestNeighborSearch* fallback = new BalancedKdTree(dimension);
         return std::shared_ptr<NearestNeighborSearch>(fallback);

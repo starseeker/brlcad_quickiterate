@@ -43,7 +43,6 @@
 #include <geogram/mesh/index.h>
 #include <geogram/basic/permutation.h>
 #include <geogram/basic/process.h>
-#include <geogram/basic/logger.h>
 #include <geogram/basic/algorithm.h>
 
 namespace {

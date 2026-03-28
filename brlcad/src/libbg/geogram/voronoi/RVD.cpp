@@ -1665,9 +1665,6 @@ namespace {
             create_threads();
 
             if(verbose && facets_begin_ == NO_INDEX && facets_end_ == NO_INDEX) {
-                Logger::out("RVD")
-                    << "Computing initial sampling on surface, using dimension="
-                    << index_t(dimension_) << std::endl;
             }
 
             return mesh_generate_random_samples_on_surface<DIM>(
@@ -1686,9 +1683,6 @@ namespace {
             create_threads();
 
             if(verbose && tets_begin_ == NO_INDEX && tets_end_ == NO_INDEX) {
-                Logger::out("RVD")
-                    << "Computing initial sampling in volume, using dimension="
-                    << index_t(dimension_) << std::endl;
             }
 
             return mesh_generate_random_samples_in_volume<DIM>(

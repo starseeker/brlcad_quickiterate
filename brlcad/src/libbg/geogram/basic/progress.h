@@ -41,7 +41,8 @@
 #define GEOBRLCAD_BASIC_PROGRESS
 
 #include <geogram/basic/geogram_common.h>
-#include <geogram/basic/logger.h>
+#include <geogram/basic/numeric.h>
+#include <geogram/basic/argused.h>
 #include <memory>
 
 /**

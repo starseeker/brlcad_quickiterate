@@ -426,10 +426,6 @@ namespace {
             }
         }
         if(verbose && (nb_duplicates != 0 || nb_degenerate != 0)) {
-            Logger::out("Validate")
-                << "Detected " << nb_duplicates << " duplicate and "
-                << nb_degenerate << " degenerate facets"
-                << std::endl;
         }
     }
 
@@ -860,10 +856,6 @@ namespace {
             }
         }
         if(moebius_count != 0) {
-            Logger::out("Validate")
-                << "Encountered " << moebius_count
-                << " ambiguous facet orientation (Moebius)"
-                << std::endl;
         }
     }
 
@@ -966,12 +958,6 @@ namespace {
 
         if(new_vertices.size() != 0) {
             if(verbose) {
-                Logger::out("Validate")
-                    << "Detected non-manifold vertices" << std::endl;
-                Logger::out("Validate") << "   (fixed by generating "
-                                        << nb_vertices - M.vertices.nb()
-                                        << " new vertices)"
-                                        << std::endl;
             }
             index_t first_v = M.vertices.create_vertices(
                 new_vertices.size() / M.vertices.dimension()
@@ -1099,9 +1085,6 @@ namespace GEOBRL {
         }
 
         if(verbose) {
-            Logger::out("Validate") << "Removed "
-                                    << M.vertices.nb() - nb_new_vertices
-                                    << " duplicated vertices" << std::endl;
         }
 
         // Replace vertex indices for edges

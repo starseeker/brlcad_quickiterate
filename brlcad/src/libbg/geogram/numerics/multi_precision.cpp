@@ -49,7 +49,6 @@
 #include <geogram/numerics/multi_precision.h>
 #include <geogram/numerics/PCK.h>
 #include <geogram/basic/process.h>
-#include <geogram/basic/logger.h>
 
 namespace {
 
@@ -1206,16 +1205,6 @@ namespace GEOBRL {
 /************************************************************************/
 
     void expansion::show_all_stats() {
-#ifdef PCK_STATS
-        Logger::out("expansion") << "Stats" << std::endl;
-        for(index_t i = 0; i < expansion_length_histo_.size(); ++i) {
-            if(expansion_length_histo_[i] != 0) {
-                Logger::out("expansion")
-                    << "len " << i
-                    << " : " << expansion_length_histo_[i] << std::endl;
-            }
-        }
-#endif
     }
 
     /************************************************************************/

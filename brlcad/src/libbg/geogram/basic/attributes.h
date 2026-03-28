@@ -45,7 +45,6 @@
 #include <geogram/basic/memory.h>
 #include <geogram/basic/numeric.h>
 #include <geogram/basic/process.h>
-#include <geogram/basic/logger.h>
 
 #include <map>
 #include <typeinfo>

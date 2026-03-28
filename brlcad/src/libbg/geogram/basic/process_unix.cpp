@@ -43,7 +43,6 @@
 
 #include <geogram/basic/process.h>
 #include <geogram/basic/process_private.h>
-#include <geogram/basic/logger.h>
 #include <geogram/basic/progress.h>
 
 // LineInput: inlined from basic/line_stream.h / line_stream.cpp
@@ -51,6 +50,9 @@
 #include <geogram/basic/numeric.h>
 #include <cstring>
 #include <cerrno>
+#include <iostream>
+#include <sstream>
+#include <stdexcept>
 #include <stdio.h>
 #include <ctype.h>
 
@@ -91,8 +93,7 @@ namespace GEOBRL {
                 }
             }
             if(total_length < 0) {
-                Logger::err("LineInput")
-                    << "MultiLine longer than " << MAX_LINE_LEN << " bytes" << std::endl;
+                std::cerr << "MultiLine longer than " << MAX_LINE_LEN << " bytes" << std::endl;
             }
             return true;
         }

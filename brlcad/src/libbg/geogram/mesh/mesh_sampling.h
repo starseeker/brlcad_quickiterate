@@ -44,7 +44,6 @@
 #include <geogram/mesh/mesh.h>
 #include <geogram/mesh/mesh_geometry.h>
 #include <geogram/basic/geometry_nd.h>
-#include <geogram/basic/logger.h>
 #include <algorithm>
 
 /**
@@ -190,9 +189,6 @@ namespace GEOBRL {
             }
         }
         if(mesh.facets.nb() > 1 && last_t == first_t) {
-            Logger::warn("Sampler")
-                << "Did put all the points in the same triangle"
-                << std::endl;
             return false;
         }
         return true;
@@ -354,9 +350,6 @@ namespace GEOBRL {
             }
         }
         if(mesh.cells.nb() > 1 && last_t == first_t) {
-            Logger::warn("Sampler")
-                << "Did put all the points in the same tetrahedron"
-                << std::endl;
             return false;
         }
         return true;

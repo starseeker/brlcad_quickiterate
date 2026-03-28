@@ -42,7 +42,8 @@
 
 #include <geogram/basic/geogram_common.h>
 #include <geogram/basic/numeric.h>
-#include <geogram/basic/logger.h>
+#include <geogram/basic/argused.h>
+#include <geogram/basic/assert.h>
 #include <functional>
 #include <algorithm>
 #include <atomic>
@@ -131,8 +132,6 @@ namespace GEOBRL {
             void log_SOS() {
             }
             static void show_all_stats() {
-                Logger::out("Stats") << "Compiled without PCK_STAT (no stats)"
-                                     << std::endl;
             }
         };
 #endif

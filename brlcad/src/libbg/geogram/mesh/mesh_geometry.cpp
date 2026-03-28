@@ -40,7 +40,6 @@
 #include <geogram/mesh/mesh_geometry.h>
 #include <geogram/basic/attributes.h>
 #include <geogram/basic/geometry.h>
-#include <geogram/basic/logger.h>
 
 /****************************************************************************/
 

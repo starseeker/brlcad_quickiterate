@@ -229,11 +229,6 @@ namespace {
                                 index_t v1 = mesh.facet_corners.vertex(c1);
                                 index_t v2 = mesh.facet_corners.vertex(c2);
                                 if(border_next.find(v1) != border_next.end()) {
-                                    Logger::warn("Simplify")
-                                        << "Region has non-manifold border"
-                                        << std::endl;
-                                    // Yes, goto!, why not, what's wrong with goto ?
-                                    // Why would it be ok to throw() and not goto ?
                                     goto rollback;
                                 }
                                 border_next[v1] = v2;
@@ -255,24 +250,15 @@ namespace {
                         ++nb_border_visited;
                         v = border_next[v];
                         if(nb_border_visited > mesh.vertices.nb()) {
-                            Logger::warn("Simplify")
-                                << "Region has singular border topology"
-                                << std::endl;
                             goto rollback;
                         }
                     } while(v != border_next.begin()->first);
 
                     if(nb_border_visited != border_next.size()) {
-                        Logger::warn("Simplify")
-                            << "Region has multiple borders"
-                            << std::endl;
                         goto rollback;
                     }
 
                     if(new_facet.size() < 3) {
-                        Logger::warn("Simplify")
-                            << "Region has border with less than 3 corners"
-                            << std::endl;
                         goto rollback;
                     }
 
@@ -298,7 +284,6 @@ namespace {
         return true;
 
     rollback:
-        Logger::out("Simplify") << "...Rolling back." << std::endl;
         // delete all facets...
         facet_status.resize(mesh.facets.nb(), 1);
         // ... except the initial ones !
@@ -539,9 +524,6 @@ namespace {
                         mesh->facets.attributes().copy_item(newf,f);
                     }
                 } else {
-                    Logger::warn("RVD")
-                        << "Could not triangulate non-convex facet"
-                        << std::endl;
                 }
             }
         }
