@@ -291,26 +291,69 @@ namespace gte
             }
             else
             {
-                // Epsilon-based colocate using sort + union-find for full transitivity.
+                // Epsilon-based colocate using sort-by-x + union-find.
                 //
-                // Algorithm:
-                //  1. Sort vertex indices by x-coordinate.
-                //  2. For each vertex i (in sorted order), scan forward while the
-                //     x-difference is less than epsilon.  For each candidate j,
-                //     check the full 3D Euclidean distance.  If <= epsilon, unite i
-                //     and j in a union-find forest.
-                //  3. Each union-find root becomes the canonical vertex for its group.
+                // ── Algorithm ────────────────────────────────────────────────────
                 //
-                // Correctness: any two vertices within distance epsilon must have
-                // |x_i - x_j| <= epsilon, so they appear within epsilon of each other
-                // in the sorted order and are always considered.  Union-find ensures
-                // full transitivity: if A–B and B–C are merged the three all share
-                // one canonical vertex even if |x_A - x_C| > epsilon.
+                //  1. Sort vertex indices by x-coordinate.                O(N log N)
+                //  2. For each vertex i (sorted order), scan forward while
+                //     dx ≤ epsilon.  For each candidate j, check the full
+                //     3D Euclidean distance; if ≤ epsilon, union i and j.  O(N·W)
+                //     W = max number of vertices in any epsilon-wide x-slab.
+                //  3. Each union-find root becomes the canonical vertex.   O(N·α(N))
                 //
-                // This replaces the earlier 27-cell spatial hash which lacked
-                // transitivity guarantees.  It is equivalent to (and inspired by)
-                // Geogram's colocate_by_lexico_sort for the zero-epsilon case,
-                // extended with union-find for epsilon > 0.
+                // ── Correctness ───────────────────────────────────────────────────
+                //
+                // Any two vertices within distance epsilon must have
+                // |x_i - x_j| ≤ epsilon, so they always appear within epsilon of
+                // each other in the sorted order and are never skipped.
+                //
+                // Union-find guarantees FULL TRANSITIVITY: if A–B and B–C are
+                // merged they all share one canonical vertex even when
+                // |x_A - x_C| > epsilon.  This is stronger than Geogram's
+                // epsilon colocate (colocate.cpp), which uses min-index assignment
+                // + chain-following.  Geogram's chain-following can fail when the
+                // kd-tree assigns a vertex to a local minimum that is not the
+                // global minimum of its transitive closure, producing two distinct
+                // clusters for what should be one group.
+                //
+                // ── Comparison with Geogram's kd-tree (colocate.cpp) ──────────
+                //
+                // Geogram's colocate() (epsilon > 0 path) builds an ANN kd-tree
+                // and queries each vertex for its K nearest neighbors, doubling K
+                // until all within-tolerance neighbors are found.  It is O(N log N)
+                // for well-separated point sets, but degrades to O(N² log N) when
+                // many points fall within the tolerance ball (repeated doublings
+                // drive K → N).
+                //
+                // The sort+scan approach degrades to O(N²) when all vertices lie
+                // in an epsilon-wide x-slab (e.g. a flat panel exactly in the YZ
+                // plane) — but in that case the inner distance check fails fast on
+                // dy or dz, keeping the practical constant small.
+                //
+                // Both approaches share the same O(N²) worst-case order of
+                // magnitude for maximally degenerate point sets.  The kd-tree
+                // approach carries additional overhead (tree construction, heap
+                // allocations per query, NearestNeighborSearch virtual dispatch)
+                // that is not justified for the repair use case.
+                //
+                // ── Why worst-case does not arise for repair inputs ──────────────
+                //
+                // The caller (repair.cpp bot_to_gte_init) sets
+                //   epsilon = 1e-8 × bbox_diag.
+                // For a 10 000 mm bounding box this is epsilon ≈ 0.0001 mm.
+                // Fitting more than a handful of distinct mesh vertices into a
+                // 0.0001 mm x-slab requires vertex density > 10 000/mm — far
+                // beyond any CAD or scan mesh.  In practice W ≪ N for all real
+                // inputs, the inner scan terminates in O(1) steps per vertex, and
+                // the total cost is O(N log N) dominated by the initial sort.
+                //
+                // ── Summary ──────────────────────────────────────────────────────
+                //
+                //  · Correctness: stronger than Geogram (full union-find transitivity)
+                //  · Worst-case:  O(N²) — same order as Geogram's kd-tree approach
+                //  · Practical:   O(N log N) for all real-world repair inputs
+                //  · Dependencies: none (std::sort + in-line union-find only)
 
                 // --- Union-find with path-halving ---
                 std::vector<int32_t> uf(static_cast<size_t>(numVertices));
