@@ -41,7 +41,7 @@
 #define GEOBRLCAD_BASIC_GEOBRLMETRY
 
 #include <geogram/basic/geogram_common.h>
-#include <geogram/basic/matrix.h>
+#include <geogram/basic/vecg.h>
 
 /**
  * \file geogram/basic/geometry.h
@@ -865,9 +865,9 @@ namespace GEOBRL {
      */
     template <class FT> vecng<3,FT> transform_vector(
         const vecng<3,FT>& v,
-        const Matrix<4,FT>& m
+        const gte::Matrix<4,4,FT>& m
     ){
-        index_t i,j ;
+        int i,j ;
         FT result[4] ;
 
         for(i=0; i<4; i++) {
@@ -901,9 +901,9 @@ namespace GEOBRL {
      */
     template <class FT> vecng<3,FT> transform_point(
         const vecng<3,FT>& v,
-        const Matrix<4,FT>& m
+        const gte::Matrix<4,4,FT>& m
     ){
-        index_t i,j ;
+        int i,j ;
         FT result[4] ;
 
         for(i=0; i<4; i++) {
@@ -940,10 +940,10 @@ namespace GEOBRL {
      * \return the transformed 3d point
      */
     template <class FT> vecng<3,FT> transform_point(
-        const Matrix<4,FT>& m,
+        const gte::Matrix<4,4,FT>& m,
         const vecng<3,FT>& v
     ){
-        index_t i,j ;
+        int i,j ;
         FT result[4] ;
 
         for(i=0; i<4; i++) {
@@ -975,9 +975,9 @@ namespace GEOBRL {
      */
     template <class FT> vecng<4,FT> transform_vector(
         const vecng<4,FT>& v,
-        const Matrix<4,FT>& m
+        const gte::Matrix<4,4,FT>& m
     ) {
-        index_t i,j ;
+        int i,j ;
         FT res[4] = {FT(0), FT(0), FT(0), FT(0)};
 
         for(i=0; i<4; i++) {

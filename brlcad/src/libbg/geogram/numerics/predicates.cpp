@@ -49,7 +49,6 @@
 #include <geogram/numerics/predicates.h>
 #include <geogram/numerics/multi_precision.h>
 #include <geogram/basic/assert.h>
-#include <geogram/basic/matrix.h>
 #include <algorithm>
 
 #define FPG_UNCERTAIN_VALUE 0
