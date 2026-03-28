@@ -65,7 +65,8 @@ namespace {
      */
     double signed_volume(const Mesh& M, index_t f) {
         double result = 0;
-	for(auto [ p1, p2, p3] : M.facets.triangle_points(f)) {
+	for(const auto& [ ng1, ng2, ng3] : M.facets.triangle_points(f)) {
+	    const vec3& p1=as_gte<3>(ng1); const vec3& p2=as_gte<3>(ng2); const vec3& p3=as_gte<3>(ng3);
 	    result += dot(p1,cross(p2, p3)) / 6.0;
 	}
         return result;

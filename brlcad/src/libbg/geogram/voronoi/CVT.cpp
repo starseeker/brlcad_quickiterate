@@ -364,7 +364,7 @@ namespace GEOBRL {
         if(is_projection_ && !constrained_cvt_) {
             double* cur = points_.data();
             for(index_t p = 0; p < nb_points; p++) {
-                points_R3_[p] = vec3(cur[0], cur[1], cur[2]);
+                points_R3_[p] = vec3{cur[0], cur[1], cur[2]};
                 cur += dimension_;
             }
         } else {

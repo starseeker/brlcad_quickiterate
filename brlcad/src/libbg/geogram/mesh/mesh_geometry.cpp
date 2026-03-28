@@ -49,8 +49,9 @@ namespace GEOBRL {
     namespace Geom {
 
         vec3 mesh_facet_normal(const Mesh& M, index_t f) {
-            vec3 result(0.0, 0.0, 0.0);
-	    for(auto [p1, p2, p3]: M.facets.triangle_points(f)) {
+            vec3 result{0.0, 0.0, 0.0};
+	    for(const auto& [ng1, ng2, ng3]: M.facets.triangle_points(f)) {
+		const vec3& p1=as_gte<3>(ng1); const vec3& p2=as_gte<3>(ng2); const vec3& p3=as_gte<3>(ng3);
 		result += cross(p2 - p1, p3 - p1);
 	    }
             return result;
@@ -71,7 +72,7 @@ namespace GEOBRL {
             M.vertices.set_dimension(6);
         } else {
             for(index_t i: M.vertices) {
-                Geom::mesh_vertex_normal_ref(M, i) = vec3(0.0, 0.0, 0.0);
+                Geom::mesh_vertex_normal_ref(M, i) = vec3{0.0, 0.0, 0.0};
             }
         }
         for(index_t f: M.facets) {
@@ -94,7 +95,7 @@ namespace GEOBRL {
             xyzmin[c] = Numeric::max_float64();
             xyzmax[c] = Numeric::min_float64();
         }
-        for(const vec3& p: M.vertices.points()) {
+        for(const auto& p: M.vertices.points()) {
             for(index_t c = 0; c < 3; c++) {
                 xyzmin[c] = std::min(xyzmin[c], p[c]);
                 xyzmax[c] = std::max(xyzmax[c], p[c]);

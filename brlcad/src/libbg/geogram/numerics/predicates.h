@@ -416,7 +416,7 @@ namespace GEOBRL {
         inline Sign orient_2d(
             const vec2& p0, const vec2& p1, const vec2& p2
         ) {
-            return orient_2d(p0.data(),p1.data(),p2.data());
+            return orient_2d(&p0[0],&p1[0],&p2[0]);
         }
 #endif
 
@@ -474,7 +474,7 @@ namespace GEOBRL {
             const vec3& p0, const vec3& p1,
             const vec3& p2, const vec3& p3
         ) {
-            return orient_3d(p0.data(),p1.data(),p2.data(),p3.data());
+            return orient_3d(&p0[0],&p1[0],&p2[0],&p3[0]);
         }
 #endif
 
@@ -548,7 +548,7 @@ namespace GEOBRL {
         inline Sign det_3d(
             const vec3& p0, const vec3& p1, const vec3& p2
         ) {
-	    return det_3d(p0.data(), p1.data(), p2.data());
+	    return det_3d(&p0[0], &p1[0], &p2[0]);
 	}
 #endif
 
@@ -574,7 +574,7 @@ namespace GEOBRL {
             const vec4& p0, const vec4& p1,
             const vec4& p2, const vec4& p3
         ) {
-	    return det_4d(p0.data(), p1.data(), p2.data(), p3.data());
+	    return det_4d(&p0[0], &p1[0], &p2[0], &p3[0]);
 	}
 #endif
 
@@ -628,7 +628,7 @@ namespace GEOBRL {
         inline bool aligned_3d(
             const vec3& p0, const vec3& p1, const vec3& p2
         ) {
-            return aligned_3d(p0.data(), p1.data(), p2.data());
+            return aligned_3d(&p0[0], &p1[0], &p2[0]);
         }
 
         /**
@@ -641,7 +641,7 @@ namespace GEOBRL {
         inline Sign dot_3d(
             const vec3& p0, const vec3& p1, const vec3& p2
         ) {
-            return dot_3d(p0.data(), p1.data(), p2.data());
+            return dot_3d(&p0[0], &p1[0], &p2[0]);
         }
 #endif
 

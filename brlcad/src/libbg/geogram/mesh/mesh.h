@@ -46,6 +46,7 @@
 #include <geogram/basic/memory.h>
 #include <geogram/basic/assert.h>
 #include <geogram/basic/argused.h>
+#include <Mathematics/Vector.h>
 
 namespace GEOBRL {
 
@@ -613,6 +614,13 @@ namespace GEOBRL {
 	    geo_debug_assert(dimension() == DIM);
 	    return create_vertex(p.data());
 	}
+
+    template <int32_t N> index_t create_vertex(
+        const gte::Vector<N,double>& p
+    ) {
+        geo_debug_assert(dimension() == index_t(N));
+        return create_vertex(&p[0]);
+    }
 
         /**
          * \brief Creates a contiguous chunk of vertices.

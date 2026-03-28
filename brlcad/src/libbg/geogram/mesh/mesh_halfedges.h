@@ -319,7 +319,7 @@ namespace GEOBRL {
         inline const vec3& halfedge_vertex_from(
             const Mesh& M, const MeshHalfedges::Halfedge& H
         ) {
-            return M.facet_corners.point(H.corner);
+            return as_gte<3>(M.facet_corners.point(H.corner));
         }
 
         /**
@@ -332,7 +332,7 @@ namespace GEOBRL {
             const Mesh& M, const MeshHalfedges::Halfedge& H
         ) {
             index_t c = M.facets.next_corner_around_facet(H.facet, H.corner);
-	    return M.facet_corners.point(c);
+	    return as_gte<3>(M.facet_corners.point(c));
         }
 
         /**

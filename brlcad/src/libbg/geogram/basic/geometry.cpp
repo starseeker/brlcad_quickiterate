@@ -56,7 +56,7 @@ namespace {
         const vec2& p1, const vec2& p2, vec2& p, vec2& v
     ) {
         v = p2 - p1;
-        v = vec2(-v.y, v.x);
+        v = vec2{-v[1], v[0]};
         p = barycenter(p1, p2);
     }
 
@@ -74,8 +74,8 @@ namespace {
         const vec2& p1, const vec2& v1,
         const vec2& p2, const vec2& v2
     ) {
-        double delta = v1.x * v2.y - v1.y * v2.x;
-        double t1 = (v2.y * (p2.x - p1.x) - v2.x * (p2.y - p1.y)) / delta;
+        double delta = v1[0] * v2[1] - v1[1] * v2[0];
+        double t1 = (v2[1] * (p2[0] - p1[0]) - v2[0] * (p2[1] - p1[1])) / delta;
         return t1;
     }
 
@@ -157,13 +157,13 @@ namespace GEOBRL {
             vec3 result;
             switch(min_index) {
             case 0:
-                result = vec3(0, -V.z, V.y);
+                result = vec3{0, -V[2], V[1]};
                 break;
             case 1:
-                result = vec3(V.z, 0, -V.x);
+                result = vec3{V[2], 0, -V[0]};
                 break;
             case 2:
-                result = vec3(-V.y, V.x, 0);
+                result = vec3{-V[1], V[0], 0};
                 break;
             }
             return result;

@@ -144,9 +144,9 @@ namespace GEOBRL {
     inline VEC3 make_vec3(const vec3& p1, const vec3& p2) {
         typedef typename VEC3::value_type value_type;
         return VEC3(
-            value_type(p2.x) - value_type(p1.x),
-            value_type(p2.y) - value_type(p1.y),
-            value_type(p2.z) - value_type(p1.z)
+            value_type(p2[0]) - value_type(p1[0]),
+            value_type(p2[1]) - value_type(p1[1]),
+            value_type(p2[2]) - value_type(p1[2])
         );
     }
 
@@ -163,8 +163,8 @@ namespace GEOBRL {
     ) {
         typedef typename VEC2::value_type value_type;
         return VEC2(
-            value_type(p2.x) - value_type(p1.x),
-            value_type(p2.y) - value_type(p1.y)
+            value_type(p2[0]) - value_type(p1[0]),
+            value_type(p2[1]) - value_type(p1[1])
         );
     }
 
@@ -392,8 +392,8 @@ namespace GEOBRL {
     template <>
     inline vec2E make_vec2<vec2E>(const vec2& p1, const vec2& p2) {
         return vec2E(
-            expansion_nt(expansion_nt::DIFF, p2.x, p1.x),
-            expansion_nt(expansion_nt::DIFF, p2.y, p1.y)
+            expansion_nt(expansion_nt::DIFF, p2[0], p1[0]),
+            expansion_nt(expansion_nt::DIFF, p2[1], p1[1])
         );
     }
 
@@ -403,9 +403,9 @@ namespace GEOBRL {
     template <>
     inline vec3E make_vec3<vec3E>(const vec3& p1, const vec3& p2) {
         return vec3E(
-            expansion_nt(expansion_nt::DIFF, p2.x, p1.x),
-            expansion_nt(expansion_nt::DIFF, p2.y, p1.y),
-            expansion_nt(expansion_nt::DIFF, p2.z, p1.z)
+            expansion_nt(expansion_nt::DIFF, p2[0], p1[0]),
+            expansion_nt(expansion_nt::DIFF, p2[1], p1[1]),
+            expansion_nt(expansion_nt::DIFF, p2[2], p1[2])
         );
     }
 

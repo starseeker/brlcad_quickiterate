@@ -64,7 +64,7 @@ namespace GEOBRL {
          */
 	[[deprecated("use M.vertices.point(v) instead")]]
         inline const vec3& mesh_vertex(const Mesh& M, index_t v) {
-	    return M.vertices.point(v);
+	    return as_gte<3>(M.vertices.point(v));
         }
 
         /**
@@ -77,7 +77,7 @@ namespace GEOBRL {
          */
 	[[deprecated("use M.vertices.point(v) instead")]]
         inline const vec3& mesh_vertex_ref(const Mesh& M, index_t v) {
-	    return M.vertices.point(v);
+	    return as_gte<3>(M.vertices.point(v));
         }
 
         /**
@@ -90,7 +90,7 @@ namespace GEOBRL {
          */
 	[[deprecated("use M.vertices.point(v) instead")]]
         inline vec3& mesh_vertex_ref(Mesh& M, index_t v) {
-	    return M.vertices.point(v);
+	    return as_gte<3>(M.vertices.point(v));
         }
 
         /**
@@ -103,7 +103,7 @@ namespace GEOBRL {
          */
 	[[deprecated("use M.facet_corners.point(c) instead")]]
         inline const vec3& mesh_corner_vertex(const Mesh& M, index_t c) {
-	    return M.facet_corners.point(c);
+	    return as_gte<3>(M.facet_corners.point(c));
         }
 
         /**
@@ -116,7 +116,7 @@ namespace GEOBRL {
          */
 	[[deprecated("use M.facet_corners.point(c) instead")]]
         inline vec3& mesh_corner_vertex_ref(Mesh& M, index_t c) {
-	    return M.facet_corners.point(c);
+	    return as_gte<3>(M.facet_corners.point(c));
         }
 
         /**
@@ -207,11 +207,11 @@ namespace GEOBRL {
          * \return the 3d centroid of facet \p f in \p M
          */
         inline vec3 mesh_facet_center(const Mesh& M, index_t f) {
-            vec3 result(0.0, 0.0, 0.0);
+            vec3 result{0.0, 0.0, 0.0};
             double count = 0.0;
             for(index_t c = M.facets.corners_begin(f);
                 c < M.facets.corners_end(f); ++c) {
-                result += M.facet_corners.point(c);
+                result += as_gte<3>(M.facet_corners.point(c));
                 count += 1.0;
             }
             return (1.0 / count) * result;
@@ -224,10 +224,10 @@ namespace GEOBRL {
          * \return the 3d centroid of facet \p f in \p M
          */
         inline vec3 mesh_cell_center(const Mesh& M, index_t c) {
-            vec3 result(0.0, 0.0, 0.0);
+            vec3 result{0.0, 0.0, 0.0};
             for(index_t lv=0; lv<M.cells.nb_vertices(c); ++lv) {
                 index_t v = M.cells.vertex(c,lv);
-                result += M.vertices.point(v);
+                result += as_gte<3>(M.vertices.point(v));
             }
             return (1.0 / double(M.cells.nb_vertices(c))) * result;
         }
@@ -240,10 +240,10 @@ namespace GEOBRL {
          * \return the 3d centroid of tetrahedron \p t in \p M
          */
         inline vec3 mesh_tet_center(const Mesh& M, index_t t) {
-            const vec3& v1 = M.cells.point(t,0);
-            const vec3& v2 = M.cells.point(t,1);
-            const vec3& v3 = M.cells.point(t,2);
-            const vec3& v4 = M.cells.point(t,3);
+            const vec3& v1 = as_gte<3>(M.cells.point(t,0));
+            const vec3& v2 = as_gte<3>(M.cells.point(t,1));
+            const vec3& v3 = as_gte<3>(M.cells.point(t,2));
+            const vec3& v4 = as_gte<3>(M.cells.point(t,3));
             return 0.25 * (v1 + v2 + v3 + v4);
         }
 
@@ -259,7 +259,7 @@ namespace GEOBRL {
         inline vec3 mesh_corner_vector(const Mesh& M, index_t c1) {
             geo_debug_assert(M.facets.are_simplices());
             index_t c2 = M.facets.next_corner_around_facet(c1/3, c1);
-	    return M.facet_corners.point(c2) - M.facet_corners.point(c1);
+	    return as_gte<3>(M.facet_corners.point(c2)) - as_gte<3>(M.facet_corners.point(c1));
         }
 
         /**

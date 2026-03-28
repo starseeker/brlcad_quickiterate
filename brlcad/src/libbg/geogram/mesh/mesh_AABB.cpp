@@ -64,7 +64,8 @@ namespace {
         double& squared_dist
     ) {
 	squared_dist = Numeric::max_float64();
-	for(auto [ p1, p2, p3] : M.facets.triangle_points(f)) {
+	for(const auto& [ ng1, ng2, ng3] : M.facets.triangle_points(f)) {
+	    const vec3& p1=as_gte<3>(ng1); const vec3& p2=as_gte<3>(ng2); const vec3& p3=as_gte<3>(ng3);
 	    double lambda1, lambda2, lambda3;  // barycentric coords,unused.
 	    vec3 cur_nearest_p;
 	    double cur_squared_dist = Geom::point_triangle_squared_distance(
@@ -156,10 +157,10 @@ namespace {
     bool mesh_tet_contains_point(
         const Mesh& M, index_t t, const vec3& p
     ) {
-        const vec3& p0 = M.cells.point(t,0);
-        const vec3& p1 = M.cells.point(t,1);
-        const vec3& p2 = M.cells.point(t,2);
-        const vec3& p3 = M.cells.point(t,3);
+        const vec3& p0 = as_gte<3>(M.cells.point(t,0));
+        const vec3& p1 = as_gte<3>(M.cells.point(t,1));
+        const vec3& p2 = as_gte<3>(M.cells.point(t,2));
+        const vec3& p3 = as_gte<3>(M.cells.point(t,3));
 
         Sign s[4];
         s[0] = PCK::orient_3d(p, p1, p2, p3);
@@ -189,9 +190,9 @@ namespace {
         index_t i = M.facets.vertex(t,0);
         index_t j = M.facets.vertex(t,1);
         index_t k = M.facets.vertex(t,2);
-        vec2 p0 = M.vertices.point<2>(i);
-        vec2 p1 = M.vertices.point<2>(j);
-        vec2 p2 = M.vertices.point<2>(k);
+        vec2 p0 = as_gte<2>(M.vertices.point<2>(i));
+        vec2 p1 = as_gte<2>(M.vertices.point<2>(j));
+        vec2 p2 = as_gte<2>(M.vertices.point<2>(k));
 
         Sign s[3];
         s[0] = PCK::orient_2d(p,  p1, p2);
@@ -343,14 +344,14 @@ namespace {
         //   normally the tests with inf do what they should
         //   (to be tested)
 
-        double tx1 = dirinv.x*(box.xyz_min[0] - q1.x);
-        double tx2 = dirinv.x*(box.xyz_max[0] - q1.x);
+        double tx1 = dirinv[0]*(box.xyz_min[0] - q1[0]);
+        double tx2 = dirinv[0]*(box.xyz_max[0] - q1[0]);
 
-        double ty1 = dirinv.y*(box.xyz_min[1] - q1.y);
-        double ty2 = dirinv.y*(box.xyz_max[1] - q1.y);
+        double ty1 = dirinv[1]*(box.xyz_min[1] - q1[1]);
+        double ty2 = dirinv[1]*(box.xyz_max[1] - q1[1]);
 
-        double tz1 = dirinv.z*(box.xyz_min[2] - q1.z);
-        double tz2 = dirinv.z*(box.xyz_max[2] - q1.z);
+        double tz1 = dirinv[2]*(box.xyz_min[2] - q1[2]);
+        double tz2 = dirinv[2]*(box.xyz_max[2] - q1[2]);
 
         // now compute the intersection of the three intervals
         //      Ix /\ Iy /\ Iz
@@ -407,7 +408,7 @@ namespace GEOBRL {
                     B.xyz_min[coord] = Numeric::max_float64();
                     B.xyz_max[coord] = -Numeric::max_float64();
                 }
-		for(const vec3& p: mesh_->facets.points(f)) {
+		for(const auto& p: mesh_->facets.points(f)) {
                     for(coord_index_t coord = 0; coord < 3; ++coord) {
                         B.xyz_min[coord] = std::min(B.xyz_min[coord], p[coord]);
                         B.xyz_max[coord] = std::max(B.xyz_max[coord], p[coord]);
@@ -448,7 +449,7 @@ namespace GEOBRL {
         nearest_f = element_in_leaf(b);
 
 	index_t v = mesh_->facets.vertex(nearest_f, 0);
-        nearest_point = mesh_->vertices.point(v);
+        nearest_point = as_gte<3>(mesh_->vertices.point(v));
         sq_dist = Geom::distance2(p, nearest_point);
     }
 
@@ -594,11 +595,11 @@ namespace GEOBRL {
         const Ray& R, Intersection& I
     ) const {
         index_t f = I.f;
-        vec3 dirinv(
-            1.0/R.direction.x,
-            1.0/R.direction.y,
-            1.0/R.direction.z
-        );
+        vec3 dirinv{
+            1.0/R.direction[0],
+            1.0/R.direction[1],
+            1.0/R.direction[2]
+        };
         ray_nearest_intersection_recursive(
             R, dirinv, I, f, 1, 0, mesh_->facets.nb(), 0
         );
@@ -623,9 +624,9 @@ namespace GEOBRL {
                 return;
             }
 	    for( auto [ v1, v2, v3] : mesh_->facets.triangles(f)) {
-		const vec3& p1 = mesh_->vertices.point(v1);
-		const vec3& p2 = mesh_->vertices.point(v2);
-		const vec3& p3 = mesh_->vertices.point(v3);
+		const vec3& p1 = as_gte<3>(mesh_->vertices.point(v1));
+		const vec3& p2 = as_gte<3>(mesh_->vertices.point(v2));
+		const vec3& p3 = as_gte<3>(mesh_->vertices.point(v3));
                 vec3 N;
                 double t,u,v;
                 if(

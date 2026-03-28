@@ -340,9 +340,9 @@ namespace {
         index_t n = mesh.facets.nb_vertices(f);
         FOR(lv,n) {
             index_t v = mesh.facets.vertex(f,lv);
-            vec3 W = mesh.vertices.point(v)-C;
+            vec3 W = as_gte<3>(mesh.vertices.point(v))-C;
             P_ind.push_back(v);
-            P.push_back(vec2(dot(W,X), dot(W,Y)));
+            P.push_back(vec2{dot(W,X), dot(W,Y)});
         }
         // TODO: normalize vertices order so that two
         // opposite facets will have the same tessellation.
@@ -977,17 +977,19 @@ namespace GEOBRL {
 
     void BuildRVDMesh::process_polyhedron_mesh() {
         if(shrink_ != 0.0 && mesh_.vertices.nb() != 0) {
-            vec3 center(0.0, 0.0, 0.0);
+            vec3 center{0.0, 0.0, 0.0};
             for(index_t v=0; v<mesh_.vertices.nb(); ++v) {
-                center += vec3(mesh_.vertices.point_ptr(v));
+                const double* _cp = mesh_.vertices.point_ptr(v);
+                center += vec3{_cp[0], _cp[1], _cp[2]};
             }
             center = (1.0 / double(mesh_.vertices.nb())) * center;
             for(index_t v=0; v<mesh_.vertices.nb(); ++v) {
-                vec3 p(mesh_.vertices.point_ptr(v));
+                const double* _pp = mesh_.vertices.point_ptr(v);
+                vec3 p{_pp[0], _pp[1], _pp[2]};
                 p = shrink_ * center + (1.0 - shrink_) * p;
-                mesh_.vertices.point_ptr(v)[0] = p.x;
-                mesh_.vertices.point_ptr(v)[1] = p.y;
-                mesh_.vertices.point_ptr(v)[2] = p.z;
+                mesh_.vertices.point_ptr(v)[0] = p[0];
+                mesh_.vertices.point_ptr(v)[1] = p[1];
+                mesh_.vertices.point_ptr(v)[2] = p[2];
             }
         }
         RVDPolyhedronCallback::process_polyhedron_mesh();
