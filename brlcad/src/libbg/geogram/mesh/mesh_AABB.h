@@ -1050,7 +1050,7 @@ namespace GEOBRL {
             geo_debug_assert(e != b);
 
             // Prune sub-tree that does not have intersection
-            if(!bboxes_[node].contains(p)) {
+            if(!contains(bboxes_[node], p)) {
                 return;
             }
 
@@ -1243,7 +1243,7 @@ namespace GEOBRL {
             geo_debug_assert(e != b);
 
             // Prune sub-tree that does not have intersection
-            if(!bboxes_[node].contains(p)) {
+            if(!contains(bboxes_[node], p)) {
                 return;
             }
 
