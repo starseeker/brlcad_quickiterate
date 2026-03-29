@@ -82,22 +82,6 @@
 #define GEOBRLCAD_API GEOBRL_IMPORT
 #endif
 
-
-/**
- * \brief A place-holder linkage declaration to indicate
- *  that the symbol should not be exported by Windows DLLs.
- * \details For instance, classes that inherit templates from
- *  the STL should not be exported, else it generates multiply
- *  defined symbols.
- */
-#define NO_GEOBRLCAD_API
-
-/**
- * \brief Represents dimension (e.g. 3 for 3d, 4 for 4d ...).
- * \details Used by the C API.
- */
-typedef unsigned char geo_coord_index_t;
-
 /*
  * If GARGANTUA is defined, then geogram is compiled
  * with 64 bit indices.

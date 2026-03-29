@@ -360,7 +360,7 @@ namespace GEOBRL {
      * \brief The type for storing coordinate indices, and iterating on
      *  the coordinates of a point.
      */
-    typedef geo_coord_index_t coord_index_t;
+    typedef unsigned char coord_index_t;
 
     /**
      * \TODOC
