@@ -48,6 +48,25 @@
 #include "./cdt.h"
 #include "./mesh.h"
 
+/* GTE LSCM parameterization for the lscm_reproject path */
+#if defined(__GNUC__) && !defined(__clang__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wfloat-equal"
+#  pragma GCC diagnostic ignored "-Wshadow"
+#endif
+#if defined(__clang__)
+#  pragma clang diagnostic push
+#  pragma clang diagnostic ignored "-Wfloat-equal"
+#  pragma clang diagnostic ignored "-Wshadow"
+#endif
+#include <Mathematics/LSCMParameterization.h>
+#if defined(__GNUC__) && !defined(__clang__)
+#  pragma GCC diagnostic pop
+#endif
+#if defined(__clang__)
+#  pragma clang diagnostic pop
+#endif
+
 // needed for implementation
 #include <iostream>
 #include <fstream>
@@ -2765,7 +2784,13 @@ cdt_mesh_t::oriented_polycdt(cpolygon_t *polygon, bool reproject)
     std::set<triangle_t> otris;
 
     if (reproject) {
-	best_fit_plane_reproject(polygon);
+	// Try LSCM parameterization first: it maps the boundary to a unit circle
+	// guaranteeing a non-self-intersecting 2D domain even for highly curved
+	// patches where the best-fit plane projection would fold on itself.
+	// Fall back to the plane-based approach if LSCM fails.
+	if (!lscm_reproject(polygon)) {
+	    best_fit_plane_reproject(polygon);
+	}
     }
 
     if (!polygon->cdt()) return false;
@@ -4742,6 +4767,193 @@ cdt_mesh_t::best_fit_plane_reproject(cpolygon_t *polygon)
 
     return true;
 }
+
+/* LSCM-based reprojection for oriented_polycdt.
+ *
+ * Instead of projecting the polygon vertices onto a best-fit plane (which can
+ * produce self-intersections for highly curved patches), we use GTE's
+ * LSCMParameterization to map the boundary loop to a unit circle and solve a
+ * cotangent-Laplacian system for interior vertices.  The resulting UV
+ * coordinates are guaranteed to produce a non-self-intersecting 2D boundary,
+ * giving bg_nested_poly_triangulate a valid domain to work with.
+ *
+ * Algorithm:
+ *  1. Walk the polygon boundary loop (same ordering as cdt()) to get ordered
+ *     2D (== 3D, since o2p is identity) vertex indices.
+ *  2. Collect all vertices: boundary loop + all vertices in visited_triangles
+ *     + any extra interior_points.
+ *  3. Classify as boundary (on bnd_loop), true-interior (in visited_triangles
+ *     but not on boundary), or extra-interior (in interior_points only).
+ *  4. Run LSCMParameterization::Parameterize() when we have visited_triangles
+ *     with interior vertices; fall back to MapBoundaryToCircle otherwise.
+ *  5. Write the resulting UV coordinates back to polygon->pnts_2d.
+ *  6. Validate: polygon must still be closed() and all interior_points must
+ *     still pass point_in_polygon().  Restore pnts_2d on failure.
+ *
+ * Returns true on success.  On failure the caller should try best_fit_plane_reproject.
+ */
+bool
+cdt_mesh_t::lscm_reproject(cpolygon_t *polygon)
+{
+    if (polygon->poly.size() < 3)
+	return false;
+
+    // ── Step 1: Walk the boundary loop (matches cdt()'s traversal order) ────
+    std::vector<int32_t> bnd_loop;
+    {
+	cpolyedge_t *pe    = *polygon->poly.begin();
+	cpolyedge_t *first = pe;
+	bnd_loop.push_back((int32_t)pe->v2d[0]);
+	bnd_loop.push_back((int32_t)pe->v2d[1]);
+	cpolyedge_t *next  = pe->next;
+	while (next != first) {
+	    bnd_loop.push_back((int32_t)next->v2d[1]);
+	    next = next->next;
+	    if (bnd_loop.size() > polygon->poly.size() + 1)
+		return false; // broken loop — shouldn't happen if closed()
+	}
+    }
+    if ((int)bnd_loop.size() < 3)
+	return false;
+
+    // Build a lookup set for quick boundary membership tests.
+    std::set<int32_t> bnd_set(bnd_loop.begin(), bnd_loop.end());
+
+    // ── Step 2: Build compact vertex set ────────────────────────────────────
+    // Order: boundary vertices first (in loop order), then true-interior
+    // (appear in visited_triangles but not on boundary), then extra-interior
+    // (in interior_points only, not in any visited triangle).
+    std::map<int32_t, int32_t> g2c; // original mesh idx  →  compact idx
+    std::vector<int32_t>       c2g; // compact idx        →  original mesh idx
+
+    auto add_vert = [&](int32_t vi) {
+	if (g2c.find(vi) == g2c.end()) {
+	    g2c[vi] = (int32_t)c2g.size();
+	    c2g.push_back(vi);
+	}
+    };
+
+    // Boundary first (preserves bnd_loop order in compact array).
+    for (int32_t vi : bnd_loop)
+	add_vert(vi);
+
+    // All vertices from visited_triangles.
+    std::set<int32_t> tri_vert_set;
+    for (auto const& t : polygon->visited_triangles) {
+	for (int k = 0; k < 3; k++) {
+	    tri_vert_set.insert((int32_t)t.v[k]);
+	    add_vert((int32_t)t.v[k]);
+	}
+    }
+
+    // Any remaining interior_points not yet added.
+    for (long ip : polygon->interior_points)
+	add_vert((int32_t)ip);
+
+    int32_t ncompact = (int32_t)c2g.size();
+
+    // ── Step 3: Classify interior vertices ──────────────────────────────────
+    // true_interior: in visited_triangles, not on boundary → valid for Laplacian
+    // extra_interior: in interior_points but not in any triangle
+    std::vector<int32_t> true_interior_cpt;
+    for (int32_t gi : tri_vert_set) {
+	if (bnd_set.find(gi) == bnd_set.end())
+	    true_interior_cpt.push_back(g2c.at(gi));
+    }
+
+    // ── Step 4: Build per-compact 3D positions ───────────────────────────────
+    std::vector<gte::Vector3<double>> v3d;
+    v3d.reserve((size_t)ncompact);
+    for (int32_t gi : c2g) {
+	ON_3dPoint *op = pnts[(size_t)gi];
+	gte::Vector3<double> p;
+	p[0] = op->x; p[1] = op->y; p[2] = op->z;
+	v3d.push_back(p);
+    }
+
+    // ── Step 5: Boundary loop in compact indices ─────────────────────────────
+    std::vector<int32_t> bnd_cpt;
+    bnd_cpt.reserve(bnd_loop.size());
+    for (int32_t vi : bnd_loop)
+	bnd_cpt.push_back(g2c.at(vi));
+
+    // ── Step 6: Build visited_triangles in compact indices ───────────────────
+    std::vector<std::array<int32_t, 3>> tris_cpt;
+    tris_cpt.reserve(polygon->visited_triangles.size());
+    for (auto const& t : polygon->visited_triangles) {
+	std::array<int32_t, 3> ct;
+	bool all_in = true;
+	for (int k = 0; k < 3; k++) {
+	    auto it = g2c.find((int32_t)t.v[k]);
+	    if (it == g2c.end()) { all_in = false; break; }
+	    ct[k] = it->second;
+	}
+	if (all_in)
+	    tris_cpt.push_back(ct);
+    }
+
+    // ── Step 7: LSCM parameterization ────────────────────────────────────────
+    std::vector<gte::Vector2<double>> uv;
+    bool lscm_ok = false;
+
+    if (!true_interior_cpt.empty() && !tris_cpt.empty()) {
+	// Full LSCM: boundary pinned to circle, interior solved via cotangent
+	// Laplacian using the visited_triangles as the mesh connectivity.
+	lscm_ok = gte::LSCMParameterization<double>::Parameterize(
+		v3d, bnd_cpt, true_interior_cpt, tris_cpt, uv);
+    }
+
+    if (!lscm_ok) {
+	// Boundary-only fallback: map boundary to circle, leave interior at 0.
+	// Interior Steiner points at UV=(0,0) land at the circle centroid, which
+	// is geometrically inside the unit-circle boundary.
+	std::vector<gte::Vector2<double>> bnd_uv;
+	lscm_ok = gte::LSCMParameterization<double>::MapBoundaryToCircle(
+		v3d, bnd_cpt, bnd_uv);
+	if (lscm_ok) {
+	    uv.assign((size_t)ncompact, gte::Vector2<double>{ 0.0, 0.0 });
+	    for (int i = 0; i < (int)bnd_cpt.size(); i++)
+		uv[(size_t)bnd_cpt[i]] = bnd_uv[i];
+	}
+    }
+
+    if (!lscm_ok || uv.empty())
+	return false;
+
+    // ── Step 8: Write UV back to polygon->pnts_2d ───────────────────────────
+    // pnts_2d is indexed identically to pnts (o2p is identity), so we can
+    // write directly using the original mesh index.
+    std::vector<std::pair<double, double>> pnts_2d_cached = polygon->pnts_2d;
+
+    for (int32_t ci = 0; ci < ncompact; ci++) {
+	int32_t gi = c2g[(size_t)ci];
+	if ((size_t)gi < polygon->pnts_2d.size()) {
+	    polygon->pnts_2d[(size_t)gi].first  = uv[(size_t)ci][0];
+	    polygon->pnts_2d[(size_t)gi].second = uv[(size_t)ci][1];
+	}
+    }
+
+    // ── Step 9: Validate the reprojection ────────────────────────────────────
+    int valid = 1;
+    if (!polygon->closed()) {
+	valid = 0;
+    } else {
+	for (long ip : polygon->interior_points) {
+	    if (!polygon->point_in_polygon(ip, false)) {
+		valid = 0;
+		break;
+	    }
+	}
+    }
+
+    if (!valid) {
+	polygon->pnts_2d = pnts_2d_cached;
+	return false;
+    }
+
+    return true;
+}
+
 
 ON_Plane
 cdt_mesh_t::best_fit_plane(std::set<triangle_t> &ts)
