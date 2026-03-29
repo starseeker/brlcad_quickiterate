@@ -99,6 +99,8 @@ extern int _bot_cmd_smooth(void* bs, int argc, const char** argv);
 
 extern int _bot_cmd_subd(void* bs, int argc, const char** argv);
 
+extern int bot_pick(struct _ged_bot_info *gb, int argc, const char **argv);
+
 __END_DECLS
 
 #endif /* LIBGED_BOT_GED_PRIVATE_H */

@@ -1157,6 +1157,94 @@ _bot_cmd_stat(void *bs, int argc, const char **argv)
     return ret;
 }
 
+extern "C" int
+_bot_cmd_pick(void *bs, int argc, const char **argv)
+{
+    const char *usage_string = "bot [options] <objname> pick F|V|E [px py pz dx dy dz]";
+    const char *purpose_string = "graphically identify components of the BoT object";
+    if (_bot_cmd_msgs(bs, argc, argv, usage_string, purpose_string)) {
+	return BRLCAD_OK;
+    }
+
+    struct _ged_bot_info *gb = (struct _ged_bot_info *)bs;
+
+    argc--; argv++;
+
+    if (!argc) {
+	bu_vls_printf(gb->gedp->ged_result_str, "%s\n", usage_string);
+	return BRLCAD_ERROR;
+    }
+
+    if (_bot_obj_setup(gb, argv[0]) & BRLCAD_ERROR) {
+	return BRLCAD_ERROR;
+    }
+
+    argc--; argv++;
+
+    return bot_pick(gb, argc, argv);
+}
+
+
+extern "C" int
+_bot_cmd_vertex(void *bs, int argc, const char **argv)
+{
+    const char *usage_string = "bot [options] <objname> vertex [idx ...]";
+    const char *purpose_string = "translate vertex indices to 3D point coordinates";
+    if (_bot_cmd_msgs(bs, argc, argv, usage_string, purpose_string)) {
+	return BRLCAD_OK;
+    }
+
+    struct _ged_bot_info *gb = (struct _ged_bot_info *)bs;
+    struct ged *gedp = gb->gedp;
+
+    argc--; argv++;
+
+    if (!argc) {
+	bu_vls_printf(gedp->ged_result_str, "%s\n", usage_string);
+	return BRLCAD_ERROR;
+    }
+
+    if (_bot_obj_setup(gb, argv[0]) & BRLCAD_ERROR) {
+	return BRLCAD_ERROR;
+    }
+
+    argc--; argv++;
+
+    struct rt_bot_internal *bot = (struct rt_bot_internal *)(gb->intern->idb_ptr);
+
+    if (!argc) {
+	/* No indices given - list all vertices */
+	for (size_t i = 0; i < bot->num_vertices; i++) {
+	    bu_vls_printf(gedp->ged_result_str, "%zu: %g %g %g\n", i,
+			 bot->vertices[3*i+0],
+			 bot->vertices[3*i+1],
+			 bot->vertices[3*i+2]);
+	}
+	return BRLCAD_OK;
+    }
+
+    /* Print coordinates for the specified vertex indices */
+    for (int i = 0; i < argc; i++) {
+	int idx = 0;
+	if (bu_opt_int(NULL, 1, &argv[i], (void *)&idx) < 0
+	    || idx < 0
+	    || (size_t)idx >= bot->num_vertices)
+	{
+	    bu_vls_printf(gedp->ged_result_str,
+			 "invalid vertex index: %s (valid range 0..%zu)\n",
+			 argv[i], bot->num_vertices - 1);
+	    return BRLCAD_ERROR;
+	}
+	bu_vls_printf(gedp->ged_result_str, "%d: %g %g %g\n", idx,
+		      bot->vertices[3*idx+0],
+		      bot->vertices[3*idx+1],
+		      bot->vertices[3*idx+2]);
+    }
+
+    return BRLCAD_OK;
+}
+
+
 const struct bu_cmdtab _bot_cmds[] = {
     { "check",      _bot_cmd_check},
     { "chull",      _bot_cmd_chull},
@@ -1167,6 +1255,7 @@ const struct bu_cmdtab _bot_cmds[] = {
     { "get",        _bot_cmd_get},
     { "isect",      _bot_cmd_isect},
     { "pca",        _bot_cmd_pca},
+    { "pick",       _bot_cmd_pick},
     { "plot",       _bot_cmd_plot},
     { "remesh",     _bot_cmd_remesh},
     { "repair",     _bot_cmd_repair},
@@ -1177,6 +1266,7 @@ const struct bu_cmdtab _bot_cmds[] = {
     { "strip",      _bot_cmd_strip},
     { "subd",       _bot_cmd_subd},
     { "sync",       _bot_cmd_sync},
+    { "vertex",     _bot_cmd_vertex},
     { (char *)NULL,      NULL}
 };
 
