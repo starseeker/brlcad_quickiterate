@@ -287,7 +287,10 @@ namespace GEOBRL {
             return posix_memalign(&result, alignment, size) == 0
                 ? result : nullptr;
 #else
-            /* Fallback: return unaligned memory (performance degraded) */
+            /* No aligned allocation available: return unaligned memory.
+             * Correct but may cause performance loss or bus errors on
+             * strict-alignment architectures.  (No BRL-CAD platform
+             * currently reaches this path.) */
             (void)alignment;
             return malloc(size);
 #endif
@@ -361,9 +364,11 @@ namespace GEOBRL {
          */
 #if defined(HAVE_RESTRICT__)
 #define geo_restrict __restrict__
-#elif defined(_MSC_VER)
+#elif defined(HAVE_RESTRICT)
+/* Fallback: MSVC or other compiler that supports __restrict but not __restrict__ */
 #define geo_restrict __restrict
 #else
+/* Restrict hints not available on this compiler; still correct but slower */
 #define geo_restrict
 #endif
 

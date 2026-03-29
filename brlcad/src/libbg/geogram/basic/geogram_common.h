@@ -248,7 +248,12 @@ typedef int geo_signed_index_t;
 
 // =============================== Unsupported =============================
 #else
+/* Unrecognized OS: best-effort compilation without OS-specific optimizations */
+#if defined(_MSC_VER)
 #  pragma message("geogram: unrecognized operating system, continuing with limited support")
+#elif defined(__GNUC__) || defined(__clang__)
+#  warning "geogram: unrecognized operating system, continuing with limited support"
+#endif
 #endif
 
 #if defined(GEOBRL_COMPILER_GCC)   ||              \

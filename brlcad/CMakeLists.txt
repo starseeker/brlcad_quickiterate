@@ -911,6 +911,19 @@ if(HAVE_RESTRICT__)
   config_h_append(BRLCAD "#define HAVE_RESTRICT__ 1\n")
 endif(HAVE_RESTRICT__)
 
+# Check whether the compiler supports __restrict (MSVC / other single-underscore form).
+# GCC and Clang also accept __restrict, but HAVE_RESTRICT__ above is preferred.
+# This check is here so that memory.h can fall back to __restrict on MSVC.
+if(NOT HAVE_RESTRICT__)
+  check_c_source_compiles(
+    "int main(int argc, char *argv[]) { int * __restrict p = (int *)0; (void)p; (void)argc; (void)argv; return 0; }"
+    HAVE_RESTRICT
+  )
+  if(HAVE_RESTRICT)
+    config_h_append(BRLCAD "#define HAVE_RESTRICT 1\n")
+  endif(HAVE_RESTRICT)
+endif()
+
 # Check whether the compiler supports __builtin_assume_aligned (GCC/Clang)
 check_c_source_compiles(
   "int main(int argc, char *argv[]) { void *p = (void *)0; p = __builtin_assume_aligned(p, 64); (void)p; (void)argc; (void)argv; return 0; }"
