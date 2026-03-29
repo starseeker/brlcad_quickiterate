@@ -47,7 +47,7 @@
 #include <geogram/numerics/predicates.h>
 #include <geogram/mesh/index.h>
 #include <geogram/basic/geometry_nd.h>
-#include <geogram/basic/process.h>
+#include <geogram/basic/thread_sync.h>
 #include <geogram/basic/attributes.h>
 #include <geogram/basic/argused.h>
 

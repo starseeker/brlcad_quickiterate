@@ -45,7 +45,7 @@
 #include <geogram/basic/geogram_common.h>
 #include <geogram/delaunay/delaunay.h>
 #include <geogram/delaunay/delaunay_sync.h>
-#include <geogram/basic/process.h>
+#include <geogram/basic/thread_sync.h>
 
 /**
  * \file geogram/delaunay/parallel_delaunay_3d.h

@@ -38,7 +38,6 @@
  */
 
 #include <geogram/basic/geogram_common.h>
-#include <geogram/basic/process.h>
 #include <geogram/basic/progress.h>
 #include <geogram/basic/geogram_options.h>
 #include <geogram/numerics/multi_precision.h>
@@ -69,7 +68,6 @@ namespace GEOBRL {
             GeogramLibSingleton(const GeoOptions& opts)
                 : opts_(opts)
             {
-                Process::initialize();
                 Progress::initialize();
                 PCK::initialize();
                 Delaunay::initialize();
@@ -79,13 +77,11 @@ namespace GEOBRL {
 
                 if(opts_.sys_stats) {
                     PCK::show_stats();
-                    Process::show_stats();
                 }
 
                 PCK::terminate();
 
                 Progress::terminate();
-                Process::terminate();
             }
 
             GeoOptions opts_;

@@ -38,7 +38,6 @@
  */
 
 #include <geogram/basic/assert.h>
-#include <geogram/basic/process.h>
 #include <stdlib.h>
 #include <sstream>
 #include <stdexcept>
@@ -46,14 +45,14 @@
 #ifdef GEOBRL_OS_WINDOWS
 #include <intrin.h> // For __debugbreak()
 #else
+#include <cstdlib>  // free()
+#include <cstdio>   // fprintf()
 #include <sys/types.h>
 #include <unistd.h>
 #include <signal.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-
 #include <execinfo.h>
-
 #endif
 
 namespace GEOBRL {
@@ -78,7 +77,11 @@ namespace GEOBRL {
     void geo_abort() {
         // Avoid assert in assert !!
         if(aborting) {
-            Process::brute_force_kill();
+#ifdef GEOBRL_OS_WINDOWS
+            abort();
+#else
+            kill(getpid(), SIGKILL);
+#endif
         }
         aborting = true;
         abort();
@@ -102,7 +105,18 @@ namespace GEOBRL {
         os << "Line: " << line;
 
         std::cerr << os.str() << std::endl;
-        Process::print_stack_trace();
+#if !defined(GEOBRL_OS_WINDOWS) && !defined(GEOBRL_OS_ANDROID) && !defined(GEOBRL_OS_EMSCRIPTEN)
+        {
+            constexpr int MAX_STACK_FRAMES = 128;
+            void *stack_traces[MAX_STACK_FRAMES];
+            int trace_size = backtrace(stack_traces, MAX_STACK_FRAMES);
+            char **messages = backtrace_symbols(stack_traces, trace_size);
+            for(int i = 0; i < trace_size; ++i) {
+                fprintf(stderr, "Stacktrace: %s\n", messages[i]);
+            }
+            if(messages != nullptr) { free(messages); }
+        }
+#endif
 
         if(assert_mode_ == ASSERT_THROW) {
             throw std::runtime_error(os.str());

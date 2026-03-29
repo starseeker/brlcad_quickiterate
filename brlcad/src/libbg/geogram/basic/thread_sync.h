@@ -51,6 +51,7 @@
 #include <geogram/basic/argused.h>
 #include <vector>
 #include <atomic>
+#include <functional>
 
 #ifdef GEOBRL_OS_WINDOWS
 #include <windows.h>
@@ -378,6 +379,70 @@ namespace GEOBRL {
     namespace Process {
         typedef CompactSpinLockArray SpinLockArray;
     }
+}
+
+/*******************************************************************************/
+
+namespace GEOBRL {
+    namespace Process {
+
+        /**
+         * \brief Returns the maximum number of concurrent threads.
+         * \return hardware_concurrency() (at least 1).
+         */
+        index_t GEOBRLCAD_API maximum_concurrent_threads();
+
+        /**
+         * \brief Checks whether threads are running.
+         * \retval true if concurrent threads are currently running as an
+         *  effect of parallel_for() or parallel().
+         * \retval false otherwise.
+         */
+        bool GEOBRLCAD_API is_running_threads();
+
+    }
+
+    /**
+     * \brief Executes a loop with concurrent threads.
+     */
+    void GEOBRLCAD_API parallel_for(
+        index_t from, index_t to, std::function<void(index_t)> func,
+        index_t threads_per_core = 1,
+        bool interleaved = false
+    );
+
+    /**
+     * \brief Calls two functions in parallel.
+     */
+    void GEOBRLCAD_API parallel(
+        std::function<void()> f1,
+        std::function<void()> f2
+    );
+
+    /**
+     * \brief Calls four functions in parallel.
+     */
+    void GEOBRLCAD_API parallel(
+        std::function<void()> f1,
+        std::function<void()> f2,
+        std::function<void()> f3,
+        std::function<void()> f4
+    );
+
+    /**
+     * \brief Calls eight functions in parallel.
+     */
+    void GEOBRLCAD_API parallel(
+        std::function<void()> f1,
+        std::function<void()> f2,
+        std::function<void()> f3,
+        std::function<void()> f4,
+        std::function<void()> f5,
+        std::function<void()> f6,
+        std::function<void()> f7,
+        std::function<void()> f8
+    );
+
 }
 
 /*******************************************************************************/
