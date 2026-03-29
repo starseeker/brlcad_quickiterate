@@ -93,12 +93,6 @@
 #define NO_GEOBRLCAD_API
 
 /**
- * \brief Opaque identifier of a mesh.
- * \details Used by the C API.
- */
-typedef int GeoMesh;
-
-/**
  * \brief Represents dimension (e.g. 3 for 3d, 4 for 4d ...).
  * \details Used by the C API.
  */
@@ -140,48 +134,13 @@ typedef int geo_signed_index_t;
 
 #endif
 
-/**
- * \brief Represents floating-point coordinates.
- * \details Used by the C API.
- */
-typedef double geo_coord_t;
-
-/**
- * \brief Represents truth values.
- * \details Used by the C API.
- */
-typedef int geo_boolean;
-
-/**
- * \brief Thruth values (geo_boolean).
- * \details Used by the C API.
- */
-enum {
-    GEOBRL_FALSE = 0,
-    GEOBRL_TRUE = 1
-};
-
 #include "geogram/basic/geogram_options.h"
-
-// iostream should be included before anything else,
-// otherwise 'cin', 'cout' and 'cerr' will be uninitialized.
-#include <iostream>
 
 /**
  * \file geogram/basic/geogram_common.h
  * \brief Common include file, providing basic definitions. Should be
  *  included before anything else by all header files in Vorpaline.
  */
-
-
-/**
- * \brief Global Vorpaline namespace
- * \details This namespace contains all the Vorpaline classes and functions
- * organized in sub-namespaces.
- */
-namespace GEOBRL {
-
-    }
 
 /**
  * \def GEOBRL_DEBUG
@@ -205,15 +164,6 @@ namespace GEOBRL {
  * \def GEOBRL_OS_ANDROID
  * \brief This macro is set on Android systems (in addition to GEOBRL_OS_LINUX
  * and GEOBRL_OS_UNIX).
- *
- * \def GEOBRL_OS_X11
- * \brief This macro is set on X11 is supported on the current system.
- *
- * \def GEOBRL_ARCH_32
- * \brief This macro is set if the current system is a 32 bits architecture.
- *
- * \def GEOBRL_ARCH_64
- * \brief This macro is set if the current system is a 64 bits architecture.
  *
  * \def GEOBRL_COMPILER_GCC
  * \brief This macro is set if the source code is compiled with GNU's gcc.
@@ -276,9 +226,6 @@ namespace GEOBRL {
 #define GEOBRL_OS_LINUX
 #define GEOBRL_OS_UNIX
 
-#define GEOBRL_OS_X11
-
-
 #if defined(__INTEL_COMPILER)
 #  define GEOBRL_COMPILER_INTEL
 #elif defined(__clang__)
@@ -291,10 +238,7 @@ namespace GEOBRL {
 
 // The following works on GCC and ICC
 #if defined(__x86_64)
-#  define GEOBRL_ARCH_64
 #  define GEOBRL_PROCESSOR_X86
-#else
-#  define GEOBRL_ARCH_32
 #endif
 
 // =============================== WINDOWS defines =========================
@@ -309,12 +253,6 @@ namespace GEOBRL {
 #  define GEOBRL_COMPILER_MSVC
 #elif defined(__MINGW32__) || defined(__MINGW64__)
 #  define GEOBRL_COMPILER_MINGW
-#endif
-
-#if defined(_WIN64)
-#  define GEOBRL_ARCH_64
-#else
-#  define GEOBRL_ARCH_32
 #endif
 
 // =============================== APPLE defines ===========================
@@ -333,12 +271,6 @@ namespace GEOBRL {
 #  error "Unsupported compiler"
 #endif
 
-#if defined(__x86_64) || defined(__ppc64__) || defined(__arm64__) || defined(__aarch64__) || (defined(__riscv) && __riscv_xlen == 64) || defined(__loongarch_lp64)
-#  define GEOBRL_ARCH_64
-#else
-#  define GEOBRL_ARCH_32
-#endif
-
 // =============================== Emscripten defines  ======================
 
 #elif defined(__EMSCRIPTEN__)
@@ -346,7 +278,6 @@ namespace GEOBRL {
 #define GEOBRL_OS_UNIX
 #define GEOBRL_OS_LINUX
 #define GEOBRL_OS_EMSCRIPTEN
-#define GEOBRL_ARCH_64
 #define GEOBRL_COMPILER_EMSCRIPTEN
 #define GEOBRL_COMPILER_CLANG
 
@@ -361,28 +292,6 @@ namespace GEOBRL {
     defined(GEOBRL_COMPILER_EMSCRIPTEN)
 #define GEOBRL_COMPILER_GCC_FAMILY
 #endif
-
-#ifdef DOXYGEN_ONLY
-// Keep doxygen happy
-#define GEOBRL_OS_WINDOWS
-#define GEOBRL_OS_APPLE
-#define GEOBRL_OS_ANDROID
-#define GEOBRL_ARCH_32
-#define GEOBRL_COMPILER_INTEL
-#define GEOBRL_COMPILER_MSVC
-#endif
-
-/**
- * \def CPP_CONCAT_(A,B)
- * \brief Helper macro for CPP_CONCAT()
- */
-#define CPP_CONCAT_(A, B) A ## B
-
-/**
- * \def CPP_CONCAT(A,B)
- * \brief Creates a new symbol by concatenating its arguments
- */
-#define CPP_CONCAT(A, B) CPP_CONCAT_(A, B)
 
 #if defined(GOMGEN)
 #define GEOBRL_NORETURN
