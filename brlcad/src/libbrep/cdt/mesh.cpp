@@ -3162,6 +3162,8 @@ loop_to_bgpoly(cpolygon_t *loop)
 bool
 cdt_mesh_t::cdt()
 {
+    bu_log("DBG cdt_mesh_t::cdt() called for f_id=%d holes=%d interior_pnts=%zu\n",
+	f_id, (int)inner_loops.size(), m_interior_pnts.size());
     if (!outer_loop.closed()) {
 	bu_log("%d: outer loop reports not closed!\n", f_id);
 	return false;
@@ -3226,6 +3228,17 @@ cdt_mesh_t::cdt()
 	}
     }
 
+    if (f_id == 27) {
+	bu_log("Face27: %d holes, %zu interior points\n", holes_cnt, m_interior_pnts.size());
+	for (int hi = 0; hi < holes_cnt; hi++) {
+	    bu_log("  hole[%d]: %zu verts\n", hi, hole_polys_npts[hi]);
+	    for (size_t hj = 0; hj < hole_polys_npts[hi]; hj++) {
+		bu_log("    [%zu] UV=(%.6f, %.6f)\n", hj,
+		    hole_polys_flat[hi][hj*2+0], hole_polys_flat[hi][hj*2+1]);
+	    }
+	}
+    }
+
     std::vector<int> steiner_vec;
     steiner_vec.reserve(m_interior_pnts.size());
     for (auto p_it = m_interior_pnts.begin(); p_it != m_interior_pnts.end(); p_it++) {
@@ -3237,6 +3250,14 @@ cdt_mesh_t::cdt()
 	    const point2d_t *hpoly = (const point2d_t *)hole_polys_flat[hi].data();
 	    if (bg_pnt_in_polygon(hole_polys_npts[hi], hpoly, (const point2d_t *)&test_pnt))
 		in_hole = true;
+	}
+	if (f_id == 27) {
+	    long ind3d = (p2d3d.count(idx)) ? p2d3d.at(idx) : -1;
+	    ON_3dPoint *p3d = (ind3d >= 0 && ind3d < (long)pnts.size()) ? pnts[ind3d] : NULL;
+	    bu_log("Face27 steiner idx=%d UV=(%.6f,%.6f) 3D=(%.3f,%.3f,%.3f) in_hole=%d\n",
+		idx, bgp_2d[idx][X], bgp_2d[idx][Y],
+		p3d ? p3d->x : 0.0, p3d ? p3d->y : 0.0, p3d ? p3d->z : 0.0,
+		(int)in_hole);
 	}
 	if (!in_hole)
 	    steiner_vec.push_back(idx);
@@ -3304,9 +3325,33 @@ cdt_mesh_t::cdt()
 	// In essence, the multiple lookups below are used to give us the same
 	// 3D index uniqueness guarantee we already have for 3D point pointer
 	// values.
+
 	tri3d.v[0] = p2ind[pnts[p2d3d[tri2d.v[0]]]];
 	tri3d.v[1] = p2ind[pnts[p2d3d[tri2d.v[1]]]];
 	tri3d.v[2] = p2ind[pnts[p2d3d[tri2d.v[2]]]];
+
+	if (f_id == 27) {
+	    // Log any triangle that has a 3D vertex near the known problematic location
+	    for (int vi = 0; vi < 3; vi++) {
+		ON_3dPoint *p = pnts[p2d3d[tri2d.v[vi]]];
+		if (fabs(p->x - 328.74) < 5.0 && fabs(p->y + 15.67) < 5.0) {
+		    int idx2d = tri2d.v[vi];
+		    bu_log("Face27 PROBLEM TRI: vi=%d 2didx=%d UV=(%.6f,%.6f) 3D=(%.3f,%.3f,%.3f) is_interior=%d\n",
+			vi, idx2d, bgp_2d[idx2d][X], bgp_2d[idx2d][Y],
+			p->x, p->y, p->z,
+			(m_interior_pnts.find(idx2d) != m_interior_pnts.end()));
+		    // Print the other two vertices too
+		    for (int ov = 0; ov < 3; ov++) {
+			if (ov == vi) continue;
+			ON_3dPoint *op = pnts[p2d3d[tri2d.v[ov]]];
+			bu_log("  other v%d 2didx=%ld UV=(%.6f,%.6f) 3D=(%.3f,%.3f,%.3f)\n",
+			    ov, (long)tri2d.v[ov],
+			    bgp_2d[tri2d.v[ov]][X], bgp_2d[tri2d.v[ov]][Y],
+			    op->x, op->y, op->z);
+		    }
+		}
+	    }
+	}
 
 	ON_3dVector tdir = tnorm(tri3d);
 	ON_3dVector bdir = bnorm(tri3d);
