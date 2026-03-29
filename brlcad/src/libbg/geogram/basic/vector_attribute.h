@@ -138,7 +138,7 @@ namespace GEOBRL {
 	    return manager_;
 	}
 
-#ifdef GEOBRL_COMPILER_CLANG
+#ifdef __clang__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wcast-align"
 #endif
@@ -152,7 +152,7 @@ namespace GEOBRL {
 	    return ((vec_type*)store_observer_.base_addr())[i];
 	}
 
-#ifdef GEOBRL_COMPILER_CLANG
+#ifdef __clang__
 #pragma clang diagnostic pop
 #endif
 

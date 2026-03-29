@@ -37,6 +37,7 @@
  *
  */
 
+#include "common.h"
 #include <geogram/mesh/mesh_halfedges.h>
 
 namespace GEOBRL {

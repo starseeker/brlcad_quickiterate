@@ -37,6 +37,7 @@
  *
  */
 
+#include "common.h"
 #include <geogram/voronoi/CVT.h>
 #include <geogram/voronoi/RVD.h>
 #include <geogram/mesh/mesh_repair.h>

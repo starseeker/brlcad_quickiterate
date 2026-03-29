@@ -37,35 +37,11 @@
  *
  */
 
+#include "common.h"
 #include <geogram/mesh/mesh_topology.h>
 #include <geogram/mesh/mesh.h>
 #include <geogram/basic/memory.h>
 #include <stack>
-
-namespace {
-
-    using namespace GEOBRL;
-
-    /**
-     * \brief Computes the number of surface vertices that are not isolated.
-     * \param[in] M the mesh
-     * \return the number of vertices of a mesh with at least
-     *  one incident surface facet
-     */
-    index_t nb_non_isolated_surface_vertices(const Mesh& M) {
-        index_t result = 0;
-        std::vector<bool> visited(M.vertices.nb(), false);
-        for(index_t c: M.facet_corners) {
-            visited[M.facet_corners.vertex(c)] = true;
-        }
-        for(index_t v: M.vertices) {
-            if(visited[v]) {
-                ++result;
-            }
-        }
-        return result;
-    }
-}
 
 namespace GEOBRL {
 

@@ -37,6 +37,7 @@
  *
  */
 
+#include "common.h"
 #include <geogram/voronoi/integration_simplex.h>
 
 namespace GEOBRL {

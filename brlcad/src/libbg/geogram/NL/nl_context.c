@@ -37,6 +37,7 @@
  *
  */
 
+#include "common.h"
 #include "nl_context.h"
 #include "nl_iterative_solvers.h"
 #include "nl_preconditioners.h"

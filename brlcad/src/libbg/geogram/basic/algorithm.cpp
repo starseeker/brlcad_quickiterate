@@ -37,6 +37,7 @@
  *
  */
 
+#include "common.h"
 #include <geogram/basic/algorithm.h>
 #include <geogram/basic/geogram_options.h>
 

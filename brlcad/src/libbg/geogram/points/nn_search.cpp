@@ -37,6 +37,7 @@
  *
  */
 
+#include "common.h"
 #include <geogram/points/nn_search.h>
 #include <geogram/points/kd_tree.h>
 #include <geogram/basic/geogram_options.h>

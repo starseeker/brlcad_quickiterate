@@ -37,6 +37,7 @@
  *
  */
 
+#include "common.h"
 #include <geogram/basic/attributes.h>
 #include <geogram/basic/permutation.h>
 #include <geogram/basic/geometry.h>

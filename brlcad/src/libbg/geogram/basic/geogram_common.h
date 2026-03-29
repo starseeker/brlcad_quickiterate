@@ -76,10 +76,29 @@
 #define GEOBRL_EXPORT
 #endif
 
-#ifdef geogram_EXPORTS
-#define GEOBRLCAD_API GEOBRL_EXPORT
+#ifdef BRLCAD_GEOGRAM_EMBED
+/*
+ * When built as part of libbg, mirror BG_EXPORT.
+ * common.h (always the first include in any BRL-CAD translation unit)
+ * defines COMPILER_DLLEXPORT and COMPILER_DLLIMPORT before this header
+ * is processed.
+ */
+#  undef GEOBRLCAD_API
+#  if defined(BG_DLL_EXPORTS) && defined(BG_DLL_IMPORTS)
+#    error "Only BG_DLL_EXPORTS or BG_DLL_IMPORTS can be defined, not both."
+#  elif defined(BG_DLL_EXPORTS)
+#    define GEOBRLCAD_API COMPILER_DLLEXPORT
+#  elif defined(BG_DLL_IMPORTS)
+#    define GEOBRLCAD_API COMPILER_DLLIMPORT
+#  else
+#    define GEOBRLCAD_API
+#  endif
 #else
-#define GEOBRLCAD_API GEOBRL_IMPORT
+#  ifdef geogram_EXPORTS
+#    define GEOBRLCAD_API GEOBRL_EXPORT
+#  else
+#    define GEOBRLCAD_API GEOBRL_IMPORT
+#  endif
 #endif
 
 /*
@@ -189,18 +208,11 @@ typedef int geo_signed_index_t;
 #  error "Unsupported compiler"
 #endif
 
-// The following works on GCC and ICC
-#if defined(__x86_64)
-#  define GEOBRL_PROCESSOR_X86
-#endif
-
 // =============================== WINDOWS defines =========================
 
 #elif defined(_WIN32) || defined(_WIN64)
 
 #define GEOBRL_OS_WINDOWS
-#define GEOBRL_PROCESSOR_X86
-
 
 #if defined(_MSC_VER)
 #  define GEOBRL_COMPILER_MSVC
@@ -215,7 +227,6 @@ typedef int geo_signed_index_t;
 #define GEOBRL_OS_APPLE
 #define GEOBRL_OS_UNIX
 
-
 #if defined(__clang__)
 #  define GEOBRL_COMPILER_CLANG
 #elif defined(__GNUC__)
@@ -224,9 +235,25 @@ typedef int geo_signed_index_t;
 #  error "Unsupported compiler"
 #endif
 
+// =============================== Other POSIX ==============================
+#elif defined(__unix__) || defined(__unix)
+
+#define GEOBRL_OS_UNIX
+
+#if defined(__clang__)
+#  define GEOBRL_COMPILER_CLANG
+#elif defined(__GNUC__)
+#  define GEOBRL_COMPILER_GCC
+#endif
+
 // =============================== Unsupported =============================
 #else
-#error "Unsupported operating system"
+/* Unrecognized OS: best-effort compilation without OS-specific optimizations */
+#if defined(_MSC_VER)
+#  pragma message("geogram: unrecognized operating system, continuing with limited support")
+#elif defined(__GNUC__) || defined(__clang__)
+#  warning "geogram: unrecognized operating system, continuing with limited support"
+#endif
 #endif
 
 #if defined(GEOBRL_COMPILER_GCC)   ||              \

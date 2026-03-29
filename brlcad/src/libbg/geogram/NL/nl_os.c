@@ -37,6 +37,7 @@
  *
  */
 
+#include "common.h"
 #include "nl_private.h"
 
 #if (defined (WIN32) || defined(_WIN64))

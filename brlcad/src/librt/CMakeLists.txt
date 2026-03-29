@@ -409,7 +409,6 @@ set(
   ${OPENCL_LIBS}
   ${librt_deps}
   ${OPENNURBS_LIBRARIES}
-  geogram_brlcad
   mmesh::mmesh
   ${REGEX_LIBRARIES}
   ${WINSOCK_LIB}

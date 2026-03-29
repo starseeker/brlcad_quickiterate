@@ -37,6 +37,7 @@
  *
  */
 
+#include "common.h"
 #include <geogram/basic/numeric.h>
 #include <stdlib.h>
 

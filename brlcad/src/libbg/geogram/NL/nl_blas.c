@@ -37,6 +37,7 @@
  *
  */
 
+#include "common.h"
 #include "nl_blas.h"
 #include "nl_context.h"
 

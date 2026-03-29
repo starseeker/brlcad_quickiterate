@@ -37,6 +37,7 @@
  *
  */
 
+#include "common.h"
 #include <geogram/basic/thread_sync.h>
 #include <thread>
 #include <vector>
