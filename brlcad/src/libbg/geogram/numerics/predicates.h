@@ -731,22 +731,6 @@ namespace GEOBRL {
             return geo_sgn(Delta);
         }
 
-        /**
-         * \brief Displays some statistics about predicates,
-         *  including the number of calls, the number of exact arithmetics
-         *  calls, and the number of Simulation of Simplicity calls.
-         */
-        void GEOBRLCAD_API show_stats();
-
-        /**
-         * \brief Needs to be called before using any predicate.
-         */
-        void GEOBRLCAD_API initialize();
-
-        /**
-         * \brief Needs to be called at the end of the program.
-         */
-        void GEOBRLCAD_API terminate();
     }
 }
 

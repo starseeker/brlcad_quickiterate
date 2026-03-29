@@ -40,14 +40,6 @@
 #include <geogram/delaunay/delaunay.h>
 #include <geogram/delaunay/delaunay_nn.h>
 
-#ifdef GEOBRLCAD_WITH_TETGEN
-#include <geogram/delaunay/delaunay_tetgen.h>
-#endif
-
-#ifdef GEOBRLCAD_WITH_TRIANGLE
-#include <geogram/delaunay/delaunay_triangle.h>
-#endif
-
 #include <geogram/basic/geogram_options.h>
 #include <geogram/basic/thread_sync.h>
 #include <geogram/basic/geometry_nd.h>
@@ -117,51 +109,14 @@ namespace GEOBRL {
 
     /************************************************************************/
 
-    void Delaunay::initialize() {
-
-#ifdef GEOBRLCAD_WITH_TETGEN
-        geo_register_Delaunay_creator(DelaunayTetgen, "tetgen");
-#endif
-
-#ifdef GEOBRLCAD_WITH_TRIANGLE
-        geo_register_Delaunay_creator(DelaunayTriangle, "triangle");
-#endif
-
-
-#ifndef GEOBRLCAD_PSM
-        geo_register_Delaunay_creator(Delaunay_NearestNeighbors, "NN");
-#endif
-    }
-
     std::shared_ptr<Delaunay> Delaunay::create(
         coord_index_t dim,
         const std::string& name_in,
         const GeoOptions& opts
     ) {
-
-        std::string name = name_in;
-        if(name == "default") {
-            name = opts.algo_delaunay;
-        }
-
-        Delaunay* result = nullptr;
-        try {
-            result = DelaunayFactory::create_object(name, dim);
-        }
-        catch(InvalidDimension&) {
-        }
-
-        if(result == nullptr) {
-#ifdef GEOBRLCAD_PSM
-            return nullptr;
-#else
-            result = new Delaunay_NearestNeighbors(dim);
-#endif
-        }
-
-        if(result != nullptr) {
-            result->apply_options(opts);
-        }
+        geo_argused(name_in);
+        Delaunay* result = new Delaunay_NearestNeighbors(dim);
+        result->apply_options(opts);
         return std::shared_ptr<Delaunay>(result);
     }
 

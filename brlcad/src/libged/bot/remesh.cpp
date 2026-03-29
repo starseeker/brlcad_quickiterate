@@ -192,41 +192,8 @@ geogram_to_manifold(manifold::MeshGL *gmm, GEOBRL::Mesh &gm)
 static int
 bot_remesh_geogram(struct rt_bot_internal **obot, struct ged *gedp, struct rt_bot_internal *bot)
 {
-    // Geogram libraries like to print a lot - shut down
-    // the I/O channels until we can clear the logger
-    int serr = -1;
-    int sout = -1;
-    int stderr_stashed = -1;
-    int stdout_stashed = -1;
-    int fnull = open("/dev/null", O_WRONLY);
-    if (fnull == -1) {
-	/* https://gcc.gnu.org/ml/gcc-patches/2005-05/msg01793.html */
-	fnull = open("nul", O_WRONLY);
-    }
-    if (fnull != -1) {
-	serr = fileno(stderr);
-	sout = fileno(stdout);
-	stderr_stashed = dup(serr);
-	stdout_stashed = dup(sout);
-	dup2(fnull, serr);
-	dup2(fnull, sout);
-	close(fnull);
-    }
-
-    // Make sure geogram is initialized
     GEOBRL::GeoOptions opts;
     opts.remesh_multi_nerve = true;
-    GEOBRL::initialize(opts);
-
-    // Put I/O channels back where they belong
-    if (fnull != -1) {
-	fflush(stderr);
-	dup2(stderr_stashed, serr);
-	close(stderr_stashed);
-	fflush(stdout);
-	dup2(stdout_stashed, sout);
-	close(stdout_stashed);
-    }
 
     // Target ten times the original vert count
     fastf_t nb_pts = bot->num_vertices * 10;

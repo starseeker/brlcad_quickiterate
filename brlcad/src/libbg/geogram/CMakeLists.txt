@@ -10,7 +10,6 @@ set(GEOGRAM_SRCS
     # basic infrastructure
     basic/assert.cpp
     basic/attributes.cpp
-    basic/common.cpp
     basic/factory.cpp
     basic/geogram_options.cpp
     basic/geometry.cpp

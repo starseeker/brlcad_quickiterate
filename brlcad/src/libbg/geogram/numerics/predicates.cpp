@@ -2114,17 +2114,5 @@ namespace GEOBRL {
                 ;
         }
 
-        void initialize() {
-            expansion::initialize();
-        }
-
-        void terminate() {
-            // Nothing to do.
-        }
-
-        void show_stats() {
-            PredicateStats::show_all_stats();
-            expansion::show_all_stats();
-        }
     }
 }
