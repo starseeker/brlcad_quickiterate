@@ -68,6 +68,8 @@ set(
   trimesh_diff.cpp
   trimesh_isect.cpp
   trimesh_plot3.cpp
+  trimesh_repair.cpp
+  trimesh_remesh.cpp
   trimesh_sync.cpp
   trimesh_split.cpp
   vert_tree.c
@@ -85,6 +87,10 @@ endif()
 set(BG_INCLUDE_DIRS
   ${LMDB_INCLUDE_DIR}
   ${EIGEN3_INCLUDE_DIR}
+  # The in-tree GTE directory must come before the external GTE_INCLUDE_DIR so
+  # that BRL-CAD's custom GTE headers (MeshRepair.h, MeshHoleFilling.h, etc.)
+  # shadow any identically-named files in the external GTE install.
+  ${CMAKE_CURRENT_SOURCE_DIR}/GTE
   ${GTE_INCLUDE_DIR}
   ${SPSR_INCLUDE_DIR}
   # Geogram internal include dirs (not installed as public API)
