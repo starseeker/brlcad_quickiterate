@@ -3223,6 +3223,11 @@ cdt_mesh_t::cdt()
 		  steiner, m_interior_pnts.size(), bgp_2d, m_pnts_2d.size(),
 		  TRI_CONSTRAINED_DELAUNAY);
 
+    if (!result) {
+	bu_log("Face %d: bg_nested_poly_triangulate FAILED (bnd_pnts=%zu interior_pnts=%zu holes=%d)\n",
+	    f_id, outer_loop.poly.size(), m_interior_pnts.size(), holes_cnt);
+    }
+
     tris_2d.clear();
     if (result) {
 	for (int i = 0; i < num_faces; i++) {
@@ -4799,20 +4804,20 @@ cdt_mesh_t::lscm_reproject(cpolygon_t *polygon)
     if (polygon->poly.size() < 3)
 	return false;
 
-    // ── Step 1: Walk the boundary loop (matches cdt()'s traversal order) ────
+    // ── Step 1: Walk the boundary loop ───────────────────────────────────────
+    // Collect exactly poly.size() unique boundary vertices (one per edge,
+    // using each edge's start vertex) so LSCMParameterization receives N
+    // distinct vertices without a closing repeat.
     std::vector<int32_t> bnd_loop;
     {
-	cpolyedge_t *pe    = *polygon->poly.begin();
-	cpolyedge_t *first = pe;
-	bnd_loop.push_back((int32_t)pe->v2d[0]);
-	bnd_loop.push_back((int32_t)pe->v2d[1]);
-	cpolyedge_t *next  = pe->next;
-	while (next != first) {
-	    bnd_loop.push_back((int32_t)next->v2d[1]);
-	    next = next->next;
-	    if (bnd_loop.size() > polygon->poly.size() + 1)
-		return false; // defensive guard against a broken loop linkage
-	}
+	cpolyedge_t *pe  = *polygon->poly.begin();
+	cpolyedge_t *cur = pe;
+	do {
+	    bnd_loop.push_back((int32_t)cur->v2d[0]);
+	    cur = cur->next;
+	    if (bnd_loop.size() > polygon->poly.size())
+		return false; // defensive guard against broken loop linkage
+	} while (cur != pe);
     }
     if ((int)bnd_loop.size() < 3)
 	return false;
@@ -4918,8 +4923,11 @@ cdt_mesh_t::lscm_reproject(cpolygon_t *polygon)
 	}
     }
 
-    if (!lscm_ok || uv.empty())
+    if (!lscm_ok || uv.empty()) {
+	bu_log("lscm_reproject: f_id=%d LSCM math failed (int_verts=%zu tris=%zu bnd=%zu)\n",
+	    f_id, true_interior_cpt.size(), tris_cpt.size(), bnd_loop.size());
 	return false;
+    }
 
     // ── Step 8: Write UV back to polygon->pnts_2d ───────────────────────────
     // pnts_2d is indexed identically to pnts (o2p is identity), so we can
@@ -4948,6 +4956,8 @@ cdt_mesh_t::lscm_reproject(cpolygon_t *polygon)
     }
 
     if (!valid) {
+	bu_log("lscm_reproject: f_id=%d validation failed (closed=%d)\n",
+	    f_id, polygon->closed() ? 1 : 0);
 	polygon->pnts_2d = pnts_2d_cached;
 	return false;
     }

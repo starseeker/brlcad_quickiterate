@@ -607,11 +607,10 @@ bg_detria(int **faces, int *num_faces, point2d_t **out_pts, int *num_outpts,
     tri.addOutline(outer_polyline);
 
     // Next are the holes
-    std::vector<std::vector<int>> inner_holes;
     for (size_t i = 0; i < nholes; i++) {
 	std::vector<int> hv;
 	for (size_t j = 0; j < holes_npts[i]; j++)
-	    hv.push_back(holes_array[i][j]);
+	    hv.push_back(pts2det[holes_array[i][j]]);
 	tri.addHole(hv);
     }
 
