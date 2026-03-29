@@ -2786,7 +2786,8 @@ cdt_mesh_t::oriented_polycdt(cpolygon_t *polygon, bool reproject)
     if (reproject) {
 	// Try LSCM parameterization first: it maps the boundary to a unit circle
 	// guaranteeing a non-self-intersecting 2D domain even for highly curved
-	// patches where the best-fit plane projection would fold on itself.
+	// patches where the best-fit plane projection would fold on itself,
+	// causing CDT (bg_nested_poly_triangulate) to fail.
 	// Fall back to the plane-based approach if LSCM fails.
 	if (!lscm_reproject(polygon)) {
 	    best_fit_plane_reproject(polygon);
@@ -4810,7 +4811,7 @@ cdt_mesh_t::lscm_reproject(cpolygon_t *polygon)
 	    bnd_loop.push_back((int32_t)next->v2d[1]);
 	    next = next->next;
 	    if (bnd_loop.size() > polygon->poly.size() + 1)
-		return false; // broken loop — shouldn't happen if closed()
+		return false; // defensive guard against a broken loop linkage
 	}
     }
     if ((int)bnd_loop.size() < 3)
