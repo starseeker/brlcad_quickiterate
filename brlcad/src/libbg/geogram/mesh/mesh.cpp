@@ -1585,7 +1585,7 @@ namespace GEOBRL {
         return true;
     }
 
-    void MeshCells::connect(bool remove_trivial_slivers, bool verbose_if_OK) {
+    void MeshCells::connect(bool remove_trivial_slivers) {
         // "Fast track" for simplicial mesh
         if(is_simplicial_) {
             connect_tets();
@@ -1757,7 +1757,7 @@ namespace GEOBRL {
             }
             delete_elements(delete_c);
 
-            connect(false,true);
+            connect(false);
         }
     }
 
