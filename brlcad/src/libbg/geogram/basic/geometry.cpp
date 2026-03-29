@@ -37,6 +37,7 @@
  *
  */
 
+#include "common.h"
 #include <geogram/basic/geometry.h>
 
 namespace {

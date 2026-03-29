@@ -37,6 +37,7 @@
  *
  */
 
+#include "common.h"
 #include "nl_preconditioners.h"
 #include "nl_blas.h"
 #include "nl_matrix.h"

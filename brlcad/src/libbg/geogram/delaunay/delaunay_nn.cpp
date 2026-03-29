@@ -37,6 +37,7 @@
  *
  */
 
+#include "common.h"
 #include <geogram/delaunay/delaunay_nn.h>
 
 namespace GEOBRL {

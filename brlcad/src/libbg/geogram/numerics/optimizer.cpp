@@ -37,6 +37,7 @@
  *
  */
 
+#include "common.h"
 #include <geogram/numerics/optimizer.h>
 
 namespace GEOBRL {

@@ -37,6 +37,7 @@
  *
  */
 
+#include "common.h"
 #include <geogram/numerics/PCK.h>
 #include <vector>
 #include <cstdio>

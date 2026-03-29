@@ -37,6 +37,7 @@
  *
  */
 
+#include "common.h"
 #include <geogram/mesh/mesh_geometry.h>
 #include <geogram/basic/attributes.h>
 #include <geogram/basic/geometry.h>

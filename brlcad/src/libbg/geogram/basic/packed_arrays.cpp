@@ -37,27 +37,8 @@
  *
  */
 
+#include "common.h"
 #include <geogram/basic/packed_arrays.h>
-
-namespace {
-
-    using namespace GEOBRL;
-
-    /**
-     * \brief Computes a percentage of a reference value
-     * \param[in] num the value to compute the percentage of
-     * \param[in] denom the reference value
-     * \return a formatted string that contains the \p num and its percentage
-     * of \p denom
-     */
-    std::string percent_str(index_t num, index_t denom) {
-        if(denom == 0) {
-            return std::to_string(num);
-        }
-        double x = double(num) / double(denom) * 100.0;
-        return std::to_string(num) + "(" + std::to_string(x) + "%)";
-    }
-}
 
 namespace GEOBRL {
 

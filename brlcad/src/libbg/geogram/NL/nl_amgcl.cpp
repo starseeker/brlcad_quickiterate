@@ -3,6 +3,7 @@
  * Works both on the CPU and the GPU.
  */
 
+#include "common.h"
 #include <geogram/NL/nl.h>
 
 extern "C" {
@@ -40,7 +41,7 @@ extern "C" {
 #pragma GCC diagnostic ignored "-Wunused-template"
 #endif
 
-#ifdef GEOBRL_COMPILER_MSVC
+#ifdef _MSC_VER
 #pragma warning( disable : 4244 4018 4458 4267 4701 )
 #endif
 

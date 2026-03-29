@@ -53,11 +53,11 @@
 #include <atomic>
 #include <functional>
 
-#ifdef GEOBRL_OS_WINDOWS
+#ifdef _WIN32
 #include <windows.h>
 #endif
 
-#ifdef GEOBRL_PROCESSOR_X86
+#ifdef HAVE_MM_PAUSE
 #include <immintrin.h>
 #endif
 
@@ -72,7 +72,7 @@
  * \details should be called when a spinlock is spinning
  */
 inline void geo_pause() {
-#ifdef GEOBRL_PROCESSOR_X86
+#ifdef HAVE_MM_PAUSE
     _mm_pause();
 #endif
 }

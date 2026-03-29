@@ -37,6 +37,7 @@
  *
  */
 
+#include "common.h"
 #include <geogram/points/kd_tree.h>
 #include <geogram/basic/geometry_nd.h>
 #include <geogram/basic/thread_sync.h>

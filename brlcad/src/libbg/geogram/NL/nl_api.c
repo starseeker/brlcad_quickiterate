@@ -37,6 +37,7 @@
  *
  */
 
+#include "common.h"
 #include "nl_private.h"
 #include "nl_matrix.h"
 #include "nl_context.h"

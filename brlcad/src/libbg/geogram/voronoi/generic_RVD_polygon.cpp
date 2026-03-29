@@ -37,6 +37,7 @@
  *
  */
 
+#include "common.h"
 #include <geogram/voronoi/generic_RVD_polygon.h>
 #include <geogram/numerics/predicates.h>
 #include <algorithm>

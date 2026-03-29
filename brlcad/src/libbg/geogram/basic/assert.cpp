@@ -37,14 +37,15 @@
  *
  */
 
+#include "common.h"
 #include <geogram/basic/assert.h>
 #include <stdlib.h>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
 
-#ifdef GEOBRL_COMPILER_MSVC
-#include <intrin.h> // For __debugbreak()
+#ifdef HAVE_DEBUGBREAK
+#include <intrin.h> /* For __debugbreak() */
 #endif
 
 namespace GEOBRL {
@@ -76,7 +77,7 @@ namespace GEOBRL {
     }
 
     void geo_breakpoint() {
-#ifdef GEOBRL_COMPILER_MSVC
+#ifdef HAVE_DEBUGBREAK
         __debugbreak();
 #else
         geo_abort();

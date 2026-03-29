@@ -48,7 +48,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#ifdef GEOBRL_OS_WINDOWS
+#ifdef _WIN32
 
 #include <windows.h>
 #ifdef min
@@ -65,16 +65,15 @@
 #endif
 
 // Stack size depending on OS:
-// Linux: 10 Mb
-// Windows: 1 Mb
-// Mac OSX: 512 Kb
-// GEOBRL_HAS_BIG_STACK is defined under Linux
-// and lets some of the functions that
-// manipulate exact precision numbers
+// Linux: 8-10 MB default thread stack
+// Windows: 1 MB
+// Mac OSX: 512 KB
+// GEOBRL_HAS_BIG_STACK is set on Linux (via configure-time BRLCAD_HAS_BIG_STACK)
+// and lets some of the functions that manipulate exact precision numbers
 // allocate temporaries on the stack.
 
-#ifdef GEOBRL_OS_LINUX
-#define GEOBRL_HAS_BIG_STACK
+#ifdef BRLCAD_HAS_BIG_STACK
+#  define GEOBRL_HAS_BIG_STACK
 #endif
 
 /**
@@ -281,12 +280,16 @@ namespace GEOBRL {
         inline void* aligned_malloc(
             size_t size, size_t alignment = GEOBRL_MEMORY_ALIGNMENT
         ) {
-#ifdef GEOBRL_OS_WINDOWS
+#if defined(HAVE_ALIGNED_MALLOC)
             return _aligned_malloc(size, alignment);
-#else
+#elif defined(HAVE_POSIX_MEMALIGN)
             void* result;
             return posix_memalign(&result, alignment, size) == 0
                 ? result : nullptr;
+#else
+            /* Fallback: return unaligned memory (performance degraded) */
+            (void)alignment;
+            return malloc(size);
 #endif
         }
 
@@ -298,7 +301,7 @@ namespace GEOBRL {
          * \note Memory alignment is not supported under Android.
          */
         inline void aligned_free(void* p) {
-#ifdef GEOBRL_OS_WINDOWS
+#if defined(HAVE_ALIGNED_MALLOC)
             _aligned_free(p);
 #else
             free(p);
@@ -336,7 +339,7 @@ namespace GEOBRL {
          * \note Memory alignment is not supported under Android.
          * \note C++20 has std::assume_aligned()
          */
-#if defined(GEOBRL_COMPILER_GCC_FAMILY)
+#if defined(HAVE_BUILTIN_ASSUME_ALIGNED)
         // GCC's __builtin_assume_aligned() returns the aligned pointer rather
         // than modifying var in-place, so the result must be assigned back to
         // var for the hint to take effect (verified via gcc -S output).
@@ -356,10 +359,12 @@ namespace GEOBRL {
          * double* geo_restrict p = ...;
          * \endcode
          */
-#ifdef GEOBRL_COMPILER_MSVC
+#if defined(HAVE_RESTRICT__)
+#define geo_restrict __restrict__
+#elif defined(_MSC_VER)
 #define geo_restrict __restrict
 #else
-#define geo_restrict __restrict__
+#define geo_restrict
 #endif
 
         /**
@@ -561,9 +566,7 @@ namespace GEOBRL {
              */
             void destroy(pointer p) {
                 p->~value_type();
-#ifdef GEOBRL_COMPILER_MSVC
-                (void) p; // to avoid a "unreferenced variable" warning
-#endif
+                (void) p; // avoid potential "unreferenced variable" warning
             }
 
             /**

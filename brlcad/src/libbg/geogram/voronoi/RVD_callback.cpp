@@ -37,6 +37,7 @@
  *
  */
 
+#include "common.h"
 #include <geogram/voronoi/RVD_callback.h>
 #include <geogram/voronoi/RVD_mesh_builder.h>
 #include <geogram/voronoi/generic_RVD_cell.h>

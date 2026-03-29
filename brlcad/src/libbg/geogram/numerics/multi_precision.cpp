@@ -37,12 +37,13 @@
  *
  */
 
+#include "common.h"
 #include <geogram/basic/geogram_common.h>
 
 // This makes sure the compiler will not optimize y = a*x+b
 // with fused multiply-add, this would break the exact
 // predicates.
-#ifdef GEOBRL_COMPILER_MSVC
+#ifdef HAVE_PRAGMA_FP_CONTRACT
 #pragma fp_contract(off)
 #endif
 

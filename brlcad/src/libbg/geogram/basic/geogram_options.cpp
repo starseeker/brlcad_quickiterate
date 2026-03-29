@@ -37,6 +37,7 @@
  *
  */
 
+#include "common.h"
 #include <geogram/basic/geogram_options.h>
 
 // GeoOptions is a plain struct with inline defaults; nothing to define here.

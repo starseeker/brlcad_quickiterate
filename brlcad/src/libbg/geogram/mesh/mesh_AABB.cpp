@@ -37,6 +37,7 @@
  *
  */
 
+#include "common.h"
 #include <geogram/mesh/mesh_AABB.h>
 #include <geogram/mesh/mesh_reorder.h>
 #include <geogram/mesh/mesh_geometry.h>
@@ -143,66 +144,6 @@ namespace {
             result += geo_sqr(d);
         }
         return result;
-    }
-
-    /**
-     * \brief Tests whether a mesh tetrahedron contains a given point
-     * \param[in] M a const reference to the mesh
-     * \param[in] t the index of the tetrahedron in \p M
-     * \param[in] p a const reference to the point
-     * \retval true if the tetrahedron \p t or its boundary contains
-     *  the point \p p
-     * \retval false otherwise
-     */
-    bool mesh_tet_contains_point(
-        const Mesh& M, index_t t, const vec3& p
-    ) {
-        const vec3& p0 = as_gte<3>(M.cells.point(t,0));
-        const vec3& p1 = as_gte<3>(M.cells.point(t,1));
-        const vec3& p2 = as_gte<3>(M.cells.point(t,2));
-        const vec3& p3 = as_gte<3>(M.cells.point(t,3));
-
-        Sign s[4];
-        s[0] = PCK::orient_3d(p, p1, p2, p3);
-        s[1] = PCK::orient_3d(p0, p, p2, p3);
-        s[2] = PCK::orient_3d(p0, p1, p, p3);
-        s[3] = PCK::orient_3d(p0, p1, p2, p);
-
-        return (
-            (s[0] >= 0 && s[1] >= 0 && s[2] >= 0 && s[3] >= 0) ||
-            (s[0] <= 0 && s[1] <= 0 && s[2] <= 0 && s[3] <= 0)
-        );
-    }
-
-
-    /**
-     * \brief Tests whether a mesh triangle contains a given point
-     * \param[in] M a const reference to the mesh
-     * \param[in] t the index of the triangle in \p M
-     * \param[in] p a const reference to the point
-     * \retval true if the triangle \p t or its boundary contains
-     *  the point \p p
-     * \retval false otherwise
-     */
-    bool mesh_triangle_contains_point(
-        const Mesh& M, index_t t, const vec2& p
-    ) {
-        index_t i = M.facets.vertex(t,0);
-        index_t j = M.facets.vertex(t,1);
-        index_t k = M.facets.vertex(t,2);
-        vec2 p0 = as_gte<2>(M.vertices.point<2>(i));
-        vec2 p1 = as_gte<2>(M.vertices.point<2>(j));
-        vec2 p2 = as_gte<2>(M.vertices.point<2>(k));
-
-        Sign s[3];
-        s[0] = PCK::orient_2d(p,  p1, p2);
-        s[1] = PCK::orient_2d(p0, p,  p2);
-        s[2] = PCK::orient_2d(p0, p1, p );
-
-        return (
-            (s[0] >= 0 && s[1] >= 0 && s[2] >= 0 ) ||
-            (s[0] <= 0 && s[1] <= 0 && s[2] <= 0 )
-        );
     }
 
     /**

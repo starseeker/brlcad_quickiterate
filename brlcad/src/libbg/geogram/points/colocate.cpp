@@ -37,6 +37,7 @@
  *
  */
 
+#include "common.h"
 #include <geogram/points/colocate.h>
 #include <geogram/points/nn_search.h>
 #include <geogram/basic/geometry_nd.h>

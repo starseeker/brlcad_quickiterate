@@ -37,6 +37,7 @@
  *
  */
 
+#include "common.h"
 #include <geogram/mesh/mesh_repair.h>
 #include <geogram/mesh/mesh_geometry.h>
 #include <geogram/mesh/index.h>
