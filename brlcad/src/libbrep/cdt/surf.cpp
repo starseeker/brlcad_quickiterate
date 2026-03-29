@@ -821,6 +821,11 @@ GetInteriorPoints(struct ON_Brep_CDT_State *s_cdt, int face_index)
 	ON_3dPoint min = lbox.Min();
 	ON_3dPoint max = lbox.Max();
 
+	if (face_index == 27) {
+	    bu_log("Face27 GetBoundingBox: min=(%.6f,%.6f,%.6f) max=(%.6f,%.6f,%.6f)\n",
+		min.x, min.y, min.z, max.x, max.y, max.z);
+	}
+
 	std::queue<SPatch> spq1, spq2;
 
 	/**
