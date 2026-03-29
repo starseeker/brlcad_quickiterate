@@ -82,14 +82,14 @@ namespace GEOBRL {
      * abort() is more difficult to see under debugger, so this creates a
      * segmentation fault by deferencing a null pointer.
      */
-    GEOBRL_NORETURN_DECL void GEOBRLCAD_API geo_abort() GEOBRL_NORETURN;
+    void GEOBRLCAD_API geo_abort() [[noreturn]];
 
     /**
      * \brief Generates a debugger breakpoint programmatically.
      * \details On Windows, generates a breakpoint using __debugbreak(),
      *  on other systems, calls geo_abort().
      */
-    GEOBRL_NORETURN_DECL void GEOBRLCAD_API geo_breakpoint() GEOBRL_NORETURN;
+    void GEOBRLCAD_API geo_breakpoint() [[noreturn]];
 
     /**
      * \brief Prints an assertion failure
@@ -100,10 +100,10 @@ namespace GEOBRL {
      * \param[in] file file where the assertion failed
      * \param[in] line line where the assertion failed
      */
-    GEOBRL_NORETURN_DECL void GEOBRLCAD_API geo_assertion_failed(
+    void GEOBRLCAD_API geo_assertion_failed(
         const std::string& condition_string,
         const std::string& file, int line
-    ) GEOBRL_NORETURN;
+    ) [[noreturn]];
 
     /**
      * \brief Prints a range assertion failure
@@ -116,10 +116,10 @@ namespace GEOBRL {
      * \param[in] file file where the assertion failed
      * \param[in] line line where the assertion failed
      */
-    GEOBRL_NORETURN_DECL void GEOBRLCAD_API geo_range_assertion_failed(
+    void GEOBRLCAD_API geo_range_assertion_failed(
         double value, double min_value, double max_value,
         const std::string& file, int line
-    ) GEOBRL_NORETURN;
+    ) [[noreturn]];
 
     /**
      * \brief Prints an unreachable location failure
@@ -129,9 +129,9 @@ namespace GEOBRL {
      * \param[in] file file containing the unreachable location
      * \param[in] line line of the unreachable location
      */
-    GEOBRL_NORETURN_DECL void GEOBRLCAD_API geo_should_not_have_reached(
+    void GEOBRLCAD_API geo_should_not_have_reached(
         const std::string& file, int line
-    ) GEOBRL_NORETURN;
+    ) [[noreturn]];
 }
 
 // Three levels of assert:

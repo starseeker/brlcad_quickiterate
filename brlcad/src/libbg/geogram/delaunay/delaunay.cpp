@@ -82,7 +82,7 @@ namespace GEOBRL {
         std::logic_error(invalid_dimension_error(dimension, name, expected)) {
     }
 
-    const char* Delaunay::InvalidDimension::what() const GEOBRL_NOEXCEPT {
+    const char* Delaunay::InvalidDimension::what() const noexcept {
         return std::logic_error::what();
     }
 
@@ -100,10 +100,10 @@ namespace GEOBRL {
         invalid_facets(rhs.invalid_facets) {
     }
 
-    Delaunay::InvalidInput::~InvalidInput() GEOBRL_NOEXCEPT {
+    Delaunay::InvalidInput::~InvalidInput() noexcept {
     }
 
-    const char* Delaunay::InvalidInput::what() const GEOBRL_NOEXCEPT {
+    const char* Delaunay::InvalidInput::what() const noexcept {
         return std::logic_error::what();
     }
 

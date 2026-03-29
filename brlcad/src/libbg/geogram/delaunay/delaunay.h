@@ -85,7 +85,7 @@ namespace GEOBRL {
             /**
              * \brief Gets the string identifying the exception
              */
-            const char* what() const GEOBRL_NOEXCEPT override;
+            const char* what() const noexcept override;
         };
 
 
@@ -108,12 +108,12 @@ namespace GEOBRL {
              */
             InvalidInput(const InvalidInput& rhs);
 
-            ~InvalidInput() GEOBRL_NOEXCEPT override;
+            ~InvalidInput() noexcept override;
 
             /**
              * \brief Gets the string identifying the exception
              */
-            const char* what() const GEOBRL_NOEXCEPT override;
+            const char* what() const noexcept override;
 
             /**
              * \brief An implementation-dependent error code.

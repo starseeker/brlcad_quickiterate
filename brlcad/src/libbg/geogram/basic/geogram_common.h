@@ -158,37 +158,6 @@ typedef int geo_signed_index_t;
  * \def GEOBRL_COMPILER_MSVC
  * \brief This macro is set if the source code is compiled with Microsoft's
  * Visual C++.
- *
- * \def GEOBRL_NORETURN_DECL
- * \brief Should be inserted before the prototype of a function that does
- *  not return.
- * \details This helps the compiler determining where the execution flow
- *  goes. This is useful for helping the compiler generate some warnings.
- *   Example of a function prototype for a function that does not return
- *   (note the GEOBRL_NORETURN_DECL keyword before and the GEOBRL_NORETURN
- *    keyword after).
- *   \code
- *      GEOBRL_NORETURN_DECL void GEOBRLCAD_API geo_abort() GEOBRL_NORETURN;
- *   \endcode
- *
- * \def GEOBRL_NORETURN
- * \brief Should be inserted after the prototype of a function that does
- *  not return.
- * \details This helps the compiler determining where the execution flow
- *  goes. This is useful for helping the compiler generate some warnings.
- *   Example of a function prototype for a function that does not return
- *   (note the GEOBRL_NORETURN_DECL keyword before and the GEOBRL_NORETURN
- *    keyword after).
- *   \code
- *      GEOBRL_NORETURN_DECL void GEOBRLCAD_API geo_abort() GEOBRL_NORETURN;
- *   \endcode
- *
- * \def GEOBRL_NOEXCEPT
- * \brief Indicates that a function does not throw any exception.
- * \details Should be specified at the end of the function prototype.
- * \code
- *    void GEOBRLCAD_API foobar() GEOBRL_NOEXCEPT;
- * \encode
  */
 
 #if (defined(NDEBUG) || defined(GEOBRLCAD_PSM)) && !defined(GEOBRLCAD_PSM_DEBUG)
@@ -264,38 +233,6 @@ typedef int geo_signed_index_t;
     defined(GEOBRL_COMPILER_CLANG) ||              \
     defined(GEOBRL_COMPILER_MINGW)
 #define GEOBRL_COMPILER_GCC_FAMILY
-#endif
-
-#if defined(GOMGEN)
-#define GEOBRL_NORETURN
-#elif defined(GEOBRL_COMPILER_GCC_FAMILY) ||       \
-    defined(GEOBRL_COMPILER_INTEL)
-#define GEOBRL_NORETURN __attribute__((noreturn))
-#else
-#define GEOBRL_NORETURN
-#endif
-
-#if defined(GOMGEN)
-#define GEOBRL_NORETURN_DECL
-#elif defined(GEOBRL_COMPILER_MSVC)
-#define GEOBRL_NORETURN_DECL __declspec(noreturn)
-#else
-#define GEOBRL_NORETURN_DECL
-#endif
-
-#if defined(GEOBRL_COMPILER_CLANG)
-#if __has_feature(cxx_noexcept)
-#define GEOBRL_NOEXCEPT noexcept
-#endif
-#endif
-
-// For Graphite GOM generator (swig is confused by throw() specifier)
-#ifdef GOMGEN
-#define GEOBRL_NOEXCEPT
-#endif
-
-#ifndef GEOBRL_NOEXCEPT
-#define GEOBRL_NOEXCEPT throw()
 #endif
 
 #define FOR(I,UPPERBND) for(index_t I = 0; I<index_t(UPPERBND); ++I)
