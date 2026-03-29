@@ -499,7 +499,7 @@ struct bg_trimesh_remesh_opts {
     fastf_t count_multiplier;   /**< Multiply input vertex count by this to obtain target (default 10.0) */
     fastf_t anisotropy;         /**< Anisotropy weight for surface-normal direction; 0.0 = isotropic remesh (default 0.04) */
     int lloyd_iters;            /**< Number of Lloyd relaxation iterations (default 5) */
-    int newton_iters;           /**< Number of Newton iterations for CVT optimisation (default 30) */
+    int newton_iters;           /**< Number of Newton iterations for CVT optimization (default 30) */
 };
 
 /** Default remesh options: 10× input vertex density, moderate anisotropy. */

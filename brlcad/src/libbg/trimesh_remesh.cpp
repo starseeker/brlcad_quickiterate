@@ -54,7 +54,7 @@ bg_trimesh_remesh(
     if (!ifaces || n_ifaces <= 0 || !ipnts || n_ipnts <= 0)
 	return -1;
 
-    /* Initialise output pointers */
+    /* Initialize output pointers */
     *ofaces = NULL;
     *n_ofaces = 0;
     *opnts = NULL;
