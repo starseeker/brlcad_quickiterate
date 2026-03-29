@@ -161,26 +161,73 @@ bg_trimesh_repair(
     if (tris.empty())
 	return -1;
 
-    /* --- Pass 3: hole filling -------------------------------------------- */
+    /* --- Pass 2b: pre-fill topology normalisation -----------------------
+     * The old Geogram-based repair called mesh_repair(MESH_REPAIR_DEFAULT)
+     * which includes G4 (connect) + G5 (reorient) + G6 (split non-manifold)
+     * BEFORE hole filling.  Without this, GTE's hole-boundary tracer can
+     * encounter non-simple (self-touching) boundary loops that it aborts on,
+     * leaving those holes unfilled.  Calling the full G4-G6 sequence here
+     * fixes non-manifold vertices first so hole detection sees clean,
+     * simple boundary loops. */
     {
-	double area = trimesh_gte_area(verts, tris);
+	std::vector<int32_t> adj;
+	gte::MeshRepair<double>::ConnectFacets(tris, adj);
+	gte::MeshRepair<double>::ReorientFacetsAntiMoebius(verts, tris, adj);
 
-	double hole_limit = 1e30; /* default: attempt to fill all holes */
-	if (opts->max_hole_area > SMALL_FASTF) {
-	    hole_limit = (double)opts->max_hole_area;
-	} else if (opts->max_hole_area_percent > SMALL_FASTF) {
-	    hole_limit = area * ((double)opts->max_hole_area_percent / 100.0);
-	}
-
-	gte::MeshHoleFilling<double>::Parameters fp;
-	fp.maxArea      = hole_limit;
-	fp.method       = gte::MeshHoleFilling<double>::TriangulationMethod::LSCM;
-	fp.autoFallback = true;
-	gte::MeshHoleFilling<double>::FillHoles(verts, tris, fp);
+	gte::MeshRepair<double>::ConnectFacets(tris, adj);
+	gte::MeshRepair<double>::SplitNonManifoldVertices(verts, tris, adj);
     }
 
-    if (tris.empty())
-	return -1;
+    /* --- Pass 3 + 4: iterative hole-fill + topology-repair loop -----------
+     * Run fill-then-repair repeatedly.  Each post-fill round of G4-G6 may
+     * expose previously blocked hole boundaries (non-simple loops caused by
+     * non-manifold vertices) so subsequent FillHoles passes can fill them.
+     * Stop when no new faces are added (convergence) or after a safety limit.
+     *
+     * This mirrors the old Geogram approach:
+     *   GEO::fill_holes(gm, hole_size);
+     *   GEO::mesh_repair(gm, GEO::MESH_REPAIR_DEFAULT);  // G1-G8 incl. G4-G6
+     * where a single pass was sufficient because Geogram's fill_holes handles
+     * complex boundary loops natively.  GTE's FillHoles requires the extra
+     * G4-G6 steps to untangle the topology between iterations. */
+    for (int iter = 0; iter < 10; ++iter) {
+	size_t nf_before = tris.size();
+
+	/* Pass 3: hole filling */
+	{
+	    double area = trimesh_gte_area(verts, tris);
+
+	    double hole_limit = 1e30; /* default: attempt to fill all holes */
+	    if (opts->max_hole_area > SMALL_FASTF) {
+		hole_limit = (double)opts->max_hole_area;
+	    } else if (opts->max_hole_area_percent > SMALL_FASTF) {
+		hole_limit = area * ((double)opts->max_hole_area_percent / 100.0);
+	    }
+
+	    gte::MeshHoleFilling<double>::Parameters fp;
+	    fp.maxArea      = hole_limit;
+	    fp.method       = gte::MeshHoleFilling<double>::TriangulationMethod::LSCM;
+	    fp.autoFallback = true;
+	    gte::MeshHoleFilling<double>::FillHoles(verts, tris, fp);
+	}
+
+	if (tris.empty())
+	    return -1;
+
+	/* Pass 4: post-fill topology repair (G4+G5+G6+G8) */
+	{
+	    std::vector<int32_t> adj;
+	    gte::MeshRepair<double>::ConnectFacets(tris, adj);
+	    gte::MeshRepair<double>::ReorientFacetsAntiMoebius(verts, tris, adj);
+	    gte::MeshRepair<double>::ConnectFacets(tris, adj);
+	    gte::MeshRepair<double>::SplitNonManifoldVertices(verts, tris, adj);
+	}
+	gte::MeshPreprocessing<double>::OrientNormals(verts, tris);
+
+	/* Convergence: stop when no new faces were added */
+	if (tris.size() == nf_before)
+	    break;
+    }
 
     /* --- Build output arrays --------------------------------------------- */
     int nv = (int)verts.size();
@@ -201,12 +248,6 @@ bg_trimesh_repair(
 	out_faces[3*i+1] = tris[i][1];
 	out_faces[3*i+2] = tris[i][2];
     }
-
-    /* Synchronise face orientation so all topologically connected faces
-     * wind in a consistent direction.  This step is necessary because GTE
-     * MeshHoleFilling inserts hole-fill triangles without re-checking the
-     * global winding relative to the surrounding faces. */
-    bg_trimesh_sync(out_faces, out_faces, nf);
 
     *opnts   = out_pts;
     *n_opnts = nv;

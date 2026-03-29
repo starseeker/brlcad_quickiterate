@@ -606,13 +606,14 @@ bg_detria(int **faces, int *num_faces, point2d_t **out_pts, int *num_outpts,
 	outer_polyline.push_back(pts2det[poly[i]]);
     tri.addOutline(outer_polyline);
 
-    // Next are the holes
-    std::vector<std::vector<int>> inner_holes;
+    // Next are the holes.
+    // NOTE: detria's addHole takes a ReadonlySpan (pointer+size) WITHOUT copying the data,
+    // so the hv vectors must stay alive until tri.triangulate() is called.
+    std::vector<std::vector<int>> hole_vecs(nholes);
     for (size_t i = 0; i < nholes; i++) {
-	std::vector<int> hv;
 	for (size_t j = 0; j < holes_npts[i]; j++)
-	    hv.push_back(holes_array[i][j]);
-	tri.addHole(hv);
+	    hole_vecs[i].push_back(pts2det[holes_array[i][j]]);
+	tri.addHole(hole_vecs[i]);
     }
 
     // Run the core triangulation routine
@@ -628,6 +629,7 @@ bg_detria(int **faces, int *num_faces, point2d_t **out_pts, int *num_outpts,
 
     // Did we succeed?
     if (!tri_success) {
+	bu_log("bg_detria: triangulation failed: %s\n", tri.getErrorMessage().c_str());
 	return 1;
     }
 

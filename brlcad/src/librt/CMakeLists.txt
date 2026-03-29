@@ -418,12 +418,9 @@ set(
 )
 
 # Include directories needed by librt users
-# ${BRLCAD_SOURCE_DIR}/src/libbg/GTE is listed so that BRL-CAD's in-tree GTE
-# extension headers (e.g. Mathematics/MeshRepair.h, MeshHoleFilling.h, etc.)
-# are found before the external GTE headers in GTE_INCLUDE_DIR, giving them
-# priority when included via <Mathematics/...>.
+# ${GTE_INCLUDE_DIR} is still needed by primitives/bot/bot_oriented_bbox.cpp
+# which uses GTE's ContOrientedBox3.h.
 set(RT_INCLUDE_DIRS ${OPENNURBS_INCLUDE_DIRS} ${OPENCL_INCLUDE_DIRS}
-  ${BRLCAD_SOURCE_DIR}/src/libbg/GTE
   ${GTE_INCLUDE_DIR})
 
 # locally used but not needed by users of the library

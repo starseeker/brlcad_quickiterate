@@ -816,6 +816,7 @@ private:
     bool grow_loop_failure_ok;
 
     bool best_fit_plane_reproject(cpolygon_t *polygon);
+    bool lscm_reproject(cpolygon_t *polygon);
     void best_fit_plane_plot(point_t *center, vect_t *norm, const char *fname);
 
 
