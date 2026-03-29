@@ -43,13 +43,6 @@
 #include <geogram/basic/geogram_common.h>
 #include <geogram/basic/geogram_options.h>
 
-#if   defined(GEOBRL_OS_WINDOWS)
-#if (_MSC_VER >= 1700)
-#include <ppl.h>
-#define GEOBRL_USE_MSVC_PARALLEL_STL
-#endif
-#endif
-
 #include <algorithm>
 #include <random>
 
@@ -82,17 +75,8 @@ namespace GEOBRL {
     inline void sort(
         const ITERATOR& begin, const ITERATOR& end, const GeoOptions& opts
     ) {
-        if(uses_parallel_algorithm(opts)) {
-#if defined(GEOBRL_USE_GCC_PARALLEL_STL)
-            __gnu_parallel::sort(begin, end);
-#elif defined(GEOBRL_USE_MSVC_PARALLEL_STL)
-            concurrency::parallel_sort(begin, end);
-#else
-            std::sort(begin, end);
-#endif
-        } else {
-            std::sort(begin, end);
-        }
+        (void)opts;
+        std::sort(begin, end);
     }
 
     /**
@@ -119,17 +103,8 @@ namespace GEOBRL {
         const ITERATOR& begin, const ITERATOR& end, const CMP& cmp,
         const GeoOptions& opts
     ) {
-        if(uses_parallel_algorithm(opts)) {
-#if defined(GEOBRL_USE_GCC_PARALLEL_STL)
-            __gnu_parallel::sort(begin, end, cmp);
-#elif defined(GEOBRL_USE_MSVC_PARALLEL_STL)
-            concurrency::parallel_sort(begin, end, cmp);
-#else
-            std::sort(begin, end, cmp);
-#endif
-        } else {
-            std::sort(begin, end, cmp);
-        }
+        (void)opts;
+        std::sort(begin, end, cmp);
     }
 
 

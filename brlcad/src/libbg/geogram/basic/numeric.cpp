@@ -53,19 +53,11 @@ namespace GEOBRL {
         static std::mt19937_64 random_engine;
 
         bool is_nan(float32 x) {
-#ifdef GEOBRL_COMPILER_MSVC
-            return _isnan(x) || !_finite(x);
-#else
             return std::isnan(x) || !std::isfinite(x);
-#endif
         }
 
         bool is_nan(float64 x) {
-#ifdef GEOBRL_COMPILER_MSVC
-            return _isnan(x) || !_finite(x);
-#else
             return std::isnan(x) || !std::isfinite(x);
-#endif
         }
 
         void random_reset() {

@@ -2121,11 +2121,7 @@ namespace GEOBRL {
          */
         index_t corner(index_t c, index_t lv) const {
             geo_debug_assert(c < nb());
-            // There seems to be a linkage problem under MSVC for the
-            // following assertion check...
-#ifndef GEOBRL_OS_WINDOWS
             geo_debug_assert(lv < nb_corners(c));
-#endif
             return corners_begin(c) + lv;
         }
 

@@ -1190,12 +1190,10 @@ namespace GEOBRL {
      * \brief Threshold in terms of expansion length for
      *  allocating an expansion on the stack (if smaller)
      *  or on the heap (if larger).
+     * \details 1024 * sizeof(double) ≈ 8 KB, which fits safely on the stack
+     *  on all supported platforms (minimum thread stack is ~512 KB on macOS).
      */
-#ifdef GEOBRL_OS_APPLE
-    static constexpr index_t MAX_CAPACITY_ON_STACK = 256;
-#else
     static constexpr index_t MAX_CAPACITY_ON_STACK = 1024;
-#endif
     index_t length_;
     index_t capacity_;
     double x_[2];  // x_ is in fact of size [capacity_]

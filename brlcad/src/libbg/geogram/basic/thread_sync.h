@@ -57,6 +57,10 @@
 #include <windows.h>
 #endif
 
+#ifdef GEOBRL_PROCESSOR_X86
+#include <immintrin.h>
+#endif
+
 // On MacOS, I get many warnings with atomic_flag initialization,
 // such as std::atomic_flag f = ATOMIC_FLAG_INIT
 #if defined(__clang__)
@@ -68,16 +72,8 @@
  * \details should be called when a spinlock is spinning
  */
 inline void geo_pause() {
-#ifdef GEOBRL_OS_WINDOWS
-    YieldProcessor();
-#else
-#  ifdef GEOBRL_PROCESSOR_X86
-#    ifdef __ICC
+#ifdef GEOBRL_PROCESSOR_X86
     _mm_pause();
-#    else
-    __builtin_ia32_pause();
-#    endif
-#  endif
 #endif
 }
 
