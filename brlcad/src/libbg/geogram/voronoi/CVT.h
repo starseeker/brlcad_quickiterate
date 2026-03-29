@@ -55,7 +55,6 @@
 namespace GEOBRL {
 
     class RestrictedVoronoiDiagram;
-    class ProgressTask;
 
     /**
      * \brief CentroidalVoronoiTesselation is the main component
@@ -283,14 +282,6 @@ namespace GEOBRL {
     );
 
     /**
-     * \brief Sets a client for the progress bars.
-     * \param[in] progress the ProgressTask.
-     */
-    void set_progress_logger(ProgressTask* progress) {
-        progress_ = progress;
-    }
-
-    /**
      * \brief Gets the dimension of the points.
      * \details Can be smaller than the dimension of the mesh.
      */
@@ -440,7 +431,6 @@ namespace GEOBRL {
     vector<vec3> points_R3_;
     vector<bool> point_is_locked_;
 
-    ProgressTask* progress_;
     index_t cur_iter_;
     index_t nb_iter_;
 
