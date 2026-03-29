@@ -59,12 +59,7 @@ namespace GEOBRL {
     /**
      * \brief Abstract interface for Delaunay triangulation in Nd.
      * \details
-     * Delaunay objects are created using method create() which
-     * uses the Factory service. New Delaunay triangulations can be
-     * implemented and registered to the factory using
-     * geo_register_Delaunay_creator().
-     * \see DelaunayFactory
-     * \see geo_register_Delaunay_creator
+     * Delaunay objects are created using the static create() method.
      */
     class GEOBRLCAD_API Delaunay {
     public:
