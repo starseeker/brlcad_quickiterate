@@ -733,35 +733,38 @@ namespace GEOBRL {
 
 namespace GEOBRL {
 
-    double expansion_splitter_;
-    double expansion_epsilon_;
-
-    void expansion::initialize() {
-        // Taken from Jonathan Shewchuk's exactinit.
-        double half;
-        double check, lastcheck;
-        int every_other;
-
-        every_other = 1;
-        half = 0.5;
-        expansion_epsilon_ = 1.0;
-        expansion_splitter_ = 1.0;
-        check = 1.0;
-        // Repeatedly divide `epsilon' by two until it is too small to add to
-        // one without causing roundoff.  (Also check if the sum is equal to
-        // the previous sum, for machines that round up instead of using exact
-        // rounding.  Not that this library will work on such machines anyway.
-        do {
-            lastcheck = check;
-            expansion_epsilon_ *= half;
-            if(every_other) {
-                expansion_splitter_ *= 2.0;
+    namespace {
+        // Compute expansion_splitter_ and expansion_epsilon_ at static-init
+        // time (taken from Jonathan Shewchuk's exactinit).  This removes the
+        // need for an explicit expansion::initialize() / PCK::initialize()
+        // call before any predicate is invoked.
+        struct ExpansionInit {
+            double splitter;
+            double epsilon;
+            ExpansionInit() {
+                double half = 0.5;
+                double check = 1.0;
+                double lastcheck;
+                int every_other = 1;
+                epsilon = 1.0;
+                splitter = 1.0;
+                do {
+                    lastcheck = check;
+                    epsilon *= half;
+                    if(every_other) {
+                        splitter *= 2.0;
+                    }
+                    every_other = !every_other;
+                    check = 1.0 + epsilon;
+                } while((check != 1.0) && (check != lastcheck));
+                splitter += 1.0;
             }
-            every_other = !every_other;
-            check = 1.0 + expansion_epsilon_;
-        } while((check != 1.0) && (check != lastcheck));
-        expansion_splitter_ += 1.0;
+        };
+        const ExpansionInit expansion_init_;
     }
+
+    double expansion_splitter_ = expansion_init_.splitter;
+    double expansion_epsilon_  = expansion_init_.epsilon;
 
     static Process::spinlock expansions_lock = GEOBRLCAD_SPINLOCK_INIT;
 

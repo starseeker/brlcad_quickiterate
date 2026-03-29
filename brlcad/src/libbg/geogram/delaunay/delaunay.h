@@ -42,7 +42,6 @@
 
 #include <geogram/basic/geogram_common.h>
 #include <geogram/basic/packed_arrays.h>
-#include <geogram/basic/factory.h>
 #include <stdexcept>
 #include <memory>
 
@@ -177,13 +176,6 @@ namespace GEOBRL {
             geo_argused(opts);
         }
 
-
-        /**
-         * \brief This function needs to be called once before
-         *  using the Delaunay class.
-         * \details registers the factories.
-         */
-        static void initialize();
 
         /**
          * \brief Gets the dimension of this Delaunay.
@@ -805,25 +797,6 @@ namespace GEOBRL {
      */
     using Delaunay_var = std::shared_ptr<Delaunay>;
 
-    /**
-     * \brief Delaunay Factory
-     * \details
-     * This Factory is used to create Delaunay objects.
-     * It can also be used to register new Delaunay
-     * implementations.
-     * \see geo_register_Delaunay_creator
-     * \see Factory
-     * \relates Delaunay
-     */
-    typedef Factory1<Delaunay, coord_index_t> DelaunayFactory;
-
-    /**
-     * \brief Helper macro to register a Delaunay implementation
-     * \see DelaunayFactory
-     * \relates Delaunay
-     */
-#define geo_register_Delaunay_creator(type, name)               \
-    geo_register_creator(GEOBRL::DelaunayFactory, type, name)
 }
 
 #endif

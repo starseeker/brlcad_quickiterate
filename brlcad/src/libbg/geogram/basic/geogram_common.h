@@ -181,24 +181,7 @@ enum {
  */
 namespace GEOBRL {
 
-    /**
-     * \brief Initialize Geogram
-     * \param[in] opts algorithm options; defaults are appropriate for most uses.
-     * \details This function must be called once at the very beginning of a
-     * program to initialize the Vorpaline library.  If it is called multiple
-     * times, then the supplemental calls have no effect.
-     */
-    void GEOBRLCAD_API initialize(const GeoOptions& opts = GeoOptions());
-
-    /**
-     * \brief Cleans up Geogram
-     * \details This function is called automatically when the program exists
-     * normally.
-     * \warning This function should \b not be called directly.
-     * \see initialize()
-     */
-    void GEOBRLCAD_API terminate();
-}
+    }
 
 /**
  * \def GEOBRL_DEBUG

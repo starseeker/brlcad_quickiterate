@@ -1002,11 +1002,10 @@ namespace GEOBRL {
 
     /**
      * \brief Initializes the expansion class.
-     * \details This function needs to be called once in the program,
-     *  before using any expansion object and operation (it computes
-     *  some internally-used constants).
+     * \details No longer needs to be called explicitly; the constants are
+     *  now initialized at program startup via a static initializer.
      */
-    static void initialize();
+    static void initialize() {}
 
     /**
      * \brief Changes the sign of an expansion.
