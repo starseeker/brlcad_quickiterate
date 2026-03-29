@@ -3279,9 +3279,8 @@ cdt_mesh_t::cdt()
 	bu_free(holes_npts, "holes array");
     }
 
-    if (steiner) {
-	bu_free(steiner, "faces array");
-    }
+    // steiner points into steiner_vec's internal buffer (not bu_calloc'd),
+    // so no explicit free is needed here; steiner_vec cleans itself up.
 
     // Use the 2D triangles to create the face 3D triangle mesh
     reset();
