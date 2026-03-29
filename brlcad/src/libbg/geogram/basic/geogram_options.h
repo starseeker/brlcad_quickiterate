@@ -90,9 +90,6 @@ namespace GEOBRL {
         /** sys:multithread — enable multi-threaded computations */
         bool        sys_multithread   {true};
 
-        /** sys:stats — display statistics on exit */
-        bool        sys_stats         {false};
-
         // ----------------------------------------------------------------
         // remesh group
         // ----------------------------------------------------------------
