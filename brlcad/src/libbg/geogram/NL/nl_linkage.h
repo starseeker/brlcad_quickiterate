@@ -43,41 +43,13 @@
 /**
  * \file geogram/NL/nl_linkage.h
  * \brief Specify linkage for OpenNL integrated into Geogram
- * \details (uses Geogram defines to select the
- *   right linkage modes for OpenNL symbols)
+ * \details NL is always built statically as part of geogram_brlcad,
+ *   so no DLL export/import decoration is needed.
  */
 
-#ifdef GEOBRL_DYNAMIC_LIBS
-#define NL_SHARED_LIBS
-#ifdef geogram_EXPORTS
-#define NL_EXPORTS
-#endif
-#endif
-
-#ifdef WIN32
-#ifdef NL_SHARED_LIBS
-#ifdef NL_EXPORTS
-#define NLAPIENTRY __declspec( dllexport )
-#else
-#define NLAPIENTRY __declspec( dllimport )
-#endif
-#else
+/* NL is always linked statically; no symbol visibility decoration needed. */
 #define NLAPIENTRY
-#endif
-#else
-#ifdef NL_SHARED_LIBS
-#define NLAPIENTRY __attribute__ ((visibility("default")))
-#else
-#define NLAPIENTRY
-#endif
-#endif
 
-#ifdef __GNUC__
-#define NL_DEPRECATED(func) func __attribute__ ((deprecated))
-#elif defined(_MSC_VER)
-#define NL_DEPRECATED(func) __declspec(deprecated) func
-#else
-#define NL_DEPRECATED(func) func
-#endif
+#define NL_DEPRECATED(func) [[deprecated]] func
 
 #endif

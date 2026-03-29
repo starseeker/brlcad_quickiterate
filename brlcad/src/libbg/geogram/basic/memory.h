@@ -281,17 +281,12 @@ namespace GEOBRL {
         inline void* aligned_malloc(
             size_t size, size_t alignment = GEOBRL_MEMORY_ALIGNMENT
         ) {
-#if   defined(GEOBRL_COMPILER_INTEL)
-            return _mm_malloc(size, alignment);
-#elif defined(GEOBRL_COMPILER_GCC) || defined(GEOBRL_COMPILER_CLANG)
+#ifdef GEOBRL_OS_WINDOWS
+            return _aligned_malloc(size, alignment);
+#else
             void* result;
             return posix_memalign(&result, alignment, size) == 0
                 ? result : nullptr;
-#elif defined(GEOBRL_COMPILER_MSVC)
-            return _aligned_malloc(size, alignment);
-#else
-            geo_argused(alignment);
-            return malloc(size);
 #endif
         }
 
@@ -303,11 +298,7 @@ namespace GEOBRL {
          * \note Memory alignment is not supported under Android.
          */
         inline void aligned_free(void* p) {
-#if   defined(GEOBRL_COMPILER_INTEL)
-            _mm_free(p);
-#elif defined(GEOBRL_COMPILER_GCC_FAMILY)
-            free(p);
-#elif defined(GEOBRL_COMPILER_MSVC)
+#ifdef GEOBRL_OS_WINDOWS
             _aligned_free(p);
 #else
             free(p);
@@ -327,15 +318,7 @@ namespace GEOBRL {
          * \endcode
          * \note Memory alignment is not supported under Android.
          */
-#if   defined(GEOBRL_COMPILER_INTEL)
-#define geo_decl_aligned(var) __declspec(aligned(GEOBRL_MEMORY_ALIGNMENT)) var
-#elif defined(GEOBRL_COMPILER_GCC_FAMILY)
-#define geo_decl_aligned(var) var __attribute__((aligned(GEOBRL_MEMORY_ALIGNMENT)))
-#elif defined(GEOBRL_COMPILER_MSVC)
-#define geo_decl_aligned(var) __declspec(align(GEOBRL_MEMORY_ALIGNMENT)) var
-#elif defined(GEOBRL_COMPILER_EMSCRIPTEN)
-#define geo_decl_aligned(var) var
-#endif
+#define geo_decl_aligned(var) alignas(GEOBRL_MEMORY_ALIGNMENT) var
 
         /**
          * \def geo_assume_aligned(var, alignment)
@@ -351,31 +334,15 @@ namespace GEOBRL {
          * geo_assume_aligned(p,alignment);
          * \endcode
          * \note Memory alignment is not supported under Android.
-	 * \note C++20 has std::assume_aligned()
+         * \note C++20 has std::assume_aligned()
          */
-#if   defined(GEOBRL_COMPILER_INTEL)
-#define geo_assume_aligned(var, alignment)      \
-        __assume_aligned(var, alignment)
-#elif defined(GEOBRL_COMPILER_CLANG)
-#define geo_assume_aligned(var, alignment)
-        // GCC __builtin_assume_aligned is not yet supported by clang-3.3
-#elif defined(GEOBRL_COMPILER_GCC)
-#if __GNUC__ >= 4 && __GNUC_MINOR__ >= 7
+#if defined(GEOBRL_COMPILER_GCC_FAMILY)
+        // GCC's __builtin_assume_aligned() returns the aligned pointer rather
+        // than modifying var in-place, so the result must be assigned back to
+        // var for the hint to take effect (verified via gcc -S output).
 #define geo_assume_aligned(var, alignment)                              \
         *(void**) (&var) = __builtin_assume_aligned(var, alignment)
-        // the GCC way of specifying that a pointer is aligned returns
-        // the aligned pointer (I can't figure out why). It needs to be
-        // affected otherwise it is not taken into account (verified by
-        // looking at the output of gcc -S)
 #else
-#define geo_assume_aligned(var, alignment)
-#endif
-#elif defined(GEOBRL_COMPILER_MSVC)
-#define geo_assume_aligned(var, alignment)
-        // TODO: I do not know how to do that with MSVC
-#elif defined(GEOBRL_COMPILER_EMSCRIPTEN)
-#define geo_assume_aligned(var, alignment)
-#elif defined(GEOBRL_COMPILER_MINGW)
 #define geo_assume_aligned(var, alignment)
 #endif
 
@@ -389,14 +356,10 @@ namespace GEOBRL {
          * double* geo_restrict p = ...;
          * \endcode
          */
-#if   defined(GEOBRL_COMPILER_INTEL)
+#ifdef GEOBRL_COMPILER_MSVC
 #define geo_restrict __restrict
-#elif defined(GEOBRL_COMPILER_GCC_FAMILY)
+#else
 #define geo_restrict __restrict__
-#elif defined(GEOBRL_COMPILER_MSVC)
-#define geo_restrict __restrict
-#elif defined(GEOBRL_COMPILER_EMSCRIPTEN)
-#define geo_restrict
 #endif
 
         /**
