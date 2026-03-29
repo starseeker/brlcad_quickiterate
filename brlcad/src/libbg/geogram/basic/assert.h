@@ -82,14 +82,14 @@ namespace GEOBRL {
      * abort() is more difficult to see under debugger, so this creates a
      * segmentation fault by deferencing a null pointer.
      */
-    void GEOBRLCAD_API geo_abort() [[noreturn]];
+    [[noreturn]] void GEOBRLCAD_API geo_abort();
 
     /**
      * \brief Generates a debugger breakpoint programmatically.
      * \details On Windows, generates a breakpoint using __debugbreak(),
      *  on other systems, calls geo_abort().
      */
-    void GEOBRLCAD_API geo_breakpoint() [[noreturn]];
+    [[noreturn]] void GEOBRLCAD_API geo_breakpoint();
 
     /**
      * \brief Prints an assertion failure
@@ -100,10 +100,10 @@ namespace GEOBRL {
      * \param[in] file file where the assertion failed
      * \param[in] line line where the assertion failed
      */
-    void GEOBRLCAD_API geo_assertion_failed(
+    [[noreturn]] void GEOBRLCAD_API geo_assertion_failed(
         const std::string& condition_string,
         const std::string& file, int line
-    ) [[noreturn]];
+    );
 
     /**
      * \brief Prints a range assertion failure
@@ -116,10 +116,10 @@ namespace GEOBRL {
      * \param[in] file file where the assertion failed
      * \param[in] line line where the assertion failed
      */
-    void GEOBRLCAD_API geo_range_assertion_failed(
+    [[noreturn]] void GEOBRLCAD_API geo_range_assertion_failed(
         double value, double min_value, double max_value,
         const std::string& file, int line
-    ) [[noreturn]];
+    );
 
     /**
      * \brief Prints an unreachable location failure
@@ -129,9 +129,9 @@ namespace GEOBRL {
      * \param[in] file file containing the unreachable location
      * \param[in] line line of the unreachable location
      */
-    void GEOBRLCAD_API geo_should_not_have_reached(
+    [[noreturn]] void GEOBRLCAD_API geo_should_not_have_reached(
         const std::string& file, int line
-    ) [[noreturn]];
+    );
 }
 
 // Three levels of assert:
