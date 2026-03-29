@@ -42,9 +42,6 @@
 
 #include <random>
 
-#ifdef GEOBRL_COMPILER_EMSCRIPTEN
-#pragma GCC diagnostic ignored "-Wc++11-long-long"
-#endif
 
 namespace GEOBRL {
 

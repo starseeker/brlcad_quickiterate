@@ -271,16 +271,6 @@ typedef int geo_signed_index_t;
 #  error "Unsupported compiler"
 #endif
 
-// =============================== Emscripten defines  ======================
-
-#elif defined(__EMSCRIPTEN__)
-
-#define GEOBRL_OS_UNIX
-#define GEOBRL_OS_LINUX
-#define GEOBRL_OS_EMSCRIPTEN
-#define GEOBRL_COMPILER_EMSCRIPTEN
-#define GEOBRL_COMPILER_CLANG
-
 // =============================== Unsupported =============================
 #else
 #error "Unsupported operating system"
@@ -288,8 +278,7 @@ typedef int geo_signed_index_t;
 
 #if defined(GEOBRL_COMPILER_GCC)   ||              \
     defined(GEOBRL_COMPILER_CLANG) ||              \
-    defined(GEOBRL_COMPILER_MINGW) ||              \
-    defined(GEOBRL_COMPILER_EMSCRIPTEN)
+    defined(GEOBRL_COMPILER_MINGW)
 #define GEOBRL_COMPILER_GCC_FAMILY
 #endif
 
@@ -310,7 +299,7 @@ typedef int geo_signed_index_t;
 #define GEOBRL_NORETURN_DECL
 #endif
 
-#if defined(GEOBRL_COMPILER_CLANG) || defined(GEOBRL_COMPILER_EMSCRIPTEN)
+#if defined(GEOBRL_COMPILER_CLANG)
 #if __has_feature(cxx_noexcept)
 #define GEOBRL_NOEXCEPT noexcept
 #endif
