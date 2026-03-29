@@ -3186,16 +3186,6 @@ cdt_mesh_t::cdt()
 
     int *faces = NULL;
     int num_faces = 0;
-    int *steiner = NULL;
-    if (m_interior_pnts.size()) {
-	steiner = (int *)bu_calloc(m_interior_pnts.size(), sizeof(int), "interior points");
-	std::set<long>::iterator p_it;
-	int vind = 0;
-	for (p_it = m_interior_pnts.begin(); p_it != m_interior_pnts.end(); p_it++) {
-	    steiner[vind] = (int)*p_it;
-	    vind++;
-	}
-    }
 
     // Walk the outer loop and build the libbg polygon
     int *opoly = loop_to_bgpoly(&outer_loop);
@@ -3218,14 +3208,50 @@ cdt_mesh_t::cdt()
 	}
     }
 
+    // Build Steiner array, filtering out any points that fall inside a hole.
+    // Sampled interior points inside trimmed-away hole regions confuse detria.
+    // Pre-build per-hole 2D polygon arrays once (reused for each Steiner point test).
+    std::vector<std::vector<double>> hole_polys_flat; // pairs of (x,y) stored flat
+    std::vector<size_t> hole_polys_npts;
+    if (holes_cnt) {
+	hole_polys_flat.resize(holes_cnt);
+	hole_polys_npts.resize(holes_cnt);
+	for (int hi = 0; hi < holes_cnt; hi++) {
+	    hole_polys_npts[hi] = holes_npts[hi];
+	    hole_polys_flat[hi].resize(holes_npts[hi] * 2);
+	    for (size_t hj = 0; hj < holes_npts[hi]; hj++) {
+		hole_polys_flat[hi][hj*2+0] = bgp_2d[holes_array[hi][hj]][X];
+		hole_polys_flat[hi][hj*2+1] = bgp_2d[holes_array[hi][hj]][Y];
+	    }
+	}
+    }
+
+    std::vector<int> steiner_vec;
+    steiner_vec.reserve(m_interior_pnts.size());
+    for (auto p_it = m_interior_pnts.begin(); p_it != m_interior_pnts.end(); p_it++) {
+	int idx = (int)*p_it;
+	bool in_hole = false;
+	for (int hi = 0; hi < holes_cnt && !in_hole; hi++) {
+	    point2d_t test_pnt;
+	    V2SET(test_pnt, bgp_2d[idx][X], bgp_2d[idx][Y]);
+	    const point2d_t *hpoly = (const point2d_t *)hole_polys_flat[hi].data();
+	    if (bg_pnt_in_polygon(hole_polys_npts[hi], hpoly, (const point2d_t *)&test_pnt))
+		in_hole = true;
+	}
+	if (!in_hole)
+	    steiner_vec.push_back(idx);
+    }
+    int *steiner = steiner_vec.empty() ? NULL : steiner_vec.data();
+    size_t steiner_cnt = steiner_vec.size();
+
     bool result = (bool)!bg_nested_poly_triangulate(&faces, &num_faces,
 		  NULL, NULL, opoly, outer_loop.poly.size()+1, holes_array, holes_npts, holes_cnt,
-		  steiner, m_interior_pnts.size(), bgp_2d, m_pnts_2d.size(),
+		  steiner, steiner_cnt, bgp_2d, m_pnts_2d.size(),
 		  TRI_CONSTRAINED_DELAUNAY);
 
     if (!result) {
-	bu_log("Face %d: bg_nested_poly_triangulate FAILED (bnd_pnts=%zu interior_pnts=%zu holes=%d)\n",
-	    f_id, outer_loop.poly.size(), m_interior_pnts.size(), holes_cnt);
+	bu_log("Face %d: bg_nested_poly_triangulate FAILED (bnd_pnts=%zu steiner=%zu/%zu holes=%d)\n",
+	    f_id, outer_loop.poly.size(), steiner_cnt, m_interior_pnts.size(), holes_cnt);
     }
 
     tris_2d.clear();
