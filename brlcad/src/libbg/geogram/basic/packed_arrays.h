@@ -44,7 +44,7 @@
 #include <geogram/basic/numeric.h>
 #include <geogram/basic/assert.h>
 #include <geogram/basic/memory.h>
-#include <geogram/basic/process.h>
+#include <geogram/basic/thread_sync.h>
 
 /**
  * \file geogram/basic/packed_arrays.h

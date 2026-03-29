@@ -37,166 +37,31 @@
  *
  */
 
-#include <geogram/basic/process.h>
-#include <geogram/basic/process_private.h>
+#include <geogram/basic/thread_sync.h>
 #include <thread>
-#include <chrono>
+#include <vector>
+#include <algorithm>
+#include <atomic>
 
 namespace {
     using namespace GEOBRL;
-    static inline double geo_now() {
-        auto t = std::chrono::system_clock::now();
-        auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(t.time_since_epoch());
-        return 0.001 * double(ms.count());
-    }
-
     std::atomic<int> running_threads_invocations_{0};
-
-    bool multithreading_initialized_ = false;
-    bool multithreading_enabled_ = true;
-
-    index_t max_threads_initialized_ = false;
-    index_t max_threads_ = 0;
-
-    bool fpe_initialized_ = false;
-    bool fpe_enabled_ = false;
-
-    bool cancel_initialized_ = false;
-    bool cancel_enabled_ = false;
-
-    double start_time_ = 0.0;
 }
 
 namespace GEOBRL {
 
     namespace Process {
 
-        void initialize() {
-
-            // Initialize Process default values
-            enable_multithreading(multithreading_enabled_);
-            set_max_threads(number_of_cores());
-            enable_cancel(cancel_enabled_);
-
-            start_time_ = geo_now();
-        }
-
-        void show_stats() {
-        }
-
-        void terminate() {
-        }
-
-        void brute_force_kill() {
-            os_brute_force_kill();
-        }
-
-        index_t number_of_cores() {
-            static index_t result = 0;
-            if(result == 0) {
-                result = index_t(std::thread::hardware_concurrency());
-                if(result == 0) {
-                    result = 1;
-                }
-            }
-            return result;
-        }
-
-        size_t used_memory() {
-            return os_used_memory();
-        }
-
-        size_t max_used_memory() {
-            return os_max_used_memory();
-        }
-
-        std::string executable_filename() {
-            return os_executable_filename();
-        }
-
-        void print_stack_trace() {
-            os_print_stack_trace();
+        index_t maximum_concurrent_threads() {
+            index_t result = index_t(std::thread::hardware_concurrency());
+            return result > 0 ? result : 1;
         }
 
         bool is_running_threads() {
             return running_threads_invocations_ > 0;
         }
 
-        bool multithreading_enabled() {
-            return multithreading_enabled_;
-        }
-
-        void enable_multithreading(bool flag) {
-            if(
-                multithreading_initialized_ &&
-                multithreading_enabled_ == flag
-            ) {
-                return;
-            }
-            multithreading_initialized_ = true;
-            multithreading_enabled_ = flag;
-        }
-
-        index_t max_threads() {
-            return max_threads_initialized_
-                ? max_threads_
-                : number_of_cores();
-        }
-
-        void set_max_threads(index_t num_threads) {
-            if(
-                max_threads_initialized_ &&
-                max_threads_ == num_threads
-            ) {
-                return;
-            }
-            max_threads_initialized_ = true;
-            if(num_threads == 0) {
-                num_threads = 1;
-            } else if(num_threads > number_of_cores()) {
-                num_threads = number_of_cores();
-            }
-            max_threads_ = num_threads;
-        }
-
-        index_t maximum_concurrent_threads() {
-            if(!multithreading_enabled_) {
-                return 1;
-            }
-            return max_threads_;
-        }
-
-        bool FPE_enabled() {
-            return fpe_enabled_;
-        }
-
-        void enable_FPE(bool flag) {
-            if(fpe_initialized_ && fpe_enabled_ == flag) {
-                return;
-            }
-            fpe_initialized_ = true;
-            fpe_enabled_ = flag;
-            os_enable_FPE(flag);
-        }
-
-        bool cancel_enabled() {
-            return cancel_enabled_;
-        }
-
-        void enable_cancel(bool flag) {
-            if(cancel_initialized_ && cancel_enabled_ == flag) {
-                return;
-            }
-            cancel_initialized_ = true;
-            cancel_enabled_ = flag;
-
-            os_enable_cancel(flag);
-        }
     }
-}
-
-
-namespace GEOBRL {
 
     void parallel_for(
         index_t from, index_t to, std::function<void(index_t)> func,
@@ -245,40 +110,6 @@ namespace GEOBRL {
         --running_threads_invocations_;
     }
 
-
-    void parallel_for_slice(
-        index_t from, index_t to, std::function<void(index_t, index_t)> func,
-        index_t threads_per_core
-    ) {
-        index_t nb_threads = std::min(
-            to - from,
-            Process::maximum_concurrent_threads() * threads_per_core
-        );
-        nb_threads = std::max(index_t(1), nb_threads);
-        index_t batch_size = (to - from) / nb_threads;
-
-        if(running_threads_invocations_ > 0 || nb_threads == 1) {
-            func(from, to);
-            return;
-        }
-
-        ++running_threads_invocations_;
-        std::vector<std::thread> threads;
-        threads.reserve(nb_threads);
-
-        index_t cur = from;
-        for(index_t i = 0; i < nb_threads; i++) {
-            index_t end = (i == nb_threads - 1) ? to : cur + batch_size;
-            threads.emplace_back([func, cur, end]() {
-                func(cur, end);
-            });
-            cur += batch_size;
-        }
-
-        for(auto& t : threads) t.join();
-        --running_threads_invocations_;
-    }
-
     void parallel(
         std::function<void()> f1,
         std::function<void()> f2
@@ -292,7 +123,6 @@ namespace GEOBRL {
         t1.join(); t2.join();
         --running_threads_invocations_;
     }
-
 
     void parallel(
         std::function<void()> f1,
@@ -309,7 +139,6 @@ namespace GEOBRL {
         t1.join(); t2.join(); t3.join(); t4.join();
         --running_threads_invocations_;
     }
-
 
     void parallel(
         std::function<void()> f1,
@@ -333,11 +162,4 @@ namespace GEOBRL {
         --running_threads_invocations_;
     }
 
-    namespace Process {
-        void sleep(index_t microseconds) {
-            std::this_thread::sleep_for(
-                std::chrono::microseconds(microseconds)
-            );
-        }
-    }
 }

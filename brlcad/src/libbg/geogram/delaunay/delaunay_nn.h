@@ -43,7 +43,7 @@
 #include <geogram/basic/geogram_common.h>
 #include <geogram/delaunay/delaunay.h>
 #include <geogram/points/nn_search.h>
-#include <geogram/basic/process.h>
+#include <geogram/basic/thread_sync.h>
 
 /**
  * \file geogram/delaunay/delaunay_nn.h

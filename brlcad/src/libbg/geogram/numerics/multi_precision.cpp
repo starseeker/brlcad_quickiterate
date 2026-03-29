@@ -48,7 +48,7 @@
 
 #include <geogram/numerics/multi_precision.h>
 #include <geogram/numerics/PCK.h>
-#include <geogram/basic/process.h>
+#include <geogram/basic/thread_sync.h>
 
 namespace {
 

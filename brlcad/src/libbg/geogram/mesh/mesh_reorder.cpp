@@ -42,7 +42,7 @@
 #include <geogram/mesh/mesh_geometry.h>
 #include <geogram/mesh/index.h>
 #include <geogram/basic/permutation.h>
-#include <geogram/basic/process.h>
+#include <geogram/basic/thread_sync.h>
 #include <geogram/basic/algorithm.h>
 
 namespace {

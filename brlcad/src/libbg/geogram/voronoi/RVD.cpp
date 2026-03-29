@@ -48,7 +48,7 @@
 #include <geogram/mesh/mesh_AABB.h>
 #include <geogram/delaunay/delaunay.h>
 #include <geogram/basic/geometry_nd.h>
-#include <geogram/basic/process.h>
+#include <geogram/basic/thread_sync.h>
 #include <geogram/basic/geogram_options.h>
 #include <geogram/basic/argused.h>
 #include <geogram/basic/algorithm.h>

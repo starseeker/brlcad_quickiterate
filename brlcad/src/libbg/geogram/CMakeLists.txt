@@ -16,8 +16,7 @@ set(GEOGRAM_SRCS
     basic/geometry.cpp
     basic/numeric.cpp
     basic/packed_arrays.cpp
-    basic/process.cpp
-    basic/process_unix.cpp
+    basic/parallel.cpp
     basic/progress.cpp
     # numerics
     numerics/PCK.cpp
@@ -60,11 +59,6 @@ set(GEOGRAM_SRCS
     NL/nl_os.c
     NL/nl_preconditioners.c
 )
-
-# Windows-only
-if(WIN32)
-    list(APPEND GEOGRAM_SRCS basic/process_win.cpp)
-endif()
 
 add_library(geogram_brlcad STATIC ${GEOGRAM_SRCS})
 
