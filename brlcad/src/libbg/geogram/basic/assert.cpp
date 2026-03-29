@@ -45,14 +45,14 @@
 #ifdef GEOBRL_OS_WINDOWS
 #include <intrin.h> // For __debugbreak()
 #else
+#include <cstdlib>  // free()
+#include <cstdio>   // fprintf()
 #include <sys/types.h>
 #include <unistd.h>
 #include <signal.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <execinfo.h>
-#include <cstdlib>  // free()
-#include <cstdio>   // fprintf()
 #endif
 
 namespace GEOBRL {
