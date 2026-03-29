@@ -43,7 +43,6 @@
 #include <geogram/basic/geogram_common.h>
 #include <geogram/basic/numeric.h>
 #include <geogram/basic/assert.h>
-#include <geogram/basic/factory.h>
 #include <memory>
 
 class HESSIAN_MATRIX;
@@ -66,12 +65,9 @@ namespace GEOBRL {
      * Optimizer implements the numeric part of
      * CentroidalVoronoiTesselation.
      *
-     * Optimizer objects are created using method create() which
-     * uses the Factory service. New Optimizer%s can be implemented and
-     * registered to the factory using
-     * geo_register_Optimizer_creator().
-     * \see OptimizerFactory
-     * \see geo_register_Optimizer_creator
+     * Optimizer objects are created using the static create() method.
+     * Returns nullptr in this build (no HLBFGS implementation available);
+     * callers should fall back to Lloyd iterations in that case.
      */
     class GEOBRLCAD_API Optimizer {
     public:
@@ -264,24 +260,6 @@ namespace GEOBRL {
      * \relates Optimizer
      */
     using Optimizer_var = std::shared_ptr<Optimizer>;
-
-    /**
-     * \brief Optimizer Factory
-     * \details This Factory is used to create Optimizer objects. It can also
-     * be used to register new Optimizer implementations.
-     * \see geo_register_Optimizer_creator
-     * \see Factory
-     * \relates Optimizer
-     */
-    typedef Factory0<Optimizer> OptimizerFactory;
-
-    /**
-     * \brief Helper macro to register an Optimizer implementation
-     * \see OptimizerFactory
-     * \relates Optimizer
-     */
-#define geo_register_Optimizer_creator(type, name)              \
-    geo_register_creator(GEOBRL::OptimizerFactory, type, name)
 }
 
 #endif

@@ -40,6 +40,7 @@
 #include <geogram/points/nn_search.h>
 #include <geogram/points/kd_tree.h>
 #include <geogram/basic/geogram_options.h>
+#include <geogram/basic/assert.h>
 
 /****************************************************************************/
 
@@ -121,26 +122,17 @@ namespace GEOBRL {
         const std::string& name_in,
         const GeoOptions& opts
     ) {
-        geo_register_NearestNeighborSearch_creator(
-            BalancedKdTree, "BNN"
-        );
-
-        geo_register_NearestNeighborSearch_creator(
-            AdaptiveKdTree, "CNN"
-        );
-
         std::string name = name_in;
         if(name == "default") {
             name = opts.algo_nn_search;
         }
 
-        NearestNeighborSearch* nns =
-            NearestNeighborSearchFactory::create_object(name, dimension);
-        if(nns != nullptr) {
-            return std::shared_ptr<NearestNeighborSearch>(nns);
+        if(name == "CNN") {
+            NearestNeighborSearch* p = new AdaptiveKdTree(dimension);
+            return std::shared_ptr<NearestNeighborSearch>(p);
         }
 
-        NearestNeighborSearch* fallback = new BalancedKdTree(dimension);
-        return std::shared_ptr<NearestNeighborSearch>(fallback);
+        NearestNeighborSearch* p = new BalancedKdTree(dimension);
+        return std::shared_ptr<NearestNeighborSearch>(p);
     }
 }

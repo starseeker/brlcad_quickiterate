@@ -42,7 +42,7 @@
 
 #include <geogram/basic/geogram_common.h>
 #include <geogram/basic/numeric.h>
-#include <geogram/basic/factory.h>
+#include <geogram/basic/assert.h>
 #include <memory>
 
 /**
@@ -58,12 +58,9 @@ namespace GEOBRL {
      * Given a point set in arbitrary dimension, creates a data
      * structure for efficient nearest neighbor queries.
      *
-     * NearestNeighborSearch objects are created using method create() which
-     * uses the Factory service. New search algorithms can be implemented and
-     * registered to the factory using
-     * geo_register_NearestNeighborSearch_creator().
-     * \see NearestNeighborSearchFactory
-     * \see geo_register_NearestNeighborSearch_creator
+     * NearestNeighborSearch objects are created using the static create()
+     * method, which dispatches directly to BalancedKdTree ("BNN", default)
+     * or AdaptiveKdTree ("CNN") based on the name argument.
      */
     class GEOBRLCAD_API NearestNeighborSearch {
     public:
@@ -278,26 +275,6 @@ namespace GEOBRL {
      */
     using NearestNeighborSearch_var = std::shared_ptr<NearestNeighborSearch>;
 
-    /**
-     * \brief NearestNeighborSearch Factory
-     * \details
-     * This Factory is used to create NearestNeighborSearch objects.
-     * It can also be used to register new NearestNeighborSearch
-     * implementations.
-     * \see geo_register_NearestNeighborSearch_creator
-     * \see Factory
-     * \relates NearestNeighborSearch
-     */
-    typedef Factory1<NearestNeighborSearch, coord_index_t>
-    NearestNeighborSearchFactory;
-
-    /**
-     * \brief Helper macro to register a NearestNeighborSearch implementation
-     * \see NearestNeighborSearchFactory
-     * \relates NearestNeighborSearch
-     */
-#define geo_register_NearestNeighborSearch_creator(type, name)          \
-    geo_register_creator(GEOBRL::NearestNeighborSearchFactory, type, name)
-}
+    }
 
 #endif

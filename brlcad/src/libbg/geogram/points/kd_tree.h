@@ -41,6 +41,7 @@
 #define GEOBRLCAD_POINTS_KD_TREE
 
 #include <geogram/basic/geogram_common.h>
+#include <geogram/basic/memory.h>
 #include <geogram/points/nn_search.h>
 #include <algorithm>
 

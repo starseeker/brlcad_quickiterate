@@ -58,12 +58,7 @@ namespace GEOBRL {
     }
 
     std::shared_ptr<Optimizer> Optimizer::create(const std::string& name) {
-
-        Optimizer* opt = OptimizerFactory::create_object(name);
-        if(opt != nullptr) {
-            return std::shared_ptr<Optimizer>(opt);
-        }
-
+        (void)name;
         return nullptr;
     }
 }
