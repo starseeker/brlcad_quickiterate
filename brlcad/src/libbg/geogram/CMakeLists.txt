@@ -17,7 +17,7 @@ set(GEOGRAM_SRCS
     basic/numeric.cpp
     basic/packed_arrays.cpp
     basic/parallel.cpp
-    basic/progress.cpp
+
     # numerics
     numerics/PCK.cpp
     numerics/multi_precision.cpp

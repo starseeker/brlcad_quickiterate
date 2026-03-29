@@ -48,7 +48,6 @@
 #include <geogram/voronoi/CVT.h>
 #include <geogram/NL/nl.h>
 #include <geogram/basic/geogram_options.h>
-#include <geogram/basic/progress.h>
 #include <fstream>
 
 
@@ -83,24 +82,10 @@ namespace GEOBRL {
         }
         CVT.compute_initial_sampling(nb_points, true); // true: for verbose
 
-        try {
-            ProgressTask progress("Lloyd", 100);
-            CVT.set_progress_logger(&progress);
-            CVT.Lloyd_iterations(nb_Lloyd_iter);
-        }
-        catch(const TaskCanceled&) {
-            // TODO_CANCEL
-        }
+        CVT.Lloyd_iterations(nb_Lloyd_iter);
 
         if(nb_Newton_iter != 0) {
-            try {
-                ProgressTask progress("Newton", 100);
-                CVT.set_progress_logger(&progress);
-                CVT.Newton_iterations(nb_Newton_iter, Newton_m);
-            }
-            catch(const TaskCanceled&) {
-                // TODO_CANCEL
-            }
+            CVT.Newton_iterations(nb_Newton_iter, Newton_m);
         }
 
         // Delete auxiliary storage used for each threads (it uses a lot of RAM,

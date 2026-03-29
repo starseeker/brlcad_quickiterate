@@ -42,7 +42,6 @@
 #include <geogram/mesh/mesh_repair.h>
 #include <geogram/mesh/mesh_geometry.h>
 #include <geogram/numerics/optimizer.h>
-#include <geogram/basic/progress.h>
 #include <geogram/basic/argused.h>
 
 /****************************************************************************/
@@ -69,7 +68,6 @@ namespace GEOBRL {
         mesh_ = mesh;
         geo_assert(instance_ == nullptr);
         instance_ = this;
-        progress_ = nullptr;
     }
 
     CentroidalVoronoiTesselation::CentroidalVoronoiTesselation(
@@ -96,7 +94,6 @@ namespace GEOBRL {
         mesh_ = mesh;
         geo_assert(instance_ == nullptr);
         instance_ = this;
-        progress_ = nullptr;
     }
 
     CentroidalVoronoiTesselation::~CentroidalVoronoiTesselation() {
@@ -135,10 +132,6 @@ namespace GEOBRL {
 
         RVD_->set_check_SR(false);
 
-        if(progress_ != nullptr) {
-            progress_->reset(nb_iter);
-        }
-
         cur_iter_ = 0;
         nb_iter_ = nb_iter;
 
@@ -160,7 +153,6 @@ namespace GEOBRL {
             newiteration();
         }
 
-        progress_ = nullptr;
     }
 
     void CentroidalVoronoiTesselation::compute_surface(
@@ -279,10 +271,6 @@ namespace GEOBRL {
 
         RVD_->set_check_SR(true);
 
-        if(progress_ != nullptr) {
-            progress_->reset(nb_iter);
-        }
-
         cur_iter_ = 0;
         nb_iter_ = nb_iter;
 
@@ -297,7 +285,6 @@ namespace GEOBRL {
         optimizer->optimize(points_.data());
 
         simplex_func_.reset();
-        progress_ = nullptr;
     }
 
     void CentroidalVoronoiTesselation::constrain_points(double* g) const {
@@ -332,9 +319,6 @@ namespace GEOBRL {
     }
 
     void CentroidalVoronoiTesselation::newiteration() {
-        if(progress_ != nullptr) {
-            progress_->next();
-        }
         cur_iter_++;
     }
 
