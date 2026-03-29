@@ -3,23 +3,6 @@ brlcad_find_package(manifold REQUIRED)
 
 set(BOT_LIBS libged libbg libbu manifold::manifold)
 
-brlcad_find_package(Geogram SYSPATTERN geogram)
-# geogram is now compiled as part of libbg; add its source directory FIRST so
-# remesh.cpp finds the BRL-CAD geogram headers before any system geogram
-# (not part of libbg's installed public API).
-set(BOT_LOCAL_INCLUDE_DIRS ${BRLCAD_SOURCE_DIR}/src/libbg ${BOT_LOCAL_INCLUDE_DIRS})
-
-# remesh.cpp includes geogram headers directly and must be compiled with
-# BRLCAD_GEOGRAM_EMBED so that GEOBRLCAD_API resolves to the import side
-# of libbg's export mechanism.  Per-source COMPILE_DEFINITIONS do not apply
-# inside Unity TUs, so remesh.cpp is excluded from Unity batching.
-set_source_files_properties(
-    ${CMAKE_CURRENT_SOURCE_DIR}/remesh.cpp
-    PROPERTIES
-        COMPILE_DEFINITIONS "BRLCAD_GEOGRAM_EMBED;NL_WITH_AMGCL"
-        SKIP_UNITY_BUILD_INCLUSION ON
-)
-
 
 if(BRLCAD_ENABLE_OPENVDB)
   set(BOT_LIBS ${BOT_LIBS} ${OpenVDB_LIBRARIES} ${IlmBase_LIBRARIES} ${Tbb_LIBRARIES})

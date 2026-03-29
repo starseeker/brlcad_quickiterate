@@ -26,6 +26,11 @@ if(NOT MSVC)
             COMPILE_OPTIONS "${_geo_flags}"
         )
     endforeach()
+    # nl_amgcl.cpp includes AMGCL headers that use #pragma omp; suppress the
+    # resulting -Wunknown-pragmas diagnostic (OpenMP is not required here).
+    set_source_files_properties(${GEOGRAM_AMGCL_SRC} PROPERTIES
+        COMPILE_OPTIONS "${_geo_flags};-Wno-unknown-pragmas"
+    )
     unset(_geo_flags)
 else()
     foreach(_src ${GEOGRAM_SRCS})
