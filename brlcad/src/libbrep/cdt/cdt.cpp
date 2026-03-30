@@ -701,6 +701,7 @@ ON_Brep_CDT_Mesh(
     int face_cnt = 0;
     for (size_t fi = 0; fi < active_faces.size(); fi++) {
 	cdt_mesh_t *fmesh = &s_cdt->fmeshes[(int)fi];
+	int face_start = face_cnt;
 	RTree<size_t, double, 3>::Iterator tree_it;
 	fmesh->tris_tree.GetFirst(tree_it);
 	size_t t_ind;
@@ -728,6 +729,11 @@ ON_Brep_CDT_Mesh(
 	    face_cnt++;
 	    ++tree_it;
 	}
+	// Log the bot face range for this BREP face so we can map bot face
+	// indices back to BREP faces for debugging.
+	if (fmesh->inner_loops.size() && face_cnt > face_start)
+	    bu_log("BREP face %d (holes=%zu): bot faces [%d, %d)\n",
+		   fmesh->f_id, fmesh->inner_loops.size(), face_start, face_cnt);
     }
 
     return 0;
