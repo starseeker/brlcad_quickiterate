@@ -3244,6 +3244,22 @@ cdt_mesh_t::cdt()
     int *steiner = steiner_vec.empty() ? NULL : steiner_vec.data();
     size_t steiner_cnt = steiner_vec.size();
 
+    // Sanity check: every polygon array must be closed (first index == last index).
+    // Detria uses front()==back() to detect the closed-polyline format; warn if
+    // that invariant is ever violated.
+    if (holes_cnt) {
+	size_t opoly_n = outer_loop.poly.size()+1;
+	if (opoly[0] != opoly[opoly_n-1])
+	    bu_log("Face %d CDT: outer polygon NOT CLOSED (first=%d last=%d)\n",
+		   f_id, opoly[0], opoly[opoly_n-1]);
+	for (int hi = 0; hi < holes_cnt; hi++) {
+	    size_t hn = holes_npts[hi];
+	    if (holes_array[hi][0] != holes_array[hi][hn-1])
+		bu_log("Face %d CDT: hole[%d] NOT CLOSED (first=%d last=%d)\n",
+		       f_id, hi, holes_array[hi][0], holes_array[hi][hn-1]);
+	}
+    }
+
     bool result = (bool)!bg_nested_poly_triangulate(&faces, &num_faces,
 		  NULL, NULL, opoly, outer_loop.poly.size()+1, holes_array, holes_npts, holes_cnt,
 		  steiner, steiner_cnt, bgp_2d, m_pnts_2d.size(),
@@ -5319,59 +5335,183 @@ void cdt_mesh_t::cdt_inputs_print(const char *filename)
 	return;
     }
 
+    /* ---------- includes ---------- */
     sfile << "#include <stdio.h>\n";
+    sfile << "#include <math.h>\n";
     sfile << "#include \"bu/malloc.h\"\n";
-    sfile << "#include \"bg/polygon.h\"\n";
-    sfile << "int main() {\n";
-    sfile << "point2d_t *pnts_2d = (point2d_t *)bu_calloc(" << m_pnts_2d.size()+1 << ", sizeof(point2d_t), \"2D points array\");\n";
+    sfile << "#include \"bg/polygon.h\"\n\n";
 
+    /* ---------- helper: 2D triangle area ---------- */
+    sfile << "static double tri_area_2d(const point2d_t *pts, int a, int b, int c) {\n";
+    sfile << "    double ax=pts[a][X], ay=pts[a][Y];\n";
+    sfile << "    double bx=pts[b][X], by=pts[b][Y];\n";
+    sfile << "    double cx=pts[c][X], cy=pts[c][Y];\n";
+    sfile << "    return fabs((bx-ax)*(cy-ay)-(cx-ax)*(by-ay))*0.5;\n";
+    sfile << "}\n\n";
+
+    sfile << "int main(void) {\n";
+
+    /* ---------- 2D UV points ---------- */
+    sfile << "    /* 2D UV points (" << m_pnts_2d.size() << " total) */\n";
+    sfile << "    point2d_t *pnts_2d = (point2d_t *)bu_calloc("
+	  << m_pnts_2d.size()+1 << ", sizeof(point2d_t), \"pnts_2d\");\n";
     for (size_t i = 0; i < m_pnts_2d.size(); i++) {
-	sfile << "pnts_2d[" << i << "][X] = ";
-	sfile << std::fixed << std::setprecision(std::numeric_limits<double>::max_digits10) << m_pnts_2d[i].first << ";\n";
-	sfile << "pnts_2d[" << i << "][Y] = ";
-	sfile << std::fixed << std::setprecision(std::numeric_limits<double>::max_digits10) << m_pnts_2d[i].second << ";\n";
+	sfile << "    pnts_2d[" << i << "][X] = "
+	      << std::fixed
+	      << std::setprecision(std::numeric_limits<double>::max_digits10)
+	      << m_pnts_2d[i].first << ";\n";
+	sfile << "    pnts_2d[" << i << "][Y] = "
+	      << std::fixed
+	      << std::setprecision(std::numeric_limits<double>::max_digits10)
+	      << m_pnts_2d[i].second << ";\n";
     }
+    sfile << "\n";
 
-    sfile << "int *faces = NULL;\nint num_faces = 0;int *steiner = NULL;\n";
+    /* ---------- outer polygon ---------- */
+    size_t opoly_n = outer_loop.poly.size() + 1;
+    sfile << "    /* Outer loop polygon: " << outer_loop.poly.size()
+	  << " edges, closed (first==last) */\n";
+    sfile << "    int *opoly = (int *)bu_calloc(" << opoly_n
+	  << ", sizeof(int), \"opoly\");\n";
+    serialize_loop(&outer_loop, sfile, "    opoly");
+    sfile << "\n";
 
-   if (m_interior_pnts.size()) {
-      sfile << "steiner = (int *)bu_calloc(" << m_interior_pnts.size() << ", sizeof(int), \"interior points\");\n";
-      std::set<long>::iterator p_it;
-      int vind = 0;
-      for (p_it = m_interior_pnts.begin(); p_it != m_interior_pnts.end(); p_it++) {
-	  sfile << "steiner[" << vind << "] = " << *p_it << ";\n";
-	  vind++;
-      }
-   }
-
-    sfile << "int *opoly = (int *)bu_calloc(" << outer_loop.poly.size()+1 << ", sizeof(int), \"polygon points\");\n";
-
-    serialize_loop(&outer_loop, sfile, "opoly");
-
-    sfile << "const int **holes_array = NULL;\nsize_t *holes_npts = NULL;\n";
-    sfile << "int holes_cnt = " << inner_loops.size() << ";\n";
+    /* ---------- hole polygons ---------- */
+    sfile << "    /* Hole polygons */\n";
+    sfile << "    int **holes_array = NULL;\n";
+    sfile << "    size_t *holes_npts = NULL;\n";
+    sfile << "    int holes_cnt = " << inner_loops.size() << ";\n";
     if (inner_loops.size()) {
-	sfile << "    holes_array = (const int **)bu_calloc(" << inner_loops.size()+1 << ", sizeof(int *), \"holes array\");\n";
-	sfile << "    holes_npts = (const int **)bu_calloc(" << inner_loops.size()+1 << ", sizeof(size_t), \"hole pntcnt array\");\n";
+	sfile << "    holes_array = (int **)bu_calloc("
+	      << inner_loops.size()+1 << ", sizeof(int *), \"holes_array\");\n";
+	sfile << "    holes_npts = (size_t *)bu_calloc("
+	      << inner_loops.size()+1 << ", sizeof(size_t), \"holes_npts\");\n";
 	int loop_cnt = 0;
 	std::map<int, cpolygon_t*>::iterator il_it;
 	for (il_it = inner_loops.begin(); il_it != inner_loops.end(); il_it++) {
-	    struct bu_vls lname = BU_VLS_INIT_ZERO;
 	    cpolygon_t *inl = il_it->second;
-	    bu_vls_sprintf(&lname, "    holes_array[%d]", loop_cnt);
-	    serialize_loop(inl, sfile, bu_vls_cstr(&lname));
-	    sfile << "    holes_npts[" << loop_cnt << "] = " << inl->poly.size()+1 << ";\n";
-	    bu_vls_free(&lname);
+	    size_t hn = inl->poly.size() + 1;
+	    sfile << "    holes_array[" << loop_cnt << "] = (int *)bu_calloc("
+		  << hn << ", sizeof(int), \"hole_" << loop_cnt << "\");\n";
+	    {
+		struct bu_vls lname = BU_VLS_INIT_ZERO;
+		bu_vls_sprintf(&lname, "    holes_array[%d]", loop_cnt);
+		serialize_loop(inl, sfile, bu_vls_cstr(&lname));
+		bu_vls_free(&lname);
+	    }
+	    sfile << "    holes_npts[" << loop_cnt << "] = " << hn << ";\n";
+	    loop_cnt++;
 	}
     }
+    sfile << "\n";
 
-    sfile << "int result = !bg_nested_poly_triangulate(&faces, &num_faces,\n";
-    sfile << "             NULL, NULL, opoly, " << outer_loop.poly.size()+1 << ", holes_array, holes_npts, holes_cnt,\n";
-    sfile << "             steiner, " << m_interior_pnts.size() << ", pnts_2d, " << m_pnts_2d.size() << ", TRI_CONSTRAINED_DELAUNAY);\n";
-    sfile << "if (result) printf(\"success\\n\");\n";
-    sfile << "if (!result) printf(\"FAIL\\n\");\n";
-    sfile << "return !result;\n";
-    sfile << "};\n";
+    /* ---------- steiner points (all interior, filtering done below) ---------- */
+    size_t raw_cnt = m_interior_pnts.size();
+    sfile << "    /* Interior (Steiner) points: " << raw_cnt
+	  << " total; filtering performed inline */\n";
+    sfile << "    int raw_steiner_cnt = " << (int)raw_cnt << ";\n";
+    if (raw_cnt) {
+	sfile << "    int *raw_steiner = (int *)bu_calloc(raw_steiner_cnt, sizeof(int), \"raw_st\");\n";
+	std::set<long>::iterator p_it;
+	int vind = 0;
+	for (p_it = m_interior_pnts.begin(); p_it != m_interior_pnts.end(); p_it++)
+	    sfile << "    raw_steiner[" << vind++ << "] = " << *p_it << ";\n";
+    } else {
+	sfile << "    int *raw_steiner = NULL;\n";
+    }
+    sfile << "\n";
+
+    /* ---------- steiner filtering (mirrors runtime logic) ---------- */
+    sfile << "    /* Exclude Steiner points that fall inside a hole */\n";
+    sfile << "    int *steiner = raw_steiner_cnt\n";
+    sfile << "        ? (int *)bu_malloc(raw_steiner_cnt * sizeof(int), \"steiner\") : NULL;\n";
+    sfile << "    size_t steiner_cnt = 0;\n";
+    sfile << "    {\n";
+    sfile << "        int si;\n";
+    sfile << "        for (si = 0; si < raw_steiner_cnt; si++) {\n";
+    sfile << "            int idx = raw_steiner[si];\n";
+    sfile << "            int in_hole = 0;\n";
+    sfile << "            int hi;\n";
+    sfile << "            for (hi = 0; hi < holes_cnt && !in_hole; hi++) {\n";
+    sfile << "                point2d_t *hpoly = (point2d_t *)bu_malloc(\n";
+    sfile << "                    holes_npts[hi]*sizeof(point2d_t), \"hpoly\");\n";
+    sfile << "                size_t hj;\n";
+    sfile << "                for (hj = 0; hj < holes_npts[hi]; hj++) {\n";
+    sfile << "                    hpoly[hj][X] = pnts_2d[holes_array[hi][hj]][X];\n";
+    sfile << "                    hpoly[hj][Y] = pnts_2d[holes_array[hi][hj]][Y];\n";
+    sfile << "                }\n";
+    sfile << "                {\n";
+    sfile << "                    point2d_t tp;\n";
+    sfile << "                    tp[X] = pnts_2d[idx][X];\n";
+    sfile << "                    tp[Y] = pnts_2d[idx][Y];\n";
+    sfile << "                    in_hole = bg_pnt_in_polygon(holes_npts[hi],\n";
+    sfile << "                        (const point2d_t *)(void *)hpoly,\n";
+    sfile << "                        (const point2d_t *)(void *)tp);\n";
+    sfile << "                }\n";
+    sfile << "                bu_free(hpoly, \"hpoly\");\n";
+    sfile << "            }\n";
+    sfile << "            if (!in_hole) steiner[steiner_cnt++] = idx;\n";
+    sfile << "        }\n";
+    sfile << "    }\n\n";
+
+    /* ---------- triangulation ---------- */
+    sfile << "    /* Triangulation */\n";
+    sfile << "    int *faces = NULL;\n";
+    sfile << "    int num_faces = 0;\n";
+    sfile << "    int ret = bg_nested_poly_triangulate(&faces, &num_faces,\n";
+    sfile << "        NULL, NULL, opoly, " << opoly_n << ",\n";
+    sfile << "        holes_cnt ? (const int **)(void *)holes_array : NULL,\n";
+    sfile << "        holes_cnt ? holes_npts  : NULL,\n";
+    sfile << "        (size_t)holes_cnt,\n";
+    sfile << "        steiner_cnt ? steiner : NULL, steiner_cnt,\n";
+    sfile << "        (const point2d_t *)(void *)pnts_2d, " << m_pnts_2d.size()
+	  << ", TRI_CONSTRAINED_DELAUNAY);\n";
+    sfile << "    if (ret != 0) {\n";
+    sfile << "        printf(\"FAIL: bg_nested_poly_triangulate returned %d\\n\", ret);\n";
+    sfile << "        return 1;\n";
+    sfile << "    }\n\n";
+
+    /* ---------- triangle-in-hole check ---------- */
+    sfile << "    /* Verify: no output triangle centroid falls inside any hole polygon */\n";
+    sfile << "    int bad_tris = 0;\n";
+    sfile << "    double bad_area = 0.0;\n";
+    sfile << "    {\n";
+    sfile << "        int t;\n";
+    sfile << "        for (t = 0; t < num_faces; t++) {\n";
+    sfile << "            int a = faces[3*t], b = faces[3*t+1], c = faces[3*t+2];\n";
+    sfile << "            point2d_t cen;\n";
+    sfile << "            int hi;\n";
+    sfile << "            cen[X] = (pnts_2d[a][X]+pnts_2d[b][X]+pnts_2d[c][X])/3.0;\n";
+    sfile << "            cen[Y] = (pnts_2d[a][Y]+pnts_2d[b][Y]+pnts_2d[c][Y])/3.0;\n";
+    sfile << "            for (hi = 0; hi < holes_cnt; hi++) {\n";
+    sfile << "                point2d_t *hpoly = (point2d_t *)bu_malloc(\n";
+    sfile << "                    holes_npts[hi]*sizeof(point2d_t), \"hpoly\");\n";
+    sfile << "                size_t hj;\n";
+    sfile << "                for (hj = 0; hj < holes_npts[hi]; hj++) {\n";
+    sfile << "                    hpoly[hj][X] = pnts_2d[holes_array[hi][hj]][X];\n";
+    sfile << "                    hpoly[hj][Y] = pnts_2d[holes_array[hi][hj]][Y];\n";
+    sfile << "                }\n";
+    sfile << "                if (bg_pnt_in_polygon(holes_npts[hi],\n";
+    sfile << "                        (const point2d_t *)(void *)hpoly,\n";
+    sfile << "                        (const point2d_t *)(void *)cen)) {\n";
+    sfile << "                    printf(\"  PROBLEM tri %d (%d,%d,%d) cen=(%.10g,%.10g) in hole %d\\n\",\n";
+    sfile << "                        t, a, b, c, (double)cen[X], (double)cen[Y], hi);\n";
+    sfile << "                    bad_tris++;\n";
+    sfile << "                    bad_area += tri_area_2d(pnts_2d, a, b, c);\n";
+    sfile << "                }\n";
+    sfile << "                bu_free(hpoly, \"hpoly\");\n";
+    sfile << "            }\n";
+    sfile << "        }\n";
+    sfile << "    }\n\n";
+
+    sfile << "    if (bad_tris > 0) {\n";
+    sfile << "        printf(\"FAIL: %d triangles intrude into holes (bad area=%.6g)\\n\",\n";
+    sfile << "               bad_tris, bad_area);\n";
+    sfile << "        return 1;\n";
+    sfile << "    }\n";
+    sfile << "    printf(\"PASS: %d output triangles, no hole intrusions\\n\", num_faces);\n";
+    sfile << "    return 0;\n";
+    sfile << "}\n";
 
     sfile.close();
 }
