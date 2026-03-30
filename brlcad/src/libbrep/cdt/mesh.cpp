@@ -48,7 +48,7 @@
 #include "./cdt.h"
 #include "./mesh.h"
 
-/* GTE LSCM parameterization for the lscm_reproject path */
+/* GTE mean-value parameterization for the lscm_reproject path */
 #if defined(__GNUC__) && !defined(__clang__)
 #  pragma GCC diagnostic push
 #  pragma GCC diagnostic ignored "-Wfloat-equal"
@@ -1848,23 +1848,15 @@ cdt_mesh_t::get_boundary_edges()
     return boundary_edges;
 }
 
-// TODO - NIST2 face 193 is occasionally producing a few misoriented edges that are failing
-// the final mesh validity test.  We need to update this logic to catch them so we can try to do
-// something about them - right now they're not getting picked up:
+// Note: misoriented edge pairs (two triangles sharing a directed edge in the
+// same direction) were a known issue affecting NIST models.  They are now
+// detected by boundary_edges_update() (size==2 case) and repaired by the
+// second pass in repair().  The pattern was originally reported as:
 //
 // 3 misoriented edges
 // 13337->84234: 504.806023 290.490191 81.197878->505.275113 290.582257 81.189823
-// eface 151366: 84236 13337 84234 :  505.254133 290.853481 81.166094->504.806023 290.490191 81.197878->505.275113 290.582257 81.189823
-// eface 151367: 84234 86399 13337 :  505.275113 290.582257 81.189823->504.999199 290.572723 81.190657->504.806023 290.490191 81.197878
-// 13337->86399: 504.806023 290.490191 81.197878->504.999199 290.572723 81.190657
-// 84234->86399: 505.275113 290.582257 81.189823->504.999199 290.572723 81.190657
-// eface 151367: 84234 86399 13337 :  505.275113 290.582257 81.189823->504.999199 290.572723 81.190657->504.806023 290.490191 81.197878
-// eface 154772: 86399 83122 84234 :  504.999199 290.572723 81.190657->505.224123 290.283926 81.215924->505.275113 290.582257 81.189823
+// eface 151366: 84236 13337 84234 : ...
 // point 13337: Face(-1) Vert(-1) Trim(-1) Edge(647) UV(0.000000,0.000000)
-// point 83122: Face(193) Vert(-1) Trim(-1) Edge(-1) UV(69.296354,34.570155)
-// point 84234: Face(193) Vert(-1) Trim(-1) Edge(-1) UV(69.347343,34.869626)
-// point 84236: Face(193) Vert(-1) Trim(-1) Edge(-1) UV(69.326363,35.141886)
-// point 86399: Face(193) Vert(-1) Trim(-1) Edge(-1) UV(69.071430,34.860055)
 
 void
 cdt_mesh_t::update_problem_edges()
@@ -2783,13 +2775,22 @@ cdt_mesh_t::oriented_polycdt(cpolygon_t *polygon, bool reproject)
 {
     std::set<triangle_t> otris;
 
+    // Save the original 2D coordinates before any reprojection so that if LSCM
+    // introduces a fold-over (mixed-orientation triangles) we can fall back to
+    // the best-fit-plane approach with unmodified input coordinates.
+    bool tried_lscm = false;
+    std::vector<std::pair<double, double>> pnts_2d_orig;
+
     if (reproject) {
+	pnts_2d_orig = polygon->pnts_2d;
 	// Try LSCM parameterization first: it maps the boundary to a unit circle
 	// guaranteeing a non-self-intersecting 2D domain even for highly curved
 	// patches where the best-fit plane projection would fold on itself,
 	// causing CDT (bg_nested_poly_triangulate) to fail.
 	// Fall back to the plane-based approach if LSCM fails.
-	if (!lscm_reproject(polygon)) {
+	if (lscm_reproject(polygon)) {
+	    tried_lscm = true;
+	} else {
 	    best_fit_plane_reproject(polygon);
 	}
     }
@@ -2807,6 +2808,31 @@ cdt_mesh_t::oriented_polycdt(cpolygon_t *polygon, bool reproject)
 	bool flipped_tri = (ON_DotProduct(tdir, bdir) < 0);
 	if (flipped_tri) {
 	    flip_cnt++;
+	}
+    }
+
+    // If LSCM was used and produced a mix of flipped and correctly-oriented
+    // triangles, that signals a fold-over in the conformal mapping.  Retry
+    // with the best-fit-plane approach, which is more conservative and doesn't
+    // alter the relative 2D ordering of points, making fold-overs much less
+    // likely.
+    if (tried_lscm && flip_cnt > 0 && flip_cnt <= polygon->tris.size() / 2) {
+	bu_log("lscm fold-over on f_id=%d (flip=%zu/%zu), retrying with best_fit_plane\n",
+	    f_id, flip_cnt, polygon->tris.size());
+	polygon->pnts_2d = pnts_2d_orig;
+	polygon->ltris.clear();
+	polygon->tris.clear();
+	best_fit_plane_reproject(polygon);
+	if (!polygon->cdt()) return false;
+	// Recount flips for the new triangulation.
+	flip_cnt = 0;
+	for (tr_it = polygon->tris.begin(); tr_it != polygon->tris.end(); tr_it++) {
+	    triangle_t t = *tr_it;
+	    t.m = this;
+	    ON_3dVector tdir = tnorm(t);
+	    ON_3dVector bdir = bnorm(t);
+	    if (ON_DotProduct(tdir, bdir) < 0)
+		flip_cnt++;
 	}
     }
 
@@ -3178,10 +3204,47 @@ cdt_mesh_t::cdt()
     //cdt_inputs_print("cdt_inputs.c");
     //cdt_inputs_plot("cdt_inputs.plot3");
 
+    // Aspect-ratio normalization: if the face UV bounding box has a large
+    // aspect ratio (e.g. a long cylindrical face), scale the shorter axis in
+    // bgp_2d so the CDT triangulator sees a near-square domain.  This avoids
+    // numerically degenerate initial triangles for faces like NIST Face 35
+    // whose UV extents span ~93:1.  The scale is applied only to the local
+    // bgp_2d array; m_pnts_2d is unchanged, so all upstream UV coordinates
+    // remain correct.  bg_nested_poly_triangulate is invariant to uniform
+    // axis scaling (it only determines topology, not UV values).
+    double umin = std::numeric_limits<double>::max();
+    double umax = -std::numeric_limits<double>::max();
+    double vmin = std::numeric_limits<double>::max();
+    double vmax = -std::numeric_limits<double>::max();
+    for (size_t i = 0; i < m_pnts_2d.size(); i++) {
+	double u = m_pnts_2d[i].first;
+	double v = m_pnts_2d[i].second;
+	if (u < umin) umin = u;
+	if (u > umax) umax = u;
+	if (v < vmin) vmin = v;
+	if (v > vmax) vmax = v;
+    }
+    double uscale = 1.0, vscale = 1.0;
+    {
+	double urng = umax - umin;
+	double vrng = vmax - vmin;
+	if (urng > 0.0 && vrng > 0.0) {
+	    double ratio = (urng > vrng) ? urng / vrng : vrng / urng;
+	    if (ratio > 10.0) {
+		if (urng < vrng)
+		    uscale = vrng / urng;
+		else
+		    vscale = urng / vrng;
+		bu_log("Face %d: UV aspect ratio %.1f:1, normalizing (uscale=%.4g vscale=%.4g)\n",
+		    f_id, ratio, uscale, vscale);
+	    }
+	}
+    }
+
     point2d_t *bgp_2d = (point2d_t *)bu_calloc(m_pnts_2d.size() + 1, sizeof(point2d_t), "2D points array");
     for (size_t i = 0; i < m_pnts_2d.size(); i++) {
-	bgp_2d[i][X] = m_pnts_2d[i].first;
-	bgp_2d[i][Y] = m_pnts_2d[i].second;
+	bgp_2d[i][X] = m_pnts_2d[i].first * uscale;
+	bgp_2d[i][Y] = m_pnts_2d[i].second * vscale;
     }
 
     int *faces = NULL;
@@ -3396,7 +3459,12 @@ cdt_mesh_t::repair()
     }
 
 #if 1
-    // For each edge, check if it is a boundary edge.  If not, it's mirror
+    // Second-pass repair: detect topology defects introduced during the first
+    // pass.  Force a fresh boundary_edges_update() so newly-created problem
+    // edges are discovered.
+    boundary_edges_stale = true;
+
+    // For each edge, check if it is a boundary edge.  If not, its mirror
     // edge should have an associated triangle that is different from the
     // current triangle.  If not, we need to resolve the issue...
     std::map<edge_t, size_t>::iterator e_it;
@@ -3406,7 +3474,9 @@ cdt_mesh_t::repair()
 	if (boundary_edges.find(ue) != boundary_edges.end()) continue;
 	size_t t1 = e_it->second;
 	edge_t e_2(e_1.v[1], e_1.v[0]);
-	size_t t2 = edges2tris[e_2];
+	auto fe2 = edges2tris.find(e_2);
+	if (fe2 == edges2tris.end()) continue; // reverse edge absent — handled below
+	size_t t2 = fe2->second;
 	if (t1 == t2) {
 	    // directional edges both point to the same triangle - problem
 	    std::cout << "directional edge pair referencing same triangle!\n";
@@ -3416,6 +3486,85 @@ cdt_mesh_t::repair()
 		std::vector<triangle_t> faces = vertex_face_neighbors(tris_vect[t1].v[i]);
 		seed_tris.insert(faces.begin(), faces.end());
 	    }
+	}
+    }
+
+    // Also catch misoriented pairs (two triangles sharing a directed edge in
+    // the same sense): the reverse directed edge is absent from edges2tris
+    // while uedges2tris has two entries for the undirected edge.  These
+    // cannot be repaired by grow_loop (which cannot cross brep boundary
+    // points), so fix them directly by flipping the triangle whose surface
+    // normal is inconsistent with the face normal.
+    {
+	std::set<uedge_t> misoriented;
+	for (auto const& ue_entry : uedges2tris) {
+	    if (ue_entry.second.size() != 2) continue;
+	    uedge_t ue = ue_entry.first;
+	    auto tit = ue_entry.second.begin();
+	    const triangle_t &ta = tris_vect[*tit]; ++tit;
+	    const triangle_t &tb = tris_vect[*tit];
+	    // Determine directed sense each triangle uses for this uedge.
+	    bool ta_fwd = false;
+	    for (int i = 0; i < 3; i++) {
+		if (ta.v[i] == ue.v[0] && ta.v[(i+1)%3] == ue.v[1]) { ta_fwd = true;  break; }
+		if (ta.v[i] == ue.v[1] && ta.v[(i+1)%3] == ue.v[0]) { ta_fwd = false; break; }
+	    }
+	    bool tb_fwd = false;
+	    for (int i = 0; i < 3; i++) {
+		if (tb.v[i] == ue.v[0] && tb.v[(i+1)%3] == ue.v[1]) { tb_fwd = true;  break; }
+		if (tb.v[i] == ue.v[1] && tb.v[(i+1)%3] == ue.v[0]) { tb_fwd = false; break; }
+	    }
+	    if (ta_fwd == tb_fwd)
+		misoriented.insert(ue);
+	}
+	// For each misoriented pair, flip the triangle whose normal disagrees
+	// with the BREP face normal.  Do this with remove+re-add so all mesh
+	// maps stay consistent.
+	int flip_pass = 0;
+	while (!misoriented.empty() && flip_pass++ < 10) {
+	    std::set<uedge_t> still_misoriented;
+	    for (auto const& ue : misoriented) {
+		auto it2 = uedges2tris.find(ue);
+		if (it2 == uedges2tris.end() || it2->second.size() != 2) continue;
+		auto tit2 = it2->second.begin();
+		triangle_t ta = tris_vect[*tit2]; ++tit2;
+		triangle_t tb = tris_vect[*tit2];
+		ta.m = this; tb.m = this;
+		ON_3dVector ta_n = tnorm(ta);
+		ON_3dVector tb_n = tnorm(tb);
+		ON_3dVector bdir = bnorm(ta);
+		bool ta_ok = (ON_DotProduct(ta_n, bdir) >= 0);
+		bool tb_ok = (ON_DotProduct(tb_n, bdir) >= 0);
+		// Flip the one that is inconsistent with the face normal.
+		// If both are consistent (or neither is), flip tb as a
+		// tiebreaker to try to create a manifold neighbourhood.
+		triangle_t bad = (!ta_ok && tb_ok) ? ta : tb;
+		tri_remove(bad);
+		long tmp = bad.v[1];
+		bad.v[1] = bad.v[2];
+		bad.v[2] = tmp;
+		tri_add(bad);
+		// Check if the edge is still misoriented after the flip.
+		auto it3 = uedges2tris.find(ue);
+		if (it3 != uedges2tris.end() && it3->second.size() == 2) {
+		    tit2 = it3->second.begin();
+		    const triangle_t &na = tris_vect[*tit2]; ++tit2;
+		    const triangle_t &nb = tris_vect[*tit2];
+		    bool na_fwd = false;
+		    for (int i = 0; i < 3; i++) {
+			if (na.v[i] == ue.v[0] && na.v[(i+1)%3] == ue.v[1]) { na_fwd = true;  break; }
+			if (na.v[i] == ue.v[1] && na.v[(i+1)%3] == ue.v[0]) { na_fwd = false; break; }
+		    }
+		    bool nb_fwd = false;
+		    for (int i = 0; i < 3; i++) {
+			if (nb.v[i] == ue.v[0] && nb.v[(i+1)%3] == ue.v[1]) { nb_fwd = true;  break; }
+			if (nb.v[i] == ue.v[1] && nb.v[(i+1)%3] == ue.v[0]) { nb_fwd = false; break; }
+		    }
+		    if (na_fwd == nb_fwd)
+			still_misoriented.insert(ue);
+		}
+	    }
+	    misoriented = still_misoriented;
 	}
     }
 
@@ -4817,14 +4966,15 @@ cdt_mesh_t::best_fit_plane_reproject(cpolygon_t *polygon)
     return true;
 }
 
-/* LSCM-based reprojection for oriented_polycdt.
+/* Mean-value parameterization reprojection for oriented_polycdt.
  *
  * Instead of projecting the polygon vertices onto a best-fit plane (which can
  * produce self-intersections for highly curved patches), we use GTE's
  * LSCMParameterization to map the boundary loop to a unit circle and solve a
- * cotangent-Laplacian system for interior vertices.  The resulting UV
- * coordinates are guaranteed to produce a non-self-intersecting 2D boundary,
- * giving bg_nested_poly_triangulate a valid domain to work with.
+ * mean-value Laplacian (Floater 2003) for interior vertices.  The mean-value
+ * weights are always positive, so by Tutte's theorem the resulting UV map is
+ * injective (fold-over-free) for any convex boundary, giving
+ * bg_nested_poly_triangulate a valid domain to work with.
  *
  * Algorithm:
  *  1. Walk the polygon boundary loop (same ordering as cdt()) to get ordered
@@ -4910,6 +5060,20 @@ cdt_mesh_t::lscm_reproject(cpolygon_t *polygon)
 	    true_interior_cpt.push_back(g2c.at(gi));
     }
 
+    // If any interior_point is not a boundary vertex and not covered by a
+    // visited_triangle (i.e. it is "extra-interior"), we cannot assign it a
+    // meaningful LSCM UV coordinate.  Such vertices will be pinned to (0,0)
+    // by the Parameterize / MapBoundaryToCircle path, which makes multiple
+    // coincident Steiner points in the CDT and produces degenerate or
+    // misoriented triangles.  Fall back to best_fit_plane_reproject instead.
+    for (long ip : polygon->interior_points) {
+	int32_t gi = (int32_t)ip;
+	if (bnd_set.find(gi) == bnd_set.end() &&
+	    tri_vert_set.find(gi) == tri_vert_set.end()) {
+	    return false;
+	}
+    }
+
     // ── Step 4: Build per-compact 3D positions ───────────────────────────────
     std::vector<gte::Vector3<double>> v3d;
     v3d.reserve((size_t)ncompact);
@@ -4967,7 +5131,7 @@ cdt_mesh_t::lscm_reproject(cpolygon_t *polygon)
     }
 
     if (!lscm_ok || uv.empty()) {
-	bu_log("lscm_reproject: f_id=%d LSCM math failed (int_verts=%zu tris=%zu bnd=%zu)\n",
+	bu_log("lscm_reproject: f_id=%d mean-value parameterization failed (int_verts=%zu tris=%zu bnd=%zu)\n",
 	    f_id, true_interior_cpt.size(), tris_cpt.size(), bnd_loop.size());
 	return false;
     }
