@@ -174,29 +174,6 @@ mged_sem_log_init(void)
 	MGED_SEM_LOG = bu_semaphore_register("MGED_SEM_LOG");
 }
 
-
-/**
- * NOTE:  There is a problem with bu_log output we are trying to solve - per
- * Tcl's documentation (https://www.tcl.tk/doc/howto/thread_model.html) "errors
- * will occur if you let more than one thread call into the same interpreter
- * (e.g., with Tcl_Eval)"  However, gui_output may be called from multiple
- * threads during (say) a parallel raytrace, when lower level routines
- * encounter problems and bu_log about them.
- *
- * There is also a serious complication when it comes to thing like
- * search -exec, which in MGED may exec Tcl commands on the results - that
- * will cause problems with repeated Tcl_Eval calls even if we handle
- * ged_exec.  In the worst cases -exec could be instructing the GUI to
- * do updates or other things we can't reliably ask to happen while
- * we're doing a Tcl_Eval on the original command, so what we'll probably
- * have to do in the end is limit search -exec to ged commands rather than
- * arbitrary Tcl script execution.  That's technically more restrictive
- * than what it lets happen (or tries to at any rate) now, but it's hard
- * to see how we could successfully execute arbitrary Tcl/Tk scripts
- * with Tcl_Eval when we're already trying to do a Tcl_Eval of the original
- * command.
- */
-
 /* Tcl timer callback (Stage 2): drain accumulated log output to the command
  * prompt and reschedule itself so that intermediate bu_log output produced
  * during a long ged_exec call (running in a worker thread) reaches the user
@@ -331,44 +308,52 @@ mged_ged_exec_async(struct mged_state *s, int argc, const char *argv[])
 extern "C" {
 
 
+
+/**
+ * NOTE:  Per Tcl (https://www.tcl.tk/doc/howto/thread_model.html) "errors will
+ * occur if you let more than one thread call into the same interpreter (e.g.,
+ * with Tcl_Eval)."  We have adapted our bu_log handling to strive to handle
+ * this limitation, but search -exec introduces another level of complication.
+ *
+ * In MGED, search -exec historically supported running Tcl commands on the
+ * results of the search.  However, that will cause problems with nested
+ * Tcl_Eval calls - in the worst cases -exec could even be instructing the GUI
+ * to do updates or other things we can't reliably ask to happen while we're
+ * doing a Tcl_Eval on the original command.
+ *
+ * Consequently, we must limit what search -exec can run - rather than
+ * arbitrary Tcl script execution, we limit it to ged exec.  That's technically
+ * more restrictive than what it let happen historically (or tried to at any
+ * rate), but it's hard to see how we could successfully execute arbitrary
+ * Tcl/Tk scripts with Tcl_Eval when we're already trying to do a Tcl_Eval of
+ * the original command.  Even with ged_exec, we have to worry about callback
+ * hooks linked in to ged commands triggering problematic behavior - that will
+ * need more thought/research.
+ */
 int
 mged_db_search_callback(int argc, const char *argv[], void *UNUSED(u1), void *u2)
 {
     struct mged_state *s = (struct mged_state *)u2;
     MGED_CK_STATE(s);
-    Tcl_Interp *interp = s->interp;
 
-    /* FIXME: pretty much copied from tclcad, ideally this should call
-     * tclcad's eval instead of doing its own thing but this is probably
-     * fine for now */
-    int ret;
-    int i;
-    size_t len;
-    const char *result = NULL;
-
-    Tcl_DString script;
-    Tcl_DStringInit(&script);
-    if (argc<=0) /* empty exec is a true no-op */
-    	return 1;
-    Tcl_DStringAppend(&script, argv[0], -1);
-
-    for (i = 1; i < argc; ++i)
-	Tcl_DStringAppendElement(&script, argv[i]);
-
-    ret = Tcl_Eval(interp, Tcl_DStringValue(&script));
-    Tcl_DStringFree(&script);
-
-    result = Tcl_GetStringResult(interp);
-    len = strlen(result);
+    // We're already in a search async running context if we
+    // are calling this, so don't thread out again - just do
+    // a basic ged_exec
+    //
+    // TODO - if we have callbacks registered for commands, there
+    // is a risk of side effects at the MGED gui level that could
+    // go haywire.  Not really sure what the best course of action
+    // is - we could disable callbacks for this exec (might need a
+    // libged level toggle in struct ged) but that could have other
+    // negative implications - needs some research.
+    int ret = ged_exec(s->gedp, argc, argv);
+    const char *result = bu_vls_cstr(s->gedp->ged_result_str);
+    int len = bu_vls_strlen(s->gedp->ged_result_str);
     if (len > 0)
 	bu_log("%s%s", result, result[len-1] == '\n' ? "" : "\n");
 
-    Tcl_ResetResult(interp);
-
-    /* NOTE: Tcl_Eval saves the last -exec result to s->gedp->ged_result_str
-       this causes a duplicate print of the last 'search -exec' in mged (since
-       we're bu_logging here and then the ged_result_str is later flushed).
-       To fix this, we need to clear the ged_result_str
+    /* Since we've already bu_logged the results, we need to clear the
+     * ged_result_str for the next iteration.
     */
     bu_vls_trunc(s->gedp->ged_result_str, 0);
 
@@ -1170,6 +1155,10 @@ cmd_output_hook(ClientData clientData, Tcl_Interp *interpreter, int argc, const 
 int
 cmd_nop(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 {
+    (void)clientData;
+    (void)interp;
+    (void)argc;
+    (void)argv;
     return TCL_OK;
 }
 
