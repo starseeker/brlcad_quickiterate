@@ -173,52 +173,33 @@ _bot_cmd_vertex_pick(void *bs, int argc, const char **argv)
     if (_bot_pick_ray(gib, argc, argv, origin, dir, diag_len) != BRLCAD_OK)
 	return BRLCAD_ERROR;
 
-    /* Use a fraction of the bbox diagonal to inflate vertex bounding boxes
-     * so the RTree ray query can find nearby vertices even if the ray doesn't
-     * pass exactly through them. */
-    double vlen = diag_len * 0.02;
-
-    RTree<int, double, 3> vert_bboxes;
-    for (size_t i = 0; i < bot->num_vertices; i++) {
-	double vx = bot->vertices[3*i+0];
-	double vy = bot->vertices[3*i+1];
-	double vz = bot->vertices[3*i+2];
-	double p1[3] = { vx - vlen, vy - vlen, vz - vlen };
-	double p2[3] = { vx + vlen, vy + vlen, vz + vlen };
-	vert_bboxes.Insert(p1, p2, (int)i);
-    }
-
-    RTree<int, double, 3>::Ray ray;
-    for (int i = 0; i < 3; i++) {
-	ray.o[i] = origin[i];
-	ray.d[i] = dir[i];
-	ray.di[i] = 1.0 / ray.d[i];
-    }
-
-    std::set<int> averts;
-    size_t vcnt = vert_bboxes.Intersects(&ray, &averts);
-    if (vcnt == 0) {
-	bu_vls_printf(gib->vls, "no nearby vertices found\n");
-	return BRLCAD_OK;
-    }
-
-    /* Find vertex closest to the ray */
+    /* Find the vertex with the smallest perpendicular distance to the ray
+     * across all vertices in the mesh.  In wireframe views (the normal case)
+     * any vertex in the mesh can be visible regardless of face occlusion, so
+     * we must consider all vertices rather than limiting the search to faces
+     * struck by the ray.  The perpendicular distance from a vertex to the ray
+     * line is exactly the 2D screen-space distance to the mouse click point,
+     * making this the correct selection metric. */
     struct bn_tol tol = BN_TOL_INIT_TOL;
     double dmin = DBL_MAX;
     int cvert = -1;
 
-    for (std::set<int>::iterator it = averts.begin(); it != averts.end(); it++) {
-	int vi = *it;
+    for (size_t i = 0; i < bot->num_vertices; i++) {
 	point_t vp;
-	VMOVE(vp, &bot->vertices[3*vi]);
+	VMOVE(vp, &bot->vertices[3*i]);
 
 	fastf_t vdist;
 	point_t pca;
 	bg_dist_pnt3_line3(&vdist, pca, origin, vp, dir, &tol);
 	if (vdist < dmin) {
 	    dmin = vdist;
-	    cvert = vi;
+	    cvert = (int)i;
 	}
+    }
+
+    if (cvert < 0) {
+	bu_vls_printf(gib->vls, "no vertex found\n");
+	return BRLCAD_OK;
     }
 
     if (gib->gb->verbosity) {
@@ -289,7 +270,15 @@ _bot_cmd_edge_pick(void *bs, int argc, const char **argv)
 	}
     }
 
-    /* Build RTree with inflated edge bounding boxes */
+    /* Build RTree with edge bounding boxes inflated by a uniform fraction of
+     * the mesh bounding-box diagonal.  In wireframe views (the norm) any edge
+     * at any depth in the mesh can be the intended target, so the inflation
+     * must be large enough that the ray query returns all edges that could
+     * plausibly be the closest one in screen space.  Using a global value
+     * (rather than per-edge length) gives consistent behaviour regardless of
+     * local edge density. */
+    const double inflate = diag_len * 0.1;
+
     RTree<int, double, 3> edge_bboxes;
     for (size_t ei = 0; ei < edges.size(); ei++) {
 	const double *va = &bot->vertices[3*edges[ei].first];
@@ -297,22 +286,8 @@ _bot_cmd_edge_pick(void *bs, int argc, const char **argv)
 
 	double p1[3], p2[3];
 	for (int k = 0; k < 3; k++) {
-	    p1[k] = std::min(va[k], vb[k]);
-	    p2[k] = std::max(va[k], vb[k]);
-	}
-
-	/* Inflate to ensure non-degenerate volume (axis-aligned edges have
-	 * zero width in one or more dimensions). */
-	double inflate = 0.0;
-	for (int k = 0; k < 3; k++)
-	    inflate = std::max(inflate, p2[k] - p1[k]);
-	inflate *= 0.1;
-	if (inflate < SMALL_FASTF)
-	    inflate = diag_len * 0.001;
-
-	for (int k = 0; k < 3; k++) {
-	    p1[k] -= inflate;
-	    p2[k] += inflate;
+	    p1[k] = std::min(va[k], vb[k]) - inflate;
+	    p2[k] = std::max(va[k], vb[k]) + inflate;
 	}
 
 	edge_bboxes.Insert(p1, p2, (int)ei);
@@ -326,10 +301,15 @@ _bot_cmd_edge_pick(void *bs, int argc, const char **argv)
     }
 
     std::set<int> aedges;
-    size_t ecnt = edge_bboxes.Intersects(&ray, &aedges);
-    if (ecnt == 0) {
-	bu_vls_printf(gib->vls, "no nearby edges found\n");
-	return BRLCAD_OK;
+    edge_bboxes.Intersects(&ray, &aedges);
+
+    /* If the inflated-bbox ray query missed everything (can happen when the
+     * ray passes through a very sparse region of the mesh), fall back to
+     * testing every edge so the closest is never missed. */
+    bool use_all = aedges.empty();
+    if (use_all) {
+	for (size_t ei = 0; ei < edges.size(); ei++)
+	    aedges.insert((int)ei);
     }
 
     /* Find closest edge to the ray */

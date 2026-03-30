@@ -58,7 +58,7 @@ extern "C" {
 
 // TODO - I think this may be the same for brep and bot, which suggests it should be
 // a common libged utility function of some sort...
-static int
+int
 _bot_face_specifiers(std::set<int> &elements, struct bu_vls *vls, int argc, const char **argv) {
     for (int i = 0; i < argc; i++) {
 	std::string s1(argv[i]);
@@ -1245,6 +1245,34 @@ _bot_cmd_vertex(void *bs, int argc, const char **argv)
 }
 
 
+extern "C" int
+_bot_cmd_info(void *bs, int argc, const char **argv)
+{
+    const char *usage_string = "bot [options] <objname> info [V|F] [index ...]";
+    const char *purpose_string = "report detailed information about BoT vertices and faces";
+    if (_bot_cmd_msgs(bs, argc, argv, usage_string, purpose_string)) {
+	return BRLCAD_OK;
+    }
+
+    struct _ged_bot_info *gb = (struct _ged_bot_info *)bs;
+
+    argc--; argv++;
+
+    if (!argc) {
+	bu_vls_printf(gb->gedp->ged_result_str, "%s\n", usage_string);
+	return BRLCAD_ERROR;
+    }
+
+    if (_bot_obj_setup(gb, argv[0]) & BRLCAD_ERROR) {
+	return BRLCAD_ERROR;
+    }
+
+    argc--; argv++;
+
+    return bot_info(gb, argc, argv);
+}
+
+
 const struct bu_cmdtab _bot_cmds[] = {
     { "check",      _bot_cmd_check},
     { "chull",      _bot_cmd_chull},
@@ -1253,6 +1281,7 @@ const struct bu_cmdtab _bot_cmds[] = {
     { "extrude",    _bot_cmd_extrude},
     { "flip",       _bot_cmd_flip},
     { "get",        _bot_cmd_get},
+    { "info",       _bot_cmd_info},
     { "isect",      _bot_cmd_isect},
     { "pca",        _bot_cmd_pca},
     { "pick",       _bot_cmd_pick},
