@@ -2431,13 +2431,15 @@ cdt_mesh_t::bnorm(const triangle_t &t)
     ON_3dPoint avgnorm(0,0,0);
 
     // Can't calculate this without some key Brep data
-    if (!nmap.size()) return avgnorm;
+    if (!nmap.size() && !sv.size()) return avgnorm;
 
     double norm_cnt = 0.0;
 
+    // First pass: average normals from non-singularity vertices, as they
+    // provide the most reliable orientation signal for the triangle.
     for (size_t i = 0; i < 3; i++) {
 	if (sv.find(t.v[i]) != sv.end()) {
-	    // singular vert norms are a product of multiple faces - not useful for this
+	    // singular vert norms are a product of multiple faces
 	    continue;
 	}
 	ON_3dPoint onrm = *normals[nmap[t.v[i]]];
@@ -2447,8 +2449,30 @@ cdt_mesh_t::bnorm(const triangle_t &t)
 	avgnorm = avgnorm + onrm;
 	norm_cnt = norm_cnt + 1.0;
     }
+    if (norm_cnt > 0) {
+	ON_3dVector anrm = avgnorm/norm_cnt;
+	anrm.Unitize();
+	return anrm;
+    }
 
-    ON_3dVector anrm = avgnorm/norm_cnt;
+    // All three vertices are singularity vertices.  The old code would
+    // divide by zero here; use the pre-averaged singularity normals instead.
+    // Deduplicate by 3D pointer so that multiple UV-space instances of the
+    // same singularity pole are counted only once.
+    std::set<ON_3dPoint *> seen_pts;
+    for (size_t i = 0; i < 3; i++) {
+	ON_3dPoint *p3d = pnts[(size_t)t.v[i]];
+	if (!seen_pts.insert(p3d).second)
+	    continue;
+	ON_3dVector vn = vert_norm(t.v[i]);
+	if (vn.Length() > ON_ZERO_TOLERANCE) {
+	    avgnorm = avgnorm + ON_3dPoint(vn);
+	    norm_cnt++;
+	}
+    }
+
+    if (norm_cnt < 0.5) return avgnorm;
+    ON_3dVector anrm = avgnorm / norm_cnt;
     anrm.Unitize();
     return anrm;
 }
@@ -2843,24 +2867,41 @@ cdt_mesh_t::oriented_polycdt(cpolygon_t *polygon, bool reproject)
     // triangles, that signals a fold-over in the conformal mapping.  Retry
     // with the best-fit-plane approach, which is more conservative and doesn't
     // alter the relative 2D ordering of points, making fold-overs much less
-    // likely.
+    // likely.  If best-fit-plane also fails (e.g. due to a degenerate polygon
+    // with duplicate singularity boundary vertices), fall back to accepting
+    // the LSCM triangulation and letting the global majority-vote flip decide
+    // orientation.
     if (tried_lscm && flip_cnt > 0 && flip_cnt <= polygon->tris.size() / 2) {
 	bu_log("lscm fold-over on f_id=%d (flip=%zu/%zu), retrying with best_fit_plane\n",
 	    f_id, flip_cnt, polygon->tris.size());
+	// Save the LSCM triangulation before overwriting it.
+	std::vector<std::pair<double, double>> pnts_2d_lscm = polygon->pnts_2d;
+	std::set<triangle_t> tris_lscm = polygon->tris;
+	size_t flip_cnt_lscm = flip_cnt;
 	polygon->pnts_2d = pnts_2d_orig;
 	polygon->ltris.clear();
 	polygon->tris.clear();
 	best_fit_plane_reproject(polygon);
-	if (!polygon->cdt()) return false;
-	// Recount flips for the new triangulation.
-	flip_cnt = 0;
-	for (tr_it = polygon->tris.begin(); tr_it != polygon->tris.end(); tr_it++) {
-	    triangle_t t = *tr_it;
-	    t.m = this;
-	    ON_3dVector tdir = tnorm(t);
-	    ON_3dVector bdir = bnorm(t);
-	    if (ON_DotProduct(tdir, bdir) < 0)
-		flip_cnt++;
+	if (!polygon->cdt()) {
+	    // best_fit_plane CDT failed (e.g. self-intersecting polygon from
+	    // duplicate singularity boundary vertices).  Fall back to the LSCM
+	    // result and accept its minor fold-over; the global majority-vote
+	    // flip below will handle overall orientation.
+	    bu_log("best_fit_plane CDT also failed on f_id=%d, using LSCM result\n", f_id);
+	    polygon->pnts_2d = pnts_2d_lscm;
+	    polygon->tris = tris_lscm;
+	    flip_cnt = flip_cnt_lscm;
+	} else {
+	    // Recount flips for the new triangulation.
+	    flip_cnt = 0;
+	    for (tr_it = polygon->tris.begin(); tr_it != polygon->tris.end(); tr_it++) {
+		triangle_t t = *tr_it;
+		t.m = this;
+		ON_3dVector tdir = tnorm(t);
+		ON_3dVector bdir = bnorm(t);
+		if (ON_DotProduct(tdir, bdir) < 0)
+		    flip_cnt++;
+	    }
 	}
     }
 
