@@ -5446,7 +5446,7 @@ void cdt_mesh_t::cdt_inputs_print(const char *filename)
     sfile << "                    tp[Y] = pnts_2d[idx][Y];\n";
     sfile << "                    in_hole = bg_pnt_in_polygon(holes_npts[hi],\n";
     sfile << "                        (const point2d_t *)(void *)hpoly,\n";
-    sfile << "                        (const point2d_t *)(void *)tp);\n";
+    sfile << "                        (const point2d_t *)(void *)&tp);\n";
     sfile << "                }\n";
     sfile << "                bu_free(hpoly, \"hpoly\");\n";
     sfile << "            }\n";
@@ -5497,7 +5497,7 @@ void cdt_mesh_t::cdt_inputs_print(const char *filename)
     sfile << "                    printf(\"  PROBLEM tri %d (%d,%d,%d) cen=(%.10g,%.10g) in hole %d\\n\",\n";
     sfile << "                        t, a, b, c, (double)cen[X], (double)cen[Y], hi);\n";
     sfile << "                    bad_tris++;\n";
-    sfile << "                    bad_area += tri_area_2d(pnts_2d, a, b, c);\n";
+    sfile << "                    bad_area += tri_area_2d((const point2d_t *)(void *)pnts_2d, a, b, c);\n";
     sfile << "                }\n";
     sfile << "                bu_free(hpoly, \"hpoly\");\n";
     sfile << "            }\n";

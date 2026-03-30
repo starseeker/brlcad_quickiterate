@@ -6270,7 +6270,7 @@ int main(void) {
                     point2d_t tp;
                     tp[X] = pnts_2d[idx][X];
                     tp[Y] = pnts_2d[idx][Y];
-                    in_hole = bg_pnt_in_polygon(holes_npts[hi], hpoly, &tp);
+                    in_hole = bg_pnt_in_polygon(holes_npts[hi], (const point2d_t *)(void *)hpoly, (const point2d_t *)(void *)&tp);
                 }
                 bu_free(hpoly, "hpoly");
             }
@@ -6287,7 +6287,7 @@ int main(void) {
         holes_cnt ? holes_npts  : NULL,
         (size_t)holes_cnt,
         steiner_cnt ? steiner : NULL, steiner_cnt,
-        pnts_2d, 2067, TRI_CONSTRAINED_DELAUNAY);
+(const point2d_t *)(void *)pnts_2d, 2067, TRI_CONSTRAINED_DELAUNAY);
     if (ret != 0) {
         printf("FAIL: bg_nested_poly_triangulate returned %d\n", ret);
         return 1;
@@ -6312,11 +6312,11 @@ int main(void) {
                     hpoly[hj][X] = pnts_2d[holes_array[hi][hj]][X];
                     hpoly[hj][Y] = pnts_2d[holes_array[hi][hj]][Y];
                 }
-                if (bg_pnt_in_polygon(holes_npts[hi], hpoly, &cen)) {
+                if (bg_pnt_in_polygon(holes_npts[hi], (const point2d_t *)(void *)hpoly, (const point2d_t *)(void *)&cen)) {
                     printf("  PROBLEM tri %d (%d,%d,%d) cen=(%.10g,%.10g) in hole %d\n",
                         t, a, b, c, (double)cen[X], (double)cen[Y], hi);
                     bad_tris++;
-                    bad_area += tri_area_2d(pnts_2d, a, b, c);
+                    bad_area += tri_area_2d((const point2d_t *)(void *)pnts_2d, a, b, c);
                 }
                 bu_free(hpoly, "hpoly");
             }
