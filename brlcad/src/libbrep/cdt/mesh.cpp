@@ -1201,6 +1201,17 @@ cpolygon_t::cdt(triangulation_t ttype)
 		  steiner_cnt, bgp_2d, pnts_2d.size(),
 		  ttype);
 
+    if (!result) {
+	// Dump a stand-alone C test file so the failure can be reproduced
+	// independently of the full CDT pipeline.
+	static int patch_fail_cnt = 0;
+	struct bu_vls fname = BU_VLS_INIT_ZERO;
+	bu_vls_sprintf(&fname, "cdt_patch_fail_%03d.c", patch_fail_cnt++);
+	cdt_inputs_print(bu_vls_cstr(&fname));
+	bu_log("patch CDT failure inputs written to %s\n", bu_vls_cstr(&fname));
+	bu_vls_free(&fname);
+    }
+
     if (result) {
 	for (int i = 0; i < num_faces; i++) {
 	    triangle_t t;
@@ -3348,6 +3359,60 @@ cdt_mesh_t::cdt()
     if (!result) {
 	bu_log("Face %d: bg_nested_poly_triangulate FAILED (bnd_pnts=%zu steiner=%zu/%zu holes=%d)\n",
 	    f_id, outer_loop.poly.size(), steiner_cnt, m_interior_pnts.size(), holes_cnt);
+
+	// Dump a stand-alone C test program so the failure can be reproduced
+	// and scrutinised independently of the full CDT pipeline.
+	struct bu_vls fname = BU_VLS_INIT_ZERO;
+	bu_vls_sprintf(&fname, "cdt_face%d_fail.c", f_id);
+	FILE *df = fopen(bu_vls_cstr(&fname), "w");
+	if (df) {
+	    fprintf(df, "#include <stdio.h>\n");
+	    fprintf(df, "#include \"bu/malloc.h\"\n");
+	    fprintf(df, "#include \"bg/polygon.h\"\n");
+	    fprintf(df, "int main() {\n");
+	    size_t np = m_pnts_2d.size();
+	    fprintf(df, "    point2d_t *bgp_2d = (point2d_t *)bu_calloc(%zu, sizeof(point2d_t), \"2d pts\");\n", np);
+	    for (size_t i = 0; i < np; i++) {
+		fprintf(df, "    bgp_2d[%zu][X] = %.17g;\n", i, m_pnts_2d[i].first  * uscale);
+		fprintf(df, "    bgp_2d[%zu][Y] = %.17g;\n", i, m_pnts_2d[i].second * vscale);
+	    }
+	    // The polygon array for bg_nested_poly_triangulate uses a closed format:
+	    // the first vertex index is repeated as the last entry (size = edge_count + 1).
+	    size_t on = outer_loop.poly.size() + 1;
+	    fprintf(df, "    int *opoly = (int *)bu_calloc(%zu, sizeof(int), \"opoly\");\n", on);
+	    for (size_t i = 0; i < on; i++)
+		fprintf(df, "    opoly[%zu] = %d;\n", i, opoly[i]);
+	    if (holes_cnt) {
+		fprintf(df, "    const int **holes = (const int **)bu_calloc(%d+1, sizeof(int *), \"holes\");\n", holes_cnt);
+		fprintf(df, "    size_t *holes_npts = (size_t *)bu_calloc(%d+1, sizeof(size_t), \"hnpts\");\n", holes_cnt);
+		for (int hi = 0; hi < holes_cnt; hi++) {
+		    size_t hn = holes_npts[hi];
+		    fprintf(df, "    int *hole%d = (int *)bu_calloc(%zu, sizeof(int), \"h%d\");\n", hi, hn, hi);
+		    for (size_t hj = 0; hj < hn; hj++)
+			fprintf(df, "    hole%d[%zu] = %d;\n", hi, hj, holes_array[hi][hj]);
+		    fprintf(df, "    holes[%d] = hole%d; holes_npts[%d] = %zu;\n", hi, hi, hi, hn);
+		}
+	    } else {
+		fprintf(df, "    const int **holes = NULL;\n");
+		fprintf(df, "    size_t *holes_npts = NULL;\n");
+	    }
+	    if (steiner_cnt) {
+		fprintf(df, "    int *steiner = (int *)bu_calloc(%zu, sizeof(int), \"stei\");\n", steiner_cnt);
+		for (size_t si = 0; si < steiner_cnt; si++)
+		    fprintf(df, "    steiner[%zu] = %d;\n", si, steiner[si]);
+	    } else {
+		fprintf(df, "    int *steiner = NULL;\n");
+	    }
+	    fprintf(df, "    int *faces = NULL; int num_faces = 0;\n");
+	    fprintf(df, "    int r = !bg_nested_poly_triangulate(&faces, &num_faces,\n");
+	    fprintf(df, "        NULL, NULL, opoly, %zu, holes, holes_npts, %d,\n", on, holes_cnt);
+	    fprintf(df, "        steiner, %zu, bgp_2d, %zu, TRI_CONSTRAINED_DELAUNAY);\n", steiner_cnt, np);
+	    fprintf(df, "    if (r) printf(\"success\\n\"); else printf(\"FAIL\\n\");\n");
+	    fprintf(df, "    return !r;\n}\n");
+	    fclose(df);
+	    bu_log("Face %d: CDT failure inputs written to %s\n", f_id, bu_vls_cstr(&fname));
+	}
+	bu_vls_free(&fname);
     }
 
     tris_2d.clear();
@@ -4887,6 +4952,43 @@ cdt_mesh_t::best_fit_plane_plot(point_t *center, vect_t *norm, const char *fname
  * https://github.com/jpcy/xatlas
  */
 
+/* Return the best available surface normal for mesh vertex vi.
+ *
+ * At NURBS singularities (poles) the directly-evaluated surface normal is
+ * undefined, so we pre-compute an averaged normal from the surrounding
+ * well-behaved surfaces and store it in s_cdt->singular_vert_to_norms.
+ * This function returns that averaged normal for any vertex in sv, and the
+ * ordinary normals[nmap[vi]] for all other vertices.  m_bRev is applied so
+ * callers need not worry about face orientation.
+ */
+ON_3dVector
+cdt_mesh_t::vert_norm(long vi)
+{
+    ON_3dPoint *norm_pt = NULL;
+
+    if (sv.find(vi) != sv.end()) {
+	// Singularity vertex: prefer the pre-averaged normal from the CDT state.
+	if (p_cdt) {
+	    struct ON_Brep_CDT_State *s_cdt = (struct ON_Brep_CDT_State *)p_cdt;
+	    auto it = s_cdt->singular_vert_to_norms->find(pnts[(size_t)vi]);
+	    if (it != s_cdt->singular_vert_to_norms->end())
+		norm_pt = it->second;
+	}
+    } else {
+	auto nit = nmap.find(vi);
+	if (nit != nmap.end())
+	    norm_pt = normals[nit->second];
+    }
+
+    if (!norm_pt)
+	return ON_3dVector(0.0, 0.0, 0.0);
+
+    ON_3dVector v(*norm_pt);
+    if (m_bRev)
+	v = -v;
+    return v;
+}
+
 bool
 cdt_mesh_t::best_fit_plane_reproject(cpolygon_t *polygon)
 {
@@ -4912,11 +5014,20 @@ cdt_mesh_t::best_fit_plane_reproject(cpolygon_t *polygon)
     }
 
     ON_3dVector avgtnorm(0.0,0.0,0.0);
-    for (a_it = averts.begin(); a_it != averts.end(); a_it++) {
-	ON_3dPoint *vn = normals[nmap[*a_it]];
-	if (vn) {
-	    avgtnorm += *vn;
-	    ncnt++;
+    {
+	// Deduplicate by 3D point pointer: singularity points can have multiple
+	// UV-space indices all mapping to the same 3D location.  Counting each
+	// UV copy once would distort the average toward that singularity.
+	std::set<ON_3dPoint *> seen_pts;
+	for (a_it = averts.begin(); a_it != averts.end(); a_it++) {
+	    ON_3dPoint *p3d = pnts[(size_t)*a_it];
+	    if (!seen_pts.insert(p3d).second)
+		continue; // already counted this 3D point
+	    ON_3dVector vn = vert_norm(*a_it);
+	    if (vn.Length() > ON_ZERO_TOLERANCE) {
+		avgtnorm += vn;
+		ncnt++;
+	    }
 	}
     }
     avgtnorm = avgtnorm * 1.0/(double)ncnt;
@@ -4924,19 +5035,29 @@ cdt_mesh_t::best_fit_plane_reproject(cpolygon_t *polygon)
     point_t pcenter;
     vect_t pnorm;
     {
-	point_t *vpnts = (point_t *)bu_calloc(averts.size()+1, sizeof(point_t), "fitting points");
+	// Deduplicate by 3D pointer so repeated singularity UV points don't
+	// skew bg_fit_plane toward the singularity location.
+	// First pass: count unique 3D points.
+	std::set<ON_3dPoint *> seen_fit;
+	for (a_it = averts.begin(); a_it != averts.end(); a_it++)
+	    seen_fit.insert(pnts[(size_t)*a_it]);
+	// Second pass: fill the array.
+	point_t *vpnts = (point_t *)bu_calloc(seen_fit.size() + 1, sizeof(point_t), "fitting points");
 	int pnts_ind = 0;
+	std::set<ON_3dPoint *> seen_fit2;
 	for (a_it = averts.begin(); a_it != averts.end(); a_it++) {
-	    ON_3dPoint *p = pnts[*a_it];
+	    ON_3dPoint *p = pnts[(size_t)*a_it];
+	    if (!seen_fit2.insert(p).second)
+		continue;
 	    vpnts[pnts_ind][X] = p->x;
 	    vpnts[pnts_ind][Y] = p->y;
 	    vpnts[pnts_ind][Z] = p->z;
 	    pnts_ind++;
 	}
-	if (bg_fit_plane(&pcenter, &pnorm, pnts_ind, vpnts)) {
-	    return false;
-	}
+	bool fit_failed = bg_fit_plane(&pcenter, &pnorm, pnts_ind, vpnts);
 	bu_free(vpnts, "fitting points");
+	if (fit_failed)
+	    return false;
 
 	ON_3dVector on_norm(pnorm[X], pnorm[Y], pnorm[Z]);
 	if (ON_DotProduct(on_norm, avgtnorm) < 0) {
@@ -5229,11 +5350,17 @@ cdt_mesh_t::best_fit_plane(std::set<triangle_t> &ts)
 
     ON_3dVector avgtnorm(0.0,0.0,0.0);
     int ncnt = 0;
-    for (a_it = averts.begin(); a_it != averts.end(); a_it++) {
-	ON_3dPoint *vn = normals[nmap[*a_it]];
-	if (vn) {
-	    avgtnorm += *vn;
-	    ncnt++;
+    {
+	std::set<ON_3dPoint *> seen_nrm;
+	for (a_it = averts.begin(); a_it != averts.end(); a_it++) {
+	    ON_3dPoint *p3d = pnts[(size_t)*a_it];
+	    if (!seen_nrm.insert(p3d).second)
+		continue;
+	    ON_3dVector vn = vert_norm(*a_it);
+	    if (vn.Length() > ON_ZERO_TOLERANCE) {
+		avgtnorm += vn;
+		ncnt++;
+	    }
 	}
     }
     avgtnorm = avgtnorm * 1.0/(double)ncnt;
@@ -5241,20 +5368,29 @@ cdt_mesh_t::best_fit_plane(std::set<triangle_t> &ts)
     point_t pcenter;
     vect_t pnorm;
 
-    point_t *vpnts = (point_t *)bu_calloc(averts.size()+1, sizeof(point_t), "fitting points");
-    int pnts_ind = 0;
-    for (a_it = averts.begin(); a_it != averts.end(); a_it++) {
-	ON_3dPoint *p = pnts[*a_it];
-	vpnts[pnts_ind][X] = p->x;
-	vpnts[pnts_ind][Y] = p->y;
-	vpnts[pnts_ind][Z] = p->z;
-	pnts_ind++;
+    {
+	std::set<ON_3dPoint *> seen_fit;
+	for (a_it = averts.begin(); a_it != averts.end(); a_it++)
+	    seen_fit.insert(pnts[(size_t)*a_it]);
+	point_t *vpnts = (point_t *)bu_calloc(seen_fit.size() + 1, sizeof(point_t), "fitting points");
+	int pnts_ind = 0;
+	std::set<ON_3dPoint *> seen_fit2;
+	for (a_it = averts.begin(); a_it != averts.end(); a_it++) {
+	    ON_3dPoint *p = pnts[(size_t)*a_it];
+	    if (!seen_fit2.insert(p).second)
+		continue;
+	    vpnts[pnts_ind][X] = p->x;
+	    vpnts[pnts_ind][Y] = p->y;
+	    vpnts[pnts_ind][Z] = p->z;
+	    pnts_ind++;
+	}
+	bool fit_failed = bg_fit_plane(&pcenter, &pnorm, pnts_ind, vpnts);
+	bu_free(vpnts, "fitting points");
+	if (fit_failed) {
+	    ON_Plane null_fit_plane(ON_3dPoint::UnsetPoint, ON_3dVector::UnsetVector);
+	    return null_fit_plane;
+	}
     }
-    if (bg_fit_plane(&pcenter, &pnorm, pnts_ind, vpnts)) {
-	ON_Plane null_fit_plane(ON_3dPoint::UnsetPoint, ON_3dVector::UnsetVector);
-	return null_fit_plane;
-    }
-    bu_free(vpnts, "fitting points");
 
     ON_3dVector on_norm(pnorm[X], pnorm[Y], pnorm[Z]);
     if (ON_DotProduct(on_norm, avgtnorm) < 0) {
