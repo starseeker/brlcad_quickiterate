@@ -2795,7 +2795,24 @@ cdt_mesh_t::oriented_polycdt(cpolygon_t *polygon, bool reproject)
 	}
     }
 
-    if (!polygon->cdt()) return false;
+    if (!polygon->cdt()) {
+	// If LSCM was used and CDT failed despite the unit-circle validation
+	// passing, fall back to best_fit_plane as a safety net.  This handles
+	// the rare case where the CG solver produces coordinates that pass the
+	// 1% unit-circle tolerance but still cause CDT to fail (e.g. a Steiner
+	// point in a large arc segment outside the inscribed polygon).
+	if (tried_lscm) {
+	    bu_log("lscm CDT failed on f_id=%d, retrying with best_fit_plane\n", f_id);
+	    polygon->pnts_2d = pnts_2d_orig;
+	    polygon->ltris.clear();
+	    polygon->tris.clear();
+	    tried_lscm = false;
+	    best_fit_plane_reproject(polygon);
+	    if (!polygon->cdt()) return false;
+	} else {
+	    return false;
+	}
+    }
 
     size_t flip_cnt = 0;
     std::set<triangle_t>::iterator tr_it;
@@ -5150,12 +5167,36 @@ cdt_mesh_t::lscm_reproject(cpolygon_t *polygon)
     }
 
     // ── Step 9: Validate the reprojection ────────────────────────────────────
+    // After LSCM the boundary loop is placed on the unit circle; Tutte's
+    // theorem (mean-value weights are always positive) guarantees that all
+    // true interior vertices are strictly inside the unit disk.  We validate
+    // using a unit-circle distance test rather than Franklin's ray-cast
+    // point_in_polygon, because the ray-cast algorithm is undefined (can
+    // return 0) for points exactly on or very near the polygon boundary —
+    // which is exactly the situation for near-boundary interior vertices after
+    // LSCM maps the boundary to the unit circle.
     int valid = 1;
     if (!polygon->closed()) {
 	valid = 0;
     } else {
+	// Tolerance: 1% headroom for CG-solver numerical imprecision.
+	// A genuine LSCM failure (CG divergence) would place vertices far
+	// outside the unit disk, not merely 1% beyond it.
+	static const double kUnitCircleTolSq = 1.02 * 1.02;
 	for (long ip : polygon->interior_points) {
-	    if (!polygon->point_in_polygon(ip, false)) {
+	    int32_t gi = (int32_t)ip;
+	    // Vertices that are also on the polygon boundary loop are placed
+	    // exactly on the unit circle (radius == 1) by the LSCM mapping;
+	    // they are trivially "inside" the polygon boundary.
+	    if (bnd_set.find(gi) != bnd_set.end())
+		continue;
+	    if ((size_t)gi >= polygon->pnts_2d.size()) {
+		valid = 0;
+		break;
+	    }
+	    double u = polygon->pnts_2d[(size_t)gi].first;
+	    double v = polygon->pnts_2d[(size_t)gi].second;
+	    if (u * u + v * v > kUnitCircleTolSq) {
 		valid = 0;
 		break;
 	    }
