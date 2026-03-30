@@ -1,4 +1,4 @@
-/*                           C M D . C
+/*                        C M D . C P P
  * BRL-CAD
  *
  * Copyright (c) 1985-2025 United States Government as represented by
@@ -17,13 +17,20 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/** @file mged/cmd.c
+/** @file mged/cmd.cpp
  *
  * The hooks to most of mged's commands when running in console mode.
  *
  */
 
 #include "common.h"
+
+/* C++17 threading support for async ged_exec (Stage 3) */
+#include <atomic>
+#include <functional>
+#include <thread>
+
+extern "C" {
 
 #include <stdlib.h>
 #include <math.h>
@@ -38,20 +45,23 @@
 #include "bio.h"
 #include "bresource.h"
 
-#include "tcl.h"
-#ifdef HAVE_TK
-#  include "tk.h"
-#endif
 
 #include "vmath.h"
 #include "bu/getopt.h"
 #include "bu/path.h"
 #include "bu/time.h"
+#include "bu/snooze.h"
 #include "bn.h"
 #include "bv/util.h"
 #include "rt/edit.h"
 #include "rt/geom.h"
 #include "ged.h"
+
+#include "tcl.h"
+#ifdef HAVE_TK
+#  include "tk.h"
+#endif
+
 #include "tclcad.h"
 
 #include "./mged.h"
@@ -59,9 +69,9 @@
 #include "./mged_dm.h"
 #include "./sedit.h"
 
-extern void mged_finish(struct mged_state *s, int exitcode); /* in mged.c */
-extern void update_grids(struct mged_state *s, fastf_t sf);		/* in grid.c */
-extern void set_localunit_TclVar(struct mged_state *s);		/* in chgmodel.c */
+void mged_finish(struct mged_state *s, int exitcode); /* in mged.c */
+void update_grids(struct mged_state *s, fastf_t sf);		/* in grid.c */
+void set_localunit_TclVar(struct mged_state *s);		/* in chgmodel.c */
 extern void init_qray(void);			/* in qray.c */
 
 
@@ -78,42 +88,102 @@ Tk_Window tkwin = NULL;
  * produce output. */
 static struct bu_vls tcl_output_cmd = BU_VLS_INIT_ZERO;
 
-/* Container to store up bu_log strings for eventual Tcl printing.  This is
- * done to ensure only one thread attempts to print to the Tcl output - bu_log
- * may be called from multiple threads, and if the hook itself tries to print
- * to Tcl Bad Things can happen. */
+/* Thread-safe buffer: bu_log output from any thread is accumulated here under
+ * MGED_SEM_LOG protection.  The main thread drains it to the Tcl interp via
+ * mged_pr_output(), which is called from refresh() and the log_drain timer. */
 static struct bu_vls tcl_log_str = BU_VLS_INIT_ZERO;
+
+/* Dedicated semaphore for the log buffer (Stage 1).
+ * Using a named application semaphore instead of BU_SEM_SYSCALL avoids
+ * holding a global library semaphore while doing unrelated work, and prevents
+ * deadlocks that would occur if Tcl callbacks triggered by mged_pr_output
+ * themselves called bu_log (which also acquires BU_SEM_SYSCALL). */
+static int MGED_SEM_LOG = -1;
+
+}
+
+/* Stage 3 internal C++ async helper.
+ *
+ * In GUI (non-classic, interactive) mode: runs 'func' in a std::thread while
+ * the main thread pumps the Tcl event loop so that Tk GUI events stay
+ * responsive and the log-drain timer can flush intermediate bu_log output.
+ * s->cmd_running is set to 1 for the duration to guard against re-entrant
+ * stdin_input dispatches.
+ *
+ * In classic / non-interactive mode: runs 'func' synchronously on the calling
+ * thread without pumping the event loop, so that scripted stdin commands
+ * execute in order without interference from channel handlers.
+ *
+ * In both cases the caller's stack frame remains valid for the entire call.
+ */
+static int
+run_ged_async(struct mged_state *s, std::function<int()> func)
+{
+    /* In classic / non-interactive mode there is no GUI to keep responsive,
+     * and stdin may be a script file.  Pumping the Tcl event loop while a
+     * command runs would cause stdin_input to fire for the next scripted line
+     * while cmd_running==1, dropping it with "command already running".
+     * Run synchronously instead so all scripted commands execute in order. */
+    if (s->classic_mged || !s->interactive)
+	return func();
+
+    std::atomic<bool> done{false};
+    std::atomic<int>  result{0};
+
+    s->cmd_running = 1;
+
+    std::thread worker([&]() {
+	result.store(func(), std::memory_order_release);
+	done.store(true, std::memory_order_release);
+    });
+
+    /* Pump the Tcl event loop while the worker runs.
+     * TCL_DONT_WAIT means we never block waiting for an event, so we can
+     * check 'done' and sleep briefly to avoid a busy-loop.  The log-drain
+     * timer installed by mged_start_log_drain_timer() fires during these
+     * Tcl_DoOneEvent calls, streaming intermediate bu_log output to the
+     * command prompt as it arrives. */
+    while (!done.load(std::memory_order_acquire)) {
+	Tcl_DoOneEvent(TCL_ALL_EVENTS | TCL_DONT_WAIT);
+	mged_pr_output(s->interp);
+	bu_snooze(10000); /* 10 ms — keeps CPU low while staying responsive */
+    }
+
+    /* Final drain to pick up anything written just before thread exit. */
+    mged_pr_output(s->interp);
+
+    worker.join();
+    s->cmd_running = 0;
+    return result.load();
+}
+
+
+extern "C" {
+
+/**
+ * Initialise the dedicated MGED log-buffer semaphore.
+ *
+ * Must be called once, early in mged_setup(), before any parallel code runs.
+ * Uses bu_semaphore_register() (the correct BRL-CAD application semaphore API)
+ * rather than bu/tc.h primitives.
+ */
+void
+mged_sem_log_init(void)
+{
+    if (MGED_SEM_LOG < 0)
+	MGED_SEM_LOG = bu_semaphore_register("MGED_SEM_LOG");
+}
 
 
 /**
- * Used as a hook for bu_log output.  Sends output to the Tcl
- * procedure whose name is contained in the vls "tcl_output_hook".
+ * NOTE:  There is a problem with bu_log output we are trying to solve - per
+ * Tcl's documentation (https://www.tcl.tk/doc/howto/thread_model.html) "errors
+ * will occur if you let more than one thread call into the same interpreter
+ * (e.g., with Tcl_Eval)"  However, gui_output may be called from multiple
+ * threads during (say) a parallel raytrace, when lower level routines
+ * encounter problems and bu_log about them.
  *
- * NOTE:  There is a problem with this code - per Tcl's documentation
- * (https://www.tcl.tk/doc/howto/thread_model.html) "errors will occur if you
- * let more than one thread call into the same interpreter (e.g., with
- * Tcl_Eval)"  However, gui_output may be called from multiple threads
- * during (say) a parallel raytrace, when lower level routines encounter
- * problems and bu_log about them.
- *
- * On some platforms we seem to get away with this despite the Tcl
- * documentation warning, but on Windows we've frequently seen the MGED command
- * prompt locking up - usually when we have heavy bu_log output from librt.
- * Since we're going to freeze up anyway, in that situation we accumulate
- * the output in a vls buffer rather than trying to force it to the Tcl
- * prompt - this avoids putting the Tcl interp in a problematic state.
- * Unfortunately, this comes at the expense of intermediate feedback reaching
- * the end user - because ged_exec calls are made from the main thread,
- * they are blocking as far as the refresh() call is concerned and we don't
- * see any bu_log output until the command completes.
- *
- * The correct fix here is to set up a separate thread for ged_exec calls
- * that doesn't block the main GUI thread.  That way, the intermediate
- * results being accumulated into the tcl_log_str buffer can be flushed
- * to the Tcl command prompt by refresh() while the GED command is still
- * running.  Not clear yet how much effort that will take to implement.
- *
- * Note there is also a serious complication when it comes to thing like
+ * There is also a serious complication when it comes to thing like
  * search -exec, which in MGED may exec Tcl commands on the results - that
  * will cause problems with repeated Tcl_Eval calls even if we handle
  * ged_exec.  In the worst cases -exec could be instructing the GUI to
@@ -126,84 +196,139 @@ static struct bu_vls tcl_log_str = BU_VLS_INIT_ZERO;
  * with Tcl_Eval when we're already trying to do a Tcl_Eval of the original
  * command.
  */
-int
-gui_output(void *clientData, void *str)
+
+/* Tcl timer callback (Stage 2): drain accumulated log output to the command
+ * prompt and reschedule itself so that intermediate bu_log output produced
+ * during a long ged_exec call (running in a worker thread) reaches the user
+ * in near-real-time.
+ */
+static void
+log_drain_callback(ClientData clientData)
 {
     struct mged_state *s = (struct mged_state *)clientData;
     MGED_CK_STATE(s);
-
-	int len;
-    Tcl_DString tclcommand;
-    Tcl_Obj *save_result;
-    static int level = 0;
-
-    if (level > 50) {
-	bu_log_delete_hook(gui_output, s);
-	/* Now safe to run bu_log? */
-	bu_log("Ack! Something horrible just happened recursively.\n");
-	return 0;
-    }
-
-    Tcl_DStringInit(&tclcommand);
-    (void)Tcl_DStringAppendElement(&tclcommand, bu_vls_addr(&tcl_output_cmd));
-    (void)Tcl_DStringAppendElement(&tclcommand, (const char *)str);
-
-    save_result = Tcl_GetObjResult(s->interp);
-    Tcl_IncrRefCount(save_result);
-    ++level;
-    Tcl_Eval(s->interp, Tcl_DStringValue(&tclcommand));
-    --level;
-    Tcl_SetObjResult(s->interp, save_result);
-    Tcl_DecrRefCount(save_result);
-
-    Tcl_DStringFree(&tclcommand);
-
-    len = (int)strlen((const char *)str);
-    return len;
+    mged_pr_output(s->interp);
+    /* Reschedule: 50 ms gives good responsiveness without unnecessary CPU use. */
+    s->log_drain_timer = Tcl_CreateTimerHandler(50, log_drain_callback, clientData);
 }
-#if 0
-// Version of the above callback that just accumulates output in a buffer
-// rather than writing it immediately to the interp - should be a starting
-// point when we work on multithreading ged_exec calls
+
+
+/**
+ * Start the recurring log-drain timer.  Call once from mged_setup().
+ */
+void
+mged_start_log_drain_timer(struct mged_state *s)
+{
+    MGED_CK_STATE(s);
+    s->log_drain_timer = Tcl_CreateTimerHandler(50, log_drain_callback, (ClientData)s);
+}
+
+
+/**
+ * Cancel the log-drain timer.  Call from mged_finish() before teardown.
+ */
+void
+mged_stop_log_drain_timer(struct mged_state *s)
+{
+    MGED_CK_STATE(s);
+    if (s->log_drain_timer) {
+	Tcl_DeleteTimerHandler(s->log_drain_timer);
+	s->log_drain_timer = NULL;
+    }
+}
+
+
+/**
+ * bu_log hook: accumulates output from any thread into tcl_log_str under
+ * MGED_SEM_LOG protection.  Never calls into the Tcl interpreter — that is
+ * safe to do only from the main thread, and is done by mged_pr_output().
+ *
+ * This replaces the old gui_output that called Tcl_Eval directly, which
+ * violated Tcl's threading model when bu_log was called from parallel worker
+ * threads (e.g. during librt ray-tracing or geometry repair operations).
+ */
 int
 gui_output(void *UNUSED(clientData), void *str)
 {
-    bu_semaphore_acquire(BU_SEM_SYSCALL);
+    bu_semaphore_acquire(MGED_SEM_LOG);
     bu_vls_printf(&tcl_log_str, "%s", (const char *)str);
-    bu_semaphore_release(BU_SEM_SYSCALL);
-    int len = (int)strlen((const char *)str);
-    return len;
+    bu_semaphore_release(MGED_SEM_LOG);
+    return (int)strlen((const char *)str);
 }
-#endif
 
+
+/**
+ * Drain accumulated bu_log output to the Tcl command prompt.
+ *
+ * Must only be called from the main (Tcl) thread.  Uses a copy-under-lock
+ * pattern: the semaphore is held only long enough to copy and clear the
+ * buffer; the (potentially slow / re-entrant) Tcl_Eval happens outside the
+ * lock to avoid deadlocks.
+ */
 void
 mged_pr_output(Tcl_Interp *interp)
 {
-    bu_semaphore_acquire(BU_SEM_SYSCALL);
+    struct bu_vls tmp = BU_VLS_INIT_ZERO;
+
+    /* Grab and clear the accumulated text under the lock. */
+    bu_semaphore_acquire(MGED_SEM_LOG);
     if (!bu_vls_strlen(&tcl_output_cmd))
 	bu_vls_sprintf(&tcl_output_cmd, "output_callback");
-
     if (bu_vls_strlen(&tcl_log_str)) {
+	bu_vls_vlscat(&tmp, &tcl_log_str);
+	bu_vls_trunc(&tcl_log_str, 0);
+    }
+    bu_semaphore_release(MGED_SEM_LOG);
+
+    /* Deliver to the Tcl command prompt with no lock held. */
+    if (bu_vls_strlen(&tmp)) {
 	Tcl_DString tclcommand;
 	Tcl_DStringInit(&tclcommand);
 	(void)Tcl_DStringAppendElement(&tclcommand, bu_vls_cstr(&tcl_output_cmd));
-	(void)Tcl_DStringAppendElement(&tclcommand, bu_vls_cstr(&tcl_log_str));
+	(void)Tcl_DStringAppendElement(&tclcommand, bu_vls_cstr(&tmp));
 	Tcl_Obj *save_result = Tcl_GetObjResult(interp);
 	Tcl_IncrRefCount(save_result);
 	Tcl_Eval(interp, Tcl_DStringValue(&tclcommand));
 	Tcl_SetObjResult(interp, save_result);
 	Tcl_DecrRefCount(save_result);
 	Tcl_DStringFree(&tclcommand);
-	bu_vls_trunc(&tcl_log_str, 0);
     }
 
-    bu_semaphore_release(BU_SEM_SYSCALL);
+    bu_vls_free(&tmp);
 }
+
+
+/**
+ * C-callable wrapper for run_ged_async() for use from C translation units
+ * such as chgview.c.
+ *
+ * Runs ged_exec(s->gedp, argc, argv) on a worker thread while the main
+ * thread pumps the Tcl event loop, allowing intermediate bu_log output from
+ * the command to be drained to the GUI in real-time via the log-drain timer.
+ *
+ * Falls back to a direct, synchronous ged_exec() in classic / non-interactive
+ * mode, matching the behaviour of run_ged_async().
+ */
+int
+mged_ged_exec_async(struct mged_state *s, int argc, const char *argv[])
+{
+    return run_ged_async(s, [&]() -> int {
+	return ged_exec(s->gedp, argc, argv);
+    });
+}
+
+} /* extern "C" */
 
 #define GED_OUTPUT do { \
     mged_pr_output(interpreter);\
     Tcl_AppendResult(interpreter, bu_vls_addr(s->gedp->ged_result_str), NULL); \
 } while (0)
+
+
+/* All remaining MGED command functions require C linkage because they are
+ * called through Tcl command dispatch (function pointers stored with
+ * Tcl_CreateCommand) and directly by name from other .c translation units. */
+extern "C" {
 
 
 int
@@ -306,7 +431,7 @@ cmd_ged_edit_wrapper(ClientData clientData, Tcl_Interp *interpreter, int argc, c
     if (s->gedp == GED_NULL)
 	return TCL_OK;
 
-    ret = (*ctp->ged_func)(s->gedp, argc, (const char **)argv);
+    ret = run_ged_async(s, [&]() -> int { return (*ctp->ged_func)(s->gedp, argc, (const char **)argv); });
     GED_OUTPUT;
 
     if (ret & GED_HELP)
@@ -341,7 +466,7 @@ cmd_ged_simulate_wrapper(ClientData clientData, Tcl_Interp *interpreter, int arg
 	return TCL_OK;
 
 
-    ret = (*ctp->ged_func)(s->gedp, argc, (const char **)argv);
+    ret = run_ged_async(s, [&]() -> int { return (*ctp->ged_func)(s->gedp, argc, (const char **)argv); });
     GED_OUTPUT;
 
     if (ret & GED_HELP)
@@ -373,7 +498,7 @@ cmd_ged_info_wrapper(ClientData clientData, Tcl_Interp *interpreter, int argc, c
 	return TCL_OK;
 
     if (argc >= 2) {
-	(void)(*ctp->ged_func)(s->gedp, argc, (const char **)argv);
+	(void)run_ged_async(s, [&]() -> int { return (*ctp->ged_func)(s->gedp, argc, (const char **)argv); });
 	GED_OUTPUT;
     } else {
 	if ((argc == 1) && (s->global_editing_state == ST_S_EDIT)) {
@@ -385,13 +510,13 @@ cmd_ged_info_wrapper(ClientData clientData, Tcl_Interp *interpreter, int argc, c
 		if (bdata->s_fullpath.fp_len > 0) {
 		    av[1] = (const char *)LAST_SOLID(bdata)->d_namep;
 		    av[argc] = (const char *)NULL;
-		    (void)(*ctp->ged_func)(s->gedp, argc, (const char **)av);
+		    (void)run_ged_async(s, [&]() -> int { return (*ctp->ged_func)(s->gedp, argc, (const char **)av); });
 		    GED_OUTPUT;
 		}
 	    }
 	    bu_free((void *)av, "cmd_ged_info_wrapper: av");
 	} else {
-	    (void)(*ctp->ged_func)(s->gedp, argc, (const char **)argv);
+	    (void)run_ged_async(s, [&]() -> int { return (*ctp->ged_func)(s->gedp, argc, (const char **)argv); });
 	    GED_OUTPUT;
 	}
     }
@@ -411,7 +536,7 @@ cmd_ged_erase_wrapper(ClientData clientData, Tcl_Interp *interpreter, int argc, 
     if (s->gedp == GED_NULL)
 	return TCL_OK;
 
-    ret = (*ctp->ged_func)(s->gedp, argc, (const char **)argv);
+    ret = run_ged_async(s, [&]() -> int { return (*ctp->ged_func)(s->gedp, argc, (const char **)argv); });
     GED_OUTPUT;
 
     if (ret)
@@ -481,7 +606,7 @@ cmd_ged_gqa(ClientData clientData, Tcl_Interp *interpreter, int argc, const char
 	gd_rt_cmd_len += ged_who_argv(s->gedp, vp, (const char **)&gd_rt_cmd[args]);
     }
 
-    ret = (*ctp->ged_func)(s->gedp, gd_rt_cmd_len, (const char **)gd_rt_cmd);
+    ret = run_ged_async(s, [&]() -> int { return (*ctp->ged_func)(s->gedp, gd_rt_cmd_len, (const char **)gd_rt_cmd); });
     GED_OUTPUT;
 
     bu_free(gd_rt_cmd, "free gd_rt_cmd");
@@ -553,7 +678,7 @@ cmd_ged_in(ClientData clientData, Tcl_Interp *interpreter, int argc, const char 
 	argc -= offset;
     }
 
-    ret = (*ctp->ged_func)(s->gedp, argc, (const char **)argv);
+    ret = run_ged_async(s, [&]() -> int { return (*ctp->ged_func)(s->gedp, argc, (const char **)argv); });
     if (ret & GED_MORE) {
 	Tcl_AppendResult(interpreter, MORE_ARGS_STR, NULL);
 	Tcl_AppendResult(interpreter, bu_vls_addr(s->gedp->ged_result_str), NULL);
@@ -767,7 +892,7 @@ cmd_ged_plain_wrapper(ClientData clientData, Tcl_Interp *interpreter, int argc, 
     if (s->gedp == GED_NULL)
 	return TCL_OK;
 
-    ret = (*ctp->ged_func)(s->gedp, argc, (const char **)argv);
+    ret = run_ged_async(s, [&]() -> int { return (*ctp->ged_func)(s->gedp, argc, (const char **)argv); });
 
 /* This code is for debugging/testing the new ged return mechanism */
 #if 0
@@ -858,7 +983,7 @@ cmd_ged_view_wrapper(ClientData clientData, Tcl_Interp *interpreter, int argc, c
     if (!s->gedp->ged_gvp)
 	s->gedp->ged_gvp = view_state->vs_gvp;
 
-    ret = (*ctp->ged_func)(s->gedp, argc, (const char **)argv);
+    ret = run_ged_async(s, [&]() -> int { return (*ctp->ged_func)(s->gedp, argc, (const char **)argv); });
     GED_OUTPUT;
 
     if (ret & GED_HELP)
@@ -1043,7 +1168,7 @@ cmd_output_hook(ClientData clientData, Tcl_Interp *interpreter, int argc, const 
 
 
 int
-cmd_nop(ClientData UNUSED(clientData), Tcl_Interp *UNUSED(interp), int UNUSED(argc), const char *UNUSED(argv[]))
+cmd_nop(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 {
     return TCL_OK;
 }
@@ -1242,8 +1367,8 @@ cmdline(struct mged_state *s, struct bu_vls *vp, int record)
     int64_t start;
     int64_t finish;
     size_t len;
-    char *cp;
-    const char *result;
+    const char *cp;
+    const char *result = "";
 
     BU_CK_VLS(vp);
 
@@ -1318,7 +1443,7 @@ cmdline(struct mged_state *s, struct bu_vls *vp, int record)
 		    bu_vls_printf(&tmp_vls, "distribute_text {} {%s} {%s}",
 				  bu_vls_addr(&save_vp), result);
 		    Tcl_Eval(s->interp, bu_vls_addr(&tmp_vls));
-		    Tcl_SetResult(s->interp, "", TCL_STATIC);
+		    Tcl_ResetResult(s->interp);
 		}
 
 		if (record)
@@ -1914,7 +2039,7 @@ cmd_nmg_collapse(ClientData clientData, Tcl_Interp *interpreter, int argc, const
     if (s->gedp == GED_NULL)
 	return TCL_OK;
 
-    ret = ged_exec(s->gedp, argc, (const char **)argv);
+    ret = run_ged_async(s, [&]() -> int { return ged_exec(s->gedp, argc, (const char **)argv); });
     GED_OUTPUT;
 
     if (ret)
@@ -1952,7 +2077,7 @@ cmd_units(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *
     }
 
     sf = s->dbip->dbi_base2local;
-    ret = ged_exec(s->gedp, argc, (const char **)argv);
+    ret = run_ged_async(s, [&]() -> int { return ged_exec(s->gedp, argc, (const char **)argv); });
     GED_OUTPUT;
 
     if (ret)
@@ -1984,7 +2109,7 @@ cmd_search(ClientData clientData, Tcl_Interp *interpreter, int argc, const char 
     if (s->gedp == GED_NULL)
 	return TCL_OK;
 
-    ret = ged_exec(s->gedp, argc, (const char **)argv);
+    ret = run_ged_async(s, [&]() -> int { return ged_exec(s->gedp, argc, (const char **)argv); });
     GED_OUTPUT;
 
     if (ret)
@@ -2014,7 +2139,7 @@ cmd_tol(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *ar
     if (s->gedp == GED_NULL)
 	return TCL_OK;
 
-    ret = ged_exec(s->gedp, argc, (const char **)argv);
+    ret = run_ged_async(s, [&]() -> int { return ged_exec(s->gedp, argc, (const char **)argv); });
     GED_OUTPUT;
 
     if (ret)
@@ -2051,7 +2176,7 @@ cmd_blast(ClientData clientData, Tcl_Interp *UNUSED(interpreter), int argc, cons
     if (s->gedp == GED_NULL)
 	return TCL_OK;
 
-    ret = ged_exec(s->gedp, argc, argv);
+    ret = run_ged_async(s, [&]() -> int { return ged_exec(s->gedp, argc, argv); });
     if (ret)
 	return TCL_ERROR;
 
@@ -2194,7 +2319,7 @@ cmd_shaded_mode(ClientData clientData,
 	++argv;
     }
 
-    ret = ged_exec(s->gedp, argc, (const char **)argv);
+    ret = run_ged_async(s, [&]() -> int { return ged_exec(s->gedp, argc, (const char **)argv); });
     GED_OUTPUT;
 
     if (ret)
@@ -2229,7 +2354,7 @@ cmd_ps(ClientData clientData,
 
     int ret = 0;
     const char *av[2] = {"process", "list"};
-    ret = ged_exec(s->gedp, 2, (const char **)av);
+    ret = run_ged_async(s, [&]() -> int { return ged_exec(s->gedp, 2, (const char **)av); });
     /* For the next couple releases, print a rename notice */
     mged_pr_output(interpreter);
     Tcl_AppendResult(interpreter, "(Note: former 'ps' command has been renamed to 'postscript')\n", NULL);
@@ -2603,7 +2728,7 @@ cmd_view(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
     if (argc < 2) {
 	if (!s->gedp->ged_gvp)
 	    s->gedp->ged_gvp = view_state->vs_gvp;
-	int ret = ged_exec_view(s->gedp, argc, (const char **)argv);
+	int ret = run_ged_async(s, [&]() -> int { return ged_exec_view(s->gedp, argc, (const char **)argv); });
 	GED_OUTPUT;
 	return (ret == BRLCAD_OK || (ret & GED_HELP)) ? TCL_OK : TCL_ERROR;
     }
@@ -2638,7 +2763,7 @@ cmd_view(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
     }
 
     /* If distinct and pre-existing, snapshot what we'll overwrite */
-    struct _view_cache prev = {0};
+    struct _view_cache prev = {};
     if (!shared_view && !created_temp) {
 	_view_cache_save(&prev, staging, is_knob);
     }
@@ -2676,7 +2801,7 @@ cmd_view(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
     unsigned long long pre_hash = _view_mutation_hash(s, staging);
 
     /* Execute libged dispatcher */
-    int ret = ged_exec_view(s->gedp, argc, (const char **)argv);
+    int ret = run_ged_async(s, [&]() -> int { return ged_exec_view(s->gedp, argc, (const char **)argv); });
     GED_OUTPUT;
 
     if (ret & GED_HELP) {
@@ -2757,9 +2882,12 @@ cmd_view(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
 }
 
 
+} /* extern "C" -- all MGED C-linkage command functions */
+
+
 /*
  * Local Variables:
- * mode: C
+ * mode: C++
  * tab-width: 8
  * indent-tabs-mode: t
  * c-file-style: "stroustrup"
