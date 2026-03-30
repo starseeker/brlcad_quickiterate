@@ -230,6 +230,122 @@ test_open_cube_repair(void)
     return 0;
 }
 
+/* Test specifically for the SplitNonManifoldVertices backward-walk bug.
+ *
+ * The bug: SplitNonManifoldVertices only triggered its backward walk when
+ * adj[f*3+lv] < 0 (the very first forward step was a boundary edge).  When
+ * the outer loop started at a MIDDLE triangle of an open boundary fan, the
+ * forward walk covered one direction and terminated at a boundary, but the
+ * backward direction was never walked.  Those uncovered triangles then got a
+ * NEW vertex in the next outer-loop iteration, creating zero-area cracks
+ * (duplicate-position vertices) whose boundary loops are non-simple.
+ * DetectHolesFromAdjacency aborts non-simple loops, so those cracks are
+ * never filled, and the mesh remains non-manifold.
+ *
+ * Reproducer: 4 triangles in a consistent fan around vertex 0, with the
+ * MIDDLE fan triangle placed first in the face array (face index 0).  The
+ * outer loop therefore starts at the middle triangle; without the fix the
+ * backward direction is skipped and a crack appears between the last two fan
+ * triangles.  The mesh has a single hexagonal hole that SHOULD be fillable,
+ * but the crack makes the boundary non-simple so the hole fill fails.
+ *
+ * Vertex layout (all in Z=0 plane):
+ *   v3---v2
+ *  /       \
+ * v4  v0   v1
+ *  \       /
+ *   v5---+
+ *
+ * Fan triangles (face index order chosen to trigger bug):
+ *   Face 0 = (0, 2, 3)  <- MIDDLE of fan (forward goes to face 1 = T_A)
+ *   Face 1 = (0, 1, 2)  <- one END of fan (adj backward = boundary)
+ *   Face 2 = (0, 3, 4)  <- other middle
+ *   Face 3 = (0, 4, 5)  <- other END (adj forward = boundary)
+ *
+ * Without fix: vertex 0 gets spuriously split; hole fill fails; result
+ *   is non-manifold.
+ * With fix:    vertex 0 is kept intact; hexagonal hole is filled; result
+ *   is a valid closed solid.
+ */
+static int
+test_split_nmv_backward_walk(void)
+{
+    static point_t pts[6] = {
+	{ 0,  0, 0},  /* v0 – center/apex, boundary vertex with 4-tri fan */
+	{ 2,  0, 0},  /* v1 */
+	{ 2,  2, 0},  /* v2 */
+	{ 0,  2, 0},  /* v3 */
+	{-2,  2, 0},  /* v4 */
+	{-2,  0, 0}   /* v5 */
+    };
+    /* Intentional ordering: face 0 is the MIDDLE of v0's open fan so that
+     * the SplitNonManifoldVertices outer loop begins at a middle triangle.
+     * Without the fwdHitBoundary fix this incorrectly splits vertex 0. */
+    static int faces[12] = {
+	0, 2, 3,   /* face 0 – MIDDLE fan tri for v0 (T_B) */
+	0, 1, 2,   /* face 1 – end of fan for v0 (T_A)     */
+	0, 3, 4,   /* face 2 – other middle (T_C)           */
+	0, 4, 5    /* face 3 – other end (T_D)              */
+    };
+
+    int *ofaces = NULL;
+    int n_ofaces = 0;
+    point_t *opnts = NULL;
+    int n_opnts = 0;
+
+    /* Use unlimited hole size so the hexagonal hole is always fillable. */
+    struct bg_trimesh_repair_opts opts;
+    opts.max_hole_area         = 0.0;
+    opts.max_hole_area_percent = 0.0;
+    int ret = bg_trimesh_repair(&ofaces, &n_ofaces, &opnts, &n_opnts,
+				faces, 4, pts, 6, &opts);
+
+    if (ret < 0) {
+	bu_log("FAIL test_split_nmv_backward_walk: bg_trimesh_repair returned %d\n", ret);
+	if (ofaces) bu_free(ofaces, "ofaces");
+	if (opnts)  bu_free(opnts,  "opnts");
+	return -1;
+    }
+
+    if (ret == 1) {
+	/* Already solid – acceptable only if bg_trimesh_solid2 agrees. */
+	int not_solid = bg_trimesh_solid2(6, 4, (fastf_t *)pts, faces, NULL);
+	if (not_solid) {
+	    bu_log("FAIL test_split_nmv_backward_walk: "
+		   "repair returned 1 (already solid) but input is not solid\n");
+	    return -1;
+	}
+	bu_log("PASS test_split_nmv_backward_walk (already solid)\n");
+	return 0;
+    }
+
+    /* ret == 0: verify output is a valid solid */
+    if (!ofaces || n_ofaces < 4 || !opnts || n_opnts <= 0) {
+	bu_log("FAIL test_split_nmv_backward_walk: invalid output arrays\n");
+	if (ofaces) bu_free(ofaces, "ofaces");
+	if (opnts)  bu_free(opnts,  "opnts");
+	return -1;
+    }
+
+    int not_solid = bg_trimesh_solid2(n_opnts, n_ofaces,
+				      (fastf_t *)opnts, ofaces, NULL);
+    if (not_solid) {
+	bu_log("FAIL test_split_nmv_backward_walk: "
+	       "repaired mesh is still not solid "
+	       "(SplitNonManifoldVertices backward-walk bug?)\n");
+	bu_free(ofaces, "ofaces");
+	bu_free(opnts,  "opnts");
+	return -1;
+    }
+
+    bu_log("PASS test_split_nmv_backward_walk (repaired: %d faces, %d verts)\n",
+	   n_ofaces, n_opnts);
+    bu_free(ofaces, "ofaces");
+    bu_free(opnts,  "opnts");
+    return 0;
+}
+
+
 /* NULL parameter handling must not crash and must return -1. */
 static int
 test_null_params(void)
@@ -269,10 +385,11 @@ main(int UNUSED(argc), const char *argv[])
 
     int failures = 0;
 
-    failures += (test_null_params()       != 0) ? 1 : 0;
-    failures += (test_already_solid()     != 0) ? 1 : 0;
-    failures += (test_tet_already_solid() != 0) ? 1 : 0;
-    failures += (test_open_cube_repair()  != 0) ? 1 : 0;
+    failures += (test_null_params()               != 0) ? 1 : 0;
+    failures += (test_already_solid()             != 0) ? 1 : 0;
+    failures += (test_tet_already_solid()         != 0) ? 1 : 0;
+    failures += (test_open_cube_repair()          != 0) ? 1 : 0;
+    failures += (test_split_nmv_backward_walk()   != 0) ? 1 : 0;
 
     if (failures) {
 	bu_log("%d test(s) FAILED\n", failures);

@@ -818,6 +818,7 @@ namespace gte
                     //   forward step:  adj through edge (v_lv → v_{(lv+1)%3})
                     //                  then find the corner at new facet that has oldV
                     //   Translation of Geogram's repair_split_non_manifold_vertices.
+                    bool fwdHitBoundary = false;
                     size_t curF = f;
                     int    curLv = lv;
                     for (;;)
@@ -826,7 +827,8 @@ namespace gte
                         triangles[curF][curLv] = newV;
 
                         int32_t nextFacet = adj[curF * 3 + static_cast<size_t>(curLv)];
-                        if (nextFacet < 0 || static_cast<size_t>(nextFacet) == f) { break; }
+                        if (nextFacet < 0) { fwdHitBoundary = true; break; }
+                        if (static_cast<size_t>(nextFacet) == f) { break; }
 
                         // Find the corner in nextFacet that has oldV
                         int found = -1;
@@ -843,40 +845,40 @@ namespace gte
                         curLv = found;
                     }
 
-                    // If we hit a boundary (forward walk ended at adj==-1), also walk
-                    // backward to cover the other side of the fan.
-                    // Translation of Geogram's backward walk in repair_split_non_manifold_vertices.
-                    if (adj[f * 3 + static_cast<size_t>(lv)] != static_cast<int32_t>(f))
+                    // If the forward walk hit a boundary, also walk backward to cover
+                    // the other side of the fan.  The previous condition only triggered
+                    // this walk when adj[f*3+lv] < 0 (the very first step was boundary),
+                    // missing the case where the starting triangle is in the middle of
+                    // an open fan and the forward walk terminates at a boundary further
+                    // along.  That omission caused boundary vertices of manifold meshes
+                    // to be incorrectly split into separate copies, creating zero-area
+                    // cracks (identical-position vertices) that cannot be filled by
+                    // FillHoles, leaving the mesh non-manifold after repair.
+                    if (fwdHitBoundary)
                     {
-                        // only do backward if the forward walk didn't close the loop
-                        int32_t adjAtStart = adj[f * 3 + static_cast<size_t>(lv)];
-                        if (adjAtStart < 0)
+                        // prev corner of f for vertex lv: prev local edge = (lv+2)%3
+                        curF  = f;
+                        curLv = lv;
+                        for (;;)
                         {
-                            // Boundary at start of forward walk: walk backward
-                            // prev corner of f for vertex lv: prev local edge = (lv+2)%3
-                            curF  = f;
-                            curLv = lv;
-                            for (;;)
-                            {
-                                int prevE = (curLv + 2) % 3;
-                                int32_t prevFacet = adj[curF * 3 + static_cast<size_t>(prevE)];
-                                if (prevFacet < 0) { break; }
+                            int prevE = (curLv + 2) % 3;
+                            int32_t prevFacet = adj[curF * 3 + static_cast<size_t>(prevE)];
+                            if (prevFacet < 0) { break; }
 
-                                int found = -1;
-                                for (int k = 0; k < 3; ++k)
+                            int found = -1;
+                            for (int k = 0; k < 3; ++k)
+                            {
+                                if (triangles[static_cast<size_t>(prevFacet)][k] == oldV)
                                 {
-                                    if (triangles[static_cast<size_t>(prevFacet)][k] == oldV)
-                                    {
-                                        found = k;
-                                        break;
-                                    }
+                                    found = k;
+                                    break;
                                 }
-                                if (found < 0) { break; }
-                                curF  = static_cast<size_t>(prevFacet);
-                                curLv = found;
-                                cVisited[curF * 3 + static_cast<size_t>(curLv)] = true;
-                                triangles[curF][curLv] = newV;
                             }
+                            if (found < 0) { break; }
+                            curF  = static_cast<size_t>(prevFacet);
+                            curLv = found;
+                            cVisited[curF * 3 + static_cast<size_t>(curLv)] = true;
+                            triangles[curF][curLv] = newV;
                         }
                     }
                 }
