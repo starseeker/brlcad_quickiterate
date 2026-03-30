@@ -2849,31 +2849,46 @@ cdt_mesh_t::oriented_polycdt(cpolygon_t *polygon, bool reproject)
 	}
     }
 
-    size_t flip_cnt = 0;
-    std::set<triangle_t>::iterator tr_it;
-    for (tr_it = polygon->tris.begin(); tr_it != polygon->tris.end(); tr_it++) {
-	triangle_t t = *tr_it;
-	t.m = this;
-	triangle_t nt(t);
-	ON_3dVector tdir = tnorm(t);
-	ON_3dVector bdir = bnorm(t);
-	bool flipped_tri = (ON_DotProduct(tdir, bdir) < 0);
-	if (flipped_tri) {
-	    flip_cnt++;
+    // Count flipped triangles, but exclude any triangle that has at least one
+    // singularity vertex (sv member).  Near a singularity the 3D triangle can
+    // be nearly degenerate (two or three vertices at the same 3D pole), making
+    // the cross-product in tnorm() numerically unreliable.  Including those
+    // triangles in the flip count causes false fold-over detections that
+    // trigger spurious best-fit-plane retries.  The orientation of sv-touching
+    // triangles is better trusted from the parameterization (LSCM preserves
+    // global CCW), so we do not count them here.
+    auto count_flips = [&](const std::set<triangle_t> &tris,
+			   size_t *out_flip, size_t *out_eligible) {
+	*out_flip = 0;
+	*out_eligible = 0;
+	for (auto tit = tris.begin(); tit != tris.end(); tit++) {
+	    triangle_t t = *tit;
+	    t.m = this;
+	    bool has_sv = false;
+	    for (int i = 0; i < 3; i++) {
+		if (sv.find(t.v[i]) != sv.end()) { has_sv = true; break; }
+	    }
+	    if (has_sv) continue;
+	    (*out_eligible)++;
+	    ON_3dVector tdir = tnorm(t);
+	    ON_3dVector bdir = bnorm(t);
+	    if (ON_DotProduct(tdir, bdir) < 0)
+		(*out_flip)++;
 	}
-    }
+    };
+
+    size_t flip_cnt = 0;
+    size_t eligible_cnt = 0;
+    count_flips(polygon->tris, &flip_cnt, &eligible_cnt);
 
     // If LSCM was used and produced a mix of flipped and correctly-oriented
-    // triangles, that signals a fold-over in the conformal mapping.  Retry
-    // with the best-fit-plane approach, which is more conservative and doesn't
-    // alter the relative 2D ordering of points, making fold-overs much less
-    // likely.  If best-fit-plane also fails (e.g. due to a degenerate polygon
-    // with duplicate singularity boundary vertices), fall back to accepting
-    // the LSCM triangulation and letting the global majority-vote flip decide
-    // orientation.
-    if (tried_lscm && flip_cnt > 0 && flip_cnt <= polygon->tris.size() / 2) {
-	bu_log("lscm fold-over on f_id=%d (flip=%zu/%zu), retrying with best_fit_plane\n",
-	    f_id, flip_cnt, polygon->tris.size());
+    // non-sv triangles, that signals a fold-over in the conformal mapping.
+    // Retry with best-fit-plane.  If best-fit-plane also fails (e.g. a
+    // self-intersecting polygon from duplicate singularity boundary vertices),
+    // fall back to the LSCM result.
+    if (tried_lscm && flip_cnt > 0 && flip_cnt <= eligible_cnt / 2) {
+	bu_log("lscm fold-over on f_id=%d (flip=%zu/%zu eligible/%zu total), retrying with best_fit_plane\n",
+	    f_id, flip_cnt, eligible_cnt, polygon->tris.size());
 	// Save the LSCM triangulation before overwriting it.
 	std::vector<std::pair<double, double>> pnts_2d_lscm = polygon->pnts_2d;
 	std::set<triangle_t> tris_lscm = polygon->tris;
@@ -2891,21 +2906,16 @@ cdt_mesh_t::oriented_polycdt(cpolygon_t *polygon, bool reproject)
 	    polygon->pnts_2d = pnts_2d_lscm;
 	    polygon->tris = tris_lscm;
 	    flip_cnt = flip_cnt_lscm;
+	    eligible_cnt = 0;  // recalculated below
+	    count_flips(polygon->tris, &flip_cnt, &eligible_cnt);
 	} else {
-	    // Recount flips for the new triangulation.
-	    flip_cnt = 0;
-	    for (tr_it = polygon->tris.begin(); tr_it != polygon->tris.end(); tr_it++) {
-		triangle_t t = *tr_it;
-		t.m = this;
-		ON_3dVector tdir = tnorm(t);
-		ON_3dVector bdir = bnorm(t);
-		if (ON_DotProduct(tdir, bdir) < 0)
-		    flip_cnt++;
-	    }
+	    // Recount flips for the new triangulation (same sv-exclusion rule).
+	    count_flips(polygon->tris, &flip_cnt, &eligible_cnt);
 	}
     }
 
-    if (flip_cnt > polygon->tris.size() / 2) {
+    std::set<triangle_t>::iterator tr_it;
+    if (flip_cnt > eligible_cnt / 2 && eligible_cnt > 0) {
 	for (tr_it = polygon->tris.begin(); tr_it != polygon->tris.end(); tr_it++) {
 	    triangle_t t = *tr_it;
 	    t.m = this;
