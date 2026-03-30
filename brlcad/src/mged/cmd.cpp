@@ -338,15 +338,17 @@ mged_db_search_callback(int argc, const char *argv[], void *UNUSED(u1), void *u2
 
     // We're already in a search async running context if we
     // are calling this, so don't thread out again - just do
-    // a basic ged_exec
+    // a basic ged_exec.
     //
-    // TODO - if we have callbacks registered for commands, there
-    // is a risk of side effects at the MGED gui level that could
-    // go haywire.  Not really sure what the best course of action
-    // is - we could disable callbacks for this exec (might need a
-    // libged level toggle in struct ged) but that could have other
-    // negative implications - needs some research.
+    // Suppress per-command PRE/POST callbacks for this ged_exec call:
+    // any callbacks registered for the sub-command could trigger GUI
+    // refresh or other side effects that are unsafe while the search is
+    // running on a worker thread.  Use the ged_skip_clbks counter so
+    // that nested invocations (e.g. search -exec calling search -exec)
+    // work correctly.
+    s->gedp->ged_skip_clbks++;
     int ret = ged_exec(s->gedp, argc, argv);
+    s->gedp->ged_skip_clbks--;
     const char *result = bu_vls_cstr(s->gedp->ged_result_str);
     int len = bu_vls_strlen(s->gedp->ged_result_str);
     if (len > 0)
