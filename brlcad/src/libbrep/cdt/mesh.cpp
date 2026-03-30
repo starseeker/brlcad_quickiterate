@@ -2935,6 +2935,97 @@ cdt_mesh_t::oriented_polycdt(cpolygon_t *polygon, bool reproject)
 	}
     }
 
+    // ── Boundary-neighbor orientation check ─────────────────────────────────
+    // The majority-vote flip above uses tnorm vs bnorm to orient the patch.
+    // When different patches use different parameterization paths (LSCM vs
+    // best_fit_plane after a fold-over retry), their flip decisions can be
+    // inconsistent at shared boundary edges, creating "naked edges" (problem
+    // edges) in the final mesh.
+    //
+    // This second pass checks the patch's orientation against already-committed
+    // mesh triangles that share its boundary edges.  For a manifold mesh, each
+    // shared interior edge must be traversed in OPPOSITE directions by the two
+    // triangles that share it.  If a majority of boundary edges conflict with
+    // committed neighbors, flip all patch triangles.
+    //
+    // NOTE: visited_triangles have NOT been removed from tris_vect yet when
+    // oriented_polycdt runs (process_seed_tri does that after grow_loop
+    // returns).  We filter them out to find the true committed neighbor on each
+    // boundary edge.
+    {
+	int bnd_consistent   = 0;
+	int bnd_inconsistent = 0;
+
+	std::set<cpolyedge_t *>::iterator pe_it;
+	for (pe_it = polygon->poly.begin(); pe_it != polygon->poly.end(); pe_it++) {
+	    cpolyedge_t *pe = *pe_it;
+	    // p2o is identity (2D polygon index == 3D mesh index)
+	    long va = polygon->p2o[pe->v2d[0]];
+	    long vb = polygon->p2o[pe->v2d[1]];
+	    uedge_t ue(va, vb);
+
+	    auto ue_it = uedges2tris.find(ue);
+	    if (ue_it == uedges2tris.end()) continue;
+
+	    // Find a committed neighbor: a triangle that uses this undirected
+	    // edge and is NOT in the visited set (i.e. not being replaced).
+	    const triangle_t *committed = NULL;
+	    for (size_t ti : ue_it->second) {
+		if (polygon->visited_triangles.find(tris_vect[ti]) ==
+		    polygon->visited_triangles.end()) {
+		    committed = &tris_vect[ti];
+		    break;
+		}
+	    }
+	    if (!committed) continue;
+
+	    // Determine which directed sense the committed neighbor uses for
+	    // this undirected edge.  committed_fwd == true means it uses va→vb.
+	    bool committed_fwd = false;
+	    for (int i = 0; i < 3; i++) {
+		if (committed->v[i] == va && committed->v[(i+1)%3] == vb) {
+		    committed_fwd = true;
+		    break;
+		}
+	    }
+
+	    // Find the patch triangle that shares this edge and determine its
+	    // directed sense.
+	    bool patch_found       = false;
+	    bool patch_consistent  = false;
+	    for (auto const& pt : polygon->tris) {
+		bool has_fwd = false, has_rev = false;
+		for (int i = 0; i < 3; i++) {
+		    if (pt.v[i] == va && pt.v[(i+1)%3] == vb) has_fwd = true;
+		    if (pt.v[i] == vb && pt.v[(i+1)%3] == va) has_rev = true;
+		}
+		if (!has_fwd && !has_rev) continue;
+		patch_found = true;
+		// Manifold consistency: committed(fwd)→patch(rev) or vice-versa.
+		patch_consistent = (committed_fwd && has_rev) ||
+				   (!committed_fwd && has_fwd);
+		break;
+	    }
+
+	    if (!patch_found) continue;
+	    if (patch_consistent) bnd_consistent++;
+	    else                  bnd_inconsistent++;
+	}
+
+	if (bnd_inconsistent > bnd_consistent && bnd_inconsistent > 0) {
+	    std::set<triangle_t> flipped;
+	    for (auto const& pt : polygon->tris) {
+		triangle_t ft = pt;
+		long tmp = ft.v[1]; ft.v[1] = ft.v[2]; ft.v[2] = tmp;
+		flipped.insert(ft);
+	    }
+	    polygon->tris.clear();
+	    polygon->tris.insert(flipped.begin(), flipped.end());
+	    bu_log("boundary-neighbor flip on f_id=%d (inconsistent=%d consistent=%d)\n",
+		f_id, bnd_inconsistent, bnd_consistent);
+	}
+    }
+
     return true;
 }
 
@@ -5299,12 +5390,62 @@ cdt_mesh_t::lscm_reproject(cpolygon_t *polygon)
 	    tris_cpt.push_back(ct);
     }
 
-    // ── Step 7: LSCM parameterization ────────────────────────────────────────
+    // ── Step 7: Compute ellipse semi-axes from boundary 3D bounding box ──────
+    // The unit-circle domain works for isotropic patches, but for highly
+    // elongated surfaces (e.g. a thin fillet wrapping around a large cylinder)
+    // the Laplacian interior solution produces severe distortion: interior
+    // vertices end up compressed against the boundary on the short sides.
+    // Remedy: scale the final UV domain to an axis-aligned ellipse whose
+    // aspect ratio matches the physical aspect ratio of the boundary loop.
+    //
+    // We measure the 3D bounding-box spans of the boundary vertices, sort
+    // them, and derive semi-axes a >= b so that a/b approximates the ratio of
+    // the two largest physical extents.  Since Tutte's theorem only requires
+    // the boundary to be convex (an ellipse is convex), the fold-over
+    // guarantee still holds after this uniform scaling.
+    //
+    // Caps: a is normalised to 1 (so coordinates stay order-of-unity);
+    //       b is clamped to [0.05, 1] to avoid near-degenerate domains.
+    double ellipse_a = 1.0;
+    double ellipse_b = 1.0;
+    {
+	double xmin = 1e300, xmax = -1e300;
+	double ymin = 1e300, ymax = -1e300;
+	double zmin = 1e300, zmax = -1e300;
+	for (int32_t vi : bnd_loop) {
+	    ON_3dPoint *op = pnts[(size_t)vi];
+	    if (op->x < xmin) xmin = op->x;
+	    if (op->x > xmax) xmax = op->x;
+	    if (op->y < ymin) ymin = op->y;
+	    if (op->y > ymax) ymax = op->y;
+	    if (op->z < zmin) zmin = op->z;
+	    if (op->z > zmax) zmax = op->z;
+	}
+	double spans[3] = { xmax - xmin, ymax - ymin, zmax - zmin };
+	// Sort descending.
+	if (spans[0] < spans[1]) { double t = spans[0]; spans[0] = spans[1]; spans[1] = t; }
+	if (spans[0] < spans[2]) { double t = spans[0]; spans[0] = spans[2]; spans[2] = t; }
+	if (spans[1] < spans[2]) { double t = spans[1]; spans[1] = spans[2]; spans[2] = t; }
+	// spans[0] >= spans[1] >= spans[2].
+	if (spans[0] > ON_ZERO_TOLERANCE) {
+	    // Use the two largest spans as the ellipse axes, with a=1, b=ratio.
+	    double ratio = spans[1] / spans[0];
+	    // Clamp b to [0.2, 1.0].  The lower bound avoids the extreme aspect
+	    // ratios that would produce very thin CDT domains where triangles
+	    // tend to have unreliable 3D orientations.  An upper bound of 1
+	    // keeps the domain convex and order-of-unity.
+	    if (ratio < 0.2) ratio = 0.2;
+	    ellipse_a = 1.0;
+	    ellipse_b = ratio;
+	}
+    }
+
+    // ── Step 8: LSCM parameterization ────────────────────────────────────────
     std::vector<gte::Vector2<double>> uv;
     bool lscm_ok = false;
 
     if (!true_interior_cpt.empty() && !tris_cpt.empty()) {
-	// Full LSCM: boundary pinned to circle, interior solved via cotangent
+	// Full LSCM: boundary pinned to circle, interior solved via mean-value
 	// Laplacian using the visited_triangles as the mesh connectivity.
 	lscm_ok = gte::LSCMParameterization<double>::Parameterize(
 		v3d, bnd_cpt, true_interior_cpt, tris_cpt, uv);
@@ -5312,8 +5453,8 @@ cdt_mesh_t::lscm_reproject(cpolygon_t *polygon)
 
     if (!lscm_ok) {
 	// Boundary-only fallback: map boundary to circle, leave interior at 0.
-	// Interior Steiner points at UV=(0,0) land at the circle centroid, which
-	// is geometrically inside the unit-circle boundary.
+	// Interior Steiner points at UV=(0,0) land at the centroid of the
+	// ellipse, which is geometrically inside the ellipse boundary.
 	std::vector<gte::Vector2<double>> bnd_uv;
 	lscm_ok = gte::LSCMParameterization<double>::MapBoundaryToCircle(
 		v3d, bnd_cpt, bnd_uv);
@@ -5330,7 +5471,18 @@ cdt_mesh_t::lscm_reproject(cpolygon_t *polygon)
 	return false;
     }
 
-    // ── Step 8: Write UV back to polygon->pnts_2d ───────────────────────────
+    // ── Step 9: Scale unit-circle UV to ellipse ───────────────────────────────
+    // Both the Parameterize and MapBoundaryToCircle paths pin the boundary to
+    // the unit circle.  Rescale the entire UV domain to the ellipse computed
+    // above.  This is a uniform anisotropic scaling: u *= a, v *= b.
+    if (ellipse_b < 0.999) {
+	for (auto& p : uv) {
+	    p[0] *= ellipse_a;
+	    p[1] *= ellipse_b;
+	}
+    }
+
+    // ── Step 10: Write UV back to polygon->pnts_2d ───────────────────────────
     // pnts_2d is indexed identically to pnts (o2p is identity), so we can
     // write directly using the original mesh index.
     std::vector<std::pair<double, double>> pnts_2d_cached = polygon->pnts_2d;
@@ -5343,28 +5495,29 @@ cdt_mesh_t::lscm_reproject(cpolygon_t *polygon)
 	}
     }
 
-    // ── Step 9: Validate the reprojection ────────────────────────────────────
-    // After LSCM the boundary loop is placed on the unit circle; Tutte's
-    // theorem (mean-value weights are always positive) guarantees that all
-    // true interior vertices are strictly inside the unit disk.  We validate
-    // using a unit-circle distance test rather than Franklin's ray-cast
-    // point_in_polygon, because the ray-cast algorithm is undefined (can
-    // return 0) for points exactly on or very near the polygon boundary —
-    // which is exactly the situation for near-boundary interior vertices after
-    // LSCM maps the boundary to the unit circle.
+    // ── Step 11: Validate the reprojection ───────────────────────────────────
+    // After LSCM + ellipse scaling, the boundary loop lies on the ellipse
+    // (u/a)^2 + (v/b)^2 = 1.  Tutte's theorem (mean-value weights are always
+    // positive) guarantees that all true interior vertices are strictly inside
+    // the ellipse.  We validate with an ellipse-distance test rather than
+    // Franklin's ray-cast point_in_polygon, because the ray-cast algorithm is
+    // undefined (can return 0) for points exactly on or very near the polygon
+    // boundary — which is exactly the situation here.
     int valid = 1;
     if (!polygon->closed()) {
 	valid = 0;
     } else {
 	// Tolerance: 1% headroom for CG-solver numerical imprecision.
 	// A genuine LSCM failure (CG divergence) would place vertices far
-	// outside the unit disk, not merely 1% beyond it.
-	static const double kUnitCircleTolSq = 1.02 * 1.02;
+	// outside the ellipse, not merely 1% beyond it.
+	static const double kEllipseTolSq = 1.02 * 1.02;
+	double inv_a2 = 1.0 / (ellipse_a * ellipse_a);
+	double inv_b2 = 1.0 / (ellipse_b * ellipse_b);
 	for (long ip : polygon->interior_points) {
 	    int32_t gi = (int32_t)ip;
 	    // Vertices that are also on the polygon boundary loop are placed
-	    // exactly on the unit circle (radius == 1) by the LSCM mapping;
-	    // they are trivially "inside" the polygon boundary.
+	    // exactly on the ellipse by the LSCM mapping; they are trivially
+	    // "inside" the polygon boundary.
 	    if (bnd_set.find(gi) != bnd_set.end())
 		continue;
 	    if ((size_t)gi >= polygon->pnts_2d.size()) {
@@ -5373,7 +5526,7 @@ cdt_mesh_t::lscm_reproject(cpolygon_t *polygon)
 	    }
 	    double u = polygon->pnts_2d[(size_t)gi].first;
 	    double v = polygon->pnts_2d[(size_t)gi].second;
-	    if (u * u + v * v > kUnitCircleTolSq) {
+	    if (u * u * inv_a2 + v * v * inv_b2 > kEllipseTolSq) {
 		valid = 0;
 		break;
 	    }
@@ -5381,8 +5534,8 @@ cdt_mesh_t::lscm_reproject(cpolygon_t *polygon)
     }
 
     if (!valid) {
-	bu_log("lscm_reproject: f_id=%d validation failed (closed=%d)\n",
-	    f_id, polygon->closed() ? 1 : 0);
+	bu_log("lscm_reproject: f_id=%d validation failed (closed=%d ellipse_b=%.3f)\n",
+	    f_id, polygon->closed() ? 1 : 0, ellipse_b);
 	polygon->pnts_2d = pnts_2d_cached;
 	return false;
     }
