@@ -63,6 +63,8 @@ int _bot_obj_setup(struct _ged_bot_info *gb, const char *name);
 
 int _bot_cmd_msgs(void *bs, int argc, const char **argv, const char *us, const char *ps);
 
+int _bot_face_specifiers(std::set<int> &elements, struct bu_vls *vls, int argc, const char **argv);
+
 
 extern int ged_bot_condense_core(struct ged *gedp, int argc, const char **argv);
 extern int ged_bot_decimate_core(struct ged *gedp, int argc, const char **argv);
@@ -100,6 +102,8 @@ extern int _bot_cmd_smooth(void* bs, int argc, const char** argv);
 extern int _bot_cmd_subd(void* bs, int argc, const char** argv);
 
 extern int bot_pick(struct _ged_bot_info *gb, int argc, const char **argv);
+
+extern int bot_info(struct _ged_bot_info *gb, int argc, const char **argv);
 
 __END_DECLS
 

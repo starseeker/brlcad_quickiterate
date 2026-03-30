@@ -39,6 +39,7 @@ set(
   check.cpp
   decimate.cpp
   extrude.cpp
+  info.cpp
   pick.cpp
   remesh.cpp
   repair.cpp
