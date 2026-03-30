@@ -1201,6 +1201,17 @@ cpolygon_t::cdt(triangulation_t ttype)
 		  steiner_cnt, bgp_2d, pnts_2d.size(),
 		  ttype);
 
+    if (!result) {
+	// Dump a stand-alone C test file so the failure can be reproduced
+	// independently of the full CDT pipeline.
+	static int patch_fail_cnt = 0;
+	struct bu_vls fname = BU_VLS_INIT_ZERO;
+	bu_vls_sprintf(&fname, "cdt_patch_fail_%03d.c", patch_fail_cnt++);
+	cdt_inputs_print(bu_vls_cstr(&fname));
+	bu_log("patch CDT failure inputs written to %s\n", bu_vls_cstr(&fname));
+	bu_vls_free(&fname);
+    }
+
     if (result) {
 	for (int i = 0; i < num_faces; i++) {
 	    triangle_t t;
@@ -2420,13 +2431,15 @@ cdt_mesh_t::bnorm(const triangle_t &t)
     ON_3dPoint avgnorm(0,0,0);
 
     // Can't calculate this without some key Brep data
-    if (!nmap.size()) return avgnorm;
+    if (!nmap.size() && !sv.size()) return avgnorm;
 
     double norm_cnt = 0.0;
 
+    // First pass: average normals from non-singularity vertices, as they
+    // provide the most reliable orientation signal for the triangle.
     for (size_t i = 0; i < 3; i++) {
 	if (sv.find(t.v[i]) != sv.end()) {
-	    // singular vert norms are a product of multiple faces - not useful for this
+	    // singular vert norms are a product of multiple faces
 	    continue;
 	}
 	ON_3dPoint onrm = *normals[nmap[t.v[i]]];
@@ -2436,8 +2449,30 @@ cdt_mesh_t::bnorm(const triangle_t &t)
 	avgnorm = avgnorm + onrm;
 	norm_cnt = norm_cnt + 1.0;
     }
+    if (norm_cnt > 0) {
+	ON_3dVector anrm = avgnorm/norm_cnt;
+	anrm.Unitize();
+	return anrm;
+    }
 
-    ON_3dVector anrm = avgnorm/norm_cnt;
+    // All three vertices are singularity vertices.  The old code would
+    // divide by zero here; use the pre-averaged singularity normals instead.
+    // Deduplicate by 3D pointer so that multiple UV-space instances of the
+    // same singularity pole are counted only once.
+    std::set<ON_3dPoint *> seen_pts;
+    for (size_t i = 0; i < 3; i++) {
+	ON_3dPoint *p3d = pnts[(size_t)t.v[i]];
+	if (!seen_pts.insert(p3d).second)
+	    continue;
+	ON_3dVector vn = vert_norm(t.v[i]);
+	if (vn.Length() > ON_ZERO_TOLERANCE) {
+	    avgnorm = avgnorm + ON_3dPoint(vn);
+	    norm_cnt++;
+	}
+    }
+
+    if (norm_cnt < 1) return avgnorm;
+    ON_3dVector anrm = avgnorm / norm_cnt;
     anrm.Unitize();
     return anrm;
 }
@@ -2795,53 +2830,96 @@ cdt_mesh_t::oriented_polycdt(cpolygon_t *polygon, bool reproject)
 	}
     }
 
-    if (!polygon->cdt()) return false;
-
-    size_t flip_cnt = 0;
-    std::set<triangle_t>::iterator tr_it;
-    for (tr_it = polygon->tris.begin(); tr_it != polygon->tris.end(); tr_it++) {
-	triangle_t t = *tr_it;
-	t.m = this;
-	triangle_t nt(t);
-	ON_3dVector tdir = tnorm(t);
-	ON_3dVector bdir = bnorm(t);
-	bool flipped_tri = (ON_DotProduct(tdir, bdir) < 0);
-	if (flipped_tri) {
-	    flip_cnt++;
+    if (!polygon->cdt()) {
+	// If LSCM was used and CDT failed despite the unit-circle validation
+	// passing, fall back to best_fit_plane as a safety net.  This handles
+	// the rare case where the CG solver produces coordinates that pass the
+	// 1% unit-circle tolerance but still cause CDT to fail (e.g. a Steiner
+	// point in a large arc segment outside the inscribed polygon).
+	if (tried_lscm) {
+	    bu_log("lscm CDT failed on f_id=%d, retrying with best_fit_plane\n", f_id);
+	    polygon->pnts_2d = pnts_2d_orig;
+	    polygon->ltris.clear();
+	    polygon->tris.clear();
+	    tried_lscm = false;
+	    best_fit_plane_reproject(polygon);
+	    if (!polygon->cdt()) return false;
+	} else {
+	    return false;
 	}
     }
 
+    // Count flipped triangles, but exclude any triangle that has at least one
+    // singularity vertex (sv member).  Near a singularity the 3D triangle can
+    // be nearly degenerate (two or three vertices at the same 3D pole), making
+    // the cross-product in tnorm() numerically unreliable.  Including those
+    // triangles in the flip count causes false fold-over detections that
+    // trigger spurious best-fit-plane retries.  The orientation of sv-touching
+    // triangles is better trusted from the parameterization (LSCM preserves
+    // global CCW), so we do not count them here.
+    auto count_flips = [&](const std::set<triangle_t> &tris,
+			   size_t *out_flip, size_t *out_eligible) {
+	*out_flip = 0;
+	*out_eligible = 0;
+	for (auto tit = tris.begin(); tit != tris.end(); tit++) {
+	    triangle_t t = *tit;
+	    t.m = this;
+	    bool has_sv = false;
+	    for (int i = 0; i < 3; i++) {
+		if (sv.find(t.v[i]) != sv.end()) { has_sv = true; break; }
+	    }
+	    if (has_sv) continue;
+	    (*out_eligible)++;
+	    ON_3dVector tdir = tnorm(t);
+	    ON_3dVector bdir = bnorm(t);
+	    if (ON_DotProduct(tdir, bdir) < 0)
+		(*out_flip)++;
+	}
+    };
+
+    size_t flip_cnt = 0;
+    size_t eligible_cnt = 0;
+    count_flips(polygon->tris, &flip_cnt, &eligible_cnt);
+
     // If LSCM was used and produced a mix of flipped and correctly-oriented
-    // triangles, that signals a fold-over in the conformal mapping.  Retry
-    // with the best-fit-plane approach, which is more conservative and doesn't
-    // alter the relative 2D ordering of points, making fold-overs much less
-    // likely.
-    if (tried_lscm && flip_cnt > 0 && flip_cnt <= polygon->tris.size() / 2) {
-	bu_log("lscm fold-over on f_id=%d (flip=%zu/%zu), retrying with best_fit_plane\n",
-	    f_id, flip_cnt, polygon->tris.size());
+    // non-sv triangles, that signals a fold-over in the conformal mapping.
+    // Retry with best-fit-plane.  If best-fit-plane also fails (e.g. a
+    // self-intersecting polygon from duplicate singularity boundary vertices),
+    // fall back to the LSCM result.
+    if (tried_lscm && flip_cnt > 0 && flip_cnt <= eligible_cnt / 2) {
+	bu_log("lscm fold-over on f_id=%d (flip=%zu/%zu eligible/%zu total), retrying with best_fit_plane\n",
+	    f_id, flip_cnt, eligible_cnt, polygon->tris.size());
+	// Save the LSCM triangulation before overwriting it.
+	std::vector<std::pair<double, double>> pnts_2d_lscm = polygon->pnts_2d;
+	std::set<triangle_t> tris_lscm = polygon->tris;
+	size_t flip_cnt_lscm = flip_cnt;
 	polygon->pnts_2d = pnts_2d_orig;
 	polygon->ltris.clear();
 	polygon->tris.clear();
 	best_fit_plane_reproject(polygon);
-	if (!polygon->cdt()) return false;
-	// Recount flips for the new triangulation.
-	flip_cnt = 0;
-	for (tr_it = polygon->tris.begin(); tr_it != polygon->tris.end(); tr_it++) {
-	    triangle_t t = *tr_it;
-	    t.m = this;
-	    ON_3dVector tdir = tnorm(t);
-	    ON_3dVector bdir = bnorm(t);
-	    if (ON_DotProduct(tdir, bdir) < 0)
-		flip_cnt++;
+	if (!polygon->cdt()) {
+	    // best_fit_plane CDT failed (e.g. self-intersecting polygon from
+	    // duplicate singularity boundary vertices).  Fall back to the LSCM
+	    // result and accept its minor fold-over; the global majority-vote
+	    // flip below will handle overall orientation.
+	    bu_log("best_fit_plane CDT also failed on f_id=%d, using LSCM result\n", f_id);
+	    polygon->pnts_2d = pnts_2d_lscm;
+	    polygon->tris = tris_lscm;
+	    flip_cnt = flip_cnt_lscm;
+	    eligible_cnt = 0;  // recalculated below
+	    count_flips(polygon->tris, &flip_cnt, &eligible_cnt);
+	} else {
+	    // Recount flips for the new triangulation (same sv-exclusion rule).
+	    count_flips(polygon->tris, &flip_cnt, &eligible_cnt);
 	}
     }
 
-    if (flip_cnt > polygon->tris.size() / 2) {
+    std::set<triangle_t>::iterator tr_it;
+    if (flip_cnt > eligible_cnt / 2 && eligible_cnt > 0) {
 	for (tr_it = polygon->tris.begin(); tr_it != polygon->tris.end(); tr_it++) {
 	    triangle_t t = *tr_it;
 	    t.m = this;
 	    triangle_t nt(t);
-	    flip_cnt++;
 	    nt.v[2] = t.v[1];
 	    nt.v[1] = t.v[2];
 	    otris.insert(nt);
@@ -2854,6 +2932,97 @@ cdt_mesh_t::oriented_polycdt(cpolygon_t *polygon, bool reproject)
 	    bu_log("NOT flipping tris, adding %zd flipped tris\n", flip_cnt);
 	} else {
 	    bu_log("NOT flipping tris, OK\n");
+	}
+    }
+
+    // ── Boundary-neighbor orientation check ─────────────────────────────────
+    // The majority-vote flip above uses tnorm vs bnorm to orient the patch.
+    // When different patches use different parameterization paths (LSCM vs
+    // best_fit_plane after a fold-over retry), their flip decisions can be
+    // inconsistent at shared boundary edges, creating "naked edges" (problem
+    // edges) in the final mesh.
+    //
+    // This second pass checks the patch's orientation against already-committed
+    // mesh triangles that share its boundary edges.  For a manifold mesh, each
+    // shared interior edge must be traversed in OPPOSITE directions by the two
+    // triangles that share it.  If a majority of boundary edges conflict with
+    // committed neighbors, flip all patch triangles.
+    //
+    // NOTE: visited_triangles have NOT been removed from tris_vect yet when
+    // oriented_polycdt runs (process_seed_tri does that after grow_loop
+    // returns).  We filter them out to find the true committed neighbor on each
+    // boundary edge.
+    {
+	int bnd_consistent   = 0;
+	int bnd_inconsistent = 0;
+
+	std::set<cpolyedge_t *>::iterator pe_it;
+	for (pe_it = polygon->poly.begin(); pe_it != polygon->poly.end(); pe_it++) {
+	    cpolyedge_t *pe = *pe_it;
+	    // p2o is identity (2D polygon index == 3D mesh index)
+	    long va = polygon->p2o[pe->v2d[0]];
+	    long vb = polygon->p2o[pe->v2d[1]];
+	    uedge_t ue(va, vb);
+
+	    auto ue_it = uedges2tris.find(ue);
+	    if (ue_it == uedges2tris.end()) continue;
+
+	    // Find a committed neighbor: a triangle that uses this undirected
+	    // edge and is NOT in the visited set (i.e. not being replaced).
+	    const triangle_t *committed = NULL;
+	    for (size_t ti : ue_it->second) {
+		if (polygon->visited_triangles.find(tris_vect[ti]) ==
+		    polygon->visited_triangles.end()) {
+		    committed = &tris_vect[ti];
+		    break;
+		}
+	    }
+	    if (!committed) continue;
+
+	    // Determine which directed sense the committed neighbor uses for
+	    // this undirected edge.  committed_fwd == true means it uses va→vb.
+	    bool committed_fwd = false;
+	    for (int i = 0; i < 3; i++) {
+		if (committed->v[i] == va && committed->v[(i+1)%3] == vb) {
+		    committed_fwd = true;
+		    break;
+		}
+	    }
+
+	    // Find the patch triangle that shares this edge and determine its
+	    // directed sense.
+	    bool patch_found       = false;
+	    bool patch_consistent  = false;
+	    for (auto const& pt : polygon->tris) {
+		bool has_fwd = false, has_rev = false;
+		for (int i = 0; i < 3; i++) {
+		    if (pt.v[i] == va && pt.v[(i+1)%3] == vb) has_fwd = true;
+		    if (pt.v[i] == vb && pt.v[(i+1)%3] == va) has_rev = true;
+		}
+		if (!has_fwd && !has_rev) continue;
+		patch_found = true;
+		// Manifold consistency: committed(fwd)→patch(rev) or vice-versa.
+		patch_consistent = (committed_fwd && has_rev) ||
+				   (!committed_fwd && has_fwd);
+		break;
+	    }
+
+	    if (!patch_found) continue;
+	    if (patch_consistent) bnd_consistent++;
+	    else                  bnd_inconsistent++;
+	}
+
+	if (bnd_inconsistent > bnd_consistent && bnd_inconsistent > 0) {
+	    std::set<triangle_t> flipped;
+	    for (auto const& pt : polygon->tris) {
+		triangle_t ft = pt;
+		long tmp = ft.v[1]; ft.v[1] = ft.v[2]; ft.v[2] = tmp;
+		flipped.insert(ft);
+	    }
+	    polygon->tris.clear();
+	    polygon->tris.insert(flipped.begin(), flipped.end());
+	    bu_log("boundary-neighbor flip on f_id=%d (inconsistent=%d consistent=%d)\n",
+		f_id, bnd_inconsistent, bnd_consistent);
 	}
     }
 
@@ -3331,6 +3500,60 @@ cdt_mesh_t::cdt()
     if (!result) {
 	bu_log("Face %d: bg_nested_poly_triangulate FAILED (bnd_pnts=%zu steiner=%zu/%zu holes=%d)\n",
 	    f_id, outer_loop.poly.size(), steiner_cnt, m_interior_pnts.size(), holes_cnt);
+
+	// Dump a stand-alone C test program so the failure can be reproduced
+	// and scrutinised independently of the full CDT pipeline.
+	struct bu_vls fname = BU_VLS_INIT_ZERO;
+	bu_vls_sprintf(&fname, "cdt_face%d_fail.c", f_id);
+	FILE *df = fopen(bu_vls_cstr(&fname), "w");
+	if (df) {
+	    fprintf(df, "#include <stdio.h>\n");
+	    fprintf(df, "#include \"bu/malloc.h\"\n");
+	    fprintf(df, "#include \"bg/polygon.h\"\n");
+	    fprintf(df, "int main() {\n");
+	    size_t np = m_pnts_2d.size();
+	    fprintf(df, "    point2d_t *bgp_2d = (point2d_t *)bu_calloc(%zu, sizeof(point2d_t), \"2d pts\");\n", np);
+	    for (size_t i = 0; i < np; i++) {
+		fprintf(df, "    bgp_2d[%zu][X] = %.17g;\n", i, m_pnts_2d[i].first  * uscale);
+		fprintf(df, "    bgp_2d[%zu][Y] = %.17g;\n", i, m_pnts_2d[i].second * vscale);
+	    }
+	    // The polygon array for bg_nested_poly_triangulate uses a closed format:
+	    // the first vertex index is repeated as the last entry (size = edge_count + 1).
+	    size_t on = outer_loop.poly.size() + 1;
+	    fprintf(df, "    int *opoly = (int *)bu_calloc(%zu, sizeof(int), \"opoly\");\n", on);
+	    for (size_t i = 0; i < on; i++)
+		fprintf(df, "    opoly[%zu] = %d;\n", i, opoly[i]);
+	    if (holes_cnt) {
+		fprintf(df, "    const int **holes = (const int **)bu_calloc(%d+1, sizeof(int *), \"holes\");\n", holes_cnt);
+		fprintf(df, "    size_t *holes_npts = (size_t *)bu_calloc(%d+1, sizeof(size_t), \"hnpts\");\n", holes_cnt);
+		for (int hi = 0; hi < holes_cnt; hi++) {
+		    size_t hn = holes_npts[hi];
+		    fprintf(df, "    int *hole%d = (int *)bu_calloc(%zu, sizeof(int), \"h%d\");\n", hi, hn, hi);
+		    for (size_t hj = 0; hj < hn; hj++)
+			fprintf(df, "    hole%d[%zu] = %d;\n", hi, hj, holes_array[hi][hj]);
+		    fprintf(df, "    holes[%d] = hole%d; holes_npts[%d] = %zu;\n", hi, hi, hi, hn);
+		}
+	    } else {
+		fprintf(df, "    const int **holes = NULL;\n");
+		fprintf(df, "    size_t *holes_npts = NULL;\n");
+	    }
+	    if (steiner_cnt) {
+		fprintf(df, "    int *steiner = (int *)bu_calloc(%zu, sizeof(int), \"stei\");\n", steiner_cnt);
+		for (size_t si = 0; si < steiner_cnt; si++)
+		    fprintf(df, "    steiner[%zu] = %d;\n", si, steiner[si]);
+	    } else {
+		fprintf(df, "    int *steiner = NULL;\n");
+	    }
+	    fprintf(df, "    int *faces = NULL; int num_faces = 0;\n");
+	    fprintf(df, "    int r = !bg_nested_poly_triangulate(&faces, &num_faces,\n");
+	    fprintf(df, "        NULL, NULL, opoly, %zu, holes, holes_npts, %d,\n", on, holes_cnt);
+	    fprintf(df, "        steiner, %zu, bgp_2d, %zu, TRI_CONSTRAINED_DELAUNAY);\n", steiner_cnt, np);
+	    fprintf(df, "    if (r) printf(\"success\\n\"); else printf(\"FAIL\\n\");\n");
+	    fprintf(df, "    return !r;\n}\n");
+	    fclose(df);
+	    bu_log("Face %d: CDT failure inputs written to %s\n", f_id, bu_vls_cstr(&fname));
+	}
+	bu_vls_free(&fname);
     }
 
     tris_2d.clear();
@@ -4870,6 +5093,43 @@ cdt_mesh_t::best_fit_plane_plot(point_t *center, vect_t *norm, const char *fname
  * https://github.com/jpcy/xatlas
  */
 
+/* Return the best available surface normal for mesh vertex vi.
+ *
+ * At NURBS singularities (poles) the directly-evaluated surface normal is
+ * undefined, so we pre-compute an averaged normal from the surrounding
+ * well-behaved surfaces and store it in s_cdt->singular_vert_to_norms.
+ * This function returns that averaged normal for any vertex in sv, and the
+ * ordinary normals[nmap[vi]] for all other vertices.  m_bRev is applied so
+ * callers need not worry about face orientation.
+ */
+ON_3dVector
+cdt_mesh_t::vert_norm(long vi)
+{
+    ON_3dPoint *norm_pt = NULL;
+
+    if (sv.find(vi) != sv.end()) {
+	// Singularity vertex: prefer the pre-averaged normal from the CDT state.
+	if (p_cdt) {
+	    struct ON_Brep_CDT_State *s_cdt = (struct ON_Brep_CDT_State *)p_cdt;
+	    auto it = s_cdt->singular_vert_to_norms->find(pnts[(size_t)vi]);
+	    if (it != s_cdt->singular_vert_to_norms->end())
+		norm_pt = it->second;
+	}
+    } else {
+	auto nit = nmap.find(vi);
+	if (nit != nmap.end())
+	    norm_pt = normals[nit->second];
+    }
+
+    if (!norm_pt)
+	return ON_3dVector(0.0, 0.0, 0.0);
+
+    ON_3dVector v(*norm_pt);
+    if (m_bRev)
+	v = -v;
+    return v;
+}
+
 bool
 cdt_mesh_t::best_fit_plane_reproject(cpolygon_t *polygon)
 {
@@ -4895,31 +5155,56 @@ cdt_mesh_t::best_fit_plane_reproject(cpolygon_t *polygon)
     }
 
     ON_3dVector avgtnorm(0.0,0.0,0.0);
-    for (a_it = averts.begin(); a_it != averts.end(); a_it++) {
-	ON_3dPoint *vn = normals[nmap[*a_it]];
-	if (vn) {
-	    avgtnorm += *vn;
-	    ncnt++;
+    {
+	// Deduplicate by 3D point pointer: singularity points can have multiple
+	// UV-space indices all mapping to the same 3D location.  Counting each
+	// UV copy once would distort the average toward that singularity.
+	std::set<ON_3dPoint *> seen_pts;
+	for (a_it = averts.begin(); a_it != averts.end(); a_it++) {
+	    ON_3dPoint *p3d = pnts[(size_t)*a_it];
+	    if (!seen_pts.insert(p3d).second)
+		continue; // already counted this 3D point
+	    ON_3dVector vn = vert_norm(*a_it);
+	    if (vn.Length() > ON_ZERO_TOLERANCE) {
+		avgtnorm += vn;
+		ncnt++;
+	    }
 	}
     }
-    avgtnorm = avgtnorm * 1.0/(double)ncnt;
+    if (ncnt > 0) {
+	avgtnorm = avgtnorm * (1.0/(double)ncnt);
+    } else {
+	// No vertex normals available: fall back to the polygon's existing
+	// plane normal as the orientation reference.
+	avgtnorm = polygon->tplane.zaxis;
+    }
 
     point_t pcenter;
     vect_t pnorm;
     {
-	point_t *vpnts = (point_t *)bu_calloc(averts.size()+1, sizeof(point_t), "fitting points");
+	// Deduplicate by 3D pointer so repeated singularity UV points don't
+	// skew bg_fit_plane toward the singularity location.
+	// First pass: count unique 3D points.
+	std::set<ON_3dPoint *> seen_fit;
+	for (a_it = averts.begin(); a_it != averts.end(); a_it++)
+	    seen_fit.insert(pnts[(size_t)*a_it]);
+	// Second pass: fill the array.
+	point_t *vpnts = (point_t *)bu_calloc(seen_fit.size() + 1, sizeof(point_t), "fitting points");
 	int pnts_ind = 0;
+	std::set<ON_3dPoint *> seen_fit2;
 	for (a_it = averts.begin(); a_it != averts.end(); a_it++) {
-	    ON_3dPoint *p = pnts[*a_it];
+	    ON_3dPoint *p = pnts[(size_t)*a_it];
+	    if (!seen_fit2.insert(p).second)
+		continue;
 	    vpnts[pnts_ind][X] = p->x;
 	    vpnts[pnts_ind][Y] = p->y;
 	    vpnts[pnts_ind][Z] = p->z;
 	    pnts_ind++;
 	}
-	if (bg_fit_plane(&pcenter, &pnorm, pnts_ind, vpnts)) {
-	    return false;
-	}
+	bool fit_failed = bg_fit_plane(&pcenter, &pnorm, pnts_ind, vpnts);
 	bu_free(vpnts, "fitting points");
+	if (fit_failed)
+	    return false;
 
 	ON_3dVector on_norm(pnorm[X], pnorm[Y], pnorm[Z]);
 	if (ON_DotProduct(on_norm, avgtnorm) < 0) {
@@ -5105,12 +5390,64 @@ cdt_mesh_t::lscm_reproject(cpolygon_t *polygon)
 	    tris_cpt.push_back(ct);
     }
 
-    // ── Step 7: LSCM parameterization ────────────────────────────────────────
+    // ── Step 7: Compute ellipse semi-axes from boundary 3D bounding box ──────
+    // The unit-circle domain works for isotropic patches, but for highly
+    // elongated surfaces (e.g. a thin fillet wrapping around a large cylinder)
+    // the Laplacian interior solution produces severe distortion: interior
+    // vertices end up compressed against the boundary on the short sides.
+    // Remedy: scale the final UV domain to an axis-aligned ellipse whose
+    // aspect ratio matches the physical aspect ratio of the boundary loop.
+    //
+    // We measure the 3D bounding-box spans of the boundary vertices, sort
+    // them, and derive semi-axes a >= b so that a/b approximates the ratio of
+    // the two largest physical extents.  Since Tutte's theorem only requires
+    // the boundary to be convex (an ellipse is convex), the fold-over
+    // guarantee still holds after this uniform scaling.
+    //
+    // Caps: a is normalised to 1 (so coordinates stay order-of-unity);
+    //       b is clamped to [0.2, 1] to avoid near-degenerate domains.
+    //       The 5:1 maximum prevents extreme aspect ratios that would produce
+    //       very thin CDT triangles with unreliable 3D orientations.
+    double ellipse_a = 1.0;
+    double ellipse_b = 1.0;
+    {
+	double xmin = 1e300, xmax = -1e300;
+	double ymin = 1e300, ymax = -1e300;
+	double zmin = 1e300, zmax = -1e300;
+	for (int32_t vi : bnd_loop) {
+	    ON_3dPoint *op = pnts[(size_t)vi];
+	    if (op->x < xmin) xmin = op->x;
+	    if (op->x > xmax) xmax = op->x;
+	    if (op->y < ymin) ymin = op->y;
+	    if (op->y > ymax) ymax = op->y;
+	    if (op->z < zmin) zmin = op->z;
+	    if (op->z > zmax) zmax = op->z;
+	}
+	double spans[3] = { xmax - xmin, ymax - ymin, zmax - zmin };
+	// Sort descending.
+	if (spans[0] < spans[1]) { double t = spans[0]; spans[0] = spans[1]; spans[1] = t; }
+	if (spans[0] < spans[2]) { double t = spans[0]; spans[0] = spans[2]; spans[2] = t; }
+	if (spans[1] < spans[2]) { double t = spans[1]; spans[1] = spans[2]; spans[2] = t; }
+	// spans[0] >= spans[1] >= spans[2].
+	if (spans[0] > ON_ZERO_TOLERANCE) {
+	    // Use the two largest spans as the ellipse axes, with a=1, b=ratio.
+	    double ratio = spans[1] / spans[0];
+	    // Clamp b to [0.2, 1.0].  The lower bound avoids the extreme aspect
+	    // ratios that would produce very thin CDT domains where triangles
+	    // tend to have unreliable 3D orientations.  An upper bound of 1
+	    // keeps the domain convex and order-of-unity.
+	    if (ratio < 0.2) ratio = 0.2;
+	    ellipse_a = 1.0;
+	    ellipse_b = ratio;
+	}
+    }
+
+    // ── Step 8: LSCM parameterization ────────────────────────────────────────
     std::vector<gte::Vector2<double>> uv;
     bool lscm_ok = false;
 
     if (!true_interior_cpt.empty() && !tris_cpt.empty()) {
-	// Full LSCM: boundary pinned to circle, interior solved via cotangent
+	// Full LSCM: boundary pinned to circle, interior solved via mean-value
 	// Laplacian using the visited_triangles as the mesh connectivity.
 	lscm_ok = gte::LSCMParameterization<double>::Parameterize(
 		v3d, bnd_cpt, true_interior_cpt, tris_cpt, uv);
@@ -5118,8 +5455,8 @@ cdt_mesh_t::lscm_reproject(cpolygon_t *polygon)
 
     if (!lscm_ok) {
 	// Boundary-only fallback: map boundary to circle, leave interior at 0.
-	// Interior Steiner points at UV=(0,0) land at the circle centroid, which
-	// is geometrically inside the unit-circle boundary.
+	// Interior Steiner points at UV=(0,0) land at the centroid of the
+	// ellipse, which is geometrically inside the ellipse boundary.
 	std::vector<gte::Vector2<double>> bnd_uv;
 	lscm_ok = gte::LSCMParameterization<double>::MapBoundaryToCircle(
 		v3d, bnd_cpt, bnd_uv);
@@ -5136,7 +5473,18 @@ cdt_mesh_t::lscm_reproject(cpolygon_t *polygon)
 	return false;
     }
 
-    // ── Step 8: Write UV back to polygon->pnts_2d ───────────────────────────
+    // ── Step 9: Scale unit-circle UV to ellipse ───────────────────────────────
+    // Both the Parameterize and MapBoundaryToCircle paths pin the boundary to
+    // the unit circle.  Rescale the entire UV domain to the ellipse computed
+    // above.  This is a uniform anisotropic scaling: u *= a, v *= b.
+    if (ellipse_b < 0.999) {
+	for (auto& p : uv) {
+	    p[0] *= ellipse_a;
+	    p[1] *= ellipse_b;
+	}
+    }
+
+    // ── Step 10: Write UV back to polygon->pnts_2d ───────────────────────────
     // pnts_2d is indexed identically to pnts (o2p is identity), so we can
     // write directly using the original mesh index.
     std::vector<std::pair<double, double>> pnts_2d_cached = polygon->pnts_2d;
@@ -5149,13 +5497,38 @@ cdt_mesh_t::lscm_reproject(cpolygon_t *polygon)
 	}
     }
 
-    // ── Step 9: Validate the reprojection ────────────────────────────────────
+    // ── Step 11: Validate the reprojection ───────────────────────────────────
+    // After LSCM + ellipse scaling, the boundary loop lies on the ellipse
+    // (u/a)^2 + (v/b)^2 = 1.  Tutte's theorem (mean-value weights are always
+    // positive) guarantees that all true interior vertices are strictly inside
+    // the ellipse.  We validate with an ellipse-distance test rather than
+    // Franklin's ray-cast point_in_polygon, because the ray-cast algorithm is
+    // undefined (can return 0) for points exactly on or very near the polygon
+    // boundary — which is exactly the situation here.
     int valid = 1;
     if (!polygon->closed()) {
 	valid = 0;
     } else {
+	// Tolerance: 1% headroom for CG-solver numerical imprecision.
+	// A genuine LSCM failure (CG divergence) would place vertices far
+	// outside the ellipse, not merely 1% beyond it.
+	static const double kEllipseTolSq = 1.02 * 1.02;
+	double inv_a2 = 1.0 / (ellipse_a * ellipse_a);
+	double inv_b2 = 1.0 / (ellipse_b * ellipse_b);
 	for (long ip : polygon->interior_points) {
-	    if (!polygon->point_in_polygon(ip, false)) {
+	    int32_t gi = (int32_t)ip;
+	    // Vertices that are also on the polygon boundary loop are placed
+	    // exactly on the ellipse by the LSCM mapping; they are trivially
+	    // "inside" the polygon boundary.
+	    if (bnd_set.find(gi) != bnd_set.end())
+		continue;
+	    if ((size_t)gi >= polygon->pnts_2d.size()) {
+		valid = 0;
+		break;
+	    }
+	    double u = polygon->pnts_2d[(size_t)gi].first;
+	    double v = polygon->pnts_2d[(size_t)gi].second;
+	    if (u * u * inv_a2 + v * v * inv_b2 > kEllipseTolSq) {
 		valid = 0;
 		break;
 	    }
@@ -5163,8 +5536,8 @@ cdt_mesh_t::lscm_reproject(cpolygon_t *polygon)
     }
 
     if (!valid) {
-	bu_log("lscm_reproject: f_id=%d validation failed (closed=%d)\n",
-	    f_id, polygon->closed() ? 1 : 0);
+	bu_log("lscm_reproject: f_id=%d validation failed (closed=%d ellipse_b=%.3f)\n",
+	    f_id, polygon->closed() ? 1 : 0, ellipse_b);
 	polygon->pnts_2d = pnts_2d_cached;
 	return false;
     }
@@ -5188,32 +5561,51 @@ cdt_mesh_t::best_fit_plane(std::set<triangle_t> &ts)
 
     ON_3dVector avgtnorm(0.0,0.0,0.0);
     int ncnt = 0;
-    for (a_it = averts.begin(); a_it != averts.end(); a_it++) {
-	ON_3dPoint *vn = normals[nmap[*a_it]];
-	if (vn) {
-	    avgtnorm += *vn;
-	    ncnt++;
+    {
+	std::set<ON_3dPoint *> seen_nrm;
+	for (a_it = averts.begin(); a_it != averts.end(); a_it++) {
+	    ON_3dPoint *p3d = pnts[(size_t)*a_it];
+	    if (!seen_nrm.insert(p3d).second)
+		continue;
+	    ON_3dVector vn = vert_norm(*a_it);
+	    if (vn.Length() > ON_ZERO_TOLERANCE) {
+		avgtnorm += vn;
+		ncnt++;
+	    }
 	}
     }
-    avgtnorm = avgtnorm * 1.0/(double)ncnt;
+    if (ncnt > 0) {
+	avgtnorm = avgtnorm * (1.0/(double)ncnt);
+    }
+    // If ncnt==0 avgtnorm stays zero; DotProduct below returns 0 and the
+    // fitted-plane normal is kept as-is (arbitrary but consistent sign).
 
     point_t pcenter;
     vect_t pnorm;
 
-    point_t *vpnts = (point_t *)bu_calloc(averts.size()+1, sizeof(point_t), "fitting points");
-    int pnts_ind = 0;
-    for (a_it = averts.begin(); a_it != averts.end(); a_it++) {
-	ON_3dPoint *p = pnts[*a_it];
-	vpnts[pnts_ind][X] = p->x;
-	vpnts[pnts_ind][Y] = p->y;
-	vpnts[pnts_ind][Z] = p->z;
-	pnts_ind++;
+    {
+	std::set<ON_3dPoint *> seen_fit;
+	for (a_it = averts.begin(); a_it != averts.end(); a_it++)
+	    seen_fit.insert(pnts[(size_t)*a_it]);
+	point_t *vpnts = (point_t *)bu_calloc(seen_fit.size() + 1, sizeof(point_t), "fitting points");
+	int pnts_ind = 0;
+	std::set<ON_3dPoint *> seen_fit2;
+	for (a_it = averts.begin(); a_it != averts.end(); a_it++) {
+	    ON_3dPoint *p = pnts[(size_t)*a_it];
+	    if (!seen_fit2.insert(p).second)
+		continue;
+	    vpnts[pnts_ind][X] = p->x;
+	    vpnts[pnts_ind][Y] = p->y;
+	    vpnts[pnts_ind][Z] = p->z;
+	    pnts_ind++;
+	}
+	bool fit_failed = bg_fit_plane(&pcenter, &pnorm, pnts_ind, vpnts);
+	bu_free(vpnts, "fitting points");
+	if (fit_failed) {
+	    ON_Plane null_fit_plane(ON_3dPoint::UnsetPoint, ON_3dVector::UnsetVector);
+	    return null_fit_plane;
+	}
     }
-    if (bg_fit_plane(&pcenter, &pnorm, pnts_ind, vpnts)) {
-	ON_Plane null_fit_plane(ON_3dPoint::UnsetPoint, ON_3dVector::UnsetVector);
-	return null_fit_plane;
-    }
-    bu_free(vpnts, "fitting points");
 
     ON_3dVector on_norm(pnorm[X], pnorm[Y], pnorm[Z]);
     if (ON_DotProduct(on_norm, avgtnorm) < 0) {
