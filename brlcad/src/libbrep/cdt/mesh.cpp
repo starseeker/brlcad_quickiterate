@@ -2471,7 +2471,7 @@ cdt_mesh_t::bnorm(const triangle_t &t)
 	}
     }
 
-    if (norm_cnt < 0.5) return avgnorm;
+    if (norm_cnt < 1) return avgnorm;
     ON_3dVector anrm = avgnorm / norm_cnt;
     anrm.Unitize();
     return anrm;
@@ -2920,7 +2920,6 @@ cdt_mesh_t::oriented_polycdt(cpolygon_t *polygon, bool reproject)
 	    triangle_t t = *tr_it;
 	    t.m = this;
 	    triangle_t nt(t);
-	    flip_cnt++;
 	    nt.v[2] = t.v[1];
 	    nt.v[1] = t.v[2];
 	    otris.insert(nt);
@@ -5081,7 +5080,13 @@ cdt_mesh_t::best_fit_plane_reproject(cpolygon_t *polygon)
 	    }
 	}
     }
-    avgtnorm = avgtnorm * 1.0/(double)ncnt;
+    if (ncnt > 0) {
+	avgtnorm = avgtnorm * (1.0/(double)ncnt);
+    } else {
+	// No vertex normals available: fall back to the polygon's existing
+	// plane normal as the orientation reference.
+	avgtnorm = polygon->tplane.zaxis;
+    }
 
     point_t pcenter;
     vect_t pnorm;
@@ -5414,7 +5419,11 @@ cdt_mesh_t::best_fit_plane(std::set<triangle_t> &ts)
 	    }
 	}
     }
-    avgtnorm = avgtnorm * 1.0/(double)ncnt;
+    if (ncnt > 0) {
+	avgtnorm = avgtnorm * (1.0/(double)ncnt);
+    }
+    // If ncnt==0 avgtnorm stays zero; DotProduct below returns 0 and the
+    // fitted-plane normal is kept as-is (arbitrary but consistent sign).
 
     point_t pcenter;
     vect_t pnorm;
