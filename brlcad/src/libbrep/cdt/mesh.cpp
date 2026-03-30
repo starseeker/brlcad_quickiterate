@@ -5405,7 +5405,9 @@ cdt_mesh_t::lscm_reproject(cpolygon_t *polygon)
     // guarantee still holds after this uniform scaling.
     //
     // Caps: a is normalised to 1 (so coordinates stay order-of-unity);
-    //       b is clamped to [0.05, 1] to avoid near-degenerate domains.
+    //       b is clamped to [0.2, 1] to avoid near-degenerate domains.
+    //       The 5:1 maximum prevents extreme aspect ratios that would produce
+    //       very thin CDT triangles with unreliable 3D orientations.
     double ellipse_a = 1.0;
     double ellipse_b = 1.0;
     {

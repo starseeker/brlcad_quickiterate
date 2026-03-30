@@ -3,3 +3,4 @@ brlcad_build/
 *.log
 *.plot3
 *.cdtmesh
+cdt_patch_fail_*.c
