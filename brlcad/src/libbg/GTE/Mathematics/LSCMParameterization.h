@@ -5,7 +5,7 @@
 // https://www.geometrictools.com/License/Boost/LICENSE_1_0.txt
 // File Version: 8.0.2026.03.05
 //
-// LSCM (Least Squares Conformal Maps) parameterization
+// Mesh parameterization: arc-length boundary mapping + mean-value Laplacian.
 //
 // Provides two distinct operations:
 //
@@ -14,30 +14,36 @@
 //     circle using arc-length parameterization.  This is the primary method
 //     in MeshHoleFilling (before the 3D ear-clipping last resort):
 //
-//       LSCM (arc-length circle) → EarClipping3D
+//       arc-length circle → EarClipping3D
 //
 //     A circle-inscribed polygon is always convex, so EC always succeeds
 //     regardless of how non-planar the original 3D loop is.
 //
-//  2. Parameterize (full conformal parameterization, for meshes with
-//     interior vertices as well as a boundary)
+//  2. Parameterize (full planar parameterization, for meshes with interior
+//     vertices as well as a boundary)
 //     Pins the boundary to a convex circle polygon (via arc-length), then
-//     solves a cotangent-Laplacian system for the interior vertices using
-//     conjugate-gradient (GTE's LinearSystem::SolveSymmetricCG).  The
-//     cotangent Laplacian minimises the Dirichlet energy, which is a close
-//     approximation of the LSCM conformal energy.  The result can be used
-//     as UV coordinates for texture mapping or as a 2D domain for mesh
-//     operations on complex surface patches.
+//     solves a mean-value Laplacian system for the interior vertices using
+//     conjugate-gradient (GTE's LinearSystem::SolveSymmetricCG).
+//
+//     The mean-value weight for edge (v_i, v_j) from a triangle is:
+//       w_ij = (tan(α_i/2) + tan(α_j/2)) / (2 * |v_j - v_i|)
+//     where α_i and α_j are the interior angles at v_i and v_j respectively.
+//     These weights are ALWAYS POSITIVE for non-degenerate triangles, so the
+//     system matrix is symmetric positive-definite and Tutte's theorem
+//     guarantees an injective (fold-over-free) map for any convex boundary.
+//     This is the key advantage over cotangent weights: cotangents go
+//     negative for obtuse angles, which can cause fold-overs in the 2D map.
 //
 //     For a boundary-only polygon (no interior vertices) Parameterize()
 //     reduces to MapBoundaryToCircle() and no linear system is built.
 //
-// Reference for LSCM:
+// Reference for arc-length boundary mapping:
 //   Lévy, Petitjean, Ray, Maillot, "Least Squares Conformal Maps for
 //   Automatic Texture Atlas Generation", SIGGRAPH 2002.
-// Reference for cotangent Laplacian:
-//   Pinkall & Polthier, "Computing Discrete Minimal Surfaces and Their
-//   Conjugates", Experimental Mathematics 2(1), 1993.
+// Reference for mean-value coordinates:
+//   Floater, "Mean Value Coordinates", CAGD 20(1), 2003.
+// Reference for Tutte's embedding theorem:
+//   Tutte, "How to draw a graph", Proc. London Math. Soc. 13, 1963.
 
 #pragma once
 
@@ -115,7 +121,7 @@ namespace gte
             return true;
         }
 
-        // ── Full conformal parameterization ──────────────────────────────────
+        // ── Full planar parameterization (mean-value Laplacian) ───────────────
         //
         // Parameterize a 3D mesh patch to 2D UV space.
         //
@@ -130,9 +136,9 @@ namespace gte
         // Output:
         //   uv – UV coordinates indexed by vertex index (same size as vertices3D);
         //        boundary vertices are pinned to the unit circle, interior
-        //        vertices are solved for by minimising the Dirichlet energy
-        //        (cotangent Laplacian, a close approximation of LSCM conformal
-        //        energy)
+        //        vertices are solved for by the mean-value Laplacian (Floater 2003).
+        //        The mean-value weights are always positive, so by Tutte's theorem
+        //        the resulting map is injective (no fold-overs) for a convex boundary.
         //
         // Returns true on success.
         static bool Parameterize(
@@ -170,17 +176,26 @@ namespace gte
                 return true;
             }
 
-            // Step 2: build cotangent-Laplacian system for interior vertices.
+            // Step 2: build mean-value Laplacian system for interior vertices.
             //
-            // For each interior vertex v, the equation is:
+            // For each interior vertex v, the discrete equation is:
             //   sum_{u in N(v)} w_vu * (uv[u] - uv[v]) = 0
-            // where w_vu = (cot(alpha_vu) + cot(beta_vu)) / 2, with alpha_vu and
-            // beta_vu the angles of triangles opposite to edge (v,u).
+            //
+            // We use the symmetric mean-value weight for edge (v_i, v_j):
+            //   w_ij = (tan(α_i/2) + tan(α_j/2)) / (2 * |v_j - v_i|)
+            // where α_i and α_j are the interior angles at v_i and v_j in the
+            // triangle.  Using the identity tan(θ/2) = sin(θ)/(1+cos(θ)) the
+            // weight is computed without trigonometric functions:
+            //   tan(α_k/2) = |cross(e1,e2)| / (|e1|*|e2| + dot(e1,e2))
+            // These weights are ALWAYS POSITIVE for non-degenerate triangles
+            // (angles in (0,π)), making the system symmetric positive-definite.
+            // Combined with the convex (unit-circle) boundary, Tutte's theorem
+            // then guarantees an injective (fold-over-free) parameterization.
             //
             // Rearranged for the linear system (only interior vertices are unknowns):
             //   (sum_u w_vu) * uv[v] - sum_{u interior} w_vu * uv[u]
             //       = sum_{u boundary} w_vu * uv[u]
-            // => A * x = b, where A is symmetric positive (semi-)definite.
+            // => A * x = b, where A is symmetric positive-definite.
             int32_t numInterior = static_cast<int32_t>(interiorIndices.size());
 
             // Map from global vertex index to interior-unknown index.
@@ -202,39 +217,66 @@ namespace gte
             std::vector<Real> bu(static_cast<size_t>(numInterior), static_cast<Real>(0));
             std::vector<Real> bv(static_cast<size_t>(numInterior), static_cast<Real>(0));
 
-            // Accumulate cotangent weights from each triangle.
+            // Accumulate mean-value weights from each triangle.
             for (auto const& tri : triangles)
             {
-                // For each of the 3 edges (i,j) of the triangle, compute the
-                // cotangent of the angle at the opposite corner k.
-                for (int corner = 0; corner < 3; ++corner)
+                // Pre-compute edge lengths and tan(half-angle) at each vertex.
+                // edge_len[k] = length of edge from tri[k] to tri[(k+1)%3].
+                static constexpr Real kMVThreshold = static_cast<Real>(1e-10);
+                std::array<Real, 3> edge_len{};
+                for (int k = 0; k < 3; ++k)
                 {
-                    int32_t vi = tri[corner];
-                    int32_t vj = tri[(corner + 1) % 3];
-                    int32_t vk = tri[(corner + 2) % 3];  // opposite to edge (vi,vj)
+                    edge_len[k] = Length(
+                        vertices3D[static_cast<size_t>(tri[(k + 1) % 3])] -
+                        vertices3D[static_cast<size_t>(tri[k])]);
+                }
 
-                    Vector3<Real> ei = vertices3D[static_cast<size_t>(vi)] -
-                                       vertices3D[static_cast<size_t>(vk)];
-                    Vector3<Real> ej = vertices3D[static_cast<size_t>(vj)] -
-                                       vertices3D[static_cast<size_t>(vk)];
+                // tan(α_k/2) at vertex tri[k]:
+                //   e1 = edge from tri[k] to tri[(k+1)%3]  (len = edge_len[k])
+                //   e2 = edge from tri[k] to tri[(k+2)%3]  (len = edge_len[(k+2)%3])
+                //   tan(α_k/2) = |cross(e1,e2)| / (len(e1)*len(e2) + dot(e1,e2))
+                std::array<Real, 3> tan_half{};
+                for (int k = 0; k < 3; ++k)
+                {
+                    Vector3<Real> e1 =
+                        vertices3D[static_cast<size_t>(tri[(k + 1) % 3])] -
+                        vertices3D[static_cast<size_t>(tri[k])];
+                    Vector3<Real> e2 =
+                        vertices3D[static_cast<size_t>(tri[(k + 2) % 3])] -
+                        vertices3D[static_cast<size_t>(tri[k])];
+                    Real cross_mag = Length(Cross(e1, e2));
+                    Real dot_val   = Dot(e1, e2);
+                    Real len_prod  = edge_len[k] * edge_len[(k + 2) % 3];
+                    Real denom     = len_prod + dot_val;
+                    if (denom <= kMVThreshold)
+                    {
+                        // Angle at tri[k] approaching π: cap to a large value.
+                        tan_half[k] = static_cast<Real>(1) / kMVThreshold;
+                    }
+                    else if (cross_mag <= kMVThreshold)
+                    {
+                        // Degenerate (zero-area) triangle: skip this vertex.
+                        tan_half[k] = static_cast<Real>(0);
+                    }
+                    else
+                    {
+                        tan_half[k] = cross_mag / denom;
+                    }
+                }
 
-                    Real cosA = Dot(ei, ej);
-                    Real sinA = Length(Cross(ei, ej));
-                    // Skip degenerate triangles (cross product magnitude near zero).
-                    // The threshold is relative to the magnitude of sinA; for Real=float
-                    // a slightly larger value may be needed, but 1e-10 is safe for double.
-                    static constexpr Real kDegenerateThreshold = static_cast<Real>(1e-10);
-                    if (sinA <= kDegenerateThreshold) { continue; }
-                    Real cotA = cosA / sinA;  // cot(angle at vk)
+                // For each edge k (from tri[k] to tri[(k+1)%3]), accumulate the
+                // symmetric mean-value weight:
+                //   mvWeight = (tan_half[k] + tan_half[(k+1)%3]) / (2 * edge_len[k])
+                // This is always ≥ 0 and is symmetric: mvWeight(vi→vj) = mvWeight(vj→vi).
+                for (int k = 0; k < 3; ++k)
+                {
+                    int32_t vi = tri[k];
+                    int32_t vj = tri[(k + 1) % 3];
 
-                    // Each triangle contributes cotA for the opposite edge (vi,vj).
-                    // The symmetric cotangent Laplacian weight for edge (vi,vj) is
-                    //   w_ij = cotA_left + cotA_right
-                    // where "left" and "right" are the two triangles sharing (vi,vj).
-                    // We accumulate the full cotA from each triangle as it is visited,
-                    // so no halving is needed here; the total across both visits gives
-                    // w_ij = cotA_left + cotA_right as required.
-                    Real cotWeight = cotA;
+                    if (edge_len[k] <= kMVThreshold) { continue; }
+                    Real mvWeight = (tan_half[k] + tan_half[(k + 1) % 3]) /
+                                    (static_cast<Real>(2) * edge_len[k]);
+                    if (mvWeight <= static_cast<Real>(0)) { continue; }
 
                     // Accumulate into the system.
                     // Both vi and vj may be interior or boundary vertices.
@@ -247,35 +289,35 @@ namespace gte
                     if (viInt)
                     {
                         int32_t ri = iti->second;
-                        // Diagonal: A[ri,ri] += cotWeight
-                        A[{ ri, ri }] += cotWeight;
+                        // Diagonal: A[ri,ri] += mvWeight
+                        A[{ ri, ri }] += mvWeight;
                         if (vjInt)
                         {
                             int32_t rj = itj->second;
-                            // Off-diagonal: A[min,max] -= cotWeight  (symmetric)
+                            // Off-diagonal: A[min,max] -= mvWeight  (symmetric)
                             int32_t lo = std::min(ri, rj);
                             int32_t hi = std::max(ri, rj);
-                            A[{ lo, hi }] -= cotWeight;
+                            A[{ lo, hi }] -= mvWeight;
                         }
                         else
                         {
                             // vj is boundary → contributes to RHS
                             Vector2<Real> const& uvj = uv[static_cast<size_t>(vj)];
-                            bu[static_cast<size_t>(ri)] += cotWeight * uvj[0];
-                            bv[static_cast<size_t>(ri)] += cotWeight * uvj[1];
+                            bu[static_cast<size_t>(ri)] += mvWeight * uvj[0];
+                            bv[static_cast<size_t>(ri)] += mvWeight * uvj[1];
                         }
                     }
 
                     if (vjInt)
                     {
                         int32_t rj = itj->second;
-                        A[{ rj, rj }] += cotWeight;
+                        A[{ rj, rj }] += mvWeight;
                         if (!viInt)
                         {
                             // vi is boundary → contributes to RHS
                             Vector2<Real> const& uvi = uv[static_cast<size_t>(vi)];
-                            bu[static_cast<size_t>(rj)] += cotWeight * uvi[0];
-                            bv[static_cast<size_t>(rj)] += cotWeight * uvi[1];
+                            bu[static_cast<size_t>(rj)] += mvWeight * uvi[0];
+                            bv[static_cast<size_t>(rj)] += mvWeight * uvi[1];
                         }
                         // The off-diagonal case (vi interior) was already handled above.
                     }
@@ -287,12 +329,10 @@ namespace gte
             // more appropriate.  Using 1e-8 as a conservative default suitable for
             // both since float accuracy is limited to ~7 decimal digits.
             //
-            // maxIter = 20 * numInterior: the cotangent-Laplacian system is
-            // positive-definite so CG converges in at most numInterior steps in
-            // exact arithmetic.  A factor of 20 provides headroom for finite
-            // precision while keeping the worst case manageable.  In practice
-            // the mesh-repair call site uses boundary-only holes (numInterior == 0),
-            // so this solver path is only exercised by the full Parameterize() API.
+            // maxIter = 20 * numInterior: the mean-value Laplacian system is
+            // symmetric positive-definite so CG converges in at most numInterior
+            // steps in exact arithmetic.  A factor of 20 provides headroom for
+            // finite precision while keeping the worst case manageable.
             static constexpr uint32_t kCGIterMultiplier = 20u;
             uint32_t maxIter = static_cast<uint32_t>(numInterior) * kCGIterMultiplier;
             Real const cgTolerance = static_cast<Real>(1e-8);

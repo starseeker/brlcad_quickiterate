@@ -48,7 +48,7 @@
 #include "./cdt.h"
 #include "./mesh.h"
 
-/* GTE LSCM parameterization for the lscm_reproject path */
+/* GTE mean-value parameterization for the lscm_reproject path */
 #if defined(__GNUC__) && !defined(__clang__)
 #  pragma GCC diagnostic push
 #  pragma GCC diagnostic ignored "-Wfloat-equal"
@@ -3204,10 +3204,47 @@ cdt_mesh_t::cdt()
     //cdt_inputs_print("cdt_inputs.c");
     //cdt_inputs_plot("cdt_inputs.plot3");
 
+    // Aspect-ratio normalization: if the face UV bounding box has a large
+    // aspect ratio (e.g. a long cylindrical face), scale the shorter axis in
+    // bgp_2d so the CDT triangulator sees a near-square domain.  This avoids
+    // numerically degenerate initial triangles for faces like NIST Face 35
+    // whose UV extents span ~93:1.  The scale is applied only to the local
+    // bgp_2d array; m_pnts_2d is unchanged, so all upstream UV coordinates
+    // remain correct.  bg_nested_poly_triangulate is invariant to uniform
+    // axis scaling (it only determines topology, not UV values).
+    double umin = std::numeric_limits<double>::max();
+    double umax = -std::numeric_limits<double>::max();
+    double vmin = std::numeric_limits<double>::max();
+    double vmax = -std::numeric_limits<double>::max();
+    for (size_t i = 0; i < m_pnts_2d.size(); i++) {
+	double u = m_pnts_2d[i].first;
+	double v = m_pnts_2d[i].second;
+	if (u < umin) umin = u;
+	if (u > umax) umax = u;
+	if (v < vmin) vmin = v;
+	if (v > vmax) vmax = v;
+    }
+    double uscale = 1.0, vscale = 1.0;
+    {
+	double urng = umax - umin;
+	double vrng = vmax - vmin;
+	if (urng > 0.0 && vrng > 0.0) {
+	    double ratio = (urng > vrng) ? urng / vrng : vrng / urng;
+	    if (ratio > 10.0) {
+		if (urng < vrng)
+		    uscale = vrng / urng;
+		else
+		    vscale = urng / vrng;
+		bu_log("Face %d: UV aspect ratio %.1f:1, normalizing (uscale=%.4g vscale=%.4g)\n",
+		    f_id, ratio, uscale, vscale);
+	    }
+	}
+    }
+
     point2d_t *bgp_2d = (point2d_t *)bu_calloc(m_pnts_2d.size() + 1, sizeof(point2d_t), "2D points array");
     for (size_t i = 0; i < m_pnts_2d.size(); i++) {
-	bgp_2d[i][X] = m_pnts_2d[i].first;
-	bgp_2d[i][Y] = m_pnts_2d[i].second;
+	bgp_2d[i][X] = m_pnts_2d[i].first * uscale;
+	bgp_2d[i][Y] = m_pnts_2d[i].second * vscale;
     }
 
     int *faces = NULL;
@@ -4929,14 +4966,15 @@ cdt_mesh_t::best_fit_plane_reproject(cpolygon_t *polygon)
     return true;
 }
 
-/* LSCM-based reprojection for oriented_polycdt.
+/* Mean-value parameterization reprojection for oriented_polycdt.
  *
  * Instead of projecting the polygon vertices onto a best-fit plane (which can
  * produce self-intersections for highly curved patches), we use GTE's
  * LSCMParameterization to map the boundary loop to a unit circle and solve a
- * cotangent-Laplacian system for interior vertices.  The resulting UV
- * coordinates are guaranteed to produce a non-self-intersecting 2D boundary,
- * giving bg_nested_poly_triangulate a valid domain to work with.
+ * mean-value Laplacian (Floater 2003) for interior vertices.  The mean-value
+ * weights are always positive, so by Tutte's theorem the resulting UV map is
+ * injective (fold-over-free) for any convex boundary, giving
+ * bg_nested_poly_triangulate a valid domain to work with.
  *
  * Algorithm:
  *  1. Walk the polygon boundary loop (same ordering as cdt()) to get ordered
@@ -5093,7 +5131,7 @@ cdt_mesh_t::lscm_reproject(cpolygon_t *polygon)
     }
 
     if (!lscm_ok || uv.empty()) {
-	bu_log("lscm_reproject: f_id=%d LSCM math failed (int_verts=%zu tris=%zu bnd=%zu)\n",
+	bu_log("lscm_reproject: f_id=%d mean-value parameterization failed (int_verts=%zu tris=%zu bnd=%zu)\n",
 	    f_id, true_interior_cpt.size(), tris_cpt.size(), bnd_loop.size());
 	return false;
     }
