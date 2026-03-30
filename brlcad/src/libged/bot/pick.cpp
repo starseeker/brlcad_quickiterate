@@ -143,7 +143,7 @@ _bot_pick_ray(struct _ged_bot_ipick *gib, int argc, const char **argv,
 extern "C" int
 _bot_cmd_vertex_pick(void *bs, int argc, const char **argv)
 {
-    const char *usage_string = "bot [options] <objname> pick V [px py pz dx dy dz]";
+    const char *usage_string = "bot [options] <objname> pick V [--first] [px py pz dx dy dz]";
     const char *purpose_string = "pick closest vertex to line";
     if (_bot_pick_msgs(bs, argc, argv, usage_string, purpose_string)) {
 	return BRLCAD_OK;
@@ -154,6 +154,14 @@ _bot_cmd_vertex_pick(void *bs, int argc, const char **argv)
     struct _ged_bot_ipick *gib = (struct _ged_bot_ipick *)bs;
     const struct rt_bot_internal *bot =
 	(const struct rt_bot_internal *)(gib->gb->intern->idb_ptr);
+
+    /* --first: among vertices near the ray, pick the one closest to the
+     * interrogation start point rather than closest to the ray line. */
+    int use_first = 0;
+    if (argc > 0 && BU_STR_EQUAL(argv[0], "--first")) {
+	use_first = 1;
+	argc--; argv++;
+    }
 
     if (argc > 0 && argc != 6) {
 	bu_vls_printf(gib->vls,
@@ -183,18 +191,56 @@ _bot_cmd_vertex_pick(void *bs, int argc, const char **argv)
     struct bn_tol tol = BN_TOL_INIT_TOL;
     double dmin = DBL_MAX;
     int cvert = -1;
+    double reported_dist;
 
-    for (size_t i = 0; i < bot->num_vertices; i++) {
-	point_t vp;
-	VMOVE(vp, &bot->vertices[3*i]);
+    if (!use_first) {
+	for (size_t i = 0; i < bot->num_vertices; i++) {
+	    point_t vp;
+	    VMOVE(vp, &bot->vertices[3*i]);
 
-	fastf_t vdist;
-	point_t pca;
-	bg_dist_pnt3_line3(&vdist, pca, origin, vp, dir, &tol);
-	if (vdist < dmin) {
-	    dmin = vdist;
-	    cvert = (int)i;
+	    fastf_t vdist;
+	    point_t pca;
+	    bg_dist_pnt3_line3(&vdist, pca, origin, vp, dir, &tol);
+	    if (vdist < dmin) {
+		dmin = vdist;
+		cvert = (int)i;
+	    }
 	}
+	reported_dist = dmin;
+    } else {
+	/* Pass 1: find the minimum perpendicular distance to the ray. */
+	for (size_t i = 0; i < bot->num_vertices; i++) {
+	    point_t vp;
+	    VMOVE(vp, &bot->vertices[3*i]);
+
+	    fastf_t vdist;
+	    point_t pca;
+	    bg_dist_pnt3_line3(&vdist, pca, origin, vp, dir, &tol);
+	    if (vdist < dmin)
+		dmin = vdist;
+	}
+	/* Pass 2: among vertices within tolerance of dmin, select the one
+	 * with the smallest distance from the interrogation start point. */
+	double near_thresh = dmin + tol.dist;
+	double tmin = DBL_MAX;
+	for (size_t i = 0; i < bot->num_vertices; i++) {
+	    point_t vp;
+	    VMOVE(vp, &bot->vertices[3*i]);
+
+	    fastf_t vdist;
+	    point_t pca;
+	    bg_dist_pnt3_line3(&vdist, pca, origin, vp, dir, &tol);
+	    if (vdist <= near_thresh) {
+		vect_t diff;
+		VSUB2(diff, vp, origin);
+		double t = VDOT(diff, dir);
+		if (t < tmin) {
+		    tmin = t;
+		    cvert = (int)i;
+		}
+	    }
+	}
+	reported_dist = tmin;
     }
 
     if (cvert < 0) {
@@ -203,7 +249,7 @@ _bot_cmd_vertex_pick(void *bs, int argc, const char **argv)
     }
 
     if (gib->gb->verbosity) {
-	bu_vls_printf(gib->vls, "V[%d]: %g\n", cvert, dmin);
+	bu_vls_printf(gib->vls, "V[%d]: %g\n", cvert, reported_dist);
     } else {
 	bu_vls_printf(gib->vls, "%d\n", cvert);
     }
@@ -220,7 +266,7 @@ _bot_cmd_vertex_pick(void *bs, int argc, const char **argv)
 extern "C" int
 _bot_cmd_edge_pick(void *bs, int argc, const char **argv)
 {
-    const char *usage_string = "bot [options] <objname> pick E [px py pz dx dy dz]";
+    const char *usage_string = "bot [options] <objname> pick E [--first] [px py pz dx dy dz]";
     const char *purpose_string = "pick closest edge to line";
     if (_bot_pick_msgs(bs, argc, argv, usage_string, purpose_string)) {
 	return BRLCAD_OK;
@@ -231,6 +277,14 @@ _bot_cmd_edge_pick(void *bs, int argc, const char **argv)
     struct _ged_bot_ipick *gib = (struct _ged_bot_ipick *)bs;
     const struct rt_bot_internal *bot =
 	(const struct rt_bot_internal *)(gib->gb->intern->idb_ptr);
+
+    /* --first: among edges near the ray, pick the one whose closest approach
+     * point is nearest to the interrogation start point. */
+    int use_first = 0;
+    if (argc > 0 && BU_STR_EQUAL(argv[0], "--first")) {
+	use_first = 1;
+	argc--; argv++;
+    }
 
     if (argc > 0 && argc != 6) {
 	bu_vls_printf(gib->vls,
@@ -317,8 +371,10 @@ _bot_cmd_edge_pick(void *bs, int argc, const char **argv)
     double dmin = DBL_MAX;
     int cedge = -1;
 
-    for (std::set<int>::iterator it = aedges.begin(); it != aedges.end(); it++) {
-	int ei = *it;
+    /* Lambda: compute 3D distance between the ray and edge ei, and return
+     * the parametric distance along the ray (ray_t) to the closest approach
+     * point.  Used by both the standard pass and the --first second pass. */
+    auto edge_dist_and_t = [&](int ei, double &edge_dist, double &ray_t) {
 	point_t va, vb;
 	VMOVE(va, &bot->vertices[3*edges[ei].first]);
 	VMOVE(vb, &bot->vertices[3*edges[ei].second]);
@@ -326,14 +382,18 @@ _bot_cmd_edge_pick(void *bs, int argc, const char **argv)
 	fastf_t dist[2];
 	int ret = bg_dist_line3_lseg3(dist, origin, dir, va, vb, &tol);
 
-	double edge_dist;
 	if (ret < -1) {
 	    /* Parallel and collinear: distance is zero along the line.
-	     * Use distance from segment endpoint to the ray as a proxy. */
+	     * Use distance from segment endpoint to the ray as a proxy.
+	     * For depth, project the midpoint of the segment onto the ray. */
 	    fastf_t d0;
 	    point_t pca;
 	    bg_dist_pnt3_line3(&d0, pca, origin, va, dir, &tol);
 	    edge_dist = (double)d0;
+	    vect_t mid, diff;
+	    VADD2SCALE(mid, va, vb, 0.5);
+	    VSUB2(diff, mid, origin);
+	    ray_t = VDOT(diff, dir);
 	} else {
 	    /* Compute actual 3D distance between closest points on ray and
 	     * segment.  dist[0] is the parametric distance along the ray;
@@ -353,11 +413,45 @@ _bot_cmd_edge_pick(void *bs, int argc, const char **argv)
 	    vect_t diff;
 	    VSUB2(diff, closest_ray, closest_seg);
 	    edge_dist = MAGNITUDE(diff);
+	    ray_t = (double)dist[0];
 	}
+    };
 
-	if (edge_dist < dmin) {
-	    dmin = edge_dist;
-	    cedge = ei;
+    if (!use_first) {
+	/* Standard: find edge with minimum 3D distance to the ray. */
+	for (std::set<int>::iterator it = aedges.begin(); it != aedges.end(); it++) {
+	    int ei = *it;
+	    double edge_dist, ray_t;
+	    edge_dist_and_t(ei, edge_dist, ray_t);
+
+	    if (edge_dist < dmin) {
+		dmin = edge_dist;
+		cedge = ei;
+	    }
+	}
+    } else {
+	/* --first: among edges near the ray, pick the one whose closest
+	 * approach point on the ray is nearest to the start point.
+	 * Pass 1: find the minimum 3D distance to the ray. */
+	for (std::set<int>::iterator it = aedges.begin(); it != aedges.end(); it++) {
+	    int ei = *it;
+	    double edge_dist, ray_t;
+	    edge_dist_and_t(ei, edge_dist, ray_t);
+	    if (edge_dist < dmin)
+		dmin = edge_dist;
+	}
+	/* Pass 2: among edges within tolerance of dmin, select the one
+	 * whose closest approach on the ray is nearest to origin. */
+	double near_thresh = dmin + tol.dist;
+	double tmin = DBL_MAX;
+	for (std::set<int>::iterator it = aedges.begin(); it != aedges.end(); it++) {
+	    int ei = *it;
+	    double edge_dist, ray_t;
+	    edge_dist_and_t(ei, edge_dist, ray_t);
+	    if (edge_dist <= near_thresh && ray_t < tmin) {
+		tmin = ray_t;
+		cedge = ei;
+	    }
 	}
     }
 
