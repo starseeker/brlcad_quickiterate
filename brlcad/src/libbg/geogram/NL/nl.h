@@ -40,7 +40,6 @@
 #ifndef OPENNL_H
 #define OPENNL_H
 
-#include "nl_linkage.h"
 #include <stdio.h>
 #include <stdint.h>
 
@@ -51,6 +50,9 @@ extern "C" {
 #define NL_VERSION_4_0 1
 
 #define NLAPI
+
+/* NL is always linked statically; no symbol visibility decoration needed. */
+#define NLAPIENTRY
 
 /*
  * Deactivate warnings about documentation

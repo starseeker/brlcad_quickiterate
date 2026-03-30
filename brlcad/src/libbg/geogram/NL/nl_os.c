@@ -42,21 +42,10 @@
 
 #if (defined (WIN32) || defined(_WIN64))
 #include <windows.h>
-#  define NL_DLL_EXT ".dll"
 #else
 #include <sys/types.h>
 #include <sys/times.h>
 #endif
-
-#if defined(GEOBRL_DYNAMIC_LIBS) && defined(NL_OS_UNIX)
-#include <dlfcn.h>
-#ifdef NL_OS_APPLE
-#  define NL_DLL_EXT ".dylib"
-#else
-#  define NL_DLL_EXT ".so"
-#endif
-#endif
-
 
 /******************************************************************************/
 /* Assertions */
