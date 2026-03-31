@@ -56,7 +56,6 @@
 #include "bv.h"
 
 #include "ged.h"
-#include "../librt/librt_private.h"
 #include "./ged_private.h"
 #include "./dbi.h"
 
@@ -2426,15 +2425,14 @@ struct directory **
 _ged_dir_getspace(struct db_i *dbip,
 		  size_t num_entries)
 {
-    size_t i;
     struct directory **dir_basep;
     struct directory *dp;
 
     if (num_entries == 0) {
 	/* Set num_entries to the number of entries */
-	for (i = 0; i < RT_DBNHASH; i++)
-	    for (dp = dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw)
-		num_entries++;
+	FOR_ALL_DIRECTORY_START(dp, dbip)
+	    num_entries++;
+	FOR_ALL_DIRECTORY_END;
     }
 
     /* Allocate and cast num_entries worth of pointers */

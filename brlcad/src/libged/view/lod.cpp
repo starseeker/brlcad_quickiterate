@@ -35,7 +35,6 @@
 #include "bu/time.h"
 #include "bu/vls.h"
 #include "bv/lod.h"
-#include "../../librt/librt_private.h"
 
 #include "../ged_private.h"
 #include "./ged_view.h"
@@ -190,21 +189,17 @@ _view_cmd_lod(void *bs, int argc, const char **argv)
 
 	    int done = 0;
 	    int total = 0;
-	    for (int i = 0; i < RT_DBNHASH; i++) {
-		struct directory *dp;
-		for (dp = gedp->dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
-		    if (dp->d_addr == RT_DIR_PHONY_ADDR)
-			continue;
-		    if (dp->d_minor_type == DB5_MINORTYPE_BRLCAD_BOT)
-			total++;
-		    if (dp->d_minor_type == DB5_MINORTYPE_BRLCAD_BREP)
-			total++;
-		}
-	    }
+	    struct directory *dp;
+	    FOR_ALL_DIRECTORY_START(dp, gedp->dbip)
+		if (dp->d_addr == RT_DIR_PHONY_ADDR)
+		    continue;
+		if (dp->d_minor_type == DB5_MINORTYPE_BRLCAD_BOT)
+		    total++;
+		if (dp->d_minor_type == DB5_MINORTYPE_BRLCAD_BREP)
+		    total++;
+	    FOR_ALL_DIRECTORY_END;
 
-	    for (int i = 0; i < RT_DBNHASH; i++) {
-		struct directory *dp;
-		for (dp = gedp->dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
+	    FOR_ALL_DIRECTORY_START(dp, gedp->dbip)
 		    if (dp->d_addr == RT_DIR_PHONY_ADDR)
 			continue;
 
@@ -293,8 +288,7 @@ _view_cmd_lod(void *bs, int argc, const char **argv)
 			bu_free(normals, "normals");
 			bu_free(pnts, "pnts");
 		    }
-		}
-	    }
+	    FOR_ALL_DIRECTORY_END;
 
 	    elapsedtime = bu_gettime() - elapsedtime;
 	    {
@@ -313,21 +307,18 @@ _view_cmd_lod(void *bs, int argc, const char **argv)
 		bv_mesh_lod_clear_cache(gedp->ged_lod, 0);
 		return BRLCAD_OK;
 	    } else if (BU_STR_EQUAL(argv[1], "exists")) {
-		for (int i = 0; i < RT_DBNHASH; i++) {
-		    struct directory *dp;
-		    for (dp = gedp->dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
-			if (dp->d_addr == RT_DIR_PHONY_ADDR)
-			    continue;
-			// checking both BoTs and BREPs
-			if ((dp->d_minor_type == DB5_MINORTYPE_BRLCAD_BOT) ||
-			    (dp->d_minor_type == DB5_MINORTYPE_BRLCAD_BREP)) {
-			    unsigned long long key = bv_mesh_lod_key_get(gedp->ged_lod, dp->d_namep);
-			    if (!key) {
-				return BRLCAD_ERROR;
-			    }
+		FOR_ALL_DIRECTORY_START(dp, gedp->dbip)
+		    if (dp->d_addr == RT_DIR_PHONY_ADDR)
+			continue;
+		    // checking both BoTs and BREPs
+		    if ((dp->d_minor_type == DB5_MINORTYPE_BRLCAD_BOT) ||
+			(dp->d_minor_type == DB5_MINORTYPE_BRLCAD_BREP)) {
+			unsigned long long key = bv_mesh_lod_key_get(gedp->ged_lod, dp->d_namep);
+			if (!key) {
+			    return BRLCAD_ERROR;
 			}
 		    }
-		}
+		FOR_ALL_DIRECTORY_END;
 		return BRLCAD_OK;
 	    }
 	}

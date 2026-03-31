@@ -33,7 +33,6 @@
 #include "bu/opt.h"
 #include "bu/sort.h"
 #include "bu/units.h"
-#include "../../librt/librt_private.h"
 
 #include "../ged_private.h"
 
@@ -443,14 +442,12 @@ ged_ls_core(struct ged *gedp, int argc, const char *argv[])
 	    /* No guidance at all - just list all names. Walk the directory
 	     * list adding pointers (to the directory entries) to the tbl.
 	     */
-	    for (i = 0; i < RT_DBNHASH; i++) {
-		for (dp = gedp->dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
-		    if (!ls.aflag && (dp->d_flags & RT_DIR_HIDDEN)) continue;
-		    if (((dp->d_flags & ls.dir_flags) != 0)) {
-			bu_ptbl_ins(ls.results_obj, (long *)dp);
-		    }
+	    FOR_ALL_DIRECTORY_START(dp, gedp->dbip)
+		if (!ls.aflag && (dp->d_flags & RT_DIR_HIDDEN)) continue;
+		if (((dp->d_flags & ls.dir_flags) != 0)) {
+		    bu_ptbl_ins(ls.results_obj, (long *)dp);
 		}
-	    }
+	    FOR_ALL_DIRECTORY_END;
 	}
     }
 

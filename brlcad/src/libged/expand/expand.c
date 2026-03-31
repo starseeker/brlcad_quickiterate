@@ -29,7 +29,6 @@
 
 #include "bu/cmd.h"
 #include "bu/path.h"
-#include "../../librt/librt_private.h"
 
 #include "../ged_private.h"
 
@@ -60,7 +59,7 @@ ged_expand_core(struct ged *gedp, int argc, const char *argv[])
 {
     char *pattern;
     struct directory *dp;
-    int i, whicharg;
+    int whicharg;
     int regexp, nummatch, backslashed;
     static const char *usage = "expression";
 
@@ -113,18 +112,16 @@ ged_expand_core(struct ged *gedp, int argc, const char *argv[])
 	 */
 
 	pattern = (char *)argv[whicharg];
-	for (i = 0; i < RT_DBNHASH; i++) {
-	    for (dp = gedp->dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
-		if (bu_path_match(pattern, dp->d_namep, 0) != 0)
-		    continue;
-		/* Successful match */
-		if (nummatch == 0)
-		    bu_vls_printf(gedp->ged_result_str, "%s", dp->d_namep);
-		else
-		    bu_vls_printf(gedp->ged_result_str, " %s", dp->d_namep);
-		++nummatch;
-	    }
-	}
+	FOR_ALL_DIRECTORY_START(dp, gedp->dbip)
+	    if (bu_path_match(pattern, dp->d_namep, 0) != 0)
+		continue;
+	    /* Successful match */
+	    if (nummatch == 0)
+		bu_vls_printf(gedp->ged_result_str, "%s", dp->d_namep);
+	    else
+		bu_vls_printf(gedp->ged_result_str, " %s", dp->d_namep);
+	    ++nummatch;
+	FOR_ALL_DIRECTORY_END;
     }
 
     return BRLCAD_OK;

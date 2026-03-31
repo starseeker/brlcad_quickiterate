@@ -28,7 +28,6 @@
 #include <string.h>
 
 #include "bu/cmd.h"
-#include "../../librt/librt_private.h"
 
 #include "../ged_private.h"
 
@@ -46,7 +45,6 @@ struct _ged_id_to_names {
 int
 ged_rmap_core(struct ged *gedp, int argc, const char *argv[])
 {
-    int i;
     struct directory *dp;
     struct rt_db_internal intern;
     struct rt_comb_internal *comb;
@@ -73,8 +71,7 @@ ged_rmap_core(struct ged *gedp, int argc, const char *argv[])
     BU_LIST_INIT(&headIdName.l);
 
     /* For all regions not hidden */
-    for (i = 0; i < RT_DBNHASH; i++) {
-	for (dp = gedp->dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
+    FOR_ALL_DIRECTORY_START(dp, gedp->dbip)
 	    int found = 0;
 
 	    if (!(dp->d_flags & RT_DIR_REGION) ||
@@ -123,8 +120,7 @@ ged_rmap_core(struct ged *gedp, int argc, const char *argv[])
 	    }
 
 	    rt_db_free_internal(&intern);
-	}
-    }
+    FOR_ALL_DIRECTORY_END;
 
     /* place data in the result string */
     while (BU_LIST_WHILE(itnp, _ged_id_to_names, &headIdName.l)) {

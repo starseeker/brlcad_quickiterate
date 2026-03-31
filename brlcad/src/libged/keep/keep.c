@@ -30,7 +30,6 @@
 #include "bu/cmd.h"
 #include "bu/getopt.h"
 #include "rt/geom.h"
-#include "../../librt/librt_private.h"
 
 #include "../ged_private.h"
 
@@ -157,10 +156,9 @@ ged_keep_core(struct ged *gedp, int argc, const char *argv[])
     }
 
     /* First, clear any existing counts */
-    for (i = 0; i < RT_DBNHASH; i++) {
-	for (dp = gedp->dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw)
-	    dp->d_nref = 0;
-    }
+    FOR_ALL_DIRECTORY_START(dp, gedp->dbip)
+	dp->d_nref = 0;
+    FOR_ALL_DIRECTORY_END;
 
     /* Alert user if named file already exists */
 

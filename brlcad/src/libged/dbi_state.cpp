@@ -52,7 +52,6 @@ extern "C" {
 #include "raytrace.h"
 #include "ged/defines.h"
 #include "ged/view.h"
-#include "../librt/librt_private.h"
 #include "./ged_private.h"
 
 #include "./dbi.h"
@@ -437,12 +436,10 @@ DbiState::DbiState(struct ged *ged_p)
     // Set up cache
     dcache = dbi_cache_open(dbip->dbi_filename);
 
-    for (int i = 0; i < RT_DBNHASH; i++) {
-	struct directory *dp;
-	for (dp = dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
-	    update_dp(dp, 0);
-	}
-    }
+    struct directory *dp;
+    FOR_ALL_DIRECTORY_START(dp, dbip)
+	update_dp(dp, 0);
+    FOR_ALL_DIRECTORY_END;
 }
 
 

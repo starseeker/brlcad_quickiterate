@@ -32,14 +32,12 @@
 #include "bu/str.h"
 #include "bu/getopt.h"
 #include "rt/geom.h"
-#include "../../librt/librt_private.h"
 
 #include "../ged_private.h"
 
 static int
 move_all_func(struct ged *gedp, int nflag, const char *old_name, const char *new_name)
 {
-    int i;
     struct display_list *gdlp;
     struct directory *dp;
     struct rt_db_internal intern;
@@ -69,8 +67,7 @@ move_all_func(struct ged *gedp, int nflag, const char *old_name, const char *new
     {
 	struct directory *dirp;
 
-	for (i = 0; i < RT_DBNHASH; i++) {
-	    for (dirp = gedp->dbip->i->dbi_Head[i]; dirp != RT_DIR_NULL; dirp = dirp->d_forw) {
+	FOR_ALL_DIRECTORY_START(dirp, gedp->dbip)
 		struct rt_extrude_internal *extrude;
 
 		if (dirp->d_major_type != DB5_MAJORTYPE_BRLCAD || \
@@ -106,8 +103,7 @@ move_all_func(struct ged *gedp, int nflag, const char *old_name, const char *new
 		    moved++;
 		}
 		rt_db_free_internal(&intern);
-	    }
-	}
+	FOR_ALL_DIRECTORY_END;
     }
 
     if (!nflag && dp) {
@@ -133,8 +129,7 @@ move_all_func(struct ged *gedp, int nflag, const char *old_name, const char *new
     bu_ptbl_init(&stack, 64, "combination stack for wdb_mvall_cmd");
 
     /* Examine all COMB nodes */
-    for (i = 0; i < RT_DBNHASH; i++) {
-	for (dp = gedp->dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
+    FOR_ALL_DIRECTORY_START(dp, gedp->dbip)
 	    if (nflag) {
 		union tree *comb_leaf;
 
@@ -181,8 +176,7 @@ move_all_func(struct ged *gedp, int nflag, const char *old_name, const char *new
 		}
 	    }
 	    moved++;
-	}
-    }
+    FOR_ALL_DIRECTORY_END;
 
     bu_ptbl_free(&stack);
 
