@@ -2472,7 +2472,19 @@ main(int argc, char *argv[])
 	     * registered there as "stdout" and would be returned instead of the
 	     * new pipe channel.  Unregistering it causes the lookup to fall
 	     * through to Tcl_GetStdChannel, which by then returns the new
-	     * channel. */
+	     * channel.
+	     *
+	     * This ordering also avoids the write-thread race that existed in
+	     * the old Windows-only code path: that code called
+	     * Tcl_UnregisterChannel BEFORE Tcl_MakeFileChannel, so the old
+	     * channel's I/O completion-port threads could still be running when
+	     * new ones were spawned, causing intermittent corruption.  A
+	     * `puts ""` sync-point was needed as a workaround.  Here the new
+	     * channel is fully created and its threads are running BEFORE the
+	     * old channel begins tearing down, so no such sync is required.
+	     * The old channel was also backed by INVALID_HANDLE_VALUE (no
+	     * console), so no I/O threads were ever successfully dispatched on
+	     * it. */
 	    {
 		Tcl_Channel old_out = Tcl_GetStdChannel(TCL_STDOUT);
 		Tcl_Channel wout = Tcl_MakeFileChannel(
