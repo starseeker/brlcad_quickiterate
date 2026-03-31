@@ -136,12 +136,11 @@ rt_new_rti(struct db_i *dbip)
      * called on another rtip of the same dbip before this rtip is
      * done with all its treewalking.
      */
-    for (i=0; i < RT_DBNHASH; i++) {
+    {
 	struct directory *dp;
-
-	dp = rtip->rti_dbip->i->dbi_Head[i];
-	for (; dp != RT_DIR_NULL; dp = dp->d_forw)
+	FOR_ALL_DIRECTORY_START(dp, rtip->rti_dbip)
 	    dp->d_uses = 0;
+	FOR_ALL_DIRECTORY_END;
     }
 
     return rtip;
@@ -1273,13 +1272,10 @@ rt_clean(struct rt_i *rtip)
 	 * rt_find_identical_solid() working properly as d_uses goes
 	 * up.
 	 */
-	for (i=0; i < RT_DBNHASH; i++) {
-	    struct directory *dp;
-
-	    dp = rtip->rti_dbip->i->dbi_Head[i];
-	    for (; dp != RT_DIR_NULL; dp = dp->d_forw)
-		dp->d_uses = 0;
-	}
+	struct directory *dp;
+	FOR_ALL_DIRECTORY_START(dp, rtip->rti_dbip)
+	    dp->d_uses = 0;
+	FOR_ALL_DIRECTORY_END;
     }
 
     bu_ptbl_reset(&rtip->delete_regs);

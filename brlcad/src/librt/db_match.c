@@ -67,7 +67,6 @@ db_count_refs(struct db_i *dbip, struct rt_comb_internal *comb, union tree *comb
 void
 db_update_nref(struct db_i *dbip, struct resource *resp)
 {
-    register int i;
     register struct directory *dp;
     struct rt_db_internal intern;
     struct rt_comb_internal *comb;
@@ -76,9 +75,9 @@ db_update_nref(struct db_i *dbip, struct resource *resp)
     RT_CK_RESOURCE(resp);
 
     /* First, clear any existing counts */
-    for (i = 0; i < RT_DBNHASH; i++)
-	for (dp = dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw)
-	    dp->d_nref = 0;
+    FOR_ALL_DIRECTORY_START(dp, dbip)
+	dp->d_nref = 0;
+    FOR_ALL_DIRECTORY_END;
 
     /* Do a NULL + union callback to indicate the start of an update cycle */
     for (size_t j = 0; j < BU_PTBL_LEN(&dbip->i->dbi_update_nref_clbks); j++) {
@@ -87,8 +86,7 @@ db_update_nref(struct db_i *dbip, struct resource *resp)
     }
 
     /* Examine all COMB nodes */
-    for (i = 0; i < RT_DBNHASH; i++) {
-	for (dp = dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
+    FOR_ALL_DIRECTORY_START(dp, dbip)
 
 	    /* handle non-combination objects that reference other objects */
 	    if (dp->d_major_type == DB5_MAJORTYPE_BRLCAD) {
@@ -180,8 +178,7 @@ db_update_nref(struct db_i *dbip, struct resource *resp)
 			     db_count_refs, (void *)dp,
 			     (void *)NULL, (void *)NULL, (void *)NULL);
 	    rt_db_free_internal(&intern);
-	}
-    }
+    FOR_ALL_DIRECTORY_END;
 
     /* Do a NULL + subtraction callback to indicate the end of an update cycle */
     for (size_t j = 0; j < BU_PTBL_LEN(&dbip->i->dbi_update_nref_clbks); j++) {

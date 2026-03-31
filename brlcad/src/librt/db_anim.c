@@ -225,7 +225,6 @@ db_free_anim(struct db_i *dbip)
 {
     register struct animate *anp;
     register struct directory *dp;
-    register int i;
 
     if (!dbip)
 	return;
@@ -242,20 +241,17 @@ db_free_anim(struct db_i *dbip)
     dbip->i->dbi_anroot = ANIM_NULL;
 
     /* Node animations */
-    for (i=0; i < RT_DBNHASH; i++) {
-	dp = dbip->i->dbi_Head[i];
-	for (; dp != RT_DIR_NULL; dp = dp->d_forw) {
-	    for (anp = dp->d_animate; anp != ANIM_NULL;) {
-		register struct animate *nextanp;
-		RT_CK_ANIMATE(anp);
-		nextanp = anp->an_forw;
+    FOR_ALL_DIRECTORY_START(dp, dbip)
+	for (anp = dp->d_animate; anp != ANIM_NULL;) {
+	    register struct animate *nextanp;
+	    RT_CK_ANIMATE(anp);
+	    nextanp = anp->an_forw;
 
-		db_free_1anim(anp);
-		anp = nextanp;
-	    }
-	    dp->d_animate = ANIM_NULL;
+	    db_free_1anim(anp);
+	    anp = nextanp;
 	}
-    }
+	dp->d_animate = ANIM_NULL;
+    FOR_ALL_DIRECTORY_END;
 }
 
 

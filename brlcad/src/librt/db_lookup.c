@@ -56,14 +56,12 @@ db_directory_size(const struct db_i *dbip)
 {
     struct directory *dp;
     size_t count = 0;
-    size_t i;
 
     RT_CK_DBI(dbip);
 
-    for (i = 0; i < RT_DBNHASH; i++) {
-	for (dp = dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw)
-	    count++;
-    }
+    FOR_ALL_DIRECTORY_START(dp, dbip)
+	count++;
+    FOR_ALL_DIRECTORY_END;
     return count;
 }
 
@@ -72,14 +70,12 @@ void
 db_ck_directory(const struct db_i *dbip)
 {
     struct directory *dp;
-    int i;
 
     RT_CK_DBI(dbip);
 
-    for (i = 0; i < RT_DBNHASH; i++) {
-	for (dp = dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw)
-	    RT_CK_DIR(dp);
-    }
+    FOR_ALL_DIRECTORY_START(dp, dbip)
+	RT_CK_DIR(dp);
+    FOR_ALL_DIRECTORY_END;
 }
 
 
@@ -430,7 +426,6 @@ db_pr_dir(const struct db_i *dbip)
 {
     const struct directory *dp;
     char *flags;
-    int i;
 
     RT_CK_DBI(dbip);
 
@@ -441,33 +436,31 @@ db_pr_dir(const struct db_i *dbip)
     bu_log("Title = %s\n", dbip->dbi_title);
     /* units ? */
 
-    for (i = 0; i < RT_DBNHASH; i++) {
-	for (dp = dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp=dp->d_forw) {
-	    if (dp->d_flags & RT_DIR_SOLID)
-		flags = "SOL";
-	    else if ((dp->d_flags & (RT_DIR_COMB|RT_DIR_REGION)) ==
-		     (RT_DIR_COMB|RT_DIR_REGION))
-		flags = "REG";
-	    else if ((dp->d_flags & (RT_DIR_COMB|RT_DIR_REGION)) ==
-		     RT_DIR_COMB)
-		flags = "COM";
-	    else
-		flags = "Bad";
-	    bu_log("%p %s %s=%jd len=%.5zu use=%.2ld nref=%.2ld %s",
-		   (void *)dp,
-		   flags,
-		   dp->d_flags & RT_DIR_INMEM ? "  ptr " : "d_addr",
-		   (intmax_t)dp->d_addr,
-		   dp->d_len,
-		   dp->d_uses,
-		   dp->d_nref,
-		   dp->d_namep);
-	    if (dp->d_animate)
-		bu_log(" anim=%p\n", (void *)dp->d_animate);
-	    else
-		bu_log("\n");
-	}
-    }
+    FOR_ALL_DIRECTORY_START(dp, dbip)
+	if (dp->d_flags & RT_DIR_SOLID)
+	    flags = "SOL";
+	else if ((dp->d_flags & (RT_DIR_COMB|RT_DIR_REGION)) ==
+		 (RT_DIR_COMB|RT_DIR_REGION))
+	    flags = "REG";
+	else if ((dp->d_flags & (RT_DIR_COMB|RT_DIR_REGION)) ==
+		 RT_DIR_COMB)
+	    flags = "COM";
+	else
+	    flags = "Bad";
+	bu_log("%p %s %s=%jd len=%.5zu use=%.2ld nref=%.2ld %s",
+	       (void *)dp,
+	       flags,
+	       dp->d_flags & RT_DIR_INMEM ? "  ptr " : "d_addr",
+	       (intmax_t)dp->d_addr,
+	       dp->d_len,
+	       dp->d_uses,
+	       dp->d_nref,
+	       dp->d_namep);
+	if (dp->d_animate)
+	    bu_log(" anim=%p\n", (void *)dp->d_animate);
+	else
+	    bu_log("\n");
+    FOR_ALL_DIRECTORY_END;
 }
 
 

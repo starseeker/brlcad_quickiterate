@@ -549,7 +549,6 @@ db_dump(struct rt_wdb *wdbp, struct db_i *dbip)
 /* output */
 /* input */
 {
-    register int i;
     register struct directory *dp;
     struct bu_external ext;
 
@@ -565,26 +564,24 @@ db_dump(struct rt_wdb *wdbp, struct db_i *dbip)
     //struct directory *out_global = db_lookup(wdbp->dbip, "_GLOBAL", LOOKUP_QUIET);
 
     /* Output all directory entries */
-    for (i = 0; i < RT_DBNHASH; i++) {
-	for (dp = dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
-	    RT_CK_DIR(dp);
-	    //if (out_global && BU_STR_EQUAL(dp->d_namep, "_GLOBAL")) {
-		//bu_log("db_dump() - in append-only mode, and target db already has a _GLOBAL object");
-		//continue;
-	    //}
-	    /* XXX Need to go to internal form, if database versions don't match */
-	    if (db_get_external(&ext, dp, dbip) < 0) {
-		bu_log("db_dump() read failed on %s, skipping\n", dp->d_namep);
-		continue;
-	    }
-	    if (wdb_export_external(wdbp, &ext, dp->d_namep, dp->d_flags & ~(RT_DIR_INMEM), dp->d_minor_type) < 0) {
-		bu_log("db_dump() write failed on %s, aborting\n", dp->d_namep);
-		bu_free_external(&ext);
-		return -1;
-	    }
-	    bu_free_external(&ext);
+    FOR_ALL_DIRECTORY_START(dp, dbip)
+	RT_CK_DIR(dp);
+	//if (out_global && BU_STR_EQUAL(dp->d_namep, "_GLOBAL")) {
+	    //bu_log("db_dump() - in append-only mode, and target db already has a _GLOBAL object");
+	    //continue;
+	//}
+	/* XXX Need to go to internal form, if database versions don't match */
+	if (db_get_external(&ext, dp, dbip) < 0) {
+	    bu_log("db_dump() read failed on %s, skipping\n", dp->d_namep);
+	    continue;
 	}
-    }
+	if (wdb_export_external(wdbp, &ext, dp->d_namep, dp->d_flags & ~(RT_DIR_INMEM), dp->d_minor_type) < 0) {
+	    bu_log("db_dump() write failed on %s, aborting\n", dp->d_namep);
+	    bu_free_external(&ext);
+	    return -1;
+	}
+	bu_free_external(&ext);
+    FOR_ALL_DIRECTORY_END;
     return 0;
 }
 

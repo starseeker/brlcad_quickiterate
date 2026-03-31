@@ -71,27 +71,23 @@ db_ls(const struct db_i *dbip, int flags, const char *pattern, struct directory 
     RT_CK_DBI(dbip);
 
     int max_size = 0;
-    for (int i = 0; i < RT_DBNHASH; i++) {
-	for (dp = dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
-	    max_size++;
-	}
-    }
+    FOR_ALL_DIRECTORY_START(dp, dbip)
+	max_size++;
+    FOR_ALL_DIRECTORY_END;
 
     struct directory **matches = NULL;
     if (dpv)
 	matches = (struct directory **)bu_malloc(sizeof(struct directory *) * (max_size + 1), "directory pointer array");
 
-    for (int i = 0; i < RT_DBNHASH; i++) {
-	for (dp = dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
-	    if (dp_eval_flags(dp, dbip, flags)) {
-		if (!pattern || !bu_path_match(pattern, dp->d_namep, 0)) {
-		    if (matches)
-			matches[objcount] = dp;
-		    objcount++;
-		}
+    FOR_ALL_DIRECTORY_START(dp, dbip)
+	if (dp_eval_flags(dp, dbip, flags)) {
+	    if (!pattern || !bu_path_match(pattern, dp->d_namep, 0)) {
+		if (matches)
+		    matches[objcount] = dp;
+		objcount++;
 	    }
 	}
-    }
+    FOR_ALL_DIRECTORY_END;
 
     if (objcount > 0 && dpv) {
 	(*dpv) = (struct directory **)bu_calloc(sizeof(struct directory *), (objcount + 1), "directory pointer array");
