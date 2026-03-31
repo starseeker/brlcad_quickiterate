@@ -307,6 +307,7 @@ _view_cmd_lod(void *bs, int argc, const char **argv)
 		bv_mesh_lod_clear_cache(gedp->ged_lod, 0);
 		return BRLCAD_OK;
 	    } else if (BU_STR_EQUAL(argv[1], "exists")) {
+		struct directory *dp;
 		FOR_ALL_DIRECTORY_START(dp, gedp->dbip)
 		    if (dp->d_addr == RT_DIR_PHONY_ADDR)
 			continue;

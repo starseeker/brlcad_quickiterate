@@ -166,8 +166,8 @@ obj_match(const char ***completions, struct db_i *dbip, const char *seed)
     FOR_ALL_DIRECTORY_END;
     bu_sort(BU_PTBL_BASEADDR(&fdps), BU_PTBL_LEN(&fdps), sizeof(struct directory *), alphanum_cmp, NULL);
     for (size_t i = 0; i < BU_PTBL_LEN(&fdps); i++) {
-	struct directory *dp = (struct directory *)BU_PTBL_GET(&fdps, i);
-	dps.push_back(dp);
+	struct directory *fdp = (struct directory *)BU_PTBL_GET(&fdps, i);
+	dps.push_back(fdp);
     }
     bu_ptbl_free(&fdps);
 
