@@ -2453,6 +2453,42 @@ main(int argc, char *argv[])
 		perror("dup");
 	    (void)close(pipe_err[1]); /* only a write pipe */
 
+#ifdef HAVE_WINDOWS_H
+	    /* On Windows, Tcl's stdout/stderr channels are backed by the native
+	     * Windows HANDLEs that Tcl captured at startup.  In a GUI-only
+	     * process those are typically INVALID_HANDLE_VALUE (no console), so
+	     * any attempt by Tcl to write to them — including `puts test` — fails
+	     * with "error writing 'stdout': invalid argument".
+	     *
+	     * After the dup() calls above, CRT fd 1/fd 2 now point to the write
+	     * ends of our pipes.  Create new Tcl writable channels from those
+	     * HANDLEs and install them as Tcl's stdout/stderr so that `puts`
+	     * writes into the pipe (and thus reaches std_out_or_err below). */
+	    {
+		Tcl_Channel wout = Tcl_MakeFileChannel(
+		    (ClientData)_get_osfhandle(fileno(stdout)), TCL_WRITABLE);
+		if (wout) {
+		    Tcl_SetChannelOption(s->interp, wout, "-blocking", "false");
+		    Tcl_SetChannelOption(s->interp, wout, "-buffering", "line");
+		    Tcl_RegisterChannel(s->interp, wout);
+		    Tcl_SetStdChannel(wout, TCL_STDOUT);
+		} else {
+		    perror("Tcl_MakeFileChannel failed for stdout");
+		}
+
+		Tcl_Channel werr = Tcl_MakeFileChannel(
+		    (ClientData)_get_osfhandle(fileno(stderr)), TCL_WRITABLE);
+		if (werr) {
+		    Tcl_SetChannelOption(s->interp, werr, "-blocking", "false");
+		    Tcl_SetChannelOption(s->interp, werr, "-buffering", "line");
+		    Tcl_RegisterChannel(s->interp, werr);
+		    Tcl_SetStdChannel(werr, TCL_STDERR);
+		} else {
+		    perror("Tcl_MakeFileChannel failed for stderr");
+		}
+	    }
+#endif /* HAVE_WINDOWS_H */
+
 	    Tcl_Channel out_chan, err_chan;
 
 	    /* On Windows, Tcl_MakeFileChannel expects a native Windows HANDLE,
