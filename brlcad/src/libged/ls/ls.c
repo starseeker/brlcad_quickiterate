@@ -354,7 +354,6 @@ _ged_ls_data_init(struct _ged_ls_data *d)
 int
 ged_ls_core(struct ged *gedp, int argc, const char *argv[])
 {
-    int i;
     int ret_ac = 0;
     struct directory *dp;
     struct directory **dirp0 = (struct directory **)NULL;
