@@ -1317,8 +1317,42 @@ stdin_input(ClientData clientData, int UNUSED(mask))
 	count = Tcl_Gets(sd->chan, &ds);
 
 	if (count < 0) {
+	    /* On a non-blocking channel, Tcl_Gets returns -1 with no EOF
+	     * flag when no complete line is yet available (EAGAIN).  Only
+	     * treat a negative return as fatal when it signals true EOF. */
+	    if (!Tcl_Eof(sd->chan)) {
+		Tcl_DStringFree(&ds);
+		return;
+	    }
 	    BU_PUT(sd, struct stdio_data);
 	    quit(s); /* does not return */
+	}
+
+	/* If a GED command is already executing in a worker thread, consume the
+	 * line so the channel does not remain readable, but replace input_str
+	 * with it (rather than appending) so the user sees only their latest
+	 * pending command, not a concatenation of all commands typed while
+	 * the previous one was running.  Print a brief notice, re-show the
+	 * prompt, then re-echo input_str so the user can see what they had
+	 * typed and press Enter again once the running command finishes. */
+	if (s->cmd_running) {
+	    /* Replace (not append) so only the most-recently typed pending
+	     * command is kept.  If the new line is empty, keep whatever is
+	     * already in input_str unchanged so existing partial input is
+	     * preserved. */
+	    if (Tcl_DStringLength(&ds) > 0) {
+		bu_vls_trunc(&s->input_str, 0);
+		bu_vls_strcat(&s->input_str, Tcl_DStringValue(&ds));
+	    }
+	    Tcl_DStringFree(&ds);
+	    s->input_str_index = bu_vls_strlen(&s->input_str);
+
+	    bu_log("\nmged: command already running, please wait\n");
+	    pr_prompt(s);
+	    /* Re-echo so the user can see what they had typed */
+	    if (bu_vls_strlen(&s->input_str))
+		bu_log("%s", bu_vls_addr(&s->input_str));
+	    return;
 	}
 
 	bu_vls_strcat(&s->input_str, Tcl_DStringValue(&ds));
@@ -1393,6 +1427,11 @@ stdin_input(ClientData clientData, int UNUSED(mask))
 	if (count <= 0 && Tcl_Eof(sd->chan))
 	    Tcl_Eval(s->interp, "q");
 
+	/* On a non-blocking channel Tcl_Read returns 0 for EAGAIN (no data
+	 * available right now).  Guard here so we don't crash on buf[0]. */
+	if (count <= 0)
+	    return;
+
 	if (buf[0] == '\0')
 	    bu_bomb("Read a buf with a 0 starting it?\n");
 
@@ -1432,9 +1471,8 @@ std_out_or_err(ClientData clientData, int UNUSED(mask))
 
     count = Tcl_Read(chan, line, RT_MAXLINE);
 
-    if (count <= 0) {
+    if (count <= 0)
 	return;
-    }
 
     line[count] = '\0';
 
@@ -1473,10 +1511,9 @@ refresh(struct mged_state *s)
     int64_t elapsed_time, start_time = bu_gettime();
     int do_time = 0;
 
-    /* Print any text output that has accumulated to the command prompt
-     * TODO - this is currently a no-op because the gui_output callback
-     * is still in the old form of trying to immediately print the bu_log
-     * output to the interp. */
+    /* Flush any accumulated bu_log output to the command prompt.
+     * The log-drain timer handles live streaming during long commands;
+     * this call catches anything produced between timer ticks. */
     mged_pr_output(s->interp);
 
     /* Display Manager / Views */
@@ -1713,6 +1750,9 @@ mged_finish(struct mged_state *s, int exitcode)
     /* no longer send bu_log() output to Tcl */
     bu_log_delete_hook(gui_output, (void *)s);
 
+    /* cancel the periodic log-drain timer before tearing down the interp */
+    mged_stop_log_drain_timer(s);
+
 #ifdef HAVE_PIPE
     /* restore stdout/stderr just in case anyone tries to write before
      * we finally exit (e.g., an atexit() callback).
@@ -1819,6 +1859,8 @@ main(int argc, char *argv[])
     bu_vls_init(&s->scratchline);
     bu_vls_init(&s->mged_prompt);
     s->dpy_string = NULL;
+    s->cmd_running = 0;
+    s->log_drain_timer = NULL;
 
     /* Set up linked lists */
     s->vlfree = &rt_vlfree;
@@ -2342,6 +2384,16 @@ main(int argc, char *argv[])
 	    BU_PUT(sd, struct stdio_data);
 	    mged_finish(s, 1);
 	}
+
+	/* Set non-blocking mode so that Tcl_Read/Tcl_Gets inside the channel
+	 * handler returns whatever bytes are immediately available rather than
+	 * looping until the full requested count is accumulated.  Without this,
+	 * Tcl_Read(chan, buf, BU_PAGE_SIZE) on a blocking channel calls read()
+	 * repeatedly in cbreak mode — each call returning just one character —
+	 * until 4096 characters have been accumulated, permanently stalling the
+	 * event loop. */
+	Tcl_SetChannelOption(NULL, sd->chan, "-blocking", "0");
+
 	Tcl_CreateChannelHandler(sd->chan, TCL_READABLE, stdin_input, sd);
 
 #ifdef SIGINT
@@ -2381,7 +2433,7 @@ main(int argc, char *argv[])
 	 * (printf, write(1,...), bu_log, etc.) is captured by the GUI.
 	 * Windows supports pipe()/dup()/dup2() through its CRT, so this
 	 * approach works on all platforms when HAVE_PIPE is available.
-	 * OTE: Tcl_MakeFileChannel on Windows requires a native HANDLE (via
+	 * NOTE: Tcl_MakeFileChannel on Windows requires a native HANDLE (via
 	 * _get_osfhandle), not the raw CRT fd — see the fix below. */
 #ifdef HAVE_PIPE
 	{
@@ -2419,9 +2471,17 @@ main(int argc, char *argv[])
 
 	    /* Register channels with the interpreter so they are tracked and
 	     * kept alive until the interpreter is deleted. */
+	    /* Non-blocking mode is essential: Tcl_Read on a blocking channel
+	     * uses DoRead(allowShortReads=0), which loops calling read() until
+	     * the full requested byte count is accumulated.  For a pipe that
+	     * delivers only a few bytes ("test\n"), this causes read() to block
+	     * on the empty pipe waiting for more data.  Non-blocking mode makes
+	     * Tcl_Read return whatever bytes are currently available. */
+	    Tcl_SetChannelOption(s->interp, out_chan, "-blocking", "0");
 	    Tcl_RegisterChannel(s->interp, out_chan);
 	    Tcl_CreateChannelHandler(out_chan, TCL_READABLE, std_out_or_err, out_chan);
 
+	    Tcl_SetChannelOption(s->interp, err_chan, "-blocking", "0");
 	    Tcl_RegisterChannel(s->interp, err_chan);
 	    Tcl_CreateChannelHandler(err_chan, TCL_READABLE, std_out_or_err, err_chan);
 	}
