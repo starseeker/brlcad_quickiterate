@@ -32,6 +32,7 @@
 
 #include "vmath.h"
 #include "raytrace.h"
+#include "librt_private.h"
 
 
 /**

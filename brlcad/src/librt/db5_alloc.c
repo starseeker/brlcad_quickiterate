@@ -35,6 +35,7 @@
 #include "vmath.h"
 #include "rt/db5.h"
 #include "raytrace.h"
+#include "librt_private.h"
 
 int
 db5_write_free(struct db_i *dbip, struct directory *dp, size_t length)

@@ -33,6 +33,7 @@
 #include "raytrace.h"
 
 #include "./cache.h"
+#include "librt_private.h"
 
 
 #define ACQUIRE_SEMAPHORE_TREE(_hash) switch ((_hash)&03) {	\

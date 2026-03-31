@@ -43,6 +43,7 @@
 #include "rt/directory.h"
 #include "rt/nongeom.h"
 #include "rt/search.h"
+#include "librt_private.h"
 
 /* Search client data container */
 struct cyclic_client_data_t {

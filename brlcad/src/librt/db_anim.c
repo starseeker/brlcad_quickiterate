@@ -35,6 +35,7 @@
 #include "vmath.h"
 
 #include "raytrace.h"
+#include "librt_private.h"
 
 int
 db_add_anim(struct db_i *dbip, register struct animate *anp, int root)

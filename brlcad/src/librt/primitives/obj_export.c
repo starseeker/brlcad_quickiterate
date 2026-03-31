@@ -22,6 +22,7 @@
 
 #include "bn.h"
 #include "raytrace.h"
+#include "librt_private.h"
 
 
 int

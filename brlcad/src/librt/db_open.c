@@ -144,6 +144,9 @@ db_open(const char *name, const char *mode)
 	    if (RT_G_DEBUG & RT_DEBUG_DB) {
 		bu_log("db_open(%s) FAILED, unable to open file for reading\n", name);
 	    }
+	    mfp->apbuf = NULL;
+	    dbip->i->dbi_mf = NULL;
+	    bu_close_mapped_file(mfp);
 	    db_i_internal_destroy(dbip->i);
 	    bu_free((char *)dbip, "struct db_i");
 	    return DBI_NULL;

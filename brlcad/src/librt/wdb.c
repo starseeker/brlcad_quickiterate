@@ -32,6 +32,7 @@
 #include "rt/geom.h"
 #include "raytrace.h"
 #include "wdb.h"
+#include "librt_private.h"
 
 
 struct rt_wdb *

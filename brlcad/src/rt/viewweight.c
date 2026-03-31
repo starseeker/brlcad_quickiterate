@@ -46,8 +46,8 @@
 #include "analyze.h"
 
 #include "rt/db4.h"  /* FIXME: Yes, I know I shouldn't be peeking, put I
-#include "../librt/librt_private.h"
 			am only looking to see what units we prefer... */
+#include "../librt/librt_private.h"
 
 #include "./rtuif.h"
 #include "./ext.h"

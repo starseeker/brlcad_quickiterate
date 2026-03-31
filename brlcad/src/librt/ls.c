@@ -33,6 +33,7 @@
 #include "rt/db4.h"
 #include "rt/search.h"
 #include "raytrace.h"
+#include "librt_private.h"
 
 static int
 dp_eval_flags(struct directory *dp, const struct db_i *dbip, int flags)

@@ -46,6 +46,7 @@
 
 #include "optical.h"
 #include "optical/plastic.h"
+#include "librt_private.h"
 
 
 extern void rt_ck(struct rt_i *rtip);
