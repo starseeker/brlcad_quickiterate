@@ -32,6 +32,7 @@
 #include "bu/str.h"
 #include "bu/getopt.h"
 #include "rt/geom.h"
+#include "../../librt/librt_private.h"
 
 #include "../ged_private.h"
 
@@ -69,7 +70,7 @@ move_all_func(struct ged *gedp, int nflag, const char *old_name, const char *new
 	struct directory *dirp;
 
 	for (i = 0; i < RT_DBNHASH; i++) {
-	    for (dirp = gedp->dbip->dbi_Head[i]; dirp != RT_DIR_NULL; dirp = dirp->d_forw) {
+	    for (dirp = gedp->dbip->i->dbi_Head[i]; dirp != RT_DIR_NULL; dirp = dirp->d_forw) {
 		struct rt_extrude_internal *extrude;
 
 		if (dirp->d_major_type != DB5_MAJORTYPE_BRLCAD || \
@@ -133,7 +134,7 @@ move_all_func(struct ged *gedp, int nflag, const char *old_name, const char *new
 
     /* Examine all COMB nodes */
     for (i = 0; i < RT_DBNHASH; i++) {
-	for (dp = gedp->dbip->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
+	for (dp = gedp->dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
 	    if (nflag) {
 		union tree *comb_leaf;
 

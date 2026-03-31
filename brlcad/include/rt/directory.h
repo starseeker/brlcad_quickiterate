@@ -99,7 +99,7 @@ struct directory {
 
 #define FOR_ALL_DIRECTORY_START(_dp, _dbip) { int _i; \
     for (_i = RT_DBNHASH-1; _i >= 0; _i--) { \
-    for ((_dp) = (_dbip)->dbi_Head[_i]; (_dp); (_dp) = (_dp)->d_forw) {
+    for ((_dp) = db_dirptr((_dbip), _i); (_dp); (_dp) = (_dp)->d_forw) {
 
 #define FOR_ALL_DIRECTORY_END   }}}
 
@@ -150,6 +150,13 @@ RT_EXPORT extern struct directory **db_argv_to_dpv(const struct db_i *dbip,
  */
 RT_EXPORT extern char **db_dpv_to_argv(struct directory **dpv);
 
+
+
+/**
+ * Return the i-th directory hash list head for the given database instance.
+ * Used by FOR_ALL_DIRECTORY_START and other iteration code.
+ */
+RT_EXPORT extern struct directory *db_dirptr(const struct db_i *dbip, int index);
 
 
 __END_DECLS

@@ -28,6 +28,7 @@
 #include <string.h>
 
 #include "bu/cmd.h"
+#include "../../librt/librt_private.h"
 
 #include "../ged_private.h"
 
@@ -68,7 +69,7 @@ Free_uses(struct db_i *dbip)
 	struct directory *dp, *nextdp;
 	struct object_use *use;
 
-	for (dp = dbip->dbi_Head[i]; dp != RT_DIR_NULL;) {
+	for (dp = dbip->i->dbi_Head[i]; dp != RT_DIR_NULL;) {
 	    nextdp = dp->d_forw;
 
 	    if (!(dp->d_flags & (RT_DIR_SOLID | RT_DIR_COMB))) {
@@ -466,7 +467,7 @@ ged_xpush_core(struct ged *gedp, int argc, const char *argv[])
     for (i = 0; i < RT_DBNHASH; i++) {
 	struct directory *dp;
 
-	for (dp = gedp->dbip->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
+	for (dp = gedp->dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
 	    if (!(dp->d_flags & (RT_DIR_SOLID | RT_DIR_COMB)))
 		continue;
 
@@ -482,7 +483,7 @@ ged_xpush_core(struct ged *gedp, int argc, const char *argv[])
     for (i = 0; i < RT_DBNHASH; i++) {
 	struct directory *dp;
 
-	for (dp = gedp->dbip->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
+	for (dp = gedp->dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
 	    if (dp->d_flags & RT_DIR_SOLID)
 		continue;
 
@@ -506,7 +507,7 @@ ged_xpush_core(struct ged *gedp, int argc, const char *argv[])
     for (i = 0; i < RT_DBNHASH; i++) {
 	struct directory *dp;
 
-	for (dp = gedp->dbip->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
+	for (dp = gedp->dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
 	    if (dp->d_flags & RT_DIR_SOLID)
 		continue;
 
@@ -522,7 +523,7 @@ ged_xpush_core(struct ged *gedp, int argc, const char *argv[])
     for (i = 0; i < RT_DBNHASH; i++) {
 	struct directory *dp;
 
-	for (dp = gedp->dbip->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
+	for (dp = gedp->dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
 	    if (!(dp->d_flags & (RT_DIR_SOLID | RT_DIR_COMB)))
 		continue;
 

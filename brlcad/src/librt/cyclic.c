@@ -203,7 +203,7 @@ db_cyclic_paths(struct bu_ptbl *cyclic_paths, const struct db_i *dbip, struct di
     // No specific dp specified - check them all
     struct directory *dp;
     for (int i = 0; i < RT_DBNHASH; i++) {
-	for (dp = dbip->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
+	for (dp = dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
 	    if (!(dp->d_flags & RT_DIR_COMB))
 		continue;
 	    struct db_full_path *start_path = NULL;

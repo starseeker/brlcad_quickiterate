@@ -29,6 +29,7 @@
 
 #include "bu/cmd.h"
 #include "bu/getopt.h"
+#include "../../librt/librt_private.h"
 
 #include "../ged_private.h"
 
@@ -99,7 +100,7 @@ ged_find_core(struct ged *gedp, int argc, const char *argv[])
 
     /* Examine all COMB nodes */
     for (i = 0; i < RT_DBNHASH; i++) {
-	for (dp = gedp->dbip->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
+	for (dp = gedp->dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
 	    if (!(dp->d_flags & RT_DIR_COMB) ||
 		(!aflag && (dp->d_flags & RT_DIR_HIDDEN)))
 		continue;

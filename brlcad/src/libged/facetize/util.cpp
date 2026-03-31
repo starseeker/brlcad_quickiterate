@@ -37,6 +37,7 @@
 #include "rt/db_instance.h"
 #include "rt/primitives/bot.h"
 #include "wdb.h"
+#include "../../librt/librt_private.h"
 #include "../ged_private.h"
 #include "./ged_facetize.h"
 
@@ -310,7 +311,7 @@ method_scan(std::map<std::string, std::set<std::string>> *method_sets, struct db
 
     struct directory *dp;
     for (int i = 0; i < RT_DBNHASH; i++) {
-	for (dp = dbip->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
+	for (dp = dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
 	    struct bu_attribute_value_set avs = BU_AVS_INIT_ZERO;
 	    if (db5_get_attributes(dbip, &avs, dp))
 		continue;

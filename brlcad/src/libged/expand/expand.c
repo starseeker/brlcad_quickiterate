@@ -29,6 +29,7 @@
 
 #include "bu/cmd.h"
 #include "bu/path.h"
+#include "../../librt/librt_private.h"
 
 #include "../ged_private.h"
 
@@ -113,7 +114,7 @@ ged_expand_core(struct ged *gedp, int argc, const char *argv[])
 
 	pattern = (char *)argv[whicharg];
 	for (i = 0; i < RT_DBNHASH; i++) {
-	    for (dp = gedp->dbip->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
+	    for (dp = gedp->dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
 		if (bu_path_match(pattern, dp->d_namep, 0) != 0)
 		    continue;
 		/* Successful match */

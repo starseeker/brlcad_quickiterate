@@ -32,6 +32,7 @@
 extern "C" {
 #include "bu/opt.h"
 #include "bg/trimesh.h"
+#include "../../librt/librt_private.h"
 }
 #include "./ged_lint.h"
 
@@ -174,7 +175,7 @@ _ged_missing_check(lint_data *mdata)
 	bu_ptbl_free(&pc);
     } else {
 	for (int i = 0; i < RT_DBNHASH; i++) {
-	    for (struct directory *dp = gedp->dbip->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
+	    for (struct directory *dp = gedp->dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
 		if (dp->d_flags & RT_DIR_COMB) {
 		    struct rt_db_internal in;
 		    struct rt_comb_internal *comb;

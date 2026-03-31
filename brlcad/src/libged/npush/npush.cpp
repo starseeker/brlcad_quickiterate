@@ -36,6 +36,7 @@
 
 #include "bu/cmd.h"
 #include "bu/opt.h"
+#include "../../librt/librt_private.h"
 
 #include "../ged_private.h"
 
@@ -1450,7 +1451,7 @@ ged_npush_core(struct ged *gedp, int argc, const char *argv[])
     std::set<std::string> dbnames;
     for (int i = 0; i < RT_DBNHASH; i++) {
 	struct directory *dp;
-	for (dp = gedp->dbip->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
+	for (dp = gedp->dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
 	    if (dp->d_namep) {
 		std::string dpn(dp->d_namep);
 		dbnames.insert(dpn);

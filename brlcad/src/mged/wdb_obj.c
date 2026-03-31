@@ -54,6 +54,7 @@
 #include "wdb.h"
 #include "raytrace.h"
 #include "tclcad.h"
+#include "../librt/librt_private.h"
 #include "./mged_wdb.h"
 
 #ifndef ERROR_RECOVERY_SUGGESTION
@@ -225,7 +226,7 @@ wdb_find_cmd(struct rt_wdb *wdbp,
 
     /* Examine all COMB nodes */
     for (i = 0; i < RT_DBNHASH; i++) {
-	for (dp = wdbp->dbip->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
+	for (dp = wdbp->dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
 	    if (!(dp->d_flags & RT_DIR_COMB) ||
 		(!aflag && (dp->d_flags & RT_DIR_HIDDEN)))
 		continue;
@@ -994,7 +995,7 @@ wdb_rmap_cmd(struct rt_wdb *wdbp,
 
     /* For all regions not hidden */
     for (i = 0; i < RT_DBNHASH; i++) {
-	for (dp = wdbp->dbip->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
+	for (dp = wdbp->dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
 	    int found = 0;
 
 	    if (!(dp->d_flags & RT_DIR_REGION) ||

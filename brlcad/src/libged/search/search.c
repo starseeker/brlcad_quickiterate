@@ -39,6 +39,7 @@
 #include "bu/path.h"
 #include "bu/sort.h"
 #include "bu/defines.h"
+#include "../../librt/librt_private.h"
 
 #include "../alphanum.h"
 #include "../ged_private.h"
@@ -628,7 +629,7 @@ ged_search_core(struct ged *gedp, int argc, const char *argv_orig[])
 
 		    for (k = 0; k < RT_DBNHASH; k++) {
 			struct directory *dp;
-			for (dp = gedp->dbip->dbi_Head[k]; dp != RT_DIR_NULL; dp = dp->d_forw) {
+			for (dp = gedp->dbip->i->dbi_Head[k]; dp != RT_DIR_NULL; dp = dp->d_forw) {
 			    if (dp->d_addr != RT_DIR_PHONY_ADDR) {
 				(void)db_search(search_results, flags, bu_vls_addr(&search_string), 1, &dp, gedp->dbip, clbk, u1, u2);
 			    }

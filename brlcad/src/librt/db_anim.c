@@ -53,7 +53,7 @@ db_add_anim(struct db_i *dbip, register struct animate *anp, int root)
 	if (!dbip)
 	    bu_bomb("Unexpected NULL dbip encountered in db_add_anim\n");
 
-	headp = &(dbip->dbi_anroot);
+	headp = &(dbip->i->dbi_anroot);
     } else {
 	dp = DB_FULL_PATH_CUR_DIR(&anp->an_path);
 	if (!dp)
@@ -230,7 +230,7 @@ db_free_anim(struct db_i *dbip)
 	return;
 
     /* Rooted animations */
-    for (anp = dbip->dbi_anroot; anp != ANIM_NULL;) {
+    for (anp = dbip->i->dbi_anroot; anp != ANIM_NULL;) {
 	register struct animate *nextanp;
 	RT_CK_ANIMATE(anp);
 	nextanp = anp->an_forw;
@@ -238,11 +238,11 @@ db_free_anim(struct db_i *dbip)
 	db_free_1anim(anp);
 	anp = nextanp;
     }
-    dbip->dbi_anroot = ANIM_NULL;
+    dbip->i->dbi_anroot = ANIM_NULL;
 
     /* Node animations */
     for (i=0; i < RT_DBNHASH; i++) {
-	dp = dbip->dbi_Head[i];
+	dp = dbip->i->dbi_Head[i];
 	for (; dp != RT_DIR_NULL; dp = dp->d_forw) {
 	    for (anp = dp->d_animate; anp != ANIM_NULL;) {
 		register struct animate *nextanp;

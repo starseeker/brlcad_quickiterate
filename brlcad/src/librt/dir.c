@@ -121,7 +121,7 @@ rt_db_get_internal(
 
     RT_DB_INTERNAL_INIT(ip);
 
-    if (dbip->dbi_version > 4)
+    if (dbip->i->dbi_version > 4)
 	return rt_db_get_internal5(ip, dp, dbip, mat, resp);
 
     BU_EXTERNAL_INIT(&ext);

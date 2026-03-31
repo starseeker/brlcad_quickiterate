@@ -29,6 +29,7 @@
 
 #include "bu/cmd.h"
 #include "wdb.h"
+#include "../../librt/librt_private.h"
 
 #include "../ged_private.h"
 
@@ -74,7 +75,7 @@ ged_sphgroup_core(struct ged *gedp, int argc, const char *argv[])
 
     /* get objects to add to group - at the moment, only gets regions*/
     for (i = 0; i < RT_DBNHASH; i++)
-	for (dp = gedp->dbip->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
+	for (dp = gedp->dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
 	    if (dp->d_nref == 0 && !(dp->d_flags & RT_DIR_HIDDEN) && (dp->d_addr != RT_DIR_PHONY_ADDR)) continue;
 	    if (BU_STR_EQUAL(dp->d_namep, sphdp->d_namep)) continue;
 	    if (!(dp->d_flags & RT_DIR_REGION)) continue;

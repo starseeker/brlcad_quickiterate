@@ -71,7 +71,7 @@ db_ls(const struct db_i *dbip, int flags, const char *pattern, struct directory 
 
     int max_size = 0;
     for (int i = 0; i < RT_DBNHASH; i++) {
-	for (dp = dbip->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
+	for (dp = dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
 	    max_size++;
 	}
     }
@@ -81,7 +81,7 @@ db_ls(const struct db_i *dbip, int flags, const char *pattern, struct directory 
 	matches = (struct directory **)bu_malloc(sizeof(struct directory *) * (max_size + 1), "directory pointer array");
 
     for (int i = 0; i < RT_DBNHASH; i++) {
-	for (dp = dbip->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
+	for (dp = dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
 	    if (dp_eval_flags(dp, dbip, flags)) {
 		if (!pattern || !bu_path_match(pattern, dp->d_namep, 0)) {
 		    if (matches)

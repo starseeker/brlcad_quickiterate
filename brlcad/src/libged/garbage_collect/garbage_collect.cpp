@@ -37,6 +37,7 @@
 #include "bu/path.h"
 #include "raytrace.h"
 #include "ged.h"
+#include "../../librt/librt_private.h"
 
 #include "../dbi.h"
 
@@ -204,7 +205,7 @@ ged_garbage_collect_core(struct ged *gedp, int argc, const char *argv[])
 
     // Copy objects
     for (int i = 0; i < RT_DBNHASH; i++) {
-	for (dp = old_dbip->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
+	for (dp = old_dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
 	    struct bu_external ext = BU_EXTERNAL_INIT_ZERO;
 	    if (db_get_external(&ext, dp, old_dbip) < 0)
 		continue;

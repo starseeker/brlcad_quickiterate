@@ -44,7 +44,7 @@ db_is_directory_non_empty(const struct db_i *dbip)
     RT_CK_DBI(dbip);
 
     for (i = 0; i < RT_DBNHASH; i++) {
-	if (dbip->dbi_Head[i] != RT_DIR_NULL)
+	if (dbip->i->dbi_Head[i] != RT_DIR_NULL)
 	    return 1;
     }
     return 0;
@@ -61,7 +61,7 @@ db_directory_size(const struct db_i *dbip)
     RT_CK_DBI(dbip);
 
     for (i = 0; i < RT_DBNHASH; i++) {
-	for (dp = dbip->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw)
+	for (dp = dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw)
 	    count++;
     }
     return count;
@@ -77,7 +77,7 @@ db_ck_directory(const struct db_i *dbip)
     RT_CK_DBI(dbip);
 
     for (i = 0; i < RT_DBNHASH; i++) {
-	for (dp = dbip->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw)
+	for (dp = dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw)
 	    RT_CK_DIR(dp);
     }
 }
@@ -114,7 +114,7 @@ db_dircheck(struct db_i *dbip,
     char n1 = cp[1];
 
     /* Compute hash only once (almost always the case) */
-    *headp = &(dbip->dbi_Head[db_dirhash(cp)]);
+    *headp = &(dbip->i->dbi_Head[db_dirhash(cp)]);
 
     for (dp = **headp; dp != RT_DIR_NULL; dp=dp->d_forw) {
 	char *this_obj;
@@ -142,7 +142,7 @@ db_dircheck(struct db_i *dbip,
 		   cp+2, cp);
 
 	    /* no need to recurse, simply recompute the hash and break */
-	    *headp = &(dbip->dbi_Head[db_dirhash(cp)]);
+	    *headp = &(dbip->i->dbi_Head[db_dirhash(cp)]);
 	    break;
 	}
     }
@@ -177,7 +177,7 @@ db_lookup(const struct db_i *dbip, const char *name, int noisy)
 
     RT_CK_DBI(dbip);
 
-    dp = dbip->dbi_Head[db_dirhash(name)];
+    dp = dbip->i->dbi_Head[db_dirhash(name)];
     for (; dp != RT_DIR_NULL; dp=dp->d_forw) {
 	char *this_obj;
 
@@ -314,9 +314,9 @@ db_diradd(struct db_i *dbip, const char *name, b_off_t laddr, size_t len, int fl
 
     bu_vls_free(&local);
 
-    if (BU_PTBL_IS_INITIALIZED(&dbip->dbi_changed_clbks)) {
-	for (size_t i = 0; i < BU_PTBL_LEN(&dbip->dbi_changed_clbks); i++) {
-	    struct dbi_changed_clbk *cb = (struct dbi_changed_clbk *)BU_PTBL_GET(&dbip->dbi_changed_clbks, i);
+    if (BU_PTBL_IS_INITIALIZED(&dbip->i->dbi_changed_clbks)) {
+	for (size_t i = 0; i < BU_PTBL_LEN(&dbip->i->dbi_changed_clbks); i++) {
+	    struct dbi_changed_clbk *cb = (struct dbi_changed_clbk *)BU_PTBL_GET(&dbip->i->dbi_changed_clbks, i);
 	    (*cb->f)(dbip, dp, 1, cb->u_data);
 	}
     }
@@ -334,7 +334,7 @@ db_dirdelete(struct db_i *dbip, struct directory *dp)
     RT_CK_DBI(dbip);
     RT_CK_DIR(dp);
 
-    headp = &(dbip->dbi_Head[db_dirhash(dp->d_namep)]);
+    headp = &(dbip->i->dbi_Head[db_dirhash(dp->d_namep)]);
 
     if (dp->d_flags & RT_DIR_INMEM) {
 	if (dp->d_un.ptr != NULL)
@@ -346,9 +346,9 @@ db_dirdelete(struct db_i *dbip, struct directory *dp)
 	// If we've gotten this far, the dp is on its way out - call the change
 	// callback first if defined, so the app can get information from the
 	// dp before it is cleared.
-	if (BU_PTBL_IS_INITIALIZED(&dbip->dbi_changed_clbks)) {
-	    for (size_t i = 0; i < BU_PTBL_LEN(&dbip->dbi_changed_clbks); i++) {
-		struct dbi_changed_clbk *cb = (struct dbi_changed_clbk *)BU_PTBL_GET(&dbip->dbi_changed_clbks, i);
+	if (BU_PTBL_IS_INITIALIZED(&dbip->i->dbi_changed_clbks)) {
+	    for (size_t i = 0; i < BU_PTBL_LEN(&dbip->i->dbi_changed_clbks); i++) {
+		struct dbi_changed_clbk *cb = (struct dbi_changed_clbk *)BU_PTBL_GET(&dbip->i->dbi_changed_clbks, i);
 		(*cb->f)(dbip, dp, 2, cb->u_data);
 	    }
 	}
@@ -368,9 +368,9 @@ db_dirdelete(struct db_i *dbip, struct directory *dp)
 	// If we've gotten this far, the dp is on its way out - call the change
 	// callback first if defined, so the app can get information from the
 	// dp before it is cleared.
-	if (BU_PTBL_IS_INITIALIZED(&dbip->dbi_changed_clbks)) {
-	    for (size_t i = 0; i < BU_PTBL_LEN(&dbip->dbi_changed_clbks); i++) {
-		struct dbi_changed_clbk *cb = (struct dbi_changed_clbk *)BU_PTBL_GET(&dbip->dbi_changed_clbks, i);
+	if (BU_PTBL_IS_INITIALIZED(&dbip->i->dbi_changed_clbks)) {
+	    for (size_t i = 0; i < BU_PTBL_LEN(&dbip->i->dbi_changed_clbks); i++) {
+		struct dbi_changed_clbk *cb = (struct dbi_changed_clbk *)BU_PTBL_GET(&dbip->i->dbi_changed_clbks, i);
 		(*cb->f)(dbip, dp, 2, cb->u_data);
 	    }
 	}
@@ -397,7 +397,7 @@ db_rename(struct db_i *dbip, struct directory *dp, const char *newname)
     RT_CK_DIR(dp);
 
     /* Remove from linked list */
-    headp = &(dbip->dbi_Head[db_dirhash(dp->d_namep)]);
+    headp = &(dbip->i->dbi_Head[db_dirhash(dp->d_namep)]);
     if (*headp == dp) {
 	/* Was first on list, dequeue */
 	*headp = dp->d_forw;
@@ -418,7 +418,7 @@ out:
     RT_DIR_SET_NAMEP(dp, newname);	/* sets d_namep */
 
     /* Add to new linked list */
-    headp = &(dbip->dbi_Head[db_dirhash(newname)]);
+    headp = &(dbip->i->dbi_Head[db_dirhash(newname)]);
     dp->d_forw = *headp;
     *headp = dp;
     return 0;
@@ -442,7 +442,7 @@ db_pr_dir(const struct db_i *dbip)
     /* units ? */
 
     for (i = 0; i < RT_DBNHASH; i++) {
-	for (dp = dbip->dbi_Head[i]; dp != RT_DIR_NULL; dp=dp->d_forw) {
+	for (dp = dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp=dp->d_forw) {
 	    if (dp->d_flags & RT_DIR_SOLID)
 		flags = "SOL";
 	    else if ((dp->d_flags & (RT_DIR_COMB|RT_DIR_REGION)) ==
@@ -539,6 +539,16 @@ db_lookup_by_attr(struct db_i *dbip, int dir_flags, struct bu_attribute_value_se
 }
 
 /** @} */
+
+struct directory *
+db_dirptr(const struct db_i *dbip, int index)
+{
+    RT_CK_DBI(dbip);
+    if (index < 0 || index >= RT_DBNHASH)
+	return RT_DIR_NULL;
+    return dbip->i->dbi_Head[index];
+}
+
 /*
  * Local Variables:
  * mode: C

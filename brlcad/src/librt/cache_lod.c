@@ -46,7 +46,7 @@ db_mesh_lod_init(struct db_i *dbip, int verbose) {
     dbip->i->mesh_c_target = 0;
     struct directory *dp;
     for (int i = 0; i < RT_DBNHASH; i++) {
-	for (dp = dbip->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
+	for (dp = dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
 	    if (dp->d_addr == RT_DIR_PHONY_ADDR)
 		continue;
 	    if (dp->d_minor_type == DB5_MINORTYPE_BRLCAD_BOT)
@@ -58,7 +58,7 @@ db_mesh_lod_init(struct db_i *dbip, int verbose) {
     start = bu_gettime();
     overall_start = start;
     for (int i = 0; i < RT_DBNHASH; i++) {
-	for (dp = dbip->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
+	for (dp = dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
 	    if (dp->d_addr == RT_DIR_PHONY_ADDR)
 		continue;
 	    if (dp->d_minor_type != DB5_MINORTYPE_BRLCAD_BOT)

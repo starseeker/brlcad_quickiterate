@@ -102,6 +102,7 @@
 #include <libdialect/routing.h>
 #include <libdialect/ortho.h>
 #include <libdialect/opts.h>
+#include "../../librt/librt_private.h"
 
 using namespace dialect;
 
@@ -231,7 +232,7 @@ static void build_id_maps(struct ged *gedp, graph_data *dag)
 
     int next_id = 0;
     for (int i = 0; i < RT_DBNHASH; ++i) {
-        for (struct directory *dp = gedp->dbip->dbi_Head[i];
+        for (struct directory *dp = gedp->dbip->i->dbi_Head[i];
              dp != RT_DIR_NULL; dp = dp->d_forw) {
             if (!bu_hash_get(dag->name_to_id,
                              (uint8_t *)dp->d_namep,
@@ -252,7 +253,7 @@ static void build_id_maps(struct ged *gedp, graph_data *dag)
                 }
         }
     }
-    dag->last_connref_id = gedp->dbip->dbi_nrec;
+    dag->last_connref_id = gedp->dbip->i->dbi_nrec;
 }
 
 /* Process a combination: ensure parent shape exists, flatten leaves, create child shapes + connectors immediately */
@@ -361,7 +362,7 @@ static int build_graph(struct ged *gedp, graph_data *dag)
 
     /* Pass 1: create shapes for primitives (solids) and decorate all objects */
     for (int i = 0; i < RT_DBNHASH; ++i) {
-        for (struct directory *dp = gedp->dbip->dbi_Head[i];
+        for (struct directory *dp = gedp->dbip->i->dbi_Head[i];
              dp != RT_DIR_NULL; dp = dp->d_forw) {
 
             const char *id_str = (const char *)bu_hash_get(dag->name_to_id,
@@ -382,7 +383,7 @@ static int build_graph(struct ged *gedp, graph_data *dag)
 
     /* Pass 2: process combinations, creating edges immediately */
     for (int i = 0; i < RT_DBNHASH; ++i) {
-        for (struct directory *dp = gedp->dbip->dbi_Head[i];
+        for (struct directory *dp = gedp->dbip->i->dbi_Head[i];
              dp != RT_DIR_NULL; dp = dp->d_forw) {
             if (dp->d_flags & RT_DIR_COMB) {
                 process_comb(gedp, dp, dag);
@@ -633,7 +634,7 @@ static void
 hl_scan_db(struct ged *gedp, HLContext &ctx)
 {
     for (int i = 0; i < RT_DBNHASH; ++i) {
-	for (struct directory *dp = gedp->dbip->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
+	for (struct directory *dp = gedp->dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
 
 	    ctx.type_flags[dp->d_namep] = dp->d_flags;
 	    hl_assign(ctx, dp->d_namep);

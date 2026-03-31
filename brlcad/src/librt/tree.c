@@ -501,7 +501,7 @@ _rt_gettree_leaf(struct db_tree_state *tsp, const struct db_full_path *pathp, st
      * long as idb_ptr is set to null.  Note that the prep routine may
      * have changed st_id.
      */
-    if (rtip->rti_dbip->dbi_version > 4) {
+    if (rtip->rti_dbip->i->dbi_version > 4) {
 	ret = rt_cache_prep(data->cache, stp, ip);
     } else {
 	ret = rt_obj_prep(stp, ip, stp->st_rtip);
@@ -751,11 +751,11 @@ rt_gettrees_and_attrs(struct rt_i *rtip, const char **attrs, int argc, const cha
 	    bu_avs_init_empty(&tree_state.ts_attrs);
 	}
 
-	if (rtip->rti_dbip->dbi_version > 4) {
+	if (rtip->rti_dbip->i->dbi_version > 4) {
 	    data.cache = rt_cache_open();
 	}
 
-	if (UNLIKELY(rtip->rti_dbip->dbi_use_comb_instance_ids)) {
+	if (UNLIKELY(rtip->rti_dbip->i->dbi_use_comb_instance_ids)) {
 	    struct bu_ptbl pos_paths = BU_PTBL_INIT_ZERO;
 	    for (int i = 0; i < argc; i++) {
 		struct db_full_path ifp;
@@ -789,7 +789,7 @@ rt_gettrees_and_attrs(struct rt_i *rtip, const char **attrs, int argc, const cha
 	    bu_avs_free(&tree_state.ts_attrs);
 	}
 
-	if (rtip->rti_dbip->dbi_version > 4) {
+	if (rtip->rti_dbip->i->dbi_version > 4) {
 	    rt_cache_close(data.cache);
 	}
     }

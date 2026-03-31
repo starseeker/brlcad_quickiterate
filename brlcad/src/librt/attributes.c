@@ -246,7 +246,7 @@ db5_replace_attributes(struct directory *dp, struct bu_attribute_value_set *avsp
 	return -1;
     }
 
-    BU_ASSERT(dbip->dbi_version == 5);
+    BU_ASSERT(dbip->i->dbi_version == 5);
 
     if (db_get_external(&ext, dp, dbip) < 0)
 	return -2;		/* FAIL */
@@ -309,7 +309,7 @@ db5_update_attributes(struct directory *dp, struct bu_attribute_value_set *avsp,
 	return -1;
     }
 
-    BU_ASSERT(dbip->dbi_version == 5);
+    BU_ASSERT(dbip->i->dbi_version == 5);
 
     if (db_get_external(&ext, dp, dbip) < 0)
 	return -2;		/* FAIL */

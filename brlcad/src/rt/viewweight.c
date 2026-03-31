@@ -46,6 +46,7 @@
 #include "analyze.h"
 
 #include "rt/db4.h"  /* FIXME: Yes, I know I shouldn't be peeking, put I
+#include "../librt/librt_private.h"
 			am only looking to see what units we prefer... */
 
 #include "./rtuif.h"
@@ -211,7 +212,7 @@ densities_prep(struct rt_i * rtip, int minus_o)
     // iterate through the db and find all materials
     int next_available_id = MAX_MATERIAL_ID - 1;
     for (int i = 0; i < RT_DBNHASH; i++) {
-	struct directory *dp = rtip->rti_dbip->dbi_Head[i];
+	struct directory *dp = rtip->rti_dbip->i->dbi_Head[i];
 	if (dp != NULL) {
 	    struct rt_db_internal intern;
 	    struct rt_material_internal *material_ip;
@@ -265,7 +266,7 @@ densities_prep(struct rt_i * rtip, int minus_o)
 
     // look for objects with material_name set and set the material_id
     for (int i = 0; i < RT_DBNHASH; i++) {
-	struct directory *dp = rtip->rti_dbip->dbi_Head[i];
+	struct directory *dp = rtip->rti_dbip->i->dbi_Head[i];
 	if (dp != NULL) {
 	    if (dp->d_major_type == DB5_MAJORTYPE_BRLCAD) {
 		struct bu_attribute_value_set avs = BU_AVS_INIT_ZERO;

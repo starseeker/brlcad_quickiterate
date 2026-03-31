@@ -35,6 +35,7 @@
 #include "bu/time.h"
 #include "bu/vls.h"
 #include "bv/lod.h"
+#include "../../librt/librt_private.h"
 
 #include "../ged_private.h"
 #include "./ged_view.h"
@@ -191,7 +192,7 @@ _view_cmd_lod(void *bs, int argc, const char **argv)
 	    int total = 0;
 	    for (int i = 0; i < RT_DBNHASH; i++) {
 		struct directory *dp;
-		for (dp = gedp->dbip->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
+		for (dp = gedp->dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
 		    if (dp->d_addr == RT_DIR_PHONY_ADDR)
 			continue;
 		    if (dp->d_minor_type == DB5_MINORTYPE_BRLCAD_BOT)
@@ -203,7 +204,7 @@ _view_cmd_lod(void *bs, int argc, const char **argv)
 
 	    for (int i = 0; i < RT_DBNHASH; i++) {
 		struct directory *dp;
-		for (dp = gedp->dbip->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
+		for (dp = gedp->dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
 		    if (dp->d_addr == RT_DIR_PHONY_ADDR)
 			continue;
 
@@ -314,7 +315,7 @@ _view_cmd_lod(void *bs, int argc, const char **argv)
 	    } else if (BU_STR_EQUAL(argv[1], "exists")) {
 		for (int i = 0; i < RT_DBNHASH; i++) {
 		    struct directory *dp;
-		    for (dp = gedp->dbip->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
+		    for (dp = gedp->dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
 			if (dp->d_addr == RT_DIR_PHONY_ADDR)
 			    continue;
 			// checking both BoTs and BREPs

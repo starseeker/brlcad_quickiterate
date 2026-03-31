@@ -29,6 +29,7 @@
 
 #include "bu/cmd.h"
 #include "bu/getopt.h"
+#include "../../librt/librt_private.h"
 
 #include "../ged_private.h"
 
@@ -88,7 +89,7 @@ ged_tops_core(struct ged *gedp, int argc, const char *argv[])
 
     if (db_version(gedp->dbip) < 5) {
 	for (i = 0; i < RT_DBNHASH; i++)
-	    for (dp = gedp->dbip->dbi_Head[i];
+	    for (dp = gedp->dbip->i->dbi_Head[i];
 		 dp != RT_DIR_NULL;
 		 dp = dp->d_forw) {
 		if (dp->d_nref == 0)
@@ -96,7 +97,7 @@ ged_tops_core(struct ged *gedp, int argc, const char *argv[])
 	    }
     } else {
 	for (i = 0; i < RT_DBNHASH; i++)
-	    for (dp = gedp->dbip->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
+	    for (dp = gedp->dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
 
 		if (dp->d_nref != 0) {
 		    continue;

@@ -307,7 +307,7 @@ db5_size(struct db_i *dbip, struct directory *in_dp, int flags)
     /* Get a count of all objects we might care about, and find out what the
      * size of our biggest object is. */
     for (i = 0; i < RT_DBNHASH; i++) {
-	for (dp = dbip->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
+	for (dp = dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
 	    if (!(dp->d_flags & RT_DIR_HIDDEN)) {
 		dcnt++;
 		if (dp->d_len > max_bufsize) max_bufsize = dp->d_len;
@@ -328,7 +328,7 @@ db5_size(struct db_i *dbip, struct directory *in_dp, int flags)
     /* Associate the local struct with the directory pointer and put ptr in array */
     j = 0;
     for (i = 0; i < RT_DBNHASH; i++) {
-	for (dp = dbip->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
+	for (dp = dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
 	    if (!(dp->d_flags & RT_DIR_HIDDEN)) {
 		dsr[j].data = dp->u_data;
 		dp->u_data = (void *)(&(dsr[j]));

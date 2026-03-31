@@ -28,6 +28,7 @@
 #include <string.h>
 
 #include "bu/cmd.h"
+#include "../../librt/librt_private.h"
 
 #include "../ged_private.h"
 
@@ -73,7 +74,7 @@ ged_rmap_core(struct ged *gedp, int argc, const char *argv[])
 
     /* For all regions not hidden */
     for (i = 0; i < RT_DBNHASH; i++) {
-	for (dp = gedp->dbip->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
+	for (dp = gedp->dbip->i->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
 	    int found = 0;
 
 	    if (!(dp->d_flags & RT_DIR_REGION) ||
