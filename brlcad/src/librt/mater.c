@@ -41,7 +41,7 @@
  * Entries are kept in strictly ascending order by mt_low, with no overlaps.
  */
 
-/* Forward declaration: defined in the DEPRECATED section below. */
+/* Forward declaration: defined later in this file, in the DEPRECATED rt_* section. */
 extern struct mater *rt_material_head_global;
 
 
