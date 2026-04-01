@@ -31,33 +31,54 @@ static void AppendVar(Tcl_Interp *interp, Tcl_Obj *script,
 
     /* ARRAY */
     if (IsArray(interp, fqName)) {
-        Tcl_Obj *cmd = Tcl_ObjPrintf("array get %s", fqName);
-        Tcl_IncrRefCount(cmd); /* caller holds a ref so DecrRefCount below is correct */
+        Tcl_Obj *getCmd = Tcl_ObjPrintf("array get %s", fqName);
+        Tcl_IncrRefCount(getCmd); /* caller holds a ref so DecrRefCount below is correct */
 
-        if (Tcl_EvalObjEx(interp, cmd, TCL_EVAL_GLOBAL) == TCL_OK) {
+        if (Tcl_EvalObjEx(interp, getCmd, TCL_EVAL_GLOBAL) == TCL_OK) {
             Tcl_Obj *list = Tcl_GetObjResult(interp);
+            Tcl_IncrRefCount(list); /* protect against reset by subsequent evals */
 
-            Tcl_Obj *line = Tcl_NewStringObj("", -1);
-            Tcl_IncrRefCount(line);
+            /* Build the command as a proper list so every element is correctly
+             * quoted when the script is later parsed:
+             *   global:    array set varname {k1 v1 k2 v2 ...}
+             *   namespace: namespace eval ::ns { array set varname {k1 v1 ...} } */
+            Tcl_Obj *setCmd = Tcl_NewListObj(0, NULL);
+            Tcl_IncrRefCount(setCmd);
 
             if (nsPrefix && strcmp(nsPrefix, "::") != 0) {
-                Tcl_AppendPrintfToObj(line,
-                    "namespace eval %s { array set %s ",
-                    nsPrefix, varName);
-                Tcl_AppendObjToObj(line, list);
-                Tcl_AppendToObj(line, " }\n", -1);
+                Tcl_ListObjAppendElement(NULL, setCmd,
+                    Tcl_NewStringObj("namespace", -1));
+                Tcl_ListObjAppendElement(NULL, setCmd,
+                    Tcl_NewStringObj("eval", -1));
+                Tcl_ListObjAppendElement(NULL, setCmd,
+                    Tcl_NewStringObj(nsPrefix, -1));
+                /* inner command as a nested list: {array set varname LIST} */
+                Tcl_Obj *inner = Tcl_NewListObj(0, NULL);
+                Tcl_ListObjAppendElement(NULL, inner,
+                    Tcl_NewStringObj("array", -1));
+                Tcl_ListObjAppendElement(NULL, inner,
+                    Tcl_NewStringObj("set", -1));
+                Tcl_ListObjAppendElement(NULL, inner,
+                    Tcl_NewStringObj(varName, -1));
+                Tcl_ListObjAppendElement(NULL, inner, list);
+                Tcl_ListObjAppendElement(NULL, setCmd, inner);
             } else {
-                Tcl_AppendPrintfToObj(line,
-                    "array set %s ", varName);
-                Tcl_AppendObjToObj(line, list);
-                Tcl_AppendToObj(line, "\n", -1);
+                Tcl_ListObjAppendElement(NULL, setCmd,
+                    Tcl_NewStringObj("array", -1));
+                Tcl_ListObjAppendElement(NULL, setCmd,
+                    Tcl_NewStringObj("set", -1));
+                Tcl_ListObjAppendElement(NULL, setCmd,
+                    Tcl_NewStringObj(varName, -1));
+                Tcl_ListObjAppendElement(NULL, setCmd, list);
             }
 
-            Tcl_AppendObjToObj(script, line);
-            Tcl_DecrRefCount(line);
+            Tcl_AppendObjToObj(script, setCmd);
+            Tcl_AppendToObj(script, "\n", -1);
+            Tcl_DecrRefCount(setCmd);
+            Tcl_DecrRefCount(list);
         }
 
-        Tcl_DecrRefCount(cmd);
+        Tcl_DecrRefCount(getCmd);
         return;
     }
 
@@ -65,19 +86,27 @@ static void AppendVar(Tcl_Interp *interp, Tcl_Obj *script,
     Tcl_Obj *val = Tcl_GetVar2Ex(interp, fqName, NULL, TCL_GLOBAL_ONLY);
     if (!val) return;
 
+    /* Build set/variable command as a proper list so the value is always
+     * quoted correctly regardless of its string content. */
     if (nsPrefix && strcmp(nsPrefix, "::") != 0) {
-        Tcl_Obj *line = Tcl_NewStringObj("", -1);
-        Tcl_IncrRefCount(line);
-
-        Tcl_AppendPrintfToObj(line,
-            "namespace eval %s { variable %s ",
-            nsPrefix, varName);
-
-        Tcl_AppendObjToObj(line, val);
-        Tcl_AppendToObj(line, " }\n", -1);
-
-        Tcl_AppendObjToObj(script, line);
-        Tcl_DecrRefCount(line);
+        Tcl_Obj *setCmd = Tcl_NewListObj(0, NULL);
+        Tcl_IncrRefCount(setCmd);
+        Tcl_ListObjAppendElement(NULL, setCmd,
+            Tcl_NewStringObj("namespace", -1));
+        Tcl_ListObjAppendElement(NULL, setCmd,
+            Tcl_NewStringObj("eval", -1));
+        Tcl_ListObjAppendElement(NULL, setCmd,
+            Tcl_NewStringObj(nsPrefix, -1));
+        Tcl_Obj *inner = Tcl_NewListObj(0, NULL);
+        Tcl_ListObjAppendElement(NULL, inner,
+            Tcl_NewStringObj("set", -1));
+        Tcl_ListObjAppendElement(NULL, inner,
+            Tcl_NewStringObj(varName, -1));
+        Tcl_ListObjAppendElement(NULL, inner, val);
+        Tcl_ListObjAppendElement(NULL, setCmd, inner);
+        Tcl_AppendObjToObj(script, setCmd);
+        Tcl_AppendToObj(script, "\n", -1);
+        Tcl_DecrRefCount(setCmd);
     } else {
         Tcl_Obj *cmd = Tcl_NewListObj(0, NULL);
         Tcl_IncrRefCount(cmd);
