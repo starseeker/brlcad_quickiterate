@@ -358,23 +358,52 @@ _create_search_interp(struct mged_state *s)
 
     search_interp = Tcl_CreateInterp();
 
-    struct bu_vls tlog = BU_VLS_INIT_ZERO;
-    if (tclcad_init(search_interp, 0, &tlog) == TCL_ERROR) {
-	bu_log("search interp: tclcad_init error:\n%s\n", bu_vls_addr(&tlog));
-	bu_vls_free(&tlog);
+    /* Use plain Tcl_Init rather than the full tclcad_init.  The search interp
+     * only needs:
+     *   - core Tcl (proc, namespace, string, list, etc.) — available without
+     *     any init call
+     *   - the package/auto-load infrastructure so that 'proc' bodies replayed
+     *     from the main interp can call package commands if needed
+     *   - the _mged_ged_exec bridge and unknown forwarder (installed below)
+     *
+     * tclcad_init would additionally load Itcl, Ged_Init, Bu_Init, etc.  In
+     * Tcl 8.6 that causes global side-effects (shared literal tables, Itcl
+     * class registries) that corrupt the per-thread Tcl object allocator of
+     * the MAIN interpreter, causing a crash the next time the main interp
+     * compiles a script.  GED commands in user procs are already handled by
+     * the _mged_ged_exec → ged_exec bridge, so the full package suite is not
+     * needed here. */
+    if (Tcl_Init(search_interp) != TCL_OK) {
+	bu_log("search interp: Tcl_Init error: %s\n",
+	       Tcl_GetStringResult(search_interp));
 	Tcl_DeleteInterp(search_interp);
 	return NULL;
     }
-    bu_vls_free(&tlog);
 
     /* Register the GED bridge command. */
     (void)Tcl_CreateCommand(search_interp, "_mged_ged_exec",
 	    mged_search_ged_exec, (ClientData)s,
 	    (Tcl_CmdDeleteProc *)NULL);
 
-    /* Override the Tcl 'unknown' handler so that any command not found in this
-     * interpreter's command table is forwarded to GED.  This makes all GED
-     * commands transparently callable by name from Tcl scripts. */
+    /* Sync the main interp state (procs, variables, namespaces).
+     * This must happen BEFORE installing the custom 'unknown' proc below,
+     * because the snapshot includes the standard Tcl 'unknown' and replaying
+     * it would overwrite our bridge if we installed it first. */
+    Tcl_Obj *snap = BuildInterpSnapshot(s->interp);
+    if (!snap) {
+	bu_log("search interp: BuildInterpSnapshot failed\n");
+    } else {
+	if (ReplayInterpSnapshot(search_interp, snap) != TCL_OK)
+	    bu_log("search interp: snapshot replay error: %s\n",
+		   Tcl_GetStringResult(search_interp));
+	Tcl_DecrRefCount(snap);
+    }
+
+    /* Override the Tcl 'unknown' handler AFTER snapshot replay so that any
+     * command not found in this interpreter's command table is forwarded to
+     * GED.  This makes all GED commands transparently callable by name from
+     * Tcl scripts.  Installing it here (after replay) ensures the snapshot's
+     * standard Tcl 'unknown' does not overwrite this bridge. */
     if (Tcl_Eval(search_interp,
 		 "proc unknown {cmd args} {\n"
 		 "    _mged_ged_exec $cmd {*}$args\n"
@@ -382,11 +411,6 @@ _create_search_interp(struct mged_state *s)
 	bu_log("search interp: failed to install unknown proc: %s\n",
 	       Tcl_GetStringResult(search_interp));
     }
-
-    /* Sync the main interp state */
-    Tcl_Obj *snap = BuildInterpSnapshot(s->interp);
-    ReplayInterpSnapshot(search_interp, snap);
-    Tcl_DecrRefCount(snap);
 
     return search_interp;
 }
@@ -398,9 +422,13 @@ _create_search_interp(struct mged_state *s)
 static int
 _exec_in_search_interp(Tcl_Interp *search_interp, int argc, const char *argv[])
 {
+    /* Sanity check: argc=0 means there's nothing to evaluate. */
+    if (argc < 1 || !argv || !argv[0])
+	return 1;
+
     Tcl_Obj **objv = (Tcl_Obj **)bu_calloc(argc, sizeof(Tcl_Obj *), "search tcl objv");
     for (int i = 0; i < argc; i++) {
-	objv[i] = Tcl_NewStringObj(argv[i], -1);
+	objv[i] = Tcl_NewStringObj(argv[i] ? argv[i] : "", -1);
 	Tcl_IncrRefCount(objv[i]);
     }
     int tcl_ret = Tcl_EvalObjv(search_interp, argc, objv, 0);

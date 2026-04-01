@@ -7,6 +7,7 @@
  * ========================= */
 static int IsArray(Tcl_Interp *interp, const char *fqName) {
     Tcl_Obj *cmd = Tcl_ObjPrintf("array exists %s", fqName);
+    Tcl_IncrRefCount(cmd); /* caller holds a ref so DecrRefCount below is correct */
     int rc = Tcl_EvalObjEx(interp, cmd, TCL_EVAL_GLOBAL);
     Tcl_DecrRefCount(cmd);
 
@@ -31,11 +32,13 @@ static void AppendVar(Tcl_Interp *interp, Tcl_Obj *script,
     /* ARRAY */
     if (IsArray(interp, fqName)) {
         Tcl_Obj *cmd = Tcl_ObjPrintf("array get %s", fqName);
+        Tcl_IncrRefCount(cmd); /* caller holds a ref so DecrRefCount below is correct */
 
         if (Tcl_EvalObjEx(interp, cmd, TCL_EVAL_GLOBAL) == TCL_OK) {
             Tcl_Obj *list = Tcl_GetObjResult(interp);
 
             Tcl_Obj *line = Tcl_NewStringObj("", -1);
+            Tcl_IncrRefCount(line);
 
             if (nsPrefix && strcmp(nsPrefix, "::") != 0) {
                 Tcl_AppendPrintfToObj(line,
@@ -51,6 +54,7 @@ static void AppendVar(Tcl_Interp *interp, Tcl_Obj *script,
             }
 
             Tcl_AppendObjToObj(script, line);
+            Tcl_DecrRefCount(line);
         }
 
         Tcl_DecrRefCount(cmd);
@@ -63,6 +67,7 @@ static void AppendVar(Tcl_Interp *interp, Tcl_Obj *script,
 
     if (nsPrefix && strcmp(nsPrefix, "::") != 0) {
         Tcl_Obj *line = Tcl_NewStringObj("", -1);
+        Tcl_IncrRefCount(line);
 
         Tcl_AppendPrintfToObj(line,
             "namespace eval %s { variable %s ",
@@ -72,14 +77,17 @@ static void AppendVar(Tcl_Interp *interp, Tcl_Obj *script,
         Tcl_AppendToObj(line, " }\n", -1);
 
         Tcl_AppendObjToObj(script, line);
+        Tcl_DecrRefCount(line);
     } else {
         Tcl_Obj *cmd = Tcl_NewListObj(0, NULL);
+        Tcl_IncrRefCount(cmd);
         Tcl_ListObjAppendElement(NULL, cmd, Tcl_NewStringObj("set", -1));
         Tcl_ListObjAppendElement(NULL, cmd, Tcl_NewStringObj(varName, -1));
         Tcl_ListObjAppendElement(NULL, cmd, val);
 
         Tcl_AppendObjToObj(script, cmd);
         Tcl_AppendToObj(script, "\n", -1);
+        Tcl_DecrRefCount(cmd);
     }
 }
 
@@ -91,12 +99,15 @@ static int AppendGlobals(Tcl_Interp *interp, Tcl_Obj *script) {
         return TCL_ERROR;
 
     Tcl_Obj *list = Tcl_GetObjResult(interp);
+    Tcl_IncrRefCount(list); /* protect against reset by subsequent evals inside the loop */
 
     int count;
     Tcl_Obj **elems;
 
-    if (Tcl_ListObjGetElements(interp, list, &count, &elems) != TCL_OK)
+    if (Tcl_ListObjGetElements(interp, list, &count, &elems) != TCL_OK) {
+        Tcl_DecrRefCount(list);
         return TCL_ERROR;
+    }
 
     for (int i = 0; i < count; i++) {
         const char *name = Tcl_GetString(elems[i]);
@@ -106,6 +117,7 @@ static int AppendGlobals(Tcl_Interp *interp, Tcl_Obj *script) {
         AppendVar(interp, script, name, NULL);
     }
 
+    Tcl_DecrRefCount(list);
     return TCL_OK;
 }
 
@@ -117,6 +129,7 @@ static int AppendNamespaceVarsRec(Tcl_Interp *interp,
                                  const char *nsName)
 {
     Tcl_Obj *cmd = Tcl_ObjPrintf("info vars %s::*", nsName);
+    Tcl_IncrRefCount(cmd); /* caller holds a ref */
 
     if (Tcl_EvalObjEx(interp, cmd, TCL_EVAL_GLOBAL) != TCL_OK) {
         Tcl_DecrRefCount(cmd);
@@ -125,6 +138,7 @@ static int AppendNamespaceVarsRec(Tcl_Interp *interp,
     Tcl_DecrRefCount(cmd);
 
     Tcl_Obj *vars = Tcl_GetObjResult(interp);
+    Tcl_IncrRefCount(vars); /* protect against reset by AppendVar's internal evals */
 
     int count;
     Tcl_Obj **elems;
@@ -141,8 +155,11 @@ static int AppendNamespaceVarsRec(Tcl_Interp *interp,
         }
     }
 
+    Tcl_DecrRefCount(vars);
+
     /* recurse children */
     cmd = Tcl_ObjPrintf("namespace children %s", nsName);
+    Tcl_IncrRefCount(cmd); /* caller holds a ref */
 
     if (Tcl_EvalObjEx(interp, cmd, TCL_EVAL_GLOBAL) != TCL_OK) {
         Tcl_DecrRefCount(cmd);
@@ -151,6 +168,7 @@ static int AppendNamespaceVarsRec(Tcl_Interp *interp,
     Tcl_DecrRefCount(cmd);
 
     Tcl_Obj *children = Tcl_GetObjResult(interp);
+    Tcl_IncrRefCount(children); /* protect against reset by recursive calls */
 
     if (Tcl_ListObjGetElements(interp, children, &count, &elems) == TCL_OK) {
         for (int i = 0; i < count; i++) {
@@ -160,11 +178,14 @@ static int AppendNamespaceVarsRec(Tcl_Interp *interp,
                 strncmp(child, "::oo", 4) == 0)
                 continue;
 
-            if (AppendNamespaceVarsRec(interp, script, child) != TCL_OK)
+            if (AppendNamespaceVarsRec(interp, script, child) != TCL_OK) {
+                Tcl_DecrRefCount(children);
                 return TCL_ERROR;
+            }
         }
     }
 
+    Tcl_DecrRefCount(children);
     return TCL_OK;
 }
 
@@ -205,12 +226,15 @@ static int AppendProcs(Tcl_Interp *interp, Tcl_Obj *script) {
         return TCL_ERROR;
 
     Tcl_Obj *list = Tcl_GetObjResult(interp);
+    Tcl_IncrRefCount(list); /* protect against reset by info-args/body evals inside the loop */
 
     int count;
     Tcl_Obj **elems;
 
-    if (Tcl_ListObjGetElements(interp, list, &count, &elems) != TCL_OK)
+    if (Tcl_ListObjGetElements(interp, list, &count, &elems) != TCL_OK) {
+        Tcl_DecrRefCount(list);
         return TCL_ERROR;
+    }
 
     for (int i = 0; i < count; i++) {
         const char *name = Tcl_GetString(elems[i]);
@@ -219,6 +243,7 @@ static int AppendProcs(Tcl_Interp *interp, Tcl_Obj *script) {
             continue;
 
         Tcl_Obj *argsCmd = Tcl_ObjPrintf("info args %s", name);
+        Tcl_IncrRefCount(argsCmd); /* caller holds a ref so DecrRefCount below is correct */
         if (Tcl_EvalObjEx(interp, argsCmd, TCL_EVAL_GLOBAL) != TCL_OK) {
             Tcl_DecrRefCount(argsCmd);
             continue;
@@ -229,6 +254,7 @@ static int AppendProcs(Tcl_Interp *interp, Tcl_Obj *script) {
         Tcl_IncrRefCount(args);
 
         Tcl_Obj *bodyCmd = Tcl_ObjPrintf("info body %s", name);
+        Tcl_IncrRefCount(bodyCmd); /* caller holds a ref so DecrRefCount below is correct */
         if (Tcl_EvalObjEx(interp, bodyCmd, TCL_EVAL_GLOBAL) != TCL_OK) {
             Tcl_DecrRefCount(bodyCmd);
             Tcl_DecrRefCount(args);
@@ -239,18 +265,24 @@ static int AppendProcs(Tcl_Interp *interp, Tcl_Obj *script) {
         Tcl_Obj *body = Tcl_GetObjResult(interp);
         Tcl_IncrRefCount(body);
 
-        Tcl_Obj *line = Tcl_ObjPrintf("proc %s ", name);
+        /* Brace-quote both args and body so they form single Tcl words.
+         * Without quoting, space-separated arg lists and multi-word bodies
+         * would be tokenised as multiple proc arguments (wrong # args). */
+        Tcl_Obj *line = Tcl_ObjPrintf("proc %s {", name);
+        Tcl_IncrRefCount(line);
         Tcl_AppendObjToObj(line, args);
-        Tcl_AppendToObj(line, " ", -1);
+        Tcl_AppendToObj(line, "} {", -1);
         Tcl_AppendObjToObj(line, body);
-        Tcl_AppendToObj(line, "\n", -1);
+        Tcl_AppendToObj(line, "}\n", -1);
 
         Tcl_AppendObjToObj(script, line);
+        Tcl_DecrRefCount(line);
 
         Tcl_DecrRefCount(args);
         Tcl_DecrRefCount(body);
     }
 
+    Tcl_DecrRefCount(list);
     return TCL_OK;
 }
 
