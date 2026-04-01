@@ -65,7 +65,36 @@ typedef void SoDBHeaderCB(void * data, SoInput * input);
   other Obol API, and SoDB::finish() should be called on shutdown to
   release resources cleanly.
 
-  \sa SoDB::ContextManager, SoOffscreenRenderer
+  \section thread_safety Thread Safety
+
+  Obol is thread safe for the following usage scenarios:
+
+  - **Concurrent render** — Multiple threads, each owning an independent GL
+    context and traversing its own independent scene graph, may render
+    simultaneously without any application-level locking.  Each thread must
+    call SoDB::init() once before its first traversal; after that the global
+    infrastructure (name interning, type system, reference counts, auditor
+    lists) is safe for concurrent access.  GL contexts must \e not be shared
+    between threads without explicit platform re-binding (glXMakeCurrent etc.);
+    Obol will emit a SoDebugError warning if cross-thread GL context use is
+    detected.
+
+  - **Init-then-read** — SoDB::init() is called once on one thread; afterwards
+    multiple threads may read (traverse) the scene graph simultaneously without
+    any further locking.
+
+  - **Mixed read/write** — When one or more threads mutate the scene graph
+    while others traverse it, the application must bracket mutations with
+    SoDB::writelock() / SoDB::writeunlock() and may bracket concurrent traversals
+    with SoDB::readlock() / SoDB::readunlock().  All SoAction::apply() calls
+    already acquire the global read lock internally.
+
+  The following scenario is \b not supported without additional application-level
+  synchronisation:
+  - Sharing a single \c SoAction or \c SoState between multiple threads.
+    Each thread must create and own its own action objects.
+
+  \sa SoDB::ContextManager, SoOffscreenRenderer, SoDB::readlock(), SoDB::writelock()
 */
 class OBOL_DLL_API SoDB {
 public:
@@ -177,7 +206,7 @@ public:
      *
      * The default implementation returns FALSE, which is appropriate for
      * applications that only use one backend.  Dual-backend implementations
-     * (OBOL_BUILD_DUAL_GL) should override this and return TRUE for
+     * (OBOL_DUAL_GL_BUILD) should override this and return TRUE for
      * contexts created via OSMesa so that the GL-glue dispatch layer can
      * route SoGLContext_instance() to the correct (osmesa_*) implementation.
      */
@@ -219,6 +248,30 @@ public:
      */
     virtual void * getProcAddress(const char * /*funcName*/) { return nullptr; }
 
+    /**
+     * Report the actual pixel dimensions of the backing surface (window,
+     * Pbuffer, or renderbuffer) associated with \a context.
+     *
+     * Obol calls this before issuing a raw glReadPixels() to determine
+     * whether the surface is large enough to hold the requested number of
+     * pixels.  If the surface is smaller than the requested render target
+     * **and** framebuffer objects are unavailable to compensate, Obol will
+     * skip the readback and post a diagnostic warning explaining what the
+     * application must provide for the feature to work — preventing the
+     * memory corruption that results from reading beyond a tiny framebuffer.
+     *
+     * The default returns (0, 0), which means "unknown".  Obol treats an
+     * unknown size as "assume it is large enough" and relies on FBO
+     * creation success/failure as the fallback guard.  Implementing this
+     * method in your ContextManager is strongly recommended for any
+     * context whose backing surface might be smaller than the largest
+     * texture the application requests.
+     */
+    virtual void getActualSurfaceSize(void * /*context*/,
+                                      unsigned int & width,
+                                      unsigned int & height) const
+    { width = 0; height = 0; }
+
     // --- Optional alternative rendering path -------------------------------
     // If this returns TRUE, SoOffscreenRenderer uses 'pixels' directly and
     // skips the GL pipeline.  'pixels' is a pre-allocated row-major buffer of
@@ -246,8 +299,8 @@ public:
 
   /**
    * Create a new OSMesa-backed context manager.  Returns NULL when the
-   * library was not built with OSMesa support (i.e. OBOL_OSMESA_BUILD
-   * and OBOL_BUILD_DUAL_GL are both absent).
+   * library was not built with OSMesa support (i.e. OBOL_SWRAST_BUILD
+   * and OBOL_DUAL_GL_BUILD are both absent).
    *
    * The caller owns the returned object and is responsible for deleting it
    * after all SoOffscreenRenderer instances that reference it have been

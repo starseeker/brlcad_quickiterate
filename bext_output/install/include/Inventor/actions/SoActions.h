@@ -35,7 +35,7 @@
 
 #include <Inventor/actions/SoCallbackAction.h>
 #include <Inventor/actions/SoGLRenderAction.h>
-#include <Inventor/actions/SoRaytraceRenderAction.h>
+#include <Inventor/actions/SoSceneRenderAction.h>
 #include <Inventor/actions/SoBoxHighlightRenderAction.h>
 #include <Inventor/actions/SoLineHighlightRenderAction.h>
 #include <Inventor/actions/SoGetBoundingBoxAction.h>
