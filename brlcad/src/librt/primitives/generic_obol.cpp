@@ -99,7 +99,7 @@ rt_generic_vlist_to_obol(bsg_shape *s)
 	return;
     if (BU_LIST_IS_EMPTY(&s->s_vlist))
 	return;
-    /* Skip if Obol is not initialized — e.g. ged_test_draw runs without
+    /* Skip if Obol is not initialized -- e.g. ged_test_draw runs without
      * calling SoDB::init().  Attempting to create SoNodes before
      * SoDB::init() crashes inside cc_recmutex_cxx17_notify_lock(). */
     if (!SoDB::isInitialized())
@@ -370,7 +370,7 @@ rt_generic_scene_obj_part(void *geom_out,
 
     if (!intern.idb_meth || !intern.idb_meth->ft_plot) {
 	rt_db_free_internal(&intern);
-	return BRLCAD_OK;   /* no plot method — leave geom empty */
+	return BRLCAD_OK;   /* no plot method -- leave geom empty */
     }
 
     /* Generate a vlist using ft_plot */
@@ -416,7 +416,7 @@ rt_generic_scene_obj_part(void *geom_out,
 		    if (in_polyline) {
 			current_pl.points.push_back(SbVec3f(x, y, z));
 		    } else {
-			/* Orphan draw — treat as a new 2-point polyline start */
+			/* Orphan draw -- treat as a new 2-point polyline start */
 			current_pl = obol::WirePolyline{};
 			current_pl.points.push_back(SbVec3f(x, y, z));
 			in_polyline = true;
