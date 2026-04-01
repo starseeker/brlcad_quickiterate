@@ -386,8 +386,91 @@ _create_search_interp(struct mged_state *s)
     /* Sync the main interp state */
     Tcl_Obj *snap = BuildInterpSnapshot(s->interp);
     ReplayInterpSnapshot(search_interp, snap);
+    Tcl_DecrRefCount(snap);
 
     return search_interp;
+}
+
+
+/* Execute a single -exec invocation in the lifecycle-scoped search interpreter.
+ * Used by mged_db_search_callback as the normal path when s->search_interp is
+ * available (set by mged_search_pre_clbk before the search begins). */
+static int
+_exec_in_search_interp(Tcl_Interp *search_interp, int argc, const char *argv[])
+{
+    Tcl_Obj **objv = (Tcl_Obj **)bu_calloc(argc, sizeof(Tcl_Obj *), "search tcl objv");
+    for (int i = 0; i < argc; i++) {
+	objv[i] = Tcl_NewStringObj(argv[i], -1);
+	Tcl_IncrRefCount(objv[i]);
+    }
+    int tcl_ret = Tcl_EvalObjv(search_interp, argc, objv, 0);
+    for (int i = 0; i < argc; i++)
+	Tcl_DecrRefCount(objv[i]);
+    bu_free(objv, "search tcl objv");
+
+    const char *tcl_result = Tcl_GetStringResult(search_interp);
+    if (tcl_result && *tcl_result) {
+	size_t rlen = strlen(tcl_result);
+	bu_log("%s%s", tcl_result, tcl_result[rlen-1] == '\n' ? "" : "\n");
+    }
+    Tcl_ResetResult(search_interp);
+
+    return tcl_ret == TCL_OK;
+}
+
+
+/**
+ * PRE-execution callback for the "search" command.
+ *
+ * Creates a fresh, lifecycle-scoped secondary Tcl interpreter and stores it
+ * in s->search_interp.  This interpreter is initialised once (snapshotting the
+ * current main-interp state) and then reused for every -exec invocation fired
+ * by mged_db_search_callback during this search run.  Creating the interpreter
+ * here rather than inside each DURING callback avoids the overhead of repeated
+ * tclcad_init + snapshot replay for large result sets.
+ *
+ * If a leftover interpreter from a previously interrupted search is found it is
+ * cleaned up first, so we never accumulate dangling interpreters.
+ */
+int
+mged_search_pre_clbk(int UNUSED(argc), const char **UNUSED(argv),
+		     void *UNUSED(u1), void *u2)
+{
+    struct mged_state *s = (struct mged_state *)u2;
+    MGED_CK_STATE(s);
+
+    /* Clean up any leftover interp from a previous search that did not finish
+     * cleanly (i.e. where the POST callback was not reached). */
+    if (s->search_interp) {
+	Tcl_DeleteInterp(s->search_interp);
+	s->search_interp = NULL;
+    }
+
+    s->search_interp = _create_search_interp(s);
+    return BRLCAD_OK;
+}
+
+
+/**
+ * POST-execution callback for the "search" command.
+ *
+ * Destroys the lifecycle-scoped interpreter created by mged_search_pre_clbk.
+ * The interpreter must not be persisted beyond a single search invocation
+ * because the user environment (procs, variables) may change before the next
+ * search is run.
+ */
+int
+mged_search_post_clbk(int UNUSED(argc), const char **UNUSED(argv),
+		      void *UNUSED(u1), void *u2)
+{
+    struct mged_state *s = (struct mged_state *)u2;
+    MGED_CK_STATE(s);
+
+    if (s->search_interp) {
+	Tcl_DeleteInterp(s->search_interp);
+	s->search_interp = NULL;
+    }
+    return BRLCAD_OK;
 }
 
 
@@ -399,20 +482,19 @@ _create_search_interp(struct mged_state *s)
  * Using the main GUI interpreter (s->interp) from the worker thread is
  * therefore unsafe.
  *
- * Instead this callback delegates entirely to s->search_interp — a secondary,
- * fully independent Tcl interpreter stored in mged_state alongside the main
- * interp.  It is initialized at startup with the full BRL-CAD Tcl package set
- * (via tclcad_init) and is the ONLY interpreter accessed from the search worker
- * thread.  The main thread never touches search_interp while a search is
- * running, so there is no concurrent interpreter access and Tcl's
+ * This callback uses s->search_interp — a secondary, fully independent Tcl
+ * interpreter whose lifetime is scoped to the enclosing search command.  It is
+ * created by mged_search_pre_clbk (fired before search begins), reused across
+ * all -exec invocations, and destroyed by mged_search_post_clbk (fired after
+ * search completes).  The main thread never touches search_interp while a
+ * search is running, so there is no concurrent interpreter access and Tcl's
  * single-thread-per-interp requirement is satisfied.
  *
  * A custom 'unknown' proc inside search_interp bridges any command that Tcl
  * does not recognise to ged_exec via _mged_ged_exec, so all GED commands
  * (draw, ls, attr, ...) are callable directly by name from Tcl scripts.  The
  * _mged_ged_exec handler suppresses ged_skip_clbks so GUI-refresh and other
- * side-effect hooks are silenced for the duration of each sub-command, the
- * same way they would be if ged_exec were called directly here.
+ * side-effect hooks are silenced for the duration of each sub-command.
  *
  * GUI and display commands will fail inside search_interp, which is expected —
  * those operations are not reliable from a search -exec context in any case.
@@ -425,8 +507,9 @@ _create_search_interp(struct mged_state *s)
  *    search_interp never calls go_open, so this list is untouched.
  * Both globals are therefore safe with a secondary interpreter active.
  *
- * If search_interp was not successfully initialized (e.g. tclcad_init failed),
- * the callback falls back to a plain ged_exec so GED commands still work.
+ * If s->search_interp is NULL (e.g. tclcad_init failed in the PRE callback,
+ * or the PRE callback was not registered), the callback falls back to a plain
+ * ged_exec so GED commands still work.
  */
 int
 mged_db_search_callback(int argc, const char *argv[], void *UNUSED(u1), void *u2)
@@ -434,48 +517,21 @@ mged_db_search_callback(int argc, const char *argv[], void *UNUSED(u1), void *u2
     struct mged_state *s = (struct mged_state *)u2;
     MGED_CK_STATE(s);
 
-    /* Secondary Tcl interpreter dedicated to search -exec script evaluation.
-     * It is fully independent of the main GUI interp and is the ONLY
-     * interpreter accessed from the search worker thread during -exec
-     * callbacks.  The main thread never touches it while a search is running,
-     * so there is no concurrent interpreter access.
-     * Initialized with the full BRL-CAD Tcl package set; a custom 'unknown'
-     * proc bridges any unrecognized Tcl command to ged_exec so that GED
-     * commands (draw, ls, attr, ...) are callable directly from Tcl scripts.
-     * GUI/display commands will silently fail, which is expected. */
-    Tcl_Interp *search_interp = _create_search_interp(s);
+    if (s->search_interp)
+	return _exec_in_search_interp(s->search_interp, argc, argv);
 
-    if (search_interp) {
-	// Normal path: evaluate as a Tcl command in the dedicated search
-	// interpreter.  GED commands are forwarded via the 'unknown' proc
-	// bridge (_mged_ged_exec), which manages ged_skip_clbks internally.
-	Tcl_Obj **objv = (Tcl_Obj **)bu_calloc(argc, sizeof(Tcl_Obj *), "search tcl objv");
-	for (int i = 0; i < argc; i++) {
-	    objv[i] = Tcl_NewStringObj(argv[i], -1);
-	    Tcl_IncrRefCount(objv[i]);
-	}
-	int tcl_ret = Tcl_EvalObjv(search_interp, argc, objv, 0);
-	for (int i = 0; i < argc; i++)
-	    Tcl_DecrRefCount(objv[i]);
-	bu_free(objv, "search tcl objv");
+    // Fallback path: no lifecycle-scoped interp available (either tclcad_init
+    // failed in mged_search_pre_clbk, or the PRE callback was not registered).
+    // Create a temporary interpreter for this call only, then destroy it.
+    Tcl_Interp *tmp_interp = _create_search_interp(s);
 
-	const char *tcl_result = Tcl_GetStringResult(search_interp);
-	if (tcl_result && *tcl_result) {
-	    size_t rlen = strlen(tcl_result);
-	    bu_log("%s%s", tcl_result, tcl_result[rlen-1] == '\n' ? "" : "\n");
-	}
-	Tcl_ResetResult(search_interp);
-
-	/* Interp is temporary, since the user may change the parent environment
-	 * between one search -exec and the next. */
-	Tcl_DeleteInterp(search_interp);
-
-	return tcl_ret == TCL_OK;
+    if (tmp_interp) {
+	int ret = _exec_in_search_interp(tmp_interp, argc, argv);
+	Tcl_DeleteInterp(tmp_interp);
+	return ret;
     }
 
-    // Fallback: search_interp not available (tclcad_init failed at startup).
-    // Execute directly as a GED command.  Suppress PRE/POST callbacks for the
-    // same reasons as above.
+    // Last-resort fallback: execute directly as a GED command without Tcl.
     s->gedp->ged_skip_clbks++;
     int ret = ged_exec(s->gedp, argc, argv);
     s->gedp->ged_skip_clbks--;
