@@ -38,6 +38,10 @@
 
 #include "common.h"
 
+#include <sstream>
+#include <string>
+#include <vector>
+
 #include <QApplication>
 #include <QPixmap>
 #include <QImage>
@@ -116,19 +120,46 @@ return;
     QDir().mkpath(m_outdir);
     before.save(m_outdir + "/qged_test_before.png", "PNG");
 
-    /* Step 3: draw and autoview */
+    /* Step 3: draw all top-level objects (discovered via "tops -n") and autoview */
     struct bu_vls msg = BU_VLS_INIT_ZERO;
     {
-const char *av[3] = {"draw", "all.g", nullptr};
-int r = m_app->run_cmd(&msg, 2, av);
-bu_log("  draw all.g → ret=%d msg='%s'\n", r, bu_vls_cstr(&msg));
-bu_vls_trunc(&msg, 0);
+	/* Use "tops -n" to discover the un-referenced (top-level) objects so
+	 * the draw command works on any .g file regardless of what names it
+	 * contains (avoids "Invalid path element: all.g" for fg4-converted
+	 * files). */
+	struct bu_vls tops_msg = BU_VLS_INIT_ZERO;
+	const char *tops_av[3] = {"tops", "-n", nullptr};
+	(void)m_app->run_cmd(&tops_msg, 2, tops_av);
+	std::string tops_str(bu_vls_cstr(&tops_msg));
+	bu_vls_free(&tops_msg);
+
+	std::vector<std::string> top_names;
+	std::istringstream iss(tops_str);
+	std::string tok;
+	while (iss >> tok)
+	    if (!tok.empty())
+		top_names.push_back(tok);
+
+	bu_log("  tops: %zu top-level objects\n", top_names.size());
+
+	if (!top_names.empty()) {
+	    std::vector<const char *> draw_av;
+	    draw_av.push_back("draw");
+	    for (const auto &n : top_names)
+		draw_av.push_back(n.c_str());
+	    draw_av.push_back(nullptr);
+	    int r = m_app->run_cmd(&msg, (int)draw_av.size() - 1, draw_av.data());
+	    bu_log("  draw -> ret=%d msg='%s'\n", r, bu_vls_cstr(&msg));
+	} else {
+	    bu_log("  tops returned nothing; skipping draw\n");
+	}
+	bu_vls_trunc(&msg, 0);
     }
     {
-const char *av[2] = {"autoview", nullptr};
-int r = m_app->run_cmd(&msg, 1, av);
-bu_log("  autoview → ret=%d msg='%s'\n", r, bu_vls_cstr(&msg));
-bu_vls_trunc(&msg, 0);
+	const char *av[2] = {"autoview", nullptr};
+	int r = m_app->run_cmd(&msg, 1, av);
+	bu_log("  autoview → ret=%d msg='%s'\n", r, bu_vls_cstr(&msg));
+	bu_vls_trunc(&msg, 0);
     }
     bu_vls_free(&msg);
 

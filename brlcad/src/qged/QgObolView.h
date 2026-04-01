@@ -412,6 +412,7 @@ public:
 	: QOpenGLWidget(parent)
 	, bsg_v_(nullptr)
 	, obol_root_(nullptr)
+	, cad_asm_(nullptr)
 	, quad_mode_(quad_view)
 	, selectedShape_(nullptr)
     {
@@ -436,6 +437,10 @@ public:
 	SoDB::getSensorManager()->setChangedCallback(nullptr, nullptr);
 	if (obol_root_)
 	    obol_root_->unref();
+	if (cad_asm_) {
+	    obol_cad_assembly_clear(cad_asm_);
+	    cad_asm_->unref();
+	}
     }
 
     // ── BRL-CAD integration ──────────────────────────────────────────────
@@ -451,6 +456,8 @@ public:
 	    else
 		setObolSceneGraph(obol_root_);
 	}
+	if (!cad_asm_)
+	    cad_asm_ = obol_cad_assembly_create();
     }
 
     bsg_view *getBsgView() const { return bsg_v_; }
@@ -467,7 +474,7 @@ public:
      */
     void redraw() {
 	if (obol_root_ && bsg_v_) {
-	    obol_scene_assemble(obol_root_, bsg_v_);
+	    obol_scene_assemble_cad(obol_root_, cad_asm_, bsg_v_);
 	    syncCameraFromBsgView();
 	}
 	update();
@@ -679,7 +686,7 @@ public slots:
      */
     void need_update(unsigned long long flags) {
 	if ((flags & QG_VIEW_DRAWN) && obol_root_ && bsg_v_)
-	    obol_scene_assemble(obol_root_, bsg_v_);
+	    obol_scene_assemble_cad(obol_root_, cad_asm_, bsg_v_);
 	syncCameraFromBsgView();
 	update();
     }
@@ -1093,7 +1100,7 @@ private:
 
 	/* Rebuild affected shapes and repaint. */
 	if (obol_root_ && bsg_v_)
-	    obol_scene_assemble(obol_root_, bsg_v_);
+	    obol_scene_assemble_cad(obol_root_, cad_asm_, bsg_v_);
 
 	emit picked(hit);
 	update();
@@ -1103,6 +1110,7 @@ private:
 
     bsg_view        *bsg_v_;       /* BRL-CAD view (not owned) */
     SoSeparator     *obol_root_;   /* Obol scene root (owned, ref counted) */
+    SoCADAssembly   *cad_asm_;     /* CAD assembly node (owned, ref counted) */
     bool             quad_mode_;   /* true → use SoQuadViewport */
     SoViewport       viewport_;
     SoQuadViewport   quad_viewport_;   /* four-quadrant viewport (quad_mode_ only) */
@@ -1148,6 +1156,7 @@ public:
 	: QWidget(parent)
 	, bsg_v_(nullptr)
 	, obol_root_(nullptr)
+	, cad_asm_(nullptr)
 	, selectedShape_(nullptr)
 	, quad_mode_(quad_view)
 	, offscreen_(nullptr)
@@ -1170,6 +1179,10 @@ public:
 	SoDB::getSensorManager()->setChangedCallback(nullptr, nullptr);
 	if (obol_root_)
 	    obol_root_->unref();
+	if (cad_asm_) {
+	    obol_cad_assembly_clear(cad_asm_);
+	    cad_asm_->unref();
+	}
 	delete offscreen_;
     }
 
@@ -1188,6 +1201,8 @@ public:
 	    else
 		setObolSceneGraph(obol_root_);
 	}
+	if (!cad_asm_)
+	    cad_asm_ = obol_cad_assembly_create();
     }
 
     bsg_view *getBsgView() const { return bsg_v_; }
@@ -1198,7 +1213,7 @@ public:
 
     void redraw() {
 	if (obol_root_ && bsg_v_) {
-	    obol_scene_assemble(obol_root_, bsg_v_);
+	    obol_scene_assemble_cad(obol_root_, cad_asm_, bsg_v_);
 	    syncCameraFromBsgView();
 	}
 	update();
@@ -1274,7 +1289,7 @@ public:
 public slots:
     void need_update(unsigned long long flags) {
 	if ((flags & QG_VIEW_DRAWN) && obol_root_ && bsg_v_)
-	    obol_scene_assemble(obol_root_, bsg_v_);
+	    obol_scene_assemble_cad(obol_root_, cad_asm_, bsg_v_);
 	syncCameraFromBsgView();
 	update();
     }
@@ -1523,7 +1538,7 @@ private:
 	if (selectedShape_) { obol_shape_set_selected(selectedShape_, false); selectedShape_=nullptr; }
 	if (hit && hit != prev) { obol_shape_set_selected(hit, true); selectedShape_=hit; }
 	else hit = nullptr;
-	if (obol_root_ && bsg_v_) obol_scene_assemble(obol_root_, bsg_v_);
+	if (obol_root_ && bsg_v_) obol_scene_assemble_cad(obol_root_, cad_asm_, bsg_v_);
 	emit picked(hit);
 	update();
     }
@@ -1569,6 +1584,7 @@ private:
 
     bsg_view            *bsg_v_;
     SoSeparator         *obol_root_;
+    SoCADAssembly       *cad_asm_;     /* CAD assembly node (owned, ref counted) */
     bool                 quad_mode_;
     SoViewport           viewport_;
     SoQuadViewport       quad_viewport_;

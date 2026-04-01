@@ -113,7 +113,13 @@ QgEdMainWindow::CreateWidgets(int canvas_type, int quad_view)
     // The swrast decision is made here; higher-level code does not need to
     // know which widget type is in use.
 #ifdef BRLCAD_ENABLE_OBOL
-    if (canvas_type != QgView_SW) {
+    /* When OBOL_BUILD_DUAL_GL is not available, swrast requests fall back
+     * to QgObolView with Mesa software rendering (LIBGL_ALWAYS_SOFTWARE). */
+    if (canvas_type != QgView_SW
+#  ifndef OBOL_BUILD_DUAL_GL
+        || true  /* fallback: always use QgObolView when no dual-GL swrast */
+#  endif
+        ) {
 	obol_view_ = new QgObolView(cw, quad_view != 0);
 	if (!obol_view_) {
 	    QMessageBox::critical(nullptr, "Fatal Error",
