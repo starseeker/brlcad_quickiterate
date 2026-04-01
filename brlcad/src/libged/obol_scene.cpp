@@ -581,6 +581,8 @@ obol_scene_assemble_cad(SoSeparator *scene_root, SoCADAssembly *cad_asm, bsg_vie
 
     cad_asm->beginUpdate();
 
+    size_t n_asm = 0, n_fallback = 0;
+
     for (size_t i = 0; i < BU_PTBL_LEN(&view_root->children); i++) {
 	bsg_shape *s = (bsg_shape *)BU_PTBL_GET(&view_root->children, i);
 	if (!s)
@@ -597,8 +599,11 @@ obol_scene_assemble_cad(SoSeparator *scene_root, SoCADAssembly *cad_asm, bsg_vie
 		    continue;
 
 		bool in_asm = obol_cad_assembly_upsert_shape(cad_asm, child);
-		if (!in_asm) {
+		if (in_asm) {
+		    n_asm++;
+		} else {
 		    /* Fallback: traditional per-shape SoSeparator */
+		    n_fallback++;
 		    if (!fallback_group)
 			fallback_group = obol_scene_update_group(scene_root, s);
 		    obol_scene_update_shape(fallback_group, child);
@@ -607,10 +612,17 @@ obol_scene_assemble_cad(SoSeparator *scene_root, SoCADAssembly *cad_asm, bsg_vie
 	} else {
 	    /* Standalone leaf */
 	    bool in_asm = obol_cad_assembly_upsert_shape(cad_asm, s);
-	    if (!in_asm)
+	    if (in_asm)
+		n_asm++;
+	    else {
+		n_fallback++;
 		obol_scene_update_shape(scene_root, s);
+	    }
 	}
     }
+
+    bu_log("obol_scene_assemble_cad: %zu assembly instances, %zu fallback shapes\n",
+	   n_asm, n_fallback);
 
     cad_asm->endUpdate();
 }
