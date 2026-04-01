@@ -36,13 +36,13 @@
 
 #include "vmath.h"
 #include "raytrace.h"
+#include "./librt_private.h"
 
 /*
  * It is expected that entries on this mater list will be sorted in
  * strictly ascending order, with no overlaps (i.e., monotonically
  * increasing).
  */
-static struct mater *material_head = MATER_NULL;
 
 
 void
@@ -90,25 +90,29 @@ _rt_check_overlap(struct mater *newp)
  * needed.
  */
 void
-rt_insert_color(struct mater *newp)
+rt_insert_color(struct db_i *dbip, struct mater *newp)
 {
     struct mater *mp;
     struct mater *zot;
+    struct mater **material_headp;
 
-    if (material_head == MATER_NULL || newp->mt_high < material_head->mt_low) {
+    RT_CK_DBI(dbip);
+    material_headp = &dbip->i->material_head;
+
+    if (*material_headp == MATER_NULL || newp->mt_high < (*material_headp)->mt_low) {
 	/* Insert at head of list */
-	newp->mt_forw = material_head;
-	material_head = newp;
+	newp->mt_forw = *material_headp;
+	*material_headp = newp;
 	return;
     }
-    if (newp->mt_low < material_head->mt_low) {
+    if (newp->mt_low < (*material_headp)->mt_low) {
 	/* Insert at head of list, check for redefinition */
-	newp->mt_forw = material_head;
-	material_head = newp;
+	newp->mt_forw = *material_headp;
+	*material_headp = newp;
 	_rt_check_overlap(newp);
 	return;
     }
-    for (mp = material_head; mp != MATER_NULL; mp = mp->mt_forw) {
+    for (mp = *material_headp; mp != MATER_NULL; mp = mp->mt_forw) {
 	if (mp->mt_low == newp->mt_low && mp->mt_high <= newp->mt_high) {
 	    bu_log("dropping overwritten region-id based material property entry:\n");
 	    newp->mt_forw = mp->mt_forw;
@@ -171,7 +175,7 @@ rt_insert_color(struct mater *newp)
  * Called from db_scan() when initially scanning database.
  */
 void
-rt_color_addrec(int low, int hi, int r, int g, int b, b_off_t addr)
+rt_color_addrec(struct db_i *dbip, int low, int hi, int r, int g, int b, b_off_t addr)
 {
     register struct mater *mp;
 
@@ -182,7 +186,7 @@ rt_color_addrec(int low, int hi, int r, int g, int b, b_off_t addr)
     mp->mt_g = g;
     mp->mt_b = b;
     mp->mt_daddr = addr;
-    rt_insert_color(mp);
+    rt_insert_color(dbip, mp);
 }
 
 
@@ -191,7 +195,7 @@ rt_color_addrec(int low, int hi, int r, int g, int b, b_off_t addr)
  * regionid-driven color override.
  */
 void
-rt_region_color_map(register struct region *regp)
+rt_region_color_map(struct db_i *dbip, register struct region *regp)
 {
     register struct mater *mp;
 
@@ -199,7 +203,10 @@ rt_region_color_map(register struct region *regp)
 	bu_log("color_map(NULL)\n");
 	return;
     }
-    for (mp = material_head; mp != MATER_NULL; mp = mp->mt_forw) {
+    if (!dbip)
+	return;
+    RT_CK_DBI(dbip);
+    for (mp = dbip->i->material_head; mp != MATER_NULL; mp = mp->mt_forw) {
 	if (regp->reg_regionid <= mp->mt_high &&
 	    regp->reg_regionid >= mp->mt_low) {
 	    regp->reg_mater.ma_color_valid = 1;
@@ -216,13 +223,14 @@ rt_region_color_map(register struct region *regp)
 
 
 void
-rt_vls_color_map(struct bu_vls *str)
+rt_vls_color_map(struct bu_vls *str, struct db_i *dbip)
 {
     struct mater *mp;
 
     BU_CK_VLS(str);
+    RT_CK_DBI(dbip);
 
-    for (mp = material_head; mp != MATER_NULL; mp = mp->mt_forw) {
+    for (mp = dbip->i->material_head; mp != MATER_NULL; mp = mp->mt_forw) {
 	bu_vls_printf(str,
 		      "{%ld %ld %d %d %d} ",
 		      mp->mt_low,
@@ -235,37 +243,41 @@ rt_vls_color_map(struct bu_vls *str)
 
 
 /**
- * returns the material linked list head node
+ * returns the material linked list head node for the given database
  */
 struct mater *
-rt_material_head(void)
+rt_material_head(struct db_i *dbip)
 {
-    return material_head;
+    RT_CK_DBI(dbip);
+    return dbip->i->material_head;
 }
 
 
 /**
- * set the material linked list head node
+ * set the material linked list head node for the given database
  */
 void
-rt_new_material_head(struct mater *newmat)
+rt_new_material_head(struct db_i *dbip, struct mater *newmat)
 {
-    material_head = newmat;
+    RT_CK_DBI(dbip);
+    dbip->i->material_head = newmat;
 }
 
 
 /**
- * returns a copy of the material linked list head node
+ * returns a copy of the material linked list for the given database
  */
 struct mater *
-rt_dup_material_head(void)
+rt_dup_material_head(struct db_i *dbip)
 {
     register struct mater *mp = NULL;
     register struct mater *newmp = NULL;
     struct mater *newmater = NULL;
     struct mater *dupmater = NULL;
 
-    mp = material_head;
+    RT_CK_DBI(dbip);
+
+    mp = dbip->i->material_head;
     while (mp != MATER_NULL) {
 	BU_ALLOC(newmater, struct mater);
 	*newmater = *mp; /* struct copy */
@@ -289,12 +301,14 @@ rt_dup_material_head(void)
  * Really should be db_color_free().  Called from db_close().
  */
 void
-rt_color_free(void)
+rt_color_free(struct db_i *dbip)
 {
     register struct mater *mp;
 
-    while ((mp = material_head) != MATER_NULL) {
-	material_head = mp->mt_forw;	/* Dequeue 'mp' */
+    RT_CK_DBI(dbip);
+
+    while ((mp = dbip->i->material_head) != MATER_NULL) {
+	dbip->i->material_head = mp->mt_forw;	/* Dequeue 'mp' */
 	/* mt_handle? */
 	bu_free((char *)mp, "getstruct mater");
 	mp = MATER_NULL;

@@ -977,7 +977,7 @@ db_full_path_color(
 	// Inherit flag tells us whether this dp overrides its children
 	int inherit = (BU_STR_EQUAL(bu_avs_get(&c_avs, "inherit"), "1")) ? 1 : 0;
 
-	if (rt_material_head()) {
+	if (rt_material_head(dbip)) {
 	    // TODO - if region_id is set but region flag isn't, do we still
 	    // use rt_material_head to color?
 	    int region_id = -1;
@@ -993,7 +993,7 @@ db_full_path_color(
 		// If we have both a region_id and an rt_material_head table, that is (?) highest precedence
 		// for color?
 		const struct mater *mp;
-		for (mp = rt_material_head(); mp != MATER_NULL; mp = mp->mt_forw) {
+		for (mp = rt_material_head(dbip); mp != MATER_NULL; mp = mp->mt_forw) {
 		    if (region_id > mp->mt_high || region_id < mp->mt_low) {
 			continue;
 		    }
