@@ -33,6 +33,7 @@
 #include <QDockWidget>
 #include <QFileDialog>
 #include <QHeaderView>
+#include <QImage>
 #include <QMainWindow>
 #include <QMenu>
 #include <QMenuBar>
@@ -82,6 +83,12 @@ class QgEdMainWindow : public QMainWindow
 
 	// Returns true when an Obol-based GL view is in use (no libdm hash tracking)
 	bool isObolActive() const;
+
+	// Grab the 3D GL framebuffer as a QImage.  For Obol builds this uses
+	// QOpenGLWidget::grabFramebuffer() which reliably captures GL content in
+	// headless / Xvfb environments where QWidget::grab() misses it.
+	// Returns a null QImage when no Obol view is active.
+	QImage grabObolView();
 
 	// Get the currently active view of the quad/central display widget
 	QgView * CurrentDisplay();
