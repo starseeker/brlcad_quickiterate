@@ -46,8 +46,10 @@
 
 #include <vector>
 #include <cstdint>
+#include <algorithm>
 
 #include "bsg/defines.h"
+#include "bsg/vlist.h"
 /* Suppress -Wfloat-equal from third-party Obol (Open Inventor) headers */
 #if defined(__GNUC__) || defined(__clang__)
 #  pragma GCC diagnostic push
@@ -71,7 +73,6 @@
 #ifndef BSG_VLIST_LINE_MOVE
 #  include "bsg/defines.h"
 #endif
-
 
 /**
  * Convert a bsg_shape's vlist to an Obol SoNode subtree.
@@ -326,6 +327,140 @@ rt_generic_vlist_to_obol(bsg_shape *s)
 	bsg_shape_set_obol_node(s, root);
 
     root->unref();  /* bsg_shape_set_obol_node added its own ref() */
+}
+
+
+/* ------------------------------------------------------------------ */
+/* rt_generic_scene_obj_part                                           */
+/*                                                                     */
+/* Fills an obol::PartGeometry (passed as void*) with a WireRep built */
+/* from the primitive's ft_plot vlist output.  This is the fallback   */
+/* implementation for all primitive types that don't have a native    */
+/* ft_scene_obj_part specialisation.                                   */
+/* ------------------------------------------------------------------ */
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
+#include <obol/cad/SoCADAssembly.h>
+#pragma GCC diagnostic pop
+
+extern "C" {
+#  include "raytrace.h"
+}
+
+extern "C" int
+rt_generic_scene_obj_part(void *geom_out,
+			  struct directory *dp,
+			  struct db_i *dbip,
+			  const struct bg_tess_tol *ttol,
+			  const struct bn_tol *tol,
+			  int /*dmode*/)
+{
+    if (!geom_out || !dp || !dbip)
+	return BRLCAD_ERROR;
+
+    obol::PartGeometry &geom = *static_cast<obol::PartGeometry *>(geom_out);
+
+    /* Load the internal representation */
+    struct resource *res = &rt_uniresource;
+    struct rt_db_internal intern;
+    if (rt_db_get_internal(&intern, dp, dbip, NULL, res) < 0)
+	return BRLCAD_ERROR;
+    RT_CK_DB_INTERNAL(&intern);
+
+    if (!intern.idb_meth || !intern.idb_meth->ft_plot) {
+	rt_db_free_internal(&intern);
+	return BRLCAD_OK;   /* no plot method — leave geom empty */
+    }
+
+    /* Generate a vlist using ft_plot */
+    struct bu_list vhead;
+    BU_LIST_INIT(&vhead);
+    intern.idb_meth->ft_plot(&vhead, &intern, ttol, tol, NULL);
+    rt_db_free_internal(&intern);
+
+    if (BU_LIST_IS_EMPTY(&vhead))
+	return BRLCAD_OK;
+
+    /* Convert vlist to obol::WireRep:
+     * BSG_VLIST_LINE_MOVE starts a new polyline;
+     * BSG_VLIST_LINE_DRAW extends the current polyline. */
+    obol::WireRep wr;
+    float bmin[3] = { 1e30f,  1e30f,  1e30f};
+    float bmax[3] = {-1e30f, -1e30f, -1e30f};
+
+    obol::WirePolyline current_pl;
+    bool in_polyline = false;
+
+    struct bsg_vlist *tvp;
+    for (BU_LIST_FOR(tvp, bsg_vlist, &vhead)) {
+	int nused = tvp->nused;
+	int *cmd = tvp->cmd;
+	point_t *pt = tvp->pt;
+	for (int i = 0; i < nused; i++, cmd++, pt++) {
+	    float x = (float)(*pt)[0];
+	    float y = (float)(*pt)[1];
+	    float z = (float)(*pt)[2];
+
+	    switch (*cmd) {
+		case BSG_VLIST_LINE_MOVE:
+		    /* Flush current polyline before starting a new one */
+		    if (in_polyline && current_pl.points.size() >= 2)
+			wr.polylines.push_back(current_pl);
+		    current_pl = obol::WirePolyline{};
+		    current_pl.points.push_back(SbVec3f(x, y, z));
+		    in_polyline = true;
+		    break;
+
+		case BSG_VLIST_LINE_DRAW:
+		    if (in_polyline) {
+			current_pl.points.push_back(SbVec3f(x, y, z));
+		    } else {
+			/* Orphan draw — treat as a new 2-point polyline start */
+			current_pl = obol::WirePolyline{};
+			current_pl.points.push_back(SbVec3f(x, y, z));
+			in_polyline = true;
+		    }
+		    break;
+
+		default:
+		    break;
+	    }
+
+	    /* Accumulate bounds for all visited points */
+	    bmin[0] = std::min(bmin[0], x); bmin[1] = std::min(bmin[1], y); bmin[2] = std::min(bmin[2], z);
+	    bmax[0] = std::max(bmax[0], x); bmax[1] = std::max(bmax[1], y); bmax[2] = std::max(bmax[2], z);
+	}
+    }
+    /* Flush the last polyline */
+    if (in_polyline && current_pl.points.size() >= 2)
+	wr.polylines.push_back(current_pl);
+
+    /* Free the generated vlist */
+    bsg_vlist_cleanup(&vhead);
+
+    if (!wr.polylines.empty()) {
+	wr.bounds.setBounds(SbVec3f(bmin[0], bmin[1], bmin[2]),
+			    SbVec3f(bmax[0], bmax[1], bmax[2]));
+	geom.wire = std::move(wr);
+    }
+
+    return BRLCAD_OK;
+}
+
+#else /* !BRLCAD_ENABLE_OBOL */
+
+/* Non-Obol stubs: ft_scene_obj_part requires Obol.  These symbols must exist
+ * so that table.cpp can reference them unconditionally. */
+extern "C" int
+rt_generic_scene_obj_part(void *geom_out, struct directory *dp,
+			   struct db_i *dbip,
+			   const struct bg_tess_tol *ttol,
+			   const struct bn_tol *tol,
+			   int dmode)
+{
+    (void)geom_out; (void)dp; (void)dbip; (void)ttol; (void)tol; (void)dmode;
+    return BRLCAD_ERROR;
 }
 
 #endif /* BRLCAD_ENABLE_OBOL */

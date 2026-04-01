@@ -50,6 +50,7 @@
 #  include <Inventor/SoInteraction.h>
 #  include <Inventor/nodes/SoNode.h>
 #  include "QgObolView.h"
+#  include "../libged/obol_cad_assembly.h"
 /* Application-wide context managers (created before any GL widget). */
 static QgObolContextManager *s_obol_ctx_mgr = nullptr;
 #  ifdef OBOL_BUILD_DUAL_GL
@@ -256,6 +257,8 @@ QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode) :QAppl
 #  endif
     SoNodeKit::init();
     SoInteraction::init();
+    /* Register SoCADAssembly and SoCADDetail node types. */
+    obol_cad_assembly_init_classes();
     /* Disable Obol's own auto-redraw loop — Qt's event loop drives repaints. */
     SoRenderManager::enableRealTimeUpdate(FALSE);
     /* Register unref hook so libbsg can release Obol nodes on shape free. */

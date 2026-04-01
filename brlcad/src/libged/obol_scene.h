@@ -83,6 +83,46 @@ GED_EXPORT bsg_shape *obol_find_shape_for_path(const SoPath *pick_path);
 GED_EXPORT void obol_shape_set_selected(bsg_shape *s, bool selected);
 GED_EXPORT bool obol_shape_is_selected(bsg_shape *s);
 
+/* Suppress -Wfloat-equal from obol/cad headers for the forward-included types */
+#if defined(__GNUC__) || defined(__clang__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wfloat-equal"
+#endif
+#include <obol/cad/SoCADAssembly.h>
+#include <obol/cad/SoCADDetail.h>
+#if defined(__GNUC__) || defined(__clang__)
+#  pragma GCC diagnostic pop
+#endif
+
+/**
+ * Assemble a scene using a SoCADAssembly node for leaf solids.
+ *
+ * For each leaf bsg_shape under @p v:
+ *  - If the primitive has ft_scene_obj_part, it is registered in @p cad_asm
+ *    (obol_cad_assembly_upsert_shape).
+ *  - Otherwise it falls back to obol_scene_update_shape() into @p scene_root.
+ *
+ * The SoCADAssembly node is added as a direct child of @p scene_root on the
+ * first call; subsequent calls update parts/instances incrementally.
+ *
+ * @param scene_root  Scene root SoSeparator created by obol_scene_create().
+ * @param cad_asm     SoCADAssembly node (created by obol_cad_assembly_create()).
+ * @param v           BRL-CAD view whose bsg_shape tree is walked.
+ */
+GED_EXPORT void obol_scene_assemble_cad(SoSeparator   *scene_root,
+					SoCADAssembly *cad_asm,
+					bsg_view      *v);
+
+/**
+ * Look up the bsg_shape* for a pick result from an SoCADAssembly.
+ *
+ * @param iid  InstanceId from SoCADDetail::getInstanceId().
+ * @return     The originating bsg_shape*, or nullptr if not found.
+ *
+ * Delegates to obol_find_shape_for_instance_id() in obol_cad_assembly.cpp.
+ */
+GED_EXPORT bsg_shape *obol_find_shape_for_instance_id(obol::InstanceId iid);
+
 #endif /* BRLCAD_ENABLE_OBOL */
 
 /*

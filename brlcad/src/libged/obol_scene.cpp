@@ -33,6 +33,7 @@
 #ifdef BRLCAD_ENABLE_OBOL
 
 #include "obol_scene.h"
+#include "obol_cad_assembly.h"
 
 #include "bsg.h"
 #include "bu/ptbl.h"
@@ -533,6 +534,85 @@ obol_shape_is_selected(bsg_shape *s)
     if (!s)
 	return false;
     return selected_shapes().count(s) > 0;
+}
+
+
+/* --------------------------------------------------------------------------
+ * obol_scene_assemble_cad
+ *
+ * Stage 3: assemble the scene using a SoCADAssembly node for all leaf solids
+ * whose primitive type provides ft_scene_obj_part.  Remaining shapes (combs,
+ * BREPs, annotations, etc.) fall back to the per-shape SoSeparator path used
+ * by the existing obol_scene_assemble() / obol_scene_update_shape().
+ *
+ * The SoCADAssembly node is ensured as a child of scene_root (inserted once,
+ * right after the directional light so that it inherits no transform from the
+ * scene root's SoSeparator state).
+ * -------------------------------------------------------------------------- */
+
+void
+obol_scene_assemble_cad(SoSeparator *scene_root, SoCADAssembly *cad_asm, bsg_view *v)
+{
+    if (!scene_root || !cad_asm || !v)
+	return;
+
+    /* Ensure the assembly node is a child of scene_root.
+     * Insert after the directional light (index 1) if not already present. */
+    bool asm_in_root = false;
+    for (int ci = 0; ci < scene_root->getNumChildren(); ci++) {
+	if (scene_root->getChild(ci) == cad_asm) {
+	    asm_in_root = true;
+	    break;
+	}
+    }
+    if (!asm_in_root) {
+	/* Insert at index 1 (after the light) if there is at least one child,
+	 * otherwise just append. */
+	if (scene_root->getNumChildren() >= 1)
+	    scene_root->insertChild(cad_asm, 1);
+	else
+	    scene_root->addChild(cad_asm);
+    }
+
+    /* Walk the bsg_shape tree */
+    bsg_shape *view_root = bsg_scene_root_get(v);
+    if (!view_root)
+	return;
+
+    cad_asm->beginUpdate();
+
+    for (size_t i = 0; i < BU_PTBL_LEN(&view_root->children); i++) {
+	bsg_shape *s = (bsg_shape *)BU_PTBL_GET(&view_root->children, i);
+	if (!s)
+	    continue;
+
+	if (BU_PTBL_LEN(&s->children) > 0) {
+	    /* Group node: try to route each child to the assembly; fall back
+	     * to the per-shape SoSeparator path for children that can't use it. */
+	    SoSeparator *fallback_group = nullptr;
+
+	    for (size_t ci = 0; ci < BU_PTBL_LEN(&s->children); ci++) {
+		bsg_shape *child = (bsg_shape *)BU_PTBL_GET(&s->children, ci);
+		if (!child)
+		    continue;
+
+		bool in_asm = obol_cad_assembly_upsert_shape(cad_asm, child);
+		if (!in_asm) {
+		    /* Fallback: traditional per-shape SoSeparator */
+		    if (!fallback_group)
+			fallback_group = obol_scene_update_group(scene_root, s);
+		    obol_scene_update_shape(fallback_group, child);
+		}
+	    }
+	} else {
+	    /* Standalone leaf */
+	    bool in_asm = obol_cad_assembly_upsert_shape(cad_asm, s);
+	    if (!in_asm)
+		obol_scene_update_shape(scene_root, s);
+	}
+    }
+
+    cad_asm->endUpdate();
 }
 
 #endif /* BRLCAD_ENABLE_OBOL */

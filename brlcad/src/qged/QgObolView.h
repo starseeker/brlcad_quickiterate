@@ -139,6 +139,7 @@
 #include "bsg.h"
 #include "bsg/util.h"
 #include "obol_scene.h"
+#include "obol_cad_assembly.h"
 #include "vmath.h"
 #include "bn/mat.h"
 #include "qtcad/QgSignalFlags.h"
@@ -1059,7 +1060,19 @@ private:
 	rpa.apply(scene);
 
 	const SoPickedPoint *pp = rpa.getPickedPoint(0);
-	bsg_shape *hit = pp ? obol_find_shape_for_path(pp->getPath()) : nullptr;
+	bsg_shape *hit = nullptr;
+
+	if (pp) {
+	    /* Try SoCADDetail first (SoCADAssembly hit) */
+	    const SoDetail *detail = pp->getDetail();
+	    if (detail && detail->isOfType(SoCADDetail::getClassTypeId())) {
+		const SoCADDetail *cd = static_cast<const SoCADDetail *>(detail);
+		hit = obol_find_shape_for_instance_id(cd->getInstanceId());
+	    }
+	    /* Fall back to path-based lookup (per-shape SoSeparator hit) */
+	    if (!hit)
+		hit = obol_find_shape_for_path(pp->getPath());
+	}
 
 	/* Toggle selection: clicking the already-selected shape deselects it;
 	 * clicking a new shape first clears the previous selection. */
@@ -1497,7 +1510,15 @@ private:
 	rpa.setPickAll(false);
 	rpa.apply(scene);
 	const SoPickedPoint *pp = rpa.getPickedPoint(0);
-	bsg_shape *hit = pp ? obol_find_shape_for_path(pp->getPath()) : nullptr;
+	bsg_shape *hit = nullptr;
+	if (pp) {
+	    const SoDetail *detail = pp->getDetail();
+	    if (detail && detail->isOfType(SoCADDetail::getClassTypeId()))
+		hit = obol_find_shape_for_instance_id(
+		    static_cast<const SoCADDetail *>(detail)->getInstanceId());
+	    if (!hit)
+		hit = obol_find_shape_for_path(pp->getPath());
+	}
 	bsg_shape *prev = selectedShape_;
 	if (selectedShape_) { obol_shape_set_selected(selectedShape_, false); selectedShape_=nullptr; }
 	if (hit && hit != prev) { obol_shape_set_selected(hit, true); selectedShape_=hit; }

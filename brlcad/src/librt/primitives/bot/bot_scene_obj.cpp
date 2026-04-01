@@ -79,6 +79,8 @@ extern "C" {
 #include <Inventor/nodes/SoNormalBinding.h>
 #include <Inventor/SoDB.h>
 
+#include <obol/cad/SoCADAssembly.h>
+
 #if defined(__GNUC__) || defined(__clang__)
 #  pragma GCC diagnostic pop
 #endif
@@ -87,6 +89,7 @@ extern "C" {
 #include <utility>
 #include <map>
 #include <cmath>
+#include <algorithm>
 
 /* Minimum face normal vector length to accept normalization.
  * Faces with area so small that their cross-product magnitude falls below
@@ -376,6 +379,228 @@ rt_bot_scene_obj(bsg_shape *s,
     return BRLCAD_OK;
 }
 
+
+/* ------------------------------------------------------------------ */
+/* rt_bot_scene_obj_part                                               */
+/*                                                                     */
+/* Fills an obol::PartGeometry (passed as void*) with the wire and/or */
+/* shaded geometry channels for this BoT primitive.  Called by the    */
+/* SoCADAssembly path in obol_cad_assembly.cpp.                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Build an obol::WireRep from a BoT's unique edges.
+ *
+ * Each unique edge becomes a two-point polyline with edgeId set to the
+ * linear index of the lower-indexed endpoint pair.
+ */
+static obol::WireRep
+bot_to_wirerep(const struct rt_bot_internal *bot)
+{
+    obol::WireRep wr;
+
+    if (!bot || bot->num_faces == 0 || bot->num_vertices == 0)
+	return wr;
+
+    /* Deduplicate edges */
+    std::map<std::pair<int,int>, uint32_t> seen; /* edge key → edgeId */
+    uint32_t edge_id = 0;
+
+    float bmin[3] = { 1e30f,  1e30f,  1e30f};
+    float bmax[3] = {-1e30f, -1e30f, -1e30f};
+
+    for (size_t fi = 0; fi < bot->num_faces; fi++) {
+	int v[3];
+	v[0] = bot->faces[fi*3 + 0];
+	v[1] = bot->faces[fi*3 + 1];
+	v[2] = bot->faces[fi*3 + 2];
+
+	for (int ei = 0; ei < 3; ei++) {
+	    int a = v[ei];
+	    int b = v[(ei+1) % 3];
+	    if (a > b) { int tmp = a; a = b; b = tmp; }
+	    std::pair<int,int> key(a, b);
+	    if (!seen.count(key)) {
+		seen[key] = edge_id++;
+		obol::WirePolyline pl;
+		pl.edgeId = seen[key];
+		float xa = (float)bot->vertices[a*3+0];
+		float ya = (float)bot->vertices[a*3+1];
+		float za = (float)bot->vertices[a*3+2];
+		float xb = (float)bot->vertices[b*3+0];
+		float yb = (float)bot->vertices[b*3+1];
+		float zb = (float)bot->vertices[b*3+2];
+		pl.points.push_back(SbVec3f(xa, ya, za));
+		pl.points.push_back(SbVec3f(xb, yb, zb));
+		wr.polylines.push_back(std::move(pl));
+		/* Accumulate bounds */
+		bmin[0] = std::min(bmin[0], std::min(xa, xb));
+		bmin[1] = std::min(bmin[1], std::min(ya, yb));
+		bmin[2] = std::min(bmin[2], std::min(za, zb));
+		bmax[0] = std::max(bmax[0], std::max(xa, xb));
+		bmax[1] = std::max(bmax[1], std::max(ya, yb));
+		bmax[2] = std::max(bmax[2], std::max(za, zb));
+	    }
+	}
+    }
+
+    wr.bounds.setBounds(SbVec3f(bmin[0], bmin[1], bmin[2]),
+			SbVec3f(bmax[0], bmax[1], bmax[2]));
+    return wr;
+}
+
+/**
+ * Build an obol::TriMesh from a BoT's triangle faces.
+ *
+ * Normals are per-face: uses stored face normals when available, otherwise
+ * computes them from the cross product of each face's edges.
+ */
+static obol::TriMesh
+bot_to_trimesh(const struct rt_bot_internal *bot)
+{
+    obol::TriMesh tm;
+
+    if (!bot || bot->num_faces == 0 || bot->num_vertices == 0)
+	return tm;
+
+    int nv = (int)bot->num_vertices;
+    int nf = (int)bot->num_faces;
+
+    /* Copy vertex positions */
+    tm.positions.reserve((size_t)nv);
+    float bmin[3] = { 1e30f,  1e30f,  1e30f};
+    float bmax[3] = {-1e30f, -1e30f, -1e30f};
+    for (int vi = 0; vi < nv; vi++) {
+	float x = (float)bot->vertices[vi*3+0];
+	float y = (float)bot->vertices[vi*3+1];
+	float z = (float)bot->vertices[vi*3+2];
+	tm.positions.push_back(SbVec3f(x, y, z));
+	bmin[0] = std::min(bmin[0], x); bmin[1] = std::min(bmin[1], y); bmin[2] = std::min(bmin[2], z);
+	bmax[0] = std::max(bmax[0], x); bmax[1] = std::max(bmax[1], y); bmax[2] = std::max(bmax[2], z);
+    }
+    tm.bounds.setBounds(SbVec3f(bmin[0], bmin[1], bmin[2]),
+			SbVec3f(bmax[0], bmax[1], bmax[2]));
+
+    /* Build triangle index list */
+    tm.indices.reserve((size_t)(nf * 3));
+    for (int fi = 0; fi < nf; fi++) {
+	tm.indices.push_back((uint32_t)bot->faces[fi*3+0]);
+	tm.indices.push_back((uint32_t)bot->faces[fi*3+1]);
+	tm.indices.push_back((uint32_t)bot->faces[fi*3+2]);
+    }
+
+    /* Per-face normals */
+    bool have_normals = (bot->num_face_normals == (size_t)nf &&
+			 bot->face_normals != nullptr &&
+			 bot->normals != nullptr);
+    tm.normals.reserve((size_t)nv);
+
+    if (have_normals) {
+	/* One normal per face stored at the first-vertex position; pad the
+	 * rest with the same value so the per-vertex normal array has the
+	 * same size as positions (SoCADAssembly TriMesh). */
+	/* Build per-vertex normals: use the first face that references each
+	 * vertex as the "winning" normal. */
+	std::vector<SbVec3f> vnorm((size_t)nv, SbVec3f(0.0f, 0.0f, 1.0f));
+	std::vector<bool>    vnorm_set((size_t)nv, false);
+	for (int fi = 0; fi < nf; fi++) {
+	    int ni = bot->face_normals[fi*3+0];
+	    SbVec3f n(0.0f, 0.0f, 1.0f);
+	    if (ni >= 0 && (size_t)ni < bot->num_normals)
+		n = SbVec3f((float)bot->normals[ni*3+0],
+			    (float)bot->normals[ni*3+1],
+			    (float)bot->normals[ni*3+2]);
+	    for (int k = 0; k < 3; k++) {
+		int vi = bot->faces[fi*3+k];
+		if (!vnorm_set[(size_t)vi]) {
+		    vnorm[(size_t)vi] = n;
+		    vnorm_set[(size_t)vi] = true;
+		}
+	    }
+	}
+	tm.normals = std::move(vnorm);
+    } else {
+	/* Compute per-vertex normals by accumulating face normals */
+	std::vector<SbVec3f> vnorm((size_t)nv, SbVec3f(0.0f, 0.0f, 0.0f));
+	for (int fi = 0; fi < nf; fi++) {
+	    int v0 = bot->faces[fi*3+0];
+	    int v1 = bot->faces[fi*3+1];
+	    int v2 = bot->faces[fi*3+2];
+	    float ax = (float)(bot->vertices[v1*3+0] - bot->vertices[v0*3+0]);
+	    float ay = (float)(bot->vertices[v1*3+1] - bot->vertices[v0*3+1]);
+	    float az = (float)(bot->vertices[v1*3+2] - bot->vertices[v0*3+2]);
+	    float bx = (float)(bot->vertices[v2*3+0] - bot->vertices[v0*3+0]);
+	    float by = (float)(bot->vertices[v2*3+1] - bot->vertices[v0*3+1]);
+	    float bz = (float)(bot->vertices[v2*3+2] - bot->vertices[v0*3+2]);
+	    float nx = ay*bz - az*by;
+	    float ny = az*bx - ax*bz;
+	    float nz = ax*by - ay*bx;
+	    SbVec3f fn(nx, ny, nz);
+	    vnorm[(size_t)v0] += fn;
+	    vnorm[(size_t)v1] += fn;
+	    vnorm[(size_t)v2] += fn;
+	}
+	for (int vi = 0; vi < nv; vi++) {
+	    float len = vnorm[(size_t)vi].length();
+	    if (len > BOT_NORMAL_LENGTH_EPSILON)
+		vnorm[(size_t)vi].normalize();
+	    else
+		vnorm[(size_t)vi] = SbVec3f(0.0f, 0.0f, 1.0f);
+	}
+	tm.normals = std::move(vnorm);
+    }
+
+    return tm;
+}
+
+
+extern "C" int
+rt_bot_scene_obj_part(void *geom_out,
+		      struct directory *dp,
+		      struct db_i *dbip,
+		      const struct bg_tess_tol * /*ttol*/,
+		      const struct bn_tol * /*tol*/,
+		      int dmode)
+{
+    if (!geom_out || !dp || !dbip)
+	return BRLCAD_ERROR;
+
+    obol::PartGeometry &geom = *static_cast<obol::PartGeometry *>(geom_out);
+
+    struct resource *res = &rt_uniresource;
+    struct rt_db_internal intern;
+
+    if (rt_db_get_internal(&intern, dp, dbip, NULL, res) < 0)
+	return BRLCAD_ERROR;
+    RT_CK_DB_INTERNAL(&intern);
+
+    if (intern.idb_minor_type != DB5_MINORTYPE_BRLCAD_BOT) {
+	rt_db_free_internal(&intern);
+	return BRLCAD_ERROR;
+    }
+
+    struct rt_bot_internal *bot = (struct rt_bot_internal *)intern.idb_ptr;
+    RT_BOT_CK_MAGIC(bot);
+
+    switch (dmode) {
+	case 2:
+	case 4:
+	    /* Shaded: build TriMesh; also build WireRep for edge highlighting */
+	    geom.shaded = bot_to_trimesh(bot);
+	    geom.wire   = bot_to_wirerep(bot);
+	    break;
+
+	case 0:
+	default:
+	    /* Wireframe: build WireRep only */
+	    geom.wire = bot_to_wirerep(bot);
+	    break;
+    }
+
+    rt_db_free_internal(&intern);
+    return BRLCAD_OK;
+}
+
 #else /* !BRLCAD_ENABLE_OBOL */
 
 /* ================================================================== */
@@ -640,6 +865,19 @@ rt_bot_scene_obj(bsg_shape *s,
     bsg_shape_stale(vo);
 
     return BRLCAD_OK;
+}
+
+/* Non-Obol stub: ft_scene_obj_part requires Obol.  This symbol must exist
+ * so that table.cpp can reference it unconditionally. */
+extern "C" int
+rt_bot_scene_obj_part(void *geom_out, struct directory *dp,
+		      struct db_i *dbip,
+		      const struct bg_tess_tol *ttol,
+		      const struct bn_tol *tol,
+		      int dmode)
+{
+    (void)geom_out; (void)dp; (void)dbip; (void)ttol; (void)tol; (void)dmode;
+    return BRLCAD_ERROR;
 }
 
 #endif /* BRLCAD_ENABLE_OBOL */
