@@ -270,6 +270,11 @@ obol_cad_assembly_upsert_shape(SoCADAssembly *cad_asm, bsg_shape *s)
     if (!cad_asm || !s)
 	return false;
 
+    /* Debugging escape hatch: BRLCAD_NO_CAD_ASM=1 forces all shapes to the
+     * traditional Obol per-shape path so the CAD assembly can be bypassed. */
+    if (getenv("BRLCAD_NO_CAD_ASM"))
+	return false;
+
     /* Get the leaf directory pointer.
      *
      * Two code paths create bsg_shape leaf objects:
@@ -315,6 +320,14 @@ obol_cad_assembly_upsert_shape(SoCADAssembly *cad_asm, bsg_shape *s)
 	    &geom, dp, d->dbip, ttol, tol, dmode);
 
 	if (ret != BRLCAD_OK)
+	    return false;
+
+	/* If the geometry plugin produced nothing (empty WireRep and no shaded
+	 * mesh), fall back to the traditional per-shape Obol path which can
+	 * render the shape via ft_scene_obj / s_obol_node. */
+	bool has_geom = (geom.wire.has_value() && !geom.wire->polylines.empty())
+		     || (geom.shaded.has_value() && !geom.shaded->positions.empty());
+	if (!has_geom)
 	    return false;
 
 	/* Propagate the drawing mode to the assembly node */
@@ -364,10 +377,15 @@ obol_cad_assembly_upsert_shape(SoCADAssembly *cad_asm, bsg_shape *s)
 	rec.boolOp      = 0;
     }
 
-    /* Per-instance colour from s_os */
-    if (s->s_os) {
+    /* Per-instance colour: prefer the database-derived s_color (always set),
+     * but override with s_os->color when an explicit color override is active. */
+    if (s->s_os && s->s_os->color_override) {
 	rec.style.hasColorOverride = true;
 	rec.style.color = rgb_to_sbcolor4f(s->s_os->color);
+    } else {
+	/* Use the database path colour stored in s_color */
+	rec.style.hasColorOverride = true;
+	rec.style.color = rgb_to_sbcolor4f(s->s_color);
     }
 
     cad_asm->upsertInstance(iid, rec);

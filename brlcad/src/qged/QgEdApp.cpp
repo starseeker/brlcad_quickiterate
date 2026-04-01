@@ -847,6 +847,14 @@ QgEdApp::run_cmd(struct bu_vls *msg, int argc, const char **argv)
     // are well behaved, they'll just ignore a zero flags value...
     if (view_flags)
 	emit view_update(view_flags);
+#ifdef BRLCAD_ENABLE_OBOL
+    /* For Obol builds there is no libdm hash tracking (DisplayDiff always
+     * returns false).  Always emit QG_VIEW_REFRESH so that camera-only
+     * commands (autoview, ae, center, zoom, …) cause the Obol camera to be
+     * re-synced from bsg_view even when no geometry changed. */
+    else if (w->isObolActive())
+	emit view_update(QG_VIEW_REFRESH);
+#endif
 
     return ret;
 }

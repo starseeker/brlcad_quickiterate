@@ -80,6 +80,9 @@ class QgEdMainWindow : public QMainWindow
 	// Report if the quad/central widget is active
 	bool isDisplayActive();
 
+	// Returns true when an Obol-based GL view is in use (no libdm hash tracking)
+	bool isObolActive() const;
+
 	// Get the currently active view of the quad/central display widget
 	QgView * CurrentDisplay();
 	bsg_view * CurrentView();
