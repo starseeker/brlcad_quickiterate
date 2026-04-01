@@ -202,6 +202,46 @@ RT_EXPORT extern struct mater *db_mater_dup(struct db_i *dbip);
  */
 RT_EXPORT extern void db_mater_free(struct db_i *dbip);
 
+/**
+ * @name Deprecated global material API (use db_mater_* instead)
+ *
+ * The following functions operated on a single process-wide (global) material
+ * table and are retained for backward compatibility only.  New code must use
+ * the per-database @c db_mater_*() functions above.
+ *
+ * @deprecated since 7.42 - use db_mater_head(), db_mater_set_head(),
+ *             db_mater_dup(), db_mater_free(), db_mater_insert(),
+ *             db_mater_add(), db_mater_to_vls(), and db_mater_color_region()
+ *             instead.
+ * @{
+ */
+
+/** @deprecated use db_mater_head() */
+DEPRECATED RT_EXPORT extern struct mater *rt_material_head(void);
+
+/** @deprecated use db_mater_set_head() */
+DEPRECATED RT_EXPORT extern void rt_new_material_head(struct mater *newmat);
+
+/** @deprecated use db_mater_dup() */
+DEPRECATED RT_EXPORT extern struct mater *rt_dup_material_head(void);
+
+/** @deprecated use db_mater_free() */
+DEPRECATED RT_EXPORT extern void rt_color_free(void);
+
+/** @deprecated use db_mater_insert() */
+DEPRECATED RT_EXPORT extern void rt_insert_color(struct mater *newp);
+
+/** @deprecated use db_mater_add() */
+DEPRECATED RT_EXPORT extern void rt_color_addrec(int low, int hi, int r, int g, int b, b_off_t addr);
+
+/** @deprecated use db_mater_to_vls() */
+DEPRECATED RT_EXPORT extern void rt_vls_color_map(struct bu_vls *str);
+
+/** @deprecated use db_mater_color_region() */
+DEPRECATED RT_EXPORT extern void rt_region_color_map(struct region *regp);
+
+/** @} */
+
 __END_DECLS
 
 #endif /* RT_MATER_H */

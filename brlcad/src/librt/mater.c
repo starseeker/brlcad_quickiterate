@@ -41,6 +41,9 @@
  * Entries are kept in strictly ascending order by mt_low, with no overlaps.
  */
 
+/* Forward declaration: defined in the DEPRECATED section below. */
+extern struct mater *rt_material_head_global;
+
 
 static void
 _db_mater_print(const struct mater *mp)
@@ -430,7 +433,7 @@ rt_color_addrec(int low, int hi, int r, int g, int b, b_off_t addr)
     mp->mt_g = g;
     mp->mt_b = b;
     mp->mt_daddr = addr;
-    rt_insert_color(mp);
+    _db_mater_insert_impl(&rt_material_head_global, mp);
 }
 
 
@@ -478,6 +481,9 @@ rt_region_color_map(struct region *regp)
 }
 
 /* END DEPRECATED rt_* global-based material API */
+
+/*
+ * Local Variables:
  * mode: C
  * tab-width: 8
  * indent-tabs-mode: t
