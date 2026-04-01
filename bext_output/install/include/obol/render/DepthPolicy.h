@@ -1,25 +1,25 @@
-#ifndef OBOL_SOACTIONMETHODLIST_H
-#define OBOL_SOACTIONMETHODLIST_H
+#ifndef OBOL_RENDER_DEPTHPOLICY_H
+#define OBOL_RENDER_DEPTHPOLICY_H
 
 /**************************************************************************\
  * Copyright (c) Kongsberg Oil & Gas Technologies AS
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
  * met:
- * 
+ *
  * Redistributions of source code must retain the above copyright notice,
  * this list of conditions and the following disclaimer.
- * 
+ *
  * Redistributions in binary form must reproduce the above copyright
  * notice, this list of conditions and the following disclaimer in the
  * documentation and/or other materials provided with the distribution.
- * 
+ *
  * Neither the name of the copyright holder nor the names of its
  * contributors may be used to endorse or promote products derived from
  * this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -33,42 +33,51 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 \**************************************************************************/
 
-#include <Inventor/lists/SbPList.h>
-#include <Inventor/SoType.h>
+/**
+ * @file DepthPolicy.h
+ * @brief Depth-buffer policy for auxiliary world-space objects.
+ *
+ * Controls how an auxiliary object (e.g. a grid overlay, annotation line)
+ * interacts with the depth buffer when rendered after CAD geometry.
+ */
 
-class SoAction;
-class SoNode;
+namespace obol {
 
-typedef void (* SoActionMethod)(SoAction *, SoNode *);
+/**
+ * @brief Depth-buffer policy for world-space auxiliary objects.
+ *
+ * ### Usage
+ * Attach a DepthPolicy to any non-CAD world object that should be rendered
+ * after the main CAD pass so the renderer can apply the correct GL state.
+ *
+ * @code
+ *   AuxLineGrid grid;
+ *   grid.depthPolicy = obol::DepthPolicy::ALWAYS_VISIBLE;
+ * @endcode
+ */
+enum class DepthPolicy : uint8_t {
+    /**
+     * Normal depth test (GL_LESS).  The object is occluded by closer CAD
+     * geometry, just like any ordinary 3-D object.  This is the default.
+     */
+    OCCLUDED = 0,
 
-/*!
-  \class SoActionMethodList SoActionMethodList.h Inventor/lists/SoActionMethodList.h
-  \brief Maps action types to their handler functions for a node class.
+    /**
+     * Depth test disabled.  The object is always drawn on top of everything
+     * else regardless of depth.  Useful for annotations that must always be
+     * visible.
+     */
+    ALWAYS_VISIBLE = 1,
 
-  \ingroup coin_lists
-
-  SoActionMethodList stores the array of action-method function pointers
-  registered for each action type on a node class.  It is used
-  internally by the action dispatch mechanism.
-
-  \sa SbPList, SoAction
-*/
-class OBOL_DLL_API SoActionMethodList : public SbPList {
-  typedef SbPList inherited;
-
-public:
-  SoActionMethodList(SoActionMethodList * const parentlist);
-  ~SoActionMethodList();
-
-  SoActionMethod & operator[](const int index);
-
-  SoActionMethod getMethod(const int index);
-
-  void addMethod(const SoType node, const SoActionMethod method);
-  void setUp(void);
-
-private:
-  class SoActionMethodListP * pimpl;
+    /**
+     * Two-pass x-ray rendering: first draw with depth test ON (write pixels
+     * that pass); then draw the occluded remainder with reduced opacity.
+     * The exact effect is renderer-dependent; if not supported the renderer
+     * may fall back to ALWAYS_VISIBLE.
+     */
+    XRAY = 2,
 };
 
-#endif // !OBOL_SOACTIONMETHODLIST_H
+} // namespace obol
+
+#endif // OBOL_RENDER_DEPTHPOLICY_H
