@@ -188,7 +188,7 @@ db_scan(struct db_i *dbip, int (*handler) (struct db_i *, const char *, b_off_t,
 		    }
 
 		    /* This is common to RT and MGED */
-		    rt_color_addrec(lo, hi, record.md.md_r, record.md.md_g, record.md.md_b, addr);
+		    rt_color_addrec(dbip, lo, hi, record.md.md_r, record.md.md_g, record.md.md_b, addr);
 		}
 		break;
 	    case ID_P_HEAD:

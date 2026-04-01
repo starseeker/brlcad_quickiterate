@@ -987,9 +987,9 @@ DbiState::path_color(struct bu_color *c, std::vector<unsigned long long> &elemen
 {
     // This may not be how we'll always want to do this, but at least for the
     // moment (to duplicate observed MGED behavior) the first region_id seen
-    // along the path with an active color in rt_material_head trumps all other
-    // color values set by any other means.
-    if (rt_material_head() != MATER_NULL) {
+    // along the path with an active color in the database material table trumps
+    // all other color values set by any other means.
+    if (dbip && rt_material_head(dbip) != MATER_NULL) {
 	std::unordered_map<unsigned long long, int>::iterator r_it;
 	int path_region_id;
 	for (size_t i = 0; i < elements.size(); i++) {
@@ -998,7 +998,7 @@ DbiState::path_color(struct bu_color *c, std::vector<unsigned long long> &elemen
 		continue;
 	    path_region_id = r_it->second;
 	    const struct mater *mp;
-	    for (mp = rt_material_head(); mp != MATER_NULL; mp = mp->mt_forw) {
+	    for (mp = rt_material_head(dbip); mp != MATER_NULL; mp = mp->mt_forw) {
 		if (path_region_id > mp->mt_high || path_region_id < mp->mt_low)
 		    continue;
 		unsigned char mt[3];

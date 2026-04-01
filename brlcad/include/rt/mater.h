@@ -31,6 +31,7 @@
 __BEGIN_DECLS
 
 struct region; /* forward declaration */
+struct db_i;   /* forward declaration */
 
 /**
  * Container for material information
@@ -60,21 +61,22 @@ struct mater {
 #define MATER_NO_ADDR	((b_off_t)0)		/**< @brief invalid mt_daddr */
 
 
-RT_EXPORT extern void rt_region_color_map(struct region *regp);
+RT_EXPORT extern void rt_region_color_map(struct db_i *dbip, struct region *regp);
 
 /* process ID_COLORTAB record */
-RT_EXPORT extern void rt_color_addrec(int low,
+RT_EXPORT extern void rt_color_addrec(struct db_i *dbip,
+				      int low,
 				      int hi,
 				      int r,
 				      int g,
 				      int b,
 				      b_off_t addr);
-RT_EXPORT extern void rt_insert_color(struct mater *newp);
-RT_EXPORT extern void rt_vls_color_map(struct bu_vls *str);
-RT_EXPORT extern struct mater *rt_material_head(void);
-RT_EXPORT extern void rt_new_material_head(struct mater *);
-RT_EXPORT extern struct mater *rt_dup_material_head(void);
-RT_EXPORT extern void rt_color_free(void);
+RT_EXPORT extern void rt_insert_color(struct db_i *dbip, struct mater *newp);
+RT_EXPORT extern void rt_vls_color_map(struct bu_vls *str, struct db_i *dbip);
+RT_EXPORT extern struct mater *rt_material_head(struct db_i *dbip);
+RT_EXPORT extern void rt_new_material_head(struct db_i *dbip, struct mater *);
+RT_EXPORT extern struct mater *rt_dup_material_head(struct db_i *dbip);
+RT_EXPORT extern void rt_color_free(struct db_i *dbip);
 
 __END_DECLS
 
