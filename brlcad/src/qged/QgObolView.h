@@ -110,6 +110,8 @@
 #include <Inventor/SbViewportRegion.h>
 #include <Inventor/SbVec2s.h>
 #include <Inventor/SbColor.h>
+#include <Inventor/nodes/SoMaterial.h>
+#include <Inventor/nodes/SoSphere.h>
 #include <Inventor/SbColor4f.h>
 #include <Inventor/sensors/SoSensorManager.h>
 #include <Inventor/nodes/SoPerspectiveCamera.h>
@@ -174,6 +176,20 @@ class QgObolContextManager : public SoDB::ContextManager {
 public:
     explicit QgObolContextManager(QOpenGLContext *shareCtx = nullptr)
 	: shareCtx_(shareCtx) {}
+
+    /**
+     * Set the share context for all future offscreen contexts created by
+     * Coin3D's context manager.
+     *
+     * Call this from QgObolView::initializeGL() so that Coin3D's internal
+     * offscreen GL contexts share the same GL namespace (shaders, VBOs, etc.)
+     * as the QOpenGLWidget's hardware context.  Without sharing, GL objects
+     * compiled in Coin3D's offscreen context are invalid when used in the
+     * widget's context, producing a completely invisible scene.
+     *
+     * Must be called BEFORE the first renderMgr_.render() call.
+     */
+    void setShareContext(QOpenGLContext *ctx) { shareCtx_ = ctx; }
 
     void *createOffscreenContext(unsigned int /*w*/, unsigned int /*h*/) override {
 	Ctx *c = new Ctx;
@@ -354,7 +370,17 @@ inline void applyCameraFromBsgView(SoCamera *cam, const bsg_view *v) {
 	-look_sb[0], -look_sb[1], -look_sb[2],   0.f,
 	      0.f,        0.f,        0.f,        1.f);
     cam->orientation.setValue(SbRotation(rot_mat));
-    cam->focalDistance = (float)v->gv_size;
+    float fd = (float)v->gv_size;
+    cam->focalDistance = fd;
+    /* Set near/far clip planes from the scene size so that SoRenderManager's
+     * autoclipping (VARIABLE_NEAR_PLANE) has a reasonable starting point and
+     * so that NO_AUTO_CLIPPING mode (used for testing) clips correctly.
+     * near = 0.001 × size (avoids z-fighting for typical BRL-CAD geometry)
+     * far  = 20.0 × size (covers geometry well behind the focus point) */
+    if (fd > SMALL_FASTF) {
+	cam->nearDistance = fd * 0.001f;
+	cam->farDistance  = fd * 20.0f;
+    }
     if (cam->getTypeId() == SoPerspectiveCamera::getClassTypeId()) {
 	SoPerspectiveCamera *pc = static_cast<SoPerspectiveCamera*>(cam);
 	fastf_t persp = v->gv_perspective;
@@ -468,6 +494,25 @@ public:
     void setFbServ(struct fbserv_obj *fbs) { fbs_ = fbs; }
 
     /**
+     * Grab the current GL framebuffer as a QImage.
+     *
+     * Unlike QWidget::grab() (which reads from the backing store and may
+     * miss QOpenGLWidget content in headless environments), this forces a
+     * paintGL() call and reads directly from the FBO.  Use this in tests.
+     */
+    QImage grabGLImage() {
+	makeCurrent();
+	paintGL();
+	QImage img = grabFramebuffer();
+	doneCurrent();
+	return img;
+    }
+
+    /** Returns the number of times paintGL() has been called.  Useful for
+     *  verifying that GL rendering is actually occurring in tests. */
+    int paintCount() const { return paint_count_; }
+
+    /**
      * Re-assemble the Obol scene from the current bsg_shape tree and
      * request a repaint.  Call this whenever the BRL-CAD scene changes
      * (from QgEdApp::do_view_changed()).
@@ -543,10 +588,11 @@ public:
 	    viewport_.setSceneGraph(nullptr);
 	    viewport_.setCamera(nullptr);
 	    renderMgr_.setSceneGraph(nullptr);
+	    renderMgr_.setCamera(nullptr);
 	    return;
 	}
 
-	/* Find or create camera */
+	/* Find existing camera in root (from a previous call or user setup) */
 	SoSearchAction sa;
 	sa.setType(SoCamera::getClassTypeId());
 	sa.setInterest(SoSearchAction::FIRST);
@@ -556,21 +602,29 @@ public:
 	if (sa.getPath()) {
 	    SoFullPath *fp = static_cast<SoFullPath *>(sa.getPath());
 	    cam = static_cast<SoCamera *>(fp->getTail());
+	    /* Remove the camera from obol_root_ — SoViewport::setCamera() places
+	     * it at the front of its internal root, so it must NOT also live
+	     * inside the scene graph or it will be traversed twice, corrupting
+	     * the projection matrix stack. */
+	    SoSeparator *sep = static_cast<SoSeparator *>(root);
+	    sep->removeChild(cam);
 	}
 	if (!cam) {
 	    cam = new SoPerspectiveCamera;
-	    /* Add camera as second child (after directional light) */
-	    SoSeparator *sep = static_cast<SoSeparator *>(root);
-	    if (sep->getNumChildren() > 0)
-		sep->insertChild(cam, 1);
-	    else
-		sep->addChild(cam);
+	    /* Camera is created fresh; it will be owned by viewport_.setCamera()
+	     * (inserted into the viewport's internal root).  Do NOT add it to
+	     * obol_root_ to avoid the double-traversal bug. */
 	}
 
 	viewport_.setSceneGraph(root);
 	viewport_.setCamera(cam);
 	viewport_.viewAll();
 	renderMgr_.setSceneGraph(viewport_.getRoot());
+	/* Tell SoRenderManager about the camera for autoclipping/near-far
+	 * plane computation.  Without this the render manager has no camera
+	 * reference, clip planes default to a degenerate range (e.g. 0→1), and
+	 * all geometry is clipped away — producing a completely invisible scene. */
+	renderMgr_.setCamera(cam);
 	update();
     }
 
@@ -754,6 +808,25 @@ protected:
     void initializeGL() override {
 	glEnable(GL_DEPTH_TEST);
 	renderMgr_.getGLRenderAction()->setCacheContext(cacheContext_);
+	/* Ensure the background has full alpha so the framebuffer is opaque.
+	 * SoRenderManager's default background is (0,0,0,0) which produces
+	 * transparent-black pixels that QOpenGLWidget::grabFramebuffer() returns
+	 * as (0,0,0) even when geometry IS rendered. */
+	renderMgr_.setBackgroundColor(SbColor4f(0.1f, 0.1f, 0.1f, 1.0f));
+
+	/* Wire the GL context manager's share context to the widget's context.
+	 *
+	 * QgObolContextManager creates a QOpenGLContext for Coin3D's internal
+	 * offscreen work (shader compilation, VBO uploads, etc.).  Without
+	 * sharing, those GL objects are invalid in the QOpenGLWidget's context,
+	 * resulting in a completely invisible scene.  Setting the share context
+	 * here (before any render() call) ensures future offscreen contexts
+	 * share the same GL namespace as the widget. */
+	QgObolContextManager *mgr =
+	    dynamic_cast<QgObolContextManager *>(SoDB::getContextManager());
+	if (mgr)
+	    mgr->setShareContext(QOpenGLContext::currentContext());
+
 	if (!init_done_emitted_) {
 	    init_done_emitted_ = true;
 	    emit init_done();
@@ -774,6 +847,7 @@ protected:
     }
 
     void paintGL() override {
+	paint_count_++;
 	if (quad_mode_) {
 	    /* Quad mode: render each quadrant via SoOffscreenRenderer and
 	     * composite the result into the widget using QPainter. */
@@ -838,10 +912,26 @@ protected:
 
 	/* Single-view path */
 	SoGLRenderAction *ra = renderMgr_.getGLRenderAction();
-	ra->setViewportRegion(viewport_.getViewportRegion());
+	const SbViewportRegion vpr = viewport_.getViewportRegion();
+	ra->setViewportRegion(vpr);
 
-	renderMgr_.setSceneGraph(viewport_.getRoot());
+	SoNode *scene_root = viewport_.getRoot();
+
+	renderMgr_.setSceneGraph(scene_root);
 	renderMgr_.render(ra, TRUE /* clearZ */, TRUE /* clearWindow */);
+
+	/* Diagnostic: log center pixel on every paint to track geometry arrival */
+	{
+	    SbVec2s wsz = vpr.getWindowSize();
+	    int cx = wsz[0] / 2, cy = wsz[1] / 2;
+	    if (cx > 0 && cy > 0) {
+		unsigned char px[4] = {0};
+		glReadPixels(cx, cy, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, px);
+		int obol_nch = obol_root_ ? obol_root_->getNumChildren() : -1;
+		bu_log("paintGL #%d: center R=%d G=%d B=%d obol_nch=%d\n",
+		    paint_count_, px[0], px[1], px[2], obol_nch);
+	    }
+	}
 
 	/* Framebuffer overlay: composite rt output on top of the 3D scene.
 	 * QPainter on a QOpenGLWidget draws on top of raw GL content. */
@@ -1122,6 +1212,7 @@ private:
     bsg_shape       *selectedShape_ = nullptr;  /* Stage 5: current selection */
     bool             init_done_emitted_ = false; /* guard: emit init_done() only once */
     struct fbserv_obj *fbs_ = nullptr;  /* Stage 20: embedded rt framebuffer (not owned) */
+    int              paint_count_ = 0;  /* diagnostic: counts paintGL() invocations */
 };
 
 
@@ -1210,6 +1301,40 @@ public:
     /** Attach a framebuffer server so that rt output is overlaid on the
      *  3D scene.  Call once from do_obol_init() after ert is wired up. */
     void setFbServ(struct fbserv_obj *fbs) { fbs_ = fbs; }
+
+    /**
+     * Render a single frame and return the pixels as a QImage.
+     *
+     * For the swrast path the SoOffscreenRenderer already holds the raw bytes;
+     * we construct a QImage directly from that buffer.  This is the reliable
+     * way to capture Obol content in headless environments.
+     */
+    QImage grabGLImage() {
+	const qreal dpr = devicePixelRatioF();
+	int pw = std::max((int)(width()  * dpr), 1);
+	int ph = std::max((int)(height() * dpr), 1);
+	if (!offscreen_) {
+	    SbViewportRegion vr(pw, ph);
+	    offscreen_ = new SoOffscreenRenderer(&osmesa_ctx_mgr_, vr);
+	}
+	renderSingle(pw, ph);
+	const unsigned char *buf = offscreen_->getBuffer();
+	if (!buf) return QImage();
+	/* SoOffscreenRenderer returns RGBA bottom-up; copy to a top-down RGB QImage */
+	QImage img(pw, ph, QImage::Format_RGB888);
+	for (int row = 0; row < ph; ++row) {
+	    const unsigned char *src = buf + (size_t)(ph - 1 - row) * pw * 4;
+	    unsigned char *dst = img.scanLine(row);
+	    for (int col = 0; col < pw; ++col) {
+		dst[0] = src[0]; dst[1] = src[1]; dst[2] = src[2];
+		src += 4; dst += 3;
+	    }
+	}
+	return img;
+    }
+
+    /** Returns the number of times paintEvent() has been called. */
+    int paintCount() const { return paint_count_; }
 
     void redraw() {
 	if (obol_root_ && bsg_v_) {
@@ -1318,6 +1443,7 @@ protected:
     }
 
     void paintEvent(QPaintEvent *) override {
+	paint_count_++;
 	const qreal dpr  = devicePixelRatioF();
 	int pw = std::max((int)(width()  * dpr), 1);
 	int ph = std::max((int)(height() * dpr), 1);
@@ -1426,13 +1552,18 @@ private:
 	sa.apply(root);
 	if (sa.getPath()) {
 	    SoFullPath *fp = static_cast<SoFullPath*>(sa.getPath());
-	    return static_cast<SoCamera*>(fp->getTail());
+	    SoCamera *cam = static_cast<SoCamera*>(fp->getTail());
+	    /* Remove the camera from root — SoViewport::setCamera() inserts it
+	     * into its internal root, so the camera must NOT also live inside
+	     * the scene graph or it will be traversed twice, corrupting the
+	     * projection matrix and producing invisible (black) geometry. */
+	    SoSeparator *sep = static_cast<SoSeparator*>(root);
+	    sep->removeChild(cam);
+	    return cam;
 	}
-	SoPerspectiveCamera *cam = new SoPerspectiveCamera;
-	SoSeparator *sep = static_cast<SoSeparator*>(root);
-	if (sep->getNumChildren() > 0) sep->insertChild(cam, 1);
-	else sep->addChild(cam);
-	return cam;
+	/* Camera not in root; create a new one.  Caller is responsible for
+	 * passing it to viewport_.setCamera() — do NOT add to root here. */
+	return new SoPerspectiveCamera;
     }
 
     void renderSingle(int pw, int ph) {
@@ -1595,6 +1726,7 @@ private:
     bsg_shape           *selectedShape_ = nullptr;
     bool                 init_done_emitted_ = false;
     struct fbserv_obj   *fbs_ = nullptr;  /* Stage 20: embedded rt framebuffer (not owned) */
+    int                  paint_count_ = 0;  /* diagnostic: counts paintEvent() invocations */
 };
 
 #endif /* OBOL_BUILD_DUAL_GL */

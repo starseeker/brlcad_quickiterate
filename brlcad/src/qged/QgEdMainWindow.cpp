@@ -632,6 +632,20 @@ QgEdMainWindow::DisplayCheckpoint()
     c4->stash_hashes();
 }
 
+QImage
+QgEdMainWindow::grabObolView()
+{
+#ifdef BRLCAD_ENABLE_OBOL
+    if (obol_view_)
+	return obol_view_->grabGLImage();
+#  ifdef OBOL_BUILD_DUAL_GL
+    if (obol_swrast_view_)
+	return obol_swrast_view_->grabGLImage();
+#  endif
+#endif
+    return QImage();   /* non-Obol build: caller falls back to QWidget::grab() */
+}
+
 bool
 QgEdMainWindow::isObolActive() const
 {
