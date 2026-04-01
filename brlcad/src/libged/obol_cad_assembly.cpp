@@ -108,6 +108,67 @@ rgb_to_sbcolor4f(const unsigned char rgb[3])
 }
 
 /**
+ * Build an obol::InstanceId from a path string of the form
+ * "comp1/comp2/solid" (as produced by DbiState::print_path).
+ * occ=0 and boolOp=0 are used for all components because the string form
+ * does not carry occurrence or boolean information.
+ */
+static obol::InstanceId
+pathstr_to_instance_id(const char *path_str)
+{
+    obol::InstanceId id = obol::CadIdBuilder::Root();
+    if (!path_str || !path_str[0])
+	return id;
+
+    /* Split by '/' — skip any leading '/' */
+    const char *p = path_str;
+    while (*p == '/') p++;
+
+    while (*p) {
+	const char *start = p;
+	while (*p && *p != '/') p++;
+	if (p > start) {
+	    char comp[512];
+	    size_t len = (size_t)(p - start);
+	    if (len >= sizeof(comp))
+		len = sizeof(comp) - 1;
+	    bu_strlcpy(comp, start, len + 1);
+	    id = obol::CadIdBuilder::extendNameOccBool(id, comp, 0, 0);
+	}
+	if (*p == '/') p++;
+    }
+    return id;
+}
+
+/**
+ * Build the InstanceId for the *parent* of the leaf in a path string.
+ * Strips the last '/'-separated component and calls pathstr_to_instance_id.
+ */
+static obol::InstanceId
+pathstr_to_parent_id(const char *path_str)
+{
+    if (!path_str || !path_str[0])
+	return obol::CadIdBuilder::Root();
+
+    /* Find the last '/' */
+    const char *last_sep = nullptr;
+    for (const char *p = path_str; *p; p++)
+	if (*p == '/')
+	    last_sep = p;
+
+    if (!last_sep)
+	return obol::CadIdBuilder::Root();   /* single component — parent is root */
+
+    /* Build a NUL-terminated string of the parent portion */
+    char parent[4096];
+    size_t len = (size_t)(last_sep - path_str);
+    if (len >= sizeof(parent))
+	len = sizeof(parent) - 1;
+    bu_strlcpy(parent, path_str, len + 1);
+    return pathstr_to_instance_id(parent);
+}
+
+/**
  * Build an obol::InstanceId from a db_full_path by chaining
  * CadIdBuilder::extendNameOccBool() from the root to the leaf.
  */
@@ -209,12 +270,24 @@ obol_cad_assembly_upsert_shape(SoCADAssembly *cad_asm, bsg_shape *s)
     if (!cad_asm || !s)
 	return false;
 
-    /* Need the full path to build the InstanceId */
+    /* Get the leaf directory pointer.
+     *
+     * Two code paths create bsg_shape leaf objects:
+     *   (a) draw_gather_paths (draw.cpp): sets s_path (db_full_path) and dp.
+     *   (b) BViewState::scene_obj (dbi_state.cpp): sets dp only, s_path=NULL.
+     *
+     * Prefer s_path when available (carries occ/bool metadata); fall back to
+     * sp->dp for the new async-first pipeline. */
     struct db_full_path *fp = (struct db_full_path *)s->s_path;
-    if (!fp || fp->fp_len == 0)
-	return false;
+    struct directory *dp = nullptr;
 
-    struct directory *dp = DB_FULL_PATH_CUR_DIR(fp);
+    if (fp && fp->fp_len > 0) {
+	dp = DB_FULL_PATH_CUR_DIR(fp);
+    } else if (s->dp) {
+	dp = (struct directory *)s->dp;
+	fp = nullptr;   /* explicitly clear so callers below use string-based path */
+    }
+
     if (!dp)
 	return false;
 
@@ -262,21 +335,33 @@ obol_cad_assembly_upsert_shape(SoCADAssembly *cad_asm, bsg_shape *s)
     /* ------------------------------------------------------------------ *
      * Instance: register / update transform + style                       *
      * ------------------------------------------------------------------ */
-    obol::InstanceId iid = fp_to_instance_id(fp);
-
+    obol::InstanceId iid;
     obol::InstanceRecord rec;
     rec.part        = pid;
     rec.localToRoot = mat_to_sbmatrix(s->s_mat);
-    rec.parent      = fp_to_parent_id(fp);
     rec.childName   = dp->d_namep;
-    rec.occurrenceIndex = fp->fp_cinst ? (uint32_t)fp->fp_cinst[fp->fp_len-1] : 0;
-    rec.boolOp = 0;
-    if (fp->fp_bool) {
-	switch (fp->fp_bool[fp->fp_len-1]) {
-	    case 4: rec.boolOp = 1; break;   /* subtract */
-	    case 3: rec.boolOp = 2; break;   /* intersect */
-	    default: rec.boolOp = 0; break;
+
+    if (fp) {
+	/* Full path available — use high-fidelity occ/bool metadata */
+	iid             = fp_to_instance_id(fp);
+	rec.parent      = fp_to_parent_id(fp);
+	rec.occurrenceIndex = fp->fp_cinst ? (uint32_t)fp->fp_cinst[fp->fp_len-1] : 0;
+	rec.boolOp = 0;
+	if (fp->fp_bool) {
+	    switch (fp->fp_bool[fp->fp_len-1]) {
+		case 4: rec.boolOp = 1; break;   /* subtract */
+		case 3: rec.boolOp = 2; break;   /* intersect */
+		default: rec.boolOp = 0; break;
+	    }
 	}
+    } else {
+	/* No db_full_path — use path string from s_name (new async pipeline).
+	 * occ=0, boolOp=0 since the string representation doesn't carry them. */
+	const char *path_str = bu_vls_cstr(&s->s_name);
+	iid             = pathstr_to_instance_id(path_str);
+	rec.parent      = pathstr_to_parent_id(path_str);
+	rec.occurrenceIndex = 0;
+	rec.boolOp      = 0;
     }
 
     /* Per-instance colour from s_os */
