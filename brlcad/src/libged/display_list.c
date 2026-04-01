@@ -582,7 +582,7 @@ color_soltab(struct db_i *dbip, struct bv_scene_obj *sp)
     }
 
     if (dbip) {
-	for (mp = rt_material_head(dbip); mp != MATER_NULL; mp = mp->mt_forw) {
+	for (mp = db_mater_head(dbip); mp != MATER_NULL; mp = mp->mt_forw) {
 	    if (sp->s_old.s_regionid <= mp->mt_high &&
 		sp->s_old.s_regionid >= mp->mt_low) {
 		sp->s_color[0] = mp->mt_r;
