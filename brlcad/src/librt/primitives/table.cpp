@@ -138,6 +138,8 @@ extern int rt_generic_form(struct bu_vls *, const struct rt_functab *);
 extern void rt_generic_make(const struct rt_functab *, struct rt_db_internal *);
 extern int rt_generic_xform(struct rt_db_internal *, const mat_t, struct rt_db_internal *, int, struct db_i *);
 extern int rt_generic_scene_obj(bsg_shape *s, struct directory *dp, struct db_i *dbip, const struct bg_tess_tol *ttol, const struct bn_tol *tol, const bsg_view *v);
+extern int rt_generic_scene_obj_part(void *geom_out, struct directory *dp, struct db_i *dbip, const struct bg_tess_tol *ttol, const struct bn_tol *tol, int dmode);
+extern int rt_bot_scene_obj_part(void *geom_out, struct directory *dp, struct db_i *dbip, const struct bg_tess_tol *ttol, const struct bn_tol *tol, int dmode);
 
 /* from db5_bin.c */
 extern int rt_binunif_import5(struct rt_db_internal * ip, const struct bu_external *ep, const mat_t mat, const struct db_i *dbip, struct resource *resp);
@@ -219,7 +221,8 @@ const struct rt_functab OBJ[] = {
 	NULL,
 	NULL,
 	NULL,
-	NULL
+	NULL,
+	NULL   /* scene_obj_part */
     },
 
     {
@@ -270,7 +273,8 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_KEYPOINT_CAST(rt_tor_keypoint), /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_tor_mat),
 	NULL, /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj),
+	RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(rt_generic_scene_obj_part)
     },
 
     {
@@ -321,7 +325,8 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_KEYPOINT_CAST(rt_tgc_keypoint), /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_tgc_mat),
 	RTFUNCTAB_FUNC_PERTURB_CAST(rt_tgc_perturb), /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj),
+	RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(rt_generic_scene_obj_part)
     },
 
     {
@@ -372,7 +377,8 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_KEYPOINT_CAST(rt_ell_keypoint), /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_ell_mat),
 	NULL, /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj),
+	RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(rt_generic_scene_obj_part)
     },
 
     {
@@ -423,7 +429,8 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_KEYPOINT_CAST(rt_arb_keypoint), /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_arb_mat),
 	RTFUNCTAB_FUNC_PERTURB_CAST(rt_arb_perturb), /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj),
+	RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(rt_generic_scene_obj_part)
     },
 
     {
@@ -474,7 +481,8 @@ const struct rt_functab OBJ[] = {
 	NULL, /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_ars_mat),
 	NULL, /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj),
+	RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(rt_generic_scene_obj_part)
     },
 
     {
@@ -525,7 +533,8 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_KEYPOINT_CAST(rt_hlf_keypoint), /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_hlf_mat),
 	NULL, /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj),
+	RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(rt_generic_scene_obj_part)
     },
 
     {
@@ -576,7 +585,8 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_KEYPOINT_CAST(rt_tgc_keypoint), /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_tgc_mat),
 	NULL, /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj),
+	RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(rt_generic_scene_obj_part)
     },
 
     {
@@ -627,7 +637,8 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_KEYPOINT_CAST(rt_pg_keypoint), /* keypoint */
 	NULL, /* mat */
 	NULL, /* perturb */
-	NULL  /* scene_obj */
+	NULL  /* scene_obj */,
+	NULL   /* scene_obj_part */
     },
 
     {
@@ -678,7 +689,8 @@ const struct rt_functab OBJ[] = {
 	NULL, /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_nurb_mat),
 	NULL, /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj),
+	RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(rt_generic_scene_obj_part)
     },
 
     {
@@ -729,7 +741,8 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_KEYPOINT_CAST(rt_ell_keypoint), /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_ell_mat),
 	NULL, /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj),
+	RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(rt_generic_scene_obj_part)
     },
 
     {
@@ -780,7 +793,8 @@ const struct rt_functab OBJ[] = {
 	NULL, /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_nmg_mat),
 	NULL, /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj),
+	RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(rt_generic_scene_obj_part)
     },
 
     {
@@ -831,7 +845,8 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_KEYPOINT_CAST(rt_ebm_keypoint), /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_ebm_mat),
 	NULL, /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj),
+	RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(rt_generic_scene_obj_part)
     },
 
     {
@@ -882,7 +897,8 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_KEYPOINT_CAST(rt_vol_keypoint), /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_vol_mat),
 	NULL, /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj),
+	RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(rt_generic_scene_obj_part)
     },
 
     {
@@ -933,7 +949,8 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_KEYPOINT_CAST(rt_arbn_keypoint), /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_arbn_mat),
 	RTFUNCTAB_FUNC_PERTURB_CAST(rt_arbn_perturb), /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj),
+	RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(rt_generic_scene_obj_part)
     },
 
     {
@@ -984,7 +1001,8 @@ const struct rt_functab OBJ[] = {
 	NULL, /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_pipe_mat),
 	NULL, /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj),
+	RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(rt_generic_scene_obj_part)
     },
 
     {
@@ -1035,7 +1053,8 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_KEYPOINT_CAST(rt_part_keypoint), /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_part_mat),
 	NULL, /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj),
+	RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(rt_generic_scene_obj_part)
     },
 
     {
@@ -1086,7 +1105,8 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_KEYPOINT_CAST(rt_rpc_keypoint), /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_rpc_mat),
 	NULL, /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj),
+	RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(rt_generic_scene_obj_part)
     },
 
     {
@@ -1137,7 +1157,8 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_KEYPOINT_CAST(rt_rhc_keypoint), /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_rhc_mat),
 	NULL, /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj),
+	RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(rt_generic_scene_obj_part)
     },
 
     {
@@ -1188,7 +1209,8 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_KEYPOINT_CAST(rt_epa_keypoint), /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_epa_mat),
 	NULL, /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj),
+	RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(rt_generic_scene_obj_part)
     },
 
     {
@@ -1239,7 +1261,8 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_KEYPOINT_CAST(rt_ehy_keypoint), /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_ehy_mat),
 	NULL, /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj),
+	RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(rt_generic_scene_obj_part)
     },
 
     {
@@ -1290,7 +1313,8 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_KEYPOINT_CAST(rt_eto_keypoint), /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_eto_mat),
 	NULL, /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj),
+	RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(rt_generic_scene_obj_part)
     },
 
     {
@@ -1341,7 +1365,8 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_KEYPOINT_CAST(rt_grp_keypoint), /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_grp_mat),
 	NULL, /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj),
+	RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(rt_generic_scene_obj_part)
     },
 
     {
@@ -1392,7 +1417,8 @@ const struct rt_functab OBJ[] = {
 	NULL, /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_joint_mat),
 	NULL, /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj),
+	RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(rt_generic_scene_obj_part)
     },
 
     {
@@ -1443,7 +1469,8 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_KEYPOINT_CAST(rt_hf_keypoint), /* keypoint */
 	NULL, /* mat */
 	NULL, /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj),
+	RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(rt_generic_scene_obj_part)
     },
 
     {
@@ -1494,7 +1521,8 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_KEYPOINT_CAST(rt_dsp_keypoint), /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_dsp_mat),
 	NULL, /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj),
+	RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(rt_generic_scene_obj_part)
     },
 
     {
@@ -1545,7 +1573,8 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_KEYPOINT_CAST(rt_sketch_keypoint), /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_sketch_mat),
 	NULL, /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj),
+	RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(rt_generic_scene_obj_part)
     },
 
     {
@@ -1596,7 +1625,8 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_KEYPOINT_CAST(rt_extrude_keypoint), /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_extrude_mat),
 	NULL, /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj),
+	RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(rt_generic_scene_obj_part)
     },
 
     {
@@ -1647,7 +1677,8 @@ const struct rt_functab OBJ[] = {
 	NULL, /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_submodel_mat),
 	NULL, /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj),
+	RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(rt_generic_scene_obj_part)
     },
 
     {
@@ -1698,7 +1729,8 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_KEYPOINT_CAST(rt_cline_keypoint), /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_cline_mat),
 	NULL, /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj),
+	RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(rt_generic_scene_obj_part)
     },
 
     {
@@ -1749,7 +1781,8 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_KEYPOINT_CAST(rt_bot_keypoint), /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_bot_mat),
 	NULL, /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_bot_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_bot_scene_obj),
+	RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(rt_bot_scene_obj_part)
     },
 
     {
@@ -1800,7 +1833,8 @@ const struct rt_functab OBJ[] = {
 	NULL, /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_comb_mat),
 	NULL, /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_comb_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_comb_scene_obj),
+	NULL  /* scene_obj_part */
     },
 
     {
@@ -1853,7 +1887,8 @@ const struct rt_functab OBJ[] = {
 	NULL, /* keypoint */
 	NULL, /* mat */
 	NULL, /* perturb */
-	NULL  /* scene_obj */
+	NULL  /* scene_obj */,
+	NULL   /* scene_obj_part */
     },
 
     {
@@ -1904,7 +1939,8 @@ const struct rt_functab OBJ[] = {
 	NULL, /* keypoint */
 	NULL, /* mat */
 	NULL, /* perturb */
-	NULL  /* scene_obj */
+	NULL  /* scene_obj */,
+	NULL   /* scene_obj_part */
     },
 
     {
@@ -1957,7 +1993,8 @@ const struct rt_functab OBJ[] = {
 	NULL, /* keypoint */
 	NULL, /* mat */
 	NULL, /* perturb */
-	NULL  /* scene_obj */
+	NULL  /* scene_obj */,
+	NULL   /* scene_obj_part */
     },
 
     {
@@ -2008,7 +2045,8 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_KEYPOINT_CAST(rt_superell_keypoint), /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_superell_mat),
 	NULL, /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj),
+	RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(rt_generic_scene_obj_part)
     },
 
     {
@@ -2059,7 +2097,8 @@ const struct rt_functab OBJ[] = {
 	NULL, /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_metaball_mat),
 	NULL, /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj),
+	RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(rt_generic_scene_obj_part)
     },
 
     {
@@ -2110,7 +2149,8 @@ const struct rt_functab OBJ[] = {
 	NULL, /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_brep_mat),
 	NULL, /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_brep_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_brep_scene_obj),
+	NULL  /* scene_obj_part */
     },
 
     {
@@ -2161,7 +2201,8 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_KEYPOINT_CAST(rt_hyp_keypoint), /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_hyp_mat),
 	NULL, /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj),
+	RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(rt_generic_scene_obj_part)
     },
 
     {
@@ -2212,7 +2253,8 @@ const struct rt_functab OBJ[] = {
 	NULL, /* keypoint */
 	NULL, /* mat */
 	NULL, /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj),
+	RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(rt_generic_scene_obj_part)
     },
 
     {
@@ -2263,7 +2305,8 @@ const struct rt_functab OBJ[] = {
 	NULL, /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_revolve_mat),
 	NULL, /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj),
+	RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(rt_generic_scene_obj_part)
     },
 
     {
@@ -2314,7 +2357,8 @@ const struct rt_functab OBJ[] = {
 	NULL, /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_pnts_mat),
 	NULL, /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj),
+	RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(rt_generic_scene_obj_part)
     },
 
     {
@@ -2365,7 +2409,8 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_KEYPOINT_CAST(rt_annot_keypoint), /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_annot_mat),
 	NULL, /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj),
+	RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(rt_generic_scene_obj_part)
     },
 
     {
@@ -2416,7 +2461,8 @@ const struct rt_functab OBJ[] = {
 	NULL, /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_hrt_mat),
 	NULL, /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj),
+	RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(rt_generic_scene_obj_part)
     },
 
 
@@ -2468,7 +2514,8 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_KEYPOINT_CAST(rt_datum_keypoint), /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_datum_mat),
 	NULL, /* perturb */
-	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj),
+	RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(rt_generic_scene_obj_part)
     },
 
 
@@ -2520,7 +2567,8 @@ const struct rt_functab OBJ[] = {
 	NULL, /* keypoint */
 	NULL, /* mat */
 	NULL, /* perturb */
-	NULL  /* scene_obj */
+	NULL  /* scene_obj */,
+	NULL   /* scene_obj_part */
     },
 
     {
@@ -2571,7 +2619,8 @@ const struct rt_functab OBJ[] = {
 	NULL, /* keypoint */
 	NULL, /* mat */
 	NULL, /* perturb */
-	NULL  /* scene_obj */
+	NULL  /* scene_obj */,
+	NULL   /* scene_obj_part */
     },
 
     {
@@ -2622,7 +2671,8 @@ const struct rt_functab OBJ[] = {
 	NULL, /* keypoint */
 	NULL, /* mat */
 	NULL, /* perturb */
-	NULL  /* scene_obj */
+	NULL  /* scene_obj */,
+	NULL   /* scene_obj_part */
     }
 };
 

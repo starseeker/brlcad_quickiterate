@@ -327,6 +327,39 @@ struct rt_functab {
 		   const bsg_view * /*v*/);
 #define RTFUNCTAB_FUNC_SCENE_OBJ_CAST(_func) ((int (*)(bsg_shape *, struct directory *, struct db_i *, const struct bg_tess_tol *, const struct bn_tol *, const bsg_view *))((void (*)(void))_func))
 
+    /**
+     * @brief Extract raw part geometry for SoCADAssembly-mode rendering.
+     *
+     * When the Obol scene-graph is available and large-hierarchy geometry is
+     * routed through a single SoCADAssembly node for performance, this method
+     * fills @p geom_out (an @c obol::PartGeometry* cast to void*) with the
+     * wire and/or shaded geometry channels for this primitive.
+     *
+     * The wire channel (obol::WireRep) is used for wireframe rendering; the
+     * shaded channel (obol::TriMesh) is used for shaded rendering.  Either or
+     * both channels may be left absent if not applicable.
+     *
+     * @p dmode is the BRL-CAD drawing mode (0=wireframe, 2/4=shaded, etc.).
+     *
+     * When NULL the caller falls back to the per-shape ft_scene_obj path.
+     *
+     * @param geom_out  Pointer to a caller-allocated obol::PartGeometry that
+     *                  the function fills in.  Passed as void* so the C header
+     *                  does not depend on obol:: types.
+     * @param dp        Directory pointer of the leaf primitive.
+     * @param dbip      Database instance.
+     * @param ttol      Tessellation tolerances.
+     * @param tol       Geometric tolerances.
+     * @param dmode     Drawing mode (0=wireframe, 2=shaded, etc.).
+     */
+    int (*ft_scene_obj_part)(void * /*obol::PartGeometry* */,
+			     struct directory * /*dp*/,
+			     struct db_i * /*dbip*/,
+			     const struct bg_tess_tol * /*ttol*/,
+			     const struct bn_tol * /*tol*/,
+			     int /*dmode*/);
+#define RTFUNCTAB_FUNC_SCENE_OBJ_PART_CAST(_func) ((int (*)(void *, struct directory *, struct db_i *, const struct bg_tess_tol *, const struct bn_tol *, int))((void (*)(void))_func))
+
 };
 
 /**

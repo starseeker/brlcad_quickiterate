@@ -328,8 +328,8 @@ set(
 # obol_scene_assemble() via libged.
 brlcad_find_package(Obol)
 if(TARGET Obol::Obol)
-  list(APPEND LIBGED_SOURCES obol_scene.cpp)
-  message(STATUS "libged: adding Obol scene assembler (obol_scene.cpp)")
+  list(APPEND LIBGED_SOURCES obol_scene.cpp obol_cad_assembly.cpp)
+  message(STATUS "libged: adding Obol scene assembler (obol_scene.cpp, obol_cad_assembly.cpp)")
 endif(TARGET Obol::Obol)
 
 set_property(
@@ -700,6 +700,7 @@ set(
   joint/joint.h
   osg.cpp
   obol_scene.h
+  obol_cad_assembly.h
   pnts_util.h
   qray.h
   simulate/NOTES
