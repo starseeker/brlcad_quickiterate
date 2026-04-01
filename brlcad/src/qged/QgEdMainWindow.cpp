@@ -633,6 +633,20 @@ QgEdMainWindow::DisplayCheckpoint()
 }
 
 bool
+QgEdMainWindow::isObolActive() const
+{
+#ifdef BRLCAD_ENABLE_OBOL
+    if (obol_view_)
+	return true;
+#  ifdef OBOL_BUILD_DUAL_GL
+    if (obol_swrast_view_)
+	return true;
+#  endif
+#endif
+    return false;
+}
+
+bool
 QgEdMainWindow::DisplayDiff()
 {
 #ifdef BRLCAD_ENABLE_OBOL
