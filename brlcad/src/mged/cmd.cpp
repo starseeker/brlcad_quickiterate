@@ -74,6 +74,10 @@ void update_grids(struct mged_state *s, fastf_t sf);		/* in grid.c */
 void set_localunit_TclVar(struct mged_state *s);		/* in chgmodel.c */
 extern void init_qray(void);			/* in qray.c */
 
+/* in tclsync.c */
+Tcl_Obj *BuildInterpSnapshot(Tcl_Interp *interp);
+int ReplayInterpSnapshot(Tcl_Interp *interp, Tcl_Obj *snapshot);
+
 
 // FIXME: Globals
 extern int mged_default_dlist;			/* in attach.c */
@@ -308,6 +312,84 @@ mged_ged_exec_async(struct mged_state *s, int argc, const char *argv[])
 extern "C" {
 
 
+/* Tcl command "_mged_ged_exec" registered inside search_interp.
+ * Bridges Tcl scripts running in the search interpreter to the GED command
+ * system so that GED commands (draw, ls, attr, ...) are reachable from
+ * within Tcl scripts executed by search -exec. */
+static int
+mged_search_ged_exec(ClientData cd, Tcl_Interp *interp, int argc, const char **argv)
+{
+    struct mged_state *s = (struct mged_state *)cd;
+    MGED_CK_STATE(s);
+
+    if (argc < 2) {
+	Tcl_AppendResult(interp, "Usage: _mged_ged_exec cmd [args...]", (char *)NULL);
+	return TCL_ERROR;
+    }
+
+    s->gedp->ged_skip_clbks++;
+    int ret = ged_exec(s->gedp, argc - 1, argv + 1);
+    s->gedp->ged_skip_clbks--;
+
+    const char *result = bu_vls_cstr(s->gedp->ged_result_str);
+    if (bu_vls_strlen(s->gedp->ged_result_str) > 0)
+	Tcl_SetResult(interp, (char *)result, TCL_VOLATILE);
+    bu_vls_trunc(s->gedp->ged_result_str, 0);
+
+    if (ret & GED_UNKNOWN)
+	return TCL_ERROR;
+    return (ret == BRLCAD_OK) ? TCL_OK : TCL_ERROR;
+}
+
+
+/* Create (or re-create) the secondary Tcl interpreter used exclusively for
+ * search -exec script evaluation.  It is separate from the main GUI interp
+ * so that Tcl_Eval can be called from the search worker thread without
+ * conflicting with the main thread's interpreter.
+ *
+ * The interpreter is initialized with the full BRL-CAD Tcl package set (via
+ * tclcad_init) and has a custom 'unknown' proc that forwards any unrecognized
+ * command to ged_exec through _mged_ged_exec.  GUI/display commands will fail,
+ * which is expected and fine for a search -exec context. */
+static Tcl_Interp *
+_create_search_interp(struct mged_state *s)
+{
+    Tcl_Interp *search_interp = NULL;
+
+    search_interp = Tcl_CreateInterp();
+
+    struct bu_vls tlog = BU_VLS_INIT_ZERO;
+    if (tclcad_init(search_interp, 0, &tlog) == TCL_ERROR) {
+	bu_log("search interp: tclcad_init error:\n%s\n", bu_vls_addr(&tlog));
+	bu_vls_free(&tlog);
+	Tcl_DeleteInterp(search_interp);
+	return NULL;
+    }
+    bu_vls_free(&tlog);
+
+    /* Register the GED bridge command. */
+    (void)Tcl_CreateCommand(search_interp, "_mged_ged_exec",
+	    mged_search_ged_exec, (ClientData)s,
+	    (Tcl_CmdDeleteProc *)NULL);
+
+    /* Override the Tcl 'unknown' handler so that any command not found in this
+     * interpreter's command table is forwarded to GED.  This makes all GED
+     * commands transparently callable by name from Tcl scripts. */
+    if (Tcl_Eval(search_interp,
+		 "proc unknown {cmd args} {\n"
+		 "    _mged_ged_exec $cmd {*}$args\n"
+		 "}") != TCL_OK) {
+	bu_log("search interp: failed to install unknown proc: %s\n",
+	       Tcl_GetStringResult(search_interp));
+    }
+
+    /* Sync the main interp state */
+    Tcl_Obj *snap = BuildInterpSnapshot(s->interp);
+    ReplayInterpSnapshot(search_interp, snap);
+
+    return search_interp;
+}
+
 
 /**
  * NOTE:  Per Tcl (https://www.tcl.tk/doc/howto/thread_model.html) "errors will
@@ -352,7 +434,18 @@ mged_db_search_callback(int argc, const char *argv[], void *UNUSED(u1), void *u2
     struct mged_state *s = (struct mged_state *)u2;
     MGED_CK_STATE(s);
 
-    if (s->search_interp) {
+    /* Secondary Tcl interpreter dedicated to search -exec script evaluation.
+     * It is fully independent of the main GUI interp and is the ONLY
+     * interpreter accessed from the search worker thread during -exec
+     * callbacks.  The main thread never touches it while a search is running,
+     * so there is no concurrent interpreter access.
+     * Initialized with the full BRL-CAD Tcl package set; a custom 'unknown'
+     * proc bridges any unrecognized Tcl command to ged_exec so that GED
+     * commands (draw, ls, attr, ...) are callable directly from Tcl scripts.
+     * GUI/display commands will silently fail, which is expected. */
+    Tcl_Interp *search_interp = _create_search_interp(s);
+
+    if (search_interp) {
 	// Normal path: evaluate as a Tcl command in the dedicated search
 	// interpreter.  GED commands are forwarded via the 'unknown' proc
 	// bridge (_mged_ged_exec), which manages ged_skip_clbks internally.
@@ -361,17 +454,21 @@ mged_db_search_callback(int argc, const char *argv[], void *UNUSED(u1), void *u2
 	    objv[i] = Tcl_NewStringObj(argv[i], -1);
 	    Tcl_IncrRefCount(objv[i]);
 	}
-	int tcl_ret = Tcl_EvalObjv(s->search_interp, argc, objv, 0);
+	int tcl_ret = Tcl_EvalObjv(search_interp, argc, objv, 0);
 	for (int i = 0; i < argc; i++)
 	    Tcl_DecrRefCount(objv[i]);
 	bu_free(objv, "search tcl objv");
 
-	const char *tcl_result = Tcl_GetStringResult(s->search_interp);
+	const char *tcl_result = Tcl_GetStringResult(search_interp);
 	if (tcl_result && *tcl_result) {
 	    size_t rlen = strlen(tcl_result);
 	    bu_log("%s%s", tcl_result, tcl_result[rlen-1] == '\n' ? "" : "\n");
 	}
-	Tcl_ResetResult(s->search_interp);
+	Tcl_ResetResult(search_interp);
+
+	/* Interp is temporary, since the user may change the parent environment
+	 * between one search -exec and the next. */
+	Tcl_DeleteInterp(search_interp);
 
 	return tcl_ret == TCL_OK;
     }
