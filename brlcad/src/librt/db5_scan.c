@@ -385,6 +385,10 @@ db_dirbuild(struct db_i *dbip)
 	return -1;
     }
 
+    /* If the directory has already been built on a prior call, skip rescanning */
+    if (dbip->i->dbi_nrec > 0)
+	return 0;
+
     /* First, determine what version database this is */
     version = db_version(dbip);
 
@@ -411,6 +415,7 @@ db_dirbuild(struct db_i *dbip)
 	    dbip->dbi_title = bu_strdup(DB5_GLOBAL_OBJECT_NAME);
 	    /* Missing _GLOBAL object so create it and set default title and units */
 	    db5_update_ident(dbip, "Untitled BRL-CAD Database", 1.0);
+	    db_update_nref(dbip, &rt_uniresource);
 	    return 0;	/* not a fatal error, user may have deleted it */
 	}
 	BU_EXTERNAL_INIT(&ext);
@@ -424,6 +429,7 @@ db_dirbuild(struct db_i *dbip)
 	    bu_log("db_dirbuild(%s): improper database, %s exists but is not an attribute-only object\n",
 		   dbip->dbi_filename, DB5_GLOBAL_OBJECT_NAME);
 	    dbip->dbi_title = bu_strdup(DB5_GLOBAL_OBJECT_NAME);
+	    db_update_nref(dbip, &rt_uniresource);
 	    return 0;	/* not a fatal error, need to let user proceed to fix it */
 	}
 
@@ -465,6 +471,7 @@ db_dirbuild(struct db_i *dbip)
 	bu_avs_free(&avs);
 	bu_free_external(&ext);	/* not until after done with avs! */
 
+	db_update_nref(dbip, &rt_uniresource);
 	return 0;		/* ok */
     }
     case 4:
@@ -474,6 +481,7 @@ db_dirbuild(struct db_i *dbip)
 	    return -1;
 	}
 
+	db_update_nref(dbip, &rt_uniresource);
 	return 0;		/* ok */
     }
 
@@ -493,6 +501,10 @@ db_dirbuild_inmem(struct db_i *dbip, const void *data, b_off_t data_size)
 	return -1;
 
     RT_CK_DBI(dbip);
+
+    /* If the directory has already been built on a prior call, skip rescanning */
+    if (dbip->i->dbi_nrec > 0)
+	return 0;
 
     /* First, determine what version database this is */
     version = db_version_inmem(dbip, data, data_size);
