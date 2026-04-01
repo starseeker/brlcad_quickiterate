@@ -21,12 +21,11 @@
 /** @{ */
 /** @file librt/mater.c
  *
- * Code to deal with establishing and maintaining the tables which map
- * region ID codes into worthwhile material information (colors and
- * outboard database "handles").
+ * Implementation of the per-database region-ID material/color table.
  *
- * These really are "db_" routines, more fundamental than "rt_".
- *
+ * Establishes and maintains the sorted list of @c struct @c mater entries that
+ * map region-ID ranges to RGB colors.  See include/rt/mater.h for the full API
+ * description.
  */
 /** @} */
 
@@ -39,14 +38,12 @@
 #include "./librt_private.h"
 
 /*
- * It is expected that entries on this mater list will be sorted in
- * strictly ascending order, with no overlaps (i.e., monotonically
- * increasing).
+ * Entries are kept in strictly ascending order by mt_low, with no overlaps.
  */
 
 
-void
-rt_pr_mater(register const struct mater *mp)
+static void
+_db_mater_print(const struct mater *mp)
 {
     bu_log("%5ld..%ld\t", mp->mt_low, mp->mt_high);
     bu_log("%d, %d, %d\t", mp->mt_r, mp->mt_g, mp->mt_b);
@@ -67,17 +64,17 @@ _rt_check_overlap(struct mater *newp)
 	    zot = newp->mt_forw;
 	    newp->mt_forw = zot->mt_forw;
 	    bu_log("dropping overlapping region-id based material property entry:\n");
-	    rt_pr_mater(zot);
+	    _db_mater_print(zot);
 	    bu_free((char *)zot, "getstruct mater");
 	    continue;
 	}
 	if (newp->mt_high >= newp->mt_forw->mt_low) {
 	    /* Shorten this mater struct, then done */
 	    bu_log("Shortening region-id based material property entry rhs range, from:\n");
-	    rt_pr_mater(newp->mt_forw);
+	    _db_mater_print(newp->mt_forw);
 	    bu_log("to:\n");
 	    newp->mt_forw->mt_low = newp->mt_high+1;
-	    rt_pr_mater(newp->mt_forw);
+	    _db_mater_print(newp->mt_forw);
 	    continue;	/* more conservative than returning */
 	}
     }
@@ -90,7 +87,7 @@ _rt_check_overlap(struct mater *newp)
  * needed.
  */
 void
-rt_insert_color(struct db_i *dbip, struct mater *newp)
+db_mater_insert(struct db_i *dbip, struct mater *newp)
 {
     struct mater *mp;
     struct mater *zot;
@@ -116,7 +113,7 @@ rt_insert_color(struct db_i *dbip, struct mater *newp)
 	if (mp->mt_low == newp->mt_low && mp->mt_high <= newp->mt_high) {
 	    bu_log("dropping overwritten region-id based material property entry:\n");
 	    newp->mt_forw = mp->mt_forw;
-	    rt_pr_mater(mp);
+	    _db_mater_print(mp);
 	    *mp = *newp;		/* struct copy */
 	    bu_free((char *)newp, "getstruct mater");
 	    newp = mp;
@@ -136,18 +133,18 @@ rt_insert_color(struct db_i *dbip, struct mater *newp)
 	    /* zot->mt_forw = mp->mt_forw; */
 	    newp->mt_forw = zot;
 	    mp->mt_forw = newp;
-	    rt_pr_mater(mp);
-	    rt_pr_mater(newp);
-	    rt_pr_mater(zot);
+	    _db_mater_print(mp);
+	    _db_mater_print(newp);
+	    _db_mater_print(zot);
 	    return;
 	}
 	if (mp->mt_high > newp->mt_low) {
 	    /* Overlap to the left: Shorten preceding entry */
 	    bu_log("Shortening region-id based material property entry lhs range, from:\n");
-	    rt_pr_mater(mp);
+	    _db_mater_print(mp);
 	    bu_log("to:\n");
 	    mp->mt_high = newp->mt_low-1;
-	    rt_pr_mater(mp);
+	    _db_mater_print(mp);
 	    /* Now append */
 	    newp->mt_forw = mp->mt_forw;
 	    mp->mt_forw = newp;
@@ -163,7 +160,7 @@ rt_insert_color(struct db_i *dbip, struct mater *newp)
 	    return;
 	}
     }
-    bu_log("fell out of rt_insert_color loop, append region-id based material property entry to end of list\n");
+    bu_log("fell out of db_mater_insert loop, append region-id based material property entry to end of list\n");
     /* Append at end */
     newp->mt_forw = MATER_NULL;
     mp->mt_forw = newp;
@@ -172,10 +169,10 @@ rt_insert_color(struct db_i *dbip, struct mater *newp)
 
 
 /**
- * Called from db_scan() when initially scanning database.
+ * Called from db_scan() when initially scanning a v4 database.
  */
 void
-rt_color_addrec(struct db_i *dbip, int low, int hi, int r, int g, int b, b_off_t addr)
+db_mater_add(struct db_i *dbip, int low, int hi, int r, int g, int b, b_off_t addr)
 {
     register struct mater *mp;
 
@@ -186,21 +183,17 @@ rt_color_addrec(struct db_i *dbip, int low, int hi, int r, int g, int b, b_off_t
     mp->mt_g = g;
     mp->mt_b = b;
     mp->mt_daddr = addr;
-    rt_insert_color(dbip, mp);
+    db_mater_insert(dbip, mp);
 }
 
 
-/**
- * If the GIFT regionid of this region falls into a mapped area of
- * regionid-driven color override.
- */
 void
-rt_region_color_map(struct db_i *dbip, register struct region *regp)
+db_mater_color_region(struct db_i *dbip, register struct region *regp)
 {
     register struct mater *mp;
 
     if (regp == REGION_NULL) {
-	bu_log("color_map(NULL)\n");
+	bu_log("db_mater_color_region(NULL)\n");
 	return;
     }
     if (!dbip)
@@ -223,7 +216,7 @@ rt_region_color_map(struct db_i *dbip, register struct region *regp)
 
 
 void
-rt_vls_color_map(struct bu_vls *str, struct db_i *dbip)
+db_mater_to_vls(struct bu_vls *str, struct db_i *dbip)
 {
     struct mater *mp;
 
@@ -242,33 +235,24 @@ rt_vls_color_map(struct bu_vls *str, struct db_i *dbip)
 }
 
 
-/**
- * returns the material linked list head node for the given database
- */
 struct mater *
-rt_material_head(struct db_i *dbip)
+db_mater_head(struct db_i *dbip)
 {
     RT_CK_DBI(dbip);
     return dbip->i->material_head;
 }
 
 
-/**
- * set the material linked list head node for the given database
- */
 void
-rt_new_material_head(struct db_i *dbip, struct mater *newmat)
+db_mater_set_head(struct db_i *dbip, struct mater *newmat)
 {
     RT_CK_DBI(dbip);
     dbip->i->material_head = newmat;
 }
 
 
-/**
- * returns a copy of the material linked list for the given database
- */
 struct mater *
-rt_dup_material_head(struct db_i *dbip)
+db_mater_dup(struct db_i *dbip)
 {
     register struct mater *mp = NULL;
     register struct mater *newmp = NULL;
@@ -297,11 +281,8 @@ rt_dup_material_head(struct db_i *dbip)
 }
 
 
-/**
- * Really should be db_color_free().  Called from db_close().
- */
 void
-rt_color_free(struct db_i *dbip)
+db_mater_free(struct db_i *dbip)
 {
     register struct mater *mp;
 
@@ -309,7 +290,6 @@ rt_color_free(struct db_i *dbip)
 
     while ((mp = dbip->i->material_head) != MATER_NULL) {
 	dbip->i->material_head = mp->mt_forw;	/* Dequeue 'mp' */
-	/* mt_handle? */
 	bu_free((char *)mp, "getstruct mater");
 	mp = MATER_NULL;
     }

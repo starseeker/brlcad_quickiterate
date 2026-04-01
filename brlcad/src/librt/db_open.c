@@ -460,7 +460,7 @@ db_close(register struct db_i *dbip)
 	bu_free(dbip->dbi_filename, "dbi_filename");
 
     db_free_anim(dbip);
-    rt_color_free(dbip);		/* Free per-db material/color table */
+    db_mater_free(dbip);		/* Free per-db material/color table */
 
     /* Release map of database holes */
     rt_mempurge(&(dbip->i->dbi_freep));
@@ -652,7 +652,7 @@ db_i_internal_destroy(struct db_i_internal *i)
     if (i->mesh_c)
 	bv_mesh_lod_context_destroy(i->mesh_c);
 
-    /* Free any remaining material entries (normally freed by rt_color_free) */
+    /* Free any remaining material entries (normally freed by db_mater_free) */
     while (i->material_head != MATER_NULL) {
 	struct mater *mp = i->material_head;
 	i->material_head = mp->mt_forw;
