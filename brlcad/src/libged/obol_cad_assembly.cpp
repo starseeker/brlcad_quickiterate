@@ -98,6 +98,16 @@ uploaded_parts()
  * -------------------------------------------------------------------------- */
 
 /**
+ * Convert a BRL-CAD 8-bit RGB triplet (e.g. bsg_obj_settings::color) to a
+ * normalized SbColor4f with alpha = 1.
+ */
+static inline SbColor4f
+rgb_to_sbcolor4f(const unsigned char rgb[3])
+{
+    return SbColor4f(rgb[0] / 255.0f, rgb[1] / 255.0f, rgb[2] / 255.0f, 1.0f);
+}
+
+/**
  * Build an obol::InstanceId from a db_full_path by chaining
  * CadIdBuilder::extendNameOccBool() from the root to the leaf.
  */
@@ -272,11 +282,7 @@ obol_cad_assembly_upsert_shape(SoCADAssembly *cad_asm, bsg_shape *s)
     /* Per-instance colour from s_os */
     if (s->s_os) {
 	rec.style.hasColorOverride = true;
-	rec.style.color = SbColor4f(
-	    s->s_os->color[0] / 255.0f,
-	    s->s_os->color[1] / 255.0f,
-	    s->s_os->color[2] / 255.0f,
-	    1.0f);
+	rec.style.color = rgb_to_sbcolor4f(s->s_os->color);
     }
 
     cad_asm->upsertInstance(iid, rec);
