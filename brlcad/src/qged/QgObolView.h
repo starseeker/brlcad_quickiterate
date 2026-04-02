@@ -112,6 +112,7 @@
 #include <Inventor/SbColor.h>
 #include <Inventor/nodes/SoMaterial.h>
 #include <Inventor/nodes/SoSphere.h>
+#include <Inventor/nodes/SoDirectionalLight.h>
 #include <Inventor/SbColor4f.h>
 #include <Inventor/sensors/SoSensorManager.h>
 #include <Inventor/nodes/SoPerspectiveCamera.h>
@@ -1694,7 +1695,103 @@ private:
 	offscreen_->setViewportRegion(vr);
 	offscreen_->setComponents(SoOffscreenRenderer::RGB_TRANSPARENCY);
 	offscreen_->setBackgroundColor(viewport_.getBackgroundColor());
-	if (!offscreen_->render(root)) { fillBlack(pw, ph); return; }
+	bool ok = offscreen_->render(root);
+	/* One-time diagnostic when the assembly has been populated */
+	if (!swrast_diag_done_ && cad_asm_ && cad_asm_->partCount() > 0) {
+	    swrast_diag_done_ = true;
+	    const unsigned char *dbuf = offscreen_->getBuffer();
+	    unsigned char cx[4] = {0, 0, 0, 0};
+	    int nbright = 0;
+	    if (dbuf && pw > 0 && ph > 0) {
+		size_t ci = (size_t)(ph/2) * pw * 4 + (size_t)(pw/2) * 4;
+		cx[0] = dbuf[ci]; cx[1] = dbuf[ci+1];
+		cx[2] = dbuf[ci+2]; cx[3] = dbuf[ci+3];
+		for (int y = 0; y < ph; y++)
+		    for (int x = 0; x < pw; x++) {
+			size_t pi = (size_t)y * pw * 4 + x * 4;
+			int mx = std::max((int)dbuf[pi], std::max((int)dbuf[pi+1], (int)dbuf[pi+2]));
+			if (mx > 20) nbright++;
+		    }
+	    }
+	    bu_log("renderSingle (post-asm): ok=%d %dx%d parts=%zu instances=%zu "
+		"center R=%d G=%d B=%d nbright=%d\n",
+		ok, pw, ph, cad_asm_->partCount(), cad_asm_->instanceCount(),
+		cx[0], cx[1], cx[2], nbright);
+	    /* OSMesa baseline: can render a sphere */
+	    {
+		SoSeparator *tr = new SoSeparator; tr->ref();
+		SoPerspectiveCamera *tc = new SoPerspectiveCamera;
+		tc->position.setValue(0.f, 0.f, 5.f); tc->focalDistance = 5.f;
+		tc->heightAngle = (float)(45.0 * M_PI / 180.0);
+		tr->addChild(tc); tr->addChild(new SoDirectionalLight);
+		SoMaterial *tm = new SoMaterial;
+		tm->diffuseColor.setValue(1.f, 0.f, 0.f); tr->addChild(tm);
+		tr->addChild(new SoSphere);
+		offscreen_->setBackgroundColor(SbColor(0.2f, 0.2f, 0.2f));
+		bool tok = offscreen_->render(tr);
+		const unsigned char *tb = offscreen_->getBuffer();
+		unsigned char tc2[4] = {0,0,0,0};
+		if (tb) { size_t ci=(size_t)(ph/2)*pw*4+(size_t)(pw/2)*4; memcpy(tc2,tb+ci,4); }
+		bu_log("  OSMesa sphere baseline: ok=%d center R=%d G=%d B=%d\n",
+		    tok, tc2[0], tc2[1], tc2[2]);
+		tr->unref();
+		offscreen_->setBackgroundColor(viewport_.getBackgroundColor());
+	    }
+	    /* Hardcoded SoCADAssembly test: build a unit cube wireframe */
+	    {
+		SoSeparator *cr = new SoSeparator; cr->ref();
+		SoPerspectiveCamera *cc = new SoPerspectiveCamera;
+		cc->position.setValue(3.f, 3.f, 3.f);
+		cc->heightAngle = (float)(45.0 * M_PI / 180.0);
+		cc->pointAt(SbVec3f(0.f,0.f,0.f), SbVec3f(0.f,1.f,0.f));
+		cr->addChild(cc); cr->addChild(new SoDirectionalLight);
+		SoCADAssembly *ta = new SoCADAssembly;
+		ta->drawMode = SoCADAssembly::WIREFRAME;
+		obol::PartGeometry pg;
+		obol::WireRep wr;
+		static const float cube_edges[12][2][3] = {
+		    {{0,0,0},{1,0,0}}, {{1,0,0},{1,1,0}}, {{1,1,0},{0,1,0}}, {{0,1,0},{0,0,0}},
+		    {{0,0,1},{1,0,1}}, {{1,0,1},{1,1,1}}, {{1,1,1},{0,1,1}}, {{0,1,1},{0,0,1}},
+		    {{0,0,0},{0,0,1}}, {{1,0,0},{1,0,1}}, {{1,1,0},{1,1,1}}, {{0,1,0},{0,1,1}}
+		};
+		for (int ei = 0; ei < 12; ei++) {
+		    obol::WirePolyline pl;
+		    pl.points.push_back(SbVec3f(cube_edges[ei][0][0], cube_edges[ei][0][1], cube_edges[ei][0][2]));
+		    pl.points.push_back(SbVec3f(cube_edges[ei][1][0], cube_edges[ei][1][1], cube_edges[ei][1][2]));
+		    wr.polylines.push_back(pl);
+		}
+		wr.bounds = SbBox3f(0.f,0.f,0.f, 1.f,1.f,1.f);
+		pg.wire = wr;
+		obol::PartId cpid = obol::CadIdBuilder::hash128("test_cube");
+		ta->upsertPart(cpid, pg);
+		obol::InstanceRecord ir;
+		ir.part = cpid;
+		ir.parent = obol::CadIdBuilder::Root();
+		ir.localToRoot.makeIdentity();
+		ir.childName = "cube0";
+		ta->upsertInstanceAuto(ir);
+		cr->addChild(ta);
+		offscreen_->setBackgroundColor(SbColor(0.2f, 0.2f, 0.2f));
+		bool aok = offscreen_->render(cr);
+		const unsigned char *ab = offscreen_->getBuffer();
+		int anbright = 0;
+		unsigned char ac[4] = {0,0,0,0};
+		if (ab && pw > 0 && ph > 0) {
+		    size_t ci = (size_t)(ph/2)*pw*4+(size_t)(pw/2)*4;
+		    memcpy(ac, ab+ci, 4);
+		    for (int ay=0; ay<ph; ay++)
+			for (int ax=0; ax<pw; ax++) {
+			    size_t pi=(size_t)ay*pw*4+ax*4;
+			    if (std::max((int)ab[pi],std::max((int)ab[pi+1],(int)ab[pi+2]))>20) anbright++;
+			}
+		}
+		bu_log("  SoCADAssembly cube test: ok=%d center R=%d G=%d B=%d nbright=%d\n",
+		    aok, ac[0], ac[1], ac[2], anbright);
+		cr->unref();
+		offscreen_->setBackgroundColor(viewport_.getBackgroundColor());
+	    }
+	}
+	if (!ok) { fillBlack(pw, ph); return; }
 	drawBuffer(offscreen_->getBuffer(), pw, ph, pw, ph);
 	/* Framebuffer overlay: composite rt output on top of the 3D scene. */
 	_paintFbOverlay();
@@ -1827,7 +1924,7 @@ private:
     void onTimer() { SoDB::getSensorManager()->processTimerQueue();
 		     QTimer::singleShot(0, this, &QgObolSwrastView::scheduleTimer); }
     void scheduleTimer() {
-	SbTime t; SbBool b;
+	SbTime t;
 	if (SoDB::getSensorManager()->isTimerSensorPending(t))
 	    timerTimer_.start((int)(t.getValue()*1000 + 0.5));
     }
@@ -1837,6 +1934,7 @@ private:
     bsg_view            *bsg_v_;
     SoSeparator         *obol_root_;
     SoCADAssembly       *cad_asm_;     /* CAD assembly node (owned, ref counted) */
+    bsg_shape           *selectedShape_;
     bool                 quad_mode_;
     SoViewport           viewport_;
     SoQuadViewport       quad_viewport_;
@@ -1844,10 +1942,10 @@ private:
     SoOffscreenRenderer *offscreen_;
     QTimer               idleTimer_, delayTimer_, timerTimer_;
     QPointF              lastMousePos_;
-    bsg_shape           *selectedShape_ = nullptr;
     bool                 init_done_emitted_ = false;
     struct fbserv_obj   *fbs_ = nullptr;  /* Stage 20: embedded rt framebuffer (not owned) */
     int                  paint_count_ = 0;  /* diagnostic: counts paintEvent() invocations */
+    bool                 swrast_diag_done_ = false; /* guard: renderSingle diagnostic fires once */
 };
 
 #endif /* OBOL_BUILD_DUAL_GL */
