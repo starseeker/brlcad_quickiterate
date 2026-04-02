@@ -1964,6 +1964,9 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     if (2.0*d_axis_len <= tol->dist)
 	d_axis_len = 0.0;
 
+    bu_log("DEBUG tgc_tess: c_axis_len=%.17g d_axis_len=%.17g tol->dist=%.17g nsegs=TBD\n",
+	   c_axis_len, d_axis_len, tol->dist);
+
     if (ZERO(a_axis_len) && ZERO(b_axis_len) && (ZERO(c_axis_len) || ZERO(d_axis_len))) {
 	bu_log("Illegal TGC a, b, and c or d less than tolerance\n");
 	return -1;
