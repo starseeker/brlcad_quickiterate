@@ -113,6 +113,9 @@
 #include <Inventor/nodes/SoMaterial.h>
 #include <Inventor/nodes/SoSphere.h>
 #include <Inventor/nodes/SoDirectionalLight.h>
+#include <Inventor/nodes/SoCoordinate3.h>
+#include <Inventor/nodes/SoIndexedLineSet.h>
+#include <Inventor/nodes/SoGroup.h>
 #include <Inventor/SbColor4f.h>
 #include <Inventor/sensors/SoSensorManager.h>
 #include <Inventor/nodes/SoPerspectiveCamera.h>
@@ -1477,6 +1480,24 @@ public:
 	renderSingle(pw, ph);
 	const unsigned char *buf = offscreen_->getBuffer();
 	if (!buf) return QImage();
+	/* Log root child count and bright pixels on first post-draw render */
+	if (!grab_diag_done_) {
+	    SoNode *root = viewport_.getRoot();
+	    int nc = (root && root->isOfType(SoGroup::getClassTypeId()))
+		     ? static_cast<SoGroup*>(root)->getNumChildren() : -1;
+	    /* Check obol_root_ (2nd child = scene, 1st = camera) */
+	    int nc_obol = obol_root_ ? obol_root_->getNumChildren() : -1;
+	    int nb = 0;
+	    for (int y = 0; y < ph; y++)
+		for (int x = 0; x < pw; x++) {
+		    size_t pi = (size_t)y * pw * 4 + x * 4;
+		    if (std::max((int)buf[pi], std::max((int)buf[pi+1], (int)buf[pi+2])) > 20) nb++;
+		}
+	    bu_log("grabGLImage: %dx%d root_nc=%d obol_root_nc=%d nbright=%d\n",
+		pw, ph, nc, nc_obol, nb);
+	    if (nb > 0) grab_diag_done_ = true;
+	}
+	if (!buf) return QImage();
 	/* SoOffscreenRenderer returns RGBA bottom-up; copy to a top-down RGB QImage */
 	QImage img(pw, ph, QImage::Format_RGB888);
 	for (int row = 0; row < ph; ++row) {
@@ -1730,9 +1751,31 @@ private:
 	offscreen_->setViewportRegion(vr);
 	offscreen_->setComponents(SoOffscreenRenderer::RGB_TRANSPARENCY);
 	offscreen_->setBackgroundColor(viewport_.getBackgroundColor());
-	bool ok = offscreen_->render(root);
-	/* One-time diagnostic when the assembly has been populated */
-	if (!swrast_diag_done_ && cad_asm_ && cad_asm_->partCount() > 0) {
+	/* When using SoOffscreenRenderer (OSMesa), SoViewport::getRoot() may
+	 * return a root that includes viewport-specific state nodes which
+	 * SoOffscreenRenderer doesn't handle.  Build a simple render root
+	 * {camera, obol_root_} for direct offscreen rendering. */
+	SoSeparator *render_root = nullptr;
+	SoCamera *cam = viewport_.getCamera();
+	if (cam && obol_root_) {
+	    render_root = new SoSeparator;
+	    render_root->ref();
+	    render_root->addChild(cam);
+	    render_root->addChild(obol_root_);
+	}
+	SoNode *render_node = render_root ? static_cast<SoNode*>(render_root) : root;
+	bool ok = offscreen_->render(render_node);
+	if (render_root) {
+	    render_root->removeAllChildren();
+	    render_root->unref();
+	}
+	/* Diagnostic: fire when assembly has parts (normal GL3+) OR when GL2
+	 * compat mode is active and shapes are present in the scene root. */
+	bool diag_cond = (!swrast_diag_done_) &&
+	    ((cad_asm_ && cad_asm_->partCount() > 0) ||
+	     (obol_cad_assembly_is_gl2_compat() &&
+	      obol_root_ && obol_root_->getNumChildren() >= 2));
+	if (diag_cond) {
 	    swrast_diag_done_ = true;
 	    const unsigned char *dbuf = offscreen_->getBuffer();
 	    unsigned char cx[4] = {0, 0, 0, 0};
@@ -1748,10 +1791,17 @@ private:
 			if (mx > 20) nbright++;
 		    }
 	    }
-	    bu_log("renderSingle (post-asm): ok=%d %dx%d parts=%zu instances=%zu "
+	    size_t nparts = cad_asm_ ? cad_asm_->partCount() : 0;
+	    size_t ninsts = cad_asm_ ? cad_asm_->instanceCount() : 0;
+	    bu_log("renderSingle (post-asm): ok=%d %dx%d parts=%zu instances=%zu gl2=%d "
 		"center R=%d G=%d B=%d nbright=%d\n",
-		ok, pw, ph, cad_asm_->partCount(), cad_asm_->instanceCount(),
+		ok, pw, ph, nparts, ninsts,
+		(int)obol_cad_assembly_is_gl2_compat(),
 		cx[0], cx[1], cx[2], nbright);
+	    bu_log("  root type=%s numchildren=%d\n",
+		root->getTypeId().getName().getString(),
+		root->isOfType(SoGroup::getClassTypeId())
+		    ? static_cast<SoGroup*>(root)->getNumChildren() : -1);
 	    /* OSMesa baseline: can render a sphere */
 	    {
 		SoSeparator *tr = new SoSeparator; tr->ref();
@@ -1766,14 +1816,79 @@ private:
 		bool tok = offscreen_->render(tr);
 		const unsigned char *tb = offscreen_->getBuffer();
 		unsigned char tc2[4] = {0,0,0,0};
-		if (tb) { size_t ci=(size_t)(ph/2)*pw*4+(size_t)(pw/2)*4; memcpy(tc2,tb+ci,4); }
-		bu_log("  OSMesa sphere baseline: ok=%d center R=%d G=%d B=%d\n",
-		    tok, tc2[0], tc2[1], tc2[2]);
+		int tsph_nb = 0;
+		if (tb) {
+		    size_t ci=(size_t)(ph/2)*pw*4+(size_t)(pw/2)*4;
+		    memcpy(tc2,tb+ci,4);
+		    for (int y=0;y<ph;y++) for (int x=0;x<pw;x++) {
+			size_t pi=(size_t)y*pw*4+x*4;
+			if (std::max((int)tb[pi],std::max((int)tb[pi+1],(int)tb[pi+2]))>50) tsph_nb++;
+		    }
+		}
+		bu_log("  OSMesa sphere baseline: ok=%d center R=%d G=%d B=%d nbright=%d\n",
+		    tok, tc2[0], tc2[1], tc2[2], tsph_nb);
 		tr->unref();
 		offscreen_->setBackgroundColor(viewport_.getBackgroundColor());
 	    }
-	    /* Hardcoded SoCADAssembly test: build a unit cube wireframe */
-	    {
+	    /* GL2 wireframe test: SoCoordinate3+SoIndexedLineSet (same as s_obol_node) */
+	    if (obol_cad_assembly_is_gl2_compat()) {
+		SoSeparator *lr = new SoSeparator; lr->ref();
+		SoPerspectiveCamera *lc = new SoPerspectiveCamera;
+		lc->position.setValue(0.f, 0.f, 5.f); lc->focalDistance = 5.f;
+		lc->heightAngle = (float)(45.0 * M_PI / 180.0);
+		lr->addChild(lc); lr->addChild(new SoDirectionalLight);
+		SoMaterial *lm = new SoMaterial;
+		lm->diffuseColor.setValue(1.f, 1.f, 0.f); lr->addChild(lm);
+		/* A simple triangle wireframe */
+		SoCoordinate3 *coord = new SoCoordinate3;
+		coord->point.set1Value(0, SbVec3f(-1.f, -1.f, 0.f));
+		coord->point.set1Value(1, SbVec3f( 1.f, -1.f, 0.f));
+		coord->point.set1Value(2, SbVec3f( 0.f,  1.f, 0.f));
+		lr->addChild(coord);
+		SoIndexedLineSet *ils = new SoIndexedLineSet;
+		int32_t idxs[] = {0, 1, 2, 0, SO_END_LINE_INDEX};
+		ils->coordIndex.setValues(0, 5, idxs);
+		lr->addChild(ils);
+		offscreen_->setBackgroundColor(SbColor(0.1f, 0.1f, 0.1f));
+		bool lok = offscreen_->render(lr);
+		const unsigned char *lb = offscreen_->getBuffer();
+		int lnb = 0;
+		if (lb) for (int y=0;y<ph;y++) for (int x=0;x<pw;x++) {
+		    size_t pi=(size_t)y*pw*4+x*4;
+		    if (std::max((int)lb[pi],std::max((int)lb[pi+1],(int)lb[pi+2]))>50) lnb++;
+		}
+		bu_log("  GL2 IndexedLineSet test: ok=%d nbright=%d\n", lok, lnb);
+		lr->unref();
+		offscreen_->setBackgroundColor(viewport_.getBackgroundColor());
+		/* Test: inject SoSphere into actual obol_root_ to confirm camera framing */
+		if (obol_root_) {
+		    SoMaterial *sm = new SoMaterial;
+		    sm->diffuseColor.setValue(0.f, 1.f, 0.f);
+		    SoSphere *ss = new SoSphere; ss->radius = 50.f;
+		    obol_root_->addChild(sm);
+		    obol_root_->addChild(ss);
+		    offscreen_->setBackgroundColor(SbColor(0.1f, 0.1f, 0.1f));
+		    SoSeparator *sr = new SoSeparator; sr->ref();
+		    sr->addChild(viewport_.getCamera());
+		    sr->addChild(obol_root_);
+		    bool sok = offscreen_->render(sr);
+		    const unsigned char *sb = offscreen_->getBuffer();
+		    int snb = 0;
+		    if (sb) for (int y=0;y<ph;y++) for (int x=0;x<pw;x++) {
+			size_t pi=(size_t)y*pw*4+x*4;
+			if (std::max((int)sb[pi],std::max((int)sb[pi+1],(int)sb[pi+2]))>50) snb++;
+		    }
+		    bu_log("  Sphere-in-obol-root test: ok=%d nbright=%d obol_nc=%d\n",
+			sok, snb, obol_root_->getNumChildren());
+		    sr->removeAllChildren();
+		    sr->unref();
+		    obol_root_->removeChild(obol_root_->getNumChildren()-1); /* sphere */
+		    obol_root_->removeChild(obol_root_->getNumChildren()-1); /* material */
+		    offscreen_->setBackgroundColor(viewport_.getBackgroundColor());
+		}
+	    }
+	    /* Hardcoded SoCADAssembly test (only meaningful in GL3+ mode) */
+	    if (!obol_cad_assembly_is_gl2_compat()) {
 		SoSeparator *cr = new SoSeparator; cr->ref();
 		SoPerspectiveCamera *cc = new SoPerspectiveCamera;
 		cc->position.setValue(3.f, 3.f, 3.f);
@@ -1981,6 +2096,7 @@ private:
     struct fbserv_obj   *fbs_ = nullptr;  /* Stage 20: embedded rt framebuffer (not owned) */
     int                  paint_count_ = 0;  /* diagnostic: counts paintEvent() invocations */
     bool                 swrast_diag_done_ = false; /* guard: renderSingle diagnostic fires once */
+    bool                 grab_diag_done_   = false; /* guard: grabGLImage diagnostic fires once */
 };
 
 #endif /* OBOL_BUILD_DUAL_GL */
