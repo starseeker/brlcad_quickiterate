@@ -353,6 +353,17 @@ obol_cad_assembly_upsert_shape(SoCADAssembly *cad_asm, bsg_shape *s)
 
 	cad_asm->upsertPart(pid, geom);
 	uploaded_parts().insert(pid);
+	/* Diagnostic: report WireRep content and bounds */
+	if (geom.wire.has_value()) {
+	    const obol::WireRep &wr = *geom.wire;
+	    SbVec3f bmin, bmax;
+	    wr.bounds.getBounds(bmin, bmax);
+	    bu_log("obol_asm upsertPart '%s': %zu polylines bounds(%.1f,%.1f,%.1f)-(%.1f,%.1f,%.1f)\n",
+		dp->d_namep, wr.polylines.size(),
+		bmin[0], bmin[1], bmin[2], bmax[0], bmax[1], bmax[2]);
+	} else {
+	    bu_log("obol_asm upsertPart '%s': no wire (shaded only)\n", dp->d_namep);
+	}
     }
 
     /* ------------------------------------------------------------------ *
@@ -399,6 +410,15 @@ obol_cad_assembly_upsert_shape(SoCADAssembly *cad_asm, bsg_shape *s)
     }
 
     cad_asm->upsertInstance(iid, rec);
+    /* Diagnostic: report transform translation (direct matrix read, no SbRotation needed) */
+    {
+	/* SbMatrix row-vector: translation is last row [3][0..2] */
+	float tx = rec.localToRoot[3][0];
+	float ty = rec.localToRoot[3][1];
+	float tz = rec.localToRoot[3][2];
+	bu_log("obol_asm upsertInstance '%s': localToRoot tx=(%.1f,%.1f,%.1f)\n",
+	    dp->d_namep, tx, ty, tz);
+    }
 
     /* Update reverse-lookup tables */
     instance_shape_map()[iid] = s;

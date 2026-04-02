@@ -14,9 +14,52 @@ if(BRLCAD_ENABLE_QT)
     # Propagate dual-GL flag from obol-config.cmake (set by Obol_BUILD_DUAL_GL).
     # When building obol from source (not bext_output) the variable is set by
     # obol-config.cmake.in; for older pre-built packages it may be absent.
+    #
+    # Fall back: probe for libosmesa.so next to libObol.so.  Pre-built Obol
+    # packages that include OSMesa are shipped with libosmesa.so in the same
+    # lib directory; its presence is a reliable indicator of dual-GL support.
+    if(NOT Obol_BUILD_DUAL_GL)
+      get_target_property(_obol_lib Obol::Obol IMPORTED_LOCATION_RELEASE)
+      if(NOT _obol_lib)
+        get_target_property(_obol_lib Obol::Obol IMPORTED_LOCATION)
+      endif()
+      if(_obol_lib)
+        get_filename_component(_obol_libdir "${_obol_lib}" DIRECTORY)
+        if(EXISTS "${_obol_libdir}/libosmesa.so" OR
+           EXISTS "${_obol_libdir}/libosmesa.so.0" OR
+           EXISTS "${_obol_libdir}/libosmesa.dll")
+          set(Obol_BUILD_DUAL_GL ON)
+        endif()
+      endif()
+    endif()
     if(Obol_BUILD_DUAL_GL)
       set(BRLCAD_OBOL_DUAL_GL ON CACHE BOOL "Obol built with dual-GL (OSMesa) support" FORCE)
       message(STATUS "Obol dual-GL (OSMesa swrast) support: ON")
+      # Find libosmesa alongside libObol so qged/qged_test can link it.
+      # libObol.so has undefined references to OSMesa symbols that must be
+      # resolved at link time by the application (runtime-loader also accepts
+      # LD_PRELOAD or RPATH that includes libosmesa, but explicit link is safer).
+      if(NOT _obol_libdir)
+        get_target_property(_obol_lib_for_osmesa Obol::Obol IMPORTED_LOCATION_RELEASE)
+        if(NOT _obol_lib_for_osmesa)
+          get_target_property(_obol_lib_for_osmesa Obol::Obol IMPORTED_LOCATION)
+        endif()
+        if(_obol_lib_for_osmesa)
+          get_filename_component(_obol_libdir "${_obol_lib_for_osmesa}" DIRECTORY)
+        endif()
+      endif()
+      find_library(OSMESA_LIBRARY
+        NAMES osmesa OSMesa
+        HINTS "${_obol_libdir}"
+        NO_DEFAULT_PATH)
+      if(NOT OSMESA_LIBRARY)
+        find_library(OSMESA_LIBRARY NAMES osmesa OSMesa)
+      endif()
+      if(OSMESA_LIBRARY)
+        message(STATUS "OSMesa library: ${OSMESA_LIBRARY}")
+      else()
+        message(WARNING "OSMesa library not found — swrast link may fail")
+      endif()
     else()
       set(BRLCAD_OBOL_DUAL_GL OFF CACHE BOOL "Obol built with dual-GL (OSMesa) support" FORCE)
       message(STATUS "Obol dual-GL (OSMesa swrast) support: OFF (pre-built without dual-GL)")
@@ -119,6 +162,9 @@ if(BRLCAD_ENABLE_QT)
   endif(Qt6Widgets_FOUND)
   if(BRLCAD_ENABLE_OBOL AND TARGET Obol::Obol)
     target_link_libraries(qged Obol::Obol)
+    if(BRLCAD_OBOL_DUAL_GL AND OSMESA_LIBRARY)
+      target_link_libraries(qged "${OSMESA_LIBRARY}")
+    endif()
     # Stage 20: QgObolView no longer calls fb_readrect/fb_getwidth/fb_getheight.
     # The Obol-native fbserv packet handlers write directly into fbs_pixbuf, so
     # qged no longer needs an explicit libdm link in Obol builds.
@@ -159,6 +205,9 @@ if(BRLCAD_ENABLE_QT)
   endif()
   if(BRLCAD_ENABLE_OBOL AND TARGET Obol::Obol)
     target_link_libraries(qged_test Obol::Obol)
+    if(BRLCAD_OBOL_DUAL_GL AND OSMESA_LIBRARY)
+      target_link_libraries(qged_test "${OSMESA_LIBRARY}")
+    endif()
     # Stage 20: libdm no longer needed in Obol builds (fbs_pixbuf path).
     if(Qt6Widgets_FOUND AND TARGET Qt6::OpenGLWidgets)
       target_link_libraries(qged_test Qt6::OpenGLWidgets)
@@ -195,6 +244,9 @@ if(BRLCAD_ENABLE_QT)
   endif()
   if(BRLCAD_ENABLE_OBOL AND TARGET Obol::Obol)
     target_link_libraries(qged_pipeline_test Obol::Obol)
+    if(BRLCAD_OBOL_DUAL_GL AND OSMESA_LIBRARY)
+      target_link_libraries(qged_pipeline_test "${OSMESA_LIBRARY}")
+    endif()
     # Stage 20: libdm no longer needed in Obol builds (fbs_pixbuf path).
     if(Qt6Widgets_FOUND AND TARGET Qt6::OpenGLWidgets)
       target_link_libraries(qged_pipeline_test Qt6::OpenGLWidgets)
