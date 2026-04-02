@@ -48,17 +48,40 @@ if(BRLCAD_ENABLE_QT)
           get_filename_component(_obol_libdir "${_obol_lib_for_osmesa}" DIRECTORY)
         endif()
       endif()
-      find_library(OSMESA_LIBRARY
-        NAMES osmesa OSMesa
-        HINTS "${_obol_libdir}"
+      # The bundled bext libosmesa is Mesa 6.5 (GL 2.0 only).  SoCADAssembly
+      # needs GL 3.3+, so we prefer the system libOSMesa (Mesa 3.x+) which
+      # provides OSMesaCreateContextAttribs and modern GL profiles.
+      # Strategy: find system OSMesa first; fall back to bundled if not found.
+      find_library(OSMESA_SYSTEM_LIBRARY
+        NAMES OSMesa osmesa
+        HINTS /usr/lib /usr/lib/x86_64-linux-gnu /usr/lib64
         NO_DEFAULT_PATH)
-      if(NOT OSMESA_LIBRARY)
-        find_library(OSMESA_LIBRARY NAMES osmesa OSMesa)
-      endif()
-      if(OSMESA_LIBRARY)
-        message(STATUS "OSMesa library: ${OSMESA_LIBRARY}")
+      if(OSMESA_SYSTEM_LIBRARY)
+        set(OSMESA_LIBRARY "${OSMESA_SYSTEM_LIBRARY}" CACHE FILEPATH
+          "OSMesa library (system preferred for GL 3.3+ support)" FORCE)
+        message(STATUS "OSMesa library (system, GL 3.3+): ${OSMESA_LIBRARY}")
       else()
-        message(WARNING "OSMesa library not found — swrast link may fail")
+        find_library(OSMESA_LIBRARY
+          NAMES osmesa OSMesa
+          HINTS "${_obol_libdir}"
+          NO_DEFAULT_PATH)
+        if(NOT OSMESA_LIBRARY)
+          find_library(OSMESA_LIBRARY NAMES osmesa OSMesa)
+        endif()
+        if(OSMESA_LIBRARY)
+          message(STATUS "OSMesa library (bundled/fallback): ${OSMESA_LIBRARY}")
+        else()
+          message(WARNING "OSMesa library not found — swrast link may fail")
+        endif()
+      endif()
+      # Find the system osmesa.h so that CoinOSMesaCtxData can use
+      # OSMesaCreateContextAttribs (declared in GL/osmesa.h on modern systems).
+      find_path(OSMESA_INCLUDE_DIR
+        NAMES GL/osmesa.h
+        HINTS /usr/include
+        NO_DEFAULT_PATH)
+      if(OSMESA_INCLUDE_DIR)
+        message(STATUS "OSMesa include dir (system): ${OSMESA_INCLUDE_DIR}")
       endif()
     else()
       set(BRLCAD_OBOL_DUAL_GL OFF CACHE BOOL "Obol built with dual-GL (OSMesa) support" FORCE)
@@ -178,7 +201,9 @@ if(BRLCAD_ENABLE_QT)
     target_include_directories(qged PRIVATE
       ${Obol_INCLUDE_DIR}
       # obol_scene.h lives in src/libged — needed by QgObolView.h
-      ${CMAKE_SOURCE_DIR}/src/libged)
+      ${CMAKE_SOURCE_DIR}/src/libged
+      # System osmesa.h (GL/osmesa.h) for OSMesaCreateContextAttribs
+      $<$<BOOL:${OSMESA_INCLUDE_DIR}>:${OSMESA_INCLUDE_DIR}>)
     target_compile_definitions(qged PRIVATE BRLCAD_ENABLE_OBOL)
     if(BRLCAD_OBOL_DUAL_GL)
       target_compile_definitions(qged PRIVATE OBOL_BUILD_DUAL_GL)
@@ -214,7 +239,8 @@ if(BRLCAD_ENABLE_QT)
     endif()
     target_include_directories(qged_test PRIVATE
       ${Obol_INCLUDE_DIR}
-      ${CMAKE_SOURCE_DIR}/src/libged)
+      ${CMAKE_SOURCE_DIR}/src/libged
+      $<$<BOOL:${OSMESA_INCLUDE_DIR}>:${OSMESA_INCLUDE_DIR}>)
     target_compile_definitions(qged_test PRIVATE BRLCAD_ENABLE_OBOL)
     if(BRLCAD_OBOL_DUAL_GL)
       target_compile_definitions(qged_test PRIVATE OBOL_BUILD_DUAL_GL)
@@ -253,7 +279,8 @@ if(BRLCAD_ENABLE_QT)
     endif()
     target_include_directories(qged_pipeline_test PRIVATE
       ${Obol_INCLUDE_DIR}
-      ${CMAKE_SOURCE_DIR}/src/libged)
+      ${CMAKE_SOURCE_DIR}/src/libged
+      $<$<BOOL:${OSMESA_INCLUDE_DIR}>:${OSMESA_INCLUDE_DIR}>)
     target_compile_definitions(qged_pipeline_test PRIVATE BRLCAD_ENABLE_OBOL)
     if(BRLCAD_OBOL_DUAL_GL)
       target_compile_definitions(qged_pipeline_test PRIVATE OBOL_BUILD_DUAL_GL)
