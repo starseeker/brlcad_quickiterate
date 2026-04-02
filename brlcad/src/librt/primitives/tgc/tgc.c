@@ -1964,22 +1964,23 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     if (2.0*d_axis_len <= tol->dist)
 	d_axis_len = 0.0;
 
-    /* If either top axis is effectively zero, treat the top as a degenerate
-     * apex point by zeroing both axes.  A mixed state (one zeroed, one not)
-     * leads to inconsistent logic throughout the tessellation and ends up
-     * producing a ring of top vertices all within calculational tolerance
-     * of each other, which causes vertex fusion to create self-loop edges.
-     */
-    if (ZERO(c_axis_len) || ZERO(d_axis_len)) {
-	c_axis_len = 0.0;
+    /* If one top axis was zeroed by the tolerance check but the other is still
+     * nonzero, and the nonzero one is also small (< tol->dist, i.e. within a
+     * factor of 2 of the threshold), the two axes are both near-zero and
+     * straddling the threshold due to floating-point rounding.  Zero both to
+     * produce a consistent degenerate apex.  Do NOT do this when the surviving
+     * axis is large — that would wrongly collapse a genuine truncated cone with
+     * one small and one large top axis into an apex. */
+    if (ZERO(c_axis_len) && !ZERO(d_axis_len) && d_axis_len < tol->dist)
 	d_axis_len = 0.0;
-    }
+    else if (ZERO(d_axis_len) && !ZERO(c_axis_len) && c_axis_len < tol->dist)
+	c_axis_len = 0.0;
 
-    /* Similarly, if either bottom axis is effectively zero, zero both. */
-    if (ZERO(a_axis_len) || ZERO(b_axis_len)) {
-	a_axis_len = 0.0;
+    /* Same consistency check for the bottom axes. */
+    if (ZERO(a_axis_len) && !ZERO(b_axis_len) && b_axis_len < tol->dist)
 	b_axis_len = 0.0;
-    }
+    else if (ZERO(b_axis_len) && !ZERO(a_axis_len) && a_axis_len < tol->dist)
+	a_axis_len = 0.0;
 
     if (ZERO(a_axis_len) && ZERO(b_axis_len) && (ZERO(c_axis_len) || ZERO(d_axis_len))) {
 	bu_log("Illegal TGC a, b, and c or d less than tolerance\n");
