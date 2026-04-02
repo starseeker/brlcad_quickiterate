@@ -558,7 +558,11 @@ obol_scene_assemble_cad(SoSeparator *scene_root, SoCADAssembly *cad_asm, bsg_vie
 
     /* Ensure the assembly node is a child of scene_root.
      * Append at the end so it comes after any camera node already inserted
-     * by setObolSceneGraph() — Coin3D needs the camera before geometry. */
+     * by setObolSceneGraph() — Coin3D needs the camera before geometry.
+     * Skip this when in GL2 compat mode: SoCADAssembly requires GL 3.3+;
+     * inserting it into the scene with a GL 2.x context would corrupt the
+     * GL state and prevent the per-shape SoSeparator fallback nodes from
+     * rendering. */
     bool asm_in_root = false;
     for (int ci = 0; ci < scene_root->getNumChildren(); ci++) {
 	if (scene_root->getChild(ci) == cad_asm) {
@@ -566,8 +570,19 @@ obol_scene_assemble_cad(SoSeparator *scene_root, SoCADAssembly *cad_asm, bsg_vie
 	    break;
 	}
     }
-    if (!asm_in_root)
+    if (!asm_in_root && !obol_cad_assembly_is_gl2_compat() && !getenv("BRLCAD_NO_CAD_ASM"))
 	scene_root->addChild(cad_asm);
+    /* In GL2 compat mode (or BRLCAD_NO_CAD_ASM), remove any previously-added
+     * assembly node so its broken GL state doesn't corrupt the per-shape rendering. */
+    bool skip_asm = obol_cad_assembly_is_gl2_compat() || getenv("BRLCAD_NO_CAD_ASM");
+    if (asm_in_root && skip_asm) {
+	for (int ci = scene_root->getNumChildren() - 1; ci >= 0; ci--) {
+	    if (scene_root->getChild(ci) == cad_asm) {
+		scene_root->removeChild(ci);
+		break;
+	    }
+	}
+    }
 
     /* Walk the bsg_shape tree */
     bsg_shape *view_root = bsg_scene_root_get(v);
