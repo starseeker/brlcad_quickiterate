@@ -135,7 +135,19 @@
 
 #include <GL/gl.h>
 #ifdef OBOL_BUILD_DUAL_GL
-#  include <OSMesa/osmesa.h>
+/* Use the system osmesa.h (Mesa 3.x+) which declares OSMesaCreateContextAttribs
+ * and OSMESA_CORE_PROFILE.  The bundled bext header (OSMesa/osmesa.h) is the
+ * older Mesa 6.5 API that only has OSMesaCreateContextExt (GL 2.0 max).
+ * The system header at GL/osmesa.h corresponds to the system libOSMesa.so. */
+#  ifdef __has_include
+#    if __has_include(<GL/osmesa.h>)
+#      include <GL/osmesa.h>
+#    else
+#      include <OSMesa/osmesa.h>
+#    endif
+#  else
+#    include <GL/osmesa.h>
+#  endif
 #endif
 #include <cmath>
 #include <atomic>
@@ -282,7 +294,33 @@ struct CoinOSMesaCtxData {
     GLenum         prev_fmt  = 0;
 
     CoinOSMesaCtxData(int w, int h) : width(w), height(h) {
-	ctx = OSMesaCreateContextExt(OSMESA_RGBA, 16, 0, 0, NULL);
+	/* Prefer OSMesaCreateContextAttribs (Mesa 3.x+, available in the system
+	 * libOSMesa) to request a modern core-profile context.  SoCADAssembly
+	 * requires at least GL 3.3 for its shader pipeline; request GL 4.1 for
+	 * full GLSL 4.10 support.  Fall back to OSMesaCreateContextExt (GL 2.0)
+	 * if the attribs API is unavailable (older bundled Mesa). */
+#ifdef OSMESA_CONTEXT_MAJOR_VERSION
+	static const int attribs[] = {
+	    OSMESA_FORMAT,                  OSMESA_RGBA,
+	    OSMESA_PROFILE,                 OSMESA_CORE_PROFILE,
+	    OSMESA_CONTEXT_MAJOR_VERSION,   4,
+	    OSMESA_CONTEXT_MINOR_VERSION,   1,
+	    0
+	};
+	ctx = OSMesaCreateContextAttribs(attribs, NULL);
+	if (!ctx) {
+	    /* Fall back to compatibility profile / GL 3.3 */
+	    static const int compat_attribs[] = {
+		OSMESA_FORMAT,                OSMESA_RGBA,
+		OSMESA_CONTEXT_MAJOR_VERSION, 3,
+		OSMESA_CONTEXT_MINOR_VERSION, 3,
+		0
+	    };
+	    ctx = OSMesaCreateContextAttribs(compat_attribs, NULL);
+	}
+#endif
+	if (!ctx)
+	    ctx = OSMesaCreateContextExt(OSMESA_RGBA, 24, 8, 0, NULL);
 	if (ctx)
 	    buf = new unsigned char[(size_t)w * h * 4]();
     }
