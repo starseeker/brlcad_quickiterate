@@ -3789,6 +3789,12 @@ nmg_mdl_to_bot(struct model *m, struct bu_list *vlfree, const struct bn_tol *tol
 	    }
 	}
 
+	/* If there are no faces there are no referenced vertices either
+	 * (any vertices present are orphans with no geometry).  Treat both
+	 * counts as zero so we produce a valid empty BoT without crashing. */
+	if (tri_count == 0)
+	    vcount = 0;
+
 	BU_ALLOC(bot, struct rt_bot_internal);
 	bot->magic = RT_BOT_INTERNAL_MAGIC;
 	bot->mode = RT_BOT_SOLID;
@@ -3796,8 +3802,8 @@ nmg_mdl_to_bot(struct model *m, struct bu_list *vlfree, const struct bn_tol *tol
 	bot->bot_flags = 0;
 	bot->num_vertices = vcount;
 	bot->num_faces = tri_count;
-	bot->vertices = (fastf_t *)bu_calloc(vcount * 3, sizeof(fastf_t), "bot fast vertices");
-	bot->faces = (int *)bu_calloc(tri_count * 3, sizeof(int), "bot fast faces");
+	bot->vertices = (vcount > 0) ? (fastf_t *)bu_calloc(vcount * 3, sizeof(fastf_t), "bot fast vertices") : NULL;
+	bot->faces = (tri_count > 0) ? (int *)bu_calloc(tri_count * 3, sizeof(int), "bot fast faces") : NULL;
 	bot->thickness = NULL;
 	bot->face_mode = NULL;
 
@@ -3915,9 +3921,9 @@ nmg_mdl_to_bot(struct model *m, struct bu_list *vlfree, const struct bn_tol *tol
     bot->bot_flags = 0;
 
     bot->num_vertices = vert_cnt;
-    bot->vertices = (fastf_t *)bu_calloc(bot->num_vertices * 3, sizeof(fastf_t), "BOT vertices");
+    bot->vertices = (vert_cnt > 0) ? (fastf_t *)bu_calloc(vert_cnt * 3, sizeof(fastf_t), "BOT vertices") : NULL;
     bot->num_faces = face_cnt;
-    bot->faces = (int *)bu_calloc(bot->num_faces * 3, sizeof(int), "BOT faces");
+    bot->faces = (face_cnt > 0) ? (int *)bu_calloc(face_cnt * 3, sizeof(int), "BOT faces") : NULL;
 
     bot->thickness = (fastf_t *)NULL;
     bot->face_mode = (struct bu_bitv *)NULL;
