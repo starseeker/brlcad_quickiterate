@@ -1197,7 +1197,7 @@ rt_tor_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
 	if (ttol->norm > 0.0) {
 	    register int nseg;
 	    fastf_t ntol_eff = (ttol->norm < PRIM_MIN_NORM_TOL) ? PRIM_MIN_NORM_TOL : ttol->norm;
-	    nseg = (int)(M_PI / ntol_eff) + 1;
+	    nseg = (int)(M_PI / ntol_eff + 0.99);
 	    if (nseg > nlen) nlen = nseg;
 	    if (nseg > nw)   nw   = nseg;
 	}

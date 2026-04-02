@@ -3302,7 +3302,7 @@ tesselate_pipe_bend(
     }
     if (ttol->norm > 0.0) {
 	fastf_t ntol_eff = (ttol->norm < PRIM_MIN_NORM_TOL) ? PRIM_MIN_NORM_TOL : ttol->norm;
-	if (ntol_eff > ttol->norm + SMALL_FASTF)
+	if (ttol->norm < PRIM_MIN_NORM_TOL)
 	    bu_log("Warning: pipe bend tessellation norm tolerance clamped from %g rad to %g rad "
 		   "to prevent excessively dense mesh\n", ttol->norm, ntol_eff);
 	tol_segs = ceil(bend_angle / (2.0 * ntol_eff));
