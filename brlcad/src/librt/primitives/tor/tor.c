@@ -1471,13 +1471,14 @@ rt_tor_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	return -1;
     }
 
-    /* A tube radius below the calculational tolerance would produce vertices
-     * all within tolerance of each other, causing vertex fusion to collapse the
-     * tube cross-sections into degenerate faces.  Refuse to tessellate. */
+    /* A tube radius below the calculational tolerance is a zero-volume object.
+     * Return an empty (zero-face) mesh so that CSG facetization can treat this
+     * primitive as a no-op and keep going rather than failing. */
     if (r_h_eff < tol->dist) {
-	bu_log("rt_tor_tess: tube radius (%g) is smaller than calculational tolerance (%g); cannot tessellate\n",
+	bu_log("rt_tor_tess: tube radius (%g) smaller than calculational tolerance (%g); returning empty mesh\n",
 	       r_h_eff, tol->dist);
-	return -1;
+	*r = nmg_mrsv(m);
+	return 0;
     }
 
     /* Uniformly select the tighter of abs/rel tolerance, falling back to
