@@ -135,19 +135,11 @@
 
 #include <GL/gl.h>
 #ifdef OBOL_BUILD_DUAL_GL
-/* Use the system osmesa.h (Mesa 3.x+) which declares OSMesaCreateContextAttribs
- * and OSMESA_CORE_PROFILE.  The bundled bext header (OSMesa/osmesa.h) is the
- * older Mesa 6.5 API that only has OSMesaCreateContextExt (GL 2.0 max).
- * The system header at GL/osmesa.h corresponds to the system libOSMesa.so. */
-#  ifdef __has_include
-#    if __has_include(<GL/osmesa.h>)
-#      include <GL/osmesa.h>
-#    else
-#      include <OSMesa/osmesa.h>
-#    endif
-#  else
-#    include <GL/osmesa.h>
-#  endif
+/* Use the bundled bext osmesa.h (OSMesa/osmesa.h, Mesa 6.5).  We only need
+ * OSMesaCreateContextExt / OSMesaMakeCurrent / OSMesaGetCurrentContext which
+ * are available there.  Using the same library for both context creation and
+ * GL dispatch ensures OSMesaGetCurrentContext() returns the correct handle. */
+#  include <OSMesa/osmesa.h>
 #endif
 #include <cmath>
 #include <atomic>
@@ -294,33 +286,16 @@ struct CoinOSMesaCtxData {
     GLenum         prev_fmt  = 0;
 
     CoinOSMesaCtxData(int w, int h) : width(w), height(h) {
-	/* Prefer OSMesaCreateContextAttribs (Mesa 3.x+, available in the system
-	 * libOSMesa) to request a modern core-profile context.  SoCADAssembly
-	 * requires at least GL 3.3 for its shader pipeline; request GL 4.1 for
-	 * full GLSL 4.10 support.  Fall back to OSMesaCreateContextExt (GL 2.0)
-	 * if the attribs API is unavailable (older bundled Mesa). */
-#ifdef OSMESA_CONTEXT_MAJOR_VERSION
-	static const int attribs[] = {
-	    OSMESA_FORMAT,                  OSMESA_RGBA,
-	    OSMESA_PROFILE,                 OSMESA_CORE_PROFILE,
-	    OSMESA_CONTEXT_MAJOR_VERSION,   4,
-	    OSMESA_CONTEXT_MINOR_VERSION,   1,
-	    0
-	};
-	ctx = OSMesaCreateContextAttribs(attribs, NULL);
-	if (!ctx) {
-	    /* Fall back to compatibility profile / GL 3.3 */
-	    static const int compat_attribs[] = {
-		OSMESA_FORMAT,                OSMESA_RGBA,
-		OSMESA_CONTEXT_MAJOR_VERSION, 3,
-		OSMESA_CONTEXT_MINOR_VERSION, 3,
-		0
-	    };
-	    ctx = OSMesaCreateContextAttribs(compat_attribs, NULL);
-	}
-#endif
-	if (!ctx)
-	    ctx = OSMesaCreateContextExt(OSMESA_RGBA, 24, 8, 0, NULL);
+	/* Always use the bundled OSMesa (Mesa 6.5, GL 2.0) so that
+	 * OSMesaGetCurrentContext() / OSMesaGetProcAddress() used by Obol's
+	 * osmesa_SoGLContext_* dispatch layer resolve through the same library
+	 * instance as the context we create here.  Mixing system and bundled
+	 * OSMesa causes Coin3D to see NULL for the current GL context.
+	 *
+	 * GL version will be detected in makeCurrent() — if GL < 3 the
+	 * obol_cad_assembly_set_gl2_compat(true) flag routes all shapes to the
+	 * per-shape SoSeparator fallback (GL 1.x compatible). */
+	ctx = OSMesaCreateContextExt(OSMESA_RGBA, 24, 8, 0, NULL);
 	if (ctx)
 	    buf = new unsigned char[(size_t)w * h * 4]();
     }
@@ -340,8 +315,30 @@ struct CoinOSMesaCtxData {
 	    prev_bpr = prev_w * 4;
 	    prev_fmt = (GLenum)fmt;
 	}
-	return OSMesaMakeCurrent(ctx, buf, GL_UNSIGNED_BYTE, width, height) != 0;
+	bool ok = OSMesaMakeCurrent(ctx, buf, GL_UNSIGNED_BYTE, width, height) != 0;
+	/* On first activation: detect GL version and enable GL2 compat mode if
+	 * the context is GL 2.x only (e.g. bundled Mesa 6.5 OSMesa).
+	 * SoCADAssembly requires GL 3.3+; the GL2 compat flag routes all shapes
+	 * to the per-shape SoSeparator fallback instead. */
+	if (ok && !gl_version_checked_) {
+	    gl_version_checked_ = true;
+	    typedef const unsigned char *(*PFNGLGETSTRINGPROC)(unsigned int);
+	    PFNGLGETSTRINGPROC pGetString =
+		(PFNGLGETSTRINGPROC)OSMesaGetProcAddress("glGetString");
+	    int gl_major = 0;
+	    if (pGetString) {
+		const unsigned char *ver = pGetString(0x1F02 /* GL_VERSION */);
+		if (ver) gl_major = (int)(ver[0] - '0');
+	    }
+	    bool need_gl2 = (gl_major > 0 && gl_major < 3);
+	    bu_log("CoinOSMesaCtxData: GL_VERSION=\"%s\" major=%d gl2_compat=%d\n",
+		pGetString ? (const char*)pGetString(0x1F02) : "(null)",
+		gl_major, need_gl2);
+	    obol_cad_assembly_set_gl2_compat(need_gl2);
+	}
+	return ok;
     }
+    bool gl_version_checked_ = false;
 };
 
 class CoinOSMesaContextManager : public SoDB::ContextManager {

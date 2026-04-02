@@ -263,6 +263,33 @@ obol_cad_assembly_init_classes(void)
     SoCADDetail::initClass();
 }
 
+/* --------------------------------------------------------------------------
+ * GL2 compatibility flag
+ *
+ * When the active GL context only supports OpenGL 2.x (e.g. the bundled
+ * Mesa 6.5 OSMesa), SoCADAssembly's shader pipeline cannot be used.
+ * Setting this flag makes obol_cad_assembly_upsert_shape() always return
+ * false so every shape falls back to the traditional per-shape SoSeparator
+ * path (using ft_scene_obj / s_obol_node), which works with GL 1.x/2.x.
+ * -------------------------------------------------------------------------- */
+
+static bool s_gl2_compat_mode = false;
+
+void
+obol_cad_assembly_set_gl2_compat(bool enabled)
+{
+    s_gl2_compat_mode = enabled;
+    if (enabled)
+	bu_log("obol_cad_assembly: GL 2.x context detected — "
+	       "SoCADAssembly disabled, using per-shape SoSeparator fallback\n");
+}
+
+bool
+obol_cad_assembly_is_gl2_compat(void)
+{
+    return s_gl2_compat_mode;
+}
+
 SoCADAssembly *
 obol_cad_assembly_create(void)
 {
@@ -283,6 +310,12 @@ obol_cad_assembly_upsert_shape(SoCADAssembly *cad_asm, bsg_shape *s)
     /* Debugging escape hatch: BRLCAD_NO_CAD_ASM=1 forces all shapes to the
      * traditional Obol per-shape path so the CAD assembly can be bypassed. */
     if (getenv("BRLCAD_NO_CAD_ASM"))
+	return false;
+
+    /* GL2 compat: SoCADAssembly requires GL 3.3+.  When running with a GL 2.x
+     * context (e.g. the bundled OSMesa), route all shapes to the traditional
+     * per-shape SoSeparator path instead. */
+    if (s_gl2_compat_mode)
 	return false;
 
     /* Get the leaf directory pointer.

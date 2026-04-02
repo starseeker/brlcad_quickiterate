@@ -73,6 +73,25 @@
 
 
 /**
+ * Set or clear GL 2.x compatibility mode.
+ *
+ * When enabled, obol_cad_assembly_upsert_shape() always returns false so that
+ * all shapes are routed through the per-shape SoSeparator fallback instead of
+ * SoCADAssembly.  This is necessary when the active GL context only supports
+ * OpenGL 2.x (e.g. the bundled Mesa 6.5 OSMesa), because SoCADAssembly's
+ * shader pipeline requires GL 3.3+.
+ *
+ * Call this from the GL context manager (e.g. CoinOSMesaContextManager) after
+ * creating the context and detecting the GL version.
+ */
+GED_EXPORT void obol_cad_assembly_set_gl2_compat(bool enabled);
+
+/**
+ * Return true when GL 2.x compatibility mode is active.
+ */
+GED_EXPORT bool obol_cad_assembly_is_gl2_compat(void);
+
+/**
  * Initialise the SoCADAssembly and SoCADDetail Obol node classes.
  *
  * Must be called once after SoDB::init() / SoInteraction::init(), before

@@ -48,40 +48,28 @@ if(BRLCAD_ENABLE_QT)
           get_filename_component(_obol_libdir "${_obol_lib_for_osmesa}" DIRECTORY)
         endif()
       endif()
-      # The bundled bext libosmesa is Mesa 6.5 (GL 2.0 only).  SoCADAssembly
-      # needs GL 3.3+, so we prefer the system libOSMesa (Mesa 3.x+) which
-      # provides OSMesaCreateContextAttribs and modern GL profiles.
-      # Strategy: find system OSMesa first; fall back to bundled if not found.
-      find_library(OSMESA_SYSTEM_LIBRARY
-        NAMES OSMesa osmesa
-        HINTS /usr/lib /usr/lib/x86_64-linux-gnu /usr/lib64
+      # Always use the bundled bext libosmesa so that OSMesaGetCurrentContext()
+      # and OSMesaGetProcAddress() used by Obol's osmesa_SoGLContext_* dispatch
+      # resolve through the same library instance as our context creation calls.
+      # Mixing system and bundled OSMesa causes Coin3D to see NULL for the
+      # current GL context (the two libraries maintain independent state).
+      # The bundled Mesa 6.5 provides GL 2.0; the GL2 compat flag in
+      # obol_cad_assembly routes shapes to the per-shape SoSeparator fallback.
+      #
+      # Use a private (non-cached, leading-underscore) variable so the global
+      # OSMESA_LIBRARY (set by FindOSMESA.cmake for libdm/swrast) is not
+      # overridden.
+      find_library(_qged_osmesa_lib
+        NAMES osmesa OSMesa
+        HINTS "${_obol_libdir}"
         NO_DEFAULT_PATH)
-      if(OSMESA_SYSTEM_LIBRARY)
-        set(OSMESA_LIBRARY "${OSMESA_SYSTEM_LIBRARY}" CACHE FILEPATH
-          "OSMesa library (system preferred for GL 3.3+ support)" FORCE)
-        message(STATUS "OSMesa library (system, GL 3.3+): ${OSMESA_LIBRARY}")
-      else()
-        find_library(OSMESA_LIBRARY
-          NAMES osmesa OSMesa
-          HINTS "${_obol_libdir}"
-          NO_DEFAULT_PATH)
-        if(NOT OSMESA_LIBRARY)
-          find_library(OSMESA_LIBRARY NAMES osmesa OSMesa)
-        endif()
-        if(OSMESA_LIBRARY)
-          message(STATUS "OSMesa library (bundled/fallback): ${OSMESA_LIBRARY}")
-        else()
-          message(WARNING "OSMesa library not found — swrast link may fail")
-        endif()
+      if(NOT _qged_osmesa_lib)
+        find_library(_qged_osmesa_lib NAMES osmesa OSMesa)
       endif()
-      # Find the system osmesa.h so that CoinOSMesaCtxData can use
-      # OSMesaCreateContextAttribs (declared in GL/osmesa.h on modern systems).
-      find_path(OSMESA_INCLUDE_DIR
-        NAMES GL/osmesa.h
-        HINTS /usr/include
-        NO_DEFAULT_PATH)
-      if(OSMESA_INCLUDE_DIR)
-        message(STATUS "OSMesa include dir (system): ${OSMESA_INCLUDE_DIR}")
+      if(_qged_osmesa_lib)
+        message(STATUS "qged OSMesa library (bundled for Obol dispatch): ${_qged_osmesa_lib}")
+      else()
+        message(WARNING "qged OSMesa library not found — swrast link may fail")
       endif()
     else()
       set(BRLCAD_OBOL_DUAL_GL OFF CACHE BOOL "Obol built with dual-GL (OSMesa) support" FORCE)
@@ -185,8 +173,8 @@ if(BRLCAD_ENABLE_QT)
   endif(Qt6Widgets_FOUND)
   if(BRLCAD_ENABLE_OBOL AND TARGET Obol::Obol)
     target_link_libraries(qged Obol::Obol)
-    if(BRLCAD_OBOL_DUAL_GL AND OSMESA_LIBRARY)
-      target_link_libraries(qged "${OSMESA_LIBRARY}")
+    if(BRLCAD_OBOL_DUAL_GL AND _qged_osmesa_lib)
+      target_link_libraries(qged "${_qged_osmesa_lib}")
     endif()
     # Stage 20: QgObolView no longer calls fb_readrect/fb_getwidth/fb_getheight.
     # The Obol-native fbserv packet handlers write directly into fbs_pixbuf, so
@@ -230,8 +218,8 @@ if(BRLCAD_ENABLE_QT)
   endif()
   if(BRLCAD_ENABLE_OBOL AND TARGET Obol::Obol)
     target_link_libraries(qged_test Obol::Obol)
-    if(BRLCAD_OBOL_DUAL_GL AND OSMESA_LIBRARY)
-      target_link_libraries(qged_test "${OSMESA_LIBRARY}")
+    if(BRLCAD_OBOL_DUAL_GL AND _qged_osmesa_lib)
+      target_link_libraries(qged_test "${_qged_osmesa_lib}")
     endif()
     # Stage 20: libdm no longer needed in Obol builds (fbs_pixbuf path).
     if(Qt6Widgets_FOUND AND TARGET Qt6::OpenGLWidgets)
@@ -270,8 +258,8 @@ if(BRLCAD_ENABLE_QT)
   endif()
   if(BRLCAD_ENABLE_OBOL AND TARGET Obol::Obol)
     target_link_libraries(qged_pipeline_test Obol::Obol)
-    if(BRLCAD_OBOL_DUAL_GL AND OSMESA_LIBRARY)
-      target_link_libraries(qged_pipeline_test "${OSMESA_LIBRARY}")
+    if(BRLCAD_OBOL_DUAL_GL AND _qged_osmesa_lib)
+      target_link_libraries(qged_pipeline_test "${_qged_osmesa_lib}")
     endif()
     # Stage 20: libdm no longer needed in Obol builds (fbs_pixbuf path).
     if(Qt6Widgets_FOUND AND TARGET Qt6::OpenGLWidgets)
