@@ -232,11 +232,21 @@ fp_to_parent_id(const struct db_full_path *fp)
 static SbMatrix
 mat_to_sbmatrix(const mat_t m)
 {
+    /* BRL-CAD mat_t uses a COLUMN-VECTOR convention (dst = M * src) stored
+     * in row-major order: m[0..3]=row0, m[4..7]=row1, m[8..11]=row2,
+     * m[12..15]=row3.  Translation is at m[3], m[7], m[11].
+     *
+     * Coin3D SbMatrix uses a ROW-VECTOR convention (dst = src * M) and its
+     * multVecMatrix reads: dst[j] = sum_i( src[i] * M[i][j] ) + M[3][j].
+     * Translation must be at M[3][0..2], which corresponds to the 4th row.
+     *
+     * The two conventions are related by a matrix transpose, so we swap
+     * rows and columns when converting. */
     return SbMatrix(
-	(float)m[0],  (float)m[1],  (float)m[2],  (float)m[3],
-	(float)m[4],  (float)m[5],  (float)m[6],  (float)m[7],
-	(float)m[8],  (float)m[9],  (float)m[10], (float)m[11],
-	(float)m[12], (float)m[13], (float)m[14], (float)m[15]
+	(float)m[0],  (float)m[4],  (float)m[8],  (float)m[12],
+	(float)m[1],  (float)m[5],  (float)m[9],  (float)m[13],
+	(float)m[2],  (float)m[6],  (float)m[10], (float)m[14],
+	(float)m[3],  (float)m[7],  (float)m[11], (float)m[15]
     );
 }
 

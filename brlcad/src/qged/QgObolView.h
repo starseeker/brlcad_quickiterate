@@ -118,6 +118,7 @@
 #include <Inventor/nodes/SoOrthographicCamera.h>
 #include <Inventor/nodes/SoCamera.h>
 #include <Inventor/nodes/SoSeparator.h>
+#include <Inventor/nodes/SoTransform.h>
 #include <Inventor/actions/SoGLRenderAction.h>
 #include <Inventor/actions/SoGetBoundingBoxAction.h>
 #include <Inventor/actions/SoRayPickAction.h>
@@ -386,6 +387,13 @@ inline void applyCameraFromBsgView(SoCamera *cam, const bsg_view *v) {
 	fastf_t persp = v->gv_perspective;
 	pc->heightAngle = (float)((persp > SMALL_FASTF ? persp : 45.0) * DEG2RAD);
     }
+    bu_log("applyCameraFromBsgView: pos=(%.2f,%.2f,%.2f) "
+	"look=(%.2f,%.2f,%.2f) size=%.4g near=%.4g far=%.4g\n",
+	eye_w[0], eye_w[1], eye_w[2],
+	look_w[0], look_w[1], look_w[2],
+	(double)fd,
+	(double)cam->nearDistance.getValue(),
+	(double)cam->farDistance.getValue());
 }
 
 /** Sync a bsg_view from the current Obol camera. */
@@ -501,11 +509,9 @@ public:
      * paintGL() call and reads directly from the FBO.  Use this in tests.
      */
     QImage grabGLImage() {
-	makeCurrent();
-	paintGL();
-	QImage img = grabFramebuffer();
-	doneCurrent();
-	return img;
+	/* Return the latest frame captured by glReadPixels inside paintGL().
+	 * Every paintGL() updates last_frame_ so this is always current. */
+	return last_frame_;
     }
 
     /** Returns the number of times paintGL() has been called.  Useful for
@@ -620,11 +626,15 @@ public:
 	viewport_.setCamera(cam);
 	viewport_.viewAll();
 	renderMgr_.setSceneGraph(viewport_.getRoot());
-	/* Tell SoRenderManager about the camera for autoclipping/near-far
-	 * plane computation.  Without this the render manager has no camera
-	 * reference, clip planes default to a degenerate range (e.g. 0→1), and
-	 * all geometry is clipped away — producing a completely invisible scene. */
+	/* Tell SoRenderManager about the camera.  With NO_AUTO_CLIPPING mode the
+	 * render manager does not compute near/far itself, but still needs to
+	 * know the camera for perspective/orthographic mode queries. */
 	renderMgr_.setCamera(cam);
+	/* Apply a safe initial near/far before the first bsg_view sync so the
+	 * very first paint is not clipped.  These will be overridden by
+	 * applyCameraFromBsgView() once a proper gv_size is available. */
+	cam->nearDistance = 0.1f;
+	cam->farDistance  = 1e6f;
 	update();
     }
 
@@ -814,6 +824,21 @@ protected:
 	 * as (0,0,0) even when geometry IS rendered. */
 	renderMgr_.setBackgroundColor(SbColor4f(0.1f, 0.1f, 0.1f, 1.0f));
 
+	/* Disable SoRenderManager autoclipping.
+	 *
+	 * With VARIABLE_NEAR_PLANE (the default), SoRenderManager traverses the
+	 * scene using SoGetBoundingBoxAction to compute tight near/far planes
+	 * before each render.  SoCADAssembly does NOT respond to bounding-box
+	 * traversal, so the action finds no geometry and produces degenerate
+	 * near/far planes (e.g. near > far or both = 0), which clips ALL
+	 * geometry and produces a completely invisible scene.
+	 *
+	 * Instead we use NO_AUTO_CLIPPING and set explicit near/far planes from
+	 * the BRL-CAD scene size (gv_size) in applyCameraFromBsgView().  This
+	 * gives near = gv_size×0.001 and far = gv_size×20, which covers the
+	 * entire scene with reasonable precision. */
+	renderMgr_.setAutoClipping(SoRenderManager::NO_AUTO_CLIPPING);
+
 	/* Wire the GL context manager's share context to the widget's context.
 	 *
 	 * QgObolContextManager creates a QOpenGLContext for Coin3D's internal
@@ -918,7 +943,91 @@ protected:
 	SoNode *scene_root = viewport_.getRoot();
 
 	renderMgr_.setSceneGraph(scene_root);
+	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	renderMgr_.render(ra, TRUE /* clearZ */, TRUE /* clearWindow */);
+
+	/* Check for GL errors after rendering */
+	if (paint_count_ <= 6) {
+	    GLenum err;
+	    while ((err = glGetError()) != GL_NO_ERROR) {
+		bu_log("  GL error after renderMgr_.render: 0x%04X\n", (unsigned)err);
+	    }
+	}
+
+	/* One-time diagnostic: when the assembly has been populated (obol_nch>=2),
+	 * test if SoCADAssembly::GLRender produces any pixels by applying it
+	 * directly with ra->apply(). */
+	if (!cadasm_diag_done_ && obol_root_ && obol_root_->getNumChildren() >= 2 && cad_asm_) {
+	    cadasm_diag_done_ = true;
+	    SbVec2s wsz_d = vpr.getWindowSize();
+	    int cx_d = wsz_d[0]/2, cy_d = wsz_d[1]/2;
+	    /* Clear and render only the CAD assembly (with the current camera) */
+	    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+	    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	    /* Use the viewport's full root (camera + obol_root_) */
+	    ra->apply(viewport_.getRoot());
+	    unsigned char px_d[4] = {0};
+	    glReadPixels(cx_d, cy_d, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, px_d);
+	    bu_log("  Direct ra->apply(viewport root): center R=%d G=%d B=%d\n",
+		px_d[0], px_d[1], px_d[2]);
+	    /* Also try wide scan: count non-background pixels */
+	    int nbg = 0;
+	    for (int sy = 0; sy < std::min(100, (int)wsz_d[1]); sy += 10) {
+		for (int sx = 0; sx < (int)wsz_d[0]; sx += 5) {
+		    unsigned char spx[4] = {0};
+		    glReadPixels(sx, sy, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, spx);
+		    if (spx[0] != 26 || spx[1] != 26 || spx[2] != 26) nbg++;
+		}
+	    }
+	    bu_log("  Non-background pixels in bottom 100 rows: %d\n", nbg);
+	    /* Restore */
+	    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+	    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	    renderMgr_.render(ra, TRUE, TRUE);
+	}
+
+	/* Capture the rendered frame using glReadPixels() while the correct
+	 * FBO is bound (inside paintGL, before any QPainter operations). */
+	{
+	    const qreal dpr = devicePixelRatioF();
+	    int pw = std::max((int)(width()  * dpr), 1);
+	    int ph = std::max((int)(height() * dpr), 1);
+	    /* Use RGBA8888 aligned read then convert to RGB32 to avoid
+	     * stride/padding issues with RGB888.  GL reads bottom-to-top. */
+	    std::vector<unsigned char> buf((size_t)pw * ph * 4);
+	    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+	    glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+	    glReadPixels(0, 0, pw, ph, GL_RGBA, GL_UNSIGNED_BYTE, buf.data());
+	    /* Verify a few raw bytes from the full read (y-up center row) */
+	    if (paint_count_ <= 3) {
+		int cx2 = pw / 2, cy2 = ph / 2;
+		const unsigned char *raw_c = buf.data() + (size_t)cy2 * pw * 4 + cx2 * 4;
+		bu_log("  raw buf center (y-up): R=%d G=%d B=%d A=%d\n",
+		    raw_c[0], raw_c[1], raw_c[2], raw_c[3]);
+	    }
+	    /* Copy into a QImage flipping Y (OpenGL y-up → QImage y-down) */
+	    QImage img(pw, ph, QImage::Format_RGB32);
+	    for (int y = 0; y < ph; ++y) {
+		const unsigned char *src = buf.data() + (size_t)(ph - 1 - y) * pw * 4;
+		QRgb *dst = reinterpret_cast<QRgb*>(img.scanLine(y));
+		for (int x = 0; x < pw; ++x) {
+		    dst[x] = qRgb(src[x*4+0], src[x*4+1], src[x*4+2]);
+		}
+	    }
+	    last_frame_ = img;
+
+	    /* Cross-check: verify the center pixel matches what the single-pixel
+	     * readback shows.  If they differ, the FBO is being read incorrectly. */
+	    if (paint_count_ <= 3) {
+		int cx2 = pw / 2, cy2 = ph / 2;
+		if (cx2 > 0 && cy2 > 0) {
+		    QRgb lf_center = last_frame_.pixel(cx2, cy2);
+		    bu_log("  last_frame_ center: R=%d G=%d B=%d\n",
+			qRed(lf_center), qGreen(lf_center), qBlue(lf_center));
+		}
+	    }
+	}
 
 	/* Diagnostic: log center pixel on every paint to track geometry arrival */
 	{
@@ -928,8 +1037,18 @@ protected:
 		unsigned char px[4] = {0};
 		glReadPixels(cx, cy, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, px);
 		int obol_nch = obol_root_ ? obol_root_->getNumChildren() : -1;
-		bu_log("paintGL #%d: center R=%d G=%d B=%d obol_nch=%d\n",
-		    paint_count_, px[0], px[1], px[2], obol_nch);
+		/* Check scissor and GL viewport */
+		GLint scissor_enabled = 0;
+		glGetIntegerv(GL_SCISSOR_TEST, &scissor_enabled);
+		GLint glvp[4] = {0};
+		glGetIntegerv(GL_VIEWPORT, glvp);
+		GLint sc[4] = {0};
+		glGetIntegerv(GL_SCISSOR_BOX, sc);
+		bu_log("paintGL #%d: center R=%d G=%d B=%d obol_nch=%d "
+		    "glvp=[%d,%d,%dx%d] scissor=%d sc=[%d,%d,%dx%d]\n",
+		    paint_count_, px[0], px[1], px[2], obol_nch,
+		    glvp[0], glvp[1], glvp[2], glvp[3],
+		    scissor_enabled, sc[0], sc[1], sc[2], sc[3]);
 	    }
 	}
 
@@ -1213,6 +1332,8 @@ private:
     bool             init_done_emitted_ = false; /* guard: emit init_done() only once */
     struct fbserv_obj *fbs_ = nullptr;  /* Stage 20: embedded rt framebuffer (not owned) */
     int              paint_count_ = 0;  /* diagnostic: counts paintGL() invocations */
+    QImage           last_frame_;       /* most recent frame captured inside paintGL() */
+    bool             cadasm_diag_done_ = false; /* guard: CAD assembly diagnostic fires once */
 };
 
 
