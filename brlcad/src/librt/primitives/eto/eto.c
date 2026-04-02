@@ -1081,7 +1081,7 @@ rt_eto_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
      * Clamp to PRIM_MIN_NORM_TOL to prevent excessively dense plots. */
     if (ttol->norm > 0.0) {
 	ntol = (ttol->norm < PRIM_MIN_NORM_TOL) ? PRIM_MIN_NORM_TOL : ttol->norm;
-	if (ntol > ttol->norm + SMALL_FASTF)
+	if (ttol->norm < PRIM_MIN_NORM_TOL)
 	    bu_log("Warning: eto plot norm tolerance clamped from %g rad to %g rad "
 		   "to prevent excessively dense plot\n", ttol->norm, ntol);
     } else
@@ -1217,7 +1217,7 @@ rt_eto_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
      * Clamp to PRIM_MIN_NORM_TOL to prevent excessively dense meshes. */
     if (ttol->norm > 0.0) {
 	ntol = (ttol->norm < PRIM_MIN_NORM_TOL) ? PRIM_MIN_NORM_TOL : ttol->norm;
-	if (ntol > ttol->norm + SMALL_FASTF)
+	if (ttol->norm < PRIM_MIN_NORM_TOL)
 	    bu_log("Warning: eto tessellation norm tolerance clamped from %g rad to %g rad "
 		   "to prevent excessively dense mesh\n", ttol->norm, ntol);
     } else
