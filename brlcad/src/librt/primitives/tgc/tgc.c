@@ -2071,6 +2071,15 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	    alpha_tol = norm;
     }
 
+    /* Clamp alpha_tol: the aspect-ratio scaling of ntol_eff can push it below
+     * PRIM_MIN_NORM_TOL for highly asymmetric TGC shapes, causing huge nsegs. */
+    if (alpha_tol < PRIM_MIN_NORM_TOL) {
+	bu_log("Warning: TGC tessellation alpha_tol clamped from %g rad to "
+	       "%g rad to prevent excessively dense mesh\n",
+	       alpha_tol, PRIM_MIN_NORM_TOL);
+	alpha_tol = PRIM_MIN_NORM_TOL;
+    }
+
     /* get number of segments per quadrant */
     nsegs = (int)(M_PI_2 / alpha_tol + 0.9999);
     if (nsegs < 2)

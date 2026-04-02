@@ -1002,7 +1002,7 @@ rt_ehy_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
     /* 2 endpoints in 1st approximation */
     nb = 2;
     /* recursively break segment 'til within error tolerances */
-    nb += rt_mk_hyperbola_old(pts_b, r2, mag_h, c, dtol, ntol);
+    nb += rt_mk_hyperbola(pts_b, r2, mag_h, c, dtol, M_PI);
     nell = nb - 1;	/* # of ellipses needed */
 
     /* construct positive half of hyperbola along semi-major axis of
@@ -1034,7 +1034,7 @@ rt_ehy_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
     recalc_b = 0;
     pos_a = pts_a;
     while (pos_a->next) {
-	na = rt_mk_hyperbola_old(pos_a, r1, mag_h, c, dtol, ntol);
+	na = rt_mk_hyperbola(pos_a, r1, mag_h, c, dtol, M_PI);
 	if (na != 0) {
 	    recalc_b = 1;
 	    nell += na;
@@ -1090,7 +1090,7 @@ rt_ehy_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
      * causes infinite recursion and exponential nseg growth). */
     nseg = (size_t)rt_num_circular_segments(dtol, r1);
     if (ntol < M_PI) {
-	size_t nseg_ntol = (size_t)(M_2PI / ntol) + 1;
+	size_t nseg_ntol = (size_t)(M_PI / ntol) + 1;
 	if (nseg_ntol > nseg)
 	    nseg = nseg_ntol;
     }
@@ -1281,7 +1281,7 @@ rt_ehy_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     /* 2 endpoints in 1st approximation */
     nb = 2;
     /* recursively break segment 'til within error tolerances */
-    nb += rt_mk_hyperbola_old(pts_b, r2, mag_h, c, dtol, ntol);
+    nb += rt_mk_hyperbola(pts_b, r2, mag_h, c, dtol, M_PI);
     nell = nb - 1;	/* # of ellipses needed */
 
     /* construct positive half of hyperbola along semi-major axis of
@@ -1313,7 +1313,7 @@ rt_ehy_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     recalc_b = 0;
     pos_a = pts_a;
     while (pos_a->next) {
-	na = rt_mk_hyperbola_old(pos_a, r1, mag_h, c, dtol, ntol);
+	na = rt_mk_hyperbola(pos_a, r1, mag_h, c, dtol, M_PI);
 	if (na != 0) {
 	    recalc_b = 1;
 	    nell += na;
@@ -1371,7 +1371,7 @@ rt_ehy_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	int nseg_base = (int)rt_num_circular_segments(dtol, r1);
 	fastf_t min_ring_r;
 	if (ntol < M_PI) {
-	    int nseg_ntol = (int)(M_2PI / ntol) + 1;
+	    int nseg_ntol = (int)(M_PI / ntol) + 1;
 	    if (nseg_ntol > nseg_base) nseg_base = nseg_ntol;
 	}
 	if (nseg_base < 6) nseg_base = 6;

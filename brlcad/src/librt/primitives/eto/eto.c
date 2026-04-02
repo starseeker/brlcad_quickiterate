@@ -1224,8 +1224,9 @@ rt_eto_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	/* tolerate everything */
 	ntol = M_PI;
 
-    /* (x, y) coords for an ellipse */
-    ell = make_ellipse(&npts, a, b, dtol, ntol);
+    /* (x, y) coords for cross-section ellipse.
+     * Use dtol only so ntol does not multiply ring count by cross-section pts. */
+    ell = make_ellipse(&npts, a, b, dtol, M_PI);
     /* generate coordinate axes */
     VMOVE(Nu, tip->eto_N);
     VUNITIZE(Nu);			/* z axis of coord sys */
@@ -1241,6 +1242,11 @@ rt_eto_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	primitive_clamp_tess_tol(&dtol, &ntol_dummy, bbox_diag);
     }
     nells = rt_num_circular_segments(dtol, eto_r_eff);
+    /* Honour normal tolerance for ring count. */
+    if (ntol < M_PI) {
+	int nells_ntol = (int)(M_PI / ntol) + 1;
+	if (nells_ntol > nells) nells = nells_ntol;
+    }
     theta = M_2PI / nells;	/* put ellipse every theta rads */
     /* get horizontal and vertical components of C and Rd */
     cv = VDOT(tip->eto_C, Nu);
