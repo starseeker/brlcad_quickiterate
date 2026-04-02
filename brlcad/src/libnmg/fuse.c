@@ -284,6 +284,9 @@ nmg_ptbl_vfuse(struct bu_ptbl *t, const struct bn_tol *tol)
 
 	    if (fuse) {
 		/* They are the same, fuse vj into vi */
+		bu_log("nmg_ptbl_vfuse: fusing vi=%p (%.12g %.12g %.12g) with vj=%p (%.12g %.12g %.12g) dist_sq=%.6g\n",
+		       (void*)vi, V3ARGS(vi->vg_p->coord),
+		       (void*)vj, V3ARGS(vj->vg_p->coord), ab);
 		nmg_jv(vi, vj);  /* vj gets destroyed */
 		BU_PTBL_SET(t, j, NULL);
 		count++;
