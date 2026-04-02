@@ -68,6 +68,30 @@ _nmg_tessellate(struct rt_bot_internal **nbot, struct rt_db_internal *intern, te
     if (status <= -1)
 	return BRLCAD_ERROR;
 
+    // If tessellation succeeded but produced an empty (zero-face) model, the
+    // primitive is a zero-volume degenerate (e.g. a torus whose tube radius is
+    // below calculational tolerance).  Return success with a NULL BoT so the
+    // caller treats this primitive as a no-op rather than a failure.
+    {
+	struct nmgregion *check_r;
+	struct shell *check_s;
+	bool has_faces = false;
+	for (BU_LIST_FOR(check_r, nmgregion, &m->r_hd)) {
+	    for (BU_LIST_FOR(check_s, shell, &check_r->s_hd)) {
+		if (!BU_LIST_IS_EMPTY(&check_s->fu_hd)) {
+		    has_faces = true;
+		    break;
+		}
+	    }
+	    if (has_faces) break;
+	}
+	if (!has_faces) {
+	    bu_log("rt tessellation produced an empty mesh (zero-volume primitive); treating as no-op\n");
+	    *nbot = NULL;
+	    return BRLCAD_OK;
+	}
+    }
+
     // NMG reports success, now get a BoT
     if (!BU_SETJUMP) {
 	(*nbot) = (struct rt_bot_internal *)nmg_mdl_to_bot(m, vlfree, &s->nmg_options.tol);
