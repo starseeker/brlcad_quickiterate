@@ -1471,6 +1471,15 @@ rt_tor_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	return -1;
     }
 
+    /* A tube radius below the calculational tolerance would produce vertices
+     * all within tolerance of each other, causing vertex fusion to collapse the
+     * tube cross-sections into degenerate faces.  Refuse to tessellate. */
+    if (r_h_eff < tol->dist) {
+	bu_log("rt_tor_tess: tube radius (%g) is smaller than calculational tolerance (%g); cannot tessellate\n",
+	       r_h_eff, tol->dist);
+	return -1;
+    }
+
     /* Uniformly select the tighter of abs/rel tolerance, falling back to
      * 10 % of the outer torus diameter when neither is specified.
      * This matches the behaviour of all other curved primitives. */
