@@ -1964,8 +1964,22 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     if (2.0*d_axis_len <= tol->dist)
 	d_axis_len = 0.0;
 
-    bu_log("DEBUG tgc_tess: c_axis_len=%.17g d_axis_len=%.17g tol->dist=%.17g nsegs=TBD\n",
-	   c_axis_len, d_axis_len, tol->dist);
+    /* If either top axis is effectively zero, treat the top as a degenerate
+     * apex point by zeroing both axes.  A mixed state (one zeroed, one not)
+     * leads to inconsistent logic throughout the tessellation and ends up
+     * producing a ring of top vertices all within calculational tolerance
+     * of each other, which causes vertex fusion to create self-loop edges.
+     */
+    if (ZERO(c_axis_len) || ZERO(d_axis_len)) {
+	c_axis_len = 0.0;
+	d_axis_len = 0.0;
+    }
+
+    /* Similarly, if either bottom axis is effectively zero, zero both. */
+    if (ZERO(a_axis_len) || ZERO(b_axis_len)) {
+	a_axis_len = 0.0;
+	b_axis_len = 0.0;
+    }
 
     if (ZERO(a_axis_len) && ZERO(b_axis_len) && (ZERO(c_axis_len) || ZERO(d_axis_len))) {
 	bu_log("Illegal TGC a, b, and c or d less than tolerance\n");
