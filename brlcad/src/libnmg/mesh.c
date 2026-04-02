@@ -141,7 +141,16 @@ nmg_radial_join_eu(struct edgeuse *eu1, struct edgeuse *eu2, const struct bn_tol
     if (!NMG_ARE_EUS_ADJACENT(eu1, eu2))
 	bu_bomb("nmg_radial_join_eu() edgeuses don't share vertices.\n");
 
-    if (eu1->vu_p->v_p == eu1->eumate_p->vu_p->v_p) bu_bomb("nmg_radial_join_eu(): 0 length edge (topology)\n");
+    if (eu1->vu_p->v_p == eu1->eumate_p->vu_p->v_p) {
+	bu_log("nmg_radial_join_eu: eu1=%p v_p=%p (both endpoints same vertex)\n",
+	       (void*)eu1, (void*)eu1->vu_p->v_p);
+	if (eu1->vu_p->v_p->vg_p)
+	    bu_log("  vertex coords: %.12g %.12g %.12g\n",
+		   V3ARGS(eu1->vu_p->v_p->vg_p->coord));
+	else
+	    bu_log("  vertex has no geometry\n");
+	bu_bomb("nmg_radial_join_eu(): 0 length edge (topology)\n");
+    }
 
     if (bg_pnt3_pnt3_equal(eu1->vu_p->v_p->vg_p->coord,
 			 eu1->eumate_p->vu_p->v_p->vg_p->coord, tol))
