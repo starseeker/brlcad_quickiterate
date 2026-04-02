@@ -113,7 +113,6 @@ static const int TOKEN_LEN = 64;
  * -------------------------------------------------------------------------- */
 
 static std::atomic<int> g_port_counter;
-static std::atomic<int> g_failures{0};
 static std::mutex g_print_mutex;
 /** Serialise the putenv(FBSERV_TOKEN) + fork + putenv-clear sequence so that
  *  concurrent workers do not race on the process-wide environment.  Each
