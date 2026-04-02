@@ -976,7 +976,7 @@ rt_epa_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
     nb = 2;
 
     /* recursively break segment 'til within error tolerances */
-    nb += rt_mk_parabola(pts_b, r2, mag_h, dtol, ntol);
+    nb += rt_mk_parabola(pts_b, r2, mag_h, dtol, M_PI);
     nell = nb - 1;	/* # of ellipses needed */
 
     /* construct positive half of parabola along semi-major axis of
@@ -1003,7 +1003,7 @@ rt_epa_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
     recalc_b = 0;
     pos_a = pts_a;
     while (pos_a->next) {
-	na = rt_mk_parabola(pos_a, r1, mag_h, dtol, ntol);
+	na = rt_mk_parabola(pos_a, r1, mag_h, dtol, M_PI);
 	if (na != 0) {
 	    recalc_b = 1;
 	    nell += na;
@@ -1062,7 +1062,7 @@ rt_epa_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
      */
     nseg = rt_num_circular_segments(dtol, r1);
     if (ntol < M_PI) {
-	int nseg_ntol = (int)(M_2PI / ntol) + 1;
+	int nseg_ntol = (int)(M_PI / ntol) + 1;
 	if (nseg_ntol > nseg)
 	    nseg = nseg_ntol;
     }
@@ -1293,7 +1293,7 @@ rt_epa_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     /* 2 endpoints in 1st approximation */
     nb = 2;
     /* recursively break segment 'til within error tolerances */
-    nb += rt_mk_parabola(pts_b, r2, mag_h, dtol, ntol);
+    nb += rt_mk_parabola(pts_b, r2, mag_h, dtol, M_PI);
     nell = nb - 1;	/* # of ellipses needed */
 
     /* construct positive half of parabola along semi-major axis of
@@ -1320,7 +1320,7 @@ rt_epa_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     recalc_b = 0;
     pos_a = pts_a;
     while (pos_a->next) {
-	na = rt_mk_parabola(pos_a, r1, mag_h, dtol, ntol);
+	na = rt_mk_parabola(pos_a, r1, mag_h, dtol, M_PI);
 	if (na != 0) {
 	    recalc_b = 1;
 	    nell += na;
@@ -1386,7 +1386,7 @@ rt_epa_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	int nseg_base = rt_num_circular_segments(dtol, r1);
 	fastf_t min_ring_r;
 	if (ntol < M_PI) {
-	    int nseg_ntol = (int)(M_2PI / ntol) + 1;
+	    int nseg_ntol = (int)(M_PI / ntol) + 1;
 	    if (nseg_ntol > nseg_base) nseg_base = nseg_ntol;
 	}
 	if (nseg_base < 6) nseg_base = 6;
