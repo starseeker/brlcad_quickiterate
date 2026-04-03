@@ -3821,7 +3821,7 @@ rt_pipe_tess(
     }
     if (ttol->norm > SMALL_FASTF) {
 	fastf_t ntol_eff = (ttol->norm < PRIM_MIN_NORM_TOL) ? PRIM_MIN_NORM_TOL : ttol->norm;
-	if (ntol_eff > ttol->norm + SMALL_FASTF)
+	if (ttol->norm < PRIM_MIN_NORM_TOL)
 	    bu_log("Warning: pipe tessellation norm tolerance clamped from %g rad to %g rad "
 		   "to prevent excessively dense mesh\n", ttol->norm, ntol_eff);
 	tol_segs = ceil(M_PI / ntol_eff);
