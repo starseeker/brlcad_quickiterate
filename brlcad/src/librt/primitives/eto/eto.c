@@ -1077,10 +1077,14 @@ rt_eto_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
 	dtol = primitive_get_absolute_tolerance(ttol, 2.0 * b);
     }
 
-    /* To ensure normal tolerance, remain below this angle */
-    if (ttol->norm > 0.0)
-	ntol = ttol->norm;
-    else
+    /* To ensure normal tolerance, remain below this angle.
+     * Clamp to PRIM_MIN_NORM_TOL to prevent excessively dense plots. */
+    if (ttol->norm > 0.0) {
+	ntol = (ttol->norm < PRIM_MIN_NORM_TOL) ? PRIM_MIN_NORM_TOL : ttol->norm;
+	if (ttol->norm < PRIM_MIN_NORM_TOL)
+	    bu_log("Warning: eto plot norm tolerance clamped from %g rad to %g rad "
+		   "to prevent excessively dense plot\n", ttol->norm, ntol);
+    } else
 	/* tolerate everything */
 	ntol = M_PI;
 
@@ -1209,15 +1213,20 @@ rt_eto_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	dtol = primitive_get_absolute_tolerance(ttol, 2.0 * b);
     }
 
-    /* To ensure normal tolerance, remain below this angle */
-    if (ttol->norm > 0.0)
-	ntol = ttol->norm;
-    else
+    /* To ensure normal tolerance, remain below this angle.
+     * Clamp to PRIM_MIN_NORM_TOL to prevent excessively dense meshes. */
+    if (ttol->norm > 0.0) {
+	ntol = (ttol->norm < PRIM_MIN_NORM_TOL) ? PRIM_MIN_NORM_TOL : ttol->norm;
+	if (ttol->norm < PRIM_MIN_NORM_TOL)
+	    bu_log("Warning: eto tessellation norm tolerance clamped from %g rad to %g rad "
+		   "to prevent excessively dense mesh\n", ttol->norm, ntol);
+    } else
 	/* tolerate everything */
 	ntol = M_PI;
 
-    /* (x, y) coords for an ellipse */
-    ell = make_ellipse(&npts, a, b, dtol, ntol);
+    /* (x, y) coords for cross-section ellipse.
+     * Use dtol only so ntol does not multiply ring count by cross-section pts. */
+    ell = make_ellipse(&npts, a, b, dtol, M_PI);
     /* generate coordinate axes */
     VMOVE(Nu, tip->eto_N);
     VUNITIZE(Nu);			/* z axis of coord sys */
@@ -1233,6 +1242,11 @@ rt_eto_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	primitive_clamp_tess_tol(&dtol, &ntol_dummy, bbox_diag);
     }
     nells = rt_num_circular_segments(dtol, eto_r_eff);
+    /* Honour normal tolerance for ring count. */
+    if (ntol < M_PI) {
+	int nells_ntol = (int)(M_PI / ntol) + 1;
+	if (nells_ntol > nells) nells = nells_ntol;
+    }
     theta = M_2PI / nells;	/* put ellipse every theta rads */
     /* get horizontal and vertical components of C and Rd */
     cv = VDOT(tip->eto_C, Nu);

@@ -839,9 +839,9 @@ rt_hyp_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     i = 1;
     {
 	point_t p0, p1, p2;
-	fastf_t mm, len, dist, ang0, ang2;
+	fastf_t mm, len, dist;
 	vect_t v01, v02; /* vectors from p0->p1 and p0->p2 */
-	vect_t nLine, nHyp;
+	vect_t nLine;
 	struct rt_pnt_node *add;
 
 	while (i) {
@@ -871,16 +871,9 @@ rt_hyp_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 		VSCALE(v02, v02, len);
 		VSUB2(nLine, v01, v02);
 		dist = MAGNITUDE(nLine);
-		VUNITIZE(nLine);
 
-		VSET(nHyp, p0[X] / (r1*r1), p0[Y] / (r2*r2), p0[Z] / (r3*r3));
-		VUNITIZE(nHyp);
-		ang0 = fabs(acos(VDOT(nLine, nHyp)));
-		VSET(nHyp, p2[X] / (r1*r1), p2[Y] / (r2*r2), p2[Z] / (r3*r3));
-		VUNITIZE(nHyp);
-		ang2 = fabs(acos(VDOT(nLine, nHyp)));
-
-		if (dist > dtol || ang0 > ntol || ang2 > ntol) {
+		/* Profile ring placement is dtol-only; ntol is applied via nseg below. */
+		if (dist > dtol) {
 		    /* Guard: if p1 is not finite (NaN from sqrt of negative
 		     * when the slope is too shallow) or falls outside the
 		     * Z range of the segment, the midpoint formula failed.
@@ -959,7 +952,7 @@ rt_hyp_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
      * rationale. */
     nseg = rt_num_circular_segments(dtol, r1);
     if (ntol < M_PI) {
-	size_t nseg_ntol = (size_t)(M_2PI / ntol) + 1;
+	size_t nseg_ntol = (size_t)(M_PI / ntol) + 1;
 	if (nseg_ntol > nseg)
 	    nseg = nseg_ntol;
     }
@@ -1129,14 +1122,23 @@ rt_hyp_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	}
     }
 
-    /* bottom face of hyp */
-    for (i = 0; i < nseg; i++)
-	vells[0][i] = (struct vertex *)NULL;
-
-    BU_ASSERT(outfaceuses != NULL);
-    if ((outfaceuses[face++] = nmg_cface(s, vells[0], nseg)) == 0) {
-	bu_log("rt_hyp_tess() failure, bottom face\n");
-	goto fail;
+    /* bottom face of hyp - the ring loop above has already created and assigned
+     * geometry to vells[0].  We must NOT zero them out; instead call nmg_cface
+     * with the existing vertex pointers.  Traverse in reverse order so the
+     * face polygon has an outward-pointing (downward) normal that is consistent
+     * with the ring triangle orientation (same pattern as rt_tgc_tess which
+     * also reverses the bottom cap vertex order to get the outward normal). */
+    {
+	struct vertex **rev_vells = (struct vertex **)bu_malloc(nseg * sizeof(struct vertex *), "hyp: bottom cap reversed verts");
+	for (i = 0; i < nseg; i++)
+	    rev_vells[i] = vells[0][nseg - 1 - i];
+	BU_ASSERT(outfaceuses != NULL);
+	if ((outfaceuses[face++] = nmg_cface(s, rev_vells, nseg)) == 0) {
+	    bu_free(rev_vells, "hyp: bottom cap reversed verts");
+	    bu_log("rt_hyp_tess() failure, bottom face\n");
+	    goto fail;
+	}
+	bu_free(rev_vells, "hyp: bottom cap reversed verts");
     }
     fu_bottom = outfaceuses[face-1];
 
@@ -1156,10 +1158,8 @@ rt_hyp_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	}
     }
 
-    for (i = 0; i < nseg; i++) {
-	NMG_CK_VERTEX(vells[0][i]);
-	nmg_vertex_gv(vells[0][i], &ellipses[0][3*i]);
-    }
+    /* Geometry for vells[0] was already assigned by the ring loop above.
+     * No need to call nmg_vertex_gv again. */
 
     /* Associate the face geometry */
     for (i = 0; i < face; i++) {
