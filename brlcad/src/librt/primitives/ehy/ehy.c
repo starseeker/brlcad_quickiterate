@@ -953,6 +953,7 @@ rt_ehy_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
 {
     struct bu_list *vlfree = &rt_vlfree;
     fastf_t c, dtol, mag_h, ntol, r1, r2;
+    fastf_t min_abs;
     fastf_t **ellipses;
     int *pts_dbl;
     size_t i, j, nseg, nell;
@@ -993,6 +994,7 @@ rt_ehy_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
 	fastf_t bbox_diag = sqrt(4.0*r1*r1 + mag_h*mag_h);
 	primitive_clamp_tess_tol(&dtol, &ntol, bbox_diag);
     }
+    min_abs = prim_min_abs_tol();
 
     /*
      * build ehy from 2 hyperbolas
@@ -1008,7 +1010,7 @@ rt_ehy_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
     /* 2 endpoints in 1st approximation */
     nb = 2;
     /* recursively break segment 'til within error tolerances */
-    nb += rt_mk_hyperbola(pts_b, r2, mag_h, c, dtol, ntol);
+    nb += _rt_mk_hyperbola(pts_b, r2, mag_h, c, dtol, ntol, min_abs);
     nell = nb - 1;	/* # of ellipses needed */
 
     /* construct positive half of hyperbola along semi-major axis of
@@ -1040,7 +1042,7 @@ rt_ehy_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
     recalc_b = 0;
     pos_a = pts_a;
     while (pos_a->next) {
-	na = rt_mk_hyperbola(pos_a, r1, mag_h, c, dtol, ntol);
+	na = _rt_mk_hyperbola(pos_a, r1, mag_h, c, dtol, ntol, min_abs);
 	if (na != 0) {
 	    recalc_b = 1;
 	    nell += na;
@@ -1197,6 +1199,7 @@ int
 rt_ehy_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *tol)
 {
     fastf_t c, dtol, mag_h, ntol, r1, r2, cprime;
+    fastf_t min_abs;
     fastf_t **ellipses;
     int *pts_dbl;
     int *segs_per_ell;
@@ -1273,6 +1276,7 @@ rt_ehy_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	primitive_clamp_tess_tol(&dtol, &ntol, bbox_diag);
     }
 
+    min_abs = prim_min_abs_tol();
     /*
      * build ehy from 2 hyperbolas
      */
@@ -1287,7 +1291,7 @@ rt_ehy_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     /* 2 endpoints in 1st approximation */
     nb = 2;
     /* recursively break segment 'til within error tolerances */
-    nb += rt_mk_hyperbola(pts_b, r2, mag_h, c, dtol, ntol);
+    nb += _rt_mk_hyperbola(pts_b, r2, mag_h, c, dtol, ntol, min_abs);
     nell = nb - 1;	/* # of ellipses needed */
 
     /* construct positive half of hyperbola along semi-major axis of
@@ -1319,7 +1323,7 @@ rt_ehy_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     recalc_b = 0;
     pos_a = pts_a;
     while (pos_a->next) {
-	na = rt_mk_hyperbola(pos_a, r1, mag_h, c, dtol, ntol);
+	na = _rt_mk_hyperbola(pos_a, r1, mag_h, c, dtol, ntol, min_abs);
 	if (na != 0) {
 	    recalc_b = 1;
 	    nell += na;

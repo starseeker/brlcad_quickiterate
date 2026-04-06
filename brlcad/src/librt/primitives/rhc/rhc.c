@@ -1020,7 +1020,7 @@ rt_rhc_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
 {
     int i, n;
     fastf_t b, c, *back, *front, rh;
-    fastf_t dtol, ntol;
+    fastf_t dtol, ntol, min_abs;
     vect_t Bu, Hu, Ru;
     mat_t R;
     mat_t invR;
@@ -1073,6 +1073,7 @@ rt_rhc_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
 	fastf_t bbox_diag = 2.0 * (rh > b ? rh : b);
 	primitive_clamp_tess_tol(&dtol, &ntol, bbox_diag);
     }
+    min_abs = prim_min_abs_tol();
 
     /* initial hyperbola approximation is a single segment */
     BU_ALLOC(pts, struct rt_pnt_node);
@@ -1084,7 +1085,7 @@ rt_rhc_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
     /* 2 endpoints in 1st approximation */
     n = 2;
     /* recursively break segment 'til within error tolerances */
-    n += rt_mk_hyperbola(pts, rh, b, c, dtol, ntol);
+    n += _rt_mk_hyperbola(pts, rh, b, c, dtol, ntol, min_abs);
 
     /* get mem for arrays */
     front = (fastf_t *)bu_malloc(3 * n * sizeof(fastf_t), "fast_t");
@@ -1140,18 +1141,18 @@ rt_rhc_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
   r: rectangular halfwidth
   b: breadth
   c: distance to asymptote origin
+
+  Internal version: takes an explicit min_abs floor so the caller can
+  read the env-var override once and propagate it through all recursion.
 */
 int
-rt_mk_hyperbola(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t c, fastf_t dtol, fastf_t ntol)
+_rt_mk_hyperbola(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t c, fastf_t dtol, fastf_t ntol, fastf_t min_abs)
 {
     fastf_t A, B, C, discr, dist, intr, j, k, m, theta0, theta1, z0;
-    fastf_t min_abs;
     int n;
     point_t mpt, p0, p1;
     vect_t norm_line, norm_hyperb;
     struct rt_pnt_node *newpt;
-
-    min_abs = prim_min_abs_tol();
 
 #define RHC_TOL .0001
     /* endpoints of segment approximating hyperbola */
@@ -1246,14 +1247,27 @@ rt_mk_hyperbola(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t c, fastf_
 	/* keep track of number of pts added */
 	n = 1;
 	/* recurse on first new segment */
-	n += rt_mk_hyperbola(pts, r, b, c, dtol, ntol);
+	n += _rt_mk_hyperbola(pts, r, b, c, dtol, ntol, min_abs);
 	/* recurse on second new segment */
-	n += rt_mk_hyperbola(newpt, r, b, c, dtol, ntol);
+	n += _rt_mk_hyperbola(newpt, r, b, c, dtol, ntol, min_abs);
     } else {
 	n  = 0;
     }
 
     return n;
+}
+
+
+/**
+ * Public wrapper for _rt_mk_hyperbola.  Uses the compiled-in
+ * PRIM_MIN_ABS_TOL default (ignoring any RT_PRIM_MIN_ABS_TOL env var).
+ * Internal librt code should call _rt_mk_hyperbola() directly, passing a
+ * min_abs value obtained once per tessellation from prim_min_abs_tol().
+ */
+int
+rt_mk_hyperbola(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t c, fastf_t dtol, fastf_t ntol)
+{
+    return _rt_mk_hyperbola(pts, r, b, c, dtol, ntol, PRIM_MIN_ABS_TOL);
 }
 
 
@@ -1267,7 +1281,7 @@ rt_rhc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 {
     int i, j, n;
     fastf_t b, c, *back, *front, rh;
-    fastf_t dtol, ntol;
+    fastf_t dtol, ntol, min_abs;
     vect_t Bu, Hu, Ru;
     mat_t R;
     mat_t invR;
@@ -1330,6 +1344,7 @@ rt_rhc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	primitive_clamp_tess_tol(&dtol, &ntol, bbox_diag);
     }
 
+    min_abs = prim_min_abs_tol();
     /* initial hyperbola approximation is a single segment */
     BU_ALLOC(pts, struct rt_pnt_node);
     BU_ALLOC(pts->next, struct rt_pnt_node);
@@ -1340,7 +1355,7 @@ rt_rhc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     /* 2 endpoints in 1st approximation */
     n = 2;
     /* recursively break segment 'til within error tolerances */
-    n += rt_mk_hyperbola(pts, rh, b, c, dtol, ntol);
+    n += _rt_mk_hyperbola(pts, rh, b, c, dtol, ntol, min_abs);
 
     /* get mem for arrays */
     front = (fastf_t *)bu_malloc(3 * n * sizeof(fastf_t), "fastf_t");
