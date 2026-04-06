@@ -1911,6 +1911,8 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     fastf_t rel, absolute, norm;	/* interpreted tolerances */
     fastf_t alpha_tol;	/* final tolerance for ellipse parameter */
     fastf_t abs_tol;	/* handle invalid ttol->abs */
+    fastf_t min_abs_tol_val;	/* env-overridable floor for abs tolerance */
+    fastf_t min_norm_tol_val;	/* env-overridable floor for norm tolerance */
     size_t nells;		/* total number of ellipses */
     size_t nsegs;		/* number of vertices/ellipse */
     vect_t *A;		/* array of A vectors for ellipses */
@@ -1938,6 +1940,10 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     tip = (struct rt_tgc_internal *)ip->idb_ptr;
     RT_TGC_CK_MAGIC(tip);
 
+    /* Read env-var-overridable tolerance floors once for this tess call. */
+    min_abs_tol_val = prim_min_abs_tol();
+    min_norm_tol_val = prim_min_norm_tol();
+
     if (ttol->abs > 0.0 && ttol->abs < tol->dist) {
 	bu_log("WARNING: tessellation tolerance is %fmm while calculational tolerance is %fmm\n",
 	       ttol->abs, tol->dist);
@@ -1947,8 +1953,8 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	abs_tol = ttol->abs;
     }
     /* Enforce minimum abs tolerance to prevent excessively dense meshes. */
-    if (abs_tol > 0.0 && abs_tol < PRIM_MIN_ABS_TOL)
-	abs_tol = PRIM_MIN_ABS_TOL;
+    if (abs_tol > 0.0 && abs_tol < min_abs_tol_val)
+	abs_tol = min_abs_tol_val;
 
     h = MAGNITUDE(tip->h);
     a_axis_len = MAGNITUDE(tip->a);
@@ -2044,7 +2050,7 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 
 	if (ttol->norm > 0.0) {
 	    fastf_t norm_top, norm_bot;
-	    fastf_t ntol_eff = (ttol->norm < PRIM_MIN_NORM_TOL) ? PRIM_MIN_NORM_TOL : ttol->norm;
+	    fastf_t ntol_eff = (ttol->norm < min_norm_tol_val) ? min_norm_tol_val : ttol->norm;
 
 	    if (a_axis_len < b_axis_len)
 		norm_bot = 2.0 * atan(tan(ntol_eff) * (a_axis_len / b_axis_len));
@@ -2072,10 +2078,10 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     }
 
     /* Clamp alpha_tol: the aspect-ratio scaling of ntol_eff can push it below
-     * PRIM_MIN_NORM_TOL for highly asymmetric TGC shapes, causing huge nsegs. */
-    if (alpha_tol < PRIM_MIN_NORM_TOL) {
+     * the minimum norm tolerance for highly asymmetric TGC shapes, causing huge nsegs. */
+    if (alpha_tol < min_norm_tol_val) {
 	fastf_t orig_alpha_tol = alpha_tol;
-	alpha_tol = PRIM_MIN_NORM_TOL;
+	alpha_tol = min_norm_tol_val;
 	bu_log("Warning: TGC tessellation alpha_tol clamped from %g rad to "
 	       "%g rad to prevent excessively dense mesh\n",
 	       orig_alpha_tol, alpha_tol);
