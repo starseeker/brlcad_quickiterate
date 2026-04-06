@@ -1431,17 +1431,16 @@ rt_ehy_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	    pos_a = pos_a->next;
 	}
 
-	ring_r = (fastf_t *)bu_malloc((n_valid > 0 ? n_valid : 1) * sizeof(fastf_t),
-				      "ring radii");
-	k = 0;
-	pos_a = pts_a->next;
-	while (pos_a) {
-	    if (pos_a->p[Y] >= min_ring_r)
-		ring_r[k++] = pos_a->p[Y];
-	    pos_a = pos_a->next;
-	}
-
 	if (n_valid > 0) {
+	    ring_r = (fastf_t *)bu_malloc(n_valid * sizeof(fastf_t), "ring radii");
+	    k = 0;
+	    pos_a = pts_a->next;
+	    while (pos_a) {
+		if (pos_a->p[Y] >= min_ring_r)
+		    ring_r[k++] = pos_a->p[Y];
+		pos_a = pos_a->next;
+	    }
+
 	    segs_per_ell[n_valid - 1] = nseg_base;
 	    for (k = n_valid - 2; k >= 0; k--) {
 		int ns_ideal = (int)rt_num_circular_segments(dtol, ring_r[k]);
@@ -1457,8 +1456,9 @@ rt_ehy_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	    pts_dbl[0] = 0;
 	    for (k = 1; k < n_valid; k++)
 		pts_dbl[k] = (segs_per_ell[k] == 2 * segs_per_ell[k - 1]) ? 1 : 0;
+
+	    bu_free(ring_r, "ring radii");
 	}
-	bu_free(ring_r, "ring radii");
 
 	/* Build ring ellipses using per-ring segment counts */
 	i = 0;
