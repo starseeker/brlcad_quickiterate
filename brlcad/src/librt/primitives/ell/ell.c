@@ -1075,7 +1075,8 @@ rt_ell_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 
     /* To ensure normal tolerance, remain below this angle */
     if (ttol->norm > 0.0) {
-	fastf_t ntol_eff = (ttol->norm < PRIM_MIN_NORM_TOL) ? PRIM_MIN_NORM_TOL : ttol->norm;
+	fastf_t min_ntol = prim_min_norm_tol();
+	fastf_t ntol_eff = (ttol->norm < min_ntol) ? min_ntol : ttol->norm;
 	if (ntol_eff < state.theta_tol)
 	    state.theta_tol = ntol_eff;
     }
