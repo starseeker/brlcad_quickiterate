@@ -1370,3 +1370,154 @@ Build dynamic libraries ............: ON
 Install example geometry models ....: ON
 Generate AsciiDoc docs .............: OFF
  
+/usr/local/bin/cmake "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad" 
+**********************************************************
+*** Configuring BRL-CAD Release 7.43.0, Build 20260406 ***
+**********************************************************
+STATUS: Could NOT find X11 (missing: X11_X11_INCLUDE_PATH X11_X11_LIB) 
+STATUS: Could NOT find OpenGL (missing: OPENGL_opengl_LIBRARY OPENGL_glx_LIBRARY OPENGL_INCLUDE_DIR) 
+STATUS: Could NOT find Doxygen (missing: DOXYGEN_EXECUTABLE) 
+STATUS: Checking for module 'mpi-c'
+STATUS:   Package 'mpi-c', required by 'virtual:world', not found
+STATUS: Could NOT find MPI_C (missing: MPI_C_LIB_NAMES MPI_C_HEADER_DIR MPI_C_WORKS) 
+STATUS: Could NOT find MPI (missing: MPI_C_FOUND C) 
+CHECK_START: Performing Test COMPILER_SUPPORTS_CXX17
+CHECK_PASS: Success
+Comparing previous and current states...
+Comparing previous and current states... done.
+Characterizing new or changed bundled third party files...
+Characterizing new or changed bundled third party files... done.
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/PNG/PNGConfig.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/PNG/PNGConfigVersion.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/PNG/PNGTargets-noconfig.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/PNG/PNGTargets.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/assimp-6.0/assimpConfig.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/assimp-6.0/assimpConfigVersion.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/assimp-6.0/assimpTargets-noconfig.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/assimp-6.0/assimpTargets.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/clipper2/Clipper2Config.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/clipper2/Clipper2ConfigVersion.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/clipper2/Clipper2Targets-noconfig.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/clipper2/Clipper2Targets.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/libjpeg-turbo/libjpeg-turboConfig.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/libjpeg-turbo/libjpeg-turboConfigVersion.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/libjpeg-turbo/libjpeg-turboTargets.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/manifold/manifoldConfig.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/manifold/manifoldConfigVersion.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/manifold/manifoldTargets-noconfig.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/manifold/manifoldTargets.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/mmesh/mmeshConfig.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/mmesh/mmeshConfigVersion.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/mmesh/mmeshTargets-noconfig.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/mmesh/mmeshTargets.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/opencv4/OpenCVConfig.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/opencv4/OpenCVModules-noconfig.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/opencv4/OpenCVModules.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/pugixml/pugixml-config.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/pugixml/pugixml-targets-noconfig.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/pugixml/pugixml-targets.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/tinygltf/TinyGLTFConfig.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/tinygltf/TinyGLTFTargets-noconfig.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/tinygltf/TinyGLTFTargets.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/pkgconfig/Clipper2.pc
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/pkgconfig/assimp.pc
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/pkgconfig/geogram1.pc
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/pkgconfig/libjpeg.pc
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/pkgconfig/libturbojpeg.pc
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/pkgconfig/manifold.pc
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/pkgconfig/pugixml.pc
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/pkgconfig/tcl.pc
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/pkgconfig/tk.pc
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/libdata/pkgconfig/openmesh.pc
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/share/OpenMesh/cmake/OpenMeshConfig.cmake
+STATUS: Found LMDB: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/lib/liblmdb.so
+STATUS: Found LMDB: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/lib/liblmdb.so
+STATUS: Found OPENNURBS: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/lib/libOpenNURBS.so
+STATUS: Found OPENNURBS: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/lib/libOpenNURBS.so
+STATUS: Found REGEX: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/lib/libregex_brl.so
+STATUS: Found Geogram: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/lib/libgeogram.so
+STATUS: Found PERPLEX: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/bext_output/noinstall/bin/perplex
+STATUS: Found LEMON: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/bext_output/noinstall/bin/lemon
+STATUS: Found RE2C: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/bext_output/noinstall/bin/re2c
+STATUS: Found NETPBM: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/lib/libnetpbm.so
+STATUS: Found PNG: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/lib/libpng_brl.so (found version "1.6.54")
+STATUS: Found JPEG: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/lib/libjpeg.so (found version "62")
+STATUS: Found OSMESA: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/lib/libosmesa.so
+STATUS: Found LMDB: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/lib/liblmdb.so
+STATUS: Found PNG: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/lib/libpng_brl.so (found version "1.6.54")
+STATUS: Found REGEX: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/lib/libregex_brl.so
+STATUS: Found Geogram: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/lib/libgeogram.so
+STATUS: Found PERPLEX: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/bext_output/noinstall/bin/perplex
+STATUS: Found LEMON: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/bext_output/noinstall/bin/lemon
+STATUS: Found RE2C: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/bext_output/noinstall/bin/re2c
+STATUS: Found Geogram: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/lib/libgeogram.so
+STATUS: Could NOT find Adaptagrams (missing: _AVOID_LIB _AVOID_INC avoid cola dialect topology) 
+Generating plugin wrapper files...
+WARNING: Skipping non-existent source file: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/src/libged/brep/dplot_scanner_dplot_scanner/dplot_scanner.c
+WARNING: Skipping non-existent source file: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/src/libged/brep/dplot_parser_dplot_parser/dplot_parser.c
+Generating plugin wrapper files... done.
+Found OpenCV: opencv_core;opencv_features2d;opencv_imgproc;opencv_highgui
+STATUS: Could NOT find Appleseed (missing: Appleseed_INCLUDE_DIR Appleseed_LIBRARY) 
+'art' appleseed ray tracing is DISABLED
+STATUS: Found PNG: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/lib/libpng_brl.so (found version "1.6.54")
+STATUS: Could NOT find STEPCODE (missing: STEPCODE_DAI_DIR STEPCODE_EDITOR_DIR STEPCODE_STEPCORE_DIR STEPCODE_UTILS_DIR STEPCODE_EXPPP_DIR STEPCODE_EXPRESS_DIR STEPCODE_INCLUDE_DIR STEPCODE_EXPRESS_LIBRARY STEPCODE_EXPPP_LIBRARY STEPCODE_CORE_LIBRARY STEPCODE_EDITOR_LIBRARY STEPCODE_DAI_LIBRARY STEPCODE_UTILS_LIBRARY EXP2CXX_EXECUTABLE EXPPP_EXECUTABLE) 
+STATUS: The '-fsanitize=fuzzer' flag is not supported.
+
+
+------------ BRL-CAD Release 7.43.0, Build 20260406 - Release Build ------------
+
+        Prefix: /usr/brlcad/rel-7.43.0
+      Binaries: /usr/brlcad/rel-7.43.0/bin
+     Libraries: /usr/brlcad/rel-7.43.0/lib
+  Manual pages: /usr/brlcad/rel-7.43.0/share/man
+Data resources: /usr/brlcad/rel-7.43.0/share
+ 
+CC       = /usr/bin/cc
+CXX      = /usr/bin/c++
+CFLAGS   = -std=c11 -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe
+           -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions
+           -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce
+           -fexpensive-optimizations -finline-functions -flto=auto
+           -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef
+           -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline
+           -Wno-long-long -Wno-variadic-macros -ftest-coverage -ftest-coverage
+           -fprofile-arcs -fprofile-update=atomic -Werror
+CXXFLAGS = -std=c++17 -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe
+           -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions
+           -ftemplate-depth-128 -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce
+           -fexpensive-optimizations -finline-functions -flto=auto
+           -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef
+           -Wfloat-equal -Wshadow -Wno-inline -Wno-long-long
+           -Wno-variadic-macros -ftest-coverage -ftest-coverage -fprofile-arcs
+           -fprofile-update=atomic -Werror
+LDFLAGS  = -m64 -g -ggdb3 -lgcov -ftest-coverage -fprofile-arcs
+           -fprofile-update=atomic
+ 
+ 
+Asset Import Library.................: Bundled
+Eigen................................: Bundled
+Geogram..............................: Bundled
+Lightning Memory-Mapped Database.....: Bundled
+Manifold.............................: Bundled
+Netpbm...............................: Bundled
+OpenCV...............................: Bundled
+OpenNURBS............................: Bundled
+OSMesa...............................: Bundled
+Portable Network Graphics............: Bundled
+Regex Library........................: Bundled
+Tcl..................................: Bundled
+Tk...................................: NotFound
+Zlib.................................: Bundled
+ 
+OpenGL support (optional) ..........: OFF
+X11 support (optional) .............: OFF
+Qt support (optional) ..............: OFF
+Run-time debuggability (optional) ..: ON
+ 
+Build 32/64-bit release ............: 64BIT (Auto)
+Build with optimization ............: ON
+Build static libraries .............: ON
+Build dynamic libraries ............: ON
+Install example geometry models ....: ON
+Generate AsciiDoc docs .............: OFF
+ 

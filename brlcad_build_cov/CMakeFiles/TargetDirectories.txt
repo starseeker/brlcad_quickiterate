@@ -79,6 +79,16 @@
 /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/misc/tools/asciiquack/CMakeFiles/install.dir
 /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/misc/tools/asciiquack/CMakeFiles/install/local.dir
 /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/misc/tools/asciiquack/CMakeFiles/install/strip.dir
+/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/misc/tools/inactvhdrs/CMakeFiles/inactvhdrs.dir
+/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/misc/tools/inactvhdrs/CMakeFiles/package.dir
+/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/misc/tools/inactvhdrs/CMakeFiles/package_source.dir
+/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/misc/tools/inactvhdrs/CMakeFiles/test.dir
+/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/misc/tools/inactvhdrs/CMakeFiles/edit_cache.dir
+/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/misc/tools/inactvhdrs/CMakeFiles/rebuild_cache.dir
+/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/misc/tools/inactvhdrs/CMakeFiles/list_install_components.dir
+/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/misc/tools/inactvhdrs/CMakeFiles/install.dir
+/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/misc/tools/inactvhdrs/CMakeFiles/install/local.dir
+/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/misc/tools/inactvhdrs/CMakeFiles/install/strip.dir
 /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/src/CMakeFiles/package.dir
 /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/src/CMakeFiles/package_source.dir
 /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/src/CMakeFiles/test.dir

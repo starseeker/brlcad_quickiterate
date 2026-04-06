@@ -894,6 +894,19 @@ asciiquack/fast:
 .PHONY : asciiquack/fast
 
 #=============================================================================
+# Target rules for targets named inactvhdrs
+
+# Build rule for target.
+inactvhdrs: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 inactvhdrs
+.PHONY : inactvhdrs
+
+# fast build rule for target.
+inactvhdrs/fast:
+	$(MAKE) $(MAKESILENT) -f misc/tools/inactvhdrs/CMakeFiles/inactvhdrs.dir/build.make misc/tools/inactvhdrs/CMakeFiles/inactvhdrs.dir/build
+.PHONY : inactvhdrs/fast
+
+#=============================================================================
 # Target rules for targets named libbu-obj
 
 # Build rule for target.
@@ -14523,6 +14536,7 @@ help:
 	@echo "... imgdiff"
 	@echo "... imgdims"
 	@echo "... imod"
+	@echo "... inactvhdrs"
 	@echo "... istats"
 	@echo "... jack-g"
 	@echo "... k-g"

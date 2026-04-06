@@ -1,3 +1,5 @@
+/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/misc/tools/inactvhdrs/CMakeLists.txt
+/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/misc/tools/inactvhdrs/inactvhdrs.cpp
 /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/misc/tools/CMakeLists.txt
 /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/misc/tools/README
 /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/misc/tools/asciiquack/CMakeLists.txt
@@ -21,8 +23,6 @@
 /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/misc/tools/asciiquack/vendor/cxxopts.hpp
 /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/misc/tools/db2adoc/db2adoc.py
 /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/misc/tools/db2adoc/db2adoc.xsl
-/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/misc/tools/inactvhdrs/CMakeLists.txt
-/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/misc/tools/inactvhdrs/inactvhdrs.cpp
 /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/src/libbu/brledit/brledit.cpp
 /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/src/libbu/brledit/CMakeLists.txt
 /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/src/libbu/affinity.c

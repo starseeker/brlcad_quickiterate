@@ -14803,3 +14803,181 @@ events:
         
       exitCode: 2
 ...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "misc/CMake/BRLCAD_Util.cmake:414 (try_compile)"
+      - "misc/CMake/BRLCAD_Install_Prefix.cmake:176 (generate_dreport)"
+      - "CMakeLists.txt:336 (include)"
+    directories:
+      source: "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeTmp/CMakeFiles/CMakeTmp"
+      binary: "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeTmp/CMakeFiles/CMakeTmp"
+    cmakeVariables:
+      CMAKE_C_FLAGS: "-std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -ftest-coverage -ftest-coverage -fprofile-arcs -fprofile-update=atomic -Werror"
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: " -m64 -g -ggdb3 -lgcov -ftest-coverage -fprofile-arcs -fprofile-update=atomic"
+      CMAKE_MODULE_PATH: "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/misc/CMake"
+      CMAKE_POSITION_INDEPENDENT_CODE: "TRUE"
+    buildResult:
+      variable: "dreport_build"
+      cached: true
+      stdout: |
+        Change Dir: '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeTmp/CMakeFiles/CMakeTmp'
+        
+        Run Build Command(s): /usr/local/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_71eed/fast
+        gmake[1]: Entering directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeTmp/CMakeFiles/CMakeTmp'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_71eed.dir/build.make CMakeFiles/cmTC_71eed.dir/build
+        gmake[2]: Entering directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeTmp/CMakeFiles/CMakeTmp'
+        Building C object CMakeFiles/cmTC_71eed.dir/dreport.c.o
+        /usr/bin/cc   -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -ftest-coverage -ftest-coverage -fprofile-arcs -fprofile-update=atomic -Werror  -fPIE -o CMakeFiles/cmTC_71eed.dir/dreport.c.o -c /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeTmp/dreport.c
+        Linking C executable cmTC_71eed
+        /usr/local/bin/cmake -E cmake_link_script CMakeFiles/cmTC_71eed.dir/link.txt --verbose=1
+        /usr/bin/cc -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -ftest-coverage -ftest-coverage -fprofile-arcs -fprofile-update=atomic -Werror   -m64 -g -ggdb3 -lgcov -ftest-coverage -fprofile-arcs -fprofile-update=atomic  CMakeFiles/cmTC_71eed.dir/dreport.c.o -o cmTC_71eed
+        gmake[2]: Leaving directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeTmp/CMakeFiles/CMakeTmp'
+        gmake[1]: Leaving directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeTmp/CMakeFiles/CMakeTmp'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/local/share/cmake-3.31/Modules/FindMPI.cmake:1283 (try_compile)"
+      - "/usr/local/share/cmake-3.31/Modules/FindMPI.cmake:1327 (_MPI_try_staged_settings)"
+      - "/usr/local/share/cmake-3.31/Modules/FindMPI.cmake:1650 (_MPI_check_lang_works)"
+      - "CMakeLists.txt:1378 (find_package)"
+    description: "The MPI test test_mpi for C in mode normal"
+    directories:
+      source: "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeScratch/TryCompile-rM0G51"
+      binary: "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeScratch/TryCompile-rM0G51"
+    cmakeVariables:
+      CMAKE_C_FLAGS: "-std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -ftest-coverage -ftest-coverage -fprofile-arcs -fprofile-update=atomic -Werror"
+      CMAKE_C_FLAGS_DEBUG: ""
+      CMAKE_EXE_LINKER_FLAGS: " -m64 -g -ggdb3 -lgcov -ftest-coverage -fprofile-arcs -fprofile-update=atomic"
+      CMAKE_MODULE_PATH: "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/misc/CMake"
+      CMAKE_POSITION_INDEPENDENT_CODE: "TRUE"
+    buildResult:
+      variable: "MPI_RESULT_C_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeScratch/TryCompile-rM0G51'
+        
+        Run Build Command(s): /usr/local/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_962d0/fast
+        gmake[1]: Entering directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeScratch/TryCompile-rM0G51'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_962d0.dir/build.make CMakeFiles/cmTC_962d0.dir/build
+        gmake[2]: Entering directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeScratch/TryCompile-rM0G51'
+        Building C object CMakeFiles/cmTC_962d0.dir/test_mpi.c.o
+        /usr/bin/cc   -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -ftest-coverage -ftest-coverage -fprofile-arcs -fprofile-update=atomic -Werror  -std=c11 -fPIE -o CMakeFiles/cmTC_962d0.dir/test_mpi.c.o -c /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeScratch/TryCompile-rM0G51/test_mpi.c
+        /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeScratch/TryCompile-rM0G51/test_mpi.c:1:10: fatal error: mpi.h: No such file or directory
+            1 | #include <mpi.h>
+              |          ^~~~~~~
+        compilation terminated.
+        gmake[2]: *** [CMakeFiles/cmTC_962d0.dir/build.make:81: CMakeFiles/cmTC_962d0.dir/test_mpi.c.o] Error 1
+        gmake[2]: Leaving directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeScratch/TryCompile-rM0G51'
+        gmake[1]: *** [Makefile:134: cmTC_962d0/fast] Error 2
+        gmake[1]: Leaving directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeScratch/TryCompile-rM0G51'
+        
+      exitCode: 2
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/local/share/cmake-3.31/Modules/Internal/CheckSourceCompiles.cmake:108 (try_compile)"
+      - "/usr/local/share/cmake-3.31/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/local/share/cmake-3.31/Modules/CheckCXXCompilerFlag.cmake:55 (cmake_check_compiler_flag)"
+      - "misc/tools/inactvhdrs/CMakeLists.txt:48 (check_cxx_compiler_flag)"
+    checks:
+      - "Performing Test COMPILER_SUPPORTS_CXX17"
+    directories:
+      source: "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeScratch/TryCompile-aLhIkZ"
+      binary: "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeScratch/TryCompile-aLhIkZ"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: "-std=c++17  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -ftemplate-depth-128 -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wno-inline -Wno-long-long -Wno-variadic-macros -ftest-coverage -ftest-coverage -fprofile-arcs -fprofile-update=atomic -Werror"
+      CMAKE_CXX_FLAGS_DEBUG: ""
+      CMAKE_EXE_LINKER_FLAGS: " -m64 -g -ggdb3 -lgcov -ftest-coverage -fprofile-arcs -fprofile-update=atomic"
+      CMAKE_MODULE_PATH: "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/misc/CMake"
+      CMAKE_POSITION_INDEPENDENT_CODE: "TRUE"
+    buildResult:
+      variable: "COMPILER_SUPPORTS_CXX17"
+      cached: true
+      stdout: |
+        Change Dir: '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeScratch/TryCompile-aLhIkZ'
+        
+        Run Build Command(s): /usr/local/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_d7755/fast
+        gmake[1]: Entering directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeScratch/TryCompile-aLhIkZ'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_d7755.dir/build.make CMakeFiles/cmTC_d7755.dir/build
+        gmake[2]: Entering directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeScratch/TryCompile-aLhIkZ'
+        Building CXX object CMakeFiles/cmTC_d7755.dir/src.cxx.o
+        /usr/bin/c++ -DCOMPILER_SUPPORTS_CXX17  -std=c++17  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -ftemplate-depth-128 -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wno-inline -Wno-long-long -Wno-variadic-macros -ftest-coverage -ftest-coverage -fprofile-arcs -fprofile-update=atomic -Werror  -std=c++17 -fPIE   -std=c++17 -o CMakeFiles/cmTC_d7755.dir/src.cxx.o -c /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeScratch/TryCompile-aLhIkZ/src.cxx
+        Linking CXX executable cmTC_d7755
+        /usr/local/bin/cmake -E cmake_link_script CMakeFiles/cmTC_d7755.dir/link.txt --verbose=1
+        /usr/bin/c++ -std=c++17  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -ftemplate-depth-128 -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wno-inline -Wno-long-long -Wno-variadic-macros -ftest-coverage -ftest-coverage -fprofile-arcs -fprofile-update=atomic -Werror   -m64 -g -ggdb3 -lgcov -ftest-coverage -fprofile-arcs -fprofile-update=atomic  CMakeFiles/cmTC_d7755.dir/src.cxx.o -o cmTC_d7755
+        gmake[2]: Leaving directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeScratch/TryCompile-aLhIkZ'
+        gmake[1]: Leaving directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeScratch/TryCompile-aLhIkZ'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "src/librt/CMakeLists.txt:53 (try_compile)"
+    directories:
+      source: "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeTmp/CMakeFiles/CMakeTmp"
+      binary: "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeTmp/CMakeFiles/CMakeTmp"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: "-std=c++17  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -ftemplate-depth-128 -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wno-inline -Wno-long-long -Wno-variadic-macros -ftest-coverage -ftest-coverage -fprofile-arcs -fprofile-update=atomic -Werror"
+      CMAKE_CXX_FLAGS_DEBUG: ""
+      CMAKE_EXE_LINKER_FLAGS: " -m64 -g -ggdb3 -lgcov -ftest-coverage -fprofile-arcs -fprofile-update=atomic"
+      CMAKE_MODULE_PATH: "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/misc/CMake"
+      CMAKE_POSITION_INDEPENDENT_CODE: "TRUE"
+    buildResult:
+      variable: "rt_ecmd_scanner"
+      cached: true
+      stdout: |
+        Change Dir: '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeTmp/CMakeFiles/CMakeTmp'
+        
+        Run Build Command(s): /usr/local/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_1b8ba/fast
+        gmake[1]: Entering directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeTmp/CMakeFiles/CMakeTmp'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_1b8ba.dir/build.make CMakeFiles/cmTC_1b8ba.dir/build
+        gmake[2]: Entering directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeTmp/CMakeFiles/CMakeTmp'
+        Building CXX object CMakeFiles/cmTC_1b8ba.dir/rt_ecmd_scanner.cpp.o
+        /usr/bin/c++   -std=c++17  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -ftemplate-depth-128 -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wno-inline -Wno-long-long -Wno-variadic-macros -ftest-coverage -ftest-coverage -fprofile-arcs -fprofile-update=atomic -Werror  -std=c++17 -fPIE -o CMakeFiles/cmTC_1b8ba.dir/rt_ecmd_scanner.cpp.o -c /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/src/librt/primitives/rt_ecmd_scanner.cpp
+        Linking CXX executable cmTC_1b8ba
+        /usr/local/bin/cmake -E cmake_link_script CMakeFiles/cmTC_1b8ba.dir/link.txt --verbose=1
+        /usr/bin/c++ -std=c++17  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -ftemplate-depth-128 -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wno-inline -Wno-long-long -Wno-variadic-macros -ftest-coverage -ftest-coverage -fprofile-arcs -fprofile-update=atomic -Werror   -m64 -g -ggdb3 -lgcov -ftest-coverage -fprofile-arcs -fprofile-update=atomic  CMakeFiles/cmTC_1b8ba.dir/rt_ecmd_scanner.cpp.o -o cmTC_1b8ba
+        gmake[2]: Leaving directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeTmp/CMakeFiles/CMakeTmp'
+        gmake[1]: Leaving directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeTmp/CMakeFiles/CMakeTmp'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "src/libged/CMakeLists.txt:25 (try_compile)"
+    directories:
+      source: "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeTmp/CMakeFiles/CMakeTmp"
+      binary: "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeTmp/CMakeFiles/CMakeTmp"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: "-std=c++17  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -ftemplate-depth-128 -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wno-inline -Wno-long-long -Wno-variadic-macros -ftest-coverage -ftest-coverage -fprofile-arcs -fprofile-update=atomic -Werror"
+      CMAKE_CXX_FLAGS_DEBUG: ""
+      CMAKE_EXE_LINKER_FLAGS: " -m64 -g -ggdb3 -lgcov -ftest-coverage -fprofile-arcs -fprofile-update=atomic"
+      CMAKE_MODULE_PATH: "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/misc/CMake"
+      CMAKE_POSITION_INDEPENDENT_CODE: "TRUE"
+    buildResult:
+      variable: "ged_cmd_scanner"
+      cached: true
+      stdout: |
+        Change Dir: '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeTmp/CMakeFiles/CMakeTmp'
+        
+        Run Build Command(s): /usr/local/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_657d5/fast
+        gmake[1]: Entering directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeTmp/CMakeFiles/CMakeTmp'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_657d5.dir/build.make CMakeFiles/cmTC_657d5.dir/build
+        gmake[2]: Entering directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeTmp/CMakeFiles/CMakeTmp'
+        Building CXX object CMakeFiles/cmTC_657d5.dir/ged_cmd_scanner.cpp.o
+        /usr/bin/c++   -std=c++17  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -ftemplate-depth-128 -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wno-inline -Wno-long-long -Wno-variadic-macros -ftest-coverage -ftest-coverage -fprofile-arcs -fprofile-update=atomic -Werror  -std=c++17 -fPIE -o CMakeFiles/cmTC_657d5.dir/ged_cmd_scanner.cpp.o -c /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/src/libged/ged_cmd_scanner.cpp
+        Linking CXX executable cmTC_657d5
+        /usr/local/bin/cmake -E cmake_link_script CMakeFiles/cmTC_657d5.dir/link.txt --verbose=1
+        /usr/bin/c++ -std=c++17  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -ftemplate-depth-128 -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wno-inline -Wno-long-long -Wno-variadic-macros -ftest-coverage -ftest-coverage -fprofile-arcs -fprofile-update=atomic -Werror   -m64 -g -ggdb3 -lgcov -ftest-coverage -fprofile-arcs -fprofile-update=atomic  CMakeFiles/cmTC_657d5.dir/ged_cmd_scanner.cpp.o -o cmTC_657d5
+        gmake[2]: Leaving directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeTmp/CMakeFiles/CMakeTmp'
+        gmake[1]: Leaving directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeTmp/CMakeFiles/CMakeTmp'
+        
+      exitCode: 0
+...
