@@ -31,8 +31,7 @@
 __BEGIN_DECLS
 
 /**
- * Approximate a parabola with line segments, with caller-controlled minimum
- * subdivision span.
+ * Approximate a parabola with line segments.
  *
  * @param pts     Linked list of points; must have at least two nodes on entry.
  * @param r       Rectangular half-width of the parabola.
@@ -43,11 +42,11 @@ __BEGIN_DECLS
  * @param min_abs Minimum absolute span (mm) below which subdivision stops,
  *                preventing runaway recursion from extremely tight tolerances.
  *
- *                Recommended values:
+ *                Recommended min_abs values:
  *                - 0.05 is a conservative default suitable for most CAD
- *                  geometry (matches librt's internal floor).  A full circle
- *                  at this dtol requires ~300 segments; finer values rarely
- *                  produce visible improvement on typical display hardware.
+ *                  geometry.  A full circle at this dtol requires ~300
+ *                  segments; finer values rarely produce visible improvement
+ *                  on typical display hardware.
  *                - 0.005 produces noticeably smoother curves on very small
  *                  features but can multiply polygon counts by 10x or more.
  *                - Values below dtol have no additional effect until dtol
@@ -68,8 +67,8 @@ RT_EXPORT extern int rt_mk_parabola(struct rt_pnt_node *pts,
 
 /**
  * @deprecated use rt_mk_parabola() with an explicit min_abs argument.
- *             Preserves the original behavior of trusting the caller's
- *             tolerances unconditionally (equivalent to min_abs = SMALL_FASTF).
+ * Preserves the original behavior of trusting the caller's tolerances
+ * unconditionally (equivalent to min_abs = SMALL_FASTF).
  */
 DEPRECATED RT_EXPORT extern int rt_mk_parabola_old(struct rt_pnt_node *pts,
 						   fastf_t r,
