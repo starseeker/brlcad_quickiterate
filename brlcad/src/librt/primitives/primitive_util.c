@@ -24,6 +24,8 @@
  * librt_private.h.
  */
 
+#include <stdlib.h>
+
 #include "bu/log.h"
 #include "bu/malloc.h"
 #include "bu/opt.h"
@@ -57,6 +59,50 @@
 /* PRIM_MIN_ABS_TOL and PRIM_MIN_NORM_TOL are defined in librt_private.h */
 
 /**
+ * Return the effective minimum absolute tessellation tolerance (mm).
+ *
+ * The env var RT_PRIM_MIN_ABS_TOL, if set to a valid positive floating-point
+ * value, overrides the compiled-in PRIM_MIN_ABS_TOL default.  This is an
+ * undocumented escape hatch for advanced users who need to push beyond normal
+ * limits; it is checked anew on every call so that library users can adjust it
+ * between tessellation runs without restarting the process.
+ */
+fastf_t
+prim_min_abs_tol(void)
+{
+    const char *env = getenv("RT_PRIM_MIN_ABS_TOL");
+    if (env) {
+	char *end;
+	double val = strtod(env, &end);
+	if (end != env && val > 0.0)
+	    return (fastf_t)val;
+    }
+    return PRIM_MIN_ABS_TOL;
+}
+
+
+/**
+ * Return the effective minimum normal (angle) tessellation tolerance (radians).
+ *
+ * The env var RT_PRIM_MIN_NORM_TOL, if set to a valid positive floating-point
+ * value, overrides the compiled-in PRIM_MIN_NORM_TOL default.  See
+ * prim_min_abs_tol() for the rationale.
+ */
+fastf_t
+prim_min_norm_tol(void)
+{
+    const char *env = getenv("RT_PRIM_MIN_NORM_TOL");
+    if (env) {
+	char *end;
+	double val = strtod(env, &end);
+	if (end != env && val > 0.0)
+	    return (fastf_t)val;
+    }
+    return PRIM_MIN_NORM_TOL;
+}
+
+
+/**
  * Clamp dtol and ntol to the minimum values that prevent excessively dense
  * ("triangle-bombed") tessellations.
  *
@@ -70,6 +116,7 @@ void
 primitive_clamp_tess_tol(fastf_t *dtol, fastf_t *ntol, fastf_t bbox_diag)
 {
     fastf_t min_dtol;
+    fastf_t min_ntol;
 
     /* Scale the absolute-tolerance floor for very small shapes so that a
      * bounding box whose diagonal is < 1 mm can still be tessellated with
@@ -77,7 +124,7 @@ primitive_clamp_tess_tol(fastf_t *dtol, fastf_t *ntol, fastf_t bbox_diag)
     if (bbox_diag > SMALL_FASTF && bbox_diag < 1.0)
 	min_dtol = bbox_diag * 0.01;
     else
-	min_dtol = PRIM_MIN_ABS_TOL;
+	min_dtol = prim_min_abs_tol();
 
     if (*dtol < min_dtol) {
 	bu_log("Warning: tessellation abs tolerance clamped from %g mm to %g mm "
@@ -87,11 +134,12 @@ primitive_clamp_tess_tol(fastf_t *dtol, fastf_t *ntol, fastf_t bbox_diag)
 
     /* Clamp the normal-deviation tolerance only when one was actually
      * requested (ntol == M_PI means "ignore normal tolerance"). */
-    if (*ntol > 0.0 && *ntol < M_PI_2 && *ntol < PRIM_MIN_NORM_TOL) {
+    min_ntol = prim_min_norm_tol();
+    if (*ntol > 0.0 && *ntol < M_PI_2 && *ntol < min_ntol) {
 	bu_log("Warning: tessellation norm tolerance clamped from %g rad to "
 	       "%g rad to prevent excessively dense mesh\n",
-	       *ntol, PRIM_MIN_NORM_TOL);
-	*ntol = PRIM_MIN_NORM_TOL;
+	       *ntol, min_ntol);
+	*ntol = min_ntol;
     }
 }
 

@@ -1148,10 +1148,13 @@ int
 _rt_mk_hyperbola(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t c, fastf_t dtol, fastf_t ntol, fastf_t min_abs)
 {
     fastf_t A, B, C, discr, dist, intr, j, k, m, theta0, theta1, z0;
+    fastf_t min_abs;
     int n;
     point_t mpt, p0, p1;
     vect_t norm_line, norm_hyperb;
     struct rt_pnt_node *newpt;
+
+    min_abs = prim_min_abs_tol();
 
 #define RHC_TOL .0001
     /* endpoints of segment approximating hyperbola */
@@ -1232,7 +1235,7 @@ _rt_mk_hyperbola(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t c, fastf
 	    fastf_t ntol_equiv = (ntol < M_PI)
 		? ntol * r * r * c / (b * (b + 2.0 * c))
 		: dtol;
-	    if (ntol_equiv < PRIM_MIN_ABS_TOL) ntol_equiv = PRIM_MIN_ABS_TOL;
+	    if (ntol_equiv < min_abs) ntol_equiv = min_abs;
 	    fastf_t span_floor = (ntol_equiv < dtol ? ntol_equiv : dtol) * 0.1;
 	    if (span < span_floor)
 		return 0;

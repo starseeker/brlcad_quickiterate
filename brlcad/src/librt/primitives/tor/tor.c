@@ -1196,7 +1196,8 @@ rt_tor_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
 	 * at the edges; note 1-degree tolerance requires ~180 segs/circle. */
 	if (ttol->norm > 0.0) {
 	    register int nseg;
-	    fastf_t ntol_eff = (ttol->norm < PRIM_MIN_NORM_TOL) ? PRIM_MIN_NORM_TOL : ttol->norm;
+	    fastf_t min_ntol = prim_min_norm_tol();
+	    fastf_t ntol_eff = (ttol->norm < min_ntol) ? min_ntol : ttol->norm;
 	    nseg = (int)(M_PI / ntol_eff + 0.99);
 	    if (nseg > nlen) nlen = nseg;
 	    if (nseg > nw)   nw   = nseg;
@@ -1500,7 +1501,8 @@ rt_tor_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
      * at the edges; note 1-degree tolerance requires ~180 segs/circle. */
     if (ttol->norm > 0.0) {
 	register int nseg;
-	fastf_t ntol_eff = (ttol->norm < PRIM_MIN_NORM_TOL) ? PRIM_MIN_NORM_TOL : ttol->norm;
+	fastf_t min_ntol = prim_min_norm_tol();
+	fastf_t ntol_eff = (ttol->norm < min_ntol) ? min_ntol : ttol->norm;
 	nseg = (int)(M_PI / ntol_eff) + 1;
 	if (nseg > nlen) nlen = nseg;
 	if (nseg > nw)   nw   = nseg;

@@ -742,6 +742,7 @@ int
 rt_hyp_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *tol)
 {
     fastf_t c, dtol, f, mag_a, mag_h, ntol, r1, r2, r3, cprime;
+    fastf_t min_abs;
     fastf_t **ellipses = NULL;
     int *pts_dbl;
     int idx;
@@ -803,6 +804,9 @@ rt_hyp_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     VCROSS(Bu, Hu, Au);
 
     dtol = primitive_get_absolute_tolerance(ttol, 2.0 * r2);
+
+    /* Read env-var-overridable tolerance floors once for this tess call. */
+    min_abs = prim_min_abs_tol();
 
     /* To ensure normal tolerance, remain below this angle */
     if (ttol->norm > 0.0)
@@ -936,7 +940,7 @@ rt_hyp_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 			    vect_t seg;
 			    VSUB2(seg, p2, p0);
 			    fastf_t ntol_equiv = (ntol < M_PI) ? ntol * r1 / (c * c) : dtol;
-			    if (ntol_equiv < PRIM_MIN_ABS_TOL) ntol_equiv = PRIM_MIN_ABS_TOL;
+			    if (ntol_equiv < min_abs) ntol_equiv = min_abs;
 			    fastf_t seg_floor = (ntol_equiv < dtol ? ntol_equiv : dtol) * 0.1;
 			    if (MAGNITUDE(seg) < seg_floor) {
 				pos_a = pos_a->next;

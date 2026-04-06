@@ -1078,10 +1078,11 @@ rt_eto_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
     }
 
     /* To ensure normal tolerance, remain below this angle.
-     * Clamp to PRIM_MIN_NORM_TOL to prevent excessively dense plots. */
+     * Clamp to the minimum norm tolerance to prevent excessively dense plots. */
     if (ttol->norm > 0.0) {
-	ntol = (ttol->norm < PRIM_MIN_NORM_TOL) ? PRIM_MIN_NORM_TOL : ttol->norm;
-	if (ttol->norm < PRIM_MIN_NORM_TOL)
+	fastf_t min_ntol = prim_min_norm_tol();
+	ntol = (ttol->norm < min_ntol) ? min_ntol : ttol->norm;
+	if (ttol->norm < min_ntol)
 	    bu_log("Warning: eto plot norm tolerance clamped from %g rad to %g rad "
 		   "to prevent excessively dense plot\n", ttol->norm, ntol);
     } else
@@ -1214,10 +1215,11 @@ rt_eto_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     }
 
     /* To ensure normal tolerance, remain below this angle.
-     * Clamp to PRIM_MIN_NORM_TOL to prevent excessively dense meshes. */
+     * Clamp to the minimum norm tolerance to prevent excessively dense meshes. */
     if (ttol->norm > 0.0) {
-	ntol = (ttol->norm < PRIM_MIN_NORM_TOL) ? PRIM_MIN_NORM_TOL : ttol->norm;
-	if (ttol->norm < PRIM_MIN_NORM_TOL)
+	fastf_t min_ntol = prim_min_norm_tol();
+	ntol = (ttol->norm < min_ntol) ? min_ntol : ttol->norm;
+	if (ttol->norm < min_ntol)
 	    bu_log("Warning: eto tessellation norm tolerance clamped from %g rad to %g rad "
 		   "to prevent excessively dense mesh\n", ttol->norm, ntol);
     } else
@@ -1227,7 +1229,7 @@ rt_eto_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     /* (x, y) coords for cross-section ellipse.
      * Use both dtol and ntol: the cross-section is a curved surface so the
      * normal tolerance applies here just as it does to the ring count.
-     * ntol is already clamped to PRIM_MIN_NORM_TOL above to prevent
+     * ntol is already clamped to the minimum norm tolerance above to prevent
      * excessively dense meshes in both directions. */
     ell = make_ellipse(&npts, a, b, dtol, ntol);
     /* generate coordinate axes */

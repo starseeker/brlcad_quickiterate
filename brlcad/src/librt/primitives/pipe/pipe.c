@@ -3301,8 +3301,9 @@ tesselate_pipe_bend(
 	}
     }
     if (ttol->norm > 0.0) {
-	fastf_t ntol_eff = (ttol->norm < PRIM_MIN_NORM_TOL) ? PRIM_MIN_NORM_TOL : ttol->norm;
-	if (ttol->norm < PRIM_MIN_NORM_TOL)
+	fastf_t min_ntol = prim_min_norm_tol();
+	fastf_t ntol_eff = (ttol->norm < min_ntol) ? min_ntol : ttol->norm;
+	if (ttol->norm < min_ntol)
 	    bu_log("Warning: pipe bend tessellation norm tolerance clamped from %g rad to %g rad "
 		   "to prevent excessively dense mesh\n", ttol->norm, ntol_eff);
 	tol_segs = ceil(bend_angle / (2.0 * ntol_eff));
@@ -3820,8 +3821,9 @@ rt_pipe_tess(
 	}
     }
     if (ttol->norm > SMALL_FASTF) {
-	fastf_t ntol_eff = (ttol->norm < PRIM_MIN_NORM_TOL) ? PRIM_MIN_NORM_TOL : ttol->norm;
-	if (ttol->norm < PRIM_MIN_NORM_TOL)
+	fastf_t min_ntol = prim_min_norm_tol();
+	fastf_t ntol_eff = (ttol->norm < min_ntol) ? min_ntol : ttol->norm;
+	if (ttol->norm < min_ntol)
 	    bu_log("Warning: pipe tessellation norm tolerance clamped from %g rad to %g rad "
 		   "to prevent excessively dense mesh\n", ttol->norm, ntol_eff);
 	tol_segs = ceil(M_PI / ntol_eff);
