@@ -1218,13 +1218,23 @@ rt_mk_hyperbola(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t c, fastf_
 
     /* split segment at widest point if not within error tolerances */
     if (dist > dtol || theta0 > ntol || theta1 > ntol) {
-	/* Stop subdividing when the segment Y-span falls below 10% of the
-	 * distance tolerance.  This bounds subdivision depth for tight normal
-	 * tolerances: no further subdivision can improve the chord error once
-	 * the segment is already much smaller than dtol. */
+	/* Stop subdividing when the segment Y-span is much smaller than both
+	 * the dtol floor and the ntol-equivalent floor.  For the hyperbola
+	 * the maximum curvature (at the apex) is approximately b*(b+2c)/(r^2*c),
+	 * so the ntol-equivalent minimum span is ntol*r^2*c/(b*(b+2c)).  Clamp
+	 * to PRIM_MIN_ABS_TOL for consistency with the dtol floor.
+	 * Use min(dtol, ntol_equiv)*0.1 so we stop only when the segment is
+	 * already much smaller than the tightest applicable tolerance. */
 	fastf_t span = fabs(p1[Y] - p0[Y]);
-	if (span < dtol * 0.1)
-	    return 0;
+	{
+	    fastf_t ntol_equiv = (ntol < M_PI)
+		? ntol * r * r * c / (b * (b + 2.0 * c))
+		: dtol;
+	    if (ntol_equiv < PRIM_MIN_ABS_TOL) ntol_equiv = PRIM_MIN_ABS_TOL;
+	    fastf_t span_floor = (ntol_equiv < dtol ? ntol_equiv : dtol) * 0.1;
+	    if (span < span_floor)
+		return 0;
+	}
 
 	/* split segment */
 	BU_ALLOC(newpt, struct rt_pnt_node);
