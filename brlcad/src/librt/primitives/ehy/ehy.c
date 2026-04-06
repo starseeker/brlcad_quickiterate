@@ -1408,11 +1408,19 @@ rt_ehy_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     /* Compute per-ring circumferential segment counts.  See rt_epa_tess()
      * for the full rationale.  The base ring (r1) drives nseg_base; rings
      * toward the apex receive halved counts when tolerance allows, and rings
-     * too small for distinct vertices are skipped. */
+     * too small for distinct vertices are skipped.
+     *
+     * Additionally, rings whose 3D vertex distance from the previous accepted
+     * ring is less than 2*tol->dist are skipped.  With tight normal tolerances
+     * the hyperbola profile subdivision can produce many closely-spaced rings
+     * near the apex (where dZ/dY → 0), and the resulting inter-ring triangles
+     * would be geometrically degenerate (height < tol->dist), causing
+     * nmg_fu_planeeqn to fail with "Cannot find three distinct vertices". */
     {
 	int nseg_base = (int)rt_num_circular_segments(dtol, r1);
 	int k, n_valid = 0;
 	fastf_t min_ring_r;
+	fastf_t min_ring_sep_sq;	/* minimum squared 3D ring-to-ring vertex distance */
 	fastf_t *ring_r;
 	if (ntol < M_PI) {
 	    int nseg_ntol = (int)(M_PI / ntol) + 1;
@@ -1423,21 +1431,48 @@ rt_ehy_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 
 	min_ring_r = 3.0 * (double)nseg_base * tol->dist / M_2PI;
 
-	/* Pre-pass: count and collect valid ring radii (apex to base order) */
-	pos_a = pts_a->next;
-	while (pos_a) {
-	    if (pos_a->p[Y] >= min_ring_r)
-		n_valid++;
-	    pos_a = pos_a->next;
+	/* Inter-ring triangle height ≈ sqrt(ΔY_a² + ΔZ²).  Require this to
+	 * exceed tol->dist with a 2× safety factor so nmg_fu_planeeqn always
+	 * finds three geometrically distinct vertices. */
+	min_ring_sep_sq = 4.0 * tol->dist * tol->dist;
+
+	/* Pre-pass: count valid rings, applying both the radius guard and the
+	 * 3D separation guard.  Track the previous accepted ring's profile
+	 * position (Y_a, Z) starting from the apex (Y=0, Z=pts_a->p[Z]). */
+	{
+	    fastf_t prev_a_Y = 0.0, prev_a_Z = pts_a->p[Z];
+	    pos_a = pts_a->next;
+	    while (pos_a) {
+		if (pos_a->p[Y] >= min_ring_r) {
+		    fastf_t dY = pos_a->p[Y] - prev_a_Y;
+		    fastf_t dZ = pos_a->p[Z] - prev_a_Z;
+		    if (dY*dY + dZ*dZ >= min_ring_sep_sq) {
+			n_valid++;
+			prev_a_Y = pos_a->p[Y];
+			prev_a_Z = pos_a->p[Z];
+		    }
+		}
+		pos_a = pos_a->next;
+	    }
 	}
 
 	if (n_valid > 0) {
+	    fastf_t prev_a_Y, prev_a_Z;
 	    ring_r = (fastf_t *)bu_malloc(n_valid * sizeof(fastf_t), "ring radii");
 	    k = 0;
+	    prev_a_Y = 0.0;
+	    prev_a_Z = pts_a->p[Z];
 	    pos_a = pts_a->next;
 	    while (pos_a) {
-		if (pos_a->p[Y] >= min_ring_r)
-		    ring_r[k++] = pos_a->p[Y];
+		if (pos_a->p[Y] >= min_ring_r) {
+		    fastf_t dY = pos_a->p[Y] - prev_a_Y;
+		    fastf_t dZ = pos_a->p[Z] - prev_a_Z;
+		    if (dY*dY + dZ*dZ >= min_ring_sep_sq) {
+			ring_r[k++] = pos_a->p[Y];
+			prev_a_Y = pos_a->p[Y];
+			prev_a_Z = pos_a->p[Z];
+		    }
+		}
 		pos_a = pos_a->next;
 	    }
 
@@ -1460,29 +1495,45 @@ rt_ehy_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	    bu_free(ring_r, "ring radii");
 	}
 
-	/* Build ring ellipses using per-ring segment counts */
-	i = 0;
-	pos_a = pts_a->next;	/* skip over apex of ehy */
-	pos_b = pts_b->next;
-	while (pos_a) {
-	    /* Skip rings that are too small to support distinct vertices */
-	    if (pos_a->p[Y] < min_ring_r) {
+	/* Build ring ellipses using per-ring segment counts.  Apply the same
+	 * two-guard filter as the pre-pass above to keep i == n_valid. */
+	{
+	    fastf_t prev_a_Y = 0.0, prev_a_Z = pts_a->p[Z];
+	    i = 0;
+	    pos_a = pts_a->next;	/* skip over apex of ehy */
+	    pos_b = pts_b->next;
+	    while (pos_a) {
+		/* Skip rings that are too small to support distinct vertices */
+		if (pos_a->p[Y] < min_ring_r) {
+		    pos_a = pos_a->next;
+		    pos_b = pos_b->next;
+		    continue;
+		}
+		/* Skip rings too close to the previous accepted ring */
+		{
+		    fastf_t dY = pos_a->p[Y] - prev_a_Y;
+		    fastf_t dZ = pos_a->p[Z] - prev_a_Z;
+		    if (dY*dY + dZ*dZ < min_ring_sep_sq) {
+			pos_a = pos_a->next;
+			pos_b = pos_b->next;
+			continue;
+		    }
+		}
+
+		VSCALE(A, Au, pos_a->p[Y]);	/* semimajor axis */
+		VSCALE(B, Bu, pos_b->p[Y]);	/* semiminor axis */
+		VJOIN1(V, xip->ehy_V, -pos_a->p[Z], Hu);
+
+		ellipses[i] = (fastf_t *)bu_malloc(3*(segs_per_ell[i]+1)*sizeof(fastf_t),
+						   "pts ell");
+		rt_ell(ellipses[i], V, A, B, segs_per_ell[i]);
+
+		prev_a_Y = pos_a->p[Y];
+		prev_a_Z = pos_a->p[Z];
+		i++;
 		pos_a = pos_a->next;
 		pos_b = pos_b->next;
-		continue;
 	    }
-
-	    VSCALE(A, Au, pos_a->p[Y]);	/* semimajor axis */
-	    VSCALE(B, Bu, pos_b->p[Y]);	/* semiminor axis */
-	    VJOIN1(V, xip->ehy_V, -pos_a->p[Z], Hu);
-
-	    ellipses[i] = (fastf_t *)bu_malloc(3*(segs_per_ell[i]+1)*sizeof(fastf_t),
-					       "pts ell");
-	    rt_ell(ellipses[i], V, A, B, segs_per_ell[i]);
-
-	    i++;
-	    pos_a = pos_a->next;
-	    pos_b = pos_b->next;
 	}
 	/* i is the actual count of rings built */
 	nell = (size_t)i;
