@@ -1020,7 +1020,7 @@ rt_rhc_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
 {
     int i, n;
     fastf_t b, c, *back, *front, rh;
-    fastf_t dtol, ntol;
+    fastf_t dtol, ntol, min_abs;
     vect_t Bu, Hu, Ru;
     mat_t R;
     mat_t invR;
@@ -1073,6 +1073,7 @@ rt_rhc_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
 	fastf_t bbox_diag = 2.0 * (rh > b ? rh : b);
 	primitive_clamp_tess_tol(&dtol, &ntol, bbox_diag);
     }
+    min_abs = prim_min_abs_tol();
 
     /* initial hyperbola approximation is a single segment */
     BU_ALLOC(pts, struct rt_pnt_node);
@@ -1084,7 +1085,7 @@ rt_rhc_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
     /* 2 endpoints in 1st approximation */
     n = 2;
     /* recursively break segment 'til within error tolerances */
-    n += rt_mk_hyperbola(pts, rh, b, c, dtol, ntol);
+    n += _rt_mk_hyperbola(pts, rh, b, c, dtol, ntol, min_abs);
 
     /* get mem for arrays */
     front = (fastf_t *)bu_malloc(3 * n * sizeof(fastf_t), "fast_t");
@@ -1140,9 +1141,12 @@ rt_rhc_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
   r: rectangular halfwidth
   b: breadth
   c: distance to asymptote origin
+
+  Internal version: takes an explicit min_abs floor so the caller can
+  read the env-var override once and propagate it through all recursion.
 */
 int
-rt_mk_hyperbola(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t c, fastf_t dtol, fastf_t ntol)
+_rt_mk_hyperbola(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t c, fastf_t dtol, fastf_t ntol, fastf_t min_abs)
 {
     fastf_t A, B, C, discr, dist, intr, j, k, m, theta0, theta1, z0;
     int n;
@@ -1229,7 +1233,7 @@ rt_mk_hyperbola(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t c, fastf_
 	    fastf_t ntol_equiv = (ntol < M_PI)
 		? ntol * r * r * c / (b * (b + 2.0 * c))
 		: dtol;
-	    if (ntol_equiv < PRIM_MIN_ABS_TOL) ntol_equiv = PRIM_MIN_ABS_TOL;
+	    if (ntol_equiv < min_abs) ntol_equiv = min_abs;
 	    fastf_t span_floor = (ntol_equiv < dtol ? ntol_equiv : dtol) * 0.1;
 	    if (span < span_floor)
 		return 0;
@@ -1243,14 +1247,59 @@ rt_mk_hyperbola(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t c, fastf_
 	/* keep track of number of pts added */
 	n = 1;
 	/* recurse on first new segment */
-	n += rt_mk_hyperbola(pts, r, b, c, dtol, ntol);
+	n += _rt_mk_hyperbola(pts, r, b, c, dtol, ntol, min_abs);
 	/* recurse on second new segment */
-	n += rt_mk_hyperbola(newpt, r, b, c, dtol, ntol);
+	n += _rt_mk_hyperbola(newpt, r, b, c, dtol, ntol, min_abs);
     } else {
 	n  = 0;
     }
 
     return n;
+}
+
+
+/**
+ * Deprecated compatibility wrapper for _rt_mk_hyperbola.  Uses SMALL_FASTF as
+ * the minimum absolute subdivision span, preserving the original behavior of
+ * unconditionally honoring whatever dtol/ntol the caller passes (no sanity
+ * floor).  New code should call rt_mk_hyperbola() with an explicit min_abs.
+ *
+ * @deprecated use rt_mk_hyperbola() with an explicit min_abs argument.
+ */
+int
+rt_mk_hyperbola_old(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t c, fastf_t dtol, fastf_t ntol)
+{
+    return _rt_mk_hyperbola(pts, r, b, c, dtol, ntol, SMALL_FASTF);
+}
+
+
+/**
+ * Approximate a hyperbola with line segments, with caller-controlled minimum
+ * subdivision span.
+ *
+ * @param pts   Linked list of points; must have at least two nodes on entry.
+ * @param r     Rectangular half-width of the hyperbola.
+ * @param b     Breadth (half-height) of the hyperbola.
+ * @param c     Distance from the apex to the asymptote origin.
+ * @param dtol  Maximum allowable chord-to-curve distance (mm).
+ * @param ntol  Maximum allowable normal-deviation angle (radians); pass M_PI
+ *              to ignore normal tolerance.
+ * @param min_abs  Minimum absolute span (mm) below which subdivision stops,
+ *              preventing runaway recursion.  Recommended values:
+ *              - 0.05 mm is the librt default and suits typical CAD geometry.
+ *              - Smaller values (e.g., 0.005 mm) produce finer curves but can
+ *                increase polygon counts dramatically near tight radii.
+ *              - SMALL_FASTF (~1e-37) disables the floor entirely, matching
+ *                the original rt_mk_hyperbola_old() behavior; use only when
+ *                you know the geometry cannot trigger unbounded recursion.
+ *              Decreasing min_abs below dtol has no effect until dtol itself
+ *              drives subdivision to spans smaller than min_abs.
+ * @return Number of additional points inserted.
+ */
+int
+rt_mk_hyperbola(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t c, fastf_t dtol, fastf_t ntol, fastf_t min_abs)
+{
+    return _rt_mk_hyperbola(pts, r, b, c, dtol, ntol, min_abs);
 }
 
 
@@ -1264,7 +1313,7 @@ rt_rhc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 {
     int i, j, n;
     fastf_t b, c, *back, *front, rh;
-    fastf_t dtol, ntol;
+    fastf_t dtol, ntol, min_abs;
     vect_t Bu, Hu, Ru;
     mat_t R;
     mat_t invR;
@@ -1327,6 +1376,7 @@ rt_rhc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	primitive_clamp_tess_tol(&dtol, &ntol, bbox_diag);
     }
 
+    min_abs = prim_min_abs_tol();
     /* initial hyperbola approximation is a single segment */
     BU_ALLOC(pts, struct rt_pnt_node);
     BU_ALLOC(pts->next, struct rt_pnt_node);
@@ -1337,7 +1387,7 @@ rt_rhc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     /* 2 endpoints in 1st approximation */
     n = 2;
     /* recursively break segment 'til within error tolerances */
-    n += rt_mk_hyperbola(pts, rh, b, c, dtol, ntol);
+    n += _rt_mk_hyperbola(pts, rh, b, c, dtol, ntol, min_abs);
 
     /* get mem for arrays */
     front = (fastf_t *)bu_malloc(3 * n * sizeof(fastf_t), "fastf_t");
