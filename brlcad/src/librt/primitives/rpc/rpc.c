@@ -1130,15 +1130,46 @@ _rt_mk_parabola(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t dtol, fas
 
 
 /**
- * Public wrapper for _rt_mk_parabola.  Uses the compiled-in
- * PRIM_MIN_ABS_TOL default (ignoring any RT_PRIM_MIN_ABS_TOL env var).
- * Internal librt code should call _rt_mk_parabola() directly, passing a
- * min_abs value obtained once per tessellation from prim_min_abs_tol().
+ * Deprecated compatibility wrapper for _rt_mk_parabola.  Uses SMALL_FASTF as
+ * the minimum absolute subdivision span, preserving the original behavior of
+ * unconditionally honoring whatever dtol/ntol the caller passes (no sanity
+ * floor).  New code should call rt_mk_parabola() with an explicit min_abs.
+ *
+ * @deprecated use rt_mk_parabola() with an explicit min_abs argument.
  */
 int
-rt_mk_parabola(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t dtol, fastf_t ntol)
+rt_mk_parabola_old(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t dtol, fastf_t ntol)
 {
-    return _rt_mk_parabola(pts, r, b, dtol, ntol, PRIM_MIN_ABS_TOL);
+    return _rt_mk_parabola(pts, r, b, dtol, ntol, SMALL_FASTF);
+}
+
+
+/**
+ * Approximate a parabola with line segments, with caller-controlled minimum
+ * subdivision span.
+ *
+ * @param pts   Linked list of points; must have at least two nodes on entry.
+ * @param r     Rectangular half-width of the parabola.
+ * @param b     Breadth (half-height) of the parabola.
+ * @param dtol  Maximum allowable chord-to-curve distance (mm).
+ * @param ntol  Maximum allowable normal-deviation angle (radians); pass M_PI
+ *              to ignore normal tolerance.
+ * @param min_abs  Minimum absolute span (mm) below which subdivision stops,
+ *              preventing runaway recursion.  Recommended values:
+ *              - 0.05 mm is the librt default and suits typical CAD geometry.
+ *              - Smaller values (e.g., 0.005 mm) produce finer curves but can
+ *                increase polygon counts dramatically near tight radii.
+ *              - SMALL_FASTF (~1e-37) disables the floor entirely, matching
+ *                the original rt_mk_parabola_old() behavior; use only when
+ *                you know the geometry cannot trigger unbounded recursion.
+ *              Decreasing min_abs below dtol has no effect until dtol itself
+ *              drives subdivision to spans smaller than min_abs.
+ * @return Number of additional points inserted.
+ */
+int
+rt_mk_parabola(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t dtol, fastf_t ntol, fastf_t min_abs)
+{
+    return _rt_mk_parabola(pts, r, b, dtol, ntol, min_abs);
 }
 
 
