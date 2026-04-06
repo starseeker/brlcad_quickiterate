@@ -872,43 +872,85 @@ rt_hyp_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 		VSUB2(nLine, v01, v02);
 		dist = MAGNITUDE(nLine);
 
-		/* Profile ring placement is dtol-only; ntol is applied via nseg below. */
-		if (dist > dtol) {
-		    /* Guard: if p1 is not finite (NaN from sqrt of negative
-		     * when the slope is too shallow) or falls outside the
-		     * Z range of the segment, the midpoint formula failed.
-		     * Skip the split to prevent infinite looping. */
-		    if (!isfinite(p1[X]) || !isfinite(p1[Y]) || !isfinite(p1[Z])) {
+		/* Profile ring placement: subdivide when either the chord-error
+		 * distance exceeds dtol OR the normal-deviation angle at either
+		 * segment endpoint exceeds ntol.  The HYP is curved in both the
+		 * profile (axial) and azimuthal directions, so ntol must be
+		 * satisfied in both.  For the !ZERO(p0[X]) case (major-axis
+		 * profile in the XZ plane, Y=0) the profile curve is
+		 * X(Z) = sqrt(r1^2 + c^2*Z^2), giving surface normal at (X,Z):
+		 * n = (-1, 0, c^2*Z/X) (unnormalised), and the chord normal is
+		 * (-dZ, 0, dX) where dX=p2[X]-p0[X], dZ=p2[Z]-p0[Z]. */
+		{
+		    fastf_t theta_p0 = 0.0, theta_p2 = 0.0;
+		    if (!ZERO(p0[X]) && ntol < M_PI) {
+			vect_t chord_norm, curv_norm;
+			fastf_t dxdz, dot;
+			/* chord normal in 3D (XZ plane, Y=0) */
+			VSET(chord_norm, -(p2[Z]-p0[Z]), 0.0, p2[X]-p0[X]);
+			VUNITIZE(chord_norm);
+			/* profile curve normal at p0: perpendicular to tangent
+			 * (dX/dZ, 0, 1) = (c^2*Z0/X0, 0, 1) */
+			dxdz = (p0[X] > SMALL_FASTF) ? c*c*p0[Z]/p0[X] : 0.0;
+			VSET(curv_norm, -1.0, 0.0, dxdz);
+			VUNITIZE(curv_norm);
+			dot = VDOT(chord_norm, curv_norm);
+			if (dot >  1.0) dot =  1.0;
+			if (dot < -1.0) dot = -1.0;
+			theta_p0 = fabs(acos(dot));
+			/* profile curve normal at p2 */
+			dxdz = (p2[X] > SMALL_FASTF) ? c*c*p2[Z]/p2[X] : 0.0;
+			VSET(curv_norm, -1.0, 0.0, dxdz);
+			VUNITIZE(curv_norm);
+			dot = VDOT(chord_norm, curv_norm);
+			if (dot >  1.0) dot =  1.0;
+			if (dot < -1.0) dot = -1.0;
+			theta_p2 = fabs(acos(dot));
+		    }
+
+		    if (dist > dtol || theta_p0 > ntol || theta_p2 > ntol) {
+			/* Guard: if p1 is not finite (NaN from sqrt of negative
+			 * when the slope is too shallow) or falls outside the
+			 * Z range of the segment, the midpoint formula failed.
+			 * Skip the split to prevent infinite looping. */
+			if (!isfinite(p1[X]) || !isfinite(p1[Y]) || !isfinite(p1[Z])) {
+			    pos_a = pos_a->next;
+			    continue;
+			}
+			{
+			    fastf_t zlo = p0[Z] < p2[Z] ? p0[Z] : p2[Z];
+			    fastf_t zhi = p0[Z] < p2[Z] ? p2[Z] : p0[Z];
+			    if (p1[Z] <= zlo || p1[Z] >= zhi) {
+				pos_a = pos_a->next;
+				continue;
+			    }
+			}
+			/* Span guard: stop subdividing when the segment is much
+			 * smaller than both the dtol floor and the ntol-equivalent
+			 * floor.  For the HYP profile X(Z)=sqrt(r1^2+c^2*Z^2),
+			 * maximum curvature at Z=0 is c^2/r1, so the ntol-
+			 * equivalent minimum arc length is ntol*r1/c^2.  Clamp
+			 * to PRIM_MIN_ABS_TOL for consistency with the dtol floor.
+			 * Use min(dtol, ntol_equiv)*0.1 as the floor. */
+			{
+			    vect_t seg;
+			    VSUB2(seg, p2, p0);
+			    fastf_t ntol_equiv = (ntol < M_PI) ? ntol * r1 / (c * c) : dtol;
+			    if (ntol_equiv < PRIM_MIN_ABS_TOL) ntol_equiv = PRIM_MIN_ABS_TOL;
+			    fastf_t seg_floor = (ntol_equiv < dtol ? ntol_equiv : dtol) * 0.1;
+			    if (MAGNITUDE(seg) < seg_floor) {
+				pos_a = pos_a->next;
+				continue;
+			    }
+			}
+			/* split segment */
+			BU_ALLOC(add, struct rt_pnt_node);
+			VMOVE(add->p, p1);
+			add->next = pos_a->next;
+			pos_a->next = add;
 			pos_a = pos_a->next;
-			continue;
+			i = 1;
 		    }
-		    {
-			fastf_t zlo = p0[Z] < p2[Z] ? p0[Z] : p2[Z];
-			fastf_t zhi = p0[Z] < p2[Z] ? p2[Z] : p0[Z];
-			if (p1[Z] <= zlo || p1[Z] >= zhi) {
-			    pos_a = pos_a->next;
-			    continue;
-			}
-		    }
-		    /* Span guard: stop subdividing when segment is already
-		     * much smaller than dtol (prevents infinite subdivision
-		     * near areas where the normal formula never converges
-		     * below ntol). */
-		    {
-			vect_t seg;
-			VSUB2(seg, p2, p0);
-			if (MAGNITUDE(seg) < dtol * 0.1) {
-			    pos_a = pos_a->next;
-			    continue;
-			}
-		    }
-		    /* split segment */
-		    BU_ALLOC(add, struct rt_pnt_node);
-		    VMOVE(add->p, p1);
-		    add->next = pos_a->next;
-		    pos_a->next = add;
-		    pos_a = pos_a->next;
-		    i = 1;
 		}
 		pos_a = pos_a->next;
 	    }
