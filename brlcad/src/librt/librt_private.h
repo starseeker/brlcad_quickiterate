@@ -254,8 +254,10 @@ extern fastf_t prim_min_norm_tol(void);
  * rt_mk_hyperbola helpers.  The extra min_abs argument lets the
  * caller supply a tolerance floor that was read once per tessellation
  * via prim_min_abs_tol(), avoiding repeated getenv() calls inside the
- * recursive subdivision.  The public wrappers (in rpc.c / rhc.c) call
- * these with PRIM_MIN_ABS_TOL so external code is unaffected. */
+ * recursive subdivision.  The public API (rt_mk_parabola / rt_mk_hyperbola
+ * in rpc.c / rhc.c) simply delegates to these with the caller's min_abs;
+ * the deprecated _old wrappers pass SMALL_FASTF to preserve original
+ * behavior. */
 extern int _rt_mk_parabola(struct rt_pnt_node *pts, fastf_t r, fastf_t b,
 	fastf_t dtol, fastf_t ntol, fastf_t min_abs);
 extern int _rt_mk_hyperbola(struct rt_pnt_node *pts, fastf_t r, fastf_t b,
