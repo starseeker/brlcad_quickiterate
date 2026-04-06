@@ -1432,8 +1432,9 @@ rt_ehy_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	min_ring_r = 3.0 * (double)nseg_base * tol->dist / M_2PI;
 
 	/* Inter-ring triangle height ≈ sqrt(ΔY_a² + ΔZ²).  Require this to
-	 * exceed tol->dist with a 2× safety factor so nmg_fu_planeeqn always
-	 * finds three geometrically distinct vertices. */
+	 * exceed tol->dist with a 2× safety factor (4 = 2²) so nmg_fu_planeeqn
+	 * always finds three geometrically distinct vertices.  The 2× factor
+	 * guards against floating-point rounding at the boundary. */
 	min_ring_sep_sq = 4.0 * tol->dist * tol->dist;
 
 	/* Pre-pass: count valid rings, applying both the radius guard and the
