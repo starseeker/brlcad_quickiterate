@@ -1389,6 +1389,32 @@ rt_rhc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     /* recursively break segment 'til within error tolerances */
     n += _rt_mk_hyperbola(pts, rh, b, c, dtol, ntol, min_abs);
 
+    /* Post-process: remove profile points too close (in 3D) to their predecessor.
+     * With tight normal tolerances the hyperbola subdivision can produce many
+     * closely-spaced points near the apex (y=0) where dZ/dY → 0.  Adjacent
+     * profile points within 2*tol->dist of each other create degenerate
+     * rectangular side faces that cause nmg_fu_planeeqn to fail with
+     * "Cannot find three distinct vertices". */
+    {
+	fastf_t min_sep_sq = 4.0 * tol->dist * tol->dist;
+	struct rt_pnt_node *prev_kept = pts;
+	struct rt_pnt_node *cur = pts->next;
+	while (cur) {
+	    fastf_t dY = cur->p[Y] - prev_kept->p[Y];
+	    fastf_t dZ = cur->p[Z] - prev_kept->p[Z];
+	    if (dY*dY + dZ*dZ < min_sep_sq) {
+		struct rt_pnt_node *to_free = cur;
+		prev_kept->next = cur->next;
+		cur = cur->next;
+		bu_free(to_free, "rt_pnt_node");
+		n--;
+	    } else {
+		prev_kept = cur;
+		cur = cur->next;
+	    }
+	}
+    }
+
     /* get mem for arrays */
     front = (fastf_t *)bu_malloc(3 * n * sizeof(fastf_t), "fastf_t");
     back  = (fastf_t *)bu_malloc(3 * n * sizeof(fastf_t), "fastf_t");
