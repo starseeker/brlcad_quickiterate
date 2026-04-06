@@ -976,7 +976,7 @@ rt_epa_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
     nb = 2;
 
     /* recursively break segment 'til within error tolerances */
-    nb += rt_mk_parabola(pts_b, r2, mag_h, dtol, M_PI);
+    nb += rt_mk_parabola(pts_b, r2, mag_h, dtol, ntol);
     nell = nb - 1;	/* # of ellipses needed */
 
     /* construct positive half of parabola along semi-major axis of
@@ -1003,7 +1003,7 @@ rt_epa_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
     recalc_b = 0;
     pos_a = pts_a;
     while (pos_a->next) {
-	na = rt_mk_parabola(pos_a, r1, mag_h, dtol, M_PI);
+	na = rt_mk_parabola(pos_a, r1, mag_h, dtol, ntol);
 	if (na != 0) {
 	    recalc_b = 1;
 	    nell += na;
@@ -1293,7 +1293,7 @@ rt_epa_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     /* 2 endpoints in 1st approximation */
     nb = 2;
     /* recursively break segment 'til within error tolerances */
-    nb += rt_mk_parabola(pts_b, r2, mag_h, dtol, M_PI);
+    nb += rt_mk_parabola(pts_b, r2, mag_h, dtol, ntol);
     nell = nb - 1;	/* # of ellipses needed */
 
     /* construct positive half of parabola along semi-major axis of
@@ -1320,7 +1320,7 @@ rt_epa_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     recalc_b = 0;
     pos_a = pts_a;
     while (pos_a->next) {
-	na = rt_mk_parabola(pos_a, r1, mag_h, dtol, M_PI);
+	na = rt_mk_parabola(pos_a, r1, mag_h, dtol, ntol);
 	if (na != 0) {
 	    recalc_b = 1;
 	    nell += na;
@@ -1392,10 +1392,10 @@ rt_epa_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	if (nseg_base < 6) nseg_base = 6;
 	/* No upper cap on nseg_base: the OOM/SIGKILL that was observed with
 	 * tight normal tolerances (ntol≈0.1 → nseg≈64) was caused by infinite
-	 * recursion inside rt_mk_hyperbola, not by NMG data-structure size.
-	 * That recursion is now guarded; 64 segs × 69 rings ≈ 8700 NMG faces
-	 * consumes only ~19 MB and completes in well under a second.  Honour
-	 * the caller's tolerance rather than silently degrading quality. */
+	 * recursion inside rt_mk_parabola, not by NMG data-structure size.
+	 * That recursion is now guarded by the span floor in rt_mk_parabola;
+	 * ntol is now also applied to the profile direction (ring placement)
+	 * so both curvature dimensions honour the caller's tolerance. */
 
 	/* Minimum ring radius: with nseg_base segments, adjacent vertices must
 	 * be well clear of tol->dist or nmg_fu_planeeqn fails to find three
