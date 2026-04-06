@@ -247,6 +247,9 @@ extern const char *rt_binunif_type_to_string(int type);
 
 extern void primitive_hitsort(struct hit h[], int nh);
 
+extern fastf_t prim_min_abs_tol(void);
+extern fastf_t prim_min_norm_tol(void);
+
 extern fastf_t primitive_get_absolute_tolerance(
 	const struct bg_tess_tol *ttol,
 	fastf_t rel_to_abs);
