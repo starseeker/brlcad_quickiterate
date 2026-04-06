@@ -1391,7 +1391,7 @@ rt_rhc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 
     /* Post-process: remove profile points too close (in 3D) to their predecessor.
      * With tight normal tolerances the hyperbola subdivision can produce many
-     * closely-spaced points near the apex (y=0) where dZ/dy → 0.  Adjacent
+     * closely-spaced points near the apex (y=0) where dZ/dY → 0.  Adjacent
      * profile points within 2*tol->dist of each other create degenerate
      * rectangular side faces that cause nmg_fu_planeeqn to fail with
      * "Cannot find three distinct vertices". */
