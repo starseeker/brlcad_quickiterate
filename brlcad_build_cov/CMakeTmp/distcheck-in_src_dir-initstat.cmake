@@ -1,0 +1,2 @@
+file(GLOB_RECURSE SOURCE_ARCHIVE_CONTENTS RELATIVE "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/distcheck-in_src_dir/brlcad-7.43.0" "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/distcheck-in_src_dir/brlcad-7.43.0/*")
+file(WRITE "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/distcheck-in_src_dir/initial_src_contents.txt" "${SOURCE_ARCHIVE_CONTENTS}")

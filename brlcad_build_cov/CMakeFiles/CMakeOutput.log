@@ -1,0 +1,1372 @@
+/usr/local/bin/cmake "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad"  -DBRLCAD_ENABLE_COVERAGE=ON -DBRLCAD_ENABLE_GDAL=OFF -DBRLCAD_ENABLE_QT=OFF -DBRLCAD_ENABLE_STEP=OFF -DBRLCAD_EXTRADOCS=OFF
+**********************************************************
+*** Configuring BRL-CAD Release 7.43.0, Build 20260406 ***
+**********************************************************
+CHECK_START: Performing Test WORKING__D_POSIX_C_SOURCE_200809L
+CHECK_PASS: Success
+CHECK_START: Performing Test WORKING__D_XOPEN_SOURCE_700
+CHECK_PASS: Success
+***********************************************************
+*        Stage 1 of 9 - Top Level Configure Options       *
+***********************************************************
+STATUS: Could NOT find X11 (missing: X11_X11_INCLUDE_PATH X11_X11_LIB) 
+STATUS: Could NOT find OpenGL (missing: OPENGL_opengl_LIBRARY OPENGL_glx_LIBRARY OPENGL_INCLUDE_DIR) 
+***********************************************************
+*             Stage 2 of 9 - Check for Programs           *
+***********************************************************
+STATUS: Found SHELL_SUPPORTED: /usr/bin/sh
+STATUS: Found SWIG: /usr/bin/swig4.0 (found version "4.2.0")
+STATUS: Could NOT find Doxygen (missing: DOXYGEN_EXECUTABLE) 
+***********************************************************
+*     Stage 3 of 9 - Check for Compiler Characteristics   *
+***********************************************************
+CHECK_START: Performing Test PIPE_C_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test PIPE_CXX_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test FVISIBILITY_HIDDEN_C_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test FVISIBILITY_HIDDEN_CXX_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test FNO_STRICT_ALIASING_C_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test FNO_STRICT_ALIASING_CXX_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test FNO_COMMON_C_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test FNO_COMMON_CXX_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test FEXCEPTIONS_C_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test FEXCEPTIONS_CXX_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test FTEMPLATE_DEPTH_128_CXX_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test M64_C_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test G_C_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test G_CXX_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test GGDB3_C_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test GGDB3_CXX_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test HAVE_INLINE_KEYWORD
+CHECK_PASS: Success
+CHECK_START: Performing Test WERROR_C_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test HAVE_PRINTF12_ATTRIBUTE
+CHECK_PASS: Success
+CHECK_START: Performing Test HAVE_PRINTF23_ATTRIBUTE
+CHECK_PASS: Success
+CHECK_START: Performing Test HAVE_SCANF23_ATTRIBUTE
+CHECK_PASS: Success
+CHECK_START: Performing Test HAVE_DEPRECATED_ATTRIBUTE
+CHECK_PASS: Success
+CHECK_START: Performing Test HAVE_DEPRECATED_DECLSPEC
+CHECK_FAIL: Failed
+CHECK_START: Performing Test HAVE_NORETURN_ATTRIBUTE
+CHECK_PASS: Success
+CHECK_START: Performing Test HAVE_NORETURN_DECLSPEC
+CHECK_FAIL: Failed
+CHECK_START: Performing Test HAVE_ANALYZER_NORETURN_ATTRIBUTE
+CHECK_FAIL: Failed
+CHECK_START: Performing Test HAVE_ALWAYS_INLINE_ATTRIBUTE
+CHECK_PASS: Success
+CHECK_START: Performing Test HAVE_FORCEINLINE
+CHECK_FAIL: Failed
+CHECK_START: Performing Test HAVE_CONST_ATTRIBUTE
+CHECK_FAIL: Failed
+CHECK_START: Performing Test HAVE_PURE_ATTRIBUTE
+CHECK_FAIL: Failed
+CHECK_START: Performing Test HAVE_COLD_ATTRIBUTE
+CHECK_PASS: Success
+CHECK_START: Performing Test HAVE_HOT_ATTRIBUTE
+CHECK_PASS: Success
+CHECK_START: Performing Test HAVE_NONNULL_ATTRIBUTE
+CHECK_PASS: Success
+CHECK_START: Performing Test HAVE_WARN_UNUSED_RESULT_ATTRIBUTE
+CHECK_PASS: Success
+CHECK_START: Performing Test HAVE_FLATTEN_ATTRIBUTE
+CHECK_PASS: Success
+CHECK_START: Performing Test QUNUSED_ARGUMENTS_C_FLAG_FOUND
+CHECK_FAIL: Failed
+CHECK_START: Performing Test QUNUSED_ARGUMENTS_CXX_FLAG_FOUND
+CHECK_FAIL: Failed
+CHECK_START: Looking for include file pthread.h
+CHECK_PASS: found
+CHECK_START: Performing Test O3_C_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test O3_CXX_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test FIPA_PTA_C_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test FIPA_PTA_CXX_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test FSTRENGTH_REDUCE_C_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test FSTRENGTH_REDUCE_CXX_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test FEXPENSIVE_OPTIMIZATIONS_C_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test FEXPENSIVE_OPTIMIZATIONS_CXX_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test FINLINE_FUNCTIONS_C_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test FINLINE_FUNCTIONS_CXX_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test FLTO_AUTO_C_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test FLTO_AUTO_CXX_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test FNO_OMIT_FRAME_POINTER_C_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test FNO_OMIT_FRAME_POINTER_CXX_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test PEDANTIC_C_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test PEDANTIC_CXX_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test WALL_C_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test WALL_CXX_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test WEXTRA_C_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test WEXTRA_CXX_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test WUNDEF_C_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test WUNDEF_CXX_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test WFLOAT_EQUAL_C_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test WFLOAT_EQUAL_CXX_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test WSHADOW_C_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test WSHADOW_CXX_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test WBAD_FUNCTION_CAST_C_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test WBAD_FUNCTION_CAST_CXX_FLAG_FOUND
+CHECK_FAIL: Failed
+CHECK_START: Performing Test WC___COMPAT_C_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test WINLINE_C_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test WNO_INLINE_CXX_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test WNO_ERROR_LONG_LONG_C_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test WNO_LONG_LONG_C_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test WNO_LONG_LONG_CXX_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test WNO_ERROR_VARIADIC_MACROS_C_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test WNO_VARIADIC_MACROS_C_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test WNO_VARIADIC_MACROS_CXX_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test WDOCUMENTATION_C_FLAG_FOUND
+CHECK_FAIL: Failed
+CHECK_START: Performing Test WDOCUMENTATION_CXX_FLAG_FOUND
+CHECK_FAIL: Failed
+CHECK_START: Performing Test FTEST_COVERAGE_C_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test FTEST_COVERAGE_CXX_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test WERROR_CXX_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test HAVE_C_WUNUSED_CONST_VARIABLE
+CHECK_PASS: Success
+***********************************************************
+*             Stage 4 of 9 - Check for Libraries          *
+***********************************************************
+CHECK_START: Performing Test CMAKE_HAVE_LIBC_PTHREAD
+CHECK_PASS: Success
+STATUS: Found Threads: TRUE
+STATUS: Performing Test STL_LIB_TEST
+STATUS: Performing Test STL_LIB_TEST - Success
+Performing C SOURCE FILE Test STL_LIB_TEST succeeded with the following output:
+Change Dir: '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeTmp'
+
+Run Build Command(s): /usr/local/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_381fb/fast
+/usr/bin/gmake  -f CMakeFiles/cmTC_381fb.dir/build.make CMakeFiles/cmTC_381fb.dir/build
+gmake[1]: Entering directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeTmp'
+Building C object CMakeFiles/cmTC_381fb.dir/src.c.o
+/usr/bin/cc   -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -ftest-coverage -ftest-coverage -fprofile-arcs -fprofile-update=atomic -Werror -DSTL_LIB_TEST -std=c11 -fPIE -o CMakeFiles/cmTC_381fb.dir/src.c.o -c /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeTmp/src.c
+Linking C executable cmTC_381fb
+/usr/local/bin/cmake -E cmake_link_script CMakeFiles/cmTC_381fb.dir/link.txt --verbose=1
+/usr/bin/cc -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -ftest-coverage -ftest-coverage -fprofile-arcs -fprofile-update=atomic -Werror -DSTL_LIB_TEST  -m64 -g -ggdb3 -lgcov -ftest-coverage -fprofile-arcs -fprofile-update=atomic  CMakeFiles/cmTC_381fb.dir/src.c.o -o cmTC_381fb
+gmake[1]: Leaving directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeTmp'
+
+
+Return value: 1
+Source file was:
+
+int
+main(int ac, char *av[])
+{
+  if (av)
+    return 0;
+  else
+    return ac-ac;
+}
+
+STATUS: Checking for module 'mpi-c'
+STATUS:   Package 'mpi-c', required by 'virtual:world', not found
+STATUS: Could NOT find MPI_C (missing: MPI_C_LIB_NAMES MPI_C_HEADER_DIR MPI_C_WORKS) 
+STATUS: Could NOT find MPI (missing: MPI_C_FOUND C) 
+CHECK_START: Performing Test HAVE_NO_BUILTIN
+CHECK_PASS: Success
+CHECK_START: Looking for daemon in bsd
+CHECK_FAIL: not found
+CHECK_START: Looking for daemon in c
+CHECK_PASS: found
+CHECK_START: Looking for cos in m
+CHECK_PASS: found
+CHECK_START: Looking for socket in socket
+CHECK_FAIL: not found
+CHECK_START: Looking for gethostbyaddr in nsl
+CHECK_FAIL: not found
+CHECK_START: Looking for socket in network
+CHECK_FAIL: not found
+CHECK_START: Looking for mallopt in c
+CHECK_PASS: found
+CHECK_START: Looking for mallopt
+CHECK_PASS: found
+CHECK_START: Looking for dlopen in dl
+CHECK_PASS: found
+CHECK_START: Looking for yyless in l
+CHECK_FAIL: not found
+***********************************************************
+*               Stage 5 of 9 - Check for Headers          *
+***********************************************************
+STATUS: Performing Test WORKING_SYS_WAIT
+STATUS: Performing Test WORKING_SYS_WAIT - Success
+Performing C SOURCE FILE Test WORKING_SYS_WAIT succeeded with the following output:
+Change Dir: '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeTmp'
+
+Run Build Command(s): /usr/local/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_1cc33/fast
+/usr/bin/gmake  -f CMakeFiles/cmTC_1cc33.dir/build.make CMakeFiles/cmTC_1cc33.dir/build
+gmake[1]: Entering directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeTmp'
+Building C object CMakeFiles/cmTC_1cc33.dir/src.c.o
+/usr/bin/cc   -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -ftest-coverage -ftest-coverage -fprofile-arcs -fprofile-update=atomic -Werror -DWORKING_SYS_WAIT  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -std=c11 -fPIE -o CMakeFiles/cmTC_1cc33.dir/src.c.o -c /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeTmp/src.c
+Linking C executable cmTC_1cc33
+/usr/local/bin/cmake -E cmake_link_script CMakeFiles/cmTC_1cc33.dir/link.txt --verbose=1
+/usr/bin/cc -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -ftest-coverage -ftest-coverage -fprofile-arcs -fprofile-update=atomic -Werror -DWORKING_SYS_WAIT  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700  -m64 -g -ggdb3 -lgcov -ftest-coverage -fprofile-arcs -fprofile-update=atomic  CMakeFiles/cmTC_1cc33.dir/src.c.o -o cmTC_1cc33
+gmake[1]: Leaving directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeTmp'
+
+
+Return value: 1
+Source file was:
+
+#include <sys/types.h>
+#include <sys/wait.h>
+#ifndef WEXITSTATUS
+# define WEXITSTATUS(stat_val) ((unsigned int) (stat_val) >> 8)
+#endif
+#ifndef WIFEXITED
+# define WIFEXITED(stat_val) (((stat_val) & 255) == 0)
+#endif
+int main(void) {
+  int s;
+  wait(&s);
+  s = WIFEXITED(s) ? WEXITSTATUS(s) : 1;
+  return 0;
+}
+CHECK_START: Looking for include file dirent.h
+CHECK_PASS: found
+CHECK_START: Looking for include file conio.h
+CHECK_FAIL: not found
+CHECK_START: Looking for include file direct.h
+CHECK_FAIL: not found
+CHECK_START: Looking for include file dlfcn.h
+CHECK_PASS: found
+CHECK_START: Looking for include file dslib.h
+CHECK_FAIL: not found
+CHECK_START: Looking for include file emmintrin.h
+CHECK_PASS: found
+CHECK_START: Looking for include file getopt.h
+CHECK_PASS: found
+CHECK_START: Looking for include file GL/gl.h
+CHECK_FAIL: not found
+CHECK_START: Looking for include file gl/device.h
+CHECK_FAIL: not found
+CHECK_START: Looking for include file gl/glext.h
+CHECK_FAIL: not found
+CHECK_START: Looking for include file gl/wglext.h
+CHECK_FAIL: not found
+CHECK_START: Looking for include file glob.h
+CHECK_PASS: found
+CHECK_START: Looking for include file grp.h
+CHECK_PASS: found
+CHECK_START: Looking for include file inttypes.h
+CHECK_PASS: found
+CHECK_START: Looking for include file io.h
+CHECK_FAIL: not found
+CHECK_START: Looking for include file libgen.h
+CHECK_PASS: found
+CHECK_START: Looking for include file mach/host_info.h
+CHECK_FAIL: not found
+CHECK_START: Looking for include file mach/mach_host.h
+CHECK_FAIL: not found
+CHECK_START: Looking for include file mach/thread_policy.h
+CHECK_FAIL: not found
+CHECK_START: Looking for include file memory.h
+CHECK_PASS: found
+CHECK_START: Looking for include file netdb.h
+CHECK_PASS: found
+CHECK_START: Looking for include file netinet/in.h
+CHECK_PASS: found
+CHECK_START: Looking for include file poll.h
+CHECK_PASS: found
+CHECK_START: Looking for include file process.h
+CHECK_FAIL: not found
+CHECK_START: Looking for include file pthread.h
+CHECK_PASS: found
+CHECK_START: Looking for include file pthread_np.h
+CHECK_FAIL: not found
+CHECK_START: Looking for include file pwd.h
+CHECK_PASS: found
+CHECK_START: Looking for include file sched.h
+CHECK_PASS: found
+CHECK_START: Looking for include file sgtty.h
+CHECK_PASS: found
+CHECK_START: Looking for include file signal.h
+CHECK_PASS: found
+CHECK_START: Looking for include file stdlib.h
+CHECK_PASS: found
+CHECK_START: Looking for include file string.h
+CHECK_PASS: found
+CHECK_START: Looking for include file strings.h
+CHECK_PASS: found
+CHECK_START: Looking for include file strsafe.h
+CHECK_FAIL: not found
+CHECK_START: Looking for include file sys/cpuset.h
+CHECK_FAIL: not found
+CHECK_START: Looking for include file sys/file.h
+CHECK_PASS: found
+CHECK_START: Looking for include file sys/ioctl.h
+CHECK_PASS: found
+CHECK_START: Looking for include file sys/ioctl_compat.h
+CHECK_FAIL: not found
+CHECK_START: Looking for include file sys/ipc.h
+CHECK_PASS: found
+CHECK_START: Looking for include file sys/machd.h
+CHECK_FAIL: not found
+CHECK_START: Looking for include file sys/mman.h
+CHECK_PASS: found
+CHECK_START: Looking for include file sys/mount.h
+CHECK_PASS: found
+CHECK_START: Looking for include file sys/param.h
+CHECK_PASS: found
+CHECK_START: Looking for include file sys/prctl.h
+CHECK_PASS: found
+CHECK_START: Looking for include file sys/resource.h
+CHECK_PASS: found
+CHECK_START: Looking for include file sys/sched.h
+CHECK_FAIL: not found
+CHECK_START: Looking for include file sys/select.h
+CHECK_PASS: found
+CHECK_START: Looking for include file sys/shm.h
+CHECK_PASS: found
+CHECK_START: Looking for include file sys/signal.h
+CHECK_PASS: found
+CHECK_START: Looking for include file sys/socket.h
+CHECK_PASS: found
+CHECK_START: Looking for include file sys/stat.h
+CHECK_PASS: found
+CHECK_START: Looking for include file sys/syscall.h
+CHECK_PASS: found
+CHECK_START: Looking for include file sys/sysctl.h
+CHECK_FAIL: not found
+CHECK_START: Looking for include file sys/sysinfo.h
+CHECK_PASS: found
+CHECK_START: Looking for include file sys/sysmp.h
+CHECK_FAIL: not found
+CHECK_START: Looking for include file sys/time.h
+CHECK_PASS: found
+CHECK_START: Looking for include file sys/times.h
+CHECK_PASS: found
+CHECK_START: Looking for include file sys/uio.h
+CHECK_PASS: found
+CHECK_START: Looking for include file sys/un.h
+CHECK_PASS: found
+CHECK_START: Looking for include file sys/utsname.h
+CHECK_PASS: found
+CHECK_START: Looking for include file sys/wait.h
+CHECK_PASS: found
+CHECK_START: Looking for include file syslog.h
+CHECK_PASS: found
+CHECK_START: Looking for include file ulocks.h
+CHECK_FAIL: not found
+CHECK_START: Looking for include file uuid.h
+CHECK_FAIL: not found
+CHECK_START: Looking for include file unistd.h
+CHECK_PASS: found
+CHECK_START: Looking for include file uuid/uuid.h
+CHECK_FAIL: not found
+CHECK_START: Performing Test HAVE_LIBPROC_H
+CHECK_FAIL: Failed
+CHECK_START: Looking for include file termios.h
+CHECK_PASS: found
+CHECK_START: Looking for include file termio.h
+CHECK_PASS: found
+CHECK_START: Looking for C++ include istream
+CHECK_PASS: found
+CHECK_START: Looking for C++ include limits
+CHECK_PASS: found
+STATUS: Performing Test HAVE_BASENAME
+STATUS: Performing Test HAVE_BASENAME - Success
+Performing C SOURCE FILE Test HAVE_BASENAME succeeded with the following output:
+Change Dir: '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeTmp'
+
+Run Build Command(s): /usr/local/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_24fea/fast
+/usr/bin/gmake  -f CMakeFiles/cmTC_24fea.dir/build.make CMakeFiles/cmTC_24fea.dir/build
+gmake[1]: Entering directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeTmp'
+Building C object CMakeFiles/cmTC_24fea.dir/src.c.o
+/usr/bin/cc   -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -ftest-coverage -ftest-coverage -fprofile-arcs -fprofile-update=atomic -Werror -DHAVE_BASENAME  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -std=c11 -fPIE -o CMakeFiles/cmTC_24fea.dir/src.c.o -c /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeTmp/src.c
+Linking C executable cmTC_24fea
+/usr/local/bin/cmake -E cmake_link_script CMakeFiles/cmTC_24fea.dir/link.txt --verbose=1
+/usr/bin/cc -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -ftest-coverage -ftest-coverage -fprofile-arcs -fprofile-update=atomic -Werror -DHAVE_BASENAME  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700  -m64 -g -ggdb3 -lgcov -ftest-coverage -fprofile-arcs -fprofile-update=atomic  CMakeFiles/cmTC_24fea.dir/src.c.o -o cmTC_24fea
+gmake[1]: Leaving directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeTmp'
+
+
+Return value: 1
+Source file was:
+
+#include <libgen.h>
+int main(int argc, char *argv[]) {
+if(!argc) return 1;
+(void)basename(argv[0]);
+return 0;
+}
+STATUS: Performing Test HAVE_DIRNAME
+STATUS: Performing Test HAVE_DIRNAME - Success
+Performing C SOURCE FILE Test HAVE_DIRNAME succeeded with the following output:
+Change Dir: '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeTmp'
+
+Run Build Command(s): /usr/local/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_d87df/fast
+/usr/bin/gmake  -f CMakeFiles/cmTC_d87df.dir/build.make CMakeFiles/cmTC_d87df.dir/build
+gmake[1]: Entering directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeTmp'
+Building C object CMakeFiles/cmTC_d87df.dir/src.c.o
+/usr/bin/cc   -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -ftest-coverage -ftest-coverage -fprofile-arcs -fprofile-update=atomic -Werror -DHAVE_DIRNAME  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -std=c11 -fPIE -o CMakeFiles/cmTC_d87df.dir/src.c.o -c /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeTmp/src.c
+Linking C executable cmTC_d87df
+/usr/local/bin/cmake -E cmake_link_script CMakeFiles/cmTC_d87df.dir/link.txt --verbose=1
+/usr/bin/cc -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -ftest-coverage -ftest-coverage -fprofile-arcs -fprofile-update=atomic -Werror -DHAVE_DIRNAME  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700  -m64 -g -ggdb3 -lgcov -ftest-coverage -fprofile-arcs -fprofile-update=atomic  CMakeFiles/cmTC_d87df.dir/src.c.o -o cmTC_d87df
+gmake[1]: Leaving directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeTmp'
+
+
+Return value: 1
+Source file was:
+
+#include <libgen.h>
+int main(int argc, char *argv[]) {
+if(!argc) return 1;
+(void)dirname(argv[0]);
+return 0;
+}
+CHECK_START: Performing Test HAVE_EMMINTRIN
+CHECK_PASS: Success
+***********************************************************
+*          Stage 6 of 9 - Check for Types/Structures      *
+***********************************************************
+CHECK_START: Performing Test HAVE_STRUCT_STAT_ST_BLKSIZE
+CHECK_PASS: Success
+CHECK_START: Performing Test HAVE_STRUCT_STAT_ST_BLOCKS
+CHECK_PASS: Success
+CHECK_START: Performing Test HAVE_STRUCT_STAT_ST_RDEV
+CHECK_PASS: Success
+CHECK_START: Performing Test HAVE_STRUCT_TIMESPEC
+CHECK_PASS: Success
+CHECK_START: Check size of socklen_t
+CHECK_FAIL: failed
+CHECK_START: Check size of socklen_t
+CHECK_FAIL: failed
+CHECK_START: Check size of socklen_t
+CHECK_PASS: done
+CHECK_START: Check size of cpu_set_t
+CHECK_PASS: done
+CHECK_START: Check size of int
+CHECK_PASS: done
+CHECK_START: Check size of long
+CHECK_PASS: done
+CHECK_START: Check size of long long
+CHECK_PASS: done
+CHECK_START: Check size of off_t
+CHECK_PASS: done
+CHECK_START: Check size of ptrdiff_t
+CHECK_PASS: done
+CHECK_START: Check size of size_t
+CHECK_PASS: done
+CHECK_START: Check size of ssize_t
+CHECK_PASS: done
+CHECK_START: Check size of uint64_t
+CHECK_PASS: done
+CHECK_START: Check size of uintptr_t
+CHECK_PASS: done
+CHECK_START: Check size of sig_t
+CHECK_FAIL: failed
+CHECK_START: Check size of u_char
+CHECK_FAIL: failed
+CHECK_START: Check size of u_int
+CHECK_FAIL: failed
+CHECK_START: Check size of u_long
+CHECK_FAIL: failed
+CHECK_START: Check size of u_short
+CHECK_FAIL: failed
+CHECK_START: Performing Test HAVE_THREAD_LOCAL
+CHECK_PASS: Success
+STATUS: Performing Test HAVE_PERCENT_Z
+STATUS: Performing Test HAVE_PERCENT_Z - Success
+Performing C SOURCE FILE Test HAVE_PERCENT_Z succeeded with the following output:
+Change Dir: '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeTmp'
+
+Run Build Command(s): /usr/local/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_1151e/fast
+/usr/bin/gmake  -f CMakeFiles/cmTC_1151e.dir/build.make CMakeFiles/cmTC_1151e.dir/build
+gmake[1]: Entering directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeTmp'
+Building C object CMakeFiles/cmTC_1151e.dir/src.c.o
+/usr/bin/cc -DHAVE_STDINT_H=1  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -ftest-coverage -ftest-coverage -fprofile-arcs -fprofile-update=atomic -Werror -DHAVE_PERCENT_Z  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -std=c11 -fPIE -o CMakeFiles/cmTC_1151e.dir/src.c.o -c /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeTmp/src.c
+Linking C executable cmTC_1151e
+/usr/local/bin/cmake -E cmake_link_script CMakeFiles/cmTC_1151e.dir/link.txt --verbose=1
+/usr/bin/cc -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -ftest-coverage -ftest-coverage -fprofile-arcs -fprofile-update=atomic -Werror -DHAVE_PERCENT_Z  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700  -m64 -g -ggdb3 -lgcov -ftest-coverage -fprofile-arcs -fprofile-update=atomic  CMakeFiles/cmTC_1151e.dir/src.c.o -o cmTC_1151e
+gmake[1]: Leaving directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeTmp'
+
+
+Return value: 1
+Source file was:
+
+#ifdef HAVE_STDINT_H
+#  include <stdint.h>
+#endif
+#include <stdio.h>
+int main(int ac, char *av[])
+{
+  char buf[64] = {0};
+  if (sprintf(buf, "%zu", (size_t)1) != 1 || buf[0] != '1' || buf[1] != 0)
+    return 1;
+  return (ac < 0) ? (int)av[0][0] : 0;
+}
+
+STATUS: Performing Test HAVE_STATIC_ARRAYS
+STATUS: Performing Test HAVE_STATIC_ARRAYS - Success
+Performing C SOURCE FILE Test HAVE_STATIC_ARRAYS succeeded with the following output:
+Change Dir: '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeTmp'
+
+Run Build Command(s): /usr/local/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_c01b4/fast
+/usr/bin/gmake  -f CMakeFiles/cmTC_c01b4.dir/build.make CMakeFiles/cmTC_c01b4.dir/build
+gmake[1]: Entering directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeTmp'
+Building C object CMakeFiles/cmTC_c01b4.dir/src.c.o
+/usr/bin/cc   -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -ftest-coverage -ftest-coverage -fprofile-arcs -fprofile-update=atomic -Werror -DHAVE_STATIC_ARRAYS  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -std=c11 -fPIE -o CMakeFiles/cmTC_c01b4.dir/src.c.o -c /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeTmp/src.c
+Linking C executable cmTC_c01b4
+/usr/local/bin/cmake -E cmake_link_script CMakeFiles/cmTC_c01b4.dir/link.txt --verbose=1
+/usr/bin/cc -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -ftest-coverage -ftest-coverage -fprofile-arcs -fprofile-update=atomic -Werror -DHAVE_STATIC_ARRAYS  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700  -m64 -g -ggdb3 -lgcov -ftest-coverage -fprofile-arcs -fprofile-update=atomic  CMakeFiles/cmTC_c01b4.dir/src.c.o -o cmTC_c01b4
+gmake[1]: Leaving directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeTmp'
+
+
+Return value: 1
+Source file was:
+
+#include <stdio.h>
+#include <string.h>
+
+int foobar(char arg[static 100])
+{
+  return (int)arg[0];
+}
+
+int main(int ac, char *av[])
+{
+  char hello[100];
+
+  if (ac > 0 && av)
+    foobar(hello);
+  return 0;
+}
+
+***********************************************************
+*              Stage 7 of 9 - Check for Functions         *
+***********************************************************
+CHECK_START: Looking for XQueryExtension
+CHECK_FAIL: not found
+CHECK_START: Looking for _putenv_s
+CHECK_FAIL: not found
+CHECK_START: Looking for _splitpath
+CHECK_FAIL: not found
+CHECK_START: Looking for _strtoi64
+CHECK_FAIL: not found
+CHECK_START: Looking for alarm
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_ALARM
+CHECK_PASS: Success
+CHECK_START: Looking for asinh
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_ASINH
+CHECK_PASS: Success
+CHECK_START: Looking for confstr
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_CONFSTR
+CHECK_PASS: Success
+CHECK_START: Looking for dlopen
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_DLOPEN
+CHECK_FAIL: Failed
+CHECK_START: Looking for dladdr
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_DLADDR
+CHECK_FAIL: Failed
+CHECK_START: Looking for drand48
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_DRAND48
+CHECK_PASS: Success
+CHECK_START: Looking for fchmod
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_FCHMOD
+CHECK_PASS: Success
+CHECK_START: Looking for fdopen
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_FDOPEN
+CHECK_PASS: Success
+CHECK_START: Looking for fmemopen
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_FMEMOPEN
+CHECK_PASS: Success
+CHECK_START: Looking for fpclassify
+CHECK_FAIL: not found
+CHECK_START: Looking for fseeko
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_FSEEKO
+CHECK_PASS: Success
+CHECK_START: Looking for fsync
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_FSYNC
+CHECK_PASS: Success
+CHECK_START: Looking for funopen
+CHECK_FAIL: not found
+CHECK_START: Looking for getcwd
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_GETCWD
+CHECK_PASS: Success
+CHECK_START: Looking for getegid
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_GETEGID
+CHECK_PASS: Success
+CHECK_START: Looking for getenv_s
+CHECK_FAIL: not found
+CHECK_START: Looking for geteuid
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_GETEUID
+CHECK_PASS: Success
+CHECK_START: Looking for gethostname
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_GETHOSTNAME
+CHECK_PASS: Success
+CHECK_START: Looking for getloadavg
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_GETLOADAVG
+CHECK_FAIL: Failed
+CHECK_START: Looking for getopt_long
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_GETOPT_LONG
+CHECK_PASS: Success
+CHECK_START: Looking for getpid
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_GETPID
+CHECK_PASS: Success
+CHECK_START: Looking for getprogname
+CHECK_FAIL: not found
+CHECK_START: Looking for gettimeofday
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_GETTIMEOFDAY
+CHECK_PASS: Success
+CHECK_START: Looking for htonl
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_HTONL
+CHECK_PASS: Success
+CHECK_START: Looking for htonll
+CHECK_FAIL: not found
+CHECK_START: Looking for hypot
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_HYPOT
+CHECK_PASS: Success
+CHECK_START: Looking for isascii
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_ISASCII
+CHECK_PASS: Success
+CHECK_START: Looking for isinf
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_ISINF
+CHECK_FAIL: Failed
+CHECK_START: Looking for isnan
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_ISNAN
+CHECK_FAIL: Failed
+CHECK_START: Looking for logb
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_LOGB
+CHECK_PASS: Success
+CHECK_START: Looking for lrand48
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_LRAND48
+CHECK_PASS: Success
+CHECK_START: Looking for lseek
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_LSEEK
+CHECK_PASS: Success
+CHECK_START: Looking for mkstemp
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_MKSTEMP
+CHECK_PASS: Success
+CHECK_START: Looking for modff
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_MODFF
+CHECK_PASS: Success
+CHECK_START: Looking for nextafter
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_NEXTAFTER
+CHECK_PASS: Success
+CHECK_START: Looking for nextafterf
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_NEXTAFTERF
+CHECK_PASS: Success
+CHECK_START: Looking for ntohll
+CHECK_FAIL: not found
+CHECK_START: Looking for pipe
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_PIPE
+CHECK_PASS: Success
+CHECK_START: Looking for _pipe
+CHECK_FAIL: not found
+CHECK_START: Looking for popen
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_POPEN
+CHECK_PASS: Success
+CHECK_START: Looking for posix_memalign
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_POSIX_MEMALIGN
+CHECK_PASS: Success
+CHECK_START: Looking for proc_pidpath
+CHECK_FAIL: not found
+CHECK_START: Looking for program_invocation_name
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_PROGRAM_INVOCATION_NAME
+CHECK_FAIL: Failed
+CHECK_START: Looking for random
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_RANDOM
+CHECK_PASS: Success
+CHECK_START: Looking for realpath
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_REALPATH
+CHECK_PASS: Success
+CHECK_START: Looking for rint
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_RINT
+CHECK_PASS: Success
+CHECK_START: Looking for setenv
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_SETENV
+CHECK_PASS: Success
+CHECK_START: Looking for setpgid
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_SETPGID
+CHECK_PASS: Success
+CHECK_START: Looking for setpriority
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_SETPRIORITY
+CHECK_PASS: Success
+CHECK_START: Looking for setsid
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_SETSID
+CHECK_PASS: Success
+CHECK_START: Looking for shmat
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_SHMAT
+CHECK_PASS: Success
+CHECK_START: Looking for shmctl
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_SHMCTL
+CHECK_PASS: Success
+CHECK_START: Looking for shmdt
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_SHMDT
+CHECK_PASS: Success
+CHECK_START: Looking for shmget
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_SHMGET
+CHECK_PASS: Success
+CHECK_START: Looking for snprintf
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_SNPRINTF
+CHECK_PASS: Success
+CHECK_START: Looking for srand48
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_SRAND48
+CHECK_PASS: Success
+CHECK_START: Looking for strcasecmp
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_STRCASECMP
+CHECK_FAIL: Failed
+CHECK_START: Looking for strdup
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_STRDUP
+CHECK_PASS: Success
+CHECK_START: Looking for strlcat
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_STRLCAT
+CHECK_FAIL: Failed
+CHECK_START: Looking for strlcpy
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_STRLCPY
+CHECK_FAIL: Failed
+CHECK_START: Looking for strncasecmp
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_STRNCASECMP
+CHECK_FAIL: Failed
+CHECK_START: Looking for strtoll
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_STRTOLL
+CHECK_PASS: Success
+CHECK_START: Looking for sync
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_SYNC
+CHECK_PASS: Success
+CHECK_START: Looking for syscall
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_SYSCALL
+CHECK_FAIL: Failed
+CHECK_START: Looking for sysctl
+CHECK_FAIL: not found
+CHECK_START: Looking for sysmp
+CHECK_FAIL: not found
+CHECK_START: Looking for time
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_TIME
+CHECK_FAIL: Failed
+CHECK_START: Looking for toascii
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_TOASCII
+CHECK_PASS: Success
+CHECK_START: Looking for tzset
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_TZSET
+CHECK_FAIL: Failed
+CHECK_START: Looking for uname
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_UNAME
+CHECK_FAIL: Failed
+CHECK_START: Looking for vfork
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_VFORK
+CHECK_FAIL: Failed
+CHECK_START: Looking for vsnprintf
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_VSNPRINTF
+CHECK_PASS: Success
+CHECK_START: Looking for vsscanf
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_VSSCANF
+CHECK_PASS: Success
+CHECK_START: Looking for wait
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_WAIT
+CHECK_PASS: Success
+CHECK_START: Looking for writev
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_WRITEV
+CHECK_PASS: Success
+STATUS: Performing Test WORKING_ALLOCA
+STATUS: Performing Test WORKING_ALLOCA - Success
+Performing C SOURCE FILE Test WORKING_ALLOCA succeeded with the following output:
+Change Dir: '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeTmp'
+
+Run Build Command(s): /usr/local/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_12879/fast
+/usr/bin/gmake  -f CMakeFiles/cmTC_12879.dir/build.make CMakeFiles/cmTC_12879.dir/build
+gmake[1]: Entering directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeTmp'
+Building C object CMakeFiles/cmTC_12879.dir/src.c.o
+/usr/bin/cc   -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -ftest-coverage -ftest-coverage -fprofile-arcs -fprofile-update=atomic -Werror -DWORKING_ALLOCA  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -std=c11 -fPIE -o CMakeFiles/cmTC_12879.dir/src.c.o -c /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeTmp/src.c
+Linking C executable cmTC_12879
+/usr/local/bin/cmake -E cmake_link_script CMakeFiles/cmTC_12879.dir/link.txt --verbose=1
+/usr/bin/cc -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -ftest-coverage -ftest-coverage -fprofile-arcs -fprofile-update=atomic -Werror -DWORKING_ALLOCA  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700  -m64 -g -ggdb3 -lgcov -ftest-coverage -fprofile-arcs -fprofile-update=atomic  CMakeFiles/cmTC_12879.dir/src.c.o -o cmTC_12879
+gmake[1]: Leaving directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeTmp'
+
+
+Return value: 1
+Source file was:
+
+#ifdef __GNUC__
+# define alloca __builtin_alloca
+#else
+# ifdef _MSC_VER
+#  include <malloc.h>
+#  define alloca _alloca
+# else
+#  ifdef HAVE_ALLOCA_H
+#   include <alloca.h>
+#  else
+#   ifdef _AIX
+ #pragma alloca
+#   else
+#    ifndef alloca /* predefined by HP cc +Olibcalls */
+char *alloca ();
+#    endif
+#   endif
+#  endif
+# endif
+#endif
+
+int main(void) {
+   char *p = (char *) alloca (1);
+   if (p) return 0;
+   ;
+   return 0;
+}
+CHECK_START: Looking for kill
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_KILL
+CHECK_PASS: Success
+CHECK_START: Looking for fileno
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_FILENO
+CHECK_PASS: Success
+CHECK_START: Looking for daemon
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_DAEMON
+CHECK_FAIL: Failed
+CHECK_START: Performing Test HAVE_WORKING_DAEMON_FUNCTION
+CHECK_FAIL: Failed
+CHECK_START: Looking for sysconf
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_SYSCONF
+CHECK_PASS: Success
+CHECK_START: Performing Test HAVE_SYSCONF_AVPHYS
+CHECK_PASS: Success
+CHECK_START: Looking for ntohll
+CHECK_FAIL: not found
+CHECK_START: Looking for htonll
+CHECK_FAIL: not found
+STATUS: Performing Test HAVE_WORKING_REALPATH
+STATUS: Performing Test HAVE_WORKING_REALPATH - Success
+Performing C SOURCE FILE Test HAVE_WORKING_REALPATH succeeded with the following output:
+Change Dir: '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeTmp'
+
+Run Build Command(s): /usr/local/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_b6f5d/fast
+/usr/bin/gmake  -f CMakeFiles/cmTC_b6f5d.dir/build.make CMakeFiles/cmTC_b6f5d.dir/build
+gmake[1]: Entering directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeTmp'
+Building C object CMakeFiles/cmTC_b6f5d.dir/src.c.o
+/usr/bin/cc   -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -ftest-coverage -ftest-coverage -fprofile-arcs -fprofile-update=atomic -Werror -DHAVE_WORKING_REALPATH -std=c11 -fPIE -o CMakeFiles/cmTC_b6f5d.dir/src.c.o -c /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeTmp/src.c
+Linking C executable cmTC_b6f5d
+/usr/local/bin/cmake -E cmake_link_script CMakeFiles/cmTC_b6f5d.dir/link.txt --verbose=1
+/usr/bin/cc -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -ftest-coverage -ftest-coverage -fprofile-arcs -fprofile-update=atomic -Werror -DHAVE_WORKING_REALPATH  -m64 -g -ggdb3 -lgcov -ftest-coverage -fprofile-arcs -fprofile-update=atomic  CMakeFiles/cmTC_b6f5d.dir/src.c.o -o cmTC_b6f5d
+gmake[1]: Leaving directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/CMakeFiles/CMakeTmp'
+
+
+Return value: 1
+Source file was:
+#include<limits.h>
+#include <stdlib.h>
+int main(void) { char dir[PATH_MAX]; const char *d = "/tmp/REALPATH_TEST_PATH"; d = (const char *)realpath(d, dir); return 0; }
+CHECK_START: Performing Test HAVE_GETFULLPATHNAME
+CHECK_FAIL: Failed
+CHECK_START: Performing Test HAVE_GETPROCESSTIMES
+CHECK_FAIL: Failed
+CHECK_START: Performing Test HAVE_GETCURRENTPROCESSID
+CHECK_FAIL: Failed
+CHECK_START: Looking for lrint
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_LRINT
+CHECK_PASS: Success
+CHECK_START: Looking for tgamma
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_TGAMMA
+CHECK_PASS: Success
+CHECK_START: Looking for gethostbyaddr
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_GETHOSTBYADDR
+CHECK_PASS: Success
+CHECK_START: Looking for gethostbyname
+CHECK_PASS: found
+CHECK_START: Performing Test HAVE_DECL_GETHOSTBYNAME
+CHECK_PASS: Success
+CHECK_START: Performing Test HAVE_CXX_LOGB
+CHECK_PASS: Success
+***********************************************************
+*          Stage 8 of 9 - Check for System Services       *
+***********************************************************
+CHECK_START: Performing Test COMPILER_SUPPORTS_O3
+CHECK_PASS: Success
+Staging third party files from /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/bext_output/install in build directory...
+Packing bin subdirectory...
+Packing bin subdirectory... done.
+Expanding bin.tar in build directory...
+Expanding bin.tar in build directory... done.
+Packing include subdirectory...
+Packing include subdirectory... done.
+Expanding include.tar in build directory...
+Expanding include.tar in build directory... done.
+Packing lib subdirectory...
+Packing lib subdirectory... done.
+Expanding lib.tar in build directory...
+Expanding lib.tar in build directory... done.
+Packing libdata subdirectory...
+Packing libdata subdirectory... done.
+Expanding libdata.tar in build directory...
+Expanding libdata.tar in build directory... done.
+Packing man subdirectory...
+Packing man subdirectory... done.
+Expanding man.tar in build directory...
+Expanding man.tar in build directory... done.
+Packing share subdirectory...
+Packing share subdirectory... done.
+Expanding share.tar in build directory...
+Expanding share.tar in build directory... done.
+Removing files indicated by exclude patterns...
+Removing files indicated by exclude patterns... done.
+Staging third party files from /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/bext_output/install in build directory... done.
+Comparing previous and current states...
+Comparing previous and current states... done.
+Characterizing new or changed bundled third party files...
+Found 500 text files (characterized 517 of 1909 files.
+Found 1000 text files (characterized 1017 of 1909 files.
+Found 1500 text files (characterized 1582 of 1909 files.
+Characterizing new or changed bundled third party files... done.
+Setting rpath on new 3rd party lib and exe files...
+Setting rpath on new 3rd party lib and exe files... done.
+Scrubbing paths from new 3rd party data files...
+Scrubbing paths from new 3rd party data files... done.
+Replacing paths in new 3rd party text files...
+Replacing paths in new 3rd party text files... done.
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/PNG/PNGConfig.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/PNG/PNGConfigVersion.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/PNG/PNGTargets-noconfig.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/PNG/PNGTargets.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/assimp-6.0/assimpConfig.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/assimp-6.0/assimpConfigVersion.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/assimp-6.0/assimpTargets-noconfig.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/assimp-6.0/assimpTargets.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/clipper2/Clipper2Config.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/clipper2/Clipper2ConfigVersion.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/clipper2/Clipper2Targets-noconfig.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/clipper2/Clipper2Targets.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/libjpeg-turbo/libjpeg-turboConfig.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/libjpeg-turbo/libjpeg-turboConfigVersion.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/libjpeg-turbo/libjpeg-turboTargets.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/manifold/manifoldConfig.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/manifold/manifoldConfigVersion.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/manifold/manifoldTargets-noconfig.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/manifold/manifoldTargets.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/mmesh/mmeshConfig.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/mmesh/mmeshConfigVersion.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/mmesh/mmeshTargets-noconfig.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/mmesh/mmeshTargets.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/opencv4/OpenCVConfig.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/opencv4/OpenCVModules-noconfig.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/opencv4/OpenCVModules.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/pugixml/pugixml-config.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/pugixml/pugixml-targets-noconfig.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/pugixml/pugixml-targets.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/tinygltf/TinyGLTFConfig.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/tinygltf/TinyGLTFTargets-noconfig.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/cmake/tinygltf/TinyGLTFTargets.cmake
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/pkgconfig/Clipper2.pc
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/pkgconfig/assimp.pc
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/pkgconfig/geogram1.pc
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/pkgconfig/libjpeg.pc
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/pkgconfig/libturbojpeg.pc
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/pkgconfig/manifold.pc
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/pkgconfig/pugixml.pc
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/pkgconfig/tcl.pc
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/lib/pkgconfig/tk.pc
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/libdata/pkgconfig/openmesh.pc
+Adding install rule for CMake find_package file /usr/brlcad/rel-7.43.0/share/OpenMesh/cmake/OpenMeshConfig.cmake
+***********************************************************
+*        Stage 9 of 9 - Output and Summarize Config       *
+***********************************************************
+-- Adding src...
+-- Adding src/libbu...
+STATUS: Found LMDB: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/lib/liblmdb.so
+CHECK_START: Performing Test O3_COMPILER_FLAG
+CHECK_PASS: Success
+CHECK_START: Performing Test HAVE_NO_STRINGOP_OVERFLOW
+CHECK_PASS: Success
+--- Checking operating system support for file symlinking
+--- Checking operating system support for file symlinking - Supported
+-- Adding src/libbu - done
+-- Adding src/libbn...
+-- Adding src/libbn - done
+-- Adding src/libbg...
+STATUS: Found GTE: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/bext_output/noinstall/include/GTE
+STATUS: Found SPSR: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/bext_output/noinstall/include
+CHECK_START: Performing Test CXX_BIGOBJ_SUPPORTED
+CHECK_FAIL: Failed
+-- Adding src/libbg - done
+-- Adding src/libbv...
+STATUS: Found LMDB: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/lib/liblmdb.so
+-- Adding src/libbv - done
+-- Adding src/libnmg...
+-- Adding src/libnmg - done
+-- Adding src/libbrep...
+STATUS: Found OPENNURBS: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/lib/libOpenNURBS.so
+-- Adding src/libbrep - done
+-- Adding src/librt...
+STATUS: Found OPENNURBS: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/lib/libOpenNURBS.so
+STATUS: Found REGEX: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/lib/libregex_brl.so
+STATUS: Found Geogram: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/lib/libgeogram.so
+-- Adding src/librt - done
+-- Adding src/libwdb...
+-- Adding src/libwdb - done
+-- Adding src/libpkg...
+-- Adding src/libpkg - done
+-- Adding src/libgcv...
+STATUS: Found ZLIB: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/lib/libz_brl.so (found version "1.3.1")
+CHECK_START: Performing Test HAVE_UNIQUE_PTR
+CHECK_PASS: Success
+STATUS: Found PERPLEX: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/bext_output/noinstall/bin/perplex
+STATUS: Found LEMON: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/bext_output/noinstall/bin/lemon
+STATUS: Found RE2C: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/bext_output/noinstall/bin/re2c
+CHECK_START: Performing Test HAVE_CXX_FLAG_W
+CHECK_PASS: Success
+-- Adding src/libgcv - done
+-- Adding src/libanalyze...
+-- Adding src/libanalyze - done
+-- Adding src/liboptical...
+STATUS: Found TCL: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/lib/libtcl8.6.so
+-- Adding src/liboptical - done
+-- Adding src/libicv...
+STATUS: Found NETPBM: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/lib/libnetpbm.so
+STATUS: Found ZLIB: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/lib/libz_brl.so (found version "1.3.1")
+STATUS: Found PNG: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/lib/libpng_brl.so (found version "1.6.54")
+STATUS: Found JPEG: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/lib/libjpeg.so (found version "62")
+-- Adding src/libicv - done
+-- Adding src/libdm...
+STATUS: Found OSMESA: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/lib/libosmesa.so
+-- Adding src/libdm - done
+-- Adding src/libged...
+STATUS: Found LMDB: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/lib/liblmdb.so
+STATUS: Found ZLIB: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/lib/libz_brl.so (found version "1.3.1")
+STATUS: Found PNG: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/lib/libpng_brl.so (found version "1.6.54")
+STATUS: Found REGEX: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/lib/libregex_brl.so
+STATUS: Found Geogram: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/lib/libgeogram.so
+STATUS: Found PERPLEX: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/bext_output/noinstall/bin/perplex
+STATUS: Found LEMON: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/bext_output/noinstall/bin/lemon
+STATUS: Found RE2C: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/bext_output/noinstall/bin/re2c
+CHECK_START: Performing Test HAVE_C_FLAG_W
+CHECK_PASS: Success
+CHECK_START: Performing Test HAVE_STACK_SIZE_FLAG
+CHECK_PASS: Success
+STATUS: Found Geogram: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/lib/libgeogram.so
+STATUS: Could NOT find Adaptagrams (missing: _AVOID_LIB _AVOID_INC avoid cola dialect topology) 
+CHECK_START: Performing Test NO_NONNULL_COMPARE
+CHECK_PASS: Success
+Generating plugin wrapper files...
+WARNING: Skipping non-existent source file: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/src/libged/brep/dplot_scanner_dplot_scanner/dplot_scanner.c
+WARNING: Skipping non-existent source file: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/src/libged/brep/dplot_parser_dplot_parser/dplot_parser.c
+Generating plugin wrapper files... done.
+-- Adding src/libged - done
+-- Adding src/libfft...
+-- Adding src/libfft - done
+-- Adding src/libpc...
+-- Adding src/libpc - done
+-- Adding src/libqtcad...
+-- Adding src/libqtcad - done
+-- Adding src/libtclcad...
+-- Adding src/libtclcad - done
+-- Adding src/brlman...
+-- Adding src/brlman - done
+-- Adding src/bwish...
+-- Adding src/bwish - done
+-- Adding src/fb...
+-- Adding src/fb - done
+-- Adding src/fbserv...
+-- Adding src/fbserv - done
+-- Adding src/gtools...
+STATUS: Found OpenCV: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov (found version "4.13.0") found components: core features2d imgproc highgui
+Found OpenCV: opencv_core;opencv_features2d;opencv_imgproc;opencv_highgui
+-- Adding src/gtools - done
+-- Adding src/nirt...
+-- Adding src/nirt - done
+-- Adding src/proc-db...
+-- Adding src/proc-db - done
+-- Adding src/rt...
+-- Adding src/rt - done
+-- Adding src/art...
+STATUS: Could NOT find Appleseed (missing: Appleseed_INCLUDE_DIR Appleseed_LIBRARY) 
+'art' appleseed ray tracing is DISABLED
+-- Adding src/art - done
+-- Adding src/shapes...
+-- Adding src/shapes - done
+-- Adding src/sig...
+-- Adding src/sig - done
+-- Adding src/util...
+STATUS: Found ZLIB: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/lib/libz_brl.so (found version "1.3.1")
+STATUS: Found PNG: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/lib/libpng_brl.so (found version "1.6.54")
+-- Adding src/util - done
+-- Adding src/qged...
+-- Adding src/qged - done
+-- Adding src/external...
+CHECK_START: Performing Test WNO_MAYBE_UNINITIALIZED_CXX_FLAG_FOUND
+CHECK_PASS: Success
+CHECK_START: Performing Test WNO_UNINITIALIZED_CXX_FLAG_FOUND
+CHECK_PASS: Success
+-- Adding src/external - done
+-- Adding src/remrt...
+-- Adding src/remrt - done
+-- Adding src/tclscripts...
+-- Adding src/tclscripts - done
+-- Adding src/conv...
+-- Adding src/conv/3dm...
+-- Adding src/conv/3dm - done
+-- Adding src/conv/asc...
+-- Adding src/conv/asc - done
+-- Adding src/conv/gcv...
+-- Adding src/conv/gcv - done
+-- Adding src/conv/step...
+CHECK_START: Performing Test WD4065_CXX_FLAG_FOUND
+CHECK_FAIL: Failed
+CHECK_START: Performing Test WD4251_CXX_FLAG_FOUND
+CHECK_FAIL: Failed
+CHECK_START: Performing Test WD4800_CXX_FLAG_FOUND
+CHECK_FAIL: Failed
+CHECK_START: Performing Test WNO_IGNORED_QUALIFIERS_CXX_FLAG_FOUND
+CHECK_PASS: Success
+STATUS: Could NOT find STEPCODE (missing: STEPCODE_DAI_DIR STEPCODE_EDITOR_DIR STEPCODE_STEPCORE_DIR STEPCODE_UTILS_DIR STEPCODE_EXPPP_DIR STEPCODE_EXPRESS_DIR STEPCODE_INCLUDE_DIR STEPCODE_EXPRESS_LIBRARY STEPCODE_EXPPP_LIBRARY STEPCODE_CORE_LIBRARY STEPCODE_EDITOR_LIBRARY STEPCODE_DAI_LIBRARY STEPCODE_UTILS_LIBRARY EXP2CXX_EXECUTABLE EXPPP_EXECUTABLE) 
+-- Adding src/conv/step - done
+-- Adding src/conv/gltf...
+-- Adding src/conv/gltf - done
+-- Adding src/conv/iges...
+-- Adding src/conv/iges - done
+-- Adding src/conv/intaval...
+-- Adding src/conv/intaval - done
+-- Adding src/conv/k-g...
+-- Adding src/conv/k-g - done
+-- Adding src/conv/ply...
+-- Adding src/conv/ply - done
+-- Adding src/conv/raw...
+-- Adding src/conv/raw - done
+-- Adding src/conv/vdeck...
+-- Adding src/conv/vdeck - done
+-- Adding src/conv - done
+-- Adding src/adrt...
+STATUS: Found ZLIB: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/lib/libz_brl.so (found version "1.3.1")
+-- Adding src/adrt - done
+-- Adding src/isst...
+-- Adding src/isst - done
+-- Adding src/rtwizard...
+-- Adding src/rtwizard - done
+-- Adding src/archer...
+-- Adding src/archer - done
+-- Adding src/mged...
+-- Adding src/mged - done
+-- Adding src - done
+-- Adding include...
+-- Adding include - done
+-- Adding db...
+-- Adding db - done
+-- Adding doc...
+-- Adding doc/asciidoc...
+-- Adding asciidoc/system...
+-- Adding system/man1...
+-- Adding system/man1 - done
+-- Adding system/man3...
+-- Adding system/man3 - done
+-- Adding system/man5...
+-- Adding system/man5 - done
+-- Adding system/mann...
+-- Adding system/mann - done
+-- Adding asciidoc/system - done
+-- Adding asciidoc/articles...
+-- Adding asciidoc/articles - done
+-- Adding asciidoc/books...
+-- Adding asciidoc/books - done
+-- Adding asciidoc/devguides...
+-- Adding asciidoc/devguides - done
+-- Adding asciidoc/lessons...
+-- Adding asciidoc/lessons - done
+-- Adding asciidoc/presentations...
+-- Adding asciidoc/presentations - done
+-- Adding asciidoc/specifications...
+-- Adding asciidoc/specifications - done
+-- Adding doc/asciidoc - done
+-- Adding doc/html...
+-- Adding doc/html - done
+-- Adding doc/legal...
+-- Adding doc/legal - done
+-- Adding doc - done
+-- Adding sh...
+-- Adding sh - done
+-- Adding bench...
+-- Adding bench - done
+-- Adding regress...
+CHECK_START: Performing Test HAVE_NO_UNUSED_BUT_SET_VARIABLE
+CHECK_PASS: Success
+CHECK_START: Performing Test HAVE_FSANITIZE_FUZZER
+CHECK_FAIL: Failed
+STATUS: The '-fsanitize=fuzzer' flag is not supported.
+CHECK_START: Performing Test HAVE_LLVMFUZZER
+CHECK_FAIL: Failed
+-- Adding regress - done
+-- Adding misc...
+-- Adding misc - done
+
+
+------------ BRL-CAD Release 7.43.0, Build 20260406 - Release Build ------------
+
+        Prefix: /usr/brlcad/rel-7.43.0
+      Binaries: /usr/brlcad/rel-7.43.0/bin
+     Libraries: /usr/brlcad/rel-7.43.0/lib
+  Manual pages: /usr/brlcad/rel-7.43.0/share/man
+Data resources: /usr/brlcad/rel-7.43.0/share
+ 
+CC       = /usr/bin/cc
+CXX      = /usr/bin/c++
+CFLAGS   = -std=c11 -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe
+           -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions
+           -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce
+           -fexpensive-optimizations -finline-functions -flto=auto
+           -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef
+           -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline
+           -Wno-long-long -Wno-variadic-macros -ftest-coverage -ftest-coverage
+           -fprofile-arcs -fprofile-update=atomic -Werror
+CXXFLAGS = -std=c++17 -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe
+           -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions
+           -ftemplate-depth-128 -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce
+           -fexpensive-optimizations -finline-functions -flto=auto
+           -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef
+           -Wfloat-equal -Wshadow -Wno-inline -Wno-long-long
+           -Wno-variadic-macros -ftest-coverage -ftest-coverage -fprofile-arcs
+           -fprofile-update=atomic -Werror
+LDFLAGS  = -m64 -g -ggdb3 -lgcov -ftest-coverage -fprofile-arcs
+           -fprofile-update=atomic
+ 
+ 
+Asset Import Library.................: Bundled
+Eigen................................: Bundled
+Geogram..............................: Bundled
+Lightning Memory-Mapped Database.....: Bundled
+Manifold.............................: Bundled
+Netpbm...............................: Bundled
+OpenCV...............................: Bundled
+OpenNURBS............................: Bundled
+OSMesa...............................: Bundled
+Portable Network Graphics............: Bundled
+Regex Library........................: Bundled
+Tcl..................................: Bundled
+Tk...................................: NotFound
+Zlib.................................: Bundled
+ 
+OpenGL support (optional) ..........: OFF
+X11 support (optional) .............: OFF
+Qt support (optional) ..............: OFF
+Run-time debuggability (optional) ..: ON
+ 
+Build 32/64-bit release ............: 64BIT (Auto)
+Build with optimization ............: ON
+Build static libraries .............: ON
+Build dynamic libraries ............: ON
+Install example geometry models ....: ON
+Generate AsciiDoc docs .............: OFF
+ 

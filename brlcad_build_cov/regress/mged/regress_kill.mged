@@ -1,0 +1,15 @@
+source /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/regress/mged/regression_resources.tcl
+
+puts "*** Testing 'kill' command ***"
+
+in_arb8 kill
+comb kill.c u kill_arb8.s
+ls kill.*
+l kill.*
+kill kill_arb8.s
+ls kill.*
+l kill.*
+kill kill.c
+ls kill.*
+
+puts "*** 'kill' testing completed ***"

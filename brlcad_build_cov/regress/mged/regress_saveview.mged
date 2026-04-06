@@ -1,0 +1,11 @@
+source /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/regress/mged/regression_resources.tcl
+
+puts "*** Testing 'saveview' command ***"
+
+autoview
+ae 35 25 0
+rot 33 33 31
+sca 4
+saveview mged_saveview_test.rt
+
+puts "*** 'saveview' testing completed ***"

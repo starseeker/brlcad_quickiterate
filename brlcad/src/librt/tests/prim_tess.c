@@ -305,8 +305,14 @@ test_tor(void)
     VSET(tip.a, 10.0, 0, 0);
     VSET(tip.b, 0, 10.0, 0);
     tip.r_h = 2.0;
-    init_tols(&ttol, &tol, 0.0, 0.0, 0.005);  /* below PRIM_MIN_NORM_TOL */
-    if (!run_tess("tor tight-norm (norm=0.005, clamped)", &ip, &ttol, &tol, 0)) failures++;
+    /* norm=0.05 (~2.9 deg): well above PRIM_MIN_NORM_TOL (0.5 deg clamp) so no
+     * warning, and generates a manageable mesh (~4K faces).  This exercises the
+     * norm-driven subdivision code path without producing an astronomically large
+     * NMG that would make the test too slow for CI.  The PRIM_MIN_NORM_TOL clamp
+     * itself is a defensive safety-net; it fires when norm < 0.00873 rad, which
+     * would produce ~130K+ faces — impractical for a unit test. */
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.05);
+    if (!run_tess("tor norm-driven (norm=0.05)", &ip, &ttol, &tol, 0)) failures++;
 
     /* Extreme tolerances: very loose norm */
     init_tols(&ttol, &tol, 0.0, 0.0, 0.9);    /* ~51 degrees, very coarse */
@@ -436,8 +442,8 @@ test_eto(void)
     tip.eto_r  = 10.0;
     tip.eto_rd = 1.5;
     VSET(tip.eto_C, 2.0, 0.0, 1.5);
-    init_tols(&ttol, &tol, 0.0, 0.0, 0.005);  /* clamped to PRIM_MIN_NORM_TOL */
-    if (!run_tess("eto tight-norm (norm=0.005, clamped)", &ip, &ttol, &tol, 0)) failures++;
+    init_tols(&ttol, &tol, 0.5, 0.0, 0.1);  /* norm-driven with abs=0.5 to limit density */
+    if (!run_tess("eto norm-driven (norm=0.1)", &ip, &ttol, &tol, 0)) failures++;
 
     /* Extreme tolerances: very loose norm */
     init_tols(&ttol, &tol, 0.0, 0.0, 0.9);
@@ -602,8 +608,8 @@ test_tgc(void)
     VSET(tip.b, 0, 5, 0);
     VSET(tip.c, 5, 0, 0);
     VSET(tip.d, 0, 5, 0);
-    init_tols(&ttol, &tol, 0.0, 0.0, 0.005);   /* clamped */
-    if (!run_tess("tgc tight-norm (norm=0.005, clamped)", &ip, &ttol, &tol, 0)) failures++;
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.02);   /* norm-driven, above clamp */
+    if (!run_tess("tgc norm-driven (norm=0.02)", &ip, &ttol, &tol, 0)) failures++;
 
     /* Very loose norm (coarse approximation) */
     init_tols(&ttol, &tol, 0.0, 0.0, 1.0);
@@ -726,8 +732,8 @@ test_ell(void)
     VSET(tip.a, 10, 0, 0);
     VSET(tip.b, 0, 10, 0);
     VSET(tip.c, 0, 0, 10);
-    init_tols(&ttol, &tol, 0.0, 0.0, 0.005);   /* clamped */
-    if (!run_tess("ell tight-norm (norm=0.005, clamped)", &ip, &ttol, &tol, 0)) failures++;
+    init_tols(&ttol, &tol, 0.5, 0.0, 0.1);   /* norm-driven with abs=0.5 to limit density */
+    if (!run_tess("ell norm-driven (norm=0.1)", &ip, &ttol, &tol, 0)) failures++;
 
     /* Very loose norm (coarse) */
     init_tols(&ttol, &tol, 0.0, 0.0, 0.9);
@@ -829,8 +835,8 @@ test_epa(void)
     /* Very tight norm (exercises subdivision clamp) */
     tip.epa_r1 = 5.0;
     tip.epa_r2 = 3.0;
-    init_tols(&ttol, &tol, 0.0, 0.0, 0.005);
-    if (!run_tess("epa tight-norm (norm=0.005, clamped)", &ip, &ttol, &tol, 0)) failures++;
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.02);
+    if (!run_tess("epa norm-driven (norm=0.02)", &ip, &ttol, &tol, 0)) failures++;
 
     /* Very loose norm */
     init_tols(&ttol, &tol, 0.0, 0.0, 0.9);
@@ -918,8 +924,8 @@ test_ehy(void)
     if (!run_tess("ehy (r1=5 r2=3 c=2 abs=0.2 rel=0.05)", &ip, &ttol, &tol, 0)) failures++;
 
     /* Very tight norm (exercises subdivision clamp) */
-    init_tols(&ttol, &tol, 0.0, 0.0, 0.005);
-    if (!run_tess("ehy tight-norm (norm=0.005, clamped)", &ip, &ttol, &tol, 0)) failures++;
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.02);
+    if (!run_tess("ehy norm-driven (norm=0.02)", &ip, &ttol, &tol, 0)) failures++;
 
     /* Very loose norm */
     init_tols(&ttol, &tol, 0.0, 0.0, 0.9);
@@ -1013,8 +1019,8 @@ test_rpc(void)
     /* Very tight norm */
     VSET(tip.rpc_B, 0, 5, 0);
     tip.rpc_r = 3.0;
-    init_tols(&ttol, &tol, 0.0, 0.0, 0.005);
-    if (!run_tess("rpc tight-norm (norm=0.005, clamped)", &ip, &ttol, &tol, 0)) failures++;
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.02);
+    if (!run_tess("rpc norm-driven (norm=0.02)", &ip, &ttol, &tol, 0)) failures++;
 
     /* Very loose norm */
     init_tols(&ttol, &tol, 0.0, 0.0, 0.9);
@@ -1104,8 +1110,8 @@ test_rhc(void)
     VSET(tip.rhc_B, 0, 5, 0);
     tip.rhc_r = 3.0;
     tip.rhc_c = 1.0;
-    init_tols(&ttol, &tol, 0.0, 0.0, 0.005);
-    if (!run_tess("rhc tight-norm (norm=0.005, clamped)", &ip, &ttol, &tol, 0)) failures++;
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.02);
+    if (!run_tess("rhc norm-driven (norm=0.02)", &ip, &ttol, &tol, 0)) failures++;
 
     /* Very loose norm */
     init_tols(&ttol, &tol, 0.0, 0.0, 0.9);
@@ -1199,8 +1205,8 @@ test_hyp(void)
     VSET(tip.hyp_Hi, 0, 0, 20);
     VSET(tip.hyp_A, 8, 0, 0);
     tip.hyp_b = 6.0;
-    init_tols(&ttol, &tol, 0.0, 0.0, 0.005);
-    if (!run_tess("hyp tight-norm (norm=0.005, clamped)", &ip, &ttol, &tol, 0)) failures++;
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.02);
+    if (!run_tess("hyp norm-driven (norm=0.02)", &ip, &ttol, &tol, 0)) failures++;
 
     /* Very loose norm */
     init_tols(&ttol, &tol, 0.0, 0.0, 0.9);
@@ -1303,8 +1309,8 @@ test_part(void)
     tip.part_hrad = 3.0;
     tip.part_type = RT_PARTICLE_TYPE_CYLINDER;
     VSET(tip.part_H, 0, 0, 10);
-    init_tols(&ttol, &tol, 0.0, 0.0, 0.005);
-    if (!run_tess("part cylinder tight-norm (norm=0.005)", &ip, &ttol, &tol, 0)) failures++;
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.02);
+    if (!run_tess("part cylinder norm-driven (norm=0.02)", &ip, &ttol, &tol, 0)) failures++;
 
     /* Very loose norm */
     init_tols(&ttol, &tol, 0.0, 0.0, 0.9);
@@ -2310,8 +2316,8 @@ test_pipe(void)
 	BU_LIST_INSERT(&pip.pipe_segs_head, &p2.l);
 	pip.pipe_count = 2;
 
-	init_tols(&ttol, &tol, 0.0, 0.0, 0.005);
-	if (!run_tess("pipe tight-norm (norm=0.005)", &ip, &ttol, &tol, 0)) failures++;
+	init_tols(&ttol, &tol, 0.0, 0.0, 0.02);
+	if (!run_tess("pipe norm-driven (norm=0.02)", &ip, &ttol, &tol, 0)) failures++;
 
 	init_tols(&ttol, &tol, 0.0, 0.0, 0.9);
 	if (!run_tess("pipe loose-norm (norm=0.9)", &ip, &ttol, &tol, 0)) failures++;

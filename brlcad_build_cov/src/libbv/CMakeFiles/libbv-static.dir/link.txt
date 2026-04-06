@@ -1,0 +1,2 @@
+/usr/bin/ar qc ../../lib/libbv.a "CMakeFiles/libbv-obj.dir/Unity/unity_0_cxx.cxx.o" "CMakeFiles/libbv-obj.dir/Unity/unity_1_c.c.o" "CMakeFiles/libbv-obj.dir/Unity/unity_0_c.c.o" "CMakeFiles/libbv-obj.dir/vlist.c.o"
+/usr/bin/ranlib ../../lib/libbv.a

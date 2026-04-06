@@ -1,0 +1,13 @@
+prefix=/usr/brlcad/rel-7.43.0
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+datarootdir=${prefix}/share
+datadir=${datarootdir}
+
+Name: libpkg
+Description: BRL-CAD Network Package Transport Library
+Version: 7.43.0
+Requires: libbu
+Libs: -L${libdir} -lpkg -lbu -lm
+Cflags: -I${includedir}/brlcad -I${includedir}

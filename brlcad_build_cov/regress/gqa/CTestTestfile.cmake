@@ -1,0 +1,10 @@
+# CMake generated Testfile for 
+# Source directory: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/regress/gqa
+# Build directory: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/regress/gqa
+# 
+# This file includes the relevant testing commands required for 
+# testing this directory and lists subdirectories to be tested as well.
+add_test([=[regress-gqa_plot]=] "/usr/local/bin/cmake" "-DEXEC=/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/bin/gqa" "-DVEXEC=/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/src/libbv/tests/bview_plot3" "-P" "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_cov/regress/gqa/regress-gqa_plot.cmake")
+set_tests_properties([=[regress-gqa_plot]=] PROPERTIES  LABELS "Regression" TIMEOUT "300" _BACKTRACE_TRIPLES "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/misc/CMake/BRLCAD_Targets.cmake;890;add_test;/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/regress/gqa/CMakeLists.txt;4;brlcad_regression_test;/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/regress/gqa/CMakeLists.txt;0;")
+add_test([=[regress-gqa]=] "/usr/bin/sh" "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/regress/gqa/gqa.sh" "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad")
+set_tests_properties([=[regress-gqa]=] PROPERTIES  LABELS "Regression" TIMEOUT "300" _BACKTRACE_TRIPLES "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/misc/CMake/BRLCAD_Test_Wrappers.cmake:107:EVAL;1;add_test;/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/misc/CMake/BRLCAD_Test_Wrappers.cmake:107:EVAL;0;;/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/misc/CMake/BRLCAD_Test_Wrappers.cmake;107;cmake_language;/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/regress/gqa/CMakeLists.txt;8;brlcad_add_test;/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/regress/gqa/CMakeLists.txt;0;")
