@@ -252,6 +252,17 @@ extern void primitive_hitsort(struct hit h[], int nh);
 extern fastf_t prim_min_abs_tol(void);
 extern fastf_t prim_min_norm_tol(void);
 
+/* Parameterized internal versions of the public rt_mk_parabola /
+ * rt_mk_hyperbola helpers.  The extra min_abs argument lets the
+ * caller supply a tolerance floor that was read once per tessellation
+ * via prim_min_abs_tol(), avoiding repeated getenv() calls inside the
+ * recursive subdivision.  The public wrappers (in rpc.c / rhc.c) call
+ * these with PRIM_MIN_ABS_TOL so external code is unaffected. */
+extern int _rt_mk_parabola(struct rt_pnt_node *pts, fastf_t r, fastf_t b,
+	fastf_t dtol, fastf_t ntol, fastf_t min_abs);
+extern int _rt_mk_hyperbola(struct rt_pnt_node *pts, fastf_t r, fastf_t b,
+	fastf_t c, fastf_t dtol, fastf_t ntol, fastf_t min_abs);
+
 extern fastf_t primitive_get_absolute_tolerance(
 	const struct bg_tess_tol *ttol,
 	fastf_t rel_to_abs);

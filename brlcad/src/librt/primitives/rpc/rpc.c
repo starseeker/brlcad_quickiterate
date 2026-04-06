@@ -938,6 +938,7 @@ rt_rpc_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
     fastf_t *front;
     fastf_t *back;
     fastf_t b, dtol, ntol, rh;
+    fastf_t min_abs;
     int i, n;
     struct rt_pnt_node *old, *pos, *pts;
     vect_t Bu, Hu, Ru, B, R;
@@ -980,6 +981,7 @@ rt_rpc_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
 	fastf_t bbox_diag = 2.0 * (rh > b ? rh : b);
 	primitive_clamp_tess_tol(&dtol, &ntol, bbox_diag);
     }
+    min_abs = prim_min_abs_tol();
 
     /* initial parabola approximation is a single segment */
     BU_ALLOC(pts, struct rt_pnt_node);
@@ -991,7 +993,7 @@ rt_rpc_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
     /* 2 endpoints in 1st approximation */
     n = 2;
     /* recursively break segment 'til within error tolerances */
-    n += rt_mk_parabola_old(pts, rh, b, dtol, ntol);
+    n += _rt_mk_parabola(pts, rh, b, dtol, ntol, min_abs);
 
     /* get mem for arrays */
     front = (fastf_t *)bu_malloc(3*n * sizeof(fastf_t), "fastf_t");
@@ -1060,13 +1062,10 @@ int
 _rt_mk_parabola(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t dtol, fastf_t ntol, fastf_t min_abs)
 {
     fastf_t dist, intr, m, theta0, theta1;
-    fastf_t min_abs;
     int n;
     point_t mpt, p0, p1;
     vect_t norm_line, norm_parab;
     struct rt_pnt_node *newpt;
-
-    min_abs = prim_min_abs_tol();
 
 #define RPC_TOL .0001
     /* endpoints of segment approximating parabola */
@@ -1100,8 +1099,8 @@ _rt_mk_parabola(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t dtol, fas
 	 * the dtol floor and the ntol-equivalent floor.  For a parabola the
 	 * normal angle change over a span s is approximately s*(2b/r^2) (the
 	 * maximum curvature at the apex), so the ntol-equivalent minimum span
-	 * is ntol*r^2/(2b).  Clamp that to PRIM_MIN_ABS_TOL so the floor
-	 * stays consistent with the dtol floor used by primitive_clamp_tess_tol.
+	 * is ntol*r^2/(2b).  Clamp that to min_abs so the floor stays
+	 * consistent with the dtol floor used by primitive_clamp_tess_tol.
 	 * Use min(dtol, ntol_equiv)*0.1 so we stop only when the segment is
 	 * already much smaller than the tightest applicable tolerance. */
 	fastf_t span = fabs(p1[Y] - p0[Y]);
@@ -1121,9 +1120,9 @@ _rt_mk_parabola(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t dtol, fas
 	/* keep track of number of pts added */
 	n = 1;
 	/* recurse on first new segment */
-	n += rt_mk_parabola_old(pts, r, b, dtol, ntol);
+	n += _rt_mk_parabola(pts, r, b, dtol, ntol, min_abs);
 	/* recurse on second new segment */
-	n += rt_mk_parabola_old(newpt, r, b, dtol, ntol);
+	n += _rt_mk_parabola(newpt, r, b, dtol, ntol, min_abs);
     } else
 	n  = 0;
     return n;
@@ -1131,46 +1130,15 @@ _rt_mk_parabola(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t dtol, fas
 
 
 /**
- * Deprecated compatibility wrapper for _rt_mk_parabola.  Uses SMALL_FASTF as
- * the minimum absolute subdivision span, preserving the original behavior of
- * unconditionally honoring whatever dtol/ntol the caller passes (no sanity
- * floor).  New code should call rt_mk_parabola() with an explicit min_abs.
- *
- * use rt_mk_parabola() with an explicit min_abs argument.
+ * Public wrapper for _rt_mk_parabola.  Uses the compiled-in
+ * PRIM_MIN_ABS_TOL default (ignoring any RT_PRIM_MIN_ABS_TOL env var).
+ * Internal librt code should call _rt_mk_parabola() directly, passing a
+ * min_abs value obtained once per tessellation from prim_min_abs_tol().
  */
 int
-rt_mk_parabola_old(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t dtol, fastf_t ntol)
+rt_mk_parabola(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t dtol, fastf_t ntol)
 {
-    return _rt_mk_parabola(pts, r, b, dtol, ntol, SMALL_FASTF);
-}
-
-
-/**
- * Approximate a parabola with line segments, with caller-controlled minimum
- * subdivision span.
- *
- * @param pts   Linked list of points; must have at least two nodes on entry.
- * @param r     Rectangular half-width of the parabola.
- * @param b     Breadth (half-height) of the parabola.
- * @param dtol  Maximum allowable chord-to-curve distance (mm).
- * @param ntol  Maximum allowable normal-deviation angle (radians); pass M_PI
- *              to ignore normal tolerance.
- * @param min_abs  Minimum absolute span (mm) below which subdivision stops,
- *              preventing runaway recursion.  Recommended values:
- *              - 0.05 mm is the librt default and suits typical CAD geometry.
- *              - Smaller values (e.g., 0.005 mm) produce finer curves but can
- *                increase polygon counts dramatically near tight radii.
- *              - SMALL_FASTF (~1e-37) disables the floor entirely, matching
- *                the original rt_mk_parabola_old() behavior; use only when
- *                you know the geometry cannot trigger unbounded recursion.
- *              Decreasing min_abs below dtol has no effect until dtol itself
- *              drives subdivision to spans smaller than min_abs.
- * @return Number of additional points inserted.
- */
-int
-rt_mk_parabola(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t dtol, fastf_t ntol, fastf_t min_abs)
-{
-    return _rt_mk_parabola(pts, r, b, dtol, ntol, min_abs);
+    return _rt_mk_parabola(pts, r, b, dtol, ntol, PRIM_MIN_ABS_TOL);
 }
 
 
@@ -1184,7 +1152,7 @@ rt_rpc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 {
     int i, j, n;
     fastf_t b, *back, *front, rh;
-    fastf_t dtol, ntol;
+    fastf_t dtol, ntol, min_abs;
     vect_t Bu, Hu, Ru;
     mat_t R;
     mat_t invR;
@@ -1244,6 +1212,7 @@ rt_rpc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	fastf_t bbox_diag = 2.0 * (rh > b ? rh : b);
 	primitive_clamp_tess_tol(&dtol, &ntol, bbox_diag);
     }
+    min_abs = prim_min_abs_tol();
 
     /* initial parabola approximation is a single segment */
     BU_ALLOC(pts, struct rt_pnt_node);
@@ -1255,7 +1224,7 @@ rt_rpc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     /* 2 endpoints in 1st approximation */
     n = 2;
     /* recursively break segment 'til within error tolerances */
-    n += rt_mk_parabola_old(pts, rh, b, dtol, ntol);
+    n += _rt_mk_parabola(pts, rh, b, dtol, ntol, min_abs);
 
     /* get mem for arrays */
     front = (fastf_t *)bu_malloc(3*n * sizeof(fastf_t), "fastf_t");

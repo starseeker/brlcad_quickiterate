@@ -1050,6 +1050,7 @@ rt_hrt_plot(struct bu_list *vhead, struct rt_db_internal *ip,const struct bg_tes
 {
     struct bu_list *vlfree = &rt_vlfree;
     fastf_t c, dtol, mag_h, ntol = M_PI, r1, r2, **ellipses;
+    fastf_t min_abs;
     int *pts_dbl;
     int nseg; /* The number of line segments in a particular ellipse */
     int j, k, jj, na, nb;
@@ -1309,6 +1310,7 @@ rt_hrt_plot(struct bu_list *vhead, struct rt_db_internal *ip,const struct bg_tes
     bn_mat_trn(invR, R);			/* inv of rot mat is trn */
 
     dtol = primitive_get_absolute_tolerance(ttol, r2 * 2.00);
+    min_abs = prim_min_abs_tol();
 
     /*
      * build ehy from 2 hyperbolas
@@ -1324,7 +1326,7 @@ rt_hrt_plot(struct bu_list *vhead, struct rt_db_internal *ip,const struct bg_tes
     /* 2 endpoints in 1st approximation */
     nb = 2;
     /* recursively break segment 'til within error tolerances */
-    nb += rt_mk_hyperbola_old(pts_b, mag_h/3, mag_h, c, dtol, ntol);
+    nb += _rt_mk_hyperbola(pts_b, mag_h/3, mag_h, c, dtol, ntol, min_abs);
     nell = nb - 1;	/* Number of ellipses needed */
 
     /*
@@ -1356,7 +1358,7 @@ rt_hrt_plot(struct bu_list *vhead, struct rt_db_internal *ip,const struct bg_tes
     recalc_b = 0;
     pos_a = pts_a;
     while (pos_a->next) {
-	na = rt_mk_hyperbola_old(pos_a, r1, mag_h, c, dtol, ntol);
+	na = _rt_mk_hyperbola(pos_a, r1, mag_h, c, dtol, ntol, min_abs);
 	if (na != 0) {
 	    recalc_b = 1;
 	    nell += na;
