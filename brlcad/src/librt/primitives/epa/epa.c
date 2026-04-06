@@ -916,6 +916,7 @@ rt_epa_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
 {
     struct bu_list *vlfree = &rt_vlfree;
     fastf_t dtol, mag_h, ntol, r1, r2;
+    fastf_t min_abs;
     fastf_t **ellipses;
     int *pts_dbl, i, j, nseg;
     int na = 0;
@@ -966,6 +967,7 @@ rt_epa_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
 	fastf_t bbox_diag = sqrt(4.0*r1*r1 + mag_h*mag_h);
 	primitive_clamp_tess_tol(&dtol, &ntol, bbox_diag);
     }
+    min_abs = prim_min_abs_tol();
 
     /*
      * build epa from 2 parabolas
@@ -982,7 +984,7 @@ rt_epa_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
     nb = 2;
 
     /* recursively break segment 'til within error tolerances */
-    nb += rt_mk_parabola(pts_b, r2, mag_h, dtol, ntol);
+    nb += _rt_mk_parabola(pts_b, r2, mag_h, dtol, ntol, min_abs);
     nell = nb - 1;	/* # of ellipses needed */
 
     /* construct positive half of parabola along semi-major axis of
@@ -1009,7 +1011,7 @@ rt_epa_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
     recalc_b = 0;
     pos_a = pts_a;
     while (pos_a->next) {
-	na = rt_mk_parabola(pos_a, r1, mag_h, dtol, ntol);
+	na = _rt_mk_parabola(pos_a, r1, mag_h, dtol, ntol, min_abs);
 	if (na != 0) {
 	    recalc_b = 1;
 	    nell += na;
@@ -1216,6 +1218,7 @@ int
 rt_epa_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *tol)
 {
     fastf_t dtol, mag_h, ntol, r1, r2;
+    fastf_t min_abs;
     fastf_t **ellipses, **normals;
     int *pts_dbl, face, i, j, nseg;
     int *segs_per_ell;
@@ -1285,6 +1288,7 @@ rt_epa_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	primitive_clamp_tess_tol(&dtol, &ntol, bbox_diag);
     }
 
+    min_abs = prim_min_abs_tol();
     /*
      * build epa from 2 parabolas
      */
@@ -1299,7 +1303,7 @@ rt_epa_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     /* 2 endpoints in 1st approximation */
     nb = 2;
     /* recursively break segment 'til within error tolerances */
-    nb += rt_mk_parabola(pts_b, r2, mag_h, dtol, ntol);
+    nb += _rt_mk_parabola(pts_b, r2, mag_h, dtol, ntol, min_abs);
     nell = nb - 1;	/* # of ellipses needed */
 
     /* construct positive half of parabola along semi-major axis of
@@ -1326,7 +1330,7 @@ rt_epa_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     recalc_b = 0;
     pos_a = pts_a;
     while (pos_a->next) {
-	na = rt_mk_parabola(pos_a, r1, mag_h, dtol, ntol);
+	na = _rt_mk_parabola(pos_a, r1, mag_h, dtol, ntol, min_abs);
 	if (na != 0) {
 	    recalc_b = 1;
 	    nell += na;
