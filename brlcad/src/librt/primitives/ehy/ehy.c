@@ -988,6 +988,12 @@ rt_ehy_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
 	ntol = ttol->norm;
     }
 
+    /* Clamp to prevent excessively dense plots. */
+    {
+	fastf_t bbox_diag = sqrt(4.0*r1*r1 + mag_h*mag_h);
+	primitive_clamp_tess_tol(&dtol, &ntol, bbox_diag);
+    }
+
     /*
      * build ehy from 2 hyperbolas
      */

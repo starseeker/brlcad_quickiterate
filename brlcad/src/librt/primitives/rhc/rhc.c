@@ -1062,9 +1062,9 @@ rt_rhc_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
     }
 
     /* To ensure normal tolerance, remain below this angle */
-    if (ttol->norm > 0.0) {
+    if (ttol->norm > 0.0)
 	ntol = ttol->norm;
-    } else {
+    else
 	/* tolerate everything */
 	ntol = M_PI;
 
@@ -1072,7 +1072,6 @@ rt_rhc_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
     {
 	fastf_t bbox_diag = 2.0 * (rh > b ? rh : b);
 	primitive_clamp_tess_tol(&dtol, &ntol, bbox_diag);
-    }
     }
 
     /* initial hyperbola approximation is a single segment */
@@ -1316,9 +1315,9 @@ rt_rhc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     }
 
     /* To ensure normal tolerance, remain below this angle */
-    if (ttol->norm > 0.0) {
+    if (ttol->norm > 0.0)
 	ntol = ttol->norm;
-    } else {
+    else
 	/* tolerate everything */
 	ntol = M_PI;
 
@@ -1326,7 +1325,6 @@ rt_rhc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     {
 	fastf_t bbox_diag = 2.0 * (rh > b ? rh : b);
 	primitive_clamp_tess_tol(&dtol, &ntol, bbox_diag);
-    }
     }
 
     /* initial hyperbola approximation is a single segment */
