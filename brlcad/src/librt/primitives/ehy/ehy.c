@@ -988,6 +988,12 @@ rt_ehy_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
 	ntol = ttol->norm;
     }
 
+    /* Clamp to prevent excessively dense plots. */
+    {
+	fastf_t bbox_diag = sqrt(4.0*r1*r1 + mag_h*mag_h);
+	primitive_clamp_tess_tol(&dtol, &ntol, bbox_diag);
+    }
+
     /*
      * build ehy from 2 hyperbolas
      */
@@ -1002,7 +1008,7 @@ rt_ehy_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
     /* 2 endpoints in 1st approximation */
     nb = 2;
     /* recursively break segment 'til within error tolerances */
-    nb += rt_mk_hyperbola(pts_b, r2, mag_h, c, dtol, M_PI);
+    nb += rt_mk_hyperbola(pts_b, r2, mag_h, c, dtol, ntol);
     nell = nb - 1;	/* # of ellipses needed */
 
     /* construct positive half of hyperbola along semi-major axis of
@@ -1034,7 +1040,7 @@ rt_ehy_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
     recalc_b = 0;
     pos_a = pts_a;
     while (pos_a->next) {
-	na = rt_mk_hyperbola(pos_a, r1, mag_h, c, dtol, M_PI);
+	na = rt_mk_hyperbola(pos_a, r1, mag_h, c, dtol, ntol);
 	if (na != 0) {
 	    recalc_b = 1;
 	    nell += na;
@@ -1281,7 +1287,7 @@ rt_ehy_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     /* 2 endpoints in 1st approximation */
     nb = 2;
     /* recursively break segment 'til within error tolerances */
-    nb += rt_mk_hyperbola(pts_b, r2, mag_h, c, dtol, M_PI);
+    nb += rt_mk_hyperbola(pts_b, r2, mag_h, c, dtol, ntol);
     nell = nb - 1;	/* # of ellipses needed */
 
     /* construct positive half of hyperbola along semi-major axis of
@@ -1313,7 +1319,7 @@ rt_ehy_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     recalc_b = 0;
     pos_a = pts_a;
     while (pos_a->next) {
-	na = rt_mk_hyperbola(pos_a, r1, mag_h, c, dtol, M_PI);
+	na = rt_mk_hyperbola(pos_a, r1, mag_h, c, dtol, ntol);
 	if (na != 0) {
 	    recalc_b = 1;
 	    nell += na;
@@ -1376,7 +1382,10 @@ rt_ehy_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	}
 	if (nseg_base < 6) nseg_base = 6;
 	/* No upper cap on nseg_base: see rt_epa_tess() for the rationale.
-	 * The rt_mk_hyperbola recursion guard prevents OOM for tight ntol. */
+	 * ntol is now also applied to the profile direction (ring placement)
+	 * via rt_mk_hyperbola, so both curvature dimensions honour the
+	 * caller's tolerance.  The updated span floor in rt_mk_hyperbola
+	 * bounds recursion depth for tight ntol. */
 
 	min_ring_r = 3.0 * (double)nseg_base * tol->dist / M_2PI;
 

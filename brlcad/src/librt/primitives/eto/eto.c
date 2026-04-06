@@ -1225,8 +1225,11 @@ rt_eto_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	ntol = M_PI;
 
     /* (x, y) coords for cross-section ellipse.
-     * Use dtol only so ntol does not multiply ring count by cross-section pts. */
-    ell = make_ellipse(&npts, a, b, dtol, M_PI);
+     * Use both dtol and ntol: the cross-section is a curved surface so the
+     * normal tolerance applies here just as it does to the ring count.
+     * ntol is already clamped to PRIM_MIN_NORM_TOL above to prevent
+     * excessively dense meshes in both directions. */
+    ell = make_ellipse(&npts, a, b, dtol, ntol);
     /* generate coordinate axes */
     VMOVE(Nu, tip->eto_N);
     VUNITIZE(Nu);			/* z axis of coord sys */
