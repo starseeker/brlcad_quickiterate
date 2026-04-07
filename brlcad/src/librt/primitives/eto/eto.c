@@ -765,13 +765,20 @@ rt_eto_free(struct soltab *stp)
  * are passed recursively to this routine until each segment is within
  * tolerance.
  *
- * FIXME: this is recursive and subject to a stack overflow if it
- * recurses thousands of times.  also troublesome is that there's
- * almost certainly a bug in here as extensive recursion has been
- * observed when normal tol is set to 1 or 2.
+ * min_chord_sq is the square of the minimum permitted chord length.
+ * Subdivision stops when the chord shrinks below this floor regardless
+ * of the dist/normal conditions.  This prevents runaway recursion near
+ * the semi-axis tips of the ellipse: when the segment approaches a
+ * near-horizontal orientation (p1[Y] ≈ p0[Y] ≈ 0), the slope
+ * m=(p1[X]-p0[X])/(p1[Y]-p0[Y]) diverges, causing the max-distance
+ * formula to compute a point near the opposite end of the quarter
+ * rather than near the actual chord midpoint.  The resulting 'dist'
+ * value is then permanently larger than dtol, driving unbounded
+ * recursion.  The chord-length floor avoids this numerical failure
+ * mode entirely.
  */
 static int
-make_ellipse4(struct rt_pnt_node *pts, fastf_t a, fastf_t b, fastf_t dtol, fastf_t ntol, size_t recursions)
+make_ellipse4(struct rt_pnt_node *pts, fastf_t a, fastf_t b, fastf_t dtol, fastf_t ntol, size_t recursions, fastf_t min_chord_sq)
 {
     fastf_t dist, intr, m, theta0, theta1;
     int n;
@@ -785,6 +792,13 @@ make_ellipse4(struct rt_pnt_node *pts, fastf_t a, fastf_t b, fastf_t dtol, fastf
     /* endpoints of segment approximating ellipse */
     VMOVE(p0, pts->p);
     VMOVE(p1, pts->next->p);
+
+    /* Stop subdividing once the chord falls below the minimum length.
+     * This is the primary guard against runaway recursion near ellipse
+     * tips where the distance formula produces unreliable results. */
+    if (DIST_PNT_PNT_SQ(p0, p1) <= min_chord_sq)
+	return 0;
+
     /* slope and intercept of segment */
     m = (p1[X] - p0[X]) / (p1[Y] - p0[Y]);
     intr = p0[X] - m * p0[Y];
@@ -813,9 +827,9 @@ make_ellipse4(struct rt_pnt_node *pts, fastf_t a, fastf_t b, fastf_t dtol, fastf
 	/* keep track of number of pts added */
 	n = 1;
 	/* recurse on first new segment */
-	n += make_ellipse4(pts, a, b, dtol, ntol, recursions);
+	n += make_ellipse4(pts, a, b, dtol, ntol, recursions, min_chord_sq);
 	/* recurse on second new segment */
-	n += make_ellipse4(newpt, a, b, dtol, ntol, recursions);
+	n += make_ellipse4(newpt, a, b, dtol, ntol, recursions, min_chord_sq);
     } else
 	n  = 0;
     return n;
@@ -833,6 +847,16 @@ make_ellipse(int *n, fastf_t a, fastf_t b, fastf_t dtol, fastf_t ntol)
     int i;
     point_t *ell;
     struct rt_pnt_node *ell_quad, *oldpos, *pos;
+    fastf_t min_chord, min_chord_sq;
+
+    /* Minimum chord: 1% of the longer semi-axis diameter, or BN_TOL_DIST,
+     * whichever is larger.  Passed to make_ellipse4 to stop subdivision
+     * before the near-axis-tip numerical instability triggers runaway
+     * recursion. */
+    min_chord = 0.01 * 2.0 * (a > b ? a : b);
+    if (min_chord < BN_TOL_DIST)
+	min_chord = BN_TOL_DIST;
+    min_chord_sq = min_chord * min_chord;
 
     BU_ALLOC(ell_quad, struct rt_pnt_node);
     VSET(ell_quad->p, b, 0., 0.);
@@ -841,7 +865,7 @@ make_ellipse(int *n, fastf_t a, fastf_t b, fastf_t dtol, fastf_t ntol)
     VSET(ell_quad->next->p, 0., a, 0.);
     ell_quad->next->next = NULL;
 
-    *n = make_ellipse4(ell_quad, a, b, dtol, ntol, 0);
+    *n = make_ellipse4(ell_quad, a, b, dtol, ntol, 0, min_chord_sq);
     ell = (point_t *)bu_malloc(4*(*n+1)*sizeof(point_t), "make_ellipse pts");
 
     /* put 1st quad of ellipse into an array */
