@@ -1081,6 +1081,21 @@ rt_ell_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	    state.theta_tol = ntol_eff;
     }
 
+    /* Clamp theta_tol from below so that no chord is shorter than the minimum
+     * meaningful length.  This bounds nsegs even for very tight norm tolerances,
+     * preventing an excessively dense mesh.
+     * min_chord = max(BN_TOL_DIST, 1% of diameter)
+     * theta_min = 2·asin(min_chord / (2·radius)) */
+    {
+	fastf_t min_chord = 0.01 * 2.0 * radius;
+	fastf_t theta_min;
+	if (min_chord < BN_TOL_DIST)
+	    min_chord = BN_TOL_DIST;
+	theta_min = 2.0 * asin(fmin(1.0, min_chord / (2.0 * radius)));
+	if (state.theta_tol < theta_min)
+	    state.theta_tol = theta_min;
+    }
+
     *r = nmg_mrsv(m);	/* Make region, empty shell, vertex */
     state.s = BU_LIST_FIRST(shell, &(*r)->s_hd);
 
