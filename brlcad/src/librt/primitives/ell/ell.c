@@ -1082,13 +1082,19 @@ rt_ell_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     }
 
     /* Clamp theta_tol from below so that no chord is shorter than the minimum
-     * meaningful length.  This bounds nsegs even for very tight norm tolerances,
-     * preventing an excessively dense mesh.
-     * min_chord = max(BN_TOL_DIST, 1% of diameter)
+     * meaningful length.  Uses prim_min_abs_tol() (overridable via the
+     * RT_PRIM_MIN_ABS_TOL env var) for normal-size shapes, and 1% of the
+     * bounding-box diagonal for very small shapes (bbox_diag < 1 mm).
+     * This matches the logic in primitive_clamp_tess_tol().
      * theta_min = 2·asin(min_chord / (2·radius)) */
     {
-	fastf_t min_chord = 0.01 * 2.0 * radius;
+	fastf_t bbox_diag_ell = 2.0 * radius;
+	fastf_t min_chord;
 	fastf_t theta_min;
+	if (bbox_diag_ell > SMALL_FASTF && bbox_diag_ell < 1.0)
+	    min_chord = bbox_diag_ell * 0.01;
+	else
+	    min_chord = prim_min_abs_tol();
 	if (min_chord < BN_TOL_DIST)
 	    min_chord = BN_TOL_DIST;
 	theta_min = 2.0 * asin(fmin(1.0, min_chord / (2.0 * radius)));
