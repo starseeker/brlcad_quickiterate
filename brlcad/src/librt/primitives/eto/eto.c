@@ -849,11 +849,19 @@ make_ellipse(int *n, fastf_t a, fastf_t b, fastf_t dtol, fastf_t ntol)
     struct rt_pnt_node *ell_quad, *oldpos, *pos;
     fastf_t min_chord, min_chord_sq;
 
-    /* Minimum chord: 1% of the longer semi-axis diameter, or BN_TOL_DIST,
-     * whichever is larger.  Passed to make_ellipse4 to stop subdivision
-     * before the near-axis-tip numerical instability triggers runaway
-     * recursion. */
-    min_chord = 0.01 * 2.0 * (a > b ? a : b);
+    /* Minimum chord: use prim_min_abs_tol() for normal-size shapes, or
+     * 1% of the bounding-box diagonal (2 * longer semi-axis) for very
+     * small shapes (bbox_diag < 1 mm).  This matches the logic used by
+     * primitive_clamp_tess_tol() so that the env-var override
+     * RT_PRIM_MIN_ABS_TOL is honoured here too.  The floor prevents
+     * runaway recursion near the near-axis-tip numerical instability. */
+    {
+	fastf_t bbox_diag_cs = 2.0 * (a > b ? a : b);
+	if (bbox_diag_cs > SMALL_FASTF && bbox_diag_cs < 1.0)
+	    min_chord = bbox_diag_cs * 0.01;
+	else
+	    min_chord = prim_min_abs_tol();
+    }
     if (min_chord < BN_TOL_DIST)
 	min_chord = BN_TOL_DIST;
     min_chord_sq = min_chord * min_chord;
@@ -1113,6 +1121,14 @@ rt_eto_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
 	/* tolerate everything */
 	ntol = M_PI;
 
+    /* Clamp dtol for the cross-section ellipse using the ellipse bbox diagonal.
+     * This honours the prim_min_abs_tol() / RT_PRIM_MIN_ABS_TOL override and
+     * uses 1% of bbox diagonal for very small shapes (< 1 mm). */
+    {
+	fastf_t bbox_cs = 2.0 * (a > b ? a : b);
+	primitive_clamp_tess_tol(&dtol, &ntol, bbox_cs);
+    }
+
     /* (x, y) coords for an ellipse */
     ell = make_ellipse(&npts, a, b, dtol, ntol);
     /* generate coordinate axes */
@@ -1122,7 +1138,13 @@ rt_eto_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
     VUNITIZE(Bu);
     VCROSS(Au, Nu, Bu);		/* y axis */
 
-    /* number of segments required in eto circles */
+    /* number of segments required in eto circles.
+     * Re-clamp dtol using the full eto bbox diagonal before computing ring count. */
+    {
+	fastf_t ntol_dummy = M_PI;
+	fastf_t bbox_diag = 2.0 * (tip->eto_r + a);
+	primitive_clamp_tess_tol(&dtol, &ntol_dummy, bbox_diag);
+    }
     nells = rt_num_circular_segments(dtol, tip->eto_r);
     theta = M_2PI / nells;	/* put ellipse every theta rads */
     /* get horizontal and vertical components of C and Rd */
@@ -1250,11 +1272,19 @@ rt_eto_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	/* tolerate everything */
 	ntol = M_PI;
 
+    /* Clamp dtol for the cross-section ellipse using its bbox diagonal
+     * (2 * max(a, b)).  This honours the RT_PRIM_MIN_ABS_TOL env-var override
+     * and uses 1% of the bbox diagonal for very small shapes (< 1 mm).
+     * ntol is already clamped above; pass it so any additional log is consistent. */
+    {
+	fastf_t bbox_cs = 2.0 * (a > b ? a : b);
+	primitive_clamp_tess_tol(&dtol, &ntol, bbox_cs);
+    }
+
     /* (x, y) coords for cross-section ellipse.
      * Use both dtol and ntol: the cross-section is a curved surface so the
      * normal tolerance applies here just as it does to the ring count.
-     * ntol is already clamped to the minimum norm tolerance above to prevent
-     * excessively dense meshes in both directions. */
+     * Both are already clamped above to prevent excessively dense meshes. */
     ell = make_ellipse(&npts, a, b, dtol, ntol);
     /* generate coordinate axes */
     VMOVE(Nu, tip->eto_N);
