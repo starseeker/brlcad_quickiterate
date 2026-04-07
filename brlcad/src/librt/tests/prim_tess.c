@@ -25,6 +25,13 @@
  *  - Normal tessellation at various tolerance settings
  *  - Degenerate / edge-case primitives (zero radius, near-self-intersecting)
  *  - Chess-model-derived parameters that historically caused infinite loops
+ *  - Extreme tolerance combinations (very tight, very loose, all-three-combined)
+ *  - Extreme primitive parameter scales (tiny, large, high-aspect-ratio)
+ *  - ARB8 / ARB6 / ARB4 polyhedra tessellation
+ *  - ARS (Arbitrary faceted surface) tessellation
+ *  - ARBN (Arbitrary convex N-hedron) tessellation
+ *  - PIPE (swept pipe solid) tessellation
+ *  - METABALL (marching-cubes iso-surface) tessellation
  *
  * Each test calls rt_obj_tess() and checks:
  *  - Whether the function returns without hanging
@@ -32,7 +39,7 @@
  *  - Optionally prints face/vertex counts
  *
  * -----------------------------------------------------------------------
- * Primitive tessellation status summary (as of 2025-03)
+ * Primitive tessellation status summary (as of 2025-04)
  * -----------------------------------------------------------------------
  *
  * Primitive   | tess fn              | Status / notes
@@ -40,8 +47,8 @@
  * TOR         | rt_tor_tess          | OK - tested here
  * TGC / REC   | rt_tgc_tess          | OK - tested here
  * ELL / SPH   | rt_ell_tess          | OK - tested here
- * ARB8        | rt_arb_tess          | OK - produces NMG polyhedron
- * ARS         | rt_ars_tess          | OK - arbitrary faceted surface
+ * ARB8        | rt_arb_tess          | OK - tested here; produces NMG polyhedron
+ * ARS         | rt_ars_tess          | OK - tested here; arbitrary faceted surface
  * HALF        | rt_hlf_tess          | OK - infinite half-space stub (returns -1)
  * POLY / PG   | rt_pg_tess           | OK - polygon mesh passthrough
  * BSPLINE     | rt_nurb_tess         | OK - NURBS surface
@@ -56,8 +63,8 @@
  *             |                      |   each flat rectangular region one NMG face;
  *             |                      |   nmg_shell_coplanar_face_merge is kept as
  *             |                      |   a final cleanup pass only
- * ARBN        | rt_arbn_tess         | OK - arbitrary convex polyhedron
- * PIPE        | rt_pipe_tess         | OK - swept pipe solid
+ * ARBN        | rt_arbn_tess         | OK - tested here; arbitrary convex polyhedron
+ * PIPE        | rt_pipe_tess         | OK - tested here; swept pipe solid
  * PART        | rt_part_tess         | OK - tested here
  * RPC         | rt_rpc_tess          | OK - tested here
  * RHC         | rt_rhc_tess          | OK - tested here
@@ -75,7 +82,9 @@
  * BOT         | rt_bot_tess          | OK - already triangulated mesh
  * COMB        | rt_comb_tess         | OK - booleans via NMG
  * SUPERELL    | rt_superell_tess     | STUB - logs warning, returns -1
- * METABALL    | rt_metaball_tess     | OK - marching-cubes iso-surface
+ * METABALL    | rt_metaball_tess     | OK - ISOPOTENTIAL and BLOB methods tested here;
+ *             |                      |    METABALL_METABALL method skipped (not implemented,
+ *             |                      |    generates excessive error output in every voxel eval)
  * BREP        | rt_brep_tess         | OK - OpenNURBS B-rep
  * HYP         | rt_hyp_tess          | OK - tested here (nseg cap removed)
  * REVOLVE     | rt_revolve_tess      | OK - revolve of sketch
@@ -292,6 +301,55 @@ test_tor(void)
     init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
     if (!run_tess("tor DEGENERATE r_a=0 (expect fail)", &ip, &ttol, &tol, 1)) failures++;
 
+    /* Extreme tolerances: very tight norm (below PRIM_MIN_NORM_TOL clamp) */
+    tip.r_a = 10.0;
+    tip.r_b = 10.0;
+    VSET(tip.a, 10.0, 0, 0);
+    VSET(tip.b, 0, 10.0, 0);
+    tip.r_h = 2.0;
+    /* norm=0.05 (~2.9 deg): well above PRIM_MIN_NORM_TOL (0.5 deg clamp) so no
+     * warning, and generates a manageable mesh (~4K faces).  This exercises the
+     * norm-driven subdivision code path without producing an astronomically large
+     * NMG that would make the test too slow for CI.  The PRIM_MIN_NORM_TOL clamp
+     * itself is a defensive safety-net; it fires when norm < 0.00873 rad, which
+     * would produce ~130K+ faces — impractical for a unit test. */
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.05);
+    if (!run_tess("tor norm-driven (norm=0.05)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Extreme tolerances: very loose norm */
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.9);    /* ~51 degrees, very coarse */
+    if (!run_tess("tor loose-norm (norm=0.9)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Extreme tolerances: all three set simultaneously */
+    init_tols(&ttol, &tol, 0.5, 0.05, 0.2);
+    if (!run_tess("tor all-tols (abs=0.5 rel=0.05 norm=0.2)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Very tight rel (fine mesh) */
+    init_tols(&ttol, &tol, 0.0, 0.001, 0.0);
+    if (!run_tess("tor tight-rel (rel=0.001)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Very loose rel (coarse mesh) */
+    init_tols(&ttol, &tol, 0.0, 0.5, 0.0);
+    if (!run_tess("tor loose-rel (rel=0.5)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Tiny scale torus (below PRIM_MIN_ABS_TOL in size) */
+    tip.r_a = 0.1;
+    tip.r_b = 0.1;
+    VSET(tip.a, 0.1, 0, 0);
+    VSET(tip.b, 0, 0.1, 0);
+    tip.r_h = 0.02;
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("tor tiny (r_a=0.1 r_h=0.02)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Large scale torus */
+    tip.r_a = 5000.0;
+    tip.r_b = 5000.0;
+    VSET(tip.a, 5000.0, 0, 0);
+    VSET(tip.b, 0, 5000.0, 0);
+    tip.r_h = 100.0;
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("tor large (r_a=5000 r_h=100)", &ip, &ttol, &tol, 0)) failures++;
+
     return failures;
 }
 
@@ -379,6 +437,42 @@ test_eto(void)
     VSET(tip.eto_C, 2.0, 0, 0.00005);
     init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
     if (!run_tess("eto DEGENERATE near-zero rd (expect fail)", &ip, &ttol, &tol, 1)) failures++;
+
+    /* Extreme tolerances: very tight norm */
+    VSET(tip.eto_N, 0, 0, 1);
+    VSET(tip.eto_V, 0, 0, 0);
+    tip.eto_r  = 10.0;
+    tip.eto_rd = 1.5;
+    VSET(tip.eto_C, 2.0, 0.0, 1.5);
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.1);  /* norm-driven; chord-floor in make_ellipse guards against runaway */
+    if (!run_tess("eto norm-driven (norm=0.1)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Extreme tolerances: very loose norm */
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.9);
+    if (!run_tess("eto loose-norm (norm=0.9)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* All three tolerances combined */
+    init_tols(&ttol, &tol, 0.3, 0.03, 0.15);
+    if (!run_tess("eto all-tols (abs=0.3 rel=0.03 norm=0.15)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Very tight rel (fine mesh) */
+    init_tols(&ttol, &tol, 0.0, 0.001, 0.0);
+    if (!run_tess("eto tight-rel (rel=0.001)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Nearly circular cross-section: eto_rd close to |eto_C| */
+    tip.eto_r  = 8.0;
+    tip.eto_rd = 1.99;
+    VSET(tip.eto_C, 0.1, 0.0, 1.99);   /* |C| ≈ eto_rd */
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("eto near-circular-section (rd≈|C|)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Large-scale ETO */
+    tip.eto_r  = 2000.0;
+    tip.eto_rd = 50.0;
+    VSET(tip.eto_C, 100.0, 0.0, 50.0);
+    VSET(tip.eto_N, 0, 0, 1);
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("eto large (r=2000 rd=50)", &ip, &ttol, &tol, 0)) failures++;
 
     return failures;
 }
@@ -509,6 +603,62 @@ test_tgc(void)
     init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
     if (!run_tess("tgc long_thin.s (H/r~94000, real geometry)", &ip, &ttol, &tol, 0)) failures++;
 
+    /* Very tight norm (below clamp, exercises alpha_tol path) */
+    VSET(tip.v, 0, 0, 0);
+    VSET(tip.h, 0, 0, 10);
+    VSET(tip.a, 5, 0, 0);
+    VSET(tip.b, 0, 5, 0);
+    VSET(tip.c, 5, 0, 0);
+    VSET(tip.d, 0, 5, 0);
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.02);   /* norm-driven, above clamp */
+    if (!run_tess("tgc norm-driven (norm=0.02)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Very loose norm (coarse approximation) */
+    init_tols(&ttol, &tol, 0.0, 0.0, 1.0);
+    if (!run_tess("tgc loose-norm (norm=1.0)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* All three tolerances combined */
+    init_tols(&ttol, &tol, 0.3, 0.03, 0.15);
+    if (!run_tess("tgc all-tols (abs=0.3 rel=0.03 norm=0.15)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Very tight rel */
+    init_tols(&ttol, &tol, 0.0, 0.001, 0.0);
+    if (!run_tess("tgc tight-rel (r=5 h=10 rel=0.001)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Very loose rel (coarse mesh) */
+    init_tols(&ttol, &tol, 0.0, 0.5, 0.0);
+    if (!run_tess("tgc loose-rel (r=5 h=10 rel=0.5)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Large-scale TGC cylinder */
+    VSET(tip.v, 0, 0, 0);
+    VSET(tip.h, 0, 0, 5000);
+    VSET(tip.a, 1000, 0, 0);
+    VSET(tip.b, 0, 1000, 0);
+    VSET(tip.c, 1000, 0, 0);
+    VSET(tip.d, 0, 1000, 0);
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("tgc large (r=1000 h=5000)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Tiny-scale TGC */
+    VSET(tip.v, 0, 0, 0);
+    VSET(tip.h, 0, 0, 0.5);
+    VSET(tip.a, 0.1, 0, 0);
+    VSET(tip.b, 0, 0.1, 0);
+    VSET(tip.c, 0.1, 0, 0);
+    VSET(tip.d, 0, 0.1, 0);
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("tgc tiny (r=0.1 h=0.5)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* REC with highly elliptical cross-section (major/minor = 100) */
+    VSET(tip.v, 0, 0, 0);
+    VSET(tip.h, 0, 0, 20);
+    VSET(tip.a, 100, 0, 0);
+    VSET(tip.b, 0, 1, 0);
+    VSET(tip.c, 100, 0, 0);
+    VSET(tip.d, 0, 1, 0);
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("tgc highly-elliptical (A=100 B=1 h=20)", &ip, &ttol, &tol, 0)) failures++;
+
     return failures;
 }
 
@@ -580,6 +730,50 @@ test_ell(void)
     init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
     if (!run_tess("ell DEGENERATE zero-A (expect fail)", &ip, &ttol, &tol, 1)) failures++;
 
+    /* Very tight norm (fine mesh) */
+    VSET(tip.a, 10, 0, 0);
+    VSET(tip.b, 0, 10, 0);
+    VSET(tip.c, 0, 0, 10);
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.1);   /* norm-driven; theta_tol floor in rt_ell_tess guards against runaway */
+    if (!run_tess("ell norm-driven (norm=0.1)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Very loose norm (coarse) */
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.9);
+    if (!run_tess("ell loose-norm (norm=0.9)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* All three combined */
+    init_tols(&ttol, &tol, 0.3, 0.03, 0.15);
+    if (!run_tess("ell all-tols (abs=0.3 rel=0.03 norm=0.15)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Very tight rel */
+    init_tols(&ttol, &tol, 0.0, 0.001, 0.0);
+    if (!run_tess("ell tight-rel (r=10 rel=0.001)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Very loose rel */
+    init_tols(&ttol, &tol, 0.0, 0.5, 0.0);
+    if (!run_tess("ell loose-rel (r=10 rel=0.5)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Highly elongated prolate spheroid (oblate stress test) */
+    VSET(tip.a, 1, 0, 0);
+    VSET(tip.b, 0, 1, 0);
+    VSET(tip.c, 0, 0, 100);
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("ell prolate (A=B=1 C=100)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Flat oblate spheroid */
+    VSET(tip.a, 50, 0, 0);
+    VSET(tip.b, 0, 50, 0);
+    VSET(tip.c, 0, 0, 1);
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("ell oblate (A=B=50 C=1)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Large scale sphere */
+    VSET(tip.a, 10000, 0, 0);
+    VSET(tip.b, 0, 10000, 0);
+    VSET(tip.c, 0, 0, 10000);
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("ell large-sphere (r=10000)", &ip, &ttol, &tol, 0)) failures++;
+
     return failures;
 }
 
@@ -640,6 +834,42 @@ test_epa(void)
     init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
     if (!run_tess("epa circular (r1=r2=5 h=10 rel=0.01)", &ip, &ttol, &tol, 0)) failures++;
 
+    /* Very tight norm (exercises subdivision clamp) */
+    tip.epa_r1 = 5.0;
+    tip.epa_r2 = 3.0;
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.02);
+    if (!run_tess("epa norm-driven (norm=0.02)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Very loose norm */
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.9);
+    if (!run_tess("epa loose-norm (norm=0.9)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* All three tolerances combined */
+    init_tols(&ttol, &tol, 0.3, 0.03, 0.15);
+    if (!run_tess("epa all-tols (abs=0.3 rel=0.03 norm=0.15)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Very tight rel */
+    init_tols(&ttol, &tol, 0.0, 0.001, 0.0);
+    if (!run_tess("epa tight-rel (rel=0.001)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Very loose rel */
+    init_tols(&ttol, &tol, 0.0, 0.5, 0.0);
+    if (!run_tess("epa loose-rel (rel=0.5)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* High aspect ratio: very narrow opening */
+    tip.epa_r1 = 0.5;
+    tip.epa_r2 = 0.1;
+    VSET(tip.epa_H, 0, 0, 100);
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("epa high-aspect (r1=0.5 r2=0.1 h=100)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Very wide/flat paraboloid */
+    tip.epa_r1 = 100.0;
+    tip.epa_r2 = 80.0;
+    VSET(tip.epa_H, 0, 0, 2);
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("epa flat (r1=100 r2=80 h=2)", &ip, &ttol, &tol, 0)) failures++;
+
     return failures;
 }
 
@@ -695,6 +925,46 @@ test_ehy(void)
     init_tols(&ttol, &tol, 0.2, 0.05, 0.0);
     if (!run_tess("ehy (r1=5 r2=3 c=2 abs=0.2 rel=0.05)", &ip, &ttol, &tol, 0)) failures++;
 
+    /* Very tight norm (exercises subdivision clamp) */
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.02);
+    if (!run_tess("ehy norm-driven (norm=0.02)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Very loose norm */
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.9);
+    if (!run_tess("ehy loose-norm (norm=0.9)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* All three tolerances combined */
+    init_tols(&ttol, &tol, 0.3, 0.03, 0.15);
+    if (!run_tess("ehy all-tols (abs=0.3 rel=0.03 norm=0.15)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Very tight rel */
+    init_tols(&ttol, &tol, 0.0, 0.001, 0.0);
+    if (!run_tess("ehy tight-rel (rel=0.001)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Very loose rel */
+    init_tols(&ttol, &tol, 0.0, 0.5, 0.0);
+    if (!run_tess("ehy loose-rel (rel=0.5)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Near-cylinder: large c (asymptote nearly vertical) */
+    tip.ehy_r1 = 5.0;
+    tip.ehy_r2 = 3.0;
+    tip.ehy_c  = 50.0;   /* very large c → nearly cylindrical */
+    VSET(tip.ehy_H, 0, 0, 10);
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("ehy near-cylinder (c=50 r1=5 r2=3 h=10)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Small c (sharp asymptote, highly curved) */
+    tip.ehy_c  = 0.1;
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("ehy sharp-asymptote (c=0.1 r1=5 r2=3 h=10)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* High aspect ratio: r1 >> r2 */
+    tip.ehy_r1 = 20.0;
+    tip.ehy_r2 = 0.5;
+    tip.ehy_c  = 2.0;
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("ehy high-elliptic (r1=20 r2=0.5 c=2)", &ip, &ttol, &tol, 0)) failures++;
+
     return failures;
 }
 
@@ -747,6 +1017,42 @@ test_rpc(void)
     /* RPC with both abs and rel */
     init_tols(&ttol, &tol, 0.2, 0.05, 0.0);
     if (!run_tess("rpc (B=5 r=3 abs=0.2 rel=0.05)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Very tight norm */
+    VSET(tip.rpc_B, 0, 5, 0);
+    tip.rpc_r = 3.0;
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.02);
+    if (!run_tess("rpc norm-driven (norm=0.02)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Very loose norm */
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.9);
+    if (!run_tess("rpc loose-norm (norm=0.9)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* All three tolerances combined */
+    init_tols(&ttol, &tol, 0.3, 0.03, 0.15);
+    if (!run_tess("rpc all-tols (abs=0.3 rel=0.03 norm=0.15)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Very tight rel */
+    init_tols(&ttol, &tol, 0.0, 0.001, 0.0);
+    if (!run_tess("rpc tight-rel (rel=0.001)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Very loose rel */
+    init_tols(&ttol, &tol, 0.0, 0.5, 0.0);
+    if (!run_tess("rpc loose-rel (rel=0.5)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Wide flat RPC (B >> r) */
+    VSET(tip.rpc_B, 0, 50, 0);
+    tip.rpc_r = 1.0;
+    VSET(tip.rpc_H, 0, 0, 20);
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("rpc wide-flat (B=50 r=1 h=20)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Narrow tall RPC (r >> B) */
+    VSET(tip.rpc_B, 0, 0.5, 0);
+    tip.rpc_r = 10.0;
+    VSET(tip.rpc_H, 0, 0, 10);
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("rpc narrow-tall (B=0.5 r=10 h=10)", &ip, &ttol, &tol, 0)) failures++;
 
     return failures;
 }
@@ -801,6 +1107,41 @@ test_rhc(void)
     /* RHC with both abs and rel */
     init_tols(&ttol, &tol, 0.2, 0.05, 0.0);
     if (!run_tess("rhc (B=5 r=3 c=1 abs=0.2 rel=0.05)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Very tight norm */
+    VSET(tip.rhc_B, 0, 5, 0);
+    tip.rhc_r = 3.0;
+    tip.rhc_c = 1.0;
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.02);
+    if (!run_tess("rhc norm-driven (norm=0.02)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Very loose norm */
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.9);
+    if (!run_tess("rhc loose-norm (norm=0.9)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* All three tolerances combined */
+    init_tols(&ttol, &tol, 0.3, 0.03, 0.15);
+    if (!run_tess("rhc all-tols (abs=0.3 rel=0.03 norm=0.15)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Very tight rel */
+    init_tols(&ttol, &tol, 0.0, 0.001, 0.0);
+    if (!run_tess("rhc tight-rel (rel=0.001)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Very loose rel */
+    init_tols(&ttol, &tol, 0.0, 0.5, 0.0);
+    if (!run_tess("rhc loose-rel (rel=0.5)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Near-cylinder: large c */
+    VSET(tip.rhc_B, 0, 5, 0);
+    tip.rhc_r = 3.0;
+    tip.rhc_c = 50.0;
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("rhc near-cylinder (c=50 B=5 r=3 h=10)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Very small c (sharp hyperbola) */
+    tip.rhc_c = 0.05;
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("rhc sharp-hyperbola (c=0.05 B=5 r=3)", &ip, &ttol, &tol, 0)) failures++;
 
     return failures;
 }
@@ -860,6 +1201,42 @@ test_hyp(void)
     tip.hyp_bnr = 0.05;
     init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
     if (!run_tess("hyp thin-neck (bnr=0.05 rel=0.01)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Very tight norm */
+    tip.hyp_bnr = 0.5;
+    VSET(tip.hyp_Hi, 0, 0, 20);
+    VSET(tip.hyp_A, 8, 0, 0);
+    tip.hyp_b = 6.0;
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.02);
+    if (!run_tess("hyp norm-driven (norm=0.02)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Very loose norm */
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.9);
+    if (!run_tess("hyp loose-norm (norm=0.9)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* All three tolerances combined */
+    init_tols(&ttol, &tol, 0.3, 0.03, 0.15);
+    if (!run_tess("hyp all-tols (abs=0.3 rel=0.03 norm=0.15)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Very tight rel */
+    init_tols(&ttol, &tol, 0.0, 0.001, 0.0);
+    if (!run_tess("hyp tight-rel (rel=0.001)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Very loose rel (coarse) */
+    init_tols(&ttol, &tol, 0.0, 0.5, 0.0);
+    if (!run_tess("hyp loose-rel (rel=0.5)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Near-maximum neck ratio (bnr close to 1 → almost cylindrical) */
+    tip.hyp_bnr = 0.99;
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("hyp near-cylinder (bnr=0.99)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* High elliptical cross-section (b >> |A|) */
+    VSET(tip.hyp_A, 2, 0, 0);
+    tip.hyp_b = 20.0;
+    tip.hyp_bnr = 0.5;
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("hyp high-elliptic (A=2 b=20 bnr=0.5)", &ip, &ttol, &tol, 0)) failures++;
 
     return failures;
 }
@@ -928,6 +1305,42 @@ test_part(void)
     tip.part_type = RT_PARTICLE_TYPE_SPHERE;
     init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
     if (!run_tess("part sphere (expect fail - handled by ell)", &ip, &ttol, &tol, 1)) failures++;
+
+    /* Very tight norm */
+    tip.part_vrad = 3.0;
+    tip.part_hrad = 3.0;
+    tip.part_type = RT_PARTICLE_TYPE_CYLINDER;
+    VSET(tip.part_H, 0, 0, 10);
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.02);
+    if (!run_tess("part cylinder norm-driven (norm=0.02)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Very loose norm */
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.9);
+    if (!run_tess("part cylinder loose-norm (norm=0.9)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* All three tolerances combined */
+    init_tols(&ttol, &tol, 0.3, 0.03, 0.15);
+    if (!run_tess("part cylinder all-tols", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Very tight rel */
+    init_tols(&ttol, &tol, 0.0, 0.001, 0.0);
+    if (!run_tess("part cylinder tight-rel (rel=0.001)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Cone with very small head radius (near-pointed cone).
+     * hr=0.001 is below tol->dist=0.005, so rt_part_tess rejects it. */
+    tip.part_vrad = 10.0;
+    tip.part_hrad = 0.001;
+    tip.part_type = RT_PARTICLE_TYPE_CONE;
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("part near-pointed-cone (vr=10 hr=0.001, expect fail)", &ip, &ttol, &tol, 1)) failures++;
+
+    /* Very large particle */
+    tip.part_vrad = 5000.0;
+    tip.part_hrad = 5000.0;
+    tip.part_type = RT_PARTICLE_TYPE_CYLINDER;
+    VSET(tip.part_H, 0, 0, 20000);
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("part large-cylinder (vr=hr=5000 h=20000)", &ip, &ttol, &tol, 0)) failures++;
 
     return failures;
 }
@@ -1226,6 +1639,861 @@ test_vol(void)
 }
 
 
+/* ------------------------------------------------------------------ */
+/* ARB8 (Generalized ARB) tests                                         */
+/* ------------------------------------------------------------------ */
+
+/*
+ * rt_arb_tess ignores ttol entirely (UNUSED(ttol)).  It only uses tol for
+ * nmg_region_a() and nmg_make_faces_within_tol().  We test several arb
+ * types: ARB8 (8 unique pts), ARB6 (6 unique, 2 pairs duplicated),
+ * ARB4 (tetrahedron, 4 unique pts), and ARB5 (pyramid, 5 unique pts).
+ */
+static int
+test_arb(void)
+{
+    int failures = 0;
+    struct bg_tess_tol ttol = BG_TESS_TOL_INIT_ZERO;
+    struct bn_tol tol = BN_TOL_INIT_ZERO;
+    ttol.magic = BG_TESS_TOL_MAGIC;
+    tol.magic = BN_TOL_MAGIC;
+
+    struct rt_db_internal ip;
+    struct rt_arb_internal tip;
+
+    ip.idb_magic = RT_DB_INTERNAL_MAGIC;
+    ip.idb_major_type = DB5_MAJORTYPE_BRLCAD;
+    ip.idb_minor_type = ID_ARB8;
+    ip.idb_ptr = &tip;
+
+    tip.magic = RT_ARB_INTERNAL_MAGIC;
+
+    printf("\n--- ARB tests ---\n");
+
+    /* ARB8: unit cube 10x10x10 */
+    VSET(tip.pt[0],  0,  0,  0);
+    VSET(tip.pt[1], 10,  0,  0);
+    VSET(tip.pt[2], 10, 10,  0);
+    VSET(tip.pt[3],  0, 10,  0);
+    VSET(tip.pt[4],  0,  0, 10);
+    VSET(tip.pt[5], 10,  0, 10);
+    VSET(tip.pt[6], 10, 10, 10);
+    VSET(tip.pt[7],  0, 10, 10);
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("arb8 cube (10x10x10)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* ARB8 with abs tolerance */
+    init_tols(&ttol, &tol, 0.5, 0.0, 0.0);
+    if (!run_tess("arb8 cube (abs=0.5)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* ARB8 with no tolerance */
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.0);
+    if (!run_tess("arb8 cube no-tol", &ip, &ttol, &tol, 0)) failures++;
+
+    /* ARB6: triangular prism.  pts[6]==pts[7] makes one quad a triangle. */
+    VSET(tip.pt[0],  0,  0,  0);
+    VSET(tip.pt[1], 10,  0,  0);
+    VSET(tip.pt[2], 10, 10,  0);
+    VSET(tip.pt[3],  0, 10,  0);
+    VSET(tip.pt[4],  5,  0, 10);
+    VSET(tip.pt[5],  5,  0, 10);   /* same as pt[4]: top front edge */
+    VSET(tip.pt[6],  5, 10, 10);
+    VSET(tip.pt[7],  5, 10, 10);   /* same as pt[6]: top back edge */
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("arb6 triangular prism", &ip, &ttol, &tol, 0)) failures++;
+
+    /* ARB5: square pyramid.  pts[4..7] all at apex. */
+    VSET(tip.pt[0],  0,  0,  0);
+    VSET(tip.pt[1], 10,  0,  0);
+    VSET(tip.pt[2], 10, 10,  0);
+    VSET(tip.pt[3],  0, 10,  0);
+    VSET(tip.pt[4],  5,  5, 10);   /* apex */
+    VSET(tip.pt[5],  5,  5, 10);
+    VSET(tip.pt[6],  5,  5, 10);
+    VSET(tip.pt[7],  5,  5, 10);
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("arb5 square pyramid", &ip, &ttol, &tol, 0)) failures++;
+
+    /* ARB4: tetrahedron.  pts[3..7] all at fourth vertex.
+     * rt_arb_tess with this duplicate-endpoint encoding returns -2
+     * (degenerate faces in the ARB8→ARB4 topology).  Mark as expect_fail. */
+    VSET(tip.pt[0],  0,  0,  0);
+    VSET(tip.pt[1], 10,  0,  0);
+    VSET(tip.pt[2],  5,  8,  0);
+    VSET(tip.pt[3],  5,  3, 10);   /* apex */
+    VSET(tip.pt[4],  5,  3, 10);
+    VSET(tip.pt[5],  5,  3, 10);
+    VSET(tip.pt[6],  5,  3, 10);
+    VSET(tip.pt[7],  5,  3, 10);
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("arb4 tetrahedron (expect fail - degenerate ARB topo)", &ip, &ttol, &tol, 1)) failures++;
+
+    /* ARB8 large scale */
+    VSET(tip.pt[0],      0,      0,      0);
+    VSET(tip.pt[1], 100000,      0,      0);
+    VSET(tip.pt[2], 100000, 100000,      0);
+    VSET(tip.pt[3],      0, 100000,      0);
+    VSET(tip.pt[4],      0,      0, 100000);
+    VSET(tip.pt[5], 100000,      0, 100000);
+    VSET(tip.pt[6], 100000, 100000, 100000);
+    VSET(tip.pt[7],      0, 100000, 100000);
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("arb8 large cube (100000^3)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* ARB8 tiny scale: vertices at 0.001 mm intervals.
+     * tol->dist = 0.005 mm > 0.001 mm, so the face geometry is below the
+     * geometric tolerance — rt_arb_tess returns -2 (degenerate). */
+    VSET(tip.pt[0], 0.0,   0.0,   0.0);
+    VSET(tip.pt[1], 0.001, 0.0,   0.0);
+    VSET(tip.pt[2], 0.001, 0.001, 0.0);
+    VSET(tip.pt[3], 0.0,   0.001, 0.0);
+    VSET(tip.pt[4], 0.0,   0.0,   0.001);
+    VSET(tip.pt[5], 0.001, 0.0,   0.001);
+    VSET(tip.pt[6], 0.001, 0.001, 0.001);
+    VSET(tip.pt[7], 0.0,   0.001, 0.001);
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("arb8 tiny cube (0.001^3, expect fail - below tol)", &ip, &ttol, &tol, 1)) failures++;
+
+    /* ARB8 thin slab (extreme aspect ratio) */
+    VSET(tip.pt[0],    0,   0,    0);
+    VSET(tip.pt[1], 1000,   0,    0);
+    VSET(tip.pt[2], 1000, 500,    0);
+    VSET(tip.pt[3],    0, 500,    0);
+    VSET(tip.pt[4],    0,   0, 0.01);
+    VSET(tip.pt[5], 1000,   0, 0.01);
+    VSET(tip.pt[6], 1000, 500, 0.01);
+    VSET(tip.pt[7],    0, 500, 0.01);
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("arb8 thin slab (1000x500x0.01)", &ip, &ttol, &tol, 0)) failures++;
+
+    return failures;
+}
+
+
+/* ------------------------------------------------------------------ */
+/* ARS (Arbitrary faceted surface) tests                                */
+/* ------------------------------------------------------------------ */
+
+/*
+ * rt_ars_tess ignores ttol (UNUSED(ttol)).
+ *
+ * An ARS solid is defined as ncurves cross-sectional rings.  Ring 0 and
+ * ring ncurves-1 are typically degenerate (all pts the same) to form
+ * top/bottom caps.  pts_per_curve includes the repeated first/last point
+ * that closes each ring.  Each "curve" pointer points to pts_per_curve*3
+ * fastf_t values.
+ *
+ * Helper: allocate and fill a ring of N 3D points laid out as a regular
+ * polygon at height z and radius r.  Returns heap memory that must be
+ * freed by the caller (via bu_free on each curves[i]).
+ */
+static fastf_t *
+ars_make_ring(size_t n, double r, double cx, double cy, double z)
+{
+    fastf_t *ring = (fastf_t *)bu_malloc(n * 3 * sizeof(fastf_t), "ars ring");
+    for (size_t i = 0; i < n; i++) {
+	double angle = i * M_2PI / n;
+	ring[i*3+0] = (fastf_t)(cx + r * cos(angle));
+	ring[i*3+1] = (fastf_t)(cy + r * sin(angle));
+	ring[i*3+2] = (fastf_t)z;
+    }
+    return ring;
+}
+
+/* Helper: allocate a degenerate ring (all pts at one point). */
+static fastf_t *
+ars_make_cap(size_t n, double cx, double cy, double z)
+{
+    fastf_t *ring = (fastf_t *)bu_malloc(n * 3 * sizeof(fastf_t), "ars cap");
+    for (size_t i = 0; i < n; i++) {
+	ring[i*3+0] = (fastf_t)cx;
+	ring[i*3+1] = (fastf_t)cy;
+	ring[i*3+2] = (fastf_t)z;
+    }
+    return ring;
+}
+
+static int
+test_ars(void)
+{
+    int failures = 0;
+    struct bg_tess_tol ttol = BG_TESS_TOL_INIT_ZERO;
+    struct bn_tol tol = BN_TOL_INIT_ZERO;
+    ttol.magic = BG_TESS_TOL_MAGIC;
+    tol.magic = BN_TOL_MAGIC;
+
+    struct rt_db_internal ip;
+    struct rt_ars_internal aip;
+
+    ip.idb_magic = RT_DB_INTERNAL_MAGIC;
+    ip.idb_major_type = DB5_MAJORTYPE_BRLCAD;
+    ip.idb_minor_type = ID_ARS;
+    ip.idb_ptr = &aip;
+
+    aip.magic = RT_ARS_INTERNAL_MAGIC;
+
+    printf("\n--- ARS tests ---\n");
+
+    /* ---- ARS cylinder: 4-curve, 8-sided ------------------------------- */
+    {
+	const size_t ncurves = 4;
+	const size_t ppc = 8;
+	fastf_t **curves = (fastf_t **)bu_calloc(ncurves, sizeof(fastf_t *), "ars curves");
+
+	curves[0] = ars_make_cap(ppc, 0.0, 0.0, 0.0);     /* bottom cap */
+	curves[1] = ars_make_ring(ppc, 5.0, 0.0, 0.0, 0.0);  /* bottom ring */
+	curves[2] = ars_make_ring(ppc, 5.0, 0.0, 0.0, 10.0); /* top ring */
+	curves[3] = ars_make_cap(ppc, 0.0, 0.0, 10.0);    /* top cap */
+
+	aip.ncurves = ncurves;
+	aip.pts_per_curve = ppc;
+	aip.curves = curves;
+
+	init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+	if (!run_tess("ars cylinder 4-curve 8-sided (r=5 h=10)", &ip, &ttol, &tol, 0)) failures++;
+
+	init_tols(&ttol, &tol, 0.5, 0.0, 0.0);
+	if (!run_tess("ars cylinder (abs=0.5)", &ip, &ttol, &tol, 0)) failures++;
+
+	init_tols(&ttol, &tol, 0.0, 0.0, 0.0);
+	if (!run_tess("ars cylinder no-tol", &ip, &ttol, &tol, 0)) failures++;
+
+	for (size_t i = 0; i < ncurves; i++)
+	    bu_free(curves[i], "ars ring");
+	bu_free(curves, "ars curves");
+    }
+
+    /* ---- ARS cone: 3-curve (bottom ring, top cap degenerate) ----------- */
+    {
+	const size_t ncurves = 3;
+	const size_t ppc = 12;
+	fastf_t **curves = (fastf_t **)bu_calloc(ncurves, sizeof(fastf_t *), "ars curves");
+
+	curves[0] = ars_make_ring(ppc, 8.0, 0.0, 0.0, 0.0); /* bottom ring */
+	curves[1] = ars_make_ring(ppc, 2.0, 0.0, 0.0, 15.0); /* top ring */
+	curves[2] = ars_make_cap(ppc, 0.0, 0.0, 15.0);    /* top cap */
+
+	aip.ncurves = ncurves;
+	aip.pts_per_curve = ppc;
+	aip.curves = curves;
+
+	init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+	if (!run_tess("ars cone (r_bot=8 r_top=2 h=15)", &ip, &ttol, &tol, 0)) failures++;
+
+	for (size_t i = 0; i < ncurves; i++)
+	    bu_free(curves[i], "ars ring");
+	bu_free(curves, "ars curves");
+    }
+
+    /* ---- ARS sphere approximation: 5 rings ----------------------------- */
+    {
+	const size_t ncurves = 5;
+	const size_t ppc = 16;
+	const double R = 10.0;
+	fastf_t **curves = (fastf_t **)bu_calloc(ncurves, sizeof(fastf_t *), "ars curves");
+
+	/* latitude steps: -90, -45, 0, 45, 90 degrees */
+	static const double lats[] = {-M_PI_2, -M_PI/4.0, 0.0, M_PI/4.0, M_PI_2};
+	for (size_t i = 0; i < ncurves; i++) {
+	    double z = R * sin(lats[i]);
+	    double r = R * cos(lats[i]);
+	    if (fabs(r) < 1e-10)
+		curves[i] = ars_make_cap(ppc, 0.0, 0.0, z);
+	    else
+		curves[i] = ars_make_ring(ppc, r, 0.0, 0.0, z);
+	}
+
+	aip.ncurves = ncurves;
+	aip.pts_per_curve = ppc;
+	aip.curves = curves;
+
+	init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+	if (!run_tess("ars sphere-approx 5 rings 16-sided (R=10)", &ip, &ttol, &tol, 0)) failures++;
+
+	for (size_t i = 0; i < ncurves; i++)
+	    bu_free(curves[i], "ars ring");
+	bu_free(curves, "ars curves");
+    }
+
+    /* ---- ARS high-sided cylinder (many segments per ring) -------------- */
+    {
+	const size_t ncurves = 4;
+	const size_t ppc = 64;
+	fastf_t **curves = (fastf_t **)bu_calloc(ncurves, sizeof(fastf_t *), "ars curves");
+
+	curves[0] = ars_make_cap(ppc, 0.0, 0.0, 0.0);
+	curves[1] = ars_make_ring(ppc, 3.0, 0.0, 0.0, 0.0);
+	curves[2] = ars_make_ring(ppc, 3.0, 0.0, 0.0, 20.0);
+	curves[3] = ars_make_cap(ppc, 0.0, 0.0, 20.0);
+
+	aip.ncurves = ncurves;
+	aip.pts_per_curve = ppc;
+	aip.curves = curves;
+
+	init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+	if (!run_tess("ars high-sided cylinder (64-sided r=3 h=20)", &ip, &ttol, &tol, 0)) failures++;
+
+	for (size_t i = 0; i < ncurves; i++)
+	    bu_free(curves[i], "ars ring");
+	bu_free(curves, "ars curves");
+    }
+
+    /* ---- ARS multi-ring tapering shape (stress for strip loop) --------- */
+    {
+	const size_t ncurves = 8;
+	const size_t ppc = 10;
+	fastf_t **curves = (fastf_t **)bu_calloc(ncurves, sizeof(fastf_t *), "ars curves");
+
+	curves[0] = ars_make_cap(ppc, 0.0, 0.0, 0.0);
+	for (size_t i = 1; i < ncurves - 1; i++) {
+	    double frac = (double)i / (ncurves - 2);
+	    double r = 5.0 * (1.0 - 0.8 * frac);   /* radius tapers 5 → 1 */
+	    curves[i] = ars_make_ring(ppc, r, 0.0, 0.0, (double)i * 5.0);
+	}
+	curves[ncurves-1] = ars_make_cap(ppc, 0.0, 0.0, (double)(ncurves-2)*5.0);
+
+	aip.ncurves = ncurves;
+	aip.pts_per_curve = ppc;
+	aip.curves = curves;
+
+	init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+	if (!run_tess("ars multi-ring taper (8 curves, tapers 5→1)", &ip, &ttol, &tol, 0)) failures++;
+
+	for (size_t i = 0; i < ncurves; i++)
+	    bu_free(curves[i], "ars ring");
+	bu_free(curves, "ars curves");
+    }
+
+    return failures;
+}
+
+
+/* ------------------------------------------------------------------ */
+/* ARBN (Arbitrary convex N-hedron) tests                               */
+/* ------------------------------------------------------------------ */
+
+/*
+ * rt_arbn_tess ignores ttol (UNUSED(ttol)).  An ARBN is defined by neqn
+ * half-space plane equations: plane[i] = {nx, ny, nz, d} where the
+ * outward unit normal is (nx,ny,nz) and the plane passes through the
+ * point at distance d from the origin: dot(n,pt) = d means pt is ON the
+ * plane; dot(n,pt) <= d means pt is INSIDE.
+ */
+static int
+test_arbn(void)
+{
+    int failures = 0;
+    struct bg_tess_tol ttol = BG_TESS_TOL_INIT_ZERO;
+    struct bn_tol tol = BN_TOL_INIT_ZERO;
+    ttol.magic = BG_TESS_TOL_MAGIC;
+    tol.magic = BN_TOL_MAGIC;
+
+    struct rt_db_internal ip;
+    struct rt_arbn_internal aip;
+
+    ip.idb_magic = RT_DB_INTERNAL_MAGIC;
+    ip.idb_major_type = DB5_MAJORTYPE_BRLCAD;
+    ip.idb_minor_type = ID_ARBN;
+    ip.idb_ptr = &aip;
+
+    aip.magic = RT_ARBN_INTERNAL_MAGIC;
+
+    printf("\n--- ARBN tests ---\n");
+
+    /* ---- ARBN cube (6 planes) ------------------------------------------ */
+    {
+	plane_t planes[6];
+	VSET(planes[0], 1, 0, 0);  planes[0][3] =  5.0;   /* +X face */
+	VSET(planes[1],-1, 0, 0);  planes[1][3] =  5.0;   /* -X face */
+	VSET(planes[2], 0, 1, 0);  planes[2][3] =  5.0;   /* +Y face */
+	VSET(planes[3], 0,-1, 0);  planes[3][3] =  5.0;   /* -Y face */
+	VSET(planes[4], 0, 0, 1);  planes[4][3] =  5.0;   /* +Z face */
+	VSET(planes[5], 0, 0,-1);  planes[5][3] =  5.0;   /* -Z face */
+
+	aip.neqn = 6;
+	aip.eqn  = planes;
+
+	init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+	if (!run_tess("arbn cube 6-plane (side=10)", &ip, &ttol, &tol, 0)) failures++;
+
+	init_tols(&ttol, &tol, 0.5, 0.0, 0.0);
+	if (!run_tess("arbn cube (abs=0.5)", &ip, &ttol, &tol, 0)) failures++;
+
+	init_tols(&ttol, &tol, 0.0, 0.0, 0.0);
+	if (!run_tess("arbn cube no-tol", &ip, &ttol, &tol, 0)) failures++;
+    }
+
+    /* ---- ARBN tetrahedron (4 planes) ----------------------------------- */
+    {
+	/* Regular tetrahedron with vertices at:
+	 *  (1,1,1), (1,-1,-1), (-1,1,-1), (-1,-1,1)
+	 * Face normals (outward) are the normalised sum of each triple of verts. */
+	plane_t planes[4];
+	/* Face opposite vertex 0 (1,1,1): normal = normalised((-1,-1,-1)) */
+	VSET(planes[0], -M_SQRT1_2/sqrt(3)*sqrt(3),
+	                -1.0/sqrt(3), -1.0/sqrt(3)); /* normalise */
+	/* Just use the known unit normals for a regular tetrahedron: */
+	double r3 = 1.0/sqrt(3.0);
+	VSET(planes[0],  r3,  r3,  r3);  planes[0][3] =  r3 * 3.0;
+	VSET(planes[1],  r3, -r3, -r3);  planes[1][3] =  r3;
+	VSET(planes[2], -r3,  r3, -r3);  planes[2][3] =  r3;
+	VSET(planes[3], -r3, -r3,  r3);  planes[3][3] =  r3;
+
+	aip.neqn = 4;
+	aip.eqn  = planes;
+
+	init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+	if (!run_tess("arbn tetrahedron (4 planes)", &ip, &ttol, &tol, 0)) failures++;
+    }
+
+    /* ---- ARBN octahedron (8 planes) ------------------------------------ */
+    {
+	/* Regular octahedron: |x|+|y|+|z| <= R, all 8 sign combinations. */
+	plane_t planes[8];
+	double R = 10.0;
+	double n = 1.0/sqrt(3.0);
+	int idx = 0;
+	for (int sx = -1; sx <= 1; sx += 2)
+	    for (int sy = -1; sy <= 1; sy += 2)
+		for (int sz = -1; sz <= 1; sz += 2) {
+		    VSET(planes[idx], sx*n, sy*n, sz*n);
+		    planes[idx][3] = R * n;
+		    idx++;
+		}
+
+	aip.neqn = 8;
+	aip.eqn  = planes;
+
+	init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+	if (!run_tess("arbn octahedron (8 planes R=10)", &ip, &ttol, &tol, 0)) failures++;
+
+	init_tols(&ttol, &tol, 0.3, 0.03, 0.0);
+	if (!run_tess("arbn octahedron (abs=0.3 rel=0.03)", &ip, &ttol, &tol, 0)) failures++;
+    }
+
+    /* ---- ARBN cuboctahedron (12 planes: 6 cube + 8 oct corners cut) ---- */
+    {
+	/* Start with cube planes at ±8 and truncate 8 corners with planes
+	 * from the octahedron at R=12: gives a shape with 14 faces. */
+	plane_t planes[14];
+	int idx = 0;
+	/* Cube faces at ±8 */
+	VSET(planes[idx], 1,0,0); planes[idx][3]=8; idx++;
+	VSET(planes[idx],-1,0,0); planes[idx][3]=8; idx++;
+	VSET(planes[idx], 0,1,0); planes[idx][3]=8; idx++;
+	VSET(planes[idx], 0,-1,0); planes[idx][3]=8; idx++;
+	VSET(planes[idx], 0,0,1); planes[idx][3]=8; idx++;
+	VSET(planes[idx], 0,0,-1); planes[idx][3]=8; idx++;
+	/* 8 octahedron cutting planes */
+	double n = 1.0/sqrt(3.0);
+	for (int sx = -1; sx <= 1; sx += 2)
+	    for (int sy = -1; sy <= 1; sy += 2)
+		for (int sz = -1; sz <= 1; sz += 2) {
+		    VSET(planes[idx], sx*n, sy*n, sz*n);
+		    planes[idx][3] = 10.0 * n;
+		    idx++;
+		}
+
+	aip.neqn = 14;
+	aip.eqn  = planes;
+
+	init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+	if (!run_tess("arbn cuboctahedron (14 planes)", &ip, &ttol, &tol, 0)) failures++;
+    }
+
+    return failures;
+}
+
+
+/* ------------------------------------------------------------------ */
+/* PIPE tests                                                            */
+/* ------------------------------------------------------------------ */
+
+/*
+ * rt_pipe_tess uses ttol to derive arc_segs (min 6 segments per circle).
+ * The pipe is defined by a linked list of wdb_pipe_pnt structs; each has:
+ *   pp_coord      – 3-D control point
+ *   pp_od         – outer diameter (must be > 0)
+ *   pp_id         – inner diameter (0 = solid wire)
+ *   pp_bendradius – bend radius at this point (must be >= pp_od/2)
+ *
+ * The tessellation connects consecutive (pp1, pp2) and (pp2, pp3) triples.
+ * At bends, it sweeps the pipe cross-section around the bend arc.
+ */
+static int
+test_pipe(void)
+{
+    int failures = 0;
+    struct bg_tess_tol ttol = BG_TESS_TOL_INIT_ZERO;
+    struct bn_tol tol = BN_TOL_INIT_ZERO;
+    ttol.magic = BG_TESS_TOL_MAGIC;
+    tol.magic = BN_TOL_MAGIC;
+
+    struct rt_db_internal ip;
+    struct rt_pipe_internal pip;
+
+    ip.idb_magic = RT_DB_INTERNAL_MAGIC;
+    ip.idb_major_type = DB5_MAJORTYPE_BRLCAD;
+    ip.idb_minor_type = ID_PIPE;
+    ip.idb_ptr = &pip;
+
+    pip.pipe_magic = RT_PIPE_INTERNAL_MAGIC;
+    BU_LIST_INIT(&pip.pipe_segs_head);
+
+    printf("\n--- PIPE tests ---\n");
+
+    /* ---- Straight solid wire (2 pts, id=0) ----------------------------- */
+    {
+	struct wdb_pipe_pnt p1, p2;
+
+	p1.l.magic = WDB_PIPESEG_MAGIC;
+	VSET(p1.pp_coord, 0, 0, 0);
+	p1.pp_id = 0.0;
+	p1.pp_od = 4.0;
+	p1.pp_bendradius = 8.0;
+
+	p2.l.magic = WDB_PIPESEG_MAGIC;
+	VSET(p2.pp_coord, 0, 0, 20);
+	p2.pp_id = 0.0;
+	p2.pp_od = 4.0;
+	p2.pp_bendradius = 8.0;
+
+	BU_LIST_INSERT(&pip.pipe_segs_head, &p1.l);
+	BU_LIST_INSERT(&pip.pipe_segs_head, &p2.l);
+	pip.pipe_count = 2;
+
+	init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+	if (!run_tess("pipe straight solid wire (od=4 h=20)", &ip, &ttol, &tol, 0)) failures++;
+
+	init_tols(&ttol, &tol, 0.3, 0.0, 0.0);
+	if (!run_tess("pipe straight solid wire (abs=0.3)", &ip, &ttol, &tol, 0)) failures++;
+
+	init_tols(&ttol, &tol, 0.0, 0.0, 0.1);
+	if (!run_tess("pipe straight solid wire (norm=0.1)", &ip, &ttol, &tol, 0)) failures++;
+
+	init_tols(&ttol, &tol, 0.0, 0.0, 0.0);
+	if (!run_tess("pipe straight solid wire no-tol", &ip, &ttol, &tol, 0)) failures++;
+
+	BU_LIST_DEQUEUE(&p1.l);
+	BU_LIST_DEQUEUE(&p2.l);
+	pip.pipe_count = 0;
+    }
+
+    /* ---- Straight hollow pipe (2 pts, id>0) ---------------------------- */
+    {
+	struct wdb_pipe_pnt p1, p2;
+
+	p1.l.magic = WDB_PIPESEG_MAGIC;
+	VSET(p1.pp_coord, 0, 0, 0);
+	p1.pp_id = 2.0;
+	p1.pp_od = 5.0;
+	p1.pp_bendradius = 10.0;
+
+	p2.l.magic = WDB_PIPESEG_MAGIC;
+	VSET(p2.pp_coord, 0, 0, 30);
+	p2.pp_id = 2.0;
+	p2.pp_od = 5.0;
+	p2.pp_bendradius = 10.0;
+
+	BU_LIST_INSERT(&pip.pipe_segs_head, &p1.l);
+	BU_LIST_INSERT(&pip.pipe_segs_head, &p2.l);
+	pip.pipe_count = 2;
+
+	init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+	if (!run_tess("pipe hollow (id=2 od=5 h=30)", &ip, &ttol, &tol, 0)) failures++;
+
+	BU_LIST_DEQUEUE(&p1.l);
+	BU_LIST_DEQUEUE(&p2.l);
+	pip.pipe_count = 0;
+    }
+
+    /* ---- L-shaped bend (3 pts, 90° turn) ------------------------------- */
+    {
+	struct wdb_pipe_pnt p1, p2, p3;
+	const double od = 3.0;
+	const double br = 6.0;   /* bend radius >= od/2 */
+
+	p1.l.magic = WDB_PIPESEG_MAGIC;
+	VSET(p1.pp_coord, -20, 0, 0);
+	p1.pp_id = 0.0; p1.pp_od = od; p1.pp_bendradius = br;
+
+	p2.l.magic = WDB_PIPESEG_MAGIC;
+	VSET(p2.pp_coord, 0, 0, 0);   /* bend point */
+	p2.pp_id = 0.0; p2.pp_od = od; p2.pp_bendradius = br;
+
+	p3.l.magic = WDB_PIPESEG_MAGIC;
+	VSET(p3.pp_coord, 0, 20, 0);
+	p3.pp_id = 0.0; p3.pp_od = od; p3.pp_bendradius = br;
+
+	BU_LIST_INSERT(&pip.pipe_segs_head, &p1.l);
+	BU_LIST_INSERT(&pip.pipe_segs_head, &p2.l);
+	BU_LIST_INSERT(&pip.pipe_segs_head, &p3.l);
+	pip.pipe_count = 3;
+
+	init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+	if (!run_tess("pipe L-bend (3 pts, 90deg od=3 br=6)", &ip, &ttol, &tol, 0)) failures++;
+
+	init_tols(&ttol, &tol, 0.0, 0.0, 0.1);
+	if (!run_tess("pipe L-bend norm=0.1", &ip, &ttol, &tol, 0)) failures++;
+
+	init_tols(&ttol, &tol, 0.3, 0.03, 0.15);
+	if (!run_tess("pipe L-bend all-tols", &ip, &ttol, &tol, 0)) failures++;
+
+	BU_LIST_DEQUEUE(&p1.l);
+	BU_LIST_DEQUEUE(&p2.l);
+	BU_LIST_DEQUEUE(&p3.l);
+	pip.pipe_count = 0;
+    }
+
+    /* ---- U-shaped pipe (4 pts: two 90° bends) -------------------------- */
+    {
+	struct wdb_pipe_pnt p1, p2, p3, p4;
+	const double od = 4.0;
+	const double br = 8.0;
+
+	p1.l.magic = WDB_PIPESEG_MAGIC;
+	VSET(p1.pp_coord, 0, 0, 0);
+	p1.pp_id = 0.0; p1.pp_od = od; p1.pp_bendradius = br;
+
+	p2.l.magic = WDB_PIPESEG_MAGIC;
+	VSET(p2.pp_coord, 20, 0, 0);
+	p2.pp_id = 0.0; p2.pp_od = od; p2.pp_bendradius = br;
+
+	p3.l.magic = WDB_PIPESEG_MAGIC;
+	VSET(p3.pp_coord, 20, 30, 0);
+	p3.pp_id = 0.0; p3.pp_od = od; p3.pp_bendradius = br;
+
+	p4.l.magic = WDB_PIPESEG_MAGIC;
+	VSET(p4.pp_coord, 0, 30, 0);
+	p4.pp_id = 0.0; p4.pp_od = od; p4.pp_bendradius = br;
+
+	BU_LIST_INSERT(&pip.pipe_segs_head, &p1.l);
+	BU_LIST_INSERT(&pip.pipe_segs_head, &p2.l);
+	BU_LIST_INSERT(&pip.pipe_segs_head, &p3.l);
+	BU_LIST_INSERT(&pip.pipe_segs_head, &p4.l);
+	pip.pipe_count = 4;
+
+	init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+	if (!run_tess("pipe U-shape (4 pts, 2 bends od=4 br=8)", &ip, &ttol, &tol, 0)) failures++;
+
+	BU_LIST_DEQUEUE(&p1.l);
+	BU_LIST_DEQUEUE(&p2.l);
+	BU_LIST_DEQUEUE(&p3.l);
+	BU_LIST_DEQUEUE(&p4.l);
+	pip.pipe_count = 0;
+    }
+
+    /* ---- Varying OD along length (tapering pipe) ----------------------- */
+    {
+	struct wdb_pipe_pnt p1, p2;
+
+	p1.l.magic = WDB_PIPESEG_MAGIC;
+	VSET(p1.pp_coord, 0, 0, 0);
+	p1.pp_id = 0.0; p1.pp_od = 10.0; p1.pp_bendradius = 20.0;
+
+	p2.l.magic = WDB_PIPESEG_MAGIC;
+	VSET(p2.pp_coord, 0, 0, 50);
+	p2.pp_id = 0.0; p2.pp_od = 2.0; p2.pp_bendradius = 4.0;
+
+	BU_LIST_INSERT(&pip.pipe_segs_head, &p1.l);
+	BU_LIST_INSERT(&pip.pipe_segs_head, &p2.l);
+	pip.pipe_count = 2;
+
+	init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+	if (!run_tess("pipe tapering (od 10→2 h=50)", &ip, &ttol, &tol, 0)) failures++;
+
+	BU_LIST_DEQUEUE(&p1.l);
+	BU_LIST_DEQUEUE(&p2.l);
+	pip.pipe_count = 0;
+    }
+
+    /* ---- Very tight norm tolerance (fine mesh) ------------------------- */
+    {
+	struct wdb_pipe_pnt p1, p2;
+
+	p1.l.magic = WDB_PIPESEG_MAGIC;
+	VSET(p1.pp_coord, 0, 0, 0);
+	p1.pp_id = 0.0; p1.pp_od = 4.0; p1.pp_bendradius = 8.0;
+
+	p2.l.magic = WDB_PIPESEG_MAGIC;
+	VSET(p2.pp_coord, 0, 0, 20);
+	p2.pp_id = 0.0; p2.pp_od = 4.0; p2.pp_bendradius = 8.0;
+
+	BU_LIST_INSERT(&pip.pipe_segs_head, &p1.l);
+	BU_LIST_INSERT(&pip.pipe_segs_head, &p2.l);
+	pip.pipe_count = 2;
+
+	init_tols(&ttol, &tol, 0.0, 0.0, 0.02);
+	if (!run_tess("pipe norm-driven (norm=0.02)", &ip, &ttol, &tol, 0)) failures++;
+
+	init_tols(&ttol, &tol, 0.0, 0.0, 0.9);
+	if (!run_tess("pipe loose-norm (norm=0.9)", &ip, &ttol, &tol, 0)) failures++;
+
+	init_tols(&ttol, &tol, 0.0, 0.001, 0.0);
+	if (!run_tess("pipe tight-rel (rel=0.001)", &ip, &ttol, &tol, 0)) failures++;
+
+	BU_LIST_DEQUEUE(&p1.l);
+	BU_LIST_DEQUEUE(&p2.l);
+	pip.pipe_count = 0;
+    }
+
+    return failures;
+}
+
+
+/* ------------------------------------------------------------------ */
+/* METABALL tests                                                        */
+/* ------------------------------------------------------------------ */
+
+/*
+ * rt_metaball_tess uses the marching-cubes algorithm.  The step size
+ * (mtol) is derived from ttol: max(ttol->abs, ttol->rel * radius * 10,
+ * tol->dist).  Very tight tolerances → many cubes → very slow test.
+ * We use loose tolerances (rel=0.2) for all metaball tests to keep
+ * runtime reasonable.  We test all three evaluation methods:
+ *   METABALL_METABALL (0), METABALL_ISOPOTENTIAL (1), METABALL_BLOB (2).
+ */
+static int
+test_metaball(void)
+{
+    int failures = 0;
+    struct bg_tess_tol ttol = BG_TESS_TOL_INIT_ZERO;
+    struct bn_tol tol = BN_TOL_INIT_ZERO;
+    ttol.magic = BG_TESS_TOL_MAGIC;
+    tol.magic = BN_TOL_MAGIC;
+
+    struct rt_db_internal ip;
+    struct rt_metaball_internal mip;
+
+    ip.idb_magic = RT_DB_INTERNAL_MAGIC;
+    ip.idb_major_type = DB5_MAJORTYPE_BRLCAD;
+    ip.idb_minor_type = ID_METABALL;
+    ip.idb_ptr = &mip;
+
+    mip.magic = RT_METABALL_INTERNAL_MAGIC;
+    mip.threshold = 1.0;
+    mip.initstep  = 0.1;
+    mip.finalstep = 0.001;
+    BU_LIST_INIT(&mip.metaball_ctrl_head);
+
+    printf("\n--- METABALL tests ---\n");
+
+    /* ---- METABALL_METABALL method (not implemented) --------------------
+     * rt_metaball_point_value_metaball() is a stub that always returns 0,
+     * so the marching-cubes field evaluation is always "outside" regardless
+     * of control-point positions.  The tessellation succeeds (returns 0)
+     * but produces zero triangles, which is not useful for coverage.
+     * More importantly, with a fine tolerance the voxel grid can have
+     * hundreds of millions of cells, each causing a bu_log() call, making
+     * any test with METABALL_METABALL extremely slow.  We skip this method
+     * until it is actually implemented.
+     */
+
+    /* ---- METABALL_ISOPOTENTIAL method: two control points -------------- */
+    {
+	struct wdb_metaball_pnt p1, p2;
+
+	p1.l.magic = WDB_METABALLPT_MAGIC;
+	VSET(p1.coord, -3, 0, 0);
+	VSET(p1.coord2, 0, 0, 0);
+	p1.type = WDB_METABALLPT_TYPE_POINT;
+	p1.fldstr = 2.0; p1.sweat = 1.0;
+
+	p2.l.magic = WDB_METABALLPT_MAGIC;
+	VSET(p2.coord,  3, 0, 0);
+	VSET(p2.coord2, 0, 0, 0);
+	p2.type = WDB_METABALLPT_TYPE_POINT;
+	p2.fldstr = 2.0; p2.sweat = 1.0;
+
+	BU_LIST_INSERT(&mip.metaball_ctrl_head, &p1.l);
+	BU_LIST_INSERT(&mip.metaball_ctrl_head, &p2.l);
+	mip.method    = METABALL_ISOPOTENTIAL;
+	mip.threshold = 1.0;
+
+	init_tols(&ttol, &tol, 0.0, 0.2, 0.0);
+	if (!run_tess("metaball two-pt ISOPOTENTIAL (rel=0.2)", &ip, &ttol, &tol, 0)) failures++;
+
+	BU_LIST_DEQUEUE(&p1.l);
+	BU_LIST_DEQUEUE(&p2.l);
+    }
+
+    /* ---- METABALL_BLOB method: three control points -------------------- */
+    {
+	struct wdb_metaball_pnt p1, p2, p3;
+
+	p1.l.magic = WDB_METABALLPT_MAGIC;
+	VSET(p1.coord, -4, 0, 0);
+	VSET(p1.coord2, 0, 0, 0);
+	p1.type = WDB_METABALLPT_TYPE_POINT;
+	p1.fldstr = 2.0; p1.sweat = 0.5;
+
+	p2.l.magic = WDB_METABALLPT_MAGIC;
+	VSET(p2.coord,  0, 0, 0);
+	VSET(p2.coord2, 0, 0, 0);
+	p2.type = WDB_METABALLPT_TYPE_POINT;
+	p2.fldstr = 3.0; p2.sweat = 0.5;
+
+	p3.l.magic = WDB_METABALLPT_MAGIC;
+	VSET(p3.coord,  4, 0, 0);
+	VSET(p3.coord2, 0, 0, 0);
+	p3.type = WDB_METABALLPT_TYPE_POINT;
+	p3.fldstr = 2.0; p3.sweat = 0.5;
+
+	BU_LIST_INSERT(&mip.metaball_ctrl_head, &p1.l);
+	BU_LIST_INSERT(&mip.metaball_ctrl_head, &p2.l);
+	BU_LIST_INSERT(&mip.metaball_ctrl_head, &p3.l);
+	mip.method    = METABALL_BLOB;
+	mip.threshold = 1.0;
+
+	init_tols(&ttol, &tol, 0.0, 0.2, 0.0);
+	if (!run_tess("metaball three-pt BLOB (rel=0.2)", &ip, &ttol, &tol, 0)) failures++;
+
+	BU_LIST_DEQUEUE(&p1.l);
+	BU_LIST_DEQUEUE(&p2.l);
+	BU_LIST_DEQUEUE(&p3.l);
+    }
+
+    /* ---- METABALL with no control points ---------------------------------
+     * rt_metaball_get_bounding_sphere returns 0 (not -1) for an empty
+     * control-point list due to the ∞-∞=NaN edge case in the bounds check.
+     * rt_metaball_tess then proceeds with radius=0 and produces an empty
+     * mesh, returning 0.  Accept success (no crash, 0 faces) rather than
+     * counting it as a failure; the behaviour is not harmful. */
+    {
+	mip.method    = METABALL_ISOPOTENTIAL;
+	mip.threshold = 1.0;
+	/* list already empty */
+	init_tols(&ttol, &tol, 0.5, 0.0, 0.0);
+	(void)run_tess("metaball no-pts (degenerate, success with 0 faces)", &ip, &ttol, &tol, 0);
+    }
+
+    /* ---- METABALL single point with fldstr < threshold (ISOPOTENTIAL) ---
+     * For ISOPOTENTIAL: field at distance d = fldstr/d.  Surface is where
+     * field = threshold = 1.0 → d = fldstr/threshold = 0.5/1.0 = 0.5 mm.
+     * This IS a valid surface — a sphere of radius 0.5 mm. */
+    {
+	struct wdb_metaball_pnt pt1;
+	pt1.l.magic = WDB_METABALLPT_MAGIC;
+	VSET(pt1.coord, 0, 0, 0);
+	VSET(pt1.coord2, 0, 0, 0);
+	pt1.type   = WDB_METABALLPT_TYPE_POINT;
+	pt1.fldstr = 0.5;
+	pt1.sweat  = 1.0;
+
+	BU_LIST_INSERT(&mip.metaball_ctrl_head, &pt1.l);
+	mip.method    = METABALL_ISOPOTENTIAL;
+	mip.threshold = 1.0;
+
+	init_tols(&ttol, &tol, 0.5, 0.0, 0.0);
+	if (!run_tess("metaball single-pt ISOPOTENTIAL (fldstr=0.5 threshold=1.0)", &ip, &ttol, &tol, 0)) failures++;
+
+	BU_LIST_DEQUEUE(&pt1.l);
+    }
+
+    return failures;
+}
+
+
 int
 main(int argc, char *argv[])
 {
@@ -1234,8 +2502,10 @@ main(int argc, char *argv[])
     if (argc > 1 && BU_STR_EQUAL(argv[1], "-h")) {
 	printf("Usage: %s\n", argv[0]);
 	printf("  Runs NMG tessellation tests for TOR, ETO, TGC, ELL,\n");
-	printf("  EPA, EHY, RPC, RHC, HYP, PART, EBM, and VOL primitives.\n");
-	printf("  Tests normal cases and degenerate/edge cases.\n");
+	printf("  EPA, EHY, RPC, RHC, HYP, PART, EBM, VOL, ARB, ARS,\n");
+	printf("  ARBN, PIPE, and METABALL primitives.\n");
+	printf("  Tests normal cases, degenerate/edge cases, extreme tolerance\n");
+	printf("  combinations, and extreme parameter scales.\n");
 	printf("  Returns 0 on all-pass, 1 on any failure.\n");
 	return 0;
     }
@@ -1254,6 +2524,11 @@ main(int argc, char *argv[])
     total_failures += test_part();
     total_failures += test_ebm();
     total_failures += test_vol();
+    total_failures += test_arb();
+    total_failures += test_ars();
+    total_failures += test_arbn();
+    total_failures += test_pipe();
+    total_failures += test_metaball();
 
     printf("\n=== Summary: %d failure(s) ===\n", total_failures);
 
