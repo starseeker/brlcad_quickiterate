@@ -1,0 +1,6 @@
+# CMake generated Testfile for 
+# Source directory: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/doc/asciidoc/system/man3
+# Build directory: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/doc/asciidoc/system/man3
+# 
+# This file includes the relevant testing commands required for 
+# testing this directory and lists subdirectories to be tested as well.

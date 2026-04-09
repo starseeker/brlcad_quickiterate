@@ -1,0 +1,15 @@
+source /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/regress/mged/regression_resources.tcl
+
+puts "*** Testing 'erase' command ***"
+
+Z
+in_sph erase 1
+comb erase.c u erase_sph1.s
+e erase.c
+e erase_sph1.s
+erase erase.c
+who
+erase erase_sph1.s
+who
+
+puts "*** 'erase' testing completed ***"

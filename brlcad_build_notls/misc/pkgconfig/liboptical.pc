@@ -1,0 +1,13 @@
+prefix=/usr/brlcad/rel-7.43.0
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+datarootdir=${prefix}/share
+datadir=${datarootdir}
+
+Name: liboptical
+Description: BRL-CAD Optics Library
+Version: 7.43.0
+Requires: librt libnmg libbrep libbv libbg libbn libbu
+Libs: -L${libdir} -loptical -lrt -lnmg -lbrep -lbv -lbg -lbn -lbu -ltcl. -lm
+Cflags: -I${includedir}/brlcad -I${includedir}

@@ -1,0 +1,9 @@
+source /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/regress/mged/regression_resources.tcl
+
+puts "*** Testing 'adc' command ***"
+
+adc
+knob
+adc
+
+puts "*** 'adc' testing completed ***"
