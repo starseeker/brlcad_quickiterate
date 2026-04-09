@@ -56,7 +56,7 @@
 /**
  * Compilation date, updated every time a build pass occurs.
  */
-static const char *BRLCAD_DATE = "Thu, 09 Apr 2026 19:24:57 UTC";
+static const char *BRLCAD_DATE = "Thu, 09 Apr 2026 20:36:11 UTC";
 
 /**
  * Compilation host, updated every time a build pass occurs.

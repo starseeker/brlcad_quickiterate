@@ -4404,6 +4404,7 @@ set(CMAKE_MAKEFILE_DEPENDS
   "/usr/local/share/cmake-3.31/Modules/FindDoxygen.cmake"
   "/usr/local/share/cmake-3.31/Modules/FindJPEG.cmake"
   "/usr/local/share/cmake-3.31/Modules/FindMPI.cmake"
+  "/usr/local/share/cmake-3.31/Modules/FindOpenSSL.cmake"
   "/usr/local/share/cmake-3.31/Modules/FindPackageHandleStandardArgs.cmake"
   "/usr/local/share/cmake-3.31/Modules/FindPackageMessage.cmake"
   "/usr/local/share/cmake-3.31/Modules/FindPkgConfig.cmake"
