@@ -3431,9 +3431,16 @@ nmg_triangulate_fu(struct faceuse *fu, struct bu_list *vlfree, const struct bn_t
     /* Try Constrained Delaunay triangulation via libbg first.
      * On success, fu has been killed and replaced by triangle faceuses that
      * are already glued back into the shell – we are done.
-     * On failure fu is untouched and we fall through to the ear-clip path. */
-    if (nmg_tri_fu_bg(fu, vlfree, tol) == 0)
+     * On failure fu is untouched and we fall through to the ear-clip path.
+     *
+     * Return 2 (not 0) so callers know fu is dead and must not be used.
+     * Specifically, nmg_make_faces_within_tol() holds fu in a ptbl and
+     * would otherwise call nmg_split_loops_into_faces / nmg_calc_face_plane
+     * on the killed faceuse, triggering a bu_bomb.                          */
+    if (nmg_tri_fu_bg(fu, vlfree, tol) == 0) {
+	ret = 2;
 	goto out2;
+    }
 
     /* convert 3D face to face in the X-Y plane */
     tbl2d = nmg_flatten_face(fu, TformMat, tol);
@@ -3797,11 +3804,17 @@ nmg_triangulate_shell(struct shell *s, struct bu_list *vlfree, const struct bn_t
 		/* sanity check */
 		bu_bomb("nmg_triangulate_shell(): Invalid faceuse orientation. (2)\n");
 	    }
-	    if (nmg_triangulate_fu(fu, vlfree, tol)) {
-		/* true when faceuse is empty */
-		if (nmg_kfu(fu)) {
-		    bu_bomb("nmg_triangulate_shell(): Shell contains no faceuse.\n");
+	    {
+		int tri_ret = nmg_triangulate_fu(fu, vlfree, tol);
+		if (tri_ret == 1) {
+		    /* faceuse was empty; kill it externally */
+		    if (nmg_kfu(fu)) {
+			bu_bomb("nmg_triangulate_shell(): Shell contains no faceuse.\n");
+		    }
 		}
+		/* tri_ret == 0: ear-clip succeeded in-place; fu is still alive.
+		 * tri_ret == 2: nmg_tri_fu_bg killed fu and replaced it with
+		 *               triangle faceuses; do not touch fu again.      */
 	    }
 	}
 	fu = fu_next;
