@@ -178,8 +178,15 @@ nmg_tri_fu_bg(struct faceuse *fu, struct bu_list *UNUSED(vlfree),
 	return 1;
 
     /* ---- 2. Projection axes: (u_ax × v_ax) = fu_normal ---- */
+    /* Inline NMG_GET_FU_NORMAL without 'register' keyword (C++17 drops it). */
     vect_t fu_normal;
-    NMG_GET_FU_NORMAL(fu_normal, fu);
+    {
+	const struct face_g_plane *_fg = fu->f_p->g.plane_p;
+	if ((fu->orientation != OT_SAME) != (fu->f_p->flip != 0))
+	    VREVERSE(fu_normal, _fg->N);
+	else
+	    VMOVE(fu_normal, _fg->N);
+    }
     vect_t u_ax, v_ax;
     bn_vec_ortho(u_ax, fu_normal);
     VCROSS(v_ax, fu_normal, u_ax); /* so CCW in 2-D = outward in 3-D */
@@ -280,7 +287,7 @@ nmg_tri_fu_bg(struct faceuse *fu, struct bu_list *UNUSED(vlfree),
 	return 1; /* fu unchanged; use ear-clip fallback */
 
     /* ---- 6. Kill original face, create new triangle faceuses ---- */
-    struct shell *s = nmg_find_s_of_fu(fu);
+    struct shell *s = fu->s_p;
     (void)nmg_kfu(fu); /* fu is now invalid – do not use */
 
     /* Map of NEW triangle OT_SAME edgeuses: (src,dst) → edgeuse.
