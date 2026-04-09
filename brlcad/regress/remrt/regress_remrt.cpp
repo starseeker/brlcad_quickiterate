@@ -27,8 +27,8 @@
  *     Starts remrt in -M mode feeding the exact m35 benchmark view script
  *     with three local rtsrv workers that each supply the session token via
  *     "-S <token>".  The assembled 512×512 .pix output is compared against
- *     bench/ref/m35.pix using pixcmp to verify pixel-exact correctness
- *     against the 1991 BRL-CAD benchmark reference image.
+ *     bench/ref/m35.pix using a pixel-exact comparison to verify assembly
+ *     correctness against the 1991 BRL-CAD benchmark reference image.
  *
  *   Sub-test 2 — token-less workers (backward-compatibility render):
  *     Starts remrt without -M (uses default az/el) for a quick 64×64 render
@@ -388,6 +388,7 @@ struct TestOptions {
  *   out_pix     – path to write the output .pix file
  *   use_token   – if true: each rtsrv worker gets -S <token>
  *   label       – short label printed in diagnostic messages
+ *   remrt_log   – if non-NULL, receives the complete remrt stderr log
  *
  * Returns 0 on success, non-zero on failure.
  */
@@ -397,7 +398,8 @@ run_subtest(const TestOptions &opts,
 	    int image_size,
 	    const std::string &out_pix,
 	    bool use_token,
-	    const char *label)
+	    const char *label,
+	    std::string *remrt_log = NULL)
 {
     fprintf(stderr, "\n=== remrt regression: %s ===\n", label);
 
@@ -619,45 +621,102 @@ run_subtest(const TestOptions &opts,
     fprintf(stderr, "regress_remrt [%s]: output file OK (%ld bytes)\n",
 	    label, expected_size);
 
+    /* Pass the accumulated remrt stderr log back to the caller so it can
+     * be printed when a pixel comparison fails. */
+    if (remrt_log)
+	*remrt_log = remrt_stderr_log;
+
     return 0;
 }
 
 
 /*
- * Run pixcmp to compare two .pix files.  Returns 0 if they are identical,
- * non-zero if they differ or if pixcmp cannot be found.
+ * Compare two raw .pix (RGB) files byte by byte.  Returns:
+ *   0   – files are pixel-exact (identical)
+ *   >0  – one or more bytes differ
+ *
+ * A detailed summary is printed to stderr so the caller can see how many
+ * pixels are affected and by how much.
  */
 static int
-run_pixcmp(const std::string &pixcmp_exe,
-	   const std::string &file_a,
-	   const std::string &file_b)
+compare_pix_tolerant(const std::string &file_a,
+		     const std::string &file_b)
 {
-    const char *argv[] = {
-	pixcmp_exe.c_str(),
-	file_a.c_str(),
-	file_b.c_str(),
-	NULL
-    };
-
-    struct bu_process *proc = NULL;
-    bu_process_create(&proc, argv, BU_PROCESS_DEFAULT);
-    if (!proc) {
-	fprintf(stderr, "regress_remrt: failed to start pixcmp\n");
+    FILE *fa = fopen(file_a.c_str(), "rb");
+    FILE *fb = fopen(file_b.c_str(), "rb");
+    if (!fa || !fb) {
+	if (fa) fclose(fa);
+	if (fb) fclose(fb);
+	fprintf(stderr, "regress_remrt: cannot open files for comparison\n");
 	return 1;
     }
 
-    /* Drain pixcmp output so the pipe doesn't fill.
-     * Use raw fds to avoid double-close in bu_process_wait_n(). */
-    drain_stdout(proc);
-    {
-	int fd_err = bu_process_fileno(proc, BU_PROCESS_STDERR);
-	if (fd_err >= 0) {
-	    char buf[4096];
-	    while (read(fd_err, buf, sizeof(buf)) > 0) {}
+    long bad_pixels  = 0;   /* pixels where any channel differs by >1 */
+    long warn_pixels = 0;   /* pixels where any channel differs by 1 */
+    long pixel_no    = 0;
+    int width        = 512; /* assumed from context */
+
+    struct diff_detail { long pix; int ra,ga,ba,rb,gb,bb; };
+    std::vector<diff_detail> diffs;
+
+    int ra, ga, ba, rb, gb, bb;
+    while (true) {
+	ra = fgetc(fa); ga = fgetc(fa); ba = fgetc(fa);
+	rb = fgetc(fb); gb = fgetc(fb); bb = fgetc(fb);
+	if (ra == EOF || rb == EOF)
+	    break;
+	++pixel_no;
+
+	int dr = abs(ra - rb);
+	int dg = abs(ga - gb);
+	int db = abs(ba - bb);
+	int maxd = dr > dg ? dr : dg;
+	maxd = maxd > db ? maxd : db;
+
+	if (maxd > 1)
+	    ++bad_pixels;
+	else if (maxd == 1) {
+	    ++warn_pixels;
+	    if ((int)diffs.size() < 30)
+		diffs.push_back({pixel_no-1, ra,ga,ba,rb,gb,bb});
 	}
     }
 
-    return bu_process_wait_n(&proc, 60000000 /* us */);
+    fclose(fa);
+    fclose(fb);
+
+    if (bad_pixels > 0) {
+	fprintf(stderr,
+		"  %ld pixel(s) differ by >1 channel value (assembly error)\n",
+		bad_pixels);
+    }
+    if (warn_pixels > 0) {
+	fprintf(stderr,
+		"  %ld pixel(s) differ by exactly 1 channel value"
+		" (floating-point rounding difference)\n",
+		warn_pixels);
+	fprintf(stderr, "  First differing pixels (pix_no x y  a_rgb  b_rgb  delta):\n");
+	for (auto &d : diffs) {
+	    int x = (int)(d.pix % width);
+	    int y = (int)(d.pix / width);
+	    fprintf(stderr, "    pix=%ld (%d,%d)  a=(%d,%d,%d) b=(%d,%d,%d)  d=(%d,%d,%d)\n",
+		    d.pix, x, y,
+		    d.ra, d.ga, d.ba,
+		    d.rb, d.gb, d.bb,
+		    d.ra-d.rb, d.ga-d.gb, d.ba-d.bb);
+	}
+    }
+    if (bad_pixels == 0 && warn_pixels == 0) {
+	fprintf(stderr, "  pixel-exact match\n");
+    }
+
+    /* Any pixel difference is a failure — the fix to ph_matrix() (calling
+     * grid_setup + view_2init with the correct view parameters after MSG_MATRIX
+     * arrives) eliminates the ±1 blue-channel rounding difference that was
+     * previously observed for ~19 shadow-edge pixels.  The reference image was
+     * generated by standalone rt with identical flags so pixel-exact parity is
+     * achievable. */
+    return (bad_pixels > 0 || warn_pixels > 0) ? 1 : 0;
 }
 
 
@@ -691,7 +750,7 @@ main(int argc, char *argv[])
     }
 
     if (opts.remrt_exe.empty() || opts.rtsrv_exe.empty() ||
-	opts.pixcmp_exe.empty() || opts.m35g_path.empty() ||
+	opts.m35g_path.empty() ||
 	opts.refpix_path.empty()) {
 	usage(argv[0]);
 	return 1;
@@ -706,11 +765,6 @@ main(int argc, char *argv[])
     if (!bu_file_exists(opts.rtsrv_exe.c_str(), NULL)) {
 	fprintf(stderr, "regress_remrt: rtsrv not found: %s\n",
 		opts.rtsrv_exe.c_str());
-	return 1;
-    }
-    if (!bu_file_exists(opts.pixcmp_exe.c_str(), NULL)) {
-	fprintf(stderr, "regress_remrt: pixcmp not found: %s\n",
-		opts.pixcmp_exe.c_str());
 	return 1;
     }
     if (!bu_file_exists(opts.m35g_path.c_str(), NULL)) {
@@ -748,26 +802,38 @@ main(int argc, char *argv[])
     /* Sub-test 1: 512×512 render with 3 token-authenticated workers.      */
     /* Uses the exact m35 benchmark view to allow pixcmp against reference. */
     /* ------------------------------------------------------------------ */
+    std::string subtest1_log;
     int rc = run_subtest(opts,
 			 /* use_script */ true,
 			 /* image_size */ 512,
 			 out_token,
 			 /* use_token  */ true,
-			 "token-auth 512x512");
+			 "token-auth 512x512",
+			 &subtest1_log);
     if (rc != 0) {
 	fprintf(stderr, "FAIL: sub-test 1 (token-auth render)\n");
 	failures++;
     } else {
-	/* Pixel-exact comparison against bench/ref/m35.pix. */
+	/* Pixel comparison against bench/ref/m35.pix.
+	 * Any difference indicates a ray-tracing correctness regression.
+	 * The reference image was generated by standalone rt with identical
+	 * flags so pixel-exact parity is required. */
 	std::string actual_token = out_token + ".0";
 	fprintf(stderr, "Comparing %s with %s ...\n",
 		actual_token.c_str(), opts.refpix_path.c_str());
-	int cmp = run_pixcmp(opts.pixcmp_exe, actual_token, opts.refpix_path);
+	int cmp = compare_pix_tolerant(actual_token, opts.refpix_path);
 	if (cmp != 0) {
 	    fprintf(stderr,
 		    "FAIL: sub-test 1 pixel comparison: output differs from %s\n"
 		    "  This may indicate a ray-tracing correctness regression.\n",
 		    opts.refpix_path.c_str());
+	    /* Print remrt/rtsrv diagnostic output collected during the test.
+	     * This includes RT_SETUP_DEBUG grid vectors and light positions
+	     * forwarded by rtsrv via bu_log(), which are invaluable for
+	     * comparing the initialization sequence against standalone rt. */
+	    if (!subtest1_log.empty())
+		fprintf(stderr, "remrt/rtsrv stderr log:\n%s\n",
+			subtest1_log.c_str());
 	    failures++;
 	} else {
 	    fprintf(stderr, "PASS: sub-test 1 (token-auth render matches reference)\n");
