@@ -340,8 +340,16 @@ write_remrtrc(const char *db_dir)
     /* Syntax: host <name> <when> <where> <path>
      * passive  — remrt never auto-launches; waits for workers to connect.
      * cd       — remrt sends MSG_CD <db_dir> before MSG_DIRBUILD so rtsrv
-     *            can open the geometry regardless of its own cwd.          */
+     *            can open the geometry regardless of its own cwd.
+     *
+     * Register both "localhost" and "127.0.0.1".  On some CI / container
+     * environments getnameinfo(127.0.0.1) returns the machine FQDN or the
+     * numeric string rather than "localhost"; registering both names ensures
+     * the correct HT_CD entry is found regardless of resolver behaviour.
+     * The ihost.c loopback fallback provides the same protection from the
+     * remrt side.                                                          */
     fprintf(fp, "host localhost passive cd %s\n", db_dir);
+    fprintf(fp, "host 127.0.0.1 passive cd %s\n", db_dir);
     fclose(fp);
     return 0;
 }

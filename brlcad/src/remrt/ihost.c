@@ -130,6 +130,13 @@ get_our_hostname(void)
  * resolution fails.
  *
  * Replaces the old gethostbyaddr()-based approach.
+ *
+ * Loopback special-case: on many CI / container hosts getnameinfo() on
+ * 127.0.0.1 returns the machine's FQDN or "127.0.0.1" rather than
+ * "localhost".  If the peer is in 127.0.0.0/8 and the resolved name is
+ * not already in HostHead, we also check for a registered "localhost"
+ * entry so that the HT_CD path configured in .remrtrc is honoured
+ * regardless of the local resolver behaviour.
  */
 struct ihost *
 host_lookup_by_addr(const struct sockaddr_in *from, int enter)
@@ -137,6 +144,13 @@ host_lookup_by_addr(const struct sockaddr_in *from, int enter)
     struct ihost *ihp;
     char name[NI_MAXHOST];
     int ret;
+    int is_loopback = 0;
+
+    /* Detect 127.0.0.0/8 loopback addresses */
+    if (from->sin_family == AF_INET) {
+	unsigned long a = ntohl(from->sin_addr.s_addr);
+	is_loopback = ((a >> 24) == 127);
+    }
 
     /* Try to get a human-readable hostname */
     ret = getnameinfo((const struct sockaddr *)from,
@@ -150,6 +164,15 @@ host_lookup_by_addr(const struct sockaddr_in *from, int enter)
 	    CK_IHOST(ihp);
 	    if (BU_STR_EQUAL(ihp->ht_name, name))
 		return ihp;
+	}
+	/* For loopback peers, also accept a registered "localhost" entry
+	 * when the resolver returned a different (but equivalent) name. */
+	if (is_loopback) {
+	    for (BU_LIST_FOR(ihp, ihost, &HostHead)) {
+		CK_IHOST(ihp);
+		if (BU_STR_EQUAL(ihp->ht_name, "localhost"))
+		    return ihp;
+	    }
 	}
 	if (enter)
 	    return make_default_host(name);
@@ -181,6 +204,16 @@ host_lookup_by_addr(const struct sockaddr_in *from, int enter)
 	CK_IHOST(ihp);
 	if (BU_STR_EQUAL(ihp->ht_name, name))
 	    return ihp;
+    }
+
+    /* For loopback numeric addresses (127.x.x.x), also accept a
+     * registered "localhost" entry — same reasoning as above.     */
+    if (is_loopback) {
+	for (BU_LIST_FOR(ihp, ihost, &HostHead)) {
+	    CK_IHOST(ihp);
+	    if (BU_STR_EQUAL(ihp->ht_name, "localhost"))
+		return ihp;
+	}
     }
 
     return make_default_host(name);
