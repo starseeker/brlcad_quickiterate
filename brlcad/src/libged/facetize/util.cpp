@@ -347,10 +347,12 @@ bot_fixup(struct _ged_facetize_state *s, struct db_i *wdbip, struct directory *b
 
     // Have faces, test with raytracer
     struct rt_i *rtip = rt_new_rti(wdbip);
-    rt_gettree(rtip, bname);
+    int gt_ret = rt_gettree(rtip, bname);
+    bu_log("DEBUG bot_fixup: rt_gettree(%s) = %d, num_solids=%zu\n", bname, gt_ret, rtip->nsolids);
     rt_prep(rtip);
     struct bu_ptbl tfaces = BU_PTBL_INIT_ZERO;
     int have_thin_faces = rt_bot_thin_check(&tfaces, bot, rtip, VUNITIZE_TOL, 0);
+    bu_log("DEBUG bot_fixup: have_thin_faces=%d tfaces_len=%zu\n", have_thin_faces, BU_PTBL_LEN(&tfaces));
     rt_free_rti(rtip);
 
     // No problematic faces reported, nothing to do
