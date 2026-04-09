@@ -1,4 +1,4 @@
-/usr/local/bin/cmake "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad"  -DBRLCAD_ENABLE_GDAL=OFF -DBRLCAD_ENABLE_QT=OFF -DBRLCAD_ENABLE_STEP=OFF -DBRLCAD_EXTRADOCS=OFF -DCMAKE_DISABLE_FIND_PACKAGE_OpenSSL=ON
+/usr/local/bin/cmake "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad"  -DBRLCAD_ENABLE_GDAL=OFF -DBRLCAD_ENABLE_QT=OFF -DBRLCAD_ENABLE_STEP=OFF -DBRLCAD_EXTRADOCS=OFF
 **********************************************************
 *** Configuring BRL-CAD Release 7.43.0, Build 20260409 ***
 **********************************************************
@@ -189,14 +189,14 @@ STATUS: Performing Test STL_LIB_TEST - Success
 Performing C SOURCE FILE Test STL_LIB_TEST succeeded with the following output:
 Change Dir: '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp'
 
-Run Build Command(s): /usr/local/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_a55b8/fast
-/usr/bin/gmake  -f CMakeFiles/cmTC_a55b8.dir/build.make CMakeFiles/cmTC_a55b8.dir/build
+Run Build Command(s): /usr/local/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_2fb5c/fast
+/usr/bin/gmake  -f CMakeFiles/cmTC_2fb5c.dir/build.make CMakeFiles/cmTC_2fb5c.dir/build
 gmake[1]: Entering directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp'
-Building C object CMakeFiles/cmTC_a55b8.dir/src.c.o
-/usr/bin/cc   -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -DSTL_LIB_TEST -std=c11 -fPIE -o CMakeFiles/cmTC_a55b8.dir/src.c.o -c /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp/src.c
-Linking C executable cmTC_a55b8
-/usr/local/bin/cmake -E cmake_link_script CMakeFiles/cmTC_a55b8.dir/link.txt --verbose=1
-/usr/bin/cc -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -DSTL_LIB_TEST  -m64 -g -ggdb3  CMakeFiles/cmTC_a55b8.dir/src.c.o -o cmTC_a55b8
+Building C object CMakeFiles/cmTC_2fb5c.dir/src.c.o
+/usr/bin/cc   -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -DSTL_LIB_TEST -std=c11 -fPIE -o CMakeFiles/cmTC_2fb5c.dir/src.c.o -c /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp/src.c
+Linking C executable cmTC_2fb5c
+/usr/local/bin/cmake -E cmake_link_script CMakeFiles/cmTC_2fb5c.dir/link.txt --verbose=1
+/usr/bin/cc -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -DSTL_LIB_TEST  -m64 -g -ggdb3  CMakeFiles/cmTC_2fb5c.dir/src.c.o -o cmTC_2fb5c
 gmake[1]: Leaving directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp'
 
 
@@ -246,14 +246,14 @@ STATUS: Performing Test WORKING_SYS_WAIT - Success
 Performing C SOURCE FILE Test WORKING_SYS_WAIT succeeded with the following output:
 Change Dir: '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp'
 
-Run Build Command(s): /usr/local/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_d1233/fast
-/usr/bin/gmake  -f CMakeFiles/cmTC_d1233.dir/build.make CMakeFiles/cmTC_d1233.dir/build
+Run Build Command(s): /usr/local/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_05a66/fast
+/usr/bin/gmake  -f CMakeFiles/cmTC_05a66.dir/build.make CMakeFiles/cmTC_05a66.dir/build
 gmake[1]: Entering directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp'
-Building C object CMakeFiles/cmTC_d1233.dir/src.c.o
-/usr/bin/cc   -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -DWORKING_SYS_WAIT  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -std=c11 -fPIE -o CMakeFiles/cmTC_d1233.dir/src.c.o -c /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp/src.c
-Linking C executable cmTC_d1233
-/usr/local/bin/cmake -E cmake_link_script CMakeFiles/cmTC_d1233.dir/link.txt --verbose=1
-/usr/bin/cc -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -DWORKING_SYS_WAIT  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700  -m64 -g -ggdb3  CMakeFiles/cmTC_d1233.dir/src.c.o -o cmTC_d1233
+Building C object CMakeFiles/cmTC_05a66.dir/src.c.o
+/usr/bin/cc   -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -DWORKING_SYS_WAIT  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -std=c11 -fPIE -o CMakeFiles/cmTC_05a66.dir/src.c.o -c /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp/src.c
+Linking C executable cmTC_05a66
+/usr/local/bin/cmake -E cmake_link_script CMakeFiles/cmTC_05a66.dir/link.txt --verbose=1
+/usr/bin/cc -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -DWORKING_SYS_WAIT  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700  -m64 -g -ggdb3  CMakeFiles/cmTC_05a66.dir/src.c.o -o cmTC_05a66
 gmake[1]: Leaving directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp'
 
 
@@ -421,14 +421,14 @@ STATUS: Performing Test HAVE_BASENAME - Success
 Performing C SOURCE FILE Test HAVE_BASENAME succeeded with the following output:
 Change Dir: '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp'
 
-Run Build Command(s): /usr/local/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_c9f86/fast
-/usr/bin/gmake  -f CMakeFiles/cmTC_c9f86.dir/build.make CMakeFiles/cmTC_c9f86.dir/build
+Run Build Command(s): /usr/local/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_73c20/fast
+/usr/bin/gmake  -f CMakeFiles/cmTC_73c20.dir/build.make CMakeFiles/cmTC_73c20.dir/build
 gmake[1]: Entering directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp'
-Building C object CMakeFiles/cmTC_c9f86.dir/src.c.o
-/usr/bin/cc   -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -DHAVE_BASENAME  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -std=c11 -fPIE -o CMakeFiles/cmTC_c9f86.dir/src.c.o -c /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp/src.c
-Linking C executable cmTC_c9f86
-/usr/local/bin/cmake -E cmake_link_script CMakeFiles/cmTC_c9f86.dir/link.txt --verbose=1
-/usr/bin/cc -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -DHAVE_BASENAME  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700  -m64 -g -ggdb3  CMakeFiles/cmTC_c9f86.dir/src.c.o -o cmTC_c9f86
+Building C object CMakeFiles/cmTC_73c20.dir/src.c.o
+/usr/bin/cc   -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -DHAVE_BASENAME  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -std=c11 -fPIE -o CMakeFiles/cmTC_73c20.dir/src.c.o -c /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp/src.c
+Linking C executable cmTC_73c20
+/usr/local/bin/cmake -E cmake_link_script CMakeFiles/cmTC_73c20.dir/link.txt --verbose=1
+/usr/bin/cc -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -DHAVE_BASENAME  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700  -m64 -g -ggdb3  CMakeFiles/cmTC_73c20.dir/src.c.o -o cmTC_73c20
 gmake[1]: Leaving directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp'
 
 
@@ -446,14 +446,14 @@ STATUS: Performing Test HAVE_DIRNAME - Success
 Performing C SOURCE FILE Test HAVE_DIRNAME succeeded with the following output:
 Change Dir: '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp'
 
-Run Build Command(s): /usr/local/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_33b8d/fast
-/usr/bin/gmake  -f CMakeFiles/cmTC_33b8d.dir/build.make CMakeFiles/cmTC_33b8d.dir/build
+Run Build Command(s): /usr/local/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_5c6e6/fast
+/usr/bin/gmake  -f CMakeFiles/cmTC_5c6e6.dir/build.make CMakeFiles/cmTC_5c6e6.dir/build
 gmake[1]: Entering directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp'
-Building C object CMakeFiles/cmTC_33b8d.dir/src.c.o
-/usr/bin/cc   -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -DHAVE_DIRNAME  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -std=c11 -fPIE -o CMakeFiles/cmTC_33b8d.dir/src.c.o -c /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp/src.c
-Linking C executable cmTC_33b8d
-/usr/local/bin/cmake -E cmake_link_script CMakeFiles/cmTC_33b8d.dir/link.txt --verbose=1
-/usr/bin/cc -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -DHAVE_DIRNAME  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700  -m64 -g -ggdb3  CMakeFiles/cmTC_33b8d.dir/src.c.o -o cmTC_33b8d
+Building C object CMakeFiles/cmTC_5c6e6.dir/src.c.o
+/usr/bin/cc   -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -DHAVE_DIRNAME  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -std=c11 -fPIE -o CMakeFiles/cmTC_5c6e6.dir/src.c.o -c /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp/src.c
+Linking C executable cmTC_5c6e6
+/usr/local/bin/cmake -E cmake_link_script CMakeFiles/cmTC_5c6e6.dir/link.txt --verbose=1
+/usr/bin/cc -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -DHAVE_DIRNAME  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700  -m64 -g -ggdb3  CMakeFiles/cmTC_5c6e6.dir/src.c.o -o cmTC_5c6e6
 gmake[1]: Leaving directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp'
 
 
@@ -522,14 +522,14 @@ STATUS: Performing Test HAVE_PERCENT_Z - Success
 Performing C SOURCE FILE Test HAVE_PERCENT_Z succeeded with the following output:
 Change Dir: '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp'
 
-Run Build Command(s): /usr/local/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_b19cb/fast
-/usr/bin/gmake  -f CMakeFiles/cmTC_b19cb.dir/build.make CMakeFiles/cmTC_b19cb.dir/build
+Run Build Command(s): /usr/local/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_8374b/fast
+/usr/bin/gmake  -f CMakeFiles/cmTC_8374b.dir/build.make CMakeFiles/cmTC_8374b.dir/build
 gmake[1]: Entering directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp'
-Building C object CMakeFiles/cmTC_b19cb.dir/src.c.o
-/usr/bin/cc -DHAVE_STDINT_H=1  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -DHAVE_PERCENT_Z  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -std=c11 -fPIE -o CMakeFiles/cmTC_b19cb.dir/src.c.o -c /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp/src.c
-Linking C executable cmTC_b19cb
-/usr/local/bin/cmake -E cmake_link_script CMakeFiles/cmTC_b19cb.dir/link.txt --verbose=1
-/usr/bin/cc -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -DHAVE_PERCENT_Z  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700  -m64 -g -ggdb3  CMakeFiles/cmTC_b19cb.dir/src.c.o -o cmTC_b19cb
+Building C object CMakeFiles/cmTC_8374b.dir/src.c.o
+/usr/bin/cc -DHAVE_STDINT_H=1  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -DHAVE_PERCENT_Z  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -std=c11 -fPIE -o CMakeFiles/cmTC_8374b.dir/src.c.o -c /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp/src.c
+Linking C executable cmTC_8374b
+/usr/local/bin/cmake -E cmake_link_script CMakeFiles/cmTC_8374b.dir/link.txt --verbose=1
+/usr/bin/cc -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -DHAVE_PERCENT_Z  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700  -m64 -g -ggdb3  CMakeFiles/cmTC_8374b.dir/src.c.o -o cmTC_8374b
 gmake[1]: Leaving directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp'
 
 
@@ -553,14 +553,14 @@ STATUS: Performing Test HAVE_STATIC_ARRAYS - Success
 Performing C SOURCE FILE Test HAVE_STATIC_ARRAYS succeeded with the following output:
 Change Dir: '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp'
 
-Run Build Command(s): /usr/local/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_914c9/fast
-/usr/bin/gmake  -f CMakeFiles/cmTC_914c9.dir/build.make CMakeFiles/cmTC_914c9.dir/build
+Run Build Command(s): /usr/local/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_28061/fast
+/usr/bin/gmake  -f CMakeFiles/cmTC_28061.dir/build.make CMakeFiles/cmTC_28061.dir/build
 gmake[1]: Entering directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp'
-Building C object CMakeFiles/cmTC_914c9.dir/src.c.o
-/usr/bin/cc   -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -DHAVE_STATIC_ARRAYS  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -std=c11 -fPIE -o CMakeFiles/cmTC_914c9.dir/src.c.o -c /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp/src.c
-Linking C executable cmTC_914c9
-/usr/local/bin/cmake -E cmake_link_script CMakeFiles/cmTC_914c9.dir/link.txt --verbose=1
-/usr/bin/cc -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -DHAVE_STATIC_ARRAYS  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700  -m64 -g -ggdb3  CMakeFiles/cmTC_914c9.dir/src.c.o -o cmTC_914c9
+Building C object CMakeFiles/cmTC_28061.dir/src.c.o
+/usr/bin/cc   -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -DHAVE_STATIC_ARRAYS  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -std=c11 -fPIE -o CMakeFiles/cmTC_28061.dir/src.c.o -c /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp/src.c
+Linking C executable cmTC_28061
+/usr/local/bin/cmake -E cmake_link_script CMakeFiles/cmTC_28061.dir/link.txt --verbose=1
+/usr/bin/cc -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -DHAVE_STATIC_ARRAYS  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700  -m64 -g -ggdb3  CMakeFiles/cmTC_28061.dir/src.c.o -o cmTC_28061
 gmake[1]: Leaving directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp'
 
 
@@ -880,14 +880,14 @@ STATUS: Performing Test WORKING_ALLOCA - Success
 Performing C SOURCE FILE Test WORKING_ALLOCA succeeded with the following output:
 Change Dir: '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp'
 
-Run Build Command(s): /usr/local/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_1d7c7/fast
-/usr/bin/gmake  -f CMakeFiles/cmTC_1d7c7.dir/build.make CMakeFiles/cmTC_1d7c7.dir/build
+Run Build Command(s): /usr/local/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_13d66/fast
+/usr/bin/gmake  -f CMakeFiles/cmTC_13d66.dir/build.make CMakeFiles/cmTC_13d66.dir/build
 gmake[1]: Entering directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp'
-Building C object CMakeFiles/cmTC_1d7c7.dir/src.c.o
-/usr/bin/cc   -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -DWORKING_ALLOCA  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -std=c11 -fPIE -o CMakeFiles/cmTC_1d7c7.dir/src.c.o -c /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp/src.c
-Linking C executable cmTC_1d7c7
-/usr/local/bin/cmake -E cmake_link_script CMakeFiles/cmTC_1d7c7.dir/link.txt --verbose=1
-/usr/bin/cc -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -DWORKING_ALLOCA  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700  -m64 -g -ggdb3  CMakeFiles/cmTC_1d7c7.dir/src.c.o -o cmTC_1d7c7
+Building C object CMakeFiles/cmTC_13d66.dir/src.c.o
+/usr/bin/cc   -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -DWORKING_ALLOCA  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -std=c11 -fPIE -o CMakeFiles/cmTC_13d66.dir/src.c.o -c /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp/src.c
+Linking C executable cmTC_13d66
+/usr/local/bin/cmake -E cmake_link_script CMakeFiles/cmTC_13d66.dir/link.txt --verbose=1
+/usr/bin/cc -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -DWORKING_ALLOCA  -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700  -m64 -g -ggdb3  CMakeFiles/cmTC_13d66.dir/src.c.o -o cmTC_13d66
 gmake[1]: Leaving directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp'
 
 
@@ -950,14 +950,14 @@ STATUS: Performing Test HAVE_WORKING_REALPATH - Success
 Performing C SOURCE FILE Test HAVE_WORKING_REALPATH succeeded with the following output:
 Change Dir: '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp'
 
-Run Build Command(s): /usr/local/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_db61a/fast
-/usr/bin/gmake  -f CMakeFiles/cmTC_db61a.dir/build.make CMakeFiles/cmTC_db61a.dir/build
+Run Build Command(s): /usr/local/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_cdf43/fast
+/usr/bin/gmake  -f CMakeFiles/cmTC_cdf43.dir/build.make CMakeFiles/cmTC_cdf43.dir/build
 gmake[1]: Entering directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp'
-Building C object CMakeFiles/cmTC_db61a.dir/src.c.o
-/usr/bin/cc   -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -DHAVE_WORKING_REALPATH -std=c11 -fPIE -o CMakeFiles/cmTC_db61a.dir/src.c.o -c /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp/src.c
-Linking C executable cmTC_db61a
-/usr/local/bin/cmake -E cmake_link_script CMakeFiles/cmTC_db61a.dir/link.txt --verbose=1
-/usr/bin/cc -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -DHAVE_WORKING_REALPATH  -m64 -g -ggdb3  CMakeFiles/cmTC_db61a.dir/src.c.o -o cmTC_db61a
+Building C object CMakeFiles/cmTC_cdf43.dir/src.c.o
+/usr/bin/cc   -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -DHAVE_WORKING_REALPATH -std=c11 -fPIE -o CMakeFiles/cmTC_cdf43.dir/src.c.o -c /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp/src.c
+Linking C executable cmTC_cdf43
+/usr/local/bin/cmake -E cmake_link_script CMakeFiles/cmTC_cdf43.dir/link.txt --verbose=1
+/usr/bin/cc -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -DHAVE_WORKING_REALPATH  -m64 -g -ggdb3  CMakeFiles/cmTC_cdf43.dir/src.c.o -o cmTC_cdf43
 gmake[1]: Leaving directory '/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/CMakeFiles/CMakeTmp'
 
 
