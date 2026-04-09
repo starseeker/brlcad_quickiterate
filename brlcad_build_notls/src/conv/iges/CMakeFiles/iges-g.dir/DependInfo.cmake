@@ -1,0 +1,32 @@
+
+# Consider dependencies only in project.
+set(CMAKE_DEPENDS_IN_PROJECT_ONLY OFF)
+
+# The set of languages for which implicit dependencies are needed:
+set(CMAKE_DEPENDS_LANGUAGES
+  )
+
+# The set of dependency files which are needed:
+set(CMAKE_DEPENDS_DEPENDENCY_FILES
+  "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/src/conv/iges/CMakeFiles/iges-g.dir/Unity/unity_0_c.c" "src/conv/iges/CMakeFiles/iges-g.dir/Unity/unity_0_c.c.o" "gcc" "src/conv/iges/CMakeFiles/iges-g.dir/Unity/unity_0_c.c.o.d"
+  "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/src/conv/iges/CMakeFiles/iges-g.dir/Unity/unity_1_c.c" "src/conv/iges/CMakeFiles/iges-g.dir/Unity/unity_1_c.c.o" "gcc" "src/conv/iges/CMakeFiles/iges-g.dir/Unity/unity_1_c.c.o.d"
+  "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/src/conv/iges/CMakeFiles/iges-g.dir/Unity/unity_2_c.c" "src/conv/iges/CMakeFiles/iges-g.dir/Unity/unity_2_c.c.o" "gcc" "src/conv/iges/CMakeFiles/iges-g.dir/Unity/unity_2_c.c.o.d"
+  "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/src/conv/iges/CMakeFiles/iges-g.dir/Unity/unity_3_c.c" "src/conv/iges/CMakeFiles/iges-g.dir/Unity/unity_3_c.c.o" "gcc" "src/conv/iges/CMakeFiles/iges-g.dir/Unity/unity_3_c.c.o.d"
+  "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/src/conv/iges/CMakeFiles/iges-g.dir/Unity/unity_4_c.c" "src/conv/iges/CMakeFiles/iges-g.dir/Unity/unity_4_c.c.o" "gcc" "src/conv/iges/CMakeFiles/iges-g.dir/Unity/unity_4_c.c.o.d"
+  "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/src/conv/iges/CMakeFiles/iges-g.dir/Unity/unity_5_c.c" "src/conv/iges/CMakeFiles/iges-g.dir/Unity/unity_5_c.c.o" "gcc" "src/conv/iges/CMakeFiles/iges-g.dir/Unity/unity_5_c.c.o.d"
+  "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/src/conv/iges/CMakeFiles/iges-g.dir/Unity/unity_6_c.c" "src/conv/iges/CMakeFiles/iges-g.dir/Unity/unity_6_c.c.o" "gcc" "src/conv/iges/CMakeFiles/iges-g.dir/Unity/unity_6_c.c.o.d"
+  "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/src/conv/iges/CMakeFiles/iges-g.dir/Unity/unity_7_c.c" "src/conv/iges/CMakeFiles/iges-g.dir/Unity/unity_7_c.c.o" "gcc" "src/conv/iges/CMakeFiles/iges-g.dir/Unity/unity_7_c.c.o.d"
+  "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/src/conv/iges/CMakeFiles/iges-g.dir/Unity/unity_8_c.c" "src/conv/iges/CMakeFiles/iges-g.dir/Unity/unity_8_c.c.o" "gcc" "src/conv/iges/CMakeFiles/iges-g.dir/Unity/unity_8_c.c.o.d"
+  "" "bin/iges-g" "gcc" "src/conv/iges/CMakeFiles/iges-g.dir/link.d"
+  )
+
+# Targets to which this target links which contain Fortran sources.
+set(CMAKE_Fortran_TARGET_LINKED_INFO_FILES
+  )
+
+# Targets to which this target links which contain Fortran sources.
+set(CMAKE_Fortran_TARGET_FORWARD_LINKED_INFO_FILES
+  )
+
+# Fortran module output directory.
+set(CMAKE_Fortran_TARGET_MODULE_DIR "")

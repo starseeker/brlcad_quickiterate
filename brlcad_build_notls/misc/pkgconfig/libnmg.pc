@@ -1,0 +1,13 @@
+prefix=/usr/brlcad/rel-7.43.0
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+datarootdir=${prefix}/share
+datadir=${datarootdir}
+
+Name: libnmg
+Description: BRL-CAD N-Manifold Geometry Library
+Version: 7.43.0
+Requires: libbv libbg libbn libbu
+Libs: -L${libdir} -lbv -lbg -lbn -lbu -lm
+Cflags: -I${includedir}/brlcad -I${includedir}

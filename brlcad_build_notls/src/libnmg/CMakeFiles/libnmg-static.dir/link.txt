@@ -1,0 +1,2 @@
+/usr/bin/ar qc ../../lib/libnmg.a "CMakeFiles/libnmg-obj.dir/Unity/unity_5_c.c.o" "CMakeFiles/libnmg-obj.dir/Unity/unity_4_c.c.o" "CMakeFiles/libnmg-obj.dir/Unity/unity_3_c.c.o" "CMakeFiles/libnmg-obj.dir/Unity/unity_2_c.c.o" "CMakeFiles/libnmg-obj.dir/Unity/unity_1_c.c.o" "CMakeFiles/libnmg-obj.dir/Unity/unity_0_c.c.o"
+/usr/bin/ranlib ../../lib/libnmg.a

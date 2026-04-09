@@ -1,0 +1,7 @@
+source /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/regress/mged/regression_resources.tcl
+
+puts "*** Testing 'refresh' command ***"
+
+refresh
+
+puts "*** 'refresh' testing completed ***"

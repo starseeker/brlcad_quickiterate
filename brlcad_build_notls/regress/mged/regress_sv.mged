@@ -1,0 +1,9 @@
+source /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/regress/mged/regression_resources.tcl
+
+puts "*** Testing 'sv' command ***"
+
+view center
+sv 76 19
+view center
+
+puts "*** 'sv' testing completed ***"

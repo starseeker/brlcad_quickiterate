@@ -1,0 +1,13 @@
+# Target labels
+ BrlcadBugs
+# Source files and their labels
+/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/misc/CMakeFiles/BrlcadBugs
+/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/misc/CMakeFiles/BrlcadBugs.rule
+/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/misc/CMakeFiles/BrlcadBugs-complete.rule
+/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/misc/BrlcadBugs-prefix/src/BrlcadBugs-stamp/BrlcadBugs-build.rule
+/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/misc/BrlcadBugs-prefix/src/BrlcadBugs-stamp/BrlcadBugs-configure.rule
+/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/misc/BrlcadBugs-prefix/src/BrlcadBugs-stamp/BrlcadBugs-download.rule
+/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/misc/BrlcadBugs-prefix/src/BrlcadBugs-stamp/BrlcadBugs-install.rule
+/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/misc/BrlcadBugs-prefix/src/BrlcadBugs-stamp/BrlcadBugs-mkdir.rule
+/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/misc/BrlcadBugs-prefix/src/BrlcadBugs-stamp/BrlcadBugs-patch.rule
+/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/misc/BrlcadBugs-prefix/src/BrlcadBugs-stamp/BrlcadBugs-update.rule

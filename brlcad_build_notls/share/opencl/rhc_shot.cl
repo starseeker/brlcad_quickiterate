@@ -1,0 +1,1 @@
+/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/src/librt/primitives/rhc/rhc_shot.cl
