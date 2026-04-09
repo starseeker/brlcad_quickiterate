@@ -1,0 +1,15 @@
+source /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/regress/mged/regression_resources.tcl
+
+puts "*** Testing 'B' command ***"
+
+in_arb8 B 1
+in_eto B 2
+comb B.c u B_arb81.s u B_eto2.s
+Z
+e B_eto2.s
+who
+B B_arb81.s B.c
+who
+Z
+
+puts "*** 'B' testing completed ***"

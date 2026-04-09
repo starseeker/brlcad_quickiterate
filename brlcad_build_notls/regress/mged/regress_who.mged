@@ -1,0 +1,15 @@
+source /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/regress/mged/regression_resources.tcl
+
+puts "*** Testing 'who' command ***"
+
+Z
+in_sph who 1
+in_sph who 2
+comb who.c u who_sph1.s u who_sph2.s
+e who_sph1.s
+e who.c
+who
+d who.c
+d who_sph1.s
+
+puts "*** 'who' testing completed ***"

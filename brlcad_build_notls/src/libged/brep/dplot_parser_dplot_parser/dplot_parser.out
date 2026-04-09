@@ -1,0 +1,225 @@
+State 0:
+          start_symbol ::= * statement_list
+      (9) statement_list ::= *
+          statement_list ::= * statement_list statement
+
+                statement_list shift        1      
+                  start_symbol accept
+                     {default} reduce       9      statement_list ::=
+
+State 1:
+      (8) start_symbol ::= statement_list *
+          statement_list ::= statement_list * statement
+          statement ::= * surface_counts EOL
+          statement ::= * ssx_info EOL
+          statement ::= * linked_curve_count EOL
+          statement ::= * split_face_count EOL
+          statement ::= * split_face_info EOL
+          surface_counts ::= * SURFACES count count
+          ssx_info ::= * SSX index index count count count count count isocsx_event_counts
+          linked_curve_count ::= * LINKED_CURVES count
+          split_face_count ::= * SPLIT_FACES count
+          split_face_info ::= * SPLIT_FACE index count count
+
+                             $ reduce       8      start_symbol ::= statement_list
+                      SURFACES shift        16     
+                           SSX shift        14     
+                 LINKED_CURVES shift        6      
+                   SPLIT_FACES shift        5      
+                    SPLIT_FACE shift        4      
+                     statement shift-reduce 10     statement_list ::= statement_list statement
+                surface_counts shift        22     
+                      ssx_info shift        21     
+            linked_curve_count shift        20     
+              split_face_count shift        19     
+               split_face_info shift        18     
+
+State 2:
+          split_face_info ::= SPLIT_FACE index count * count
+          count ::= * NONNEGATIVE_INT
+
+               NONNEGATIVE_INT shift-reduce 6      count ::= NONNEGATIVE_INT
+                         count shift-reduce 5      split_face_info ::= SPLIT_FACE index count count
+
+State 3:
+          split_face_info ::= SPLIT_FACE index * count count
+          count ::= * NONNEGATIVE_INT
+
+               NONNEGATIVE_INT shift-reduce 6      count ::= NONNEGATIVE_INT
+                         count shift        2      
+
+State 4:
+          split_face_info ::= SPLIT_FACE * index count count
+          index ::= * NONNEGATIVE_INT
+
+               NONNEGATIVE_INT shift-reduce 7      index ::= NONNEGATIVE_INT
+                         index shift        3      
+
+State 5:
+          split_face_count ::= SPLIT_FACES * count
+          count ::= * NONNEGATIVE_INT
+
+               NONNEGATIVE_INT shift-reduce 6      count ::= NONNEGATIVE_INT
+                         count shift-reduce 4      split_face_count ::= SPLIT_FACES count
+
+State 6:
+          linked_curve_count ::= LINKED_CURVES * count
+          count ::= * NONNEGATIVE_INT
+
+               NONNEGATIVE_INT shift-reduce 6      count ::= NONNEGATIVE_INT
+                         count shift-reduce 3      linked_curve_count ::= LINKED_CURVES count
+
+State 7:
+      (1) ssx_info ::= SSX index index count count count count count isocsx_event_counts *
+          isocsx_event_counts ::= isocsx_event_counts * count
+          count ::= * NONNEGATIVE_INT
+
+               NONNEGATIVE_INT shift-reduce 6      count ::= NONNEGATIVE_INT
+                         count shift-reduce 2      isocsx_event_counts ::= isocsx_event_counts count
+                     {default} reduce       1      ssx_info ::= SSX index index count count count count count isocsx_event_counts
+
+State 8:
+          ssx_info ::= SSX index index count count count count * count isocsx_event_counts
+          count ::= * NONNEGATIVE_INT
+
+               NONNEGATIVE_INT shift-reduce 6      count ::= NONNEGATIVE_INT
+                         count shift        17     
+
+State 9:
+          ssx_info ::= SSX index index count count count * count count isocsx_event_counts
+          count ::= * NONNEGATIVE_INT
+
+               NONNEGATIVE_INT shift-reduce 6      count ::= NONNEGATIVE_INT
+                         count shift        8      
+
+State 10:
+          ssx_info ::= SSX index index count count * count count count isocsx_event_counts
+          count ::= * NONNEGATIVE_INT
+
+               NONNEGATIVE_INT shift-reduce 6      count ::= NONNEGATIVE_INT
+                         count shift        9      
+
+State 11:
+          ssx_info ::= SSX index index count * count count count count isocsx_event_counts
+          count ::= * NONNEGATIVE_INT
+
+               NONNEGATIVE_INT shift-reduce 6      count ::= NONNEGATIVE_INT
+                         count shift        10     
+
+State 12:
+          ssx_info ::= SSX index index * count count count count count isocsx_event_counts
+          count ::= * NONNEGATIVE_INT
+
+               NONNEGATIVE_INT shift-reduce 6      count ::= NONNEGATIVE_INT
+                         count shift        11     
+
+State 13:
+          ssx_info ::= SSX index * index count count count count count isocsx_event_counts
+          index ::= * NONNEGATIVE_INT
+
+               NONNEGATIVE_INT shift-reduce 7      index ::= NONNEGATIVE_INT
+                         index shift        12     
+
+State 14:
+          ssx_info ::= SSX * index index count count count count count isocsx_event_counts
+          index ::= * NONNEGATIVE_INT
+
+               NONNEGATIVE_INT shift-reduce 7      index ::= NONNEGATIVE_INT
+                         index shift        13     
+
+State 15:
+          surface_counts ::= SURFACES count * count
+          count ::= * NONNEGATIVE_INT
+
+               NONNEGATIVE_INT shift-reduce 6      count ::= NONNEGATIVE_INT
+                         count shift-reduce 0      surface_counts ::= SURFACES count count
+
+State 16:
+          surface_counts ::= SURFACES * count count
+          count ::= * NONNEGATIVE_INT
+
+               NONNEGATIVE_INT shift-reduce 6      count ::= NONNEGATIVE_INT
+                         count shift        15     
+
+State 17:
+          ssx_info ::= SSX index index count count count count count * isocsx_event_counts
+     (16) isocsx_event_counts ::= *
+          isocsx_event_counts ::= * isocsx_event_counts count
+
+           isocsx_event_counts shift        7      
+                     {default} reduce       16     isocsx_event_counts ::=
+
+State 18:
+          statement ::= split_face_info * EOL
+
+                           EOL shift-reduce 15     statement ::= split_face_info EOL
+
+State 19:
+          statement ::= split_face_count * EOL
+
+                           EOL shift-reduce 14     statement ::= split_face_count EOL
+
+State 20:
+          statement ::= linked_curve_count * EOL
+
+                           EOL shift-reduce 13     statement ::= linked_curve_count EOL
+
+State 21:
+          statement ::= ssx_info * EOL
+
+                           EOL shift-reduce 12     statement ::= ssx_info EOL
+
+State 22:
+          statement ::= surface_counts * EOL
+
+                           EOL shift-reduce 11     statement ::= surface_counts EOL
+
+----------------------------------------------------
+Symbols:
+The first-set of non-terminals is shown after the name.
+
+    0: $:
+    1: EOL
+    2: SURFACES
+    3: SSX
+    4: LINKED_CURVES
+    5: SPLIT_FACES
+    6: SPLIT_FACE
+    7: NONNEGATIVE_INT
+    8: statement_list: <lambda> SURFACES SSX LINKED_CURVES SPLIT_FACES SPLIT_FACE
+    9: count: NONNEGATIVE_INT
+   10: index: NONNEGATIVE_INT
+   11: start_symbol: <lambda> SURFACES SSX LINKED_CURVES SPLIT_FACES SPLIT_FACE
+   12: statement: SURFACES SSX LINKED_CURVES SPLIT_FACES SPLIT_FACE
+   13: surface_counts: SURFACES
+   14: ssx_info: SSX
+   15: linked_curve_count: LINKED_CURVES
+   16: split_face_count: SPLIT_FACES
+   17: split_face_info: SPLIT_FACE
+   18: isocsx_event_counts: <lambda> NONNEGATIVE_INT
+----------------------------------------------------
+Syntax-only Symbols:
+The following symbols never carry semantic content.
+
+$ EOL SURFACES SSX LINKED_CURVES SPLIT_FACES SPLIT_FACE statement_list
+start_symbol statement surface_counts ssx_info linked_curve_count
+split_face_count split_face_info isocsx_event_counts
+----------------------------------------------------
+Rules:
+   0: surface_counts ::= SURFACES count count.
+   1: ssx_info ::= SSX index index count count count count count isocsx_event_counts.
+   2: isocsx_event_counts ::= isocsx_event_counts count.
+   3: linked_curve_count ::= LINKED_CURVES count.
+   4: split_face_count ::= SPLIT_FACES count.
+   5: split_face_info ::= SPLIT_FACE index count count.
+   6: count ::= NONNEGATIVE_INT.
+   7: index ::= NONNEGATIVE_INT.
+   8: start_symbol ::= statement_list.
+   9: statement_list ::=.
+  10: statement_list ::= statement_list statement.
+  11: statement ::= surface_counts EOL.
+  12: statement ::= ssx_info EOL.
+  13: statement ::= linked_curve_count EOL.
+  14: statement ::= split_face_count EOL.
+  15: statement ::= split_face_info EOL.
+  16: isocsx_event_counts ::=.

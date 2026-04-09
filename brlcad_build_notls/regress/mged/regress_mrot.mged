@@ -1,0 +1,9 @@
+source /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/regress/mged/regression_resources.tcl
+
+puts "*** Testing 'mrot' command ***"
+
+view quat
+mrot 3 22 -1
+view quat
+
+puts "*** 'mrot' testing completed ***"
