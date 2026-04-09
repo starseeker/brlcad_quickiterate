@@ -3327,8 +3327,11 @@ extern int nmg_tri_fu_bg(struct faceuse *fu, struct bu_list *vlfree,
 
 
 /*
- * return 1 when faceuse is empty, otherwise return 0.
- *
+ * Return values:
+ *   0 - success, faceuse was triangulated in-place by the ear-clip path.
+ *   1 - faceuse is empty (all loops degenerate); caller should kill it.
+ *   2 - faceuse was killed internally by nmg_tri_fu_bg and replaced by new
+ *       triangle faceuses; caller must NOT touch fu again.
  */
 int
 nmg_triangulate_fu(struct faceuse *fu, struct bu_list *vlfree, const struct bn_tol *tol)
