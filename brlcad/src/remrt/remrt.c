@@ -786,7 +786,23 @@ check_input(int waittime)
      * as integer socket values, silently dropping handles >= FD_SETSIZE. */
     ifdset = clients;		/* ibits = clients */
     FD_SET(tcp_listen_fd, &ifdset);	/* ibits |= tcp_listen_fd */
-    val = select(32, &ifdset, (fd_set *)0, (fd_set *)0, &tv);
+
+    /* Compute nfds = highest fd in the set + 1.  Using a hardcoded value
+     * (e.g. 32) silently ignores any socket whose fd number equals or
+     * exceeds that constant, which can happen in a parallel ninja/CTest
+     * environment where the build system leaves many fds open.          */
+    {
+	int maxfd = tcp_listen_fd;
+	int j;
+	for (j = 0; j < (int)MAXSERVERS; j++) {
+	    struct pkg_conn *spc = servers[j].sr_pc;
+	    if (spc != PKC_NULL && spc->pkc_fd > maxfd)
+		maxfd = spc->pkc_fd;
+	}
+	if (fileno(stdin) > maxfd)
+	    maxfd = fileno(stdin);
+	val = select(maxfd + 1, &ifdset, (fd_set *)0, (fd_set *)0, &tv);
+    }
     if (val < 0) {
 	perror("select");
 	return;
@@ -3703,6 +3719,12 @@ do_work(int auto_start)
 	if (cur_serv == 0 && prev_serv > cur_serv) {
 	    bu_log("%s *** All servers down\n", stamp());
 	    fflush(stdout);
+	    /* In non-interactive mode remrt never auto-starts passive
+	     * workers, so no new connections can ever arrive.  Break
+	     * immediately rather than spinning in check_input(30) for
+	     * the full timeout (which would show up as a 500-second
+	     * hang in the regression test).                           */
+	    if (auto_start) break;
 	}
 	prev_serv = cur_serv;
     }

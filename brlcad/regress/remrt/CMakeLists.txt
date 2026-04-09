@@ -16,8 +16,9 @@
 # orchestrator can wait for them to exit; daemonization is suppressed.
 # All workers connect passively to remrt's TCP port — no SSH is used.
 #
-# The test uses the STAND_ALONE label so CTest does not schedule it in
-# parallel with other tests that might occupy the same port range (4446+).
+# Port isolation is provided by RESOURCE_LOCK "network_port_4446" (see
+# below), allowing this test to run as part of the normal "ninja check"
+# Regression suite without STAND_ALONE serialisation.
 
 if(TARGET remrt AND TARGET rtsrv AND TARGET pixcmp)
 
@@ -44,13 +45,20 @@ if(TARGET remrt AND TARGET rtsrv AND TARGET pixcmp)
     # test orchestrator and the remrt child process find ".remrtrc" in the
     # same known location.  bu_dir(BU_DIR_CURR) in the test code and
     # bu_dir(BU_DIR_CURR) in remrt's read_rc_file() both resolve to this dir.
+    # RESOURCE_LOCK serialises this test with any other test that also binds
+    # loopback TCP ports in the 4446+ range, so it can safely run as part of
+    # the normal "check" / "Regression" target without a separate STAND_ALONE
+    # label.
     set_tests_properties(regress-remrt PROPERTIES
       WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+      RESOURCE_LOCK "network_port_4446"
     )
 
-    # STAND_ALONE: prevents parallel execution with other tests that
-    # might share port 4446.  TIMEOUT 600: a 512x512 distributed render
-    # plus startup overhead may take several minutes.
+    # No STAND_ALONE: this test carries the standard "Regression" label so
+    # it participates in the normal "ninja check" run.  Port isolation is
+    # handled by the RESOURCE_LOCK above.
+    # TIMEOUT 600: a 512x512 distributed render plus startup overhead may
+    # take several minutes.
     brlcad_regression_test(
       regress-remrt "remrt;rtsrv;pixcmp;m35.g;regress_remrt"
       TEST_DEFINED TIMEOUT 600
