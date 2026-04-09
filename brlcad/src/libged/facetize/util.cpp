@@ -347,12 +347,10 @@ bot_fixup(struct _ged_facetize_state *s, struct db_i *wdbip, struct directory *b
 
     // Have faces, test with raytracer
     struct rt_i *rtip = rt_new_rti(wdbip);
-    int gt_ret = rt_gettree(rtip, bname);
-    bu_log("DEBUG bot_fixup: rt_gettree(%s) = %d, num_solids=%zu\n", bname, gt_ret, rtip->nsolids);
+    rt_gettree(rtip, bname);
     rt_prep(rtip);
     struct bu_ptbl tfaces = BU_PTBL_INIT_ZERO;
     int have_thin_faces = rt_bot_thin_check(&tfaces, bot, rtip, VUNITIZE_TOL, 0);
-    bu_log("DEBUG bot_fixup: have_thin_faces=%d tfaces_len=%zu\n", have_thin_faces, BU_PTBL_LEN(&tfaces));
     rt_free_rti(rtip);
 
     // No problematic faces reported, nothing to do
@@ -379,8 +377,11 @@ bot_fixup(struct _ged_facetize_state *s, struct db_i *wdbip, struct directory *b
     // Return an empty bot, if that's what was created (can happen legitimately
     // when all the faces are thin - i.e. a degenerate volume.)
     if (!nbot->num_faces) {
+	rt_bot_internal_free(nbot);
+	BU_PUT(nbot, struct rt_bot_internal);
 	bu_ptbl_free(&tfaces);
-	return nbot;
+	facetize_log(s, 2, "\t%s: all %zd faces flagged as thin; retaining original manifold result.\n", bname, removed_face_cnt);
+	return NULL;
     }
 
     // If we took away manifoldness removing faces (very likely) we need to try
