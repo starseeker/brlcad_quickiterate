@@ -124,7 +124,8 @@ extern int gettimeofday(struct timeval *, void *);
 
 #define REMRT_TCP_DEFAULT_PORT 4446
 
-#define TARDY_SERVER_INTERVAL	(900*60)	/* max seconds of silence */
+#define TARDY_SERVER_INTERVAL	120		/* max seconds of silence after pixel assignment */
+#define SETUP_TIMEOUT_INTERVAL	120		/* max seconds for dirbuild/gettrees setup */
 #define N_SERVER_ASSIGNMENTS	1		/* desired # of assignments */
 #define MIN_ASSIGNMENT_TIME	5		/* desired seconds/result */
 #define SERVER_CHECK_INTERVAL	(10*60)		/* seconds */
@@ -1707,6 +1708,7 @@ send_dirbuild(struct servers *sp)
 	return;
     }
     statechange(sp, SRST_DOING_DIRBUILD);
+    (void)gettimeofday(&sp->sr_sendtime, (struct timezone *)0);
 }
 
 
@@ -1822,6 +1824,7 @@ send_gettrees(struct servers *sp, struct frame *fr)
 	return;
     }
     statechange(sp, SRST_DOING_GETTREES);
+    (void)gettimeofday(&sp->sr_sendtime, (struct timezone *)0);
 }
 
 
@@ -2046,6 +2049,20 @@ schedule(struct timeval *nowp)
 		/* An error may have caused connection to drop */
 		if (sp->sr_pc != PKC_NULL)
 		    send_dirbuild(sp);
+		break;
+
+	    case SRST_DOING_DIRBUILD:
+	    case SRST_DOING_GETTREES:
+		/* Drop the server if the setup phase takes too long.
+		 * Without this check, a hung rt_dirbuild() or
+		 * rt_gettrees() inside rtsrv would leave remrt waiting
+		 * forever for MSG_DIRBUILD_REPLY / MSG_GETTREES_REPLY. */
+		if (sp->sr_sendtime.tv_sec > 0 &&
+		    tvdiff(nowp, &sp->sr_sendtime) > SETUP_TIMEOUT_INTERVAL) {
+		    bu_log("%s %s: setup phase *TIMEOUT*\n",
+			   stamp(), sp->sr_host->ht_name);
+		    drop_server(sp, "setup timeout");
+		}
 		break;
 
 	    case SRST_CLOSING:

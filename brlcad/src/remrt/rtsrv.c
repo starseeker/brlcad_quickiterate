@@ -882,6 +882,11 @@ ph_lines(struct pkg_conn *UNUSED(pc), char *buf)
 	    bu_log("ph_lines: grid_setup failed: %s\n", bu_vls_cstr(&err));
 	    bu_vls_free(&err);
 	    free(buf);
+	    /* Signal the main loop to exit so that remrt detects the
+	     * dropped connection and requeues the pixel range to
+	     * fr_todo, rather than waiting indefinitely for a
+	     * MSG_PIXELS reply that will never arrive.              */
+	    rtsrv_connection_lost = 1;
 	    return;
 	}
 	bu_vls_free(&err);
