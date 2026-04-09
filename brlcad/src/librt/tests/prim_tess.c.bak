@@ -131,10 +131,9 @@ static int g_validate = 0;  /* 1 = run manifold/mesh quality checks */
 /**
  * Validate the mesh quality of a tessellated NMG model.
  *
- * Triangulates the model in-place (the caller owns m and will free it),
- * converts it to a BOT, then uses bg_trimesh_solid2() to check for
- * open edges and degenerate faces.  Reports the surface area and
- * open-edge count.
+ * Triangulates the model, converts it to a BOT, then uses
+ * bg_trimesh_solid2() to check for open edges and degenerate faces.
+ * Reports the surface area and open-edge count.
  *
  * @return 1 if the mesh passes all checks, 0 if it fails.
  */
@@ -161,10 +160,12 @@ check_nmg_mesh(const char *label, struct model *m,
 	return 1; /* empty is unusual but not a hard failure */
     }
 
-    /* Triangulate the model in-place (caller will nmg_km(m) after us) */
-    nmg_triangulate_model(m, vlfree, tol);
+    /* Triangulate a copy of the model so we can convert to BOT */
+    struct model *mcopy = nmg_clone_model(m);
+    nmg_triangulate_model(mcopy, vlfree, tol);
 
-    struct rt_bot_internal *bot = nmg_mdl_to_bot(m, vlfree, tol);
+    struct rt_bot_internal *bot = nmg_mdl_to_bot(mcopy, vlfree, tol);
+    nmg_km(mcopy);
 
     if (!bot || bot->num_faces == 0) {
 	if (bot) {
@@ -201,7 +202,6 @@ check_nmg_mesh(const char *label, struct model *m,
 	    n_degen,
 	    passed ? "OK" : "OPEN-EDGES");
 
-    fflush(stderr);
     bg_free_trimesh_solid_errors(&errs);
 
     /* Optionally save the BOT to the output .g */
@@ -277,25 +277,18 @@ run_tess(const char *label,
 	    (void)check_nmg_mesh(label, m, tol, &vlfree);
 
 	/* Optionally write the CSG primitive to the output .g.
-	 * Build a temporary rt_db_internal with idb_meth set (the
-	 * hand-crafted ip in each test function leaves it NULL).
-	 * We do NOT call rt_db_free_internal here: idb_ptr points
-	 * to a caller-owned stack variable.                               */
+	 * We use wdb_export_external / rt_db_cvt_to_external5 to avoid
+	 * wdb_export()'s behaviour of calling rt_db_free_internal on the
+	 * internal pointer (which is a stack variable here).               */
 	if (g_wdb && !expect_fail) {
 	    char prim_name[256];
 	    struct bu_external ext;
-	    struct rt_db_internal tmp_intern;
 	    snprintf(prim_name, sizeof(prim_name), "csg_%04d.s", g_out_seq);
 	    BU_EXTERNAL_INIT(&ext);
-	    RT_DB_INTERNAL_INIT(&tmp_intern);
-	    tmp_intern.idb_major_type = ip->idb_major_type;
-	    tmp_intern.idb_type       = ip->idb_minor_type;
-	    tmp_intern.idb_ptr        = ip->idb_ptr;
-	    tmp_intern.idb_meth       = &OBJ[ip->idb_minor_type];
-	    if (rt_db_cvt_to_external5(&ext, prim_name, &tmp_intern, 1.0,
+	    if (rt_db_cvt_to_external5(&ext, prim_name, ip, 1.0,
 				       g_wdb->dbip, &rt_uniresource,
 				       ip->idb_major_type) == 0) {
-		int flags = db_flags_internal(&tmp_intern);
+		int flags = db_flags_internal(ip);
 		(void)wdb_export_external(g_wdb, &ext, prim_name,
 					  flags, ip->idb_type);
 	    }
