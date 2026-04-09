@@ -240,8 +240,14 @@ view_pixel(struct application *ap)
 	    b = inonbackground[2];
 	}
 
-	/* Make sure it's never perfect black */
-	if (r==0 && g==0 && b==0 && benchmark==0)
+	/* Make sure it's never perfect black, even in benchmark mode.
+	 * A genuine hit that renders to (0,0,0) is indistinguishable
+	 * from a background miss for any compositing that works with
+	 * pixel values.  The reference image bench/ref/m35.pix was
+	 * generated with this guard always active.  Benchmark mode
+	 * removes random effects (dither) but must not change semantic
+	 * hit-vs-miss distinguishability. */
+	if (r==0 && g==0 && b==0)
 	    b = 1;
     }
 
