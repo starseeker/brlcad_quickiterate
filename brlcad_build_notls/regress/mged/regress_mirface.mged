@@ -1,0 +1,14 @@
+source /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/regress/mged/regression_resources.tcl
+
+puts "*** Testing 'mirface' command ***"
+
+in_arb8 mirface
+Z
+e mirface_arb8.s
+sed mirface_arb8.s
+tra -10000  0 0
+mirface 1234 x
+accept
+Z
+
+puts "*** 'mirface' testing completed ***"

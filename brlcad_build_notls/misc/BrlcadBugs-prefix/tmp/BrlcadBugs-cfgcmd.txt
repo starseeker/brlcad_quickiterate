@@ -1,0 +1,1 @@
+cmd='/usr/local/bin/cmake;-DCMAKE_BUILD_TYPE=Release;-DBUGS_DIR=/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/misc/bugs_out;-DCMAKE_INSTALL_PREFIX=/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/misc/bugs_out;-GUnix Makefiles;-S;<SOURCE_DIR><SOURCE_SUBDIR>;-B;<BINARY_DIR>'

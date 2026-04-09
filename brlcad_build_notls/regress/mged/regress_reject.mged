@@ -1,0 +1,15 @@
+source /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/regress/mged/regression_resources.tcl
+
+puts "*** Testing 'reject' command ***"
+
+in_arb8 reject
+Z
+e reject_arb8.s
+sed reject_arb8.s
+l reject_arb8.s
+tra 10 10 10
+reject
+l reject_arb8.s
+Z
+
+puts "*** 'reject' testing completed ***"

@@ -1,0 +1,3 @@
+file(GLOB_RECURSE SOURCE_ARCHIVE_CONTENTS RELATIVE "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/distcheck-in_src_dir/brlcad-7.43.0" "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/distcheck-in_src_dir/brlcad-7.43.0/*")
+list(REMOVE_ITEM SOURCE_ARCHIVE_CONTENTS .ninja_log)
+file(WRITE "/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build_notls/distcheck-in_src_dir/final_src_contents.txt" "${SOURCE_ARCHIVE_CONTENTS}")
