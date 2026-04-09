@@ -104,6 +104,7 @@
 #include <math.h>
 
 #include "bu.h"
+#include "bu/parallel.h"
 #include "vmath.h"
 #include "bg/defines.h"
 #include "bg/trimesh.h"
@@ -161,10 +162,35 @@ check_nmg_mesh(const char *label, struct model *m,
 	return 1; /* empty is unusual but not a hard failure */
     }
 
-    /* Triangulate the model in-place (caller will nmg_km(m) after us) */
-    nmg_triangulate_model(m, vlfree, tol);
+    /* Triangulate the model in-place (caller will nmg_km(m) after us).
+     * Wrap in BU_SETJUMP so that bu_bomb() from the NMG triangulator
+     * (e.g. "nmg_calc_face_plane() failed") is caught rather than
+     * aborting the whole program.                                        */
+    struct rt_bot_internal *bot = NULL;
+    int tris_ok = 0;
+    if (!BU_SETJUMP) {
+	nmg_triangulate_model(m, vlfree, tol);
+	tris_ok = 1;
+    } else {
+	BU_UNSETJUMP;
+	fprintf(stderr,
+		"  MESH: %-44s  nmg_triangulate_model() bombed [FAIL]\n",
+		label);
+	return 0;
+    } BU_UNSETJUMP;
 
-    struct rt_bot_internal *bot = nmg_mdl_to_bot(m, vlfree, tol);
+    if (!tris_ok)
+	return 0;
+
+    if (!BU_SETJUMP) {
+	bot = nmg_mdl_to_bot(m, vlfree, tol);
+    } else {
+	BU_UNSETJUMP;
+	fprintf(stderr,
+		"  MESH: %-44s  nmg_mdl_to_bot() bombed [FAIL]\n",
+		label);
+	return 0;
+    } BU_UNSETJUMP;
 
     if (!bot || bot->num_faces == 0) {
 	if (bot) {
@@ -2731,14 +2757,26 @@ scan_input_g(const char *g_path)
 		break;
 	}
 
-	/* Tessellate */
+	/* Tessellate - wrap in BU_SETJUMP to catch bu_bomb() */
 	struct model *m = nmg_mm();
 	struct nmgregion *r = NULL;
 
 	fprintf(stderr, "STARTING: %s\n", dp->d_namep);
 	fflush(stderr);
 
-	int ret = rt_obj_tess(&r, m, &intern, &ttol, &tol);
+	int ret = -1;
+	if (!BU_SETJUMP) {
+	    ret = rt_obj_tess(&r, m, &intern, &ttol, &tol);
+	} else {
+	    BU_UNSETJUMP;
+	    fprintf(stderr, "  TESS-BOMB %-32s  (bu_bomb in tess)\n", dp->d_namep);
+	    n_tess_fail++;
+	    failures++;
+	    nmg_km(m);
+	    rt_db_free_internal(&intern);
+	    continue;
+	} BU_UNSETJUMP;
+
 	if (ret != 0 || r == NULL) {
 	    fprintf(stderr, "  TESS-FAIL %-32s  (ret=%d)\n", dp->d_namep, ret);
 	    n_tess_fail++;
@@ -2826,12 +2864,13 @@ main(int argc, char *argv[])
 	printf("Output .g: %s\n", output_g);
     }
 
-    if (input_g)
-	g_validate = 1;
-
     int total_failures = 0;
 
-    /* ---- Built-in test suite ---- */
+    /* ---- Built-in test suite ----
+     * Always run the built-in correctness tests.  Manifold validation
+     * (g_validate) is only enabled when --output-g is given, so the
+     * CI baseline run (no flags) stays fast.  When only --input-g is
+     * given the built-in suite runs without the slow triangulation step.  */
     total_failures += test_tor();
     total_failures += test_eto();
     total_failures += test_tgc();
