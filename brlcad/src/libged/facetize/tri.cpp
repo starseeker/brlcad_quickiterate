@@ -60,11 +60,9 @@ bot_to_manifold(void **out, struct db_tree_state *tsp, struct rt_db_internal *ip
 
     if (!nbot->num_vertices) {
 	// Trivial case
-	bu_log("DEBUG bot_to_manifold: %s has 0 vertices - empty manifold\n", ip->idb_ptr ? "BOT" : "NULL");
         (*out) = new manifold::Manifold();
 	return 0;
     }
-    bu_log("DEBUG bot_to_manifold: BOT has %zu vertices, %zu faces\n", nbot->num_vertices, nbot->num_faces);
 
     if (flip) {
 	switch (nbot->orientation) {
@@ -105,10 +103,8 @@ bot_to_manifold(void **out, struct db_tree_state *tsp, struct rt_db_internal *ip
     manifold::Manifold bot_manifold = manifold::Manifold(bot_mesh);
     if (bot_manifold.Status() != manifold::Manifold::Error::NoError) {
 	// Urk - we got a mesh, but it's no good for a Manifold(??)
-	bu_log("DEBUG bot_to_manifold: Manifold rejected BOT with status %d\n", (int)bot_manifold.Status());
 	return BRLCAD_ERROR;
     }
-    bu_log("DEBUG bot_to_manifold: Manifold accepted BOT, %zu tris\n", (size_t)bot_manifold.NumTri());
 
     // Passed - return the manifold
     (*out) = new manifold::Manifold(bot_manifold);
@@ -199,10 +195,8 @@ _booltree_leaf_tess(struct db_tree_state *tsp, const struct db_full_path *pathp,
     }
 
     // Anything else that's not a BoT is a no-op for booleans
-    if (ip->idb_minor_type != ID_BOT) {
-	bu_log("DEBUG _booltree_leaf_tess: %s is type %d (not a BOT %d) - returning null td_d\n", dp->d_namep, ip->idb_minor_type, ID_BOT);
+    if (ip->idb_minor_type != ID_BOT)
 	return curtree;
-    }
 
     // Observed in Goliath example model with SKTRACKdrivewheel2.c comb - due
     // to the values in ts_mat, the BoT ends up inside-out when read in.
@@ -1065,8 +1059,6 @@ _ged_facetize_booleval_tri(struct _ged_facetize_state *s, struct db_i *dbip, str
 	    return BRLCAD_ERROR;
 	}
 	manifold::MeshGL64 rmesh = om->GetMeshGL64();
-	bu_log("DEBUG: Manifold NumTri=%zu vertProperties.size=%zu triVerts.size=%zu numProp=%zu\n",
-	       (size_t)om->NumTri(), rmesh.vertProperties.size(), rmesh.triVerts.size(), (size_t)rmesh.numProp);
 	struct rt_bot_internal *bot;
 	BU_GET(bot, struct rt_bot_internal);
 	bot->magic = RT_BOT_INTERNAL_MAGIC;
@@ -1122,7 +1114,6 @@ _ged_facetize_booleval_tri(struct _ged_facetize_state *s, struct db_i *dbip, str
 	if ((dp->d_flags & RT_DIR_REGION) || (!(dp->d_flags & RT_DIR_COMB))) {
 	    struct directory *bot_dp = db_lookup(odbip, oname, LOOKUP_QUIET);
 	    struct rt_bot_internal *nbot = bot_fixup(s, odbip, bot_dp, oname);
-	    bu_log("DEBUG bot_fixup: nbot=%p faces=%d\n", (void*)nbot, nbot ? (int)nbot->num_faces : -1);
 	    if (nbot) {
 		// Write out new version of BoT
 		db_delete(odbip, bot_dp);

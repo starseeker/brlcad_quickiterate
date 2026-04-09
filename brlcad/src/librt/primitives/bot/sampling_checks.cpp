@@ -63,8 +63,12 @@ struct coplanar_info {
     std::set<int> problem_indices;
 };
 
-// Tie the tc_hit checking tolerance to the backout distance
-#define RT_BOT_CHECK_TOL SQRT_SMALL_FASTF
+// Backout distance used to lift the ray origin off the face surface before
+// shooting inward.  Must be large enough that tcenter + n*TOL != tcenter in
+// double precision at any practical model-coordinate scale.  SQRT_SMALL_FASTF
+// (~1e-18) collapses to zero once vertex coordinates exceed ~1e4 mm; use
+// BN_TOL_DIST (0.0005 mm) instead so the offset is always representable.
+#define RT_BOT_CHECK_TOL BN_TOL_DIST
 
 static int
 _tc_hit(struct application *ap, struct partition *PartHeadp, struct seg *segs)
