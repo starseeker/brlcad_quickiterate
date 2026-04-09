@@ -573,8 +573,16 @@ ph_dirbuild(struct pkg_conn *UNUSED(pc), char *buf)
     bu_free(argv, "free argv");
 
     /* Build directory of GED database */
-    if ((rtip=rt_dirbuild(title_file, idbuf, sizeof(idbuf))) == RTI_NULL)
-	bu_exit(2, "ph_dirbuild:  rt_dirbuild(%s) failure\n", title_file);
+    if ((rtip=rt_dirbuild(title_file, idbuf, sizeof(idbuf))) == RTI_NULL) {
+	/* Log via bu_log so the message is forwarded to remrt over the pkg
+	 * connection before we exit, then signal the main loop to exit
+	 * cleanly (matching the ph_lines pattern).  Using bu_exit() here
+	 * races against the MSG_PRINT flush since the process terminates
+	 * immediately after all hooks return.                            */
+	bu_log("ph_dirbuild:  rt_dirbuild(%s) failure\n", title_file);
+	rtsrv_connection_lost = 1;
+	return;
+    }
     APP.a_rt_i = rtip;
     seen_dirbuild = 1;
 
@@ -641,7 +649,7 @@ ph_gettrees(struct pkg_conn *UNUSED(pc), char *buf)
 
     /* Load the desired portion of the model */
     if (rt_gettrees(rtip, argc, (const char **)argv, npsw) < 0)
-	fprintf(stderr, "rt_gettrees(%s) FAILED\n", argv[0]);
+	bu_log("rt_gettrees(%s) FAILED\n", argv[0]);
     bu_free(argv, "free argv");
 
     seen_gettrees = 1;
