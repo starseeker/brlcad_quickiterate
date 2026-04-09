@@ -61,12 +61,13 @@ using VPair = std::pair<struct vertex *, struct vertex *>;
 
 struct VPairHash {
     std::size_t operator()(const VPair &p) const noexcept {
-	/* Mix the two pointer values with a multiplicative hash. */
-	uintptr_t h1 = reinterpret_cast<uintptr_t>(p.first);
-	uintptr_t h2 = reinterpret_cast<uintptr_t>(p.second);
-	/* Golden-ratio multiplier; the XOR-shift breaks symmetry. */
-	h2 ^= h2 >> 33;
-	return h1 ^ (h2 * UINT64_C(11400714819323198485));
+	/* Boost-style hash combine using std::size_t throughout so the
+	 * arithmetic is correct on both 32- and 64-bit platforms.        */
+	std::size_t h1 = std::hash<struct vertex *>{}(p.first);
+	std::size_t h2 = std::hash<struct vertex *>{}(p.second);
+	/* Mix h2 into h1 with a Fibonacci-style multiplier. */
+	h1 ^= h2 + (std::size_t)0x9e3779b9u + (h1 << 6) + (h1 >> 2);
+	return h1;
     }
 };
 
@@ -178,11 +179,16 @@ nmg_tri_fu_bg(struct faceuse *fu, struct bu_list *UNUSED(vlfree),
 	return 1;
 
     /* ---- 2. Projection axes: (u_ax × v_ax) = fu_normal ---- */
-    /* Inline NMG_GET_FU_NORMAL without 'register' keyword (C++17 drops it). */
+    /* Inline NMG_GET_FU_NORMAL without 'register' keyword (C++17 drops it).
+     * The XOR of (orientation != OT_SAME) and (flip != 0) captures the rule:
+     * flip the stored normal when exactly one of {OT_OPPOSITE, face->flip}
+     * is true, and keep it when both or neither are true.                   */
     vect_t fu_normal;
     {
 	const struct face_g_plane *_fg = fu->f_p->g.plane_p;
-	if ((fu->orientation != OT_SAME) != (fu->f_p->flip != 0))
+	bool is_opposite = (fu->orientation != OT_SAME);
+	bool is_flipped  = (fu->f_p->flip != 0);
+	if (is_opposite != is_flipped)
 	    VREVERSE(fu_normal, _fg->N);
 	else
 	    VMOVE(fu_normal, _fg->N);
@@ -283,8 +289,13 @@ nmg_tri_fu_bg(struct faceuse *fu, struct bu_list *UNUSED(vlfree),
 	pts.data(), (size_t)npts,
 	TRI_CONSTRAINED_DELAUNAY);
 
-    if (bg_ret != 0 || num_tri <= 0 || !tri_faces)
+    if (bg_ret != 0 || num_tri <= 0 || !tri_faces) {
+	/* bg_nested_poly_triangulate may have partially allocated tri_faces
+	 * even on failure (e.g. if it allocated but returned 0 triangles). */
+	if (tri_faces)
+	    bu_free(tri_faces, "nmg_tri_fu_bg tri_faces");
 	return 1; /* fu unchanged; use ear-clip fallback */
+    }
 
     /* ---- 6. Kill original face, create new triangle faceuses ---- */
     struct shell *s = fu->s_p;
