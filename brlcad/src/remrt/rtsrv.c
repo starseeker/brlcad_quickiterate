@@ -105,6 +105,10 @@ static int seen_dirbuild = 0;
 static int seen_gettrees = 0;
 static int seen_matrix = 0;
 
+/* Set to 1 when the remrt connection is lost mid-render so the main loop
+ * can break cleanly rather than calling bu_exit() from a hook function.  */
+static volatile int rtsrv_connection_lost = 0;
+
 /* Frame number for which grid vectors and lighting have been initialized.
  * Set to -1 by prepare() and ph_matrix() to force re-setup on the next
  * ph_lines() call (mimicking rt's do_frame() order: do_prep -> grid_setup
@@ -259,6 +263,13 @@ main(int argc, char **argv)
      * going to stderr.  Must be done after pcsrv is open. */
     rtsrv_install_log_hook();
 
+#ifdef SIGPIPE
+    /* Ignore SIGPIPE so that a broken remrt connection causes pkg_send()
+     * to return EPIPE rather than killing this process with a signal.
+     * The main loop already handles negative pkg_send returns gracefully. */
+    (void)signal(SIGPIPE, SIG_IGN);
+#endif
+
     if (argc == 4) {
 	/* Slip one command to dispatcher */
 	(void)pkg_send(MSG_CMD, argv[3], strlen(argv[3])+1, pcsrv);
@@ -405,6 +416,12 @@ main(int argc, char **argv)
 	struct pkg_queue *lp;
 	fd_set ifds;
 	struct timeval tv;
+
+	/* Exit cleanly if the log hook detected a broken connection. */
+	if (rtsrv_connection_lost) {
+	    fprintf(stderr, "rtsrv: connection to remrt lost, exiting\n");
+	    break;
+	}
 
 	/* First, process any packages in library buffers */
 	if (pkg_process(pcsrv) < 0) {
@@ -942,7 +959,11 @@ rtsrv_log_hook(void *clientdata, void *str)
     ret = pkg_send(MSG_PRINT, (const char *)str, strlen((const char *)str)+1, pcsrv);
     if (ret < 0) {
 	fprintf(stderr, "pkg_send MSG_PRINT failed\n");
-	bu_exit(12, NULL);
+	/* Mark the connection as lost; the main loop will break cleanly.
+	 * Do NOT call bu_exit() here — this hook may be invoked from inside
+	 * a parallel rendering thread, and bu_exit() from such a context is
+	 * not safe.                                                          */
+	rtsrv_connection_lost = 1;
     }
     return 0;
 }
