@@ -1,0 +1,8 @@
+/*! @page Features Features
+@par Portability Library
+Portability layer that makes sure basic low level system functionality is present across all platforms via a uniform API.
+
+@par Solid Raytracing
+Ray/geometry intersection calculations that report not just first surface hits but in/out pairs of hits to support the characterization of closed geometric volumes.
+
+*/

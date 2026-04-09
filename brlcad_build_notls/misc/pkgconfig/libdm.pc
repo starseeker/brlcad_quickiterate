@@ -1,0 +1,13 @@
+prefix=/usr/brlcad/rel-7.43.0
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+datarootdir=${prefix}/share
+datadir=${datarootdir}
+
+Name: libdm
+Description: BRL-CAD Display Manager Library
+Version: 7.43.0
+Requires: libicv librt libnmg libbrep libbv libbg libbn libpkg libbu
+Libs: -L${libdir} -ldm -licv -lrt -lnmg -lbrep -lbv -lbg -lbn -lpkg -lbu -lpng -lX11 -lXext -lXi -lm
+Cflags: -I${includedir}/brlcad -I${includedir}

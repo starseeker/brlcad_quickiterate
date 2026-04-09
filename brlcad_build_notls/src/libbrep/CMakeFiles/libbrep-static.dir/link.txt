@@ -1,0 +1,2 @@
+/usr/bin/ar qc ../../lib/libbrep.a "CMakeFiles/libbrep-obj.dir/Unity/unity_3_cxx.cxx.o" "CMakeFiles/libbrep-obj.dir/Unity/unity_2_cxx.cxx.o" "CMakeFiles/libbrep-obj.dir/Unity/unity_1_cxx.cxx.o" "CMakeFiles/libbrep-obj.dir/Unity/unity_0_cxx.cxx.o"
+/usr/bin/ranlib ../../lib/libbrep.a

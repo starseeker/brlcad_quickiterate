@@ -1,0 +1,43 @@
+file(REMOVE_RECURSE
+  "../../../../../lib/libwfobj.a"
+  "../../../../../lib/libwfobj.pdb"
+  "WFOBJ_PARSER_SO_obj_grammar/obj_grammar.cpp"
+  "WFOBJ_PARSER_SO_obj_grammar/obj_grammar.cpp-src_cpy.done"
+  "WFOBJ_PARSER_SO_obj_grammar/obj_grammar.hpp"
+  "WFOBJ_PARSER_SO_obj_grammar/obj_grammar.hpp-hdr_cpy.done"
+  "WFOBJ_PARSER_SO_obj_grammar/obj_grammar.out"
+  "WFOBJ_PARSER_SO_obj_grammar/obj_grammar.yy"
+  "WFOBJ_PARSER_STATIC_obj_grammar/obj_grammar.cpp"
+  "WFOBJ_PARSER_STATIC_obj_grammar/obj_grammar.cpp-src_cpy.done"
+  "WFOBJ_PARSER_STATIC_obj_grammar/obj_grammar.hpp"
+  "WFOBJ_PARSER_STATIC_obj_grammar/obj_grammar.hpp-hdr_cpy.done"
+  "WFOBJ_PARSER_STATIC_obj_grammar/obj_grammar.out"
+  "WFOBJ_PARSER_STATIC_obj_grammar/obj_grammar.yy"
+  "CMakeFiles/libwfobj-static.dir/WFOBJ_PARSER_STATIC_obj_grammar/obj_grammar.cpp.o"
+  "CMakeFiles/libwfobj-static.dir/WFOBJ_PARSER_STATIC_obj_grammar/obj_grammar.cpp.o.d"
+  "CMakeFiles/libwfobj-static.dir/WFOBJ_SCANNER_STATIC_obj_rules/obj_rules.cpp.o"
+  "CMakeFiles/libwfobj-static.dir/WFOBJ_SCANNER_STATIC_obj_rules/obj_rules.cpp.o.d"
+  "CMakeFiles/libwfobj-static.dir/obj_parser.cpp.o"
+  "CMakeFiles/libwfobj-static.dir/obj_parser.cpp.o.d"
+  "CMakeFiles/libwfobj-static.dir/obj_util.cpp.o"
+  "CMakeFiles/libwfobj-static.dir/obj_util.cpp.o.d"
+  "WFOBJ_PARSER_STATIC_obj_grammar/obj_grammar.c"
+  "WFOBJ_PARSER_STATIC_obj_grammar/obj_grammar.cpp"
+  "WFOBJ_PARSER_STATIC_obj_grammar/obj_grammar.cpp-src_cpy.done"
+  "WFOBJ_PARSER_STATIC_obj_grammar/obj_grammar.h"
+  "WFOBJ_PARSER_STATIC_obj_grammar/obj_grammar.hpp"
+  "WFOBJ_PARSER_STATIC_obj_grammar/obj_grammar.hpp-hdr_cpy.done"
+  "WFOBJ_PARSER_STATIC_obj_grammar/obj_grammar.out"
+  "WFOBJ_SCANNER_SO_obj_rules/obj_rules.l"
+  "WFOBJ_SCANNER_SO_obj_rules/obj_rules.re"
+  "WFOBJ_SCANNER_SO_obj_rules/obj_scanner.h"
+  "WFOBJ_SCANNER_STATIC_obj_rules/obj_rules.cpp"
+  "WFOBJ_SCANNER_STATIC_obj_rules/obj_rules.l"
+  "WFOBJ_SCANNER_STATIC_obj_rules/obj_rules.re"
+  "WFOBJ_SCANNER_STATIC_obj_rules/obj_scanner.h"
+)
+
+# Per-language clean rules from dependency scanning.
+foreach(lang CXX)
+  include(CMakeFiles/libwfobj-static.dir/cmake_clean_${lang}.cmake OPTIONAL)
+endforeach()

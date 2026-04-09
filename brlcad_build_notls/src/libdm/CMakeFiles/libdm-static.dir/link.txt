@@ -1,0 +1,2 @@
+/usr/bin/ar qc ../../lib/libdm.a "CMakeFiles/libdm-obj.dir/Unity/unity_0_cxx.cxx.o" "CMakeFiles/libdm-obj.dir/Unity/unity_3_c.c.o" "CMakeFiles/libdm-obj.dir/Unity/unity_2_c.c.o" "CMakeFiles/libdm-obj.dir/Unity/unity_1_c.c.o" "CMakeFiles/libdm-obj.dir/Unity/unity_0_c.c.o" "CMakeFiles/libdm-obj.dir/dm_init.cpp.o"
+/usr/bin/ranlib ../../lib/libdm.a
