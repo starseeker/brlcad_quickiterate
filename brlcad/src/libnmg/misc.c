@@ -8435,6 +8435,13 @@ nmg_make_faces_within_tol(struct shell *s, struct bu_list *vlfree, const struct 
 		continue;
 	    }
 
+	    /* nmg_tri_fu_bg (called inside nmg_triangulate_fu) may have
+	     * killed fu and replaced it with new triangle faceuses that
+	     * already have their geometry set.  nmg_kfu() always sets
+	     * fu->f_p to NULL, so use that as the killed-faceuse sentinel. */
+	    if (!fu->f_p)
+		continue;
+
 	    /* split each triangular loop into its own face */
 	    (void)nmg_split_loops_into_faces(&fu->l.magic, vlfree, tol);
 
