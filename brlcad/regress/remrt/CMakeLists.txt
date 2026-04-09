@@ -44,8 +44,11 @@ if(TARGET remrt AND TARGET rtsrv AND TARGET pixcmp)
     # test orchestrator and the remrt child process find ".remrtrc" in the
     # same known location.  bu_dir(BU_DIR_CURR) in the test code and
     # bu_dir(BU_DIR_CURR) in remrt's read_rc_file() both resolve to this dir.
+    # RESOURCE_LOCK serialises this test with the regress-pkg test that also
+    # binds loopback TCP ports in the 4446+ range.
     set_tests_properties(regress-remrt PROPERTIES
       WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+      RESOURCE_LOCK "network_port_4446"
     )
 
     # STAND_ALONE: prevents parallel execution with other tests that
@@ -53,7 +56,7 @@ if(TARGET remrt AND TARGET rtsrv AND TARGET pixcmp)
     # plus startup overhead may take several minutes.
     brlcad_regression_test(
       regress-remrt "remrt;rtsrv;pixcmp;m35.g;regress_remrt"
-      TEST_DEFINED TIMEOUT 600
+      TEST_DEFINED TIMEOUT 600 STAND_ALONE
     )
 
     distclean(
