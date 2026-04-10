@@ -48,70 +48,35 @@
  * bu_ipc_chan_t handle presents the same read/write surface in all cases.
  *
  *
- * ### Why named pipes are NOT in the probe order
+ * ### Typical usage: parent spawns child with -I flag
  *
- * POSIX named pipes (FIFOs, created with mkfifo(3)) use exactly the same
- * kernel code path as anonymous pipes but require:
- *   - A temporary filesystem path (collision risk, cleanup burden).
- *   - Coordination of that path between the two processes.
- *   - Half-duplex semantics identical to anonymous pipes.
- *
- * For the parent-spawns-child pattern that bu_ipc targets, anonymous pipes
- * are strictly superior: the fd pair is inherited by the child automatically
- * with no path management.  Named pipes add cost without benefit here.
- *
- * On Windows the situation is different: Windows anonymous pipes created
- * with CreatePipe() do not support overlapped (async) I/O.  libuv therefore
- * uses Windows Named Pipes with a generated UUID path when UV_CREATE_PIPE
- * is requested.  This is transparent to bu_ipc callers — on Windows, the
- * "anonymous pipe" transport silently uses Windows Named Pipes under the
- * hood, which is exactly the right thing to do on that platform.
- *
- *
- * ### PIMPL design: why environment variables are safe here
- *
- * A channel pair created by bu_ipc_pair() stores all transport-specific
- * state inside the opaque bu_ipc_chan_t struct (PIMPL pattern).  Callers
- * hold handles, not raw file descriptors or port numbers.
- *
- * The child-end address is retrieved with bu_ipc_addr(), which returns a
- * pointer into the channel's internal storage — it is NOT written into the
- * parent process's global environment.
- *
- * The typical usage pattern is:
+ * The recommended pattern passes the channel address as a command-line
+ * argument to the child process.  This avoids any per-spawn environment
+ * manipulation and is safe for concurrent invocations because each pair()
+ * call produces an independent address string:
  *
  * @code
  *   bu_ipc_chan_t *p, *c;
  *   bu_ipc_pair(&p, &c);
  *
- *   // Spawn the child, passing the child-end address as a
- *   // PROCESS-SPECIFIC environment variable in the spawn options
- *   // (e.g. uv_process_options_t.env[]).  This is NOT setenv() — the
- *   // variable only exists in the child's environment, not in the
- *   // parent's global process environment.
- *   const char *env_entry = bu_ipc_addr_env(c);   // "BU_IPC_ADDR=pipe:4,7"
- *   spawn_child(rt_ipc_path, env=[env_entry, NULL]);
- *   bu_ipc_close(c);    // parent's copy of child end; child has its own
+ *   // Pass child-end address as a CLI arg; spawn child
+ *   const char *argv[] = { "child", "-I", bu_ipc_addr(c), NULL };
+ *   spawn_child(argv);
+ *   bu_ipc_close(c);   // parent's copy of the child end
  *
- *   // Parent uses the parent end for async I/O (e.g. via uv_pipe_open)
+ *   // Child calls: bu_ipc_connect(argv[iarg]) to get its channel handle
+ *   // Parent uses the parent end for I/O
  *   my_loop_register(bu_ipc_fileno(p));
  * @endcode
  *
- * ### Why this is thread-safe for concurrent renders
+ *
+ * ### Transport safety for concurrent spawns
  *
  * Each call to bu_ipc_pair() creates two independent channel handles with
  * their own internal state.  The address string lives inside the struct.
- * The spawn call passes it in a per-spawn env array, NOT in the parent's
- * global process env (which would require locking).
- *
  * Multiple simultaneous renders therefore each hold separate
- * bu_ipc_chan_t handles and separate per-spawn env arrays.  There is no
+ * bu_ipc_chan_t handles with separate address strings.  There is no
  * shared mutable state between them.
- *
- * The BU_IPC_ADDR_ENVVAR constant is only used by child processes (via
- * bu_ipc_connect_env()) to read their own inherited env — each child sees
- * the value that was passed to it at spawn time, not a value that any other
- * thread in the parent could mutate.
  *
  *
  * ### Optional transport preference (BU_IPC_PREFER)
@@ -126,10 +91,6 @@
  *
  * When set, bu_ipc_pair() tries that transport first (but still falls back
  * to others if it fails).  When unset, the default probe order is used.
- * Because this is a *preference hint* read at pair-creation time — not a
- * coordination mechanism — all concurrent pair() calls read the same value,
- * which is intentional and race-free.
- *
  * Applications can also call bu_ipc_pair_prefer() to specify the preference
  * programmatically without relying on an environment variable.
  *
@@ -186,18 +147,8 @@ __BEGIN_DECLS
 
 
 /* ------------------------------------------------------------------ */
-/* Environment variable constants                                       */
+/* Transport preference hint                                            */
 /* ------------------------------------------------------------------ */
-
-/**
- * Environment variable read by a child process to find its channel address.
- *
- * This variable is set ONLY in the child's per-spawn environment (e.g. via
- * uv_process_options_t.env[]).  It is NEVER written to the parent's global
- * process environment.  Use bu_ipc_addr_env() to obtain a ready-to-use
- * "KEY=VALUE" string suitable for a per-spawn env array.
- */
-#define BU_IPC_ADDR_ENVVAR  "BU_IPC_ADDR"
 
 /**
  * Optional parent-process preference variable.
@@ -206,7 +157,7 @@ __BEGIN_DECLS
  * calling bu_ipc_pair(), that transport is tried first (with fallback to
  * others on failure).  Unset means use the default probe order.
  *
- * Safe to set in the global env since it is only a preference hint, not a
+ * Safe to read from the global env since it is only a preference hint, not a
  * coordination mechanism; all concurrent bu_ipc_pair() calls reading the
  * same value is correct behaviour.
  */
@@ -259,8 +210,8 @@ typedef struct bu_ipc_chan bu_ipc_chan_t;
  *
  * Both ends are returned as connected handles.  The parent keeps
  * @p parent_end for its own I/O.  The child-end address is retrieved with
- * bu_ipc_addr() or bu_ipc_addr_env() and passed to the child at spawn time
- * in the subprocess's private environment array (NOT via setenv()).
+ * bu_ipc_addr() and passed to the child as a command-line argument (e.g.
+ * @c -I @c addr); the child calls bu_ipc_connect(addr) to open its end.
  *
  * @param[out] parent_end  Channel for the parent process.
  * @param[out] child_end   Channel whose address is given to the child.
@@ -298,25 +249,11 @@ BU_EXPORT int bu_ipc_pair_prefer(bu_ipc_chan_t **parent_end,
  *   "tcp:<port>"         — TCP loopback port
  *
  * The returned pointer is owned by @p chan (valid until bu_ipc_close()).
- * Normal callers should use bu_ipc_addr_env() instead, which wraps this
- * string in the "KEY=VALUE" format needed for per-spawn env arrays.
+ * Pass this string to the child process as a command-line argument (e.g.
+ * @c -I @c addr) and use bu_ipc_connect() on the child side to open the
+ * corresponding channel end.
  */
 BU_EXPORT const char *bu_ipc_addr(const bu_ipc_chan_t *chan);
-
-/**
- * @brief Return a "BU_IPC_ADDR=<addr>" string for a per-spawn env array.
- *
- * The returned string is suitable for placement directly in an env array
- * passed to uv_process_options_t.env[], execve(), or similar.  It is
- * stored inside @p chan and is valid until bu_ipc_close().
- *
- * This is the primary way to pass the channel address to a child process.
- * It does NOT involve the parent's global environment (no setenv() call).
- *
- * @param[in] chan  A channel end created by bu_ipc_pair().
- * @return  NUL-terminated "KEY=VALUE" string, or NULL on error.
- */
-BU_EXPORT const char *bu_ipc_addr_env(bu_ipc_chan_t *chan);
 
 
 /* ------------------------------------------------------------------ */
@@ -327,23 +264,14 @@ BU_EXPORT const char *bu_ipc_addr_env(bu_ipc_chan_t *chan);
  * @brief Connect to an IPC channel using an address string.
  *
  * Child-side counterpart to bu_ipc_pair().  The address string is the
- * raw value from bu_ipc_addr() (e.g. "pipe:4,7", "tcp:54321").
+ * raw value returned by bu_ipc_addr() on the parent side (e.g.
+ * "pipe:4,7", "socket:5", "tcp:54321").  It is typically passed to the
+ * child as a command-line argument so that concurrent spawns each receive
+ * their own unique address with no shared state.
  *
  * @return  New channel handle, or NULL on failure.
  */
 BU_EXPORT bu_ipc_chan_t *bu_ipc_connect(const char *addr);
-
-/**
- * @brief Connect using the address in BU_IPC_ADDR_ENVVAR (child side).
- *
- * Reads the child's own inherited environment variable and calls
- * bu_ipc_connect() automatically.  This is the typical child-side
- * entry point when the parent used bu_ipc_addr_env() at spawn time.
- *
- * @return  New channel handle, or NULL if the variable is unset or
- *          the connection fails.
- */
-BU_EXPORT bu_ipc_chan_t *bu_ipc_connect_env(void);
 
 
 /* ------------------------------------------------------------------ */
@@ -416,6 +344,39 @@ BU_EXPORT bu_ipc_type_t bu_ipc_type(const bu_ipc_chan_t *chan);
  * any temporary filesystem entries.
  */
 BU_EXPORT void bu_ipc_close(bu_ipc_chan_t *chan);
+
+/**
+ * @brief Release the channel struct without closing the underlying fds.
+ *
+ * Use when ownership of the underlying file descriptor(s) has been
+ * transferred to another entity (e.g. libpkg via pkg_open_fds()).
+ * The fds are left open; only the channel wrapper struct is freed.
+ *
+ * After this call @p chan is invalid.
+ */
+BU_EXPORT void bu_ipc_detach(bu_ipc_chan_t *chan);
+
+/**
+ * @brief Move the channel's fd(s) to fd numbers ≥ @p min_fd.
+ *
+ * Some spawn helpers (e.g. bu_process_create()) perform a sweep that
+ * closes all file descriptors below a certain threshold before exec().
+ * Call this on the child-end channel after bu_ipc_pair() and before
+ * spawning the child to ensure the fd survives the sweep.
+ *
+ * Example:
+ * @code
+ *   bu_ipc_pair(&pe, &ce);
+ *   bu_ipc_move_high_fd(ce, 64);   // move out of the swept range
+ *   const char *addr = bu_ipc_addr(ce);
+ *   // now pass addr as -I argument to child
+ * @endcode
+ *
+ * @param[in] chan    Channel whose fd(s) should be relocated.
+ * @param[in] min_fd Minimum acceptable fd number (must be ≥ 3).
+ * @return 0 on success, -1 on error.
+ */
+BU_EXPORT int bu_ipc_move_high_fd(bu_ipc_chan_t *chan, int min_fd);
 
 
 /** @} */

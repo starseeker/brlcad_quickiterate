@@ -1339,6 +1339,10 @@ reap_helpers(void)
  * worker host.  Passive workers (HT_PASSIVE / HT_PASSRS) connect in
  * by themselves and do not require SSH.
  */
+
+/* Forward declaration — add_host_local() is defined just after add_host(). */
+static void add_host_local(struct ihost *ihp);
+
 static void
 add_host(struct ihost *ihp)
 {
@@ -1439,13 +1443,18 @@ add_host(struct ihost *ihp)
  * Called from add_host() when ht_where == HT_LOCAL.  Separated out so
  * the HT_LOCAL path can return early on error without interfering with
  * the common bu_process_create() tail of add_host().
+ *
+ * The child-end IPC address is passed to rtsrv as a command-line argument
+ * (-I <addr>) rather than via an environment variable, so that concurrent
+ * invocations of add_host_local() cannot collide over a shared env entry.
  */
 static void
 add_host_local(struct ihost *ihp)
 {
     bu_ipc_chan_t *pe = NULL, *ce = NULL;
     char rtsrv_path[MAXPATHLEN];
-    const char *argv[6];
+    /* Slots: exe, -I, addr, [-S, token,] NULL — 6 entries is enough. */
+    const char *argv[8];
     int argc = 0;
     struct bu_process *p = NULL;
     struct pkg_conn *pc;
@@ -1464,32 +1473,38 @@ add_host_local(struct ihost *ihp)
     if (bu_ipc_pair_prefer(&pe, &ce, BU_IPC_SOCKET) != 0) {
 	bu_log("add_host_local: bu_ipc_pair (socketpair) failed for %s — "
 	       "falling back to TCP\n", ihp->ht_name);
-	/* Nothing to clean up; fall through to TCP path via add_host(). */
+	/* Nothing to clean up; fall through to the normal TCP path. */
 	ihp->ht_where = HT_CD;
 	add_host(ihp);
 	return;
     }
 
-    /* Build rtsrv argv.  No host/port args — IPC address is in env. */
+    /* Move the child-end fd above bu_process_create()'s close(3..19) sweep
+     * so that the fd is still open when rtsrv inherits it after exec().    */
+    if (bu_ipc_move_high_fd(ce, 64) != 0) {
+	bu_log("add_host_local: bu_ipc_move_high_fd failed for %s\n", ihp->ht_name);
+	bu_ipc_close(ce);
+	bu_ipc_close(pe);
+	return;
+    }
+
+    /* Build rtsrv argv.  Pass the child-end address via -I so each
+     * concurrent spawn carries its own unique address with no shared
+     * state.  No host/port positional args are needed in IPC mode.  */
     argv[argc++] = rtsrv_path;
+    argv[argc++] = "-I";
+    argv[argc++] = bu_ipc_addr(ce);     /* e.g. "socket:7" — stable ptr */
     if (session_token[0] != '\0') {
 	argv[argc++] = "-S";
 	argv[argc++] = session_token;
     }
     argv[argc] = NULL;
 
-    /* Set BU_IPC_ADDR in our process environment so the child inherits it.
-     * remrt's main loop is single-threaded; no lock is needed.           */
-    setenv(BU_IPC_ADDR_ENVVAR, bu_ipc_addr(ce), 1);
-
     if (rem_debug)
-	bu_log("%s local rtsrv %s  BU_IPC_ADDR=%s\n",
+	bu_log("%s local rtsrv %s -I %s\n",
 	       stamp(), rtsrv_path, bu_ipc_addr(ce));
 
     bu_process_create(&p, argv, BU_PROCESS_DEFAULT);
-
-    /* Restore the environment immediately regardless of spawn outcome. */
-    unsetenv(BU_IPC_ADDR_ENVVAR);
 
     /* Parent closes its copy of the child end — only the child needs it. */
     bu_ipc_close(ce);
@@ -1514,10 +1529,11 @@ add_host_local(struct ihost *ihp)
 	return;
     }
 
-    /* pe is now owned by the pkg_conn; pkg_close() will close rfd/wfd. */
-    /* We keep pe alive until the channel is registered.                  */
+    /* pe struct can now be freed; the fds inside it are owned by pkg_conn.
+     * Use bu_ipc_detach() (not bu_ipc_close()) to avoid closing the fd
+     * that pkg_conn will later use for I/O and select().              */
     addclient_ipc(pc, ihp);
-    bu_ipc_close(pe);   /* struct can be freed; fds are now in pkg_conn */
+    bu_ipc_detach(pe);   /* struct freed; fds remain open in pkg_conn */
 
     /* Let the new connection's first message (MSG_VERSION) arrive. */
     check_input(1);
