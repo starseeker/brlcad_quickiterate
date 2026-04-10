@@ -82,26 +82,9 @@
 
 #include "common.h"
 
-#ifndef _WIN32
-#  include <unistd.h>
-#  include <sys/socket.h>
-#  include <netinet/in.h>
-#  include <arpa/inet.h>
-#  include <sys/types.h>
-#  include <errno.h>
-#  ifdef HAVE_SYS_UN_H
-#    include <sys/un.h>
-#  endif
-#endif
-
-#ifdef _WIN32
-#  define WIN32_LEAN_AND_MEAN
-#  include <windows.h>
-#  include <winsock2.h>
-#  include <ws2tcpip.h>
-#  include <io.h>
-#  pragma comment(lib, "ws2_32.lib")
-#endif
+#include "bio.h"
+#include "bsocket.h"
+#include "bnetwork.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -112,6 +95,7 @@
 #include "bu/defines.h"
 #include "bu/log.h"
 #include "bu/malloc.h"
+#include "bu/str.h"
 #include "bu/ipc.h"
 
 
@@ -170,7 +154,7 @@ try_pipe(bu_ipc_chan_t **parent_end, bu_ipc_chan_t **child_end)
 {
     int pc[2], cp[2];   /* pc: parent→child,  cp: child→parent */
     if (pipe(pc) < 0 || pipe(cp) < 0)
-return -1;
+	return -1;
 
     /* Parent: reads from cp[0], writes to pc[1] */
     auto *pe = make_chan();
@@ -208,8 +192,8 @@ try_pipe(bu_ipc_chan_t **parent_end, bu_ipc_chan_t **child_end)
     HANDLE hReadPC, hWritePC;   /* parent→child */
     HANDLE hReadCP, hWriteCP;   /* child→parent */
     if (!CreatePipe(&hReadPC, &hWritePC, &sa, 0) ||
-!CreatePipe(&hReadCP, &hWriteCP, &sa, 0))
-return -1;
+	    !CreatePipe(&hReadCP, &hWriteCP, &sa, 0))
+	return -1;
 
     /* Don't let the parent's write ends propagate to grandchildren */
     SetHandleInformation(hWritePC, HANDLE_FLAG_INHERIT, 0);
@@ -251,7 +235,7 @@ try_socketpair(bu_ipc_chan_t **parent_end, bu_ipc_chan_t **child_end)
 {
     int sv[2];
     if (socketpair(AF_UNIX, SOCK_STREAM, 0, sv) < 0)
-return -1;
+	return -1;
 
     auto *pe = make_chan();
     pe->type = BU_IPC_SOCKET; pe->fd = sv[0]; pe->fd_write = sv[0];
@@ -289,7 +273,7 @@ try_tcp(bu_ipc_chan_t **parent_end, bu_ipc_chan_t **child_end)
 #endif
 
     {   int opt = 1;
-setsockopt(lsock, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt)); }
+	setsockopt(lsock, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt)); }
 
     struct sockaddr_in sa = {};
     sa.sin_family      = AF_INET;
@@ -297,13 +281,13 @@ setsockopt(lsock, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt)); }
     sa.sin_port        = 0;
 
     if (bind(lsock, (struct sockaddr*)&sa, sizeof(sa)) < 0 ||
-listen(lsock, 1) < 0) {
+	    listen(lsock, 1) < 0) {
 #ifdef _WIN32
-closesocket((SOCKET)lsock);
+	closesocket((SOCKET)lsock);
 #else
-close(lsock);
+	close(lsock);
 #endif
-return -1;
+	return -1;
     }
 
     struct sockaddr_in bound = {};
@@ -369,16 +353,16 @@ static int
 try_one(bu_ipc_type_t t, bu_ipc_chan_t **pe, bu_ipc_chan_t **ce)
 {
     switch (t) {
-    case BU_IPC_PIPE:
-return try_pipe(pe, ce);
+	case BU_IPC_PIPE:
+	    return try_pipe(pe, ce);
 #if defined(HAVE_SYS_UN_H) && !defined(_WIN32)
-    case BU_IPC_SOCKET:
-return try_socketpair(pe, ce);
+	case BU_IPC_SOCKET:
+	    return try_socketpair(pe, ce);
 #endif
-    case BU_IPC_TCP:
-return try_tcp(pe, ce);
-    default:
-return -1;
+	case BU_IPC_TCP:
+	    return try_tcp(pe, ce);
+	default:
+	    return -1;
     }
 }
 
@@ -388,9 +372,9 @@ read_prefer_env()
 {
     const char *v = getenv(BU_IPC_PREFER_ENVVAR);
     if (!v) return (bu_ipc_type_t)0;
-    if (strcmp(v, "pipe")   == 0) return BU_IPC_PIPE;
-    if (strcmp(v, "socket") == 0) return BU_IPC_SOCKET;
-    if (strcmp(v, "tcp")    == 0) return BU_IPC_TCP;
+    if (BU_STR_EQUAL(v, "pipe")) return BU_IPC_PIPE;
+    if (BU_STR_EQUAL(v, "socket")) return BU_IPC_SOCKET;
+    if (BU_STR_EQUAL(v, "tcp")) return BU_IPC_TCP;
     bu_log("bu_ipc: unknown BU_IPC_PREFER value '%s' — ignoring\n", v);
     return (bu_ipc_type_t)0;
 }
@@ -402,31 +386,31 @@ read_prefer_env()
 
 int
 bu_ipc_pair_prefer(bu_ipc_chan_t **parent_end,
-   bu_ipc_chan_t **child_end,
-   bu_ipc_type_t   preferred)
+	bu_ipc_chan_t **child_end,
+	bu_ipc_type_t   preferred)
 {
     if (!parent_end || !child_end) return -1;
 
     /* Build probe order: preferred first, then others. */
     bu_ipc_type_t order[3] = { BU_IPC_PIPE, BU_IPC_SOCKET, BU_IPC_TCP };
     if ((int)preferred > 0) {
-/* Rotate preferred to front */
-int pos = 0;
-for (int i = 0; i < 3; ++i)
-    if (order[i] == preferred) { pos = i; break; }
-if (pos > 0) {
-    bu_ipc_type_t tmp = order[0];
-    order[0] = order[pos];
-    order[pos] = tmp;
-}
+	/* Rotate preferred to front */
+	int pos = 0;
+	for (int i = 0; i < 3; ++i)
+	    if (order[i] == preferred) { pos = i; break; }
+	if (pos > 0) {
+	    bu_ipc_type_t tmp = order[0];
+	    order[0] = order[pos];
+	    order[pos] = tmp;
+	}
     }
 
     for (int i = 0; i < 3; ++i) {
-if (try_one(order[i], parent_end, child_end) == 0)
-    return 0;
-if (i < 2)
-    bu_log("bu_ipc_pair: transport %d failed, trying next\n",
-   (int)order[i]);
+	if (try_one(order[i], parent_end, child_end) == 0)
+	    return 0;
+	if (i < 2)
+	    bu_log("bu_ipc_pair: transport %d failed, trying next\n",
+		    (int)order[i]);
     }
     bu_log("bu_ipc_pair: all transports failed\n");
     return -1;
@@ -455,8 +439,8 @@ bu_ipc_addr_env(bu_ipc_chan_t *chan)
     if (!chan) return nullptr;
     /* Lazily update if addr changed (shouldn't happen after pair, but be safe) */
     if (chan->addr_env.empty() ||
-chan->addr_env.find(chan->addr) == std::string::npos)
-build_addr_env(chan);
+	    chan->addr_env.find(chan->addr) == std::string::npos)
+	build_addr_env(chan);
     return chan->addr_env.c_str();
 }
 
@@ -472,51 +456,51 @@ bu_ipc_connect(const char *addr)
     auto *c = make_chan();
     c->addr = addr;
 
-    if (strncmp(addr, "pipe:", 5) == 0) {
-int rfd = -1, wfd = -1;
-if (sscanf(addr + 5, "%d,%d", &rfd, &wfd) == 2) {
-    c->type = BU_IPC_PIPE; c->fd = rfd; c->fd_write = wfd;
-    build_addr_env(c);
-    return c;
-}
+    if (bu_strncmp(addr, "pipe:", 5) == 0) {
+	int rfd = -1, wfd = -1;
+	if (sscanf(addr + 5, "%d,%d", &rfd, &wfd) == 2) {
+	    c->type = BU_IPC_PIPE; c->fd = rfd; c->fd_write = wfd;
+	    build_addr_env(c);
+	    return c;
+	}
     }
 
-    if (strncmp(addr, "socket:", 7) == 0) {
-int sfd = -1;
-if (sscanf(addr + 7, "%d", &sfd) == 1) {
-    c->type = BU_IPC_SOCKET; c->fd = sfd; c->fd_write = sfd;
-    build_addr_env(c);
-    return c;
-}
+    if (bu_strncmp(addr, "socket:", 7) == 0) {
+	int sfd = -1;
+	if (sscanf(addr + 7, "%d", &sfd) == 1) {
+	    c->type = BU_IPC_SOCKET; c->fd = sfd; c->fd_write = sfd;
+	    build_addr_env(c);
+	    return c;
+	}
     }
 
-    if (strncmp(addr, "tcp:", 4) == 0) {
-int port = 0;
-if (sscanf(addr + 4, "%d", &port) == 1) {
+    if (bu_strncmp(addr, "tcp:", 4) == 0) {
+	int port = 0;
+	if (sscanf(addr + 4, "%d", &port) == 1) {
 #ifdef _WIN32
-    WSADATA wsa; WSAStartup(MAKEWORD(2,2), &wsa);
-    int csock = (int)socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (csock == INVALID_SOCKET) { delete c; return nullptr; }
+	    WSADATA wsa; WSAStartup(MAKEWORD(2,2), &wsa);
+	    int csock = (int)socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	    if (csock == INVALID_SOCKET) { delete c; return nullptr; }
 #else
-    int csock = socket(AF_INET, SOCK_STREAM, 0);
-    if (csock < 0) { delete c; return nullptr; }
+	    int csock = socket(AF_INET, SOCK_STREAM, 0);
+	    if (csock < 0) { delete c; return nullptr; }
 #endif
-    struct sockaddr_in sa = {};
-    sa.sin_family      = AF_INET;
-    sa.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-    sa.sin_port        = htons((uint16_t)port);
-    if (connect(csock, (struct sockaddr*)&sa, sizeof(sa)) < 0) {
+	    struct sockaddr_in sa = {};
+	    sa.sin_family      = AF_INET;
+	    sa.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+	    sa.sin_port        = htons((uint16_t)port);
+	    if (connect(csock, (struct sockaddr*)&sa, sizeof(sa)) < 0) {
 #ifdef _WIN32
-closesocket((SOCKET)csock);
+		closesocket((SOCKET)csock);
 #else
-close(csock);
+		close(csock);
 #endif
-delete c; return nullptr;
-    }
-    c->type = BU_IPC_TCP; c->fd = csock; c->fd_write = csock;
-    build_addr_env(c);
-    return c;
-}
+		delete c; return nullptr;
+	    }
+	    c->type = BU_IPC_TCP; c->fd = csock; c->fd_write = csock;
+	    build_addr_env(c);
+	    return c;
+	}
     }
 
     bu_log("bu_ipc_connect: unrecognized address '%s'\n", addr);
@@ -529,8 +513,8 @@ bu_ipc_connect_env()
 {
     const char *addr = getenv(BU_IPC_ADDR_ENVVAR);
     if (!addr) {
-bu_log("bu_ipc_connect_env: %s not set\n", BU_IPC_ADDR_ENVVAR);
-return nullptr;
+	bu_log("bu_ipc_connect_env: %s not set\n", BU_IPC_ADDR_ENVVAR);
+	return nullptr;
     }
     return bu_ipc_connect(addr);
 }
@@ -553,13 +537,13 @@ bu_ipc_write(bu_ipc_chan_t *chan, const void *buf, size_t nbytes)
     size_t rem = nbytes;
     while (rem > 0) {
 #ifdef _WIN32
-int n = _write(wfd, p, (unsigned)(rem > 65536 ? 65536 : rem));
+	int n = _write(wfd, p, (unsigned)(rem > 65536 ? 65536 : rem));
 #else
-ssize_t n = write(wfd, p, rem);
+	ssize_t n = write(wfd, p, rem);
 #endif
-if (n <= 0) return -1;
-p   += n;
-rem -= (size_t)n;
+	if (n <= 0) return -1;
+	p   += n;
+	rem -= (size_t)n;
     }
     return (bu_ssize_t)nbytes;
 }
@@ -577,14 +561,14 @@ bu_ipc_read(bu_ipc_chan_t *chan, void *buf, size_t nbytes)
     size_t rem = nbytes;
     while (rem > 0) {
 #ifdef _WIN32
-int n = _read(rfd, p, (unsigned)(rem > 65536 ? 65536 : rem));
+	int n = _read(rfd, p, (unsigned)(rem > 65536 ? 65536 : rem));
 #else
-ssize_t n = read(rfd, p, rem);
+	ssize_t n = read(rfd, p, rem);
 #endif
-if (n == 0) return 0;
-if (n < 0)  return -1;
-p   += n;
-rem -= (size_t)n;
+	if (n == 0) return 0;
+	if (n < 0)  return -1;
+	p   += n;
+	rem -= (size_t)n;
     }
     return (bu_ssize_t)nbytes;
 }
@@ -634,7 +618,7 @@ bu_ipc_close(bu_ipc_chan_t *chan)
 #endif
 
     if (!chan->sock_path.empty())
-(void)remove(chan->sock_path.c_str());
+	(void)bu_file_delete(chan->sock_path.c_str());
 
     delete chan;
 }
@@ -661,36 +645,36 @@ bu_ipc_move_high_fd(bu_ipc_chan_t *chan, int min_fd)
 #else
     /* Move fd (read end, or bidirectional) if it is below min_fd. */
     if (chan->fd >= 0 && chan->fd < min_fd) {
-       int nfd = fcntl(chan->fd, F_DUPFD, min_fd);
-       if (nfd < 0) return -1;
-       if (chan->fd_write == chan->fd)
-           chan->fd_write = nfd;
-       close(chan->fd);
-       chan->fd = nfd;
-       /* Update the address string to reflect the new fd number. */
-       char buf[64];
-       if (chan->type == BU_IPC_SOCKET)
-           snprintf(buf, sizeof(buf), "socket:%d", chan->fd);
-       else if (chan->type == BU_IPC_PIPE)
-           snprintf(buf, sizeof(buf), "pipe:%d,%d", chan->fd, chan->fd_write);
-       else
-           snprintf(buf, sizeof(buf), "tcp:%d", chan->fd);
-       chan->addr = buf;
+	int nfd = fcntl(chan->fd, F_DUPFD, min_fd);
+	if (nfd < 0) return -1;
+	if (chan->fd_write == chan->fd)
+	    chan->fd_write = nfd;
+	close(chan->fd);
+	chan->fd = nfd;
+	/* Update the address string to reflect the new fd number. */
+	char buf[64];
+	if (chan->type == BU_IPC_SOCKET)
+	    snprintf(buf, sizeof(buf), "socket:%d", chan->fd);
+	else if (chan->type == BU_IPC_PIPE)
+	    snprintf(buf, sizeof(buf), "pipe:%d,%d", chan->fd, chan->fd_write);
+	else
+	    snprintf(buf, sizeof(buf), "tcp:%d", chan->fd);
+	chan->addr = buf;
     }
 
     /* For pipe transport: move write end too (it differs from fd). */
     if (chan->type == BU_IPC_PIPE
-       && chan->fd_write >= 0
-       && chan->fd_write < min_fd
-       && chan->fd_write != chan->fd)
+	    && chan->fd_write >= 0
+	    && chan->fd_write < min_fd
+	    && chan->fd_write != chan->fd)
     {
-       int nfd = fcntl(chan->fd_write, F_DUPFD, min_fd);
-       if (nfd < 0) return -1;
-       close(chan->fd_write);
-       chan->fd_write = nfd;
-       char buf[64];
-       snprintf(buf, sizeof(buf), "pipe:%d,%d", chan->fd, chan->fd_write);
-       chan->addr = buf;
+	int nfd = fcntl(chan->fd_write, F_DUPFD, min_fd);
+	if (nfd < 0) return -1;
+	close(chan->fd_write);
+	chan->fd_write = nfd;
+	char buf[64];
+	snprintf(buf, sizeof(buf), "pipe:%d,%d", chan->fd, chan->fd_write);
+	chan->addr = buf;
     }
 
     return 0;
