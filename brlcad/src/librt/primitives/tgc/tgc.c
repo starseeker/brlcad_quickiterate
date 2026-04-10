@@ -1927,6 +1927,10 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     struct vertex **v[3];		/* array for making triangular faces */
     struct bu_list *vlfree = &rt_vlfree;
 
+    fastf_t dtol;			/* chord-sag tolerance for per-ring nsegs */
+    int *nsegs_ring = NULL;		/* per-ring circumferential segment counts */
+    int *pts_dbl = NULL;		/* pts_dbl[i]=1 when ring i has 2x segs of ring i-1 */
+
     size_t i;
 
     VSETALL(unit_a, 0);
@@ -2087,6 +2091,14 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	       orig_alpha_tol, alpha_tol);
     }
 
+    /* Chord-sag tolerance (distance) for per-ring segment counts.
+     * max_radius*(1 - cos(alpha_tol/2)) is the maximum chord-sag at the
+     * largest ring, which rt_num_circular_segments() uses to compute segment
+     * counts.  The resulting count approximates nsegs for r = max_radius. */
+    dtol = max_radius * (1.0 - cos(alpha_tol / 2.0));
+    if (dtol <= 0.0)
+	dtol = max_radius * 0.01;
+
     /* get number of segments per quadrant */
     nsegs = (int)(M_PI_2 / alpha_tol + 0.9999);
     if (nsegs < 2)
@@ -2102,7 +2114,6 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	fastf_t len_ha, len_hb;
 	vect_t ha, hb;
 	fastf_t ang;
-	fastf_t sin_ang, cos_ang, cos_m_1_sq, sin_sq;
 	fastf_t len_A, len_B, len_C, len_D;
 	size_t bot_ell=0;
 	size_t top_ell=1;
@@ -2133,10 +2144,7 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	    reversed = 1;
 	}
 	ang = M_2PI/((double)nsegs);
-	sin_ang = sin(ang);
-	cos_ang = cos(ang);
-	cos_m_1_sq = (cos_ang - 1.0)*(cos_ang - 1.0);
-	sin_sq = sin_ang*sin_ang;
+	(void)ang; /* now only used as a reference value; per-ring angles computed inside while loop */
 
 	VJOIN2(ha, tip->h, 1.0, tip->c, -1.0, tip->a);
 	VJOIN2(hb, tip->h, 1.0, tip->d, -1.0, tip->b);
@@ -2144,7 +2152,6 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	len_hb = MAGNITUDE(hb);
 
 	while (max_ratio > MAX_RATIO) {
-	    fastf_t tri_width;
 
 	    len_A = MAGNITUDE(A[bot_ell]);
 	    if (2.0*len_A <= tol->dist)
@@ -2159,41 +2166,71 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	    if (2.0*len_D <= tol->dist)
 		len_D = 0.0;
 
-	    if ((len_B > 0.0 && len_D > 0.0) ||
-		(len_B > 0.0 && (ZERO(len_D) && ZERO(len_C))))
+	    /* Use local per-ring angles for width estimates so that small
+	     * rings don't trigger excessive intermediate-ring insertions. */
 	    {
-		tri_width = sqrt(cos_m_1_sq*len_A*len_A + sin_sq*len_B*len_B);
-		ratios[0] = (factors[top_ell] - factors[bot_ell])*len_ha
-		    /tri_width;
-	    } else
-		ratios[0] = 0.0;
+		fastf_t ring_sz_bot = (len_A > len_B) ? len_A : len_B;
+		fastf_t ring_sz_top = (len_C > len_D) ? len_C : len_D;
+		fastf_t ang_bot, ang_top;
+		fastf_t cos_m1_sq_bot, sin_sq_bot;
+		fastf_t cos_m1_sq_top, sin_sq_top;
 
-	    if ((len_A > 0.0 && len_C > 0.0) ||
-		(len_A > 0.0 && (ZERO(len_C) && ZERO(len_D))))
-	    {
-		tri_width = sqrt(sin_sq*len_A*len_A + cos_m_1_sq*len_B*len_B);
-		ratios[1] = (factors[top_ell] - factors[bot_ell])*len_hb
-		    /tri_width;
-	    } else
-		ratios[1] = 0.0;
+		if (ring_sz_bot > 0.0) {
+		    int ns_b = rt_num_circular_segments(dtol, ring_sz_bot);
+		    if (ns_b < 4) ns_b = 4;
+		    ang_bot = M_2PI / ns_b;
+		} else {
+		    ang_bot = M_2PI / 4.0;
+		}
+		cos_m1_sq_bot = (cos(ang_bot) - 1.0) * (cos(ang_bot) - 1.0);
+		sin_sq_bot = sin(ang_bot) * sin(ang_bot);
 
-	    if ((len_D > 0.0 && len_B > 0.0) ||
-		(len_D > 0.0 && (ZERO(len_A) && ZERO(len_B))))
-	    {
-		tri_width = sqrt(cos_m_1_sq*len_C*len_C + sin_sq*len_D*len_D);
-		ratios[2] = (factors[top_ell] - factors[bot_ell])*len_ha
-		    /tri_width;
-	    } else
-		ratios[2] = 0.0;
+		if (ring_sz_top > 0.0) {
+		    int ns_t = rt_num_circular_segments(dtol, ring_sz_top);
+		    if (ns_t < 4) ns_t = 4;
+		    ang_top = M_2PI / ns_t;
+		} else {
+		    ang_top = M_2PI / 4.0;
+		}
+		cos_m1_sq_top = (cos(ang_top) - 1.0) * (cos(ang_top) - 1.0);
+		sin_sq_top = sin(ang_top) * sin(ang_top);
 
-	    if ((len_C > 0.0 && len_A > 0.0) ||
-		(len_C > 0.0 && (ZERO(len_A) && ZERO(len_B))))
-	    {
-		tri_width = sqrt(sin_sq*len_C*len_C + cos_m_1_sq*len_D*len_D);
-		ratios[3] = (factors[top_ell] - factors[bot_ell])*len_hb
-		    /tri_width;
-	    } else
-		ratios[3] = 0.0;
+		if ((len_B > 0.0 && len_D > 0.0) ||
+		    (len_B > 0.0 && (ZERO(len_D) && ZERO(len_C))))
+		{
+		    fastf_t tw = sqrt(cos_m1_sq_bot*len_A*len_A + sin_sq_bot*len_B*len_B);
+		    ratios[0] = (tw > 0.0) ?
+			(factors[top_ell] - factors[bot_ell])*len_ha / tw : 0.0;
+		} else
+		    ratios[0] = 0.0;
+
+		if ((len_A > 0.0 && len_C > 0.0) ||
+		    (len_A > 0.0 && (ZERO(len_C) && ZERO(len_D))))
+		{
+		    fastf_t tw = sqrt(sin_sq_bot*len_A*len_A + cos_m1_sq_bot*len_B*len_B);
+		    ratios[1] = (tw > 0.0) ?
+			(factors[top_ell] - factors[bot_ell])*len_hb / tw : 0.0;
+		} else
+		    ratios[1] = 0.0;
+
+		if ((len_D > 0.0 && len_B > 0.0) ||
+		    (len_D > 0.0 && (ZERO(len_A) && ZERO(len_B))))
+		{
+		    fastf_t tw = sqrt(cos_m1_sq_top*len_C*len_C + sin_sq_top*len_D*len_D);
+		    ratios[2] = (tw > 0.0) ?
+			(factors[top_ell] - factors[bot_ell])*len_ha / tw : 0.0;
+		} else
+		    ratios[2] = 0.0;
+
+		if ((len_C > 0.0 && len_A > 0.0) ||
+		    (len_C > 0.0 && (ZERO(len_A) && ZERO(len_B))))
+		{
+		    fastf_t tw = sqrt(sin_sq_top*len_C*len_C + cos_m1_sq_top*len_D*len_D);
+		    ratios[3] = (tw > 0.0) ?
+			(factors[top_ell] - factors[bot_ell])*len_hb / tw : 0.0;
+		} else
+		    ratios[3] = 0.0;
+	    }
 
 	    which_ratio = -1;
 	    max_ratio = 0.0;
@@ -2332,10 +2369,78 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	}
     }
 
+    /* Compute per-ring circumferential segment counts (same strategy as EPA/EHY).
+     * The ring with the largest circumference keeps nsegs; smaller rings toward
+     * either end are permitted halved counts when the halved value still meets
+     * their own tolerance requirement and stays >= 4. */
+    nsegs_ring = (int *)bu_calloc(nells, sizeof(int), "nsegs_ring");
+    pts_dbl = (int *)bu_calloc(nells, sizeof(int), "pts_dbl");
+    {
+	size_t ri;
+	size_t max_ring = 0;
+	fastf_t max_ring_sz = 0.0;
+
+	/* Find the ring with the largest semi-axis */
+	for (ri = 0; ri < nells; ri++) {
+	    fastf_t lA = MAGNITUDE(A[ri]);
+	    fastf_t lB = MAGNITUDE(B[ri]);
+	    fastf_t ls = (lA > lB) ? lA : lB;
+	    if (ls > max_ring_sz) {
+		max_ring_sz = ls;
+		max_ring = ri;
+	    }
+	}
+	nsegs_ring[max_ring] = (int)nsegs;
+
+	/* Halve toward the bottom end */
+	for (ri = max_ring; ri > 0; ri--) {
+	    fastf_t lA = MAGNITUDE(A[ri-1]);
+	    fastf_t lB = MAGNITUDE(B[ri-1]);
+	    fastf_t ls = (lA > lB) ? lA : lB;
+	    int ns_ideal = (ls > 0.0 && dtol > 0.0) ?
+		rt_num_circular_segments(dtol, ls) : 4;
+	    int halved;
+	    if (ns_ideal < 4) ns_ideal = 4;
+	    /* Keep apex rings at the same count as their neighbor to avoid
+	     * fan transitions at degenerate apex points. */
+	    if (ri == 1 && ZERO(a_axis_len) && ZERO(b_axis_len)) {
+		nsegs_ring[ri-1] = nsegs_ring[ri];
+		continue;
+	    }
+	    halved = (nsegs_ring[ri] % 2 == 0) ? (nsegs_ring[ri] / 2) : 0;
+	    nsegs_ring[ri-1] = (halved >= 4 && halved >= ns_ideal) ?
+		halved : nsegs_ring[ri];
+	}
+
+	/* Halve toward the top end */
+	for (ri = max_ring; ri < nells-1; ri++) {
+	    fastf_t lA = MAGNITUDE(A[ri+1]);
+	    fastf_t lB = MAGNITUDE(B[ri+1]);
+	    fastf_t ls = (lA > lB) ? lA : lB;
+	    int ns_ideal = (ls > 0.0 && dtol > 0.0) ?
+		rt_num_circular_segments(dtol, ls) : 4;
+	    int halved;
+	    if (ns_ideal < 4) ns_ideal = 4;
+	    /* Keep apex rings at same count as neighbor */
+	    if (ri == nells-2 && ZERO(c_axis_len) && ZERO(d_axis_len)) {
+		nsegs_ring[ri+1] = nsegs_ring[ri];
+		continue;
+	    }
+	    halved = (nsegs_ring[ri] % 2 == 0) ? (nsegs_ring[ri] / 2) : 0;
+	    nsegs_ring[ri+1] = (halved >= 4 && halved >= ns_ideal) ?
+		halved : nsegs_ring[ri];
+	}
+
+	/* pts_dbl[i] = 1 when ring i has exactly 2× the segs of ring i-1 */
+	pts_dbl[0] = 0;
+	for (ri = 1; ri < nells; ri++)
+	    pts_dbl[ri] = (nsegs_ring[ri] == 2 * nsegs_ring[ri-1]) ? 1 : 0;
+    }
+
     /* get memory for points */
     pts = (struct tgc_pts **)bu_calloc(nells, sizeof(struct tgc_pts *), "rt_tgc_tess: pts");
     for (i=0; i<nells; i++)
-	pts[i] = (struct tgc_pts *)bu_calloc(nsegs, sizeof(struct tgc_pts), "rt_tgc_tess: pts");
+	pts[i] = (struct tgc_pts *)bu_calloc(nsegs_ring[i], sizeof(struct tgc_pts), "rt_tgc_tess: pts");
 
     /* calculate geometry for points */
     for (i=0; i<nells; i++) {
@@ -2343,11 +2448,11 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	size_t j;
 
 	h_factor = factors[i];
-	for (j=0; j<nsegs; j++) {
+	for (j=0; j<(size_t)nsegs_ring[i]; j++) {
 	    double alpha;
 	    double sin_alpha, cos_alpha;
 
-	    alpha = M_2PI * (double)(2*j+1)/(double)(2*nsegs);
+	    alpha = M_2PI * (double)(2*j+1)/(double)(2*nsegs_ring[i]);
 	    sin_alpha = sin(alpha);
 	    cos_alpha = cos(alpha);
 
@@ -2383,7 +2488,7 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	    continue;
 
 	VMOVE(curr_pt, pts[i][0].pt);
-	for (j=1; j<nsegs; j++) {
+	for (j=1; j<(size_t)nsegs_ring[i]; j++) {
 	    fastf_t edge_len_sq;
 
 	    VSUB2(edge_vect, curr_pt, pts[i][j].pt);
@@ -2405,7 +2510,7 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     bu_ptbl_init(&faces, 64, " &faces ");
     /* Make bottom face */
     if (a_axis_len > 0.0 && b_axis_len > 0.0) {
-	for (i=nsegs; i>0; i--) {
+	for (i=nsegs_ring[0]; i>0; i--) {
 	    /* reverse order to get outward normal */
 	    if (!pts[0][i-1].dont_use)
 		bu_ptbl_ins(&verts, (long *)&pts[0][i-1].v);
@@ -2423,7 +2528,7 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     /* Make top face */
     if (c_axis_len > 0.0 && d_axis_len > 0.0) {
 	bu_ptbl_reset(&verts);
-	for (i=0; i<nsegs; i++) {
+	for (i=0; i<(size_t)nsegs_ring[nells-1]; i++) {
 	    if (!pts[nells-1][i].dont_use)
 		bu_ptbl_ins(&verts, (long *)&pts[nells-1][i].v);
 	}
@@ -2439,47 +2544,133 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     /* Free table of vertices */
     bu_ptbl_free(&verts);
 
-    /* Make triangular faces */
+    /* Make triangular faces.
+     * When adjacent rings have the same segment count (ns_bot == ns_top),
+     * use the standard zipper (2 triangles per segment, advances one pointer
+     * per step).
+     * When ns_top == 2*ns_bot (fan-out), or ns_bot == 2*ns_top (fan-in),
+     * use 3 triangles per segment of the smaller ring (like EPA/EHY pts_dbl).
+     * Face vertex orders are CCW when viewed from outside (outward normal). */
     for (i=0; i<nells-1; i++) {
 	size_t j;
 	struct vertex **curr_top;
 	struct vertex **curr_bot;
+	int ns_bot = nsegs_ring[i];
+	int ns_top = nsegs_ring[i+1];
+	int is_apex_bot = (i == 0 && ZERO(a_axis_len) && ZERO(b_axis_len));
+	int is_apex_top = (i+1 == nells-1 && ZERO(c_axis_len) && ZERO(d_axis_len));
 
 	curr_bot = &pts[i][0].v;
 	curr_top = &pts[i+1][0].v;
-	for (j=0; j<nsegs; j++) {
-	    size_t k;
 
-	    k = j+1;
-	    if (k == nsegs)
-		k = 0;
-	    if (i != 0 || a_axis_len > 0.0 || b_axis_len > 0.0) {
-		if (!pts[i][k].dont_use) {
-		    v[0] = curr_bot;
-		    v[1] = &pts[i][k].v;
-		    if (i+1 == nells-1 && ZERO(c_axis_len) && ZERO(d_axis_len))
-			v[2] = &pts[i+1][0].v;
-		    else
-			v[2] = curr_top;
-		    fu = nmg_cmface(s, v, 3);
-		    bu_ptbl_ins(&faces, (long *)fu);
-		    curr_bot = &pts[i][k].v;
+	if (ns_bot == ns_top) {
+	    /* 1:1 case: standard zipper */
+	    for (j=0; j<(size_t)ns_bot; j++) {
+		size_t k = j+1;
+		if (k == (size_t)ns_bot)
+		    k = 0;
+		if (!is_apex_bot) {
+		    if (!pts[i][k].dont_use) {
+			v[0] = curr_bot;
+			v[1] = &pts[i][k].v;
+			v[2] = is_apex_top ? &pts[i+1][0].v : curr_top;
+			fu = nmg_cmface(s, v, 3);
+			bu_ptbl_ins(&faces, (long *)fu);
+			curr_bot = v[1];
+		    }
+		}
+		if (!is_apex_top) {
+		    if (!pts[i+1][k].dont_use) {
+			v[0] = &pts[i+1][k].v;
+			v[1] = curr_top;
+			v[2] = is_apex_bot ? &pts[i][0].v : curr_bot;
+			fu = nmg_cmface(s, v, 3);
+			bu_ptbl_ins(&faces, (long *)fu);
+			curr_top = v[0];
+		    }
 		}
 	    }
+	} else if (ns_top == 2 * ns_bot) {
+	    /* Fan-out: top ring is twice as dense as bottom ring.
+	     * 3 triangles per bottom segment with CCW winding. */
+	    for (j=0; j<(size_t)ns_bot; j++) {
+		size_t k_bot  = (j+1) % (size_t)ns_bot;
+		size_t k_top1 = 2*j+1;
+		size_t k_top2 = (2*j+2) % (size_t)ns_top;
 
-	    if (i != nells-2 || c_axis_len > 0.0 || d_axis_len > 0.0) {
-		if (!pts[i+1][k].dont_use) {
-		    v[0] = &pts[i+1][k].v;
+		/* T1: advance top once (to odd index) */
+		if (!is_apex_top && !pts[i+1][k_top1].dont_use) {
+		    v[0] = is_apex_bot ? &pts[i][0].v : curr_bot;
 		    v[1] = curr_top;
-		    if (i == 0 && ZERO(a_axis_len) && ZERO(b_axis_len))
-			v[2] = &pts[i][0].v;
-		    else
-			v[2] = curr_bot;
+		    v[2] = &pts[i+1][k_top1].v;
 		    fu = nmg_cmface(s, v, 3);
 		    bu_ptbl_ins(&faces, (long *)fu);
-		    curr_top = &pts[i+1][k].v;
+		    curr_top = v[2];
+		}
+
+		/* T2: advance bottom */
+		if (!is_apex_bot && !pts[i][k_bot].dont_use) {
+		    v[0] = curr_bot;
+		    v[1] = &pts[i][k_bot].v;
+		    v[2] = is_apex_top ? &pts[i+1][0].v : curr_top;
+		    fu = nmg_cmface(s, v, 3);
+		    bu_ptbl_ins(&faces, (long *)fu);
+		    curr_bot = v[1];
+		}
+
+		/* T3: advance top again (to even index) */
+		if (!is_apex_top && !pts[i+1][k_top2].dont_use) {
+		    v[0] = is_apex_bot ? &pts[i][0].v : curr_bot;
+		    v[1] = curr_top;
+		    v[2] = &pts[i+1][k_top2].v;
+		    fu = nmg_cmface(s, v, 3);
+		    bu_ptbl_ins(&faces, (long *)fu);
+		    curr_top = v[2];
 		}
 	    }
+	} else if (ns_bot == 2 * ns_top) {
+	    /* Fan-in: bottom ring is twice as dense as top ring.
+	     * 3 triangles per top segment. */
+	    for (j=0; j<(size_t)ns_top; j++) {
+		size_t k_top  = (j+1) % (size_t)ns_top;
+		size_t k_bot1 = 2*j+1;
+		size_t k_bot2 = (2*j+2) % (size_t)ns_bot;
+
+		/* Fa1: advance bottom once (to odd index) */
+		if (!is_apex_bot && !pts[i][k_bot1].dont_use) {
+		    v[0] = curr_bot;
+		    v[1] = &pts[i][k_bot1].v;
+		    v[2] = is_apex_top ? &pts[i+1][0].v : curr_top;
+		    fu = nmg_cmface(s, v, 3);
+		    bu_ptbl_ins(&faces, (long *)fu);
+		    curr_bot = v[1];
+		}
+
+		/* Fa2: advance top */
+		if (!is_apex_top && !pts[i+1][k_top].dont_use) {
+		    v[0] = curr_bot;
+		    v[1] = curr_top;
+		    v[2] = &pts[i+1][k_top].v;
+		    fu = nmg_cmface(s, v, 3);
+		    bu_ptbl_ins(&faces, (long *)fu);
+		    curr_top = v[2];
+		}
+
+		/* Fa3: advance bottom again (to even index) */
+		if (!is_apex_bot && !pts[i][k_bot2].dont_use) {
+		    v[0] = curr_bot;
+		    v[1] = &pts[i][k_bot2].v;
+		    v[2] = is_apex_top ? &pts[i+1][0].v : curr_top;
+		    fu = nmg_cmface(s, v, 3);
+		    bu_ptbl_ins(&faces, (long *)fu);
+		    curr_bot = v[1];
+		}
+	    }
+	} else {
+	    /* Unsupported ratio (not 1:1, 2:1, or 1:2); should not occur since
+	     * nsegs_ring only produces exact halvings.  Log and skip. */
+	    bu_log("rt_tgc_tess: unsupported ring segment ratio %d:%d at ring "
+		   "%zu; skipping side faces for this band\n", ns_bot, ns_top, i);
 	}
     }
 
@@ -2487,12 +2678,12 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     for (i=0; i<nells; i++) {
 	size_t j;
 
-	for (j=0; j<nsegs; j++) {
+	for (j=0; j<(size_t)nsegs_ring[i]; j++) {
 	    point_t pt_geom;
 	    double alpha;
 	    double sin_alpha, cos_alpha;
 
-	    alpha = M_2PI * (double)(2*j+1)/(double)(2*nsegs);
+	    alpha = M_2PI * (double)(2*j+1)/(double)(2*nsegs_ring[i]);
 	    sin_alpha = sin(alpha);
 	    cos_alpha = cos(alpha);
 
@@ -2535,38 +2726,44 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     /* Calculate vertexuse normals */
     for (i=0; i<nells; i++) {
 	size_t j, k;
+	size_t j_k;
 
 	k = i + 1;
 	if (k == nells)
 	    k = i - 1;
 
-	for (j=0; j<nsegs; j++) {
+	for (j=0; j<(size_t)nsegs_ring[i]; j++) {
 	    vect_t tan_h;		/* vector tangent from one ellipse to next */
 	    struct vertexuse *vu;
+
+	    /* Map j to the nearest index in ring k when they have different
+	     * segment counts (caused by 2:1 fan transitions). */
+	    j_k = ((size_t)nsegs_ring[k] != (size_t)nsegs_ring[i]) ?
+		((size_t)((double)j * nsegs_ring[k] / nsegs_ring[i] + 0.5) % (size_t)nsegs_ring[k]) : j;
 
 	    /* normal at vertex */
 	    if (i == nells - 1) {
 		if (ZERO(c_axis_len) && ZERO(d_axis_len)) {
-		    VSUB2(tan_h, pts[i][0].pt, pts[k][j].pt);
+		    VSUB2(tan_h, pts[i][0].pt, pts[k][j_k].pt);
 		} else if (k == 0 && ZERO(c_axis_len) && ZERO(d_axis_len)) {
 		    VSUB2(tan_h, pts[i][j].pt, pts[k][0].pt);
 		} else {
-		    VSUB2(tan_h, pts[i][j].pt, pts[k][j].pt);
+		    VSUB2(tan_h, pts[i][j].pt, pts[k][j_k].pt);
 		}
 	    } else if (i == 0) {
 		if (ZERO(a_axis_len) && ZERO(b_axis_len)) {
-		    VSUB2(tan_h, pts[k][j].pt, pts[i][0].pt);
+		    VSUB2(tan_h, pts[k][j_k].pt, pts[i][0].pt);
 		} else if (k == nells-1 && ZERO(c_axis_len) && ZERO(d_axis_len)) {
 		    VSUB2(tan_h, pts[k][0].pt, pts[i][j].pt);
 		} else {
-		    VSUB2(tan_h, pts[k][j].pt, pts[i][j].pt);
+		    VSUB2(tan_h, pts[k][j_k].pt, pts[i][j].pt);
 		}
 	    } else if (k == 0 && ZERO(a_axis_len) && ZERO(b_axis_len)) {
 		VSUB2(tan_h, pts[k][0].pt, pts[i][j].pt);
 	    } else if (k == nells-1 && ZERO(c_axis_len) && ZERO(d_axis_len)) {
 		VSUB2(tan_h, pts[k][0].pt, pts[i][j].pt);
 	    } else {
-		VSUB2(tan_h, pts[k][j].pt, pts[i][j].pt);
+		VSUB2(tan_h, pts[k][j_k].pt, pts[i][j].pt);
 	    }
 
 	    VCROSS(normal, pts[i][j].tan_axb, tan_h);
@@ -2604,6 +2801,8 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     for (i=0; i<nells; i++)
 	bu_free((char *)pts[i], "rt_tgc_tess: pts[i]");
     bu_free((char *)pts, "rt_tgc_tess: pts");
+    bu_free((char *)nsegs_ring, "rt_tgc_tess: nsegs_ring");
+    bu_free((char *)pts_dbl, "rt_tgc_tess: pts_dbl");
 
     /* mark real edges for top and bottom faces */
     for (i=0; i<2; i++) {
