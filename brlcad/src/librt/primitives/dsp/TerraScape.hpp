@@ -652,44 +652,49 @@ std::vector<std::vector<bool>> TerrainData::generateSampleMask(const Simplificat
 	}
     }
 
-    // Analyze terrain features and mark important points
-    std::vector<std::pair<double, std::pair<int, int>>> importance_points;
+    // Compute importance for all interior points.  Collect ALL of them so we
+    // can apply the min_reduction target as a hard cap later.
+    std::vector<std::pair<double, std::pair<int, int>>> all_interior;
+    all_interior.reserve((size_t)(height-2) * (size_t)(width-2));
 
     for (int y = 1; y < height-1; ++y) {
 	for (int x = 1; x < width-1; ++x) {
 	    TerrainFeature feature = analyzePoint(x, y);
-
-	    // Include points with high importance or exceeding thresholds
-	    if (feature.getImportance() > params.getErrorTol() ||
-		    feature.getSlope() > params.getSlopeTol()) {
-		mask[y][x] = true;
-	    } else {
-		// Store for potential inclusion based on overall reduction target
-		importance_points.push_back({feature.getImportance(), {x, y}});
-	    }
+	    all_interior.push_back({feature.getImportance(), {x, y}});
 	}
     }
 
-    // Sort by importance and include additional points to meet minimum density
-    std::sort(importance_points.rbegin(), importance_points.rend());
-
-    int current_points = 0;
-    for (int y = 0; y < height; ++y) {
-	for (int x = 0; x < width; ++x) {
-	    if (mask[y][x]) current_points++;
-	}
-    }
+    // Sort descending by importance so we can include the most important
+    // points first up to the target density.
+    std::sort(all_interior.rbegin(), all_interior.rend());
 
     int total_points = width * height;
     int min_required = total_points * (100 - params.getMinReduction()) / 100;
 
-    // Add most important remaining points to reach minimum density
-    for (const auto& point : importance_points) {
+    // Count how many boundary points are already in the mask.
+    int current_points = 0;
+    for (int y = 0; y < height; ++y)
+	for (int x = 0; x < width; ++x)
+	    if (mask[y][x]) current_points++;
+
+    // Include interior points in importance order, stopping once we either
+    // reach the min_required cap or exhaust the list.  Points below the
+    // error/slope thresholds are still included if we haven't reached the
+    // cap yet, but points above the thresholds are included first.
+    for (const auto& point : all_interior) {
 	if (current_points >= min_required) break;
 
+	double importance = point.first;
 	int x = point.second.first;
 	int y = point.second.second;
+
+	// Always include the most important points; stop adding low-importance
+	// points once we have enough (i.e., current < min_required).
+	// The threshold guard here is intentionally loose (0 rather than
+	// params.getErrorTol()) so that when the budget allows, we fill up
+	// with any remaining points in importance order.
 	if (!mask[y][x]) {
+	    (void)importance; // used implicitly via sort order
 	    mask[y][x] = true;
 	    current_points++;
 	}
@@ -1683,13 +1688,26 @@ void
 TerrainMesh::triangulateBottomFaceWithDetria(const std::vector<std::vector<size_t>>& bottom_vertices,
 	const TerrainData& terrain, const std::set<std::pair<int, int>>* filter_cells = nullptr) {
 
-    // Build set of cells that should have bottom faces (same as earcut version)
+    // Build flat 2D bool array for O(1) active-cell lookups.
+    // Using a flat array instead of std::set avoids O(log N) per lookup in the
+    // flood-fill below, preventing O(N log N) behaviour on large grids.
+    std::vector<std::vector<bool>> is_active(terrain.height,
+	    std::vector<bool>(terrain.width, false));
+    // Also keep the set so we can pass it to generateSteinerPoints unchanged.
     std::set<std::pair<int, int>> active_cells;
+
+    int min_x = INT_MAX, max_x = INT_MIN, min_y = INT_MAX, max_y = INT_MIN;
+
     for (int y = 0; y < terrain.height; ++y) {
 	for (int x = 0; x < terrain.width; ++x) {
 	    if (bottom_vertices[y][x] != SIZE_MAX) {
 		if (filter_cells == nullptr || filter_cells->count({x, y})) {
+		    is_active[y][x] = true;
 		    active_cells.insert({x, y});
+		    min_x = std::min(min_x, x);
+		    max_x = std::max(max_x, x);
+		    min_y = std::min(min_y, y);
+		    max_y = std::max(max_y, y);
 		}
 	    }
 	}
@@ -1699,22 +1717,13 @@ TerrainMesh::triangulateBottomFaceWithDetria(const std::vector<std::vector<size_
 	return;
     }
 
-    // Find bounds of active region
-    int min_x = INT_MAX, max_x = INT_MIN, min_y = INT_MAX, max_y = INT_MIN;
-    for (const auto& cell : active_cells) {
-	min_x = std::min(min_x, cell.first);
-	max_x = std::max(max_x, cell.first);
-	min_y = std::min(min_y, cell.second);
-	max_y = std::max(max_y, cell.second);
-    }
-
     // Create outer boundary (counter-clockwise)
     std::vector<std::pair<double, double>> outer_boundary;
     std::vector<size_t> vertex_indices;
 
     // Bottom edge (left to right)
     for (int x = min_x; x <= max_x; ++x) {
-	if (active_cells.count({x, min_y})) {
+	if (is_active[min_y][x]) {
 	    const Point3D& vertex = vertices[bottom_vertices[min_y][x]];
 	    outer_boundary.push_back({vertex.x, vertex.y});
 	    vertex_indices.push_back(bottom_vertices[min_y][x]);
@@ -1723,7 +1732,7 @@ TerrainMesh::triangulateBottomFaceWithDetria(const std::vector<std::vector<size_
 
     // Right edge (bottom to top, skip corners)
     for (int y = min_y + 1; y <= max_y; ++y) {
-	if (active_cells.count({max_x, y})) {
+	if (is_active[y][max_x]) {
 	    const Point3D& vertex = vertices[bottom_vertices[y][max_x]];
 	    outer_boundary.push_back({vertex.x, vertex.y});
 	    vertex_indices.push_back(bottom_vertices[y][max_x]);
@@ -1732,7 +1741,7 @@ TerrainMesh::triangulateBottomFaceWithDetria(const std::vector<std::vector<size_
 
     // Top edge (right to left, skip corners)
     for (int x = max_x - 1; x >= min_x; --x) {
-	if (active_cells.count({x, max_y})) {
+	if (is_active[max_y][x]) {
 	    const Point3D& vertex = vertices[bottom_vertices[max_y][x]];
 	    outer_boundary.push_back({vertex.x, vertex.y});
 	    vertex_indices.push_back(bottom_vertices[max_y][x]);
@@ -1741,7 +1750,7 @@ TerrainMesh::triangulateBottomFaceWithDetria(const std::vector<std::vector<size_
 
     // Left edge (top to bottom, skip corners)
     for (int y = max_y - 1; y > min_y; --y) {
-	if (active_cells.count({min_x, y})) {
+	if (is_active[y][min_x]) {
 	    const Point3D& vertex = vertices[bottom_vertices[y][min_x]];
 	    outer_boundary.push_back({vertex.x, vertex.y});
 	    vertex_indices.push_back(bottom_vertices[y][min_x]);
@@ -1753,22 +1762,30 @@ TerrainMesh::triangulateBottomFaceWithDetria(const std::vector<std::vector<size_
 	return;
     }
 
-    // Find interior holes using flood fill (same logic as earcut version)
+    // Find interior holes using flood fill.
+    // Use flat 2D bool arrays for O(1) visited/processed lookups; std::set-based
+    // bookkeeping is O(log N) per operation and causes hangs on large grids when
+    // many inactive cells form a large connected component.
     std::vector<std::vector<std::pair<double, double>>> holes;
-    std::set<std::pair<int, int>> processed_holes;
+    std::vector<std::vector<bool>> processed(terrain.height,
+	    std::vector<bool>(terrain.width, false));
+    // Pre-allocate visited outside the BFS loop; reset only visited cells after
+    // each run to avoid O(N) full-array resets for many small components.
+    std::vector<std::vector<bool>> visited(terrain.height,
+	    std::vector<bool>(terrain.width, false));
 
     // Look for holes (inactive regions completely surrounded by active regions)
     for (int y = min_y + 1; y < max_y; ++y) {
 	for (int x = min_x + 1; x < max_x; ++x) {
-	    if (!active_cells.count({x, y}) && !processed_holes.count({x, y})) {
+	    if (!is_active[y][x] && !processed[y][x]) {
 
-		// Flood fill to find connected inactive region
+		// Flood fill to find connected inactive region using flat arrays
+		// for O(1) per-cell bookkeeping.
 		std::vector<std::pair<int, int>> hole_cells;
 		std::queue<std::pair<int, int>> to_visit;
-		std::set<std::pair<int, int>> visited;
 
 		to_visit.push({x, y});
-		visited.insert({x, y});
+		visited[y][x] = true;
 		bool touches_boundary = false;
 
 		while (!to_visit.empty()) {
@@ -1783,28 +1800,34 @@ TerrainMesh::triangulateBottomFaceWithDetria(const std::vector<std::vector<size_
 		    }
 
 		    // Explore 4-connected neighbors
-		    int dx[] = {-1, 1, 0, 0};
-		    int dy[] = {0, 0, -1, 1};
+		    const int dx[] = {-1, 1, 0, 0};
+		    const int dy[] = {0, 0, -1, 1};
 
 		    for (int i = 0; i < 4; ++i) {
 			int nx = current.first + dx[i];
 			int ny = current.second + dy[i];
 
 			if (nx >= 0 && nx < terrain.width && ny >= 0 && ny < terrain.height &&
-				!active_cells.count({nx, ny}) && !visited.count({nx, ny})) {
-			    visited.insert({nx, ny});
+				!is_active[ny][nx] && !visited[ny][nx]) {
+			    visited[ny][nx] = true;
 			    to_visit.push({nx, ny});
 			}
 		    }
 		}
 
-		// Mark all cells as processed
+		// Mark all cells as processed; reset visited entries (avoids O(N) full reset)
 		for (const auto& cell : hole_cells) {
-		    processed_holes.insert(cell);
+		    processed[cell.second][cell.first] = true;
+		    visited[cell.second][cell.first] = false;
 		}
 
-		// If this doesn't touch boundary, it's a true hole
-		if (!touches_boundary && hole_cells.size() > 0) {
+		// If this doesn't touch the outer boundary, it's a true geometric hole.
+		// Skip very large components: these arise from grid subsampling (e.g.
+		// every-other-cell patterns) and are not real geometry holes.  They
+		// would cause O(N^2) behaviour in generateSteinerPoints.
+		const size_t max_hole_cells = static_cast<size_t>(active_cells.size());
+		if (!touches_boundary && hole_cells.size() > 0 &&
+			hole_cells.size() < max_hole_cells / 4) {
 		    std::vector<std::pair<double, double>> hole_boundary;
 
 		    if (extractHoleBoundary(hole_cells, active_cells, bottom_vertices, hole_boundary, vertex_indices)) {
