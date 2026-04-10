@@ -2091,9 +2091,10 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	       orig_alpha_tol, alpha_tol);
     }
 
-    /* Chord-sag tolerance for per-ring segment counts.
-     * Derived from alpha_tol so rt_num_circular_segments(dtol, r) gives
-     * exactly nsegs for r = max_radius. */
+    /* Chord-sag tolerance (distance) for per-ring segment counts.
+     * max_radius*(1 - cos(alpha_tol/2)) is the maximum chord-sag at the
+     * largest ring, which rt_num_circular_segments() uses to compute segment
+     * counts.  The resulting count approximates nsegs for r = max_radius. */
     dtol = max_radius * (1.0 - cos(alpha_tol / 2.0));
     if (dtol <= 0.0)
 	dtol = max_radius * 0.01;
@@ -2627,8 +2628,8 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 		    curr_top = v[2];
 		}
 	    }
-	} else {
-	    /* ns_bot == 2*ns_top: fan-in (bottom ring is twice as dense).
+	} else if (ns_bot == 2 * ns_top) {
+	    /* Fan-in: bottom ring is twice as dense as top ring.
 	     * 3 triangles per top segment. */
 	    for (j=0; j<(size_t)ns_top; j++) {
 		size_t k_top  = (j+1) % (size_t)ns_top;
@@ -2665,6 +2666,11 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 		    curr_bot = v[1];
 		}
 	    }
+	} else {
+	    /* Unsupported ratio (not 1:1, 2:1, or 1:2); should not occur since
+	     * nsegs_ring only produces exact halvings.  Log and skip. */
+	    bu_log("rt_tgc_tess: unsupported ring segment ratio %d:%d at ring "
+		   "%zu; skipping side faces for this band\n", ns_bot, ns_top, i);
 	}
     }
 
