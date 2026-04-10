@@ -48,12 +48,13 @@
  * bu_ipc_chan_t handle presents the same read/write surface in all cases.
  *
  *
- * ### Typical usage: parent spawns child with -I flag
+ * ### Typical usage — two equivalent patterns
  *
- * The recommended pattern passes the channel address as a command-line
- * argument to the child process.  This avoids any per-spawn environment
- * manipulation and is safe for concurrent invocations because each pair()
- * call produces an independent address string:
+ * **Pattern A: CLI argument (-I flag)**
+ * Pass the channel address as a command-line argument to the child process.
+ * This is the safest choice when the spawner is multi-threaded and runs
+ * multiple concurrent spawns, because each bu_ipc_pair() call produces an
+ * independent address string with no shared state:
  *
  * @code
  *   bu_ipc_chan_t *p, *c;
@@ -65,9 +66,31 @@
  *   bu_ipc_close(c);   // parent's copy of the child end
  *
  *   // Child calls: bu_ipc_connect(argv[iarg]) to get its channel handle
- *   // Parent uses the parent end for I/O
- *   my_loop_register(bu_ipc_fileno(p));
  * @endcode
+ *
+ * **Pattern B: environment variable**
+ * When the spawner is single-threaded (so there can be no concurrent
+ * setenv() calls from different threads), set an environment variable in
+ * the parent before fork(), then clear it once the fork() has returned.
+ * fork() gives the child its own independent copy of the environment, so
+ * clearing the variable in the parent afterwards is safe:
+ *
+ * @code
+ *   bu_ipc_chan_t *pe, *ce;
+ *   bu_ipc_pair(&pe, &ce);
+ *   bu_ipc_move_high_fd(ce, 64);  // survive close(3..19) sweep in spawner
+ *
+ *   bu_setenv("MY_IPC_ADDR", bu_ipc_addr(ce), 1);
+ *   bu_process_create(&p, argv, BU_PROCESS_DEFAULT);  // fork happens here
+ *   bu_setenv("MY_IPC_ADDR", "", 1);   // safe: child has its own env copy
+ *   bu_ipc_close(ce);
+ *
+ *   // Child side: bu_ipc_connect_from_env("MY_IPC_ADDR")
+ * @endcode
+ *
+ * Both patterns are fully transport-agnostic.  Prefer Pattern A in
+ * multi-threaded spawners; Pattern B is simpler when the spawner is known
+ * to be single-threaded (e.g. a dedicated main/event loop).
  *
  *
  * ### Transport safety for concurrent spawns
@@ -272,6 +295,33 @@ BU_EXPORT const char *bu_ipc_addr(const bu_ipc_chan_t *chan);
  * @return  New channel handle, or NULL on failure.
  */
 BU_EXPORT bu_ipc_chan_t *bu_ipc_connect(const char *addr);
+
+/**
+ * @brief Connect to an IPC channel whose address is stored in an
+ * environment variable.
+ *
+ * Reads the environment variable named @p envvar_name and calls
+ * bu_ipc_connect() with the resulting string.  Returns NULL if the
+ * variable is absent, empty, or bu_ipc_connect() fails.
+ *
+ * This is the child-side helper for the env-var spawn pattern (Pattern B
+ * in the header overview):
+ *
+ * @code
+ *   // Child main():
+ *   bu_ipc_chan_t *ch = bu_ipc_connect_from_env("MY_IPC_ADDR");
+ *   if (ch) {
+ *       // IPC mode — wrap into the application's I/O layer
+ *   } else {
+ *       // fall back to TCP or another mechanism
+ *   }
+ * @endcode
+ *
+ * @param[in] envvar_name  Name of the environment variable to read.
+ * @return  New channel handle, or NULL if the variable is absent/empty
+ *          or connection fails.
+ */
+BU_EXPORT bu_ipc_chan_t *bu_ipc_connect_from_env(const char *envvar_name);
 
 
 /* ------------------------------------------------------------------ */
