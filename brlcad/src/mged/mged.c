@@ -57,6 +57,7 @@
 #endif
 
 #include "bu/app.h"
+#include "bu/color.h"
 #include "bu/opt.h"
 #include "bu/debug.h"
 #include "bu/units.h"
@@ -361,6 +362,17 @@ new_mats(struct mged_state *s)
 
 
 /*
+ * Helper struct for colour options that use bu_opt_color.  The .set flag
+ * distinguishes "not supplied on command line" from an explicit black (0 0 0).
+ * Defined here so it can be embedded in struct mged_cli_overrides below.
+ */
+struct mged_color_opt {
+    struct bu_color color;  /* populated by bu_opt_color */
+    int set;                /* 1 once the option has been parsed */
+};
+
+
+/*
  * Holds every value parsed from the MGED command line.  Fields that were not
  * supplied by the user keep their sentinel initial values so that
  * apply_cli_overrides() can distinguish "not set" from an explicit zero.
@@ -447,8 +459,8 @@ struct mged_cli_overrides {
     double grid_rv;         /* --grid-rv # */
 
     /* colour scheme subset (rset cs …) */
-    int bg[3];              /* --bg R G B   ({MGED_CLI_UNSET_INT,…} = not set) */
-    int geo_def[3];         /* --geo-color R G B */
+    struct mged_color_opt bg_color;      /* --bg  (bg_color.set = 0 means not given) */
+    struct mged_color_opt geo_def_color; /* --geo-color */
 
     /* general escape hatches */
     struct bu_ptbl set_pairs;   /* --set VAR=VALUE  (strings in argv) */
@@ -488,32 +500,20 @@ parse_debug_uint(struct bu_vls *msg, size_t argc, const char **argv, void *set_v
 
 
 /* ---------------------------------------------------------------------------
- * bu_opt helper: parse an RGB triplet (three 0-255 ints on the command line).
- * set_var must point to int[3].  Consumes three argv elements.
+ * bu_opt_color wrapper: stores the parsed colour in a struct that also holds
+ * a "was this option given?" flag.  Used for --bg and --geo-color so that
+ * apply_cli_overrides() can reliably distinguish "not supplied" from an
+ * explicit black (0 0 0).
+ * struct mged_color_opt is defined above (before mged_cli_overrides).
  * -------------------------------------------------------------------------- */
 static int
-parse_rgb(struct bu_vls *msg, size_t argc, const char **argv, void *set_var)
+parse_opt_color(struct bu_vls *msg, size_t argc, const char **argv, void *set_var)
 {
-    int *rgb = (int *)set_var;
-    int r, g, b;
-    BU_OPT_CHECK_ARGV0(msg, argc, argv, "R");
-    if (argc < 3) {
-	if (msg) bu_vls_printf(msg, "ERROR: --bg/--geo-color requires three values (R G B)\n");
-	return -1;
-    }
-    if (sscanf(argv[0], "%d", &r) != 1 ||
-	sscanf(argv[1], "%d", &g) != 1 ||
-	sscanf(argv[2], "%d", &b) != 1) {
-	if (msg) bu_vls_printf(msg, "ERROR: invalid RGB value(s): %s %s %s\n",
-				argv[0], argv[1], argv[2]);
-	return -1;
-    }
-    if (r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255) {
-	if (msg) bu_vls_printf(msg, "ERROR: RGB values must be 0-255 (got %d %d %d)\n", r, g, b);
-	return -1;
-    }
-    rgb[0] = r; rgb[1] = g; rgb[2] = b;
-    return 3;
+    struct mged_color_opt *co = (struct mged_color_opt *)set_var;
+    int ret = bu_opt_color(msg, argc, argv, &co->color);
+    if (ret > 0)
+	co->set = 1;
+    return ret;
 }
 
 
@@ -2175,15 +2175,18 @@ apply_cli_overrides(struct mged_state *s, struct mged_cli_overrides *cl)
     }
 
     /* --- colour scheme subset (rset cs …) -------------------------------- */
-    if (cl->bg[0] != MGED_CLI_UNSET_INT) {
-	bu_vls_printf(&cmd, "rset cs bg %d %d %d", cl->bg[0], cl->bg[1], cl->bg[2]);
+    if (cl->bg_color.set) {
+	int r = 0, g = 0, b = 0;
+	bu_color_to_rgb_ints(&cl->bg_color.color, &r, &g, &b);
+	bu_vls_printf(&cmd, "rset cs bg %d %d %d", r, g, b);
 	if (Tcl_Eval(s->interp, bu_vls_cstr(&cmd)) != TCL_OK)
 	    bu_log("mged: --bg: %s\n", Tcl_GetStringResult(s->interp));
 	bu_vls_trunc(&cmd, 0);
     }
-    if (cl->geo_def[0] != MGED_CLI_UNSET_INT) {
-	bu_vls_printf(&cmd, "rset cs geo_def %d %d %d",
-		      cl->geo_def[0], cl->geo_def[1], cl->geo_def[2]);
+    if (cl->geo_def_color.set) {
+	int r = 0, g = 0, b = 0;
+	bu_color_to_rgb_ints(&cl->geo_def_color.color, &r, &g, &b);
+	bu_vls_printf(&cmd, "rset cs geo_def %d %d %d", r, g, b);
 	if (Tcl_Eval(s->interp, bu_vls_cstr(&cmd)) != TCL_OK)
 	    bu_log("mged: --geo-color: %s\n", Tcl_GetStringResult(s->interp));
 	bu_vls_trunc(&cmd, 0);
@@ -2327,12 +2330,8 @@ main(int argc, char *argv[])
     cl.grid_snap        = MGED_CLI_UNSET_INT;
     cl.grid_mrh         = MGED_CLI_UNSET_INT;
     cl.grid_mrv         = MGED_CLI_UNSET_INT;
-    cl.bg[0]            = MGED_CLI_UNSET_INT;
-    cl.bg[1]            = MGED_CLI_UNSET_INT;
-    cl.bg[2]            = MGED_CLI_UNSET_INT;
-    cl.geo_def[0]       = MGED_CLI_UNSET_INT;
-    cl.geo_def[1]       = MGED_CLI_UNSET_INT;
-    cl.geo_def[2]       = MGED_CLI_UNSET_INT;
+    /* bg_color and geo_def_color: memset-zero means .set == 0, which is
+     * the correct "not given" initial state — no extra init needed. */
 
     /* Initialise double fields to MGED_CLI_UNSET_DBL ("not given") */
     cl.perspective        = MGED_CLI_UNSET_DBL;
@@ -2420,8 +2419,8 @@ main(int argc, char *argv[])
     BU_OPT(opt_defs[49], NULL, "grid-mrh",         "#",       bu_opt_int,      &cl.grid_mrh,         "horizontal major grid interval");
     BU_OPT(opt_defs[50], NULL, "grid-mrv",         "#",       bu_opt_int,      &cl.grid_mrv,         "vertical major grid interval");
     /* ---- colour scheme subset (rset cs …) ---- */
-    BU_OPT(opt_defs[51], NULL, "bg",               "R G B",   parse_rgb,       &cl.bg,               "background colour (0-255 each component)");
-    BU_OPT(opt_defs[52], NULL, "geo-color",        "R G B",   parse_rgb,       &cl.geo_def,          "default geometry wireframe colour");
+    BU_OPT(opt_defs[51], NULL, "bg",               "R G B",   parse_opt_color, &cl.bg_color,         "background colour (0-255 per component, or #RRGGBB)");
+    BU_OPT(opt_defs[52], NULL, "geo-color",        "R G B",   parse_opt_color, &cl.geo_def_color,    "default geometry wireframe colour");
     BU_OPT_NULL(opt_defs[53]);
 
     /* bu_opt_parse does not consume argv[0] (the program name).
