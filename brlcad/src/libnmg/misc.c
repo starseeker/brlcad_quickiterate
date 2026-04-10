@@ -3601,6 +3601,14 @@ nmg_fix_normals(struct shell *s_orig, struct bu_list *vlfree, const struct bn_to
     for (BU_LIST_FOR (s1, shell, &tmp_r->s_hd))
 	nmg_fix_decomposed_shell_normals(s1, tol);
 
+    /* Pre-compute manifolds for the entire model once.  Without this,
+     * nmg_class_ray_vs_shell() recomputes the manifolds table on every
+     * ray firing, which makes classification O(N) per ray instead of
+     * amortized O(1).  For large meshes this is the dominant cost.
+     * nmg_km(tmp_m) will free this table.
+     */
+    tmp_m->manifolds = nmg_manifolds(tmp_m);
+
     /* initialize a list of shells to be reversed */
     bu_ptbl_init(&reverse, 8, "Ptbl for nmg_fix_normals");
 
