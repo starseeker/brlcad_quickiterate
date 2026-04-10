@@ -3812,17 +3812,20 @@ nmg_to_bot_all_tri(struct model *m, struct bu_list *vlfree)
 	}
     }
 
-    /* Build hash (size *2 to keep load factor <= 0.5) */
-    if (vcount == 0 || vh_init(&vh, (vcount < 4) ? 4 : (vcount * 2))) {
+    /* Build hash (size *2 to keep load factor <= 0.5).
+     * When vcount is zero the model has no triangles; skip hash init so the
+     * hash is left in its safe VHASH_INIT_ZERO state (vh_free handles NULL
+     * slots gracefully). */
+    if (vcount == 0) {
+	hash_ok = 1; /* empty model, nothing to index */
+    } else if (vh_init(&vh, (vcount < 4) ? 4 : (vcount * 2))) {
+	size_t vi;
 	hash_ok = 1;
-	if (vcount > 0) {
-	    size_t vi;
-	    for (vi = 0; vi < vcount; vi++) {
-		struct vertex *v = (struct vertex *)BU_PTBL_GET(&verts, vi);
-		if (!vh_insert(&vh, v, (int)vi)) {
-		    hash_ok = 0;
-		    break;
-		}
+	for (vi = 0; vi < vcount; vi++) {
+	    struct vertex *v = (struct vertex *)BU_PTBL_GET(&verts, vi);
+	    if (!vh_insert(&vh, v, (int)vi)) {
+		hash_ok = 0;
+		break;
 	    }
 	}
     }
@@ -3868,6 +3871,10 @@ nmg_to_bot_all_tri(struct model *m, struct bu_list *vlfree)
 			bot->faces[3*fno+1] = face_indices[1];
 			bot->faces[3*fno+2] = face_indices[2];
 			fno++;
+		    } else if (UNLIKELY(tri_idx != 0)) {
+			/* Caller must guarantee all-triangles; reaching here
+			 * means the precondition was violated. */
+			bu_log("nmg_to_bot_all_tri: loop has %d edges (expected 3); skipping\n", tri_idx);
 		    }
 		}
 	    }
