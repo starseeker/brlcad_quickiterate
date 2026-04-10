@@ -36,6 +36,15 @@
  *     that remrt still accepts and uses unauthenticated workers and that the
  *     output file has the expected size.
  *
+ *   Sub-test 3 — IPC local worker (bu_ipc socketpair transport):
+ *     Registers "localhost always local <db_dir>" in .remrtrc so remrt
+ *     auto-spawns one rtsrv worker on this machine via bu_ipc_pair() +
+ *     pkg_open_fds() (no SSH, no TCP port allocation).  rtsrv receives
+ *     its channel address via the -I <addr> command-line flag so that
+ *     concurrent invocations cannot collide over a shared environment
+ *     variable.  A quick 64×64 render is used; the output is verified
+ *     for correct size.
+ *
  * Both sub-tests start remrt with the benchmark flags (-B -H 0 -J 0) for
  * deterministic rendering identical to the standard BRL-CAD benchmark.
  *
@@ -639,6 +648,163 @@ run_subtest(const TestOptions &opts,
 
 
 /*
+ * Write a ".remrtrc" that registers "localhost" as an HT_LOCAL host.
+ *
+ * remrt will auto-spawn an rtsrv worker on this machine via bu_ipc
+ * (socketpair) when it calls start_servers().  No SSH or manual rtsrv
+ * launch is needed.
+ *
+ * Returns 0 on success, -1 on failure.
+ */
+static int
+write_remrtrc_local(const char *db_dir)
+{
+    char cwd[MAXPATHLEN] = {0};
+    bu_dir(cwd, sizeof(cwd), BU_DIR_CURR, NULL);
+
+    struct bu_vls rcpath = BU_VLS_INIT_ZERO;
+    bu_vls_sprintf(&rcpath, "%s/.remrtrc", cwd);
+
+    FILE *fp = fopen(bu_vls_cstr(&rcpath), "w");
+    if (!fp) {
+	fprintf(stderr, "regress_remrt: cannot write %s: %s\n",
+		bu_vls_cstr(&rcpath), strerror(errno));
+	bu_vls_free(&rcpath);
+	return -1;
+    }
+    /* "local" tells remrt to spawn rtsrv via bu_ipc (-I <addr>) rather
+     * than SSH, and to send MSG_CD <db_dir> so rtsrv finds the geometry. */
+    fprintf(fp, "host localhost always local %s\n", db_dir);
+    fclose(fp);
+    bu_vls_free(&rcpath);
+    return 0;
+}
+
+
+/*
+ * Sub-test 3: IPC local worker.
+ *
+ * Runs a quick 64×64 render using a single rtsrv worker that remrt
+ * auto-launches on this machine via bu_ipc (socketpair + -I flag).
+ * No SSH and no manual rtsrv invocation are required; the .remrtrc
+ * entry uses "always local" so remrt calls add_host_local() during
+ * start_servers().
+ *
+ * Returns 0 on success, non-zero on failure.
+ */
+static int
+run_ipc_subtest(const TestOptions &opts, std::string *remrt_log = NULL)
+{
+    const char *label = "IPC local worker 64x64";
+    fprintf(stderr, "\n=== remrt regression: %s ===\n", label);
+
+    char db_dir[MAXPATHLEN];
+    path_dirname(opts.m35g_path.c_str(), db_dir, sizeof(db_dir));
+
+    if (write_remrtrc_local(db_dir) != 0) {
+	fprintf(stderr, "regress_remrt [%s]: failed to set up .remrtrc\n", label);
+	return 1;
+    }
+
+    /* Output file for this sub-test. */
+    char cwd[MAXPATHLEN] = {0};
+    bu_dir(cwd, sizeof(cwd), BU_DIR_CURR, NULL);
+    std::string out_pix = std::string(cwd) + "/m35_remrt_ipc.pix";
+    bu_file_delete(out_pix.c_str());
+    bu_file_delete((out_pix + ".0").c_str());
+
+    /* Build remrt argv.  Because remrt will auto-spawn its own rtsrv
+     * worker, we just give it geometry + render parameters and let it
+     * run to completion on its own.                                    */
+    std::vector<const char *> remrt_argv;
+    remrt_argv.push_back(opts.remrt_exe.c_str());
+    remrt_argv.push_back("-B");
+    remrt_argv.push_back("-s");  remrt_argv.push_back("64");
+    remrt_argv.push_back("-H");  remrt_argv.push_back("0");
+    remrt_argv.push_back("-J");  remrt_argv.push_back("0");
+    remrt_argv.push_back("-o");  remrt_argv.push_back(out_pix.c_str());
+    remrt_argv.push_back(opts.m35g_path.c_str());
+    remrt_argv.push_back("all.g");
+    remrt_argv.push_back(NULL);
+
+    struct bu_process *remrt_proc = NULL;
+    bu_process_create(&remrt_proc, remrt_argv.data(), BU_PROCESS_DEFAULT);
+    if (!remrt_proc) {
+	fprintf(stderr, "regress_remrt [%s]: failed to start remrt\n", label);
+	cleanup_remrtrc();
+	return 1;
+    }
+
+    /* Drain remrt I/O to prevent pipe-buffer deadlocks, collecting stderr
+     * so we can print it on failure.  We don't need to parse port/token
+     * since remrt handles worker launch internally.                       */
+    RemrtDetected det;   /* used only to satisfy read_remrt_stderr signature */
+    std::string remrt_stderr_log;
+    std::thread stdout_drain_thr(drain_stdout, remrt_proc);
+    std::thread stderr_read_thr(read_remrt_stderr, remrt_proc,
+				&det, &remrt_stderr_log);
+
+    /* Wait for remrt to complete the render and exit. */
+    int remrt_status = bu_process_wait_n(&remrt_proc,
+					 REMRT_WAIT_SEC * 1000000 /* us */);
+    stdout_drain_thr.join();
+    stderr_read_thr.join();
+
+    cleanup_remrtrc();
+
+    if (remrt_status != 0) {
+	fprintf(stderr, "regress_remrt [%s]: remrt exited with status %d\n"
+		"  stderr:\n%s\n", label, remrt_status, remrt_stderr_log.c_str());
+	bu_file_delete(out_pix.c_str());
+	bu_file_delete((out_pix + ".0").c_str());
+	return 1;
+    }
+
+    /* Verify output exists and has the right size (64×64×3 bytes). */
+    std::string actual_pix = out_pix + ".0";
+    if (!bu_file_exists(actual_pix.c_str(), NULL)) {
+	fprintf(stderr, "regress_remrt [%s]: output file not created: %s\n"
+		"  stderr:\n%s\n", label, actual_pix.c_str(),
+		remrt_stderr_log.c_str());
+	return 1;
+    }
+
+    long expected_size = 64L * 64L * 3L;
+    {
+	FILE *fp = fopen(actual_pix.c_str(), "rb");
+	if (!fp) {
+	    fprintf(stderr, "regress_remrt [%s]: cannot open output %s\n",
+		    label, actual_pix.c_str());
+	    return 1;
+	}
+	fseek(fp, 0, SEEK_END);
+	long actual = ftell(fp);
+	fclose(fp);
+	if (actual != expected_size) {
+	    fprintf(stderr,
+		    "regress_remrt [%s]: output size mismatch: "
+		    "expected %ld bytes, got %ld bytes\n"
+		    "  stderr:\n%s\n",
+		    label, expected_size, actual, remrt_stderr_log.c_str());
+	    bu_file_delete(out_pix.c_str());
+	    bu_file_delete(actual_pix.c_str());
+	    return 1;
+	}
+    }
+
+    fprintf(stderr, "regress_remrt [%s]: output file OK (%ld bytes)\n",
+	    label, expected_size);
+
+    if (remrt_log)
+	*remrt_log = remrt_stderr_log;
+
+    bu_file_delete(out_pix.c_str());
+    bu_file_delete(actual_pix.c_str());
+    return 0;
+}
+
+
+/*
  * Compare two raw .pix (RGB) files byte by byte.  Returns:
  *   0   – files are pixel-exact (identical)
  *   >0  – one or more bytes differ
@@ -863,6 +1029,18 @@ main(int argc, char *argv[])
 	failures++;
     } else {
 	fprintf(stderr, "PASS: sub-test 2 (no-token backward-compat render)\n");
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Sub-test 3: 64×64 render using IPC local worker (bu_ipc transport). */
+    /* remrt auto-spawns rtsrv via socketpair + -I flag; no SSH needed.    */
+    /* ------------------------------------------------------------------ */
+    rc = run_ipc_subtest(opts);
+    if (rc != 0) {
+	fprintf(stderr, "FAIL: sub-test 3 (IPC local worker render)\n");
+	failures++;
+    } else {
+	fprintf(stderr, "PASS: sub-test 3 (IPC local worker render)\n");
     }
 
     /* Clean up output files (base name and frame-suffixed). */
