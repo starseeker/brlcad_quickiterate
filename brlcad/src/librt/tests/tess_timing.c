@@ -223,6 +223,13 @@ main(int argc, char *argv[])
 	    continue;
 	}
 
+	/* Skip brep primitives – brep tessellation has known issues that can
+	 * hang the process; they are excluded from this timing survey. */
+	if (intern.idb_type == ID_BREP) {
+	    rt_db_free_internal(&intern);
+	    continue;
+	}
+
 	/* Capture object type name */
 	const char *type_name = "?";
 	if (intern.idb_meth)

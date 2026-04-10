@@ -36,6 +36,7 @@
 
 #include "rt/primitives/bot.h"
 #include "bu/snooze.h"
+#include "bu/time.h"
 
 /* private implementation headers */
 #include "./bot_edge.h"
@@ -1842,12 +1843,23 @@ rt_bot_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 
     bu_free(verts, "rt_bot_tess *verts[]");
 
-    nmg_mark_edges_real(&s->l.magic, vlfree);
-
-    nmg_region_a(*r, tol);
-
-    if (bot_ip->mode == RT_BOT_SOLID && bot_ip->orientation == RT_BOT_UNORIENTED)
-	nmg_fix_normals(s, vlfree, tol);
+    {
+	int64_t _t0, _t1;
+	_t0 = bu_gettime();
+	nmg_mark_edges_real(&s->l.magic, vlfree);
+	_t1 = bu_gettime();
+	bu_log("rt_bot_tess: nmg_mark_edges_real = %.1f ms\n", (_t1-_t0)/1000.0);
+	_t0 = bu_gettime();
+	nmg_region_a(*r, tol);
+	_t1 = bu_gettime();
+	bu_log("rt_bot_tess: nmg_region_a = %.1f ms\n", (_t1-_t0)/1000.0);
+	if (bot_ip->mode == RT_BOT_SOLID && bot_ip->orientation == RT_BOT_UNORIENTED) {
+	    _t0 = bu_gettime();
+	    nmg_fix_normals(s, vlfree, tol);
+	    _t1 = bu_gettime();
+	    bu_log("rt_bot_tess: nmg_fix_normals = %.1f ms\n", (_t1-_t0)/1000.0);
+	}
+    }
 
     return 0;
 }
