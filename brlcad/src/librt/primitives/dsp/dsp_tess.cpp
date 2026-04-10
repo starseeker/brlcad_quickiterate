@@ -202,12 +202,19 @@ rt_dsp_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	bu_log("  using %s path\n", use_simplified ? "simplified" : "full");
     }
 
+    bu_log("DSP tess: bbox diag=%g eff_err=%g use_simplified=%d min_reduction=%d step=%d terrain=%dx%d\n",
+	    diag, effective_err, use_simplified, min_reduction,
+	    std::max(1, (int)std::sqrt(100.0 / (100.0 - std::max(0, std::min(90, min_reduction))))),
+	    terrain.width, terrain.height);
+
     // Step 4.  Make the TerraScape mesh (includes walls + bottom)
     if (use_simplified) {
 	mesh.triangulateVolumeSimplified(terrain, simp);
     } else {
 	mesh.triangulateVolume(terrain);
     }
+    bu_log("DSP tess: mesh has %zu vertices, %zu triangles\n",
+	    mesh.vertices.size(), mesh.triangles.size());
     if (mesh.vertices.empty() || mesh.triangles.empty()) {
 	bu_log("TerraScape produced empty mesh\n");
 	return -1;
