@@ -46,6 +46,7 @@
 #include "bsocket.h"
 
 #include "bu/app.h"
+#include "bu/ipc.h"
 #include "bu/str.h"
 #include "bu/process.h"
 #include "bu/snooze.h"
@@ -171,7 +172,8 @@ int debug = 0;		/* 0=off, 1=debug, 2=verbose */
  */
 static char srv_auth_token[REMRT_AUTH_TOKEN_LEN + 1] = {0};
 
-char srv_usage[] = "Usage: rtsrv [-d] [-S token] control-host tcp-port [cmd]\n";
+char srv_usage[] = "Usage: rtsrv [-d] [-S token] [-I ipc-addr] control-host tcp-port [cmd]\n"
+		   "       rtsrv [-d] [-S token]  -I ipc-addr\n";
 
 /* forward declarations for log/bomb hook helpers defined later in this file */
 static int rtsrv_log_hook(void *clientdata, void *str);
@@ -183,6 +185,7 @@ int
 main(int argc, char **argv)
 {
     int n;
+    const char *ipc_addr = NULL;   /* set by -I flag; enables IPC mode */
 
     bu_setprogname(argv[0]);
 
@@ -192,7 +195,7 @@ main(int argc, char **argv)
     }
     original_argc = argc;
     original_argv = bu_argv_dup(argc, (const char **)argv);
-    while (argv[1][0] == '-') {
+    while (argc > 1 && argv[1][0] == '-') {
 	if (BU_STR_EQUAL(argv[1], "-d")) {
 	    debug++;
 	} else if (BU_STR_EQUAL(argv[1], "-x")) {
@@ -210,39 +213,89 @@ main(int argc, char **argv)
 	    bu_strlcpy(srv_auth_token, argv[2],
 		       sizeof(srv_auth_token));
 	    argc--; argv++;
+	} else if (BU_STR_EQUAL(argv[1], "-I")) {
+	    /* IPC connection address supplied by remrt via -I <addr>.
+	     * When present, no host/port positional args are needed.  */
+	    if (argc < 3) {
+		fprintf(stderr, "%s", srv_usage);
+		return 3;
+	    }
+	    ipc_addr = argv[2];
+	    argc--; argv++;
 	} else {
 	    fprintf(stderr, "%s", srv_usage);
 	    return 3;
 	}
 	argc--; argv++;
     }
-    if (argc != 3 && argc != 4) {
-	fprintf(stderr, "%s", srv_usage);
-	return 2;
-    }
 
-    control_host = argv[1];
-    tcp_port = argv[2];
+    /* Determine IPC mode: -I flag takes explicit precedence; fall back to
+     * the RTSRV_IPC_ADDR environment variable set by the parent before
+     * fork() (see add_host_local() in remrt.c for the parent side).      */
+    {
+	bu_ipc_chan_t *ch = NULL;
+	if (ipc_addr) {
+	    ch = bu_ipc_connect(ipc_addr);
+	    if (!ch) {
+		fprintf(stderr, "rtsrv: bu_ipc_connect(%s) failed\n", ipc_addr);
+		return 1;
+	    }
+	} else {
+	    ch = bu_ipc_connect_from_env("RTSRV_IPC_ADDR");
+	}
 
-    /* Note that the LIBPKG error logger can not be
-     * "bu_log", as that can cause bu_log to be entered recursively.
-     * Given the special version of bu_log in use here,
-     * that will result in a deadlock in bu_semaphore_acquire(res_syscall)!
-     * libpkg will default to stderr via pkg_errlog(), which is fine.
-     */
-    pcsrv = pkg_open(control_host, tcp_port, "tcp", "", "", pkgswitch, NULL);
-    if (pcsrv == PKC_ERROR) {
-	fprintf(stderr, "rtsrv: unable to contact %s, port %s\n",
-		control_host, tcp_port);
-	return 1;
+	if (ch) {
+	    /* IPC mode: remrt created a socketpair, moved the child-end fd
+	     * above the close(3..19) sweep in bu_process_create(), and
+	     * advertised it via -I or RTSRV_IPC_ADDR.  bu_ipc_connect (or
+	     * bu_ipc_connect_from_env) wraps the already-inherited fd.
+	     * Wrap it into a pkg_conn so the rest of the code is
+	     * transport-agnostic.  No host/port positional args consumed.  */
+	    pcsrv = pkg_open_fds(bu_ipc_fileno(ch),
+				 bu_ipc_fileno_write(ch),
+				 pkgswitch, NULL);
+	    bu_ipc_detach(ch);   /* pkg_conn owns the fds now */
+	    if (pcsrv == PKC_ERROR || pcsrv == PKC_NULL) {
+		fprintf(stderr, "rtsrv: pkg_open_fds() failed in IPC mode\n");
+		return 1;
+	    }
+	    if (debug)
+		fprintf(stderr, "rtsrv: IPC mode active (addr=%s)\n",
+			ipc_addr ? ipc_addr : getenv("RTSRV_IPC_ADDR"));
+	} else {
+	    /* Normal TCP mode */
+	    if (argc != 3 && argc != 4) {
+		fprintf(stderr, "%s", srv_usage);
+		return 2;
+	    }
+
+	    control_host = argv[1];
+	    tcp_port = argv[2];
+
+	    /* Note that the LIBPKG error logger can not be
+	     * "bu_log", as that can cause bu_log to be entered recursively.
+	     * Given the special version of bu_log in use here,
+	     * that will result in a deadlock in bu_semaphore_acquire(res_syscall)!
+	     * libpkg will default to stderr via pkg_errlog(), which is fine.
+	     */
+	    pcsrv = pkg_open(control_host, tcp_port, "tcp", "", "", pkgswitch, NULL);
+	    if (pcsrv == PKC_ERROR) {
+		fprintf(stderr, "rtsrv: unable to contact %s, port %s\n",
+			control_host, tcp_port);
+		return 1;
+	    }
+	}
     }
 
 #ifdef HAVE_OPENSSL_SSL_H
     /* Attempt TLS handshake with the remrt dispatcher.  If remrt was
      * built with TLS support it will do SSL_accept() on its side;
      * if not (or the handshake fails) we continue as plaintext for
-     * backward compatibility. */
-    {
+     * backward compatibility.
+     * Skip TLS in IPC mode — the bu_ipc transport runs on the same
+     * machine and the shared-memory or socketpair channel does not
+     * need encryption.                                               */
+    if (control_host) {
 	SSL_CTX *tls_ctx = remrt_tls_client_ctx();
 	if (tls_ctx) {
 	    if (remrt_tls_connect(tls_ctx, pcsrv) == REMRT_TLS_OK) {

@@ -1,26 +1,21 @@
 # Tests for remrt (network distributed ray tracing)
 #
-# Two sub-tests are executed by a single C++ orchestrator binary:
+# Two sub-tests are executed by a single C++ orchestrator binary, both
+# using the bu_ipc local-worker transport (socketpair):
 #
-#   1. Token-authenticated render (512x512, -M script, -S token workers):
-#      3 local rtsrv workers each authenticate with the session token
-#      printed by remrt.  Output is compared pixel-for-pixel against
-#      bench/ref/m35.pix to verify correct distributed assembly.
+#   1. IPC 512x512 benchmark render:
+#      remrt auto-spawns one rtsrv worker via "host localhost always local"
+#      in .remrtrc (add_host_local / RTSRV_IPC_ADDR env var).  Output is
+#      compared pixel-for-pixel against bench/ref/m35.pix to verify correct
+#      distributed rendering.
 #
-#   2. Token-less backward-compat render (64x64, default az/el, no token):
-#      3 local rtsrv workers connect without presenting a token.  Verifies
-#      that remrt still accepts unauthenticated workers (compat mode) and
-#      produces a correctly-sized output.
+#   2. IPC 64x64 quick render:
+#      Same local-worker mechanism, 64x64 pixels, output size check only.
 #
-# rtsrv workers are started with the -d (debug/foreground) flag so the
-# orchestrator can wait for them to exit; daemonization is suppressed.
-# All workers connect passively to remrt's TCP port — no SSH is used.
-#
-# Port isolation is provided by RESOURCE_LOCK "network_port_4446" (see
-# below), allowing this test to run as part of the normal "ninja check"
-# Regression suite without STAND_ALONE serialisation.
+# No TCP ports are used; no manual rtsrv invocation is needed.
+# The test therefore carries no RESOURCE_LOCK on any network port.
 
-if(TARGET remrt AND TARGET rtsrv AND TARGET pixcmp)
+if(TARGET remrt AND TARGET rtsrv)
 
   # Build the test orchestrator binary.
   brlcad_addexec(regress_remrt regress_remrt.cpp "libbu;Threads::Threads" TEST)
@@ -36,8 +31,6 @@ if(TARGET remrt AND TARGET rtsrv AND TARGET pixcmp)
       NAME regress-remrt
       COMMAND regress_remrt
         --remrt  $<TARGET_FILE:remrt>
-        --rtsrv  $<TARGET_FILE:rtsrv>
-        --pixcmp $<TARGET_FILE:pixcmp>
         --m35g   "${M35G_PATH}"
         --refpix "${REFPIX_PATH}"
     )
@@ -51,7 +44,6 @@ if(TARGET remrt AND TARGET rtsrv AND TARGET pixcmp)
     # label.
     set_tests_properties(regress-remrt PROPERTIES
       WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
-      RESOURCE_LOCK "network_port_4446"
     )
 
     # No STAND_ALONE: this test carries the standard "Regression" label so
@@ -60,21 +52,21 @@ if(TARGET remrt AND TARGET rtsrv AND TARGET pixcmp)
     # TIMEOUT 600: a 512x512 distributed render plus startup overhead may
     # take several minutes.
     brlcad_regression_test(
-      regress-remrt "remrt;rtsrv;pixcmp;m35.g;regress_remrt"
+      regress-remrt "remrt;rtsrv;m35.g;regress_remrt"
       TEST_DEFINED TIMEOUT 600
     )
 
     distclean(
       ${CMAKE_CURRENT_BINARY_DIR}/.remrtrc
-      ${CMAKE_CURRENT_BINARY_DIR}/m35_remrt_token.pix
-      ${CMAKE_CURRENT_BINARY_DIR}/m35_remrt_token.pix.0
-      ${CMAKE_CURRENT_BINARY_DIR}/m35_remrt_notoken.pix
-      ${CMAKE_CURRENT_BINARY_DIR}/m35_remrt_notoken.pix.0
+      ${CMAKE_CURRENT_BINARY_DIR}/m35_remrt_ipc_bench.pix
+      ${CMAKE_CURRENT_BINARY_DIR}/m35_remrt_ipc_bench.pix.0
+      ${CMAKE_CURRENT_BINARY_DIR}/m35_remrt_ipc_quick.pix
+      ${CMAKE_CURRENT_BINARY_DIR}/m35_remrt_ipc_quick.pix.0
     )
 
   endif(TARGET regress_remrt)
 
-endif(TARGET remrt AND TARGET rtsrv AND TARGET pixcmp)
+endif(TARGET remrt AND TARGET rtsrv)
 
 cmakefiles(
   CMakeLists.txt

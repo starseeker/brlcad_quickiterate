@@ -54,6 +54,8 @@
 #include "bresource.h"
 #include "bsocket.h"
 #include "bu/app.h"
+#include "bu/env.h"
+#include "bu/ipc.h"
 #include "bu/time.h"
 #include "bu/vls.h"
 
@@ -748,6 +750,64 @@ addclient(struct pkg_conn *pc)
 }
 
 
+/*
+ * Register a pre-connected IPC channel as a new server.
+ *
+ * This is the IPC-transport counterpart to addclient().  Because the
+ * pkg_conn was created from a socketpair or pipe fd rather than an
+ * accepted TCP socket, we already know which ihost it belongs to — so
+ * getpeername() and host_lookup_by_addr() are skipped.
+ *
+ * The caller must supply the ihost pointer directly.  All other
+ * bookkeeping (FD_SET into `clients`, servers[] slot allocation, state
+ * initialisation) is identical to addclient().
+ */
+static void
+addclient_ipc(struct pkg_conn *pc, struct ihost *ihp)
+{
+    struct servers *sp;
+    struct frame *fr;
+    int fd;
+    int slot, j;
+
+    if (!pc || !ihp) return;
+
+    fd = pc->pkc_fd;
+
+    if (rem_debug)
+	bu_log("%s addclient_ipc(%s, fd=%d)\n", stamp(), ihp->ht_name, fd);
+
+    FD_SET(fd, &clients);
+
+    /* Find the first unused server slot. */
+    slot = -1;
+    for (j = 0; j < (int)MAXSERVERS; j++) {
+	if (servers[j].sr_pc == PKC_NULL) {
+	    slot = j;
+	    break;
+	}
+    }
+    if (slot < 0) {
+	bu_log("addclient_ipc: no free server slots (max=%d)\n", (int)MAXSERVERS);
+	pkg_close(pc);
+	return;
+    }
+    sp = &servers[slot];
+    memset((char *)sp, 0, sizeof(*sp));
+    sp->sr_pc = pc;
+    BU_LIST_INIT(&sp->sr_work);
+    sp->sr_curframe = FRAME_NULL;
+    sp->sr_lump = 32;
+    sp->sr_host = ihp;
+    statechange(sp, SRST_NEW);
+
+    /* Clear any frame state that may remain from an earlier server */
+    for (fr = FrameHead.fr_forw; fr != &FrameHead; fr = fr->fr_forw) {
+	CHECK_FRAME(fr);
+    }
+}
+
+
 static void
 input_error(const char *str)
 {
@@ -1280,6 +1340,10 @@ reap_helpers(void)
  * worker host.  Passive workers (HT_PASSIVE / HT_PASSRS) connect in
  * by themselves and do not require SSH.
  */
+
+/* Forward declaration — add_host_local() is defined just after add_host(). */
+static void add_host_local(struct ihost *ihp);
+
 static void
 add_host(struct ihost *ihp)
 {
@@ -1289,6 +1353,12 @@ add_host(struct ihost *ihp)
     struct bu_process *p = NULL;
 
     if (ihp->ht_flags & HT_HOLD) return;
+
+    /* HT_LOCAL uses a completely different code path — delegate and return. */
+    if (ihp->ht_where == HT_LOCAL) {
+	add_host_local(ihp);
+	return;
+    }
 
     if (helper_proc_count >= MAX_HELPER_PROCS) {
 	reap_helpers();
@@ -1364,6 +1434,120 @@ add_host(struct ihost *ihp)
 	helper_procs[helper_proc_count++] = p;
 
     /* Give the new connection a moment to arrive */
+    check_input(1);
+}
+
+
+/*
+ * Launch a local rtsrv worker connected to remrt via a bu_ipc socketpair.
+ *
+ * Called from add_host() when ht_where == HT_LOCAL.  Separated out so
+ * the HT_LOCAL path can return early on error without interfering with
+ * the common bu_process_create() tail of add_host().
+ *
+ * The child-end IPC address is communicated to rtsrv via the environment
+ * variable RTSRV_IPC_ADDR, set in the parent immediately before the fork()
+ * inside bu_process_create().  Because fork() gives the child its own
+ * independent copy of the environment, the parent can safely clear the
+ * variable right after bu_process_create() returns without racing against
+ * the child's execvp() call.  The -I flag is also supported by rtsrv for
+ * manual invocations; the env var is the preferred mechanism for auto-spawned
+ * workers.
+ */
+static void
+add_host_local(struct ihost *ihp)
+{
+    bu_ipc_chan_t *pe = NULL, *ce = NULL;
+    char rtsrv_path[MAXPATHLEN];
+    /* Slots: exe, [-S, token,] NULL — 4 entries is enough. */
+    const char *argv[6];
+    int argc = 0;
+    struct bu_process *p = NULL;
+    struct pkg_conn *pc;
+    int rfd, wfd;
+
+    if (ihp->ht_flags & HT_HOLD) return;
+
+    /* Locate the rtsrv binary next to our own executable. */
+    bu_dir(rtsrv_path, sizeof(rtsrv_path), BU_DIR_BIN, "rtsrv", BU_DIR_EXT, NULL);
+    if (rtsrv_path[0] == '\0' || !bu_file_exists(rtsrv_path, NULL)) {
+	bu_log("add_host_local: cannot find rtsrv binary (tried '%s')\n", rtsrv_path);
+	return;
+    }
+
+    /* Create a socketpair IPC channel (bidirectional, works with select). */
+    if (bu_ipc_pair_prefer(&pe, &ce, BU_IPC_SOCKET) != 0) {
+	bu_log("add_host_local: bu_ipc_pair (socketpair) failed for %s — "
+	       "falling back to TCP\n", ihp->ht_name);
+	/* Nothing to clean up; fall through to the normal TCP path. */
+	ihp->ht_where = HT_CD;
+	add_host(ihp);
+	return;
+    }
+
+    /* Move the child-end fd above bu_process_create()'s close(3..19) sweep
+     * so that the fd is still open when rtsrv inherits it after exec().    */
+    if (bu_ipc_move_high_fd(ce, 64) != 0) {
+	bu_log("add_host_local: bu_ipc_move_high_fd failed for %s\n", ihp->ht_name);
+	bu_ipc_close(ce);
+	bu_ipc_close(pe);
+	return;
+    }
+
+    /* Advertise the child-end IPC address via the environment so rtsrv
+     * can find it without a -I command-line argument.  fork() inside
+     * bu_process_create() gives the child its own copy of the environment,
+     * so clearing the var in the parent after the call is race-free.       */
+    bu_setenv("RTSRV_IPC_ADDR", bu_ipc_addr(ce), 1);
+
+    /* Build rtsrv argv.  No host/port positional args in IPC mode.         */
+    argv[argc++] = rtsrv_path;
+    if (session_token[0] != '\0') {
+	argv[argc++] = "-S";
+	argv[argc++] = session_token;
+    }
+    argv[argc] = NULL;
+
+    if (rem_debug)
+	bu_log("%s local rtsrv %s (RTSRV_IPC_ADDR=%s)\n",
+	       stamp(), rtsrv_path, bu_ipc_addr(ce));
+
+    bu_process_create(&p, argv, BU_PROCESS_DEFAULT);
+
+    /* Clear the env var now that the fork has captured it.  The child
+     * already has its own independent copy so this cannot affect it.       */
+    bu_setenv("RTSRV_IPC_ADDR", "", 1);
+
+    /* Parent closes its copy of the child end — only the child needs it. */
+    bu_ipc_close(ce);
+    ce = NULL;
+
+    if (p == NULL) {
+	bu_log("add_host_local: failed to spawn rtsrv for %s\n", ihp->ht_name);
+	bu_ipc_close(pe);
+	return;
+    }
+
+    if (helper_proc_count < MAX_HELPER_PROCS)
+	helper_procs[helper_proc_count++] = p;
+
+    /* Wrap the parent end of the IPC channel into a pkg_conn. */
+    rfd = bu_ipc_fileno(pe);
+    wfd = bu_ipc_fileno_write(pe);
+    pc = pkg_open_fds(rfd, wfd, pkgswitch, remrt_log);
+    if (pc == PKC_ERROR || pc == PKC_NULL) {
+	bu_log("add_host_local: pkg_open_fds failed for %s\n", ihp->ht_name);
+	bu_ipc_close(pe);
+	return;
+    }
+
+    /* pe struct can now be freed; the fds inside it are owned by pkg_conn.
+     * Use bu_ipc_detach() (not bu_ipc_close()) to avoid closing the fd
+     * that pkg_conn will later use for I/O and select().              */
+    addclient_ipc(pc, ihp);
+    bu_ipc_detach(pe);   /* struct freed; fds remain open in pkg_conn */
+
+    /* Let the new connection's first message (MSG_VERSION) arrive. */
     check_input(1);
 }
 
@@ -1686,6 +1870,7 @@ send_dirbuild(struct servers *sp)
 
     ihp = sp->sr_host;
     switch (ihp->ht_where) {
+	case HT_LOCAL:  /* fall through — same as HT_CD: send MSG_CD then MSG_DIRBUILD */
 	case HT_CD:
 	    if (rem_debug > 1) bu_log("%s MSG_CD %s\n", stamp(), ihp->ht_path);
 	    if (pkg_send(MSG_CD, ihp->ht_path, strlen(ihp->ht_path)+1, sp->sr_pc) < 0)
@@ -2902,6 +3087,9 @@ cd_host(const int argc, const char **argv)
 		case HT_CONVERT:
 		    bu_log("convert %s\n", ihp->ht_path);
 		    break;
+		case HT_LOCAL:
+		    bu_log("local %s\n", ihp->ht_path);
+		    break;
 		default:
 		    bu_log("?where?\n");
 		    break;
@@ -2949,6 +3137,12 @@ cd_host(const int argc, const char **argv)
 	ihp->ht_path = bu_strdup(argv[argpoint+1]);
     } else if (BU_STR_EQUAL(argv[argpoint], "use")) {
 	ihp->ht_where = HT_USE;
+	ihp->ht_path = bu_strdup(argv[argpoint+1]);
+    } else if (BU_STR_EQUAL(argv[argpoint], "local")) {
+	/* Spawn rtsrv directly on this machine via bu_ipc (no SSH).
+	 * The path argument gives the directory where the geometry file
+	 * lives (same role as the path argument for "cd").             */
+	ihp->ht_where = HT_LOCAL;
 	ihp->ht_path = bu_strdup(argv[argpoint+1]);
     } else {
 	bu_log("unknown 'where' string '%s'\n", argv[argpoint]);
@@ -3755,6 +3949,13 @@ main(int argc, char *argv[])
     int i, done;
 
     bu_setprogname(argv[0]);
+
+#ifdef SIGPIPE
+    /* Ignore SIGPIPE early so that a closed pipe in the test harness (or any
+     * other caller that closes remrt's stdout/stderr read ends) does not kill
+     * the process before the normal startup flow installs the handler.      */
+    (void)signal(SIGPIPE, SIG_IGN);
+#endif
 
     /* Random inits */
     our_hostname = get_our_hostname();

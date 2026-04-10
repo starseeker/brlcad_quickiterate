@@ -161,6 +161,34 @@ struct pkg_conn {
 PKG_EXPORT extern struct pkg_conn *pkg_open(const char *host, const char *service, const char *protocol, const char *username, const char *passwd, const struct pkg_switch* switchp, pkg_errlog errlog);
 
 /**
+ * Create a pkg_conn from a pair of pre-connected file descriptors.
+ *
+ * Wraps an already-connected fd pair (e.g. from socketpair(2) or pipe(2))
+ * into a pkg_conn without performing any network connect/accept.
+ *
+ * When @p rfd == @p wfd (bidirectional socket), the resulting pkg_conn
+ * behaves exactly like one returned by pkg_open(): pkc_fd is set to that
+ * fd.  When @p rfd != @p wfd (unidirectional pipe pair), the connection
+ * uses PKG_STDIO_MODE internally with pkc_in_fd = rfd, pkc_out_fd = wfd.
+ *
+ * Typical use: after creating a bu_ipc channel pair with bu_ipc_pair(),
+ * wrap the parent end for use with the rest of the pkg machinery:
+ *
+ * @code
+ *   bu_ipc_chan_t *pe, *ce;
+ *   bu_ipc_pair(&pe, &ce);
+ *   // spawn child with ce's address in its env
+ *   struct pkg_conn *pc = pkg_open_fds(bu_ipc_fileno(pe),
+ *                                       bu_ipc_fileno_write(pe),
+ *                                       pkgswitch, errlog);
+ *   bu_ipc_close(ce);   // parent closes child end after spawn
+ * @endcode
+ *
+ * Returns a pkg_conn handle on success, PKC_ERROR on failure.
+ */
+PKG_EXPORT extern struct pkg_conn *pkg_open_fds(int rfd, int wfd, const struct pkg_switch *switchp, pkg_errlog errlog);
+
+/**
  * Close a network connection.
  *
  * Gracefully release the connection block and close the connection.
