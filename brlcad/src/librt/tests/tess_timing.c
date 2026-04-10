@@ -27,7 +27,8 @@
  * elapsed time (slowest first).
  *
  * Usage:
- *   rt_tess_timing [-t <threshold_ms>] [-v] [-a <abs>] [-r <rel>] [-n <norm>] <file.g>
+ *   rt_tess_timing [-t <threshold_ms>] [-v] [-p] [-s <type>]
+ *                  [-a <abs>] [-r <rel>] [-n <norm>] <file.g>
  */
 
 #include "common.h"
@@ -118,25 +119,48 @@ int
 main(int argc, char *argv[])
 {
     const char *usage =
-	"Usage: rt_tess_timing [-t <ms>] [-v] [-a <abs>] [-r <rel>] [-n <norm>] <file.g>\n"
-	"  -t <ms>   Only print primitives slower than this many ms (default: 0)\n"
-	"  -v        Verbose: print all primitives, even those that took 0 ms\n"
-	"  -a <abs>  Absolute tessellation tolerance in mm (default: 0.0)\n"
-	"  -r <rel>  Relative tessellation tolerance    (default: 0.01)\n"
-	"  -n <norm> Normal tolerance in radians         (default: 0.0)\n";
+	"Usage: rt_tess_timing [-t <ms>] [-v] [-p] [-s <type>,...]\n"
+	"                      [-a <abs>] [-r <rel>] [-n <norm>] <file.g>\n"
+	"  -t <ms>        Only print primitives slower than this many ms (default: 0)\n"
+	"  -v             Verbose: print all primitives, even those that took 0 ms\n"
+	"  -p             Progress: print each primitive name before tessellating\n"
+	"  -s <type>,...  Skip primitives of these type names (comma-separated).\n"
+	"                 Example: -s ID_DSP,ID_BOT  skips DSP and BOT primitives.\n"
+	"                 Brep (ID_BREP) is always skipped.\n"
+	"  -a <abs>       Absolute tessellation tolerance in mm (default: 0.0)\n"
+	"  -r <rel>       Relative tessellation tolerance    (default: 0.01)\n"
+	"  -n <norm>      Normal tolerance in radians         (default: 0.0)\n";
 
     double    threshold_ms = 0.0;
     int       verbose      = 0;
+    int       progress     = 0;
     double    abs_tol      = 0.0;
     double    rel_tol      = 0.01;
     double    norm_tol     = 0.0;
 
+    /* Up to 32 type-name prefixes to skip */
+#define MAX_SKIP_TYPES 32
+    char *skip_types[MAX_SKIP_TYPES];
+    int   nskip = 0;
+
     /* Parse options */
     int opt;
-    while ((opt = bu_getopt(argc, argv, "t:va:r:n:h")) != -1) {
+    while ((opt = bu_getopt(argc, argv, "t:vps:a:r:n:h")) != -1) {
 	switch (opt) {
 	    case 't': threshold_ms = atof(bu_optarg); break;
 	    case 'v': verbose = 1; break;
+	    case 'p': progress = 1; break;
+	    case 's': {
+		/* Parse comma-separated list of type names to skip */
+		char *buf = bu_strdup(bu_optarg);
+		char *tok = strtok(buf, ",");
+		while (tok && nskip < MAX_SKIP_TYPES) {
+		    skip_types[nskip++] = bu_strdup(tok);
+		    tok = strtok(NULL, ",");
+		}
+		bu_free(buf, "skip_types buf");
+		break;
+	    }
 	    case 'a': abs_tol  = atof(bu_optarg); break;
 	    case 'r': rel_tol  = atof(bu_optarg); break;
 	    case 'n': norm_tol = atof(bu_optarg); break;
@@ -235,6 +259,25 @@ main(int argc, char *argv[])
 	if (intern.idb_meth)
 	    type_name = intern.idb_meth->ft_name;
 
+	/* Check user-requested skip list */
+	int skip_this = 0;
+	for (int si = 0; si < nskip; si++) {
+	    if (bu_strcmp(type_name, skip_types[si]) == 0) {
+		skip_this = 1;
+		break;
+	    }
+	}
+	if (skip_this) {
+	    rt_db_free_internal(&intern);
+	    continue;
+	}
+
+	/* Optionally print name before tessellating so a hang is identifiable */
+	if (progress) {
+	    printf("  tessellating: %-20s  %s\n", type_name, dp->d_namep);
+	    fflush(stdout);
+	}
+
 	struct model      *m   = nmg_mm();
 	struct nmgregion  *r   = NULL;
 	int                ret = -1;
@@ -314,6 +357,10 @@ main(int argc, char *argv[])
 
     bu_free(results, "results");
     db_close(dbip);
+
+    /* Free skip type strings */
+    for (int si = 0; si < nskip; si++)
+	bu_free(skip_types[si], "skip type");
 
     return 0;
 }
