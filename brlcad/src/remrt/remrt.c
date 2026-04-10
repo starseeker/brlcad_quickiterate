@@ -1446,13 +1446,13 @@ add_host(struct ihost *ihp)
  * the common bu_process_create() tail of add_host().
  *
  * The child-end IPC address is communicated to rtsrv via the environment
- * variable RTSRV_IPC_ADDR, set in the parent immediately before the fork()
- * inside bu_process_create().  Because fork() gives the child its own
- * independent copy of the environment, the parent can safely clear the
- * variable right after bu_process_create() returns without racing against
- * the child's execvp() call.  The -I flag is also supported by rtsrv for
- * manual invocations; the env var is the preferred mechanism for auto-spawned
- * workers.
+ * variable BU_IPC_ADDR (BU_IPC_ADDR_ENVVAR), set in the parent immediately
+ * before the fork() inside bu_process_create().  Because fork() gives the
+ * child its own independent copy of the environment, the parent can safely
+ * clear the variable right after bu_process_create() returns without racing
+ * against the child's execvp() call.  The -I flag is also supported by rtsrv
+ * for manual invocations; the env var is the preferred mechanism for
+ * auto-spawned workers.
  */
 static void
 add_host_local(struct ihost *ihp)
@@ -1498,7 +1498,7 @@ add_host_local(struct ihost *ihp)
      * can find it without a -I command-line argument.  fork() inside
      * bu_process_create() gives the child its own copy of the environment,
      * so clearing the var in the parent after the call is race-free.       */
-    bu_setenv("RTSRV_IPC_ADDR", bu_ipc_addr(ce), 1);
+    bu_setenv(BU_IPC_ADDR_ENVVAR, bu_ipc_addr(ce), 1);
 
     /* Build rtsrv argv.  No host/port positional args in IPC mode.         */
     argv[argc++] = rtsrv_path;
@@ -1509,14 +1509,14 @@ add_host_local(struct ihost *ihp)
     argv[argc] = NULL;
 
     if (rem_debug)
-	bu_log("%s local rtsrv %s (RTSRV_IPC_ADDR=%s)\n",
-	       stamp(), rtsrv_path, bu_ipc_addr(ce));
+	bu_log("%s local rtsrv %s (%s=%s)\n",
+	       stamp(), rtsrv_path, BU_IPC_ADDR_ENVVAR, bu_ipc_addr(ce));
 
     bu_process_create(&p, argv, BU_PROCESS_DEFAULT);
 
     /* Clear the env var now that the fork has captured it.  The child
      * already has its own independent copy so this cannot affect it.       */
-    bu_setenv("RTSRV_IPC_ADDR", "", 1);
+    bu_setenv(BU_IPC_ADDR_ENVVAR, "", 1);
 
     /* Parent closes its copy of the child end — only the child needs it. */
     bu_ipc_close(ce);

@@ -5,7 +5,7 @@
 #
 #   1. IPC 512x512 benchmark render:
 #      remrt auto-spawns one rtsrv worker via "host localhost always local"
-#      in .remrtrc (add_host_local / RTSRV_IPC_ADDR env var).  Output is
+#      in .remrtrc (add_host_local / BU_IPC_ADDR env var).  Output is
 #      compared pixel-for-pixel against bench/ref/m35.pix to verify correct
 #      distributed rendering.
 #
