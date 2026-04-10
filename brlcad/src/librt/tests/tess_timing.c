@@ -1,7 +1,7 @@
-/*                   T E S S _ T I M I N G . C
+/*                  T E S S _ T I M I N G . C
  * BRL-CAD
  *
- * Copyright (c) 2024-2025 United States Government as represented by
+ * Copyright (c) 2025 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -17,17 +17,17 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/**
- * Tessellation timing utility - iterates over all solid primitives in
- * a .g database, tessellates each one, and reports the time taken per
- * shape.  Shapes taking longer than a configurable threshold are
- * highlighted.  BREP primitives are skipped (known issues).
+/** @file tess_timing.c
  *
- * Usage: tess_timing [-t threshold_seconds] <database.g> [object ...]
- *   -t  report shapes slower than this many seconds (default: 0.5)
+ * Standalone utility for measuring per-primitive tessellation time from
+ * a BRL-CAD .g database file.
  *
- * If object names are provided only those objects are tessellated;
- * otherwise every solid in the database is processed.
+ * Opens a .g database, iterates every solid primitive, times how long
+ * rt_obj_tess() takes for each one, and prints a report sorted by
+ * elapsed time (slowest first).
+ *
+ * Usage:
+ *   rt_tess_timing [-t <threshold_ms>] [-v] [-a <abs>] [-r <rel>] [-n <norm>] <file.g>
  */
 
 #include "common.h"
@@ -36,206 +36,286 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "bu/app.h"
-#include "bu/getopt.h"
-#include "bu/malloc.h"
+#include "bu.h"
 #include "bu/time.h"
-#include "bg/defines.h"
-#include "bn/tol.h"
+#include "vmath.h"
 #include "nmg.h"
 #include "raytrace.h"
+#include "rt/geom.h"
+#include "rt/db_internal.h"
 
 
-/* Slow-shape threshold in seconds (overridable with -t) */
-static double slow_threshold = 0.5;
+/* ------------------------------------------------------------------ */
+/* Per-primitive result record                                          */
+/* ------------------------------------------------------------------ */
+
+struct tess_result {
+    char     name[256];
+    char     type[32];
+    double   time_ms;
+    long     nfaces;
+    long     nverts;
+    int      failed;   /* 1 if rt_obj_tess() returned non-zero or bombed */
+};
 
 
-/*
- * Tessellate one solid and report timing.  Returns 1 if the shape was
- * slow (took >= slow_threshold seconds), 0 otherwise, -1 on skip/error.
- */
-static int
-tess_one(struct db_i *dbip, struct directory *dp,
-	 const struct bg_tess_tol *ttol, const struct bn_tol *tol)
-{
-    struct rt_db_internal intern;
-    struct model *m;
-    struct nmgregion *r = NULL;
-    int64_t start;
-    double elapsed;
-    int ret = 0;
-
-    RT_CK_DBI(dbip);
-    RT_CK_DIR(dp);
-
-    /* Only process solids */
-    if (!(dp->d_flags & RT_DIR_SOLID))
-	return -1;
-
-    if (rt_db_get_internal(&intern, dp, dbip, NULL, &rt_uniresource) < 0) {
-	bu_log("tess_timing: rt_db_get_internal failed for %s\n", dp->d_namep);
-	return -1;
-    }
-
-    /* Skip BREP - known issues */
-    if (intern.idb_minor_type == ID_BREP) {
-	rt_db_free_internal(&intern);
-	return -1;
-    }
-
-    /* Skip types with no tessellation function */
-    if (intern.idb_minor_type < 0
-	|| !OBJ[intern.idb_minor_type].ft_tessellate) {
-	rt_db_free_internal(&intern);
-	return -1;
-    }
-
-    m = nmg_mm();
-
-    start = bu_gettime();
-    ret = OBJ[intern.idb_minor_type].ft_tessellate(&r, m, &intern, ttol, tol);
-    elapsed = (double)(bu_gettime() - start) / 1e6;
-
-    if (ret == 0) {
-	/* success */
-	if (elapsed >= slow_threshold) {
-	    printf("SLOW  %8.4fs  %s  (%s)\n",
-		   elapsed,
-		   dp->d_namep,
-		   OBJ[intern.idb_minor_type].ft_name);
-	    ret = 1;
-	} else {
-	    printf("ok    %8.4fs  %s  (%s)\n",
-		   elapsed,
-		   dp->d_namep,
-		   OBJ[intern.idb_minor_type].ft_name);
-	    ret = 0;
-	}
-    } else {
-	printf("FAIL  %8.4fs  %s  (%s)\n",
-	       elapsed,
-	       dp->d_namep,
-	       OBJ[intern.idb_minor_type].ft_name);
-	ret = -1;
-    }
-
-    nmg_km(m);
-    rt_db_free_internal(&intern);
-    return ret;
-}
-
+/* ------------------------------------------------------------------ */
+/* Count faces and vertices in a tessellated NMG model                 */
+/* ------------------------------------------------------------------ */
 
 static void
-print_usage(const char *progname)
+count_nmg_mesh(struct model *m, long *nfaces_out, long *nverts_out)
 {
-    bu_log("Usage: %s [-t threshold] <database.g> [object ...]\n", progname);
-    bu_log("  -t threshold   seconds; shapes slower than this are flagged (default %.1f)\n",
-	   slow_threshold);
-    bu_log("\nTessellates every solid in the database (or only the named\n");
-    bu_log("objects) and reports elapsed time per shape.  BREP primitives\n");
-    bu_log("are skipped.  Shapes tagged SLOW took >= the threshold.\n");
+    struct nmgregion *r;
+    struct shell     *s;
+    long nf = 0;
+    long nv = 0;
+
+    for (BU_LIST_FOR(r, nmgregion, &m->r_hd)) {
+	for (BU_LIST_FOR(s, shell, &r->s_hd)) {
+	    struct faceuse *fu;
+	    for (BU_LIST_FOR(fu, faceuse, &s->fu_hd)) {
+		if (fu->orientation != OT_SAME) continue;
+		nf++;
+		/* Count vertices via edgeuses in each loop */
+		struct loopuse *lu;
+		for (BU_LIST_FOR(lu, loopuse, &fu->lu_hd)) {
+		    if (BU_LIST_FIRST_MAGIC(&lu->down_hd) == NMG_EDGEUSE_MAGIC) {
+			struct edgeuse *eu;
+			for (BU_LIST_FOR(eu, edgeuse, &lu->down_hd))
+			    nv++;
+		    }
+		}
+	    }
+	}
+    }
+
+    *nfaces_out = nf;
+    *nverts_out = nv;
 }
 
+
+/* ------------------------------------------------------------------ */
+/* Comparison function for qsort (descending by time_ms)               */
+/* ------------------------------------------------------------------ */
+
+static int
+cmp_result_desc(const void *a, const void *b)
+{
+    const struct tess_result *ra = (const struct tess_result *)a;
+    const struct tess_result *rb = (const struct tess_result *)b;
+    if (rb->time_ms > ra->time_ms) return  1;
+    if (rb->time_ms < ra->time_ms) return -1;
+    return 0;
+}
+
+
+/* ------------------------------------------------------------------ */
+/* main                                                                 */
+/* ------------------------------------------------------------------ */
 
 int
 main(int argc, char *argv[])
 {
-    struct db_i *dbip;
-    struct bg_tess_tol ttol = BG_TESS_TOL_INIT_TOL;
-    struct bn_tol tol = BN_TOL_INIT_TOL;
-    int c;
-    int slow_count = 0;
-    int ok_count = 0;
-    int fail_count = 0;
-    int skip_count = 0;
+    const char *usage =
+	"Usage: rt_tess_timing [-t <ms>] [-v] [-a <abs>] [-r <rel>] [-n <norm>] <file.g>\n"
+	"  -t <ms>   Only print primitives slower than this many ms (default: 0)\n"
+	"  -v        Verbose: print all primitives, even those that took 0 ms\n"
+	"  -a <abs>  Absolute tessellation tolerance in mm (default: 0.0)\n"
+	"  -r <rel>  Relative tessellation tolerance    (default: 0.01)\n"
+	"  -n <norm> Normal tolerance in radians         (default: 0.0)\n";
 
-    bu_setprogname(argv[0]);
+    double    threshold_ms = 0.0;
+    int       verbose      = 0;
+    double    abs_tol      = 0.0;
+    double    rel_tol      = 0.01;
+    double    norm_tol     = 0.0;
 
-    while ((c = bu_getopt(argc, argv, "t:h?")) != -1) {
-	switch (c) {
-	    case 't':
-		slow_threshold = atof(bu_optarg);
-		break;
+    /* Parse options */
+    int opt;
+    while ((opt = bu_getopt(argc, argv, "t:va:r:n:h")) != -1) {
+	switch (opt) {
+	    case 't': threshold_ms = atof(bu_optarg); break;
+	    case 'v': verbose = 1; break;
+	    case 'a': abs_tol  = atof(bu_optarg); break;
+	    case 'r': rel_tol  = atof(bu_optarg); break;
+	    case 'n': norm_tol = atof(bu_optarg); break;
 	    case 'h':
-	    case '?':
 	    default:
-		print_usage(argv[0]);
-		return 0;
+		fputs(usage, stderr);
+		return (opt == 'h') ? 0 : 1;
 	}
     }
 
-    argc -= bu_optind;
-    argv += bu_optind;
-
-    if (argc < 1) {
-	print_usage(argv[-bu_optind]);
+    if (bu_optind >= argc) {
+	fputs(usage, stderr);
 	return 1;
     }
 
-    dbip = db_open(argv[0], DB_OPEN_READONLY);
+    const char *filename = argv[bu_optind];
+
+    /* Set up tolerances */
+    struct bg_tess_tol ttol = BG_TESS_TOL_INIT_ZERO;
+    ttol.magic = BG_TESS_TOL_MAGIC;
+    ttol.abs   = abs_tol;
+    ttol.rel   = rel_tol;
+    ttol.norm  = norm_tol;
+
+    struct bn_tol tol = BN_TOL_INIT_ZERO;
+    tol.magic   = BN_TOL_MAGIC;
+    tol.dist    = 0.005;
+    tol.dist_sq = tol.dist * tol.dist;
+    tol.perp    = 1e-6;
+    tol.para    = 1.0 - tol.perp;
+
+    printf("rt_tess_timing: opening %s\n", filename);
+    printf("rt_tess_timing: tolerance: abs=%f rel=%f norm=%f\n",
+	   abs_tol, rel_tol, norm_tol);
+
+    /* Open the database */
+    struct db_i *dbip = db_open(filename, DB_OPEN_READONLY);
     if (dbip == DBI_NULL) {
-	bu_log("tess_timing: cannot open %s\n", argv[0]);
+	fprintf(stderr, "rt_tess_timing: cannot open %s\n", filename);
 	return 1;
     }
+
     if (db_dirbuild(dbip) < 0) {
-	bu_log("tess_timing: db_dirbuild failed for %s\n", argv[0]);
+	fprintf(stderr, "rt_tess_timing: db_dirbuild() failed\n");
 	db_close(dbip);
 	return 1;
     }
 
-    printf("Tessellation timing for: %s\n", argv[0]);
-    printf("Threshold: %.4f seconds\n\n", slow_threshold);
-
-    if (argc > 1) {
-	/* Process only named objects */
-	int i;
-	for (i = 1; i < argc; i++) {
-	    struct directory *dp = db_lookup(dbip, argv[i], LOOKUP_QUIET);
-	    if (dp == RT_DIR_NULL) {
-		bu_log("tess_timing: object not found: %s\n", argv[i]);
-		skip_count++;
-		continue;
-	    }
-	    c = tess_one(dbip, dp, &ttol, &tol);
-	    if (c > 0) slow_count++;
-	    else if (c == 0) ok_count++;
-	    else if (c < 0) {
-		/* Check if it was actually a solid we just skipped */
-		if (dp->d_flags & RT_DIR_SOLID) {
-		    skip_count++;
-		} else {
-		    skip_count++;
-		}
-	    }
-	}
-    } else {
-	/* Process all solids in the database */
+    /* Count total directory entries first */
+    long total_objects = 0;
+    {
 	struct directory *dp;
 	FOR_ALL_DIRECTORY_START(dp, dbip)
-	    if (!(dp->d_flags & RT_DIR_SOLID))
-		continue;
-	    c = tess_one(dbip, dp, &ttol, &tol);
-	    if (c > 0) slow_count++;
-	    else if (c == 0) ok_count++;
-	    else skip_count++;
+	    if (!(dp->d_flags & RT_DIR_COMB) && !(dp->d_flags & RT_DIR_HIDDEN))
+		total_objects++;
 	FOR_ALL_DIRECTORY_END
     }
 
-    printf("\n--- Summary ---\n");
-    printf("  ok:     %d\n", ok_count);
-    printf("  slow:   %d  (>= %.4fs)\n", slow_count, slow_threshold);
-    printf("  fail:   %d\n", fail_count);
-    printf("  skip:   %d  (brep or no tess func)\n", skip_count);
+    printf("rt_tess_timing: scanning %ld database objects...\n", total_objects);
+    fflush(stdout);
 
+    /* Allocate result array (ensure at least 1 element to avoid zero-size calloc) */
+    struct tess_result *results = (struct tess_result *)bu_calloc(
+	(size_t)(total_objects > 0 ? total_objects : 1),
+	sizeof(struct tess_result), "results");
+    long nresults = 0;
+
+    /* Iterate all solid primitives */
+    struct directory *dp;
+    FOR_ALL_DIRECTORY_START(dp, dbip) {
+	if (dp->d_flags & RT_DIR_COMB)   continue;
+	if (dp->d_flags & RT_DIR_HIDDEN) continue;
+
+	struct rt_db_internal intern;
+	RT_DB_INTERNAL_INIT(&intern);
+
+	int got = rt_db_get_internal(&intern, dp, dbip, NULL, &rt_uniresource);
+	if (got < 0) {
+	    /* Cannot load; record as failed with 0 time */
+	    struct tess_result *tr = &results[nresults++];
+	    bu_strlcpy(tr->name, dp->d_namep, sizeof(tr->name));
+	    bu_strlcpy(tr->type, "?", sizeof(tr->type));
+	    tr->failed = 1;
+	    continue;
+	}
+
+	/* Capture object type name */
+	const char *type_name = "?";
+	if (intern.idb_meth)
+	    type_name = intern.idb_meth->ft_name;
+
+	struct model      *m   = nmg_mm();
+	struct nmgregion  *r   = NULL;
+	int                ret = -1;
+	long               nf  = 0;
+	long               nv  = 0;
+	int                bombed = 0;
+
+	int64_t t0 = bu_gettime();
+
+	if (!BU_SETJUMP) {
+	    ret = rt_obj_tess(&r, m, &intern, &ttol, &tol);
+	} else {
+	    BU_UNSETJUMP;
+	    bombed = 1;
+	}
+	BU_UNSETJUMP;
+
+	int64_t t1 = bu_gettime();
+	double elapsed_ms = (double)(t1 - t0) / 1000.0;
+
+	if (!bombed && ret == 0 && m != NULL) {
+	    count_nmg_mesh(m, &nf, &nv);
+	    nmg_km(m);
+	} else {
+	    nmg_km(m);
+	}
+
+	rt_db_free_internal(&intern);
+
+	struct tess_result *tr = &results[nresults++];
+	bu_strlcpy(tr->name, dp->d_namep, sizeof(tr->name));
+	bu_strlcpy(tr->type, type_name, sizeof(tr->type));
+	tr->time_ms = elapsed_ms;
+	tr->nfaces  = nf;
+	tr->nverts  = nv;
+	tr->failed  = (bombed || ret != 0) ? 1 : 0;
+
+    } FOR_ALL_DIRECTORY_END
+
+    /* Sort descending by time */
+    qsort(results, (size_t)nresults, sizeof(struct tess_result), cmp_result_desc);
+
+    /* Compute total elapsed time */
+    double total_ms = 0.0;
+    for (long i = 0; i < nresults; i++)
+	total_ms += results[i].time_ms;
+
+    /* Print report */
+    printf("\n  %3s  %9s  %6s  %6s  %-12s  %s\n",
+	   "#", "time_ms", "faces", "verts", "type", "name");
+
+    long shown = 0;
+    for (long i = 0; i < nresults; i++) {
+	struct tess_result *tr = &results[i];
+
+	/* Apply threshold / verbose filter */
+	if (!verbose && threshold_ms <= 0.0 && tr->time_ms <= 0.0)
+	    continue;
+	if (!verbose && threshold_ms > 0.0 && tr->time_ms < threshold_ms)
+	    continue;
+
+	shown++;
+	if (tr->failed) {
+	    printf("  %3ld  %9.1f  %6s  %6s  %-12s  %s [FAILED]\n",
+		   shown, tr->time_ms, "-", "-", tr->type, tr->name);
+	} else {
+	    printf("  %3ld  %9.1f  %6ld  %6ld  %-12s  %s\n",
+		   shown, tr->time_ms, tr->nfaces, tr->nverts,
+		   tr->type, tr->name);
+	}
+    }
+
+    printf("  --\n");
+    printf("  Total measured: %ld objects in %.0f ms\n", nresults, total_ms);
+    printf("  Threshold: %.0f ms  (showing %ld of %ld)\n",
+	   threshold_ms, shown, nresults);
+
+    bu_free(results, "results");
     db_close(dbip);
-    return (slow_count > 0) ? 2 : 0;
+
+    return 0;
 }
 
 
 /*
  * Local Variables:
- * mode: C
  * tab-width: 8
+ * mode: C
  * indent-tabs-mode: t
  * c-file-style: "stroustrup"
  * End:
