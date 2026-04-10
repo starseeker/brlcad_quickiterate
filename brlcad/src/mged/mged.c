@@ -2063,12 +2063,16 @@ quit(struct mged_state *s)
  * Double fields in mged_cli_overrides use MGED_CLI_UNSET_DBL as a "not
  * given" sentinel.  We compare with memcmp to avoid -Werror=float-equal.
  */
+
+/* File-scope sentinel value used by cli_dbl_is_set() — initialised once
+ * rather than per call, to avoid repeated redundant initialisation. */
+static const double mged_cli_dbl_sentinel = MGED_CLI_UNSET_DBL;
+
 static int
 cli_dbl_is_set(double v)
 {
     /* Compare bit-for-bit against the sentinel value; no == on doubles. */
-    static const double unset = MGED_CLI_UNSET_DBL;
-    return memcmp(&v, &unset, sizeof(double)) != 0;
+    return memcmp(&v, &mged_cli_dbl_sentinel, sizeof(double)) != 0;
 }
 
 
@@ -2194,10 +2198,10 @@ apply_cli_overrides(struct mged_state *s, struct mged_cli_overrides *cl)
 	 * installed by mged_variable_setup() will call bu_struct_parse and
 	 * fire any associated hook functions. */
 	size_t klen = (size_t)(eq - pair);
-	char *key = (char *)bu_malloc(klen + 1, "mged cli set key");
+	char *key = (char *)bu_malloc(klen + 1, "cli_set_key");
 	bu_strlcpy(key, pair, klen + 1);
 	Tcl_SetVar(s->interp, key, eq + 1, TCL_GLOBAL_ONLY);
-	bu_free(key, "mged cli set key");
+	bu_free(key, "cli_set_key");
     }
 
     /* --- --rset ARGS escape hatch ---------------------------------------- */
@@ -2339,6 +2343,12 @@ main(int argc, char *argv[])
     cl.grid_rh            = MGED_CLI_UNSET_DBL;
     cl.grid_rv            = MGED_CLI_UNSET_DBL;
 
+    /* Initialise debug fields to the current global values so that an
+     * unconditional copy back after parsing is a no-op when the user
+     * does not supply -x/-X on the command line. */
+    cl.rt_debug_val = (unsigned int)rt_debug;
+    cl.bu_debug_val = (unsigned int)bu_debug;
+
     bu_ptbl_init(&cl.set_pairs,  8, "mged_cli_set_pairs");
     bu_ptbl_init(&cl.rset_pairs, 8, "mged_cli_rset_pairs");
 
@@ -2466,11 +2476,13 @@ main(int argc, char *argv[])
 	old_mged_gui = 0;
     }
 
-    /* -x / --rt-debug  and  -X / --bu-debug: parse_debug_uint() wrote the
-     * parsed hex values directly into cl.rt_debug_val / cl.bu_debug_val;
-     * always copy them (0 is a valid "disable everything" value). */
-    rt_debug = cl.rt_debug_val;
-    bu_debug = cl.bu_debug_val;
+    /* -x / --rt-debug  and  -X / --bu-debug: parse_debug_uint() stores the
+     * parsed hex value in cl.rt_debug_val / cl.bu_debug_val.  Both fields
+     * were initialised to the current values of rt_debug / bu_debug (see
+     * below) so an unconditional copy here is safe: if the user did not
+     * supply -x/-X the value is unchanged. */
+    rt_debug = (int)cl.rt_debug_val;
+    bu_debug = (unsigned int)cl.bu_debug_val;
 
     /* -a / --attach */
     if (cl.attach)
