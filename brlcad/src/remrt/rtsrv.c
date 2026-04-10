@@ -248,8 +248,8 @@ main(int argc, char **argv)
 	pcsrv = pkg_open_fds(bu_ipc_fileno(ch),
 			     bu_ipc_fileno_write(ch),
 			     pkgswitch, NULL);
-	/* pkg_conn now owns the fds; release the channel wrapper. */
-	bu_ipc_close(ch);
+	/* pkg_conn now owns the fds; release only the channel wrapper. */
+	bu_ipc_detach(ch);
 	if (pcsrv == PKC_ERROR || pcsrv == PKC_NULL) {
 	    fprintf(stderr, "rtsrv: pkg_open_fds() failed in IPC mode\n");
 	    return 1;
@@ -288,7 +288,7 @@ main(int argc, char **argv)
      * Skip TLS in IPC mode — the bu_ipc transport runs on the same
      * machine and the shared-memory or socketpair channel does not
      * need encryption.                                               */
-    if (!ipc_env) {
+    if (!ipc_addr) {
 	SSL_CTX *tls_ctx = remrt_tls_client_ctx();
 	if (tls_ctx) {
 	    if (remrt_tls_connect(tls_ctx, pcsrv) == REMRT_TLS_OK) {
