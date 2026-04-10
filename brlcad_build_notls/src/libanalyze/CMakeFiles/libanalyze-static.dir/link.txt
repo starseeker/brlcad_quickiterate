@@ -1,2 +1,0 @@
-/usr/bin/ar qc ../../lib/libanalyze.a "CMakeFiles/libanalyze-obj.dir/Unity/unity_1_cxx.cxx.o" "CMakeFiles/libanalyze-obj.dir/Unity/unity_0_cxx.cxx.o" "CMakeFiles/libanalyze-obj.dir/Unity/unity_1_c.c.o" "CMakeFiles/libanalyze-obj.dir/Unity/unity_0_c.c.o"
-/usr/bin/ranlib ../../lib/libanalyze.a

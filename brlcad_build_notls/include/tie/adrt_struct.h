@@ -1,1 +1,0 @@
-/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/src/adrt/adrt_struct.h

@@ -1,1 +1,0 @@
-/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/db/1647260.dsp

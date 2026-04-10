@@ -1,2 +1,0 @@
-/usr/bin/ar qc ../../lib/libpkg.a "CMakeFiles/libpkg-obj.dir/pkg.c.o" "CMakeFiles/libpkg-obj.dir/vers.c.o"
-/usr/bin/ranlib ../../lib/libpkg.a
