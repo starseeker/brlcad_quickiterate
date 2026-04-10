@@ -1,2 +1,0 @@
-/usr/bin/ar qc ../../lib/librender.a "CMakeFiles/librender-obj.dir/Unity/unity_3_c.c.o" "CMakeFiles/librender-obj.dir/Unity/unity_2_c.c.o" "CMakeFiles/librender-obj.dir/Unity/unity_1_c.c.o" "CMakeFiles/librender-obj.dir/Unity/unity_0_c.c.o"
-/usr/bin/ranlib ../../lib/librender.a
