@@ -381,6 +381,32 @@ _pkg_ck_debug(void)
 
 
 struct pkg_conn *
+pkg_open_fds(int rfd, int wfd, const struct pkg_switch *switchp, void (*errlog)(const char *msg))
+{
+    struct pkg_conn *pc;
+
+    if (rfd < 0)
+	return PKC_ERROR;
+    if (wfd < 0)
+	wfd = rfd;
+
+    if (rfd == wfd) {
+	/* Bidirectional socket (socketpair, accepted TCP fd, etc.).
+	 * Behaves identically to a connection made by pkg_open().      */
+	return _pkg_makeconn(rfd, switchp, errlog);
+    }
+
+    /* Unidirectional pipe pair: use PKG_STDIO_MODE with separate fds. */
+    pc = _pkg_makeconn(PKG_STDIO_MODE, switchp, errlog);
+    if (pc == PKC_ERROR || pc == PKC_NULL)
+	return pc;
+    pc->pkc_in_fd  = rfd;
+    pc->pkc_out_fd = wfd;
+    return pc;
+}
+
+
+struct pkg_conn *
 pkg_open(const char *host, const char *service, const char *protocol, const char *uname, const char *UNUSED(passwd), const struct pkg_switch *switchp, void (*errlog)(const char *msg))
 {
     if (strlen(host) == 5 && !strncmp(host, "STDIO", 5)) {
