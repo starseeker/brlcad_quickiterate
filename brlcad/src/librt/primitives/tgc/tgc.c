@@ -2403,7 +2403,7 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	    if (ns_ideal < 4) ns_ideal = 4;
 	    /* Keep apex rings at the same count as their neighbor to avoid
 	     * fan transitions at degenerate apex points. */
-	    if (ri-1 == 0 && ZERO(a_axis_len) && ZERO(b_axis_len)) {
+	    if (ri == 1 && ZERO(a_axis_len) && ZERO(b_axis_len)) {
 		nsegs_ring[ri-1] = nsegs_ring[ri];
 		continue;
 	    }
@@ -2422,7 +2422,7 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	    int halved;
 	    if (ns_ideal < 4) ns_ideal = 4;
 	    /* Keep apex rings at same count as neighbor */
-	    if (ri+1 == nells-1 && ZERO(c_axis_len) && ZERO(d_axis_len)) {
+	    if (ri == nells-2 && ZERO(c_axis_len) && ZERO(d_axis_len)) {
 		nsegs_ring[ri+1] = nsegs_ring[ri];
 		continue;
 	    }

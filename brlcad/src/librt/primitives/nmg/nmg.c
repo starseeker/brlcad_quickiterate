@@ -3906,8 +3906,9 @@ nmg_mdl_to_bot(struct model *m, struct bu_list *vlfree, const struct bn_tol *tol
     NMG_CK_MODEL(m);
 
     /* Fast path: if already pure triangles, skip triangulation entirely */
-    if (nmg_model_all_triangles(m))
+    if (nmg_model_all_triangles(m)) {
 	return nmg_to_bot_all_tri(m, vlfree);
+    }
 
     /* Intermediate path: triangulate non-tri faces directly, bypassing the
      * expensive nmg_edge_g_fuse / nmg_unbreak_region_edges / nmg_vsshell
@@ -3952,8 +3953,9 @@ nmg_mdl_to_bot(struct model *m, struct bu_list *vlfree, const struct bn_tol *tol
 		    nmg_vsshell(s, r);
 	}
 
-	if (nmg_model_all_triangles(m))
+	if (nmg_model_all_triangles(m)) {
 	    return nmg_to_bot_all_tri(m, vlfree);
+	}
 
 	/* Degenerate input: direct triangulation incomplete, use full pipeline */
 	bu_log("nmg_mdl_to_bot: direct triangulation incomplete, using full pipeline\n");
