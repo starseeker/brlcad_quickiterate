@@ -230,8 +230,8 @@ main(int argc, char **argv)
     }
 
     /* Determine IPC mode: -I flag takes explicit precedence; fall back to
-     * the RTSRV_IPC_ADDR environment variable set by the parent before
-     * fork() (see add_host_local() in remrt.c for the parent side).      */
+     * the BU_IPC_ADDR environment variable (BU_IPC_ADDR_ENVVAR) set by
+     * the parent before fork() (see add_host_local() in remrt.c).         */
     {
 	bu_ipc_chan_t *ch = NULL;
 	if (ipc_addr) {
@@ -241,16 +241,16 @@ main(int argc, char **argv)
 		return 1;
 	    }
 	} else {
-	    ch = bu_ipc_connect_from_env("RTSRV_IPC_ADDR");
+	    ch = bu_ipc_connect_env();
 	}
 
 	if (ch) {
 	    /* IPC mode: remrt created a socketpair, moved the child-end fd
 	     * above the close(3..19) sweep in bu_process_create(), and
-	     * advertised it via -I or RTSRV_IPC_ADDR.  bu_ipc_connect (or
-	     * bu_ipc_connect_from_env) wraps the already-inherited fd.
-	     * Wrap it into a pkg_conn so the rest of the code is
-	     * transport-agnostic.  No host/port positional args consumed.  */
+	     * advertised it via -I or BU_IPC_ADDR (BU_IPC_ADDR_ENVVAR).
+	     * bu_ipc_connect (or bu_ipc_connect_env) wraps the already-
+	     * inherited fd.  Wrap it into a pkg_conn so the rest of the code
+	     * is transport-agnostic.  No host/port positional args consumed. */
 	    pcsrv = pkg_open_fds(bu_ipc_fileno(ch),
 				 bu_ipc_fileno_write(ch),
 				 pkgswitch, NULL);
@@ -261,7 +261,7 @@ main(int argc, char **argv)
 	    }
 	    if (debug)
 		fprintf(stderr, "rtsrv: IPC mode active (addr=%s)\n",
-			ipc_addr ? ipc_addr : getenv("RTSRV_IPC_ADDR"));
+			ipc_addr ? ipc_addr : getenv(BU_IPC_ADDR_ENVVAR));
 	} else {
 	    /* Normal TCP mode */
 	    if (argc != 3 && argc != 4) {
