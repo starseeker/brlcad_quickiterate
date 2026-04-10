@@ -744,6 +744,17 @@ test_tgc(void)
     init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
     if (!run_tess("tgc large-taper (A=100 C=0.1 h=100 rel=0.01)", &ip, &ttol, &tol, 0)) failures++;
 
+    /* Extreme nozzle geometry (A=280 C=0.138 h=280): the per-ring nsegs fix
+     * should yield a compact mesh rather than 17000+ triangles. */
+    VSET(tip.v, 0, 0, 0);
+    VSET(tip.h, 0, 0, 280);
+    VSET(tip.a, 280, 0, 0);
+    VSET(tip.b, 0, 280, 0);
+    VSET(tip.c, 0.138, 0, 0);
+    VSET(tip.d, 0, 0.138, 0);
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("tgc extreme-nozzle (A=280 C=0.138 h=280 rel=0.01)", &ip, &ttol, &tol, 0)) failures++;
+
     /* Sharp cone (degenerate top) */
     VSET(tip.v, 0, 0, 0);
     VSET(tip.h, 0, 0, 10);
