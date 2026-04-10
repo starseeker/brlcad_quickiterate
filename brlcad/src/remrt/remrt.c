@@ -3938,6 +3938,13 @@ main(int argc, char *argv[])
 
     bu_setprogname(argv[0]);
 
+#ifdef SIGPIPE
+    /* Ignore SIGPIPE early so that a closed pipe in the test harness (or any
+     * other caller that closes remrt's stdout/stderr read ends) does not kill
+     * the process before the normal startup flow installs the handler.      */
+    (void)signal(SIGPIPE, SIG_IGN);
+#endif
+
     /* Random inits */
     our_hostname = get_our_hostname();
     fprintf(stderr, "%s %s %s\n", stamp(), our_hostname, brlcad_ident("Network-Distributed RT (REMRT)"));
