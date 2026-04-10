@@ -1,9 +1,0 @@
-source /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/regress/mged/regression_resources.tcl
-
-puts "*** Testing 'rot' command in view mode ***"
-
-view quat
-rot 30 30 30
-view quat
-
-puts "*** 'rot' testing in view mode completed ***"

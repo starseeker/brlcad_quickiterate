@@ -1,2 +1,0 @@
-/usr/bin/ar qc ../../lib/libged.a "CMakeFiles/libged-obj.dir/Unity/unity_1_cxx.cxx.o" "CMakeFiles/libged-obj.dir/Unity/unity_0_cxx.cxx.o" "CMakeFiles/libged-obj.dir/Unity/unity_1_c.c.o" "CMakeFiles/libged-obj.dir/Unity/unity_0_c.c.o" "CMakeFiles/libged-obj.dir/ged_init.cpp.o"
-/usr/bin/ranlib ../../lib/libged.a

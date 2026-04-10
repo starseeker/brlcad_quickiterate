@@ -1,2 +1,0 @@
-# CMAKE generated file: DO NOT EDIT!
-# Timestamp file for custom commands dependencies management for regress-rtwiz_m35_edge_only.

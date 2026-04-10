@@ -1,1 +1,0 @@
-package ifneeded Iwidgets 4.1.1 [list source [file join $dir ../../lib/Iwidgets4.1.1/iwidgets.tcl]]

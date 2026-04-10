@@ -1,2 +1,0 @@
-/usr/bin/ar qc ../../../../../lib/libwfobj.a "CMakeFiles/libwfobj-static.dir/WFOBJ_PARSER_STATIC_obj_grammar/obj_grammar.cpp.o" "CMakeFiles/libwfobj-static.dir/WFOBJ_SCANNER_STATIC_obj_rules/obj_rules.cpp.o" "CMakeFiles/libwfobj-static.dir/obj_util.cpp.o" "CMakeFiles/libwfobj-static.dir/obj_parser.cpp.o"
-/usr/bin/ranlib ../../../../../lib/libwfobj.a

@@ -1,2 +1,0 @@
-/usr/bin/ar qc ../../lib/libgcv.a "CMakeFiles/libgcv-obj.dir/bottess.c.o" "CMakeFiles/libgcv-obj.dir/facetize.c.o" "CMakeFiles/libgcv-obj.dir/gcv.c.o" "CMakeFiles/libgcv-obj.dir/region_end.c.o" "CMakeFiles/libgcv-obj.dir/region_end_mc.c.o" "CMakeFiles/libgcv-obj.dir/tri_intersect.c.o"
-/usr/bin/ranlib ../../lib/libgcv.a
