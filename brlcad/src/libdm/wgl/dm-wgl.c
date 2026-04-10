@@ -1261,7 +1261,7 @@ wgl_open(void *UNUSED(ctx), void *vinterp, int argc, const char *argv[])
     {
 	struct bu_vls deico = BU_VLS_INIT_ZERO;
 	bu_vls_printf(&deico, "wm deiconify %s", bu_vls_addr(&dmp->i->dm_pathName));
-	if (Tcl_Eval(interp, bu_vls_cstr(&deico)) != TCL_OK)
+	if (Tcl_Eval(interp, bu_vls_cstr(&deico)) != BRLCAD_OK)
 	    bu_log("wgl_open: wm deiconify %s failed: %s\n",
 		   bu_vls_addr(&dmp->i->dm_pathName), Tcl_GetStringResult(interp));
 	bu_vls_free(&deico);
