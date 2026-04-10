@@ -439,7 +439,7 @@ run_ipc_subtest(const TestOptions &opts,
 	return 1;
     }
 
-    long expected_size = (long)image_size * image_size * 3L;
+    long expected_size = (long)image_size * image_size * 3;
     {
 	FILE *fp = fopen(actual_pix.c_str(), "rb");
 	if (!fp) {
