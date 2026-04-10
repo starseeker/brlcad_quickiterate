@@ -86,6 +86,9 @@ brlcad_add_test(NAME rt_search_stress COMMAND rt_search_stress)
 brlcad_addexec(rt_prim_tess prim_tess.c "librt;libnmg;libwdb;libbg;libbu" TEST)
 brlcad_add_test(NAME rt_prim_tess COMMAND rt_prim_tess)
 
+# Tessellation timing utility (no automated test, just a tool)
+brlcad_addexec(rt_tess_timing tess_timing.c "librt;libnmg;libwdb;libbu" NO_INSTALL)
+
 brlcad_addexec(bot_match bot_match.cpp "librt;libbg" TEST)
 
 # boolweave testing
@@ -108,6 +111,7 @@ set(
   rt_perturb.c
   search_stress.c
   sketch.g
+  tess_timing.c
 )
 
 cmakefiles(${distcheck_files})
