@@ -1,2 +1,0 @@
-/usr/bin/ar qc ../../lib/libfft.a "CMakeFiles/libfft-static.dir/Unity/unity_1_c.c.o" "CMakeFiles/libfft-static.dir/Unity/unity_0_c.c.o" "CMakeFiles/libfft-obj.dir/Unity/unity_0_c.c.o"
-/usr/bin/ranlib ../../lib/libfft.a

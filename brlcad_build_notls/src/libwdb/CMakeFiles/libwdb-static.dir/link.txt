@@ -1,2 +1,0 @@
-/usr/bin/ar qc ../../lib/libwdb.a "CMakeFiles/libwdb-obj.dir/Unity/unity_0_cxx.cxx.o" "CMakeFiles/libwdb-obj.dir/Unity/unity_3_c.c.o" "CMakeFiles/libwdb-obj.dir/Unity/unity_2_c.c.o" "CMakeFiles/libwdb-obj.dir/Unity/unity_1_c.c.o" "CMakeFiles/libwdb-obj.dir/Unity/unity_0_c.c.o"
-/usr/bin/ranlib ../../lib/libwdb.a
