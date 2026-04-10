@@ -2071,7 +2071,8 @@ static const double mged_cli_dbl_sentinel = MGED_CLI_UNSET_DBL;
 static int
 cli_dbl_is_set(double v)
 {
-    /* Compare bit-for-bit against the sentinel value; no == on doubles. */
+    /* Compare bit-for-bit against the sentinel value to avoid
+     * floating-point equality comparison (-Werror=float-equal). */
     return memcmp(&v, &mged_cli_dbl_sentinel, sizeof(double)) != 0;
 }
 
