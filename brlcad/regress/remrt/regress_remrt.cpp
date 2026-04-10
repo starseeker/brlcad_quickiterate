@@ -744,6 +744,24 @@ run_ipc_subtest(const TestOptions &opts, std::string *remrt_log = NULL)
     std::thread stderr_read_thr(read_remrt_stderr, remrt_proc,
 				&det, &remrt_stderr_log);
 
+    /* Wait for remrt to print its port + token.  This serves two purposes:
+     * (1) It ensures the read_remrt_stderr thread has dup()'d the stderr fd
+     *     before bu_process_wait_n() closes it; without this wait there is a
+     *     race where the fd is closed before the dup(), leaving the pipe with
+     *     no reader and causing remrt to die with SIGPIPE.
+     * (2) It confirms remrt has finished startup and is in its render loop,
+     *     so bu_process_wait_n() will wait for a clean exit rather than an
+     *     in-progress write to stderr.                                       */
+    {
+	std::unique_lock<std::mutex> lk(det.mtx);
+	bool ok = det.cv.wait_for(lk,
+				  std::chrono::seconds(PORT_TOKEN_WAIT_SEC),
+				  [&det] { return det.ready; });
+	if (!ok)
+	    fprintf(stderr, "regress_remrt [%s]: timeout waiting for remrt startup\n",
+		    label);
+    }
+
     /* Wait for remrt to complete the render and exit. */
     int remrt_status = bu_process_wait_n(&remrt_proc,
 					 REMRT_WAIT_SEC * 1000000 /* us */);
