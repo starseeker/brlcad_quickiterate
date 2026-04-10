@@ -2059,7 +2059,19 @@ quit(struct mged_state *s)
  *
  * For rset resources (grid, colour scheme, etc.) a "rset …" Tcl command
  * string is constructed and evaluated directly.
+ *
+ * Double fields in mged_cli_overrides use MGED_CLI_UNSET_DBL as a "not
+ * given" sentinel.  We compare with memcmp to avoid -Werror=float-equal.
  */
+static int
+cli_dbl_is_set(double v)
+{
+    /* Compare bit-for-bit against the sentinel value; no == on doubles. */
+    static const double unset = MGED_CLI_UNSET_DBL;
+    return memcmp(&v, &unset, sizeof(double)) != 0;
+}
+
+
 static void
 apply_cli_overrides(struct mged_state *s, struct mged_cli_overrides *cl)
 {
@@ -2106,11 +2118,11 @@ apply_cli_overrides(struct mged_state *s, struct mged_cli_overrides *cl)
     if (cl->coords         != '\0')               CLI_SETVAR_CHAR("coords",        cl->coords);
     if (cl->rotate_about   != '\0')               CLI_SETVAR_CHAR("rotate_about",  cl->rotate_about);
     if (cl->transform      != '\0')               CLI_SETVAR_CHAR("transform",     cl->transform);
-    if (cl->perspective    != MGED_CLI_UNSET_DBL) CLI_SETVAR_DBL("perspective",    cl->perspective);
-    if (cl->predictor_advance != MGED_CLI_UNSET_DBL) CLI_SETVAR_DBL("predictor_advance", cl->predictor_advance);
-    if (cl->predictor_length  != MGED_CLI_UNSET_DBL) CLI_SETVAR_DBL("predictor_length",  cl->predictor_length);
-    if (cl->nmg_eu_dist    != MGED_CLI_UNSET_DBL) CLI_SETVAR_DBL("nmg_eu_dist",    cl->nmg_eu_dist);
-    if (cl->eye_sep_dist   != MGED_CLI_UNSET_DBL) CLI_SETVAR_DBL("eye_sep_dist",   cl->eye_sep_dist);
+    if (cli_dbl_is_set(cl->perspective))         CLI_SETVAR_DBL("perspective",    cl->perspective);
+    if (cli_dbl_is_set(cl->predictor_advance))   CLI_SETVAR_DBL("predictor_advance", cl->predictor_advance);
+    if (cli_dbl_is_set(cl->predictor_length))    CLI_SETVAR_DBL("predictor_length",  cl->predictor_length);
+    if (cli_dbl_is_set(cl->nmg_eu_dist))         CLI_SETVAR_DBL("nmg_eu_dist",    cl->nmg_eu_dist);
+    if (cli_dbl_is_set(cl->eye_sep_dist))        CLI_SETVAR_DBL("eye_sep_dist",   cl->eye_sep_dist);
 
     /* --- Tcl mged_default array entries ---------------------------------- */
     if (cl->dm_type)
@@ -2133,13 +2145,13 @@ apply_cli_overrides(struct mged_state *s, struct mged_cli_overrides *cl)
 	    bu_log("mged: --grid-snap: %s\n", Tcl_GetStringResult(s->interp));
 	bu_vls_trunc(&cmd, 0);
     }
-    if (cl->grid_rh != MGED_CLI_UNSET_DBL) {
+    if (cli_dbl_is_set(cl->grid_rh)) {
 	bu_vls_printf(&cmd, "rset g rh %g", cl->grid_rh);
 	if (Tcl_Eval(s->interp, bu_vls_cstr(&cmd)) != TCL_OK)
 	    bu_log("mged: --grid-rh: %s\n", Tcl_GetStringResult(s->interp));
 	bu_vls_trunc(&cmd, 0);
     }
-    if (cl->grid_rv != MGED_CLI_UNSET_DBL) {
+    if (cli_dbl_is_set(cl->grid_rv)) {
 	bu_vls_printf(&cmd, "rset g rv %g", cl->grid_rv);
 	if (Tcl_Eval(s->interp, bu_vls_cstr(&cmd)) != TCL_OK)
 	    bu_log("mged: --grid-rv: %s\n", Tcl_GetStringResult(s->interp));
@@ -2332,81 +2344,75 @@ main(int argc, char *argv[])
 
     struct bu_vls parse_msgs = BU_VLS_INIT_ZERO;
 
-    struct bu_opt_desc opt_defs[] = {
-	/* ---- Existing short options, now with long aliases ---- */
-	BU_OPT("a", "attach",     "type",    bu_opt_str,     &cl.attach,      "display manager attach target"),
-	BU_OPT("d", "display",    "string",  bu_opt_str,     &cl.dpy_string,  "X display string"),
-	BU_OPT("r", "read-only",  NULL,      NULL,           &cl.read_only,   "open database read-only"),
-	BU_OPT("p", "pipe",       NULL,      NULL,           &cl.pipe_mode,   "pipe mode (emit CMD_DONE sentinels)"),
-	BU_OPT("c", "classic",    NULL,      NULL,           &cl.classic_mode,"classic text-only mode"),
-	BU_OPT("C", "gui",        NULL,      NULL,           &cl.gui_mode,    "GUI (non-classic) mode"),
-	BU_OPT("b", "background", NULL,      NULL,           &cl.background,  "run in background (fork)"),
-	BU_OPT("x", "rt-debug",   "hex",     parse_debug_uint, &cl.rt_debug_val, "set librt debug flags (hex)"),
-	BU_OPT("X", "bu-debug",   "hex",     parse_debug_uint, &cl.bu_debug_val, "set libbu debug flags (hex)"),
-	BU_OPT("v", "version",    NULL,      NULL,           &cl.print_version,"print version info and exit"),
-	BU_OPT("h", "help",       NULL,      NULL,           &cl.print_help,  "print help and exit"),
-	BU_OPT("?", NULL,         NULL,      NULL,           &cl.print_help,  "print help and exit"),
-	/* -o is a developer option; preserved but not promoted with a long alias */
-	BU_OPT("o", NULL,         NULL,      NULL,           &cl.old_gui_flag,"[developer] use old GUI"),
-
-	/* ---- rc file control ---- */
-	BU_OPT(NULL, "rcfile",  "file",      bu_opt_str,     &cl.rcfile,      "use FILE instead of .mgedrc"),
-	BU_OPT(NULL, "no-rc",   NULL,        NULL,           &cl.skip_rc,     "skip loading any .mgedrc file"),
-
-	/* ---- General escape hatches ---- */
-	BU_OPT(NULL, "set",  "VAR=VALUE",    parse_mged_set, &cl.set_pairs,
-	       "set an mged variable (e.g. --set use_air=1); applied after .mgedrc"),
-	BU_OPT(NULL, "rset", "CAT VAR VAL",  parse_rset,     &cl.rset_pairs,
-	       "set an rset resource (e.g. --rset \"g snap 1\"); applied after .mgedrc"),
-
-	/* ---- mged_variables: boolean on/off pairs ---- */
-	BU_OPT(NULL, "use-air",      NULL, NULL,           &cl.use_air,    "enable use_air"),
-	BU_OPT(NULL, "no-use-air",   NULL, flag_set_zero,  &cl.use_air,    "disable use_air"),
-	BU_OPT(NULL, "dlist",        NULL, NULL,           &cl.dlist,      "enable display lists"),
-	BU_OPT(NULL, "no-dlist",     NULL, flag_set_zero,  &cl.dlist,      "disable display lists"),
-	BU_OPT(NULL, "faceplate",    NULL, NULL,           &cl.faceplate,  "show faceplate overlay"),
-	BU_OPT(NULL, "no-faceplate", NULL, flag_set_zero,  &cl.faceplate,  "hide faceplate overlay"),
-	BU_OPT(NULL, "predictor",    NULL, NULL,           &cl.predictor,  "enable view predictor"),
-	BU_OPT(NULL, "no-predictor", NULL, flag_set_zero,  &cl.predictor,  "disable view predictor"),
-
-	/* ---- mged_variables: valued options ---- */
-	BU_OPT(NULL, "linewidth",    "#",    bu_opt_int,    &cl.linewidth,  "wireframe line width (pixels, >=1)"),
-	BU_OPT(NULL, "linestyle",    "s|d",  bu_opt_char,   &cl.linestyle,  "line style: s=solid, d=dashed"),
-	BU_OPT(NULL, "perspective",  "#",    bu_opt_fastf_t,&cl.perspective,"perspective angle in degrees (-1=off)"),
-	BU_OPT(NULL, "eye-sep-dist", "#",    bu_opt_fastf_t,&cl.eye_sep_dist,"stereo eye separation (mm, 0=mono)"),
-	BU_OPT(NULL, "port",         "#",    bu_opt_int,    &cl.port,       "framebuffer server listen port (0-65535)"),
-	BU_OPT(NULL, "coords",       "m|v",  bu_opt_char,   &cl.coords,     "constraint coords: m=model v=view"),
-	BU_OPT(NULL, "rotate-about", "m|v|e",bu_opt_char,   &cl.rotate_about,"rotate center: m=model v=view e=eye"),
-	BU_OPT(NULL, "transform",    "v|a|e",bu_opt_char,   &cl.transform,  "mouse transform: v=view a=adc e=edit"),
-	BU_OPT(NULL, "nmg-eu-dist",  "#",    bu_opt_fastf_t,&cl.nmg_eu_dist,"NMG edge-use distance tolerance"),
-	BU_OPT(NULL, "mouse-behavior","v|a|e",bu_opt_char,  &cl.mouse_behavior,"mouse behavior mode"),
-	BU_OPT(NULL, "predictor-advance","#",bu_opt_fastf_t,&cl.predictor_advance,"predictor advance time (s)"),
-	BU_OPT(NULL, "predictor-length","#", bu_opt_fastf_t,&cl.predictor_length,"predictor trail length (s)"),
-	BU_OPT(NULL, "perspective-mode","0|1",bu_opt_int,   &cl.perspective_mode,"enable/disable perspective mode"),
-	BU_OPT(NULL, "context",      "0|1",  bu_opt_int,    &cl.context,    "context mode (0=off)"),
-	BU_OPT(NULL, "sliders",      "0|1",  bu_opt_int,    &cl.sliders,    "show sliders (0=off)"),
-	BU_OPT(NULL, "hot-key",      "#",    bu_opt_int,    &cl.hot_key,    "hot key character code"),
-	BU_OPT(NULL, "fb-overlay",   "0|1|2",bu_opt_int,    &cl.fb_overlay, "framebuffer overlay: 0=under 1=inter 2=over"),
-
-	/* ---- window/display (Tcl mged_default array) ---- */
-	BU_OPT(NULL, "dm-type", "type",      bu_opt_str,    &cl.dm_type,    "display manager type (e.g. ogl, swrast)"),
-	BU_OPT(NULL, "geom",    "WxH+X+Y",   bu_opt_str,    &cl.geom,       "command window geometry"),
-	BU_OPT(NULL, "ggeom",   "WxH+X+Y",   bu_opt_str,    &cl.ggeom,      "graphics window geometry"),
-
-	/* ---- grid (rset g …) ---- */
-	BU_OPT(NULL, "grid-draw", "0|1",     bu_opt_int,    &cl.grid_draw,  "show/hide grid"),
-	BU_OPT(NULL, "grid-snap", "0|1",     bu_opt_int,    &cl.grid_snap,  "enable/disable grid snap"),
-	BU_OPT(NULL, "grid-rh",   "#",       bu_opt_fastf_t,&cl.grid_rh,    "horizontal grid resolution"),
-	BU_OPT(NULL, "grid-rv",   "#",       bu_opt_fastf_t,&cl.grid_rv,    "vertical grid resolution"),
-	BU_OPT(NULL, "grid-mrh",  "#",       bu_opt_int,    &cl.grid_mrh,   "horizontal major grid interval"),
-	BU_OPT(NULL, "grid-mrv",  "#",       bu_opt_int,    &cl.grid_mrv,   "vertical major grid interval"),
-
-	/* ---- colour scheme subset (rset cs …) ---- */
-	BU_OPT(NULL, "bg",        "R G B",   parse_rgb,     &cl.bg,         "background colour (0-255 each component)"),
-	BU_OPT(NULL, "geo-color", "R G B",   parse_rgb,     &cl.geo_def,    "default geometry wireframe colour"),
-
-	BU_OPT_NULL
-    };
+    /* Option table: the BU_OPT macro takes (slot, shortopt, longopt, arghelp,
+     * argprocess, set_var, help) — 7 arguments.  Long-only options use NULL for
+     * shortopt.  No-argument options use "" for arghelp and NULL for argprocess. */
+    struct bu_opt_desc opt_defs[54];
+    /* ---- Existing short options, now with long aliases ---- */
+    BU_OPT(opt_defs[0],  "a", "attach",           "type",    bu_opt_str,      &cl.attach,           "display manager attach target");
+    BU_OPT(opt_defs[1],  "d", "display",           "string",  bu_opt_str,      &cl.dpy_string,       "X display string");
+    BU_OPT(opt_defs[2],  "r", "read-only",         "",        NULL,            &cl.read_only,        "open database read-only");
+    BU_OPT(opt_defs[3],  "p", "pipe",              "",        NULL,            &cl.pipe_mode,        "pipe mode (emit CMD_DONE sentinels)");
+    BU_OPT(opt_defs[4],  "c", "classic",           "",        NULL,            &cl.classic_mode,     "classic text-only mode");
+    BU_OPT(opt_defs[5],  "C", "gui",               "",        NULL,            &cl.gui_mode,         "GUI (non-classic) mode");
+    BU_OPT(opt_defs[6],  "b", "background",        "",        NULL,            &cl.background,       "run in background (fork)");
+    BU_OPT(opt_defs[7],  "x", "rt-debug",          "hex",     parse_debug_uint,&cl.rt_debug_val,     "set librt debug flags (hex)");
+    BU_OPT(opt_defs[8],  "X", "bu-debug",          "hex",     parse_debug_uint,&cl.bu_debug_val,     "set libbu debug flags (hex)");
+    BU_OPT(opt_defs[9],  "v", "version",           "",        NULL,            &cl.print_version,    "print version info and exit");
+    BU_OPT(opt_defs[10], "h", "help",              "",        NULL,            &cl.print_help,       "print help and exit");
+    BU_OPT(opt_defs[11], "?", NULL,                "",        NULL,            &cl.print_help,       "print help and exit");
+    /* -o is a developer option: preserved but not promoted with a long alias */
+    BU_OPT(opt_defs[12], "o", NULL,                "",        NULL,            &cl.old_gui_flag,     "[developer] use old GUI");
+    /* ---- rc file control ---- */
+    BU_OPT(opt_defs[13], NULL, "rcfile",           "file",    bu_opt_str,      &cl.rcfile,           "use FILE instead of .mgedrc");
+    BU_OPT(opt_defs[14], NULL, "no-rc",            "",        NULL,            &cl.skip_rc,          "skip loading any .mgedrc file");
+    /* ---- general escape hatches ---- */
+    BU_OPT(opt_defs[15], NULL, "set",              "VAR=VALUE",parse_mged_set, &cl.set_pairs,
+	   "set an mged variable (e.g. --set use_air=1); applied after .mgedrc");
+    BU_OPT(opt_defs[16], NULL, "rset",             "ARGS",    parse_rset,      &cl.rset_pairs,
+	   "set an rset resource (e.g. --rset \"g snap 1\"); applied after .mgedrc");
+    /* ---- mged_variables: boolean on/off pairs ---- */
+    BU_OPT(opt_defs[17], NULL, "use-air",          "",        NULL,            &cl.use_air,          "enable use_air");
+    BU_OPT(opt_defs[18], NULL, "no-use-air",       "",        flag_set_zero,   &cl.use_air,          "disable use_air");
+    BU_OPT(opt_defs[19], NULL, "dlist",            "",        NULL,            &cl.dlist,            "enable display lists");
+    BU_OPT(opt_defs[20], NULL, "no-dlist",         "",        flag_set_zero,   &cl.dlist,            "disable display lists");
+    BU_OPT(opt_defs[21], NULL, "faceplate",        "",        NULL,            &cl.faceplate,        "show faceplate overlay");
+    BU_OPT(opt_defs[22], NULL, "no-faceplate",     "",        flag_set_zero,   &cl.faceplate,        "hide faceplate overlay");
+    BU_OPT(opt_defs[23], NULL, "predictor",        "",        NULL,            &cl.predictor,        "enable view predictor");
+    BU_OPT(opt_defs[24], NULL, "no-predictor",     "",        flag_set_zero,   &cl.predictor,        "disable view predictor");
+    /* ---- mged_variables: valued options ---- */
+    BU_OPT(opt_defs[25], NULL, "linewidth",        "#",       bu_opt_int,      &cl.linewidth,        "wireframe line width (pixels, >=1)");
+    BU_OPT(opt_defs[26], NULL, "linestyle",        "s|d",     bu_opt_char,     &cl.linestyle,        "line style: s=solid, d=dashed");
+    BU_OPT(opt_defs[27], NULL, "perspective",      "#",       bu_opt_fastf_t,  &cl.perspective,      "perspective angle in degrees (-1=off)");
+    BU_OPT(opt_defs[28], NULL, "eye-sep-dist",     "#",       bu_opt_fastf_t,  &cl.eye_sep_dist,     "stereo eye separation (mm, 0=mono)");
+    BU_OPT(opt_defs[29], NULL, "port",             "#",       bu_opt_int,      &cl.port,             "framebuffer server listen port (0-65535)");
+    BU_OPT(opt_defs[30], NULL, "coords",           "m|v",     bu_opt_char,     &cl.coords,           "constraint coords: m=model v=view");
+    BU_OPT(opt_defs[31], NULL, "rotate-about",     "m|v|e",   bu_opt_char,     &cl.rotate_about,     "rotate center: m=model v=view e=eye");
+    BU_OPT(opt_defs[32], NULL, "transform",        "v|a|e",   bu_opt_char,     &cl.transform,        "mouse transform: v=view a=adc e=edit");
+    BU_OPT(opt_defs[33], NULL, "nmg-eu-dist",      "#",       bu_opt_fastf_t,  &cl.nmg_eu_dist,      "NMG edge-use distance tolerance");
+    BU_OPT(opt_defs[34], NULL, "mouse-behavior",   "v|a|e",   bu_opt_char,     &cl.mouse_behavior,   "mouse behavior mode");
+    BU_OPT(opt_defs[35], NULL, "predictor-advance","#",       bu_opt_fastf_t,  &cl.predictor_advance,"predictor advance time (s)");
+    BU_OPT(opt_defs[36], NULL, "predictor-length", "#",       bu_opt_fastf_t,  &cl.predictor_length, "predictor trail length (s)");
+    BU_OPT(opt_defs[37], NULL, "perspective-mode", "0|1",     bu_opt_int,      &cl.perspective_mode, "enable/disable perspective mode");
+    BU_OPT(opt_defs[38], NULL, "context",          "0|1",     bu_opt_int,      &cl.context,          "context mode (0=off)");
+    BU_OPT(opt_defs[39], NULL, "sliders",          "0|1",     bu_opt_int,      &cl.sliders,          "show sliders");
+    BU_OPT(opt_defs[40], NULL, "hot-key",          "#",       bu_opt_int,      &cl.hot_key,          "hot key character code");
+    BU_OPT(opt_defs[41], NULL, "fb-overlay",       "0|1|2",   bu_opt_int,      &cl.fb_overlay,       "framebuffer overlay: 0=under 1=inter 2=over");
+    /* ---- window/display (Tcl mged_default array) ---- */
+    BU_OPT(opt_defs[42], NULL, "dm-type",          "type",    bu_opt_str,      &cl.dm_type,          "display manager type (e.g. ogl, swrast)");
+    BU_OPT(opt_defs[43], NULL, "geom",             "WxH+X+Y", bu_opt_str,      &cl.geom,             "command window geometry");
+    BU_OPT(opt_defs[44], NULL, "ggeom",            "WxH+X+Y", bu_opt_str,      &cl.ggeom,            "graphics window geometry");
+    /* ---- grid (rset g …) ---- */
+    BU_OPT(opt_defs[45], NULL, "grid-draw",        "0|1",     bu_opt_int,      &cl.grid_draw,        "show/hide grid");
+    BU_OPT(opt_defs[46], NULL, "grid-snap",        "0|1",     bu_opt_int,      &cl.grid_snap,        "enable/disable grid snap");
+    BU_OPT(opt_defs[47], NULL, "grid-rh",          "#",       bu_opt_fastf_t,  &cl.grid_rh,          "horizontal grid resolution");
+    BU_OPT(opt_defs[48], NULL, "grid-rv",          "#",       bu_opt_fastf_t,  &cl.grid_rv,          "vertical grid resolution");
+    BU_OPT(opt_defs[49], NULL, "grid-mrh",         "#",       bu_opt_int,      &cl.grid_mrh,         "horizontal major grid interval");
+    BU_OPT(opt_defs[50], NULL, "grid-mrv",         "#",       bu_opt_int,      &cl.grid_mrv,         "vertical major grid interval");
+    /* ---- colour scheme subset (rset cs …) ---- */
+    BU_OPT(opt_defs[51], NULL, "bg",               "R G B",   parse_rgb,       &cl.bg,               "background colour (0-255 each component)");
+    BU_OPT(opt_defs[52], NULL, "geo-color",        "R G B",   parse_rgb,       &cl.geo_def,          "default geometry wireframe colour");
+    BU_OPT_NULL(opt_defs[53]);
 
     /* bu_opt_parse does not consume argv[0] (the program name).
      * Skip it manually so that the remaining args match what the
