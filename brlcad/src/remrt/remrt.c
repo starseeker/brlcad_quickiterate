@@ -54,6 +54,7 @@
 #include "bresource.h"
 #include "bsocket.h"
 #include "bu/app.h"
+#include "bu/env.h"
 #include "bu/ipc.h"
 #include "bu/time.h"
 #include "bu/vls.h"
@@ -1444,17 +1445,22 @@ add_host(struct ihost *ihp)
  * the HT_LOCAL path can return early on error without interfering with
  * the common bu_process_create() tail of add_host().
  *
- * The child-end IPC address is passed to rtsrv as a command-line argument
- * (-I <addr>) rather than via an environment variable, so that concurrent
- * invocations of add_host_local() cannot collide over a shared env entry.
+ * The child-end IPC address is communicated to rtsrv via the environment
+ * variable RTSRV_IPC_ADDR, set in the parent immediately before the fork()
+ * inside bu_process_create().  Because fork() gives the child its own
+ * independent copy of the environment, the parent can safely clear the
+ * variable right after bu_process_create() returns without racing against
+ * the child's execvp() call.  The -I flag is also supported by rtsrv for
+ * manual invocations; the env var is the preferred mechanism for auto-spawned
+ * workers.
  */
 static void
 add_host_local(struct ihost *ihp)
 {
     bu_ipc_chan_t *pe = NULL, *ce = NULL;
     char rtsrv_path[MAXPATHLEN];
-    /* Slots: exe, -I, addr, [-S, token,] NULL — 6 entries is enough. */
-    const char *argv[8];
+    /* Slots: exe, [-S, token,] NULL — 4 entries is enough. */
+    const char *argv[6];
     int argc = 0;
     struct bu_process *p = NULL;
     struct pkg_conn *pc;
@@ -1488,12 +1494,14 @@ add_host_local(struct ihost *ihp)
 	return;
     }
 
-    /* Build rtsrv argv.  Pass the child-end address via -I so each
-     * concurrent spawn carries its own unique address with no shared
-     * state.  No host/port positional args are needed in IPC mode.  */
+    /* Advertise the child-end IPC address via the environment so rtsrv
+     * can find it without a -I command-line argument.  fork() inside
+     * bu_process_create() gives the child its own copy of the environment,
+     * so clearing the var in the parent after the call is race-free.       */
+    bu_setenv("RTSRV_IPC_ADDR", bu_ipc_addr(ce), 1);
+
+    /* Build rtsrv argv.  No host/port positional args in IPC mode.         */
     argv[argc++] = rtsrv_path;
-    argv[argc++] = "-I";
-    argv[argc++] = bu_ipc_addr(ce);     /* e.g. "socket:7" — stable ptr */
     if (session_token[0] != '\0') {
 	argv[argc++] = "-S";
 	argv[argc++] = session_token;
@@ -1501,10 +1509,14 @@ add_host_local(struct ihost *ihp)
     argv[argc] = NULL;
 
     if (rem_debug)
-	bu_log("%s local rtsrv %s -I %s\n",
+	bu_log("%s local rtsrv %s (RTSRV_IPC_ADDR=%s)\n",
 	       stamp(), rtsrv_path, bu_ipc_addr(ce));
 
     bu_process_create(&p, argv, BU_PROCESS_DEFAULT);
+
+    /* Clear the env var now that the fork has captured it.  The child
+     * already has its own independent copy so this cannot affect it.       */
+    bu_setenv("RTSRV_IPC_ADDR", "", 1);
 
     /* Parent closes its copy of the child end — only the child needs it. */
     bu_ipc_close(ce);

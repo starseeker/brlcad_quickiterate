@@ -64,13 +64,22 @@
  * bu_ipc_addr() returns strings suitable for
  * passing to child processes as command-line arguments.
  *
- * ### Why per-spawn env is thread-safe
+ * ### Two patterns for passing the address to the child
  *
- * bu_ipc_addr() returns a string stored inside the
- * chan struct.  The caller passes this to the child as a CLI argument
- * (e.g. -I addr) — this is NOT a call to setenv().
- * Each concurrent spawn uses its own bu_ipc_chan_t with its own string;
- * there is no shared mutable state between simultaneous renders.
+ * **CLI argument (-I flag)**: bu_ipc_addr() returns a string stored inside
+ * the chan struct.  The caller passes this to the child as a CLI argument
+ * (e.g. -I addr).  Each concurrent spawn uses its own bu_ipc_chan_t with
+ * its own string; there is no shared mutable state between simultaneous
+ * renders.  This is the safest choice for multi-threaded spawners.
+ *
+ * **Environment variable**: the parent calls bu_setenv(varname, addr, 1)
+ * before fork() and bu_setenv(varname, "", 1) after.  fork() gives the
+ * child its own independent copy of the environment, so clearing the var
+ * in the parent cannot race against the child's getenv().  This pattern
+ * is safe when the spawner is single-threaded (e.g. a dedicated event
+ * loop) and is convenient because the child does not need to parse any
+ * extra command-line arguments.  bu_ipc_connect_from_env() provides the
+ * child-side counterpart.
  *
  * ### Why libuv is NOT used here
  *
@@ -500,6 +509,16 @@ bu_ipc_connect(const char *addr)
     bu_log("bu_ipc_connect: unrecognized address '%s'\n", addr);
     delete c;
     return nullptr;
+}
+
+
+bu_ipc_chan_t *
+bu_ipc_connect_from_env(const char *envvar_name)
+{
+    if (!envvar_name) return nullptr;
+    const char *addr = getenv(envvar_name);
+    if (!addr || addr[0] == '\0') return nullptr;
+    return bu_ipc_connect(addr);
 }
 
 
