@@ -288,7 +288,7 @@ write_remrtrc_local(const char *db_dir)
 	bu_vls_free(&rcpath);
 	return -1;
     }
-    /* "local" tells remrt to spawn rtsrv via bu_ipc (env var RTSRV_IPC_ADDR)
+    /* "local" tells remrt to spawn rtsrv via bu_ipc (env var BU_IPC_ADDR)
      * rather than SSH, and to send MSG_CD <db_dir> so rtsrv finds the
      * geometry. */
     fprintf(fp, "host localhost always local %s\n", db_dir);
@@ -319,7 +319,7 @@ cleanup_remrtrc(void)
  *
  * A ".remrtrc" with "host localhost always local <db_dir>" is written
  * before launching remrt so that remrt auto-spawns one rtsrv worker on
- * this machine via add_host_local() (bu_ipc socketpair + RTSRV_IPC_ADDR
+ * this machine via add_host_local() (bu_ipc socketpair + BU_IPC_ADDR
  * env var).  No TCP port allocation and no manual rtsrv invocation are
  * needed.
  *
