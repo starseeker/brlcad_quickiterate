@@ -2598,14 +2598,18 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 		size_t k_top1 = 2*j+1;
 		size_t k_top2 = (2*j+2) % (size_t)ns_top;
 
-		/* T1: advance top once (to odd index) */
+		/* T1: advance top once (to odd index).
+		 * Vertex order: (bot, top_new, top_old) so that the shared
+		 * edge top_new→top_old in T1 is reversed in T3 as top_old→top_new,
+		 * and the shared edge bot→top_new in T1 is reversed in T2 as
+		 * top_new→bot.  Matches the proven EHY pts_dbl ordering. */
 		if (!is_apex_top && !pts[i+1][k_top1].dont_use) {
 		    v[0] = is_apex_bot ? &pts[i][0].v : curr_bot;
-		    v[1] = curr_top;
-		    v[2] = &pts[i+1][k_top1].v;
+		    v[1] = &pts[i+1][k_top1].v;  /* new top vertex first */
+		    v[2] = curr_top;              /* current (old) top vertex second */
 		    fu = nmg_cmface(s, v, 3);
 		    bu_ptbl_ins(&faces, (long *)fu);
-		    curr_top = v[2];
+		    curr_top = v[1];              /* advance to the new vertex */
 		}
 
 		/* T2: advance bottom */
@@ -2618,14 +2622,17 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 		    curr_bot = v[1];
 		}
 
-		/* T3: advance top again (to even index) */
+		/* T3: advance top again (to even index).
+		 * Same ordering as T1: (bot, top_new, top_old) so that
+		 * the top_old vertex (k_top1) is shared with T1 via the
+		 * reverse edge, keeping the mesh manifold. */
 		if (!is_apex_top && !pts[i+1][k_top2].dont_use) {
 		    v[0] = is_apex_bot ? &pts[i][0].v : curr_bot;
-		    v[1] = curr_top;
-		    v[2] = &pts[i+1][k_top2].v;
+		    v[1] = &pts[i+1][k_top2].v;  /* new top vertex first */
+		    v[2] = curr_top;              /* current (old) top vertex second */
 		    fu = nmg_cmface(s, v, 3);
 		    bu_ptbl_ins(&faces, (long *)fu);
-		    curr_top = v[2];
+		    curr_top = v[1];              /* advance to the new vertex */
 		}
 	    }
 	} else if (ns_bot == 2 * ns_top) {
@@ -2646,14 +2653,18 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 		    curr_bot = v[1];
 		}
 
-		/* Fa2: advance top */
+		/* Fa2: advance top.
+		 * Vertex order: (top_new, top_old, bot) so the shared
+		 * edge top_old→bot is reversed relative to Fa1's bot→top_old,
+		 * and top_new→top_old is reversed by the adjacent upper band.
+		 * Consistent with TGC 1:1 T2 pattern (T[j+1], T[j], B[j+1]). */
 		if (!is_apex_top && !pts[i+1][k_top].dont_use) {
-		    v[0] = curr_bot;
-		    v[1] = curr_top;
-		    v[2] = &pts[i+1][k_top].v;
+		    v[0] = &pts[i+1][k_top].v;  /* new top vertex first */
+		    v[1] = curr_top;             /* current (old) top vertex second */
+		    v[2] = curr_bot;             /* bottom vertex last */
 		    fu = nmg_cmface(s, v, 3);
 		    bu_ptbl_ins(&faces, (long *)fu);
-		    curr_top = v[2];
+		    curr_top = v[0];             /* advance to the new vertex */
 		}
 
 		/* Fa3: advance bottom again (to even index) */
