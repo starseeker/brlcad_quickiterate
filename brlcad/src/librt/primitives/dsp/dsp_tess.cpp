@@ -137,15 +137,21 @@ dsp_build_nmg_from_bot(struct nmgregion **r_out,
     };
     struct EdgeKeyHash {
 	std::size_t operator()(const EdgeKey& k) const {
-	    /* Fibonacci mixing to reduce collisions. */
+	    /* Golden-ratio mixing sized for the platform's pointer width. */
 	    std::size_t ha = std::hash<const void *>()(k.a);
 	    std::size_t hb = std::hash<const void *>()(k.b);
-	    return ha ^ (hb * 2654435761ULL + (ha >> 16));
+#if SIZE_MAX > 0xFFFFFFFFU
+	    /* 64-bit: Knuth / Fibonacci multiplier for 64-bit size_t */
+	    return ha ^ (hb * (std::size_t)11400714819323198485ULL + (ha >> 16));
+#else
+	    /* 32-bit */
+	    return ha ^ (hb * (std::size_t)2654435761U + (ha >> 16));
+#endif
 	}
     };
 
     std::unordered_map<EdgeKey, struct edgeuse *, EdgeKeyHash> eu_map;
-    eu_map.reserve(bot->num_faces * 3 * 2);
+    eu_map.reserve(bot->num_faces * 3);
 
     for (i = 0; i < bot->num_faces; i++) {
 	struct faceuse *fu = fu_arr[i];
