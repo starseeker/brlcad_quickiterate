@@ -3559,6 +3559,77 @@ nmg_fix_normals(struct shell *s_orig, struct bu_list *vlfree, const struct bn_to
 
     m = s_orig->r_p->m_p;
 
+    /* Fast single-component check: traverse the original shell using a proper
+     * O(1)-push/pop stack to determine if it consists of exactly one connected
+     * component.  If so, we can call the fix functions directly on the original
+     * shell and skip the expensive nmg_dup_shell + nmg_decompose_shell path.
+     * The dup+decompose path has O(n^1.5) behavior due to the bu_ptbl-based
+     * BFS stack; the direct path is effectively O(n). */
+    {
+	struct faceuse *fu_bfs, *fu_start_bfs;
+	struct loopuse *lu_bfs;
+	struct edgeuse *eu_bfs, *eu_rad;
+	struct faceuse **bfs_stack;
+	long *bfs_flags;
+	size_t bfs_top = 0;
+	size_t total_fu = 0;
+	size_t visited_fu = 0;
+
+	for (BU_LIST_FOR(fu_bfs, faceuse, &s_orig->fu_hd))
+	    if (fu_bfs->orientation == OT_SAME)
+		total_fu++;
+
+	if (total_fu == 0)
+	    return;
+
+	bfs_flags = (long *)bu_calloc(m->maxindex, sizeof(long), "nmg_fix_normals_flags");
+	bfs_stack = (struct faceuse **)bu_malloc(total_fu * sizeof(struct faceuse *), "nmg_fix_normals_stack");
+
+	fu_start_bfs = BU_LIST_FIRST(faceuse, &s_orig->fu_hd);
+	if (fu_start_bfs->orientation != OT_SAME)
+	    fu_start_bfs = fu_start_bfs->fumate_p;
+	NMG_INDEX_SET(bfs_flags, fu_start_bfs);
+	bfs_stack[bfs_top++] = fu_start_bfs;
+	visited_fu = 1;
+
+	while (bfs_top > 0) {
+	    fu_bfs = bfs_stack[--bfs_top];
+	    for (BU_LIST_FOR(lu_bfs, loopuse, &fu_bfs->lu_hd)) {
+		if (BU_LIST_FIRST_MAGIC(&lu_bfs->down_hd) != NMG_EDGEUSE_MAGIC)
+		    continue;
+		for (BU_LIST_FOR(eu_bfs, edgeuse, &lu_bfs->down_hd)) {
+		    eu_rad = eu_bfs->radial_p;
+		    while (eu_rad != eu_bfs && eu_rad != eu_bfs->eumate_p) {
+			if (nmg_find_s_of_eu(eu_rad) == s_orig) {
+			    struct faceuse *fu_rad = nmg_find_fu_of_eu(eu_rad);
+			    if (fu_rad) {
+				if (fu_rad->orientation != OT_SAME)
+				    fu_rad = fu_rad->fumate_p;
+				if (fu_rad->orientation == OT_SAME && !NMG_INDEX_TEST(bfs_flags, fu_rad)) {
+				    NMG_INDEX_SET(bfs_flags, fu_rad);
+				    bfs_stack[bfs_top++] = fu_rad;
+				    visited_fu++;
+				}
+			    }
+			}
+			eu_rad = eu_rad->eumate_p->radial_p;
+		    }
+		}
+	    }
+	}
+
+	bu_free(bfs_stack, "nmg_fix_normals_stack");
+	bu_free(bfs_flags, "nmg_fix_normals_flags");
+
+	if (visited_fu == total_fu) {
+	    /* Single connected component: fix normals directly without
+	     * the expensive dup_shell + decompose_shell path. */
+	    nmg_connect_same_fu_orients(s_orig);
+	    nmg_fix_decomposed_shell_normals(s_orig, tol);
+	    return;
+	}
+    }
+
     /* make a temporary nmgregion for us to work in */
     tmp_r = nmg_mrsv(m);
 
