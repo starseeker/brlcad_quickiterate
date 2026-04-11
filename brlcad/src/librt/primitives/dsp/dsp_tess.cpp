@@ -45,6 +45,29 @@
 /* private header */
 #include "./dsp.h"
 
+/* ------------------------------------------------------------------ */
+/* Named constants for the decimation-based DSP tessellation           */
+/* ------------------------------------------------------------------ */
+
+/* GCT decimation cost-model exponents.
+ * The original GCT code uses a sixth-power cost; mmesh uses the same.
+ * rt_bot_decimate_gct() adjusts for backward compatibility with the
+ * fourth-power legacy model: fsize = feature^(2/3) * 2^(4/3).        */
+static const double DSP_DECIMATE_STRENGTH_EXPONENT = 2.0 / 3.0;
+static const double DSP_DECIMATE_STRENGTH_SCALE    = /* pow(2.0, 4.0/3.0) */ 2.5198420997897;
+
+/* Minimum and maximum feature-size clamps (in grid units). */
+static const double DSP_DECIMATE_MIN_FEATURE   = 0.5;
+static const double DSP_DECIMATE_MAX_FEATURE_RATIO = 0.25; /* fraction of grid diagonal */
+
+/* Steiner-point grid: points placed every SPACING_FACTOR * min_dist apart
+ * so that at most one Steiner point falls between any two boundary edges.
+ * The start/end offsets of 0.5 / 0.25 keep points off the boundary.  */
+static const double DSP_STEINER_GRID_SPACING_FACTOR = 2.5;
+
+/* Minimum spacing between Steiner points in cell units.               */
+static const double DSP_STEINER_MIN_CELL_SPACING = 3.0;
+
 /**
  * Fast NMG assembler for a manifold, CCW-oriented triangulated BOT.
  *
@@ -248,7 +271,7 @@ dsp_generate_steiner_pts(
 	for (const auto& p : hp)
 	    idx.insert(p.first, p.second);
 
-    double step = min_distance * 2.5;
+    double step = min_distance * DSP_STEINER_GRID_SPACING_FACTOR;
 
     std::vector<std::pair<double, double>> result;
     for (double sy = bb_min_y + step * 0.5; sy < bb_max_y - step * 0.25; sy += step) {
@@ -372,10 +395,12 @@ dsp_tess_with_decimation(
      * for backward compatibility with the legacy GCT cost model.         */
     double raw_feature = effective_err / grid_scale;
     double grid_diag   = sqrt((double)(W-1)*(W-1) + (double)(H-1)*(H-1));
-    /* Clamp: always do at least a little decimation; don't over-collapse. */
-    if (raw_feature < 0.5)           raw_feature = 0.5;
-    if (raw_feature > grid_diag * 0.25) raw_feature = grid_diag * 0.25;
-    double fsize = pow(raw_feature, 2.0/3.0) * pow(2.0, 4.0/3.0);
+    if (raw_feature < DSP_DECIMATE_MIN_FEATURE)
+	raw_feature = DSP_DECIMATE_MIN_FEATURE;
+    if (raw_feature > grid_diag * DSP_DECIMATE_MAX_FEATURE_RATIO)
+	raw_feature = grid_diag * DSP_DECIMATE_MAX_FEATURE_RATIO;
+    double fsize = pow(raw_feature, DSP_DECIMATE_STRENGTH_EXPONENT)
+		 * DSP_DECIMATE_STRENGTH_SCALE;
 
     {
 	mdOperation mdop;
@@ -599,7 +624,7 @@ dsp_tess_with_decimation(
     }
 
     /* Steiner points: use 3 grid cells as minimum spacing. */
-    double min_dist = terrain.cell_size * 3.0;
+    double min_dist = terrain.cell_size * DSP_STEINER_MIN_CELL_SPACING;
     auto steiner_pts = dsp_generate_steiner_pts(
 	outer_poly_2d, hole_polys_2d,
 	bb_min_x, bb_max_x, bb_min_y, bb_max_y,
