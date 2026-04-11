@@ -48,6 +48,7 @@
 #include "bnetwork.h"
 
 #include "bu/color.h"
+#include "bu/ipc.h"
 #include "bu/log.h"
 #include "bu/str.h"
 #include "bu/log.h"
@@ -231,6 +232,37 @@ rem_open(register struct fb *ifp, const char *file, int width, int height)
 
     FB_CK_FB(ifp->i);
 
+    /* Phase 2: IPC fast path.
+     * If BU_IPC_ADDR is present in the environment (set by the parent before
+     * spawning us), connect to the framebuffer server via the inherited IPC
+     * channel (anonymous pipe or socketpair) instead of opening a TCP socket.
+     * The file/port arguments are ignored in this case — the channel is
+     * already established.                                                    */
+    {
+	const char *ipc_addr = getenv(BU_IPC_ADDR_ENVVAR);
+	if (ipc_addr && ipc_addr[0] != '\0') {
+	    bu_ipc_chan_t *chan = bu_ipc_connect(ipc_addr);
+	    if (chan) {
+		int rfd = bu_ipc_fileno(chan);
+		int wfd = bu_ipc_fileno_write(chan);
+		pc = pkg_open_fds(rfd, wfd, pkgswitch, rem_log);
+		if (pc != PKC_ERROR && pc != PKC_NULL) {
+		    bu_ipc_detach(chan);   /* fds now owned by pkg_conn */
+		    PCPL(ifp) = (char *)pc;
+		    ifp->i->if_fd = pc->pkc_fd;
+		    /* Fall through to MSG_FBOPEN / MSG_RETURN handshake below. */
+		    goto ipc_connected;
+		}
+		bu_ipc_close(chan);
+		fb_log("rem_open: IPC connect to '%s' succeeded but pkg_open_fds failed; "
+		       "falling back to TCP\n", ipc_addr);
+	    } else {
+		fb_log("rem_open: bu_ipc_connect('%s') failed; "
+		       "falling back to TCP\n", ipc_addr);
+	    }
+	}
+    }
+
     if (file == NULL || parse_file(file, hostname, &port, device, MAX_HOSTNAME) < 0) {
 	/* too wild for our tastes */
 	fb_log("rem_open: bad device name \"%s\"\n", file == NULL ? "(null)" : file);
@@ -256,6 +288,8 @@ rem_open(register struct fb *ifp, const char *file, int width, int height)
     }
     PCPL(ifp) = (char *)pc;		/* stash in u1 */
     ifp->i->if_fd = pc->pkc_fd;		/* unused */
+
+ipc_connected:
 
 #ifdef HAVE_OPENSSL_SSL_H
     /* Optional TLS: attempt client-side handshake if requested.
