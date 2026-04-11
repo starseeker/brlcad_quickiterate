@@ -2930,11 +2930,17 @@ main(int argc, char *argv[])
 	} else if (BU_STR_EQUAL(argv[i], "--output-g") && i + 1 < argc) {
 	    output_g = argv[++i];
 	} else if (BU_STR_EQUAL(argv[i], "--rel") && i + 1 < argc) {
-	    g_scan_rel = atof(argv[++i]);
+	    double v = atof(argv[++i]);
+	    if (v > 0.0) g_scan_rel = v;
+	    else fprintf(stderr, "WARNING: --rel requires a positive value (got '%s'), ignored\n", argv[i]);
 	} else if (BU_STR_EQUAL(argv[i], "--abs") && i + 1 < argc) {
-	    g_scan_abs = atof(argv[++i]);
+	    double v = atof(argv[++i]);
+	    if (v > 0.0) g_scan_abs = v;
+	    else fprintf(stderr, "WARNING: --abs requires a positive value (got '%s'), ignored\n", argv[i]);
 	} else if (BU_STR_EQUAL(argv[i], "--norm") && i + 1 < argc) {
-	    g_scan_norm = atof(argv[++i]);
+	    double v = atof(argv[++i]);
+	    if (v > 0.0) g_scan_norm = v;
+	    else fprintf(stderr, "WARNING: --norm requires a positive value (got '%s'), ignored\n", argv[i]);
 	} else {
 	    fprintf(stderr, "WARNING: unknown argument '%s' (use -h for help)\n", argv[i]);
 	}
