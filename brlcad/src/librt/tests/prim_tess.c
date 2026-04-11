@@ -167,26 +167,15 @@ check_nmg_mesh(const char *label, struct model *m,
 	return 1; /* empty is unusual but not a hard failure */
     }
 
-    /* Triangulate the model in-place (caller will nmg_km(m) after us).
-     * Wrap in BU_SETJUMP so that bu_bomb() from the NMG triangulator
-     * (e.g. "nmg_calc_face_plane() failed") is caught rather than
-     * aborting the whole program.                                        */
+    /* Convert directly via nmg_mdl_to_bot, which has its own fast path:
+     *  - All-triangles model → O(N) nmg_to_bot_all_tri()  (no edge fusion)
+     *  - Poly faces → per-face triangulation without nmg_edge_g_fuse()
+     *  - Degenerate cases → full nmg_triangulate_model() fallback
+     *
+     * Calling nmg_triangulate_model() explicitly here would invoke
+     * nmg_edge_g_fuse(), an O(N²) scan over all edge-geometry structs that
+     * becomes catastrophically slow for large DSP meshes (134k+ triangles). */
     struct rt_bot_internal *bot = NULL;
-    int tris_ok = 0;
-    if (!BU_SETJUMP) {
-	nmg_triangulate_model(m, vlfree, tol);
-	tris_ok = 1;
-    } else {
-	BU_UNSETJUMP;
-	fprintf(stderr,
-		"  MESH: %-44s  nmg_triangulate_model() bombed [FAIL]\n",
-		label);
-	return 0;
-    } BU_UNSETJUMP;
-
-    if (!tris_ok)
-	return 0;
-
     if (!BU_SETJUMP) {
 	bot = nmg_mdl_to_bot(m, vlfree, tol);
     } else {
