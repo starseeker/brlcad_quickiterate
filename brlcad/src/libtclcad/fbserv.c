@@ -233,6 +233,63 @@ tclcad_close_client_handler(struct fbserv_obj *fbsp, int sub)
 #endif
 }
 
+
+/**
+ * Phase 4: IPC listen path for libtclcad.
+ *
+ * Sets up an IPC-based (pipe/socketpair) framebuffer server on @p fbsp
+ * without binding a TCP port.  The tclcad file-handler callbacks are used
+ * because they work with any file descriptor, not just TCP sockets.
+ *
+ * On POSIX this is a drop-in replacement for
+ *   fbs_open(fbsp, 0) — no TCP port allocation.
+ *
+ * On Windows (USE_TCL_CHAN), the Tcl channel layer requires a real Tcl
+ * channel, which is incompatible with a raw pipe fd; IPC mode is therefore
+ * not available on that path and the function returns BRLCAD_ERROR.
+ *
+ * If the open succeeds and @p interp is non-NULL, the BU_IPC_ADDR child-end
+ * address string is stored in the Tcl variable fbserv(ipc_addr) so that
+ * Tcl scripts (rtwizard, MGED's rt.tcl) can pass it to subprocesses.
+ *
+ * @return BRLCAD_OK on success, BRLCAD_ERROR on failure.
+ */
+int
+tclcad_listen_ipc(struct fbserv_obj *fbsp, Tcl_Interp *interp)
+{
+#ifdef USE_TCL_CHAN
+    /* Windows Tcl channel path cannot handle raw pipe/socketpair fds. */
+    (void)fbsp; (void)interp;
+    bu_log("tclcad_listen_ipc: IPC mode not supported on Windows Tcl channel path\n");
+    return BRLCAD_ERROR;
+#else
+    /* On POSIX, tclcad_open_client_handler and tclcad_close_client_handler
+     * only use the fd (via Tcl_CreateFileHandler / Tcl_DeleteFileHandler)
+     * so they work identically for pipe and socketpair transports.         */
+    fbsp->fbs_open_ipc_client_handler  = tclcad_open_client_handler;
+    fbsp->fbs_close_ipc_client_handler = tclcad_close_client_handler;
+
+    if (fbs_open_ipc(fbsp) != BRLCAD_OK) {
+	bu_log("tclcad_listen_ipc: fbs_open_ipc failed\n");
+	return BRLCAD_ERROR;
+    }
+
+    /* Phase 6 support: expose the child-end address as a Tcl variable so
+     * rtwizard / MGED Tcl scripts can pass it to spawned subprocesses.     */
+    if (interp) {
+	const char *addr_env = fbs_ipc_child_addr_env(fbsp);
+	if (addr_env) {
+	    const char *eq = strchr(addr_env, '=');
+	    const char *addr_val = eq ? eq + 1 : addr_env;
+	    Tcl_SetVar2(interp, "fbserv", "ipc_addr", addr_val, TCL_GLOBAL_ONLY);
+	}
+    }
+
+    return BRLCAD_OK;
+#endif
+}
+
+
 /*
  * Local Variables:
  * mode: C
