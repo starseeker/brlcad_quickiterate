@@ -2229,6 +2229,21 @@ test_arb(void)
     init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
     if (!run_tess("arb8 thin slab (1000x500x0.01)", &ip, &ttol, &tol, 0)) failures++;
 
+    /* ARB8 with collinear vertex triplets: mirrors detail_ws.s4 from
+     * toyjeep.g.  Two faces have their 3rd vertex exactly collinear
+     * with the first two (V4-V7-V3 and V2-V6-V5), causing the old code
+     * to drop one vertex per face and produce a non-watertight mesh. */
+    VSET(tip.pt[0], 768.35, 238.125, 463.55);  /* V1 */
+    VSET(tip.pt[1], 819.15, 238.125, 463.55);  /* V2 */
+    VSET(tip.pt[2], 819.15, 279.40,  463.55);  /* V3 */
+    VSET(tip.pt[3], 768.35, 279.40,  463.55);  /* V4 */
+    VSET(tip.pt[4], 768.35, 238.125, 504.825); /* V5 */
+    VSET(tip.pt[5], 819.15, 238.125, 504.825); /* V6 */
+    VSET(tip.pt[6], 819.15, 258.7625, 484.1875); /* V7 (midpoint of V2-V3 on right slant) */
+    VSET(tip.pt[7], 768.35, 258.7625, 484.1875); /* V8 (midpoint of V1-V4 on left slant) */
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("arb8 collinear triplet (detail_ws.s4-style)", &ip, &ttol, &tol, 0)) failures++;
+
     return failures;
 }
 
