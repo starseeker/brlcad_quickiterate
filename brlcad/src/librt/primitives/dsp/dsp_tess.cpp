@@ -27,17 +27,191 @@
 
 #include "common.h"
 
+#include <unordered_map>
 
 #include "vmath.h"
 #include "raytrace.h"
 #include "rt/functab.h"
 #include "rt/geom.h"
 #include "rt/primitives/bot.h"
+#include "nmg.h"
 
 #include "TerraScape.hpp"
 
 /* private header */
 #include "./dsp.h"
+
+/**
+ * Fast NMG assembler for a manifold, CCW-oriented triangulated BOT.
+ *
+ * The standard rt_bot_tess() path calls nmg_cmface() per triangle,
+ * which internally calls nmg_findeu() to search the vertex's vertexuse
+ * list for a matching dangling edge.  For well-formed triangulated
+ * meshes the per-call cost is O(local degree) ≈ O(1), but the constant
+ * factor is high due to NMG_CK_* validation and heap churn.
+ *
+ * This assembler avoids nmg_findeu() entirely:
+ *   1. Call nmg_cface() for every triangle — creates faces/edgeuses
+ *      without joining shared edges.
+ *   2. Collect every directed edgeuse (v_start → v_end) from every
+ *      OT_SAME loop into a hash map keyed on the (vertex*, vertex*)
+ *      pointer pair.
+ *   3. For each entry whose key (A,B) has a matching reverse (B,A),
+ *      call nmg_je() exactly once to join the pair.
+ *   4. Compute face planes (nmg_calc_face_g), mark edges real, and
+ *      compute bounding boxes (nmg_region_a).
+ *
+ * The entire assembly is O(V + F) with small constants.
+ *
+ * Returns 0 on success, -1 on failure.
+ */
+static int
+dsp_build_nmg_from_bot(struct nmgregion **r_out,
+		       struct model *m,
+		       const struct rt_bot_internal *bot,
+		       const struct bn_tol *tol,
+		       struct bu_list *vlfree)
+{
+    struct nmgregion *r;
+    struct shell *s;
+    size_t i;
+
+    if (!bot || bot->num_faces == 0 || bot->num_vertices == 0)
+	return -1;
+
+    /* Create region and shell (nmg_mrsv also creates one shell-vertex
+     * placeholder; it will simply be an orphaned vertexuse).          */
+    r = nmg_mrsv(m);
+    s = BU_LIST_FIRST(shell, &r->s_hd);
+
+    /* ---- Step 1: create every face with nmg_cface ---- */
+
+    /* Track which NMG vertex belongs to each BOT vertex index.
+     * Starts all-NULL; nmg_cface() fills in newly allocated vertices. */
+    struct vertex **v_arr = (struct vertex **)bu_calloc(
+	    bot->num_vertices, sizeof(struct vertex *), "dsp nmg v_arr");
+
+    /* Storage for the faceuses so we can iterate them in step 3. */
+    struct faceuse **fu_arr = (struct faceuse **)bu_calloc(
+	    bot->num_faces, sizeof(struct faceuse *), "dsp nmg fu_arr");
+
+    for (i = 0; i < bot->num_faces; i++) {
+	int a = bot->faces[3*i + 0];
+	int b = bot->faces[3*i + 1];
+	int c = bot->faces[3*i + 2];
+
+	struct vertex *corners[3];
+	corners[0] = v_arr[a];
+	corners[1] = v_arr[b];
+	corners[2] = v_arr[c];
+
+	struct faceuse *fu = nmg_cface(s, corners, 3);
+	if (!fu) {
+	    bu_log("dsp_build_nmg: nmg_cface failed for face %zu\n", i);
+	    continue;
+	}
+	fu_arr[i] = fu;
+
+	/* nmg_cface() fills NULL entries with freshly allocated vertices. */
+	v_arr[a] = corners[0];
+	v_arr[b] = corners[1];
+	v_arr[c] = corners[2];
+    }
+
+    /* ---- Step 2: assign geometry to every vertex ---- */
+    for (i = 0; i < bot->num_vertices; i++) {
+	if (v_arr[i] && !v_arr[i]->vg_p) {
+	    point_t pt;
+	    VMOVE(pt, &bot->vertices[3*i]);
+	    nmg_vertex_gv(v_arr[i], pt);
+	}
+    }
+
+    /* ---- Step 3: join shared edges via a hash map ---- */
+
+    /* Key type: pair of vertex pointers encoding a directed edge. */
+    struct EdgeKey {
+	const struct vertex *a;
+	const struct vertex *b;
+	bool operator==(const EdgeKey& o) const { return a == o.a && b == o.b; }
+    };
+    struct EdgeKeyHash {
+	std::size_t operator()(const EdgeKey& k) const {
+	    /* Golden-ratio mixing sized for the platform's pointer width. */
+	    std::size_t ha = std::hash<const void *>()(k.a);
+	    std::size_t hb = std::hash<const void *>()(k.b);
+#if SIZE_MAX > 0xFFFFFFFFU
+	    /* 64-bit: Knuth / Fibonacci multiplier for 64-bit size_t */
+	    return ha ^ (hb * (std::size_t)11400714819323198485ULL + (ha >> 16));
+#else
+	    /* 32-bit */
+	    return ha ^ (hb * (std::size_t)2654435761U + (ha >> 16));
+#endif
+	}
+    };
+
+    std::unordered_map<EdgeKey, struct edgeuse *, EdgeKeyHash> eu_map;
+    eu_map.reserve(bot->num_faces * 3);
+
+    for (i = 0; i < bot->num_faces; i++) {
+	struct faceuse *fu = fu_arr[i];
+	if (!fu) continue;
+
+	/* Iterate only the OT_SAME loopuse. */
+	struct loopuse *lu = BU_LIST_FIRST(loopuse, &fu->lu_hd);
+	if (BU_LIST_FIRST_MAGIC(&lu->down_hd) != NMG_EDGEUSE_MAGIC)
+	    continue;
+
+	struct edgeuse *eu;
+	for (BU_LIST_FOR(eu, edgeuse, &lu->down_hd)) {
+	    const struct vertex *vs = eu->vu_p->v_p;
+	    const struct vertex *ve = eu->eumate_p->vu_p->v_p;
+	    eu_map[{vs, ve}] = eu;
+	}
+    }
+
+    /* Walk the map once: for every (A→B) entry, look for (B→A) and
+     * join them.  We use the pointer-ordering trick to process each
+     * unordered pair exactly once and avoid double-joining.           */
+    for (auto& kv : eu_map) {
+	const struct vertex *va = kv.first.a;
+	const struct vertex *vb = kv.first.b;
+
+	/* Only process each geometric edge once (the lower-addr end first). */
+	if (va > vb)
+	    continue;
+
+	auto it = eu_map.find({vb, va});
+	if (it == eu_map.end())
+	    continue; /* boundary / open edge — leave dangling */
+
+	struct edgeuse *eu_fwd = kv.second;
+	struct edgeuse *eu_rev = it->second;
+
+	/* Guard: skip if already joined (radial != eumate means joined). */
+	if (eu_fwd->radial_p != eu_fwd->eumate_p)
+	    continue;
+
+	nmg_je(eu_fwd, eu_rev);
+    }
+
+    /* ---- Step 4: compute face planes and bounding boxes ---- */
+    for (i = 0; i < bot->num_faces; i++) {
+	struct faceuse *fu = fu_arr[i];
+	if (!fu) continue;
+	if (nmg_calc_face_g(fu, vlfree))
+	    nmg_kfu(fu);
+    }
+
+    nmg_mark_edges_real(&s->l.magic, vlfree);
+    nmg_region_a(r, tol);
+
+    bu_free(v_arr,  "dsp nmg v_arr");
+    bu_free(fu_arr, "dsp nmg fu_arr");
+
+    *r_out = r;
+    return 0;
+}
 
 /**
  * Returns -
@@ -258,18 +432,20 @@ rt_dsp_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	bot_ip->faces[3*f+2] = (int)tri.vertices[2];
     }
 
-    /* Wrap in rt_db_internal and invoke standard BOT tessellator */
-    struct rt_db_internal dsp_bot_internal;
-    RT_DB_INTERNAL_INIT(&dsp_bot_internal);
-    dsp_bot_internal.idb_major_type = DB5_MAJORTYPE_BRLCAD;
-    dsp_bot_internal.idb_type = ID_BOT;
-    dsp_bot_internal.idb_meth = &OBJ[ID_BOT];
-    dsp_bot_internal.idb_ptr = (void *)bot_ip;
+    /* Wrap in rt_db_internal and invoke fast manifold NMG assembler.
+     * The assembler bypasses rt_bot_tess / nmg_cmface / nmg_findeu
+     * and builds the NMG in O(V+F) using a hash-map edge-pairing step. */
+    struct bu_list vlfree;
+    BU_LIST_INIT(&vlfree);
 
-    int ret = rt_bot_tess(r, m, &dsp_bot_internal, NULL, tol);
+    int ret = dsp_build_nmg_from_bot(r, m, bot_ip, tol, &vlfree);
 
-    /* Free our temporary BOT internal (region already constructed) */
-    rt_db_free_internal(&dsp_bot_internal);
+    bu_list_free(&vlfree);
+
+    /* Free our temporary BOT arrays */
+    bu_free(bot_ip->vertices, "dsp bot verts");
+    bu_free(bot_ip->faces,    "dsp bot faces");
+    bu_free(bot_ip,           "dsp bot_ip");
 
     return ret;
 }

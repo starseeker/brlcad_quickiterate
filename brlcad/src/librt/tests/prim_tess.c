@@ -124,6 +124,11 @@ static struct rt_wdb *g_wdb = NULL;
 static int g_out_seq = 0;   /* sequential suffix for output object names */
 static int g_validate = 0;  /* 1 = run manifold/mesh quality checks */
 
+/* Tolerance overrides for --input-g scan (0 = not set / use default) */
+static double g_scan_rel  = 0.0;
+static double g_scan_abs  = 0.0;
+static double g_scan_norm = 0.0;
+
 
 /* ------------------------------------------------------------------ */
 /* Manifold / mesh quality validation                                   */
@@ -162,26 +167,15 @@ check_nmg_mesh(const char *label, struct model *m,
 	return 1; /* empty is unusual but not a hard failure */
     }
 
-    /* Triangulate the model in-place (caller will nmg_km(m) after us).
-     * Wrap in BU_SETJUMP so that bu_bomb() from the NMG triangulator
-     * (e.g. "nmg_calc_face_plane() failed") is caught rather than
-     * aborting the whole program.                                        */
+    /* Convert directly via nmg_mdl_to_bot, which has its own fast path:
+     *  - All-triangles model → O(N) nmg_to_bot_all_tri()  (no edge fusion)
+     *  - Poly faces → per-face triangulation without nmg_edge_g_fuse()
+     *  - Degenerate cases → full nmg_triangulate_model() fallback
+     *
+     * Calling nmg_triangulate_model() explicitly here would invoke
+     * nmg_edge_g_fuse(), an O(N²) scan over all edge-geometry structs that
+     * becomes catastrophically slow for large DSP meshes (134k+ triangles). */
     struct rt_bot_internal *bot = NULL;
-    int tris_ok = 0;
-    if (!BU_SETJUMP) {
-	nmg_triangulate_model(m, vlfree, tol);
-	tris_ok = 1;
-    } else {
-	BU_UNSETJUMP;
-	fprintf(stderr,
-		"  MESH: %-44s  nmg_triangulate_model() bombed [FAIL]\n",
-		label);
-	return 0;
-    } BU_UNSETJUMP;
-
-    if (!tris_ok)
-	return 0;
-
     if (!BU_SETJUMP) {
 	bot = nmg_mdl_to_bot(m, vlfree, tol);
     } else {
@@ -2777,9 +2771,9 @@ scan_input_g(const char *g_path)
     struct bn_tol tol = BN_TOL_INIT_ZERO;
     ttol.magic = BG_TESS_TOL_MAGIC;
     tol.magic = BN_TOL_MAGIC;
-    ttol.abs = 0.0;
-    ttol.rel = 0.01;   /* 1% chord-height */
-    ttol.norm = 0.0;
+    ttol.abs  = (g_scan_abs  > 0.0) ? g_scan_abs  : 0.0;
+    ttol.rel  = (g_scan_rel  > 0.0) ? g_scan_rel  : 0.01; /* 1% chord-height */
+    ttol.norm = (g_scan_norm > 0.0) ? g_scan_norm : 0.0;
     tol.dist = 0.005;
     tol.dist_sq = tol.dist * tol.dist;
     tol.perp = 1e-6;
@@ -2793,6 +2787,8 @@ scan_input_g(const char *g_path)
     size_t ndp = db_ls(dbip, DB_LS_PRIM, NULL, &dpv);
 
     printf("\n--- Input .g scan: '%s'  (%zu solid(s)) ---\n", g_path, ndp);
+    printf("    Tolerances: rel=%.4g  abs=%.4g  norm=%.4g\n",
+	   ttol.rel, ttol.abs, ttol.norm);
 
     int n_skip  = 0;
     int n_fail  = 0;
@@ -2908,6 +2904,7 @@ main(int argc, char *argv[])
     for (int i = 1; i < argc; i++) {
 	if (BU_STR_EQUAL(argv[i], "-h") || BU_STR_EQUAL(argv[i], "--help")) {
 	    printf("Usage: %s [--input-g <file.g>] [--output-g <file.g>]\n", argv[0]);
+	    printf("          [--rel <frac>] [--abs <dist>] [--norm <rad>]\n");
 	    printf("\n");
 	    printf("  Without options: runs built-in NMG tessellation tests.\n");
 	    printf("\n");
@@ -2919,12 +2916,31 @@ main(int argc, char *argv[])
 	    printf("    Write each built-in CSG test primitive and its BOT\n");
 	    printf("    facetization to a new .g file for visual inspection.\n");
 	    printf("\n");
+	    printf("  --rel <frac>   Relative chord-height tolerance (e.g. 0.1 = 10%%).\n");
+	    printf("                 Applied to --input-g scans; default 0.01.\n");
+	    printf("  --abs <dist>   Absolute chord-height tolerance in mm.\n");
+	    printf("                 Applied to --input-g scans; default off.\n");
+	    printf("  --norm <rad>   Normal-angle tolerance in radians.\n");
+	    printf("                 Applied to --input-g scans; default off.\n");
+	    printf("\n");
 	    printf("  Returns 0 on all-pass, 1 on any failure.\n");
 	    return 0;
 	} else if (BU_STR_EQUAL(argv[i], "--input-g") && i + 1 < argc) {
 	    input_g = argv[++i];
 	} else if (BU_STR_EQUAL(argv[i], "--output-g") && i + 1 < argc) {
 	    output_g = argv[++i];
+	} else if (BU_STR_EQUAL(argv[i], "--rel") && i + 1 < argc) {
+	    double v = atof(argv[++i]);
+	    if (v > 0.0) g_scan_rel = v;
+	    else fprintf(stderr, "WARNING: --rel requires a positive value (got '%s'), ignored\n", argv[i]);
+	} else if (BU_STR_EQUAL(argv[i], "--abs") && i + 1 < argc) {
+	    double v = atof(argv[++i]);
+	    if (v > 0.0) g_scan_abs = v;
+	    else fprintf(stderr, "WARNING: --abs requires a positive value (got '%s'), ignored\n", argv[i]);
+	} else if (BU_STR_EQUAL(argv[i], "--norm") && i + 1 < argc) {
+	    double v = atof(argv[++i]);
+	    if (v > 0.0) g_scan_norm = v;
+	    else fprintf(stderr, "WARNING: --norm requires a positive value (got '%s'), ignored\n", argv[i]);
 	} else {
 	    fprintf(stderr, "WARNING: unknown argument '%s' (use -h for help)\n", argv[i]);
 	}
