@@ -645,6 +645,53 @@ rt_arb_mk_planes(register struct prep_arb *pap, struct rt_arb_internal *aip, con
 	    continue;
 	}
 
+	/*
+	 * If we ended up with only 3 vertices because the 3rd candidate
+	 * was collinear with the first two (making rt_arb_add_pnt return
+	 * -1 at ptno==2), the 4th vertex was used for the plane equation
+	 * instead and the collinear vertex was silently dropped.  That
+	 * leaves the face as a triangle even though all four of the
+	 * original ai_sub vertices are coplanar, which breaks edge
+	 * connectivity with adjacent faces.
+	 *
+	 * Recover by finding the dropped vertex, verifying it is still on
+	 * the computed face plane, and re-inserting it at its original
+	 * position in pa_pindex so that nmg_cmface() creates all four
+	 * edges.
+	 */
+	if (npts == 3) {
+	    struct aface *afp = &pap->pa_face[pap->pa_faces];
+	    for (j = 0; j < 4; j++) {
+		int pt_idx = equiv_pts[rt_arb_info[i].ai_sub[j]];
+		int present = 0;
+		for (k = 0; k < npts; k++) {
+		    if (pap->pa_pindex[k][pap->pa_faces] == pt_idx) {
+			present = 1;
+			break;
+		    }
+		}
+		if (!present) {
+		    /* This vertex was dropped.  Check coplanarity. */
+		    vect_t P_A;
+		    fastf_t f;
+		    VSUB2(P_A, aip->pt[pt_idx], afp->A);
+		    if (MAGNITUDE(P_A) > SMALL_FASTF) {
+			VUNITIZE(P_A);
+			f = VDOT(afp->peqn, P_A);
+			if (NEAR_ZERO(f, RT_SLOPPY_DOT_TOL)) {
+			    /* Coplanar: re-insert at position j */
+			    for (k = npts; k > j; k--)
+				pap->pa_pindex[k][pap->pa_faces] =
+				    pap->pa_pindex[k-1][pap->pa_faces];
+			    pap->pa_pindex[j][pap->pa_faces] = pt_idx;
+			    npts++;
+			}
+		    }
+		    break; /* at most one vertex dropped per face */
+		}
+	    }
+	}
+
 	if (pap->pa_doopt) {
 	    register struct oface *ofp;
 
