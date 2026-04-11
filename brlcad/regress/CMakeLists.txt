@@ -77,6 +77,9 @@ add_subdirectory(nurbs)
 # fbserv Token-Isolation Stress Tests
 add_subdirectory(fbserv)
 
+# bu_ipc / fbs_open_ipc / libtclcad IPC Data-Path Regression Tests
+add_subdirectory(ipc)
+
 # libpkg Regression Tests
 add_subdirectory(pkg)
 
