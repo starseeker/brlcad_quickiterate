@@ -237,7 +237,7 @@ get_args(int argc, char **argv)
     int c;
     int enable_tls = 0;
 
-    while ((c = bu_getopt(argc, argv, "vTAIF:s:w:n:S:W:N:p:h?")) != -1) {
+    while ((c = bu_getopt(argc, argv, "vTAI:F:s:w:n:S:W:N:p:h?")) != -1) {
 	switch (c) {
 	    case 'v':
 		verbose = 1;
@@ -593,6 +593,7 @@ main(int argc, char **argv)
 	bu_ipc_chan_t *chan;
 	struct pkg_conn *pcp;
 	int rfd, wfd;
+	int pkgr;
 
 	if (framebuffer != NULL) {
 	    if ((fb_server_fbp = fb_open(framebuffer, width, height)) == FB_NULL)
@@ -619,9 +620,23 @@ main(int argc, char **argv)
 	/* pkg_conn now owns the fds; release the channel wrapper */
 	bu_ipc_detach(chan);
 
-	fbserv_new_client(pcp);
-	once_only = 1;
-	main_loop();
+	/* IPC service loop: pkg_suckin/pkg_process without select().
+	 * We bypass fbserv_new_client() + main_loop() because those rely on
+	 * FD_SET(pkc_fd, ...) which is invalid when pkc_fd == PKG_STDIO_MODE
+	 * (-3) as is the case for pipe-based IPC transport.
+	 * pkg_suckin/pkg_process handle PKG_STDIO_MODE internally via pkc_in_fd
+	 * and pkc_out_fd, so they work correctly here.                         */
+	do {
+	    pkgr = pkg_process(pcp);
+	    if (pkgr < 0) break;
+	    pkgr = pkg_suckin(pcp);
+	    if (pkgr <= 0) break;
+	    pkgr = pkg_process(pcp);
+	} while (pkgr >= 0);
+
+	pkg_close(pcp);
+	if (fb_server_fbp != FB_NULL)
+	    fb_close(fb_server_fbp);
 	return 0;
     }
 
