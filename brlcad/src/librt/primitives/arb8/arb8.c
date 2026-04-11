@@ -671,7 +671,15 @@ rt_arb_mk_planes(register struct prep_arb *pap, struct rt_arb_internal *aip, con
 		    }
 		}
 		if (!present) {
-		    /* This vertex was dropped.  Check coplanarity. */
+		    /* This vertex was dropped.  Use the same angle-based
+		     * coplanarity check as rt_arb_add_pnt's default case:
+		     * normalize (P - A) and take its dot product with the
+		     * face normal.  If that is near zero the vector is
+		     * perpendicular to the normal, i.e. the point is on
+		     * the plane.  The magnitude guard avoids passing a
+		     * near-zero vector to VUNITIZE; if |P-A| is tiny the
+		     * dropped vertex coincides with A which is impossible
+		     * here because A is already in the face. */
 		    vect_t P_A;
 		    fastf_t f;
 		    VSUB2(P_A, aip->pt[pt_idx], afp->A);
@@ -679,7 +687,9 @@ rt_arb_mk_planes(register struct prep_arb *pap, struct rt_arb_internal *aip, con
 			VUNITIZE(P_A);
 			f = VDOT(afp->peqn, P_A);
 			if (NEAR_ZERO(f, RT_SLOPPY_DOT_TOL)) {
-			    /* Coplanar: re-insert at position j */
+			    /* Coplanar: re-insert at position j in
+			     * pa_pindex.  pa_pindex has 4 slots (0-3);
+			     * npts==3 means slot 3 is free. */
 			    for (k = npts; k > j; k--)
 				pap->pa_pindex[k][pap->pa_faces] =
 				    pap->pa_pindex[k-1][pap->pa_faces];
