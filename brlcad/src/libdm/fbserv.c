@@ -1200,12 +1200,19 @@ fbs_open_ipc(struct fbserv_obj *fbsp)
 	return BRLCAD_ERROR;
     }
 
-    /* Find an empty client slot and register the pre-connected pkg_conn. */
+    /* Find an empty client slot and register the pre-connected pkg_conn.
+     * For pipe-based IPC transport pkg_open_fds() uses PKG_STDIO_MODE
+     * internally (pkc_fd == -3); the actual readable fd is pkc_in_fd.
+     * fbsc_fd is used by callers (Tcl_CreateFileHandler, select-based loops,
+     * etc.) as the fd to monitor for readability, so it must always hold a
+     * valid (>= 0) file descriptor.                                          */
+    int effective_fd = (pc->pkc_fd == PKG_STDIO_MODE) ? pc->pkc_in_fd : pc->pkc_fd;
+
     for (i = MAX_CLIENTS - 1; i >= 0; i--) {
 	if (fbsp->fbs_clients[i].fbsc_fd != 0)
 	    continue;
 
-	fbsp->fbs_clients[i].fbsc_fd      = pc->pkc_fd;
+	fbsp->fbs_clients[i].fbsc_fd      = effective_fd;
 	fbsp->fbs_clients[i].fbsc_pkg     = pc;
 	fbsp->fbs_clients[i].fbsc_fbsp    = fbsp;
 	fbsp->fbs_clients[i].fbsc_auth_ok = 1; /* IPC client is implicitly trusted */
