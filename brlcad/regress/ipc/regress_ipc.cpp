@@ -549,14 +549,19 @@ test_fbserv_minus_I(const char *fbserv_bin)
     int sysrc = system(cmd);
     TEST("fbserv -I spawn returns 0", sysrc == 0);
 
-    usleep(600000);   /* 0.6 s: let fbserv start and attempt connect */
+    /* Poll for the log file rather than sleeping a fixed amount.
+     * fbserv -I exits quickly (connect attempt completes or fails within
+     * ~100 ms in practice); cap at 2 s to avoid flakiness on slow runners. */
+    FILE *log = nullptr;
+    for (int attempt = 0; attempt < 20 && !log; ++attempt) {
+        usleep(100000);   /* 100 ms per attempt, up to 2 s total */
+        log = fopen(log_path, "r");
+    }
 
-    FILE *log = fopen(log_path, "r");
     if (log) {
         char logbuf[1024] = {0};
         size_t nr = fread(logbuf, 1, sizeof(logbuf)-1, log);
         (void)nr;
-        (void)0;
         fclose(log);
         if (g_verbose)
             fprintf(stdout, "  fbserv -I log: %s\n",
