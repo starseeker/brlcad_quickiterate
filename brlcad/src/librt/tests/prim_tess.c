@@ -74,7 +74,10 @@
  * GRIP        | rt_grp_tess          | STUB - always returns -1
  * JOINT       | rt_joint_tess        | STUB - always returns -1
  * HF          | rt_hf_tess           | STUB - always returns -1 (use DSP instead)
- * DSP         | rt_dsp_tess          | OK - TerraScape-based, avoids dense mesh
+ * DSP         | rt_dsp_tess          | OK - tested here; decimation-based approach:
+ *             |                      |   loose tol → naive surface + mmesh decimation
+ *             |                      |   + half-edge boundary extraction + detria bottom;
+ *             |                      |   tight tol → TerraScape triangulateVolume
  * SKETCH      | NULL                 | no tess (2-D only)
  * EXTRUDE     | rt_extrude_tess      | OK - extrusion of sketch
  * SUBMODEL    | rt_submodel_tess     | STUB - not implemented
@@ -1598,6 +1601,221 @@ test_part(void)
 /* ------------------------------------------------------------------ */
 
 /*
+ * DSP (Displacement Solid) tessellation tests.
+ *
+ * DSP represents a height field stored as a 2D array of uint16_t values.
+ * The tessellation produces a closed solid with:
+ *   - a top surface triangulated from the height field
+ *   - vertical side walls connecting the surface boundary to z=0
+ *   - a flat bottom face at z=0
+ *
+ * We test both the "full" path (tight tolerances, uses triangulateVolume)
+ * and the "simplified/decimation" path (loose tolerances, uses
+ * dsp_tess_with_decimation which runs mmesh + detria).
+ *
+ * The dsp_bip field must be a valid rt_db_internal wrapping an
+ * rt_binunif_internal.  For tests we stack-allocate both structs and set
+ * their magic fields manually (only the magic is checked by RT_CK_*).
+ * The dsp_stom / dsp_mtos matrices are set to identity so that grid
+ * coordinates map 1:1 to world coordinates.
+ */
+static int
+test_dsp(void)
+{
+    int failures = 0;
+
+    struct bg_tess_tol ttol = BG_TESS_TOL_INIT_ZERO;
+    struct bn_tol     tol   = BN_TOL_INIT_ZERO;
+    ttol.magic = BG_TESS_TOL_MAGIC;
+    tol.magic  = BN_TOL_MAGIC;
+
+    /* Shared rt_db_internal wrapping the dsp internals. */
+    struct rt_db_internal ip;
+    ip.idb_magic      = RT_DB_INTERNAL_MAGIC;
+    ip.idb_major_type = DB5_MAJORTYPE_BRLCAD;
+    ip.idb_minor_type = ID_DSP;
+
+    /* Shared binunif stub (only magic is checked via RT_CK_BINUNIF). */
+    struct rt_binunif_internal bip_int;
+    memset(&bip_int, 0, sizeof(bip_int));
+    bip_int.magic = RT_BINUNIF_INTERNAL_MAGIC;
+
+    struct rt_db_internal bip_db;
+    RT_DB_INTERNAL_INIT(&bip_db);
+    bip_db.idb_major_type = DB5_MAJORTYPE_BINARY_UNIF;
+    bip_db.idb_ptr        = &bip_int;
+
+    /* Shared DSP internal. */
+    struct rt_dsp_internal dsp;
+    memset(&dsp, 0, sizeof(dsp));
+    dsp.magic       = RT_DSP_INTERNAL_MAGIC;
+    dsp.dsp_smooth  = 0;
+    dsp.dsp_cuttype = DSP_CUT_DIR_llUR;
+    dsp.dsp_datasrc = RT_DSP_SRC_OBJ;
+    dsp.dsp_bip     = &bip_db;
+    dsp.dsp_mp      = NULL;
+    bu_vls_init(&dsp.dsp_name);
+    bu_vls_strcpy(&dsp.dsp_name, "test_dsp_data");
+    MAT_IDN(dsp.dsp_stom);
+    MAT_IDN(dsp.dsp_mtos);
+
+    ip.idb_ptr = &dsp;
+
+    printf("\n--- DSP tests ---\n");
+
+    /* -------------------------------------------------------------- */
+    /* Test 1: 4×4 grid, all cells at the same height (flat terrain)  */
+    /* Tight tolerance → full path (triangulateVolume).               */
+    /* -------------------------------------------------------------- */
+    {
+	const uint32_t xcnt = 4, ycnt = 4;
+	unsigned short buf[16];
+	for (int i = 0; i < 16; i++) buf[i] = 500;
+
+	dsp.dsp_xcnt = xcnt;
+	dsp.dsp_ycnt = ycnt;
+	dsp.dsp_buf  = buf;
+	bip_int.count    = xcnt * ycnt;
+	bip_int.u.uint16 = buf;
+
+	init_tols(&ttol, &tol, 0.0, 0.001, 0.0); /* tight → full path */
+	if (!run_tess("dsp 4x4 flat tight (full path)", &ip, &ttol, &tol, 0))
+	    failures++;
+    }
+
+    /* -------------------------------------------------------------- */
+    /* Test 2: 4×4 grid, flat, loose tolerance → decimation path      */
+    /* -------------------------------------------------------------- */
+    {
+	const uint32_t xcnt = 4, ycnt = 4;
+	unsigned short buf[16];
+	for (int i = 0; i < 16; i++) buf[i] = 500;
+
+	dsp.dsp_xcnt = xcnt;
+	dsp.dsp_ycnt = ycnt;
+	dsp.dsp_buf  = buf;
+	bip_int.count    = xcnt * ycnt;
+	bip_int.u.uint16 = buf;
+
+	init_tols(&ttol, &tol, 0.0, 0.10, 0.0); /* loose → decimation path */
+	if (!run_tess("dsp 4x4 flat loose (decimation)", &ip, &ttol, &tol, 0))
+	    failures++;
+    }
+
+    /* -------------------------------------------------------------- */
+    /* Test 3: 8×8 grid with a simple ramp (linearly rising heights)  */
+    /* -------------------------------------------------------------- */
+    {
+	const uint32_t xcnt = 8, ycnt = 8;
+	unsigned short buf[64];
+	for (uint32_t y = 0; y < ycnt; y++)
+	    for (uint32_t x = 0; x < xcnt; x++)
+		buf[y * xcnt + x] = (unsigned short)(100 + 50 * x + 30 * y);
+
+	dsp.dsp_xcnt = xcnt;
+	dsp.dsp_ycnt = ycnt;
+	dsp.dsp_buf  = buf;
+	bip_int.count    = xcnt * ycnt;
+	bip_int.u.uint16 = buf;
+
+	init_tols(&ttol, &tol, 0.0, 0.05, 0.0); /* mid tolerance */
+	if (!run_tess("dsp 8x8 ramp rel=0.05", &ip, &ttol, &tol, 0))
+	    failures++;
+    }
+
+    /* -------------------------------------------------------------- */
+    /* Test 4: 16×16 sinusoidal height field (exercises decimation)   */
+    /* -------------------------------------------------------------- */
+    {
+	const uint32_t xcnt = 16, ycnt = 16;
+	unsigned short buf[256];
+	for (uint32_t y = 0; y < ycnt; y++) {
+	    for (uint32_t x = 0; x < xcnt; x++) {
+		double fx = (double)x / (xcnt - 1) * 3.14159265;
+		double fy = (double)y / (ycnt - 1) * 3.14159265;
+		double h  = 500.0 + 300.0 * sin(fx) * sin(fy);
+		buf[y * xcnt + x] = (unsigned short)(int)h;
+	    }
+	}
+
+	dsp.dsp_xcnt = xcnt;
+	dsp.dsp_ycnt = ycnt;
+	dsp.dsp_buf  = buf;
+	bip_int.count    = xcnt * ycnt;
+	bip_int.u.uint16 = buf;
+
+	/* Tight: should use full path. */
+	init_tols(&ttol, &tol, 0.0, 0.005, 0.0);
+	if (!run_tess("dsp 16x16 sine tight (full path)", &ip, &ttol, &tol, 0))
+	    failures++;
+
+	/* Loose: should use decimation path. */
+	init_tols(&ttol, &tol, 0.0, 0.15, 0.0);
+	if (!run_tess("dsp 16x16 sine loose (decimation)", &ip, &ttol, &tol, 0))
+	    failures++;
+    }
+
+    /* -------------------------------------------------------------- */
+    /* Test 5: 8×8 grid with peak in the center (pyramid-like)        */
+    /* -------------------------------------------------------------- */
+    {
+	const uint32_t xcnt = 8, ycnt = 8;
+	unsigned short buf[64];
+	for (uint32_t y = 0; y < ycnt; y++) {
+	    for (uint32_t x = 0; x < xcnt; x++) {
+		double cx = fabs((double)x - 3.5);
+		double cy = fabs((double)y - 3.5);
+		double d  = (cx > cy ? cx : cy);
+		buf[y * xcnt + x] = (unsigned short)(int)(1000.0 - d * 200.0);
+	    }
+	}
+
+	dsp.dsp_xcnt = xcnt;
+	dsp.dsp_ycnt = ycnt;
+	dsp.dsp_buf  = buf;
+	bip_int.count    = xcnt * ycnt;
+	bip_int.u.uint16 = buf;
+
+	init_tols(&ttol, &tol, 0.0, 0.10, 0.0);
+	if (!run_tess("dsp 8x8 pyramid loose (decimation)", &ip, &ttol, &tol, 0))
+	    failures++;
+    }
+
+    /* -------------------------------------------------------------- */
+    /* Test 6: 32×32 terrain, no-tol (default fallback)               */
+    /* -------------------------------------------------------------- */
+    {
+	const uint32_t xcnt = 32, ycnt = 32;
+	unsigned short *buf = (unsigned short *)bu_calloc(
+	    xcnt * ycnt, sizeof(unsigned short), "dsp 32x32 buf");
+	for (uint32_t y = 0; y < ycnt; y++) {
+	    for (uint32_t x = 0; x < xcnt; x++) {
+		double fx = (double)x / (xcnt - 1) * 6.28318;
+		double fy = (double)y / (ycnt - 1) * 6.28318;
+		double h  = 2000.0 + 800.0 * (sin(fx) + cos(fy));
+		buf[y * xcnt + x] = (unsigned short)(int)h;
+	    }
+	}
+
+	dsp.dsp_xcnt = xcnt;
+	dsp.dsp_ycnt = ycnt;
+	dsp.dsp_buf  = buf;
+	bip_int.count    = xcnt * ycnt;
+	bip_int.u.uint16 = buf;
+
+	init_tols(&ttol, &tol, 0.0, 0.0, 0.0); /* no tol → default */
+	if (!run_tess("dsp 32x32 wave no-tol", &ip, &ttol, &tol, 0))
+	    failures++;
+
+	bu_free(buf, "dsp 32x32 buf");
+    }
+
+    bu_vls_free(&dsp.dsp_name);
+    return failures;
+}
+
+
+/*
  * EBM tess uses outline-tracing (not per-pixel faces), so it does NOT
  * have the dense-coplanar-mesh problem seen in pre-fix DSP.  The tess
  * function ignores ttol entirely (UNUSED(ttol)).  The datasrc=RT_EBM_SRC_OBJ
@@ -2975,6 +3193,7 @@ main(int argc, char *argv[])
     total_failures += test_rhc();
     total_failures += test_hyp();
     total_failures += test_part();
+    total_failures += test_dsp();
     total_failures += test_ebm();
     total_failures += test_vol();
     total_failures += test_arb();
