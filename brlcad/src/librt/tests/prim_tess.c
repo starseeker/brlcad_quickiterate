@@ -339,6 +339,57 @@ run_tess(const char *label,
 }
 
 
+/**
+ * Like run_tess() but also fails when the face count exceeds max_faces.
+ * Useful for regression-testing that coarse tolerances produce compact
+ * meshes (not hundreds of spurious intermediate rings).
+ *
+ * @return 1 if tess succeeded and face count <= max_faces, 0 otherwise.
+ */
+static int
+run_tess_maxfaces(const char *label,
+		  struct rt_db_internal *ip,
+		  const struct bg_tess_tol *ttol,
+		  const struct bn_tol *tol,
+		  int max_faces)
+{
+    struct bu_list vlfree;
+    BU_LIST_INIT(&vlfree);
+
+    struct model *m = nmg_mm();
+    struct nmgregion *r = NULL;
+
+    fprintf(stderr, "STARTING: %s (max_faces=%d)\n", label, max_faces);
+    fflush(stderr);
+
+    int ret = rt_obj_tess(&r, m, ip, ttol, tol);
+    int passed = 0;
+    int nfaces = 0;
+
+    if (ret == 0 && r != NULL) {
+	struct shell *s;
+	for (BU_LIST_FOR(s, shell, &r->s_hd)) {
+	    struct faceuse *fu;
+	    for (BU_LIST_FOR(fu, faceuse, &s->fu_hd)) {
+		if (fu->orientation == OT_SAME)
+		    nfaces++;
+	    }
+	}
+	passed = (nfaces <= max_faces);
+	fprintf(stderr, "  %-55s ret=%-3d faces=%-6d max=%-6d [%s]\n",
+		label, ret, nfaces, max_faces, passed ? "PASS" : "FAIL");
+    } else {
+	fprintf(stderr, "  %-55s ret=%-3d             [FAIL - tess returned %d]\n",
+		label, ret, ret);
+    }
+    fflush(stderr);
+
+    nmg_km(m);
+    bu_list_free(&vlfree);
+    return passed;
+}
+
+
 /* ------------------------------------------------------------------ */
 /* Standard tolerances                                                  */
 /* ------------------------------------------------------------------ */
@@ -842,6 +893,22 @@ test_tgc(void)
     VSET(tip.d, 0, 1, 0);
     init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
     if (!run_tess("tgc highly-elliptical (A=100 B=1 h=20)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* s.nos5a.i (havoc.g): near-apex TGC -- tiny bottom, large top.
+     * Before the sub-tolerance-ring fix the 1%-rel tessellation generated
+     * 80+ intermediate rings (driven by the 0.039 mm bottom ring being
+     * far below dtol ~0.28 mm).  With the fix the face count must stay
+     * well under 200 (a handful of rings at most). */
+    VSET(tip.v, 0, 0, 0);
+    VSET(tip.h, -27.5253, 3.84612, -0.541924);
+    VSET(tip.a, 0, 0, 0.0137527);
+    VSET(tip.b, 0, 0.0389778, 0);
+    VSET(tip.c, 0, 0, 5.22436);
+    VSET(tip.d, 0, 14.0442, 0);
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("tgc s.nos5a.i-like (tiny-bot large-top rel=0.01)", &ip, &ttol, &tol, 0)) failures++;
+    /* Regression: face count must be compact (not driven by sub-tol bottom ring) */
+    if (!run_tess_maxfaces("tgc s.nos5a.i-like face-count bound (max 200)", &ip, &ttol, &tol, 200)) failures++;
 
     return failures;
 }
