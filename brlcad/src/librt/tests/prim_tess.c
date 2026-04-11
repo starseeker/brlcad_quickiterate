@@ -1731,8 +1731,8 @@ test_dsp(void)
 	unsigned short buf[256];
 	for (uint32_t y = 0; y < ycnt; y++) {
 	    for (uint32_t x = 0; x < xcnt; x++) {
-		double fx = (double)x / (xcnt - 1) * 3.14159265;
-		double fy = (double)y / (ycnt - 1) * 3.14159265;
+		double fx = (double)x / (xcnt - 1) * M_PI;
+		double fy = (double)y / (ycnt - 1) * M_PI;
 		double h  = 500.0 + 300.0 * sin(fx) * sin(fy);
 		buf[y * xcnt + x] = (unsigned short)(int)h;
 	    }
