@@ -1110,9 +1110,14 @@ void TerrainMesh::triangulateVolumeSimplified(const TerrainData& terrain, const 
     }
     keep_vertex[terrain.height - 1][terrain.width - 1] = true;
 
-    // Second pass: add important feature points
-    for (int y = 0; y < terrain.height; ++y) {
-	for (int x = 0; x < terrain.width; ++x) {
+    // Second pass: add important feature points, but skip the 4 boundary
+    // rows/columns.  Boundary vertices are controlled exclusively by pass 1
+    // and pass 3 (step_size-aligned) so that wall and top-surface quads share
+    // exactly the same boundary-edge vertices.  Feature points on boundaries
+    // would create T-junctions (vertex in wall but no top-surface triangle
+    // referencing it) that produce open edges in the assembled mesh.
+    for (int y = 1; y < terrain.height - 1; ++y) {
+	for (int x = 1; x < terrain.width - 1; ++x) {
 	    if (sample_mask[y][x] && !keep_vertex[y][x]) {
 		keep_vertex[y][x] = true;
 	    }
@@ -1171,17 +1176,30 @@ void TerrainMesh::triangulateVolumeSimplified(const TerrainData& terrain, const 
 	}
     }
 
-    // Add bottom surface triangles using earcut for more efficient triangulation
-    // Create filter set from keep_vertex array
-    std::set<std::pair<int, int>> keep_cells;
-    for (int y = 0; y < terrain.height; ++y) {
-	for (int x = 0; x < terrain.width; ++x) {
-	    if (keep_vertex[y][x]) {
-		keep_cells.insert({x, y});
-	    }
+    // Triangulate bottom face using the SAME step_size quads as the top surface.
+    // The z=0 base plane is flat, so no sub-cell detail is needed.  Using the
+    // identical quad pattern guarantees that every bottom boundary edge is
+    // shared by exactly one bottom triangle and one wall triangle (manifold).
+    // Winding is reversed vs the top surface so normals point outward (down).
+    for (int y = 0; y < terrain.height - 1; y += step_size) {
+	for (int x = 0; x < terrain.width - 1; x += step_size) {
+	    int nx = std::min(x + step_size, terrain.width  - 1);
+	    int ny = std::min(y + step_size, terrain.height - 1);
+
+	    if (!keep_vertex[y][x]  || !keep_vertex[y][nx] ||
+		!keep_vertex[ny][x] || !keep_vertex[ny][nx])
+		continue;
+
+	    size_t b00 = bottom_vertices[y][x];
+	    size_t b10 = bottom_vertices[y][nx];
+	    size_t b01 = bottom_vertices[ny][x];
+	    size_t b11 = bottom_vertices[ny][nx];
+
+	    /* reversed winding: outward normal points -Z */
+	    addTriangle(b00, b10, b01);
+	    addTriangle(b10, b11, b01);
 	}
     }
-    triangulateBottomFaceWithDetria(bottom_vertices, terrain, &keep_cells);
 
     // Left Wall (x = 0)
     {
