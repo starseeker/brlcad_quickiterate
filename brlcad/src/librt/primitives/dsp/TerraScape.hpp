@@ -1933,9 +1933,13 @@ TerrainMesh::triangulateBottomFaceWithDetria(const std::vector<std::vector<size_
 	tri.addOutline(outline_indices);
 
 	// Add holes
+	// IMPORTANT: ReadonlySpan stores a raw pointer into the vector.
+	// Keep all hole index vectors alive until triangulate() returns.
+	std::vector<std::vector<uint32_t>> hole_indices_storage;
 	size_t hole_idx_offset = outer_boundary.size();
 	for (const auto& hole : holes) {
-	    std::vector<uint32_t> hole_indices;
+	    hole_indices_storage.emplace_back();
+	    std::vector<uint32_t>& hole_indices = hole_indices_storage.back();
 	    for (size_t i = 0; i < hole.size(); ++i) {
 		hole_indices.push_back(static_cast<uint32_t>(hole_idx_offset + i));
 	    }
