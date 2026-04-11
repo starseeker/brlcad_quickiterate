@@ -28,6 +28,9 @@
 #include "common.h"
 
 #include <unordered_map>
+#include <unordered_set>
+#include <cstdint>
+#include <cmath>
 
 #include "vmath.h"
 #include "raytrace.h"
@@ -37,6 +40,7 @@
 #include "nmg.h"
 
 #include "TerraScape.hpp"
+#include "mmesh/meshdecimation.h"
 
 /* private header */
 #include "./dsp.h"
@@ -214,6 +218,532 @@ dsp_build_nmg_from_bot(struct nmgregion **r_out,
 }
 
 /**
+ * Generate interior Steiner points for the DSP bottom face triangulation.
+ *
+ * Produces a grid of interior points inside @p outer_poly (and outside any
+ * @p hole_polys) spaced no closer than @p min_distance to each other or to
+ * any boundary/hole vertex already in the proximity index.
+ *
+ * Points are placed on a uniform grid with step = 2.5 * min_distance and
+ * rejected when they fall outside the outer polygon, inside a hole polygon,
+ * or closer than min_distance to an already-accepted point.
+ *
+ * Returns a vector of (x, y) pairs in world XY coordinates (z=0 plane).
+ */
+static std::vector<std::pair<double, double>>
+dsp_generate_steiner_pts(
+	const std::vector<std::pair<double, double>>& outer_poly,
+	const std::vector<std::vector<std::pair<double, double>>>& hole_polys,
+	double bb_min_x, double bb_max_x,
+	double bb_min_y, double bb_max_y,
+	double min_distance)
+{
+    TerraScape::SteinerIndex idx;
+
+    /* Seed the proximity index with boundary / hole vertices so Steiner
+     * points are kept away from the constraint edges.                    */
+    for (const auto& p : outer_poly)
+	idx.insert(p.first, p.second);
+    for (const auto& hp : hole_polys)
+	for (const auto& p : hp)
+	    idx.insert(p.first, p.second);
+
+    double step = min_distance * 2.5;
+
+    std::vector<std::pair<double, double>> result;
+    for (double sy = bb_min_y + step * 0.5; sy < bb_max_y - step * 0.25; sy += step) {
+	for (double sx = bb_min_x + step * 0.5; sx < bb_max_x - step * 0.25; sx += step) {
+	    if (!TerraScape::pointInPolygon(sx, sy, outer_poly))
+		continue;
+	    bool in_hole = false;
+	    for (const auto& hp : hole_polys) {
+		if (TerraScape::pointInPolygon(sx, sy, hp)) {
+		    in_hole = true;
+		    break;
+		}
+	    }
+	    if (in_hole)
+		continue;
+	    if (idx.hasNear(sx, sy, min_distance))
+		continue;
+	    idx.insert(sx, sy);
+	    result.push_back({sx, sy});
+	}
+    }
+
+    return result;
+}
+
+
+/**
+ * Proposed decimation-based DSP tessellation.
+ *
+ * Implements the five-step pipeline:
+ *   1. Build a naive two-triangle-per-cell surface mesh.
+ *   2. Decimate with mmesh (error-bounded, O(N log N)).
+ *   3. Extract outer/hole boundary loops from the decimated half-edge set.
+ *   4. Triangulate the bottom face with detria (Delaunay + Steiner points).
+ *   5. Assemble surface + walls + bottom into a closed NMG.
+ *
+ * The boundary half-edge extraction guarantees that wall winding is always
+ * consistent with the surface: for a directed half-edge ta→tb, the triangles
+ * (ta, bot_a, bot_b) and (ta, bot_b, tb) produce an outward-pointing normal
+ * regardless of whether the loop belongs to the outer boundary or a hole.
+ * This identity holds for both CCW (positive signed area) outer loops and
+ * CW (negative signed area) hole loops as verified analytically.
+ *
+ * Returns 0 on success; -1 if decimation or triangulation fails.
+ * On success, *r_out is the newly created NMG region.
+ */
+static int
+dsp_tess_with_decimation(
+	struct nmgregion **r_out,
+	struct model *m,
+	const struct rt_dsp_internal *dsp_ip,
+	const TerraScape::TerrainData& terrain,
+	double effective_err,
+	const struct bn_tol *tol,
+	struct bu_list *vlfree)
+{
+    const int W = terrain.width;
+    const int H = terrain.height;
+    if (W < 2 || H < 2)
+	return -1;
+
+    /* ------------------------------------------------------------------ */
+    /* Step 1: naive surface mesh — two CCW triangles per grid cell        */
+    /* ------------------------------------------------------------------ */
+    const size_t n_grid_verts = (size_t)W * H;
+    std::vector<double> surf_verts(n_grid_verts * 3);
+
+    for (int gy = 0; gy < H; ++gy) {
+	for (int gx = 0; gx < W; ++gx) {
+	    size_t i = (size_t)gy * W + gx;
+	    surf_verts[3*i + 0] = terrain.origin.x + gx * terrain.cell_size;
+	    surf_verts[3*i + 1] = terrain.origin.y - gy * terrain.cell_size;
+	    surf_verts[3*i + 2] = terrain.getHeight(gx, gy);
+	}
+    }
+
+    std::vector<int> surf_faces;
+    surf_faces.reserve((size_t)(W-1) * (H-1) * 6);
+
+    for (int gy = 0; gy < H-1; ++gy) {
+	for (int gx = 0; gx < W-1; ++gx) {
+	    int v00 = gy * W + gx;
+	    int v10 = gy * W + (gx + 1);
+	    int v01 = (gy + 1) * W + gx;
+	    int v11 = (gy + 1) * W + (gx + 1);
+	    /* CCW from above (+Z normal): matches TerraScape convention. */
+	    surf_faces.push_back(v00); surf_faces.push_back(v01); surf_faces.push_back(v10);
+	    surf_faces.push_back(v10); surf_faces.push_back(v01); surf_faces.push_back(v11);
+	}
+    }
+
+    size_t n_surf_verts = n_grid_verts;
+    size_t n_surf_faces  = surf_faces.size() / 3;
+
+    bu_log("DSP decimate: naive surface %zu verts %zu faces\n",
+	   n_surf_verts, n_surf_faces);
+
+    /* ------------------------------------------------------------------ */
+    /* Step 2: decimate surface with mmesh                                 */
+    /* ------------------------------------------------------------------ */
+
+    /* Compute world units per grid cell from dsp_stom to convert the
+     * error tolerance (in world units) into grid units for mmesh.        */
+    double grid_scale = 1.0;
+    {
+	point_t o_grid = {0.0, 0.0, 0.0};
+	point_t x_grid = {1.0, 0.0, 0.0};
+	point_t o_world, x_world;
+	MAT4X3PNT(o_world, dsp_ip->dsp_stom, o_grid);
+	MAT4X3PNT(x_world, dsp_ip->dsp_stom, x_grid);
+	double ds = sqrt(
+	    (x_world[0]-o_world[0])*(x_world[0]-o_world[0]) +
+	    (x_world[1]-o_world[1])*(x_world[1]-o_world[1]) +
+	    (x_world[2]-o_world[2])*(x_world[2]-o_world[2]));
+	if (ds > 1e-10)
+	    grid_scale = ds;
+    }
+
+    /* Feature size in grid units: error tolerance / scale factor.
+     * Apply the same 2/3-power adjustment as rt_bot_decimate_gct() uses
+     * for backward compatibility with the legacy GCT cost model.         */
+    double raw_feature = effective_err / grid_scale;
+    double grid_diag   = sqrt((double)(W-1)*(W-1) + (double)(H-1)*(H-1));
+    /* Clamp: always do at least a little decimation; don't over-collapse. */
+    if (raw_feature < 0.5)           raw_feature = 0.5;
+    if (raw_feature > grid_diag * 0.25) raw_feature = grid_diag * 0.25;
+    double fsize = pow(raw_feature, 2.0/3.0) * pow(2.0, 4.0/3.0);
+
+    {
+	mdOperation mdop;
+	mdOperationInit(&mdop);
+	mdOperationData(&mdop,
+			n_surf_verts, surf_verts.data(),
+			MD_FORMAT_DOUBLE, 3 * sizeof(double),
+			n_surf_faces,  surf_faces.data(),
+			MD_FORMAT_INT,    3 * sizeof(int));
+	mdOperationStrength(&mdop, fsize);
+
+	/* MD_FLAGS_PLANAR_MODE: prevent face normals from flipping, which
+	 * is essential for height-field surfaces.
+	 * MD_FLAGS_TRIANGLE_WINDING_CCW: preserve the CCW orientation.   */
+	int flags = MD_FLAGS_PLANAR_MODE | MD_FLAGS_TRIANGLE_WINDING_CCW;
+	int n_threads = (int)bu_avail_cpus();
+	if (n_threads < 1) n_threads = 1;
+
+	mdMeshDecimation(&mdop, n_threads, flags);
+
+	n_surf_verts = (size_t)mdop.vertexcount;
+	n_surf_faces  = (size_t)mdop.tricount;
+	surf_verts.resize(n_surf_verts * 3);
+	surf_faces.resize(n_surf_faces  * 3);
+
+	bu_log("DSP decimate: → %zu verts %zu faces (raw_feature=%g fsize=%g)\n",
+	       n_surf_verts, n_surf_faces, raw_feature, fsize);
+    }
+
+    if (n_surf_faces == 0) {
+	bu_log("DSP decimate: all faces removed by decimation\n");
+	return -1;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Step 3: extract boundary loops via directed half-edges              */
+    /*                                                                     */
+    /* A half-edge (va → vb) is a boundary edge when its reverse           */
+    /* (vb → va) has no corresponding triangle.  We encode each directed  */
+    /* edge as a uint64_t key = (uint32_t(va) << 32) | uint32_t(vb).      */
+    /* ------------------------------------------------------------------ */
+    std::unordered_map<uint64_t, bool> fwd_edges;
+    fwd_edges.reserve(n_surf_faces * 3 * 2);
+
+    for (size_t f = 0; f < n_surf_faces; ++f) {
+	uint32_t va = (uint32_t)surf_faces[3*f + 0];
+	uint32_t vb = (uint32_t)surf_faces[3*f + 1];
+	uint32_t vc = (uint32_t)surf_faces[3*f + 2];
+	fwd_edges[((uint64_t)va << 32) | vb] = true;
+	fwd_edges[((uint64_t)vb << 32) | vc] = true;
+	fwd_edges[((uint64_t)vc << 32) | va] = true;
+    }
+
+    /* bdry_next[va] = vb means the directed boundary half-edge va→vb exists. */
+    std::unordered_map<int, int> bdry_next;
+    for (const auto& kv : fwd_edges) {
+	int va = (int)(kv.first >> 32);
+	int vb = (int)(kv.first & 0xFFFFFFFFu);
+	uint64_t rev = ((uint64_t)(uint32_t)vb << 32) | (uint32_t)va;
+	if (!fwd_edges.count(rev))
+	    bdry_next[va] = vb;
+    }
+
+    if (bdry_next.empty()) {
+	bu_log("DSP decimate: no boundary edges found\n");
+	return -1;
+    }
+
+    /* Chain boundary half-edges into closed loops. */
+    std::vector<std::vector<int>> boundary_loops;
+    {
+	std::unordered_set<int> visited;
+	for (const auto& kv : bdry_next) {
+	    int start = kv.first;
+	    if (visited.count(start))
+		continue;
+	    std::vector<int> loop;
+	    int cur = start;
+	    for (;;) {
+		if (visited.count(cur))
+		    break;
+		visited.insert(cur);
+		loop.push_back(cur);
+		auto it = bdry_next.find(cur);
+		if (it == bdry_next.end())
+		    break;
+		cur = it->second;
+	    }
+	    if (loop.size() >= 3)
+		boundary_loops.push_back(std::move(loop));
+	}
+    }
+
+    bu_log("DSP decimate: %zu boundary loop(s)\n", boundary_loops.size());
+    if (boundary_loops.empty()) {
+	bu_log("DSP decimate: no valid boundary loops found\n");
+	return -1;
+    }
+
+    /* Compute signed area of each loop (shoelace formula).
+     * Positive area (CCW in world XY) = outer boundary.
+     * Negative area (CW) = interior hole.
+     * The outer boundary is identified as the loop with the largest |area|. */
+    int outer_loop_idx = -1;
+    double max_abs_area = 0.0;
+    std::vector<double> loop_area(boundary_loops.size(), 0.0);
+
+    for (size_t li = 0; li < boundary_loops.size(); ++li) {
+	const auto& loop = boundary_loops[li];
+	double sa = 0.0;
+	size_t n = loop.size();
+	for (size_t i = 0; i < n; ++i) {
+	    int va = loop[i], vb = loop[(i + 1) % n];
+	    double xa = surf_verts[3*va], ya = surf_verts[3*va + 1];
+	    double xb = surf_verts[3*vb], yb = surf_verts[3*vb + 1];
+	    sa += xa * yb - xb * ya;
+	}
+	loop_area[li] = 0.5 * sa;
+	if (std::abs(sa) > max_abs_area) {
+	    max_abs_area = std::abs(sa);
+	    outer_loop_idx = (int)li;
+	}
+    }
+
+    if (outer_loop_idx < 0) {
+	bu_log("DSP decimate: could not identify outer boundary loop\n");
+	return -1;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Step 4: build walls + prepare bottom face data                      */
+    /*                                                                     */
+    /* For each directed boundary half-edge ta→tb (regardless of loop     */
+    /* orientation), the triangles:                                        */
+    /*   (ta, bot_a, bot_b)  and  (ta, bot_b, tb)                         */
+    /* always produce an outward-pointing normal.  This is verified        */
+    /* analytically: for CCW outer loops the normal points away from the   */
+    /* terrain body; for CW hole loops it points toward the hole interior  */
+    /* (away from the terrain body).                                       */
+    /* ------------------------------------------------------------------ */
+    std::vector<double> all_verts(
+	surf_verts.begin(), surf_verts.begin() + n_surf_verts * 3);
+    std::vector<int>    all_faces(
+	surf_faces.begin(), surf_faces.begin() + n_surf_faces * 3);
+
+    /* Map surface vertex index → bottom vertex index (z = 0 plane). */
+    std::unordered_map<int, int> surf_to_bot;
+
+    auto add_bottom_vert = [&](int sv) -> int {
+	auto it = surf_to_bot.find(sv);
+	if (it != surf_to_bot.end()) return it->second;
+	int bv = (int)(all_verts.size() / 3);
+	all_verts.push_back(surf_verts[3*sv + 0]);
+	all_verts.push_back(surf_verts[3*sv + 1]);
+	all_verts.push_back(0.0);
+	surf_to_bot[sv] = bv;
+	return bv;
+    };
+
+    /* Pre-allocate bottom vertices for all boundary loops so that
+     * surf_to_bot is complete before we emit wall triangles.              */
+    std::vector<std::vector<size_t>> loop_bot_indices(boundary_loops.size());
+    for (size_t li = 0; li < boundary_loops.size(); ++li) {
+	for (int sv : boundary_loops[li])
+	    loop_bot_indices[li].push_back((size_t)add_bottom_vert(sv));
+    }
+
+    /* Emit wall triangles for every boundary loop. */
+    for (size_t li = 0; li < boundary_loops.size(); ++li) {
+	const auto& loop = boundary_loops[li];
+	size_t n = loop.size();
+	for (size_t i = 0; i < n; ++i) {
+	    int va    = loop[i];
+	    int vb    = loop[(i + 1) % n];
+	    int bot_a = surf_to_bot[va];
+	    int bot_b = surf_to_bot[vb];
+	    /* (ta, bot_a, bot_b) */
+	    all_faces.push_back(va);    all_faces.push_back(bot_a); all_faces.push_back(bot_b);
+	    /* (ta, bot_b, tb) */
+	    all_faces.push_back(va);    all_faces.push_back(bot_b); all_faces.push_back(vb);
+	}
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Step 5: triangulate bottom face with detria + Steiner points        */
+    /* ------------------------------------------------------------------ */
+
+    /* Bounding box (used for Steiner point grid).                         */
+    double bb_min_x = surf_verts[0], bb_max_x = surf_verts[0];
+    double bb_min_y = surf_verts[1], bb_max_y = surf_verts[1];
+    for (size_t i = 0; i < n_surf_verts; ++i) {
+	double x = surf_verts[3*i], y = surf_verts[3*i + 1];
+	if (x < bb_min_x) bb_min_x = x;
+	if (x > bb_max_x) bb_max_x = x;
+	if (y < bb_min_y) bb_min_y = y;
+	if (y > bb_max_y) bb_max_y = y;
+    }
+
+    /* Build 2D outer boundary polygon and hole polygons for detria.
+     * The outer loop index was computed above (largest |area|).           */
+    const auto& outer_loop = boundary_loops[outer_loop_idx];
+    std::vector<std::pair<double, double>> outer_poly_2d;
+    std::vector<size_t> outer_bot_idx;
+    for (size_t i = 0; i < outer_loop.size(); ++i) {
+	int sv = outer_loop[i];
+	outer_poly_2d.push_back({surf_verts[3*sv], surf_verts[3*sv + 1]});
+	outer_bot_idx.push_back(loop_bot_indices[outer_loop_idx][i]);
+    }
+
+    std::vector<std::vector<std::pair<double, double>>> hole_polys_2d;
+    std::vector<std::vector<size_t>> hole_bot_idx;
+    for (size_t li = 0; li < boundary_loops.size(); ++li) {
+	if ((int)li == outer_loop_idx)
+	    continue;
+	const auto& hloop = boundary_loops[li];
+	std::vector<std::pair<double, double>> hpoly;
+	for (int sv : hloop)
+	    hpoly.push_back({surf_verts[3*sv], surf_verts[3*sv + 1]});
+	hole_polys_2d.push_back(std::move(hpoly));
+	hole_bot_idx.push_back(loop_bot_indices[li]);
+    }
+
+    /* Steiner points: use 3 grid cells as minimum spacing. */
+    double min_dist = terrain.cell_size * 3.0;
+    auto steiner_pts = dsp_generate_steiner_pts(
+	outer_poly_2d, hole_polys_2d,
+	bb_min_x, bb_max_x, bb_min_y, bb_max_y,
+	min_dist);
+
+    bu_log("DSP decimate: %zu Steiner points for bottom face\n",
+	   steiner_pts.size());
+
+    /* Assemble the detria point list and index mapping
+     * (detria index → index into all_verts).                              */
+    std::vector<detria::PointD> dtri_pts;
+    std::vector<size_t>         dtri_to_mesh;
+
+    /* Outer boundary. */
+    size_t outer_dtri_count = outer_poly_2d.size();
+    for (size_t i = 0; i < outer_dtri_count; ++i) {
+	dtri_pts.push_back({outer_poly_2d[i].first, outer_poly_2d[i].second});
+	dtri_to_mesh.push_back(outer_bot_idx[i]);
+    }
+
+    /* Hole boundaries. */
+    std::vector<std::pair<size_t, size_t>> hole_ranges; /* [start, count) */
+    for (size_t hi = 0; hi < hole_polys_2d.size(); ++hi) {
+	size_t hstart = dtri_pts.size();
+	for (size_t i = 0; i < hole_polys_2d[hi].size(); ++i) {
+	    dtri_pts.push_back({hole_polys_2d[hi][i].first,
+				hole_polys_2d[hi][i].second});
+	    dtri_to_mesh.push_back(hole_bot_idx[hi][i]);
+	}
+	hole_ranges.push_back({hstart, dtri_pts.size() - hstart});
+    }
+
+    /* Steiner points become extra bottom-face vertices. */
+    for (const auto& sp : steiner_pts) {
+	int mesh_idx = (int)(all_verts.size() / 3);
+	all_verts.push_back(sp.first);
+	all_verts.push_back(sp.second);
+	all_verts.push_back(0.0);
+	dtri_pts.push_back({sp.first, sp.second});
+	dtri_to_mesh.push_back((size_t)mesh_idx);
+    }
+
+    /* Run Delaunay triangulation.
+     * IMPORTANT: ReadonlySpan stores a raw pointer into the vector data.
+     * All index vectors must remain alive until after triangulate() returns. */
+    detria::Triangulation dtri;
+    dtri.setPoints(dtri_pts);
+
+    std::vector<uint32_t> oidx(outer_dtri_count);
+    for (uint32_t i = 0; i < (uint32_t)outer_dtri_count; ++i)
+	oidx[i] = i;
+    dtri.addOutline(oidx);
+
+    /* Keep hole index vectors alive alongside the Triangulation object. */
+    std::vector<std::vector<uint32_t>> hidx_storage;
+    for (const auto& hr : hole_ranges) {
+	hidx_storage.emplace_back(hr.second);
+	for (uint32_t i = 0; i < (uint32_t)hr.second; ++i)
+	    hidx_storage.back()[i] = (uint32_t)(hr.first + i);
+	dtri.addHole(hidx_storage.back());
+    }
+
+    bool dtri_ok = false;
+    try {
+	dtri_ok = dtri.triangulate(true); /* true = Delaunay */
+    } catch (const std::exception& e) {
+	bu_log("DSP decimate: detria threw exception: %s\n", e.what());
+    }
+
+    if (!dtri_ok) {
+	bu_log("DSP decimate: detria failed: %s\n",
+	       dtri.getErrorMessage().c_str());
+    }
+
+    if (dtri_ok) {
+	/* Add bottom triangles with reversed winding (normal points -Z). */
+	dtri.forEachTriangle([&](detria::Triangle<uint32_t> t) {
+	    size_t v0 = dtri_to_mesh[t.x];
+	    size_t v1 = dtri_to_mesh[t.y];
+	    size_t v2 = dtri_to_mesh[t.z];
+	    /* Reversed: addTriangle(v0, v2, v1) pattern from TerraScape. */
+	    all_faces.push_back((int)v0);
+	    all_faces.push_back((int)v2);
+	    all_faces.push_back((int)v1);
+	}, false); /* false = CCW triangles from detria */
+    } else {
+	bu_log("DSP decimate: detria failed, using fan fallback for bottom face\n");
+	/* Fan triangulation from first boundary vertex (works for convex). */
+	if (outer_bot_idx.size() >= 3) {
+	    for (size_t i = 1; i + 1 < outer_bot_idx.size(); ++i) {
+		all_faces.push_back((int)outer_bot_idx[0]);
+		all_faces.push_back((int)outer_bot_idx[i + 1]);
+		all_faces.push_back((int)outer_bot_idx[i]);
+	    }
+	}
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Step 6: apply dsp_stom transform and build NMG                     */
+    /* ------------------------------------------------------------------ */
+    size_t n_all_verts = all_verts.size() / 3;
+    size_t n_all_faces = all_faces.size() / 3;
+
+    bu_log("DSP decimate: final mesh %zu verts %zu faces\n",
+	   n_all_verts, n_all_faces);
+
+    if (n_all_faces == 0)
+	return -1;
+
+    struct rt_bot_internal bot_ip;
+    memset(&bot_ip, 0, sizeof(bot_ip));
+    bot_ip.magic        = RT_BOT_INTERNAL_MAGIC;
+    bot_ip.num_vertices = (int)n_all_verts;
+    bot_ip.num_faces    = (int)n_all_faces;
+    bot_ip.mode         = RT_BOT_SOLID;
+    bot_ip.orientation  = RT_BOT_CCW;
+
+    bot_ip.vertices = (fastf_t *)bu_malloc(
+	3 * n_all_verts * sizeof(fastf_t), "dsp decimate bot verts");
+    bot_ip.faces    = (int *)    bu_malloc(
+	3 * n_all_faces * sizeof(int),     "dsp decimate bot faces");
+
+    for (size_t i = 0; i < n_all_verts; ++i) {
+	point_t in_pt  = { all_verts[3*i], all_verts[3*i+1], all_verts[3*i+2] };
+	point_t out_pt;
+	MAT4X3PNT(out_pt, dsp_ip->dsp_stom, in_pt);
+	VMOVE(&bot_ip.vertices[3*i], out_pt);
+    }
+    for (size_t f = 0; f < n_all_faces; ++f) {
+	bot_ip.faces[3*f + 0] = all_faces[3*f + 0];
+	bot_ip.faces[3*f + 1] = all_faces[3*f + 1];
+	bot_ip.faces[3*f + 2] = all_faces[3*f + 2];
+    }
+
+    int ret = dsp_build_nmg_from_bot(r_out, m, &bot_ip, tol, vlfree);
+
+    bu_free(bot_ip.vertices, "dsp decimate bot verts");
+    bu_free(bot_ip.faces,    "dsp decimate bot faces");
+
+    return ret;
+}
+
+
+/**
  * Returns -
  * -1 failure
  * 0 OK.  *r points to nmgregion that holds this tessellation.
@@ -381,9 +911,27 @@ rt_dsp_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	    std::max(1, (int)std::sqrt(100.0 / (100.0 - std::max(0, std::min(90, min_reduction))))),
 	    terrain.width, terrain.height);
 
-    // Step 4.  Make the TerraScape mesh (includes walls + bottom)
+    // Step 4.  Make the tessellation.
+    //
+    // For the simplified path we use the proposed decimation-based approach:
+    //   1. Naive two-triangle-per-cell surface mesh
+    //   2. mmesh decimation (error-bounded, O(N log N))
+    //   3. Boundary loop extraction from the half-edge set
+    //   4. detria Delaunay bottom face with Steiner points
+    //   5. Assemble into NMG
+    //
+    // The full path retains the original TerraScape triangulateVolume.
     if (use_simplified) {
-	mesh.triangulateVolumeSimplified(terrain, simp);
+	struct bu_list vlfree;
+	BU_LIST_INIT(&vlfree);
+	int ret = dsp_tess_with_decimation(r, m, dsp_ip, terrain,
+					   effective_err, tol, &vlfree);
+	bu_list_free(&vlfree);
+	if (ret == 0)
+	    return 0;
+	/* Fall through to the full TerraScape path on failure. */
+	bu_log("DSP decimate path failed; falling back to triangulateVolume\n");
+	mesh.triangulateVolume(terrain);
     } else {
 	mesh.triangulateVolume(terrain);
     }
