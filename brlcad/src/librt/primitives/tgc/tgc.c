@@ -2175,6 +2175,19 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 		fastf_t cos_m1_sq_bot, sin_sq_bot;
 		fastf_t cos_m1_sq_top, sin_sq_top;
 
+		/* When a ring's largest semi-axis is smaller than the chord-sag
+		 * tolerance (dtol) it is entirely below the tessellation's own
+		 * resolution: no matter how many intermediate rings are added, a
+		 * face whose short edge is that ring can never be shorter than
+		 * ~dtol in absolute terms.  Using the tiny ring size to compute
+		 * the aspect-ratio check causes hundreds of spurious ring
+		 * insertions for near-apex shapes (e.g., a TGC whose bottom
+		 * ellipse is smaller than 1% of its top).  Suppress the ratio
+		 * entries driven by a sub-tolerance ring and let the other end
+		 * govern ring insertion instead. */
+		int bot_sub_tol = (ring_sz_bot > 0.0 && ring_sz_bot < dtol);
+		int top_sub_tol = (ring_sz_top > 0.0 && ring_sz_top < dtol);
+
 		if (ring_sz_bot > 0.0) {
 		    int ns_b = rt_num_circular_segments(dtol, ring_sz_bot);
 		    if (ns_b < 4) ns_b = 4;
@@ -2195,8 +2208,9 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 		cos_m1_sq_top = (cos(ang_top) - 1.0) * (cos(ang_top) - 1.0);
 		sin_sq_top = sin(ang_top) * sin(ang_top);
 
-		if ((len_B > 0.0 && len_D > 0.0) ||
-		    (len_B > 0.0 && (ZERO(len_D) && ZERO(len_C))))
+		if (!bot_sub_tol &&
+		    ((len_B > 0.0 && len_D > 0.0) ||
+		     (len_B > 0.0 && (ZERO(len_D) && ZERO(len_C)))))
 		{
 		    fastf_t tw = sqrt(cos_m1_sq_bot*len_A*len_A + sin_sq_bot*len_B*len_B);
 		    ratios[0] = (tw > 0.0) ?
@@ -2204,8 +2218,9 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 		} else
 		    ratios[0] = 0.0;
 
-		if ((len_A > 0.0 && len_C > 0.0) ||
-		    (len_A > 0.0 && (ZERO(len_C) && ZERO(len_D))))
+		if (!bot_sub_tol &&
+		    ((len_A > 0.0 && len_C > 0.0) ||
+		     (len_A > 0.0 && (ZERO(len_C) && ZERO(len_D)))))
 		{
 		    fastf_t tw = sqrt(sin_sq_bot*len_A*len_A + cos_m1_sq_bot*len_B*len_B);
 		    ratios[1] = (tw > 0.0) ?
@@ -2213,8 +2228,9 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 		} else
 		    ratios[1] = 0.0;
 
-		if ((len_D > 0.0 && len_B > 0.0) ||
-		    (len_D > 0.0 && (ZERO(len_A) && ZERO(len_B))))
+		if (!top_sub_tol &&
+		    ((len_D > 0.0 && len_B > 0.0) ||
+		     (len_D > 0.0 && (ZERO(len_A) && ZERO(len_B)))))
 		{
 		    fastf_t tw = sqrt(cos_m1_sq_top*len_C*len_C + sin_sq_top*len_D*len_D);
 		    ratios[2] = (tw > 0.0) ?
@@ -2222,8 +2238,9 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 		} else
 		    ratios[2] = 0.0;
 
-		if ((len_C > 0.0 && len_A > 0.0) ||
-		    (len_C > 0.0 && (ZERO(len_A) && ZERO(len_B))))
+		if (!top_sub_tol &&
+		    ((len_C > 0.0 && len_A > 0.0) ||
+		     (len_C > 0.0 && (ZERO(len_A) && ZERO(len_B)))))
 		{
 		    fastf_t tw = sqrt(sin_sq_top*len_C*len_C + cos_m1_sq_top*len_D*len_D);
 		    ratios[3] = (tw > 0.0) ?
