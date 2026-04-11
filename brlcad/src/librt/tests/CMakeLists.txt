@@ -87,9 +87,6 @@ brlcad_addexec(bot_match bot_match.cpp "librt;libbg" TEST)
 # boolweave testing
 brlcad_addexec(rt_boolweave rt_boolweave.c "librt" TEST)
 
-# tessellation timing utility
-brlcad_addexec(tess_timing tess_timing.c "librt;libnmg" NO_STRICT)
-
 # Tests for primitive editing
 add_subdirectory(edit)
 
@@ -107,7 +104,6 @@ set(
   rt_perturb.c
   search_stress.c
   sketch.g
-  tess_timing.c
 )
 
 cmakefiles(${distcheck_files})
