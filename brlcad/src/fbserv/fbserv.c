@@ -80,6 +80,7 @@
 #include "bu/color.h"
 #include "bu/exit.h"
 #include "bu/getopt.h"
+#include "bu/ipc.h"
 #include "bu/log.h"
 #include "bu/malloc.h"
 #include "bu/snooze.h"
@@ -131,6 +132,13 @@ static int require_auth = 0;
  * When non-zero, attempt to set up TLS after accepting each TCP connection.
  */
 static int use_tls = 0;
+
+/*
+ * When non-NULL (set by -I flag), connect to the inherited IPC address
+ * instead of binding a TCP listen socket.  This mirrors the -I mode in
+ * rtsrv and allows a parent process to bypass TCP for local connections.
+ */
+static const char *ipc_addr_flag = NULL;
 
 /*
  * Per-client authentication state (parallel to clients[]).
@@ -208,8 +216,11 @@ Usage: fbserv port_num\n\
 	  (for a single-frame-buffer server)\n\
           (if '-p' and '-F' are both omitted, port_num and frame_buffer\n\
            must appear in that order)\n\
+   or  fbserv [-v] [-F frame_buffer] -I ipc_addr\n\
+	  (for an IPC inherited-fd mode; -p is ignored)\n\
   -T  enable TLS encryption (requires OpenSSL build)\n\
   -A  strict auth: reject clients that do not send MSG_FBAUTH\n\
+  -I  connect to the IPC channel at ipc_addr instead of binding TCP\n\
 \n\
 Token authentication (works with or without TLS):\n\
   Set FBSERV_TOKEN=<64-hex-chars> before starting fbserv to use a\n\
@@ -226,7 +237,7 @@ get_args(int argc, char **argv)
     int c;
     int enable_tls = 0;
 
-    while ((c = bu_getopt(argc, argv, "vTAF:s:w:n:S:W:N:p:h?")) != -1) {
+    while ((c = bu_getopt(argc, argv, "vTAI:F:s:w:n:S:W:N:p:h?")) != -1) {
 	switch (c) {
 	    case 'v':
 		verbose = 1;
@@ -236,6 +247,10 @@ get_args(int argc, char **argv)
 		break;
 	    case 'A':
 		require_auth = 1;
+		break;
+	    case 'I':
+		ipc_addr_flag = bu_optarg;
+		port_set = 1;   /* suppress "no port" usage error */
 		break;
 	    case 'F':
 		framebuffer = bu_optarg;
@@ -566,6 +581,63 @@ main(int argc, char **argv)
     if (!get_args(argc, argv) || !port_set) {
 	(void)fputs(usage, stderr);
 	return 1;
+    }
+
+    /* Phase 7: IPC inherited-fd mode (-I <ipc_addr>).
+     * When the parent passes -I, connect to the IPC channel at the given
+     * address (pipe fd pair, socketpair, or TCP loopback port), register it
+     * as a single client, and run the main loop in once_only mode.
+     * This is analogous to the -I flag in rtsrv and allows the parent to
+     * avoid TCP port binding entirely for local fbserv instances.            */
+    if (ipc_addr_flag) {
+	bu_ipc_chan_t *chan;
+	struct pkg_conn *pcp;
+	int rfd, wfd;
+	int pkgr;
+
+	if (framebuffer != NULL) {
+	    if ((fb_server_fbp = fb_open(framebuffer, width, height)) == FB_NULL)
+		bu_exit(1, NULL);
+	    max_fd = fb_set_fd(fb_server_fbp, &select_list);
+	    fb_server_retain_on_close = 1;
+	}
+
+	chan = bu_ipc_connect(ipc_addr_flag);
+	if (!chan) {
+	    fprintf(stderr, "fbserv: bu_ipc_connect('%s') failed\n", ipc_addr_flag);
+	    return 1;
+	}
+
+	rfd = bu_ipc_fileno(chan);
+	wfd = bu_ipc_fileno_write(chan);
+	pcp = pkg_open_fds(rfd, wfd, pkg_switch, communications_error);
+	if (pcp == PKC_ERROR || pcp == PKC_NULL) {
+	    fprintf(stderr, "fbserv: pkg_open_fds failed for IPC address '%s'\n",
+		    ipc_addr_flag);
+	    bu_ipc_close(chan);
+	    return 1;
+	}
+	/* pkg_conn now owns the fds; release the channel wrapper */
+	bu_ipc_detach(chan);
+
+	/* IPC service loop: pkg_suckin/pkg_process without select().
+	 * We bypass fbserv_new_client() + main_loop() because those rely on
+	 * FD_SET(pkc_fd, ...) which is invalid when pkc_fd == PKG_STDIO_MODE
+	 * (-3) as is the case for pipe-based IPC transport.
+	 * pkg_suckin/pkg_process handle PKG_STDIO_MODE internally via pkc_in_fd
+	 * and pkc_out_fd, so they work correctly here.                         */
+	do {
+	    pkgr = pkg_process(pcp);
+	    if (pkgr < 0) break;
+	    pkgr = pkg_suckin(pcp);
+	    if (pkgr <= 0) break;
+	    pkgr = pkg_process(pcp);
+	} while (pkgr >= 0);
+
+	pkg_close(pcp);
+	if (fb_server_fbp != FB_NULL)
+	    fb_close(fb_server_fbp);
+	return 0;
     }
 
     /* Session authentication token.

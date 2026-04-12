@@ -35,6 +35,7 @@
 #include "bio.h"
 #include "bnetwork.h"
 
+#include "bu/ipc.h"
 #include "bu/str.h"
 #include "raytrace.h"
 #include "dm.h"
@@ -76,11 +77,18 @@ drop_client(struct fbserv_obj *fbsp, int sub)
     }
 
     if (fbsp->fbs_clients[sub].fbsc_fd != 0) {
-	(*fbsp->fbs_close_client_handler)(fbsp, sub);
+	/* Use the IPC-specific close handler if the client was opened via IPC
+	 * and the caller registered one; otherwise fall back to the generic
+	 * TCP close handler. */
+	if (fbsp->fbs_clients[sub].fbsc_is_ipc && fbsp->fbs_close_ipc_client_handler)
+	    (*fbsp->fbs_close_ipc_client_handler)(fbsp, sub);
+	else
+	    (*fbsp->fbs_close_client_handler)(fbsp, sub);
 	fbsp->fbs_clients[sub].fbsc_fd = 0;
     }
     fbsp->fbs_clients[sub].fbsc_auth_ok = 0;
     fbsp->fbs_clients[sub].fbsc_pending_drop = 0;
+    fbsp->fbs_clients[sub].fbsc_is_ipc = 0;
 }
 
 
@@ -965,6 +973,12 @@ fbs_close(struct fbserv_obj *fbsp)
     fbsp->fbs_listener.fbsl_fd = -1;
     fbsp->fbs_listener.fbsl_port = -1;
 
+    /* Close the IPC child-end channel if one was created by fbs_open_ipc(). */
+    if (fbsp->fbs_listener.fbsl_ipc_child) {
+	bu_ipc_close(fbsp->fbs_listener.fbsl_ipc_child);
+	fbsp->fbs_listener.fbsl_ipc_child = NULL;
+    }
+
     return BRLCAD_OK;
 }
 
@@ -1147,6 +1161,102 @@ fbs_new_client(struct fbserv_obj *fbsp, struct pkg_conn *pcp, void *data)
     pkg_close(pcp);
 
     return -1;
+}
+
+
+static void
+_fbs_ipc_comm_error(const char *msg)
+{
+    bu_log("%s", msg);
+}
+
+
+int
+fbs_open_ipc(struct fbserv_obj *fbsp)
+{
+    bu_ipc_chan_t *pe = NULL, *ce = NULL;
+    struct pkg_conn *pc;
+    int rfd, wfd, i;
+
+    if (bu_ipc_pair(&pe, &ce) != 0) {
+	if (fbsp->msgs)
+	    bu_vls_printf(fbsp->msgs, "fbs_open_ipc: bu_ipc_pair failed\n");
+	return BRLCAD_ERROR;
+    }
+
+    /* Move child-end fd(s) above bu_process_create()'s close(3..19) sweep
+     * so the fd survives into the spawned subprocess after exec().          */
+    if (bu_ipc_move_high_fd(ce, 64) != 0)
+	bu_log("fbs_open_ipc: bu_ipc_move_high_fd failed; fd may be swept\n");
+
+    rfd = bu_ipc_fileno(pe);
+    wfd = bu_ipc_fileno_write(pe);
+    pc = pkg_open_fds(rfd, wfd, fbs_pkg_switch(), _fbs_ipc_comm_error);
+    if (pc == PKC_ERROR || pc == PKC_NULL) {
+	bu_ipc_close(ce);
+	bu_ipc_close(pe);
+	if (fbsp->msgs)
+	    bu_vls_printf(fbsp->msgs, "fbs_open_ipc: pkg_open_fds failed\n");
+	return BRLCAD_ERROR;
+    }
+
+    /* Find an empty client slot and register the pre-connected pkg_conn.
+     * For pipe-based IPC transport pkg_open_fds() uses PKG_STDIO_MODE
+     * internally (pkc_fd == -3); the actual readable fd is pkc_in_fd.
+     * fbsc_fd is used by callers (Tcl_CreateFileHandler, select-based loops,
+     * etc.) as the fd to monitor for readability, so it must always hold a
+     * valid (>= 0) file descriptor.                                          */
+    int effective_fd = (pc->pkc_fd == PKG_STDIO_MODE) ? pc->pkc_in_fd : pc->pkc_fd;
+
+    for (i = MAX_CLIENTS - 1; i >= 0; i--) {
+	if (fbsp->fbs_clients[i].fbsc_fd != 0)
+	    continue;
+
+	fbsp->fbs_clients[i].fbsc_fd      = effective_fd;
+	fbsp->fbs_clients[i].fbsc_pkg     = pc;
+	fbsp->fbs_clients[i].fbsc_fbsp    = fbsp;
+	fbsp->fbs_clients[i].fbsc_auth_ok = 1; /* IPC client is implicitly trusted */
+	fbsp->fbs_clients[i].fbsc_pending_drop = 0;
+	fbsp->fbs_clients[i].fbsc_is_ipc  = 1;
+	pc->pkc_server_data = (void *)&fbsp->fbs_clients[i];
+
+	/* Call the IPC-specific open handler if one is registered, otherwise
+	 * fall back to the generic TCP client handler.  Callers that use the
+	 * generic handler must ensure it handles NULL data gracefully.        */
+	if (fbsp->fbs_open_ipc_client_handler)
+	    (*fbsp->fbs_open_ipc_client_handler)(fbsp, i, NULL);
+	else if (fbsp->fbs_open_client_handler)
+	    (*fbsp->fbs_open_client_handler)(fbsp, i, NULL);
+
+	break;
+    }
+
+    if (i < 0) {
+	bu_log("fbs_open_ipc: too many clients\n");
+	bu_ipc_close(ce);
+	pkg_close(pc);
+	return BRLCAD_ERROR;
+    }
+
+    /* Parent end's fds are now owned by pkg_conn; release the wrapper. */
+    bu_ipc_detach(pe);
+
+    /* Store the child end so fbs_ipc_child_addr_env() can retrieve it, and
+     * so fbs_close() can close it when the session ends.                    */
+    if (fbsp->fbs_listener.fbsl_ipc_child)
+	bu_ipc_close(fbsp->fbs_listener.fbsl_ipc_child);
+    fbsp->fbs_listener.fbsl_ipc_child = ce;
+
+    return BRLCAD_OK;
+}
+
+
+const char *
+fbs_ipc_child_addr_env(struct fbserv_obj *fbsp)
+{
+    if (!fbsp || !fbsp->fbs_listener.fbsl_ipc_child)
+	return NULL;
+    return bu_ipc_addr_env(fbsp->fbs_listener.fbsl_ipc_child);
 }
 
 
