@@ -110,8 +110,28 @@ extern struct hostent *gethostbyname(const char *);
  * compatibility macros should take care of this.
  */
 #ifdef HAVE_WINSOCK_H
-#  define PKG_READ(d, buf, nbytes) recv((d), (buf), (int)(nbytes), 0)
-#  define PKG_SEND(d, buf, nbytes) send((d), (buf), (int)(nbytes), 0)
+static int _pkg_read_win(int d, void *buf, int nbytes) {
+    HANDLE h = (HANDLE)_get_osfhandle(d);
+    if (h != INVALID_HANDLE_VALUE && GetFileType(h) == FILE_TYPE_PIPE) {
+        DWORD nr = 0;
+        if (!ReadFile(h, buf, (DWORD)nbytes, &nr, NULL))
+            return (GetLastError() == ERROR_BROKEN_PIPE) ? 0 : -1;
+        return (int)nr;
+    }
+    return recv((SOCKET)(uintptr_t)d, (char *)buf, nbytes, 0);
+}
+static int _pkg_send_win(int d, const void *buf, int nbytes) {
+    HANDLE h = (HANDLE)_get_osfhandle(d);
+    if (h != INVALID_HANDLE_VALUE && GetFileType(h) == FILE_TYPE_PIPE) {
+        DWORD nw = 0;
+        if (!WriteFile(h, buf, (DWORD)nbytes, &nw, NULL))
+            return -1;
+        return (int)nw;
+    }
+    return send((SOCKET)(uintptr_t)d, (const char *)buf, nbytes, 0);
+}
+#  define PKG_READ(d, buf, nbytes) _pkg_read_win((d), (buf), (int)(nbytes))
+#  define PKG_SEND(d, buf, nbytes) _pkg_send_win((d), (buf), (int)(nbytes))
 #else
 #  define PKG_READ(d, buf, nbytes) read((d), (buf), (nbytes))
 #  define PKG_SEND(d, buf, nbytes) write((d), (buf), (nbytes))
