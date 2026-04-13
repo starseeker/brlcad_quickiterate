@@ -3328,29 +3328,29 @@ main(int argc, char *argv[])
 
     int total_failures = 0;
 
-    /* ---- Built-in test suite ----
-     * Always run the built-in correctness tests.  Manifold validation
-     * (g_validate) is only enabled when --output-g is given, so the
-     * CI baseline run (no flags) stays fast.  When only --input-g is
-     * given the built-in suite runs without the slow triangulation step.  */
-    total_failures += test_tor();
-    total_failures += test_eto();
-    total_failures += test_tgc();
-    total_failures += test_ell();
-    total_failures += test_epa();
-    total_failures += test_ehy();
-    total_failures += test_rpc();
-    total_failures += test_rhc();
-    total_failures += test_hyp();
-    total_failures += test_part();
-    total_failures += test_dsp();
-    total_failures += test_ebm();
-    total_failures += test_vol();
-    total_failures += test_arb();
-    total_failures += test_ars();
-    total_failures += test_arbn();
-    total_failures += test_pipe();
-    total_failures += test_metaball();
+    if (!input_g) {
+	/* ---- Built-in test suite ----
+	 * Manifold validation (g_validate) is only enabled when --output-g is
+	 * given, so the CI baseline run (no flags) stays fast. */
+	total_failures += test_tor();
+	total_failures += test_eto();
+	total_failures += test_tgc();
+	total_failures += test_ell();
+	total_failures += test_epa();
+	total_failures += test_ehy();
+	total_failures += test_rpc();
+	total_failures += test_rhc();
+	total_failures += test_hyp();
+	total_failures += test_part();
+	total_failures += test_dsp();
+	total_failures += test_ebm();
+	total_failures += test_vol();
+	total_failures += test_arb();
+	total_failures += test_ars();
+	total_failures += test_arbn();
+	total_failures += test_pipe();
+	total_failures += test_metaball();
+    }
 
     /* ---- Input .g scan (if requested) ---- */
     if (input_g)
