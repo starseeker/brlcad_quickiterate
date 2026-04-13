@@ -337,8 +337,10 @@ main(int argc, char **argv)
 #ifdef SO_SNDBUF
     /* increase the default send buffer size to 32k since we're
      * sending pixels more than likely.
+     * Skip for pipe transport where pkc_fd == PKG_STDIO_MODE (-3) — setsockopt
+     * on a non-socket fd would fail with EBADF.
      */
-    {
+    if (pcsrv->pkc_fd != PKG_STDIO_MODE) {
 	int val = 32767;
 	n = setsockopt(pcsrv->pkc_fd, SOL_SOCKET, SO_SNDBUF, (const void *)&val, sizeof(val));
 	if (n < 0)
@@ -484,20 +486,27 @@ main(int argc, char **argv)
 
 	/* Second, see if any input to read */
 	FD_ZERO(&ifds);
-	FD_SET(pcsrv->pkc_fd, &ifds);
-	tv.tv_sec = BU_LIST_NON_EMPTY(&WorkHead) ? 0L : 9999L;
-	tv.tv_usec = 0L;
+	/* For pipe transport pkg_open_fds() uses PKG_STDIO_MODE (-3) as pkc_fd;
+	 * pkc_in_fd holds the real read-end file descriptor in that case.
+	 * Using pkc_fd directly with FD_SET would pass -3, which triggers
+	 * glibc's out-of-range assertion and aborts the process on Linux.    */
+	{
+	    int sel_fd = (pcsrv->pkc_fd == PKG_STDIO_MODE) ? pcsrv->pkc_in_fd : pcsrv->pkc_fd;
+	    FD_SET(sel_fd, &ifds);
+	    tv.tv_sec = BU_LIST_NON_EMPTY(&WorkHead) ? 0L : 9999L;
+	    tv.tv_usec = 0L;
 
-	if (select(pcsrv->pkc_fd+1, &ifds, (fd_set *)0, (fd_set *)0, &tv) != 0) {
-	    n = pkg_suckin(pcsrv);
-	    if (n < 0) {
-		bu_log("pkg_suckin error\n");
-		break;
-	    } else if (n == 0) {
-		/* EOF detected */
-		break;
-	    } else {
-		/* All is well */
+	    if (select(sel_fd+1, &ifds, (fd_set *)0, (fd_set *)0, &tv) != 0) {
+		n = pkg_suckin(pcsrv);
+		if (n < 0) {
+		    bu_log("pkg_suckin error\n");
+		    break;
+		} else if (n == 0) {
+		    /* EOF detected */
+		    break;
+		} else {
+		    /* All is well */
+		}
 	    }
 	}
 
