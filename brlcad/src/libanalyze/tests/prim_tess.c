@@ -967,6 +967,19 @@ test_tgc(void)
     /* Regression: face count must be compact (not driven by sub-tol bottom ring) */
     if (!run_tess_maxfaces("tgc s.nos5a.i-like face-count bound (max 200)", &ip, &ttol, &tol, 200)) failures++;
 
+    /* m35.g s165: long-axis TGC with small cross-section relative to height.
+     * Previously generated a 1-edgeuse degenerate face in the NMG zipper
+     * when dont_use collapsed a ring to a single usable vertex.
+     * Coordinates in mm from m35.asc solid record 165. */
+    VSET(tip.v, 3016.580322, -63.5, 1101.826660);
+    VSET(tip.h, -249.529602, -114.300003, 558.977783);
+    VSET(tip.a, 0.710807, -9.987247, -1.724890);
+    VSET(tip.b, 9.281481, -0.053131, 4.132421);
+    VSET(tip.c, 0.533105, -7.490436, -1.293667);
+    VSET(tip.d, 6.961110, -0.039848, 3.099316);
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("tgc m35-s165 (long-axis, rel=0.01)", &ip, &ttol, &tol, 0)) failures++;
+
     return failures;
 }
 
