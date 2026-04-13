@@ -117,6 +117,7 @@
 #include "rt/nmg_conv.h"
 #include "rt/search.h"
 #include "wdb.h"
+#include "analyze.h"
 
 
 /* ------------------------------------------------------------------ */
@@ -126,6 +127,11 @@
 static struct rt_wdb *g_wdb = NULL;
 static int g_out_seq = 0;   /* sequential suffix for output object names */
 static int g_validate = 0;  /* 1 = run manifold/mesh quality checks */
+
+/* Metric validation flags */
+static int g_validate_metrics  = 0; /* 1 = compare BOT metrics to analytic answers */
+static int g_crofton_validate  = 0; /* 1 = use Crofton for --input-g scan */
+static double g_metrics_tol    = 0.05; /* default: 5% tolerance for analytic comparison */
 
 /* Tolerance overrides for --input-g scan (0 = not set / use default) */
 static double g_scan_rel  = 0.0;
@@ -142,14 +148,19 @@ static double g_scan_norm = 0.0;
  *
  * Triangulates the model in-place (the caller owns m and will free it),
  * converts it to a BOT, then uses bg_trimesh_solid2() to check for
- * open edges and degenerate faces.  Reports the surface area and
+ * open edges and degenerate faces.  Reports surface area, volume, and
  * open-edge count.
+ *
+ * When g_validate_metrics is set and ip is non-NULL, the BOT area and
+ * volume are also compared against the primitive's analytic answers
+ * (from ft_surf_area and ft_volume) within g_metrics_tol.
  *
  * @return 1 if the mesh passes all checks, 0 if it fails.
  */
 static int
 check_nmg_mesh(const char *label, struct model *m,
-	       const struct bn_tol *tol, struct bu_list *vlfree)
+	       const struct bn_tol *tol, struct bu_list *vlfree,
+	       const struct rt_db_internal *ip)
 {
     struct nmgregion *r;
     struct shell *s;
@@ -208,18 +219,27 @@ check_nmg_mesh(const char *label, struct model *m,
     int n_open  = (int)errs.unmatched.count;
     int n_degen = (int)errs.degenerate.count;
 
-    /* Surface area */
+    /* Surface area and volume */
     fastf_t area = bg_trimesh_area(
 	bot->faces, bot->num_faces,
 	(const point_t *)bot->vertices, bot->num_vertices);
 
+    fastf_t vol = 0.0;
+    if (open_cnt == 0 && n_open == 0) {
+	/* Volume is only meaningful for a closed manifold */
+	vol = bg_trimesh_volume(
+	    bot->faces, bot->num_faces,
+	    (const point_t *)bot->vertices, bot->num_vertices);
+    }
+
     int passed = (open_cnt == 0 && n_open == 0);
 
     fprintf(stderr,
-	    "  MESH: %-44s  tris=%-6lu  area=%-12.4g  open=%-4d  degen=%-4d  [%s]\n",
+	    "  MESH: %-44s  tris=%-6lu  area=%-12.4g  vol=%-12.4g  open=%-4d  degen=%-4d  [%s]\n",
 	    label,
 	    (unsigned long)bot->num_faces,
 	    area,
+	    vol,
 	    n_open,
 	    n_degen,
 	    passed ? "OK" : "OPEN-EDGES");
@@ -227,8 +247,48 @@ check_nmg_mesh(const char *label, struct model *m,
     fflush(stderr);
     bg_free_trimesh_solid_errors(&errs);
 
+    /* ----------------------------------------------------------------
+     * Optional analytic metric comparison (--validate-metrics)
+     * -------------------------------------------------------------- */
+    if (g_validate_metrics && passed && ip &&
+	ip->idb_minor_type >= 0 && ip->idb_minor_type < ID_MAXIMUM) {
+
+	const struct rt_functab *ft = &OBJ[ip->idb_minor_type];
+
+	fastf_t analytic_sa = -1.0;
+	fastf_t analytic_v  = -1.0;
+
+	if (ft->ft_surf_area)
+	    ft->ft_surf_area(&analytic_sa, ip);
+	if (ft->ft_volume)
+	    ft->ft_volume(&analytic_v, ip);
+
+	if (analytic_sa > 0.0) {
+	    double err = fabs((double)(area - analytic_sa)) / (double)analytic_sa;
+	    const char *tag = (err <= g_metrics_tol) ? "SA-OK" : "SA-FAIL";
+	    fprintf(stderr,
+		    "  METRICS: %-44s  SA=%.4g  analytic=%.4g  err=%.1f%%  [%s]\n",
+		    label, (double)area, (double)analytic_sa, err*100.0, tag);
+	    if (err > g_metrics_tol) passed = 0;
+	} else {
+	    fprintf(stderr, "  METRICS: %-44s  SA-analytic=NA\n", label);
+	}
+
+	if (analytic_v > 0.0) {
+	    double err = fabs((double)(vol - analytic_v)) / (double)analytic_v;
+	    const char *tag = (err <= g_metrics_tol) ? "V-OK" : "V-FAIL";
+	    fprintf(stderr,
+		    "  METRICS: %-44s  V=%.4g   analytic=%.4g  err=%.1f%%  [%s]\n",
+		    label, (double)vol, (double)analytic_v, err*100.0, tag);
+	    if (err > g_metrics_tol) passed = 0;
+	} else {
+	    fprintf(stderr, "  METRICS: %-44s  V-analytic=NA\n", label);
+	}
+	fflush(stderr);
+    }
+
     /* Optionally save the BOT to the output .g */
-    if (g_wdb && passed) {
+    if (g_wdb && (open_cnt == 0 && n_open == 0)) {
 	char bot_name[256];
 	snprintf(bot_name, sizeof(bot_name), "tess_%04d.bot", ++g_out_seq);
 	mk_bot(g_wdb, bot_name,
@@ -297,7 +357,7 @@ run_tess(const char *label,
 
 	/* Validate mesh quality when tessellation succeeded */
 	if (g_validate && !expect_fail)
-	    (void)check_nmg_mesh(label, m, tol, &vlfree);
+	    (void)check_nmg_mesh(label, m, tol, &vlfree, ip);
 
 	/* Optionally write the CSG primitive to the output .g.
 	 * Build a temporary rt_db_internal with idb_meth set (the
@@ -3104,8 +3164,58 @@ scan_input_g(const char *g_path)
 	fprintf(stderr, "  %-32s  faces=%d\n", dp->d_namep, nfaces);
 
 	/* Validate manifold quality */
-	int ok = check_nmg_mesh(dp->d_namep, m, &tol, &vlfree);
+	int ok = check_nmg_mesh(dp->d_namep, m, &tol, &vlfree, &intern);
 	if (ok) n_pass++; else { n_fail++; failures++; }
+
+	/* Optional Crofton validation: compare BOT metrics vs CSG raytrace */
+	if (ok && g_crofton_validate) {
+	    /* Create a temporary in-memory DB containing only this primitive */
+	    struct db_i *tmp_dbip = db_open_inmem();
+	    if (tmp_dbip) {
+		struct rt_wdb *tmp_wdbp = wdb_dbopen(tmp_dbip, RT_WDB_TYPE_DB_INMEM);
+		if (tmp_wdbp) {
+		    char tmpname[64];
+		    snprintf(tmpname, sizeof(tmpname), "crofton_obj.s");
+		    struct bu_external ext;
+		    struct rt_db_internal tmp_intern2;
+		    BU_EXTERNAL_INIT(&ext);
+		    RT_DB_INTERNAL_INIT(&tmp_intern2);
+		    tmp_intern2.idb_major_type = intern.idb_major_type;
+		    tmp_intern2.idb_type       = intern.idb_minor_type;
+		    tmp_intern2.idb_ptr        = intern.idb_ptr;
+		    tmp_intern2.idb_meth       = &OBJ[intern.idb_minor_type];
+		    if (rt_db_cvt_to_external5(&ext, tmpname, &tmp_intern2, 1.0,
+					       tmp_wdbp->dbip, &rt_uniresource,
+					       intern.idb_major_type) == 0) {
+			int eflags = db_flags_internal(&tmp_intern2);
+			(void)wdb_export_external(tmp_wdbp, &ext, tmpname,
+						  eflags, intern.idb_type);
+		    }
+		    bu_free_external(&ext);
+		    /* wdb_dbopen returns an internal pointer embedded in dbip;
+		     * do NOT call wdb_close() here as that would call db_close()
+		     * and free tmp_dbip prematurely.                           */
+		    db_update_nref(tmp_dbip, &rt_uniresource);
+
+		    double csa = 0.0, cv = 0.0;
+		    struct bu_vls cmsg = BU_VLS_INIT_ZERO;
+		    int cr = analyze_crofton_sample(tmp_dbip, tmpname,
+						    2.0 /* 2% threshold */,
+						    2000, &csa, &cv, &cmsg);
+		    if (cr == 0) {
+			fprintf(stderr,
+				"  CROFTON: %-32s  CSG-SA=%.4g  CSG-V=%.4g\n",
+				dp->d_namep, csa, cv);
+		    } else {
+			fprintf(stderr,
+				"  CROFTON: %-32s  failed (ret=%d): %s\n",
+				dp->d_namep, cr, bu_vls_cstr(&cmsg));
+		    }
+		    bu_vls_free(&cmsg);
+		}
+		db_close(tmp_dbip);
+	    }
+	}
 
 	nmg_km(m);
 	rt_db_free_internal(&intern);
@@ -3132,12 +3242,16 @@ main(int argc, char *argv[])
     /* Simple argument parsing:
      *   [--input-g  <file.g>]   scan an existing .g for primitives to tess
      *   [--output-g <file.g>]   write CSG inputs + BOT outputs to a new .g
+     *   [--validate-metrics]    compare BOT area/volume to analytic answers
+     *   [--crofton-validate]    run Crofton CSG estimate for --input-g scan
+     *   [--metrics-tol <pct>]   metric tolerance % (default 5)
      *   [-h]                    print help
      */
     for (int i = 1; i < argc; i++) {
 	if (BU_STR_EQUAL(argv[i], "-h") || BU_STR_EQUAL(argv[i], "--help")) {
 	    printf("Usage: %s [--input-g <file.g>] [--output-g <file.g>]\n", argv[0]);
 	    printf("          [--rel <frac>] [--abs <dist>] [--norm <rad>]\n");
+	    printf("          [--validate-metrics] [--crofton-validate] [--metrics-tol <pct>]\n");
 	    printf("\n");
 	    printf("  Without options: runs built-in NMG tessellation tests.\n");
 	    printf("\n");
@@ -3148,6 +3262,18 @@ main(int argc, char *argv[])
 	    printf("  --output-g <file.g>\n");
 	    printf("    Write each built-in CSG test primitive and its BOT\n");
 	    printf("    facetization to a new .g file for visual inspection.\n");
+	    printf("\n");
+	    printf("  --validate-metrics\n");
+	    printf("    Compare tessellated BOT surface area and volume against\n");
+	    printf("    the primitive's analytic answers (ft_surf_area, ft_volume).\n");
+	    printf("    Enables manifold validation automatically.\n");
+	    printf("\n");
+	    printf("  --crofton-validate\n");
+	    printf("    For each primitive in --input-g, also shoot a Cauchy-Crofton\n");
+	    printf("    sample on the CSG object and report SA and volume.\n");
+	    printf("\n");
+	    printf("  --metrics-tol <pct>\n");
+	    printf("    Tolerance (as percent) for analytic metric comparison (default 5).\n");
 	    printf("\n");
 	    printf("  --rel <frac>   Relative chord-height tolerance (e.g. 0.1 = 10%%).\n");
 	    printf("                 Applied to --input-g scans; default 0.01.\n");
@@ -3162,6 +3288,15 @@ main(int argc, char *argv[])
 	    input_g = argv[++i];
 	} else if (BU_STR_EQUAL(argv[i], "--output-g") && i + 1 < argc) {
 	    output_g = argv[++i];
+	} else if (BU_STR_EQUAL(argv[i], "--validate-metrics")) {
+	    g_validate_metrics = 1;
+	    g_validate = 1;
+	} else if (BU_STR_EQUAL(argv[i], "--crofton-validate")) {
+	    g_crofton_validate = 1;
+	} else if (BU_STR_EQUAL(argv[i], "--metrics-tol") && i + 1 < argc) {
+	    double v = atof(argv[++i]);
+	    if (v > 0.0) g_metrics_tol = v / 100.0; /* convert percent to fraction */
+	    else fprintf(stderr, "WARNING: --metrics-tol requires a positive value, ignored\n");
 	} else if (BU_STR_EQUAL(argv[i], "--rel") && i + 1 < argc) {
 	    double v = atof(argv[++i]);
 	    if (v > 0.0) g_scan_rel = v;

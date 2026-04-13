@@ -83,7 +83,7 @@ brlcad_addexec(rt_search_stress search_stress.c "librt;libwdb;libbu" TEST)
 brlcad_add_test(NAME rt_search_stress COMMAND rt_search_stress)
 
 # primitive tessellation testing
-brlcad_addexec(rt_prim_tess prim_tess.c "librt;libnmg;libwdb;libbg;libbu" TEST)
+brlcad_addexec(rt_prim_tess prim_tess.c "libanalyze;librt;libnmg;libwdb;libbg;libbu" TEST)
 brlcad_add_test(NAME rt_prim_tess COMMAND rt_prim_tess)
 
 # Tessellation timing utility (no automated test, just a tool)
