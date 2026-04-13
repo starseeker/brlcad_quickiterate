@@ -1896,6 +1896,19 @@ struct tgc_pts
     char dont_use;
 };
 
+/* Return 1 if the triangle (p0, p1, p2) is degenerate: any two vertices
+ * are closer than sqrt(dist_sq) to each other. */
+static int
+tgc_tri_degen(const fastf_t *p0, const fastf_t *p1, const fastf_t *p2,
+	      fastf_t dist_sq)
+{
+    vect_t d;
+    VSUB2(d, p0, p1); if (MAGSQ(d) < dist_sq) return 1;
+    VSUB2(d, p1, p2); if (MAGSQ(d) < dist_sq) return 1;
+    VSUB2(d, p2, p0); if (MAGSQ(d) < dist_sq) return 1;
+    return 0;
+}
+
 
 /* version using tolerances */
 int
@@ -2045,10 +2058,11 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	    absolute = M_PI_2;
 
 	if (ttol->rel > 0.0) {
-	    if (ttol->rel * 2.0 * radius < max_radius)
-		rel = 2.0 * acos(1.0 - ttol->rel * 2.0 * radius/max_radius);
-	    else
-		rel = M_PI_2;
+	    /* Relative tolerance is a fraction of the cross-section radius
+	     * (max_radius), not the bounding sphere.  Using the bounding
+	     * sphere for long thin cylinders gives far too few segments. */
+	    fastf_t chord_frac = FMIN(1.0, ttol->rel);
+	    rel = 2.0 * acos(FMAX(-1.0, 1.0 - chord_frac));
 	} else
 	    rel = M_PI_2;
 
@@ -2580,36 +2594,64 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	curr_bot = &pts[i][0].v;
 	curr_top = &pts[i+1][0].v;
 
+/* Helper macro: geometric degenerate-triangle check.
+ * Skip any triangle whose vertices are not all distinct by at least tol->dist.
+ * pts[i][j].pt is precomputed before face creation so the coordinates
+ * are always available here.  Two geometric coincidences occur in practice:
+ *  1. Same NMG struct pointer used twice (caught by pointer equality).
+ *  2. Different NMG structs at the same 3-D location (caught by distance). */
+#define TGC_TRI_DEGEN(pa, pb, pc) tgc_tri_degen((pa), (pb), (pc), tol->dist_sq)
+
 	if (ns_bot == ns_top) {
-	    /* 1:1 case: standard zipper */
+	    /* 1:1 case: standard zipper.
+	     * Track bot_idx/top_idx so we can look up pts[ring][idx].pt for
+	     * the geometric degenerate check (pointer equality alone is not
+	     * sufficient when two distinct NMG structs sit at the same 3-D
+	     * location — e.g. m35.g s165 wrap-around triangle). */
+	    size_t bot_idx = 0;
+	    size_t top_idx = 0;
 	    for (j=0; j<(size_t)ns_bot; j++) {
 		size_t k = j+1;
 		if (k == (size_t)ns_bot)
 		    k = 0;
 		if (!is_apex_bot) {
 		    if (!pts[i][k].dont_use) {
-			v[0] = curr_bot;
-			v[1] = &pts[i][k].v;
-			v[2] = is_apex_top ? &pts[i+1][0].v : curr_top;
-			fu = nmg_cmface(s, v, 3);
-			bu_ptbl_ins(&faces, (long *)fu);
-			curr_bot = v[1];
+			const fastf_t *p0 = pts[i][bot_idx].pt;
+			const fastf_t *p1 = pts[i][k].pt;
+			const fastf_t *p2 = is_apex_top ? pts[i+1][0].pt : pts[i+1][top_idx].pt;
+			if (!TGC_TRI_DEGEN(p0, p1, p2)) {
+			    v[0] = curr_bot;
+			    v[1] = &pts[i][k].v;
+			    v[2] = is_apex_top ? &pts[i+1][0].v : curr_top;
+			    fu = nmg_cmface(s, v, 3);
+			    bu_ptbl_ins(&faces, (long *)fu);
+			}
+			curr_bot = &pts[i][k].v;
+			bot_idx  = k;
 		    }
 		}
 		if (!is_apex_top) {
 		    if (!pts[i+1][k].dont_use) {
-			v[0] = &pts[i+1][k].v;
-			v[1] = curr_top;
-			v[2] = is_apex_bot ? &pts[i][0].v : curr_bot;
-			fu = nmg_cmface(s, v, 3);
-			bu_ptbl_ins(&faces, (long *)fu);
-			curr_top = v[0];
+			const fastf_t *p0 = pts[i+1][k].pt;
+			const fastf_t *p1 = pts[i+1][top_idx].pt;
+			const fastf_t *p2 = is_apex_bot ? pts[i][0].pt : pts[i][bot_idx].pt;
+			if (!TGC_TRI_DEGEN(p0, p1, p2)) {
+			    v[0] = &pts[i+1][k].v;
+			    v[1] = curr_top;
+			    v[2] = is_apex_bot ? &pts[i][0].v : curr_bot;
+			    fu = nmg_cmface(s, v, 3);
+			    bu_ptbl_ins(&faces, (long *)fu);
+			}
+			curr_top = &pts[i+1][k].v;
+			top_idx  = k;
 		    }
 		}
 	    }
 	} else if (ns_top == 2 * ns_bot) {
 	    /* Fan-out: top ring is twice as dense as bottom ring.
 	     * 3 triangles per bottom segment with CCW winding. */
+	    size_t bot_idx = 0;
+	    size_t top_idx = 0;
 	    for (j=0; j<(size_t)ns_bot; j++) {
 		size_t k_bot  = (j+1) % (size_t)ns_bot;
 		size_t k_top1 = 2*j+1;
@@ -2621,22 +2663,34 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 		 * and the shared edge bot→top_new in T1 is reversed in T2 as
 		 * top_new→bot.  Matches the proven EHY pts_dbl ordering. */
 		if (!is_apex_top && !pts[i+1][k_top1].dont_use) {
-		    v[0] = is_apex_bot ? &pts[i][0].v : curr_bot;
-		    v[1] = &pts[i+1][k_top1].v;  /* new top vertex first */
-		    v[2] = curr_top;              /* current (old) top vertex second */
-		    fu = nmg_cmface(s, v, 3);
-		    bu_ptbl_ins(&faces, (long *)fu);
-		    curr_top = v[1];              /* advance to the new vertex */
+		    const fastf_t *p0 = is_apex_bot ? pts[i][0].pt : pts[i][bot_idx].pt;
+		    const fastf_t *p1 = pts[i+1][k_top1].pt;
+		    const fastf_t *p2 = pts[i+1][top_idx].pt;
+		    if (!TGC_TRI_DEGEN(p0, p1, p2)) {
+			v[0] = is_apex_bot ? &pts[i][0].v : curr_bot;
+			v[1] = &pts[i+1][k_top1].v;
+			v[2] = curr_top;
+			fu = nmg_cmface(s, v, 3);
+			bu_ptbl_ins(&faces, (long *)fu);
+		    }
+		    curr_top = &pts[i+1][k_top1].v;
+		    top_idx  = k_top1;
 		}
 
 		/* T2: advance bottom */
 		if (!is_apex_bot && !pts[i][k_bot].dont_use) {
-		    v[0] = curr_bot;
-		    v[1] = &pts[i][k_bot].v;
-		    v[2] = is_apex_top ? &pts[i+1][0].v : curr_top;
-		    fu = nmg_cmface(s, v, 3);
-		    bu_ptbl_ins(&faces, (long *)fu);
-		    curr_bot = v[1];
+		    const fastf_t *p0 = pts[i][bot_idx].pt;
+		    const fastf_t *p1 = pts[i][k_bot].pt;
+		    const fastf_t *p2 = is_apex_top ? pts[i+1][0].pt : pts[i+1][top_idx].pt;
+		    if (!TGC_TRI_DEGEN(p0, p1, p2)) {
+			v[0] = curr_bot;
+			v[1] = &pts[i][k_bot].v;
+			v[2] = is_apex_top ? &pts[i+1][0].v : curr_top;
+			fu = nmg_cmface(s, v, 3);
+			bu_ptbl_ins(&faces, (long *)fu);
+		    }
+		    curr_bot = &pts[i][k_bot].v;
+		    bot_idx  = k_bot;
 		}
 
 		/* T3: advance top again (to even index).
@@ -2644,17 +2698,25 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 		 * the top_old vertex (k_top1) is shared with T1 via the
 		 * reverse edge, keeping the mesh manifold. */
 		if (!is_apex_top && !pts[i+1][k_top2].dont_use) {
-		    v[0] = is_apex_bot ? &pts[i][0].v : curr_bot;
-		    v[1] = &pts[i+1][k_top2].v;  /* new top vertex first */
-		    v[2] = curr_top;              /* current (old) top vertex second */
-		    fu = nmg_cmface(s, v, 3);
-		    bu_ptbl_ins(&faces, (long *)fu);
-		    curr_top = v[1];              /* advance to the new vertex */
+		    const fastf_t *p0 = is_apex_bot ? pts[i][0].pt : pts[i][bot_idx].pt;
+		    const fastf_t *p1 = pts[i+1][k_top2].pt;
+		    const fastf_t *p2 = pts[i+1][top_idx].pt;
+		    if (!TGC_TRI_DEGEN(p0, p1, p2)) {
+			v[0] = is_apex_bot ? &pts[i][0].v : curr_bot;
+			v[1] = &pts[i+1][k_top2].v;
+			v[2] = curr_top;
+			fu = nmg_cmface(s, v, 3);
+			bu_ptbl_ins(&faces, (long *)fu);
+		    }
+		    curr_top = &pts[i+1][k_top2].v;
+		    top_idx  = k_top2;
 		}
 	    }
 	} else if (ns_bot == 2 * ns_top) {
 	    /* Fan-in: bottom ring is twice as dense as top ring.
 	     * 3 triangles per top segment. */
+	    size_t bot_idx = 0;
+	    size_t top_idx = 0;
 	    for (j=0; j<(size_t)ns_top; j++) {
 		size_t k_top  = (j+1) % (size_t)ns_top;
 		size_t k_bot1 = 2*j+1;
@@ -2662,12 +2724,18 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 
 		/* Fa1: advance bottom once (to odd index) */
 		if (!is_apex_bot && !pts[i][k_bot1].dont_use) {
-		    v[0] = curr_bot;
-		    v[1] = &pts[i][k_bot1].v;
-		    v[2] = is_apex_top ? &pts[i+1][0].v : curr_top;
-		    fu = nmg_cmface(s, v, 3);
-		    bu_ptbl_ins(&faces, (long *)fu);
-		    curr_bot = v[1];
+		    const fastf_t *p0 = pts[i][bot_idx].pt;
+		    const fastf_t *p1 = pts[i][k_bot1].pt;
+		    const fastf_t *p2 = is_apex_top ? pts[i+1][0].pt : pts[i+1][top_idx].pt;
+		    if (!TGC_TRI_DEGEN(p0, p1, p2)) {
+			v[0] = curr_bot;
+			v[1] = &pts[i][k_bot1].v;
+			v[2] = is_apex_top ? &pts[i+1][0].v : curr_top;
+			fu = nmg_cmface(s, v, 3);
+			bu_ptbl_ins(&faces, (long *)fu);
+		    }
+		    curr_bot = &pts[i][k_bot1].v;
+		    bot_idx  = k_bot1;
 		}
 
 		/* Fa2: advance top.
@@ -2676,22 +2744,34 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 		 * and top_new→top_old is reversed by the adjacent upper band.
 		 * Consistent with TGC 1:1 T2 pattern (T[j+1], T[j], B[j+1]). */
 		if (!is_apex_top && !pts[i+1][k_top].dont_use) {
-		    v[0] = &pts[i+1][k_top].v;  /* new top vertex first */
-		    v[1] = curr_top;             /* current (old) top vertex second */
-		    v[2] = curr_bot;             /* bottom vertex last */
-		    fu = nmg_cmface(s, v, 3);
-		    bu_ptbl_ins(&faces, (long *)fu);
-		    curr_top = v[0];             /* advance to the new vertex */
+		    const fastf_t *p0 = pts[i+1][k_top].pt;
+		    const fastf_t *p1 = pts[i+1][top_idx].pt;
+		    const fastf_t *p2 = pts[i][bot_idx].pt;
+		    if (!TGC_TRI_DEGEN(p0, p1, p2)) {
+			v[0] = &pts[i+1][k_top].v;
+			v[1] = curr_top;
+			v[2] = curr_bot;
+			fu = nmg_cmface(s, v, 3);
+			bu_ptbl_ins(&faces, (long *)fu);
+		    }
+		    curr_top = &pts[i+1][k_top].v;
+		    top_idx  = k_top;
 		}
 
 		/* Fa3: advance bottom again (to even index) */
 		if (!is_apex_bot && !pts[i][k_bot2].dont_use) {
-		    v[0] = curr_bot;
-		    v[1] = &pts[i][k_bot2].v;
-		    v[2] = is_apex_top ? &pts[i+1][0].v : curr_top;
-		    fu = nmg_cmface(s, v, 3);
-		    bu_ptbl_ins(&faces, (long *)fu);
-		    curr_bot = v[1];
+		    const fastf_t *p0 = pts[i][bot_idx].pt;
+		    const fastf_t *p1 = pts[i][k_bot2].pt;
+		    const fastf_t *p2 = is_apex_top ? pts[i+1][0].pt : pts[i+1][top_idx].pt;
+		    if (!TGC_TRI_DEGEN(p0, p1, p2)) {
+			v[0] = curr_bot;
+			v[1] = &pts[i][k_bot2].v;
+			v[2] = is_apex_top ? &pts[i+1][0].v : curr_top;
+			fu = nmg_cmface(s, v, 3);
+			bu_ptbl_ins(&faces, (long *)fu);
+		    }
+		    curr_bot = &pts[i][k_bot2].v;
+		    bot_idx  = k_bot2;
 		}
 	    }
 	} else {
