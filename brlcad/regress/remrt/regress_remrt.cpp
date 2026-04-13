@@ -290,10 +290,23 @@ write_remrtrc_local(const char *db_dir)
     }
     /* "local" tells remrt to spawn rtsrv via bu_ipc (env var BU_IPC_ADDR)
      * rather than SSH, and to send MSG_CD <db_dir> so rtsrv finds the
-     * geometry. */
-    fprintf(fp, "host localhost always local %s\n", db_dir);
+     * geometry.
+     *
+     * bu_argv_from_string() treats backslash as an escape character, so
+     * Windows-style paths (e.g. D:\foo\bar) must use forward slashes here.
+     * Windows accepts forward slashes in all path contexts (CreateFile,
+     * chdir, fopen, etc.), so this is safe on all platforms.              */
+    struct bu_vls db_dir_fwd = BU_VLS_INIT_ZERO;
+    bu_vls_sprintf(&db_dir_fwd, "%s", db_dir);
+    /* Replace every backslash with a forward slash */
+    char *p = bu_vls_addr(&db_dir_fwd);
+    for (; *p; p++) {
+	if (*p == '\\') *p = '/';
+    }
+    fprintf(fp, "host localhost always local %s\n", bu_vls_cstr(&db_dir_fwd));
     fclose(fp);
     bu_vls_free(&rcpath);
+    bu_vls_free(&db_dir_fwd);
     return 0;
 }
 

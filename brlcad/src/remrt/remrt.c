@@ -991,11 +991,19 @@ build_start_cmd(const int argc, const char **argv, const int startc)
 
     bu_strlcpy(file_fullname, argv[startc], sizeof(file_fullname));
 
+    /* Normalize path separators to forward slash.  bu_argv_from_string()
+     * on the receiving end (ph_dirbuild in rtsrv) treats backslash as an
+     * escape character and strips it, mangling Windows paths.  Windows
+     * accepts forward slashes in all file API calls (fopen, chdir, etc.)
+     * so this conversion is safe and portable.                           */
+    for (cp = file_fullname; *cp; cp++)
+	if (*cp == '\\') *cp = '/';
+
     /* Save last component of file name */
-    if ((cp = strrchr(argv[startc], '/')) != (char *)0) {
+    if ((cp = strrchr(file_fullname, '/')) != (char *)0) {
 	bu_strlcpy(file_basename, cp+1, sizeof(file_basename));
     } else {
-	bu_strlcpy(file_basename, argv[startc], sizeof(file_basename));
+	bu_strlcpy(file_basename, file_fullname, sizeof(file_basename));
     }
 
     /* Build new object_list[] string */
@@ -1439,28 +1447,30 @@ add_host(struct ihost *ihp)
 
 
 /*
- * Launch a local rtsrv worker connected to remrt via a bu_ipc socketpair.
+ * Launch a local rtsrv worker connected to remrt via a bu_ipc channel.
  *
  * Called from add_host() when ht_where == HT_LOCAL.  Separated out so
  * the HT_LOCAL path can return early on error without interfering with
  * the common bu_process_create() tail of add_host().
  *
- * The child-end IPC address is communicated to rtsrv via the environment
- * variable BU_IPC_ADDR (BU_IPC_ADDR_ENVVAR), set in the parent immediately
- * before the fork() inside bu_process_create().  Because fork() gives the
- * child its own independent copy of the environment, the parent can safely
- * clear the variable right after bu_process_create() returns without racing
- * against the child's execvp() call.  The -I flag is also supported by rtsrv
- * for manual invocations; the env var is the preferred mechanism for
- * auto-spawned workers.
+ * Transport selection:
+ *   On POSIX we prefer a Unix-domain socketpair (bidirectional, works with
+ *   select(2), no port allocation).  On Windows, select() can only monitor
+ *   Winsock SOCKETs, not anonymous pipe handles, so we use TCP loopback
+ *   instead.  bu_ipc_pair_prefer() falls through to the next available
+ *   transport automatically, so BU_IPC_SOCKET will succeed on POSIX and
+ *   skip to BU_IPC_TCP on Windows.
+ *
+ * The child-end IPC address is communicated to rtsrv via the -I flag and
+ * also via the BU_IPC_ADDR environment variable (BU_IPC_ADDR_ENVVAR).
  */
 static void
 add_host_local(struct ihost *ihp)
 {
     bu_ipc_chan_t *pe = NULL, *ce = NULL;
     char rtsrv_path[MAXPATHLEN];
-    /* Slots: exe, [-S, token,] NULL — 4 entries is enough. */
-    const char *argv[6];
+    /* Slots: exe, -I, addr, [-S, token,] NULL — 6 entries minimum. */
+    const char *argv[8];
     int argc = 0;
     struct bu_process *p = NULL;
     struct pkg_conn *pc;
@@ -1475,10 +1485,20 @@ add_host_local(struct ihost *ihp)
 	return;
     }
 
-    /* Create a socketpair IPC channel (bidirectional, works with select). */
+    /* Create an IPC channel between remrt (parent) and rtsrv (child).
+     * On POSIX prefer a Unix-domain socketpair (bidirectional, zero-port).
+     * On Windows select() cannot monitor anonymous pipe handles — it only
+     * works with WinSock SOCKETs — so prefer TCP loopback there.
+     * bu_ipc_pair_prefer() falls back to the next transport automatically:
+     *   POSIX: SOCKET → PIPE → TCP
+     *   Windows: TCP (SOCKET unavailable, PIPE breaks select) */
+#ifdef _WIN32
+    if (bu_ipc_pair_prefer(&pe, &ce, BU_IPC_TCP) != 0) {
+#else
     if (bu_ipc_pair_prefer(&pe, &ce, BU_IPC_SOCKET) != 0) {
-	bu_log("add_host_local: bu_ipc_pair (socketpair) failed for %s — "
-	       "falling back to TCP\n", ihp->ht_name);
+#endif
+	bu_log("add_host_local: bu_ipc_pair failed for %s — "
+	       "falling back to TCP host\n", ihp->ht_name);
 	/* Nothing to clean up; fall through to the normal TCP path. */
 	ihp->ht_where = HT_CD;
 	add_host(ihp);
@@ -1500,8 +1520,17 @@ add_host_local(struct ihost *ihp)
      * so clearing the var in the parent after the call is race-free.       */
     bu_setenv(BU_IPC_ADDR_ENVVAR, bu_ipc_addr(ce), 1);
 
-    /* Build rtsrv argv.  No host/port positional args in IPC mode.         */
+    /* Build rtsrv argv.  Always pass the IPC address explicitly via -I so
+     * that rtsrv has at least one flag argument and passes the argc<2 guard
+     * in its main().  Also set the environment variable as a fallback for
+     * platforms where argv passing is unavailable.  Save the address string
+     * before we close ce (which would free the internal buffer).           */
+    char ipc_addr_buf[256];
+    bu_strlcpy(ipc_addr_buf, bu_ipc_addr(ce), sizeof(ipc_addr_buf));
+
     argv[argc++] = rtsrv_path;
+    argv[argc++] = "-I";
+    argv[argc++] = ipc_addr_buf;
     if (session_token[0] != '\0') {
 	argv[argc++] = "-S";
 	argv[argc++] = session_token;
