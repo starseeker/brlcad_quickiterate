@@ -383,9 +383,13 @@ BU_EXPORT bu_ssize_t bu_ipc_read(bu_ipc_chan_t *chan,
  * May be passed to uv_pipe_open(), QSocketNotifier, poll(2), etc.
  * Valid until bu_ipc_close(); do NOT close it directly.
  *
+ * For TCP transport the parent end has no accepted fd until the child
+ * connects.  This function performs a lazy blocking accept() so callers
+ * always receive a valid (>= 0) fd after the child has been spawned.
+ *
  * @return  fd >= 0 on success; -1 if not applicable.
  */
-BU_EXPORT int bu_ipc_fileno(const bu_ipc_chan_t *chan);
+BU_EXPORT int bu_ipc_fileno(bu_ipc_chan_t *chan);
 
 /**
  * @brief Return the write file descriptor.
@@ -396,7 +400,7 @@ BU_EXPORT int bu_ipc_fileno(const bu_ipc_chan_t *chan);
  *
  * @return  fd >= 0 on success; -1 if not applicable.
  */
-BU_EXPORT int bu_ipc_fileno_write(const bu_ipc_chan_t *chan);
+BU_EXPORT int bu_ipc_fileno_write(bu_ipc_chan_t *chan);
 
 /**
  * @brief Return which transport was selected.
