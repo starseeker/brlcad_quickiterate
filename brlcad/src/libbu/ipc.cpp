@@ -213,7 +213,15 @@ try_pipe(bu_ipc_chan_t **parent_end, bu_ipc_chan_t **child_end)
     ce->hRead = hReadPC; ce->hWrite = hWriteCP;
 
     char buf[128];
-    snprintf(buf, sizeof(buf), "pipe:%d,%d", pc_r, cp_w);
+    /* On Windows, the child-end address encodes the HANDLE values (not CRT
+     * fd numbers), because CRT fd numbers are process-local and cannot be
+     * used by a spawned child.  The child-end HANDLEs are marked inheritable
+     * so they survive CreateProcess().  The child calls bu_ipc_connect() with
+     * this address, which calls _open_osfhandle() to reconstruct CRT fds from
+     * the inherited HANDLEs.                                                  */
+    snprintf(buf, sizeof(buf), "pipe_win:%I64x,%I64x",
+	     (unsigned __int64)(intptr_t)hReadPC,
+	     (unsigned __int64)(intptr_t)hWriteCP);
     ce->addr = buf; build_addr_env(ce);
     snprintf(buf, sizeof(buf), "pipe_parent:%d,%d", cp_r, pc_w);
     pe->addr = buf; build_addr_env(pe);
@@ -456,6 +464,35 @@ bu_ipc_connect(const char *addr)
     auto *c = make_chan();
     c->addr = addr;
 
+#ifdef _WIN32
+    /* Windows pipe transport: address encodes inheritable HANDLE values so
+     * that a spawned child can reconstruct valid CRT fds via _open_osfhandle().
+     * Format: "pipe_win:<read_handle_hex>,<write_handle_hex>"              */
+    if (bu_strncmp(addr, "pipe_win:", 9) == 0) {
+	unsigned __int64 hr64 = 0, hw64 = 0;
+	if (sscanf(addr + 9, "%I64x,%I64x", &hr64, &hw64) == 2) {
+	    HANDLE hRead  = (HANDLE)(intptr_t)hr64;
+	    HANDLE hWrite = (HANDLE)(intptr_t)hw64;
+	    int rfd = _open_osfhandle((intptr_t)hRead,  _O_RDONLY | _O_BINARY);
+	    int wfd = _open_osfhandle((intptr_t)hWrite, _O_WRONLY | _O_BINARY);
+	    if (rfd >= 0 && wfd >= 0) {
+		c->type     = BU_IPC_PIPE;
+		c->fd       = rfd;
+		c->fd_write = wfd;
+		c->hRead    = hRead;
+		c->hWrite   = hWrite;
+		build_addr_env(c);
+		return c;
+	    }
+	    /* Clean up if _open_osfhandle failed on one side */
+	    if (rfd >= 0) _close(rfd);
+	    if (wfd >= 0) _close(wfd);
+	    delete c;
+	    return nullptr;
+	}
+    }
+#endif /* _WIN32 */
+
     if (bu_strncmp(addr, "pipe:", 5) == 0) {
 	int rfd = -1, wfd = -1;
 	if (sscanf(addr + 5, "%d,%d", &rfd, &wfd) == 2) {
@@ -579,15 +616,24 @@ bu_ipc_read(bu_ipc_chan_t *chan, void *buf, size_t nbytes)
 /* ================================================================== */
 
 int
-bu_ipc_fileno(const bu_ipc_chan_t *chan)
+bu_ipc_fileno(bu_ipc_chan_t *chan)
 {
-    return chan ? chan->fd : -1;
+    if (!chan) return -1;
+    /* For TCP parent-end channels accept() must complete before the fd is
+     * valid.  Block here until the child connects (the child must already
+     * have been spawned by the caller before calling bu_ipc_fileno).      */
+    if (chan->type == BU_IPC_TCP && chan->fd < 0)
+	tcp_accept(chan);
+    return chan->fd;
 }
 
 int
-bu_ipc_fileno_write(const bu_ipc_chan_t *chan)
+bu_ipc_fileno_write(bu_ipc_chan_t *chan)
 {
     if (!chan) return -1;
+    /* Ensure TCP accept is complete so fd_write is valid. */
+    if (chan->type == BU_IPC_TCP && chan->fd < 0)
+	tcp_accept(chan);
     return (chan->fd_write >= 0) ? chan->fd_write : chan->fd;
 }
 
