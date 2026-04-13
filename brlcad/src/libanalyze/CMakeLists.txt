@@ -28,6 +28,7 @@ set(
   api.c
   centroid.c
   check_options.c
+  crofton.cpp
   density.cpp
   globals.c
   inside.c
