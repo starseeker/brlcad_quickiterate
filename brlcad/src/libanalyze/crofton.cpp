@@ -249,19 +249,12 @@ do_one_iteration(struct application *ap_template,
 	a->a_uptr  = wd;
     }
 
-    bu_log("DEBUG do_one_iteration: nrays=%zu ncpus=%zu\n", nrays, ncpus);
     bu_parallel(crofton_worker, (int)ncpus, (void *)wdata);
-    bu_log("DEBUG do_one_iteration: parallel done\n");
 
-    for (size_t i = 0; i < ncpus; i++) {
-	bu_log("DEBUG cleanup: freeing wdata[%zu].ap=%p\n", i, (void *)wdata[i].ap);
+    for (size_t i = 0; i < ncpus; i++)
 	bu_free(wdata[i].ap, "crofton app");
-    }
-    bu_log("DEBUG cleanup: freeing wdata\n");
     bu_free(wdata, "crofton wdata");
-    bu_log("DEBUG cleanup: freeing rays\n");
     bu_free(rays,  "crofton rays");
-    bu_log("DEBUG cleanup: done\n");
 }
 
 
@@ -303,9 +296,7 @@ analyze_crofton_sample(struct db_i   *dbip,
 	return -1;
     }
 
-    bu_log("DEBUG: rt_gettree OK, calling rt_prep_parallel\n");
     rt_prep_parallel(rtip, 1);
-    bu_log("DEBUG: rt_prep_parallel done, R=%g\n", rtip->rti_radius);
 
     double R = rtip->rti_radius;
     if (R <= 0.0) {
@@ -345,9 +336,6 @@ analyze_crofton_sample(struct db_i   *dbip,
     memset(&shared, 0, sizeof(shared));
     shared.sem_stats = bu_semaphore_register("CROFTON_STATS");
 
-    bu_log("DEBUG: setup complete, starting iterations, curr_rays=%zu R=%g\n",
-	   min_samples, R);
-
     /* ---- Iterative convergence loop ---- */
     double prev2_est_sa = -2.0, prev1_est_sa = -1.0, curr_est_sa = 0.0;
     double prev2_est_v  = -2.0, prev1_est_v  = -1.0, curr_est_v  = 0.0;
@@ -380,9 +368,16 @@ analyze_crofton_sample(struct db_i   *dbip,
 	    / (2.0 * (double)shared.total_rays);
 
 	/* Volume via kinematic measure:
-	 *   V = pi * R * total_chord / N_rays
+	 *   V = pi * R^2 * total_chord / N_rays
+	 *
+	 * Derivation: For two random points on a bounding sphere of radius R,
+	 * P(chord hits body) = SA/(4πR²) by Cauchy-Crofton.  For a convex body
+	 * E[chord_length | hit] = V / (SA/3) [mean chord of convex body].
+	 * E[L] = P(hit) × E[L|hit] = SA/(4πR²) × 3V/SA = 3V/(4πR²).
+	 * Solving: V = πR² × E[L] × (4/3) / 1 ... more directly:
+	 * Total chord = N × E[L] = N × V/(πR²), so V = πR² × total_chord / N.
 	 */
-	curr_est_v = PI * R * shared.total_chord / (double)shared.total_rays;
+	curr_est_v = PI * R * R * shared.total_chord / (double)shared.total_rays;
 
 	if (msgs) {
 	    bu_vls_printf(msgs,
@@ -422,8 +417,12 @@ analyze_crofton_sample(struct db_i   *dbip,
     *out_surf_area = curr_est_sa;
     *out_volume    = curr_est_v;
 
-    bu_free(resources, "crofton resources");
+    /* rt_free_rti calls rt_clean which iterates rti_resources; those pointers
+     * point into our resources[] array, so we must call rt_free_rti BEFORE
+     * freeing the array.                                                       */
     rt_free_rti(rtip);
+    bu_free(resources, "crofton resources");
+    resources = NULL;
     return 0;
 }
 

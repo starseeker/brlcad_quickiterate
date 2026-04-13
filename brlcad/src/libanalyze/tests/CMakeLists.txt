@@ -17,6 +17,13 @@ brlcad_addexec(analyze_crofton crofton.c "libanalyze;librt;libnmg;libbg;libwdb;l
 
 brlcad_add_test(NAME analyze_crofton COMMAND analyze_crofton)
 
+#####################################
+#  prim_tess (moved from librt/tests #
+#  so it can link against libanalyze #
+#####################################
+brlcad_addexec(analyze_prim_tess prim_tess.c "libanalyze;librt;libnmg;libwdb;libbg;libbu" TEST)
+brlcad_add_test(NAME analyze_prim_tess COMMAND analyze_prim_tess)
+
 cmakefiles(
   CMakeLists.txt
   arbs.g
