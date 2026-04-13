@@ -456,6 +456,81 @@ BU_EXPORT void bu_ipc_detach(bu_ipc_chan_t *chan);
 BU_EXPORT int bu_ipc_move_high_fd(bu_ipc_chan_t *chan, int min_fd);
 
 
+/**
+ * @brief Cross-platform read-readiness multiplexer.
+ *
+ * bu_ipc_mux provides a unified interface for waiting on multiple file
+ * descriptors to become readable:
+ *
+ *  - On POSIX: wraps select(2).
+ *  - On Windows: uses WaitForMultipleObjects() for anonymous-pipe CRT fds
+ *    (which select() cannot monitor) and WSAEventSelect() for WinSock
+ *    socket fds, presenting a single portable interface.
+ *
+ * Pipe vs socket detection on Windows is automatic: if _get_osfhandle(fd)
+ * returns a valid HANDLE with GetFileType()==FILE_TYPE_PIPE the fd is
+ * treated as an anonymous pipe; otherwise it is assumed to be a WinSock
+ * socket passed as a plain int (the libpkg convention).
+ *
+ * Typical usage:
+ * @code
+ *   bu_ipc_mux_t *mux = bu_ipc_mux_create();
+ *   bu_ipc_mux_add(mux, listen_fd);
+ *   bu_ipc_mux_add(mux, conn_rfd);
+ *   if (bu_ipc_mux_wait(mux, 5000) > 0) {
+ *       if (bu_ipc_mux_is_ready(mux, conn_rfd))
+ *           ; // ... read from conn_rfd ...
+ *   }
+ *   bu_ipc_mux_destroy(mux);
+ * @endcode
+ */
+struct bu_ipc_mux;
+typedef struct bu_ipc_mux bu_ipc_mux_t;
+
+/** Allocate an empty mux.  Returns NULL on allocation failure. */
+BU_EXPORT bu_ipc_mux_t *bu_ipc_mux_create(void);
+
+/**
+ * Add a CRT file descriptor (pipe, stdin, regular file) to the watch set.
+ *
+ * On Windows the fd must be a genuine CRT fd (returned by _open_osfhandle()
+ * or _open()) — NOT a WinSock SOCKET cast to int.  To add a socket use
+ * bu_ipc_mux_add_socket() instead.  Duplicate adds are a no-op.
+ * Returns 0 on success, -1 on error.
+ */
+BU_EXPORT int bu_ipc_mux_add(bu_ipc_mux_t *m, int fd);
+
+/**
+ * Add a WinSock socket (on Windows) or plain fd (on POSIX) to the watch set.
+ *
+ * On Windows this always takes the WSAEventSelect() path, avoiding the
+ * _get_osfhandle() call that would crash for socket handle values.
+ * On POSIX this is identical to bu_ipc_mux_add().
+ * Duplicate adds are a no-op.  Returns 0 on success, -1 on error.
+ */
+BU_EXPORT int bu_ipc_mux_add_socket(bu_ipc_mux_t *m, int socket_fd);
+
+/** Remove @p fd from the watch set.  No-op if fd is not present. */
+BU_EXPORT void bu_ipc_mux_remove(bu_ipc_mux_t *m, int fd);
+
+/**
+ * Wait for one or more watched fds to become readable.
+ *
+ * @param timeout_ms  0 = poll once (non-blocking).  Negative = wait forever.
+ *                    Positive = wait up to that many milliseconds.
+ * @return  Number of ready fds (>= 1), 0 on timeout, -1 on error.
+ *
+ * After this returns > 0, use bu_ipc_mux_is_ready() to query each fd.
+ */
+BU_EXPORT int bu_ipc_mux_wait(bu_ipc_mux_t *m, int timeout_ms);
+
+/** Return non-zero if @p fd became readable during the last bu_ipc_mux_wait(). */
+BU_EXPORT int bu_ipc_mux_is_ready(const bu_ipc_mux_t *m, int fd);
+
+/** Free the mux.  Does not close any watched fds. */
+BU_EXPORT void bu_ipc_mux_destroy(bu_ipc_mux_t *m);
+
+
 /** @} */
 
 __END_DECLS

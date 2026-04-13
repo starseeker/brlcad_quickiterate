@@ -277,6 +277,11 @@ int detached = 0;		/* continue after EOF */
 fd_set clients;
 int print_on = 1;
 
+/* Count of active server connections that use PKG_STDIO_MODE (pipe transport).
+ * These cannot be tracked in the clients fd_set (pkc_fd == PKG_STDIO_MODE == -3).
+ * Used by the "done" checks to know when all workers have disconnected.        */
+static int n_pipe_servers = 0;
+
 
 /*
  * Scan the ihost table.  For all eligible hosts that don't
@@ -577,11 +582,15 @@ drop_server(struct servers *sp, char *why)
 
     /* Clear the bits from "clients" now, to prevent further select()s */
     fd = pc->pkc_fd;
-    if (fd < 0) {
+    if (fd == PKG_STDIO_MODE) {
+	/* Pipe-based IPC connection: tracked outside the clients fd_set. */
+	if (n_pipe_servers > 0) n_pipe_servers--;
+    } else if (fd < 0) {
 	bu_log("drop_server: fd=%d is unreasonable, forget it!\n", fd);
 	return;
+    } else {
+	FD_CLR(sp->sr_pc->pkc_fd, &clients);
     }
-    FD_CLR(sp->sr_pc->pkc_fd, &clients);
 
     if (oldstate != SRST_READY && oldstate != SRST_NEED_TREE) return;
 
@@ -777,7 +786,13 @@ addclient_ipc(struct pkg_conn *pc, struct ihost *ihp)
     if (rem_debug)
 	bu_log("%s addclient_ipc(%s, fd=%d)\n", stamp(), ihp->ht_name, fd);
 
-    FD_SET(fd, &clients);
+    if (fd == PKG_STDIO_MODE) {
+	/* Pipe-based connection: cannot use FD_SET with -3.
+	 * Track separately so done-checks remain accurate.  */
+	n_pipe_servers++;
+    } else {
+	FD_SET(fd, &clients);
+    }
 
     /* Find the first unused server slot. */
     slot = -1;
@@ -818,91 +833,12 @@ input_error(const char *str)
 static void
 check_input(int waittime)
 {
-    static fd_set ifdset;
     int i;
     struct pkg_conn *pc;
-    static struct timeval tv;
     int val;
 
-    /* Clean up any helper processes that have finished */
+    /* Step 1: Drain any packages already buffered in libpkg */
     reap_helpers();
-
-    /* First, handle any packages waiting in internal buffers */
-    for (i = 0; i <(int)MAXSERVERS; i++) {
-	pc = servers[i].sr_pc;
-	if (pc == PKC_NULL) continue;
-	val = pkg_process(pc);
-	if (val < 0)
-	    drop_server(&servers[i], "pkg_process() error");
-    }
-
-    /* Second, hang in select() waiting for something to happen */
-    tv.tv_sec = waittime;
-    tv.tv_usec = 0;
-
-    /* Copy clients fd_set for select().  A direct struct assignment is
-     * portable: on POSIX it copies the bitmask; on Windows (WinSock) it
-     * copies fd_count + fd_array[], correctly preserving socket handles of
-     * any magnitude.  The legacy FD_MOVE macro iterates 0..FD_SETSIZE-1
-     * as integer socket values, silently dropping handles >= FD_SETSIZE. */
-    ifdset = clients;		/* ibits = clients */
-    FD_SET(tcp_listen_fd, &ifdset);	/* ibits |= tcp_listen_fd */
-
-    /* Compute nfds = highest fd in the set + 1.  Using a hardcoded value
-     * (e.g. 32) silently ignores any socket whose fd number equals or
-     * exceeds that constant, which can happen in a parallel ninja/CTest
-     * environment where the build system leaves many fds open.          */
-    {
-	int maxfd = tcp_listen_fd;
-	int j;
-	for (j = 0; j < (int)MAXSERVERS; j++) {
-	    struct pkg_conn *spc = servers[j].sr_pc;
-	    if (spc != PKC_NULL && spc->pkc_fd > maxfd)
-		maxfd = spc->pkc_fd;
-	}
-	if (fileno(stdin) > maxfd)
-	    maxfd = fileno(stdin);
-	val = select(maxfd + 1, &ifdset, (fd_set *)0, (fd_set *)0, &tv);
-    }
-    if (val < 0) {
-	perror("select");
-	return;
-    }
-    if (val == 0) {
-	/* At this point, ibits==0 */
-	if (rem_debug>1) bu_log("%s select timed out after %d seconds\n", stamp(), waittime);
-	return;
-    }
-
-    /* Third, accept any pending connections */
-    if (FD_ISSET(tcp_listen_fd, &ifdset)) {
-	pc = pkg_getclient(tcp_listen_fd, pkgswitch, input_error, 1);
-	if (pc != PKC_NULL && pc != PKC_ERROR)
-	    addclient(pc);
-	FD_CLR(tcp_listen_fd, &ifdset);
-    }
-
-    /* Fourth, get any new traffic off the network into libpkg buffers.
-     * Iterate over server slots and check each server's actual socket fd
-     * rather than treating the slot index as a socket fd.  The old idiom
-     * (FD_ISSET(i, ...) where i is both the slot index and the assumed fd)
-     * breaks on Windows where socket handles are not small integers. */
-    for (i = 0; i < (int)MAXSERVERS; i++) {
-	int sfd;
-	pc = servers[i].sr_pc;
-	if (pc == PKC_NULL) continue;
-	sfd = pc->pkc_fd;
-	if (!FD_ISSET(sfd, &ifdset)) continue;
-	val = pkg_suckin(pc);
-	if (val < 0) {
-	    drop_server(&servers[i], "pkg_suckin() error");
-	} else if (val == 0) {
-	    drop_server(&servers[i], "EOF");
-	}
-	FD_CLR(sfd, &ifdset);
-    }
-
-    /* Fifth, handle any new packages now waiting in internal buffers */
     for (i = 0; i < (int)MAXSERVERS; i++) {
 	pc = servers[i].sr_pc;
 	if (pc == PKC_NULL) continue;
@@ -910,12 +846,89 @@ check_input(int waittime)
 	    drop_server(&servers[i], "pkg_process() error");
     }
 
-    /* Finally, handle any command input (This can recurse via "read") */
-    if (waittime>0 &&
-	!feof(stdin) &&
-	FD_ISSET(fileno(stdin), &ifdset)) {
-	interactive_cmd(stdin);
+    /* Step 2: Build the readiness mux.
+     *
+     * For each server connection we watch the "readable" fd:
+     *   - Socket connections (pkc_fd != PKG_STDIO_MODE): watch pkc_fd.
+     *   - Pipe connections   (pkc_fd == PKG_STDIO_MODE): watch pkc_in_fd,
+     *     which is the CRT fd for the pipe read end.
+     *
+     * On POSIX bu_ipc_mux wraps select(); on Windows it uses
+     * WaitForMultipleObjects() for pipe handles and WSAEventSelect()
+     * for WinSock sockets — callers need not know which.               */
+    bu_ipc_mux_t *mux = bu_ipc_mux_create();
+    bu_ipc_mux_add_socket(mux, tcp_listen_fd);
+
+    for (i = 0; i < (int)MAXSERVERS; i++) {
+	pc = servers[i].sr_pc;
+	if (pc == PKC_NULL) continue;
+	if (pc->pkc_fd == PKG_STDIO_MODE) {
+	    /* Pipe: pkc_in_fd is a real CRT fd — safe for bu_ipc_mux_add() */
+	    if (pc->pkc_in_fd >= 0)
+		bu_ipc_mux_add(mux, pc->pkc_in_fd);
+	} else {
+	    /* Socket: pkc_fd is a WinSock SOCKET cast to int */
+	    if (pc->pkc_fd >= 0)
+		bu_ipc_mux_add_socket(mux, pc->pkc_fd);
+	}
     }
+
+    /* Track stdin for interactive mode. */
+    int stdin_fd = -1;
+    if (waittime > 0 && !feof(stdin) && FD_ISSET(fileno(stdin), &clients)) {
+	stdin_fd = fileno(stdin);
+	bu_ipc_mux_add(mux, stdin_fd);
+    }
+
+    /* Step 3: Wait */
+    int timeout_ms = (waittime > 0) ? waittime * 1000 : 0;
+    val = bu_ipc_mux_wait(mux, timeout_ms);
+
+    if (val < 0) {
+	bu_log("check_input: bu_ipc_mux_wait error\n");
+	bu_ipc_mux_destroy(mux);
+	return;
+    }
+    if (val == 0) {
+	if (rem_debug > 1)
+	    bu_log("%s check_input: timed out after %d s\n", stamp(), waittime);
+	bu_ipc_mux_destroy(mux);
+	return;
+    }
+
+    /* Step 4: Accept pending TCP connections */
+    if (bu_ipc_mux_is_ready(mux, tcp_listen_fd)) {
+	pc = pkg_getclient(tcp_listen_fd, pkgswitch, input_error, 1);
+	if (pc != PKC_NULL && pc != PKC_ERROR)
+	    addclient(pc);
+    }
+
+    /* Step 5: Read from active server connections */
+    for (i = 0; i < (int)MAXSERVERS; i++) {
+	struct pkg_conn *spc = servers[i].sr_pc;
+	if (spc == PKC_NULL) continue;
+	int rfd = (spc->pkc_fd == PKG_STDIO_MODE) ? spc->pkc_in_fd : spc->pkc_fd;
+	if (rfd < 0 || !bu_ipc_mux_is_ready(mux, rfd)) continue;
+	val = pkg_suckin(spc);
+	if (val < 0)
+	    drop_server(&servers[i], "pkg_suckin() error");
+	else if (val == 0)
+	    drop_server(&servers[i], "EOF");
+    }
+
+    /* Step 6: Process newly buffered packages */
+    for (i = 0; i < (int)MAXSERVERS; i++) {
+	pc = servers[i].sr_pc;
+	if (pc == PKC_NULL) continue;
+	if (pkg_process(pc) < 0)
+	    drop_server(&servers[i], "pkg_process() error");
+    }
+
+    /* Step 7: Handle interactive stdin commands */
+    if (stdin_fd >= 0 && bu_ipc_mux_is_ready(mux, stdin_fd))
+	interactive_cmd(stdin);
+
+    bu_ipc_mux_destroy(mux);
 }
 
 
@@ -1454,12 +1467,11 @@ add_host(struct ihost *ihp)
  * the common bu_process_create() tail of add_host().
  *
  * Transport selection:
- *   On POSIX we prefer a Unix-domain socketpair (bidirectional, works with
- *   select(2), no port allocation).  On Windows, select() can only monitor
- *   Winsock SOCKETs, not anonymous pipe handles, so we use TCP loopback
- *   instead.  bu_ipc_pair_prefer() falls through to the next available
- *   transport automatically, so BU_IPC_SOCKET will succeed on POSIX and
- *   skip to BU_IPC_TCP on Windows.
+ *   bu_ipc_pair_prefer(BU_IPC_PIPE) tries: anonymous pipe → socketpair
+ *   (POSIX) → TCP loopback.  check_input() uses bu_ipc_mux which
+ *   handles all three transports on all platforms via platform-native
+ *   wait APIs (select on POSIX; WaitForMultipleObjects + WSAEventSelect
+ *   on Windows), so no platform-specific transport override is needed.
  *
  * The child-end IPC address is communicated to rtsrv via the -I flag and
  * also via the BU_IPC_ADDR environment variable (BU_IPC_ADDR_ENVVAR).
@@ -1486,17 +1498,13 @@ add_host_local(struct ihost *ihp)
     }
 
     /* Create an IPC channel between remrt (parent) and rtsrv (child).
-     * On POSIX prefer a Unix-domain socketpair (bidirectional, zero-port).
-     * On Windows select() cannot monitor anonymous pipe handles — it only
-     * works with WinSock SOCKETs — so prefer TCP loopback there.
-     * bu_ipc_pair_prefer() falls back to the next transport automatically:
-     *   POSIX: SOCKET → PIPE → TCP
-     *   Windows: TCP (SOCKET unavailable, PIPE breaks select) */
-#ifdef _WIN32
-    if (bu_ipc_pair_prefer(&pe, &ce, BU_IPC_TCP) != 0) {
-#else
-    if (bu_ipc_pair_prefer(&pe, &ce, BU_IPC_SOCKET) != 0) {
-#endif
+     * Transport selection:
+     *   bu_ipc_pair_prefer(BU_IPC_PIPE) tries: anonymous pipe → socketpair
+     *   (POSIX) → TCP loopback.  check_input() uses bu_ipc_mux which
+     *   handles all three transports on all platforms via platform-native
+     *   wait APIs (select on POSIX; WaitForMultipleObjects + WSAEventSelect
+     *   on Windows), so no platform-specific transport override is needed. */
+    if (bu_ipc_pair_prefer(&pe, &ce, BU_IPC_PIPE) != 0) {
 	bu_log("add_host_local: bu_ipc_pair failed for %s — "
 	       "falling back to TCP host\n", ihp->ht_name);
 	/* Nothing to clean up; fall through to the normal TCP path. */
@@ -2282,7 +2290,11 @@ schedule(struct timeval *nowp)
 	    case SRST_CLOSING:
 		/* Handle final closing */
 		if (rem_debug>1) bu_log("%s Final close on %s\n", stamp(), sp->sr_host->ht_name);
-		FD_CLR(sp->sr_pc->pkc_fd, &clients);
+		if (sp->sr_pc->pkc_fd == PKG_STDIO_MODE) {
+		    if (n_pipe_servers > 0) n_pipe_servers--;
+		} else {
+		    FD_CLR(sp->sr_pc->pkc_fd, &clients);
+		}
 		pkg_close(sp->sr_pc);
 
 		sp->sr_pc = PKC_NULL;
@@ -3037,6 +3049,7 @@ cd_wait(const int UNUSED(argc), const char **UNUSED(argv))
 	while (!done && FrameHead.fr_forw != &FrameHead) {
 	    for (i = 0, done = 1; i < (int)FD_SETSIZE; i++)
 		if (FD_ISSET(i, &clients)) { done = 0; break; }
+	    if (done && n_pipe_servers > 0) done = 0;
 	    check_input(30);	/* delay up to 30 secs */
 
 	    (void)gettimeofday(&now, (struct timezone *)0);
@@ -3942,6 +3955,7 @@ do_work(int auto_start)
 	    int done, i;
 	    for (i = 0, done = 1; i < (int)FD_SETSIZE; i++)
 		if (FD_ISSET(i, &clients)) { done = 0; break; }
+	    if (done && n_pipe_servers > 0) done = 0;
 	    if (done) break;
 	}
 
@@ -4064,9 +4078,11 @@ main(int argc, char *argv[])
 /* Aargh.  We really need a FD_ISZERO macro. */
 	for (i = 0, done = 1; i < (int)FD_SETSIZE; i++)
 	    if (FD_ISSET(i, &clients)) { done = 0; break; }
+	if (done && n_pipe_servers > 0) done = 0;
 	while (!done) {
 	    for (i = 0, done = 1; i < (int)FD_SETSIZE; i++)
 		if (FD_ISSET(i, &clients)) { done = 0; break; }
+	    if (done && n_pipe_servers > 0) done = 0;
 	    do_work(0);	/* no auto starting of servers */
 	}
 	/*
