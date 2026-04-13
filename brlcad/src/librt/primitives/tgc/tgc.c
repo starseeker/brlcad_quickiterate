@@ -2045,10 +2045,11 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	    absolute = M_PI_2;
 
 	if (ttol->rel > 0.0) {
-	    if (ttol->rel * 2.0 * radius < max_radius)
-		rel = 2.0 * acos(1.0 - ttol->rel * 2.0 * radius/max_radius);
-	    else
-		rel = M_PI_2;
+	    /* Relative tolerance is a fraction of the cross-section radius
+	     * (max_radius), not the bounding sphere.  Using the bounding
+	     * sphere for long thin cylinders gives far too few segments. */
+	    fastf_t chord_frac = FMIN(1.0, ttol->rel);
+	    rel = 2.0 * acos(FMAX(-1.0, 1.0 - chord_frac));
 	} else
 	    rel = M_PI_2;
 
