@@ -2592,6 +2592,31 @@ rt_arb_surf_area(fastf_t *area, const struct rt_db_internal *ip)
 
     type = cgtype - 4;
 
+    /* Build equiv_pts[] so that coincident vertices are mapped to the
+     * lowest-numbered equivalent vertex.  This handles non-canonical ARB
+     * encodings where the coincident pairs are not at the positions assumed
+     * by rt_arb_faces (e.g. an ARB6 with pt[1]==pt[2] instead of the
+     * canonical pt[4]==pt[5] and pt[6]==pt[7]).  Without this, faces whose
+     * three bg_make_plane_3pnts points happen to be duplicates get silently
+     * skipped, giving a badly underestimated surface area. */
+    int equiv_pts[8];
+    fastf_t dist_sq = tol.dist * tol.dist;
+    equiv_pts[0] = 0;
+    for (int ei = 1; ei < 8; ei++) {
+	int found = 0;
+	for (int ej = ei-1; ej >= 0; ej--) {
+	    vect_t work;
+	    VSUB2(work, arb->pt[ei], arb->pt[ej]);
+	    if (MAGSQ(work) < dist_sq) {
+		equiv_pts[ei] = equiv_pts[ej];
+		found = 1;
+		break;
+	    }
+	}
+	if (!found)
+	    equiv_pts[ei] = ei;
+    }
+
     /* allocate pts array, maximum 4 verts per arb8 face */
     struct arb_poly_face face = ARB_POLY_FACE_INIT_ZERO;
     face.pts = (point_t *)bu_calloc(4, sizeof(point_t), "rt_arb8: pts");
@@ -2600,23 +2625,46 @@ rt_arb_surf_area(fastf_t *area, const struct rt_db_internal *ip)
     int i;
     const int arb_faces[5][24] = rt_arb_faces;
     for (face.npts = 0, i = 0; i < 6; face.npts = 0, i++) {
-        int a, b, c, d; /* 4 indices to face vertices */
+        int raw[4]; /* raw face vertex indices from table */
+        int uniq[4]; /* deduplicated indices */
+        int nuniq = 0;
 
-        a = arb_faces[type][i*4+0];
-        b = arb_faces[type][i*4+1];
-        c = arb_faces[type][i*4+2];
-        d = arb_faces[type][i*4+3];
-        if (a == -1)
+        raw[0] = arb_faces[type][i*4+0];
+        raw[1] = arb_faces[type][i*4+1];
+        raw[2] = arb_faces[type][i*4+2];
+        raw[3] = arb_faces[type][i*4+3];
+        if (raw[0] == -1)
             continue;
 
-        /* find plane eqn for this face */
-        if (bg_make_plane_3pnts(face.plane_eqn, arb->pt[a], arb->pt[b], arb->pt[c], &tol) < 0)
+	/* Apply equiv_pts and collect unique vertex indices for this face */
+	for (int ri = 0; ri < 4; ri++) {
+	    int idx;
+	    int dup;
+	    int ui;
+
+	    if (raw[ri] < 0)
+		continue;
+	    idx = equiv_pts[raw[ri]];
+
+	    /* check for duplicate */
+	    dup = 0;
+	    for (ui = 0; ui < nuniq; ui++) {
+		if (uniq[ui] == idx) { dup = 1; break; }
+	    }
+	    if (!dup)
+		uniq[nuniq++] = idx;
+	}
+
+	if (nuniq < 3)
+	    continue; /* degenerate face - skip */
+
+        /* find plane eqn for this face using first 3 unique points */
+        if (bg_make_plane_3pnts(face.plane_eqn, arb->pt[uniq[0]], arb->pt[uniq[1]], arb->pt[uniq[2]], &tol) < 0)
             continue;
 
-        ARB_AREA_ADD_PT(face, arb->pt[a]);
-        ARB_AREA_ADD_PT(face, arb->pt[b]);
-        ARB_AREA_ADD_PT(face, arb->pt[c]);
-        ARB_AREA_ADD_PT(face, arb->pt[d]);
+	/* add all unique points */
+	for (int ui = 0; ui < nuniq; ui++)
+	    ARB_AREA_ADD_PT(face, arb->pt[uniq[ui]]);
 
         /* The plane equations returned by bg_make_plane_3pnts above do
          * not necessarily point outward. Use the reference center
@@ -2625,7 +2673,6 @@ rt_arb_surf_area(fastf_t *area, const struct rt_db_internal *ip)
          * they always give the outward pointing normal vector. */
         if (DIST_PNT_PLANE(center_pt, face.plane_eqn) > 0.0)
             HREVERSE(face.plane_eqn, face.plane_eqn);
-
 
 	fastf_t angles[5];
 	findang(angles, face.plane_eqn);
