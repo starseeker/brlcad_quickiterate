@@ -97,11 +97,11 @@ count_nmg_mesh(struct model *m, long *nfaces_out, long *nverts_out)
 
 
 /* ------------------------------------------------------------------ */
-/* Comparison function for qsort (descending by time_ms)               */
+/* Comparison function for bu_sort (descending by time_ms)               */
 /* ------------------------------------------------------------------ */
 
 static int
-cmp_result_desc(const void *a, const void *b)
+cmp_result_desc(const void *a, const void *b, void *UNUSED(data))
 {
     const struct tess_result *ra = (const struct tess_result *)a;
     const struct tess_result *rb = (const struct tess_result *)b;
@@ -118,6 +118,8 @@ cmp_result_desc(const void *a, const void *b)
 int
 main(int argc, char *argv[])
 {
+    bu_setprogname(argv[0]);
+
     const char *usage =
 	"Usage: rt_tess_timing [-t <ms>] [-v] [-p] [-s <type>,...]\n"
 	"                      [-a <abs>] [-r <rel>] [-n <norm>] <file.g>\n"
@@ -318,7 +320,7 @@ main(int argc, char *argv[])
     } FOR_ALL_DIRECTORY_END
 
     /* Sort descending by time */
-    qsort(results, (size_t)nresults, sizeof(struct tess_result), cmp_result_desc);
+    bu_sort(results, (size_t)nresults, sizeof(struct tess_result), cmp_result_desc, NULL);
 
     /* Compute total elapsed time */
     double total_ms = 0.0;
