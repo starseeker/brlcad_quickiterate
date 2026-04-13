@@ -90,6 +90,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <string>
+#include <vector>
 #include <cerrno>
 
 #include "bu/defines.h"
@@ -574,7 +575,13 @@ bu_ipc_write(bu_ipc_chan_t *chan, const void *buf, size_t nbytes)
     size_t rem = nbytes;
     while (rem > 0) {
 #ifdef _WIN32
-	int n = _write(wfd, p, (unsigned)(rem > 65536 ? 65536 : rem));
+	int n;
+	if (chan->type == BU_IPC_TCP) {
+	    /* wfd is a WinSock SOCKET after tcp_accept(); must use send(). */
+	    n = send((SOCKET)wfd, p, (int)(rem > 65536 ? 65536 : rem), 0);
+	} else {
+	    n = _write(wfd, p, (unsigned)(rem > 65536 ? 65536 : rem));
+	}
 #else
 	ssize_t n = write(wfd, p, rem);
 #endif
@@ -598,11 +605,19 @@ bu_ipc_read(bu_ipc_chan_t *chan, void *buf, size_t nbytes)
     size_t rem = nbytes;
     while (rem > 0) {
 #ifdef _WIN32
-	int n = _read(rfd, p, (unsigned)(rem > 65536 ? 65536 : rem));
+	int n;
+	if (chan->type == BU_IPC_TCP) {
+	    /* rfd is a WinSock SOCKET after tcp_accept(); must use recv(). */
+	    n = recv((SOCKET)rfd, p, (int)(rem > 65536 ? 65536 : rem), 0);
+	    if (n == 0) return 0;  /* graceful close */
+	} else {
+	    n = _read(rfd, p, (unsigned)(rem > 65536 ? 65536 : rem));
+	    if (n == 0) return 0;
+	}
 #else
 	ssize_t n = read(rfd, p, rem);
-#endif
 	if (n == 0) return 0;
+#endif
 	if (n < 0)  return -1;
 	p   += n;
 	rem -= (size_t)n;
@@ -654,8 +669,15 @@ bu_ipc_close(bu_ipc_chan_t *chan)
     if (!chan) return;
 
 #ifdef _WIN32
-    if (chan->fd       >= 0) _close(chan->fd);
-    if (chan->fd_write >= 0 && chan->fd_write != chan->fd) _close(chan->fd_write);
+    if (chan->type == BU_IPC_TCP) {
+	/* TCP fds are WinSock sockets, not CRT fds — must use closesocket(). */
+	if (chan->fd       >= 0) closesocket((SOCKET)chan->fd);
+	if (chan->fd_write >= 0 && chan->fd_write != chan->fd)
+	    closesocket((SOCKET)chan->fd_write);
+    } else {
+	if (chan->fd       >= 0) _close(chan->fd);
+	if (chan->fd_write >= 0 && chan->fd_write != chan->fd) _close(chan->fd_write);
+    }
     if (chan->listen_fd >= 0) closesocket((SOCKET)chan->listen_fd);
 #else
     if (chan->fd       >= 0) close(chan->fd);
@@ -726,6 +748,253 @@ bu_ipc_move_high_fd(bu_ipc_chan_t *chan, int min_fd)
     return 0;
 #endif
 }
+
+
+/* ================================================================== */
+/* bu_ipc_mux: cross-platform read-readiness multiplexer               */
+/* ================================================================== */
+
+#ifndef _WIN32
+
+/* POSIX implementation: thin wrapper around select(). */
+
+struct bu_ipc_mux {
+    fd_set watch;
+    fd_set ready;
+    int maxfd;
+};
+
+bu_ipc_mux_t *
+bu_ipc_mux_create(void)
+{
+    bu_ipc_mux_t *m = new bu_ipc_mux_t();
+    FD_ZERO(&m->watch);
+    FD_ZERO(&m->ready);
+    m->maxfd = -1;
+    return m;
+}
+
+void
+bu_ipc_mux_destroy(bu_ipc_mux_t *m)
+{
+    if (!m) return;
+    delete m;
+}
+
+int
+bu_ipc_mux_add(bu_ipc_mux_t *m, int fd)
+{
+    if (!m || fd < 0) return -1;
+    if (FD_ISSET(fd, &m->watch)) return 0;  /* duplicate */
+    FD_SET(fd, &m->watch);
+    if (fd > m->maxfd) m->maxfd = fd;
+    return 0;
+}
+
+void
+bu_ipc_mux_remove(bu_ipc_mux_t *m, int fd)
+{
+    if (!m || fd < 0) return;
+    FD_CLR(fd, &m->watch);
+    if (fd == m->maxfd) {
+        m->maxfd = -1;
+        for (int i = fd - 1; i >= 0; --i) {
+            if (FD_ISSET(i, &m->watch)) { m->maxfd = i; break; }
+        }
+    }
+}
+
+int
+bu_ipc_mux_wait(bu_ipc_mux_t *m, int timeout_ms)
+{
+    if (!m) return -1;
+    m->ready = m->watch;
+    struct timeval tv, *tvp = NULL;
+    if (timeout_ms >= 0) {
+        tv.tv_sec  = timeout_ms / 1000;
+        tv.tv_usec = (timeout_ms % 1000) * 1000;
+        tvp = &tv;
+    }
+    return select(m->maxfd + 1, &m->ready, NULL, NULL, tvp);
+}
+
+int
+bu_ipc_mux_is_ready(const bu_ipc_mux_t *m, int fd)
+{
+    if (!m || fd < 0) return 0;
+    return FD_ISSET(fd, &m->ready) ? 1 : 0;
+}
+
+int
+bu_ipc_mux_add_socket(bu_ipc_mux_t *m, int socket_fd)
+{
+    /* POSIX: sockets are regular fds; identical to bu_ipc_mux_add(). */
+    return bu_ipc_mux_add(m, socket_fd);
+}
+
+#else /* _WIN32 */
+
+/* Windows implementation:
+ *  - Anonymous pipe CRT fds -> WaitForMultipleObjects() directly on HANDLE
+ *  - WinSock socket fds     -> WSAEventSelect() converts to a waitable event
+ *
+ * After WaitForMultipleObjects fires, all remaining handles are checked with
+ * a zero-timeout to collect every simultaneously-ready fd.  Socket handles
+ * are reset to blocking mode before the function returns so that subsequent
+ * recv() calls in libpkg work correctly.
+ */
+
+struct bu_ipc_mux_entry {
+    int    fd;
+    HANDLE pipe_h;   /* valid pipe HANDLE, or INVALID_HANDLE_VALUE for sockets */
+};
+
+struct bu_ipc_mux {
+    std::vector<bu_ipc_mux_entry> entries;
+    std::vector<int>              ready;
+};
+
+bu_ipc_mux_t *
+bu_ipc_mux_create(void)
+{
+    return new bu_ipc_mux_t();
+}
+
+void
+bu_ipc_mux_destroy(bu_ipc_mux_t *m)
+{
+    if (!m) return;
+    delete m;
+}
+
+int
+bu_ipc_mux_add(bu_ipc_mux_t *m, int fd)
+{
+    if (!m || fd < 0) return -1;
+    for (auto &e : m->entries)
+        if (e.fd == fd) return 0;  /* duplicate */
+
+    bu_ipc_mux_entry ent;
+    ent.fd = fd;
+    HANDLE h = (HANDLE)_get_osfhandle(fd);
+    ent.pipe_h = (h != INVALID_HANDLE_VALUE && GetFileType(h) == FILE_TYPE_PIPE)
+                 ? h : INVALID_HANDLE_VALUE;
+    m->entries.push_back(ent);
+    return 0;
+}
+
+int
+bu_ipc_mux_add_socket(bu_ipc_mux_t *m, int socket_fd)
+{
+    /* On Windows, WinSock SOCKETs are not CRT fds; calling _get_osfhandle()
+     * on them triggers the invalid-parameter handler.  Force the WSA path by
+     * setting pipe_h = INVALID_HANDLE_VALUE unconditionally.               */
+    if (!m || socket_fd < 0) return -1;
+    for (auto &e : m->entries)
+        if (e.fd == socket_fd) return 0;  /* duplicate */
+
+    bu_ipc_mux_entry ent;
+    ent.fd = socket_fd;
+    ent.pipe_h = INVALID_HANDLE_VALUE;  /* always WSA path */
+    m->entries.push_back(ent);
+    return 0;
+}
+
+void
+bu_ipc_mux_remove(bu_ipc_mux_t *m, int fd)
+{
+    if (!m) return;
+    for (auto it = m->entries.begin(); it != m->entries.end(); ++it) {
+        if (it->fd == fd) { m->entries.erase(it); return; }
+    }
+}
+
+int
+bu_ipc_mux_wait(bu_ipc_mux_t *m, int timeout_ms)
+{
+    if (!m || m->entries.empty()) return 0;
+    m->ready.clear();
+
+    /* Build two parallel arrays:
+     *   all_handles[] - handles passed to WaitForMultipleObjects
+     *   entry_idx[]   - index into m->entries for each handle
+     * For socket entries we create a temporary WSAEVENT.
+     * For pipe entries we use the pipe HANDLE directly. */
+
+    HANDLE   all_handles[MAXIMUM_WAIT_OBJECTS];
+    int      entry_idx[MAXIMUM_WAIT_OBJECTS];
+    WSAEVENT wsa_evs[MAXIMUM_WAIT_OBJECTS];   /* socket events to close later */
+    int      sock_entry_for_ev[MAXIMUM_WAIT_OBJECTS]; /* entry_idx for socket events */
+    int      n_handles = 0, n_wsa = 0;
+
+    for (int i = 0; i < (int)m->entries.size() && n_handles < MAXIMUM_WAIT_OBJECTS; ++i) {
+        auto &e = m->entries[i];
+        if (e.pipe_h != INVALID_HANDLE_VALUE) {
+            /* Pipe: waitable directly */
+            all_handles[n_handles] = e.pipe_h;
+            entry_idx[n_handles]   = i;
+            ++n_handles;
+        } else {
+            /* Socket: wrap in a WSAEVENT */
+            WSAEVENT ev = WSACreateEvent();
+            if (ev == WSA_INVALID_EVENT) continue;
+            WSAEventSelect((SOCKET)(uintptr_t)e.fd, ev, FD_READ | FD_ACCEPT | FD_CLOSE);
+            all_handles[n_handles]       = ev;
+            entry_idx[n_handles]         = i;
+            sock_entry_for_ev[n_wsa]     = n_handles;
+            wsa_evs[n_wsa]               = ev;
+            ++n_handles;
+            ++n_wsa;
+        }
+    }
+
+    if (n_handles == 0) {
+        /* No monitorable fds */
+        if (timeout_ms > 0) Sleep((DWORD)timeout_ms);
+        return 0;
+    }
+
+    /* Wait */
+    DWORD timeout_dw = (timeout_ms < 0) ? INFINITE
+                     : (timeout_ms == 0) ? 0
+                     : (DWORD)timeout_ms;
+    DWORD ret = WaitForMultipleObjects((DWORD)n_handles, all_handles, FALSE, timeout_dw);
+
+    int n_ready = 0;
+    if (ret >= WAIT_OBJECT_0 && ret < WAIT_OBJECT_0 + (DWORD)n_handles) {
+        /* At least one handle ready; sweep all with zero timeout to collect rest */
+        for (int i = 0; i < n_handles; ++i) {
+            DWORD r = WaitForSingleObject(all_handles[i], 0);
+            if (r == WAIT_OBJECT_0) {
+                m->ready.push_back(m->entries[entry_idx[i]].fd);
+                ++n_ready;
+            }
+        }
+    }
+
+    /* Cleanup: reset socket event associations and restore blocking mode */
+    for (int j = 0; j < n_wsa; ++j) {
+        int hidx = sock_entry_for_ev[j];
+        int fd   = m->entries[entry_idx[hidx]].fd;
+        WSAEventSelect((SOCKET)(uintptr_t)fd, wsa_evs[j], 0);
+        u_long blk = 0;
+        ioctlsocket((SOCKET)(uintptr_t)fd, FIONBIO, &blk);
+        WSACloseEvent(wsa_evs[j]);
+    }
+
+    return (ret == WAIT_TIMEOUT) ? 0 : (n_ready > 0 ? n_ready : -1);
+}
+
+int
+bu_ipc_mux_is_ready(const bu_ipc_mux_t *m, int fd)
+{
+    if (!m || fd < 0) return 0;
+    for (int r : m->ready)
+        if (r == fd) return 1;
+    return 0;
+}
+
+#endif /* _WIN32 */
 
 
 /*
