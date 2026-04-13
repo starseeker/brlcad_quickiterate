@@ -2592,8 +2592,12 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 			v[0] = curr_bot;
 			v[1] = &pts[i][k].v;
 			v[2] = is_apex_top ? &pts[i+1][0].v : curr_top;
-			fu = nmg_cmface(s, v, 3);
-			bu_ptbl_ins(&faces, (long *)fu);
+			/* Skip degenerate triangle: wrap-around when curr_bot
+			 * never advanced (all intermediates were dont_use). */
+			if (v[0] != v[1] && v[1] != v[2] && v[0] != v[2]) {
+			    fu = nmg_cmface(s, v, 3);
+			    bu_ptbl_ins(&faces, (long *)fu);
+			}
 			curr_bot = v[1];
 		    }
 		}
@@ -2602,8 +2606,12 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 			v[0] = &pts[i+1][k].v;
 			v[1] = curr_top;
 			v[2] = is_apex_bot ? &pts[i][0].v : curr_bot;
-			fu = nmg_cmface(s, v, 3);
-			bu_ptbl_ins(&faces, (long *)fu);
+			/* Skip degenerate triangle: wrap-around when curr_top
+			 * never advanced (all intermediates were dont_use). */
+			if (v[0] != v[1] && v[1] != v[2] && v[0] != v[2]) {
+			    fu = nmg_cmface(s, v, 3);
+			    bu_ptbl_ins(&faces, (long *)fu);
+			}
 			curr_top = v[0];
 		    }
 		}
@@ -2625,8 +2633,10 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 		    v[0] = is_apex_bot ? &pts[i][0].v : curr_bot;
 		    v[1] = &pts[i+1][k_top1].v;  /* new top vertex first */
 		    v[2] = curr_top;              /* current (old) top vertex second */
-		    fu = nmg_cmface(s, v, 3);
-		    bu_ptbl_ins(&faces, (long *)fu);
+		    if (v[0] != v[1] && v[1] != v[2] && v[0] != v[2]) {
+			fu = nmg_cmface(s, v, 3);
+			bu_ptbl_ins(&faces, (long *)fu);
+		    }
 		    curr_top = v[1];              /* advance to the new vertex */
 		}
 
@@ -2635,8 +2645,10 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 		    v[0] = curr_bot;
 		    v[1] = &pts[i][k_bot].v;
 		    v[2] = is_apex_top ? &pts[i+1][0].v : curr_top;
-		    fu = nmg_cmface(s, v, 3);
-		    bu_ptbl_ins(&faces, (long *)fu);
+		    if (v[0] != v[1] && v[1] != v[2] && v[0] != v[2]) {
+			fu = nmg_cmface(s, v, 3);
+			bu_ptbl_ins(&faces, (long *)fu);
+		    }
 		    curr_bot = v[1];
 		}
 
@@ -2648,8 +2660,10 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 		    v[0] = is_apex_bot ? &pts[i][0].v : curr_bot;
 		    v[1] = &pts[i+1][k_top2].v;  /* new top vertex first */
 		    v[2] = curr_top;              /* current (old) top vertex second */
-		    fu = nmg_cmface(s, v, 3);
-		    bu_ptbl_ins(&faces, (long *)fu);
+		    if (v[0] != v[1] && v[1] != v[2] && v[0] != v[2]) {
+			fu = nmg_cmface(s, v, 3);
+			bu_ptbl_ins(&faces, (long *)fu);
+		    }
 		    curr_top = v[1];              /* advance to the new vertex */
 		}
 	    }
@@ -2666,8 +2680,10 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 		    v[0] = curr_bot;
 		    v[1] = &pts[i][k_bot1].v;
 		    v[2] = is_apex_top ? &pts[i+1][0].v : curr_top;
-		    fu = nmg_cmface(s, v, 3);
-		    bu_ptbl_ins(&faces, (long *)fu);
+		    if (v[0] != v[1] && v[1] != v[2] && v[0] != v[2]) {
+			fu = nmg_cmface(s, v, 3);
+			bu_ptbl_ins(&faces, (long *)fu);
+		    }
 		    curr_bot = v[1];
 		}
 
@@ -2680,8 +2696,10 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 		    v[0] = &pts[i+1][k_top].v;  /* new top vertex first */
 		    v[1] = curr_top;             /* current (old) top vertex second */
 		    v[2] = curr_bot;             /* bottom vertex last */
-		    fu = nmg_cmface(s, v, 3);
-		    bu_ptbl_ins(&faces, (long *)fu);
+		    if (v[0] != v[1] && v[1] != v[2] && v[0] != v[2]) {
+			fu = nmg_cmface(s, v, 3);
+			bu_ptbl_ins(&faces, (long *)fu);
+		    }
 		    curr_top = v[0];             /* advance to the new vertex */
 		}
 
@@ -2690,8 +2708,10 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 		    v[0] = curr_bot;
 		    v[1] = &pts[i][k_bot2].v;
 		    v[2] = is_apex_top ? &pts[i+1][0].v : curr_top;
-		    fu = nmg_cmface(s, v, 3);
-		    bu_ptbl_ins(&faces, (long *)fu);
+		    if (v[0] != v[1] && v[1] != v[2] && v[0] != v[2]) {
+			fu = nmg_cmface(s, v, 3);
+			bu_ptbl_ins(&faces, (long *)fu);
+		    }
 		    curr_bot = v[1];
 		}
 	    }
