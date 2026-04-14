@@ -158,12 +158,20 @@ static const char *g_prim_filter = NULL;
  * volume are also compared against the primitive's analytic answers
  * (from ft_surf_area and ft_volume) within g_metrics_tol.
  *
+ * Volume errors that fall within the theoretical floor imposed by the
+ * polygon approximation of circular cross-sections are reported as
+ * V-WARN-RES-LIM rather than V-FAIL; they do not count as failures.
+ *
+ * @param ttol  tessellation tolerances used to produce this mesh (may be
+ *              NULL when called without --validate-metrics); used to
+ *              compute the polygon-approximation resolution floor.
  * @return 1 if the mesh passes all checks, 0 if it fails.
  */
 static int
 check_nmg_mesh(const char *label, struct model *m,
 	       const struct bn_tol *tol, struct bu_list *vlfree,
-	       const struct rt_db_internal *ip)
+	       const struct rt_db_internal *ip,
+	       const struct bg_tess_tol *ttol)
 {
     struct nmgregion *r;
     struct shell *s;
@@ -260,6 +268,7 @@ check_nmg_mesh(const char *label, struct model *m,
 
 	fastf_t analytic_sa = -1.0;
 	fastf_t analytic_v  = -1.0;
+	double err_sa = -1.0;  /* SA relative error; -1 = not computed */
 
 	if (ft->ft_surf_area)
 	    ft->ft_surf_area(&analytic_sa, ip);
@@ -267,23 +276,110 @@ check_nmg_mesh(const char *label, struct model *m,
 	    ft->ft_volume(&analytic_v, ip);
 
 	if (analytic_sa > 0.0) {
-	    double err = fabs((double)(area - analytic_sa)) / (double)analytic_sa;
-	    const char *tag = (err <= g_metrics_tol) ? "SA-OK" : "SA-FAIL";
+	    err_sa = fabs((double)(area - analytic_sa)) / (double)analytic_sa;
+	    const char *tag = (err_sa <= g_metrics_tol) ? "SA-OK" : "SA-FAIL";
 	    fprintf(stderr,
 		    "  METRICS: %-44s  SA=%.4g  analytic=%.4g  err=%.1f%%  [%s]\n",
-		    label, (double)area, (double)analytic_sa, err*100.0, tag);
-	    if (err > g_metrics_tol) passed = 0;
+		    label, (double)area, (double)analytic_sa, err_sa*100.0, tag);
+	    if (err_sa > g_metrics_tol) passed = 0;
 	} else {
 	    fprintf(stderr, "  METRICS: %-44s  SA-analytic=NA\n", label);
 	}
 
 	if (analytic_v > 0.0) {
-	    double err = fabs((double)(vol - analytic_v)) / (double)analytic_v;
-	    const char *tag = (err <= g_metrics_tol) ? "V-OK" : "V-FAIL";
+	    double err_v = fabs((double)(vol - analytic_v)) / (double)analytic_v;
+	    const char *tag_v;
+
+	    if (err_v <= g_metrics_tol) {
+		tag_v = "V-OK";
+	    } else {
+		/* ------------------------------------------------------------
+		 * Distinguish genuine formula/topology bugs from errors that
+		 * are simply the coarsest achievable mesh given the tolerances
+		 * (the "polygon approximation resolution floor").
+		 *
+		 * For a regular N-gon approximating a circle:
+		 *   SA_err  = 1 - N*sin(π/N)/π       (perimeter / circumference)
+		 *   Vol_err = 1 - N*sin(2π/N)/(2π)   (polygon / circle area)
+		 *
+		 * Two strategies:
+		 *   PIPE (exact): recompute arc_segs using the same formula as
+		 *     rt_pipe_tess and derive the exact theoretical floor.
+		 *   Generic (heuristic): estimate N from the observed SA error
+		 *     via SA_err ≈ π²/(6N²) → N ≈ π/√(6·SA_err), then derive
+		 *     the expected vol floor.
+		 * ------------------------------------------------------------ */
+		double res_floor = 0.0;
+		int arc_segs_eff = 0;
+
+		if (ip->idb_minor_type == ID_PIPE && ttol) {
+		    /* Recompute the arc_segs that rt_pipe_tess would choose.
+		     * Mirrors the updated formula: rel references max_od/2. */
+		    struct rt_pipe_internal *pip2 =
+			(struct rt_pipe_internal *)ip->idb_ptr;
+		    fastf_t max_diam2 = 0.0;
+		    struct wdb_pipe_pnt *ppt;
+		    for (BU_LIST_FOR(ppt, wdb_pipe_pnt, &pip2->pipe_segs_head))
+			if (ppt->pp_od > max_diam2) max_diam2 = ppt->pp_od;
+
+		    int ts = 6;
+		    if (ttol->abs > SMALL_FASTF && ttol->abs * 2.0 < max_diam2) {
+			int t2 = rt_num_circular_segments(
+			    ttol->abs, max_diam2 / 2.0);
+			if (t2 > ts) ts = t2;
+		    }
+		    if (ttol->rel > SMALL_FASTF) {
+			int t2 = rt_num_circular_segments(
+			    ttol->rel * max_diam2 / 2.0, max_diam2 / 2.0);
+			if (t2 > ts) ts = t2;
+		    }
+		    if (ttol->norm > SMALL_FASTF) {
+			/* PRIM_MIN_NORM_TOL default = π/360 ≈ 0.00873 rad */
+			fastf_t ntol_e = ttol->norm;
+			const fastf_t min_ntol = (fastf_t)(M_PI / 360.0);
+			if (ntol_e < min_ntol) ntol_e = min_ntol;
+			int t2;
+			t2 = ceil(M_PI / ntol_e); /* implicit double→int */
+			if (t2 > ts) ts = t2;
+		    }
+		    arc_segs_eff = ts;
+		    res_floor = 1.0 -
+			((double)arc_segs_eff * sin(M_2PI / arc_segs_eff)) / M_2PI;
+
+		} else if (err_sa > 0.001) {
+		    /* Generic heuristic: estimate N from observed SA error.
+		     * SA_err ≈ π²/(6N²) → N ≈ π/√(6·SA_err). */
+		    double n_est = M_PI / sqrt(6.0 * err_sa);
+		    if (n_est >= 3.0) {
+			res_floor = 1.0 -
+			    (n_est * sin(M_2PI / n_est)) / M_2PI;
+		    }
+		}
+
+		/* 10% slack: accounts for bend/end-cap approximation adding a
+		 * small error on top of the pure cross-section polygon error. */
+		if (res_floor > 0.0 && err_v <= res_floor * 1.1) {
+		    tag_v = "V-WARN-RES-LIM";
+		    if (arc_segs_eff > 0)
+			fprintf(stderr,
+				"  (tessellation at %d arc_segs; "
+				"finest achievable vol accuracy ~%.1f%%)\n",
+				arc_segs_eff, res_floor * 100.0);
+		    else
+			fprintf(stderr,
+				"  (tessellation at resolution floor; "
+				"finest achievable vol accuracy ~%.1f%%)\n",
+				res_floor * 100.0);
+		    /* Resolution-limited — not a formula/topology bug */
+		} else {
+		    tag_v = "V-FAIL";
+		    passed = 0;
+		}
+	    }
+
 	    fprintf(stderr,
 		    "  METRICS: %-44s  V=%.4g   analytic=%.4g  err=%.1f%%  [%s]\n",
-		    label, (double)vol, (double)analytic_v, err*100.0, tag);
-	    if (err > g_metrics_tol) passed = 0;
+		    label, (double)vol, (double)analytic_v, err_v*100.0, tag_v);
 	} else {
 	    fprintf(stderr, "  METRICS: %-44s  V-analytic=NA\n", label);
 	}
@@ -360,7 +456,7 @@ run_tess(const char *label,
 
 	/* Validate mesh quality when tessellation succeeded */
 	if (g_validate && !expect_fail)
-	    (void)check_nmg_mesh(label, m, tol, &vlfree, ip);
+	    (void)check_nmg_mesh(label, m, tol, &vlfree, ip, ttol);
 
 	/* Optionally write the CSG primitive to the output .g.
 	 * Build a temporary rt_db_internal with idb_meth set (the
@@ -3217,7 +3313,7 @@ scan_input_g(const char *g_path)
 	fprintf(stderr, "  %-32s  faces=%d\n", dp->d_namep, nfaces);
 
 	/* Validate manifold quality */
-	int ok = check_nmg_mesh(dp->d_namep, m, &tol, &vlfree, &intern);
+	int ok = check_nmg_mesh(dp->d_namep, m, &tol, &vlfree, &intern, &ttol);
 	if (ok) n_pass++; else { n_fail++; failures++; }
 
 	/* Optional Crofton validation: compare BOT metrics vs CSG raytrace */
