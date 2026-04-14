@@ -1135,6 +1135,13 @@ rt_part_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, c
 	return -1;
     /* For now, concentrate on the most important kind. */
 
+    /* A cylinder-type PART whose height H is within the geometric tolerance
+     * degenerates to a sphere (the cylinder band collapses to a plane of
+     * zero thickness).  The equatorial vertex pairs become equal in the NMG,
+     * causing nmg_fu_planeeqn() to fail.  Detect this early and bail out. */
+    if (MAGNITUDE(pip->part_H) <= tol->dist)
+	return -1;
+
     VADD2(hcenter, pip->part_V, pip->part_H);
 
     /* Compute R and Rinv matrices */
