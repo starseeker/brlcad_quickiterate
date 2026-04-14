@@ -649,8 +649,14 @@ rt_ars_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     /* Compute "geometry" for region and shell */
     nmg_region_a(*r, tol);
 
-    nmg_shell_coplanar_face_merge(s, tol, 0, vlfree);
-    nmg_simplify_shell(s, vlfree);
+    /* NOTE: nmg_shell_coplanar_face_merge() and nmg_simplify_shell()
+     * are intentionally omitted here.  Merging coplanar triangles into
+     * polygons and then running nmg_kill_snakes() on a large, complex
+     * ARS (e.g. many-point curves) can leave the NMG model in an
+     * inconsistent state, causing nmg_mdl_to_bot() to fail.  The
+     * all-triangular mesh produced without these steps is valid and
+     * can be converted cleanly via the fast nmg_to_bot_all_tri() path.
+     */
 
     return 0;
 }
