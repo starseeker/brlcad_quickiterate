@@ -3689,25 +3689,23 @@ tesselate_pipe_end(
 	bu_log("tesselate_pipe_end(): nmg_cface failed\n");
 	return;
     }
-    /* The outer_loop vertices were set up going CCW when viewed from the
-     * backward (start-to-end reversed) direction, which is CW when viewed
-     * from the outward (end cap outward) direction.  nmg_calc_face_g on this
-     * OT_SAME faceuse therefore produces an inward-pointing normal; flip it.
+    /* The outer_loop vertices are wound CW when viewed from outside (the end
+     * cap's outward direction), so nmg_calc_face_g would store an inward-
+     * pointing face normal.  Store the outward normal instead: compute the
+     * Newell normal of the loop, reverse it, and assign that plane.
      *
-     * Do NOT switch to fu->fumate_p before calling nmg_face_g: nmg_face_g
-     * forces the passed faceuse to OT_SAME and its mate to OT_OPPOSITE,
-     * which would swap the loop orientations and leave CDT with no OT_SAME
-     * loop (n_same_loops == 0 → immediate CDT failure → full-pipeline
-     * fallback every time). */
+     * Do NOT use fu->fumate_p here: nmg_face_g forces the passed faceuse to
+     * OT_SAME and its mate to OT_OPPOSITE regardless of the current label,
+     * so passing the mate would swap the loop orientations and leave CDT with
+     * no OT_SAME loop, causing immediate CDT failure on every end cap. */
     {
 	plane_t pl;
-	(void)vlfree;  /* not needed now that nmg_calc_face_g is replaced */
+	(void)vlfree;
 	lu = BU_LIST_FIRST(loopuse, &fu->lu_hd);
 	nmg_loop_plane_newell(lu, pl);
 	HREVERSE(pl, pl);   /* inward → outward */
-	nmg_face_g(fu, pl); /* stores outward normal; fu stays OT_SAME */
+	nmg_face_g(fu, pl);
     }
-
     prev = BU_LIST_PREV(wdb_pipe_pnt, &pipe_pnt->l);
 
     if (pipe_pnt->pp_id > tol->dist) {
