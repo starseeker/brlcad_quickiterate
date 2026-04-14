@@ -180,7 +180,7 @@ crofton_worker(int id, void *data)
 static double
 crofton_rand01(void)
 {
-    return rand() / (RAND_MAX + 1.0);
+    return (double)rand() / ((double)RAND_MAX + 1.0);
 }
 
 
