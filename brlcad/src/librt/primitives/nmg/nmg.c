@@ -3928,7 +3928,6 @@ nmg_mdl_to_bot(struct model *m, struct bu_list *vlfree, const struct bn_tol *tol
 	for (BU_LIST_FOR(r, nmgregion, &m->r_hd)) {
 	    for (BU_LIST_FOR(s, shell, &r->s_hd)) {
 		struct faceuse *fu, *fu_next;
-		int _dbg_iter = 0;
 		fu = BU_LIST_FIRST(faceuse, &s->fu_hd);
 		while (BU_LIST_NOT_HEAD(fu, &s->fu_hd)) {
 		    NMG_CK_FACEUSE(fu);
@@ -3936,13 +3935,11 @@ nmg_mdl_to_bot(struct model *m, struct bu_list *vlfree, const struct bn_tol *tol
 		    if (fu->orientation == OT_SAME) {
 			if (fu_next == fu->fumate_p)
 			    fu_next = BU_LIST_PNEXT(faceuse, &fu_next->l);
-			bu_log("nmg_mdl_to_bot: iter %d fu=%p orientation=%d\n", _dbg_iter++, (void*)fu, (int)fu->orientation);
 			if (nmg_triangulate_fu(fu, vlfree, tol)) {
 			    /* faceuse is empty/degenerate - remove it */
 			    if (nmg_kfu(fu))
 				break; /* shell is now empty, move on */
 			}
-			bu_log("nmg_mdl_to_bot: iter done, fu_next=%p\n", (void*)fu_next);
 		    }
 		    fu = fu_next;
 		}
