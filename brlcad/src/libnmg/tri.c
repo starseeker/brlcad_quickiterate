@@ -3403,22 +3403,28 @@ nmg_triangulate_fu(struct faceuse *fu, struct bu_list *vlfree, const struct bn_t
     }
 
     /* do some cleanup before anything else */
+    bu_log("  tri_fu: about to split jaunts\n");
     for (BU_LIST_FOR(lu, loopuse, &fu->lu_hd)) {
 	(void)nmg_loop_split_at_touching_jaunt(lu, tol);
     }
+    bu_log("  tri_fu: about to split touchingloops\n");
     for (BU_LIST_FOR(lu, loopuse, &fu->lu_hd)) {
 	nmg_split_touchingloops(lu, tol);
     }
+    bu_log("  tri_fu: about to reorient\n");
     for (BU_LIST_FOR(lu, loopuse, &fu->lu_hd)) {
 	nmg_lu_reorient(lu);
     }
 
+    bu_log("  tri_fu: about to rm_degen\n");
     /* remove loopuse with < 3 vertices i.e. degenerate loopuse */
     if (nmg_triangulate_rm_degen_loopuse(fu, tol)) {
 	/* true when faceuse is empty */
 	ret = 1;
 	goto out2;
     }
+
+    bu_log("  tri_fu: about to nmg_tri_fu_bg\n");
 
     if (nmg_debug & NMG_DEBUG_TRI) {
 	nmg_plot_fu("nmg_triangulate_fu_after_cleanup_after_degen_loopuse_killed", fu, tol);
@@ -3436,8 +3442,11 @@ nmg_triangulate_fu(struct faceuse *fu, struct bu_list *vlfree, const struct bn_t
      * On success, fu has been killed and replaced by triangle faceuses that
      * are already glued back into the shell – we are done.
      * On failure fu is untouched and we fall through to the ear-clip path. */
-    if (nmg_tri_fu_bg(fu, vlfree, tol) == 0)
+    if (nmg_tri_fu_bg(fu, vlfree, tol) == 0) {
+	bu_log("  tri_fu: CDT succeeded\n");
 	goto out2;
+    }
+    bu_log("  tri_fu: CDT failed, trying ear-clip\n");
 
     /* convert 3D face to face in the X-Y plane */
     tbl2d = nmg_flatten_face(fu, TformMat, tol);
