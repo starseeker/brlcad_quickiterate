@@ -1925,19 +1925,24 @@ arb_chull_compute(const struct rt_arb_internal *arb, fastf_t tol_sq,
     int i, j, dim;
     fastf_t tol_dist;
 
+    bu_log("DEBUG arb_chull_compute ENTRY num_unique=%d\n", num_unique);
     *out_faces = NULL;
     *out_verts = NULL;
     *out_num_faces = 0;
     *out_num_verts = 0;
 
     arb_build_equiv_pts(arb, tol_sq, equiv_pts);
+    bu_log("DEBUG arb_chull_compute AFTER_EQUIV num_unique=%d\n", num_unique);
 
     /* Collect one copy of each geometrically-distinct vertex */
+    bu_log("DEBUG before collection: equiv_pts=[%d,%d,%d,%d,%d,%d,%d,%d]\n", equiv_pts[0],equiv_pts[1],equiv_pts[2],equiv_pts[3],equiv_pts[4],equiv_pts[5],equiv_pts[6],equiv_pts[7]);
     for (i = 0; i < 8; i++) {
 	if (equiv_pts[i] == i)
 	    VMOVE(unique_pts[num_unique++], arb->pt[i]);
+	bu_log("DEBUG  i=%d equiv=%d num_unique=%d\n", i, equiv_pts[i], num_unique);
     }
 
+    bu_log("DEBUG PRE-HULL num_unique=%d\n", num_unique);
     if (num_unique < 4) {
 	bu_log("arb: too few unique vertices (%d) for convex hull\n", num_unique);
 	return -1;
@@ -1945,6 +1950,7 @@ arb_chull_compute(const struct rt_arb_internal *arb, fastf_t tol_sq,
 
     dim = bg_3d_chull(out_faces, out_num_faces, out_verts, out_num_verts,
 		      (const point_t *)unique_pts, num_unique);
+    bu_log("DEBUG POST-HULL num_unique=%d dim=%d hull_nf=%d hull_nv=%d\n", num_unique, dim, *out_num_faces, *out_num_verts);
 
     if (dim < 3 || !(*out_faces) || !(*out_verts) || *out_num_faces <= 0) {
 	bu_log("arb: convex hull computation failed or degenerate\n");
@@ -1958,12 +1964,16 @@ arb_chull_compute(const struct rt_arb_internal *arb, fastf_t tol_sq,
     /* Verify every unique input vertex is present on the hull.
      * If one is missing it was inside the hull — the ARB is concave/invalid. */
     tol_dist = sqrt(tol_sq);
+    bu_log("DEBUG arb_chull_compute: num_unique=%d hull_nv=%d tol_sq=%g\n", num_unique, *out_num_verts, tol_sq);
     for (i = 0; i < num_unique; i++) {
+	bu_log("DEBUG  unique_pts[%d]=(%g,%g,%g)\n", i, unique_pts[i][0], unique_pts[i][1], unique_pts[i][2]);
 	int found = 0;
 	for (j = 0; j < *out_num_verts; j++) {
 	    vect_t diff;
 	    VSUB2(diff, unique_pts[i], (*out_verts)[j]);
-	    if (MAGSQ(diff) < tol_sq) { found = 1; break; }
+	    fastf_t msq = MAGSQ(diff);
+	    bu_log("DEBUG    hull[%d]=(%g,%g,%g) magsq=%g tol_sq=%g\n", j, (*out_verts)[j][0], (*out_verts)[j][1], (*out_verts)[j][2], msq, tol_sq);
+	    if (msq < tol_sq) { found = 1; break; }
 	}
 	if (!found) {
 	    bu_log("arb: non-standard encoding has interior vertex — invalid ARB shape\n");
