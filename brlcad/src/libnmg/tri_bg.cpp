@@ -181,7 +181,6 @@ nmg_tri_fu_bg(struct faceuse *fu, struct bu_list *UNUSED(vlfree),
      * handle this by accepting a single OT_OPPOSITE loop as the outer polygon
      * when there are no OT_SAME loops at all.  The signed-area check in
      * section 5 will flip the 2-D polygon to CCW regardless of the label.  */
-    bu_log("  nmg_tri_fu_bg: n_same=%d n_outer=%d nholes=%d\n", n_same_loops, n_outer, nholes);
     if (n_same_loops == 0 && nholes == 1 && n_inner_total >= 3) {
 	/* Promote the sole OT_OPPOSITE loop to be the outer polygon. */
 	n_outer = n_inner_total;
@@ -248,6 +247,8 @@ nmg_tri_fu_bg(struct faceuse *fu, struct bu_list *UNUSED(vlfree),
 	for (BU_LIST_FOR(lu, loopuse, &fu->lu_hd)) {
 	    if (BU_LIST_FIRST_MAGIC(&lu->down_hd) != NMG_EDGEUSE_MAGIC)
 		continue;
+	    if (lu == outer_lu)
+		continue; /* already used as the outer polygon */
 	    if (lu->orientation != OT_OPPOSITE)
 		continue;
 	    int hole_start = idx;
@@ -335,8 +336,6 @@ nmg_tri_fu_bg(struct faceuse *fu, struct bu_list *UNUSED(vlfree),
     /* ---- 6. Triangulate ---- */
     int *tri_faces = NULL;
     int  num_tri   = 0;
-    bu_log("  bg CDT: n_outer=%d nholes=%d signed_area check\n", n_outer, nholes);
-    {double sa=0;for(int j=0;j<n_outer;j++){int k=(j+1)%n_outer;sa+=pts[poly[j]][X]*pts[poly[k]][Y]-pts[poly[k]][X]*pts[poly[j]][Y];}bu_log("  bg CDT: signed_area=%g, poly[0..2]=%d %d %d\n",sa,poly[0],poly[1],n_outer>2?poly[2]:-1);}
     int bg_ret = bg_nested_poly_triangulate(
 	&tri_faces, &num_tri, NULL, NULL,
 	poly.data(), (size_t)n_outer,
@@ -348,14 +347,12 @@ nmg_tri_fu_bg(struct faceuse *fu, struct bu_list *UNUSED(vlfree),
 	TRI_CONSTRAINED_DELAUNAY);
 
     if (bg_ret != 0 || num_tri <= 0 || !tri_faces) {
-	bu_log("  bg CDT: FAILED bg_ret=%d num_tri=%d\n", bg_ret, num_tri);
 	/* bg_nested_poly_triangulate may have partially allocated tri_faces
 	 * even on failure (e.g. if it allocated but returned 0 triangles). */
 	if (tri_faces)
 	    bu_free(tri_faces, "nmg_tri_fu_bg tri_faces");
 	return 1; /* fu unchanged; use ear-clip fallback */
     }
-    bu_log("  bg CDT: success num_tri=%d\n", num_tri);
 
     /* ---- 7. Kill original face, create new triangle faceuses ---- */
     struct shell *s = fu->s_p;
