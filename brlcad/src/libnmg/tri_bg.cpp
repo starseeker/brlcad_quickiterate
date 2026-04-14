@@ -169,10 +169,34 @@ nmg_tri_fu_bg(struct faceuse *fu, struct bu_list *UNUSED(vlfree),
 	}
     }
 
-    /* Require exactly one OT_SAME loop; multi-outer-loop faces are unusual
-     * (boolean artifacts) and the ear-clip path handles them better.       */
-    if (n_same_loops != 1 || !outer_lu || n_outer < 3)
+    /* Require exactly one loop (OT_SAME or OT_OPPOSITE-only when there is no
+     * OT_SAME loop); multi-outer-loop faces are unusual (boolean artifacts)
+     * and the ear-clip path handles them better.
+     *
+     * nmg_lu_reorient() (called by nmg_triangulate_fu before us) labels a
+     * loop as OT_OPPOSITE when its 2-D winding appears CW relative to the
+     * stored face normal.  For pipe end-caps the stored face normal (set by
+     * nmg_rebound / Newell) is inward, so the outward-facing cap loop is
+     * correctly wound in 3-D but gets flagged OT_OPPOSITE by reorient.  We
+     * handle this by accepting a single OT_OPPOSITE loop as the outer polygon
+     * when there are no OT_SAME loops at all.  The signed-area check in
+     * section 5 will flip the 2-D polygon to CCW regardless of the label.  */
+    bu_log("  nmg_tri_fu_bg: n_same=%d n_outer=%d nholes=%d\n", n_same_loops, n_outer, nholes);
+    if (n_same_loops == 0 && nholes == 1 && n_inner_total >= 3) {
+	/* Promote the sole OT_OPPOSITE loop to be the outer polygon. */
+	n_outer = n_inner_total;
+	nholes  = 0;
+	n_inner_total = 0;
+	for (BU_LIST_FOR(lu, loopuse, &fu->lu_hd)) {
+	    if (BU_LIST_FIRST_MAGIC(&lu->down_hd) == NMG_EDGEUSE_MAGIC &&
+		lu->orientation == OT_OPPOSITE) {
+		outer_lu = lu;
+		break;
+	    }
+	}
+    } else if (n_same_loops != 1 || !outer_lu || n_outer < 3) {
 	return 1;
+    }
 
     /* A triangle without holes is already triangulated.                    */
     if (n_outer == 3 && nholes == 0)
@@ -285,7 +309,15 @@ nmg_tri_fu_bg(struct faceuse *fu, struct bu_list *UNUSED(vlfree),
      * outward face normal direction.  Detect this and reverse the outer polygon
      * so that CDT always receives CCW input.
      *
-     * A CW polygon has a negative signed area (shoelace formula). */
+     * A CW polygon has a negative signed area (shoelace formula).
+     *
+     * IMPORTANT: only poly[] (the index sequence) is reversed.  pts[] and
+     * idx_to_vert[] are keyed by the SAME integer space as the CDT output
+     * indices.  Reversing pts[]+idx_to_vert[] together with poly[] is a
+     * no-op for the polygon shape (it produces the same traversal after
+     * substitution) and breaks the idx_to_vert mapping used in the glue
+     * pass.  Reversing only poly[] correctly swaps CCW ↔ CW while keeping
+     * all index mappings intact. */
     {
 	double signed_area = 0.0;
 	for (int j = 0; j < n_outer; j++) {
@@ -294,18 +326,17 @@ nmg_tri_fu_bg(struct faceuse *fu, struct bu_list *UNUSED(vlfree),
 			- pts[poly[k]][X] * pts[poly[j]][Y];
 	}
 	if (signed_area < 0.0) {
-	    /* Reverse outer polygon in-place. */
-	    for (int j = 0, end = n_outer - 1; j < end; j++, end--) {
-		std::swap(poly[j],         poly[end]);
-		std::swap(idx_to_vert[j],  idx_to_vert[end]);
-		std::swap(pts[j],          pts[end]);
-	    }
+	    /* Reverse the traversal order: flip poly[] in-place. */
+	    for (int j = 0, end = n_outer - 1; j < end; j++, end--)
+		std::swap(poly[j], poly[end]);
 	}
     }
 
     /* ---- 6. Triangulate ---- */
     int *tri_faces = NULL;
     int  num_tri   = 0;
+    bu_log("  bg CDT: n_outer=%d nholes=%d signed_area check\n", n_outer, nholes);
+    {double sa=0;for(int j=0;j<n_outer;j++){int k=(j+1)%n_outer;sa+=pts[poly[j]][X]*pts[poly[k]][Y]-pts[poly[k]][X]*pts[poly[j]][Y];}bu_log("  bg CDT: signed_area=%g, poly[0..2]=%d %d %d\n",sa,poly[0],poly[1],n_outer>2?poly[2]:-1);}
     int bg_ret = bg_nested_poly_triangulate(
 	&tri_faces, &num_tri, NULL, NULL,
 	poly.data(), (size_t)n_outer,
@@ -317,12 +348,14 @@ nmg_tri_fu_bg(struct faceuse *fu, struct bu_list *UNUSED(vlfree),
 	TRI_CONSTRAINED_DELAUNAY);
 
     if (bg_ret != 0 || num_tri <= 0 || !tri_faces) {
+	bu_log("  bg CDT: FAILED bg_ret=%d num_tri=%d\n", bg_ret, num_tri);
 	/* bg_nested_poly_triangulate may have partially allocated tri_faces
 	 * even on failure (e.g. if it allocated but returned 0 triangles). */
 	if (tri_faces)
 	    bu_free(tri_faces, "nmg_tri_fu_bg tri_faces");
 	return 1; /* fu unchanged; use ear-clip fallback */
     }
+    bu_log("  bg CDT: success num_tri=%d\n", num_tri);
 
     /* ---- 7. Kill original face, create new triangle faceuses ---- */
     struct shell *s = fu->s_p;
