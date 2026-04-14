@@ -333,10 +333,35 @@ nmg_tri_fu_bg(struct faceuse *fu, struct bu_list *UNUSED(vlfree),
 	if (!nfu)
 	    continue;
 
-	if (nmg_fu_planeeqn(nfu, tol)) {
-	    /* Degenerate triangle – discard silently. */
-	    (void)nmg_kfu(nfu);
-	    continue;
+	/* Compute face plane directly from the 3 vertex coordinates.
+	 *
+	 * nmg_fu_planeeqn() rejects triangles whose vertices are within
+	 * tol->dist of each other ("Cannot find three distinct vertices").
+	 * For freshly-created CDT triangles this is too aggressive: a cap
+	 * polygon on a small-radius cylinder (e.g. r=0.1 mm) produces many
+	 * valid but tiny triangles that all share the same geometric centre
+	 * – they ARE distinct 3-D points but fall within the NMG tolerance.
+	 * Silently dropping them leaves gaps → open edges in the final BOT.
+	 *
+	 * Instead we call bg_make_plane_3pnts() directly with a very small
+	 * absolute tolerance (SMALL_FASTF) so only truly degenerate
+	 * (zero-area) triangles are discarded.  nmg_face_g() assigns the
+	 * resulting plane to the new faceuse without any vertex-distance
+	 * checks.                                                           */
+	{
+	    plane_t tri_plane;
+	    const fastf_t *p0 = tv[0]->vg_p->coord;
+	    const fastf_t *p1 = tv[1]->vg_p->coord;
+	    const fastf_t *p2 = tv[2]->vg_p->coord;
+	    struct bn_tol geom_tol = *tol;
+	    geom_tol.dist    = SMALL_FASTF;
+	    geom_tol.dist_sq = SMALL_FASTF * SMALL_FASTF;
+	    if (bg_make_plane_3pnts(tri_plane, p0, p1, p2, &geom_tol) < 0) {
+		/* Truly zero-area triangle – skip it. */
+		(void)nmg_kfu(nfu);
+		continue;
+	    }
+	    nmg_face_g(nfu, tri_plane);
 	}
 
 	/* Collect OT_SAME edgeuses into new_tri_map. */
