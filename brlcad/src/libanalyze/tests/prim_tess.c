@@ -2350,8 +2350,9 @@ test_arb(void)
     if (!run_tess("arb5 square pyramid", &ip, &ttol, &tol, 0)) failures++;
 
     /* ARB4: tetrahedron.  pts[3..7] all at fourth vertex.
-     * rt_arb_tess with this duplicate-endpoint encoding returns -2
-     * (degenerate faces in the ARB8→ARB4 topology).  Mark as expect_fail. */
+     * The canonical ARB4 encoding triggers arb_is_noncanonical (equiv_pts[4..7]
+     * all map to index 3, which is < 4).  The hull fallback correctly produces
+     * a 4-face tetrahedron, so this case now succeeds. */
     VSET(tip.pt[0],  0,  0,  0);
     VSET(tip.pt[1], 10,  0,  0);
     VSET(tip.pt[2],  5,  8,  0);
@@ -2361,7 +2362,7 @@ test_arb(void)
     VSET(tip.pt[6],  5,  3, 10);
     VSET(tip.pt[7],  5,  3, 10);
     init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
-    if (!run_tess("arb4 tetrahedron (expect fail - degenerate ARB topo)", &ip, &ttol, &tol, 1)) failures++;
+    if (!run_tess("arb4 tetrahedron (hull fallback)", &ip, &ttol, &tol, 0)) failures++;
 
     /* ARB8 large scale */
     VSET(tip.pt[0],      0,      0,      0);
@@ -2415,6 +2416,35 @@ test_arb(void)
     VSET(tip.pt[7], 768.35, 258.7625, 484.1875); /* V8 (midpoint of V1-V4 on left slant) */
     init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
     if (!run_tess("arb8 collinear triplet (detail_ws.s4-style)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Non-canonical ARB6 (wedge/triangular prism):
+     * The duplicate pair is at pt[0]==pt[3] and pt[1]==pt[2] instead of the
+     * canonical pt[4]==pt[5] and pt[6]==pt[7].  This is the bldg391.g-style
+     * non-standard encoding.  arb_is_noncanonical fires and the hull fallback
+     * produces the correct 5-face prism (2 triangles + 3 quads = 8 triangles). */
+    VSET(tip.pt[0],  0,  0,  5);  /* ridge left  (duplicated at pt[3]) */
+    VSET(tip.pt[1], 10,  0,  5);  /* ridge right (duplicated at pt[2]) */
+    VSET(tip.pt[2], 10,  0,  5);  /* = pt[1] */
+    VSET(tip.pt[3],  0,  0,  5);  /* = pt[0] */
+    VSET(tip.pt[4],  0, -5,  0);  /* base corner 1 */
+    VSET(tip.pt[5], 10, -5,  0);  /* base corner 2 */
+    VSET(tip.pt[6], 10,  5,  0);  /* base corner 3 */
+    VSET(tip.pt[7],  0,  5,  0);  /* base corner 4 */
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("arb6 non-canonical wedge (hull fallback)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Non-canonical ARB7:
+     * pt[4]==pt[0] makes one top vertex a duplicate of a bottom vertex. */
+    VSET(tip.pt[0],  0,  0, 10);  /* apex (duplicated at pt[4]) */
+    VSET(tip.pt[1], 10,  0,  0);
+    VSET(tip.pt[2], 10, 10,  0);
+    VSET(tip.pt[3],  0, 10,  0);
+    VSET(tip.pt[4],  0,  0, 10);  /* = pt[0] */
+    VSET(tip.pt[5], 10,  0,  0);  /* = pt[1] (canonical ARB7 dup) */
+    VSET(tip.pt[6], 10, 10,  0);
+    VSET(tip.pt[7],  0, 10,  0);
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("arb7 non-canonical (hull fallback)", &ip, &ttol, &tol, 0)) failures++;
 
     return failures;
 }
