@@ -141,12 +141,21 @@ nmg_tri_fu_bg(struct faceuse *fu, struct bu_list *UNUSED(vlfree),
     struct loopuse *lu;
     struct edgeuse *eu;
 
-    /* ---- 1. Count loops; require exactly one OT_SAME outer loop ---- */
-    int n_outer       = 0;   /* vertex count of the OT_SAME loop       */
-    int nholes        = 0;   /* number of OT_OPPOSITE (hole) loops      */
-    int n_inner_total = 0;   /* total vertex count across all holes     */
-    int n_same_loops  = 0;   /* number of OT_SAME loops in faceuse      */
+    /* ---- 1. Count loops; identify outer polygon and holes ---- */
+    int n_outer       = 0;   /* vertex count of the outer polygon loop    */
+    int nholes        = 0;   /* number of hole loops                      */
+    int n_inner_total = 0;   /* total vertex count across all holes       */
+    int n_same_loops  = 0;   /* number of OT_SAME loops in faceuse        */
     struct loopuse *outer_lu = NULL;
+
+    /* For OT_OPPOSITE-only faceuses: track which loop has the largest
+     * 3-D area so we can promote it to the outer polygon.  This handles
+     * primitives where the stored face normal causes nmg_lu_reorient to
+     * label the outer loop as OT_OPPOSITE (e.g. solid pipe end caps that
+     * use HREVERSE).                                                      */
+    struct loopuse *opp_outer_lu  = NULL;
+    int             opp_outer_vc  = 0;
+    double          opp_outer_nsq = -1.0;
 
     for (BU_LIST_FOR(lu, loopuse, &fu->lu_hd)) {
 	if (BU_LIST_FIRST_MAGIC(&lu->down_hd) != NMG_EDGEUSE_MAGIC)
@@ -166,35 +175,85 @@ nmg_tri_fu_bg(struct faceuse *fu, struct bu_list *UNUSED(vlfree),
 		vc++;
 	    n_inner_total += vc;
 	    nholes++;
+	    /* Track the OT_OPPOSITE loop with the largest 3-D area.
+	     * nmg_loop_plane_newell() returns a UNIT normal, so we
+	     * cannot use it for area comparison.  Compute the
+	     * unnormalized Newell area vector directly; its magnitude
+	     * squared equals (2*area)^2, which is monotone in area.   */
+	    {
+		vect_t av = VINIT_ZERO;
+		struct edgeuse *eu2;
+		for (BU_LIST_FOR(eu2, edgeuse, &lu->down_hd)) {
+		    struct edgeuse *en =
+			BU_LIST_PNEXT_CIRC(edgeuse, &eu2->l);
+		    const double *v0 = eu2->vu_p->v_p->vg_p->coord;
+		    const double *v1 = en->vu_p->v_p->vg_p->coord;
+		    av[X] += (v0[Y]-v1[Y])*(v0[Z]+v1[Z]);
+		    av[Y] += (v0[Z]-v1[Z])*(v0[X]+v1[X]);
+		    av[Z] += (v0[X]-v1[X])*(v0[Y]+v1[Y]);
+		}
+		double nsq = MAGSQ(av);
+		if (nsq > opp_outer_nsq) {
+		    opp_outer_nsq = nsq;
+		    opp_outer_lu  = lu;
+		    opp_outer_vc  = vc;
+		}
+	    }
 	}
     }
 
-    /* Require exactly one loop (OT_SAME or OT_OPPOSITE-only when there is no
-     * OT_SAME loop); multi-outer-loop faces are unusual (boolean artifacts)
-     * and the ear-clip path handles them better.
+    /* nmg_lu_reorient() (called by nmg_triangulate_fu before us) labels
+     * loops based on their 2-D winding relative to the stored face normal.
+     * When the stored face normal is outward (e.g. pipe end caps that use
+     * HREVERSE) the CW-from-outside outer boundary loop is labelled
+     * OT_OPPOSITE, and the CCW-from-outside inner hole loop is labelled
+     * OT_SAME.  This produces a geometrically impossible CDT problem
+     * (small OT_SAME loop used as outer polygon, large OT_OPPOSITE loop as
+     * hole) which fails and falls to an infinite ear-clip.
      *
-     * nmg_lu_reorient() (called by nmg_triangulate_fu before us) labels a
-     * loop as OT_OPPOSITE when its 2-D winding appears CW relative to the
-     * stored face normal.  For pipe end-caps the stored face normal (set by
-     * nmg_rebound / Newell) is inward, so the outward-facing cap loop is
-     * correctly wound in 3-D but gets flagged OT_OPPOSITE by reorient.  We
-     * handle this by accepting a single OT_OPPOSITE loop as the outer polygon
-     * when there are no OT_SAME loops at all.  The signed-area check in
-     * section 5 will flip the 2-D polygon to CCW regardless of the label.  */
-    if (n_same_loops == 0 && nholes == 1 && n_inner_total >= 3) {
-	/* Promote the sole OT_OPPOSITE loop to be the outer polygon. */
-	n_outer = n_inner_total;
-	nholes  = 0;
-	n_inner_total = 0;
-	for (BU_LIST_FOR(lu, loopuse, &fu->lu_hd)) {
-	    if (BU_LIST_FIRST_MAGIC(&lu->down_hd) == NMG_EDGEUSE_MAGIC &&
-		lu->orientation == OT_OPPOSITE) {
-		outer_lu = lu;
-		break;
-	    }
-	}
+     * Three labelling patterns are handled:
+     *
+     *  (a) n_same==0, nholes>=1 (all loops OT_OPPOSITE): pick the largest
+     *      OT_OPPOSITE loop as the outer polygon; remaining are holes.
+     *
+     *  (b) n_same==1, nholes==1: normal case, BUT if the single OT_OPPOSITE
+     *      hole is geometrically larger than the OT_SAME outer_lu, they are
+     *      mislabelled.  Swap them so CDT receives the larger loop as the
+     *      outer polygon.
+     *
+     * In all cases the signed-area check in section 5 flips the 2-D
+     * outer polygon to CCW for CDT regardless of loop label.             */
+    if (n_same_loops == 0 && nholes >= 1 && opp_outer_lu != NULL
+	&& opp_outer_vc >= 3) {
+	/* (a) All-OT_OPPOSITE: promote largest OT_OPPOSITE loop. */
+	outer_lu       = opp_outer_lu;
+	n_outer        = opp_outer_vc;
+	n_inner_total -= opp_outer_vc;
+	nholes--;
     } else if (n_same_loops != 1 || !outer_lu || n_outer < 3) {
 	return 1;
+    } else if (nholes == 1 && n_inner_total >= 3 && opp_outer_lu != NULL) {
+	/* (b) n_same==1, nholes==1: compare areas and swap if the
+	 *     OT_OPPOSITE hole is actually the larger outer boundary. */
+	vect_t av = VINIT_ZERO;
+	struct edgeuse *eu2;
+	for (BU_LIST_FOR(eu2, edgeuse, &outer_lu->down_hd)) {
+	    struct edgeuse *en = BU_LIST_PNEXT_CIRC(edgeuse, &eu2->l);
+	    const double *v0 = eu2->vu_p->v_p->vg_p->coord;
+	    const double *v1 = en->vu_p->v_p->vg_p->coord;
+	    av[X] += (v0[Y]-v1[Y])*(v0[Z]+v1[Z]);
+	    av[Y] += (v0[Z]-v1[Z])*(v0[X]+v1[X]);
+	    av[Z] += (v0[X]-v1[X])*(v0[Y]+v1[Y]);
+	}
+	double same_area_sq = MAGSQ(av);
+	if (opp_outer_nsq > same_area_sq) {
+	    /* Swap: OT_OPPOSITE loop is the true outer boundary. */
+	    int old_n_outer = n_outer;
+	    outer_lu      = opp_outer_lu;
+	    n_outer       = n_inner_total; /* former hole verts = new outer */
+	    n_inner_total = old_n_outer;   /* former outer verts = new hole */
+	    /* nholes stays 1 (old outer_lu becomes the single hole) */
+	}
     }
 
     /* A triangle without holes is already triangulated.                    */
@@ -249,7 +308,10 @@ nmg_tri_fu_bg(struct faceuse *fu, struct bu_list *UNUSED(vlfree),
 		continue;
 	    if (lu == outer_lu)
 		continue; /* already used as the outer polygon */
-	    if (lu->orientation != OT_OPPOSITE)
+	    /* Collect holes regardless of OT_SAME/OT_OPPOSITE label.
+	     * After the area-based swap (case b), the former OT_SAME inner
+	     * loop is the hole; filtering by OT_OPPOSITE would miss it.   */
+	    if (lu->orientation != OT_SAME && lu->orientation != OT_OPPOSITE)
 		continue;
 	    int hole_start = idx;
 	    for (BU_LIST_FOR(eu, edgeuse, &lu->down_hd)) {
