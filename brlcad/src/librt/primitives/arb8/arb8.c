@@ -2781,6 +2781,65 @@ rt_arb_params(struct pc_pc_set * UNUSED(ps), const struct rt_db_internal *ip)
     return 0;			/* OK */
 }
 
+struct arb_poly_face
+{
+    size_t npts;
+    point_t *pts;
+    plane_t plane_eqn;
+    fastf_t area;
+};
+#define ARB_POLY_FACE_INIT_ZERO { 0, NULL, HINIT_ZERO, 0.0 }
+#define ARB_AREA_ADD_PT(face, pt) do { VMOVE((face).pts[(face).npts], (pt)); (face).npts++; } while (0)
+
+/**
+ * finds direction cosines and rotation, fallback angles of a unit vector
+ * angles = pointer to 5 fastf_t's to store angles
+ * unitv = pointer to the unit vector (previously computed)
+ */
+static void
+findang(fastf_t *angles, fastf_t *unitv)
+{
+    int i;
+    fastf_t f;
+
+    /* convert direction cosines into axis angles */
+    for (i = X; i <= Z; i++) {
+        if (unitv[i] <= -1.0)
+            angles[i] = -90.0;
+        else if (unitv[i] >= 1.0)
+            angles[i] = 90.0;
+        else
+            angles[i] = acos(unitv[i]) * RAD2DEG;
+    }
+
+    /* fallback angle */
+    if (unitv[Z] <= -1.0)
+        unitv[Z] = -1.0;
+    else if (unitv[Z] >= 1.0)
+        unitv[Z] = 1.0;
+    angles[4] = asin(unitv[Z]);
+
+    /* rotation angle */
+    /* For the tolerance below, on an SGI 4D/70, cos(asin(1.0)) != 0.0
+     * with an epsilon of +/- 1.0e-17, so the tolerance below was
+     * substituted for the original +/- 1.0e-20.
+     */
+    if ((f = cos(angles[4])) > 1.0e-16 || f < -1.0e-16) {
+        f = unitv[X]/f;
+        if (f <= -1.0)
+            angles[3] = 180.0;
+        else if (f >= 1.0)
+            angles[3] = 0.0;
+        else
+            angles[3] = RAD2DEG * acos(f);
+    } else
+        angles[3] = 0.0;
+
+    if (unitv[Y] < 0)
+        angles[3] = 360.0 - angles[3];
+
+    angles[4] *= RAD2DEG;
+}
 
 /**
  * compute surface area of an arb8 by dividing it into

@@ -59,6 +59,7 @@
 #endif
 #include <tcl.h>
 
+#include "bu/app.h"
 #include "bu/ipc.h"
 #include "bu/str.h"
 #include "bu/env.h"
@@ -159,9 +160,9 @@ test_bu_ipc_pair_basics(void)
     TEST("parent addr_env non-NULL",               ae_pe != nullptr);
     TEST("child  addr_env non-NULL",               ae_ce != nullptr);
     TEST("parent addr_env has BU_IPC_ADDR= prefix",
-         ae_pe && strncmp(ae_pe, "BU_IPC_ADDR=", 12) == 0);
+         ae_pe && bu_strncmp(ae_pe, "BU_IPC_ADDR=", 12) == 0);
     TEST("child  addr_env has BU_IPC_ADDR= prefix",
-         ae_ce && strncmp(ae_ce, "BU_IPC_ADDR=", 12) == 0);
+         ae_ce && bu_strncmp(ae_ce, "BU_IPC_ADDR=", 12) == 0);
 
     bu_ipc_close(pe);
     bu_ipc_close(ce);
@@ -273,7 +274,7 @@ test_fbs_open_ipc_smoke(void)
         const char *ae = fbs_ipc_child_addr_env(&fbs);
         TEST("fbs_ipc_child_addr_env non-NULL",              ae != nullptr);
         TEST("fbs_ipc_child_addr_env has BU_IPC_ADDR= pfx",
-             ae && strncmp(ae, "BU_IPC_ADDR=", 12) == 0);
+             ae && bu_strncmp(ae, "BU_IPC_ADDR=", 12) == 0);
         TEST("fbsl_ipc_child non-NULL",
              fbs.fbs_listener.fbsl_ipc_child != nullptr);
 
@@ -348,7 +349,7 @@ test_env_var_end_to_end(void)
     const char *from_env = getenv(BU_IPC_ADDR_ENVVAR);
     TEST("getenv(BU_IPC_ADDR_ENVVAR) returns non-NULL", from_env != nullptr);
     TEST("getenv value matches addr_val",
-         from_env && strcmp(from_env, addr_val) == 0);
+         from_env && BU_STR_EQUAL(from_env, addr_val));
 
     if (from_env) {
         bu_ipc_chan_t *child_chan = bu_ipc_connect(from_env);
@@ -515,7 +516,7 @@ test_tcl_fbserv_var(void)
                                          TCL_GLOBAL_ONLY);
             TEST("Tcl_GetVar2($fbserv,ipc_addr) succeeds", gr != nullptr);
             TEST("Tcl var value matches addr_val",
-                 gr && strcmp(gr, addr_val) == 0);
+                 gr && BU_STR_EQUAL(gr, addr_val));
 
             /* Verify a Tcl script can read and use the variable */
             const char *tcl_cmd =
@@ -707,14 +708,16 @@ test_fbserv_minus_I(const char *fbserv_bin)
 int
 main(int argc, const char **argv)
 {
+    bu_setprogname(argv[0]);
+
 #ifdef SIGPIPE
     /* Ignore SIGPIPE: writes to closed peers must not crash the harness */
     signal(SIGPIPE, SIG_IGN);
 #endif
 
     for (int i = 1; i < argc; ++i)
-        if (strcmp(argv[i], "--verbose") == 0 ||
-            strcmp(argv[i], "-v")        == 0)
+        if (BU_STR_EQUAL(argv[i], "--verbose") ||
+            BU_STR_EQUAL(argv[i], "-v"))
             g_verbose = true;
 
     const char *fbserv_bin = getenv("FBSERV_BIN");
