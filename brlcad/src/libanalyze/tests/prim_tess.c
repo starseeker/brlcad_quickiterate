@@ -227,8 +227,10 @@ check_nmg_mesh(const char *label, struct model *m,
     int open_cnt = bg_trimesh_solid2(
 	(int)bot->num_vertices, (int)bot->num_faces,
 	bot->vertices, bot->faces, &errs);
-    int n_open  = (int)errs.unmatched.count;
-    int n_degen = (int)errs.degenerate.count;
+    int n_open    = (int)errs.unmatched.count;
+    int n_degen   = (int)errs.degenerate.count;
+    int n_excess  = (int)errs.excess.count;
+    int n_misor   = (int)errs.misoriented.count;
 
     /* Surface area and volume */
     fastf_t area = bg_trimesh_area(
@@ -236,24 +238,41 @@ check_nmg_mesh(const char *label, struct model *m,
 	(const point_t *)bot->vertices, bot->num_vertices);
 
     fastf_t vol = 0.0;
-    if (open_cnt == 0 && n_open == 0) {
+    if (open_cnt == 0) {
 	/* Volume is only meaningful for a closed manifold */
 	vol = bg_trimesh_volume(
 	    bot->faces, bot->num_faces,
 	    (const point_t *)bot->vertices, bot->num_vertices);
     }
 
-    int passed = (open_cnt == 0 && n_open == 0);
+    int passed = (open_cnt == 0);
+
+    /* Choose a label that accurately reflects which problem was found */
+    const char *mesh_tag;
+    if (passed) {
+	mesh_tag = "OK";
+    } else if (n_open > 0) {
+	mesh_tag = "OPEN-EDGES";
+    } else if (n_excess > 0) {
+	mesh_tag = "NON-MANIFOLD";
+    } else if (n_misor > 0) {
+	mesh_tag = "MISORIENT";
+    } else {
+	mesh_tag = "MESH-FAIL";
+    }
 
     fprintf(stderr,
-	    "  MESH: %-44s  tris=%-6lu  area=%-12.4g  vol=%-12.4g  open=%-4d  degen=%-4d  [%s]\n",
+	    "  MESH: %-44s  tris=%-6lu  area=%-12.4g  vol=%-12.4g"
+	    "  open=%-4d  excess=%-4d  misor=%-4d  degen=%-4d  [%s]\n",
 	    label,
 	    (unsigned long)bot->num_faces,
 	    area,
 	    vol,
 	    n_open,
+	    n_excess,
+	    n_misor,
 	    n_degen,
-	    passed ? "OK" : "OPEN-EDGES");
+	    mesh_tag);
 
     fflush(stderr);
     bg_free_trimesh_solid_errors(&errs);
@@ -3283,6 +3302,8 @@ scan_input_g(const char *g_path)
 	 * not to produce NMG output we can validate:                      */
 	switch (id) {
 	    case ID_BREP:       /* B-rep: known broken in this context */
+	    case ID_BSPLINE:    /* rt_nurb_tess() always returns -1 */
+	    case ID_REVOLVE:    /* rt_revolve_tess() not yet implemented */
 	    case ID_HALF:       /* infinite half-space: no closed mesh */
 	    case ID_GRIP:       /* stub */
 	    case ID_JOINT:      /* stub */
@@ -3346,54 +3367,25 @@ scan_input_g(const char *g_path)
 	int ok = check_nmg_mesh(dp->d_namep, m, &tol, &vlfree, &intern, &ttol);
 	if (ok) n_pass++; else { n_fail++; failures++; }
 
-	/* Optional Crofton validation: compare BOT metrics vs CSG raytrace */
+	/* Optional Crofton validation: compare BOT metrics vs CSG raytrace.
+	 * Use the original dbip directly so that file-referencing primitives
+	 * (EBM, DSP, VOL) can locate their data files via dbip->dbi_filepath. */
 	if (ok && g_crofton_validate) {
-	    /* Create a temporary in-memory DB containing only this primitive */
-	    struct db_i *tmp_dbip = db_open_inmem();
-	    if (tmp_dbip) {
-		struct rt_wdb *tmp_wdbp = wdb_dbopen(tmp_dbip, RT_WDB_TYPE_DB_INMEM);
-		if (tmp_wdbp) {
-		    char tmpname[64];
-		    snprintf(tmpname, sizeof(tmpname), "crofton_obj.s");
-		    struct bu_external ext;
-		    struct rt_db_internal tmp_intern2;
-		    BU_EXTERNAL_INIT(&ext);
-		    RT_DB_INTERNAL_INIT(&tmp_intern2);
-		    tmp_intern2.idb_major_type = intern.idb_major_type;
-		    tmp_intern2.idb_type       = intern.idb_minor_type;
-		    tmp_intern2.idb_ptr        = intern.idb_ptr;
-		    tmp_intern2.idb_meth       = &OBJ[intern.idb_minor_type];
-		    if (rt_db_cvt_to_external5(&ext, tmpname, &tmp_intern2, 1.0,
-					       tmp_wdbp->dbip, &rt_uniresource,
-					       intern.idb_major_type) == 0) {
-			int eflags = db_flags_internal(&tmp_intern2);
-			(void)wdb_export_external(tmp_wdbp, &ext, tmpname,
-						  eflags, intern.idb_type);
-		    }
-		    bu_free_external(&ext);
-		    /* wdb_dbopen returns an internal pointer embedded in dbip;
-		     * do NOT call wdb_close() here as that would call db_close()
-		     * and free tmp_dbip prematurely.                           */
-		    db_update_nref(tmp_dbip, &rt_uniresource);
-
-		    double csa = 0.0, cv = 0.0;
-		    struct bu_vls cmsg = BU_VLS_INIT_ZERO;
-		    int cr = analyze_crofton_sample(tmp_dbip, tmpname,
-						    2.0 /* 2% threshold */,
-						    2000, &csa, &cv, &cmsg);
-		    if (cr == 0) {
-			fprintf(stderr,
-				"  CROFTON: %-32s  CSG-SA=%.4g  CSG-V=%.4g\n",
-				dp->d_namep, csa, cv);
-		    } else {
-			fprintf(stderr,
-				"  CROFTON: %-32s  failed (ret=%d): %s\n",
-				dp->d_namep, cr, bu_vls_cstr(&cmsg));
-		    }
-		    bu_vls_free(&cmsg);
-		}
-		db_close(tmp_dbip);
+	    double csa = 0.0, cv = 0.0;
+	    struct bu_vls cmsg = BU_VLS_INIT_ZERO;
+	    int cr = analyze_crofton_sample(dbip, dp->d_namep,
+					    2.0 /* 2% threshold */,
+					    2000, &csa, &cv, &cmsg);
+	    if (cr == 0) {
+		fprintf(stderr,
+			"  CROFTON: %-32s  CSG-SA=%.4g  CSG-V=%.4g\n",
+			dp->d_namep, csa, cv);
+	    } else {
+		fprintf(stderr,
+			"  CROFTON: %-32s  failed (ret=%d): %s\n",
+			dp->d_namep, cr, bu_vls_cstr(&cmsg));
 	    }
+	    bu_vls_free(&cmsg);
 	}
 
 	nmg_km(m);
