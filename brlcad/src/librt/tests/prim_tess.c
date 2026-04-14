@@ -912,8 +912,175 @@ test_tgc(void)
 
 
 /* ------------------------------------------------------------------ */
-/* ELL (Ellipsoid) tests                                                */
+/* TGC analytic surface area tests (rt_tgc_surf_area)                  */
 /* ------------------------------------------------------------------ */
+
+/**
+ * Directly exercise rt_tgc_surf_area() for each TGC subtype.
+ *
+ * RCC, TRC, REC have closed-form analytic formulas and are compared
+ * exactly (< 0.01% error).  TEC has no closed-form solution and uses
+ * the Crofton ray-sampling fallback; it is validated against:
+ *   1. Hard sanity bounds (positive, > base areas, < enclosing cylinder)
+ *   2. A geometric frustum approximation (< 10% error)
+ *   3. A continuity check: a "nearly-TRC" TEC (|a|≈|b|, |c|≈|d|) must
+ *      agree with the exact TRC formula within 5%.
+ */
+static int
+test_tgc_surf_area(void)
+{
+    int failures = 0;
+    struct rt_db_internal ip;
+    struct rt_tgc_internal tip;
+    fastf_t area = 0.0;
+    double expected, err;
+
+    /* Ramanujan ellipse circumference: π(a+b)(1 + 3h²/(10+√(4-3h²)))
+     * where h=(a-b)/(a+b).  Mirrors ELL_CIRCUMFERENCE in librt_private.h. */
+#define ELL_CIRCUM(a_,b_) (M_PI*((a_)+(b_)) * \
+    (1.0 + 3.0*((a_)-(b_))/((a_)+(b_))*((a_)-(b_))/((a_)+(b_)) \
+    / (10.0 + sqrt(4.0 - 3.0*((a_)-(b_))/((a_)+(b_))*((a_)-(b_))/((a_)+(b_))))))
+
+    ip.idb_magic      = RT_DB_INTERNAL_MAGIC;
+    ip.idb_major_type = DB5_MAJORTYPE_BRLCAD;
+    ip.idb_minor_type = ID_TGC;
+    ip.idb_meth       = &OBJ[ID_TGC];  /* required by Crofton serialization */
+    ip.idb_ptr        = &tip;
+    tip.magic         = RT_TGC_INTERNAL_MAGIC;
+
+    printf("\n--- TGC surface area (analytic) tests ---\n");
+
+    /* ------------------------------------------------------------------
+     * RCC: right circular cylinder  a=b=c=d=5, h=10
+     * exact SA = 2π·r·(r+h) = 2π·5·15 = 150π
+     * ------------------------------------------------------------------ */
+    VSET(tip.v, 0, 0, 0);
+    VSET(tip.h, 0, 0, 10);
+    VSET(tip.a, 5, 0, 0);
+    VSET(tip.b, 0, 5, 0);
+    VSET(tip.c, 5, 0, 0);
+    VSET(tip.d, 0, 5, 0);
+    area = 0.0;
+    OBJ[ID_TGC].ft_surf_area(&area, &ip);
+    expected = M_2PI * 5.0 * 15.0;   /* 150π */
+    err = fabs((double)area - expected) / expected;
+    fprintf(stderr,
+	    "  SA RCC (r=5 h=10): area=%.6g  expected=%.6g  err=%.4f%%  [%s]\n",
+	    (double)area, expected, err*100.0,
+	    (err < 1e-4) ? "PASS" : "FAIL");
+    if (err >= 1e-4) failures++;
+
+    /* ------------------------------------------------------------------
+     * TRC: truncated right cone  a=b=8, c=d=3, h=15
+     * exact SA = π·(a+c)·√((a-c)²+h²) + π·a² + π·c²
+     * ------------------------------------------------------------------ */
+    VSET(tip.h, 0, 0, 15);
+    VSET(tip.a, 8, 0, 0);
+    VSET(tip.b, 0, 8, 0);
+    VSET(tip.c, 3, 0, 0);
+    VSET(tip.d, 0, 3, 0);
+    area = 0.0;
+    OBJ[ID_TGC].ft_surf_area(&area, &ip);
+    expected = M_PI * ((8.0+3.0)*sqrt((8.0-3.0)*(8.0-3.0) + 15.0*15.0)
+		       + 8.0*8.0 + 3.0*3.0);
+    err = fabs((double)area - expected) / expected;
+    fprintf(stderr,
+	    "  SA TRC (a=8 c=3 h=15): area=%.6g  expected=%.6g  err=%.4f%%  [%s]\n",
+	    (double)area, expected, err*100.0,
+	    (err < 1e-4) ? "PASS" : "FAIL");
+    if (err >= 1e-4) failures++;
+
+    /* ------------------------------------------------------------------
+     * REC: right elliptic cylinder  a=c=8, b=d=4, h=10
+     * SA = ELL_CIRCUMFERENCE(a,b)·h + 2·π·a·b  (Ramanujan approximation)
+     * ------------------------------------------------------------------ */
+    VSET(tip.h, 0, 0, 10);
+    VSET(tip.a, 8, 0, 0);
+    VSET(tip.b, 0, 4, 0);
+    VSET(tip.c, 8, 0, 0);
+    VSET(tip.d, 0, 4, 0);
+    area = 0.0;
+    OBJ[ID_TGC].ft_surf_area(&area, &ip);
+    expected = ELL_CIRCUM(8.0, 4.0) * 10.0 + 2.0 * M_PI * 8.0 * 4.0;
+    err = fabs((double)area - expected) / expected;
+    fprintf(stderr,
+	    "  SA REC (a=8 b=4 h=10): area=%.6g  expected=%.6g  err=%.4f%%  [%s]\n",
+	    (double)area, expected, err*100.0,
+	    (err < 1e-4) ? "PASS" : "FAIL");
+    if (err >= 1e-4) failures++;
+
+    /* ------------------------------------------------------------------
+     * TEC: truncated elliptic cone  a=6, b=4, c=3, d=2, h=10
+     * No closed-form exists → Crofton sampling.
+     *
+     * Sanity checks:
+     *   (a) area > 0
+     *   (b) area > sum of two elliptic base areas (π·ab + π·cd)
+     *   (c) area < enclosing-cylinder surface area (generous upper bound)
+     *   (d) within 10% of the analytic frustum approximation:
+     *         ½(C₁+C₂)·½(l_a+l_b) + π·(ab+cd)
+     *       where C₁=ELL_CIRCUM(a,b), C₂=ELL_CIRCUM(c,d),
+     *             l_a=√(h²+(a-c)²), l_b=√(h²+(b-d)²)
+     * ------------------------------------------------------------------ */
+    VSET(tip.h, 0, 0, 10);
+    VSET(tip.a, 6, 0, 0);
+    VSET(tip.b, 0, 4, 0);
+    VSET(tip.c, 3, 0, 0);
+    VSET(tip.d, 0, 2, 0);
+    area = 0.0;
+    OBJ[ID_TGC].ft_surf_area(&area, &ip);
+    {
+	double base_areas  = M_PI * (6.0*4.0 + 3.0*2.0);  /* π·ab + π·cd */
+	/* enclosing right cylinder: radius max(a,b)=6, height 10 */
+	double upper_bound = M_2PI * 6.0 * (6.0 + 10.0) + 0.0;  /* lateral + no caps — generous */
+	double C1  = ELL_CIRCUM(6.0, 4.0);
+	double C2  = ELL_CIRCUM(3.0, 2.0);
+	double la  = sqrt(10.0*10.0 + (6.0-3.0)*(6.0-3.0));  /* slant along a-axis */
+	double lb  = sqrt(10.0*10.0 + (4.0-2.0)*(4.0-2.0));  /* slant along b-axis */
+	double approx_sa = 0.5*(C1+C2)*0.5*(la+lb) + base_areas;
+	double approx_err = fabs((double)area - approx_sa) / approx_sa;
+
+	int bounds_ok = (area > 0.0 && area > base_areas && area < upper_bound + base_areas);
+	int approx_ok = (approx_err < 0.10);  /* Crofton within 10% of approximation */
+	fprintf(stderr,
+		"  SA TEC (a=6 b=4 c=3 d=2 h=10): area=%.6g  approx=%.6g"
+		"  approx_err=%.1f%%  bounds=%s  [%s]\n",
+		(double)area, approx_sa, approx_err*100.0,
+		bounds_ok ? "ok" : "FAIL",
+		(bounds_ok && approx_ok) ? "PASS" : "FAIL");
+	if (!bounds_ok || !approx_ok) failures++;
+    }
+
+    /* ------------------------------------------------------------------
+     * TEC continuity: "nearly-TRC" shape  a=8.001, b=7.999, c=3.001, d=2.999
+     *
+     * GET_TGC_TYPE classifies this as TEC (|a|≠|b|) so Crofton is used,
+     * but the geometry is nearly circular.  The Crofton result must agree
+     * with the exact TRC formula for a=8, c=3, h=15 within 5%.
+     * ------------------------------------------------------------------ */
+    VSET(tip.h, 0, 0, 15);
+    VSET(tip.a, 8.001, 0,     0);
+    VSET(tip.b, 0,     7.999, 0);
+    VSET(tip.c, 3.001, 0,     0);
+    VSET(tip.d, 0,     2.999, 0);
+    area = 0.0;
+    OBJ[ID_TGC].ft_surf_area(&area, &ip);
+    expected = M_PI * ((8.0+3.0)*sqrt((8.0-3.0)*(8.0-3.0) + 15.0*15.0)
+		       + 8.0*8.0 + 3.0*3.0);
+    err = fabs((double)area - expected) / expected;
+    fprintf(stderr,
+	    "  SA TEC~TRC (a≈8 c≈3 h=15): area=%.6g  trc_ref=%.6g  err=%.2f%%  [%s]\n",
+	    (double)area, expected, err*100.0,
+	    (err < 0.05) ? "PASS" : "FAIL");
+    if (err >= 0.05) failures++;
+
+#undef ELL_CIRCUM
+
+    return failures;
+}
+
+
+
 
 static int
 test_ell(void)
@@ -3186,6 +3353,7 @@ main(int argc, char *argv[])
     total_failures += test_tor();
     total_failures += test_eto();
     total_failures += test_tgc();
+    total_failures += test_tgc_surf_area();
     total_failures += test_ell();
     total_failures += test_epa();
     total_failures += test_ehy();
