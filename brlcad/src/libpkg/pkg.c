@@ -295,7 +295,19 @@ _pkg_io_read(struct pkg_conn *pc, void *buf, size_t n)
 	return (ssize_t)pc->pkc_tls_read(pc->pkc_tls_ctx, buf, n);
     if (pc->pkc_fd == PKG_STDIO_MODE)
 	return PKG_READ(pc->pkc_in_fd, buf, n);
+#ifdef HAVE_WINSOCK_H
+    /* pkc_fd is a WinSock SOCKET stored as int.  _get_osfhandle() must NOT
+     * be called with a raw SOCKET value — on modern Windows it invokes
+     * _invalid_parameter_noinfo_noreturn() which calls __fastfail() and
+     * terminates the process with STATUS_FAST_FAIL_EXCEPTION (0xC0000409).
+     * recv() accepts the SOCKET directly and is the correct call here.     */
+    {
+	int nb = (n > (size_t)INT_MAX) ? INT_MAX : (int)n;
+	return (ssize_t)recv((SOCKET)(uintptr_t)pc->pkc_fd, (char *)buf, nb, 0);
+    }
+#else
     return PKG_READ(pc->pkc_fd, buf, n);
+#endif
 }
 
 
@@ -316,7 +328,16 @@ _pkg_io_write(struct pkg_conn *pc, const void *buf, size_t n)
 	return (ssize_t)pc->pkc_tls_write(pc->pkc_tls_ctx, buf, n);
     if (pc->pkc_fd == PKG_STDIO_MODE)
 	return PKG_SEND(pc->pkc_out_fd, buf, n);
+#ifdef HAVE_WINSOCK_H
+    /* Same reasoning as _pkg_io_read: pkc_fd is a WinSock SOCKET; must use
+     * send() directly rather than PKG_SEND/_get_osfhandle().               */
+    {
+	int nb = (n > (size_t)INT_MAX) ? INT_MAX : (int)n;
+	return (ssize_t)send((SOCKET)(uintptr_t)pc->pkc_fd, (const char *)buf, nb, 0);
+    }
+#else
     return PKG_SEND(pc->pkc_fd, buf, n);
+#endif
 }
 
 
