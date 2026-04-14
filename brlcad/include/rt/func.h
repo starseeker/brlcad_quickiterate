@@ -182,6 +182,39 @@ RT_EXPORT extern int rt_obj_mirror(struct rt_db_internal *ip, const plane_t *pla
  */
 RT_EXPORT extern int rt_obj_prep_serialize(struct soltab *stp, const struct rt_db_internal *ip, struct bu_external *external, size_t *version);
 
+/**
+ * Run the Cauchy-Crofton ray-sampling estimator on an already-prepared
+ * raytrace instance.  The caller owns @p rtip and must call rt_free_rti
+ * after this function returns.
+ *
+ * @param rtip          Prepared raytrace instance (rt_prep_parallel must
+ *                      have been called first).
+ * @param min_samples   Minimum rays per iteration (< 1 defaults to 1000).
+ * @param threshold_pct Convergence threshold as a percentage.  Pass 0 for
+ *                      a single-iteration run with no convergence loop.
+ * @param out_surf_area Receives the estimated surface area in mm^2.
+ * @param out_volume    Receives the estimated volume in mm^3.
+ * @return 0 on success, -1 on bad arguments.
+ */
+RT_EXPORT extern int rt_crofton_shoot(struct rt_i *rtip, size_t min_samples, double threshold_pct, double *out_surf_area, double *out_volume);
+
+/**
+ * Generic surface-area fallback suitable for use as ft_surf_area in the
+ * primitive functab.  Creates a temporary in-memory database from @p ip,
+ * runs the Cauchy-Crofton estimator with default parameters, and stores
+ * the result in @p area.  Intended for primitives that lack an analytic
+ * surface-area formula.
+ */
+RT_EXPORT extern void rt_crofton_surf_area(fastf_t *area, const struct rt_db_internal *ip);
+
+/**
+ * Generic volume fallback suitable for use as ft_volume in the primitive
+ * functab.  Creates a temporary in-memory database from @p ip, runs the
+ * Cauchy-Crofton estimator with default parameters, and stores the result
+ * in @p vol.  Intended for primitives that lack an analytic volume formula.
+ */
+RT_EXPORT extern void rt_crofton_volume(fastf_t *vol, const struct rt_db_internal *ip);
+
 __END_DECLS
 
 #endif  /* RT_FUNC_H */
