@@ -141,12 +141,21 @@ nmg_tri_fu_bg(struct faceuse *fu, struct bu_list *UNUSED(vlfree),
     struct loopuse *lu;
     struct edgeuse *eu;
 
-    /* ---- 1. Count loops; require exactly one OT_SAME outer loop ---- */
-    int n_outer       = 0;   /* vertex count of the OT_SAME loop       */
-    int nholes        = 0;   /* number of OT_OPPOSITE (hole) loops      */
-    int n_inner_total = 0;   /* total vertex count across all holes     */
-    int n_same_loops  = 0;   /* number of OT_SAME loops in faceuse      */
+    /* ---- 1. Count loops; identify outer polygon and holes ---- */
+    int n_outer       = 0;   /* vertex count of the outer polygon loop    */
+    int nholes        = 0;   /* number of hole loops                      */
+    int n_inner_total = 0;   /* total vertex count across all holes       */
+    int n_same_loops  = 0;   /* number of OT_SAME loops in faceuse        */
     struct loopuse *outer_lu = NULL;
+
+    /* For OT_OPPOSITE-only faceuses: track which loop has the largest
+     * 3-D area so we can promote it to the outer polygon.  This handles
+     * primitives where the stored face normal causes nmg_lu_reorient to
+     * label the outer loop as OT_OPPOSITE (e.g. solid pipe end caps that
+     * use HREVERSE).                                                      */
+    struct loopuse *opp_outer_lu  = NULL;
+    int             opp_outer_vc  = 0;
+    double          opp_outer_nsq = -1.0;
 
     for (BU_LIST_FOR(lu, loopuse, &fu->lu_hd)) {
 	if (BU_LIST_FIRST_MAGIC(&lu->down_hd) != NMG_EDGEUSE_MAGIC)
@@ -166,13 +175,86 @@ nmg_tri_fu_bg(struct faceuse *fu, struct bu_list *UNUSED(vlfree),
 		vc++;
 	    n_inner_total += vc;
 	    nholes++;
+	    /* Track the OT_OPPOSITE loop with the largest 3-D area.
+	     * nmg_loop_plane_newell() returns a UNIT normal, so we
+	     * cannot use it for area comparison.  Compute the
+	     * unnormalized Newell area vector directly; its magnitude
+	     * squared equals (2*area)^2, which is monotone in area.   */
+	    {
+		vect_t av = VINIT_ZERO;
+		struct edgeuse *eu2;
+		for (BU_LIST_FOR(eu2, edgeuse, &lu->down_hd)) {
+		    struct edgeuse *en =
+			BU_LIST_PNEXT_CIRC(edgeuse, &eu2->l);
+		    const double *v0 = eu2->vu_p->v_p->vg_p->coord;
+		    const double *v1 = en->vu_p->v_p->vg_p->coord;
+		    av[X] += (v0[Y]-v1[Y])*(v0[Z]+v1[Z]);
+		    av[Y] += (v0[Z]-v1[Z])*(v0[X]+v1[X]);
+		    av[Z] += (v0[X]-v1[X])*(v0[Y]+v1[Y]);
+		}
+		double nsq = MAGSQ(av);
+		if (nsq > opp_outer_nsq) {
+		    opp_outer_nsq = nsq;
+		    opp_outer_lu  = lu;
+		    opp_outer_vc  = vc;
+		}
+	    }
 	}
     }
 
-    /* Require exactly one OT_SAME loop; multi-outer-loop faces are unusual
-     * (boolean artifacts) and the ear-clip path handles them better.       */
-    if (n_same_loops != 1 || !outer_lu || n_outer < 3)
+    /* nmg_lu_reorient() (called by nmg_triangulate_fu before us) labels
+     * loops based on their 2-D winding relative to the stored face normal.
+     * When the stored face normal is outward (e.g. pipe end caps that use
+     * HREVERSE) the CW-from-outside outer boundary loop is labelled
+     * OT_OPPOSITE, and the CCW-from-outside inner hole loop is labelled
+     * OT_SAME.  This produces a geometrically impossible CDT problem
+     * (small OT_SAME loop used as outer polygon, large OT_OPPOSITE loop as
+     * hole) which fails and falls to an infinite ear-clip.
+     *
+     * Three labelling patterns are handled:
+     *
+     *  (a) n_same==0, nholes>=1 (all loops OT_OPPOSITE): pick the largest
+     *      OT_OPPOSITE loop as the outer polygon; remaining are holes.
+     *
+     *  (b) n_same==1, nholes==1: normal case, BUT if the single OT_OPPOSITE
+     *      hole is geometrically larger than the OT_SAME outer_lu, they are
+     *      mislabelled.  Swap them so CDT receives the larger loop as the
+     *      outer polygon.
+     *
+     * In all cases the signed-area check in section 5 flips the 2-D
+     * outer polygon to CCW for CDT regardless of loop label.             */
+    if (n_same_loops == 0 && nholes >= 1 && opp_outer_lu != NULL
+	&& opp_outer_vc >= 3) {
+	/* (a) All-OT_OPPOSITE: promote largest OT_OPPOSITE loop. */
+	outer_lu       = opp_outer_lu;
+	n_outer        = opp_outer_vc;
+	n_inner_total -= opp_outer_vc;
+	nholes--;
+    } else if (n_same_loops != 1 || !outer_lu || n_outer < 3) {
 	return 1;
+    } else if (nholes == 1 && n_inner_total >= 3 && opp_outer_lu != NULL) {
+	/* (b) n_same==1, nholes==1: compare areas and swap if the
+	 *     OT_OPPOSITE hole is actually the larger outer boundary. */
+	vect_t av = VINIT_ZERO;
+	struct edgeuse *eu2;
+	for (BU_LIST_FOR(eu2, edgeuse, &outer_lu->down_hd)) {
+	    struct edgeuse *en = BU_LIST_PNEXT_CIRC(edgeuse, &eu2->l);
+	    const double *v0 = eu2->vu_p->v_p->vg_p->coord;
+	    const double *v1 = en->vu_p->v_p->vg_p->coord;
+	    av[X] += (v0[Y]-v1[Y])*(v0[Z]+v1[Z]);
+	    av[Y] += (v0[Z]-v1[Z])*(v0[X]+v1[X]);
+	    av[Z] += (v0[X]-v1[X])*(v0[Y]+v1[Y]);
+	}
+	double same_area_sq = MAGSQ(av);
+	if (opp_outer_nsq > same_area_sq) {
+	    /* Swap: OT_OPPOSITE loop is the true outer boundary. */
+	    int old_n_outer = n_outer;
+	    outer_lu      = opp_outer_lu;
+	    n_outer       = n_inner_total; /* former hole verts = new outer */
+	    n_inner_total = old_n_outer;   /* former outer verts = new hole */
+	    /* nholes stays 1 (old outer_lu becomes the single hole) */
+	}
+    }
 
     /* A triangle without holes is already triangulated.                    */
     if (n_outer == 3 && nholes == 0)
@@ -224,7 +306,12 @@ nmg_tri_fu_bg(struct faceuse *fu, struct bu_list *UNUSED(vlfree),
 	for (BU_LIST_FOR(lu, loopuse, &fu->lu_hd)) {
 	    if (BU_LIST_FIRST_MAGIC(&lu->down_hd) != NMG_EDGEUSE_MAGIC)
 		continue;
-	    if (lu->orientation != OT_OPPOSITE)
+	    if (lu == outer_lu)
+		continue; /* already used as the outer polygon */
+	    /* Collect holes regardless of OT_SAME/OT_OPPOSITE label.
+	     * After the area-based swap (case b), the former OT_SAME inner
+	     * loop is the hole; filtering by OT_OPPOSITE would miss it.   */
+	    if (lu->orientation != OT_SAME && lu->orientation != OT_OPPOSITE)
 		continue;
 	    int hole_start = idx;
 	    for (BU_LIST_FOR(eu, edgeuse, &lu->down_hd)) {
@@ -276,7 +363,39 @@ nmg_tri_fu_bg(struct faceuse *fu, struct bu_list *UNUSED(vlfree),
 	}
     }
 
-    /* ---- 5. Triangulate ---- */
+    /* ---- 5. Ensure CCW winding before handing off to bg_detria ----
+     *
+     * bg_nested_poly_triangulate (via bg_detria) expects the outer polygon to
+     * be CCW in the 2-D projection plane.  For most tessellated primitives the
+     * OT_SAME loop is already CCW when projected with fu_normal; however, some
+     * primitives (notably pipe end caps) produce a loop that is CW from the
+     * outward face normal direction.  Detect this and reverse the outer polygon
+     * so that CDT always receives CCW input.
+     *
+     * A CW polygon has a negative signed area (shoelace formula).
+     *
+     * IMPORTANT: only poly[] (the index sequence) is reversed.  pts[] and
+     * idx_to_vert[] are keyed by the SAME integer space as the CDT output
+     * indices.  Reversing pts[]+idx_to_vert[] together with poly[] is a
+     * no-op for the polygon shape (it produces the same traversal after
+     * substitution) and breaks the idx_to_vert mapping used in the glue
+     * pass.  Reversing only poly[] correctly swaps CCW ↔ CW while keeping
+     * all index mappings intact. */
+    {
+	double signed_area = 0.0;
+	for (int j = 0; j < n_outer; j++) {
+	    int k = (j + 1) % n_outer;
+	    signed_area += pts[poly[j]][X] * pts[poly[k]][Y]
+			- pts[poly[k]][X] * pts[poly[j]][Y];
+	}
+	if (signed_area < 0.0) {
+	    /* Reverse the traversal order: flip poly[] in-place. */
+	    for (int j = 0, end = n_outer - 1; j < end; j++, end--)
+		std::swap(poly[j], poly[end]);
+	}
+    }
+
+    /* ---- 6. Triangulate ---- */
     int *tri_faces = NULL;
     int  num_tri   = 0;
     int bg_ret = bg_nested_poly_triangulate(
@@ -297,7 +416,7 @@ nmg_tri_fu_bg(struct faceuse *fu, struct bu_list *UNUSED(vlfree),
 	return 1; /* fu unchanged; use ear-clip fallback */
     }
 
-    /* ---- 6. Kill original face, create new triangle faceuses ---- */
+    /* ---- 7. Kill original face, create new triangle faceuses ---- */
     struct shell *s = fu->s_p;
     (void)nmg_kfu(fu); /* fu is now invalid – do not use */
 
@@ -333,10 +452,35 @@ nmg_tri_fu_bg(struct faceuse *fu, struct bu_list *UNUSED(vlfree),
 	if (!nfu)
 	    continue;
 
-	if (nmg_fu_planeeqn(nfu, tol)) {
-	    /* Degenerate triangle – discard silently. */
-	    (void)nmg_kfu(nfu);
-	    continue;
+	/* Compute face plane directly from the 3 vertex coordinates.
+	 *
+	 * nmg_fu_planeeqn() rejects triangles whose vertices are within
+	 * tol->dist of each other ("Cannot find three distinct vertices").
+	 * For freshly-created CDT triangles this is too aggressive: a cap
+	 * polygon on a small-radius cylinder (e.g. r=0.1 mm) produces many
+	 * valid but tiny triangles that all share the same geometric centre
+	 * – they ARE distinct 3-D points but fall within the NMG tolerance.
+	 * Silently dropping them leaves gaps → open edges in the final BOT.
+	 *
+	 * Instead we call bg_make_plane_3pnts() directly with a very small
+	 * absolute tolerance (SMALL_FASTF) so only truly degenerate
+	 * (zero-area) triangles are discarded.  nmg_face_g() assigns the
+	 * resulting plane to the new faceuse without any vertex-distance
+	 * checks.                                                           */
+	{
+	    plane_t tri_plane;
+	    const fastf_t *p0 = tv[0]->vg_p->coord;
+	    const fastf_t *p1 = tv[1]->vg_p->coord;
+	    const fastf_t *p2 = tv[2]->vg_p->coord;
+	    struct bn_tol geom_tol = *tol;
+	    geom_tol.dist    = SMALL_FASTF;
+	    geom_tol.dist_sq = SMALL_FASTF * SMALL_FASTF;
+	    if (bg_make_plane_3pnts(tri_plane, p0, p1, p2, &geom_tol) < 0) {
+		/* Truly zero-area triangle – skip it. */
+		(void)nmg_kfu(nfu);
+		continue;
+	    }
+	    nmg_face_g(nfu, tri_plane);
 	}
 
 	/* Collect OT_SAME edgeuses into new_tri_map. */
@@ -350,7 +494,7 @@ nmg_tri_fu_bg(struct faceuse *fu, struct bu_list *UNUSED(vlfree),
 
     bu_free(tri_faces, "nmg_tri_fu_bg tri_faces");
 
-    /* ---- 7. Glue pass (all O(1) lookups via hash maps) ----
+    /* ---- 8. Glue pass (all O(1) lookups via hash maps) ----
      *
      * For each directed edge (v1→v2) in new_tri_map:
      *

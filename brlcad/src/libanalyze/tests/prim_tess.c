@@ -138,6 +138,9 @@ static double g_scan_rel  = 0.0;
 static double g_scan_abs  = 0.0;
 static double g_scan_norm = 0.0;
 
+/* Optional primitive filter: when non-NULL, only the named prim family runs */
+static const char *g_prim_filter = NULL;
+
 
 /* ------------------------------------------------------------------ */
 /* Manifold / mesh quality validation                                   */
@@ -2888,6 +2891,43 @@ test_pipe(void)
 	pip.pipe_count = 0;
     }
 
+    /* ---- wh_axle.bracket.s6 replica: small L-bend, od=0.375, bendR=1 --- */
+    /* Reproduces the wh_axle.bracket.s6 geometry from toyjeep.g which was
+     * timing out at rel=0.001 after the CDT end-cap orientation fix.
+     * The small od relative to bendR and to the bounding-box diagonal is the
+     * challenging characteristic. */
+    {
+	struct wdb_pipe_pnt p1, p2, p3;
+
+	p1.l.magic = WDB_PIPESEG_MAGIC;
+	VSET(p1.pp_coord, 37.5625, -8.5, 7.875);
+	p1.pp_id = 0.0; p1.pp_od = 0.375; p1.pp_bendradius = 1.0;
+
+	p2.l.magic = WDB_PIPESEG_MAGIC;
+	VSET(p2.pp_coord, 37.5625, -8.5, 5.25);  /* bend point */
+	p2.pp_id = 0.0; p2.pp_od = 0.375; p2.pp_bendradius = 1.0;
+
+	p3.l.magic = WDB_PIPESEG_MAGIC;
+	VSET(p3.pp_coord, 37.5625, -16.25, 5.25);
+	p3.pp_id = 0.0; p3.pp_od = 0.375; p3.pp_bendradius = 1.0;
+
+	BU_LIST_INSERT(&pip.pipe_segs_head, &p1.l);
+	BU_LIST_INSERT(&pip.pipe_segs_head, &p2.l);
+	BU_LIST_INSERT(&pip.pipe_segs_head, &p3.l);
+	pip.pipe_count = 3;
+
+	init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+	if (!run_tess("pipe wh_axle L-bend (rel=0.01)", &ip, &ttol, &tol, 0)) failures++;
+
+	init_tols(&ttol, &tol, 0.0, 0.001, 0.0);
+	if (!run_tess("pipe wh_axle L-bend (rel=0.001)", &ip, &ttol, &tol, 0)) failures++;
+
+	BU_LIST_DEQUEUE(&p1.l);
+	BU_LIST_DEQUEUE(&p2.l);
+	BU_LIST_DEQUEUE(&p3.l);
+	pip.pipe_count = 0;
+    }
+
     return failures;
 }
 
@@ -3304,6 +3344,8 @@ main(int argc, char *argv[])
 	} else if (BU_STR_EQUAL(argv[i], "--validate-metrics")) {
 	    g_validate_metrics = 1;
 	    g_validate = 1;
+	} else if (BU_STR_EQUAL(argv[i], "--prim") && i + 1 < argc) {
+	    g_prim_filter = argv[++i];
 	} else if (BU_STR_EQUAL(argv[i], "--crofton-validate")) {
 	    g_crofton_validate = 1;
 	} else if (BU_STR_EQUAL(argv[i], "--metrics-tol") && i + 1 < argc) {
@@ -3345,24 +3387,28 @@ main(int argc, char *argv[])
 	/* ---- Built-in test suite ----
 	 * Manifold validation (g_validate) is only enabled when --output-g is
 	 * given, so the CI baseline run (no flags) stays fast. */
-	total_failures += test_tor();
-	total_failures += test_eto();
-	total_failures += test_tgc();
-	total_failures += test_ell();
-	total_failures += test_epa();
-	total_failures += test_ehy();
-	total_failures += test_rpc();
-	total_failures += test_rhc();
-	total_failures += test_hyp();
-	total_failures += test_part();
-	total_failures += test_dsp();
-	total_failures += test_ebm();
-	total_failures += test_vol();
-	total_failures += test_arb();
-	total_failures += test_ars();
-	total_failures += test_arbn();
-	total_failures += test_pipe();
-	total_failures += test_metaball();
+#define RUN_IF(name, fn) \
+    do { if (!g_prim_filter || BU_STR_EQUAL(g_prim_filter, name)) \
+	    total_failures += fn(); } while (0)
+	RUN_IF("tor",      test_tor);
+	RUN_IF("eto",      test_eto);
+	RUN_IF("tgc",      test_tgc);
+	RUN_IF("ell",      test_ell);
+	RUN_IF("epa",      test_epa);
+	RUN_IF("ehy",      test_ehy);
+	RUN_IF("rpc",      test_rpc);
+	RUN_IF("rhc",      test_rhc);
+	RUN_IF("hyp",      test_hyp);
+	RUN_IF("part",     test_part);
+	RUN_IF("dsp",      test_dsp);
+	RUN_IF("ebm",      test_ebm);
+	RUN_IF("vol",      test_vol);
+	RUN_IF("arb",      test_arb);
+	RUN_IF("ars",      test_ars);
+	RUN_IF("arbn",     test_arbn);
+	RUN_IF("pipe",     test_pipe);
+	RUN_IF("metaball", test_metaball);
+#undef RUN_IF
     }
 
     /* ---- Input .g scan (if requested) ---- */

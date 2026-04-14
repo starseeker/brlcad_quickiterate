@@ -3689,13 +3689,23 @@ tesselate_pipe_end(
 	bu_log("tesselate_pipe_end(): nmg_cface failed\n");
 	return;
     }
-    fu = fu->fumate_p;
-    if (nmg_calc_face_g(fu, vlfree)) {
-	bu_log("tesselate_pipe_end: nmg_calc_face_g failed\n");
-	nmg_kfu(fu);
-	return;
+    /* The outer_loop vertices are wound CW when viewed from outside (the end
+     * cap's outward direction), so nmg_calc_face_g would store an inward-
+     * pointing face normal.  Store the outward normal instead: compute the
+     * Newell normal of the loop, reverse it, and assign that plane.
+     *
+     * Do NOT use fu->fumate_p here: nmg_face_g forces the passed faceuse to
+     * OT_SAME and its mate to OT_OPPOSITE regardless of the current label,
+     * so passing the mate would swap the loop orientations and leave CDT with
+     * no OT_SAME loop, causing immediate CDT failure on every end cap. */
+    {
+	plane_t pl;
+	(void)vlfree;
+	lu = BU_LIST_FIRST(loopuse, &fu->lu_hd);
+	nmg_loop_plane_newell(lu, pl);
+	HREVERSE(pl, pl);   /* inward → outward */
+	nmg_face_g(fu, pl);
     }
-
     prev = BU_LIST_PREV(wdb_pipe_pnt, &pipe_pnt->l);
 
     if (pipe_pnt->pp_id > tol->dist) {
@@ -4744,11 +4754,15 @@ rt_pipe_surf_area(fastf_t *area, struct rt_db_internal *ip)
     for (BU_LIST_FOR(p, id_pipe, &head)) {
 	if (!p->pipe_is_bend) {
 	    lin = (struct lin_pipe *)p;
-	    /* Lateral Surface Area = PI * (r_base + r_top) * sqrt(pipe_len^2 + (r_base-r_top)^2) */
+	    /* Lateral Surface Area = PI * (r_base + r_top) * sqrt(pipe_len^2 + (r_base-r_top)^2)
+	     * Outer and inner surfaces have different r_base/r_top coefficients and must be
+	     * computed separately; using the outer radii for both would double-count the inner
+	     * surface area (giving ~2x SA on solid wires where the inner radius is zero). */
 	    len_sq = lin->pipe_len * lin->pipe_len;
 	    *area += M_PI * (lin->pipe_robase + lin->pipe_rotop)
-		* (sqrt(len_sq + lin->pipe_rodiff_sq)      /* outer surface */
-		   + sqrt(len_sq + lin->pipe_ridiff_sq));  /* inner surface */
+		* sqrt(len_sq + lin->pipe_rodiff_sq);      /* outer surface */
+	    *area += M_PI * (lin->pipe_ribase + lin->pipe_ritop)
+		* sqrt(len_sq + lin->pipe_ridiff_sq);      /* inner surface */
 	    start_or = lin->pipe_robase;
 	    start_ir = lin->pipe_ribase;
 	    end_or = lin->pipe_rotop;
@@ -4814,7 +4828,7 @@ rt_pipe_surf_area(fastf_t *area, struct rt_db_internal *ip)
 	    tmpval += (start_or + start_ir) * (start_or - start_ir);
 	}
 	/* previous end cross section */
-	if (!NEAR_EQUAL(start_or, start_ir, RT_LEN_TOL)) {
+	if (!NEAR_EQUAL(prev_or, prev_ir, RT_LEN_TOL)) {
 	    tmpval += (prev_or + prev_ir) * (prev_or - prev_ir);
 	}
 	*area += M_PI * tmpval;
