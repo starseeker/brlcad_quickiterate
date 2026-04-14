@@ -1819,6 +1819,167 @@ rt_arb_ifree(struct rt_db_internal *ip)
 }
 
 
+/*
+ * Build the equiv_pts[] map for an ARB: maps each of the 8 encoded vertex
+ * indices to the lowest-numbered index whose vertex is within tol_sq of it.
+ */
+static void
+arb_build_equiv_pts(const struct rt_arb_internal *arb, fastf_t tol_sq, int equiv_pts[8])
+{
+    int i, j;
+    equiv_pts[0] = 0;
+    for (i = 1; i < 8; i++) {
+	vect_t work;
+	equiv_pts[i] = i;
+	for (j = i - 1; j >= 0; j--) {
+	    VSUB2(work, arb->pt[i], arb->pt[j]);
+	    if (MAGSQ(work) < tol_sq) {
+		equiv_pts[i] = equiv_pts[j];
+		break;
+	    }
+	}
+    }
+}
+
+
+/*
+ * Return non-zero when the ARB has a non-canonical encoding: i.e., when any
+ * ARB8 face in rt_arb_info has four geometrically-distinct vertices that are
+ * NOT coplanar.  In a canonical encoding every such quad is planar; a
+ * non-canonical encoding (e.g. an ARB6 with the duplicate pair at positions
+ * pt[1]/pt[5] instead of the canonical pt[4]/pt[5]) causes some faces to
+ * span a skewed quad, which leads to incorrect surface-area, volume, and
+ * tessellation results.
+ */
+static int
+arb_is_noncanonical(const struct rt_arb_internal *arb, fastf_t tol_sq)
+{
+    int equiv_pts[8];
+    int i, j, k;
+    fastf_t tol_dist = sqrt(tol_sq);
+    struct bn_tol tmp_tol = BN_TOL_INIT_ZERO;
+
+    arb_build_equiv_pts(arb, tol_sq, equiv_pts);
+
+    tmp_tol.magic = BN_TOL_MAGIC;
+    tmp_tol.dist   = tol_dist;
+    tmp_tol.dist_sq = tol_sq;
+    tmp_tol.perp   = 1e-5;
+    tmp_tol.para   = 1.0 - tmp_tol.perp;
+
+    for (i = 0; i < 6; i++) {
+	int uniq[4];
+	int nuniq = 0;
+	plane_t plane;
+
+	/* Collect unique vertex indices for this ARB8 face */
+	for (j = 0; j < 4; j++) {
+	    int idx = equiv_pts[rt_arb_info[i].ai_sub[j]];
+	    int dup = 0;
+	    for (k = 0; k < nuniq; k++) {
+		if (uniq[k] == idx) { dup = 1; break; }
+	    }
+	    if (!dup) uniq[nuniq++] = idx;
+	}
+
+	if (nuniq < 4)
+	    continue; /* triangle or degenerate — inherently planar, skip */
+
+	/* Try to form a plane from the first three unique vertices */
+	if (bg_make_plane_3pnts(plane, arb->pt[uniq[0]], arb->pt[uniq[1]],
+				arb->pt[uniq[2]], &tmp_tol) < 0)
+	    continue; /* degenerate, can't tell */
+
+	/* If the fourth vertex is off the plane, encoding is non-canonical */
+	if (!NEAR_ZERO(DIST_PNT_PLANE(arb->pt[uniq[3]], plane), tol_dist))
+	    return 1;
+    }
+    return 0;
+}
+
+
+/*
+ * Compute the 3-D convex hull of the unique vertices in an ARB.
+ *
+ * Unique vertices are extracted via equiv_pts mapping.  bg_3d_chull is called
+ * to produce a triangulated hull.  Each input unique vertex is then verified
+ * to appear in the hull output; if any is missing, it was interior to the
+ * hull, which means the ARB is concave/invalid.
+ *
+ * Returns:
+ *   0  on success; *out_faces, *out_verts, *out_num_faces, *out_num_verts set.
+ *  -1  hull computation failed or degenerate (caller should fall back gracefully).
+ *  -2  at least one input vertex is interior to the hull (invalid concave ARB).
+ *
+ * On success the caller is responsible for bu_free(*out_faces) and
+ * bu_free(*out_verts).
+ */
+static int
+arb_chull_compute(const struct rt_arb_internal *arb, fastf_t tol_sq,
+		  int **out_faces, int *out_num_faces,
+		  point_t **out_verts, int *out_num_verts)
+{
+    int equiv_pts[8];
+    point_t unique_pts[8];
+    int num_unique = 0;
+    int i, j, dim;
+    fastf_t tol_dist;
+
+    *out_faces = NULL;
+    *out_verts = NULL;
+    *out_num_faces = 0;
+    *out_num_verts = 0;
+
+    arb_build_equiv_pts(arb, tol_sq, equiv_pts);
+
+    /* Collect one copy of each geometrically-distinct vertex */
+    for (i = 0; i < 8; i++) {
+	if (equiv_pts[i] == i)
+	    VMOVE(unique_pts[num_unique++], arb->pt[i]);
+    }
+
+    if (num_unique < 4) {
+	bu_log("arb: too few unique vertices (%d) for convex hull\n", num_unique);
+	return -1;
+    }
+
+    dim = bg_3d_chull(out_faces, out_num_faces, out_verts, out_num_verts,
+		      unique_pts, num_unique);
+
+    if (dim < 3 || !(*out_faces) || !(*out_verts) || *out_num_faces <= 0) {
+	bu_log("arb: convex hull computation failed or degenerate\n");
+	bu_free(*out_faces, "arb chull faces");
+	bu_free(*out_verts, "arb chull verts");
+	*out_faces = NULL;
+	*out_verts = NULL;
+	return -1;
+    }
+
+    /* Verify every unique input vertex is present on the hull.
+     * If one is missing it was inside the hull — the ARB is concave/invalid. */
+    tol_dist = sqrt(tol_sq);
+    for (i = 0; i < num_unique; i++) {
+	int found = 0;
+	for (j = 0; j < *out_num_verts; j++) {
+	    vect_t diff;
+	    VSUB2(diff, unique_pts[i], (*out_verts)[j]);
+	    if (MAGSQ(diff) < tol_sq) { found = 1; break; }
+	}
+	if (!found) {
+	    bu_log("arb: non-standard encoding has interior vertex — invalid ARB shape\n");
+	    bu_free(*out_faces, "arb chull faces");
+	    bu_free(*out_verts, "arb chull verts");
+	    *out_faces = NULL;
+	    *out_verts = NULL;
+	    return -2;
+	}
+    }
+    (void)tol_dist; /* suppress unused-variable warning if NEAR_ZERO not used */
+
+    return 0;
+}
+
+
 /**
  * "Tessellate" an ARB into an NMG data structure.  Purely a
  * mechanical transformation of one faceted object into another.
@@ -1842,6 +2003,67 @@ rt_arb_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     RT_CK_DB_INTERNAL(ip);
     aip = (struct rt_arb_internal *)ip->idb_ptr;
     RT_ARB_CK_MAGIC(aip);
+
+    /* Non-canonical encoding fallback: when the ARB has duplicate vertex
+     * pairs at unexpected positions the normal rt_arb_info face table
+     * produces non-planar quads.  Build the convex hull of the unique
+     * vertices and tessellate that instead. */
+    if (arb_is_noncanonical(aip, tol->dist_sq)) {
+	int *hull_faces = NULL;
+	int  hull_nf   = 0;
+	point_t *hull_verts = NULL;
+	int  hull_nv   = 0;
+	int  rc;
+
+	rc = arb_chull_compute(aip, tol->dist_sq,
+			       &hull_faces, &hull_nf,
+			       &hull_verts, &hull_nv);
+	if (rc == 0) {
+	    struct vertex **hvp;
+	    struct vertex ***hvpp;
+	    struct faceuse **hfu;
+	    int fi;
+
+	    hvp  = (struct vertex **)bu_calloc(hull_nv, sizeof(struct vertex *),
+					       "arb chull verts nmg");
+	    hvpp = (struct vertex ***)bu_calloc(3, sizeof(struct vertex **),
+					       "arb chull vertp");
+	    hfu  = (struct faceuse **)bu_calloc(hull_nf, sizeof(struct faceuse *),
+					       "arb chull fu");
+
+	    *r = nmg_mrsv(m);
+	    s  = BU_LIST_FIRST(shell, &(*r)->s_hd);
+
+	    for (fi = 0; fi < hull_nf; fi++) {
+		hvpp[0] = &hvp[hull_faces[3*fi+0]];
+		hvpp[1] = &hvp[hull_faces[3*fi+1]];
+		hvpp[2] = &hvp[hull_faces[3*fi+2]];
+		hfu[fi] = nmg_cmface(s, hvpp, 3);
+	    }
+
+	    for (i = 0; i < hull_nv; i++)
+		if (hvp[i])
+		    nmg_vertex_gv(hvp[i], hull_verts[i]);
+
+	    for (fi = 0; fi < hull_nf; fi++)
+		if (hfu[fi])
+		    (void)nmg_fu_planeeqn(hfu[fi], tol);
+
+	    nmg_fix_normals(s, vlfree, tol);
+	    (void)nmg_mark_edges_real(&s->l.magic, vlfree);
+	    nmg_region_a(*r, tol);
+
+	    bu_free(hvp,  "arb chull verts nmg");
+	    bu_free(hvpp, "arb chull vertp");
+	    bu_free(hfu,  "arb chull fu");
+	    bu_free(hull_faces, "arb chull faces");
+	    bu_free(hull_verts, "arb chull verts");
+	    return 0;
+	}
+	/* Hull failed — fall through to standard path (best effort) */
+	bu_free(hull_faces, "arb chull faces");
+	bu_free(hull_verts, "arb chull verts");
+    }
 
     memset((char *)&pa, 0, sizeof(pa));
     pa.pa_doopt = 0;		/* no UV stuff */
@@ -2581,6 +2803,35 @@ rt_arb_surf_area(fastf_t *area, const struct rt_db_internal *ip)
     tol.perp = 1e-5;
     tol.para = 1 - tol.perp;
 
+    /* Non-canonical encoding: use convex hull triangle areas */
+    if (arb_is_noncanonical(arb, tol.dist_sq)) {
+	int *hull_faces = NULL;
+	int  hull_nf   = 0;
+	point_t *hull_verts = NULL;
+	int  hull_nv   = 0;
+
+	if (arb_chull_compute(arb, tol.dist_sq,
+			      &hull_faces, &hull_nf,
+			      &hull_verts, &hull_nv) == 0) {
+	    fastf_t tot = 0.0;
+	    int fi;
+	    for (fi = 0; fi < hull_nf; fi++) {
+		vect_t e1, e2, cross;
+		VSUB2(e1, hull_verts[hull_faces[3*fi+1]], hull_verts[hull_faces[3*fi+0]]);
+		VSUB2(e2, hull_verts[hull_faces[3*fi+2]], hull_verts[hull_faces[3*fi+0]]);
+		VCROSS(cross, e1, e2);
+		tot += 0.5 * MAGNITUDE(cross);
+	    }
+	    *area += tot;
+	    bu_free(hull_faces, "arb chull faces");
+	    bu_free(hull_verts, "arb chull verts");
+	    return;
+	}
+	bu_free(hull_faces, "arb chull faces");
+	bu_free(hull_verts, "arb chull verts");
+	/* fall through to standard path on failure */
+    }
+
     /* need center point of arb for reference */
     point_t center_pt = VINIT_ZERO;
     rt_arb_centroid(&center_pt, ip);
@@ -2709,6 +2960,38 @@ rt_arb_volume(fastf_t *vol, const struct rt_db_internal *ip)
     tmp_tol.magic = BN_TOL_MAGIC;
     tmp_tol.dist = RT_LEN_TOL;
     tmp_tol.dist_sq = tmp_tol.dist * tmp_tol.dist;
+
+    /* Non-canonical encoding: use convex hull and the divergence theorem */
+    if (arb_is_noncanonical(aip, tmp_tol.dist_sq)) {
+	int *hull_faces = NULL;
+	int  hull_nf   = 0;
+	point_t *hull_verts = NULL;
+	int  hull_nv   = 0;
+
+	if (arb_chull_compute(aip, tmp_tol.dist_sq,
+			      &hull_faces, &hull_nf,
+			      &hull_verts, &hull_nv) == 0) {
+	    /* Signed volume via divergence theorem:
+	     *   V = (1/6) |sum_triangles  v0 . (v1 x v2)|
+	     * Works for any orientation of the hull triangles. */
+	    fastf_t signed_vol = 0.0;
+	    int fi;
+	    for (fi = 0; fi < hull_nf; fi++) {
+		vect_t cross;
+		VCROSS(cross,
+		       hull_verts[hull_faces[3*fi+1]],
+		       hull_verts[hull_faces[3*fi+2]]);
+		signed_vol += VDOT(hull_verts[hull_faces[3*fi+0]], cross);
+	    }
+	    *vol = fabs(signed_vol) / 6.0;
+	    bu_free(hull_faces, "arb chull faces");
+	    bu_free(hull_verts, "arb chull verts");
+	    return;
+	}
+	bu_free(hull_faces, "arb chull faces");
+	bu_free(hull_verts, "arb chull verts");
+	/* fall through to standard path on failure */
+    }
 
     *vol = 0.0;
     for (i = 0; i < 6; i++) {
