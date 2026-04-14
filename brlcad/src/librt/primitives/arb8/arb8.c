@@ -1944,7 +1944,7 @@ arb_chull_compute(const struct rt_arb_internal *arb, fastf_t tol_sq,
     }
 
     dim = bg_3d_chull(out_faces, out_num_faces, out_verts, out_num_verts,
-		      unique_pts, num_unique);
+		      (const point_t *)unique_pts, num_unique);
 
     if (dim < 3 || !(*out_faces) || !(*out_verts) || *out_num_faces <= 0) {
 	bu_log("arb: convex hull computation failed or degenerate\n");
