@@ -276,7 +276,34 @@ nmg_tri_fu_bg(struct faceuse *fu, struct bu_list *UNUSED(vlfree),
 	}
     }
 
-    /* ---- 5. Triangulate ---- */
+    /* ---- 5. Ensure CCW winding before handing off to bg_detria ----
+     *
+     * bg_nested_poly_triangulate (via bg_detria) expects the outer polygon to
+     * be CCW in the 2-D projection plane.  For most tessellated primitives the
+     * OT_SAME loop is already CCW when projected with fu_normal; however, some
+     * primitives (notably pipe end caps) produce a loop that is CW from the
+     * outward face normal direction.  Detect this and reverse the outer polygon
+     * so that CDT always receives CCW input.
+     *
+     * A CW polygon has a negative signed area (shoelace formula). */
+    {
+	double signed_area = 0.0;
+	for (int j = 0; j < n_outer; j++) {
+	    int k = (j + 1) % n_outer;
+	    signed_area += pts[poly[j]][X] * pts[poly[k]][Y]
+			- pts[poly[k]][X] * pts[poly[j]][Y];
+	}
+	if (signed_area < 0.0) {
+	    /* Reverse outer polygon in-place. */
+	    for (int j = 0, end = n_outer - 1; j < end; j++, end--) {
+		std::swap(poly[j],         poly[end]);
+		std::swap(idx_to_vert[j],  idx_to_vert[end]);
+		std::swap(pts[j],          pts[end]);
+	    }
+	}
+    }
+
+    /* ---- 6. Triangulate ---- */
     int *tri_faces = NULL;
     int  num_tri   = 0;
     int bg_ret = bg_nested_poly_triangulate(
@@ -297,7 +324,7 @@ nmg_tri_fu_bg(struct faceuse *fu, struct bu_list *UNUSED(vlfree),
 	return 1; /* fu unchanged; use ear-clip fallback */
     }
 
-    /* ---- 6. Kill original face, create new triangle faceuses ---- */
+    /* ---- 7. Kill original face, create new triangle faceuses ---- */
     struct shell *s = fu->s_p;
     (void)nmg_kfu(fu); /* fu is now invalid – do not use */
 
@@ -375,7 +402,7 @@ nmg_tri_fu_bg(struct faceuse *fu, struct bu_list *UNUSED(vlfree),
 
     bu_free(tri_faces, "nmg_tri_fu_bg tri_faces");
 
-    /* ---- 7. Glue pass (all O(1) lookups via hash maps) ----
+    /* ---- 8. Glue pass (all O(1) lookups via hash maps) ----
      *
      * For each directed edge (v1→v2) in new_tri_map:
      *
