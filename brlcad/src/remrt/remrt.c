@@ -3959,10 +3959,16 @@ do_work(int auto_start)
 	    if (done) break;
 	}
 
-	check_input(30);	/* delay up to 30 secs */
-
 	(void)gettimeofday(&now, (struct timezone *)0);
 	schedule(&now);
+
+	/* If schedule() just finished the last frame (FrameHead is now
+	 * empty), break immediately instead of blocking in check_input()
+	 * for 30 seconds waiting for data that will never arrive.       */
+	if (FrameHead.fr_forw == &FrameHead)
+	    break;
+
+	check_input(30);	/* delay up to 30 secs */
 
 	/* Count servers */
 	cur_serv = 0;
