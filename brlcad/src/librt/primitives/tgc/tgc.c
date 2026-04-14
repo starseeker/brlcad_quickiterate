@@ -3800,6 +3800,8 @@ rt_tgc_surf_area(fastf_t *area, const struct rt_db_internal *ip)
     mag_d = MAGNITUDE(tip->d);
     mag_h = sqrt(magsq_h);
 
+    *area = 0.0;
+
     GET_TGC_TYPE(tgc_type, mag_a, mag_b, mag_c, mag_d);
 
     switch (tgc_type) {
