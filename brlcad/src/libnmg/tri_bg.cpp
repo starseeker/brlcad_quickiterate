@@ -140,6 +140,7 @@ nmg_tri_fu_bg(struct faceuse *fu, struct bu_list *UNUSED(vlfree),
 
     struct loopuse *lu;
     struct edgeuse *eu;
+    bu_log("nmg_tri_fu_bg: ENTER fu=%p orient=%d\n", (void *)fu, fu->orientation);
 
     /* ---- 1. Count loops; identify outer polygon and holes ---- */
     int n_outer       = 0;   /* vertex count of the outer polygon loop    */
@@ -398,6 +399,8 @@ nmg_tri_fu_bg(struct faceuse *fu, struct bu_list *UNUSED(vlfree),
     /* ---- 6. Triangulate ---- */
     int *tri_faces = NULL;
     int  num_tri   = 0;
+    bu_log("nmg_tri_fu_bg: CDT n_outer=%d nholes=%d n_inner=%d\n",
+	   n_outer, nholes, n_inner_total);
     int bg_ret = bg_nested_poly_triangulate(
 	&tri_faces, &num_tri, NULL, NULL,
 	poly.data(), (size_t)n_outer,
@@ -409,12 +412,12 @@ nmg_tri_fu_bg(struct faceuse *fu, struct bu_list *UNUSED(vlfree),
 	TRI_CONSTRAINED_DELAUNAY);
 
     if (bg_ret != 0 || num_tri <= 0 || !tri_faces) {
-	/* bg_nested_poly_triangulate may have partially allocated tri_faces
-	 * even on failure (e.g. if it allocated but returned 0 triangles). */
+	bu_log("nmg_tri_fu_bg: CDT FAILED bg_ret=%d num_tri=%d\n", bg_ret, num_tri);
 	if (tri_faces)
 	    bu_free(tri_faces, "nmg_tri_fu_bg tri_faces");
 	return 1; /* fu unchanged; use ear-clip fallback */
     }
+    bu_log("nmg_tri_fu_bg: CDT OK num_tri=%d\n", num_tri);
 
     /* ---- 7. Kill original face, create new triangle faceuses ---- */
     struct shell *s = fu->s_p;
