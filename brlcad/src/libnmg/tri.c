@@ -3436,8 +3436,20 @@ nmg_triangulate_fu(struct faceuse *fu, struct bu_list *vlfree, const struct bn_t
      * On success, fu has been killed and replaced by triangle faceuses that
      * are already glued back into the shell – we are done.
      * On failure fu is untouched and we fall through to the ear-clip path. */
+    {
+	int nholes_debug = 0;
+	struct loopuse *lu_d;
+	for (BU_LIST_FOR(lu_d, loopuse, &fu->lu_hd))
+	    if (BU_LIST_FIRST_MAGIC(&lu_d->down_hd) == NMG_EDGEUSE_MAGIC
+		&& lu_d->orientation == OT_OPPOSITE)
+		nholes_debug++;
+	bu_log("nmg_tri_fu_bg: calling for fu=%p orient=%d nholes=%d\n",
+	       (void *)fu, fu->orientation, nholes_debug);
+    }
     if (nmg_tri_fu_bg(fu, vlfree, tol) == 0)
 	goto out2;
+
+    bu_log("nmg_triangulate_fu: CDT failed, falling to ear-clip fu=%p\n", (void *)fu);
 
     /* convert 3D face to face in the X-Y plane */
     tbl2d = nmg_flatten_face(fu, TformMat, tol);
