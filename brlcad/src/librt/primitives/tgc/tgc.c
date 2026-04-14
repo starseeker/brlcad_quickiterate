@@ -3817,7 +3817,11 @@ rt_tgc_surf_area(fastf_t *area, const struct rt_db_internal *ip)
 	    break;
 	case TEC:
 	default:
-	    bu_log("rt_tgc_surf_area(): cannot find surface area\n");
+	    /* No closed-form formula exists for the general truncated
+	     * elliptic cone.  Fall back to the Cauchy-Crofton ray-sampling
+	     * estimator, which handles any TGC shape correctly. */
+	    rt_crofton_surf_area(area, ip);
+	    break;
     }
 }
 
