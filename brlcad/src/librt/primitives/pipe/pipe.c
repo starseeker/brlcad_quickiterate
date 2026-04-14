@@ -3769,14 +3769,10 @@ rt_pipe_tess(
     int arc_segs = 6;			/* minimum number of segments for a circle */
     int tol_segs;
     fastf_t max_diam = 0.0;
-    fastf_t pipe_size;
     fastf_t curr_od, curr_id;
     double delta_angle;
     double sin_del;
     double cos_del;
-    point_t min_pt;
-    point_t max_pt;
-    vect_t min_to_max;
     vect_t r1, r2;
     struct vertex **outer_loop;
     struct vertex **inner_loop;
@@ -3795,27 +3791,16 @@ rt_pipe_tess(
 	return 0;    /* nothing to tessellate */
     }
 
-    pp1 = BU_LIST_FIRST(wdb_pipe_pnt, &pip->pipe_segs_head);
-
-    VMOVE(min_pt, pp1->pp_coord);
-    VMOVE(max_pt, pp1->pp_coord);
-
     /* find max diameter */
     for (BU_LIST_FOR(pp1, wdb_pipe_pnt, &pip->pipe_segs_head)) {
 	if (pp1->pp_od > SMALL_FASTF && pp1->pp_od > max_diam) {
 	    max_diam = pp1->pp_od;
 	}
-
-	VMINMAX(min_pt, max_pt, pp1->pp_coord);
     }
 
     if (max_diam <= tol->dist) {
 	return 0;    /* nothing to tessellate */
     }
-
-    /* calculate pipe size for relative tolerance */
-    VSUB2(min_to_max, max_pt, min_pt);
-    pipe_size = MAGNITUDE(min_to_max);
 
     /* calculate number of segments for circles */
     if (ttol->abs > SMALL_FASTF && ttol->abs * 2.0 < max_diam) {
@@ -3824,8 +3809,15 @@ rt_pipe_tess(
 	    arc_segs = tol_segs;
 	}
     }
-    if (ttol->rel > SMALL_FASTF && 2.0 * ttol->rel * pipe_size < max_diam) {
-	tol_segs = ceil(M_PI / acos(1.0 - 2.0 * ttol->rel * pipe_size / max_diam));
+    if (ttol->rel > SMALL_FASTF) {
+	/* Use the cross-section radius (max_od/2) as the reference for rel,
+	 * not the bounding-box diagonal.  The old pipe_size reference made
+	 * arc_segs hit the 6-segment floor whenever span >> diameter, causing
+	 * up to 17% volume error even with tight-seeming rel values (e.g.
+	 * detail_rb.s3 in toyjeep.g: span=473mm, OD=25mm → 17% vol error at
+	 * rel=0.01).  Using the cross-section radius gives consistent quality
+	 * regardless of pipe length. */
+	tol_segs = rt_num_circular_segments(ttol->rel * max_diam / 2.0, max_diam / 2.0);
 	if (tol_segs > arc_segs) {
 	    arc_segs = tol_segs;
 	}
