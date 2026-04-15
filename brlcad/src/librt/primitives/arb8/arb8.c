@@ -1854,9 +1854,10 @@ arb_build_equiv_pts(const struct rt_arb_internal *arb, fastf_t tol_sq, int equiv
  * which causes incorrect surface-area, volume, and tessellation results
  * via the standard ARB face table.
  *
- * Note: the canonical ARB4 encoding (where pt[3..7] are all the apex)
- * also triggers this test because equiv_pts[4..7] map to index 3 (< 4).
- * That is intentional — the hull fallback correctly tessellates it.
+ * Exception: the canonical ARB4 encoding has pt[0..2] as the three base
+ * vertices and pt[3..7] all coincident at the apex.  This means
+ * equiv_pts[4..7] all map to 3 (a bottom index), but it is a valid
+ * encoding and must not be flagged as non-canonical.
  */
 static int
 arb_is_noncanonical(const struct rt_arb_internal *arb, fastf_t tol_sq)
@@ -1870,6 +1871,21 @@ arb_is_noncanonical(const struct rt_arb_internal *arb, fastf_t tol_sq)
     for (i = 1; i < 4; i++) {
 	if (equiv_pts[i] != i)
 	    return 1;
+    }
+
+    /* Canonical ARB4: pt[3] is the apex, and pt[4..7] all coincide with it.
+     * equiv_pts[4..7] will all equal 3 (a bottom index), but this is a valid
+     * encoding — do not flag it as non-canonical. */
+    {
+	int all_apex = 1;
+	for (i = 4; i < 8; i++) {
+	    if (equiv_pts[i] != 3) {
+		all_apex = 0;
+		break;
+	    }
+	}
+	if (all_apex)
+	    return 0;
     }
 
     /* Check whether any top vertex (4–7) maps to a bottom vertex (0–3) */
