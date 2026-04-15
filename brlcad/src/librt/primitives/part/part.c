@@ -1138,7 +1138,9 @@ rt_part_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, c
     /* A cylinder-type PART whose height H is within the geometric tolerance
      * degenerates to a sphere (the cylinder band collapses to a plane of
      * zero thickness).  The equatorial vertex pairs become equal in the NMG,
-     * causing nmg_fu_planeeqn() to fail.  Detect this early and bail out. */
+     * causing nmg_fu_planeeqn() to fail.  Detect this early and bail out.
+     * Callers that need a tessellation of a sphere-type PART should build an
+     * equivalent SPH primitive and call rt_ell_tess() directly. */
     if (MAGNITUDE(pip->part_H) <= tol->dist)
 	return -1;
 

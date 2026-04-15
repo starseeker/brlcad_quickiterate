@@ -3324,6 +3324,26 @@ scan_input_g(const char *g_path)
 		break;
 	}
 
+	/* BOT-specific pre-checks: plate-mode and surface-mode BOTs cannot
+	 * be validated as closed solid meshes by this tool.              */
+	if (id == ID_BOT) {
+	    struct rt_bot_internal *bot_ip = (struct rt_bot_internal *)intern.idb_ptr;
+	    if (bot_ip->mode == RT_BOT_PLATE || bot_ip->mode == RT_BOT_PLATE_NOCOS) {
+		fprintf(stderr, "  SKIP %-32s  (plate-mode BOT: no solid tess)\n",
+			dp->d_namep);
+		n_skip++;
+		rt_db_free_internal(&intern);
+		continue;
+	    }
+	    if (bot_ip->mode == RT_BOT_SURFACE) {
+		fprintf(stderr, "  SKIP %-32s  (surface-mode BOT: not a solid)\n",
+			dp->d_namep);
+		n_skip++;
+		rt_db_free_internal(&intern);
+		continue;
+	    }
+	}
+
 	/* Tessellate - wrap in BU_SETJUMP to catch bu_bomb() */
 	struct model *m = nmg_mm();
 	struct nmgregion *r = NULL;
@@ -3345,6 +3365,23 @@ scan_input_g(const char *g_path)
 	} BU_UNSETJUMP;
 
 	if (ret != 0 || r == NULL) {
+	    /* For PART primitives: sphere-type and degenerate (|H|≤tol.dist)
+	     * PARTs intentionally return -1 from rt_part_tess.  These are
+	     * geometrically valid, just not tessellated via this path.  Skip
+	     * rather than counting as a failure. */
+	    if (id == ID_PARTICLE && ret == -1) {
+		struct rt_part_internal *part_ip =
+		    (struct rt_part_internal *)intern.idb_ptr;
+		if (part_ip->part_type == RT_PARTICLE_TYPE_SPHERE ||
+		    MAGNITUDE(part_ip->part_H) <= tol.dist) {
+		    fprintf(stderr, "  SKIP %-32s  (sphere-type PART, no NMG tess)\n",
+			    dp->d_namep);
+		    n_skip++;
+		    nmg_km(m);
+		    rt_db_free_internal(&intern);
+		    continue;
+		}
+	    }
 	    fprintf(stderr, "  TESS-FAIL %-32s  (ret=%d)\n", dp->d_namep, ret);
 	    n_tess_fail++;
 	    failures++;

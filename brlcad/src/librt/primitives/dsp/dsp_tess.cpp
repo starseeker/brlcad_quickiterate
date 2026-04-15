@@ -546,10 +546,19 @@ dsp_tess_with_decimation(
     std::vector<int>    all_faces(
 	surf_faces.begin(), surf_faces.begin() + n_surf_faces * 3);
 
-    /* Map surface vertex index → bottom vertex index (z = 0 plane). */
+    /* Map surface vertex index → bottom vertex index (z = 0 plane).
+     *
+     * Special case: when a surface vertex already sits at z ≈ 0 (terrain
+     * height = 0), the surface vertex IS the bottom vertex — they are the
+     * same geometric point.  Return the surface index itself so that the
+     * NMG vertex pointer is shared.  This avoids degenerate wall triangles
+     * (and the resulting open edges they leave behind when removed).       */
     std::unordered_map<int, int> surf_to_bot;
 
     auto add_bottom_vert = [&](int sv) -> int {
+	/* Terrain heights are non-negative integers; z ≤ 0 means ground. */
+	if (surf_verts[3*sv + 2] <= 0.0)
+	    return sv;  /* surface vertex IS the bottom vertex */
 	auto it = surf_to_bot.find(sv);
 	if (it != surf_to_bot.end()) return it->second;
 	int bv = (int)(all_verts.size() / 3);
@@ -568,19 +577,33 @@ dsp_tess_with_decimation(
 	    loop_bot_indices[li].push_back((size_t)add_bottom_vert(sv));
     }
 
-    /* Emit wall triangles for every boundary loop. */
+    /* Emit wall triangles for every boundary loop.
+     *
+     * For each directed boundary half-edge (va → vb), the wall quad
+     * decomposes into two triangles:
+     *   T1: (va, bot_a, bot_b)   — lower-left + lower-right + top-left
+     *   T2: (va, bot_b, vb)      — lower-left + lower-right + top-right
+     *
+     * When a surface vertex is at height 0 (i.e., bot_x == vx), one of the
+     * triangles degenerates to a zero-area sliver.  Skip degenerate
+     * triangles (any two indices equal) to prevent nmg_kfu removing them
+     * and leaving open edges in the assembled mesh.                        */
     for (size_t li = 0; li < boundary_loops.size(); ++li) {
 	const auto& loop = boundary_loops[li];
 	size_t n = loop.size();
 	for (size_t i = 0; i < n; ++i) {
 	    int va    = loop[i];
 	    int vb    = loop[(i + 1) % n];
-	    int bot_a = surf_to_bot[va];
-	    int bot_b = surf_to_bot[vb];
-	    /* (ta, bot_a, bot_b) */
-	    all_faces.push_back(va);    all_faces.push_back(bot_a); all_faces.push_back(bot_b);
-	    /* (ta, bot_b, tb) */
-	    all_faces.push_back(va);    all_faces.push_back(bot_b); all_faces.push_back(vb);
+	    int bot_a = (int)loop_bot_indices[li][i];
+	    int bot_b = (int)loop_bot_indices[li][(i + 1) % n];
+	    /* T1: (va, bot_a, bot_b) — skip if degenerate */
+	    if (va != bot_a && va != bot_b && bot_a != bot_b) {
+		all_faces.push_back(va);    all_faces.push_back(bot_a); all_faces.push_back(bot_b);
+	    }
+	    /* T2: (va, bot_b, vb) — skip if degenerate */
+	    if (va != bot_b && va != vb && bot_b != vb) {
+		all_faces.push_back(va);    all_faces.push_back(bot_b); all_faces.push_back(vb);
+	    }
 	}
     }
 
