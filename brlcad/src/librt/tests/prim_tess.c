@@ -3992,7 +3992,7 @@ verify_crofton_estimates(void)
     /*    Geometry modelled on havoc.g s.fuse17.i:                    */
     /*      H = (-1360, -339.5, 0)   A = (0, 0, 919)   B = (0, 0.1, 0) */
     /*      C = (0, 0, 639)          D = (0, 159, 0)                  */
-    /*    A⊥B, C⊥D, A·D=0, B·C=0, A×B = (-91.9, 0, ~0)            */
+    /*    A⊥B, C⊥D, A·D=0, B·C=0, A×B = (-91.9, 0, ≈0)            */
     /*    h_perp = |H·(A×B)| / (|A|·|B|) = 124984 / 91.9 = 1360    */
     /*                                                                 */
     /*    Correct volume (prismatoid formula):                         */
@@ -4033,6 +4033,8 @@ verify_crofton_estimates(void)
 	fastf_t tgc_vol = 0.0;
 	ip.idb_meth->ft_volume(&tgc_vol, &ip);
 	double tgc_vol_err = fabs(tgc_vol - analytic_vol) / analytic_vol * 100.0;
+	/* Compute what the old (incorrect) formula π·h/3·(ab+cd+√(abcd)) would
+	 * have returned, shown as diagnostic "old_err" in the output line.   */
 	double old_vol = M_PI * h_perp_tec * (a*b + c*d + sqrt(a*b*c*d)) / 3.0;
 	double old_err = fabs(old_vol - analytic_vol) / analytic_vol * 100.0;
 	printf("  %-42s  analytic_formula_err=%.2f%%  [%s]  (old_err=%.1f%%)\n",
