@@ -508,7 +508,8 @@ check_nmg_mesh(const char *label, struct model *m,
 			const fastf_t min_ntol = (fastf_t)(M_PI / 360.0);
 			if (ntol_e < min_ntol) ntol_e = min_ntol;
 			int t2;
-			t2 = ceil(M_PI / ntol_e); /* implicit double→int */
+			double t2d = ceil(M_PI / ntol_e); /* segments from angular tolerance */
+			t2 = (int)t2d;
 			if (t2 > ts) ts = t2;
 		    }
 		    arc_segs_eff = ts;
@@ -778,9 +779,11 @@ run_tess(const char *label,
 					 0 /* not quiet */, &mesh_res);
 	    if (!mesh_ok) passed = 0;
 
-	    /* Convergence probing when metrics check failed */
+	    /* Convergence probing when metrics check failed but mesh topology is ok.
+	     * If there are open edges, tightening tolerances won't fix them.      */
 	    int conv_rel = 0, conv_abs = 0, conv_norm = 0;
-	    if (g_validate_metrics && !expect_fail && !mesh_ok && ret == 0 && r != NULL) {
+	    if (g_validate_metrics && !expect_fail && ret == 0 && r != NULL &&
+		mesh_res.mesh_ok && mesh_res.metrics_ok == 0) {
 		int is_planar = 0;
 		if (ip) {
 		    switch (ip->idb_minor_type) {
@@ -3859,9 +3862,10 @@ scan_input_g(const char *g_path)
 				 0 /* not quiet */, &scan_res);
 	if (ok) n_pass++; else { n_fail++; failures++; }
 
-	/* Convergence probing when metrics check failed */
+	/* Convergence probing when metrics check failed but mesh topology is ok.
+	 * If there are open edges, tightening tolerances won't fix them.      */
 	int conv_rel = 0, conv_abs = 0, conv_norm = 0;
-	if (g_validate_metrics && !ok) {
+	if (g_validate_metrics && scan_res.mesh_ok && scan_res.metrics_ok == 0) {
 	    int is_planar = 0;
 	    switch (id) {
 		case ID_ARB8: case ID_ARBN: case ID_ARS:
@@ -4022,7 +4026,8 @@ main(int argc, char *argv[])
 	    g_crofton_validate = 1;
 	} else if (BU_STR_EQUAL(argv[i], "--metrics-tol") && i + 1 < argc) {
 	    double v = atof(argv[++i]);
-	    if (v > 0.0) g_metrics_tol = v / 100.0; /* convert percent to fraction */
+	    if (v > 0.0 && v <= 100.0) g_metrics_tol = v / 100.0; /* convert percent to fraction */
+	    else if (v > 100.0) fprintf(stderr, "WARNING: --metrics-tol value %.4g > 100%% (did you mean a fraction?), ignored\n", v);
 	    else fprintf(stderr, "WARNING: --metrics-tol requires a positive value, ignored\n");
 	} else if (BU_STR_EQUAL(argv[i], "--rel") && i + 1 < argc) {
 	    double v = atof(argv[++i]);
