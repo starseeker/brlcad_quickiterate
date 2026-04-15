@@ -324,7 +324,8 @@ check_nmg_mesh(const char *label, struct model *m,
 	       const struct rt_db_internal *ip,
 	       const struct bg_tess_tol *ttol,
 	       int quiet,
-	       struct tess_eval_result *res)
+	       struct tess_eval_result *res,
+	       const char *bot_name_override)
 {
     struct nmgregion *r;
     struct shell *s;
@@ -641,7 +642,21 @@ check_nmg_mesh(const char *label, struct model *m,
     /* Optionally save the BOT to the output .g */
     if (g_wdb && (open_cnt == 0 && n_open == 0)) {
 	char bot_name[256];
-	snprintf(bot_name, sizeof(bot_name), "tess_%04d.bot", ++g_out_seq);
+	if (bot_name_override) {
+	    /* Input .g scan: prefix the original solid name with "bot_" */
+	    snprintf(bot_name, sizeof(bot_name), "bot_%s", bot_name_override);
+	} else {
+	    /* Built-in tests: use builtin_<type>_<seq>.bot */
+	    char type_lc[16] = "prim";
+	    if (ip) {
+		const char *ft = OBJ[ip->idb_minor_type].ft_label;
+		int ti;
+		for (ti = 0; ft[ti] && ti < 15; ti++)
+		    type_lc[ti] = (ft[ti] >= 'A' && ft[ti] <= 'Z') ? (char)(ft[ti] + 32) : ft[ti];
+		type_lc[ti] = '\0';
+	    }
+	    snprintf(bot_name, sizeof(bot_name), "builtin_%s_%04d.bot", type_lc, ++g_out_seq);
+	}
 	mk_bot(g_wdb, bot_name,
 	       RT_BOT_SOLID, RT_BOT_CCW, 0,
 	       bot->num_vertices, bot->num_faces,
@@ -695,7 +710,7 @@ eval_tess(const char *label, struct rt_db_internal *ip,
     }
 
     res->tess_ok = 1;
-    int ok = check_nmg_mesh(label, m, tol, &vlfree, ip, ttol, quiet, res);
+    int ok = check_nmg_mesh(label, m, tol, &vlfree, ip, ttol, quiet, res, NULL);
 
     nmg_km(m);
     bu_list_free(&vlfree);
@@ -877,7 +892,7 @@ run_tess(const char *label,
 	    mesh_res.err_sa = -1.0;
 	    mesh_res.err_vol = -1.0;
 	    int mesh_ok = check_nmg_mesh(label, m, tol, &vlfree, ip, ttol,
-					 0 /* not quiet */, &mesh_res);
+					 0 /* not quiet */, &mesh_res, NULL);
 	    if (!mesh_ok) passed = 0;
 
 	    /* Convergence probing when metrics check failed but mesh topology is ok.
@@ -960,9 +975,17 @@ run_tess(const char *label,
 	 * to a caller-owned stack variable.                               */
 	if (g_wdb && !expect_fail) {
 	    char prim_name[256];
+	    char type_lc[16] = "prim";
+	    {
+		const char *ft = OBJ[ip->idb_minor_type].ft_label;
+		int ti;
+		for (ti = 0; ft[ti] && ti < 15; ti++)
+		    type_lc[ti] = (ft[ti] >= 'A' && ft[ti] <= 'Z') ? (char)(ft[ti] + 32) : ft[ti];
+		type_lc[ti] = '\0';
+	    }
 	    struct bu_external ext;
 	    struct rt_db_internal tmp_intern;
-	    snprintf(prim_name, sizeof(prim_name), "csg_%04d.s", g_out_seq);
+	    snprintf(prim_name, sizeof(prim_name), "builtin_%s_%04d.s", type_lc, g_out_seq);
 	    BU_EXTERNAL_INIT(&ext);
 	    RT_DB_INTERNAL_INIT(&tmp_intern);
 	    tmp_intern.idb_major_type = ip->idb_major_type;
@@ -4376,7 +4399,7 @@ scan_input_g(const char *g_path)
 	scan_res.err_sa = -1.0;
 	scan_res.err_vol = -1.0;
 	int ok = check_nmg_mesh(dp->d_namep, m, &tol, &vlfree, &intern, &ttol,
-				 0 /* not quiet */, &scan_res);
+				 0 /* not quiet */, &scan_res, dp->d_namep);
 	if (ok) n_pass++; else { n_fail++; failures++; }
 
 	/* Convergence probing when metrics check failed but mesh topology is ok.
