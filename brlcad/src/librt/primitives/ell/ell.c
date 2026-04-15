@@ -2057,7 +2057,10 @@ rt_ell_surf_area(fastf_t *area, const struct rt_db_internal *ip)
 	*area = (M_2PI * major2) + (M_PI * minor2 / ecc) * log((1.0 + ecc) / (1.0 - ecc));
 	break;
     default:
-	bu_log("rt_ell_surf_area(): triaxial ellipsoid, cannot find surface area");
+	/* General triaxial ellipsoid: no closed-form solution exists.
+	 * Fall back to the Cauchy-Crofton ray-sampling estimator. */
+	rt_crofton_surf_area(area, ip);
+	break;
     }
 }
 
