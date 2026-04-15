@@ -3986,6 +3986,63 @@ verify_crofton_estimates(void)
 	if (tgc_vol_err > 0.1) failures++;
     }
 
+    /* -------------------------------------------------------------- */
+    /* 4. General TEC: non-similar cross-sections (a/b != c/d)        */
+    /*                                                                 */
+    /*    Geometry modelled on havoc.g s.fuse17.i:                    */
+    /*      H = (-1360, -339.5, 0)   A = (0, 0, 919)   B = (0, 0.1, 0) */
+    /*      C = (0, 0, 639)          D = (0, 159, 0)                  */
+    /*    A⊥B, C⊥D, A·D=0, B·C=0, A×B = (-91.9, 0, ~0)            */
+    /*    h_perp = |H·(A×B)| / (|A|·|B|) = 124984 / 91.9 = 1360    */
+    /*                                                                 */
+    /*    Correct volume (prismatoid formula):                         */
+    /*      V = π·h_perp/6·(2ab + ad + bc + 2cd)                    */
+    /*        = π·1360/6·(2·91.9 + 146121 + 63.9 + 2·101601)        */
+    /*        = π·1360/6·349570.7 ≈ 2.489e8 mm³                     */
+    /*                                                                 */
+    /*    Old (wrong) formula: π·h_perp/3·(ab+cd+√(abcd))           */
+    /*      √(abcd) = √(91.9·101601) ≈ 3055.7   (not (ad+bc)/2 ≈ 73092) */
+    /*      → 1.492e8 mm³  (≈40% underestimate)                     */
+    /* -------------------------------------------------------------- */
+    {
+	struct rt_tgc_internal tgc;
+	memset(&tgc, 0, sizeof(tgc));
+	tgc.magic = RT_TGC_INTERNAL_MAGIC;
+	VSET(tgc.v, 10320, 459.5, 1550);
+	VSET(tgc.h, -1360, -339.5, 0);
+	VSET(tgc.a, 0, 0, 919);
+	VSET(tgc.b, 0, 0.1, 0);
+	VSET(tgc.c, 0, 0, 639);
+	VSET(tgc.d, 0, 159, 0);
+
+	struct rt_db_internal ip;
+	RT_DB_INTERNAL_INIT(&ip);
+	ip.idb_major_type = DB5_MAJORTYPE_BRLCAD;
+	ip.idb_minor_type = ID_TGC;
+	ip.idb_type       = ID_TGC;
+	ip.idb_meth       = &OBJ[ID_TGC];
+	ip.idb_ptr        = &tgc;
+
+	/* Prismatoid formula: V = π·h_perp/6·(2ab + ad + bc + 2cd) */
+	const double a = 919.0, b = 0.1, c = 639.0, d = 159.0;
+	const double h_perp_tec = 1360.0;
+	double analytic_vol = M_PI * h_perp_tec / 6.0 *
+	    (2.0*a*b + a*d + b*c + 2.0*c*d);
+
+	/* Verify rt_tgc_volume gives the prismatoid result */
+	fastf_t tgc_vol = 0.0;
+	ip.idb_meth->ft_volume(&tgc_vol, &ip);
+	double tgc_vol_err = fabs(tgc_vol - analytic_vol) / analytic_vol * 100.0;
+	double old_vol = M_PI * h_perp_tec * (a*b + c*d + sqrt(a*b*c*d)) / 3.0;
+	double old_err = fabs(old_vol - analytic_vol) / analytic_vol * 100.0;
+	printf("  %-42s  analytic_formula_err=%.2f%%  [%s]  (old_err=%.1f%%)\n",
+	       "general TEC a/b!=c/d (rt_tgc_volume)",
+	       tgc_vol_err,
+	       (tgc_vol_err <= 0.01) ? "OK" : "FORMULA-FAIL",
+	       old_err);
+	if (tgc_vol_err > 0.01) failures++;
+    }
+
 #undef CROFTON_CHECK
 
     printf("  Crofton verification: %d failure(s)\n", failures);
