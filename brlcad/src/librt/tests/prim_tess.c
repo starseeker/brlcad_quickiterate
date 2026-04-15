@@ -3800,7 +3800,7 @@ test_metaball(void)
  * Tests performed:
  *   1. Sphere     -- SA = 4πr², V = (4/3)πr³
  *   2. RCC        -- SA = 2πr(r+h), V = πr²h  (right circular cylinder)
- *   3. Oblique TEC -- SA via Crofton, V = (π·h_perp/3)(ab+cd+√(abcd))
+ *   3. Oblique RCC -- SA via numerically-exact lateral integral, V = π·r²·h_perp
  *                   (verifies rt_tgc_volume uses perpendicular height)
  *
  * All three cases are also run through rt_crofton_surf_area / rt_crofton_volume
@@ -3918,7 +3918,7 @@ verify_crofton_estimates(void)
     /*    Old formula (|H|): 25π·20 = 1570.8 mm³  (15.5% too large) */
     /*                                                                */
     /* Surface area (oblique cylinder, exact):                        */
-    /*    Lateral SA = r ∫₀²π √(Hz²+Hx²cos²(φ)) dφ                 */
+    /*    Lateral SA = r · ∫₀²π √(Hz²+Hx²cos²(φ)) dφ  (exact, not 2πr·h_perp)     */
     /*    (elliptic integral; NOT 2πr·h_perp NOR 2πr·|H|)           */
     /*    End caps = 2·π·r²  (perpendicular to axis A,B)             */
     /*    Computed numerically below to serve as Crofton reference.  */

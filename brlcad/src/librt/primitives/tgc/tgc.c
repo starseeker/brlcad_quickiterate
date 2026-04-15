@@ -3766,7 +3766,8 @@ rt_tgc_volume(fastf_t *vol, const struct rt_db_internal *ip)
      * perpendicular to the base ellipse (A, B may have components along H).
      * The cross-section planes are spanned by A and B (and their scaled
      * counterparts C and D at the top), so the unit normal to those planes
-     * is n̂ = (A × B) / |A × B|.  Since A ⊥ B we have |A × B| = |A|·|B|,
+     * is n̂ = (A × B) / |A × B|.  A ⊥ B is guaranteed by the TGC
+     * primitive definition (enforced by rt_tgc_prep), so |A × B| = |A|·|B|,
      * giving:
      *
      *   h_perp = | H · n̂ | = | H · (A × B) | / (|A| · |B|)
