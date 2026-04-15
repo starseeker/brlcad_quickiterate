@@ -149,6 +149,8 @@ static const char *g_prim_filter = NULL;
  * commands (e.g. '-name "s.nos*"', '-type tgc', '-name foo.s').       */
 static const char *g_search_filter = NULL;
 
+#define BOT_NAME_LEN 256
+
 static int
 has_glob_pattern(const char *s)
 {
@@ -663,7 +665,7 @@ check_nmg_mesh(const char *label, struct model *m,
 
     /* Optionally save the BOT to the output .g */
     if (g_wdb && (open_cnt == 0 && n_open == 0)) {
-	char bot_name[256];
+	char bot_name[BOT_NAME_LEN];
 	if (bot_name_override) {
 	    /* Input .g scan: use precomputed name (<file_root>_bot_<primitive>) */
 	    bu_strlcpy(bot_name, bot_name_override, sizeof(bot_name));
@@ -4420,8 +4422,12 @@ scan_input_g(const char *g_path, const char *g_root)
 	scan_res.metrics_ok = -1;
 	scan_res.err_sa = -1.0;
 	scan_res.err_vol = -1.0;
-	char bot_name[256];
-	snprintf(bot_name, sizeof(bot_name), "%s_bot_%s", g_root, dp->d_namep);
+	char bot_name[BOT_NAME_LEN];
+	int bot_n = snprintf(bot_name, sizeof(bot_name), "%s_bot_%s", g_root, dp->d_namep);
+	if (bot_n < 0 || bot_n >= (int)sizeof(bot_name)) {
+	    fprintf(stderr, "  WARN %-32s  BOT name truncated for output: %s_bot_%s\n",
+		    dp->d_namep, g_root, dp->d_namep);
+	}
 	int ok = check_nmg_mesh(dp->d_namep, m, &tol, &vlfree, &intern, &ttol,
 				 0 /* not quiet */, &scan_res, bot_name);
 	if (ok) n_pass++; else { n_fail++; failures++; }
@@ -4542,7 +4548,7 @@ scan_input_g_spec(const char *g_spec)
     int failures = 0;
 
     if (!has_glob_pattern(g_spec)) {
-	char g_root[256] = {0};
+	char g_root[BOT_NAME_LEN] = {0};
 	input_g_root(g_root, sizeof(g_root), g_spec);
 	return scan_input_g(g_spec, g_root);
     }
@@ -4579,7 +4585,7 @@ scan_input_g_spec(const char *g_spec)
 	bu_vls_free(&ext);
 
 	struct bu_vls g_path = BU_VLS_INIT_ZERO;
-	char g_root[256] = {0};
+	char g_root[BOT_NAME_LEN] = {0};
 	bu_vls_sprintf(&g_path, "%s/%s", bu_vls_addr(&dir), matches[i]);
 	input_g_root(g_root, sizeof(g_root), bu_vls_addr(&g_path));
 	failures += scan_input_g(bu_vls_addr(&g_path), g_root);
