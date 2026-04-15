@@ -528,7 +528,9 @@ rt_ars_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	 * the seam (e.g., real-world terrain rings that do not return to the
 	 * same elevation), the tessellation will produce open edges at the
 	 * seam because the strip triangles for j==pts_per_curve-1 create an
-	 * unpaired edge between curve[0] and curve[pts_per_curve-1].
+	 * unpaired edge between curve[0] and curve[pts_per_curve-1].  This is
+	 * not a bug in the tessellation algorithm — the source data is
+	 * inherently non-manifold and cannot be closed without modifying it.
 	 *
 	 * A single degenerate apex curve (all points identical) is exempt
 	 * from this check since it has no meaningful "seam".                 */
@@ -537,20 +539,25 @@ rt_ars_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	    fastf_t *last_pt  = &arip->curves[i][(arip->pts_per_curve - 1) *
 						 ELEMENTS_PER_VECT];
 	    if (!VNEAR_EQUAL(first_pt, last_pt, tol->dist)) {
-		/* Only warn — a non-closed ring can still tessellate into an
-		 * open (non-manifold) mesh, which is the best we can do.    */
-		bu_log("ARS WARNING: curve #%zu is not closed in 3D "
+		bu_log("ARS: curve #%zu is not closed in 3D "
 		       "(first=(%g %g %g) last=(%g %g %g) dist=%g > tol=%g).\n"
-		       "\tThe tessellation will have open edges at this seam.\n",
+		       "\tThis ARS solid cannot be tessellated into a closed "
+		       "manifold mesh.\n"
+		       "\tThe source data has a seam discontinuity that makes "
+		       "it unsuitable for tessellation.\n",
 		       i,
 		       V3ARGS(first_pt), V3ARGS(last_pt),
 		       DIST_PNT_PNT(first_pt, last_pt), tol->dist);
+		bad_ars = 1;
 	    }
 	}
     }
 
     if (bad_ars) {
-	bu_log("TESSELLATION FAILURE: This ARS solid has not been tessellated.\n\tAny result you may obtain is incorrect.\n");
+	bu_log("ARS tessellation skipped: solid has non-manifold geometry "
+	       "(backtracking curve or non-closed ring seam).\n"
+	       "\tThis ARS solid cannot produce a valid closed mesh and will "
+	       "not be tessellated.\n");
 	return -1;
     }
 
