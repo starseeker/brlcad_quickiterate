@@ -641,7 +641,15 @@ check_nmg_mesh(const char *label, struct model *m,
     /* Optionally save the BOT to the output .g */
     if (g_wdb && (open_cnt == 0 && n_open == 0)) {
 	char bot_name[256];
-	snprintf(bot_name, sizeof(bot_name), "tess_%04d.bot", ++g_out_seq);
+	char type_lc[16] = "prim";
+	if (ip) {
+	    const char *ft = OBJ[ip->idb_minor_type].ft_label;
+	    int ti;
+	    for (ti = 0; ft[ti] && ti < 15; ti++)
+		type_lc[ti] = (ft[ti] >= 'A' && ft[ti] <= 'Z') ? (char)(ft[ti] + 32) : ft[ti];
+	    type_lc[ti] = '\0';
+	}
+	snprintf(bot_name, sizeof(bot_name), "builtin_%s_%04d.bot", type_lc, ++g_out_seq);
 	mk_bot(g_wdb, bot_name,
 	       RT_BOT_SOLID, RT_BOT_CCW, 0,
 	       bot->num_vertices, bot->num_faces,
@@ -960,9 +968,17 @@ run_tess(const char *label,
 	 * to a caller-owned stack variable.                               */
 	if (g_wdb && !expect_fail) {
 	    char prim_name[256];
+	    char type_lc[16] = "prim";
+	    {
+		const char *ft = OBJ[ip->idb_minor_type].ft_label;
+		int ti;
+		for (ti = 0; ft[ti] && ti < 15; ti++)
+		    type_lc[ti] = (ft[ti] >= 'A' && ft[ti] <= 'Z') ? (char)(ft[ti] + 32) : ft[ti];
+		type_lc[ti] = '\0';
+	    }
 	    struct bu_external ext;
 	    struct rt_db_internal tmp_intern;
-	    snprintf(prim_name, sizeof(prim_name), "csg_%04d.s", g_out_seq);
+	    snprintf(prim_name, sizeof(prim_name), "builtin_%s_%04d.s", type_lc, g_out_seq);
 	    BU_EXTERNAL_INIT(&ext);
 	    RT_DB_INTERNAL_INIT(&tmp_intern);
 	    tmp_intern.idb_major_type = ip->idb_major_type;
