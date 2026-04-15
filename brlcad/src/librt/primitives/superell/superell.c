@@ -1117,25 +1117,23 @@ rt_superell_params(struct pc_pc_set *UNUSED(ps), const struct rt_db_internal *ip
 void
 rt_superell_volume(fastf_t *volume, const struct rt_db_internal *ip)
 {
-#ifdef HAVE_TGAMMA
-    struct rt_superell_internal *sip;
-    double mag_a, mag_b, mag_c;
-#endif
-
     if (volume == NULL || ip == NULL) {
 	return;
     }
 
 #ifdef HAVE_TGAMMA
     RT_CK_DB_INTERNAL(ip);
-    sip = (struct rt_superell_internal *)ip->idb_ptr;
+    struct rt_superell_internal *sip = (struct rt_superell_internal *)ip->idb_ptr;
     RT_SUPERELL_CK_MAGIC(sip);
 
-    mag_a = MAGNITUDE(sip->a);
-    mag_b = MAGNITUDE(sip->b);
-    mag_c = MAGNITUDE(sip->c);
+    double mag_a = MAGNITUDE(sip->a);
+    double mag_b = MAGNITUDE(sip->b);
+    double mag_c = MAGNITUDE(sip->c);
 
     *volume = 2.0 * mag_a * mag_b * mag_c * sip->e * sip->n * (tgamma(sip->n/2.0 + 1.0) * tgamma(sip->n) / tgamma(3.0 * sip->n/2.0 + 1.0)) * (tgamma(sip->e / 2.0) * tgamma(sip->e / 2.0) / tgamma(sip->e));
+#else
+    /* tgamma unavailable: fall back to Cauchy-Crofton estimation */
+    rt_crofton_volume(volume, ip);
 #endif
 }
 
