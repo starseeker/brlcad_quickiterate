@@ -93,9 +93,9 @@ brlcad_addexec(rt_boolweave rt_boolweave.c "librt" TEST)
 # Tests for primitive editing
 add_subdirectory(edit)
 
-# stand-alone Crofton estimator tests
-brlcad_addexec(rt_crofton crofton.c "librt;libwdb;libbu" TEST)
-#brlcad_add_test(NAME rt_crofton COMMAND rt_crofton)
+# prim_tess: NMG tessellation quality tests
+brlcad_addexec(rt_prim_tess prim_tess.c "librt;libnmg;libwdb;libbg;libbu" TEST)
+brlcad_add_test(NAME rt_prim_tess COMMAND rt_prim_tess)
 
 set(
   distcheck_files
@@ -112,6 +112,7 @@ set(
   rt_perturb.c
   search_stress.c
   sketch.g
+  prim_tess.c
   tess_timing.c
 )
 
