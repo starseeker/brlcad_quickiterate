@@ -3797,7 +3797,28 @@ rt_tgc_volume(fastf_t *vol, const struct rt_db_internal *ip)
 	    *vol = M_PI * h_perp * (mag_a * mag_a + mag_c * mag_c + mag_a * mag_c) / 3.0;
 	    break;
 	case TEC:
-	    *vol = M_PI * h_perp * (mag_a * mag_b + mag_c * mag_d + sqrt(mag_a * mag_b * mag_c * mag_d)) / 3.0;
+	    /* General TEC/TGC: the two elliptic end-caps interpolate
+	     * independently in each axis direction (A→C, B→D).  The
+	     * cross-section area at parameter t ∈ [0,1] is:
+	     *
+	     *   Area(t) = π · ((1-t)·a + t·c) · ((1-t)·b + t·d)
+	     *
+	     * which is quadratic in t.  Integrating exactly:
+	     *
+	     *   V = π · h_perp · ∫₀¹ Area(t) dt
+	     *     = π · h_perp · (ab/3 + (ad+bc)/6 + cd/3)
+	     *     = π · h_perp · (2ab + ad + bc + 2cd) / 6
+	     *
+	     * This is the prismatoid formula, exact for linear vector
+	     * interpolation.  The previous formula used √(abcd) for the
+	     * mixed term, which is only correct when a/b == c/d (similar
+	     * cross-sections).  When the aspect ratio changes (e.g.
+	     * a/b ≈ 9190 vs c/d ≈ 4.02 for havoc.g s.fuse17.i), (ad+bc)/2
+	     * can be orders of magnitude larger than √(abcd), causing the
+	     * old formula to severely underestimate the true volume.        */
+	    *vol = M_PI * h_perp *
+		(2.0*(mag_a*mag_b + mag_c*mag_d) + mag_a*mag_d + mag_b*mag_c)
+		/ 6.0;
 	    break;
 	default:
 	    /* never reached */
