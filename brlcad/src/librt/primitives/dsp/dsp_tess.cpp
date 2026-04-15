@@ -60,6 +60,13 @@ static const double DSP_DECIMATE_STRENGTH_SCALE    = /* pow(2.0, 4.0/3.0) */ 2.5
 static const double DSP_DECIMATE_MIN_FEATURE   = 0.5;
 static const double DSP_DECIMATE_MAX_FEATURE_RATIO = 0.25; /* fraction of grid diagonal */
 
+/* DSP height values are 16-bit unsigned integers; any cell where all four
+ * corners have the integer value 0 (stored as double 0.0) is a sea-level /
+ * void cell that contributes no solid volume.  Using 0.5 as the threshold
+ * for the < comparison robustly identifies these integer-0 cells without
+ * triggering the -Wfloat-equal compiler warning.                          */
+static const double DSP_ZERO_HEIGHT_THRESHOLD  = 0.5;
+
 /* Steiner-point grid: points placed every SPACING_FACTOR * min_dist apart
  * so that at most one Steiner point falls between any two boundary edges.
  * The start/end offsets of 0.5 / 0.25 keep points off the boundary.  */
@@ -361,10 +368,10 @@ dsp_tess_with_decimation(
 	     * (zero-height walls from a z=0 surface vertex to a z=0
 	     * bottom).  Each non-zero island becomes a separate closed
 	     * manifold in the resulting BoT.                              */
-	    if (terrain.getHeight(gx,   gy)   < 0.5 &&
-		terrain.getHeight(gx+1, gy)   < 0.5 &&
-		terrain.getHeight(gx,   gy+1) < 0.5 &&
-		terrain.getHeight(gx+1, gy+1) < 0.5)
+	    if (terrain.getHeight(gx,   gy)   < DSP_ZERO_HEIGHT_THRESHOLD &&
+		terrain.getHeight(gx+1, gy)   < DSP_ZERO_HEIGHT_THRESHOLD &&
+		terrain.getHeight(gx,   gy+1) < DSP_ZERO_HEIGHT_THRESHOLD &&
+		terrain.getHeight(gx+1, gy+1) < DSP_ZERO_HEIGHT_THRESHOLD)
 		continue;
 	    int v00 = gy * W + gx;
 	    int v10 = gy * W + (gx + 1);
@@ -538,10 +545,12 @@ dsp_tess_with_decimation(
 	loop_area[li] = 0.5 * sa;
     }
 
-    /* Partition loops: positive area → outer boundary, negative → hole.   */
+    /* Partition loops: positive area → outer boundary, negative → hole.
+     * A loop with exactly zero area is degenerate and treated as a hole
+     * to avoid creating a vacuous outer boundary.                          */
     std::vector<int> outer_loop_idxs, hole_loop_idxs;
     for (size_t li = 0; li < boundary_loops.size(); ++li) {
-	if (loop_area[li] >= 0.0)
+	if (loop_area[li] > 0.0)
 	    outer_loop_idxs.push_back((int)li);
 	else
 	    hole_loop_idxs.push_back((int)li);
@@ -576,8 +585,11 @@ dsp_tess_with_decimation(
 		break;
 	    }
 	}
-	if (!assigned)
+	if (!assigned) {
+	    bu_log("DSP decimate: orphan hole loop %d not inside any outer loop "
+		   "— attaching to first island\n", hidx);
 	    outer_holes[0].push_back(hidx); /* orphan — attach to first island */
+	}
     }
 
     /* ------------------------------------------------------------------ */
