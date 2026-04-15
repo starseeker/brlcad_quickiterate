@@ -1341,13 +1341,14 @@ test_eto(void)
     init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
     if (!run_tess("eto near-circular-section (rd≈|C|)", &ip, &ttol, &tol, 0)) failures++;
 
-    /* Large-scale ETO */
+    /* Large-scale ETO: C along N so ch=0, r_min = eto_r - a*|dh| = 2000-100*10 = 1000 > 0 */
     tip.eto_r  = 2000.0;
-    tip.eto_rd = 50.0;
-    VSET(tip.eto_C, 100.0, 0.0, 50.0);
+    tip.eto_rd = 10.0;
+    VSET(tip.eto_C, 0.0, 0.0, 100.0);  /* C along N: ch=0, cv=100, phi=0 */
     VSET(tip.eto_N, 0, 0, 1);
+    VSET(tip.eto_V, 0, 0, 0);
     init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
-    if (!run_tess("eto large (r=2000 rd=50)", &ip, &ttol, &tol, 0)) failures++;
+    if (!run_tess("eto large (r=2000 rd=10 C-along-N)", &ip, &ttol, &tol, 0)) failures++;
 
     /* Self-intersecting ETO (ch > eto_r): outer surface only, manifold expected */
     VSET(tip.eto_N, 0, 0, 1);
