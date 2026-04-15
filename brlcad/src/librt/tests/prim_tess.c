@@ -4425,8 +4425,8 @@ scan_input_g(const char *g_path, const char *g_root)
 	char bot_name[BOT_NAME_LEN];
 	int bot_n = snprintf(bot_name, sizeof(bot_name), "%s_bot_%s", g_root, dp->d_namep);
 	if (bot_n < 0 || bot_n >= (int)sizeof(bot_name)) {
-	    fprintf(stderr, "  WARN %-32s  BOT name truncated for output: %s_bot_%s\n",
-		    dp->d_namep, g_root, dp->d_namep);
+	    fprintf(stderr, "  WARN %-32s  BOT name truncated for output: %s\n",
+		    dp->d_namep, bot_name);
 	}
 	int ok = check_nmg_mesh(dp->d_namep, m, &tol, &vlfree, &intern, &ttol,
 				 0 /* not quiet */, &scan_res, bot_name);
@@ -4577,7 +4577,8 @@ scan_input_g_spec(const char *g_spec)
     for (size_t i = 0; i < mcnt; i++) {
 	struct bu_vls ext = BU_VLS_INIT_ZERO;
 	if (bu_path_component(&ext, matches[i], BU_PATH_EXT) &&
-	    !BU_STR_EQUAL(bu_vls_addr(&ext), "g")) {
+	    !BU_STR_EQUAL(bu_vls_addr(&ext), "g") &&
+	    !BU_STR_EQUAL(bu_vls_addr(&ext), ".g")) {
 	    fprintf(stderr, "  SKIP %s/%s (not a .g file)\n", bu_vls_addr(&dir), matches[i]);
 	    bu_vls_free(&ext);
 	    continue;
