@@ -421,7 +421,10 @@ check_nmg_mesh(const char *label, struct model *m,
     bg_free_trimesh_solid_errors(&errs);
 
     /* ----------------------------------------------------------------
-     * Optional analytic metric comparison (--validate-metrics)
+     * Analytic metric computation: always done when the mesh is closed
+     * and ip is available, so ΔSA% and ΔVol% always appear in the
+     * summary table.  Pass/fail checking is performed separately below,
+     * gated on --validate-metrics.
      * -------------------------------------------------------------- */
     fastf_t analytic_sa = -1.0;
     fastf_t analytic_v  = -1.0;
@@ -430,7 +433,7 @@ check_nmg_mesh(const char *label, struct model *m,
     int res_limited = 0;
     int metrics_ok = -1; /* -1 = not checked */
 
-    if (g_validate_metrics && passed && ip &&
+    if (passed && ip &&
 	ip->idb_minor_type >= 0 && ip->idb_minor_type < ID_MAXIMUM) {
 
 	const struct rt_functab *ft = &OBJ[ip->idb_minor_type];
@@ -440,10 +443,21 @@ check_nmg_mesh(const char *label, struct model *m,
 	if (ft->ft_volume)
 	    ft->ft_volume(&analytic_v, ip);
 
+	if (analytic_sa > 0.0)
+	    err_sa = fabs((double)(area - analytic_sa)) / (double)analytic_sa;
+	if (analytic_v > 0.0)
+	    err_v = fabs((double)(vol - analytic_v)) / (double)analytic_v;
+    }
+
+    /* ----------------------------------------------------------------
+     * Optional analytic metric pass/fail check (--validate-metrics)
+     * -------------------------------------------------------------- */
+    if (g_validate_metrics && passed && ip &&
+	ip->idb_minor_type >= 0 && ip->idb_minor_type < ID_MAXIMUM) {
+
 	metrics_ok = 1; /* assume pass until a check fails */
 
 	if (analytic_sa > 0.0) {
-	    err_sa = fabs((double)(area - analytic_sa)) / (double)analytic_sa;
 	    const char *tag = (err_sa <= g_metrics_tol) ? "SA-OK" : "SA-FAIL";
 	    if (!quiet)
 		fprintf(stderr,
@@ -456,7 +470,6 @@ check_nmg_mesh(const char *label, struct model *m,
 	}
 
 	if (analytic_v > 0.0) {
-	    err_v = fabs((double)(vol - analytic_v)) / (double)analytic_v;
 	    const char *tag_v;
 
 	    if (err_v <= g_metrics_tol) {
