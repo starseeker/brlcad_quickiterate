@@ -1349,6 +1349,22 @@ test_eto(void)
     init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
     if (!run_tess("eto large (r=2000 rd=50)", &ip, &ttol, &tol, 0)) failures++;
 
+    /* Self-intersecting ETO (ch > eto_r): outer surface only, manifold expected */
+    VSET(tip.eto_N, 0, 0, 1);
+    VSET(tip.eto_V, 0, 0, 0);
+    tip.eto_r  = 2.0;   /* revolution radius */
+    tip.eto_rd = 0.5;
+    VSET(tip.eto_C, 4.0, 0.0, 0.0);  /* ch=4 > eto_r=2: self-intersects */
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("eto self-intersecting (ch=4 > r=2)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Strongly self-intersecting ETO */
+    tip.eto_r  = 1.0;
+    tip.eto_rd = 0.5;
+    VSET(tip.eto_C, 5.0, 0.0, 1.0);  /* ch >> eto_r */
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("eto strongly self-intersecting (ch=5 >> r=1)", &ip, &ttol, &tol, 0)) failures++;
+
     return failures;
 }
 
