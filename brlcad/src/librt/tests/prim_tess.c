@@ -154,8 +154,8 @@ struct result_row {
     long n_tris;
     double err_sa;     /* -1 = n/a */
     double err_vol;    /* -1 = n/a */
-    /* convergence: -1=failed, 0=not tried, 1=converged */
-    int conv_rel, conv_abs, conv_norm;
+    /* convergence: 0.0=not tried, >0=tol value that converged, -1.0=tried but failed */
+    double conv_rel, conv_abs, conv_norm;
 };
 
 #define MAX_RESULTS 4096
@@ -165,7 +165,7 @@ static int g_nresults = 0;
 static void
 add_result(const char *label, int tess_ok, int mesh_ok, int metrics_ok,
            int res_limited, long n_tris, double err_sa, double err_vol,
-           int conv_rel, int conv_abs, int conv_norm)
+           double conv_rel, double conv_abs, double conv_norm)
 {
     if (g_nresults >= MAX_RESULTS) return;
     struct result_row *rr = &g_results[g_nresults++];
@@ -210,11 +210,17 @@ print_summary_table(int start_idx, int end_idx, const char *section_name)
         else
             bu_strlcpy(vol_str, "n/a", sizeof(vol_str));
 
-        char conv_str[16];
-        snprintf(conv_str, sizeof(conv_str), "%s/%s/%s",
-                 rr->conv_rel > 0 ? "\u2713" : (rr->conv_rel < 0 ? "\u2717" : "-"),
-                 rr->conv_abs > 0 ? "\u2713" : (rr->conv_abs < 0 ? "\u2717" : "-"),
-                 rr->conv_norm > 0 ? "\u2713" : (rr->conv_norm < 0 ? "\u2717" : "-"));
+        char conv_r[16], conv_a[16], conv_n[16];
+#define FMT_CONV(val, buf) do { \
+    if ((val) > 0.0) snprintf(buf, sizeof(buf), "%.2g", (val)); \
+    else if ((val) < 0.0) bu_strlcpy(buf, "\u2717", sizeof(buf)); \
+    else bu_strlcpy(buf, "-", sizeof(buf)); \
+} while (0)
+        FMT_CONV(rr->conv_rel,  conv_r);
+        FMT_CONV(rr->conv_abs,  conv_a);
+        FMT_CONV(rr->conv_norm, conv_n);
+        char conv_str[64];
+        snprintf(conv_str, sizeof(conv_str), "%s/%s/%s", conv_r, conv_a, conv_n);
 
         const char *status;
         if (!rr->tess_ok)
@@ -442,6 +448,40 @@ check_nmg_mesh(const char *label, struct model *m,
 	    ft->ft_surf_area(&analytic_sa, ip);
 	if (ft->ft_volume)
 	    ft->ft_volume(&analytic_v, ip);
+
+	/* Crofton fallback: when the analytic formula is absent or silently
+	 * returns no value (e.g. rt_ell_surf_area for triaxial ellipsoids),
+	 * estimate SA and/or volume via ray sampling so the table always has
+	 * numbers.
+	 *
+	 * Convention: analytic_sa/analytic_v are initialised to -1.0 above.
+	 * After calling ft_surf_area/ft_volume they remain <= 0.0 whenever the
+	 * formula is unavailable (either because the function pointer is NULL,
+	 * or because the function silently returns without writing *area / *vol).
+	 * Any <= 0.0 value is therefore treated as "missing"; a positive value
+	 * is a valid analytic answer.
+	 *
+	 * Only runs in non-quiet (top-level) mode to avoid expensive and
+	 * potentially problematic ray sampling inside convergence loops.
+	 *
+	 * crofton_from_ip() requires ip->idb_meth to export the primitive to
+	 * an in-memory database; hand-crafted test IPs may leave it NULL, so
+	 * we fill it in via a temporary copy before the call.               */
+	if (g_validate_metrics && !quiet && (analytic_sa <= 0.0 || analytic_v <= 0.0)) {
+	    struct rt_db_internal ip_meth = *ip;
+	    if (!ip_meth.idb_meth)
+		ip_meth.idb_meth = &OBJ[ip->idb_minor_type];
+	    if (analytic_sa <= 0.0) {
+		fastf_t croft_sa = 0.0;
+		rt_crofton_surf_area(&croft_sa, &ip_meth);
+		if (croft_sa > 0.0) analytic_sa = croft_sa;
+	    }
+	    if (analytic_v <= 0.0) {
+		fastf_t croft_v = 0.0;
+		rt_crofton_volume(&croft_v, &ip_meth);
+		if (croft_v > 0.0) analytic_v = croft_v;
+	    }
+	}
 
 	if (analytic_sa > 0.0)
 	    err_sa = fabs((double)(area - analytic_sa)) / (double)analytic_sa;
@@ -717,6 +757,46 @@ try_converge_tol(const char *label, struct rt_db_internal *ip,
 
         int ok = eval_tess(label, ip, &ttol_try, tol, 1 /* quiet */, &out->result);
 
+	/* Print a MESH-REFINE line for every convergence step so progress
+	 * is visible even when the outer check_nmg_mesh runs quietly.    */
+	{
+	    const char *tol_name = (tol_type == CONV_REL)  ? "rel"  :
+				   (tol_type == CONV_ABS)  ? "abs"  : "norm";
+	    char sa_str[24], vol_str[24];
+	    if (out->result.err_sa >= 0.0)
+		snprintf(sa_str,  sizeof(sa_str),  "%.2f%%", out->result.err_sa  * 100.0);
+	    else
+		bu_strlcpy(sa_str,  "n/a", sizeof(sa_str));
+	    if (out->result.err_vol >= 0.0)
+		snprintf(vol_str, sizeof(vol_str), "%.2f%%", out->result.err_vol * 100.0);
+	    else
+		bu_strlcpy(vol_str, "n/a", sizeof(vol_str));
+	    /* Mirror the convergence test so the label is always accurate */
+	    int conv_pass = (ok && out->result.mesh_ok &&
+			     (out->result.metrics_ok == 1 ||
+			      out->result.metrics_ok == -1 ||
+			      out->result.res_limited));
+	    const char *step_tag;
+	    if (conv_pass)
+		step_tag = "OK";
+	    else if (!out->result.tess_ok)
+		step_tag = "TESS-FAIL";
+	    else if (!out->result.mesh_ok)
+		step_tag = "OPEN-EDGES";
+	    else if (out->result.res_limited)
+		step_tag = "RES-LIM"; /* vol at floor but other check still failing */
+	    else if (out->result.metrics_ok == 0)
+		step_tag = "METRIC-FAIL";
+	    else
+		step_tag = "NO-CHECK";
+	    fprintf(stderr,
+		    "  MESH-REFINE: %-44s  %s=%.3g  tris=%-6ld  \u0394SA=%s  \u0394Vol=%s  [%s]\n",
+		    label, tol_name, cur_val,
+		    out->result.n_tris,
+		    sa_str, vol_str, step_tag);
+	    fflush(stderr);
+	}
+
         if (ok && out->result.mesh_ok &&
             (out->result.metrics_ok == 1 || out->result.metrics_ok == -1 ||
              out->result.res_limited)) {
@@ -795,6 +875,10 @@ run_tess(const char *label,
 	    /* Convergence probing when metrics check failed but mesh topology is ok.
 	     * If there are open edges, tightening tolerances won't fix them.      */
 	    int conv_rel = 0, conv_abs = 0, conv_norm = 0;
+	    struct conv_attempt rel_c, abs_c, norm_c;
+	    memset(&rel_c,  0, sizeof(rel_c));
+	    memset(&abs_c,  0, sizeof(abs_c));
+	    memset(&norm_c, 0, sizeof(norm_c));
 	    if (g_validate_metrics && !expect_fail && ret == 0 && r != NULL &&
 		mesh_res.mesh_ok && mesh_res.metrics_ok == 0) {
 		int is_planar = 0;
@@ -807,7 +891,6 @@ run_tess(const char *label,
 		    }
 		}
 		if (!is_planar) {
-		    struct conv_attempt rel_c, abs_c, norm_c;
 		    conv_rel  = try_converge_tol(label, ip, ttol, tol, CONV_REL,  &rel_c);
 		    conv_abs  = try_converge_tol(label, ip, ttol, tol, CONV_ABS,  &abs_c);
 		    conv_norm = try_converge_tol(label, ip, ttol, tol, CONV_NORM, &norm_c);
@@ -829,21 +912,37 @@ run_tess(const char *label,
 			fprintf(stderr,
 			    "  CONV: %-44s  convergence achieved\n", label);
 			passed = 1;
+			/* Update displayed metrics from the converged result.
+			 * Convergence checks run in quiet mode (no Crofton), so
+			 * err_sa may be -1.0 when the analytic SA formula is
+			 * absent; in that case keep the initial SA from the
+			 * non-quiet top-level check.                           */
+			struct tess_eval_result *best_res =
+			    conv_rel  ? &rel_c.result  :
+			    conv_abs  ? &abs_c.result  : &norm_c.result;
+			mesh_res.metrics_ok  = best_res->metrics_ok;
+			if (best_res->err_sa  >= 0.0) mesh_res.err_sa  = best_res->err_sa;
+			if (best_res->err_vol >= 0.0) mesh_res.err_vol = best_res->err_vol;
+			mesh_res.res_limited = best_res->res_limited;
+			mesh_res.n_tris      = best_res->n_tris;
 		    } else if (rel_c.tried || abs_c.tried || norm_c.tried) {
 			fprintf(stderr,
 			    "  CONV: %-44s  WARNING: no convergence found\n", label);
 		    }
-		    if (!conv_rel && rel_c.tried)  conv_rel  = -1;
-		    if (!conv_abs && abs_c.tried)  conv_abs  = -1;
-		    if (!conv_norm && norm_c.tried) conv_norm = -1;
 		}
 	    }
+
+	    /* Build double conv values: >0 = tol value that converged,
+	     * -1.0 = tried but failed, 0.0 = not tried.                  */
+	    double conv_rel_val  = conv_rel  ? rel_c.final_val  : (rel_c.tried  ? -1.0 : 0.0);
+	    double conv_abs_val  = conv_abs  ? abs_c.final_val  : (abs_c.tried  ? -1.0 : 0.0);
+	    double conv_norm_val = conv_norm ? norm_c.final_val : (norm_c.tried ? -1.0 : 0.0);
 
 	    add_result(label,
 		       mesh_res.tess_ok, mesh_res.mesh_ok, mesh_res.metrics_ok,
 		       mesh_res.res_limited, mesh_res.n_tris,
 		       mesh_res.err_sa, mesh_res.err_vol,
-		       conv_rel, conv_abs, conv_norm);
+		       conv_rel_val, conv_abs_val, conv_norm_val);
 	}
 
 	/* Optionally write the CSG primitive to the output .g.
@@ -3878,6 +3977,10 @@ scan_input_g(const char *g_path)
 	/* Convergence probing when metrics check failed but mesh topology is ok.
 	 * If there are open edges, tightening tolerances won't fix them.      */
 	int conv_rel = 0, conv_abs = 0, conv_norm = 0;
+	struct conv_attempt rel_c, abs_c, norm_c;
+	memset(&rel_c,  0, sizeof(rel_c));
+	memset(&abs_c,  0, sizeof(abs_c));
+	memset(&norm_c, 0, sizeof(norm_c));
 	if (g_validate_metrics && scan_res.mesh_ok && scan_res.metrics_ok == 0) {
 	    int is_planar = 0;
 	    switch (id) {
@@ -3887,7 +3990,6 @@ scan_input_g(const char *g_path)
 		default: break;
 	    }
 	    if (!is_planar) {
-		struct conv_attempt rel_c, abs_c, norm_c;
 		conv_rel  = try_converge_tol(dp->d_namep, &intern, &ttol, &tol, CONV_REL,  &rel_c);
 		conv_abs  = try_converge_tol(dp->d_namep, &intern, &ttol, &tol, CONV_ABS,  &abs_c);
 		conv_norm = try_converge_tol(dp->d_namep, &intern, &ttol, &tol, CONV_NORM, &norm_c);
@@ -3911,21 +4013,36 @@ scan_input_g(const char *g_path)
 		    failures--; /* undo the failure count: tess routine converges */
 		    n_fail--;
 		    n_pass++;
+		    /* Update displayed metrics from the converged result.
+		     * Convergence checks run in quiet mode (no Crofton), so
+		     * err_sa may be -1.0 when the analytic SA formula is
+		     * absent; in that case keep the initial SA.            */
+		    struct tess_eval_result *best_res =
+			conv_rel  ? &rel_c.result  :
+			conv_abs  ? &abs_c.result  : &norm_c.result;
+		    scan_res.metrics_ok  = best_res->metrics_ok;
+		    if (best_res->err_sa  >= 0.0) scan_res.err_sa  = best_res->err_sa;
+		    if (best_res->err_vol >= 0.0) scan_res.err_vol = best_res->err_vol;
+		    scan_res.res_limited = best_res->res_limited;
+		    scan_res.n_tris      = best_res->n_tris;
 		} else if (rel_c.tried || abs_c.tried || norm_c.tried) {
 		    fprintf(stderr,
 			"  CONV: %-44s  WARNING: no convergence found\n", dp->d_namep);
 		}
-		if (!conv_rel && rel_c.tried)  conv_rel  = -1;
-		if (!conv_abs && abs_c.tried)  conv_abs  = -1;
-		if (!conv_norm && norm_c.tried) conv_norm = -1;
 	    }
 	}
+
+	/* Build double conv values: >0 = tol value that converged,
+	 * -1.0 = tried but failed, 0.0 = not tried.                  */
+	double conv_rel_val  = conv_rel  ? rel_c.final_val  : (rel_c.tried  ? -1.0 : 0.0);
+	double conv_abs_val  = conv_abs  ? abs_c.final_val  : (abs_c.tried  ? -1.0 : 0.0);
+	double conv_norm_val = conv_norm ? norm_c.final_val : (norm_c.tried ? -1.0 : 0.0);
 
 	add_result(dp->d_namep,
 		   scan_res.tess_ok, scan_res.mesh_ok, scan_res.metrics_ok,
 		   scan_res.res_limited, scan_res.n_tris,
 		   scan_res.err_sa, scan_res.err_vol,
-		   conv_rel, conv_abs, conv_norm);
+		   conv_rel_val, conv_abs_val, conv_norm_val);
 
 	/* Optional Crofton validation: compare BOT metrics vs CSG raytrace.
 	 * Use the original dbip directly so that file-referencing primitives
