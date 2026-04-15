@@ -2222,58 +2222,124 @@ void
 rt_ehy_surf_area(fastf_t *area, const struct rt_db_internal *ip)
 {
     struct rt_ehy_internal *eip;
-    fastf_t a, b, h, integralArea, sqrt_rb;
+    fastf_t h, r, c, P, alpha, B, sqrtAlpha;
+    fastf_t u_top, u_bot, v_top, v_bot, F_top, F_bot;
+
+    if (!area || !ip)
+	return;
+
     RT_CK_DB_INTERNAL(ip);
     eip = (struct rt_ehy_internal *)ip->idb_ptr;
     RT_EHY_CK_MAGIC(eip);
 
-    a = eip->ehy_c;
-    h = MAGNITUDE(eip->ehy_H);
-    b = (eip->ehy_r1 * a) / sqrt(h * (h - 2 * a));
-
-    /** Formula taken from : https://docs.google.com/file/d/0BydeQ6BPlVejRWt6NlJLVDl0d28/edit
-     * Area can be calculated by subtracting integral of hyperbola from the area of the bounding rectangle
+    /* For the elliptical case (r1 != r2) the lateral surface area requires
+     * an elliptic integral with no elementary closed form -- use Crofton.
      */
-    sqrt_rb = sqrt(eip->ehy_r1 * eip->ehy_r1 + b * b);
-    integralArea = (a / b) * ((eip->ehy_r1 * sqrt_rb) + ((b * b / 2) * (log(sqrt_rb + eip->ehy_r1) - log(sqrt_rb - eip->ehy_r1))));
-    *area = 2 * eip->ehy_r1 * (a + h) - integralArea;
+    if (!NEAR_EQUAL(eip->ehy_r1, eip->ehy_r2, RT_LEN_TOL)) {
+	rt_crofton_surf_area(area, ip);
+	return;
+    }
+
+    /* Circular case (r1 == r2 == r): the EHY is a surface of revolution.
+     *
+     * The profile radius at height h_dist along H is:
+     *   y(h_dist) = r * sqrt(((H+c-h_dist)^2 - c^2) / (H*(H+2*c)))
+     *
+     * Substituting u = H+c-h_dist and letting P = H*(H+2*c), the lateral
+     * surface area integral becomes:
+     *   SA_lat = 2*pi*r/P * integral_c^{H+c} sqrt(alpha*u^2 - B) du
+     * where alpha = P + r^2 and B = c^2 * P.
+     *
+     * The integral has the standard antiderivative:
+     *   F(u) = u/2 * sqrt(alpha*u^2 - B)
+     *         - B/(2*sqrt(alpha)) * log(sqrt(alpha)*u + sqrt(alpha*u^2 - B))
+     *
+     * At the lower bound u = c: alpha*c^2 - B = c^2*(alpha-P) = c^2*r^2 > 0.
+     * At the upper bound u = H+c: alpha*(H+c)^2 - B > 0 for any valid EHY.
+     *
+     * The flat circular base contributes pi*r^2.
+     */
+    h = MAGNITUDE(eip->ehy_H);
+    r = eip->ehy_r1;
+    c = eip->ehy_c;
+
+    P = h * (h + 2.0*c);
+    alpha = P + r*r;
+    B = c*c * P;
+    sqrtAlpha = sqrt(alpha);
+
+    u_top = h + c;
+    u_bot = c;
+    v_top = alpha*u_top*u_top - B;
+    v_bot = c*c * r*r;		/* = alpha*c^2 - B = c^2*(alpha-P) = c^2*r^2 */
+
+    F_top = u_top/2.0*sqrt(v_top) - B/(2.0*sqrtAlpha)*log(sqrtAlpha*u_top + sqrt(v_top));
+    F_bot = u_bot/2.0*sqrt(v_bot) - B/(2.0*sqrtAlpha)*log(sqrtAlpha*u_bot + sqrt(v_bot));
+
+    *area = 2.0*M_PI*r/P * (F_top - F_bot) + M_PI*r*r;
+}
+
+
+void
+rt_ehy_volume(fastf_t *volume, const struct rt_db_internal *ip)
+{
+    struct rt_ehy_internal *eip;
+    fastf_t h, c;
+
+    if (!volume || !ip)
+	return;
+
+    RT_CK_DB_INTERNAL(ip);
+    eip = (struct rt_ehy_internal *)ip->idb_ptr;
+    RT_EHY_CK_MAGIC(eip);
+
+    h = MAGNITUDE(eip->ehy_H);
+    c = eip->ehy_c;
+
+    /* Each cross-section at height h_dist has elliptical area
+     *   A(h_dist) = pi*r1*r2 * ((H+c-h_dist)^2 - c^2) / (H*(H+2*c))
+     * Integrating from 0 to H yields:
+     *   Vol = pi * r1 * r2 * H * (H + 3*c) / (3 * (H + 2*c))
+     */
+    *volume = M_PI * eip->ehy_r1 * eip->ehy_r2 * h * (h + 3.0*c) / (3.0*(h + 2.0*c));
 }
 
 
 /**
- * The centroid lies along ehy_H due to symmetry.
- * Initially the distance of the centroid from the apex is found. The
- * coordinates of the points at this distance along the unit vector
- * gives the centroid of the elliptical hyperboloid of two sheets.
- * Formula taken from: https://docs.google.com/file/d/0BydeQ6BPlVejRWt6NlJLVDl0d28/edit
+ * The centroid of the EHY lies along H due to its bilateral symmetry.
+ *
+ * Each cross-section at distance h_dist from V (the wide base) is an ellipse
+ * with area A(h_dist) = pi*r1*r2 * f(h_dist)^2 where
+ *   f(h_dist)^2 = ((H+c-h_dist)^2 - c^2) / (H*(H+2*c))
+ *
+ * Integrating h_dist*A(h_dist) and dividing by the total volume gives a
+ * centroid distance from V of:
+ *   z_c = H * (H + 4*c) / (4 * (H + 3*c))
+ *
+ * This is independent of r1 and r2, so it applies to all valid EHY shapes.
  */
 void
 rt_ehy_centroid(point_t *cent, const struct rt_db_internal *ip)
 {
     struct rt_ehy_internal *eip;
-    fastf_t a, b, h, area, dist, pwr, dist_C;
-    vect_t h_vec, unit_vec;
-    point_t apex;
+    fastf_t h, c, z_c;
+    vect_t Hu;
+
+    if (!cent || !ip)
+	return;
+
     RT_CK_DB_INTERNAL(ip);
-    eip =  (struct rt_ehy_internal *)ip->idb_ptr;
+    eip = (struct rt_ehy_internal *)ip->idb_ptr;
     RT_EHY_CK_MAGIC(eip);
 
-    a = eip->ehy_c;
     h = MAGNITUDE(eip->ehy_H);
-    b = (eip->ehy_r1 * a) / sqrt(h * h - 2 * a * h);
+    c = eip->ehy_c;
 
-    VMOVE(h_vec, eip->ehy_H);
-    VMOVE(apex, eip->ehy_V);
-    VSCALE(unit_vec, h_vec, (1 / h));
+    /* Centroid is at distance z_c from V (the wide base) along H */
+    z_c = h * (h + 4.0*c) / (4.0*(h + 3.0*c));
 
-    rt_ehy_surf_area( &area, ip);
-    pwr = pow(h * h + 2 * a * h, 3);
-    if(pwr < 0)
-	bu_log("invalid parameters.\n");
-    dist = ((2 * b) * sqrt(pwr)) / (3 * area * a);
-    dist_C = dist - a;
-
-    VJOIN1(*cent, apex, dist_C, unit_vec);
+    VSCALE(Hu, eip->ehy_H, 1.0/h);
+    VJOIN1(*cent, eip->ehy_V, z_c, Hu);
 }
 
 int

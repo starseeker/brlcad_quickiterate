@@ -1236,8 +1236,8 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_MAKE_CAST(rt_ehy_make),
 	RTFUNCTAB_FUNC_PARAMS_CAST(rt_ehy_params),
 	RTFUNCTAB_FUNC_BBOX_CAST(rt_ehy_bbox),
-	RTFUNCTAB_FUNC_VOLUME_CAST(rt_crofton_volume),
-	RTFUNCTAB_FUNC_SURF_AREA_CAST(rt_crofton_surf_area),
+	RTFUNCTAB_FUNC_VOLUME_CAST(rt_ehy_volume),
+	RTFUNCTAB_FUNC_SURF_AREA_CAST(rt_ehy_surf_area),
 	RTFUNCTAB_FUNC_CENTROID_CAST(rt_ehy_centroid),
 	NULL, /* oriented_bbox */
 	NULL, /* find_selections */
