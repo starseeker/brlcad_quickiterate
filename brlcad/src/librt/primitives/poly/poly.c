@@ -890,6 +890,12 @@ rt_pg_ifree(struct rt_db_internal *ip)
     bu_free((char *)pgp, "pg ifree");
     ip->idb_ptr = ((void *)0);	/* sanity */
 }
+/**
+ * Computes the volume of a polysolid using fan-triangulation and the
+ * divergence theorem.  Each polygon face is decomposed into triangles
+ * anchored at its first vertex, and the signed tetrahedral contribution
+ * a · (b × c) / 6 is accumulated.
+ */
 void
 rt_pg_volume(fastf_t *volume, const struct rt_db_internal *ip)
 {
@@ -923,6 +929,12 @@ rt_pg_volume(fastf_t *volume, const struct rt_db_internal *ip)
 }
 
 
+/**
+ * Computes the surface area of a polysolid by summing the areas of all
+ * polygon faces.  Each face is decomposed into triangles via fan-
+ * triangulation, and each triangle's area is half the magnitude of the
+ * cross product of its two edge vectors.
+ */
 void
 rt_pg_surf_area(fastf_t *area, const struct rt_db_internal *ip)
 {
