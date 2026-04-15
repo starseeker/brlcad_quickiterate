@@ -147,6 +147,7 @@ static const char *g_prim_filter = NULL;
 /* ------------------------------------------------------------------ */
 struct result_row {
     char label[256];
+    char type[256];
     int  tess_ok;
     int  mesh_ok;
     int  metrics_ok;   /* -1=n/a, 0=fail, 1=pass */
@@ -163,13 +164,14 @@ static struct result_row g_results[MAX_RESULTS];
 static int g_nresults = 0;
 
 static void
-add_result(const char *label, int tess_ok, int mesh_ok, int metrics_ok,
+add_result(const char *label, const char *type, int tess_ok, int mesh_ok, int metrics_ok,
            int res_limited, long n_tris, double err_sa, double err_vol,
            double conv_rel, double conv_abs, double conv_norm)
 {
     if (g_nresults >= MAX_RESULTS) return;
     struct result_row *rr = &g_results[g_nresults++];
     bu_strlcpy(rr->label, label, sizeof(rr->label));
+    bu_strlcpy(rr->type, type, sizeof(rr->type));
     rr->tess_ok    = tess_ok;
     rr->mesh_ok    = mesh_ok;
     rr->metrics_ok = metrics_ok;
@@ -191,7 +193,7 @@ print_summary_table(int start_idx, int end_idx, const char *section_name)
     bu_tbl_style(t, BU_TBL_STYLE_SINGLE);
 
     bu_tbl_style(t, BU_TBL_ROW_HEADER);
-    bu_tbl_printf(t, "Primitive|\u0394SA%%|\u0394Vol%%|Conv(r/a/n)|Status");
+    bu_tbl_printf(t, "Primitive|Type|\u0394SA%%|\u0394Vol%%|Conv(r/a/n)|Status");
     bu_tbl_style(t, BU_TBL_ROW_END);
     bu_tbl_style(t, BU_TBL_ROW_SEPARATOR);
 
@@ -234,8 +236,8 @@ print_summary_table(int start_idx, int end_idx, const char *section_name)
         else
             status = "PASS";
 
-        bu_tbl_printf(t, "%s|%s|%s|%s|%s",
-                      rr->label, sa_str, vol_str, conv_str, status);
+        bu_tbl_printf(t, "%s|%s|%s|%s|%s|%s",
+                      rr->label, rr->type, sa_str, vol_str, conv_str, status);
         bu_tbl_style(t, BU_TBL_ROW_END);
     }
 
@@ -938,7 +940,7 @@ run_tess(const char *label,
 	    double conv_abs_val  = conv_abs  ? abs_c.final_val  : (abs_c.tried  ? -1.0 : 0.0);
 	    double conv_norm_val = conv_norm ? norm_c.final_val : (norm_c.tried ? -1.0 : 0.0);
 
-	    add_result(label,
+	    add_result(label, ((ip && ip->idb_meth) ? ip->idb_meth->ft_label : "?"),
 		       mesh_res.tess_ok, mesh_res.mesh_ok, mesh_res.metrics_ok,
 		       mesh_res.res_limited, mesh_res.n_tris,
 		       mesh_res.err_sa, mesh_res.err_vol,
@@ -4038,7 +4040,7 @@ scan_input_g(const char *g_path)
 	double conv_abs_val  = conv_abs  ? abs_c.final_val  : (abs_c.tried  ? -1.0 : 0.0);
 	double conv_norm_val = conv_norm ? norm_c.final_val : (norm_c.tried ? -1.0 : 0.0);
 
-	add_result(dp->d_namep,
+	add_result(dp->d_namep, (intern.idb_meth ? intern.idb_meth->ft_label : "?"),
 		   scan_res.tess_ok, scan_res.mesh_ok, scan_res.metrics_ok,
 		   scan_res.res_limited, scan_res.n_tris,
 		   scan_res.err_sa, scan_res.err_vol,
