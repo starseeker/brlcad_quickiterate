@@ -1324,13 +1324,20 @@ rt_eto_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
      * manifold with no topological holes.
      *
      * The correct self-intersection test uses the exact minimum ring radius:
-     *   r_min = eto_r_eff - sqrt((a*dh)^2 + (b*ch)^2)
-     * The minimum of X*dh + Y*ch over the ellipse (X/a)^2+(Y/b)^2=1 is
-     * -sqrt((a*dh)^2+(b*ch)^2) by Cauchy-Schwarz.  The old per-component
-     * tests ch>eto_r || dh>eto_r missed cases where both components are
-     * individually small but their combined reach exceeds eto_r. */
+     *   r_min = eto_r_eff - sqrt(dh^2 + ch^2)
+     *
+     * make_ellipse generates 2D points (X,Y) on the ellipse (X/b)^2+(Y/a)^2=1,
+     * with x semi-axis b (Dp direction) and y semi-axis a (Cp direction).
+     * Since Dp and Cp are unit vectors, the 3D cross-section point is:
+     *   P = Ell_V + X*Dp_hat + Y*Cp_hat
+     * The radial distance from the symmetry axis is:
+     *   r_j = eto_r + X*(dh/b) + Y*(ch/a)
+     * Substituting u=X/b, v=Y/a (unit circle parameterization, u^2+v^2=1):
+     *   r_j = eto_r + u*dh + v*ch
+     * By Cauchy-Schwarz, min(u*dh + v*ch) = -sqrt(dh^2+ch^2), so:
+     *   r_min = eto_r_eff - sqrt(dh^2 + ch^2) */
     {
-	fastf_t r_min_reach = sqrt((a*dh)*(a*dh) + (b*ch)*(b*ch));
+	fastf_t r_min_reach = sqrt(dh*dh + ch*ch);
 	if (r_min_reach > eto_r_eff)
 	    bu_log("rt_eto_tess: revolved ellipse overlaps itself; generating outer surface only\n");
     }
@@ -1368,10 +1375,13 @@ rt_eto_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
      * collapse to a single pole vertex stored at ring 0.  For all other
      * j-indices every ring keeps its own independent vertex.
      *
-     * The radial distance r_j and axial height n_j of cross-section
-     * point j are both independent of the revolution angle i:
-     *   r_j = eto_r_eff + ell[j][X]*dh + ell[j][Y]*ch
-     *   n_j = ell[j][X]*dv + ell[j][Y]*cv
+     * make_ellipse generates 2D points (X,Y) on the ellipse (X/b)^2+(Y/a)^2=1
+     * where x semi-axis b corresponds to the Dp direction and y semi-axis a
+     * corresponds to the Cp direction.  Since Dp and Cp are unit vectors, the
+     * radial distance and axial height of cross-section point j are:
+     *   r_j = eto_r_eff + ell[j][X]*(dh/b) + ell[j][Y]*(ch/a)
+     *   n_j = ell[j][X]*(dv/b) + ell[j][Y]*(cv/a)
+     * (Both quantities are independent of the revolution angle i.)
      *
      * Clamped j-values only arise in the self-intersecting case.  For
      * a normal ETO every r_j > tol->dist and no clamping occurs. */
@@ -1379,10 +1389,10 @@ rt_eto_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     for (k = 0; k < nells * npts; k++) vid[k] = k;
 
     for (j = 0; j < npts; j++) {
-	fastf_t r_j = eto_r_eff + ell[j][X]*dh + ell[j][Y]*ch;
+	fastf_t r_j = eto_r_eff + ell[j][X]*dh/b + ell[j][Y]*ch/a;
 	if (r_j < tol->dist) {
 	    /* Compute the single axis point that all rings at this j share */
-	    fastf_t n_j = ell[j][X]*dv + ell[j][Y]*cv;
+	    fastf_t n_j = ell[j][X]*dv/b + ell[j][Y]*cv/a;
 	    point_t axis_pt;
 	    VJOIN1(axis_pt, tip->eto_V, n_j, Nu);
 	    /* Ring 0 is the canonical vertex; update its coordinate */
