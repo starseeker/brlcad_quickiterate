@@ -4045,6 +4045,105 @@ verify_crofton_estimates(void)
 	if (tgc_vol_err > 0.01) failures++;
     }
 
+    /* -------------------------------------------------------------- */
+    /* 5. Oblique REC: non-circular, tilted 30° (models s.ant1 in     */
+    /*    havoc.g)                                                     */
+    /*                                                                 */
+    /*    A=(80,0,0), B=(0,10,0), C=A, D=B  → elliptic cross-section */
+    /*    H=(-160,0,320): |H|≈357.77, h_perp = |H·(A×B)|/(|A||B|)  */
+    /*                  = |(-160)(0)(0)-...| = Hz = 320               */
+    /*    (A×B = (0,0,800), VDOT(H, (0,0,800))/(80*10) = 320*800/800 */
+    /*    = 320 ✓)                                                     */
+    /*                                                                 */
+    /*    Correct SA (lateral via h_perp):                             */
+    /*      SA = ELL_CIRCUMFERENCE(a,b) * h_perp + 2π·a·b             */
+    /*      Old SA used |H|=357.77 instead of h_perp=320 → ~10% error */
+    /* -------------------------------------------------------------- */
+    {
+	const double rec_a  = 80.0;    /* semi-axis a */
+	const double rec_b  = 10.0;    /* semi-axis b */
+	/* H=(-160,0,320): h_perp = Hz = 320 (A×B points along Z) */
+	const double h_perp_rec = 320.0;
+	const double h_len_rec  = sqrt(160.0*160.0 + 320.0*320.0);  /* |H| */
+
+	struct rt_tgc_internal tgc;
+	memset(&tgc, 0, sizeof(tgc));
+	tgc.magic = RT_TGC_INTERNAL_MAGIC;
+	VSET(tgc.v, 0, 0, 0);
+	VSET(tgc.h, -160, 0, 320);
+	VSET(tgc.a, rec_a, 0, 0);
+	VSET(tgc.b, 0, rec_b, 0);
+	VSET(tgc.c, rec_a, 0, 0);
+	VSET(tgc.d, 0, rec_b, 0);
+
+	struct rt_db_internal ip2;
+	RT_DB_INTERNAL_INIT(&ip2);
+	ip2.idb_major_type = DB5_MAJORTYPE_BRLCAD;
+	ip2.idb_minor_type = ID_TGC;
+	ip2.idb_type       = ID_TGC;
+	ip2.idb_meth       = &OBJ[ID_TGC];
+	ip2.idb_ptr        = &tgc;
+
+	/* Expected SA: ELL_CIRCUMFERENCE(a,b)*h_perp + 2π·a·b
+	 * (Ramanujan approximation, same formula rt_tgc_surf_area uses) */
+	double h_approx_rec = (rec_a - rec_b) / (rec_a + rec_b);
+	double h2_rec       = h_approx_rec * h_approx_rec;
+	double circ_rec     = M_PI * (rec_a + rec_b) *
+	    (1.0 + 3.0*h2_rec / (10.0 + sqrt(4.0 - 3.0*h2_rec)));
+	double expected_sa_rec = circ_rec * h_perp_rec + 2.0 * M_PI * rec_a * rec_b;
+
+	fastf_t sa_rec = -1.0;
+	ip2.idb_meth->ft_surf_area(&sa_rec, &ip2);
+
+	double sa_rec_err     = fabs(sa_rec - expected_sa_rec) / expected_sa_rec * 100.0;
+	double old_sa_rec     = circ_rec * h_len_rec + 2.0 * M_PI * rec_a * rec_b;
+	double old_sa_rec_err = fabs(old_sa_rec - expected_sa_rec) / expected_sa_rec * 100.0;
+	printf("  %-42s  analytic_formula_err=%.2f%%  [%s]  (old_err=%.1f%%)\n",
+	       "oblique REC 30deg (rt_tgc_surf_area)",
+	       sa_rec_err,
+	       (sa_rec_err <= 0.01) ? "OK" : "FORMULA-FAIL",
+	       old_sa_rec_err);
+	if (sa_rec_err > 0.01) failures++;
+    }
+
+    /* -------------------------------------------------------------- */
+    /* 6. ARB8 unit cube: analytic SA must equal 6 exactly.           */
+    /*                                                                 */
+    /*    Models s.GSI in havoc.g.  Previously rt_arb_surf_area used  */
+    /*    *area += (not *area = 0 first), so when the caller passes   */
+    /*    analytic_sa=-1.0 the result was -1+6=5 (20% error).         */
+    /* -------------------------------------------------------------- */
+    {
+	struct rt_arb_internal arb;
+	arb.magic = RT_ARB_INTERNAL_MAGIC;
+	VSET(arb.pt[0],  0.5, -0.5, -0.5);
+	VSET(arb.pt[1],  0.5,  0.5, -0.5);
+	VSET(arb.pt[2],  0.5,  0.5,  0.5);
+	VSET(arb.pt[3],  0.5, -0.5,  0.5);
+	VSET(arb.pt[4], -0.5, -0.5, -0.5);
+	VSET(arb.pt[5], -0.5,  0.5, -0.5);
+	VSET(arb.pt[6], -0.5,  0.5,  0.5);
+	VSET(arb.pt[7], -0.5, -0.5,  0.5);
+
+	struct rt_db_internal ip2;
+	RT_DB_INTERNAL_INIT(&ip2);
+	ip2.idb_major_type = DB5_MAJORTYPE_BRLCAD;
+	ip2.idb_minor_type = ID_ARB8;
+	ip2.idb_type       = ID_ARB8;
+	ip2.idb_meth       = &OBJ[ID_ARB8];
+	ip2.idb_ptr        = &arb;
+
+	fastf_t sa_arb = -1.0;   /* intentionally pre-set to -1 sentinel */
+	ip2.idb_meth->ft_surf_area(&sa_arb, &ip2);
+
+	double sa_arb_err = fabs(sa_arb - 6.0) / 6.0 * 100.0;
+	printf("  %-42s  analytic_formula_err=%.2f%%  [%s]\n",
+	       "ARB8 unit cube SA (rt_arb_surf_area)",
+	       sa_arb_err,
+	       (sa_arb_err <= 0.01) ? "OK" : "FORMULA-FAIL");
+	if (sa_arb_err > 0.01) failures++;
+    }
+
 #undef CROFTON_CHECK
 
     printf("  Crofton verification: %d failure(s)\n", failures);

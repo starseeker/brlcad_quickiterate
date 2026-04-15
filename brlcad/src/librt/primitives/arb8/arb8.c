@@ -2806,10 +2806,6 @@ rt_arb_surf_area(fastf_t *area, const struct rt_db_internal *ip)
 	/* fall through to standard path on failure */
     }
 
-    /* need center point of arb for reference */
-    point_t center_pt = VINIT_ZERO;
-    rt_arb_centroid(&center_pt, ip);
-
     int cgtype, type;
     /* find the specific arb type, in GIFT order. */
     if ((cgtype = rt_arb_std_type(ip, &tol)) == 0)
@@ -2842,14 +2838,10 @@ rt_arb_surf_area(fastf_t *area, const struct rt_db_internal *ip)
 	    equiv_pts[ei] = ei;
     }
 
-    /* allocate pts array, maximum 4 verts per arb8 face */
-    struct arb_poly_face face = ARB_POLY_FACE_INIT_ZERO;
-    face.pts = (point_t *)bu_calloc(4, sizeof(point_t), "rt_arb8: pts");
-
     fastf_t tot_area = 0.0;
     int i;
     const int arb_faces[5][24] = rt_arb_faces;
-    for (face.npts = 0, i = 0; i < 6; face.npts = 0, i++) {
+    for (i = 0; i < 6; i++) {
         int raw[4]; /* raw face vertex indices from table */
         int uniq[4]; /* deduplicated indices */
         int nuniq = 0;
@@ -2883,29 +2875,32 @@ rt_arb_surf_area(fastf_t *area, const struct rt_db_internal *ip)
 	if (nuniq < 3)
 	    continue; /* degenerate face - skip */
 
-        /* find plane eqn for this face using first 3 unique points */
-        if (bg_make_plane_3pnts(face.plane_eqn, arb->pt[uniq[0]], arb->pt[uniq[1]], arb->pt[uniq[2]], &tol) < 0)
+        /* validate: ensure first 3 unique points are non-collinear */
+        plane_t face_plane;
+        if (bg_make_plane_3pnts(face_plane, arb->pt[uniq[0]], arb->pt[uniq[1]], arb->pt[uniq[2]], &tol) < 0)
             continue;
 
-	/* add all unique points */
-	for (int ui = 0; ui < nuniq; ui++)
-	    ARB_AREA_ADD_PT(face, arb->pt[uniq[ui]]);
-
-        /* The plane equations returned by bg_make_plane_3pnts above do
-         * not necessarily point outward. Use the reference center
-         * point for the arb and reverse direction for any errant planes.
-         * This corrects the output rotation, fallback angles so that
-         * they always give the outward pointing normal vector. */
-        if (DIST_PNT_PLANE(center_pt, face.plane_eqn) > 0.0)
-            HREVERSE(face.plane_eqn, face.plane_eqn);
-
-	fastf_t angles[5];
-	findang(angles, face.plane_eqn);
-	/* sort points */
-	bg_3d_polygon_sort_ccw(face.npts, face.pts, face.plane_eqn);
-	bg_3d_polygon_area(&face.area, face.npts, (const point_t *)face.pts);
-
-        tot_area += face.area;
+	/* Compute face area by a triangle fan from uniq[0].
+	 *
+	 * The previous approach (bg_3d_polygon_sort_ccw + bg_3d_polygon_area)
+	 * was buggy for faces whose vertices are symmetric about the origin:
+	 * sort_ccw_3d sorts by cross-product against the origin, so when two
+	 * opposite face vertices V_i and V_j satisfy VDOT(normal, V_i × V_j)
+	 * == 0, they compare as "equal", producing a non-transitive ordering.
+	 * A sort with such a comparator may yield a "bowtie" arrangement where
+	 * the quadrilateral diagonal formula gives zero area.  Replacing the
+	 * sort with a triangle fan avoids this entirely: the fan always gives
+	 * the correct (unsigned) area for a convex planar polygon, independent
+	 * of vertex ordering relative to the origin.                         */
+	fastf_t face_area = 0.0;
+	for (int k = 1; k < nuniq - 1; k++) {
+	    vect_t e1, e2, cross;
+	    VSUB2(e1, arb->pt[uniq[k]],   arb->pt[uniq[0]]);
+	    VSUB2(e2, arb->pt[uniq[k+1]], arb->pt[uniq[0]]);
+	    VCROSS(cross, e1, e2);
+	    face_area += 0.5 * MAGNITUDE(cross);
+	}
+        tot_area += face_area;
     }
 
     *area += fabs(tot_area);
