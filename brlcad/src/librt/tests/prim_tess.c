@@ -454,6 +454,13 @@ check_nmg_mesh(const char *label, struct model *m,
 	 * estimate SA and/or volume via ray sampling so the table always has
 	 * numbers.
 	 *
+	 * Convention: analytic_sa/analytic_v are initialised to -1.0 above.
+	 * After calling ft_surf_area/ft_volume they remain <= 0.0 whenever the
+	 * formula is unavailable (either because the function pointer is NULL,
+	 * or because the function silently returns without writing *area / *vol).
+	 * Any <= 0.0 value is therefore treated as "missing"; a positive value
+	 * is a valid analytic answer.
+	 *
 	 * Only runs in non-quiet (top-level) mode to avoid expensive and
 	 * potentially problematic ray sampling inside convergence loops.
 	 *
