@@ -118,6 +118,8 @@
 #include "rt/search.h"
 #include "wdb.h"
 #include "bu/tbl.h"
+#include "bu/file.h"
+#include "bu/path.h"
 
 
 /* ------------------------------------------------------------------ */
@@ -146,6 +148,28 @@ static const char *g_prim_filter = NULL;
  * processed.  Uses the same -F syntax as the 'search' and 'stat' GED
  * commands (e.g. '-name "s.nos*"', '-type tgc', '-name foo.s').       */
 static const char *g_search_filter = NULL;
+
+#define BOT_NAME_LEN 256
+
+static int
+has_glob_pattern(const char *s)
+{
+    return (s && strpbrk(s, "*?[") != NULL);
+}
+
+static void
+input_g_root(char *root, size_t root_sz, const char *g_path)
+{
+    struct bu_vls rv = BU_VLS_INIT_ZERO;
+    if (bu_path_component(&rv, g_path, BU_PATH_BASENAME_EXTLESS)) {
+	bu_strlcpy(root, bu_vls_addr(&rv), root_sz);
+    } else if (bu_path_component(&rv, g_path, BU_PATH_BASENAME)) {
+	bu_strlcpy(root, bu_vls_addr(&rv), root_sz);
+    } else {
+	bu_strlcpy(root, "input", root_sz);
+    }
+    bu_vls_free(&rv);
+}
 
 
 /* ------------------------------------------------------------------ */
@@ -641,10 +665,10 @@ check_nmg_mesh(const char *label, struct model *m,
 
     /* Optionally save the BOT to the output .g */
     if (g_wdb && (open_cnt == 0 && n_open == 0)) {
-	char bot_name[256];
+	char bot_name[BOT_NAME_LEN];
 	if (bot_name_override) {
-	    /* Input .g scan: prefix the original solid name with "bot_" */
-	    snprintf(bot_name, sizeof(bot_name), "bot_%s", bot_name_override);
+	    /* Input .g scan: use precomputed name (<file_root>_bot_<primitive>) */
+	    bu_strlcpy(bot_name, bot_name_override, sizeof(bot_name));
 	} else {
 	    /* Built-in tests: use builtin_<type>_<seq>.bot */
 	    char type_lc[16] = "prim";
@@ -4201,7 +4225,7 @@ verify_crofton_estimates(void)
  * @return number of failures (0 = all passed).
  */
 static int
-scan_input_g(const char *g_path)
+scan_input_g(const char *g_path, const char *g_root)
 {
     int failures = 0;
 
@@ -4398,8 +4422,14 @@ scan_input_g(const char *g_path)
 	scan_res.metrics_ok = -1;
 	scan_res.err_sa = -1.0;
 	scan_res.err_vol = -1.0;
+	char bot_name[BOT_NAME_LEN];
+	int bot_n = snprintf(bot_name, sizeof(bot_name), "%s_bot_%s", g_root, dp->d_namep);
+	if (bot_n < 0 || bot_n >= (int)sizeof(bot_name)) {
+	    fprintf(stderr, "  WARN %-32s  BOT name truncated for output: %s\n",
+		    dp->d_namep, bot_name);
+	}
 	int ok = check_nmg_mesh(dp->d_namep, m, &tol, &vlfree, &intern, &ttol,
-				 0 /* not quiet */, &scan_res, dp->d_namep);
+				 0 /* not quiet */, &scan_res, bot_name);
 	if (ok) n_pass++; else { n_fail++; failures++; }
 
 	/* Convergence probing when metrics check failed but mesh topology is ok.
@@ -4512,6 +4542,63 @@ scan_input_g(const char *g_path)
     return failures;
 }
 
+static int
+scan_input_g_spec(const char *g_spec)
+{
+    int failures = 0;
+
+    if (!has_glob_pattern(g_spec)) {
+	char g_root[BOT_NAME_LEN] = {0};
+	input_g_root(g_root, sizeof(g_root), g_spec);
+	return scan_input_g(g_spec, g_root);
+    }
+
+    struct bu_vls dir = BU_VLS_INIT_ZERO;
+    struct bu_vls pat = BU_VLS_INIT_ZERO;
+    /* No explicit dirname in the spec (e.g. "*.g") means current directory. */
+    if (!bu_path_component(&dir, g_spec, BU_PATH_DIRNAME))
+	bu_vls_sprintf(&dir, ".");
+    if (!bu_path_component(&pat, g_spec, BU_PATH_BASENAME)) {
+	fprintf(stderr, "ERROR: invalid --input-g pattern '%s'\n", g_spec);
+	bu_vls_free(&dir);
+	bu_vls_free(&pat);
+	return 1;
+    }
+
+    char **matches = NULL;
+    size_t mcnt = bu_file_list(bu_vls_addr(&dir), bu_vls_addr(&pat), &matches);
+    if (mcnt == 0) {
+	fprintf(stderr, "ERROR: --input-g pattern '%s' matched no files\n", g_spec);
+	bu_vls_free(&dir);
+	bu_vls_free(&pat);
+	return 1;
+    }
+
+    for (size_t i = 0; i < mcnt; i++) {
+	struct bu_vls ext = BU_VLS_INIT_ZERO;
+	if (bu_path_component(&ext, matches[i], BU_PATH_EXT) &&
+	    !BU_STR_EQUAL(bu_vls_addr(&ext), "g") &&
+	    !BU_STR_EQUAL(bu_vls_addr(&ext), ".g")) {
+	    fprintf(stderr, "  SKIP %s/%s (not a .g file)\n", bu_vls_addr(&dir), matches[i]);
+	    bu_vls_free(&ext);
+	    continue;
+	}
+	bu_vls_free(&ext);
+
+	struct bu_vls g_path = BU_VLS_INIT_ZERO;
+	char g_root[BOT_NAME_LEN] = {0};
+	bu_vls_sprintf(&g_path, "%s/%s", bu_vls_addr(&dir), matches[i]);
+	input_g_root(g_root, sizeof(g_root), bu_vls_addr(&g_path));
+	failures += scan_input_g(bu_vls_addr(&g_path), g_root);
+	bu_vls_free(&g_path);
+    }
+
+    bu_argv_free(mcnt, matches);
+    bu_vls_free(&dir);
+    bu_vls_free(&pat);
+    return failures;
+}
+
 
 int
 main(int argc, char *argv[])
@@ -4522,7 +4609,7 @@ main(int argc, char *argv[])
     const char *output_g = NULL;
 
     /* Simple argument parsing:
-     *   [--input-g  <file.g>]   scan an existing .g for primitives to tess
+     *   [--input-g  <file.g|pattern>] scan existing .g primitive(s) to tess
      *   [--output-g <file.g>]   write CSG inputs + BOT outputs to a new .g
      *   [--validate]            run mesh quality checks (built-in tests)
      *   [--validate-metrics]    compare BOT area/volume to analytic answers
@@ -4532,16 +4619,18 @@ main(int argc, char *argv[])
      */
     for (int i = 1; i < argc; i++) {
 	if (BU_STR_EQUAL(argv[i], "-h") || BU_STR_EQUAL(argv[i], "--help")) {
-	    printf("Usage: %s [--input-g <file.g>] [--output-g <file.g>]\n", argv[0]);
+	    printf("Usage: %s [--input-g <file.g|pattern>] [--output-g <file.g>]\n", argv[0]);
 	    printf("          [--rel <frac>] [--abs <dist>] [--norm <rad>]\n");
 	    printf("          [-F <filter>]\n");
 	    printf("          [--validate] [--validate-metrics] [--crofton-validate] [--metrics-tol <pct>]\n");
 	    printf("\n");
 	    printf("  Without options: runs built-in NMG tessellation tests.\n");
 	    printf("\n");
-	    printf("  --input-g <file.g>\n");
-	    printf("    Open an existing .g database, tessellate every non-BREP\n");
-	    printf("    solid primitive, and validate manifold/open-edge quality.\n");
+	    printf("  --input-g <file.g|pattern>\n");
+	    printf("    Open one or more existing .g databases, tessellate every\n");
+	    printf("    non-BREP solid primitive, and validate manifold/open-edge\n");
+	    printf("    quality.  Supports a single file path or a glob pattern\n");
+	    printf("    (e.g. '/tmp/*.g').\n");
 	    printf("\n");
 	    printf("  -F <filter>\n");
 	    printf("  --filter <filter>\n");
@@ -4556,6 +4645,8 @@ main(int argc, char *argv[])
 	    printf("  --output-g <file.g>\n");
 	    printf("    Write each built-in CSG test primitive and its BOT\n");
 	    printf("    facetization to a new .g file for visual inspection.\n");
+	    printf("    For --input-g scans, BOT names use:\n");
+	    printf("      <filename_root>_bot_<primitive_name>\n");
 	    printf("\n");
 	    printf("  --validate\n");
 	    printf("    Run mesh quality checks (open edges, manifold) for built-in tests.\n");
@@ -4671,7 +4762,7 @@ main(int argc, char *argv[])
 	/* Scan mode always validates mesh quality */
 	if (!g_validate) g_validate = 1;
 	int scan_start = g_nresults;
-	total_failures += scan_input_g(input_g);
+	total_failures += scan_input_g_spec(input_g);
 	print_summary_table(scan_start, g_nresults, input_g);
     }
 
