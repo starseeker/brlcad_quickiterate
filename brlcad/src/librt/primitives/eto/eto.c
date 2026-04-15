@@ -1321,9 +1321,19 @@ rt_eto_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
      * rather than failing.  Inner points are clamped to the axis below;
      * the canonical vertex map collapses all rings at a clamped j-index to
      * a single pole vertex so the resulting fan triangles produce a closed
-     * manifold with no topological holes. */
-    if (ch > eto_r_eff || dh > eto_r_eff)
-	bu_log("rt_eto_tess: revolved ellipse overlaps itself; generating outer surface only\n");
+     * manifold with no topological holes.
+     *
+     * The correct self-intersection test uses the exact minimum ring radius:
+     *   r_min = eto_r_eff - sqrt((a*dh)^2 + (b*ch)^2)
+     * The minimum of X*dh + Y*ch over the ellipse (X/a)^2+(Y/b)^2=1 is
+     * -sqrt((a*dh)^2+(b*ch)^2) by Cauchy-Schwarz.  The old per-component
+     * tests ch>eto_r || dh>eto_r missed cases where both components are
+     * individually small but their combined reach exceeds eto_r. */
+    {
+	fastf_t r_min_reach = sqrt((a*dh)*(a*dh) + (b*ch)*(b*ch));
+	if (r_min_reach > eto_r_eff)
+	    bu_log("rt_eto_tess: revolved ellipse overlaps itself; generating outer surface only\n");
+    }
 
     /* get memory for nells ellipses */
     eto_ells = (fastf_t *)bu_malloc(nells * npts * sizeof(point_t), "ells[]");
