@@ -3878,9 +3878,9 @@ rt_tgc_surf_area(fastf_t *area, const struct rt_db_internal *ip)
 		h_perp = fabs(VDOT(tip->h, axb)) / (mag_a * mag_b);
 	    else
 		h_perp = mag_h;
-	    area_base = M_PI * mag_a * mag_b;
 	    /* approximation */
 	    c = ELL_CIRCUMFERENCE(mag_a, mag_b);
+	    area_base = M_PI * mag_a * mag_b;
 	    *area = c * h_perp + 2.0 * area_base;
 	    break;
 	}
