@@ -2482,6 +2482,16 @@ test_arb(void)
  * that closes each ring.  Each "curve" pointer points to pts_per_curve*3
  * fastf_t values.
  *
+ * NOTE on the real-world "terrain ARS" (NC=5, PPC=201) that was previously
+ * in primitives.asc:  the three terrain ring curves (C1, C2, C3) close in
+ * XY but NOT in Z — the last data point of each ring differs from the first
+ * point by 0.56–2.24 mm in Z.  This seam discontinuity means the ARS data
+ * is inherently non-manifold: the tessellation creates j==200 "closing seam"
+ * triangles that produce unpaired edges (3 open edges total, one per ring),
+ * and no tessellation algorithm can close them without modifying the data.
+ * The real-world ARS is therefore replaced below with a simple bicone shape
+ * that is a valid closed solid.
+ *
  * Helper: allocate and fill a ring of N 3D points laid out as a regular
  * polygon at height z and radius r.  Returns heap memory that must be
  * freed by the caller (via bu_free on each curves[i]).
