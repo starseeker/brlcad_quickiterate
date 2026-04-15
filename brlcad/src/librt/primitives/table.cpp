@@ -143,6 +143,10 @@ extern int rt_generic_scene_obj(struct bv_scene_obj *s, struct directory *dp, st
 extern void rt_crofton_surf_area(fastf_t *area, const struct rt_db_internal *ip);
 extern void rt_crofton_volume(fastf_t *vol, const struct rt_db_internal *ip);
 
+/* from primitives/poly/poly.c - analytic polysolid measure functions */
+extern void rt_pg_volume(fastf_t *volume, const struct rt_db_internal *ip);
+extern void rt_pg_surf_area(fastf_t *area, const struct rt_db_internal *ip);
+
 /* from db5_bin.c */
 extern int rt_binunif_import5(struct rt_db_internal * ip, const struct bu_external *ep, const mat_t mat, const struct db_i *dbip, struct resource *resp);
 extern int rt_binunif_export5(struct bu_external *ep, const struct rt_db_internal *ip, double local2mm, const struct db_i *dbip, struct resource *resp);
@@ -162,6 +166,8 @@ extern void rt_comb_make(const struct rt_functab *ftp, struct rt_db_internal *in
 extern void rt_comb_ifree(struct rt_db_internal *ip);
 extern int rt_comb_mat(struct rt_db_internal *op, const mat_t mat, const struct rt_db_internal *ip);
 extern int rt_comb_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *tol);
+extern void rt_comb_surf_area(fastf_t *area, const struct rt_db_internal *ip);
+extern void rt_comb_volume(fastf_t *vol, const struct rt_db_internal *ip);
 
 extern int rt_annot_form(struct bu_vls *logstr, const struct rt_functab *ftp);
 extern int rt_bot_form(struct bu_vls *logstr, const struct rt_functab *ftp);
@@ -618,8 +624,8 @@ const struct rt_functab OBJ[] = {
 	NULL, /* make */
 	RTFUNCTAB_FUNC_PARAMS_CAST(rt_pg_params),
 	RTFUNCTAB_FUNC_BBOX_CAST(rt_pg_bbox),
-	NULL, /* volume */
-	NULL, /* surf_area */
+	RTFUNCTAB_FUNC_VOLUME_CAST(rt_pg_volume),
+	RTFUNCTAB_FUNC_SURF_AREA_CAST(rt_pg_surf_area),
 	NULL, /* centroid */
 	NULL, /* oriented_bbox */
 	NULL, /* find_selections */
@@ -669,8 +675,8 @@ const struct rt_functab OBJ[] = {
 	NULL, /* make */
 	RTFUNCTAB_FUNC_PARAMS_CAST(rt_nurb_params),
 	RTFUNCTAB_FUNC_BBOX_CAST(rt_nurb_bbox),
-	NULL, /* volume */
-	NULL, /* surf_area */
+	RTFUNCTAB_FUNC_VOLUME_CAST(rt_crofton_volume),
+	RTFUNCTAB_FUNC_SURF_AREA_CAST(rt_crofton_surf_area),
 	NULL, /* centroid */
 	NULL, /* oriented_bbox */
 	NULL, /* find_selections */
@@ -1434,8 +1440,8 @@ const struct rt_functab OBJ[] = {
 	NULL, /* make */
 	RTFUNCTAB_FUNC_PARAMS_CAST(rt_hf_params),
 	RTFUNCTAB_FUNC_BBOX_CAST(rt_hf_bbox),
-	NULL, /* volume */
-	NULL, /* surf_area */
+	RTFUNCTAB_FUNC_VOLUME_CAST(rt_crofton_volume),
+	RTFUNCTAB_FUNC_SURF_AREA_CAST(rt_crofton_surf_area),
 	NULL, /* centroid */
 	NULL, /* oriented_bbox */
 	NULL, /* find_selections */
@@ -1791,8 +1797,8 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_MAKE_CAST(rt_comb_make),
 	NULL, /* params */
 	NULL, /* bbox */
-	NULL, /* volume */
-	NULL, /* surf_area */
+	RTFUNCTAB_FUNC_VOLUME_CAST(rt_comb_volume),
+	RTFUNCTAB_FUNC_SURF_AREA_CAST(rt_comb_surf_area),
 	NULL, /* centroid */
 	NULL, /* oriented_bbox */
 	NULL, /* find_selections */
