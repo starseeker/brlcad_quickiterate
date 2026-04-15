@@ -1518,11 +1518,17 @@ rt_hyp_centroid(point_t *cent, const struct rt_db_internal *ip)
 
 
 /**
- * only the stub to make analyze happy
- * TODO: needs an implementation
+ * Surface area of a hyperboloid of one sheet.
+ * There is no known closed-form solution for the general case.
+ * Use the Cauchy-Crofton ray-sampling estimator as a fallback.
  */
 void
-rt_hyp_surf_area(fastf_t *UNUSED(area), const struct rt_db_internal *UNUSED(ip)) {}
+rt_hyp_surf_area(fastf_t *area, const struct rt_db_internal *ip)
+{
+    if (!area || !ip)
+	return;
+    rt_crofton_surf_area(area, ip);
+}
 
 
 void
