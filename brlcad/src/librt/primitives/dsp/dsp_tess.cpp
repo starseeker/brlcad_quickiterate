@@ -60,6 +60,13 @@ static const double DSP_DECIMATE_STRENGTH_SCALE    = /* pow(2.0, 4.0/3.0) */ 2.5
 static const double DSP_DECIMATE_MIN_FEATURE   = 0.5;
 static const double DSP_DECIMATE_MAX_FEATURE_RATIO = 0.25; /* fraction of grid diagonal */
 
+/* DSP height values are 16-bit unsigned integers; any cell where all four
+ * corners have the integer value 0 (stored as double 0.0) is a sea-level /
+ * void cell that contributes no solid volume.  Using 0.5 as the threshold
+ * for the < comparison robustly identifies these integer-0 cells without
+ * triggering the -Wfloat-equal compiler warning.                          */
+static const double DSP_ZERO_HEIGHT_THRESHOLD  = 0.5;
+
 /* Steiner-point grid: points placed every SPACING_FACTOR * min_dist apart
  * so that at most one Steiner point falls between any two boundary edges.
  * The start/end offsets of 0.5 / 0.25 keep points off the boundary.  */
@@ -353,6 +360,19 @@ dsp_tess_with_decimation(
 
     for (int gy = 0; gy < H-1; ++gy) {
 	for (int gx = 0; gx < W-1; ++gx) {
+	    /* Skip cells where every corner has height 0 — these are
+	     * sea-level / void cells that lie outside the solid volume.
+	     * Including them would push the outer boundary polygon to the
+	     * full grid rectangle rather than the actual non-zero terrain
+	     * boundary, and would also produce degenerate wall geometry
+	     * (zero-height walls from a z=0 surface vertex to a z=0
+	     * bottom).  Each non-zero island becomes a separate closed
+	     * manifold in the resulting BoT.                              */
+	    if (terrain.getHeight(gx,   gy)   < DSP_ZERO_HEIGHT_THRESHOLD &&
+		terrain.getHeight(gx+1, gy)   < DSP_ZERO_HEIGHT_THRESHOLD &&
+		terrain.getHeight(gx,   gy+1) < DSP_ZERO_HEIGHT_THRESHOLD &&
+		terrain.getHeight(gx+1, gy+1) < DSP_ZERO_HEIGHT_THRESHOLD)
+		continue;
 	    int v00 = gy * W + gx;
 	    int v10 = gy * W + (gx + 1);
 	    int v01 = (gy + 1) * W + gx;
@@ -500,13 +520,16 @@ dsp_tess_with_decimation(
 	return -1;
     }
 
-    /* Compute signed area of each loop (shoelace formula).
-     * Positive area (CCW in world XY) = outer boundary.
-     * Negative area (CW) = interior hole.
-     * The outer boundary is identified as the loop with the largest |area|. */
-    int outer_loop_idx = -1;
-    double max_abs_area = 0.0;
+    /* Compute signed area of each loop (shoelace formula) and build 2D polygon.
+     * Positive area (CCW in world XY) = outer boundary of a non-zero island.
+     * Negative area (CW) = interior hole (void, lake, crevice) inside an island.
+     *
+     * With all-zero cells excluded from the naive mesh, each disconnected
+     * non-zero terrain region produces its own CCW outer loop.  Multiple
+     * outer loops mean the DSP has multiple separate non-zero islands; they
+     * are assembled as separate manifold shells → multi-manifold BoT.       */
     std::vector<double> loop_area(boundary_loops.size(), 0.0);
+    std::vector<std::vector<std::pair<double, double>>> loop_poly_2d(boundary_loops.size());
 
     for (size_t li = 0; li < boundary_loops.size(); ++li) {
 	const auto& loop = boundary_loops[li];
@@ -517,17 +540,56 @@ dsp_tess_with_decimation(
 	    double xa = surf_verts[3*va], ya = surf_verts[3*va + 1];
 	    double xb = surf_verts[3*vb], yb = surf_verts[3*vb + 1];
 	    sa += xa * yb - xb * ya;
+	    loop_poly_2d[li].push_back({xa, ya});
 	}
 	loop_area[li] = 0.5 * sa;
-	if (std::abs(sa) > max_abs_area) {
-	    max_abs_area = std::abs(sa);
-	    outer_loop_idx = (int)li;
-	}
     }
 
-    if (outer_loop_idx < 0) {
-	bu_log("DSP decimate: could not identify outer boundary loop\n");
-	return -1;
+    /* Partition loops: positive area → outer boundary, negative → hole.
+     * A loop with exactly zero area is degenerate and treated as a hole
+     * to avoid creating a vacuous outer boundary.                          */
+    std::vector<int> outer_loop_idxs, hole_loop_idxs;
+    for (size_t li = 0; li < boundary_loops.size(); ++li) {
+	if (loop_area[li] > 0.0)
+	    outer_loop_idxs.push_back((int)li);
+	else
+	    hole_loop_idxs.push_back((int)li);
+    }
+
+    /* Safety fallback: if all loops are CW (unusual, e.g. single-layer mesh),
+     * pick the one with the largest |area| as the outer boundary.           */
+    if (outer_loop_idxs.empty()) {
+	int best = 0;
+	for (int li = 1; li < (int)boundary_loops.size(); ++li)
+	    if (std::abs(loop_area[li]) > std::abs(loop_area[best]))
+		best = li;
+	outer_loop_idxs.push_back(best);
+	bu_log("DSP decimate: all loops CW — using largest as outer\n");
+    }
+
+    bu_log("DSP decimate: %zu outer loop(s), %zu hole(s)\n",
+	   outer_loop_idxs.size(), hole_loop_idxs.size());
+
+    /* Assign each hole to the outer loop that contains it.
+     * Test any one point of the hole polygon against each outer polygon.   */
+    std::vector<std::vector<int>> outer_holes(outer_loop_idxs.size());
+    for (int hidx : hole_loop_idxs) {
+	bool assigned = false;
+	int sv_sample = boundary_loops[hidx][0];
+	double hx = surf_verts[3*sv_sample];
+	double hy = surf_verts[3*sv_sample + 1];
+	for (size_t oi = 0; oi < outer_loop_idxs.size(); ++oi) {
+	    if (TerraScape::pointInPolygon(hx, hy, loop_poly_2d[outer_loop_idxs[oi]])) {
+		outer_holes[oi].push_back(hidx);
+		assigned = true;
+		break;
+	    }
+	}
+	if (!assigned) {
+	    bu_log("DSP decimate: orphan hole loop %d not inside any outer loop "
+		   "— attaching to first island\n", hidx);
+	    outer_holes[0].push_back(hidx); /* orphan — attach to first island */
+	}
     }
 
     /* ------------------------------------------------------------------ */
@@ -546,7 +608,12 @@ dsp_tess_with_decimation(
     std::vector<int>    all_faces(
 	surf_faces.begin(), surf_faces.begin() + n_surf_faces * 3);
 
-    /* Map surface vertex index → bottom vertex index (z = 0 plane). */
+    /* Map surface vertex index → bottom vertex index.
+     *
+     * The bottom face is placed at z = -1 (one grid unit below the minimum
+     * terrain height of 0).  This guarantees every boundary wall has non-zero
+     * height, preventing degenerate wall triangles when mixed cells (some
+     * corners at z=0, others above) lie on the non-zero terrain boundary.  */
     std::unordered_map<int, int> surf_to_bot;
 
     auto add_bottom_vert = [&](int sv) -> int {
@@ -555,40 +622,63 @@ dsp_tess_with_decimation(
 	int bv = (int)(all_verts.size() / 3);
 	all_verts.push_back(surf_verts[3*sv + 0]);
 	all_verts.push_back(surf_verts[3*sv + 1]);
-	all_verts.push_back(0.0);
+	all_verts.push_back(-1.0); /* one unit below terrain floor */
 	surf_to_bot[sv] = bv;
 	return bv;
     };
 
-    /* Pre-allocate bottom vertices for all boundary loops so that
-     * surf_to_bot is complete before we emit wall triangles.              */
+    /* Pre-allocate bottom vertices for all boundary loops.
+     * loop_bot_indices[li][i] is the all_verts index of the bottom vertex
+     * that corresponds to boundary_loops[li][i] on the surface.            */
     std::vector<std::vector<size_t>> loop_bot_indices(boundary_loops.size());
     for (size_t li = 0; li < boundary_loops.size(); ++li) {
 	for (int sv : boundary_loops[li])
 	    loop_bot_indices[li].push_back((size_t)add_bottom_vert(sv));
     }
 
-    /* Emit wall triangles for every boundary loop. */
+    /* Emit wall triangles for every boundary loop.
+     *
+     * For each directed boundary half-edge (va → vb), the wall quad
+     * decomposes into two triangles:
+     *   T1: (va, bot_a, bot_b)   — top-left + lower-left + lower-right
+     *   T2: (va, bot_b, vb)      — top-left + lower-right + top-right
+     *
+     * Since the bottom face is at z=-1, surface vertices always have
+     * different indices from their bottom counterparts (bot_x ≠ vx in the
+     * vertex array).  The degenerate-skip guards protect against a corner
+     * case where two boundary vertices happen to share the same bottom
+     * vertex (i.e., they have the same XY and would produce bot_a==bot_b),
+     * which would yield a zero-area face that nmg_kfu would remove and
+     * leave open edges behind.                                              */
     for (size_t li = 0; li < boundary_loops.size(); ++li) {
 	const auto& loop = boundary_loops[li];
 	size_t n = loop.size();
 	for (size_t i = 0; i < n; ++i) {
 	    int va    = loop[i];
 	    int vb    = loop[(i + 1) % n];
-	    int bot_a = surf_to_bot[va];
-	    int bot_b = surf_to_bot[vb];
-	    /* (ta, bot_a, bot_b) */
-	    all_faces.push_back(va);    all_faces.push_back(bot_a); all_faces.push_back(bot_b);
-	    /* (ta, bot_b, tb) */
-	    all_faces.push_back(va);    all_faces.push_back(bot_b); all_faces.push_back(vb);
+	    int bot_a = (int)loop_bot_indices[li][i];
+	    int bot_b = (int)loop_bot_indices[li][(i + 1) % n];
+	    /* T1: (va, bot_a, bot_b) — skip if degenerate */
+	    if (va != bot_a && va != bot_b && bot_a != bot_b) {
+		all_faces.push_back(va);    all_faces.push_back(bot_a); all_faces.push_back(bot_b);
+	    }
+	    /* T2: (va, bot_b, vb) — skip if degenerate */
+	    if (va != bot_b && va != vb && bot_b != vb) {
+		all_faces.push_back(va);    all_faces.push_back(bot_b); all_faces.push_back(vb);
+	    }
 	}
     }
 
     /* ------------------------------------------------------------------ */
-    /* Step 5: triangulate bottom face with detria + Steiner points        */
+    /* Step 5: triangulate bottom face(s) with detria + Steiner points    */
+    /*                                                                     */
+    /* Each outer loop (island) gets its own detria run using its outer   */
+    /* boundary and any holes that fall inside it.  This ensures that each */
+    /* non-zero island gets a proper closed bottom, making the final BoT  */
+    /* a multi-manifold with one closed shell per island.                  */
     /* ------------------------------------------------------------------ */
 
-    /* Bounding box (used for Steiner point grid).                         */
+    /* Bounding box of the entire surface (for Steiner point grid).       */
     double bb_min_x = surf_verts[0], bb_max_x = surf_verts[0];
     double bb_min_y = surf_verts[1], bb_max_y = surf_verts[1];
     for (size_t i = 0; i < n_surf_verts; ++i) {
@@ -599,128 +689,130 @@ dsp_tess_with_decimation(
 	if (y > bb_max_y) bb_max_y = y;
     }
 
-    /* Build 2D outer boundary polygon and hole polygons for detria.
-     * The outer loop index was computed above (largest |area|).           */
-    const auto& outer_loop = boundary_loops[outer_loop_idx];
-    std::vector<std::pair<double, double>> outer_poly_2d;
-    std::vector<size_t> outer_bot_idx;
-    for (size_t i = 0; i < outer_loop.size(); ++i) {
-	int sv = outer_loop[i];
-	outer_poly_2d.push_back({surf_verts[3*sv], surf_verts[3*sv + 1]});
-	outer_bot_idx.push_back(loop_bot_indices[outer_loop_idx][i]);
-    }
-
-    std::vector<std::vector<std::pair<double, double>>> hole_polys_2d;
-    std::vector<std::vector<size_t>> hole_bot_idx;
-    for (size_t li = 0; li < boundary_loops.size(); ++li) {
-	if ((int)li == outer_loop_idx)
-	    continue;
-	const auto& hloop = boundary_loops[li];
-	std::vector<std::pair<double, double>> hpoly;
-	for (int sv : hloop)
-	    hpoly.push_back({surf_verts[3*sv], surf_verts[3*sv + 1]});
-	hole_polys_2d.push_back(std::move(hpoly));
-	hole_bot_idx.push_back(loop_bot_indices[li]);
-    }
-
-    /* Steiner points: use 3 grid cells as minimum spacing. */
     double min_dist = terrain.cell_size * DSP_STEINER_MIN_CELL_SPACING;
-    auto steiner_pts = dsp_generate_steiner_pts(
-	outer_poly_2d, hole_polys_2d,
-	bb_min_x, bb_max_x, bb_min_y, bb_max_y,
-	min_dist);
 
-    bu_log("DSP decimate: %zu Steiner points for bottom face\n",
-	   steiner_pts.size());
+    /* Process each island independently. */
+    for (size_t oi = 0; oi < outer_loop_idxs.size(); ++oi) {
+	int outer_loop_idx = outer_loop_idxs[oi];
+
+	const auto& outer_loop = boundary_loops[outer_loop_idx];
+	std::vector<std::pair<double, double>> outer_poly_2d;
+	std::vector<size_t> outer_bot_idx;
+	for (size_t i = 0; i < outer_loop.size(); ++i) {
+	    int sv = outer_loop[i];
+	    outer_poly_2d.push_back({surf_verts[3*sv], surf_verts[3*sv + 1]});
+	    outer_bot_idx.push_back(loop_bot_indices[outer_loop_idx][i]);
+	}
+
+	std::vector<std::vector<std::pair<double, double>>> hole_polys_2d;
+	std::vector<std::vector<size_t>> hole_bot_idx;
+	for (int hidx : outer_holes[oi]) {
+	    const auto& hloop = boundary_loops[hidx];
+	    std::vector<std::pair<double, double>> hpoly;
+	    for (int sv : hloop)
+		hpoly.push_back({surf_verts[3*sv], surf_verts[3*sv + 1]});
+	    hole_polys_2d.push_back(std::move(hpoly));
+	    hole_bot_idx.push_back(loop_bot_indices[hidx]);
+	}
+
+	auto steiner_pts = dsp_generate_steiner_pts(
+	    outer_poly_2d, hole_polys_2d,
+	    bb_min_x, bb_max_x, bb_min_y, bb_max_y,
+	    min_dist);
+
+	bu_log("DSP decimate: island %zu — %zu Steiner pts, %zu hole(s)\n",
+	       oi, steiner_pts.size(), hole_polys_2d.size());
 
     /* Assemble the detria point list and index mapping
-     * (detria index → index into all_verts).                              */
-    std::vector<detria::PointD> dtri_pts;
-    std::vector<size_t>         dtri_to_mesh;
+	 * (detria index → index into all_verts).                              */
+	std::vector<detria::PointD> dtri_pts;
+	std::vector<size_t>         dtri_to_mesh;
 
-    /* Outer boundary. */
-    size_t outer_dtri_count = outer_poly_2d.size();
-    for (size_t i = 0; i < outer_dtri_count; ++i) {
-	dtri_pts.push_back({outer_poly_2d[i].first, outer_poly_2d[i].second});
-	dtri_to_mesh.push_back(outer_bot_idx[i]);
-    }
-
-    /* Hole boundaries. */
-    std::vector<std::pair<size_t, size_t>> hole_ranges; /* [start, count) */
-    for (size_t hi = 0; hi < hole_polys_2d.size(); ++hi) {
-	size_t hstart = dtri_pts.size();
-	for (size_t i = 0; i < hole_polys_2d[hi].size(); ++i) {
-	    dtri_pts.push_back({hole_polys_2d[hi][i].first,
-				hole_polys_2d[hi][i].second});
-	    dtri_to_mesh.push_back(hole_bot_idx[hi][i]);
+	/* Outer boundary. */
+	size_t outer_dtri_count = outer_poly_2d.size();
+	for (size_t i = 0; i < outer_dtri_count; ++i) {
+	    dtri_pts.push_back({outer_poly_2d[i].first, outer_poly_2d[i].second});
+	    dtri_to_mesh.push_back(outer_bot_idx[i]);
 	}
-	hole_ranges.push_back({hstart, dtri_pts.size() - hstart});
-    }
 
-    /* Steiner points become extra bottom-face vertices. */
-    for (const auto& sp : steiner_pts) {
-	int mesh_idx = (int)(all_verts.size() / 3);
-	all_verts.push_back(sp.first);
-	all_verts.push_back(sp.second);
-	all_verts.push_back(0.0);
-	dtri_pts.push_back({sp.first, sp.second});
-	dtri_to_mesh.push_back((size_t)mesh_idx);
-    }
+	/* Hole boundaries. */
+	std::vector<std::pair<size_t, size_t>> hole_ranges; /* [start, count) */
+	for (size_t hi = 0; hi < hole_polys_2d.size(); ++hi) {
+	    size_t hstart = dtri_pts.size();
+	    for (size_t i = 0; i < hole_polys_2d[hi].size(); ++i) {
+		dtri_pts.push_back({hole_polys_2d[hi][i].first,
+				    hole_polys_2d[hi][i].second});
+		dtri_to_mesh.push_back(hole_bot_idx[hi][i]);
+	    }
+	    hole_ranges.push_back({hstart, dtri_pts.size() - hstart});
+	}
 
-    /* Run Delaunay triangulation.
-     * IMPORTANT: ReadonlySpan stores a raw pointer into the vector data.
-     * All index vectors must remain alive until after triangulate() returns. */
-    detria::Triangulation dtri;
-    dtri.setPoints(dtri_pts);
+	/* Steiner points become extra bottom-face vertices at z=-1. */
+	for (const auto& sp : steiner_pts) {
+	    int mesh_idx = (int)(all_verts.size() / 3);
+	    all_verts.push_back(sp.first);
+	    all_verts.push_back(sp.second);
+	    all_verts.push_back(-1.0); /* match bottom face z=-1 */
+	    dtri_pts.push_back({sp.first, sp.second});
+	    dtri_to_mesh.push_back((size_t)mesh_idx);
+	}
 
-    std::vector<uint32_t> oidx(outer_dtri_count);
-    for (uint32_t i = 0; i < (uint32_t)outer_dtri_count; ++i)
-	oidx[i] = i;
-    dtri.addOutline(oidx);
+	/* Run Delaunay triangulation.
+	 * IMPORTANT: ReadonlySpan stores a raw pointer into the vector data.
+	 * All index vectors must remain alive until after triangulate() returns. */
+	detria::Triangulation dtri;
+	dtri.setPoints(dtri_pts);
 
-    /* Keep hole index vectors alive alongside the Triangulation object. */
-    std::vector<std::vector<uint32_t>> hidx_storage;
-    for (const auto& hr : hole_ranges) {
-	hidx_storage.emplace_back(hr.second);
-	for (uint32_t i = 0; i < (uint32_t)hr.second; ++i)
-	    hidx_storage.back()[i] = (uint32_t)(hr.first + i);
-	dtri.addHole(hidx_storage.back());
-    }
+	std::vector<uint32_t> oidx(outer_dtri_count);
+	for (uint32_t i = 0; i < (uint32_t)outer_dtri_count; ++i)
+	    oidx[i] = i;
+	dtri.addOutline(oidx);
 
-    bool dtri_ok = false;
-    try {
-	dtri_ok = dtri.triangulate(true); /* true = Delaunay */
-    } catch (const std::exception& e) {
-	bu_log("DSP decimate: detria threw exception: %s\n", e.what());
-    }
+	/* Keep hole index vectors alive alongside the Triangulation object. */
+	std::vector<std::vector<uint32_t>> hidx_storage;
+	for (const auto& hr : hole_ranges) {
+	    hidx_storage.emplace_back(hr.second);
+	    for (uint32_t i = 0; i < (uint32_t)hr.second; ++i)
+		hidx_storage.back()[i] = (uint32_t)(hr.first + i);
+	    dtri.addHole(hidx_storage.back());
+	}
 
-    if (!dtri_ok) {
-	bu_log("DSP decimate: detria failed: %s\n",
-	       dtri.getErrorMessage().c_str());
-    }
+	bool dtri_ok = false;
+	try {
+	    dtri_ok = dtri.triangulate(true); /* true = Delaunay */
+	} catch (const std::exception& e) {
+	    bu_log("DSP decimate: detria threw exception: %s\n", e.what());
+	}
 
-    if (dtri_ok) {
-	/* Add bottom triangles with reversed winding (normal points -Z). */
-	dtri.forEachTriangle([&](detria::Triangle<uint32_t> t) {
-	    size_t v0 = dtri_to_mesh[t.x];
-	    size_t v1 = dtri_to_mesh[t.y];
-	    size_t v2 = dtri_to_mesh[t.z];
-	    /* Reversed: addTriangle(v0, v2, v1) pattern from TerraScape. */
-	    all_faces.push_back((int)v0);
-	    all_faces.push_back((int)v2);
-	    all_faces.push_back((int)v1);
-	}, false); /* false = CCW triangles from detria */
-    } else {
-	bu_log("DSP decimate: detria failed, using fan fallback for bottom face\n");
-	/* Fan triangulation from first boundary vertex (works for convex). */
-	if (outer_bot_idx.size() >= 3) {
-	    for (size_t i = 1; i + 1 < outer_bot_idx.size(); ++i) {
-		all_faces.push_back((int)outer_bot_idx[0]);
-		all_faces.push_back((int)outer_bot_idx[i + 1]);
-		all_faces.push_back((int)outer_bot_idx[i]);
+	if (!dtri_ok) {
+	    bu_log("DSP decimate: detria failed: %s\n",
+		   dtri.getErrorMessage().c_str());
+	}
+
+	if (dtri_ok) {
+	    /* Add bottom triangles with reversed winding (normal points -Z). */
+	    dtri.forEachTriangle([&](detria::Triangle<uint32_t> t) {
+		size_t v0 = dtri_to_mesh[t.x];
+		size_t v1 = dtri_to_mesh[t.y];
+		size_t v2 = dtri_to_mesh[t.z];
+		/* Reversed: addTriangle(v0, v2, v1) pattern from TerraScape. */
+		all_faces.push_back((int)v0);
+		all_faces.push_back((int)v2);
+		all_faces.push_back((int)v1);
+	    }, false); /* false = CCW triangles from detria */
+	} else {
+	    bu_log("DSP decimate: detria failed, using fan fallback for bottom face\n");
+	    /* Fan triangulation from first boundary vertex (works for convex). */
+	    if (outer_bot_idx.size() >= 3) {
+		for (size_t i = 1; i + 1 < outer_bot_idx.size(); ++i) {
+		    all_faces.push_back((int)outer_bot_idx[0]);
+		    all_faces.push_back((int)outer_bot_idx[i + 1]);
+		    all_faces.push_back((int)outer_bot_idx[i]);
+		}
 	    }
 	}
-    }
+
+    } /* end per-island detria loop */
 
     /* ------------------------------------------------------------------ */
     /* Step 6: apply dsp_stom transform and build NMG                     */
