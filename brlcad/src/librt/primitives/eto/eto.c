@@ -1215,14 +1215,15 @@ rt_eto_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     fastf_t eto_r_eff;	/* effective rotation radius (fabs of eto_r) */
     fastf_t ang, ch, cv, dh, dv, ntol, dtol, phi, theta;
     fastf_t *eto_ells = NULL;
-    int i, j, nfaces, npts, nells;
+    int i, j, k, nfaces, npts, nells;
     point_t *ell = NULL;	/* array of ellipse points */
     point_t Ell_V;	/* vertex of an ellipse */
     struct rt_eto_internal *tip;
     struct shell *s;
     struct vertex **verts = NULL;
     struct faceuse **faces = NULL;
-    struct vertex **vertp[4];
+    struct vertex **vertp[3];
+    int *vid = NULL;	/* canonical vertex index map for self-intersecting case */
     vect_t Au, Bu, Nu, Cp, Dp, Xu;
     vect_t *norms = NULL;	/* normal vectors for each vertex */
     int fail = 0;
@@ -1315,11 +1316,23 @@ rt_eto_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     dv = tip->eto_rd * sin(phi);
     dh = -tip->eto_rd * cos(phi);
 
-    /* make sure ellipse doesn't overlap itself when revolved */
-    if (ch > eto_r_eff || dh > eto_r_eff) {
-	bu_log("eto_tess: revolved ellipse overlaps itself\n");
-	fail = (-3);
-	goto failure;
+    /* When the cross-section ellipse overlaps the symmetry axis during
+     * revolution (self-intersecting case), generate only the outer surface
+     * rather than failing.  Inner points are clamped to the axis below;
+     * the canonical vertex map collapses all rings at a clamped j-index to
+     * a single pole vertex so the resulting fan triangles produce a closed
+     * manifold with no topological holes.
+     *
+     * The correct self-intersection test uses the exact minimum ring radius:
+     *   r_min = eto_r_eff - sqrt((a*dh)^2 + (b*ch)^2)
+     * The minimum of X*dh + Y*ch over the ellipse (X/a)^2+(Y/b)^2=1 is
+     * -sqrt((a*dh)^2+(b*ch)^2) by Cauchy-Schwarz.  The old per-component
+     * tests ch>eto_r || dh>eto_r missed cases where both components are
+     * individually small but their combined reach exceeds eto_r. */
+    {
+	fastf_t r_min_reach = sqrt((a*dh)*(a*dh) + (b*ch)*(b*ch));
+	if (r_min_reach > eto_r_eff)
+	    bu_log("rt_eto_tess: revolved ellipse overlaps itself; generating outer surface only\n");
     }
 
     /* get memory for nells ellipses */
@@ -1348,34 +1361,107 @@ rt_eto_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	}
     }
 
+    /* Build the canonical vertex index map.
+     *
+     * For each cross-section j-index whose radial distance from the
+     * symmetry axis is below the distance tolerance, all nells rings
+     * collapse to a single pole vertex stored at ring 0.  For all other
+     * j-indices every ring keeps its own independent vertex.
+     *
+     * The radial distance r_j and axial height n_j of cross-section
+     * point j are both independent of the revolution angle i:
+     *   r_j = eto_r_eff + ell[j][X]*dh + ell[j][Y]*ch
+     *   n_j = ell[j][X]*dv + ell[j][Y]*cv
+     *
+     * Clamped j-values only arise in the self-intersecting case.  For
+     * a normal ETO every r_j > tol->dist and no clamping occurs. */
+    vid = (int *)bu_malloc(nells * npts * sizeof(int), "rt_eto_tess vid[]");
+    for (k = 0; k < nells * npts; k++) vid[k] = k;
+
+    for (j = 0; j < npts; j++) {
+	fastf_t r_j = eto_r_eff + ell[j][X]*dh + ell[j][Y]*ch;
+	if (r_j < tol->dist) {
+	    /* Compute the single axis point that all rings at this j share */
+	    fastf_t n_j = ell[j][X]*dv + ell[j][Y]*cv;
+	    point_t axis_pt;
+	    VJOIN1(axis_pt, tip->eto_V, n_j, Nu);
+	    /* Ring 0 is the canonical vertex; update its coordinate */
+	    VMOVE(ETO_PTA(0, j), axis_pt);
+	    /* Map all other rings to ring 0 */
+	    for (i = 1; i < nells; i++)
+		vid[ETO_PT(i, j)] = ETO_PT(0, j);
+	}
+    }
+
     *r = nmg_mrsv(m);	/* Make region, empty shell, vertex */
     s = BU_LIST_FIRST(shell, &(*r)->s_hd);
 
     verts = (struct vertex **)bu_calloc(npts*nells, sizeof(struct vertex *),
-					"rt_eto_tess *verts[]");
-    faces = (struct faceuse **)bu_calloc(npts*nells, sizeof(struct faceuse *),
-					 "rt_eto_tess *faces[]");
+				"rt_eto_tess *verts[]");
+    /* Two triangles per grid quad (upper bound; degenerate quads use fewer) */
+    faces = (struct faceuse **)bu_calloc(2*npts*nells, sizeof(struct faceuse *),
+				 "rt_eto_tess *faces[]");
 
-    /* Build the topology of the eto */
+    /* Build the topology of the ETO using triangles only.
+     *
+     * Each grid quad (i,j)->(i,j+1)->(i+1,j+1)->(i+1,j) is split along
+     * the B-D diagonal into two CCW triangles:
+     *   Tri-1:  A(i,j),    B(i,j+1),   D(i+1,j)
+     *   Tri-2:  B(i,j+1),  C(i+1,j+1), D(i+1,j)
+     *
+     * Canonical indices from vid[] are used so that coincident vertices
+     * (clamped axis poles in the self-intersecting case) share a single
+     * NMG vertex object.  A triangle is emitted only when all three of
+     * its canonical indices are distinct; equal indices mean the face
+     * degenerates to a line or point and must be dropped.
+     *
+     * Because the canonical map merges exactly the right sets of vertices
+     * (all rings at a given clamped j become one pole), the resulting
+     * mesh is a closed manifold: every non-degenerate edge is shared by
+     * exactly two faces. */
     nfaces = 0;
     for (i = 0; i < nells; i++) {
 	for (j = 0; j < npts; j++) {
-	    vertp[0] = &verts[ ETO_PT(i+0, j+0) ];
-	    vertp[1] = &verts[ ETO_PT(i+0, j+1) ];
-	    vertp[2] = &verts[ ETO_PT(i+1, j+1) ];
-	    vertp[3] = &verts[ ETO_PT(i+1, j+0) ];
-	    if ((faces[nfaces++] = nmg_cmface(s, vertp, 4)) == (struct faceuse *)0) {
-		bu_log("rt_eto_tess() nmg_cmface failed, i=%d/%d, j=%d/%d\n",
-		       i, nells, j, npts);
-		nfaces--;
+	    int va = vid[ETO_PT(i+0, j+0)];
+	    int vb = vid[ETO_PT(i+0, j+1)];
+	    int vc = vid[ETO_PT(i+1, j+1)];
+	    int vd = vid[ETO_PT(i+1, j+0)];
+
+	    /* Triangle 1: A, B, D */
+	    if (va != vb && vb != vd && vd != va) {
+		vertp[0] = &verts[va];
+		vertp[1] = &verts[vb];
+		vertp[2] = &verts[vd];
+		if ((faces[nfaces++] = nmg_cmface(s, vertp, 3)) == (struct faceuse *)0) {
+		    bu_log("rt_eto_tess() nmg_cmface failed, i=%d/%d, j=%d/%d (tri1)\n",
+			   i, nells, j, npts);
+		    nfaces--;
+		}
+	    }
+
+	    /* Triangle 2: B, C, D */
+	    if (vb != vc && vc != vd && vd != vb) {
+		vertp[0] = &verts[vb];
+		vertp[1] = &verts[vc];
+		vertp[2] = &verts[vd];
+		if ((faces[nfaces++] = nmg_cmface(s, vertp, 3)) == (struct faceuse *)0) {
+		    bu_log("rt_eto_tess() nmg_cmface failed, i=%d/%d, j=%d/%d (tri2)\n",
+			   i, nells, j, npts);
+		    nfaces--;
+		}
 	    }
 	}
     }
 
-    /* Associate vertex geometry */
+    /* Associate vertex geometry.  Only canonical vertices (vid[k]==k) that
+     * were actually used in at least one triangle (verts[k] != NULL) get
+     * coordinates assigned.  Non-canonical slots were never passed to
+     * nmg_cmface so their verts[] entry remains NULL. */
     for (i = 0; i < nells; i++) {
 	for (j = 0; j < npts; j++) {
-	    nmg_vertex_gv(verts[ETO_PT(i, j)], ETO_PTA(i, j));
+	    int idx = ETO_PT(i, j);
+	    if (vid[idx] == idx && verts[idx] != NULL)
+		nmg_vertex_gv(verts[idx], ETO_PTA(i, j));
 	}
     }
 
@@ -1387,17 +1473,21 @@ rt_eto_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	}
     }
 
-    /* associate vertexuse normals */
+    /* Associate vertexuse normals.  Same canonical/null guards as above. */
     for (i = 0; i < nells; i++) {
 	for (j = 0; j < npts; j++) {
 	    struct vertexuse *vu;
 	    vect_t rev_norm;
+	    int idx = ETO_PT(i, j);
+
+	    if (vid[idx] != idx || verts[idx] == NULL)
+		continue;
 
 	    VREVERSE(rev_norm, ETO_NMA(i, j));
 
-	    NMG_CK_VERTEX(verts[ETO_PT(i, j)]);
+	    NMG_CK_VERTEX(verts[idx]);
 
-	    for (BU_LIST_FOR(vu, vertexuse, &verts[ETO_PT(i, j)]->vu_hd)) {
+	    for (BU_LIST_FOR(vu, vertexuse, &verts[idx]->vu_hd)) {
 		struct faceuse *fu;
 
 		NMG_CK_VERTEXUSE(vu);
@@ -1419,6 +1509,7 @@ rt_eto_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
  failure:
     bu_free((char *)ell, "make_ellipse pts");
     bu_free((char *)eto_ells, "ells[]");
+    bu_free((char *)vid, "rt_eto_tess vid[]");
     bu_free((char *)verts, "rt_eto_tess *verts[]");
     bu_free((char *)faces, "rt_eto_tess *faces[]");
     bu_free((char *)norms, "rt_eto_tess: norms[]");
