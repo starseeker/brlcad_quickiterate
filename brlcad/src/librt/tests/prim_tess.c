@@ -4549,6 +4549,7 @@ scan_input_g_spec(const char *g_spec)
 
     struct bu_vls dir = BU_VLS_INIT_ZERO;
     struct bu_vls pat = BU_VLS_INIT_ZERO;
+    /* No explicit dirname in the spec (e.g. "*.g") means current directory. */
     if (!bu_path_component(&dir, g_spec, BU_PATH_DIRNAME))
 	bu_vls_sprintf(&dir, ".");
     if (!bu_path_component(&pat, g_spec, BU_PATH_BASENAME)) {
