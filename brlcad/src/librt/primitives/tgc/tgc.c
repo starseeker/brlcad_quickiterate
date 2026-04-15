@@ -922,22 +922,37 @@ rt_tgc_shot(struct soltab *stp, register struct xray *rp, struct application *ap
 
 	/* still odd? */
 	if (!rectified) {
-	    static size_t tgc_msgs = 0;
-	    if (tgc_msgs < 10) {
-		bu_log("Root solver reported %d intersections != {0, 2, 4} on %s\n", npts, stp->st_name);
-		/* these are printed in 'mm' regardless of local units */
-		VPRINT("\tshooting point (units mm): ", rp->r_pt);
-		VPRINT("\tshooting direction:        ", rp->r_dir);
-		for (i = 0; i < npts; i++) {
-		    bu_log("\t%g", k[i]*t_scale);
+	    if (npts == 3) {
+		/* Three-hit case: arises when the quartic body equation
+		 * degenerates to a cubic (near-zero leading coefficient)
+		 * or when a body hit at the cap rim falls just outside the
+		 * z-range filter while the corresponding cap intersection
+		 * also misses the cap ellipse.  In both situations the
+		 * middle root (k[1]) represents a grazing tangent contact
+		 * rather than a genuine entry or exit.  Discard it and use
+		 * the outermost pair (k[2], k[0]) as the entry/exit segment.
+		 */
+		hit_type[1] = hit_type[2];
+		k[1] = k[2];
+		npts = 2;
+	    } else {
+		static size_t tgc_msgs = 0;
+		if (tgc_msgs < 10) {
+		    bu_log("Root solver reported %d intersections != {0, 2, 4} on %s\n", npts, stp->st_name);
+		    /* these are printed in 'mm' regardless of local units */
+		    VPRINT("\tshooting point (units mm): ", rp->r_pt);
+		    VPRINT("\tshooting direction:        ", rp->r_dir);
+		    for (i = 0; i < npts; i++) {
+			bu_log("\t%g", k[i]*t_scale);
+		    }
+		    bu_log("\n");
+		} else if (tgc_msgs == 10) {
+		    bu_log("Too many grazings.  Suppressing further TGC odd hit reports.\n");
 		}
-		bu_log("\n");
-	    } else if (tgc_msgs == 10) {
-		bu_log("Too many grazings.  Suppressing further TGC odd hit reports.\n");
-	    }
-	    tgc_msgs++;
+		tgc_msgs++;
 
-	    return 0;			/* No hit */
+		return 0;			/* No hit */
+	    }
 	}
     }
 
