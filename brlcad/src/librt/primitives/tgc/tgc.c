@@ -3747,7 +3747,9 @@ void
 rt_tgc_volume(fastf_t *vol, const struct rt_db_internal *ip)
 {
     int tgc_type = 0;
-    fastf_t mag_a, mag_b, mag_c, mag_d, mag_h;
+    fastf_t mag_a, mag_b, mag_c, mag_d;
+    fastf_t h_perp;  /* perpendicular distance between the two end planes */
+    vect_t axb;
     struct rt_tgc_internal *tip = (struct rt_tgc_internal *)ip->idb_ptr;
     RT_TGC_CK_MAGIC(tip);
 
@@ -3755,22 +3757,47 @@ rt_tgc_volume(fastf_t *vol, const struct rt_db_internal *ip)
     mag_b = MAGNITUDE(tip->b);
     mag_c = MAGNITUDE(tip->c);
     mag_d = MAGNITUDE(tip->d);
-    mag_h = MAGNITUDE(tip->h);
 
     GET_TGC_TYPE(tgc_type, mag_a, mag_b, mag_c, mag_d);
+
+    /* Compute the perpendicular height between the two end-ellipse planes.
+     *
+     * For a general TGC the height vector H is NOT required to be
+     * perpendicular to the base ellipse (A, B may have components along H).
+     * The cross-section planes are spanned by A and B (and their scaled
+     * counterparts C and D at the top), so the unit normal to those planes
+     * is n̂ = (A × B) / |A × B|.  A ⊥ B is guaranteed by the TGC
+     * primitive definition (enforced by rt_tgc_prep), so |A × B| = |A|·|B|,
+     * giving:
+     *
+     *   h_perp = | H · n̂ | = | H · (A × B) | / (|A| · |B|)
+     *
+     * For a RIGHT TGC (H ⊥ A, H ⊥ B), h_perp == MAGNITUDE(H).
+     * For an OBLIQUE TGC, h_perp < MAGNITUDE(H), and using MAGNITUDE(H)
+     * in the volume formula overestimates the true volume.
+     *
+     * Fall back to MAGNITUDE(H) only for the degenerate-base case
+     * (should not occur in practice: prep() swaps ends so the degenerate
+     * end is always the top, ensuring mag_a and mag_b are non-zero).   */
+    VCROSS(axb, tip->a, tip->b);
+    if (mag_a > SMALL_FASTF && mag_b > SMALL_FASTF) {
+	h_perp = fabs(VDOT(tip->h, axb)) / (mag_a * mag_b);
+    } else {
+	h_perp = MAGNITUDE(tip->h);
+    }
 
     switch (tgc_type) {
 	case RCC:
 	case REC:
-	    *vol = M_PI * mag_h * mag_a * mag_b;
+	    *vol = M_PI * h_perp * mag_a * mag_b;
 	    break;
 	case TRC:
 	    /* TRC could fall through, but this formula avoids a sqrt and
 	     * so will probably be more accurate */
-	    *vol = M_PI * mag_h * (mag_a * mag_a + mag_c * mag_c + mag_a * mag_c) / 3.0;
+	    *vol = M_PI * h_perp * (mag_a * mag_a + mag_c * mag_c + mag_a * mag_c) / 3.0;
 	    break;
 	case TEC:
-	    *vol = M_PI * mag_h * (mag_a * mag_b + mag_c * mag_d + sqrt(mag_a * mag_b * mag_c * mag_d)) / 3.0;
+	    *vol = M_PI * h_perp * (mag_a * mag_b + mag_c * mag_d + sqrt(mag_a * mag_b * mag_c * mag_d)) / 3.0;
 	    break;
 	default:
 	    /* never reached */

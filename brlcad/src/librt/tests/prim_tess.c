@@ -141,6 +141,12 @@ static double g_scan_norm = 0.0;
 /* Optional primitive filter: when non-NULL, only the named prim family runs */
 static const char *g_prim_filter = NULL;
 
+/* Optional db_search filter expression for --input-g scan.
+ * When non-NULL, only primitives matching this search expression are
+ * processed.  Uses the same -F syntax as the 'search' and 'stat' GED
+ * commands (e.g. '-name "s.nos*"', '-type tgc', '-name foo.s').       */
+static const char *g_search_filter = NULL;
+
 
 /* ------------------------------------------------------------------ */
 /* Global result accumulator for summary table                         */
@@ -3784,8 +3790,210 @@ test_metaball(void)
 
 
 /* ------------------------------------------------------------------ */
-/* Input .g file scanner                                               */
+/* Crofton estimator verification against analytic formulas            */
 /* ------------------------------------------------------------------ */
+
+/**
+ * Verify the Cauchy-Crofton SA+volume estimator against analytically
+ * known primitives.
+ *
+ * Tests performed:
+ *   1. Sphere     -- SA = 4πr², V = (4/3)πr³
+ *   2. RCC        -- SA = 2πr(r+h), V = πr²h  (right circular cylinder)
+ *   3. Oblique RCC -- SA via numerically-exact lateral integral, V = π·r²·h_perp
+ *                   (verifies rt_tgc_volume uses perpendicular height)
+ *
+ * All three cases are also run through rt_crofton_surf_area / rt_crofton_volume
+ * directly so any systematic bias in the Crofton estimator shows up here
+ * rather than only when processing real .g files.
+ *
+ * Tolerance: we allow ±5% deviation.  The default 2000-sample Crofton
+ * run has ~2–3% statistical error, so 5% gives comfortable headroom
+ * while still catching formula bugs.
+ *
+ * @return number of failures (0 = all checks passed).
+ */
+static int
+verify_crofton_estimates(void)
+{
+    int failures = 0;
+    const double tol_pct = 5.0;  /* ±5% acceptable */
+
+    printf("\n--- Crofton estimator verification ---\n");
+
+    /* -------------------------------------------------------------- */
+    /* Helper lambda-like macro: compute Crofton SA+vol, compare,     */
+    /* and report.                                                     */
+    /* -------------------------------------------------------------- */
+#define CROFTON_CHECK(label, ip_ptr, analytic_sa, analytic_vol) \
+    do { \
+	struct rt_db_internal *_ip = (ip_ptr); \
+	if (!_ip->idb_meth) _ip->idb_meth = &OBJ[_ip->idb_minor_type]; \
+	fastf_t _csa = 0.0, _cvol = 0.0; \
+	rt_crofton_surf_area(&_csa, _ip); \
+	rt_crofton_volume(&_cvol, _ip); \
+	double _sa_err  = fabs(_csa  - (analytic_sa))  / ((analytic_sa)  > 0 ? (analytic_sa)  : 1.0) * 100.0; \
+	double _vol_err = fabs(_cvol - (analytic_vol)) / ((analytic_vol) > 0 ? (analytic_vol) : 1.0) * 100.0; \
+	const char *_sa_tag  = (_sa_err  <= tol_pct) ? "SA-OK"  : "SA-FAIL"; \
+	const char *_vol_tag = (_vol_err <= tol_pct) ? "VOL-OK" : "VOL-FAIL"; \
+	printf("  %-42s  SA_err=%.1f%%[%s]  VOL_err=%.1f%%[%s]\n", \
+	       (label), _sa_err, _sa_tag, _vol_err, _vol_tag); \
+	fflush(stdout); \
+	if (_sa_err  > tol_pct) { failures++; } \
+	if (_vol_err > tol_pct) { failures++; } \
+    } while (0)
+
+    /* -------------------------------------------------------------- */
+    /* 1. Sphere: r = 10 mm                                           */
+    /* -------------------------------------------------------------- */
+    {
+	struct rt_ell_internal ell;
+	memset(&ell, 0, sizeof(ell));
+	ell.magic = RT_ELL_INTERNAL_MAGIC;
+	VSET(ell.v, 0, 0, 0);
+	VSET(ell.a, 10, 0, 0);
+	VSET(ell.b, 0, 10, 0);
+	VSET(ell.c, 0, 0, 10);
+
+	struct rt_db_internal ip;
+	RT_DB_INTERNAL_INIT(&ip);
+	ip.idb_major_type = DB5_MAJORTYPE_BRLCAD;
+	ip.idb_minor_type = ID_ELL;
+	ip.idb_type       = ID_ELL;
+	ip.idb_ptr        = &ell;
+
+	double analytic_sa  = 4.0 * M_PI * 10.0 * 10.0;           /* 1256.6 mm² */
+	double analytic_vol = (4.0 / 3.0) * M_PI * 10.0 * 10.0 * 10.0; /* 4188.8 mm³ */
+	CROFTON_CHECK("sphere r=10", &ip, analytic_sa, analytic_vol);
+    }
+
+    /* -------------------------------------------------------------- */
+    /* 2. RCC (right circular cylinder): r=5, h=20 mm                 */
+    /* -------------------------------------------------------------- */
+    {
+	struct rt_tgc_internal tgc;
+	memset(&tgc, 0, sizeof(tgc));
+	tgc.magic = RT_TGC_INTERNAL_MAGIC;
+	VSET(tgc.v, 0, 0, 0);
+	VSET(tgc.h, 0, 0, 20);
+	VSET(tgc.a, 5, 0, 0);
+	VSET(tgc.b, 0, 5, 0);
+	VSET(tgc.c, 5, 0, 0);
+	VSET(tgc.d, 0, 5, 0);
+
+	struct rt_db_internal ip;
+	RT_DB_INTERNAL_INIT(&ip);
+	ip.idb_major_type = DB5_MAJORTYPE_BRLCAD;
+	ip.idb_minor_type = ID_TGC;
+	ip.idb_type       = ID_TGC;
+	ip.idb_ptr        = &tgc;
+
+	/* SA = 2π·r·(r+h) = 2π·5·25 = 250π ≈ 785.4 mm² */
+	double analytic_sa  = 2.0 * M_PI * 5.0 * (5.0 + 20.0);
+	/* V = π·r²·h = π·25·20 = 500π ≈ 1570.8 mm³ */
+	double analytic_vol = M_PI * 5.0 * 5.0 * 20.0;
+	CROFTON_CHECK("RCC r=5 h=20", &ip, analytic_sa, analytic_vol);
+
+	/* Also verify that rt_tgc_volume gives the correct answer */
+	fastf_t tgc_vol = 0.0;
+	ip.idb_meth = &OBJ[ID_TGC];
+	ip.idb_meth->ft_volume(&tgc_vol, &ip);
+	double tgc_vol_err = fabs(tgc_vol - analytic_vol) / analytic_vol * 100.0;
+	printf("  %-42s  analytic_formula_err=%.2f%%  [%s]\n",
+	       "RCC r=5 h=20 (rt_tgc_volume)",
+	       tgc_vol_err,
+	       (tgc_vol_err <= 0.01) ? "OK" : "FORMULA-FAIL");
+	if (tgc_vol_err > 0.01) failures++;
+    }
+
+    /* -------------------------------------------------------------- */
+    /* 3. Oblique RCC (cylinder tilted 30° from vertical)             */
+    /*                                                                */
+    /*    H = (10, 0, 10√3)  (|H|=20, tilt 30° in XZ plane)         */
+    /*    A=(5,0,0), B=(0,5,0), C=A, D=B  → circular cross-section  */
+    /*    h_perp = H·ẑ = 10√3 ≈ 17.32 mm                           */
+    /*                                                                */
+    /* Volume (exact, regardless of SA formula):                      */
+    /*    V = π·r²·h_perp = 25π·10√3 ≈ 1360.4 mm³                  */
+    /*    Old formula (|H|): 25π·20 = 1570.8 mm³  (15.5% too large) */
+    /*                                                                */
+    /* Surface area (oblique cylinder, exact):                        */
+    /*    Lateral SA = r · ∫₀²π √(Hz²+Hx²cos²(φ)) dφ  (exact, not 2πr·h_perp)     */
+    /*    (elliptic integral; NOT 2πr·h_perp NOR 2πr·|H|)           */
+    /*    End caps = 2·π·r²  (perpendicular to axis A,B)             */
+    /*    Computed numerically below to serve as Crofton reference.  */
+    /*    Note: rt_tgc_surf_area for RCC uses 2πr·|H| which is also  */
+    /*    approximate for oblique cases; that is a separate issue.   */
+    /* -------------------------------------------------------------- */
+    {
+	const double sin30 = 0.5;
+	const double cos30 = sqrt(3.0) / 2.0;
+	const double h_len = 20.0;
+	const double r_cyl = 5.0;
+	const double Hx    = h_len * sin30;    /* 10 */
+	const double Hz    = h_len * cos30;    /* 10√3 */
+
+	struct rt_tgc_internal tgc;
+	memset(&tgc, 0, sizeof(tgc));
+	tgc.magic = RT_TGC_INTERNAL_MAGIC;
+	VSET(tgc.v, 0, 0, 0);
+	VSET(tgc.h, Hx, 0, Hz);
+	VSET(tgc.a, r_cyl, 0, 0);
+	VSET(tgc.b, 0, r_cyl, 0);
+	VSET(tgc.c, r_cyl, 0, 0);
+	VSET(tgc.d, 0, r_cyl, 0);
+
+	struct rt_db_internal ip;
+	RT_DB_INTERNAL_INIT(&ip);
+	ip.idb_major_type = DB5_MAJORTYPE_BRLCAD;
+	ip.idb_minor_type = ID_TGC;
+	ip.idb_type       = ID_TGC;
+	ip.idb_ptr        = &tgc;
+
+	/* Exact volume: V = π·r²·h_perp (h_perp = Hz since Hy=0, A⊥B ⊥ Z-axis) */
+	double h_perp       = Hz;                    /* 10√3 */
+	double analytic_vol = M_PI * r_cyl * r_cyl * h_perp;
+
+	/* Exact SA (numerical integration of the exact lateral surface integral).
+	 * The lateral surface is parameterised as r(φ,t)=t·H + r·(cosφ·x̂+sinφ·ŷ),
+	 * giving |∂r/∂φ × ∂r/∂t| = r·√(Hz²+Hx²cos²φ).
+	 * N=10000 Riemann points gives < 0.01% error.                          */
+	{
+	    const int N = 10000;
+	    double sum = 0.0;
+	    for (int k = 0; k < N; k++) {
+		double phi = 2.0 * M_PI * k / N;
+		sum += sqrt(Hz * Hz + Hx * Hx * cos(phi) * cos(phi));
+	    }
+	    double lateral_sa = r_cyl * sum * (2.0 * M_PI / N);
+	    double end_caps   = 2.0 * M_PI * r_cyl * r_cyl;
+	    double analytic_sa = lateral_sa + end_caps;
+	    CROFTON_CHECK("oblique RCC 30deg tilt (Crofton)", &ip, analytic_sa, analytic_vol);
+	}
+
+	/* Verify rt_tgc_volume now returns h_perp-based result */
+	fastf_t tgc_vol = 0.0;
+	ip.idb_meth = &OBJ[ID_TGC];
+	ip.idb_meth->ft_volume(&tgc_vol, &ip);
+	double tgc_vol_err = fabs(tgc_vol - analytic_vol) / analytic_vol * 100.0;
+	double old_vol     = M_PI * r_cyl * r_cyl * h_len;   /* old (wrong) formula */
+	double old_err     = fabs(old_vol - analytic_vol) / analytic_vol * 100.0;
+	printf("  %-42s  analytic_formula_err=%.2f%%  [%s]  (old_err=%.1f%%)\n",
+	       "oblique RCC 30deg (rt_tgc_volume)",
+	       tgc_vol_err,
+	       (tgc_vol_err <= 0.1) ? "OK" : "FORMULA-FAIL",
+	       old_err);
+	if (tgc_vol_err > 0.1) failures++;
+    }
+
+#undef CROFTON_CHECK
+
+    printf("  Crofton verification: %d failure(s)\n", failures);
+    return failures;
+}
+
+
+
 
 /**
  * Open an existing .g database, iterate over all solid (non-combination)
@@ -3826,6 +4034,20 @@ scan_input_g(const char *g_path)
     struct bu_list vlfree;
     BU_LIST_INIT(&vlfree);
 
+    /* Build allowed-object set from -F filter, if requested.
+     * DB_SEARCH_FLAT searches every object in the database directly
+     * (no hierarchy traversal), which is appropriate for filtering
+     * primitives by name, type, or attribute.                        */
+    struct bu_ptbl filter_objs = BU_PTBL_INIT_ZERO;
+    int use_filter = 0;
+    if (g_search_filter) {
+	int s_flags = DB_SEARCH_FLAT | DB_SEARCH_RETURN_UNIQ_DP | DB_SEARCH_QUIET;
+	int nfound = db_search(&filter_objs, s_flags, g_search_filter,
+			       0, NULL, dbip, NULL, NULL, NULL);
+	use_filter = 1;
+	printf("    Filter: '%s'  (%d match(es))\n", g_search_filter, nfound);
+    }
+
     /* Collect all primitive (solid) entries */
     struct directory **dpv = NULL;
     size_t ndp = db_ls(dbip, DB_LS_PRIM, NULL, &dpv);
@@ -3841,6 +4063,12 @@ scan_input_g(const char *g_path)
 
     for (size_t i = 0; i < ndp; i++) {
 	struct directory *dp = dpv[i];
+
+	/* Apply -F search filter: skip primitives not in the allowed set */
+	if (use_filter && bu_ptbl_locate(&filter_objs, (long *)dp) == -1) {
+	    n_skip++;
+	    continue;
+	}
 
 	struct rt_db_internal intern;
 	RT_DB_INTERNAL_INIT(&intern);
@@ -4076,6 +4304,8 @@ scan_input_g(const char *g_path)
     }
 
     bu_free(dpv, "dpv");
+    if (use_filter)
+	db_search_free(&filter_objs);
     bu_list_free(&vlfree);
     db_close(dbip);
 
@@ -4106,6 +4336,7 @@ main(int argc, char *argv[])
 	if (BU_STR_EQUAL(argv[i], "-h") || BU_STR_EQUAL(argv[i], "--help")) {
 	    printf("Usage: %s [--input-g <file.g>] [--output-g <file.g>]\n", argv[0]);
 	    printf("          [--rel <frac>] [--abs <dist>] [--norm <rad>]\n");
+	    printf("          [-F <filter>]\n");
 	    printf("          [--validate] [--validate-metrics] [--crofton-validate] [--metrics-tol <pct>]\n");
 	    printf("\n");
 	    printf("  Without options: runs built-in NMG tessellation tests.\n");
@@ -4113,6 +4344,16 @@ main(int argc, char *argv[])
 	    printf("  --input-g <file.g>\n");
 	    printf("    Open an existing .g database, tessellate every non-BREP\n");
 	    printf("    solid primitive, and validate manifold/open-edge quality.\n");
+	    printf("\n");
+	    printf("  -F <filter>\n");
+	    printf("  --filter <filter>\n");
+	    printf("    Restrict --input-g scan to primitives matching the given\n");
+	    printf("    search expression (same syntax as the 'search'/'stat' GED\n");
+	    printf("    commands).  Examples:\n");
+	    printf("      -F '-name \"s.nos5c13.i\"'  (single named object)\n");
+	    printf("      -F '-name \"s.nos*\"'        (glob on name)\n");
+	    printf("      -F '-type tgc'             (all TGC primitives)\n");
+	    printf("    Multiple expressions may be combined with -and/-or.\n");
 	    printf("\n");
 	    printf("  --output-g <file.g>\n");
 	    printf("    Write each built-in CSG test primitive and its BOT\n");
@@ -4154,6 +4395,8 @@ main(int argc, char *argv[])
 	    g_validate = 1;
 	} else if (BU_STR_EQUAL(argv[i], "--prim") && i + 1 < argc) {
 	    g_prim_filter = argv[++i];
+	} else if ((BU_STR_EQUAL(argv[i], "-F") || BU_STR_EQUAL(argv[i], "--filter")) && i + 1 < argc) {
+	    g_search_filter = argv[++i];
 	} else if (BU_STR_EQUAL(argv[i], "--crofton-validate")) {
 	    g_crofton_validate = 1;
 	} else if (BU_STR_EQUAL(argv[i], "--metrics-tol") && i + 1 < argc) {
@@ -4191,6 +4434,9 @@ main(int argc, char *argv[])
     }
 
     int total_failures = 0;
+
+    /* ---- Crofton estimator self-check (always runs) ---- */
+    total_failures += verify_crofton_estimates();
 
     if (!input_g) {
 	/* ---- Built-in test suite ---- */
