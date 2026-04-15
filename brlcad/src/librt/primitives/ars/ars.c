@@ -522,6 +522,31 @@ rt_ars_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 		j++;
 	    }
 	}
+
+	/* Check that each ring curve closes in 3D (first point == last data
+	 * point).  If the curve is closed in XY but has a Z discontinuity at
+	 * the seam (e.g., real-world terrain rings that do not return to the
+	 * same elevation), the tessellation will produce open edges at the
+	 * seam because the strip triangles for j==pts_per_curve-1 create an
+	 * unpaired edge between curve[0] and curve[pts_per_curve-1].
+	 *
+	 * A single degenerate apex curve (all points identical) is exempt
+	 * from this check since it has no meaningful "seam".                 */
+	{
+	    fastf_t *first_pt = arip->curves[i];
+	    fastf_t *last_pt  = &arip->curves[i][(arip->pts_per_curve - 1) *
+						 ELEMENTS_PER_VECT];
+	    if (!VNEAR_EQUAL(first_pt, last_pt, tol->dist)) {
+		/* Only warn — a non-closed ring can still tessellate into an
+		 * open (non-manifold) mesh, which is the best we can do.    */
+		bu_log("ARS WARNING: curve #%zu is not closed in 3D "
+		       "(first=(%g %g %g) last=(%g %g %g) dist=%g).\n"
+		       "\tThe tessellation will have open edges at this seam.\n",
+		       i,
+		       V3ARGS(first_pt), V3ARGS(last_pt),
+		       DIST_PNT_PNT(first_pt, last_pt));
+	    }
+	}
     }
 
     if (bad_ars) {
