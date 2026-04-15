@@ -565,8 +565,9 @@ dsp_tess_with_decimation(
 	return bv;
     };
 
-    /* Pre-allocate bottom vertices for all boundary loops so that
-     * surf_to_bot is complete before we emit wall triangles.              */
+    /* Pre-allocate bottom vertices for all boundary loops.
+     * loop_bot_indices[li][i] is the all_verts index of the bottom vertex
+     * that corresponds to boundary_loops[li][i] on the surface.            */
     std::vector<std::vector<size_t>> loop_bot_indices(boundary_loops.size());
     for (size_t li = 0; li < boundary_loops.size(); ++li) {
 	for (int sv : boundary_loops[li])
@@ -580,9 +581,13 @@ dsp_tess_with_decimation(
      *   T1: (va, bot_a, bot_b)   — top-left + lower-left + lower-right
      *   T2: (va, bot_b, vb)      — top-left + lower-right + top-right
      *
-     * Since the bottom face is at z=-1, surface vertices always differ from
-     * their bottom counterparts.  The degenerate-skip guards are retained as
-     * safety nets against unexpected index aliasing.                         */
+     * Since the bottom face is at z=-1, surface vertices always have
+     * different indices from their bottom counterparts (bot_x ≠ vx in the
+     * vertex array).  The degenerate-skip guards protect against a corner
+     * case where two boundary vertices happen to share the same bottom
+     * vertex (i.e., they have the same XY and would produce bot_a==bot_b),
+     * which would yield a zero-area face that nmg_kfu would remove and
+     * leave open edges behind.                                              */
     for (size_t li = 0; li < boundary_loops.size(); ++li) {
 	const auto& loop = boundary_loops[li];
 	size_t n = loop.size();
