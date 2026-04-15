@@ -20,7 +20,6 @@ brlcad_add_test(NAME analyze_crofton COMMAND analyze_crofton)
 cmakefiles(
   CMakeLists.txt
   arbs.g
-  prim_tess.c
   raydiff.g
 )
 
