@@ -837,7 +837,7 @@ run_tess(const char *label,
     struct model *m = nmg_mm();
     struct nmgregion *r = NULL;
 
-    fprintf(stderr, "STARTING: %s\n", label);
+    fprintf(stderr, "STARTING: %s (%s)\n", label, ((ip && ip->idb_meth) ? ip->idb_meth->ft_label : "?"));
     fflush(stderr);
 
     int ret = rt_obj_tess(&r, m, ip, ttol, tol);
@@ -1004,7 +1004,7 @@ run_tess_maxfaces(const char *label,
     struct model *m = nmg_mm();
     struct nmgregion *r = NULL;
 
-    fprintf(stderr, "STARTING: %s (max_faces=%d)\n", label, max_faces);
+    fprintf(stderr, "STARTING: %s (%s) (max_faces=%d)\n", label, ((ip && ip->idb_meth) ? ip->idb_meth->ft_label : "?"), max_faces);
     fflush(stderr);
 
     int ret = rt_obj_tess(&r, m, ip, ttol, tol);
@@ -3901,7 +3901,7 @@ scan_input_g(const char *g_path)
 	struct model *m = nmg_mm();
 	struct nmgregion *r = NULL;
 
-	fprintf(stderr, "STARTING: %s\n", dp->d_namep);
+        fprintf(stderr, "STARTING: %s (%s)\n", dp->d_namep, ((intern.idb_meth) ? intern.idb_meth->ft_label : "?"));
 	fflush(stderr);
 
 	int ret = -1;
