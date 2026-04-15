@@ -540,11 +540,11 @@ rt_ars_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 		/* Only warn — a non-closed ring can still tessellate into an
 		 * open (non-manifold) mesh, which is the best we can do.    */
 		bu_log("ARS WARNING: curve #%zu is not closed in 3D "
-		       "(first=(%g %g %g) last=(%g %g %g) dist=%g).\n"
+		       "(first=(%g %g %g) last=(%g %g %g) dist=%g > tol=%g).\n"
 		       "\tThe tessellation will have open edges at this seam.\n",
 		       i,
 		       V3ARGS(first_pt), V3ARGS(last_pt),
-		       DIST_PNT_PNT(first_pt, last_pt));
+		       DIST_PNT_PNT(first_pt, last_pt), tol->dist);
 	    }
 	}
     }
