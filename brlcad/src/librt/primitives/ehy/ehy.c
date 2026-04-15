@@ -2263,18 +2263,26 @@ rt_ehy_surf_area(fastf_t *area, const struct rt_db_internal *ip)
     r = eip->ehy_r1;
     c = eip->ehy_c;
 
-    P = h * (h + 2.0*c);
+    P = h * (h + 2.0*c);		/* H*(H+2c) */
     alpha = P + r*r;
     B = c*c * P;
     sqrtAlpha = sqrt(alpha);
 
+    /* Antiderivative F(u) = u/2*sqrt(alpha*u^2-B)
+     *                       - B/(2*sqrt(alpha)) * log(sqrt(alpha)*u + sqrt(alpha*u^2-B))
+     * evaluated at the bounds of the substituted integral.
+     * At u=c: alpha*c^2-B = c^2*(alpha-P) = c^2*r^2, simplified below.
+     */
     u_top = h + c;
     u_bot = c;
     v_top = alpha*u_top*u_top - B;
-    v_bot = c*c * r*r;		/* = alpha*c^2 - B = c^2*(alpha-P) = c^2*r^2 */
+    v_bot = c*c * r*r;  /* = alpha*c^2 - B = c^2*r^2 (exact, avoids cancellation) */
 
-    F_top = u_top/2.0*sqrt(v_top) - B/(2.0*sqrtAlpha)*log(sqrtAlpha*u_top + sqrt(v_top));
-    F_bot = u_bot/2.0*sqrt(v_bot) - B/(2.0*sqrtAlpha)*log(sqrtAlpha*u_bot + sqrt(v_bot));
+    {
+	fastf_t half_B_over_sqrtAlpha = B / (2.0*sqrtAlpha);
+	F_top = u_top/2.0*sqrt(v_top) - half_B_over_sqrtAlpha*log(sqrtAlpha*u_top + sqrt(v_top));
+	F_bot = u_bot/2.0*sqrt(v_bot) - half_B_over_sqrtAlpha*log(sqrtAlpha*u_bot + sqrt(v_bot));
+    }
 
     *area = 2.0*M_PI*r/P * (F_top - F_bot) + M_PI*r*r;
 }
