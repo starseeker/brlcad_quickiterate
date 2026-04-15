@@ -93,6 +93,10 @@ brlcad_addexec(rt_boolweave rt_boolweave.c "librt" TEST)
 # Tests for primitive editing
 add_subdirectory(edit)
 
+# prim_tess: NMG tessellation quality tests
+brlcad_addexec(rt_prim_tess prim_tess.c "librt;libnmg;libwdb;libbg;libbu" TEST)
+brlcad_add_test(NAME rt_prim_tess COMMAND rt_prim_tess)
+
 set(
   distcheck_files
   CMakeLists.txt
@@ -107,6 +111,7 @@ set(
   rt_perturb.c
   search_stress.c
   sketch.g
+  prim_tess.c
   tess_timing.c
 )
 
