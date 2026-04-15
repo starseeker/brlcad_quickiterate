@@ -651,7 +651,7 @@ eval_tess(const char *label, struct rt_db_internal *ip,
 
 #define CONV_REL_FLOOR  1e-5
 #define CONV_ABS_FLOOR  1e-4
-#define CONV_NORM_FLOOR (M_PI / 3600.0)
+#define CONV_NORM_FLOOR (M_PI / 3600.0)  /* 0.05 deg: 1/10 of PRIM_MIN_NORM_TOL */
 #define CONV_MAX_STEPS  6
 
 static int
