@@ -546,25 +546,21 @@ dsp_tess_with_decimation(
     std::vector<int>    all_faces(
 	surf_faces.begin(), surf_faces.begin() + n_surf_faces * 3);
 
-    /* Map surface vertex index → bottom vertex index (z = 0 plane).
+    /* Map surface vertex index → bottom vertex index.
      *
-     * Special case: when a surface vertex already sits at z ≈ 0 (terrain
-     * height = 0), the surface vertex IS the bottom vertex — they are the
-     * same geometric point.  Return the surface index itself so that the
-     * NMG vertex pointer is shared.  This avoids degenerate wall triangles
-     * (and the resulting open edges they leave behind when removed).       */
+     * The bottom face is placed at z = -1 (one grid unit below the minimum
+     * terrain height of 0).  This guarantees every boundary wall has non-zero
+     * height, preventing degenerate wall triangles regardless of the terrain
+     * elevation at the boundary.                                            */
     std::unordered_map<int, int> surf_to_bot;
 
     auto add_bottom_vert = [&](int sv) -> int {
-	/* Terrain heights are non-negative integers; z ≤ 0 means ground. */
-	if (surf_verts[3*sv + 2] <= 0.0)
-	    return sv;  /* surface vertex IS the bottom vertex */
 	auto it = surf_to_bot.find(sv);
 	if (it != surf_to_bot.end()) return it->second;
 	int bv = (int)(all_verts.size() / 3);
 	all_verts.push_back(surf_verts[3*sv + 0]);
 	all_verts.push_back(surf_verts[3*sv + 1]);
-	all_verts.push_back(0.0);
+	all_verts.push_back(-1.0); /* one unit below terrain floor */
 	surf_to_bot[sv] = bv;
 	return bv;
     };
@@ -581,13 +577,12 @@ dsp_tess_with_decimation(
      *
      * For each directed boundary half-edge (va → vb), the wall quad
      * decomposes into two triangles:
-     *   T1: (va, bot_a, bot_b)   — lower-left + lower-right + top-left
-     *   T2: (va, bot_b, vb)      — lower-left + lower-right + top-right
+     *   T1: (va, bot_a, bot_b)   — top-left + lower-left + lower-right
+     *   T2: (va, bot_b, vb)      — top-left + lower-right + top-right
      *
-     * When a surface vertex is at height 0 (i.e., bot_x == vx), one of the
-     * triangles degenerates to a zero-area sliver.  Skip degenerate
-     * triangles (any two indices equal) to prevent nmg_kfu removing them
-     * and leaving open edges in the assembled mesh.                        */
+     * Since the bottom face is at z=-1, surface vertices always differ from
+     * their bottom counterparts.  The degenerate-skip guards are retained as
+     * safety nets against unexpected index aliasing.                         */
     for (size_t li = 0; li < boundary_loops.size(); ++li) {
 	const auto& loop = boundary_loops[li];
 	size_t n = loop.size();
@@ -680,12 +675,12 @@ dsp_tess_with_decimation(
 	hole_ranges.push_back({hstart, dtri_pts.size() - hstart});
     }
 
-    /* Steiner points become extra bottom-face vertices. */
+    /* Steiner points become extra bottom-face vertices at z=-1. */
     for (const auto& sp : steiner_pts) {
 	int mesh_idx = (int)(all_verts.size() / 3);
 	all_verts.push_back(sp.first);
 	all_verts.push_back(sp.second);
-	all_verts.push_back(0.0);
+	all_verts.push_back(-1.0); /* match bottom face z=-1 */
 	dtri_pts.push_back({sp.first, sp.second});
 	dtri_to_mesh.push_back((size_t)mesh_idx);
     }
