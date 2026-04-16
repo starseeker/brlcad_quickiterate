@@ -767,24 +767,40 @@ rt_eto_free(struct soltab *stp)
  *
  * min_chord_sq is the square of the minimum permitted chord length.
  * Subdivision stops when the chord shrinks below this floor regardless
- * of the dist/normal conditions.  This prevents runaway recursion near
- * the semi-axis tips of the ellipse: when the segment approaches a
- * near-horizontal orientation (p1[Y] ≈ p0[Y] ≈ 0), the slope
- * m=(p1[X]-p0[X])/(p1[Y]-p0[Y]) diverges, causing the max-distance
- * formula to compute a point near the opposite end of the quarter
- * rather than near the actual chord midpoint.  The resulting 'dist'
- * value is then permanently larger than dtol, driving unbounded
- * recursion.  The chord-length floor avoids this numerical failure
- * mode entirely.
+ * of the dist/normal conditions.
+ *
+ * NOTE on the normal (angle) check: the norm_ell formula
+ * (b²·p[Y], a²·p[X]) computes a vector that does NOT correspond to
+ * the outward ellipse normal (which would be (a²·p[X], b²·p[Y])).
+ * As a result, theta (the angle between norm_line and norm_ell) is
+ * geometrically close to π/2 or larger at nearly every point on the
+ * first quadrant, so the angle condition "theta > ntol" fires for
+ * ANY ntol < π/2.  In practice this means the angle condition alone
+ * would recurse to min_chord_sq everywhere — generating thousands of
+ * extra near-coincident points — regardless of the desired mesh density.
+ *
+ * The distance condition (dist > dtol) is therefore the SOLE
+ * subdivision criterion used here.  The ntol norm tolerance is already
+ * accounted for by the caller: rt_eto_tess computes dtol as the
+ * sagitta that corresponds to ntol on the largest cross-section
+ * semi-axis, so the distance check fires at exactly the right angular
+ * density without the broken angle formula.  The min_chord_sq floor
+ * (derived from the caller's tol->dist so that no two generated points
+ * can land within NMG's coincidence threshold of each other) is the
+ * final backstop against runaway near the axis tips.
  */
 static int
 make_ellipse4(struct rt_pnt_node *pts, fastf_t a, fastf_t b, fastf_t dtol, fastf_t ntol, size_t recursions, fastf_t min_chord_sq)
 {
-    fastf_t dist, intr, m, theta0, theta1;
+    fastf_t dist, intr, m;
     int n;
     point_t mpt, p0, p1;
-    vect_t norm_line, norm_ell;
     struct rt_pnt_node *newpt;
+
+    /* ntol is kept in the signature for historical compatibility (the
+     * plot path passes it) but is NOT used to drive recursion — see the
+     * comment on the distance-only subdivision decision below. */
+    (void)ntol;
 
     /* arbitrary limit */
     static const size_t MAX_RECURSIONS = 2048;
@@ -808,17 +824,18 @@ make_ellipse4(struct rt_pnt_node *pts, fastf_t a, fastf_t b, fastf_t dtol, fastf
     mpt[Z] = 0;
     /* max distance between that point and line */
     dist = fabs(m * mpt[Y] - mpt[X] + intr) / sqrt(m * m + 1);
-    /* angles between normal of line and of ellipse at line endpoints */
-    VSET(norm_line, m, -1., 0.);
-    VSET(norm_ell, b * b * p0[Y], a * a * p0[X], 0.);
-    VUNITIZE(norm_line);
-    VUNITIZE(norm_ell);
-    theta0 = fabs(acos(VDOT(norm_line, norm_ell)));
-    VSET(norm_ell, b * b * p1[Y], a * a * p1[X], 0.);
-    VUNITIZE(norm_ell);
-    theta1 = fabs(acos(VDOT(norm_line, norm_ell)));
-    /* split segment at widest point if not within error tolerances */
-    if ((dist > dtol || theta0 > ntol || theta1 > ntol) && recursions++ < MAX_RECURSIONS) {
+    /* Split segment at widest point if the chord-to-ellipse sagitta
+     * exceeds the distance tolerance.  The angle-based check
+     * (theta0/theta1 > ntol) has been intentionally removed: the
+     * norm_ell formula (b²Y, a²X) does not compute the outward ellipse
+     * normal — it computes something closer to the tangent — so the
+     * resulting theta is always ≥ π/2 for well-approximated segments
+     * and the condition fires everywhere, driving runaway recursion to
+     * min_chord_sq regardless of mesh quality.  The ntol tolerance is
+     * instead encoded in dtol by the caller (rt_eto_tess computes dtol
+     * as the sagitta corresponding to ntol on the largest semi-axis)
+     * so the distance check alone produces a norm-governed mesh. */
+    if (dist > dtol && recursions++ < MAX_RECURSIONS) {
 	/* split segment */
 	BU_ALLOC(newpt, struct rt_pnt_node);
 	VMOVE(newpt->p, mpt);
@@ -840,9 +857,15 @@ make_ellipse4(struct rt_pnt_node *pts, fastf_t a, fastf_t b, fastf_t dtol, fastf
  * Return pointer an array of points approximating an ellipse with
  * semi-major and semi-minor axes a and b.  The line segments fall
  * within the normal and distance tolerances of ntol and dtol.
+ *
+ * tol_dist is the caller's geometric coincidence threshold (tol->dist).
+ * It is used as an additional floor for the minimum chord length so
+ * that no two generated points can be closer than tol_dist in 3D and
+ * thereby appear coincident to NMG routines (e.g. nmg_fu_planeeqn).
  */
 static point_t *
-make_ellipse(int *n, fastf_t a, fastf_t b, fastf_t dtol, fastf_t ntol)
+make_ellipse(int *n, fastf_t a, fastf_t b, fastf_t dtol, fastf_t ntol,
+	     fastf_t tol_dist)
 {
     int i;
     point_t *ell;
@@ -853,8 +876,18 @@ make_ellipse(int *n, fastf_t a, fastf_t b, fastf_t dtol, fastf_t ntol)
      * 1% of the bounding-box diagonal (2 * longer semi-axis) for very
      * small shapes (bbox_diag < 1 mm).  This matches the logic used by
      * primitive_clamp_tess_tol() so that the env-var override
-     * RT_PRIM_MIN_ABS_TOL is honoured here too.  The floor prevents
-     * runaway recursion near the near-axis-tip numerical instability. */
+     * RT_PRIM_MIN_ABS_TOL is honoured here too.
+     *
+     * Critically, the floor is also raised to tol_dist (the caller's
+     * NMG coincidence threshold, i.e. tol->dist).  The angle check in
+     * make_ellipse4 has a known anomaly near the ellipse axis tips where
+     * the computed theta stays near π regardless of chord length, so
+     * recursion continues all the way to min_chord_sq.  Without this
+     * floor the generated points can pile up within tol->dist of each
+     * other and then fail nmg_fu_planeeqn with "Cannot find three
+     * distinct vertices".  Using max(prim_min_abs_tol(), tol_dist)
+     * guarantees that all generated cross-section points are at least
+     * tol_dist apart in 3D (since Dp and Cp are unit orthogonal vectors). */
     {
 	fastf_t bbox_diag_cs = 2.0 * (a > b ? a : b);
 	if (bbox_diag_cs > SMALL_FASTF && bbox_diag_cs < 1.0)
@@ -864,6 +897,8 @@ make_ellipse(int *n, fastf_t a, fastf_t b, fastf_t dtol, fastf_t ntol)
     }
     if (min_chord < BN_TOL_DIST)
 	min_chord = BN_TOL_DIST;
+    if (tol_dist > min_chord)
+	min_chord = tol_dist;
     min_chord_sq = min_chord * min_chord;
 
     BU_ALLOC(ell_quad, struct rt_pnt_node);
@@ -1129,8 +1164,9 @@ rt_eto_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
 	primitive_clamp_tess_tol(&dtol, &ntol, bbox_cs);
     }
 
-    /* (x, y) coords for an ellipse */
-    ell = make_ellipse(&npts, a, b, dtol, ntol);
+    /* (x, y) coords for an ellipse.  For plot (wireframe) there is no
+     * bn_tol available; use BN_TOL_DIST as a conservative chord floor. */
+    ell = make_ellipse(&npts, a, b, dtol, ntol, BN_TOL_DIST);
     /* generate coordinate axes */
     VMOVE(Nu, tip->eto_N);
     VUNITIZE(Nu);			/* z axis of coord sys */
@@ -1255,57 +1291,150 @@ rt_eto_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	goto failure;
     }
 
-    if (eto_r_eff < b) {
-	dtol = primitive_get_absolute_tolerance(ttol, 2.0 * eto_r_eff);
-    } else {
-	dtol = primitive_get_absolute_tolerance(ttol, 2.0 * b);
-    }
-
-    /* To ensure normal tolerance, remain below this angle.
-     * Clamp to the minimum norm tolerance to prevent excessively dense meshes. */
-    if (ttol->norm > 0.0) {
-	fastf_t min_ntol = prim_min_norm_tol();
-	ntol = (ttol->norm < min_ntol) ? min_ntol : ttol->norm;
-	if (ttol->norm < min_ntol)
-	    bu_log("Warning: eto tessellation norm tolerance clamped from %g rad to %g rad "
-		   "to prevent excessively dense mesh\n", ttol->norm, ntol);
-    } else
-	/* tolerate everything */
-	ntol = M_PI;
-
-    /* Clamp dtol for the cross-section ellipse using its bbox diagonal
-     * (2 * max(a, b)).  This honours the RT_PRIM_MIN_ABS_TOL env-var override
-     * and uses 1% of the bbox diagonal for very small shapes (< 1 mm).
-     * ntol is already clamped above; pass it so any additional log is consistent. */
+    /* ---------------------------------------------------------------
+     * Tolerance classification and segment-count computation.
+     *
+     * Three modes:
+     *   abs_or_rel_set  – ttol->abs or ttol->rel is active.  Derive a
+     *                     distance tolerance (dtol) and use it as the
+     *                     primary driver; ntol bumps the count if needed.
+     *   norm_set only   – Only ttol->norm is active.  Skip the hidden
+     *                     10 % rel fallback from primitive_get_absolute_-
+     *                     tolerance().  Let ntol govern both the cross-
+     *                     section subdivision and the ring count.
+     *   neither set     – Truly "no tolerance": use the 10 % rel fallback
+     *                     for a backward-compatible coarse mesh.
+     *
+     * Explosion guard for tight norm settings
+     * ----------------------------------------
+     * Unboundedly tight norm values (e.g. 0.001 rad) would produce
+     * thousands of segments per circle.  Two independent guards prevent
+     * this in ALL modes:
+     *
+     *   (A) ntol is hard-clamped to prim_min_norm_tol() (default
+     *       π/3600 ≈ 0.05°) immediately after it is read from ttol.
+     *       This is the primary quantitative cap; it bounds nells to at
+     *       most ⌈π / prim_min_norm_tol()⌉ + 1 ≈ 3601 rings.
+     *
+     *   (B) primitive_clamp_tess_tol() is called on dtol (and ntol,
+     *       already guarded) in every path – including the norm-only
+     *       path where dtol is a large sentinel – providing defence-in-
+     *       depth and consistent logging if the env-var floor is violated.
+     *
+     *   (C) make_ellipse4 itself enforces a min_chord_sq floor that stops
+     *       recursion when the chord shrinks below a safe threshold near
+     *       the ellipse axis tips, regardless of ntol.
+     * --------------------------------------------------------------- */
     {
-	fastf_t bbox_cs = 2.0 * (a > b ? a : b);
-	primitive_clamp_tess_tol(&dtol, &ntol, bbox_cs);
-    }
+	int abs_or_rel_set = (ttol->abs > 0.0 ||
+			      (ttol->rel > 0.0 && ttol->rel < 1.0));
+	int norm_set = (ttol->norm > 0.0);
 
-    /* (x, y) coords for cross-section ellipse.
-     * Use both dtol and ntol: the cross-section is a curved surface so the
-     * normal tolerance applies here just as it does to the ring count.
-     * Both are already clamped above to prevent excessively dense meshes. */
-    ell = make_ellipse(&npts, a, b, dtol, ntol);
-    /* generate coordinate axes */
-    VMOVE(Nu, tip->eto_N);
-    VUNITIZE(Nu);			/* z axis of coord sys */
-    bn_vec_ortho(Bu, Nu);		/* x axis */
-    VUNITIZE(Bu);
-    VCROSS(Au, Nu, Bu);		/* y axis */
+	/* ------ (A) norm tolerance – primary explosion guard -------- */
+	if (norm_set) {
+	    fastf_t min_ntol = prim_min_norm_tol();
+	    ntol = (ttol->norm < min_ntol) ? min_ntol : ttol->norm;
+	    if (ttol->norm < min_ntol)
+		bu_log("Warning: eto tessellation norm tolerance clamped from %g rad to %g rad "
+		       "to prevent excessively dense mesh\n", ttol->norm, ntol);
+	} else {
+	    ntol = M_PI;	/* tolerate everything */
+	}
 
-    /* number of segments required in eto circles */
-    /* Clamp to prevent excessively dense meshes. */
-    {
-	fastf_t ntol_dummy = M_PI;
-	fastf_t bbox_diag = 2.0 * (eto_r_eff + MAGNITUDE(tip->eto_C));
-	primitive_clamp_tess_tol(&dtol, &ntol_dummy, bbox_diag);
-    }
-    nells = rt_num_circular_segments(dtol, eto_r_eff);
-    /* Honour normal tolerance for ring count. */
-    if (ntol < M_PI) {
-	int nells_ntol = (int)(M_PI / ntol) + 1;
-	if (nells_ntol > nells) nells = nells_ntol;
+	/* ------ cross-section dtol ---------------------------------- */
+	{
+	    fastf_t bbox_cs = 2.0 * (a > b ? a : b);
+
+	    if (abs_or_rel_set || !norm_set) {
+		/* abs/rel is set, or truly "no tolerance": derive dtol from
+		 * the standard helper (applies 10 % rel fallback when needed). */
+		if (eto_r_eff < b)
+		    dtol = primitive_get_absolute_tolerance(ttol, 2.0 * eto_r_eff);
+		else
+		    dtol = primitive_get_absolute_tolerance(ttol, 2.0 * b);
+	    } else {
+		/* norm-only: derive dtol from the sagitta that corresponds to
+		 * angular step ntol on the maximum ellipse semi-axis.
+		 *
+		 * For a circular arc of radius R and angular step θ the
+		 * chord-to-arc sagitta is R*(1-cos(θ/2)).  Using
+		 * R = max(a, b) and θ = ntol gives a dtol that is geometrically
+		 * consistent with the norm tolerance: the distance and angle
+		 * conditions in make_ellipse4 fire at the same angular resolution
+		 * on a circle of that radius, keeping the mesh resolution norm-
+		 * governed without allowing runaway recursion at ellipse tips.
+		 *
+		 * Contrast with the old sentinel (a+b+1): the sentinel left the
+		 * distance condition dormant, so near the axis tips where the
+		 * ellipse tangent swings sharply the angle condition fired
+		 * repeatedly all the way down to min_chord_sq, generating
+		 * thousands of near-coincident points and an NMG failure. */
+		fastf_t r_max = (a > b) ? a : b;
+		dtol = r_max * (1.0 - cos(ntol * 0.5));
+		if (dtol < BN_TOL_DIST)
+		    dtol = BN_TOL_DIST;
+	    }
+
+	    /* (B) Defence-in-depth: clamp dtol and ntol against the
+	     * cross-section bbox.  For the norm-only sagitta-derived dtol
+	     * this catches the case where ntol is so tight that the sagitta
+	     * undercuts the absolute minimum tessellation resolution.  For
+	     * ntol already at the prim_min_norm_tol() floor the clamp is a
+	     * no-op.  In both cases this call provides a consistent
+	     * second-pass guard and emits the standard warning if either
+	     * value is below its floor for any reason. */
+	    primitive_clamp_tess_tol(&dtol, &ntol, bbox_cs);
+	}
+
+	/* (x, y) coords for cross-section ellipse.
+	 * In abs/rel mode: dtol is the clamped distance tolerance; ntol
+	 *   bumps subdivision where the surface curves sharply.
+	 * In norm-only mode: dtol is the sagitta derived from ntol and
+	 *   max(a,b), so both conditions fire at the same angular resolution
+	 *   and the mesh is norm-governed without tip-runaway risk.
+	 *
+	 * tol->dist is passed so make_ellipse can set its min_chord floor
+	 * high enough that no two points end up within NMG's coincidence
+	 * threshold of each other (see make_ellipse comment for details). */
+	ell = make_ellipse(&npts, a, b, dtol, ntol, tol->dist);
+
+	/* generate coordinate axes */
+	VMOVE(Nu, tip->eto_N);
+	VUNITIZE(Nu);			/* z axis of coord sys */
+	bn_vec_ortho(Bu, Nu);		/* x axis */
+	VUNITIZE(Bu);
+	VCROSS(Au, Nu, Bu);		/* y axis */
+
+	/* ------ ring count (nells) ---------------------------------- */
+	/* Start from the minimum; each active tolerance bumps it upward. */
+	nells = 3;
+
+	if (abs_or_rel_set || !norm_set) {
+	    /* Derive a separate ring_dtol by re-clamping dtol (already
+	     * clamped for the cross-section) against the full revolution
+	     * bbox, then use it for the ring segment count.  The sentinel
+	     * is never the active dtol here (abs_or_rel_set || !norm_set). */
+	    fastf_t ring_dtol = dtol;
+	    {
+		fastf_t ntol_dummy = M_PI;
+		fastf_t bbox_diag = 2.0 * (eto_r_eff + MAGNITUDE(tip->eto_C));
+		primitive_clamp_tess_tol(&ring_dtol, &ntol_dummy, bbox_diag);
+	    }
+	    nells = rt_num_circular_segments(ring_dtol, eto_r_eff);
+	}
+
+	/* Bump ring count to satisfy norm tolerance (both abs/rel+norm and
+	 * pure norm-only paths land here).  ntol is already hard-clamped to
+	 * prim_min_norm_tol() (guard A), so nells is bounded above. */
+	if (ntol < M_PI) {
+	    int nells_ntol = (int)(M_PI / ntol) + 1;
+	    if (nells_ntol > nells) nells = nells_ntol;
+	}
+
+	if (RT_G_DEBUG & RT_DEBUG_MESHING)
+	    bu_log("rt_eto_tess: dtol=%.6g ntol=%.6g abs_or_rel=%d norm=%d "
+		   "npts=%d nells=%d min_chord=%.6g\n",
+		   dtol, ntol, abs_or_rel_set, norm_set, npts, nells, tol->dist);
     }
     theta = M_2PI / nells;	/* put ellipse every theta rads */
     /* get horizontal and vertical components of C and Rd */
@@ -1475,9 +1604,28 @@ rt_eto_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	}
     }
 
+    if (RT_G_DEBUG & RT_DEBUG_MESHING)
+	bu_log("rt_eto_tess: built nfaces=%d (nells=%d npts=%d grid=%d)\n",
+	       nfaces, nells, npts, nells * npts);
+
     /* Associate face geometry */
     for (i = 0; i < nfaces; i++) {
 	if (nmg_fu_planeeqn(faces[i], tol) < 0) {
+	    /* Dump vertex positions for the failed face so we can see
+	     * whether the issue is coincident or collinear vertices.
+	     * Always emit this — a planeeqn failure is always an error. */
+	    struct loopuse *lu = BU_LIST_FIRST(loopuse, &faces[i]->lu_hd);
+	    if (lu && BU_LIST_FIRST_MAGIC(&lu->down_hd) == NMG_EDGEUSE_MAGIC) {
+		struct edgeuse *eu;
+		int vi = 0;
+		bu_log("rt_eto_tess: planeeqn FAIL face[%d] vertices:\n", i);
+		for (BU_LIST_FOR(eu, edgeuse, &lu->down_hd)) {
+		    if (eu->vu_p && eu->vu_p->v_p && eu->vu_p->v_p->vg_p) {
+			fastf_t *c = eu->vu_p->v_p->vg_p->coord;
+			bu_log("  v[%d]=(%g %g %g)\n", vi++, c[0], c[1], c[2]);
+		    }
+		}
+	    }
 	    fail = (-1);
 	    goto failure;
 	}

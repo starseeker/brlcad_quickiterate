@@ -157,6 +157,20 @@ has_glob_pattern(const char *s)
     return (s && strpbrk(s, "*?[") != NULL);
 }
 
+/**
+ * Return the ft_label string for the primitive type in ip without
+ * dereferencing ip->idb_meth, which test callers frequently leave
+ * un-initialised.  Uses the global OBJ[] function table directly.
+ */
+static const char *
+intern_type_label(const struct rt_db_internal *ip)
+{
+    if (!ip) return "?";
+    if (ip->idb_minor_type >= 0 && ip->idb_minor_type < (int)ID_MAXIMUM)
+        return OBJ[ip->idb_minor_type].ft_label;
+    return "?";
+}
+
 static void
 input_g_root(char *root, size_t root_sz, const char *g_path)
 {
@@ -482,28 +496,15 @@ check_nmg_mesh(const char *label, struct model *m,
 	if (ft->ft_volume)
 	    ft->ft_volume(&analytic_v, ip);
 
-	/* Crofton fallback: when the analytic formula is absent or silently
-	 * returns no value (e.g. rt_ell_surf_area for triaxial ellipsoids),
-	 * estimate SA and/or volume via ray sampling so the table always has
-	 * numbers.
-	 *
-	 * Convention: analytic_sa/analytic_v are initialised to -1.0 above.
-	 * After calling ft_surf_area/ft_volume they remain <= 0.0 whenever the
-	 * formula is unavailable (either because the function pointer is NULL,
-	 * or because the function silently returns without writing *area / *vol).
-	 * Any <= 0.0 value is therefore treated as "missing"; a positive value
-	 * is a valid analytic answer.
-	 *
-	 * Only runs in non-quiet (top-level) mode to avoid expensive and
-	 * potentially problematic ray sampling inside convergence loops.
-	 *
-	 * crofton_from_ip() requires ip->idb_meth to export the primitive to
-	 * an in-memory database; hand-crafted test IPs may leave it NULL, so
-	 * we fill it in via a temporary copy before the call.               */
+	/* crofton_from_ip() requires ip->idb_meth to export the primitive to
+	 * an in-memory database; hand-crafted test IPs may leave this field
+	 * uninitialised (garbage, not NULL), so always set it from the OBJ
+	 * function table when the minor type is known.  For IPs returned by
+	 * rt_db_get_internal the assignment is a no-op (same pointer).    */
 	if (g_validate_metrics && !quiet && (analytic_sa <= 0.0 || analytic_v <= 0.0)) {
 	    struct rt_db_internal ip_meth = *ip;
-	    if (!ip_meth.idb_meth)
-		ip_meth.idb_meth = &OBJ[ip->idb_minor_type];
+	    if (ip_meth.idb_minor_type >= 0 && ip_meth.idb_minor_type < (int)ID_MAXIMUM)
+		ip_meth.idb_meth = &OBJ[ip_meth.idb_minor_type];
 	    if (analytic_sa <= 0.0) {
 		fastf_t croft_sa = 0.0;
 		rt_crofton_surf_area(&croft_sa, &ip_meth);
@@ -882,7 +883,7 @@ run_tess(const char *label,
     struct model *m = nmg_mm();
     struct nmgregion *r = NULL;
 
-    fprintf(stderr, "STARTING: %s (%s)\n", label, ((ip && ip->idb_meth) ? ip->idb_meth->ft_label : "?"));
+    fprintf(stderr, "STARTING: %s (%s)\n", label, intern_type_label(ip));
     fflush(stderr);
 
     int ret = rt_obj_tess(&r, m, ip, ttol, tol);
@@ -985,7 +986,7 @@ run_tess(const char *label,
 	    double conv_abs_val  = conv_abs  ? abs_c.final_val  : (abs_c.tried  ? -1.0 : 0.0);
 	    double conv_norm_val = conv_norm ? norm_c.final_val : (norm_c.tried ? -1.0 : 0.0);
 
-	    add_result(label, ((ip && ip->idb_meth) ? ip->idb_meth->ft_label : "?"),
+	    add_result(label, intern_type_label(ip),
 		       mesh_res.tess_ok, mesh_res.mesh_ok, mesh_res.metrics_ok,
 		       mesh_res.res_limited, mesh_res.n_tris,
 		       mesh_res.err_sa, mesh_res.err_vol,
@@ -1057,7 +1058,7 @@ run_tess_maxfaces(const char *label,
     struct model *m = nmg_mm();
     struct nmgregion *r = NULL;
 
-    fprintf(stderr, "STARTING: %s (%s) (max_faces=%d)\n", label, ((ip && ip->idb_meth) ? ip->idb_meth->ft_label : "?"), max_faces);
+    fprintf(stderr, "STARTING: %s (%s) (max_faces=%d)\n", label, intern_type_label(ip), max_faces);
     fflush(stderr);
 
     int ret = rt_obj_tess(&r, m, ip, ttol, tol);
@@ -1129,6 +1130,7 @@ test_tor(void)
     ip.idb_major_type = DB5_MAJORTYPE_BRLCAD;
     ip.idb_minor_type = ID_TOR;
     ip.idb_ptr = &tip;
+    ip.idb_meth = &OBJ[ip.idb_minor_type];
 
     tip.magic = RT_TOR_INTERNAL_MAGIC;
     VSET(tip.v, 0, 0, 0);
@@ -1296,6 +1298,7 @@ test_eto(void)
     ip.idb_major_type = DB5_MAJORTYPE_BRLCAD;
     ip.idb_minor_type = ID_ETO;
     ip.idb_ptr = &tip;
+    ip.idb_meth = &OBJ[ip.idb_minor_type];
 
     tip.eto_magic = RT_ETO_INTERNAL_MAGIC;
     VSET(tip.eto_V, 0, 0, 0);
@@ -1360,18 +1363,41 @@ test_eto(void)
     init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
     if (!run_tess("eto DEGENERATE near-zero rd (expect fail)", &ip, &ttol, &tol, 1)) failures++;
 
-    /* Extreme tolerances: very tight norm */
+    /* Norm-only mode: no abs or rel set.  The fixed rt_eto_tess must NOT
+     * apply the hidden 10 % rel fallback; only ttol->norm drives the ring
+     * count (nells = ceil(π/ntol)+1) and cross-section subdivision. */
     VSET(tip.eto_N, 0, 0, 1);
     VSET(tip.eto_V, 0, 0, 0);
     tip.eto_r  = 10.0;
     tip.eto_rd = 1.5;
     VSET(tip.eto_C, 2.0, 0.0, 1.5);
-    init_tols(&ttol, &tol, 0.0, 0.0, 0.1);  /* norm-driven; chord-floor in make_ellipse guards against runaway */
-    if (!run_tess("eto norm-driven (norm=0.1)", &ip, &ttol, &tol, 0)) failures++;
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.1);  /* norm-only; nells ≈ 32 */
+    if (!run_tess("eto norm-only (norm=0.1)", &ip, &ttol, &tol, 0)) failures++;
 
-    /* Extreme tolerances: very loose norm */
-    init_tols(&ttol, &tol, 0.0, 0.0, 0.9);
-    if (!run_tess("eto loose-norm (norm=0.9)", &ip, &ttol, &tol, 0)) failures++;
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.3);  /* norm-only; nells ≈ 11 */
+    if (!run_tess("eto norm-only (norm=0.3)", &ip, &ttol, &tol, 0)) failures++;
+
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.9);  /* norm-only loose; nells ≈ 4 */
+    if (!run_tess("eto norm-only loose (norm=0.9)", &ip, &ttol, &tol, 0)) failures++;
+
+    init_tols(&ttol, &tol, 0.0, 0.0, 1.5);  /* norm-only very loose; nells = 3 (minimum) */
+    if (!run_tess("eto norm-only very-loose (norm=1.5)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Bishop shape: norm-only, should produce clean mesh driven purely by norm */
+    tip.eto_r  = 5.716;
+    tip.eto_rd = 5.246;
+    VSET(tip.eto_C, 3.216, 0.079, 7.028);
+    VSET(tip.eto_N, 0, 0, 0.0592);
+    VUNITIZE(tip.eto_N);
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.2);  /* norm-only bishop */
+    if (!run_tess("eto norm-only bishop (norm=0.2)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Reset to standard shape */
+    VSET(tip.eto_N, 0, 0, 1);
+    VSET(tip.eto_V, 0, 0, 0);
+    tip.eto_r  = 10.0;
+    tip.eto_rd = 1.5;
+    VSET(tip.eto_C, 2.0, 0.0, 1.5);
 
     /* All three tolerances combined */
     init_tols(&ttol, &tol, 0.3, 0.03, 0.15);
@@ -1437,6 +1463,7 @@ test_tgc(void)
     ip.idb_major_type = DB5_MAJORTYPE_BRLCAD;
     ip.idb_minor_type = ID_TGC;
     ip.idb_ptr = &tip;
+    ip.idb_meth = &OBJ[ip.idb_minor_type];
 
     tip.magic = RT_TGC_INTERNAL_MAGIC;
 
@@ -1662,6 +1689,7 @@ test_ell(void)
     ip.idb_major_type = DB5_MAJORTYPE_BRLCAD;
     ip.idb_minor_type = ID_ELL;
     ip.idb_ptr = &tip;
+    ip.idb_meth = &OBJ[ip.idb_minor_type];
 
     tip.magic = RT_ELL_INTERNAL_MAGIC;
     VSET(tip.v, 0, 0, 0);
@@ -1777,6 +1805,7 @@ test_epa(void)
     ip.idb_major_type = DB5_MAJORTYPE_BRLCAD;
     ip.idb_minor_type = ID_EPA;
     ip.idb_ptr = &tip;
+    ip.idb_meth = &OBJ[ip.idb_minor_type];
 
     tip.epa_magic = RT_EPA_INTERNAL_MAGIC;
     VSET(tip.epa_V, 0, 0, 0);
@@ -1873,6 +1902,7 @@ test_ehy(void)
     ip.idb_major_type = DB5_MAJORTYPE_BRLCAD;
     ip.idb_minor_type = ID_EHY;
     ip.idb_ptr = &tip;
+    ip.idb_meth = &OBJ[ip.idb_minor_type];
 
     tip.ehy_magic = RT_EHY_INTERNAL_MAGIC;
     VSET(tip.ehy_V, 0, 0, 0);
@@ -1968,6 +1998,7 @@ test_rpc(void)
     ip.idb_major_type = DB5_MAJORTYPE_BRLCAD;
     ip.idb_minor_type = ID_RPC;
     ip.idb_ptr = &tip;
+    ip.idb_meth = &OBJ[ip.idb_minor_type];
 
     tip.rpc_magic = RT_RPC_INTERNAL_MAGIC;
     VSET(tip.rpc_V, 0, 0, 0);
@@ -2057,6 +2088,7 @@ test_rhc(void)
     ip.idb_major_type = DB5_MAJORTYPE_BRLCAD;
     ip.idb_minor_type = ID_RHC;
     ip.idb_ptr = &tip;
+    ip.idb_meth = &OBJ[ip.idb_minor_type];
 
     tip.rhc_magic = RT_RHC_INTERNAL_MAGIC;
     VSET(tip.rhc_V, 0, 0, 0);
@@ -2146,6 +2178,7 @@ test_hyp(void)
     ip.idb_major_type = DB5_MAJORTYPE_BRLCAD;
     ip.idb_minor_type = ID_HYP;
     ip.idb_ptr = &tip;
+    ip.idb_meth = &OBJ[ip.idb_minor_type];
 
     tip.hyp_magic = RT_HYP_INTERNAL_MAGIC;
     VSET(tip.hyp_Vi, 0, 0, 0);
@@ -2241,6 +2274,7 @@ test_part(void)
     ip.idb_major_type = DB5_MAJORTYPE_BRLCAD;
     ip.idb_minor_type = ID_PARTICLE;
     ip.idb_ptr = &tip;
+    ip.idb_meth = &OBJ[ip.idb_minor_type];
 
     tip.part_magic = RT_PART_INTERNAL_MAGIC;
     VSET(tip.part_V, 0, 0, 0);
@@ -2391,6 +2425,7 @@ test_dsp(void)
     MAT_IDN(dsp.dsp_mtos);
 
     ip.idb_ptr = &dsp;
+    ip.idb_meth = &OBJ[ip.idb_minor_type];
 
     printf("\n--- DSP tests ---\n");
 
@@ -2571,6 +2606,7 @@ test_ebm(void)
     ip.idb_major_type = DB5_MAJORTYPE_BRLCAD;
     ip.idb_minor_type = ID_EBM;
     ip.idb_ptr = &eip;
+    ip.idb_meth = &OBJ[ip.idb_minor_type];
 
     memset(&eip, 0, sizeof(eip));
     eip.magic = RT_EBM_INTERNAL_MAGIC;
@@ -2665,6 +2701,7 @@ test_vol(void)
     ip.idb_major_type = DB5_MAJORTYPE_BRLCAD;
     ip.idb_minor_type = ID_VOL;
     ip.idb_ptr = &vip;
+    ip.idb_meth = &OBJ[ip.idb_minor_type];
 
     memset(&vip, 0, sizeof(vip));
     vip.magic = RT_VOL_INTERNAL_MAGIC;
@@ -2859,6 +2896,7 @@ test_arb(void)
     ip.idb_major_type = DB5_MAJORTYPE_BRLCAD;
     ip.idb_minor_type = ID_ARB8;
     ip.idb_ptr = &tip;
+    ip.idb_meth = &OBJ[ip.idb_minor_type];
 
     tip.magic = RT_ARB_INTERNAL_MAGIC;
 
@@ -3093,6 +3131,7 @@ test_ars(void)
     ip.idb_major_type = DB5_MAJORTYPE_BRLCAD;
     ip.idb_minor_type = ID_ARS;
     ip.idb_ptr = &aip;
+    ip.idb_meth = &OBJ[ip.idb_minor_type];
 
     aip.magic = RT_ARS_INTERNAL_MAGIC;
 
@@ -3317,6 +3356,7 @@ test_arbn(void)
     ip.idb_major_type = DB5_MAJORTYPE_BRLCAD;
     ip.idb_minor_type = ID_ARBN;
     ip.idb_ptr = &aip;
+    ip.idb_meth = &OBJ[ip.idb_minor_type];
 
     aip.magic = RT_ARBN_INTERNAL_MAGIC;
 
@@ -3458,6 +3498,7 @@ test_pipe(void)
     ip.idb_major_type = DB5_MAJORTYPE_BRLCAD;
     ip.idb_minor_type = ID_PIPE;
     ip.idb_ptr = &pip;
+    ip.idb_meth = &OBJ[ip.idb_minor_type];
 
     pip.pipe_magic = RT_PIPE_INTERNAL_MAGIC;
     BU_LIST_INIT(&pip.pipe_segs_head);
@@ -3728,6 +3769,7 @@ test_metaball(void)
     ip.idb_major_type = DB5_MAJORTYPE_BRLCAD;
     ip.idb_minor_type = ID_METABALL;
     ip.idb_ptr = &mip;
+    ip.idb_meth = &OBJ[ip.idb_minor_type];
 
     mip.magic = RT_METABALL_INTERNAL_MAGIC;
     mip.threshold = 1.0;
@@ -3892,7 +3934,6 @@ verify_crofton_estimates(void)
 #define CROFTON_CHECK(label, ip_ptr, analytic_sa, analytic_vol) \
     do { \
 	struct rt_db_internal *_ip = (ip_ptr); \
-	if (!_ip->idb_meth) _ip->idb_meth = &OBJ[_ip->idb_minor_type]; \
 	fastf_t _csa = 0.0, _cvol = 0.0; \
 	rt_crofton_surf_area(&_csa, _ip); \
 	rt_crofton_volume(&_cvol, _ip); \
@@ -3925,6 +3966,7 @@ verify_crofton_estimates(void)
 	ip.idb_minor_type = ID_ELL;
 	ip.idb_type       = ID_ELL;
 	ip.idb_ptr        = &ell;
+	ip.idb_meth       = &OBJ[ID_ELL];
 
 	double analytic_sa  = 4.0 * M_PI * 10.0 * 10.0;           /* 1256.6 mm² */
 	double analytic_vol = (4.0 / 3.0) * M_PI * 10.0 * 10.0 * 10.0; /* 4188.8 mm³ */
@@ -3951,6 +3993,7 @@ verify_crofton_estimates(void)
 	ip.idb_minor_type = ID_TGC;
 	ip.idb_type       = ID_TGC;
 	ip.idb_ptr        = &tgc;
+	ip.idb_meth       = &OBJ[ID_TGC];
 
 	/* SA = 2π·r·(r+h) = 2π·5·25 = 250π ≈ 785.4 mm² */
 	double analytic_sa  = 2.0 * M_PI * 5.0 * (5.0 + 20.0);
@@ -4013,6 +4056,7 @@ verify_crofton_estimates(void)
 	ip.idb_minor_type = ID_TGC;
 	ip.idb_type       = ID_TGC;
 	ip.idb_ptr        = &tgc;
+	ip.idb_meth       = &OBJ[ID_TGC];
 
 	/* Exact volume: V = π·r²·h_perp (h_perp = Hz since Hy=0, A⊥B ⊥ Z-axis) */
 	double h_perp       = Hz;                    /* 10√3 */
