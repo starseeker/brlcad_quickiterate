@@ -1317,22 +1317,34 @@ rt_eto_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 		else
 		    dtol = primitive_get_absolute_tolerance(ttol, 2.0 * b);
 	    } else {
-		/* norm-only: set dtol to a safe sentinel – always larger than
-		 * any chord-to-curve sagitta on the cross-section ellipse – so
-		 * the distance condition in make_ellipse4 never fires.  ntol
-		 * alone governs subdivision depth.
+		/* norm-only: derive dtol from the sagitta that corresponds to
+		 * angular step ntol on the maximum ellipse semi-axis.
 		 *
-		 * The sentinel must satisfy: sentinel > max possible sagitta.
-		 * For an ellipse with semi-axes a and b the maximum sagitta
-		 * from any chord is at most max(a, b), so (a + b + 1) is safe. */
-		dtol = a + b + 1.0;
+		 * For a circular arc of radius R and angular step θ the
+		 * chord-to-arc sagitta is R*(1-cos(θ/2)).  Using
+		 * R = max(a, b) and θ = ntol gives a dtol that is geometrically
+		 * consistent with the norm tolerance: the distance and angle
+		 * conditions in make_ellipse4 fire at the same angular resolution
+		 * on a circle of that radius, keeping the mesh resolution norm-
+		 * governed without allowing runaway recursion at ellipse tips.
+		 *
+		 * Contrast with the old sentinel (a+b+1): the sentinel left the
+		 * distance condition dormant, so near the axis tips where the
+		 * ellipse tangent swings sharply the angle condition fired
+		 * repeatedly all the way down to min_chord_sq, generating
+		 * thousands of near-coincident points and an NMG failure. */
+		fastf_t r_max = (a > b) ? a : b;
+		dtol = r_max * (1.0 - cos(ntol * 0.5));
+		if (dtol < BN_TOL_DIST)
+		    dtol = BN_TOL_DIST;
 	    }
 
 	    /* (B) Defence-in-depth: clamp dtol and ntol against the
-	     * cross-section bbox.  When dtol is the sentinel, the clamp
-	     * leaves it unchanged (sentinel ≫ floor).  When ntol is already
-	     * at the prim_min_norm_tol() floor, the clamp is a no-op for
-	     * ntol too.  In both cases this call provides a consistent
+	     * cross-section bbox.  For the norm-only sagitta-derived dtol
+	     * this catches the case where ntol is so tight that the sagitta
+	     * undercuts the absolute minimum tessellation resolution.  For
+	     * ntol already at the prim_min_norm_tol() floor the clamp is a
+	     * no-op.  In both cases this call provides a consistent
 	     * second-pass guard and emits the standard warning if either
 	     * value is below its floor for any reason. */
 	    primitive_clamp_tess_tol(&dtol, &ntol, bbox_cs);
@@ -1341,10 +1353,9 @@ rt_eto_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	/* (x, y) coords for cross-section ellipse.
 	 * In abs/rel mode: dtol is the clamped distance tolerance; ntol
 	 *   bumps subdivision where the surface curves sharply.
-	 * In norm-only mode: dtol is the sentinel (never triggers splits);
-	 *   only the ntol condition governs subdivision depth.  The
-	 *   min_chord_sq floor inside make_ellipse4 (guard C above) bounds
-	 *   the maximum recursion depth independently of ntol. */
+	 * In norm-only mode: dtol is the sagitta derived from ntol and
+	 *   max(a,b), so both conditions fire at the same angular resolution
+	 *   and the mesh is norm-governed without tip-runaway risk. */
 	ell = make_ellipse(&npts, a, b, dtol, ntol);
 
 	/* generate coordinate axes */
