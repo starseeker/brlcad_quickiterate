@@ -2169,7 +2169,9 @@ rt_epa_surf_area(fastf_t *area, const struct rt_db_internal *ip)
 
     magsq_h = MAGSQ(xip->epa_H);
     m = sqrt(1.0 + (4.0 * magsq_h) / (xip->epa_r1 * xip->epa_r2));
-    *area = 2.0/3.0 * M_PI * xip->epa_r1 * xip->epa_r2 * (m + (1.0 / (m + 1.0)));
+    /* Lateral paraboloid surface + elliptical base cap */
+    *area = 2.0/3.0 * M_PI * xip->epa_r1 * xip->epa_r2 * (m + (1.0 / (m + 1.0)))
+	+ M_PI * xip->epa_r1 * xip->epa_r2;
 }
 
 static int
