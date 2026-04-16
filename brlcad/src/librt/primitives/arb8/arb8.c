@@ -1901,6 +1901,24 @@ arb_is_noncanonical(const struct rt_arb_internal *arb, fastf_t tol_sq)
 	}
     }
 
+    /* For ARB6 (exactly 6 unique vertices from 8 points), verify that the
+     * duplicate pairs among the top vertices follow the canonical adjacent
+     * pattern: pt[4]==pt[5] and pt[6]==pt[7].  Any other pairing — such as
+     * the diagonal encoding pt[4]==pt[7] and pt[5]==pt[6] — causes the
+     * standard face table to misidentify degenerate triangles as quads,
+     * producing an incorrect surface area / volume.  Route such cases to
+     * the convex-hull path. */
+    {
+	int n_unique = 0;
+	int j;
+	for (j = 0; j < 8; j++)
+	    if (equiv_pts[j] == j) n_unique++;
+	if (n_unique == 6) {
+	    if (!(equiv_pts[5] == 4 && equiv_pts[7] == 6))
+		return 1;
+	}
+    }
+
     return 0;
 }
 

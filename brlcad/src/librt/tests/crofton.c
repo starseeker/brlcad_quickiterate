@@ -250,8 +250,10 @@ run_convergence_case(struct db_i *dbip,
 	}
 	rt_prep_parallel(rtip, 1);
 
+	/* Use n_rays = min_samples; target_pct is informational only now */
+	struct rt_crofton_params p = { min_samples, 0.0, 0.0 };
 	int64_t t0 = bu_gettime();
-	cr = rt_crofton_shoot(rtip, min_samples, target_pct, &sa, &vol);
+	cr = rt_crofton_shoot(rtip, &p, &sa, &vol);
 	run_sec = (double)(bu_gettime() - t0) / 1000000.0;
 	rt_free_rti(rtip);
 

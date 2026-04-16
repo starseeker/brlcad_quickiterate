@@ -1992,12 +1992,49 @@ rt_eto_params(struct pc_pc_set *ps, const struct rt_db_internal *ip)
 }
 
 
+/* Helper: compute the maximum radial reach of the ETO cross-section ellipse.
+ * The cross-section ellipse has semi-major axis eto_C (magnitude mag_c) and
+ * semi-minor axis eto_rd.  The "reach" in the radial (horizontal) direction
+ * from the rotation axis is:
+ *   r_min_reach = sqrt(dh² + ch²)
+ * where ch = horizontal component of eto_C and dh = rd * |cos(phi)|,
+ * phi = angle of eto_C from the normal direction eto_N.
+ * Returns 1 if the ETO is self-intersecting (tube overlaps the axis).      */
+static int
+eto_is_self_intersecting(const struct rt_eto_internal *tip)
+{
+    fastf_t Nu[3], cv, ch_sq, ch, mag_c, cos_phi, dh, r_min_reach;
+
+    VMOVE(Nu, tip->eto_N);
+    VUNITIZE(Nu);
+    cv   = VDOT(tip->eto_C, Nu);
+    ch_sq = MAGSQ(tip->eto_C) - cv * cv;
+    ch   = (ch_sq > 0.0) ? sqrt(ch_sq) : 0.0;
+    mag_c = MAGNITUDE(tip->eto_C);
+    if (mag_c < SMALL_FASTF) return 0;
+    cos_phi = fabs(cv / mag_c);
+    dh = tip->eto_rd * cos_phi;
+    r_min_reach = sqrt(dh * dh + ch * ch);
+    return (r_min_reach > tip->eto_r) ? 1 : 0;
+}
+
+
 void
 rt_eto_volume(fastf_t *vol, const struct rt_db_internal *ip)
 {
     fastf_t mag_c;
     struct rt_eto_internal *tip = (struct rt_eto_internal *)ip->idb_ptr;
     RT_ETO_CK_MAGIC(tip);
+
+    /* For self-intersecting ETO the tube overlaps the symmetry axis and the
+     * tessellator only produces the outer envelope.  The Pappus formula
+     * counts the full self-intersecting volume; use Crofton instead.        */
+    if (eto_is_self_intersecting(tip)) {
+	struct rt_db_internal ip_meth = *ip;
+	ip_meth.idb_meth = &OBJ[ID_ETO];
+	do { static const struct rt_crofton_params _p = {50000u, 0.0, 0.0}; rt_crofton_sample(NULL, vol, &ip_meth, &_p); } while (0);
+	return;
+    }
 
     mag_c = MAGNITUDE(tip->eto_C);
     *vol = 2.0 * M_PI * M_PI * tip->eto_r * tip->eto_rd * mag_c;
@@ -2019,6 +2056,16 @@ rt_eto_surf_area(fastf_t *area, const struct rt_db_internal *ip)
     fastf_t circum, mag_c;
     struct rt_eto_internal *tip = (struct rt_eto_internal *)ip->idb_ptr;
     RT_ETO_CK_MAGIC(tip);
+
+    /* For self-intersecting ETO the tessellator only produces the outer
+     * envelope; the Pappus/ellipse-circumference formula counts the full
+     * self-intersecting surface.  Use Crofton to match the raytrace answer.*/
+    if (eto_is_self_intersecting(tip)) {
+	struct rt_db_internal ip_meth = *ip;
+	ip_meth.idb_meth = &OBJ[ID_ETO];
+	do { static const struct rt_crofton_params _p = {50000u, 0.0, 0.0}; rt_crofton_sample(area, NULL, &ip_meth, &_p); } while (0);
+	return;
+    }
 
     mag_c = MAGNITUDE(tip->eto_C);
     /* approximation */
