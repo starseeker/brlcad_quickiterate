@@ -82,24 +82,12 @@
 
 /*
  * The DDA / HBB-pyramid path is a LEGACY FALLBACK used only when the BVH
- * could not be built (e.g., degenerate DSP, out-of-memory).  Known issues:
- *
- *   - Non-unit stom: chord lengths are underestimated (~13 % vol error for
- *     stom diag(5,5,2)), even though SA (hit-count) is correct.  Root cause
- *     is under investigation; the XY wall hits appear correct while the
- *     foundation-pillar Z chord gets a wrong conversion for non-unit dz.
- *
- *   - Large / complex terrain: the DDA increasingly underestimates SA and
- *     volume as terrain complexity grows (21 % SA error, 44 % vol error for
- *     a 33x33 wave terrain).  The BVH path handles the same geometry
- *     accurately (< 2 %).  Root cause: the ordered DDA traversal misses
- *     some cell intersections on terrain with large height variation.
- *
- * Because DDA is only a fallback, its failures are flagged as WARN (not
- * FAIL) and do not contribute to the test exit code.
+ * could not be built (e.g., degenerate DSP, out-of-memory).  It should
+ * agree with the mesh reference to within typical Crofton sampling noise
+ * (~5 %).  Errors larger than DSP_DDA_MESHREF_PCT are test failures.
  */
-#define DSP_DDA_MESHREF_PCT    100.0   /* effectively unlimited (WARN only) */
-#define DSP_AGREE_PCT          100.0   /* BVH vs DDA agreement (WARN only) */
+#define DSP_DDA_MESHREF_PCT     10.0   /* DDA vs mesh-ref tolerance */
+#define DSP_AGREE_PCT           15.0   /* BVH vs DDA agreement tolerance */
 
 
 /* ------------------------------------------------------------------ */
@@ -446,11 +434,11 @@ printf("    BVH speedup vs DDA: %.2fx  (%s)\n",
     /* BVH (primary path) failures are test FAILs. */
     const char *bsa  = (bvh_sa_err  < 0.0 || bvh_sa_err  <= DSP_BVH_MESHREF_PCT) ? "OK" : "FAIL";
     const char *bvol = (bvh_vol_err < 0.0 || bvh_vol_err <= DSP_BVH_MESHREF_PCT) ? "OK" : "FAIL";
-    /* DDA (legacy fallback) large errors are WARNings, not failures. */
-    const char *dsa  = (dda_sa_err  < 0.0 || dda_sa_err  <= 20.0) ? "OK" : "WARN";
-    const char *dvol = (dda_vol_err < 0.0 || dda_vol_err <= 20.0) ? "OK" : "WARN";
-    const char *agsa  = (bvh_dda_sa  <= 20.0) ? "OK" : "WARN";
-    const char *agvol = (bvh_dda_vol <= 20.0) ? "OK" : "WARN";
+    /* DDA (legacy fallback) failures are also test FAILs. */
+    const char *dsa  = (dda_sa_err  < 0.0 || dda_sa_err  <= DSP_DDA_MESHREF_PCT) ? "OK" : "FAIL";
+    const char *dvol = (dda_vol_err < 0.0 || dda_vol_err <= DSP_DDA_MESHREF_PCT) ? "OK" : "FAIL";
+    const char *agsa  = (bvh_dda_sa  <= DSP_AGREE_PCT) ? "OK" : "FAIL";
+    const char *agvol = (bvh_dda_vol <= DSP_AGREE_PCT) ? "OK" : "FAIL";
 
     printf("    Checks: BVH/Ref SA[%s] BVH/Ref Vol[%s]"
    "  DDA/Ref SA[%s] DDA/Ref Vol[%s]"
@@ -468,21 +456,27 @@ printf("    BVH speedup vs DDA: %.2fx  (%s)\n",
 		   bvh_vol_err, DSP_BVH_MESHREF_PCT);
 	    failures++;
 	}
-	/* DDA errors are WARN only (known legacy path bugs) */
-	if (dda_sa_err  > 20.0)
-	    printf("    WARN(DDA-bug): DDA SA vs Mesh-Ref: %.2f%%"
-		   " (legacy path known issue)\n", dda_sa_err);
-	if (dda_vol_err > 20.0)
-	    printf("    WARN(DDA-bug): DDA vol vs Mesh-Ref: %.2f%%"
-		   " (legacy path known issue)\n", dda_vol_err);
+	if (dda_sa_err  > DSP_DDA_MESHREF_PCT) {
+	    printf("    FAIL: DDA SA vs Mesh-Ref: %.2f%% > %.1f%%\n",
+		   dda_sa_err, DSP_DDA_MESHREF_PCT);
+	    failures++;
+	}
+	if (dda_vol_err > DSP_DDA_MESHREF_PCT) {
+	    printf("    FAIL: DDA vol vs Mesh-Ref: %.2f%% > %.1f%%\n",
+		   dda_vol_err, DSP_DDA_MESHREF_PCT);
+	    failures++;
+	}
     }
-    /* BVH vs DDA large disagreement: warn only (expected for DDA-buggy cases) */
-    if (bvh_dda_sa  > 20.0)
-	printf("    WARN(DDA-bug): BVH/DDA SA  disagreement %.2f%%\n",
-	       bvh_dda_sa);
-    if (bvh_dda_vol > 20.0)
-	printf("    WARN(DDA-bug): BVH/DDA vol disagreement %.2f%%\n",
-	       bvh_dda_vol);
+    if (bvh_dda_sa  > DSP_AGREE_PCT) {
+	printf("    FAIL: BVH/DDA SA  disagreement %.2f%% > %.1f%%\n",
+	       bvh_dda_sa, DSP_AGREE_PCT);
+	failures++;
+    }
+    if (bvh_dda_vol > DSP_AGREE_PCT) {
+	printf("    FAIL: BVH/DDA vol disagreement %.2f%% > %.1f%%\n",
+	       bvh_dda_vol, DSP_AGREE_PCT);
+	failures++;
+    }
 
     return failures;
 }
