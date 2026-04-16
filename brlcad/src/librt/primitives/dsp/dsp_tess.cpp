@@ -29,9 +29,11 @@
 
 #include <unordered_map>
 #include <unordered_set>
+#include <queue>
 #include <cstdint>
 #include <cmath>
 
+#include "bu/time.h"
 #include "vmath.h"
 #include "raytrace.h"
 #include "rt/functab.h"
@@ -44,6 +46,14 @@
 
 /* private header */
 #include "./dsp.h"
+
+/* Thin wrapper: returns elapsed milliseconds since t0.                       */
+static double
+dsp_elapsed_ms(int64_t t0)
+{
+    int64_t t1 = bu_gettime();
+    return (double)(t1 - t0) / 1000.0;
+}
 
 /* ------------------------------------------------------------------ */
 /* Named constants for the decimation-based DSP tessellation           */
@@ -306,14 +316,301 @@ dsp_generate_steiner_pts(
 
 
 /**
+ * Step 1.5 of the decimation pipeline: replace flat coplanar surface regions
+ * with sparse CDT triangulations before the mmesh pass.
+ *
+ * After the naive per-cell tessellation a contiguous group of cells whose
+ * four height-corner values are all equal forms a "flat region".  These
+ * produce a dense slab of coplanar triangles that mmesh cannot effectively
+ * reduce (its quadric-error metric sees zero error on every interior vertex
+ * of a perfectly flat patch).  This function finds every such connected
+ * region, extracts its 2-D rectilinear boundary polygon, CDT-triangulates it
+ * with detria, and replaces the 2·N naive triangles with O(perimeter)
+ * triangles — dramatically shrinking the input to the main decimation pass.
+ *
+ * Boundary winding (CCW in world-XY, i.e. positive shoelace area):
+ *   Right boundary (no neighbor gx+1): (gy+1)*W+(gx+1) → gy*W+(gx+1)
+ *   Left  boundary (no neighbor gx-1): gy*W+gx           → (gy+1)*W+gx
+ *   Top   boundary (no neighbor gy-1): gy*W+(gx+1)       → gy*W+gx
+ *   Bottom boundary (no neighbor gy+1): (gy+1)*W+gx      → (gy+1)*W+(gx+1)
+ *
+ * On CDT failure for any component the original naive triangles are restored
+ * so the mesh always remains topologically complete.
+ */
+static void
+dsp_replace_coplanar_regions(
+    const int W, const int H,
+    const TerraScape::TerrainData& terrain,
+    const std::vector<double>& surf_verts,
+    std::vector<int>& surf_faces,
+    size_t& n_surf_faces)
+{
+    if (W < 2 || H < 2 || n_surf_faces == 0) return;
+
+    /* ---- 1. Build flat-cell map ---- */
+    /* A cell (gx, gy) is flat when all four corner heights are equal within
+     * 0.5 height-unit (exact for integer DSP values) and all are non-zero. */
+    const size_t ncells = (size_t)(H-1) * (W-1);
+    std::vector<bool> flat_cell(ncells, false);
+    for (int gy = 0; gy < H-1; ++gy) {
+	for (int gx = 0; gx < W-1; ++gx) {
+	    double h00 = terrain.getHeight(gx,   gy);
+	    if (h00 < DSP_ZERO_HEIGHT_THRESHOLD) continue;
+	    double h10 = terrain.getHeight(gx+1, gy);
+	    double h01 = terrain.getHeight(gx,   gy+1);
+	    double h11 = terrain.getHeight(gx+1, gy+1);
+	    if (fabs(h00-h10) < 0.5 && fabs(h00-h01) < 0.5 && fabs(h00-h11) < 0.5)
+		flat_cell[(size_t)gy * (W-1) + gx] = true;
+	}
+    }
+
+    /* ---- 2. 4-connected BFS to find same-height flat components ---- */
+    std::vector<int> comp(ncells, -1);
+    std::vector<std::vector<std::pair<int,int>>> components;
+
+    for (int gy = 0; gy < H-1; ++gy) {
+	for (int gx = 0; gx < W-1; ++gx) {
+	    size_t idx = (size_t)gy * (W-1) + gx;
+	    if (!flat_cell[idx] || comp[idx] >= 0) continue;
+
+	    double ch = terrain.getHeight(gx, gy);
+	    int cid = (int)components.size();
+	    components.push_back({});
+
+	    std::queue<std::pair<int,int>> q;
+	    q.push({gx, gy});
+	    comp[idx] = cid;
+	    while (!q.empty()) {
+		auto [cx, cy] = q.front(); q.pop();
+		components[cid].push_back({cx, cy});
+		static const int dx4[] = {1, -1, 0,  0};
+		static const int dy4[] = {0,  0, 1, -1};
+		for (int i = 0; i < 4; ++i) {
+		    int nx = cx + dx4[i], ny = cy + dy4[i];
+		    if (nx < 0 || nx >= W-1 || ny < 0 || ny >= H-1) continue;
+		    size_t nidx = (size_t)ny * (W-1) + nx;
+		    if (!flat_cell[nidx] || comp[nidx] >= 0) continue;
+		    if (fabs(terrain.getHeight(nx, ny) - ch) >= 0.5) continue;
+		    comp[nidx] = cid;
+		    q.push({nx, ny});
+		}
+	    }
+	}
+    }
+
+    if (components.empty()) return;
+
+    /* ---- 3. Rebuild face list: copy non-flat faces, apply CDT for flat ---- */
+    /* We walk the naive face array in the same scan order as step 1 of the
+     * caller so face indices map 1:1 to cell (gx, gy).                       */
+    std::vector<int> new_faces;
+    new_faces.reserve(surf_faces.size()); /* usually shrinks */
+
+    /* Build per-component cell sets for O(1) boundary lookup. */
+    std::vector<std::unordered_set<int>> cell_set(components.size());
+    for (size_t ci = 0; ci < components.size(); ++ci)
+	for (auto& [gx, gy] : components[ci])
+	    cell_set[ci].insert(gy * (W-1) + gx);
+
+    /* Which components have already been processed (CDT emitted or fallback)? */
+    std::vector<bool> done(components.size(), false);
+
+    size_t fi = 0; /* naive face index (advances by 2 per non-skipped cell) */
+    for (int gy = 0; gy < H-1; ++gy) {
+	for (int gx = 0; gx < W-1; ++gx) {
+	    /* Mirror the all-zero skip used by the naive mesh builder. */
+	    bool all_zero =
+		terrain.getHeight(gx,   gy)   < DSP_ZERO_HEIGHT_THRESHOLD &&
+		terrain.getHeight(gx+1, gy)   < DSP_ZERO_HEIGHT_THRESHOLD &&
+		terrain.getHeight(gx,   gy+1) < DSP_ZERO_HEIGHT_THRESHOLD &&
+		terrain.getHeight(gx+1, gy+1) < DSP_ZERO_HEIGHT_THRESHOLD;
+	    if (all_zero) continue;
+
+	    int cid = comp[(size_t)gy * (W-1) + gx];
+
+	    if (cid < 0) {
+		/* Non-flat cell: copy its two naive faces straight through. */
+		new_faces.push_back(surf_faces[3*fi + 0]);
+		new_faces.push_back(surf_faces[3*fi + 1]);
+		new_faces.push_back(surf_faces[3*fi + 2]);
+		new_faces.push_back(surf_faces[3*(fi+1) + 0]);
+		new_faces.push_back(surf_faces[3*(fi+1) + 1]);
+		new_faces.push_back(surf_faces[3*(fi+1) + 2]);
+		fi += 2;
+		continue;
+	    }
+
+	    /* Flat component: advance the face counter but defer CDT until we
+	     * see the component for the first time.                              */
+	    fi += 2;
+	    if (done[(size_t)cid]) continue;
+	    done[(size_t)cid] = true;
+
+	    const auto& cells = components[(size_t)cid];
+
+	    /* ---- 3a. Extract directed boundary half-edges (CCW in world) ---- */
+	    /* The sign convention (see function header) ensures positive shoelace
+	     * area for outer loops and negative for inner holes.                 */
+	    std::unordered_map<int,int> he_next;
+	    he_next.reserve(cells.size() * 4);
+
+	    for (auto& [cx, cy] : cells) {
+		/* Right: no neighbor at (cx+1, cy) */
+		if (cx+1 >= W-1 || !cell_set[(size_t)cid].count(cy*(W-1)+(cx+1)))
+		    he_next[(cy+1)*W + (cx+1)] = cy*W + (cx+1);
+		/* Left: no neighbor at (cx-1, cy) */
+		if (cx-1 < 0    || !cell_set[(size_t)cid].count(cy*(W-1)+(cx-1)))
+		    he_next[cy*W + cx] = (cy+1)*W + cx;
+		/* Top (smaller gy = higher world-y): no neighbor at (cx, cy-1) */
+		if (cy-1 < 0    || !cell_set[(size_t)cid].count((cy-1)*(W-1)+cx))
+		    he_next[cy*W + (cx+1)] = cy*W + cx;
+		/* Bottom (larger gy = lower world-y): no neighbor at (cx, cy+1) */
+		if (cy+1 >= H-1 || !cell_set[(size_t)cid].count((cy+1)*(W-1)+cx))
+		    he_next[(cy+1)*W + cx] = (cy+1)*W + (cx+1);
+	    }
+
+	    /* ---- 3b. Chain half-edges into closed polygon loops ---- */
+	    std::vector<std::vector<int>> loops;
+	    {
+		std::unordered_set<int> visited;
+		for (auto& kv : he_next) {
+		    int start = kv.first;
+		    if (visited.count(start)) continue;
+		    std::vector<int> loop;
+		    int cur = start;
+		    for (;;) {
+			if (visited.count(cur)) break;
+			visited.insert(cur);
+			loop.push_back(cur);
+			auto it = he_next.find(cur);
+			if (it == he_next.end()) break;
+			cur = it->second;
+		    }
+		    if (loop.size() >= 3)
+			loops.push_back(std::move(loop));
+		}
+	    }
+
+	    if (loops.empty()) goto flat_fallback;
+
+	    /* ---- 3c. Classify loops: positive shoelace = outer, negative = hole ---- */
+	    {
+		int outer_li = -1;
+		double outer_area = 0.0;
+		std::vector<int> hole_lis;
+
+		for (int li = 0; li < (int)loops.size(); ++li) {
+		    const auto& lp = loops[(size_t)li];
+		    double sa = 0.0;
+		    size_t n = lp.size();
+		    for (size_t i = 0; i < n; ++i) {
+			int va = lp[i], vb = lp[(i+1) % n];
+			double xa = surf_verts[3*va + 0], ya = surf_verts[3*va + 1];
+			double xb = surf_verts[3*vb + 0], yb = surf_verts[3*vb + 1];
+			sa += xa * yb - xb * ya;
+		    }
+		    sa *= 0.5;
+		    if (sa > 0.0) {
+			if (outer_li < 0 || sa > outer_area) {
+			    if (outer_li >= 0) hole_lis.push_back(outer_li);
+			    outer_li = li;
+			    outer_area = sa;
+			} else {
+			    hole_lis.push_back(li);
+			}
+		    } else {
+			hole_lis.push_back(li);
+		    }
+		}
+
+		if (outer_li < 0) goto flat_fallback;
+
+		/* ---- 3d. Set up detria CDT for this flat region ---- */
+		{
+		    std::vector<detria::PointD> dtri_pts;
+		    std::vector<int>            dtri_to_sv;
+		    dtri_pts.reserve(loops[(size_t)outer_li].size() + 8);
+		    dtri_to_sv.reserve(loops[(size_t)outer_li].size() + 8);
+
+		    /* Outer loop. */
+		    std::vector<uint32_t> oidx(loops[(size_t)outer_li].size());
+		    for (size_t i = 0; i < loops[(size_t)outer_li].size(); ++i) {
+			oidx[i] = (uint32_t)dtri_pts.size();
+			int sv = loops[(size_t)outer_li][i];
+			dtri_pts.push_back({surf_verts[3*sv + 0], surf_verts[3*sv + 1]});
+			dtri_to_sv.push_back(sv);
+		    }
+
+		    /* Hole loops. */
+		    std::vector<std::vector<uint32_t>> hidx_storage;
+		    for (int hli : hole_lis) {
+			hidx_storage.emplace_back(loops[(size_t)hli].size());
+			for (size_t i = 0; i < loops[(size_t)hli].size(); ++i) {
+			    hidx_storage.back()[i] = (uint32_t)dtri_pts.size();
+			    int sv = loops[(size_t)hli][i];
+			    dtri_pts.push_back({surf_verts[3*sv + 0], surf_verts[3*sv + 1]});
+			    dtri_to_sv.push_back(sv);
+			}
+		    }
+
+		    detria::Triangulation dtri;
+		    dtri.setPoints(dtri_pts);
+		    dtri.addOutline(oidx);
+		    for (const auto& hi : hidx_storage) dtri.addHole(hi);
+
+		    bool ok = false;
+		    try { ok = dtri.triangulate(true); }
+		    catch (const std::exception& e) {
+			bu_log("DSP coplanar: detria threw: %s\n", e.what());
+		    }
+
+		    if (!ok) {
+			bu_log("DSP coplanar: detria failed: %s\n",
+			       dtri.getErrorMessage().c_str());
+			goto flat_fallback;
+		    }
+
+		    /* Emit CDT triangles — CCW winding = same as naive surface. */
+		    dtri.forEachTriangle([&](detria::Triangle<uint32_t> t) {
+			new_faces.push_back(dtri_to_sv[t.x]);
+			new_faces.push_back(dtri_to_sv[t.y]);
+			new_faces.push_back(dtri_to_sv[t.z]);
+		    }, false); /* false → CCW */
+		}
+		continue; /* next cell */
+	    }
+
+	    flat_fallback:
+	    /* Restore original naive triangles for this component. */
+	    for (auto& [rx, ry] : cells) {
+		int v00 = ry*W + rx,    v10 = ry*W + (rx+1);
+		int v01 = (ry+1)*W + rx, v11 = (ry+1)*W + (rx+1);
+		new_faces.push_back(v00); new_faces.push_back(v01); new_faces.push_back(v10);
+		new_faces.push_back(v10); new_faces.push_back(v01); new_faces.push_back(v11);
+	    }
+	} /* gx */
+    } /* gy */
+
+    size_t old_count = n_surf_faces;
+    surf_faces   = std::move(new_faces);
+    n_surf_faces = surf_faces.size() / 3;
+    bu_log("DSP coplanar: %zu component(s); %zu → %zu faces\n",
+	   components.size(), old_count, n_surf_faces);
+}
+
+
+/**
  * Proposed decimation-based DSP tessellation.
  *
- * Implements the five-step pipeline:
- *   1. Build a naive two-triangle-per-cell surface mesh.
- *   2. Decimate with mmesh (error-bounded, O(N log N)).
- *   3. Extract outer/hole boundary loops from the decimated half-edge set.
- *   4. Triangulate the bottom face with detria (Delaunay + Steiner points).
- *   5. Assemble surface + walls + bottom into a closed NMG.
+ * Implements the six-step pipeline:
+ *   1.   Build a naive two-triangle-per-cell surface mesh.
+ *   1.5. Replace flat coplanar regions with sparse CDT (dsp_replace_coplanar_regions).
+ *   2.   Decimate with mmesh (error-bounded, O(N log N)).
+ *   3.   Extract outer/hole boundary loops from the decimated half-edge set.
+ *   4.   Triangulate the bottom face with detria (Delaunay + Steiner points).
+ *   5.   Assemble surface + walls + bottom into a closed NMG.
+ *
+ * Each step is timed and logged so long steps can be identified quickly.
  *
  * The boundary half-edge extraction guarantees that wall winding is always
  * consistent with the surface: for a directed half-edge ta→tb, the triangles
@@ -340,61 +637,18 @@ dsp_tess_with_decimation(
     if (W < 2 || H < 2)
 	return -1;
 
-    /* ------------------------------------------------------------------ */
-    /* Step 1: naive surface mesh — two CCW triangles per grid cell        */
-    /* ------------------------------------------------------------------ */
-    const size_t n_grid_verts = (size_t)W * H;
-    std::vector<double> surf_verts(n_grid_verts * 3);
-
-    for (int gy = 0; gy < H; ++gy) {
-	for (int gx = 0; gx < W; ++gx) {
-	    size_t i = (size_t)gy * W + gx;
-	    surf_verts[3*i + 0] = terrain.origin.x + gx * terrain.cell_size;
-	    surf_verts[3*i + 1] = terrain.origin.y - gy * terrain.cell_size;
-	    surf_verts[3*i + 2] = terrain.getHeight(gx, gy);
-	}
-    }
-
-    std::vector<int> surf_faces;
-    surf_faces.reserve((size_t)(W-1) * (H-1) * 6);
-
-    for (int gy = 0; gy < H-1; ++gy) {
-	for (int gx = 0; gx < W-1; ++gx) {
-	    /* Skip cells where every corner has height 0 — these are
-	     * sea-level / void cells that lie outside the solid volume.
-	     * Including them would push the outer boundary polygon to the
-	     * full grid rectangle rather than the actual non-zero terrain
-	     * boundary, and would also produce degenerate wall geometry
-	     * (zero-height walls from a z=0 surface vertex to a z=0
-	     * bottom).  Each non-zero island becomes a separate closed
-	     * manifold in the resulting BoT.                              */
-	    if (terrain.getHeight(gx,   gy)   < DSP_ZERO_HEIGHT_THRESHOLD &&
-		terrain.getHeight(gx+1, gy)   < DSP_ZERO_HEIGHT_THRESHOLD &&
-		terrain.getHeight(gx,   gy+1) < DSP_ZERO_HEIGHT_THRESHOLD &&
-		terrain.getHeight(gx+1, gy+1) < DSP_ZERO_HEIGHT_THRESHOLD)
-		continue;
-	    int v00 = gy * W + gx;
-	    int v10 = gy * W + (gx + 1);
-	    int v01 = (gy + 1) * W + gx;
-	    int v11 = (gy + 1) * W + (gx + 1);
-	    /* CCW from above (+Z normal): matches TerraScape convention. */
-	    surf_faces.push_back(v00); surf_faces.push_back(v01); surf_faces.push_back(v10);
-	    surf_faces.push_back(v10); surf_faces.push_back(v01); surf_faces.push_back(v11);
-	}
-    }
-
-    size_t n_surf_verts = n_grid_verts;
-    size_t n_surf_faces  = surf_faces.size() / 3;
-
-    bu_log("DSP decimate: naive surface %zu verts %zu faces\n",
-	   n_surf_verts, n_surf_faces);
+    int64_t t_total = bu_gettime(); /* wall-clock start for whole pipeline */
+    int64_t t_step  = t_total;
 
     /* ------------------------------------------------------------------ */
-    /* Step 2: decimate surface with mmesh                                 */
+    /* Pre-compute grid scale and stride before building the naive mesh.   */
+    /*                                                                     */
+    /* When the error budget allows spanning many grid cells (large         */
+    /* raw_feature), building a full-resolution naive mesh and then asking  */
+    /* mmesh to remove most of its vertices is wasteful.  Instead we        */
+    /* pre-subsample the height grid at stride intervals so that mmesh sees  */
+    /* a mesh that is already near the target density.                       */
     /* ------------------------------------------------------------------ */
-
-    /* Compute world units per grid cell from dsp_stom to convert the
-     * error tolerance (in world units) into grid units for mmesh.        */
     double grid_scale = 1.0;
     {
 	point_t o_grid = {0.0, 0.0, 0.0};
@@ -410,15 +664,96 @@ dsp_tess_with_decimation(
 	    grid_scale = ds;
     }
 
-    /* Feature size in grid units: error tolerance / scale factor.
-     * Apply the same 2/3-power adjustment as rt_bot_decimate_gct() uses
-     * for backward compatibility with the legacy GCT cost model.         */
     double raw_feature = effective_err / grid_scale;
     double grid_diag   = sqrt((double)(W-1)*(W-1) + (double)(H-1)*(H-1));
     if (raw_feature < DSP_DECIMATE_MIN_FEATURE)
 	raw_feature = DSP_DECIMATE_MIN_FEATURE;
     if (raw_feature > grid_diag * DSP_DECIMATE_MAX_FEATURE_RATIO)
 	raw_feature = grid_diag * DSP_DECIMATE_MAX_FEATURE_RATIO;
+
+    /* Stride: sample every (raw_feature/2) cells, minimum 1, maximum 16.
+     * This keeps the naive mesh well below the mmesh input budget while
+     * still giving mmesh enough resolution to refine high-curvature areas.
+     * The boundary columns/rows are always included at full resolution. */
+    int stride = (int)(raw_feature * 0.5);
+    if (stride < 1)  stride = 1;
+    if (stride > 16) stride = 16;
+
+    /* ------------------------------------------------------------------ */
+    /* Step 1: build compact subsampled surface mesh                       */
+    /*                                                                     */
+    /* Sampled grid positions along X: 0, stride, 2*stride, ..., W-1      */
+    /* Sampled grid positions along Y: 0, stride, 2*stride, ..., H-1      */
+    /* Boundary (first/last row/col) is always included so wall quads have  */
+    /* correct corner vertices.                                             */
+    /* ------------------------------------------------------------------ */
+    std::vector<int> gx_list, gy_list;
+    for (int gx = 0; gx < W; gx += stride) gx_list.push_back(gx);
+    if (gx_list.back() != W-1) gx_list.push_back(W-1);
+    for (int gy = 0; gy < H; gy += stride) gy_list.push_back(gy);
+    if (gy_list.back() != H-1) gy_list.push_back(H-1);
+
+    int nx = (int)gx_list.size(); /* sampled columns */
+    int ny = (int)gy_list.size(); /* sampled rows    */
+
+    /* Compact vertex array: index = sy*nx + sx */
+    std::vector<double> surf_verts((size_t)nx * ny * 3);
+    for (int sy = 0; sy < ny; ++sy) {
+	for (int sx = 0; sx < nx; ++sx) {
+	    int gx = gx_list[(size_t)sx];
+	    int gy = gy_list[(size_t)sy];
+	    size_t i = (size_t)sy * nx + sx;
+	    surf_verts[3*i + 0] = terrain.origin.x + gx * terrain.cell_size;
+	    surf_verts[3*i + 1] = terrain.origin.y - gy * terrain.cell_size;
+	    surf_verts[3*i + 2] = terrain.getHeight(gx, gy);
+	}
+    }
+
+    std::vector<int> surf_faces;
+    surf_faces.reserve((size_t)(nx-1) * (ny-1) * 6);
+
+    for (int sy = 0; sy < ny-1; ++sy) {
+	for (int sx = 0; sx < nx-1; ++sx) {
+	    int gx0 = gx_list[(size_t)sx],   gx1 = gx_list[(size_t)sx+1];
+	    int gy0 = gy_list[(size_t)sy],   gy1 = gy_list[(size_t)sy+1];
+	    /* Skip cells where every corner has height 0. */
+	    if (terrain.getHeight(gx0, gy0) < DSP_ZERO_HEIGHT_THRESHOLD &&
+		terrain.getHeight(gx1, gy0) < DSP_ZERO_HEIGHT_THRESHOLD &&
+		terrain.getHeight(gx0, gy1) < DSP_ZERO_HEIGHT_THRESHOLD &&
+		terrain.getHeight(gx1, gy1) < DSP_ZERO_HEIGHT_THRESHOLD)
+		continue;
+	    int v00 = sy * nx + sx;
+	    int v10 = sy * nx + (sx + 1);
+	    int v01 = (sy + 1) * nx + sx;
+	    int v11 = (sy + 1) * nx + (sx + 1);
+	    /* CCW from above (+Z normal). */
+	    surf_faces.push_back(v00); surf_faces.push_back(v01); surf_faces.push_back(v10);
+	    surf_faces.push_back(v10); surf_faces.push_back(v01); surf_faces.push_back(v11);
+	}
+    }
+
+    size_t n_surf_verts = (size_t)nx * ny;
+    size_t n_surf_faces  = surf_faces.size() / 3;
+
+    bu_log("DSP decimate: naive surface %zu verts %zu faces stride=%d (%.1f ms)\n",
+	   n_surf_verts, n_surf_faces, stride, dsp_elapsed_ms(t_step));
+    t_step = bu_gettime();
+
+    /* ------------------------------------------------------------------ */
+    /* Step 1.5: replace flat coplanar regions with CDT pre-triangulation  */
+    /* Only useful at stride=1 (full resolution); skip for coarser grids.  */
+    /* ------------------------------------------------------------------ */
+    if (stride == 1) {
+	dsp_replace_coplanar_regions(nx, ny, terrain, surf_verts, surf_faces, n_surf_faces);
+	bu_log("DSP coplanar: done in %.1f ms\n", dsp_elapsed_ms(t_step));
+	t_step = bu_gettime();
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Step 2: decimate surface with mmesh                                 */
+    /* ------------------------------------------------------------------ */
+
+    /* Feature size in grid units (already computed above as raw_feature). */
     double fsize = pow(raw_feature, DSP_DECIMATE_STRENGTH_EXPONENT)
 		 * DSP_DECIMATE_STRENGTH_SCALE;
 
@@ -446,8 +781,10 @@ dsp_tess_with_decimation(
 	surf_verts.resize(n_surf_verts * 3);
 	surf_faces.resize(n_surf_faces  * 3);
 
-	bu_log("DSP decimate: → %zu verts %zu faces (raw_feature=%g fsize=%g)\n",
-	       n_surf_verts, n_surf_faces, raw_feature, fsize);
+	bu_log("DSP decimate: → %zu verts %zu faces (raw_feature=%g fsize=%g, %.1f ms)\n",
+	       n_surf_verts, n_surf_faces, raw_feature, fsize,
+	       dsp_elapsed_ms(t_step));
+	t_step = bu_gettime();
     }
 
     if (n_surf_faces == 0) {
@@ -514,7 +851,8 @@ dsp_tess_with_decimation(
 	}
     }
 
-    bu_log("DSP decimate: %zu boundary loop(s)\n", boundary_loops.size());
+    bu_log("DSP decimate: %zu boundary loop(s) (%.1f ms)\n",
+	   boundary_loops.size(), dsp_elapsed_ms(t_step));
     if (boundary_loops.empty()) {
 	bu_log("DSP decimate: no valid boundary loops found\n");
 	return -1;
@@ -569,6 +907,7 @@ dsp_tess_with_decimation(
 
     bu_log("DSP decimate: %zu outer loop(s), %zu hole(s)\n",
 	   outer_loop_idxs.size(), hole_loop_idxs.size());
+    t_step = bu_gettime(); /* reset step timer for wall/bottom construction */
 
     /* Assign each hole to the outer loop that contains it.
      * Test any one point of the hole polygon against each outer polygon.   */
@@ -668,6 +1007,9 @@ dsp_tess_with_decimation(
 	}
     }
 
+    bu_log("DSP decimate: walls built (%.1f ms)\n", dsp_elapsed_ms(t_step));
+    t_step = bu_gettime();
+
     /* ------------------------------------------------------------------ */
     /* Step 5: triangulate bottom face(s) with detria + Steiner points    */
     /*                                                                     */
@@ -719,8 +1061,10 @@ dsp_tess_with_decimation(
 	    bb_min_x, bb_max_x, bb_min_y, bb_max_y,
 	    min_dist);
 
-	bu_log("DSP decimate: island %zu — %zu Steiner pts, %zu hole(s)\n",
-	       oi, steiner_pts.size(), hole_polys_2d.size());
+	bu_log("DSP decimate: island %zu — %zu Steiner pts, %zu hole(s) (%.1f ms Steiner)\n",
+	       oi, steiner_pts.size(), hole_polys_2d.size(),
+	       dsp_elapsed_ms(t_step));
+	t_step = bu_gettime();
 
     /* Assemble the detria point list and index mapping
 	 * (detria index → index into all_verts).                              */
@@ -804,6 +1148,9 @@ dsp_tess_with_decimation(
 
     } /* end per-island detria loop */
 
+    bu_log("DSP decimate: bottom CDT done (%.1f ms)\n", dsp_elapsed_ms(t_step));
+    t_step = bu_gettime();
+
     /* ------------------------------------------------------------------ */
     /* Step 6: apply dsp_stom transform and build NMG                     */
     /* ------------------------------------------------------------------ */
@@ -815,7 +1162,6 @@ dsp_tess_with_decimation(
 
     if (n_all_faces == 0)
 	return -1;
-
     struct rt_bot_internal bot_ip;
     memset(&bot_ip, 0, sizeof(bot_ip));
     bot_ip.magic        = RT_BOT_INTERNAL_MAGIC;
@@ -845,6 +1191,9 @@ dsp_tess_with_decimation(
 
     bu_free(bot_ip.vertices, "dsp decimate bot verts");
     bu_free(bot_ip.faces,    "dsp decimate bot faces");
+
+    bu_log("DSP decimate: NMG build %.1f ms  |  total %.1f ms\n",
+	   dsp_elapsed_ms(t_step), dsp_elapsed_ms(t_total));
 
     return ret;
 }
