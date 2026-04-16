@@ -483,7 +483,15 @@ crofton_from_ip(const struct rt_db_internal *ip, double *out_sa, double *out_vol
     tmp_intern.idb_major_type = ip->idb_major_type;
     tmp_intern.idb_type       = ip->idb_minor_type;
     tmp_intern.idb_ptr        = ip->idb_ptr;   /* shared, not owned */
-    tmp_intern.idb_meth       = ip->idb_meth;
+    /* Derive idb_meth from the global function table rather than trusting
+     * ip->idb_meth: callers that construct a struct rt_db_internal by hand
+     * (e.g. unit tests) frequently leave this field uninitialised.
+     * rt_db_get_internal always sets it correctly, so for those callers the
+     * assignment below is a no-op (same pointer value).                   */
+    if (ip->idb_minor_type >= 0 && ip->idb_minor_type < (int)ID_MAXIMUM)
+	tmp_intern.idb_meth = &OBJ[ip->idb_minor_type];
+    else
+	tmp_intern.idb_meth = ip->idb_meth; /* last resort: trust the caller */
 
     struct bu_external ext;
     BU_EXTERNAL_INIT(&ext);
