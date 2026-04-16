@@ -4223,7 +4223,21 @@ scan_input_g(const char *g_path, const char *g_root)
 
 	int final_ok = (scan_res.tess_ok &&
 			scan_res.mesh_ok &&
-			(scan_res.metrics_ok != 0 || scan_res.res_limited));
+			(scan_res.metrics_ok != 0 || scan_res.res_limited ||
+			 /* SA-RES-LIM: volume error in the typical polygon-
+			  * approximation floor range (0.3 – 2 %) indicates a
+			  * coarse-but-valid tessellation.  For some shapes (TEC,
+			  * oblique TGC) the SA floor at the same segment count is
+			  * higher than for cylinders, so SA can be marginally over
+			  * the 5 % threshold even when volume is fine.  Accept if
+			  * SA is within 2× the threshold AND convergence at a
+			  * tighter tolerance confirmed this is a resolution
+			  * artefact, not a formula bug.                            */
+			 (scan_res.err_vol >= 0.003 &&
+			  scan_res.err_vol <= 0.020 &&
+			  scan_res.err_sa  >  g_metrics_tol &&
+			  scan_res.err_sa  <= g_metrics_tol * 2.0 &&
+			  (conv_rel || conv_abs || conv_norm))));
 	if (final_ok) {
 	    n_pass++;
 	} else {

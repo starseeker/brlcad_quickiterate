@@ -285,12 +285,27 @@ RT_EXPORT extern int rt_crofton_shoot(struct rt_i *rtip, size_t min_samples, dou
 RT_EXPORT extern void rt_crofton_surf_area(fastf_t *area, const struct rt_db_internal *ip);
 
 /**
+ * High-accuracy surface-area fallback using 50 000 rays per iteration.
+ * Use instead of rt_crofton_surf_area for implicit primitives (TGC TEC
+ * case, triaxial ELL, EHY r1≠r2, HYP, superell, ETO spindle, TOR
+ * spindle) where the default 2 000-ray estimate can have ~5 % variance.
+ * Shooting this many rays at a single primitive is still very fast.
+ */
+RT_EXPORT extern void rt_crofton_surf_area_highres(fastf_t *area, const struct rt_db_internal *ip);
+
+/**
  * Generic volume fallback suitable for use as ft_volume in the primitive
  * functab.  Creates a temporary in-memory database from @p ip, runs the
  * Cauchy-Crofton estimator with default parameters, and stores the result
  * in @p vol.  Intended for primitives that lack an analytic volume formula.
  */
 RT_EXPORT extern void rt_crofton_volume(fastf_t *vol, const struct rt_db_internal *ip);
+
+/**
+ * High-accuracy volume fallback using 50 000 rays per iteration.
+ * See rt_crofton_surf_area_highres for rationale.
+ */
+RT_EXPORT extern void rt_crofton_volume_highres(fastf_t *vol, const struct rt_db_internal *ip);
 
 __END_DECLS
 

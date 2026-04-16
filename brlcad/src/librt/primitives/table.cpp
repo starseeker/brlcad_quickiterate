@@ -142,6 +142,9 @@ extern int rt_generic_scene_obj(struct bv_scene_obj *s, struct directory *dp, st
 /* from primitives/crofton.cpp - generic Cauchy-Crofton fallbacks */
 extern void rt_crofton_surf_area(fastf_t *area, const struct rt_db_internal *ip);
 extern void rt_crofton_volume(fastf_t *vol, const struct rt_db_internal *ip);
+/* high-accuracy variants (50 000 rays) for implicit primitives */
+extern void rt_crofton_surf_area_highres(fastf_t *area, const struct rt_db_internal *ip);
+extern void rt_crofton_volume_highres(fastf_t *vol, const struct rt_db_internal *ip);
 
 /* from primitives/poly/poly.c - analytic polysolid measure functions */
 extern void rt_pg_volume(fastf_t *volume, const struct rt_db_internal *ip);
@@ -471,8 +474,8 @@ const struct rt_functab OBJ[] = {
 	NULL, /* make */
 	RTFUNCTAB_FUNC_PARAMS_CAST(rt_ars_params),
 	RTFUNCTAB_FUNC_BBOX_CAST(rt_ars_bbox),
-	RTFUNCTAB_FUNC_VOLUME_CAST(rt_crofton_volume),
-	RTFUNCTAB_FUNC_SURF_AREA_CAST(rt_crofton_surf_area),
+	RTFUNCTAB_FUNC_VOLUME_CAST(rt_crofton_volume_highres),
+	RTFUNCTAB_FUNC_SURF_AREA_CAST(rt_crofton_surf_area_highres),
 	NULL, /* centroid */
 	NULL, /* oriented_bbox */
 	NULL, /* find_selections */
@@ -828,7 +831,7 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_MAKE_CAST(rt_ebm_make),
 	RTFUNCTAB_FUNC_PARAMS_CAST(rt_ebm_params),
 	RTFUNCTAB_FUNC_BBOX_CAST(rt_ebm_bbox),
-	RTFUNCTAB_FUNC_VOLUME_CAST(rt_crofton_volume),
+	RTFUNCTAB_FUNC_VOLUME_CAST(rt_crofton_volume_highres),
 	RTFUNCTAB_FUNC_SURF_AREA_CAST(rt_ebm_surf_area),
 	RTFUNCTAB_FUNC_CENTROID_CAST(rt_ebm_centroid),
 	NULL, /* oriented_bbox */
@@ -1594,7 +1597,7 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_PARAMS_CAST(rt_extrude_params),
 	RTFUNCTAB_FUNC_BBOX_CAST(rt_extrude_bbox),
 	RTFUNCTAB_FUNC_VOLUME_CAST(rt_extrude_volume),
-	RTFUNCTAB_FUNC_SURF_AREA_CAST(rt_crofton_surf_area),
+	RTFUNCTAB_FUNC_SURF_AREA_CAST(rt_crofton_surf_area_highres),
 	RTFUNCTAB_FUNC_CENTROID_CAST(rt_extrude_centroid),
 	NULL, /* oriented_bbox */
 	NULL, /* find_selections */
@@ -2056,8 +2059,8 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_MAKE_CAST(rt_metaball_make),
 	RTFUNCTAB_FUNC_PARAMS_CAST(rt_metaball_params),
 	RTFUNCTAB_FUNC_BBOX_CAST(rt_metaball_bbox),
-	RTFUNCTAB_FUNC_VOLUME_CAST(rt_crofton_volume),
-	RTFUNCTAB_FUNC_SURF_AREA_CAST(rt_crofton_surf_area),
+	RTFUNCTAB_FUNC_VOLUME_CAST(rt_crofton_volume_highres),
+	RTFUNCTAB_FUNC_SURF_AREA_CAST(rt_crofton_surf_area_highres),
 	NULL, /* centroid */
 	NULL, /* oriented_bbox */
 	NULL, /* find_selections */
@@ -2260,8 +2263,8 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_MAKE_CAST(rt_revolve_make),
 	NULL, /* params */
 	RTFUNCTAB_FUNC_BBOX_CAST(rt_revolve_bbox),
-	RTFUNCTAB_FUNC_VOLUME_CAST(rt_crofton_volume),
-	RTFUNCTAB_FUNC_SURF_AREA_CAST(rt_crofton_surf_area),
+	RTFUNCTAB_FUNC_VOLUME_CAST(rt_crofton_volume_highres),
+	RTFUNCTAB_FUNC_SURF_AREA_CAST(rt_crofton_surf_area_highres),
 	NULL, /* centroid */
 	NULL, /* oriented_bbox */
 	NULL, /* find_selections */
@@ -2413,7 +2416,7 @@ const struct rt_functab OBJ[] = {
 	NULL, /* make */
 	RTFUNCTAB_FUNC_PARAMS_CAST(rt_hrt_params),
 	RTFUNCTAB_FUNC_BBOX_CAST(rt_hrt_bbox),
-	RTFUNCTAB_FUNC_VOLUME_CAST(rt_crofton_volume),
+	RTFUNCTAB_FUNC_VOLUME_CAST(rt_crofton_volume_highres),
 	RTFUNCTAB_FUNC_SURF_AREA_CAST(rt_hrt_surf_area),
 	RTFUNCTAB_FUNC_CENTROID_CAST(rt_hrt_centroid),
 	NULL, /* oriented_bbox */

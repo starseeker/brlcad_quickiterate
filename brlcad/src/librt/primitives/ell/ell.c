@@ -2059,7 +2059,7 @@ rt_ell_surf_area(fastf_t *area, const struct rt_db_internal *ip)
     default:
 	/* General triaxial ellipsoid: no closed-form solution exists.
 	 * Fall back to the Cauchy-Crofton ray-sampling estimator. */
-	rt_crofton_surf_area(area, ip);
+	rt_crofton_surf_area_highres(area, ip);
 	break;
     }
 }
