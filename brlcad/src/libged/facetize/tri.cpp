@@ -147,7 +147,7 @@ static int bot_flipped(mat_t *m)
 
 // Customized version of rt_booltree_leaf_tess for Manifold processing
 static union tree *
-_booltree_leaf_tess(struct db_tree_state *tsp, const struct db_full_path *pathp, struct rt_db_internal *ip, void *UNUSED(data))
+_booltree_leaf_tess(struct db_tree_state *tsp, const struct db_full_path *pathp, struct rt_db_internal *ip, void *data)
 {
     int ts_status = 0;
     union tree *curtree;
@@ -202,8 +202,38 @@ _booltree_leaf_tess(struct db_tree_state *tsp, const struct db_full_path *pathp,
     // to the values in ts_mat, the BoT ends up inside-out when read in.
     int flip = bot_flipped(&tsp->ts_mat);
 
+    // Phase C: variant BoT override.
+    // If a perturbed variant was pre-tessellated for this leaf instance, use
+    // it instead of the original BoT to avoid coplanar face issues.
+    struct rt_db_internal var_intern;
+    RT_DB_INTERNAL_INIT(&var_intern);
+    bool var_loaded = false;
+    struct rt_db_internal *effective_ip = ip;
+    struct _ged_facetize_state *s = (struct _ged_facetize_state *)data;
+    if (s && s->variant_plan) {
+	FacetizeVariantPlan *vplan = (FacetizeVariantPlan *)s->variant_plan;
+	char *path_str = db_path_to_string(pathp);
+	auto it = vplan->inst_to_variant.find(std::string(path_str));
+	bu_free(path_str, "path_str");
+	if (it != vplan->inst_to_variant.end()) {
+	    struct directory *vdp =
+		db_lookup(tsp->ts_dbip, it->second.c_str(), LOOKUP_QUIET);
+	    if (vdp && vdp->d_minor_type == ID_BOT) {
+		if (rt_db_get_internal(&var_intern, vdp, tsp->ts_dbip,
+				       NULL, tsp->ts_resp) >= 0) {
+		    effective_ip = &var_intern;
+		    var_loaded = true;
+		}
+	    }
+	    /* If variant lookup failed (no BoT yet), fall through to original */
+	}
+    }
+
     void *odata = NULL;
-    ts_status = bot_to_manifold(&odata, tsp, ip, flip);
+    ts_status = bot_to_manifold(&odata, tsp, effective_ip, flip);
+
+    if (var_loaded)
+	rt_db_free_internal(&var_intern);
     if (ts_status < 0) {
 	// If we failed, return TREE_NULL
 	return TREE_NULL;
@@ -581,6 +611,99 @@ tess_run(struct _ged_facetize_state *s, const char **tess_cmd, int tess_cmd_cnt,
     return (w_rc ? BRLCAD_ERROR : BRLCAD_OK);
 }
 
+/*
+ * Tessellate variant primitives that were created by _ged_facetize_build_variant_plan().
+ * Processes all names in a single NMG batch call.  Tessellation failures are
+ * logged but do not abort: the booleval will silently fall back to the original
+ * (non-variant) mesh for any variant whose BoT is not available.
+ */
+#define CMD_LEN_MAX 8000
+
+int
+_ged_facetize_tessellate_variant_names(struct _ged_facetize_state *s,
+				       FacetizeVariantPlan *plan)
+{
+    if (!s || !plan || plan->variant_names.empty())
+	return BRLCAD_OK;
+
+    char tess_exec[MAXPATHLEN];
+    bu_dir(tess_exec, MAXPATHLEN, BU_DIR_BIN, "ged_exec", BU_DIR_EXT, NULL);
+
+    char lcache[MAXPATHLEN] = {0};
+    bu_dir(lcache, MAXPATHLEN, BU_DIR_CACHE, NULL);
+
+    method_options_t *mo = (method_options_t *)s->method_opts;
+    std::string mstrpp("NMG");
+    std::string nmg_opts;
+    fastf_t l_max_time = 30;
+    if (mo) {
+	nmg_opts = mo->method_optstr(mstrpp, s->dbip);
+	l_max_time = (fastf_t)mo->max_time[mstrpp];
+    }
+
+    const char *tess_cmd[MAXPATHLEN] = {NULL};
+    tess_cmd[0] = tess_exec;
+    tess_cmd[1] = "facetize_process";
+    tess_cmd[2] = "-O";
+    tess_cmd[3] = bu_vls_cstr(s->wfile);
+    tess_cmd[4] = "--methods";
+    tess_cmd[5] = "NMG";
+    tess_cmd[6] = "--method-opts";
+
+    struct bu_vls mopts_vls = BU_VLS_INIT_ZERO;
+    bu_vls_sprintf(&mopts_vls, "%s", nmg_opts.c_str());
+    tess_cmd[7] = bu_vls_cstr(&mopts_vls);
+    tess_cmd[8] = "--cache-dir";
+    tess_cmd[9] = lcache;
+    int cmd_fixed_cnt = 10;
+
+    /* Process variants in CMD_LEN_MAX-bounded batches */
+    int fail_cnt = 0;
+    size_t vi = 0;
+    while (vi < plan->variant_names.size()) {
+	std::vector<const char *> batch_names;
+	struct bu_vls cmd_check = BU_VLS_INIT_ZERO;
+	for (int i = 0; i < cmd_fixed_cnt; i++)
+	    bu_vls_printf(&cmd_check, "%s ", tess_cmd[i]);
+
+	while (vi < plan->variant_names.size() &&
+	       cmd_fixed_cnt + (int)batch_names.size() < MAXPATHLEN) {
+	    const char *nm = plan->variant_names[vi].c_str();
+	    if ((bu_vls_strlen(&cmd_check) + strlen(nm)) > CMD_LEN_MAX)
+		break;
+	    bu_vls_printf(&cmd_check, "%s ", nm);
+	    batch_names.push_back(nm);
+	    vi++;
+	}
+	bu_vls_free(&cmd_check);
+
+	if (batch_names.empty())
+	    break;
+
+	for (size_t i = 0; i < batch_names.size(); i++)
+	    tess_cmd[cmd_fixed_cnt + i] = batch_names[i];
+	int total_cnt = cmd_fixed_cnt + (int)batch_names.size();
+
+	int ret = tess_run(s, tess_cmd, total_cnt,
+			   l_max_time * (fastf_t)batch_names.size(),
+			   (int)batch_names.size());
+	if (ret != BRLCAD_OK) {
+	    facetize_log(s, 0,
+			"FACETIZE: variant tessellation failed for %d object(s)\n",
+			(int)batch_names.size());
+	    fail_cnt += (int)batch_names.size();
+	}
+
+	/* Clear per-batch name slots */
+	for (size_t i = 0; i < batch_names.size(); i++)
+	    tess_cmd[cmd_fixed_cnt + i] = NULL;
+    }
+
+    bu_vls_free(&mopts_vls);
+    plan->n_variant_tess_failures = fail_cnt;
+    return BRLCAD_OK;
+}
+
 int
 bisect_run(struct _ged_facetize_state *s, std::vector<struct directory *> &bad_dps, std::vector<struct directory *> &inputs, const char **orig_cmd, int cmd_cnt, fastf_t max_time, int ocnt);
 
@@ -634,8 +757,6 @@ class DpCompare
 	    return (dp1->d_len > dp2->d_len);
 	}
 };
-
-#define CMD_LEN_MAX 8000
 
 int
 _ged_facetize_leaves_tri(struct _ged_facetize_state *s, struct db_i *dbip, struct bu_ptbl *leaf_dps)
@@ -1159,8 +1280,23 @@ _ged_facetize_booleval(struct _ged_facetize_state *s, int argc, struct directory
     if (_ged_facetize_working_file_setup(s, &leaf_dps) != BRLCAD_OK)
 	return BRLCAD_ERROR;
 
+    /* Instance-aware adjust planning pass (Phases A+B).
+     * Walk the source trees analytically to record every leaf instance with its
+     * path key and boolean role, then create perturbed variant primitives in the
+     * working .g for all primitives that support ft_perturb (ARB8→ARBN, ARBN,
+     * TGC).  The plan is stored on the state so _booltree_leaf_tess can resolve
+     * variant BoTs at booleval time (Phase C). */
+    FacetizeVariantPlan *vplan = _ged_facetize_build_variant_plan(s, argc, dpa);
+    s->variant_plan = (void *)vplan;
+
     if (_ged_facetize_leaves_tri(s, dbip, &leaf_dps))
 	return BRLCAD_ERROR;
+
+    /* Tessellate variant primitives into BoTs (Phase B continuation).
+     * Must happen after original leaves are tessellated so the backup/restore
+     * cycle in tess_run does not interfere with the already-converted BoTs. */
+    if (vplan && !vplan->variant_names.empty())
+	_ged_facetize_tessellate_variant_names(s, vplan);
 
     // Re-open working .g copy after BoTs have replaced CSG solids and perform
     // the tree walk to set up Manifold data.
@@ -1194,6 +1330,20 @@ _ged_facetize_booleval(struct _ged_facetize_state *s, int argc, struct directory
 
     bu_free(av, "av");
     db_close(wdbip);
+
+    /* Report and release the variant plan */
+    if (vplan) {
+	if (vplan->n_adjusted_instances > 0) {
+	    bu_log("FACETIZE: variant summary: %d adjusted instance(s) "
+		   "(%d subtractive), %d fallback(s), %d tess failure(s)\n",
+		   vplan->n_adjusted_instances,
+		   vplan->n_sub_variants,
+		   vplan->n_perturb_fallbacks,
+		   vplan->n_variant_tess_failures);
+	}
+	delete vplan;
+	s->variant_plan = NULL;
+    }
 
     if (cleanup)
 	bu_dirclear(s->wdir);

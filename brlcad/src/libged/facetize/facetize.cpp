@@ -125,6 +125,8 @@ _ged_facetize_state_create()
 
     s->gedp = NULL;
 
+    s->variant_plan = NULL;
+
     return s;
 }
 void _ged_facetize_state_destroy(struct _ged_facetize_state *s)
@@ -168,6 +170,11 @@ void _ged_facetize_state_destroy(struct _ged_facetize_state *s)
     if (s->solid_suffix) {
 	bu_vls_free(s->solid_suffix);
 	BU_PUT(s->solid_suffix, struct bu_vls);
+    }
+
+    if (s->variant_plan) {
+	delete (FacetizeVariantPlan *)s->variant_plan;
+	s->variant_plan = NULL;
     }
 
     BU_PUT(s, struct _ged_facetize_state);
