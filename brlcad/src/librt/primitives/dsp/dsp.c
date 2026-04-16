@@ -3589,6 +3589,46 @@ dsp_bvh_root_swap(struct soltab *stp, void *new_root)
 }
 
 
+/**
+ * Expose height buffer and transform metadata for a prepped DSP soltab.
+ *
+ * Used by regression tests to compute an exact triangle-mesh reference SA/vol
+ * from the same height data the BVH uses, without requiring access to the
+ * private dsp_specific struct definition.
+ *
+ * @param stp      DSP soltab (must have been prepped).
+ * @param pbuf     Receives pointer to uint16 height array (row-major,
+ *                 xcnt*ycnt elements), or NULL on failure.
+ * @param pxcnt    Receives grid column count (number of height columns).
+ * @param pycnt    Receives grid row count (number of height rows).
+ * @param stom16   If non-NULL, receives a copy of the 16-element solid-to-model
+ *                 matrix (fastf_t[16]) stored in the DSP.
+ */
+RT_EXPORT void dsp_query_terrain(struct soltab *stp,
+				 const unsigned short **pbuf,
+				 unsigned int *pxcnt,
+				 unsigned int *pycnt,
+				 fastf_t *stom16);
+void
+dsp_query_terrain(struct soltab *stp,
+		  const unsigned short **pbuf,
+		  unsigned int *pxcnt,
+		  unsigned int *pycnt,
+		  fastf_t *stom16)
+{
+    if (!stp || stp->st_id != ID_DSP) {
+	if (pbuf)  *pbuf  = NULL;
+	if (pxcnt) *pxcnt = 0;
+	if (pycnt) *pycnt = 0;
+	return;
+    }
+    struct dsp_specific *dsp = (struct dsp_specific *)stp->st_specific;
+    if (pbuf)  *pbuf  = dsp->dsp_i.dsp_buf;
+    if (pxcnt) *pxcnt = dsp->dsp_i.dsp_xcnt;
+    if (pycnt) *pycnt = dsp->dsp_i.dsp_ycnt;
+    if (stom16) MAT_COPY(stom16, dsp->dsp_i.dsp_stom);
+}
+
 int
 rt_dsp_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *UNUSED(tol), const struct bview *UNUSED(info))
 {
@@ -3922,8 +3962,6 @@ static int
 get_obj_data(struct rt_dsp_internal *dsp_ip, const struct db_i *dbip)
 {
     struct rt_binunif_internal *bip;
-    int in_cookie, out_cookie;
-    size_t got;
     int ret;
 
     BU_ALLOC(dsp_ip->dsp_bip, struct rt_db_internal);
@@ -3972,24 +4010,14 @@ get_obj_data(struct rt_dsp_internal *dsp_ip, const struct db_i *dbip)
 	return -2;
     }
 
-    in_cookie = bu_cv_cookie("nus"); /* data is network unsigned short */
-    out_cookie = bu_cv_cookie("hus");
-
-    if (bu_cv_optimize(in_cookie) != bu_cv_optimize(out_cookie)) {
-	/* if we're on a little-endian machine we convert the input
-	 * file from network to host format
-	 */
-
-	got = bu_cv_w_cookie(bip->u.uint16, out_cookie,
-			     bip->count * sizeof(unsigned short),
-			     bip->u.uint16, in_cookie, bip->count);
-
-	if (got != bip->count) {
-	    bu_log("got %zu != count %zu", got, bip->count);
-	    bu_bomb("\n");
-	}
-    }
-
+    /* rt_retrieve_binunif() calls rt_db_get_internal5() which in turn calls
+     * rt_binunif_import5().  That import function already performs the
+     * network-to-host byte-order conversion for 16-bit integer data.  The
+     * data in bip->u.uint16 is therefore already in host byte order by the
+     * time we reach this point; no second conversion is needed or correct.
+     * (A second swap would leave heights 256× too large on little-endian
+     * machines because 0x0064 → 0x6400 = 25600 instead of 100.)
+     */
     dsp_ip->dsp_buf = bip->u.uint16;
     return 0;
 }
@@ -4366,11 +4394,13 @@ rt_dsp_export5(struct bu_external *ep, const struct rt_db_internal *ip, double l
 
     /* Since libwdb users may want to operate in units other than mm,
      * we offer the opportunity to scale the solid (to get it into mm)
-     * on the way out.
+     * on the way out.  Apply the scale to the local scanmat copy rather
+     * than to dsp_ip->dsp_stom directly; modifying the caller's struct
+     * would permanently corrupt the matrix if the same internal is
+     * exported more than once (e.g. with a different local2mm value).
      */
-    dsp_ip->dsp_stom[15] *= local2mm;
-
-    MAT_COPY(scanmat, dsp_ip->dsp_stom); /* convert fastf_t to double */
+    MAT_COPY(scanmat, dsp_ip->dsp_stom); /* copy fastf_t to double */
+    scanmat[15] *= local2mm;
     bu_cv_htond(cp, (unsigned char *)scanmat, ELEMENTS_PER_MAT);
 
     cp += SIZEOF_NETWORK_DOUBLE * ELEMENTS_PER_MAT;
