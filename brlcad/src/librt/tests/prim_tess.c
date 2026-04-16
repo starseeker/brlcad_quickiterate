@@ -4146,6 +4146,9 @@ scan_input_g(const char *g_path, const char *g_root)
 	}
 	int ok = check_nmg_mesh(dp->d_namep, m, &tol, &vlfree, &intern, &ttol,
 				 0 /* not quiet */, &scan_res, bot_name);
+	/* check_nmg_mesh() can fail either for mesh topology (mesh_ok=0) or
+	 * metric validation (mesh_ok=1, metrics_ok=0).  Only skip topology-
+	 * open inputs; metric failures should still count as real failures. */
 	if (!ok && !scan_res.mesh_ok) {
 	    fprintf(stderr, "  SKIP %-32s  (open-edged mesh)\n", dp->d_namep);
 	    n_skip++;
