@@ -491,10 +491,18 @@ check_nmg_mesh(const char *label, struct model *m,
 
 	const struct rt_functab *ft = &OBJ[ip->idb_minor_type];
 
-	if (ft->ft_surf_area)
-	    ft->ft_surf_area(&analytic_sa, ip);
-	if (ft->ft_volume)
-	    ft->ft_volume(&analytic_v, ip);
+	if (!BU_SETJUMP) {
+	    if (ft->ft_surf_area)
+		ft->ft_surf_area(&analytic_sa, ip);
+	    if (ft->ft_volume)
+		ft->ft_volume(&analytic_v, ip);
+	} else {
+	    BU_UNSETJUMP;
+	    analytic_sa = -1.0;
+	    analytic_v = -1.0;
+	    if (!quiet)
+		fprintf(stderr, "  METRICS: %-44s  analytic query bombed, using NA/fallback\n", label);
+	} BU_UNSETJUMP;
 
 	/* crofton_from_ip() requires ip->idb_meth to export the primitive to
 	 * an in-memory database; hand-crafted test IPs may leave this field
@@ -507,12 +515,22 @@ check_nmg_mesh(const char *label, struct model *m,
 		ip_meth.idb_meth = &OBJ[ip_meth.idb_minor_type];
 	    if (analytic_sa <= 0.0) {
 		fastf_t croft_sa = 0.0;
-		rt_crofton_surf_area(&croft_sa, &ip_meth);
+		if (!BU_SETJUMP) {
+		    rt_crofton_surf_area(&croft_sa, &ip_meth);
+		} else {
+		    BU_UNSETJUMP;
+		    croft_sa = 0.0;
+		} BU_UNSETJUMP;
 		if (croft_sa > 0.0) analytic_sa = croft_sa;
 	    }
 	    if (analytic_v <= 0.0) {
 		fastf_t croft_v = 0.0;
-		rt_crofton_volume(&croft_v, &ip_meth);
+		if (!BU_SETJUMP) {
+		    rt_crofton_volume(&croft_v, &ip_meth);
+		} else {
+		    BU_UNSETJUMP;
+		    croft_v = 0.0;
+		} BU_UNSETJUMP;
 		if (croft_v > 0.0) analytic_v = croft_v;
 	    }
 	}
@@ -2946,20 +2964,39 @@ test_arb(void)
     init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
     if (!run_tess("arb5 square pyramid", &ip, &ttol, &tol, 0)) failures++;
 
-    /* ARB4: tetrahedron.  pts[3..7] all at fourth vertex.
-     * The canonical ARB4 encoding triggers arb_is_noncanonical (equiv_pts[4..7]
-     * all map to index 3, which is < 4).  The hull fallback correctly produces
-     * a 4-face tetrahedron, so this case now succeeds. */
+    /* ARB4: tetrahedron — canonical BRL-CAD encoding.
+     * pt[0], pt[1] are unique base vertices; pt[2]==pt[3] is the third base
+     * vertex (bottom duplicate pair); pt[4..7] all coincide at the apex.
+     * This is the encoding stored in actual .g databases (e.g. primitives.g).
+     * arb_is_noncanonical recognises it as a valid tetrahedron (exactly 4
+     * unique spatial vertices, no top-to-bottom alias) and returns 0, so
+     * rt_arb_mk_planes handles it via the standard face table — no hull
+     * fallback needed. */
     VSET(tip.pt[0],  0,  0,  0);
     VSET(tip.pt[1], 10,  0,  0);
     VSET(tip.pt[2],  5,  8,  0);
-    VSET(tip.pt[3],  5,  3, 10);   /* apex */
+    VSET(tip.pt[3],  5,  8,  0);   /* same as pt[2]: canonical bottom dup */
+    VSET(tip.pt[4],  5,  3, 10);   /* apex */
+    VSET(tip.pt[5],  5,  3, 10);
+    VSET(tip.pt[6],  5,  3, 10);
+    VSET(tip.pt[7],  5,  3, 10);
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("arb4 tetrahedron (canonical encoding)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* ARB4: tetrahedron — non-canonical encoding (pts[3..7] all at apex).
+     * In this encoding equiv_pts[4..7] map to index 3, a "bottom" index.
+     * arb_is_noncanonical detects the top-to-bottom alias and routes through
+     * the convex-hull fallback, which still produces the correct 4-face mesh. */
+    VSET(tip.pt[0],  0,  0,  0);
+    VSET(tip.pt[1], 10,  0,  0);
+    VSET(tip.pt[2],  5,  8,  0);
+    VSET(tip.pt[3],  5,  3, 10);   /* apex — non-canonical position */
     VSET(tip.pt[4],  5,  3, 10);
     VSET(tip.pt[5],  5,  3, 10);
     VSET(tip.pt[6],  5,  3, 10);
     VSET(tip.pt[7],  5,  3, 10);
     init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
-    if (!run_tess("arb4 tetrahedron (hull fallback)", &ip, &ttol, &tol, 0)) failures++;
+    if (!run_tess("arb4 tetrahedron (non-canonical, hull fallback)", &ip, &ttol, &tol, 0)) failures++;
 
     /* ARB8 large scale */
     VSET(tip.pt[0],      0,      0,      0);

@@ -1439,42 +1439,53 @@ rt_ehy_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 
 	/* Pre-pass: count valid rings, applying both the radius guard and the
 	 * 3D separation guard.  Track the previous accepted ring's profile
-	 * position (Y_a, Z) starting from the apex (Y=0, Z=pts_a->p[Z]). */
+	 * position (Y_a, Y_b, Z) starting from the apex. */
 	{
-	    fastf_t prev_a_Y = 0.0, prev_a_Z = pts_a->p[Z];
+	    fastf_t prev_a_Y = 0.0, prev_b_Y = 0.0, prev_a_Z = pts_a->p[Z];
 	    pos_a = pts_a->next;
+	    pos_b = pts_b->next;
 	    while (pos_a) {
-		if (pos_a->p[Y] >= min_ring_r) {
+		if (pos_a->p[Y] >= min_ring_r && pos_b->p[Y] >= min_ring_r) {
 		    fastf_t dY = pos_a->p[Y] - prev_a_Y;
+		    fastf_t dB = pos_b->p[Y] - prev_b_Y;
 		    fastf_t dZ = pos_a->p[Z] - prev_a_Z;
-		    if (dY*dY + dZ*dZ >= min_ring_sep_sq) {
+		    fastf_t d_min = (dY < dB) ? dY : dB;
+		    if (d_min*d_min + dZ*dZ >= min_ring_sep_sq) {
 			n_valid++;
 			prev_a_Y = pos_a->p[Y];
+			prev_b_Y = pos_b->p[Y];
 			prev_a_Z = pos_a->p[Z];
 		    }
 		}
 		pos_a = pos_a->next;
+		pos_b = pos_b->next;
 	    }
 	}
 
 	if (n_valid > 0) {
-	    fastf_t prev_a_Y, prev_a_Z;
+	    fastf_t prev_a_Y, prev_b_Y, prev_a_Z;
 	    ring_r = (fastf_t *)bu_malloc(n_valid * sizeof(fastf_t), "ring radii");
 	    k = 0;
 	    prev_a_Y = 0.0;
+	    prev_b_Y = 0.0;
 	    prev_a_Z = pts_a->p[Z];
 	    pos_a = pts_a->next;
+	    pos_b = pts_b->next;
 	    while (pos_a) {
-		if (pos_a->p[Y] >= min_ring_r) {
+		if (pos_a->p[Y] >= min_ring_r && pos_b->p[Y] >= min_ring_r) {
 		    fastf_t dY = pos_a->p[Y] - prev_a_Y;
+		    fastf_t dB = pos_b->p[Y] - prev_b_Y;
 		    fastf_t dZ = pos_a->p[Z] - prev_a_Z;
-		    if (dY*dY + dZ*dZ >= min_ring_sep_sq) {
+		    fastf_t d_min = (dY < dB) ? dY : dB;
+		    if (d_min*d_min + dZ*dZ >= min_ring_sep_sq) {
 			ring_r[k++] = pos_a->p[Y];
 			prev_a_Y = pos_a->p[Y];
+			prev_b_Y = pos_b->p[Y];
 			prev_a_Z = pos_a->p[Z];
 		    }
 		}
 		pos_a = pos_a->next;
+		pos_b = pos_b->next;
 	    }
 
 	    segs_per_ell[n_valid - 1] = nseg_base;
@@ -1499,13 +1510,13 @@ rt_ehy_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	/* Build ring ellipses using per-ring segment counts.  Apply the same
 	 * two-guard filter as the pre-pass above to keep i == n_valid. */
 	{
-	    fastf_t prev_a_Y = 0.0, prev_a_Z = pts_a->p[Z];
+	    fastf_t prev_a_Y = 0.0, prev_b_Y = 0.0, prev_a_Z = pts_a->p[Z];
 	    i = 0;
 	    pos_a = pts_a->next;	/* skip over apex of ehy */
 	    pos_b = pts_b->next;
 	    while (pos_a) {
 		/* Skip rings that are too small to support distinct vertices */
-		if (pos_a->p[Y] < min_ring_r) {
+		if (pos_a->p[Y] < min_ring_r || pos_b->p[Y] < min_ring_r) {
 		    pos_a = pos_a->next;
 		    pos_b = pos_b->next;
 		    continue;
@@ -1513,8 +1524,10 @@ rt_ehy_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 		/* Skip rings too close to the previous accepted ring */
 		{
 		    fastf_t dY = pos_a->p[Y] - prev_a_Y;
+		    fastf_t dB = pos_b->p[Y] - prev_b_Y;
 		    fastf_t dZ = pos_a->p[Z] - prev_a_Z;
-		    if (dY*dY + dZ*dZ < min_ring_sep_sq) {
+		    fastf_t d_min = (dY < dB) ? dY : dB;
+		    if (d_min*d_min + dZ*dZ < min_ring_sep_sq) {
 			pos_a = pos_a->next;
 			pos_b = pos_b->next;
 			continue;
@@ -1530,6 +1543,7 @@ rt_ehy_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 		rt_ell(ellipses[i], V, A, B, segs_per_ell[i]);
 
 		prev_a_Y = pos_a->p[Y];
+		prev_b_Y = pos_b->p[Y];
 		prev_a_Z = pos_a->p[Z];
 		i++;
 		pos_a = pos_a->next;
