@@ -1329,13 +1329,15 @@ dsp_shot_bvh(struct dsp_specific *dsp,
     da.capacity = 0;
 
     /* --- Traversal setup -------------------------------------------- */
-    /* Inverse ray direction (avoid division by zero by using copysign) */
-#define RAYDIR_INV(d) (1.0 / ((d) + copysign((1.0 / MAX_FASTF), (d))))
+    /* Compute the per-component inverse of the ray direction for the
+     * BVH slab test.  copysign ensures the sign of the tiny epsilon is
+     * consistent with the direction component so that the resulting
+     * reciprocal is finite and signed correctly for an axis-aligned ray.
+     */
     vect_t inv_dir;
-    inv_dir[X] = RAYDIR_INV(solid_ray->r_dir[X]);
-    inv_dir[Y] = RAYDIR_INV(solid_ray->r_dir[Y]);
-    inv_dir[Z] = RAYDIR_INV(solid_ray->r_dir[Z]);
-#undef RAYDIR_INV
+    inv_dir[X] = 1.0 / (solid_ray->r_dir[X] + copysign(1.0 / MAX_FASTF, solid_ray->r_dir[X]));
+    inv_dir[Y] = 1.0 / (solid_ray->r_dir[Y] + copysign(1.0 / MAX_FASTF, solid_ray->r_dir[Y]));
+    inv_dir[Z] = 1.0 / (solid_ray->r_dir[Z] + copysign(1.0 / MAX_FASTF, solid_ray->r_dir[Z]));
 
     /* --- HLBVH iterative traversal ----------------------------------- */
     stack_node[0]  = dsp->bvh_root;
