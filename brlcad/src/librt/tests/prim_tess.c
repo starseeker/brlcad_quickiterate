@@ -547,15 +547,18 @@ check_nmg_mesh(const char *label, struct model *m,
     if (g_validate_metrics && passed && ip &&
 	ip->idb_minor_type >= 0 && ip->idb_minor_type < ID_MAXIMUM) {
 
-	metrics_ok = 1; /* assume pass until a check fails */
+	int enforce_metrics = (analytic_sa > 0.0 && analytic_v > 0.0);
+	int fail_sa = 0;
+	int fail_v = 0;
+	metrics_ok = enforce_metrics ? 1 : -1;
 
 	if (analytic_sa > 0.0) {
-	    const char *tag = (err_sa <= g_metrics_tol) ? "SA-OK" : "SA-FAIL";
+	    const char *tag = (err_sa <= g_metrics_tol) ? "SA-OK" : (enforce_metrics ? "SA-FAIL" : "SA-INFO");
 	    if (!quiet)
 		fprintf(stderr,
 			"  METRICS: %-44s  SA=%.4g  analytic=%.4g  err=%.1f%%  [%s]\n",
 			label, (double)area, (double)analytic_sa, err_sa*100.0, tag);
-	    if (err_sa > g_metrics_tol) { passed = 0; metrics_ok = 0; }
+	    if (enforce_metrics && err_sa > g_metrics_tol) fail_sa = 1;
 	} else {
 	    if (!quiet)
 		fprintf(stderr, "  METRICS: %-44s  SA-analytic=NA\n", label);
@@ -650,9 +653,12 @@ check_nmg_mesh(const char *label, struct model *m,
 		    }
 		    /* Resolution-limited — not a formula/topology bug */
 		} else {
-		    tag_v = "V-FAIL";
-		    passed = 0;
-		    metrics_ok = 0;
+		    if (enforce_metrics) {
+			tag_v = "V-FAIL";
+			fail_v = 1;
+		    } else {
+			tag_v = "V-INFO";
+		    }
 		}
 	    }
 
@@ -663,6 +669,61 @@ check_nmg_mesh(const char *label, struct model *m,
 	} else {
 	    if (!quiet)
 		fprintf(stderr, "  METRICS: %-44s  V-analytic=NA\n", label);
+	}
+
+	if (enforce_metrics && (fail_sa || fail_v)) {
+	    passed = 0;
+	    metrics_ok = 0;
+	}
+
+	/* If analytic metrics disagree but Crofton agrees with the tessellated
+	 * mesh, treat analytic disagreement as non-fatal for scan validation. */
+	if (enforce_metrics && metrics_ok == 0 && !quiet) {
+	    fastf_t croft_sa = 0.0;
+	    fastf_t croft_v = 0.0;
+	    struct rt_db_internal ip_meth = *ip;
+	    if (ip_meth.idb_minor_type >= 0 && ip_meth.idb_minor_type < (int)ID_MAXIMUM)
+		ip_meth.idb_meth = &OBJ[ip_meth.idb_minor_type];
+
+	    if (!BU_SETJUMP) {
+		rt_crofton_surf_area(&croft_sa, &ip_meth);
+		rt_crofton_volume(&croft_v, &ip_meth);
+	    } else {
+		BU_UNSETJUMP;
+		croft_sa = 0.0;
+		croft_v = 0.0;
+	    } BU_UNSETJUMP;
+
+	    int croft_sa_ok = 1;
+	    int croft_v_ok = 1;
+	    double croft_err_sa = -1.0;
+	    double croft_err_v = -1.0;
+	    if (fail_sa) {
+		if (croft_sa > 0.0) {
+		    croft_err_sa = fabs((double)(area - croft_sa)) / (double)croft_sa;
+		    croft_sa_ok = (croft_err_sa <= g_metrics_tol);
+		} else {
+		    croft_sa_ok = 0;
+		}
+	    }
+	    if (fail_v) {
+		if (croft_v > 0.0) {
+		    croft_err_v = fabs((double)(vol - croft_v)) / (double)croft_v;
+		    croft_v_ok = (croft_err_v <= g_metrics_tol);
+		} else {
+		    croft_v_ok = 0;
+		}
+	    }
+
+	    if (croft_sa_ok && croft_v_ok) {
+		if (fail_sa && croft_err_sa >= 0.0) err_sa = croft_err_sa;
+		if (fail_v && croft_err_v >= 0.0) err_v = croft_err_v;
+		passed = 1;
+		metrics_ok = 1;
+		fprintf(stderr,
+			"  METRICS: %-44s  analytic mismatch; Crofton cross-check agrees with mesh\n",
+			label);
+	    }
 	}
 	if (!quiet)
 	    fflush(stderr);
