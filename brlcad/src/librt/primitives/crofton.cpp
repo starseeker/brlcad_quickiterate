@@ -66,6 +66,7 @@
 #include "bu/malloc.h"
 #include "bu/parallel.h"
 #include "raytrace.h"
+#include "rt/geom.h"
 
 
 /* ------------------------------------------------------------------ */
@@ -477,6 +478,37 @@ crofton_from_ip(const struct rt_db_internal *ip, double *out_sa, double *out_vol
      * We must NOT call rt_db_free_internal on this wrapper because idb_ptr
      * is owned by the caller.                                             */
     const char *scratch = "_crofton_tmp";
+
+    /* ---- DSP special case: also export the referenced binary data object.
+     *
+     * A DSP primitive with dsp_datasrc == RT_DSP_SRC_OBJ stores its height
+     * data in a separate binary-uniform object (dsp_bip) that is looked up by
+     * name (dsp_name) during rt_dsp_import.  The in-memory database only
+     * receives the DSP primitive itself, so the lookup fails at rt_gettree
+     * time unless we also export the binary data object here.              */
+    if (ip->idb_minor_type == ID_DSP) {
+	struct rt_dsp_internal *dsp_ip = (struct rt_dsp_internal *)ip->idb_ptr;
+	if (dsp_ip && dsp_ip->dsp_datasrc == RT_DSP_SRC_OBJ && dsp_ip->dsp_bip) {
+	    const char *data_name = bu_vls_cstr(&dsp_ip->dsp_name);
+	    struct rt_db_internal *bip = dsp_ip->dsp_bip;
+	    struct bu_external bip_ext;
+	    BU_EXTERNAL_INIT(&bip_ext);
+	    if (rt_db_cvt_to_external5(&bip_ext, data_name, bip, 1.0,
+				       dbip, &rt_uniresource,
+				       bip->idb_major_type) == 0) {
+		int bip_flags = db_flags_internal(bip);
+		if (wdb_export_external(wdbp, &bip_ext, data_name,
+					bip_flags,
+					(unsigned char)bip->idb_minor_type) < 0)
+		    bu_free_external(&bip_ext);
+		/* on success ext_buf is stolen; no free needed */
+	    } else {
+		bu_free_external(&bip_ext);
+		bu_log("rt_crofton: failed to export DSP data object '%s'\n",
+		       data_name);
+	    }
+	}
+    }
 
     struct rt_db_internal tmp_intern;
     RT_DB_INTERNAL_INIT(&tmp_intern);
