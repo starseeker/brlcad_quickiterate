@@ -97,11 +97,16 @@ add_subdirectory(edit)
 brlcad_addexec(rt_prim_tess prim_tess.c "librt;libnmg;libwdb;libbg;libbu" TEST)
 brlcad_add_test(NAME rt_prim_tess COMMAND rt_prim_tess)
 
+# stand-alone Crofton estimator tests
+brlcad_addexec(rt_crofton crofton.c "librt;libwdb;libbu" TEST)
+brlcad_add_test(NAME rt_crofton COMMAND rt_crofton)
+
 set(
   distcheck_files
   CMakeLists.txt
   arb_intersect.g
   binary_attribute.c
+  crofton.c
   brep_boolean_tests.g
   cyclic_tests.g
   extreme_ssi_test.g
