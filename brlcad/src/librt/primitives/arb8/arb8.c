@@ -1845,19 +1845,23 @@ arb_build_equiv_pts(const struct rt_arb_internal *arb, fastf_t tol_sq, int equiv
 /*
  * Return non-zero when the ARB has a non-canonical encoding.
  *
- * A canonical encoding has all duplicate vertices concentrated in the
- * "top" group (indices 4–7).  A non-canonical encoding occurs when any
- * "top" vertex (index 4–7) is a duplicate of a "bottom" vertex (index 0–3),
- * or when any "bottom" vertex duplicates another "bottom" vertex.
- * These cases indicate the duplicate pairs are stored at unexpected positions
- * (e.g. pt[1]==pt[5] instead of the canonical pt[4]==pt[5] for an ARB6),
- * which causes incorrect surface-area, volume, and tessellation results
- * via the standard ARB face table.
+ * The canonical ARB encoding stores duplicate vertices in the "top" group
+ * (indices 4–7).  A non-canonical encoding occurs when any "top" vertex
+ * (index 4–7) is a duplicate of a "bottom" vertex (index 0–3), or when a
+ * "bottom" vertex duplicates another "bottom" vertex in a way that is NOT
+ * the standard ARB4 tetrahedron encoding.
  *
- * Exception: the canonical ARB4 encoding has pt[0..2] as the three base
- * vertices and pt[3..7] all coincident at the apex.  This means
- * equiv_pts[4..7] all map to 3 (a bottom index), but it is a valid
- * encoding and must not be flagged as non-canonical.
+ * The canonical ARB4 encoding stored in BRL-CAD databases has:
+ *   pt[0], pt[1]       — two unique base vertices
+ *   pt[2] == pt[3]     — third base vertex (duplicate pair in the bottom group)
+ *   pt[4..7]           — all coincident at the apex (top group)
+ *
+ * This produces equiv_pts[3] == 2 (a bottom-to-bottom alias), which the naive
+ * check would flag as non-canonical.  However, the standard rt_arb_mk_planes
+ * face construction handles this encoding correctly: the deduplication logic
+ * collapses face "1234" to the base triangle, and the three side faces are
+ * built properly.  Such an ARB has exactly 4 unique spatial vertices (a valid
+ * tetrahedron) and must not be routed to the hull fallback.
  */
 static int
 arb_is_noncanonical(const struct rt_arb_internal *arb, fastf_t tol_sq)
@@ -1867,16 +1871,27 @@ arb_is_noncanonical(const struct rt_arb_internal *arb, fastf_t tol_sq)
 
     arb_build_equiv_pts(arb, tol_sq, equiv_pts);
 
-    /* Check whether any bottom vertex (0–3) duplicates an earlier bottom vertex */
-    for (i = 1; i < 4; i++) {
-	if (equiv_pts[i] != i)
-	    return 1;
-    }
-
-    /* Check whether any top vertex (4–7) maps to a bottom vertex (0–3) */
+    /* Check whether any top vertex (4–7) maps to a bottom vertex (0–3).
+     * This always indicates a non-canonical (mis-encoded) ARB. */
     for (i = 4; i < 8; i++) {
 	if (equiv_pts[i] < 4)
 	    return 1;
+    }
+
+    /* Check whether any bottom vertex (0–3) duplicates an earlier bottom vertex.
+     * This fires for the canonical ARB4 encoding (pt[2]==pt[3]), but also for
+     * genuinely mis-encoded ARBs.  Distinguish by counting unique spatial
+     * vertices: only the ARB4 tetrahedron (exactly 4 unique vertices) is valid
+     * here; anything else is a non-canonical encoding. */
+    for (i = 1; i < 4; i++) {
+	if (equiv_pts[i] != i) {
+	    int n_unique = 0;
+	    int j;
+	    for (j = 0; j < 8; j++) {
+		if (equiv_pts[j] == j) n_unique++;
+	    }
+	    return (n_unique == 4) ? 0 : 1;
+	}
     }
 
     return 0;
