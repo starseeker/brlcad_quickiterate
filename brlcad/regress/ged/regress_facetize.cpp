@@ -71,6 +71,19 @@
 #include "ged.h"
 
 /* ------------------------------------------------------------------ */
+/* Test parameters                                                      */
+/* ------------------------------------------------------------------ */
+
+/** Minimum ray count for Crofton surface-area / volume estimation. */
+#define REGRESS_CROFTON_SAMPLES   2000
+/** Convergence threshold (%) for Crofton estimator. */
+#define REGRESS_CROFTON_PCT       5.0
+/** cos(30°) – used to build the TC3 rotated ARB8 geometry. */
+#define COS_30_DEG   0.8660254037844386467637231707529361834713867187500
+/** sin(30°) = 0.5 exactly. */
+#define SIN_30_DEG   0.5
+
+/* ------------------------------------------------------------------ */
 /* Helpers                                                              */
 /* ------------------------------------------------------------------ */
 
@@ -202,8 +215,8 @@ rt_free_rti(rtip); db_close(dbip); return BRLCAD_ERROR;
     }
     rt_prep_parallel(rtip, 1);
 
-    /* 2000 rays, 5% convergence threshold */
-    int ret = rt_crofton_shoot(rtip, 2000, 5.0, sa, vol);
+    /* REGRESS_CROFTON_SAMPLES rays, REGRESS_CROFTON_PCT% convergence threshold */
+    int ret = rt_crofton_shoot(rtip, REGRESS_CROFTON_SAMPLES, REGRESS_CROFTON_PCT, sa, vol);
     rt_free_rti(rtip);
     db_close(dbip);
     return (ret == 0) ? BRLCAD_OK : BRLCAD_ERROR;
@@ -489,8 +502,8 @@ bu_vls_free(&gpath); return BRLCAD_ERROR;
     struct rt_wdb *wdbp = wdb_dbopen(dbip, RT_WDB_TYPE_DB_DEFAULT);
 
     /* Rotation by 30 deg around Z: x' = x*c - y*s,  y' = x*s + y*c */
-    const double c = 0.866025403784; /* cos 30 */
-    const double s = 0.5;            /* sin 30 */
+    const double c = COS_30_DEG;
+    const double s = SIN_30_DEG;
 
 #define R30(x_, y_, z_) { (x_)*c - (y_)*s,  (x_)*s + (y_)*c,  (z_) }
 
