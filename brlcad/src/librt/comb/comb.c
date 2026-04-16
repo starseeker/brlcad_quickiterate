@@ -1355,9 +1355,8 @@ comb_crofton_sample(const struct rt_db_internal *ip, double *out_sa, double *out
 
     double sa  = 0.0;
     double vol = 0.0;
-    /* 2000 minimum rays / 1% convergence threshold -- same defaults as the
-     * generic crofton_from_ip fallback used by other primitives */
-    (void)rt_crofton_shoot(rtip, 2000u, 1.0, &sa, &vol);
+    /* Use default params (NULL → 2 000-ray convergence loop) */
+    (void)rt_crofton_shoot(rtip, NULL, &sa, &vol);
 
     if (out_sa)  *out_sa  = sa;
     if (out_vol) *out_vol = vol;

@@ -3942,7 +3942,7 @@ rt_tgc_surf_area(fastf_t *area, const struct rt_db_internal *ip)
 	    /* No closed-form formula exists for the general truncated
 	     * elliptic cone.  Fall back to the Cauchy-Crofton ray-sampling
 	     * estimator, which handles any TGC shape correctly. */
-	    rt_crofton_surf_area_highres(area, ip);
+	    do { static const struct rt_crofton_params _p = {50000u, 0.0, 0.0}; rt_crofton_sample(area, NULL, ip, &_p); } while (0);
 	    break;
     }
 }

@@ -527,7 +527,7 @@ check_nmg_mesh(const char *label, struct model *m,
 	    if (analytic_sa <= 0.0) {
 		fastf_t croft_sa = 0.0;
 		if (!BU_SETJUMP) {
-		    rt_crofton_surf_area(&croft_sa, &ip_meth);
+		    rt_crofton_sample(&croft_sa, NULL, &ip_meth, NULL);
 		} else {
 		    BU_UNSETJUMP;
 		    croft_sa = 0.0;
@@ -537,7 +537,7 @@ check_nmg_mesh(const char *label, struct model *m,
 	    if (analytic_v <= 0.0) {
 		fastf_t croft_v = 0.0;
 		if (!BU_SETJUMP) {
-		    rt_crofton_volume(&croft_v, &ip_meth);
+		    rt_crofton_sample(NULL, &croft_v, &ip_meth, NULL);
 		} else {
 		    BU_UNSETJUMP;
 		    croft_v = 0.0;
@@ -4269,7 +4269,8 @@ scan_input_g(const char *g_path, const char *g_root)
 	    if (cr_rtip) {
 		if (rt_gettree(cr_rtip, dp->d_namep) == 0) {
 		    rt_prep_parallel(cr_rtip, 1);
-		    cr = rt_crofton_shoot(cr_rtip, 2000, 2.0, &csa, &cv);
+		    struct rt_crofton_params crp = { 2000u, 0.0, 0.0 };
+		    cr = rt_crofton_shoot(cr_rtip, &crp, &csa, &cv);
 		}
 		rt_free_rti(cr_rtip);
 	    }
