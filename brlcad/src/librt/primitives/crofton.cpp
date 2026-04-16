@@ -318,7 +318,49 @@ rt_crofton_shoot(struct rt_i                      *rtip,
     if (!rtip || (!out_surf_area && !out_volume))
 	return -1;
 
-    double R = rtip->rti_radius;
+    /* ---- Compute a tight bounding sphere from actual soltab extents ----
+     *
+     * rt_prep_parallel inflates mdl_min/mdl_max to integer-mm boundaries
+     * (floor/ceil in prep.cpp) to prevent edge-grazing artefacts in the ray
+     * scheduler.  This is harmless for scene-sized geometry, but for sub-mm
+     * primitives (e.g. xyzringtrc.s, diameter ~0.06 mm) the inflation can
+     * expand the Crofton bounding sphere by a factor of 10-15×, reducing the
+     * fraction of rays that actually pierce the object from ~20 % to ~0.1 %.
+     * At 50 000 rays that leaves only ~90 expected crossings, giving ~10 %
+     * statistical noise rather than the expected ~1 %.
+     *
+     * Fix: walk the soltab list (which stores the pre-inflation st_min/st_max)
+     * and use their union RPP to build the Crofton sphere.  For large geometry
+     * that already spans integer-mm boundaries the result is identical to the
+     * old rti_radius / mdl_min / mdl_max path.                              */
+    point_t tight_min, tight_max;
+    VSETALL(tight_min,  MAX_FASTF);
+    VSETALL(tight_max, -MAX_FASTF);
+    {
+	struct soltab *_crofton_stp;
+	RT_VISIT_ALL_SOLTABS_START(_crofton_stp, rtip) {
+	    VMIN(tight_min, _crofton_stp->st_min);
+	    VMAX(tight_max, _crofton_stp->st_max);
+	} RT_VISIT_ALL_SOLTABS_END;
+    }
+
+    double R;
+    point_t center;
+    if (tight_min[X] < MAX_FASTF) {
+	/* Tight path: use actual object extents */
+	VADD2SCALE(center, tight_max, tight_min, 0.5);
+	vect_t tight_diag;
+	VSUB2(tight_diag, tight_max, tight_min);
+	R = 0.5 * MAGNITUDE(tight_diag);
+	/* Sanity: fall back if something degenerate slipped through */
+	if (R <= 0.0)
+	    R = rtip->rti_radius;
+    } else {
+	/* No soltabs (unusual): fall back to the inflated rti values */
+	R = rtip->rti_radius;
+	VADD2SCALE(center, rtip->mdl_max, rtip->mdl_min, 0.5);
+    }
+
     if (R <= 0.0) {
 	if (out_surf_area) *out_surf_area = 0.0;
 	if (out_volume)    *out_volume    = 0.0;
@@ -337,9 +379,6 @@ rt_crofton_shoot(struct rt_i                      *rtip,
     size_t batch = RT_CROFTON_DEFAULT_SAMPLES;
     if (!use_default && max_rays > 0 && stability_mm <= 0.0 && time_ms <= 0.0)
 	batch = max_rays;   /* single-iteration mode */
-
-    point_t center;
-    VADD2SCALE(center, rtip->mdl_max, rtip->mdl_min, 0.5);
 
     /* ---- Initialize per-CPU resources ---- */
     struct resource *resources = (struct resource *)bu_calloc(
