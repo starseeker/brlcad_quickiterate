@@ -382,6 +382,18 @@ check_nmg_mesh(const char *label, struct model *m,
     if (nfaces_poly == 0) {
 	if (!quiet)
 	    fprintf(stderr, "  MESH: %-44s faces=0 (empty mesh) [WARN]\n", label);
+	if (res) {
+	    res->tess_ok = 1;
+	    res->mesh_ok = 1;
+	    res->n_open = 0;
+	    res->n_tris = 0;
+	    res->area = 0.0;
+	    res->vol = 0.0;
+	    res->err_sa = -1.0;
+	    res->err_vol = -1.0;
+	    res->metrics_ok = -1;
+	    res->res_limited = 0;
+	}
 	return 1; /* empty is unusual but not a hard failure */
     }
 
@@ -4217,8 +4229,6 @@ scan_input_g(const char *g_path, const char *g_root)
 	    rt_db_free_internal(&intern);
 	    continue;
 	}
-	if (ok) n_pass++; else { n_fail++; failures++; }
-
 	/* Convergence probing when metrics check failed but mesh topology is ok.
 	 * If there are open edges, tightening tolerances won't fix them.      */
 	int conv_rel = 0, conv_abs = 0, conv_norm = 0;
@@ -4255,9 +4265,6 @@ scan_input_g(const char *g_path, const char *g_root)
 		if (conv_rel || conv_abs || conv_norm) {
 		    fprintf(stderr,
 			"  CONV: %-44s  convergence achieved\n", dp->d_namep);
-		    failures--; /* undo the failure count: tess routine converges */
-		    n_fail--;
-		    n_pass++;
 		    /* Update displayed metrics from the converged result.
 		     * Convergence checks run in quiet mode (no Crofton), so
 		     * err_sa may be -1.0 when the analytic SA formula is
@@ -4275,6 +4282,16 @@ scan_input_g(const char *g_path, const char *g_root)
 			"  CONV: %-44s  WARNING: no convergence found\n", dp->d_namep);
 		}
 	    }
+	}
+
+	int final_ok = (scan_res.tess_ok &&
+			scan_res.mesh_ok &&
+			(scan_res.metrics_ok != 0 || scan_res.res_limited));
+	if (final_ok) {
+	    n_pass++;
+	} else {
+	    n_fail++;
+	    failures++;
 	}
 
 	/* Build double conv values: >0 = tol value that converged,
