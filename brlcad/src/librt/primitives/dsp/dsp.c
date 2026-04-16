@@ -1967,18 +1967,31 @@ isect_ray_cell_top(struct isect_stuff *isect, struct dsp_bb *dsp_bb)
     }
 
     if (hitp && hitcount > 1) {
-	point_t p1, p2;
+	/* An in-hit was found but no matching out-hit through the triangulated
+	 * top surface.  This commonly occurs at terrain coastline boundaries
+	 * where the exit triangle is degenerate or just missed.  Rather than
+	 * silently dropping the solid material, use the bounding-box exit
+	 * point as a conservative fallback out-hit.
+	 */
+	point_t p2;
 
-	bu_log("----------------ERROR incomplete segment-------------\n");
-	bu_log("  pixel %d %d\n", isect->ap->a_x, isect->ap->a_y);
-
-	VJOIN1(p1, isect->r.r_pt, isect->r.r_min, isect->r.r_dir);
-	VMOVE(hits[0].hit_point, p1);
-	hits[0].hit_dist = isect->r.r_min;
+	if (RT_G_DEBUG & RT_DEBUG_HF) {
+	    bu_log("DSP: incomplete segment pixel %d %d, using BB exit dist %g as out-hit\n",
+		   isect->ap->a_x, isect->ap->a_y, isect->r.r_max);
+	}
 
 	VJOIN1(p2, isect->r.r_pt, isect->r.r_max, isect->r.r_dir);
-	VMOVE(hits[1].hit_point, p2);
-	hits[1].hit_dist = isect->r.r_max;
+	hits[1].hit_magic = RT_HIT_MAGIC;
+	hits[1].hit_dist  = isect->r.r_max;
+	VMOVE(hits[1].hit_point,  p2);
+	VMOVE(hits[1].hit_normal, dsp_pl[isect->dmax]);
+	hits[1].hit_surfno = isect->dmax;
+
+	if (hits[1].hit_dist > hitp->hit_dist) {
+	    VMOVE(bbmin, dsp_bb->dspb_rpp.dsp_min);
+	    VMOVE(bbmax, dsp_bb->dspb_rpp.dsp_max);
+	    (void)add_seg(isect, hitp, &hits[1], bbmin, bbmax, 255, 128, 0);
+	}
 
 	if (RT_G_DEBUG & RT_DEBUG_HF)
 	    plot_cell_top(isect, dsp_bb, A, B, C, D, hits, 3, 0);
@@ -2460,49 +2473,88 @@ isect_ray_dsp_bb(struct isect_stuff *isect, struct dsp_bb *dsp_bb)
 
     /* intersect the DSP grid surface geometry */
 
-    /* Check for a hit on the triangulated zone on top.  This gives us
-     * intersections on the triangulated top, and the sides and bottom
-     * of the bounding box for the triangles.
-     *
-     * We do this first because we already know that the ray does NOT
-     * just pass through the "foundation " pillar underneath (see test
-     * above)
+    /* For a ray going upward (+Z component), the ray traverses the
+     * "foundation" pillar (z=0..min_z) BEFORE the triangulated terrain
+     * zone (z=min_z..max_z).  Processing them in the correct ray-travel
+     * order means add_seg's segment-stitching logic can automatically
+     * merge adjacent foundation and cell-top segments into one continuous
+     * solid segment instead of leaving them in a reversed list.
+     * For a downward ray the original order is correct.
      */
-    bbmin[Z] = dsp_bb->dspb_rpp.dsp_min[Z];
-    if (dsp_in_rpp(isect, bbmin, bbmax)) {
-	/* hit rpp */
+    if (r->r_dir[Z] >= 0.0) {
+	/* upward ray -- foundation first */
+	bbmax[Z] = dsp_bb->dspb_rpp.dsp_min[Z];
+	bbmin[Z] = 0.0;
+	if (dsp_in_rpp(isect, bbmin, bbmax)) {
+	    struct hit in_hit, out_hit;
+	    VSETALL(in_hit.hit_vpriv, 0.0);
+	    VSETALL(out_hit.hit_vpriv, 0.0);
 
-	isect_ray_cell_top(isect, dsp_bb);
-    }
+	    VJOIN1(minpt, r->r_pt, r->r_min, r->r_dir);
+	    VJOIN1(maxpt, r->r_pt, r->r_max, r->r_dir);
 
+	    in_hit.hit_dist   = r->r_min;
+	    in_hit.hit_surfno = isect->dmin;
+	    VMOVE(in_hit.hit_point,  minpt);
+	    VMOVE(in_hit.hit_normal, dsp_pl[isect->dmin]);
 
-    /* check for hits on the "foundation" pillar under the top.  The
-     * ray may have entered through the top of the pillar, possibly
-     * after having come down through the triangles above
-     */
-    bbmax[Z] = dsp_bb->dspb_rpp.dsp_min[Z];
-    bbmin[Z] = 0.0;
-    if (dsp_in_rpp(isect, bbmin, bbmax)) {
-	/* hit rpp */
-	struct hit in_hit, out_hit;
-	VSETALL(in_hit.hit_vpriv, 0.0);
-	VSETALL(out_hit.hit_vpriv, 0.0);
+	    out_hit.hit_dist   = r->r_max;
+	    out_hit.hit_surfno = isect->dmax;
+	    VMOVE(out_hit.hit_point,  maxpt);
+	    VMOVE(out_hit.hit_normal, dsp_pl[isect->dmax]);
 
-	VJOIN1(minpt, r->r_pt, r->r_min, r->r_dir);
-	VJOIN1(maxpt, r->r_pt, r->r_max, r->r_dir);
+	    if (add_seg(isect, &in_hit, &out_hit, bbmin, bbmax, 255, 255, 0))
+		return 1;
+	}
 
-	in_hit.hit_dist = r->r_min;
-	in_hit.hit_surfno = isect->dmin;
-	VMOVE(in_hit.hit_point, minpt);
-	VMOVE(in_hit.hit_normal, dsp_pl[isect->dmin]);
+	/* then cell-top triangulated zone */
+	bbmin[Z] = dsp_bb->dspb_rpp.dsp_min[Z];
+	bbmax[Z] = dsp_bb->dspb_rpp.dsp_max[Z];
+	if (dsp_in_rpp(isect, bbmin, bbmax)) {
+	    isect_ray_cell_top(isect, dsp_bb);
+	}
+    } else {
+	/* downward ray -- cell-top first */
 
-	out_hit.hit_dist = r->r_max;
-	out_hit.hit_surfno = isect->dmax;
-	VMOVE(out_hit.hit_point, maxpt);
-	VMOVE(out_hit.hit_normal, dsp_pl[isect->dmax]);
+	/* Check for a hit on the triangulated zone on top.  This gives us
+	 * intersections on the triangulated top, and the sides and bottom
+	 * of the bounding box for the triangles.
+	 *
+	 * We do this first because we already know that the ray does NOT
+	 * just pass through the "foundation" pillar underneath (see test
+	 * above)
+	 */
+	bbmin[Z] = dsp_bb->dspb_rpp.dsp_min[Z];
+	if (dsp_in_rpp(isect, bbmin, bbmax)) {
+	    isect_ray_cell_top(isect, dsp_bb);
+	}
 
-	/* add a segment to the list */
-	return add_seg(isect, &in_hit, &out_hit, bbmin, bbmax, 255, 255, 0);
+	/* check for hits on the "foundation" pillar under the top.  The
+	 * ray may have entered through the top of the pillar, possibly
+	 * after having come down through the triangles above
+	 */
+	bbmax[Z] = dsp_bb->dspb_rpp.dsp_min[Z];
+	bbmin[Z] = 0.0;
+	if (dsp_in_rpp(isect, bbmin, bbmax)) {
+	    struct hit in_hit, out_hit;
+	    VSETALL(in_hit.hit_vpriv, 0.0);
+	    VSETALL(out_hit.hit_vpriv, 0.0);
+
+	    VJOIN1(minpt, r->r_pt, r->r_min, r->r_dir);
+	    VJOIN1(maxpt, r->r_pt, r->r_max, r->r_dir);
+
+	    in_hit.hit_dist   = r->r_min;
+	    in_hit.hit_surfno = isect->dmin;
+	    VMOVE(in_hit.hit_point,  minpt);
+	    VMOVE(in_hit.hit_normal, dsp_pl[isect->dmin]);
+
+	    out_hit.hit_dist   = r->r_max;
+	    out_hit.hit_surfno = isect->dmax;
+	    VMOVE(out_hit.hit_point,  maxpt);
+	    VMOVE(out_hit.hit_normal, dsp_pl[isect->dmax]);
+
+	    return add_seg(isect, &in_hit, &out_hit, bbmin, bbmax, 255, 255, 0);
+	}
     }
 
     return 0;
@@ -2623,9 +2675,20 @@ rt_dsp_shot(struct soltab *stp, register struct xray *rp, struct application *ap
 	delta = segp->seg_out.hit_dist - segp->seg_in.hit_dist;
 
 	if (delta < 0.0 && !NEAR_ZERO(delta, ap->a_rt_i->rti_tol.dist)) {
-	    bu_log("Pixel %d %d seg inside out in:%g out:%g seg_len:%g\n",
-		   ap->a_x, ap->a_y, segp->seg_in.hit_dist, segp->seg_out.hit_dist,
-		   delta);
+	    /* Inside-out segment: swap in/out as a safety net.
+	     * The primary fixes are the incomplete-segment fallback in
+	     * isect_ray_cell_top and the upward-ray ordering fix in
+	     * isect_ray_dsp_bb.
+	     */
+	    struct hit tmp_hit;
+	    if (RT_G_DEBUG & RT_DEBUG_HF) {
+		bu_log("DSP: pixel %d %d swapping inside-out seg in:%g out:%g\n",
+		       ap->a_x, ap->a_y,
+		       segp->seg_in.hit_dist, segp->seg_out.hit_dist);
+	    }
+	    tmp_hit       = segp->seg_in;
+	    segp->seg_in  = segp->seg_out;
+	    segp->seg_out = tmp_hit;
 	}
 
 	if (RT_G_DEBUG & RT_DEBUG_HF) {
