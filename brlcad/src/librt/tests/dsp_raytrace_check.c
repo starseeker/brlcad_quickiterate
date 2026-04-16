@@ -573,6 +573,7 @@ return 1;
      * (runs rt_dsp_ifree which frees dsp_name and the struct itself).
      * Do NOT touch dsp after this call. */
     int export_ok = wdb_export(wdbp, dsp_name, (void *)dsp, ID_DSP, 1.0);
+    dsp = NULL; /* ownership transferred: pointer is now dangling */
 
     if (export_ok < 0) { db_close(dbip); return 1; }
 
