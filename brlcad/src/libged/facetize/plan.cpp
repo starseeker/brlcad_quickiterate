@@ -39,7 +39,16 @@
  *   Phase C - Rebuild & Create: build the lookup table (inst_to_variant) from
  *     the named instances first (mirrors npush's "clear+repopulate" step), then
  *     create the perturbed variant primitives in the working .g via ft_perturb
- *     hooks (ARB8->ARBN, ARBN, TGC).
+ *     hooks (ARB8->ARBN, ARBN, TGC, ELL, SPH, TOR).
+ *
+ * Role disambiguation in inst_to_variant:
+ *   The same primitive can appear at identical tree depth in both a UNION and a
+ *   SUBTRACT branch (e.g. "u A - B u C - A").  Both occurrences share the same
+ *   db_path_to_string() key.  To resolve the ambiguity the map key encodes the
+ *   boolean role as a suffix: path + "#base" for non-subtractive instances,
+ *   path + "#sub" for subtractive ones.  _booltree_leaf_tess reads
+ *   tsp->ts_sofar & TS_SOFAR_MINUS to reconstruct the correct key at booleval
+ *   time.
  *
  * Variant naming convention (before collision avoidance):
  *   <srcname>__adj_<n>      - BASE variant (non-subtractive, index n)
@@ -441,7 +450,11 @@ _ged_facetize_build_variant_plan(struct _ged_facetize_state *s,
 	for (const auto &inst : ctx.instances) {
 		if (inst.vname.empty())
 			continue;
-		plan->inst_to_variant[inst.path_key] = inst.vname;
+		/* Encode role in the key so that u A … - A at the same depth
+		 * maps to distinct entries (one "#base", one "#sub"). */
+		std::string role_key = inst.path_key +
+			(inst.is_sub ? "#sub" : "#base");
+		plan->inst_to_variant[role_key] = inst.vname;
 		plan->n_adjusted_instances++;
 		if (inst.is_sub) plan->n_sub_variants++;
 	}
@@ -474,7 +487,9 @@ _ged_facetize_build_variant_plan(struct _ged_facetize_state *s,
 			plan->variant_names.push_back(inst.vname);
 		} else {
 			/* Creation failed: remove from lookup table so booleval falls back */
-			plan->inst_to_variant.erase(inst.path_key);
+			std::string role_key = inst.path_key +
+				(inst.is_sub ? "#sub" : "#base");
+			plan->inst_to_variant.erase(role_key);
 			plan->n_adjusted_instances--;
 			if (inst.is_sub) plan->n_sub_variants--;
 			plan->n_perturb_fallbacks++;

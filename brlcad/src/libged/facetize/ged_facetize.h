@@ -140,10 +140,12 @@ method_scan(std::map<std::string, std::set<std::string>> *method_sets, struct db
  */
 struct FacetizeVariantPlan {
     /**
-     * Maps db_path_to_string() path key → variant name in the working .g.
-     * The variant is a slightly perturbed copy of the original primitive.
-     * BASE (non-subtractive) variants use a small bump to break coplanarity.
-     * SUB (subtractive) variants use a larger bump to clear subtraction slivers.
+     * Maps (db_path_to_string() path key + "#base" or "#sub") → variant name
+     * in the working .g.
+     * The role suffix disambiguates the same primitive appearing in both a
+     * UNION and a SUBTRACT branch at the same tree depth (e.g. "u A … - A").
+     * BASE variants use a small perturbation to break coplanarity.
+     * SUB variants use a larger perturbation to clear subtraction slivers.
      */
     std::map<std::string, std::string> inst_to_variant;
 
@@ -165,7 +167,11 @@ struct FacetizeVariantPlan {
  * Walk the source .g tree for each directory pointer in dpa[], recording every
  * leaf instance with its full path key, boolean role (subtractive or not), and
  * primitive type.  Then create perturbed variant primitives in the working .g
- * (via ft_perturb hooks for ARB8/ARBN/TGC) and build the lookup table.
+ * (via ft_perturb hooks for ARB8/ARBN/TGC/ELL/SPH/TOR) and build the role-keyed
+ * lookup table.
+ *
+ * The inst_to_variant key is path + "#base" or "#sub", allowing the same
+ * primitive at the same tree depth to have distinct BASE and SUB variants.
  *
  * Returns an allocated FacetizeVariantPlan owned by the caller (or NULL on
  * allocation failure).  Primitives without ft_perturb support are counted in

@@ -213,8 +213,14 @@ _booltree_leaf_tess(struct db_tree_state *tsp, const struct db_full_path *pathp,
     if (s && s->variant_plan) {
 	FacetizeVariantPlan *vplan = (FacetizeVariantPlan *)s->variant_plan;
 	char *path_str = db_path_to_string(pathp);
-	auto it = vplan->inst_to_variant.find(std::string(path_str));
+	/* Reconstruct the same role-keyed key used in plan.cpp Phase C:
+	 * TS_SOFAR_MINUS is set when the leaf is on the subtractive side of
+	 * any boolean node encountered above it in the current walk. */
+	bool is_sub_ctx = (tsp->ts_sofar & TS_SOFAR_MINUS) != 0;
+	std::string role_key = std::string(path_str) +
+	    (is_sub_ctx ? "#sub" : "#base");
 	bu_free(path_str, "path_str");
+	auto it = vplan->inst_to_variant.find(role_key);
 	if (it != vplan->inst_to_variant.end()) {
 	    struct directory *vdp =
 		db_lookup(tsp->ts_dbip, it->second.c_str(), LOOKUP_QUIET);
