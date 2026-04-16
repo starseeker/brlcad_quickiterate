@@ -1883,8 +1883,15 @@ arb_is_noncanonical(const struct rt_arb_internal *arb, fastf_t tol_sq)
      * genuinely mis-encoded ARBs.  Distinguish by counting unique spatial
      * vertices: only the ARB4 tetrahedron (exactly 4 unique vertices) is valid
      * here; anything else is a non-canonical encoding. */
-    for (i = 1; i < 4; i++) {
-	if (equiv_pts[i] != i) {
+    {
+	int has_bottom_dup = 0;
+	for (i = 1; i < 4; i++) {
+	    if (equiv_pts[i] != i) {
+		has_bottom_dup = 1;
+		break;
+	    }
+	}
+	if (has_bottom_dup) {
 	    int n_unique = 0;
 	    int j;
 	    for (j = 0; j < 8; j++) {
