@@ -1431,9 +1431,10 @@ rt_eto_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	    if (nells_ntol > nells) nells = nells_ntol;
 	}
 
-	bu_log("rt_eto_tess: dtol=%.6g ntol=%.6g abs_or_rel=%d norm=%d "
-	       "npts=%d nells=%d min_chord=%.6g\n",
-	       dtol, ntol, abs_or_rel_set, norm_set, npts, nells, tol->dist);
+	if (RT_G_DEBUG & RT_DEBUG_MESHING)
+	    bu_log("rt_eto_tess: dtol=%.6g ntol=%.6g abs_or_rel=%d norm=%d "
+		   "npts=%d nells=%d min_chord=%.6g\n",
+		   dtol, ntol, abs_or_rel_set, norm_set, npts, nells, tol->dist);
     }
     theta = M_2PI / nells;	/* put ellipse every theta rads */
     /* get horizontal and vertical components of C and Rd */
@@ -1603,14 +1604,16 @@ rt_eto_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	}
     }
 
-    bu_log("rt_eto_tess: built nfaces=%d (nells=%d npts=%d grid=%d)\n",
-	   nfaces, nells, npts, nells * npts);
+    if (RT_G_DEBUG & RT_DEBUG_MESHING)
+	bu_log("rt_eto_tess: built nfaces=%d (nells=%d npts=%d grid=%d)\n",
+	       nfaces, nells, npts, nells * npts);
 
     /* Associate face geometry */
     for (i = 0; i < nfaces; i++) {
 	if (nmg_fu_planeeqn(faces[i], tol) < 0) {
 	    /* Dump vertex positions for the failed face so we can see
-	     * whether the issue is coincident or collinear vertices. */
+	     * whether the issue is coincident or collinear vertices.
+	     * Always emit this — a planeeqn failure is always an error. */
 	    struct loopuse *lu = BU_LIST_FIRST(loopuse, &faces[i]->lu_hd);
 	    if (lu && BU_LIST_FIRST_MAGIC(&lu->down_hd) == NMG_EDGEUSE_MAGIC) {
 		struct edgeuse *eu;
