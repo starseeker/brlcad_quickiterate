@@ -27,20 +27,32 @@
  * the wall faces.  Without the variant planning pass this reliably produces
  * a degenerate/empty result in Manifold boolean evaluation.
  *
- * Two test cases are run:
+ * Each test case is verified three ways:
+ *   1. Output BoT exists and has faces.
+ *   2. Crofton SA/VOL of the output BoT matches the CSG comb within 20%.
+ *   3. rt_bot_thin_check reports no super-thin artifact triangles.
  *
- *   TC1  - basic window frame: ARB8 wall minus ARB8 cutout (shares two
- *          coplanar faces on the front and back of the wall).
+ * Test cases:
  *
- *   TC2  - stacked cutouts: a single wall with two separate window
- *          cutouts whose front/back faces are all coplanar with the wall.
- *          Verifies correct per-instance variant assignment when the same
- *          source wall primitive is used in multiple subtractive contexts
- *          within one tree.
+ *   TC1  - axis-aligned window frame: ARB8 wall minus ARB8 cutout whose
+ *          front/back faces are exactly coplanar with the wall.
+ *
+ *   TC2  - stacked cutouts: wall minus two separate window cutouts, all
+ *          Z-coplanar.  Verifies per-instance SUB variant assignment.
+ *
+ *   TC3  - rotated (30 deg around Z) wall with coplanar rotated cutout.
+ *          Non-axis-aligned ARBs expose floating-point face-coplanarity
+ *          effects that are especially problematic for Manifold.
+ *
+ *   TC4  - havoc-inspired same-primitive reuse: the base solid appears as
+ *          both a union (u) and a subtract (-) member in the same tree.
+ *          Pattern: base.s u protrude.s - base.s, where protrude.s and
+ *          base.s share exactly coplanar Z faces.
  */
 
 #include "common.h"
 
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -68,33 +80,33 @@ write_arb8(struct rt_wdb *wdbp, const char *name, const point_t pts[8])
 {
     fastf_t flat[24];
     for (int i = 0; i < 8; i++) {
-	flat[i*3]     = pts[i][X];
-	flat[i*3 + 1] = pts[i][Y];
-	flat[i*3 + 2] = pts[i][Z];
+flat[i*3]     = pts[i][X];
+flat[i*3 + 1] = pts[i][Y];
+flat[i*3 + 2] = pts[i][Z];
     }
     return mk_arb8(wdbp, name, flat);
 }
 
 /**
- * Write a boolean combination into an open wdb.
- * op_flags: 'u' union, '-' subtract, '+' intersect for each member.
+ * Write a two-member boolean combination into an open wdb.
+ * lop / rop: 'u' union, '-' subtract, '+' intersect.
  */
 static int
 write_comb2(struct rt_wdb *wdbp,
-	    const char    *comb_name,
-	    const char    *left,   char lop,
-	    const char    *right,  char rop)
+    const char    *comb_name,
+    const char    *left,   char lop,
+    const char    *right,  char rop)
 {
     struct bu_list head;
     BU_LIST_INIT(&head);
 
     mk_addmember(left,  &head, NULL, (lop == 'u') ? WMOP_UNION :
-					(lop == '-') ? WMOP_SUBTRACT : WMOP_INTERSECT);
+    (lop == '-') ? WMOP_SUBTRACT : WMOP_INTERSECT);
     mk_addmember(right, &head, NULL, (rop == '-') ? WMOP_SUBTRACT :
-					(rop == 'u') ? WMOP_UNION : WMOP_INTERSECT);
+    (rop == 'u') ? WMOP_UNION : WMOP_INTERSECT);
 
     return mk_comb(wdbp, comb_name, &head, 0 /* not region */, NULL, NULL, NULL,
-		   0, 0, 0, 0, 0, 0, 0);
+   0, 0, 0, 0, 0, 0, 0);
 }
 
 /**
@@ -106,17 +118,17 @@ run_facetize(const char *gfile, const char *input, const char *output, int verbo
 {
     struct ged *gedp = ged_open("db", gfile, 1);
     if (!gedp) {
-	bu_log("[regress_facetize] ged_open(%s) failed\n", gfile);
-	return BRLCAD_ERROR;
+bu_log("[regress_facetize] ged_open(%s) failed\n", gfile);
+return BRLCAD_ERROR;
     }
 
     const char *av[4] = {"facetize", input, output, NULL};
     int ret = ged_exec(gedp, 3, av);
 
     if (verbose || ret != BRLCAD_OK) {
-	const char *log = bu_vls_cstr(gedp->ged_result_str);
-	if (log && log[0])
-	    bu_log("[facetize] %s\n", log);
+const char *log = bu_vls_cstr(gedp->ged_result_str);
+if (log && log[0])
+    bu_log("[facetize] %s\n", log);
     }
 
     ged_close(gedp);
@@ -124,47 +136,42 @@ run_facetize(const char *gfile, const char *input, const char *output, int verbo
 }
 
 /**
- * After run_facetize writes a BoT into @a gfile, reopen and verify that
- * @a bot_name exists, is a BoT, and has at least one face.
+ * Verify that @a bot_name in @a gfile exists, is a BoT, and has faces.
  */
 static int
-check_bot(const char *gfile, const char *bot_name)
+check_bot_exists(const char *gfile, const char *bot_name)
 {
     struct db_i *dbip = db_open(gfile, DB_OPEN_READONLY);
     if (!dbip) {
-	bu_log("[regress_facetize] check_bot: db_open(%s) failed\n", gfile);
-	return BRLCAD_ERROR;
+bu_log("[regress_facetize] check_bot: db_open(%s) failed\n", gfile);
+return BRLCAD_ERROR;
     }
-    if (db_dirbuild(dbip) < 0) {
-	db_close(dbip);
-	return BRLCAD_ERROR;
-    }
+    if (db_dirbuild(dbip) < 0) { db_close(dbip); return BRLCAD_ERROR; }
 
     struct directory *dp = db_lookup(dbip, bot_name, LOOKUP_QUIET);
     if (!dp || !(dp->d_flags & RT_DIR_SOLID)) {
-	bu_log("[regress_facetize] check_bot: '%s' not found or not a solid\n", bot_name);
-	db_close(dbip);
-	return BRLCAD_ERROR;
+bu_log("[regress_facetize] check_bot: '%s' not found or not solid\n", bot_name);
+db_close(dbip);
+return BRLCAD_ERROR;
     }
 
     struct rt_db_internal intern;
     RT_DB_INTERNAL_INIT(&intern);
     if (rt_db_get_internal(&intern, dp, dbip, NULL, &rt_uniresource) < 0) {
-	bu_log("[regress_facetize] check_bot: rt_db_get_internal failed for '%s'\n", bot_name);
-	db_close(dbip);
-	return BRLCAD_ERROR;
+db_close(dbip);
+return BRLCAD_ERROR;
     }
 
     int ok = BRLCAD_ERROR;
     if (intern.idb_minor_type == ID_BOT) {
-	struct rt_bot_internal *bot = (struct rt_bot_internal *)intern.idb_ptr;
-	if (bot->num_faces > 0)
-	    ok = BRLCAD_OK;
-	else
-	    bu_log("[regress_facetize] check_bot: '%s' has 0 faces\n", bot_name);
+struct rt_bot_internal *bot = (struct rt_bot_internal *)intern.idb_ptr;
+if (bot->num_faces > 0)
+    ok = BRLCAD_OK;
+else
+    bu_log("[regress_facetize] check_bot: '%s' has 0 faces\n", bot_name);
     } else {
-	bu_log("[regress_facetize] check_bot: '%s' type %d is not a BoT\n",
-	       bot_name, intern.idb_minor_type);
+bu_log("[regress_facetize] check_bot: '%s' type %d is not a BoT\n",
+       bot_name, intern.idb_minor_type);
     }
 
     rt_db_free_internal(&intern);
@@ -172,102 +179,203 @@ check_bot(const char *gfile, const char *bot_name)
     return ok;
 }
 
+/**
+ * Run rt_crofton_shoot on @a obj_name in @a gfile.
+ * Stores SA (mm2) and VOL (mm3) in *sa / *vol.
+ */
+static int
+crofton_estimate(const char *gfile, const char *obj_name,
+ double *sa, double *vol)
+{
+    *sa  = 0.0;
+    *vol = 0.0;
+
+    struct db_i *dbip = db_open(gfile, DB_OPEN_READONLY);
+    if (!dbip) return BRLCAD_ERROR;
+    if (db_dirbuild(dbip) < 0) { db_close(dbip); return BRLCAD_ERROR; }
+    db_update_nref(dbip, &rt_uniresource);
+
+    struct rt_i *rtip = rt_new_rti(dbip);
+    if (!rtip) { db_close(dbip); return BRLCAD_ERROR; }
+    if (rt_gettree(rtip, obj_name) != 0) {
+rt_free_rti(rtip); db_close(dbip); return BRLCAD_ERROR;
+    }
+    rt_prep_parallel(rtip, 1);
+
+    /* 2000 rays, 5% convergence threshold */
+    int ret = rt_crofton_shoot(rtip, 2000, 5.0, sa, vol);
+    rt_free_rti(rtip);
+    db_close(dbip);
+    return (ret == 0) ? BRLCAD_OK : BRLCAD_ERROR;
+}
+
+/**
+ * Run rt_bot_thin_check on @a bot_name in @a gfile.
+ * Returns number of thin faces found (0 = clean), -1 on error.
+ */
+static int
+bot_lint(const char *gfile, const char *bot_name)
+{
+    struct db_i *dbip = db_open(gfile, DB_OPEN_READONLY);
+    if (!dbip) return -1;
+    if (db_dirbuild(dbip) < 0) { db_close(dbip); return -1; }
+    db_update_nref(dbip, &rt_uniresource);
+
+    struct directory *dp = db_lookup(dbip, bot_name, LOOKUP_QUIET);
+    if (!dp) { db_close(dbip); return -1; }
+
+    struct rt_db_internal intern;
+    RT_DB_INTERNAL_INIT(&intern);
+    if (rt_db_get_internal(&intern, dp, dbip, NULL, &rt_uniresource) < 0) {
+db_close(dbip); return -1;
+    }
+    if (intern.idb_minor_type != ID_BOT) {
+rt_db_free_internal(&intern); db_close(dbip); return -1;
+    }
+
+    struct rt_bot_internal *bot = (struct rt_bot_internal *)intern.idb_ptr;
+    if (!bot->num_faces) {
+rt_db_free_internal(&intern); db_close(dbip); return 0;
+    }
+
+    struct rt_i *rtip = rt_new_rti(dbip);
+    if (!rtip) { rt_db_free_internal(&intern); db_close(dbip); return -1; }
+    if (rt_gettree(rtip, bot_name) != 0) {
+rt_free_rti(rtip); rt_db_free_internal(&intern); db_close(dbip); return -1;
+    }
+    rt_prep_parallel(rtip, 1);
+
+    struct bu_ptbl tfaces = BU_PTBL_INIT_ZERO;
+    int have_thin = rt_bot_thin_check(&tfaces, bot, rtip, VUNITIZE_TOL, 0);
+    int n_thin = (int)BU_PTBL_LEN(&tfaces);
+
+    rt_free_rti(rtip);
+    bu_ptbl_free(&tfaces);
+    rt_db_free_internal(&intern);
+    db_close(dbip);
+
+    return have_thin ? n_thin : 0;
+}
+
+/**
+ * Full post-facetize verification:
+ *   1. BoT exists and has faces.
+ *   2. Crofton SA/VOL of BoT matches CSG comb within tol_pct.
+ *   3. rt_bot_thin_check finds no thin-triangle artifacts.
+ */
+static int
+check_bot_full(const char *tcname,
+       const char *gfile,
+       const char *csg_name,
+       const char *bot_name,
+       double      tol_pct)
+{
+    if (check_bot_exists(gfile, bot_name) != BRLCAD_OK) {
+bu_log("[regress_facetize] %s: FAIL - BoT '%s' missing or empty\n",
+       tcname, bot_name);
+return BRLCAD_ERROR;
+    }
+
+    double csg_sa = 0.0, csg_vol = 0.0;
+    double bot_sa = 0.0, bot_vol = 0.0;
+    int have_csg = (crofton_estimate(gfile, csg_name, &csg_sa, &csg_vol) == BRLCAD_OK);
+    int have_bot = (crofton_estimate(gfile, bot_name, &bot_sa, &bot_vol) == BRLCAD_OK);
+
+    if (have_csg && have_bot && csg_sa > SMALL_FASTF && csg_vol > SMALL_FASTF) {
+double sa_err  = fabs(bot_sa  - csg_sa)  / csg_sa  * 100.0;
+double vol_err = fabs(bot_vol - csg_vol) / csg_vol * 100.0;
+
+bu_log("[regress_facetize] %s: Crofton CSG SA=%.0f mm2 VOL=%.0f mm3\n",
+       tcname, csg_sa, csg_vol);
+bu_log("[regress_facetize] %s: Crofton BoT SA=%.0f mm2 VOL=%.0f mm3  "
+       "(SA_err=%.1f%% VOL_err=%.1f%% tol=%.0f%%)\n",
+       tcname, bot_sa, bot_vol, sa_err, vol_err, tol_pct);
+
+if (sa_err > tol_pct) {
+    bu_log("[regress_facetize] %s: FAIL - SA mismatch %.1f%% > %.0f%%\n",
+   tcname, sa_err, tol_pct);
+    return BRLCAD_ERROR;
+}
+if (vol_err > tol_pct) {
+    bu_log("[regress_facetize] %s: FAIL - VOL mismatch %.1f%% > %.0f%%\n",
+   tcname, vol_err, tol_pct);
+    return BRLCAD_ERROR;
+}
+    } else {
+bu_log("[regress_facetize] %s: Crofton unavailable (CSG=%d BOT=%d)"
+       " - skipping metric check\n",
+       tcname, have_csg, have_bot);
+    }
+
+    int n_thin = bot_lint(gfile, bot_name);
+    if (n_thin < 0) {
+bu_log("[regress_facetize] %s: WARNING - bot_lint failed for '%s'\n",
+       tcname, bot_name);
+    } else if (n_thin > 0) {
+bu_log("[regress_facetize] %s: FAIL - %d thin-triangle artifact(s) in '%s'\n",
+       tcname, n_thin, bot_name);
+return BRLCAD_ERROR;
+    } else {
+bu_log("[regress_facetize] %s: bot_lint CLEAN (0 thin faces)\n", tcname);
+    }
+
+    return BRLCAD_OK;
+}
+
 /* ------------------------------------------------------------------ */
-/* TC1: basic window frame                                              */
+/* TC1: axis-aligned window frame                                       */
 /* ------------------------------------------------------------------ */
 
 /*
- * Wall: 200 × 300 × 20 mm box.
- * Window cutout: 80 × 120 × 20 mm box centred in the wall.
- *
- * Front face (Z=0) and back face (Z=20) of the cutout are exactly
- * coplanar with the corresponding faces of the wall.  This is the
- * canonical coplanar subtraction pattern.
- *
- * Expected: facetize succeeds and the resulting BoT has faces.
+ * Wall: 200 x 300 x 20 mm box.
+ * Window cutout: 80 x 120 x 20 mm box centred in the wall.
+ * Z=0 and Z=20 faces of both solids are exactly coplanar.
  */
 static int
 tc1_window_frame(const char *tmpdir, int verbose)
 {
-    bu_log("[regress_facetize] TC1: basic window-frame coplanar subtraction...\n");
+    bu_log("[regress_facetize] TC1: axis-aligned window-frame coplanar subtraction...\n");
 
-    /* Build the .g file path */
     struct bu_vls gpath = BU_VLS_INIT_ZERO;
     bu_vls_printf(&gpath, "%s/tc1_window.g", tmpdir);
     const char *gfile = bu_vls_cstr(&gpath);
 
-    /* Create fresh db */
-    if (bu_file_exists(gfile, NULL))
-	bu_file_delete(gfile);
+    if (bu_file_exists(gfile, NULL)) bu_file_delete(gfile);
     struct db_i *dbip = db_create(gfile, 5);
     if (!dbip) {
-	bu_log("[regress_facetize] TC1: db_create failed\n");
-	bu_vls_free(&gpath);
-	return BRLCAD_ERROR;
+bu_log("[regress_facetize] TC1: db_create failed\n");
+bu_vls_free(&gpath); return BRLCAD_ERROR;
     }
     db_update_nref(dbip, &rt_uniresource);
     struct rt_wdb *wdbp = wdb_dbopen(dbip, RT_WDB_TYPE_DB_DEFAULT);
 
-    /* wall.s: 200×300×20 box, front face at Z=0, back face at Z=20 */
     point_t wall_pts[8] = {
-	{0.0,   0.0,   0.0},
-	{200.0, 0.0,   0.0},
-	{200.0, 300.0, 0.0},
-	{0.0,   300.0, 0.0},
-	{0.0,   0.0,   20.0},
-	{200.0, 0.0,   20.0},
-	{200.0, 300.0, 20.0},
-	{0.0,   300.0, 20.0},
+{0.0,   0.0,   0.0}, {200.0, 0.0,   0.0},
+{200.0, 300.0, 0.0}, {0.0,   300.0, 0.0},
+{0.0,   0.0,   20.0},{200.0, 0.0,   20.0},
+{200.0, 300.0, 20.0},{0.0,   300.0, 20.0},
     };
-    if (write_arb8(wdbp, "wall.s", wall_pts) < 0) {
-	bu_log("[regress_facetize] TC1: mk_arb8 wall.s failed\n");
-	wdb_close(wdbp);
-	bu_vls_free(&gpath);
-	return BRLCAD_ERROR;
-    }
-
-    /* win.s: 80×120×20 box; front/back faces exactly coplanar with wall */
     point_t win_pts[8] = {
-	{60.0,  90.0,  0.0},
-	{140.0, 90.0,  0.0},
-	{140.0, 210.0, 0.0},
-	{60.0,  210.0, 0.0},
-	{60.0,  90.0,  20.0},
-	{140.0, 90.0,  20.0},
-	{140.0, 210.0, 20.0},
-	{60.0,  210.0, 20.0},
+{60.0,  90.0,  0.0}, {140.0, 90.0,  0.0},
+{140.0, 210.0, 0.0}, {60.0,  210.0, 0.0},
+{60.0,  90.0,  20.0},{140.0, 90.0,  20.0},
+{140.0, 210.0, 20.0},{60.0,  210.0, 20.0},
     };
-    if (write_arb8(wdbp, "win.s", win_pts) < 0) {
-	bu_log("[regress_facetize] TC1: mk_arb8 win.s failed\n");
-	wdb_close(wdbp);
-	bu_vls_free(&gpath);
-	return BRLCAD_ERROR;
-    }
 
-    /* wall.c = wall.s - win.s */
-    if (write_comb2(wdbp, "wall.c", "wall.s", 'u', "win.s", '-') < 0) {
-	bu_log("[regress_facetize] TC1: mk_comb wall.c failed\n");
-	wdb_close(wdbp);
-	bu_vls_free(&gpath);
-	return BRLCAD_ERROR;
+    if (write_arb8(wdbp, "wall.s", wall_pts) < 0 ||
+write_arb8(wdbp, "win.s",  win_pts)  < 0 ||
+write_comb2(wdbp, "wall.c", "wall.s", 'u', "win.s", '-') < 0) {
+bu_log("[regress_facetize] TC1: write failed\n");
+wdb_close(wdbp); bu_vls_free(&gpath); return BRLCAD_ERROR;
     }
-
     wdb_close(wdbp);
 
-    /* Run facetize */
-    int ret = run_facetize(gfile, "wall.c", "wall.bot", verbose);
-    if (ret != BRLCAD_OK) {
-	bu_log("[regress_facetize] TC1: FAIL - facetize returned error\n");
-	bu_vls_free(&gpath);
-	return BRLCAD_ERROR;
+    if (run_facetize(gfile, "wall.c", "wall.bot", verbose) != BRLCAD_OK) {
+bu_log("[regress_facetize] TC1: FAIL - facetize error\n");
+bu_vls_free(&gpath); return BRLCAD_ERROR;
     }
-
-    /* Verify output BoT */
-    ret = check_bot(gfile, "wall.bot");
-    if (ret != BRLCAD_OK) {
-	bu_log("[regress_facetize] TC1: FAIL - output BoT invalid\n");
-	bu_vls_free(&gpath);
-	return BRLCAD_ERROR;
+    if (check_bot_full("TC1", gfile, "wall.c", "wall.bot", 20.0) != BRLCAD_OK) {
+bu_vls_free(&gpath); return BRLCAD_ERROR;
     }
 
     bu_log("[regress_facetize] TC1: PASS\n");
@@ -276,19 +384,10 @@ tc1_window_frame(const char *tmpdir, int verbose)
 }
 
 /* ------------------------------------------------------------------ */
-/* TC2: stacked window cutouts (multiple subtractive instances)         */
+/* TC2: stacked window cutouts                                          */
 /* ------------------------------------------------------------------ */
 
-/*
- * Wall: same 200×300×20 mm box.
- * Two separate window cutouts, both exactly as thick as the wall.
- *
- * wall2.c = wall.s - win1.s - win2.s
- *
- * Both win1.s and win2.s are distinct primitives, each with front and
- * back faces coplanar with the wall.  This tests that each subtractive
- * instance gets its own SUB variant (different perturbation seed from TC1).
- */
+/* wall2.c = wall.s - win1.s - win2.s  (both cutouts Z-coplanar) */
 static int
 tc2_stacked_cutouts(const char *tmpdir, int verbose)
 {
@@ -298,104 +397,227 @@ tc2_stacked_cutouts(const char *tmpdir, int verbose)
     bu_vls_printf(&gpath, "%s/tc2_stacked.g", tmpdir);
     const char *gfile = bu_vls_cstr(&gpath);
 
-    if (bu_file_exists(gfile, NULL))
-	bu_file_delete(gfile);
+    if (bu_file_exists(gfile, NULL)) bu_file_delete(gfile);
     struct db_i *dbip = db_create(gfile, 5);
     if (!dbip) {
-	bu_log("[regress_facetize] TC2: db_create failed\n");
-	bu_vls_free(&gpath);
-	return BRLCAD_ERROR;
+bu_log("[regress_facetize] TC2: db_create failed\n");
+bu_vls_free(&gpath); return BRLCAD_ERROR;
     }
     db_update_nref(dbip, &rt_uniresource);
     struct rt_wdb *wdbp = wdb_dbopen(dbip, RT_WDB_TYPE_DB_DEFAULT);
 
-    /* wall.s */
     point_t wall_pts[8] = {
-	{0.0,   0.0,   0.0},
-	{200.0, 0.0,   0.0},
-	{200.0, 300.0, 0.0},
-	{0.0,   300.0, 0.0},
-	{0.0,   0.0,   20.0},
-	{200.0, 0.0,   20.0},
-	{200.0, 300.0, 20.0},
-	{0.0,   300.0, 20.0},
+{0.0,   0.0,   0.0}, {200.0, 0.0,   0.0},
+{200.0, 300.0, 0.0}, {0.0,   300.0, 0.0},
+{0.0,   0.0,   20.0},{200.0, 0.0,   20.0},
+{200.0, 300.0, 20.0},{0.0,   300.0, 20.0},
     };
-    if (write_arb8(wdbp, "wall.s", wall_pts) < 0) {
-	bu_log("[regress_facetize] TC2: mk_arb8 wall.s failed\n");
-	wdb_close(wdbp);
-	bu_vls_free(&gpath);
-	return BRLCAD_ERROR;
-    }
-
-    /* win1.s: left window, Z-coplanar with wall */
     point_t win1_pts[8] = {
-	{20.0,  80.0,  0.0},
-	{80.0,  80.0,  0.0},
-	{80.0,  220.0, 0.0},
-	{20.0,  220.0, 0.0},
-	{20.0,  80.0,  20.0},
-	{80.0,  80.0,  20.0},
-	{80.0,  220.0, 20.0},
-	{20.0,  220.0, 20.0},
+{20.0, 80.0,  0.0}, {80.0, 80.0,  0.0},
+{80.0, 220.0, 0.0}, {20.0, 220.0, 0.0},
+{20.0, 80.0,  20.0},{80.0, 80.0,  20.0},
+{80.0, 220.0, 20.0},{20.0, 220.0, 20.0},
     };
-    if (write_arb8(wdbp, "win1.s", win1_pts) < 0) {
-	bu_log("[regress_facetize] TC2: mk_arb8 win1.s failed\n");
-	wdb_close(wdbp);
-	bu_vls_free(&gpath);
-	return BRLCAD_ERROR;
-    }
-
-    /* win2.s: right window, Z-coplanar with wall */
     point_t win2_pts[8] = {
-	{120.0, 80.0,  0.0},
-	{180.0, 80.0,  0.0},
-	{180.0, 220.0, 0.0},
-	{120.0, 220.0, 0.0},
-	{120.0, 80.0,  20.0},
-	{180.0, 80.0,  20.0},
-	{180.0, 220.0, 20.0},
-	{120.0, 220.0, 20.0},
+{120.0, 80.0,  0.0}, {180.0, 80.0,  0.0},
+{180.0, 220.0, 0.0}, {120.0, 220.0, 0.0},
+{120.0, 80.0,  20.0},{180.0, 80.0,  20.0},
+{180.0, 220.0, 20.0},{120.0, 220.0, 20.0},
     };
-    if (write_arb8(wdbp, "win2.s", win2_pts) < 0) {
-	bu_log("[regress_facetize] TC2: mk_arb8 win2.s failed\n");
-	wdb_close(wdbp);
-	bu_vls_free(&gpath);
-	return BRLCAD_ERROR;
-    }
 
-    /* wall2.c = wall.s - win1.s - win2.s */
+    if (write_arb8(wdbp, "wall.s",  wall_pts) < 0 ||
+write_arb8(wdbp, "win1.s",  win1_pts) < 0 ||
+write_arb8(wdbp, "win2.s",  win2_pts) < 0) {
+bu_log("[regress_facetize] TC2: write primitives failed\n");
+wdb_close(wdbp); bu_vls_free(&gpath); return BRLCAD_ERROR;
+    }
     {
-	struct bu_list head;
-	BU_LIST_INIT(&head);
-	mk_addmember("wall.s",  &head, NULL, WMOP_UNION);
-	mk_addmember("win1.s",  &head, NULL, WMOP_SUBTRACT);
-	mk_addmember("win2.s",  &head, NULL, WMOP_SUBTRACT);
-	if (mk_comb(wdbp, "wall2.c", &head, 0, NULL, NULL, NULL,
-		    0, 0, 0, 0, 0, 0, 0) < 0) {
-	    bu_log("[regress_facetize] TC2: mk_comb wall2.c failed\n");
-	    wdb_close(wdbp);
-	    bu_vls_free(&gpath);
-	    return BRLCAD_ERROR;
-	}
+struct bu_list head;
+BU_LIST_INIT(&head);
+mk_addmember("wall.s", &head, NULL, WMOP_UNION);
+mk_addmember("win1.s", &head, NULL, WMOP_SUBTRACT);
+mk_addmember("win2.s", &head, NULL, WMOP_SUBTRACT);
+if (mk_comb(wdbp, "wall2.c", &head, 0, NULL, NULL, NULL,
+    0, 0, 0, 0, 0, 0, 0) < 0) {
+    bu_log("[regress_facetize] TC2: mk_comb failed\n");
+    wdb_close(wdbp); bu_vls_free(&gpath); return BRLCAD_ERROR;
+}
     }
-
     wdb_close(wdbp);
 
-    int ret = run_facetize(gfile, "wall2.c", "wall2.bot", verbose);
-    if (ret != BRLCAD_OK) {
-	bu_log("[regress_facetize] TC2: FAIL - facetize returned error\n");
-	bu_vls_free(&gpath);
-	return BRLCAD_ERROR;
+    if (run_facetize(gfile, "wall2.c", "wall2.bot", verbose) != BRLCAD_OK) {
+bu_log("[regress_facetize] TC2: FAIL - facetize error\n");
+bu_vls_free(&gpath); return BRLCAD_ERROR;
     }
-
-    ret = check_bot(gfile, "wall2.bot");
-    if (ret != BRLCAD_OK) {
-	bu_log("[regress_facetize] TC2: FAIL - output BoT invalid\n");
-	bu_vls_free(&gpath);
-	return BRLCAD_ERROR;
+    if (check_bot_full("TC2", gfile, "wall2.c", "wall2.bot", 20.0) != BRLCAD_OK) {
+bu_vls_free(&gpath); return BRLCAD_ERROR;
     }
 
     bu_log("[regress_facetize] TC2: PASS\n");
+    bu_vls_free(&gpath);
+    return BRLCAD_OK;
+}
+
+/* ------------------------------------------------------------------ */
+/* TC3: rotated (30 degrees around Z) coplanar subtraction             */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Same geometry as TC1 rotated 30 degrees around the Z-axis.
+ * The Z=0 and Z=20 planes are still exactly coplanar between wall3.s and
+ * win3.s; all lateral faces are non-axis-aligned.
+ *
+ * Analytic net volume (rotation-invariant):
+ *   200 x 300 x 20 - 80 x 120 x 20 = 1 200 000 - 192 000 = 1 008 000 mm3
+ */
+static int
+tc3_rotated_wall(const char *tmpdir, int verbose)
+{
+    bu_log("[regress_facetize] TC3: non-axis-aligned (30 deg rotated) coplanar subtraction...\n");
+
+    struct bu_vls gpath = BU_VLS_INIT_ZERO;
+    bu_vls_printf(&gpath, "%s/tc3_rotated.g", tmpdir);
+    const char *gfile = bu_vls_cstr(&gpath);
+
+    if (bu_file_exists(gfile, NULL)) bu_file_delete(gfile);
+    struct db_i *dbip = db_create(gfile, 5);
+    if (!dbip) {
+bu_log("[regress_facetize] TC3: db_create failed\n");
+bu_vls_free(&gpath); return BRLCAD_ERROR;
+    }
+    db_update_nref(dbip, &rt_uniresource);
+    struct rt_wdb *wdbp = wdb_dbopen(dbip, RT_WDB_TYPE_DB_DEFAULT);
+
+    /* Rotation by 30 deg around Z: x' = x*c - y*s,  y' = x*s + y*c */
+    const double c = 0.866025403784; /* cos 30 */
+    const double s = 0.5;            /* sin 30 */
+
+#define R30(x_, y_, z_) { (x_)*c - (y_)*s,  (x_)*s + (y_)*c,  (z_) }
+
+    /* wall3.s: 200 x 300 x 20 rotated 30 deg */
+    point_t wall3_pts[8] = {
+R30(  0.0,   0.0,  0.0), R30(200.0,   0.0,  0.0),
+R30(200.0, 300.0,  0.0), R30(  0.0, 300.0,  0.0),
+R30(  0.0,   0.0, 20.0), R30(200.0,   0.0, 20.0),
+R30(200.0, 300.0, 20.0), R30(  0.0, 300.0, 20.0),
+    };
+    /* win3.s: 80 x 120 x 20 cutout, same rotation, coplanar Z faces */
+    point_t win3_pts[8] = {
+R30( 60.0,  90.0,  0.0), R30(140.0,  90.0,  0.0),
+R30(140.0, 210.0,  0.0), R30( 60.0, 210.0,  0.0),
+R30( 60.0,  90.0, 20.0), R30(140.0,  90.0, 20.0),
+R30(140.0, 210.0, 20.0), R30( 60.0, 210.0, 20.0),
+    };
+#undef R30
+
+    if (write_arb8(wdbp, "wall3.s", wall3_pts) < 0 ||
+write_arb8(wdbp, "win3.s",  win3_pts)  < 0 ||
+write_comb2(wdbp, "wall3.c", "wall3.s", 'u', "win3.s", '-') < 0) {
+bu_log("[regress_facetize] TC3: write failed\n");
+wdb_close(wdbp); bu_vls_free(&gpath); return BRLCAD_ERROR;
+    }
+    wdb_close(wdbp);
+
+    if (run_facetize(gfile, "wall3.c", "wall3.bot", verbose) != BRLCAD_OK) {
+bu_log("[regress_facetize] TC3: FAIL - facetize error\n");
+bu_vls_free(&gpath); return BRLCAD_ERROR;
+    }
+    if (check_bot_full("TC3", gfile, "wall3.c", "wall3.bot", 20.0) != BRLCAD_OK) {
+bu_vls_free(&gpath); return BRLCAD_ERROR;
+    }
+
+    bu_log("[regress_facetize] TC3: PASS\n");
+    bu_vls_free(&gpath);
+    return BRLCAD_OK;
+}
+
+/* ------------------------------------------------------------------ */
+/* TC4: havoc-inspired same-primitive union + subtract in one tree      */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Pattern seen throughout havoc.g (e.g. r.rad1, r.sgt1, r.rot18):
+ * the same solid appears as both a union (u) AND a subtract (-) member
+ * in one combination.
+ *
+ * Here:
+ *   base4.s    : 200 x 200 x 100 mm box  (X:0-200,  Y:0-200, Z:0-100)
+ *   protrude4.s: 300 x 200 x 100 mm box  (X:100-400, Y:0-200, Z:0-100)
+ *     (overlaps base4.s on X:100-200; exact same Z range = coplanar Z faces)
+ *
+ *   comb4.c = base4.s u protrude4.s - base4.s
+ *
+ * Boolean algebra:
+ *   (base4 union protrude4) - base4 = protrude4 - (protrude4 intersect base4)
+ *   = box X:200-400, Y:0-200, Z:0-100   (volume = 200*200*100 = 4 000 000 mm3)
+ *
+ * base4.s occupies BOTH a 'u' slot and a '-' slot in the tree.  The variant
+ * planning pass must assign it separate perturbation slots so that its
+ * Z=0/Z=100 faces (coplanar with protrude4.s) get different jitter seeds.
+ */
+static int
+tc4_havoc_reuse(const char *tmpdir, int verbose)
+{
+    bu_log("[regress_facetize] TC4: havoc-inspired same-primitive union+subtract reuse...\n");
+
+    struct bu_vls gpath = BU_VLS_INIT_ZERO;
+    bu_vls_printf(&gpath, "%s/tc4_havoc.g", tmpdir);
+    const char *gfile = bu_vls_cstr(&gpath);
+
+    if (bu_file_exists(gfile, NULL)) bu_file_delete(gfile);
+    struct db_i *dbip = db_create(gfile, 5);
+    if (!dbip) {
+bu_log("[regress_facetize] TC4: db_create failed\n");
+bu_vls_free(&gpath); return BRLCAD_ERROR;
+    }
+    db_update_nref(dbip, &rt_uniresource);
+    struct rt_wdb *wdbp = wdb_dbopen(dbip, RT_WDB_TYPE_DB_DEFAULT);
+
+    /* base4.s: 200 x 200 x 100 */
+    point_t base_pts[8] = {
+{  0.0, 0.0,   0.0}, {200.0, 0.0,   0.0},
+{200.0, 200.0, 0.0}, {  0.0, 200.0, 0.0},
+{  0.0, 0.0,   100.0}, {200.0, 0.0,   100.0},
+{200.0, 200.0, 100.0}, {  0.0, 200.0, 100.0},
+    };
+    /* protrude4.s: 300 x 200 x 100, overlaps base4 on X:100-200, same Z */
+    point_t protrude_pts[8] = {
+{100.0, 0.0,   0.0}, {400.0, 0.0,   0.0},
+{400.0, 200.0, 0.0}, {100.0, 200.0, 0.0},
+{100.0, 0.0,   100.0}, {400.0, 0.0,   100.0},
+{400.0, 200.0, 100.0}, {100.0, 200.0, 100.0},
+    };
+
+    if (write_arb8(wdbp, "base4.s",    base_pts)    < 0 ||
+write_arb8(wdbp, "protrude4.s", protrude_pts) < 0) {
+bu_log("[regress_facetize] TC4: write primitives failed\n");
+wdb_close(wdbp); bu_vls_free(&gpath); return BRLCAD_ERROR;
+    }
+
+    /* comb4.c = base4.s u protrude4.s - base4.s */
+    {
+struct bu_list head;
+BU_LIST_INIT(&head);
+mk_addmember("base4.s",     &head, NULL, WMOP_UNION);
+mk_addmember("protrude4.s", &head, NULL, WMOP_UNION);
+mk_addmember("base4.s",     &head, NULL, WMOP_SUBTRACT);
+if (mk_comb(wdbp, "comb4.c", &head, 0, NULL, NULL, NULL,
+    0, 0, 0, 0, 0, 0, 0) < 0) {
+    bu_log("[regress_facetize] TC4: mk_comb comb4.c failed\n");
+    wdb_close(wdbp); bu_vls_free(&gpath); return BRLCAD_ERROR;
+}
+    }
+    wdb_close(wdbp);
+
+    if (run_facetize(gfile, "comb4.c", "comb4.bot", verbose) != BRLCAD_OK) {
+bu_log("[regress_facetize] TC4: FAIL - facetize error\n");
+bu_vls_free(&gpath); return BRLCAD_ERROR;
+    }
+    if (check_bot_full("TC4", gfile, "comb4.c", "comb4.bot", 20.0) != BRLCAD_OK) {
+bu_vls_free(&gpath); return BRLCAD_ERROR;
+    }
+
+    bu_log("[regress_facetize] TC4: PASS\n");
     bu_vls_free(&gpath);
     return BRLCAD_OK;
 }
@@ -413,25 +635,27 @@ main(int argc, const char **argv)
     const char *tmpdir = NULL;
 
     for (int i = 1; i < argc; i++) {
-	if (BU_STR_EQUAL(argv[i], "-v") || BU_STR_EQUAL(argv[i], "--verbose"))
-	    verbose++;
-	else if (!tmpdir)
-	    tmpdir = argv[i];
+if (BU_STR_EQUAL(argv[i], "-v") || BU_STR_EQUAL(argv[i], "--verbose"))
+    verbose++;
+else if (!tmpdir)
+    tmpdir = argv[i];
     }
 
     if (!tmpdir) {
-	bu_log("Usage: regress_facetize [-v] <tmpdir>\n");
-	return 1;
+bu_log("Usage: regress_facetize [-v] <tmpdir>\n");
+return 1;
     }
 
     int ret = 0;
-    if (tc1_window_frame(tmpdir, verbose) != BRLCAD_OK) ret = 1;
+    if (tc1_window_frame(tmpdir, verbose)   != BRLCAD_OK) ret = 1;
     if (tc2_stacked_cutouts(tmpdir, verbose) != BRLCAD_OK) ret = 1;
+    if (tc3_rotated_wall(tmpdir, verbose)   != BRLCAD_OK) ret = 1;
+    if (tc4_havoc_reuse(tmpdir, verbose)    != BRLCAD_OK) ret = 1;
 
     if (ret == 0)
-	bu_log("[regress_facetize] All tests PASSED\n");
+bu_log("[regress_facetize] All tests PASSED\n");
     else
-	bu_log("[regress_facetize] One or more tests FAILED\n");
+bu_log("[regress_facetize] One or more tests FAILED\n");
 
     return ret;
 }
