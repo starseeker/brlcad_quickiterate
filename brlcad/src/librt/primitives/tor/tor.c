@@ -1445,7 +1445,6 @@ rt_tor_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     struct vertex **vertp[4];
     int nfaces;
     int i;
-    fastf_t rel;
 
     RT_CK_DB_INTERNAL(ip);
     BG_CK_TESS_TOL(ttol);
@@ -1483,18 +1482,22 @@ rt_tor_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	return 0;
     }
 
-    /* Uniformly select the tighter of abs/rel tolerance, falling back to
-     * 10 % of the outer torus diameter when neither is specified.
-     * This matches the behaviour of all other curved primitives. */
-    rel = primitive_get_absolute_tolerance(ttol, 2.0 * (tip->r_a + r_h_eff));
-    /* Clamp to prevent excessively dense meshes. */
+    /* Compute segment counts for the major circle (nlen, radius r_a) and the
+     * minor circle (nw, radius r_h_eff) independently, using each circle's
+     * own radius as the characteristic length.  Using the full bbox diameter
+     * for both underestimates nw for thin tori (r_a >> r_h), which leads to
+     * coarse tessellation and large SA errors at typical tolerances.       */
     {
-	fastf_t ntol_dummy = M_PI;  /* clamp only dtol here */
-	fastf_t bbox_diag = 2.0 * (tip->r_a + r_h_eff);
-	primitive_clamp_tess_tol(&rel, &ntol_dummy, bbox_diag);
+	fastf_t abs_len = primitive_get_absolute_tolerance(ttol, 2.0 * tip->r_a);
+	fastf_t abs_w   = primitive_get_absolute_tolerance(ttol, 2.0 * r_h_eff);
+	fastf_t ntol_dummy = M_PI;
+	fastf_t bbox_diag  = 2.0 * (tip->r_a + r_h_eff);
+	primitive_clamp_tess_tol(&abs_len, &ntol_dummy, bbox_diag);
+	ntol_dummy = M_PI;
+	primitive_clamp_tess_tol(&abs_w,   &ntol_dummy, bbox_diag);
+	nlen = rt_num_circular_segments(abs_len, tip->r_a);
+	nw   = rt_num_circular_segments(abs_w,   r_h_eff);
     }
-    nlen = rt_num_circular_segments(rel, tip->r_a);
-    nw   = rt_num_circular_segments(rel, r_h_eff);
 
     /* Apply surface-normal tolerance if it demands more segments.
      * For a facet subtending angle theta the normal deviates by theta/2
@@ -1984,6 +1987,19 @@ rt_tor_surf_area(fastf_t *area, const struct rt_db_internal *ip)
 {
     struct rt_tor_internal *tip = (struct rt_tor_internal *)ip->idb_ptr;
     RT_TOR_CK_MAGIC(tip);
+
+    /* For spindle tori (r_h > r_a) the tube self-intersects and
+     * rt_tor_spindle_tess / the raytracer only produce the outer
+     * envelope.  The mathematical 4π²r_a·r_h formula counts the
+     * full self-intersecting surface area, which does not match the
+     * tessellation.  Use Crofton to estimate the raytrace-visible SA. */
+    if (tip->r_h > tip->r_a) {
+	struct rt_db_internal ip_meth = *ip;
+	ip_meth.idb_meth = &OBJ[ID_TOR];
+	rt_crofton_surf_area(area, &ip_meth);
+	return;
+    }
+
     /* r_h: radius of torus tube
      * r_a: radius from axis of rotation to center of tube
      */
@@ -1996,6 +2012,15 @@ rt_tor_volume(fastf_t *vol, const struct rt_db_internal *ip)
 {
     struct rt_tor_internal *tip = (struct rt_tor_internal *)ip->idb_ptr;
     RT_TOR_CK_MAGIC(tip);
+
+    /* For spindle tori use Crofton to match the raytraced volume. */
+    if (tip->r_h > tip->r_a) {
+	struct rt_db_internal ip_meth = *ip;
+	ip_meth.idb_meth = &OBJ[ID_TOR];
+	rt_crofton_volume(vol, &ip_meth);
+	return;
+    }
+
     *vol = 2.0 * M_PI * M_PI * (tip->r_h * tip->r_h) * tip->r_a;
 }
 
