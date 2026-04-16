@@ -337,10 +337,10 @@ rt_crofton_shoot(struct rt_i                      *rtip,
     VSETALL(tight_min,  MAX_FASTF);
     VSETALL(tight_max, -MAX_FASTF);
     {
-	struct soltab *_crofton_stp;
-	RT_VISIT_ALL_SOLTABS_START(_crofton_stp, rtip) {
-	    VMIN(tight_min, _crofton_stp->st_min);
-	    VMAX(tight_max, _crofton_stp->st_max);
+	struct soltab *stp;
+	RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
+	    VMIN(tight_min, stp->st_min);
+	    VMAX(tight_max, stp->st_max);
 	} RT_VISIT_ALL_SOLTABS_END;
     }
 
