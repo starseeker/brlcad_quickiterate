@@ -1716,7 +1716,12 @@ add_seg(struct isect_stuff *isect,
 
 
     if (seg->seg_in.hit_dist > 0.0 || seg->seg_out.hit_dist > 0.0) {
-	return ++isect->num_segs > isect->ap->a_onehit;
+	++isect->num_segs;
+	/* a_onehit == 0 means "find all hits" (Crofton, compositing);
+	 * only apply the limit when a_onehit is positive.
+	 */
+	if (isect->ap->a_onehit > 0 && isect->num_segs > isect->ap->a_onehit)
+	    return 1;
     }
     return 0;
 }
