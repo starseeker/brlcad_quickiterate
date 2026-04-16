@@ -1987,6 +1987,11 @@ isect_ray_cell_top(struct isect_stuff *isect, struct dsp_bb *dsp_bb)
 	VMOVE(hits[1].hit_normal, dsp_pl[isect->dmax]);
 	hits[1].hit_surfno = isect->dmax;
 
+	/* Only add the fallback segment when the BB exit is strictly
+	 * after the in-hit; for rays that enter from behind the BB or
+	 * at a glancing angle the distances can be equal or inverted,
+	 * which would produce a zero- or negative-length segment.
+	 */
 	if (hits[1].hit_dist > hitp->hit_dist) {
 	    VMOVE(bbmin, dsp_bb->dspb_rpp.dsp_min);
 	    VMOVE(bbmax, dsp_bb->dspb_rpp.dsp_max);
