@@ -51,12 +51,13 @@ verify_crofton_estimates(void)
 
     printf("\n--- Crofton estimator verification ---\n");
 
+    struct rt_crofton_params cparams = {0, 0.0, 0.0};
+
 #define CROFTON_CHECK(label, ip_ptr, analytic_sa, analytic_vol) \
     do { \
 	struct rt_db_internal *_ip = (ip_ptr); \
 	fastf_t _csa = 0.0, _cvol = 0.0; \
-	rt_crofton_surf_area(&_csa, _ip); \
-	rt_crofton_volume(&_cvol, _ip); \
+	rt_crofton_sample(&_csa, &_cvol, _ip, &cparams); \
 	double _sa_err  = fabs(_csa  - (analytic_sa))  / ((analytic_sa)  > 0 ? (analytic_sa)  : 1.0) * 100.0; \
 	double _vol_err = fabs(_cvol - (analytic_vol)) / ((analytic_vol) > 0 ? (analytic_vol) : 1.0) * 100.0; \
 	const char *_sa_tag  = (_sa_err  <= tol_pct) ? "SA-OK"  : "SA-FAIL"; \
