@@ -160,43 +160,6 @@ analyze_total_surf_area(struct current_state *state);
 ANALYZE_EXPORT extern void
 analyze_surf_area_region(struct current_state *state, int i, char **name, double *surf_area, double *high, double *low);
 
-
-/**
- * Estimate surface area and volume of a named object in a BRL-CAD database
- * using the Cauchy-Crofton integral-geometry sampling method.
- *
- * Random pairs of points on the object's bounding sphere are connected by
- * chord rays that are shot through the geometry.  Hit statistics are used
- * to apply the Cauchy-Crofton formula:
- *
- *   SA = 4*pi*R^2 * N_crossings / (2 * N_rays)
- *   V  = pi * R  * total_chord_length / N_rays
- *
- * The estimator converges to within @p threshold_pct percent change between
- * consecutive iterations (after at least 3 iterations).  Setting
- * threshold_pct to 0 performs exactly one batch of @p min_samples rays.
- *
- * @param[in]  dbip           Open database instance (already dirbuild'd)
- * @param[in]  obj            Object or combination name to analyze
- * @param[in]  threshold_pct  Convergence threshold as a percentage (e.g. 1.0
- *                            for 1 percent); set to 0 for single-pass
- * @param[in]  min_samples    Minimum rays per iteration (clamped to >= 1000)
- * @param[out] out_surf_area  Estimated exterior surface area (mm^2)
- * @param[out] out_volume     Estimated enclosed volume (mm^3)
- * @param[in]  msgs           Optional bu_vls for diagnostic messages (NULL ok)
- *
- * @return 0 on success, -1 on error (bad inputs, rt_gettree failure, etc.)
- */
-ANALYZE_EXPORT extern int
-analyze_crofton_sample(struct db_i   *dbip,
-		       const char    *obj,
-		       double         threshold_pct,
-		       size_t         min_samples,
-		       double        *out_surf_area,
-		       double        *out_volume,
-		       struct bu_vls *msgs);
-
-
 /**
  * performs raytracing based on the current state
  */
