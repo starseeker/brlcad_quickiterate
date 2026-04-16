@@ -3566,6 +3566,29 @@ rt_dsp_free(register struct soltab *stp)
 }
 
 
+/**
+ * Swap the BVH root pointer on a DSP soltab and return the old value.
+ *
+ * Used exclusively by regression tests to toggle between the BVH shot path
+ * (bvh_root != NULL) and the legacy HBB-pyramid/DDA path (bvh_root == NULL)
+ * without rebuilding the rt_i.  The caller is responsible for restoring the
+ * original value after the test.
+ *
+ * Returns NULL if @p stp is not a DSP solid.
+ */
+RT_EXPORT void *dsp_bvh_root_swap(struct soltab *stp, void *new_root);
+void *
+dsp_bvh_root_swap(struct soltab *stp, void *new_root)
+{
+    if (!stp || stp->st_id != ID_DSP)
+	return NULL;
+    struct dsp_specific *dsp = (struct dsp_specific *)stp->st_specific;
+    void *old = (void *)dsp->bvh_root;
+    dsp->bvh_root = (struct bvh_flat_node *)new_root;
+    return old;
+}
+
+
 int
 rt_dsp_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *UNUSED(tol), const struct bview *UNUSED(info))
 {
