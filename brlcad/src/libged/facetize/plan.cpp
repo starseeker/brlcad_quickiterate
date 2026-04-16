@@ -78,6 +78,17 @@
 static const char * const PLAN_BASE_SUFFIX = "__adj_";
 static const char * const PLAN_SUB_SUFFIX  = "__adj_sub_";
 
+/* Number of discrete jitter steps for deterministic perturbation factor.
+ * Produces jitter in [0, (PLAN_JITTER_STEPS-1)/PLAN_JITTER_STEPS] range. */
+#define PLAN_JITTER_STEPS 10
+
+/* Low-32-bit mask used when folding a 64-bit hash to an 8-hex-digit suffix. */
+#define PLAN_HASH_MASK_32 (0xFFFFFFFFULL)
+
+/* Maximum number of characters kept from a source name in the hash-truncated
+ * variant name form (leaves room for the suffix and 8-digit hash). */
+#define PLAN_TRUNCATED_SRCNAME_LEN 40
+
 /* ------------------------------------------------------------------ */
 /* Instance record                                                      */
 /* ------------------------------------------------------------------ */
@@ -195,8 +206,9 @@ plan_walk_dp(PlanWalkCtx *ctx, struct directory *dp, bool in_sub)
 /**
  * Compute a deterministic perturbation factor for a variant slot.
  *
- * A hash of (src_name, role char, index) produces a jitter in [0, 0.9] steps,
- * which is added to the role-specific base offset:
+ * A hash of (src_name, role char, index) produces a jitter in
+ * [0, (PLAN_JITTER_STEPS-1)/PLAN_JITTER_STEPS] steps, which is added to the
+ * role-specific base offset:
  *   BASE (is_sub=false): [1.0, 1.9] x BN_TOL_DIST
  *   SUB  (is_sub=true):  [5.0, 5.9] x BN_TOL_DIST
  */
@@ -211,7 +223,7 @@ variant_perturb_factor(const std::string &src_name, bool is_sub, int idx)
 	uint64_t h = bu_data_hash_val(hs);
 	bu_data_hash_destroy(hs);
 
-	double jitter = (double)(h % 10) * 0.1;
+	double jitter = (double)(h % PLAN_JITTER_STEPS) / (double)PLAN_JITTER_STEPS;
 	double base   = is_sub ? 5.0 : 1.0;
 	return (fastf_t)((base + jitter) * BN_TOL_DIST);
 }
@@ -248,9 +260,9 @@ natural_variant_name(const std::string &src_name, bool is_sub, int idx)
 	/* Hash-truncated form: first 40 chars of source + suffix + hash */
 	uint64_t h = bu_data_hash(candidate.c_str(), candidate.size());
 	char hbuf[20];
-	snprintf(hbuf, sizeof(hbuf), "%08" PRIx64, (uint64_t)(h & 0xFFFFFFFFULL));
+	snprintf(hbuf, sizeof(hbuf), "%08" PRIx64, (uint64_t)(h & PLAN_HASH_MASK_32));
 
-	return src_name.substr(0, 40) + sfx + hbuf;
+	return src_name.substr(0, PLAN_TRUNCATED_SRCNAME_LEN) + sfx + hbuf;
 }
 
 /* ------------------------------------------------------------------ */
