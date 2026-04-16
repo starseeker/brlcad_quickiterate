@@ -491,10 +491,18 @@ check_nmg_mesh(const char *label, struct model *m,
 
 	const struct rt_functab *ft = &OBJ[ip->idb_minor_type];
 
-	if (ft->ft_surf_area)
-	    ft->ft_surf_area(&analytic_sa, ip);
-	if (ft->ft_volume)
-	    ft->ft_volume(&analytic_v, ip);
+	if (!BU_SETJUMP) {
+	    if (ft->ft_surf_area)
+		ft->ft_surf_area(&analytic_sa, ip);
+	    if (ft->ft_volume)
+		ft->ft_volume(&analytic_v, ip);
+	} else {
+	    BU_UNSETJUMP;
+	    analytic_sa = -1.0;
+	    analytic_v = -1.0;
+	    if (!quiet)
+		fprintf(stderr, "  METRICS: %-44s  analytic query bombed, using NA/fallback\n", label);
+	} BU_UNSETJUMP;
 
 	/* crofton_from_ip() requires ip->idb_meth to export the primitive to
 	 * an in-memory database; hand-crafted test IPs may leave this field
@@ -507,12 +515,22 @@ check_nmg_mesh(const char *label, struct model *m,
 		ip_meth.idb_meth = &OBJ[ip_meth.idb_minor_type];
 	    if (analytic_sa <= 0.0) {
 		fastf_t croft_sa = 0.0;
-		rt_crofton_surf_area(&croft_sa, &ip_meth);
+		if (!BU_SETJUMP) {
+		    rt_crofton_surf_area(&croft_sa, &ip_meth);
+		} else {
+		    BU_UNSETJUMP;
+		    croft_sa = 0.0;
+		} BU_UNSETJUMP;
 		if (croft_sa > 0.0) analytic_sa = croft_sa;
 	    }
 	    if (analytic_v <= 0.0) {
 		fastf_t croft_v = 0.0;
-		rt_crofton_volume(&croft_v, &ip_meth);
+		if (!BU_SETJUMP) {
+		    rt_crofton_volume(&croft_v, &ip_meth);
+		} else {
+		    BU_UNSETJUMP;
+		    croft_v = 0.0;
+		} BU_UNSETJUMP;
 		if (croft_v > 0.0) analytic_v = croft_v;
 	    }
 	}
