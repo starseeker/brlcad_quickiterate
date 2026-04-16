@@ -278,7 +278,7 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_LABELS_CAST(rt_tor_labels), /* label */
 	RTFUNCTAB_FUNC_KEYPOINT_CAST(rt_tor_keypoint), /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_tor_mat),
-	NULL, /* perturb */
+	RTFUNCTAB_FUNC_PERTURB_CAST(rt_tor_perturb), /* perturb */
 	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
     },
 
@@ -380,7 +380,7 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_LABELS_CAST(rt_ell_labels), /* label */
 	RTFUNCTAB_FUNC_KEYPOINT_CAST(rt_ell_keypoint), /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_ell_mat),
-	NULL, /* perturb */
+	RTFUNCTAB_FUNC_PERTURB_CAST(rt_ell_perturb), /* perturb */
 	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
     },
 
@@ -737,7 +737,7 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_LABELS_CAST(rt_ell_labels), /* label */
 	RTFUNCTAB_FUNC_KEYPOINT_CAST(rt_ell_keypoint), /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_ell_mat),
-	NULL, /* perturb */
+	RTFUNCTAB_FUNC_PERTURB_CAST(rt_ell_perturb), /* perturb - SPH shares rt_ell_internal */
 	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_generic_scene_obj)
     },
 

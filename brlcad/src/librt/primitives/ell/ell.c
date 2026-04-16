@@ -2141,6 +2141,58 @@ ell_kpt_end:
 }
 
 
+/**
+ * Perturb an ellipsoid (or sphere) by expanding each semi-axis outward by
+ * @a val.  Works for both ID_ELL and ID_SPH since they share the same internal
+ * structure; the output preserves the input idb_type.  @a planar_only is
+ * ignored because an ellipsoid has no planar faces.
+ */
+int
+rt_ell_perturb(struct rt_db_internal **oip, const struct rt_db_internal *ip,
+	       int UNUSED(planar_only), fastf_t val)
+{
+    if (NEAR_ZERO(val, SMALL_FASTF))
+	return BRLCAD_OK;
+
+    if (!oip || !ip)
+	return BRLCAD_ERROR;
+
+    struct rt_ell_internal *oell = (struct rt_ell_internal *)ip->idb_ptr;
+    RT_ELL_CK_MAGIC(oell);
+
+    struct rt_db_internal *nip;
+    BU_GET(nip, struct rt_db_internal);
+    RT_DB_INTERNAL_INIT(nip);
+    nip->idb_major_type = DB5_MAJORTYPE_BRLCAD;
+    nip->idb_type = ip->idb_type;   /* preserve ELL vs SPH */
+    nip->idb_meth = &OBJ[ip->idb_type];
+
+    struct rt_ell_internal *ell = NULL;
+    BU_ALLOC(ell, struct rt_ell_internal);
+    nip->idb_ptr = ell;
+    ell->magic = RT_ELL_INTERNAL_MAGIC;
+    VMOVE(ell->v, oell->v);
+    VMOVE(ell->a, oell->a);
+    VMOVE(ell->b, oell->b);
+    VMOVE(ell->c, oell->c);
+
+    /* Scale each semi-axis outward by val so all surface faces move away from
+     * the original position, breaking exact coplanarity with adjacent solids. */
+    vect_t mvec;
+    VMOVE(mvec, ell->a); VUNITIZE(mvec); VSCALE(mvec, mvec, val);
+    VADD2(ell->a, ell->a, mvec);
+
+    VMOVE(mvec, ell->b); VUNITIZE(mvec); VSCALE(mvec, mvec, val);
+    VADD2(ell->b, ell->b, mvec);
+
+    VMOVE(mvec, ell->c); VUNITIZE(mvec); VSCALE(mvec, mvec, val);
+    VADD2(ell->c, ell->c, mvec);
+
+    *oip = nip;
+    return BRLCAD_OK;
+}
+
+
 /** @} */
 /*
  * Local Variables:
