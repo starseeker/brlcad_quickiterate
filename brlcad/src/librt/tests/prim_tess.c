@@ -2964,20 +2964,39 @@ test_arb(void)
     init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
     if (!run_tess("arb5 square pyramid", &ip, &ttol, &tol, 0)) failures++;
 
-    /* ARB4: tetrahedron.  pts[3..7] all at fourth vertex.
-     * The canonical ARB4 encoding triggers arb_is_noncanonical (equiv_pts[4..7]
-     * all map to index 3, which is < 4).  The hull fallback correctly produces
-     * a 4-face tetrahedron, so this case now succeeds. */
+    /* ARB4: tetrahedron — canonical BRL-CAD encoding.
+     * pt[0], pt[1] are unique base vertices; pt[2]==pt[3] is the third base
+     * vertex (bottom duplicate pair); pt[4..7] all coincide at the apex.
+     * This is the encoding stored in actual .g databases (e.g. primitives.g).
+     * arb_is_noncanonical recognises it as a valid tetrahedron (exactly 4
+     * unique spatial vertices, no top-to-bottom alias) and returns 0, so
+     * rt_arb_mk_planes handles it via the standard face table — no hull
+     * fallback needed. */
     VSET(tip.pt[0],  0,  0,  0);
     VSET(tip.pt[1], 10,  0,  0);
     VSET(tip.pt[2],  5,  8,  0);
-    VSET(tip.pt[3],  5,  3, 10);   /* apex */
+    VSET(tip.pt[3],  5,  8,  0);   /* same as pt[2]: canonical bottom dup */
+    VSET(tip.pt[4],  5,  3, 10);   /* apex */
+    VSET(tip.pt[5],  5,  3, 10);
+    VSET(tip.pt[6],  5,  3, 10);
+    VSET(tip.pt[7],  5,  3, 10);
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("arb4 tetrahedron (canonical encoding)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* ARB4: tetrahedron — non-canonical encoding (pts[3..7] all at apex).
+     * In this encoding equiv_pts[4..7] map to index 3, a "bottom" index.
+     * arb_is_noncanonical detects the top-to-bottom alias and routes through
+     * the convex-hull fallback, which still produces the correct 4-face mesh. */
+    VSET(tip.pt[0],  0,  0,  0);
+    VSET(tip.pt[1], 10,  0,  0);
+    VSET(tip.pt[2],  5,  8,  0);
+    VSET(tip.pt[3],  5,  3, 10);   /* apex — non-canonical position */
     VSET(tip.pt[4],  5,  3, 10);
     VSET(tip.pt[5],  5,  3, 10);
     VSET(tip.pt[6],  5,  3, 10);
     VSET(tip.pt[7],  5,  3, 10);
     init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
-    if (!run_tess("arb4 tetrahedron (hull fallback)", &ip, &ttol, &tol, 0)) failures++;
+    if (!run_tess("arb4 tetrahedron (non-canonical, hull fallback)", &ip, &ttol, &tol, 0)) failures++;
 
     /* ARB8 large scale */
     VSET(tip.pt[0],      0,      0,      0);
