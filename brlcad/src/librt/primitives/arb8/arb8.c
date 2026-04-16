@@ -1873,21 +1873,6 @@ arb_is_noncanonical(const struct rt_arb_internal *arb, fastf_t tol_sq)
 	    return 1;
     }
 
-    /* Canonical ARB4: pt[3] is the apex, and pt[4..7] all coincide with it.
-     * equiv_pts[4..7] will all equal 3 (a bottom index), but this is a valid
-     * encoding — do not flag it as non-canonical. */
-    {
-	int all_apex = 1;
-	for (i = 4; i < 8; i++) {
-	    if (equiv_pts[i] != 3) {
-		all_apex = 0;
-		break;
-	    }
-	}
-	if (all_apex)
-	    return 0;
-    }
-
     /* Check whether any top vertex (4–7) maps to a bottom vertex (0–3) */
     for (i = 4; i < 8; i++) {
 	if (equiv_pts[i] < 4)
