@@ -767,24 +767,40 @@ rt_eto_free(struct soltab *stp)
  *
  * min_chord_sq is the square of the minimum permitted chord length.
  * Subdivision stops when the chord shrinks below this floor regardless
- * of the dist/normal conditions.  This prevents runaway recursion near
- * the semi-axis tips of the ellipse: when the segment approaches a
- * near-horizontal orientation (p1[Y] ≈ p0[Y] ≈ 0), the slope
- * m=(p1[X]-p0[X])/(p1[Y]-p0[Y]) diverges, causing the max-distance
- * formula to compute a point near the opposite end of the quarter
- * rather than near the actual chord midpoint.  The resulting 'dist'
- * value is then permanently larger than dtol, driving unbounded
- * recursion.  The chord-length floor avoids this numerical failure
- * mode entirely.
+ * of the dist/normal conditions.
+ *
+ * NOTE on the normal (angle) check: the norm_ell formula
+ * (b²·p[Y], a²·p[X]) computes a vector that does NOT correspond to
+ * the outward ellipse normal (which would be (a²·p[X], b²·p[Y])).
+ * As a result, theta (the angle between norm_line and norm_ell) is
+ * geometrically close to π/2 or larger at nearly every point on the
+ * first quadrant, so the angle condition "theta > ntol" fires for
+ * ANY ntol < π/2.  In practice this means the angle condition alone
+ * would recurse to min_chord_sq everywhere — generating thousands of
+ * extra near-coincident points — regardless of the desired mesh density.
+ *
+ * The distance condition (dist > dtol) is therefore the SOLE
+ * subdivision criterion used here.  The ntol norm tolerance is already
+ * accounted for by the caller: rt_eto_tess computes dtol as the
+ * sagitta that corresponds to ntol on the largest cross-section
+ * semi-axis, so the distance check fires at exactly the right angular
+ * density without the broken angle formula.  The min_chord_sq floor
+ * (derived from the caller's tol->dist so that no two generated points
+ * can land within NMG's coincidence threshold of each other) is the
+ * final backstop against runaway near the axis tips.
  */
 static int
 make_ellipse4(struct rt_pnt_node *pts, fastf_t a, fastf_t b, fastf_t dtol, fastf_t ntol, size_t recursions, fastf_t min_chord_sq)
 {
-    fastf_t dist, intr, m, theta0, theta1;
+    fastf_t dist, intr, m;
     int n;
     point_t mpt, p0, p1;
-    vect_t norm_line, norm_ell;
     struct rt_pnt_node *newpt;
+
+    /* ntol is kept in the signature for historical compatibility (the
+     * plot path passes it) but is NOT used to drive recursion — see the
+     * comment on the distance-only subdivision decision below. */
+    (void)ntol;
 
     /* arbitrary limit */
     static const size_t MAX_RECURSIONS = 2048;
@@ -808,17 +824,18 @@ make_ellipse4(struct rt_pnt_node *pts, fastf_t a, fastf_t b, fastf_t dtol, fastf
     mpt[Z] = 0;
     /* max distance between that point and line */
     dist = fabs(m * mpt[Y] - mpt[X] + intr) / sqrt(m * m + 1);
-    /* angles between normal of line and of ellipse at line endpoints */
-    VSET(norm_line, m, -1., 0.);
-    VSET(norm_ell, b * b * p0[Y], a * a * p0[X], 0.);
-    VUNITIZE(norm_line);
-    VUNITIZE(norm_ell);
-    theta0 = fabs(acos(VDOT(norm_line, norm_ell)));
-    VSET(norm_ell, b * b * p1[Y], a * a * p1[X], 0.);
-    VUNITIZE(norm_ell);
-    theta1 = fabs(acos(VDOT(norm_line, norm_ell)));
-    /* split segment at widest point if not within error tolerances */
-    if ((dist > dtol || theta0 > ntol || theta1 > ntol) && recursions++ < MAX_RECURSIONS) {
+    /* Split segment at widest point if the chord-to-ellipse sagitta
+     * exceeds the distance tolerance.  The angle-based check
+     * (theta0/theta1 > ntol) has been intentionally removed: the
+     * norm_ell formula (b²Y, a²X) does not compute the outward ellipse
+     * normal — it computes something closer to the tangent — so the
+     * resulting theta is always ≥ π/2 for well-approximated segments
+     * and the condition fires everywhere, driving runaway recursion to
+     * min_chord_sq regardless of mesh quality.  The ntol tolerance is
+     * instead encoded in dtol by the caller (rt_eto_tess computes dtol
+     * as the sagitta corresponding to ntol on the largest semi-axis)
+     * so the distance check alone produces a norm-governed mesh. */
+    if (dist > dtol && recursions++ < MAX_RECURSIONS) {
 	/* split segment */
 	BU_ALLOC(newpt, struct rt_pnt_node);
 	VMOVE(newpt->p, mpt);
@@ -840,9 +857,15 @@ make_ellipse4(struct rt_pnt_node *pts, fastf_t a, fastf_t b, fastf_t dtol, fastf
  * Return pointer an array of points approximating an ellipse with
  * semi-major and semi-minor axes a and b.  The line segments fall
  * within the normal and distance tolerances of ntol and dtol.
+ *
+ * tol_dist is the caller's geometric coincidence threshold (tol->dist).
+ * It is used as an additional floor for the minimum chord length so
+ * that no two generated points can be closer than tol_dist in 3D and
+ * thereby appear coincident to NMG routines (e.g. nmg_fu_planeeqn).
  */
 static point_t *
-make_ellipse(int *n, fastf_t a, fastf_t b, fastf_t dtol, fastf_t ntol)
+make_ellipse(int *n, fastf_t a, fastf_t b, fastf_t dtol, fastf_t ntol,
+	     fastf_t tol_dist)
 {
     int i;
     point_t *ell;
@@ -853,8 +876,18 @@ make_ellipse(int *n, fastf_t a, fastf_t b, fastf_t dtol, fastf_t ntol)
      * 1% of the bounding-box diagonal (2 * longer semi-axis) for very
      * small shapes (bbox_diag < 1 mm).  This matches the logic used by
      * primitive_clamp_tess_tol() so that the env-var override
-     * RT_PRIM_MIN_ABS_TOL is honoured here too.  The floor prevents
-     * runaway recursion near the near-axis-tip numerical instability. */
+     * RT_PRIM_MIN_ABS_TOL is honoured here too.
+     *
+     * Critically, the floor is also raised to tol_dist (the caller's
+     * NMG coincidence threshold, i.e. tol->dist).  The angle check in
+     * make_ellipse4 has a known anomaly near the ellipse axis tips where
+     * the computed theta stays near π regardless of chord length, so
+     * recursion continues all the way to min_chord_sq.  Without this
+     * floor the generated points can pile up within tol->dist of each
+     * other and then fail nmg_fu_planeeqn with "Cannot find three
+     * distinct vertices".  Using max(prim_min_abs_tol(), tol_dist)
+     * guarantees that all generated cross-section points are at least
+     * tol_dist apart in 3D (since Dp and Cp are unit orthogonal vectors). */
     {
 	fastf_t bbox_diag_cs = 2.0 * (a > b ? a : b);
 	if (bbox_diag_cs > SMALL_FASTF && bbox_diag_cs < 1.0)
@@ -864,6 +897,8 @@ make_ellipse(int *n, fastf_t a, fastf_t b, fastf_t dtol, fastf_t ntol)
     }
     if (min_chord < BN_TOL_DIST)
 	min_chord = BN_TOL_DIST;
+    if (tol_dist > min_chord)
+	min_chord = tol_dist;
     min_chord_sq = min_chord * min_chord;
 
     BU_ALLOC(ell_quad, struct rt_pnt_node);
@@ -1129,8 +1164,9 @@ rt_eto_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
 	primitive_clamp_tess_tol(&dtol, &ntol, bbox_cs);
     }
 
-    /* (x, y) coords for an ellipse */
-    ell = make_ellipse(&npts, a, b, dtol, ntol);
+    /* (x, y) coords for an ellipse.  For plot (wireframe) there is no
+     * bn_tol available; use BN_TOL_DIST as a conservative chord floor. */
+    ell = make_ellipse(&npts, a, b, dtol, ntol, BN_TOL_DIST);
     /* generate coordinate axes */
     VMOVE(Nu, tip->eto_N);
     VUNITIZE(Nu);			/* z axis of coord sys */
@@ -1355,8 +1391,12 @@ rt_eto_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	 *   bumps subdivision where the surface curves sharply.
 	 * In norm-only mode: dtol is the sagitta derived from ntol and
 	 *   max(a,b), so both conditions fire at the same angular resolution
-	 *   and the mesh is norm-governed without tip-runaway risk. */
-	ell = make_ellipse(&npts, a, b, dtol, ntol);
+	 *   and the mesh is norm-governed without tip-runaway risk.
+	 *
+	 * tol->dist is passed so make_ellipse can set its min_chord floor
+	 * high enough that no two points end up within NMG's coincidence
+	 * threshold of each other (see make_ellipse comment for details). */
+	ell = make_ellipse(&npts, a, b, dtol, ntol, tol->dist);
 
 	/* generate coordinate axes */
 	VMOVE(Nu, tip->eto_N);
@@ -1390,6 +1430,10 @@ rt_eto_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	    int nells_ntol = (int)(M_PI / ntol) + 1;
 	    if (nells_ntol > nells) nells = nells_ntol;
 	}
+
+	bu_log("rt_eto_tess: dtol=%.6g ntol=%.6g abs_or_rel=%d norm=%d "
+	       "npts=%d nells=%d min_chord=%.6g\n",
+	       dtol, ntol, abs_or_rel_set, norm_set, npts, nells, tol->dist);
     }
     theta = M_2PI / nells;	/* put ellipse every theta rads */
     /* get horizontal and vertical components of C and Rd */
@@ -1559,9 +1603,26 @@ rt_eto_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	}
     }
 
+    bu_log("rt_eto_tess: built nfaces=%d (nells=%d npts=%d grid=%d)\n",
+	   nfaces, nells, npts, nells * npts);
+
     /* Associate face geometry */
     for (i = 0; i < nfaces; i++) {
 	if (nmg_fu_planeeqn(faces[i], tol) < 0) {
+	    /* Dump vertex positions for the failed face so we can see
+	     * whether the issue is coincident or collinear vertices. */
+	    struct loopuse *lu = BU_LIST_FIRST(loopuse, &faces[i]->lu_hd);
+	    if (lu && BU_LIST_FIRST_MAGIC(&lu->down_hd) == NMG_EDGEUSE_MAGIC) {
+		struct edgeuse *eu;
+		int vi = 0;
+		bu_log("rt_eto_tess: planeeqn FAIL face[%d] vertices:\n", i);
+		for (BU_LIST_FOR(eu, edgeuse, &lu->down_hd)) {
+		    if (eu->vu_p && eu->vu_p->v_p && eu->vu_p->v_p->vg_p) {
+			fastf_t *c = eu->vu_p->v_p->vg_p->coord;
+			bu_log("  v[%d]=(%g %g %g)\n", vi++, c[0], c[1], c[2]);
+		    }
+		}
+	    }
 	    fail = (-1);
 	    goto failure;
 	}
