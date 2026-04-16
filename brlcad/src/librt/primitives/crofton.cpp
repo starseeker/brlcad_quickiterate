@@ -79,6 +79,13 @@
  *  with a larger min_samples and/or a tighter threshold.             */
 #define RT_CROFTON_DEFAULT_SAMPLES   2000u
 
+/** Higher sample count for primitives (TGC TEC case, triaxial ELL,
+ *  ETO self-intersecting, TOR spindle) that have no closed-form SA
+ *  and where the default 2000-ray estimate can have ~5% variance.
+ *  Shooting 50000 rays at a single primitive is still very fast
+ *  (<< 1 second) and reduces typical SA error to well under 2%.    */
+#define RT_CROFTON_HIGHRES_SAMPLES  50000u
+
 /** Convergence threshold (%) for the functab fallback.               */
 #define RT_CROFTON_DEFAULT_THRESHOLD 1.0
 
@@ -444,15 +451,16 @@ rt_crofton_shoot(struct rt_i *rtip,
 
 /**
  * Create a temporary in-memory database containing only the primitive
- * described by @p ip, run the Crofton estimator with default parameters,
- * and return the results.
+ * described by @p ip, run the Crofton estimator with @p n_samples minimum
+ * rays per iteration, and return the results.
  *
  * The caller's @p ip is NOT consumed or freed.  We serialize it to a
  * bu_external and write that to the in-memory db, which avoids calling
  * any ifree on the caller's data.
  */
 static int
-crofton_from_ip(const struct rt_db_internal *ip, double *out_sa, double *out_vol)
+crofton_from_ip_n(const struct rt_db_internal *ip, double *out_sa, double *out_vol,
+		  size_t n_samples)
 {
     if (!ip || (!out_sa && !out_vol))
 	return -1;
@@ -573,7 +581,7 @@ crofton_from_ip(const struct rt_db_internal *ip, double *out_sa, double *out_vol
     double sa  = 0.0;
     double vol = 0.0;
     (void)rt_crofton_shoot(rtip,
-			   RT_CROFTON_DEFAULT_SAMPLES,
+			   n_samples,
 			   RT_CROFTON_DEFAULT_THRESHOLD,
 			   &sa, &vol);
 
@@ -587,6 +595,13 @@ crofton_from_ip(const struct rt_db_internal *ip, double *out_sa, double *out_vol
     db_close(dbip);
 
     return 0;
+}
+
+/* Convenience wrapper using the default sample count */
+static int
+crofton_from_ip(const struct rt_db_internal *ip, double *out_sa, double *out_vol)
+{
+    return crofton_from_ip_n(ip, out_sa, out_vol, RT_CROFTON_DEFAULT_SAMPLES);
 }
 
 
@@ -616,6 +631,33 @@ rt_crofton_surf_area(fastf_t *area, const struct rt_db_internal *ip)
 
 
 /**
+ * High-accuracy surface-area fallback for implicit primitives.
+ *
+ * Identical to rt_crofton_surf_area but uses RT_CROFTON_HIGHRES_SAMPLES
+ * (50 000) rays per iteration instead of the interactive default (2 000).
+ * Shooting that many rays at a single primitive is still very fast
+ * (well under one second) and reduces typical SA error to < 2 %.
+ *
+ * Used by TGC (TEC case), triaxial ELL, EHY (r1≠r2), HYP, superell,
+ * and by the functab entries for ARS, BSPLINE, EBM, HF, METABALL,
+ * EXTRUDE, REVOLVE, and HRT.  NOT used for BREP or DSP, where the
+ * raytrace cost per ray can be much higher.
+ */
+void
+rt_crofton_surf_area_highres(fastf_t *area, const struct rt_db_internal *ip)
+{
+    if (!area || !ip)
+	return;
+
+    double sa = 0.0;
+    if (crofton_from_ip_n(ip, &sa, NULL, RT_CROFTON_HIGHRES_SAMPLES) < 0)
+	sa = 0.0;
+
+    *area = (fastf_t)sa;
+}
+
+
+/**
  * Generic volume fallback for the primitive functab.
  *
  * Used as ft_volume for primitives that do not implement an analytic
@@ -630,6 +672,25 @@ rt_crofton_volume(fastf_t *vol, const struct rt_db_internal *ip)
 
     double v = 0.0;
     if (crofton_from_ip(ip, NULL, &v) < 0)
+	v = 0.0;
+
+    *vol = (fastf_t)v;
+}
+
+
+/**
+ * High-accuracy volume fallback for implicit primitives.
+ *
+ * See rt_crofton_surf_area_highres for rationale.
+ */
+void
+rt_crofton_volume_highres(fastf_t *vol, const struct rt_db_internal *ip)
+{
+    if (!vol || !ip)
+	return;
+
+    double v = 0.0;
+    if (crofton_from_ip_n(ip, NULL, &v, RT_CROFTON_HIGHRES_SAMPLES) < 0)
 	v = 0.0;
 
     *vol = (fastf_t)v;

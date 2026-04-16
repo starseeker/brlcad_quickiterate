@@ -2250,7 +2250,7 @@ rt_ehy_surf_area(fastf_t *area, const struct rt_db_internal *ip)
      * an elliptic integral with no elementary closed form -- use Crofton.
      */
     if (!NEAR_EQUAL(eip->ehy_r1, eip->ehy_r2, RT_LEN_TOL)) {
-	rt_crofton_surf_area(area, ip);
+	rt_crofton_surf_area_highres(area, ip);
 	return;
     }
 

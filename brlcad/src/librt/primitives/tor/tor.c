@@ -1996,7 +1996,7 @@ rt_tor_surf_area(fastf_t *area, const struct rt_db_internal *ip)
     if (tip->r_h > tip->r_a) {
 	struct rt_db_internal ip_meth = *ip;
 	ip_meth.idb_meth = &OBJ[ID_TOR];
-	rt_crofton_surf_area(area, &ip_meth);
+	rt_crofton_surf_area_highres(area, &ip_meth);
 	return;
     }
 
@@ -2017,7 +2017,7 @@ rt_tor_volume(fastf_t *vol, const struct rt_db_internal *ip)
     if (tip->r_h > tip->r_a) {
 	struct rt_db_internal ip_meth = *ip;
 	ip_meth.idb_meth = &OBJ[ID_TOR];
-	rt_crofton_volume(vol, &ip_meth);
+	rt_crofton_volume_highres(vol, &ip_meth);
 	return;
     }
 
