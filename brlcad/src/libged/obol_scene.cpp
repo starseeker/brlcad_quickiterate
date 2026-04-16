@@ -145,22 +145,22 @@ obol_scene_create(void)
 SoTransform *
 obol_mat_to_transform(const mat_t m)
 {
-    /* BRL-CAD mat_t layout (row-major storage, column vectors):
+    /* BRL-CAD mat_t uses a COLUMN-VECTOR convention (dst = M * src) stored
+     * in row-major order: m[0..3]=row0, m[4..7]=row1, m[8..11]=row2,
+     * m[12..15]=row3.  Translation is at m[3], m[7], m[11].
      *
-     *   Index:  [ 0  1  2  3]   row 0
-     *           [ 4  5  6  7]   row 1
-     *           [ 8  9 10 11]   row 2
-     *           [12 13 14 15]   row 3
+     * Coin3D SbMatrix uses a ROW-VECTOR convention (dst = src * M) and its
+     * getTransform() reads translation from matrix[3][0..2] (the 4th row).
      *
-     * The values are stored as m[row*4 + col], so m[0]=M00, m[1]=M01, ...
-     * That is the same row-major order that SbMatrix expects for its
-     * constructor argument.  No transposition is required.
+     * The two conventions are related by a matrix transpose, so we swap
+     * rows and columns when building SbMatrix — matching mat_to_sbmatrix()
+     * in obol_cad_assembly.cpp.
      */
     SbMatrix sbm(
-	(float)m[0],  (float)m[1],  (float)m[2],  (float)m[3],
-	(float)m[4],  (float)m[5],  (float)m[6],  (float)m[7],
-	(float)m[8],  (float)m[9],  (float)m[10], (float)m[11],
-	(float)m[12], (float)m[13], (float)m[14], (float)m[15]
+	(float)m[0],  (float)m[4],  (float)m[8],  (float)m[12],
+	(float)m[1],  (float)m[5],  (float)m[9],  (float)m[13],
+	(float)m[2],  (float)m[6],  (float)m[10], (float)m[14],
+	(float)m[3],  (float)m[7],  (float)m[11], (float)m[15]
     );
 
     SbVec3f   translation;
