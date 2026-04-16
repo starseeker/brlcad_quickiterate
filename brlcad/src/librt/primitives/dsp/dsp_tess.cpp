@@ -586,9 +586,8 @@ dsp_tess_with_decimation(
 	    }
 	}
 	if (!assigned) {
-	    bu_log("DSP decimate: orphan hole loop %d not inside any outer loop "
-		   "— attaching to first island\n", hidx);
-	    outer_holes[0].push_back(hidx); /* orphan — attach to first island */
+	    bu_log("DSP decimate: orphan hole loop %d not inside any outer loop\n", hidx);
+	    return -1;
 	}
     }
 
@@ -787,9 +786,10 @@ dsp_tess_with_decimation(
 	if (!dtri_ok) {
 	    bu_log("DSP decimate: detria failed: %s\n",
 		   dtri.getErrorMessage().c_str());
+	    return -1;
 	}
 
-	if (dtri_ok) {
+	{
 	    /* Add bottom triangles with reversed winding (normal points -Z). */
 	    dtri.forEachTriangle([&](detria::Triangle<uint32_t> t) {
 		size_t v0 = dtri_to_mesh[t.x];
@@ -800,16 +800,6 @@ dsp_tess_with_decimation(
 		all_faces.push_back((int)v2);
 		all_faces.push_back((int)v1);
 	    }, false); /* false = CCW triangles from detria */
-	} else {
-	    bu_log("DSP decimate: detria failed, using fan fallback for bottom face\n");
-	    /* Fan triangulation from first boundary vertex (works for convex). */
-	    if (outer_bot_idx.size() >= 3) {
-		for (size_t i = 1; i + 1 < outer_bot_idx.size(); ++i) {
-		    all_faces.push_back((int)outer_bot_idx[0]);
-		    all_faces.push_back((int)outer_bot_idx[i + 1]);
-		    all_faces.push_back((int)outer_bot_idx[i]);
-		}
-	    }
 	}
 
     } /* end per-island detria loop */
