@@ -124,9 +124,11 @@ occ_hit(struct application *ap, struct partition *PartHeadp, struct seg *UNUSED(
 	double in_world  = ctx->ray_origin_axis + pp->pt_inhit->hit_dist;
 	double out_world = ctx->ray_origin_axis + pp->pt_outhit->hit_dist;
 
-	/* Convert world coordinates to padded voxel indices. */
-	int v_in  = (int)((in_world  - ctx->mdl_min_axis) / ctx->voxel_size) + 1;
-	int v_out = (int)((out_world - ctx->mdl_min_axis) / ctx->voxel_size) + 1;
+	/* Convert world coordinates to padded voxel indices.
+	 * Use floor() to ensure correct rounding for negative relative
+	 * coordinates (C's cast-to-int truncates toward zero, not -inf). */
+	int v_in  = (int)floor((in_world  - ctx->mdl_min_axis) / ctx->voxel_size) + 1;
+	int v_out = (int)floor((out_world - ctx->mdl_min_axis) / ctx->voxel_size) + 1;
 
 	/* Clamp to valid range (inside padding). */
 	if (v_in  < 1)                  v_in  = 1;
@@ -375,10 +377,12 @@ bot_flood_exterior_classify(struct rt_i *rtip,
 	double cy = (bot->vertices[vi0*3+Y] + bot->vertices[vi1*3+Y] + bot->vertices[vi2*3+Y]) / 3.0;
 	double cz = (bot->vertices[vi0*3+Z] + bot->vertices[vi1*3+Z] + bot->vertices[vi2*3+Z]) / 3.0;
 
-	/* Padded voxel index of centroid (origin offset by 1 for padding). */
-	int ix = (int)((cx - rtip->mdl_min[X]) / voxel_size) + 1;
-	int iy = (int)((cy - rtip->mdl_min[Y]) / voxel_size) + 1;
-	int iz = (int)((cz - rtip->mdl_min[Z]) / voxel_size) + 1;
+	/* Padded voxel index of centroid (origin offset by 1 for padding).
+	 * Use floor() so that negative relative coordinates map correctly
+	 * (C's cast-to-int truncates toward zero, not toward -inf). */
+	int ix = (int)floor((cx - rtip->mdl_min[X]) / voxel_size) + 1;
+	int iy = (int)floor((cy - rtip->mdl_min[Y]) / voxel_size) + 1;
+	int iz = (int)floor((cz - rtip->mdl_min[Z]) / voxel_size) + 1;
 
 	/* Check all six face-adjacent voxels. */
 	face_exterior[fi] = 0;
