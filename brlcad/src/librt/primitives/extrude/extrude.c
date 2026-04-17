@@ -2008,6 +2008,37 @@ sort_intersections(struct loop_inter **root, struct bn_tol *tol)
 
 
 static int
+point_in_sketch_loop(point2d_t test_pt, struct bu_ptbl *loop, struct rt_sketch_internal *ip, struct bn_tol *tol)
+{
+    int icnt = 0;
+    point2d_t dir = V2INIT_ZERO;
+    struct loop_inter *inter_root = NULL, *ptr = NULL, *tmp = NULL;
+
+    dir[X] = 1.0;
+    dir[Y] = 0.0;
+    isect_2D_loop_ray(test_pt, dir, loop, &inter_root, LOOPA, ip, tol);
+
+    if (!inter_root) {
+	return 0;
+    }
+
+    sort_intersections(&inter_root, tol);
+
+    ptr = inter_root;
+    while (ptr) {
+	tmp = ptr;
+	if (ptr->dist > tol->dist) {
+	    icnt++;
+	}
+	ptr = ptr->next;
+	bu_free((char *)tmp, "loop intercept");
+    }
+
+    return (icnt % 2);
+}
+
+
+static int
 classify_sketch_loops(struct bu_ptbl *loopa, struct bu_ptbl *loopb, struct rt_sketch_internal *ip)
 {
     struct loop_inter *inter_root=NULL, *ptr=NULL, *tmp=NULL;
@@ -2077,6 +2108,19 @@ classify_sketch_loops(struct bu_ptbl *loopa, struct bu_ptbl *loopb, struct rt_sk
 	bu_free((char *)tmp, "loop intercept");
     }
 
+    if (ret == UNKNOWN) {
+	int a_in_b = point_in_sketch_loop(pta, loopb, ip, &tol);
+	int b_in_a = point_in_sketch_loop(ptb, loopa, ip, &tol);
+
+	if (a_in_b && !b_in_a) {
+	    ret = A_IN_B;
+	} else if (b_in_a && !a_in_b) {
+	    ret = B_IN_A;
+	} else {
+	    ret = DISJOINT;
+	}
+    }
+
     return ret;
 }
 
@@ -2127,11 +2171,19 @@ rt_extrude_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip
     bu_ptbl_init(&loops, 5, "loops");
     for (i = 0; i < crv->count; i++) {
 	void *cur_seg;
+	uint32_t *lng;
 	int loop_start = 0, loop_end = 0;
 	int seg_start = 0, seg_end = 0;
 
 	if (used_seg[i])
 	    continue;
+
+	lng = (uint32_t *)crv->segment[i];
+	get_indices(crv->segment[i], &loop_start, &loop_end);
+	if (*lng == CURVE_LSEG_MAGIC && sketch_vert_indices_match(sketch_ip, loop_start, loop_end)) {
+	    used_seg[i] = 1;
+	    continue;
+	}
 
 	BU_ALLOC(aloop, struct bu_ptbl);
 	bu_ptbl_init(aloop, 5, "aloop");
