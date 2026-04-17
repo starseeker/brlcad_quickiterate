@@ -180,6 +180,7 @@ dp_tessellate(struct rt_bot_internal **obot, struct bu_vls *method_flag, struct 
 		// as a fallback.  It always produces a closed manifold at the
 		// cost of some geometric fidelity.
 		if (ret != BRLCAD_OK) {
+		    /* voxel_size=0.0 triggers auto-sizing (bbox_diagonal/100) */
 		    struct rt_bot_internal *vdb_bot = bot_openvdb_repair(bot, 0.0);
 		    if (vdb_bot) {
 			*obot = vdb_bot;
