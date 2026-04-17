@@ -28,28 +28,15 @@
  *
  * Algorithm
  * ---------
- *  1. Build an occupancy grid (solid / air) from the BRL-CAD raytrace.
- *     Rays are shot in +X for each (Y,Z) column. A voxel is marked solid
- *     when any hit segment encloses it. Additional +Y and +Z passes are
- *     shot to capture thin walls parallel to the X axis.
+ *  1. Build an occupancy grid (solid / air) via rt_rtip_to_occupancy_grid
+ *     (implemented in bot_openvdb.cpp).  Rays are shot in +X, +Y, +Z.
+ *     A voxel is marked solid when any hit segment encloses its centre.
  *
  *  2. BFS flood-fill starting from the corner of the padded grid boundary,
  *     expanding through air voxels that have not been visited yet.
  *
  *  3. A face is exterior if any of its six face-adjacent voxels was reached
  *     by the flood fill.
- *
- * Design note
- * -----------
- * The voxelization helper (rt_rtip_to_occupancy_grid) is designed to be
- * reusable outside of the bot exterior context. It takes only a prepped
- * rt_i and a voxel size, and returns an openvdb::BoolGrid whose active
- * voxels are the "solid interior" cells of the geometry. The plan is to
- * move this helper to librt once the interface stabilises so that it can
- * serve as a foundation for a voxel-based manifold mesh generation fallback.
- *
- * TODO: move rt_rtip_to_occupancy_grid to a librt header once the
- *       interface is considered stable.
  */
 
 #include "common.h"
@@ -58,204 +45,12 @@
 #include <algorithm>
 #include <queue>
 
-/* Suppress warnings from OpenVDB and its transitive headers. */
-#if defined(__GNUC__)
-#  pragma GCC diagnostic push
-#  pragma GCC diagnostic ignored "-Wunused-parameter"
-#  pragma GCC diagnostic ignored "-Wshadow"
-#  pragma GCC diagnostic ignored "-Wpedantic"
-#  pragma GCC diagnostic ignored "-Wignored-attributes"
-#endif
-
-#include <openvdb/openvdb.h>
-
-#if defined(__GNUC__)
-#  pragma GCC diagnostic pop
-#endif
+#include "bot_openvdb.h"
 
 #include "vmath.h"
-#include "rt/application.h"
-#include "rt/ray_partition.h"
-#include "rt/seg.h"
 #include "rt/geom.h"
 #include "raytrace.h"
 #include "bu/log.h"
-
-
-/* -----------------------------------------------------------------------
- * Internal hit/miss callbacks for occupancy grid building
- * ---------------------------------------------------------------------- */
-
-/*
- * Per-ray context shared between the application struct and our callbacks.
- * Updated for every ray shot, so the hit callback knows which voxel column
- * to mark.
- */
-struct OccRayCtx {
-    openvdb::BoolGrid::Accessor *acc; /* write accessor for solid grid */
-    double ray_origin_axis;           /* world coord of ray start along shoot axis */
-    double mdl_min_axis;              /* model bbox min along shoot axis */
-    double voxel_size;
-    int idx_a_padded;                 /* voxel index along first transverse axis (+padding) */
-    int idx_b_padded;                 /* voxel index along second transverse axis (+padding) */
-    int n_axis;                       /* grid size along shoot axis (including padding) */
-    int axis;                         /* 0=+X, 1=+Y, 2=+Z */
-};
-
-
-static int
-occ_miss(struct application *UNUSED(ap))
-{
-    return 0;
-}
-
-
-/*
- * For each solid partition, compute the range of voxels along the shoot
- * axis that are inside the geometry and mark them in the occupancy grid.
- */
-static int
-occ_hit(struct application *ap, struct partition *PartHeadp, struct seg *UNUSED(seg))
-{
-    struct OccRayCtx *ctx = (struct OccRayCtx *)ap->a_uptr;
-    openvdb::BoolGrid::Accessor &acc = *ctx->acc;
-
-    for (struct partition *pp = PartHeadp->pt_forw; pp != PartHeadp; pp = pp->pt_forw) {
-	double in_world  = ctx->ray_origin_axis + pp->pt_inhit->hit_dist;
-	double out_world = ctx->ray_origin_axis + pp->pt_outhit->hit_dist;
-
-	/* Convert world coordinates to padded voxel indices.
-	 * Use floor() to ensure correct rounding for negative relative
-	 * coordinates (C's cast-to-int truncates toward zero, not -inf). */
-	int v_in  = (int)floor((in_world  - ctx->mdl_min_axis) / ctx->voxel_size) + 1;
-	int v_out = (int)floor((out_world - ctx->mdl_min_axis) / ctx->voxel_size) + 1;
-
-	/* Clamp to valid range (inside padding). */
-	if (v_in  < 1)                  v_in  = 1;
-	if (v_out >= ctx->n_axis - 1)   v_out = ctx->n_axis - 2;
-	if (v_in  > v_out)              continue;
-
-	for (int v = v_in; v <= v_out; v++) {
-	    openvdb::Coord c;
-	    switch (ctx->axis) {
-		case 0: c = openvdb::Coord(v, ctx->idx_a_padded, ctx->idx_b_padded); break;
-		case 1: c = openvdb::Coord(ctx->idx_b_padded, v, ctx->idx_a_padded); break;
-		default: c = openvdb::Coord(ctx->idx_a_padded, ctx->idx_b_padded, v); break;
-	    }
-	    acc.setValue(c, true);
-	}
-    }
-    return 1;
-}
-
-
-/* -----------------------------------------------------------------------
- * rt_rtip_to_occupancy_grid
- *
- * Build an OpenVDB BoolGrid from a prepped rt_i.  Active (true) voxels
- * are cells that lie inside the solid geometry.  The grid is padded by
- * one cell on every side so that the BFS seed can always start outside.
- *
- * Parameters
- *   rtip        - prepped raytrace instance (rt_prep already called)
- *   voxel_size  - size of each voxel in model units (> 0)
- *   nx/ny/nz    - output: grid dimensions (caller-supplied to avoid
- *                 recomputing them in the flood-fill step)
- *
- * The returned grid uses grid-index coordinates with origin at the
- * padded corner.  Index (1, 1, 1) corresponds to the model-space point
- * (mdl_min[X], mdl_min[Y], mdl_min[Z]).
- * ---------------------------------------------------------------------- */
-static openvdb::BoolGrid::Ptr
-rt_rtip_to_occupancy_grid(struct rt_i *rtip, double voxel_size, int *nx, int *ny, int *nz)
-{
-    /* Grid dimensions: model cells + 1 padding cell on each side. */
-    int nx_m = (int)std::ceil((rtip->mdl_max[X] - rtip->mdl_min[X]) / voxel_size);
-    int ny_m = (int)std::ceil((rtip->mdl_max[Y] - rtip->mdl_min[Y]) / voxel_size);
-    int nz_m = (int)std::ceil((rtip->mdl_max[Z] - rtip->mdl_min[Z]) / voxel_size);
-
-    if (nx_m < 1) nx_m = 1;
-    if (ny_m < 1) ny_m = 1;
-    if (nz_m < 1) nz_m = 1;
-
-    *nx = nx_m + 2;
-    *ny = ny_m + 2;
-    *nz = nz_m + 2;
-
-    openvdb::BoolGrid::Ptr solid = openvdb::BoolGrid::create(false);
-    openvdb::BoolGrid::Accessor acc = solid->getAccessor();
-
-    struct OccRayCtx ctx;
-    ctx.acc        = &acc;
-    ctx.voxel_size = voxel_size;
-
-    struct application ap;
-    RT_APPLICATION_INIT(&ap);
-    ap.a_rt_i   = rtip;
-    ap.a_hit    = occ_hit;
-    ap.a_miss   = occ_miss;
-    ap.a_onehit = 0;    /* collect all hits */
-    ap.a_uptr   = &ctx;
-
-    /* --- Pass 1: shoot rays in +X (one ray per Y-Z voxel column) --- */
-    ctx.axis         = 0;
-    ctx.mdl_min_axis = rtip->mdl_min[X];
-    ctx.n_axis       = *nx;
-    ctx.ray_origin_axis = rtip->mdl_min[X] - voxel_size; /* one cell before bbox */
-
-    for (int k = 0; k < nz_m; k++) {
-	ctx.idx_b_padded = k + 1;
-	for (int j = 0; j < ny_m; j++) {
-	    ctx.idx_a_padded = j + 1;
-	    VSET(ap.a_ray.r_pt,
-		 ctx.ray_origin_axis,
-		 rtip->mdl_min[Y] + (j + 0.5) * voxel_size,
-		 rtip->mdl_min[Z] + (k + 0.5) * voxel_size);
-	    VSET(ap.a_ray.r_dir, 1.0, 0.0, 0.0);
-	    rt_shootray(&ap);
-	}
-    }
-
-    /* --- Pass 2: shoot rays in +Y (one ray per X-Z voxel column) --- */
-    ctx.axis         = 1;
-    ctx.mdl_min_axis = rtip->mdl_min[Y];
-    ctx.n_axis       = *ny;
-    ctx.ray_origin_axis = rtip->mdl_min[Y] - voxel_size;
-
-    for (int k = 0; k < nz_m; k++) {
-	ctx.idx_a_padded = k + 1;
-	for (int i = 0; i < nx_m; i++) {
-	    ctx.idx_b_padded = i + 1;
-	    VSET(ap.a_ray.r_pt,
-		 rtip->mdl_min[X] + (i + 0.5) * voxel_size,
-		 ctx.ray_origin_axis,
-		 rtip->mdl_min[Z] + (k + 0.5) * voxel_size);
-	    VSET(ap.a_ray.r_dir, 0.0, 1.0, 0.0);
-	    rt_shootray(&ap);
-	}
-    }
-
-    /* --- Pass 3: shoot rays in +Z (one ray per X-Y voxel column) --- */
-    ctx.axis         = 2;
-    ctx.mdl_min_axis = rtip->mdl_min[Z];
-    ctx.n_axis       = *nz;
-    ctx.ray_origin_axis = rtip->mdl_min[Z] - voxel_size;
-
-    for (int j = 0; j < ny_m; j++) {
-	ctx.idx_b_padded = j + 1;
-	for (int i = 0; i < nx_m; i++) {
-	    ctx.idx_a_padded = i + 1;
-	    VSET(ap.a_ray.r_pt,
-		 rtip->mdl_min[X] + (i + 0.5) * voxel_size,
-		 rtip->mdl_min[Y] + (j + 0.5) * voxel_size,
-		 ctx.ray_origin_axis);
-	    VSET(ap.a_ray.r_dir, 0.0, 0.0, 1.0);
-	    rt_shootray(&ap);
-	}
-    }
-
-    return solid;
-}
 
 
 /* -----------------------------------------------------------------------
