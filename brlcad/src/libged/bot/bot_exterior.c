@@ -45,34 +45,122 @@ exterior_miss(struct application *UNUSED(app))
 }
 
 
-static int
-exterior_hit(struct application *app, struct partition *PartHeadp, struct seg *UNUSED(seg))
+struct exterior_probe {
+    int face;
+    int found;
+    size_t crossings_before;
+    size_t crossings_seen;
+    fastf_t last_dist;
+    int have_last;
+};
+
+struct exterior_ctx {
+    struct rt_bot_internal *bot;
+    struct exterior_probe probe;
+};
+
+
+static void
+exterior_probe_hit(struct exterior_probe *probe, int surfno, fastf_t dist)
 {
-    struct partition *pp;
+    if (!probe)
+	return;
 
-    /* FIXME: could be multiple coincident partitions at front and back */
-    struct partition *first_pp = PartHeadp->pt_forw;
-    struct partition *last_pp = NULL;
-    for (pp = PartHeadp->pt_forw; pp != PartHeadp; pp = pp->pt_forw) {
-	last_pp = pp;
+    if (dist < -BN_TOL_DIST)
+	return;
+
+    if (probe->have_last && NEAR_EQUAL(dist, probe->last_dist, BN_TOL_DIST)) {
+	if (!probe->found && surfno == probe->face) {
+	    probe->found = 1;
+	    probe->crossings_before = probe->crossings_seen;
+	}
+	return;
     }
 
-    /* if our triangle is first or last hit, it's definitely outside */
-    if (first_pp->pt_inhit->hit_surfno == app->a_user) {
-	return 1;
-    }
-    if (last_pp && last_pp->pt_outhit->hit_surfno == app->a_user) {
-	return 1;
+    if (!probe->found && surfno == probe->face) {
+	probe->found = 1;
+	probe->crossings_before = probe->crossings_seen;
     }
 
-    return 0;
+    probe->crossings_seen++;
+    probe->last_dist = dist;
+    probe->have_last = 1;
 }
 
 
-/* determine whether a given face is exterior or not.  general idea is
- * we shoot a ray (TODO: should shoot a hemisphere) at the triangle
- * from outside the bounding volume.  if it's the first or last thing
- * hit, it's an exterior triangle.
+static int
+exterior_hit(struct application *app, struct partition *PartHeadp, struct seg *UNUSED(seg))
+{
+    struct exterior_ctx *ectx = (struct exterior_ctx *)app->a_uptr;
+    struct partition *pp;
+
+    for (pp = PartHeadp->pt_forw; pp != PartHeadp; pp = pp->pt_forw) {
+	exterior_probe_hit(&ectx->probe, pp->pt_inhit->hit_surfno, pp->pt_inhit->hit_dist);
+	exterior_probe_hit(&ectx->probe, pp->pt_outhit->hit_surfno, pp->pt_outhit->hit_dist);
+    }
+
+    return 1;
+}
+
+
+static int
+exterior_face_probe(struct application *app, int face, point_t fc, vect_t dir, size_t *crossings_before)
+{
+    vect_t inv_dir;
+    struct exterior_ctx *ectx = (struct exterior_ctx *)app->a_uptr;
+
+    if (!app || !crossings_before || !ectx)
+	return 0;
+
+    VMOVE(app->a_ray.r_pt, fc);
+    VMOVE(app->a_ray.r_dir, dir);
+    VUNITIZE(app->a_ray.r_dir);
+
+    VINVDIR(inv_dir, app->a_ray.r_dir);
+    if (!rt_in_rpp(&app->a_ray, inv_dir, app->a_rt_i->mdl_min, app->a_rt_i->mdl_max))
+	return 0;
+
+    VJOIN1(app->a_ray.r_pt, app->a_ray.r_pt, app->a_ray.r_min - (10.0 * BN_TOL_DIST), app->a_ray.r_dir);
+
+    ectx->probe.face = face;
+    ectx->probe.found = 0;
+    ectx->probe.crossings_before = 0;
+    ectx->probe.crossings_seen = 0;
+    ectx->probe.last_dist = 0.0;
+    ectx->probe.have_last = 0;
+
+    rt_shootray(app);
+    if (!ectx->probe.found)
+	return 0;
+
+    *crossings_before = ectx->probe.crossings_before;
+    return 1;
+}
+
+
+static int
+exterior_face_probe_pair(struct application *app, int face, point_t fc, const vect_t base_dir)
+{
+    vect_t fdir, rdir;
+    size_t crossings_f = 0;
+    size_t crossings_r = 0;
+
+    VMOVE(fdir, base_dir);
+    VREVERSE(rdir, fdir);
+
+    if (!exterior_face_probe(app, face, fc, fdir, &crossings_f))
+	return -1;
+    if (!exterior_face_probe(app, face, fc, rdir, &crossings_r))
+	return -1;
+
+    return ((crossings_f % 2) == 0 && (crossings_r % 2) == 0) ? 1 : 0;
+}
+
+
+/* determine whether a given face is exterior or not.
+ * for each probe direction pair (+/-d), cast rays from outside the model
+ * through the face center and count boundary crossings before the face hit.
+ * exterior faces report even depth from both directions.
  */
 static int
 exterior_face(struct application *app, struct rt_bot_internal *bot, int face) {
@@ -95,37 +183,54 @@ exterior_face(struct application *app, struct rt_bot_internal *bot, int face) {
     VMOVE(p2, &bot->vertices[j * ELEMENTS_PER_POINT]);
     VMOVE(p3, &bot->vertices[k * ELEMENTS_PER_POINT]);
 
-    /* face plane */
-    plane_t norm;
-    struct bn_tol tol = BN_TOL_INIT_ZERO;
-    tol.dist_sq = BN_TOL_DIST * BN_TOL_DIST;
-    bg_make_plane_3pnts(norm, p1, p2, p3, &tol);
+    point_t fc;
+    VADD3(fc, p1, p2, p3);
+    VSCALE(fc, fc, 1.0/3.0);
 
-    /* ray direction */
-    VINVDIR(app->a_ray.r_dir, norm);
-    VUNITIZE(app->a_ray.r_dir);
+    static const vect_t dirs[] = {
+	{ 1.0, 2.0, 3.0 },
+	{ 2.0, -3.0, 1.0 },
+	{ -3.0, -1.0, 2.0 }
+    };
+    static const vect_t extra_dirs[] = {
+	{ 3.0, 1.0, 2.0 },
+	{ -1.0, 3.0, 2.0 },
+	{ 2.0, 3.0, -1.0 },
+	{ -2.0, 1.0, 3.0 }
+    };
 
-    /* face & ray center point */
-    VADD3(app->a_ray.r_pt, p1, p2, p3);
-    VSCALE(app->a_ray.r_pt, app->a_ray.r_pt, 1.0/3.0);
-    /* calculate min/max to exit bounding volume */
-    if (!rt_in_rpp(&app->a_ray, app->a_ray.r_dir, app->a_rt_i->mdl_min, app->a_ray.r_dir)) {
-	static size_t msgs = 0;
-	if (msgs < 100) {
-	    bu_log("INTERNAL ERROR: Missed the model??\n");
-	    msgs++;
-	    if (msgs == 100)
-		bu_log("Additional missed model reporting will be suppressed\n");
-	}
-	return 0;
+    size_t kidx;
+    int exterior_votes = 0;
+    int interior_votes = 0;
+
+    for (kidx = 0; kidx < sizeof(dirs)/sizeof(dirs[0]); kidx++) {
+	int r = exterior_face_probe_pair(app, face, fc, dirs[kidx]);
+	if (r < 0)
+	    continue;
+	if (r)
+	    exterior_votes++;
+	else
+	    interior_votes++;
     }
-    VJOIN1(app->a_ray.r_pt, app->a_ray.r_pt, app->a_ray.r_max, app->a_ray.r_dir);
 
-    /* determine visibility */
-    app->a_user = face;
-    rt_shootray(app);
+    if (exterior_votes > 0 && interior_votes > 0) {
+	for (kidx = 0; kidx < sizeof(extra_dirs)/sizeof(extra_dirs[0]); kidx++) {
+	    int r = exterior_face_probe_pair(app, face, fc, extra_dirs[kidx]);
+	    if (r < 0)
+		continue;
+	    if (r)
+		exterior_votes++;
+	    else
+		interior_votes++;
+	}
+    }
 
-    return 0;
+    if (exterior_votes == 0)
+	return 0;
+    if (interior_votes == 0)
+	return 1;
+
+    return (exterior_votes > interior_votes) ? 1 : 0;
 }
 
 
@@ -149,9 +254,8 @@ bot_exterior(struct application *app, struct rt_bot_internal *bot)
 	}
     }
 
-    /* sanity */
-    if (num_exterior == 0) {
-	bu_log("No interior faces??  Aborting.\n");
+    if (num_exterior == 0 || num_exterior == bot->num_faces) {
+	bu_free((char *)faces, "rt_bot_exterior: faces");
 	return 0;
     }
 
@@ -166,9 +270,6 @@ bot_exterior(struct application *app, struct rt_bot_internal *bot)
     }
 
     bu_free((char *)faces, "rt_bot_exterior: faces");
-
-    if (num_exterior == bot->num_faces)
-	return 0;
 
     int removed = bot->num_faces - num_exterior;
     bot->num_faces = num_exterior;
@@ -226,11 +327,13 @@ ged_bot_exterior(struct ged *gedp, int argc, const char *argv[])
 
     /* prep geometry */
     struct application ap;
+    struct exterior_ctx ectx = {0};
     RT_APPLICATION_INIT(&ap);
     ap.a_rt_i = rt_new_rti(gedp->dbip);
     ap.a_hit = exterior_hit;
     ap.a_miss = exterior_miss;
-    ap.a_uptr = (void *)bot;
+    ectx.bot = bot;
+    ap.a_uptr = (void *)&ectx;
     bu_log("Initializing object context\n");
     if (rt_gettree(ap.a_rt_i, argv[1])) {
 	bu_log("%s: unable to load %s\n", argv[0], argv[1]);
