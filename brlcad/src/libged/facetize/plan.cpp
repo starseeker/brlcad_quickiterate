@@ -234,7 +234,7 @@ variant_abs_tess_floor(fastf_t bbox_diag)
 	fastf_t min_dtol = 0.05;
 	const char *env = getenv("RT_PRIM_MIN_ABS_TOL");
 	if (env) {
-		char *end = NULL;
+		char *end;
 		double val = strtod(env, &end);
 		if (end != env && val > 0.0)
 			min_dtol = (fastf_t)val;
@@ -340,8 +340,6 @@ create_variant_in_working_g(struct db_i       *wdbip,
 
 	point_t bmin, bmax;
 	fastf_t bbox_diag = -1.0;
-	VSETALL(bmin, 0.0);
-	VSETALL(bmax, 0.0);
 	if (rt_bound_internal(wdbip, src_dp, bmin, bmax) == 0)
 		bbox_diag = DIST_PNT_PNT(bmin, bmax);
 
