@@ -50,12 +50,9 @@
 
 #include "../ged_private.h"
 
-struct analyze_densities *_gd_densities;
-char *_gd_densities_source;
-
 /* bu_getopt() options */
-const char *options = "A:a:de:f:g:Gn:N:p:P:qrS:s:t:U:u:vV:W:h?";
-const char *options_str = "[-A A|a|b|c|e|g|m|o|p|v|w] [-a az] [-d] [-e el] [-f densityFile] [-g spacing|upper,lower|upper-lower] [-G] [-n nhits] [-N nviews] [-p plotPrefix] [-P ncpus] [-q] [-r] [-S nsamples] [-t overlap_tol] [-U useair] [-u len_units vol_units wt_units] [-v] [-V volume_tol] [-W weight_tol]";
+const char *options = "A:a:de:f:g:Gm:n:N:p:P:qrS:s:t:U:u:vV:W:h?";
+const char *options_str = "[-A A|a|b|c|e|g|m|o|p|v|w] [-a az] [-d] [-e el] [-f densityFile] [-g spacing|upper,lower|upper-lower] [-G] [-m legacy|rotated|crofton] [-n nhits] [-N nviews] [-p plotPrefix] [-P ncpus] [-q] [-r] [-S nsamples] [-t overlap_tol] [-U useair] [-u len_units vol_units wt_units] [-v] [-V volume_tol] [-W weight_tol]";
 
 #define ANALYSIS_VOLUMES          1
 #define ANALYSIS_WEIGHTS          2
@@ -71,55 +68,26 @@ const char *options_str = "[-A A|a|b|c|e|g|m|o|p|v|w] [-a az] [-d] [-e el] [-f d
 
 #define MAX_MATERIAL_ID  32768
 
+/* Sampling method codes */
+#define GQA_METHOD_LEGACY  0  /**< original axis-aligned triple grid */
+#define GQA_METHOD_ROTATED 1  /**< rotated triple grid using -a/-e orientation */
+#define GQA_METHOD_CROFTON 2  /**< Crofton isotropic random sampling */
+
 /* Note: struct parsing requires no space after the commas.  take care
  * when formatting this file.  if the compile breaks here, it means
  * that spaces got inserted incorrectly.
  */
 #define COMMA ','
 
-static int analysis_flags;
-static int multiple_analyses;
-
-static double azimuth_deg;
-static double elevation_deg;
-static char *densityFileName;
-static double gridSpacing;
-static double gridSpacingLimit;
 static const double GRIDSPACING_STEP = 1.0 / 2.0;
 
-static char makeOverlapAssemblies;
-static size_t require_num_hits;
-static int ncpu;
-static double Samples_per_model_axis;
-static double overlap_tolerance;
-static double volume_tolerance;
-static double weight_tolerance;
-static int aborted = 0;
+/* Plot line colors (immutable, OK as static constants) */
+static const int overlap_color[3] = { 255, 255, 0 };   /* yellow */
+static const int gap_color[3]     = { 128, 192, 255 };  /* cyan */
+static const int adjAir_color[3]  = { 128, 255, 192 };  /* pale green */
+static const int expAir_color[3]  = { 255, 128, 255 };  /* magenta */
 
-static int print_per_region_stats;
-static int max_region_name_len;
-static int use_air;
-static int num_objects; /* number of objects specified on command line */
-static int max_cpus;
-static int num_views;
-static int verbose;
-static int quiet_missed_report;
-
-static const char *plot_prefix = NULL; /* non-NULL means produce plot files */
-static FILE *plot_weight;
-static FILE *plot_volume;
-static FILE *plot_overlaps;
-static FILE *plot_adjair;
-static FILE *plot_gaps;
-static FILE *plot_expair;
-
-static int overlap_color[3] = { 255, 255, 0 };	/* yellow */
-static int gap_color[3] = { 128, 192, 255 };    /* cyan */
-static int adjAir_color[3] = { 128, 255, 192 }; /* pale green */
-static int expAir_color[3] = { 255, 128, 255 }; /* magenta */
-
-static int debug = 0;
-#define DLOG if (debug) bu_vls_printf
+#define DLOG if (state->debug) bu_vls_printf
 
 /* Some defines for re-using the values from the application structure
  * for other purposes
@@ -127,6 +95,28 @@ static int debug = 0;
 #define A_LENDEN a_color[0]
 #define A_LEN a_color[1]
 #define A_STATE a_uptr
+
+/* per-object accumulation table (local to gqa, distinct from libanalyze's) */
+struct gqa_per_obj_data {
+    const char *o_name;
+    double *o_len;
+    double *o_lenDensity;
+    double *o_volume;
+    double *o_weight;
+    fastf_t *o_lenTorque; /* torque vector for each view */
+    fastf_t *o_moi;       /* one vector per view for collecting the partial moments of inertia calculation */
+    fastf_t *o_poi;       /* one vector per view for collecting the partial products of inertia calculation */
+};
+
+/* per-region accumulation table (local to gqa, distinct from libanalyze's) */
+struct gqa_per_region_data {
+    unsigned long hits;
+    double *r_lenDensity; /* for per-region per-view weight computation */
+    double *r_len;        /* for per-region, per-view computation */
+    double *r_weight;
+    double *r_volume;
+    struct gqa_per_obj_data *optr;
+};
 
 
 struct cstate {
@@ -165,109 +155,72 @@ struct cstate {
     fastf_t *m_poi;       /* one vector per view for collecting the partial products of inertia calculation */
 
     struct resource *resp;
+
+    /* --- Per-invocation state (moved from global statics) --- */
+    int analysis_flags;
+    int multiple_analyses;
+    double azimuth_deg;
+    double elevation_deg;
+    char *densityFileName;
+    double gridSpacing;
+    double gridSpacingLimit;
+    char makeOverlapAssemblies;
+    size_t require_num_hits;
+    int ncpu;
+    int max_cpus;
+    double Samples_per_model_axis;
+    double overlap_tolerance;
+    double volume_tolerance;
+    double weight_tolerance;
+    int aborted;
+    int print_per_region_stats;
+    int max_region_name_len;
+    int use_air;
+    int num_objects;
+    int num_views;
+    int verbose;
+    int quiet_missed_report;
+    int debug;
+
+    const char *plot_prefix;
+    FILE *plot_weight;
+    FILE *plot_volume;
+    FILE *plot_overlaps;
+    FILE *plot_adjair;
+    FILE *plot_gaps;
+    FILE *plot_expair;
+
+    /* Plot VLIST for in-GED overlap display */
+    struct bv_vlblock *plot_vbp;
+    struct bu_list *plot_vhead;
+
+    /* Region pair lists (protected by sem_lists) */
+    struct region_pair gapList;
+    struct region_pair adjAirList;
+    struct region_pair exposedAirList;
+    struct region_pair overlapList;
+
+    /* Per-object / per-region accumulation tables */
+    struct gqa_per_obj_data *obj_tbl;
+    struct gqa_per_region_data *reg_tbl;
+
+    /* Units conversion pointers */
+    const struct cvt_tab *units[3];
+
+    /* Density table */
+    struct analyze_densities *densities;
+    char *densities_source;
+
+    /* --- Advanced sampling mode --- */
+    int analysis_method; /* GQA_METHOD_LEGACY / GQA_METHOD_ROTATED / GQA_METHOD_CROFTON */
+    struct rotated_grid rot_grid[3]; /* pre-computed rotated views, one per state->num_views */
 };
-
-
-struct ged_gqa_plot {
-    struct bv_vlblock *vbp;
-    struct bu_list *vhead;
-} ged_gqa_plot;
-
-/* summary data structure for objects specified on command line */
-static struct per_obj_data {
-    const char *o_name;
-    double *o_len;
-    double *o_lenDensity;
-    double *o_volume;
-    double *o_weight;
-    fastf_t *o_lenTorque; /* torque vector for each view */
-    fastf_t *o_moi;       /* one vector per view for collecting the partial moments of inertia calculation */
-    fastf_t *o_poi;       /* one vector per view for collecting the partial products of inertia calculation */
-} *obj_tbl;
-
-/**
- * this is the data we track for each region
- */
-static struct per_region_data {
-    unsigned long hits;
-    double *r_lenDensity; /* for per-region per-view weight computation */
-    double *r_len;        /* for per-region, per-view computation */
-    double *r_weight;
-    double *r_volume;
-    struct per_obj_data *optr;
-} *reg_tbl;
 
 
 /* Access to these lists should be in sections
  * of code protected by state->sem_lists
+ * (lists now per-invocation inside struct cstate)
  */
-
-/**
- * list of gaps
- */
-static struct region_pair gapList = {
-    {
-	BU_LIST_HEAD_MAGIC,
-	(struct bu_list *)&gapList,
-	(struct bu_list *)&gapList
-    },
-    { "Gaps" },
-    (struct region *)NULL,
-    (unsigned long)0,
-    (double)0.0,
-    {0.0, 0.0, 0.0, }
-};
-
-
-/**
- * list of adjacent air
- */
-static struct region_pair adjAirList = {
-    {
-	BU_LIST_HEAD_MAGIC,
-	(struct bu_list *)&adjAirList,
-	(struct bu_list *)&adjAirList
-    },
-    { (char *)"Adjacent Air" },
-    (struct region *)NULL,
-    (unsigned long)0,
-    (double)0.0,
-    {0.0, 0.0, 0.0, }
-};
-
-
-/**
- * list of exposed air
- */
-static struct region_pair exposedAirList = {
-    {
-	BU_LIST_HEAD_MAGIC,
-	(struct bu_list *)&exposedAirList,
-	(struct bu_list *)&exposedAirList
-    },
-    { "Exposed Air" },
-    (struct region *)NULL,
-    (unsigned long)0,
-    (double)0.0,
-    {0.0, 0.0, 0.0, }
-};
-
-
-/**
- * list of overlaps
- */
-static struct region_pair overlapList = {
-    {
-	BU_LIST_HEAD_MAGIC,
-	(struct bu_list *)&overlapList,
-	(struct bu_list *)&overlapList
-    },
-    { "Overlaps" },
-    (struct region *)NULL,
-    (unsigned long)0,
-    (double)0.0,
-    {0.0, 0.0, 0.0, }
-};
 
 
 /**
@@ -396,7 +349,9 @@ static const struct cvt_tab units_tab[3][40] = {
 #define LINE 0
 #define VOL 1
 #define WGT 2
-static const struct cvt_tab *units[3] = {
+
+/* Default units (also initialised per-invocation in ged_gqa_core) */
+static const struct cvt_tab * const units_tab_defaults[3] = {
     &units_tab[0][0],	/* linear */
     &units_tab[1][0],	/* volume */
     &units_tab[2][0]	/* weight */
@@ -457,7 +412,7 @@ _gqa_read_units_double(struct ged *gedp, double *val, char *buf, const struct cv
  * Parse through command line flags
  */
 static int
-parse_args(struct ged *gedp, int ac, char *av[])
+parse_args(struct ged *gedp, struct cstate *state, int ac, char *av[])
 {
     int c;
     int i;
@@ -473,13 +428,13 @@ parse_args(struct ged *gedp, int ac, char *av[])
 	switch (c) {
 	    case 'A':
 		{
-		    analysis_flags = 0;
-		    multiple_analyses = 0;
+		    state->analysis_flags = 0;
+		    state->multiple_analyses = 0;
 		    for (p = bu_optarg; *p; p++) {
 			switch (*p) {
 			    case 'A' :
-				multiple_analyses = 1;
-				analysis_flags = analysis_flags \
+				state->multiple_analyses = 1;
+				state->analysis_flags = state->analysis_flags \
 				| ANALYSIS_ADJ_AIR \
 				| ANALYSIS_BBOX \
 				| ANALYSIS_CENTROIDS \
@@ -491,72 +446,72 @@ parse_args(struct ged *gedp, int ac, char *av[])
 				| ANALYSIS_WEIGHTS;
 				break;
 			    case 'a' :
-				if (analysis_flags)
-				    multiple_analyses = 1;
+				if (state->analysis_flags)
+				    state->multiple_analyses = 1;
 
-				analysis_flags |= ANALYSIS_ADJ_AIR;
+				state->analysis_flags |= ANALYSIS_ADJ_AIR;
 
 				break;
 			    case 'b' :
-				if (analysis_flags)
-				    multiple_analyses = 1;
+				if (state->analysis_flags)
+				    state->multiple_analyses = 1;
 
-				analysis_flags |= ANALYSIS_BBOX;
+				state->analysis_flags |= ANALYSIS_BBOX;
 
 				break;
 			    case 'c' :
-				if (analysis_flags)
-				    multiple_analyses = 1;
+				if (state->analysis_flags)
+				    state->multiple_analyses = 1;
 
-				analysis_flags |= ANALYSIS_WEIGHTS;
-				analysis_flags |= ANALYSIS_CENTROIDS;
+				state->analysis_flags |= ANALYSIS_WEIGHTS;
+				state->analysis_flags |= ANALYSIS_CENTROIDS;
 
 				break;
 			    case 'e' :
-				if (analysis_flags)
-				    multiple_analyses = 1;
+				if (state->analysis_flags)
+				    state->multiple_analyses = 1;
 
-				analysis_flags |= ANALYSIS_EXP_AIR;
+				state->analysis_flags |= ANALYSIS_EXP_AIR;
 				break;
 			    case 'g' :
-				if (analysis_flags)
-				    multiple_analyses = 1;
+				if (state->analysis_flags)
+				    state->multiple_analyses = 1;
 
-				analysis_flags |= ANALYSIS_GAPS;
+				state->analysis_flags |= ANALYSIS_GAPS;
 				break;
 			    case 'm' :
-				if (analysis_flags)
-				    multiple_analyses = 1;
+				if (state->analysis_flags)
+				    state->multiple_analyses = 1;
 
-				analysis_flags |= ANALYSIS_WEIGHTS;
-				analysis_flags |= ANALYSIS_CENTROIDS;
-				analysis_flags |= ANALYSIS_MOMENTS;
+				state->analysis_flags |= ANALYSIS_WEIGHTS;
+				state->analysis_flags |= ANALYSIS_CENTROIDS;
+				state->analysis_flags |= ANALYSIS_MOMENTS;
 
 				break;
 			    case 'o' :
-				if (analysis_flags)
-				    multiple_analyses = 1;
+				if (state->analysis_flags)
+				    state->multiple_analyses = 1;
 
-				analysis_flags |= ANALYSIS_OVERLAPS;
+				state->analysis_flags |= ANALYSIS_OVERLAPS;
 				break;
 			    case 'p' :
-				if (analysis_flags)
-				    multiple_analyses = 1;
+				if (state->analysis_flags)
+				    state->multiple_analyses = 1;
 
-				analysis_flags |= ANALYSIS_OVERLAPS;
-				analysis_flags |= ANALYSIS_PLOT_OVERLAPS;
+				state->analysis_flags |= ANALYSIS_OVERLAPS;
+				state->analysis_flags |= ANALYSIS_PLOT_OVERLAPS;
 				break;
 			    case 'v' :
-				if (analysis_flags)
-				    multiple_analyses = 1;
+				if (state->analysis_flags)
+				    state->multiple_analyses = 1;
 
-				analysis_flags |= ANALYSIS_VOLUMES;
+				state->analysis_flags |= ANALYSIS_VOLUMES;
 				break;
 			    case 'w' :
-				if (analysis_flags)
-				    multiple_analyses = 1;
+				if (state->analysis_flags)
+				    state->multiple_analyses = 1;
 
-				analysis_flags |= ANALYSIS_WEIGHTS;
+				state->analysis_flags |= ANALYSIS_WEIGHTS;
 				break;
 			    default:
 				bu_vls_printf(gedp->ged_result_str, "Unknown analysis type \"%c\" requested.\n", *p);
@@ -566,22 +521,26 @@ parse_args(struct ged *gedp, int ac, char *av[])
 		    break;
 		}
 	    case 'a':
-		bu_vls_printf(gedp->ged_result_str, "azimuth not implemented\n");
-		if (bn_decode_angle(&azimuth_deg,bu_optarg) == 0) {
+		if (bn_decode_angle(&state->azimuth_deg, bu_optarg) == 0) {
 		    bu_vls_printf(gedp->ged_result_str, "error parsing azimuth \"%s\"\n", bu_optarg);
 		    return -1;
 		}
+		/* Switch to rotated-grid mode when az/el are specified */
+		if (state->analysis_method == GQA_METHOD_LEGACY)
+		    state->analysis_method = GQA_METHOD_ROTATED;
 		break;
 	    case 'e':
-		bu_vls_printf(gedp->ged_result_str, "elevation not implemented\n");
-		if (bn_decode_angle(&elevation_deg,bu_optarg) == 0) {
+		if (bn_decode_angle(&state->elevation_deg, bu_optarg) == 0) {
 		    bu_vls_printf(gedp->ged_result_str, "error parsing elevation \"%s\"\n", bu_optarg);
 		    return -1;
 		}
+		/* Switch to rotated-grid mode when az/el are specified */
+		if (state->analysis_method == GQA_METHOD_LEGACY)
+		    state->analysis_method = GQA_METHOD_ROTATED;
 		break;
-	    case 'd': debug = 1; break;
+	    case 'd': state->debug = 1; break;
 
-	    case 'f': densityFileName = bu_optarg; break;
+	    case 'f': state->densityFileName = bu_optarg; break;
 
 	    case 'g':
 		{
@@ -614,70 +573,83 @@ parse_args(struct ged *gedp, int ac, char *av[])
 			    return -1;
 			}
 
-			gridSpacing = value1;
-			gridSpacingLimit = value2;
+			state->gridSpacing = value1;
+			state->gridSpacingLimit = value2;
 		    } else {
-			gridSpacingLimit = value1;
+			state->gridSpacingLimit = value1;
 
-			gridSpacing = 0.0; /* flag it */
+			state->gridSpacing = 0.0; /* flag it */
 		    }
 		    break;
 		}
 	    case 'G':
-		makeOverlapAssemblies = 1;
+		state->makeOverlapAssemblies = 1;
 		bu_vls_printf(gedp->ged_result_str, "-G option unimplemented\n");
 		return -1;
+	    case 'm':
+		/* method selection: legacy, rotated, crofton */
+		if (BU_STR_EQUAL(bu_optarg, "legacy")) {
+		    state->analysis_method = GQA_METHOD_LEGACY;
+		} else if (BU_STR_EQUAL(bu_optarg, "rotated")) {
+		    state->analysis_method = GQA_METHOD_ROTATED;
+		} else if (BU_STR_EQUAL(bu_optarg, "crofton")) {
+		    state->analysis_method = GQA_METHOD_CROFTON;
+		} else {
+		    bu_vls_printf(gedp->ged_result_str, "unknown method \"%s\"; valid: legacy, rotated, crofton\n", bu_optarg);
+		    return -1;
+		}
+		break;
 	    case 'n':
 		if (sscanf(bu_optarg, "%d", &c) != 1 || c < 0) {
 		    bu_vls_printf(gedp->ged_result_str, "num_hits must be integer value >= 0, not \"%s\"\n", bu_optarg);
 		    return -1;
 		}
 
-		require_num_hits = (size_t)c;
+		state->require_num_hits = (size_t)c;
 		break;
 
 	    case 'N':
-		num_views = atoi(bu_optarg);
+		state->num_views = atoi(bu_optarg);
 		break;
 	    case 'p':
-		plot_prefix = bu_optarg;
+		state->plot_prefix = bu_optarg;
 		break;
 	    case 'P':
 		/* cannot ask for more cpu's than the machine has */
 		c = atoi(bu_optarg);
-		if (c > 0 && c <= max_cpus)
-		    ncpu = c;
+		if (c > 0 && c <= state->max_cpus)
+		    state->ncpu = c;
 		break;
 	    case 'q':
-		quiet_missed_report = 1;
+		state->quiet_missed_report = 1;
 		break;
 	    case 'r':
-		print_per_region_stats = 1;
+		state->print_per_region_stats = 1;
 		break;
 	    case 'S':
 		if (sscanf(bu_optarg, "%lg", &a) != 1 || a <= 1.0) {
 		    bu_vls_printf(gedp->ged_result_str, "error in specifying minimum samples per model axis: \"%s\"\n", bu_optarg);
 		    break;
 		}
-		Samples_per_model_axis = a + 1;
+		state->Samples_per_model_axis = a + 1;
 		break;
 	    case 't':
-		if (_gqa_read_units_double(gedp, &overlap_tolerance, bu_optarg, units_tab[0])) {
+		if (_gqa_read_units_double(gedp, &state->overlap_tolerance, bu_optarg, units_tab[0])) {
 		    bu_vls_printf(gedp->ged_result_str, "error in overlap tolerance distance \"%s\"\n", bu_optarg);
 		    return -1;
 		}
 		break;
 	    case 'v':
-		verbose = 1;
+		state->verbose = 1;
 		break;
 	    case 'V':
-		if (_gqa_read_units_double(gedp, &volume_tolerance, bu_optarg, units_tab[1])) {
+		if (_gqa_read_units_double(gedp, &state->volume_tolerance, bu_optarg, units_tab[1])) {
 		    bu_vls_printf(gedp->ged_result_str, "error in volume tolerance \"%s\"\n", bu_optarg);
 		    return -1;
 		}
 		break;
 	    case 'W':
-		if (_gqa_read_units_double(gedp, &weight_tolerance, bu_optarg, units_tab[2])) {
+		if (_gqa_read_units_double(gedp, &state->weight_tolerance, bu_optarg, units_tab[2])) {
 		    bu_vls_printf(gedp->ged_result_str, "error in weight tolerance \"%s\"\n", bu_optarg);
 		    return -1;
 		}
@@ -685,7 +657,7 @@ parse_args(struct ged *gedp, int ac, char *av[])
 
 	    case 'U':
 		errno = 0;
-		use_air = strtol(bu_optarg, (char **)NULL, 10);
+		state->use_air = strtol(bu_optarg, (char **)NULL, 10);
 		if (errno == ERANGE || errno == EINVAL) {
 		    bu_vls_printf(gedp->ged_result_str, "error in air argument %s\n", bu_optarg);
 		    return -1;
@@ -720,7 +692,7 @@ parse_args(struct ged *gedp, int ac, char *av[])
 			found_unit = 0;
 			for (cv = &units_tab[i][0]; cv->name[0] != '\0'; cv++) {
 			    if (units_name[i] && BU_STR_EQUAL(cv->name, units_name[i])) {
-				units[i] = cv;
+				state->units[i] = cv;
 				found_unit = 1;
 				break;
 			    }
@@ -736,7 +708,7 @@ parse_args(struct ged *gedp, int ac, char *av[])
 
 		    bu_vls_printf(gedp->ged_result_str, "Units: ");
 		    for (i = 0; i < 3; i++) {
-			bu_vls_printf(gedp->ged_result_str, " %s: %s", dim[i], units[i]->name);
+			bu_vls_printf(gedp->ged_result_str, " %s: %s", dim[i], state->units[i]->name);
 		    }
 		    bu_vls_printf(gedp->ged_result_str, "\n");
 		}
@@ -789,36 +761,36 @@ _gqa_overlap(struct application *ap,
 
     depth = ohitp->hit_dist - ihitp->hit_dist;
 
-    if (depth < overlap_tolerance)
+    if (depth < state->overlap_tolerance)
 	/* too small to matter, pick one or none */
 	return 1;
 
     VJOIN1(ihit, rp->r_pt, ihitp->hit_dist, rp->r_dir);
     VJOIN1(ohit, rp->r_pt, ohitp->hit_dist, rp->r_dir);
 
-    if (plot_overlaps) {
+    if (state->plot_overlaps) {
 	bu_semaphore_acquire(state->sem_plot);
-	pl_color(plot_overlaps, V3ARGS(overlap_color));
-	pdv_3line(plot_overlaps, ihit, ohit);
+	pl_color(state->plot_overlaps, V3ARGS(overlap_color));
+	pdv_3line(state->plot_overlaps, ihit, ohit);
 	bu_semaphore_release(state->sem_plot);
     }
 
-    if (analysis_flags & ANALYSIS_PLOT_OVERLAPS) {
+    if (state->analysis_flags & ANALYSIS_PLOT_OVERLAPS) {
 	bu_semaphore_acquire(state->sem_worker);
-	BV_ADD_VLIST(ged_gqa_plot.vbp->free_vlist_hd, ged_gqa_plot.vhead, ihit, BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(ged_gqa_plot.vbp->free_vlist_hd, ged_gqa_plot.vhead, ohit, BV_VLIST_LINE_DRAW);
+	BV_ADD_VLIST(state->plot_vbp->free_vlist_hd, state->plot_vhead, ihit, BV_VLIST_LINE_MOVE);
+	BV_ADD_VLIST(state->plot_vbp->free_vlist_hd, state->plot_vhead, ohit, BV_VLIST_LINE_DRAW);
 	bu_semaphore_release(state->sem_worker);
     }
 
-    if (analysis_flags & ANALYSIS_OVERLAPS) {
+    if (state->analysis_flags & ANALYSIS_OVERLAPS) {
 	bu_semaphore_acquire(state->sem_lists);
-	add_unique_pair(&overlapList, reg1, reg2, depth, ihit);
+	add_unique_pair(&state->overlapList, reg1, reg2, depth, ihit);
 	bu_semaphore_release(state->sem_lists);
 
-	if (plot_overlaps) {
+	if (state->plot_overlaps) {
 	    bu_semaphore_acquire(state->sem_plot);
-	    pl_color(plot_overlaps, V3ARGS(overlap_color));
-	    pdv_3line(plot_overlaps, ihit, ohit);
+	    pl_color(state->plot_overlaps, V3ARGS(overlap_color));
+	    pdv_3line(state->plot_overlaps, ihit, ohit);
 	    bu_semaphore_release(state->sem_plot);
 	}
     } else {
@@ -866,17 +838,17 @@ void _gqa_exposed_air(struct application *ap,
     /* this shouldn't be air */
 
     bu_semaphore_acquire(state->sem_lists);
-    add_unique_pair(&exposedAirList,
+    add_unique_pair(&state->exposedAirList,
 		    pp->pt_regionp,
 		    (struct region *)NULL,
 		    DIST_PNT_PNT(in_pt, out_pt), /* thickness */
 		    last_out_point); /* location */
     bu_semaphore_release(state->sem_lists);
 
-    if (plot_expair) {
+    if (state->plot_expair) {
 	bu_semaphore_acquire(state->sem_plot);
-	pl_color(plot_expair, V3ARGS(expAir_color));
-	pdv_3line(plot_expair, in_pt, out_pt);
+	pl_color(state->plot_expair, V3ARGS(expAir_color));
+	pdv_3line(state->plot_expair, in_pt, out_pt);
 	bu_semaphore_release(state->sem_plot);
     }
 }
@@ -914,14 +886,14 @@ _gqa_hit(struct application *ap, struct partition *PartHeadp, struct seg *segs)
     for (pp=PartHeadp->pt_forw; pp != PartHeadp; pp = pp->pt_forw) {
 
 	long int material_id = pp->pt_regionp->reg_gmater;
-	fastf_t grams_per_cu_mm = analyze_densities_density(_gd_densities, material_id);
+	fastf_t grams_per_cu_mm = analyze_densities_density(state->densities, material_id);
 
 	/* inhit info */
 	dist = pp->pt_outhit->hit_dist - pp->pt_inhit->hit_dist;
 	VJOIN1(pt, ap->a_ray.r_pt, pp->pt_inhit->hit_dist, ap->a_ray.r_dir);
 	VJOIN1(opt, ap->a_ray.r_pt, pp->pt_outhit->hit_dist, ap->a_ray.r_dir);
 
-	if (debug) {
+	if (state->debug) {
 	    bu_semaphore_acquire(state->sem_worker);
 	    bu_vls_printf(gedp->ged_result_str, "%s %g->%g\n",
 			  pp->pt_regionp->reg_name,
@@ -936,11 +908,11 @@ _gqa_hit(struct application *ap, struct partition *PartHeadp, struct seg *segs)
 	 * tests the front exposure; and a second test below checks
 	 * the exit exposure.
 	 */
-	if (analysis_flags & ANALYSIS_EXP_AIR) {
+	if (state->analysis_flags & ANALYSIS_EXP_AIR) {
 
 	    /* FIXME: verify that the next partition is never
 	     * overlapping numerically with the current partition.
-	     * otherwise, we'll need to account for it. This debug
+	     * otherwise, we'll need to account for it. This state->debug
 	     * statement should be removed after confirming.
 	     * CSM@20220516
 	     */
@@ -961,7 +933,7 @@ _gqa_hit(struct application *ap, struct partition *PartHeadp, struct seg *segs)
 	}
 
 	/* looking for voids in the model */
-	if (analysis_flags & ANALYSIS_GAPS) {
+	if (state->analysis_flags & ANALYSIS_GAPS) {
 	    if (pp->pt_back != PartHeadp) {
 		double gap_dist;
 
@@ -970,11 +942,11 @@ _gqa_hit(struct application *ap, struct partition *PartHeadp, struct seg *segs)
 		 */
 		gap_dist = pp->pt_inhit->hit_dist - last_out_dist;
 
-		if (gap_dist > overlap_tolerance) {
+		if (gap_dist > state->overlap_tolerance) {
 
 		    /* like overlaps, we only want to report unique pairs */
 		    bu_semaphore_acquire(state->sem_lists);
-		    add_unique_pair(&gapList,
+		    add_unique_pair(&state->gapList,
 				    pp->pt_regionp,
 				    pp->pt_back->pt_regionp,
 				    gap_dist,
@@ -982,13 +954,13 @@ _gqa_hit(struct application *ap, struct partition *PartHeadp, struct seg *segs)
 		    bu_semaphore_release(state->sem_lists);
 
 		    /* like overlaps, let's plot */
-		    if (plot_gaps) {
+		    if (state->plot_gaps) {
 			vect_t gapEnd;
 			VJOIN1(gapEnd, pt, -gap_dist, ap->a_ray.r_dir);
 
 			bu_semaphore_acquire(state->sem_plot);
-			pl_color(plot_gaps, V3ARGS(gap_color));
-			pdv_3line(plot_gaps, pt, gapEnd);
+			pl_color(state->plot_gaps, V3ARGS(gap_color));
+			pdv_3line(state->plot_gaps, pt, gapEnd);
 			bu_semaphore_release(state->sem_plot);
 		    }
 		}
@@ -996,8 +968,8 @@ _gqa_hit(struct application *ap, struct partition *PartHeadp, struct seg *segs)
 	}
 
 	/* computing the weight of the objects */
-	if (analysis_flags & ANALYSIS_WEIGHTS) {
-	    if (debug) {
+	if (state->analysis_flags & ANALYSIS_WEIGHTS) {
+	    if (state->debug) {
 		bu_semaphore_acquire(state->sem_worker);
 		bu_vls_printf(gedp->ged_result_str, "Hit %s doing weight\n", pp->pt_regionp->reg_name);
 		bu_semaphore_release(state->sem_worker);
@@ -1013,13 +985,13 @@ _gqa_hit(struct application *ap, struct partition *PartHeadp, struct seg *segs)
 		return BRLCAD_ERROR;
 	    } else {
 
-		struct per_region_data *prd;
+		struct gqa_per_region_data *prd;
 		vect_t cmass;
 		vect_t lenTorque;
 		fastf_t Lx_sq;
 		fastf_t Ly_sq;
 		fastf_t Lz_sq;
-		fastf_t cell_area = gridSpacing*gridSpacing;
+		fastf_t cell_area = state->gridSpacing*state->gridSpacing;
 		int los;
 
 		switch (state->i_axis) {
@@ -1069,7 +1041,7 @@ _gqa_hit(struct application *ap, struct partition *PartHeadp, struct seg *segs)
 		val = grams_per_cu_mm * dist * (pp->pt_regionp->reg_los * 0.01);
 		ap->A_LENDEN += val;
 
-		prd = ((struct per_region_data *)pp->pt_regionp->reg_udata);
+		prd = ((struct gqa_per_region_data *)pp->pt_regionp->reg_udata);
 
 		// ensure we have an object and minimize reporting when we have errors
 		if (prd->optr == NULL) {
@@ -1090,7 +1062,7 @@ _gqa_hit(struct application *ap, struct partition *PartHeadp, struct seg *segs)
 		/* accumulate the per-object per-view weight values */
 		prd->optr->o_lenDensity[state->i_axis] += val;
 
-		if (analysis_flags & ANALYSIS_CENTROIDS) {
+		if (state->analysis_flags & ANALYSIS_CENTROIDS) {
 		    /* calculate the center of mass for this partition */
 		    VJOIN1(cmass, pt, dist*0.5, ap->a_ray.r_dir);
 
@@ -1103,7 +1075,7 @@ _gqa_hit(struct application *ap, struct partition *PartHeadp, struct seg *segs)
 		    /* accumulate the total lenTorque */
 		    VADD2(&state->m_lenTorque[state->i_axis*3], &state->m_lenTorque[state->i_axis*3], lenTorque);
 
-		    if (analysis_flags & ANALYSIS_MOMENTS) {
+		    if (state->analysis_flags & ANALYSIS_MOMENTS) {
 			vectp_t moi = NULL;
 			vectp_t poi = NULL;
 			fastf_t dx_sq = cmass[X]*cmass[X];
@@ -1139,8 +1111,8 @@ _gqa_hit(struct application *ap, struct partition *PartHeadp, struct seg *segs)
 	}
 
 	/* compute the volume of the object */
-	if (analysis_flags & ANALYSIS_VOLUMES) {
-	    struct per_region_data *prd = ((struct per_region_data *)pp->pt_regionp->reg_udata);
+	if (state->analysis_flags & ANALYSIS_VOLUMES) {
+	    struct gqa_per_region_data *prd = ((struct gqa_per_region_data *)pp->pt_regionp->reg_udata);
 	    ap->A_LEN += dist; /* add to total volume */
 	    {
 		// ensure we have an object and minimize reporting when we have errors
@@ -1165,31 +1137,31 @@ _gqa_hit(struct application *ap, struct partition *PartHeadp, struct seg *segs)
 
 		bu_semaphore_release(state->sem_stats);
 	    }
-	    if (debug) {
+	    if (state->debug) {
 		bu_semaphore_acquire(state->sem_worker);
 		bu_vls_printf(gedp->ged_result_str, "\t\tvol hit %s oDist:%g objVol:%g %s\n",
 			      pp->pt_regionp->reg_name, dist, prd->optr->o_len[state->curr_view], prd->optr->o_name);
 		bu_semaphore_release(state->sem_worker);
 	    }
 
-	    if (plot_volume) {
+	    if (state->plot_volume) {
 		VJOIN1(opt, ap->a_ray.r_pt, pp->pt_outhit->hit_dist, ap->a_ray.r_dir);
 
 		bu_semaphore_acquire(state->sem_plot);
 		if (ap->a_user & 1) {
-		    pl_color(plot_volume, V3ARGS(gap_color));
+		    pl_color(state->plot_volume, V3ARGS(gap_color));
 		} else {
-		    pl_color(plot_volume, V3ARGS(adjAir_color));
+		    pl_color(state->plot_volume, V3ARGS(adjAir_color));
 		}
 
-		pdv_3line(plot_volume, pt, opt);
+		pdv_3line(state->plot_volume, pt, opt);
 		bu_semaphore_release(state->sem_plot);
 	    }
 	}
 
 
 	/* look for two adjacent air regions */
-	if (analysis_flags & ANALYSIS_ADJ_AIR) {
+	if (state->analysis_flags & ANALYSIS_ADJ_AIR) {
 	    if (last_air && pp->pt_regionp->reg_aircode &&
 		pp->pt_regionp->reg_aircode != last_air) {
 
@@ -1197,21 +1169,21 @@ _gqa_hit(struct application *ap, struct partition *PartHeadp, struct seg *segs)
 		point_t aapt;
 
 		bu_semaphore_acquire(state->sem_lists);
-		add_unique_pair(&adjAirList, pp->pt_back->pt_regionp, pp->pt_regionp, 0.0, pt);
+		add_unique_pair(&state->adjAirList, pp->pt_back->pt_regionp, pp->pt_regionp, 0.0, pt);
 		bu_semaphore_release(state->sem_lists);
 
 		d *= 0.25;
 		VJOIN1(aapt, pt, d, ap->a_ray.r_dir);
 
 		bu_semaphore_acquire(state->sem_plot);
-		pl_color(plot_adjair, V3ARGS(adjAir_color));
-		pdv_3line(plot_adjair, pt, aapt);
+		pl_color(state->plot_adjair, V3ARGS(adjAir_color));
+		pdv_3line(state->plot_adjair, pt, aapt);
 		bu_semaphore_release(state->sem_plot);
 	    }
 	}
 
 	/* note that this region has been seen */
-	((struct per_region_data *)pp->pt_regionp->reg_udata)->hits++;
+	((struct gqa_per_region_data *)pp->pt_regionp->reg_udata)->hits++;
 
 	last_air = pp->pt_regionp->reg_aircode;
 	last_out_dist = pp->pt_outhit->hit_dist;
@@ -1222,7 +1194,7 @@ _gqa_hit(struct application *ap, struct partition *PartHeadp, struct seg *segs)
     /* This checks the last partition was exposed air.  A check above
      * checks the partition entry for exposed air.
      */
-    if (analysis_flags & ANALYSIS_EXP_AIR && last_air) {
+    if (state->analysis_flags & ANALYSIS_EXP_AIR && last_air) {
 	pp = PartHeadp->pt_back;
 	_gqa_exposed_air(ap, pp, last_out_point, pt, opt);
     }
@@ -1271,6 +1243,66 @@ get_next_row(struct cstate *state)
 
 
 /**
+ * This routine must be prepared to run in parallel.
+ *
+ * Rotated-grid variant: each thread grabs the next ray from the rotated
+ * grid using an atomic row counter, then shoots it.  The grid was
+ * pre-computed by rotated_grid_setup() / rotated_grid_setup_ae() before
+ * bu_parallel() was called.
+ */
+void
+rotated_plane_worker(int cpu, void *ptr)
+{
+    struct application ap;
+    struct cstate *state = (struct cstate *)ptr;
+    struct ged *gedp = state->gedp;
+    unsigned long shot_cnt = 0;
+
+    if (state->aborted)
+	return;
+
+    RT_APPLICATION_INIT(&ap);
+    ap.a_rt_i     = (struct rt_i *)state->rtip;
+    ap.a_hit      = _gqa_hit;
+    ap.a_miss     = _gqa_miss;
+    ap.a_logoverlap = logoverlap;
+    ap.a_overlap  = _gqa_overlap;
+    ap.a_resource = &state->resp[cpu];
+    ap.A_LENDEN   = 0.0;
+    ap.A_LEN      = 0.0;
+    ap.A_STATE    = ptr;
+
+    int view = state->curr_view;
+    struct rotated_grid *rg = &state->rot_grid[view];
+
+    while (1) {
+	struct xray ray;
+
+	/* atomically grab the next ray */
+	bu_semaphore_acquire(state->sem_worker);
+	int done = rotated_grid_generator(&ray, rg);
+	bu_semaphore_release(state->sem_worker);
+
+	if (done || state->aborted)
+	    break;
+
+	VMOVE(ap.a_ray.r_pt,  ray.r_pt);
+	VMOVE(ap.a_ray.r_dir, ray.r_dir);
+
+	ap.a_user = (int)rg->current; /* row-equivalent for plotting */
+	(void)rt_shootray(&ap);
+	shot_cnt++;
+    }
+
+    bu_semaphore_acquire(state->sem_stats);
+    state->shots[state->curr_view] += shot_cnt;
+    state->m_lenDensity[state->curr_view] += ap.A_LENDEN;
+    state->m_len[state->curr_view]        += ap.A_LEN;
+    bu_semaphore_release(state->sem_stats);
+}
+
+
+/**
  * This routine must be prepared to run in parallel
  */
 void
@@ -1283,7 +1315,7 @@ plane_worker(int cpu, void *ptr)
     unsigned long shot_cnt;
     struct ged *gedp = state->gedp;
 
-    if (aborted)
+    if (state->aborted)
 	return;
 
     RT_APPLICATION_INIT(&ap);
@@ -1309,8 +1341,8 @@ plane_worker(int cpu, void *ptr)
     shot_cnt = 0;
     while (v) {
 
-	v_coord = v * gridSpacing;
-	if (debug) {
+	v_coord = v * state->gridSpacing;
+	if (state->debug) {
 	    bu_semaphore_acquire(state->sem_worker);
 	    bu_vls_printf(gedp->ged_result_str, "  v = %d v_coord=%g\n", v, v_coord);
 	    bu_semaphore_release(state->sem_worker);
@@ -1322,11 +1354,11 @@ plane_worker(int cpu, void *ptr)
 	     * numbered row in a grid refinement
 	     */
 	    for (u=1; u < state->steps[state->u_axis]; u++) {
-		ap.a_ray.r_pt[state->u_axis] = ap.a_rt_i->mdl_min[state->u_axis] + u*gridSpacing;
+		ap.a_ray.r_pt[state->u_axis] = ap.a_rt_i->mdl_min[state->u_axis] + u*state->gridSpacing;
 		ap.a_ray.r_pt[state->v_axis] = ap.a_rt_i->mdl_min[state->v_axis] + v_coord;
 		ap.a_ray.r_pt[state->i_axis] = ap.a_rt_i->mdl_min[state->i_axis];
 
-		if (debug) {
+		if (state->debug) {
 		    bu_semaphore_acquire(state->sem_worker);
 		    bu_vls_printf(gedp->ged_result_str, "%5g %5g %5g -> %g %g %g\n", V3ARGS(ap.a_ray.r_pt),
 				  V3ARGS(ap.a_ray.r_dir));
@@ -1335,7 +1367,7 @@ plane_worker(int cpu, void *ptr)
 		ap.a_user = v;
 		(void)rt_shootray(&ap);
 
-		if (aborted)
+		if (state->aborted)
 		    return;
 
 		shot_cnt++;
@@ -1345,11 +1377,11 @@ plane_worker(int cpu, void *ptr)
 	     * them have been computed in a previous iteration.
 	     */
 	    for (u=1; u < state->steps[state->u_axis]; u+=2) {
-		ap.a_ray.r_pt[state->u_axis] = ap.a_rt_i->mdl_min[state->u_axis] + u*gridSpacing;
+		ap.a_ray.r_pt[state->u_axis] = ap.a_rt_i->mdl_min[state->u_axis] + u*state->gridSpacing;
 		ap.a_ray.r_pt[state->v_axis] = ap.a_rt_i->mdl_min[state->v_axis] + v_coord;
 		ap.a_ray.r_pt[state->i_axis] = ap.a_rt_i->mdl_min[state->i_axis];
 
-		if (debug) {
+		if (state->debug) {
 		    bu_semaphore_acquire(state->sem_worker);
 		    bu_vls_printf(gedp->ged_result_str, "%5g %5g %5g -> %g %g %g\n", V3ARGS(ap.a_ray.r_pt),
 				  V3ARGS(ap.a_ray.r_dir));
@@ -1358,12 +1390,12 @@ plane_worker(int cpu, void *ptr)
 		ap.a_user = v;
 		(void)rt_shootray(&ap);
 
-		if (aborted)
+		if (state->aborted)
 		    return;
 
 		shot_cnt++;
 
-		if (debug) {
+		if (state->debug) {
 		    if (u+1 < state->steps[state->u_axis]) {
 			bu_semaphore_acquire(state->sem_worker);
 			bu_vls_printf(gedp->ged_result_str, "  ---\n");
@@ -1377,7 +1409,7 @@ plane_worker(int cpu, void *ptr)
 	v = get_next_row(state);
     }
 
-    if (debug && (u == -1)) {
+    if (state->debug && (u == -1)) {
 	bu_semaphore_acquire(state->sem_worker);
 	bu_vls_printf(gedp->ged_result_str, "didn't shoot any rays\n");
 	bu_semaphore_release(state->sem_worker);
@@ -1396,8 +1428,8 @@ plane_worker(int cpu, void *ptr)
 }
 
 
-struct per_obj_data*
-find_cmd_line_obj(struct ged *gedp, int objc, struct per_obj_data *obj_rpt, const char *name)
+struct gqa_per_obj_data*
+find_cmd_line_obj(struct ged *gedp, int objc, struct gqa_per_obj_data *obj_rpt, const char *name)
 {
     /* name is full region path ie /a/b/c
      * user specified either a or b or c or /a or /a/b or /a/b/c
@@ -1444,13 +1476,13 @@ allocate_per_region_data(struct ged *gedp, struct cstate *state, int start, int 
 	return;
     }
 
-    if (num_objects < 1) {
+    if (state->num_objects < 1) {
 	/* what?? */
 	bu_log("WARNING: No objects remaining.\n");
 	return;
     }
 
-    if (num_views == 0) {
+    if (state->num_views == 0) {
 	/* crap. */
 	bu_log("WARNING: No views specified.\n");
 	return;
@@ -1462,45 +1494,45 @@ allocate_per_region_data(struct ged *gedp, struct cstate *state, int start, int 
 	return;
     }
 
-    state->m_lenDensity = (double *)bu_calloc(num_views, sizeof(double), "densityLen");
-    state->m_len = (double *)bu_calloc(num_views, sizeof(double), "volume");
-    state->m_volume = (double *)bu_calloc(num_views, sizeof(double), "volume");
-    state->m_weight = (double *)bu_calloc(num_views, sizeof(double), "volume");
-    state->shots = (unsigned long *)bu_calloc(num_views, sizeof(unsigned long), "volume");
-    state->m_lenTorque = (fastf_t *)bu_calloc(num_views, sizeof(vect_t), "lenTorque");
-    state->m_moi = (fastf_t *)bu_calloc(num_views, sizeof(vect_t), "moments of inertia");
-    state->m_poi = (fastf_t *)bu_calloc(num_views, sizeof(vect_t), "products of inertia");
+    state->m_lenDensity = (double *)bu_calloc(state->num_views, sizeof(double), "densityLen");
+    state->m_len = (double *)bu_calloc(state->num_views, sizeof(double), "volume");
+    state->m_volume = (double *)bu_calloc(state->num_views, sizeof(double), "volume");
+    state->m_weight = (double *)bu_calloc(state->num_views, sizeof(double), "volume");
+    state->shots = (unsigned long *)bu_calloc(state->num_views, sizeof(unsigned long), "volume");
+    state->m_lenTorque = (fastf_t *)bu_calloc(state->num_views, sizeof(vect_t), "lenTorque");
+    state->m_moi = (fastf_t *)bu_calloc(state->num_views, sizeof(vect_t), "moments of inertia");
+    state->m_poi = (fastf_t *)bu_calloc(state->num_views, sizeof(vect_t), "products of inertia");
 
     /* build data structures for the list of objects the user
      * specified on the command line
      */
-    obj_tbl = (struct per_obj_data *)bu_calloc(num_objects, sizeof(struct per_obj_data), "report tables");
-    for (i = 0; i < num_objects; i++) {
-	obj_tbl[i].o_name = av[start+i];
-	obj_tbl[i].o_len = (double *)bu_calloc(num_views, sizeof(double), "o_len");
-	obj_tbl[i].o_lenDensity = (double *)bu_calloc(num_views, sizeof(double), "o_lenDensity");
-	obj_tbl[i].o_volume = (double *)bu_calloc(num_views, sizeof(double), "o_volume");
-	obj_tbl[i].o_weight = (double *)bu_calloc(num_views, sizeof(double), "o_weight");
-	obj_tbl[i].o_lenTorque = (fastf_t *)bu_calloc(num_views, sizeof(vect_t), "lenTorque");
-	obj_tbl[i].o_moi = (fastf_t *)bu_calloc(num_views, sizeof(vect_t), "moments of inertia");
-	obj_tbl[i].o_poi = (fastf_t *)bu_calloc(num_views, sizeof(vect_t), "products of inertia");
+    state->obj_tbl = (struct gqa_per_obj_data *)bu_calloc(state->num_objects, sizeof(struct gqa_per_obj_data), "report tables");
+    for (i = 0; i < state->num_objects; i++) {
+	state->obj_tbl[i].o_name = av[start+i];
+	state->obj_tbl[i].o_len = (double *)bu_calloc(state->num_views, sizeof(double), "o_len");
+	state->obj_tbl[i].o_lenDensity = (double *)bu_calloc(state->num_views, sizeof(double), "o_lenDensity");
+	state->obj_tbl[i].o_volume = (double *)bu_calloc(state->num_views, sizeof(double), "o_volume");
+	state->obj_tbl[i].o_weight = (double *)bu_calloc(state->num_views, sizeof(double), "o_weight");
+	state->obj_tbl[i].o_lenTorque = (fastf_t *)bu_calloc(state->num_views, sizeof(vect_t), "lenTorque");
+	state->obj_tbl[i].o_moi = (fastf_t *)bu_calloc(state->num_views, sizeof(vect_t), "moments of inertia");
+	state->obj_tbl[i].o_poi = (fastf_t *)bu_calloc(state->num_views, sizeof(vect_t), "products of inertia");
     }
 
     /* build objects for each region */
-    reg_tbl = (struct per_region_data *)bu_calloc(rtip->stats.nregions, sizeof(struct per_region_data), "per_region_data");
+    state->reg_tbl = (struct gqa_per_region_data *)bu_calloc(rtip->stats.nregions, sizeof(struct gqa_per_region_data), "per_region_data");
 
 
     for (i = 0, BU_LIST_FOR (regp, region, &(rtip->HeadRegion)), i++) {
-	regp->reg_udata = &reg_tbl[i];
+	regp->reg_udata = &state->reg_tbl[i];
 
-	reg_tbl[i].r_lenDensity = (double *)bu_calloc(num_views, sizeof(double), "r_lenDensity");
-	reg_tbl[i].r_len = (double *)bu_calloc(num_views, sizeof(double), "r_len");
-	reg_tbl[i].r_volume = (double *)bu_calloc(num_views, sizeof(double), "len");
-	reg_tbl[i].r_weight = (double *)bu_calloc(num_views, sizeof(double), "len");
+	state->reg_tbl[i].r_lenDensity = (double *)bu_calloc(state->num_views, sizeof(double), "r_lenDensity");
+	state->reg_tbl[i].r_len = (double *)bu_calloc(state->num_views, sizeof(double), "r_len");
+	state->reg_tbl[i].r_volume = (double *)bu_calloc(state->num_views, sizeof(double), "len");
+	state->reg_tbl[i].r_weight = (double *)bu_calloc(state->num_views, sizeof(double), "len");
 
 	m = (int)strlen(regp->reg_name);
-	if (m > max_region_name_len) max_region_name_len = m;
-	reg_tbl[i].optr = find_cmd_line_obj(gedp, num_objects, obj_tbl, regp->reg_name);
+	if (m > state->max_region_name_len) state->max_region_name_len = m;
+	state->reg_tbl[i].optr = find_cmd_line_obj(gedp, state->num_objects, state->obj_tbl, regp->reg_name);
     }
 }
 
@@ -1509,7 +1541,7 @@ allocate_per_region_data(struct ged *gedp, struct cstate *state, int start, int 
  * list_report
  */
 void
-list_report(struct ged *gedp, struct region_pair *list)
+list_report(struct ged *gedp, struct cstate *state, struct region_pair *list)
 {
     struct region_pair *rp;
 
@@ -1525,11 +1557,11 @@ list_report(struct ged *gedp, struct region_pair *list)
 	if (rp->r2) {
 	    bu_vls_printf(gedp->ged_result_str, "%s %s count:%lu dist:%g%s @ (%g %g %g)\n",
 			  rp->r.r1->reg_name, rp->r2->reg_name, rp->count,
-			  rp->max_dist / units[LINE]->val, units[LINE]->name, V3ARGS(rp->coord));
+			  rp->max_dist / state->units[LINE]->val, state->units[LINE]->name, V3ARGS(rp->coord));
 	} else {
 	    bu_vls_printf(gedp->ged_result_str, "%s count:%lu dist:%g%s @ (%g %g %g)\n",
 			  rp->r.r1->reg_name, rp->count,
-			  rp->max_dist / units[LINE]->val, units[LINE]->name, V3ARGS(rp->coord));
+			  rp->max_dist / state->units[LINE]->val, state->units[LINE]->name, V3ARGS(rp->coord));
 	}
     }
 }
@@ -1544,23 +1576,23 @@ list_report(struct ged *gedp, struct region_pair *list)
  * !0 error encountered, terminate processing
  */
 int
-options_prep(struct ged *gedp, struct rt_i *UNUSED(rtip), vect_t span)
+options_prep(struct ged *gedp, struct cstate *state, struct rt_i *UNUSED(rtip), vect_t span)
 {
-    double newGridSpacing = gridSpacing;
+    double newGridSpacing = state->gridSpacing;
     int axis;
 
     /* figure out where the density values are coming from and get
      * them.
      */
-    if (analysis_flags & ANALYSIS_WEIGHTS) {
-	if (densityFileName) {
+    if (state->analysis_flags & ANALYSIS_WEIGHTS) {
+	if (state->densityFileName) {
 	    DLOG(gedp->ged_result_str, "density from file\n");
-	    if (_ged_read_densities(&_gd_densities, &_gd_densities_source, gedp, densityFileName, 0) != BRLCAD_OK) {
+	    if (_ged_read_densities(&state->densities, &state->densities_source, gedp, state->densityFileName, 0) != BRLCAD_OK) {
 		return BRLCAD_ERROR;
 	    }
 	} else {
 	    DLOG(gedp->ged_result_str, "density from db\n");
-	    if (_ged_read_densities(&_gd_densities, &_gd_densities_source, gedp, NULL, 0) != BRLCAD_OK) {
+	    if (_ged_read_densities(&state->densities, &state->densities_source, gedp, NULL, 0) != BRLCAD_OK) {
 		return BRLCAD_ERROR;
 	    }
 	}
@@ -1593,7 +1625,7 @@ options_prep(struct ged *gedp, struct rt_i *UNUSED(rtip), vect_t span)
 
 			char *name = bu_vls_strdup(&material_ip->name);
 			struct bu_vls result_str = BU_VLS_INIT_ZERO;
-			if (analyze_densities_set(_gd_densities, id, density_double, name, &result_str) < 0) {
+			if (analyze_densities_set(state->densities, id, density_double, name, &result_str) < 0) {
 			    bu_vls_printf(&result_str, "Error inserting density %d,%g,%s\n", id, density_double, name);
 			}
 			bu_vls_free(&result_str);
@@ -1606,82 +1638,82 @@ options_prep(struct ged *gedp, struct rt_i *UNUSED(rtip), vect_t span)
      * the number of rays per model axis
      */
     for (axis=0; axis < 3; axis++) {
-	if (span[axis] < newGridSpacing*Samples_per_model_axis) {
-	    /* along this axis, the gridSpacing is larger than the
+	if (span[axis] < newGridSpacing*state->Samples_per_model_axis) {
+	    /* along this axis, the state->gridSpacing is larger than the
 	     * model span.  We need to refine.
 	     */
-	    newGridSpacing = span[axis] / Samples_per_model_axis;
+	    newGridSpacing = span[axis] / state->Samples_per_model_axis;
 	}
     }
 
-    if (!ZERO(newGridSpacing - gridSpacing)) {
+    if (!ZERO(newGridSpacing - state->gridSpacing)) {
 	bu_log("Initial grid spacing %g %s does not allow %g samples per axis.\n",
-	       gridSpacing / units[LINE]->val, units[LINE]->name, Samples_per_model_axis - 1);
+	       state->gridSpacing / state->units[LINE]->val, state->units[LINE]->name, state->Samples_per_model_axis - 1);
 
 	bu_log("Adjusted initial grid spacing to %g %s to get %g samples per model axis.\n",
-	       newGridSpacing / units[LINE]->val, units[LINE]->name, Samples_per_model_axis);
+	       newGridSpacing / state->units[LINE]->val, state->units[LINE]->name, state->Samples_per_model_axis);
 
-	gridSpacing = newGridSpacing;
+	state->gridSpacing = newGridSpacing;
     }
 
     /* if the vol/weight tolerances are not set, pick something */
-    if (analysis_flags & ANALYSIS_VOLUMES) {
-	if (volume_tolerance < 0.0) {
+    if (state->analysis_flags & ANALYSIS_VOLUMES) {
+	if (state->volume_tolerance < 0.0) {
 	    /* using 1/1000th the volume as a default tolerance, no particular reason */
-	    volume_tolerance = span[X] * span[Y] * span[Z] * 0.001;
-	    bu_log("Using estimated volume tolerance %g %s\n", volume_tolerance / units[VOL]->val, units[VOL]->name);
+	    state->volume_tolerance = span[X] * span[Y] * span[Z] * 0.001;
+	    bu_log("Using estimated volume tolerance %g %s\n", state->volume_tolerance / state->units[VOL]->val, state->units[VOL]->name);
 	} else
-	    bu_log("Using volume tolerance %g %s\n", volume_tolerance / units[VOL]->val, units[VOL]->name);
-	if (plot_prefix) {
+	    bu_log("Using volume tolerance %g %s\n", state->volume_tolerance / state->units[VOL]->val, state->units[VOL]->name);
+	if (state->plot_prefix) {
 	    struct bu_vls vp = BU_VLS_INIT_ZERO;
-	    bu_vls_printf(&vp, "%svolume.plot3", plot_prefix);
+	    bu_vls_printf(&vp, "%svolume.plot3", state->plot_prefix);
 	    bu_log("Plotting volumes to %s\n", bu_vls_cstr(&vp));
-	    plot_volume = fopen(bu_vls_cstr(&vp), "wb");
-	    if (plot_volume == (FILE *)NULL) {
+	    state->plot_volume = fopen(bu_vls_cstr(&vp), "wb");
+	    if (state->plot_volume == (FILE *)NULL) {
 		bu_vls_printf(gedp->ged_result_str, "cannot open plot file %s\n", bu_vls_cstr(&vp));
 		/* not a critical failure */
 	    }
 	    bu_vls_free(&vp);
 	}
     }
-    if (analysis_flags & ANALYSIS_WEIGHTS) {
-	if (weight_tolerance < 0.0) {
+    if (state->analysis_flags & ANALYSIS_WEIGHTS) {
+	if (state->weight_tolerance < 0.0) {
 	    double max_den = 0.0;
 	    long int curr_id = -1;
-	    while ((curr_id = analyze_densities_next(_gd_densities, curr_id)) != -1) {
-		if (analyze_densities_density(_gd_densities, curr_id) > max_den)
-		    max_den = analyze_densities_density(_gd_densities, curr_id);
+	    while ((curr_id = analyze_densities_next(state->densities, curr_id)) != -1) {
+		if (analyze_densities_density(state->densities, curr_id) > max_den)
+		    max_den = analyze_densities_density(state->densities, curr_id);
 	    }
-	    weight_tolerance = span[X] * span[Y] * span[Z] * 0.1 * max_den;
+	    state->weight_tolerance = span[X] * span[Y] * span[Z] * 0.1 * max_den;
 	    bu_vls_printf(gedp->ged_result_str, "setting weight tolerance to %g %s\n",
-			  weight_tolerance / units[WGT]->val,
-			  units[WGT]->name);
+			  state->weight_tolerance / state->units[WGT]->val,
+			  state->units[WGT]->name);
 	} else {
-	    bu_vls_printf(gedp->ged_result_str, "weight tolerance   %g\n", weight_tolerance);
+	    bu_vls_printf(gedp->ged_result_str, "weight tolerance   %g\n", state->weight_tolerance);
 	}
     }
-    if (analysis_flags & ANALYSIS_GAPS) {
-	if (plot_prefix) {
+    if (state->analysis_flags & ANALYSIS_GAPS) {
+	if (state->plot_prefix) {
 	    struct bu_vls vp = BU_VLS_INIT_ZERO;
-	    bu_vls_printf(&vp, "%sgaps.plot3", plot_prefix);
+	    bu_vls_printf(&vp, "%sgaps.plot3", state->plot_prefix);
 	    bu_log("Plotting gaps to %s\n", bu_vls_cstr(&vp));
-	    plot_gaps = fopen(bu_vls_cstr(&vp), "wb");
-	    if (plot_gaps == (FILE *)NULL) {
+	    state->plot_gaps = fopen(bu_vls_cstr(&vp), "wb");
+	    if (state->plot_gaps == (FILE *)NULL) {
 		bu_vls_printf(gedp->ged_result_str, "cannot open plot file %s\n", bu_vls_cstr(&vp));
 		/* not a critical failure */
 	    }
 	    bu_vls_free(&vp);
 	}
     }
-    if (analysis_flags & ANALYSIS_OVERLAPS) {
-	if (!ZERO(overlap_tolerance))
-	    bu_vls_printf(gedp->ged_result_str, "overlap tolerance to %g\n", overlap_tolerance);
-	if (plot_prefix) {
+    if (state->analysis_flags & ANALYSIS_OVERLAPS) {
+	if (!ZERO(state->overlap_tolerance))
+	    bu_vls_printf(gedp->ged_result_str, "overlap tolerance to %g\n", state->overlap_tolerance);
+	if (state->plot_prefix) {
 	    struct bu_vls vp = BU_VLS_INIT_ZERO;
-	    bu_vls_printf(&vp, "%soverlaps.plot3", plot_prefix);
+	    bu_vls_printf(&vp, "%soverlaps.plot3", state->plot_prefix);
 	    bu_log("Plotting overlaps to %s\n", bu_vls_cstr(&vp));
-	    plot_overlaps = fopen(bu_vls_cstr(&vp), "wb");
-	    if (plot_overlaps == (FILE *)NULL) {
+	    state->plot_overlaps = fopen(bu_vls_cstr(&vp), "wb");
+	    if (state->plot_overlaps == (FILE *)NULL) {
 		bu_vls_printf(gedp->ged_result_str, "cannot open plot file %s\n", bu_vls_cstr(&vp));
 		/* not a critical failure */
 	    }
@@ -1689,30 +1721,30 @@ options_prep(struct ged *gedp, struct rt_i *UNUSED(rtip), vect_t span)
 	}
     }
 
-    if (print_per_region_stats)
-	if ((analysis_flags & (ANALYSIS_VOLUMES|ANALYSIS_WEIGHTS)) == 0)
+    if (state->print_per_region_stats)
+	if ((state->analysis_flags & (ANALYSIS_VOLUMES|ANALYSIS_WEIGHTS)) == 0)
 	    bu_vls_printf(gedp->ged_result_str, "Note: -r option ignored: neither volume or weight options requested\n");
 
-    if (analysis_flags & ANALYSIS_ADJ_AIR)
-	if (plot_prefix) {
+    if (state->analysis_flags & ANALYSIS_ADJ_AIR)
+	if (state->plot_prefix) {
 	    struct bu_vls vp = BU_VLS_INIT_ZERO;
-	    bu_vls_printf(&vp, "%sadj_air.plot3", plot_prefix);
+	    bu_vls_printf(&vp, "%sadj_air.plot3", state->plot_prefix);
 	    bu_log("Plotting adjacent air to %s\n", bu_vls_cstr(&vp));
-	    plot_adjair = fopen(bu_vls_cstr(&vp), "wb");
-	    if (plot_adjair == (FILE *)NULL) {
+	    state->plot_adjair = fopen(bu_vls_cstr(&vp), "wb");
+	    if (state->plot_adjair == (FILE *)NULL) {
 		bu_vls_printf(gedp->ged_result_str, "cannot open plot file %s\n", bu_vls_cstr(&vp));
 		/* not a critical failure */
 	    }
 	    bu_vls_free(&vp);
 	}
 
-    if (analysis_flags & ANALYSIS_EXP_AIR)
-	if (plot_prefix) {
+    if (state->analysis_flags & ANALYSIS_EXP_AIR)
+	if (state->plot_prefix) {
 	    struct bu_vls vp = BU_VLS_INIT_ZERO;
-	    bu_vls_printf(&vp, "%sexp_air.plot3", plot_prefix);
+	    bu_vls_printf(&vp, "%sexp_air.plot3", state->plot_prefix);
 	    bu_log("Plotting exposed air to %s\n", bu_vls_cstr(&vp));
-	    plot_expair = fopen(bu_vls_cstr(&vp), "wb");
-	    if (plot_expair == (FILE *)NULL) {
+	    state->plot_expair = fopen(bu_vls_cstr(&vp), "wb");
+	    if (state->plot_expair == (FILE *)NULL) {
 		bu_vls_printf(gedp->ged_result_str, "cannot open plot file %s\n", bu_vls_cstr(&vp));
 		/* not a critical failure */
 	    }
@@ -1720,8 +1752,8 @@ options_prep(struct ged *gedp, struct rt_i *UNUSED(rtip), vect_t span)
 	}
 
 
-    if ((analysis_flags & (ANALYSIS_ADJ_AIR|ANALYSIS_EXP_AIR)) && ! use_air) {
-	bu_vls_printf(gedp->ged_result_str, "Error:  Air regions discarded but air analysis requested!\nSet use_air non-zero or eliminate air analysis\n");
+    if ((state->analysis_flags & (ANALYSIS_ADJ_AIR|ANALYSIS_EXP_AIR)) && ! state->use_air) {
+	bu_vls_printf(gedp->ged_result_str, "Error:  Air regions discarded but air analysis requested!\nSet state->use_air non-zero or eliminate air analysis\n");
 	return BRLCAD_ERROR;
     }
 
@@ -1730,23 +1762,23 @@ options_prep(struct ged *gedp, struct rt_i *UNUSED(rtip), vect_t span)
 
 
 int
-densities_prep(struct ged *gedp, struct rt_i *rtip)
+densities_prep(struct ged *gedp, struct cstate *state, struct rt_i *rtip)
 {
-    analyze_densities_create(&_gd_densities);
+    analyze_densities_create(&state->densities);
     int found_densities = 0;
 
     /* figure out where the density values are coming from and get
      * them.
      */
-    if (analysis_flags & ANALYSIS_WEIGHTS) {
-	if (densityFileName) {
+    if (state->analysis_flags & ANALYSIS_WEIGHTS) {
+	if (state->densityFileName) {
 	    DLOG(gedp->ged_result_str, "density from file\n");
-	    if (_ged_read_densities(&_gd_densities, &_gd_densities_source, gedp, densityFileName, 0) == BRLCAD_OK) {
+	    if (_ged_read_densities(&state->densities, &state->densities_source, gedp, state->densityFileName, 0) == BRLCAD_OK) {
 		found_densities = 1;
 	    }
 	} else {
 	    DLOG(gedp->ged_result_str, "density from db\n");
-	    if (_ged_read_densities(&_gd_densities, &_gd_densities_source, gedp, NULL, 0) == BRLCAD_OK) {
+	    if (_ged_read_densities(&state->densities, &state->densities_source, gedp, NULL, 0) == BRLCAD_OK) {
 		found_densities = 1;
 	    }
 	}
@@ -1788,9 +1820,9 @@ densities_prep(struct ged *gedp, struct rt_i *rtip)
 			    }
 
 			    char *density_table_name = bu_vls_strdup(&material_ip->name);
-			    if (analyze_densities_set(_gd_densities, id, density_double, density_table_name, gedp->ged_result_str) < 0) {
+			    if (analyze_densities_set(state->densities, id, density_double, density_table_name, gedp->ged_result_str) < 0) {
 				bu_vls_printf(gedp->ged_result_str, "Error inserting density %d,%g,%s\n", id, density_double, density_table_name);
-				analyze_densities_clear(_gd_densities);
+				analyze_densities_clear(state->densities);
 				return BRLCAD_ERROR;
 			    }
 			}
@@ -1801,7 +1833,7 @@ densities_prep(struct ged *gedp, struct rt_i *rtip)
 
 	if (!found_densities) {
 	    bu_vls_printf(gedp->ged_result_str, "Could not find any density information.\n");
-	    analyze_densities_clear(_gd_densities);
+	    analyze_densities_clear(state->densities);
 	    return BRLCAD_ERROR;
 	}
 
@@ -1831,7 +1863,7 @@ densities_prep(struct ged *gedp, struct rt_i *rtip)
 					long int wids[1];
 
 					// get the id from the density table
-					analyze_densities_id((long int *)wids, 1, _gd_densities, density_table_name);
+					analyze_densities_id((long int *)wids, 1, state->densities, density_table_name);
 
 					// update the region->reg_mater field for the given region
 					struct region *regp = REGION_NULL;
@@ -1855,7 +1887,7 @@ densities_prep(struct ged *gedp, struct rt_i *rtip)
 			}
 		    } else {
 			bu_vls_printf(gedp->ged_result_str, "Error: failed to load attributes for %s\n", dp->d_namep);
-			analyze_densities_clear(_gd_densities);
+			analyze_densities_clear(state->densities);
 			return BRLCAD_ERROR;
 		    }
 		}
@@ -1870,12 +1902,12 @@ densities_prep(struct ged *gedp, struct rt_i *rtip)
 void
 view_reports(struct ged *gedp, struct cstate *state)
 {
-    if (analysis_flags & ANALYSIS_VOLUMES) {
+    if (state->analysis_flags & ANALYSIS_VOLUMES) {
 	int obj;
 	int view;
 
 	/* for each object, compute the volume for all views */
-	for (obj = 0; obj < num_objects; obj++) {
+	for (obj = 0; obj < state->num_objects; obj++) {
 	    double val;
 	    /* compute volume of object for given view */
 	    view = state->curr_view;
@@ -1883,31 +1915,31 @@ view_reports(struct ged *gedp, struct cstate *state)
 	    /* compute the per-view volume of this object */
 
 	    if (state->shots[view] > 0) {
-		val = obj_tbl[obj].o_volume[view] =
-		obj_tbl[obj].o_len[view] * (state->area[view] / state->shots[view]);
+		val = state->obj_tbl[obj].o_volume[view] =
+		state->obj_tbl[obj].o_len[view] * (state->area[view] / state->shots[view]);
 
-		if (verbose)
+		if (state->verbose)
 		    bu_vls_printf(gedp->ged_result_str, "\t%s volume %g %s\n",
-				  obj_tbl[obj].o_name,
-				  val / units[VOL]->val,
-				  units[VOL]->name);
+				  state->obj_tbl[obj].o_name,
+				  val / state->units[VOL]->val,
+				  state->units[VOL]->name);
 	    }
 	}
     }
-    if (analysis_flags & ANALYSIS_WEIGHTS) {
+    if (state->analysis_flags & ANALYSIS_WEIGHTS) {
 	int obj;
 	int view = state->curr_view;
 
-	for (obj = 0; obj < num_objects; obj++) {
-	    double grams_per_cu_mm = obj_tbl[obj].o_lenDensity[view] *
+	for (obj = 0; obj < state->num_objects; obj++) {
+	    double grams_per_cu_mm = state->obj_tbl[obj].o_lenDensity[view] *
 	    (state->area[view] / state->shots[view]);
 
 
-	    if (verbose)
+	    if (state->verbose)
 		bu_vls_printf(gedp->ged_result_str, "\t%s %g %s\n",
-			      obj_tbl[obj].o_name,
-			      grams_per_cu_mm / units[WGT]->val,
-			      units[WGT]->name);
+			      state->obj_tbl[obj].o_name,
+			      grams_per_cu_mm / state->units[WGT]->val,
+			      state->units[WGT]->name);
 	}
     }
 }
@@ -1936,62 +1968,62 @@ weight_volume_terminate(struct ged *gedp, struct cstate *state)
 
     double low, hi, val, delta;
 
-    if (analysis_flags & ANALYSIS_WEIGHTS) {
+    if (state->analysis_flags & ANALYSIS_WEIGHTS) {
 	/* for each object, compute the weight for all views */
 	int obj;
 
-	for (obj = 0; obj < num_objects; obj++) {
+	for (obj = 0; obj < state->num_objects; obj++) {
 	    int view;
 	    double tmp;
 
-	    if (verbose)
+	    if (state->verbose)
 		bu_vls_printf(gedp->ged_result_str, "object %d\n", obj);
 
 	    /* compute weight of object for given view */
 	    low = INFINITY;
 	    hi = -INFINITY;
 	    tmp = 0.0;
-	    for (view = 0; view < num_views; view++) {
-		val = obj_tbl[obj].o_weight[view] =
-		obj_tbl[obj].o_lenDensity[view] * (state->area[view] / state->shots[view]);
+	    for (view = 0; view < state->num_views; view++) {
+		val = state->obj_tbl[obj].o_weight[view] =
+		state->obj_tbl[obj].o_lenDensity[view] * (state->area[view] / state->shots[view]);
 		V_MIN(low, val);
 		V_MAX(hi, val);
 		tmp += val;
 	    }
 	    delta = hi - low;
 
-	    if (verbose)
+	    if (state->verbose)
 		bu_vls_printf(gedp->ged_result_str,
 			      "\t%s running avg weight %g %s hi=(%g) low=(%g)\n",
-			      obj_tbl[obj].o_name,
-			      (tmp / num_views) / units[WGT]->val,
-			      units[WGT]->name,
-			      hi / units[WGT]->val,
-			      low / units[WGT]->val);
+			      state->obj_tbl[obj].o_name,
+			      (tmp / state->num_views) / state->units[WGT]->val,
+			      state->units[WGT]->name,
+			      hi / state->units[WGT]->val,
+			      low / state->units[WGT]->val);
 
-	    if (delta > weight_tolerance) {
+	    if (delta > state->weight_tolerance) {
 		/* this object differs too much in each view, so we
 		 * need to refine the grid. signal that we cannot
 		 * terminate.
 		 */
 		can_terminate = 0;
-		if (verbose)
+		if (state->verbose)
 		    bu_vls_printf(gedp->ged_result_str, "\t%s differs too much in weight per view.\n",
-				  obj_tbl[obj].o_name);
+				  state->obj_tbl[obj].o_name);
 	    }
 	}
 	if (can_terminate) {
-	    if (verbose)
+	    if (state->verbose)
 		bu_vls_printf(gedp->ged_result_str, "all objects within tolerance on weight calculation\n");
 	}
     }
 
-    if (analysis_flags & ANALYSIS_VOLUMES) {
+    if (state->analysis_flags & ANALYSIS_VOLUMES) {
 	/* find the range of values for object volumes */
 	int obj;
 
 	/* for each object, compute the volume for all views */
-	for (obj = 0; obj < num_objects; obj++) {
+	for (obj = 0; obj < state->num_objects; obj++) {
 	    int view;
 	    double tmp;
 
@@ -1999,31 +2031,31 @@ weight_volume_terminate(struct ged *gedp, struct cstate *state)
 	    low = INFINITY;
 	    hi = -INFINITY;
 	    tmp = 0.0;
-	    for (view = 0; view < num_views; view++) {
-		val = obj_tbl[obj].o_volume[view] =
-		obj_tbl[obj].o_len[view] * (state->area[view] / state->shots[view]);
+	    for (view = 0; view < state->num_views; view++) {
+		val = state->obj_tbl[obj].o_volume[view] =
+		state->obj_tbl[obj].o_len[view] * (state->area[view] / state->shots[view]);
 		V_MIN(low, val);
 		V_MAX(hi, val);
 		tmp += val;
 	    }
 	    delta = hi - low;
 
-	    if (verbose)
+	    if (state->verbose)
 		bu_vls_printf(gedp->ged_result_str,
 			      "\t%s running avg volume %g %s hi=(%g) low=(%g)\n",
-			      obj_tbl[obj].o_name,
-			      (tmp / num_views) / units[VOL]->val, units[VOL]->name,
-			      hi / units[VOL]->val,
-			      low / units[VOL]->val);
+			      state->obj_tbl[obj].o_name,
+			      (tmp / state->num_views) / state->units[VOL]->val, state->units[VOL]->name,
+			      hi / state->units[VOL]->val,
+			      low / state->units[VOL]->val);
 
-	    if (delta > volume_tolerance) {
+	    if (delta > state->volume_tolerance) {
 		/* this object differs too much in each view, so we
 		 * need to refine the grid.
 		 */
 		can_terminate = 0;
-		if (verbose)
+		if (state->verbose)
 		    bu_vls_printf(gedp->ged_result_str, "\tvolume tol not met on %s.  Refine grid\n",
-				  obj_tbl[obj].o_name);
+				  state->obj_tbl[obj].o_name);
 		break;
 	    }
 	}
@@ -2054,12 +2086,12 @@ terminate_check(struct ged *gedp, struct cstate *state)
     DLOG(gedp->ged_result_str, "terminate_check\n");
     RT_CK_RTI(state->rtip);
 
-    if (plot_overlaps) fflush(plot_overlaps);
-    if (plot_weight) fflush(plot_weight);
-    if (plot_volume) fflush(plot_volume);
-    if (plot_adjair) fflush(plot_adjair);
-    if (plot_gaps) fflush(plot_gaps);
-    if (plot_expair) fflush(plot_expair);
+    if (state->plot_overlaps) fflush(state->plot_overlaps);
+    if (state->plot_weight) fflush(state->plot_weight);
+    if (state->plot_volume) fflush(state->plot_volume);
+    if (state->plot_adjair) fflush(state->plot_adjair);
+    if (state->plot_gaps) fflush(state->plot_gaps);
+    if (state->plot_expair) fflush(state->plot_expair);
 
     /* this computation is done first, because there are side effects
      * that must be obtained whether we terminate or not
@@ -2068,9 +2100,9 @@ terminate_check(struct ged *gedp, struct cstate *state)
 
 
     /* if we've reached the grid limit, we're done, no matter what */
-    if (gridSpacing < gridSpacingLimit) {
+    if (state->gridSpacing < state->gridSpacingLimit) {
 	bu_vls_printf(gedp->ged_result_str, "NOTE: Stopped, grid spacing refined to %g (below lower limit %g).\n",
-		      gridSpacing, gridSpacingLimit);
+		      state->gridSpacing, state->gridSpacingLimit);
 	return 0;
     }
 
@@ -2078,73 +2110,73 @@ terminate_check(struct ged *gedp, struct cstate *state)
      * Overlap, gap, adj_air, exp_air, then we ALWAYS go to the grid
      * spacing limit and we ALWAYS terminate on first error/list-entry
      */
-    if ((analysis_flags & ANALYSIS_OVERLAPS)) {
-	if (BU_LIST_NON_EMPTY(&overlapList.l)) {
+    if ((state->analysis_flags & ANALYSIS_OVERLAPS)) {
+	if (BU_LIST_NON_EMPTY(&state->overlapList.l)) {
 	    /* since we've found an overlap, we can quit */
 	    return 0;
 	} else {
-	    bu_vls_printf(gedp->ged_result_str, "overlaps list at %gmm is empty\n", gridSpacing / GRIDSPACING_STEP);
+	    bu_vls_printf(gedp->ged_result_str, "overlaps list at %gmm is empty\n", state->gridSpacing / GRIDSPACING_STEP);
 	}
     }
-    if ((analysis_flags & ANALYSIS_GAPS)) {
-	if (BU_LIST_NON_EMPTY(&gapList.l)) {
+    if ((state->analysis_flags & ANALYSIS_GAPS)) {
+	if (BU_LIST_NON_EMPTY(&state->gapList.l)) {
 	    /* since we've found a gap, we can quit */
 	    return 0;
 	}
     }
-    if ((analysis_flags & ANALYSIS_ADJ_AIR)) {
-	if (BU_LIST_NON_EMPTY(&adjAirList.l)) {
+    if ((state->analysis_flags & ANALYSIS_ADJ_AIR)) {
+	if (BU_LIST_NON_EMPTY(&state->adjAirList.l)) {
 	    /* since we've found adjacent air, we can quit */
 	    return 0;
 	}
     }
-    if ((analysis_flags & ANALYSIS_EXP_AIR)) {
-	if (BU_LIST_NON_EMPTY(&exposedAirList.l)) {
+    if ((state->analysis_flags & ANALYSIS_EXP_AIR)) {
+	if (BU_LIST_NON_EMPTY(&state->exposedAirList.l)) {
 	    /* since we've found exposed air, we can quit */
 	    return 0;
 	}
     }
 
 
-    if (analysis_flags & (ANALYSIS_WEIGHTS|ANALYSIS_VOLUMES)) {
+    if (state->analysis_flags & (ANALYSIS_WEIGHTS|ANALYSIS_VOLUMES)) {
 	/* volume/weight checks only get to terminate processing if
 	 * there are no "error" check computations being done
 	 */
-	if (analysis_flags & (ANALYSIS_GAPS|ANALYSIS_ADJ_AIR|ANALYSIS_OVERLAPS|ANALYSIS_EXP_AIR)) {
-	    if (verbose)
+	if (state->analysis_flags & (ANALYSIS_GAPS|ANALYSIS_ADJ_AIR|ANALYSIS_OVERLAPS|ANALYSIS_EXP_AIR)) {
+	    if (state->verbose)
 		bu_vls_printf(gedp->ged_result_str, "Volume/Weight tolerance met.  Cannot terminate calculation due to error computations\n");
 	} else {
 	    struct region *regp;
 	    int all_hit = 1;
 	    size_t hits;
 
-	    if (require_num_hits > 0) {
+	    if (state->require_num_hits > 0) {
 		/* check to make sure every region was hit at least once */
 		for (BU_LIST_FOR (regp, region, &(state->rtip->HeadRegion))) {
 		    RT_CK_REGION(regp);
 
-		    hits = (size_t)((struct per_region_data *)regp->reg_udata)->hits;
-		    if (hits < require_num_hits) {
+		    hits = (size_t)((struct gqa_per_region_data *)regp->reg_udata)->hits;
+		    if (hits < state->require_num_hits) {
 			all_hit = 0;
-			if (verbose) {
-			    if (hits == 0 && !quiet_missed_report) {
+			if (state->verbose) {
+			    if (hits == 0 && !state->quiet_missed_report) {
 				bu_vls_printf(gedp->ged_result_str, "%s was not hit\n", regp->reg_name);
 			    } else if (hits) {
 				bu_vls_printf(gedp->ged_result_str, "%s hit only %zu times (< %zu)\n",
-					      regp->reg_name, hits, require_num_hits);
+					      regp->reg_name, hits, state->require_num_hits);
 			    }
 			}
 		    }
 		}
 
 		if (all_hit && wv_status == 0) {
-		    if (verbose)
+		    if (state->verbose)
 			bu_vls_printf(gedp->ged_result_str, "%s: Volume/Weight tolerance met. Terminate\n", CPP_FILELINE);
 		    return 0; /* terminate */
 		}
 	    } else {
 		if (wv_status == 0) {
-		    if (verbose)
+		    if (state->verbose)
 			bu_vls_printf(gedp->ged_result_str, "%s: Volume/Weight tolerance met. Terminate\n", CPP_FILELINE);
 		    return 0; /* terminate */
 		}
@@ -2152,10 +2184,10 @@ terminate_check(struct ged *gedp, struct cstate *state)
 	}
     }
 
-    for (view=0; view < num_views; view++) {
-	for (obj = 0; obj < num_objects; obj++) {
-	    VSCALE(&obj_tbl[obj].o_moi[view*3], &obj_tbl[obj].o_moi[view*3], 0.25);
-	    VSCALE(&obj_tbl[obj].o_poi[view*3], &obj_tbl[obj].o_poi[view*3], 0.25);
+    for (view=0; view < state->num_views; view++) {
+	for (obj = 0; obj < state->num_objects; obj++) {
+	    VSCALE(&state->obj_tbl[obj].o_moi[view*3], &state->obj_tbl[obj].o_moi[view*3], 0.25);
+	    VSCALE(&state->obj_tbl[obj].o_poi[view*3], &state->obj_tbl[obj].o_poi[view*3], 0.25);
 	}
 
 	VSCALE(&state->m_moi[view*3], &state->m_moi[view*3], 0.25);
@@ -2177,39 +2209,39 @@ summary_reports(struct ged *gedp, struct cstate *state)
     double avg_mass;
     struct region *regp;
 
-    if (multiple_analyses)
-	bu_vls_printf(gedp->ged_result_str, "Summaries (%gmm grid spacing):\n", gridSpacing / GRIDSPACING_STEP);
+    if (state->multiple_analyses)
+	bu_vls_printf(gedp->ged_result_str, "Summaries (%gmm grid spacing):\n", state->gridSpacing / GRIDSPACING_STEP);
     else
-	bu_vls_printf(gedp->ged_result_str, "Summary (%gmm grid spacing):\n", gridSpacing / GRIDSPACING_STEP);
+	bu_vls_printf(gedp->ged_result_str, "Summary (%gmm grid spacing):\n", state->gridSpacing / GRIDSPACING_STEP);
 
-    if (analysis_flags & ANALYSIS_WEIGHTS) {
+    if (state->analysis_flags & ANALYSIS_WEIGHTS) {
 	bu_vls_printf(gedp->ged_result_str, "Weight:\n");
-	for (obj = 0; obj < num_objects; obj++) {
+	for (obj = 0; obj < state->num_objects; obj++) {
 	    avg_mass = 0.0;
 
-	    for (view=0; view < num_views; view++) {
+	    for (view=0; view < state->num_views; view++) {
 		/* computed in terminate_check() */
-		avg_mass += obj_tbl[obj].o_weight[view];
+		avg_mass += state->obj_tbl[obj].o_weight[view];
 	    }
-	    avg_mass /= num_views;
-	    bu_vls_printf(gedp->ged_result_str, "\t%*s %g %s\n", -max_region_name_len, obj_tbl[obj].o_name,
-			  avg_mass / units[WGT]->val, units[WGT]->name);
+	    avg_mass /= state->num_views;
+	    bu_vls_printf(gedp->ged_result_str, "\t%*s %g %s\n", -state->max_region_name_len, state->obj_tbl[obj].o_name,
+			  avg_mass / state->units[WGT]->val, state->units[WGT]->name);
 
-	    if (analysis_flags & ANALYSIS_CENTROIDS &&
+	    if (state->analysis_flags & ANALYSIS_CENTROIDS &&
 		!ZERO(avg_mass)) {
 		vect_t centroid = VINIT_ZERO;
 		fastf_t Dx_sq, Dy_sq, Dz_sq;
 		fastf_t inv_total_mass = 1.0/avg_mass;
 
-		for (view=0; view < num_views; view++) {
+		for (view=0; view < state->num_views; view++) {
 		    vect_t torque;
 		    fastf_t cell_area = state->area[view] / state->shots[view];
 
-		    VSCALE(torque, &obj_tbl[obj].o_lenTorque[view*3], cell_area);
+		    VSCALE(torque, &state->obj_tbl[obj].o_lenTorque[view*3], cell_area);
 		    VADD2(centroid, centroid, torque);
 		}
 
-		VSCALE(centroid, centroid, 1.0/(fastf_t)num_views);
+		VSCALE(centroid, centroid, 1.0/(fastf_t)state->num_views);
 		VSCALE(centroid, centroid, inv_total_mass);
 		bu_vls_printf(gedp->ged_result_str,
 			      "\t\tcentroid: (%g %g %g) mm\n", V3ARGS(centroid));
@@ -2217,14 +2249,14 @@ summary_reports(struct ged *gedp, struct cstate *state)
 		/* Do the final calculations for the moments of
 		 * inertia for the current object.
 		 */
-		if (analysis_flags & ANALYSIS_MOMENTS) {
+		if (state->analysis_flags & ANALYSIS_MOMENTS) {
 		    struct bu_vls title = BU_VLS_INIT_ZERO;
 		    mat_t tmat; /* total mat */
 
 		    MAT_ZERO(tmat);
-		    for (view=0; view < num_views; view++) {
-			vectp_t moi = &obj_tbl[obj].o_moi[view*3];
-			vectp_t poi = &obj_tbl[obj].o_poi[view*3];
+		    for (view=0; view < state->num_views; view++) {
+			vectp_t moi = &state->obj_tbl[obj].o_moi[view*3];
+			vectp_t poi = &state->obj_tbl[obj].o_poi[view*3];
 
 			tmat[MSX] += moi[X];
 			tmat[MSY] += moi[Y];
@@ -2234,12 +2266,12 @@ summary_reports(struct ged *gedp, struct cstate *state)
 			tmat[6] += poi[Z];
 		    }
 
-		    tmat[MSX] /= (fastf_t)num_views;
-		    tmat[MSY] /= (fastf_t)num_views;
-		    tmat[MSZ] /= (fastf_t)num_views;
-		    tmat[1] /= (fastf_t)num_views;
-		    tmat[2] /= (fastf_t)num_views;
-		    tmat[6] /= (fastf_t)num_views;
+		    tmat[MSX] /= (fastf_t)state->num_views;
+		    tmat[MSY] /= (fastf_t)state->num_views;
+		    tmat[MSZ] /= (fastf_t)state->num_views;
+		    tmat[1] /= (fastf_t)state->num_views;
+		    tmat[2] /= (fastf_t)state->num_views;
+		    tmat[6] /= (fastf_t)state->num_views;
 
 		    /* Lastly, apply the parallel axis theorem */
 		    Dx_sq = centroid[X]*centroid[X];
@@ -2256,7 +2288,7 @@ summary_reports(struct ged *gedp, struct cstate *state)
 		    tmat[8] = tmat[2];
 		    tmat[9] = tmat[6];
 
-		    bu_vls_printf(&title, "For the Moments and Products of Inertia For %s", obj_tbl[obj].o_name);
+		    bu_vls_printf(&title, "For the Moments and Products of Inertia For %s", state->obj_tbl[obj].o_name);
 		    bn_mat_print_vls(bu_vls_addr(&title), tmat, gedp->ged_result_str);
 		    bu_vls_free(&title);
 		}
@@ -2264,7 +2296,7 @@ summary_reports(struct ged *gedp, struct cstate *state)
 	}
 
 
-	if (print_per_region_stats) {
+	if (state->print_per_region_stats) {
 	    double *wv;
 	    bu_vls_printf(gedp->ged_result_str, "\tregions:\n");
 	    for (BU_LIST_FOR (regp, region, &(state->rtip->HeadRegion))) {
@@ -2273,13 +2305,13 @@ summary_reports(struct ged *gedp, struct cstate *state)
 
 		avg_mass = 0.0;
 
-		for (view=0; view < num_views; view++) {
-		    wv = &((struct per_region_data *)regp->reg_udata)->r_weight[view];
+		for (view=0; view < state->num_views; view++) {
+		    wv = &((struct gqa_per_region_data *)regp->reg_udata)->r_weight[view];
 
-		    *wv = ((struct per_region_data *)regp->reg_udata)->r_lenDensity[view] *
+		    *wv = ((struct gqa_per_region_data *)regp->reg_udata)->r_lenDensity[view] *
 		    (state->area[view]/state->shots[view]);
 
-		    *wv /= units[WGT]->val;
+		    *wv /= state->units[WGT]->val;
 
 		    avg_mass += *wv;
 
@@ -2287,11 +2319,11 @@ summary_reports(struct ged *gedp, struct cstate *state)
 		    if (*wv > hi) hi = *wv;
 		}
 
-		avg_mass /= num_views;
+		avg_mass /= state->num_views;
 		bu_vls_printf(gedp->ged_result_str, "\t%s %g %s +(%g) -(%g)\n",
 			      regp->reg_name,
 			      avg_mass,
-			      units[WGT]->name,
+			      state->units[WGT]->name,
 			      hi - avg_mass,
 			      avg_mass - low);
 	    }
@@ -2299,22 +2331,22 @@ summary_reports(struct ged *gedp, struct cstate *state)
 
 	/* print grand totals */
 	avg_mass = 0.0;
-	for (view=0; view < num_views; view++) {
+	for (view=0; view < state->num_views; view++) {
 	    avg_mass += state->m_weight[view] =
 	    state->m_lenDensity[view] *
 	    (state->area[view] / state->shots[view]);
 	}
 
-	avg_mass /= num_views;
-	bu_vls_printf(gedp->ged_result_str, "  Average total weight: %g %s\n", avg_mass / units[WGT]->val, units[WGT]->name);
+	avg_mass /= state->num_views;
+	bu_vls_printf(gedp->ged_result_str, "  Average total weight: %g %s\n", avg_mass / state->units[WGT]->val, state->units[WGT]->name);
 
-	if (analysis_flags & ANALYSIS_CENTROIDS &&
+	if (state->analysis_flags & ANALYSIS_CENTROIDS &&
 	    !ZERO(avg_mass)) {
 	    vect_t centroid = VINIT_ZERO;
 	    fastf_t Dx_sq, Dy_sq, Dz_sq;
 	    fastf_t inv_total_mass = 1.0/avg_mass;
 
-	    for (view=0; view < num_views; view++) {
+	    for (view=0; view < state->num_views; view++) {
 		vect_t torque;
 		fastf_t cell_area = state->area[view] / state->shots[view];
 
@@ -2322,7 +2354,7 @@ summary_reports(struct ged *gedp, struct cstate *state)
 		VADD2(centroid, centroid, torque);
 	    }
 
-	    VSCALE(centroid, centroid, 1.0/(fastf_t)num_views);
+	    VSCALE(centroid, centroid, 1.0/(fastf_t)state->num_views);
 	    VSCALE(centroid, centroid, inv_total_mass);
 	    bu_vls_printf(gedp->ged_result_str,
 			  "  Average centroid: (%g %g %g) mm\n", V3ARGS(centroid));
@@ -2330,11 +2362,11 @@ summary_reports(struct ged *gedp, struct cstate *state)
 	    /* Do the final calculations for the moments of inertia
 	     * for the current object.
 	     */
-	    if (analysis_flags & ANALYSIS_MOMENTS) {
+	    if (state->analysis_flags & ANALYSIS_MOMENTS) {
 		mat_t tmat; /* total mat */
 
 		MAT_ZERO(tmat);
-		for (view=0; view < num_views; view++) {
+		for (view=0; view < state->num_views; view++) {
 		    vectp_t moi = &state->m_moi[view*3];
 		    vectp_t poi = &state->m_poi[view*3];
 
@@ -2346,12 +2378,12 @@ summary_reports(struct ged *gedp, struct cstate *state)
 		    tmat[6] += poi[Z];
 		}
 
-		tmat[MSX] /= (fastf_t)num_views;
-		tmat[MSY] /= (fastf_t)num_views;
-		tmat[MSZ] /= (fastf_t)num_views;
-		tmat[1] /= (fastf_t)num_views;
-		tmat[2] /= (fastf_t)num_views;
-		tmat[6] /= (fastf_t)num_views;
+		tmat[MSX] /= (fastf_t)state->num_views;
+		tmat[MSY] /= (fastf_t)state->num_views;
+		tmat[MSZ] /= (fastf_t)state->num_views;
+		tmat[1] /= (fastf_t)state->num_views;
+		tmat[2] /= (fastf_t)state->num_views;
+		tmat[6] /= (fastf_t)state->num_views;
 
 		/* Lastly, apply the parallel axis theorem */
 		Dx_sq = centroid[X]*centroid[X];
@@ -2375,22 +2407,22 @@ summary_reports(struct ged *gedp, struct cstate *state)
     }
 
 
-    if (analysis_flags & ANALYSIS_VOLUMES) {
+    if (state->analysis_flags & ANALYSIS_VOLUMES) {
 	bu_vls_printf(gedp->ged_result_str, "Volume:\n");
 
 	/* print per-object */
-	for (obj = 0; obj < num_objects; obj++) {
+	for (obj = 0; obj < state->num_objects; obj++) {
 	    avg_mass = 0.0;
 
-	    for (view=0; view < num_views; view++)
-		avg_mass += obj_tbl[obj].o_volume[view];
+	    for (view=0; view < state->num_views; view++)
+		avg_mass += state->obj_tbl[obj].o_volume[view];
 
-	    avg_mass /= num_views;
-	    bu_vls_printf(gedp->ged_result_str, "\t%*s %g %s\n", -max_region_name_len, obj_tbl[obj].o_name,
-			  avg_mass / units[VOL]->val, units[VOL]->name);
+	    avg_mass /= state->num_views;
+	    bu_vls_printf(gedp->ged_result_str, "\t%*s %g %s\n", -state->max_region_name_len, state->obj_tbl[obj].o_name,
+			  avg_mass / state->units[VOL]->val, state->units[VOL]->name);
 	}
 
-	if (print_per_region_stats) {
+	if (state->print_per_region_stats) {
 	    double *vv;
 
 	    bu_vls_printf(gedp->ged_result_str, "\tregions:\n");
@@ -2399,15 +2431,15 @@ summary_reports(struct ged *gedp, struct cstate *state)
 		double hi = -INFINITY;
 		avg_mass = 0.0;
 
-		for (view=0; view < num_views; view++) {
-		    vv = &((struct per_region_data *)regp->reg_udata)->r_volume[view];
+		for (view=0; view < state->num_views; view++) {
+		    vv = &((struct gqa_per_region_data *)regp->reg_udata)->r_volume[view];
 
 		    /* convert view length to a volume */
-		    *vv = ((struct per_region_data *)regp->reg_udata)->r_len[view] *
+		    *vv = ((struct gqa_per_region_data *)regp->reg_udata)->r_len[view] *
 		    (state->area[view] / state->shots[view]);
 
 		    /* convert to user's units */
-		    *vv /= units[VOL]->val;
+		    *vv /= state->units[VOL]->val;
 
 		    /* find limits of values */
 		    if (*vv < low) low = *vv;
@@ -2416,12 +2448,12 @@ summary_reports(struct ged *gedp, struct cstate *state)
 		    avg_mass += *vv;
 		}
 
-		avg_mass /= num_views;
+		avg_mass /= state->num_views;
 
 		bu_vls_printf(gedp->ged_result_str, "\t%s volume:%g %s +(%g) -(%g)\n",
 			      regp->reg_name,
 			      avg_mass,
-			      units[VOL]->name,
+			      state->units[VOL]->name,
 			      hi - avg_mass,
 			      avg_mass - low);
 	    }
@@ -2430,18 +2462,18 @@ summary_reports(struct ged *gedp, struct cstate *state)
 
 	/* print grand totals */
 	avg_mass = 0.0;
-	for (view=0; view < num_views; view++) {
+	for (view=0; view < state->num_views; view++) {
 	    avg_mass += state->m_volume[view] =
 	    state->m_len[view] * (state->area[view] / state->shots[view]);
 	}
 
-	avg_mass /= num_views;
-	bu_vls_printf(gedp->ged_result_str, "  Average total volume: %g %s\n", avg_mass / units[VOL]->val, units[VOL]->name);
+	avg_mass /= state->num_views;
+	bu_vls_printf(gedp->ged_result_str, "  Average total volume: %g %s\n", avg_mass / state->units[VOL]->val, state->units[VOL]->name);
     }
-    if (analysis_flags & ANALYSIS_OVERLAPS) list_report(gedp, &overlapList);
-    if (analysis_flags & ANALYSIS_ADJ_AIR) list_report(gedp, &adjAirList);
-    if (analysis_flags & ANALYSIS_GAPS) list_report(gedp, &gapList);
-    if (analysis_flags & ANALYSIS_EXP_AIR) list_report(gedp, &exposedAirList);
+    if (state->analysis_flags & ANALYSIS_OVERLAPS) list_report(gedp, state, &state->overlapList);
+    if (state->analysis_flags & ANALYSIS_ADJ_AIR) list_report(gedp, state, &state->adjAirList);
+    if (state->analysis_flags & ANALYSIS_GAPS) list_report(gedp, state, &state->gapList);
+    if (state->analysis_flags & ANALYSIS_EXP_AIR) list_report(gedp, state, &state->exposedAirList);
 
     for (BU_LIST_FOR (regp, region, &(state->rtip->HeadRegion))) {
 	size_t hits;
@@ -2449,17 +2481,17 @@ summary_reports(struct ged *gedp, struct cstate *state)
 	int is_overlap_only_hit;
 
 	RT_CK_REGION(regp);
-	hits = (size_t)((struct per_region_data *)regp->reg_udata)->hits;
-	if (hits < require_num_hits) {
-	    if (hits == 0 && !quiet_missed_report) {
+	hits = (size_t)((struct gqa_per_region_data *)regp->reg_udata)->hits;
+	if (hits < state->require_num_hits) {
+	    if (hits == 0 && !state->quiet_missed_report) {
 		is_overlap_only_hit = 0;
-		if (analysis_flags & ANALYSIS_OVERLAPS) {
+		if (state->analysis_flags & ANALYSIS_OVERLAPS) {
 		    /* If the region is in the overlap list, it has
 		     * been hit even though the hit count is zero.
 		     * Do not report zero hit regions if they are in
 		     * the overlap list.
 		     */
-		    for (BU_LIST_FOR (rp, region_pair, &(overlapList.l))) {
+		    for (BU_LIST_FOR (rp, region_pair, &(state->overlapList.l))) {
 			if (rp->r.r1->reg_name == regp->reg_name) {
 			    is_overlap_only_hit = 1;
 			    break;
@@ -2476,7 +2508,7 @@ summary_reports(struct ged *gedp, struct cstate *state)
 		}
 	    } else if (hits) {
 		bu_vls_printf(gedp->ged_result_str, "%s hit only %zu times (< %zu)\n",
-			      regp->reg_name, hits, require_num_hits);
+			      regp->reg_name, hits, state->require_num_hits);
 	    }
 	}
     }
@@ -2489,8 +2521,10 @@ ged_gqa_core(struct ged *gedp, int argc, const char *argv[])
     int arg_count;
     struct rt_i *rtip;
     int i;
-    struct cstate state;
-    state.gedp = gedp;
+    struct cstate state_val;
+    struct cstate *state = &state_val;
+    memset(state, 0, sizeof(*state));
+    state->gedp = gedp;
     int start_objs; /* index in command line args where geom object list starts */
     struct region_pair *rp;
     struct region *regp;
@@ -2511,66 +2545,82 @@ ged_gqa_core(struct ged *gedp, int argc, const char *argv[])
 	return GED_HELP;
     }
 
-    analysis_flags = ANALYSIS_VOLUMES | ANALYSIS_OVERLAPS | ANALYSIS_WEIGHTS |
+    state->analysis_flags = ANALYSIS_VOLUMES | ANALYSIS_OVERLAPS | ANALYSIS_WEIGHTS |
     ANALYSIS_EXP_AIR | ANALYSIS_ADJ_AIR | ANALYSIS_GAPS | ANALYSIS_CENTROIDS | ANALYSIS_MOMENTS;
-    multiple_analyses = 1;
-    azimuth_deg = 0.0;
-    elevation_deg = 0.0;
-    densityFileName = (char *)0;
+    state->multiple_analyses = 1;
+    state->azimuth_deg = 0.0;
+    state->elevation_deg = 0.0;
+    state->densityFileName = (char *)0;
 
     /* FIXME: this is completely arbitrary, should probably be based
      * on the model size.
      */
-    gridSpacing = 50.0;
+    state->gridSpacing = 50.0;
 
     /* default grid spacing limit is based on the current distance
      * tolerance, one order of magnitude greater.
      *
      * FIXME: should probably be based on the model size.
      */
-    gridSpacingLimit = 10.0 * wdbp->wdb_tol.dist;
+    state->gridSpacingLimit = 10.0 * wdbp->wdb_tol.dist;
 
-    makeOverlapAssemblies = 0;
-    require_num_hits = 1;
-    max_cpus = ncpu = bu_avail_cpus();
-    Samples_per_model_axis = 2.0;
-    overlap_tolerance = 0.0;
-    volume_tolerance = -1.0;
-    weight_tolerance = -1.0;
-    print_per_region_stats = 0;
-    max_region_name_len = 0;
-    use_air = 1;
-    num_objects = 0;
-    num_views = 3;
-    verbose = 0;
-    quiet_missed_report = 0;
-    plot_prefix = NULL;
-    plot_weight = (FILE *)0;
-    plot_volume = (FILE *)0;
-    plot_overlaps = (FILE *)0;
-    plot_adjair = (FILE *)0;
-    plot_gaps = (FILE *)0;
-    plot_expair = (FILE *)0;
-    debug = 0;
+    state->makeOverlapAssemblies = 0;
+    state->require_num_hits = 1;
+    state->max_cpus = state->ncpu = (int)bu_avail_cpus();
+    state->Samples_per_model_axis = 2.0;
+    state->overlap_tolerance = 0.0;
+    state->volume_tolerance = -1.0;
+    state->weight_tolerance = -1.0;
+    state->print_per_region_stats = 0;
+    state->max_region_name_len = 0;
+    state->use_air = 1;
+    state->num_objects = 0;
+    state->num_views = 3;
+    state->verbose = 0;
+    state->quiet_missed_report = 0;
+    state->plot_prefix = NULL;
+    state->plot_weight = (FILE *)0;
+    state->plot_volume = (FILE *)0;
+    state->plot_overlaps = (FILE *)0;
+    state->plot_adjair = (FILE *)0;
+    state->plot_gaps = (FILE *)0;
+    state->plot_expair = (FILE *)0;
+    state->debug = 0;
+    state->analysis_method = GQA_METHOD_LEGACY;
+
+    /* Initialise per-invocation region-pair lists */
+    BU_LIST_INIT_MAGIC(&state->gapList.l, BU_LIST_HEAD_MAGIC);
+    state->gapList.r.name = "Gaps";
+    BU_LIST_INIT_MAGIC(&state->adjAirList.l, BU_LIST_HEAD_MAGIC);
+    state->adjAirList.r.name = "Adjacent Air";
+    BU_LIST_INIT_MAGIC(&state->exposedAirList.l, BU_LIST_HEAD_MAGIC);
+    state->exposedAirList.r.name = "Exposed Air";
+    BU_LIST_INIT_MAGIC(&state->overlapList.l, BU_LIST_HEAD_MAGIC);
+    state->overlapList.r.name = "Overlaps";
+
+    /* Default units */
+    state->units[LINE] = units_tab_defaults[LINE];
+    state->units[VOL]  = units_tab_defaults[VOL];
+    state->units[WGT]  = units_tab_defaults[WGT];
 
     /* parse command line arguments */
-    arg_count = parse_args(gedp, argc, (char **)argv);
+    arg_count = parse_args(gedp, state, argc, (char **)argv);
 
     if (arg_count < 0 || (argc-arg_count) < 1) {
 	bu_vls_printf(gedp->ged_result_str, "Usage: %s %s %s", argv[0], options_str, usage);
 	return BRLCAD_ERROR;
     }
 
-    if (analysis_flags & ANALYSIS_PLOT_OVERLAPS) {
-	ged_gqa_plot.vbp = bv_vlblock_init(vlfree, 32);
-	ged_gqa_plot.vhead = bv_vlblock_find(ged_gqa_plot.vbp, 0xFF, 0xFF, 0x00);
+    if (state->analysis_flags & ANALYSIS_PLOT_OVERLAPS) {
+	state->plot_vbp = bv_vlblock_init(vlfree, 32);
+	state->plot_vhead = bv_vlblock_find(state->plot_vbp, 0xFF, 0xFF, 0x00);
     }
 
     rtip = rt_new_rti(gedp->dbip);
-    rtip->useair = use_air;
+    rtip->useair = state->use_air;
 
     start_objs = arg_count;
-    num_objects = argc - arg_count;
+    state->num_objects = argc - arg_count;
 
     /* Initialize all the per-CPU memory resources.  The number of
      * processors can change at runtime, init them all.
@@ -2579,7 +2629,7 @@ ged_gqa_core(struct ged *gedp, int argc, const char *argv[])
     for (i = 0; i < MAX_PSW; i++) {
 	rt_init_resource(&resp[i], i, rtip);
     }
-    state.resp = resp;
+    state->resp = resp;
 
     /* Walk trees.  Here we identify any object trees in the database
      * that the user wants included in the ray trace.
@@ -2591,207 +2641,245 @@ ged_gqa_core(struct ged *gedp, int argc, const char *argv[])
 	}
     }
 
-    if (densities_prep(gedp, rtip) != BRLCAD_OK) return BRLCAD_ERROR;
+    if (densities_prep(gedp, state, rtip) != BRLCAD_OK) return BRLCAD_ERROR;
 
     /* This gets the database ready for ray tracing.  (it precomputes
      * some values, sets up space partitioning, etc.)
      */
-    rt_prep_parallel(rtip, ncpu);
+    rt_prep_parallel(rtip, state->ncpu);
 
     /* we now have to subdivide space */
-    VSUB2(state.span, rtip->mdl_max, rtip->mdl_min);
-    state.area[0] = state.span[1] * state.span[2];
-    state.area[1] = state.span[2] * state.span[0];
-    state.area[2] = state.span[0] * state.span[1];
+    VSUB2(state->span, rtip->mdl_max, rtip->mdl_min);
+    state->area[0] = state->span[1] * state->span[2];
+    state->area[1] = state->span[2] * state->span[0];
+    state->area[2] = state->span[0] * state->span[1];
 
-    if (analysis_flags & ANALYSIS_BBOX) {
+    if (state->analysis_flags & ANALYSIS_BBOX) {
 	bu_vls_printf(gedp->ged_result_str, "bounding box: %g %g %g  %g %g %g\n",
 		      V3ARGS(rtip->mdl_min), V3ARGS(rtip->mdl_max));
 
-	bu_vls_printf(gedp->ged_result_str, "Area: (%g, %g, %g)\n", state.area[X], state.area[Y], state.area[Z]);
+	bu_vls_printf(gedp->ged_result_str, "Area: (%g, %g, %g)\n", state->area[X], state->area[Y], state->area[Z]);
     }
-    if (verbose) bu_vls_printf(gedp->ged_result_str, "ncpu: %d\n", ncpu);
+    if (state->verbose) bu_vls_printf(gedp->ged_result_str, "state->ncpu: %d\n", state->ncpu);
 
     /* if the user did not specify the initial grid spacing limit, we
      * need to compute a reasonable one for them.
      */
-    if (ZERO(gridSpacing)) {
+    if (ZERO(state->gridSpacing)) {
 	double min_span = MAX_FASTF;
-	VPRINT("span", state.span);
+	VPRINT("span", state->span);
 
-	V_MIN(min_span, state.span[X]);
-	V_MIN(min_span, state.span[Y]);
-	V_MIN(min_span, state.span[Z]);
+	V_MIN(min_span, state->span[X]);
+	V_MIN(min_span, state->span[Y]);
+	V_MIN(min_span, state->span[Z]);
 
-	gridSpacing = gridSpacingLimit;
+	state->gridSpacing = state->gridSpacingLimit;
 	do {
-	    gridSpacing *= 2.0;
-	} while (gridSpacing < min_span);
+	    state->gridSpacing *= 2.0;
+	} while (state->gridSpacing < min_span);
 
 	/* dial it back a little bit */
-	gridSpacing *= 0.25;
-	V_MAX(gridSpacing, gridSpacingLimit);
+	state->gridSpacing *= 0.25;
+	V_MAX(state->gridSpacing, state->gridSpacingLimit);
 
 	bu_log("Trying estimated initial grid spacing: %g %s\n",
-	       gridSpacing / units[LINE]->val, units[LINE]->name);
+	       state->gridSpacing / state->units[LINE]->val, state->units[LINE]->name);
     } else {
 	bu_log("Trying initial grid spacing: %g %s\n",
-	       gridSpacing / units[LINE]->val, units[LINE]->name);
+	       state->gridSpacing / state->units[LINE]->val, state->units[LINE]->name);
     }
 
     bu_log("Using grid spacing lower limit: %g %s\n",
-	   gridSpacingLimit / units[LINE]->val, units[LINE]->name);
+	   state->gridSpacingLimit / state->units[LINE]->val, state->units[LINE]->name);
 
-    if (options_prep(gedp, rtip, state.span) != BRLCAD_OK) return BRLCAD_ERROR;
+    if (options_prep(gedp, state, rtip, state->span) != BRLCAD_OK) return BRLCAD_ERROR;
 
     /* initialize some stuff */
-    state.sem_worker = bu_semaphore_register("gqa_sem_worker");
-    state.sem_stats = bu_semaphore_register("gqa_sem_stats");
-    state.sem_lists = bu_semaphore_register("gqa_sem_lists");
-    state.sem_plot = bu_semaphore_register("gqa_sem_plot");
-    state.rtip = rtip;
-    state.first = 1;
-    allocate_per_region_data(gedp, &state, start_objs, argc, argv);
+    state->sem_worker = bu_semaphore_register("gqa_sem_worker");
+    state->sem_stats = bu_semaphore_register("gqa_sem_stats");
+    state->sem_lists = bu_semaphore_register("gqa_sem_lists");
+    state->sem_plot = bu_semaphore_register("gqa_sem_plot");
+    state->rtip = rtip;
+    state->first = 1;
+    allocate_per_region_data(gedp, state, start_objs, argc, argv);
 
     /* compute */
     do {
-	double inv_spacing = 1.0/gridSpacing;
+	double inv_spacing = 1.0/state->gridSpacing;
 	int view;
 
-	VSCALE(state.steps, state.span, inv_spacing);
-	state.steps[0] += 1;
-	state.steps[1] += 1;
-	state.steps[2] += 1;
+	VSCALE(state->steps, state->span, inv_spacing);
+	state->steps[0] += 1;
+	state->steps[1] += 1;
+	state->steps[2] += 1;
 
 	bu_log("Processing with grid spacing %g %s %ld x %ld x %ld\n",
-	       gridSpacing / units[LINE]->val,
-	       units[LINE]->name,
-	       state.steps[0]-1,
-	       state.steps[1]-1,
-	       state.steps[2]-1);
+	       state->gridSpacing / state->units[LINE]->val,
+	       state->units[LINE]->name,
+	       state->steps[0]-1,
+	       state->steps[1]-1,
+	       state->steps[2]-1);
 
+	/* When rotated-grid mode is active, pre-compute the grids for all
+	 * views.  View 0 uses the user-specified az/el; views 1 and 2 use
+	 * two orthogonal directions derived from view 0's ray direction.
+	 */
+	if (state->analysis_method == GQA_METHOD_ROTATED) {
+	    /* Set up view 0 from the user az/el (default 0,0 = +X axis) */
+	    rotated_grid_setup_ae(&state->rot_grid[0],
+				  rtip->mdl_min, rtip->mdl_max,
+				  state->azimuth_deg, state->elevation_deg,
+				  state->gridSpacing);
 
-	for (view=0; view < num_views; view++) {
+	    if (state->num_views > 1) {
+		/* view 1: perpendicular to view 0's ray direction */
+		vect_t v1_dir;
+		bn_vec_perp(v1_dir, state->rot_grid[0].ray_dir);
+		VUNITIZE(v1_dir);
+		rotated_grid_setup(&state->rot_grid[1],
+				   rtip->mdl_min, rtip->mdl_max,
+				   v1_dir, state->gridSpacing);
+	    }
 
-	    if (verbose)
+	    if (state->num_views > 2) {
+		/* view 2: cross product of view 0 and view 1 directions */
+		vect_t v2_dir;
+		VCROSS(v2_dir, state->rot_grid[0].ray_dir, state->rot_grid[1].ray_dir);
+		VUNITIZE(v2_dir);
+		rotated_grid_setup(&state->rot_grid[2],
+				   rtip->mdl_min, rtip->mdl_max,
+				   v2_dir, state->gridSpacing);
+	    }
+	}
+
+	for (view=0; view < state->num_views; view++) {
+
+	    if (state->verbose)
 		bu_vls_printf(gedp->ged_result_str, "  view %d\n", view);
 
 	    /* gross hack.  By assuming we have <= 3 views, we can let
 	     * the view # indicate a coordinate axis.  Note this is
-	     * used as an index into state.area[]
+	     * used as an index into state->area[]
 	     */
-	    state.i_axis = state.curr_view = view;
-	    state.u_axis = (state.curr_view+1) % 3;
-	    state.v_axis = (state.curr_view+2) % 3;
+	    state->i_axis = state->curr_view = view;
+	    state->u_axis = (state->curr_view+1) % 3;
+	    state->v_axis = (state->curr_view+2) % 3;
 
-	    state.u_dir[state.u_axis] = 1;
-	    state.u_dir[state.v_axis] = 0;
-	    state.u_dir[state.i_axis] = 0;
+	    state->u_dir[state->u_axis] = 1;
+	    state->u_dir[state->v_axis] = 0;
+	    state->u_dir[state->i_axis] = 0;
 
-	    state.v_dir[state.u_axis] = 0;
-	    state.v_dir[state.v_axis] = 1;
-	    state.v_dir[state.i_axis] = 0;
-	    state.v = 1;
+	    state->v_dir[state->u_axis] = 0;
+	    state->v_dir[state->v_axis] = 1;
+	    state->v_dir[state->i_axis] = 0;
+	    state->v = 1;
 
-	    bu_parallel(plane_worker, ncpu, (void *)&state);
+	    if (state->analysis_method == GQA_METHOD_ROTATED) {
+		/* Reset traversal counter so each bu_parallel call starts fresh */
+		state->rot_grid[view].current = 0;
+		state->rot_grid[view].refine_flag = state->first ? 0 : 1;
+		bu_parallel(rotated_plane_worker, state->ncpu, (void *)state);
+	    } else {
+		bu_parallel(plane_worker, state->ncpu, (void *)state);
+	    }
 
-	    if (aborted)
-		goto aborted;
+	    if (state->aborted)
+		goto gqa_aborted;
 
-	    view_reports(gedp, &state);
+	    view_reports(gedp, state);
 	}
 
-	state.first = 0;
-	gridSpacing *= GRIDSPACING_STEP;
+	state->first = 0;
+	state->gridSpacing *= GRIDSPACING_STEP;
 
-    } while (terminate_check(gedp, &state));
+    } while (terminate_check(gedp, state));
 
-aborted:
-    if (plot_overlaps) fclose(plot_overlaps);
-    if (plot_weight) fclose(plot_weight);
-    if (plot_volume) fclose(plot_volume);
-    if (plot_adjair) fclose(plot_adjair);
-    if (plot_gaps) fclose(plot_gaps);
-    if (plot_expair) fclose(plot_expair);
+gqa_aborted:
+    if (state->plot_overlaps) fclose(state->plot_overlaps);
+    if (state->plot_weight) fclose(state->plot_weight);
+    if (state->plot_volume) fclose(state->plot_volume);
+    if (state->plot_adjair) fclose(state->plot_adjair);
+    if (state->plot_gaps) fclose(state->plot_gaps);
+    if (state->plot_expair) fclose(state->plot_expair);
 
 
-    if (verbose)
+    if (state->verbose)
 	bu_vls_printf(gedp->ged_result_str, "Computation Done\n");
 
-    if (!aborted) {
-	summary_reports(gedp, &state);
+    if (!state->aborted) {
+	summary_reports(gedp, state);
 
-	if (analysis_flags & ANALYSIS_PLOT_OVERLAPS) {
+	if (state->analysis_flags & ANALYSIS_PLOT_OVERLAPS) {
 	    if (gedp->new_cmd_forms) {
 		struct bview *view = gedp->ged_gvp;
-		bv_vlblock_obj(ged_gqa_plot.vbp, view, "gqa::overlaps");
+		bv_vlblock_obj(state->plot_vbp, view, "gqa::overlaps");
 	    } else {
-		_ged_cvt_vlblock_to_solids(gedp, ged_gqa_plot.vbp, "OVERLAPS", 0);
+		_ged_cvt_vlblock_to_solids(gedp, state->plot_vbp, "OVERLAPS", 0);
 	    }
 	}
     } else
-	aborted = 0; /* reset flag */
+	state->aborted = 0; /* reset flag */
 
-    if (analysis_flags & ANALYSIS_PLOT_OVERLAPS)
-	bv_vlblock_free(ged_gqa_plot.vbp);
+    if (state->analysis_flags & ANALYSIS_PLOT_OVERLAPS)
+	bv_vlblock_free(state->plot_vbp);
 
     /* Clear out the lists */
-    while (BU_LIST_WHILE (rp, region_pair, &overlapList.l)) {
+    while (BU_LIST_WHILE (rp, region_pair, &state->overlapList.l)) {
 	BU_LIST_DEQUEUE(&rp->l);
-	bu_free(rp, "overlapList items");
+	bu_free(rp, "state->overlapList items");
     }
-    while (BU_LIST_WHILE (rp, region_pair, &adjAirList.l)) {
+    while (BU_LIST_WHILE (rp, region_pair, &state->adjAirList.l)) {
 	BU_LIST_DEQUEUE(&rp->l);
-	bu_free(rp, "adjAirList items");
+	bu_free(rp, "state->adjAirList items");
     }
-    while (BU_LIST_WHILE (rp, region_pair, &gapList.l)) {
+    while (BU_LIST_WHILE (rp, region_pair, &state->gapList.l)) {
 	BU_LIST_DEQUEUE(&rp->l);
-	bu_free(rp, "gapList items");
+	bu_free(rp, "state->gapList items");
     }
-    while (BU_LIST_WHILE (rp, region_pair, &exposedAirList.l)) {
+    while (BU_LIST_WHILE (rp, region_pair, &state->exposedAirList.l)) {
 	BU_LIST_DEQUEUE(&rp->l);
-	bu_free(rp, "exposedAirList items");
+	bu_free(rp, "state->exposedAirList items");
     }
 
     /* Free dynamically allocated state */
-    bu_free(state.m_lenDensity, "m_lenDensity");
-    bu_free(state.m_len, "m_len");
-    bu_free(state.m_volume, "m_volume");
-    bu_free(state.m_weight, "m_weight");
-    bu_free(state.shots, "m_shots");
-    bu_free(state.m_lenTorque, "m_lenTorque");
-    bu_free(state.m_moi, "m_moi");
-    bu_free(state.m_poi, "m_poi");
+    bu_free(state->m_lenDensity, "m_lenDensity");
+    bu_free(state->m_len, "m_len");
+    bu_free(state->m_volume, "m_volume");
+    bu_free(state->m_weight, "m_weight");
+    bu_free(state->shots, "m_shots");
+    bu_free(state->m_lenTorque, "m_lenTorque");
+    bu_free(state->m_moi, "m_moi");
+    bu_free(state->m_poi, "m_poi");
 
-    for (i = 0; i < num_objects; i++) {
-	bu_free(obj_tbl[i].o_len, "o_len");
-	bu_free(obj_tbl[i].o_lenDensity, "o_lenDensity");
-	bu_free(obj_tbl[i].o_volume, "o_volume");
-	bu_free(obj_tbl[i].o_weight, "o_weight");
-	bu_free(obj_tbl[i].o_lenTorque, "o_lenTorque");
-	bu_free(obj_tbl[i].o_moi, "o_moi");
-	bu_free(obj_tbl[i].o_poi, "o_poi");
+    for (i = 0; i < state->num_objects; i++) {
+	bu_free(state->obj_tbl[i].o_len, "o_len");
+	bu_free(state->obj_tbl[i].o_lenDensity, "o_lenDensity");
+	bu_free(state->obj_tbl[i].o_volume, "o_volume");
+	bu_free(state->obj_tbl[i].o_weight, "o_weight");
+	bu_free(state->obj_tbl[i].o_lenTorque, "o_lenTorque");
+	bu_free(state->obj_tbl[i].o_moi, "o_moi");
+	bu_free(state->obj_tbl[i].o_poi, "o_poi");
     }
-    bu_free(obj_tbl, "object table");
-    obj_tbl = NULL;
+    bu_free(state->obj_tbl, "object table");
+    state->obj_tbl = NULL;
 
     for (i = 0, BU_LIST_FOR (regp, region, &(rtip->HeadRegion)), i++) {
-	bu_free(reg_tbl[i].r_lenDensity, "r_lenDensity");
-	bu_free(reg_tbl[i].r_len, "r_len");
-	bu_free(reg_tbl[i].r_volume, "r_volume");
-	bu_free(reg_tbl[i].r_weight, "r_weight");
+	bu_free(state->reg_tbl[i].r_lenDensity, "r_lenDensity");
+	bu_free(state->reg_tbl[i].r_len, "r_len");
+	bu_free(state->reg_tbl[i].r_volume, "r_volume");
+	bu_free(state->reg_tbl[i].r_weight, "r_weight");
     }
-    bu_free(reg_tbl, "object table");
-    reg_tbl = NULL;
+    bu_free(state->reg_tbl, "object table");
+    state->reg_tbl = NULL;
 
-    if (_gd_densities) {
-	analyze_densities_destroy(_gd_densities);
-	_gd_densities = NULL;
+    if (state->densities) {
+	analyze_densities_destroy(state->densities);
+	state->densities = NULL;
     }
 
-    if (_gd_densities_source) {
-	bu_free(_gd_densities_source, "free densities source string");
-	_gd_densities_source = NULL;
+    if (state->densities_source) {
+	bu_free(state->densities_source, "free densities source string");
+	state->densities_source = NULL;
     }
 
     rt_free_rti(rtip);

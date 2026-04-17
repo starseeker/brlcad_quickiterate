@@ -59,6 +59,45 @@ ANALYZE_EXPORT extern struct region_pair *add_unique_pair(struct region_pair *li
 							  struct region *r2,
 							  double dist, point_t pt);
 
+/**
+ * Region AABB overlap pair as returned by analyze_overlapping_region_pairs().
+ *
+ * r1 and r2 are a pair of regions whose bounding boxes intersect.
+ * isect_min / isect_max is the intersection AABB of their bounding boxes.
+ * Actual geometric overlaps, if any, must lie inside this volume.
+ */
+struct analyze_region_overlap_pair {
+    struct region *r1;
+    struct region *r2;
+    point_t isect_min;
+    point_t isect_max;
+};
+
+/**
+ * Use an R-Tree to find all region pairs whose conservative axis-aligned
+ * bounding boxes intersect.
+ *
+ * This is a cheap pre-filter for overlap analysis.  The returned pairs are
+ * candidates only: their actual geometry may or may not overlap.  A subsequent
+ * ray-sampling pass restricted to each pair's isect_min/isect_max volume will
+ * conclusively confirm or deny the geometric overlap.
+ *
+ * @param rtip         a prepared rt_i (rt_prep_parallel() already called)
+ * @param result_pairs bu_ptbl to receive struct analyze_region_overlap_pair*
+ *                     pointers; must be uninitialised on entry (will be
+ *                     initialised by this function)
+ * @return number of candidate pairs found (>= 0), or -1 on error
+ */
+ANALYZE_EXPORT extern int
+analyze_overlapping_region_pairs(struct rt_i *rtip, struct bu_ptbl *result_pairs);
+
+/**
+ * Free memory allocated by analyze_overlapping_region_pairs().
+ * Calls bu_ptbl_free(pairs) internally.
+ */
+ANALYZE_EXPORT extern void
+analyze_free_region_overlap_pairs(struct bu_ptbl *pairs);
+
 
 ANALYZE_EXPORT int
 analyze_obj_inside(struct db_i *dbip, const char *outside, const char *inside, fastf_t tol);
