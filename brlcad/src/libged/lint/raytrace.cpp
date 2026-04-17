@@ -275,10 +275,20 @@ crofton_on_obj(struct db_i *dbip, const char *obj_name, size_t n_rays,
     }
     rt_prep_parallel(rtip, 1);
 
+    /* Use convergence-based sampling when n_rays == 0 (the recommended
+     * default).  A fixed ray count can be requested for reproducibility
+     * or timing studies, but for reliable SA/volume estimates the
+     * convergence path is strongly preferred.                           */
     struct rt_crofton_params crp;
-    crp.n_rays       = n_rays;
-    crp.stability_mm = 0.0;
-    crp.time_ms      = 0.0;
+    if (n_rays > 0) {
+	crp.n_rays       = n_rays;
+	crp.stability_mm = 0.0;
+	crp.time_ms      = 0.0;
+    } else {
+	crp.n_rays       = 0;
+	crp.stability_mm = 0.05;  /* equivalent-radius stability target (mm) */
+	crp.time_ms      = 2000.0; /* 2 s per-object wall-clock safety budget */
+    }
 
     double sa = 0.0, vol = 0.0;
     int cr = rt_crofton_shoot(rtip, &crp, &sa, &vol);
