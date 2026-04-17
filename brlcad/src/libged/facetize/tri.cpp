@@ -619,12 +619,11 @@ tess_run(struct _ged_facetize_state *s, const char **tess_cmd, int tess_cmd_cnt,
 
 /*
  * Tessellate variant primitives that were created by _ged_facetize_build_variant_plan().
- * Processes all names in a single NMG batch call.  Tessellation failures are
- * logged but do not abort: the booleval will silently fall back to the original
- * (non-variant) mesh for any variant whose BoT is not available.
+ * Processes all names using the NMG method (same fixed command structure as
+ * _ged_facetize_leaves_tri).  Tessellation failures are logged but do not
+ * abort: the booleval will silently fall back to the original (non-variant)
+ * mesh for any variant whose BoT is not available.
  */
-#define CMD_LEN_MAX 8000
-
 int
 _ged_facetize_tessellate_variant_names(struct _ged_facetize_state *s,
 				       FacetizeVariantPlan *plan)
@@ -635,60 +634,79 @@ _ged_facetize_tessellate_variant_names(struct _ged_facetize_state *s,
     char tess_exec[MAXPATHLEN];
     bu_dir(tess_exec, MAXPATHLEN, BU_DIR_BIN, "ged_exec", BU_DIR_EXT, NULL);
 
-    /* Build the fixed part of the tessellation command */
-    const char *tess_cmd_fixed[16];
-    int tess_cmd_fixed_cnt = 0;
-    tess_cmd_fixed[tess_cmd_fixed_cnt++] = tess_exec;
-    tess_cmd_fixed[tess_cmd_fixed_cnt++] = bu_vls_cstr(s->wfile);
-    tess_cmd_fixed[tess_cmd_fixed_cnt++] = "facetize_process";
-    tess_cmd_fixed[tess_cmd_fixed_cnt++] = "-O"; /* overwrite existing names */
+    char lcache[MAXPATHLEN] = {0};
+    bu_dir(lcache, MAXPATHLEN, BU_DIR_CACHE, NULL);
 
-    /* Append tolerance flags that were set by the parent call */
-    double abs_tol = s->tol ? s->tol->abs : 0.0;
-    double rel_tol = s->tol ? s->tol->rel : 0.0;
-    double norm_tol = s->tol ? s->tol->norm : 0.0;
-    char atol_str[64], rtol_str[64], ntol_str[64];
-    if (!NEAR_ZERO(abs_tol, SMALL_FASTF)) {
-	bu_snprintf(atol_str, sizeof(atol_str), "%g", abs_tol);
-	tess_cmd_fixed[tess_cmd_fixed_cnt++] = "-a";
-	tess_cmd_fixed[tess_cmd_fixed_cnt++] = atol_str;
-    }
-    if (!NEAR_ZERO(rel_tol, SMALL_FASTF)) {
-	bu_snprintf(rtol_str, sizeof(rtol_str), "%g", rel_tol);
-	tess_cmd_fixed[tess_cmd_fixed_cnt++] = "-r";
-	tess_cmd_fixed[tess_cmd_fixed_cnt++] = rtol_str;
-    }
-    if (!NEAR_ZERO(norm_tol, SMALL_FASTF)) {
-	bu_snprintf(ntol_str, sizeof(ntol_str), "%g", norm_tol);
-	tess_cmd_fixed[tess_cmd_fixed_cnt++] = "-n";
-	tess_cmd_fixed[tess_cmd_fixed_cnt++] = ntol_str;
+    method_options_t *mo = (method_options_t *)s->method_opts;
+    std::string mstrpp("NMG");
+    std::string nmg_opts;
+    fastf_t l_max_time = 30;
+    if (mo) {
+	nmg_opts = mo->method_optstr(mstrpp, s->dbip);
+	l_max_time = (fastf_t)mo->max_time[mstrpp];
     }
 
-    /* Tessellate in batches to avoid hitting argument-length limits */
-    const size_t BATCH = 200;
-    const size_t nvars = plan->variant_names.size();
-    size_t n_ok = 0, n_fail = 0;
-    for (size_t base = 0; base < nvars; base += BATCH) {
-	size_t end = std::min(base + BATCH, nvars);
-	std::vector<const char *> cmd;
-	for (int i = 0; i < tess_cmd_fixed_cnt; i++)
-	    cmd.push_back(tess_cmd_fixed[i]);
-	for (size_t i = base; i < end; i++)
-	    cmd.push_back(plan->variant_names[i].c_str());
-	int tret = tess_run(s, cmd.data(), (int)cmd.size(),
-			    s->max_time, (int)(end - base));
-	if (tret == BRLCAD_OK) {
-	    n_ok += end - base;
-	} else {
-	    n_fail += end - base;
-	    plan->n_variant_tess_failures += (int)(end - base);
+    const char *tess_cmd[MAXPATHLEN] = {NULL};
+    tess_cmd[0] = tess_exec;
+    tess_cmd[1] = "facetize_process";
+    tess_cmd[2] = "-O";
+    tess_cmd[3] = bu_vls_cstr(s->wfile);
+    tess_cmd[4] = "--methods";
+    tess_cmd[5] = "NMG";
+    tess_cmd[6] = "--method-opts";
+
+    struct bu_vls mopts_vls = BU_VLS_INIT_ZERO;
+    bu_vls_sprintf(&mopts_vls, "%s", nmg_opts.c_str());
+    tess_cmd[7] = bu_vls_cstr(&mopts_vls);
+    tess_cmd[8] = "--cache-dir";
+    tess_cmd[9] = lcache;
+    int cmd_fixed_cnt = 10;
+
+    /* Process variants in 8000-char-bounded batches */
+    int fail_cnt = 0;
+    size_t vi = 0;
+    while (vi < plan->variant_names.size()) {
+	std::vector<const char *> batch_names;
+	struct bu_vls cmd_check = BU_VLS_INIT_ZERO;
+	for (int i = 0; i < cmd_fixed_cnt; i++)
+	    bu_vls_printf(&cmd_check, "%s ", tess_cmd[i]);
+
+	while (vi < plan->variant_names.size() &&
+	       cmd_fixed_cnt + (int)batch_names.size() < MAXPATHLEN) {
+	    const char *nm = plan->variant_names[vi].c_str();
+	    if ((bu_vls_strlen(&cmd_check) + strlen(nm)) > 8000)
+		break;
+	    bu_vls_printf(&cmd_check, "%s ", nm);
+	    batch_names.push_back(nm);
+	    vi++;
 	}
+	bu_vls_free(&cmd_check);
+
+	if (batch_names.empty())
+	    break;
+
+	for (size_t i = 0; i < batch_names.size(); i++)
+	    tess_cmd[cmd_fixed_cnt + i] = batch_names[i];
+	int total_cnt = cmd_fixed_cnt + (int)batch_names.size();
+
+	int ret = tess_run(s, tess_cmd, total_cnt,
+			   l_max_time * (fastf_t)batch_names.size(),
+			   (int)batch_names.size());
+	if (ret != BRLCAD_OK) {
+	    facetize_log(s, 0,
+			"FACETIZE: variant tessellation failed for %d object(s)\n",
+			(int)batch_names.size());
+	    fail_cnt += (int)batch_names.size();
+	}
+
+	/* Clear per-batch name slots */
+	for (size_t i = 0; i < batch_names.size(); i++)
+	    tess_cmd[cmd_fixed_cnt + i] = NULL;
     }
 
-    if (s->verbosity > 0)
-	bu_log("FACETIZE: variant tessellation: %zu ok, %zu failed\n",
-	       n_ok, n_fail);
-    return (n_fail == 0) ? BRLCAD_OK : BRLCAD_ERROR;
+    bu_vls_free(&mopts_vls);
+    plan->n_variant_tess_failures = fail_cnt;
+    return (fail_cnt == 0) ? BRLCAD_OK : BRLCAD_ERROR;
 }
 
 int
