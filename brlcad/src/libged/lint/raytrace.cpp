@@ -545,8 +545,10 @@ check_comb(lint_data *ldata, struct directory *dp,
     jentry["bot_sa"]  = bsa;
     jentry["bot_vol"] = bvol;
 
-    double sa_err  = (csa  > 0.0) ? std::fabs(csa  - bsa)  / csa  : 1.0;
-    double vol_err = (cvol > 0.0) ? std::fabs(cvol - bvol) / cvol : 1.0;
+    /* Relative error uses the BoT (exact mesh) as the reference denominator,
+     * consistent with how primitives use the analytic formula as denominator. */
+    double sa_err  = (bsa  > 0.0) ? std::fabs(csa  - bsa)  / bsa  : 1.0;
+    double vol_err = (bvol > 0.0) ? std::fabs(cvol - bvol) / bvol : 1.0;
     info.sa_err_pct  = sa_err  * 100.0;
     info.vol_err_pct = vol_err * 100.0;
     jentry["sa_err_pct"]  = info.sa_err_pct;
