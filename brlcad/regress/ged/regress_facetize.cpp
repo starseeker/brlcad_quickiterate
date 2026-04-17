@@ -48,6 +48,15 @@
  *          both a union (u) and a subtract (-) member in the same tree.
  *          Pattern: base.s u protrude.s - base.s, where protrude.s and
  *          base.s share exactly coplanar Z faces.
+ *
+ *   TC5  - near-coplanar sub-BN_TOL_DIST phantom face (the r.wind6 pattern):
+ *          base5.s − sub5.s where sub5.s protrudes 0.000340 mm past base5.s's
+ *          front face.  The gap is below librt's BN_TOL_DIST (0.0005 mm), so
+ *          the CSG raytracer merges the entrances and reports MISS; without
+ *          the perturb pass Manifold sees the gap as real geometry and leaves
+ *          a phantom face (HIT with LOS ≈ 0).  The perturb pass must produce
+ *          a MISS matching the CSG result.  Verified by firing a +Z ray
+ *          through the window centre with nirt_shoot().
  */
 
 #include "common.h"
@@ -636,6 +645,257 @@ bu_vls_free(&gpath); return BRLCAD_ERROR;
 }
 
 /* ------------------------------------------------------------------ */
+/* TC5: near-coplanar sub-BN_TOL_DIST phantom face (r.wind6 pattern)   */
+/* ------------------------------------------------------------------ */
+
+/*
+ * This test exercises the "sub-tolerance near-coplanar" failure mode
+ * identified in r.wind6 of the havoc.g model.
+ *
+ * Geometry:
+ *   base5.s:  200 × 300 × 8 mm box (Z = 0 … 8).
+ *   sub5.s:   160 × 260 × 8 mm box, XY-centred inside base5.s,
+ *             with Z = [-GAP … 8-GAP] where GAP = TC5_GAP mm.
+ *             sub5.s protrudes GAP mm past base5.s's Z=0 face.
+ *   base5.c:  region  base5.s − sub5.s  (window-frame solid).
+ *
+ * The faces are NOT exactly coplanar: the gap GAP < BN_TOL_DIST (0.0005 mm).
+ * The librt CSG raytracer merges the near-coincident entrance points and
+ * reports MISS on a +Z ray through the window centre.
+ * Without the perturb pass, Manifold sees the gap as real geometry and
+ * leaves a phantom face → nirt HIT (LOS ≈ 0).
+ * With the perturb pass the SUB variant protrudes past the BASE face →
+ * Manifold cleanly subtracts the window → nirt MISS.
+ *
+ * Regression guard: the perturb-enabled result MUST give a MISS on the
+ * test ray.  The no-perturb result is expected to give a HIT; if it does
+ * not (e.g. because a future Manifold handles this differently), a WARNING
+ * is emitted but the test does not fail.
+ */
+
+/** Near-coplanar gap for TC5 (< BN_TOL_DIST = 0.0005 mm). */
+#define TC5_GAP 0.000340
+
+/* ---- librt ray-shot helpers ---- */
+
+static int
+nirt_hit_fn(struct application *ap, struct partition *pp, struct seg *UNUSED(segp))
+{
+    int *nhits = (int *)ap->a_uptr;
+    (*nhits)++;
+    (void)pp;
+    return 1;
+}
+
+static int
+nirt_miss_fn(struct application *ap)
+{
+    (void)ap;
+    return 0;
+}
+
+/**
+ * Fire a single ray through @a obj_name in @a gfile.
+ * Returns number of hits (≥ 0), or -1 on setup error.
+ */
+static int
+nirt_shoot(const char *gfile, const char *obj_name,
+           const point_t origin, const vect_t dir)
+{
+    struct rt_i *rtip = rt_dirbuild(gfile, NULL, 0);
+    if (!rtip) {
+	bu_log("[regress_facetize] nirt_shoot: rt_dirbuild(%s) failed\n", gfile);
+	return -1;
+    }
+    if (rt_gettree(rtip, obj_name) < 0) {
+	bu_log("[regress_facetize] nirt_shoot: rt_gettree(%s) failed\n", obj_name);
+	rt_free_rti(rtip);
+	return -1;
+    }
+    rt_prep_parallel(rtip, 1);
+
+    struct application ap;
+    RT_APPLICATION_INIT(&ap);
+    ap.a_rt_i = rtip;
+    VMOVE(ap.a_ray.r_pt,  origin);
+    VMOVE(ap.a_ray.r_dir, dir);
+    ap.a_onehit = 0;
+    int nhits = 0;
+    ap.a_uptr = &nhits;
+    ap.a_hit  = nirt_hit_fn;
+    ap.a_miss = nirt_miss_fn;
+
+    rt_shootray(&ap);
+
+    rt_free_rti(rtip);
+    return nhits;
+}
+
+/**
+ * Run  "facetize -r [--no-perturb] @a input @a output"  in @a gfile.
+ * Pass no_perturb=1 to add --no-perturb.
+ */
+static int
+run_facetize_r(const char *gfile, const char *input, const char *output,
+               int no_perturb, int verbose)
+{
+    struct ged *gedp = ged_open("db", gfile, 1);
+    if (!gedp) {
+	bu_log("[regress_facetize] ged_open(%s) failed\n", gfile);
+	return BRLCAD_ERROR;
+    }
+
+    int ret;
+    if (no_perturb) {
+	const char *av[6] = {"facetize", "-r", "--no-perturb", input, output, NULL};
+	ret = ged_exec(gedp, 5, av);
+    } else {
+	const char *av[5] = {"facetize", "-r", input, output, NULL};
+	ret = ged_exec(gedp, 4, av);
+    }
+
+    if (verbose || ret != BRLCAD_OK) {
+	const char *log = bu_vls_cstr(gedp->ged_result_str);
+	if (log && log[0])
+	    bu_log("[facetize] %s\n", log);
+    }
+
+    ged_close(gedp);
+    return ret;
+}
+
+static int
+tc5_near_coplanar_subTOL(const char *tmpdir, int verbose)
+{
+    bu_log("[regress_facetize] TC5: near-coplanar sub-BN_TOL_DIST phantom face (r.wind6 pattern)...\n");
+
+    /* Use two separate .g files so the no-perturb and perturb runs
+     * do not interfere with each other's variant primitives. */
+    struct bu_vls gpath_np = BU_VLS_INIT_ZERO;
+    struct bu_vls gpath_p  = BU_VLS_INIT_ZERO;
+    bu_vls_printf(&gpath_np, "%s/tc5_nopert.g",  tmpdir);
+    bu_vls_printf(&gpath_p,  "%s/tc5_perturb.g", tmpdir);
+    const char *gfile_np = bu_vls_cstr(&gpath_np);
+    const char *gfile_p  = bu_vls_cstr(&gpath_p);
+
+    /* Build identical geometry in both files. */
+    for (int pass = 0; pass < 2; pass++) {
+	const char *gfile = (pass == 0) ? gfile_np : gfile_p;
+	if (bu_file_exists(gfile, NULL)) bu_file_delete(gfile);
+
+	struct db_i *dbip = db_create(gfile, 5);
+	if (!dbip) {
+	    bu_log("[regress_facetize] TC5: db_create failed\n");
+	    bu_vls_free(&gpath_np); bu_vls_free(&gpath_p);
+	    return BRLCAD_ERROR;
+	}
+	db_update_nref(dbip, &rt_uniresource);
+	struct rt_wdb *wdbp = wdb_dbopen(dbip, RT_WDB_TYPE_DB_DEFAULT);
+
+	/* base5.s: 200 × 300 × 8 mm at Z=[0, 8] */
+	point_t base_pts[8] = {
+	    {  0.0,   0.0, 0.0}, {200.0,   0.0, 0.0},
+	    {200.0, 300.0, 0.0}, {  0.0, 300.0, 0.0},
+	    {  0.0,   0.0, 8.0}, {200.0,   0.0, 8.0},
+	    {200.0, 300.0, 8.0}, {  0.0, 300.0, 8.0},
+	};
+	/* sub5.s: 160 × 260 × 8 mm, XY-centred, Z=[-GAP, 8-GAP].
+	 * The Z=-GAP face protrudes TC5_GAP mm past base5.s's Z=0 face. */
+	const fastf_t gap = TC5_GAP;
+	point_t sub_pts[8] = {
+	    { 20.0,  20.0, -gap},        {180.0,  20.0, -gap},
+	    {180.0, 280.0, -gap},        { 20.0, 280.0, -gap},
+	    { 20.0,  20.0, 8.0 - gap},   {180.0,  20.0, 8.0 - gap},
+	    {180.0, 280.0, 8.0 - gap},   { 20.0, 280.0, 8.0 - gap},
+	};
+
+	struct bu_list members;
+	BU_LIST_INIT(&members);
+	mk_addmember("base5.s", &members, NULL, WMOP_UNION);
+	mk_addmember("sub5.s",  &members, NULL, WMOP_SUBTRACT);
+
+	if (write_arb8(wdbp, "base5.s", base_pts) < 0 ||
+	    write_arb8(wdbp, "sub5.s",  sub_pts)  < 0 ||
+	    mk_comb(wdbp, "base5.c", &members, 1 /* region */,
+		    NULL, NULL, NULL, 1000, 0, 0, 0, 0, 0, 0) < 0) {
+	    bu_log("[regress_facetize] TC5: write failed\n");
+	    wdb_close(wdbp); bu_vls_free(&gpath_np); bu_vls_free(&gpath_p);
+	    return BRLCAD_ERROR;
+	}
+	wdb_close(wdbp);
+    }
+
+    /* Test ray: +Z through the window centre (100, 150) from below.
+     * CSG and perturb BoT must MISS; no-perturb BoT is expected to HIT. */
+    point_t origin = {100.0, 150.0, -1.0};
+    vect_t  dir    = {  0.0,   0.0,  1.0};
+
+    /* --- no-perturb baseline: document that phantom hit exists ---- */
+    if (run_facetize_r(gfile_np, "base5.c", "base5.bot.np",
+		       1 /* no_perturb */, verbose) != BRLCAD_OK) {
+	bu_log("[regress_facetize] TC5: FAIL - facetize --no-perturb error\n");
+	bu_vls_free(&gpath_np); bu_vls_free(&gpath_p);
+	return BRLCAD_ERROR;
+    }
+    int hits_np = nirt_shoot(gfile_np, "base5.bot.np", origin, dir);
+    if (hits_np < 0) {
+	bu_log("[regress_facetize] TC5: WARNING - nirt_shoot setup error for no-perturb BoT\n");
+    } else if (hits_np == 0) {
+	bu_log("[regress_facetize] TC5: WARNING - no-perturb BoT has no phantom hit "
+	       "(test geometry may not reproduce the pattern)\n");
+    } else {
+	bu_log("[regress_facetize] TC5: no-perturb BoT has %d phantom hit(s) (expected)\n",
+	       hits_np);
+    }
+
+    /* --- perturb-enabled: must give MISS (regression guard) ---- */
+    if (run_facetize_r(gfile_p, "base5.c", "base5.bot.p",
+		       0 /* with perturb */, verbose) != BRLCAD_OK) {
+	bu_log("[regress_facetize] TC5: FAIL - facetize error\n");
+	bu_vls_free(&gpath_np); bu_vls_free(&gpath_p);
+	return BRLCAD_ERROR;
+    }
+    int hits_p = nirt_shoot(gfile_p, "base5.bot.p", origin, dir);
+    if (hits_p < 0) {
+	bu_log("[regress_facetize] TC5: FAIL - nirt_shoot setup error for perturb BoT\n");
+	bu_vls_free(&gpath_np); bu_vls_free(&gpath_p);
+	return BRLCAD_ERROR;
+    }
+    if (hits_p > 0) {
+	bu_log("[regress_facetize] TC5: FAIL - perturb BoT has %d phantom hit(s); "
+	       "perturb did not eliminate sub-tolerance coplanar face\n", hits_p);
+	bu_vls_free(&gpath_np); bu_vls_free(&gpath_p);
+	return BRLCAD_ERROR;
+    }
+    bu_log("[regress_facetize] TC5: perturb BoT correctly has no phantom hit (MISS)\n");
+
+    /* VOL sanity on the perturb output: VOL is stable for this geometry
+     * (the phantom face adds negligible volume).  SA is omitted because
+     * the Crofton estimator is noisy for thin-frame shapes. */
+    double csg_vol = 0.0, bot_vol = 0.0, dummy = 0.0;
+    int have_csg = (crofton_estimate(gfile_p, "base5.c",    &dummy, &csg_vol) == BRLCAD_OK);
+    int have_bot = (crofton_estimate(gfile_p, "base5.bot.p", &dummy, &bot_vol) == BRLCAD_OK);
+    if (have_csg && have_bot && csg_vol > SMALL_FASTF) {
+	double vol_err = fabs(bot_vol - csg_vol) / csg_vol * 100.0;
+	bu_log("[regress_facetize] TC5: Crofton CSG VOL=%.0f  BoT VOL=%.0f  (VOL_err=%.1f%%)\n",
+	       csg_vol, bot_vol, vol_err);
+	if (vol_err > 20.0) {
+	    bu_log("[regress_facetize] TC5: FAIL - Crofton VOL mismatch exceeds 20%%\n");
+	    bu_vls_free(&gpath_np); bu_vls_free(&gpath_p);
+	    return BRLCAD_ERROR;
+	}
+    } else {
+	bu_log("[regress_facetize] TC5: Crofton unavailable (CSG=%d BOT=%d) - skipping\n",
+	       have_csg, have_bot);
+    }
+
+    bu_log("[regress_facetize] TC5: PASS\n");
+    bu_vls_free(&gpath_np);
+    bu_vls_free(&gpath_p);
+    return BRLCAD_OK;
+}
+
+/* ------------------------------------------------------------------ */
 /* main                                                                 */
 /* ------------------------------------------------------------------ */
 
@@ -660,10 +920,11 @@ return 1;
     }
 
     int ret = 0;
-    if (tc1_window_frame(tmpdir, verbose)   != BRLCAD_OK) ret = 1;
-    if (tc2_stacked_cutouts(tmpdir, verbose) != BRLCAD_OK) ret = 1;
-    if (tc3_rotated_wall(tmpdir, verbose)   != BRLCAD_OK) ret = 1;
-    if (tc4_havoc_reuse(tmpdir, verbose)    != BRLCAD_OK) ret = 1;
+    if (tc1_window_frame(tmpdir, verbose)        != BRLCAD_OK) ret = 1;
+    if (tc2_stacked_cutouts(tmpdir, verbose)     != BRLCAD_OK) ret = 1;
+    if (tc3_rotated_wall(tmpdir, verbose)        != BRLCAD_OK) ret = 1;
+    if (tc4_havoc_reuse(tmpdir, verbose)         != BRLCAD_OK) ret = 1;
+    if (tc5_near_coplanar_subTOL(tmpdir, verbose) != BRLCAD_OK) ret = 1;
 
     if (ret == 0)
 bu_log("[regress_facetize] All tests PASSED\n");
