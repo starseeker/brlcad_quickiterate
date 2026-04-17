@@ -90,6 +90,23 @@ openvdb::FloatGrid::Ptr bot_to_sdf(struct rt_bot_internal *bot, double voxel_siz
 struct rt_bot_internal *sdf_to_bot(openvdb::FloatGrid::Ptr grid, double adaptivity);
 
 /**
+ * Repair a non-manifold solid BoT using the OpenVDB level-set pipeline.
+ *
+ * Converts the mesh to a signed-distance field and extracts a
+ * guaranteed-manifold mesh from the 0-isovalue surface.  The result is
+ * validated for manifoldness and positive volume (negative volume would
+ * indicate an inside-out reconstruction).
+ *
+ * @param bot        Source BoT (read-only).
+ * @param voxel_size Voxel edge length in model units.  Pass <= 0 to
+ *                   auto-size to bbox_diagonal / 100.
+ * @return           New rt_bot_internal on success, NULL on failure.
+ *                   Caller owns the result and must free it via
+ *                   rt_bot_internal_free() / BU_PUT().
+ */
+struct rt_bot_internal *bot_openvdb_repair(struct rt_bot_internal *bot, double voxel_size);
+
+/**
  * Voxelize a prepped rt_i into a solid-occupancy BoolGrid.
  *
  * Shoots rays in +X, +Y, +Z.  Active (true) voxels are cells whose

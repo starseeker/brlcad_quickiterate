@@ -42,6 +42,8 @@
 #  include <openvdb/tools/MeshToVolume.h>
 #  include <openvdb/tools/VolumeToMesh.h>
 
+#  include "manifold/manifold.h"
+
 #  include "vmath.h"
 #  include "bu/malloc.h"
 #  include "bu/log.h"
@@ -219,6 +221,71 @@ sdf_to_bot(openvdb::FloatGrid::Ptr grid, double adaptivity)
     }
 
     return obot;
+}
+
+
+/* -----------------------------------------------------------------------
+ * bot_openvdb_repair
+ *
+ * Attempt to repair a non-manifold solid BoT using the OpenVDB level-set
+ * pipeline.  Converts the mesh to a signed-distance field and extracts a
+ * guaranteed-manifold mesh from the 0-isovalue surface.
+ *
+ * Validates the result: checks that it is manifold and has positive volume
+ * (negative volume would indicate an inside-out reconstruction).
+ *
+ * Returns a new rt_bot_internal on success, NULL on failure.
+ * Caller is responsible for freeing the returned bot.
+ * ---------------------------------------------------------------------- */
+struct rt_bot_internal *
+bot_openvdb_repair(struct rt_bot_internal *bot, double voxel_size)
+{
+    openvdb::FloatGrid::Ptr grid = bot_to_sdf(bot, voxel_size);
+    if (!grid) {
+	bu_log("bot_openvdb_repair: meshToVolume failed\n");
+	return NULL;
+    }
+
+    /* Full voxel resolution (adaptivity=0) preserves shape best for repair. */
+    struct rt_bot_internal *cand = sdf_to_bot(grid, 0.0);
+    if (!cand || cand->num_faces == 0) {
+	bu_log("bot_openvdb_repair: volumeToMesh produced no faces\n");
+	if (cand) { bu_free(cand->vertices, "verts"); bu_free(cand->faces, "faces"); BU_PUT(cand, struct rt_bot_internal); }
+	return NULL;
+    }
+
+    /* Validate: the result must be manifold. */
+    manifold::MeshGL64 vcheck;
+    vcheck.numProp = 3;
+    vcheck.vertProperties.resize(cand->num_vertices * 3);
+    for (size_t i = 0; i < cand->num_vertices; i++) {
+	vcheck.vertProperties[i * 3 + 0] = cand->vertices[i * 3 + X];
+	vcheck.vertProperties[i * 3 + 1] = cand->vertices[i * 3 + Y];
+	vcheck.vertProperties[i * 3 + 2] = cand->vertices[i * 3 + Z];
+    }
+    vcheck.triVerts.resize(cand->num_faces * 3);
+    for (size_t i = 0; i < cand->num_faces; i++) {
+	vcheck.triVerts[i * 3 + 0] = cand->faces[i * 3 + X];
+	vcheck.triVerts[i * 3 + 1] = cand->faces[i * 3 + Y];
+	vcheck.triVerts[i * 3 + 2] = cand->faces[i * 3 + Z];
+    }
+    manifold::Manifold mcheck(vcheck);
+    if (mcheck.Status() != manifold::Manifold::Error::NoError) {
+	bu_log("bot_openvdb_repair: result is not manifold (unexpected)\n");
+	bu_free(cand->vertices, "verts"); bu_free(cand->faces, "faces");
+	BU_PUT(cand, struct rt_bot_internal);
+	return NULL;
+    }
+
+    /* Validate: positive volume means outward-facing normals (correct). */
+    if (mcheck.Volume() <= 0.0) {
+	bu_log("bot_openvdb_repair: result has non-positive volume (inside-out)\n");
+	bu_free(cand->vertices, "verts"); bu_free(cand->faces, "faces");
+	BU_PUT(cand, struct rt_bot_internal);
+	return NULL;
+    }
+
+    return cand;
 }
 
 
