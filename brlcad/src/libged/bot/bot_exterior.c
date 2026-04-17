@@ -26,6 +26,7 @@
 #include "common.h"
 
 #include <string.h>
+#include <stdlib.h>
 
 #include "rt/application.h"
 #include "rt/ray_partition.h"
@@ -33,8 +34,17 @@
 #include "rt/geom.h"
 #include "rt/db_internal.h"
 #include "vmath.h"
+#include "bu/str.h"
 
 #include "../ged_private.h"
+
+#ifdef HAVE_OPENVDB_BOT_EXTERIOR
+/* Tier-2: voxel flood-fill exterior classification (bot_flood_exterior.cpp) */
+extern int bot_flood_exterior_classify(struct rt_i *rtip,
+				       struct rt_bot_internal *bot,
+				       int *face_exterior,
+				       double voxel_size);
+#endif /* HAVE_OPENVDB_BOT_EXTERIOR */
 
 /*
  * Push probe starts outside the entry point by a small tolerance multiple.
@@ -283,7 +293,7 @@ ged_bot_exterior(struct ged *gedp, int argc, const char *argv[])
     struct rt_bot_internal *bot;
     size_t fcount = 0;
     size_t vcount = 0;
-    static const char *usage = "old_bot new_bot";
+    static const char *usage = "[-f] old_bot new_bot";
 
     GED_CHECK_DATABASE_OPEN(gedp, BRLCAD_ERROR);
     GED_CHECK_READ_ONLY(gedp, BRLCAD_ERROR);
@@ -298,16 +308,27 @@ ged_bot_exterior(struct ged *gedp, int argc, const char *argv[])
 	return GED_HELP;
     }
 
-    if (argc != 3) {
+    /* Parse optional --flood-fill / -f flag. */
+    int flood_fill = 0;
+    int argstart = 1;
+    if (argc > 1 && (BU_STR_EQUAL(argv[1], "-f") || BU_STR_EQUAL(argv[1], "--flood-fill"))) {
+	flood_fill = 1;
+	argstart = 2;
+    }
+
+    if (argc - argstart != 2) {
 	bu_vls_printf(gedp->ged_result_str, "Usage: %s %s", argv[0], usage);
 	return BRLCAD_ERROR;
     }
 
-    GED_DB_LOOKUP(gedp, old_dp, argv[1], LOOKUP_NOISY, BRLCAD_ERROR & GED_QUIET);
+    const char *old_name = argv[argstart];
+    const char *new_name = argv[argstart + 1];
+
+    GED_DB_LOOKUP(gedp, old_dp, old_name, LOOKUP_NOISY, BRLCAD_ERROR & GED_QUIET);
     GED_DB_GET_INTERNAL(gedp, &intern,  old_dp, bn_mat_identity, &rt_uniresource, BRLCAD_ERROR);
 
     if (intern.idb_major_type != DB5_MAJORTYPE_BRLCAD || intern.idb_minor_type != DB5_MINORTYPE_BRLCAD_BOT) {
-	bu_vls_printf(gedp->ged_result_str, "%s: %s is not a BOT solid!\n", argv[0], argv[1]);
+	bu_vls_printf(gedp->ged_result_str, "%s: %s is not a BOT solid!\n", argv[0], old_name);
 	return BRLCAD_ERROR;
     }
 
@@ -316,11 +337,11 @@ ged_bot_exterior(struct ged *gedp, int argc, const char *argv[])
 
     if (bot->mode == RT_BOT_PLATE || bot->mode == RT_BOT_PLATE_NOCOS) {
 	bu_log("%s: %s is a PLATE MODE BoT\n"
-	       "Calculating exterior faces currently unsupported for PLATE MODE\n", argv[0], argv[1]);
+	       "Calculating exterior faces currently unsupported for PLATE MODE\n", argv[0], old_name);
 	return BRLCAD_ERROR;
     }
 
-    /* prep geometry */
+    /* prep geometry (used by both tier-1 and tier-2) */
     struct application ap;
     struct exterior_ctx ectx = {0};
     RT_APPLICATION_INIT(&ap);
@@ -330,15 +351,58 @@ ged_bot_exterior(struct ged *gedp, int argc, const char *argv[])
     ectx.bot = bot;
     ap.a_uptr = (void *)&ectx;
     bu_log("Initializing object context\n");
-    if (rt_gettree(ap.a_rt_i, argv[1])) {
-	bu_log("%s: unable to load %s\n", argv[0], argv[1]);
+    if (rt_gettree(ap.a_rt_i, old_name)) {
+	bu_log("%s: unable to load %s\n", argv[0], old_name);
 	return BRLCAD_ERROR;
     }
     rt_prep(ap.a_rt_i);
 
-    /* figure out exteriors via ray tracing */
-    bu_log("Calculating exterior faces\n");
-    fcount = bot_exterior(&ap, bot);
+    if (flood_fill) {
+#ifdef HAVE_OPENVDB_BOT_EXTERIOR
+	/* Tier-2: voxel flood-fill "would-get-wet" exterior classification. */
+	bu_log("Calculating exterior faces (flood-fill / tier-2)\n");
+	int *face_exterior = (int *)bu_calloc(bot->num_faces, sizeof(int), "face_exterior");
+	int n_ext = bot_flood_exterior_classify(ap.a_rt_i, bot, face_exterior, 0.0);
+	if (n_ext < 0) {
+	    bu_free((char *)face_exterior, "face_exterior");
+	    bu_log("%s: flood-fill exterior classification failed\n", argv[0]);
+	    rt_free_rti(ap.a_rt_i);
+	    return BRLCAD_ERROR;
+	}
+
+	size_t num_exterior = (size_t)n_ext;
+
+	if (num_exterior == 0 || num_exterior == bot->num_faces) {
+	    bu_free((char *)face_exterior, "face_exterior");
+	    fcount = 0;
+	} else {
+	    /* Rebuild face list keeping only exterior faces. */
+	    int j = 0;
+	    int *newfaces = (int *)bu_calloc(num_exterior, 3*sizeof(int), "new bot faces");
+	    for (size_t fi = 0; fi < bot->num_faces; fi++) {
+		if (face_exterior[fi]) {
+		    VMOVE(&newfaces[j*3], &bot->faces[fi*3]);
+		    j++;
+		}
+	    }
+	    bu_free((char *)face_exterior, "face_exterior");
+	    fcount = bot->num_faces - num_exterior;
+	    bot->num_faces = num_exterior;
+	    bu_free(bot->faces, "release bot faces");
+	    bot->faces = newfaces;
+	}
+#else
+	bu_log("%s: --flood-fill requires OpenVDB (not compiled in), "
+	       "falling back to tier-1 ray sampling\n", argv[0]);
+	bu_log("Calculating exterior faces\n");
+	fcount = bot_exterior(&ap, bot);
+#endif
+    } else {
+	/* Tier-1: multi-direction ray sampling (default). */
+	bu_log("Calculating exterior faces\n");
+	fcount = bot_exterior(&ap, bot);
+    }
+
     vcount = rt_bot_condense(bot);
 
     /* release our raytrace context */
@@ -349,7 +413,7 @@ ged_bot_exterior(struct ged *gedp, int argc, const char *argv[])
 
     /* FIXME: if the BoT is not SOLID, create as PLATE instead */
 
-    GED_DB_DIRADD(gedp, new_dp, argv[2], RT_DIR_PHONY_ADDR, 0, RT_DIR_SOLID, (void *)&intern.idb_type, BRLCAD_ERROR);
+    GED_DB_DIRADD(gedp, new_dp, new_name, RT_DIR_PHONY_ADDR, 0, RT_DIR_SOLID, (void *)&intern.idb_type, BRLCAD_ERROR);
     GED_DB_PUT_INTERNAL(gedp, new_dp, &intern, &rt_uniresource, BRLCAD_ERROR);
 
     return BRLCAD_OK;
