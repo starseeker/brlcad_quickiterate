@@ -3226,23 +3226,24 @@ test_ars(void)
 	bu_free(curves, "ars curves");
     }
 
-    /* ---- ARS cone: 3-curve (bottom ring, top cap degenerate) ----------- */
+    /* ---- ARS frustum (truncated cone): 4-curve, closed solid ----------- */
     {
-	const size_t ncurves = 3;
+	const size_t ncurves = 4;
 	const size_t n_sides = 12;
 	const size_t ppc = n_sides + 1;
 	fastf_t **curves = (fastf_t **)bu_calloc(ncurves, sizeof(fastf_t *), "ars curves");
 
-	curves[0] = ars_make_ring(n_sides, 8.0, 0.0, 0.0, 0.0); /* bottom ring */
-	curves[1] = ars_make_ring(n_sides, 2.0, 0.0, 0.0, 15.0);/* top ring */
-	curves[2] = ars_make_cap(n_sides, 0.0, 0.0, 15.0);      /* top cap */
+	curves[0] = ars_make_cap(n_sides, 0.0, 0.0, 0.0);       /* bottom cap */
+	curves[1] = ars_make_ring(n_sides, 8.0, 0.0, 0.0, 0.0); /* bottom ring */
+	curves[2] = ars_make_ring(n_sides, 2.0, 0.0, 0.0, 15.0);/* top ring */
+	curves[3] = ars_make_cap(n_sides, 0.0, 0.0, 15.0);      /* top cap */
 
 	aip.ncurves = ncurves;
 	aip.pts_per_curve = ppc;
 	aip.curves = curves;
 
 	init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
-	if (!run_tess("ars cone (r_bot=8 r_top=2 h=15)", &ip, &ttol, &tol, 0)) failures++;
+	if (!run_tess("ars frustum (r_bot=8 r_top=2 h=15)", &ip, &ttol, &tol, 0)) failures++;
 
 	for (size_t i = 0; i < ncurves; i++)
 	    bu_free(curves[i], "ars ring");
