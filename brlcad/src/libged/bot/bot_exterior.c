@@ -101,9 +101,9 @@ static int
 exterior_face_probe(struct application *app, int face, point_t fc, const fastf_t *dir)
 {
     vect_t inv_dir;
-    struct exterior_ctx *ectx = (struct exterior_ctx *)app->a_uptr;
+    struct exterior_ctx *ectx = NULL;
 
-    if (!app || !ectx)
+    if (!app || !(ectx = (struct exterior_ctx *)app->a_uptr))
 	return 0;
 
     VMOVE(app->a_ray.r_pt, fc);
@@ -114,7 +114,9 @@ exterior_face_probe(struct application *app, int face, point_t fc, const fastf_t
     if (!rt_in_rpp(&app->a_ray, inv_dir, app->a_rt_i->mdl_min, app->a_rt_i->mdl_max))
 	return 0;
 
-    VJOIN1(app->a_ray.r_pt, app->a_ray.r_pt, app->a_ray.r_min - (EXTERIOR_RAY_OFFSET_FACTOR * BN_TOL_DIST), app->a_ray.r_dir);
+    /* start slightly before the entry distance so the probe originates outside */
+    fastf_t offset_dist = app->a_ray.r_min - (EXTERIOR_RAY_OFFSET_FACTOR * BN_TOL_DIST);
+    VJOIN1(app->a_ray.r_pt, app->a_ray.r_pt, offset_dist, app->a_ray.r_dir);
 
     ectx->probe.face = face;
     ectx->probe.first_surf = -1;
@@ -188,7 +190,7 @@ exterior_face(struct application *app, struct rt_bot_internal *bot, int face) {
 	    exterior_votes++;
     }
 
-    if (exterior_votes == 0 || interior_votes > 0) {
+    if (exterior_votes == 0 || interior_votes >= exterior_votes) {
 	for (kidx = 0; kidx < sizeof(extra_dirs)/sizeof(extra_dirs[0]); kidx++) {
 	    int r = exterior_face_probe(app, face, fc, extra_dirs[kidx]);
 	    if (r < 0)
