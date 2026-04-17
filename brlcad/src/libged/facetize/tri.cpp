@@ -147,7 +147,7 @@ static int bot_flipped(mat_t *m)
 
 // Customized version of rt_booltree_leaf_tess for Manifold processing
 static union tree *
-_booltree_leaf_tess(struct db_tree_state *tsp, const struct db_full_path *pathp, struct rt_db_internal *ip, void *UNUSED(data))
+_booltree_leaf_tess(struct db_tree_state *tsp, const struct db_full_path *pathp, struct rt_db_internal *ip, void *data)
 {
     int ts_status = 0;
     union tree *curtree;
@@ -202,8 +202,44 @@ _booltree_leaf_tess(struct db_tree_state *tsp, const struct db_full_path *pathp,
     // to the values in ts_mat, the BoT ends up inside-out when read in.
     int flip = bot_flipped(&tsp->ts_mat);
 
+    // Phase C: variant BoT override.
+    // If a perturbed variant was pre-tessellated for this leaf instance, use
+    // it instead of the original BoT to avoid coplanar face issues.
+    struct rt_db_internal var_intern;
+    RT_DB_INTERNAL_INIT(&var_intern);
+    bool var_loaded = false;
+    struct rt_db_internal *effective_ip = ip;
+    struct _ged_facetize_state *s = (struct _ged_facetize_state *)data;
+    if (s && s->variant_plan) {
+	FacetizeVariantPlan *vplan = (FacetizeVariantPlan *)s->variant_plan;
+	char *path_str = db_path_to_string(pathp);
+	/* Reconstruct the same role-keyed key used in plan.cpp Phase C:
+	 * TS_SOFAR_MINUS is set when the leaf is on the subtractive side of
+	 * any boolean node encountered above it in the current walk. */
+	bool is_sub_ctx = (tsp->ts_sofar & TS_SOFAR_MINUS) != 0;
+	std::string role_key = std::string(path_str) +
+	    (is_sub_ctx ? "#sub" : "#base");
+	bu_free(path_str, "path_str");
+	auto it = vplan->inst_to_variant.find(role_key);
+	if (it != vplan->inst_to_variant.end()) {
+	    struct directory *vdp =
+		db_lookup(tsp->ts_dbip, it->second.c_str(), LOOKUP_QUIET);
+	    if (vdp && vdp->d_minor_type == ID_BOT) {
+		if (rt_db_get_internal(&var_intern, vdp, tsp->ts_dbip,
+				       NULL, tsp->ts_resp) >= 0) {
+		    effective_ip = &var_intern;
+		    var_loaded = true;
+		}
+	    }
+	    /* If variant lookup failed (no BoT yet), fall through to original */
+	}
+    }
+
     void *odata = NULL;
-    ts_status = bot_to_manifold(&odata, tsp, ip, flip);
+    ts_status = bot_to_manifold(&odata, tsp, effective_ip, flip);
+
+    if (var_loaded)
+	rt_db_free_internal(&var_intern);
     if (ts_status < 0) {
 	// If we failed, return TREE_NULL
 	return TREE_NULL;
@@ -579,6 +615,80 @@ tess_run(struct _ged_facetize_state *s, const char **tess_cmd, int tess_cmd_cnt,
     }
 
     return (w_rc ? BRLCAD_ERROR : BRLCAD_OK);
+}
+
+/*
+ * Tessellate variant primitives that were created by _ged_facetize_build_variant_plan().
+ * Processes all names in a single NMG batch call.  Tessellation failures are
+ * logged but do not abort: the booleval will silently fall back to the original
+ * (non-variant) mesh for any variant whose BoT is not available.
+ */
+#define CMD_LEN_MAX 8000
+
+int
+_ged_facetize_tessellate_variant_names(struct _ged_facetize_state *s,
+				       FacetizeVariantPlan *plan)
+{
+    if (!s || !plan || plan->variant_names.empty())
+	return BRLCAD_OK;
+
+    char tess_exec[MAXPATHLEN];
+    bu_dir(tess_exec, MAXPATHLEN, BU_DIR_BIN, "ged_exec", BU_DIR_EXT, NULL);
+
+    /* Build the fixed part of the tessellation command */
+    const char *tess_cmd_fixed[16];
+    int tess_cmd_fixed_cnt = 0;
+    tess_cmd_fixed[tess_cmd_fixed_cnt++] = tess_exec;
+    tess_cmd_fixed[tess_cmd_fixed_cnt++] = bu_vls_cstr(s->wfile);
+    tess_cmd_fixed[tess_cmd_fixed_cnt++] = "facetize_process";
+    tess_cmd_fixed[tess_cmd_fixed_cnt++] = "-O"; /* overwrite existing names */
+
+    /* Append tolerance flags that were set by the parent call */
+    double abs_tol = s->tol ? s->tol->abs : 0.0;
+    double rel_tol = s->tol ? s->tol->rel : 0.0;
+    double norm_tol = s->tol ? s->tol->norm : 0.0;
+    char atol_str[64], rtol_str[64], ntol_str[64];
+    if (!NEAR_ZERO(abs_tol, SMALL_FASTF)) {
+	bu_snprintf(atol_str, sizeof(atol_str), "%g", abs_tol);
+	tess_cmd_fixed[tess_cmd_fixed_cnt++] = "-a";
+	tess_cmd_fixed[tess_cmd_fixed_cnt++] = atol_str;
+    }
+    if (!NEAR_ZERO(rel_tol, SMALL_FASTF)) {
+	bu_snprintf(rtol_str, sizeof(rtol_str), "%g", rel_tol);
+	tess_cmd_fixed[tess_cmd_fixed_cnt++] = "-r";
+	tess_cmd_fixed[tess_cmd_fixed_cnt++] = rtol_str;
+    }
+    if (!NEAR_ZERO(norm_tol, SMALL_FASTF)) {
+	bu_snprintf(ntol_str, sizeof(ntol_str), "%g", norm_tol);
+	tess_cmd_fixed[tess_cmd_fixed_cnt++] = "-n";
+	tess_cmd_fixed[tess_cmd_fixed_cnt++] = ntol_str;
+    }
+
+    /* Tessellate in batches to avoid hitting argument-length limits */
+    const size_t BATCH = 200;
+    const size_t nvars = plan->variant_names.size();
+    size_t n_ok = 0, n_fail = 0;
+    for (size_t base = 0; base < nvars; base += BATCH) {
+	size_t end = std::min(base + BATCH, nvars);
+	std::vector<const char *> cmd;
+	for (int i = 0; i < tess_cmd_fixed_cnt; i++)
+	    cmd.push_back(tess_cmd_fixed[i]);
+	for (size_t i = base; i < end; i++)
+	    cmd.push_back(plan->variant_names[i].c_str());
+	int tret = tess_run(s, cmd.data(), (int)cmd.size(),
+			    s->max_time, (int)(end - base));
+	if (tret == BRLCAD_OK) {
+	    n_ok += end - base;
+	} else {
+	    n_fail += end - base;
+	    plan->n_variant_tess_failures += (int)(end - base);
+	}
+    }
+
+    if (s->verbosity > 0)
+	bu_log("FACETIZE: variant tessellation: %zu ok, %zu failed\n",
+	       n_ok, n_fail);
+    return (n_fail == 0) ? BRLCAD_OK : BRLCAD_ERROR;
 }
 
 int
