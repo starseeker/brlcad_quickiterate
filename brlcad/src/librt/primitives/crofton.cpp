@@ -65,6 +65,7 @@
 #include "bu/log.h"
 #include "bu/malloc.h"
 #include "bu/parallel.h"
+#include "bu/time.h"
 #include "raytrace.h"
 #include "rt/geom.h"
 
@@ -75,9 +76,16 @@
 
 /** Minimum rays per iteration when used as a generic functab fallback.
  *  Kept small so the fallback is fast for interactive use; callers
- *  that need higher accuracy should call rt_crofton_shoot() directly
- *  with a larger min_samples and/or a tighter threshold.             */
+ *  that need higher accuracy should call rt_crofton_sample() with
+ *  appropriate params.                                                */
 #define RT_CROFTON_DEFAULT_SAMPLES   2000u
+
+/** Rays per iteration for the implicit-primitive functab wrappers
+ *  (ARS, EBM, METABALL, EXTRUDE, REVOLVE, HRT).  These primitives
+ *  do not implement their own analytic SA/volume formulas so they
+ *  rely entirely on Crofton; 50 000 rays are still very fast for a
+ *  single primitive and keep typical error well under 2 %.          */
+#define RT_CROFTON_IMPLICIT_SAMPLES  50000u
 
 /** Convergence threshold (%) for the functab fallback.               */
 #define RT_CROFTON_DEFAULT_THRESHOLD 1.0
@@ -287,7 +295,7 @@ do_one_iteration(struct application *ap_template,
 
 /**
  * Run the Cauchy-Crofton sampling estimator on an already-prepared
- * raytrace instance @p rtip.
+ * raytrace instance @p rtip, using the stopping criteria in @p params.
  *
  * The caller is responsible for creating, preparing (rt_prep_parallel),
  * and freeing (rt_free_rti) @p rtip.  This function does NOT call
@@ -295,36 +303,82 @@ do_one_iteration(struct application *ap_template,
  *
  * @param rtip         Prepared raytrace instance (rt_prep_parallel must
  *                     have been called before this function).
- * @param min_samples  Minimum rays per iteration (< 1 defaults to 1000).
- * @param threshold_pct Convergence threshold as a percentage.  Pass 0
- *                     for a single-iteration run (no convergence loop).
+ * @param params       Stopping criteria (see struct rt_crofton_params).
+ *                     NULL or all-zero → 2 000-ray default behaviour.
  * @param out_surf_area Receives the estimated surface area (mm^2).
  * @param out_volume    Receives the estimated volume (mm^3).
  * @return  0 on success, -1 on bad arguments.
  */
 int
-rt_crofton_shoot(struct rt_i *rtip,
-		 size_t       min_samples,
-		 double       threshold_pct,
-		 double      *out_surf_area,
-		 double      *out_volume)
+rt_crofton_shoot(struct rt_i                      *rtip,
+		 const struct rt_crofton_params   *params,
+		 double                           *out_surf_area,
+		 double                           *out_volume)
 {
-    if (!rtip || !out_surf_area || !out_volume)
+    if (!rtip || (!out_surf_area && !out_volume))
 	return -1;
 
-    if (min_samples < 1)
-	min_samples = 1000;
+    /* ---- Compute a tight bounding sphere from actual soltab extents ----
+     *
+     * rt_prep_parallel inflates mdl_min/mdl_max to integer-mm boundaries
+     * (floor/ceil in prep.cpp) to prevent edge-grazing artefacts in the ray
+     * scheduler.  This is harmless for scene-sized geometry, but for sub-mm
+     * primitives (e.g. xyzringtrc.s, diameter ~0.06 mm) the inflation can
+     * expand the Crofton bounding sphere by a factor of 10-15×, reducing the
+     * fraction of rays that actually pierce the object from ~20 % to ~0.1 %.
+     * At 50 000 rays that leaves only ~90 expected crossings, giving ~10 %
+     * statistical noise rather than the expected ~1 %.
+     *
+     * Fix: walk the soltab list (which stores the pre-inflation st_min/st_max)
+     * and use their union RPP to build the Crofton sphere.  For large geometry
+     * that already spans integer-mm boundaries the result is identical to the
+     * old rti_radius / mdl_min / mdl_max path.                              */
+    point_t tight_min, tight_max;
+    VSETALL(tight_min,  MAX_FASTF);
+    VSETALL(tight_max, -MAX_FASTF);
+    {
+	struct soltab *stp;
+	RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
+	    VMIN(tight_min, stp->st_min);
+	    VMAX(tight_max, stp->st_max);
+	} RT_VISIT_ALL_SOLTABS_END;
+    }
 
-    double R = rtip->rti_radius;
+    double R;
+    point_t center;
+    if (tight_min[X] < MAX_FASTF) {
+	/* Tight path: use actual object extents */
+	VADD2SCALE(center, tight_max, tight_min, 0.5);
+	vect_t tight_diag;
+	VSUB2(tight_diag, tight_max, tight_min);
+	R = 0.5 * MAGNITUDE(tight_diag);
+	/* Sanity: fall back if something degenerate slipped through */
+	if (R <= 0.0)
+	    R = rtip->rti_radius;
+    } else {
+	/* No soltabs (unusual): fall back to the inflated rti values */
+	R = rtip->rti_radius;
+	VADD2SCALE(center, rtip->mdl_max, rtip->mdl_min, 0.5);
+    }
+
     if (R <= 0.0) {
-	/* Degenerate / zero-size object */
-	*out_surf_area = 0.0;
-	*out_volume    = 0.0;
+	if (out_surf_area) *out_surf_area = 0.0;
+	if (out_volume)    *out_volume    = 0.0;
 	return 0;
     }
 
-    point_t center;
-    VADD2SCALE(center, rtip->mdl_max, rtip->mdl_min, 0.5);
+    /* ---- Resolve stopping criteria from params ---- */
+    size_t max_rays     = params ? params->n_rays       : 0;
+    double stability_mm = params ? params->stability_mm : 0.0;
+    double time_ms      = params ? params->time_ms      : 0.0;
+    int    use_default  = (!max_rays && stability_mm <= 0.0 && time_ms <= 0.0);
+
+    /* Batch size for each iteration.
+     * Default: 2 000 (same as before, growth factor applied each round).
+     * Explicit n_rays with no other criteria: fire them in one shot.   */
+    size_t batch = RT_CROFTON_DEFAULT_SAMPLES;
+    if (!use_default && max_rays > 0 && stability_mm <= 0.0 && time_ms <= 0.0)
+	batch = max_rays;   /* single-iteration mode */
 
     /* ---- Initialize per-CPU resources ---- */
     struct resource *resources = (struct resource *)bu_calloc(
@@ -335,85 +389,133 @@ rt_crofton_shoot(struct rt_i *rtip,
     /* ---- Set up application template ---- */
     struct application ap;
     RT_APPLICATION_INIT(&ap);
-    ap.a_rt_i        = rtip;
-    ap.a_hit         = crofton_hit;
-    ap.a_miss        = crofton_miss;
-    ap.a_overlap     = NULL;
+    ap.a_rt_i         = rtip;
+    ap.a_hit          = crofton_hit;
+    ap.a_miss         = crofton_miss;
+    ap.a_overlap      = NULL;
     ap.a_multioverlap = NULL;
-    ap.a_logoverlap  = rt_silent_logoverlap;
-    ap.a_resource    = resources;
-    ap.a_onehit      = 0;    /* collect all partitions */
+    ap.a_logoverlap   = rt_silent_logoverlap;
+    ap.a_resource     = resources;
+    ap.a_onehit       = 0;
 
     /* ---- Shared accumulator ---- */
     struct crofton_shared shared;
     memset(&shared, 0, sizeof(shared));
     shared.sem_stats = bu_semaphore_register("CROFTON_STATS");
 
-    /* ---- Iterative convergence loop ---- */
-    double prev2_est_sa = -2.0, prev1_est_sa = -1.0, curr_est_sa = 0.0;
-    double prev2_est_v  = -2.0, prev1_est_v  = -1.0, curr_est_v  = 0.0;
-    size_t iteration = 0;
-    size_t curr_rays = min_samples;
+    const double FOUR_PI    = 4.0 * M_PI;
+    const double PI         = M_PI;
+    const double INV_4PI    = 1.0 / FOUR_PI;
+    const double INV_4PI3   = 3.0 / FOUR_PI;   /* for V → equivalent r */
 
-    const double FOUR_PI = 4.0 * M_PI;
-    const double PI      = M_PI;
+    double curr_est_sa = 0.0, curr_est_v = 0.0;
 
-    do {
-	if (threshold_pct > 0.0 && iteration > 0) {
-	    /* Grow sample count each iteration to avoid aliasing patterns */
-	    double factor = pow(1.5, (double)iteration);
-	    curr_rays = (size_t)(min_samples * factor);
-	    if (curr_rays < min_samples)
-		curr_rays = min_samples;
-	}
+    if (use_default) {
+	/* ---- Legacy default: 2 000-ray convergence loop ---- */
+	double prev2_est_sa = -2.0, prev1_est_sa = -1.0;
+	double prev2_est_v  = -2.0, prev1_est_v  = -1.0;
+	size_t iteration = 0;
+	size_t curr_rays = batch;
 
-	do_one_iteration(&ap, resources, curr_rays, R, center, &shared);
-	iteration++;
-
-	if (shared.total_rays == 0)
-	    break;
-
-	/* Cauchy-Crofton surface area:
-	 *   SA = 4*pi*R^2 * N_crossings / (2 * N_rays)
-	 */
-	curr_est_sa = FOUR_PI * R * R
-	    * (double)shared.total_crossings
-	    / (2.0 * (double)shared.total_rays);
-
-	/* Volume via kinematic measure:
-	 *   V = pi * R^2 * total_chord / N_rays
-	 */
-	curr_est_v = PI * R * R * shared.total_chord / (double)shared.total_rays;
-
-	/* Check convergence after at least 3 iterations */
-	if (threshold_pct > 0.0 && iteration >= 3) {
-	    double pct_sa_cur  = 0.0, pct_sa_prev = 0.0;
-	    double pct_v_cur   = 0.0, pct_v_prev  = 0.0;
-
-	    if (prev1_est_sa > 0.0)
-		pct_sa_cur  = fabs(curr_est_sa  - prev1_est_sa)  / prev1_est_sa * 100.0;
-	    if (prev2_est_sa > 0.0)
-		pct_sa_prev = fabs(prev1_est_sa - prev2_est_sa) / prev2_est_sa * 100.0;
-	    if (prev1_est_v > 0.0)
-		pct_v_cur   = fabs(curr_est_v   - prev1_est_v)   / prev1_est_v  * 100.0;
-	    if (prev2_est_v > 0.0)
-		pct_v_prev  = fabs(prev1_est_v  - prev2_est_v)  / prev2_est_v  * 100.0;
-
-	    if (pct_sa_cur  <= threshold_pct && pct_sa_prev  <= threshold_pct &&
-		pct_v_cur   <= threshold_pct && pct_v_prev   <= threshold_pct) {
-		break;
+	do {
+	    if (iteration > 0) {
+		double factor = pow(1.5, (double)iteration);
+		curr_rays = (size_t)(batch * factor);
+		if (curr_rays < batch)
+		    curr_rays = batch;
 	    }
+
+	    do_one_iteration(&ap, resources, curr_rays, R, center, &shared);
+	    iteration++;
+
+	    if (shared.total_rays == 0) break;
+
+	    curr_est_sa = FOUR_PI * R * R
+		* (double)shared.total_crossings
+		/ (2.0 * (double)shared.total_rays);
+	    curr_est_v = PI * R * R
+		* shared.total_chord
+		/ (double)shared.total_rays;
+
+	    if (iteration >= 3) {
+		const double thr = RT_CROFTON_DEFAULT_THRESHOLD;
+		double d_sa_cur  = (prev1_est_sa > 0.0)
+		    ? fabs(curr_est_sa  - prev1_est_sa) / prev1_est_sa * 100.0 : 999.0;
+		double d_sa_prev = (prev2_est_sa > 0.0)
+		    ? fabs(prev1_est_sa - prev2_est_sa) / prev2_est_sa * 100.0 : 999.0;
+		double d_v_cur   = (prev1_est_v  > 0.0)
+		    ? fabs(curr_est_v   - prev1_est_v)  / prev1_est_v  * 100.0 : 999.0;
+		double d_v_prev  = (prev2_est_v  > 0.0)
+		    ? fabs(prev1_est_v  - prev2_est_v)  / prev2_est_v  * 100.0 : 999.0;
+
+		if (d_sa_cur <= thr && d_sa_prev <= thr &&
+		    d_v_cur  <= thr && d_v_prev  <= thr)
+		    break;
+	    }
+
+	    prev2_est_sa = prev1_est_sa;  prev1_est_sa = curr_est_sa;
+	    prev2_est_v  = prev1_est_v;   prev1_est_v  = curr_est_v;
+
+	} while (1);
+
+    } else {
+	/* ---- Parametric loop: n_rays / stability_mm / time_ms ---- */
+	double prev_r_sa = -1.0, prev_r_v = -1.0;
+	size_t total_fired = 0;
+	int64_t t0 = (time_ms > 0.0) ? bu_gettime() : 0;
+
+	for (;;) {
+	    /* Time-budget check before firing */
+	    if (time_ms > 0.0 && total_fired > 0 &&
+		(bu_gettime() - t0) / 1000.0 >= time_ms)
+		break;
+
+	    /* Rays-budget: clamp batch to remaining if n_rays is set */
+	    size_t fire = batch;
+	    if (max_rays > 0) {
+		size_t remaining = (total_fired < max_rays)
+		    ? (max_rays - total_fired) : 0;
+		if (remaining == 0) break;
+		if (fire > remaining) fire = remaining;
+	    }
+
+	    do_one_iteration(&ap, resources, fire, R, center, &shared);
+	    total_fired += fire;
+
+	    if (shared.total_rays == 0) break;
+
+	    curr_est_sa = FOUR_PI * R * R
+		* (double)shared.total_crossings
+		/ (2.0 * (double)shared.total_rays);
+	    curr_est_v = PI * R * R
+		* shared.total_chord
+		/ (double)shared.total_rays;
+
+	    /* Stability check */
+	    if (stability_mm > 0.0) {
+		double r_sa = (curr_est_sa > 0.0) ? sqrt(curr_est_sa * INV_4PI)  : 0.0;
+		double r_v  = (curr_est_v  > 0.0) ? cbrt(curr_est_v  * INV_4PI3) : 0.0;
+
+		if (prev_r_sa >= 0.0) {
+		    int sa_ok = (!out_surf_area) ||
+			fabs(r_sa - prev_r_sa) < stability_mm;
+		    int v_ok  = (!out_volume) ||
+			fabs(r_v  - prev_r_v)  < stability_mm;
+		    if (sa_ok && v_ok) break;
+		}
+		prev_r_sa = r_sa;
+		prev_r_v  = r_v;
+	    }
+
+	    /* Time-budget check after firing */
+	    if (time_ms > 0.0 &&
+		(bu_gettime() - t0) / 1000.0 >= time_ms)
+		break;
 	}
+    }
 
-	prev2_est_sa = prev1_est_sa;
-	prev1_est_sa = curr_est_sa;
-	prev2_est_v  = prev1_est_v;
-	prev1_est_v  = curr_est_v;
-
-    } while (threshold_pct > 0.0);
-
-    *out_surf_area = curr_est_sa;
-    *out_volume    = curr_est_v;
+    if (out_surf_area) *out_surf_area = curr_est_sa;
+    if (out_volume)    *out_volume    = curr_est_v;
 
     /* Clean each resource and NULL out its slot in rtip->rti_resources.
      * This is necessary because crofton_from_ip calls rt_free_rti(rtip)
@@ -428,7 +530,6 @@ rt_crofton_shoot(struct rt_i *rtip,
     for (int i = 0; i < MAX_PSW; i++) {
 	if (resources[i].re_magic == RESOURCE_MAGIC) {
 	    rt_clean_resource_basic(rtip, &resources[i]);
-	    /* Unregister so rt_free_rti does not re-visit this slot */
 	    BU_PTBL_SET(&rtip->rti_resources, i, NULL);
 	}
     }
@@ -444,15 +545,16 @@ rt_crofton_shoot(struct rt_i *rtip,
 
 /**
  * Create a temporary in-memory database containing only the primitive
- * described by @p ip, run the Crofton estimator with default parameters,
+ * described by @p ip, run the Crofton estimator with the given @p params,
  * and return the results.
  *
- * The caller's @p ip is NOT consumed or freed.  We serialize it to a
- * bu_external and write that to the in-memory db, which avoids calling
- * any ifree on the caller's data.
+ * The caller's @p ip is NOT consumed or freed.
  */
 static int
-crofton_from_ip(const struct rt_db_internal *ip, double *out_sa, double *out_vol)
+crofton_from_ip_n(const struct rt_db_internal    *ip,
+		  double                         *out_sa,
+		  double                         *out_vol,
+		  const struct rt_crofton_params *params)
 {
     if (!ip || (!out_sa && !out_vol))
 	return -1;
@@ -572,10 +674,7 @@ crofton_from_ip(const struct rt_db_internal *ip, double *out_sa, double *out_vol
     /* ---- Run Crofton estimator ---- */
     double sa  = 0.0;
     double vol = 0.0;
-    (void)rt_crofton_shoot(rtip,
-			   RT_CROFTON_DEFAULT_SAMPLES,
-			   RT_CROFTON_DEFAULT_THRESHOLD,
-			   &sa, &vol);
+    (void)rt_crofton_shoot(rtip, params, &sa, &vol);
 
     if (out_sa)  *out_sa  = sa;
     if (out_vol) *out_vol = vol;
@@ -591,49 +690,76 @@ crofton_from_ip(const struct rt_db_internal *ip, double *out_sa, double *out_vol
 
 
 /* ------------------------------------------------------------------ */
-/* Public API: functab-compatible fallbacks                            */
+/* Public API                                                           */
 /* ------------------------------------------------------------------ */
 
 /**
- * Generic surface-area fallback for the primitive functab.
- *
- * Used as ft_surf_area for primitives that do not implement an analytic
- * surface-area formula.  Invokes the Cauchy-Crofton ray-sampling
- * estimator on a temporary in-memory raytrace of the primitive.
+ * Cauchy-Crofton estimator with configurable stopping criteria.
+ * See struct rt_crofton_params in func.h for full documentation.
  */
 void
+rt_crofton_sample(fastf_t *area, fastf_t *vol,
+		  const struct rt_db_internal *ip,
+		  const struct rt_crofton_params *params)
+{
+    if ((!area && !vol) || !ip)
+	return;
+
+    double sa = 0.0, v = 0.0;
+    if (crofton_from_ip_n(ip, area ? &sa : NULL, vol ? &v : NULL, params) < 0) {
+	sa = 0.0;
+	v  = 0.0;
+    }
+
+    if (area) *area = (fastf_t)sa;
+    if (vol)  *vol  = (fastf_t)v;
+}
+
+
+/* ------------------------------------------------------------------ */
+/* Functab callbacks — internal to librt, not exported                 */
+/*                                                                      */
+/* ft_surf_area / ft_volume require a fixed two-argument signature, so  */
+/* each variant below is a minimal wrapper around rt_crofton_sample().  */
+/*                                                                      */
+/* Default (2 000 rays): BREP, DSP, BSPLINE, HF — where the raytrace   */
+/* can be expensive and interactive speed matters more than precision.  */
+/*                                                                      */
+/* Implicit (50 000 rays): ARS, EBM, METABALL, EXTRUDE, REVOLVE, HRT   */
+/* — simple implicit primitives where the extra rays are essentially    */
+/* free yet bring typical error well under 2 %.                        */
+/* ------------------------------------------------------------------ */
+
+static const struct rt_crofton_params s_default_params  = { 0u,                        0.0, 0.0 };
+static const struct rt_crofton_params s_implicit_params = { RT_CROFTON_IMPLICIT_SAMPLES, 0.0, 0.0 };
+
+extern "C" {
+
+RT_EXPORT void
 rt_crofton_surf_area(fastf_t *area, const struct rt_db_internal *ip)
 {
-    if (!area || !ip)
-	return;
-
-    double sa = 0.0;
-    if (crofton_from_ip(ip, &sa, NULL) < 0)
-	sa = 0.0;
-
-    *area = (fastf_t)sa;
+    rt_crofton_sample(area, NULL, ip, &s_default_params);
 }
 
-
-/**
- * Generic volume fallback for the primitive functab.
- *
- * Used as ft_volume for primitives that do not implement an analytic
- * volume formula.  Invokes the Cauchy-Crofton ray-sampling estimator
- * on a temporary in-memory raytrace of the primitive.
- */
-void
+RT_EXPORT void
 rt_crofton_volume(fastf_t *vol, const struct rt_db_internal *ip)
 {
-    if (!vol || !ip)
-	return;
-
-    double v = 0.0;
-    if (crofton_from_ip(ip, NULL, &v) < 0)
-	v = 0.0;
-
-    *vol = (fastf_t)v;
+    rt_crofton_sample(NULL, vol, ip, &s_default_params);
 }
+
+RT_EXPORT void
+rt_crofton_surf_area_implicit(fastf_t *area, const struct rt_db_internal *ip)
+{
+    rt_crofton_sample(area, NULL, ip, &s_implicit_params);
+}
+
+RT_EXPORT void
+rt_crofton_volume_implicit(fastf_t *vol, const struct rt_db_internal *ip)
+{
+    rt_crofton_sample(NULL, vol, ip, &s_implicit_params);
+}
+
+} /* extern "C" */
 
 
 /*

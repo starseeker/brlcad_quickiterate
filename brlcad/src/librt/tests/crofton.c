@@ -51,12 +51,13 @@ verify_crofton_estimates(void)
 
     printf("\n--- Crofton estimator verification ---\n");
 
+    struct rt_crofton_params cparams = {0, 0.0, 0.0};
+
 #define CROFTON_CHECK(label, ip_ptr, analytic_sa, analytic_vol) \
     do { \
 	struct rt_db_internal *_ip = (ip_ptr); \
 	fastf_t _csa = 0.0, _cvol = 0.0; \
-	rt_crofton_surf_area(&_csa, _ip); \
-	rt_crofton_volume(&_cvol, _ip); \
+	rt_crofton_sample(&_csa, &_cvol, _ip, &cparams); \
 	double _sa_err  = fabs(_csa  - (analytic_sa))  / ((analytic_sa)  > 0 ? (analytic_sa)  : 1.0) * 100.0; \
 	double _vol_err = fabs(_cvol - (analytic_vol)) / ((analytic_vol) > 0 ? (analytic_vol) : 1.0) * 100.0; \
 	const char *_sa_tag  = (_sa_err  <= tol_pct) ? "SA-OK"  : "SA-FAIL"; \
@@ -178,6 +179,46 @@ verify_crofton_estimates(void)
 	if (tgc_vol_err > 0.1) failures++;
     }
 
+    /* Sub-mm TRC: reproduces the xyzringtrc.s class of geometry that
+     * previously failed because rt_prep_parallel inflates mdl_min/mdl_max to
+     * integer-mm boundaries (floor/ceil), blowing up the Crofton bounding
+     * sphere and giving only ~90 expected crossings per 50 000 rays instead
+     * of ~20 000.  The fix in rt_crofton_shoot uses tight soltab bounding
+     * boxes instead of the inflated rti_radius.
+     *
+     * Geometry: right circular cone, base r=0.030 mm, apex r=0.0003 mm,
+     *           height h=0.052 mm (100:1 taper, centered around origin).
+     * Default cparams (zero n_rays → convergence-loop mode).              */
+    {
+	const double r1   = 0.030;    /* base radius   [mm] */
+	const double r2   = 0.0003;   /* apex radius   [mm] */
+	const double h    = 0.052;    /* height        [mm] */
+
+	struct rt_tgc_internal tgc;
+	memset(&tgc, 0, sizeof(tgc));
+	tgc.magic = RT_TGC_INTERNAL_MAGIC;
+	VSET(tgc.v, 0, 0, 0);
+	VSET(tgc.h, 0, 0, h);
+	VSET(tgc.a, r1, 0, 0);
+	VSET(tgc.b, 0, r1, 0);
+	VSET(tgc.c, r2, 0, 0);
+	VSET(tgc.d, 0, r2, 0);
+
+	struct rt_db_internal ip;
+	RT_DB_INTERNAL_INIT(&ip);
+	ip.idb_major_type = DB5_MAJORTYPE_BRLCAD;
+	ip.idb_minor_type = ID_TGC;
+	ip.idb_type       = ID_TGC;
+	ip.idb_ptr        = &tgc;
+	ip.idb_meth       = &OBJ[ID_TGC];
+
+	double analytic_sa = M_PI * ((r1 + r2) * sqrt((r1-r2)*(r1-r2) + h*h)
+				     + r1*r1 + r2*r2);
+	double analytic_vol = M_PI * h * (r1*r1 + r1*r2 + r2*r2) / 3.0;
+	CROFTON_CHECK("sub-mm TRC (r1=0.030,r2=0.0003,h=0.052)", &ip,
+		      analytic_sa, analytic_vol);
+    }
+
 #undef CROFTON_CHECK
 
     printf("  Crofton verification: %d failure(s)\n", failures);
@@ -250,8 +291,10 @@ run_convergence_case(struct db_i *dbip,
 	}
 	rt_prep_parallel(rtip, 1);
 
+	/* Use n_rays = min_samples; target_pct is informational only now */
+	struct rt_crofton_params p = { min_samples, 0.0, 0.0 };
 	int64_t t0 = bu_gettime();
-	cr = rt_crofton_shoot(rtip, min_samples, target_pct, &sa, &vol);
+	cr = rt_crofton_shoot(rtip, &p, &sa, &vol);
 	run_sec = (double)(bu_gettime() - t0) / 1000000.0;
 	rt_free_rti(rtip);
 

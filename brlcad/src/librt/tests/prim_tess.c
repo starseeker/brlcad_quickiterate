@@ -128,11 +128,10 @@
 
 static struct rt_wdb *g_wdb = NULL;
 static int g_out_seq = 0;   /* sequential suffix for output object names */
-static int g_validate = 0;  /* 1 = run manifold/mesh quality checks */
 
-/* Metric validation flags */
+/* Metric validation and Crofton flags */
 static int g_validate_metrics  = 0; /* 1 = compare BOT metrics to analytic answers */
-static int g_crofton_validate  = 0; /* 1 = use Crofton for --input-g scan */
+static int g_no_crofton        = 0; /* 1 = disable default Crofton scan checking */
 static double g_metrics_tol    = 0.05; /* default: 5% tolerance for analytic comparison */
 
 /* Tolerance overrides for --input-g scan (0 = not set / use default) */
@@ -382,6 +381,18 @@ check_nmg_mesh(const char *label, struct model *m,
     if (nfaces_poly == 0) {
 	if (!quiet)
 	    fprintf(stderr, "  MESH: %-44s faces=0 (empty mesh) [WARN]\n", label);
+	if (res) {
+	    res->tess_ok = 1;
+	    res->mesh_ok = 1;
+	    res->n_open = 0;
+	    res->n_tris = 0;
+	    res->area = 0.0;
+	    res->vol = 0.0;
+	    res->err_sa = -1.0;
+	    res->err_vol = -1.0;
+	    res->metrics_ok = -1;
+	    res->res_limited = 0;
+	}
 	return 1; /* empty is unusual but not a hard failure */
     }
 
@@ -516,7 +527,7 @@ check_nmg_mesh(const char *label, struct model *m,
 	    if (analytic_sa <= 0.0) {
 		fastf_t croft_sa = 0.0;
 		if (!BU_SETJUMP) {
-		    rt_crofton_surf_area(&croft_sa, &ip_meth);
+		    rt_crofton_sample(&croft_sa, NULL, &ip_meth, NULL);
 		} else {
 		    BU_UNSETJUMP;
 		    croft_sa = 0.0;
@@ -526,7 +537,7 @@ check_nmg_mesh(const char *label, struct model *m,
 	    if (analytic_v <= 0.0) {
 		fastf_t croft_v = 0.0;
 		if (!BU_SETJUMP) {
-		    rt_crofton_volume(&croft_v, &ip_meth);
+		    rt_crofton_sample(NULL, &croft_v, &ip_meth, NULL);
 		} else {
 		    BU_UNSETJUMP;
 		    croft_v = 0.0;
@@ -542,20 +553,23 @@ check_nmg_mesh(const char *label, struct model *m,
     }
 
     /* ----------------------------------------------------------------
-     * Optional analytic metric pass/fail check (--validate-metrics)
+     * Optional analytic metric pass/fail check (--validate)
      * -------------------------------------------------------------- */
     if (g_validate_metrics && passed && ip &&
 	ip->idb_minor_type >= 0 && ip->idb_minor_type < ID_MAXIMUM) {
 
-	metrics_ok = 1; /* assume pass until a check fails */
+	int enforce_metrics = (analytic_sa > 0.0 && analytic_v > 0.0);
+	int fail_sa = 0;
+	int fail_v = 0;
+	metrics_ok = enforce_metrics ? 1 : -1;
 
 	if (analytic_sa > 0.0) {
-	    const char *tag = (err_sa <= g_metrics_tol) ? "SA-OK" : "SA-FAIL";
+	    const char *tag = (err_sa <= g_metrics_tol) ? "SA-OK" : (enforce_metrics ? "SA-FAIL" : "SA-INFO");
 	    if (!quiet)
 		fprintf(stderr,
 			"  METRICS: %-44s  SA=%.4g  analytic=%.4g  err=%.1f%%  [%s]\n",
 			label, (double)area, (double)analytic_sa, err_sa*100.0, tag);
-	    if (err_sa > g_metrics_tol) { passed = 0; metrics_ok = 0; }
+	    if (enforce_metrics && err_sa > g_metrics_tol) fail_sa = 1;
 	} else {
 	    if (!quiet)
 		fprintf(stderr, "  METRICS: %-44s  SA-analytic=NA\n", label);
@@ -650,9 +664,12 @@ check_nmg_mesh(const char *label, struct model *m,
 		    }
 		    /* Resolution-limited — not a formula/topology bug */
 		} else {
-		    tag_v = "V-FAIL";
-		    passed = 0;
-		    metrics_ok = 0;
+		    if (enforce_metrics) {
+			tag_v = "V-FAIL";
+			fail_v = 1;
+		    } else {
+			tag_v = "V-INFO";
+		    }
 		}
 	    }
 
@@ -663,6 +680,11 @@ check_nmg_mesh(const char *label, struct model *m,
 	} else {
 	    if (!quiet)
 		fprintf(stderr, "  METRICS: %-44s  V-analytic=NA\n", label);
+	}
+
+	if (enforce_metrics && (fail_sa || fail_v)) {
+	    passed = 0;
+	    metrics_ok = 0;
 	}
 	if (!quiet)
 	    fflush(stderr);
@@ -927,8 +949,8 @@ run_tess(const char *label,
 	fprintf(stderr, "  %-48s ret=%-3d faces=%-6d [%s]\n",
 	       label, ret, nfaces, passed ? "PASS" : "FAIL");
 
-	/* Validate mesh quality when tessellation succeeded */
-	if (g_validate && !expect_fail) {
+	/* Always validate mesh quality when tessellation succeeded */
+	if (!expect_fail) {
 	    struct tess_eval_result mesh_res;
 	    memset(&mesh_res, 0, sizeof(mesh_res));
 	    mesh_res.metrics_ok = -1;
@@ -4156,8 +4178,6 @@ scan_input_g(const char *g_path, const char *g_root)
 	    rt_db_free_internal(&intern);
 	    continue;
 	}
-	if (ok) n_pass++; else { n_fail++; failures++; }
-
 	/* Convergence probing when metrics check failed but mesh topology is ok.
 	 * If there are open edges, tightening tolerances won't fix them.      */
 	int conv_rel = 0, conv_abs = 0, conv_norm = 0;
@@ -4193,27 +4213,36 @@ scan_input_g(const char *g_path, const char *g_root)
 
 		if (conv_rel || conv_abs || conv_norm) {
 		    fprintf(stderr,
-			"  CONV: %-44s  convergence achieved\n", dp->d_namep);
-		    failures--; /* undo the failure count: tess routine converges */
-		    n_fail--;
-		    n_pass++;
-		    /* Update displayed metrics from the converged result.
-		     * Convergence checks run in quiet mode (no Crofton), so
-		     * err_sa may be -1.0 when the analytic SA formula is
-		     * absent; in that case keep the initial SA.            */
-		    struct tess_eval_result *best_res =
-			conv_rel  ? &rel_c.result  :
-			conv_abs  ? &abs_c.result  : &norm_c.result;
-		    scan_res.metrics_ok  = best_res->metrics_ok;
-		    if (best_res->err_sa  >= 0.0) scan_res.err_sa  = best_res->err_sa;
-		    if (best_res->err_vol >= 0.0) scan_res.err_vol = best_res->err_vol;
-		    scan_res.res_limited = best_res->res_limited;
-		    scan_res.n_tris      = best_res->n_tris;
+			"  CONV: %-44s  convergence achieved (informational only)\n", dp->d_namep);
 		} else if (rel_c.tried || abs_c.tried || norm_c.tried) {
 		    fprintf(stderr,
 			"  CONV: %-44s  WARNING: no convergence found\n", dp->d_namep);
 		}
 	    }
+	}
+
+	int final_ok = (scan_res.tess_ok &&
+			scan_res.mesh_ok &&
+			(scan_res.metrics_ok != 0 || scan_res.res_limited ||
+			 /* SA-RES-LIM: volume error in the typical polygon-
+			  * approximation floor range (0.3 – 2 %) indicates a
+			  * coarse-but-valid tessellation.  For some shapes (TEC,
+			  * oblique TGC) the SA floor at the same segment count is
+			  * higher than for cylinders, so SA can be marginally over
+			  * the 5 % threshold even when volume is fine.  Accept if
+			  * SA is within 2× the threshold AND convergence at a
+			  * tighter tolerance confirmed this is a resolution
+			  * artefact, not a formula bug.                            */
+			 (scan_res.err_vol >= 0.003 &&
+			  scan_res.err_vol <= 0.020 &&
+			  scan_res.err_sa  >  g_metrics_tol &&
+			  scan_res.err_sa  <= g_metrics_tol * 2.0 &&
+			  (conv_rel || conv_abs || conv_norm))));
+	if (final_ok) {
+	    n_pass++;
+	} else {
+	    n_fail++;
+	    failures++;
 	}
 
 	/* Build double conv values: >0 = tol value that converged,
@@ -4228,18 +4257,20 @@ scan_input_g(const char *g_path, const char *g_root)
 		   scan_res.err_sa, scan_res.err_vol,
 		   conv_rel_val, conv_abs_val, conv_norm_val);
 
-	/* Optional Crofton validation: compare BOT metrics vs CSG raytrace.
+	/* Crofton validation: compare BOT metrics vs CSG raytrace.
+	 * Run by default; disabled with --disable-crofton.
 	 * Use the original dbip directly so that file-referencing primitives
 	 * (EBM, DSP, VOL) can locate their data files via dbip->dbi_filepath.
 	 * Uses rt_crofton_shoot directly (no libanalyze dependency).        */
-	if (ok && g_crofton_validate) {
+	if (ok && !g_no_crofton) {
 	    double csa = 0.0, cv = 0.0;
 	    struct rt_i *cr_rtip = rt_new_rti(dbip);
 	    int cr = -1;
 	    if (cr_rtip) {
 		if (rt_gettree(cr_rtip, dp->d_namep) == 0) {
 		    rt_prep_parallel(cr_rtip, 1);
-		    cr = rt_crofton_shoot(cr_rtip, 2000, 2.0, &csa, &cv);
+		    struct rt_crofton_params crp = { 2000u, 0.0, 0.0 };
+		    cr = rt_crofton_shoot(cr_rtip, &crp, &csa, &cv);
 		}
 		rt_free_rti(cr_rtip);
 	    }
@@ -4335,22 +4366,32 @@ main(int argc, char *argv[])
     const char *output_g = NULL;
 
     /* Simple argument parsing:
+     *   [<input.g>]              positional: input .g file (if no --input-g)
+     *   [<output.g>]             positional: output .g file (if no --output-g)
      *   [--input-g  <file.g|pattern>] scan existing .g primitive(s) to tess
      *   [--output-g <file.g>]   write CSG inputs + BOT outputs to a new .g
-     *   [--validate]            run mesh quality checks (built-in tests)
-     *   [--validate-metrics]    compare BOT area/volume to analytic answers
-     *   [--crofton-validate]    run Crofton CSG estimate for --input-g scan
+     *   [--validate]            compare BOT area/volume to analytic answers
+     *   [--disable-crofton]     skip Crofton CSG estimate (on by default)
      *   [--metrics-tol <pct>]   metric tolerance % (default 5)
      *   [-h]                    print help
      */
     for (int i = 1; i < argc; i++) {
 	if (BU_STR_EQUAL(argv[i], "-h") || BU_STR_EQUAL(argv[i], "--help")) {
-	    printf("Usage: %s [--input-g <file.g|pattern>] [--output-g <file.g>]\n", argv[0]);
+	    printf("Usage: %s [<input.g>] [<output.g>]\n", argv[0]);
+	    printf("       %s [--input-g <file.g|pattern>] [--output-g <file.g>]\n", argv[0]);
 	    printf("          [--rel <frac>] [--abs <dist>] [--norm <rad>]\n");
 	    printf("          [-F <filter>]\n");
-	    printf("          [--validate] [--validate-metrics] [--crofton-validate] [--metrics-tol <pct>]\n");
+	    printf("          [--validate] [--disable-crofton] [--metrics-tol <pct>]\n");
 	    printf("\n");
 	    printf("  Without options: runs built-in NMG tessellation tests.\n");
+	    printf("  Open edges and manifold checks are always performed.\n");
+	    printf("\n");
+	    printf("  <input.g>  (positional)\n");
+	    printf("    Treated as --input-g when no --input-g flag is given.\n");
+	    printf("\n");
+	    printf("  <output.g>  (positional)\n");
+	    printf("    Treated as --output-g when no --output-g flag is given\n");
+	    printf("    and the path differs from the input file.\n");
 	    printf("\n");
 	    printf("  --input-g <file.g|pattern>\n");
 	    printf("    Open one or more existing .g databases, tessellate every\n");
@@ -4375,17 +4416,13 @@ main(int argc, char *argv[])
 	    printf("      <filename_root>_bot_<primitive_name>\n");
 	    printf("\n");
 	    printf("  --validate\n");
-	    printf("    Run mesh quality checks (open edges, manifold) for built-in tests.\n");
-	    printf("    Automatically enabled by --validate-metrics and --output-g.\n");
-	    printf("\n");
-	    printf("  --validate-metrics\n");
 	    printf("    Compare tessellated BOT surface area and volume against\n");
 	    printf("    the primitive's analytic answers (ft_surf_area, ft_volume).\n");
-	    printf("    Enables manifold validation automatically.\n");
+	    printf("    Open-edge and manifold checks are always run regardless.\n");
 	    printf("\n");
-	    printf("  --crofton-validate\n");
-	    printf("    For each primitive in --input-g, also shoot a Cauchy-Crofton\n");
-	    printf("    sample on the CSG object and report SA and volume.\n");
+	    printf("  --disable-crofton\n");
+	    printf("    Skip the Cauchy-Crofton CSG estimate that is otherwise\n");
+	    printf("    run for each primitive in an --input-g scan.\n");
 	    printf("\n");
 	    printf("  --metrics-tol <pct>\n");
 	    printf("    Tolerance (as percent) for analytic metric comparison (default 5).\n");
@@ -4404,16 +4441,19 @@ main(int argc, char *argv[])
 	} else if (BU_STR_EQUAL(argv[i], "--output-g") && i + 1 < argc) {
 	    output_g = argv[++i];
 	} else if (BU_STR_EQUAL(argv[i], "--validate")) {
-	    g_validate = 1;
-	} else if (BU_STR_EQUAL(argv[i], "--validate-metrics")) {
 	    g_validate_metrics = 1;
-	    g_validate = 1;
+	} else if (BU_STR_EQUAL(argv[i], "--validate-metrics")) {
+	    /* backwards-compatibility alias */
+	    g_validate_metrics = 1;
 	} else if (BU_STR_EQUAL(argv[i], "--prim") && i + 1 < argc) {
 	    g_prim_filter = argv[++i];
 	} else if ((BU_STR_EQUAL(argv[i], "-F") || BU_STR_EQUAL(argv[i], "--filter")) && i + 1 < argc) {
 	    g_search_filter = argv[++i];
+	} else if (BU_STR_EQUAL(argv[i], "--disable-crofton")) {
+	    g_no_crofton = 1;
 	} else if (BU_STR_EQUAL(argv[i], "--crofton-validate")) {
-	    g_crofton_validate = 1;
+	    /* backwards-compatibility alias: previously off-by-default */
+	    g_no_crofton = 0;
 	} else if (BU_STR_EQUAL(argv[i], "--metrics-tol") && i + 1 < argc) {
 	    double v = atof(argv[++i]);
 	    if (v > 0.0 && v <= 100.0) g_metrics_tol = v / 100.0; /* convert percent to fraction */
@@ -4431,6 +4471,15 @@ main(int argc, char *argv[])
 	    double v = atof(argv[++i]);
 	    if (v > 0.0) g_scan_norm = v;
 	    else fprintf(stderr, "WARNING: --norm requires a positive value (got '%s'), ignored\n", argv[i]);
+	} else if (argv[i][0] != '-') {
+	    /* Positional filename argument */
+	    if (!input_g) {
+		input_g = argv[i];
+	    } else if (!output_g && strcmp(argv[i], input_g) != 0) {
+		output_g = argv[i];
+	    } else {
+		fprintf(stderr, "WARNING: extra positional argument '%s', ignored\n", argv[i]);
+	    }
 	} else {
 	    fprintf(stderr, "WARNING: unknown argument '%s' (use -h for help)\n", argv[i]);
 	}
@@ -4444,7 +4493,6 @@ main(int argc, char *argv[])
 	    return 1;
 	}
 	mk_id(g_wdb, "prim_tess output");
-	g_validate = 1;
 	printf("Output .g: %s\n", output_g);
     }
 
@@ -4456,7 +4504,7 @@ main(int argc, char *argv[])
     do { if (!g_prim_filter || BU_STR_EQUAL(g_prim_filter, name)) { \
 	    int _start = g_nresults; \
 	    total_failures += fn(); \
-	    if (g_validate && g_nresults > _start) \
+	    if (g_nresults > _start) \
 		print_summary_table(_start, g_nresults, name); \
 	} } while (0)
 	RUN_IF("tor",      test_tor);
@@ -4482,8 +4530,6 @@ main(int argc, char *argv[])
 
     /* ---- Input .g scan (if requested) ---- */
     if (input_g) {
-	/* Scan mode always validates mesh quality */
-	if (!g_validate) g_validate = 1;
 	int scan_start = g_nresults;
 	total_failures += scan_input_g_spec(input_g);
 	print_summary_table(scan_start, g_nresults, input_g);

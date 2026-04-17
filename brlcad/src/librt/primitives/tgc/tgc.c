@@ -3812,6 +3812,17 @@ rt_tgc_volume(fastf_t *vol, const struct rt_db_internal *ip)
     mag_d = MAGNITUDE(tip->d);
 
     GET_TGC_TYPE(tgc_type, mag_a, mag_b, mag_c, mag_d);
+    if (tgc_type == TEC) {
+	/* Import/export quantization can introduce tiny radius deltas in
+	 * nominally circular TGCs from .g sample databases.  Classify those
+	 * as TRC for analytic metrics instead of routing through TEC logic. */
+	fastf_t ab_tol = fmax(mag_a, mag_b) * 1.0e-5 + SMALL_FASTF;
+	fastf_t cd_tol = fmax(mag_c, mag_d) * 1.0e-5 + SMALL_FASTF;
+	if (fabs(mag_a - mag_b) <= ab_tol &&
+	    fabs(mag_c - mag_d) <= cd_tol) {
+	    tgc_type = TRC;
+	}
+    }
 
     /* Compute the perpendicular height between the two end-ellipse planes.
      *
@@ -3904,6 +3915,16 @@ rt_tgc_surf_area(fastf_t *area, const struct rt_db_internal *ip)
     *area = 0.0;
 
     GET_TGC_TYPE(tgc_type, mag_a, mag_b, mag_c, mag_d);
+    if (tgc_type == TEC) {
+	/* Treat near-circular ends as TRC to avoid Crofton-noise metrics for
+	 * databases that store tiny radius quantization differences. */
+	fastf_t ab_tol = fmax(mag_a, mag_b) * 1.0e-5 + SMALL_FASTF;
+	fastf_t cd_tol = fmax(mag_c, mag_d) * 1.0e-5 + SMALL_FASTF;
+	if (fabs(mag_a - mag_b) <= ab_tol &&
+	    fabs(mag_c - mag_d) <= cd_tol) {
+	    tgc_type = TRC;
+	}
+    }
 
     switch (tgc_type) {
 	case RCC:
@@ -3942,7 +3963,7 @@ rt_tgc_surf_area(fastf_t *area, const struct rt_db_internal *ip)
 	    /* No closed-form formula exists for the general truncated
 	     * elliptic cone.  Fall back to the Cauchy-Crofton ray-sampling
 	     * estimator, which handles any TGC shape correctly. */
-	    rt_crofton_surf_area(area, ip);
+	    do { static const struct rt_crofton_params _p = {50000u, 0.0, 0.0}; rt_crofton_sample(area, NULL, ip, &_p); } while (0);
 	    break;
     }
 }

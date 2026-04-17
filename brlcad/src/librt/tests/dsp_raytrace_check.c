@@ -290,8 +290,12 @@ run_crofton(struct rt_i *rtip, size_t nrays, double thresh_pct)
 {
     struct crofton_result r;
     memset(&r, 0, sizeof(r));
+    /* thresh_pct was the old convergence threshold; map to n_rays for
+     * a straightforward fixed-count run via the new params API.      */
+    (void)thresh_pct;
+    struct rt_crofton_params p = { nrays, 0.0, 0.0 };
     int64_t t0 = bu_gettime();
-    r.ok = rt_crofton_shoot(rtip, nrays, thresh_pct, &r.sa, &r.vol);
+    r.ok = rt_crofton_shoot(rtip, &p, &r.sa, &r.vol);
     r.wall_sec = (double)(bu_gettime() - t0) / 1e6;
     return r;
 }

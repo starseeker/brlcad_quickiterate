@@ -1527,7 +1527,7 @@ rt_hyp_surf_area(fastf_t *area, const struct rt_db_internal *ip)
 {
     if (!area || !ip)
 	return;
-    rt_crofton_surf_area(area, ip);
+    do { static const struct rt_crofton_params _p = {50000u, 0.0, 0.0}; rt_crofton_sample(area, NULL, ip, &_p); } while (0);
 }
 
 

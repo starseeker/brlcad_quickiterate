@@ -10,13 +10,6 @@ brlcad_addexec(analyze_densities density.cpp "libanalyze;libbu" TEST)
 brlcad_add_test(NAME analyze_densities_null        COMMAND analyze_densities)
 brlcad_add_test(NAME analyze_densities_std        COMMAND analyze_densities std)
 
-#####################################
-#      analyze_crofton testing      #
-#####################################
-brlcad_addexec(analyze_crofton crofton.c "libanalyze;librt;libnmg;libbg;libwdb;libbu" TEST)
-
-brlcad_add_test(NAME analyze_crofton COMMAND analyze_crofton)
-
 cmakefiles(
   CMakeLists.txt
   arbs.g
