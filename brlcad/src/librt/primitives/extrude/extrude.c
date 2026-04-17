@@ -1534,10 +1534,11 @@ get_indices(void *seg, int *start, int *end)
 
 
 static int
-sketch_vert_indices_match(const struct rt_sketch_internal *skt, int a, int b)
+sketch_vert_indices_match(const struct rt_sketch_internal *skt, int a, int b, const struct bn_tol *tol)
 {
     point2d_t diff = V2INIT_ZERO;
-    const fastf_t tol_sq = BN_TOL_DIST * BN_TOL_DIST;
+    const fastf_t dtol = (tol) ? tol->dist : BN_TOL_DIST;
+    const fastf_t tol_sq = dtol * dtol;
 
     if (a == b) {
 	return 1;
@@ -1548,7 +1549,7 @@ sketch_vert_indices_match(const struct rt_sketch_internal *skt, int a, int b)
     }
 
     V2SUB2(diff, skt->verts[a], skt->verts[b]);
-    return (MAG2SQ(diff) <= tol_sq);
+    return ((diff[X] * diff[X] + diff[Y] * diff[Y]) <= tol_sq);
 }
 
 
@@ -2180,7 +2181,7 @@ rt_extrude_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip
 
 	lng = (uint32_t *)crv->segment[i];
 	get_indices(crv->segment[i], &loop_start, &loop_end);
-	if (*lng == CURVE_LSEG_MAGIC && sketch_vert_indices_match(sketch_ip, loop_start, loop_end)) {
+	if (*lng == CURVE_LSEG_MAGIC && sketch_vert_indices_match(sketch_ip, loop_start, loop_end, tol)) {
 	    used_seg[i] = 1;
 	    continue;
 	}
@@ -2193,7 +2194,7 @@ rt_extrude_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip
 	cur_seg = crv->segment[i];
 	get_indices(cur_seg, &loop_start, &loop_end);
 
-	while (!sketch_vert_indices_match(sketch_ip, loop_end, loop_start)) {
+	while (!sketch_vert_indices_match(sketch_ip, loop_end, loop_start, tol)) {
 	    int added_seg;
 
 	    added_seg = 0;
@@ -2206,17 +2207,17 @@ rt_extrude_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip
 		    continue;
 		}
 
-		if (sketch_vert_indices_match(sketch_ip, seg_start, loop_end)) {
+		if (sketch_vert_indices_match(sketch_ip, seg_start, loop_end, tol)) {
 		    added_seg++;
 		    bu_ptbl_ins(aloop, (long *)crv->segment[j]);
 		    used_seg[j] = 1;
 		    loop_end = seg_end;
-		    if (loop_start == loop_end)
+		    if (sketch_vert_indices_match(sketch_ip, loop_start, loop_end, tol))
 			break;
-		} else if (sketch_vert_indices_match(sketch_ip, seg_end, loop_end)) {
+		} else if (sketch_vert_indices_match(sketch_ip, seg_end, loop_end, tol)) {
 		    rt_curve_reverse_segment((uint32_t *)crv->segment[j]);
 		    get_indices(crv->segment[j], &seg_start, &seg_end);
-		    if (!sketch_vert_indices_match(sketch_ip, seg_start, loop_end)) {
+		    if (!sketch_vert_indices_match(sketch_ip, seg_start, loop_end, tol)) {
 			continue;
 		    }
 
@@ -2224,7 +2225,7 @@ rt_extrude_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip
 		    bu_ptbl_ins(aloop, (long *)crv->segment[j]);
 		    used_seg[j] = 1;
 		    loop_end = seg_end;
-		    if (loop_start == loop_end)
+		    if (sketch_vert_indices_match(sketch_ip, loop_start, loop_end, tol))
 			break;
 		}
 	    }
