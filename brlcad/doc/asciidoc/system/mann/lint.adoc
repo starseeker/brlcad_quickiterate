@@ -11,6 +11,7 @@ lint - Detect and report problems with subsets or all of a .g database.
 [source]
 ----
 lint [-h] [-C] [-M] [-I] [-F "filters"] [ObjectName]
+lint --raytrace [--raytrace-tol <frac>] [-j <jsonfile>] [ObjectName ...]
 ----
 
 
@@ -18,6 +19,8 @@ lint [-h] [-C] [-M] [-I] [-F "filters"] [ObjectName]
 == DESCRIPTION
 
 The 'lint' command analyzes the currently open geometry database (or a subset of that database if object names are supplied as arguments), searching for a variety of problems. By default all defect types are searched for - if one or more of the options enabling a search for a specific type of problem are supplied, only those searches will be performed.
+
+The *--raytrace* mode is a special, mutually exclusive operating mode that disables all other checks and instead runs a multi-level raytrace consistency validation against every reachable object.  See the *RAYTRACE MODE* section below for details.
 
 
 [[options]]
@@ -44,6 +47,68 @@ Check for shapes in the database that do not satisfy one or more properties requ
 Apply search command style filters to the set of objects to be tested. Allows, (for example) a user to test only brep objects and not BoT objects or only objects matching a particular name pattern. Does not impact the checks for missing or cylic geometry - the underlying search mechanism assumes inputs do not have those particular categories of problem and thus can't be reliably applied in those cases.
 
 
+*--raytrace*::
+Enable raytrace validation mode.  All standard lint checks are disabled; instead the command runs the raytrace consistency pipeline described in the *RAYTRACE MODE* section.  Cannot be combined with *-C*, *-M*, or *-I*.
+
+
+*--raytrace-tol* _frac_::
+Fractional tolerance for raytrace validation comparisons (default: *0.10* = 10%).  A value of 0.05 requires the two independent estimates to agree within 5%.  Lower values are stricter.  Only meaningful when *--raytrace* is also specified.
+
+
+[[raytrace_mode]]
+== RAYTRACE MODE
+
+Raytrace validation mode (*--raytrace*) cross-checks surface area and volume estimates from two independent methods against each other to detect problems in raytracing or boolean evaluation.  It is significantly more expensive than ordinary lint checks and is intended to be used on targeted subsets of a database rather than entire large assemblies.
+
+=== Algorithm
+
+1. **Universe collection.**  Starting from the explicitly named objects (or all top-level objects if none are named), every reachable object in the hierarchy is collected into the candidate set.
+
+2. **Samplability classification.**  Any object whose subtree contains a halfspace (or other unbounded primitive) is marked as non-samplable and excluded from metric evaluation.  Excluding these objects prevents the Cauchy-Crofton estimator from operating on infinite solids where it would diverge.
+
+3. **Leaf-to-root processing order.**  Objects are processed in dependency order so that leaf primitives are validated before the combs that contain them.  This ensures that any failure is always attributed to the *lowest* failing node in the tree rather than being masked by higher-level aggregate results.
+
+4. **Leaf primitive validation.**  For each samplable leaf primitive the following are compared within the fractional tolerance set by *--raytrace-tol*:
+   * **Crofton SA/volume** – Cauchy-Crofton estimate obtained by firing random chord rays against the CSG raytracer.
+   * **Analytic SA/volume** – Closed-form result from the primitive's function table (ft_surf_area / ft_volume), when available.
+   +
+   If analytic values are not available (e.g. BoT, BREP) the Crofton result is recorded informatively without a pass/fail verdict.
+
+5. **Comb validation.**  For each comb whose direct children all passed, two independent estimates are compared:
+   * **CSG Crofton SA/volume** – ray-sampled against the original CSG boolean tree.
+   * **BoT SA/volume** – the comb is facetized to a solid triangle mesh using the *facetize* command and the mesh SA/volume is measured exactly via the divergence theorem.
+   +
+   A significant discrepancy (beyond *--raytrace-tol*) indicates either a problem with boolean evaluation or an anomalous raytrace result for that combination of geometry.
+
+6. **Failure propagation.**  If any child of a comb fails or is skipped in a way that makes its result untrustworthy, the parent comb is automatically skipped with the reason *child_validation_failed*.  This prevents a single bad leaf from producing misleading cascade results upward.
+
+=== Output
+
+Results are reported in three categories:
+
+* *Passed* – Both estimates agree within *--raytrace-tol*.
+* *Failed* (raytrace_mismatch) – The two estimates disagree beyond *--raytrace-tol*.  The output includes SA and volume error percentages and the reason for failure.
+* *Skipped* – The object could not be validated.  Reasons include:
+  - *contains_unbounded_primitive* – a halfspace is present in the subtree.
+  - *child_validation_failed* – a child object failed or was skipped.
+  - *crofton_prep_failed* – the raytrace instance could not be prepared.
+  - *raytrace_facetize_failed* – the facetize step failed for a comb.
+
+With *-v* (verbose), skipped objects and passing objects are also listed in full detail.  With *-j*, all results are written to a JSON file for programmatic analysis.
+
+=== Performance Considerations
+
+Raytrace validation uses 2 000 Crofton rays per object by default.  For a database with many objects this can be slow; it is recommended to name specific assembly trees as arguments rather than relying on the tops-object default scan.  Facetizing combs is inherently more expensive than sampling primitives.
+
+=== Interpretation of Results
+
+A *raytrace_mismatch* on a **leaf primitive** suggests a bug in the raytrace shot routine for that primitive type (the Crofton ray count is sufficient for basic primitives at 10% tolerance).
+
+A *raytrace_mismatch* on a **comb** when all children passed suggests either:
+  * A problem with boolean evaluation producing incorrect geometry (such as a sub-tolerance sliver that the CSG boolweave handles differently from the tessellated mesh).
+  * A raytrace behavior anomaly specific to that combination of primitives.
+
+Because the check propagates failure upward, the *lowest* failing node reported is always the most actionable finding.
 
 
 [[examples]]
@@ -70,7 +135,7 @@ Found references to missing objects or files:
 	missingentry.c/missing.s
 Found invalid objects:
 	nonsolid.bot [bot:not_solid]
-				
+			
 ....
 
 
@@ -88,7 +153,7 @@ mged>**lint -I nonsolid.bot**
 Checking for invalid objects...
 Found invalid objects:
 	nonsolid.bot [bot:not_solid]
-				
+			
 ....
 
 
@@ -114,7 +179,7 @@ brep.m_F[1180] face is not valid.
 ON_Brep.m_F[1180] is invalid.
 Found invalid objects:
 	D.s [brep:opennurbs_invalid]
-				
+			
 ....
 
 
@@ -136,10 +201,45 @@ Found invalid objects:
 	r.rot337.bot [bot:empty]
 	r.rot37.bot [bot:empty]
 	r.rot437.bot [bot:empty]
-				
+			
 ....
 
 
+
+====
+
+.Run raytrace validation on a specific assembly
+[example]
+====
+mged>**lint --raytrace wing_assembly**
+
+
+....
+
+Running raytrace validation checks...
+Raytrace validation: 12 passed, 1 failed, 3 skipped
+Raytrace mismatches (CSG raytracer disagrees with reference):
+	r.spar.c [comb]  SA_err=38.2%  VOL_err=0.4%  (CSG Crofton SA disagrees with BoT mesh)
+....
+
+====
+
+.Run raytrace validation with strict 5% tolerance and JSON output
+[example]
+====
+mged>**lint --raytrace --raytrace-tol 0.05 -j results.json entire_model**
+
+....
+
+Running raytrace validation checks...
+Raytrace validation: 47 passed, 3 failed, 8 skipped
+Raytrace mismatches (CSG raytracer disagrees with reference):
+	r.frame.c [comb]  SA_err=74.5%  VOL_err=0.0%  (CSG Crofton SA disagrees with BoT mesh)
+	sub_box.s [primitive]  SA_err=6.1%  VOL_err=0.8%  (Crofton SA disagrees with analytic formula)
+	r.window.c [comb]  SA_err=5.5%  VOL_err=0.1%  (CSG Crofton SA disagrees with BoT mesh)
+Raytrace checks skipped (facetize failed):
+	r.complex.c [comb]
+....
 
 ====
 
@@ -162,6 +262,14 @@ Thin volumes and close faces are a frequent consequence of coplanar faces being 
 For BoTs where BRL-CAD's internal tools are inadequate and it is worthwhile to attempt mesh repairs, the *bot_dump* command can write out obj or stl files. After editing, importers for obj, stl and other mesh formats can import a repaired mesh back into BRL-CAD. Generally speaking the imported mesh names will have to be adjusted and the original invalid objects removed manually. (Converter-generated names will usually be different.)
 
 Facetize (when run with the -r option) already tries to clear thin volumes automatically - occasionally it is possible, but in many cases the mesh cannot be automatically repaired without manual intervention in a mesh editing tool. In situtations where coplanar faces are the cause of thin volumes or close faces, the recommended solution is to adjust the original source geometry to avoid coplanarity - slightly "bumping" faces in or out tiny amounts to avoid the mathematically problematic alignments. If a mesh does need to be exported, the *bot strip* command can remove some of the problematic faces as a preliminary step. (Note that there may still be problem triangles present - lint's current BoT testing samples only the center of each triangle, so triangles that are coplanar but not overlapping in the center will not be detected.)
+
+When *--raytrace* finds mismatches, the first step is to determine whether the source is a geometric model issue or a genuine raytrace bug:
+
+* **Large SA error with small volume error** is the classic signature of a sub-tolerance sliver (a face pair separated by less than BN_TOL_DIST).  The CSG boolweave discards the sliver for near-perpendicular rays but admits it for oblique angles, inflating the Crofton SA estimate while leaving volume nearly unchanged.  The fix is to adjust the source geometry so that coplanar or near-coplanar faces are clearly separated or clearly coincident.  Running *facetize* with its perturb pass (the default) will also eliminate the sliver artifact in the tessellated representation.
+
+* **Large volume error** points to a more fundamental raytrace problem, such as an un-modeled interior volume or an incorrect boolean result.  Examining the object with *nirt* and comparing with hand calculations or analytic formulas is a good next step.
+
+* **Failures only at deep nodes, with parents skipped:** the chain of child-blocked parent skips shows you exactly where to focus investigation.  Fix the deepest failing node first; re-running *lint --raytrace* after each fix will confirm whether the repair resolved the issue and whether any additional failures are now visible.
 
 
 [[author]]

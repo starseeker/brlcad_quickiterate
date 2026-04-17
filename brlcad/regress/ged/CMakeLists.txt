@@ -20,6 +20,19 @@ if(TARGET libged)
   endif(TARGET regress_facetize)
   brlcad_regression_test(regress-ged_facetize "regress_facetize;ged-facetize;ged_exec" EXEC regress_facetize)
   distclean("${CMAKE_CURRENT_BINARY_DIR}/regress-ged_facetize.log")
+
+  # lint --raytrace regression: Crofton vs analytic / BoT validation pass.
+  # Exercises the raytrace validation pipeline in lint/raytrace.cpp:
+  #   TC1 - sphere primitive Crofton vs analytic formula
+  #   TC2 - simple comb Crofton vs facetized BoT
+  #   TC3 - halfspace-containing tree correctly excluded
+  #   TC4 - child failure propagates to block parent
+  brlcad_addexec(regress_lint_raytrace regress_lint_raytrace.cpp "libged;libwdb;librt;libbu" TEST_USESDATA)
+  if(TARGET regress_lint_raytrace)
+    add_dependencies(regress_lint_raytrace ged_plugins)
+  endif(TARGET regress_lint_raytrace)
+  brlcad_regression_test(regress-ged_lint_raytrace "regress_lint_raytrace;ged_exec" EXEC regress_lint_raytrace)
+  distclean("${CMAKE_CURRENT_BINARY_DIR}/regress-ged_lint_raytrace.log")
 endif(TARGET libged)
 
 cmakefiles(
@@ -27,6 +40,7 @@ cmakefiles(
   mater.c
   push.cpp
   regress_facetize.cpp
+  regress_lint_raytrace.cpp
   d2push_tests.g
   dpush_tests.g
   dxpush_tests.g
@@ -35,6 +49,7 @@ cmakefiles(
   regress-ged_mater.cmake.in
   regress-ged_push.cmake.in
   regress-ged_facetize.cmake.in
+  regress-ged_lint_raytrace.cmake.in
   rpush_tests.g
   xpush_tests.g
 )
