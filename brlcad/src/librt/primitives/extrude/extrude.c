@@ -2218,6 +2218,8 @@ rt_extrude_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip
 		    rt_curve_reverse_segment((uint32_t *)crv->segment[j]);
 		    get_indices(crv->segment[j], &seg_start, &seg_end);
 		    if (!sketch_vert_indices_match(sketch_ip, seg_start, loop_end, tol)) {
+			bu_log("rt_extrude_tess: segment reversal failed to produce a connected loop edge in sketch %s\n",
+			       extrude_ip->sketch_name);
 			continue;
 		    }
 
