@@ -201,17 +201,32 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 
     // We need all the solids converted
     if (!s->make_nmg && !s->nmg_booleval) {
-	/* Instance-aware adjust planning pass: walk the full source tree to
+	/* Instance-aware adjust planning pass: walk each *region* root to
 	 * find every leaf that appears in both union and subtract roles, create
 	 * perturbed CSG copies in the working .g *before* tessellation so that
 	 * the adjusted variants are triangulated from their original CSG
 	 * parameter definitions.  The plan is stored on the state so that
 	 * _booltree_leaf_tess can substitute the correct variant BoT during
 	 * each per-region booleval.
+	 *
+	 * We deliberately walk from the region roots (ar) rather than from the
+	 * top-level input objects (dpa).  The per-region booleval also starts
+	 * each db_walk_tree from the region root, so the path strings that
+	 * db_path_to_string() produces during booleval (e.g.
+	 * "/r.wind9/s.wind9.i") match the keys recorded here.  Walking from
+	 * dpa would produce longer keys (e.g.
+	 * "/havoc/havoc_front/.../r.wind9/s.wind9.i") that never match.
+	 *
 	 * Skip when --no-perturb is set. */
 	if (!s->no_perturb) {
+	    size_t nregions = BU_PTBL_LEN(ar);
+	    struct directory **rdpa = (struct directory **)bu_calloc(
+		nregions + 1, sizeof(struct directory *), "rdpa");
+	    for (size_t ri = 0; ri < nregions; ri++)
+		rdpa[ri] = (struct directory *)BU_PTBL_GET(ar, ri);
 	    FacetizeVariantPlan *vplan =
-		_ged_facetize_build_variant_plan(s, argc, dpa);
+		_ged_facetize_build_variant_plan(s, (int)nregions, rdpa);
+	    bu_free(rdpa, "rdpa");
 	    s->variant_plan = (void *)vplan;
 	}
 
