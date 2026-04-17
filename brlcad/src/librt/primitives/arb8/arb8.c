@@ -1863,8 +1863,8 @@ arb_build_equiv_pts(const struct rt_arb_internal *arb, fastf_t tol_sq, int equiv
  * built properly.  Such an ARB has exactly 4 unique spatial vertices (a valid
  * tetrahedron) and must not be routed to the hull fallback.
  */
-static int
-arb_is_noncanonical(const struct rt_arb_internal *arb, fastf_t tol_sq)
+int
+rt_arb_nonstandard_encoding(const struct rt_arb_internal *arb, fastf_t tol_sq)
 {
     int equiv_pts[8];
     int i;
@@ -2064,7 +2064,7 @@ rt_arb_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
      * pairs at unexpected positions the normal rt_arb_info face table
      * produces non-planar quads.  Build the convex hull of the unique
      * vertices and tessellate that instead. */
-    if (arb_is_noncanonical(aip, tol->dist_sq)) {
+    if (rt_arb_nonstandard_encoding(aip, tol->dist_sq)) {
 	int *hull_faces = NULL;
 	int  hull_nf   = 0;
 	point_t *hull_verts = NULL;
@@ -2803,7 +2803,7 @@ rt_arb_surf_area(fastf_t *area, const struct rt_db_internal *ip)
     tol.para = 1 - tol.perp;
 
     /* Non-canonical encoding: use convex hull triangle areas */
-    if (arb_is_noncanonical(arb, tol.dist_sq)) {
+    if (rt_arb_nonstandard_encoding(arb, tol.dist_sq)) {
 	int *hull_faces = NULL;
 	int  hull_nf   = 0;
 	point_t *hull_verts = NULL;
@@ -2955,7 +2955,7 @@ rt_arb_volume(fastf_t *vol, const struct rt_db_internal *ip)
     tmp_tol.dist_sq = tmp_tol.dist * tmp_tol.dist;
 
     /* Non-canonical encoding: use convex hull and the divergence theorem */
-    if (arb_is_noncanonical(aip, tmp_tol.dist_sq)) {
+    if (rt_arb_nonstandard_encoding(aip, tmp_tol.dist_sq)) {
 	int *hull_faces = NULL;
 	int  hull_nf   = 0;
 	point_t *hull_verts = NULL;
