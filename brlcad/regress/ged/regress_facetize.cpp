@@ -85,8 +85,8 @@
 
 /** Minimum ray count for Crofton surface-area / volume estimation. */
 #define REGRESS_CROFTON_SAMPLES   2000
-/** Convergence threshold (%) for Crofton estimator. */
-#define REGRESS_CROFTON_PCT       5.0
+/** Convergence target (mm) for Crofton estimator. */
+#define REGRESS_CROFTON_STABLE_TARGET      0.5*BN_TOL_DIST 
 /** cos(30°) – used to build the TC3 rotated ARB8 geometry. */
 #define COS_30_DEG   0.8660254037844386467637231707529361834713867187500
 /** sin(30°) = 0.5 exactly. */
@@ -225,7 +225,8 @@ rt_free_rti(rtip); db_close(dbip); return BRLCAD_ERROR;
     rt_prep_parallel(rtip, 1);
 
     /* REGRESS_CROFTON_SAMPLES rays, REGRESS_CROFTON_PCT% convergence threshold */
-    int ret = rt_crofton_shoot(rtip, REGRESS_CROFTON_SAMPLES, REGRESS_CROFTON_PCT, sa, vol);
+    struct rt_crofton_params p = { REGRESS_CROFTON_SAMPLES, REGRESS_CROFTON_STABLE_TARGET, 0.0};
+    int ret = rt_crofton_shoot(rtip, &p, sa, vol);
     rt_free_rti(rtip);
     db_close(dbip);
     return (ret == 0) ? BRLCAD_OK : BRLCAD_ERROR;
