@@ -10,9 +10,8 @@ set(BOT_LIBS ${BOT_LIBS} ${Geogram_LIBRARY})
 
 if(BRLCAD_ENABLE_OPENVDB)
   set(BOT_LIBS ${BOT_LIBS} ${OpenVDB_LIBRARIES} ${IlmBase_LIBRARIES} ${Tbb_LIBRARIES})
-  # disable warnings due to unquellable issues in Boost and IlmBase/half headers
-  set_property(SOURCE remesh.cpp APPEND PROPERTY COMPILE_FLAGS "${OpenVDB_DEFINITIONS} -w")
-  set(BOT_LOCAL_INCLUDE_DIRS ${BOT_LOCADL_INCLUDE_DIRS} ${OpenVDB_INCLUDE_DIRS} ${Tbb_INCLUDE_DIRS} ${IlmBase_INCLUDE_DIRS})
+  set(BOT_LOCAL_INCLUDE_DIRS ${BOT_LOCAL_INCLUDE_DIRS} ${OpenVDB_INCLUDE_DIRS} ${Tbb_INCLUDE_DIRS} ${IlmBase_INCLUDE_DIRS})
+  set(BOT_OPENVDB_DEFS HAVE_OPENVDB_BOT_EXTERIOR BRLCAD_OPENVDB)
 endif(BRLCAD_ENABLE_OPENVDB)
 
 # TODO - investigate https://github.com/nissmar/VSA to see if it could be
@@ -50,6 +49,23 @@ set(
   ../../libbu/fort.c
 )
 
+if(BRLCAD_ENABLE_OPENVDB)
+  # Suppress warnings from OpenVDB/Boost headers and prevent the OpenVDB
+  # LeafManager UINT64_MAX sentinel from triggering the LTO
+  # -Werror=alloc-size-larger-than false positive.  Because ged-bot is
+  # PLUGIN_ONLY these flags are scoped to the plugin .so and do not
+  # pollute the main libged target.
+  set_source_files_properties(
+    remesh.cpp
+    bot_openvdb.cpp
+    bot_flood_exterior.cpp
+    PROPERTIES COMPILE_FLAGS "-w -fno-lto"
+  )
+  list(APPEND BOT_SRCS bot_openvdb.cpp bot_flood_exterior.cpp)
+else(BRLCAD_ENABLE_OPENVDB)
+  cmakefiles(bot_openvdb.cpp bot_flood_exterior.cpp)
+endif(BRLCAD_ENABLE_OPENVDB)
+
 set(
   BOT_LOCAL_INCLUDE_DIRS
   ${EIGEN3_INCLUDE_DIR}
@@ -61,12 +77,17 @@ set(
 # looks like it was fixed in upstream long time ago, so just disable
 # for now with EIGEN_DONT_VECTORIZE.
 # TODO: remove this / retest after next Eigen upgrade.
+#
+# PLUGIN_ONLY ensures ged-bot is always built as a standalone .so even
+# when LIBGED_STATIC_CORE=ON.  This keeps the OpenVDB warning suppressions
+# (-w -fno-lto on the OpenVDB source files) out of the main libged target.
 ged_plugin_library(ged-bot
+  PLUGIN_ONLY
   ${BOT_SRCS}
   INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}
   SYSTEM_INCLUDES ${BOT_LOCAL_INCLUDE_DIRS}
   LIBS ${BOT_LIBS}
-  DEFINITIONS "EIGEN_DONT_VECTORIZE"
+  DEFINITIONS "EIGEN_DONT_VECTORIZE" ${BOT_OPENVDB_DEFS}
 )
 
 cmakefiles(
