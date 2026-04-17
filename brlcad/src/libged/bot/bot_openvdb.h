@@ -39,7 +39,7 @@
 
 #include "common.h"
 
-#ifdef OPENVDB_ABI_VERSION_NUMBER
+#ifdef BRLCAD_OPENVDB
 
 #  include "rt/geom.h"
 #  include "raytrace.h"
@@ -106,7 +106,7 @@ openvdb::BoolGrid::Ptr rt_rtip_to_occupancy_grid(struct rt_i *rtip,
 						 double voxel_size,
 						 int *nx, int *ny, int *nz);
 
-#endif /* OPENVDB_ABI_VERSION_NUMBER */
+#endif /* BRLCAD_OPENVDB */
 #endif /* LIBGED_BOT_OPENVDB_H */
 
 /*

@@ -32,7 +32,7 @@
 
 #include "common.h"
 
-#ifdef OPENVDB_ABI_VERSION_NUMBER
+#ifdef BRLCAD_OPENVDB
 
 #  include <cmath>
 #  include <algorithm>
@@ -358,7 +358,7 @@ rt_rtip_to_occupancy_grid(struct rt_i *rtip, double voxel_size,
     return solid;
 }
 
-#endif /* OPENVDB_ABI_VERSION_NUMBER */
+#endif /* BRLCAD_OPENVDB */
 
 
 /*
