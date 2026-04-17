@@ -37,6 +37,7 @@ set(
   nirt/opts.cpp
   nirt/diff.cpp
   obj_to_pnts.cpp
+  overlap_accel.cpp
   overlaps.c
   polygonizer.c
   raydiff.c
@@ -51,7 +52,9 @@ set(
   MeshHealing/Geometry.cpp
   MeshHealing/Stitch.cpp
   heal_mesh.cpp
+  GridGeneration/crofton_grid.c
   GridGeneration/rectangular_grid.c
+  GridGeneration/rotated_grid.c
 )
 
 set(
