@@ -2022,6 +2022,60 @@ part_kpt_end:
 }
 
 
+int
+rt_part_perturb(struct rt_db_internal **oip, const struct rt_db_internal *ip, int planar_only, fastf_t val)
+{
+    if (NEAR_ZERO(val, SMALL_FASTF))
+	return BRLCAD_OK;
+
+    if (!oip || !ip)
+	return BRLCAD_ERROR;
+
+    struct rt_part_internal *opart = (struct rt_part_internal *)ip->idb_ptr;
+    RT_PART_CK_MAGIC(opart);
+
+    struct rt_db_internal *nip;
+    BU_GET(nip, struct rt_db_internal);
+    RT_DB_INTERNAL_INIT(nip);
+    nip->idb_major_type = DB5_MAJORTYPE_BRLCAD;
+    nip->idb_type = ID_PARTICLE;
+    nip->idb_meth = &OBJ[ID_PARTICLE];
+    struct rt_part_internal *part = NULL;
+    BU_ALLOC(part, struct rt_part_internal);
+    nip->idb_ptr = part;
+    part->part_magic = RT_PART_INTERNAL_MAGIC;
+    VMOVE(part->part_V, opart->part_V);
+    VMOVE(part->part_H, opart->part_H);
+    part->part_vrad = opart->part_vrad;
+    part->part_hrad = opart->part_hrad;
+    part->part_type = opart->part_type;
+
+    /* Extend H to push the flat end caps apart; also move V back so the
+     * vertex-end cap expands symmetrically. */
+    vect_t mvec, mrvec;
+    VMOVE(mvec, part->part_H);
+    VUNITIZE(mvec);
+    VREVERSE(mrvec, mvec);
+    VSCALE(mrvec, mrvec, val);
+    VADD2(part->part_V, part->part_V, mrvec);
+    vect_t hext;
+    VSCALE(hext, mvec, 2.0 * val);
+    VADD2(part->part_H, part->part_H, hext);
+
+    if (planar_only) {
+	*oip = nip;
+	return BRLCAD_OK;
+    }
+
+    /* Also expand the spherical end-cap radii. */
+    part->part_vrad += val;
+    part->part_hrad += val;
+
+    *oip = nip;
+    return BRLCAD_OK;
+}
+
+
 /*
  * Local Variables:
  * mode: C
