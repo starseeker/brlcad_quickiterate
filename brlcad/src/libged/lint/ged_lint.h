@@ -69,12 +69,18 @@ class lint_data {
 	struct bu_list *vlfree;
 
 	std::map<std::string, std::set<std::string>> im_techniques;
+
+	/* Raytrace validation mode (lint --raytrace) */
+	bool do_raytrace = false;
+	double rt_tol_pct = 0.10;    /**< fractional tolerance for SA/vol comparison (0.10 = 10%) */
+	size_t rt_crofton_rays = 2000; /**< Crofton ray count per object */
 };
 
 extern void bot_checks(lint_data *cdata, struct directory *dp, struct rt_bot_internal *bot);
 extern int _ged_cyclic_check(lint_data *cdata);
 extern int _ged_invalid_shape_check(lint_data *ldata);
 extern int _ged_missing_check(lint_data *mdata);
+extern int _ged_raytrace_check(lint_data *ldata);
 
 #endif /* LIBGED_LINT_GED_PRIVATE_H */
 
