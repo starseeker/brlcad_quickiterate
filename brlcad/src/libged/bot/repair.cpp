@@ -63,7 +63,7 @@
 #include "rt/geom.h"
 #include "wdb.h"
 
-#ifdef OPENVDB_ABI_VERSION_NUMBER
+#ifdef BRLCAD_OPENVDB
 #  include "bot_openvdb.h"
 #endif
 
@@ -89,7 +89,7 @@ bot_repair(struct rt_bot_internal *bot, struct rt_bot_repair_info *i)
 }
 
 
-#ifdef OPENVDB_ABI_VERSION_NUMBER
+#ifdef BRLCAD_OPENVDB
 /**
  * Attempt to repair a non-manifold solid BoT using the OpenVDB level-set
  * pipeline.  Converts the mesh to a signed-distance field and extracts a
@@ -151,7 +151,7 @@ bot_openvdb_repair(struct rt_bot_internal *bot, double voxel_size)
 
     return cand;
 }
-#endif /* OPENVDB_ABI_VERSION_NUMBER */
+#endif /* BRLCAD_OPENVDB */
 
 
 static void
@@ -224,7 +224,7 @@ _bot_cmd_repair(void *bs, int argc, const char **argv)
 	}
     }
 
-#ifndef OPENVDB_ABI_VERSION_NUMBER
+#ifndef BRLCAD_OPENVDB
     if (use_openvdb) {
 	bu_vls_printf(gb->gedp->ged_result_str,
 		      "WARNING: --openvdb requested but BRL-CAD was not compiled with "
@@ -282,7 +282,7 @@ _bot_cmd_repair(void *bs, int argc, const char **argv)
 	    }
 	}
 
-#ifdef OPENVDB_ABI_VERSION_NUMBER
+#ifdef BRLCAD_OPENVDB
 	/* OpenVDB path: forced via --openvdb, or automatic fallback when
 	 * Geogram repair failed. */
 	if (use_openvdb || !mbot) {
@@ -302,7 +302,7 @@ _bot_cmd_repair(void *bs, int argc, const char **argv)
 		bu_log("OpenVDB repair also failed for %s\n", gb->dp->d_namep);
 	    }
 	}
-#endif /* OPENVDB_ABI_VERSION_NUMBER */
+#endif /* BRLCAD_OPENVDB */
 
 	/* All repair paths failed. */
 	if (!mbot) {

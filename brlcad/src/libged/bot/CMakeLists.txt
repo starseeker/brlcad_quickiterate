@@ -10,13 +10,8 @@ set(BOT_LIBS ${BOT_LIBS} ${Geogram_LIBRARY})
 
 if(BRLCAD_ENABLE_OPENVDB)
   set(BOT_LIBS ${BOT_LIBS} ${OpenVDB_LIBRARIES} ${IlmBase_LIBRARIES} ${Tbb_LIBRARIES})
-  # disable warnings due to unquellable issues in Boost and IlmBase/half headers
-  set_property(SOURCE remesh.cpp bot_openvdb.cpp bot_flood_exterior.cpp APPEND PROPERTY COMPILE_FLAGS "${OpenVDB_DEFINITIONS} -w")
   set(BOT_LOCAL_INCLUDE_DIRS ${BOT_LOCAL_INCLUDE_DIRS} ${OpenVDB_INCLUDE_DIRS} ${Tbb_INCLUDE_DIRS} ${IlmBase_INCLUDE_DIRS})
-  list(APPEND BOT_SRCS bot_openvdb.cpp bot_flood_exterior.cpp)
   set(BOT_OPENVDB_DEFS HAVE_OPENVDB_BOT_EXTERIOR BRLCAD_OPENVDB)
-else(BRLCAD_ENABLE_OPENVDB)
-  cmakefiles(bot_openvdb.cpp bot_flood_exterior.cpp)
 endif(BRLCAD_ENABLE_OPENVDB)
 
 # TODO - investigate https://github.com/nissmar/VSA to see if it could be
@@ -52,6 +47,22 @@ set(
   smooth.cpp
   subdivide.cpp
 )
+
+if(BRLCAD_ENABLE_OPENVDB)
+  # disable warnings from OpenVDB/Boost headers and prevent the OpenVDB
+  # LeafManager UINT64_MAX sentinel from triggering the LTO
+  # -Werror=alloc-size-larger-than false positive.
+  set_source_files_properties(
+    ${CMAKE_CURRENT_SOURCE_DIR}/remesh.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/bot_openvdb.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/bot_flood_exterior.cpp
+    DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/..
+    PROPERTIES COMPILE_FLAGS "-w -fno-lto"
+  )
+  list(APPEND BOT_SRCS bot_openvdb.cpp bot_flood_exterior.cpp)
+else(BRLCAD_ENABLE_OPENVDB)
+  cmakefiles(bot_openvdb.cpp bot_flood_exterior.cpp)
+endif(BRLCAD_ENABLE_OPENVDB)
 
 set(
   BOT_LOCAL_INCLUDE_DIRS

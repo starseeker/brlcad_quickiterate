@@ -25,9 +25,9 @@
 
 #include "common.h"
 
-#ifdef OPENVDB_ABI_VERSION_NUMBER
+#ifdef BRLCAD_OPENVDB
 #  include "bot_openvdb.h"
-#endif /* OPENVDB_ABI_VERSION_NUMBER */
+#endif /* BRLCAD_OPENVDB */
 
 #include "manifold/manifold.h"
 
@@ -53,7 +53,7 @@
 #include "./ged_bot.h"
 
 
-#ifdef OPENVDB_ABI_VERSION_NUMBER
+#ifdef BRLCAD_OPENVDB
 
 static bool
 bot_remesh_vdb(struct ged *gedp, struct rt_bot_internal **obot,
@@ -93,7 +93,7 @@ bot_remesh_vdb(struct ged *gedp, struct rt_bot_internal **obot,
     return true;
 }
 
-#else /* OPENVDB_ABI_VERSION_NUMBER */
+#else /* BRLCAD_OPENVDB */
 
 static bool
 bot_remesh_vdb(struct ged *gedp, struct rt_bot_internal **UNUSED(obot),
@@ -107,7 +107,7 @@ bot_remesh_vdb(struct ged *gedp, struct rt_bot_internal **UNUSED(obot),
     return false;
 }
 
-#endif /* OPENVDB_ABI_VERSION_NUMBER */
+#endif /* BRLCAD_OPENVDB */
 
 static void
 geogram_to_manifold(manifold::MeshGL *gmm, GEO::Mesh &gm)
