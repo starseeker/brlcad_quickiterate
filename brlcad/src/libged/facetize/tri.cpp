@@ -1287,8 +1287,26 @@ _ged_facetize_booleval(struct _ged_facetize_state *s, int argc, struct directory
     if (_ged_facetize_working_file_setup(s, &leaf_dps) != BRLCAD_OK)
 	return BRLCAD_ERROR;
 
+    /* Keep perturb/no-perturb behavior independent of region mode:
+     * when enabled, always plan/tessellate coplanarity-avoidance variants
+     * for Manifold booleval paths (except explicit NMG booleval modes). */
+    if (s->variant_plan) {
+	delete (FacetizeVariantPlan *)s->variant_plan;
+	s->variant_plan = NULL;
+    }
+    if (!s->make_nmg && !s->nmg_booleval && !s->no_perturb) {
+	FacetizeVariantPlan *vplan = _ged_facetize_build_variant_plan(s, argc, dpa);
+	s->variant_plan = (void *)vplan;
+    }
+
     if (_ged_facetize_leaves_tri(s, dbip, &leaf_dps))
 	return BRLCAD_ERROR;
+
+    if (s->variant_plan) {
+	FacetizeVariantPlan *vplan = (FacetizeVariantPlan *)s->variant_plan;
+	if (!vplan->variant_names.empty())
+	    _ged_facetize_tessellate_variant_names(s, vplan);
+    }
 
     // Re-open working .g copy after BoTs have replaced CSG solids and perform
     // the tree walk to set up Manifold data.
@@ -1339,4 +1357,3 @@ _ged_facetize_booleval(struct _ged_facetize_state *s, int argc, struct directory
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-
