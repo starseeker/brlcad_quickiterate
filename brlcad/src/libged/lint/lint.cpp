@@ -72,7 +72,6 @@ lint_data::summary()
     std::vector<rt_entry> rt_facetize_failed;
     std::vector<rt_entry> rt_skips;
     std::vector<rt_entry> rt_ok;
-    int rt_n_ok = 0, rt_n_fail = 0, rt_n_skip = 0;
 
     for(nlohmann::json::const_iterator it = j.begin(); it != j.end(); ++it) {
 	const nlohmann::json &pdata = *it;
@@ -97,16 +96,12 @@ lint_data::summary()
 		e.vol_err_pct = pdata["vol_err_pct"].get<double>();
 
 	    if (ptype == std::string("raytrace_ok")) {
-		rt_n_ok++;
 		rt_ok.push_back(e);
 	    } else if (ptype == std::string("raytrace_mismatch")) {
-		rt_n_fail++;
 		rt_mismatches.push_back(e);
 	    } else if (ptype == std::string("raytrace_facetize_failed")) {
-		rt_n_skip++;
 		rt_facetize_failed.push_back(e);
 	    } else if (ptype == std::string("raytrace_skip")) {
-		rt_n_skip++;
 		rt_skips.push_back(e);
 	    }
 	    continue;
@@ -155,6 +150,9 @@ lint_data::summary()
     std::map<std::string, std::set<std::string>>::iterator c_it;
 
     /* ---- Raytrace results section ---- */
+    size_t rt_n_ok   = rt_ok.size();
+    size_t rt_n_fail = rt_mismatches.size();
+    size_t rt_n_skip = rt_skips.size() + rt_facetize_failed.size();
     if (rt_n_ok + rt_n_fail + rt_n_skip > 0) {
 	ostr.append(std::string("Raytrace validation: "));
 	ostr.append(std::to_string(rt_n_ok) + std::string(" passed, "));
