@@ -57,6 +57,10 @@
  *          a phantom face (HIT with LOS ≈ 0).  The perturb pass must produce
  *          a MISS matching the CSG result.  Verified by firing a +Z ray
  *          through the window centre with nirt_shoot().
+ *
+ *   TC6  - havoc r.wind9 geometry/ray pattern: exact ARB8 coordinates from
+ *          s.wind9 and s.wind9.i with a known CSG MISS ray from ae 35 25.
+ *          The perturb output must also MISS (no narrow-frame phantom hit).
  */
 
 #include "common.h"
@@ -977,6 +981,108 @@ tc5_near_coplanar_subTOL(const char *tmpdir, int verbose)
 }
 
 /* ------------------------------------------------------------------ */
+/* TC6: havoc r.wind9 pattern (CSG MISS must remain MISS after facetize) */
+/* ------------------------------------------------------------------ */
+static int
+tc6_havoc_wind9_pattern(const char *tmpdir, int verbose)
+{
+    bu_log("[regress_facetize] TC6: havoc r.wind9 pattern (known CSG MISS ray)...\n");
+
+    struct bu_vls gpath = BU_VLS_INIT_ZERO;
+    bu_vls_printf(&gpath, "%s/tc6_wind9.g", tmpdir);
+    const char *gfile = bu_vls_cstr(&gpath);
+    if (bu_file_exists(gfile, NULL)) bu_file_delete(gfile);
+
+    struct db_i *dbip = db_create(gfile, 5);
+    if (!dbip) {
+	bu_log("[regress_facetize] TC6: db_create failed\n");
+	bu_vls_free(&gpath);
+	return BRLCAD_ERROR;
+    }
+    db_update_nref(dbip, &rt_uniresource);
+    struct rt_wdb *wdbp = wdb_dbopen(dbip, RT_WDB_TYPE_DB_DEFAULT);
+
+    point_t outer_pts[8] = {
+	{1.357010546875e+04, 3.219987792969e+02, 2.359072021484e+03},
+	{1.356907617188e+04, 3.219987792969e+02, 2.351138427734e+03},
+	{1.356907617188e+04, -3.219985351562e+02, 2.351138427734e+03},
+	{1.357010546875e+04, -3.219985351562e+02, 2.359072021484e+03},
+	{1.357010546875e+04, 4.000000000000e+00, 2.456489501953e+03},
+	{1.356907617188e+04, 4.000000000000e+00, 2.446196533203e+03},
+	{1.356907617188e+04, -3.194160156250e+00, 2.446196533203e+03},
+	{1.357010546875e+04, -3.194160156250e+00, 2.456489501953e+03},
+    };
+
+    point_t inner_pts[8] = {
+	{1.356217187500e+04, 3.149787597656e+02, 2.360100341797e+03},
+	{1.356114257812e+04, 3.149787597656e+02, 2.352166748047e+03},
+	{1.356114257812e+04, -3.149785156250e+02, 2.352166748047e+03},
+	{1.356217187500e+04, -3.149785156250e+02, 2.360100341797e+03},
+	{1.356217187500e+04, 2.792968750000e+00, 2.453601989746e+03},
+	{1.356114257812e+04, 2.792968750000e+00, 2.443309082031e+03},
+	{1.356114257812e+04, -3.951904296875e+00, 2.443309082031e+03},
+	{1.356217187500e+04, -3.951904296875e+00, 2.453601989746e+03},
+    };
+
+    struct bu_list members;
+    BU_LIST_INIT(&members);
+    mk_addmember("wind9_outer.s", &members, NULL, WMOP_UNION);
+    mk_addmember("wind9_inner.s", &members, NULL, WMOP_SUBTRACT);
+
+    if (write_arb8(wdbp, "wind9_outer.s", outer_pts) < 0 ||
+	write_arb8(wdbp, "wind9_inner.s", inner_pts) < 0 ||
+	mk_comb(wdbp, "wind9.c", &members, 1 /* region */,
+		NULL, NULL, NULL, 1000, 0, 0, 0, 0, 0, 0) < 0) {
+	bu_log("[regress_facetize] TC6: write failed\n");
+	wdb_close(wdbp);
+	bu_vls_free(&gpath);
+	return BRLCAD_ERROR;
+    }
+    wdb_close(wdbp);
+
+    /* Ray from reported ae 35 25 nirt setup for r.wind9 (known CSG MISS). */
+    point_t origin = {1402.37, 58.45, 289.91};
+    vect_t  dir    = {-0.7424, -0.5198, -0.4226};
+
+    int hits_csg = nirt_shoot(gfile, "wind9.c", origin, dir);
+    if (hits_csg < 0) {
+	bu_log("[regress_facetize] TC6: FAIL - nirt_shoot setup error for CSG\n");
+	bu_vls_free(&gpath);
+	return BRLCAD_ERROR;
+    }
+    if (hits_csg > 0) {
+	bu_log("[regress_facetize] TC6: FAIL - CSG has %d hit(s), expected MISS\n", hits_csg);
+	bu_vls_free(&gpath);
+	return BRLCAD_ERROR;
+    }
+    bu_log("[regress_facetize] TC6: CSG correctly MISS\n");
+
+    if (run_facetize_r(gfile, "wind9.c", "wind9.bot.p", 0 /* perturb */, verbose) != BRLCAD_OK) {
+	bu_log("[regress_facetize] TC6: FAIL - facetize error\n");
+	bu_vls_free(&gpath);
+	return BRLCAD_ERROR;
+    }
+
+    int hits_bot = nirt_shoot(gfile, "wind9.bot.p", origin, dir);
+    if (hits_bot < 0) {
+	bu_log("[regress_facetize] TC6: FAIL - nirt_shoot setup error for perturb BoT\n");
+	bu_vls_free(&gpath);
+	return BRLCAD_ERROR;
+    }
+    if (hits_bot > 0) {
+	bu_log("[regress_facetize] TC6: FAIL - perturb BoT has %d phantom hit(s); expected MISS\n",
+	       hits_bot);
+	bu_vls_free(&gpath);
+	return BRLCAD_ERROR;
+    }
+
+    bu_log("[regress_facetize] TC6: perturb BoT correctly MISS\n");
+    bu_log("[regress_facetize] TC6: PASS\n");
+    bu_vls_free(&gpath);
+    return BRLCAD_OK;
+}
+
+/* ------------------------------------------------------------------ */
 /* main                                                                 */
 /* ------------------------------------------------------------------ */
 
@@ -1006,6 +1112,7 @@ return 1;
     if (tc3_rotated_wall(tmpdir, verbose)        != BRLCAD_OK) ret = 1;
     if (tc4_havoc_reuse(tmpdir, verbose)         != BRLCAD_OK) ret = 1;
     if (tc5_near_coplanar_subTOL(tmpdir, verbose) != BRLCAD_OK) ret = 1;
+    if (tc6_havoc_wind9_pattern(tmpdir, verbose) != BRLCAD_OK) ret = 1;
 
     if (ret == 0)
 bu_log("[regress_facetize] All tests PASSED\n");
