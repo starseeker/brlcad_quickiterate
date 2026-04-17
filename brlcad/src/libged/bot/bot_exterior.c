@@ -47,11 +47,10 @@ exterior_miss(struct application *UNUSED(app))
 
 struct exterior_probe {
     int face;
-    int found;
-    size_t crossings_before;
-    size_t crossings_seen;
+    int first_surf;
+    int last_surf;
+    int have_event;
     fastf_t last_dist;
-    int have_last;
 };
 
 struct exterior_ctx {
@@ -69,22 +68,15 @@ exterior_probe_hit(struct exterior_probe *probe, int surfno, fastf_t dist)
     if (dist < -BN_TOL_DIST)
 	return;
 
-    if (probe->have_last && NEAR_EQUAL(dist, probe->last_dist, BN_TOL_DIST)) {
-	if (!probe->found && surfno == probe->face) {
-	    probe->found = 1;
-	    probe->crossings_before = probe->crossings_seen;
-	}
+    if (probe->have_event && NEAR_EQUAL(dist, probe->last_dist, BN_TOL_DIST)) {
 	return;
     }
 
-    if (!probe->found && surfno == probe->face) {
-	probe->found = 1;
-	probe->crossings_before = probe->crossings_seen;
-    }
-
-    probe->crossings_seen++;
+    if (!probe->have_event)
+	probe->first_surf = surfno;
+    probe->last_surf = surfno;
+    probe->have_event = 1;
     probe->last_dist = dist;
-    probe->have_last = 1;
 }
 
 
@@ -104,12 +96,12 @@ exterior_hit(struct application *app, struct partition *PartHeadp, struct seg *U
 
 
 static int
-exterior_face_probe(struct application *app, int face, point_t fc, vect_t dir, size_t *crossings_before)
+exterior_face_probe(struct application *app, int face, point_t fc, const fastf_t *dir)
 {
     vect_t inv_dir;
     struct exterior_ctx *ectx = (struct exterior_ctx *)app->a_uptr;
 
-    if (!app || !crossings_before || !ectx)
+    if (!app || !ectx)
 	return 0;
 
     VMOVE(app->a_ray.r_pt, fc);
@@ -123,45 +115,19 @@ exterior_face_probe(struct application *app, int face, point_t fc, vect_t dir, s
     VJOIN1(app->a_ray.r_pt, app->a_ray.r_pt, app->a_ray.r_min - (10.0 * BN_TOL_DIST), app->a_ray.r_dir);
 
     ectx->probe.face = face;
-    ectx->probe.found = 0;
-    ectx->probe.crossings_before = 0;
-    ectx->probe.crossings_seen = 0;
+    ectx->probe.first_surf = -1;
+    ectx->probe.last_surf = -1;
+    ectx->probe.have_event = 0;
     ectx->probe.last_dist = 0.0;
-    ectx->probe.have_last = 0;
 
     rt_shootray(app);
-    if (!ectx->probe.found)
+    if (!ectx->probe.have_event)
 	return 0;
 
-    *crossings_before = ectx->probe.crossings_before;
-    return 1;
+    return (ectx->probe.first_surf == face || ectx->probe.last_surf == face) ? 1 : -1;
 }
 
 
-static int
-exterior_face_probe_pair(struct application *app, int face, point_t fc, const vect_t base_dir)
-{
-    vect_t fdir, rdir;
-    size_t crossings_f = 0;
-    size_t crossings_r = 0;
-
-    VMOVE(fdir, base_dir);
-    VREVERSE(rdir, fdir);
-
-    if (!exterior_face_probe(app, face, fc, fdir, &crossings_f))
-	return -1;
-    if (!exterior_face_probe(app, face, fc, rdir, &crossings_r))
-	return -1;
-
-    return ((crossings_f % 2) == 0 && (crossings_r % 2) == 0) ? 1 : 0;
-}
-
-
-/* determine whether a given face is exterior or not.
- * for each probe direction pair (+/-d), cast rays from outside the model
- * through the face center and count boundary crossings before the face hit.
- * exterior faces report even depth from both directions.
- */
 static int
 exterior_face(struct application *app, struct rt_bot_internal *bot, int face) {
     if (!app || !bot || face < 0)
@@ -189,14 +155,21 @@ exterior_face(struct application *app, struct rt_bot_internal *bot, int face) {
 
     static const vect_t dirs[] = {
 	{ 1.0, 2.0, 3.0 },
+	{ -1.0, -2.0, -3.0 },
 	{ 2.0, -3.0, 1.0 },
-	{ -3.0, -1.0, 2.0 }
+	{ -2.0, 3.0, -1.0 },
+	{ -3.0, -1.0, 2.0 },
+	{ 3.0, 1.0, -2.0 }
     };
     static const vect_t extra_dirs[] = {
 	{ 3.0, 1.0, 2.0 },
+	{ -3.0, -1.0, -2.0 },
 	{ -1.0, 3.0, 2.0 },
+	{ 1.0, -3.0, -2.0 },
 	{ 2.0, 3.0, -1.0 },
-	{ -2.0, 1.0, 3.0 }
+	{ -2.0, -3.0, 1.0 },
+	{ -2.0, 1.0, 3.0 },
+	{ 2.0, -1.0, -3.0 }
     };
 
     size_t kidx;
@@ -204,24 +177,20 @@ exterior_face(struct application *app, struct rt_bot_internal *bot, int face) {
     int interior_votes = 0;
 
     for (kidx = 0; kidx < sizeof(dirs)/sizeof(dirs[0]); kidx++) {
-	int r = exterior_face_probe_pair(app, face, fc, dirs[kidx]);
+	int r = exterior_face_probe(app, face, fc, dirs[kidx]);
 	if (r < 0)
-	    continue;
-	if (r)
-	    exterior_votes++;
-	else
 	    interior_votes++;
+	else if (r > 0)
+	    exterior_votes++;
     }
 
-    if (exterior_votes > 0 && interior_votes > 0) {
+    if (exterior_votes == 0 || (exterior_votes > 0 && interior_votes > 0)) {
 	for (kidx = 0; kidx < sizeof(extra_dirs)/sizeof(extra_dirs[0]); kidx++) {
-	    int r = exterior_face_probe_pair(app, face, fc, extra_dirs[kidx]);
+	    int r = exterior_face_probe(app, face, fc, extra_dirs[kidx]);
 	    if (r < 0)
-		continue;
-	    if (r)
-		exterior_votes++;
-	    else
 		interior_votes++;
+	    else if (r > 0)
+		exterior_votes++;
 	}
     }
 
