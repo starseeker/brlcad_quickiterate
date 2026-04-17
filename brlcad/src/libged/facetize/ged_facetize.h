@@ -53,6 +53,7 @@ struct _ged_facetize_state {
     int make_nmg;
     int nonovlp_brep;
     int no_fixup;
+    int no_perturb;
 
     char *wdir;
     struct bu_vls *wfile;
