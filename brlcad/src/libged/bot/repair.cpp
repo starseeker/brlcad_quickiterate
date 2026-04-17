@@ -190,7 +190,7 @@ _bot_cmd_repair(void *bs, int argc, const char **argv)
     struct rt_bot_repair_info settings = RT_BOT_REPAIR_INFO_INIT;
     struct bu_vls obot_name = BU_VLS_INIT_ZERO;
 
-    struct bu_opt_desc d[8];
+    struct bu_opt_desc d[7];
     BU_OPT(d[0], "h",  "help",                  "",             NULL,                     &print_help,  "Print help");
     BU_OPT(d[1], "p",  "max-hole-percent",      "#",   bu_opt_fastf_t, &settings.max_hole_area_percent,  "Maximum hole area to repair (percentage of mesh surface area, range 0-100.) 0 and 100 mean always attempt filling operations. Overridden by -a option.");
     BU_OPT(d[2], "a",  "max-hole-area",        " #",   bu_opt_fastf_t,         &settings.max_hole_area,  "Maximum hole area to repair in mm (Hard upper limit regardless of mesh size, overrides -p option.)");
