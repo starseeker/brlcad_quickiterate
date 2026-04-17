@@ -36,7 +36,11 @@
 
 #include "../ged_private.h"
 
-/* Push probe starts outside the entry point by a small tolerance multiple. */
+/*
+ * Push probe starts outside the entry point by a small tolerance multiple.
+ * 10x BN_TOL_DIST is enough to move past near-surface numeric jitter while
+ * remaining negligible relative to model scale.
+ */
 #define EXTERIOR_RAY_OFFSET_FACTOR 10.0
 
 
@@ -65,9 +69,7 @@ struct exterior_ctx {
 static void
 exterior_probe_hit(struct exterior_probe *probe, int surfno, fastf_t dist)
 {
-    if (!probe)
-	return;
-
+    /* ignore behind-origin noise from tolerance jitter */
     if (dist < -BN_TOL_DIST)
 	return;
 
@@ -112,8 +114,16 @@ exterior_face_probe(struct application *app, int face, point_t fc, const fastf_t
     VUNITIZE(app->a_ray.r_dir);
 
     VINVDIR(inv_dir, app->a_ray.r_dir);
-    if (!rt_in_rpp(&app->a_ray, inv_dir, app->a_rt_i->mdl_min, app->a_rt_i->mdl_max))
+    if (!rt_in_rpp(&app->a_ray, inv_dir, app->a_rt_i->mdl_min, app->a_rt_i->mdl_max)) {
+	static size_t msgs = 0;
+	if (msgs < 100) {
+	    bu_log("bot_exterior: probe ray does not intersect model bounds\n");
+	    msgs++;
+	    if (msgs == 100)
+		bu_log("bot_exterior: further probe bound-miss messages suppressed\n");
+	}
 	return 0;
+    }
 
     /* start slightly before the entry distance so the probe originates outside */
     fastf_t offset_dist = app->a_ray.r_min - (EXTERIOR_RAY_OFFSET_FACTOR * BN_TOL_DIST);
@@ -129,6 +139,7 @@ exterior_face_probe(struct application *app, int face, point_t fc, const fastf_t
     if (!ectx->probe.have_event)
 	return 0;
 
+    /* 1=exterior hit (first/last), -1=interior hit, 0=inconclusive */
     return (ectx->probe.first_surf == face || ectx->probe.last_surf == face) ? 1 : -1;
 }
 
@@ -158,7 +169,10 @@ exterior_face(struct application *app, struct rt_bot_internal *bot, int face) {
     VADD3(fc, p1, p2, p3);
     VSCALE(fc, fc, 1.0/3.0);
 
-    /* Rotated, non-axis-aligned probes to reduce axis-locking artifacts. */
+    /*
+     * Rotated, non-axis-aligned probes sampling opposite octants to reduce
+     * axis-locking artifacts and improve chances of clear first/last events.
+     */
     static const vect_t dirs[] = {
 	{ 1.0, 2.0, 3.0 },
 	{ -1.0, -2.0, -3.0 },
@@ -191,6 +205,7 @@ exterior_face(struct application *app, struct rt_bot_internal *bot, int face) {
 	    exterior_votes++;
     }
 
+    /* ties are uncertain: gather extra samples before final majority vote */
     if (exterior_votes <= interior_votes) {
 	for (kidx = 0; kidx < sizeof(extra_dirs)/sizeof(extra_dirs[0]); kidx++) {
 	    int r = exterior_face_probe(app, face, fc, extra_dirs[kidx]);
