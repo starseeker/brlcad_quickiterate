@@ -36,6 +36,7 @@
 
 #include "../ged_private.h"
 
+/* Push probe starts outside the entry point by a small tolerance multiple. */
 #define EXTERIOR_RAY_OFFSET_FACTOR 10.0
 
 
@@ -190,7 +191,7 @@ exterior_face(struct application *app, struct rt_bot_internal *bot, int face) {
 	    exterior_votes++;
     }
 
-    if (exterior_votes == 0 || interior_votes >= exterior_votes) {
+    if (exterior_votes <= interior_votes) {
 	for (kidx = 0; kidx < sizeof(extra_dirs)/sizeof(extra_dirs[0]); kidx++) {
 	    int r = exterior_face_probe(app, face, fc, extra_dirs[kidx]);
 	    if (r < 0)
