@@ -201,9 +201,27 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 
     // We need all the solids converted
     if (!s->make_nmg && !s->nmg_booleval) {
+	/* Instance-aware adjust planning pass: walk the full source tree to
+	 * find every leaf that appears in both union and subtract roles, create
+	 * perturbed CSG copies in the working .g *before* tessellation so that
+	 * the adjusted variants are triangulated from their original CSG
+	 * parameter definitions.  The plan is stored on the state so that
+	 * _booltree_leaf_tess can substitute the correct variant BoT during
+	 * each per-region booleval.
+	 * Skip when --no-perturb is set. */
+	if (!s->no_perturb) {
+	    FacetizeVariantPlan *vplan =
+		_ged_facetize_build_variant_plan(s, argc, dpa);
+	    s->variant_plan = (void *)vplan;
+	}
+
 	if (_ged_facetize_leaves_tri(s, dbip, as)) {
 	    if (s->verbosity >= 0) {
 		bu_log("regions.cpp:%d Failed to tessellate all solids - aborting.\n", __LINE__);
+	    }
+	    if (s->variant_plan) {
+		delete (FacetizeVariantPlan *)s->variant_plan;
+		s->variant_plan = NULL;
 	    }
 	    bu_ptbl_free(as);
 	    bu_free(as, "as table");
@@ -211,6 +229,15 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 	    bu_free(ar, "ar table");
 	    bu_free(dpa, "free dpa");
 	    return BRLCAD_ERROR;
+	}
+
+	/* Tessellate the perturbed CSG variants into BoTs.  Must run after the
+	 * main leaves pass so the backup/restore cycle in tess_run does not
+	 * interfere with the already-converted BoTs. */
+	if (s->variant_plan) {
+	    FacetizeVariantPlan *vplan = (FacetizeVariantPlan *)s->variant_plan;
+	    if (!vplan->variant_names.empty())
+		_ged_facetize_tessellate_variant_names(s, vplan);
 	}
     }
 
@@ -336,6 +363,10 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 	if (bret != BRLCAD_OK) {
 	    if (s->verbosity >= 0)
 		bu_log("regions.cpp:%d Failed to generate %s.\n", __LINE__, bu_vls_cstr(&bname));
+	    if (s->variant_plan) {
+		delete (FacetizeVariantPlan *)s->variant_plan;
+		s->variant_plan = NULL;
+	    }
 	    bu_ptbl_free(ar);
 	    bu_free(ar, "ar table");
 	    bu_vls_free(&bname);
@@ -381,6 +412,10 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
     if (!wgedp) {
 	if (s->verbosity >= 0) {
 	    bu_log("regions.cpp:%d unable to retrieve working data - FAIL\n", __LINE__);
+	}
+	if (s->variant_plan) {
+	    delete (FacetizeVariantPlan *)s->variant_plan;
+	    s->variant_plan = NULL;
 	}
     	bu_ptbl_free(ar);
 	bu_free(ar, "ar table");
@@ -498,6 +533,21 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 
     /* Done importing stuff - update nref. */
     db_update_nref(dbip, &rt_uniresource);
+
+    /* Print variant-plan summary and clean up (Manifold path only). */
+    if (s->variant_plan) {
+	FacetizeVariantPlan *vp = (FacetizeVariantPlan *)s->variant_plan;
+	if (vp->n_adjusted_instances > 0) {
+	    bu_log("FACETIZE: variant summary: %d adjusted instance(s) "
+		   "(%d subtractive), %d fallback(s), %d tess failure(s)\n",
+		   vp->n_adjusted_instances,
+		   vp->n_sub_variants,
+		   vp->n_perturb_fallbacks,
+		   vp->n_variant_tess_failures);
+	}
+	delete vp;
+	s->variant_plan = NULL;
+    }
 
     bu_ptbl_free(ar);
     bu_free(ar, "ar table");

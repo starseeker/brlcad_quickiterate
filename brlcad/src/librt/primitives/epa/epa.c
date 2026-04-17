@@ -2282,6 +2282,60 @@ epa_kpt_end:
 }
 
 
+int
+rt_epa_perturb(struct rt_db_internal **oip, const struct rt_db_internal *ip, int planar_only, fastf_t val)
+{
+    if (NEAR_ZERO(val, SMALL_FASTF))
+	return BRLCAD_OK;
+
+    if (!oip || !ip)
+	return BRLCAD_ERROR;
+
+    struct rt_epa_internal *oepa = (struct rt_epa_internal *)ip->idb_ptr;
+    RT_EPA_CK_MAGIC(oepa);
+
+    struct rt_db_internal *nip;
+    BU_GET(nip, struct rt_db_internal);
+    RT_DB_INTERNAL_INIT(nip);
+    nip->idb_major_type = DB5_MAJORTYPE_BRLCAD;
+    nip->idb_type = ID_EPA;
+    nip->idb_meth = &OBJ[ID_EPA];
+    struct rt_epa_internal *epa = NULL;
+    BU_ALLOC(epa, struct rt_epa_internal);
+    nip->idb_ptr = epa;
+    epa->epa_magic = RT_EPA_INTERNAL_MAGIC;
+    VMOVE(epa->epa_V, oepa->epa_V);
+    VMOVE(epa->epa_H, oepa->epa_H);
+    VMOVE(epa->epa_Au, oepa->epa_Au);
+    epa->epa_r1 = oepa->epa_r1;
+    epa->epa_r2 = oepa->epa_r2;
+
+    /* Extend H to push the flat elliptic base away; also move V back so the
+     * apex shifts symmetrically outward along the axis. */
+    vect_t hvec, hback;
+    VMOVE(hvec, epa->epa_H);
+    VUNITIZE(hvec);
+    VREVERSE(hback, hvec);
+    VSCALE(hback, hback, val);
+    VADD2(epa->epa_V, epa->epa_V, hback);
+    vect_t hext;
+    VSCALE(hext, hvec, 2.0 * val);
+    VADD2(epa->epa_H, epa->epa_H, hext);
+
+    if (planar_only) {
+	*oip = nip;
+	return BRLCAD_OK;
+    }
+
+    /* Also expand the base radii. */
+    epa->epa_r1 += val;
+    epa->epa_r2 += val;
+
+    *oip = nip;
+    return BRLCAD_OK;
+}
+
+
 /** @} */
 /*
  * Local Variables:

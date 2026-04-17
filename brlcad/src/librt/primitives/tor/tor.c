@@ -2105,6 +2105,46 @@ tor_kpt_end:
 }
 
 
+/**
+ * Perturb a torus by expanding both the major radius @a r_a and the minor
+ * radius @a r_h by @a val.  This moves all surface points uniformly outward,
+ * breaking exact coplanarity with adjacent solids.  @a planar_only is ignored
+ * because a torus has no planar faces.
+ */
+int
+rt_tor_perturb(struct rt_db_internal **oip, const struct rt_db_internal *ip,
+	       int UNUSED(planar_only), fastf_t val)
+{
+    if (NEAR_ZERO(val, SMALL_FASTF))
+	return BRLCAD_OK;
+
+    if (!oip || !ip)
+	return BRLCAD_ERROR;
+
+    struct rt_tor_internal *otor = (struct rt_tor_internal *)ip->idb_ptr;
+    RT_TOR_CK_MAGIC(otor);
+
+    struct rt_db_internal *nip;
+    BU_GET(nip, struct rt_db_internal);
+    RT_DB_INTERNAL_INIT(nip);
+    nip->idb_major_type = DB5_MAJORTYPE_BRLCAD;
+    nip->idb_type = ID_TOR;
+    nip->idb_meth = &OBJ[ID_TOR];
+
+    struct rt_tor_internal *tor = NULL;
+    BU_ALLOC(tor, struct rt_tor_internal);
+    nip->idb_ptr = tor;
+    tor->magic = RT_TOR_INTERNAL_MAGIC;
+    VMOVE(tor->v, otor->v);
+    VMOVE(tor->h, otor->h);
+    tor->r_a = otor->r_a + val;
+    tor->r_h = otor->r_h + val;
+
+    *oip = nip;
+    return BRLCAD_OK;
+}
+
+
 /*
  * Local Variables:
  * mode: C

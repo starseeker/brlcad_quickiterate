@@ -2442,6 +2442,60 @@ ehy_kpt_end:
     return k;
 }
 
+int
+rt_ehy_perturb(struct rt_db_internal **oip, const struct rt_db_internal *ip, int planar_only, fastf_t val)
+{
+    if (NEAR_ZERO(val, SMALL_FASTF))
+	return BRLCAD_OK;
+
+    if (!oip || !ip)
+	return BRLCAD_ERROR;
+
+    struct rt_ehy_internal *oehy = (struct rt_ehy_internal *)ip->idb_ptr;
+    RT_EHY_CK_MAGIC(oehy);
+
+    struct rt_db_internal *nip;
+    BU_GET(nip, struct rt_db_internal);
+    RT_DB_INTERNAL_INIT(nip);
+    nip->idb_major_type = DB5_MAJORTYPE_BRLCAD;
+    nip->idb_type = ID_EHY;
+    nip->idb_meth = &OBJ[ID_EHY];
+    struct rt_ehy_internal *ehy = NULL;
+    BU_ALLOC(ehy, struct rt_ehy_internal);
+    nip->idb_ptr = ehy;
+    ehy->ehy_magic = RT_EHY_INTERNAL_MAGIC;
+    VMOVE(ehy->ehy_V, oehy->ehy_V);
+    VMOVE(ehy->ehy_H, oehy->ehy_H);
+    VMOVE(ehy->ehy_Au, oehy->ehy_Au);
+    ehy->ehy_r1 = oehy->ehy_r1;
+    ehy->ehy_r2 = oehy->ehy_r2;
+    ehy->ehy_c  = oehy->ehy_c;
+
+    /* Extend H (and move V back) to push the flat elliptic ends apart. */
+    vect_t hvec, hback;
+    VMOVE(hvec, ehy->ehy_H);
+    VUNITIZE(hvec);
+    VREVERSE(hback, hvec);
+    VSCALE(hback, hback, val);
+    VADD2(ehy->ehy_V, ehy->ehy_V, hback);
+    vect_t hext;
+    VSCALE(hext, hvec, 2.0 * val);
+    VADD2(ehy->ehy_H, ehy->ehy_H, hext);
+
+    if (planar_only) {
+	*oip = nip;
+	return BRLCAD_OK;
+    }
+
+    /* Also expand the base radii and asymptote distance. */
+    ehy->ehy_r1 += val;
+    ehy->ehy_r2 += val;
+    ehy->ehy_c  += val;
+
+    *oip = nip;
+    return BRLCAD_OK;
+}
+
 /** @} */
 /*
  * Local Variables:

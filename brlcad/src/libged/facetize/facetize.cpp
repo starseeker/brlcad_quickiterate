@@ -125,6 +125,8 @@ _ged_facetize_state_create()
 
     s->gedp = NULL;
 
+    s->variant_plan = NULL;
+
     return s;
 }
 void _ged_facetize_state_destroy(struct _ged_facetize_state *s)
@@ -168,6 +170,11 @@ void _ged_facetize_state_destroy(struct _ged_facetize_state *s)
     if (s->solid_suffix) {
 	bu_vls_free(s->solid_suffix);
 	BU_PUT(s->solid_suffix, struct bu_vls);
+    }
+
+    if (s->variant_plan) {
+	delete (FacetizeVariantPlan *)s->variant_plan;
+	s->variant_plan = NULL;
     }
 
     BU_PUT(s, struct _ged_facetize_state);
@@ -259,7 +266,7 @@ ged_facetize_core(struct ged *gedp, int argc, const char *argv[])
     s->method_opts = method_options;
 
     /* General options */
-    struct bu_opt_desc d[20];
+    struct bu_opt_desc d[21];
     BU_OPT(d[ 0], "h", "help",                                      "",                  NULL,           &print_help, "Print help and exit");
     BU_OPT(d[ 1], "v", "verbose",                                   "",            &_ged_vopt,       &(s->verbosity), "Verbose output (multiple flags increase verbosity)");
     BU_OPT(d[ 2], "q", "quiet",                                     "",                  NULL,                &quiet, "Suppress all output (overrides verbose flag)");
@@ -277,9 +284,10 @@ ged_facetize_core(struct ged *gedp, int argc, const char *argv[])
     BU_OPT(d[14],  "", "log-file",                        "<filename>",           &bu_opt_vls,           s->log_file, "Specify a location to use for the log file.");
     BU_OPT(d[15],  "", "nmg-booleval",                               "",                  NULL,       &s->nmg_booleval, "Use libnmg Boolean evaluation algorithm, even if we're producing a BoT.  Less robust, but if it succeeds it may produce cleaner output for coplanar inputs.");
     BU_OPT(d[16],  "", "disable-fixup",                             "",                  NULL,          &s->no_fixup, "Disable post-processing steps intended to improve generated meshes.");
-    BU_OPT(d[17], "B", "",                                          "",                  NULL,      &s->nonovlp_brep, "EXPERIMENTAL: non-overlapping facetization to BoT objects of union-only brep comb tree.");
-    BU_OPT(d[18], "t", "threshold",                                "#",       &bu_opt_fastf_t, &s->nonovlp_threshold, "EXPERIMENTAL: max ovlp threshold length for -B mode.");
-    BU_OPT_NULL(d[19]);
+    BU_OPT(d[17],  "", "no-perturb",                                "",                  NULL,       &s->no_perturb, "Disable the coplanarity-avoidance perturbation step (variant plan).");
+    BU_OPT(d[18], "B", "",                                          "",                  NULL,      &s->nonovlp_brep, "EXPERIMENTAL: non-overlapping facetization to BoT objects of union-only brep comb tree.");
+    BU_OPT(d[19], "t", "threshold",                                "#",       &bu_opt_fastf_t, &s->nonovlp_threshold, "EXPERIMENTAL: max ovlp threshold length for -B mode.");
+    BU_OPT_NULL(d[20]);
 
     GED_CHECK_DATABASE_OPEN(gedp, BRLCAD_ERROR);
     GED_CHECK_READ_ONLY(gedp, BRLCAD_ERROR);

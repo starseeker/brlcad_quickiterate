@@ -2177,6 +2177,49 @@ eto_kpt_end:
 }
 
 
+int
+rt_eto_perturb(struct rt_db_internal **oip, const struct rt_db_internal *ip, int UNUSED(planar_only), fastf_t val)
+{
+    if (NEAR_ZERO(val, SMALL_FASTF))
+	return BRLCAD_OK;
+
+    if (!oip || !ip)
+	return BRLCAD_ERROR;
+
+    struct rt_eto_internal *oeto = (struct rt_eto_internal *)ip->idb_ptr;
+    RT_ETO_CK_MAGIC(oeto);
+
+    struct rt_db_internal *nip;
+    BU_GET(nip, struct rt_db_internal);
+    RT_DB_INTERNAL_INIT(nip);
+    nip->idb_major_type = DB5_MAJORTYPE_BRLCAD;
+    nip->idb_type = ID_ETO;
+    nip->idb_meth = &OBJ[ID_ETO];
+    struct rt_eto_internal *eto = NULL;
+    BU_ALLOC(eto, struct rt_eto_internal);
+    nip->idb_ptr = eto;
+    eto->eto_magic = RT_ETO_INTERNAL_MAGIC;
+    VMOVE(eto->eto_V, oeto->eto_V);
+    VMOVE(eto->eto_N, oeto->eto_N);
+    VMOVE(eto->eto_C, oeto->eto_C);
+    eto->eto_r  = oeto->eto_r;
+    eto->eto_rd = oeto->eto_rd;
+
+    /* Expand the revolution radius and the elliptical cross-section.  There
+     * are no planar faces, so planar_only is ignored. */
+    eto->eto_r  += val;
+    eto->eto_rd += val;
+    vect_t cvec;
+    VMOVE(cvec, eto->eto_C);
+    VUNITIZE(cvec);
+    VSCALE(cvec, cvec, val);
+    VADD2(eto->eto_C, eto->eto_C, cvec);
+
+    *oip = nip;
+    return BRLCAD_OK;
+}
+
+
 /** @} */
 /*
  * Local Variables:
