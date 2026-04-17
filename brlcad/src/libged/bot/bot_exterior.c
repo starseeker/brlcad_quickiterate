@@ -130,8 +130,8 @@ exterior_face_probe(struct application *app, int face, point_t fc, const fastf_t
      * r_min may be <= 0 when fc is inside bounds; subtracting tolerance still
      * moves the origin farther opposite ray direction, which is what we want.
      */
-    fastf_t offset_dist = app->a_ray.r_min - (EXTERIOR_RAY_OFFSET_FACTOR * BN_TOL_DIST);
-    VJOIN1(app->a_ray.r_pt, app->a_ray.r_pt, offset_dist, app->a_ray.r_dir);
+    fastf_t ray_origin_offset = app->a_ray.r_min - (EXTERIOR_RAY_OFFSET_FACTOR * BN_TOL_DIST);
+    VJOIN1(app->a_ray.r_pt, app->a_ray.r_pt, ray_origin_offset, app->a_ray.r_dir);
 
     ectx->probe.face = face;
     ectx->probe.first_surf = -1;
@@ -174,9 +174,8 @@ exterior_face(struct application *app, struct rt_bot_internal *bot, int face) {
     VSCALE(fc, fc, 1.0/3.0);
 
     /*
-     * Rotated, non-axis-aligned probes sampling opposite octants using
-     * 1-2-3 permutations/sign flips to reduce axis-locking artifacts and
-     * improve chances of clear first/last events.
+     * Rotated non-axis-aligned probes (1-2-3 permutations/sign flips) give
+     * broad octant coverage while avoiding axis/edge/vertex alignment bias.
      */
     static const vect_t dirs[] = {
 	{ 1.0, 2.0, 3.0 },
@@ -198,12 +197,12 @@ exterior_face(struct application *app, struct rt_bot_internal *bot, int face) {
 	{ 2.0, -1.0, -3.0 }
     };
 
-    size_t kidx;
+    size_t probe_idx;
     int exterior_votes = 0;
     int interior_votes = 0;
 
-    for (kidx = 0; kidx < sizeof(dirs)/sizeof(dirs[0]); kidx++) {
-	int r = exterior_face_probe(app, face, fc, dirs[kidx]);
+    for (probe_idx = 0; probe_idx < sizeof(dirs)/sizeof(dirs[0]); probe_idx++) {
+	int r = exterior_face_probe(app, face, fc, dirs[probe_idx]);
 	if (r < 0)
 	    interior_votes++;
 	else if (r > 0)
@@ -212,8 +211,8 @@ exterior_face(struct application *app, struct rt_bot_internal *bot, int face) {
 
     /* ties are uncertain: gather extra samples before final majority vote */
     if (exterior_votes == interior_votes) {
-	for (kidx = 0; kidx < sizeof(extra_dirs)/sizeof(extra_dirs[0]); kidx++) {
-	    int r = exterior_face_probe(app, face, fc, extra_dirs[kidx]);
+	for (probe_idx = 0; probe_idx < sizeof(extra_dirs)/sizeof(extra_dirs[0]); probe_idx++) {
+	    int r = exterior_face_probe(app, face, fc, extra_dirs[probe_idx]);
 	    if (r < 0)
 		interior_votes++;
 	    else if (r > 0)
