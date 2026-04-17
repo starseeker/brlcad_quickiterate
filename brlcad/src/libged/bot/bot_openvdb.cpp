@@ -127,6 +127,13 @@ bot_to_sdf(struct rt_bot_internal *bot, double voxel_size)
 
 /* -----------------------------------------------------------------------
  * sdf_to_bot
+ *
+ * Uses the class-based VolumeToMesh (rather than the volumeToMesh free
+ * function) so that relaxDisorientedTriangles=true is in effect.  That
+ * flag lets the mesher flip locally mis-oriented triangles at concave
+ * surface pockets, giving marginally cleaner output at essentially zero
+ * extra cost.  The output is otherwise identical to the free function at
+ * the same isovalue/adaptivity settings.
  * ---------------------------------------------------------------------- */
 struct rt_bot_internal *
 sdf_to_bot(openvdb::FloatGrid::Ptr grid, double adaptivity)
@@ -137,38 +144,45 @@ sdf_to_bot(openvdb::FloatGrid::Ptr grid, double adaptivity)
     if (adaptivity < 0.0) adaptivity = 0.0;
     if (adaptivity > 1.0) adaptivity = 1.0;
 
-    std::vector<openvdb::Vec3s> points;
-    std::vector<openvdb::Vec3I> triangles;
-    std::vector<openvdb::Vec4I> quads;
+    openvdb::tools::VolumeToMesh mesher(/*isovalue=*/0.0, adaptivity,
+					/*relaxDisorientedTriangles=*/true);
+    mesher(*grid);
 
-    openvdb::tools::volumeToMesh(*grid, points, triangles, quads,
-				 /*isoValue=*/0.0, adaptivity);
+    size_t n_points = mesher.pointListSize();
+    size_t n_pools  = mesher.polygonPoolListSize();
 
-    if (points.empty())
+    if (n_points == 0 || n_pools == 0)
 	return NULL;
 
-    /* Each quad is split into two triangles. */
-    size_t n_tris = triangles.size() + quads.size() * 2;
+    const openvdb::tools::PointList       &points = mesher.pointList();
+    const openvdb::tools::PolygonPoolList &pools  = mesher.polygonPoolList();
+
+    /* Count total faces across all polygon pools.
+     * Each quad is split into two triangles. */
+    size_t n_tris = 0;
+    for (size_t p = 0; p < n_pools; p++)
+	n_tris += pools[p].numTriangles() + pools[p].numQuads() * 2;
+
     if (n_tris == 0)
 	return NULL;
 
     struct rt_bot_internal *obot;
     BU_GET(obot, struct rt_bot_internal);
-    obot->magic       = RT_BOT_INTERNAL_MAGIC;
-    obot->mode        = RT_BOT_SOLID;
-    obot->orientation = RT_BOT_CCW;
-    obot->thickness   = NULL;
-    obot->face_mode   = (struct bu_bitv *)NULL;
-    obot->bot_flags   = 0;
-    obot->normals     = NULL;
+    obot->magic        = RT_BOT_INTERNAL_MAGIC;
+    obot->mode         = RT_BOT_SOLID;
+    obot->orientation  = RT_BOT_CCW;
+    obot->thickness    = NULL;
+    obot->face_mode    = (struct bu_bitv *)NULL;
+    obot->bot_flags    = 0;
+    obot->normals      = NULL;
     obot->face_normals = NULL;
-    obot->num_normals = 0;
+    obot->num_normals  = 0;
     obot->num_face_normals = 0;
 
-    obot->num_vertices = points.size();
-    obot->vertices = (fastf_t *)bu_malloc(obot->num_vertices * 3 * sizeof(fastf_t),
+    obot->num_vertices = n_points;
+    obot->vertices = (fastf_t *)bu_malloc(n_points * 3 * sizeof(fastf_t),
 					  "sdf_to_bot vertices");
-    for (size_t i = 0; i < points.size(); i++) {
+    for (size_t i = 0; i < n_points; i++) {
 	obot->vertices[i * 3 + X] = points[i].x();
 	obot->vertices[i * 3 + Y] = points[i].y();
 	obot->vertices[i * 3 + Z] = points[i].z();
@@ -177,27 +191,31 @@ sdf_to_bot(openvdb::FloatGrid::Ptr grid, double adaptivity)
     obot->num_faces = n_tris;
     obot->faces = (int *)bu_malloc(n_tris * 3 * sizeof(int), "sdf_to_bot faces");
 
-    /* Copy triangles directly. */
-    for (size_t i = 0; i < triangles.size(); i++) {
-	obot->faces[i * 3 + X] = triangles[i].x();
-	obot->faces[i * 3 + Y] = triangles[i].y();
-	obot->faces[i * 3 + Z] = triangles[i].z();
-    }
+    /* Walk each polygon pool, emitting triangles then splitting quads. */
+    size_t fidx = 0;
+    for (size_t p = 0; p < n_pools; p++) {
+	const openvdb::tools::PolygonPool &pool = pools[p];
 
-    /* Split each quad into two triangles.
-     * The fan is: (q[0],q[1],q[2]) and (q[0],q[2],q[3]).
-     * Use i*2 offsets (not i and i+1) to avoid the off-by-one bug
-     * where every second quad overwrites the previous triangle. */
-    size_t ntri = triangles.size();
-    for (size_t i = 0; i < quads.size(); i++) {
-	size_t base = ntri + i * 2;
-	obot->faces[base * 3 + X] = quads[i][0];
-	obot->faces[base * 3 + Y] = quads[i][1];
-	obot->faces[base * 3 + Z] = quads[i][2];
+	for (size_t i = 0; i < pool.numTriangles(); i++) {
+	    const openvdb::Vec3I &tri = pool.triangle(i);
+	    obot->faces[fidx * 3 + X] = tri.x();
+	    obot->faces[fidx * 3 + Y] = tri.y();
+	    obot->faces[fidx * 3 + Z] = tri.z();
+	    fidx++;
+	}
 
-	obot->faces[(base + 1) * 3 + X] = quads[i][0];
-	obot->faces[(base + 1) * 3 + Y] = quads[i][2];
-	obot->faces[(base + 1) * 3 + Z] = quads[i][3];
+	/* Split each quad into two triangles: (q0,q1,q2) and (q0,q2,q3). */
+	for (size_t i = 0; i < pool.numQuads(); i++) {
+	    const openvdb::Vec4I &q = pool.quad(i);
+	    obot->faces[fidx * 3 + X] = q[0];
+	    obot->faces[fidx * 3 + Y] = q[1];
+	    obot->faces[fidx * 3 + Z] = q[2];
+	    fidx++;
+	    obot->faces[fidx * 3 + X] = q[0];
+	    obot->faces[fidx * 3 + Y] = q[2];
+	    obot->faces[fidx * 3 + Z] = q[3];
+	    fidx++;
+	}
     }
 
     return obot;
