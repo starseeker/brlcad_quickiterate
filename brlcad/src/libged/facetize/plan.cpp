@@ -231,6 +231,7 @@ plan_walk_dp(PlanWalkCtx *ctx, struct directory *dp, bool in_sub)
 static fastf_t
 variant_abs_tess_floor(fastf_t bbox_diag)
 {
+	/* Default primitive abs tess floor for non-micro geometry (mm). */
 	fastf_t min_dtol = 0.05;
 	const char *env = getenv("RT_PRIM_MIN_ABS_TOL");
 	if (env) {
@@ -240,6 +241,7 @@ variant_abs_tess_floor(fastf_t bbox_diag)
 			min_dtol = (fastf_t)val;
 	}
 
+	/* Micro-geometry uses a 1% of bbox-diagonal floor when diag < 1 mm. */
 	if (bbox_diag > SMALL_FASTF && bbox_diag < 1.0)
 		min_dtol = bbox_diag * 0.01;
 
@@ -339,6 +341,7 @@ create_variant_in_working_g(struct db_i       *wdbip,
 	}
 
 	point_t bmin, bmax;
+	/* If bounds fail, keep -1 and fall back to the non-micro/default floor. */
 	fastf_t bbox_diag = -1.0;
 	if (rt_bound_internal(wdbip, src_dp, bmin, bmax) == 0)
 		bbox_diag = DIST_PNT_PNT(bmin, bmax);
