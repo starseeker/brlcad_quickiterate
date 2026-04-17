@@ -125,7 +125,11 @@ exterior_face_probe(struct application *app, int face, point_t fc, const fastf_t
 	return 0;
     }
 
-    /* start slightly before the entry distance so the probe originates outside */
+    /*
+     * start slightly before the entry distance so the probe originates outside.
+     * r_min may be <= 0 when fc is inside bounds; subtracting tolerance still
+     * moves the origin farther opposite ray direction, which is what we want.
+     */
     fastf_t offset_dist = app->a_ray.r_min - (EXTERIOR_RAY_OFFSET_FACTOR * BN_TOL_DIST);
     VJOIN1(app->a_ray.r_pt, app->a_ray.r_pt, offset_dist, app->a_ray.r_dir);
 
@@ -170,8 +174,9 @@ exterior_face(struct application *app, struct rt_bot_internal *bot, int face) {
     VSCALE(fc, fc, 1.0/3.0);
 
     /*
-     * Rotated, non-axis-aligned probes sampling opposite octants to reduce
-     * axis-locking artifacts and improve chances of clear first/last events.
+     * Rotated, non-axis-aligned probes sampling opposite octants using
+     * 1-2-3 permutations/sign flips to reduce axis-locking artifacts and
+     * improve chances of clear first/last events.
      */
     static const vect_t dirs[] = {
 	{ 1.0, 2.0, 3.0 },
@@ -206,7 +211,7 @@ exterior_face(struct application *app, struct rt_bot_internal *bot, int face) {
     }
 
     /* ties are uncertain: gather extra samples before final majority vote */
-    if (exterior_votes <= interior_votes) {
+    if (exterior_votes == interior_votes) {
 	for (kidx = 0; kidx < sizeof(extra_dirs)/sizeof(extra_dirs[0]); kidx++) {
 	    int r = exterior_face_probe(app, face, fc, extra_dirs[kidx]);
 	    if (r < 0)
