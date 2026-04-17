@@ -374,7 +374,7 @@ printf("    BVH triangle count:     %zu\n", bvh_ntris);
 
     /* --- Path A: BVH -------------------------------------------------- */
     struct crofton_result bvh_acc = run_crofton(rtip,
-0,
+0 /* n_rays: 0 → use convergence-based path (thresh_pct > 0) */,
 CROFTON_ACCURACY_THRESH);
     struct crofton_result bvh_tim = run_crofton(rtip,
 CROFTON_TIMING_RAYS, 0.0);
@@ -389,7 +389,7 @@ return 1;
     }
 
     struct crofton_result dda_acc = run_crofton(rtip,
-0,
+0 /* n_rays: 0 → use convergence-based path (thresh_pct > 0) */,
 CROFTON_ACCURACY_THRESH);
     struct crofton_result dda_tim = run_crofton(rtip,
 CROFTON_TIMING_RAYS, 0.0);
