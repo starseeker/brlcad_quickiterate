@@ -524,12 +524,12 @@ rt_ars_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	}
 
 	/* Check that each ring curve closes in 3D (first point == last data
-	 * point).  If the curve is closed in XY but has a Z discontinuity at
-	 * the seam (e.g., real-world terrain rings that do not return to the
-	 * same elevation), the tessellation will produce open edges at the
-	 * seam because the strip triangles for j==pts_per_curve-1 create an
-	 * unpaired edge between curve[0] and curve[pts_per_curve-1].  This is
-	 * not a bug in the tessellation algorithm — the source data is
+	 * point at index pts_per_curve-1, the closing copy).  If the curve
+	 * is closed in XY but has a Z discontinuity at the seam (e.g.,
+	 * real-world terrain rings that do not return to the same elevation),
+	 * the tessellation will produce open edges because the seam-closing
+	 * quad (j == pts_per_curve-2) will have mismatched endpoints.  This
+	 * is not a bug in the tessellation algorithm — the source data is
 	 * inherently non-manifold and cannot be closed without modifying it.
 	 *
 	 * A single degenerate apex curve (all points identical) is exempt
@@ -588,7 +588,14 @@ rt_ars_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	    double_ended = 0;
 	}
 
-	for (j = 0; j < arip->pts_per_curve; j++) {
+	/* The curve has pts_per_curve-1 unique points followed by a closing
+	 * copy of the first point at index pts_per_curve-1.  Stop at index
+	 * pts_per_curve-2: the last quad (j==pts_per_curve-2) already uses
+	 * the closing copy as its j+1 vertex, sealing the ring.  Processing
+	 * j==pts_per_curve-1 would access curves[i][(pts_per_curve)*3], which
+	 * is one element past the allocated array, and would create a spurious
+	 * duplicate (or garbage) triangle that leaves open boundary edges.   */
+	for (j = 0; j < arip->pts_per_curve - 1; j++) {
 	    struct vertex **corners[3];
 
 
