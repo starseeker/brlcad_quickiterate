@@ -36,6 +36,8 @@
 
 #include "../ged_private.h"
 
+#define EXTERIOR_RAY_OFFSET_FACTOR 10.0
+
 
 
 static int
@@ -112,7 +114,7 @@ exterior_face_probe(struct application *app, int face, point_t fc, const fastf_t
     if (!rt_in_rpp(&app->a_ray, inv_dir, app->a_rt_i->mdl_min, app->a_rt_i->mdl_max))
 	return 0;
 
-    VJOIN1(app->a_ray.r_pt, app->a_ray.r_pt, app->a_ray.r_min - (10.0 * BN_TOL_DIST), app->a_ray.r_dir);
+    VJOIN1(app->a_ray.r_pt, app->a_ray.r_pt, app->a_ray.r_min - (EXTERIOR_RAY_OFFSET_FACTOR * BN_TOL_DIST), app->a_ray.r_dir);
 
     ectx->probe.face = face;
     ectx->probe.first_surf = -1;
@@ -153,6 +155,7 @@ exterior_face(struct application *app, struct rt_bot_internal *bot, int face) {
     VADD3(fc, p1, p2, p3);
     VSCALE(fc, fc, 1.0/3.0);
 
+    /* Rotated, non-axis-aligned probes to reduce axis-locking artifacts. */
     static const vect_t dirs[] = {
 	{ 1.0, 2.0, 3.0 },
 	{ -1.0, -2.0, -3.0 },
@@ -161,6 +164,7 @@ exterior_face(struct application *app, struct rt_bot_internal *bot, int face) {
 	{ -3.0, -1.0, 2.0 },
 	{ 3.0, 1.0, -2.0 }
     };
+    /* Additional directions used only when initial probes disagree. */
     static const vect_t extra_dirs[] = {
 	{ 3.0, 1.0, 2.0 },
 	{ -3.0, -1.0, -2.0 },
@@ -184,7 +188,7 @@ exterior_face(struct application *app, struct rt_bot_internal *bot, int face) {
 	    exterior_votes++;
     }
 
-    if (exterior_votes == 0 || (exterior_votes > 0 && interior_votes > 0)) {
+    if (exterior_votes == 0 || interior_votes > 0) {
 	for (kidx = 0; kidx < sizeof(extra_dirs)/sizeof(extra_dirs[0]); kidx++) {
 	    int r = exterior_face_probe(app, face, fc, extra_dirs[kidx]);
 	    if (r < 0)
