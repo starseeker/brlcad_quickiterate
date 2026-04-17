@@ -277,12 +277,19 @@ bot_openvdb_repair(struct rt_bot_internal *bot, double voxel_size)
 	return NULL;
     }
 
-    /* Validate: positive volume means outward-facing normals (correct). */
+    /* Validate: positive volume means outward-facing normals (correct).
+     * If the volume is negative the mesh is topologically manifold but
+     * inside-out (all face normals point inward).  Swapping vertices 1
+     * and 2 of every triangle reverses the winding order globally and
+     * turns it into a valid outward-facing solid without touching the
+     * vertex data or rebuilding the mesh. */
     if (mcheck.Volume() <= 0.0) {
-	bu_log("bot_openvdb_repair: result has non-positive volume (inside-out)\n");
-	bu_free(cand->vertices, "verts"); bu_free(cand->faces, "faces");
-	BU_PUT(cand, struct rt_bot_internal);
-	return NULL;
+	bu_log("bot_openvdb_repair: result is inside-out; flipping winding order\n");
+	for (size_t i = 0; i < cand->num_faces; i++) {
+	    int tmp = cand->faces[i * 3 + 1];
+	    cand->faces[i * 3 + 1] = cand->faces[i * 3 + 2];
+	    cand->faces[i * 3 + 2] = tmp;
+	}
     }
 
     return cand;
