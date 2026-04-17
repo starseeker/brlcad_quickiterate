@@ -73,7 +73,7 @@ class lint_data {
 	/* Raytrace validation mode (lint --raytrace) */
 	bool do_raytrace = false;
 	double rt_tol_pct = 0.10;    /**< fractional tolerance for SA/vol comparison (0.10 = 10%) */
-	size_t rt_crofton_rays = 2000; /**< Crofton ray count per object */
+	size_t rt_crofton_rays = 0;  /**< 0 = convergence-based (recommended); >0 = fixed ray count */
 };
 
 extern void bot_checks(lint_data *cdata, struct directory *dp, struct rt_bot_internal *bot);
