@@ -1619,6 +1619,63 @@ hyp_kpt_end:
 }
 
 
+int
+rt_hyp_perturb(struct rt_db_internal **oip, const struct rt_db_internal *ip, int planar_only, fastf_t val)
+{
+    if (NEAR_ZERO(val, SMALL_FASTF))
+	return BRLCAD_OK;
+
+    if (!oip || !ip)
+	return BRLCAD_ERROR;
+
+    struct rt_hyp_internal *ohyp = (struct rt_hyp_internal *)ip->idb_ptr;
+    RT_HYP_CK_MAGIC(ohyp);
+
+    struct rt_db_internal *nip;
+    BU_GET(nip, struct rt_db_internal);
+    RT_DB_INTERNAL_INIT(nip);
+    nip->idb_major_type = DB5_MAJORTYPE_BRLCAD;
+    nip->idb_type = ID_HYP;
+    nip->idb_meth = &OBJ[ID_HYP];
+    struct rt_hyp_internal *hyp = NULL;
+    BU_ALLOC(hyp, struct rt_hyp_internal);
+    nip->idb_ptr = hyp;
+    hyp->hyp_magic = RT_HYP_INTERNAL_MAGIC;
+    VMOVE(hyp->hyp_Vi, ohyp->hyp_Vi);
+    VMOVE(hyp->hyp_Hi, ohyp->hyp_Hi);
+    VMOVE(hyp->hyp_A,  ohyp->hyp_A);
+    hyp->hyp_b   = ohyp->hyp_b;
+    hyp->hyp_bnr = ohyp->hyp_bnr;
+
+    /* Extend Hi (and shift Vi back) to push the flat elliptic end caps apart. */
+    vect_t hvec, hback;
+    VMOVE(hvec, hyp->hyp_Hi);
+    VUNITIZE(hvec);
+    VREVERSE(hback, hvec);
+    VSCALE(hback, hback, val);
+    VADD2(hyp->hyp_Vi, hyp->hyp_Vi, hback);
+    vect_t hext;
+    VSCALE(hext, hvec, 2.0 * val);
+    VADD2(hyp->hyp_Hi, hyp->hyp_Hi, hext);
+
+    if (planar_only) {
+	*oip = nip;
+	return BRLCAD_OK;
+    }
+
+    /* Also expand the semi-major axis vector and the semi-minor scalar. */
+    vect_t avec;
+    VMOVE(avec, hyp->hyp_A);
+    VUNITIZE(avec);
+    VSCALE(avec, avec, val);
+    VADD2(hyp->hyp_A, hyp->hyp_A, avec);
+    hyp->hyp_b += val;
+
+    *oip = nip;
+    return BRLCAD_OK;
+}
+
+
 /*
  * Local Variables:
  * mode: C

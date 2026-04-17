@@ -1739,6 +1739,53 @@ rt_hrt_centroid(point_t *cent, const struct rt_db_internal *ip)
 }
 
 
+int
+rt_hrt_perturb(struct rt_db_internal **oip, const struct rt_db_internal *ip, int UNUSED(planar_only), fastf_t val)
+{
+    if (NEAR_ZERO(val, SMALL_FASTF))
+	return BRLCAD_OK;
+
+    if (!oip || !ip)
+	return BRLCAD_ERROR;
+
+    struct rt_hrt_internal *ohrt = (struct rt_hrt_internal *)ip->idb_ptr;
+    RT_HRT_CK_MAGIC(ohrt);
+
+    struct rt_db_internal *nip;
+    BU_GET(nip, struct rt_db_internal);
+    RT_DB_INTERNAL_INIT(nip);
+    nip->idb_major_type = DB5_MAJORTYPE_BRLCAD;
+    nip->idb_type = ID_HRT;
+    nip->idb_meth = &OBJ[ID_HRT];
+    struct rt_hrt_internal *hrt = NULL;
+    BU_ALLOC(hrt, struct rt_hrt_internal);
+    nip->idb_ptr = hrt;
+    hrt->hrt_magic = RT_HRT_INTERNAL_MAGIC;
+    VMOVE(hrt->v,    ohrt->v);
+    VMOVE(hrt->xdir, ohrt->xdir);
+    VMOVE(hrt->ydir, ohrt->ydir);
+    VMOVE(hrt->zdir, ohrt->zdir);
+    hrt->d = ohrt->d;
+
+    /* Scale each axis outward, and push the cusp distance by val.  The heart
+     * has no flat faces, so planar_only is not applicable. */
+    vect_t mvec;
+    VMOVE(mvec, hrt->xdir); VUNITIZE(mvec); VSCALE(mvec, mvec, val);
+    VADD2(hrt->xdir, hrt->xdir, mvec);
+
+    VMOVE(mvec, hrt->ydir); VUNITIZE(mvec); VSCALE(mvec, mvec, val);
+    VADD2(hrt->ydir, hrt->ydir, mvec);
+
+    VMOVE(mvec, hrt->zdir); VUNITIZE(mvec); VSCALE(mvec, mvec, val);
+    VADD2(hrt->zdir, hrt->zdir, mvec);
+
+    hrt->d += val;
+
+    *oip = nip;
+    return BRLCAD_OK;
+}
+
+
 /*
  * Local Variables:
  * mode: C

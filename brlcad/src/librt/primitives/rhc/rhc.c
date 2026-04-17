@@ -2183,6 +2183,64 @@ rhc_kpt_end:
 }
 
 
+int
+rt_rhc_perturb(struct rt_db_internal **oip, const struct rt_db_internal *ip, int planar_only, fastf_t val)
+{
+    if (NEAR_ZERO(val, SMALL_FASTF))
+	return BRLCAD_OK;
+
+    if (!oip || !ip)
+	return BRLCAD_ERROR;
+
+    struct rt_rhc_internal *orhc = (struct rt_rhc_internal *)ip->idb_ptr;
+    RT_RHC_CK_MAGIC(orhc);
+
+    struct rt_db_internal *nip;
+    BU_GET(nip, struct rt_db_internal);
+    RT_DB_INTERNAL_INIT(nip);
+    nip->idb_major_type = DB5_MAJORTYPE_BRLCAD;
+    nip->idb_type = ID_RHC;
+    nip->idb_meth = &OBJ[ID_RHC];
+    struct rt_rhc_internal *rhc = NULL;
+    BU_ALLOC(rhc, struct rt_rhc_internal);
+    nip->idb_ptr = rhc;
+    rhc->rhc_magic = RT_RHC_INTERNAL_MAGIC;
+    VMOVE(rhc->rhc_V, orhc->rhc_V);
+    VMOVE(rhc->rhc_H, orhc->rhc_H);
+    VMOVE(rhc->rhc_B, orhc->rhc_B);
+    rhc->rhc_r = orhc->rhc_r;
+    rhc->rhc_c = orhc->rhc_c;
+
+    /* Extend H (and move V back) to push the flat rectangular faces apart. */
+    vect_t hvec, hback;
+    VMOVE(hvec, rhc->rhc_H);
+    VUNITIZE(hvec);
+    VREVERSE(hback, hvec);
+    VSCALE(hback, hback, val);
+    VADD2(rhc->rhc_V, rhc->rhc_V, hback);
+    vect_t hext;
+    VSCALE(hext, hvec, 2.0 * val);
+    VADD2(rhc->rhc_H, rhc->rhc_H, hext);
+
+    if (planar_only) {
+	*oip = nip;
+	return BRLCAD_OK;
+    }
+
+    /* Also expand the breadth vector, half-width, and asymptote distance. */
+    vect_t bvec;
+    VMOVE(bvec, rhc->rhc_B);
+    VUNITIZE(bvec);
+    VSCALE(bvec, bvec, val);
+    VADD2(rhc->rhc_B, rhc->rhc_B, bvec);
+    rhc->rhc_r += val;
+    rhc->rhc_c += val;
+
+    *oip = nip;
+    return BRLCAD_OK;
+}
+
+
 /*
  * Local Variables:
  * mode: C
