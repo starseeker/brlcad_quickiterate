@@ -280,6 +280,59 @@ rt_free_rti(rtip); rt_db_free_internal(&intern); db_close(dbip); return -1;
 }
 
 /**
+ * Run rt_bot_csg_miss_check on @a bot_name in @a gfile.
+ * Returns number of near-tol faces found (0 = clean), -1 on error.
+ *
+ * A "near-tol face" is one whose inward ray produces a segment with thickness
+ * in [VUNITIZE_TOL, BN_TOL_DIST): valid for the BoT raytracer but below the
+ * CSG boolweave tolerance, so the original CSG description would report MISS
+ * while the BoT solid reports HIT.
+ */
+static int
+bot_csg_miss_lint(const char *gfile, const char *bot_name)
+{
+    struct db_i *dbip = db_open(gfile, DB_OPEN_READONLY);
+    if (!dbip) return -1;
+    if (db_dirbuild(dbip) < 0) { db_close(dbip); return -1; }
+    db_update_nref(dbip, &rt_uniresource);
+
+    struct directory *dp = db_lookup(dbip, bot_name, LOOKUP_QUIET);
+    if (!dp) { db_close(dbip); return -1; }
+
+    struct rt_db_internal intern;
+    RT_DB_INTERNAL_INIT(&intern);
+    if (rt_db_get_internal(&intern, dp, dbip, NULL, &rt_uniresource) < 0) {
+	db_close(dbip); return -1;
+    }
+    if (intern.idb_minor_type != ID_BOT) {
+	rt_db_free_internal(&intern); db_close(dbip); return -1;
+    }
+
+    struct rt_bot_internal *bot = (struct rt_bot_internal *)intern.idb_ptr;
+    if (!bot->num_faces) {
+	rt_db_free_internal(&intern); db_close(dbip); return 0;
+    }
+
+    struct rt_i *rtip = rt_new_rti(dbip);
+    if (!rtip) { rt_db_free_internal(&intern); db_close(dbip); return -1; }
+    if (rt_gettree(rtip, bot_name) != 0) {
+	rt_free_rti(rtip); rt_db_free_internal(&intern); db_close(dbip); return -1;
+    }
+    rt_prep_parallel(rtip, 1);
+
+    struct bu_ptbl nfaces = BU_PTBL_INIT_ZERO;
+    int have_near_tol = rt_bot_csg_miss_check(&nfaces, bot, rtip, 0);
+    int n_near_tol = (int)BU_PTBL_LEN(&nfaces);
+
+    rt_free_rti(rtip);
+    bu_ptbl_free(&nfaces);
+    rt_db_free_internal(&intern);
+    db_close(dbip);
+
+    return have_near_tol ? n_near_tol : 0;
+}
+
+/**
  * Full post-facetize verification:
  *   1. BoT exists and has faces.
  *   2. Crofton SA/VOL of BoT matches CSG comb within tol_pct.
@@ -868,6 +921,33 @@ tc5_near_coplanar_subTOL(const char *tmpdir, int verbose)
 	return BRLCAD_ERROR;
     }
     bu_log("[regress_facetize] TC5: perturb BoT correctly has no phantom hit (MISS)\n");
+
+    /* --- near-tol lint: no-perturb BoT should have near-tol faces ---- */
+    int nt_np = bot_csg_miss_lint(gfile_np, "base5.bot.np");
+    if (nt_np < 0) {
+	bu_log("[regress_facetize] TC5: WARNING - bot_csg_miss_lint setup error for "
+	       "no-perturb BoT\n");
+    } else if (nt_np == 0) {
+	bu_log("[regress_facetize] TC5: WARNING - no-perturb BoT has 0 near-tol faces "
+	       "(test geometry may not reproduce the sub-BN_TOL_DIST pattern)\n");
+    } else {
+	bu_log("[regress_facetize] TC5: no-perturb BoT has %d near-tol face(s) "
+	       "(expected - sub-BN_TOL_DIST phantom detected)\n", nt_np);
+    }
+
+    /* --- near-tol lint: perturb BoT must have 0 near-tol faces ---- */
+    int nt_p = bot_csg_miss_lint(gfile_p, "base5.bot.p");
+    if (nt_p < 0) {
+	bu_log("[regress_facetize] TC5: WARNING - bot_csg_miss_lint setup error for "
+	       "perturb BoT\n");
+    } else if (nt_p > 0) {
+	bu_log("[regress_facetize] TC5: FAIL - perturb BoT has %d near-tol face(s); "
+	       "perturb did not eliminate sub-tolerance coplanar faces\n", nt_p);
+	bu_vls_free(&gpath_np); bu_vls_free(&gpath_p);
+	return BRLCAD_ERROR;
+    } else {
+	bu_log("[regress_facetize] TC5: perturb BoT CLEAN (0 near-tol faces)\n");
+    }
 
     /* VOL sanity on the perturb output: VOL is stable for this geometry
      * (the phantom face adds negligible volume).  SA is omitted because
