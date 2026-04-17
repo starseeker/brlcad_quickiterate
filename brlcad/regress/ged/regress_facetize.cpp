@@ -58,9 +58,16 @@
  *          a MISS matching the CSG result.  Verified by firing a +Z ray
  *          through the window centre with nirt_shoot().
  *
- *   TC6  - havoc r.wind9 geometry/ray pattern: exact ARB8 coordinates from
- *          s.wind9 and s.wind9.i with a known CSG MISS ray from ae 35 25.
- *          The perturb output must also MISS (no narrow-frame phantom hit).
+ *   TC6  - variant-plan path-key fix for nested regions (r.wind9 pattern):
+ *          same sub-BN_TOL_DIST geometry as TC5, but the region is wrapped
+ *          inside a non-region assembly comb ("tc6_wrap  u tc6_reg.c"),
+ *          mirroring the real havoc.g depth (havoc → ... → r.wind9).
+ *          Before the fix, facetizing from tc6_wrap built path keys rooted at
+ *          tc6_wrap (e.g. "/tc6_wrap/tc6_reg.c/sub6.s#sub") while the
+ *          per-region booleval produced shorter keys
+ *          ("/tc6_reg.c/sub6.s#sub"), so the lookup missed and no variant was
+ *          applied, leaving the phantom face.  After the fix the plan is built
+ *          from region roots so keys match and the phantom face is eliminated.
  */
 
 #include "common.h"
@@ -981,104 +988,134 @@ tc5_near_coplanar_subTOL(const char *tmpdir, int verbose)
 }
 
 /* ------------------------------------------------------------------ */
-/* TC6: havoc r.wind9 pattern (CSG MISS must remain MISS after facetize) */
+/* TC6: variant-plan path-key fix for nested-region (r.wind9 pattern) */
 /* ------------------------------------------------------------------ */
 static int
 tc6_havoc_wind9_pattern(const char *tmpdir, int verbose)
 {
-    bu_log("[regress_facetize] TC6: havoc r.wind9 pattern (known CSG MISS ray)...\n");
+    bu_log("[regress_facetize] TC6: variant plan via top-level wrapper comb (r.wind9 path-key fix)...\n");
 
-    struct bu_vls gpath = BU_VLS_INIT_ZERO;
-    bu_vls_printf(&gpath, "%s/tc6_wind9.g", tmpdir);
-    const char *gfile = bu_vls_cstr(&gpath);
-    if (bu_file_exists(gfile, NULL)) bu_file_delete(gfile);
+    /* Use the same sub-BN_TOL_DIST protrusion geometry as TC5, but wrap the
+     * region inside a non-region assembly comb.  This mirrors the real
+     * havoc.g hierarchy:  havoc → havoc_front → cannopy → r.wind9.
+     *
+     * The bug being tested (regions.cpp): when the facetize input is a
+     * parent comb rather than the region itself, the old code walked the
+     * full input tree to build variant-plan path keys (e.g.
+     * "/tc6_wrap/tc6_reg.c/tc6_sub.s#sub").  The per-region booleval
+     * walks from the region root and produces a shorter key
+     * ("/tc6_reg.c/tc6_sub.s#sub"), so the lookup always missed and
+     * the variant was never applied.  The fix builds keys from the
+     * region roots so they match. */
 
-    struct db_i *dbip = db_create(gfile, 5);
-    if (!dbip) {
-	bu_log("[regress_facetize] TC6: db_create failed\n");
-	bu_vls_free(&gpath);
-	return BRLCAD_ERROR;
-    }
-    db_update_nref(dbip, &rt_uniresource);
-    struct rt_wdb *wdbp = wdb_dbopen(dbip, RT_WDB_TYPE_DB_DEFAULT);
+    struct bu_vls gpath_np = BU_VLS_INIT_ZERO;
+    struct bu_vls gpath_p  = BU_VLS_INIT_ZERO;
+    bu_vls_printf(&gpath_np, "%s/tc6_nopert.g",  tmpdir);
+    bu_vls_printf(&gpath_p,  "%s/tc6_perturb.g", tmpdir);
+    const char *gfile_np = bu_vls_cstr(&gpath_np);
+    const char *gfile_p  = bu_vls_cstr(&gpath_p);
 
-    point_t outer_pts[8] = {
-	{1.357010546875e+04, 3.219987792969e+02, 2.359072021484e+03},
-	{1.356907617188e+04, 3.219987792969e+02, 2.351138427734e+03},
-	{1.356907617188e+04, -3.219985351562e+02, 2.351138427734e+03},
-	{1.357010546875e+04, -3.219985351562e+02, 2.359072021484e+03},
-	{1.357010546875e+04, 4.000000000000e+00, 2.456489501953e+03},
-	{1.356907617188e+04, 4.000000000000e+00, 2.446196533203e+03},
-	{1.356907617188e+04, -3.194160156250e+00, 2.446196533203e+03},
-	{1.357010546875e+04, -3.194160156250e+00, 2.456489501953e+03},
-    };
+    /* Build identical geometry in both files. */
+    for (int pass = 0; pass < 2; pass++) {
+	const char *gfile = (pass == 0) ? gfile_np : gfile_p;
+	if (bu_file_exists(gfile, NULL)) bu_file_delete(gfile);
 
-    point_t inner_pts[8] = {
-	{1.356217187500e+04, 3.149787597656e+02, 2.360100341797e+03},
-	{1.356114257812e+04, 3.149787597656e+02, 2.352166748047e+03},
-	{1.356114257812e+04, -3.149785156250e+02, 2.352166748047e+03},
-	{1.356217187500e+04, -3.149785156250e+02, 2.360100341797e+03},
-	{1.356217187500e+04, 2.792968750000e+00, 2.453601989746e+03},
-	{1.356114257812e+04, 2.792968750000e+00, 2.443309082031e+03},
-	{1.356114257812e+04, -3.951904296875e+00, 2.443309082031e+03},
-	{1.356217187500e+04, -3.951904296875e+00, 2.453601989746e+03},
-    };
+	struct db_i *dbip = db_create(gfile, 5);
+	if (!dbip) {
+	    bu_log("[regress_facetize] TC6: db_create failed\n");
+	    bu_vls_free(&gpath_np); bu_vls_free(&gpath_p);
+	    return BRLCAD_ERROR;
+	}
+	db_update_nref(dbip, &rt_uniresource);
+	struct rt_wdb *wdbp = wdb_dbopen(dbip, RT_WDB_TYPE_DB_DEFAULT);
 
-    struct bu_list members;
-    BU_LIST_INIT(&members);
-    mk_addmember("wind9_outer.s", &members, NULL, WMOP_UNION);
-    mk_addmember("wind9_inner.s", &members, NULL, WMOP_SUBTRACT);
+	/* Same protrusion geometry as TC5: base6.s minus sub6.s which
+	 * protrudes TC5_GAP mm past base6.s's Z=0 face. */
+	point_t base_pts[8] = {
+	    {  0.0,   0.0, 0.0}, {200.0,   0.0, 0.0},
+	    {200.0, 300.0, 0.0}, {  0.0, 300.0, 0.0},
+	    {  0.0,   0.0, 8.0}, {200.0,   0.0, 8.0},
+	    {200.0, 300.0, 8.0}, {  0.0, 300.0, 8.0},
+	};
+	const fastf_t gap = TC5_GAP;
+	point_t sub_pts[8] = {
+	    { 20.0,  20.0, -gap},        {180.0,  20.0, -gap},
+	    {180.0, 280.0, -gap},        { 20.0, 280.0, -gap},
+	    { 20.0,  20.0, 8.0 - gap},   {180.0,  20.0, 8.0 - gap},
+	    {180.0, 280.0, 8.0 - gap},   { 20.0, 280.0, 8.0 - gap},
+	};
 
-    if (write_arb8(wdbp, "wind9_outer.s", outer_pts) < 0 ||
-	write_arb8(wdbp, "wind9_inner.s", inner_pts) < 0 ||
-	mk_comb(wdbp, "wind9.c", &members, 1 /* region */,
-		NULL, NULL, NULL, 1000, 0, 0, 0, 0, 0, 0) < 0) {
-	bu_log("[regress_facetize] TC6: write failed\n");
+	/* Region: tc6_reg.c  =  u base6.s  - sub6.s */
+	struct bu_list reg_members;
+	BU_LIST_INIT(&reg_members);
+	mk_addmember("base6.s", &reg_members, NULL, WMOP_UNION);
+	mk_addmember("sub6.s",  &reg_members, NULL, WMOP_SUBTRACT);
+
+	/* Non-region wrapper: tc6_wrap  u tc6_reg.c
+	 * This is the hierarchy level that triggers the path-key bug. */
+	struct bu_list wrap_members;
+	BU_LIST_INIT(&wrap_members);
+	mk_addmember("tc6_reg.c", &wrap_members, NULL, WMOP_UNION);
+
+	if (write_arb8(wdbp, "base6.s", base_pts) < 0 ||
+	    write_arb8(wdbp, "sub6.s",  sub_pts)  < 0 ||
+	    mk_comb(wdbp, "tc6_reg.c", &reg_members, 1 /* region */,
+		    NULL, NULL, NULL, 1000, 0, 0, 0, 0, 0, 0) < 0 ||
+	    mk_comb(wdbp, "tc6_wrap", &wrap_members, 0 /* not region */,
+		    NULL, NULL, NULL, 0, 0, 0, 0, 0, 0, 0) < 0) {
+	    bu_log("[regress_facetize] TC6: write failed\n");
+	    wdb_close(wdbp); bu_vls_free(&gpath_np); bu_vls_free(&gpath_p);
+	    return BRLCAD_ERROR;
+	}
 	wdb_close(wdbp);
-	bu_vls_free(&gpath);
+    }
+
+    /* Same test ray as TC5: +Z through window centre (100, 150) from below.
+     * CSG and perturb BoT must MISS; no-perturb BoT is expected to HIT. */
+    point_t origin = {100.0, 150.0, -1.0};
+    vect_t  dir    = {  0.0,   0.0,  1.0};
+
+    /* --- no-perturb from wrapper: documents that phantom face exists --- */
+    if (run_facetize_r(gfile_np, "tc6_wrap", "tc6_bot.np",
+		       1 /* no_perturb */, verbose) != BRLCAD_OK) {
+	bu_log("[regress_facetize] TC6: FAIL - facetize --no-perturb error\n");
+	bu_vls_free(&gpath_np); bu_vls_free(&gpath_p);
 	return BRLCAD_ERROR;
     }
-    wdb_close(wdbp);
-
-    /* Ray from reported ae 35 25 nirt setup for r.wind9 (known CSG MISS). */
-    point_t origin = {1402.37, 58.45, 289.91};
-    vect_t  dir    = {-0.7424, -0.5198, -0.4226};
-
-    int hits_csg = nirt_shoot(gfile, "wind9.c", origin, dir);
-    if (hits_csg < 0) {
-	bu_log("[regress_facetize] TC6: FAIL - nirt_shoot setup error for CSG\n");
-	bu_vls_free(&gpath);
-	return BRLCAD_ERROR;
+    int hits_np = nirt_shoot(gfile_np, "tc6_bot.np", origin, dir);
+    if (hits_np < 0) {
+	bu_log("[regress_facetize] TC6: WARNING - nirt_shoot setup error for no-perturb BoT\n");
+    } else if (hits_np == 0) {
+	bu_log("[regress_facetize] TC6: WARNING - no-perturb BoT has no phantom hit "
+	       "(test geometry may not reproduce the pattern)\n");
+    } else {
+	bu_log("[regress_facetize] TC6: no-perturb via wrapper has %d phantom hit(s) (expected)\n",
+	       hits_np);
     }
-    if (hits_csg > 0) {
-	bu_log("[regress_facetize] TC6: FAIL - CSG has %d hit(s), expected MISS\n", hits_csg);
-	bu_vls_free(&gpath);
-	return BRLCAD_ERROR;
-    }
-    bu_log("[regress_facetize] TC6: CSG correctly MISS\n");
 
-    if (run_facetize_r(gfile, "wind9.c", "wind9.bot.p", 0 /* perturb */, verbose) != BRLCAD_OK) {
+    /* --- perturb from wrapper: MUST give MISS (path-key regression guard) */
+    if (run_facetize_r(gfile_p, "tc6_wrap", "tc6_bot.p",
+		       0 /* with perturb */, verbose) != BRLCAD_OK) {
 	bu_log("[regress_facetize] TC6: FAIL - facetize error\n");
-	bu_vls_free(&gpath);
+	bu_vls_free(&gpath_np); bu_vls_free(&gpath_p);
 	return BRLCAD_ERROR;
     }
-
-    int hits_bot = nirt_shoot(gfile, "wind9.bot.p", origin, dir);
-    if (hits_bot < 0) {
+    int hits_p = nirt_shoot(gfile_p, "tc6_bot.p", origin, dir);
+    if (hits_p < 0) {
 	bu_log("[regress_facetize] TC6: FAIL - nirt_shoot setup error for perturb BoT\n");
-	bu_vls_free(&gpath);
+	bu_vls_free(&gpath_np); bu_vls_free(&gpath_p);
 	return BRLCAD_ERROR;
     }
-    if (hits_bot > 0) {
-	bu_log("[regress_facetize] TC6: FAIL - perturb BoT has %d phantom hit(s); expected MISS\n",
-	       hits_bot);
-	bu_vls_free(&gpath);
+    if (hits_p > 0) {
+	bu_log("[regress_facetize] TC6: FAIL - perturb via wrapper has %d phantom hit(s); "
+	       "variant plan path keys not matched for nested region\n", hits_p);
+	bu_vls_free(&gpath_np); bu_vls_free(&gpath_p);
 	return BRLCAD_ERROR;
     }
-
-    bu_log("[regress_facetize] TC6: perturb BoT correctly MISS\n");
+    bu_log("[regress_facetize] TC6: perturb via wrapper correctly MISS\n");
     bu_log("[regress_facetize] TC6: PASS\n");
-    bu_vls_free(&gpath);
+    bu_vls_free(&gpath_np);
+    bu_vls_free(&gpath_p);
     return BRLCAD_OK;
 }
 
