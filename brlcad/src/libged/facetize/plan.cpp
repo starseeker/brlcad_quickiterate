@@ -58,13 +58,19 @@
  * suffix keeps names stable and within a safe length.
  *
  * Perturbation magnitudes (deterministic, seeded per variant slot):
- *   BASE: 1.0x-1.9x BN_TOL_DIST  (breaks coplanarity, preserves fusion)
- *   SUB:  5.0x-5.9x BN_TOL_DIST  (larger bump clears subtraction slivers)
+ *   BASE: 1.0x-1.9x BN_TOL_DIST
+ *   SUB:  1.0x-1.9x max(BN_TOL_DIST, effective abs tess floor)
+ *
+ * Using the tess-floor-aware scale for SUB variants avoids a failure mode where
+ * tiny BN_TOL_DIST-sized perturbations are later erased by primitive
+ * tessellation distance clamping (default 0.05 mm for non-micro geometry),
+ * leaving near-coplanar subtraction slivers in the BoT result.
  */
 
 #include "common.h"
 
 #include <cinttypes>
+#include <cstdlib>
 #include <map>
 #include <set>
 #include <string>
@@ -74,6 +80,7 @@
 #include "bu/hash.h"
 #include "bu/path.h"
 #include "bn/tol.h"
+#include "rt/calc.h"
 #include "rt/geom.h"
 #include "raytrace.h"
 
@@ -219,10 +226,30 @@ plan_walk_dp(PlanWalkCtx *ctx, struct directory *dp, bool in_sub)
  * [0, (PLAN_JITTER_STEPS-1)/PLAN_JITTER_STEPS] steps, which is added to the
  * role-specific base offset:
  *   BASE (is_sub=false): [1.0, 1.9] x BN_TOL_DIST
- *   SUB  (is_sub=true):  [5.0, 5.9] x BN_TOL_DIST
+ *   SUB  (is_sub=true):  [1.0, 1.9] x max(BN_TOL_DIST, abs tess floor)
  */
 static fastf_t
-variant_perturb_factor(const std::string &src_name, bool is_sub, int idx)
+variant_abs_tess_floor(fastf_t bbox_diag)
+{
+	/* Default primitive abs tess floor for non-micro geometry (mm). */
+	fastf_t min_dtol = 0.05;
+	const char *env = getenv("RT_PRIM_MIN_ABS_TOL");
+	if (env) {
+		char *end;
+		double val = strtod(env, &end);
+		if (end != env && val > 0.0)
+			min_dtol = (fastf_t)val;
+	}
+
+	/* Micro-geometry uses a 1% of bbox-diagonal floor when diag < 1 mm. */
+	if (bbox_diag > SMALL_FASTF && bbox_diag < 1.0)
+		min_dtol = bbox_diag * 0.01;
+
+	return min_dtol;
+}
+
+static fastf_t
+variant_perturb_factor(const std::string &src_name, bool is_sub, int idx, fastf_t bbox_diag)
 {
 	struct bu_data_hash_state *hs = bu_data_hash_create();
 	bu_data_hash_update(hs, src_name.c_str(), src_name.size());
@@ -233,8 +260,13 @@ variant_perturb_factor(const std::string &src_name, bool is_sub, int idx)
 	bu_data_hash_destroy(hs);
 
 	double jitter = (double)(h % PLAN_JITTER_STEPS) / (double)PLAN_JITTER_STEPS;
-	double base   = is_sub ? 5.0 : 1.0;
-	return (fastf_t)((base + jitter) * BN_TOL_DIST);
+	if (is_sub) {
+		fastf_t sub_scale = variant_abs_tess_floor(bbox_diag);
+		if (sub_scale < BN_TOL_DIST)
+			sub_scale = BN_TOL_DIST;
+		return (fastf_t)((1.0 + jitter) * sub_scale);
+	}
+	return (fastf_t)((1.0 + jitter) * BN_TOL_DIST);
 }
 
 /* ------------------------------------------------------------------ */
@@ -308,7 +340,13 @@ create_variant_in_working_g(struct db_i       *wdbip,
 		return BRLCAD_ERROR;
 	}
 
-	fastf_t factor = variant_perturb_factor(src_name, is_sub, idx);
+	point_t bmin, bmax;
+	/* If bounds fail, keep -1 and fall back to the non-micro/default floor. */
+	fastf_t bbox_diag = -1.0;
+	if (rt_bound_internal(wdbip, src_dp, bmin, bmax) == 0)
+		bbox_diag = DIST_PNT_PNT(bmin, bmax);
+
+	fastf_t factor = variant_perturb_factor(src_name, is_sub, idx, bbox_diag);
 
 	struct rt_db_internal *var_intern = NULL;
 	int ret = OBJ[prim_type].ft_perturb(&var_intern, &src_intern, 0, factor);
