@@ -50,14 +50,15 @@ set(
 )
 
 if(BRLCAD_ENABLE_OPENVDB)
-  # disable warnings from OpenVDB/Boost headers and prevent the OpenVDB
+  # Suppress warnings from OpenVDB/Boost headers and prevent the OpenVDB
   # LeafManager UINT64_MAX sentinel from triggering the LTO
-  # -Werror=alloc-size-larger-than false positive.
+  # -Werror=alloc-size-larger-than false positive.  Because ged-bot is
+  # PLUGIN_ONLY these flags are scoped to the plugin .so and do not
+  # pollute the main libged target.
   set_source_files_properties(
-    ${CMAKE_CURRENT_SOURCE_DIR}/remesh.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/bot_openvdb.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/bot_flood_exterior.cpp
-    DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/..
+    remesh.cpp
+    bot_openvdb.cpp
+    bot_flood_exterior.cpp
     PROPERTIES COMPILE_FLAGS "-w -fno-lto"
   )
   list(APPEND BOT_SRCS bot_openvdb.cpp bot_flood_exterior.cpp)
@@ -76,7 +77,12 @@ set(
 # looks like it was fixed in upstream long time ago, so just disable
 # for now with EIGEN_DONT_VECTORIZE.
 # TODO: remove this / retest after next Eigen upgrade.
+#
+# PLUGIN_ONLY ensures ged-bot is always built as a standalone .so even
+# when LIBGED_STATIC_CORE=ON.  This keeps the OpenVDB warning suppressions
+# (-w -fno-lto on the OpenVDB source files) out of the main libged target.
 ged_plugin_library(ged-bot
+  PLUGIN_ONLY
   ${BOT_SRCS}
   INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}
   SYSTEM_INCLUDES ${BOT_LOCAL_INCLUDE_DIRS}
