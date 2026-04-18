@@ -51,6 +51,13 @@
 
 static const double FACETIZE_RT_EMPTY_TOL = 1.0e-9;
 
+/* Minimum Crofton crossing count for a statistically meaningful SA
+ * comparison.  Below this threshold (~1/sqrt(N) noise > 14 %) the
+ * estimate is too noisy to distinguish a real mismatch from sampling
+ * variance; such results are accepted with a note rather than triggering
+ * a perturb retry that would face the same sampling limitation.         */
+static const long CROFTON_FEW_HIT_THRESHOLD = 50;
+
 static void
 _collect_tree_leaves(union tree *tp, std::set<std::string> &leaves)
 {
@@ -105,17 +112,17 @@ _has_perturbable_leaf(struct db_i *dbip, struct directory *dp, std::set<std::str
     return false;
 }
 
-static int
+static long
 _crofton_on_obj(struct db_i *dbip, const char *obj_name, double &out_sa, double &out_vol)
 {
     out_sa = out_vol = -1.0;
 
     struct rt_i *rtip = rt_new_rti(dbip);
-    if (!rtip) return -1;
+    if (!rtip) return -1L;
 
     if (rt_gettree(rtip, obj_name) != 0) {
 	rt_free_rti(rtip);
-	return -1;
+	return -1L;
     }
     rt_prep_parallel(rtip, 1);
 
@@ -126,7 +133,7 @@ _crofton_on_obj(struct db_i *dbip, const char *obj_name, double &out_sa, double 
 
     int cr = rt_crofton_shoot(rtip, &crp, &out_sa, &out_vol);
     rt_free_rti(rtip);
-    return (cr == 0) ? 0 : -1;
+    return (cr >= 0) ? (long)cr : -1L;
 }
 
 static int
@@ -160,6 +167,35 @@ _bot_metrics(struct db_i *dbip, const char *bot_name, double &out_sa, double &ou
     }
     rt_db_free_internal(&in);
     return ret;
+}
+
+/**
+ * Delete any existing object named @p bot_name from @p dbip and write a
+ * new zero-face BoT in its place.  Used when Crofton detects that the
+ * Boolean evaluation of a region is almost certainly empty (zero ray
+ * intersections) so the facetize result should be empty too.
+ */
+static void
+_write_empty_bot(struct db_i *dbip, const char *bot_name, int verbosity)
+{
+    struct directory *od = db_lookup(dbip, bot_name, LOOKUP_QUIET);
+    if (od != RT_DIR_NULL) {
+	db_delete(dbip, od);
+	db_dirdelete(dbip, od);
+    }
+    struct rt_bot_internal *ebot;
+    BU_GET(ebot, struct rt_bot_internal);
+    ebot->magic        = RT_BOT_INTERNAL_MAGIC;
+    ebot->mode         = RT_BOT_SOLID;
+    ebot->orientation  = RT_BOT_CCW;
+    ebot->thickness    = NULL;
+    ebot->face_mode    = (struct bu_bitv *)NULL;
+    ebot->bot_flags    = 0;
+    ebot->num_vertices = 0;
+    ebot->num_faces    = 0;
+    ebot->vertices     = NULL;
+    ebot->faces        = NULL;
+    (void)_ged_facetize_write_bot(dbip, ebot, bot_name, verbosity);
 }
 
 /* returns 1 on pass, 0 on mismatch, -1 on unavailable/skip */
@@ -392,35 +428,57 @@ _create_perturbed_csg_db(struct db_i *src_dbip, const char *region_name,
 static int
 _validate_csg_vs_bot(struct db_i *csg_dbip, const char *obj_name, struct db_i *bot_dbip, const char *bot_name, double sa_tol_pct, double vol_tol_pct, double *sa_err_pct, double *vol_err_pct)
 {
+    /* Return codes:
+     *   1  PASS:      SA and volume within tolerance.
+     *   0  MISMATCH:  outside tolerance — trigger perturb retry.
+     *  -1  ERROR:     Crofton prep or BoT metric failure.
+     *   2  FEW_HIT:   sampler found 1..CROFTON_FEW_HIT_THRESHOLD-1 crossings —
+     *                 too few for a meaningful comparison; accept with note.
+     *   3  ZERO_HIT:  sampler found zero crossings for a non-empty BoT —
+     *                 the BoT output is suspect; warn user to inspect.       */
     double csa = -1.0, cvol = -1.0, bsa = -1.0, bvol = -1.0;
-    if (_crofton_on_obj(csg_dbip, obj_name, csa, cvol) != 0)
+    long csg_crossings = _crofton_on_obj(csg_dbip, obj_name, csa, cvol);
+    if (csg_crossings < 0)
 	return -1;
     if (_bot_metrics(bot_dbip, bot_name, bsa, bvol) != 0)
 	return -1;
 
+    /* --- Empty-BoT case: pass iff the CSG also read as empty ---------- */
     if (std::fabs(bsa) <= FACETIZE_RT_EMPTY_TOL && std::fabs(bvol) <= FACETIZE_RT_EMPTY_TOL) {
-	bool csg_empty = (std::fabs(csa) <= FACETIZE_RT_EMPTY_TOL &&
-		std::fabs(cvol) <= FACETIZE_RT_EMPTY_TOL);
-	*sa_err_pct = csg_empty ? 0.0 : 100.0;
+	bool csg_empty = (csg_crossings == 0);
+	*sa_err_pct  = csg_empty ? 0.0 : 100.0;
 	*vol_err_pct = csg_empty ? 0.0 : 100.0;
 	return csg_empty ? 1 : 0;
     }
 
-    /* Crofton returned zero SA for a non-empty BoT.  The stochastic sampler
-     * could not hit the geometry within the time budget — typically because
-     * the primitive cross-section is sub-millimetre (e.g. a TGC with
-     * radius < 0.2 mm).  The produced BoT is geometrically valid; return a
-     * special code (2) so the caller can accept it with a note and skip the
-     * perturb retry (which would also fail to sample the geometry).       */
-    if (std::fabs(csa) <= FACETIZE_RT_EMPTY_TOL) {
+    /* --- Non-empty BoT: examine Crofton hit count --------------------- */
+
+    /* Zero crossings: the sampler fired rays but hit nothing.  The BoT is
+     * non-empty, which is suspicious — either the CSG has genuinely been
+     * reduced to nothing (e.g. a subtractor fully engulfs the base) and
+     * the BoT contains leftover noise triangles, or the geometry is so
+     * extreme that not a single stochastic chord hit it.  Either outcome
+     * warrants user inspection rather than silent acceptance.            */
+    if (csg_crossings == 0) {
+	*sa_err_pct  = 100.0;
+	*vol_err_pct = 100.0;
+	return 3;
+    }
+
+    /* Few crossings: the sampler did find geometry but the count is below
+     * the threshold at which the SA estimate is statistically reliable
+     * (~1/sqrt(N) noise > 14 %).  A perturb retry would face the same
+     * sampling limitation, so we accept the BoT with a note instead.    */
+    if (csg_crossings < CROFTON_FEW_HIT_THRESHOLD) {
 	*sa_err_pct  = 100.0;
 	*vol_err_pct = 100.0;
 	return 2;
     }
 
-    double sa_err = (bsa > 0.0) ? std::fabs(csa - bsa) / bsa : 1.0;
+    /* Normal case: enough crossings for a reliable SA/volume estimate.   */
+    double sa_err  = (bsa > 0.0) ? std::fabs(csa - bsa) / bsa : 1.0;
     double vol_err = (bvol > 0.0) ? std::fabs(cvol - bvol) / bvol : 1.0;
-    *sa_err_pct = sa_err * 100.0;
+    *sa_err_pct  = sa_err  * 100.0;
     *vol_err_pct = vol_err * 100.0;
     return (sa_err > sa_tol_pct || vol_err > vol_tol_pct) ? 0 : 1;
 }
@@ -440,10 +498,11 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
     int vcnt_skip         = 0; /* skipped: no perturbable leaf */
     int vcnt_total        = 0; /* entered validation path */
     int vcnt_p1_pass      = 0; /* P1 MATCH (within threshold) */
-    int vcnt_crofton_zero = 0; /* Crofton returned zero for non-empty BoT */
+    int vcnt_few_hit      = 0; /* P1: few Crofton hits — accepted with note (sub-mm geometry found) */
+    int vcnt_zero_hit     = 0; /* P1: zero Crofton hits — non-empty BoT is suspicious */
     int vcnt_p1_trigger   = 0; /* P1 MISMATCH (triggered perturb retry) */
     int vcnt_p2_pass      = 0; /* P2 MATCH after perturb */
-    int vcnt_p2_topoflip  = 0; /* P2: Crofton-zero after perturb (topology shift) */
+    int vcnt_p2_topoflip  = 0; /* P2: Crofton-zero/few after perturb (perturb shifted topology) */
     int vcnt_p2_warn      = 0; /* P2 persistent validation mismatch */
     int vcnt_unavail      = 0; /* validation unavailable (metric/prep failure) */
 
@@ -804,16 +863,26 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 		    bu_log("FACETIZE: %s CSG vs BoT MATCH (SA_err=%.2f%% VOL_err=%.2f%%) - skipping perturb\n",
 			    dpw[0]->d_namep, sa_err_pct, vol_err_pct);
 		}
-		/* Return code 2: Crofton could not sample the geometry (returned
-		 * zero SA) but the BoT is non-empty.  This typically indicates a
-		 * sub-millimetre primitive whose cross-section is too small for
-		 * the stochastic sampler to hit within the time budget.  The BoT
-		 * conversion is accepted as-is; a perturb retry would not help
-		 * since Crofton would still fail to sample the same geometry.   */
+		/* Return code 2: Crofton found a few crossings (1 to
+		 * CROFTON_FEW_HIT_THRESHOLD-1) but not enough for a
+		 * statistically reliable SA estimate.  The geometry is real
+		 * but very small.  Accept the BoT and skip perturb retry.    */
 		if (vret == 2) {
-		    vcnt_crofton_zero++;
-		    bu_log("FACETIZE NOTE: %s Crofton could not sample CSG geometry (likely sub-mm cross-section); BoT accepted - verify modeling intent\n",
+		    vcnt_few_hit++;
+		    bu_log("FACETIZE NOTE: %s Crofton found very few ray intersections with CSG geometry (sub-mm or near-degenerate); BoT accepted - verify modeling intent\n",
 			    dpw[0]->d_namep);
+		}
+		/* Return code 3: Crofton found zero crossings for a non-empty
+		 * BoT.  With zero ray intersections the CSG Boolean evaluation
+		 * most likely produces nothing (e.g. a subtractor fully engulfs
+		 * the base).  Replace the suspect non-empty BoT with an empty
+		 * one to match the expected raytrace behavior.                   */
+		if (vret == 3) {
+		    vcnt_zero_hit++;
+		    bu_log("FACETIZE: %s Crofton found zero ray intersections with CSG geometry; Boolean eval likely empty - replacing BoT with empty\n",
+			    dpw[0]->d_namep);
+		    if (!s->no_empty)
+			_write_empty_bot(wdbip, bu_vls_cstr(&bname), s->verbosity);
 		}
 		if (vret == 0) {
 		    vcnt_p1_trigger++;
@@ -876,18 +945,26 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 			    bu_log("FACETIZE: %s perturbed CSG vs BoT MATCH (SA_err=%.2f%% VOL_err=%.2f%%) - perturb successful\n",
 				    dpw[0]->d_namep, sa_err2, vol_err2);
 			}
-			/* Return code 2 at P2: Crofton returned zero SA for the
-			 * perturbed CSG but the perturbed BoT is non-empty.
-			 * This can occur when the perturbation shifts the
-			 * geometry to a configuration where a subtractor
-			 * fully engulfs the base in parametric space while the
-			 * mesh boolean still produces residual triangles.  The
-			 * BoT output is accepted; the count is tracked
-			 * separately from the P1 sub-mm case.                */
+			/* Return code 2 at P2: few Crofton crossings for
+			 * perturbed CSG — too noisy to compare, but the sampler
+			 * found geometry.  Accept the perturbed BoT with a note
+			 * (topology may have shifted slightly).                 */
 			if (vret2 == 2) {
 			    vcnt_p2_topoflip++;
-			    bu_log("FACETIZE NOTE: %s Crofton returned zero for perturbed CSG; perturb may have shifted topology - check output geometry\n",
+			    bu_log("FACETIZE NOTE: %s Crofton found very few crossings for perturbed CSG; perturb may have shifted geometry - check output\n",
 				    dpw[0]->d_namep);
+			}
+			/* Return code 3 at P2: zero Crofton crossings for
+			 * perturbed CSG.  The perturb shifted the geometry so
+			 * the parametric CSG appears empty (subtractor likely
+			 * now fully engulfs the base).  Replace the perturbed
+			 * BoT with an empty one to match raytrace behaviour.   */
+			if (vret2 == 3) {
+			    vcnt_zero_hit++;
+			    bu_log("FACETIZE: %s Crofton found zero crossings for perturbed CSG; Boolean eval likely empty after perturb - replacing BoT with empty\n",
+				    dpw[0]->d_namep);
+			    if (!s->no_empty)
+				_write_empty_bot(wdbip, bu_vls_cstr(&bname), s->verbosity);
 			}
 			if (vret2 == 0) {
 			    vcnt_p2_warn++;
@@ -991,16 +1068,19 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 	if (vcnt_p1_pass > 0)
 	    bu_log("  %d region%s passed P1 check (CSG-BoT within tolerance, no perturb needed)\n",
 		    vcnt_p1_pass, vcnt_p1_pass == 1 ? "" : "s");
-	if (vcnt_crofton_zero > 0)
-	    bu_log("  %d region%s accepted with note: Crofton could not sample geometry (likely sub-mm cross-section; verify modeling intent)\n",
-		    vcnt_crofton_zero, vcnt_crofton_zero == 1 ? "" : "s");
+	if (vcnt_few_hit > 0)
+	    bu_log("  %d region%s accepted with note: Crofton found very few ray intersections (sub-mm or near-degenerate geometry; verify modeling intent)\n",
+		    vcnt_few_hit, vcnt_few_hit == 1 ? "" : "s");
+	if (vcnt_zero_hit > 0)
+	    bu_log("  %d region%s replaced with empty BoT: zero Crofton ray intersections (Boolean eval likely empty; use 'lint' to verify if unexpected)\n",
+		    vcnt_zero_hit, vcnt_zero_hit == 1 ? "" : "s");
 	if (vcnt_p1_trigger > 0) {
 	    bu_log("  %d region%s triggered perturb retry:\n",
 		    vcnt_p1_trigger, vcnt_p1_trigger == 1 ? "" : "s");
 	    if (vcnt_p2_pass > 0)
 		bu_log("    %d passed P2 check after perturb\n", vcnt_p2_pass);
 	    if (vcnt_p2_topoflip > 0)
-		bu_log("    %d accepted with note: Crofton-zero after perturb (perturb may have shifted topology; check output geometry)\n",
+		bu_log("    %d accepted with note: Crofton-zero/few after perturb (perturb may have shifted topology; check output geometry)\n",
 			vcnt_p2_topoflip);
 	    if (vcnt_p2_warn > 0)
 		bu_log("    %d persistent validation mismatch after perturb (check output geometry with 'lint')\n",

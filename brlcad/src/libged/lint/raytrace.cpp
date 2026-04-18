@@ -296,7 +296,7 @@ crofton_on_obj(struct db_i *dbip, const char *obj_name, size_t n_rays,
     int cr = rt_crofton_shoot(rtip, &crp, &sa, &vol);
     rt_free_rti(rtip);
 
-    if (cr != 0) return -1;
+    if (cr < 0) return -1;
     out_sa  = sa;
     out_vol = vol;
     return 0;

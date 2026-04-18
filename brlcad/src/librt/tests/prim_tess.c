@@ -4275,7 +4275,7 @@ scan_input_g(const char *g_path, const char *g_root)
 		}
 		rt_free_rti(cr_rtip);
 	    }
-	    if (cr == 0) {
+	    if (cr >= 0) {
 		fprintf(stderr,
 			"  CROFTON: %-32s  CSG-SA=%.4g  CSG-V=%.4g\n",
 			dp->d_namep, csa, cv);

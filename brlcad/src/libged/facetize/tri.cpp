@@ -197,7 +197,7 @@ csg_crofton_volume(struct db_i *dbip, const char *obj_name, double *out_vol)
     struct rt_crofton_params crp = {FACETIZE_EMPTY_CHECK_CROFTON_RAYS, 0.0, 0.0};
     int rc = rt_crofton_shoot(rtip, &crp, &sa, &vol);
     rt_free_rti(rtip);
-    if (rc != 0)
+    if (rc < 0)
 	return BRLCAD_ERROR;
     *out_vol = vol;
     return BRLCAD_OK;
