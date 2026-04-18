@@ -383,13 +383,19 @@ facetize_and_measure(struct ged *gedp, const char *obj_name,
 	    if (in.idb_minor_type == DB5_MINORTYPE_BRLCAD_BOT) {
 		struct rt_bot_internal *bot = (struct rt_bot_internal *)in.idb_ptr;
 		RT_BOT_CK_MAGIC(bot);
-		if (bot->mode == RT_BOT_SOLID && bot->num_faces > 0) {
-		    out_sa  = bg_trimesh_area(bot->faces, bot->num_faces,
-					      (const point_t *)bot->vertices,
-					      bot->num_vertices);
-		    out_vol = bg_trimesh_volume(bot->faces, bot->num_faces,
-					       (const point_t *)bot->vertices,
-					       bot->num_vertices);
+		if (bot->mode == RT_BOT_SOLID) {
+		    if (bot->num_faces > 0 && bot->num_vertices > 0) {
+			out_sa  = bg_trimesh_area(bot->faces, bot->num_faces,
+						  (const point_t *)bot->vertices,
+						  bot->num_vertices);
+			out_vol = bg_trimesh_volume(bot->faces, bot->num_faces,
+						   (const point_t *)bot->vertices,
+						   bot->num_vertices);
+		    } else {
+			/* Empty solid BoT is a valid result for empty CSG. */
+			out_sa = 0.0;
+			out_vol = 0.0;
+		    }
 		    got_metrics = 1;
 		}
 	    }
@@ -554,6 +560,27 @@ check_comb(lint_data *ldata, struct directory *dp,
     info.ref_vol = bvol;
     jentry["bot_sa"]  = bsa;
     jentry["bot_vol"] = bvol;
+
+    /* Empty reference BoT (empty CSG result) needs dedicated handling. */
+    const double ztol = 1.0e-9;
+    if (std::fabs(bsa) <= ztol && std::fabs(bvol) <= ztol) {
+	bool csg_empty = (std::fabs(csa) <= ztol && std::fabs(cvol) <= ztol);
+	info.sa_err_pct  = csg_empty ? 0.0 : 100.0;
+	info.vol_err_pct = csg_empty ? 0.0 : 100.0;
+	jentry["sa_err_pct"]  = info.sa_err_pct;
+	jentry["vol_err_pct"] = info.vol_err_pct;
+	if (csg_empty) {
+	    info.result            = RT_RESULT_OK;
+	    jentry["problem_type"] = "raytrace_ok";
+	    jentry["reason"]       = "empty_csg_and_empty_bot";
+	} else {
+	    info.result            = RT_RESULT_MISMATCH;
+	    jentry["problem_type"] = "raytrace_mismatch";
+	    jentry["reason"]       = "Facetized BoT is empty but CSG Crofton is non-empty";
+	}
+	ldata->j.push_back(jentry);
+	return;
+    }
 
     /* Relative error uses the BoT (exact mesh) as the reference denominator,
      * consistent with how primitives use the analytic formula as denominator. */

@@ -51,6 +51,11 @@
  *      (zero tolerance rejects every non-exact result) and verifying that
  *      at least one raytrace_skip entry with the child-failed reason
  *      appears when a comb contains that prim.
+ *
+ * TC5  Empty comb (A - A) should validate.
+ *      Facetize may legitimately return an empty solid BoT for an empty CSG
+ *      result.  lint --raytrace should treat this as a valid zero-metric
+ *      reference instead of reporting facetize failure.
  */
 
 #include "common.h"
@@ -512,6 +517,73 @@ tc4_child_blocks_parent(void)
 }
 
 /* ------------------------------------------------------------------ */
+/* TC5 – empty comb should be valid                                   */
+/* ------------------------------------------------------------------ */
+static int
+tc5_empty_comb_valid(void)
+{
+    bu_log("TC5: empty comb (A - A) validates with empty BoT reference\n");
+
+    std::string gfile = make_tmp_g("tc5");
+    if (gfile.empty()) {
+	bu_log("TC5: FAIL – could not create temp .g file\n");
+	return 1;
+    }
+
+    {
+	struct rt_wdb *wdbp = wdb_fopen(gfile.c_str());
+	if (!wdbp) { bu_log("TC5: FAIL – wdb_fopen failed\n"); return 1; }
+
+	point_t center = VINIT_ZERO;
+	mk_sph(wdbp, "tc5_sph.s", center, 25.0);
+
+	struct wmember head;
+	BU_LIST_INIT(&head.l);
+	mk_addmember("tc5_sph.s", &head.l, NULL, WMOP_UNION);
+	mk_addmember("tc5_sph.s", &head.l, NULL, WMOP_SUBTRACT);
+	mk_lcomb(wdbp, "tc5_empty.c", &head, 0, NULL, NULL, NULL, 0);
+
+	db_close(wdbp->dbip);
+    }
+
+    char json_path[MAXPATHLEN] = {0};
+    FILE *jfp = bu_temp_file(json_path, MAXPATHLEN);
+    if (jfp) fclose(jfp);
+    struct bu_vls json_vls = BU_VLS_INIT_ZERO;
+    bu_vls_sprintf(&json_vls, "%s_tc5.json", json_path);
+
+    const char *obj = "tc5_empty.c";
+    run_lint_raytrace(gfile.c_str(), bu_vls_cstr(&json_vls), NULL, 1, &obj);
+
+    std::string jtext = read_file(bu_vls_cstr(&json_vls));
+    int pass = 0;
+
+    if (jtext.empty()) {
+	bu_log("TC5: FAIL – no JSON output\n");
+    } else {
+	int comb_ok = json_has_pair_in_same_object(jtext.c_str(),
+						   "problem_type", "raytrace_ok",
+						   "object_name", "tc5_empty.c");
+	int comb_facetize_fail = json_has_pair_in_same_object(jtext.c_str(),
+							      "problem_type", "raytrace_facetize_failed",
+							      "object_name", "tc5_empty.c");
+	if (comb_ok && !comb_facetize_fail) {
+	    bu_log("TC5: PASS – empty comb accepted as valid\n");
+	    pass = 1;
+	} else {
+	    bu_log("TC5: FAIL – comb_ok=%d comb_facetize_fail=%d\n",
+		   comb_ok, comb_facetize_fail);
+	    bu_log("  JSON: %.600s\n", jtext.c_str());
+	}
+    }
+
+    bu_file_delete(bu_vls_cstr(&json_vls));
+    bu_vls_free(&json_vls);
+    bu_file_delete(gfile.c_str());
+    return pass ? 0 : 1;
+}
+
+/* ------------------------------------------------------------------ */
 /* main                                                                 */
 /* ------------------------------------------------------------------ */
 int
@@ -529,6 +601,7 @@ main(int argc, char *argv[])
     if (tc_select < 0 || tc_select == 2) failures += tc2_simple_comb();
     if (tc_select < 0 || tc_select == 3) failures += tc3_halfspace();
     if (tc_select < 0 || tc_select == 4) failures += tc4_child_blocks_parent();
+    if (tc_select < 0 || tc_select == 5) failures += tc5_empty_comb_valid();
 
     bu_log("\nRegress-lint-raytrace: %s (%d failure(s))\n",
 	   failures == 0 ? "PASS" : "FAIL", failures);

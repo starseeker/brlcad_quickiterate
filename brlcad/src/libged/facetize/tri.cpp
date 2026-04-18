@@ -28,6 +28,7 @@
 #include <set>
 #include <vector>
 #include <algorithm>
+#include <cmath>
 #include <sstream>
 #include <iostream>
 #include <fstream>
@@ -37,6 +38,7 @@
 
 #include "manifold/manifold.h"
 
+#include "bg/trimesh.h"
 #include "bu/app.h"
 #include "bu/path.h"
 #include "bu/snooze.h"
@@ -143,6 +145,58 @@ static int bot_flipped(mat_t *m)
 	return 1;
 
     return 0;
+}
+
+static double
+bot_bbox_volume(const struct rt_bot_internal *bot)
+{
+    if (!bot || !bot->vertices || bot->num_vertices < 1)
+	return 0.0;
+
+    point_t bmin, bmax;
+    VSETALL(bmin, INFINITY);
+    VSETALL(bmax, -INFINITY);
+    for (int i = 0; i < bot->num_vertices; i++) {
+	const double *v = &bot->vertices[3*i];
+	if (v[0] < bmin[0]) bmin[0] = v[0];
+	if (v[1] < bmin[1]) bmin[1] = v[1];
+	if (v[2] < bmin[2]) bmin[2] = v[2];
+	if (v[0] > bmax[0]) bmax[0] = v[0];
+	if (v[1] > bmax[1]) bmax[1] = v[1];
+	if (v[2] > bmax[2]) bmax[2] = v[2];
+    }
+
+    vect_t d;
+    VSUB2(d, bmax, bmin);
+    if (d[0] <= 0.0 || d[1] <= 0.0 || d[2] <= 0.0)
+	return 0.0;
+    return d[0] * d[1] * d[2];
+}
+
+static int
+csg_crofton_volume(struct db_i *dbip, const char *obj_name, double *out_vol)
+{
+    if (!dbip || !obj_name || !out_vol)
+	return BRLCAD_ERROR;
+
+    *out_vol = -1.0;
+    struct rt_i *rtip = rt_new_rti(dbip);
+    if (!rtip)
+	return BRLCAD_ERROR;
+    if (rt_gettree(rtip, obj_name) != 0) {
+	rt_free_rti(rtip);
+	return BRLCAD_ERROR;
+    }
+    rt_prep_parallel(rtip, 1);
+
+    double sa = 0.0, vol = 0.0;
+    struct rt_crofton_params crp = {800u, 0.0, 0.0};
+    int rc = rt_crofton_shoot(rtip, &crp, &sa, &vol);
+    rt_free_rti(rtip);
+    if (rc != 0)
+	return BRLCAD_ERROR;
+    *out_vol = vol;
+    return BRLCAD_OK;
 }
 
 // Customized version of rt_booltree_leaf_tess for Manifold processing
@@ -1203,6 +1257,35 @@ _ged_facetize_booleval_tri(struct _ged_facetize_state *s, struct db_i *dbip, str
 	    bot->vertices[j] = rmesh.vertProperties[j];
 	for (size_t j = 0; j < rmesh.triVerts.size(); j++)
 	    bot->faces[j] = rmesh.triVerts[j];
+
+	/* Guard against near-zero perturb slivers: if the booleval mesh is tiny,
+	 * quickly Crofton-check the original CSG.  If CSG is effectively empty,
+	 * emit an empty BoT to match raytrace behavior. */
+	double bot_vol = 0.0;
+	if (bot->num_faces > 0 && bot->num_vertices > 0) {
+	    bot_vol = std::fabs(bg_trimesh_volume(bot->faces, bot->num_faces,
+						  (const point_t *)bot->vertices,
+						  bot->num_vertices));
+	}
+	double bbox_vol = bot_bbox_volume(bot);
+	const double rel_vtol = 1.0e-9;
+	const double abs_vtol = 1.0e-12;
+	bool tiny_bot = (bbox_vol > 0.0) ? (bot_vol <= bbox_vol * rel_vtol) : (bot_vol <= abs_vtol);
+	if (tiny_bot && argc == 1 && argv && argv[0] && s && s->dbip) {
+	    double csg_vol = -1.0;
+	    if (csg_crofton_volume(s->dbip, argv[0], &csg_vol) == BRLCAD_OK) {
+		double csg_abs = std::fabs(csg_vol);
+		double csg_vtol = (bbox_vol > 0.0) ? (bbox_vol * rel_vtol) : abs_vtol;
+		if (csg_abs <= csg_vtol) {
+		    if (bot->vertices) free(bot->vertices);
+		    if (bot->faces) free(bot->faces);
+		    bot->vertices = NULL;
+		    bot->faces = NULL;
+		    bot->num_vertices = 0;
+		    bot->num_faces = 0;
+		}
+	    }
+	}
 	delete om;
 	ftree->tr_d.td_d = NULL;
 
