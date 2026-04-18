@@ -577,6 +577,9 @@ check_comb(lint_data *ldata, struct directory *dp,
     jentry["bot_sa"]  = bsa;
     jentry["bot_vol"] = bvol;
 
+    bu_log("[RAYTRACE_CHECK] obj=%-30s  crofton_SA=%.4f  bot_SA=%.4f  ratio=%.3f  crofton_vol=%.4f  bot_vol=%.4f\n",
+	   name, csa, bsa, (bsa > 0.0) ? bsa/csa : 0.0, cvol, bvol);
+
     /* Empty reference BoT (empty CSG result) needs dedicated handling. */
     if (std::fabs(bsa) <= EMPTY_METRIC_TOL && std::fabs(bvol) <= EMPTY_METRIC_TOL) {
 	bool csg_empty = (std::fabs(csa) <= EMPTY_METRIC_TOL &&

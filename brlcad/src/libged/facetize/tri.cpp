@@ -303,6 +303,20 @@ _booltree_leaf_tess(struct db_tree_state *tsp, const struct db_full_path *pathp,
 	return TREE_NULL;
     }
 
+    /* Diagnostic: log leaf name, role, and mesh SA */
+    {
+	bool is_sub_ctx = (tsp->ts_sofar & TS_SOFAR_MINUS) != 0;
+	double leaf_sa = 0.0;
+	if (odata) {
+	    manifold::Manifold *lm = (manifold::Manifold *)odata;
+	    leaf_sa = lm->SurfaceArea();
+	}
+	bu_log("[LEAF_TESS] name=%-30s  role=%s  mesh_SA=%.6f mm^2\n",
+	       dp->d_namep,
+	       is_sub_ctx ? "SUB " : "BASE",
+	       leaf_sa);
+    }
+
     BU_GET(curtree, union tree);
     RT_TREE_INIT(curtree);
     curtree->tr_op = OP_TESS;
@@ -436,6 +450,13 @@ manifold_do_bool(
 	// We should have valid inputs - proceed
 	facetize_log(s, 1, "Trying boolean op:  %s, %s\n", tl->tr_d.td_name, tr->tr_d.td_name);
 
+	static const char *op_names[] = {"ADD","INTERSECT","SUBTRACT","ADD"};
+	int opidx = (op == OP_INTERSECT) ? 1 : (op == OP_SUBTRACT) ? 2 : 0;
+	bu_log("[BOOL_OP] %-8s L=%-30s SA=%.4f  R=%-30s SA=%.4f\n",
+	       op_names[opidx],
+	       tl->tr_d.td_name, lm->SurfaceArea(),
+	       tr->tr_d.td_name, rm->SurfaceArea());
+
 	manifold::Manifold bool_out;
 	try {
 	    bool_out = lm->Boolean(*rm, manifold_op);
@@ -455,6 +476,14 @@ manifold_do_bool(
 	    failed = 1;
 	}
 
+	if (!failed) {
+	    bu_log("[BOOL_OP] %-8s L=%-30s  R=%-30s  result_SA=%.4f\n",
+		   op_names[opidx],
+		   tl->tr_d.td_name, tr->tr_d.td_name,
+		   bool_out.SurfaceArea());
+	    result = new manifold::Manifold(bool_out);
+	}
+
 	// If we're debugging and need to capture OBJ meshes for "successful" cases can use GED_MANIFOLD_DEBUG env var.
 	const char *evar = getenv("GED_MANIFOLD_DEBUG");
 	if (evar && strlen(evar)) {
@@ -465,9 +494,6 @@ manifold_do_bool(
 	    lm->WriteOBJ(lofile); rm->WriteOBJ(rofile); bool_out.WriteOBJ(oofile);
 	    lofile.close(); rofile.close(); oofile.close();
 	}
-
-	if (!failed)
-	    result = new manifold::Manifold(bool_out);
     }
 
     // Memory cleanup
@@ -1244,6 +1270,13 @@ _ged_facetize_booleval_tri(struct _ged_facetize_state *s, struct db_i *dbip, str
 	    facetize_log(s, 0, "Boolean algorithm FAILED.\n");
 	    return BRLCAD_ERROR;
 	}
+
+	bu_log("[FINAL_BOOL] obj=%s  final_mesh_SA=%.6f mm^2  num_verts=%zu  num_faces=%zu\n",
+	       (argc > 0 && argv && argv[0]) ? argv[0] : "?",
+	       om->SurfaceArea(),
+	       (size_t)om->GetMeshGL64().vertProperties.size() / 3,
+	       (size_t)om->GetMeshGL64().triVerts.size() / 3);
+
 	manifold::MeshGL64 rmesh = om->GetMeshGL64();
 	struct rt_bot_internal *bot;
 	BU_GET(bot, struct rt_bot_internal);
