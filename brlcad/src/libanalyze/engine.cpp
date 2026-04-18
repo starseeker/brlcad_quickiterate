@@ -19,29 +19,31 @@
  */
 /** @file libanalyze/engine.cpp
  *
- * Internal C++17 engine layer for libanalyze (Phase A).
+ * Internal C++17 engine layer for libanalyze (Phases A-E).
  *
- * This file implements the types and functions declared in engine.h:
+ * Implements the types and functions declared in engine.h.  The layer
+ * structure mirrors the planned architecture:
  *
- *   analyze::AnalyzeRequest::from_config()
- *   analyze::apply_request_to_state()
- *   analyze::run()
- *   analyze_engine_run()  [C linkage]
+ *   Sections:
+ *     1. Capture context + ar_*_cb callbacks (Phase A — moved from api.c)
+ *     2. ISampler concrete classes (Phase B)
+ *     3. IAnalyzer concrete classes (Phase C)
+ *     4. namespace analyze: AnalyzeRequest::from_config(),
+ *                           apply_request_to_state(),
+ *                           run()  <-- uses RAII + ISampler + IAnalyzer (D+E)
+ *     5. extern "C" analyze_engine_run() wrapper
  *
- * It also hosts the capture callbacks (ar_capture_ctx / ar_*_cb) that
- * collect detected issues into struct analyze_results during a
- * perform_raytracing() call.  These were previously static functions in
- * api.c; moving them here is a pure structural change with no effect on
- * observable behaviour.
- *
- * Phase A: structural isolation only — algorithms and behaviour are
- * identical to the code that was inlined in api.c::analyze_run().
+ * perform_raytracing(), the worker functions, the convergence loop, and
+ * the sampler execution loops remain in api.c (geometry execution adapter
+ * layer) and are left unchanged by Phases A-E.
  */
 
 #include "common.h"
 
 #include <cstring>
 #include <cstdio>
+#include <memory>
+#include <vector>
 
 #include "raytrace.h"
 #include "vmath.h"
@@ -56,7 +58,7 @@
 
 
 /* ======================================================================
- * Capture context and per-event callbacks.
+ * Section 1: Capture context and per-event callbacks (Phase A).
  *
  * These are registered with current_state before calling
  * perform_raytracing() and accumulate detected issues into
@@ -64,14 +66,14 @@
  * threads concurrently; all mutations of the shared result tables are
  * serialised under ctx->sem.
  *
- * Moved verbatim from api.c — no algorithm change.
+ * Moved verbatim from api.c in Phase A — no algorithm change.
  * ====================================================================== */
 
 struct ar_capture_ctx {
     struct analyze_results *res;
     int sem; /**< bu_semaphore protecting all list mutations */
 
-    /* Presentation-layer render hooks copied from analyze_config. */
+    /* Presentation-layer render hooks copied from AnalyzeRequest. */
     analyze_overlap_render_fn    overlap_render;
     void                        *overlap_render_data;
     analyze_gap_render_fn        gap_render;
@@ -86,10 +88,8 @@ struct ar_capture_ctx {
 
 
 /**
- * ar_find_or_insert - locate an existing record by region name(s) or append
- * a new one.
- *
- * For single-region tables (exp_air, first_air, last_air) pass name2 == NULL.
+ * ar_find_or_insert — locate an existing record by region name(s) or append
+ * a new one.  For single-region tables pass name2 == NULL.
  */
 static struct analyze_overlap_record *
 ar_find_or_insert(struct bu_ptbl *tbl, const char *name1, const char *name2)
@@ -98,13 +98,13 @@ ar_find_or_insert(struct bu_ptbl *tbl, const char *name1, const char *name2)
     struct analyze_overlap_record *rec;
 
     for (i = 0; i < BU_PTBL_LEN(tbl); i++) {
-	rec = (struct analyze_overlap_record *)BU_PTBL_GET(tbl, i);
-	if (!BU_STR_EQUAL(rec->region1, name1))
-	    continue;
-	if (!name2 && !rec->region2)
-	    return rec;
-	if (name2 && rec->region2 && BU_STR_EQUAL(rec->region2, name2))
-	    return rec;
+rec = (struct analyze_overlap_record *)BU_PTBL_GET(tbl, i);
+if (!BU_STR_EQUAL(rec->region1, name1))
+    continue;
+if (!name2 && !rec->region2)
+    return rec;
+if (name2 && rec->region2 && BU_STR_EQUAL(rec->region2, name2))
+    return rec;
     }
 
     BU_ALLOC(rec, struct analyze_overlap_record);
@@ -120,8 +120,8 @@ ar_find_or_insert(struct bu_ptbl *tbl, const char *name1, const char *name2)
 
 static void
 ar_overlap_cb(const struct xray *ray, const struct partition *pp,
-	      const struct region *reg1, const struct region *reg2,
-	      double depth, void *data)
+      const struct region *reg1, const struct region *reg2,
+      double depth, void *data)
 {
     struct ar_capture_ctx *ctx = (struct ar_capture_ctx *)data;
     struct analyze_overlap_record *rec;
@@ -130,18 +130,17 @@ ar_overlap_cb(const struct xray *ray, const struct partition *pp,
     VJOIN1(ihit, ray->r_pt, pp->pt_inhit->hit_dist,  ray->r_dir);
     VJOIN1(ohit, ray->r_pt, pp->pt_outhit->hit_dist, ray->r_dir);
 
-    /* Per-segment render hook fires before per-pair deduplication. */
     if (ctx->overlap_render)
-	ctx->overlap_render(reg1->reg_name, reg2->reg_name,
-			    depth, ihit, ohit, ctx->overlap_render_data);
+ctx->overlap_render(reg1->reg_name, reg2->reg_name,
+    depth, ihit, ohit, ctx->overlap_render_data);
 
     bu_semaphore_acquire(ctx->sem);
     rec = ar_find_or_insert(&ctx->res->overlaps,
-			    reg1->reg_name, reg2->reg_name);
+    reg1->reg_name, reg2->reg_name);
     rec->count++;
     if (depth > rec->max_dist) {
-	rec->max_dist = depth;
-	VMOVE(rec->coord, ihit);
+rec->max_dist = depth;
+VMOVE(rec->coord, ihit);
     }
     bu_semaphore_release(ctx->sem);
 }
@@ -149,29 +148,27 @@ ar_overlap_cb(const struct xray *ray, const struct partition *pp,
 
 static void
 ar_gap_cb(const struct xray *ray, const struct partition *pp,
-	  double gap_dist, point_t pt, void *data)
+  double gap_dist, point_t pt, void *data)
 {
     struct ar_capture_ctx *ctx = (struct ar_capture_ctx *)data;
     struct analyze_overlap_record *rec;
-    /* pt is the entry point of the region after the gap;
-     * pp->pt_back is the region before the gap (if any). */
     const char *name_after  = (pp && pp->pt_regionp) ? pp->pt_regionp->reg_name : "";
     const char *name_before = (pp && pp->pt_back && pp->pt_back->pt_regionp)
-	? pp->pt_back->pt_regionp->reg_name : "";
+? pp->pt_back->pt_regionp->reg_name : "";
 
     if (ctx->gap_render) {
-	point_t gap_start;
-	VJOIN1(gap_start, pt, -gap_dist, ray->r_dir);
-	ctx->gap_render(name_after, name_before, gap_dist,
-			gap_start, pt, ctx->gap_render_data);
+point_t gap_start;
+VJOIN1(gap_start, pt, -gap_dist, ray->r_dir);
+ctx->gap_render(name_after, name_before, gap_dist,
+gap_start, pt, ctx->gap_render_data);
     }
 
     bu_semaphore_acquire(ctx->sem);
     rec = ar_find_or_insert(&ctx->res->gaps, name_after, name_before);
     rec->count++;
     if (gap_dist > rec->max_dist) {
-	rec->max_dist = gap_dist;
-	VMOVE(rec->coord, pt);
+rec->max_dist = gap_dist;
+VMOVE(rec->coord, pt);
     }
     bu_semaphore_release(ctx->sem);
 }
@@ -179,7 +176,7 @@ ar_gap_cb(const struct xray *ray, const struct partition *pp,
 
 static void
 ar_exp_air_cb(const struct partition *pp, point_t last_out,
-	      point_t pt, point_t opt, void *data)
+      point_t pt, point_t opt, void *data)
 {
     struct ar_capture_ctx *ctx = (struct ar_capture_ctx *)data;
     struct analyze_overlap_record *rec;
@@ -187,14 +184,14 @@ ar_exp_air_cb(const struct partition *pp, point_t last_out,
     double thickness = (pp) ? pp->pt_outhit->hit_dist - pp->pt_inhit->hit_dist : 0.0;
 
     if (ctx->exp_air_render)
-	ctx->exp_air_render(name, pt, opt, ctx->exp_air_render_data);
+ctx->exp_air_render(name, pt, opt, ctx->exp_air_render_data);
 
     bu_semaphore_acquire(ctx->sem);
     rec = ar_find_or_insert(&ctx->res->exp_air, name, NULL);
     rec->count++;
     if (thickness > rec->max_dist) {
-	rec->max_dist = thickness;
-	VMOVE(rec->coord, last_out);
+rec->max_dist = thickness;
+VMOVE(rec->coord, last_out);
     }
     bu_semaphore_release(ctx->sem);
 }
@@ -202,21 +199,20 @@ ar_exp_air_cb(const struct partition *pp, point_t last_out,
 
 static void
 ar_adj_air_cb(const struct xray *ray, const struct partition *pp,
-	      point_t pt, void *data)
+      point_t pt, void *data)
 {
     struct ar_capture_ctx *ctx = (struct ar_capture_ctx *)data;
     struct analyze_overlap_record *rec;
-    /* Current region is air; back region is the adjacent solid. */
     const char *name_air   = (pp && pp->pt_regionp) ? pp->pt_regionp->reg_name : "";
     const char *name_solid = (pp && pp->pt_back && pp->pt_back->pt_regionp)
-	? pp->pt_back->pt_regionp->reg_name : "";
+? pp->pt_back->pt_regionp->reg_name : "";
 
     if (ctx->adj_air_render) {
-	double thickness = pp->pt_outhit->hit_dist - pp->pt_inhit->hit_dist;
-	point_t out_pt;
-	VJOIN1(out_pt, pt, thickness * 0.25, ray->r_dir);
-	ctx->adj_air_render(name_solid, name_air, pt, out_pt,
-			    ctx->adj_air_render_data);
+double thickness = pp->pt_outhit->hit_dist - pp->pt_inhit->hit_dist;
+point_t out_pt;
+VJOIN1(out_pt, pt, thickness * 0.25, ray->r_dir);
+ctx->adj_air_render(name_solid, name_air, pt, out_pt,
+    ctx->adj_air_render_data);
     }
 
     bu_semaphore_acquire(ctx->sem);
@@ -229,7 +225,7 @@ ar_adj_air_cb(const struct xray *ray, const struct partition *pp,
 
 static void
 ar_first_air_cb(const struct xray *UNUSED(ray), const struct partition *pp,
-		void *data)
+void *data)
 {
     struct ar_capture_ctx *ctx = (struct ar_capture_ctx *)data;
     struct analyze_overlap_record *rec;
@@ -244,7 +240,7 @@ ar_first_air_cb(const struct xray *UNUSED(ray), const struct partition *pp,
 
 static void
 ar_last_air_cb(const struct xray *UNUSED(ray), const struct partition *pp,
-	       void *data)
+       void *data)
 {
     struct ar_capture_ctx *ctx = (struct ar_capture_ctx *)data;
     struct analyze_overlap_record *rec;
@@ -259,50 +255,237 @@ ar_last_air_cb(const struct xray *UNUSED(ray), const struct partition *pp,
 
 static void
 ar_unconf_air_cb(const struct xray *ray,
-		 const struct partition *in_p, const struct partition *out_p,
-		 void *data)
+ const struct partition *in_p, const struct partition *out_p,
+ void *data)
 {
     struct ar_capture_ctx *ctx = (struct ar_capture_ctx *)data;
     struct analyze_overlap_record *rec;
     const char *name_in  = (in_p  && in_p->pt_regionp)  ? in_p->pt_regionp->reg_name  : "";
     const char *name_out = (out_p && out_p->pt_regionp)  ? out_p->pt_regionp->reg_name : "";
     double depth = (in_p && out_p) ?
-	in_p->pt_inhit->hit_dist - out_p->pt_outhit->hit_dist : 0.0;
+in_p->pt_inhit->hit_dist - out_p->pt_outhit->hit_dist : 0.0;
 
     if (ctx->unconf_air_render && ray) {
-	point_t ihit, ohit;
-	VJOIN1(ihit, ray->r_pt, in_p->pt_inhit->hit_dist,   ray->r_dir);
-	VJOIN1(ohit, ray->r_pt, out_p->pt_outhit->hit_dist, ray->r_dir);
-	ctx->unconf_air_render(name_in, name_out, ihit, ohit,
-			       ctx->unconf_air_render_data);
+point_t ihit, ohit;
+VJOIN1(ihit, ray->r_pt, in_p->pt_inhit->hit_dist,   ray->r_dir);
+VJOIN1(ohit, ray->r_pt, out_p->pt_outhit->hit_dist, ray->r_dir);
+ctx->unconf_air_render(name_in, name_out, ihit, ohit,
+       ctx->unconf_air_render_data);
     }
 
     bu_semaphore_acquire(ctx->sem);
     rec = ar_find_or_insert(&ctx->res->unconf_air, name_in, name_out);
     rec->count++;
     if (depth > rec->max_dist) {
-	rec->max_dist = depth;
-	if (ray && in_p)
-	    VJOIN1(rec->coord, ray->r_pt, in_p->pt_inhit->hit_dist, ray->r_dir);
+rec->max_dist = depth;
+if (ray && in_p)
+    VJOIN1(rec->coord, ray->r_pt, in_p->pt_inhit->hit_dist, ray->r_dir);
     }
     bu_semaphore_release(ctx->sem);
 }
 
 
 /* ======================================================================
- * C++17 engine implementation
+ * Section 2: ISampler concrete classes (Phase B).
+ *
+ * Each class encapsulates one sampler strategy.  For Phase B the actual
+ * ray-firing loop stays in perform_raytracing(); the concrete class only
+ * sets the state->sampler discriminator (and any sampler-specific extra
+ * fields) that perform_raytracing() reads at dispatch time.
+ *
+ * finalize() hooks exist for post-processing that cannot live inside the
+ * firing loop; currently all backends do their post-processing inside
+ * api.c, so all finalize() implementations are no-ops in Phase B.
+ * ====================================================================== */
+
+namespace {
+
+/** Triple-grid sampler: axis-aligned rectangular grid (default). */
+class TripleGridSampler : public analyze::ISampler {
+public:
+    void configure(const analyze::AnalyzeRequest & /*req*/,
+   struct current_state *state) const override
+    {
+state->sampler = ANALYZE_SAMPLER_TRIPLE_GRID;
+    }
+};
+
+/** Rotated-grid sampler: grid along arbitrary az/el direction. */
+class RotatedGridSampler : public analyze::ISampler {
+public:
+    void configure(const analyze::AnalyzeRequest & /*req*/,
+   struct current_state *state) const override
+    {
+state->sampler = ANALYZE_SAMPLER_ROTATED;
+/* az/el already written by apply_request_to_state(). */
+    }
+};
+
+/** Crofton sampler: isotropic random rays + Cauchy-Crofton SA formula. */
+class CroftonSampler : public analyze::ISampler {
+public:
+    void configure(const analyze::AnalyzeRequest &req,
+   struct current_state *state) const override
+    {
+state->sampler = ANALYZE_SAMPLER_CROFTON;
+/* ray count already written by apply_request_to_state();
+ * reinforce here in case caller bypasses that path. */
+if (req.n_crofton_rays > 0)
+    state->crofton_n_rays = req.n_crofton_rays;
+    }
+    /* Crofton SA post-processing lives inside shoot_rays_crofton()
+     * in api.c and fires automatically — no extra finalize() needed. */
+};
+
+/** View-plane sampler: single-plane grid from explicit eye/view data. */
+class ViewPlaneSampler : public analyze::ISampler {
+public:
+    void configure(const analyze::AnalyzeRequest & /*req*/,
+   struct current_state *state) const override
+    {
+state->sampler = ANALYZE_SAMPLER_VIEW_PLANE;
+/* view_size / eye / quat already written by apply_request_to_state(). */
+    }
+};
+
+/* ======================================================================
+ * Section 3: IAnalyzer concrete classes (Phase C).
+ *
+ * Each class registers exactly the callback it needs on current_state.
+ * All callbacks write directly into the shared ar_capture_ctx, which
+ * holds the result pointer and the protecting semaphore.  No separate
+ * harvest step is required.
+ * ====================================================================== */
+
+class OverlapAnalyzer : public analyze::IAnalyzer {
+public:
+    void register_callbacks(struct current_state *state,
+    struct ar_capture_ctx *ctx) const override
+    {
+analyze_register_overlaps_callback(state, ar_overlap_cb, ctx);
+    }
+};
+
+class GapAnalyzer : public analyze::IAnalyzer {
+public:
+    void register_callbacks(struct current_state *state,
+    struct ar_capture_ctx *ctx) const override
+    {
+analyze_register_gaps_callback(state, ar_gap_cb, ctx);
+    }
+};
+
+class ExpAirAnalyzer : public analyze::IAnalyzer {
+public:
+    void register_callbacks(struct current_state *state,
+    struct ar_capture_ctx *ctx) const override
+    {
+analyze_register_exp_air_callback(state, ar_exp_air_cb, ctx);
+    }
+};
+
+class AdjAirAnalyzer : public analyze::IAnalyzer {
+public:
+    void register_callbacks(struct current_state *state,
+    struct ar_capture_ctx *ctx) const override
+    {
+analyze_register_adj_air_callback(state, ar_adj_air_cb, ctx);
+    }
+};
+
+class FirstAirAnalyzer : public analyze::IAnalyzer {
+public:
+    void register_callbacks(struct current_state *state,
+    struct ar_capture_ctx *ctx) const override
+    {
+analyze_register_first_air_callback(state, ar_first_air_cb, ctx);
+    }
+};
+
+class LastAirAnalyzer : public analyze::IAnalyzer {
+public:
+    void register_callbacks(struct current_state *state,
+    struct ar_capture_ctx *ctx) const override
+    {
+analyze_register_last_air_callback(state, ar_last_air_cb, ctx);
+    }
+};
+
+class UnconfAirAnalyzer : public analyze::IAnalyzer {
+public:
+    void register_callbacks(struct current_state *state,
+    struct ar_capture_ctx *ctx) const override
+    {
+analyze_register_unconf_air_callback(state, ar_unconf_air_cb, ctx);
+    }
+};
+
+} /* anonymous namespace */
+
+
+/* ======================================================================
+ * ISampler and IAnalyzer factory + default implementations (Phase B+C).
  * ====================================================================== */
 
 namespace analyze {
 
+/* ISampler base default implementations */
+void
+ISampler::configure(const AnalyzeRequest & /*req*/,
+    struct current_state * /*state*/) const
+{
+    /* Base default: no extra configuration needed.
+     * apply_request_to_state() already set state->sampler. */
+}
+
+void
+ISampler::finalize(struct current_state * /*state*/,
+   struct analyze_results * /*res*/) const
+{
+    /* Base default: no post-processing. */
+}
+
+std::unique_ptr<ISampler>
+ISampler::create(int sampler_type)
+{
+    switch (sampler_type) {
+case ANALYZE_SAMPLER_ROTATED:    return std::make_unique<RotatedGridSampler>();
+case ANALYZE_SAMPLER_CROFTON:    return std::make_unique<CroftonSampler>();
+case ANALYZE_SAMPLER_VIEW_PLANE: return std::make_unique<ViewPlaneSampler>();
+default:                         return std::make_unique<TripleGridSampler>();
+    }
+}
+
+/* IAnalyzer factory */
+std::vector<std::unique_ptr<IAnalyzer>>
+IAnalyzer::from_flags(int flags)
+{
+    std::vector<std::unique_ptr<IAnalyzer>> result;
+    if (flags & ANALYZE_OVERLAPS)   result.push_back(std::make_unique<OverlapAnalyzer>());
+    if (flags & ANALYZE_GAP)        result.push_back(std::make_unique<GapAnalyzer>());
+    if (flags & ANALYZE_EXP_AIR)    result.push_back(std::make_unique<ExpAirAnalyzer>());
+    if (flags & ANALYZE_ADJ_AIR)    result.push_back(std::make_unique<AdjAirAnalyzer>());
+    if (flags & ANALYZE_FIRST_AIR)  result.push_back(std::make_unique<FirstAirAnalyzer>());
+    if (flags & ANALYZE_LAST_AIR)   result.push_back(std::make_unique<LastAirAnalyzer>());
+    if (flags & ANALYZE_UNCONF_AIR) result.push_back(std::make_unique<UnconfAirAnalyzer>());
+    return result;
+}
+
+
+/* ======================================================================
+ * Section 4: Core C++17 engine (namespace analyze).
+ *
+ * AnalyzeRequest::from_config()  — Phase A: config -> typed request
+ * apply_request_to_state()       — Phase A: request -> current_state
+ * run()                          — Phase A-E: unified execution entry point
+ * ====================================================================== */
+
 /**
- * Build an AnalyzeRequest from a public analyze_config.
+ * AnalyzeRequest::from_config — build from a public analyze_config.
  *
- * When cfg == NULL all fields are left at their C++ default values,
- * which mirror analyze_current_state_init() defaults.
- *
- * This function consolidates the mapping logic that was previously
- * inlined inside analyze_run() in api.c.
+ * Consolidates the mapping logic that was previously inlined inside
+ * analyze_run() in api.c.  When cfg == NULL all fields keep their C++17
+ * default values (which mirror analyze_current_state_init() defaults).
  */
 AnalyzeRequest
 AnalyzeRequest::from_config(const struct analyze_config *cfg, int analysis_flags)
@@ -311,26 +494,26 @@ AnalyzeRequest::from_config(const struct analyze_config *cfg, int analysis_flags
     req.flags = analysis_flags;
 
     if (!cfg)
-	return req; /* all defaults */
+return req; /* all defaults */
 
     req.sampler = cfg->sampler;
     if (cfg->num_views > 0)
-	req.num_views = cfg->num_views;
+req.num_views = cfg->num_views;
     req.azimuth_deg   = cfg->azimuth_deg;
     req.elevation_deg = cfg->elevation_deg;
     if (cfg->grid_spacing > 0.0)
-	req.grid_spacing = cfg->grid_spacing;
+req.grid_spacing = cfg->grid_spacing;
     if (cfg->grid_spacing_min > 0.0)
-	req.grid_spacing_min = cfg->grid_spacing_min;
+req.grid_spacing_min = cfg->grid_spacing_min;
     if (cfg->aspect > 0.0)
-	req.aspect = cfg->aspect;
+req.aspect = cfg->aspect;
 
     req.grid_width  = cfg->grid_width;
     req.grid_height = cfg->grid_height;
 
     req.quiet_missed = cfg->quiet_missed;
     if (cfg->samples_per_model_axis > 0.0)
-	req.samples_per_model_axis = cfg->samples_per_model_axis;
+req.samples_per_model_axis = cfg->samples_per_model_axis;
 
     req.view_size = cfg->view_size;
     VMOVE(req.view_eye,  cfg->view_eye);
@@ -338,29 +521,29 @@ AnalyzeRequest::from_config(const struct analyze_config *cfg, int analysis_flags
 
     req.overlap_tol = cfg->overlap_tol;
     if (cfg->volume_tol >= 0.0)
-	req.volume_tol = cfg->volume_tol;
+req.volume_tol = cfg->volume_tol;
     if (cfg->mass_tol >= 0.0)
-	req.mass_tol = cfg->mass_tol;
+req.mass_tol = cfg->mass_tol;
     if (cfg->surf_area_tol >= 0.0)
-	req.surf_area_tol = cfg->surf_area_tol;
+req.surf_area_tol = cfg->surf_area_tol;
 
     req.density_file = cfg->density_file;
 
     req.use_air = cfg->use_air;
     if (cfg->ncpu > 0)
-	req.ncpu = cfg->ncpu;
+req.ncpu = cfg->ncpu;
     if (cfg->required_hits > 0)
-	req.required_hits = cfg->required_hits;
+req.required_hits = cfg->required_hits;
 
     req.verbose = cfg->verbose;
     req.log_str = cfg->log_str;
 
     if (cfg->timeout_ms > 0)
-	req.timeout_ms = cfg->timeout_ms;
+req.timeout_ms = cfg->timeout_ms;
     req.required_digits = cfg->required_digits;
 
     if (cfg->n_crofton_rays > 0)
-	req.n_crofton_rays = cfg->n_crofton_rays;
+req.n_crofton_rays = cfg->n_crofton_rays;
 
     req.volume_plot_file = cfg->volume_plot_file;
 
@@ -380,135 +563,151 @@ AnalyzeRequest::from_config(const struct analyze_config *cfg, int analysis_flags
 
 
 /**
- * apply_request_to_state - populate a current_state from an AnalyzeRequest.
+ * apply_request_to_state — single authoritative mapping AnalyzeRequest -> current_state.
  *
- * This is the single authoritative mapping from the typed request to the
- * legacy current_state.  Phase B will shrink this function as sampler
- * strategies assume more responsibility; for now it is an exact
- * equivalent of the mapping code that was inlined in analyze_run().
+ * Phase B will shrink this function as sampler strategies assume responsibility
+ * for their own state fields.  For Phase A-B it is an exact equivalent of the
+ * mapping code that was inlined in the original analyze_run().
  */
 void
 apply_request_to_state(const AnalyzeRequest &req, struct current_state *state)
 {
     state->sampler = req.sampler;
     if (req.num_views > 0)
-	state->num_views = req.num_views;
+state->num_views = req.num_views;
     state->azimuth_deg   = req.azimuth_deg;
     state->elevation_deg = req.elevation_deg;
     if (req.grid_spacing > 0.0)
-	state->gridSpacing = req.grid_spacing;
+state->gridSpacing = req.grid_spacing;
     if (req.grid_spacing_min > 0.0)
-	state->gridSpacingLimit = req.grid_spacing_min;
+state->gridSpacingLimit = req.grid_spacing_min;
     if (req.aspect > 0.0)
-	state->aspect = req.aspect;
+state->aspect = req.aspect;
     if (req.grid_width > 0 || req.grid_height > 0) {
-	state->grid_size_flag = 1;
-	state->grid_width  = (fastf_t)req.grid_width;
-	state->grid_height = (fastf_t)(req.grid_height > 0 ? req.grid_height
-							   : req.grid_width);
+state->grid_size_flag = 1;
+state->grid_width  = (fastf_t)req.grid_width;
+state->grid_height = (fastf_t)(req.grid_height > 0 ? req.grid_height
+   : req.grid_width);
     }
     if (req.quiet_missed)
-	state->quiet_missed_report = 1;
+state->quiet_missed_report = 1;
     if (req.samples_per_model_axis > 0.0)
-	state->samples_per_model_axis = req.samples_per_model_axis;
+state->samples_per_model_axis = req.samples_per_model_axis;
 
     if (req.sampler == ANALYZE_SAMPLER_VIEW_PLANE && req.view_size > 0.0) {
-	point_t eye;
-	quat_t  quat;
-	VMOVE(eye,  req.view_eye);
-	HMOVE(quat, req.view_quat);
-	analyze_set_view_information(state, req.view_size, &eye, &quat);
+point_t eye;
+quat_t  quat;
+VMOVE(eye,  req.view_eye);
+HMOVE(quat, req.view_quat);
+analyze_set_view_information(state, req.view_size, &eye, &quat);
     }
 
     state->overlap_tolerance = req.overlap_tol;
     if (req.volume_tol >= 0.0)
-	state->volume_tolerance = req.volume_tol;
+state->volume_tolerance = req.volume_tol;
     if (req.mass_tol >= 0.0)
-	state->mass_tolerance = req.mass_tol;
+state->mass_tolerance = req.mass_tol;
     if (req.surf_area_tol >= 0.0)
-	state->sa_tolerance = req.surf_area_tol;
+state->sa_tolerance = req.surf_area_tol;
 
     if (req.density_file)
-	state->densityFileName = (char *)req.density_file;
+state->densityFileName = (char *)req.density_file;
 
     state->use_air = req.use_air;
     if (req.ncpu > 0)
-	state->ncpu = req.ncpu;
+state->ncpu = req.ncpu;
     if (req.required_hits > 0)
-	state->required_number_hits = req.required_hits;
+state->required_number_hits = req.required_hits;
 
     state->verbose = req.verbose;
     if (req.log_str) {
-	if (req.verbose)
-	    analyze_enable_verbose(state, req.log_str);
-	else
-	    analyze_enable_debug(state, req.log_str);
+if (req.verbose)
+    analyze_enable_verbose(state, req.log_str);
+else
+    analyze_enable_debug(state, req.log_str);
     }
 
     if (req.timeout_ms > 0)
-	state->timeout_ms = req.timeout_ms;
+state->timeout_ms = req.timeout_ms;
     state->required_digits = req.required_digits;
 
     if (req.n_crofton_rays > 0)
-	state->crofton_n_rays = req.n_crofton_rays;
+state->crofton_n_rays = req.n_crofton_rays;
 
     if (req.volume_plot_file)
-	analyze_set_volume_plotfile(state, req.volume_plot_file);
+analyze_set_volume_plotfile(state, req.volume_plot_file);
 }
 
 
 /**
- * run - execute the full analysis pipeline from a typed AnalyzeRequest.
+ * run — unified analysis pipeline execution (Phases A-E).
  *
- * This is the single execution choke-point that both analyze_run() (via
- * the analyze_engine_run() C wrapper) and, in a later phase, the legacy
- * perform_raytracing() compatibility path will converge on.
+ * Phase D: Both current_state and analyze_results are managed by
+ * std::unique_ptr so that every return path (including error paths) frees
+ * them correctly without manual cleanup code (Phase E simplification).
  *
- * Steps:
- *   1. Allocate struct analyze_results and initialise all bu_ptbl lists.
- *   2. Create current_state via analyze_current_state_init().
- *   3. Populate it with apply_request_to_state().
- *   4. Register capture callbacks for every requested issue type.
- *   5. Invoke perform_raytracing().
- *   6. Harvest scalar totals and per-object / per-region arrays.
- *   7. Free the current_state and return the result.
+ * Phase B: An ISampler is created and configure() is called so that
+ * sampler-specific configuration happens through the strategy interface.
  *
- * Returns NULL on error.
+ * Phase C: IAnalyzer instances are created from the flag bitmask; each
+ * registers its callback on state through the plugin interface, keeping
+ * callback wiring decoupled from the main loop.
  */
 struct analyze_results *
 run(const AnalyzeRequest &req, struct db_i *dbip, char *names[], int num_names)
 {
-    struct analyze_results *res;
-    struct current_state   *state;
-    struct ar_capture_ctx   ctx;
-    int i;
-    int ret;
     const int flags = req.flags;
 
     /* ------------------------------------------------------------------
-     * Allocate result container.
+     * Phase D: RAII result container.
+     *
+     * Allocate and initialise all bu_ptbl fields before creating the
+     * unique_ptr so the deleter (analyze_results_free) is always safe.
      * ------------------------------------------------------------------ */
-    BU_ALLOC(res, struct analyze_results);
-    memset(res, 0, sizeof(*res));
-    bu_ptbl_init(&res->overlaps,   8, "ar overlaps");
-    bu_ptbl_init(&res->gaps,       8, "ar gaps");
-    bu_ptbl_init(&res->adj_air,    8, "ar adj_air");
-    bu_ptbl_init(&res->exp_air,    8, "ar exp_air");
-    bu_ptbl_init(&res->first_air,  8, "ar first_air");
-    bu_ptbl_init(&res->last_air,   8, "ar last_air");
-    bu_ptbl_init(&res->unconf_air, 8, "ar unconf_air");
+    struct analyze_results *raw_res =
+(struct analyze_results *)bu_calloc(1, sizeof(*raw_res), "analyze_results");
+    bu_ptbl_init(&raw_res->overlaps,   8, "ar overlaps");
+    bu_ptbl_init(&raw_res->gaps,       8, "ar gaps");
+    bu_ptbl_init(&raw_res->adj_air,    8, "ar adj_air");
+    bu_ptbl_init(&raw_res->exp_air,    8, "ar exp_air");
+    bu_ptbl_init(&raw_res->first_air,  8, "ar first_air");
+    bu_ptbl_init(&raw_res->last_air,   8, "ar last_air");
+    bu_ptbl_init(&raw_res->unconf_air, 8, "ar unconf_air");
+
+    std::unique_ptr<struct analyze_results,
+    void(*)(struct analyze_results *)>
+res_owner(raw_res, analyze_results_free);
 
     /* ------------------------------------------------------------------
-     * Create and configure current_state from the request.
+     * Phase D: RAII current_state.
      * ------------------------------------------------------------------ */
-    state = analyze_current_state_init();
+    std::unique_ptr<struct current_state,
+    void(*)(struct current_state *)>
+state_owner(analyze_current_state_init(), analyze_free_current_state);
+    struct current_state *state = state_owner.get();
+
     apply_request_to_state(req, state);
 
     /* ------------------------------------------------------------------
-     * Set up capture context and register issue-collection callbacks.
+     * Phase B: sampler strategy — configure state for the chosen backend.
+     *
+     * apply_request_to_state() already wrote state->sampler; configure()
+     * is the hook for sampler-specific extra setup that cannot be
+     * expressed through the generic field mapping.
      * ------------------------------------------------------------------ */
-    ctx.res = res;
-    ctx.sem = bu_semaphore_register("analyze_run_results_sem");
+    auto sampler = ISampler::create(req.sampler);
+    sampler->configure(req, state);
+
+    /* ------------------------------------------------------------------
+     * Phase C: build capture context and register analyzer callbacks.
+     *
+     * The ar_capture_ctx carries the shared result pointer, the protecting
+     * semaphore, and the presentation-layer render hooks.  Each IAnalyzer
+     * registers its callback with a pointer to this shared context.
+     * ------------------------------------------------------------------ */
+    struct ar_capture_ctx ctx;
+    ctx.res                    = raw_res;
+    ctx.sem                    = bu_semaphore_register("analyze_run_results_sem");
     ctx.overlap_render         = req.overlap_render;
     ctx.overlap_render_data    = req.overlap_render_data;
     ctx.gap_render             = req.gap_render;
@@ -520,149 +719,152 @@ run(const AnalyzeRequest &req, struct db_i *dbip, char *names[], int num_names)
     ctx.unconf_air_render      = req.unconf_air_render;
     ctx.unconf_air_render_data = req.unconf_air_render_data;
 
-    if (flags & ANALYZE_OVERLAPS)
-	analyze_register_overlaps_callback(state,  ar_overlap_cb,    &ctx);
-    if (flags & ANALYZE_GAP)
-	analyze_register_gaps_callback(    state,  ar_gap_cb,        &ctx);
-    if (flags & ANALYZE_EXP_AIR)
-	analyze_register_exp_air_callback( state,  ar_exp_air_cb,    &ctx);
-    if (flags & ANALYZE_ADJ_AIR)
-	analyze_register_adj_air_callback( state,  ar_adj_air_cb,    &ctx);
-    if (flags & ANALYZE_FIRST_AIR)
-	analyze_register_first_air_callback(state, ar_first_air_cb,  &ctx);
-    if (flags & ANALYZE_LAST_AIR)
-	analyze_register_last_air_callback( state, ar_last_air_cb,   &ctx);
-    if (flags & ANALYZE_UNCONF_AIR)
-	analyze_register_unconf_air_callback(state, ar_unconf_air_cb, &ctx);
+    auto analyzers = IAnalyzer::from_flags(flags);
+    for (auto const &a : analyzers)
+a->register_callbacks(state, &ctx);
 
     /* ------------------------------------------------------------------
-     * Run the analysis.
+     * Execute analysis (geometry execution adapter layer).
+     *
+     * Phase E: there is no explicit "free on error" here; the unique_ptrs
+     * handle cleanup automatically on every return path.
      * ------------------------------------------------------------------ */
-    ret = perform_raytracing(state, dbip, names, num_names, flags);
-    if (ret != ANALYZE_OK) {
-	analyze_free_current_state(state);
-	analyze_results_free(res);
-	return NULL;
-    }
+    int ret = perform_raytracing(state, dbip, names, num_names, flags);
+    if (ret != ANALYZE_OK)
+return nullptr; /* res_owner and state_owner freed automatically */
 
-    /* Record the last grid spacing actually used for triple/rotated samplers.
-     * perform_raytracing() halves gridSpacing once more after the final pass,
-     * so the last-used value is gridSpacing * 2.  Crofton has no iterative
-     * grid: leave final_grid_spacing at 0. */
+    /* ------------------------------------------------------------------
+     * Phase B: sampler finalisation.
+     *
+     * For Phase B all samplers do their post-processing inside api.c
+     * (e.g., Crofton SA formula is applied in shoot_rays_crofton()).
+     * finalize() is a no-op for all current backends; the hook is
+     * provided for future phases that move post-processing here.
+     * ------------------------------------------------------------------ */
+    sampler->finalize(state, raw_res);
+
+    /* ------------------------------------------------------------------
+     * Record analysis metadata.
+     * ------------------------------------------------------------------ */
     if (state->sampler != ANALYZE_SAMPLER_CROFTON && state->gridSpacing > 0.0)
-	res->final_grid_spacing = state->gridSpacing * 2.0;
+raw_res->final_grid_spacing = state->gridSpacing * 2.0;
+    raw_res->sampler_type  = state->sampler;
+    raw_res->is_stochastic = ((flags & ~ANALYZE_BOX) != 0) ? 1 : 0;
 
-    res->sampler_type  = state->sampler;
-    res->is_stochastic = ((flags & ~ANALYZE_BOX) != 0) ? 1 : 0;
-
-    /* Bounding box via a separate lightweight rt_prep pass. */
     if (flags & ANALYZE_BOX)
-	analyze_bbox(dbip, names, num_names, res->bbox_min, res->bbox_max);
+analyze_bbox(dbip, names, num_names, raw_res->bbox_min, raw_res->bbox_max);
 
     /* ------------------------------------------------------------------
      * Harvest scalar totals.
      * ------------------------------------------------------------------ */
     if (flags & ANALYZE_VOLUME)
-	res->total_volume    = analyze_total_volume(state);
+raw_res->total_volume    = analyze_total_volume(state);
     if (flags & ANALYZE_MASS)
-	res->total_mass      = analyze_total_mass(state);
+raw_res->total_mass      = analyze_total_mass(state);
     if (flags & ANALYZE_SURF_AREA)
-	res->total_surf_area = analyze_total_surf_area(state);
+raw_res->total_surf_area = analyze_total_surf_area(state);
     if (flags & ANALYZE_CENTROIDS)
-	analyze_total_centroid(state, res->centroid);
+analyze_total_centroid(state, raw_res->centroid);
     if (flags & ANALYZE_MOMENTS)
-	analyze_moments_total(state, res->moments_of_inertia);
+analyze_moments_total(state, raw_res->moments_of_inertia);
 
     /* ------------------------------------------------------------------
      * Harvest per-input-object results.
      * ------------------------------------------------------------------ */
     if (num_names > 0) {
-	res->objects = (struct analyze_object_result *)bu_calloc(
-		(size_t)num_names,
-		sizeof(struct analyze_object_result),
-		"ar object results");
-	res->n_objects = (size_t)num_names;
+raw_res->objects = (struct analyze_object_result *)bu_calloc(
+(size_t)num_names,
+sizeof(struct analyze_object_result),
+"ar object results");
+raw_res->n_objects = (size_t)num_names;
 
-	for (i = 0; i < num_names; i++) {
-	    res->objects[i].name = bu_strdup(names[i]);
-	    if (flags & ANALYZE_VOLUME)
-		res->objects[i].volume    = analyze_volume(state, names[i]);
-	    if (flags & ANALYZE_MASS)
-		res->objects[i].mass      = analyze_mass(state, names[i]);
-	    if (flags & ANALYZE_SURF_AREA)
-		res->objects[i].surf_area = analyze_surf_area(state, names[i]);
-	    if (flags & ANALYZE_CENTROIDS)
-		analyze_centroid(state, names[i], res->objects[i].centroid);
-	    if (flags & ANALYZE_MOMENTS)
-		analyze_moments(state, names[i], res->objects[i].moments_of_inertia);
-	    if (flags & ANALYZE_BOX) {
-		char *single[2];
-		single[0] = names[i];
-		single[1] = NULL;
-		analyze_bbox(dbip, single, 1,
-			     res->objects[i].bbox_min,
-			     res->objects[i].bbox_max);
-	    }
-	}
+for (int i = 0; i < num_names; i++) {
+    raw_res->objects[i].name = bu_strdup(names[i]);
+    if (flags & ANALYZE_VOLUME)
+raw_res->objects[i].volume    = analyze_volume(state, names[i]);
+    if (flags & ANALYZE_MASS)
+raw_res->objects[i].mass      = analyze_mass(state, names[i]);
+    if (flags & ANALYZE_SURF_AREA)
+raw_res->objects[i].surf_area = analyze_surf_area(state, names[i]);
+    if (flags & ANALYZE_CENTROIDS)
+analyze_centroid(state, names[i], raw_res->objects[i].centroid);
+    if (flags & ANALYZE_MOMENTS)
+analyze_moments(state, names[i],
+raw_res->objects[i].moments_of_inertia);
+    if (flags & ANALYZE_BOX) {
+char *single[2];
+single[0] = names[i];
+single[1] = NULL;
+analyze_bbox(dbip, single, 1,
+     raw_res->objects[i].bbox_min,
+     raw_res->objects[i].bbox_max);
+    }
+}
     }
 
     /* ------------------------------------------------------------------
      * Harvest per-region results.
      * ------------------------------------------------------------------ */
     {
-	int num_regions = analyze_get_num_regions(state);
-	if (num_regions > 0) {
-	    res->regions = (struct analyze_region_result *)bu_calloc(
-		    (size_t)num_regions,
-		    sizeof(struct analyze_region_result),
-		    "ar region results");
-	    res->n_regions = (size_t)num_regions;
+int num_regions = analyze_get_num_regions(state);
+if (num_regions > 0) {
+    raw_res->regions = (struct analyze_region_result *)bu_calloc(
+    (size_t)num_regions,
+    sizeof(struct analyze_region_result),
+    "ar region results");
+    raw_res->n_regions = (size_t)num_regions;
 
-	    for (i = 0; i < num_regions; i++) {
-		char  *rname    = NULL;
-		double vol      = 0.0, mass = 0.0, sa = 0.0;
-		double dummy_hi = 0.0, dummy_lo = 0.0;
+    for (int i = 0; i < num_regions; i++) {
+char  *rname    = NULL;
+double vol      = 0.0, mass = 0.0, sa = 0.0;
+double dummy_hi = 0.0, dummy_lo = 0.0;
 
-		if (flags & ANALYZE_VOLUME)
-		    analyze_volume_region(state, i, &rname, &vol,
-					  &dummy_hi, &dummy_lo);
-		if (flags & ANALYZE_MASS)
-		    analyze_mass_region(state, i, &rname, &mass,
-					&dummy_hi, &dummy_lo);
-		if (flags & ANALYZE_SURF_AREA)
-		    analyze_surf_area_region(state, i, &rname, &sa,
-					     &dummy_hi, &dummy_lo);
+if (flags & ANALYZE_VOLUME)
+    analyze_volume_region(state, i, &rname, &vol,
+  &dummy_hi, &dummy_lo);
+if (flags & ANALYZE_MASS)
+    analyze_mass_region(state, i, &rname, &mass,
+&dummy_hi, &dummy_lo);
+if (flags & ANALYZE_SURF_AREA)
+    analyze_surf_area_region(state, i, &rname, &sa,
+     &dummy_hi, &dummy_lo);
 
-		/* Fall back to reg_tbl name if no getter set rname. */
-		if (!rname && state->reg_tbl[i].r_name)
-		    rname = state->reg_tbl[i].r_name;
+if (!rname && state->reg_tbl[i].r_name)
+    rname = state->reg_tbl[i].r_name;
 
-		res->regions[i].name      = rname ? bu_strdup(rname) : bu_strdup("");
-		res->regions[i].volume    = vol;
-		res->regions[i].mass      = mass;
-		res->regions[i].surf_area = sa;
-		res->regions[i].hits      = state->reg_tbl[i].hits;
-	    }
-	}
+raw_res->regions[i].name      = rname ? bu_strdup(rname)
+       : bu_strdup("");
+raw_res->regions[i].volume    = vol;
+raw_res->regions[i].mass      = mass;
+raw_res->regions[i].surf_area = sa;
+raw_res->regions[i].hits      = state->reg_tbl[i].hits;
+    }
+}
     }
 
-    analyze_free_current_state(state);
-    return res;
+    /* ------------------------------------------------------------------
+     * Phase D+E: transfer ownership to caller.
+     *
+     * state_owner destructs here, calling analyze_free_current_state().
+     * res_owner::release() detaches the pointer so it is NOT freed; the
+     * caller is now responsible (typically via analyze_results_free()).
+     * ------------------------------------------------------------------ */
+    return res_owner.release();
 }
 
 } /* namespace analyze */
 
 
 /* ======================================================================
- * C linkage wrapper — callable from api.c and other plain-C files.
+ * Section 5: C linkage wrapper (callable from api.c and other C files).
  * ====================================================================== */
 
 extern "C" struct analyze_results *
 analyze_engine_run(const struct analyze_config *cfg, struct db_i *dbip,
-		   char *names[], int num_names, int flags)
+   char *names[], int num_names, int flags)
 {
     analyze::AnalyzeRequest req =
-	analyze::AnalyzeRequest::from_config(cfg, flags);
+analyze::AnalyzeRequest::from_config(cfg, flags);
     return analyze::run(req, dbip, names, num_names);
 }
 
