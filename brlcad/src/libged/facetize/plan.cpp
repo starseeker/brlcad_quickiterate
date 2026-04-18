@@ -321,7 +321,8 @@ create_variant_in_working_g(struct db_i       *wdbip,
 				const std::string &src_name,
 				const std::string &vname,
 				bool               is_sub,
-				int                idx)
+				int                idx,
+				fastf_t           *out_factor)
 {
 	struct directory *src_dp =
 		db_lookup(wdbip, src_name.c_str(), LOOKUP_QUIET);
@@ -347,6 +348,7 @@ create_variant_in_working_g(struct db_i       *wdbip,
 		bbox_diag = DIST_PNT_PNT(bmin, bmax);
 
 	fastf_t factor = variant_perturb_factor(src_name, is_sub, idx, bbox_diag);
+	if (out_factor) *out_factor = factor;
 
 	bu_log("[PLAN_PERTURB] src=%s  role=%s  idx=%d  bbox_diag=%.4f  factor=%.6f mm  variant=%s\n",
 	       src_name.c_str(),
@@ -524,13 +526,19 @@ _ged_facetize_build_variant_plan(struct _ged_facetize_state *s,
 				: create_idx_base[inst.src_name];
 		int variant_idx = cidx++;
 
+		fastf_t used_factor = 0.0;
 		int cret = create_variant_in_working_g(wdbip,
 						inst.src_name,
 						inst.vname,
 						inst.is_sub,
-						variant_idx);
+						variant_idx,
+						&used_factor);
 		if (cret == BRLCAD_OK) {
 			plan->variant_names.push_back(inst.vname);
+			FacetizeVariantPlan::VariantRec rec;
+			rec.src_name = inst.src_name;
+			rec.factor   = used_factor;
+			plan->variant_recs[inst.vname] = rec;
 		} else {
 			/* Creation failed: remove from lookup table so booleval falls back */
 			std::string role_key = inst.path_key +
