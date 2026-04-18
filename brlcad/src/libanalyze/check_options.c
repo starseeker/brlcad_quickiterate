@@ -61,7 +61,7 @@ analyze_current_state_init(void)
     state->aborted = 0;
     state->grid_size_flag = 0;
 
-    state->start_time_ms = 0;
+    state->start_time_us = 0;
     state->timeout_ms = 0;
     state->required_digits = 0.0;
     state->background_mv = 1;

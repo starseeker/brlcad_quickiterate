@@ -53,6 +53,18 @@
 #define ANALYSIS_UNCONF_AIR 4096
 
 /*
+ * Minimum fractional volume reduction required for the overlap AABB pre-filter
+ * to be considered worthwhile.  The candidate union bbox must be smaller than
+ * (1 - OV_PREFILTER_MIN_REDUCTION) of the full model volume before we
+ * restrict the grid; otherwise the full model bbox is used unchanged.
+ *
+ * With the default of 0.9 the grid is only restricted when the union of
+ * candidate intersection AABBs covers less than 90% of the model volume,
+ * saving at least 10% of rays.
+ */
+#define OV_PREFILTER_MIN_REDUCTION 0.9
+
+/*
  * returns a random angle between 0 and 360 degrees
  * used for when doing surface area analysis to shoot grids at
  * random azimuth and elevation angles.
@@ -794,7 +806,7 @@ check_terminate(struct current_state *state)
      * so that the loop exits promptly when the budget is exhausted.
      */
     if (state->timeout_ms > 0) {
-	int64_t elapsed_us = bu_gettime() - state->start_time_ms;
+	int64_t elapsed_us = bu_gettime() - state->start_time_us;
 	long elapsed_ms = (long)(elapsed_us / 1000);
 	if (elapsed_ms >= state->timeout_ms) {
 	    bu_log("NOTE: Stopped, timeout of %ld ms reached (elapsed %ld ms).\n",
@@ -1454,7 +1466,7 @@ perform_raytracing(struct current_state *state, struct db_i *dbip, char *names[]
     rt_prep_parallel(rtip, state->ncpu);
 
     /* Record start time for timeout enforcement in check_terminate() */
-    state->start_time_ms = bu_gettime();
+    state->start_time_us = bu_gettime();
 
     /* --- AABB overlap pre-filter ---
      *
@@ -1508,7 +1520,7 @@ perform_raytracing(struct current_state *state, struct db_i *dbip, char *names[]
 		full_vol = full_span[X] * full_span[Y] * full_span[Z];
 		cand_vol = cand_span[X] * cand_span[Y] * cand_span[Z];
 
-		if (full_vol > 0.0 && cand_vol < full_vol * 0.9) {
+		if (full_vol > 0.0 && cand_vol < full_vol * OV_PREFILTER_MIN_REDUCTION) {
 		    bu_log("Overlap prefilter: %d candidate pair(s), restricting grid to "
 			   "%.1f%% of model volume.\n",
 			   n_cand, 100.0 * cand_vol / full_vol);
