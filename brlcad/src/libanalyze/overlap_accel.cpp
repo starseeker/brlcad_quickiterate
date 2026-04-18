@@ -42,8 +42,10 @@
 
 #include "common.h"
 
+#include <algorithm>
 #include <set>
 #include <utility>
+#include <vector>
 
 #include "bu/malloc.h"
 #include "bu/ptbl.h"
@@ -185,6 +187,136 @@ analyze_free_region_overlap_pairs(struct bu_ptbl *pairs)
 	bu_free(op, "overlap pair");
     }
     bu_ptbl_free(pairs);
+}
+
+
+/**
+ * analyze_cluster_overlapping_pairs - Group AABB pairs into connected components.
+ *
+ * Algorithm (identical in structure to gdiff's cluster_content()):
+ *  1. Collect the unique set of region pointers from all pairs.
+ *  2. Build an adjacency list: for each pair (r1, r2) add an undirected edge.
+ *  3. Iterative DFS to find connected components (clusters).
+ *  4. For each cluster, accumulate the union of all intra-cluster pairwise
+ *     intersection AABBs — this is the minimum volume that must be covered
+ *     by the focused ray-sampling pass for the cluster.
+ */
+int
+analyze_cluster_overlapping_pairs(struct bu_ptbl *pairs, struct bu_ptbl *clusters)
+{
+    if (!pairs || !clusters)
+	return -1;
+
+    bu_ptbl_init(clusters, 4, "overlap clusters");
+
+    size_t npairs = BU_PTBL_LEN(pairs);
+    if (npairs == 0)
+	return 0;
+
+    /* Collect unique region pointers from all pairs */
+    std::vector<struct region *> regions;
+    regions.reserve(npairs * 2);
+    for (size_t k = 0; k < npairs; k++) {
+	struct analyze_region_overlap_pair *op =
+	    (struct analyze_region_overlap_pair *)BU_PTBL_GET(pairs, k);
+	regions.push_back(op->r1);
+	regions.push_back(op->r2);
+    }
+    std::sort(regions.begin(), regions.end());
+    regions.erase(std::unique(regions.begin(), regions.end()), regions.end());
+    size_t nregions = regions.size();
+
+    /* Helper: index of a region pointer in the sorted unique vector */
+    auto idx_of = [&](struct region *r) -> size_t {
+	return (size_t)(std::lower_bound(regions.begin(), regions.end(), r)
+			- regions.begin());
+    };
+
+    /* Build undirected adjacency list (same as gdiff cluster_content) */
+    std::vector<std::vector<size_t>> adj(nregions);
+    for (size_t k = 0; k < npairs; k++) {
+	struct analyze_region_overlap_pair *op =
+	    (struct analyze_region_overlap_pair *)BU_PTBL_GET(pairs, k);
+	size_t a = idx_of(op->r1);
+	size_t b = idx_of(op->r2);
+	adj[a].push_back(b);
+	adj[b].push_back(a);
+    }
+
+    /* Iterative DFS to find connected components */
+    std::vector<bool> visited(nregions, false);
+    std::vector<std::vector<size_t>> components;
+
+    for (size_t i = 0; i < nregions; i++) {
+	if (visited[i]) continue;
+
+	std::vector<size_t> component;
+	std::vector<size_t> stack{i};
+	visited[i] = true;
+
+	while (!stack.empty()) {
+	    size_t cur = stack.back();
+	    stack.pop_back();
+	    component.push_back(cur);
+	    for (size_t nb : adj[cur]) {
+		if (!visited[nb]) {
+		    visited[nb] = true;
+		    stack.push_back(nb);
+		}
+	    }
+	}
+	components.push_back(std::move(component));
+    }
+
+    /* Build struct overlap_cluster for each connected component */
+    for (const auto &comp : components) {
+	std::set<size_t> comp_set(comp.begin(), comp.end());
+
+	struct overlap_cluster *cl =
+	    (struct overlap_cluster *)bu_malloc(sizeof(struct overlap_cluster),
+					       "overlap cluster");
+	bu_ptbl_init(&cl->regions, (int)comp.size() + 1, "cluster regions");
+	VSETALL(cl->isect_union_min,  INFINITY);
+	VSETALL(cl->isect_union_max, -INFINITY);
+
+	/* Add region pointers for every member of this component */
+	for (size_t ridx : comp)
+	    bu_ptbl_ins(&cl->regions, (long *)regions[ridx]);
+
+	/* Union all pairwise intersection AABBs whose both endpoints are
+	 * inside this cluster — that gives the minimum volume the focused
+	 * ray grid must cover to detect all candidate overlaps. */
+	for (size_t k = 0; k < npairs; k++) {
+	    struct analyze_region_overlap_pair *op =
+		(struct analyze_region_overlap_pair *)BU_PTBL_GET(pairs, k);
+	    size_t a = idx_of(op->r1);
+	    size_t b = idx_of(op->r2);
+	    if (comp_set.count(a) && comp_set.count(b)) {
+		VMIN(cl->isect_union_min, op->isect_min);
+		VMAX(cl->isect_union_max, op->isect_max);
+	    }
+	}
+
+	bu_ptbl_ins(clusters, (long *)cl);
+    }
+
+    return (int)components.size();
+}
+
+
+void
+analyze_free_overlap_clusters(struct bu_ptbl *clusters)
+{
+    if (!clusters)
+	return;
+
+    for (size_t i = 0; i < BU_PTBL_LEN(clusters); i++) {
+	struct overlap_cluster *cl =
+	    (struct overlap_cluster *)BU_PTBL_GET(clusters, i);
+	bu_ptbl_free(&cl->regions);
+	bu_free(cl, "overlap cluster");
+    }
+    bu_ptbl_free(clusters);
 }
 
 
