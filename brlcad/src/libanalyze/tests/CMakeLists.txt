@@ -3,7 +3,7 @@ brlcad_addexec(analyze_sp solid_partitions.c "libanalyze;librt;libbu" TEST)
 brlcad_addexec(analyze_nhit nhit.cpp "libanalyze;librt;libbu" TEST_USESDATA)
 
 # Sampler comparison / stress-test program (run manually with havoc.g)
-brlcad_addexec(analyze_sampler_compare analyze_sampler_compare.cpp "libanalyze;librt;libbu" TEST)
+brlcad_addexec(analyze_sampler_compare analyze_sampler_compare.cpp "libanalyze;librt;libwdb;libbu" TEST)
 
 #####################################
 #      analyze_densities testing    #
