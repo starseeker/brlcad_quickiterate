@@ -266,6 +266,28 @@ struct analyze_region_overlap_pair {
 };
 
 /**
+ * A cluster of mutually-reachable (via AABB overlap) regions.
+ *
+ * Clusters are the connected components of the AABB-intersection graph:
+ * nodes are regions, edges are AABB-intersecting pairs.  Two regions belong
+ * to the same cluster if and only if there is a path of AABB-intersecting
+ * pairs connecting them (transitive closure, same algorithm as gdiff's
+ * cluster_content()).
+ *
+ * isect_union_min / isect_union_max is the union of all pairwise intersection
+ * AABBs within this cluster.  Rays restricted to this volume are guaranteed
+ * to cover every candidate geometric overlap in the cluster.
+ *
+ * The regions bu_ptbl holds struct region* pointers; it is owned by the
+ * cluster and freed by analyze_free_overlap_clusters().
+ */
+struct overlap_cluster {
+    struct bu_ptbl regions;      /**< unique region pointers (struct region *) */
+    point_t isect_union_min;     /**< union of all pairwise intersection AABBs */
+    point_t isect_union_max;
+};
+
+/**
  * Use an R-Tree to find all region pairs whose conservative axis-aligned
  * bounding boxes intersect.
  *
@@ -289,6 +311,33 @@ analyze_overlapping_region_pairs(struct rt_i *rtip, struct bu_ptbl *result_pairs
  */
 ANALYZE_EXPORT extern void
 analyze_free_region_overlap_pairs(struct bu_ptbl *pairs);
+
+/**
+ * Group AABB-intersecting region pairs into clusters via transitive closure.
+ *
+ * The clusters are the connected components of the pairwise AABB-intersection
+ * graph (nodes = regions, edges = AABB-intersecting pairs).  This is the same
+ * BFS-over-adjacency-list algorithm used by gdiff's cluster_content().
+ *
+ * Clustering reduces the number of focused ray-sampling passes from O(pairs)
+ * to O(clusters), which can be dramatically smaller when many regions mutually
+ * overlap in a dense sub-region of the model.
+ *
+ * @param pairs    bu_ptbl of struct analyze_region_overlap_pair* (input, owned
+ *                 by caller; this function does not free it)
+ * @param clusters bu_ptbl to receive struct overlap_cluster* pointers;
+ *                 must be uninitialised on entry
+ * @return number of clusters formed (>= 0), or -1 on error
+ */
+ANALYZE_EXPORT extern int
+analyze_cluster_overlapping_pairs(struct bu_ptbl *pairs, struct bu_ptbl *clusters);
+
+/**
+ * Free memory allocated by analyze_cluster_overlapping_pairs().
+ * Calls bu_ptbl_free(clusters) internally.
+ */
+ANALYZE_EXPORT extern void
+analyze_free_overlap_clusters(struct bu_ptbl *clusters);
 
 
 ANALYZE_EXPORT int
