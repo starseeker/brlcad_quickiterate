@@ -222,9 +222,43 @@ analyze_bbox(struct db_i *dbip, char *names[], int num_objects,
 /**
  * Free all memory owned by an analyze_results struct.
  * The struct itself is also freed; the pointer must not be used afterwards.
+ *
+ * This function frees the strdup'd region1 / region2 strings in every
+ * analyze_overlap_record.  Callers that construct analyze_overlap_record
+ * entries manually (i.e. not via analyze_run()) must ensure those string
+ * fields are heap-allocated.
  */
 ANALYZE_EXPORT extern void
 analyze_results_free(struct analyze_results *res);
+
+
+/**
+ * Run a geometry analysis session.
+ *
+ * This is the preferred high-level entry point.  It selects the appropriate
+ * sampler backend from cfg->sampler (ANALYZE_SAMPLER_TRIPLE_GRID or
+ * ANALYZE_SAMPLER_CROFTON), registers result-capture callbacks internally,
+ * and returns a fully populated struct analyze_results.
+ *
+ * Configuration notes:
+ *  - Pass NULL for @p cfg to use library defaults for all settings.
+ *  - Set cfg->n_crofton_rays to control the sample count for the Crofton
+ *    sampler; 0 means the library default (currently 100 000).
+ *  - cfg->density_file is only consulted when ANALYZE_MASS is in @p flags.
+ *
+ * @param cfg       Analysis configuration (NULL = library defaults).
+ * @param dbip      Open database instance.
+ * @param names     Array of object names to analyse.
+ * @param num_names Number of entries in @p names.
+ * @param flags     Bitwise OR of ANALYZE_* flags selecting which metrics to
+ *                  compute.  Issue-detection flags (ANALYZE_OVERLAPS etc.)
+ *                  populate the corresponding bu_ptbl lists in the result.
+ * @return          Heap-allocated result struct (caller frees with
+ *                  analyze_results_free()), or NULL on error.
+ */
+ANALYZE_EXPORT extern struct analyze_results *
+analyze_run(const struct analyze_config *cfg, struct db_i *dbip,
+	    char *names[], int num_names, int flags);
 
 
 /*
