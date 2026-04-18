@@ -318,10 +318,12 @@ make_tmp_name(struct db_i *dbip)
 
 /* Facetize obj_name to a temporary solid BoT, measure its SA and volume
  * via bg_trimesh_*, then delete the temporary object.
+ * When use_perturb is true, the default facetize perturbation pass is used
+ * (no --no-perturb flag), allowing comparison against the realistic output.
  * Returns 0 on success, -1 on failure.                                   */
 static int
 facetize_and_measure(struct ged *gedp, const char *obj_name,
-		     double &out_sa, double &out_vol)
+		     double &out_sa, double &out_vol, bool use_perturb)
 {
     out_sa = out_vol = -1.0;
 
@@ -333,12 +335,24 @@ facetize_and_measure(struct ged *gedp, const char *obj_name,
     bu_vls_vlscat(&saved_result, gedp->ged_result_str);
     bu_vls_trunc(gedp->ged_result_str, 0);
 
-    const char *av[4];
-    av[0] = "facetize";
-    av[1] = "--no-perturb";
-    av[2] = obj_name;
-    av[3] = tmp_name.c_str();
-    int fret = ged_exec(gedp, 4, av);
+    int fret;
+    if (use_perturb) {
+	/* Default facetize behavior: perturbation pass enabled */
+	const char *av[3];
+	av[0] = "facetize";
+	av[1] = obj_name;
+	av[2] = tmp_name.c_str();
+	fret = ged_exec(gedp, 3, av);
+    } else {
+	/* Suppress perturbation so the BoT reference is geometrically
+	 * consistent with the Crofton CSG measurement.                  */
+	const char *av[4];
+	av[0] = "facetize";
+	av[1] = "--no-perturb";
+	av[2] = obj_name;
+	av[3] = tmp_name.c_str();
+	fret = ged_exec(gedp, 4, av);
+    }
 
     /* Restore lint result string */
     bu_vls_trunc(gedp->ged_result_str, 0);
@@ -548,7 +562,7 @@ check_comb(lint_data *ldata, struct directory *dp,
 
     /* Facetize to get independent BoT SA/vol */
     double bsa = -1.0, bvol = -1.0;
-    int fret = facetize_and_measure(gedp, name, bsa, bvol);
+    int fret = facetize_and_measure(gedp, name, bsa, bvol, ldata->rt_do_perturb);
 
     if (fret != 0 || bsa < 0.0 || bvol < 0.0) {
 	info.result            = RT_RESULT_FACETIZE_FAILED;
@@ -599,12 +613,35 @@ check_comb(lint_data *ldata, struct directory *dp,
     if (fail_sa || fail_vol) {
 	info.result            = RT_RESULT_MISMATCH;
 	jentry["problem_type"] = "raytrace_mismatch";
-	if (fail_sa && fail_vol)
-	    jentry["reason"] = "CSG Crofton SA and volume disagree with BoT mesh";
-	else if (fail_sa)
-	    jentry["reason"] = "CSG Crofton SA disagrees with BoT mesh";
-	else
-	    jentry["reason"] = "CSG Crofton volume disagrees with BoT mesh";
+	if (ldata->rt_do_perturb) {
+	    /* Mismatch persists even when facetize uses its default
+	     * perturbation pass.  This is a strong indicator of a
+	     * modeling topology problem that perturbation cannot resolve.
+	     * Two known patterns produce this signature:
+	     *  - Coplanar sub-sub interface: two subtractive primitives
+	     *    share an exact face plane end-to-end (e.g. TGC sections).
+	     *  - Coplanar sub-base interface: a subtractive primitive has
+	     *    one or more faces exactly flush with the base solid.
+	     * See the lint man page RAYTRACE MODE section for ASCII diagrams
+	     * and remediation guidance.                                     */
+	    if (fail_sa && fail_vol)
+		jentry["reason"] = "persistent SA and volume mismatch under perturbation; probable coplanar sub-sub or sub-base interface - geometry correction required (see lint man page)";
+	    else if (fail_sa)
+		jentry["reason"] = "persistent SA mismatch under perturbation; probable coplanar sub-sub or sub-base interface - geometry correction required (see lint man page)";
+	    else
+		jentry["reason"] = "persistent volume mismatch under perturbation; possible incorrect boolean evaluation result";
+	} else {
+	    /* Default (no-perturb) mode: a mismatch here may be a
+	     * coplanar-face artifact that the perturbation pass would
+	     * resolve, or a genuine modeling problem.  Re-run with
+	     * --perturb to distinguish the two cases.                       */
+	    if (fail_sa && fail_vol)
+		jentry["reason"] = "CSG Crofton SA and volume disagree with BoT mesh; coplanar-face artifact possible - re-run with --perturb to distinguish artifact from modeling issue";
+	    else if (fail_sa)
+		jentry["reason"] = "CSG Crofton SA disagrees with BoT mesh; coplanar-face artifact possible - re-run with --perturb to distinguish artifact from modeling issue";
+	    else
+		jentry["reason"] = "CSG Crofton volume disagrees with BoT mesh";
+	}
     } else {
 	info.result            = RT_RESULT_OK;
 	jentry["problem_type"] = "raytrace_ok";
