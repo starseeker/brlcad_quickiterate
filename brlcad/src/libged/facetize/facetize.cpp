@@ -89,6 +89,7 @@ _ged_facetize_state_create()
     s->nonovlp_brep = 0;
     s->no_fixup = 0;
     s->nmg_booleval = 0;
+    s->use_variant_plan = 1;
 
     s->wdir = NULL;
 

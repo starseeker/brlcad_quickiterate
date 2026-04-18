@@ -31,6 +31,7 @@
 #include "common.h"
 
 #include <algorithm>
+#include <cmath>
 #include <map>
 #include <set>
 #include <vector>
@@ -40,11 +41,152 @@
 #include "bu/app.h"
 #include "bu/path.h"
 #include "bu/env.h"
+#include "bg/trimesh.h"
+#include "rt/db_io.h"
 #include "rt/search.h"
 #include "raytrace.h"
 #include "wdb.h"
 #include "../ged_private.h"
 #include "./ged_facetize.h"
+
+static const double FACETIZE_RT_EMPTY_TOL = 1.0e-9;
+static const double FACETIZE_RT_TOL_PCT = 0.10;
+
+static void
+_collect_tree_leaves(union tree *tp, std::set<std::string> &leaves)
+{
+    if (!tp) return;
+    switch (tp->tr_op) {
+	case OP_UNION:
+	case OP_INTERSECT:
+	case OP_SUBTRACT:
+	case OP_XOR:
+	    _collect_tree_leaves(tp->tr_b.tb_right, leaves);
+	    /* fall through */
+	case OP_NOT:
+	case OP_GUARD:
+	case OP_XNOP:
+	    _collect_tree_leaves(tp->tr_b.tb_left, leaves);
+	    break;
+	case OP_DB_LEAF:
+	    leaves.insert(std::string(tp->tr_l.tl_name));
+	    break;
+	default:
+	    break;
+    }
+}
+
+static bool
+_has_perturbable_leaf(struct db_i *dbip, struct directory *dp, std::set<std::string> &visited)
+{
+    if (!dbip || !dp) return false;
+    if (visited.find(dp->d_namep) != visited.end()) return false;
+    visited.insert(std::string(dp->d_namep));
+
+    if (!(dp->d_flags & RT_DIR_COMB))
+	return (OBJ[dp->d_minor_type].ft_perturb != NULL);
+
+    struct rt_db_internal in;
+    RT_DB_INTERNAL_INIT(&in);
+    if (rt_db_get_internal(&in, dp, dbip, NULL, &rt_uniresource) < 0)
+	return false;
+
+    struct rt_comb_internal *comb = (struct rt_comb_internal *)in.idb_ptr;
+    std::set<std::string> leaves;
+    if (comb->tree)
+	_collect_tree_leaves(comb->tree, leaves);
+    rt_db_free_internal(&in);
+
+    for (const auto &lname : leaves) {
+	struct directory *ldp = db_lookup(dbip, lname.c_str(), LOOKUP_QUIET);
+	if (_has_perturbable_leaf(dbip, ldp, visited))
+	    return true;
+    }
+
+    return false;
+}
+
+static int
+_crofton_on_obj(struct db_i *dbip, const char *obj_name, double &out_sa, double &out_vol)
+{
+    out_sa = out_vol = -1.0;
+
+    struct rt_i *rtip = rt_new_rti(dbip);
+    if (!rtip) return -1;
+
+    if (rt_gettree(rtip, obj_name) != 0) {
+	rt_free_rti(rtip);
+	return -1;
+    }
+    rt_prep_parallel(rtip, 1);
+
+    struct rt_crofton_params crp;
+    crp.n_rays = 0;
+    crp.stability_mm = 0.05;
+    crp.time_ms = 2000.0;
+
+    int cr = rt_crofton_shoot(rtip, &crp, &out_sa, &out_vol);
+    rt_free_rti(rtip);
+    return (cr == 0) ? 0 : -1;
+}
+
+static int
+_bot_metrics(struct db_i *dbip, const char *bot_name, double &out_sa, double &out_vol)
+{
+    out_sa = out_vol = -1.0;
+    struct directory *dp = db_lookup(dbip, bot_name, LOOKUP_QUIET);
+    if (!dp || (dp->d_flags & RT_DIR_COMB))
+	return -1;
+
+    struct rt_db_internal in;
+    RT_DB_INTERNAL_INIT(&in);
+    if (rt_db_get_internal(&in, dp, dbip, NULL, &rt_uniresource) < 0)
+	return -1;
+
+    int ret = -1;
+    if (in.idb_minor_type == DB5_MINORTYPE_BRLCAD_BOT) {
+	struct rt_bot_internal *bot = (struct rt_bot_internal *)in.idb_ptr;
+	if (bot->mode == RT_BOT_SOLID) {
+	    if (bot->num_faces > 0 && bot->num_vertices > 0) {
+		out_sa = bg_trimesh_area(bot->faces, bot->num_faces,
+			(const point_t *)bot->vertices, bot->num_vertices);
+		out_vol = bg_trimesh_volume(bot->faces, bot->num_faces,
+			(const point_t *)bot->vertices, bot->num_vertices);
+	    } else {
+		out_sa = 0.0;
+		out_vol = 0.0;
+	    }
+	    ret = 0;
+	}
+    }
+    rt_db_free_internal(&in);
+    return ret;
+}
+
+/* returns 1 on pass, 0 on mismatch, -1 on unavailable/skip */
+static int
+_validate_csg_vs_bot(struct db_i *csg_dbip, const char *obj_name, struct db_i *bot_dbip, const char *bot_name, double tol_pct, double *sa_err_pct, double *vol_err_pct)
+{
+    double csa = -1.0, cvol = -1.0, bsa = -1.0, bvol = -1.0;
+    if (_crofton_on_obj(csg_dbip, obj_name, csa, cvol) != 0)
+	return -1;
+    if (_bot_metrics(bot_dbip, bot_name, bsa, bvol) != 0)
+	return -1;
+
+    if (std::fabs(bsa) <= FACETIZE_RT_EMPTY_TOL && std::fabs(bvol) <= FACETIZE_RT_EMPTY_TOL) {
+	bool csg_empty = (std::fabs(csa) <= FACETIZE_RT_EMPTY_TOL &&
+		std::fabs(cvol) <= FACETIZE_RT_EMPTY_TOL);
+	*sa_err_pct = csg_empty ? 0.0 : 100.0;
+	*vol_err_pct = csg_empty ? 0.0 : 100.0;
+	return csg_empty ? 1 : 0;
+    }
+
+    double sa_err = (bsa > 0.0) ? std::fabs(csa - bsa) / bsa : 1.0;
+    double vol_err = (bvol > 0.0) ? std::fabs(cvol - bvol) / bvol : 1.0;
+    *sa_err_pct = sa_err * 100.0;
+    *vol_err_pct = vol_err * 100.0;
+    return (sa_err > tol_pct || vol_err > tol_pct) ? 0 : 1;
+}
 
 int
 _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv)
@@ -245,15 +387,6 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 	    bu_free(dpa, "free dpa");
 	    return BRLCAD_ERROR;
 	}
-
-	/* Tessellate the perturbed CSG variants into BoTs.  Must run after the
-	 * main leaves pass so the backup/restore cycle in tess_run does not
-	 * interfere with the already-converted BoTs. */
-	if (s->variant_plan) {
-	    FacetizeVariantPlan *vplan = (FacetizeVariantPlan *)s->variant_plan;
-	    if (!vplan->variant_names.empty())
-		_ged_facetize_tessellate_variant_names(s, vplan);
-	}
     }
 
     // Done with solids table
@@ -270,6 +403,8 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
     nmg_wstate.make_nmg = s->make_nmg;
     nmg_wstate.nonovlp_brep = s->nonovlp_brep;
     nmg_wstate.no_fixup= s->no_fixup;
+    nmg_wstate.no_perturb = s->no_perturb;
+    nmg_wstate.use_variant_plan = s->use_variant_plan;
     nmg_wstate.wdir = s->wdir;
     nmg_wstate.wfile = s->wfile;
     nmg_wstate.bname = s->bname;
@@ -289,9 +424,7 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
     nmg_wstate.dbip = NULL;
 
     // If we have any solids in the hierarchies with only combs above them,
-    // they are "implicit" regions and must be facetized individually. For
-    // the non-NMG case we've already handled all primitives as part of the
-    // normal pipeline, but for NMG we need to handle them specifically
+    // they are "implicit" regions and must be facetized individually.
     const char *implicit_regions = "( ! -below -type r ! -type comb )";
     struct bu_ptbl *ir = NULL;
     BU_ALLOC(ir, struct bu_ptbl);
@@ -319,6 +452,8 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 		if (nret != BRLCAD_OK) {
 		    if (s->verbosity >= 0)
 			bu_log("regions.cpp:%d Failed to process %s.\n", __LINE__, obj_name);
+		    bu_ptbl_free(ir);
+		    bu_free(ir, "ir table");
 		    bu_ptbl_free(ar);
 		    bu_free(ar, "ar table");
 		    bu_free(obj_name, "obj_name");
@@ -330,16 +465,38 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 	    }
 	}
     }
-    bu_ptbl_free(ir);
-    bu_free(ir, "ir table");
 
-
-    // For proper regions, we're reducing the CSG tree to a single BoT or NMG and
-    // swapping that solid in under the region comb
-    struct bu_vls bname = BU_VLS_INIT_ZERO;
+    /* Build the list of roots to evaluate to BoTs:
+     *  - active regions
+     *  - implicit non-region solids when not in NMG mode */
+    struct bu_ptbl eval_roots = BU_PTBL_INIT_ZERO;
+    std::set<std::string> eval_names;
     for (size_t i = 0; i < BU_PTBL_LEN(ar); i++) {
+	struct directory *dp = (struct directory *)BU_PTBL_GET(ar, i);
+	eval_names.insert(std::string(dp->d_namep));
+	bu_ptbl_ins(&eval_roots, (long *)dp);
+    }
+    if (!s->make_nmg && !s->nmg_booleval) {
+	for (size_t i = 0; i < BU_PTBL_LEN(ir); i++) {
+	    struct directory *dp = (struct directory *)BU_PTBL_GET(ir, i);
+	    if (eval_names.find(std::string(dp->d_namep)) == eval_names.end()) {
+		eval_names.insert(std::string(dp->d_namep));
+		bu_ptbl_ins(&eval_roots, (long *)dp);
+	    }
+	}
+    }
+
+    FacetizeVariantPlan *vplan = (FacetizeVariantPlan *)s->variant_plan;
+    bool variant_meshes_ready = false;
+    if (!s->make_nmg && !s->nmg_booleval && !s->no_perturb)
+	s->use_variant_plan = 0;
+
+    // For evaluated roots, reduce each CSG tree to a single BoT/NMG result and
+    // place that result back into the working hierarchy.
+    struct bu_vls bname = BU_VLS_INIT_ZERO;
+    for (size_t i = 0; i < BU_PTBL_LEN(&eval_roots); i++) {
 	struct directory *dpw[2] = {NULL};
-	dpw[0] = (struct directory *)BU_PTBL_GET(ar, i);
+	dpw[0] = (struct directory *)BU_PTBL_GET(&eval_roots, i);
 
 	facetize_log(s, 0, "Processing %s\n", dpw[0]->d_namep);
 
@@ -372,6 +529,66 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 	    char *obj_name = bu_strdup(dpw[0]->d_namep);
 	    bret = _ged_facetize_booleval_tri(s, wdbip, wwdbp, 1, (const char **)&obj_name, bu_vls_cstr(&bname), vlfree, 1);
 	    bu_free(obj_name, "obj_name");
+
+	    bool can_validate = false;
+	    if (!s->no_perturb) {
+		std::set<std::string> visited;
+		can_validate = _has_perturbable_leaf(s->dbip, dpw[0], visited);
+	    }
+	    if (!s->no_perturb && !can_validate && s->verbosity > 0) {
+		bu_log("FACETIZE: %s has no ft_perturb-capable leaves; skipping raytrace validation\n", dpw[0]->d_namep);
+	    }
+
+	    if (bret == BRLCAD_OK && !s->no_perturb && can_validate) {
+		double sa_err_pct = -1.0, vol_err_pct = -1.0;
+		int vret = _validate_csg_vs_bot(s->dbip, dpw[0]->d_namep, wdbip, bu_vls_cstr(&bname), FACETIZE_RT_TOL_PCT, &sa_err_pct, &vol_err_pct);
+		if (vret == 0) {
+		    bool reopened_wdb = false;
+		    if (vplan && !variant_meshes_ready) {
+			if (!vplan->variant_names.empty())
+			    _ged_facetize_tessellate_variant_names(s, vplan);
+			variant_meshes_ready = true;
+			reopened_wdb = true;
+		    }
+		    if (reopened_wdb) {
+			db_close(wdbip);
+			wdbip = db_open(bu_vls_cstr(s->wfile), DB_OPEN_READWRITE);
+			if (!wdbip) {
+			    bret = BRLCAD_ERROR;
+			    break;
+			}
+			db_dirbuild(wdbip);
+			db_update_nref(wdbip, &rt_uniresource);
+			wwdbp = wdb_dbopen(wdbip, RT_WDB_TYPE_DB_DEFAULT);
+		    }
+
+		    s->use_variant_plan = 1;
+		    struct directory *od = db_lookup(wdbip, bu_vls_cstr(&bname), LOOKUP_QUIET);
+		    if (od != RT_DIR_NULL) {
+			db_delete(wdbip, od);
+			db_dirdelete(wdbip, od);
+		    }
+		    char *obj_name_retry = bu_strdup(dpw[0]->d_namep);
+		    bret = _ged_facetize_booleval_tri(s, wdbip, wwdbp, 1, (const char **)&obj_name_retry, bu_vls_cstr(&bname), vlfree, 1);
+		    bu_free(obj_name_retry, "obj_name_retry");
+		    s->use_variant_plan = 0;
+
+		    if (bret == BRLCAD_OK) {
+			double sa_err2 = -1.0, vol_err2 = -1.0;
+			int vret2 = _validate_csg_vs_bot(s->dbip, dpw[0]->d_namep, wdbip, bu_vls_cstr(&bname), FACETIZE_RT_TOL_PCT, &sa_err2, &vol_err2);
+			if (vret2 == 0) {
+			    bu_log("WARNING: FACETIZE persistent lint-style mismatch for %s after perturb retry (SA_err=%.2f%% VOL_err=%.2f%%)\n",
+				    dpw[0]->d_namep, sa_err2, vol_err2);
+			}
+			if (vret2 < 0 && s->verbosity > 0) {
+			    bu_log("FACETIZE: validation unavailable after perturb retry for %s\n", dpw[0]->d_namep);
+			}
+		    }
+		}
+		if (vret < 0 && s->verbosity > 0) {
+		    bu_log("FACETIZE: validation unavailable for %s (crofton/metric prep failure)\n", dpw[0]->d_namep);
+		}
+	    }
 	    db_close(wdbip);
 	}
 
@@ -382,6 +599,9 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 		delete (FacetizeVariantPlan *)s->variant_plan;
 		s->variant_plan = NULL;
 	    }
+	    bu_ptbl_free(&eval_roots);
+	    bu_ptbl_free(ir);
+	    bu_free(ir, "ir table");
 	    bu_ptbl_free(ar);
 	    bu_free(ar, "ar table");
 	    bu_vls_free(&bname);
@@ -389,34 +609,60 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 	    return BRLCAD_ERROR;
 	}
 
-	// Replace the region's comb tree with the new solid
+	// Replace comb roots with their evaluated BoT/NMG or swap primitive roots.
 	wdbip = db_open(bu_vls_cstr(s->wfile), DB_OPEN_READWRITE);
 	db_dirbuild(wdbip);
 	db_update_nref(wdbip, &rt_uniresource);
 	struct directory *wdp = db_lookup(wdbip, dpw[0]->d_namep, LOOKUP_QUIET);
-	struct rt_db_internal intern;
-	struct rt_comb_internal *comb;
-	rt_db_get_internal(&intern, wdp, wdbip, NULL, &rt_uniresource);
-	comb = (struct rt_comb_internal *)(&intern)->idb_ptr;
-	RT_CK_COMB(comb);
-	db_free_tree(comb->tree, &rt_uniresource);
-	union tree *tp;
-	struct rt_tree_array *tree_list;
-	BU_GET(tree_list, struct rt_tree_array);
-	tree_list[0].tl_op = OP_UNION;
-	BU_GET(tp, union tree);
-	RT_TREE_INIT(tp);
-	tree_list[0].tl_tree = tp;
-	tp->tr_l.tl_op = OP_DB_LEAF;
-	tp->tr_l.tl_name = bu_strdup(bu_vls_cstr(&bname));
-	tp->tr_l.tl_mat = NULL;
-	comb->tree = (union tree *)db_mkgift_tree(tree_list, 1, &rt_uniresource);
-	struct rt_wdb *wwdbp = wdb_dbopen(wdbip, RT_WDB_TYPE_DB_DEFAULT);
-	wdb_put_internal(wwdbp, wdp->d_namep, &intern, 1.0);
+	if (wdp && (wdp->d_flags & RT_DIR_COMB)) {
+	    struct rt_db_internal intern;
+	    struct rt_comb_internal *comb;
+	    rt_db_get_internal(&intern, wdp, wdbip, NULL, &rt_uniresource);
+	    comb = (struct rt_comb_internal *)(&intern)->idb_ptr;
+	    RT_CK_COMB(comb);
+	    db_free_tree(comb->tree, &rt_uniresource);
+	    union tree *tp;
+	    struct rt_tree_array *tree_list;
+	    BU_GET(tree_list, struct rt_tree_array);
+	    tree_list[0].tl_op = OP_UNION;
+	    BU_GET(tp, union tree);
+	    RT_TREE_INIT(tp);
+	    tree_list[0].tl_tree = tp;
+	    tp->tr_l.tl_op = OP_DB_LEAF;
+	    tp->tr_l.tl_name = bu_strdup(bu_vls_cstr(&bname));
+	    tp->tr_l.tl_mat = NULL;
+	    comb->tree = (union tree *)db_mkgift_tree(tree_list, 1, &rt_uniresource);
+	    struct rt_wdb *wwdbp = wdb_dbopen(wdbip, RT_WDB_TYPE_DB_DEFAULT);
+	    wdb_put_internal(wwdbp, wdp->d_namep, &intern, 1.0);
+	} else {
+	    struct directory *bot_dp = db_lookup(wdbip, bu_vls_cstr(&bname), LOOKUP_QUIET);
+	    if (!bot_dp || db_delete(wdbip, wdp) != 0 || db_dirdelete(wdbip, wdp) != 0 ||
+		db_rename(wdbip, bot_dp, dpw[0]->d_namep) < 0) {
+		if (s->verbosity >= 0)
+		    bu_log("regions.cpp:%d Failed to replace implicit root %s.\n", __LINE__, dpw[0]->d_namep);
+		db_close(wdbip);
+		if (s->variant_plan) {
+		    delete (FacetizeVariantPlan *)s->variant_plan;
+		    s->variant_plan = NULL;
+		}
+		bu_ptbl_free(&eval_roots);
+		bu_ptbl_free(ir);
+		bu_free(ir, "ir table");
+		bu_ptbl_free(ar);
+		bu_free(ar, "ar table");
+		bu_vls_free(&bname);
+		bu_free(dpa, "free dpa");
+		return BRLCAD_ERROR;
+	    }
+	}
 	db_update_nref(wdbip, &rt_uniresource);
 	db_close(wdbip);
     }
     bu_vls_free(&bname);
+    bu_ptbl_free(&eval_roots);
+    bu_ptbl_free(ir);
+    bu_free(ir, "ir table");
+    s->use_variant_plan = 1;
 
     // Report on the primitive processing
     if (!s->make_nmg && !s->nmg_booleval)
@@ -432,6 +678,9 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 	    delete (FacetizeVariantPlan *)s->variant_plan;
 	    s->variant_plan = NULL;
 	}
+	bu_ptbl_free(&eval_roots);
+	bu_ptbl_free(ir);
+	bu_free(ir, "ir table");
     	bu_ptbl_free(ar);
 	bu_free(ar, "ar table");
 	bu_free(dpa, "free dpa");
@@ -579,4 +828,3 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-

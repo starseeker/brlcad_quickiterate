@@ -268,7 +268,7 @@ _booltree_leaf_tess(struct db_tree_state *tsp, const struct db_full_path *pathp,
     bool var_loaded = false;
     struct rt_db_internal *effective_ip = ip;
     struct _ged_facetize_state *s = (struct _ged_facetize_state *)data;
-    if (s && s->variant_plan) {
+    if (s && s->use_variant_plan && s->variant_plan) {
 	FacetizeVariantPlan *vplan = (FacetizeVariantPlan *)s->variant_plan;
 	char *path_str = db_path_to_string(pathp);
 	/* Reconstruct the same role-keyed key used in plan.cpp Phase C:
