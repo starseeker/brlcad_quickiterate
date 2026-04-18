@@ -2541,13 +2541,8 @@ summary_reports(struct ged *gedp, struct cstate *state)
  * Perform a surface area analysis pass through libanalyze and append the
  * results to gedp->ged_result_str.
  *
- * This runs as a separate perform_raytracing() call rather than being folded
- * into gqa's own raytracing loop.  This is a deliberate transitional design:
- * once the gqa core is migrated to use libanalyze's backend uniformly, the
- * extra pass will be eliminated.
- *
- * TODO: merge with the main gqa compute pass once the libanalyze backend
- * unification is complete.
+ * Uses the high-level analyze_run() API so no libanalyze internal state
+ * is touched directly.
  */
 static void
 gqa_surf_area_pass(struct ged *gedp, struct cstate *state,
@@ -2555,56 +2550,54 @@ gqa_surf_area_pass(struct ged *gedp, struct cstate *state,
 {
     int i;
     int n_objs = argc - start_objs;
-    struct current_state *lib_state;
+    struct analyze_config cfg = ANALYZE_CONFIG_INIT_ZERO;
+    struct analyze_results *res;
     char **names;
     double units2;
 
     if (n_objs <= 0)
 	return;
 
-    /* Build a mutable copy of the object name list (perform_raytracing
-     * takes char *[], not const char *[]). */
+    /* Build a mutable copy of the object name list. */
     names = (char **)bu_calloc(n_objs, sizeof(char *), "gqa surf_area names");
     for (i = 0; i < n_objs; i++)
 	names[i] = bu_strdup(argv[start_objs + i]);
 
-    /* Create a libanalyze state and configure it to match gqa's settings */
-    lib_state = analyze_current_state_init();
-    analyze_set_grid_spacing(lib_state, state->gridSpacing, state->gridSpacingLimit);
-    analyze_set_ncpu(lib_state, state->ncpu);
-    analyze_set_use_air(lib_state, state->use_air);
+    /* Mirror gqa's settings into the config. */
+    cfg.grid_spacing     = state->gridSpacing;
+    cfg.grid_spacing_min = state->gridSpacingLimit;
+    cfg.ncpu             = state->ncpu;
+    cfg.use_air          = state->use_air;
     if (state->densityFileName)
-	analyze_set_densityfile(lib_state, state->densityFileName);
+	cfg.density_file = state->densityFileName;
 
-    /* ANALYZE_SURF_AREA == 4, matching libanalyze's ANALYSIS_SURF_AREA */
-    if (perform_raytracing(lib_state, gedp->dbip, names, n_objs, ANALYZE_SURF_AREA) == 0) {
+    res = analyze_run(&cfg, gedp->dbip, names, n_objs, ANALYZE_SURF_AREA);
+    if (res) {
 	units2 = state->units[LINE]->val * state->units[LINE]->val;
 
 	bu_vls_printf(gedp->ged_result_str, "\nSurface Area:\n");
-	for (i = 0; i < n_objs; i++) {
-	    fastf_t sa = analyze_surf_area(lib_state, names[i]);
+	for (i = 0; i < (int)res->n_objects; i++) {
 	    bu_vls_printf(gedp->ged_result_str, "\t%s %g %s^2\n",
-			 names[i], sa / units2, state->units[LINE]->name);
+			 res->objects[i].name,
+			 res->objects[i].surf_area / units2,
+			 state->units[LINE]->name);
 	}
 	bu_vls_printf(gedp->ged_result_str,
 		      "\n  Average total surface area: %g %s^2\n",
-		      analyze_total_surf_area(lib_state) / units2,
+		      res->total_surf_area / units2,
 		      state->units[LINE]->name);
 
 	if (state->print_per_region_stats) {
-	    int num_regions = analyze_get_num_regions(lib_state);
 	    bu_vls_printf(gedp->ged_result_str, "\tregions:\n");
-	    for (i = 0; i < num_regions; i++) {
-		char *reg_name = NULL;
-		double surf_area, high, low;
-		analyze_surf_area_region(lib_state, i, &reg_name, &surf_area, &high, &low);
+	    for (i = 0; i < (int)res->n_regions; i++) {
 		bu_vls_printf(gedp->ged_result_str,
-			      "\t%s surf_area:%g %s^2 +(%g) -(%g)\n",
-			      reg_name,
-			      surf_area / units2, state->units[LINE]->name,
-			      high / units2, low / units2);
+			      "\t%s surf_area:%g %s^2\n",
+			      res->regions[i].name,
+			      res->regions[i].surf_area / units2,
+			      state->units[LINE]->name);
 	    }
 	}
+	analyze_results_free(res);
     } else {
 	bu_vls_printf(gedp->ged_result_str, "surface area analysis failed\n");
     }
@@ -2612,7 +2605,6 @@ gqa_surf_area_pass(struct ged *gedp, struct cstate *state,
     for (i = 0; i < n_objs; i++)
 	bu_free(names[i], "gqa surf_area name");
     bu_free(names, "gqa surf_area names");
-    analyze_free_current_state(lib_state);
 }
 
 

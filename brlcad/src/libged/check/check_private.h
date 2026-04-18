@@ -26,20 +26,6 @@
 
 __BEGIN_DECLS
 
-#define ANALYSIS_VOLUME 1
-#define ANALYSIS_CENTROIDS 2
-#define ANALYSIS_SURF_AREA 4
-#define ANALYSIS_MASS 8
-#define ANALYSIS_OVERLAPS 16
-#define ANALYSIS_MOMENTS 32
-#define ANALYSIS_BOX 64
-#define ANALYSIS_GAP 128
-#define ANALYSIS_EXP_AIR 256 /* exposed air */
-#define ANALYSIS_ADJ_AIR 512
-#define ANALYSIS_FIRST_AIR 1024
-#define ANALYSIS_LAST_AIR 2048
-#define ANALYSIS_UNCONF_AIR 4096
-
 /**
  * This structure holds the name of a unit value, and the conversion
  * factor necessary to convert from/to BRL-CAD standard units.
@@ -214,39 +200,40 @@ extern void
 print_list(struct ged *gedp, struct regions_list *list, const struct cvt_tab *units[3], char* name);
 
 extern void
+print_results_list(struct ged *gedp, struct bu_ptbl *tbl,
+		   const struct cvt_tab *const units[3], const char *label);
+
+extern void
 clear_list(struct regions_list *list);
 
 extern void
 print_verbose_debug(struct ged *gedp, struct check_parameters *options);
 
 typedef int check_functions_t(struct ged *gedp,
-	struct current_state *state,
-	struct db_i *dbip,
-	char **tobjtab,
-	int tnobjs,
+	struct analyze_results *res,
 	struct check_parameters *options);
 
-extern check_functions_t check_adj_air;
+extern check_functions_t check_format_adj_air;
 
-extern check_functions_t check_bbox;
+extern check_functions_t check_format_bbox;
 
-extern check_functions_t check_centroid;
+extern check_functions_t check_format_centroid;
 
-extern check_functions_t check_exp_air;
+extern check_functions_t check_format_exp_air;
 
-extern check_functions_t check_gap;
+extern check_functions_t check_format_gap;
 
-extern check_functions_t check_mass;
+extern check_functions_t check_format_mass;
 
-extern check_functions_t check_moments;
+extern check_functions_t check_format_moments;
 
-extern check_functions_t check_overlaps;
+extern check_functions_t check_format_overlaps;
 
-extern check_functions_t check_surf_area;
+extern check_functions_t check_format_surf_area;
 
-extern check_functions_t check_unconf_air;
+extern check_functions_t check_format_unconf_air;
 
-extern check_functions_t check_volume;
+extern check_functions_t check_format_volume;
 __END_DECLS
 
 #endif /* LIBGED_CHECK_PRIVATE_H */
