@@ -1275,7 +1275,9 @@ _ged_facetize_booleval_tri(struct _ged_facetize_state *s, struct db_i *dbip, str
 	bool tiny_bot = (bbox_vol > 0.0) ?
 	    (bot_vol <= bbox_vol * FACETIZE_EMPTY_CHECK_REL_VOL_TOL) :
 	    (bot_vol <= FACETIZE_EMPTY_CHECK_ABS_VOL_TOL);
-	if (tiny_bot && argc == 1 && argv && argv[0] && s && s->dbip) {
+	bool is_single_input = (argc == 1 && argv && argv[0]);
+	bool has_csg_context = (s && s->dbip);
+	if (tiny_bot && is_single_input && has_csg_context) {
 	    double csg_vol = -1.0;
 	    if (csg_crofton_volume(s->dbip, argv[0], &csg_vol) == BRLCAD_OK) {
 		double csg_abs = std::fabs(csg_vol);
@@ -1283,12 +1285,13 @@ _ged_facetize_booleval_tri(struct _ged_facetize_state *s, struct db_i *dbip, str
 		    (bbox_vol * FACETIZE_EMPTY_CHECK_REL_VOL_TOL) :
 		    FACETIZE_EMPTY_CHECK_ABS_VOL_TOL;
 		if (csg_abs <= csg_vtol) {
-		    if (bot->vertices) free(bot->vertices);
-		    if (bot->faces) free(bot->faces);
-		    bot->vertices = NULL;
-		    bot->faces = NULL;
-		    bot->num_vertices = 0;
-		    bot->num_faces = 0;
+		    rt_bot_internal_free(bot);
+		    bot->magic = RT_BOT_INTERNAL_MAGIC;
+		    bot->mode = RT_BOT_SOLID;
+		    bot->orientation = RT_BOT_CCW;
+		    bot->thickness = NULL;
+		    bot->face_mode = (struct bu_bitv *)NULL;
+		    bot->bot_flags = 0;
 		}
 	    }
 	}
