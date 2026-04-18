@@ -61,6 +61,11 @@ analyze_current_state_init(void)
     state->aborted = 0;
     state->grid_size_flag = 0;
 
+    state->start_time_ms = 0;
+    state->timeout_ms = 0;
+    state->required_digits = 0.0;
+    state->background_mv = 1;
+
     state->exp_air_callback = NULL;
     state->exp_air_callback_data = NULL;
 
@@ -421,6 +426,28 @@ analyze_set_view_information(struct current_state *state, double viewsize, point
     quat_quat2mat(state->Viewrotscale, *orientation);
     state->use_view_information = 1;
     state->use_single_grid = 1;
+}
+
+
+/*
+ * Set a wall-clock timeout for the analysis loop.
+ * 0 = no limit (default).
+ */
+void
+analyze_set_timeout(struct current_state *state, long timeout_ms)
+{
+    state->timeout_ms = timeout_ms;
+}
+
+
+/*
+ * Set the significant-digit convergence criterion.
+ * 0.0 = disabled, use only absolute tolerances (default).
+ */
+void
+analyze_set_required_digits(struct current_state *state, double required_digits)
+{
+    state->required_digits = (required_digits >= 0.0) ? required_digits : 0.0;
 }
 
 
