@@ -136,72 +136,268 @@ Because the check propagates failure upward, the *lowest* failing node reported 
 [[coplanar_patterns]]
 === Coplanar Interface Patterns
 
-Two specific CSG modeling patterns consistently produce persistent *raytrace_mismatch* results even when *--perturb* is used.  In both cases the root cause is that adjacent CSG primitives share a mathematically exact face plane.  The Manifold boolean library cannot reliably resolve exact zero-width interfaces, so the perturbed output is inflated or degenerate regardless of the perturbation magnitude applied.  The correct remedy in both cases is to adjust the source geometry so the shared face no longer exists.
+When *lint --raytrace* is run without *--perturb*, a *raytrace_mismatch* on a comb is often caused by coplanar faces between adjacent primitives that Manifold cannot resolve cleanly.  Running *lint --raytrace --perturb* then distinguishes two situations:
 
-==== Pattern 1: Coplanar Sub-Sub Interface
+* **Mismatch clears with --perturb:** The coplanar-face artifact is eliminated by expanding each primitive slightly.  The underlying model is correct; no geometry change is needed.
+* **Mismatch persists with --perturb:** The geometry contains a structural problem that perturbation cannot fix.  This requires correcting the source model.
 
-Two subtractive (subtracted) primitives that are adjacent to each other in the CSG tree share an exact end-cap plane.  The most common occurrence is a chain of TGC (truncated general cone) or cylindrical sections where each section's top cap is exactly coplanar with the next section's bottom cap.
+The three examples below use real regions from the BRL-CAD test model m35.g and show step-by-step how each type of mismatch is introduced and how it behaves.
 
-[source]
-----
-  CSG region (u base - sub1 - sub2):
+==== Example 1: Sub-Sub Coplanar End-Cap (region r321, TGC cylinders)
 
-      base
-  +---+---+---+---+---+---+
-  |   | sub1          |sub2|
-  |   +---+---+---+---+---+---+
-  |               ^           |
-  |         shared face       |
-  |         plane (exact)     |
-  +---+---+---+---+---+---+
+This region is a hollow annular cylinder built from three TGC (truncated general cone) primitives: a solid outer cylinder (s321) with two coaxial cylinders subtracted (s320 and s323).  The key defect is that s320's top cap and s323's bottom cap sit at the *exact same plane* with *the same radius*.
 
-  sub1 top cap == sub2 bottom cap (exact coplanarity)
-----
+**Step 1 — Source geometry**
 
-When *facetize* tessellates both sub1 and sub2 and then computes `base - sub1 - sub2`, Manifold must cut `base` along sub2's bottom cap.  Because that plane is exactly coplanar with sub1's already-cut top cap, Manifold sees a zero-width seam between the two subtraction volumes.  The perturbed variants each grow independently in all directions, so sub2's perturbed bottom cap is now slightly above sub1's perturbed top cap rather than exactly coincident, but this creates a thin sliver of base material between the two cuts whose triangulation inflates the reported surface area.
-
-**Why perturbation cannot fix this reliably:** Each sub-variant's perturbation factor is chosen deterministically based on the primitive name and index.  The adjacent subs get different (but both small) perturbation magnitudes — on the order of `BN_TOL_DIST` (0.0005 mm) to `10 × BN_TOL_DIST`, adjusted for the model's bounding-box scale.  The tessellation grid still captures the resulting sliver as real surface, producing an SA inflation of ~2x or more relative to the Crofton CSG estimate (which sees the CSG boolweave discard the sliver for rays near-perpendicular to the cut face).  The inflation magnitude is model-dependent and scales with geometry size.
-
-**Remedy:** Merge adjacent sub-sections into a single primitive whose length spans both (eliminating the shared face entirely), or set a clear gap of at least `2 × BN_TOL_DIST` (~0.001 mm) between the end caps.
-
-==== Pattern 2: Coplanar Sub-Base Interface (Multi-Face)
-
-A single subtractive primitive has two or more of its faces exactly flush with faces of the base solid.  The most common occurrence is an inner box (ARB8) subtracted from an outer box where the inner box shares three or more face planes with the outer box — for example, a rectangular pocket that goes all the way to the bottom and two sides of a block.
+Shown as a radial cross-section (Y = position along the shared axis, r = radial distance from the axis):
 
 [source]
 ----
-  Top view (base = outer box, sub = inner box):
-
-  +---------------------------+
-  |  base (outer)             |
-  |  +---------------------+  |
-  |  | sub (inner)         |  |
-  |  |                     |  |
-  |  +---------------------+  |
-  |                           |
-  +---------------------------+
-
-  Side view:
-
-  +---------------------------+
-  |  base                     |
-  +-----+-------------------+-+
-        | sub               |
-        |  (bottom of sub   |
-        |   == bottom of    |
-        |    base: flush)   |
-        +-------------------+
-
-  Three faces of sub are exactly flush with base faces.
+  r
+  |
+8.4 +===========================+   s321 outer wall
+    |        s321 (BASE)        |   Y = 26.1 .. 27.9 in, radius 8.4
+7.4 +─────────┬─────────────────+─────────────────────────────+
+    | s320    |    s323 (SUB)                                  |
+    | (SUB)   |    Y = 26.85 .. 33.2 in, radius 7.4           |
+7.4 +─────────┴─────────────────+─────────────────────────────+
+8.4 +===========================+
+    |         |
+  Y=26.1    Y=26.85                          Y=27.9       Y=33.2
+              ^
+    s320 top = s323 bottom
+    both at Y=26.85, both radius 7.4 (exact coincidence)
 ----
 
-When *facetize* perturbs the sub outward (all six planes move outward by the perturbation amount), the three flush faces now protrude slightly outside the base bounding box.  This creates three thin triangulated "fins" on the boolean output — full-sized triangle pairs that are geometrically thin in one dimension (depth = perturbation amount) but contribute their full surface area to the mesh SA.  The Crofton CSG estimate does not see these fins because the CSG boolweave uses the exact (un-perturbed) planes and the fins cancel to zero thickness.
+**Step 2 — Correct boolean result** (r321 = s321 - s320 - s323)
 
-The key distinction from Pattern 1 is that these are **full-sized, non-degenerate triangles** — they are just very thin slivers.  Degenerate-triangle removal cannot eliminate them without destroying the manifold property of the mesh (removing them would leave open edges).
+Because s320 spans Y=26.1..26.85 and s323 spans Y=26.85..27.9 (within s321), together they fill the full inner cylinder r=0..7.4 across the entire height of s321.  The correct result is a simple annular shell (r=7.4..8.4):
 
-**Why perturbation cannot fix this reliably:** The perturbation pass expands the sub in all directions uniformly.  For shared faces that are interior to the base (e.g. the back wall of a pocket), the perturbation simply deepens the cut slightly — no artifact.  But for faces that are exactly flush with the base exterior, the perturbation causes the sub to protrude, producing visible fin artifacts.  Making the perturbation smaller reduces the fin size but does not eliminate it; making it larger makes the fins worse.  There is no perturbation magnitude that avoids the problem for all flush-face combinations.
+[source]
+----
+  r
+  |
+8.4 +===========================+
+    | hollow shell (r=7.4..8.4) |
+7.4 +===========================+
+    (void -- both subs span the full height of s321)
+    Y=26.1                     Y=27.9
 
-**Remedy:** Offset each flush face of the sub by at least `2 × BN_TOL_DIST` (~0.001 mm) inward so it is clearly inside the base.  Alternatively, model the pocket by adjusting the base directly rather than using a subtractive primitive.
+CSG Crofton SA = 177,481 mm²  (two annular caps + outer + inner wall)
+No disc face exists at Y=26.85: s320 and s323 meet seamlessly there.
+----
+
+**Step 3 — Without --perturb: how the extra faces appear**
+
+*facetize* tessellates each primitive independently.  After computing (s321 - s320), Manifold places a closing disc D1 (radius 7.4) at Y=26.85 — the open top of the s320 cavity.  When it then subtracts s323 (whose *own* bottom cap is also at Y=26.85, radius 7.4), those two discs are geometrically identical and exactly coplanar.  Manifold cannot determine whether D1 is interior (should be removed) or exterior (should be kept), so D1 survives as a spurious face in the output mesh.  The same problem occurs at Y=26.1, where s320's bottom cap is coplanar with s321's bottom cap.
+
+[source]
+----
+  After (s321 - s320), mesh contains disc D1 at Y=26.85, area = pi*7.4^2 = 172 in^2
+
+  When subtracting s323 (bottom cap also at Y=26.85, same radius):
+    D1 and s323 boundary are at the SAME PLANE  -->  D1 survives
+    Similar spurious disc D0 forms at Y=26.1 from sub-base coincidence
+
+  Two spurious discs * 172 in^2 * 645 mm^2/in^2 = ~222,000 mm^2 extra SA
+
+  Measured:  BoT SA = 397,840 mm^2
+  Correct:   CSG SA = 177,481 mm^2
+  Ratio:     2.24x inflation  -->  FAIL
+----
+
+**Step 4 — With --perturb: how perturbation fixes it**
+
+Each sub is expanded outward by a deterministic amount chosen from the primitive name and bounding-box scale.  s320 and s323 receive different expansion factors (0.065 mm and 0.070 mm respectively), so their cap planes no longer coincide:
+
+[source]
+----
+  s320' (factor 0.065 mm):
+    bottom cap moves to Y = 26.1 - 0.065 = 26.035  (below s321 bottom)
+    top    cap moves to Y = 26.85 + 0.065 = 26.915
+
+  s323' (factor 0.070 mm):
+    bottom cap moves to Y = 26.85 - 0.070 = 26.780
+    top    cap moves to Y = 33.2  + 0.070 = 33.270
+
+  After (s321 - s320'): closing disc D1 is now at Y=26.915
+  s323' spans Y=26.780..33.270, so Y=26.915 is inside s323' -->
+    Manifold correctly removes D1 when subtracting s323'.
+
+  Measured:  BoT SA = 178,262 mm^2
+  Correct:   CSG SA = 177,481 mm^2
+  Error:     0.4%  -->  PASS
+----
+
+**Remedy for sub-sub coplanar:** This is a diagnostic artifact — no geometry change is needed.  Running *lint --raytrace --perturb* confirms the model is clean.  If the region must facetize correctly without *--perturb* (e.g. for legacy pipelines), merge the adjacent sub-sections into a single primitive or introduce at least 0.01 mm clearance between end caps.
+
+
+==== Example 2: Sub-Base Flush Faces (region r794, ARB8 box-in-box)
+
+This region is an ARB8 box (s794) with a slightly smaller ARB8 subtracted (s795).  Three of s795's faces are *exactly flush* with three faces of s794.
+
+**Step 1 — Source geometry**
+
+Shown in cross-section in the XZ plane (looking along the Y axis):
+
+[source]
+----
+  Z
+  ^
+20.21 +============================+  <-- flush: s795 top = s794 top (Z=20.21)
+      |        s794 (BASE)         |
+      |  +────────────────────+   |  <- s795 X walls INSIDE s794
+      |  |   s795 (SUB)       |   |
+18.96 |  +────────────────────+   |  <- s794 bottom
+18.835   +────────────────────+      <- s795 bottom (BELOW s794!)
+      |                        |
+  X=79.66                  X=83.66   (s794 X range)
+     X=79.785            X=83.535    (s795 X range -- narrower)
+
+  Also flush along the full Y extent:
+    Y = -41.44  (both s794 and s795 front face)
+    Y = -17.125 (both s794 and s795 back face)
+
+  Three flush face planes total: Z=20.21, Y=-41.44, Y=-17.125
+----
+
+**Step 2 — Correct boolean result** (r794 = s794 - s795)
+
+The result is a thin frame: the base material on the left/right X sides and top/bottom Z strips that s795 does not reach.  The correct shape has 24 triangular faces.
+
+[source]
+----
+  Thin frame cross-section at any Y slice:
+
+  +--+────────────────────────+--+
+  |  |   void (s795 removed)  |  |
+  |  |                        |  |  thin X strips (0.125 in each)
+  |  +────────────────────────+  |
+  |         Z=18.96 bottom       |  thin Z strip at bottom
+  +──────────────────────────────+
+
+  CSG Crofton SA = 86,684 mm²  (24 triangles, 16 vertices)
+----
+
+**Step 3 — Without --perturb: extra triangles at flush face planes**
+
+[source]
+----
+  At Z=20.21: s794 top face and s795 top face are the same plane.
+  Manifold cannot resolve the coplanar pair --> 4 extra triangles inserted
+  at the three flush face planes.
+
+  Mesh: 28 triangles (correct: 24)  --> extra SA = 117,651 mm^2
+
+  Measured:  BoT SA = 204,335 mm^2
+  Correct:   CSG SA =  86,684 mm^2
+  Ratio:     2.36x inflation  -->  FAIL
+----
+
+**Step 4 — With --perturb: flush faces pushed outside the base**
+
+[source]
+----
+  s795' (factor 0.060 mm):
+    Z top   moves to Z = 20.21 + 0.060 = 20.270  (past s794 top at Z=20.21)
+    Y front moves to Y = -41.44 - 0.060 = -41.500 (past s794 front)
+    Y back  moves to Y = -17.125 + 0.060 = -17.065 (past s794 back)
+    Z bottom moves to Z = 18.835 - 0.060 = 18.775 (still below s794, irrelevant)
+    X walls  move to X = 79.725 and 83.595 (still inside s794 X range)
+
+  No coplanar face planes remain.
+
+  Mesh: 24 triangles (correct)
+  Measured:  BoT SA = 86,531 mm^2
+  Correct:   CSG SA = 86,684 mm^2
+  Error:     0.2%  -->  PASS
+----
+
+**Remedy for multi-face flush:** This is a diagnostic artifact — the model is correct and *--perturb* confirms it cleanly.  If flush-face artifacts are undesirable without *--perturb*, offset the flush faces of the sub at least 0.01 mm inward.
+
+
+==== Example 3: Sub Engulfs Base (region r604, ARB8 — PERSISTENT with --perturb)
+
+This region has a very thin ARB8 slab (s604, only 0.312 in thick in Y) from which a much larger ARB8 (s178) is subtracted.  s178 nearly completely covers s604; the correct result is a tiny exposed wedge only ~3 mm wide where s604 protrudes slightly past the edge of s178.
+
+**Step 1 — Source geometry**
+
+Shown as a cross-section in the XZ plane at Y=17 (looking along the Y axis toward Y=17.312):
+
+[source]
+----
+  Z
+  ^
+31.125 +─────────────────────────────────────────────+
+       |           s178 (SUB) cross-section          |
+       |   ┌─────────────────────────────────────┐   |
+       |   |  s604 (BASE) cross-section          |   |
+       |   |  (almost entirely inside s178)      |   |
+26.125 |   └─────────────────────────────────────┘ <-- s604 bottom
+       |         ↑ thin exposed wedge here           |
+       |   (at Z≈26.125, s604 X=±6.64"              |
+       |    but s178 only reaches X=±6.52")          |
+23.184 +─────────────────────────────────────────────+
+       |                                             |
+   X=-12.08                                     X=+12.08  (s178)
+      X=-12                                       X=+12   (s604 top)
+         X=-6.52  X=-6.64               X=+6.64 X=+6.52  (near Z=26.125)
+                      ↑ exposed wedge ↑
+
+  At Y=17.312 (flush face plane):
+    s178 face (X=±12.08, Z=23.184..31.125) completely CONTAINS
+    s604 face (X=±12,    Z=26.125..31.125)
+----
+
+**Step 2 — Correct boolean result** (r604 = s604 - s178)
+
+The correct result is only the thin wedge at the bottom corners of s604 that s178 does not reach: approximately 3 mm wide, running the full 0.312 in depth of s604 in Y.
+
+[source]
+----
+  CSG Crofton SA  =  3,991 mm^2
+  CSG Crofton vol =  1,821 mm^3
+  (a small but real sliver — the tiny exposed corner of s604)
+----
+
+**Step 3 — Without --perturb: massive spurious inflation**
+
+[source]
+----
+  s178's Y=17.312 face completely covers s604's Y=17.312 face.
+  Manifold cannot correctly subtract a sub whose face engulfs the base face
+  at that plane --> inserts 28 spurious triangles covering most of s604's area.
+
+  Measured:  BoT SA = 123,798 mm^2
+  Correct:   CSG SA =   3,991 mm^2
+  Ratio:     31x inflation  -->  FAIL
+----
+
+**Step 4 — With --perturb: improves but still fails (volume error)**
+
+[source]
+----
+  s178' (factor 0.080 mm) expands outward in all directions.
+  Y=17.312 face moves to Y=17.392 --> coplanar degeneracy resolved.
+  SA is now nearly correct (5% off -- passes).
+
+  BUT: s178' also expands in XZ, growing by ~0.08 mm at Z=26.125.
+  The exposed wedge was only ~3 mm wide; after perturbation
+  s178' covers an extra ~0.16 mm (both sides), leaving ~2.7 mm.
+  The result volume is 14% too small:
+
+  Measured:  BoT SA  = 3,790 mm^2  (5% off  -- passes)
+  Measured:  BoT vol = 1,564 mm^3  (14% off -- FAILS tolerance)
+  Correct:   CSG vol = 1,821 mm^3
+
+  Result: FAIL even with --perturb.
+  lint reports "persistent SA/volume mismatch under perturbation".
+----
+
+**Remedy for sub-engulfs-base:** This *does* require geometry correction.  The sub (s178) is larger than the base (s604) in nearly every direction.  If the intent is a thin exposed sliver, the model is correct as designed but facetize will always produce a volume error proportional to the perturbation magnitude relative to the sliver thickness.  Options:
+
+* Redesign so the sub leaves a clearly larger exposed region (at least 1 mm clearance on all sides), making the result insensitive to the perturbation amount.
+* If the sub is truly meant to completely remove the base, verify the CSG tree: if the region should be empty, restructure the boolean so that result is modeled directly.
 
 
 [[examples]]
