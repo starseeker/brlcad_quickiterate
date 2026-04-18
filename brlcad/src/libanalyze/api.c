@@ -1142,6 +1142,134 @@ shoot_rays_crofton(struct current_state *state, size_t n_rays)
 }
 
 /**
+ * Worker function for the rotated-grid sampler (ANALYZE_SAMPLER_ROTATED).
+ *
+ * Mirrors analyze_worker() but consults state->rot_grid[state->curr_view]
+ * instead of the rectangular grid, allowing an arbitrary ray direction.
+ */
+static void
+analyze_worker_rotated(int cpu, void *ptr)
+{
+    struct application ap;
+    struct current_state *state = (struct current_state *)ptr;
+    unsigned long shot_cnt;
+    int view;
+
+    if (state->aborted)
+	return;
+
+    view = state->curr_view;
+
+    RT_APPLICATION_INIT(&ap);
+    ap.a_rt_i     = (struct rt_i *)state->rtip;
+    ap.a_hit      = analyze_hit;
+    ap.a_miss     = analyze_miss;
+    ap.a_resource = &state->resp[cpu];
+    ap.a_logoverlap = rt_silent_logoverlap;
+    ap.A_LENDEN   = 0.0;
+    ap.A_LEN      = 0.0;
+    ap.A_STATE    = ptr;
+    ap.a_overlap  = analyze_overlap;
+    ap.a_user     = view;
+
+    shot_cnt = 0;
+    while (1) {
+	struct xray ray;
+	bu_semaphore_acquire(state->sem_worker);
+	if (rotated_grid_generator(&ray, &state->rot_grid[view]) == 1) {
+	    bu_semaphore_release(state->sem_worker);
+	    break;
+	}
+	VMOVE(ap.a_ray.r_pt,  ray.r_pt);
+	VMOVE(ap.a_ray.r_dir, ray.r_dir);
+	bu_semaphore_release(state->sem_worker);
+
+	(void)rt_shootray(&ap);
+	if (state->aborted)
+	    return;
+	shot_cnt++;
+    }
+
+    bu_semaphore_acquire(state->sem_stats);
+    state->shots[state->curr_view] += shot_cnt;
+    state->m_lenDensity[state->curr_view] += ap.A_LENDEN;
+    state->m_len[state->curr_view]        += ap.A_LEN;
+    bu_semaphore_release(state->sem_stats);
+}
+
+
+/**
+ * shoot_rays_rotated - convergence loop using the rotated-grid sampler.
+ *
+ * Mirrors shoot_rays() but calls rotated_grid_setup_ae() / rotated_grid_setup()
+ * to orient each view along an arbitrary direction (state->azimuth_deg /
+ * state->elevation_deg) and fires analyze_worker_rotated() workers.
+ *
+ * The view-0 direction is derived from the user az/el; views 1 and 2 are
+ * orthogonal directions computed with bn_vec_perp() and VCROSS so that the
+ * three views are mutually perpendicular (same algorithm as gqa's rotated
+ * mode).
+ */
+static void
+shoot_rays_rotated(struct current_state *state)
+{
+    struct rt_i *rtip = (struct rt_i *)state->rtip;
+    int view;
+
+    do {
+	double inv_spacing = 1.0 / state->gridSpacing;
+	VSCALE(state->steps, state->span, inv_spacing);
+
+	/* Build the three rotated grids. */
+	rotated_grid_setup_ae(&state->rot_grid[0],
+			      rtip->mdl_min, rtip->mdl_max,
+			      state->azimuth_deg, state->elevation_deg,
+			      state->gridSpacing);
+
+	if (state->num_views > 1) {
+	    vect_t v1_dir;
+	    bn_vec_perp(v1_dir, state->rot_grid[0].ray_dir);
+	    VUNITIZE(v1_dir);
+	    rotated_grid_setup(&state->rot_grid[1],
+			      rtip->mdl_min, rtip->mdl_max,
+			      v1_dir, state->gridSpacing);
+	}
+
+	if (state->num_views > 2) {
+	    vect_t v2_dir;
+	    VCROSS(v2_dir, state->rot_grid[0].ray_dir, state->rot_grid[1].ray_dir);
+	    VUNITIZE(v2_dir);
+	    rotated_grid_setup(&state->rot_grid[2],
+			      rtip->mdl_min, rtip->mdl_max,
+			      v2_dir, state->gridSpacing);
+	}
+
+	bu_log("Processing with rotated grid spacing %g mm\n", state->gridSpacing);
+
+	for (view = 0; view < state->num_views; view++) {
+	    if (state->verbose)
+		bu_vls_printf(state->verbose_str, "  view %d\n", view);
+	    state->curr_view = state->i_axis = view;
+	    state->u_axis    = (view + 1) % 3;
+	    state->v_axis    = (view + 2) % 3;
+	    state->rot_grid[view].current     = 0;
+	    state->rot_grid[view].refine_flag = state->grid->refine_flag;
+	    bu_parallel(analyze_worker_rotated, state->ncpu, (void *)state);
+	    if (state->aborted)
+		return;
+	}
+
+	state->grid->refine_flag = 1;
+	state->gridSpacing *= 0.5;
+
+    } while (check_terminate(state));
+
+    if (state->verbose)
+	bu_vls_printf(state->verbose_str, "Computation Done\n");
+}
+
+
+/**
  * Do some computations prior to raytracing based upon options the
  * user has specified
  *
@@ -2022,6 +2150,17 @@ perform_raytracing(struct current_state *state, struct db_i *dbip, char *names[]
 		}
 	    }
 	}
+    } else if (state->sampler == ANALYZE_SAMPLER_ROTATED) {
+	/* Rotated-grid sampler: fires rays along a user-specified az/el
+	 * direction with two orthogonal companions.  Same convergence loop
+	 * as shoot_rays() but uses rotated_grid_generator() instead of the
+	 * axis-aligned rectangular grid. */
+	if (pairwise_candidates_p) {
+	    analyze_free_overlap_clusters(pairwise_candidates_p);
+	    bu_free(pairwise_candidates_p, "overlap clusters");
+	    pairwise_candidates_p = NULL;
+	}
+	shoot_rays_rotated(state);
     } else if (use_pairwise && pairwise_candidates_p) {
 	shoot_rays_clustered(state, pairwise_candidates_p);
 	analyze_free_overlap_clusters(pairwise_candidates_p);
@@ -2500,6 +2639,13 @@ analyze_run(const struct analyze_config *cfg, struct db_i *dbip,
 	analyze_results_free(res);
 	return NULL;
     }
+
+    /* Record the last grid spacing actually used for the triple/rotated
+     * samplers.  perform_raytracing() halves gridSpacing once more after
+     * the final pass, so the last-used value is gridSpacing * 2.
+     * For the Crofton sampler (no iterative grid) we leave this at 0. */
+    if (state->sampler != ANALYZE_SAMPLER_CROFTON && state->gridSpacing > 0.0)
+	res->final_grid_spacing = state->gridSpacing * 2.0;
 
     /* Bounding box via exact rt_prep (separate lightweight pass). */
     if (flags & ANALYZE_BOX)
