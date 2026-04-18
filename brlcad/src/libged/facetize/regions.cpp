@@ -165,6 +165,191 @@ _bot_metrics(struct db_i *dbip, const char *bot_name, double &out_sa, double &ou
 
 /* returns 1 on pass, 0 on mismatch, -1 on unavailable/skip */
 static int
+_validate_csg_vs_bot(struct db_i *csg_dbip, const char *obj_name, struct db_i *bot_dbip, const char *bot_name, double tol_pct, double *sa_err_pct, double *vol_err_pct);
+
+/* -----------------------------------------------------------------------
+ * Perturbed-region comb helpers for Pass 2 Crofton validation.
+ *
+ * Build a temporary comb in wdbip whose tree mirrors the original region's
+ * tree but with variant BoT names substituted wherever the variant plan has
+ * a replacement (i.e. where a tessellated perturbed primitive exists in the
+ * working db).  The resulting comb is passed to _crofton_on_obj() so that
+ * the Pass 2 BoT is compared against the perturbed geometry rather than
+ * against the original (potentially coplanar) CSG reference.
+ * ----------------------------------------------------------------------- */
+
+struct _PtmpCombCtx {
+    struct db_i                *wdbip;
+    const FacetizeVariantPlan  *vplan;
+    std::vector<std::string>    path_stack;
+    std::vector<std::string>    tmp_names;  /* all temp combs created */
+};
+
+/* Forward declarations (mutually recursive). */
+static union tree  *_ptmp_copy_tree(_PtmpCombCtx &ctx, union tree *tp, bool in_sub);
+static std::string  _ptmp_make_subcomb(_PtmpCombCtx &ctx, const char *comb_name, bool in_sub);
+
+static union tree *
+_ptmp_copy_tree(_PtmpCombCtx &ctx, union tree *tp, bool in_sub)
+{
+    if (!tp) return NULL;
+
+    union tree *nt;
+    BU_ALLOC(nt, union tree);
+    RT_TREE_INIT(nt);
+    nt->tr_op = tp->tr_op;
+
+    switch (tp->tr_op) {
+    case OP_DB_LEAF: {
+	const char *leaf = tp->tr_l.tl_name;
+	struct directory *ldp = db_lookup(ctx.wdbip, leaf, LOOKUP_QUIET);
+	std::string use_name = leaf;
+
+	if (ldp && (ldp->d_flags & RT_DIR_COMB)) {
+	    /* Intermediate comb: build a substituted sub-comb recursively. */
+	    std::string sub = _ptmp_make_subcomb(ctx, leaf, in_sub);
+	    if (!sub.empty()) use_name = sub;
+	} else {
+	    /* Solid leaf: look up a variant BoT from the plan. */
+	    std::string path_key;
+	    for (const auto &seg : ctx.path_stack)
+		path_key += "/" + seg;
+	    path_key += "/" + std::string(leaf);
+	    std::string role_key = path_key + (in_sub ? "#sub" : "#base");
+	    auto it = ctx.vplan->inst_to_variant.find(role_key);
+	    if (it != ctx.vplan->inst_to_variant.end()) {
+		/* Only substitute if the variant was successfully tessellated. */
+		struct directory *vdp =
+		    db_lookup(ctx.wdbip, it->second.c_str(), LOOKUP_QUIET);
+		if (vdp) use_name = it->second;
+	    }
+	}
+
+	nt->tr_l.tl_name = bu_strdup(use_name.c_str());
+	if (tp->tr_l.tl_mat) {
+	    nt->tr_l.tl_mat = (matp_t)bu_malloc(sizeof(mat_t), "tl_mat cp");
+	    MAT_COPY(nt->tr_l.tl_mat, tp->tr_l.tl_mat);
+	}
+	break;
+    }
+    case OP_UNION:
+    case OP_INTERSECT:
+	nt->tr_b.tb_left  = _ptmp_copy_tree(ctx, tp->tr_b.tb_left,  in_sub);
+	nt->tr_b.tb_right = _ptmp_copy_tree(ctx, tp->tr_b.tb_right, in_sub);
+	break;
+    case OP_SUBTRACT:
+	nt->tr_b.tb_left  = _ptmp_copy_tree(ctx, tp->tr_b.tb_left,  in_sub);
+	nt->tr_b.tb_right = _ptmp_copy_tree(ctx, tp->tr_b.tb_right, true);
+	break;
+    case OP_NOT:
+    case OP_GUARD:
+    case OP_XNOP:
+	nt->tr_b.tb_left = _ptmp_copy_tree(ctx, tp->tr_b.tb_left, in_sub);
+	break;
+    default:
+	break;
+    }
+    return nt;
+}
+
+static std::string
+_ptmp_make_subcomb(_PtmpCombCtx &ctx, const char *comb_name, bool in_sub)
+{
+    struct directory *dp = db_lookup(ctx.wdbip, comb_name, LOOKUP_QUIET);
+    if (!dp) return "";
+
+    struct rt_db_internal intern;
+    RT_DB_INTERNAL_INIT(&intern);
+    if (rt_db_get_internal(&intern, dp, ctx.wdbip, NULL, &rt_uniresource) < 0)
+	return "";
+
+    struct rt_comb_internal *orig = (struct rt_comb_internal *)intern.idb_ptr;
+
+    ctx.path_stack.push_back(std::string(comb_name));
+    union tree *new_tree = _ptmp_copy_tree(ctx, orig->tree, in_sub);
+    ctx.path_stack.pop_back();
+
+    rt_db_free_internal(&intern);
+
+    /* Choose a unique temporary name. */
+    struct bu_vls tmp_name = BU_VLS_INIT_ZERO;
+    bu_vls_sprintf(&tmp_name, "_ptmp_%s", comb_name);
+    for (int sfx = 0;
+	 db_lookup(ctx.wdbip, bu_vls_cstr(&tmp_name), LOOKUP_QUIET) != RT_DIR_NULL;
+	 sfx++)
+	bu_vls_sprintf(&tmp_name, "_ptmp_%s_%d", comb_name, sfx);
+
+    /* Write the new comb into wdbip. */
+    struct rt_comb_internal *new_comb;
+    BU_ALLOC(new_comb, struct rt_comb_internal);
+    RT_COMB_INTERNAL_INIT(new_comb);
+    new_comb->tree = new_tree;
+
+    struct rt_db_internal new_intern;
+    RT_DB_INTERNAL_INIT(&new_intern);
+    new_intern.idb_major_type = DB5_MAJORTYPE_BRLCAD;
+    new_intern.idb_type       = ID_COMBINATION;
+    new_intern.idb_ptr        = (void *)new_comb;
+    new_intern.idb_meth       = &OBJ[ID_COMBINATION];
+
+    int itype = ID_COMBINATION;
+    struct directory *new_dp = db_diradd(ctx.wdbip, bu_vls_cstr(&tmp_name),
+					 RT_DIR_PHONY_ADDR, 0,
+					 RT_DIR_COMB, (void *)&itype);
+    std::string ret_name;
+    if (new_dp) {
+	if (rt_db_put_internal(new_dp, ctx.wdbip, &new_intern,
+			       &rt_uniresource) >= 0) {
+	    ret_name = bu_vls_cstr(&tmp_name);
+	    ctx.tmp_names.push_back(ret_name);
+	} else {
+	    db_dirdelete(ctx.wdbip, new_dp);
+	}
+    }
+    rt_db_free_internal(&new_intern);
+    bu_vls_free(&tmp_name);
+    return ret_name;
+}
+
+/**
+ * Create a temporary "perturbed region" comb in @a wdbip whose leaf names
+ * are the variant BoTs from @a vplan (where they exist in wdbip) rather
+ * than the original tessellated BoTs.  Intermediate combs inside the region
+ * are handled recursively.
+ *
+ * Returns the name of the top-level temp comb on success, or an empty
+ * string on failure.  The names of all temp combs created are appended to
+ * @a out_tmp_names so that the caller can delete them after Crofton.
+ */
+static std::string
+_create_perturbed_region_comb(struct db_i *wdbip, const char *region_name,
+			      const FacetizeVariantPlan *vplan,
+			      std::vector<std::string> &out_tmp_names)
+{
+    if (!wdbip || !region_name || !vplan) return "";
+    _PtmpCombCtx ctx;
+    ctx.wdbip = wdbip;
+    ctx.vplan = vplan;
+    std::string tmp = _ptmp_make_subcomb(ctx, region_name, false);
+    out_tmp_names.insert(out_tmp_names.end(),
+			 ctx.tmp_names.begin(), ctx.tmp_names.end());
+    return tmp;
+}
+
+/** Delete all temporary combs listed in @a tmp_names from @a wdbip. */
+static void
+_cleanup_tmp_combs(struct db_i *wdbip, const std::vector<std::string> &tmp_names)
+{
+    for (const auto &n : tmp_names) {
+	struct directory *dp = db_lookup(wdbip, n.c_str(), LOOKUP_QUIET);
+	if (dp) {
+	    db_delete(wdbip, dp);
+	    db_dirdelete(wdbip, dp);
+	}
+    }
+}
+
+static int
 _validate_csg_vs_bot(struct db_i *csg_dbip, const char *obj_name, struct db_i *bot_dbip, const char *bot_name, double tol_pct, double *sa_err_pct, double *vol_err_pct)
 {
     double csa = -1.0, cvol = -1.0, bsa = -1.0, bvol = -1.0;
@@ -575,7 +760,29 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 
 		    if (bret == BRLCAD_OK) {
 			double sa_err2 = -1.0, vol_err2 = -1.0;
-			int vret2 = _validate_csg_vs_bot(s->dbip, dpw[0]->d_namep, wdbip, bu_vls_cstr(&bname), FACETIZE_RT_TOL_PCT, &sa_err2, &vol_err2);
+			/* Compare the perturbed BoT (exact bg_trimesh metrics)
+			 * against a Crofton raytrace of the perturbed CSG: build
+			 * a temporary region comb in wdbip whose leaves are the
+			 * variant BoTs from vplan (the "perturbed CSG" standing in
+			 * the working db), then raytrace that comb.  Fall back to
+			 * the original-CSG reference if the temp comb cannot be
+			 * built (e.g. no vplan, no variant BoTs available). */
+			std::vector<std::string> ptmp_names;
+			std::string perturb_comb;
+			if (vplan)
+			    perturb_comb = _create_perturbed_region_comb(
+				wdbip, dpw[0]->d_namep, vplan, ptmp_names);
+			struct db_i *csg_ref_dbip =
+			    perturb_comb.empty() ? s->dbip : wdbip;
+			const char *csg_ref_name =
+			    perturb_comb.empty() ? dpw[0]->d_namep
+						 : perturb_comb.c_str();
+			int vret2 = _validate_csg_vs_bot(
+			    csg_ref_dbip, csg_ref_name,
+			    wdbip, bu_vls_cstr(&bname),
+			    FACETIZE_RT_TOL_PCT, &sa_err2, &vol_err2);
+			if (!perturb_comb.empty())
+			    _cleanup_tmp_combs(wdbip, ptmp_names);
 			if (vret2 == 0) {
 			    bu_log("WARNING: FACETIZE persistent lint-style mismatch for %s after perturb retry (SA_err=%.2f%% VOL_err=%.2f%%)\n",
 				    dpw[0]->d_namep, sa_err2, vol_err2);
