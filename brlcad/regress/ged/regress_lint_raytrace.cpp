@@ -565,8 +565,8 @@ tc5_empty_comb_valid(void)
 						   "problem_type", "raytrace_ok",
 						   "object_name", "tc5_empty.c");
 	int comb_facetize_fail = json_has_pair_in_same_object(jtext.c_str(),
-							      "problem_type", "raytrace_facetize_failed",
-							      "object_name", "tc5_empty.c");
+							       "problem_type", "raytrace_facetize_failed",
+							       "object_name", "tc5_empty.c");
 	if (comb_ok && !comb_facetize_fail) {
 	    bu_log("TC5: PASS – empty comb accepted as valid\n");
 	    pass = 1;
