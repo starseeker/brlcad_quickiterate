@@ -54,6 +54,7 @@ struct _ged_facetize_state {
     int nonovlp_brep;
     int no_fixup;
     int no_perturb;
+    int use_variant_plan;
 
     char *wdir;
     struct bu_vls *wfile;
