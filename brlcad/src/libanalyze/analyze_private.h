@@ -85,6 +85,10 @@ struct per_region_data {
     double *r_area;
     double *r_surf_area;
     struct per_obj_data *optr;
+
+    /* Crofton-specific: boundary crossing count for Crofton SA estimation.
+     * Protected by current_state.sem_crofton during the Crofton pass. */
+    unsigned long crofton_crossings;
 };
 
 /* Some defines for re-using the values from the application structure
@@ -189,6 +193,23 @@ struct current_state {
 
     struct rt_i *rtip;
     struct resource *resp;
+
+    /* ---- Sampler selection ---- */
+    /** ANALYZE_SAMPLER_* constant; 0 (TRIPLE_GRID) is the default.
+     *  Set before calling perform_raytracing() to select the backend.  */
+    int sampler;
+
+    /* ---- Crofton-specific state ---- */
+    /** Semaphore protecting crofton_crossings during parallel ray firing. */
+    int sem_crofton;
+    /** Total model-wide boundary crossings accumulated by analyze_worker_crofton(). */
+    size_t crofton_crossings;
+    /** Number of rays requested / actually fired during the Crofton pass. */
+    size_t crofton_n_rays;
+    /** Bounding sphere radius used by the Crofton generator (set by shoot_rays_crofton()). */
+    double crofton_radius;
+    /** Crofton ray generator state (embedded; set up by shoot_rays_crofton()). */
+    struct crofton_grid crofton_g;
 
     struct region_pair *overlapList;
     overlap_callback_t overlaps_callback;

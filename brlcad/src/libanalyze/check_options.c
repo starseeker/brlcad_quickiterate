@@ -20,6 +20,8 @@
 
 #include "common.h"
 
+#include <string.h>
+
 #include "bu/malloc.h"
 
 #include "analyze.h"
@@ -65,6 +67,13 @@ analyze_current_state_init(void)
     state->timeout_ms = 0;
     state->required_digits = 0.0;
     state->background_mv = 1;
+
+    state->sampler = ANALYZE_SAMPLER_TRIPLE_GRID;
+    state->sem_crofton = 0;
+    state->crofton_crossings = 0;
+    state->crofton_n_rays = 0;
+    state->crofton_radius = 0.0;
+    memset(&state->crofton_g, 0, sizeof(state->crofton_g));
 
     state->exp_air_callback = NULL;
     state->exp_air_callback_data = NULL;

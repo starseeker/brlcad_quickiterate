@@ -2805,6 +2805,131 @@ ged_gqa_core(struct ged *gedp, int argc, const char *argv[])
     state->first = 1;
     allocate_per_region_data(gedp, state, start_objs, argc, argv);
 
+    /* ------------------------------------------------------------------
+     * Crofton sampler: delegate entirely to analyze_run() which provides
+     * the isotropic random ray backend.  Results are printed below and
+     * then the function jumps past the legacy compute loop.
+     * ------------------------------------------------------------------ */
+    if (state->analysis_method == GQA_METHOD_CROFTON) {
+	int n_objs = argc - start_objs;
+	char **names = (char **)bu_calloc(n_objs, sizeof(char *), "gqa crofton names");
+	int ar_flags = 0;
+	struct analyze_config cfg = ANALYZE_CONFIG_INIT_ZERO;
+	struct analyze_results *ar_res;
+	double units2 = state->units[LINE]->val * state->units[LINE]->val;
+	double units3 = units2 * state->units[LINE]->val;
+	size_t k;
+
+	for (i = 0; i < n_objs; i++)
+	    names[i] = bu_strdup(argv[start_objs + i]);
+
+	/* Map gqa analysis_flags to public ANALYZE_* flags. */
+	if (state->analysis_flags & ANALYSIS_VOLUMES)   ar_flags |= ANALYZE_VOLUME;
+	if (state->analysis_flags & ANALYSIS_WEIGHTS)   ar_flags |= ANALYZE_MASS;
+	if (state->analysis_flags & ANALYSIS_OVERLAPS)  ar_flags |= ANALYZE_OVERLAPS;
+	if (state->analysis_flags & ANALYSIS_GAPS)      ar_flags |= ANALYZE_GAP;
+	if (state->analysis_flags & ANALYSIS_EXP_AIR)   ar_flags |= ANALYZE_EXP_AIR;
+	if (state->analysis_flags & ANALYSIS_ADJ_AIR)   ar_flags |= ANALYZE_ADJ_AIR;
+	if (state->analysis_flags & ANALYSIS_CENTROIDS) ar_flags |= ANALYZE_CENTROIDS;
+	if (state->analysis_flags & ANALYSIS_MOMENTS)   ar_flags |= ANALYZE_MOMENTS;
+	if (state->analysis_flags & GQA_ANALYSIS_SURF_AREA) ar_flags |= ANALYZE_SURF_AREA;
+
+	cfg.sampler       = ANALYZE_SAMPLER_CROFTON;
+	cfg.grid_spacing  = state->gridSpacing;
+	cfg.grid_spacing_min = state->gridSpacingLimit;
+	cfg.ncpu          = state->ncpu;
+	cfg.use_air       = state->use_air;
+	cfg.verbose       = state->verbose;
+	cfg.overlap_tol   = state->overlap_tolerance;
+	cfg.volume_tol    = state->volume_tolerance;
+	cfg.mass_tol      = state->weight_tolerance;
+	if (state->densityFileName)
+	    cfg.density_file = state->densityFileName;
+
+	ar_res = analyze_run(&cfg, gedp->dbip, names, n_objs, ar_flags);
+	if (!ar_res) {
+	    bu_vls_printf(gedp->ged_result_str, "Crofton analysis failed.\n");
+	} else {
+	    bu_vls_printf(gedp->ged_result_str, "\n=== Crofton Analysis ===\n");
+
+	    if (ar_flags & ANALYZE_VOLUME)
+		bu_vls_printf(gedp->ged_result_str,
+			      "  Total volume:       %g %s^3\n",
+			      ar_res->total_volume / units3,
+			      state->units[LINE]->name);
+	    if (ar_flags & ANALYZE_MASS)
+		bu_vls_printf(gedp->ged_result_str,
+			      "  Total mass:         %g %s\n",
+			      ar_res->total_mass / state->units[WGT]->val,
+			      state->units[WGT]->name);
+	    if (ar_flags & ANALYZE_SURF_AREA)
+		bu_vls_printf(gedp->ged_result_str,
+			      "  Total surface area: %g %s^2\n",
+			      ar_res->total_surf_area / units2,
+			      state->units[LINE]->name);
+
+	    if (ar_res->n_regions > 0 && state->print_per_region_stats) {
+		bu_vls_printf(gedp->ged_result_str, "\n  Per-region:\n");
+		for (k = 0; k < ar_res->n_regions; k++) {
+		    const struct analyze_region_result *rr = &ar_res->regions[k];
+		    bu_vls_printf(gedp->ged_result_str, "    %s", rr->name);
+		    if (ar_flags & ANALYZE_VOLUME)
+			bu_vls_printf(gedp->ged_result_str,
+				      "  V=%g %s^3",
+				      rr->volume / units3,
+				      state->units[LINE]->name);
+		    if (ar_flags & ANALYZE_MASS)
+			bu_vls_printf(gedp->ged_result_str,
+				      "  M=%g %s",
+				      rr->mass / state->units[WGT]->val,
+				      state->units[WGT]->name);
+		    if (ar_flags & ANALYZE_SURF_AREA)
+			bu_vls_printf(gedp->ged_result_str,
+				      "  SA=%g %s^2",
+				      rr->surf_area / units2,
+				      state->units[LINE]->name);
+		    bu_vls_printf(gedp->ged_result_str, "\n");
+		}
+	    }
+
+	    if (ar_flags & ANALYZE_OVERLAPS) {
+		size_t nov = BU_PTBL_LEN(&ar_res->overlaps);
+		bu_vls_printf(gedp->ged_result_str,
+			      "\n  Overlaps detected: %zu\n", nov);
+		for (k = 0; k < nov; k++) {
+		    struct analyze_overlap_record *ov =
+			(struct analyze_overlap_record *)BU_PTBL_GET(&ar_res->overlaps, k);
+		    bu_vls_printf(gedp->ged_result_str,
+				  "    %s / %s  count=%lu  max_depth=%g mm\n",
+				  ov->region1, ov->region2 ? ov->region2 : "?",
+				  ov->count, ov->max_dist);
+		}
+	    }
+
+	    if (ar_flags & ANALYZE_GAP) {
+		size_t ngaps = BU_PTBL_LEN(&ar_res->gaps);
+		if (ngaps > 0) {
+		    bu_vls_printf(gedp->ged_result_str,
+				  "\n  Gaps detected: %zu\n", ngaps);
+		    for (k = 0; k < ngaps; k++) {
+			struct analyze_overlap_record *g =
+			    (struct analyze_overlap_record *)BU_PTBL_GET(&ar_res->gaps, k);
+			bu_vls_printf(gedp->ged_result_str,
+				      "    near %s  count=%lu  max_gap=%g mm\n",
+				      g->region1, g->count, g->max_dist);
+		    }
+		}
+	    }
+
+	    analyze_results_free(ar_res);
+	}
+
+	for (i = 0; i < n_objs; i++)
+	    bu_free(names[i], "gqa crofton name");
+	bu_free(names, "gqa crofton names");
+	goto gqa_aborted;
+    }
+
     /* compute */
     do {
 	double inv_spacing = 1.0/state->gridSpacing;
