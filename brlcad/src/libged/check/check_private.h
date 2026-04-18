@@ -228,6 +228,8 @@ typedef int check_functions_t(struct ged *gedp,
 
 extern check_functions_t check_adj_air;
 
+extern check_functions_t check_bbox;
+
 extern check_functions_t check_centroid;
 
 extern check_functions_t check_exp_air;

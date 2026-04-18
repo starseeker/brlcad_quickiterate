@@ -44,6 +44,7 @@ check_show_help(struct ged *gedp)
 
     bu_vls_printf(&str, "Subcommands:\n\n");
     bu_vls_printf(&str, "  adj_air - Detects air volumes which are next to each other but have different air_code values applied to the region.\n");
+    bu_vls_printf(&str, "  bbox - Reports the axis-aligned bounding box of the specified objects (no rays needed).\n");
     bu_vls_printf(&str, "  centroid - Computes the centroid of the objects specified.\n");
     bu_vls_printf(&str, "  exp_air - Check if the ray encounters air regions before (or after all) solid objects.\n");
     bu_vls_printf(&str, "  gap - This reports when there is more than overlap tolerance distance between objects on the ray path.\n");
@@ -502,7 +503,7 @@ int ged_check_core(struct ged *gedp, int argc, const char *argv[])
     struct current_state *state = NULL;
 
     struct check_parameters options;
-    const char *check_subcommands[] = {"adj_air", "centroid", "exp_air", "gap",
+    const char *check_subcommands[] = {"adj_air", "bbox", "centroid", "exp_air", "gap",
 				       "mass", "moments", "overlaps", "surf_area",
 				       "unconf_air", "volume", NULL};
     const struct cvt_tab *units[3] = {
@@ -612,6 +613,11 @@ int ged_check_core(struct ged *gedp, int argc, const char *argv[])
     len = strlen(sub);
     if (bu_strncmp(sub, "adj_air", len) == 0) {
 	if (check_adj_air(gedp, state, gedp->dbip, tobjtab, tnobjs, &options)) {
+	    error = 1;
+	    goto freemem;
+	}
+    } else if (bu_strncmp(sub, "bbox", len) == 0) {
+	if (check_bbox(gedp, state, gedp->dbip, tobjtab, tnobjs, &options)) {
 	    error = 1;
 	    goto freemem;
 	}
