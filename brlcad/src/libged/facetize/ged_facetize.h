@@ -56,6 +56,12 @@ struct _ged_facetize_state {
     int no_perturb;
     int use_variant_plan;
 
+    /* Perturb validation thresholds (percentage, 0–100).
+     * Trigger the perturb retry when the CSG–BoT difference exceeds these
+     * values.  Defaults are 10 % for both surface area and volume. */
+    fastf_t perturb_sa_tol;
+    fastf_t perturb_vol_tol;
+
     char *wdir;
     struct bu_vls *wfile;
     struct bu_vls *bname;

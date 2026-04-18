@@ -50,7 +50,6 @@
 #include "./ged_facetize.h"
 
 static const double FACETIZE_RT_EMPTY_TOL = 1.0e-9;
-static const double FACETIZE_RT_TOL_PCT = 0.10;
 
 static void
 _collect_tree_leaves(union tree *tp, std::set<std::string> &leaves)
@@ -165,7 +164,7 @@ _bot_metrics(struct db_i *dbip, const char *bot_name, double &out_sa, double &ou
 
 /* returns 1 on pass, 0 on mismatch, -1 on unavailable/skip */
 static int
-_validate_csg_vs_bot(struct db_i *csg_dbip, const char *obj_name, struct db_i *bot_dbip, const char *bot_name, double tol_pct, double *sa_err_pct, double *vol_err_pct);
+_validate_csg_vs_bot(struct db_i *csg_dbip, const char *obj_name, struct db_i *bot_dbip, const char *bot_name, double sa_tol_pct, double vol_tol_pct, double *sa_err_pct, double *vol_err_pct);
 
 /* -----------------------------------------------------------------------
  * Perturbed-CSG in-memory db helpers for Pass 2 Crofton validation.
@@ -391,7 +390,7 @@ _create_perturbed_csg_db(struct db_i *src_dbip, const char *region_name,
 }
 
 static int
-_validate_csg_vs_bot(struct db_i *csg_dbip, const char *obj_name, struct db_i *bot_dbip, const char *bot_name, double tol_pct, double *sa_err_pct, double *vol_err_pct)
+_validate_csg_vs_bot(struct db_i *csg_dbip, const char *obj_name, struct db_i *bot_dbip, const char *bot_name, double sa_tol_pct, double vol_tol_pct, double *sa_err_pct, double *vol_err_pct)
 {
     double csa = -1.0, cvol = -1.0, bsa = -1.0, bvol = -1.0;
     if (_crofton_on_obj(csg_dbip, obj_name, csa, cvol) != 0)
@@ -411,7 +410,7 @@ _validate_csg_vs_bot(struct db_i *csg_dbip, const char *obj_name, struct db_i *b
     double vol_err = (bvol > 0.0) ? std::fabs(cvol - bvol) / bvol : 1.0;
     *sa_err_pct = sa_err * 100.0;
     *vol_err_pct = vol_err * 100.0;
-    return (sa_err > tol_pct || vol_err > tol_pct) ? 0 : 1;
+    return (sa_err > sa_tol_pct || vol_err > vol_tol_pct) ? 0 : 1;
 }
 
 int
@@ -420,6 +419,10 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
     int ret = BRLCAD_OK;
     struct db_i *dbip = s->dbip;
     struct bu_list *vlfree = &rt_vlfree;
+
+    /* Convert percentage thresholds (0–100) to fractions (0–1) once. */
+    const double perturb_sa_frac  = s->perturb_sa_tol  / 100.0;
+    const double perturb_vol_frac = s->perturb_vol_tol / 100.0;
 
     /* Used the libged tolerances */
     struct rt_wdb *wdbp = wdb_dbopen(dbip, RT_WDB_TYPE_DB_DEFAULT);
@@ -767,7 +770,9 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 
 	    if (bret == BRLCAD_OK && !s->no_perturb && can_validate) {
 		double sa_err_pct = -1.0, vol_err_pct = -1.0;
-		int vret = _validate_csg_vs_bot(s->dbip, dpw[0]->d_namep, wdbip, bu_vls_cstr(&bname), FACETIZE_RT_TOL_PCT, &sa_err_pct, &vol_err_pct);
+		int vret = _validate_csg_vs_bot(s->dbip, dpw[0]->d_namep, wdbip, bu_vls_cstr(&bname),
+			perturb_sa_frac, perturb_vol_frac,
+			&sa_err_pct, &vol_err_pct);
 		if (vret == 0) {
 		    bool reopened_wdb = false;
 		    if (vplan && !variant_meshes_ready) {
@@ -818,7 +823,8 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 			int vret2 = _validate_csg_vs_bot(
 			    csg_ref_dbip, dpw[0]->d_namep,
 			    wdbip, bu_vls_cstr(&bname),
-			    FACETIZE_RT_TOL_PCT, &sa_err2, &vol_err2);
+			    perturb_sa_frac, perturb_vol_frac,
+			    &sa_err2, &vol_err2);
 			if (perturb_dbip) db_close(perturb_dbip);
 			if (vret2 == 0) {
 			    bu_log("WARNING: FACETIZE persistent lint-style mismatch for %s after perturb retry (SA_err=%.2f%% VOL_err=%.2f%%)\n",
