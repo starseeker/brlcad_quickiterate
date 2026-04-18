@@ -305,26 +305,39 @@ analyze_hit(struct application *ap, struct partition *PartHeadp, struct seg *seg
 	/* compute the surface area of the object */
 	if(state->analysis_flags & ANALYSIS_SURF_AREA) {
 	    struct per_region_data *prd = ((struct per_region_data *)pp->pt_regionp->reg_udata);
-	    fastf_t Lx = state->span[0] / state->steps[0];
-	    fastf_t Ly = state->span[1] / state->steps[1];
-	    fastf_t Lz = state->span[2] / state->steps[2];
-	    fastf_t cell_area;
-	    vect_t inormal = VINIT_ZERO;
-	    vect_t onormal = VINIT_ZERO;
-	    double icos, ocos;
-	    switch(state->i_axis) {
-		case 0:
-		    cell_area = Ly*Ly;
-		    break;
-		case 1:
-		    cell_area = Lz*Lz;
-		    break;
-		case 2:
-		default:
-		    cell_area = Lx*Lx;
-	    }
 
-	    {
+	    if (state->sampler == ANALYZE_SAMPLER_CROFTON) {
+		/* Crofton path: count surface boundary crossings.
+		 * Each solid partition contributes 2 crossings (entry + exit).
+		 * The Crofton SA formula is applied in shoot_rays_crofton() after
+		 * all rays have been fired:
+		 *   SA = (4 * π * R²) * total_crossings / (2 * N)
+		 */
+		bu_semaphore_acquire(state->sem_crofton);
+		state->crofton_crossings += 2;
+		prd->crofton_crossings += 2;
+		bu_semaphore_release(state->sem_crofton);
+	    } else {
+		/* Grid-based path: project cell area through the incidence angle. */
+		fastf_t Lx = state->span[0] / state->steps[0];
+		fastf_t Ly = state->span[1] / state->steps[1];
+		fastf_t Lz = state->span[2] / state->steps[2];
+		fastf_t cell_area;
+		vect_t inormal = VINIT_ZERO;
+		vect_t onormal = VINIT_ZERO;
+		double icos, ocos;
+		switch(state->i_axis) {
+		    case 0:
+			cell_area = Ly*Ly;
+			break;
+		    case 1:
+			cell_area = Lz*Lz;
+			break;
+		    case 2:
+		    default:
+			cell_area = Lx*Lx;
+		}
+
 		bu_semaphore_acquire(state->sem_worker);
 		/* factor in the normal vector to find how 'skew' the surface is */
 		RT_HIT_NORMAL(inormal, pp->pt_inhit, pp->pt_inseg->seg_stp, &(ap->a_ray), pp->pt_inflip);
@@ -972,6 +985,289 @@ analyze_worker(int cpu, void *ptr)
     state->m_len[state->curr_view] += ap.A_LEN; /* add our volume value */
     bu_semaphore_release(state->sem_stats);
 }
+
+
+/**
+ * Worker function for the Crofton isotropic random sampler.
+ *
+ * Mirrors analyze_worker() but uses crofton_grid_generator() to obtain rays,
+ * accumulating results into view index 0 (the Crofton pass uses num_views=1).
+ *
+ * Thread safety: the generator call is serialised under sem_worker (the same
+ * mechanism used by analyze_worker for the rectangular grid), so the PRNG
+ * state in crofton_g is always updated atomically.
+ */
+static void
+analyze_worker_crofton(int cpu, void *ptr)
+{
+    struct application ap;
+    struct current_state *state = (struct current_state *)ptr;
+    unsigned long shot_cnt;
+
+    if (state->aborted)
+	return;
+
+    RT_APPLICATION_INIT(&ap);
+    ap.a_rt_i = (struct rt_i *)state->rtip;
+    ap.a_hit = analyze_hit;
+    ap.a_miss = analyze_miss;
+    ap.a_resource = &state->resp[cpu];
+    ap.a_logoverlap = rt_silent_logoverlap;
+    ap.A_LENDEN = 0.0;
+    ap.A_LEN = 0.0;
+    ap.A_STATE = ptr;
+    ap.a_overlap = analyze_overlap;
+    ap.a_user = 0; /* no view-row index needed for Crofton */
+
+    shot_cnt = 0;
+    while (1) {
+	struct xray ray;
+	bu_semaphore_acquire(state->sem_worker);
+	if (crofton_grid_generator(&ray, &state->crofton_g) == 1) {
+	    bu_semaphore_release(state->sem_worker);
+	    break;
+	}
+	VMOVE(ap.a_ray.r_pt,  ray.r_pt);
+	VMOVE(ap.a_ray.r_dir, ray.r_dir);
+	bu_semaphore_release(state->sem_worker);
+
+	(void)rt_shootray(&ap);
+	if (state->aborted)
+	    return;
+	shot_cnt++;
+    }
+
+    bu_semaphore_acquire(state->sem_stats);
+    state->shots[0] += shot_cnt;           /* Crofton uses view index 0 */
+    state->m_lenDensity[0] += ap.A_LENDEN;
+    state->m_len[0] += ap.A_LEN;
+    bu_semaphore_release(state->sem_stats);
+}
+
+
+/**
+ * shoot_rays_crofton - fire n_rays isotropic Crofton rays in parallel.
+ *
+ * After all rays have been fired the function applies the Crofton formulas to
+ * fill the per-region surface-area fields (when ANALYSIS_SURF_AREA is set) so
+ * that the existing analyze_surf_area*() getter functions return correct values.
+ *
+ * The existing volume / mass / centroid getters already return correct values
+ * for the Crofton case once state->area[0] and state->shots[0] are overridden
+ * to π*R² and n_rays respectively (see setup block below).
+ *
+ * @param state  fully initialised current_state (rtip ready, allocate_region_data done)
+ * @param n_rays number of isotropic random rays to fire
+ */
+static void
+shoot_rays_crofton(struct current_state *state, size_t n_rays)
+{
+    int i;
+
+    /* Initialise the Crofton generator from the model bounding box. */
+    crofton_grid_setup(&state->crofton_g,
+		       state->rtip->mdl_min,
+		       state->rtip->mdl_max,
+		       n_rays,
+		       0 /* time-based seed */);
+    state->crofton_radius = state->crofton_g.radius;
+
+    /* Reset per-model Crofton accumulators. */
+    state->crofton_crossings = 0;
+    state->crofton_n_rays    = 0;
+
+    /* Zero per-region crossing counts. */
+    for (i = 0; i < state->num_regions; i++)
+	state->reg_tbl[i].crofton_crossings = 0;
+
+    /* Override area and num_views so that the existing getter functions
+     * (analyze_total_volume, analyze_total_mass, analyze_centroid, …) give
+     * correct Crofton estimates once shots[0] is filled in by the workers:
+     *
+     *   volume = m_len[0]        * (area[0] / shots[0])
+     *          = chord_sum        * (π*R²    / n_rays)     ← Crofton formula ✓
+     *   mass   = m_lenDensity[0] * (area[0] / shots[0])   ← same ✓
+     */
+    state->num_views = 1;
+    state->curr_view = 0;
+    state->i_axis    = 0;
+    state->u_axis    = 1;
+    state->v_axis    = 2;
+    state->area[0]   = M_PI * state->crofton_radius * state->crofton_radius;
+    state->area[1]   = state->area[0];
+    state->area[2]   = state->area[0];
+    /* steps[] are referenced by the grid SA formula only, but set them to
+     * something sensible so we don't divide by zero if the path is hit. */
+    VSETALL(state->steps, 1);
+
+    /* Fire all rays. */
+    bu_parallel(analyze_worker_crofton, state->ncpu, (void *)state);
+
+    /* After workers finish, shots[0] holds the actual ray count. */
+    state->crofton_n_rays = state->shots[0];
+
+    /* Apply the Cauchy-Crofton surface-area formula per-region and aggregate
+     * to the per-object surface-area arrays.
+     *
+     * SA_region = (4 * π * R²) * region_crossings / (2 * N)
+     *
+     * This is the correct formula because each Crofton ray is an isotropic
+     * line through the bounding sphere of radius R.  The total crossing count
+     * for the model equals the sum of per-region counts (boundaries not
+     * shared between distinct regions each contribute to exactly one region).
+     */
+    if ((state->analysis_flags & ANALYSIS_SURF_AREA) && state->crofton_n_rays > 0) {
+	for (i = 0; i < state->num_regions; i++) {
+	    double r_sa = crofton_surface_area(
+		    state->reg_tbl[i].crofton_crossings,
+		    state->crofton_n_rays,
+		    state->crofton_radius);
+	    /* Store in both r_surf_area and r_area so the getter functions that
+	     * read r_surf_area[0] (set by mass_volume_surf_area_terminate_check)
+	     * and r_area[0] (used as input there) both see the correct value. */
+	    state->reg_tbl[i].r_surf_area[0] = r_sa;
+	    state->reg_tbl[i].r_area[0]      = r_sa;
+
+	    if (state->reg_tbl[i].optr) {
+		state->reg_tbl[i].optr->o_surf_area[0] += r_sa;
+		state->reg_tbl[i].optr->o_area[0]      += r_sa;
+	    }
+	}
+    }
+
+    if (state->verbose)
+	bu_vls_printf(state->verbose_str,
+		      "Crofton: fired %zu rays, %zu boundary crossings.\n",
+		      state->crofton_n_rays, state->crofton_crossings);
+}
+
+/**
+ * Worker function for the rotated-grid sampler (ANALYZE_SAMPLER_ROTATED).
+ *
+ * Mirrors analyze_worker() but consults state->rot_grid[state->curr_view]
+ * instead of the rectangular grid, allowing an arbitrary ray direction.
+ */
+static void
+analyze_worker_rotated(int cpu, void *ptr)
+{
+    struct application ap;
+    struct current_state *state = (struct current_state *)ptr;
+    unsigned long shot_cnt;
+    int view;
+
+    if (state->aborted)
+	return;
+
+    view = state->curr_view;
+
+    RT_APPLICATION_INIT(&ap);
+    ap.a_rt_i     = (struct rt_i *)state->rtip;
+    ap.a_hit      = analyze_hit;
+    ap.a_miss     = analyze_miss;
+    ap.a_resource = &state->resp[cpu];
+    ap.a_logoverlap = rt_silent_logoverlap;
+    ap.A_LENDEN   = 0.0;
+    ap.A_LEN      = 0.0;
+    ap.A_STATE    = ptr;
+    ap.a_overlap  = analyze_overlap;
+    ap.a_user     = view;
+
+    shot_cnt = 0;
+    while (1) {
+	struct xray ray;
+	bu_semaphore_acquire(state->sem_worker);
+	if (rotated_grid_generator(&ray, &state->rot_grid[view]) == 1) {
+	    bu_semaphore_release(state->sem_worker);
+	    break;
+	}
+	VMOVE(ap.a_ray.r_pt,  ray.r_pt);
+	VMOVE(ap.a_ray.r_dir, ray.r_dir);
+	bu_semaphore_release(state->sem_worker);
+
+	(void)rt_shootray(&ap);
+	if (state->aborted)
+	    return;
+	shot_cnt++;
+    }
+
+    bu_semaphore_acquire(state->sem_stats);
+    state->shots[state->curr_view] += shot_cnt;
+    state->m_lenDensity[state->curr_view] += ap.A_LENDEN;
+    state->m_len[state->curr_view]        += ap.A_LEN;
+    bu_semaphore_release(state->sem_stats);
+}
+
+
+/**
+ * shoot_rays_rotated - convergence loop using the rotated-grid sampler.
+ *
+ * Mirrors shoot_rays() but calls rotated_grid_setup_ae() / rotated_grid_setup()
+ * to orient each view along an arbitrary direction (state->azimuth_deg /
+ * state->elevation_deg) and fires analyze_worker_rotated() workers.
+ *
+ * The view-0 direction is derived from the user az/el; views 1 and 2 are
+ * orthogonal directions computed with bn_vec_perp() and VCROSS so that the
+ * three views are mutually perpendicular (same algorithm as gqa's rotated
+ * mode).
+ */
+static void
+shoot_rays_rotated(struct current_state *state)
+{
+    struct rt_i *rtip = (struct rt_i *)state->rtip;
+    int view;
+
+    do {
+	double inv_spacing = 1.0 / state->gridSpacing;
+	VSCALE(state->steps, state->span, inv_spacing);
+
+	/* Build the three rotated grids. */
+	rotated_grid_setup_ae(&state->rot_grid[0],
+			      rtip->mdl_min, rtip->mdl_max,
+			      state->azimuth_deg, state->elevation_deg,
+			      state->gridSpacing);
+
+	if (state->num_views > 1) {
+	    vect_t v1_dir;
+	    bn_vec_perp(v1_dir, state->rot_grid[0].ray_dir);
+	    VUNITIZE(v1_dir);
+	    rotated_grid_setup(&state->rot_grid[1],
+			      rtip->mdl_min, rtip->mdl_max,
+			      v1_dir, state->gridSpacing);
+	}
+
+	if (state->num_views > 2) {
+	    vect_t v2_dir;
+	    VCROSS(v2_dir, state->rot_grid[0].ray_dir, state->rot_grid[1].ray_dir);
+	    VUNITIZE(v2_dir);
+	    rotated_grid_setup(&state->rot_grid[2],
+			      rtip->mdl_min, rtip->mdl_max,
+			      v2_dir, state->gridSpacing);
+	}
+
+	bu_log("Processing with rotated grid spacing %g mm\n", state->gridSpacing);
+
+	for (view = 0; view < state->num_views; view++) {
+	    if (state->verbose)
+		bu_vls_printf(state->verbose_str, "  view %d\n", view);
+	    state->curr_view = state->i_axis = view;
+	    state->u_axis    = (view + 1) % 3;
+	    state->v_axis    = (view + 2) % 3;
+	    state->rot_grid[view].current     = 0;
+	    state->rot_grid[view].refine_flag = state->grid->refine_flag;
+	    bu_parallel(analyze_worker_rotated, state->ncpu, (void *)state);
+	    if (state->aborted)
+		return;
+	}
+
+	state->grid->refine_flag = 1;
+	state->gridSpacing *= 0.5;
+
+    } while (check_terminate(state));
+
+    if (state->verbose)
+	bu_vls_printf(state->verbose_str, "Computation Done\n");
+}
+
 
 /**
  * Do some computations prior to raytracing based upon options the
@@ -1812,8 +2108,60 @@ perform_raytracing(struct current_state *state, struct db_i *dbip, char *names[]
      * restricting rays to just that cluster's intersection-volume union.
      * For all other analyses (or when the cluster count exceeded
      * OV_CLUSTER_MAX), the normal refinement loop in shoot_rays() is used.
+     *
+     * The Crofton sampler bypasses both the cluster and grid paths: it fires
+     * a fixed number of isotropic random rays in a single parallel pass.
      */
-    if (use_pairwise && pairwise_candidates_p) {
+    if (state->sampler == ANALYZE_SAMPLER_CROFTON) {
+	/* Default ray count if the caller left crofton_n_rays at zero. */
+	size_t n_crofton = (state->crofton_n_rays > 0)
+	    ? state->crofton_n_rays
+	    : (size_t)100000;
+
+	state->sem_crofton = bu_semaphore_register("analyze_sem_crofton");
+
+	if (pairwise_candidates_p) {
+	    analyze_free_overlap_clusters(pairwise_candidates_p);
+	    bu_free(pairwise_candidates_p, "overlap clusters");
+	    pairwise_candidates_p = NULL;
+	}
+
+	bu_log("Crofton: firing %zu isotropic random rays.\n", n_crofton);
+	if (state->verbose)
+	    bu_vls_printf(state->verbose_str,
+			 "Crofton: firing %zu isotropic random rays.\n", n_crofton);
+	shoot_rays_crofton(state, n_crofton);
+
+	/* Fill in per-object mass/volume so the getter functions that read
+	 * o_mass[view] / o_volume[view] return correct values.  (These are
+	 * normally filled by mass_volume_surf_area_terminate_check() inside
+	 * check_terminate() which the Crofton path skips.) */
+	if (state->analysis_flags & (ANALYSIS_MASS | ANALYSIS_VOLUME)) {
+	    int obj, view;
+	    for (obj = 0; obj < state->num_objects; obj++) {
+		for (view = 0; view < state->num_views; view++) {
+		    double cell_area = (state->shots[view] > 0)
+			? state->area[view] / (double)state->shots[view]
+			: 0.0;
+		    state->objs[obj].o_volume[view] =
+			state->objs[obj].o_len[view] * cell_area;
+		    state->objs[obj].o_mass[view] =
+			state->objs[obj].o_lenDensity[view] * cell_area;
+		}
+	    }
+	}
+    } else if (state->sampler == ANALYZE_SAMPLER_ROTATED) {
+	/* Rotated-grid sampler: fires rays along a user-specified az/el
+	 * direction with two orthogonal companions.  Same convergence loop
+	 * as shoot_rays() but uses rotated_grid_generator() instead of the
+	 * axis-aligned rectangular grid. */
+	if (pairwise_candidates_p) {
+	    analyze_free_overlap_clusters(pairwise_candidates_p);
+	    bu_free(pairwise_candidates_p, "overlap clusters");
+	    pairwise_candidates_p = NULL;
+	}
+	shoot_rays_rotated(state);
+    } else if (use_pairwise && pairwise_candidates_p) {
 	shoot_rays_clustered(state, pairwise_candidates_p);
 	analyze_free_overlap_clusters(pairwise_candidates_p);
 	bu_free(pairwise_candidates_p, "overlap clusters");
@@ -1911,6 +2259,488 @@ analyze_bbox(struct db_i *dbip, char *names[], int num_objects,
 }
 
 
+/* -----------------------------------------------------------------------
+ * Capture callbacks for analyze_run()
+ *
+ * These are registered with the current_state before calling
+ * perform_raytracing() and collect detected issues into struct analyze_results.
+ * They can be invoked from multiple worker threads concurrently; all shared
+ * list mutations are serialised under ctx->sem.
+ * --------------------------------------------------------------------- */
+
+struct ar_capture_ctx {
+    struct analyze_results *res;
+    int sem; /**< bu_semaphore protecting all list mutations */
+    /* Per-event render hooks (presentation-layer callbacks) copied from analyze_config. */
+    analyze_overlap_render_fn    overlap_render;
+    void                        *overlap_render_data;
+    analyze_gap_render_fn        gap_render;
+    void                        *gap_render_data;
+    analyze_adj_air_render_fn    adj_air_render;
+    void                        *adj_air_render_data;
+    analyze_exp_air_render_fn    exp_air_render;
+    void                        *exp_air_render_data;
+    analyze_unconf_air_render_fn unconf_air_render;
+    void                        *unconf_air_render_data;
+};
+
+/** Helper: look up an existing record by region1 name, or append a new one. */
+static struct analyze_overlap_record *
+ar_find_or_insert(struct bu_ptbl *tbl, const char *name1, const char *name2)
+{
+    size_t i;
+    struct analyze_overlap_record *rec;
+
+    for (i = 0; i < BU_PTBL_LEN(tbl); i++) {
+	rec = (struct analyze_overlap_record *)BU_PTBL_GET(tbl, i);
+	if (!BU_STR_EQUAL(rec->region1, name1))
+	    continue;
+	if (!name2 && !rec->region2)
+	    return rec;
+	if (name2 && rec->region2 && BU_STR_EQUAL(rec->region2, name2))
+	    return rec;
+    }
+    BU_ALLOC(rec, struct analyze_overlap_record);
+    rec->region1  = bu_strdup(name1);
+    rec->region2  = name2 ? bu_strdup(name2) : NULL;
+    rec->count    = 0;
+    rec->max_dist = 0.0;
+    VSETALL(rec->coord, 0.0);
+    bu_ptbl_ins(tbl, (long *)rec);
+    return rec;
+}
+
+static void
+ar_overlap_cb(const struct xray *ray, const struct partition *pp,
+	      const struct region *reg1, const struct region *reg2,
+	      double depth, void *data)
+{
+    struct ar_capture_ctx *ctx = (struct ar_capture_ctx *)data;
+    struct analyze_overlap_record *rec;
+    point_t ihit, ohit;
+
+    VJOIN1(ihit, ray->r_pt, pp->pt_inhit->hit_dist, ray->r_dir);
+    VJOIN1(ohit, ray->r_pt, pp->pt_outhit->hit_dist, ray->r_dir);
+
+    /* Per-segment render hook (fires before deduplication). */
+    if (ctx->overlap_render)
+	ctx->overlap_render(reg1->reg_name, reg2->reg_name,
+			    depth, ihit, ohit, ctx->overlap_render_data);
+
+    bu_semaphore_acquire(ctx->sem);
+    rec = ar_find_or_insert(&ctx->res->overlaps,
+			    reg1->reg_name, reg2->reg_name);
+    rec->count++;
+    if (depth > rec->max_dist) {
+	rec->max_dist = depth;
+	VMOVE(rec->coord, ihit);
+    }
+    bu_semaphore_release(ctx->sem);
+}
+
+static void
+ar_gap_cb(const struct xray *ray, const struct partition *pp,
+	  double gap_dist, point_t pt, void *data)
+{
+    struct ar_capture_ctx *ctx = (struct ar_capture_ctx *)data;
+    struct analyze_overlap_record *rec;
+    /* pt is the entry point of the region after the gap.
+     * pp->pt_back is the region before the gap (if any). */
+    const char *name_after  = (pp && pp->pt_regionp) ? pp->pt_regionp->reg_name : "";
+    const char *name_before = (pp && pp->pt_back && pp->pt_back->pt_regionp)
+	? pp->pt_back->pt_regionp->reg_name : "";
+
+    if (ctx->gap_render) {
+	/* gap_start = entry of after-region minus gap_dist along ray */
+	point_t gap_start;
+	VJOIN1(gap_start, pt, -gap_dist, ray->r_dir);
+	ctx->gap_render(name_after, name_before, gap_dist,
+			gap_start, pt, ctx->gap_render_data);
+    }
+
+    bu_semaphore_acquire(ctx->sem);
+    rec = ar_find_or_insert(&ctx->res->gaps, name_after, name_before);
+    rec->count++;
+    if (gap_dist > rec->max_dist) {
+	rec->max_dist = gap_dist;
+	VMOVE(rec->coord, pt);
+    }
+    bu_semaphore_release(ctx->sem);
+}
+
+static void
+ar_exp_air_cb(const struct partition *pp, point_t last_out,
+	      point_t pt, point_t opt, void *data)
+{
+    struct ar_capture_ctx *ctx = (struct ar_capture_ctx *)data;
+    struct analyze_overlap_record *rec;
+    const char *name = (pp && pp->pt_regionp) ? pp->pt_regionp->reg_name : "";
+    double thickness = (pp) ? pp->pt_outhit->hit_dist - pp->pt_inhit->hit_dist : 0.0;
+
+    if (ctx->exp_air_render)
+	ctx->exp_air_render(name, pt, opt, ctx->exp_air_render_data);
+
+    bu_semaphore_acquire(ctx->sem);
+    rec = ar_find_or_insert(&ctx->res->exp_air, name, NULL);
+    rec->count++;
+    if (thickness > rec->max_dist) {
+	rec->max_dist = thickness;
+	VMOVE(rec->coord, last_out);
+    }
+    bu_semaphore_release(ctx->sem);
+}
+
+static void
+ar_adj_air_cb(const struct xray *ray, const struct partition *pp,
+	      point_t pt, void *data)
+{
+    struct ar_capture_ctx *ctx = (struct ar_capture_ctx *)data;
+    struct analyze_overlap_record *rec;
+    /* Current region is air; back region is the adjacent solid. */
+    const char *name_air   = (pp && pp->pt_regionp) ? pp->pt_regionp->reg_name : "";
+    const char *name_solid = (pp && pp->pt_back && pp->pt_back->pt_regionp)
+	? pp->pt_back->pt_regionp->reg_name : "";
+
+    if (ctx->adj_air_render) {
+	/* Draw a short segment 1/4 across the air region. */
+	double thickness = pp->pt_outhit->hit_dist - pp->pt_inhit->hit_dist;
+	point_t out_pt;
+	VJOIN1(out_pt, pt, thickness * 0.25, ray->r_dir);
+	ctx->adj_air_render(name_solid, name_air, pt, out_pt,
+			    ctx->adj_air_render_data);
+    }
+
+    bu_semaphore_acquire(ctx->sem);
+    rec = ar_find_or_insert(&ctx->res->adj_air, name_solid, name_air);
+    rec->count++;
+    VMOVE(rec->coord, pt);
+    bu_semaphore_release(ctx->sem);
+}
+
+static void
+ar_first_air_cb(const struct xray *UNUSED(ray), const struct partition *pp,
+		void *data)
+{
+    /* First-air events go into exp_air as a proxy (no dedicated field yet). */
+    struct ar_capture_ctx *ctx = (struct ar_capture_ctx *)data;
+    struct analyze_overlap_record *rec;
+    const char *name = (pp && pp->pt_regionp) ? pp->pt_regionp->reg_name : "";
+
+    bu_semaphore_acquire(ctx->sem);
+    rec = ar_find_or_insert(&ctx->res->exp_air, name, NULL);
+    rec->count++;
+    bu_semaphore_release(ctx->sem);
+}
+
+static void
+ar_last_air_cb(const struct xray *UNUSED(ray), const struct partition *pp,
+	       void *data)
+{
+    /* Last-air events also go into exp_air. */
+    struct ar_capture_ctx *ctx = (struct ar_capture_ctx *)data;
+    struct analyze_overlap_record *rec;
+    const char *name = (pp && pp->pt_regionp) ? pp->pt_regionp->reg_name : "";
+
+    bu_semaphore_acquire(ctx->sem);
+    rec = ar_find_or_insert(&ctx->res->exp_air, name, NULL);
+    rec->count++;
+    bu_semaphore_release(ctx->sem);
+}
+
+static void
+ar_unconf_air_cb(const struct xray *ray,
+		 const struct partition *in_p, const struct partition *out_p,
+		 void *data)
+{
+    struct ar_capture_ctx *ctx = (struct ar_capture_ctx *)data;
+    struct analyze_overlap_record *rec;
+    const char *name_in  = (in_p  && in_p->pt_regionp)  ? in_p->pt_regionp->reg_name  : "";
+    const char *name_out = (out_p && out_p->pt_regionp)  ? out_p->pt_regionp->reg_name : "";
+    double depth = (in_p && out_p) ?
+	in_p->pt_inhit->hit_dist - out_p->pt_outhit->hit_dist : 0.0;
+
+    if (ctx->unconf_air_render && ray) {
+	point_t ihit, ohit;
+	VJOIN1(ihit, ray->r_pt, in_p->pt_inhit->hit_dist,   ray->r_dir);
+	VJOIN1(ohit, ray->r_pt, out_p->pt_outhit->hit_dist, ray->r_dir);
+	ctx->unconf_air_render(name_in, name_out, ihit, ohit,
+			       ctx->unconf_air_render_data);
+    }
+
+    bu_semaphore_acquire(ctx->sem);
+    rec = ar_find_or_insert(&ctx->res->unconf_air, name_in, name_out);
+    rec->count++;
+    if (depth > rec->max_dist) {
+	rec->max_dist = depth;
+	if (ray && in_p)
+	    VJOIN1(rec->coord, ray->r_pt, in_p->pt_inhit->hit_dist, ray->r_dir);
+    }
+    bu_semaphore_release(ctx->sem);
+}
+
+
+/**
+ * analyze_run - high-level geometry analysis entry point.
+ *
+ * Selects the appropriate sampler backend (triple-grid, Crofton, …),
+ * registers capture callbacks, invokes perform_raytracing(), and harvests
+ * results into a freshly allocated struct analyze_results.
+ *
+ * For the Crofton sampler the function sets state->sampler =
+ * ANALYZE_SAMPLER_CROFTON before calling perform_raytracing(); the
+ * Crofton-specific worker path is then activated inside perform_raytracing()
+ * itself.
+ *
+ * @param cfg       Analysis configuration; if NULL library defaults are used.
+ * @param dbip      Open database instance.
+ * @param names     Array of object names to analyse.
+ * @param num_names Number of entries in @p names.
+ * @param flags     Bitwise OR of ANALYZE_* flags.
+ * @return          Heap-allocated results (free with analyze_results_free()), or
+ *                  NULL on error.
+ */
+struct analyze_results *
+analyze_run(const struct analyze_config *cfg, struct db_i *dbip,
+	    char *names[], int num_names, int flags)
+{
+    struct analyze_results *res;
+    struct current_state *state;
+    struct ar_capture_ctx ctx;
+    int i;
+    int ret;
+
+    if (!dbip || !names || num_names <= 0)
+	return NULL;
+
+    /* ------------------------------------------------------------------
+     * Allocate result container.
+     * ------------------------------------------------------------------ */
+    BU_ALLOC(res, struct analyze_results);
+    memset(res, 0, sizeof(*res));
+    bu_ptbl_init(&res->overlaps,   8, "ar overlaps");
+    bu_ptbl_init(&res->gaps,       8, "ar gaps");
+    bu_ptbl_init(&res->adj_air,    8, "ar adj_air");
+    bu_ptbl_init(&res->exp_air,    8, "ar exp_air");
+    bu_ptbl_init(&res->unconf_air, 8, "ar unconf_air");
+
+    /* ------------------------------------------------------------------
+     * Initialise state from config (or defaults when cfg is NULL).
+     * ------------------------------------------------------------------ */
+    state = analyze_current_state_init();
+
+    if (cfg) {
+	state->sampler      = cfg->sampler;
+	if (cfg->num_views > 0)
+	    state->num_views = cfg->num_views;
+	state->azimuth_deg   = cfg->azimuth_deg;
+	state->elevation_deg = cfg->elevation_deg;
+	if (cfg->grid_spacing > 0.0)
+	    state->gridSpacing = cfg->grid_spacing;
+	if (cfg->grid_spacing_min > 0.0)
+	    state->gridSpacingLimit = cfg->grid_spacing_min;
+	if (cfg->aspect > 0.0)
+	    state->aspect = cfg->aspect;
+	if (cfg->grid_width > 0 || cfg->grid_height > 0) {
+	    state->grid_size_flag = 1;
+	    state->grid_width  = (fastf_t)cfg->grid_width;
+	    state->grid_height = (fastf_t)(cfg->grid_height > 0 ? cfg->grid_height
+							       : cfg->grid_width);
+	}
+	if (cfg->quiet_missed)
+	    state->quiet_missed_report = 1;
+	if (cfg->samples_per_model_axis > 0.0)
+	    state->samples_per_model_axis = cfg->samples_per_model_axis;
+	if (cfg->sampler == ANALYZE_SAMPLER_VIEW_PLANE && cfg->view_size > 0.0) {
+	    point_t eye;
+	    quat_t  quat;
+	    VMOVE(eye, cfg->view_eye);
+	    HMOVE(quat, cfg->view_quat);
+	    analyze_set_view_information(state, cfg->view_size, &eye, &quat);
+	}
+	state->overlap_tolerance = cfg->overlap_tol;
+	if (cfg->volume_tol >= 0.0)
+	    state->volume_tolerance = cfg->volume_tol;
+	if (cfg->mass_tol >= 0.0)
+	    state->mass_tolerance = cfg->mass_tol;
+	if (cfg->surf_area_tol >= 0.0)
+	    state->sa_tolerance = cfg->surf_area_tol;
+	if (cfg->density_file)
+	    state->densityFileName = (char *)cfg->density_file;
+	state->use_air = cfg->use_air;
+	if (cfg->ncpu > 0)
+	    state->ncpu = cfg->ncpu;
+	if (cfg->required_hits > 0)
+	    state->required_number_hits = cfg->required_hits;
+	state->verbose = cfg->verbose;
+	if (cfg->log_str) {
+	    if (cfg->verbose)
+		analyze_enable_verbose(state, cfg->log_str);
+	    else
+		analyze_enable_debug(state, cfg->log_str);
+	}
+	if (cfg->timeout_ms > 0)
+	    state->timeout_ms = cfg->timeout_ms;
+	state->required_digits = cfg->required_digits;
+	if (cfg->n_crofton_rays > 0)
+	    state->crofton_n_rays = cfg->n_crofton_rays;
+	if (cfg->volume_plot_file)
+	    analyze_set_volume_plotfile(state, cfg->volume_plot_file);
+    }
+
+    /* ------------------------------------------------------------------
+     * Register capture callbacks for requested issue types.
+     * ------------------------------------------------------------------ */
+    ctx.res = res;
+    ctx.sem = bu_semaphore_register("analyze_run_results_sem");
+    ctx.overlap_render      = NULL;
+    ctx.overlap_render_data = NULL;
+    ctx.gap_render          = NULL;
+    ctx.gap_render_data     = NULL;
+    ctx.adj_air_render      = NULL;
+    ctx.adj_air_render_data = NULL;
+    ctx.exp_air_render      = NULL;
+    ctx.exp_air_render_data = NULL;
+    ctx.unconf_air_render      = NULL;
+    ctx.unconf_air_render_data = NULL;
+    if (cfg) {
+	ctx.overlap_render       = cfg->overlap_render;
+	ctx.overlap_render_data  = cfg->overlap_render_data;
+	ctx.gap_render           = cfg->gap_render;
+	ctx.gap_render_data      = cfg->gap_render_data;
+	ctx.adj_air_render       = cfg->adj_air_render;
+	ctx.adj_air_render_data  = cfg->adj_air_render_data;
+	ctx.exp_air_render       = cfg->exp_air_render;
+	ctx.exp_air_render_data  = cfg->exp_air_render_data;
+	ctx.unconf_air_render      = cfg->unconf_air_render;
+	ctx.unconf_air_render_data = cfg->unconf_air_render_data;
+    }
+
+    if (flags & ANALYZE_OVERLAPS)
+	analyze_register_overlaps_callback(state, ar_overlap_cb, &ctx);
+    if (flags & ANALYZE_GAP)
+	analyze_register_gaps_callback(state, ar_gap_cb, &ctx);
+    if (flags & ANALYZE_EXP_AIR)
+	analyze_register_exp_air_callback(state, ar_exp_air_cb, &ctx);
+    if (flags & ANALYZE_ADJ_AIR)
+	analyze_register_adj_air_callback(state, ar_adj_air_cb, &ctx);
+    if (flags & ANALYZE_FIRST_AIR)
+	analyze_register_first_air_callback(state, ar_first_air_cb, &ctx);
+    if (flags & ANALYZE_LAST_AIR)
+	analyze_register_last_air_callback(state, ar_last_air_cb, &ctx);
+    if (flags & ANALYZE_UNCONF_AIR)
+	analyze_register_unconf_air_callback(state, ar_unconf_air_cb, &ctx);
+
+    /* ------------------------------------------------------------------
+     * Run the analysis.
+     * ------------------------------------------------------------------ */
+    ret = perform_raytracing(state, dbip, names, num_names, flags);
+    if (ret != ANALYZE_OK) {
+	analyze_free_current_state(state);
+	analyze_results_free(res);
+	return NULL;
+    }
+
+    /* Record the last grid spacing actually used for the triple/rotated
+     * samplers.  perform_raytracing() halves gridSpacing once more after
+     * the final pass, so the last-used value is gridSpacing * 2.
+     * For the Crofton sampler (no iterative grid) we leave this at 0. */
+    if (state->sampler != ANALYZE_SAMPLER_CROFTON && state->gridSpacing > 0.0)
+	res->final_grid_spacing = state->gridSpacing * 2.0;
+
+    /* Bounding box via exact rt_prep (separate lightweight pass). */
+    if (flags & ANALYZE_BOX)
+	analyze_bbox(dbip, names, num_names, res->bbox_min, res->bbox_max);
+
+    /* ------------------------------------------------------------------
+     * Harvest scalar totals.
+     * ------------------------------------------------------------------ */
+    if (flags & ANALYZE_VOLUME)
+	res->total_volume = analyze_total_volume(state);
+    if (flags & ANALYZE_MASS)
+	res->total_mass = analyze_total_mass(state);
+    if (flags & ANALYZE_SURF_AREA)
+	res->total_surf_area = analyze_total_surf_area(state);
+    if (flags & ANALYZE_CENTROIDS)
+	analyze_total_centroid(state, res->centroid);
+    if (flags & ANALYZE_MOMENTS)
+	analyze_moments_total(state, res->moments_of_inertia);
+
+    /* ------------------------------------------------------------------
+     * Harvest per-input-object results (centroid, moments, per-object bbox).
+     * ------------------------------------------------------------------ */
+    if (num_names > 0) {
+	res->objects = (struct analyze_object_result *)bu_calloc(
+		(size_t)num_names,
+		sizeof(struct analyze_object_result),
+		"ar object results");
+	res->n_objects = (size_t)num_names;
+
+	for (i = 0; i < num_names; i++) {
+	    res->objects[i].name = bu_strdup(names[i]);
+	    if (flags & ANALYZE_VOLUME)
+		res->objects[i].volume   = analyze_volume(state, names[i]);
+	    if (flags & ANALYZE_MASS)
+		res->objects[i].mass     = analyze_mass(state, names[i]);
+	    if (flags & ANALYZE_SURF_AREA)
+		res->objects[i].surf_area = analyze_surf_area(state, names[i]);
+	    if (flags & ANALYZE_CENTROIDS)
+		analyze_centroid(state, names[i], res->objects[i].centroid);
+	    if (flags & ANALYZE_MOMENTS)
+		analyze_moments(state, names[i], res->objects[i].moments_of_inertia);
+	    if (flags & ANALYZE_BOX) {
+		char *single[2];
+		single[0] = names[i];
+		single[1] = NULL;
+		analyze_bbox(dbip, single, 1,
+			     res->objects[i].bbox_min,
+			     res->objects[i].bbox_max);
+	    }
+	}
+    }
+
+    /* ------------------------------------------------------------------
+     * Harvest per-region results.
+     * ------------------------------------------------------------------ */
+    {
+	int num_regions = analyze_get_num_regions(state);
+	if (num_regions > 0) {
+	    res->regions = (struct analyze_region_result *)bu_calloc(
+		    (size_t)num_regions,
+		    sizeof(struct analyze_region_result),
+		    "ar region results");
+	    res->n_regions = (size_t)num_regions;
+
+	    for (i = 0; i < num_regions; i++) {
+		char *rname = NULL;
+		double vol  = 0.0, mass = 0.0, sa = 0.0;
+		double dummy_hi = 0.0, dummy_lo = 0.0;
+
+		if (flags & ANALYZE_VOLUME)
+		    analyze_volume_region(state, i, &rname, &vol, &dummy_hi, &dummy_lo);
+		if (flags & ANALYZE_MASS)
+		    analyze_mass_region(state, i, &rname, &mass, &dummy_hi, &dummy_lo);
+		if (flags & ANALYZE_SURF_AREA)
+		    analyze_surf_area_region(state, i, &rname, &sa, &dummy_hi, &dummy_lo);
+
+		/* Fall back to reg_tbl name if no getter was called. */
+		if (!rname && state->reg_tbl[i].r_name)
+		    rname = state->reg_tbl[i].r_name;
+
+		/* strdup so the result survives analyze_free_current_state(). */
+		res->regions[i].name      = rname ? bu_strdup(rname) : bu_strdup("");
+		res->regions[i].volume    = vol;
+		res->regions[i].mass      = mass;
+		res->regions[i].surf_area = sa;
+		res->regions[i].hits      = state->reg_tbl[i].hits;
+	    }
+	}
+    }
+
+    analyze_free_current_state(state);
+    return res;
+}
+
+
 void
 analyze_results_free(struct analyze_results *res)
 {
@@ -1919,31 +2749,45 @@ analyze_results_free(struct analyze_results *res)
     if (!res)
 	return;
 
+    if (res->objects) {
+	/* Object names in this array are strdup'd by analyze_run(). */
+	for (i = 0; i < res->n_objects; i++) {
+	    if (res->objects[i].name)
+		bu_free((void *)res->objects[i].name, "object name");
+	}
+	bu_free(res->objects, "analyze_results objects");
+	res->objects = NULL;
+    }
+
     if (res->regions) {
+	/* Region names in this array are strdup'd by analyze_run(). */
+	for (i = 0; i < res->n_regions; i++) {
+	    if (res->regions[i].name)
+		bu_free((void *)res->regions[i].name, "region name");
+	}
 	bu_free(res->regions, "analyze_results regions");
 	res->regions = NULL;
     }
 
-    /* Free overlap / issue record lists */
-    for (i = 0; i < BU_PTBL_LEN(&res->overlaps); i++)
-	bu_free(BU_PTBL_GET(&res->overlaps, i), "analyze_overlap_record");
-    bu_ptbl_free(&res->overlaps);
+    /* Free overlap / issue record lists.  region1 and region2 strings are
+     * always strdup'd by the capture callbacks in analyze_run(). */
+#define AR_FREE_PTBL(tbl) do { \
+    for (i = 0; i < BU_PTBL_LEN(&res->tbl); i++) { \
+	struct analyze_overlap_record *_r = \
+	    (struct analyze_overlap_record *)BU_PTBL_GET(&res->tbl, i); \
+	bu_free((void *)_r->region1, "ar region1"); \
+	if (_r->region2) bu_free((void *)_r->region2, "ar region2"); \
+	bu_free(_r, "analyze_overlap_record"); \
+    } \
+    bu_ptbl_free(&res->tbl); \
+} while (0)
 
-    for (i = 0; i < BU_PTBL_LEN(&res->gaps); i++)
-	bu_free(BU_PTBL_GET(&res->gaps, i), "analyze_overlap_record");
-    bu_ptbl_free(&res->gaps);
-
-    for (i = 0; i < BU_PTBL_LEN(&res->adj_air); i++)
-	bu_free(BU_PTBL_GET(&res->adj_air, i), "analyze_overlap_record");
-    bu_ptbl_free(&res->adj_air);
-
-    for (i = 0; i < BU_PTBL_LEN(&res->exp_air); i++)
-	bu_free(BU_PTBL_GET(&res->exp_air, i), "analyze_overlap_record");
-    bu_ptbl_free(&res->exp_air);
-
-    for (i = 0; i < BU_PTBL_LEN(&res->unconf_air); i++)
-	bu_free(BU_PTBL_GET(&res->unconf_air, i), "analyze_overlap_record");
-    bu_ptbl_free(&res->unconf_air);
+    AR_FREE_PTBL(overlaps);
+    AR_FREE_PTBL(gaps);
+    AR_FREE_PTBL(adj_air);
+    AR_FREE_PTBL(exp_air);
+    AR_FREE_PTBL(unconf_air);
+#undef AR_FREE_PTBL
 
     bu_free(res, "analyze_results");
 }

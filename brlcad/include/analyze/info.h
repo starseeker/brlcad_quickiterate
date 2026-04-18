@@ -30,6 +30,7 @@
 
 #include "common.h"
 #include "raytrace.h"
+#include <string.h>
 
 #include "analyze/defines.h"
 
@@ -89,13 +90,57 @@ __BEGIN_DECLS
  * breaking existing callers.
  * ====================================================================== */
 
-/**
- * Zero-initialiser for struct analyze_config.
- * All fields default to 0 / NULL which the library interprets as "auto".
- */
-#define ANALYZE_CONFIG_INIT_ZERO \
-    { ANALYZE_SAMPLER_TRIPLE_GRID, 3, 0.0, 0.0, 0.0, 0.0, 1.0, 0, \
-      0.0, -1.0, -1.0, -1.0, NULL, 1, 0, 1, 0, NULL, 0, 0.0 }
+/* ======================================================================
+ * Per-event render hook types.
+ *
+ * These optional callbacks are placed in struct analyze_config and are
+ * invoked by analyze_run() once per detected event during the ray pass.
+ * They allow front-end callers (check, gqa, …) to write plot files, draw
+ * overlays, or produce real-time output without coupling libanalyze to any
+ * specific output mechanism.
+ *
+ * All geometric arguments are in BRL-CAD model-space millimetres.
+ * Implementations must not call analyze_results_free() or re-enter
+ * analyze_run() from within a hook because the analysis state is still live.
+ * Thread safety (e.g. for plot-file writes) is the responsibility of the
+ * hook implementation.
+ * ====================================================================== */
+
+/** Fired for every detected overlap segment (before per-pair deduplication;
+ *  may fire many times for the same region pair). */
+typedef void (*analyze_overlap_render_fn)(
+    const char *r1, const char *r2,
+    double depth, point_t ihit, point_t ohit,
+    void *data);
+
+/** Fired for every detected gap between solid objects.
+ *  gap_start is the exit of the last solid; gap_end is the entry of the next. */
+typedef void (*analyze_gap_render_fn)(
+    const char *r1, const char *r2,
+    double dist, point_t gap_start, point_t gap_end,
+    void *data);
+
+/** Fired for every detected adjacent-air boundary.
+ *  in_pt is entry into the air region; out_pt is 1/4 across it. */
+typedef void (*analyze_adj_air_render_fn)(
+    const char *r1, const char *r2,
+    point_t in_pt, point_t out_pt,
+    void *data);
+
+/** Fired for every detected exposed-air partition.
+ *  in_pt / out_pt are the inhit / outhit of the air segment. */
+typedef void (*analyze_exp_air_render_fn)(
+    const char *region_name,
+    point_t in_pt, point_t out_pt,
+    void *data);
+
+/** Fired for every detected unconfined-air segment.
+ *  in_pt / out_pt are the entry and exit of the unconfined segment. */
+typedef void (*analyze_unconf_air_render_fn)(
+    const char *r1, const char *r2,
+    point_t in_pt, point_t out_pt,
+    void *data);
+
 
 /**
  * Configuration for a geometry analysis session.
@@ -114,6 +159,19 @@ struct analyze_config {
     double grid_spacing_min;  /**< minimum ray spacing (refinement limit) in mm */
     double aspect;            /**< cell width:height ratio (default 1.0) */
     size_t n_crofton_rays;    /**< ray count for CROFTON sampler; 0 = library default */
+
+    /* ---- Grid size override ---- */
+    int    grid_width;        /**< fixed grid width in cells; 0 = derive from spacing */
+    int    grid_height;       /**< fixed grid height in cells; 0 = same as grid_width */
+
+    /* ---- Sampling detail ---- */
+    int    quiet_missed;            /**< suppress "not hit" messages when non-zero */
+    double samples_per_model_axis;  /**< minimum samples per model-space axis; 0 = disabled */
+
+    /* ---- VIEW_PLANE sampler parameters ---- */
+    double  view_size;  /**< view size in model units; 0 = sampler not configured */
+    point_t view_eye;   /**< eye position for VIEW_PLANE sampler */
+    quat_t  view_quat;  /**< view orientation quaternion for VIEW_PLANE sampler */
 
     /* ---- Convergence tolerances ---- */
     double overlap_tol;       /**< minimum overlap depth to report, in mm */
@@ -142,8 +200,54 @@ struct analyze_config {
                                 * absolute tolerances).  For each analysis quantity Q
                                 * the criterion is: log10(Q_avg / Q_spread) >= required_digits.
                                 * Typical values: 2 (1% accuracy), 3 (0.1%), 4 (0.01%). */
+
+    /* ---- Per-pass volume plot file ---- */
+    FILE *volume_plot_file;   /**< optional plot3 file for volume visualisation; NULL = none */
+
+    /* ---- Per-event render hooks (presentation-layer callbacks) ---- */
+    analyze_overlap_render_fn    overlap_render;       /**< fired per overlap segment */
+    void                        *overlap_render_data;
+    analyze_gap_render_fn        gap_render;           /**< fired per gap */
+    void                        *gap_render_data;
+    analyze_adj_air_render_fn    adj_air_render;       /**< fired per adjacent-air event */
+    void                        *adj_air_render_data;
+    analyze_exp_air_render_fn    exp_air_render;       /**< fired per exposed-air partition */
+    void                        *exp_air_render_data;
+    analyze_unconf_air_render_fn unconf_air_render;    /**< fired per unconfined-air segment */
+    void                        *unconf_air_render_data;
 };
 
+
+/**
+ * Return an analyze_config with library-default values.
+ *
+ * All fields are first zero-initialised; then the non-zero defaults are
+ * applied.  Use as:
+ *
+ *   struct analyze_config cfg = ANALYZE_CONFIG_INIT_ZERO;
+ *
+ * This is a static inline function (not a designated-initialiser macro) so
+ * it compiles correctly in both C99+ and C++03/11/14/17 translation units.
+ */
+static inline struct analyze_config
+analyze_config_defaults(void) __attribute__((unused));
+static inline struct analyze_config
+analyze_config_defaults(void)
+{
+    struct analyze_config _c;
+    memset(&_c, 0, sizeof(_c));
+    _c.sampler       = ANALYZE_SAMPLER_TRIPLE_GRID;
+    _c.num_views     = 3;
+    _c.aspect        = 1.0;
+    _c.volume_tol    = -1.0;
+    _c.mass_tol      = -1.0;
+    _c.surf_area_tol = -1.0;
+    _c.use_air       = 1;
+    _c.required_hits = 1;
+    return _c;
+}
+/** Convenience macro: obtain a default-initialised analyze_config. */
+#define ANALYZE_CONFIG_INIT_ZERO analyze_config_defaults()
 
 /**
  * Per-region result record returned inside struct analyze_results.
@@ -155,6 +259,28 @@ struct analyze_region_result {
     double surf_area;     /**< estimated surface area in mm^2 */
     unsigned long hits;   /**< number of ray-hits recorded */
     point_t centroid;     /**< estimated centroid in model coordinates */
+};
+
+
+/**
+ * Per-input-object result record returned inside struct analyze_results.
+ *
+ * An "object" here is one of the top-level names passed to analyze_run().
+ * It may expand to many regions; these fields are the aggregated values
+ * across all regions that belong to the object.
+ *
+ * Fields not requested via the flags argument of analyze_run() are left at
+ * their zero-initialised default values.
+ */
+struct analyze_object_result {
+    const char *name;               /**< strdup'd input object name */
+    double      volume;             /**< estimated volume in mm^3 */
+    double      mass;               /**< estimated mass in grams */
+    double      surf_area;          /**< estimated surface area in mm^2 */
+    point_t     centroid;           /**< model-space centroid */
+    mat_t       moments_of_inertia; /**< 4x4 inertia tensor */
+    point_t     bbox_min;           /**< axis-aligned bounding-box minimum */
+    point_t     bbox_max;           /**< axis-aligned bounding-box maximum */
 };
 
 
@@ -184,9 +310,17 @@ struct analyze_results {
     double  total_mass;          /**< grams */
     double  total_surf_area;     /**< mm^2 */
     point_t centroid;            /**< model-space centroid */
-    mat_t   moments_of_inertia;  /**< 4x4 inertia tensor */
+    mat_t   moments_of_inertia;  /**< 4x4 inertia tensor (total for all objects) */
     point_t bbox_min;            /**< axis-aligned bounding box minimum */
     point_t bbox_max;            /**< axis-aligned bounding box maximum */
+
+    /** Last grid spacing used before convergence (mm).
+     *  Valid for triple-grid and rotated samplers; 0 for Crofton. */
+    double  final_grid_spacing;
+
+    /* ---- Per-input-object details ---- */
+    struct analyze_object_result *objects; /**< array of n_objects entries */
+    size_t n_objects;
 
     /* ---- Per-region details ---- */
     struct analyze_region_result *regions; /**< array of n_regions entries */
@@ -222,9 +356,43 @@ analyze_bbox(struct db_i *dbip, char *names[], int num_objects,
 /**
  * Free all memory owned by an analyze_results struct.
  * The struct itself is also freed; the pointer must not be used afterwards.
+ *
+ * This function frees the strdup'd region1 / region2 strings in every
+ * analyze_overlap_record.  Callers that construct analyze_overlap_record
+ * entries manually (i.e. not via analyze_run()) must ensure those string
+ * fields are heap-allocated.
  */
 ANALYZE_EXPORT extern void
 analyze_results_free(struct analyze_results *res);
+
+
+/**
+ * Run a geometry analysis session.
+ *
+ * This is the preferred high-level entry point.  It selects the appropriate
+ * sampler backend from cfg->sampler (ANALYZE_SAMPLER_TRIPLE_GRID or
+ * ANALYZE_SAMPLER_CROFTON), registers result-capture callbacks internally,
+ * and returns a fully populated struct analyze_results.
+ *
+ * Configuration notes:
+ *  - Pass NULL for @p cfg to use library defaults for all settings.
+ *  - Set cfg->n_crofton_rays to control the sample count for the Crofton
+ *    sampler; 0 means the library default (currently 100 000).
+ *  - cfg->density_file is only consulted when ANALYZE_MASS is in @p flags.
+ *
+ * @param cfg       Analysis configuration (NULL = library defaults).
+ * @param dbip      Open database instance.
+ * @param names     Array of object names to analyse.
+ * @param num_names Number of entries in @p names.
+ * @param flags     Bitwise OR of ANALYZE_* flags selecting which metrics to
+ *                  compute.  Issue-detection flags (ANALYZE_OVERLAPS etc.)
+ *                  populate the corresponding bu_ptbl lists in the result.
+ * @return          Heap-allocated result struct (caller frees with
+ *                  analyze_results_free()), or NULL on error.
+ */
+ANALYZE_EXPORT extern struct analyze_results *
+analyze_run(const struct analyze_config *cfg, struct db_i *dbip,
+	    char *names[], int num_names, int flags);
 
 
 /*
