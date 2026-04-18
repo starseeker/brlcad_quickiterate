@@ -740,11 +740,13 @@ summary_reports(struct ged *gedp, struct cstate *state,
 		struct analyze_overlap_record *ov =
 		    (struct analyze_overlap_record *)BU_PTBL_GET(&res->overlaps, k);
 		bu_vls_printf(gedp->ged_result_str,
-			      "%s %s count:%lu dist:%g%s @ (%g %g %g)\n",
+			      "%s %s count:%lu dist:%g%s vol~:%g%s^3 @ (%g %g %g)\n",
 			      ov->region1,
 			      ov->region2 ? ov->region2 : "?",
 			      ov->count,
 			      ov->max_dist / state->units[LINE]->val,
+			      state->units[LINE]->name,
+			      ov->estimated_volume / units3,
 			      state->units[LINE]->name,
 			      V3ARGS(ov->coord));
 	    }

@@ -1102,6 +1102,7 @@ shoot_rays_crofton(struct current_state *state, size_t n_rays)
     VSETALL(state->steps, 1);
 
     /* Fire all rays. */
+    state->current_cell_area = state->area[0] / (double)n_rays;
     bu_parallel(analyze_worker_crofton, state->ncpu, (void *)state);
 
     /* After workers finish, shots[0] holds the actual ray count. */
@@ -1262,6 +1263,7 @@ shoot_rays_rotated(struct current_state *state)
 	     * formula m_len * (area / shots) yields the correct cell_area. */
 	    state->area[view] = (double)state->rot_grid[view].total
 			       * state->gridSpacing * state->gridSpacing;
+	    state->current_cell_area = state->gridSpacing * state->gridSpacing;
 	    bu_parallel(analyze_worker_rotated, state->ncpu, (void *)state);
 	    if (state->aborted)
 		return;
@@ -1716,11 +1718,13 @@ shoot_rays(struct current_state *state)
 		 * to area[view] so every view uses the correct projection area. */
 		state->area[view] = state->area[0];
 		state->curr_view = view;
+		state->current_cell_area = state->gridSpacing * state->gridSpacing;
 		bu_parallel(analyze_worker, state->ncpu, (void *)state);
 	    }
 	} else if (state->use_single_grid) {
 	    state->num_views = 1;
 	    analyze_single_grid_setup(state);
+	    state->current_cell_area = state->gridSpacing * state->gridSpacing;
 	    bu_parallel(analyze_worker, state->ncpu, (void *)state);
 	} else {
 	    int view;
@@ -1729,6 +1733,7 @@ shoot_rays(struct current_state *state)
 		    state->steps[0]-1,
 		    state->steps[1]-1,
 		    state->steps[2]-1);
+	    state->current_cell_area = state->gridSpacing * state->gridSpacing;
 	    for (view = 0; view < state->num_views; view++) {
 		if (state->verbose)
 		    bu_vls_printf(state->verbose_str, "  view %d\n", view);
@@ -1851,6 +1856,9 @@ shoot_rays_clustered(struct current_state *state, struct bu_ptbl *clusters)
 	       (long)state->steps[1],
 	       (long)state->steps[2]);
 
+	/* Set cell area for overlap volume estimation. */
+	state->current_cell_area = cl_spacing * cl_spacing;
+
 	/* Run one triple-grid pass over this cluster's intersection volume. */
 	for (view = 0; view < state->num_views; view++) {
 	    if (state->verbose)
@@ -1874,6 +1882,156 @@ shoot_rays_clustered(struct current_state *state, struct bu_ptbl *clusters)
     if (state->verbose)
 	bu_vls_printf(state->verbose_str,
 		      "Clustered overlap scan done (%zu cluster(s)).\n", nclusters);
+}
+
+
+/**
+ * shoot_rays_rotated_clustered - cluster-focused overlap detection using the rotated-grid sampler.
+ *
+ * Mirrors shoot_rays_clustered() but fires rays through each cluster's
+ * intersection volume using the rotated-grid sampler (ANALYZE_SAMPLER_ROTATED)
+ * rather than the axis-aligned triple-grid.  The primary ray direction is
+ * taken from state->azimuth_deg / state->elevation_deg; two orthogonal
+ * companion views are derived with bn_vec_perp() and VCROSS.
+ *
+ * Using the rotated-grid sampler with cluster-focused sampling avoids the
+ * axis-aligned ray artifact that causes touching / kissing surfaces to be
+ * reported as overlaps by the triple-grid sampler.
+ */
+static void
+shoot_rays_rotated_clustered(struct current_state *state, struct bu_ptbl *clusters)
+{
+    struct rt_i *rtip = (struct rt_i *)state->rtip;
+    size_t k;
+    size_t nclusters = BU_PTBL_LEN(clusters);
+
+    /* Save the full-model state we temporarily replace per cluster. */
+    point_t saved_mdl_min, saved_mdl_max;
+    vect_t  saved_span;
+    double  saved_area[3];
+    double  saved_gridSpacing;
+
+    VMOVE(saved_mdl_min, rtip->mdl_min);
+    VMOVE(saved_mdl_max, rtip->mdl_max);
+    VMOVE(saved_span, state->span);
+    saved_area[0] = state->area[0];
+    saved_area[1] = state->area[1];
+    saved_area[2] = state->area[2];
+    saved_gridSpacing = state->gridSpacing;
+
+    state->grid->refine_flag = 1; /* indicate this is a focused pass */
+
+    for (k = 0; k < nclusters; k++) {
+	struct overlap_cluster *cl;
+	vect_t isect_span;
+	double min_span, cl_spacing;
+	int view;
+	size_t nreg;
+
+	if (state->aborted)
+	    break;
+
+	/* Respect wall-clock timeout between clusters. */
+	if (state->timeout_ms > 0) {
+	    long elapsed_ms = (long)((bu_gettime() - state->start_time_us) / 1000);
+	    if (elapsed_ms >= state->timeout_ms) {
+		bu_log("NOTE: Clustered rotated-grid overlap scan: timeout of %ld ms reached "
+		       "after %zu of %zu clusters.\n",
+		       state->timeout_ms, k, nclusters);
+		break;
+	    }
+	}
+
+	cl = (struct overlap_cluster *)BU_PTBL_GET(clusters, k);
+	nreg = BU_PTBL_LEN(&cl->regions);
+
+	/* Guard against degenerate intersection volumes. */
+	VSUB2(isect_span, cl->isect_union_max, cl->isect_union_min);
+	if (isect_span[X] <= 0.0 || isect_span[Y] <= 0.0 || isect_span[Z] <= 0.0)
+	    continue;
+
+	/* Restrict the sampling grid to this cluster's intersection volume. */
+	VMOVE(rtip->mdl_min, cl->isect_union_min);
+	VMOVE(rtip->mdl_max, cl->isect_union_max);
+	VSUB2(state->span, cl->isect_union_max, cl->isect_union_min);
+	state->area[0] = state->span[1] * state->span[2];
+	state->area[1] = state->span[2] * state->span[0];
+	state->area[2] = state->span[0] * state->span[1];
+
+	/* Grid spacing: 50 cells across the shortest axis, >= gridSpacingLimit. */
+	min_span = state->span[X];
+	V_MIN(min_span, state->span[Y]);
+	V_MIN(min_span, state->span[Z]);
+	cl_spacing = min_span / 50.0;
+	if (cl_spacing < state->gridSpacingLimit)
+	    cl_spacing = state->gridSpacingLimit;
+
+	state->gridSpacing = cl_spacing;
+	VSCALE(state->steps, state->span, 1.0 / cl_spacing);
+
+	bu_log("  Cluster %zu/%zu: %zu region(s), rotated-grid spacing %g mm, "
+	       "%ld x %ld x %ld cells\n",
+	       k + 1, nclusters, nreg, cl_spacing,
+	       (long)state->steps[0],
+	       (long)state->steps[1],
+	       (long)state->steps[2]);
+
+	/* Set cell area for overlap volume estimation (spacing² per cell). */
+	state->current_cell_area = cl_spacing * cl_spacing;
+
+	/* Build three mutually perpendicular rotated grids for this cluster bbox. */
+	rotated_grid_setup_ae(&state->rot_grid[0],
+			      rtip->mdl_min, rtip->mdl_max,
+			      state->azimuth_deg, state->elevation_deg,
+			      cl_spacing);
+
+	if (state->num_views > 1) {
+	    vect_t v1_dir;
+	    bn_vec_perp(v1_dir, state->rot_grid[0].ray_dir);
+	    VUNITIZE(v1_dir);
+	    rotated_grid_setup(&state->rot_grid[1],
+			      rtip->mdl_min, rtip->mdl_max,
+			      v1_dir, cl_spacing);
+	}
+
+	if (state->num_views > 2) {
+	    vect_t v2_dir;
+	    VCROSS(v2_dir, state->rot_grid[0].ray_dir, state->rot_grid[1].ray_dir);
+	    VUNITIZE(v2_dir);
+	    rotated_grid_setup(&state->rot_grid[2],
+			      rtip->mdl_min, rtip->mdl_max,
+			      v2_dir, cl_spacing);
+	}
+
+	/* Fire one rotated-grid pass per view for this cluster. */
+	for (view = 0; view < state->num_views; view++) {
+	    if (state->verbose)
+		bu_vls_printf(state->verbose_str, "    view %d\n", view);
+	    state->curr_view = state->i_axis = view;
+	    state->u_axis    = (view + 1) % 3;
+	    state->v_axis    = (view + 2) % 3;
+	    state->rot_grid[view].current     = 0;
+	    state->rot_grid[view].refine_flag = state->grid->refine_flag;
+	    state->area[view] = (double)state->rot_grid[view].total
+			       * cl_spacing * cl_spacing;
+	    bu_parallel(analyze_worker_rotated, state->ncpu, (void *)state);
+	    if (state->aborted)
+		break;
+	}
+    }
+
+    /* Restore full-model state. */
+    VMOVE(rtip->mdl_min, saved_mdl_min);
+    VMOVE(rtip->mdl_max, saved_mdl_max);
+    VMOVE(state->span, saved_span);
+    state->area[0] = saved_area[0];
+    state->area[1] = saved_area[1];
+    state->area[2] = saved_area[2];
+    state->gridSpacing = saved_gridSpacing;
+
+    if (state->verbose)
+	bu_vls_printf(state->verbose_str,
+		      "Clustered rotated-grid overlap scan done (%zu cluster(s)).\n", nclusters);
 }
 
 
@@ -2166,15 +2324,24 @@ perform_raytracing(struct current_state *state, struct db_i *dbip, char *names[]
 	}
     } else if (state->sampler == ANALYZE_SAMPLER_ROTATED) {
 	/* Rotated-grid sampler: fires rays along a user-specified az/el
-	 * direction with two orthogonal companions.  Same convergence loop
-	 * as shoot_rays() but uses rotated_grid_generator() instead of the
-	 * axis-aligned rectangular grid. */
-	if (pairwise_candidates_p) {
+	 * direction with two orthogonal companions.  When cluster-focused
+	 * sampling is active (use_pairwise), use shoot_rays_rotated_clustered()
+	 * to restrict each pass to the cluster's intersection volume — the same
+	 * optimization applied to the triple-grid sampler.  Otherwise fall back
+	 * to the whole-model shoot_rays_rotated() convergence loop. */
+	if (use_pairwise && pairwise_candidates_p) {
+	    shoot_rays_rotated_clustered(state, pairwise_candidates_p);
 	    analyze_free_overlap_clusters(pairwise_candidates_p);
 	    bu_free(pairwise_candidates_p, "overlap clusters");
 	    pairwise_candidates_p = NULL;
+	} else {
+	    if (pairwise_candidates_p) {
+		analyze_free_overlap_clusters(pairwise_candidates_p);
+		bu_free(pairwise_candidates_p, "overlap clusters");
+		pairwise_candidates_p = NULL;
+	    }
+	    shoot_rays_rotated(state);
 	}
-	shoot_rays_rotated(state);
     } else if (use_pairwise && pairwise_candidates_p) {
 	shoot_rays_clustered(state, pairwise_candidates_p);
 	analyze_free_overlap_clusters(pairwise_candidates_p);

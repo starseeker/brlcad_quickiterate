@@ -294,6 +294,7 @@ struct analyze_overlap_record {
     unsigned long count;     /**< number of overlapping ray segments recorded */
     double max_dist;         /**< maximum depth (mm) of the worst instance */
     point_t coord;           /**< representative coordinate of the deepest overlap */
+    double estimated_volume; /**< estimated overlap volume (mm^3): sum of depth*cell_area over all hits */
 };
 
 
