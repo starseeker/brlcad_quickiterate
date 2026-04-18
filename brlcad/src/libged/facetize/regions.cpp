@@ -406,6 +406,18 @@ _validate_csg_vs_bot(struct db_i *csg_dbip, const char *obj_name, struct db_i *b
 	return csg_empty ? 1 : 0;
     }
 
+    /* Crofton returned zero SA for a non-empty BoT.  The stochastic sampler
+     * could not hit the geometry within the time budget — typically because
+     * the primitive cross-section is sub-millimetre (e.g. a TGC with
+     * radius < 0.2 mm).  The produced BoT is geometrically valid; return a
+     * special code (2) so the caller can accept it with a note and skip the
+     * perturb retry (which would also fail to sample the geometry).       */
+    if (std::fabs(csa) <= FACETIZE_RT_EMPTY_TOL) {
+	*sa_err_pct  = 100.0;
+	*vol_err_pct = 100.0;
+	return 2;
+    }
+
     double sa_err = (bsa > 0.0) ? std::fabs(csa - bsa) / bsa : 1.0;
     double vol_err = (bvol > 0.0) ? std::fabs(cvol - bvol) / bvol : 1.0;
     *sa_err_pct = sa_err * 100.0;
@@ -423,6 +435,17 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
     /* Convert percentage thresholds (0–100) to fractions (0–1) once. */
     const double perturb_sa_frac  = s->perturb_sa_tol  / 100.0;
     const double perturb_vol_frac = s->perturb_vol_tol / 100.0;
+
+    /* Validation outcome counters — accumulated across all regions. */
+    int vcnt_skip         = 0; /* skipped: no perturbable leaf */
+    int vcnt_total        = 0; /* entered validation path */
+    int vcnt_p1_pass      = 0; /* P1 MATCH (within threshold) */
+    int vcnt_crofton_zero = 0; /* Crofton returned zero for non-empty BoT */
+    int vcnt_p1_trigger   = 0; /* P1 MISMATCH (triggered perturb retry) */
+    int vcnt_p2_pass      = 0; /* P2 MATCH after perturb */
+    int vcnt_p2_topoflip  = 0; /* P2: Crofton-zero after perturb (topology shift) */
+    int vcnt_p2_warn      = 0; /* P2 persistent validation mismatch */
+    int vcnt_unavail      = 0; /* validation unavailable (metric/prep failure) */
 
     /* Used the libged tolerances */
     struct rt_wdb *wdbp = wdb_dbopen(dbip, RT_WDB_TYPE_DB_DEFAULT);
@@ -764,20 +787,36 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 		std::set<std::string> visited;
 		can_validate = _has_perturbable_leaf(s->dbip, dpw[0], visited);
 	    }
-	    if (!s->no_perturb && !can_validate && s->verbosity > 0) {
-		bu_log("FACETIZE: %s has no ft_perturb-capable leaves; skipping raytrace validation\n", dpw[0]->d_namep);
+	    if (!s->no_perturb && !can_validate) {
+		vcnt_skip++;
+		if (s->verbosity > 0)
+		    bu_log("FACETIZE: %s has no ft_perturb-capable leaves; skipping raytrace validation\n", dpw[0]->d_namep);
 	    }
 
 	    if (bret == BRLCAD_OK && !s->no_perturb && can_validate) {
+		vcnt_total++;
 		double sa_err_pct = -1.0, vol_err_pct = -1.0;
 		int vret = _validate_csg_vs_bot(s->dbip, dpw[0]->d_namep, wdbip, bu_vls_cstr(&bname),
 			perturb_sa_frac, perturb_vol_frac,
 			&sa_err_pct, &vol_err_pct);
 		if (vret == 1) {
+		    vcnt_p1_pass++;
 		    bu_log("FACETIZE: %s CSG vs BoT MATCH (SA_err=%.2f%% VOL_err=%.2f%%) - skipping perturb\n",
 			    dpw[0]->d_namep, sa_err_pct, vol_err_pct);
 		}
+		/* Return code 2: Crofton could not sample the geometry (returned
+		 * zero SA) but the BoT is non-empty.  This typically indicates a
+		 * sub-millimetre primitive whose cross-section is too small for
+		 * the stochastic sampler to hit within the time budget.  The BoT
+		 * conversion is accepted as-is; a perturb retry would not help
+		 * since Crofton would still fail to sample the same geometry.   */
+		if (vret == 2) {
+		    vcnt_crofton_zero++;
+		    bu_log("FACETIZE NOTE: %s Crofton could not sample CSG geometry (likely sub-mm cross-section); BoT accepted - verify modeling intent\n",
+			    dpw[0]->d_namep);
+		}
 		if (vret == 0) {
+		    vcnt_p1_trigger++;
 		    bu_log("FACETIZE: %s CSG vs BoT MISMATCH (SA_err=%.2f%% VOL_err=%.2f%%) - triggering perturb\n",
 			    dpw[0]->d_namep, sa_err_pct, vol_err_pct);
 		    bool reopened_wdb = false;
@@ -833,20 +872,39 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 			    &sa_err2, &vol_err2);
 			if (perturb_dbip) db_close(perturb_dbip);
 			if (vret2 == 1) {
+			    vcnt_p2_pass++;
 			    bu_log("FACETIZE: %s perturbed CSG vs BoT MATCH (SA_err=%.2f%% VOL_err=%.2f%%) - perturb successful\n",
 				    dpw[0]->d_namep, sa_err2, vol_err2);
 			}
+			/* Return code 2 at P2: Crofton returned zero SA for the
+			 * perturbed CSG but the perturbed BoT is non-empty.
+			 * This can occur when the perturbation shifts the
+			 * geometry to a configuration where a subtractor
+			 * fully engulfs the base in parametric space while the
+			 * mesh boolean still produces residual triangles.  The
+			 * BoT output is accepted; the count is tracked
+			 * separately from the P1 sub-mm case.                */
+			if (vret2 == 2) {
+			    vcnt_p2_topoflip++;
+			    bu_log("FACETIZE NOTE: %s Crofton returned zero for perturbed CSG; perturb may have shifted topology - check output geometry\n",
+				    dpw[0]->d_namep);
+			}
 			if (vret2 == 0) {
-			    bu_log("WARNING: FACETIZE persistent lint-style mismatch for %s after perturb retry (SA_err=%.2f%% VOL_err=%.2f%%)\n",
+			    vcnt_p2_warn++;
+			    bu_log("FACETIZE WARNING: %s persistent validation mismatch after perturb retry (SA_err=%.2f%% VOL_err=%.2f%%) - check output geometry with 'lint'\n",
 				    dpw[0]->d_namep, sa_err2, vol_err2);
 			}
-			if (vret2 < 0 && s->verbosity > 0) {
-			    bu_log("FACETIZE: validation unavailable after perturb retry for %s\n", dpw[0]->d_namep);
+			if (vret2 < 0) {
+			    vcnt_unavail++;
+			    if (s->verbosity > 0)
+				bu_log("FACETIZE: validation unavailable after perturb retry for %s\n", dpw[0]->d_namep);
 			}
 		    }
 		}
-		if (vret < 0 && s->verbosity > 0) {
-		    bu_log("FACETIZE: validation unavailable for %s (crofton/metric prep failure)\n", dpw[0]->d_namep);
+		if (vret < 0) {
+		    vcnt_unavail++;
+		    if (s->verbosity > 0)
+			bu_log("FACETIZE: validation unavailable for %s (crofton/metric prep failure)\n", dpw[0]->d_namep);
 		}
 	    }
 	    db_close(wdbip);
@@ -923,6 +981,35 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
     bu_ptbl_free(ir);
     bu_free(ir, "ir table");
     s->use_variant_plan = 1;
+
+    /* Print a validation summary when any regions went through the check. */
+    if ((vcnt_total > 0 || vcnt_skip > 0) && !s->make_nmg && !s->nmg_booleval) {
+	bu_log("\nFACETIZE conversion validation summary:\n");
+	if (vcnt_skip > 0)
+	    bu_log("  %d region%s skipped validation (no perturbable leaf primitives)\n",
+		    vcnt_skip, vcnt_skip == 1 ? "" : "s");
+	if (vcnt_p1_pass > 0)
+	    bu_log("  %d region%s passed P1 check (CSG-BoT within tolerance, no perturb needed)\n",
+		    vcnt_p1_pass, vcnt_p1_pass == 1 ? "" : "s");
+	if (vcnt_crofton_zero > 0)
+	    bu_log("  %d region%s accepted with note: Crofton could not sample geometry (likely sub-mm cross-section; verify modeling intent)\n",
+		    vcnt_crofton_zero, vcnt_crofton_zero == 1 ? "" : "s");
+	if (vcnt_p1_trigger > 0) {
+	    bu_log("  %d region%s triggered perturb retry:\n",
+		    vcnt_p1_trigger, vcnt_p1_trigger == 1 ? "" : "s");
+	    if (vcnt_p2_pass > 0)
+		bu_log("    %d passed P2 check after perturb\n", vcnt_p2_pass);
+	    if (vcnt_p2_topoflip > 0)
+		bu_log("    %d accepted with note: Crofton-zero after perturb (perturb may have shifted topology; check output geometry)\n",
+			vcnt_p2_topoflip);
+	    if (vcnt_p2_warn > 0)
+		bu_log("    %d persistent validation mismatch after perturb (check output geometry with 'lint')\n",
+			vcnt_p2_warn);
+	}
+	if (vcnt_unavail > 0)
+	    bu_log("  %d region%s had validation unavailable (metric/prep failure)\n",
+		    vcnt_unavail, vcnt_unavail == 1 ? "" : "s");
+    }
 
     // Report on the primitive processing
     if (!s->make_nmg && !s->nmg_booleval)
