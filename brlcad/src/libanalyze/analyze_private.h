@@ -152,7 +152,7 @@ struct current_state {
     char *densityFileName;
 
     /* ---- Runtime halting controls ---- */
-    int64_t start_time_ms;  /**< bu_gettime() in µs at perform_raytracing() entry */
+    int64_t start_time_us;  /**< bu_gettime() in µs at perform_raytracing() entry */
     long    timeout_ms;     /**< 0 = no timeout; >0 = max wall-clock ms allowed */
     double  required_digits;/**< 0 = disabled; else log10(avg/spread) convergence */
 
