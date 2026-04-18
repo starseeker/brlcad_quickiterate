@@ -2421,13 +2421,12 @@ static void
 ar_first_air_cb(const struct xray *UNUSED(ray), const struct partition *pp,
 		void *data)
 {
-    /* First-air events go into exp_air as a proxy (no dedicated field yet). */
     struct ar_capture_ctx *ctx = (struct ar_capture_ctx *)data;
     struct analyze_overlap_record *rec;
     const char *name = (pp && pp->pt_regionp) ? pp->pt_regionp->reg_name : "";
 
     bu_semaphore_acquire(ctx->sem);
-    rec = ar_find_or_insert(&ctx->res->exp_air, name, NULL);
+    rec = ar_find_or_insert(&ctx->res->first_air, name, NULL);
     rec->count++;
     bu_semaphore_release(ctx->sem);
 }
@@ -2436,13 +2435,12 @@ static void
 ar_last_air_cb(const struct xray *UNUSED(ray), const struct partition *pp,
 	       void *data)
 {
-    /* Last-air events also go into exp_air. */
     struct ar_capture_ctx *ctx = (struct ar_capture_ctx *)data;
     struct analyze_overlap_record *rec;
     const char *name = (pp && pp->pt_regionp) ? pp->pt_regionp->reg_name : "";
 
     bu_semaphore_acquire(ctx->sem);
-    rec = ar_find_or_insert(&ctx->res->exp_air, name, NULL);
+    rec = ar_find_or_insert(&ctx->res->last_air, name, NULL);
     rec->count++;
     bu_semaphore_release(ctx->sem);
 }
@@ -2521,6 +2519,8 @@ analyze_run(const struct analyze_config *cfg, struct db_i *dbip,
     bu_ptbl_init(&res->gaps,       8, "ar gaps");
     bu_ptbl_init(&res->adj_air,    8, "ar adj_air");
     bu_ptbl_init(&res->exp_air,    8, "ar exp_air");
+    bu_ptbl_init(&res->first_air,  8, "ar first_air");
+    bu_ptbl_init(&res->last_air,   8, "ar last_air");
     bu_ptbl_init(&res->unconf_air, 8, "ar unconf_air");
 
     /* ------------------------------------------------------------------
@@ -2646,6 +2646,11 @@ analyze_run(const struct analyze_config *cfg, struct db_i *dbip,
      * For the Crofton sampler (no iterative grid) we leave this at 0. */
     if (state->sampler != ANALYZE_SAMPLER_CROFTON && state->gridSpacing > 0.0)
 	res->final_grid_spacing = state->gridSpacing * 2.0;
+
+    /* Record which sampler was used and mark results as stochastic estimates.
+     * If only bbox was requested (no ray metrics), the result is exact. */
+    res->sampler_type  = state->sampler;
+    res->is_stochastic = ((flags & ~ANALYZE_BOX) != 0) ? 1 : 0;
 
     /* Bounding box via exact rt_prep (separate lightweight pass). */
     if (flags & ANALYZE_BOX)
@@ -2786,6 +2791,8 @@ analyze_results_free(struct analyze_results *res)
     AR_FREE_PTBL(gaps);
     AR_FREE_PTBL(adj_air);
     AR_FREE_PTBL(exp_air);
+    AR_FREE_PTBL(first_air);
+    AR_FREE_PTBL(last_air);
     AR_FREE_PTBL(unconf_air);
 #undef AR_FREE_PTBL
 

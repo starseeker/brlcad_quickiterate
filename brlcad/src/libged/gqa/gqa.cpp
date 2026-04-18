@@ -47,6 +47,7 @@
 #include "raytrace.h"
 #include "bv/plot3.h"
 #include "analyze.h"
+#include "analyze/units.h"
 
 #include "../ged_private.h"
 
@@ -80,6 +81,21 @@ const char *options_str = "[-A A|a|b|c|e|g|m|o|p|s|v|w] [-a az] [-d] [-e el] [-f
 #define COMMA ','
 
 #define DLOG if (state->debug) bu_vls_printf
+
+/**
+ * Alias the libanalyze shared conversion-table type and table so that the
+ * struct cstate field 'units' and parse_args() code (which refer to cvt_tab
+ * and units_tab) continue to compile without further change.
+ */
+typedef struct analyze_cvt_tab cvt_tab;
+#define units_tab analyze_units_tab
+
+/* this table keeps track of the "current" or "user selected units and
+ * the associated conversion values
+ */
+#define LINE 0
+#define VOL 1
+#define WGT 2
 
 struct cstate {
     struct ged *gedp;
@@ -121,7 +137,7 @@ struct cstate {
     struct bu_list *plot_vhead;
 
     /* Units conversion pointers */
-    const struct cvt_tab *units[3];
+    const cvt_tab *units[3];
 
     /* --- Sampling method --- */
     int analysis_method; /* GQA_METHOD_LEGACY / GQA_METHOD_ROTATED / GQA_METHOD_CROFTON */
@@ -134,189 +150,24 @@ struct cstate {
  */
 
 
-/**
- * This structure holds the name of a unit value, and the conversion
- * factor necessary to convert from/to BRL-CAD standard units.
- *
- * The standard units are millimeters, cubic millimeters, and grams.
- *
- * XXX this section should be extracted to libbu/units.c
- */
-struct cvt_tab {
-    double val;
-    char name[32];
-};
-
-
-static const struct cvt_tab units_tab[3][40] = {
-    {
-	/* length, stolen from bu/units.c with the "none" value
-	 * removed Values for converting from given units to mm
-	 */
-	{1.0,		"mm"}, /* default */
-	/* {0.0,		"none"}, */ /* this is removed to force a certain
-					     * amount of error checking for the user
-					     */
-	{1.0e-7,	"angstrom"},
-	{1.0e-7,	"decinanometer"},
-	{1.0e-6,	"nm"},
-	{1.0e-6,	"nanometer"},
-	{1.0e-3,	"um"},
-	{1.0e-3,	"micrometer"},
-	{1.0e-3,	"micron"},
-	{1.0,		"millimeter"},
-	{10.0,		"cm"},
-	{10.0,		"centimeter"},
-	{1000.0,	"m"},
-	{1000.0,	"meter"},
-	{1000000.0,	"km"},
-	{1000000.0,	"kilometer"},
-	{25.4,		"in"},
-	{25.4,		"inch"},
-	{25.4,		"inches"},		/* for plural */
-	{304.8,		"ft"},
-	{304.8,		"foot"},
-	{304.8,		"feet"},
-	{456.2,		"cubit"},
-	{914.4,		"yd"},
-	{914.4,		"yard"},
-	{5029.2,	"rd"},
-	{5029.2,	"rod"},
-	{1609344.0,	"mi"},
-	{1609344.0,	"mile"},
-	{1852000.0,	"nmile"},
-	{1852000.0,	"nautical mile"},
-	{1.495979e+14,	"AU"},
-	{1.495979e+14,	"astronomical unit"},
-	{9.460730e+18,	"lightyear"},
-	{3.085678e+19,	"pc"},
-	{3.085678e+19,	"parsec"},
-	{0.0,		""}			/* LAST ENTRY */
-    },
-    {
-	/* volume
-	 * Values for converting from given units to mm^3
-	 */
-	{1.0, "cu mm"}, /* default */
-
-	{1.0, "mm"},
-	{1.0, "mm^3"},
-
-	{1.0e3, "cm"},
-	{1.0e3, "cm^3"},
-	{1.0e3, "cu cm"},
-	{1.0e3, "cc"},
-
-	{1.0e6, "l"},
-	{1.0e6, "liter"},
-	{1.0e6, "litre"},
-
-	{1.0e9, "m"},
-	{1.0e9, "m^3"},
-	{1.0e9, "cu m"},
-
-	{16387.064, "in"},
-	{16387.064, "in^3"},
-	{16387.064, "cu in"},
-
-	{28316846.592, "ft"},
-
-	{28316846.592, "ft^3"},
-	{28316846.592, "cu ft"},
-
-	{764554857.984, "yds"},
-	{764554857.984, "yards"},
-	{764554857.984, "cu yards"},
-
-	{0.0,		""}			/* LAST ENTRY */
-    },
-    {
-	/* weight
-	 * Values for converting given units to grams
-	 */
-	{1.0, "grams"}, /* default */
-
-	{1.0, "g"},
-	{0.0648, "gr"},
-	{0.0648, "grains"},
-
-	{1.0e3, "kg"},
-	{1.0e3, "kilos"},
-	{1.0e3, "kilograms"},
-
-	{28.35, "oz"},
-	{28.35, "ounce"},
-
-	{453.6, "lb"},
-	{453.6, "lbs"},
-	{0.0,		""}			/* LAST ENTRY */
-    }
-};
-
-
-/* this table keeps track of the "current" or "user selected units and
- * the associated conversion values
- */
-#define LINE 0
-#define VOL 1
-#define WGT 2
-
 /* Default units (also initialised per-invocation in ged_gqa_core) */
-static const struct cvt_tab * const units_tab_defaults[3] = {
-    &units_tab[0][0],	/* linear */
-    &units_tab[1][0],	/* volume */
-    &units_tab[2][0]	/* weight */
+static const cvt_tab * const units_tab_defaults[3] = {
+    &analyze_units_tab[0][0],	/* linear */
+    &analyze_units_tab[1][0],	/* volume */
+    &analyze_units_tab[2][0]	/* weight */
 };
 
 /**
- * _gqa_read_units_double
- *
- * Read a non-negative floating point value with optional units
- *
- * Return
- * 1 Failure
- * 0 Success
+ * Thin wrapper around analyze_parse_units_double() that forwards error
+ * messages to gedp->ged_result_str.  The parse_args() body uses
+ * _gqa_read_units_double() by name; this bridges the old call sites to the
+ * shared libanalyze implementation.
  */
-int
-_gqa_read_units_double(struct ged *gedp, double *val, char *buf, const struct cvt_tab *cvt)
+static int
+_gqa_read_units_double(struct ged *gedp, double *val, char *buf, const cvt_tab *cvt)
 {
-    double a;
-#define UNITS_STRING_SZ 256
-    char units_string[UNITS_STRING_SZ+1] = {0};
-    int i;
-
-
-    i = sscanf(buf, "%lg" CPP_SCAN(UNITS_STRING_SZ), &a, units_string);
-
-    if (i < 0) return 1;
-
-    if (i == 1) {
-	*val = a;
-
-	return 0;
-    }
-    if (i == 2) {
-	*val = a;
-	for (; cvt->name[0] != '\0';) {
-	    if (!bu_strncmp(cvt->name, units_string, sizeof(units_string))) {
-		goto found_units;
-	    } else {
-		cvt++;
-	    }
-	}
-	bu_vls_printf(gedp->ged_result_str, "Bad units specifier \"%s\" on value \"%s\"\n", units_string, buf);
-	return 1;
-
-    found_units:
-	*val = a * cvt->val;
-	return 0;
-    }
-    bu_vls_printf(gedp->ged_result_str, "%s sscanf problem on \"%s\" got %d\n", CPP_FILELINE, buf, i);
-    return 1;
+    return analyze_parse_units_double(gedp->ged_result_str, val, buf, cvt);
 }
-
-
-/* the above should be extracted to libbu/units.c */
 
 
 /**
@@ -584,7 +435,7 @@ parse_args(struct ged *gedp, struct cstate *state, int ac, char *av[])
 	    case 'u':
 		{
 		    char *ptr = bu_optarg;
-		    const struct cvt_tab *cv;
+		    const cvt_tab *cv;
 		    static const char *dim[3] = {"length", "volume", "weight"};
 		    char *units_name[3] = {NULL, NULL, NULL};
 		    char **units_ap;

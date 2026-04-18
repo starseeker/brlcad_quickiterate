@@ -43,6 +43,7 @@ set(
   raydiff.c
   #find_subtracted_shapes.cpp
   surf_area.c
+  units.c
   util.cpp
   volume.c
   voxels.c
