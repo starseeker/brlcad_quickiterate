@@ -117,6 +117,243 @@ if (name2 && rec->region2 && BU_STR_EQUAL(rec->region2, name2))
     return rec;
 }
 
+static int
+ar_find_object_index(const struct current_state *state, const char *name)
+{
+    for (int i = 0; i < state->num_objects; i++) {
+	if (BU_STR_EQUAL(state->objs[i].o_name, name))
+	    return i;
+    }
+    return -1;
+}
+
+static double
+ar_total_volume_calc(const struct current_state *state)
+{
+    double avg_vol = 0.0;
+    for (int view = 0; view < state->num_views; view++) {
+	avg_vol += state->m_len[view] * (state->area[view] / state->shots[view]);
+    }
+    return avg_vol / state->num_views;
+}
+
+static double
+ar_total_mass_calc(const struct current_state *state)
+{
+    double avg_mass = 0.0;
+    for (int view = 0; view < state->num_views; view++) {
+	avg_mass += state->m_lenDensity[view] * (state->area[view] / state->shots[view]);
+    }
+    return avg_mass / state->num_views;
+}
+
+static double
+ar_object_volume_calc(const struct current_state *state, int obj)
+{
+    double volume = 0.0;
+    for (int view = 0; view < state->num_views; view++) {
+	volume += state->objs[obj].o_volume[view];
+    }
+    return volume / state->num_views;
+}
+
+static double
+ar_object_mass_calc(const struct current_state *state, int obj)
+{
+    double mass = 0.0;
+    for (int view = 0; view < state->num_views; view++) {
+	mass += state->objs[obj].o_mass[view];
+    }
+    return mass / state->num_views;
+}
+
+static double
+ar_object_surf_area_calc(const struct current_state *state, int obj)
+{
+    double area = 0.0;
+    double limit = 0.0;
+    int mean_count = 0;
+
+    for (int view = 0; view < state->num_views; view++)
+	V_MAX(limit, state->objs[obj].o_surf_area[view]);
+
+    limit *= 0.8;
+    for (int view = 0; view < state->num_views; view++) {
+	if (state->objs[obj].o_surf_area[view] >= limit) {
+	    area += state->objs[obj].o_surf_area[view];
+	    mean_count++;
+	}
+    }
+
+    return area / mean_count;
+}
+
+static double
+ar_total_surf_area_calc(const struct current_state *state)
+{
+    double total = 0.0;
+    for (int i = 0; i < state->num_objects; i++) {
+	total += ar_object_surf_area_calc(state, i);
+    }
+    return total;
+}
+
+static void
+ar_total_centroid_calc(const struct current_state *state, point_t cent)
+{
+    vect_t centroid = VINIT_ZERO;
+    const fastf_t inv_total_mass = 1 / ar_total_mass_calc(state);
+    for (int view = 0; view < state->num_views; view++) {
+	vect_t torque;
+	fastf_t cell_area = state->area[view] / state->shots[view];
+	VSCALE(torque, &state->m_lenTorque[view*3], cell_area);
+	VADD2(centroid, centroid, torque);
+    }
+    VSCALE(centroid, centroid, 1.0/(fastf_t)state->num_views);
+    VSCALE(centroid, centroid, inv_total_mass);
+    VMOVE(cent, centroid);
+}
+
+static void
+ar_object_centroid_calc(const struct current_state *state, int obj, point_t cent)
+{
+    const double avg_mass = ar_object_mass_calc(state, obj);
+    VSETALL(cent, 0.0);
+    if (ZERO(avg_mass))
+	return;
+
+    point_t centroid = VINIT_ZERO;
+    const fastf_t inv_total_mass = 1.0/avg_mass;
+    for (int view = 0; view < state->num_views; view++) {
+	vect_t torque;
+	fastf_t cell_area = state->area[view] / state->shots[view];
+	VSCALE(torque, &state->objs[obj].o_lenTorque[view*3], cell_area);
+	VADD2(centroid, centroid, torque);
+    }
+    VSCALE(centroid, centroid, 1.0/(fastf_t)state->num_views);
+    VSCALE(centroid, centroid, inv_total_mass);
+    VMOVE(cent, centroid);
+}
+
+static void
+ar_total_moments_calc(const struct current_state *state, mat_t moments)
+{
+    point_t centroid;
+    ar_total_centroid_calc(state, centroid);
+    const double avg_mass = ar_total_mass_calc(state);
+    MAT_ZERO(moments);
+    for (int view = 0; view < state->num_views; view++) {
+	vectp_t moi = &state->m_moi[view*3];
+	vectp_t poi = &state->m_poi[view*3];
+	moments[MSX] += moi[X];
+	moments[MSY] += moi[Y];
+	moments[MSZ] += moi[Z];
+	moments[1] += poi[X];
+	moments[2] += poi[Y];
+	moments[6] += poi[Z];
+    }
+    moments[MSX] /= (fastf_t)state->num_views;
+    moments[MSY] /= (fastf_t)state->num_views;
+    moments[MSZ] /= (fastf_t)state->num_views;
+    moments[1] /= (fastf_t)state->num_views;
+    moments[2] /= (fastf_t)state->num_views;
+    moments[6] /= (fastf_t)state->num_views;
+
+    const fastf_t Dx_sq = centroid[X] * centroid[X];
+    const fastf_t Dy_sq = centroid[Y] * centroid[Y];
+    const fastf_t Dz_sq = centroid[Z] * centroid[Z];
+    moments[MSX] -= avg_mass * (Dy_sq + Dz_sq);
+    moments[MSY] -= avg_mass * (Dx_sq + Dz_sq);
+    moments[MSZ] -= avg_mass * (Dx_sq + Dy_sq);
+    moments[1] += avg_mass * centroid[X] * centroid[Y];
+    moments[2] += avg_mass * centroid[X] * centroid[Z];
+    moments[6] += avg_mass * centroid[Y] * centroid[Z];
+    moments[4] = moments[1];
+    moments[8] = moments[2];
+    moments[9] = moments[6];
+}
+
+static void
+ar_object_moments_calc(const struct current_state *state, int obj, mat_t moments)
+{
+    point_t centroid;
+    ar_object_centroid_calc(state, obj, centroid);
+    const double avg_mass = ar_object_mass_calc(state, obj);
+    MAT_ZERO(moments);
+    for (int view = 0; view < state->num_views; view++) {
+	vectp_t moi = &state->objs[obj].o_moi[view*3];
+	vectp_t poi = &state->objs[obj].o_poi[view*3];
+	moments[MSX] += moi[X];
+	moments[MSY] += moi[Y];
+	moments[MSZ] += moi[Z];
+	moments[1] += poi[X];
+	moments[2] += poi[Y];
+	moments[6] += poi[Z];
+    }
+    moments[MSX] /= (fastf_t)state->num_views;
+    moments[MSY] /= (fastf_t)state->num_views;
+    moments[MSZ] /= (fastf_t)state->num_views;
+    moments[1] /= (fastf_t)state->num_views;
+    moments[2] /= (fastf_t)state->num_views;
+    moments[6] /= (fastf_t)state->num_views;
+
+    const fastf_t Dx_sq = centroid[X] * centroid[X];
+    const fastf_t Dy_sq = centroid[Y] * centroid[Y];
+    const fastf_t Dz_sq = centroid[Z] * centroid[Z];
+    moments[MSX] -= avg_mass * (Dy_sq + Dz_sq);
+    moments[MSY] -= avg_mass * (Dx_sq + Dz_sq);
+    moments[MSZ] -= avg_mass * (Dx_sq + Dy_sq);
+    moments[1] += avg_mass * centroid[X] * centroid[Y];
+    moments[2] += avg_mass * centroid[X] * centroid[Z];
+    moments[6] += avg_mass * centroid[Y] * centroid[Z];
+    moments[4] = moments[1];
+    moments[8] = moments[2];
+    moments[9] = moments[6];
+}
+
+static double
+ar_region_volume_calc(struct current_state *state, int ridx)
+{
+    double avg_vol = 0.0;
+    for (int view = 0; view < state->num_views; view++) {
+	double *vv = &state->reg_tbl[ridx].r_volume[view];
+	*vv = state->reg_tbl[ridx].r_len[view] * (state->area[view] / state->shots[view]);
+	avg_vol += *vv;
+    }
+    return avg_vol / state->num_views;
+}
+
+static double
+ar_region_mass_calc(struct current_state *state, int ridx)
+{
+    double avg_mass = 0.0;
+    for (int view = 0; view < state->num_views; view++) {
+	double *mm = &state->reg_tbl[ridx].r_mass[view];
+	*mm = state->reg_tbl[ridx].r_lenDensity[view] * (state->area[view] / state->shots[view]);
+	avg_mass += *mm;
+    }
+    return avg_mass / state->num_views;
+}
+
+static double
+ar_region_surf_area_calc(const struct current_state *state, int ridx)
+{
+    double hi = -INFINITY;
+    for (int view = 0; view < state->num_views; view++) {
+	V_MAX(hi, state->reg_tbl[ridx].r_surf_area[view]);
+    }
+    double sa = 0.0;
+    int mean_count = 0;
+    const double limit = hi * 0.8;
+    for (int view = 0; view < state->num_views; view++) {
+	if (state->reg_tbl[ridx].r_surf_area[view] >= limit) {
+	    sa += state->reg_tbl[ridx].r_surf_area[view];
+	    mean_count++;
+	}
+    }
+    return sa / mean_count;
+}
+
 
 static void
 ar_overlap_cb(const struct xray *ray, const struct partition *pp,
@@ -362,7 +599,8 @@ public:
     void register_callbacks(struct current_state *state,
     struct ar_capture_ctx *ctx) const override
     {
-analyze_register_overlaps_callback(state, ar_overlap_cb, ctx);
+state->overlaps_callback = ar_overlap_cb;
+state->overlaps_callback_data = ctx;
     }
 };
 
@@ -371,7 +609,8 @@ public:
     void register_callbacks(struct current_state *state,
     struct ar_capture_ctx *ctx) const override
     {
-analyze_register_gaps_callback(state, ar_gap_cb, ctx);
+state->gaps_callback = ar_gap_cb;
+state->gaps_callback_data = ctx;
     }
 };
 
@@ -380,7 +619,8 @@ public:
     void register_callbacks(struct current_state *state,
     struct ar_capture_ctx *ctx) const override
     {
-analyze_register_exp_air_callback(state, ar_exp_air_cb, ctx);
+state->exp_air_callback = ar_exp_air_cb;
+state->exp_air_callback_data = ctx;
     }
 };
 
@@ -389,7 +629,8 @@ public:
     void register_callbacks(struct current_state *state,
     struct ar_capture_ctx *ctx) const override
     {
-analyze_register_adj_air_callback(state, ar_adj_air_cb, ctx);
+state->adj_air_callback = ar_adj_air_cb;
+state->adj_air_callback_data = ctx;
     }
 };
 
@@ -398,7 +639,8 @@ public:
     void register_callbacks(struct current_state *state,
     struct ar_capture_ctx *ctx) const override
     {
-analyze_register_first_air_callback(state, ar_first_air_cb, ctx);
+state->first_air_callback = ar_first_air_cb;
+state->first_air_callback_data = ctx;
     }
 };
 
@@ -407,7 +649,8 @@ public:
     void register_callbacks(struct current_state *state,
     struct ar_capture_ctx *ctx) const override
     {
-analyze_register_last_air_callback(state, ar_last_air_cb, ctx);
+state->last_air_callback = ar_last_air_cb;
+state->last_air_callback_data = ctx;
     }
 };
 
@@ -416,7 +659,8 @@ public:
     void register_callbacks(struct current_state *state,
     struct ar_capture_ctx *ctx) const override
     {
-analyze_register_unconf_air_callback(state, ar_unconf_air_cb, ctx);
+state->unconf_air_callback = ar_unconf_air_cb;
+state->unconf_air_callback_data = ctx;
     }
 };
 
@@ -595,11 +839,11 @@ state->quiet_missed_report = 1;
 state->samples_per_model_axis = req.samples_per_model_axis;
 
     if (req.sampler == ANALYZE_SAMPLER_VIEW_PLANE && req.view_size > 0.0) {
-point_t eye;
-quat_t  quat;
-VMOVE(eye,  req.view_eye);
-HMOVE(quat, req.view_quat);
-analyze_set_view_information(state, req.view_size, &eye, &quat);
+	VMOVE(state->eye_model, req.view_eye);
+	state->viewsize = req.view_size;
+	quat_quat2mat(state->Viewrotscale, req.view_quat);
+	state->use_view_information = 1;
+	state->use_single_grid = 1;
     }
 
     state->overlap_tolerance = req.overlap_tol;
@@ -621,10 +865,13 @@ state->required_number_hits = req.required_hits;
 
     state->verbose = req.verbose;
     if (req.log_str) {
-if (req.verbose)
-    analyze_enable_verbose(state, req.log_str);
-else
-    analyze_enable_debug(state, req.log_str);
+	if (req.verbose) {
+	    state->verbose = 1;
+	    state->verbose_str = req.log_str;
+	} else {
+	    state->debug = 1;
+	    state->debug_str = req.log_str;
+	}
     }
 
     if (req.timeout_ms > 0)
@@ -635,7 +882,7 @@ state->timeout_ms = req.timeout_ms;
 state->crofton_n_rays = req.n_crofton_rays;
 
     if (req.volume_plot_file)
-analyze_set_volume_plotfile(state, req.volume_plot_file);
+	state->plot_volume = req.volume_plot_file;
 }
 
 
@@ -758,15 +1005,15 @@ analyze_bbox(dbip, names, num_names, raw_res->bbox_min, raw_res->bbox_max);
      * Harvest scalar totals.
      * ------------------------------------------------------------------ */
     if (flags & ANALYZE_VOLUME)
-raw_res->total_volume    = analyze_total_volume(state);
+	raw_res->total_volume    = ar_total_volume_calc(state);
     if (flags & ANALYZE_MASS)
-raw_res->total_mass      = analyze_total_mass(state);
+	raw_res->total_mass      = ar_total_mass_calc(state);
     if (flags & ANALYZE_SURF_AREA)
-raw_res->total_surf_area = analyze_total_surf_area(state);
+	raw_res->total_surf_area = ar_total_surf_area_calc(state);
     if (flags & ANALYZE_CENTROIDS)
-analyze_total_centroid(state, raw_res->centroid);
+	ar_total_centroid_calc(state, raw_res->centroid);
     if (flags & ANALYZE_MOMENTS)
-analyze_moments_total(state, raw_res->moments_of_inertia);
+	ar_total_moments_calc(state, raw_res->moments_of_inertia);
 
     /* ------------------------------------------------------------------
      * Harvest per-input-object results.
@@ -780,17 +1027,19 @@ raw_res->n_objects = (size_t)num_names;
 
 for (int i = 0; i < num_names; i++) {
     raw_res->objects[i].name = bu_strdup(names[i]);
+    int obj = ar_find_object_index(state, names[i]);
+    if (obj < 0)
+	continue;
     if (flags & ANALYZE_VOLUME)
-raw_res->objects[i].volume    = analyze_volume(state, names[i]);
+	raw_res->objects[i].volume    = ar_object_volume_calc(state, obj);
     if (flags & ANALYZE_MASS)
-raw_res->objects[i].mass      = analyze_mass(state, names[i]);
+	raw_res->objects[i].mass      = ar_object_mass_calc(state, obj);
     if (flags & ANALYZE_SURF_AREA)
-raw_res->objects[i].surf_area = analyze_surf_area(state, names[i]);
+	raw_res->objects[i].surf_area = ar_object_surf_area_calc(state, obj);
     if (flags & ANALYZE_CENTROIDS)
-analyze_centroid(state, names[i], raw_res->objects[i].centroid);
+	ar_object_centroid_calc(state, obj, raw_res->objects[i].centroid);
     if (flags & ANALYZE_MOMENTS)
-analyze_moments(state, names[i],
-raw_res->objects[i].moments_of_inertia);
+	ar_object_moments_calc(state, obj, raw_res->objects[i].moments_of_inertia);
     if (flags & ANALYZE_BOX) {
 char *single[2];
 single[0] = names[i];
@@ -806,7 +1055,7 @@ analyze_bbox(dbip, single, 1,
      * Harvest per-region results.
      * ------------------------------------------------------------------ */
     {
-int num_regions = analyze_get_num_regions(state);
+	int num_regions = state->num_regions;
 if (num_regions > 0) {
     raw_res->regions = (struct analyze_region_result *)bu_calloc(
     (size_t)num_regions,
@@ -814,23 +1063,17 @@ if (num_regions > 0) {
     "ar region results");
     raw_res->n_regions = (size_t)num_regions;
 
-    for (int i = 0; i < num_regions; i++) {
+	for (int i = 0; i < num_regions; i++) {
 char  *rname    = NULL;
 double vol      = 0.0, mass = 0.0, sa = 0.0;
-double dummy_hi = 0.0, dummy_lo = 0.0;
 
 if (flags & ANALYZE_VOLUME)
-    analyze_volume_region(state, i, &rname, &vol,
-  &dummy_hi, &dummy_lo);
+	    vol = ar_region_volume_calc(state, i);
 if (flags & ANALYZE_MASS)
-    analyze_mass_region(state, i, &rname, &mass,
-&dummy_hi, &dummy_lo);
+	    mass = ar_region_mass_calc(state, i);
 if (flags & ANALYZE_SURF_AREA)
-    analyze_surf_area_region(state, i, &rname, &sa,
-     &dummy_hi, &dummy_lo);
-
-if (!rname && state->reg_tbl[i].r_name)
-    rname = state->reg_tbl[i].r_name;
+	    sa = ar_region_surf_area_calc(state, i);
+	rname = state->reg_tbl[i].r_name;
 
 raw_res->regions[i].name      = rname ? bu_strdup(rname)
        : bu_strdup("");
