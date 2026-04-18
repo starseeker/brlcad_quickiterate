@@ -2132,6 +2132,17 @@ analyze_bbox(struct db_i *dbip, char *names[], int num_objects,
 struct ar_capture_ctx {
     struct analyze_results *res;
     int sem; /**< bu_semaphore protecting all list mutations */
+    /* Per-event render hooks (presentation-layer callbacks) copied from analyze_config. */
+    analyze_overlap_render_fn    overlap_render;
+    void                        *overlap_render_data;
+    analyze_gap_render_fn        gap_render;
+    void                        *gap_render_data;
+    analyze_adj_air_render_fn    adj_air_render;
+    void                        *adj_air_render_data;
+    analyze_exp_air_render_fn    exp_air_render;
+    void                        *exp_air_render_data;
+    analyze_unconf_air_render_fn unconf_air_render;
+    void                        *unconf_air_render_data;
 };
 
 /** Helper: look up an existing record by region1 name, or append a new one. */
@@ -2161,32 +2172,55 @@ ar_find_or_insert(struct bu_ptbl *tbl, const char *name1, const char *name2)
 }
 
 static void
-ar_overlap_cb(const struct xray *UNUSED(ray), const struct partition *UNUSED(pp),
+ar_overlap_cb(const struct xray *ray, const struct partition *pp,
 	      const struct region *reg1, const struct region *reg2,
 	      double depth, void *data)
 {
     struct ar_capture_ctx *ctx = (struct ar_capture_ctx *)data;
     struct analyze_overlap_record *rec;
+    point_t ihit, ohit;
+
+    VJOIN1(ihit, ray->r_pt, pp->pt_inhit->hit_dist, ray->r_dir);
+    VJOIN1(ohit, ray->r_pt, pp->pt_outhit->hit_dist, ray->r_dir);
+
+    /* Per-segment render hook (fires before deduplication). */
+    if (ctx->overlap_render)
+	ctx->overlap_render(reg1->reg_name, reg2->reg_name,
+			    depth, ihit, ohit, ctx->overlap_render_data);
 
     bu_semaphore_acquire(ctx->sem);
     rec = ar_find_or_insert(&ctx->res->overlaps,
 			    reg1->reg_name, reg2->reg_name);
     rec->count++;
-    if (depth > rec->max_dist)
+    if (depth > rec->max_dist) {
 	rec->max_dist = depth;
+	VMOVE(rec->coord, ihit);
+    }
     bu_semaphore_release(ctx->sem);
 }
 
 static void
-ar_gap_cb(const struct xray *UNUSED(ray), const struct partition *pp,
+ar_gap_cb(const struct xray *ray, const struct partition *pp,
 	  double gap_dist, point_t pt, void *data)
 {
     struct ar_capture_ctx *ctx = (struct ar_capture_ctx *)data;
     struct analyze_overlap_record *rec;
-    const char *name = (pp && pp->pt_regionp) ? pp->pt_regionp->reg_name : "";
+    /* pt is the entry point of the region after the gap.
+     * pp->pt_back is the region before the gap (if any). */
+    const char *name_after  = (pp && pp->pt_regionp) ? pp->pt_regionp->reg_name : "";
+    const char *name_before = (pp && pp->pt_back && pp->pt_back->pt_regionp)
+	? pp->pt_back->pt_regionp->reg_name : "";
+
+    if (ctx->gap_render) {
+	/* gap_start = entry of after-region minus gap_dist along ray */
+	point_t gap_start;
+	VJOIN1(gap_start, pt, -gap_dist, ray->r_dir);
+	ctx->gap_render(name_after, name_before, gap_dist,
+			gap_start, pt, ctx->gap_render_data);
+    }
 
     bu_semaphore_acquire(ctx->sem);
-    rec = ar_find_or_insert(&ctx->res->gaps, name, NULL);
+    rec = ar_find_or_insert(&ctx->res->gaps, name_after, name_before);
     rec->count++;
     if (gap_dist > rec->max_dist) {
 	rec->max_dist = gap_dist;
@@ -2196,30 +2230,49 @@ ar_gap_cb(const struct xray *UNUSED(ray), const struct partition *pp,
 }
 
 static void
-ar_exp_air_cb(const struct partition *pp, point_t UNUSED(last_out),
-	      point_t pt, point_t UNUSED(opt), void *data)
+ar_exp_air_cb(const struct partition *pp, point_t last_out,
+	      point_t pt, point_t opt, void *data)
 {
     struct ar_capture_ctx *ctx = (struct ar_capture_ctx *)data;
     struct analyze_overlap_record *rec;
     const char *name = (pp && pp->pt_regionp) ? pp->pt_regionp->reg_name : "";
+    double thickness = (pp) ? pp->pt_outhit->hit_dist - pp->pt_inhit->hit_dist : 0.0;
+
+    if (ctx->exp_air_render)
+	ctx->exp_air_render(name, pt, opt, ctx->exp_air_render_data);
 
     bu_semaphore_acquire(ctx->sem);
     rec = ar_find_or_insert(&ctx->res->exp_air, name, NULL);
     rec->count++;
-    if (pt) VMOVE(rec->coord, pt);
+    if (thickness > rec->max_dist) {
+	rec->max_dist = thickness;
+	VMOVE(rec->coord, last_out);
+    }
     bu_semaphore_release(ctx->sem);
 }
 
 static void
-ar_adj_air_cb(const struct xray *UNUSED(ray), const struct partition *pp,
+ar_adj_air_cb(const struct xray *ray, const struct partition *pp,
 	      point_t pt, void *data)
 {
     struct ar_capture_ctx *ctx = (struct ar_capture_ctx *)data;
     struct analyze_overlap_record *rec;
-    const char *name = (pp && pp->pt_regionp) ? pp->pt_regionp->reg_name : "";
+    /* Current region is air; back region is the adjacent solid. */
+    const char *name_air   = (pp && pp->pt_regionp) ? pp->pt_regionp->reg_name : "";
+    const char *name_solid = (pp && pp->pt_back && pp->pt_back->pt_regionp)
+	? pp->pt_back->pt_regionp->reg_name : "";
+
+    if (ctx->adj_air_render) {
+	/* Draw a short segment 1/4 across the air region. */
+	double thickness = pp->pt_outhit->hit_dist - pp->pt_inhit->hit_dist;
+	point_t out_pt;
+	VJOIN1(out_pt, pt, thickness * 0.25, ray->r_dir);
+	ctx->adj_air_render(name_solid, name_air, pt, out_pt,
+			    ctx->adj_air_render_data);
+    }
 
     bu_semaphore_acquire(ctx->sem);
-    rec = ar_find_or_insert(&ctx->res->adj_air, name, NULL);
+    rec = ar_find_or_insert(&ctx->res->adj_air, name_solid, name_air);
     rec->count++;
     VMOVE(rec->coord, pt);
     bu_semaphore_release(ctx->sem);
@@ -2256,17 +2309,33 @@ ar_last_air_cb(const struct xray *UNUSED(ray), const struct partition *pp,
 }
 
 static void
-ar_unconf_air_cb(const struct xray *UNUSED(ray),
-		 const struct partition *in_p, const struct partition *UNUSED(out_p),
+ar_unconf_air_cb(const struct xray *ray,
+		 const struct partition *in_p, const struct partition *out_p,
 		 void *data)
 {
     struct ar_capture_ctx *ctx = (struct ar_capture_ctx *)data;
     struct analyze_overlap_record *rec;
-    const char *name = (in_p && in_p->pt_regionp) ? in_p->pt_regionp->reg_name : "";
+    const char *name_in  = (in_p  && in_p->pt_regionp)  ? in_p->pt_regionp->reg_name  : "";
+    const char *name_out = (out_p && out_p->pt_regionp)  ? out_p->pt_regionp->reg_name : "";
+    double depth = (in_p && out_p) ?
+	in_p->pt_inhit->hit_dist - out_p->pt_outhit->hit_dist : 0.0;
+
+    if (ctx->unconf_air_render && ray) {
+	point_t ihit, ohit;
+	VJOIN1(ihit, ray->r_pt, in_p->pt_inhit->hit_dist,   ray->r_dir);
+	VJOIN1(ohit, ray->r_pt, out_p->pt_outhit->hit_dist, ray->r_dir);
+	ctx->unconf_air_render(name_in, name_out, ihit, ohit,
+			       ctx->unconf_air_render_data);
+    }
 
     bu_semaphore_acquire(ctx->sem);
-    rec = ar_find_or_insert(&ctx->res->unconf_air, name, NULL);
+    rec = ar_find_or_insert(&ctx->res->unconf_air, name_in, name_out);
     rec->count++;
+    if (depth > rec->max_dist) {
+	rec->max_dist = depth;
+	if (ray && in_p)
+	    VJOIN1(rec->coord, ray->r_pt, in_p->pt_inhit->hit_dist, ray->r_dir);
+    }
     bu_semaphore_release(ctx->sem);
 }
 
@@ -2332,6 +2401,23 @@ analyze_run(const struct analyze_config *cfg, struct db_i *dbip,
 	    state->gridSpacingLimit = cfg->grid_spacing_min;
 	if (cfg->aspect > 0.0)
 	    state->aspect = cfg->aspect;
+	if (cfg->grid_width > 0 || cfg->grid_height > 0) {
+	    state->grid_size_flag = 1;
+	    state->grid_width  = (fastf_t)cfg->grid_width;
+	    state->grid_height = (fastf_t)(cfg->grid_height > 0 ? cfg->grid_height
+							       : cfg->grid_width);
+	}
+	if (cfg->quiet_missed)
+	    state->quiet_missed_report = 1;
+	if (cfg->samples_per_model_axis > 0.0)
+	    state->samples_per_model_axis = cfg->samples_per_model_axis;
+	if (cfg->sampler == ANALYZE_SAMPLER_VIEW_PLANE && cfg->view_size > 0.0) {
+	    point_t eye;
+	    quat_t  quat;
+	    VMOVE(eye, cfg->view_eye);
+	    HMOVE(quat, cfg->view_quat);
+	    analyze_set_view_information(state, cfg->view_size, &eye, &quat);
+	}
 	state->overlap_tolerance = cfg->overlap_tol;
 	if (cfg->volume_tol >= 0.0)
 	    state->volume_tolerance = cfg->volume_tol;
@@ -2347,11 +2433,19 @@ analyze_run(const struct analyze_config *cfg, struct db_i *dbip,
 	if (cfg->required_hits > 0)
 	    state->required_number_hits = cfg->required_hits;
 	state->verbose = cfg->verbose;
+	if (cfg->log_str) {
+	    if (cfg->verbose)
+		analyze_enable_verbose(state, cfg->log_str);
+	    else
+		analyze_enable_debug(state, cfg->log_str);
+	}
 	if (cfg->timeout_ms > 0)
 	    state->timeout_ms = cfg->timeout_ms;
 	state->required_digits = cfg->required_digits;
 	if (cfg->n_crofton_rays > 0)
 	    state->crofton_n_rays = cfg->n_crofton_rays;
+	if (cfg->volume_plot_file)
+	    analyze_set_volume_plotfile(state, cfg->volume_plot_file);
     }
 
     /* ------------------------------------------------------------------
@@ -2359,6 +2453,28 @@ analyze_run(const struct analyze_config *cfg, struct db_i *dbip,
      * ------------------------------------------------------------------ */
     ctx.res = res;
     ctx.sem = bu_semaphore_register("analyze_run_results_sem");
+    ctx.overlap_render      = NULL;
+    ctx.overlap_render_data = NULL;
+    ctx.gap_render          = NULL;
+    ctx.gap_render_data     = NULL;
+    ctx.adj_air_render      = NULL;
+    ctx.adj_air_render_data = NULL;
+    ctx.exp_air_render      = NULL;
+    ctx.exp_air_render_data = NULL;
+    ctx.unconf_air_render      = NULL;
+    ctx.unconf_air_render_data = NULL;
+    if (cfg) {
+	ctx.overlap_render       = cfg->overlap_render;
+	ctx.overlap_render_data  = cfg->overlap_render_data;
+	ctx.gap_render           = cfg->gap_render;
+	ctx.gap_render_data      = cfg->gap_render_data;
+	ctx.adj_air_render       = cfg->adj_air_render;
+	ctx.adj_air_render_data  = cfg->adj_air_render_data;
+	ctx.exp_air_render       = cfg->exp_air_render;
+	ctx.exp_air_render_data  = cfg->exp_air_render_data;
+	ctx.unconf_air_render      = cfg->unconf_air_render;
+	ctx.unconf_air_render_data = cfg->unconf_air_render_data;
+    }
 
     if (flags & ANALYZE_OVERLAPS)
 	analyze_register_overlaps_callback(state, ar_overlap_cb, &ctx);
@@ -2400,6 +2516,41 @@ analyze_run(const struct analyze_config *cfg, struct db_i *dbip,
 	res->total_surf_area = analyze_total_surf_area(state);
     if (flags & ANALYZE_CENTROIDS)
 	analyze_total_centroid(state, res->centroid);
+    if (flags & ANALYZE_MOMENTS)
+	analyze_moments_total(state, res->moments_of_inertia);
+
+    /* ------------------------------------------------------------------
+     * Harvest per-input-object results (centroid, moments, per-object bbox).
+     * ------------------------------------------------------------------ */
+    if (num_names > 0) {
+	res->objects = (struct analyze_object_result *)bu_calloc(
+		(size_t)num_names,
+		sizeof(struct analyze_object_result),
+		"ar object results");
+	res->n_objects = (size_t)num_names;
+
+	for (i = 0; i < num_names; i++) {
+	    res->objects[i].name = bu_strdup(names[i]);
+	    if (flags & ANALYZE_VOLUME)
+		res->objects[i].volume   = analyze_volume(state, names[i]);
+	    if (flags & ANALYZE_MASS)
+		res->objects[i].mass     = analyze_mass(state, names[i]);
+	    if (flags & ANALYZE_SURF_AREA)
+		res->objects[i].surf_area = analyze_surf_area(state, names[i]);
+	    if (flags & ANALYZE_CENTROIDS)
+		analyze_centroid(state, names[i], res->objects[i].centroid);
+	    if (flags & ANALYZE_MOMENTS)
+		analyze_moments(state, names[i], res->objects[i].moments_of_inertia);
+	    if (flags & ANALYZE_BOX) {
+		char *single[2];
+		single[0] = names[i];
+		single[1] = NULL;
+		analyze_bbox(dbip, single, 1,
+			     res->objects[i].bbox_min,
+			     res->objects[i].bbox_max);
+	    }
+	}
+    }
 
     /* ------------------------------------------------------------------
      * Harvest per-region results.
@@ -2451,6 +2602,16 @@ analyze_results_free(struct analyze_results *res)
 
     if (!res)
 	return;
+
+    if (res->objects) {
+	/* Object names in this array are strdup'd by analyze_run(). */
+	for (i = 0; i < res->n_objects; i++) {
+	    if (res->objects[i].name)
+		bu_free((void *)res->objects[i].name, "object name");
+	}
+	bu_free(res->objects, "analyze_results objects");
+	res->objects = NULL;
+    }
 
     if (res->regions) {
 	/* Region names in this array are strdup'd by analyze_run(). */
