@@ -10,7 +10,6 @@ set(
   nirt.h
   pnts.h
   polygonize.h
-  units.h
   voxelize.h
   worker.h
 )

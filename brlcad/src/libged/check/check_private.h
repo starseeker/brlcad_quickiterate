@@ -22,27 +22,22 @@
 #define LIBGED_CHECK_PRIVATE_H
 
 #include "common.h"
+#include "bu/units.h"
 #include "analyze.h"
-#include "analyze/units.h"
 
 __BEGIN_DECLS
 
 /**
- * Alias the libanalyze shared conversion-table type for use within the
- * check command sources.  Previously each tool defined its own identical
- * struct; this single canonical definition lives in libanalyze/units.h.
+ * Alias the libbu unit-conversion table type for use within the check command
+ * sources.  The canonical definition is struct bu_cvt_tab in bu/units.h.
  */
-typedef struct analyze_cvt_tab cvt_tab;
+typedef struct bu_cvt_tab cvt_tab;
 
 /**
- * Shared unit-conversion tables (length / volume / mass) imported from
- * libanalyze.  The analyze_units_tab extern is defined in
- * src/libanalyze/units.c.
- *
- * Use the ANALYZE_UNITS_LENGTH / ANALYZE_UNITS_VOLUME / ANALYZE_UNITS_MASS
- * index constants to select the correct row, or the local aliases below.
+ * Shared unit-conversion tables (length / volume / mass) from libbu.
+ * Indexed with BU_UNITS_LENGTH, BU_UNITS_VOLUME, or BU_UNITS_MASS.
  */
-#define units_tab  analyze_units_tab
+#define units_tab  bu_units_tab
 
 
 /* this table keeps track of the "current" or "user selected units and
