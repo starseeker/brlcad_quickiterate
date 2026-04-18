@@ -96,7 +96,7 @@ check_show_help(struct ged *gedp)
  * 0 Success
  */
 /**
- * read_units_double - thin wrapper around the shared libanalyze unit parser.
+ * read_units_double - thin wrapper around the shared libbu unit parser.
  *
  * Forwards errors to gedp->ged_result_str.  Call sites in parse_check_args()
  * and elsewhere continue to compile without change.
@@ -105,6 +105,25 @@ static int
 read_units_double(struct ged *gedp, double *val, char *buf, const cvt_tab *cvt)
 {
     return bu_units_parse_double(gedp->ged_result_str, val, buf, cvt);
+}
+
+
+/**
+ * Translate a bare length-unit name to its cubic equivalent for the volume
+ * table.  Preserves the historical check "-u ,m," convention (meaning m^3)
+ * without polluting the public libbu volume table with length-unit aliases.
+ */
+static const char *
+check_vol_unit_name(const char *name)
+{
+    if (BU_STR_EQUAL(name, "mm"))    return "mm^3";
+    if (BU_STR_EQUAL(name, "cm"))    return "cm^3";
+    if (BU_STR_EQUAL(name, "m"))     return "m^3";
+    if (BU_STR_EQUAL(name, "in"))    return "in^3";
+    if (BU_STR_EQUAL(name, "ft"))    return "ft^3";
+    if (BU_STR_EQUAL(name, "yd") || BU_STR_EQUAL(name, "yds") || BU_STR_EQUAL(name, "yards"))
+	return "yds^3";
+    return name;
 }
 
 
@@ -325,6 +344,7 @@ parse_check_args(struct ged *gedp, int ac, char *av[], struct check_parameters* 
 		    /* acquire unit names */
 		    for (i = 0; i < 3 && ptr; i++) {
 			int found_unit;
+			const char *lookup_name;
 
 			if (i == 0) {
 			    *units_ap = strtok(ptr, CPP_XSTR(COMMA));
@@ -336,10 +356,13 @@ parse_check_args(struct ged *gedp, int ac, char *av[], struct check_parameters* 
 			if (*units_ap == NULL)
 			    break;
 
+			/* translate bare length names to cubic equivalents for volume */
+			lookup_name = (i == VOL) ? check_vol_unit_name(units_name[i]) : units_name[i];
+
 			/* got something valid? */
 			found_unit = 0;
 			for (cv = &units_tab[i][0]; cv->name[0] != '\0'; cv++) {
-			    if (units_name[i] && BU_STR_EQUAL(cv->name, units_name[i])) {
+			    if (lookup_name && BU_STR_EQUAL(cv->name, lookup_name)) {
 				options->units[i] = cv;
 				found_unit = 1;
 				break;

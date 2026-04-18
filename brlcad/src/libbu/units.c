@@ -137,38 +137,26 @@ static const struct bu_cvt_tab bu_units_length_tab[] = {
 
 /* Keep table sorted sorted small-to-large.  Algorithms below may rely
  * on the ordering.
- *
- * NOTE: bare length unit names (mm, cm, m, in, ft, yd) are included as
- * aliases for the corresponding cubic unit.  This preserves backward
- * compatibility with gqa/check's "-u ,m," convention (meaning m^3).
  */
 static const struct bu_cvt_tab bu_units_volume_tab[] = {
     {0.0,		"none"},
     {1.0,		"mm^3"},		/* default */
     {1.0,		"cu mm"},
-    {1.0,		"mm"},			/* alias: "mm" means mm^3 in volume context */
     {1.0e3,		"cm^3"},
     {1.0e3,		"cu cm"},
     {1.0e3,		"cc"},
-    {1.0e3,		"cm"},			/* alias: "cm" means cm^3 in volume context */
     {1.0e6,		"l"},
     {1.0e6,		"liter"},
     {1.0e6,		"litre"},
     {1.0e9,		"m^3"},
     {1.0e9,		"cu m"},
-    {1.0e9,		"m"},			/* alias: "m" means m^3 in volume context */
     {16387.064,		"in^3"},
     {16387.064,		"cu in"},
-    {16387.064,		"in"},		/* alias: "in" means in^3 in volume context */
     {28316846.592,	"ft^3"},
     {28316846.592,	"cu ft"},
-    {28316846.592,	"ft"},		/* alias: "ft" means ft^3 in volume context */
     {764554857.984,	"yds^3"},
     {764554857.984,	"yards^3"},
     {764554857.984,	"cu yards"},
-    {764554857.984,	"yd"},		/* alias: "yd" means yd^3 in volume context */
-    {764554857.984,	"yds"},		/* alias */
-    {764554857.984,	"yards"},	/* alias */
     {0.0,		""}			/* LAST ENTRY */
 };
 
