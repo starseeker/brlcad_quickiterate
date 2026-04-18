@@ -15,18 +15,17 @@ set(
 )
 
 set(TESS_OPENVDB_DEFS "")
-set(BOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../bot)
 
 if(BRLCAD_ENABLE_OPENVDB)
   set(TESS_LIBS ${TESS_LIBS} ${OpenVDB_LIBRARIES} ${IlmBase_LIBRARIES} ${Tbb_LIBRARIES})
-  set(TESS_INCLUDE_DIRS ${TESS_INCLUDE_DIRS} ${OpenVDB_INCLUDE_DIRS} ${Tbb_INCLUDE_DIRS} ${IlmBase_INCLUDE_DIRS})
+  set(TESS_INCLUDE_DIRS ${TESS_INCLUDE_DIRS} ${OpenVDB_INCLUDE_DIRS} ${Tbb_INCLUDE_DIRS} ${IlmBase_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/../../bot)
   set(TESS_OPENVDB_DEFS BRLCAD_OPENVDB)
-  list(APPEND GED_TESS_SRCS ${BOT_DIR}/bot_openvdb.cpp)
+  list(APPEND GED_TESS_SRCS ../../bot/bot_openvdb.cpp)
   # Suppress warnings from OpenVDB/Boost headers and prevent the OpenVDB
   # LeafManager UINT64_MAX sentinel from triggering the LTO
   # -Werror=alloc-size-larger-than false positive.
   set_source_files_properties(
-    ${BOT_DIR}/bot_openvdb.cpp
+    ../../bot/bot_openvdb.cpp
     PROPERTIES COMPILE_FLAGS "-w -fno-lto"
   )
 endif(BRLCAD_ENABLE_OPENVDB)
