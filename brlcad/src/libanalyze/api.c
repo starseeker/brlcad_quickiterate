@@ -54,15 +54,29 @@
 
 /*
  * Minimum fractional volume reduction required for the overlap AABB pre-filter
- * to be considered worthwhile.  The candidate union bbox must be smaller than
- * (1 - OV_PREFILTER_MIN_REDUCTION) of the full model volume before we
- * restrict the grid; otherwise the full model bbox is used unchanged.
+ * union-bbox fallback to be considered worthwhile.  The candidate union bbox
+ * must be smaller than (1 - OV_PREFILTER_MIN_REDUCTION) of the full model
+ * volume before we restrict the grid; otherwise the full model bbox is used.
  *
  * With the default of 0.9 the grid is only restricted when the union of
- * candidate intersection AABBs covers less than 90% of the model volume,
- * saving at least 10% of rays.
+ * candidate intersection AABBs covers less than 90% of the model volume.
+ * This constant is used only in the dense-cluster fallback path; the normal
+ * path uses per-pair focused sampling which is always more targeted.
  */
 #define OV_PREFILTER_MIN_REDUCTION 0.9
+
+/*
+ * Maximum number of AABB-intersecting candidate pairs for which the per-pair
+ * focused sampling strategy is used.  Each pair gets its own independent mini
+ * triple-grid raytrace restricted to just that pair's intersection bounding
+ * volume.
+ *
+ * When the number of candidate pairs exceeds this threshold the model is
+ * likely densely clustered; in that case the overhead of launching N separate
+ * raytrace sub-passes would exceed the cost of one larger unified pass, so we
+ * fall back to the union-bbox strategy.
+ */
+#define OV_PAIRWISE_MAX_PAIRS 64
 
 /*
  * returns a random angle between 0 and 360 degrees
@@ -1420,6 +1434,133 @@ shoot_rays(struct current_state *state)
 }
 
 
+/**
+ * shoot_rays_pairwise - Per-pair focused overlap ray sampling.
+ *
+ * Rather than shooting rays over the union of all candidate-pair intersection
+ * volumes, this function processes each candidate pair independently.  For
+ * each pair it:
+ *
+ *   1. Restricts rtip->mdl_min/max to the pair's AABB intersection volume.
+ *   2. Computes a grid spacing appropriate for that volume (aiming for
+ *      at least 50 cells across the shortest axis, capped at gridSpacingLimit).
+ *   3. Runs one triple-grid pass of rays through that volume.
+ *   4. Restores all modified state before moving to the next pair.
+ *
+ * Because each pass is tiny, the total ray count across all pairs is a small
+ * fraction of what a full-model pass would cost for sparse-overlap models.
+ *
+ * The existing overlap callback (analyze_overlap) fires normally for any
+ * geometric overlap found within each sub-pass, so no change to the
+ * reporting path is needed.
+ *
+ * Timeout is checked between pairs so callers can bound total runtime.
+ */
+static void
+shoot_rays_pairwise(struct current_state *state, struct bu_ptbl *pairs)
+{
+    size_t k;
+    size_t npairs = BU_PTBL_LEN(pairs);
+
+    /* Save the full-model state we will temporarily replace per pair. */
+    point_t saved_mdl_min, saved_mdl_max;
+    vect_t  saved_span;
+    double  saved_area[3];
+    double  saved_gridSpacing;
+
+    VMOVE(saved_mdl_min, state->rtip->mdl_min);
+    VMOVE(saved_mdl_max, state->rtip->mdl_max);
+    VMOVE(saved_span, state->span);
+    saved_area[0] = state->area[0];
+    saved_area[1] = state->area[1];
+    saved_area[2] = state->area[2];
+    saved_gridSpacing = state->gridSpacing;
+
+    state->grid->refine_flag = 1; /* indicate this is a refinement pass */
+
+    for (k = 0; k < npairs; k++) {
+	struct analyze_region_overlap_pair *op;
+	vect_t isect_span;
+	double min_span, pair_spacing, inv_spacing;
+	int view;
+
+	if (state->aborted)
+	    break;
+
+	/* Respect wall-clock timeout between pairs. */
+	if (state->timeout_ms > 0) {
+	    long elapsed_ms = (long)((bu_gettime() - state->start_time_us) / 1000);
+	    if (elapsed_ms >= state->timeout_ms) {
+		bu_log("NOTE: Per-pair overlap scan: timeout of %ld ms reached "
+		       "after %zu of %zu pairs.\n",
+		       state->timeout_ms, k, npairs);
+		break;
+	    }
+	}
+
+	op = (struct analyze_region_overlap_pair *)BU_PTBL_GET(pairs, k);
+
+	/* Guard against degenerate intersection volumes. */
+	VSUB2(isect_span, op->isect_max, op->isect_min);
+	if (isect_span[X] <= 0.0 || isect_span[Y] <= 0.0 || isect_span[Z] <= 0.0)
+	    continue;
+
+	/* Restrict the sampling grid to this pair's intersection volume. */
+	VMOVE(state->rtip->mdl_min, op->isect_min);
+	VMOVE(state->rtip->mdl_max, op->isect_max);
+	VSUB2(state->span, op->isect_max, op->isect_min);
+	state->area[0] = state->span[1] * state->span[2];
+	state->area[1] = state->span[2] * state->span[0];
+	state->area[2] = state->span[0] * state->span[1];
+
+	/* Choose a grid spacing for this pair: aim for 50 cells across
+	 * the shortest axis, but never finer than gridSpacingLimit. */
+	min_span = state->span[X];
+	V_MIN(min_span, state->span[Y]);
+	V_MIN(min_span, state->span[Z]);
+	pair_spacing = min_span / 50.0;
+	if (pair_spacing < state->gridSpacingLimit)
+	    pair_spacing = state->gridSpacingLimit;
+
+	state->gridSpacing = pair_spacing;
+	inv_spacing = 1.0 / pair_spacing;
+	VSCALE(state->steps, state->span, inv_spacing);
+
+	bu_log("  Pair %zu/%zu (%s, %s): grid spacing %g mm, "
+	       "%ld x %ld x %ld cells\n",
+	       k + 1, npairs,
+	       op->r1->reg_name, op->r2->reg_name,
+	       pair_spacing,
+	       (long)state->steps[0],
+	       (long)state->steps[1],
+	       (long)state->steps[2]);
+
+	/* Run one triple-grid pass restricted to this pair's volume. */
+	for (view = 0; view < state->num_views; view++) {
+	    if (state->verbose)
+		bu_vls_printf(state->verbose_str, "    view %d\n", view);
+	    analyze_triple_grid_setup(view, state);
+	    bu_parallel(analyze_worker, state->ncpu, (void *)state);
+	    if (state->aborted)
+		break;
+	}
+    }
+
+    /* Restore the full-model state for any post-pass processing. */
+    VMOVE(state->rtip->mdl_min, saved_mdl_min);
+    VMOVE(state->rtip->mdl_max, saved_mdl_max);
+    VMOVE(state->span, saved_span);
+    state->area[0] = saved_area[0];
+    state->area[1] = saved_area[1];
+    state->area[2] = saved_area[2];
+    state->gridSpacing = saved_gridSpacing;
+
+    if (state->verbose)
+	bu_vls_printf(state->verbose_str,
+		      "Per-pair overlap scan done (%zu pairs).\n", npairs);
+}
+
+
 int
 perform_raytracing(struct current_state *state, struct db_i *dbip, char *names[], int num_objects, int flags)
 {
@@ -1430,6 +1571,11 @@ perform_raytracing(struct current_state *state, struct db_i *dbip, char *names[]
     struct resource resp[MAX_PSW];
     struct rectangular_grid grid;
     struct region_pair overlapList;
+
+    /* Per-pair focused overlap sampling state (set in the prefilter block
+     * below; used in place of shoot_rays() when per-pair mode is active). */
+    struct bu_ptbl *pairwise_candidates_p = NULL;
+    int use_pairwise = 0;
 
     /* local copy for overlaps list to check later for hits */
     BU_LIST_INIT(&overlapList.l);
@@ -1468,50 +1614,86 @@ perform_raytracing(struct current_state *state, struct db_i *dbip, char *names[]
     /* Record start time for timeout enforcement in check_terminate() */
     state->start_time_us = bu_gettime();
 
-    /* --- AABB overlap pre-filter ---
+    /* --- AABB overlap pre-filter with per-pair focused sampling ---
      *
      * When the caller only wants overlap detection (no volume / mass /
-     * surface-area / gap / air checks), we can restrict the ray grid to
-     * the union of the intersection AABBs of candidate region pairs
-     * rather than covering the entire model bounding box.  For sparse-
-     * overlap models this can reduce the number of rays by an order of
-     * magnitude or more.
+     * surface-area / gap / air checks), we shoot rays exclusively over
+     * each candidate-pair intersection volume rather than covering the
+     * entire model bounding box.
      *
-     * The pre-filter is a no-op when:
-     *   - other analyses are also requested (they need the full bbox), or
-     *   - no AABB-intersecting pairs exist (nothing can overlap), or
-     *   - the candidate union bbox would not substantially shrink the grid.
+     * Strategy:
+     *   - For up to OV_PAIRWISE_MAX_PAIRS candidate pairs, process each
+     *     pair independently (per-pair focused sampling).  For sparse-
+     *     overlap models this dramatically reduces the total ray count.
+     *   - For more than OV_PAIRWISE_MAX_PAIRS pairs the model is likely
+     *     densely clustered.  In that case, fall back to the union-bbox
+     *     strategy (restrict rtip->mdl_min/max to the union of all
+     *     candidate intersection AABBs) and run the normal shoot_rays()
+     *     loop.
      *
-     * Implementation note: we modify rtip->mdl_min/max *before* the span
-     * computation below so that state->span and state->steps are computed
-     * from the restricted bbox.  The tree itself was already prepared with
-     * the original bbox, so ray-solid intersection logic is unaffected.
+     * Per-region participation counts are computed (O(N²), N ≤ OV_PAIRWISE_MAX_PAIRS
+     * so at most 4096 iterations) and logged as a clustering diagnostic.
      */
     if ((flags & ANALYSIS_OVERLAPS) &&
 	!(flags & (ANALYSIS_VOLUME | ANALYSIS_MASS | ANALYSIS_SURF_AREA |
 		   ANALYSIS_GAP | ANALYSIS_EXP_AIR | ANALYSIS_ADJ_AIR |
 		   ANALYSIS_FIRST_AIR | ANALYSIS_LAST_AIR | ANALYSIS_UNCONF_AIR))) {
 
-	struct bu_ptbl ov_candidates;
-	int n_cand = analyze_overlapping_region_pairs(rtip, &ov_candidates);
+	pairwise_candidates_p =
+	    (struct bu_ptbl *)bu_malloc(sizeof(struct bu_ptbl), "pairwise candidates");
+	int n_cand = analyze_overlapping_region_pairs(rtip, pairwise_candidates_p);
 
-	if (n_cand > 0) {
-	    /* Compute the union of all candidate pair intersection AABBs */
-	    point_t union_min, union_max;
+	if (n_cand > 0 && n_cand <= OV_PAIRWISE_MAX_PAIRS) {
+	    /* --- Per-pair focused sampling path ---
+	     * Compute max per-region participation count as a clustering
+	     * diagnostic before we enter the focused sampling loop.
+	     */
+	    int max_region_pairs = 0;
+	    {
+		size_t ii, jj;
+		for (ii = 0; ii < BU_PTBL_LEN(pairwise_candidates_p); ii++) {
+		    struct analyze_region_overlap_pair *oi =
+			(struct analyze_region_overlap_pair *)BU_PTBL_GET(pairwise_candidates_p, ii);
+		    int cnt_r1 = 0, cnt_r2 = 0;
+		    for (jj = 0; jj < BU_PTBL_LEN(pairwise_candidates_p); jj++) {
+			struct analyze_region_overlap_pair *oj =
+			    (struct analyze_region_overlap_pair *)BU_PTBL_GET(pairwise_candidates_p, jj);
+			if (oj->r1 == oi->r1 || oj->r2 == oi->r1) cnt_r1++;
+			if (oj->r1 == oi->r2 || oj->r2 == oi->r2) cnt_r2++;
+		    }
+		    if (cnt_r1 > max_region_pairs) max_region_pairs = cnt_r1;
+		    if (cnt_r2 > max_region_pairs) max_region_pairs = cnt_r2;
+		}
+	    }
+	    bu_log("Overlap prefilter: %d candidate pair(s), "
+		   "max per-region participation %d — "
+		   "using per-pair focused sampling.\n",
+		   n_cand, max_region_pairs);
+	    use_pairwise = 1;
+	    /* pairwise_candidates_p ownership is retained; shoot_rays_pairwise()
+	     * will consume it after allocate_region_data(). */
+
+	} else if (n_cand > OV_PAIRWISE_MAX_PAIRS) {
+	    /* --- Dense-cluster fallback: union-bbox strategy ---
+	     * Too many candidate pairs to enumerate individually; compute the
+	     * union of all candidate intersection AABBs and restrict the
+	     * overall grid to that union.
+	     */
 	    size_t k;
+	    point_t union_min, union_max;
 	    VSETALL(union_min,  INFINITY);
 	    VSETALL(union_max, -INFINITY);
 
-	    for (k = 0; k < BU_PTBL_LEN(&ov_candidates); k++) {
+	    for (k = 0; k < BU_PTBL_LEN(pairwise_candidates_p); k++) {
 		struct analyze_region_overlap_pair *op =
-		    (struct analyze_region_overlap_pair *)BU_PTBL_GET(&ov_candidates, k);
+		    (struct analyze_region_overlap_pair *)BU_PTBL_GET(pairwise_candidates_p, k);
 		VMIN(union_min, op->isect_min);
 		VMAX(union_max, op->isect_max);
 	    }
-	    analyze_free_region_overlap_pairs(&ov_candidates);
+	    analyze_free_region_overlap_pairs(pairwise_candidates_p);
+	    bu_free(pairwise_candidates_p, "pairwise candidates");
+	    pairwise_candidates_p = NULL;
 
-	    /* Only restrict the bbox if the union is meaningfully smaller
-	     * than the full model volume (save at least 10%). */
 	    {
 		vect_t full_span, cand_span;
 		double full_vol, cand_vol;
@@ -1521,31 +1703,42 @@ perform_raytracing(struct current_state *state, struct db_i *dbip, char *names[]
 		cand_vol = cand_span[X] * cand_span[Y] * cand_span[Z];
 
 		if (full_vol > 0.0 && cand_vol < full_vol * OV_PREFILTER_MIN_REDUCTION) {
-		    bu_log("Overlap prefilter: %d candidate pair(s), restricting grid to "
-			   "%.1f%% of model volume.\n",
-			   n_cand, 100.0 * cand_vol / full_vol);
+		    bu_log("Overlap prefilter: %d candidate pair(s) "
+			   "(> %d threshold — dense clustering), "
+			   "restricting grid to %.1f%% of model volume.\n",
+			   n_cand, OV_PAIRWISE_MAX_PAIRS,
+			   100.0 * cand_vol / full_vol);
 		    VMOVE(rtip->mdl_min, union_min);
 		    VMOVE(rtip->mdl_max, union_max);
 		} else {
-		    bu_log("Overlap prefilter: %d candidate pair(s) found "
-			   "(union bbox not substantially smaller; using full grid).\n",
-			   n_cand);
+		    bu_log("Overlap prefilter: %d candidate pair(s) "
+			   "(> %d threshold — dense clustering, "
+			   "union bbox not substantially smaller; using full grid).\n",
+			   n_cand, OV_PAIRWISE_MAX_PAIRS);
 		}
 	    }
+
 	} else if (n_cand == 0) {
 	    bu_log("Overlap prefilter: no AABB-intersecting region pairs — "
 		   "geometric overlaps are not possible.\n");
-	    /* Fall through; the normal raytrace pass will confirm zero overlaps. */
-	    bu_ptbl_free(&ov_candidates);
+	    bu_ptbl_free(pairwise_candidates_p);
+	    bu_free(pairwise_candidates_p, "pairwise candidates");
+	    pairwise_candidates_p = NULL;
 	} else {
-	    /* n_cand < 0 means error; proceed with the full bbox */
+	    /* n_cand < 0 means query error; proceed with the full bbox */
 	    bu_log("Overlap prefilter: AABB query failed, using full model bbox.\n");
+	    bu_free(pairwise_candidates_p, "pairwise candidates");
+	    pairwise_candidates_p = NULL;
 	}
     }
 
     /* setup azimuth and elevation angles in case of single grid */
     if (state->use_single_grid && !state->use_view_information) {
 	if (analyze_setup_ae(state)) {
+	    if (pairwise_candidates_p) {
+		analyze_free_region_overlap_pairs(pairwise_candidates_p);
+		bu_free(pairwise_candidates_p, "pairwise candidates");
+	    }
 	    rt_free_rti(rtip);
 	    rtip = NULL;
 	    return ANALYZE_ERROR;
@@ -1605,6 +1798,10 @@ perform_raytracing(struct current_state *state, struct db_i *dbip, char *names[]
 
     if (options_set(state) != ANALYZE_OK) {
 	bu_log("Couldn't set up the options correctly!\n");
+	if (pairwise_candidates_p) {
+	    analyze_free_region_overlap_pairs(pairwise_candidates_p);
+	    bu_free(pairwise_candidates_p, "pairwise candidates");
+	}
 	return ANALYZE_ERROR;
     }
 
@@ -1614,7 +1811,22 @@ perform_raytracing(struct current_state *state, struct db_i *dbip, char *names[]
     state->sem_plot = bu_semaphore_register("analyze_sem_plot");
     allocate_region_data(state, names);
     grid.refine_flag = 0;
-    shoot_rays(state);
+
+    /* Per-pair focused sampling replaces the normal shoot_rays() loop for
+     * overlap-only analyses when the number of candidate pairs is small.
+     * shoot_rays_pairwise() processes each pair in isolation, restricting
+     * rays to just that pair's AABB intersection volume.  For all other
+     * analyses (or when the pair count exceeded OV_PAIRWISE_MAX_PAIRS),
+     * the normal refinement loop in shoot_rays() is used.
+     */
+    if (use_pairwise && pairwise_candidates_p) {
+	shoot_rays_pairwise(state, pairwise_candidates_p);
+	analyze_free_region_overlap_pairs(pairwise_candidates_p);
+	bu_free(pairwise_candidates_p, "pairwise candidates");
+	pairwise_candidates_p = NULL;
+    } else {
+	shoot_rays(state);
+    }
 
     /* print any logs in main thread */
     bu_log("%s", bu_vls_strgrab(state->log_str));
