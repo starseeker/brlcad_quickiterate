@@ -158,7 +158,25 @@ static const cvt_tab * const units_tab_defaults[3] = {
 };
 
 /**
- * Thin wrapper around analyze_parse_units_double() that forwards error
+ * Translate a bare length-unit name to its cubic equivalent for the volume
+ * table.  This preserves the historical gqa "-u ,m," convention (meaning m^3)
+ * without polluting the public libbu volume table with length-unit aliases.
+ */
+static const char *
+gqa_vol_unit_name(const char *name)
+{
+    if (BU_STR_EQUAL(name, "mm"))    return "mm^3";
+    if (BU_STR_EQUAL(name, "cm"))    return "cm^3";
+    if (BU_STR_EQUAL(name, "m"))     return "m^3";
+    if (BU_STR_EQUAL(name, "in"))    return "in^3";
+    if (BU_STR_EQUAL(name, "ft"))    return "ft^3";
+    if (BU_STR_EQUAL(name, "yd") || BU_STR_EQUAL(name, "yds") || BU_STR_EQUAL(name, "yards"))
+	return "yds^3";
+    return name;
+}
+
+/**
+ * Thin wrapper around bu_units_parse_double() that forwards error
  * messages to gedp->ged_result_str.  The parse_args() body uses
  * _gqa_read_units_double() by name; this bridges the old call sites to the
  * shared libbu implementation.
@@ -446,6 +464,7 @@ parse_args(struct ged *gedp, struct cstate *state, int ac, char *av[])
 		    /* acquire unit names */
 		    for (i = 0; i < 3 && ptr; i++) {
 			int found_unit;
+			const char *lookup_name;
 
 			if (i == 0) {
 			    *units_ap = strtok(ptr, CPP_XSTR(COMMA));
@@ -457,10 +476,13 @@ parse_args(struct ged *gedp, struct cstate *state, int ac, char *av[])
 			if (*units_ap == NULL)
 			    break;
 
+			/* translate bare length names to cubic equivalents for volume */
+			lookup_name = (i == VOL) ? gqa_vol_unit_name(units_name[i]) : units_name[i];
+
 			/* got something valid? */
 			found_unit = 0;
 			for (cv = &units_tab[i][0]; cv->name[0] != '\0'; cv++) {
-			    if (units_name[i] && BU_STR_EQUAL(cv->name, units_name[i])) {
+			    if (lookup_name && BU_STR_EQUAL(cv->name, lookup_name)) {
 				state->units[i] = cv;
 				found_unit = 1;
 				break;
