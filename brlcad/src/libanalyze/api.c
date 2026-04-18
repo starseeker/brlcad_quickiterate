@@ -25,6 +25,7 @@
 
 #include "common.h"
 
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -32,6 +33,7 @@
 #include "raytrace.h"
 #include "vmath.h"
 #include "bu/parallel.h"
+#include "bu/time.h"
 
 #include "analyze.h"
 #include "./analyze_private.h"
@@ -49,6 +51,35 @@
 #define ANALYSIS_FIRST_AIR 1024
 #define ANALYSIS_LAST_AIR 2048
 #define ANALYSIS_UNCONF_AIR 4096
+
+/*
+ * Minimum fractional volume reduction required for the overlap AABB pre-filter
+ * union-bbox fallback to be considered worthwhile.  The candidate union bbox
+ * must be smaller than (1 - OV_PREFILTER_MIN_REDUCTION) of the full model
+ * volume before we restrict the grid; otherwise the full model bbox is used.
+ *
+ * With the default of 0.9 the grid is only restricted when the union of
+ * candidate intersection AABBs covers less than 90% of the model volume.
+ * This constant is used only in the dense-cluster fallback path; the normal
+ * path uses per-cluster focused sampling which is always more targeted.
+ */
+#define OV_PREFILTER_MIN_REDUCTION 0.9
+
+/*
+ * Maximum number of AABB-overlap clusters for which the per-cluster focused
+ * sampling strategy is applied.  Each cluster gets one independent grid pass
+ * restricted to just its members' intersection-volume union.
+ *
+ * Clusters are the connected components of the region AABB-intersection graph,
+ * so this count is always ≤ the number of candidate pairs.  For dense models
+ * many pairs collapse into a small number of large clusters; the threshold is
+ * deliberately higher than the old per-pair limit.
+ *
+ * When the number of clusters exceeds this threshold, fall back to the
+ * union-bbox strategy: restrict rtip->mdl_min/max to the union of all cluster
+ * intersection volumes and run the normal shoot_rays() refinement loop.
+ */
+#define OV_CLUSTER_MAX 256
 
 /*
  * returns a random angle between 0 and 360 degrees
@@ -316,37 +347,45 @@ analyze_hit(struct application *ap, struct partition *PartHeadp, struct seg *seg
 	    }
 	}
 
-	/* compute the volume of the object */
-	if (state->analysis_flags & ANALYSIS_VOLUME) {
+	/* compute the volume of the object.
+	 *
+	 * When state->background_mv is set we always accumulate chord
+	 * lengths into A_LEN / r_len / o_len even if ANALYSIS_VOLUME is
+	 * not in analysis_flags.  This is essentially free (one fp-add per
+	 * partition) and lets check_terminate() use volume convergence as
+	 * a proxy for "have we sampled densely enough?" when running
+	 * validation-only analyses (overlaps, air checks, etc.).
+	 */
+	if ((state->analysis_flags & ANALYSIS_VOLUME) || state->background_mv) {
 	    struct per_region_data *prd = ((struct per_region_data *)pp->pt_regionp->reg_udata);
-	    ap->A_LEN += dist; /* add to total volume */
+	    ap->A_LEN += dist; /* accumulate total chord length */
 	    {
 		bu_semaphore_acquire(state->sem_worker);
-
 		/* add to region volume */
 		prd->r_len[state->curr_view] += dist;
-
-		/* add to object volume */
-		prd->optr->o_len[state->curr_view] += dist;
-
+		/* add to object volume (optr may be NULL for unmapped regions) */
+		if (prd->optr)
+		    prd->optr->o_len[state->curr_view] += dist;
 		bu_semaphore_release(state->sem_worker);
 	    }
-	    if (state->debug) {
-		bu_semaphore_acquire(BU_SEM_GENERAL);
-		bu_vls_printf(state->debug_str, "\t\tvol hit %s oDist:%g objVol:%g %s\n",
-			      pp->pt_regionp->reg_name, dist, prd->optr->o_len[state->curr_view], prd->optr->o_name);
-		bu_semaphore_release(BU_SEM_GENERAL);
-	    }
-	    if (state->plot_volume) {
-		bu_semaphore_acquire(state->sem_plot);
-		if (ap->a_user & 1) {
-		    pl_color(state->plot_volume, 128, 255, 192);  /* pale green */
-		} else {
-		    pl_color(state->plot_volume, 128, 192, 255);  /* cyan */
+	    /* optional debug/plot output only for explicitly requested volume */
+	    if (state->analysis_flags & ANALYSIS_VOLUME) {
+		if (state->debug) {
+		    bu_semaphore_acquire(BU_SEM_GENERAL);
+		    bu_vls_printf(state->debug_str, "\t\tvol hit %s oDist:%g objVol:%g %s\n",
+				  pp->pt_regionp->reg_name, dist, prd->optr ? prd->optr->o_len[state->curr_view] : 0.0, prd->optr ? prd->optr->o_name : "?");
+		    bu_semaphore_release(BU_SEM_GENERAL);
 		}
-
-		pdv_3line(state->plot_volume, pt, opt);
-		bu_semaphore_acquire(state->sem_plot);
+		if (state->plot_volume) {
+		    bu_semaphore_acquire(state->sem_plot);
+		    if (ap->a_user & 1) {
+			pl_color(state->plot_volume, 128, 255, 192);  /* pale green */
+		    } else {
+			pl_color(state->plot_volume, 128, 192, 255);  /* cyan */
+		    }
+		    pdv_3line(state->plot_volume, pt, opt);
+		    bu_semaphore_release(state->sem_plot);
+		}
 	    }
 	}
 
@@ -625,14 +664,25 @@ mass_volume_surf_area_terminate_check(struct current_state *state)
 		bu_vls_printf(state->verbose_str, "\t%s running avg mass %g gram hi=(%g) low=(%g)\n", state->objs[obj].o_name, (tmp / state->num_views), hi, low );
 
 	    if (delta > state->mass_tolerance) {
-		/* this object differs too much in each view, so we
-		 * need to refine the grid. signal that we cannot
-		 * terminate.
-		 */
-		can_terminate = 0;
-		if (state->verbose)
-		    bu_vls_printf(state->verbose_str, "\t%s differs too much in mass per view.\n",
-			    state->objs[obj].o_name);
+		/* Absolute tolerance not met; check significant-digits criterion */
+		int digits_ok = 0;
+		if (state->required_digits > 0.0) {
+		    double avg = tmp / state->num_views;
+		    if (delta <= 0.0)
+			digits_ok = 1;
+		    else if (avg > 0.0)
+			digits_ok = (log10(avg / delta) >= state->required_digits);
+		}
+		if (!digits_ok) {
+		    /* this object differs too much in each view, so we
+		     * need to refine the grid. signal that we cannot
+		     * terminate.
+		     */
+		    can_terminate = 0;
+		    if (state->verbose)
+			bu_vls_printf(state->verbose_str, "\t%s differs too much in mass per view.\n",
+				state->objs[obj].o_name);
+		}
 	    }
 	}
 	if (can_terminate) {
@@ -667,13 +717,24 @@ mass_volume_surf_area_terminate_check(struct current_state *state)
 		bu_vls_printf(state->verbose_str, "\t%s running avg volume %g cu mm hi=(%g) low=(%g)\n", state->objs[obj].o_name, (tmp / state->num_views), hi, low);
 
 	    if (delta > state->volume_tolerance) {
-		/* this object differs too much in each view, so we
-		 * need to refine the grid.
-		 */
-		can_terminate = 0;
-		if (state->verbose)
-		    bu_vls_printf(state->verbose_str, "\tvolume tol not met on %s.  Refine grid\n", state->objs[obj].o_name);
-		break;
+		/* Absolute tolerance not met; check significant-digits criterion */
+		int digits_ok = 0;
+		if (state->required_digits > 0.0) {
+		    double avg = tmp / state->num_views;
+		    if (delta <= 0.0)
+			digits_ok = 1;
+		    else if (avg > 0.0)
+			digits_ok = (log10(avg / delta) >= state->required_digits);
+		}
+		if (!digits_ok) {
+		    /* this object differs too much in each view, so we
+		     * need to refine the grid.
+		     */
+		    can_terminate = 0;
+		    if (state->verbose)
+			bu_vls_printf(state->verbose_str, "\tvolume tol not met on %s.  Refine grid\n", state->objs[obj].o_name);
+		    break;
+		}
 	    }
 	}
     }
@@ -705,13 +766,24 @@ mass_volume_surf_area_terminate_check(struct current_state *state)
 		bu_vls_printf(state->verbose_str, "\t%s running avg surface area %g mm^2 hi=(%g) low=(%g)\n", state->objs[obj].o_name, (tmp / state->num_views), hi, low);
 
 	    if (delta > state->sa_tolerance) {
-		/* this object differs too much in each view, so we
-		 * need to refine the grid.
-		 */
-		can_terminate = 0;
-		if (state->verbose)
-		    bu_vls_printf(state->verbose_str, "\tsurface area tol not met on %s.  Refine grid\n", state->objs[obj].o_name);
-		break;
+		/* Absolute tolerance not met; check significant-digits criterion */
+		int digits_ok = 0;
+		if (state->required_digits > 0.0) {
+		    double avg = tmp / state->num_views;
+		    if (delta <= 0.0)
+			digits_ok = 1;
+		    else if (avg > 0.0)
+			digits_ok = (log10(avg / delta) >= state->required_digits);
+		}
+		if (!digits_ok) {
+		    /* this object differs too much in each view, so we
+		     * need to refine the grid.
+		     */
+		    can_terminate = 0;
+		    if (state->verbose)
+			bu_vls_printf(state->verbose_str, "\tsurface area tol not met on %s.  Refine grid\n", state->objs[obj].o_name);
+		    break;
+		}
 	    }
 	}
 
@@ -746,6 +818,20 @@ check_terminate(struct current_state *state)
     int wv_status;
     int view, obj;
 
+    /* --- Wall-clock timeout check ---
+     * This is tested before the (potentially expensive) convergence check
+     * so that the loop exits promptly when the budget is exhausted.
+     */
+    if (state->timeout_ms > 0) {
+	int64_t elapsed_us = bu_gettime() - state->start_time_us;
+	long elapsed_ms = (long)(elapsed_us / 1000);
+	if (elapsed_ms >= state->timeout_ms) {
+	    bu_log("NOTE: Stopped, timeout of %ld ms reached (elapsed %ld ms).\n",
+		   state->timeout_ms, elapsed_ms);
+	    return 0;
+	}
+    }
+
     /* this computation is done first, because there are side effects
      * that must be obtained whether we terminate or not
      */
@@ -762,6 +848,66 @@ check_terminate(struct current_state *state)
 	    if (state->verbose)
 		bu_vls_printf(state->verbose_str, "%s: Volume/mass tolerance met. Terminate\n", CPP_FILELINE);
 	    return 0; /* terminate */
+	}
+    }
+
+    /* --- Background volume convergence proxy ---
+     *
+     * When the caller only requested validation analyses (overlaps, air
+     * checks, etc.) without any quantitative analysis (V/M/SA), we use
+     * the background chord-length accumulation as a proxy for sampling
+     * adequacy.  Once the implied volume estimates agree across views to
+     * within 1% (or the required_digits criterion), we consider the
+     * sample density sufficient for the validation pass as well.
+     *
+     * Rationale: the probability of discovering a new overlap or air
+     * boundary on the next grid-refinement pass falls off as the grid
+     * spacing decreases, just as measurement variance falls off.  Using
+     * volume convergence as a halting signal is a conservative proxy
+     * that avoids an unbounded refinement loop when no explicit V/M/SA
+     * tolerance was supplied.
+     */
+    if (state->background_mv &&
+	!(state->analysis_flags & (ANALYSIS_MASS|ANALYSIS_VOLUME|ANALYSIS_SURF_AREA))) {
+
+	/* 1% relative spread as the default background proxy threshold */
+	static const double BG_REL_TOL = 0.01;
+	int bg_converged = 1;
+
+	for (obj = 0; obj < state->num_objects; obj++) {
+	    double low = INFINITY, hi = -INFINITY, tmp = 0.0;
+	    for (view = 0; view < state->num_views; view++) {
+		double val;
+		if (state->shots[view] == 0) continue;
+		val = state->objs[obj].o_len[view] *
+		    (state->area[view] / (double)state->shots[view]);
+		if (val < low) low = val;
+		if (val > hi)  hi  = val;
+		tmp += val;
+	    }
+	    if (state->num_views < 1) continue;
+
+	    double avg   = tmp / state->num_views;
+	    double delta = hi - low;
+
+	    /* Absolute relative test */
+	    if (avg > 0.0 && delta > avg * BG_REL_TOL) {
+		/* Not yet converged by relative tolerance; check digits */
+		int digits_ok = 0;
+		if (state->required_digits > 0.0 && delta > 0.0)
+		    digits_ok = (log10(avg / delta) >= state->required_digits);
+		if (!digits_ok) {
+		    bg_converged = 0;
+		    break;
+		}
+	    }
+	}
+
+	if (bg_converged) {
+	    if (state->verbose)
+		bu_vls_printf(state->verbose_str,
+			      "Background volume proxy converged; sampling adequate for validation.\n");
+	    return 0;
 	}
     }
     for (view=0; view < state->num_views; view++) {
@@ -1291,6 +1437,136 @@ shoot_rays(struct current_state *state)
 }
 
 
+/**
+ * shoot_rays_clustered - Focused overlap ray sampling over AABB clusters.
+ *
+ * Each cluster is a connected component of the region AABB-intersection graph
+ * (computed by analyze_cluster_overlapping_pairs()).  For each cluster this
+ * function:
+ *
+ *   1. Restricts rtip->mdl_min/max to the cluster's pre-computed pairwise
+ *      intersection-AABB union (isect_union_min / isect_union_max).
+ *   2. Computes a grid spacing appropriate for that volume (target: 50 cells
+ *      across the shortest axis, floored at gridSpacingLimit).
+ *   3. Runs one triple-grid pass of rays through the restricted volume.
+ *   4. Restores rtip->mdl_min/max and all derived state before the next cluster.
+ *
+ * Grouping pairs into clusters before shooting has two benefits over the older
+ * per-pair approach:
+ *   - N mutually-overlapping regions form one cluster → one pass instead of
+ *     O(N²) passes.
+ *   - The ray grid for each cluster still covers only the candidates relevant
+ *     to that cluster, keeping ray counts small for sparse models.
+ *
+ * The existing overlap callback (analyze_overlap) fires normally for any
+ * geometric overlap found within each sub-pass.
+ *
+ * Timeout is checked between clusters so callers can bound total runtime.
+ */
+static void
+shoot_rays_clustered(struct current_state *state, struct bu_ptbl *clusters)
+{
+    size_t k;
+    size_t nclusters = BU_PTBL_LEN(clusters);
+
+    /* Save the full-model state we temporarily replace per cluster. */
+    point_t saved_mdl_min, saved_mdl_max;
+    vect_t  saved_span;
+    double  saved_area[3];
+    double  saved_gridSpacing;
+
+    VMOVE(saved_mdl_min, state->rtip->mdl_min);
+    VMOVE(saved_mdl_max, state->rtip->mdl_max);
+    VMOVE(saved_span, state->span);
+    saved_area[0] = state->area[0];
+    saved_area[1] = state->area[1];
+    saved_area[2] = state->area[2];
+    saved_gridSpacing = state->gridSpacing;
+
+    state->grid->refine_flag = 1; /* indicate this is a focused pass */
+
+    for (k = 0; k < nclusters; k++) {
+	struct overlap_cluster *cl;
+	vect_t isect_span;
+	double min_span, cl_spacing, inv_spacing;
+	int view;
+	size_t nreg;
+
+	if (state->aborted)
+	    break;
+
+	/* Respect wall-clock timeout between clusters. */
+	if (state->timeout_ms > 0) {
+	    long elapsed_ms = (long)((bu_gettime() - state->start_time_us) / 1000);
+	    if (elapsed_ms >= state->timeout_ms) {
+		bu_log("NOTE: Clustered overlap scan: timeout of %ld ms reached "
+		       "after %zu of %zu clusters.\n",
+		       state->timeout_ms, k, nclusters);
+		break;
+	    }
+	}
+
+	cl = (struct overlap_cluster *)BU_PTBL_GET(clusters, k);
+	nreg = BU_PTBL_LEN(&cl->regions);
+
+	/* Guard against degenerate intersection volumes. */
+	VSUB2(isect_span, cl->isect_union_max, cl->isect_union_min);
+	if (isect_span[X] <= 0.0 || isect_span[Y] <= 0.0 || isect_span[Z] <= 0.0)
+	    continue;
+
+	/* Restrict the sampling grid to this cluster's intersection volume. */
+	VMOVE(state->rtip->mdl_min, cl->isect_union_min);
+	VMOVE(state->rtip->mdl_max, cl->isect_union_max);
+	VSUB2(state->span, cl->isect_union_max, cl->isect_union_min);
+	state->area[0] = state->span[1] * state->span[2];
+	state->area[1] = state->span[2] * state->span[0];
+	state->area[2] = state->span[0] * state->span[1];
+
+	/* Grid spacing: 50 cells across the shortest axis, >= gridSpacingLimit. */
+	min_span = state->span[X];
+	V_MIN(min_span, state->span[Y]);
+	V_MIN(min_span, state->span[Z]);
+	cl_spacing = min_span / 50.0;
+	if (cl_spacing < state->gridSpacingLimit)
+	    cl_spacing = state->gridSpacingLimit;
+
+	state->gridSpacing = cl_spacing;
+	inv_spacing = 1.0 / cl_spacing;
+	VSCALE(state->steps, state->span, inv_spacing);
+
+	bu_log("  Cluster %zu/%zu: %zu region(s), grid spacing %g mm, "
+	       "%ld x %ld x %ld cells\n",
+	       k + 1, nclusters, nreg, cl_spacing,
+	       (long)state->steps[0],
+	       (long)state->steps[1],
+	       (long)state->steps[2]);
+
+	/* Run one triple-grid pass over this cluster's intersection volume. */
+	for (view = 0; view < state->num_views; view++) {
+	    if (state->verbose)
+		bu_vls_printf(state->verbose_str, "    view %d\n", view);
+	    analyze_triple_grid_setup(view, state);
+	    bu_parallel(analyze_worker, state->ncpu, (void *)state);
+	    if (state->aborted)
+		break;
+	}
+    }
+
+    /* Restore full-model state. */
+    VMOVE(state->rtip->mdl_min, saved_mdl_min);
+    VMOVE(state->rtip->mdl_max, saved_mdl_max);
+    VMOVE(state->span, saved_span);
+    state->area[0] = saved_area[0];
+    state->area[1] = saved_area[1];
+    state->area[2] = saved_area[2];
+    state->gridSpacing = saved_gridSpacing;
+
+    if (state->verbose)
+	bu_vls_printf(state->verbose_str,
+		      "Clustered overlap scan done (%zu cluster(s)).\n", nclusters);
+}
+
+
 int
 perform_raytracing(struct current_state *state, struct db_i *dbip, char *names[], int num_objects, int flags)
 {
@@ -1301,6 +1577,11 @@ perform_raytracing(struct current_state *state, struct db_i *dbip, char *names[]
     struct resource resp[MAX_PSW];
     struct rectangular_grid grid;
     struct region_pair overlapList;
+
+    /* Per-cluster focused overlap sampling state (set in the prefilter block
+     * below; used in place of shoot_rays() when cluster-focused mode is active). */
+    struct bu_ptbl *pairwise_candidates_p = NULL;
+    int use_pairwise = 0;
 
     /* local copy for overlaps list to check later for hits */
     BU_LIST_INIT(&overlapList.l);
@@ -1336,9 +1617,122 @@ perform_raytracing(struct current_state *state, struct db_i *dbip, char *names[]
 
     rt_prep_parallel(rtip, state->ncpu);
 
+    /* Record start time for timeout enforcement in check_terminate() */
+    state->start_time_us = bu_gettime();
+
+    /* --- AABB overlap pre-filter with cluster-based focused sampling ---
+     *
+     * When the caller only wants overlap detection (no volume / mass /
+     * surface-area / gap / air checks), we avoid shooting rays over the
+     * entire model bounding box.  Instead:
+     *
+     *   1. Find all AABB-intersecting region pairs (R-Tree query).
+     *   2. Cluster the pairs into connected components of the AABB-
+     *      intersection graph (transitive-closure BFS, same algorithm
+     *      as gdiff's cluster_content()).  Dense sub-regions produce
+     *      large but few clusters; sparse models produce many small ones.
+     *   3. For each cluster, shoot a focused grid restricted to the union
+     *      of the cluster's pairwise intersection AABBs.
+     *
+     * This is strictly better than either the per-pair approach (which
+     * shoots O(pairs) passes) or the union-all approach (which shoots one
+     * large grid).  For N mutually-overlapping regions we get one pass
+     * instead of O(N²).
+     *
+     * Fall-back: when the number of clusters exceeds OV_CLUSTER_MAX (a
+     * very dense model), restrict rtip->mdl_min/max to the union of all
+     * cluster intersection volumes and run the normal shoot_rays() loop.
+     */
+    if ((flags & ANALYSIS_OVERLAPS) &&
+	!(flags & (ANALYSIS_VOLUME | ANALYSIS_MASS | ANALYSIS_SURF_AREA |
+		   ANALYSIS_GAP | ANALYSIS_EXP_AIR | ANALYSIS_ADJ_AIR |
+		   ANALYSIS_FIRST_AIR | ANALYSIS_LAST_AIR | ANALYSIS_UNCONF_AIR))) {
+
+	struct bu_ptbl raw_pairs;
+	int n_pairs = analyze_overlapping_region_pairs(rtip, &raw_pairs);
+
+	if (n_pairs > 0) {
+	    /* Cluster the raw pairs into connected components */
+	    pairwise_candidates_p =
+		(struct bu_ptbl *)bu_malloc(sizeof(struct bu_ptbl), "overlap clusters");
+	    int n_clusters = analyze_cluster_overlapping_pairs(&raw_pairs, pairwise_candidates_p);
+	    analyze_free_region_overlap_pairs(&raw_pairs);
+
+	    if (n_clusters > 0 && n_clusters <= OV_CLUSTER_MAX) {
+		/* Per-cluster focused sampling path */
+		bu_log("Overlap prefilter: %d candidate pair(s) → %d cluster(s) — "
+		       "using cluster-focused sampling.\n",
+		       n_pairs, n_clusters);
+		use_pairwise = 1;
+
+	    } else if (n_clusters > OV_CLUSTER_MAX) {
+		/* Dense-cluster fallback: union-bbox strategy */
+		size_t k;
+		point_t union_min, union_max;
+		VSETALL(union_min,  INFINITY);
+		VSETALL(union_max, -INFINITY);
+
+		for (k = 0; k < BU_PTBL_LEN(pairwise_candidates_p); k++) {
+		    struct overlap_cluster *cl =
+			(struct overlap_cluster *)BU_PTBL_GET(pairwise_candidates_p, k);
+		    VMIN(union_min, cl->isect_union_min);
+		    VMAX(union_max, cl->isect_union_max);
+		}
+		analyze_free_overlap_clusters(pairwise_candidates_p);
+		bu_free(pairwise_candidates_p, "overlap clusters");
+		pairwise_candidates_p = NULL;
+
+		{
+		    vect_t full_span, cand_span;
+		    double full_vol, cand_vol;
+		    VSUB2(full_span, rtip->mdl_max, rtip->mdl_min);
+		    VSUB2(cand_span, union_max, union_min);
+		    full_vol = full_span[X] * full_span[Y] * full_span[Z];
+		    cand_vol = cand_span[X] * cand_span[Y] * cand_span[Z];
+
+		    if (full_vol > 0.0 && cand_vol < full_vol * OV_PREFILTER_MIN_REDUCTION) {
+			bu_log("Overlap prefilter: %d cluster(s) (> %d threshold — "
+			       "very dense model), restricting grid to "
+			       "%.1f%% of model volume.\n",
+			       n_clusters, OV_CLUSTER_MAX,
+			       100.0 * cand_vol / full_vol);
+			VMOVE(rtip->mdl_min, union_min);
+			VMOVE(rtip->mdl_max, union_max);
+		    } else {
+			bu_log("Overlap prefilter: %d cluster(s) (> %d threshold — "
+			       "very dense model, union bbox not substantially "
+			       "smaller; using full grid).\n",
+			       n_clusters, OV_CLUSTER_MAX);
+		    }
+		}
+
+	    } else {
+		/* n_clusters <= 0: clustering failed; fall through to full grid */
+		bu_log("Overlap prefilter: clustering failed, using full model bbox.\n");
+		if (pairwise_candidates_p) {
+		    analyze_free_overlap_clusters(pairwise_candidates_p);
+		    bu_free(pairwise_candidates_p, "overlap clusters");
+		    pairwise_candidates_p = NULL;
+		}
+	    }
+
+	} else if (n_pairs == 0) {
+	    bu_log("Overlap prefilter: no AABB-intersecting region pairs — "
+		   "geometric overlaps are not possible.\n");
+	    bu_ptbl_free(&raw_pairs);
+	} else {
+	    /* n_pairs < 0: AABB query error; proceed with full bbox */
+	    bu_log("Overlap prefilter: AABB query failed, using full model bbox.\n");
+	}
+    }
+
     /* setup azimuth and elevation angles in case of single grid */
     if (state->use_single_grid && !state->use_view_information) {
 	if (analyze_setup_ae(state)) {
+	    if (pairwise_candidates_p) {
+		analyze_free_overlap_clusters(pairwise_candidates_p);
+		bu_free(pairwise_candidates_p, "overlap clusters");
+	    }
 	    rt_free_rti(rtip);
 	    rtip = NULL;
 	    return ANALYZE_ERROR;
@@ -1398,6 +1792,10 @@ perform_raytracing(struct current_state *state, struct db_i *dbip, char *names[]
 
     if (options_set(state) != ANALYZE_OK) {
 	bu_log("Couldn't set up the options correctly!\n");
+	if (pairwise_candidates_p) {
+	    analyze_free_overlap_clusters(pairwise_candidates_p);
+	    bu_free(pairwise_candidates_p, "overlap clusters");
+	}
 	return ANALYZE_ERROR;
     }
 
@@ -1407,7 +1805,22 @@ perform_raytracing(struct current_state *state, struct db_i *dbip, char *names[]
     state->sem_plot = bu_semaphore_register("analyze_sem_plot");
     allocate_region_data(state, names);
     grid.refine_flag = 0;
-    shoot_rays(state);
+
+    /* Cluster-focused sampling replaces the normal shoot_rays() loop for
+     * overlap-only analyses.  shoot_rays_clustered() processes each
+     * connected component of the AABB-intersection graph in isolation,
+     * restricting rays to just that cluster's intersection-volume union.
+     * For all other analyses (or when the cluster count exceeded
+     * OV_CLUSTER_MAX), the normal refinement loop in shoot_rays() is used.
+     */
+    if (use_pairwise && pairwise_candidates_p) {
+	shoot_rays_clustered(state, pairwise_candidates_p);
+	analyze_free_overlap_clusters(pairwise_candidates_p);
+	bu_free(pairwise_candidates_p, "overlap clusters");
+	pairwise_candidates_p = NULL;
+    } else {
+	shoot_rays(state);
+    }
 
     /* print any logs in main thread */
     bu_log("%s", bu_vls_strgrab(state->log_str));
@@ -1461,6 +1874,78 @@ perform_raytracing(struct current_state *state, struct db_i *dbip, char *names[]
 
     rt_free_rti(rtip);
     return ANALYZE_OK;
+}
+
+
+int
+analyze_bbox(struct db_i *dbip, char *names[], int num_objects,
+	     point_t bbox_min, point_t bbox_max)
+{
+    int i;
+    struct rt_i *rtip;
+
+    if (!dbip || !names || num_objects <= 0 || !bbox_min || !bbox_max)
+	return -1;
+
+    rtip = rt_new_rti(dbip);
+    if (!rtip)
+	return -1;
+
+    for (i = 0; i < num_objects; i++) {
+	if (rt_gettree(rtip, names[i]) < 0) {
+	    bu_log("analyze_bbox: failed to load '%s'\n", names[i]);
+	    rt_free_rti(rtip);
+	    return -1;
+	}
+    }
+
+    /* Prepare the space partition (needed to compute mdl_min/mdl_max).
+     * Use a single CPU; we are not shooting rays. */
+    rt_prep_parallel(rtip, 1);
+
+    VMOVE(bbox_min, rtip->mdl_min);
+    VMOVE(bbox_max, rtip->mdl_max);
+
+    rt_free_rti(rtip);
+    return 0;
+}
+
+
+void
+analyze_results_free(struct analyze_results *res)
+{
+    size_t i;
+
+    if (!res)
+	return;
+
+    if (res->regions) {
+	bu_free(res->regions, "analyze_results regions");
+	res->regions = NULL;
+    }
+
+    /* Free overlap / issue record lists */
+    for (i = 0; i < BU_PTBL_LEN(&res->overlaps); i++)
+	bu_free(BU_PTBL_GET(&res->overlaps, i), "analyze_overlap_record");
+    bu_ptbl_free(&res->overlaps);
+
+    for (i = 0; i < BU_PTBL_LEN(&res->gaps); i++)
+	bu_free(BU_PTBL_GET(&res->gaps, i), "analyze_overlap_record");
+    bu_ptbl_free(&res->gaps);
+
+    for (i = 0; i < BU_PTBL_LEN(&res->adj_air); i++)
+	bu_free(BU_PTBL_GET(&res->adj_air, i), "analyze_overlap_record");
+    bu_ptbl_free(&res->adj_air);
+
+    for (i = 0; i < BU_PTBL_LEN(&res->exp_air); i++)
+	bu_free(BU_PTBL_GET(&res->exp_air, i), "analyze_overlap_record");
+    bu_ptbl_free(&res->exp_air);
+
+    for (i = 0; i < BU_PTBL_LEN(&res->unconf_air); i++)
+	bu_free(BU_PTBL_GET(&res->unconf_air, i), "analyze_overlap_record");
+    bu_ptbl_free(&res->unconf_air);
+
+    bu_free(res, "analyze_results");
 }
 
 

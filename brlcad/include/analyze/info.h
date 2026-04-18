@@ -35,6 +35,198 @@
 
 __BEGIN_DECLS
 
+/* ======================================================================
+ * Public analysis-type flags for perform_raytracing() and analyze_run().
+ *
+ * These values are the canonical public identifiers for the analysis
+ * flags previously scattered across check_private.h and api.c.  Callers
+ * that invoke perform_raytracing() directly should use ANALYZE_* names;
+ * the legacy ANALYSIS_* aliases inside the library remain for internal
+ * compatibility but should not appear in new code.
+ * ====================================================================== */
+#define ANALYZE_VOLUME       0x0001  /**< volume computation */
+#define ANALYZE_CENTROIDS    0x0002  /**< centroid computation */
+#define ANALYZE_SURF_AREA    0x0004  /**< surface area computation */
+#define ANALYZE_MASS         0x0008  /**< mass / weight computation */
+#define ANALYZE_OVERLAPS     0x0010  /**< overlap detection */
+#define ANALYZE_MOMENTS      0x0020  /**< moments of inertia */
+#define ANALYZE_BOX          0x0040  /**< bounding box (reserved; computed separately) */
+#define ANALYZE_GAP          0x0080  /**< gap detection */
+#define ANALYZE_EXP_AIR      0x0100  /**< exposed air detection */
+#define ANALYZE_ADJ_AIR      0x0200  /**< adjacent air detection */
+#define ANALYZE_FIRST_AIR    0x0400  /**< first-air detection */
+#define ANALYZE_LAST_AIR     0x0800  /**< last-air detection */
+#define ANALYZE_UNCONF_AIR   0x1000  /**< unconfined air detection */
+#define ANALYZE_ALL          0x1FFF  /**< all raytracing-based analyses */
+
+/* ======================================================================
+ * Sampler type constants for struct analyze_config.
+ * ====================================================================== */
+/** Original three-axis aligned rectangular grid (legacy default). */
+#define ANALYZE_SAMPLER_TRIPLE_GRID  0
+/** Rectangular grid along an arbitrary direction (bias-reduction). */
+#define ANALYZE_SAMPLER_ROTATED      1
+/** Isotropic random sampling via Cauchy-Crofton formulae. */
+#define ANALYZE_SAMPLER_CROFTON      2
+/** Single-plane grid derived from an explicit eye / view specification. */
+#define ANALYZE_SAMPLER_VIEW_PLANE   3
+
+/* ======================================================================
+ * Session-based analysis API (new, forward-looking design).
+ *
+ * The preferred usage pattern is:
+ *
+ *   struct analyze_config cfg = ANALYZE_CONFIG_INIT_ZERO;
+ *   cfg.grid_spacing = 5.0;
+ *   cfg.ncpu = 0;   // 0 = all CPUs
+ *   ...
+ *   struct analyze_results *res = analyze_run(sess, dbip, names, n, ANALYZE_VOLUME | ANALYZE_MASS);
+ *   printf("volume = %g mm^3\n", res->total_volume);
+ *   analyze_results_free(res);
+ *
+ * This interface is being introduced alongside the existing
+ * perform_raytracing() / setter API to allow gradual migration without
+ * breaking existing callers.
+ * ====================================================================== */
+
+/**
+ * Zero-initialiser for struct analyze_config.
+ * All fields default to 0 / NULL which the library interprets as "auto".
+ */
+#define ANALYZE_CONFIG_INIT_ZERO \
+    { ANALYZE_SAMPLER_TRIPLE_GRID, 3, 0.0, 0.0, 0.0, 0.0, 1.0, 0, \
+      0.0, -1.0, -1.0, -1.0, NULL, 1, 0, 1, 0, NULL, 0, 0.0 }
+
+/**
+ * Configuration for a geometry analysis session.
+ *
+ * Zero-initialise with ANALYZE_CONFIG_INIT_ZERO and set only the fields
+ * that differ from the defaults; the library fills in sensible values for
+ * any field left at zero / NULL.
+ */
+struct analyze_config {
+    /* ---- Sampling ---- */
+    int    sampler;           /**< ANALYZE_SAMPLER_* constant (default: TRIPLE_GRID) */
+    int    num_views;         /**< views per refinement pass (default: 3) */
+    double azimuth_deg;       /**< azimuth for ROTATED / VIEW_PLANE sampler (degrees) */
+    double elevation_deg;     /**< elevation for ROTATED / VIEW_PLANE sampler (degrees) */
+    double grid_spacing;      /**< initial ray spacing in mm; 0 = auto-compute */
+    double grid_spacing_min;  /**< minimum ray spacing (refinement limit) in mm */
+    double aspect;            /**< cell width:height ratio (default 1.0) */
+    size_t n_crofton_rays;    /**< ray count for CROFTON sampler; 0 = library default */
+
+    /* ---- Convergence tolerances ---- */
+    double overlap_tol;       /**< minimum overlap depth to report, in mm */
+    double volume_tol;        /**< volume convergence tolerance in mm^3; -1 = disabled */
+    double mass_tol;          /**< mass convergence tolerance in g; -1 = disabled */
+    double surf_area_tol;     /**< surface-area convergence tolerance in mm^2; -1 = disabled */
+
+    /* ---- Material densities ---- */
+    const char *density_file; /**< path to density file; NULL = _DENSITIES from database */
+
+    /* ---- Execution ---- */
+    int    use_air;           /**< include air-coded regions (default 1) */
+    int    ncpu;              /**< parallel CPUs; 0 = use all available */
+    size_t required_hits;     /**< minimum ray hits per region to trust result (default 1) */
+
+    /* ---- Output ---- */
+    int    verbose;           /**< emit progress messages if non-zero */
+    struct bu_vls *log_str;   /**< destination for log output; NULL = standard error */
+
+    /* ---- Runtime limits ---- */
+    long   timeout_ms;        /**< wall-clock timeout in milliseconds; 0 = no limit.
+                                * When the limit is reached the loop terminates and
+                                * returns whatever results have been accumulated so far. */
+    double required_digits;   /**< required significant decimal digits of numerical
+                                * stability for convergence; 0 = disabled (use only
+                                * absolute tolerances).  For each analysis quantity Q
+                                * the criterion is: log10(Q_avg / Q_spread) >= required_digits.
+                                * Typical values: 2 (1% accuracy), 3 (0.1%), 4 (0.01%). */
+};
+
+
+/**
+ * Per-region result record returned inside struct analyze_results.
+ */
+struct analyze_region_result {
+    const char *name;     /**< region name (string owned by the rt_i) */
+    double volume;        /**< estimated volume in mm^3 */
+    double mass;          /**< estimated mass in grams */
+    double surf_area;     /**< estimated surface area in mm^2 */
+    unsigned long hits;   /**< number of ray-hits recorded */
+    point_t centroid;     /**< estimated centroid in model coordinates */
+};
+
+
+/**
+ * A detected overlap (or gap / air boundary) between two regions.
+ * Used in the bu_ptbl lists inside struct analyze_results.
+ */
+struct analyze_overlap_record {
+    const char *region1;     /**< first region name */
+    const char *region2;     /**< second region name (may be NULL for single-region events) */
+    unsigned long count;     /**< number of overlapping ray segments recorded */
+    double max_dist;         /**< maximum depth (mm) of the worst instance */
+    point_t coord;           /**< representative coordinate of the deepest overlap */
+};
+
+
+/**
+ * Container for all analysis results returned by analyze_run().
+ *
+ * Allocate via analyze_run(); release with analyze_results_free().
+ * Fields not requested via the flags argument of analyze_run() are
+ * left at their zero-initialised values.
+ */
+struct analyze_results {
+    /* ---- Global totals ---- */
+    double  total_volume;        /**< mm^3 */
+    double  total_mass;          /**< grams */
+    double  total_surf_area;     /**< mm^2 */
+    point_t centroid;            /**< model-space centroid */
+    mat_t   moments_of_inertia;  /**< 4x4 inertia tensor */
+    point_t bbox_min;            /**< axis-aligned bounding box minimum */
+    point_t bbox_max;            /**< axis-aligned bounding box maximum */
+
+    /* ---- Per-region details ---- */
+    struct analyze_region_result *regions; /**< array of n_regions entries */
+    size_t n_regions;
+
+    /* ---- Issue lists (each entry is struct analyze_overlap_record *) ---- */
+    struct bu_ptbl overlaps;   /**< geometric overlaps */
+    struct bu_ptbl gaps;       /**< gaps between solids */
+    struct bu_ptbl adj_air;    /**< adjacent differing-air regions */
+    struct bu_ptbl exp_air;    /**< exposed air (air before / after all solids) */
+    struct bu_ptbl unconf_air; /**< unconfined air */
+};
+
+
+/**
+ * Compute only the axis-aligned bounding box of the named objects.
+ *
+ * This is cheaper than a full analysis because no rays are shot; the
+ * function only performs tree preparation (rt_gettrees + rt_prep).
+ *
+ * @param dbip         open database instance
+ * @param names        NULL-terminated array of object name strings
+ * @param num_objects  number of entries in @p names
+ * @param bbox_min     output: model-space bounding box minimum (3 doubles)
+ * @param bbox_max     output: model-space bounding box maximum (3 doubles)
+ * @return 0 on success, -1 on error
+ */
+ANALYZE_EXPORT extern int
+analyze_bbox(struct db_i *dbip, char *names[], int num_objects,
+	     point_t bbox_min, point_t bbox_max);
+
+
+/**
+ * Free all memory owned by an analyze_results struct.
+ * The struct itself is also freed; the pointer must not be used afterwards.
+ */
+ANALYZE_EXPORT extern void
+analyze_results_free(struct analyze_results *res);
+
+
 /*
  *     Overlap specific structures
  */
@@ -58,6 +250,94 @@ ANALYZE_EXPORT extern struct region_pair *add_unique_pair(struct region_pair *li
 							  struct region *r1,
 							  struct region *r2,
 							  double dist, point_t pt);
+
+/**
+ * Region AABB overlap pair as returned by analyze_overlapping_region_pairs().
+ *
+ * r1 and r2 are a pair of regions whose bounding boxes intersect.
+ * isect_min / isect_max is the intersection AABB of their bounding boxes.
+ * Actual geometric overlaps, if any, must lie inside this volume.
+ */
+struct analyze_region_overlap_pair {
+    struct region *r1;
+    struct region *r2;
+    point_t isect_min;
+    point_t isect_max;
+};
+
+/**
+ * A cluster of mutually-reachable (via AABB overlap) regions.
+ *
+ * Clusters are the connected components of the AABB-intersection graph:
+ * nodes are regions, edges are AABB-intersecting pairs.  Two regions belong
+ * to the same cluster if and only if there is a path of AABB-intersecting
+ * pairs connecting them (transitive closure, same algorithm as gdiff's
+ * cluster_content()).
+ *
+ * isect_union_min / isect_union_max is the union of all pairwise intersection
+ * AABBs within this cluster.  Rays restricted to this volume are guaranteed
+ * to cover every candidate geometric overlap in the cluster.
+ *
+ * The regions bu_ptbl holds struct region* pointers; it is owned by the
+ * cluster and freed by analyze_free_overlap_clusters().
+ */
+struct overlap_cluster {
+    struct bu_ptbl regions;      /**< unique region pointers (struct region *) */
+    point_t isect_union_min;     /**< union of all pairwise intersection AABBs */
+    point_t isect_union_max;
+};
+
+/**
+ * Use an R-Tree to find all region pairs whose conservative axis-aligned
+ * bounding boxes intersect.
+ *
+ * This is a cheap pre-filter for overlap analysis.  The returned pairs are
+ * candidates only: their actual geometry may or may not overlap.  A subsequent
+ * ray-sampling pass restricted to each pair's isect_min/isect_max volume will
+ * conclusively confirm or deny the geometric overlap.
+ *
+ * @param rtip         a prepared rt_i (rt_prep_parallel() already called)
+ * @param result_pairs bu_ptbl to receive struct analyze_region_overlap_pair*
+ *                     pointers; must be uninitialised on entry (will be
+ *                     initialised by this function)
+ * @return number of candidate pairs found (>= 0), or -1 on error
+ */
+ANALYZE_EXPORT extern int
+analyze_overlapping_region_pairs(struct rt_i *rtip, struct bu_ptbl *result_pairs);
+
+/**
+ * Free memory allocated by analyze_overlapping_region_pairs().
+ * Calls bu_ptbl_free(pairs) internally.
+ */
+ANALYZE_EXPORT extern void
+analyze_free_region_overlap_pairs(struct bu_ptbl *pairs);
+
+/**
+ * Group AABB-intersecting region pairs into clusters via transitive closure.
+ *
+ * The clusters are the connected components of the pairwise AABB-intersection
+ * graph (nodes = regions, edges = AABB-intersecting pairs).  This is the same
+ * BFS-over-adjacency-list algorithm used by gdiff's cluster_content().
+ *
+ * Clustering reduces the number of focused ray-sampling passes from O(pairs)
+ * to O(clusters), which can be dramatically smaller when many regions mutually
+ * overlap in a dense sub-region of the model.
+ *
+ * @param pairs    bu_ptbl of struct analyze_region_overlap_pair* (input, owned
+ *                 by caller; this function does not free it)
+ * @param clusters bu_ptbl to receive struct overlap_cluster* pointers;
+ *                 must be uninitialised on entry
+ * @return number of clusters formed (>= 0), or -1 on error
+ */
+ANALYZE_EXPORT extern int
+analyze_cluster_overlapping_pairs(struct bu_ptbl *pairs, struct bu_ptbl *clusters);
+
+/**
+ * Free memory allocated by analyze_cluster_overlapping_pairs().
+ * Calls bu_ptbl_free(clusters) internally.
+ */
+ANALYZE_EXPORT extern void
+analyze_free_overlap_clusters(struct bu_ptbl *clusters);
 
 
 ANALYZE_EXPORT int
@@ -329,6 +609,36 @@ analyze_register_last_air_callback(struct current_state *context, last_air_callb
 
 ANALYZE_EXPORT extern void
 analyze_register_unconf_air_callback(struct current_state *context, unconf_air_callback_t callback_function, void* callback_data);
+
+/**
+ * Set a wall-clock timeout for the analysis.
+ *
+ * When the elapsed time since perform_raytracing() was called reaches
+ * @p timeout_ms milliseconds the grid-refinement loop terminates and
+ * returns whatever partially-converged results have been accumulated so
+ * far.  A value of 0 (the default) disables the timeout.
+ */
+ANALYZE_EXPORT extern void
+analyze_set_timeout(struct current_state *context, long timeout_ms);
+
+/**
+ * Set a significant-digit convergence criterion.
+ *
+ * When @p required_digits is positive, the grid-refinement loop stops
+ * as soon as every analysis quantity Q satisfies:
+ *
+ *   log10( Q_average / Q_spread ) >= required_digits
+ *
+ * where Q_spread is the max−min spread across the three (or more) views
+ * in the current pass.  This is an alternative to supplying absolute
+ * tolerance values via analyze_set_volume_tolerance() etc.
+ *
+ * Typical values: 2.0 (≈1% accuracy), 3.0 (0.1%), 4.0 (0.01%).
+ * A value of 0.0 (the default) disables this criterion and falls back
+ * to absolute tolerances.
+ */
+ANALYZE_EXPORT extern void
+analyze_set_required_digits(struct current_state *context, double required_digits);
 
 __END_DECLS
 
