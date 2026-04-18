@@ -23,127 +23,26 @@
 
 #include "common.h"
 #include "analyze.h"
+#include "analyze/units.h"
 
 __BEGIN_DECLS
 
 /**
- * This structure holds the name of a unit value, and the conversion
- * factor necessary to convert from/to BRL-CAD standard units.
- *
- * The standard units are millimeters, cubic millimeters, and grams.
- *
- * XXX this section should be extracted to libbu/units.c
+ * Alias the libanalyze shared conversion-table type for use within the
+ * check command sources.  Previously each tool defined its own identical
+ * struct; this single canonical definition lives in libanalyze/units.h.
  */
-struct cvt_tab {
-    double val;
-    char name[32];
-};
+typedef struct analyze_cvt_tab cvt_tab;
 
-
-static const struct cvt_tab units_tab[3][40] = {
-    {
-	/* length, stolen from bu/units.c with the "none" value
-	 * removed Values for converting from given units to mm
-	 */
-	{1.0,		"mm"}, /* default */
-	/* {0.0,		"none"}, */ /* this is removed to force a certain
-					     * amount of error checking for the user
-					     */
-	{1.0e-7,	"angstrom"},
-	{1.0e-7,	"decinanometer"},
-	{1.0e-6,	"nm"},
-	{1.0e-6,	"nanometer"},
-	{1.0e-3,	"um"},
-	{1.0e-3,	"micrometer"},
-	{1.0e-3,	"micron"},
-	{1.0,		"millimeter"},
-	{10.0,		"cm"},
-	{10.0,		"centimeter"},
-	{1000.0,	"m"},
-	{1000.0,	"meter"},
-	{1000000.0,	"km"},
-	{1000000.0,	"kilometer"},
-	{25.4,		"in"},
-	{25.4,		"inch"},
-	{25.4,		"inches"},		/* for plural */
-	{304.8,		"ft"},
-	{304.8,		"foot"},
-	{304.8,		"feet"},
-	{456.2,		"cubit"},
-	{914.4,		"yd"},
-	{914.4,		"yard"},
-	{5029.2,	"rd"},
-	{5029.2,	"rod"},
-	{1609344.0,	"mi"},
-	{1609344.0,	"mile"},
-	{1852000.0,	"nmile"},
-	{1852000.0,	"nautical mile"},
-	{1.495979e+14,	"AU"},
-	{1.495979e+14,	"astronomical unit"},
-	{9.460730e+18,	"lightyear"},
-	{3.085678e+19,	"pc"},
-	{3.085678e+19,	"parsec"},
-	{0.0,		""}			/* LAST ENTRY */
-    },
-    {
-	/* volume
-	 * Values for converting from given units to mm^3
-	 */
-	{1.0, "cu mm"}, /* default */
-
-	{1.0, "mm"},
-	{1.0, "mm^3"},
-
-	{1.0e3, "cm"},
-	{1.0e3, "cm^3"},
-	{1.0e3, "cu cm"},
-	{1.0e3, "cc"},
-
-	{1.0e6, "l"},
-	{1.0e6, "liter"},
-	{1.0e6, "litre"},
-
-	{1.0e9, "m"},
-	{1.0e9, "m^3"},
-	{1.0e9, "cu m"},
-
-	{16387.064, "in"},
-	{16387.064, "in^3"},
-	{16387.064, "cu in"},
-
-	{28316846.592, "ft"},
-
-	{28316846.592, "ft^3"},
-	{28316846.592, "cu ft"},
-
-	{764554857.984, "yds"},
-	{764554857.984, "yards"},
-	{764554857.984, "cu yards"},
-
-	{0.0,		""}			/* LAST ENTRY */
-    },
-    {
-	/* mass
-	 * Values for converting given units to grams
-	 */
-	{1.0, "grams"}, /* default */
-
-	{1.0, "g"},
-	{0.0648, "gr"},
-	{0.0648, "grains"},
-
-	{1.0e3, "kg"},
-	{1.0e3, "kilos"},
-	{1.0e3, "kilograms"},
-
-	{28.35, "oz"},
-	{28.35, "ounce"},
-
-	{453.6, "lb"},
-	{453.6, "lbs"},
-	{0.0,		""}			/* LAST ENTRY */
-    }
-};
+/**
+ * Shared unit-conversion tables (length / volume / mass) imported from
+ * libanalyze.  The analyze_units_tab extern is defined in
+ * src/libanalyze/units.c.
+ *
+ * Use the ANALYZE_UNITS_LENGTH / ANALYZE_UNITS_VOLUME / ANALYZE_UNITS_MASS
+ * index constants to select the correct row, or the local aliases below.
+ */
+#define units_tab  analyze_units_tab
 
 
 /* this table keeps track of the "current" or "user selected units and
@@ -174,7 +73,7 @@ struct check_parameters {
     fastf_t volume_tolerance;
     fastf_t mass_tolerance;
     fastf_t surf_area_tolerance;
-    const struct cvt_tab *units[3];
+    const cvt_tab *units[3];
     struct bu_vls *debug_str;
     struct bu_vls *verbose_str;
 };
@@ -197,11 +96,11 @@ add_to_list(struct regions_list *list,
 	    point_t pt);
 
 extern void
-print_list(struct ged *gedp, struct regions_list *list, const struct cvt_tab *units[3], char* name);
+print_list(struct ged *gedp, struct regions_list *list, const cvt_tab *units[3], char* name);
 
 extern void
 print_results_list(struct ged *gedp, struct bu_ptbl *tbl,
-		   const struct cvt_tab *const units[3], const char *label);
+		   const cvt_tab *const units[3], const char *label);
 
 extern void
 clear_list(struct regions_list *list);
