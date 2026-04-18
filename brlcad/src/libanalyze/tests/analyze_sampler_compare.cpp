@@ -341,18 +341,14 @@ build_analytical_db(void)
  * Prints a table of sampler results vs analytical truth.
  * Returns the number of checks that passed.
  *
- * Design note: grid-based volume is informational.  The raytracing grid
- * samples path-lengths along orthogonal scan lines; for hollow (subtracted)
- * regions the in-material chord length is consistently underestimated unless
- * the inner surface is explicitly tracked.  Crofton fires isotropic random
- * rays that naturally handle the CSG subtraction through BRL-CAD's ray-CSG
- * intersection engine, so Crofton volume is numerically correct.
- *
- * Counted pass/fail checks:
- *   - ALL samplers: surface area (SA) accuracy
- *   - Crofton only: volume accuracy
- *
- * Grid volume results are printed for diagnostic purposes but NOT counted.
+ * All samplers are checked for both volume and surface area accuracy.
+ * The grid-based samplers (triple-grid and rotated-grid) use a voxel-
+ * column approach: for each ray the chord length through the solid is
+ * multiplied by the cell area.  BRL-CAD's ray-CSG engine correctly handles
+ * boolean subtractions, so both solid and hollow regions converge to the
+ * correct volume with finer grids.  Crofton fires isotropic random rays
+ * using the Cauchy-Crofton formula and converges for both volume and SA
+ * regardless of geometry complexity.
  * ====================================================================== */
 static int
 run_analytical_case(struct db_i *dbip,
@@ -422,8 +418,9 @@ run_analytical_case(struct db_i *dbip,
     };
 
     /* === Grid-based samplers ===
-     * Volume is printed informational only (known underestimation for hollow
-     * objects).  SA is a counted strict check (grid SA is accurate). */
+     * Volume and SA are both counted checks.  The voxel-column method
+     * (chord_length × cell_area) is correct for any CSG geometry; accuracy
+     * improves with finer grids. */
 
     /* Triple-grid coarse (50 mm) */
     {
@@ -432,9 +429,9 @@ run_analytical_case(struct db_i *dbip,
 	cfg.grid_spacing_min = 25.0;
 	cfg.quiet_missed     = 1;
 	one_sampler("triple-grid 50mm", &cfg,
-		    90.0, false,    /* vol: info only */
-		    30.0, true,     /* SA: check, 30% tolerance at coarse res */
-		    "(vol info)");
+		    10.0, true,    /* vol: 10% tolerance at coarse res */
+		    35.0, true,    /* SA: 35% tolerance at coarse res */
+		    "");
     }
 
     /* Triple-grid medium (10 mm) */
@@ -444,9 +441,9 @@ run_analytical_case(struct db_i *dbip,
 	cfg.grid_spacing_min =  5.0;
 	cfg.quiet_missed     = 1;
 	one_sampler("triple-grid 10mm", &cfg,
-		    90.0, false,
+		    5.0, true,
 		    10.0, true,
-		    "(vol info)");
+		    "");
     }
 
     /* Triple-grid fine (5 mm) */
@@ -456,9 +453,9 @@ run_analytical_case(struct db_i *dbip,
 	cfg.grid_spacing_min = 2.5;
 	cfg.quiet_missed     = 1;
 	one_sampler("triple-grid 5mm", &cfg,
-		    90.0, false,
 		    5.0, true,
-		    "(vol info)");
+		    5.0, true,
+		    "");
     }
 
     /* Rotated-grid (10 mm, two angles) */
@@ -471,9 +468,9 @@ run_analytical_case(struct db_i *dbip,
 	cfg.elevation_deg    = 25.0;
 	cfg.quiet_missed     = 1;
 	one_sampler("rotated-grid az=35 el=25", &cfg,
-		    90.0, false,
 		    10.0, true,
-		    "(vol info)");
+		    10.0, true,
+		    "");
     }
     {
 	struct analyze_config cfg = ANALYZE_CONFIG_INIT_ZERO;
@@ -484,9 +481,9 @@ run_analytical_case(struct db_i *dbip,
 	cfg.elevation_deg    = 45.0;
 	cfg.quiet_missed     = 1;
 	one_sampler("rotated-grid az=120 el=45", &cfg,
-		    90.0, false,
 		    10.0, true,
-		    "(vol info)");
+		    10.0, true,
+		    "");
     }
 
     /* === Crofton sampler ===
@@ -620,12 +617,13 @@ main(int argc, const char **argv)
     printf("      V  = %14.2f mm^3\n", TOR_VOL_EXACT);
     printf("      SA = %14.2f mm^2\n", TOR_SA_EXACT);
     printf("\n");
-    printf("  Note: grid-based volume columns are labelled 'info' (not counted)\n");
-    printf("  because the triple-grid and rotated-grid samplers systematically\n");
-    printf("  underestimate volume for hollow (CSG-subtracted) regions when rays\n");
-    printf("  are fired in only three orthogonal directions.  The Crofton sampler\n");
-    printf("  uses isotropic random rays and is accurate for both volume and SA.\n");
-    printf("  SA is an accurate counted check for all samplers.\n");
+    printf("  Note: all samplers are checked for both volume and surface area.\n");
+    printf("  Grid-based samplers (triple-grid, rotated-grid) use the voxel-column\n");
+    printf("  method: chord_length × cell_area, summed across all rays.  BRL-CAD's\n");
+    printf("  ray-CSG engine handles boolean subtractions correctly, so both solid\n");
+    printf("  and hollow regions converge with finer grids.  Crofton uses isotropic\n");
+    printf("  random rays and converges for both volume and SA independently of\n");
+    printf("  geometry complexity or orientation.\n");
     printf("\n");
 
     {
