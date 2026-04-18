@@ -314,6 +314,10 @@ struct analyze_results {
     point_t bbox_min;            /**< axis-aligned bounding box minimum */
     point_t bbox_max;            /**< axis-aligned bounding box maximum */
 
+    /** Last grid spacing used before convergence (mm).
+     *  Valid for triple-grid and rotated samplers; 0 for Crofton. */
+    double  final_grid_spacing;
+
     /* ---- Per-input-object details ---- */
     struct analyze_object_result *objects; /**< array of n_objects entries */
     size_t n_objects;

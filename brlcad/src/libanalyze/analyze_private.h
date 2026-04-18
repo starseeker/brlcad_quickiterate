@@ -199,6 +199,11 @@ struct current_state {
      *  Set before calling perform_raytracing() to select the backend.  */
     int sampler;
 
+    /* ---- Rotated-grid sampler state ---- */
+    /** Pre-computed grids for up to 3 views (ANALYZE_SAMPLER_ROTATED).
+     *  Populated by shoot_rays_rotated() before each convergence pass. */
+    struct rotated_grid rot_grid[3];
+
     /* ---- Crofton-specific state ---- */
     /** Semaphore protecting crofton_crossings during parallel ray firing. */
     int sem_crofton;
