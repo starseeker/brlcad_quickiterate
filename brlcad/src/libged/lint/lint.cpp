@@ -323,13 +323,14 @@ extern "C" int
 ged_lint_core(struct ged *gedp, int argc, const char *argv[])
 {
     int ret = BRLCAD_OK;
-    static const char *usage = "Usage: lint [-h] [-v[v...]] [ -CMS ] [-F <filter>] [--raytrace] [obj1] [obj2] [...]\n";
+    static const char *usage = "Usage: lint [-h] [-v[v...]] [ -CMS ] [-F <filter>] [--raytrace [--perturb]] [obj1] [obj2] [...]\n";
     int print_help = 0;
     int verbosity = 0;
     int cyclic_check = 0;
     int missing_check = 0;
     int visualize = 0;
     int do_raytrace = 0;
+    int do_rt_perturb = 0;
     fastf_t ftol = VUNITIZE_TOL;
     fastf_t min_tri_area = 0.0;
     fastf_t rt_tol_pct = 0.10;
@@ -348,7 +349,7 @@ ged_lint_core(struct ged *gedp, int argc, const char *argv[])
     struct invalid_shape_methods imethods;
     imethods.im_techniques = &ldata.im_techniques;
 
-    struct bu_opt_desc d[14];
+    struct bu_opt_desc d[15];
     BU_OPT(d[ 0],  "h", "help",                              "",  NULL,              &print_help,           "Print help and exit");
     BU_OPT(d[ 1],  "v", "verbose",                           "",  &_ged_vopt,        &verbosity,            "Verbose output (multiple flags increase verbosity)");
     BU_OPT(d[ 2],  "C", "cyclic",                            "",  NULL,              &cyclic_check,         "Check for cyclic paths (combs whose children reference their parents - potential for infinite looping)");
@@ -362,7 +363,8 @@ ged_lint_core(struct ged *gedp, int argc, const char *argv[])
     BU_OPT(d[10],   "", "min-tri-area",                     "#",  &bu_opt_fastf_t,   &min_tri_area,         "Units are mm^2.  If specified, lint will not report any sampling problems where the seed triangle has < min-tri-area surface area (default is to report all problems).  Note that a miss of a problematically small triangle elsewhere in the shotline may still result in a shotlining error report - this filters only based on the first hit triangles.");
     BU_OPT(d[11],   "", "raytrace",                          "",  NULL,              &do_raytrace,          "Raytrace validation mode: compare Crofton ray-sampling SA/volume estimates against analytic formulas (leaf primitives) and facetized BoT meshes (combs).  Disables all other lint checks.");
     BU_OPT(d[12],   "", "raytrace-tol",                     "#",  &bu_opt_fastf_t,   &rt_tol_pct,           "Fractional tolerance for raytrace validation comparisons (default 0.10 = 10%).  Values closer to 0 are stricter.");
-    BU_OPT_NULL(d[13]);
+    BU_OPT(d[13],   "", "perturb",                           "",  NULL,              &do_rt_perturb,        "When used with --raytrace, facetize combs using the default perturbation pass instead of --no-perturb.  Mismatches that clear under --perturb are coplanar-face artifacts; persistent mismatches indicate modeling topology issues requiring geometry correction.");
+    BU_OPT_NULL(d[14]);
 
     /* skip command name argv[0] */
     argc-=(argc>0); argv+=(argc>0);
@@ -436,6 +438,7 @@ ged_lint_core(struct ged *gedp, int argc, const char *argv[])
     ldata.ftol = ftol;
     ldata.min_tri_area = min_tri_area;
     ldata.do_raytrace = (do_raytrace != 0);
+    ldata.rt_do_perturb = (do_rt_perturb != 0);
     ldata.rt_tol_pct = (double)rt_tol_pct;
 
     int have_specific_test = cyclic_check+missing_check+imethods.do_invalid;
