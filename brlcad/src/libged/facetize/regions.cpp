@@ -773,7 +773,13 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 		int vret = _validate_csg_vs_bot(s->dbip, dpw[0]->d_namep, wdbip, bu_vls_cstr(&bname),
 			perturb_sa_frac, perturb_vol_frac,
 			&sa_err_pct, &vol_err_pct);
+		if (vret == 1) {
+		    bu_log("FACETIZE: %s CSG vs BoT MATCH (SA_err=%.2f%% VOL_err=%.2f%%) - skipping perturb\n",
+			    dpw[0]->d_namep, sa_err_pct, vol_err_pct);
+		}
 		if (vret == 0) {
+		    bu_log("FACETIZE: %s CSG vs BoT MISMATCH (SA_err=%.2f%% VOL_err=%.2f%%) - triggering perturb\n",
+			    dpw[0]->d_namep, sa_err_pct, vol_err_pct);
 		    bool reopened_wdb = false;
 		    if (vplan && !variant_meshes_ready) {
 			if (!vplan->variant_names.empty())
@@ -826,6 +832,10 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 			    perturb_sa_frac, perturb_vol_frac,
 			    &sa_err2, &vol_err2);
 			if (perturb_dbip) db_close(perturb_dbip);
+			if (vret2 == 1) {
+			    bu_log("FACETIZE: %s perturbed CSG vs BoT MATCH (SA_err=%.2f%% VOL_err=%.2f%%) - perturb successful\n",
+				    dpw[0]->d_namep, sa_err2, vol_err2);
+			}
 			if (vret2 == 0) {
 			    bu_log("WARNING: FACETIZE persistent lint-style mismatch for %s after perturb retry (SA_err=%.2f%% VOL_err=%.2f%%)\n",
 				    dpw[0]->d_namep, sa_err2, vol_err2);
