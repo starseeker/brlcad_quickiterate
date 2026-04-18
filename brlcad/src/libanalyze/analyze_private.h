@@ -151,6 +151,21 @@ struct current_state {
     int aborted;
     char *densityFileName;
 
+    /* ---- Runtime halting controls ---- */
+    int64_t start_time_ms;  /**< bu_gettime() in µs at perform_raytracing() entry */
+    long    timeout_ms;     /**< 0 = no timeout; >0 = max wall-clock ms allowed */
+    double  required_digits;/**< 0 = disabled; else log10(avg/spread) convergence */
+
+    /**
+     * When non-zero (the default) chord lengths are accumulated into
+     * o_len[] / r_len[] for every partition even when ANALYSIS_VOLUME
+     * is not in analysis_flags.  These "background" accumulators cost
+     * essentially nothing (one add per partition) and allow
+     * check_terminate() to use volume convergence as a sampling proxy
+     * for validation-only analyses (overlaps, exposed air, etc.).
+     */
+    int     background_mv;
+
     FILE *plot_volume;
 
     struct bu_vls *log_str;

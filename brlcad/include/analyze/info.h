@@ -95,7 +95,7 @@ __BEGIN_DECLS
  */
 #define ANALYZE_CONFIG_INIT_ZERO \
     { ANALYZE_SAMPLER_TRIPLE_GRID, 3, 0.0, 0.0, 0.0, 0.0, 1.0, 0, \
-      0.0, -1.0, -1.0, -1.0, NULL, 1, 0, 1, 0, NULL }
+      0.0, -1.0, -1.0, -1.0, NULL, 1, 0, 1, 0, NULL, 0, 0.0 }
 
 /**
  * Configuration for a geometry analysis session.
@@ -132,6 +132,16 @@ struct analyze_config {
     /* ---- Output ---- */
     int    verbose;           /**< emit progress messages if non-zero */
     struct bu_vls *log_str;   /**< destination for log output; NULL = standard error */
+
+    /* ---- Runtime limits ---- */
+    long   timeout_ms;        /**< wall-clock timeout in milliseconds; 0 = no limit.
+                                * When the limit is reached the loop terminates and
+                                * returns whatever results have been accumulated so far. */
+    double required_digits;   /**< required significant decimal digits of numerical
+                                * stability for convergence; 0 = disabled (use only
+                                * absolute tolerances).  For each analysis quantity Q
+                                * the criterion is: log10(Q_avg / Q_spread) >= required_digits.
+                                * Typical values: 2 (1% accuracy), 3 (0.1%), 4 (0.01%). */
 };
 
 
@@ -550,6 +560,36 @@ analyze_register_last_air_callback(struct current_state *context, last_air_callb
 
 ANALYZE_EXPORT extern void
 analyze_register_unconf_air_callback(struct current_state *context, unconf_air_callback_t callback_function, void* callback_data);
+
+/**
+ * Set a wall-clock timeout for the analysis.
+ *
+ * When the elapsed time since perform_raytracing() was called reaches
+ * @p timeout_ms milliseconds the grid-refinement loop terminates and
+ * returns whatever partially-converged results have been accumulated so
+ * far.  A value of 0 (the default) disables the timeout.
+ */
+ANALYZE_EXPORT extern void
+analyze_set_timeout(struct current_state *context, long timeout_ms);
+
+/**
+ * Set a significant-digit convergence criterion.
+ *
+ * When @p required_digits is positive, the grid-refinement loop stops
+ * as soon as every analysis quantity Q satisfies:
+ *
+ *   log10( Q_average / Q_spread ) >= required_digits
+ *
+ * where Q_spread is the max−min spread across the three (or more) views
+ * in the current pass.  This is an alternative to supplying absolute
+ * tolerance values via analyze_set_volume_tolerance() etc.
+ *
+ * Typical values: 2.0 (≈1% accuracy), 3.0 (0.1%), 4.0 (0.01%).
+ * A value of 0.0 (the default) disables this criterion and falls back
+ * to absolute tolerances.
+ */
+ANALYZE_EXPORT extern void
+analyze_set_required_digits(struct current_state *context, double required_digits);
 
 __END_DECLS
 

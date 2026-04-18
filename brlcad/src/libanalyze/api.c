@@ -25,6 +25,7 @@
 
 #include "common.h"
 
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -32,6 +33,7 @@
 #include "raytrace.h"
 #include "vmath.h"
 #include "bu/parallel.h"
+#include "bu/time.h"
 
 #include "analyze.h"
 #include "./analyze_private.h"
@@ -316,37 +318,45 @@ analyze_hit(struct application *ap, struct partition *PartHeadp, struct seg *seg
 	    }
 	}
 
-	/* compute the volume of the object */
-	if (state->analysis_flags & ANALYSIS_VOLUME) {
+	/* compute the volume of the object.
+	 *
+	 * When state->background_mv is set we always accumulate chord
+	 * lengths into A_LEN / r_len / o_len even if ANALYSIS_VOLUME is
+	 * not in analysis_flags.  This is essentially free (one fp-add per
+	 * partition) and lets check_terminate() use volume convergence as
+	 * a proxy for "have we sampled densely enough?" when running
+	 * validation-only analyses (overlaps, air checks, etc.).
+	 */
+	if ((state->analysis_flags & ANALYSIS_VOLUME) || state->background_mv) {
 	    struct per_region_data *prd = ((struct per_region_data *)pp->pt_regionp->reg_udata);
-	    ap->A_LEN += dist; /* add to total volume */
+	    ap->A_LEN += dist; /* accumulate total chord length */
 	    {
 		bu_semaphore_acquire(state->sem_worker);
-
 		/* add to region volume */
 		prd->r_len[state->curr_view] += dist;
-
-		/* add to object volume */
-		prd->optr->o_len[state->curr_view] += dist;
-
+		/* add to object volume (optr may be NULL for unmapped regions) */
+		if (prd->optr)
+		    prd->optr->o_len[state->curr_view] += dist;
 		bu_semaphore_release(state->sem_worker);
 	    }
-	    if (state->debug) {
-		bu_semaphore_acquire(BU_SEM_GENERAL);
-		bu_vls_printf(state->debug_str, "\t\tvol hit %s oDist:%g objVol:%g %s\n",
-			      pp->pt_regionp->reg_name, dist, prd->optr->o_len[state->curr_view], prd->optr->o_name);
-		bu_semaphore_release(BU_SEM_GENERAL);
-	    }
-	    if (state->plot_volume) {
-		bu_semaphore_acquire(state->sem_plot);
-		if (ap->a_user & 1) {
-		    pl_color(state->plot_volume, 128, 255, 192);  /* pale green */
-		} else {
-		    pl_color(state->plot_volume, 128, 192, 255);  /* cyan */
+	    /* optional debug/plot output only for explicitly requested volume */
+	    if (state->analysis_flags & ANALYSIS_VOLUME) {
+		if (state->debug) {
+		    bu_semaphore_acquire(BU_SEM_GENERAL);
+		    bu_vls_printf(state->debug_str, "\t\tvol hit %s oDist:%g objVol:%g %s\n",
+				  pp->pt_regionp->reg_name, dist, prd->optr ? prd->optr->o_len[state->curr_view] : 0.0, prd->optr ? prd->optr->o_name : "?");
+		    bu_semaphore_release(BU_SEM_GENERAL);
 		}
-
-		pdv_3line(state->plot_volume, pt, opt);
-		bu_semaphore_acquire(state->sem_plot);
+		if (state->plot_volume) {
+		    bu_semaphore_acquire(state->sem_plot);
+		    if (ap->a_user & 1) {
+			pl_color(state->plot_volume, 128, 255, 192);  /* pale green */
+		    } else {
+			pl_color(state->plot_volume, 128, 192, 255);  /* cyan */
+		    }
+		    pdv_3line(state->plot_volume, pt, opt);
+		    bu_semaphore_release(state->sem_plot);
+		}
 	    }
 	}
 
@@ -625,14 +635,25 @@ mass_volume_surf_area_terminate_check(struct current_state *state)
 		bu_vls_printf(state->verbose_str, "\t%s running avg mass %g gram hi=(%g) low=(%g)\n", state->objs[obj].o_name, (tmp / state->num_views), hi, low );
 
 	    if (delta > state->mass_tolerance) {
-		/* this object differs too much in each view, so we
-		 * need to refine the grid. signal that we cannot
-		 * terminate.
-		 */
-		can_terminate = 0;
-		if (state->verbose)
-		    bu_vls_printf(state->verbose_str, "\t%s differs too much in mass per view.\n",
-			    state->objs[obj].o_name);
+		/* Absolute tolerance not met; check significant-digits criterion */
+		int digits_ok = 0;
+		if (state->required_digits > 0.0) {
+		    double avg = tmp / state->num_views;
+		    if (delta <= 0.0)
+			digits_ok = 1;
+		    else if (avg > 0.0)
+			digits_ok = (log10(avg / delta) >= state->required_digits);
+		}
+		if (!digits_ok) {
+		    /* this object differs too much in each view, so we
+		     * need to refine the grid. signal that we cannot
+		     * terminate.
+		     */
+		    can_terminate = 0;
+		    if (state->verbose)
+			bu_vls_printf(state->verbose_str, "\t%s differs too much in mass per view.\n",
+				state->objs[obj].o_name);
+		}
 	    }
 	}
 	if (can_terminate) {
@@ -667,13 +688,24 @@ mass_volume_surf_area_terminate_check(struct current_state *state)
 		bu_vls_printf(state->verbose_str, "\t%s running avg volume %g cu mm hi=(%g) low=(%g)\n", state->objs[obj].o_name, (tmp / state->num_views), hi, low);
 
 	    if (delta > state->volume_tolerance) {
-		/* this object differs too much in each view, so we
-		 * need to refine the grid.
-		 */
-		can_terminate = 0;
-		if (state->verbose)
-		    bu_vls_printf(state->verbose_str, "\tvolume tol not met on %s.  Refine grid\n", state->objs[obj].o_name);
-		break;
+		/* Absolute tolerance not met; check significant-digits criterion */
+		int digits_ok = 0;
+		if (state->required_digits > 0.0) {
+		    double avg = tmp / state->num_views;
+		    if (delta <= 0.0)
+			digits_ok = 1;
+		    else if (avg > 0.0)
+			digits_ok = (log10(avg / delta) >= state->required_digits);
+		}
+		if (!digits_ok) {
+		    /* this object differs too much in each view, so we
+		     * need to refine the grid.
+		     */
+		    can_terminate = 0;
+		    if (state->verbose)
+			bu_vls_printf(state->verbose_str, "\tvolume tol not met on %s.  Refine grid\n", state->objs[obj].o_name);
+		    break;
+		}
 	    }
 	}
     }
@@ -705,13 +737,24 @@ mass_volume_surf_area_terminate_check(struct current_state *state)
 		bu_vls_printf(state->verbose_str, "\t%s running avg surface area %g mm^2 hi=(%g) low=(%g)\n", state->objs[obj].o_name, (tmp / state->num_views), hi, low);
 
 	    if (delta > state->sa_tolerance) {
-		/* this object differs too much in each view, so we
-		 * need to refine the grid.
-		 */
-		can_terminate = 0;
-		if (state->verbose)
-		    bu_vls_printf(state->verbose_str, "\tsurface area tol not met on %s.  Refine grid\n", state->objs[obj].o_name);
-		break;
+		/* Absolute tolerance not met; check significant-digits criterion */
+		int digits_ok = 0;
+		if (state->required_digits > 0.0) {
+		    double avg = tmp / state->num_views;
+		    if (delta <= 0.0)
+			digits_ok = 1;
+		    else if (avg > 0.0)
+			digits_ok = (log10(avg / delta) >= state->required_digits);
+		}
+		if (!digits_ok) {
+		    /* this object differs too much in each view, so we
+		     * need to refine the grid.
+		     */
+		    can_terminate = 0;
+		    if (state->verbose)
+			bu_vls_printf(state->verbose_str, "\tsurface area tol not met on %s.  Refine grid\n", state->objs[obj].o_name);
+		    break;
+		}
 	    }
 	}
 
@@ -746,6 +789,20 @@ check_terminate(struct current_state *state)
     int wv_status;
     int view, obj;
 
+    /* --- Wall-clock timeout check ---
+     * This is tested before the (potentially expensive) convergence check
+     * so that the loop exits promptly when the budget is exhausted.
+     */
+    if (state->timeout_ms > 0) {
+	int64_t elapsed_us = bu_gettime() - state->start_time_ms;
+	long elapsed_ms = (long)(elapsed_us / 1000);
+	if (elapsed_ms >= state->timeout_ms) {
+	    bu_log("NOTE: Stopped, timeout of %ld ms reached (elapsed %ld ms).\n",
+		   state->timeout_ms, elapsed_ms);
+	    return 0;
+	}
+    }
+
     /* this computation is done first, because there are side effects
      * that must be obtained whether we terminate or not
      */
@@ -762,6 +819,66 @@ check_terminate(struct current_state *state)
 	    if (state->verbose)
 		bu_vls_printf(state->verbose_str, "%s: Volume/mass tolerance met. Terminate\n", CPP_FILELINE);
 	    return 0; /* terminate */
+	}
+    }
+
+    /* --- Background volume convergence proxy ---
+     *
+     * When the caller only requested validation analyses (overlaps, air
+     * checks, etc.) without any quantitative analysis (V/M/SA), we use
+     * the background chord-length accumulation as a proxy for sampling
+     * adequacy.  Once the implied volume estimates agree across views to
+     * within 1% (or the required_digits criterion), we consider the
+     * sample density sufficient for the validation pass as well.
+     *
+     * Rationale: the probability of discovering a new overlap or air
+     * boundary on the next grid-refinement pass falls off as the grid
+     * spacing decreases, just as measurement variance falls off.  Using
+     * volume convergence as a halting signal is a conservative proxy
+     * that avoids an unbounded refinement loop when no explicit V/M/SA
+     * tolerance was supplied.
+     */
+    if (state->background_mv &&
+	!(state->analysis_flags & (ANALYSIS_MASS|ANALYSIS_VOLUME|ANALYSIS_SURF_AREA))) {
+
+	/* 1% relative spread as the default background proxy threshold */
+	static const double BG_REL_TOL = 0.01;
+	int bg_converged = 1;
+
+	for (obj = 0; obj < state->num_objects; obj++) {
+	    double low = INFINITY, hi = -INFINITY, tmp = 0.0;
+	    for (view = 0; view < state->num_views; view++) {
+		double val;
+		if (state->shots[view] == 0) continue;
+		val = state->objs[obj].o_len[view] *
+		    (state->area[view] / (double)state->shots[view]);
+		if (val < low) low = val;
+		if (val > hi)  hi  = val;
+		tmp += val;
+	    }
+	    if (state->num_views < 1) continue;
+
+	    double avg   = tmp / state->num_views;
+	    double delta = hi - low;
+
+	    /* Absolute relative test */
+	    if (avg > 0.0 && delta > avg * BG_REL_TOL) {
+		/* Not yet converged by relative tolerance; check digits */
+		int digits_ok = 0;
+		if (state->required_digits > 0.0 && delta > 0.0)
+		    digits_ok = (log10(avg / delta) >= state->required_digits);
+		if (!digits_ok) {
+		    bg_converged = 0;
+		    break;
+		}
+	    }
+	}
+
+	if (bg_converged) {
+	    if (state->verbose)
+		bu_vls_printf(state->verbose_str,
+			      "Background volume proxy converged; sampling adequate for validation.\n");
+	    return 0;
 	}
     }
     for (view=0; view < state->num_views; view++) {
@@ -1335,6 +1452,84 @@ perform_raytracing(struct current_state *state, struct db_i *dbip, char *names[]
     }
 
     rt_prep_parallel(rtip, state->ncpu);
+
+    /* Record start time for timeout enforcement in check_terminate() */
+    state->start_time_ms = bu_gettime();
+
+    /* --- AABB overlap pre-filter ---
+     *
+     * When the caller only wants overlap detection (no volume / mass /
+     * surface-area / gap / air checks), we can restrict the ray grid to
+     * the union of the intersection AABBs of candidate region pairs
+     * rather than covering the entire model bounding box.  For sparse-
+     * overlap models this can reduce the number of rays by an order of
+     * magnitude or more.
+     *
+     * The pre-filter is a no-op when:
+     *   - other analyses are also requested (they need the full bbox), or
+     *   - no AABB-intersecting pairs exist (nothing can overlap), or
+     *   - the candidate union bbox would not substantially shrink the grid.
+     *
+     * Implementation note: we modify rtip->mdl_min/max *before* the span
+     * computation below so that state->span and state->steps are computed
+     * from the restricted bbox.  The tree itself was already prepared with
+     * the original bbox, so ray-solid intersection logic is unaffected.
+     */
+    if ((flags & ANALYSIS_OVERLAPS) &&
+	!(flags & (ANALYSIS_VOLUME | ANALYSIS_MASS | ANALYSIS_SURF_AREA |
+		   ANALYSIS_GAP | ANALYSIS_EXP_AIR | ANALYSIS_ADJ_AIR |
+		   ANALYSIS_FIRST_AIR | ANALYSIS_LAST_AIR | ANALYSIS_UNCONF_AIR))) {
+
+	struct bu_ptbl ov_candidates;
+	int n_cand = analyze_overlapping_region_pairs(rtip, &ov_candidates);
+
+	if (n_cand > 0) {
+	    /* Compute the union of all candidate pair intersection AABBs */
+	    point_t union_min, union_max;
+	    size_t k;
+	    VSETALL(union_min,  INFINITY);
+	    VSETALL(union_max, -INFINITY);
+
+	    for (k = 0; k < BU_PTBL_LEN(&ov_candidates); k++) {
+		struct analyze_region_overlap_pair *op =
+		    (struct analyze_region_overlap_pair *)BU_PTBL_GET(&ov_candidates, k);
+		VMIN(union_min, op->isect_min);
+		VMAX(union_max, op->isect_max);
+	    }
+	    analyze_free_region_overlap_pairs(&ov_candidates);
+
+	    /* Only restrict the bbox if the union is meaningfully smaller
+	     * than the full model volume (save at least 10%). */
+	    {
+		vect_t full_span, cand_span;
+		double full_vol, cand_vol;
+		VSUB2(full_span, rtip->mdl_max, rtip->mdl_min);
+		VSUB2(cand_span, union_max, union_min);
+		full_vol = full_span[X] * full_span[Y] * full_span[Z];
+		cand_vol = cand_span[X] * cand_span[Y] * cand_span[Z];
+
+		if (full_vol > 0.0 && cand_vol < full_vol * 0.9) {
+		    bu_log("Overlap prefilter: %d candidate pair(s), restricting grid to "
+			   "%.1f%% of model volume.\n",
+			   n_cand, 100.0 * cand_vol / full_vol);
+		    VMOVE(rtip->mdl_min, union_min);
+		    VMOVE(rtip->mdl_max, union_max);
+		} else {
+		    bu_log("Overlap prefilter: %d candidate pair(s) found "
+			   "(union bbox not substantially smaller; using full grid).\n",
+			   n_cand);
+		}
+	    }
+	} else if (n_cand == 0) {
+	    bu_log("Overlap prefilter: no AABB-intersecting region pairs — "
+		   "geometric overlaps are not possible.\n");
+	    /* Fall through; the normal raytrace pass will confirm zero overlaps. */
+	    bu_ptbl_free(&ov_candidates);
+	} else {
+	    /* n_cand < 0 means error; proceed with the full bbox */
+	    bu_log("Overlap prefilter: AABB query failed, using full model bbox.\n");
+	}
+    }
 
     /* setup azimuth and elevation angles in case of single grid */
     if (state->use_single_grid && !state->use_view_information) {
