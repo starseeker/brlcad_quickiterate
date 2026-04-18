@@ -1999,6 +1999,9 @@ perform_raytracing(struct current_state *state, struct db_i *dbip, char *names[]
 	}
 
 	bu_log("Crofton: firing %zu isotropic random rays.\n", n_crofton);
+	if (state->verbose)
+	    bu_vls_printf(state->verbose_str,
+			 "Crofton: firing %zu isotropic random rays.\n", n_crofton);
 	shoot_rays_crofton(state, n_crofton);
 
 	/* Fill in per-object mass/volume so the getter functions that read
@@ -2133,8 +2136,7 @@ struct ar_capture_ctx {
 
 /** Helper: look up an existing record by region1 name, or append a new one. */
 static struct analyze_overlap_record *
-ar_find_or_insert(struct ar_capture_ctx *ctx, struct bu_ptbl *tbl,
-		  const char *name1, const char *name2)
+ar_find_or_insert(struct bu_ptbl *tbl, const char *name1, const char *name2)
 {
     size_t i;
     struct analyze_overlap_record *rec;
@@ -2155,7 +2157,6 @@ ar_find_or_insert(struct ar_capture_ctx *ctx, struct bu_ptbl *tbl,
     rec->max_dist = 0.0;
     VSETALL(rec->coord, 0.0);
     bu_ptbl_ins(tbl, (long *)rec);
-    (void)ctx; /* suppress unused-parameter warning when sem is not used here */
     return rec;
 }
 
@@ -2168,7 +2169,7 @@ ar_overlap_cb(const struct xray *UNUSED(ray), const struct partition *UNUSED(pp)
     struct analyze_overlap_record *rec;
 
     bu_semaphore_acquire(ctx->sem);
-    rec = ar_find_or_insert(ctx, &ctx->res->overlaps,
+    rec = ar_find_or_insert(&ctx->res->overlaps,
 			    reg1->reg_name, reg2->reg_name);
     rec->count++;
     if (depth > rec->max_dist)
@@ -2185,7 +2186,7 @@ ar_gap_cb(const struct xray *UNUSED(ray), const struct partition *pp,
     const char *name = (pp && pp->pt_regionp) ? pp->pt_regionp->reg_name : "";
 
     bu_semaphore_acquire(ctx->sem);
-    rec = ar_find_or_insert(ctx, &ctx->res->gaps, name, NULL);
+    rec = ar_find_or_insert(&ctx->res->gaps, name, NULL);
     rec->count++;
     if (gap_dist > rec->max_dist) {
 	rec->max_dist = gap_dist;
@@ -2203,7 +2204,7 @@ ar_exp_air_cb(const struct partition *pp, point_t UNUSED(last_out),
     const char *name = (pp && pp->pt_regionp) ? pp->pt_regionp->reg_name : "";
 
     bu_semaphore_acquire(ctx->sem);
-    rec = ar_find_or_insert(ctx, &ctx->res->exp_air, name, NULL);
+    rec = ar_find_or_insert(&ctx->res->exp_air, name, NULL);
     rec->count++;
     if (pt) VMOVE(rec->coord, pt);
     bu_semaphore_release(ctx->sem);
@@ -2218,7 +2219,7 @@ ar_adj_air_cb(const struct xray *UNUSED(ray), const struct partition *pp,
     const char *name = (pp && pp->pt_regionp) ? pp->pt_regionp->reg_name : "";
 
     bu_semaphore_acquire(ctx->sem);
-    rec = ar_find_or_insert(ctx, &ctx->res->adj_air, name, NULL);
+    rec = ar_find_or_insert(&ctx->res->adj_air, name, NULL);
     rec->count++;
     VMOVE(rec->coord, pt);
     bu_semaphore_release(ctx->sem);
@@ -2234,7 +2235,7 @@ ar_first_air_cb(const struct xray *UNUSED(ray), const struct partition *pp,
     const char *name = (pp && pp->pt_regionp) ? pp->pt_regionp->reg_name : "";
 
     bu_semaphore_acquire(ctx->sem);
-    rec = ar_find_or_insert(ctx, &ctx->res->exp_air, name, NULL);
+    rec = ar_find_or_insert(&ctx->res->exp_air, name, NULL);
     rec->count++;
     bu_semaphore_release(ctx->sem);
 }
@@ -2249,7 +2250,7 @@ ar_last_air_cb(const struct xray *UNUSED(ray), const struct partition *pp,
     const char *name = (pp && pp->pt_regionp) ? pp->pt_regionp->reg_name : "";
 
     bu_semaphore_acquire(ctx->sem);
-    rec = ar_find_or_insert(ctx, &ctx->res->exp_air, name, NULL);
+    rec = ar_find_or_insert(&ctx->res->exp_air, name, NULL);
     rec->count++;
     bu_semaphore_release(ctx->sem);
 }
@@ -2264,7 +2265,7 @@ ar_unconf_air_cb(const struct xray *UNUSED(ray),
     const char *name = (in_p && in_p->pt_regionp) ? in_p->pt_regionp->reg_name : "";
 
     bu_semaphore_acquire(ctx->sem);
-    rec = ar_find_or_insert(ctx, &ctx->res->unconf_air, name, NULL);
+    rec = ar_find_or_insert(&ctx->res->unconf_air, name, NULL);
     rec->count++;
     bu_semaphore_release(ctx->sem);
 }
@@ -2323,10 +2324,8 @@ analyze_run(const struct analyze_config *cfg, struct db_i *dbip,
 	state->sampler      = cfg->sampler;
 	if (cfg->num_views > 0)
 	    state->num_views = cfg->num_views;
-	if (!ZERO(cfg->azimuth_deg))
-	    state->azimuth_deg = cfg->azimuth_deg;
-	if (!ZERO(cfg->elevation_deg))
-	    state->elevation_deg = cfg->elevation_deg;
+	state->azimuth_deg   = cfg->azimuth_deg;
+	state->elevation_deg = cfg->elevation_deg;
 	if (cfg->grid_spacing > 0.0)
 	    state->gridSpacing = cfg->grid_spacing;
 	if (cfg->grid_spacing_min > 0.0)
