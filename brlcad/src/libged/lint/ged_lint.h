@@ -72,6 +72,7 @@ class lint_data {
 
 	/* Raytrace validation mode (lint --raytrace) */
 	bool do_raytrace = false;
+	bool rt_do_perturb = false;  /**< when true, facetize without --no-perturb (tests default facetize behavior) */
 	double rt_tol_pct = 0.10;    /**< fractional tolerance for SA/vol comparison (0.10 = 10%) */
 	size_t rt_crofton_rays = 0;  /**< 0 = convergence-based (recommended); >0 = fixed ray count */
 };

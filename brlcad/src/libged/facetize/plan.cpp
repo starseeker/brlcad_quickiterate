@@ -348,6 +348,14 @@ create_variant_in_working_g(struct db_i       *wdbip,
 
 	fastf_t factor = variant_perturb_factor(src_name, is_sub, idx, bbox_diag);
 
+	bu_log("[PLAN_PERTURB] src=%s  role=%s  idx=%d  bbox_diag=%.4f  factor=%.6f mm  variant=%s\n",
+	       src_name.c_str(),
+	       is_sub ? "SUB" : "BASE",
+	       idx,
+	       (double)bbox_diag,
+	       (double)factor,
+	       vname.c_str());
+
 	struct rt_db_internal *var_intern = NULL;
 	int ret = OBJ[prim_type].ft_perturb(&var_intern, &src_intern, 0, factor);
 	rt_db_free_internal(&src_intern);

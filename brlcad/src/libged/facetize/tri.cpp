@@ -28,6 +28,7 @@
 #include <set>
 #include <vector>
 #include <algorithm>
+#include <cmath>
 #include <sstream>
 #include <iostream>
 #include <fstream>
@@ -37,6 +38,7 @@
 
 #include "manifold/manifold.h"
 
+#include "bg/trimesh.h"
 #include "bu/app.h"
 #include "bu/path.h"
 #include "bu/snooze.h"
@@ -45,6 +47,10 @@
 #include "./ged_facetize.h"
 #include "./tess_opts.h"
 #include "./subprocess.h"
+
+static const size_t FACETIZE_EMPTY_CHECK_CROFTON_RAYS = 800u;
+static const double FACETIZE_EMPTY_CHECK_REL_VOL_TOL = 1.0e-9;
+static const double FACETIZE_EMPTY_CHECK_ABS_VOL_TOL = 1.0e-12;
 
 static int
 bot_to_manifold(void **out, struct db_tree_state *tsp, struct rt_db_internal *ip, int flip)
@@ -145,6 +151,58 @@ static int bot_flipped(mat_t *m)
     return 0;
 }
 
+static double
+bot_bbox_volume(const struct rt_bot_internal *bot)
+{
+    if (!bot || !bot->vertices || bot->num_vertices < 1)
+	return 0.0;
+
+    point_t bmin, bmax;
+    VSETALL(bmin, INFINITY);
+    VSETALL(bmax, -INFINITY);
+    for (size_t i = 0; i < bot->num_vertices; i++) {
+	const double *v = &bot->vertices[3*i];
+	if (v[0] < bmin[0]) bmin[0] = v[0];
+	if (v[1] < bmin[1]) bmin[1] = v[1];
+	if (v[2] < bmin[2]) bmin[2] = v[2];
+	if (v[0] > bmax[0]) bmax[0] = v[0];
+	if (v[1] > bmax[1]) bmax[1] = v[1];
+	if (v[2] > bmax[2]) bmax[2] = v[2];
+    }
+
+    vect_t d;
+    VSUB2(d, bmax, bmin);
+    if (d[0] <= 0.0 || d[1] <= 0.0 || d[2] <= 0.0)
+	return 0.0;
+    return d[0] * d[1] * d[2];
+}
+
+static int
+csg_crofton_volume(struct db_i *dbip, const char *obj_name, double *out_vol)
+{
+    if (!dbip || !obj_name || !out_vol)
+	return BRLCAD_ERROR;
+
+    *out_vol = -1.0;
+    struct rt_i *rtip = rt_new_rti(dbip);
+    if (!rtip)
+	return BRLCAD_ERROR;
+    if (rt_gettree(rtip, obj_name) != 0) {
+	rt_free_rti(rtip);
+	return BRLCAD_ERROR;
+    }
+    rt_prep_parallel(rtip, 1);
+
+    double sa = 0.0, vol = 0.0;
+    struct rt_crofton_params crp = {FACETIZE_EMPTY_CHECK_CROFTON_RAYS, 0.0, 0.0};
+    int rc = rt_crofton_shoot(rtip, &crp, &sa, &vol);
+    rt_free_rti(rtip);
+    if (rc != 0)
+	return BRLCAD_ERROR;
+    *out_vol = vol;
+    return BRLCAD_OK;
+}
+
 // Customized version of rt_booltree_leaf_tess for Manifold processing
 static union tree *
 _booltree_leaf_tess(struct db_tree_state *tsp, const struct db_full_path *pathp, struct rt_db_internal *ip, void *data)
@@ -243,6 +301,20 @@ _booltree_leaf_tess(struct db_tree_state *tsp, const struct db_full_path *pathp,
     if (ts_status < 0) {
 	// If we failed, return TREE_NULL
 	return TREE_NULL;
+    }
+
+    /* Diagnostic: log leaf name, role, and mesh SA */
+    {
+	bool is_sub_ctx = (tsp->ts_sofar & TS_SOFAR_MINUS) != 0;
+	double leaf_sa = 0.0;
+	if (odata) {
+	    manifold::Manifold *lm = (manifold::Manifold *)odata;
+	    leaf_sa = lm->SurfaceArea();
+	}
+	bu_log("[LEAF_TESS] name=%-30s  role=%s  mesh_SA=%.6f mm^2\n",
+	       dp->d_namep,
+	       is_sub_ctx ? "SUB " : "BASE",
+	       leaf_sa);
     }
 
     BU_GET(curtree, union tree);
@@ -378,6 +450,13 @@ manifold_do_bool(
 	// We should have valid inputs - proceed
 	facetize_log(s, 1, "Trying boolean op:  %s, %s\n", tl->tr_d.td_name, tr->tr_d.td_name);
 
+	static const char *op_names[] = {"ADD","INTERSECT","SUBTRACT","ADD"};
+	int opidx = (op == OP_INTERSECT) ? 1 : (op == OP_SUBTRACT) ? 2 : 0;
+	bu_log("[BOOL_OP] %-8s L=%-30s SA=%.4f  R=%-30s SA=%.4f\n",
+	       op_names[opidx],
+	       tl->tr_d.td_name, lm->SurfaceArea(),
+	       tr->tr_d.td_name, rm->SurfaceArea());
+
 	manifold::Manifold bool_out;
 	try {
 	    bool_out = lm->Boolean(*rm, manifold_op);
@@ -397,6 +476,14 @@ manifold_do_bool(
 	    failed = 1;
 	}
 
+	if (!failed) {
+	    bu_log("[BOOL_OP] %-8s L=%-30s  R=%-30s  result_SA=%.4f\n",
+		   op_names[opidx],
+		   tl->tr_d.td_name, tr->tr_d.td_name,
+		   bool_out.SurfaceArea());
+	    result = new manifold::Manifold(bool_out);
+	}
+
 	// If we're debugging and need to capture OBJ meshes for "successful" cases can use GED_MANIFOLD_DEBUG env var.
 	const char *evar = getenv("GED_MANIFOLD_DEBUG");
 	if (evar && strlen(evar)) {
@@ -407,9 +494,6 @@ manifold_do_bool(
 	    lm->WriteOBJ(lofile); rm->WriteOBJ(rofile); bool_out.WriteOBJ(oofile);
 	    lofile.close(); rofile.close(); oofile.close();
 	}
-
-	if (!failed)
-	    result = new manifold::Manifold(bool_out);
     }
 
     // Memory cleanup
@@ -1186,6 +1270,13 @@ _ged_facetize_booleval_tri(struct _ged_facetize_state *s, struct db_i *dbip, str
 	    facetize_log(s, 0, "Boolean algorithm FAILED.\n");
 	    return BRLCAD_ERROR;
 	}
+
+	bu_log("[FINAL_BOOL] obj=%s  final_mesh_SA=%.6f mm^2  num_verts=%zu  num_faces=%zu\n",
+	       (argc > 0 && argv && argv[0]) ? argv[0] : "?",
+	       om->SurfaceArea(),
+	       (size_t)om->GetMeshGL64().vertProperties.size() / 3,
+	       (size_t)om->GetMeshGL64().triVerts.size() / 3);
+
 	manifold::MeshGL64 rmesh = om->GetMeshGL64();
 	struct rt_bot_internal *bot;
 	BU_GET(bot, struct rt_bot_internal);
@@ -1203,6 +1294,40 @@ _ged_facetize_booleval_tri(struct _ged_facetize_state *s, struct db_i *dbip, str
 	    bot->vertices[j] = rmesh.vertProperties[j];
 	for (size_t j = 0; j < rmesh.triVerts.size(); j++)
 	    bot->faces[j] = rmesh.triVerts[j];
+
+	/* Guard against near-zero perturb slivers: if the booleval mesh is tiny,
+	 * quickly Crofton-check the original CSG.  If CSG is effectively empty,
+	 * emit an empty BoT to match raytrace behavior. */
+	double bot_vol = 0.0;
+	if (bot->num_faces > 0 && bot->num_vertices > 0) {
+	    bot_vol = std::fabs(bg_trimesh_volume(bot->faces, bot->num_faces,
+						  (const point_t *)bot->vertices,
+						  bot->num_vertices));
+	}
+	double bbox_vol = bot_bbox_volume(bot);
+	bool tiny_bot = (bbox_vol > 0.0) ?
+	    (bot_vol <= bbox_vol * FACETIZE_EMPTY_CHECK_REL_VOL_TOL) :
+	    (bot_vol <= FACETIZE_EMPTY_CHECK_ABS_VOL_TOL);
+	bool is_single_input = (argc == 1 && argv && argv[0]);
+	bool has_csg_context = (s && s->dbip);
+	if (tiny_bot && is_single_input && has_csg_context) {
+	    double csg_vol = -1.0;
+	    if (csg_crofton_volume(s->dbip, argv[0], &csg_vol) == BRLCAD_OK) {
+		double csg_abs = std::fabs(csg_vol);
+		double csg_vtol = (bbox_vol > 0.0) ?
+		    (bbox_vol * FACETIZE_EMPTY_CHECK_REL_VOL_TOL) :
+		    FACETIZE_EMPTY_CHECK_ABS_VOL_TOL;
+		if (csg_abs <= csg_vtol) {
+		    rt_bot_internal_free(bot);
+		    bot->magic = RT_BOT_INTERNAL_MAGIC;
+		    bot->mode = RT_BOT_SOLID;
+		    bot->orientation = RT_BOT_CCW;
+		    bot->thickness = NULL;
+		    bot->face_mode = (struct bu_bitv *)NULL;
+		    bot->bot_flags = 0;
+		}
+	    }
+	}
 	delete om;
 	ftree->tr_d.td_d = NULL;
 
