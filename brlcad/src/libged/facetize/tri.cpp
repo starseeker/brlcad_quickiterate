@@ -48,6 +48,10 @@
 #include "./tess_opts.h"
 #include "./subprocess.h"
 
+static const size_t FACETIZE_EMPTY_CHECK_CROFTON_RAYS = 800u;
+static const double FACETIZE_EMPTY_CHECK_REL_VOL_TOL = 1.0e-9;
+static const double FACETIZE_EMPTY_CHECK_ABS_VOL_TOL = 1.0e-12;
+
 static int
 bot_to_manifold(void **out, struct db_tree_state *tsp, struct rt_db_internal *ip, int flip)
 {
@@ -190,7 +194,7 @@ csg_crofton_volume(struct db_i *dbip, const char *obj_name, double *out_vol)
     rt_prep_parallel(rtip, 1);
 
     double sa = 0.0, vol = 0.0;
-    struct rt_crofton_params crp = {800u, 0.0, 0.0};
+    struct rt_crofton_params crp = {FACETIZE_EMPTY_CHECK_CROFTON_RAYS, 0.0, 0.0};
     int rc = rt_crofton_shoot(rtip, &crp, &sa, &vol);
     rt_free_rti(rtip);
     if (rc != 0)
@@ -1268,14 +1272,16 @@ _ged_facetize_booleval_tri(struct _ged_facetize_state *s, struct db_i *dbip, str
 						  bot->num_vertices));
 	}
 	double bbox_vol = bot_bbox_volume(bot);
-	const double rel_vtol = 1.0e-9;
-	const double abs_vtol = 1.0e-12;
-	bool tiny_bot = (bbox_vol > 0.0) ? (bot_vol <= bbox_vol * rel_vtol) : (bot_vol <= abs_vtol);
+	bool tiny_bot = (bbox_vol > 0.0) ?
+	    (bot_vol <= bbox_vol * FACETIZE_EMPTY_CHECK_REL_VOL_TOL) :
+	    (bot_vol <= FACETIZE_EMPTY_CHECK_ABS_VOL_TOL);
 	if (tiny_bot && argc == 1 && argv && argv[0] && s && s->dbip) {
 	    double csg_vol = -1.0;
 	    if (csg_crofton_volume(s->dbip, argv[0], &csg_vol) == BRLCAD_OK) {
 		double csg_abs = std::fabs(csg_vol);
-		double csg_vtol = (bbox_vol > 0.0) ? (bbox_vol * rel_vtol) : abs_vtol;
+		double csg_vtol = (bbox_vol > 0.0) ?
+		    (bbox_vol * FACETIZE_EMPTY_CHECK_REL_VOL_TOL) :
+		    FACETIZE_EMPTY_CHECK_ABS_VOL_TOL;
 		if (csg_abs <= csg_vtol) {
 		    if (bot->vertices) free(bot->vertices);
 		    if (bot->faces) free(bot->faces);

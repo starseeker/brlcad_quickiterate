@@ -104,6 +104,8 @@ struct obj_rt_info {
     double vol_err_pct  = -1.0;
 };
 
+static const double EMPTY_METRIC_TOL = 1.0e-9;
+
 /* ---------------------------------------------------------------------- */
 /* Tree-walk helpers                                                       */
 /* ---------------------------------------------------------------------- */
@@ -562,9 +564,9 @@ check_comb(lint_data *ldata, struct directory *dp,
     jentry["bot_vol"] = bvol;
 
     /* Empty reference BoT (empty CSG result) needs dedicated handling. */
-    const double ztol = 1.0e-9;
-    if (std::fabs(bsa) <= ztol && std::fabs(bvol) <= ztol) {
-	bool csg_empty = (std::fabs(csa) <= ztol && std::fabs(cvol) <= ztol);
+    if (std::fabs(bsa) <= EMPTY_METRIC_TOL && std::fabs(bvol) <= EMPTY_METRIC_TOL) {
+	bool csg_empty = (std::fabs(csa) <= EMPTY_METRIC_TOL &&
+			  std::fabs(cvol) <= EMPTY_METRIC_TOL);
 	info.sa_err_pct  = csg_empty ? 0.0 : 100.0;
 	info.vol_err_pct = csg_empty ? 0.0 : 100.0;
 	jentry["sa_err_pct"]  = info.sa_err_pct;

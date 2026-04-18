@@ -517,7 +517,7 @@ tc4_child_blocks_parent(void)
 }
 
 /* ------------------------------------------------------------------ */
-/* TC5 – empty comb should be valid                                   */
+/* TC5 - empty comb should be valid                                   */
 /* ------------------------------------------------------------------ */
 static int
 tc5_empty_comb_valid(void)
