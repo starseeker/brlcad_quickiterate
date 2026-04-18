@@ -331,7 +331,19 @@ struct analyze_results {
     struct bu_ptbl gaps;       /**< gaps between solids */
     struct bu_ptbl adj_air;    /**< adjacent differing-air regions */
     struct bu_ptbl exp_air;    /**< exposed air (air before / after all solids) */
+    struct bu_ptbl first_air;  /**< first-air: ray enters air before any solid */
+    struct bu_ptbl last_air;   /**< last-air: ray exits air after all solids */
     struct bu_ptbl unconf_air; /**< unconfined air */
+
+    /* ---- Result capability / confidence metadata ---- */
+    /** Sampler that produced this result: one of the ANALYZE_SAMPLER_* constants.
+     *  Set to ANALYZE_SAMPLER_TRIPLE_GRID if analyze_run() was not used. */
+    int sampler_type;
+
+    /** Non-zero when the scalar metrics (volume, mass, SA, centroid, moments)
+     *  are ray-based stochastic estimates rather than exact analytical values.
+     *  Always 1 for ray-traced results; 0 for the bbox-only code path. */
+    int is_stochastic;
 };
 
 

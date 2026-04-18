@@ -95,42 +95,35 @@ check_show_help(struct ged *gedp)
  * 1 Failure
  * 0 Success
  */
+/**
+ * read_units_double - thin wrapper around the shared libbu unit parser.
+ *
+ * Forwards errors to gedp->ged_result_str.  Call sites in parse_check_args()
+ * and elsewhere continue to compile without change.
+ */
 static int
-read_units_double(struct ged *gedp, double *val, char *buf, const struct cvt_tab *cvt)
+read_units_double(struct ged *gedp, double *val, char *buf, const cvt_tab *cvt)
 {
-    double a;
-#define UNITS_STRING_SZ 256
-    char units_string[UNITS_STRING_SZ+1] = {0};
-    int i;
+    return bu_units_parse_double(gedp->ged_result_str, val, buf, cvt);
+}
 
 
-    i = sscanf(buf, "%lg" CPP_SCAN(UNITS_STRING_SZ), &a, units_string);
-
-    if (i < 0) return 1;
-
-    if (i == 1) {
-	*val = a;
-
-	return 0;
-    }
-    if (i == 2) {
-	*val = a;
-	for (; cvt->name[0] != '\0';) {
-	    if (!bu_strncmp(cvt->name, units_string, sizeof(units_string))) {
-		goto found_units;
-	    } else {
-		cvt++;
-	    }
-	}
-	bu_vls_printf(gedp->ged_result_str, "Bad units specifier \"%s\" on value \"%s\"\n", units_string, buf);
-	return 1;
-
-    found_units:
-	*val = a * cvt->val;
-	return 0;
-    }
-    bu_vls_printf(gedp->ged_result_str, "%s sscanf problem on \"%s\" got %d\n", CPP_FILELINE, buf, i);
-    return 1;
+/**
+ * Translate a bare length-unit name to its cubic equivalent for the volume
+ * table.  Preserves the historical check "-u ,m," convention (meaning m^3)
+ * without polluting the public libbu volume table with length-unit aliases.
+ */
+static const char *
+check_vol_unit_name(const char *name)
+{
+    if (BU_STR_EQUAL(name, "mm"))    return "mm^3";
+    if (BU_STR_EQUAL(name, "cm"))    return "cm^3";
+    if (BU_STR_EQUAL(name, "m"))     return "m^3";
+    if (BU_STR_EQUAL(name, "in"))    return "in^3";
+    if (BU_STR_EQUAL(name, "ft"))    return "ft^3";
+    if (BU_STR_EQUAL(name, "yd") || BU_STR_EQUAL(name, "yds") || BU_STR_EQUAL(name, "yards"))
+	return "yds^3";
+    return name;
 }
 
 
@@ -340,7 +333,7 @@ parse_check_args(struct ged *gedp, int ac, char *av[], struct check_parameters* 
 		{
 		    int i;
 		    char *ptr = bu_optarg;
-		    const struct cvt_tab *cv;
+		    const cvt_tab *cv;
 		    static const char *dim[3] = {"length", "volume", "mass"};
 		    char *units_name[3] = {NULL, NULL, NULL};
 		    char **units_ap;
@@ -351,6 +344,7 @@ parse_check_args(struct ged *gedp, int ac, char *av[], struct check_parameters* 
 		    /* acquire unit names */
 		    for (i = 0; i < 3 && ptr; i++) {
 			int found_unit;
+			const char *lookup_name;
 
 			if (i == 0) {
 			    *units_ap = strtok(ptr, CPP_XSTR(COMMA));
@@ -362,10 +356,13 @@ parse_check_args(struct ged *gedp, int ac, char *av[], struct check_parameters* 
 			if (*units_ap == NULL)
 			    break;
 
+			/* translate bare length names to cubic equivalents for volume */
+			lookup_name = (i == VOL) ? check_vol_unit_name(units_name[i]) : units_name[i];
+
 			/* got something valid? */
 			found_unit = 0;
 			for (cv = &units_tab[i][0]; cv->name[0] != '\0'; cv++) {
-			    if (units_name[i] && BU_STR_EQUAL(cv->name, units_name[i])) {
+			    if (lookup_name && BU_STR_EQUAL(cv->name, lookup_name)) {
 				options->units[i] = cv;
 				found_unit = 1;
 				break;
@@ -451,7 +448,7 @@ add_to_list(struct regions_list *list,
 
 
 void
-print_list(struct ged *gedp, struct regions_list *list, const struct cvt_tab *units[3], char* name)
+print_list(struct ged *gedp, struct regions_list *list, const cvt_tab *units[3], char* name)
 {
     struct regions_list *rp;
 
@@ -482,7 +479,7 @@ print_list(struct ged *gedp, struct regions_list *list, const struct cvt_tab *un
  */
 void
 print_results_list(struct ged *gedp, struct bu_ptbl *tbl,
-		   const struct cvt_tab *const units[3], const char *label)
+		   const cvt_tab *const units[3], const char *label)
 {
     size_t i;
 
@@ -708,7 +705,7 @@ int ged_check_core(struct ged *gedp, int argc, const char *argv[])
     const char *check_subcommands[] = {"adj_air", "bbox", "centroid", "exp_air", "gap",
 				       "mass", "moments", "overlaps", "surf_area",
 				       "unconf_air", "volume", NULL};
-    const struct cvt_tab *units[3] = {
+    const cvt_tab *units[3] = {
 	&units_tab[0][0],	/* linear */
 	&units_tab[1][0],	/* volume */
 	&units_tab[2][0]	/* mass */
