@@ -156,7 +156,7 @@ bot_bbox_volume(const struct rt_bot_internal *bot)
     point_t bmin, bmax;
     VSETALL(bmin, INFINITY);
     VSETALL(bmax, -INFINITY);
-    for (int i = 0; i < bot->num_vertices; i++) {
+    for (size_t i = 0; i < bot->num_vertices; i++) {
 	const double *v = &bot->vertices[3*i];
 	if (v[0] < bmin[0]) bmin[0] = v[0];
 	if (v[1] < bmin[1]) bmin[1] = v[1];
