@@ -2848,7 +2848,10 @@ ged_gqa_core(struct ged *gedp, int argc, const char *argv[])
 
 	ar_res = analyze_run(&cfg, gedp->dbip, names, n_objs, ar_flags);
 	if (!ar_res) {
-	    bu_vls_printf(gedp->ged_result_str, "Crofton analysis failed.\n");
+	    bu_vls_printf(gedp->ged_result_str,
+			  "Crofton analysis failed (analyze_run returned NULL).\n"
+			  "Check that the objects exist in the database and that "
+			  "a density file is available when mass was requested.\n");
 	} else {
 	    bu_vls_printf(gedp->ged_result_str, "\n=== Crofton Analysis ===\n");
 
