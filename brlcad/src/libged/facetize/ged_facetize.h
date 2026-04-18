@@ -154,6 +154,18 @@ struct FacetizeVariantPlan {
     /** Variant primitive names that still need NMG tessellation. */
     std::vector<std::string> variant_names;
 
+    /**
+     * Per-variant reconstruction record.
+     * Used at Pass 2 validation time to recreate the perturbed CSG in an
+     * in-memory database (from the original s->dbip primitives) so that
+     * Crofton operates on true parametric geometry, not BoTs.
+     */
+    struct VariantRec {
+        std::string src_name;  /**< primitive name in s->dbip to perturb from */
+        fastf_t     factor;    /**< perturbation factor actually applied */
+    };
+    std::map<std::string, VariantRec> variant_recs;  /**< vname → rec */
+
     /* Reporting counters */
     int n_adjusted_instances;    /**< instances with a variant assigned */
     int n_sub_variants;          /**< subtractive instances with a variant */
