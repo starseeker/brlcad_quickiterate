@@ -104,7 +104,7 @@ check_show_help(struct ged *gedp)
 static int
 read_units_double(struct ged *gedp, double *val, char *buf, const cvt_tab *cvt)
 {
-    return analyze_parse_units_double(gedp->ged_result_str, val, buf, cvt);
+    return bu_units_parse_double(gedp->ged_result_str, val, buf, cvt);
 }
 
 

@@ -43,11 +43,11 @@
 
 #include "bu/parallel.h"
 #include "bu/getopt.h"
+#include "bu/units.h"
 #include "vmath.h"
 #include "raytrace.h"
 #include "bv/plot3.h"
 #include "analyze.h"
-#include "analyze/units.h"
 
 #include "../ged_private.h"
 
@@ -83,12 +83,12 @@ const char *options_str = "[-A A|a|b|c|e|g|m|o|p|s|v|w] [-a az] [-d] [-e el] [-f
 #define DLOG if (state->debug) bu_vls_printf
 
 /**
- * Alias the libanalyze shared conversion-table type and table so that the
+ * Alias the libbu unit-conversion table type and table so that the
  * struct cstate field 'units' and parse_args() code (which refer to cvt_tab
  * and units_tab) continue to compile without further change.
  */
-typedef struct analyze_cvt_tab cvt_tab;
-#define units_tab analyze_units_tab
+typedef struct bu_cvt_tab cvt_tab;
+#define units_tab bu_units_tab
 
 /* this table keeps track of the "current" or "user selected units and
  * the associated conversion values
@@ -152,21 +152,21 @@ struct cstate {
 
 /* Default units (also initialised per-invocation in ged_gqa_core) */
 static const cvt_tab * const units_tab_defaults[3] = {
-    &analyze_units_tab[0][0],	/* linear */
-    &analyze_units_tab[1][0],	/* volume */
-    &analyze_units_tab[2][0]	/* weight */
+    bu_units_tab[BU_UNITS_LENGTH],	/* linear */
+    bu_units_tab[BU_UNITS_VOLUME],	/* volume */
+    bu_units_tab[BU_UNITS_MASS]		/* weight */
 };
 
 /**
  * Thin wrapper around analyze_parse_units_double() that forwards error
  * messages to gedp->ged_result_str.  The parse_args() body uses
  * _gqa_read_units_double() by name; this bridges the old call sites to the
- * shared libanalyze implementation.
+ * shared libbu implementation.
  */
 static int
 _gqa_read_units_double(struct ged *gedp, double *val, char *buf, const cvt_tab *cvt)
 {
-    return analyze_parse_units_double(gedp->ged_result_str, val, buf, cvt);
+    return bu_units_parse_double(gedp->ged_result_str, val, buf, cvt);
 }
 
 
