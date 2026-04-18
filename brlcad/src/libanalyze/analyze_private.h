@@ -199,6 +199,19 @@ struct current_state {
      *  Set before calling perform_raytracing() to select the backend.  */
     int sampler;
 
+    /** Cell area (mm²) for the current parallel firing pass.
+     *
+     *  Set by the main thread immediately before each bu_parallel() call so
+     *  that the overlap callback can accumulate per-hit depth × cell_area
+     *  into analyze_overlap_record::estimated_volume without needing to
+     *  know the grid geometry itself.  Never written by worker threads.
+     *
+     *  For the triple-grid and rotated-grid samplers this equals
+     *  gridSpacing².  For cluster-focused passes it equals the per-cluster
+     *  spacing².  For the Crofton sampler it equals π·R²/n_rays.
+     *  Initialised to 0.0 by analyze_current_state_init(). */
+    double current_cell_area;
+
     /* ---- Rotated-grid sampler state ---- */
     /** Pre-computed grids for up to 3 views (ANALYZE_SAMPLER_ROTATED).
      *  Populated by shoot_rays_rotated() before each convergence pass. */

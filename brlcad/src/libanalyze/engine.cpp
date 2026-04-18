@@ -42,6 +42,7 @@
 
 #include <cstring>
 #include <cstdio>
+#include <algorithm>
 #include <memory>
 #include <vector>
 
@@ -72,6 +73,11 @@
 struct ar_capture_ctx {
     struct analyze_results *res;
     int sem; /**< bu_semaphore protecting all list mutations */
+
+    /** Back-pointer to the current_state so callbacks can read
+     *  state->current_cell_area for overlap volume accumulation.
+     *  Set once in analyze::run() before perform_raytracing(). */
+    struct current_state *state;
 
     /* Presentation-layer render hooks copied from AnalyzeRequest. */
     analyze_overlap_render_fn    overlap_render;
@@ -112,6 +118,7 @@ if (name2 && rec->region2 && BU_STR_EQUAL(rec->region2, name2))
     rec->region2  = name2 ? bu_strdup(name2) : NULL;
     rec->count    = 0;
     rec->max_dist = 0.0;
+    rec->estimated_volume = 0.0;
     VSETALL(rec->coord, 0.0);
     bu_ptbl_ins(tbl, (long *)rec);
     return rec;
@@ -379,6 +386,12 @@ ctx->overlap_render(reg1->reg_name, reg2->reg_name,
 rec->max_dist = depth;
 VMOVE(rec->coord, ihit);
     }
+    /* Accumulate estimated overlap volume: depth × cell_area.
+     * current_cell_area is set by the main thread before each bu_parallel()
+     * call and never written by worker threads, so reading it here is safe
+     * without holding the semaphore — but we are under ctx->sem already. */
+    if (ctx->state && ctx->state->current_cell_area > 0.0)
+rec->estimated_volume += depth * ctx->state->current_cell_area;
     bu_semaphore_release(ctx->sem);
 }
 
@@ -955,6 +968,7 @@ state_owner(analyze_current_state_init(), analyze_free_current_state);
     struct ar_capture_ctx ctx;
     ctx.res                    = raw_res;
     ctx.sem                    = bu_semaphore_register("analyze_run_results_sem");
+    ctx.state                  = state;
     ctx.overlap_render         = req.overlap_render;
     ctx.overlap_render_data    = req.overlap_render_data;
     ctx.gap_render             = req.gap_render;
@@ -1000,6 +1014,25 @@ raw_res->final_grid_spacing = state->gridSpacing * 2.0;
 
     if (flags & ANALYZE_BOX)
 analyze_bbox(dbip, names, num_names, raw_res->bbox_min, raw_res->bbox_max);
+
+    /* ------------------------------------------------------------------
+     * Sort overlaps by estimated volume (largest first).
+     *
+     * This makes the output immediately useful: the most severe overlaps
+     * (by volume) appear at the top of the list, even when found by the
+     * cluster-focused sampler with varying per-cluster cell sizes.
+     * ------------------------------------------------------------------ */
+    if (BU_PTBL_LEN(&raw_res->overlaps) > 1) {
+std::sort(raw_res->overlaps.buffer,
+  raw_res->overlaps.buffer + BU_PTBL_LEN(&raw_res->overlaps),
+  [](const long *a, const long *b) {
+      const struct analyze_overlap_record *ra =
+          (const struct analyze_overlap_record *)a;
+      const struct analyze_overlap_record *rb =
+          (const struct analyze_overlap_record *)b;
+      return ra->estimated_volume > rb->estimated_volume;
+  });
+    }
 
     /* ------------------------------------------------------------------
      * Harvest scalar totals.
