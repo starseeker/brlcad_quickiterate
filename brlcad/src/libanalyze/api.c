@@ -1255,6 +1255,13 @@ shoot_rays_rotated(struct current_state *state)
 	    state->v_axis    = (view + 2) % 3;
 	    state->rot_grid[view].current     = 0;
 	    state->rot_grid[view].refine_flag = state->grid->refine_flag;
+	    /* The rotated grid's projection plane is NOT axis-aligned, so its
+	     * effective area (u_count × v_count × spacing²) differs from the
+	     * bbox-face area stored in state->area[] at startup.  Update
+	     * area[view] to the actual grid projection area so that the volume
+	     * formula m_len * (area / shots) yields the correct cell_area. */
+	    state->area[view] = (double)state->rot_grid[view].total
+			       * state->gridSpacing * state->gridSpacing;
 	    bu_parallel(analyze_worker_rotated, state->ncpu, (void *)state);
 	    if (state->aborted)
 		return;
@@ -1702,6 +1709,12 @@ shoot_rays(struct current_state *state)
 		state->elevation_deg = RAND_ANGLE;
 		analyze_setup_ae(state);
 		analyze_single_grid_setup(state);
+		/* analyze_single_grid_setup() always writes the effective
+		 * projection area (viewsize²) into area[0].  When view > 0,
+		 * the volume formula later reads area[view], which would still
+		 * hold the stale bbox-face value set at startup.  Copy area[0]
+		 * to area[view] so every view uses the correct projection area. */
+		state->area[view] = state->area[0];
 		state->curr_view = view;
 		bu_parallel(analyze_worker, state->ncpu, (void *)state);
 	    }
