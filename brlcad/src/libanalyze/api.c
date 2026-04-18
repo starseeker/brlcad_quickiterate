@@ -1464,6 +1464,78 @@ perform_raytracing(struct current_state *state, struct db_i *dbip, char *names[]
 }
 
 
+int
+analyze_bbox(struct db_i *dbip, char *names[], int num_objects,
+	     point_t bbox_min, point_t bbox_max)
+{
+    int i;
+    struct rt_i *rtip;
+
+    if (!dbip || !names || num_objects <= 0 || !bbox_min || !bbox_max)
+	return -1;
+
+    rtip = rt_new_rti(dbip);
+    if (!rtip)
+	return -1;
+
+    for (i = 0; i < num_objects; i++) {
+	if (rt_gettree(rtip, names[i]) < 0) {
+	    bu_log("analyze_bbox: failed to load '%s'\n", names[i]);
+	    rt_free_rti(rtip);
+	    return -1;
+	}
+    }
+
+    /* Prepare the space partition (needed to compute mdl_min/mdl_max).
+     * Use a single CPU; we are not shooting rays. */
+    rt_prep_parallel(rtip, 1);
+
+    VMOVE(bbox_min, rtip->mdl_min);
+    VMOVE(bbox_max, rtip->mdl_max);
+
+    rt_free_rti(rtip);
+    return 0;
+}
+
+
+void
+analyze_results_free(struct analyze_results *res)
+{
+    size_t i;
+
+    if (!res)
+	return;
+
+    if (res->regions) {
+	bu_free(res->regions, "analyze_results regions");
+	res->regions = NULL;
+    }
+
+    /* Free overlap / issue record lists */
+    for (i = 0; i < BU_PTBL_LEN(&res->overlaps); i++)
+	bu_free(BU_PTBL_GET(&res->overlaps, i), "analyze_overlap_record");
+    bu_ptbl_free(&res->overlaps);
+
+    for (i = 0; i < BU_PTBL_LEN(&res->gaps); i++)
+	bu_free(BU_PTBL_GET(&res->gaps, i), "analyze_overlap_record");
+    bu_ptbl_free(&res->gaps);
+
+    for (i = 0; i < BU_PTBL_LEN(&res->adj_air); i++)
+	bu_free(BU_PTBL_GET(&res->adj_air, i), "analyze_overlap_record");
+    bu_ptbl_free(&res->adj_air);
+
+    for (i = 0; i < BU_PTBL_LEN(&res->exp_air); i++)
+	bu_free(BU_PTBL_GET(&res->exp_air, i), "analyze_overlap_record");
+    bu_ptbl_free(&res->exp_air);
+
+    for (i = 0; i < BU_PTBL_LEN(&res->unconf_air); i++)
+	bu_free(BU_PTBL_GET(&res->unconf_air, i), "analyze_overlap_record");
+    bu_ptbl_free(&res->unconf_air);
+
+    bu_free(res, "analyze_results");
+}
+
+
 /*
  * Local Variables:
  * tab-width: 8

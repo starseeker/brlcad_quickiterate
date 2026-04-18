@@ -109,42 +109,50 @@ crofton_grid_generator(struct xray *ray, void *context)
      * Use the standard spherical-coordinates rejection method: pick
      * (cos θ, φ) uniformly.  Using rand_r for thread-safety.
      */
-    double cos_theta = 2.0 * ((double)rand_r(&g->seed) / ((double)RAND_MAX + 1.0)) - 1.0;
-    double sin_theta = sqrt(1.0 - cos_theta * cos_theta);
-    double phi = 2.0 * M_PI * ((double)rand_r(&g->seed) / ((double)RAND_MAX + 1.0));
+    {
+	int rv0 = rand_r(&g->seed);
+	int rv1 = rand_r(&g->seed);
+	double cos_theta = 2.0 * ((double)rv0 / ((double)RAND_MAX + 1.0)) - 1.0;
+	double sin_theta = sqrt(1.0 - cos_theta * cos_theta);
+	double phi = 2.0 * M_PI * ((double)rv1 / ((double)RAND_MAX + 1.0));
 
-    vect_t omega;
-    omega[0] = sin_theta * cos(phi);
-    omega[1] = sin_theta * sin(phi);
-    omega[2] = cos_theta;
-    /* omega is already a unit vector */
+	vect_t omega;
+	omega[0] = sin_theta * cos(phi);
+	omega[1] = sin_theta * sin(phi);
+	omega[2] = cos_theta;
+	/* omega is already a unit vector */
 
-    /* --- Build two orthogonal vectors spanning the perpendicular disk --- */
-    vect_t u_perp, v_perp;
-    bn_vec_perp(u_perp, omega);
-    VUNITIZE(u_perp);
-    VCROSS(v_perp, omega, u_perp);
-    VUNITIZE(v_perp);
+	/* --- Build two orthogonal vectors spanning the perpendicular disk --- */
+	vect_t u_perp, v_perp;
+	bn_vec_perp(u_perp, omega);
+	VUNITIZE(u_perp);
+	VCROSS(v_perp, omega, u_perp);
+	VUNITIZE(v_perp);
 
-    /* --- Pick a uniformly random point on the disk of radius R ---
-     *
-     * To sample uniformly on a disk, the radius must be sqrt-distributed:
-     *   r = R * sqrt(U)  where U ~ Uniform(0,1)
-     */
-    double r_sq = (double)rand_r(&g->seed) / ((double)RAND_MAX + 1.0);
-    double disk_r   = g->radius * sqrt(r_sq);
-    double disk_phi = 2.0 * M_PI * ((double)rand_r(&g->seed) / ((double)RAND_MAX + 1.0));
+	/* --- Pick a uniformly random point on the disk of radius R ---
+	 *
+	 * To sample uniformly on a disk, the radius must be sqrt-distributed:
+	 *   r = R * sqrt(U)  where U ~ Uniform(0,1)
+	 */
+	{
+	    int rv2 = rand_r(&g->seed);
+	    int rv3 = rand_r(&g->seed);
+	    double r_sq   = (double)rv2 / ((double)RAND_MAX + 1.0);
+	    double disk_r   = g->radius * sqrt(r_sq);
+	    double disk_phi = 2.0 * M_PI * ((double)rv3 / ((double)RAND_MAX + 1.0));
 
-    double pu = disk_r * cos(disk_phi);
-    double pv = disk_r * sin(disk_phi);
+	    double pu = disk_r * cos(disk_phi);
+	    double pv = disk_r * sin(disk_phi);
 
-    /* Point on the disk in 3-space (disk is at model centre) */
-    point_t disk_pt;
-    VJOIN2(disk_pt, g->center, pu, u_perp, pv, v_perp);
+	    /* Point on the disk in 3-space (disk is at model centre) */
+	    point_t disk_pt;
+	    VJOIN2(disk_pt, g->center, pu, u_perp, pv, v_perp);
 
-    /* Pull back along -omega so the ray origin is outside the sphere */
-    VJOIN1(ray->r_pt, disk_pt, -g->radius, omega);
-    VMOVE(ray->r_dir, omega);
+	    /* Pull back along -omega so the ray origin is outside the sphere */
+	    VJOIN1(ray->r_pt, disk_pt, -g->radius, omega);
+	    VMOVE(ray->r_dir, omega);
+	}
+    }
 
     g->current++;
     return 0;
