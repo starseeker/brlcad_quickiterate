@@ -271,6 +271,14 @@ rt_hlbvh_prep(struct rt_i *rtip)
     bu_free(bounds, "hlbvh bounds");
     bu_free(centroids, "hlbvh centroids");
 
+    if (!root) {
+	bu_pool_delete(pool);
+	bu_free(primitives, "hlbvh primitives");
+	if (ordered_prims)
+	    bu_free(ordered_prims, "hlbvh ordered prims");
+	return;
+    }
+
     flat_root = hlbvh_flatten(root, total_nodes);
     bu_pool_delete(pool);
 

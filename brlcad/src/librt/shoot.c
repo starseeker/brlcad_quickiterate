@@ -898,7 +898,7 @@ rt_shootray(register struct application *ap)
     ss.box_start = ss.model_start = ap->a_ray.r_min;
     ss.box_end = ss.model_end = ap->a_ray.r_max;
 
-    if (ap->a_rt_i->rti_nsolids_with_pieces > 0
+    if (rtip->rti_nsolids_with_pieces > 0
 	&& rtip->rti_space_partition != RT_PART_HLBVH) {
 	/* pieces are present */
 	if (ss.box_start < BACKING_DIST) {
