@@ -389,8 +389,10 @@ VMOVE(rec->coord, ihit);
     /* Accumulate estimated overlap volume: depth × cell_area.
      * current_cell_area is set by the main thread before each bu_parallel()
      * call and never written by worker threads, so reading it here is safe
-     * without holding the semaphore — but we are under ctx->sem already. */
-    if (ctx->state && ctx->state->current_cell_area > 0.0)
+     * without holding the semaphore — but we are under ctx->sem already.
+     * ctx->state is always non-NULL (set in analyze::run() before callbacks
+     * are registered). */
+    if (ctx->state->current_cell_area > 0.0)
 rec->estimated_volume += depth * ctx->state->current_cell_area;
     bu_semaphore_release(ctx->sem);
 }
