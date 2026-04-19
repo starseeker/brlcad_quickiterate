@@ -308,9 +308,20 @@ bot_apply_exterior_mask(struct rt_bot_internal *bot,
 	return 0;
 
     size_t actual_exterior = 0;
-    for (size_t i = 0; i < bot->num_faces; i++) {
-	if (face_exterior[i])
-	    actual_exterior++;
+    size_t i = 0;
+    for (; i < bot->num_faces; i++) {
+	if (!face_exterior[i])
+	    continue;
+	actual_exterior++;
+	if (actual_exterior > num_exterior)
+	    break;
+    }
+
+    if (i < bot->num_faces) {
+	for (i++; i < bot->num_faces; i++) {
+	    if (face_exterior[i])
+		actual_exterior++;
+	}
     }
 
     if (num_exterior != actual_exterior) {
