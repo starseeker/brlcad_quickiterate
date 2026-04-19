@@ -47,11 +47,13 @@
 #include "optical.h"
 #include "optical/plastic.h"
 #include "librt_private.h"
+#include "cut_hlbvh.h"
 
 
 extern void rt_ck(struct rt_i *rtip);
 
 static void rt_solid_bitfinder(union tree *treep, struct region *regp, struct resource *resp);
+static void rt_hlbvh_prep(struct rt_i *rtip);
 
 
 int RT_SEM_WORKER = 0;
@@ -125,6 +127,11 @@ rt_new_rti(struct db_i *dbip)
      * (in shoot.c), to handle the different algorithm -JRA
      */
     rtip->rti_space_partition = RT_PART_NUBSPT;
+    {
+	const char *sp_env = getenv("LIBRT_SPACE_PARTITION");
+	if (sp_env && strcmp(sp_env, "hlbvh") == 0)
+	    rtip->rti_space_partition = RT_PART_HLBVH;
+    }
 
     /*
      * Zero the solid instancing counters in dbip database instance.
@@ -188,6 +195,102 @@ rt_free_rti(struct rt_i *rtip)
     bu_ptbl_free(&rtip->delete_regs);
 
     bu_free((char *)rtip, "struct rt_i");
+}
+
+
+/**
+ * Build the flat HLBVH scene acceleration structure for CPU ray tracing.
+ * Called from rt_prep_parallel() when rti_space_partition == RT_PART_HLBVH.
+ * Populates rtip->rti_hlbvh_root, rti_hlbvh_prims, and rti_hlbvh_nprims.
+ */
+static void
+rt_hlbvh_prep(struct rt_i *rtip)
+{
+    struct soltab *stp;
+    long i;
+    long n_primitives;
+    struct soltab **primitives;
+    fastf_t *centroids;
+    fastf_t *bounds;
+    long total_nodes = 0;
+    long *ordered_prims;
+    struct bu_pool *pool;
+    struct bvh_build_node *root;
+    struct bvh_flat_node *flat_root;
+
+    RT_CK_RTI(rtip);
+
+    /* Free any previous HLBVH data */
+    if (rtip->rti_hlbvh_root) {
+	bu_free(rtip->rti_hlbvh_root, "rti_hlbvh_root");
+	rtip->rti_hlbvh_root = NULL;
+    }
+    if (rtip->rti_hlbvh_prims) {
+	bu_free(rtip->rti_hlbvh_prims, "rti_hlbvh_prims");
+	rtip->rti_hlbvh_prims = NULL;
+    }
+    rtip->rti_hlbvh_nprims = 0;
+
+    /* Count finite, non-dead primitives */
+    n_primitives = 0;
+    RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
+	if (stp->st_aradius <= 0) continue;	/* dead */
+	if (stp->st_aradius >= INFINITY) continue;	/* infinite */
+	n_primitives++;
+    } RT_VISIT_ALL_SOLTABS_END;
+
+    if (n_primitives == 0)
+	return;
+
+    /* Collect finite primitives */
+    primitives = (struct soltab **)bu_calloc(n_primitives,
+					     sizeof(struct soltab *), "hlbvh primitives");
+    i = 0;
+    RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
+	if (stp->st_aradius <= 0) continue;
+	if (stp->st_aradius >= INFINITY) continue;
+	primitives[i++] = stp;
+    } RT_VISIT_ALL_SOLTABS_END;
+
+    /* Build centroid and bounds arrays */
+    centroids = (fastf_t *)bu_calloc(n_primitives, sizeof(fastf_t) * 3, "hlbvh centroids");
+    for (i = 0; i < n_primitives; i++) {
+	VMOVE(&centroids[i * 3], primitives[i]->st_center);
+    }
+    bounds = (fastf_t *)bu_calloc(n_primitives, sizeof(fastf_t) * 6, "hlbvh bounds");
+    for (i = 0; i < n_primitives; i++) {
+	VMOVE(&bounds[i * 6 + 0], primitives[i]->st_min);
+	VMOVE(&bounds[i * 6 + 3], primitives[i]->st_max);
+    }
+
+    /* Build the HLBVH tree */
+    ordered_prims = NULL;
+    pool = hlbvh_init_pool((size_t)n_primitives);
+    root = hlbvh_create(4, pool, centroids, bounds,
+			&total_nodes, n_primitives, &ordered_prims);
+    bu_free(bounds, "hlbvh bounds");
+    bu_free(centroids, "hlbvh centroids");
+
+    flat_root = hlbvh_flatten(root, total_nodes);
+    bu_pool_delete(pool);
+
+    /* Reorder soltab pointers to match BVH leaf order */
+    if (ordered_prims) {
+	struct soltab **ordered_primitives;
+	ordered_primitives = (struct soltab **)bu_calloc(n_primitives,
+							 sizeof(struct soltab *),
+							 "hlbvh ordered primitives");
+	for (i = 0; i < n_primitives; i++) {
+	    ordered_primitives[i] = primitives[ordered_prims[i]];
+	}
+	bu_free(ordered_prims, "hlbvh ordered prims");
+	bu_free(primitives, "hlbvh primitives");
+	primitives = ordered_primitives;
+    }
+
+    rtip->rti_hlbvh_root = (void *)flat_root;
+    rtip->rti_hlbvh_prims = primitives;
+    rtip->rti_hlbvh_nprims = n_primitives;
 }
 
 
@@ -412,6 +515,10 @@ rt_prep_parallel(struct rt_i *rtip, int ncpu)
      */
     for (i=1; i<=CUT_MAXIMUM; i++) rtip->rti_ncut_by_type[i] = 0;
     rt_cut_it(rtip, ncpu);
+
+    /* Build HLBVH scene acceleration structure if requested */
+    if (rtip->rti_space_partition == RT_PART_HLBVH)
+	rt_hlbvh_prep(rtip);
 
     /* Release storage used for bounding RPPs of solid "pieces" */
     RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
@@ -1186,6 +1293,17 @@ rt_clean(struct rt_i *rtip)
 	memset((char *)&(rtip->rti_CutHead), 0, sizeof(union cutter));
 	rt_fr_cut(rtip, &(rtip->rti_inf_box));
 	memset((char *)&(rtip->rti_inf_box), 0, sizeof(union cutter));
+
+	/* Free HLBVH scene tree if present */
+	if (rtip->rti_hlbvh_root) {
+	    bu_free(rtip->rti_hlbvh_root, "rti_hlbvh_root");
+	    rtip->rti_hlbvh_root = NULL;
+	}
+	if (rtip->rti_hlbvh_prims) {
+	    bu_free(rtip->rti_hlbvh_prims, "rti_hlbvh_prims");
+	    rtip->rti_hlbvh_prims = NULL;
+	}
+	rtip->rti_hlbvh_nprims = 0;
     }
     rt_cut_clean(rtip);
 
@@ -1979,15 +2097,16 @@ rt_reprep(struct rt_i *rtip, struct rt_reprep_obj_list *objs, struct resource *r
 	stp = (struct soltab *)BU_PTBL_GET(&rtip->rti_new_solids, i);
 	if (stp->st_aradius >= INFINITY) {
 	    insert_in_bsp(stp, &rtip->rti_inf_box);
-	} else {
+	} else if (rtip->rti_space_partition != RT_PART_HLBVH) {
 	    insert_in_bsp(stp, &rtip->rti_CutHead);
 	}
     }
 
     bu_ptbl_free(&rtip->rti_new_solids);
 
-    if (!VNEAR_EQUAL(rtip->mdl_min, old_min, SMALL_FASTF)
-	|| !VNEAR_EQUAL(rtip->mdl_max, old_max, SMALL_FASTF))
+    if (rtip->rti_space_partition != RT_PART_HLBVH &&
+	(!VNEAR_EQUAL(rtip->mdl_min, old_min, SMALL_FASTF)
+	 || !VNEAR_EQUAL(rtip->mdl_max, old_max, SMALL_FASTF)))
     {
 	/* fill out BSP, it must completely fill the model BB */
 	fastf_t bb[6];
@@ -1996,6 +2115,10 @@ rt_reprep(struct rt_i *rtip, struct rt_reprep_obj_list *objs, struct resource *r
 	VSETALL(&bb[3], -INFINITY);
 	fill_out_bsp(rtip, &rtip->rti_CutHead, resp, bb);
     }
+
+    /* Rebuild HLBVH after reprep */
+    if (rtip->rti_space_partition == RT_PART_HLBVH)
+	rt_hlbvh_prep(rtip);
 
     if (BU_PTBL_LEN(&rtip->rti_resources)) {
 	for (i=0; i<BU_PTBL_LEN(&rtip->rti_resources); i++) {

@@ -191,6 +191,7 @@
 #define RT_MAXLINE              10240
 
 #define RT_PART_NUBSPT  0
+#define RT_PART_HLBVH   1       /**< @brief  Hierarchical LBVH scene acceleration (CPU) */
 
 #endif /* RT_DEFINES_H */
 
