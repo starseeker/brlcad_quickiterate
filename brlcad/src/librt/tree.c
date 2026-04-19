@@ -721,7 +721,9 @@ rt_tree_prune_subtractor(union tree *tp,
 	return TREE_NULL;
     RT_CK_TREE(tp);
 
-    /* Compute the bounding box of this subtree. */
+    /* Compute the bounding box of this subtree.
+     * Initialise with reversed infinities – the standard BRL-CAD VMIN/VMAX
+     * accumulation pattern used by rt_bound_tree throughout bbox.c. */
     VSETALL(tp_min, INFINITY);
     VSETALL(tp_max, -INFINITY);
     if (rt_bound_tree(tp, tp_min, tp_max) < 0)
@@ -834,7 +836,9 @@ rt_tree_shake_subs(union tree *tp, struct resource *resp)
 		return keep;
 	    }
 
-	    /* Compute the minuend (left child) bounding box. */
+	    /* Compute the minuend (left child) bounding box.
+	     * Reversed-infinity initialisation – standard BRL-CAD VMIN/VMAX
+	     * accumulation pattern; a return of (min > max) means empty. */
 	    VSETALL(left_min, INFINITY);
 	    VSETALL(left_max, -INFINITY);
 	    if (rt_bound_tree(tp->tr_b.tb_left, left_min, left_max) < 0)
