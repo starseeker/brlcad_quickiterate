@@ -424,28 +424,33 @@ exists_bbox_vol(struct exists_data *ed, const char *name, double *vol)
 /* Volume cache helpers                                                */
 /* ------------------------------------------------------------------ */
 
+/* Return values for _vol_cache_find */
+#define CACHE_HIT       0   /* found, volume written to *vol  */
+#define CACHE_ERROR    -1   /* previously computed, but failed */
+#define CACHE_NOT_FOUND -2  /* not yet in cache               */
+
 static int
 _vol_cache_find(struct vol_cache_entry *cache, int cnt, const char *name, double *vol)
 {
     int i;
     for (i = 0; i < cnt; i++) {
 	if (cache[i].name && BU_STR_EQUAL(cache[i].name, name)) {
-	    if (cache[i].valid < 0) return -1;
+	    if (cache[i].valid < 0) return CACHE_ERROR;
 	    *vol = cache[i].vol;
-	    return 0;
+	    return CACHE_HIT;
 	}
     }
-    return -2; /* not in cache */
+    return CACHE_NOT_FOUND;
 }
 
 
 static void
-_vol_cache_store(struct vol_cache_entry *cache, int *cnt, const char *name, double vol, int ok)
+_vol_cache_store(struct vol_cache_entry *cache, int *cnt, const char *name, double vol, int success)
 {
     if (*cnt >= EXISTS_CACHE_MAX) return;
     cache[*cnt].name  = name;
     cache[*cnt].vol   = vol;
-    cache[*cnt].valid = ok ? 1 : -1;
+    cache[*cnt].valid = success ? 1 : -1;
     (*cnt)++;
 }
 
@@ -454,13 +459,13 @@ static int
 exists_bbox_vol_cached(struct exists_data *ed, const char *name, double *vol)
 {
     int r = _vol_cache_find(ed->bbox_cache, ed->bbox_cache_cnt, name, vol);
-    if (r != -2) return r; /* cache hit (0) or cached error (-1) */
+    if (r != CACHE_NOT_FOUND) return r; /* CACHE_HIT (0) or CACHE_ERROR (-1) */
     double v = 0.0;
-    int ok = (exists_bbox_vol(ed, name, &v) == 0);
-    _vol_cache_store(ed->bbox_cache, &ed->bbox_cache_cnt, name, v, ok);
-    if (!ok) return -1;
+    int success = (exists_bbox_vol(ed, name, &v) == 0);
+    _vol_cache_store(ed->bbox_cache, &ed->bbox_cache_cnt, name, v, success);
+    if (!success) return CACHE_ERROR;
     *vol = v;
-    return 0;
+    return CACHE_HIT;
 }
 
 
@@ -504,13 +509,13 @@ static int
 exists_rtrace_vol_cached(struct exists_data *ed, const char *name, double *vol)
 {
     int r = _vol_cache_find(ed->rtrace_cache, ed->rtrace_cache_cnt, name, vol);
-    if (r != -2) return r;
+    if (r != CACHE_NOT_FOUND) return r;
     double v = 0.0;
-    int ok = (exists_rtrace_vol(ed, name, &v) == 0);
-    _vol_cache_store(ed->rtrace_cache, &ed->rtrace_cache_cnt, name, v, ok);
-    if (!ok) return -1;
+    int success = (exists_rtrace_vol(ed, name, &v) == 0);
+    _vol_cache_store(ed->rtrace_cache, &ed->rtrace_cache_cnt, name, v, success);
+    if (!success) return CACHE_ERROR;
     *vol = v;
-    return 0;
+    return CACHE_HIT;
 }
 
 

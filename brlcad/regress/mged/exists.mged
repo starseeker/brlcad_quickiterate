@@ -176,9 +176,10 @@ chk_false "13.8 -rne sph vs sph2 (tol)" {-t 20000.0 exists_sph.s -rne exists_sph
 # Self-comparison via cache: same name → same cached value → exact equality
 chk_true  "13.9 big -rge big (self)"    {-t 0.0 exists_sph_big.s -rge exists_sph_big.s}
 chk_true  "13.10 big -rle big (self)"   {-t 0.0 exists_sph_big.s -rle exists_sph_big.s}
+chk_true  "13.11 big -req big (self)"   {-t 0.0 exists_sph_big.s -req exists_sph_big.s}
 # Missing object returns false
-chk_false "13.11 -req missing obj"      {exists_sph.s -req no_such_object_xyz}
-chk_false "13.12 -rgt missing obj"      {exists_sph_big.s -rgt no_such_object_xyz}
+chk_false "13.12 -req missing obj"      {exists_sph.s -req no_such_object_xyz}
+chk_false "13.13 -rgt missing obj"      {exists_sph_big.s -rgt no_such_object_xyz}
 
 # -------------------------------------------------------------------
 # 14. Tolerance (-t flag) for bounding-box volume comparisons
