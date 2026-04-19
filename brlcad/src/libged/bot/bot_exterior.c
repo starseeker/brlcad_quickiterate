@@ -101,15 +101,17 @@ exterior_face(struct application *app, struct rt_bot_internal *bot, int face) {
     tol.dist_sq = BN_TOL_DIST * BN_TOL_DIST;
     bg_make_plane_3pnts(norm, p1, p2, p3, &tol);
 
-    /* ray direction */
-    VINVDIR(app->a_ray.r_dir, norm);
+    /* ray direction: shoot toward the face from outside (opposite of face normal) */
+    VREVERSE(app->a_ray.r_dir, norm);
     VUNITIZE(app->a_ray.r_dir);
 
     /* face & ray center point */
     VADD3(app->a_ray.r_pt, p1, p2, p3);
     VSCALE(app->a_ray.r_pt, app->a_ray.r_pt, 1.0/3.0);
     /* calculate min/max to exit bounding volume */
-    if (!rt_in_rpp(&app->a_ray, app->a_ray.r_dir, app->a_rt_i->mdl_min, app->a_ray.r_dir)) {
+    vect_t invdir;
+    VINVDIR(invdir, app->a_ray.r_dir);
+    if (!rt_in_rpp(&app->a_ray, invdir, app->a_rt_i->mdl_min, app->a_rt_i->mdl_max)) {
 	static size_t msgs = 0;
 	if (msgs < 100) {
 	    bu_log("INTERNAL ERROR: Missed the model??\n");
@@ -119,7 +121,8 @@ exterior_face(struct application *app, struct rt_bot_internal *bot, int face) {
 	}
 	return 0;
     }
-    VJOIN1(app->a_ray.r_pt, app->a_ray.r_pt, app->a_ray.r_max, app->a_ray.r_dir);
+    /* r_min is negative: moving backward along r_dir places origin outside bbox */
+    VJOIN1(app->a_ray.r_pt, app->a_ray.r_pt, app->a_ray.r_min, app->a_ray.r_dir);
 
     /* determine visibility */
     app->a_user = face;
