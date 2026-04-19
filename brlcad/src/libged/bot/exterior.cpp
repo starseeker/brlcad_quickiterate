@@ -324,8 +324,12 @@ bot_apply_exterior_mask(struct rt_bot_internal *bot,
 				       "bot exterior new faces");
     size_t j = 0;
     for (size_t i = 0; i < bot->num_faces; i++) {
-	if (face_exterior[i])
-	    VMOVE(&newfaces[j++ * 3], &bot->faces[i * 3]);
+	if (face_exterior[i]) {
+	    newfaces[j * 3 + 0] = bot->faces[i * 3 + 0];
+	    newfaces[j * 3 + 1] = bot->faces[i * 3 + 1];
+	    newfaces[j * 3 + 2] = bot->faces[i * 3 + 2];
+	    j++;
+	}
     }
 
     bu_free(bot->faces, "bot exterior old faces");
