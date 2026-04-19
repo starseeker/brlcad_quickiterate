@@ -209,20 +209,20 @@ exterior_face(struct application *app, struct rt_bot_internal *bot, int face)
     if (!app || !bot || face < 0)
 	return 0;
 
-    int vi = bot->faces[face * ELEMENTS_PER_POINT + X];
-    int vj = bot->faces[face * ELEMENTS_PER_POINT + Y];
-    int vk = bot->faces[face * ELEMENTS_PER_POINT + Z];
+    int v0 = bot->faces[face * ELEMENTS_PER_POINT + X];
+    int v1 = bot->faces[face * ELEMENTS_PER_POINT + Y];
+    int v2 = bot->faces[face * ELEMENTS_PER_POINT + Z];
 
-    if (vi < 0 || vj < 0 || vk < 0 ||
-	(size_t)vi >= bot->num_vertices ||
-	(size_t)vj >= bot->num_vertices ||
-	(size_t)vk >= bot->num_vertices)
+    if (v0 < 0 || v1 < 0 || v2 < 0 ||
+	(size_t)v0 >= bot->num_vertices ||
+	(size_t)v1 >= bot->num_vertices ||
+	(size_t)v2 >= bot->num_vertices)
 	return 0;
 
     vect_t p1, p2, p3;
-    VMOVE(p1, &bot->vertices[vi * ELEMENTS_PER_POINT]);
-    VMOVE(p2, &bot->vertices[vj * ELEMENTS_PER_POINT]);
-    VMOVE(p3, &bot->vertices[vk * ELEMENTS_PER_POINT]);
+    VMOVE(p1, &bot->vertices[v0 * ELEMENTS_PER_POINT]);
+    VMOVE(p2, &bot->vertices[v1 * ELEMENTS_PER_POINT]);
+    VMOVE(p3, &bot->vertices[v2 * ELEMENTS_PER_POINT]);
 
     point_t fc;
     VADD3(fc, p1, p2, p3);
@@ -242,15 +242,15 @@ exterior_face(struct application *app, struct rt_bot_internal *bot, int face)
 
     int ext_votes = 0, int_votes = 0;
 
-    for (size_t pi = 0; pi < sizeof(dirs) / sizeof(dirs[0]); pi++) {
-	int r = exterior_face_probe(app, face, fc, dirs[pi]);
+    for (size_t dir_idx = 0; dir_idx < sizeof(dirs) / sizeof(dirs[0]); dir_idx++) {
+	int r = exterior_face_probe(app, face, fc, dirs[dir_idx]);
 	if (r < 0) int_votes++;
 	else if (r > 0) ext_votes++;
     }
 
     if (ext_votes == int_votes) {
-	for (size_t pi = 0; pi < sizeof(extra_dirs) / sizeof(extra_dirs[0]); pi++) {
-	    int r = exterior_face_probe(app, face, fc, extra_dirs[pi]);
+	for (size_t dir_idx = 0; dir_idx < sizeof(extra_dirs) / sizeof(extra_dirs[0]); dir_idx++) {
+	    int r = exterior_face_probe(app, face, fc, extra_dirs[dir_idx]);
 	    if (r < 0) int_votes++;
 	    else if (r > 0) ext_votes++;
 	}
