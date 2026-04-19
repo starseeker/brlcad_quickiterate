@@ -30,6 +30,7 @@
 #include "raytrace.h"
 
 #include "librt_private.h"
+#include "cut_hlbvh.h"
 
 
 /* book-keeping structure so rt_shootrays can keep track of which rays
@@ -272,6 +273,128 @@ rt_shootray_bundle(struct application *ap, struct xray *rays, int nrays)
     ss.newray = ap->a_ray;		/* struct copy */
     ss.odist_corr = ss.obox_start = ss.obox_end = -99;
     ss.dist_corr = 0.0;
+
+    /*
+     * HLBVH scene traversal for bundle shots.  Traverse the flat BVH
+     * and shoot each ray in the bundle at every primitive in
+     * intersected leaves, then handle infinite solids.
+     */
+    if (rtip->rti_space_partition == RT_PART_HLBVH && rtip->rti_hlbvh_root) {
+	struct bvh_flat_node *hlbvh_root = (struct bvh_flat_node *)rtip->rti_hlbvh_root;
+	long *check_prims = NULL;
+	size_t num_check_prims = 0;
+	size_t pi;
+	int ray;
+
+	hlbvh_shot_flat(hlbvh_root, &ap->a_ray, &check_prims, &num_check_prims);
+
+	for (pi = 0; pi < num_check_prims; pi++) {
+	    struct soltab *stp = rtip->rti_hlbvh_prims[check_prims[pi]];
+
+	    if (BU_BITTEST(solidbits, stp->st_bit)) {
+		resp->re_ndup++;
+		continue;
+	    }
+	    BU_BITSET(solidbits, stp->st_bit);
+
+	    for (ray = 0; ray < nrays; ray++) {
+		struct xray ss2_newray;
+		int ret;
+
+		VMOVE(ss2_newray.r_dir, rays[ray].r_dir);
+		VJOIN1(ss2_newray.r_pt, rays[ray].r_pt, ss.dist_corr, ss2_newray.r_dir);
+
+		if (OBJ[stp->st_id].ft_use_rpp) {
+		    if (!rt_in_rpp(&ss2_newray, ss.inv_dir,
+				   stp->st_min, stp->st_max)) {
+			resp->re_prune_solrpp++;
+			continue;
+		    }
+		    if (ss.dist_corr + ss2_newray.r_max < BACKING_DIST) {
+			resp->re_prune_solrpp++;
+			continue;
+		    }
+		}
+
+		resp->re_shots++;
+		BU_LIST_INIT(&(new_segs.l));
+
+		ret = -1;
+		if (OBJ[stp->st_id].ft_shot) {
+		    ret = OBJ[stp->st_id].ft_shot(stp, &ss2_newray, ap, &new_segs);
+		}
+		if (ret <= 0) {
+		    resp->re_shot_miss++;
+		    continue;
+		}
+
+		{
+		    register struct seg *s2;
+		    while (BU_LIST_WHILE(s2, seg, &(new_segs.l))) {
+			BU_LIST_DEQUEUE(&(s2->l));
+			s2->seg_in.hit_dist += ss.dist_corr;
+			s2->seg_out.hit_dist += ss.dist_corr;
+			s2->seg_in.hit_rayp = s2->seg_out.hit_rayp = &rays[ray];
+			BU_LIST_INSERT(&(waiting_segs.l), &(s2->l));
+		    }
+		}
+		resp->re_shot_hit++;
+		break; /* HIT */
+	    }
+	}
+
+	if (check_prims)
+	    bu_free(check_prims, "hlbvh check_prims");
+
+	/* Also shoot any infinite solids */
+	if (rtip->rti_inf_box.bn.bn_len > 0) {
+	    stpp = &(rtip->rti_inf_box.bn.bn_list[rtip->rti_inf_box.bn.bn_len - 1]);
+	    for (; stpp >= rtip->rti_inf_box.bn.bn_list; stpp--) {
+		register struct soltab *stp = *stpp;
+
+		if (BU_BITTEST(solidbits, stp->st_bit)) {
+		    resp->re_ndup++;
+		    continue;
+		}
+		BU_BITSET(solidbits, stp->st_bit);
+
+		for (ray = 0; ray < nrays; ray++) {
+		    struct xray ss2_newray;
+		    int ret;
+
+		    VMOVE(ss2_newray.r_dir, rays[ray].r_dir);
+		    VJOIN1(ss2_newray.r_pt, rays[ray].r_pt, ss.dist_corr, ss2_newray.r_dir);
+
+		    resp->re_shots++;
+		    BU_LIST_INIT(&(new_segs.l));
+
+		    ret = -1;
+		    if (OBJ[stp->st_id].ft_shot) {
+			ret = OBJ[stp->st_id].ft_shot(stp, &ss2_newray, ap, &new_segs);
+		    }
+		    if (ret <= 0) {
+			resp->re_shot_miss++;
+			continue;
+		    }
+
+		    {
+			register struct seg *s2;
+			while (BU_LIST_WHILE(s2, seg, &(new_segs.l))) {
+			    BU_LIST_DEQUEUE(&(s2->l));
+			    s2->seg_in.hit_dist += ss.dist_corr;
+			    s2->seg_out.hit_dist += ss.dist_corr;
+			    s2->seg_in.hit_rayp = s2->seg_out.hit_rayp = &rays[ray];
+			    BU_LIST_INSERT(&(waiting_segs.l), &(s2->l));
+			}
+		    }
+		    resp->re_shot_hit++;
+		    break; /* HIT */
+		}
+	    }
+	}
+
+	goto weave;
+    }
 
     /*
      * While the ray remains inside model space, push from box to box
