@@ -51,7 +51,6 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 
 #include "bu/cmd.h"
 #include "bu/malloc.h"
@@ -453,7 +452,7 @@ exists_obj_vol(struct exists_data *ed)
     double vol = 0.0;
     if (exists_lookup(ed, *(ed->t_wp)) == NULL) return 0;
     if (exists_bbox_vol(ed, *(ed->t_wp), &vol) < 0) return 0;
-    return (vol > SMALL_FASTF) ? 1 : 0;
+    return !NEAR_ZERO(vol, SMALL_FASTF) ? 1 : 0;
 }
 
 
@@ -601,8 +600,8 @@ binop(struct exists_data *ed)
 	    if (exists_bbox_vol(ed, opnd2, &vol2) < 0) return 0;
 
 	    switch (op->op_num) {
-		case BVOLEQ: return (fabs(vol1 - vol2) <= SMALL_FASTF) ? 1 : 0;
-		case BVOLNE: return (fabs(vol1 - vol2) >  SMALL_FASTF) ? 1 : 0;
+		case BVOLEQ: return NEAR_EQUAL(vol1, vol2, SMALL_FASTF) ? 1 : 0;
+		case BVOLNE: return !NEAR_EQUAL(vol1, vol2, SMALL_FASTF) ? 1 : 0;
 		case BVOLGT: return (vol1 > vol2 + SMALL_FASTF) ? 1 : 0;
 		case BVOLGE: return (vol1 >= vol2 - SMALL_FASTF) ? 1 : 0;
 		case BVOLLT: return (vol1 < vol2 - SMALL_FASTF) ? 1 : 0;
