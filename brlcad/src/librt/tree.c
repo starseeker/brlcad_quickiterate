@@ -827,8 +827,12 @@ rt_tree_shake_subs(union tree *tp, struct resource *resp)
 		BU_PUT(tp, union tree);
 		return TREE_NULL;
 	    }
-	    if (!tp->tr_b.tb_right)
-		return tp;	/* nothing on the right – nothing to prune */
+	    if (!tp->tr_b.tb_right) {
+		/* Right side vanished: SUBTRACT(L, 0) = L. */
+		union tree *keep = tp->tr_b.tb_left;
+		BU_PUT(tp, union tree);
+		return keep;
+	    }
 
 	    /* Compute the minuend (left child) bounding box. */
 	    VSETALL(left_min, INFINITY);
@@ -1038,13 +1042,14 @@ again:
      * for computing model extents).
      */
     for (BU_LIST_FOR(regp, region, &(rtip->HeadRegion))) {
-	union tree *shaken;
 	RT_CK_REGION(regp);
 	if (!regp->reg_treetop)
 	    continue;
-	shaken = rt_tree_shake_subs(regp->reg_treetop, &rt_uniresource);
-	if (shaken)
-	    regp->reg_treetop = shaken;
+	/* Always store the result: if the shaker returns TREE_NULL
+	 * (entire tree pruned, which shouldn't happen for well-formed
+	 * regions but is handled defensively), we must update
+	 * reg_treetop rather than leaving a dangling pointer. */
+	regp->reg_treetop = rt_tree_shake_subs(regp->reg_treetop, &rt_uniresource);
     }
 
     /* Handle finishing touches on the trees that needed soltab
@@ -1052,6 +1057,10 @@ again:
      */
     for (BU_LIST_FOR(regp, region, &(rtip->HeadRegion))) {
 	RT_CK_REGION(regp);
+
+	/* Skip regions whose tree was entirely pruned (defensive). */
+	if (!regp->reg_treetop)
+	    continue;
 
 	/* The region and the entire tree are cross-referenced */
 	_rt_tree_region_assign(regp->reg_treetop, regp);
