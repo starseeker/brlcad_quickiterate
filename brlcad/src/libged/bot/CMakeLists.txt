@@ -22,7 +22,6 @@ set(
   bot_condense.c
   bot.cpp
   bot_decimate.c
-  bot_exterior.c
   bot_face_fuse.c
   bot_face_sort.c
   bot_flip.c
@@ -41,6 +40,7 @@ set(
   edbot.c
   check.cpp
   decimate.cpp
+  exterior.cpp
   extrude.cpp
   remesh.cpp
   repair.cpp
@@ -91,6 +91,7 @@ ged_plugin_library(ged-bot
 cmakefiles(
   CMakeLists.txt
   ${BOT_SRCS}
+  bot_exterior.c
   dump/ged_bot_dump.h
 )
 
