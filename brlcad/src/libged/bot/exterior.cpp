@@ -304,8 +304,23 @@ static size_t
 bot_apply_exterior_mask(struct rt_bot_internal *bot,
 			const int *face_exterior, size_t num_exterior)
 {
-    size_t removed  = bot->num_faces - num_exterior;
-    int   *newfaces = (int *)bu_calloc(num_exterior, 3 * sizeof(int),
+    if (!bot || !bot->faces || !face_exterior || !bot->num_faces)
+	return 0;
+
+    size_t actual_exterior = 0;
+    for (size_t i = 0; i < bot->num_faces; i++) {
+	if (face_exterior[i])
+	    actual_exterior++;
+    }
+
+    if (num_exterior != actual_exterior) {
+	bu_log("bot exterior: warning - classifier reported %zu exterior faces, "
+	       "mask contains %zu; using mask count\n",
+	       num_exterior, actual_exterior);
+    }
+
+    size_t removed  = bot->num_faces - actual_exterior;
+    int   *newfaces = (int *)bu_calloc(actual_exterior, 3 * sizeof(int),
 				       "bot exterior new faces");
     size_t j = 0;
     for (size_t i = 0; i < bot->num_faces; i++) {
@@ -315,7 +330,7 @@ bot_apply_exterior_mask(struct rt_bot_internal *bot,
 
     bu_free(bot->faces, "bot exterior old faces");
     bot->faces     = newfaces;
-    bot->num_faces = num_exterior;
+    bot->num_faces = actual_exterior;
     return removed;
 }
 
