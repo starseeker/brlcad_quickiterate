@@ -3,7 +3,7 @@ puts "*** Testing 'exists' command ***"
 # -------------------------------------------------------------------
 # Setup: create representative objects
 # -------------------------------------------------------------------
-# A volumetric solid (sphere)
+# A volumetric solid (sphere at 42,42,42 with radius 42)
 in_sph exists
 # A combination
 r exists_comb.r u exists_sph.s
@@ -11,8 +11,9 @@ r exists_comb.r u exists_sph.s
 in_sketch exists
 # A copy of the sphere (for binary comparisons)
 cp exists_sph.s exists_sph2.s
-# A larger sphere for raytrace volume comparison (radius 20)
-in exists_sph_big.s sph 0 0 0 20
+# A larger sphere (radius 100, vol ~4.2e6 mm^3) for raytrace comparison
+# The default exists_sph.s has radius 42 (~310 000 mm^3), so this is ~13x bigger
+in exists_sph_big.s sph 0 0 0 100
 
 proc chk_true {label expr} {
     set val [uplevel 1 [list exists {*}$expr]]
@@ -161,18 +162,18 @@ chk_error "12.4 extra token"            {exists_sph.s exists_comb.r}
 # 13. Raytrace volume comparisons (-req/-rne/-rgt/-rge/-rlt/-rle)
 # -------------------------------------------------------------------
 puts "13. raytrace volume comparisons"
-# big sphere (r=20, V≈33510 mm³) vs small sphere (r≈1): clear difference
+# big sphere (r=100, V≈4.19e6 mm³) vs small sphere (r=42, V≈3.1e5 mm³): ~13x difference
 chk_true  "13.1 big -rgt small"         {exists_sph_big.s -rgt exists_sph.s}
 chk_false "13.2 small -rgt big"         {exists_sph.s -rgt exists_sph_big.s}
 chk_true  "13.3 big -rge small"         {exists_sph_big.s -rge exists_sph.s}
 chk_true  "13.4 small -rlt big"         {exists_sph.s -rlt exists_sph_big.s}
 chk_true  "13.5 small -rle big"         {exists_sph.s -rle exists_sph_big.s}
 chk_true  "13.6 big -rne small"         {exists_sph_big.s -rne exists_sph.s}
-# Equality with generous tolerance (sph vs copy-of-sph, both ~same volume)
-# Use tolerance = 1.0 mm^3 to accommodate Crofton sampling variability
-chk_true  "13.7 -req sph vs sph2 (tol)" {-t 1.0 exists_sph.s -req exists_sph2.s}
-chk_false "13.8 -rne sph vs sph2 (tol)" {-t 1.0 exists_sph.s -rne exists_sph2.s}
-# big -rge big (self-comparison via cache: exact equal, passes ge/le)
+# Equality: compare sph vs its copy with 20000 mm^3 tolerance (~6.5% of r=42 sphere)
+# This is sufficient to absorb the ~3% Crofton sampling error on two independent runs
+chk_true  "13.7 -req sph vs sph2 (tol)" {-t 20000.0 exists_sph.s -req exists_sph2.s}
+chk_false "13.8 -rne sph vs sph2 (tol)" {-t 20000.0 exists_sph.s -rne exists_sph2.s}
+# Self-comparison via cache: same name → same cached value → exact equality
 chk_true  "13.9 big -rge big (self)"    {-t 0.0 exists_sph_big.s -rge exists_sph_big.s}
 chk_true  "13.10 big -rle big (self)"   {-t 0.0 exists_sph_big.s -rle exists_sph_big.s}
 # Missing object returns false
