@@ -3,7 +3,7 @@ puts "*** Testing 'exists' command ***"
 # -------------------------------------------------------------------
 # Setup: create representative objects
 # -------------------------------------------------------------------
-# A volumetric solid (sphere)
+# A volumetric solid (sphere at 42,42,42 with radius 42)
 in_sph exists
 # A combination
 r exists_comb.r u exists_sph.s
@@ -11,6 +11,9 @@ r exists_comb.r u exists_sph.s
 in_sketch exists
 # A copy of the sphere (for binary comparisons)
 cp exists_sph.s exists_sph2.s
+# A larger sphere (radius 100, vol ~4.2e6 mm^3) for raytrace comparison
+# The default exists_sph.s has radius 42 (~310 000 mm^3), so this is ~13x bigger
+in exists_sph_big.s sph 0 0 0 100
 
 proc chk_true {label expr} {
     set val [uplevel 1 [list exists {*}$expr]]
@@ -154,5 +157,47 @@ chk_false "12.2 bare -c (no operand)"   [list -c]
 chk_error "12.3 unclosed paren"         [list {(} exists_sph.s]
 # Extra token IS a parse error
 chk_error "12.4 extra token"            {exists_sph.s exists_comb.r}
+
+# -------------------------------------------------------------------
+# 13. Raytrace volume comparisons (-req/-rne/-rgt/-rge/-rlt/-rle)
+# -------------------------------------------------------------------
+puts "13. raytrace volume comparisons"
+# big sphere (r=100, V≈4.19e6 mm³) vs small sphere (r=42, V≈3.1e5 mm³): ~13x difference
+chk_true  "13.1 big -rgt small"         {exists_sph_big.s -rgt exists_sph.s}
+chk_false "13.2 small -rgt big"         {exists_sph.s -rgt exists_sph_big.s}
+chk_true  "13.3 big -rge small"         {exists_sph_big.s -rge exists_sph.s}
+chk_true  "13.4 small -rlt big"         {exists_sph.s -rlt exists_sph_big.s}
+chk_true  "13.5 small -rle big"         {exists_sph.s -rle exists_sph_big.s}
+chk_true  "13.6 big -rne small"         {exists_sph_big.s -rne exists_sph.s}
+# Equality: compare sph vs its copy with 20000 mm^3 tolerance (~6.5% of r=42 sphere)
+# This is sufficient to absorb the ~3% Crofton sampling error on two independent runs
+chk_true  "13.7 -req sph vs sph2 (tol)" {-t 20000.0 exists_sph.s -req exists_sph2.s}
+chk_false "13.8 -rne sph vs sph2 (tol)" {-t 20000.0 exists_sph.s -rne exists_sph2.s}
+# Self-comparison via cache: same name → same cached value → exact equality
+chk_true  "13.9 big -rge big (self)"    {-t 0.0 exists_sph_big.s -rge exists_sph_big.s}
+chk_true  "13.10 big -rle big (self)"   {-t 0.0 exists_sph_big.s -rle exists_sph_big.s}
+chk_true  "13.11 big -req big (self)"   {-t 0.0 exists_sph_big.s -req exists_sph_big.s}
+# Missing object returns false
+chk_false "13.12 -req missing obj"      {exists_sph.s -req no_such_object_xyz}
+chk_false "13.13 -rgt missing obj"      {exists_sph_big.s -rgt no_such_object_xyz}
+
+# -------------------------------------------------------------------
+# 14. Tolerance (-t flag) for bounding-box volume comparisons
+# -------------------------------------------------------------------
+puts "14. tolerance flag for bbox volume comparisons"
+# Same-object bbox equality: always true regardless of tolerance
+chk_true  "14.1 -beq self (no tol)"    {exists_sph.s -beq exists_sph.s}
+chk_true  "14.2 -beq self (tol=0)"     {-t 0.0 exists_sph.s -beq exists_sph.s}
+chk_true  "14.3 -beq copy (no tol)"    {exists_sph.s -beq exists_sph2.s}
+# Different-volume bbox comparison with large tolerance still orders correctly
+chk_true  "14.4 big -bgt small (tol=1)" {-t 1.0 exists_sph_big.s -bgt exists_sph.s}
+chk_false "14.5 small -bgt big (tol=1)" {-t 1.0 exists_sph.s -bgt exists_sph_big.s}
+
+# -------------------------------------------------------------------
+# 15. Tolerance (-t flag) error cases
+# -------------------------------------------------------------------
+puts "15. tolerance flag error cases"
+chk_error "15.1 -t with negative value"     {-t -1.0 exists_sph.s -beq exists_sph2.s}
+chk_error "15.2 -t with non-numeric value"  {-t foo exists_sph.s -beq exists_sph2.s}
 
 puts "*** 'exists' testing completed ***"
