@@ -87,6 +87,10 @@ brlcad_addexec(bot_match bot_match.cpp "librt;libbg" TEST)
 # boolweave testing
 brlcad_addexec(rt_boolweave rt_boolweave.c "librt" TEST)
 
+# tree shaker testing
+brlcad_addexec(rt_tree_shake tree_shake.c "librt;libwdb" TEST)
+brlcad_add_test(NAME rt_tree_shake COMMAND rt_tree_shake)
+
 # Tests for primitive editing
 add_subdirectory(edit)
 
@@ -109,6 +113,7 @@ set(
   rt_perturb.c
   search_stress.c
   sketch.g
+  tree_shake.c
 )
 
 cmakefiles(${distcheck_files})
