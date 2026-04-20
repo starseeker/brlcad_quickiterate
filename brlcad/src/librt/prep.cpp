@@ -301,48 +301,67 @@ rt_hlbvh_prep(struct rt_i *rtip)
 
 
 /**
- * Inspect the already-built flat HLBVH to judge whether it achieved good
- * spatial separation.  Returns 1 if the tree is high quality, 0 if it is
- * degenerate and NUBSP should be preferred instead.
+ * Inspect the already-built flat HLBVH to judge whether it is likely to
+ * outperform NUBSP for this scene.  Returns 1 (good) to keep HLBVH, or
+ * 0 (degenerate) to free it and rebuild as NUBSP.
  *
- * Quality criterion: scan all flat nodes linearly and find the maximum
- * leaf occupancy.  When many primitives share identical or nearly-identical
- * Morton codes (heavily overlapping AABBs, as in dense mechanical assemblies)
- * the HLBVH builder is forced to create a leaf containing all of them rather
- * than splitting further.  A maximum leaf size well above the requested
- * max_prims_in_node (4) is a reliable signal that NUBSP's adaptive cell
- * subdivision will outperform the BVH.
+ * Quality metric: SAH-normalized traversal cost.
+ *   cost = (sum over all leaf nodes of sa(leaf)/sa(root) * n_prims) / n_total_prims
  *
- * Threshold: if any leaf holds more than 16 primitives (4× the requested
- * maximum) and the scene has more than 32 primitives, the HLBVH is
- * considered degenerate.
+ * A low cost means each leaf's bounding box is small relative to the scene —
+ * rays visit few primitives on average.  A high cost means many leaves have
+ * large bboxes relative to the scene, so rays must test many candidates even
+ * though leaves are individually small (the m35 dense-assembly case).
+ *
+ * NUBSP's adaptive cell cuts handle the high-cost case better because they
+ * can subdivide exactly the crowded spatial regions.
+ *
+ * Threshold RT_HLBVH_SAH_THRESHOLD is calibrated so that well-separated and
+ * fractal scenes (sphflake, havoc, moss) fall below it while dense mechanical
+ * assemblies (m35) fall above it.
  */
+#define RT_HLBVH_SAH_THRESHOLD 0.10
 static int
 rt_hlbvh_is_good(const struct rt_i *rtip)
 {
     const struct bvh_flat_node *nodes;
-    long i, max_leaf = 0;
+    long i;
+    double root_sa, sah_cost, normalized_sah;
+    double dx, dy, dz;
 
     RT_CK_RTI(rtip);
 
     nodes = (const struct bvh_flat_node *)rtip->rti_hlbvh_root;
-    if (!nodes || rtip->rti_hlbvh_nnodes == 0)
+    if (!nodes || rtip->rti_hlbvh_nnodes == 0 || rtip->rti_hlbvh_nprims == 0)
 	return 0;
 
+    /* Root node surface area (node 0 is always the root) */
+    dx = nodes[0].bounds[3] - nodes[0].bounds[0];
+    dy = nodes[0].bounds[4] - nodes[0].bounds[1];
+    dz = nodes[0].bounds[5] - nodes[0].bounds[2];
+    root_sa = 2.0 * (dx*dy + dy*dz + dz*dx);
+    if (root_sa <= 0.0)
+	return 0;
+
+    /* Accumulate SAH cost from leaf nodes */
+    sah_cost = 0.0;
     for (i = 0; i < rtip->rti_hlbvh_nnodes; i++) {
-	if (nodes[i].n_primitives > max_leaf)
-	    max_leaf = nodes[i].n_primitives;
+	if (nodes[i].n_primitives > 0) {
+	    dx = nodes[i].bounds[3] - nodes[i].bounds[0];
+	    dy = nodes[i].bounds[4] - nodes[i].bounds[1];
+	    dz = nodes[i].bounds[5] - nodes[i].bounds[2];
+	    sah_cost += (2.0 * (dx*dy + dy*dz + dz*dx) / root_sa)
+		        * nodes[i].n_primitives;
+	}
     }
+    normalized_sah = sah_cost / (double)rtip->rti_hlbvh_nprims;
 
     if (RT_G_DEBUG & RT_DEBUG_CUT)
-	bu_log("HLBVH quality: max_leaf=%ld nprims=%ld nnodes=%ld\n",
-	       max_leaf, rtip->rti_hlbvh_nprims, rtip->rti_hlbvh_nnodes);
+	bu_log("HLBVH quality: normalized_sah=%.4f nprims=%ld nnodes=%ld (threshold=%.2f)\n",
+	       normalized_sah, rtip->rti_hlbvh_nprims, rtip->rti_hlbvh_nnodes,
+	       RT_HLBVH_SAH_THRESHOLD);
 
-    /* Degenerate if any leaf is too large and scene has enough prims to matter */
-    if (rtip->rti_hlbvh_nprims > 32 && max_leaf > 16)
-	return 0;
-
-    return 1;
+    return normalized_sah < RT_HLBVH_SAH_THRESHOLD;
 }
 
 
