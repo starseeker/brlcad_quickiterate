@@ -286,8 +286,14 @@ rt_shootray_bundle(struct application *ap, struct xray *rays, int nrays)
 	size_t pi;
 	int ray;
 
-	if (hlbvh_root)
+	if (hlbvh_root) {
 	    hlbvh_shot_flat(hlbvh_root, &ap->a_ray, &check_prims, &num_check_prims);
+	} else if (rtip->rti_hlbvh_prims && rtip->rti_hlbvh_nprims > 0) {
+	    num_check_prims = (size_t)rtip->rti_hlbvh_nprims;
+	    check_prims = (long *)bu_calloc(num_check_prims, sizeof(long), "hlbvh fallback prim indices");
+	    for (pi = 0; pi < num_check_prims; pi++)
+		check_prims[pi] = (long)pi;
+	}
 
 	for (pi = 0; pi < num_check_prims; pi++) {
 	    struct soltab *stp = rtip->rti_hlbvh_prims[check_prims[pi]];
