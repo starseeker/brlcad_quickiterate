@@ -135,6 +135,7 @@ struct rt_i {
     void *              rti_hlbvh_root;   /**< @brief flat HLBVH tree of finite solids; cast to struct bvh_flat_node* */
     struct soltab **    rti_hlbvh_prims;  /**< @brief ordered primitive array matching HLBVH leaf order */
     long                rti_hlbvh_nprims; /**< @brief number of entries in rti_hlbvh_prims */
+    long                rti_hlbvh_nnodes; /**< @brief number of flat BVH nodes in rti_hlbvh_root array */
 };
 
 

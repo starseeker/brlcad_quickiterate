@@ -227,6 +227,7 @@ rt_hlbvh_prep(struct rt_i *rtip)
 	rtip->rti_hlbvh_prims = NULL;
     }
     rtip->rti_hlbvh_nprims = 0;
+    rtip->rti_hlbvh_nnodes = 0;
 
     /* Count finite, non-dead primitives */
     n_primitives = 0;
@@ -289,71 +290,59 @@ rt_hlbvh_prep(struct rt_i *rtip)
     }
 
     if (RT_G_DEBUG & RT_DEBUG_CUT)
-	bu_log("HLBVH: %ld finite primitives in flat spatial BVH\n", n_primitives);
+	bu_log("HLBVH: %ld finite primitives in flat spatial BVH (%ld nodes)\n",
+	       n_primitives, total_nodes);
 
     rtip->rti_hlbvh_root   = (void *)flat_root;
     rtip->rti_hlbvh_prims  = all_prims;
     rtip->rti_hlbvh_nprims = n_primitives;
+    rtip->rti_hlbvh_nnodes = total_nodes;
 }
 
 
 /**
- * Compute a scene-density metric to decide whether NUBSP or HLBVH is
- * more likely to be efficient for this scene.
+ * Inspect the already-built flat HLBVH to judge whether it achieved good
+ * spatial separation.  Returns 1 if the tree is high quality, 0 if it is
+ * degenerate and NUBSP should be preferred instead.
  *
- * Returns 1 (dense) when the aggregate bounding-box volume of all finite
- * primitives exceeds the threshold multiple of the scene volume.
+ * Quality criterion: scan all flat nodes linearly and find the maximum
+ * leaf occupancy.  When many primitives share identical or nearly-identical
+ * Morton codes (heavily overlapping AABBs, as in dense mechanical assemblies)
+ * the HLBVH builder is forced to create a leaf containing all of them rather
+ * than splitting further.  A maximum leaf size well above the requested
+ * max_prims_in_node (4) is a reliable signal that NUBSP's adaptive cell
+ * subdivision will outperform the BVH.
  *
- * Dense scenes — many primitives whose AABBs heavily overlap because parts
- * are packed tightly together (e.g. m35) — benefit from NUBSP's adaptive
- * cell subdivision, which can cut through the overlap.  Well-separated or
- * fractal scenes (e.g. sphflake, havoc) benefit from HLBVH's fast build
- * and cache-friendly flat traversal.
- *
- * Must be called after rt_prep_parallel has computed and floor/ceil'd
- * rtip->mdl_min / rtip->mdl_max and after all soltab bounding boxes are set.
+ * Threshold: if any leaf holds more than 16 primitives (4× the requested
+ * maximum) and the scene has more than 32 primitives, the HLBVH is
+ * considered degenerate.
  */
 static int
-rt_scene_is_dense(struct rt_i *rtip)
+rt_hlbvh_is_good(const struct rt_i *rtip)
 {
-    struct soltab *stp;
-    vect_t diag;
-    double scene_volume;
-    double sum_prim_volume = 0.0;
-    double density_score;
-    long n_finite = 0;
-
-    /* density threshold: aggregate prim bbox volume / scene volume */
-#define RT_DENSE_SCENE_THRESHOLD 2.0
+    const struct bvh_flat_node *nodes;
+    long i, max_leaf = 0;
 
     RT_CK_RTI(rtip);
 
-    VSUB2(diag, rtip->mdl_max, rtip->mdl_min);
-    scene_volume = diag[X] * diag[Y] * diag[Z];
-    if (scene_volume <= 0.0)
+    nodes = (const struct bvh_flat_node *)rtip->rti_hlbvh_root;
+    if (!nodes || rtip->rti_hlbvh_nnodes == 0)
 	return 0;
 
-    RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
-	vect_t pdiag;
-	if (stp->st_aradius <= 0) continue;
-	if (stp->st_aradius >= INFINITY) continue;
-	VSUB2(pdiag, stp->st_max, stp->st_min);
-	sum_prim_volume += pdiag[X] * pdiag[Y] * pdiag[Z];
-	n_finite++;
-    } RT_VISIT_ALL_SOLTABS_END;
+    for (i = 0; i < rtip->rti_hlbvh_nnodes; i++) {
+	if (nodes[i].n_primitives > max_leaf)
+	    max_leaf = nodes[i].n_primitives;
+    }
 
-    if (n_finite == 0)
+    if (RT_G_DEBUG & RT_DEBUG_CUT)
+	bu_log("HLBVH quality: max_leaf=%ld nprims=%ld nnodes=%ld\n",
+	       max_leaf, rtip->rti_hlbvh_nprims, rtip->rti_hlbvh_nnodes);
+
+    /* Degenerate if any leaf is too large and scene has enough prims to matter */
+    if (rtip->rti_hlbvh_nprims > 32 && max_leaf > 16)
 	return 0;
 
-    /* density_score = n_prims * mean_prim_volume / scene_volume
-     *               = sum_prim_volume / scene_volume             */
-    density_score = sum_prim_volume / scene_volume;
-
-    bu_log("Scene density score: %.4f (n=%ld, sum_prim_vol=%.4g, scene_vol=%.4g, threshold=%.1f)\n",
-	   density_score, n_finite, sum_prim_volume, scene_volume,
-	   (double)RT_DENSE_SCENE_THRESHOLD);
-
-    return density_score > RT_DENSE_SCENE_THRESHOLD;
+    return 1;
 }
 
 
@@ -572,25 +561,34 @@ rt_prep_parallel(struct rt_i *rtip, int ncpu)
     }
 
     /* Select scene acceleration structure.  The default (set by rt_new_rti)
-     * is HLBVH, which is superior for well-separated or fractal scenes.
-     * For dense, tightly-packed scenes (high aggregate primitive bbox volume
-     * relative to the scene volume) NUBSP's adaptive subdivision produces
-     * finer spatial cuts that outperform the Morton-code BVH.
-     * Any caller-set override of rti_space_partition is respected; only
-     * auto-promote from the HLBVH default.
+     * is HLBVH.  We always build the HLBVH first — it's fast (O(n log n)) —
+     * and then inspect its leaf-node occupancy to decide whether to keep it
+     * or fall back to NUBSP.  Scenes where primitives are well-separated
+     * spatially (sphflake, havoc, moss) produce small leaves and HLBVH wins.
+     * Dense assemblies where many parts share overlapping AABBs (m35) cause
+     * HLBVH to produce degenerate fat leaves; those scenes route to NUBSP.
+     * Any caller-set override (rti_space_partition != RT_PART_HLBVH) is
+     * respected — the HLBVH build and quality check are skipped entirely.
      */
-    if (rtip->rti_space_partition == RT_PART_HLBVH && rt_scene_is_dense(rtip)) {
-	if (RT_G_DEBUG & RT_DEBUG_CUT)
-	    bu_log("rt_prep_parallel: dense scene detected, switching to NUBSP\n");
-	rtip->rti_space_partition = RT_PART_NUBSPT;
+    if (rtip->rti_space_partition == RT_PART_HLBVH) {
+	rt_hlbvh_prep(rtip);
+	if (!rt_hlbvh_is_good(rtip)) {
+	    if (RT_G_DEBUG & RT_DEBUG_CUT)
+		bu_log("rt_prep_parallel: HLBVH degenerate, falling back to NUBSP\n");
+	    bu_free(rtip->rti_hlbvh_root, "rti_hlbvh_root");
+	    rtip->rti_hlbvh_root = NULL;
+	    bu_free(rtip->rti_hlbvh_prims, "rti_hlbvh_prims");
+	    rtip->rti_hlbvh_prims = NULL;
+	    rtip->rti_hlbvh_nprims = 0;
+	    rtip->rti_hlbvh_nnodes = 0;
+	    rtip->rti_space_partition = RT_PART_NUBSPT;
+	}
     }
     for (i=1; i<=CUT_MAXIMUM; i++) rtip->rti_ncut_by_type[i] = 0;
     /* Populate rti_inf_box with infinite solids; also builds full NUBSP cut
      * tree when rti_space_partition == RT_PART_NUBSPT.
      */
     rt_cut_it(rtip, ncpu);
-    if (rtip->rti_space_partition == RT_PART_HLBVH)
-	rt_hlbvh_prep(rtip);
 
     /* Release storage used for bounding RPPs of solid "pieces" */
     RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
@@ -1385,6 +1383,7 @@ rt_clean(struct rt_i *rtip)
 	    rtip->rti_hlbvh_prims = NULL;
 	}
 	rtip->rti_hlbvh_nprims = 0;
+	rtip->rti_hlbvh_nnodes = 0;
     }
     rt_cut_clean(rtip);
 
@@ -2181,8 +2180,22 @@ rt_reprep(struct rt_i *rtip, struct rt_reprep_obj_list *objs, struct resource *r
 
     bu_ptbl_free(&rtip->rti_new_solids);
 
-    if (rtip->rti_space_partition == RT_PART_HLBVH)
+    if (rtip->rti_space_partition == RT_PART_HLBVH) {
 	rt_hlbvh_prep(rtip);
+	if (!rt_hlbvh_is_good(rtip)) {
+	    if (RT_G_DEBUG & RT_DEBUG_CUT)
+		bu_log("rt_reprep: HLBVH degenerate, rebuilding as NUBSP\n");
+	    bu_free(rtip->rti_hlbvh_root, "rti_hlbvh_root");
+	    rtip->rti_hlbvh_root = NULL;
+	    bu_free(rtip->rti_hlbvh_prims, "rti_hlbvh_prims");
+	    rtip->rti_hlbvh_prims = NULL;
+	    rtip->rti_hlbvh_nprims = 0;
+	    rtip->rti_hlbvh_nnodes = 0;
+	    rtip->rti_space_partition = RT_PART_NUBSPT;
+	    /* Full NUBSP rebuild over all solids */
+	    rt_cut_it(rtip, 1);
+	}
+    }
 
     if (BU_PTBL_LEN(&rtip->rti_resources)) {
 	for (i=0; i<BU_PTBL_LEN(&rtip->rti_resources); i++) {
