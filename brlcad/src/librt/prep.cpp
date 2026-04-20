@@ -1118,6 +1118,13 @@ rt_clean_resource_basic(struct rt_i *rtip, struct resource *resp)
 	resp->re_boolslen = 0;
     }
 
+    /* 're_hlbvh_prims' is a simple pointer */
+    if (resp->re_hlbvh_prims) {
+	bu_free((void *)resp->re_hlbvh_prims, "hlbvh prim buf");
+	resp->re_hlbvh_prims = NULL;
+	resp->re_hlbvh_prims_len = 0;
+    }
+
     /* Release the state variables for 'solid pieces' */
     rt_res_pieces_clean(resp, rtip);
 

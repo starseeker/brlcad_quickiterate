@@ -287,10 +287,17 @@ rt_shootray_bundle(struct application *ap, struct xray *rays, int nrays)
 	int ray;
 
 	if (hlbvh_root) {
-	    hlbvh_shot_flat(hlbvh_root, &ap->a_ray, &check_prims, &num_check_prims);
+	    hlbvh_shot_flat_reuse(hlbvh_root, &ap->a_ray, &check_prims, &num_check_prims,
+				  &resp->re_hlbvh_prims, &resp->re_hlbvh_prims_len);
 	} else if (rtip->rti_hlbvh_prims && rtip->rti_hlbvh_nprims > 0) {
 	    num_check_prims = (size_t)rtip->rti_hlbvh_nprims;
-	    check_prims = (long *)bu_calloc(num_check_prims, sizeof(long), "hlbvh fallback prim indices");
+	    if (resp->re_hlbvh_prims_len < num_check_prims) {
+		resp->re_hlbvh_prims = (long *)bu_realloc(resp->re_hlbvh_prims,
+							  num_check_prims * sizeof(long),
+							  "hlbvh fallback prim indices");
+		resp->re_hlbvh_prims_len = num_check_prims;
+	    }
+	    check_prims = resp->re_hlbvh_prims;
 	    for (pi = 0; pi < num_check_prims; pi++)
 		check_prims[pi] = (long)pi;
 	}
@@ -350,8 +357,7 @@ rt_shootray_bundle(struct application *ap, struct xray *rays, int nrays)
 	    }
 	}
 
-	if (check_prims)
-	    bu_free(check_prims, "hlbvh check_prims");
+	/* check_prims now points into resp->re_hlbvh_prims — do not free here */
 
 	/* Also shoot any infinite solids */
 	if (rtip->rti_inf_box.bn.bn_len > 0) {
