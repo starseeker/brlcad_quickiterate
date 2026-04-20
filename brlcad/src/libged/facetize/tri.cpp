@@ -327,7 +327,7 @@ _booltree_leaf_tess(struct db_tree_state *tsp, const struct db_full_path *pathp,
     curtree->tr_d.td_d = odata;
     curtree->tr_d.td_i = NULL;
 
-    bool should_log_treewalk = (s && s->verbosity > 1 && (RT_G_DEBUG&RT_DEBUG_TREEWALK));
+    bool should_log_treewalk = (s && s->verbosity > 1 && (RT_G_DEBUG & RT_DEBUG_TREEWALK));
     if (should_log_treewalk)
 	bu_log("_booltree_leaf_tess(%s) OK\n", dp->d_namep);
 
@@ -1167,7 +1167,7 @@ _ged_facetize_booleval_tri(struct _ged_facetize_state *s, struct db_i *dbip, str
     if (!dbip || !wdbp || !argv || !oname)
 	return BRLCAD_ERROR;
 
-    /* Quiet default: per-object booleval status is verbose mode only. */
+    /* Per-object booleval status is shown only in verbose mode. */
     if (s->verbosity >= 1) {
 	if (argc == 1) {
 	    bu_log("%s: evaluating booleans...\n", argv[0]);
