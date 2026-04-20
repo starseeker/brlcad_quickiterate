@@ -1412,9 +1412,10 @@ _ged_facetize_booleval(struct _ged_facetize_state *s, int argc, struct directory
     if (_ged_facetize_working_file_setup(s, &leaf_dps) != BRLCAD_OK)
 	return BRLCAD_ERROR;
 
-    /* Keep perturb/no-perturb behavior independent of region mode:
-     * when enabled, always plan/tessellate coplanarity-avoidance variants
-     * for Manifold booleval paths (except explicit NMG booleval modes). */
+    /* Direct Manifold booleval keeps the eager perturb path: when enabled,
+     * build and tessellate coplanarity-avoidance variants up front.
+     * Region mode overrides this by validating first and only retrying with
+     * variants on demand. */
     if (s->variant_plan) {
 	delete (FacetizeVariantPlan *)s->variant_plan;
 	s->variant_plan = NULL;
