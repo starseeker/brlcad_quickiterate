@@ -3321,7 +3321,7 @@ ged_facetize_old_core(struct ged *gedp, int argc, const char *argv[])
     struct bu_opt_desc pd[4];
 
     BU_OPT(d[0],  "h", "help",          "",  NULL,  &print_help,               "Print help and exit");
-    BU_OPT(d[1],  "v", "verbose",       "",  &_ged_vopt,  &(opts->verbosity),  "Verbose output (multiple flags increase verbosity)");
+    BU_OPT(d[1],  "v", "verbose",       "",  &bu_opt_vopt,  &(opts->verbosity),  "Verbose output (multiple flags increase verbosity)");
     BU_OPT(d[2],  "q", "quiet",         "",  NULL,  &(opts->quiet),            "Suppress all output (overrides verbose flag)");
     BU_OPT(d[3],  "",  "NMG",           "",  NULL,  &(opts->nmgbool),          "Use the standard libnmg boolean mesh evaluation to create output (Default)");
     BU_OPT(d[4],  "",  "CM",            "",  NULL,  &(opts->continuation),     "Use the Continuation Method to sample the object and create output");
