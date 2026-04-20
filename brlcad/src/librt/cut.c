@@ -258,10 +258,8 @@ rt_cut_it(register struct rt_i *rtip, int UNUSED(ncpu))
     bu_ptbl_init(&rtip->rti_cuts_waiting, rtip->nsolids,
 		 "rti_cuts_waiting ptbl");
 
-    if (rtip->rti_hasty_prep) {
-	rtip->rti_space_partition = RT_PART_NUBSPT;
+    if (rtip->rti_hasty_prep)
 	rtip->rti_cutdepth = 6;
-    }
 
     switch (rtip->rti_space_partition) {
 	case RT_PART_NUBSPT: {
@@ -1153,8 +1151,8 @@ rt_pr_cut_info(const struct rt_i *rtip, const char *str)
 
     bu_log("%s %s: %zu cut, %zu box (%zu empty)\n",
 	   str,
-	   rtip->rti_space_partition == RT_PART_NUBSPT ?
-	   "NUBSP" : "unknown",
+	   rtip->rti_space_partition == RT_PART_NUBSPT ? "NUBSP" :
+	   (rtip->rti_space_partition == RT_PART_HLBVH ? "HLBVH" : "unknown"),
 	   rtip->rti_ncut_by_type[CUT_CUTNODE],
 	   rtip->rti_ncut_by_type[CUT_BOXNODE],
 	   rtip->nempty_cells);

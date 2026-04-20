@@ -279,14 +279,15 @@ rt_shootray_bundle(struct application *ap, struct xray *rays, int nrays)
      * and shoot each ray in the bundle at every primitive in
      * intersected leaves, then handle infinite solids.
      */
-    if (rtip->rti_space_partition == RT_PART_HLBVH && rtip->rti_hlbvh_root) {
+    if (rtip->rti_space_partition == RT_PART_HLBVH) {
 	struct bvh_flat_node *hlbvh_root = (struct bvh_flat_node *)rtip->rti_hlbvh_root;
 	long *check_prims = NULL;
 	size_t num_check_prims = 0;
 	size_t pi;
 	int ray;
 
-	hlbvh_shot_flat(hlbvh_root, &ap->a_ray, &check_prims, &num_check_prims);
+	if (hlbvh_root)
+	    hlbvh_shot_flat(hlbvh_root, &ap->a_ray, &check_prims, &num_check_prims);
 
 	for (pi = 0; pi < num_check_prims; pi++) {
 	    struct soltab *stp = rtip->rti_hlbvh_prims[check_prims[pi]];

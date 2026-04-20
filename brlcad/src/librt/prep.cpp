@@ -121,17 +121,8 @@ rt_new_rti(struct db_i *dbip)
     rtip->rti_ttol.rel = 0.01;
     rtip->rti_ttol.norm = 0;
 
-    /* This sets the space partitioning algorithm to Mike's original
-     * non-uniform binary space partitioning tree.  If you change this
-     * to anything else, you must also modify "rt_find_backing_dist()"
-     * (in shoot.c), to handle the different algorithm -JRA
-     */
-    rtip->rti_space_partition = RT_PART_NUBSPT;
-    {
-	const char *sp_env = getenv("LIBRT_SPACE_PARTITION");
-	if (sp_env && strcmp(sp_env, "hlbvh") == 0)
-	    rtip->rti_space_partition = RT_PART_HLBVH;
-    }
+    /* Use HLBVH scene acceleration for CPU tracing. */
+    rtip->rti_space_partition = RT_PART_HLBVH;
 
     /*
      * Zero the solid instancing counters in dbip database instance.
@@ -516,20 +507,12 @@ rt_prep_parallel(struct rt_i *rtip, int ncpu)
 	rtip->rti_pmax[2] = rtip->mdl_max[2] + diff;
     }
 
-    /*
-     * Partition space
-     *
-     * Multiple CPUs can be used here.
-     */
+    /* HLBVH-only CPU scene acceleration setup. */
+    rtip->rti_space_partition = RT_PART_HLBVH;
     for (i=1; i<=CUT_MAXIMUM; i++) rtip->rti_ncut_by_type[i] = 0;
-    /* Always call rt_cut_it to populate rti_inf_box with infinite solids.
-     * When RT_PART_HLBVH, rt_cut_it skips the NUBSP optimisation.
-     */
+    /* Populate rti_inf_box with infinite solids. */
     rt_cut_it(rtip, ncpu);
-
-    /* Build HLBVH scene acceleration structure if requested */
-    if (rtip->rti_space_partition == RT_PART_HLBVH)
-	rt_hlbvh_prep(rtip);
+    rt_hlbvh_prep(rtip);
 
     /* Release storage used for bounding RPPs of solid "pieces" */
     RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
@@ -1804,7 +1787,8 @@ unprep_leaf(struct db_tree_state *tsp,
 		if (stp->st_uses <= 1) {
 		    /* soltab structure will actually be freed */
 		    remove_from_bsp(stp, &rtip->rti_inf_box, &rtip->rti_tol);
-		    remove_from_bsp(stp, &rtip->rti_CutHead, &rtip->rti_tol);
+		    if (rtip->rti_CutHead.cut_type != 0)
+			remove_from_bsp(stp, &rtip->rti_CutHead, &rtip->rti_tol);
 		    rtip->rti_Solids[bit] = (struct soltab *)NULL;
 		}
 		rt_free_soltab(stp);
@@ -2035,11 +2019,7 @@ rt_reprep(struct rt_i *rtip, struct rt_reprep_obj_list *objs, struct resource *r
     char **argv;
     struct region *rp;
     struct soltab *stp;
-    fastf_t old_min[3], old_max[3];
     size_t bitno;
-
-    VMOVE(old_min, rtip->mdl_min);
-    VMOVE(old_max, rtip->mdl_max);
 
     rtip->needprep = 1;
 
@@ -2110,28 +2090,12 @@ rt_reprep(struct rt_i *rtip, struct rt_reprep_obj_list *objs, struct resource *r
 	stp = (struct soltab *)BU_PTBL_GET(&rtip->rti_new_solids, i);
 	if (stp->st_aradius >= INFINITY) {
 	    insert_in_bsp(stp, &rtip->rti_inf_box);
-	} else if (rtip->rti_space_partition != RT_PART_HLBVH) {
-	    insert_in_bsp(stp, &rtip->rti_CutHead);
 	}
     }
 
     bu_ptbl_free(&rtip->rti_new_solids);
 
-    if (rtip->rti_space_partition != RT_PART_HLBVH &&
-	(!VNEAR_EQUAL(rtip->mdl_min, old_min, SMALL_FASTF)
-	 || !VNEAR_EQUAL(rtip->mdl_max, old_max, SMALL_FASTF)))
-    {
-	/* fill out BSP, it must completely fill the model BB */
-	fastf_t bb[6];
-
-	VSETALL(bb, INFINITY);
-	VSETALL(&bb[3], -INFINITY);
-	fill_out_bsp(rtip, &rtip->rti_CutHead, resp, bb);
-    }
-
-    /* Rebuild HLBVH after reprep */
-    if (rtip->rti_space_partition == RT_PART_HLBVH)
-	rt_hlbvh_prep(rtip);
+    rt_hlbvh_prep(rtip);
 
     if (BU_PTBL_LEN(&rtip->rti_resources)) {
 	for (i=0; i<BU_PTBL_LEN(&rtip->rti_resources); i++) {
