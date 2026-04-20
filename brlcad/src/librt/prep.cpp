@@ -297,6 +297,67 @@ rt_hlbvh_prep(struct rt_i *rtip)
 
 
 /**
+ * Compute a scene-density metric to decide whether NUBSP or HLBVH is
+ * more likely to be efficient for this scene.
+ *
+ * Returns 1 (dense) when the aggregate bounding-box volume of all finite
+ * primitives exceeds the threshold multiple of the scene volume.
+ *
+ * Dense scenes — many primitives whose AABBs heavily overlap because parts
+ * are packed tightly together (e.g. m35) — benefit from NUBSP's adaptive
+ * cell subdivision, which can cut through the overlap.  Well-separated or
+ * fractal scenes (e.g. sphflake, havoc) benefit from HLBVH's fast build
+ * and cache-friendly flat traversal.
+ *
+ * Must be called after rt_prep_parallel has computed and floor/ceil'd
+ * rtip->mdl_min / rtip->mdl_max and after all soltab bounding boxes are set.
+ */
+static int
+rt_scene_is_dense(struct rt_i *rtip)
+{
+    struct soltab *stp;
+    vect_t diag;
+    double scene_volume;
+    double sum_prim_volume = 0.0;
+    double density_score;
+    long n_finite = 0;
+
+    /* density threshold: aggregate prim bbox volume / scene volume */
+#define RT_DENSE_SCENE_THRESHOLD 2.0
+
+    RT_CK_RTI(rtip);
+
+    VSUB2(diag, rtip->mdl_max, rtip->mdl_min);
+    scene_volume = diag[X] * diag[Y] * diag[Z];
+    if (scene_volume <= 0.0)
+	return 0;
+
+    RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
+	vect_t pdiag;
+	if (stp->st_aradius <= 0) continue;
+	if (stp->st_aradius >= INFINITY) continue;
+	VSUB2(pdiag, stp->st_max, stp->st_min);
+	sum_prim_volume += pdiag[X] * pdiag[Y] * pdiag[Z];
+	n_finite++;
+    } RT_VISIT_ALL_SOLTABS_END;
+
+    if (n_finite == 0)
+	return 0;
+
+    /* density_score = n_prims * mean_prim_volume / scene_volume
+     *               = sum_prim_volume / scene_volume             */
+    density_score = sum_prim_volume / scene_volume;
+
+    if (RT_G_DEBUG & RT_DEBUG_CUT)
+	bu_log("Scene density score: %.4f (n=%ld, sum_prim_vol=%.4g, scene_vol=%.4g, threshold=%.1f)\n",
+	       density_score, n_finite, sum_prim_volume, scene_volume,
+	       (double)RT_DENSE_SCENE_THRESHOLD);
+
+    return density_score > RT_DENSE_SCENE_THRESHOLD;
+}
+
+
+/**
  * This routine should be called just before the first call to
  * rt_shootray().  It should only be called ONCE per execution, unless
  * rt_clean() is called in between.
@@ -510,12 +571,26 @@ rt_prep_parallel(struct rt_i *rtip, int ncpu)
 	rtip->rti_pmax[2] = rtip->mdl_max[2] + diff;
     }
 
-    /* HLBVH-only CPU scene acceleration setup. */
-    rtip->rti_space_partition = RT_PART_HLBVH;
+    /* Select scene acceleration structure.  The default (set by rt_new_rti)
+     * is HLBVH, which is superior for well-separated or fractal scenes.
+     * For dense, tightly-packed scenes (high aggregate primitive bbox volume
+     * relative to the scene volume) NUBSP's adaptive subdivision produces
+     * finer spatial cuts that outperform the Morton-code BVH.
+     * Any caller-set override of rti_space_partition is respected; only
+     * auto-promote from the HLBVH default.
+     */
+    if (rtip->rti_space_partition == RT_PART_HLBVH && rt_scene_is_dense(rtip)) {
+	if (RT_G_DEBUG & RT_DEBUG_CUT)
+	    bu_log("rt_prep_parallel: dense scene detected, switching to NUBSP\n");
+	rtip->rti_space_partition = RT_PART_NUBSPT;
+    }
     for (i=1; i<=CUT_MAXIMUM; i++) rtip->rti_ncut_by_type[i] = 0;
-    /* Populate rti_inf_box with infinite solids. */
+    /* Populate rti_inf_box with infinite solids; also builds full NUBSP cut
+     * tree when rti_space_partition == RT_PART_NUBSPT.
+     */
     rt_cut_it(rtip, ncpu);
-    rt_hlbvh_prep(rtip);
+    if (rtip->rti_space_partition == RT_PART_HLBVH)
+	rt_hlbvh_prep(rtip);
 
     /* Release storage used for bounding RPPs of solid "pieces" */
     RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
