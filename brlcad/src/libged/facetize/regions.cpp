@@ -52,7 +52,7 @@
 
 static const double FACETIZE_RT_EMPTY_TOL = 1.0e-9;
 static const size_t FACETIZE_PROGRESS_INTERVAL = 25;
-static const double FACETIZE_USEC_PER_SEC = 1000000.0;
+static const double FACETIZE_USEC_TO_SEC_DIVISOR = 1.0e6;
 
 /* Minimum Crofton crossing count for a statistically meaningful SA
  * comparison.  Below this threshold (~1/sqrt(N) noise > 14 %) the
@@ -802,7 +802,7 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 	}
     }
     size_t eval_total = BU_PTBL_LEN(&eval_roots);
-    if (s->verbosity < 1)
+    if (s->verbosity == 0)
 	facetize_log(s, 0, "Evaluating %zu roots...\n", eval_total);
 
     FacetizeVariantPlan *vplan = (FacetizeVariantPlan *)s->variant_plan;
@@ -1080,7 +1080,7 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 
     /* Print a concise validation summary when any regions went through the check. */
     if ((vcnt_total > 0 || vcnt_skip > 0) && !s->make_nmg && !s->nmg_booleval) {
-	double elapsed_s = (bu_gettime() - region_start) / FACETIZE_USEC_PER_SEC;
+	double elapsed_s = (bu_gettime() - region_start) / FACETIZE_USEC_TO_SEC_DIVISOR;
 	facetize_log(s, 0, "\nFACETIZE summary:\n");
 	facetize_log(s, 0, "  %-40s %8zu\n", "Total roots evaluated", eval_total);
 	facetize_log(s, 0, "  %-40s %8.2f s\n", "Runtime", elapsed_s);
