@@ -327,7 +327,8 @@ _booltree_leaf_tess(struct db_tree_state *tsp, const struct db_full_path *pathp,
     curtree->tr_d.td_d = odata;
     curtree->tr_d.td_i = NULL;
 
-    if (s && s->verbosity > 1 && (RT_G_DEBUG&RT_DEBUG_TREEWALK))
+    bool should_log_treewalk = (s && s->verbosity > 1 && (RT_G_DEBUG&RT_DEBUG_TREEWALK));
+    if (should_log_treewalk)
 	bu_log("_booltree_leaf_tess(%s) OK\n", dp->d_namep);
 
     return curtree;
@@ -595,7 +596,7 @@ tess_run(struct _ged_facetize_state *s, const char **tess_cmd, int tess_cmd_cnt,
     facetize_log(s, 2, "%s\n", bu_vls_cstr(&cmd));
     bu_vls_free(&cmd);
 
-    // If we're not being verbose, just report how many objects we're working on
+    // Verbose progress line showing how many objects we're working on
     if (ocnt == 1)
 	facetize_log(s, 1, "Attempting to triangulate %s...", tess_cmd[tess_cmd_cnt-ocnt]);
     if (ocnt > 1)

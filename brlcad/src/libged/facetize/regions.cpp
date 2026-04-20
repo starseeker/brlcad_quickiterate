@@ -41,6 +41,7 @@
 #include "bu/app.h"
 #include "bu/path.h"
 #include "bu/env.h"
+#include "bu/time.h"
 #include "bg/trimesh.h"
 #include "rt/db_io.h"
 #include "rt/search.h"
@@ -50,6 +51,8 @@
 #include "./ged_facetize.h"
 
 static const double FACETIZE_RT_EMPTY_TOL = 1.0e-9;
+static const size_t FACETIZE_PROGRESS_INTERVAL = 25;
+static const double FACETIZE_USEC_PER_SEC = 1000000.0;
 
 /* Minimum Crofton crossing count for a statistically meaningful SA
  * comparison.  Below this threshold (~1/sqrt(N) noise > 14 %) the
@@ -817,7 +820,7 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 	dpw[0] = (struct directory *)BU_PTBL_GET(&eval_roots, i);
 	if (s->verbosity >= 1) {
 	    facetize_log(s, 1, "Processing %s\n", dpw[0]->d_namep);
-	} else if (((i + 1) % 25 == 0) || (i + 1 == eval_total)) {
+	} else if (((i + 1) % FACETIZE_PROGRESS_INTERVAL == 0) || (i + 1 == eval_total)) {
 	    facetize_log(s, 0, "  processed %zu/%zu roots\n", i + 1, eval_total);
 	}
 
@@ -1077,7 +1080,7 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 
     /* Print a concise validation summary when any regions went through the check. */
     if ((vcnt_total > 0 || vcnt_skip > 0) && !s->make_nmg && !s->nmg_booleval) {
-	double elapsed_s = (bu_gettime() - region_start) / 1000000.0;
+	double elapsed_s = (bu_gettime() - region_start) / FACETIZE_USEC_PER_SEC;
 	facetize_log(s, 0, "\nFACETIZE summary:\n");
 	facetize_log(s, 0, "  %-40s %8zu\n", "Total roots evaluated", eval_total);
 	facetize_log(s, 0, "  %-40s %8.2f s\n", "Runtime", elapsed_s);
