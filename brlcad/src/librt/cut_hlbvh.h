@@ -18,6 +18,8 @@
  * information.
  */
 
+#include "common.h"
+
 struct bvh_build_node {
     fastf_t bounds[6];
     struct bvh_build_node *children[2];
@@ -36,6 +38,8 @@ struct bvh_flat_node {
 
 #ifndef HLBVH_IMPLEMENTATION
 
+__BEGIN_DECLS
+
 extern struct bu_pool *
 hlbvh_init_pool(size_t n_primatives);
 
@@ -53,7 +57,9 @@ hlbvh_shot_raw(struct bvh_build_node* root, struct xray* rp, long** check_tris, 
 extern void
 hlbvh_shot_flat(struct bvh_flat_node* root, struct xray* rp, long** check_tris, size_t* num_check_tris);
 
-#endif // HLBVH_IMPLEMENTATION
+__END_DECLS
+
+#endif /* HLBVH_IMPLEMENTATION */
 
 
 /*
