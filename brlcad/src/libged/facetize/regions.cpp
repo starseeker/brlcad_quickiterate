@@ -799,6 +799,8 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 
     FacetizeVariantPlan *vplan = (FacetizeVariantPlan *)s->variant_plan;
     bool variant_meshes_ready = false;
+    /* Region mode starts with the baseline BoT path and only enables/tessellates
+     * variants if Pass 1 validation says a perturb retry is needed. */
     if (!s->make_nmg && !s->nmg_booleval && !s->no_perturb)
 	s->use_variant_plan = 0;
 
