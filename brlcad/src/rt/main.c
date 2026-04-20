@@ -530,7 +530,12 @@ int main(int argc, char *argv[])
     memory_summary();
 
     /* Copy values from command line options into rtip */
-    APP.a_rt_i->rti_space_partition = space_partition;
+    /* Only override the partition algorithm when the user explicitly requested
+     * one via -,; otherwise librt's auto-select (HLBVH with NUBSP fallback
+     * for degenerate scenes) runs unimpeded.
+     */
+    if (space_partition >= 0)
+	APP.a_rt_i->rti_space_partition = space_partition;
     APP.a_rt_i->useair = use_air;
     APP.a_rt_i->rti_save_overlaps = save_overlaps;
     if (rt_dist_tol > 0) {
