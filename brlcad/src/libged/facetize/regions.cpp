@@ -802,7 +802,7 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 	}
     }
     size_t eval_total = BU_PTBL_LEN(&eval_roots);
-    if (s->verbosity == 0)
+    if (s->verbosity < 1)
 	facetize_log(s, 0, "Evaluating %zu roots...\n", eval_total);
 
     FacetizeVariantPlan *vplan = (FacetizeVariantPlan *)s->variant_plan;
