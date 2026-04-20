@@ -121,7 +121,8 @@ rt_new_rti(struct db_i *dbip)
     rtip->rti_ttol.rel = 0.01;
     rtip->rti_ttol.norm = 0;
 
-    /* Use HLBVH scene acceleration for CPU tracing. */
+    /* Default scene acceleration for CPU tracing is HLBVH; may be
+     * auto-switched to NUBSP for dense scenes by rt_prep_parallel(). */
     rtip->rti_space_partition = RT_PART_HLBVH;
 
     /*
@@ -2181,7 +2182,8 @@ rt_reprep(struct rt_i *rtip, struct rt_reprep_obj_list *objs, struct resource *r
 
     bu_ptbl_free(&rtip->rti_new_solids);
 
-    rt_hlbvh_prep(rtip);
+    if (rtip->rti_space_partition == RT_PART_HLBVH)
+	rt_hlbvh_prep(rtip);
 
     if (BU_PTBL_LEN(&rtip->rti_resources)) {
 	for (i=0; i<BU_PTBL_LEN(&rtip->rti_resources); i++) {
