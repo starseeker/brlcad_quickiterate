@@ -29,6 +29,7 @@
 
 #include "raytrace.h"
 #include "bv/plot3.h"
+#include "cut_hlbvh.h"
 
 
 #define V3PT_DEPARTING_RPP(_step, _lo, _hi, _pt)			\
@@ -897,7 +898,8 @@ rt_shootray(register struct application *ap)
     ss.box_start = ss.model_start = ap->a_ray.r_min;
     ss.box_end = ss.model_end = ap->a_ray.r_max;
 
-    if (ap->a_rt_i->rti_nsolids_with_pieces > 0) {
+    if (rtip->rti_nsolids_with_pieces > 0
+	&& rtip->rti_space_partition != RT_PART_HLBVH) {
 	/* pieces are present */
 	if (ss.box_start < BACKING_DIST) {
 	    /* the first ray intersection with the model bounding box
@@ -918,7 +920,7 @@ rt_shootray(register struct application *ap)
 	    ss.box_start = rt_find_backing_dist(&ss, backbits);
 	}
     } else {
-	/* no pieces present, use the old scheme */
+	/* no pieces present (or HLBVH mode), use the old scheme */
 	if (ss.box_start < BACKING_DIST)
 	    ss.box_start = BACKING_DIST; /* Only look a little bit behind */
     }
@@ -935,6 +937,104 @@ rt_shootray(register struct application *ap)
 
     last_bool_start = BACKING_DIST;
     shoot_setup_status(&ss, ap);
+
+    /*
+     * HLBVH scene traversal path.  Traverse the flat BVH, call ft_shot
+     * on every primitive in intersected leaves, then handle infinite
+     * solids from rti_inf_box.  Skip the NUBSP loop below.
+     */
+    if (rtip->rti_space_partition == RT_PART_HLBVH && rtip->rti_hlbvh_root) {
+	struct bvh_flat_node *hlbvh_root = (struct bvh_flat_node *)rtip->rti_hlbvh_root;
+	long *check_prims = NULL;
+	size_t num_check_prims = 0;
+	size_t pi;
+
+	hlbvh_shot_flat(hlbvh_root, &ap->a_ray, &check_prims, &num_check_prims);
+
+	for (pi = 0; pi < num_check_prims; pi++) {
+	    struct soltab *stp = rtip->rti_hlbvh_prims[check_prims[pi]];
+	    int ret;
+
+	    if (BU_BITTEST(solidbits, stp->st_bit)) {
+		resp->re_ndup++;
+		continue;
+	    }
+	    BU_BITSET(solidbits, stp->st_bit);
+
+	    if (OBJ[stp->st_id].ft_use_rpp) {
+		if (!rt_in_rpp(&ap->a_ray, ss.inv_dir,
+			       stp->st_min, stp->st_max)) {
+		    resp->re_prune_solrpp++;
+		    continue;
+		}
+	    }
+
+	    if (debug_shoot) bu_log("HLBVH shooting %s\n", stp->st_name);
+	    resp->re_shots++;
+	    BU_LIST_INIT(&(new_segs.l));
+
+	    ret = -1;
+	    if (OBJ[stp->st_id].ft_shot) {
+		ret = OBJ[stp->st_id].ft_shot(stp, &ap->a_ray, ap, &new_segs);
+	    }
+	    if (ret <= 0) {
+		resp->re_shot_miss++;
+		continue;
+	    }
+
+	    {
+		register struct seg *s2;
+		while (BU_LIST_WHILE(s2, seg, &(new_segs.l))) {
+		    BU_LIST_DEQUEUE(&(s2->l));
+		    s2->seg_in.hit_rayp = s2->seg_out.hit_rayp = &ap->a_ray;
+		    BU_LIST_INSERT(&(waiting_segs.l), &(s2->l));
+		}
+	    }
+	    resp->re_shot_hit++;
+	}
+
+	if (check_prims)
+	    bu_free(check_prims, "hlbvh check_prims");
+
+	/* Also shoot any infinite solids */
+	if (rtip->rti_inf_box.bn.bn_len > 0) {
+	    stpp = &(rtip->rti_inf_box.bn.bn_list[rtip->rti_inf_box.bn.bn_len - 1]);
+	    for (; stpp >= rtip->rti_inf_box.bn.bn_list; stpp--) {
+		struct soltab *stp = *stpp;
+		int ret;
+
+		if (BU_BITTEST(solidbits, stp->st_bit)) {
+		    resp->re_ndup++;
+		    continue;
+		}
+		BU_BITSET(solidbits, stp->st_bit);
+
+		resp->re_shots++;
+		BU_LIST_INIT(&(new_segs.l));
+
+		ret = -1;
+		if (OBJ[stp->st_id].ft_shot) {
+		    ret = OBJ[stp->st_id].ft_shot(stp, &ap->a_ray, ap, &new_segs);
+		}
+		if (ret <= 0) {
+		    resp->re_shot_miss++;
+		    continue;
+		}
+
+		{
+		    register struct seg *s2;
+		    while (BU_LIST_WHILE(s2, seg, &(new_segs.l))) {
+			BU_LIST_DEQUEUE(&(s2->l));
+			s2->seg_in.hit_rayp = s2->seg_out.hit_rayp = &ap->a_ray;
+			BU_LIST_INSERT(&(waiting_segs.l), &(s2->l));
+		    }
+		}
+		resp->re_shot_hit++;
+	    }
+	}
+
+	goto weave;
+    }
 
     /*
      * While the ray remains inside model space, push from box to box

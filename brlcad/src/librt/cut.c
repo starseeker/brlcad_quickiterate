@@ -275,6 +275,14 @@ rt_cut_it(register struct rt_i *rtip, int UNUSED(ncpu))
 	    }
 
 	    break; }
+	case RT_PART_HLBVH:
+	    /* HLBVH mode: keep rti_inf_box (already populated above) but
+	     * skip the NUBSP spatial optimisation.  The HLBVH scene tree
+	     * is built after rt_cut_it() returns (in rt_prep_parallel).
+	     * rti_CutHead is left zeroed; rt_clean checks cut_type before
+	     * calling rt_fr_cut on it.
+	     */
+	    break;
 	default:
 	    bu_bomb("rt_cut_it: unknown space partitioning method\n");
     }
@@ -288,14 +296,16 @@ rt_cut_it(register struct rt_i *rtip, int UNUSED(ncpu))
     bu_hist_init(&rtip->rti_hist_cutdepth, 0.0,
 		 (fastf_t)rtip->rti_cutdepth+1, rtip->rti_cutdepth+1);
     memset(rtip->rti_ncut_by_type, 0, sizeof(rtip->rti_ncut_by_type));
-    rt_ct_measure(rtip, &rtip->rti_CutHead, 0);
+    if (rtip->rti_CutHead.cut_type != 0)
+	rt_ct_measure(rtip, &rtip->rti_CutHead, 0);
     if (RT_G_DEBUG&RT_DEBUG_CUT) {
 	rt_pr_cut_info(rtip, "Cut");
     }
 
     if (RT_G_DEBUG&RT_DEBUG_CUTDETAIL) {
 	/* Produce a voluminous listing of the cut tree */
-	rt_pr_cut(&rtip->rti_CutHead, 0);
+	if (rtip->rti_CutHead.cut_type != 0)
+	    rt_pr_cut(&rtip->rti_CutHead, 0);
     }
 
     if (RT_G_DEBUG&RT_DEBUG_PL_BOX) {

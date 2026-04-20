@@ -131,6 +131,10 @@ struct rt_i {
     /* Parameters for dynamic geometry */
     int                 rti_add_to_new_solids_list;
     struct bu_ptbl      rti_new_solids;
+    /* Parameters for HLBVH scene acceleration (RT_PART_HLBVH mode) */
+    void *              rti_hlbvh_root;   /**< @brief flat HLBVH tree of finite solids; cast to struct bvh_flat_node* */
+    struct soltab **    rti_hlbvh_prims;  /**< @brief ordered primitive array matching HLBVH leaf order */
+    long                rti_hlbvh_nprims; /**< @brief number of entries in rti_hlbvh_prims */
 };
 
 
