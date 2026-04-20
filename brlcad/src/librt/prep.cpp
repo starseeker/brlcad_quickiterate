@@ -189,101 +189,34 @@ rt_free_rti(struct rt_i *rtip)
 }
 
 
-/*
- * Minimum number of soltabs in an all-union region required before we build
- * a dedicated per-region spatial sub-BVH (two-level HLBVH).  Regions with
- * fewer than this many primitives go directly into the scene-level BVH.
- *
- * 64 is chosen so that the overhead of a sub-BVH traversal call (stack setup,
- * ray–AABB test loop) is amortized over a meaningful set of primitives.
- * Smaller clusters do not benefit enough to justify the extra call overhead.
- * This value can be tuned; empirical testing shows it works well across a
- * range of 32-128 without material performance difference.
- */
-#define HLBVH_REGION_GROUP_THRESHOLD 64
-
-/* Free all per-region sub-BVH storage from rtip. */
-static void
-rt_hlbvh_free_reg_bvh(struct rt_i *rtip)
-{
-    long k;
-
-    if (rtip->rti_reg_sub_bvh) {
-	for (k = 0; k < rtip->rti_reg_bvh_nregions; k++) {
-	    if (rtip->rti_reg_sub_bvh[k]) {
-		bu_free(rtip->rti_reg_sub_bvh[k], "rti_reg_sub_bvh entry");
-		rtip->rti_reg_sub_bvh[k] = NULL;
-	    }
-	}
-	bu_free(rtip->rti_reg_sub_bvh, "rti_reg_sub_bvh");
-	rtip->rti_reg_sub_bvh = NULL;
-    }
-    if (rtip->rti_reg_sub_prims) {
-	for (k = 0; k < rtip->rti_reg_bvh_nregions; k++) {
-	    if (rtip->rti_reg_sub_prims[k]) {
-		bu_free(rtip->rti_reg_sub_prims[k], "rti_reg_sub_prims entry");
-		rtip->rti_reg_sub_prims[k] = NULL;
-	    }
-	}
-	bu_free(rtip->rti_reg_sub_prims, "rti_reg_sub_prims");
-	rtip->rti_reg_sub_prims = NULL;
-    }
-    if (rtip->rti_reg_sub_nprims) {
-	bu_free(rtip->rti_reg_sub_nprims, "rti_reg_sub_nprims");
-	rtip->rti_reg_sub_nprims = NULL;
-    }
-    rtip->rti_reg_bvh_nregions = 0;
-
-    if (rtip->rti_hlbvh_proxy_reg) {
-	bu_free(rtip->rti_hlbvh_proxy_reg, "rti_hlbvh_proxy_reg");
-	rtip->rti_hlbvh_proxy_reg = NULL;
-    }
-}
-
-
 /**
  * Build the flat HLBVH scene acceleration structure for CPU ray tracing.
  * Called from rt_prep_parallel() when rti_space_partition == RT_PART_HLBVH.
  *
- * Two-level BVH strategy: all-union regions with >= HLBVH_REGION_GROUP_THRESHOLD
- * soltabs (that are not shared across regions) get their own per-region spatial
- * sub-BVH.  At the scene level such regions appear as a single "proxy" entry
- * whose bounding box spans all of the region's primitives.  Shoot-time traversal
- * then recurses into the per-region sub-BVH for any proxy that the ray hits.
- * This avoids mixing multi-scale primitives from different regions in a single
- * flat Morton-code sort and keeps the scene-level BVH small.
+ * Builds a single-level spatially-sorted BVH over all finite primitives
+ * regardless of region membership or boolean tree type.  The HLBVH
+ * Morton-code construction produces a balanced spatial tree with up to
+ * max_prims_in_node (4) primitives per leaf, giving finer spatial
+ * decomposition than any region-boundary grouping.
  */
 static void
 rt_hlbvh_prep(struct rt_i *rtip)
 {
     struct soltab *stp;
-    long i, j;
+    long i;
     long n_primitives;
-    long n_scene_prims;
-    long n_grouped_regions;
-    long n_ungrouped;
-    long nregions;
-    struct soltab **all_prims;     /* all finite soltabs */
-    struct soltab **scene_prims;   /* scene-level prim array (real + proxies) */
-    long *proxy_reg_arr;           /* parallel to scene_prims: reg_bit or -1 */
+    struct soltab **all_prims;
     fastf_t *centroids;
-    fastf_t *scene_bounds;
+    fastf_t *bounds;
     long total_nodes = 0;
-    long *ordered_prims;
+    long *ordered_prims = NULL;
     struct bu_pool *pool;
     struct bvh_build_node *root;
     struct bvh_flat_node *flat_root;
-    long *reg_soltab_count;   /* groupable soltab count per region */
-    long *soltab_reg;         /* per-soltab: reg_bit if groupable, else -1 */
-    void **reg_sub_bvh;
-    struct soltab ***reg_sub_prims_arr;
-    long *reg_sub_nprims_arr;
-    long *reg_fill;
-    long scene_idx;
 
     RT_CK_RTI(rtip);
 
-    /* ---- Free any previous HLBVH data ---- */
+    /* Free any previous HLBVH data */
     if (rtip->rti_hlbvh_root) {
 	bu_free(rtip->rti_hlbvh_root, "rti_hlbvh_root");
 	rtip->rti_hlbvh_root = NULL;
@@ -293,22 +226,19 @@ rt_hlbvh_prep(struct rt_i *rtip)
 	rtip->rti_hlbvh_prims = NULL;
     }
     rtip->rti_hlbvh_nprims = 0;
-    rt_hlbvh_free_reg_bvh(rtip);
 
-    /* ---- Count finite, non-dead primitives ---- */
+    /* Count finite, non-dead primitives */
     n_primitives = 0;
     RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
-	if (stp->st_aradius <= 0) continue;	/* dead */
-	if (stp->st_aradius >= INFINITY) continue;	/* infinite */
+	if (stp->st_aradius <= 0) continue;
+	if (stp->st_aradius >= INFINITY) continue;
 	n_primitives++;
     } RT_VISIT_ALL_SOLTABS_END;
 
     if (n_primitives == 0)
 	return;
 
-    nregions = (long)rtip->nregions;
-
-    /* ---- Collect all finite primitives ---- */
+    /* Collect all finite primitives */
     all_prims = (struct soltab **)bu_calloc(n_primitives, sizeof(struct soltab *), "hlbvh all prims");
     i = 0;
     RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
@@ -317,274 +247,52 @@ rt_hlbvh_prep(struct rt_i *rtip)
 	all_prims[i++] = stp;
     } RT_VISIT_ALL_SOLTABS_END;
 
-    /* ---- Classify each soltab for per-region grouping ----
-     *
-     * A soltab qualifies for grouping only when it belongs to exactly
-     * one region AND that region is an all-union boolean tree.
-     * Soltabs shared across multiple regions, or inside subtraction/
-     * intersection regions, remain in the scene-level BVH directly.
-     */
-    reg_soltab_count = (long *)bu_calloc(nregions, sizeof(long), "reg soltab count");
-    soltab_reg = (long *)bu_malloc(n_primitives * sizeof(long), "soltab reg");
-
+    /* Build centroid and bound arrays for the BVH builder */
+    centroids = (fastf_t *)bu_calloc(n_primitives, sizeof(fastf_t) * 3, "hlbvh centroids");
+    bounds    = (fastf_t *)bu_calloc(n_primitives, sizeof(fastf_t) * 6, "hlbvh bounds");
     for (i = 0; i < n_primitives; i++) {
-	struct region *regp;
-	soltab_reg[i] = -1;
 	stp = all_prims[i];
-	if (BU_PTBL_LEN(&stp->st_regions) != 1)
-	    continue;
-	regp = (struct region *)BU_PTBL_GET(&stp->st_regions, 0);
-	if (!regp || !regp->reg_all_unions)
-	    continue;
-	soltab_reg[i] = (long)regp->reg_bit;
-	reg_soltab_count[regp->reg_bit]++;
+	VMOVE(&centroids[i * 3],     stp->st_center);
+	VMOVE(&bounds[i * 6 + 0],    stp->st_min);
+	VMOVE(&bounds[i * 6 + 3],    stp->st_max);
     }
 
-    /* Un-group soltabs whose region doesn't meet the size threshold */
-    for (i = 0; i < n_primitives; i++) {
-	long rb = soltab_reg[i];
-	if (rb >= 0 && reg_soltab_count[rb] < HLBVH_REGION_GROUP_THRESHOLD)
-	    soltab_reg[i] = -1;
-    }
-
-    /* Count qualifying grouped regions and ungrouped soltabs */
-    {
-	long *grouped = (long *)bu_calloc(nregions, sizeof(long), "grouped flags");
-	n_grouped_regions = 0;
-	for (i = 0; i < n_primitives; i++) {
-	    long rb = soltab_reg[i];
-	    if (rb >= 0 && !grouped[rb]) {
-		grouped[rb] = 1;
-		n_grouped_regions++;
-	    }
-	}
-	bu_free(grouped, "grouped flags");
-    }
-    n_ungrouped = n_primitives;
-    for (i = 0; i < n_primitives; i++) {
-	if (soltab_reg[i] >= 0)
-	    n_ungrouped--;
-    }
-    n_scene_prims = n_ungrouped + n_grouped_regions;
-
-    /* ---- Allocate per-region sub-BVH storage ---- */
-    reg_sub_bvh = (void **)bu_calloc(nregions, sizeof(void *), "reg sub-BVH array");
-    reg_sub_prims_arr = (struct soltab ***)bu_calloc(nregions, sizeof(struct soltab **), "reg sub-prims array");
-    reg_sub_nprims_arr = (long *)bu_calloc(nregions, sizeof(long), "reg sub-nprims");
-
-    /* Allocate per-region soltab arrays and fill them */
-    reg_fill = (long *)bu_calloc(nregions, sizeof(long), "reg fill");
-    for (i = 0; i < n_primitives; i++) {
-	long rb = soltab_reg[i];
-	if (rb >= 0 && !reg_sub_prims_arr[rb]) {
-	    reg_sub_prims_arr[rb] = (struct soltab **)bu_calloc(reg_soltab_count[rb],
-								sizeof(struct soltab *), "reg sub prims");
-	    reg_sub_nprims_arr[rb] = reg_soltab_count[rb];
-	}
-    }
-    for (i = 0; i < n_primitives; i++) {
-	long rb = soltab_reg[i];
-	if (rb >= 0)
-	    reg_sub_prims_arr[rb][reg_fill[rb]++] = all_prims[i];
-    }
-    bu_free(reg_fill, "reg fill");
-    bu_free(reg_soltab_count, "reg soltab count");
-
-    /* ---- Build per-region sub-BVHs ---- */
-    for (j = 0; j < nregions; j++) {
-	long n_reg_prims;
-	fastf_t *reg_centroids;
-	fastf_t *reg_bounds;
-	long sub_total_nodes = 0;
-	long *sub_ordered_prims = NULL;
-	struct bu_pool *sub_pool;
-	struct bvh_build_node *sub_root;
-
-	if (!reg_sub_prims_arr[j])
-	    continue;
-
-	n_reg_prims = reg_sub_nprims_arr[j];
-	reg_centroids = (fastf_t *)bu_calloc(n_reg_prims, sizeof(fastf_t) * 3, "reg centroids");
-	reg_bounds = (fastf_t *)bu_calloc(n_reg_prims, sizeof(fastf_t) * 6, "reg bounds");
-	for (i = 0; i < n_reg_prims; i++) {
-	    stp = reg_sub_prims_arr[j][i];
-	    VMOVE(&reg_centroids[i * 3], stp->st_center);
-	    VMOVE(&reg_bounds[i * 6 + 0], stp->st_min);
-	    VMOVE(&reg_bounds[i * 6 + 3], stp->st_max);
-	}
-
-	sub_pool = hlbvh_init_pool((size_t)n_reg_prims);
-	sub_root = hlbvh_create(4, sub_pool, reg_centroids, reg_bounds,
-				&sub_total_nodes, n_reg_prims, &sub_ordered_prims);
-	bu_free(reg_bounds, "reg bounds");
-	bu_free(reg_centroids, "reg centroids");
-
-	if (sub_root) {
-	    struct bvh_flat_node *sub_flat = hlbvh_flatten(sub_root, sub_total_nodes);
-	    bu_pool_delete(sub_pool);
-
-	    /* Reorder per-region soltab array to match sub-BVH leaf order */
-	    if (sub_ordered_prims) {
-		struct soltab **ordered = (struct soltab **)bu_calloc(n_reg_prims,
-								      sizeof(struct soltab *),
-								      "reg ordered prims");
-		for (i = 0; i < n_reg_prims; i++)
-		    ordered[i] = reg_sub_prims_arr[j][sub_ordered_prims[i]];
-		bu_free(sub_ordered_prims, "sub ordered prims");
-		bu_free(reg_sub_prims_arr[j], "old reg prims");
-		reg_sub_prims_arr[j] = ordered;
-	    }
-	    reg_sub_bvh[j] = (void *)sub_flat;
-	} else {
-	    /* hlbvh_create returns NULL only when n_primitives <= 0, which
-	     * cannot occur here because reg_sub_prims_arr[j] is only allocated
-	     * for regions with n >= HLBVH_REGION_GROUP_THRESHOLD >= 64 > 0.
-	     * This branch is defensive dead code; if it ever fires, the region's
-	     * primitives are simply omitted from both BVH levels (missing geometry),
-	     * so an error log is warranted. */
-	    bu_log("rt_hlbvh_prep: sub-BVH build failed for region bit %ld (%ld prims) - geometry will be missing\n",
-		   j, reg_sub_nprims_arr[j]);
-	    bu_pool_delete(sub_pool);
-	    if (sub_ordered_prims)
-		bu_free(sub_ordered_prims, "sub ordered prims");
-	    bu_free(reg_sub_prims_arr[j], "reg sub prims failed");
-	    reg_sub_prims_arr[j] = NULL;
-	    reg_sub_nprims_arr[j] = 0;
-	    n_grouped_regions--;
-	    n_scene_prims--;
-	}
-    }
-
-    /* ---- Build scene-level primitive list ---- */
-    /* (One proxy per successfully built region sub-BVH, plus ungrouped soltabs) */
-    scene_prims = (struct soltab **)bu_calloc(n_scene_prims, sizeof(struct soltab *), "scene prims");
-    proxy_reg_arr = (long *)bu_malloc(n_scene_prims * sizeof(long), "proxy reg");
-    centroids = (fastf_t *)bu_calloc(n_scene_prims, sizeof(fastf_t) * 3, "scene centroids");
-    scene_bounds = (fastf_t *)bu_calloc(n_scene_prims, sizeof(fastf_t) * 6, "scene bounds");
-    for (i = 0; i < n_scene_prims; i++)
-	proxy_reg_arr[i] = -1;
-
-    scene_idx = 0;
-
-    /* Proxy entries: one per grouped region */
-    for (j = 0; j < nregions; j++) {
-	fastf_t proxy_min[3], proxy_max[3];
-	long n_reg_prims;
-
-	if (!reg_sub_bvh[j])
-	    continue;
-
-	n_reg_prims = reg_sub_nprims_arr[j];
-	VSETALL(proxy_min, MAX_FASTF);
-	VSETALL(proxy_max, -MAX_FASTF);
-	for (i = 0; i < n_reg_prims; i++) {
-	    stp = reg_sub_prims_arr[j][i];
-	    VMIN(proxy_min, stp->st_min);
-	    VMAX(proxy_max, stp->st_max);
-	}
-
-	scene_prims[scene_idx] = NULL;   /* NULL signals a proxy entry */
-	proxy_reg_arr[scene_idx] = j;
-	VADD2SCALE(&centroids[scene_idx * 3], proxy_min, proxy_max, 0.5);
-	VMOVE(&scene_bounds[scene_idx * 6 + 0], proxy_min);
-	VMOVE(&scene_bounds[scene_idx * 6 + 3], proxy_max);
-	scene_idx++;
-    }
-
-    /* Ungrouped soltabs go directly into the scene BVH */
-    for (i = 0; i < n_primitives; i++) {
-	if (soltab_reg[i] >= 0)
-	    continue;
-	stp = all_prims[i];
-	scene_prims[scene_idx] = stp;
-	proxy_reg_arr[scene_idx] = -1;
-	VMOVE(&centroids[scene_idx * 3], stp->st_center);
-	VMOVE(&scene_bounds[scene_idx * 6 + 0], stp->st_min);
-	VMOVE(&scene_bounds[scene_idx * 6 + 3], stp->st_max);
-	scene_idx++;
-    }
-
-    bu_free(soltab_reg, "soltab reg");
-    bu_free(all_prims, "hlbvh all prims");
-
-    n_scene_prims = scene_idx;   /* actual count after any failed sub-BVH builds */
-
-    if (RT_G_DEBUG & RT_DEBUG_CUT) {
-	bu_log("HLBVH two-level: %ld regions grouped (%ld scene entries for %ld total primitives)\n",
-	       n_grouped_regions, n_scene_prims, n_primitives);
-    } else if (n_grouped_regions > 0) {
-	bu_log("HLBVH: %ld regions with sub-BVH, scene has %ld entries (of %ld total primitives)\n",
-	       n_grouped_regions, n_scene_prims, n_primitives);
-    }
-
-    if (n_scene_prims == 0) {
-	bu_free(scene_prims, "scene prims");
-	bu_free(proxy_reg_arr, "proxy reg");
-	bu_free(centroids, "scene centroids");
-	bu_free(scene_bounds, "scene bounds");
-	bu_free(reg_sub_bvh, "reg sub-BVH array");
-	for (j = 0; j < nregions; j++) {
-	    if (reg_sub_prims_arr[j])
-		bu_free(reg_sub_prims_arr[j], "reg sub prims cleanup");
-	}
-	bu_free(reg_sub_prims_arr, "reg sub-prims array");
-	bu_free(reg_sub_nprims_arr, "reg sub-nprims");
-	return;
-    }
-
-    /* ---- Build the scene-level HLBVH ---- */
-    ordered_prims = NULL;
-    pool = hlbvh_init_pool((size_t)n_scene_prims);
-    root = hlbvh_create(4, pool, centroids, scene_bounds,
-			&total_nodes, n_scene_prims, &ordered_prims);
-    bu_free(scene_bounds, "scene bounds");
-    bu_free(centroids, "scene centroids");
+    /* Build a single spatial HLBVH over all finite primitives */
+    pool = hlbvh_init_pool((size_t)n_primitives);
+    root = hlbvh_create(4, pool, centroids, bounds,
+			&total_nodes, n_primitives, &ordered_prims);
+    bu_free(bounds,    "hlbvh bounds");
+    bu_free(centroids, "hlbvh centroids");
 
     if (!root) {
 	bu_pool_delete(pool);
-	bu_free(scene_prims, "scene prims");
-	bu_free(proxy_reg_arr, "proxy reg");
+	bu_free(all_prims, "hlbvh all prims");
 	if (ordered_prims)
-	    bu_free(ordered_prims, "ordered prims");
-	bu_free(reg_sub_bvh, "reg sub-BVH array");
-	for (j = 0; j < nregions; j++) {
-	    if (reg_sub_prims_arr[j])
-		bu_free(reg_sub_prims_arr[j], "reg sub prims cleanup");
-	}
-	bu_free(reg_sub_prims_arr, "reg sub-prims array");
-	bu_free(reg_sub_nprims_arr, "reg sub-nprims");
+	    bu_free(ordered_prims, "hlbvh ordered prims");
 	return;
     }
 
     flat_root = hlbvh_flatten(root, total_nodes);
     bu_pool_delete(pool);
 
-    /* Reorder scene primitives and proxy_reg to match BVH leaf order */
+    /* Reorder primitive array to match BVH leaf order */
     if (ordered_prims) {
-	struct soltab **ordered_scene = (struct soltab **)bu_calloc(n_scene_prims,
-								    sizeof(struct soltab *),
-								    "ordered scene prims");
-	long *ordered_proxy = (long *)bu_malloc(n_scene_prims * sizeof(long), "ordered proxy reg");
-	for (i = 0; i < n_scene_prims; i++) {
-	    ordered_scene[i] = scene_prims[ordered_prims[i]];
-	    ordered_proxy[i] = proxy_reg_arr[ordered_prims[i]];
-	}
-	bu_free(ordered_prims, "ordered prims");
-	bu_free(scene_prims, "scene prims");
-	bu_free(proxy_reg_arr, "proxy reg");
-	scene_prims = ordered_scene;
-	proxy_reg_arr = ordered_proxy;
+	struct soltab **ordered = (struct soltab **)bu_calloc(n_primitives,
+							      sizeof(struct soltab *),
+							      "hlbvh ordered prims");
+	for (i = 0; i < n_primitives; i++)
+	    ordered[i] = all_prims[ordered_prims[i]];
+	bu_free(ordered_prims, "hlbvh ordered prims");
+	bu_free(all_prims,     "hlbvh all prims");
+	all_prims = ordered;
     }
 
-    /* Store results in rt_i */
-    rtip->rti_hlbvh_root = (void *)flat_root;
-    rtip->rti_hlbvh_prims = scene_prims;
-    rtip->rti_hlbvh_nprims = n_scene_prims;
-    rtip->rti_hlbvh_proxy_reg = proxy_reg_arr;
-    rtip->rti_reg_sub_bvh = reg_sub_bvh;
-    rtip->rti_reg_sub_prims = reg_sub_prims_arr;
-    rtip->rti_reg_sub_nprims = reg_sub_nprims_arr;
-    rtip->rti_reg_bvh_nregions = nregions;
+    if (RT_G_DEBUG & RT_DEBUG_CUT)
+	bu_log("HLBVH: %ld finite primitives in flat spatial BVH\n", n_primitives);
+
+    rtip->rti_hlbvh_root   = (void *)flat_root;
+    rtip->rti_hlbvh_prims  = all_prims;
+    rtip->rti_hlbvh_nprims = n_primitives;
 }
 
 
@@ -1595,8 +1303,6 @@ rt_clean(struct rt_i *rtip)
 	    rtip->rti_hlbvh_prims = NULL;
 	}
 	rtip->rti_hlbvh_nprims = 0;
-	/* Free two-level HLBVH per-region sub-BVH data */
-	rt_hlbvh_free_reg_bvh(rtip);
     }
     rt_cut_clean(rtip);
 
