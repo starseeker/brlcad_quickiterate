@@ -962,66 +962,6 @@ rt_shootray(register struct application *ap)
 	    struct soltab *stp = rtip->rti_hlbvh_prims[check_prims[pi]];
 	    int ret;
 
-	    /* NULL soltab entry signals a region proxy (two-level HLBVH).
-	     * Traverse the per-region sub-BVH and shoot each candidate solid. */
-	    if (!stp) {
-		long reg_bit = rtip->rti_hlbvh_proxy_reg
-				   ? rtip->rti_hlbvh_proxy_reg[check_prims[pi]]
-				   : -1L;
-		if (reg_bit >= 0
-		    && rtip->rti_reg_sub_bvh
-		    && rtip->rti_reg_sub_bvh[reg_bit]) {
-		    struct bvh_flat_node *sub_root =
-			(struct bvh_flat_node *)rtip->rti_reg_sub_bvh[reg_bit];
-		    long *sub_check = NULL;
-		    size_t n_sub = 0;
-		    size_t si;
-
-		    hlbvh_shot_flat(sub_root, &ap->a_ray, &sub_check, &n_sub);
-		    for (si = 0; si < n_sub; si++) {
-			struct soltab *sub_stp =
-			    rtip->rti_reg_sub_prims[reg_bit][sub_check[si]];
-			if (!sub_stp)
-			    continue;
-			if (BU_BITTEST(solidbits, sub_stp->st_bit)) {
-			    resp->re_ndup++;
-			    continue;
-			}
-			BU_BITSET(solidbits, sub_stp->st_bit);
-			if (OBJ[sub_stp->st_id].ft_use_rpp) {
-			    if (!rt_in_rpp(&ap->a_ray, ss.inv_dir,
-					   sub_stp->st_min, sub_stp->st_max)) {
-				resp->re_prune_solrpp++;
-				continue;
-			    }
-			}
-			if (debug_shoot)
-			    bu_log("HLBVH (sub-BVH) shooting %s\n", sub_stp->st_name);
-			resp->re_shots++;
-			BU_LIST_INIT(&(new_segs.l));
-			ret = -1;
-			if (OBJ[sub_stp->st_id].ft_shot)
-			    ret = OBJ[sub_stp->st_id].ft_shot(sub_stp, &ap->a_ray, ap, &new_segs);
-			if (ret <= 0) {
-			    resp->re_shot_miss++;
-			    continue;
-			}
-			{
-			    struct seg *s2;
-			    while (BU_LIST_WHILE(s2, seg, &(new_segs.l))) {
-				BU_LIST_DEQUEUE(&(s2->l));
-				s2->seg_in.hit_rayp = s2->seg_out.hit_rayp = &ap->a_ray;
-				BU_LIST_INSERT(&(waiting_segs.l), &(s2->l));
-			    }
-			}
-			resp->re_shot_hit++;
-		    }
-		    if (sub_check)
-			bu_free(sub_check, "hlbvh sub check prims");
-		}
-		continue;
-	    }
-
 	    if (BU_BITTEST(solidbits, stp->st_bit)) {
 		resp->re_ndup++;
 		continue;
