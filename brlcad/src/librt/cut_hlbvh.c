@@ -676,7 +676,7 @@ while_populate_leaf_list_raw(struct bvh_build_node *root, struct xray* rp, struc
 
 	    fastf_t high_t = FMIN(high_ts[0], FMIN(high_ts[1], high_ts[2]));
 	    fastf_t  low_t = FMAX( low_ts[0], FMAX( low_ts[1],  low_ts[2]));
-	    if ((high_t < -1.0) | (low_t > high_t)) {
+	    if ((high_t < -1.0) || (low_t > high_t)) {
 		stack_ind--;
 		continue;
 	    }
@@ -751,7 +751,7 @@ while_populate_leaf_list_flat(struct bvh_flat_node *root, struct xray* rp, struc
 
 	    fastf_t high_t = FMIN(high_ts[0], FMIN(high_ts[1], high_ts[2]));
 	    fastf_t  low_t = FMAX( low_ts[0], FMAX( low_ts[1],  low_ts[2]));
-	    if ((high_t < -1.0) | (low_t > high_t)) {
+	    if ((high_t < -1.0) || (low_t > high_t)) {
 		stack_ind--;
 		continue;
 	    }
@@ -889,7 +889,7 @@ hlbvh_shot_flat_reuse(struct bvh_flat_node *root, struct xray *rp,
 
 	    fastf_t high_t = FMIN(high_ts[0], FMIN(high_ts[1], high_ts[2]));
 	    fastf_t  low_t = FMAX( low_ts[0], FMAX( low_ts[1],  low_ts[2]));
-	    if ((high_t < -1.0) | (low_t > high_t)) {
+	    if ((high_t < -1.0) || (low_t > high_t)) {
 		stack_ind--;
 		continue;
 	    }

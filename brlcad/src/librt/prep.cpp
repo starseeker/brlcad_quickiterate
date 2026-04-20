@@ -349,10 +349,9 @@ rt_scene_is_dense(struct rt_i *rtip)
      *               = sum_prim_volume / scene_volume             */
     density_score = sum_prim_volume / scene_volume;
 
-    if (RT_G_DEBUG & RT_DEBUG_CUT)
-	bu_log("Scene density score: %.4f (n=%ld, sum_prim_vol=%.4g, scene_vol=%.4g, threshold=%.1f)\n",
-	       density_score, n_finite, sum_prim_volume, scene_volume,
-	       (double)RT_DENSE_SCENE_THRESHOLD);
+    bu_log("Scene density score: %.4f (n=%ld, sum_prim_vol=%.4g, scene_vol=%.4g, threshold=%.1f)\n",
+	   density_score, n_finite, sum_prim_volume, scene_volume,
+	   (double)RT_DENSE_SCENE_THRESHOLD);
 
     return density_score > RT_DENSE_SCENE_THRESHOLD;
 }
