@@ -1787,6 +1787,7 @@ unprep_leaf(struct db_tree_state *tsp,
 		if (stp->st_uses <= 1) {
 		    /* soltab structure will actually be freed */
 		    remove_from_bsp(stp, &rtip->rti_inf_box, &rtip->rti_tol);
+		    /* In HLBVH-only mode rti_CutHead may remain zeroed. */
 		    if (rtip->rti_CutHead.cut_type != 0)
 			remove_from_bsp(stp, &rtip->rti_CutHead, &rtip->rti_tol);
 		    rtip->rti_Solids[bit] = (struct soltab *)NULL;
