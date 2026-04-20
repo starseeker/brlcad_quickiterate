@@ -522,6 +522,9 @@ rt_prep_parallel(struct rt_i *rtip, int ncpu)
      * Multiple CPUs can be used here.
      */
     for (i=1; i<=CUT_MAXIMUM; i++) rtip->rti_ncut_by_type[i] = 0;
+    /* Always call rt_cut_it to populate rti_inf_box with infinite solids.
+     * When RT_PART_HLBVH, rt_cut_it skips the NUBSP optimisation.
+     */
     rt_cut_it(rtip, ncpu);
 
     /* Build HLBVH scene acceleration structure if requested */
@@ -1297,7 +1300,9 @@ rt_clean(struct rt_i *rtip)
 	rtip->Regions = (struct region **)0;
 
 	/* Free space partitions */
-	rt_fr_cut(rtip, &(rtip->rti_CutHead));
+	/* Only free the NUBSP cut tree if it was actually built */
+	if (rtip->rti_CutHead.cut_type != 0)
+	    rt_fr_cut(rtip, &(rtip->rti_CutHead));
 	memset((char *)&(rtip->rti_CutHead), 0, sizeof(union cutter));
 	rt_fr_cut(rtip, &(rtip->rti_inf_box));
 	memset((char *)&(rtip->rti_inf_box), 0, sizeof(union cutter));
