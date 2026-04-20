@@ -1167,6 +1167,7 @@ _ged_facetize_booleval_tri(struct _ged_facetize_state *s, struct db_i *dbip, str
     if (!dbip || !wdbp || !argv || !oname)
 	return BRLCAD_ERROR;
 
+    /* Quiet default: per-object booleval status is verbose mode only. */
     if (s->verbosity >= 1) {
 	if (argc == 1) {
 	    bu_log("%s: evaluating booleans...\n", argv[0]);

@@ -1088,7 +1088,8 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 	facetize_log(s, 0, "  %-40s %8d\n", "Validation pass (P1)", vcnt_p1_pass);
 	facetize_log(s, 0, "  %-40s %8d\n", "Perturb retries triggered", vcnt_p1_trigger);
 	facetize_log(s, 0, "  %-40s %8d\n", "Perturb retries passed (P2)", vcnt_p2_pass);
-	facetize_log(s, 0, "  %-40s %8d\n", "Few-hit notes", vcnt_few_hit + vcnt_p2_topoflip);
+	facetize_log(s, 0, "  %-40s %8d\n", "Few-hit notes (pre-perturb)", vcnt_few_hit);
+	facetize_log(s, 0, "  %-40s %8d\n", "Few-hit notes (post-perturb)", vcnt_p2_topoflip);
 	facetize_log(s, 0, "  %-40s %8d\n", "Zero-hit empty replacements", vcnt_zero_hit);
 	facetize_log(s, 0, "  %-40s %8d\n", "Persistent mismatches", vcnt_p2_warn);
 	facetize_log(s, 0, "  %-40s %8d\n", "Validation unavailable", vcnt_unavail);
