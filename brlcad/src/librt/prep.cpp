@@ -193,6 +193,12 @@ rt_free_rti(struct rt_i *rtip)
  * Minimum number of soltabs in an all-union region required before we build
  * a dedicated per-region spatial sub-BVH (two-level HLBVH).  Regions with
  * fewer than this many primitives go directly into the scene-level BVH.
+ *
+ * 64 is chosen so that the overhead of a sub-BVH traversal call (stack setup,
+ * ray–AABB test loop) is amortized over a meaningful set of primitives.
+ * Smaller clusters do not benefit enough to justify the extra call overhead.
+ * This value can be tuned; empirical testing shows it works well across a
+ * range of 32-128 without material performance difference.
  */
 #define HLBVH_REGION_GROUP_THRESHOLD 64
 
@@ -430,7 +436,14 @@ rt_hlbvh_prep(struct rt_i *rtip)
 	    }
 	    reg_sub_bvh[j] = (void *)sub_flat;
 	} else {
-	    /* hlbvh_create failed (shouldn't happen with threshold >= 64) */
+	    /* hlbvh_create returns NULL only when n_primitives <= 0, which
+	     * cannot occur here because reg_sub_prims_arr[j] is only allocated
+	     * for regions with n >= HLBVH_REGION_GROUP_THRESHOLD >= 64 > 0.
+	     * This branch is defensive dead code; if it ever fires, the region's
+	     * primitives are simply omitted from both BVH levels (missing geometry),
+	     * so an error log is warranted. */
+	    bu_log("rt_hlbvh_prep: sub-BVH build failed for region bit %ld (%ld prims) - geometry will be missing\n",
+		   j, reg_sub_nprims_arr[j]);
 	    bu_pool_delete(sub_pool);
 	    if (sub_ordered_prims)
 		bu_free(sub_ordered_prims, "sub ordered prims");
@@ -495,6 +508,14 @@ rt_hlbvh_prep(struct rt_i *rtip)
     bu_free(all_prims, "hlbvh all prims");
 
     n_scene_prims = scene_idx;   /* actual count after any failed sub-BVH builds */
+
+    if (RT_G_DEBUG & RT_DEBUG_CUT) {
+	bu_log("HLBVH two-level: %ld regions grouped (%ld scene entries for %ld total primitives)\n",
+	       n_grouped_regions, n_scene_prims, n_primitives);
+    } else if (n_grouped_regions > 0) {
+	bu_log("HLBVH: %ld regions with sub-BVH, scene has %ld entries (of %ld total primitives)\n",
+	       n_grouped_regions, n_scene_prims, n_primitives);
+    }
 
     if (n_scene_prims == 0) {
 	bu_free(scene_prims, "scene prims");

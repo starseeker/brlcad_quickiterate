@@ -1007,7 +1007,7 @@ rt_shootray(register struct application *ap)
 			    continue;
 			}
 			{
-			    register struct seg *s2;
+			    struct seg *s2;
 			    while (BU_LIST_WHILE(s2, seg, &(new_segs.l))) {
 				BU_LIST_DEQUEUE(&(s2->l));
 				s2->seg_in.hit_rayp = s2->seg_out.hit_rayp = &ap->a_ray;
