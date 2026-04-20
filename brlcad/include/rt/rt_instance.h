@@ -135,6 +135,12 @@ struct rt_i {
     void *              rti_hlbvh_root;   /**< @brief flat HLBVH tree of finite solids; cast to struct bvh_flat_node* */
     struct soltab **    rti_hlbvh_prims;  /**< @brief ordered primitive array matching HLBVH leaf order */
     long                rti_hlbvh_nprims; /**< @brief number of entries in rti_hlbvh_prims */
+    long *              rti_hlbvh_proxy_reg; /**< @brief parallel to rti_hlbvh_prims: reg_bit for region-proxy entries, -1 for real soltabs */
+    /* Per-region spatial sub-BVH for large all-union regions (two-level HLBVH) */
+    long                rti_reg_bvh_nregions; /**< @brief size of the rti_reg_sub_* arrays below */
+    void **             rti_reg_sub_bvh;   /**< @brief per-region flat HLBVH roots; array[rti_reg_bvh_nregions], NULL if region not grouped */
+    struct soltab ***   rti_reg_sub_prims; /**< @brief per-region ordered soltab arrays; array[rti_reg_bvh_nregions] */
+    long *              rti_reg_sub_nprims;/**< @brief per-region soltab counts; array[rti_reg_bvh_nregions] */
 };
 
 
