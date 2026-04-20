@@ -4476,7 +4476,7 @@ main(int argc, char *argv[])
 	    /* Positional filename argument */
 	    if (!input_g) {
 		input_g = argv[i];
-	    } else if (!output_g && strcmp(argv[i], input_g) != 0) {
+	    } else if (!output_g && !BU_STR_EQUAL(argv[i], input_g)) {
 		output_g = argv[i];
 	    } else {
 		fprintf(stderr, "WARNING: extra positional argument '%s', ignored\n", argv[i]);
