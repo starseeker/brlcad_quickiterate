@@ -1361,7 +1361,7 @@ bu_opt_vopt(struct bu_vls *msg, size_t UNUSED(argc), const char **UNUSED(argv), 
 	(*v_incr) = (*v_incr) + 1;
     } else {
 	if (msg) {
-	    bu_vls_sprintf(msg, "No valid supplied to bu_opt_vopt\n");
+	    bu_vls_sprintf(msg, "No valid variable supplied to bu_opt_vopt\n");
 	}
     }
     return 0;
