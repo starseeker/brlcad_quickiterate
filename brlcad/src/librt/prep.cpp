@@ -317,10 +317,12 @@ rt_hlbvh_prep(struct rt_i *rtip)
  * can subdivide exactly the crowded spatial regions.
  *
  * Threshold RT_HLBVH_SAH_THRESHOLD is calibrated so that well-separated and
- * fractal scenes (sphflake, havoc, moss) fall below it while dense mechanical
- * assemblies (m35) fall above it.
+ * fractal scenes (sphflake SAH≈0.001, havoc SAH≈0.0014) stay in HLBVH, while
+ * dense mechanical assemblies where NUBSP wins (m35 SAH≈0.005) fall above it.
+ * Tiny scenes (moss, 6 prims, SAH≈0.13) also fall above it but the NUBSP
+ * overhead is negligible at that scale.
  */
-#define RT_HLBVH_SAH_THRESHOLD 0.10
+#define RT_HLBVH_SAH_THRESHOLD 0.003
 static int
 rt_hlbvh_is_good(const struct rt_i *rtip)
 {
@@ -357,7 +359,7 @@ rt_hlbvh_is_good(const struct rt_i *rtip)
     normalized_sah = sah_cost / (double)rtip->rti_hlbvh_nprims;
 
     if (RT_G_DEBUG & RT_DEBUG_CUT)
-	bu_log("HLBVH quality: normalized_sah=%.4f nprims=%ld nnodes=%ld (threshold=%.2f)\n",
+	bu_log("HLBVH quality: normalized_sah=%.4f nprims=%ld nnodes=%ld (threshold=%.4f)\n",
 	       normalized_sah, rtip->rti_hlbvh_nprims, rtip->rti_hlbvh_nnodes,
 	       RT_HLBVH_SAH_THRESHOLD);
 
