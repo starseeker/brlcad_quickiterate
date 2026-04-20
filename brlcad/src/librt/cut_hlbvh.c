@@ -788,7 +788,9 @@ while_populate_leaf_list_flat(struct bvh_flat_node *root, struct xray* rp, struc
  * prototyping code for other primitives.
  */
 void
-hlbvh_shot(void* root, struct xray* rp, long** check_prims, size_t* num_check_prims, int is_flat)
+hlbvh_shot_internal(void* root, struct xray* rp, long** check_prims, size_t* num_check_prims,
+		    long **reuse_buf, size_t *reuse_len,
+		    int is_flat)
 {
     size_t prim_accum = 0;
     struct prim_list *leafs = NULL;
@@ -806,7 +808,16 @@ hlbvh_shot(void* root, struct xray* rp, long** check_prims, size_t* num_check_pr
 	BU_PUT(leafs, struct prim_list);
 	return;
     }
-    *check_prims = (long*)bu_calloc(prim_accum, sizeof(long), "hlbvh primitive list");
+    if (reuse_buf && reuse_len) {
+	/* Grow the thread-local buffer only when needed; never shrink. */
+	if (*reuse_len < prim_accum) {
+	    *reuse_buf = (long *)bu_realloc(*reuse_buf, prim_accum * sizeof(long), "hlbvh prim buf");
+	    *reuse_len = prim_accum;
+	}
+	*check_prims = *reuse_buf;
+    } else {
+	*check_prims = (long*)bu_calloc(prim_accum, sizeof(long), "hlbvh primitive list");
+    }
     size_t index = 0;
     struct prim_list *entry;
     while (BU_LIST_WHILE(entry, prim_list, &(leafs->l))) {
@@ -825,13 +836,21 @@ hlbvh_shot(void* root, struct xray* rp, long** check_prims, size_t* num_check_pr
 void
 hlbvh_shot_raw(struct bvh_build_node* root, struct xray* rp, long** check_prims, size_t* num_check_prims)
 {
-    hlbvh_shot(root, rp, check_prims, num_check_prims, 0 /*false*/);
+    hlbvh_shot_internal(root, rp, check_prims, num_check_prims, NULL, NULL, 0 /*false*/);
 }
 
 void
 hlbvh_shot_flat(struct bvh_flat_node* root, struct xray* rp, long** check_prims, size_t* num_check_prims)
 {
-    hlbvh_shot(root, rp, check_prims, num_check_prims, 1 /*true*/);
+    hlbvh_shot_internal(root, rp, check_prims, num_check_prims, NULL, NULL, 1 /*true*/);
+}
+
+void
+hlbvh_shot_flat_reuse(struct bvh_flat_node *root, struct xray *rp,
+		      long **check_prims, size_t *num_check_prims,
+		      long **reuse_buf, size_t *reuse_len)
+{
+    hlbvh_shot_internal(root, rp, check_prims, num_check_prims, reuse_buf, reuse_len, 1 /*true*/);
 }
 
 

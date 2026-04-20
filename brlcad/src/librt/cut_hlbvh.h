@@ -57,6 +57,11 @@ hlbvh_shot_raw(struct bvh_build_node* root, struct xray* rp, long** check_tris, 
 extern void
 hlbvh_shot_flat(struct bvh_flat_node* root, struct xray* rp, long** check_tris, size_t* num_check_tris);
 
+extern void
+hlbvh_shot_flat_reuse(struct bvh_flat_node *root, struct xray *rp,
+		      long **check_prims, size_t *num_check_prims,
+		      long **reuse_buf, size_t *reuse_len);
+
 __END_DECLS
 
 #endif /* HLBVH_IMPLEMENTATION */
