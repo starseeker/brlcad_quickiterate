@@ -850,7 +850,70 @@ hlbvh_shot_flat_reuse(struct bvh_flat_node *root, struct xray *rp,
 		      long **check_prims, size_t *num_check_prims,
 		      long **reuse_buf, size_t *reuse_len)
 {
-    hlbvh_shot_internal(root, rp, check_prims, num_check_prims, reuse_buf, reuse_len, 1 /*true*/);
+    /* Single-pass specialization: traverse the flat BVH and write prim indices
+     * directly into the reuse buffer, growing it only when necessary.
+     * This avoids the prim_list linked-list intermediary (per-leaf BU_GET/BU_PUT
+     * and a second copy pass) used by the generic hlbvh_shot_internal path.
+     */
+    struct bvh_flat_node *stack_node[HLBVH_STACK_SIZE];
+    unsigned char stack_child_index[HLBVH_STACK_SIZE];
+    int stack_ind = 0;
+    size_t index = 0;
+    vect_t inverse_r_dir;
+    VINVDIR(inverse_r_dir, rp->r_dir);
+
+    stack_node[stack_ind] = root;
+    stack_child_index[stack_ind] = 0;
+
+    while (stack_ind >= 0) {
+	if (UNLIKELY(stack_ind >= HLBVH_STACK_SIZE)) {
+	    bu_bomb("Stack size exceeded in hlbvh shot");
+	}
+	if (stack_child_index[stack_ind] >= 2) {
+	    stack_ind--;
+	    continue;
+	}
+	struct bvh_flat_node *node = stack_node[stack_ind];
+	if (!stack_child_index[stack_ind]) {
+	    point_t lows_t, highs_t, low_ts, high_ts;
+
+	    VSUB2( lows_t, &node->bounds[0], rp->r_pt);
+	    VSUB2(highs_t, &node->bounds[3], rp->r_pt);
+
+	    VELMUL( lows_t,  lows_t, inverse_r_dir);
+	    VELMUL(highs_t, highs_t, inverse_r_dir);
+
+	    VMOVE( low_ts, lows_t);
+	    VMOVE(high_ts, lows_t);
+	    VMINMAX(low_ts, high_ts, highs_t);
+
+	    fastf_t high_t = FMIN(high_ts[0], FMIN(high_ts[1], high_ts[2]));
+	    fastf_t  low_t = FMAX( low_ts[0], FMAX( low_ts[1],  low_ts[2]));
+	    if ((high_t < -1.0) | (low_t > high_t)) {
+		stack_ind--;
+		continue;
+	    }
+	}
+	if (node->n_primitives > 0) {
+	    size_t need = index + (size_t)node->n_primitives;
+	    if (need > *reuse_len) {
+		*reuse_buf = (long *)bu_realloc(*reuse_buf, need * sizeof(long), "hlbvh prim buf");
+		*reuse_len = need;
+	    }
+	    long base = node->data.first_prim_offset;
+	    for (long i = 0; i < node->n_primitives; i++)
+		(*reuse_buf)[index++] = base + i;
+	    stack_ind--;
+	    continue;
+	}
+	stack_node[stack_ind+1] = (stack_child_index[stack_ind]) ? (node->data.other_child) : (node + 1);
+	stack_child_index[stack_ind] += 1;
+	stack_child_index[stack_ind+1] = 0;
+	stack_ind++;
+    }
+
+    *num_check_prims = index;
+    *check_prims = (index > 0) ? *reuse_buf : NULL;
 }
 
 
