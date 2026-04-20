@@ -43,17 +43,12 @@
    ;
    unary-operator ::= "-c"|"-e"|"-n"|"-p"|"-v";
 
-   binary-operator ::= "="|"!="|"-beq"|"-bne"|"-bge"|"-bgt"|"-ble"|"-blt"
-                      |"-req"|"-rne"|"-rge"|"-rgt"|"-rle"|"-rlt";
+   binary-operator ::= "="|"!="|"-beq"|"-bne"|"-bge"|"-bgt"|"-ble"|"-blt";
    operand ::= <any legal BRL-CAD object name>
-
-   An optional "-t <tol_mm3>" flag before the expression sets the tolerance
-   (in mm^3) used by all volume equality comparisons (-beq/-bne/-req/-rne).
 */
 
 #include "common.h"
 
-#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -63,7 +58,6 @@
 #include "rt/db5.h"
 #include "rt/db_io.h"
 #include "rt/directory.h"
-#include "rt/func.h"
 
 #include "../ged_private.h"
 
@@ -91,12 +85,6 @@ enum token {
     BVOLGT,
     BVOLLE,
     BVOLLT,
-    RVOLEQ,
-    RVOLNE,
-    RVOLGE,
-    RVOLGT,
-    RVOLLE,
-    RVOLLT,
     UNOT,
     BAND,
     BOR,
@@ -148,12 +136,6 @@ static const struct t_op mop4[] = {
     {"ble", BVOLLE,  BINOP},
     {"blt", BVOLLT,  BINOP},
     {"bne", BVOLNE,  BINOP},
-    {"req", RVOLEQ,  BINOP},
-    {"rge", RVOLGE,  BINOP},
-    {"rgt", RVOLGT,  BINOP},
-    {"rle", RVOLLE,  BINOP},
-    {"rlt", RVOLLT,  BINOP},
-    {"rne", RVOLNE,  BINOP},
 };
 
 
@@ -169,28 +151,14 @@ static const struct t_op mop2[] = {
 };
 
 
-/* Maximum number of distinct object names cached per invocation */
-#define EXISTS_CACHE_MAX 16
-
-struct vol_cache_entry {
-    const char *name;   /* borrowed pointer from the duplicated argv */
-    double vol;
-    int valid;          /* 1 = computed ok, -1 = error / missing */
-};
-
-
 struct exists_data {
     char **t_wp;
     struct t_op const *t_wp_op;
     struct bu_vls *message;
     struct ged *gedp;
     int no_op;
-    fastf_t vol_tol;                                    /* mm^3 tolerance for volume comparisons */
-    struct vol_cache_entry bbox_cache[EXISTS_CACHE_MAX]; /* bounding-box volume cache */
-    int bbox_cache_cnt;
-    struct vol_cache_entry rtrace_cache[EXISTS_CACHE_MAX]; /* Crofton raytrace volume cache */
-    int rtrace_cache_cnt;
 };
+#define EXISTS_DATA_INIT_ZERO {NULL, NULL, NULL, NULL, 0}
 
 static int oexpr(enum token, struct exists_data *);
 static int aexpr(enum token, struct exists_data *);
@@ -421,132 +389,6 @@ exists_bbox_vol(struct exists_data *ed, const char *name, double *vol)
 
 
 /* ------------------------------------------------------------------ */
-/* Volume cache helpers                                                */
-/* ------------------------------------------------------------------ */
-
-/* Return values for _vol_cache_find */
-#define CACHE_HIT       0   /* found, volume written to *vol  */
-#define CACHE_ERROR    -1   /* previously computed, but failed */
-#define CACHE_NOT_FOUND -2  /* not yet in cache               */
-
-static int
-_vol_cache_find(struct vol_cache_entry *cache, int cnt, const char *name, double *vol)
-{
-    int i;
-    for (i = 0; i < cnt; i++) {
-	if (cache[i].name && BU_STR_EQUAL(cache[i].name, name)) {
-	    if (cache[i].valid < 0) return CACHE_ERROR;
-	    *vol = cache[i].vol;
-	    return CACHE_HIT;
-	}
-    }
-    return CACHE_NOT_FOUND;
-}
-
-
-static void
-_vol_cache_store(struct vol_cache_entry *cache, int *cnt, const char *name, double vol, int success)
-{
-    if (*cnt >= EXISTS_CACHE_MAX) return;
-    cache[*cnt].name  = name;
-    cache[*cnt].vol   = vol;
-    cache[*cnt].valid = success ? 1 : -1;
-    (*cnt)++;
-}
-
-
-static int
-exists_bbox_vol_cached(struct exists_data *ed, const char *name, double *vol)
-{
-    int r = _vol_cache_find(ed->bbox_cache, ed->bbox_cache_cnt, name, vol);
-    if (r != CACHE_NOT_FOUND) return r; /* CACHE_HIT (0) or CACHE_ERROR (-1) */
-    double v = 0.0;
-    int success = (exists_bbox_vol(ed, name, &v) == 0);
-    _vol_cache_store(ed->bbox_cache, &ed->bbox_cache_cnt, name, v, success);
-    if (!success) return CACHE_ERROR;
-    *vol = v;
-    return CACHE_HIT;
-}
-
-
-/* ------------------------------------------------------------------ */
-/* Crofton raytrace volume helper                                      */
-/* ------------------------------------------------------------------ */
-
-/* Get the Cauchy-Crofton raytrace volume estimate for a named object.
- * Uses the default 2000-ray sampling (all-zero params).
- * Returns 0 and sets *vol on success, -1 on failure.                 */
-static int
-exists_rtrace_vol(struct exists_data *ed, const char *name, double *vol)
-{
-    struct rt_i *rtip;
-    struct rt_crofton_params params;
-    double sa = 0.0;
-
-    memset(&params, 0, sizeof(params)); /* all-zero → 2000-ray default */
-
-    rtip = rt_new_rti(ed->gedp->dbip);
-    if (!rtip) return -1;
-
-    if (rt_gettree(rtip, name) != 0) {
-	rt_free_rti(rtip);
-	return -1;
-    }
-    rt_prep_parallel(rtip, 1);
-
-    *vol = 0.0;
-    if (rt_crofton_shoot(rtip, &params, &sa, vol) != 0) {
-	rt_free_rti(rtip);
-	return -1;
-    }
-
-    rt_free_rti(rtip);
-    return 0;
-}
-
-
-static int
-exists_rtrace_vol_cached(struct exists_data *ed, const char *name, double *vol)
-{
-    int r = _vol_cache_find(ed->rtrace_cache, ed->rtrace_cache_cnt, name, vol);
-    if (r != CACHE_NOT_FOUND) return r;
-    double v = 0.0;
-    int success = (exists_rtrace_vol(ed, name, &v) == 0);
-    _vol_cache_store(ed->rtrace_cache, &ed->rtrace_cache_cnt, name, v, success);
-    if (!success) return CACHE_ERROR;
-    *vol = v;
-    return CACHE_HIT;
-}
-
-
-/* ------------------------------------------------------------------ */
-/* Centralized volume comparison                                       */
-/* ------------------------------------------------------------------ */
-
-/* Compare two volumes using the tolerance stored in ed->vol_tol.
- * Works for both bbox (BVOL*) and raytrace (RVOL*) operator numbers. */
-static int
-exists_vol_cmp(int op_num, double vol1, double vol2, fastf_t tol)
-{
-    switch (op_num) {
-	case BVOLEQ:
-	case RVOLEQ: return (fabs(vol1 - vol2) <= tol) ? 1 : 0;
-	case BVOLNE:
-	case RVOLNE: return (fabs(vol1 - vol2) > tol)  ? 1 : 0;
-	case BVOLGT:
-	case RVOLGT: return (vol1 > vol2 + tol)         ? 1 : 0;
-	case BVOLGE:
-	case RVOLGE: return (vol1 >= vol2 - tol)         ? 1 : 0;
-	case BVOLLT:
-	case RVOLLT: return (vol1 < vol2 - tol)          ? 1 : 0;
-	case BVOLLE:
-	case RVOLLE: return (vol1 <= vol2 + tol)         ? 1 : 0;
-	default:     return 0;
-    }
-}
-
-
-/* ------------------------------------------------------------------ */
 /* Unary primary implementations                                       */
 /* ------------------------------------------------------------------ */
 
@@ -748,24 +590,24 @@ binop(struct exists_data *ed)
 	case BVOLGT:
 	case BVOLLE:
 	case BVOLLT: {
-	    /* Compare bounding-box volumes using the configured tolerance */
+	    /* Compare bounding-box volumes */
 	    double vol1 = 0.0, vol2 = 0.0;
-	    if (exists_bbox_vol_cached(ed, opnd1, &vol1) < 0) return 0;
-	    if (exists_bbox_vol_cached(ed, opnd2, &vol2) < 0) return 0;
-	    return exists_vol_cmp(op->op_num, vol1, vol2, ed->vol_tol);
-	}
 
-	case RVOLEQ:
-	case RVOLNE:
-	case RVOLGE:
-	case RVOLGT:
-	case RVOLLE:
-	case RVOLLT: {
-	    /* Compare Cauchy-Crofton raytrace volume estimates */
-	    double vol1 = 0.0, vol2 = 0.0;
-	    if (exists_rtrace_vol_cached(ed, opnd1, &vol1) < 0) return 0;
-	    if (exists_rtrace_vol_cached(ed, opnd2, &vol2) < 0) return 0;
-	    return exists_vol_cmp(op->op_num, vol1, vol2, ed->vol_tol);
+	    if (exists_lookup(ed, opnd1) == NULL ||
+		exists_lookup(ed, opnd2) == NULL)
+		return 0;
+	    if (exists_bbox_vol(ed, opnd1, &vol1) < 0) return 0;
+	    if (exists_bbox_vol(ed, opnd2, &vol2) < 0) return 0;
+
+	    switch (op->op_num) {
+		case BVOLEQ: return NEAR_EQUAL(vol1, vol2, SMALL_FASTF) ? 1 : 0;
+		case BVOLNE: return !NEAR_EQUAL(vol1, vol2, SMALL_FASTF) ? 1 : 0;
+		case BVOLGT: return (vol1 > vol2 + SMALL_FASTF) ? 1 : 0;
+		case BVOLGE: return (vol1 >= vol2 - SMALL_FASTF) ? 1 : 0;
+		case BVOLLT: return (vol1 < vol2 - SMALL_FASTF) ? 1 : 0;
+		case BVOLLE: return (vol1 <= vol2 + SMALL_FASTF) ? 1 : 0;
+		default: return 0;
+	    }
 	}
 
 	default:
@@ -780,12 +622,11 @@ binop(struct exists_data *ed)
 int
 ged_exists_core(struct ged *gedp, int argc, const char *argv_orig[])
 {
-    static const char *usage = "[-t tol_mm3] expression [expression]...";
-    struct exists_data ed;
+    static const char *usage = "expression [expression]...";
+    struct exists_data ed = EXISTS_DATA_INIT_ZERO;
     struct bu_vls message = BU_VLS_INIT_ZERO;
     int result;
     char **argv;
-    int arg_start = 1; /* index into argv_orig where the expression begins */
 
     GED_CHECK_DATABASE_OPEN(gedp, BRLCAD_ERROR);
     GED_CHECK_ARGC_GT_0(gedp, argc, BRLCAD_ERROR);
@@ -799,27 +640,9 @@ ged_exists_core(struct ged *gedp, int argc, const char *argv_orig[])
 	return GED_HELP;
     }
 
-    /* Zero-initialise the whole struct, then set non-zero defaults */
-    memset(&ed, 0, sizeof(ed));
-    ed.vol_tol = SMALL_FASTF; /* default: ~floating-point strictness */
-
-    /* Optional leading tolerance: -t <value_mm3> */
-    if (argc >= 3 && BU_STR_EQUAL(argv_orig[1], "-t")) {
-	char *endptr = NULL;
-	double tval = strtod(argv_orig[2], &endptr);
-	if (!endptr || *endptr != '\0' || tval < 0.0) {
-	    bu_vls_printf(gedp->ged_result_str,
-		"invalid tolerance '%s': must be a non-negative number (mm^3)",
-		argv_orig[2]);
-	    return BRLCAD_ERROR;
-	}
-	ed.vol_tol = (fastf_t)tval;
-	arg_start = 3;
-    }
-
     argv = bu_argv_dup(argc, argv_orig);
 
-    ed.t_wp = &argv[arg_start];
+    ed.t_wp = &argv[1];
     ed.gedp = gedp;
     ed.t_wp_op = NULL;
     ed.message = &message;
