@@ -122,13 +122,10 @@ maximum_extent(const fastf_t b[6])
 }
 
 
-/* Number of bins used by the binned SAH-BVH build */
+/* Number of candidate split planes evaluated per axis by the SAH-BVH build.
+ * The N split planes divide the centroid AABB into N+1 equal-width buckets.
+ */
 #define SAH_N_BINS 32
-
-struct sah_bin {
-    long count;
-    fastf_t bounds[6]; /* [minX minY minZ maxX maxY maxZ] */
-};
 
 /*
  * Recursive binned-SAH BVH builder.
@@ -199,69 +196,60 @@ sahbvh_recursive(long max_prims_in_node,
 
     for (axis = 0; axis < 3; axis++) {
 	fastf_t ext = cb[3+axis] - cb[0+axis];
-	fastf_t inv_ext;
-	struct sah_bin bins[SAH_N_BINS];
-	/* prefix/suffix sweep buffers */
-	fastf_t left_sa[SAH_N_BINS - 1];
-	long    left_cnt[SAH_N_BINS - 1];
-	fastf_t right_sa[SAH_N_BINS - 1];
-	long    right_cnt[SAH_N_BINS - 1];
-	fastf_t lb[6], rb[6];
-	long lc, rc;
+	long k;
 
 	if (ZERO(ext)) continue;
-	inv_ext = 1.0 / ext;
 
-	/* initialise bins */
-	for (i = 0; i < SAH_N_BINS; i++) {
-	    bins[i].count = 0;
-	    bins[i].bounds[0] = bins[i].bounds[1] = bins[i].bounds[2] =  MAX_FASTF;
-	    bins[i].bounds[3] = bins[i].bounds[4] = bins[i].bounds[5] = -MAX_FASTF;
-	}
-
-	/* fill bins */
-	for (i = 0; i < n; i++) {
-	    long idx = pindices[i];
-	    long b = (long)(SAH_N_BINS * (centroids_prims[idx*3+axis] - cb[0+axis]) * inv_ext);
-	    if (b >= SAH_N_BINS) b = SAH_N_BINS - 1;
-	    bins[b].count++;
-	    VMIN(&bins[b].bounds[0], &bounds_prims[idx*6+0]);
-	    VMAX(&bins[b].bounds[3], &bounds_prims[idx*6+3]);
-	}
-
-	/* left prefix sweep: left_sa[k] = SA of union(bins[0..k]) */
-	lb[0] = lb[1] = lb[2] =  MAX_FASTF;
-	lb[3] = lb[4] = lb[5] = -MAX_FASTF;
-	lc = 0;
-	for (i = 0; i < SAH_N_BINS - 1; i++) {
-	    if (bins[i].count > 0)
-		bvh_bounds_union(lb, lb, bins[i].bounds);
-	    lc += bins[i].count;
-	    left_sa[i]  = (lc > 0) ? surface_area(lb) : 0.0;
-	    left_cnt[i] = lc;
-	}
-
-	/* right suffix sweep: right_sa[k] = SA of union(bins[k+1..N-1]) */
-	rb[0] = rb[1] = rb[2] =  MAX_FASTF;
-	rb[3] = rb[4] = rb[5] = -MAX_FASTF;
-	rc = 0;
-	for (i = SAH_N_BINS - 1; i >= 1; i--) {
-	    if (bins[i].count > 0)
-		bvh_bounds_union(rb, rb, bins[i].bounds);
-	    rc += bins[i].count;
-	    right_sa[i-1]  = (rc > 0) ? surface_area(rb) : 0.0;
-	    right_cnt[i-1] = rc;
-	}
-
-	/* evaluate SAH cost for each candidate split */
-	for (i = 0; i < SAH_N_BINS - 1; i++) {
+	/*
+	 * Bbox-overlap SAH: for each of SAH_N_BINS-1 candidate split planes,
+	 * classify every primitive by whether its bounding box overlaps the
+	 * left half (bbox_min[axis] < split_pos) or the right half
+	 * (bbox_max[axis] > split_pos).  Straddling primitives are counted in
+	 * both children and contribute to both tight bboxes.
+	 *
+	 * This correctly penalises splits where many primitives straddle the
+	 * plane — the resulting left_cnt and right_cnt are both inflated,
+	 * pushing the SAH cost well above the leaf cost and causing the
+	 * algorithm to reject pathological splits.  Centroid-only counting
+	 * assigns each primitive to exactly one bin and misses the straddling
+	 * cost entirely, leading to catastrophic trees for scenes with large
+	 * overlapping primitives.
+	 *
+	 * Complexity: O(N * SAH_N_BINS) per axis per node.
+	 */
+	for (k = 0; k < SAH_N_BINS - 1; k++) {
+	    fastf_t split_pos = cb[0+axis] + (k + 1) * ext / SAH_N_BINS;
+	    fastf_t lb[6], rb[6];
+	    long lc = 0, rc = 0;
 	    fastf_t cost;
-	    if (!left_cnt[i] || !right_cnt[i]) continue;
-	    cost = 0.125 + (left_cnt[i] * left_sa[i] + right_cnt[i] * right_sa[i]) / node_sa;
+
+	    lb[0] = lb[1] = lb[2] =  MAX_FASTF;
+	    lb[3] = lb[4] = lb[5] = -MAX_FASTF;
+	    rb[0] = rb[1] = rb[2] =  MAX_FASTF;
+	    rb[3] = rb[4] = rb[5] = -MAX_FASTF;
+
+	    for (i = 0; i < n; i++) {
+		long idx = pindices[i];
+		fastf_t p_min = bounds_prims[idx*6 + axis];
+		fastf_t p_max = bounds_prims[idx*6 + 3 + axis];
+		if (p_min < split_pos) {
+		    VMIN(&lb[0], &bounds_prims[idx*6 + 0]);
+		    VMAX(&lb[3], &bounds_prims[idx*6 + 3]);
+		    lc++;
+		}
+		if (p_max > split_pos) {
+		    VMIN(&rb[0], &bounds_prims[idx*6 + 0]);
+		    VMAX(&rb[3], &bounds_prims[idx*6 + 3]);
+		    rc++;
+		}
+	    }
+
+	    if (!lc || !rc) continue;
+	    cost = 0.125 + (lc * surface_area(lb) + rc * surface_area(rb)) / node_sa;
 	    if (cost < best_cost) {
 		best_cost      = cost;
 		best_axis      = axis;
-		best_split_bin = i;
+		best_split_bin = k;
 	    }
 	}
     }

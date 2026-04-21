@@ -427,20 +427,23 @@ rt_hlbvh_prep(struct rt_i *rtip)
  * HLBVH is +15-28% faster.
  *
  * Threshold RT_HLBVH_SAH_THRESHOLD is calibrated against the benchmark suite
- * at -s2048 (3-run averages, Release build).  The SAH values below are the
- * actual runtime values computed by the SAH-BVH for each scene:
+ * at -s512 (3-run averages, Release build).  The SAH values below are the
+ * actual runtime values produced by the bbox-overlap SAH-BVH for each scene
+ * (measured with RT_FORCE_HLBVH=1 -x 16384):
  *
- *   HLBVH wins: sphflake(SAH 0.0012,+23%), havoc(0.0016,+143%),
- *               castle(0.0151,+23%), bldg391(0.0162,+7%), cube(0.0569,+8%),
- *               crod(SAH>threshold,+28%), moss(SAH>threshold,+15%)
- *   NUBSP wins: m35(0.0060,-15%), GenericTwin(0.0633,-63%), ktank(0.0738,-5%)
+ *   HLBVH wins: sphflake(SAH 0.0022,+19%), havoc(0.0040,+114%),
+ *               GenericTwin(0.0104,~tie), castle(0.0259,+12%), cube(0.0431,+3%),
+ *               crod(small-bypass,+21%), moss(small-bypass,+14%)
+ *   NUBSP wins: m35(0.0120,-27%), bldg391(0.0867,-52%), ktank(0.0911,-14%)
  *
- * The threshold 0.060 sits in the 0.0064-wide gap between cube (0.0569) and
- * GenericTwin (0.0633), cleanly routing 8 of 10 scenes correctly.  m35 is the
- * one misrouted scene (-15%) but the net gain vs threshold=0.003 is strongly
- * positive: castle(+23%), bldg391(+7%), cube(+8%) minus m35(-15%) = +23% net.
- * crod and moss have SAH above the threshold and are handled by the small-scene
- * bypass (they have few unique primitives) rather than the SAH threshold.
+ * The threshold 0.060 sits in the gap between cube (0.0431) and bldg391
+ * (0.0867), correctly routing 9 of 10 scenes.  m35 (SAH 0.0120) is the one
+ * misrouted scene (-27%) but the net gain across all scenes is strongly
+ * positive.  crod and moss use the small-scene bypass.
+ *
+ * Note: the bbox-overlap SAH (cut_hlbvh.c) produces higher SAH values than
+ * the old centroid-only SAH because it correctly accounts for straddling
+ * primitives.  The threshold is calibrated for the bbox-overlap variant.
  */
 #define RT_HLBVH_SAH_THRESHOLD      0.060
 #define RT_HLBVH_MIN_PRIMS_FOR_SAH  30

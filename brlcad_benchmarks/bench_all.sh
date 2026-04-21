@@ -45,29 +45,30 @@ avg_forced_hlbvh() {
 
 # Determine auto-routing for PR binary by comparing auto vs forced-NUBSP throughput.
 # If auto throughput is closer to HLBVH than NUBSP it routed to HLBVH.
-# SAH values and unique-prim counts are current as of the spatial-split + small-scene-bypass
-# changes; they differ from older measurements:
-#   sphflake: 822 unique, SAH 0.0012 → HLBVH (SAH<threshold)
-#   havoc:   2427 unique, SAH 0.0016 → HLBVH
-#   m35:     1125 unique, SAH 0.0055 → HLBVH (misrouted; NUBSP would be faster)
+# SAH values are produced by the bbox-overlap SAH-BVH (measured with RT_FORCE_HLBVH=1 -x 16384).
+# Bbox-overlap SAH correctly penalises high-straddle splits, yielding higher SAH values
+# than the old centroid-only SAH.  Threshold=0.060 is calibrated for this variant.
+#   sphflake: 822 unique, SAH 0.0022 → HLBVH (SAH<threshold, +19%)
+#   havoc:   2427 unique, SAH 0.0040 → HLBVH (+114%)
+#   m35:     1125 unique, SAH 0.0120 → HLBVH (misrouted; NUBSP would be -27% faster)
 #   moss:       6 unique            → HLBVH (small-scene bypass, ≤30 unique prims)
-#   bldg391:  203 unique, SAH 0.0255 → HLBVH
-#   castle:   429 unique, SAH 0.0146 → HLBVH
-#   ktank:     78 unique, SAH 0.0625 → NUBSP (SAH>threshold AND >30 unique prims)
+#   bldg391:  203 unique, SAH 0.0867 → NUBSP (SAH>threshold; HLBVH -52%)
+#   castle:   429 unique, SAH 0.0259 → HLBVH (+12%)
+#   ktank:     78 unique, SAH 0.0911 → NUBSP (SAH>threshold)
 #   crod:      17 unique            → HLBVH (small-scene bypass)
-#   cube:     160 unique, SAH 0.0511 → HLBVH
-#   GenericTwin: 2239 unique, SAH 0.0036 → HLBVH
+#   cube:     160 unique, SAH 0.0431 → HLBVH (+3%)
+#   GenericTwin: 2239 unique, SAH 0.0104 → HLBVH (~tie with NUBSP, -0.3%)
 declare -A OBJS SAH UNIQ
-OBJS[sphflake]="scene.r";   SAH[sphflake]="0.0012"; UNIQ[sphflake]=822
-OBJS[havoc]="havoc";        SAH[havoc]="0.0016";    UNIQ[havoc]=2427
-OBJS[m35]="all.g";          SAH[m35]="0.0055";      UNIQ[m35]=1125
+OBJS[sphflake]="scene.r";   SAH[sphflake]="0.0022"; UNIQ[sphflake]=822
+OBJS[havoc]="havoc";        SAH[havoc]="0.0040";    UNIQ[havoc]=2427
+OBJS[m35]="all.g";          SAH[m35]="0.0120";      UNIQ[m35]=1125
 OBJS[moss]="all.g";         SAH[moss]="small(6)";   UNIQ[moss]=6
-OBJS[bldg391]="all.g";      SAH[bldg391]="0.0255";  UNIQ[bldg391]=203
-OBJS[castle]="all.g";       SAH[castle]="0.0146";   UNIQ[castle]=429
-OBJS[ktank]="tank";         SAH[ktank]="0.0625";    UNIQ[ktank]=78
+OBJS[bldg391]="all.g";      SAH[bldg391]="0.0867";  UNIQ[bldg391]=203
+OBJS[castle]="all.g";       SAH[castle]="0.0259";   UNIQ[castle]=429
+OBJS[ktank]="tank";         SAH[ktank]="0.0911";    UNIQ[ktank]=78
 OBJS[crod]="crod";          SAH[crod]="small(17)";  UNIQ[crod]=17
-OBJS[cube]="all.g";         SAH[cube]="0.0511";     UNIQ[cube]=160
-OBJS[GenericTwin]="all";    SAH[GenericTwin]="0.0036"; UNIQ[GenericTwin]=2239
+OBJS[cube]="all.g";         SAH[cube]="0.0431";     UNIQ[cube]=160
+OBJS[GenericTwin]="all";    SAH[GenericTwin]="0.0104"; UNIQ[GenericTwin]=2239
 
 SCENES="sphflake havoc m35 moss bldg391 castle ktank crod cube GenericTwin"
 
