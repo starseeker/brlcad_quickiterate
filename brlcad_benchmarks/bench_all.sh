@@ -44,16 +44,16 @@ avg_forced_hlbvh() {
 }
 
 declare -A OBJS SAH
-OBJS[sphflake]="scene.r";   SAH[sphflake]="0.0010"
-OBJS[havoc]="havoc";        SAH[havoc]="0.0014"
-OBJS[m35]="all.g";          SAH[m35]="0.0051"
-OBJS[moss]="all.g";         SAH[moss]="0.1310"
-OBJS[bldg391]="all.g";      SAH[bldg391]="0.0111"
-OBJS[castle]="all.g";       SAH[castle]="0.0099"
-OBJS[ktank]="tank";         SAH[ktank]="0.0269"
-OBJS[crod]="crod";          SAH[crod]="0.0859"
-OBJS[cube]="all.g";         SAH[cube]="0.0088"
-OBJS[GenericTwin]="all";    SAH[GenericTwin]="0.2698"
+OBJS[sphflake]="scene.r";   SAH[sphflake]="0.0012"
+OBJS[havoc]="havoc";        SAH[havoc]="0.0016"
+OBJS[m35]="all.g";          SAH[m35]="0.0060"
+OBJS[moss]="all.g";         SAH[moss]="0.2922"
+OBJS[bldg391]="all.g";      SAH[bldg391]="0.0162"
+OBJS[castle]="all.g";       SAH[castle]="0.0151"
+OBJS[ktank]="tank";         SAH[ktank]="0.0738"
+OBJS[crod]="crod";          SAH[crod]="0.1406"
+OBJS[cube]="all.g";         SAH[cube]="0.0569"
+OBJS[GenericTwin]="all";    SAH[GenericTwin]="0.0633"
 
 SCENES="sphflake havoc m35 moss bldg391 castle ktank crod cube GenericTwin"
 
@@ -74,7 +74,7 @@ for name in $SCENES; do
     ph=$(avg_forced_hlbvh "$PR_RT"   "$PR_LIB"   "$gfile" "$obj")
 
     auto_route="HLBVH"
-    [[ "$(echo "$sah > 0.003" | bc -l)" = "1" ]] && auto_route="NUBSP"
+    [[ "$(echo "$sah > 0.060" | bc -l)" = "1" ]] && auto_route="NUBSP"
 
     if [[ "$pn" != "0" && "$ph" != "0" ]]; then
         delta=$(echo "scale=1; ($ph - $pn) * 100 / $pn" | bc -l)
