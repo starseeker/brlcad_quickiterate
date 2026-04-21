@@ -330,7 +330,7 @@ rt_bbox_cmp_minx(const void *a, const void *b)
  * NOTE: D_vol (sum of individual volumes / scene volume) failed to separate
  * m35 (NUBSP -27%) from havoc (HLBVH +114%) — both scored ≈ 0.22.
  * D_overlap directly measures the spatial crowding that causes BVH traversal
- * to visit multiple subtrees per ray, and is hypothesised to discriminate
+ * to visit multiple subtrees per ray, and is hypothesized to discriminate
  * those two scenes.  See calibration measurements in rt_hlbvh_is_good().
  */
 static double
@@ -949,7 +949,7 @@ rt_prep_parallel(struct rt_i *rtip, int ncpu)
      * sweep-and-prune (O(N log N + K)) before the HLBVH build.  It measures
      * pairwise bbox crowding directly, the quantity that degrades BVH traversal
      * when sibling subtrees overlap.  D_vol alone cannot separate m35 from
-     * havoc (both ≈ 0.22); D_overlap is hypothesised to discriminate them
+     * havoc (both ≈ 0.22); D_overlap is hypothesized to discriminate them
      * because m35's tightly nested vehicle subassemblies should produce far
      * more pairwise overlap volume than havoc's spatially separated helicopter
      * surfaces.  Threshold calibration is in rt_hlbvh_is_good().
