@@ -229,6 +229,64 @@ rt_free_rti(struct rt_i *rtip)
  */
 #define RT_HLBVH_MAX_SPLITS  8
 
+/*
+ * Volume density D_vol = sum(vol(prim_bbox_i)) / vol(scene_bbox).
+ *
+ * This metric quantifies how much of the scene volume is collectively covered
+ * by the union of primitive bounding boxes (counting overlapping regions
+ * multiple times).  Scenes with many co-located parts accumulate high D_vol;
+ * well-separated parts give lower D_vol even when the scene is large.
+ *
+ * NOTE ON ROUTING USE: D_vol alone is NOT a reliable discriminator for
+ * HLBVH vs NUBSP routing.  Measured values for the benchmark suite
+ * (Release build, bbox-overlap SAH-BVH) show that havoc (HLBVH wins +114%)
+ * and m35 (NUBSP wins -27%) both have D_vol ≈ 0.22 — no threshold can
+ * separate them.  D_vol is retained as a diagnostic metric printed when
+ * RT_DEBUG_CUT is enabled.  The post-build SAH check handles routing.
+ *
+ * Benchmark D_vol values for reference:
+ *   sphflake=0.0635, cube=0.1199, moss=0.1452, ktank=0.2115,
+ *   havoc=0.2166, m35=0.2236, castle=0.3021, GenericTwin=0.5160,
+ *   crod=1.0209, bldg391=1.9913
+ */
+
+/*
+ * Compute D_vol = sum(vol(bbox_i)) / vol(scene_bbox) for all finite
+ * primitives.  Returns 0.0 when the scene bounding box has zero volume.
+ * Called for diagnostic logging only; not used for routing decisions.
+ */
+static double
+rt_scene_vol_density(struct rt_i *rtip)
+{
+    struct soltab *stp;
+    double prim_vol_sum;
+    double scene_vol;
+    vect_t sdims;
+
+    RT_CK_RTI(rtip);
+
+    VSUB2(sdims, rtip->mdl_max, rtip->mdl_min);
+    scene_vol = sdims[X] * sdims[Y] * sdims[Z];
+    if (scene_vol <= 0.0)
+	return 0.0;
+
+    prim_vol_sum = 0.0;
+    RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
+	vect_t pdims;
+	if (stp->st_aradius <= 0 || stp->st_aradius >= INFINITY) continue;
+	VSUB2(pdims, stp->st_max, stp->st_min);
+	prim_vol_sum += pdims[X] * pdims[Y] * pdims[Z];
+    } RT_VISIT_ALL_SOLTABS_END;
+
+    {
+	double d_vol = prim_vol_sum / scene_vol;
+	if (RT_G_DEBUG & RT_DEBUG_CUT)
+	    bu_log("HLBVH density: d_vol=%.4f (prim_vol_sum=%.4g scene_vol=%.4g)\n",
+		   d_vol, prim_vol_sum, scene_vol);
+	return d_vol;
+    }
+}
+
 static long
 rt_hlbvh_prep(struct rt_i *rtip)
 {
@@ -412,7 +470,7 @@ rt_hlbvh_prep(struct rt_i *rtip)
  * A low cost means each leaf's bounding box is small relative to the scene —
  * rays visit few primitives on average.  A high cost means many leaves have
  * large bboxes relative to the scene, so rays must test many candidates even
- * though leaves are individually small (the m35 dense-assembly case).
+ * though leaves are individually small.
  *
  * NUBSP's adaptive cell cuts handle the high-cost case better because they
  * can subdivide exactly the crowded spatial regions.
@@ -438,8 +496,11 @@ rt_hlbvh_prep(struct rt_i *rtip)
  *
  * The threshold 0.060 sits in the gap between cube (0.0431) and bldg391
  * (0.0867), correctly routing 9 of 10 scenes.  m35 (SAH 0.0120) is the one
- * misrouted scene (-27%) but the net gain across all scenes is strongly
- * positive.  crod and moss use the small-scene bypass.
+ * remaining misrouted scene: its BVH quality metric is good but NUBSP is 27%
+ * faster due to dense spatial clustering of 1123 parts.  The volume density
+ * heuristic (D_vol) cannot separate m35 from havoc (both ≈ 0.22), so no
+ * cheap pre-build discriminant for this case has been found.
+ * crod and moss use the small-scene bypass.
  *
  * Note: the bbox-overlap SAH (cut_hlbvh.c) produces higher SAH values than
  * the old centroid-only SAH because it correctly accounts for straddling
@@ -717,19 +778,36 @@ rt_prep_parallel(struct rt_i *rtip, int ncpu)
 
     /* Select scene acceleration structure.  The default (set by rt_new_rti)
      * is HLBVH.  We always build the HLBVH first — it's fast (O(n log n)) —
-     * and then inspect its leaf-node occupancy to decide whether to keep it
-     * or fall back to NUBSP.  Scenes where primitives are well-separated
-     * spatially (sphflake, havoc) produce small leaves and HLBVH wins.
-     * Dense assemblies where many parts share overlapping AABBs (m35) cause
-     * HLBVH to produce degenerate fat leaves; those scenes route to NUBSP.
-     * Scenes with few unique primitives (moss, crod) bypass the SAH check
-     * entirely — NUBSP cannot outperform HLBVH with so few primitives.
+     * and then inspect its leaf-node quality to decide whether to keep it or
+     * fall back to NUBSP.
+     *
+     * Routing logic: post-build SAH check (rt_hlbvh_is_good).
+     *   Low SAH  → leaves are spatially tight → HLBVH wins (sphflake, havoc,
+     *              castle, GenericTwin, cube).
+     *   High SAH → individual primitives are large relative to the scene →
+     *              NUBSP wins (bldg391, ktank).
+     *   Small scene (≤30 unique prims) → HLBVH unconditionally (moss, crod).
+     *   m35 is the one unresolved case: good SAH (0.012) but NUBSP is 27%
+     *   faster due to dense spatial clustering of 1123 parts.
+     *
+     * D_vol = sum(vol(prim_bbox_i)) / vol(scene_bbox) is computed and logged
+     * when RT_DEBUG_CUT is enabled for scene characterisation.  It does NOT
+     * affect routing: measured values for the benchmark suite show havoc
+     * (HLBVH +114%) and m35 (NUBSP -27%) both have D_vol ≈ 0.22, so no
+     * single threshold reliably separates the two populations.
+     *
      * Any caller-set override (rti_space_partition != RT_PART_HLBVH) is
      * respected — the HLBVH build and quality check are skipped entirely.
+     * RT_FORCE_HLBVH=1 env var overrides the SAH quality check (benchmarking).
      */
     if (rtip->rti_space_partition == RT_PART_HLBVH) {
-	long n_unique = rt_hlbvh_prep(rtip);
-	/* RT_FORCE_HLBVH=1 env var overrides the SAH quality check (benchmarking only). */
+	long n_unique;
+
+	/* Log D_vol for diagnostic purposes (RT_DEBUG_CUT only). */
+	if (RT_G_DEBUG & RT_DEBUG_CUT)
+	    rt_scene_vol_density(rtip);
+
+	n_unique = rt_hlbvh_prep(rtip);
 	if (!rt_hlbvh_is_good(rtip, n_unique) && !getenv("RT_FORCE_HLBVH")) {
 	    if (RT_G_DEBUG & RT_DEBUG_CUT)
 		bu_log("rt_prep_parallel: HLBVH degenerate, falling back to NUBSP\n");
