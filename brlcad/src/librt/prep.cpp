@@ -53,7 +53,8 @@
 extern void rt_ck(struct rt_i *rtip);
 
 static void rt_solid_bitfinder(union tree *treep, struct region *regp, struct resource *resp);
-static void rt_hlbvh_prep(struct rt_i *rtip);
+static long rt_hlbvh_prep(struct rt_i *rtip);
+static int rt_hlbvh_is_good(const struct rt_i *rtip, long n_unique_prims);
 
 
 int RT_SEM_WORKER = 0;
@@ -194,18 +195,47 @@ rt_free_rti(struct rt_i *rtip)
  * Build the flat HLBVH scene acceleration structure for CPU ray tracing.
  * Called from rt_prep_parallel() when rti_space_partition == RT_PART_HLBVH.
  *
- * Builds a single-level spatially-sorted BVH over all finite primitives
- * regardless of region membership or boolean tree type.  The HLBVH
- * Morton-code construction produces a balanced spatial tree with up to
- * max_prims_in_node (4) primitives per leaf, giving finer spatial
- * decomposition than any region-boundary grouping.
+ * Builds a single-level spatially-sorted BVH over all finite primitives.
+ * Large primitives — those whose bounding box longest axis exceeds
+ * RT_HLBVH_SPLIT_FRAC of the scene's maximum dimension — are split into
+ * multiple sub-bbox "pieces" along that axis.  Each piece references the
+ * same soltab; the shoot loop's solidbits deduplication (shoot.c) ensures
+ * the underlying primitive is only shot once per ray regardless of how many
+ * pieces the BVH traversal visits.
+ *
+ * Spatial splits reduce BVH node overlap for scenes dominated by elongated
+ * primitives (e.g. long rods, cylinders) by giving the BVH builder tighter
+ * sub-bboxes to work with.  Scenes where overlap comes from many interleaved
+ * small primitives are unaffected: no individual primitive is large enough to
+ * trigger splitting, so their SAH is unchanged.
+ *
+ * Returns the number of unique (non-split) finite primitives in the scene.
+ * The caller passes this count to rt_hlbvh_is_good() to enable the
+ * small-scene bypass (see below).
  */
-static void
+
+/*
+ * Fraction of the scene's maximum bounding-box dimension above which a
+ * primitive's longest axis triggers a spatial split.  A value of 0.25 means
+ * any primitive longer than 25 % of the scene's widest extent will be split
+ * into sub-boxes of approximately that size.
+ */
+#define RT_HLBVH_SPLIT_FRAC  0.25
+
+/*
+ * Maximum number of spatial-split pieces produced per primitive along a
+ * single axis.  Caps memory use for pathological cases (a single primitive
+ * spanning the entire scene).
+ */
+#define RT_HLBVH_MAX_SPLITS  8
+
+static long
 rt_hlbvh_prep(struct rt_i *rtip)
 {
     struct soltab *stp;
     long i;
-    long n_primitives;
+    long n_primitives;  /* unique finite primitives */
+    long n_pieces;      /* total BVH input slots after spatial splitting */
     struct soltab **all_prims;
     fastf_t *centroids;
     fastf_t *bounds;
@@ -214,6 +244,7 @@ rt_hlbvh_prep(struct rt_i *rtip)
     struct bu_pool *pool;
     struct bvh_build_node *root;
     struct bvh_flat_node *flat_root;
+    fastf_t split_thresh; /* longest-axis length that triggers splitting */
 
     RT_CK_RTI(rtip);
 
@@ -238,31 +269,100 @@ rt_hlbvh_prep(struct rt_i *rtip)
     } RT_VISIT_ALL_SOLTABS_END;
 
     if (n_primitives == 0)
-	return;
+	return 0;
 
-    /* Collect all finite primitives */
-    all_prims = (struct soltab **)bu_calloc(n_primitives, sizeof(struct soltab *), "hlbvh all prims");
-    i = 0;
-    RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
-	if (stp->st_aradius <= 0) continue;
-	if (stp->st_aradius >= INFINITY) continue;
-	all_prims[i++] = stp;
-    } RT_VISIT_ALL_SOLTABS_END;
-
-    /* Build centroid and bound arrays for the BVH builder */
-    centroids = (fastf_t *)bu_calloc(n_primitives, sizeof(fastf_t) * 3, "hlbvh centroids");
-    bounds    = (fastf_t *)bu_calloc(n_primitives, sizeof(fastf_t) * 6, "hlbvh bounds");
-    for (i = 0; i < n_primitives; i++) {
-	stp = all_prims[i];
-	VMOVE(&centroids[i * 3],     stp->st_center);
-	VMOVE(&bounds[i * 6 + 0],    stp->st_min);
-	VMOVE(&bounds[i * 6 + 3],    stp->st_max);
+    /* Spatial split threshold: any primitive whose longest bbox axis exceeds
+     * this length will be subdivided into multiple smaller pieces so the BVH
+     * builder can place them in tighter leaf nodes.
+     */
+    {
+	vect_t sdims;
+	fastf_t scene_max_dim;
+	VSUB2(sdims, rtip->mdl_max, rtip->mdl_min);
+	scene_max_dim = FMAX(sdims[X], FMAX(sdims[Y], sdims[Z]));
+	split_thresh = scene_max_dim * RT_HLBVH_SPLIT_FRAC;
+	if (split_thresh <= 0.0)
+	    split_thresh = INFINITY; /* degenerate scene — no splits */
     }
 
-    /* Build a single spatial HLBVH over all finite primitives */
-    pool = hlbvh_init_pool((size_t)n_primitives);
+    /* Count total BVH input slots (>= n_primitives when some are split) */
+    n_pieces = 0;
+    RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
+	vect_t pdims;
+	fastf_t max_dim;
+	long nsplit;
+	if (stp->st_aradius <= 0) continue;
+	if (stp->st_aradius >= INFINITY) continue;
+	VSUB2(pdims, stp->st_max, stp->st_min);
+	max_dim = FMAX(pdims[X], FMAX(pdims[Y], pdims[Z]));
+	nsplit = (split_thresh < INFINITY && max_dim > split_thresh)
+	    ? (long)ceil(max_dim / split_thresh) : 1;
+	if (nsplit > RT_HLBVH_MAX_SPLITS) nsplit = RT_HLBVH_MAX_SPLITS;
+	if (nsplit < 1) nsplit = 1;
+	n_pieces += nsplit;
+    } RT_VISIT_ALL_SOLTABS_END;
+
+    /* Allocate arrays sized for all pieces.  For a non-split primitive
+     * n_pieces == n_primitives; for split ones n_pieces > n_primitives with
+     * the same soltab pointer repeated across its sub-boxes.
+     */
+    all_prims = (struct soltab **)bu_calloc(n_pieces, sizeof(struct soltab *), "hlbvh all prims");
+    centroids = (fastf_t *)bu_calloc(n_pieces, sizeof(fastf_t) * 3, "hlbvh centroids");
+    bounds    = (fastf_t *)bu_calloc(n_pieces, sizeof(fastf_t) * 6, "hlbvh bounds");
+
+    i = 0;
+    RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
+	vect_t pdims;
+	uint8_t axis;
+	fastf_t max_dim;
+	long nsplit, k;
+
+	if (stp->st_aradius <= 0) continue;
+	if (stp->st_aradius >= INFINITY) continue;
+
+	VSUB2(pdims, stp->st_max, stp->st_min);
+
+	/* Find the longest axis for splitting */
+	if (pdims[X] >= pdims[Y] && pdims[X] >= pdims[Z])
+	    axis = X;
+	else if (pdims[Y] >= pdims[Z])
+	    axis = Y;
+	else
+	    axis = Z;
+
+	max_dim = pdims[axis];
+	nsplit = (split_thresh < INFINITY && max_dim > split_thresh)
+	    ? (long)ceil(max_dim / split_thresh) : 1;
+	if (nsplit > RT_HLBVH_MAX_SPLITS) nsplit = RT_HLBVH_MAX_SPLITS;
+	if (nsplit < 1) nsplit = 1;
+
+	for (k = 0; k < nsplit; k++) {
+	    /* Sub-box: full primitive bbox except along the split axis,
+	     * where we take only the k-th slice.
+	     */
+	    fastf_t lo = stp->st_min[axis]
+		+ (stp->st_max[axis] - stp->st_min[axis]) * k / nsplit;
+	    fastf_t hi = stp->st_min[axis]
+		+ (stp->st_max[axis] - stp->st_min[axis]) * (k + 1) / nsplit;
+
+	    all_prims[i] = stp;
+	    VMOVE(&bounds[i * 6 + 0], stp->st_min);
+	    VMOVE(&bounds[i * 6 + 3], stp->st_max);
+	    bounds[i * 6 + axis]     = lo;
+	    bounds[i * 6 + 3 + axis] = hi;
+
+	    /* Centroid of the sub-bbox */
+	    centroids[i * 3 + 0] = (bounds[i * 6 + 0] + bounds[i * 6 + 3]) * 0.5;
+	    centroids[i * 3 + 1] = (bounds[i * 6 + 1] + bounds[i * 6 + 4]) * 0.5;
+	    centroids[i * 3 + 2] = (bounds[i * 6 + 2] + bounds[i * 6 + 5]) * 0.5;
+	    i++;
+	}
+    } RT_VISIT_ALL_SOLTABS_END;
+
+    /* Build a single spatial BVH over all primitive pieces */
+    pool = hlbvh_init_pool((size_t)n_pieces);
     root = hlbvh_create(4, pool, centroids, bounds,
-			&total_nodes, n_primitives, &ordered_prims);
+			&total_nodes, n_pieces, &ordered_prims);
     bu_free(bounds,    "hlbvh bounds");
     bu_free(centroids, "hlbvh centroids");
 
@@ -271,7 +371,7 @@ rt_hlbvh_prep(struct rt_i *rtip)
 	bu_free(all_prims, "hlbvh all prims");
 	if (ordered_prims)
 	    bu_free(ordered_prims, "hlbvh ordered prims");
-	return;
+	return 0;
     }
 
     flat_root = hlbvh_flatten(root, total_nodes);
@@ -279,10 +379,10 @@ rt_hlbvh_prep(struct rt_i *rtip)
 
     /* Reorder primitive array to match BVH leaf order */
     if (ordered_prims) {
-	struct soltab **ordered = (struct soltab **)bu_calloc(n_primitives,
+	struct soltab **ordered = (struct soltab **)bu_calloc(n_pieces,
 							      sizeof(struct soltab *),
 							      "hlbvh ordered prims");
-	for (i = 0; i < n_primitives; i++)
+	for (i = 0; i < n_pieces; i++)
 	    ordered[i] = all_prims[ordered_prims[i]];
 	bu_free(ordered_prims, "hlbvh ordered prims");
 	bu_free(all_prims,     "hlbvh all prims");
@@ -290,13 +390,14 @@ rt_hlbvh_prep(struct rt_i *rtip)
     }
 
     if (RT_G_DEBUG & RT_DEBUG_CUT)
-	bu_log("HLBVH: %ld finite primitives in flat spatial BVH (%ld nodes)\n",
-	       n_primitives, total_nodes);
+	bu_log("HLBVH: %ld pieces (%ld unique primitives) in flat spatial BVH (%ld nodes)\n",
+	       n_pieces, n_primitives, total_nodes);
 
     rtip->rti_hlbvh_root   = (void *)flat_root;
     rtip->rti_hlbvh_prims  = all_prims;
-    rtip->rti_hlbvh_nprims = n_primitives;
+    rtip->rti_hlbvh_nprims = n_pieces;
     rtip->rti_hlbvh_nnodes = total_nodes;
+    return n_primitives;
 }
 
 
@@ -316,26 +417,35 @@ rt_hlbvh_prep(struct rt_i *rtip)
  * NUBSP's adaptive cell cuts handle the high-cost case better because they
  * can subdivide exactly the crowded spatial regions.
  *
+ * Small-scene bypass: for scenes with very few unique primitives
+ * (n_unique_prims <= RT_HLBVH_MIN_PRIMS_FOR_SAH), the SAH metric is not
+ * a reliable discriminator — NUBSP cannot meaningfully outperform HLBVH
+ * when there are so few primitives, and HLBVH's simpler flat traversal
+ * consistently wins.  Such scenes are routed to HLBVH unconditionally.
+ * This correctly handles scenes like moss and crod whose primitives are
+ * individually large relative to the scene (giving high SAH) but where
+ * HLBVH is +15-28% faster.
+ *
  * Threshold RT_HLBVH_SAH_THRESHOLD is calibrated against the benchmark suite
  * at -s2048 (3-run averages, Release build).  The SAH values below are the
  * actual runtime values computed by the SAH-BVH for each scene:
  *
  *   HLBVH wins: sphflake(SAH 0.0012,+23%), havoc(0.0016,+143%),
- *               castle(0.0151,+23%), bldg391(0.0162,+7%), cube(0.0569,+8%)
+ *               castle(0.0151,+23%), bldg391(0.0162,+7%), cube(0.0569,+8%),
+ *               crod(SAH>threshold,+28%), moss(SAH>threshold,+15%)
  *   NUBSP wins: m35(0.0060,-15%), GenericTwin(0.0633,-63%), ktank(0.0738,-5%)
- *   SAH > threshold, not reachable: crod(0.1406,+28%), moss(0.2922,+15%)
  *
  * The threshold 0.060 sits in the 0.0064-wide gap between cube (0.0569) and
  * GenericTwin (0.0633), cleanly routing 8 of 10 scenes correctly.  m35 is the
  * one misrouted scene (-15%) but the net gain vs threshold=0.003 is strongly
  * positive: castle(+23%), bldg391(+7%), cube(+8%) minus m35(-15%) = +23% net.
- * crod and moss have SAH above the threshold and fall through to NUBSP; this
- * is suboptimal for those scenes but no single threshold can reach them without
- * also routing GenericTwin (-63%) or ktank (-5%) to HLBVH.
+ * crod and moss have SAH above the threshold and are handled by the small-scene
+ * bypass (they have few unique primitives) rather than the SAH threshold.
  */
-#define RT_HLBVH_SAH_THRESHOLD 0.060
+#define RT_HLBVH_SAH_THRESHOLD      0.060
+#define RT_HLBVH_MIN_PRIMS_FOR_SAH  30
 static int
-rt_hlbvh_is_good(const struct rt_i *rtip)
+rt_hlbvh_is_good(const struct rt_i *rtip, long n_unique_prims)
 {
     const struct bvh_flat_node *nodes;
     long i;
@@ -347,6 +457,16 @@ rt_hlbvh_is_good(const struct rt_i *rtip)
     nodes = (const struct bvh_flat_node *)rtip->rti_hlbvh_root;
     if (!nodes || rtip->rti_hlbvh_nnodes == 0 || rtip->rti_hlbvh_nprims == 0)
 	return 0;
+
+    /* Small scenes: always use HLBVH.  With few unique primitives any spatial
+     * structure achieves similar coverage; HLBVH's flat traversal wins.
+     */
+    if (n_unique_prims <= RT_HLBVH_MIN_PRIMS_FOR_SAH) {
+	if (RT_G_DEBUG & RT_DEBUG_CUT)
+	    bu_log("HLBVH quality: small scene (%ld unique prims <= %d), keeping HLBVH\n",
+		   n_unique_prims, RT_HLBVH_MIN_PRIMS_FOR_SAH);
+	return 1;
+    }
 
     /* Root node surface area (node 0 is always the root) */
     dx = nodes[0].bounds[3] - nodes[0].bounds[0];
@@ -596,16 +716,18 @@ rt_prep_parallel(struct rt_i *rtip, int ncpu)
      * is HLBVH.  We always build the HLBVH first — it's fast (O(n log n)) —
      * and then inspect its leaf-node occupancy to decide whether to keep it
      * or fall back to NUBSP.  Scenes where primitives are well-separated
-     * spatially (sphflake, havoc, moss) produce small leaves and HLBVH wins.
+     * spatially (sphflake, havoc) produce small leaves and HLBVH wins.
      * Dense assemblies where many parts share overlapping AABBs (m35) cause
      * HLBVH to produce degenerate fat leaves; those scenes route to NUBSP.
+     * Scenes with few unique primitives (moss, crod) bypass the SAH check
+     * entirely — NUBSP cannot outperform HLBVH with so few primitives.
      * Any caller-set override (rti_space_partition != RT_PART_HLBVH) is
      * respected — the HLBVH build and quality check are skipped entirely.
      */
     if (rtip->rti_space_partition == RT_PART_HLBVH) {
-	rt_hlbvh_prep(rtip);
+	long n_unique = rt_hlbvh_prep(rtip);
 	/* RT_FORCE_HLBVH=1 env var overrides the SAH quality check (benchmarking only). */
-	if (!rt_hlbvh_is_good(rtip) && !getenv("RT_FORCE_HLBVH")) {
+	if (!rt_hlbvh_is_good(rtip, n_unique) && !getenv("RT_FORCE_HLBVH")) {
 	    if (RT_G_DEBUG & RT_DEBUG_CUT)
 		bu_log("rt_prep_parallel: HLBVH degenerate, falling back to NUBSP\n");
 	    bu_free(rtip->rti_hlbvh_root, "rti_hlbvh_root");
@@ -2214,8 +2336,8 @@ rt_reprep(struct rt_i *rtip, struct rt_reprep_obj_list *objs, struct resource *r
     bu_ptbl_free(&rtip->rti_new_solids);
 
     if (rtip->rti_space_partition == RT_PART_HLBVH) {
-	rt_hlbvh_prep(rtip);
-	if (!rt_hlbvh_is_good(rtip)) {
+	long n_unique = rt_hlbvh_prep(rtip);
+	if (!rt_hlbvh_is_good(rtip, n_unique)) {
 	    if (RT_G_DEBUG & RT_DEBUG_CUT)
 		bu_log("rt_reprep: HLBVH degenerate, rebuilding as NUBSP\n");
 	    bu_free(rtip->rti_hlbvh_root, "rti_hlbvh_root");
