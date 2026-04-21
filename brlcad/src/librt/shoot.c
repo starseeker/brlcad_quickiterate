@@ -641,23 +641,6 @@ rt_plot_cell(const union cutter *cutp, const struct rt_shootray_status *ssp, str
 }
 
 
-/* Candidate record for HLBVH sorted-shot path */
-struct hlbvh_cand {
-    fastf_t tmin;   /* bbox entry distance along ray */
-    fastf_t tmax;   /* bbox exit distance along ray */
-    long    idx;    /* index into rtip->rti_hlbvh_prims[] */
-};
-
-static int
-hlbvh_cand_cmp(const void *a, const void *b)
-{
-    const struct hlbvh_cand *ca = (const struct hlbvh_cand *)a;
-    const struct hlbvh_cand *cb = (const struct hlbvh_cand *)b;
-    if (ca->tmin < cb->tmin) return -1;
-    if (ca->tmin > cb->tmin) return  1;
-    return 0;
-}
-
 
 /*
  * rt_shootray_hlbvh - HLBVH-only single-ray shooting path.
@@ -679,13 +662,6 @@ hlbvh_cand_cmp(const void *a, const void *b)
  *     (backbits, re_pieces init, re_pieces_pending, rt_find_backing_dist,
  *      rt_piecelist / ft_piece_shot / ft_piece_hitsegs machinery)
  *
- * a_onehit early-exit: when a_onehit != 0 and no infinite solids are
- * present, candidates are sorted by bbox tmin and evaluated incrementally
- * (rt_boolweave + rt_boolfinal per candidate), stopping as soon as
- * rt_boolfinal returns enough final partitions.  This mirrors the NUBSP
- * per-cell early-exit and avoids shooting primitives far from the camera
- * on shadow/occlusion rays.
- *
  * a_ray_length culling: when a_ray_length > 0 (finite-length shadow rays),
  * any candidate whose bbox tmin exceeds a_ray_length is discarded before
  * shooting, eliminating primitives entirely behind the shadow ray endpoint.
@@ -706,7 +682,6 @@ rt_shootray_hlbvh(register struct application *ap)
     struct rt_i *rtip;
     fastf_t inv_dir[3];		/* inverse of ray direction components */
     fastf_t last_bool_start;	/* lower bound for next rt_boolfinal call */
-    int hlbvh_done;		/* nonzero when a_onehit is satisfied early */
     const int debug_shoot = RT_G_DEBUG & RT_DEBUG_SHOOT;
 
     RT_AP_CHECK(ap);
@@ -844,22 +819,11 @@ rt_shootray_hlbvh(register struct application *ap)
     }
 
     /*
-     * HLBVH BVH traversal: collect candidate primitive indices.
+     * HLBVH BVH traversal: collect candidate primitive indices, then
+     * shoot each candidate in a single pass.
      * hlbvh_shot_flat_reuse writes directly into the per-resource reuse
      * buffer (resp->re_hlbvh_prims), avoiding per-ray allocation.
-     *
-     * Two shooting strategies are used depending on whether early-exit
-     * is beneficial:
-     *
-     *   a_onehit == 0 (primary rays): single-pass — same as original.
-     *     a_ray_length culling is applied inside the RPP check (Option 3).
-     *
-     *   a_onehit != 0 (shadow/occlusion rays): two-pass sort+incremental.
-     *     First pass filters candidates and captures bbox tmin; the array
-     *     is then sorted ascending by tmin.  Second pass shoots in order
-     *     with per-candidate rt_boolweave + rt_boolfinal, stopping as soon
-     *     as enough final partitions are found.  Infinite-solid scenes fall
-     *     back to the single-pass path to avoid missing those solids.
+     * a_ray_length culling is applied inside the RPP check.
      */
     {
 	struct bvh_flat_node *hlbvh_root = (struct bvh_flat_node *)rtip->rti_hlbvh_root;
@@ -885,170 +849,49 @@ rt_shootray_hlbvh(register struct application *ap)
 	}
 
 	last_bool_start = BACKING_DIST;
-	hlbvh_done = 0;
 
-	if (ap->a_onehit != 0 && rtip->rti_inf_box.bn.bn_len == 0) {
-	    /*
-	     * Shadow/occlusion ray, no infinite solids: sort+incremental path.
-	     *
-	     * First pass: dedup, RPP + a_ray_length filter, capture tmin/tmax
-	     * for each candidate that passes.  Stack buffer for typical scenes;
-	     * heap fallback for larger candidate counts.
-	     */
-#define HLBVH_CAND_STACK 256
-	    struct hlbvh_cand cand_stack[HLBVH_CAND_STACK];
-	    struct hlbvh_cand *cands = cand_stack;
-	    int cands_malloced = 0;
-	    size_t valid_count = 0;
+	for (pi = 0; pi < num_check_prims; pi++) {
+	    struct soltab *stp = rtip->rti_hlbvh_prims[check_prims[pi]];
+	    int ret;
 
-	    if (num_check_prims > HLBVH_CAND_STACK) {
-		cands = (struct hlbvh_cand *)bu_malloc(
-		    num_check_prims * sizeof(struct hlbvh_cand), "hlbvh cands");
-		cands_malloced = 1;
+	    if (BU_BITTEST(solidbits, stp->st_bit)) {
+		resp->re_ndup++;
+		continue;
 	    }
+	    BU_BITSET(solidbits, stp->st_bit);
 
-	    for (pi = 0; pi < num_check_prims; pi++) {
-		struct soltab *stp = rtip->rti_hlbvh_prims[check_prims[pi]];
-		fastf_t tmin = -BACKING_DIST, tmax = INFINITY;
-
-		if (BU_BITTEST(solidbits, stp->st_bit)) {
-		    resp->re_ndup++;
+	    if (OBJ[stp->st_id].ft_use_rpp) {
+		if (!rt_in_rpp(&ap->a_ray, inv_dir, stp->st_min, stp->st_max) ||
+		    (ap->a_ray_length > 0.0 && ap->a_ray.r_min > ap->a_ray_length)) {
+		    resp->re_prune_solrpp++;
 		    continue;
-		}
-		BU_BITSET(solidbits, stp->st_bit);
-
-		if (OBJ[stp->st_id].ft_use_rpp) {
-		    if (!rt_in_rpp(&ap->a_ray, inv_dir, stp->st_min, stp->st_max) ||
-			(ap->a_ray_length > 0.0 && ap->a_ray.r_min > ap->a_ray_length)) {
-			resp->re_prune_solrpp++;
-			continue;
-		    }
-		    tmin = ap->a_ray.r_min;
-		    tmax = ap->a_ray.r_max;
-		}
-
-		cands[valid_count].tmin = tmin;
-		cands[valid_count].tmax = tmax;
-		cands[valid_count].idx  = check_prims[pi];
-		valid_count++;
-	    }
-
-	    /* Sort candidates ascending by bbox tmin */
-	    if (valid_count > 1)
-		qsort(cands, valid_count, sizeof(*cands), hlbvh_cand_cmp);
-
-	    /*
-	     * Second pass: shoot in tmin order with NUBSP-style incremental
-	     * rt_boolweave + rt_boolfinal.  After each candidate that produces
-	     * hit segments, evaluate partitions up to the next candidate's tmin
-	     * (box_end).  If a_onehit is satisfied, break early and skip the
-	     * remaining candidates entirely.
-	     *
-	     * The sort guarantees that all segments with hit_dist < box_end
-	     * have already been added, so rt_boolfinal can safely finalise
-	     * partitions in [last_bool_start, box_end].
-	     */
-	    for (pi = 0; pi < valid_count; pi++) {
-		struct soltab *stp = rtip->rti_hlbvh_prims[cands[pi].idx];
-		int ret;
-
-		/* Restore r_min/r_max so ft_shot sees the correct bbox bounds */
-		if (OBJ[stp->st_id].ft_use_rpp) {
-		    ap->a_ray.r_min = cands[pi].tmin;
-		    ap->a_ray.r_max = cands[pi].tmax;
-		}
-
-		if (debug_shoot) bu_log("HLBVH shooting %s\n", stp->st_name);
-		resp->re_shots++;
-		BU_LIST_INIT(&(new_segs.l));
-
-		ret = -1;
-		if (OBJ[stp->st_id].ft_shot)
-		    ret = OBJ[stp->st_id].ft_shot(stp, &ap->a_ray, ap, &new_segs);
-		if (ret <= 0) {
-		    resp->re_shot_miss++;
-		    continue;
-		}
-
-		{
-		    register struct seg *s2;
-		    while (BU_LIST_WHILE(s2, seg, &(new_segs.l))) {
-			BU_LIST_DEQUEUE(&(s2->l));
-			s2->seg_in.hit_rayp = s2->seg_out.hit_rayp = &ap->a_ray;
-			BU_LIST_INSERT(&(waiting_segs.l), &(s2->l));
-		    }
-		}
-		resp->re_shot_hit++;
-
-		{
-		    fastf_t box_end = (pi + 1 < valid_count)
-				      ? cands[pi + 1].tmin : INFINITY;
-		    rt_boolweave(&finished_segs, &waiting_segs, &InitialPart, ap);
-		    hlbvh_done = rt_boolfinal(&InitialPart, &FinalPart,
-					      last_bool_start, box_end,
-					      regionbits, ap, solidbits);
-		    last_bool_start = box_end;
-		    if (hlbvh_done > 0)
-			break;
 		}
 	    }
 
-	    if (cands_malloced)
-		bu_free(cands, "hlbvh cands");
+	    if (debug_shoot) bu_log("HLBVH shooting %s\n", stp->st_name);
+	    resp->re_shots++;
+	    BU_LIST_INIT(&(new_segs.l));
 
-	} else {
-	    /*
-	     * Primary-ray (a_onehit==0) or infinite-solid path: original
-	     * single-pass.  a_ray_length culling (Option 3) is folded into
-	     * the RPP check to prune primitives beyond the ray endpoint.
-	     */
-	    for (pi = 0; pi < num_check_prims; pi++) {
-		struct soltab *stp = rtip->rti_hlbvh_prims[check_prims[pi]];
-		int ret;
-
-		if (BU_BITTEST(solidbits, stp->st_bit)) {
-		    resp->re_ndup++;
-		    continue;
-		}
-		BU_BITSET(solidbits, stp->st_bit);
-
-		if (OBJ[stp->st_id].ft_use_rpp) {
-		    if (!rt_in_rpp(&ap->a_ray, inv_dir, stp->st_min, stp->st_max) ||
-			(ap->a_ray_length > 0.0 && ap->a_ray.r_min > ap->a_ray_length)) {
-			resp->re_prune_solrpp++;
-			continue;
-		    }
-		}
-
-		if (debug_shoot) bu_log("HLBVH shooting %s\n", stp->st_name);
-		resp->re_shots++;
-		BU_LIST_INIT(&(new_segs.l));
-
-		ret = -1;
-		if (OBJ[stp->st_id].ft_shot)
-		    ret = OBJ[stp->st_id].ft_shot(stp, &ap->a_ray, ap, &new_segs);
-		if (ret <= 0) {
-		    resp->re_shot_miss++;
-		    continue;
-		}
-
-		{
-		    register struct seg *s2;
-		    while (BU_LIST_WHILE(s2, seg, &(new_segs.l))) {
-			BU_LIST_DEQUEUE(&(s2->l));
-			s2->seg_in.hit_rayp = s2->seg_out.hit_rayp = &ap->a_ray;
-			BU_LIST_INSERT(&(waiting_segs.l), &(s2->l));
-		    }
-		}
-		resp->re_shot_hit++;
+	    ret = -1;
+	    if (OBJ[stp->st_id].ft_shot)
+		ret = OBJ[stp->st_id].ft_shot(stp, &ap->a_ray, ap, &new_segs);
+	    if (ret <= 0) {
+		resp->re_shot_miss++;
+		continue;
 	    }
+
+	    {
+		register struct seg *s2;
+		while (BU_LIST_WHILE(s2, seg, &(new_segs.l))) {
+		    BU_LIST_DEQUEUE(&(s2->l));
+		    s2->seg_in.hit_rayp = s2->seg_out.hit_rayp = &ap->a_ray;
+		    BU_LIST_INSERT(&(waiting_segs.l), &(s2->l));
+		}
+	    }
+	    resp->re_shot_hit++;
 	}
 	/* check_prims points into resp->re_hlbvh_prims — do not free here */
     }
-
-    /* Early-exit: enough final partitions already found */
-    if (hlbvh_done > 0)
-	goto hlbvh_hitit;
 
     /* Also shoot any infinite solids */
     if (rtip->rti_inf_box.bn.bn_len > 0) {
@@ -1088,9 +931,6 @@ rt_shootray_hlbvh(register struct application *ap)
 
     /*
      * Weave any remaining segments into partitions and evaluate boolean CSG.
-     * When the incremental path was active (a_onehit + no infinite solids),
-     * waiting_segs will be empty here and last_bool_start will reflect how
-     * far the incremental boolfinal has already progressed.
      */
     if (BU_LIST_NON_EMPTY(&(waiting_segs.l)))
 	rt_boolweave(&finished_segs, &waiting_segs, &InitialPart, ap);
@@ -1118,7 +958,6 @@ rt_shootray_hlbvh(register struct application *ap)
 	goto out;
     }
 
-hlbvh_hitit:
     if (debug_shoot) rt_pr_partitions(rtip, &FinalPart, "a_hit()");
 
     RT_FREE_PT_LIST(&InitialPart, resp);
