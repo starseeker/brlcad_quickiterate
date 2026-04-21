@@ -427,12 +427,6 @@ BU_EXPORT extern int bu_opt_vect_t(struct bu_vls *msg, size_t argc, const char *
 /** @} */
 
 /**
- * Process 0 arguments, incrementing the value held by an int.  This is
- * useful for verbosity controls where repeated -v options increase output.
- */
-BU_EXPORT extern int bu_opt_vopt(struct bu_vls *msg, size_t argc, const char **argv, void *set_var);
-
-/**
  * Process 0 arguments, incrementing the value held by a long.  This is
  * useful for situations where multiple specifications of identical options are
  * intended to change output, such as multiple -v options to increase

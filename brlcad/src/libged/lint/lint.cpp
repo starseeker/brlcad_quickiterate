@@ -325,7 +325,7 @@ ged_lint_core(struct ged *gedp, int argc, const char *argv[])
     int ret = BRLCAD_OK;
     static const char *usage = "Usage: lint [-h] [-v[v...]] [ -CMS ] [-F <filter>] [--raytrace [--perturb]] [obj1] [obj2] [...]\n";
     int print_help = 0;
-    int verbosity = 0;
+    long verbosity = 0;
     int cyclic_check = 0;
     int missing_check = 0;
     int visualize = 0;
@@ -351,7 +351,7 @@ ged_lint_core(struct ged *gedp, int argc, const char *argv[])
 
     struct bu_opt_desc d[15];
     BU_OPT(d[ 0],  "h", "help",                              "",  NULL,              &print_help,           "Print help and exit");
-    BU_OPT(d[ 1],  "v", "verbose",                           "",  &bu_opt_vopt,      &verbosity,            "Verbose output (multiple flags increase verbosity)");
+    BU_OPT(d[ 1],  "v", "verbose",                           "",  &bu_opt_incr_long, &verbosity,            "Verbose output (multiple flags increase verbosity)");
     BU_OPT(d[ 2],  "C", "cyclic",                            "",  NULL,              &cyclic_check,         "Check for cyclic paths (combs whose children reference their parents - potential for infinite looping)");
     BU_OPT(d[ 3],  "M", "missing",                           "",  NULL,              &missing_check,        "Check for objects referenced by other objects that are not in the database");
     BU_OPT(d[ 4],  "I", "invalid-shape",  "[check [check ...]]",  &invalid_opt_read, &imethods,             "Check for objects that are intended to be valid shapes but do not satisfy validity criteria (examples include non-solid BoTs and twisted arbs)");
@@ -434,7 +434,7 @@ ged_lint_core(struct ged *gedp, int argc, const char *argv[])
 
     ldata.argc = argc;
     ldata.dpa = dpa;
-    ldata.verbosity = verbosity;
+    ldata.verbosity = (int)verbosity;
     ldata.ftol = ftol;
     ldata.min_tri_area = min_tri_area;
     ldata.do_raytrace = (do_raytrace != 0);

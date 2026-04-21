@@ -1354,20 +1354,6 @@ bu_opt_vect_t(struct bu_vls *msg, size_t argc, const char **argv, void *vec)
 }
 
 int
-bu_opt_vopt(struct bu_vls *msg, size_t UNUSED(argc), const char **UNUSED(argv), void *set_var)
-{
-    int *v_incr = (int *)set_var;
-    if (v_incr) {
-	(*v_incr) = (*v_incr) + 1;
-    } else {
-	if (msg) {
-	    bu_vls_sprintf(msg, "No valid variable supplied to bu_opt_vopt\n");
-	}
-    }
-    return 0;
-}
-
-int
 bu_opt_incr_long(struct bu_vls *msg, size_t UNUSED(argc), const char **UNUSED(argv), void *set_var)
 {
     long *long_incr = (long *)set_var;
