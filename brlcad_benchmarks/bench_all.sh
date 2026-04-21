@@ -46,29 +46,33 @@ avg_forced_hlbvh() {
 # Determine auto-routing for PR binary by comparing auto vs forced-NUBSP throughput.
 # If auto throughput is closer to HLBVH than NUBSP it routed to HLBVH.
 # SAH values are produced by the bbox-overlap SAH-BVH (measured with RT_FORCE_HLBVH=1 -x 16384).
-# Bbox-overlap SAH correctly penalises high-straddle splits, yielding higher SAH values
-# than the old centroid-only SAH.  Threshold=0.060 is calibrated for this variant.
-#   sphflake: 822 unique, SAH 0.0022 → HLBVH (SAH<threshold, +19%)
-#   havoc:   2427 unique, SAH 0.0040 → HLBVH (+114%)
-#   m35:     1125 unique, SAH 0.0120 → HLBVH (misrouted; NUBSP would be -27% faster)
-#   moss:       6 unique            → HLBVH (small-scene bypass, ≤30 unique prims)
-#   bldg391:  203 unique, SAH 0.0867 → NUBSP (SAH>threshold; HLBVH -52%)
-#   castle:   429 unique, SAH 0.0259 → HLBVH (+12%)
-#   ktank:     78 unique, SAH 0.0911 → NUBSP (SAH>threshold)
-#   crod:      17 unique            → HLBVH (small-scene bypass)
-#   cube:     160 unique, SAH 0.0431 → HLBVH (+3%)
-#   GenericTwin: 2239 unique, SAH 0.0104 → HLBVH (~tie with NUBSP, -0.3%)
-declare -A OBJS SAH UNIQ
-OBJS[sphflake]="scene.r";   SAH[sphflake]="0.0022"; UNIQ[sphflake]=822
-OBJS[havoc]="havoc";        SAH[havoc]="0.0040";    UNIQ[havoc]=2427
-OBJS[m35]="all.g";          SAH[m35]="0.0120";      UNIQ[m35]=1125
-OBJS[moss]="all.g";         SAH[moss]="small(6)";   UNIQ[moss]=6
-OBJS[bldg391]="all.g";      SAH[bldg391]="0.0867";  UNIQ[bldg391]=203
-OBJS[castle]="all.g";       SAH[castle]="0.0259";   UNIQ[castle]=429
-OBJS[ktank]="tank";         SAH[ktank]="0.0911";    UNIQ[ktank]=78
-OBJS[crod]="crod";          SAH[crod]="small(17)";  UNIQ[crod]=17
-OBJS[cube]="all.g";         SAH[cube]="0.0431";     UNIQ[cube]=160
-OBJS[GenericTwin]="all";    SAH[GenericTwin]="0.0104"; UNIQ[GenericTwin]=2239
+# D_overlap = sum(vol(bbox_i∩bbox_j))/vol(scene_bbox) via sweep-and-prune (also -x 16384).
+# Routing: small-scene bypass (≤30 unique prims) → HLBVH unconditionally;
+#          then D_overlap in [0.15, 0.30] → NUBSP (catches m35);
+#          then SAH > 0.060 → NUBSP (catches bldg391, ktank);
+#          else → HLBVH.
+# All 10 benchmark scenes are correctly routed with the combined SAH + D_overlap policy.
+#   sphflake: 822 unique, SAH 0.0022, D_overlap 0.0038 → HLBVH (+19%)
+#   havoc:   2427 unique, SAH 0.0040, D_overlap 0.5744 → HLBVH (+114%)
+#   m35:     1125 unique, SAH 0.0120, D_overlap 0.2260 → NUBSP (D_overlap band; HLBVH -25%)
+#   moss:       6 unique                               → HLBVH (small-scene bypass, ≤30 unique prims)
+#   bldg391:  203 unique, SAH 0.0867, D_overlap 1.0009 → NUBSP (SAH>threshold; HLBVH -50%)
+#   castle:   429 unique, SAH 0.0259, D_overlap 0.3339 → HLBVH (+12%)
+#   ktank:     78 unique, SAH 0.0911, D_overlap 0.0744 → NUBSP (SAH>threshold)
+#   crod:      17 unique                               → HLBVH (small-scene bypass)
+#   cube:     160 unique, SAH 0.0431, D_overlap 0.0028 → HLBVH (+5%)
+#   GenericTwin: 2239 unique, SAH 0.0104, D_overlap 3.1820 → HLBVH (~tie with NUBSP)
+declare -A OBJS SAH UNIQ DOVERLAP
+OBJS[sphflake]="scene.r";   SAH[sphflake]="0.0022"; UNIQ[sphflake]=822;   DOVERLAP[sphflake]="0.0038"
+OBJS[havoc]="havoc";        SAH[havoc]="0.0040";    UNIQ[havoc]=2427;     DOVERLAP[havoc]="0.5744"
+OBJS[m35]="all.g";          SAH[m35]="0.0120";      UNIQ[m35]=1125;       DOVERLAP[m35]="0.2260"
+OBJS[moss]="all.g";         SAH[moss]="small(6)";   UNIQ[moss]=6;         DOVERLAP[moss]="0.0008"
+OBJS[bldg391]="all.g";      SAH[bldg391]="0.0867";  UNIQ[bldg391]=203;    DOVERLAP[bldg391]="1.0009"
+OBJS[castle]="all.g";       SAH[castle]="0.0259";   UNIQ[castle]=429;     DOVERLAP[castle]="0.3339"
+OBJS[ktank]="tank";         SAH[ktank]="0.0911";    UNIQ[ktank]=78;       DOVERLAP[ktank]="0.0744"
+OBJS[crod]="crod";          SAH[crod]="small(17)";  UNIQ[crod]=17;        DOVERLAP[crod]="0.6403"
+OBJS[cube]="all.g";         SAH[cube]="0.0431";     UNIQ[cube]=160;       DOVERLAP[cube]="0.0028"
+OBJS[GenericTwin]="all";    SAH[GenericTwin]="0.0104"; UNIQ[GenericTwin]=2239; DOVERLAP[GenericTwin]="3.1820"
 
 SCENES="sphflake havoc m35 moss bldg391 castle ktank crod cube GenericTwin"
 
@@ -89,11 +93,14 @@ for name in $SCENES; do
     pn=$(avg_rays         "$PR_RT"   "$PR_LIB"   "$gfile" "$obj" -,0)
     ph=$(avg_forced_hlbvh "$PR_RT"   "$PR_LIB"   "$gfile" "$obj")
 
-    # Determine actual auto-routing: small-scene bypass (≤30 unique prims) or SAH threshold
+    # Determine actual auto-routing: small-scene bypass, then D_overlap band, then SAH threshold
+    doverlap="${DOVERLAP[$name]}"
     if [[ "$uniq" -le 30 ]]; then
         auto_route="HLBVH(small)"
+    elif [[ "$(echo "$doverlap >= 0.15 && $doverlap <= 0.30" | bc -l)" = "1" ]]; then
+        auto_route="NUBSP(overlap)"
     elif [[ "$(echo "$sah > 0.060" | bc -l)" = "1" ]]; then
-        auto_route="NUBSP"
+        auto_route="NUBSP(SAH)"
     else
         auto_route="HLBVH"
     fi

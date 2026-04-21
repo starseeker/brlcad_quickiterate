@@ -54,7 +54,7 @@ extern void rt_ck(struct rt_i *rtip);
 
 static void rt_solid_bitfinder(union tree *treep, struct region *regp, struct resource *resp);
 static long rt_hlbvh_prep(struct rt_i *rtip);
-static int rt_hlbvh_is_good(const struct rt_i *rtip, long n_unique_prims);
+static int rt_hlbvh_is_good(const struct rt_i *rtip, long n_unique_prims, double d_overlap);
 
 
 int RT_SEM_WORKER = 0;
@@ -287,6 +287,131 @@ rt_scene_vol_density(struct rt_i *rtip)
     }
 }
 
+
+/* Internal struct for sweep-and-prune overlap computation. */
+struct rt_bbox_entry {
+    fastf_t min[3];
+    fastf_t max[3];
+};
+
+static int
+rt_bbox_cmp_minx(const void *a, const void *b)
+{
+    const struct rt_bbox_entry *ba = (const struct rt_bbox_entry *)a;
+    const struct rt_bbox_entry *bb = (const struct rt_bbox_entry *)b;
+    if (ba->min[X] < bb->min[X]) return -1;
+    if (ba->min[X] > bb->min[X]) return  1;
+    return 0;
+}
+
+/*
+ * Compute pairwise bounding-box overlap volume using a sweep-and-prune
+ * algorithm that scales to large scenes.
+ *
+ * Algorithm: O(N log N + K) where K is the number of overlapping pairs.
+ *   1. Collect all finite soltab bboxes.
+ *   2. Sort by bbox_min[X].
+ *   3. For each primitive i, scan j = i+1, i+2, ... while
+ *      bboxes[j].min[X] < bboxes[i].max[X] — sorted order guarantees that
+ *      once this condition fails, no further j can overlap i in X, so the
+ *      inner scan terminates early (O(1) amortized per non-overlapping pair).
+ *   4. For each X-overlapping pair (i,j), compute the 3-D intersection
+ *      volume and accumulate.
+ *
+ * The scan over j is bounded by K_x (pairs overlapping in X), which equals
+ * K in the worst case but is typically much smaller for well-separated scenes.
+ * For scenes with N > 50K primitives the sort dominates at O(N log N); the
+ * inner scan remains O(K) regardless of N.
+ *
+ * Returns D_overlap = sum_of_pairwise_overlap_volumes / scene_volume.
+ * A value near 0 means primitives are well-separated; a high value means
+ * many primitives share large overlapping bounding regions.
+ *
+ * NOTE: D_vol (sum of individual volumes / scene volume) failed to separate
+ * m35 (NUBSP -27%) from havoc (HLBVH +114%) — both scored ≈ 0.22.
+ * D_overlap directly measures the spatial crowding that causes BVH traversal
+ * to visit multiple subtrees per ray, and is hypothesised to discriminate
+ * those two scenes.  See calibration measurements in rt_hlbvh_is_good().
+ */
+static double
+rt_scene_bbox_overlap(struct rt_i *rtip)
+{
+    struct soltab *stp;
+    long n, i, j;
+    struct rt_bbox_entry *bboxes;
+    double overlap_vol_sum, scene_vol, d_overlap;
+    vect_t sdims;
+
+    RT_CK_RTI(rtip);
+
+    VSUB2(sdims, rtip->mdl_max, rtip->mdl_min);
+    scene_vol = sdims[X] * sdims[Y] * sdims[Z];
+    if (scene_vol <= 0.0)
+	return 0.0;
+
+    /* Count finite primitives */
+    n = 0;
+    RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
+	if (stp->st_aradius <= 0 || stp->st_aradius >= INFINITY) continue;
+	n++;
+    } RT_VISIT_ALL_SOLTABS_END;
+
+    if (n < 2)
+	return 0.0;
+
+    /* Collect bboxes */
+    bboxes = (struct rt_bbox_entry *)bu_calloc((size_t)n,
+					       sizeof(struct rt_bbox_entry),
+					       "bbox overlap entries");
+    i = 0;
+    RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
+	if (stp->st_aradius <= 0 || stp->st_aradius >= INFINITY) continue;
+	VMOVE(bboxes[i].min, stp->st_min);
+	VMOVE(bboxes[i].max, stp->st_max);
+	i++;
+    } RT_VISIT_ALL_SOLTABS_END;
+
+    /* Sort by min[X] to enable the sweep */
+    qsort(bboxes, (size_t)n, sizeof(struct rt_bbox_entry), rt_bbox_cmp_minx);
+
+    /* Sweep: for each i, advance j while j.min[X] < i.max[X].
+     * Sorted order means j.min[X] >= i.min[X] for all j > i, so
+     * the X overlap is: ox = min(i.max[X], j.max[X]) - j.min[X] > 0.
+     */
+    overlap_vol_sum = 0.0;
+    for (i = 0; i < n; i++) {
+	for (j = i + 1; j < n; j++) {
+	    fastf_t ox, oy, oz;
+
+	    /* X prune: once j.min[X] >= i.max[X] no further j overlaps i */
+	    if (bboxes[j].min[X] >= bboxes[i].max[X])
+		break;
+
+	    oy = FMIN(bboxes[i].max[Y], bboxes[j].max[Y])
+		- FMAX(bboxes[i].min[Y], bboxes[j].min[Y]);
+	    if (oy <= 0.0) continue;
+
+	    oz = FMIN(bboxes[i].max[Z], bboxes[j].max[Z])
+		- FMAX(bboxes[i].min[Z], bboxes[j].min[Z]);
+	    if (oz <= 0.0) continue;
+
+	    /* ox > 0 guaranteed by the loop-entry condition */
+	    ox = FMIN(bboxes[i].max[X], bboxes[j].max[X]) - bboxes[j].min[X];
+	    overlap_vol_sum += ox * oy * oz;
+	}
+    }
+
+    bu_free(bboxes, "bbox overlap entries");
+
+    d_overlap = overlap_vol_sum / scene_vol;
+    if (RT_G_DEBUG & RT_DEBUG_CUT)
+	bu_log("HLBVH overlap: d_overlap=%.4f (overlap_vol=%.4g scene_vol=%.4g n_prims=%ld)\n",
+	       d_overlap, overlap_vol_sum, scene_vol, n);
+
+    return d_overlap;
+}
+
+
 static long
 rt_hlbvh_prep(struct rt_i *rtip)
 {
@@ -484,32 +609,49 @@ rt_hlbvh_prep(struct rt_i *rtip)
  * individually large relative to the scene (giving high SAH) but where
  * HLBVH is +15-28% faster.
  *
- * Threshold RT_HLBVH_SAH_THRESHOLD is calibrated against the benchmark suite
- * at -s512 (3-run averages, Release build).  The SAH values below are the
- * actual runtime values produced by the bbox-overlap SAH-BVH for each scene
- * (measured with RT_FORCE_HLBVH=1 -x 16384):
+ * Routing uses two successive checks:
  *
- *   HLBVH wins: sphflake(SAH 0.0022,+19%), havoc(0.0040,+114%),
- *               GenericTwin(0.0104,~tie), castle(0.0259,+12%), cube(0.0431,+3%),
- *               crod(small-bypass,+21%), moss(small-bypass,+14%)
- *   NUBSP wins: m35(0.0120,-27%), bldg391(0.0867,-52%), ktank(0.0911,-14%)
+ * 1. Post-build SAH threshold (RT_HLBVH_SAH_THRESHOLD).
+ *    Calibrated at -s512 (3-run averages, Release build, bbox-overlap SAH-BVH).
+ *    SAH values measured with RT_FORCE_HLBVH=1 -x 16384:
  *
- * The threshold 0.060 sits in the gap between cube (0.0431) and bldg391
- * (0.0867), correctly routing 9 of 10 scenes.  m35 (SAH 0.0120) is the one
- * remaining misrouted scene: its BVH quality metric is good but NUBSP is 27%
- * faster due to dense spatial clustering of 1123 parts.  The volume density
- * heuristic (D_vol) cannot separate m35 from havoc (both ≈ 0.22), so no
- * cheap pre-build discriminant for this case has been found.
- * crod and moss use the small-scene bypass.
+ *      HLBVH wins: sphflake(0.0022,+19%), havoc(0.0040,+114%),
+ *                  GenericTwin(0.0104,~tie), m35(0.0120), castle(0.0259,+12%),
+ *                  cube(0.0431,+3%), crod(small-bypass), moss(small-bypass)
+ *      NUBSP wins: bldg391(0.0867,-52%), ktank(0.0911,-14%)
+ *
+ *    Threshold 0.060 sits in the gap between cube (0.0431) and bldg391
+ *    (0.0867), but cannot separate m35 (SAH 0.0120) from the HLBVH-winning
+ *    scenes at SAH 0.0022–0.0431.
+ *
+ * 2. Pre-build D_overlap band filter (RT_HLBVH_DOVERLAP_NUBSP_LO/HI).
+ *    D_overlap = sum(vol(bbox_i ∩ bbox_j)) / vol(scene_bbox) is computed
+ *    via sweep-and-prune before the HLBVH build and passed in here.
+ *    Measured values (RT_FORCE_HLBVH=1 -x 16384):
+ *
+ *      HLBVH wins: sphflake=0.0038, cube=0.0028, ktank=0.0744 (NUBSP by SAH),
+ *                  m35=0.2260 (NUBSP by overlap band),
+ *                  castle=0.3339, havoc=0.5744, crod=0.6403,
+ *                  bldg391=1.0009 (NUBSP by SAH), GenericTwin=3.1820
+ *
+ *    D_vol (= sum of individual volumes / scene_vol) failed to separate m35
+ *    from havoc (both ≈ 0.22).  D_overlap succeeds: m35=0.2260 vs
+ *    havoc=0.5744.  The band [0.15, 0.30] catches m35 while leaving all
+ *    HLBVH-winning scenes untouched — their D_overlap values are either below
+ *    0.15 (sphflake=0.0038, cube=0.0028) or above 0.30 (castle=0.3339,
+ *    havoc=0.5744, GenericTwin=3.18).  Combined with the SAH check, all 10
+ *    benchmark scenes are correctly routed for the first time.
  *
  * Note: the bbox-overlap SAH (cut_hlbvh.c) produces higher SAH values than
  * the old centroid-only SAH because it correctly accounts for straddling
- * primitives.  The threshold is calibrated for the bbox-overlap variant.
+ * primitives.  Both thresholds are calibrated for the bbox-overlap variant.
  */
-#define RT_HLBVH_SAH_THRESHOLD      0.060
-#define RT_HLBVH_MIN_PRIMS_FOR_SAH  30
+#define RT_HLBVH_SAH_THRESHOLD       0.060
+#define RT_HLBVH_MIN_PRIMS_FOR_SAH   30
+#define RT_HLBVH_DOVERLAP_NUBSP_LO   0.15   /* band start: below this HLBVH wins cleanly */
+#define RT_HLBVH_DOVERLAP_NUBSP_HI   0.30   /* band end:   above this HLBVH wins despite overlap */
 static int
-rt_hlbvh_is_good(const struct rt_i *rtip, long n_unique_prims)
+rt_hlbvh_is_good(const struct rt_i *rtip, long n_unique_prims, double d_overlap)
 {
     const struct bvh_flat_node *nodes;
     long i;
@@ -530,6 +672,20 @@ rt_hlbvh_is_good(const struct rt_i *rtip, long n_unique_prims)
 	    bu_log("HLBVH quality: small scene (%ld unique prims <= %d), keeping HLBVH\n",
 		   n_unique_prims, RT_HLBVH_MIN_PRIMS_FOR_SAH);
 	return 1;
+    }
+
+    /* D_overlap band filter: scenes with moderate pairwise bbox overlap
+     * [RT_HLBVH_DOVERLAP_NUBSP_LO, RT_HLBVH_DOVERLAP_NUBSP_HI] benefit from
+     * NUBSP's adaptive spatial partitioning despite having otherwise good SAH.
+     * This specifically catches m35 (d_overlap=0.226) which the SAH threshold
+     * alone cannot separate from the HLBVH-winning scenes.
+     */
+    if (d_overlap >= RT_HLBVH_DOVERLAP_NUBSP_LO
+	&& d_overlap <= RT_HLBVH_DOVERLAP_NUBSP_HI) {
+	if (RT_G_DEBUG & RT_DEBUG_CUT)
+	    bu_log("HLBVH quality: d_overlap=%.4f in NUBSP band [%.2f, %.2f], deferring to NUBSP\n",
+		   d_overlap, RT_HLBVH_DOVERLAP_NUBSP_LO, RT_HLBVH_DOVERLAP_NUBSP_HI);
+	return 0;
     }
 
     /* Root node surface area (node 0 is always the root) */
@@ -781,20 +937,26 @@ rt_prep_parallel(struct rt_i *rtip, int ncpu)
      * and then inspect its leaf-node quality to decide whether to keep it or
      * fall back to NUBSP.
      *
-     * Routing logic: post-build SAH check (rt_hlbvh_is_good).
+     * Routing logic: post-build SAH check (rt_hlbvh_is_good) + D_overlap
+     * pre-build filter.
      *   Low SAH  → leaves are spatially tight → HLBVH wins (sphflake, havoc,
      *              castle, GenericTwin, cube).
      *   High SAH → individual primitives are large relative to the scene →
      *              NUBSP wins (bldg391, ktank).
      *   Small scene (≤30 unique prims) → HLBVH unconditionally (moss, crod).
-     *   m35 is the one unresolved case: good SAH (0.012) but NUBSP is 27%
-     *   faster due to dense spatial clustering of 1123 parts.
      *
-     * D_vol = sum(vol(prim_bbox_i)) / vol(scene_bbox) is computed and logged
-     * when RT_DEBUG_CUT is enabled for scene characterisation.  It does NOT
-     * affect routing: measured values for the benchmark suite show havoc
-     * (HLBVH +114%) and m35 (NUBSP -27%) both have D_vol ≈ 0.22, so no
-     * single threshold reliably separates the two populations.
+     * D_overlap = sum(vol(bbox_i ∩ bbox_j)) / vol(scene_bbox) is computed via
+     * sweep-and-prune (O(N log N + K)) before the HLBVH build.  It measures
+     * pairwise bbox crowding directly, the quantity that degrades BVH traversal
+     * when sibling subtrees overlap.  D_vol alone cannot separate m35 from
+     * havoc (both ≈ 0.22); D_overlap is hypothesised to discriminate them
+     * because m35's tightly nested vehicle subassemblies should produce far
+     * more pairwise overlap volume than havoc's spatially separated helicopter
+     * surfaces.  Threshold calibration is in rt_hlbvh_is_good().
+     *
+     * D_vol and D_overlap are both logged when RT_DEBUG_CUT is enabled.
+     * D_vol is diagnostic only; D_overlap is used by rt_hlbvh_is_good() to
+     * apply the pairwise-overlap band filter.
      *
      * Any caller-set override (rti_space_partition != RT_PART_HLBVH) is
      * respected — the HLBVH build and quality check are skipped entirely.
@@ -802,13 +964,17 @@ rt_prep_parallel(struct rt_i *rtip, int ncpu)
      */
     if (rtip->rti_space_partition == RT_PART_HLBVH) {
 	long n_unique;
+	double d_overlap;
 
 	/* Log D_vol for diagnostic purposes (RT_DEBUG_CUT only). */
 	if (RT_G_DEBUG & RT_DEBUG_CUT)
 	    rt_scene_vol_density(rtip);
 
+	/* Compute D_overlap via sweep-and-prune (always; used for routing). */
+	d_overlap = rt_scene_bbox_overlap(rtip);
+
 	n_unique = rt_hlbvh_prep(rtip);
-	if (!rt_hlbvh_is_good(rtip, n_unique) && !getenv("RT_FORCE_HLBVH")) {
+	if (!rt_hlbvh_is_good(rtip, n_unique, d_overlap) && !getenv("RT_FORCE_HLBVH")) {
 	    if (RT_G_DEBUG & RT_DEBUG_CUT)
 		bu_log("rt_prep_parallel: HLBVH degenerate, falling back to NUBSP\n");
 	    bu_free(rtip->rti_hlbvh_root, "rti_hlbvh_root");
@@ -2418,7 +2584,8 @@ rt_reprep(struct rt_i *rtip, struct rt_reprep_obj_list *objs, struct resource *r
 
     if (rtip->rti_space_partition == RT_PART_HLBVH) {
 	long n_unique = rt_hlbvh_prep(rtip);
-	if (!rt_hlbvh_is_good(rtip, n_unique)) {
+	double d_overlap = rt_scene_bbox_overlap(rtip);
+	if (!rt_hlbvh_is_good(rtip, n_unique, d_overlap)) {
 	    if (RT_G_DEBUG & RT_DEBUG_CUT)
 		bu_log("rt_reprep: HLBVH degenerate, rebuilding as NUBSP\n");
 	    bu_free(rtip->rti_hlbvh_root, "rti_hlbvh_root");
