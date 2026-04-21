@@ -168,11 +168,12 @@ fastf_t rt_perp_tol = (fastf_t)0.0;     /* Value for rti_tol.perp */
 char *framebuffer = NULL;       /* desired framebuffer */
 
 /**
- * space partitioning algorithm to use.  previously had experimental
- * grid support, but now only uses a Non-uniform Binary Spatial
- * Partitioning (BSP) tree.
+ * Space partitioning algorithm to use.  Defaults to -1 (unset) so that
+ * librt's automatic selection logic (build HLBVH, fall back to NUBSP for
+ * degenerate scenes) runs unimpeded.  Explicitly overridden via the -,
+ * command-line option.
  */
-int space_partition = RT_PART_NUBSPT;
+int space_partition = -1;
 
 #define MAX_WIDTH (32*1024)
 
@@ -213,7 +214,7 @@ get_args(int argc, const char *argv[])
     bu_optind = 1;                /* restart */
 
 #define GETOPT_STR	\
-    ".:, :@:a:b:c:d:e:f:g:m:ij:k:l:n:o:p:q:rs:tu:v::w:x:z:A:BC:D:E:F:G:H:I:J:K:MN:O:P:Q:RST:U:V:WX:!:+:h?"
+    ".:,:@:a:b:c:d:e:f:g:m:ij:k:l:n:o:p:q:rs:tu:v::w:x:z:A:BC:D:E:F:G:H:I:J:K:MN:O:P:Q:RST:U:V:WX:!:+:h?"
 
     while ((c=bu_getopt(argc, (char * const *)argv, GETOPT_STR)) != -1) {
 	if (bu_optopt == '?')
