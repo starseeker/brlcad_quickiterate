@@ -593,7 +593,8 @@ rt_prep_parallel(struct rt_i *rtip, int ncpu)
      */
     if (rtip->rti_space_partition == RT_PART_HLBVH) {
 	rt_hlbvh_prep(rtip);
-	if (!rt_hlbvh_is_good(rtip)) {
+	/* RT_FORCE_HLBVH=1 env var overrides the SAH quality check (benchmarking only). */
+	if (!rt_hlbvh_is_good(rtip) && !getenv("RT_FORCE_HLBVH")) {
 	    if (RT_G_DEBUG & RT_DEBUG_CUT)
 		bu_log("rt_prep_parallel: HLBVH degenerate, falling back to NUBSP\n");
 	    bu_free(rtip->rti_hlbvh_root, "rti_hlbvh_root");

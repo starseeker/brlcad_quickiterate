@@ -214,7 +214,7 @@ get_args(int argc, const char *argv[])
     bu_optind = 1;                /* restart */
 
 #define GETOPT_STR	\
-    ".:, :@:a:b:c:d:e:f:g:m:ij:k:l:n:o:p:q:rs:tu:v::w:x:z:A:BC:D:E:F:G:H:I:J:K:MN:O:P:Q:RST:U:V:WX:!:+:h?"
+    ".:,:@:a:b:c:d:e:f:g:m:ij:k:l:n:o:p:q:rs:tu:v::w:x:z:A:BC:D:E:F:G:H:I:J:K:MN:O:P:Q:RST:U:V:WX:!:+:h?"
 
     while ((c=bu_getopt(argc, (char * const *)argv, GETOPT_STR)) != -1) {
 	if (bu_optopt == '?')
