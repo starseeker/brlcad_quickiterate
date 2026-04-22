@@ -48,7 +48,14 @@ OBJ_CSV="$OUTPUT_DIR/object_results.csv"
 DB_CSV="$OUTPUT_DIR/database_summary.csv"
 MIS_CSV="$OUTPUT_DIR/misclassified.csv"
 
+# object_results columns:
+# database,object,auto_selected,auto_rps,nubsp_rps,hlbvh_rps,
+# relative_* (each method as % of per-object best),
+# should_method (winner of forced NUBSP vs HLBVH, with tie threshold), flag.
 printf 'database,object,auto_selected,auto_rps,nubsp_rps,hlbvh_rps,relative_auto,relative_nubsp,relative_hlbvh,should_method,flag\n' > "$OBJ_CSV"
+# database_summary columns:
+# database,tested_objects,auto_* counts, majority auto mode,
+# average RPS for auto/nubsp/hlbvh, best_avg_method, relative_* vs best average, misclassified_count.
 printf 'database,tested_objects,auto_hlbvh_count,auto_nubsp_count,auto_other_count,auto_majority,avg_auto_rps,avg_nubsp_rps,avg_hlbvh_rps,best_avg_method,relative_auto,relative_nubsp,relative_hlbvh,misclassified_count\n' > "$DB_CSV"
 printf 'database,object,auto_selected,should_method,auto_rps,nubsp_rps,hlbvh_rps\n' > "$MIS_CSV"
 
@@ -71,6 +78,7 @@ run_rt() {
             ;;
     esac
 
+    # rt currently reports either HLBVH: or NUBSP: status lines.
     method="$(printf '%s\n' "$out" | sed -n 's/^\(HLBVH\|NUBSP\):.*/\1/p' | head -n1)"
     rps="$(printf '%s\n' "$out" | sed -n 's/.*= *\([0-9.][0-9.]*\) rays\/sec (RTFM).*/\1/p' | tail -n1)"
     if [[ -z "$rps" ]]; then
@@ -82,6 +90,7 @@ run_rt() {
 
 fmt_rel() {
     local val="$1" best="$2"
+    # Guard invalid best values (should be positive RPS).
     awk -v v="$val" -v b="$best" 'BEGIN{if (b<=0) {printf "0.00%%"; exit}; printf "%.2f%%", (v/b)*100.0}'
 }
 
@@ -131,6 +140,7 @@ for db in "${DBS[@]}"; do
     fi
 
     declare -A objset=()
+    # BRL-CAD object names are tokenized here as whitespace-delimited names.
     for top in $tops_raw; do
         [[ -z "$top" ]] && continue
         objset["$top"]=1
@@ -176,6 +186,7 @@ for db in "${DBS[@]}"; do
         nubsp_rps="${nubsp_res##*|}"
         hlbvh_rps="${hlbvh_res##*|}"
 
+        # If no auto method marker is emitted, infer from forced-method winner.
         if [[ -z "$auto_method" ]]; then
             auto_method="$(best_method "$nubsp_rps" "$hlbvh_rps" 0)"
             [[ "$auto_method" == "TIE" ]] && auto_method="UNKNOWN"
@@ -193,6 +204,10 @@ for db in "${DBS[@]}"; do
             flag="AUTO_NUBSP_SHOULD_HLBVH"
         elif [[ "$should" == "NUBSP" && "$auto_method" != "NUBSP" ]]; then
             flag="AUTO_HLBVH_SHOULD_NUBSP"
+        elif [[ "$should" == "HLBVH" && "$auto_method" == "UNKNOWN" ]]; then
+            flag="AUTO_UNKNOWN_SHOULD_HLBVH"
+        elif [[ "$should" == "NUBSP" && "$auto_method" == "UNKNOWN" ]]; then
+            flag="AUTO_UNKNOWN_SHOULD_NUBSP"
         fi
 
         case "$auto_method" in
