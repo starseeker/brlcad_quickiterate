@@ -21,9 +21,17 @@
  *
  * BoT "exterior" subcommand — identify and retain only exterior faces.
  *
- * Two methods are supported, selectable with --flood-fill:
+ * Two methods are supported, selectable with --flood-fill or --legacy-rays:
  *
- *  Ray sampling (default)
+ *  Cauchy-Crofton ray sampling (default)
+ *    Random chord rays are fired uniformly through the bounding sphere.
+ *    For each ray, the first and last surface hits are marked as exterior
+ *    faces.  Simultaneously the Cauchy-Crofton surface-area estimate is
+ *    tracked; convergence of that estimate (< 1 % change over three
+ *    successive iterations) determines when to stop.  This gives thorough,
+ *    unbiased coverage of all outward-facing triangles.
+ *
+ *  Legacy per-face ray sampling (--legacy-rays)
  *    For each face, probe rays are fired from the centroid in multiple
  *    directions.  A face is classified exterior when at least one
  *    direction makes it the first or last surface hit along that ray.
@@ -44,6 +52,7 @@
 #include <climits>
 #include <cstdlib>
 #include <cstring>
+#include <cmath>
 #include <string>
 #include <thread>
 #include <vector>
@@ -302,6 +311,393 @@ bot_exterior_ray_worker(struct exterior_ray_worker_state *state)
 }
 
 
+/* ======================================================================
+ * Cauchy-Crofton exterior classifier
+ *
+ * Fire chord rays uniformly distributed over the bounding sphere.  Every
+ * ray that hits the model contributes:
+ *   - its first inhit surfno  → exterior face (first surface seen from outside)
+ *   - its last  outhit surfno → exterior face (last surface seen from outside)
+ *
+ * Simultaneously the crossing count is accumulated to estimate the total
+ * surface area via the Cauchy-Crofton formula; convergence of that estimate
+ * (< 1 % change across three successive iterations) is used as the
+ * termination criterion.  This gives thorough, unbiased coverage of all
+ * outward-facing triangles at the cost of fewer overall raycast operations
+ * compared with the per-face voting approach.
+ * ====================================================================== */
+
+/* Ray: origin on bounding sphere + unit direction toward a second sphere pt */
+struct ext_crofton_ray {
+    point_t r_pt;
+    vect_t  r_dir;
+};
+
+/* Shared SA accumulators (protected by semaphore) */
+struct ext_crofton_shared {
+    size_t  total_crossings;
+    double  total_chord;
+    size_t  total_rays;
+    int     sem_stats;
+};
+
+/* Per-application context passed through a_uptr */
+struct ext_crofton_hit_ctx {
+    int    *local_mask;   /* per-worker exterior face mask (no lock needed) */
+    size_t  num_faces;
+    struct ext_crofton_shared *shared;
+};
+
+static int
+ext_crofton_hit(struct application *ap, struct partition *PartHeadp,
+		struct seg *UNUSED(segs))
+{
+    struct ext_crofton_hit_ctx *ctx =
+	(struct ext_crofton_hit_ctx *)ap->a_uptr;
+    struct ext_crofton_shared *sh = ctx->shared;
+
+    size_t crossings = 0;
+    double chord     = 0.0;
+    int first_face   = -1;
+    int last_face    = -1;
+
+    for (struct partition *pp = PartHeadp->pt_forw;
+	 pp != PartHeadp;
+	 pp = pp->pt_forw) {
+	crossings += 2;
+	chord += pp->pt_outhit->hit_dist - pp->pt_inhit->hit_dist;
+
+	int isf = pp->pt_inhit->hit_surfno;
+	int osf = pp->pt_outhit->hit_surfno;
+
+	if (first_face < 0 && isf >= 0 && (size_t)isf < ctx->num_faces)
+	    first_face = isf;
+	if (osf >= 0 && (size_t)osf < ctx->num_faces)
+	    last_face = osf;
+    }
+
+    /* Mark exterior faces; these are per-worker local arrays so no lock. */
+    if (first_face >= 0)
+	ctx->local_mask[first_face] = 1;
+    if (last_face >= 0)
+	ctx->local_mask[last_face] = 1;
+
+    bu_semaphore_acquire(sh->sem_stats);
+    sh->total_crossings += crossings;
+    sh->total_chord     += chord;
+    sh->total_rays      += 1;
+    bu_semaphore_release(sh->sem_stats);
+
+    return 1;
+}
+
+static int
+ext_crofton_miss(struct application *ap)
+{
+    struct ext_crofton_hit_ctx *ctx =
+	(struct ext_crofton_hit_ctx *)ap->a_uptr;
+    struct ext_crofton_shared *sh = ctx->shared;
+
+    bu_semaphore_acquire(sh->sem_stats);
+    sh->total_rays += 1;
+    bu_semaphore_release(sh->sem_stats);
+
+    return 0;
+}
+
+/* Per-worker state for bu_parallel */
+struct ext_crofton_worker_data {
+    struct application       *ap;
+    struct ext_crofton_ray   *rays;
+    size_t                    start;
+    size_t                    end;
+    struct ext_crofton_hit_ctx ctx;
+};
+
+static void
+ext_crofton_worker(int id, void *data)
+{
+    struct ext_crofton_worker_data *wd =
+	&((struct ext_crofton_worker_data *)data)[id - 1];
+    struct application *ap = wd->ap;
+
+    for (size_t i = wd->start; i < wd->end; i++) {
+	VMOVE(ap->a_ray.r_pt,  wd->rays[i].r_pt);
+	VMOVE(ap->a_ray.r_dir, wd->rays[i].r_dir);
+	rt_shootray(ap);
+    }
+}
+
+/* Uniform random in [0, 1) */
+static double
+ext_crofton_rand01(void)
+{
+    return (double)rand() / ((double)RAND_MAX + 1.0);
+}
+
+/* Random point uniformly distributed on a sphere of given radius */
+static void
+ext_crofton_sphere_pt(double radius, const point_t center, point_t out)
+{
+    double theta = 2.0 * M_PI * ext_crofton_rand01();
+    double phi   = acos(2.0 * ext_crofton_rand01() - 1.0);
+    double sp    = sin(phi);
+    out[X] = center[X] + radius * sp * cos(theta);
+    out[Y] = center[Y] + radius * sp * sin(theta);
+    out[Z] = center[Z] + radius * cos(phi);
+}
+
+/*
+ * Generate nrays chord rays: pair 2*nrays random sphere points after
+ * shuffling, so each ray connects two statistically independent points.
+ */
+static void
+ext_crofton_gen_rays(struct ext_crofton_ray *rays, size_t nrays,
+		     double radius, const point_t center)
+{
+    size_t npts = nrays * 2;
+    point_t *pts = (point_t *)bu_calloc(npts, sizeof(point_t),
+					"ext crofton pts");
+
+    for (size_t i = 0; i < npts; i++)
+	ext_crofton_sphere_pt(radius, center, pts[i]);
+
+    /* Fisher-Yates shuffle for random pairing */
+    for (size_t i = npts - 1; i > 0; i--) {
+	size_t j = (size_t)(ext_crofton_rand01() * (double)(i + 1));
+	if (j > i) j = i;
+	point_t tmp;
+	VMOVE(tmp, pts[i]);
+	VMOVE(pts[i], pts[j]);
+	VMOVE(pts[j], tmp);
+    }
+
+    for (size_t i = 0; i < nrays; i++) {
+	VMOVE(rays[i].r_pt,  pts[i * 2]);
+	VSUB2(rays[i].r_dir, pts[i * 2 + 1], pts[i * 2]);
+	VUNITIZE(rays[i].r_dir);
+    }
+
+    bu_free(pts, "ext crofton pts");
+}
+
+/*
+ * Fire one batch of nrays, updating shared SA accumulators and per-worker
+ * local masks.  After parallel execution the local masks are OR-ed into the
+ * caller-supplied global mask.
+ */
+static void
+ext_crofton_do_iteration(struct application      *ap_tmpl,
+			 struct resource         *resources,
+			 size_t                   nrays,
+			 double                   radius,
+			 const point_t            center,
+			 struct ext_crofton_shared *shared,
+			 int                     *mask,
+			 size_t                   num_faces)
+{
+    struct ext_crofton_ray *rays = (struct ext_crofton_ray *)bu_calloc(
+	nrays, sizeof(struct ext_crofton_ray), "ext crofton rays");
+
+    ext_crofton_gen_rays(rays, nrays, radius, center);
+
+    size_t ncpus = bu_avail_cpus();
+    if (ncpus < 1) ncpus = 1;
+
+    struct ext_crofton_worker_data *wdata =
+	(struct ext_crofton_worker_data *)bu_calloc(
+	    ncpus, sizeof(struct ext_crofton_worker_data),
+	    "ext crofton wdata");
+
+    size_t per_cpu = nrays / ncpus;
+
+    for (size_t i = 0; i < ncpus; i++) {
+	struct application *a = (struct application *)bu_calloc(
+	    1, sizeof(struct application), "ext crofton app");
+	*a = *ap_tmpl;
+	a->a_resource = &resources[i];
+
+	int *lmask = (int *)bu_calloc(num_faces, sizeof(int),
+				      "ext crofton lmask");
+
+	wdata[i].ap            = a;
+	wdata[i].rays          = rays;
+	wdata[i].start         = i * per_cpu;
+	wdata[i].end           = (i == ncpus - 1) ? nrays : (i + 1) * per_cpu;
+	wdata[i].ctx.local_mask = lmask;
+	wdata[i].ctx.num_faces  = num_faces;
+	wdata[i].ctx.shared     = shared;
+	a->a_uptr = (void *)&wdata[i].ctx;
+    }
+
+    bu_parallel(ext_crofton_worker, (int)ncpus, (void *)wdata);
+
+    /* Merge per-worker local masks into global mask and free workers */
+    for (size_t i = 0; i < ncpus; i++) {
+	int *lmask = wdata[i].ctx.local_mask;
+	for (size_t f = 0; f < num_faces; f++) {
+	    if (lmask[f])
+		mask[f] = 1;
+	}
+	bu_free(lmask, "ext crofton lmask");
+	bu_free(wdata[i].ap, "ext crofton app");
+    }
+
+    bu_free(wdata, "ext crofton wdata");
+    bu_free(rays,  "ext crofton rays");
+}
+
+/*
+ * Classify all faces of @p bot as exterior/interior using Cauchy-Crofton
+ * ray sampling on the already-prepared @p rtip.
+ *
+ * On success allocates *face_exterior_out (caller must bu_free) and returns
+ * the count of exterior faces (>= 0).  Returns -1 on error.
+ */
+static int
+bot_exterior_classify_crofton(struct rt_i *rtip,
+			      struct rt_bot_internal *bot,
+			      int **face_exterior_out)
+{
+    if (!rtip || !bot || !face_exterior_out)
+	return -1;
+
+    int *mask = (int *)bu_calloc(bot->num_faces, sizeof(int), "face_exterior");
+    if (!mask)
+	return -1;
+
+    if (!bot->num_faces) {
+	*face_exterior_out = mask;
+	return 0;
+    }
+
+    /* Tight bounding sphere from actual soltab extents (mirrors crofton.cpp) */
+    point_t tight_min, tight_max;
+    VSETALL(tight_min,  MAX_FASTF);
+    VSETALL(tight_max, -MAX_FASTF);
+    {
+	struct soltab *stp;
+	RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
+	    VMIN(tight_min, stp->st_min);
+	    VMAX(tight_max, stp->st_max);
+	} RT_VISIT_ALL_SOLTABS_END;
+    }
+
+    double R;
+    point_t center;
+    if (tight_min[X] < MAX_FASTF) {
+	VADD2SCALE(center, tight_max, tight_min, 0.5);
+	vect_t diag;
+	VSUB2(diag, tight_max, tight_min);
+	R = 0.5 * MAGNITUDE(diag);
+	if (R <= 0.0) R = rtip->rti_radius;
+    } else {
+	R = rtip->rti_radius;
+	VADD2SCALE(center, rtip->mdl_max, rtip->mdl_min, 0.5);
+    }
+
+    if (R <= 0.0) {
+	*face_exterior_out = mask;
+	return 0;
+    }
+
+    /* Per-CPU resources */
+    struct resource *resources = (struct resource *)bu_calloc(
+	MAX_PSW, sizeof(struct resource), "ext crofton resources");
+    for (int i = 0; i < MAX_PSW; i++)
+	rt_init_resource(&resources[i], i, rtip);
+
+    /* Application template */
+    struct application ap;
+    RT_APPLICATION_INIT(&ap);
+    ap.a_rt_i         = rtip;
+    ap.a_hit          = ext_crofton_hit;
+    ap.a_miss         = ext_crofton_miss;
+    ap.a_overlap      = NULL;
+    ap.a_multioverlap = NULL;
+    ap.a_logoverlap   = rt_silent_logoverlap;
+    ap.a_resource     = resources;
+    ap.a_onehit       = 0;
+
+    /* Shared SA accumulators */
+    struct ext_crofton_shared shared;
+    memset(&shared, 0, sizeof(shared));
+    shared.sem_stats = bu_semaphore_register("EXT_CROFTON_STATS");
+
+    /* Convergence loop: grow batch by 1.5× each iteration until SA
+     * estimate changes < 1 % in two consecutive iterations. */
+    const double FOUR_PI = 4.0 * M_PI;
+    const size_t BASE_BATCH = 10000u;
+    double prev2_sa = -2.0, prev1_sa = -1.0, curr_sa = 0.0;
+    size_t iteration = 0;
+
+    do {
+	size_t nrays = BASE_BATCH;
+	if (iteration > 0) {
+	    double factor = pow(1.5, (double)iteration);
+	    size_t scaled  = (size_t)((double)BASE_BATCH * factor);
+	    nrays = (scaled > BASE_BATCH) ? scaled : BASE_BATCH;
+	}
+
+	ext_crofton_do_iteration(&ap, resources, nrays, R, center,
+				 &shared, mask, bot->num_faces);
+	iteration++;
+
+	if (shared.total_rays == 0) break;
+
+	curr_sa = FOUR_PI * R * R
+	    * (double)shared.total_crossings
+	    / (2.0 * (double)shared.total_rays);
+
+	bu_log("bot exterior (Crofton): iter %zu, total_rays=%zu, "
+	       "SA_est=%.2f mm^2\n",
+	       iteration, (size_t)shared.total_rays, curr_sa);
+
+	if (iteration >= 3) {
+	    double d_cur  = (prev1_sa > 0.0)
+		? fabs(curr_sa   - prev1_sa) / prev1_sa * 100.0 : 999.0;
+	    double d_prev = (prev2_sa > 0.0)
+		? fabs(prev1_sa  - prev2_sa) / prev2_sa * 100.0 : 999.0;
+	    if (d_cur <= 1.0 && d_prev <= 1.0)
+		break;
+	}
+
+	prev2_sa = prev1_sa;
+	prev1_sa = curr_sa;
+
+    } while (1);
+
+    /* Count exterior faces */
+    size_t n_ext = 0;
+    for (size_t i = 0; i < bot->num_faces; i++)
+	if (mask[i]) n_ext++;
+
+    bu_log("bot exterior (Crofton): %zu/%zu faces exterior "
+	   "(SA_est=%.2f mm^2)\n",
+	   n_ext, bot->num_faces, curr_sa);
+
+    /* Clean up resources: null out rti_resources slots first so that the
+     * caller's rt_free_rti() does not try to re-clean already-freed memory
+     * (mirrors the pattern in src/librt/primitives/crofton.cpp). */
+    for (int i = 0; i < MAX_PSW; i++) {
+	if (resources[i].re_magic == RESOURCE_MAGIC) {
+	    rt_clean_resource_basic(rtip, &resources[i]);
+	    BU_PTBL_SET(&rtip->rti_resources, i, NULL);
+	}
+    }
+    bu_free(resources, "ext crofton resources");
+
+    if (n_ext > (size_t)INT_MAX) {
+	bu_log("bot exterior: exterior face count exceeds int range\n");
+	bu_free(mask, "face_exterior");
+	return -1;
+    }
+
+    *face_exterior_out = mask;
+    return (int)n_ext;
+}
+
+
 /*
  * Classify all faces via ray sampling.
  *
@@ -469,7 +865,9 @@ exterior_usage(struct bu_vls *str, const char *cmd, struct bu_opt_desc *d)
     }
     bu_vls_printf(str,
 	"If output_name is omitted, the result is written to input_bot_exterior.\n"
-	"Use -i/--in-place to overwrite the input BoT directly.\n");
+	"Use -i/--in-place to overwrite the input BoT directly.\n"
+	"Default method is Cauchy-Crofton ray sampling; use --legacy-rays for\n"
+	"the old per-face voting approach.\n");
 }
 
 
@@ -495,9 +893,10 @@ _bot_cmd_exterior(void *bs, int argc, const char **argv)
     int       print_help = 0;
     int       in_place   = 0;
     int       flood_fill = 0;
+    int       legacy_rays = 0;
     fastf_t   voxel_size = 0.0;
 
-    struct bu_opt_desc d[5];
+    struct bu_opt_desc d[6];
     BU_OPT(d[0], "h",       "help",       "",      NULL,            &print_help,
 	   "Print help");
     BU_OPT(d[1], "i",   "in-place",       "",      NULL,            &in_place,
@@ -506,7 +905,9 @@ _bot_cmd_exterior(void *bs, int argc, const char **argv)
 	   "Use voxel flood-fill / water-filling method (requires OpenVDB)");
     BU_OPT(d[3], "",  "voxel-size",   "size", &bu_opt_fastf_t,  &voxel_size,
 	   "Voxel edge length for flood-fill (default: auto-computed)");
-    BU_OPT_NULL(d[4]);
+    BU_OPT(d[4], "", "legacy-rays",       "",      NULL,         &legacy_rays,
+	   "Use legacy per-face ray-voting method instead of Crofton sampling");
+    BU_OPT_NULL(d[5]);
 
     int ac = bu_opt_parse(NULL, argc, argv, d);
     argc = ac;
@@ -609,13 +1010,16 @@ _bot_cmd_exterior(void *bs, int argc, const char **argv)
 #else
 	bu_vls_printf(gb->gedp->ged_result_str,
 		      "Note: --flood-fill requires OpenVDB (not compiled in); "
-		      "falling back to ray-sampling\n");
-	bu_log("bot exterior: falling back to ray-sampling method\n");
-	n_ext = bot_exterior_classify_ray(&ap, bot, &face_exterior);
+		      "falling back to Crofton ray-sampling\n");
+	bu_log("bot exterior: falling back to Crofton ray-sampling method\n");
+	n_ext = bot_exterior_classify_crofton(ap.a_rt_i, bot, &face_exterior);
 #endif
-    } else {
-	bu_log("bot exterior: using ray-sampling method\n");
+    } else if (legacy_rays) {
+	bu_log("bot exterior: using legacy per-face ray-voting method\n");
 	n_ext = bot_exterior_classify_ray(&ap, bot, &face_exterior);
+    } else {
+	bu_log("bot exterior: using Crofton ray-sampling method\n");
+	n_ext = bot_exterior_classify_crofton(ap.a_rt_i, bot, &face_exterior);
     }
 
     rt_free_rti(ap.a_rt_i);
