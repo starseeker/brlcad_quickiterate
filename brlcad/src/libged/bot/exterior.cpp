@@ -204,6 +204,7 @@ struct ext_focused2_worker_data {
     struct rt_bot_internal      *bot;
     int                         *mask;
     moodycamel::ConcurrentQueue<size_t> *face_queue;
+    const moodycamel::ProducerToken     *ptok; /* token for the single producer */
     double                       per_face_budget_sec;
     uint32_t                     rand_seed;
     struct resource             *resource; /* one slot from resources[] */
@@ -234,7 +235,7 @@ ext_focused2_worker(struct ext_focused2_worker_data *wd)
     uint32_t seed = wd->rand_seed;
 
     size_t face_idx;
-    while (wd->face_queue->try_dequeue(face_idx)) {
+    while (wd->face_queue->try_dequeue_from_producer(*wd->ptok, face_idx)) {
 	bool newly_found = false;
 
 	/* Already marked exterior by an opportunistic side-effect write?
@@ -530,21 +531,7 @@ exterior_hit(struct application *app, struct partition *PartHeadp,
 }
 
 
-struct exterior_face_work {
-    size_t start;
-    size_t end;
-};
 
-struct exterior_ray_worker_state {
-    struct application app;
-    struct exterior_ctx ectx;
-    struct resource resource;
-    struct rt_bot_internal *bot;
-    int *mask;
-    moodycamel::ConcurrentQueue<struct exterior_face_work> *face_queue;
-    const moodycamel::ProducerToken *ptok;
-    size_t n_ext;
-};
 
 /* ======================================================================
  * Cauchy-Crofton exterior classifier
@@ -964,10 +951,13 @@ bot_exterior_classify_crofton(struct rt_i *rtip,
 		   n_unc, pass1_sec, total_p2_budget,
 		   opts->phase2_factor, per_face_budget);
 
-	    /* Load work queue */
+	    /* Load work queue — use a single ProducerToken so all items land
+	     * in one internal sub-queue, letting workers drain it via
+	     * try_dequeue_from_producer without scanning other sub-queues. */
 	    moodycamel::ConcurrentQueue<size_t> face_queue(n_unc);
+	    moodycamel::ProducerToken face_ptok(face_queue);
 	    for (size_t fi : unclassified)
-		face_queue.enqueue(fi);
+		face_queue.enqueue(face_ptok, fi);
 
 	    /* Shared progress state */
 	    ext_focused2_progress prog;
@@ -998,6 +988,7 @@ bot_exterior_classify_crofton(struct rt_i *rtip,
 		wdata[i].bot                 = bot;
 		wdata[i].mask                = mask;
 		wdata[i].face_queue          = &face_queue;
+		wdata[i].ptok                = &face_ptok;
 		wdata[i].per_face_budget_sec = per_face_budget;
 		wdata[i].rand_seed           = (uint32_t)h;
 		wdata[i].resource            = &resources[i];
@@ -1065,8 +1056,9 @@ bot_exterior_classify_crofton(struct rt_i *rtip,
 					       "strict_mask");
 
 	    moodycamel::ConcurrentQueue<size_t> strict_queue(n_p1);
+	    moodycamel::ProducerToken strict_ptok(strict_queue);
 	    for (size_t fi : p1faces)
-		strict_queue.enqueue(fi);
+		strict_queue.enqueue(strict_ptok, fi);
 
 	    ext_focused2_progress sprog;
 	    sprog.faces_done.store(0, std::memory_order_relaxed);
@@ -1091,6 +1083,7 @@ bot_exterior_classify_crofton(struct rt_i *rtip,
 		swdata[i].bot                   = bot;
 		swdata[i].mask                  = strict_mask;
 		swdata[i].face_queue            = &strict_queue;
+		swdata[i].ptok                  = &strict_ptok;
 		swdata[i].per_face_budget_sec   = per_face_strict_budget;
 		swdata[i].rand_seed             = (uint32_t)h;
 		swdata[i].resource              = &resources[i];
