@@ -91,10 +91,14 @@ face are removed.  The result is a solid-mode BoT with only exterior faces.
   only if the fraction of fired rays that saw the face (as either an entry or
   exit surface) equals or exceeds _ratio_.
 +
-  _ratio_ must be in the range [0, 1].  For example, *--visibility-threshold=0.1*
-  requires that at least one ray in ten fired at a face can observe it from
-  outside before it is retained.  Setting the ratio higher produces a more
-  conservative result at the cost of more processing time.
+  _ratio_ must be in the range [0, 1].  A value of 0 (the default) disables
+  the feature entirely.  A value of 1 requires that every fired ray be able
+  to observe the face, which in practice will exclude almost all geometry
+  because rays can always miss due to random direction sampling.  Practical
+  values are typically in the range 0.01–0.5; for example,
+  *--visibility-threshold=0.1* requires that at least one ray in ten fired at
+  a face can observe it from outside before it is retained.  Setting the ratio
+  higher produces a more conservative result at the cost of more processing time.
 +
   Default: *0* (disabled).  This mode is considerably slower than the default
   because it cannot stop sampling a face the instant a single exterior hit is

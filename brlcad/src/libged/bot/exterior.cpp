@@ -86,8 +86,8 @@
 
 /* Options bag passed from _bot_cmd_exterior down into the classifier. */
 struct bot_exterior_opts {
-    double phase2_factor;   /* phase 2 budget = factor × phase 1 wall time
-			     * (default 10.0; smaller → less time per face) */
+    double phase2_factor;   /* phase 2 budget = factor x phase 1 wall time
+			     * (default 10.0; smaller -> less time per face) */
     double vis_threshold;   /* [0,1] fraction of fired rays that must "see"
 			     * a triangle before it is included; 0 = disabled */
     int    vis_strict;      /* also re-check phase-1 triangles against the
@@ -1049,15 +1049,16 @@ bot_exterior_classify_crofton(struct rt_i *rtip,
 	if (!p1faces.empty()) {
 	    size_t n_p1 = p1faces.size();
 
-	    /* Per-face budget: same derivation as phase 2. */
-	    double total_strict_budget = opts->phase2_factor * pass1_sec;
-	    double per_face_strict     = total_strict_budget / (double)n_p1;
-	    if (per_face_strict < 0.001)
-		per_face_strict = 0.001;
+	    /* Per-face budget for the strict re-verification phase (phase 3):
+	     * same derivation as phase 2. */
+	    double total_strict_phase_budget = opts->phase2_factor * pass1_sec;
+	    double per_face_strict_budget    = total_strict_phase_budget / (double)n_p1;
+	    if (per_face_strict_budget < 0.001)
+		per_face_strict_budget = 0.001;
 
 	    bu_log("bot exterior [strict check]: %zu phase-1 face(s) to re-verify; "
 		   "budget %.1fs total (%.4fs/face)\n",
-		   n_p1, total_strict_budget, per_face_strict);
+		   n_p1, total_strict_phase_budget, per_face_strict_budget);
 
 	    /* Strict mask: workers write 1 only if threshold is met. */
 	    int *strict_mask = (int *)bu_calloc(bot->num_faces, sizeof(int),
@@ -1090,7 +1091,7 @@ bot_exterior_classify_crofton(struct rt_i *rtip,
 		swdata[i].bot                   = bot;
 		swdata[i].mask                  = strict_mask;
 		swdata[i].face_queue            = &strict_queue;
-		swdata[i].per_face_budget_sec   = per_face_strict;
+		swdata[i].per_face_budget_sec   = per_face_strict_budget;
 		swdata[i].rand_seed             = (uint32_t)h;
 		swdata[i].resource              = &resources[i];
 		swdata[i].progress              = &sprog;
@@ -1295,7 +1296,9 @@ _bot_cmd_exterior(void *bs, int argc, const char **argv)
     /* Validate option combinations. */
     if (phase2_factor <= 0.0) {
 	bu_vls_printf(gb->gedp->ged_result_str,
-		      "--phase2-factor must be positive (got %g)\n", (double)phase2_factor);
+		      "--phase2-factor must be positive (got %g); "
+		      "typical values range from 1.0 to 20.0\n",
+		      (double)phase2_factor);
 	return BRLCAD_ERROR;
     }
     if (vis_threshold < 0.0 || vis_threshold > 1.0) {
