@@ -428,7 +428,10 @@ ext_crofton_worker(int id, void *data)
     }
 }
 
-/* Uniform random in [0, 1) */
+/* Uniform random in [0, 1).
+ * Intentionally uses rand() to stay consistent with the approach in
+ * src/librt/primitives/crofton.cpp, which also uses rand() for its
+ * Cauchy-Crofton ray generation. */
 static double
 ext_crofton_rand01(void)
 {
@@ -624,8 +627,12 @@ bot_exterior_classify_crofton(struct rt_i *rtip,
     memset(&shared, 0, sizeof(shared));
     shared.sem_stats = bu_semaphore_register("EXT_CROFTON_STATS");
 
-    /* Convergence loop: grow batch by 1.5× each iteration until SA
-     * estimate changes < 1 % in two consecutive iterations. */
+    /* Convergence loop: grow batch by 1.5× each iteration until the SA
+     * estimate changes less than 1% in each of two successive deltas
+     * (i.e., three consecutive iteration values are all close).
+     * BASE_BATCH = 10 000: large enough to sample broad coverage of
+     * a complex model in the first iteration, small enough to converge
+     * quickly on simple geometry. */
     const double FOUR_PI = 4.0 * M_PI;
     const size_t BASE_BATCH = 10000u;
     double prev2_sa = -2.0, prev1_sa = -1.0, curr_sa = 0.0;
@@ -654,11 +661,14 @@ bot_exterior_classify_crofton(struct rt_i *rtip,
 	       iteration, (size_t)shared.total_rays, curr_sa);
 
 	if (iteration >= 3) {
-	    double d_cur  = (prev1_sa > 0.0)
+	    /* d_latest: change between current and previous iteration.
+	     * d_prior:  change between the iteration before that and the
+	     *           one before that.  Both must be < 1 % to converge. */
+	    double d_latest = (prev1_sa > 0.0)
 		? fabs(curr_sa   - prev1_sa) / prev1_sa * 100.0 : 999.0;
-	    double d_prev = (prev2_sa > 0.0)
+	    double d_prior  = (prev2_sa > 0.0)
 		? fabs(prev1_sa  - prev2_sa) / prev2_sa * 100.0 : 999.0;
-	    if (d_cur <= 1.0 && d_prev <= 1.0)
+	    if (d_latest <= 1.0 && d_prior <= 1.0)
 		break;
 	}
 
