@@ -44,6 +44,8 @@
 #include <cstdlib>
 #include <cstring>
 #include <string>
+#include <thread>
+#include <vector>
 
 #include "vmath.h"
 #include "bu/log.h"
@@ -280,15 +282,12 @@ struct exterior_ray_worker_state {
     struct rt_bot_internal *bot;
     int *mask;
     moodycamel::ConcurrentQueue<struct exterior_face_work> *face_queue;
-    int n_ext;
+    size_t n_ext;
 };
 
-extern "C" void
-bot_exterior_ray_worker(int cpu, void *ptr)
+static void
+bot_exterior_ray_worker(struct exterior_ray_worker_state *state)
 {
-    int state_idx = (cpu > 0) ? (cpu - 1) : 0;
-    struct exterior_ray_worker_state *state =
-	&(((struct exterior_ray_worker_state *)ptr)[state_idx]);
     struct exterior_face_work work;
     while (state->face_queue->try_dequeue(work)) {
 	for (size_t face_idx = work.start; face_idx < work.end; face_idx++) {
@@ -371,13 +370,21 @@ bot_exterior_classify_ray(struct application *app,
 	state[i].app.a_uptr = (void *)&state[i].ectx;
     }
 
-    bu_parallel(bot_exterior_ray_worker, ncpus, (void *)state);
+    std::vector<std::thread> workers;
+    workers.reserve(ncpus);
+    for (size_t i = 0; i < ncpus; i++) {
+	workers.emplace_back(bot_exterior_ray_worker, &state[i]);
+    }
+    for (size_t i = 0; i < workers.size(); i++) {
+	workers[i].join();
+    }
 
     int n_ext = 0;
     for (size_t i = 0; i < ncpus; i++) {
-	n_ext += state[i].n_ext;
+	n_ext += (int)state[i].n_ext;
 	rt_clean_resource(app->a_rt_i, &state[i].resource);
     }
+
     bu_free(state, "bot exterior worker state");
 
     *face_exterior_out = mask;
