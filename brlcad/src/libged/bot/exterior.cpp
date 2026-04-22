@@ -286,8 +286,9 @@ struct exterior_ray_worker_state {
 extern "C" void
 bot_exterior_ray_worker(int cpu, void *ptr)
 {
+    int state_idx = (cpu > 0) ? (cpu - 1) : 0;
     struct exterior_ray_worker_state *state =
-	&(((struct exterior_ray_worker_state *)ptr)[cpu]);
+	&(((struct exterior_ray_worker_state *)ptr)[state_idx]);
     struct exterior_face_work work;
     while (state->face_queue->try_dequeue(work)) {
 	for (size_t face_idx = work.start; face_idx < work.end; face_idx++) {
