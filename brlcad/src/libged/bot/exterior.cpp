@@ -21,7 +21,8 @@
  *
  * BoT "exterior" subcommand — identify and retain only exterior faces.
  *
- * Two methods are supported, selectable with --flood-fill or --legacy-rays:
+ * Two methods are supported, depending on supporting libraries being
+ * present and enabled:
  *
  *  Cauchy-Crofton ray sampling (default)
  *    Random chord rays are fired uniformly through the bounding sphere.
@@ -30,11 +31,6 @@
  *    tracked; convergence of that estimate (< 1 % change over three
  *    successive iterations) determines when to stop.  This gives thorough,
  *    unbiased coverage of all outward-facing triangles.
- *
- *  Legacy per-face ray sampling (--legacy-rays)
- *    For each face, probe rays are fired from the centroid in multiple
- *    directions.  A face is classified exterior when at least one
- *    direction makes it the first or last surface hit along that ray.
  *
  *  Flood fill (--flood-fill, requires OpenVDB)
  *    The model is voxelised via rt_rtip_to_occupancy_grid, then a
@@ -78,33 +74,16 @@
 #include "./ged_bot.h"
 #include "concurrentqueue.h"
 
+/*
+ * Offset the probe-ray origin outside the entry point by 10x BN_TOL_DIST.
+ * This steps past near-surface numeric jitter while remaining negligible
+ * relative to model scale.
+ */
+#define EXTERIOR_RAY_OFFSET_FACTOR 10.0
+/* Work chunk size for dynamic scheduling: small enough for load balancing,
+ * large enough to avoid excessive queue overhead. */
+#define EXTERIOR_FACE_CHUNK 64
 
-/* ======================================================================
- * Focused per-triangle sampling helpers
- *
- * After the global Cauchy-Crofton pass converges, some triangles may
- * still be unclassified because the global random rays did not happen
- * to sample them.  For each such triangle we perform a second, focused
- * pass:
- *
- *  1. Compute the triangle's bounding sphere (centroid + circumradius,
- *     bumped out by 10 % or at least 10×BN_TOL_DIST).
- *  2. Generate chord rays whose endpoints are random points on that
- *     small sphere.  Each chord ray's origin is backed up to just
- *     outside the model bounding box so that the ray enters the model
- *     from the outside — identical to the backing-up logic in
- *     exterior_face_probe().
- *  3. If the target triangle appears as the first or last surface hit
- *     on any of these rays it is immediately marked exterior and we
- *     move on to the next unclassified triangle (early exit).
- *     Any other previously-unclassified faces discovered as first/last
- *     hits are also opportunistically marked exterior.
- *  4. If no positive result is obtained, the local SA estimate (for
- *     the small sphere) is tracked; once it converges (< 1 % change
- *     over three successive iterations) the triangle is left as
- *     interior.  A hard cap of MAX_FOCUSED_ITERS iterations prevents
- *     runaway loops on degenerate geometry.
- * ====================================================================== */
 
 /* ======================================================================
  * Focused second-pass helpers: parallel per-triangle exterior sampling
@@ -436,17 +415,6 @@ extern "C" int bot_flood_exterior_classify(struct rt_i *rtip,
  * Ray-sampling exterior classifier
  * ====================================================================== */
 
-/*
- * Offset the probe-ray origin outside the entry point by 10x BN_TOL_DIST.
- * This steps past near-surface numeric jitter while remaining negligible
- * relative to model scale.
- */
-#define EXTERIOR_RAY_OFFSET_FACTOR 10.0
-/* Work chunk size for dynamic scheduling: small enough for load balancing,
- * large enough to avoid excessive queue overhead. */
-#define EXTERIOR_FACE_CHUNK 64
-
-
 static int
 exterior_miss(struct application *UNUSED(app))
 {
@@ -506,125 +474,6 @@ exterior_hit(struct application *app, struct partition *PartHeadp,
 }
 
 
-/*
- * Fire one probe ray from face centroid fc in direction dir.
- *
- * Returns:
- *   1  — face is exterior (first or last hit along this ray)
- *  -1  — face is interior
- *   0  — inconclusive (ray misses model bounds or no hit)
- */
-static int
-exterior_face_probe(struct application *app, int face,
-		    point_t fc, const fastf_t *dir)
-{
-    struct exterior_ctx *ectx = (struct exterior_ctx *)app->a_uptr;
-    if (!app || !ectx)
-	return 0;
-
-    vect_t inv_dir;
-    VMOVE(app->a_ray.r_pt,  fc);
-    VMOVE(app->a_ray.r_dir, dir);
-    VUNITIZE(app->a_ray.r_dir);
-    VINVDIR(inv_dir, app->a_ray.r_dir);
-
-    if (!rt_in_rpp(&app->a_ray, inv_dir,
-		   app->a_rt_i->mdl_min, app->a_rt_i->mdl_max)) {
-	static std::atomic_size_t suppressed(0);
-	size_t log_count = suppressed.fetch_add(1, std::memory_order_relaxed);
-	if (log_count < 100) {
-	    bu_log("bot exterior: probe ray does not intersect model bounds\n");
-	    if (log_count == 99)
-		bu_log("bot exterior: further bound-miss messages suppressed\n");
-	}
-	return 0;
-    }
-
-    /* Step the origin slightly outside the entry point. */
-    fastf_t off = app->a_ray.r_min - (EXTERIOR_RAY_OFFSET_FACTOR * BN_TOL_DIST);
-    VJOIN1(app->a_ray.r_pt, app->a_ray.r_pt, off, app->a_ray.r_dir);
-
-    ectx->probe.face       = face;
-    ectx->probe.first_surf = -1;
-    ectx->probe.last_surf  = -1;
-    ectx->probe.have_event = 0;
-    ectx->probe.last_dist  = 0.0;
-
-    rt_shootray(app);
-
-    if (!ectx->probe.have_event)
-	return 0;
-
-    return (ectx->probe.first_surf == face ||
-	    ectx->probe.last_surf  == face) ? 1 : -1;
-}
-
-
-/*
- * Determine whether a single face is exterior via multi-direction voting.
- *
- * Six primary probe directions (rotated, non-axis-aligned) give broad
- * octant coverage.  When primary votes tie, eight extra directions break
- * the tie.  Simple majority wins.
- */
-static int
-exterior_face(struct application *app, struct rt_bot_internal *bot, int face)
-{
-    if (!app || !bot || face < 0)
-	return 0;
-
-    int v0 = bot->faces[face * ELEMENTS_PER_POINT + X];
-    int v1 = bot->faces[face * ELEMENTS_PER_POINT + Y];
-    int v2 = bot->faces[face * ELEMENTS_PER_POINT + Z];
-
-    if (v0 < 0 || v1 < 0 || v2 < 0 ||
-	(size_t)v0 >= bot->num_vertices ||
-	(size_t)v1 >= bot->num_vertices ||
-	(size_t)v2 >= bot->num_vertices)
-	return 0;
-
-    vect_t p1, p2, p3;
-    VMOVE(p1, &bot->vertices[v0 * ELEMENTS_PER_POINT]);
-    VMOVE(p2, &bot->vertices[v1 * ELEMENTS_PER_POINT]);
-    VMOVE(p3, &bot->vertices[v2 * ELEMENTS_PER_POINT]);
-
-    point_t fc;
-    VADD3(fc, p1, p2, p3);
-    VSCALE(fc, fc, 1.0 / 3.0);
-
-    static const vect_t dirs[] = {
-	{  1.0,  2.0,  3.0 }, { -1.0, -2.0, -3.0 },
-	{  2.0, -3.0,  1.0 }, { -2.0,  3.0, -1.0 },
-	{ -3.0, -1.0,  2.0 }, {  3.0,  1.0, -2.0 }
-    };
-    static const vect_t extra_dirs[] = {
-	{  3.0,  1.0,  2.0 }, { -3.0, -1.0, -2.0 },
-	{ -1.0,  3.0,  2.0 }, {  1.0, -3.0, -2.0 },
-	{  2.0,  3.0, -1.0 }, { -2.0, -3.0,  1.0 },
-	{ -2.0,  1.0,  3.0 }, {  2.0, -1.0, -3.0 }
-    };
-
-    int ext_votes = 0, int_votes = 0;
-
-    for (size_t dir_idx = 0; dir_idx < sizeof(dirs) / sizeof(dirs[0]); dir_idx++) {
-	int r = exterior_face_probe(app, face, fc, dirs[dir_idx]);
-	if (r < 0) int_votes++;
-	else if (r > 0) ext_votes++;
-    }
-
-    if (ext_votes == int_votes) {
-	for (size_t dir_idx = 0; dir_idx < sizeof(extra_dirs) / sizeof(extra_dirs[0]); dir_idx++) {
-	    int r = exterior_face_probe(app, face, fc, extra_dirs[dir_idx]);
-	    if (r < 0) int_votes++;
-	    else if (r > 0) ext_votes++;
-	}
-    }
-
-    if (ext_votes == 0) return 0;
-    if (int_votes == 0) return 1;
-    return (ext_votes > int_votes) ? 1 : 0;
-}
-
 struct exterior_face_work {
     size_t start;
     size_t end;
@@ -640,21 +489,6 @@ struct exterior_ray_worker_state {
     const moodycamel::ProducerToken *ptok;
     size_t n_ext;
 };
-
-static void
-bot_exterior_ray_worker(struct exterior_ray_worker_state *state)
-{
-    struct exterior_face_work work;
-    while (state->face_queue->try_dequeue_from_producer(*state->ptok, work)) {
-	for (size_t face_idx = work.start; face_idx < work.end; face_idx++) {
-	    if (exterior_face(&state->app, state->bot, (int)face_idx)) {
-		state->mask[face_idx] = 1;
-		state->n_ext++;
-	    }
-	}
-    }
-}
-
 
 /* ======================================================================
  * Cauchy-Crofton exterior classifier
@@ -1151,110 +985,6 @@ bot_exterior_classify_crofton(struct rt_i *rtip,
 }
 
 
-/*
- * Classify all faces via ray sampling.
- *
- * On success allocates *face_exterior (caller must bu_free) and returns
- * the number of exterior faces (>= 0).  Returns -1 on allocation failure.
- */
-static int
-bot_exterior_classify_ray(struct application *app,
-			  struct rt_bot_internal *bot,
-			  int **face_exterior_out)
-{
-    if (!app || !bot || !face_exterior_out)
-	return -1;
-
-    int *mask = (int *)bu_calloc(bot->num_faces, sizeof(int), "face_exterior");
-    if (!mask)
-	return -1;
-
-    if (!bot->num_faces) {
-	*face_exterior_out = mask;
-	return 0;
-    }
-
-    size_t ncpus = bu_avail_cpus();
-    if (!ncpus)
-	ncpus = 1;
-    if (ncpus > bot->num_faces)
-	ncpus = bot->num_faces;
-
-    size_t num_chunks = (bot->num_faces + EXTERIOR_FACE_CHUNK - 1) / EXTERIOR_FACE_CHUNK;
-    moodycamel::ConcurrentQueue<struct exterior_face_work> face_queue(num_chunks);
-    moodycamel::ProducerToken ptok(face_queue);
-    for (size_t i = 0; i < num_chunks; i++) {
-	size_t start = i * EXTERIOR_FACE_CHUNK;
-	size_t end = start + EXTERIOR_FACE_CHUNK;
-	if (end > bot->num_faces)
-	    end = bot->num_faces;
-	struct exterior_face_work work = {start, end};
-	if (!face_queue.enqueue(ptok, work)) {
-	    bu_log("bot exterior: failed to enqueue work chunk %zu/%zu\n",
-		   i, num_chunks);
-	    bu_free(mask, "face_exterior");
-	    return -1;
-	}
-    }
-
-    struct exterior_ray_worker_state *state =
-	(struct exterior_ray_worker_state *)bu_calloc(
-	    ncpus, sizeof(struct exterior_ray_worker_state),
-	    "bot exterior worker state");
-    if (!state) {
-	bu_free(mask, "face_exterior");
-	return -1;
-    }
-
-    for (size_t i = 0; i < ncpus; i++) {
-	state[i].bot = bot;
-	state[i].mask = mask;
-	state[i].face_queue = &face_queue;
-	state[i].ptok = &ptok;
-	state[i].n_ext = 0;
-	state[i].ectx.bot = bot;
-
-	RT_APPLICATION_INIT(&state[i].app);
-	state[i].app.a_rt_i = app->a_rt_i;
-	state[i].app.a_hit = exterior_hit;
-	state[i].app.a_miss = exterior_miss;
-	rt_init_resource(&state[i].resource, (int)i, state[i].app.a_rt_i);
-	state[i].app.a_resource = &state[i].resource;
-	state[i].app.a_uptr = (void *)&state[i].ectx;
-    }
-
-    std::vector<std::thread> workers;
-    for (size_t i = 0; i < ncpus; i++) {
-	workers.emplace_back(bot_exterior_ray_worker, &state[i]);
-    }
-    for (auto &worker : workers) {
-	worker.join();
-    }
-
-    size_t n_ext = 0;
-    for (size_t i = 0; i < ncpus; i++) {
-	n_ext += state[i].n_ext;
-	rt_clean_resource(app->a_rt_i, &state[i].resource);
-    }
-
-    int ret = -1;
-    if (n_ext > (size_t)INT_MAX) {
-	bu_log("bot exterior: exterior face count exceeds int range\n");
-	goto cleanup;
-    }
-
-    *face_exterior_out = mask;
-    mask = NULL;
-    ret = (int)n_ext;
-
-cleanup:
-    bu_free(state, "bot exterior worker state");
-    if (mask)
-	bu_free(mask, "face_exterior");
-    return ret;
-}
-
-
 /* ======================================================================
  * Shared face-rebuild helper
  * ====================================================================== */
@@ -1319,8 +1049,7 @@ exterior_usage(struct bu_vls *str, const char *cmd, struct bu_opt_desc *d)
     bu_vls_printf(str,
 	"If output_name is omitted, the result is written to input_bot_exterior.\n"
 	"Use -i/--in-place to overwrite the input BoT directly.\n"
-	"Default method is Cauchy-Crofton ray sampling; use --legacy-rays for\n"
-	"the old per-face voting approach.\n");
+	"Default method is Cauchy-Crofton ray sampling.\n");
 }
 
 
@@ -1346,7 +1075,6 @@ _bot_cmd_exterior(void *bs, int argc, const char **argv)
     int       print_help = 0;
     int       in_place   = 0;
     int       flood_fill = 0;
-    int       legacy_rays = 0;
     fastf_t   voxel_size = 0.0;
 
     struct bu_opt_desc d[6];
@@ -1358,9 +1086,7 @@ _bot_cmd_exterior(void *bs, int argc, const char **argv)
 	   "Use voxel flood-fill / water-filling method (requires OpenVDB)");
     BU_OPT(d[3], "",  "voxel-size",   "size", &bu_opt_fastf_t,  &voxel_size,
 	   "Voxel edge length for flood-fill (default: auto-computed)");
-    BU_OPT(d[4], "", "legacy-rays",       "",      NULL,         &legacy_rays,
-	   "Use legacy per-face ray-voting method instead of Crofton sampling");
-    BU_OPT_NULL(d[5]);
+    BU_OPT_NULL(d[4]);
 
     int ac = bu_opt_parse(NULL, argc, argv, d);
     argc = ac;
@@ -1467,9 +1193,6 @@ _bot_cmd_exterior(void *bs, int argc, const char **argv)
 	bu_log("bot exterior: falling back to Crofton ray-sampling method\n");
 	n_ext = bot_exterior_classify_crofton(ap.a_rt_i, bot, &face_exterior);
 #endif
-    } else if (legacy_rays) {
-	bu_log("bot exterior: using legacy per-face ray-voting method\n");
-	n_ext = bot_exterior_classify_ray(&ap, bot, &face_exterior);
     } else {
 	bu_log("bot exterior: using Crofton ray-sampling method\n");
 	n_ext = bot_exterior_classify_crofton(ap.a_rt_i, bot, &face_exterior);
