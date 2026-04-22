@@ -372,7 +372,6 @@ bot_exterior_classify_ray(struct application *app,
     }
 
     std::vector<std::thread> workers;
-    workers.reserve(ncpus);
     for (size_t i = 0; i < ncpus; i++) {
 	workers.emplace_back(bot_exterior_ray_worker, &state[i]);
     }
@@ -386,17 +385,21 @@ bot_exterior_classify_ray(struct application *app,
 	rt_clean_resource(app->a_rt_i, &state[i].resource);
     }
 
+    int ret = -1;
     if (n_ext > (size_t)INT_MAX) {
 	bu_log("bot exterior: exterior face count exceeds int range\n");
-	bu_free(state, "bot exterior worker state");
-	bu_free(mask, "face_exterior");
-	return -1;
+	goto cleanup;
     }
 
-    bu_free(state, "bot exterior worker state");
-
     *face_exterior_out = mask;
-    return (int)n_ext;
+    mask = NULL;
+    ret = (int)n_ext;
+
+cleanup:
+    bu_free(state, "bot exterior worker state");
+    if (mask)
+	bu_free(mask, "face_exterior");
+    return ret;
 }
 
 
