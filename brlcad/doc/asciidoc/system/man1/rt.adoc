@@ -73,7 +73,7 @@ Long-option equivalents (new parser):
 * `--benchmark` = `-B`
 * `--help` = `-h`
 
-The `-?` help form is still accepted, but there is no `--?` long-option equivalent.
+The `-?` help form is still accepted. Note that `--?` is not valid long-option syntax; use `--help` instead.
 
 
 *-. #*::
