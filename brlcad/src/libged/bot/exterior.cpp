@@ -62,6 +62,7 @@
 #include "ged.h"
 
 #include "./ged_bot.h"
+#include "concurrentqueue.h"
 
 
 /* Flood-fill classifier lives in bot_flood_exterior.cpp and is only
@@ -270,8 +271,7 @@ struct exterior_ray_worker_state {
     struct resource resource;
     struct rt_bot_internal *bot;
     int *mask;
-    size_t face_start;
-    size_t face_end;
+    moodycamel::ConcurrentQueue<size_t> *face_queue;
     int n_ext;
 };
 
@@ -280,7 +280,8 @@ bot_exterior_ray_worker(int cpu, void *ptr)
 {
     struct exterior_ray_worker_state *state =
 	&(((struct exterior_ray_worker_state *)ptr)[cpu]);
-    for (size_t i = state->face_start; i < state->face_end; i++) {
+    size_t i = 0;
+    while (state->face_queue->try_dequeue(i)) {
 	if (exterior_face(&state->app, state->bot, (int)i)) {
 	    state->mask[i] = 1;
 	    state->n_ext++;
@@ -318,6 +319,11 @@ bot_exterior_classify_ray(struct application *app,
     if (ncpus > bot->num_faces)
 	ncpus = bot->num_faces;
 
+    moodycamel::ConcurrentQueue<size_t> face_queue(bot->num_faces);
+    for (size_t i = 0; i < bot->num_faces; i++) {
+	face_queue.enqueue(i);
+    }
+
     struct exterior_ray_worker_state *state =
 	(struct exterior_ray_worker_state *)bu_calloc(
 	    ncpus, sizeof(struct exterior_ray_worker_state),
@@ -327,17 +333,10 @@ bot_exterior_classify_ray(struct application *app,
 	return -1;
     }
 
-    size_t chunk = (bot->num_faces + ncpus - 1) / ncpus;
     for (size_t i = 0; i < ncpus; i++) {
-	size_t start = i * chunk;
-	size_t end = start + chunk;
-	if (end > bot->num_faces)
-	    end = bot->num_faces;
-
 	state[i].bot = bot;
 	state[i].mask = mask;
-	state[i].face_start = start;
-	state[i].face_end = end;
+	state[i].face_queue = &face_queue;
 	state[i].n_ext = 0;
 	state[i].ectx.bot = bot;
 
