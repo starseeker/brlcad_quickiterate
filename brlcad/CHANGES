@@ -129,20 +129,6 @@ generally listed for reference.
 Items marked with a "'" (single quote) are undocumented and may be
 removed at any time.
 
-7.46
-----
-rt
-	short options with nonstandard conventional meanings are deprecated
-	in favor of their long-option forms:
-	-V -> --view-aspect
-	-J -> --jitter
-	-D -> --start-frame
-	-Q -> --query-pixel
-	-q -> --rand-table-size
-	-B -> --benchmark
-	Short forms remain functional during the deprecation period.
-	[deprecated 7.46]
-
 7.44
 ----
 include/rt/mater.h librt

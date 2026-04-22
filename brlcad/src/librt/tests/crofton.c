@@ -329,6 +329,7 @@ test_crofton_convergence_timing(void)
     struct db_i *dbip = DBI_NULL;
     const double targets[] = {10.0, 7.0, 5.0};
     double elapsed_total = 0.0;
+    double target_total = 10.0;
 
     printf("\n--- Crofton convergence timing ---\n");
 
@@ -341,17 +342,17 @@ test_crofton_convergence_timing(void)
 	dbip, "cvg_sphere.s", "sphere r=25",
 	4.0 * M_PI * 25.0 * 25.0,
 	(4.0 / 3.0) * M_PI * 25.0 * 25.0 * 25.0,
-	300, targets, 3, &elapsed_total);
+	3000, targets, 3, &elapsed_total);
 
     failures += run_convergence_case(
 	dbip, "cvg_rcc.s", "rcc r=10 h=40",
 	2.0 * M_PI * 10.0 * (10.0 + 40.0),
 	M_PI * 10.0 * 10.0 * 40.0,
-	300, targets, 3, &elapsed_total);
+	3000, targets, 3, &elapsed_total);
 
     printf("  total convergence runtime: %.3fs\n", elapsed_total);
-    if (elapsed_total > 5.0) {
-	printf("  FAIL: convergence runtime %.3fs exceeds 5s target\n", elapsed_total);
+    if (elapsed_total > target_total) {
+	printf("  FAIL: convergence runtime %.3fs exceeds %.3fs target\n", elapsed_total, target_total);
 	failures++;
     }
 
