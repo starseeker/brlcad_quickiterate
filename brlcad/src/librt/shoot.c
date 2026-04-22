@@ -62,7 +62,7 @@ rt_res_pieces_init(struct resource *resp, struct rt_i *rtip)
     RT_CK_RESOURCE(resp);
     RT_CK_RTI(rtip);
 
-    psptab = (struct rt_piecestate *)bu_calloc(rtip->rti_nsolids_with_pieces, sizeof(struct rt_piecestate), "re_pieces[]");
+    psptab = (struct rt_piecestate *)bu_calloc(rtip->i->rti_nsolids_with_pieces, sizeof(struct rt_piecestate), "re_pieces[]");
     resp->re_pieces = psptab;
 
     RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
@@ -95,14 +95,14 @@ rt_res_pieces_clean(struct resource *resp, struct rt_i *rtip)
     if (!resp->re_pieces) {
 	/* no pieces allocated, nothing to do */
 	if (rtip) {
-	    rtip->rti_nsolids_with_pieces = 0;
+	    rtip->i->rti_nsolids_with_pieces = 0;
 	}
 	return;
     }
 
     /* pieces allocated, need to clean up */
     if (rtip) {
-	for (i = rtip->rti_nsolids_with_pieces-1; i >= 0; i--) {
+	for (i = rtip->i->rti_nsolids_with_pieces-1; i >= 0; i--) {
 	    psp = &resp->re_pieces[i];
 
 	    /*
@@ -129,7 +129,7 @@ rt_res_pieces_clean(struct resource *resp, struct rt_i *rtip)
 	    psp->magic = 0;
 	}
 
-	rtip->rti_nsolids_with_pieces = 0;
+	rtip->i->rti_nsolids_with_pieces = 0;
     }
     bu_free((char *)resp->re_pieces, "re_pieces[]");
     resp->re_pieces = NULL;
@@ -148,7 +148,7 @@ rt_advance_to_next_cell(register struct rt_shootray_status *ssp)
 
     ssp->box_num++;
 
-    if (curcut == &ssp->ap->a_rt_i->rti_inf_box) {
+    if (curcut == &ssp->ap->a_rt_i->i->rti_inf_box) {
 	/* Last pass did the infinite solids, there is nothing more */
 	ssp->curcut = CUTTER_NULL;
 	return CUTTER_NULL;
@@ -425,7 +425,7 @@ rt_advance_to_next_cell(register struct rt_shootray_status *ssp)
      * the caller to process.
      */
 escaped_from_model:
-    curcut = &ssp->ap->a_rt_i->rti_inf_box;
+    curcut = &ssp->ap->a_rt_i->i->rti_inf_box;
     if (curcut->bn.bn_len <= 0 && curcut->bn.bn_piecelen <= 0)
 	curcut = CUTTER_NULL;
     ssp->curcut = curcut;
@@ -743,7 +743,7 @@ rt_shootray(register struct application *ap)
 	BU_CK_PTBL(regionbits);
     }
 
-    if (!resp->re_pieces && rtip->rti_nsolids_with_pieces > 0) {
+    if (!resp->re_pieces && rtip->i->rti_nsolids_with_pieces > 0) {
 	/* Initialize this processors 'solid pieces' state */
 	rt_res_pieces_init(resp, rtip);
     }
@@ -817,7 +817,7 @@ rt_shootray(register struct application *ap)
      */
     if (!rt_in_rpp(&ap->a_ray, ss.inv_dir, rtip->mdl_min, rtip->mdl_max)  ||
 	ap->a_ray.r_max < 0.0) {
-	cutp = &ap->a_rt_i->rti_inf_box;
+	cutp = &ap->a_rt_i->i->rti_inf_box;
 	if (cutp->bn.bn_len > 0) {
 	    /* Model has infinite solids, need to fire at them. */
 	    ss.box_start = BACKING_DIST;
@@ -897,7 +897,7 @@ rt_shootray(register struct application *ap)
     ss.box_start = ss.model_start = ap->a_ray.r_min;
     ss.box_end = ss.model_end = ap->a_ray.r_max;
 
-    if (ap->a_rt_i->rti_nsolids_with_pieces > 0) {
+    if (ap->a_rt_i->i->rti_nsolids_with_pieces > 0) {
 	/* pieces are present */
 	if (ss.box_start < BACKING_DIST) {
 	    /* the first ray intersection with the model bounding box
@@ -1437,7 +1437,7 @@ rt_cell_n_on_ray(register struct application *ap, int n)
      */
     if (!rt_in_rpp(&ap->a_ray, ss.inv_dir, rtip->mdl_min, rtip->mdl_max)  ||
 	ap->a_ray.r_max < 0.0) {
-	cutp = &ap->a_rt_i->rti_inf_box;
+	cutp = &ap->a_rt_i->i->rti_inf_box;
 	if (cutp->bn.bn_len > 0) {
 	    if (n == 0) return cutp;
 	}

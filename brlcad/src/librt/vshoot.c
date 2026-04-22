@@ -156,7 +156,7 @@ rt_vshootray(struct application *ap)
 	rt_prep(rtip);
 
     /* Allocate dynamic memory */
-    vlen = nrays * rtip->rti_maxsol_by_type;
+    vlen = nrays * rtip->i->rti_maxsol_by_type;
     ary_stp = (struct soltab **)bu_calloc(vlen, sizeof(struct soltab *),
 					  "*ary_stp[]");
     ary_rp = (struct xray **)bu_calloc(vlen, sizeof(struct xray *),
@@ -225,11 +225,11 @@ rt_vshootray(struct application *ap)
     for (id = 1; id <= ID_MAX_SOLID; id++) {
 	register int nsol;
 
-	if ((nsol = rtip->rti_nsol_by_type[id]) <= 0) continue;
+	if ((nsol = rtip->i->rti_nsol_by_type[id]) <= 0) continue;
 
 	/* For each instance of this solid type */
 	for (i = nsol-1; i >= 0; i--) {
-	    ary_stp[i] = rtip->rti_sol_by_type[id][i];
+	    ary_stp[i] = rtip->i->rti_sol_by_type[id][i];
 	    ary_rp[i] = &(ap->a_ray);	/* XXX, sb [ray] */
 	    ary_seg[i].seg_stp = SOLTAB_NULL;
 	    BU_LIST_INIT(&ary_seg[i].l);

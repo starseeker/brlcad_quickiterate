@@ -116,7 +116,7 @@ _rt_gettree_region_start(struct db_tree_state *tsp, const struct db_full_path *p
 
 	/* Ignore "air" regions unless wanted */
 	if (tsp->ts_rtip->useair == 0 &&  tsp->ts_aircode != 0) {
-	    tsp->ts_rtip->rti_air_discards++;
+	    tsp->ts_rtip->i->rti_air_discards++;
 	    return -1;	/* drop this region */
 	}
     }
@@ -392,7 +392,7 @@ _rt_find_identical_solid(const matp_t mat, struct directory *dp, struct rt_i *rt
 
     /* Add to the appropriate soltab list head */
     /* PARALLEL NOTE:  Uses critical section on rt_solidheads element */
-    BU_LIST_INSERT(&(rtip->rti_solidheads[hash]), &(stp->l));
+    BU_LIST_INSERT(&(rtip->i->rti_solidheads[hash]), &(stp->l));
 
     /* Also add to the directory structure list head */
     /* PARALLEL NOTE:  Uses critical section on this 'dp' */
@@ -484,8 +484,8 @@ _rt_gettree_leaf(struct db_tree_state *tsp, const struct db_full_path *pathp, st
 	goto found_it;
     }
 
-    if (rtip->rti_add_to_new_solids_list) {
-	bu_ptbl_ins(&rtip->rti_new_solids, (long *)stp);
+    if (rtip->i->rti_add_to_new_solids_list) {
+	bu_ptbl_ins(&rtip->i->rti_new_solids, (long *)stp);
     }
 
     stp->st_id = ip->idb_type;
@@ -835,7 +835,7 @@ again:
 	     */
 	    VMINMAX(rtip->mdl_min, rtip->mdl_max, stp->st_min);
 	    VMINMAX(rtip->mdl_min, rtip->mdl_max, stp->st_max);
-	    stp->st_piecestate_num = rtip->rti_nsolids_with_pieces++;
+	    stp->st_piecestate_num = rtip->i->rti_nsolids_with_pieces++;
 	}
 	if (RT_G_DEBUG&RT_DEBUG_SOLIDS)
 	    rt_pr_soltab(stp);

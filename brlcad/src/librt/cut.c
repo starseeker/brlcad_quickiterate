@@ -67,7 +67,7 @@ static int rt_ct_old_assess(register union cutter *, register int, double *, dou
 
 
 /**
- * Process all the nodes in the global array rtip->rti_cuts_waiting,
+ * Process all the nodes in the global array rtip->i->rti_cuts_waiting,
  * until none remain.  This routine is run in parallel.
  */
 void
@@ -84,13 +84,13 @@ rt_cut_optimize_parallel(int cpu, void *arg)
     for (;;) {
 
 	bu_semaphore_acquire(RT_SEM_WORKER);
-	i = rtip->rti_cuts_waiting.end--;	/* get first free index */
+	i = rtip->i->rti_cuts_waiting.end--;	/* get first free index */
 	bu_semaphore_release(RT_SEM_WORKER);
 	i -= 1;				/* change to last used index */
 
 	if (i < 0) break;
 
-	cp = (union cutter *)BU_PTBL_GET(&rtip->rti_cuts_waiting, i);
+	cp = (union cutter *)BU_PTBL_GET(&rtip->i->rti_cuts_waiting, i);
 
 	rt_ct_optim(rtip, cp, Z);
     }
@@ -227,7 +227,7 @@ rt_cut_it(register struct rt_i *rtip, int UNUSED(ncpu))
 	finp->bn.bn_maxlen, sizeof(struct soltab *),
 	"rt_cut_it: initial list alloc");
 
-    rtip->rti_inf_box.cut_type = CUT_BOXNODE;
+    rtip->i->rti_inf_box.cut_type = CUT_BOXNODE;
 
     RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
 	/* Ignore "dead" solids in the list.  (They failed prep) */
@@ -238,29 +238,29 @@ rt_cut_it(register struct rt_i *rtip, int UNUSED(ncpu))
 
 	if (stp->st_aradius >= INFINITY) {
 	    /* Also add infinite solids to a special BOXNODE */
-	    rt_cut_extend(&rtip->rti_inf_box, stp, rtip);
+	    rt_cut_extend(&rtip->i->rti_inf_box, stp, rtip);
 	}
     } RT_VISIT_ALL_SOLTABS_END;
 
     /* Dynamic decisions on tree limits.  Note that there will be
-     * (2**rtip->rti_cutdepth)*rtip->rti_cutlen potential leaf slots.
+     * (2**rtip->i->rti_cutdepth)*rtip->i->rti_cutlen potential leaf slots.
      * Also note that solids will typically span several leaves.
      */
-    rtip->rti_cutlen = lrint(floor(log((double)(rtip->nsolids+1))));  /* ln ~= log2, nsolids+1 to avoid log(0) */
-    rtip->rti_cutdepth = 2 * rtip->rti_cutlen;
-    if (rtip->rti_cutlen < 3) rtip->rti_cutlen = 3;
-    if (rtip->rti_cutdepth < 12) rtip->rti_cutdepth = 12;
-    if (rtip->rti_cutdepth > 24) rtip->rti_cutdepth = 24;     /* !! */
+    rtip->i->rti_cutlen = lrint(floor(log((double)(rtip->nsolids+1))));  /* ln ~= log2, nsolids+1 to avoid log(0) */
+    rtip->i->rti_cutdepth = 2 * rtip->i->rti_cutlen;
+    if (rtip->i->rti_cutlen < 3) rtip->i->rti_cutlen = 3;
+    if (rtip->i->rti_cutdepth < 12) rtip->i->rti_cutdepth = 12;
+    if (rtip->i->rti_cutdepth > 24) rtip->i->rti_cutdepth = 24;     /* !! */
     if (RT_G_DEBUG&RT_DEBUG_CUT)
 	bu_log("Before Space Partitioning: Max Tree Depth=%zu, Cutoff primitive count=%zu\n",
-	       rtip->rti_cutdepth, rtip->rti_cutlen);
+	       rtip->i->rti_cutdepth, rtip->i->rti_cutlen);
 
-    bu_ptbl_init(&rtip->rti_cuts_waiting, rtip->nsolids,
+    bu_ptbl_init(&rtip->i->rti_cuts_waiting, rtip->nsolids,
 		 "rti_cuts_waiting ptbl");
 
     if (rtip->rti_hasty_prep) {
 	rtip->rti_space_partition = RT_PART_NUBSPT;
-	rtip->rti_cutdepth = 6;
+	rtip->i->rti_cutdepth = 6;
     }
 
     switch (rtip->rti_space_partition) {
@@ -283,10 +283,10 @@ rt_cut_it(register struct rt_i *rtip, int UNUSED(ncpu))
 
     /* Measure the depth of tree, find max # of RPPs in a cut node */
 
-    bu_hist_init(&rtip->rti_hist_cellsize, 0.0, 400.0, 400);
-    bu_hist_init(&rtip->rti_hist_cell_pieces, 0.0, 400.0, 400);
-    bu_hist_init(&rtip->rti_hist_cutdepth, 0.0,
-		 (fastf_t)rtip->rti_cutdepth+1, rtip->rti_cutdepth+1);
+    bu_hist_init(&rtip->i->rti_hist_cellsize, 0.0, 400.0, 400);
+    bu_hist_init(&rtip->i->rti_hist_cell_pieces, 0.0, 400.0, 400);
+    bu_hist_init(&rtip->i->rti_hist_cutdepth, 0.0,
+		 (fastf_t)rtip->i->rti_cutdepth+1, rtip->i->rti_cutdepth+1);
     memset(rtip->rti_ncut_by_type, 0, sizeof(rtip->rti_ncut_by_type));
     rt_ct_measure(rtip, &rtip->rti_CutHead, 0);
     if (RT_G_DEBUG&RT_DEBUG_CUT) {
@@ -354,8 +354,8 @@ rt_cut_extend(register union cutter *cutp, struct soltab *stp, const struct rt_i
 	/* Need to get more space in list.  */
 	if (cutp->bn.bn_maxlen <= 0) {
 	    /* Initial allocation */
-	    if (rtip->rti_cutlen > rtip->nsolids)
-		cutp->bn.bn_maxlen = rtip->rti_cutlen;
+	    if (rtip->i->rti_cutlen > rtip->nsolids)
+		cutp->bn.bn_maxlen = rtip->i->rti_cutlen;
 	    else
 		cutp->bn.bn_maxlen = rtip->nsolids + 2;
 	    cutp->bn.bn_list = (struct soltab **)bu_calloc(
@@ -657,11 +657,11 @@ rt_ct_optim(struct rt_i *rtip, register union cutter *cutp, size_t depth)
      */
     if (oldlen <= 1)
 	return;		/* this box is already optimal */
-    if (depth > rtip->rti_cutdepth) return;		/* too deep */
+    if (depth > rtip->i->rti_cutdepth) return;		/* too deep */
 
-    /* Attempt to subdivide finer than rtip->rti_cutlen near treetop */
+    /* Attempt to subdivide finer than rtip->i->rti_cutlen near treetop */
     /**** XXX This test can be improved ****/
-    if (depth >= 6 && oldlen <= rtip->rti_cutlen)
+    if (depth >= 6 && oldlen <= rtip->i->rti_cutlen)
 	return;				/* Fine enough */
 
     /* Old (Release 3.7) way */
@@ -846,26 +846,26 @@ rt_ct_get(struct rt_i *rtip)
 
     RT_CK_RTI(rtip);
     bu_semaphore_acquire(RT_SEM_MODEL);
-    if (!rtip->rti_busy_cutter_nodes.l.magic)
-	bu_ptbl_init(&rtip->rti_busy_cutter_nodes, 128, "rti_busy_cutter_nodes");
+    if (!rtip->i->rti_busy_cutter_nodes.l.magic)
+	bu_ptbl_init(&rtip->i->rti_busy_cutter_nodes, 128, "rti_busy_cutter_nodes");
 
-    if (rtip->rti_CutFree == CUTTER_NULL) {
+    if (rtip->i->rti_CutFree == CUTTER_NULL) {
 	size_t bytes;
 
 	//bytes = (size_t)bu_malloc_len_roundup(64*sizeof(union cutter));
 	bytes = sizeof(union cutter);
 	cutp = (union cutter *)bu_calloc(1, bytes, " rt_ct_get");
 	/* Remember this allocation for later */
-	bu_ptbl_ins(&rtip->rti_busy_cutter_nodes, (long *)cutp);
+	bu_ptbl_ins(&rtip->i->rti_busy_cutter_nodes, (long *)cutp);
 	/* Now, dice it up */
 	while (bytes >= sizeof(union cutter)) {
-	    cutp->cut_forw = rtip->rti_CutFree;
-	    rtip->rti_CutFree = cutp++;
+	    cutp->cut_forw = rtip->i->rti_CutFree;
+	    rtip->i->rti_CutFree = cutp++;
 	    bytes -= sizeof(union cutter);
 	}
     }
-    cutp = rtip->rti_CutFree;
-    rtip->rti_CutFree = cutp->cut_forw;
+    cutp = rtip->i->rti_CutFree;
+    rtip->i->rti_CutFree = cutp->cut_forw;
     bu_semaphore_release(RT_SEM_MODEL);
 
     cutp->cut_forw = CUTTER_NULL;
@@ -927,8 +927,8 @@ rt_ct_free(struct rt_i *rtip, register union cutter *cutp)
 
     /* Put on global free list */
     bu_semaphore_acquire(RT_SEM_MODEL);
-    cutp->cut_forw = rtip->rti_CutFree;
-    rtip->rti_CutFree = cutp;
+    cutp->cut_forw = rtip->i->rti_CutFree;
+    rtip->i->rti_CutFree = cutp;
     bu_semaphore_release(RT_SEM_MODEL);
 }
 
@@ -1097,10 +1097,10 @@ rt_ct_measure(register struct rt_i *rtip, register union cutter *cutp, size_t de
 		rtip->rti_cut_maxlen = len;
 	    if (rtip->rti_cut_maxdepth < depth)
 		rtip->rti_cut_maxdepth = depth;
-	    BU_HIST_TALLY(&rtip->rti_hist_cellsize, len);
+	    BU_HIST_TALLY(&rtip->i->rti_hist_cellsize, len);
 	    len = rt_ct_piececount(cutp) - len;
-	    BU_HIST_TALLY(&rtip->rti_hist_cell_pieces, len);
-	    BU_HIST_TALLY(&rtip->rti_hist_cutdepth, depth);
+	    BU_HIST_TALLY(&rtip->i->rti_hist_cell_pieces, len);
+	    BU_HIST_TALLY(&rtip->i->rti_hist_cutdepth, depth);
 	    if (len == 0) {
 		rtip->nempty_cells++;
 	    }
@@ -1119,20 +1119,20 @@ rt_cut_clean(struct rt_i *rtip)
 
     RT_CK_RTI(rtip);
 
-    if (rtip->rti_cuts_waiting.l.magic)
-	bu_ptbl_free(&rtip->rti_cuts_waiting);
+    if (rtip->i->rti_cuts_waiting.l.magic)
+	bu_ptbl_free(&rtip->i->rti_cuts_waiting);
 
     /* Abandon the linked list of diced-up structures */
-    rtip->rti_CutFree = CUTTER_NULL;
+    rtip->i->rti_CutFree = CUTTER_NULL;
 
-    if (!BU_LIST_IS_INITIALIZED(&rtip->rti_busy_cutter_nodes.l))
+    if (!BU_LIST_IS_INITIALIZED(&rtip->i->rti_busy_cutter_nodes.l))
 	return;
 
     /* Release the blocks we got from bu_calloc() */
-    for (BU_PTBL_FOR(p, (void **), &rtip->rti_busy_cutter_nodes)) {
+    for (BU_PTBL_FOR(p, (void **), &rtip->i->rti_busy_cutter_nodes)) {
 	bu_free(*p, "rt_ct_get");
     }
-    bu_ptbl_free(&rtip->rti_busy_cutter_nodes);
+    bu_ptbl_free(&rtip->i->rti_busy_cutter_nodes);
 }
 
 
@@ -1154,11 +1154,11 @@ rt_pr_cut_info(const struct rt_i *rtip, const char *str)
 	   rtip->rti_cut_maxlen,
 	   ((double)rtip->rti_cut_totobj) /
 	   rtip->rti_ncut_by_type[CUT_BOXNODE]);
-    bu_hist_pr(&rtip->rti_hist_cellsize,
+    bu_hist_pr(&rtip->i->rti_hist_cellsize,
 	       "cut_tree: Number of primitives per leaf cell");
-    bu_hist_pr(&rtip->rti_hist_cell_pieces,
+    bu_hist_pr(&rtip->i->rti_hist_cell_pieces,
 	       "cut_tree: Number of primitive pieces per leaf cell");
-    bu_hist_pr(&rtip->rti_hist_cutdepth,
+    bu_hist_pr(&rtip->i->rti_hist_cutdepth,
 	       "cut_tree: Depth (height)");
 }
 
