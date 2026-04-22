@@ -40,6 +40,7 @@
 
 #include "common.h"
 
+#include <atomic>
 #include <cstdlib>
 #include <cstring>
 #include <string>
@@ -48,6 +49,7 @@
 #include "bu/log.h"
 #include "bu/malloc.h"
 #include "bu/opt.h"
+#include "bu/parallel.h"
 #include "bu/str.h"
 #include "bu/vls.h"
 #include "rt/application.h"
@@ -167,10 +169,11 @@ exterior_face_probe(struct application *app, int face,
 
     if (!rt_in_rpp(&app->a_ray, inv_dir,
 		   app->a_rt_i->mdl_min, app->a_rt_i->mdl_max)) {
-	static size_t suppressed = 0;
-	if (suppressed < 100) {
+	static std::atomic_size_t suppressed(0);
+	size_t log_count = suppressed.fetch_add(1, std::memory_order_relaxed);
+	if (log_count < 100) {
 	    bu_log("bot exterior: probe ray does not intersect model bounds\n");
-	    if (++suppressed == 100)
+	    if (log_count == 99)
 		bu_log("bot exterior: further bound-miss messages suppressed\n");
 	}
 	return 0;
@@ -261,6 +264,30 @@ exterior_face(struct application *app, struct rt_bot_internal *bot, int face)
     return (ext_votes > int_votes) ? 1 : 0;
 }
 
+struct exterior_ray_worker_state {
+    struct application app;
+    struct exterior_ctx ectx;
+    struct resource resource;
+    struct rt_bot_internal *bot;
+    int *mask;
+    size_t face_start;
+    size_t face_end;
+    int n_ext;
+};
+
+extern "C" void
+bot_exterior_ray_worker(int cpu, void *ptr)
+{
+    struct exterior_ray_worker_state *state =
+	&(((struct exterior_ray_worker_state *)ptr)[cpu]);
+    for (size_t i = state->face_start; i < state->face_end; i++) {
+	if (exterior_face(&state->app, state->bot, (int)i)) {
+	    state->mask[i] = 1;
+	    state->n_ext++;
+	}
+    }
+}
+
 
 /*
  * Classify all faces via ray sampling.
@@ -277,14 +304,60 @@ bot_exterior_classify_ray(struct application *app,
 	return -1;
 
     int *mask = (int *)bu_calloc(bot->num_faces, sizeof(int), "face_exterior");
-    int n_ext = 0;
+    if (!mask)
+	return -1;
 
-    for (size_t i = 0; i < bot->num_faces; i++) {
-	if (exterior_face(app, bot, (int)i)) {
-	    mask[i] = 1;
-	    n_ext++;
-	}
+    if (!bot->num_faces) {
+	*face_exterior_out = mask;
+	return 0;
     }
+
+    size_t ncpus = bu_avail_cpus();
+    if (!ncpus)
+	ncpus = 1;
+    if (ncpus > bot->num_faces)
+	ncpus = bot->num_faces;
+
+    struct exterior_ray_worker_state *state =
+	(struct exterior_ray_worker_state *)bu_calloc(
+	    ncpus, sizeof(struct exterior_ray_worker_state),
+	    "bot exterior worker state");
+    if (!state) {
+	bu_free(mask, "face_exterior");
+	return -1;
+    }
+
+    size_t chunk = (bot->num_faces + ncpus - 1) / ncpus;
+    for (size_t i = 0; i < ncpus; i++) {
+	size_t start = i * chunk;
+	size_t end = start + chunk;
+	if (end > bot->num_faces)
+	    end = bot->num_faces;
+
+	state[i].bot = bot;
+	state[i].mask = mask;
+	state[i].face_start = start;
+	state[i].face_end = end;
+	state[i].n_ext = 0;
+	state[i].ectx.bot = bot;
+
+	RT_APPLICATION_INIT(&state[i].app);
+	state[i].app.a_rt_i = app->a_rt_i;
+	state[i].app.a_hit = exterior_hit;
+	state[i].app.a_miss = exterior_miss;
+	rt_init_resource(&state[i].resource, (int)i, state[i].app.a_rt_i);
+	state[i].app.a_resource = &state[i].resource;
+	state[i].app.a_uptr = (void *)&state[i].ectx;
+    }
+
+    bu_parallel(bot_exterior_ray_worker, ncpus, (void *)state);
+
+    int n_ext = 0;
+    for (size_t i = 0; i < ncpus; i++) {
+	n_ext += state[i].n_ext;
+	rt_clean_resource(app->a_rt_i, &state[i].resource);
+    }
+    bu_free(state, "bot exterior worker state");
 
     *face_exterior_out = mask;
     return n_ext;
