@@ -70,6 +70,18 @@ face are removed.  The result is a solid-mode BoT with only exterior faces.
   Cauchy-Crofton ray sampling.  Requires OpenVDB support compiled in; if
   unavailable the command falls back to ray sampling.
 
+*-v*, *--verbose*::
+  Print extra diagnostic metrics after each phase completes:
++
+  * Phase 1 summary (iteration count, wall-clock time, final SA estimate).
+  * Phase 2 flip-time statistics: the wall-clock time from the start of
+    per-face sampling until each face was first confirmed exterior.  Reported
+    as maximum and average over all confirmed-exterior faces.
+  * A *suggested --phase2-factor* value: the minimum factor that would have
+    given each face a per-face budget large enough to cover the observed
+    maximum flip time.  Use this to tune the `--phase2-factor` default for
+    your geometry.
+
 *--voxel-size* _size_::
   Edge length in mm of each voxel for the flood-fill method.  When omitted
   the size is computed automatically from the model's bounding box.
@@ -78,7 +90,8 @@ face are removed.  The result is a solid-mode BoT with only exterior faces.
   Controls the second-pass time budget as a multiplier of the first-pass
   (global Cauchy-Crofton) wall-clock duration.  The second pass is allocated
   at most _factor_ × (phase-1 time) seconds of CPU work, distributed evenly
-  across unclassified faces, with a floor of 1 ms per face.
+  across unclassified faces.  Each face is guaranteed at least one batch of
+  64 rays regardless of how small the computed per-face budget is.
 +
   Default: *10.0*  A smaller value (e.g. 1.0 or 2.0) shortens the second pass
   and may leave more faces unclassified; a larger value allows more thorough
