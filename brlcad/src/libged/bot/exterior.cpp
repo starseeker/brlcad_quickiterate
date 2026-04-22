@@ -84,6 +84,16 @@
  * large enough to avoid excessive queue overhead. */
 #define EXTERIOR_FACE_CHUNK 64
 
+/* Options bag passed from _bot_cmd_exterior down into the classifier. */
+struct bot_exterior_opts {
+    double phase2_factor;   /* phase 2 budget = factor x phase 1 wall time
+			     * (default 10.0; smaller -> less time per face) */
+    double vis_threshold;   /* [0,1] fraction of fired rays that must "see"
+			     * a triangle before it is included; 0 = disabled */
+    int    vis_strict;      /* also re-check phase-1 triangles against the
+			     * visibility threshold (requires vis_threshold > 0) */
+};
+
 
 /* ======================================================================
  * Focused second-pass helpers: parallel per-triangle exterior sampling
@@ -115,6 +125,8 @@ struct ext_focused2_ctx {
     int    found;
     size_t crossings;
     size_t rays;
+    size_t vis_rays;           /* rays where target face appeared as first/last */
+    int    disable_opportunistic; /* if 1, skip benign mask writes for non-target faces */
 };
 
 static int
@@ -138,12 +150,18 @@ ext_focused2_hit(struct application *ap, struct partition *PartHeadp,
 
     /* Opportunistic exterior marking.  Multiple workers may write 1 to the
      * same slot concurrently; this is a benign race: only 1 is ever written
-     * and the mask is read only after all worker threads have joined. */
-    if (first_face >= 0) ctx->mask[first_face] = 1;
-    if (last_face  >= 0) ctx->mask[last_face]  = 1;
+     * and the mask is read only after all worker threads have joined.
+     * When disable_opportunistic is set (visibility-strict mode) we skip
+     * this so that only the designated target face is threshold-tested. */
+    if (!ctx->disable_opportunistic) {
+	if (first_face >= 0) ctx->mask[first_face] = 1;
+	if (last_face  >= 0) ctx->mask[last_face]  = 1;
+    }
 
-    if (first_face == ctx->target_face || last_face == ctx->target_face)
+    if (first_face == ctx->target_face || last_face == ctx->target_face) {
 	ctx->found = 1;
+	ctx->vis_rays++;   /* count every ray that sees the target face */
+    }
 
     ctx->crossings += crossings;
     ctx->rays      += 1;
@@ -191,6 +209,8 @@ struct ext_focused2_worker_data {
     struct resource             *resource; /* one slot from resources[] */
     struct ext_focused2_progress *progress;
     size_t                       n_classified;
+    double                       vis_threshold;        /* 0 = disabled */
+    int                          disable_opportunistic; /* for strict mode */
 };
 
 static void
@@ -198,6 +218,7 @@ ext_focused2_worker(struct ext_focused2_worker_data *wd)
 {
     const double FOUR_PI = 4.0 * M_PI;
     const size_t BATCH   = 64u; /* rays per sub-batch before time/convergence check */
+    const bool threshold_mode = (wd->vis_threshold > 0.0);
 
     struct application ap;
     RT_APPLICATION_INIT(&ap);
@@ -216,8 +237,10 @@ ext_focused2_worker(struct ext_focused2_worker_data *wd)
     while (wd->face_queue->try_dequeue(face_idx)) {
 	bool newly_found = false;
 
-	/* Already marked exterior by an opportunistic side-effect write? */
-	if (!wd->mask[face_idx]) {
+	/* Already marked exterior by an opportunistic side-effect write?
+	 * In threshold mode we always re-test so that every included face
+	 * meets the visibility ratio; skip the shortcut in that case. */
+	if (threshold_mode || !wd->mask[face_idx]) {
 	    int vi0 = wd->bot->faces[face_idx * 3 + 0];
 	    int vi1 = wd->bot->faces[face_idx * 3 + 1];
 	    int vi2 = wd->bot->faces[face_idx * 3 + 2];
@@ -255,13 +278,15 @@ ext_focused2_worker(struct ext_focused2_worker_data *wd)
 
 		/* Per-face ray context */
 		struct ext_focused2_ctx fctx;
-		fctx.target_face = (int)face_idx;
-		fctx.num_faces   = (int)wd->bot->num_faces;
-		fctx.mask        = wd->mask;
-		fctx.found       = 0;
-		fctx.crossings   = 0;
-		fctx.rays        = 0;
-		ap.a_uptr        = (void *)&fctx;
+		fctx.target_face           = (int)face_idx;
+		fctx.num_faces             = (int)wd->bot->num_faces;
+		fctx.mask                  = wd->mask;
+		fctx.found                 = 0;
+		fctx.crossings             = 0;
+		fctx.rays                  = 0;
+		fctx.vis_rays              = 0;
+		fctx.disable_opportunistic = wd->disable_opportunistic;
+		ap.a_uptr                  = (void *)&fctx;
 
 		double fprev2 = -2.0, fprev1 = -1.0, fcurr = 0.0;
 		size_t total_rays = 0;
@@ -284,8 +309,16 @@ ext_focused2_worker(struct ext_focused2_worker_data *wd)
 		     * feeds the Cauchy-Crofton SA estimate used for convergence,
 		     * with the triangle's bounding sphere providing the area
 		     * normalisation: when the estimate stabilises we have
-		     * adequately covered the solid angle around the triangle. */
-		    for (size_t ri = 0; ri < BATCH && !face_found; ri++) {
+		     * adequately covered the solid angle around the triangle.
+		     *
+		     * In threshold mode we do not exit early when the face is
+		     * first seen — we fire until the budget is exhausted so the
+		     * visibility ratio is based on a representative sample. */
+		    for (size_t ri = 0; ri < BATCH; ri++) {
+			/* Normal mode: skip remaining rays once face is found. */
+			if (!threshold_mode && face_found)
+			    break;
+
 			/* Uniform random point on triangle via Shirley warping:
 			 *   P = (1-√r1)·v0 + √r1·(1-r2)·v1 + √r1·r2·v2 */
 			double r1 = ext_focused2_rand01(&seed);
@@ -335,35 +368,58 @@ ext_focused2_worker(struct ext_focused2_worker_data *wd)
 			    face_found = true;
 		    }
 
-		    if (face_found)
+		    /* Normal mode: stop as soon as the face is confirmed exterior. */
+		    if (!threshold_mode && face_found)
 			break;
 
 		    if (fctx.rays == 0)
 			break;
 
-		    /* Cauchy-Crofton SA estimate normalised by the triangle's
-		     * bounding sphere area.  Convergence (< 1 % change over two
-		     * successive batch deltas) means the solid angle has been
-		     * adequately sampled; absence of an exterior hit then implies
-		     * this face is interior. */
-		    fcurr = sphere_area
-			* (double)fctx.crossings
-			/ (2.0 * (double)fctx.rays);
+		    /* In threshold mode we do not use the SA convergence test —
+		     * we always run to the time budget so the ratio estimate is
+		     * based on the maximum available sample.  In normal mode the
+		     * convergence test lets us conclude "interior" early. */
+		    if (!threshold_mode) {
+			/* Cauchy-Crofton SA estimate normalised by the triangle's
+			 * bounding sphere area.  Convergence (< 1 % change over
+			 * two successive batch deltas) means the solid angle has
+			 * been adequately sampled; absence of an exterior hit then
+			 * implies this face is interior. */
+			fcurr = sphere_area
+			    * (double)fctx.crossings
+			    / (2.0 * (double)fctx.rays);
 
-		    if (total_rays >= 3 * BATCH) {
-			double dl = (fprev1 > 0.0)
-			    ? fabs(fcurr  - fprev1) / fprev1 * 100.0 : 999.0;
-			double dp = (fprev2 > 0.0)
-			    ? fabs(fprev1 - fprev2) / fprev2 * 100.0 : 999.0;
-			if (dl <= 1.0 && dp <= 1.0)
-			    break;
+			if (total_rays >= 3 * BATCH) {
+			    double dl = (fprev1 > 0.0)
+				? fabs(fcurr  - fprev1) / fprev1 * 100.0 : 999.0;
+			    double dp = (fprev2 > 0.0)
+				? fabs(fprev1 - fprev2) / fprev2 * 100.0 : 999.0;
+			    if (dl <= 1.0 && dp <= 1.0)
+				break;
+			}
+
+			fprev2 = fprev1;
+			fprev1 = fcurr;
 		    }
-
-		    fprev2 = fprev1;
-		    fprev1 = fcurr;
 		}
 
-		if (face_found) {
+		/* Decide whether to mark this face exterior.
+		 *
+		 * Normal mode: any confirmed sighting suffices.
+		 * Threshold mode: the fraction of rays that saw the face must
+		 *   reach or exceed vis_threshold.  A face with zero fired rays
+		 *   (degenerate geometry that is always clipped by rt_in_rpp)
+		 *   is never included. */
+		bool should_mark;
+		if (threshold_mode) {
+		    should_mark = (fctx.rays > 0 &&
+				   (double)fctx.vis_rays / (double)fctx.rays
+				   >= wd->vis_threshold);
+		} else {
+		    should_mark = face_found;
+		}
+
+		if (should_mark) {
 		    wd->mask[face_idx] = 1;
 		    newly_found = true;
 		}
@@ -739,9 +795,10 @@ ext_crofton_do_iteration(struct application      *ap_tmpl,
 static int
 bot_exterior_classify_crofton(struct rt_i *rtip,
 			      struct rt_bot_internal *bot,
-			      int **face_exterior_out)
+			      int **face_exterior_out,
+			      const struct bot_exterior_opts *opts)
 {
-    if (!rtip || !bot || !face_exterior_out)
+    if (!rtip || !bot || !face_exterior_out || !opts)
 	return -1;
 
     int *mask = (int *)bu_calloc(bot->num_faces, sizeof(int), "face_exterior");
@@ -868,8 +925,17 @@ bot_exterior_classify_crofton(struct rt_i *rtip,
      * that pull work from a ConcurrentQueue.  Rays originate from random
      * points ON the triangle in uniformly random outward directions and
      * shoot the complete model.  Per-face time budget is derived from the
-     * initial pass duration to keep total Phase 2 time ≤ 10× Phase 1.
+     * initial pass duration to keep total Phase 2 time ≤ phase2_factor× Phase 1.
      * ================================================================ */
+
+    /* Save the post-phase-1 mask for visibility-strict re-checking.
+     * Only allocated when both vis_threshold and vis_strict are active. */
+    int *phase1_mask = NULL;
+    if (opts->vis_strict && opts->vis_threshold > 0.0) {
+	phase1_mask = (int *)bu_calloc(bot->num_faces, sizeof(int), "phase1_mask");
+	memcpy(phase1_mask, mask, bot->num_faces * sizeof(int));
+    }
+
     {
 	std::vector<size_t> unclassified;
 	for (size_t i = 0; i < bot->num_faces; i++) {
@@ -880,18 +946,23 @@ bot_exterior_classify_crofton(struct rt_i *rtip,
 	if (!unclassified.empty()) {
 	    size_t n_unc = unclassified.size();
 
-	    /* Budget: total second-pass wall time ≤ 10× initial pass.
+	    /* Budget: total second-pass wall time ≤ phase2_factor× initial pass.
 	     * Distribute evenly across unclassified faces.  Apply a
 	     * floor of 1 ms per face so degenerate geometry always gets
 	     * at least one batch of rays. */
-	    double total_p2_budget = 10.0 * pass1_sec;
+	    double total_p2_budget = opts->phase2_factor * pass1_sec;
 	    double per_face_budget = total_p2_budget / (double)n_unc;
 	    if (per_face_budget < 0.001)
 		per_face_budget = 0.001;
 
+	    if (opts->vis_threshold > 0.0)
+		bu_log("bot exterior [2nd pass]: visibility threshold mode "
+		       "(threshold=%.4f)\n", opts->vis_threshold);
 	    bu_log("bot exterior [2nd pass]: %zu unclassified face(s); "
-		   "initial pass %.1fs, budget %.1fs total (%.4fs/face)\n",
-		   n_unc, pass1_sec, total_p2_budget, per_face_budget);
+		   "initial pass %.1fs, budget %.1fs total "
+		   "(factor=%.1f, %.4fs/face)\n",
+		   n_unc, pass1_sec, total_p2_budget,
+		   opts->phase2_factor, per_face_budget);
 
 	    /* Load work queue */
 	    moodycamel::ConcurrentQueue<size_t> face_queue(n_unc);
@@ -923,15 +994,17 @@ bot_exterior_classify_crofton(struct rt_i *rtip,
 		h = (h ^ (h >> 33)) * 0xff51afd7ed558ccdULL;
 		h = (h ^ (h >> 33)) * 0xc4ceb9fe1a85ec53ULL;
 		h ^= (h >> 33);
-		wdata[i].rtip               = rtip;
-		wdata[i].bot                = bot;
-		wdata[i].mask               = mask;
-		wdata[i].face_queue         = &face_queue;
+		wdata[i].rtip                = rtip;
+		wdata[i].bot                 = bot;
+		wdata[i].mask                = mask;
+		wdata[i].face_queue          = &face_queue;
 		wdata[i].per_face_budget_sec = per_face_budget;
-		wdata[i].rand_seed          = (uint32_t)h;
-		wdata[i].resource           = &resources[i];
-		wdata[i].progress           = &prog;
-		wdata[i].n_classified       = 0;
+		wdata[i].rand_seed           = (uint32_t)h;
+		wdata[i].resource            = &resources[i];
+		wdata[i].progress            = &prog;
+		wdata[i].n_classified        = 0;
+		wdata[i].vis_threshold       = opts->vis_threshold;
+		wdata[i].disable_opportunistic = (opts->vis_threshold > 0.0) ? 1 : 0;
 	    }
 
 	    std::vector<std::thread> threads;
@@ -952,6 +1025,107 @@ bot_exterior_classify_crofton(struct rt_i *rtip,
 		   "%zu/%zu faces newly classified as exterior\n",
 		   pass2_sec, newly_classified, n_unc);
 	}
+    }
+
+    /* ================================================================
+     * Visibility-strict phase: re-check phase-1 triangles.
+     *
+     * When --visibility-threshold AND --visibility-strict are both set,
+     * every triangle that was classified in phase 1 (the broad Crofton
+     * sweep) is re-sampled with the same per-triangle ray budget used
+     * in phase 2 and must meet the visibility threshold to be retained.
+     * Opportunistic marking is disabled here: each face is evaluated
+     * independently so that no face bypasses the threshold test.
+     * ================================================================ */
+    if (phase1_mask && opts->vis_threshold > 0.0) {
+	std::vector<size_t> p1faces;
+	for (size_t i = 0; i < bot->num_faces; i++) {
+	    if (phase1_mask[i])
+		p1faces.push_back(i);
+	}
+	bu_free(phase1_mask, "phase1_mask");
+	phase1_mask = NULL;
+
+	if (!p1faces.empty()) {
+	    size_t n_p1 = p1faces.size();
+
+	    /* Per-face budget for the strict re-verification phase (phase 3):
+	     * same derivation as phase 2. */
+	    double total_strict_phase_budget = opts->phase2_factor * pass1_sec;
+	    double per_face_strict_budget    = total_strict_phase_budget / (double)n_p1;
+	    if (per_face_strict_budget < 0.001)
+		per_face_strict_budget = 0.001;
+
+	    bu_log("bot exterior [strict check]: %zu phase-1 face(s) to re-verify; "
+		   "budget %.1fs total (%.4fs/face)\n",
+		   n_p1, total_strict_phase_budget, per_face_strict_budget);
+
+	    /* Strict mask: workers write 1 only if threshold is met. */
+	    int *strict_mask = (int *)bu_calloc(bot->num_faces, sizeof(int),
+					       "strict_mask");
+
+	    moodycamel::ConcurrentQueue<size_t> strict_queue(n_p1);
+	    for (size_t fi : p1faces)
+		strict_queue.enqueue(fi);
+
+	    ext_focused2_progress sprog;
+	    sprog.faces_done.store(0, std::memory_order_relaxed);
+	    sprog.faces_total   = n_p1;
+	    sprog.last_print_us.store(0, std::memory_order_relaxed);
+	    sprog.pass2_start   = std::chrono::steady_clock::now();
+
+	    size_t ncpus_s = bu_avail_cpus();
+	    if (ncpus_s < 1)  ncpus_s = 1;
+	    if (ncpus_s > (size_t)MAX_PSW) ncpus_s = (size_t)MAX_PSW;
+
+	    std::vector<struct ext_focused2_worker_data> swdata(ncpus_s);
+	    uint64_t ts2 = (uint64_t)std::chrono::duration_cast<
+		std::chrono::nanoseconds>(
+		    std::chrono::steady_clock::now().time_since_epoch()).count();
+	    for (size_t i = 0; i < ncpus_s; i++) {
+		uint64_t h = ts2 ^ ((uint64_t)(i + 7) * 6364136223846793005ULL);
+		h = (h ^ (h >> 33)) * 0xff51afd7ed558ccdULL;
+		h = (h ^ (h >> 33)) * 0xc4ceb9fe1a85ec53ULL;
+		h ^= (h >> 33);
+		swdata[i].rtip                  = rtip;
+		swdata[i].bot                   = bot;
+		swdata[i].mask                  = strict_mask;
+		swdata[i].face_queue            = &strict_queue;
+		swdata[i].per_face_budget_sec   = per_face_strict_budget;
+		swdata[i].rand_seed             = (uint32_t)h;
+		swdata[i].resource              = &resources[i];
+		swdata[i].progress              = &sprog;
+		swdata[i].n_classified          = 0;
+		swdata[i].vis_threshold         = opts->vis_threshold;
+		swdata[i].disable_opportunistic = 1; /* strict: no free rides */
+	    }
+
+	    std::vector<std::thread> sthreads;
+	    sthreads.reserve(ncpus_s);
+	    for (size_t i = 0; i < ncpus_s; i++)
+		sthreads.emplace_back(ext_focused2_worker, &swdata[i]);
+	    for (auto &st : sthreads)
+		st.join();
+
+	    /* Clear mask entries for phase-1 faces that failed the threshold. */
+	    size_t rejected = 0;
+	    for (size_t fi : p1faces) {
+		if (!strict_mask[fi]) {
+		    mask[fi] = 0;
+		    rejected++;
+		}
+	    }
+	    bu_free(strict_mask, "strict_mask");
+
+	    double strict_sec = std::chrono::duration<double>(
+		std::chrono::steady_clock::now() - sprog.pass2_start).count();
+	    bu_log("bot exterior [strict check]: done in %.1fs; "
+		   "%zu/%zu phase-1 face(s) rejected by visibility threshold\n",
+		   strict_sec, rejected, n_p1);
+	}
+    } else if (phase1_mask) {
+	bu_free(phase1_mask, "phase1_mask");
+	phase1_mask = NULL;
     }
 
     /* Count exterior faces */
@@ -1072,21 +1246,32 @@ _bot_cmd_exterior(void *bs, int argc, const char **argv)
     /* Consume the subcommand name token. */
     argc--; argv++;
 
-    int       print_help = 0;
-    int       in_place   = 0;
-    int       flood_fill = 0;
-    fastf_t   voxel_size = 0.0;
+    int       print_help  = 0;
+    int       in_place    = 0;
+    int       flood_fill  = 0;
+    fastf_t   voxel_size  = 0.0;
+    fastf_t   phase2_factor = 10.0;
+    fastf_t   vis_threshold = 0.0;
+    int       vis_strict  = 0;
 
-    struct bu_opt_desc d[6];
-    BU_OPT(d[0], "h",       "help",       "",      NULL,            &print_help,
+    struct bu_opt_desc d[9];
+    BU_OPT(d[0], "h",       "help",                "",      NULL,            &print_help,
 	   "Print help");
-    BU_OPT(d[1], "i",   "in-place",       "",      NULL,            &in_place,
+    BU_OPT(d[1], "i",   "in-place",                "",      NULL,            &in_place,
 	   "Overwrite input BoT in-place (no output_name needed)");
-    BU_OPT(d[2], "f", "flood-fill",       "",      NULL,            &flood_fill,
+    BU_OPT(d[2], "f", "flood-fill",                "",      NULL,            &flood_fill,
 	   "Use voxel flood-fill / water-filling method (requires OpenVDB)");
-    BU_OPT(d[3], "",  "voxel-size",   "size", &bu_opt_fastf_t,  &voxel_size,
+    BU_OPT(d[3], "",  "voxel-size",            "size", &bu_opt_fastf_t,  &voxel_size,
 	   "Voxel edge length for flood-fill (default: auto-computed)");
-    BU_OPT_NULL(d[4]);
+    BU_OPT(d[4], "",  "phase2-factor",        "factor", &bu_opt_fastf_t, &phase2_factor,
+	   "Phase-2 time budget = factor × phase-1 time (default 10.0; smaller=faster)");
+    BU_OPT(d[5], "",  "visibility-threshold", "ratio",  &bu_opt_fastf_t, &vis_threshold,
+	   "Minimum fraction [0,1] of phase-2 rays that must see a face to include it "
+	   "(default 0 = disabled; enabling this is slower)");
+    BU_OPT(d[6], "",  "visibility-strict",       "",      NULL,            &vis_strict,
+	   "Also re-verify phase-1 faces against --visibility-threshold "
+	   "(requires --visibility-threshold; potentially very slow)");
+    BU_OPT_NULL(d[7]);
 
     int ac = bu_opt_parse(NULL, argc, argv, d);
     argc = ac;
@@ -1105,6 +1290,26 @@ _bot_cmd_exterior(void *bs, int argc, const char **argv)
 
     if (argc > 2) {
 	bu_vls_printf(gb->gedp->ged_result_str, "%s\n", usage_string);
+	return BRLCAD_ERROR;
+    }
+
+    /* Validate option combinations. */
+    if (phase2_factor <= 0.0) {
+	bu_vls_printf(gb->gedp->ged_result_str,
+		      "--phase2-factor must be positive (got %g); "
+		      "typical values range from 1.0 to 20.0\n",
+		      (double)phase2_factor);
+	return BRLCAD_ERROR;
+    }
+    if (vis_threshold < 0.0 || vis_threshold > 1.0) {
+	bu_vls_printf(gb->gedp->ged_result_str,
+		      "--visibility-threshold must be in [0,1] (got %g)\n",
+		      (double)vis_threshold);
+	return BRLCAD_ERROR;
+    }
+    if (vis_strict && vis_threshold <= 0.0) {
+	bu_vls_printf(gb->gedp->ged_result_str,
+		      "--visibility-strict requires --visibility-threshold > 0\n");
 	return BRLCAD_ERROR;
     }
 
@@ -1169,6 +1374,11 @@ _bot_cmd_exterior(void *bs, int argc, const char **argv)
     /* ----------------------------------------------------------------
      * Classify faces.
      * ---------------------------------------------------------------- */
+    struct bot_exterior_opts opts;
+    opts.phase2_factor  = (double)phase2_factor;
+    opts.vis_threshold  = (double)vis_threshold;
+    opts.vis_strict     = vis_strict;
+
     int *face_exterior = NULL;
     int  n_ext;
 
@@ -1191,11 +1401,11 @@ _bot_cmd_exterior(void *bs, int argc, const char **argv)
 		      "Note: --flood-fill requires OpenVDB (not compiled in); "
 		      "falling back to Crofton ray-sampling\n");
 	bu_log("bot exterior: falling back to Crofton ray-sampling method\n");
-	n_ext = bot_exterior_classify_crofton(ap.a_rt_i, bot, &face_exterior);
+	n_ext = bot_exterior_classify_crofton(ap.a_rt_i, bot, &face_exterior, &opts);
 #endif
     } else {
 	bu_log("bot exterior: using Crofton ray-sampling method\n");
-	n_ext = bot_exterior_classify_crofton(ap.a_rt_i, bot, &face_exterior);
+	n_ext = bot_exterior_classify_crofton(ap.a_rt_i, bot, &face_exterior, &opts);
     }
 
     rt_free_rti(ap.a_rt_i);
