@@ -283,6 +283,7 @@ struct exterior_ray_worker_state {
     struct rt_bot_internal *bot;
     int *mask;
     moodycamel::ConcurrentQueue<struct exterior_face_work> *face_queue;
+    const moodycamel::ProducerToken *ptok;
     size_t n_ext;
 };
 
@@ -290,7 +291,7 @@ static void
 bot_exterior_ray_worker(struct exterior_ray_worker_state *state)
 {
     struct exterior_face_work work;
-    while (state->face_queue->try_dequeue(work)) {
+    while (state->face_queue->try_dequeue_from_producer(*state->ptok, work)) {
 	for (size_t face_idx = work.start; face_idx < work.end; face_idx++) {
 	    if (exterior_face(&state->app, state->bot, (int)face_idx)) {
 		state->mask[face_idx] = 1;
@@ -332,13 +333,14 @@ bot_exterior_classify_ray(struct application *app,
 
     size_t num_chunks = (bot->num_faces + EXTERIOR_FACE_CHUNK - 1) / EXTERIOR_FACE_CHUNK;
     moodycamel::ConcurrentQueue<struct exterior_face_work> face_queue(num_chunks);
+    moodycamel::ProducerToken ptok(face_queue);
     for (size_t i = 0; i < num_chunks; i++) {
 	size_t start = i * EXTERIOR_FACE_CHUNK;
 	size_t end = start + EXTERIOR_FACE_CHUNK;
 	if (end > bot->num_faces)
 	    end = bot->num_faces;
 	struct exterior_face_work work = {start, end};
-	if (!face_queue.enqueue(work)) {
+	if (!face_queue.enqueue(ptok, work)) {
 	    bu_log("bot exterior: failed to enqueue work chunk %zu/%zu\n",
 		   i, num_chunks);
 	    bu_free(mask, "face_exterior");
@@ -359,6 +361,7 @@ bot_exterior_classify_ray(struct application *app,
 	state[i].bot = bot;
 	state[i].mask = mask;
 	state[i].face_queue = &face_queue;
+	state[i].ptok = &ptok;
 	state[i].n_ext = 0;
 	state[i].ectx.bot = bot;
 
