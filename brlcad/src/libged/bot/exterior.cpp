@@ -41,6 +41,7 @@
 #include "common.h"
 
 #include <atomic>
+#include <climits>
 #include <cstdlib>
 #include <cstring>
 #include <string>
@@ -375,20 +376,27 @@ bot_exterior_classify_ray(struct application *app,
     for (size_t i = 0; i < ncpus; i++) {
 	workers.emplace_back(bot_exterior_ray_worker, &state[i]);
     }
-    for (size_t i = 0; i < workers.size(); i++) {
-	workers[i].join();
+    for (auto &worker : workers) {
+	worker.join();
     }
 
-    int n_ext = 0;
+    size_t n_ext = 0;
     for (size_t i = 0; i < ncpus; i++) {
-	n_ext += (int)state[i].n_ext;
+	n_ext += state[i].n_ext;
 	rt_clean_resource(app->a_rt_i, &state[i].resource);
+    }
+
+    if (n_ext > (size_t)INT_MAX) {
+	bu_log("bot exterior: exterior face count exceeds int range\n");
+	bu_free(state, "bot exterior worker state");
+	bu_free(mask, "face_exterior");
+	return -1;
     }
 
     bu_free(state, "bot exterior worker state");
 
     *face_exterior_out = mask;
-    return n_ext;
+    return (int)n_ext;
 }
 
 
