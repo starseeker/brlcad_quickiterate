@@ -677,6 +677,189 @@ bot_exterior_classify_crofton(struct rt_i *rtip,
 
     } while (1);
 
+    /* ================================================================
+     * Phase 2: focused per-triangle sampling for unclassified faces.
+     *
+     * Collect every face that the global pass left unclassified, then
+     * fire a tightly-focused set of chord rays around each one.
+     * ================================================================ */
+    {
+	/* Build the list once; we will check mask[] at loop time so that
+	 * faces marked by opportunistic side-effect hits are skipped. */
+	std::vector<size_t> unclassified;
+	for (size_t i = 0; i < bot->num_faces; i++) {
+	    if (!mask[i])
+		unclassified.push_back(i);
+	}
+
+	if (!unclassified.empty()) {
+	    bu_log("bot exterior (Crofton): %zu face(s) unclassified after "
+		   "global pass; running focused sampling...\n",
+		   unclassified.size());
+
+	    /* Reuse the application template; override hit/miss callbacks. */
+	    struct application fap;
+	    fap              = ap;
+	    fap.a_hit        = ext_focused_hit;
+	    fap.a_miss       = ext_focused_miss;
+	    fap.a_resource   = &resources[0];
+	    fap.a_onehit     = 0;
+
+	    /* FOCUSED_BASE_BATCH = 500: enough rays per iteration to sample
+	     * the tight sphere around a single triangle while keeping the
+	     * first iteration cheap for models with many unclassified faces.
+	     * MAX_FOCUSED_ITERS = 20: safety cap; with 1.5× growth the 20th
+	     * iteration would fire ~500×1.5^19 ≈ 275 000 rays — far beyond
+	     * practical convergence, so this is never reached on well-formed
+	     * geometry. */
+	    const size_t FOCUSED_BASE_BATCH = 500u;
+	    const size_t MAX_FOCUSED_ITERS  = 20u;
+
+	    size_t newly_classified = 0;
+
+	    for (size_t fi = 0; fi < unclassified.size(); fi++) {
+		size_t face_idx = unclassified[fi];
+
+		/* May have been classified as a side-effect of a previous
+		 * focused ray hitting it as first/last surface. */
+		if (mask[face_idx]) {
+		    newly_classified++;
+		    continue;
+		}
+
+		/* --- compute triangle bounding sphere --- */
+		int vi0 = bot->faces[face_idx * 3 + 0];
+		int vi1 = bot->faces[face_idx * 3 + 1];
+		int vi2 = bot->faces[face_idx * 3 + 2];
+
+		if (vi0 < 0 || vi1 < 0 || vi2 < 0 ||
+		    (size_t)vi0 >= bot->num_vertices ||
+		    (size_t)vi1 >= bot->num_vertices ||
+		    (size_t)vi2 >= bot->num_vertices)
+		    continue;
+
+		point_t tp0, tp1, tp2;
+		VMOVE(tp0, &bot->vertices[vi0 * 3]);
+		VMOVE(tp1, &bot->vertices[vi1 * 3]);
+		VMOVE(tp2, &bot->vertices[vi2 * 3]);
+
+		point_t tcen;
+		VADD3(tcen, tp0, tp1, tp2);
+		VSCALE(tcen, tcen, 1.0 / 3.0);
+
+		double d0 = DIST_PNT_PNT(tcen, tp0);
+		double d1 = DIST_PNT_PNT(tcen, tp1);
+		double d2 = DIST_PNT_PNT(tcen, tp2);
+		double tri_r = d0;
+		if (d1 > tri_r) tri_r = d1;
+		if (d2 > tri_r) tri_r = d2;
+
+		/* Bump out by 10 % of the triangle radius, with an
+		 * absolute minimum proportional to EXTERIOR_RAY_OFFSET_FACTOR
+		 * so degenerate / tiny triangles still get a usable sphere. */
+		double bump = tri_r * 0.1;
+		if (bump < BN_TOL_DIST * EXTERIOR_RAY_OFFSET_FACTOR)
+		    bump = BN_TOL_DIST * EXTERIOR_RAY_OFFSET_FACTOR;
+		tri_r += bump;
+
+		/* --- per-triangle context --- */
+		struct ext_focused_ctx fctx;
+		fctx.target_face = (int)face_idx;
+		fctx.num_faces   = (int)bot->num_faces;
+		fctx.mask        = mask;
+		fctx.found       = 0;
+		fctx.crossings   = 0;
+		fctx.rays        = 0;
+		fap.a_uptr       = (void *)&fctx;
+
+		/* --- focused convergence loop --- */
+		double fprev2 = -2.0, fprev1 = -1.0, fcurr = 0.0;
+		int face_found = 0;
+
+		for (size_t iter = 0; iter < MAX_FOCUSED_ITERS; iter++) {
+		    size_t nrays = FOCUSED_BASE_BATCH;
+		    if (iter > 0) {
+			double factor = pow(1.5, (double)iter);
+			size_t scaled = (size_t)((double)FOCUSED_BASE_BATCH * factor);
+			if (scaled > FOCUSED_BASE_BATCH)
+			    nrays = scaled;
+		    }
+
+		    /* Generate chord rays from the small triangle sphere and
+		     * back each one up to just outside the model bbox. */
+		    for (size_t ri = 0; ri < nrays; ri++) {
+			point_t spt_a, spt_b;
+			ext_crofton_sphere_pt(tri_r, tcen, spt_a);
+			ext_crofton_sphere_pt(tri_r, tcen, spt_b);
+
+			vect_t fdir;
+			VSUB2(fdir, spt_b, spt_a);
+			fastf_t flen = MAGNITUDE(fdir);
+			if (flen < SMALL_FASTF)
+			    continue;
+			VSCALE(fdir, fdir, 1.0 / flen);
+
+			VMOVE(fap.a_ray.r_pt,  spt_a);
+			VMOVE(fap.a_ray.r_dir, fdir);
+			vect_t finv;
+			VINVDIR(finv, fdir);
+
+			/* rt_in_rpp sets r_min to the parametric distance
+			 * to the near bounding-box face.  When spt_a is
+			 * inside the box, r_min < 0 — the backwards entry.
+			 * Stepping to (r_min - offset) places the origin
+			 * just outside the model, exactly as done in
+			 * exterior_face_probe(). */
+			if (!rt_in_rpp(&fap.a_ray, finv,
+				       fap.a_rt_i->mdl_min,
+				       fap.a_rt_i->mdl_max))
+			    continue;
+
+			fastf_t foff = fap.a_ray.r_min
+			    - (EXTERIOR_RAY_OFFSET_FACTOR * BN_TOL_DIST);
+			VJOIN1(fap.a_ray.r_pt, spt_a, foff, fdir);
+
+			rt_shootray(&fap);
+
+			/* Early exit: target confirmed exterior. */
+			if (fctx.found) {
+			    face_found = 1;
+			    break;
+			}
+		    }
+
+		    if (face_found)
+			break;
+
+		    if (fctx.rays == 0)
+			break;
+
+		    fcurr = FOUR_PI * tri_r * tri_r
+			* (double)fctx.crossings
+			/ (2.0 * (double)fctx.rays);
+
+		    if (iter >= 3) {
+			double dl = (fprev1 > 0.0)
+			    ? fabs(fcurr - fprev1) / fprev1 * 100.0 : 999.0;
+			double dp = (fprev2 > 0.0)
+			    ? fabs(fprev1 - fprev2) / fprev2 * 100.0 : 999.0;
+			if (dl <= 1.0 && dp <= 1.0)
+			    break;
+		    }
+
+		    fprev2 = fprev1;
+		    fprev1 = fcurr;
+		}
+
+		if (face_found)
+		    newly_classified++;
+	    }
+
+	    bu_log("bot exterior (Crofton): focused pass classified "
+		   "%zu additional face(s)\n", newly_classified);
+	}
+    }
+
     /* Count exterior faces */
     size_t n_ext = 0;
     for (size_t i = 0; i < bot->num_faces; i++)
@@ -809,6 +992,93 @@ cleanup:
     if (mask)
 	bu_free(mask, "face_exterior");
     return ret;
+}
+
+
+/* ======================================================================
+ * Focused per-triangle sampling helpers
+ *
+ * After the global Cauchy-Crofton pass converges, some triangles may
+ * still be unclassified because the global random rays did not happen
+ * to sample them.  For each such triangle we perform a second, focused
+ * pass:
+ *
+ *  1. Compute the triangle's bounding sphere (centroid + circumradius,
+ *     bumped out by 10 % or at least 10×BN_TOL_DIST).
+ *  2. Generate chord rays whose endpoints are random points on that
+ *     small sphere.  Each chord ray's origin is backed up to just
+ *     outside the model bounding box so that the ray enters the model
+ *     from the outside — identical to the backing-up logic in
+ *     exterior_face_probe().
+ *  3. If the target triangle appears as the first or last surface hit
+ *     on any of these rays it is immediately marked exterior and we
+ *     move on to the next unclassified triangle (early exit).
+ *     Any other previously-unclassified faces discovered as first/last
+ *     hits are also opportunistically marked exterior.
+ *  4. If no positive result is obtained, the local SA estimate (for
+ *     the small sphere) is tracked; once it converges (< 1 % change
+ *     over three successive iterations) the triangle is left as
+ *     interior.  A hard cap of MAX_FOCUSED_ITERS iterations prevents
+ *     runaway loops on degenerate geometry.
+ * ====================================================================== */
+
+/* Per-application context for focused ray pass */
+struct ext_focused_ctx {
+    int    target_face;  /* face we are testing */
+    int    num_faces;    /* total face count */
+    int   *mask;         /* global exterior mask — updated on any exterior hit */
+    int    found;        /* set to 1 when target_face confirmed exterior */
+    /* Local SA convergence accumulators */
+    size_t crossings;
+    size_t rays;
+};
+
+static int
+ext_focused_hit(struct application *ap, struct partition *PartHeadp,
+		struct seg *UNUSED(segs))
+{
+    struct ext_focused_ctx *ctx = (struct ext_focused_ctx *)ap->a_uptr;
+
+    int first_face = -1, last_face = -1;
+    size_t crossings = 0;
+    double chord = 0.0;
+
+    for (struct partition *pp = PartHeadp->pt_forw;
+	 pp != PartHeadp;
+	 pp = pp->pt_forw) {
+	crossings += 2;
+	chord += pp->pt_outhit->hit_dist - pp->pt_inhit->hit_dist;
+
+	int isf = pp->pt_inhit->hit_surfno;
+	int osf = pp->pt_outhit->hit_surfno;
+
+	if (first_face < 0 && isf >= 0 && isf < ctx->num_faces)
+	    first_face = isf;
+	if (osf >= 0 && osf < ctx->num_faces)
+	    last_face = osf;
+    }
+
+    /* Opportunistically mark any exterior faces we encounter. */
+    if (first_face >= 0)
+	ctx->mask[first_face] = 1;
+    if (last_face >= 0)
+	ctx->mask[last_face] = 1;
+
+    if (first_face == ctx->target_face || last_face == ctx->target_face)
+	ctx->found = 1;
+
+    ctx->crossings += crossings;
+    ctx->rays      += 1;
+
+    return 1;
+}
+
+static int
+ext_focused_miss(struct application *ap)
+{
+    struct ext_focused_ctx *ctx = (struct ext_focused_ctx *)ap->a_uptr;
+    ctx->rays += 1;
+    return 0;
 }
 
 
