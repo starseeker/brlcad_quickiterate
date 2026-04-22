@@ -443,9 +443,9 @@ bu_tbl_write(struct bu_tbl *tbl, const char *str)
     BU_ASSERT(tbl->t);
 
 #ifdef FT_HAVE_UTF8
-    ft_u8nwrite(tbl->t, 1, (const void *)(str));
+    ft_u8nwrite(tbl->t, 1, str);
 #else
-    ft_nwrite(tbl->t, 1, (const char *)(str));
+    ft_nwrite(tbl->t, 1, str);
 #endif
 
     return tbl;
