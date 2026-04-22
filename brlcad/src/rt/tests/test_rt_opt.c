@@ -88,6 +88,8 @@ memory_summary(void)
 
 static int g_total_tests  = 0;
 static int g_failed_tests = 0;
+static int g_short_only   = 0;
+static int g_skip_current_checks = 0;
 
 /* -----------------------------------------------------------------------
  * Helpers
@@ -224,11 +226,13 @@ reset_globals(void)
     bn_randhalftabsize = BN_RANDHALFTABSIZE;
     /* bu_optind: reset for clean parser state */
     bu_optind = 1;
+    g_skip_current_checks = 0;
 }
 
 
 /* Assertion helpers.  Each records pass/fail and prints diagnostics. */
 #define CHECK(name, cond) do { \
+    if (g_skip_current_checks) break; \
     g_total_tests++; \
     if (!(cond)) { \
 	bu_log("FAIL [%s]: condition (%s) is false\n", (name), #cond); \
@@ -237,6 +241,7 @@ reset_globals(void)
 } while (0)
 
 #define CHECK_INT(name, expected, actual) do { \
+    if (g_skip_current_checks) break; \
     int _e = (int)(expected); \
     int _a = (int)(actual); \
     g_total_tests++; \
@@ -247,6 +252,7 @@ reset_globals(void)
 } while (0)
 
 #define CHECK_DBL(name, expected, actual) do { \
+    if (g_skip_current_checks) break; \
     double _e = (double)(expected); \
     double _a = (double)(actual); \
     double _tol = fabs(_e) * 1e-6 + 1e-15; \
@@ -258,6 +264,7 @@ reset_globals(void)
 } while (0)
 
 #define CHECK_STR(name, expected, actual) do { \
+    if (g_skip_current_checks) break; \
     const char *_e = (expected); \
     const char *_a = (actual); \
     g_total_tests++; \
@@ -277,11 +284,16 @@ reset_globals(void)
 
 /* Convenience: call get_args and check it returns the expected code */
 #define CALL_GET_ARGS(av, expected_ret) do { \
-    int _ret = get_args(av##_argc, av); \
-    g_total_tests++; \
-    if (_ret != (expected_ret)) { \
-	bu_log("FAIL [get_args return]: expected %d, got %d\n", (expected_ret), _ret); \
-	g_failed_tests++; \
+    if (g_short_only && av##_argc > 1 && strncmp(av[1], "--", 2) == 0) { \
+	g_skip_current_checks = 1; \
+    } else { \
+	int _ret = get_args(av##_argc, av); \
+	g_skip_current_checks = 0; \
+	g_total_tests++; \
+	if (_ret != (expected_ret)) { \
+	    bu_log("FAIL [get_args return]: expected %d, got %d\n", (expected_ret), _ret); \
+	    g_failed_tests++; \
+	} \
     } \
 } while (0)
 
@@ -504,7 +516,7 @@ test_opt_view_aspect(void)
     reset_globals();
     MAKE_ARGV(av2, "rt", "--view-aspect", "4:3");
     CALL_GET_ARGS(av2, 1);
-    {
+    if (!g_skip_current_checks) {
 	double expected = 4.0 / 3.0;
 	g_total_tests++;
 	if (fabs(aspect - expected) > 1e-6) {
@@ -1034,23 +1046,25 @@ test_opt_objects_file(void)
     }
 
     /* long form */
-    reset_globals();
-    {
-	const char *av2[] = { "rt", "--objects-file", tmpfile, NULL };
-	int av2_argc = 3;
-	int ret2 = get_args(av2_argc, av2);
-	g_total_tests++;
-	if (ret2 != 1) {
-	    bu_log("FAIL [--objects-file return]: expected 1, got %d\n", ret2);
-	    g_failed_tests++;
+    if (!g_short_only) {
+	reset_globals();
+	{
+	    const char *av2[] = { "rt", "--objects-file", tmpfile, NULL };
+	    int av2_argc = 3;
+	    int ret2 = get_args(av2_argc, av2);
+	    g_total_tests++;
+	    if (ret2 != 1) {
+		bu_log("FAIL [--objects-file return]: expected 1, got %d\n", ret2);
+		g_failed_tests++;
+	    }
 	}
-    }
-    CHECK_INT("--objects-file objc", 3, objc);
-    if (objv) {
-	int ii;
-	for (ii = 0; ii < objc; ii++) bu_free(objv[ii], "test objv");
-	bu_free(objv, "test objv array");
-	objv = NULL; objc = 0;
+	CHECK_INT("--objects-file objc", 3, objc);
+	if (objv) {
+	    int ii;
+	    for (ii = 0; ii < objc; ii++) bu_free(objv[ii], "test objv");
+	    bu_free(objv, "test objv array");
+	    objv = NULL; objc = 0;
+	}
     }
 
     remove(tmpfile);
@@ -1401,15 +1415,17 @@ test_optind_boundary(void)
     }
 
     /* Long option + model */
-    reset_globals();
-    {
-	const char *av4[] = { "rt", "--size", "128", "scene.g", "all.r", NULL };
-	int av4_argc = 5;
-	get_args(av4_argc, av4);
-	g_total_tests++;
-	if (bu_optind != 3) {
-	    bu_log("FAIL [bu_optind --size 128 scene.g]: expected 3, got %d\n", bu_optind);
-	    g_failed_tests++;
+    if (!g_short_only) {
+	reset_globals();
+	{
+	    const char *av4[] = { "rt", "--size", "128", "scene.g", "all.r", NULL };
+	    int av4_argc = 5;
+	    get_args(av4_argc, av4);
+	    g_total_tests++;
+	    if (bu_optind != 3) {
+		bu_log("FAIL [bu_optind --size 128 scene.g]: expected 3, got %d\n", bu_optind);
+		g_failed_tests++;
+	    }
 	}
     }
 }
@@ -1423,6 +1439,9 @@ test_multiple_opts(void)
     extern fastf_t azimuth, elevation;
     extern int benchmark;
     extern int top_down;
+
+    if (g_short_only)
+	return;
 
     reset_globals();
     {
@@ -1531,8 +1550,31 @@ main(int argc, char *argv[])
 
     bu_setprogname(argv[0]);
 
-    if (argc > 1)
-	filter = argv[1];  /* run only the named test */
+    for (i = 1; i < argc; i++) {
+	if (BU_STR_EQUAL(argv[i], "--short-only")) {
+	    g_short_only = 1;
+	    continue;
+	}
+	if (BU_STR_EQUAL(argv[i], "-h") || BU_STR_EQUAL(argv[i], "--help")) {
+	    int j;
+	    bu_log("Usage: %s [--short-only] [test_name]\n", argv[0]);
+	    bu_log("  --short-only   run only short-option checks (skip long-option invocations)\n");
+	    bu_log("  test_name      run only one named test from the list below\n");
+	    bu_log("Available tests:\n");
+	    for (j = 0; all_tests[j].name; j++)
+		bu_log("  %s\n", all_tests[j].name);
+	    return 0;
+	}
+	if (!filter) {
+	    filter = argv[i];
+	    continue;
+	}
+	bu_log("ERROR: too many arguments\n");
+	return 1;
+    }
+
+    if (g_short_only)
+	bu_log("Mode: short-only\n");
 
     for (i = 0; all_tests[i].name != NULL; i++) {
 	if (filter && !BU_STR_EQUAL(all_tests[i].name, filter))

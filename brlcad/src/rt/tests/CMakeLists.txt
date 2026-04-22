@@ -69,12 +69,14 @@ set(
 foreach(tname ${RT_OPT_TESTS})
   brlcad_add_test(NAME rt_opt_${tname} COMMAND test_rt_opt ${tname})
 endforeach(tname)
+brlcad_add_test(NAME rt_opt_short_only COMMAND test_rt_opt --short-only)
 
 # Housekeeping
 cmakefiles(
   CMakeLists.txt
   test_rt_opt.c
   run_rt_opt_lcov.sh
+  run_rt_opt_short_compare.sh
 )
 
 # Local Variables:
