@@ -286,7 +286,7 @@ bot_exterior_ray_worker(int cpu, void *ptr)
 {
     struct exterior_ray_worker_state *state =
 	&(((struct exterior_ray_worker_state *)ptr)[cpu]);
-    struct exterior_face_work work = {0, 0};
+    struct exterior_face_work work;
     while (state->face_queue->try_dequeue(work)) {
 	for (size_t face_idx = work.start; face_idx < work.end; face_idx++) {
 	    if (exterior_face(&state->app, state->bot, (int)face_idx)) {
@@ -336,6 +336,7 @@ bot_exterior_classify_ray(struct application *app,
 	    end = bot->num_faces;
 	struct exterior_face_work work = {start, end};
 	if (!face_queue.enqueue(work)) {
+	    bu_log("bot exterior: failed to enqueue face work item\n");
 	    bu_free(mask, "face_exterior");
 	    return -1;
 	}
