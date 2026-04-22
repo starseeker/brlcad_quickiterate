@@ -62,7 +62,7 @@
 #include "ged.h"
 
 #include "./ged_bot.h"
-#include <concurrentqueue.h>
+#include "concurrentqueue.h"
 
 
 /* Flood-fill classifier lives in bot_flood_exterior.cpp and is only
@@ -85,6 +85,8 @@ extern "C" int bot_flood_exterior_classify(struct rt_i *rtip,
  * relative to model scale.
  */
 #define EXTERIOR_RAY_OFFSET_FACTOR 10.0
+/* Work chunk size for dynamic scheduling: small enough for load balancing,
+ * large enough to avoid excessive queue overhead. */
 #define EXTERIOR_FACE_CHUNK 64
 
 
@@ -327,16 +329,17 @@ bot_exterior_classify_ray(struct application *app,
     if (ncpus > bot->num_faces)
 	ncpus = bot->num_faces;
 
-    size_t nwork = (bot->num_faces + EXTERIOR_FACE_CHUNK - 1) / EXTERIOR_FACE_CHUNK;
-    moodycamel::ConcurrentQueue<struct exterior_face_work> face_queue(nwork);
-    for (size_t i = 0; i < nwork; i++) {
+    size_t num_chunks = (bot->num_faces + EXTERIOR_FACE_CHUNK - 1) / EXTERIOR_FACE_CHUNK;
+    moodycamel::ConcurrentQueue<struct exterior_face_work> face_queue(num_chunks);
+    for (size_t i = 0; i < num_chunks; i++) {
 	size_t start = i * EXTERIOR_FACE_CHUNK;
 	size_t end = start + EXTERIOR_FACE_CHUNK;
 	if (end > bot->num_faces)
 	    end = bot->num_faces;
 	struct exterior_face_work work = {start, end};
 	if (!face_queue.enqueue(work)) {
-	    bu_log("bot exterior: failed to enqueue face work item\n");
+	    bu_log("bot exterior: failed to enqueue work chunk %zu/%zu\n",
+		   i, num_chunks);
 	    bu_free(mask, "face_exterior");
 	    return -1;
 	}
