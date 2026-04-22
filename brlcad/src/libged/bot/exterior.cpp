@@ -77,6 +77,94 @@
 #include "concurrentqueue.h"
 
 
+/* ======================================================================
+ * Focused per-triangle sampling helpers
+ *
+ * After the global Cauchy-Crofton pass converges, some triangles may
+ * still be unclassified because the global random rays did not happen
+ * to sample them.  For each such triangle we perform a second, focused
+ * pass:
+ *
+ *  1. Compute the triangle's bounding sphere (centroid + circumradius,
+ *     bumped out by 10 % or at least 10×BN_TOL_DIST).
+ *  2. Generate chord rays whose endpoints are random points on that
+ *     small sphere.  Each chord ray's origin is backed up to just
+ *     outside the model bounding box so that the ray enters the model
+ *     from the outside — identical to the backing-up logic in
+ *     exterior_face_probe().
+ *  3. If the target triangle appears as the first or last surface hit
+ *     on any of these rays it is immediately marked exterior and we
+ *     move on to the next unclassified triangle (early exit).
+ *     Any other previously-unclassified faces discovered as first/last
+ *     hits are also opportunistically marked exterior.
+ *  4. If no positive result is obtained, the local SA estimate (for
+ *     the small sphere) is tracked; once it converges (< 1 % change
+ *     over three successive iterations) the triangle is left as
+ *     interior.  A hard cap of MAX_FOCUSED_ITERS iterations prevents
+ *     runaway loops on degenerate geometry.
+ * ====================================================================== */
+
+/* Per-application context for focused ray pass */
+struct ext_focused_ctx {
+    int    target_face;  /* face we are testing */
+    int    num_faces;    /* total face count */
+    int   *mask;         /* global exterior mask — updated on any exterior hit */
+    int    found;        /* set to 1 when target_face confirmed exterior */
+    /* Local SA convergence accumulators */
+    size_t crossings;
+    size_t rays;
+};
+
+
+static int
+ext_focused_hit(struct application *ap, struct partition *PartHeadp,
+		struct seg *UNUSED(segs))
+{
+    struct ext_focused_ctx *ctx = (struct ext_focused_ctx *)ap->a_uptr;
+
+    int first_face = -1, last_face = -1;
+    size_t crossings = 0;
+    double chord = 0.0;
+
+    for (struct partition *pp = PartHeadp->pt_forw;
+	 pp != PartHeadp;
+	 pp = pp->pt_forw) {
+	crossings += 2;
+	chord += pp->pt_outhit->hit_dist - pp->pt_inhit->hit_dist;
+
+	int isf = pp->pt_inhit->hit_surfno;
+	int osf = pp->pt_outhit->hit_surfno;
+
+	if (first_face < 0 && isf >= 0 && isf < ctx->num_faces)
+	    first_face = isf;
+	if (osf >= 0 && osf < ctx->num_faces)
+	    last_face = osf;
+    }
+
+    /* Opportunistically mark any exterior faces we encounter. */
+    if (first_face >= 0)
+	ctx->mask[first_face] = 1;
+    if (last_face >= 0)
+	ctx->mask[last_face] = 1;
+
+    if (first_face == ctx->target_face || last_face == ctx->target_face)
+	ctx->found = 1;
+
+    ctx->crossings += crossings;
+    ctx->rays      += 1;
+
+    return 1;
+}
+
+static int
+ext_focused_miss(struct application *ap)
+{
+    struct ext_focused_ctx *ctx = (struct ext_focused_ctx *)ap->a_uptr;
+    ctx->rays += 1;
+    return 0;
+}
+
+
 /* Flood-fill classifier lives in bot_flood_exterior.cpp and is only
  * compiled when OpenVDB is available. */
 #ifdef HAVE_OPENVDB_BOT_EXTERIOR
@@ -992,93 +1080,6 @@ cleanup:
     if (mask)
 	bu_free(mask, "face_exterior");
     return ret;
-}
-
-
-/* ======================================================================
- * Focused per-triangle sampling helpers
- *
- * After the global Cauchy-Crofton pass converges, some triangles may
- * still be unclassified because the global random rays did not happen
- * to sample them.  For each such triangle we perform a second, focused
- * pass:
- *
- *  1. Compute the triangle's bounding sphere (centroid + circumradius,
- *     bumped out by 10 % or at least 10×BN_TOL_DIST).
- *  2. Generate chord rays whose endpoints are random points on that
- *     small sphere.  Each chord ray's origin is backed up to just
- *     outside the model bounding box so that the ray enters the model
- *     from the outside — identical to the backing-up logic in
- *     exterior_face_probe().
- *  3. If the target triangle appears as the first or last surface hit
- *     on any of these rays it is immediately marked exterior and we
- *     move on to the next unclassified triangle (early exit).
- *     Any other previously-unclassified faces discovered as first/last
- *     hits are also opportunistically marked exterior.
- *  4. If no positive result is obtained, the local SA estimate (for
- *     the small sphere) is tracked; once it converges (< 1 % change
- *     over three successive iterations) the triangle is left as
- *     interior.  A hard cap of MAX_FOCUSED_ITERS iterations prevents
- *     runaway loops on degenerate geometry.
- * ====================================================================== */
-
-/* Per-application context for focused ray pass */
-struct ext_focused_ctx {
-    int    target_face;  /* face we are testing */
-    int    num_faces;    /* total face count */
-    int   *mask;         /* global exterior mask — updated on any exterior hit */
-    int    found;        /* set to 1 when target_face confirmed exterior */
-    /* Local SA convergence accumulators */
-    size_t crossings;
-    size_t rays;
-};
-
-static int
-ext_focused_hit(struct application *ap, struct partition *PartHeadp,
-		struct seg *UNUSED(segs))
-{
-    struct ext_focused_ctx *ctx = (struct ext_focused_ctx *)ap->a_uptr;
-
-    int first_face = -1, last_face = -1;
-    size_t crossings = 0;
-    double chord = 0.0;
-
-    for (struct partition *pp = PartHeadp->pt_forw;
-	 pp != PartHeadp;
-	 pp = pp->pt_forw) {
-	crossings += 2;
-	chord += pp->pt_outhit->hit_dist - pp->pt_inhit->hit_dist;
-
-	int isf = pp->pt_inhit->hit_surfno;
-	int osf = pp->pt_outhit->hit_surfno;
-
-	if (first_face < 0 && isf >= 0 && isf < ctx->num_faces)
-	    first_face = isf;
-	if (osf >= 0 && osf < ctx->num_faces)
-	    last_face = osf;
-    }
-
-    /* Opportunistically mark any exterior faces we encounter. */
-    if (first_face >= 0)
-	ctx->mask[first_face] = 1;
-    if (last_face >= 0)
-	ctx->mask[last_face] = 1;
-
-    if (first_face == ctx->target_face || last_face == ctx->target_face)
-	ctx->found = 1;
-
-    ctx->crossings += crossings;
-    ctx->rays      += 1;
-
-    return 1;
-}
-
-static int
-ext_focused_miss(struct application *ap)
-{
-    struct ext_focused_ctx *ctx = (struct ext_focused_ctx *)ap->a_uptr;
-    ctx->rays += 1;
-    return 0;
 }
 
 
