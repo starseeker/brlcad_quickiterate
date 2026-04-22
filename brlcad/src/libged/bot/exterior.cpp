@@ -328,7 +328,8 @@ ext_focused2_worker(struct ext_focused2_worker_data *wd)
 			fdir[X] = sp * cos(theta);
 			fdir[Y] = sp * sin(theta);
 			fdir[Z] = cos(phi);
-			VUNITIZE(fdir);
+			/* fdir is already unit length by construction from
+			 * spherical coordinates; no VUNITIZE needed. */
 
 			/* Back the origin up to just outside the model bounding
 			 * box so rt_shootray traverses the complete model.
@@ -1077,13 +1078,23 @@ bot_exterior_classify_crofton(struct rt_i *rtip,
 	    if (ncpus2 > (size_t)MAX_PSW) ncpus2 = (size_t)MAX_PSW;
 
 	    std::vector<struct ext_focused2_worker_data> wdata(ncpus2);
+	    /* Seed each worker independently using a hash of the worker index
+	     * mixed with a nanosecond timestamp to avoid correlated streams. */
+	    uint64_t ts = (uint64_t)std::chrono::duration_cast<
+		std::chrono::nanoseconds>(
+		    std::chrono::steady_clock::now().time_since_epoch()).count();
 	    for (size_t i = 0; i < ncpus2; i++) {
+		/* FNV-1a-style mix: rotate timestamp and XOR worker index */
+		uint64_t h = ts ^ ((uint64_t)(i + 1) * 6364136223846793005ULL);
+		h = (h ^ (h >> 33)) * 0xff51afd7ed558ccdULL;
+		h = (h ^ (h >> 33)) * 0xc4ceb9fe1a85ec53ULL;
+		h ^= (h >> 33);
 		wdata[i].rtip               = rtip;
 		wdata[i].bot                = bot;
 		wdata[i].mask               = mask;
 		wdata[i].face_queue         = &face_queue;
 		wdata[i].per_face_budget_sec = per_face_budget;
-		wdata[i].rand_seed          = (uint32_t)(i * 2654435769u + 1);
+		wdata[i].rand_seed          = (uint32_t)h;
 		wdata[i].resource           = &resources[i];
 		wdata[i].progress           = &prog;
 		wdata[i].n_classified       = 0;
