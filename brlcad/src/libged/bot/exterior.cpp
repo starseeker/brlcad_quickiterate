@@ -62,7 +62,7 @@
 #include "ged.h"
 
 #include "./ged_bot.h"
-#include "concurrentqueue.h"
+#include <concurrentqueue.h>
 
 
 /* Flood-fill classifier lives in bot_flood_exterior.cpp and is only
@@ -85,6 +85,7 @@ extern "C" int bot_flood_exterior_classify(struct rt_i *rtip,
  * relative to model scale.
  */
 #define EXTERIOR_RAY_OFFSET_FACTOR 10.0
+#define EXTERIOR_FACE_CHUNK 64
 
 
 static int
@@ -265,13 +266,18 @@ exterior_face(struct application *app, struct rt_bot_internal *bot, int face)
     return (ext_votes > int_votes) ? 1 : 0;
 }
 
+struct exterior_face_work {
+    size_t start;
+    size_t end;
+};
+
 struct exterior_ray_worker_state {
     struct application app;
     struct exterior_ctx ectx;
     struct resource resource;
     struct rt_bot_internal *bot;
     int *mask;
-    moodycamel::ConcurrentQueue<size_t> *face_queue;
+    moodycamel::ConcurrentQueue<struct exterior_face_work> *face_queue;
     int n_ext;
 };
 
@@ -280,11 +286,13 @@ bot_exterior_ray_worker(int cpu, void *ptr)
 {
     struct exterior_ray_worker_state *state =
 	&(((struct exterior_ray_worker_state *)ptr)[cpu]);
-    size_t i = 0;
-    while (state->face_queue->try_dequeue(i)) {
-	if (exterior_face(&state->app, state->bot, (int)i)) {
-	    state->mask[i] = 1;
-	    state->n_ext++;
+    struct exterior_face_work work = {0, 0};
+    while (state->face_queue->try_dequeue(work)) {
+	for (size_t face_idx = work.start; face_idx < work.end; face_idx++) {
+	    if (exterior_face(&state->app, state->bot, (int)face_idx)) {
+		state->mask[face_idx] = 1;
+		state->n_ext++;
+	    }
 	}
     }
 }
@@ -319,9 +327,18 @@ bot_exterior_classify_ray(struct application *app,
     if (ncpus > bot->num_faces)
 	ncpus = bot->num_faces;
 
-    moodycamel::ConcurrentQueue<size_t> face_queue(bot->num_faces);
-    for (size_t i = 0; i < bot->num_faces; i++) {
-	face_queue.enqueue(i);
+    size_t nwork = (bot->num_faces + EXTERIOR_FACE_CHUNK - 1) / EXTERIOR_FACE_CHUNK;
+    moodycamel::ConcurrentQueue<struct exterior_face_work> face_queue(nwork);
+    for (size_t i = 0; i < nwork; i++) {
+	size_t start = i * EXTERIOR_FACE_CHUNK;
+	size_t end = start + EXTERIOR_FACE_CHUNK;
+	if (end > bot->num_faces)
+	    end = bot->num_faces;
+	struct exterior_face_work work = {start, end};
+	if (!face_queue.enqueue(work)) {
+	    bu_free(mask, "face_exterior");
+	    return -1;
+	}
     }
 
     struct exterior_ray_worker_state *state =
