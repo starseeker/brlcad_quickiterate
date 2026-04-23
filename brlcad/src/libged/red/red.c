@@ -541,7 +541,7 @@ build_comb(struct ged *gedp, struct directory *dp, struct bu_vls *target_name)
     }
 
     if (tree_index)
-	tp = (union tree *)db_mkgift_tree(rt_tree_array, node_count, &rt_uniresource);
+	tp = (union tree *)db_mkgift_tree(rt_tree_array, node_count);
     else
 	tp = (union tree *)NULL;
 

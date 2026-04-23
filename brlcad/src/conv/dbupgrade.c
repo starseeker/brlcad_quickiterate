@@ -221,7 +221,7 @@ main(int argc, char **argv)
 	}
 	if (id == ID_POLY)
 	{
-	    if (rt_pg_to_bot(&intern, &tol, &rt_uniresource))
+	    if (rt_pg_to_bot(&intern, &tol))
 	    {
 		fprintf(stderr, "%s: Conversion from polysolid to BOT failed for solid %s\n",
 			argv[0], dp->d_namep);

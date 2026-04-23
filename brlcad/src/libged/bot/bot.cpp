@@ -1012,7 +1012,7 @@ bot_output(struct bu_tbl *table, struct db_i *dbip, struct directory *dp)
     RT_CK_RESOURCE(&rt_uniresource);
     if (db_get_external(&ext, dp, dbip) < 0)
 	return;
-    if (rt_db_external5_to_internal5(&intern, &ext, dp->d_namep, dbip, NULL) < 0) {
+    if (rt_db_external5_to_internal5(&intern, &ext, dp->d_namep, dbip) < 0) {
 	bu_free_external(&ext);
 	return;
     }

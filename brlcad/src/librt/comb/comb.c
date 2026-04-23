@@ -300,7 +300,6 @@ rt_comb_export5(
     /* check inputs */
     RT_CK_DB_INTERNAL(ip);
     if (dbip) RT_CK_DBI(dbip);
-    if (resp) RT_CK_RESOURCE(resp);
 
     /* validate it's a comb */
     if (ip->idb_type != ID_COMBINATION) bu_bomb("rt_comb_export5() type not ID_COMBINATION");
@@ -566,7 +565,6 @@ rt_comb_import5(struct rt_db_internal *ip, const struct bu_external *ep,
     RT_CK_DB_INTERNAL(ip);
     BU_CK_EXTERNAL(ep);
     RT_CK_DBI(dbip);
-    RT_CK_RESOURCE(resp);
 
     ip->idb_major_type = DB5_MAJORTYPE_BRLCAD;
     ip->idb_type = ID_COMBINATION;

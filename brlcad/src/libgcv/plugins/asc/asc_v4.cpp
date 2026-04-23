@@ -1135,7 +1135,7 @@ polyhbld(struct ascv4_rstate *s)
     tol.perp = 1e-6;
     tol.para = 1 - tol.perp;
 
-    if (rt_pg_to_bot(&intern, &tol, &rt_uniresource) < 0)
+    if (rt_pg_to_bot(&intern, &tol) < 0)
 	bu_exit(1, "Failed to convert [%s] polysolid object to triangle mesh\n", name);
     /* The polysolid is freed by the converter */
 

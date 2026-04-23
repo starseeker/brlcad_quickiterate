@@ -482,7 +482,7 @@ Combination::write()
 	ptree->tr_l.tl_name = bu_strdup(it->m_dir->d_namep);
     }
 
-    comb.tree = db_mkgift_tree(nodes.ptr, m_members.size(), &rt_uniresource);
+    comb.tree = db_mkgift_tree(nodes.ptr, m_members.size());
 
     if (!comb.tree)
 	bu_bomb("db_mkgift_tree() failed");

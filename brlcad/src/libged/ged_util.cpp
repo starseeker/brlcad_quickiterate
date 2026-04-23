@@ -2304,7 +2304,7 @@ addmembers:
     }
 
     /* rebuild the tree */
-    comb->tree = (union tree *)db_mkgift_tree(tree_list, node_count, &rt_uniresource);
+    comb->tree = (union tree *)db_mkgift_tree(tree_list, node_count);
 
     /* and finally, write it out */
     GED_DB_PUT_INTERNAL(gedp, dp, &intern, &rt_uniresource, 0);

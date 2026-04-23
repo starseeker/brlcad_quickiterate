@@ -67,14 +67,12 @@ RT_EXPORT extern int rt_shader_to_key_eq(const char *in, struct bu_vls *vls);
 RT_EXPORT extern int rt_comb_import4(struct rt_db_internal      *ip,
 				     const struct bu_external   *ep,
 				     const mat_t                matrix,         /* NULL if identity */
-				     const struct db_i          *dbip,
-				     struct resource            *resp);
+				     const struct db_i          *dbip);
 
 RT_EXPORT extern int rt_comb_export4(struct bu_external                 *ep,
 				     const struct rt_db_internal        *ip,
 				     double                             local2mm,
-				     const struct db_i                  *dbip,
-				     struct resource                    *resp);
+				     const struct db_i                  *dbip);
 
 
 RT_EXPORT extern void db_comb_describe(struct bu_vls    *str,

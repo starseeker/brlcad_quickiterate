@@ -214,7 +214,7 @@ comb_unflatten(struct rt_comb_internal *comb,
     }
 
     /* db_mkbool_tree consumes arr entries (sets their tl_tree to TREE_NULL) */
-    comb->tree = db_mkbool_tree(arr, count, &rt_uniresource);
+    comb->tree = db_mkbool_tree(arr, count);
 }
 
 /* ------------------------------------------------------------------ */

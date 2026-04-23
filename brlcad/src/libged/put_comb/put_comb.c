@@ -50,7 +50,7 @@ make_tree(struct ged *gedp, struct rt_comb_internal *comb, struct directory *dp,
     union tree *final_tree;
 
     if (tree_index)
-	final_tree = (union tree *)db_mkgift_tree(rt_tree_array, node_count, &rt_uniresource);
+	final_tree = (union tree *)db_mkgift_tree(rt_tree_array, node_count);
     else
 	final_tree = (union tree *)NULL;
 

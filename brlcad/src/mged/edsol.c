@@ -1124,13 +1124,13 @@ replot_editing_solid(struct mged_state *s)
 
 void
 transform_editing_solid(
-    struct mged_state *s,
+    struct mged_state *UNUSED(s),
     struct rt_db_internal *os,		/* output solid */
     const mat_t mat,
     struct rt_db_internal *is,		/* input solid */
     int freeflag)
 {
-    if (rt_matrix_transform(os, mat, is, freeflag, s->dbip) < 0)
+    if (rt_matrix_transform(os, mat, is, freeflag) < 0)
 	bu_exit(EXIT_FAILURE, "transform_editing_solid failed to apply a matrix transform, aborting");
 }
 
