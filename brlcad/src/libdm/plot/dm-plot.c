@@ -873,7 +873,8 @@ struct dm_impl dm_plot_impl = {
     FB_NULL,
     NULL,			/* Tcl interpreter */
     NULL,                       /* Drawing context */
-    NULL                        /* App data */
+    NULL,                       /* App data */
+    NULL                        /* dlist sensors (Phase 2-C) */
 };
 
 struct dm dm_plot = { DM_MAGIC, &dm_plot_impl, 0 };

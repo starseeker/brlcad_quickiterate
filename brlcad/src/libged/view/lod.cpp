@@ -104,6 +104,9 @@ _view_cmd_lod(void *bs, int argc, const char **argv)
 	if (!gvp->gv_s->adaptive_plot_mesh || !gvp->gv_s->adaptive_plot_csg) {
 	    gvp->gv_s->adaptive_plot_csg = 1;
 	    gvp->gv_s->adaptive_plot_mesh = 1;
+	    /* Phase 2-B: ensure zoom triggers a full redraw so BViewState::redraw()
+	     * can update LoD levels whenever the view scale changes. */
+	    gvp->gv_s->redraw_on_zoom = 1;
 	    int rac = 1;
 	    const char *rav[1] = {"redraw"};
 	    ged_exec_redraw(gedp, rac, (const char **)rav);
@@ -114,6 +117,7 @@ _view_cmd_lod(void *bs, int argc, const char **argv)
 	if (gvp->gv_s->adaptive_plot_mesh || gvp->gv_s->adaptive_plot_csg) {
 	    gvp->gv_s->adaptive_plot_csg = 0;
 	    gvp->gv_s->adaptive_plot_mesh = 0;
+	    gvp->gv_s->redraw_on_zoom = 0;
 	    int rac = 1;
 	    const char *rav[1] = {"redraw"};
 	    ged_exec_redraw(gedp, rac, (const char **)rav);
@@ -129,6 +133,7 @@ _view_cmd_lod(void *bs, int argc, const char **argv)
 	if (BU_STR_EQUAL(argv[1], "1")) {
 	    if (!gvp->gv_s->adaptive_plot_csg) {
 		gvp->gv_s->adaptive_plot_csg = 1;
+		gvp->gv_s->redraw_on_zoom = 1;
 		int rac = 1;
 		const char *rav[1] = {"redraw"};
 		ged_exec_redraw(gedp, rac, (const char **)rav);
@@ -138,6 +143,8 @@ _view_cmd_lod(void *bs, int argc, const char **argv)
 	if (BU_STR_EQUAL(argv[1], "0")) {
 	    if (gvp->gv_s->adaptive_plot_csg) {
 		gvp->gv_s->adaptive_plot_csg = 0;
+		if (!gvp->gv_s->adaptive_plot_mesh)
+		    gvp->gv_s->redraw_on_zoom = 0;
 		int rac = 1;
 		const char *rav[1] = {"redraw"};
 		ged_exec_redraw(gedp, rac, (const char **)rav);
@@ -156,6 +163,7 @@ _view_cmd_lod(void *bs, int argc, const char **argv)
 	if (BU_STR_EQUAL(argv[1], "1")) {
 	    if (!gvp->gv_s->adaptive_plot_mesh) {
 		gvp->gv_s->adaptive_plot_mesh = 1;
+		gvp->gv_s->redraw_on_zoom = 1;
 		int rac = 1;
 		const char *rav[1] = {"redraw"};
 		ged_exec_redraw(gedp, rac, (const char **)rav);
@@ -165,6 +173,8 @@ _view_cmd_lod(void *bs, int argc, const char **argv)
 	if (BU_STR_EQUAL(argv[1], "0")) {
 	    if (gvp->gv_s->adaptive_plot_mesh) {
 		gvp->gv_s->adaptive_plot_mesh = 0;
+		if (!gvp->gv_s->adaptive_plot_csg)
+		    gvp->gv_s->redraw_on_zoom = 0;
 		int rac = 1;
 		const char *rav[1] = {"redraw"};
 		ged_exec_redraw(gedp, rac, (const char **)rav);

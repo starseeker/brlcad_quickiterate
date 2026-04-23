@@ -56,65 +56,67 @@ int CADkeyPressEvent(struct bview *v, int UNUSED(x_prev), int UNUSED(y_prev), QK
 	case 'V':
 	    v->gv_s->gv_view_axes.draw = !v->gv_s->gv_view_axes.draw;
 	    return 1;
-	case '2':
-	    bn_decode_vect(v->gv_aet, "35 -25 0");
-	    bv_mat_aet(v);
+	case '2': {
+	    vect_t aet_vec; bn_decode_vect(aet_vec, "35 -25 0"); bv_view_set_aet(v, aet_vec);
 	    bv_update(v);
 	    return 1;
-	case '3':
-	    bn_decode_vect(v->gv_aet, "35 25 0");
-	    bv_mat_aet(v);
+	}
+	case '3': {
+	    vect_t aet_vec; bn_decode_vect(aet_vec, "35 25 0"); bv_view_set_aet(v, aet_vec);
 	    bv_update(v);
 	    return 1;
-	case '4':
-	    bn_decode_vect(v->gv_aet, "45 45 0");
-	    bv_mat_aet(v);
+	}
+	case '4': {
+	    vect_t aet_vec; bn_decode_vect(aet_vec, "45 45 0"); bv_view_set_aet(v, aet_vec);
 	    bv_update(v);
 	    return 1;
-	case '5':
-	    bn_decode_vect(v->gv_aet, "145 25 0");
-	    bv_mat_aet(v);
+	}
+	case '5': {
+	    vect_t aet_vec; bn_decode_vect(aet_vec, "145 25 0"); bv_view_set_aet(v, aet_vec);
 	    bv_update(v);
 	    return 1;
-	case '6':
-	    bn_decode_vect(v->gv_aet, "215 25 0");
-	    bv_mat_aet(v);
+	}
+	case '6': {
+	    vect_t aet_vec; bn_decode_vect(aet_vec, "215 25 0"); bv_view_set_aet(v, aet_vec);
 	    bv_update(v);
 	    return 1;
-	case '7':
-	    bn_decode_vect(v->gv_aet, "325 25 0");
-	    bv_mat_aet(v);
+	}
+	case '7': {
+	    vect_t aet_vec; bn_decode_vect(aet_vec, "325 25 0"); bv_view_set_aet(v, aet_vec);
 	    bv_update(v);
 	    return 1;
-	case 'F':
-	    bn_decode_vect(v->gv_aet, "0 0 0");
-	    bv_mat_aet(v);
+	}
+	case 'F': {
+	    vect_t aet_vec; bn_decode_vect(aet_vec, "0 0 0"); bv_view_set_aet(v, aet_vec);
 	    bv_update(v);
 	    return 1;
-	case 'T':
-	    bn_decode_vect(v->gv_aet, "270 90 0");
-	    bv_mat_aet(v);
+	}
+	case 'T': {
+	    vect_t aet_vec; bn_decode_vect(aet_vec, "270 90 0"); bv_view_set_aet(v, aet_vec);
 	    bv_update(v);
 	    return 1;
-	case 'B':
-	    bn_decode_vect(v->gv_aet, "270 -90 0");
-	    bv_mat_aet(v);
+	}
+	case 'B': {
+	    vect_t aet_vec; bn_decode_vect(aet_vec, "270 -90 0"); bv_view_set_aet(v, aet_vec);
 	    bv_update(v);
 	    return 1;
-	case 'L':
-	    bn_decode_vect(v->gv_aet, "90 0 0");
-	    bv_mat_aet(v);
+	}
+	case 'L': {
+	    vect_t aet_vec; bn_decode_vect(aet_vec, "90 0 0"); bv_view_set_aet(v, aet_vec);
 	    bv_update(v);
 	    return 1;
-	case 'R':
+	}
+	case 'R': {
+	    vect_t aet_vec;
 	    if (k->modifiers().testFlag(Qt::ShiftModifier) == true) {
-		bn_decode_vect(v->gv_aet, "180 0 0");
+		bn_decode_vect(aet_vec, "180 0 0");
 	    } else {
-		bn_decode_vect(v->gv_aet, "270 0 0");
+		bn_decode_vect(aet_vec, "270 0 0");
 	    }
-	    bv_mat_aet(v);
+	    bv_view_set_aet(v, aet_vec);
 	    bv_update(v);
 	    return 1;
+	}
 	default:
 	    break;
     }
