@@ -40,6 +40,7 @@
 
 #include "common.h"
 #include "vmath.h"
+#include "bu/cache.h"
 #include "bu/vls.h"
 
 #ifdef __cplusplus
@@ -275,8 +276,6 @@ class GED_EXPORT BViewState {
 #define GED_DBISTATE_DB_CHANGE   0x01
 #define GED_DBISTATE_VIEW_CHANGE 0x02
 
-struct ged_draw_cache;
-
 class GED_EXPORT DbiState {
     public:
 	DbiState(struct ged *);
@@ -417,7 +416,7 @@ class GED_EXPORT DbiState {
 	unsigned int color_int(struct bu_color *);
 	int int_color(struct bu_color *c, unsigned int);
 	struct resource *res = NULL;
-	struct ged_draw_cache *dcache = NULL;
+	struct bu_cache *dcache = NULL;
 	struct bu_vls hash_string = BU_VLS_INIT_ZERO;
 	struct bu_vls path_string = BU_VLS_INIT_ZERO;
 };
