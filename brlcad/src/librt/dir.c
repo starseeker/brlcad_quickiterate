@@ -112,7 +112,8 @@ int
 rt_db_get_internal(
     struct rt_db_internal *ip,
     const struct directory *dp,
-    const struct db_i *dbip)
+    const struct db_i *dbip,
+    const mat_t mat)
 {
     struct bu_external ext;
     int id;
@@ -143,7 +144,7 @@ rt_db_get_internal(
 	ret = OBJ[id].ft_import4(ip, &ext, mat, dbip);
     }
     if (ret < 0) {
-	bu_log("rt_db_get_internal(%s):  import failure\n");
+	bu_log("rt_db_get_internal(%s):  import failure\n", dp->d_namep);
 	rt_db_free_internal(ip);
 	bu_free_external(&ext);
 	return -1;		/* FAIL */
@@ -170,7 +171,8 @@ rt_db_get_internal(
 int
 rt_db_put_internal(
     struct directory *dp,
-    struct db_i *dbip)
+    struct db_i *dbip,
+    struct rt_db_internal *ip)
 {
     struct bu_external ext;
     int ret;
@@ -189,7 +191,7 @@ rt_db_put_internal(
 	ret = ip->idb_meth->ft_export4(&ext, ip, 1.0, dbip);
     }
     if (ret < 0) {
-	bu_log("rt_db_put_internal(%s):  solid export failure\n");
+	bu_log("rt_db_put_internal(%s):  solid export failure\n", dp->d_namep);
 	rt_db_free_internal(ip);
 	bu_free_external(&ext);
 	return -2;		/* FAIL */
@@ -226,7 +228,7 @@ rt_fwrite_internal(
 	ret = ip->idb_meth->ft_export4(&ext, ip, conv2mm, NULL /*dbip*/);
     }
     if (ret < 0) {
-	bu_log("rt_file_put_internal(%s): solid export failure\n");
+	bu_log("rt_file_put_internal(%s): solid export failure\n", name);
 	bu_free_external(&ext);
 	return -2;				/* FAIL */
     }
@@ -274,7 +276,8 @@ rt_db_lookup_internal(
     struct db_i *dbip,
     const char *obj_name,
     struct directory **dpp,
-    struct rt_db_internal *ip)
+    struct rt_db_internal *ip,
+    int noisy)
 {
     struct directory *dp;
 
@@ -285,7 +288,7 @@ rt_db_lookup_internal(
     }
     if ((dp = db_lookup(dbip, obj_name, noisy)) == RT_DIR_NULL)
 	return ID_NULL;
-    if (rt_db_get_internal(ip, dp, dbip) < 0) {
+    if (rt_db_get_internal(ip, dp, dbip, NULL) < 0) {
 	if (noisy == LOOKUP_NOISY)
 	    bu_log("rt_db_lookup_internal() Failed to get internal form of object '%s'\n",
 		   dp->d_namep);

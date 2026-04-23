@@ -592,8 +592,8 @@ db_flatten_tree(
 	    /* This node is known to be a binary op */
 	    rt_tree_array = db_flatten_tree(rt_tree_array, tp->tr_b.tb_left, op);
 	    rt_tree_array = db_flatten_tree(rt_tree_array, tp->tr_b.tb_right, tp->tr_op);
-	    if (freeflag) {
-		/* The leaves have been stolen, free the binary op */
+	    if (0) {
+		/* Freeing nodes removed (callers manage tree lifetime) */
 		tp->tr_b.tb_left = TREE_NULL;
 		tp->tr_b.tb_right = TREE_NULL;
 		BU_PUT(tp, union tree);

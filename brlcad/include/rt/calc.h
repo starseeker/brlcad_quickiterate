@@ -170,8 +170,8 @@ RT_EXPORT extern int rt_shader_mat(mat_t                        model_to_shader,
 RT_EXPORT extern struct rt_db_internal *rt_mirror(struct db_i *dpip,
 						  struct rt_db_internal *ip,
 						  point_t mirror_pt,
-						  vect_t mirror_dir,
-						  struct resource *resp);
+						  vect_t mirror_dir);
+DEPRECATED static inline struct rt_db_internal *rt_mirror_old(struct db_i *dpip, struct rt_db_internal *ip, point_t mirror_pt, vect_t mirror_dir, struct resource *resp) { (void)resp; return rt_mirror(dpip, ip, mirror_pt, mirror_dir); }
 
 
 RT_EXPORT extern void rt_plot_all_bboxes(FILE *fp,

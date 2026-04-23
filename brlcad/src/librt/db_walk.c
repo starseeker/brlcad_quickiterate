@@ -128,7 +128,7 @@ db_preorder_traverse(struct directory *dp,
 	    struct rt_db_internal in;
 	    struct rt_comb_internal *comb;
 
-	    if (rt_db_get_internal5(&in, dp, dtp->dbip, NULL) < 0)
+	    if (rt_db_get_internal5(&in, dp, dtp->dbip) < 0)
 		return;
 
 	    comb = (struct rt_comb_internal *)in.idb_ptr;
@@ -160,7 +160,6 @@ db_functree_subtree(struct db_i *dbip,
 		    union tree *tp,
 		    void (*comb_func) (struct db_i *, struct directory *, void *),
 		    void (*leaf_func) (struct db_i *, struct directory *, void *),
-		    struct resource *resp,
 		    void *client_data)
 {
     struct directory *dp;
@@ -170,24 +169,21 @@ db_functree_subtree(struct db_i *dbip,
 
     RT_CHECK_DBI(dbip);
     RT_CK_TREE(tp);
-    if (resp) {
-	RT_CK_RESOURCE(resp);
-    }
 
     switch (tp->tr_op) {
 
 	case OP_DB_LEAF:
 	    if ((dp=db_lookup(dbip, tp->tr_l.tl_name, LOOKUP_NOISY)) == RT_DIR_NULL)
 		return;
-	    db_functree(dbip, dp, comb_func, leaf_func);
+	    db_functree(dbip, dp, comb_func, leaf_func, client_data);
 	    break;
 
 	case OP_UNION:
 	case OP_INTERSECT:
 	case OP_SUBTRACT:
 	case OP_XOR:
-	    db_functree_subtree(dbip, tp->tr_b.tb_left, comb_func, leaf_func, resp, client_data);
-	    db_functree_subtree(dbip, tp->tr_b.tb_right, comb_func, leaf_func, resp, client_data);
+	    db_functree_subtree(dbip, tp->tr_b.tb_left, comb_func, leaf_func, client_data);
+	    db_functree_subtree(dbip, tp->tr_b.tb_right, comb_func, leaf_func, client_data);
 	    break;
 	default:
 	    bu_log("db_functree_subtree: unrecognized operator %d\n", tp->tr_op);
@@ -205,9 +201,6 @@ db_functree(struct db_i *dbip,
     register size_t i;
 
     RT_CK_DBI(dbip);
-    if (resp) {
-	RT_CK_RESOURCE(resp);
-    }
 
     if ((!dp) || (!comb_func && !leaf_func)) {
 	return; /* nothing to do */
@@ -235,18 +228,18 @@ db_functree(struct db_i *dbip,
 	    for (i=1; i < dp->d_len; i++) {
 		if ((mdp = db_lookup(dbip, rp[i].M.m_instname, LOOKUP_NOISY)) == RT_DIR_NULL)
 		    continue;
-		db_functree(dbip, mdp, comb_func, leaf_func);
+		db_functree(dbip, mdp, comb_func, leaf_func, client_data);
 	    }
 	    bu_free((char *)rp, "db_functree record[]");
 	} else {
 	    struct rt_db_internal in;
 	    struct rt_comb_internal *comb;
 
-	    if (rt_db_get_internal5(&in, dp, dbip, NULL) < 0)
+	    if (rt_db_get_internal5(&in, dp, dbip) < 0)
 		return;
 
 	    comb = (struct rt_comb_internal *)in.idb_ptr;
-	    db_functree_subtree(dbip, comb->tree, comb_func, leaf_func, resp, client_data);
+	    db_functree_subtree(dbip, comb->tree, comb_func, leaf_func, client_data);
 	    rt_db_free_internal(&in);
 	}
 

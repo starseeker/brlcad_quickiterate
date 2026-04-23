@@ -182,8 +182,7 @@ ged_mirror_core(struct ged *gedp, int argc, const char *argv[])
     ip = rt_mirror(gedp->dbip,
 		   &internal,
 		   mirror_pt,
-		   mirror_dir,
-		   wdbp->wdb_resp);
+		   mirror_dir);
     if (ip == NULL) {
 	bu_vls_printf(gedp->ged_result_str, "Unable to mirror [%s]", argv[bu_optind]);
 	return BRLCAD_ERROR;
