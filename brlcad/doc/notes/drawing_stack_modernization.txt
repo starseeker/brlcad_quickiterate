@@ -346,7 +346,22 @@ Status: PLANNED (open-ended; strategy chosen when Phase 6 is complete)
 
 Two strategies:
   Backend-style: libbsg keeps its public API; implementations delegate to Obol.
+    Prefer this when API stability is paramount (many out-of-tree consumers
+    depend on the libbsg surface) or when Obol's public API is not yet stable
+    enough to expose directly.
   Adapter-style: Obol becomes the public scene API; libbsg shrinks to a shim.
+    Prefer this when Obol's API has stabilized, performance measurements show
+    the extra indirection through libbsg is material, and the remaining
+    out-of-tree consumers are few enough to migrate in one pass.
+
+Key decision factors when the time comes:
+  - Obol API stability: is the obol/ public surface frozen or still evolving?
+  - Callsite count: how many files outside of libbsg still call libbsg symbols?
+    (A large number favors the backend-style to avoid a flag-day migration.)
+  - Performance: does the backend-style double-dispatch introduce measurable
+    overhead on the draw-test benchmark set?
+  - Maintenance cost: adapter-style allows deleting libbsg entirely once
+    migration is complete, reducing long-term maintenance burden.
 
 == Cross-cutting concerns ==
 

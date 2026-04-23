@@ -596,7 +596,7 @@ DbiState::clear_cache(struct directory *dp)
 	k = dbi_cache_key(hash, CACHE_OBJ_BOUNDS);  bu_cache_clear(k.c_str(), dcache, NULL);
 	k = dbi_cache_key(hash, CACHE_REGION_ID);   bu_cache_clear(k.c_str(), dcache, NULL);
 	k = dbi_cache_key(hash, CACHE_REGION_FLAG); bu_cache_clear(k.c_str(), dcache, NULL);
-	k = dbi_cache_key(hash, CACHE_INHERIT_FLAG);bu_cache_clear(k.c_str(), dcache, NULL);
+	k = dbi_cache_key(hash, CACHE_INHERIT_FLAG); bu_cache_clear(k.c_str(), dcache, NULL);
 	k = dbi_cache_key(hash, CACHE_COLOR);       bu_cache_clear(k.c_str(), dcache, NULL);
     }
 
