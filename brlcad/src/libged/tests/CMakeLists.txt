@@ -35,6 +35,21 @@ if(TARGET ged_test_select)
   add_dependencies(ged_test_select ged_plugins)
 endif(TARGET ged_test_select)
 
+# Phase 0-C: DbiState unit test (drawing_stack_modernization.txt)
+# Tests DbiState construction, bu_cache round-trip, get_bbox,
+# BViewState::add_path / redraw / count_drawn_paths.
+# Uses moss.g from tests/draw/ as the known .g fixture.
+brlcad_addexec(ged_test_dbi_cpp test_dbi_cpp.cpp libged TEST)
+if(TARGET ged_test_dbi_cpp)
+  add_dependencies(ged_test_dbi_cpp ged_plugins)
+endif(TARGET ged_test_dbi_cpp)
+brlcad_add_test(NAME ged_test_dbi_cpp COMMAND ged_test_dbi_cpp "${CMAKE_CURRENT_SOURCE_DIR}/draw")
+if(TARGET ged_test_dbi_cpp)
+  set_property(TEST ged_test_dbi_cpp APPEND PROPERTY ENVIRONMENT BRLCAD_ROOT=${CMAKE_BINARY_DIR})
+endif(TARGET ged_test_dbi_cpp)
+distclean(${CMAKE_CURRENT_BINARY_DIR}/moss_dbi_tmp.g)
+distclean(${CMAKE_CURRENT_BINARY_DIR}/ged_dbi_cpp_test_cache)
+
 brlcad_addexec(ged_test_search test_search.c libged TEST)
 if(TARGET ged_test_search)
   add_dependencies(ged_test_search ged_plugins)
