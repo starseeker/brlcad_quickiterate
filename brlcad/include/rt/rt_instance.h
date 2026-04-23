@@ -119,6 +119,7 @@ struct rt_i {
     point_t             rti_pmax;       /**< @brief  for plotting, max RPP */
     double              rti_radius;     /**< @brief  radius of model bounding sphere */
     struct db_i *       rti_dbip;       /**< @brief  prt to Database instance struct */
+    struct rt_i_stats   stats;          /**< @brief  geometry counts and ray-shooting counters */
     /* THESE ITEMS SHOULD BE CONSIDERED OPAQUE, AND SUBJECT TO CHANGE */
     int                 needprep;       /**< @brief  needs rt_prep */
     struct region **    Regions;        /**< @brief  ptrs to regions [reg_bit] */
@@ -127,8 +128,6 @@ struct rt_i {
     union cutter        rti_CutHead;    /**< @brief  Head of cut tree */
     struct soltab **    rti_Solids;     /**< @brief  ptrs to soltab [st_bit] */
     struct bu_ptbl      rti_resources;  /**< @brief  list of 'struct resource's encountered */
-    /* Read-only statistics for applications; all writes are done by librt */
-    struct rt_i_stats   stats;          /**< @brief  geometry counts and ray-shooting counters */
     /* PRIVATE librt-internal state; see src/librt/librt_private.h */
     struct rt_i_internal *i;
 };
