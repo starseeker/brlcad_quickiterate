@@ -865,7 +865,8 @@ rt_db_external5_to_internal5(
     struct rt_db_internal *ip,
     const struct bu_external *ep,
     const char *name,
-    const struct db_i *dbip)
+    const struct db_i *dbip,
+    const mat_t mat)
 {
     register int id;
     struct db5_raw_internal raw;
@@ -883,8 +884,12 @@ rt_db_external5_to_internal5(
 	return -3;
     }
 
-    if ((raw.major_type != DB5_MAJORTYPE_BRLCAD)
-	&&(raw.major_type != DB5_MAJORTYPE_BINARY_UNIF)) {
+    if ((raw.major_type == DB5_MAJORTYPE_BRLCAD)
+	||(raw.major_type == DB5_MAJORTYPE_BINARY_UNIF)) {
+	/* As a convenience to older ft_import routines */
+	if (mat == NULL)
+	    mat = bn_mat_identity;
+    } else {
 	bu_log("rt_db_external5_to_internal5(%s):  unable to import non-BRL-CAD object, major=%d minor=%d\n",
 	       name, raw.major_type, raw.minor_type);
 	return -1;		/* FAIL */
@@ -935,9 +940,9 @@ rt_db_external5_to_internal5(
 	 * this isn't needed, but breaks compatibility.  slate for
 	 * v6.
 	 */
-	ret = rt_binunif_import5_minor_type(ip, &raw.body, bn_mat_identity, dbip, NULL, raw.minor_type);
+	ret = rt_binunif_import5_minor_type(ip, &raw.body, mat, dbip, NULL, raw.minor_type);
     } else if (OBJ[id].ft_import5) {
-	ret = OBJ[id].ft_import5(ip, &raw.body, bn_mat_identity, dbip);
+	ret = OBJ[id].ft_import5(ip, &raw.body, mat, dbip);
     }
     if (ret < 0) {
 	bu_log("rt_db_external5_to_internal5(%s):  import failure\n", name);
@@ -979,7 +984,7 @@ rt_db_get_internal5(
     if (db_get_external(&ext, dp, dbip) < 0)
 	return -2;		/* FAIL */
 
-    ret = rt_db_external5_to_internal5(ip, &ext, dp->d_namep, dbip);
+    ret = rt_db_external5_to_internal5(ip, &ext, dp->d_namep, dbip, NULL);
     bu_free_external(&ext);
     return ret;
 }
