@@ -668,7 +668,7 @@ rt_db_cvt_to_external5(
 	ret = ip->idb_meth->ft_export5(&body, ip, conv2mm, dbip);
     }
     if (ret < 0) {
-	bu_log("rt_db_cvt_to_external5(%s):  ft_export5 failure\n");
+	bu_log("rt_db_cvt_to_external5(%s):  ft_export5 failure\n", name);
 	bu_free_external(&body);
 	return -1;		/* FAIL */
     }
@@ -807,11 +807,8 @@ rt_db_put_internal5(
     RT_CK_DB_INTERNAL(ip);
     BU_ASSERT(dbip->i->dbi_version == 5);
 
-    if (resp)
-	RT_CK_RESOURCE(resp);
-
     BU_EXTERNAL_INIT(&ext);
-    if (rt_db_cvt_to_external5(&ext, dp->d_namep, ip, 1.0, dbip, major) < 0) {
+    if (rt_db_cvt_to_external5(&ext, dp->d_namep, ip, 1.0, dbip, NULL, major) < 0) {
 	bu_log("rt_db_put_internal5(%s):  export failure\n",
 	       dp->d_namep);
 	goto fail;
@@ -942,12 +939,12 @@ rt_db_external5_to_internal5(
 	 * this isn't needed, but breaks compatibility.  slate for
 	 * v6.
 	 */
-	ret = rt_binunif_import5_minor_type(ip, &raw.body, mat, dbip, raw.minor_type);
+	ret = rt_binunif_import5_minor_type(ip, &raw.body, mat, dbip, NULL, raw.minor_type);
     } else if (OBJ[id].ft_import5) {
 	ret = OBJ[id].ft_import5(ip, &raw.body, mat, dbip);
     }
     if (ret < 0) {
-	bu_log("rt_db_external5_to_internal5(%s):  import failure\n");
+	bu_log("rt_db_external5_to_internal5(%s):  import failure\n", name);
 	rt_db_free_internal(ip);
 	return -1;		/* FAIL */
     }

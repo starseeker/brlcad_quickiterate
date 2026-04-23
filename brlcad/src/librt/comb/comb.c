@@ -1284,7 +1284,7 @@ rt_comb_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, c
     if (facetize_tree) {
         if (!BU_SETJUMP) {
             /* try */
-            failed = nmg_boolean(facetize_tree, m, vlfree, tol, &rt_uniresource);
+            failed = nmg_boolean(facetize_tree, m, vlfree, tol);
         } else {
             /* catch */
             BU_UNSETJUMP;

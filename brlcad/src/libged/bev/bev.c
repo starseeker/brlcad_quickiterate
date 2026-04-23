@@ -245,7 +245,7 @@ ged_bev_core(struct ged *gedp, int argc, const char *argv[])
 	    return BRLCAD_ERROR;
 	}
 
-	failed = nmg_boolean(tmp_tree, bev_nmg_model, vlfree, &wdbp->wdb_tol, &rt_uniresource);
+	failed = nmg_boolean(tmp_tree, bev_nmg_model, vlfree, &wdbp->wdb_tol);
 	BU_UNSETJUMP;
     } else
 	failed = 1;

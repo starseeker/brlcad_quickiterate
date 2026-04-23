@@ -216,8 +216,7 @@ rt_db_external5_to_internal5(
  */
 RT_EXPORT extern int rt_db_get_internal5(struct rt_db_internal *ip,
 					 const struct directory *dp,
-					 const struct db_i *dbip,
-					 const mat_t mat);
+					 const struct db_i *dbip);
 
 
 /**
@@ -237,7 +236,6 @@ RT_EXPORT extern int rt_db_get_internal5(struct rt_db_internal *ip,
 RT_EXPORT extern int rt_db_put_internal5(struct directory *dp,
 					 struct db_i *dbip,
 					 struct rt_db_internal *ip,
-					 struct resource *resp,
 					 const int major);
 
 
