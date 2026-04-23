@@ -29,7 +29,7 @@ Guiding principles
 
 == Phase 0 — Establish a shared baseline ==
 
-Status: IN PROGRESS
+Status: DONE
 
 Goals
   a. Produce this cross-walk document.
@@ -67,20 +67,30 @@ Item 0-B: Migrate dbi_state.cpp LMDB → bu_cache                  [DONE - this 
 
   qgedobol reference: src/libged/dbi_state.cpp lines 79-302, 688-870, 1173-1217
 
-Item 0-C: Test surface audit                                          [OPEN]
+Item 0-C: Test surface audit                                          [DONE - this session]
 
   Existing visual/pixel-comparison tests:
     src/libged/tests/draw/ — basic, faceplate, lod, select, quad, aet
     These cover the QGED draw path through dm-swrast offscreen rendering.
 
   Gap: no unit test for BViewState::redraw() or the legacy dl_* walk.
-  Planned: add a lightweight C++ test (similar to qgedobol's test_dbi_cpp.cpp)
-  that exercises DbiState construction, update_dp, get_bbox, and
-  BViewState::add_path / redraw with a known .g file, without requiring Qt.
-  This will live in src/libged/tests/test_dbi_cpp.cpp (new file).
+  Resolution: added src/libged/tests/test_dbi_cpp.cpp — a lightweight C++
+  test (no Qt, no dm, no pixel comparison) that exercises:
+    • DbiState construction from a known .g file (moss.g)
+    • DbiState::tops() — verifies top-level object set
+    • DbiState::digest_path() — valid and invalid paths, correct depth
+    • DbiState::valid_hash() / valid_hash_path()
+    • DbiState::get_bbox() — finite, non-degenerate bbox for a known comb
+    • BViewState::add_path() + redraw() + count_drawn_paths() + is_hdrawn()
+    • Two-pass DbiState construction (warm-cache path produces identical maps)
+  Registered in src/libged/tests/CMakeLists.txt as ged_test_dbi_cpp.
 
   Gap: no test that the dcache cache round-trip (write + read) works for each
-  of the five payload types.  To be added alongside the unit test above.
+  of the five payload types.
+  Resolution: test_dbi_cpp.cpp test_cache_roundtrip() directly exercises
+  bu_cache_write + bu_cache_get for each of the five DBI payload formats:
+  CACHE_OBJ_BOUNDS (2×point_t), CACHE_REGION_ID (int), CACHE_REGION_FLAG (int),
+  CACHE_INHERIT_FLAG (int), CACHE_COLOR (unsigned int).
 
 == Phase 1 — Fix the dbi_state opacity problem ==
 
