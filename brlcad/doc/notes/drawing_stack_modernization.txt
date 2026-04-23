@@ -16,6 +16,41 @@ and describes the remaining ones at a higher level.
 See also: doc/notes/struct_resource_removal.txt (precedent for phased
 structural refactoring across many sessions).
 
+== Build prerequisites ==
+
+The Qt stack (libqtcad, dm-qtgl, dm-swrast, qged, archer) is central to this
+work.  Every phase MUST be built and validated with Qt enabled.  Never use
+-DBRLCAD_ENABLE_QT=OFF for work in this area.
+
+Required packages on Ubuntu/Debian:
+
+  sudo apt-get install -y \
+    xserver-xorg-dev libx11-dev libxi-dev libxext-dev \
+    libglu1-mesa-dev libfontconfig-dev libgl-dev xvfb \
+    astyle re2c xsltproc libxml2-utils \
+    libfontconfig1-dev libfreetype6-dev \
+    libx11-xcb-dev libxfixes-dev libxrender-dev \
+    libxcb1-dev libxcb-cursor-dev libxcb-glx0-dev \
+    libxcb-keysyms1-dev libxcb-image0-dev libxcb-shm0-dev \
+    libxcb-icccm4-dev libxcb-sync-dev libxcb-xfixes0-dev \
+    libxcb-shape0-dev libxcb-randr0-dev libxcb-render-util0-dev \
+    libxcb-util-dev libxcb-xinerama0-dev libxcb-xkb-dev \
+    libxkbcommon-dev libxkbcommon-x11-dev \
+    qt6-base-dev qt6-svg-dev qt6-tools-dev \
+    libqt6opengl6t64 libqt6openglwidgets6t64
+
+CMake configure command (brlcad_quickiterate repo):
+
+  cmake -S brlcad -B brlcad_build \
+    -DBRLCAD_EXT_DIR=bext_output \
+    -DBRLCAD_EXTRADOCS=OFF \
+    -DBRLCAD_ENABLE_STEP=OFF \
+    -DBRLCAD_ENABLE_GDAL=OFF \
+    -DBRLCAD_ENABLE_QT=ON
+
+Exit criteria for every phase include a clean Qt build of at minimum:
+  libqtcad, dm-qtgl, dm-swrast, qged, archer.
+
 Guiding principles
 ------------------
 1. Never break MGED/Archer/rtwizard during the transition.
@@ -328,6 +363,8 @@ Sub-items:
 
 Exit criteria: a new cached payload (OBB) can be added in one place and is
 consumed by the draw path without changes to bv_* headers.
+Qt build requirement: libbv, dm-swrast, and the LoD caching tests must all
+pass; qt6-base-dev / qt6-svg-dev must be installed and -DBRLCAD_ENABLE_QT=ON.
 
 == Phase 4 — Stand up libbsg in brlcad/ alongside libbv ==
 
@@ -370,6 +407,8 @@ Sub-items:
 
 Exit criteria: QGED/swrast draw through bsg_view_traverse; MGED/Archer still
 use dl_*; a pixel-level regression confirms both paths produce the same output.
+Qt build requirement: qged, archer, dm-qtgl, dm-swrast must all build and
+the swrast pixel-level regression tests must pass.
 
 == Phase 5 — Migrate MGED, Archer, rtwizard onto the new path ==
 
@@ -388,6 +427,8 @@ When all three are done: delete display_list.c, dl_walk(), and the entire
 legacy dl_* API.
 
 Exit criteria: only one drawing path remains; display_list.c is deleted.
+Qt build requirement: all Qt-dependent targets (libqtcad, dm-qtgl, dm-swrast,
+qged, archer) must build and pass their full test suites.
 
 == Phase 6 — Reshape the surviving API toward OpenInventor / Obol ==
 
