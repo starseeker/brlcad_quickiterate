@@ -171,7 +171,7 @@ All 8 tests in ged_test_dbi_cpp pass; qged builds cleanly with Qt6.
 
 == Phase 2 — Drain view-dependent behavior out of libbv ==
 
-Status: PLANNED
+Status: DONE
 
 Prerequisite: Phase 1 in progress (libbv shape must be stable before libbsg
 can be vendored in Phase 4).
@@ -187,36 +187,85 @@ Reference design: brlcad_qgedobol/src/libbsg/ (scene_graph.cpp, lod.cpp)
 
 Sub-items:
 
-  2-A: Annotate & audit callers
-    Add a DEPRECATED marker comment to each problematic field in
-    include/bv/defines.h (s_update_callback, s_dlist_stale,
-    s_dlist_free_callback, adaptive_wireframe, view_scale, bot_threshold,
-    curve_scale, point_scale, s_v-used-for-control-flow).
-    Grep the entire tree for write sites and record them here.
+  2-A: Annotate & audit callers                                       [DONE]
+    BV_DEPRECATED (Phase 2) comments added in include/bv/defines.h for:
+      s_v (used for control flow), s_update_callback (LoD/CSG path removed),
+      s_dlist_stale, s_dlist_free_callback, adaptive_wireframe, view_scale,
+      bot_threshold, curve_scale, point_scale.
+
+    Write-site audit (all direct writes to the deprecated fields):
+      s_update_callback:
+        src/libged/draw.cpp: bot_adaptive_plot(), brep_adaptive_plot(),
+          wireframe_plot() — all REMOVED in 2-B.
+        src/libdm/view.c: draw_scene_obj() calls s_update_callback for
+          non-LoD polygon-edit objects — this call remains valid.
+      s_dlist_stale:
+        src/libbv/util.cpp bv_obj_stale() sets s_dlist_stale=1 — remains.
+        src/libdm/dm-gl_lod.cpp: polled on entry; cleared after dlist gen — remains
+          for backward compat; sensor fires on dlist regeneration (2-C).
+      s_dlist_free_callback:
+        src/libdm/dm-gl_lod.cpp: set during dlist creation — remains; will
+          be removed in 2-E after libdm owns teardown via sensor pattern.
+      adaptive_wireframe, view_scale, bot_threshold, curve_scale, point_scale:
+        Written in csg_wireframe_update() and bv_mesh_lod_view() — these
+        remain as snapshot cache; ownership tracking moved to BViewState (2-B).
     Blocker: none.
 
-  2-B: Move adaptive-plot / LoD trigger to BViewState
-    The decision "this BoT needs a coarser LoD because view scale changed"
-    is currently made inside bv_mesh_lod_view() which writes into s_v's
-    scale.  Move this to BViewState::redraw() which already owns the view
-    parameters.  libbv stops calling s_update_callback directly.
+  2-B: Move adaptive-plot / LoD trigger to BViewState                 [DONE]
+    s_update_callback = &bv_mesh_lod_view removed from bot_adaptive_plot()
+      and brep_adaptive_plot() (two sites in draw.cpp).
+    s_update_callback = &csg_wireframe_update removed from wireframe_plot().
+    csg_wireframe_update() made extern "C" (non-static) so dbi_state.cpp
+      can call it directly.
+    Forward declarations added at top of dbi_state.cpp for draw_scene() and
+      csg_wireframe_update().
+    BViewState::redraw() gains a per-view LoD update pass after draw_scene:
+      iterates s_map; for each BV_MESH_LOD child calls bv_mesh_lod_view(),
+      for each BV_CSG_LOD child calls csg_wireframe_update().
+    Dead #if 0 block in libbv/util.cpp::bv_update_selected() replaced with
+      an explanatory comment.
+    lod.cpp: enabling adaptive_plot now also sets redraw_on_zoom = 1 so
+      zoom events trigger a full BViewState::redraw() and LoD levels update.
+      Disabling both modes clears redraw_on_zoom back to 0.
     Blocker: Phase 1-E (DrawList), 2-A.
 
-  2-C: Sensor pattern for dlist staleness
-    Replace s_dlist_stale polling with a sensor registration API in libdm:
-      dm_register_dlist_sensor(dm, shape, callback, data)
-      dm_fire_dlist_sensors(dm)
-    libdm calls dm_fire_dlist_sensors when geometry changes rather than
-    polling s_dlist_stale each frame.  s_dlist_stale remains in the struct
-    but is marked deprecated.
+  2-C: Sensor pattern for dlist staleness                             [DONE]
+    struct dm_dlist_sensor added to calltable.h (singly-linked list node
+      with bv_scene_obj*, callback, data, next).
+    dm_dlist_sensors (struct dm_dlist_sensor*) field added to dm_impl.
+    dm_register_dlist_sensor(), dm_fire_dlist_sensors(),
+      dm_dlist_sensors_clear() added to include/dm.h and implemented in
+      src/libdm/dm-generic.c.
+    dm_close() in dm-generic.c calls dm_dlist_sensors_clear() before
+      delegating to the plugin's close function.
+    dm-gl_lod.cpp: gl_draw_tri() and gl_csg_lod() call dm_fire_dlist_sensors()
+      after regenerating a GL display list (Phase 2-C hook point).
+    s_dlist_stale polling in dm-gl_lod.cpp REMAINS (backward compat) but is
+      now marked BV_DEPRECATED; the sensor provides a proactive alternative.
     Reference: qgedobol src/libdm/dm-gl.c gl_register_dlist_sensor pattern.
     Blocker: 2-A.
 
-  2-D: Camera accessors
-    Introduce bv_view_get_camera / bv_view_set_camera and matching
-    bv_view_get_scale / bv_view_set_scale / bv_view_get_size / bv_view_set_size
-    in include/bv/util.h.  Migrate all direct gv_* field writes in
-    loadview.cpp, mged/cmd.c, and libqtcad to go through these accessors.
+  2-D: Camera accessors                                               [DONE]
+    New public API in include/bv/util.h:
+      bv_view_get_scale / bv_view_set_scale — gv_scale + consistent gv_size/isize
+      bv_view_get_size  / bv_view_set_size  — gv_size  + consistent gv_scale/isize
+      bv_view_get_perspective / bv_view_set_perspective — gv_perspective
+      bv_view_get_aet  / bv_view_set_aet   — gv_aet + recomputes gv_rotation
+                                              via bv_mat_aet()
+      bv_view_get_rotation / bv_view_set_rotation — raw gv_rotation matrix
+      bv_view_get_center_vec / bv_view_set_center_vec — gv_center point
+                                              using MAT_DELTAS_GET/SET_NEG
+    Implemented in src/libbv/util.cpp immediately after bv_mat_aet().
+    Migration sites:
+      src/libged/draw/loadview.cpp: gv_size+gv_scale+gv_isize → bv_view_set_size;
+        gv_rotation+gv_center → bv_view_set_rotation+bv_view_set_center_vec;
+        gv_perspective → bv_view_set_perspective.
+      src/libqtcad/QgGL.cpp QgGL::aet(): inline rotation computation replaced
+        by bv_view_set_aet() + bv_update().
+      src/libqtcad/QgSW.cpp QgSW::aet(): same.
+      src/libqtcad/bindings.cpp CADkeyPressEvent(): all twelve
+        bn_decode_vect(v->gv_aet,...)+bv_mat_aet() pairs replaced by
+        vect_t aet; bn_decode_vect(aet,...); bv_view_set_aet(v,aet).
     Reference: qgedobol src/libbsg/scene_graph.cpp bsg_view_get/set_camera.
     Blocker: 2-A.
 
@@ -412,3 +461,17 @@ Deprecation policy
                 add_selection_set()/remove_selection_set().
               test_dbi_cpp.cpp Test 8 covers all Phase 1 items (8/8 PASS).
               qged Qt6 build fixed: Qt6::OpenGL + Qt6::OpenGLWidgets linked explicitly.
+
+  2026-04-23  Phase 2 complete.
+              2-A: BV_DEPRECATED comments in include/bv/defines.h for all nine
+                deprecated fields; write-site audit recorded above.
+              2-B: s_update_callback removed for BV_MESH_LOD/BV_CSG_LOD objects;
+                BViewState::redraw() now drives per-view LoD update pass;
+                redraw_on_zoom=1 set when adaptive_plot enabled;
+                dead #if 0 in bv_update_selected() removed.
+              2-C: dm_dlist_sensor struct; dm_register_dlist_sensor/
+                dm_fire_dlist_sensors/dm_dlist_sensors_clear API in libdm;
+                dm_fire_dlist_sensors called after GL dlist regeneration.
+              2-D: bv_view_get/set_scale/size/perspective/aet/rotation/center_vec
+                added to include/bv/util.h and implemented in libbv/util.cpp;
+                migrated loadview.cpp, QgGL.cpp, QgSW.cpp, bindings.cpp.
