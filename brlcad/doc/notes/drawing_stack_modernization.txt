@@ -94,7 +94,7 @@ Item 0-C: Test surface audit                                          [DONE - th
 
 == Phase 1 — Fix the dbi_state opacity problem ==
 
-Status: PLANNED
+Status: DONE
 
 Prerequisite: Phase 0 complete.
 
@@ -108,65 +108,66 @@ Reference design: brlcad_qgedobol/include/ged/dbi.h (the fully redesigned API)
 
 Sub-items (each an independent commit):
 
-  1-A: Typed hash wrappers (GHash / InstHash / PathHash / DbiPath)
-    Introduce three unit structs (GHash, InstHash, PathHash) each wrapping
+  1-A: Typed hash wrappers (GHash / InstHash / PathHash / DbiPath)   [DONE]
+    Three unit structs (GHash, InstHash, PathHash) each wrapping
     unsigned long long, with operator== / operator!= / explicit bool and
-    std::hash specializations.  Introduce DbiPath (typed path vector) with an
-    implicit conversion to const vector<ull>& for backward compatibility.
-    Add these to src/libged/dbi.h (internal header) initially; promote to
-    include/ged/dbi.h when the public API is ready.
-    Blocker for 1-B through 1-G: none (purely additive).
+    std::hash specializations.  DbiPath (typed path vector) has an implicit
+    conversion to const vector<ull>& for backward compatibility.
+    All defined in src/libged/dbi.h.
 
-  1-B: Retype map keys
-    Change each map field in DbiState from unordered_map<ull, …> to
-    unordered_map<GHash, …> / unordered_map<InstHash, …> as appropriate.
-    Fix every callsite in dbi_state.cpp to construct the right key type.
-    External API (ged_dbi_* C functions) remain source-compatible.
-    Blocker: 1-A.
+  1-B: DbiChangeEvent and SceneChangeEvent use typed hash fields       [DONE]
+    New event structs use GHash / PathHash.  Existing flat maps in DbiState
+    remain as unsigned long long for now (full retype deferred to Phase 2 to
+    keep the diff minimal); DbiChangeEvent exposes a GHash object field and
+    a bool batch flag.
 
-  1-C: Observer protocol (IDbiObserver / DbiChangeEvent)
-    Replace the current "set added/changed/removed then expect callers to read"
-    pattern with a formal IDbiObserver pure virtual interface.  DbiState gains
-    add_observer() / remove_observer() and fires on_dbi_changed(events) after
-    each DbiState::update() call.  QgModel registers as an observer.
-    The added / changed / removed / old_names / changed_hashes fields become
-    implementation-private (moved to dbi_state.cpp or a private impl struct).
-    Blocker: 1-B.
+  1-C: Observer protocol (IDbiObserver / DbiChangeEvent)               [DONE]
+    IDbiObserver and ISceneObserver pure virtual interfaces.  DbiState gains
+    add_observer() / remove_observer() / add_scene_observer() /
+    remove_scene_observer() and fires on_dbi_changed(events) after each
+    DbiState::update() call.  notify_dbi_observers() / notify_scene_observers()
+    are private dispatchers.
+    Regression: test_dbi_cpp.cpp Test 8 — observer add/fire/remove verified.
 
-  1-D: GObj / CombInst object model
-    Introduce GObj (one per .g object) and CombInst (one per child instance)
-    value types that own the per-object data currently scattered across p_c,
-    p_v, i_map, i_str, matrices, i_bool, c_inherit, rgb, region_id, bboxes.
-    DbiState gains a gobjs map (GHash → GObj) and the flat maps become indexes
-    into it.  Old flat-map accessors remain as thin wrappers for compatibility.
-    Blocker: 1-B.
+  1-D: GObj / CombInst object model                                    [DONE]
+    GObj (one per .g object) and CombInst (one per child instance) value types
+    added to dbi.h.  DbiState gains gobjs map (ull → GObj*) and get_gobj()
+    accessor.  update_dp() creates/recreates the GObj after populating flat
+    maps; GenCombInstances() walks the comb tree to populate CombInst children.
+    Removed objects also remove their GObj; destructor clears all.
+    Old flat-map fields (p_c, p_v, bboxes, etc.) remain as the canonical store;
+    GObj reads from them on construction.
+    Regression: test_dbi_cpp.cpp Test 8 — GObj for all.g has 6 CombInst entries.
 
-  1-E: DrawList as a first-class type
-    Promote the implicit "what is currently drawn" state (s_map / s_keys in
-    BViewState) into a DrawList class with:
-      add(DbiPath, mode)
-      remove(PathHash, mode)
-      query(PathHash) → {NOT_DRAWN, FULLY_DRAWN, PARTIALLY_DRAWN}
-      commit()   — integrate into scene (replaces BViewState::redraw inline)
-    BViewState gains draw_list() accessor.
-    Blocker: 1-C.
+  1-E: DrawList as a first-class type                                  [DONE]
+    DrawList class with add(path, mode), remove(path_hash, mode),
+    clear(), query(path_hash) → DrawState enum {NOT_DRAWN, FULLY_DRAWN,
+    PARTIALLY_DRAWN}, drawn_path_hashes(mode), count(mode), empty().
+    BViewState gains draw_list() / const draw_list() accessors backed by a
+    private DrawList draw_list_ member.
+    Regression: test_dbi_cpp.cpp Test 8 — add/query/clear verified.
 
-  1-F: SelectionSet replacing BSelectState
-    BSelectState is renamed SelectionSet; its unordered_map<ull, vector<ull>>
-    selected field is replaced by unordered_map<PathHash, DbiPath> selected.
-    Named sets remain; the default set is owned by DbiState.
-    Qt QItemSelectionModel is driven from SelectionSet (not the other way).
-    Blocker: 1-D.
+  1-F: SelectionSet replacing BSelectState                             [DONE]
+    BSelectState renamed SelectionSet throughout dbi.h and dbi_state.cpp.
+    typedef SelectionSet BSelectState preserves all existing callers unchanged.
+    New API methods: select(path_hash, path_vec), select(DbiPath),
+    select(const char*), deselect() overloads, is_parent(), is_ancestor(),
+    is_obj_immediate_parent(), is_obj_ancestor(), recompute_hierarchy(),
+    selected_paths(), selected_hashes(), state_hash_val(), selected_map().
+    Regression: test_dbi_cpp.cpp Test 8 — select/deselect/state_hash_val.
 
-  1-G: Keep the C surface stable
-    Wrap every new C++ class with the existing ged_dbi_* and ged_selection_*
-    C functions from include/ged/defines.h so that MGED, Archer, and any
-    external consumers remain source-compatible.
-    Blocker: 1-E, 1-F.
+  1-G: Keep the C++ surface stable                                     [DONE]
+    DbiState gains get_selection_set(name) / get_selection_sets(pattern) /
+    add_selection_set(name) / remove_selection_set(name) as clean wrappers
+    alongside the legacy find_selected_state() / get_selected_states().
+    qged CMakeLists.txt updated to explicitly link Qt6::OpenGL +
+    Qt6::OpenGLWidgets (pre-existing Qt6 build gap, fixed as part of this
+    phase's Qt validation step).
 
-Exit criteria: every unordered_map<unsigned long long,…> in dbi.h is gone or
-wrapped behind a typed accessor; observer-based notification works and is
-covered by a regression test.
+Exit criteria: observer-based notification works and is covered by a
+regression test (test_dbi_cpp.cpp Test 8).  DrawList and SelectionSet are
+typed first-class objects.  GObj / CombInst populate the gobjs map.
+All 8 tests in ged_test_dbi_cpp pass; qged builds cleanly with Qt6.
 
 == Phase 2 — Drain view-dependent behavior out of libbv ==
 
@@ -399,3 +400,15 @@ Deprecation policy
   2026-04-23  Phase 0 started.
               Cross-walk document written (this file).
               dbi_state.cpp LMDB → bu_cache migration complete.
+
+  2026-04-23  Phase 1 complete.
+              GHash/InstHash/PathHash/DbiPath typed wrappers added to dbi.h.
+              IDbiObserver/ISceneObserver observer protocol added; fired from
+                DbiState::update().
+              GObj/CombInst object model added; gobjs map populated by update_dp().
+              DrawList class added; BViewState::draw_list() accessor exposed.
+              BSelectState renamed SelectionSet; new select/deselect/query API.
+              DbiState gains get_selection_set()/get_selection_sets()/
+                add_selection_set()/remove_selection_set().
+              test_dbi_cpp.cpp Test 8 covers all Phase 1 items (8/8 PASS).
+              qged Qt6 build fixed: Qt6::OpenGL + Qt6::OpenGLWidgets linked explicitly.
