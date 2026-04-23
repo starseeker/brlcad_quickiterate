@@ -12,9 +12,11 @@ shared "resource" object.  Each field-group has a more natural owner
 (``struct db_i``, ``struct rt_i``, ``struct application``, or a scoped
 local pool).
 
-This work is deliberately staged across many phases and must coordinate with
-dependent libraries (libanalyze, liboptical, libged, libqtcad, libgcv,
-libtclcad, mged, nirt, art, beset, gtools, conv, remrt).
+This work is deliberately staged across many phases.  None of the phases
+after Phase 0 is ABI-compatible with the previous release; every phase
+must land behind a major-version bump and coordinate with dependent
+libraries (libanalyze, liboptical, libged, libqtcad, libgcv, libtclcad,
+mged, nirt, art, beset, gtools, conv, remrt).
 
 
 Field Inventory
@@ -82,6 +84,37 @@ Why Now
 Phased Plan
 -----------
 
+Phase 0 - Groundwork (pure additions, no API breaks)
+~~~~~~~~~~~~~~~~~~~~
+
+Ship design documentation.  Shrink the public API surface by relocating
+declarations that have zero external callers from include/rt/ into
+src/librt/librt_private.h.  This alone reduces the externally visible
+resource-related surface without changing ABI.
+
+Safe to privatize immediately (verified zero external callers):
+
+  - rt_bool_growstack       from include/rt/boolweave.h
+  - rt_res_pieces_init      from include/rt/shoot.h
+  - rt_res_pieces_clean     from include/rt/shoot.h
+
+Cannot privatize in Phase 0 (referenced from public macros or from
+external callers, must wait for later phases):
+
+  - rt_init_resource, rt_clean_resource, rt_clean_resource_basic,
+    rt_clean_resource_complete   (external callers in libanalyze,
+                                 liboptical, libqtcad, libged, mged,
+                                 libgcv, libtclcad, rt, remrt, beset,
+                                 fuzz, conv)
+  - rt_add_res_stats, rt_zero_res_stats  (rt/worker.c, rt/do.c)
+  - rt_alloc_seg_block                    (expanded by RT_GET_SEG macro)
+  - db_alloc_directory_block              (expanded by RT_GET_DIRECTORY)
+
+Also: begin collecting ray-tracing benchmark data on the seg/partition
+hot path on modern glibc and jemalloc so that Phase 7 (the last phase)
+has a data-driven decision about whether the freelists still pay for
+themselves.
+
 Phase 1 - Remove struct resource from APIs where it is vestigial
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -101,16 +134,9 @@ can be supplied as an explicit bu_mempool.
   - rt_obj_import, rt_obj_export: drop the resource argument.
   - rt_plot_solid, rt_del_regtree: drop the resource argument.
 
-During deprecation, keep the old signatures as RT_DEPRECATED wrappers that
-forward to the new signatures while ignoring the resource argument.  Use regex
-policy for minimally impacting changes and create *_old suffixed versions of
-the original signatures - wrapper functions callers can temporarily reference.
-Delete them after CHANGES deprecation policy is complete.
-
-Also: begin collecting ray-tracing benchmark data on the seg/partition
-hot path on modern glibc and jemalloc so that Phase 7 (the last phase)
-has a data-driven decision about whether the freelists still pay for
-themselves.
+For one release cycle, keep the old signatures as RT_DEPRECATED wrappers
+that forward to the new signatures while ignoring the resource argument.
+Delete them at the next major version bump.
 
 Phase 2 - Move directory storage (H) to db_i
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -222,11 +248,7 @@ Risks and Considerations
 
 * **Thread-local storage.**  C11 _Thread_local is portable enough for
   current BRL-CAD platforms but has historically been avoided.  Prefer
-  passing state explicitly through application / db_i / caller structs,
-  but if there is good design reason to consider thread local usage
-  (performance, design cleanliness, etc.) and it is considered "safe"
-  (including on MSVC, which historically has been spotty about modern
-  C support) thread local is now on the table.
+  passing state explicitly through application / db_i / caller structs.
 
 * **Performance.**  The seg/partition freelists exist for measured
   reasons.  Each removal in Phases 5-7 must be gated on the benchmark
@@ -244,9 +266,8 @@ Risks and Considerations
   rt_uniresource directly today.  Budget churn in each per phase.
 
 * **Documentation.**  include/rt/resource.h docstrings,
-  and the MGED primer all reference rt_uniresource.  These must be
-  updated in lockstep.  Historical emails are not modern references
-  and should not be updated.
+  doc/html/ReleaseNotes/email4.*, and the MGED primer all reference
+  rt_uniresource.  These must be updated in lockstep.
 
 * **Build discipline.**  Every phase must land as a series of small
   commits that keep ``cmake --build brlcad_build`` green and the
@@ -272,6 +293,6 @@ The cost is also real.  Roughly 106 source files touch struct resource
 today; an ABI break is unavoidable; benchmarking around the hot-path
 freelists (A, B, F) is probably 50% of total effort on its own.
 
-Recommended cadence: land Phases 1, and 2 first.  Those eliminate
+Recommended cadence: land Phases 0, 1, and 2 first.  Those eliminate
 roughly 60-70% of rt_uniresource references and validate the overall
 approach before committing to Phases 3-8.

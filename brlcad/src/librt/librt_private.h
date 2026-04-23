@@ -400,6 +400,40 @@ CLT_DECLARE_INTERFACE(hyp);
 extern size_t clt_bot_pack(struct bu_pool *pool, struct soltab *stp);
 #endif
 
+
+/*
+ * Internal-only helpers that operate on struct resource.  These used
+ * to be declared in public headers (include/rt/boolweave.h and
+ * include/rt/shoot.h) but have no external callers, so their
+ * declarations have been moved here as part of the ongoing effort to
+ * shrink the public struct-resource API surface (see
+ * doc/notes/struct_resource_removal.txt).  The function definitions
+ * remain RT_EXPORTed so that the compiled symbols stay available for
+ * any external consumer that already links against them directly.
+ */
+
+/**
+ * Increase the size of re_boolstack to double the previous size.
+ * Depend on bu_realloc() to copy the previous data to the new area
+ * when the size is increased.
+ */
+RT_EXPORT extern void rt_bool_growstack(struct resource *res);
+
+/**
+ * Release the per-processor state variables needed to support
+ * rt_shootray()'s use of 'solid pieces'.
+ */
+RT_EXPORT extern void rt_res_pieces_clean(struct resource *resp,
+					  struct rt_i *rtip);
+
+/**
+ * Allocate the per-processor state variables needed to support
+ * rt_shootray()'s use of 'solid pieces'.
+ */
+RT_EXPORT extern void rt_res_pieces_init(struct resource *resp,
+					 struct rt_i *rtip);
+
+
 __END_DECLS
 
 #endif /* LIBRT_LIBRT_PRIVATE_H */
