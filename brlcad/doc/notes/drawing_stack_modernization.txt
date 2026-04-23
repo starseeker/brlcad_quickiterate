@@ -18,7 +18,7 @@ structural refactoring across many sessions).
 
 == Build prerequisites ==
 
-The Qt stack (libqtcad, dm-qtgl, dm-swrast, qged, archer) is central to this
+The Qt stack (libqtcad, dm-qtgl, dm-swrast, qged) is central to this
 work.  Every phase MUST be built and validated with Qt enabled.  Never use
 -DBRLCAD_ENABLE_QT=OFF for work in this area.
 
@@ -49,7 +49,7 @@ CMake configure command (brlcad_quickiterate repo):
     -DBRLCAD_ENABLE_QT=ON
 
 Exit criteria for every phase include a clean Qt build of at minimum:
-  libqtcad, dm-qtgl, dm-swrast, qged, archer.
+  libqtcad, dm-qtgl, dm-swrast, qged.
 
 Guiding principles
 ------------------
@@ -407,7 +407,7 @@ Sub-items:
 
 Exit criteria: QGED/swrast draw through bsg_view_traverse; MGED/Archer still
 use dl_*; a pixel-level regression confirms both paths produce the same output.
-Qt build requirement: qged, archer, dm-qtgl, dm-swrast must all build and
+Qt build requirement: qged, dm-qtgl, dm-swrast must all build and
 the swrast pixel-level regression tests must pass.
 
 == Phase 5 — Migrate MGED, Archer, rtwizard onto the new path ==
@@ -428,7 +428,7 @@ legacy dl_* API.
 
 Exit criteria: only one drawing path remains; display_list.c is deleted.
 Qt build requirement: all Qt-dependent targets (libqtcad, dm-qtgl, dm-swrast,
-qged, archer) must build and pass their full test suites.
+qged) must build and pass their full test suites.
 
 == Phase 6 — Reshape the surviving API toward OpenInventor / Obol ==
 
