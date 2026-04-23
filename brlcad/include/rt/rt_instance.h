@@ -278,14 +278,12 @@ RT_EXPORT extern void rt_clean_resource_complete(struct rt_i *rtip,
 int rt_plot_solid(
     FILE                *fp,
     struct rt_i         *rtip,
-    const struct soltab *stp,
-    struct resource     *resp);
+    const struct soltab *stp);
 
 /* Release storage assoc with rt_i */
 RT_EXPORT extern void rt_clean(struct rt_i *rtip);
 RT_EXPORT extern int rt_del_regtree(struct rt_i *rtip,
-				    struct region *delregp,
-				    struct resource *resp);
+				    struct region *delregp);
 /* Check in-memory data structures */
 RT_EXPORT extern void rt_ck(struct rt_i *rtip);
 

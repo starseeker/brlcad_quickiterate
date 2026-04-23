@@ -350,10 +350,10 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 	struct directory *wdp = db_lookup(wdbip, dpw[0]->d_namep, LOOKUP_QUIET);
 	struct rt_db_internal intern;
 	struct rt_comb_internal *comb;
-	rt_db_get_internal(&intern, wdp, wdbip, NULL, &rt_uniresource);
+	rt_db_get_internal(&intern, wdp, wdbip, NULL);
 	comb = (struct rt_comb_internal *)(&intern)->idb_ptr;
 	RT_CK_COMB(comb);
-	db_free_tree(comb->tree, &rt_uniresource);
+	db_free_tree(comb->tree);
 	union tree *tp;
 	struct rt_tree_array *tree_list;
 	BU_GET(tree_list, struct rt_tree_array);

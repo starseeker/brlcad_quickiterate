@@ -347,8 +347,7 @@ copy_v5_solid(struct db_i *dbip, struct directory *proto, CloneState *state)
 	}
 
 	struct rt_db_internal intern;
-	if (rt_db_get_internal(&intern, src_dp, dbip, matrix,
-			       &rt_uniresource) < 0) {
+	if (rt_db_get_internal(&intern, src_dp, dbip, matrix) < 0) {
 	    bu_vls_printf(state->gedp->ged_result_str,
 			 "clone: rt_db_get_internal failed for \"%s\"\n",
 			 proto->d_namep);
@@ -358,7 +357,7 @@ copy_v5_solid(struct db_i *dbip, struct directory *proto, CloneState *state)
 
 	struct directory *new_dp = db_lookup(dbip, dest.c_str(), LOOKUP_QUIET);
 	if (new_dp)
-	    rt_db_put_internal(new_dp, dbip, &intern, &rt_uniresource);
+	    rt_db_put_internal(new_dp, dbip, &intern);
 
 	bu_vls_printf(&state->olist, "%s ", dest.c_str());
 	rt_db_free_internal(&intern);
@@ -391,8 +390,7 @@ copy_v5_comb(struct db_i *dbip, struct directory *proto, CloneState *state)
 					       LOOKUP_QUIET);
 	if (!proto_dp) continue;
 	struct rt_db_internal dbintern;
-	if (rt_db_get_internal(&dbintern, proto_dp, dbip, bn_mat_identity,
-			       &rt_uniresource) < 0) {
+	if (rt_db_get_internal(&dbintern, proto_dp, dbip, bn_mat_identity) < 0) {
 	    bu_vls_printf(state->gedp->ged_result_str,
 			 "clone: cannot read \"%s\"\n", proto->d_namep);
 	    return nullptr;
@@ -421,7 +419,7 @@ copy_v5_comb(struct db_i *dbip, struct directory *proto, CloneState *state)
 	    }
 	}
 
-	if (rt_db_put_internal(dp, dbip, &dbintern, &rt_uniresource) < 0) {
+	if (rt_db_put_internal(dp, dbip, &dbintern) < 0) {
 	    bu_vls_printf(state->gedp->ged_result_str,
 			 "clone: write failed for \"%s\"\n", dest.c_str());
 	    rt_db_free_internal(&dbintern);
@@ -467,7 +465,7 @@ copy_tree(struct directory *dp, struct resource *resp, CloneState *state)
 					   state->subs_src, state->subs_dst);
 
     if (dp->d_flags & RT_DIR_COMB)
-	db_functree(dbip, dp, copy_comb_cb, copy_solid_cb, resp, state);
+	db_functree(dbip, dp, copy_comb_cb, copy_solid_cb, state);
     else if (dp->d_flags & RT_DIR_SOLID)
 	copy_solid_cb(dbip, dp, state);
     else {
@@ -540,7 +538,7 @@ create_wrapper_comb(struct ged *gedp, const char *src_name,
 	rt_db_free_internal(&intern);
 	return nullptr;
     }
-    if (rt_db_put_internal(dp, dbip, &intern, &rt_uniresource) < 0) {
+    if (rt_db_put_internal(dp, dbip, &intern) < 0) {
 	bu_vls_printf(gedp->ged_result_str,
 		     "clone: write failed for \"%s\"\n", dest_name);
 	rt_db_free_internal(&intern);
@@ -680,8 +678,7 @@ apply_mat_at_regions(struct db_i *dbip, struct directory *dp, const mat_t mat)
     if (!dp || !(dp->d_flags & RT_DIR_COMB)) return;
 
     struct rt_db_internal intern;
-    if (rt_db_get_internal(&intern, dp, dbip, bn_mat_identity,
-			   &rt_uniresource) < 0) return;
+    if (rt_db_get_internal(&intern, dp, dbip, bn_mat_identity) < 0) return;
     struct rt_comb_internal *comb = (struct rt_comb_internal *)intern.idb_ptr;
     RT_CK_COMB(comb);
 
@@ -694,7 +691,7 @@ apply_mat_at_regions(struct db_i *dbip, struct directory *dp, const mat_t mat)
 	    apply_mat_to_regions_tree(dbip, comb->tree, mat);
     }
 
-    rt_db_put_internal(dp, dbip, &intern, &rt_uniresource);
+    rt_db_put_internal(dp, dbip, &intern);
     rt_db_free_internal(&intern);
 }
 
@@ -771,8 +768,7 @@ copy_regions_node(struct db_i *dbip, const std::string &obj_name,
 
     /* Read the combination record */
     struct rt_db_internal intern;
-    if (rt_db_get_internal(&intern, dp, dbip, bn_mat_identity,
-			   &rt_uniresource) < 0) {
+    if (rt_db_get_internal(&intern, dp, dbip, bn_mat_identity) < 0) {
 	state->names[obj_name] = { obj_name };
 	return obj_name;
     }
@@ -798,8 +794,7 @@ copy_regions_node(struct db_i *dbip, const std::string &obj_name,
 	struct directory *new_dp = db_diradd(dbip, new_name.c_str(),
 					     RT_DIR_PHONY_ADDR, 0,
 					     dp->d_flags, (void *)&minor);
-	if (new_dp && rt_db_put_internal(new_dp, dbip, &intern,
-					 &rt_uniresource) == 0) {
+	if (new_dp && rt_db_put_internal(new_dp, dbip, &intern) == 0) {
 	    bu_vls_printf(&state->olist, "%s ", new_name.c_str());
 	    rt_db_free_internal(&intern);
 	    return new_name;
@@ -823,8 +818,7 @@ copy_regions_node(struct db_i *dbip, const std::string &obj_name,
     struct directory *new_dp = db_diradd(dbip, new_name.c_str(),
 					 RT_DIR_PHONY_ADDR, 0,
 					 dp->d_flags, (void *)&minor);
-    if (new_dp && rt_db_put_internal(new_dp, dbip, &intern,
-				     &rt_uniresource) == 0) {
+    if (new_dp && rt_db_put_internal(new_dp, dbip, &intern) == 0) {
 	bu_vls_printf(&state->olist, "%s ", new_name.c_str());
 	rt_db_free_internal(&intern);
 	return new_name;

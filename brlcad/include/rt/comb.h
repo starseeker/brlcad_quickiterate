@@ -129,7 +129,7 @@ RT_EXPORT extern int db_comb_mvall(struct directory *dp,
  * 0 OK
  * -1 FAIL
  */
-RT_EXPORT extern int rt_comb_import5(struct rt_db_internal *ip, const struct bu_external *ep, const mat_t mat, const struct db_i *dbip, struct resource *resp);
+RT_EXPORT extern int rt_comb_import5(struct rt_db_internal *ip, const struct bu_external *ep, const mat_t mat, const struct db_i *dbip);
 
 /**
  * Return a RT_DIR_NULL terminated array of directory pointers that

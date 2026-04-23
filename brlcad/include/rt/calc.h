@@ -48,7 +48,8 @@ __BEGIN_DECLS
  *
  * returns zero if matrix transform was applied, non-zero on failure.
  */
-RT_EXPORT extern int rt_matrix_transform(struct rt_db_internal *output, const mat_t matrix, struct rt_db_internal *input, int free_input, struct db_i *dbip, struct resource *resource);
+RT_EXPORT extern int rt_matrix_transform(struct rt_db_internal *output, const mat_t matrix, struct rt_db_internal *input, int free_input);
+DEPRECATED static inline int rt_matrix_transform_old(struct rt_db_internal *output, const mat_t matrix, struct rt_db_internal *input, int free_input, struct db_i *dbip, struct resource *resource) { (void)dbip; (void)resource; return rt_matrix_transform(output, matrix, input, free_input); }
 
 /* find RPP of one region */
 

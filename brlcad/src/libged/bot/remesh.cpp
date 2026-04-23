@@ -429,7 +429,7 @@ _bot_cmd_remesh(void *bs, int argc, const char **argv)
 	    return BRLCAD_ERROR;
 	}
 
-	if (rt_db_put_internal(dp, gedp->dbip, &intern, &rt_uniresource) < 0) {
+	if (rt_db_put_internal(dp, gedp->dbip, &intern) < 0) {
 	    bu_vls_printf(gedp->ged_result_str, "Failed to write out new BoT %s\n", rname);
 	    rt_db_free_internal(&intern);
 	    bu_vls_free(&output_bot_name);

@@ -57,7 +57,7 @@ add_brep_sph(struct db_i *dbip, const char *name, point_t *v, double r, long int
 	rt_db_free_internal(&intern);
 	bu_exit(1, "Test %ld: cannot add %s to directory\n", test_num, name);
     }
-    if (rt_db_put_internal(dp, dbip, &intern, &rt_uniresource) < 0) {
+    if (rt_db_put_internal(dp, dbip, &intern) < 0) {
 	rt_db_free_internal(&intern);
 	bu_exit(1, "Test %ld: database write error, aborting\n", test_num);
     }
@@ -125,7 +125,7 @@ add_comb(struct db_i *dbip, const char *name, int obj_argc, const char **obj_arg
 	rt_db_free_internal(&intern);
 	bu_exit(1, "Test %ld: cannot add %s to directory\n", test_num, name);
     }
-    if (rt_db_put_internal(dp, dbip, &intern, &rt_uniresource) < 0) {
+    if (rt_db_put_internal(dp, dbip, &intern) < 0) {
 	rt_db_free_internal(&intern);
 	bu_exit(1, "Test %ld: Database write error creating comb, aborting\n", test_num);
     }

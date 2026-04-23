@@ -120,10 +120,10 @@ struct directory {
  * allocate and link in a new directory entry to the resource
  * structure's freelist
  */
-#define RT_GET_DIRECTORY(_p, _res) { \
-	while (((_p) = (_res)->re_directory_hd) == NULL) \
-	    db_alloc_directory_block(_res); \
-	(_res)->re_directory_hd = (_p)->d_forw; \
+#define RT_GET_DIRECTORY(_p, _dbip) { \
+	while (((_p) = (_dbip)->i->dbi_directory_hd) == NULL) \
+	    db_alloc_directory_block(_dbip); \
+	(_dbip)->i->dbi_directory_hd = (_p)->d_forw; \
 	(_p)->d_forw = NULL; }
 
 

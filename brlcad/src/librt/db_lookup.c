@@ -279,7 +279,7 @@ db_diradd(struct db_i *dbip, const char *name, b_off_t laddr, size_t len, int fl
     }
 
     /* 'name' not found in directory, add it */
-    RT_GET_DIRECTORY(dp, &rt_uniresource);
+    RT_GET_DIRECTORY(dp, dbip);
     RT_CK_DIR(dp);
     RT_DIR_SET_NAMEP(dp, bu_vls_addr(&local));	/* sets d_namep */
     dp->d_addr = laddr;

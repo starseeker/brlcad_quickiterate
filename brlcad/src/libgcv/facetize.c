@@ -83,7 +83,7 @@ _gcv_facetize_cleanup(struct model *nmg_model, union tree *facetize_tree)
 
     if (facetize_tree) {
 	RT_CK_TREE(facetize_tree);
-	db_free_tree(facetize_tree, &rt_uniresource);
+	db_free_tree(facetize_tree);
     }
 
     return NULL;
