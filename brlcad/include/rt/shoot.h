@@ -156,16 +156,10 @@ RT_EXPORT extern void rt_add_res_stats(struct rt_i *rtip,
 RT_EXPORT extern void rt_zero_res_stats(struct resource *resp);
 
 
-RT_EXPORT extern void rt_res_pieces_clean(struct resource *resp,
-					  struct rt_i *rtip);
-
-
-/**
- * Allocate the per-processor state variables needed to support
- * rt_shootray()'s use of 'solid pieces'.
+/* rt_res_pieces_clean() and rt_res_pieces_init() are internal to
+ * LIBRT; their declarations live in src/librt/librt_private.h.
  */
-RT_EXPORT extern void rt_res_pieces_init(struct resource *resp,
-					 struct rt_i *rtip);
+
 RT_EXPORT extern void rt_vstub(struct soltab *stp[],
 			       struct xray *rp[],
 			       struct seg segp[],

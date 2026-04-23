@@ -39,6 +39,8 @@
 #include <string.h>
 #include "bio.h"
 
+#include "./librt_private.h"
+
 #include "bu/defines.h"
 #include "bu/parallel.h"
 #include "vmath.h"
