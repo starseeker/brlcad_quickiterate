@@ -463,7 +463,7 @@ rt_find_backing_dist(struct rt_shootray_status *ss, struct bu_bitv *backbits) {
     /* get a bit vector of our own to avoid duplicate bounding box
      * intersection calculations
      */
-    solidbits = rt_get_solidbitv(rtip->nsolids, resp);
+    solidbits = rt_get_solidbitv(rtip->stats.nsolids, resp);
 
     ray = ss->ap->a_ray;	/* struct copy, don't mess with the original */
 
@@ -733,7 +733,7 @@ rt_shootray(register struct application *ap)
     if (resp != &rt_uniresource)
 	BU_ASSERT(BU_PTBL_GET(&rtip->rti_resources, resp->re_cpu) != NULL);
 
-    solidbits = rt_get_solidbitv(rtip->nsolids, resp);
+    solidbits = rt_get_solidbitv(rtip->stats.nsolids, resp);
 
     if (BU_LIST_IS_EMPTY(&resp->re_region_ptbl)) {
 	BU_ALLOC(regionbits, struct bu_ptbl);
@@ -910,7 +910,7 @@ rt_shootray(register struct application *ap)
 	     * having bounding boxes extending behind the ray start
 	     * point and using pieces)
 	     */
-	    backbits = rt_get_solidbitv(rtip->nsolids, resp);
+	    backbits = rt_get_solidbitv(rtip->stats.nsolids, resp);
 
 	    /* call "rt_find_backing_dist()" to calculate the required
 	     * start point for calculation, and to fill in the
@@ -1537,17 +1537,17 @@ rt_add_res_stats(register struct rt_i *rtip, register struct resource *resp)
     }
     RT_CK_RESOURCE(resp);
 
-    rtip->rti_nrays += resp->re_nshootray;
-    rtip->nmiss_model += resp->re_nmiss_model;
+    rtip->stats.rti_nrays += resp->re_nshootray;
+    rtip->stats.nmiss_model += resp->re_nmiss_model;
 
-    rtip->nshots += resp->re_shots + resp->re_piece_shots;
-    rtip->nhits += resp->re_shot_hit + resp->re_piece_shot_hit;
-    rtip->nmiss += resp->re_shot_miss + resp->re_piece_shot_miss;
+    rtip->stats.nshots += resp->re_shots + resp->re_piece_shots;
+    rtip->stats.nhits += resp->re_shot_hit + resp->re_piece_shot_hit;
+    rtip->stats.nmiss += resp->re_shot_miss + resp->re_piece_shot_miss;
 
-    rtip->nmiss_solid += resp->re_prune_solrpp;
+    rtip->stats.nmiss_solid += resp->re_prune_solrpp;
 
-    rtip->ndup += resp->re_ndup + resp->re_piece_ndup;
-    rtip->nempty_cells += resp->re_nempty_cells;
+    rtip->stats.ndup += resp->re_ndup + resp->re_piece_ndup;
+    rtip->stats.nempty_cells += resp->re_nempty_cells;
 
     /* Zero out resource totals, so repeated calls are not harmful */
     rt_zero_res_stats(resp);

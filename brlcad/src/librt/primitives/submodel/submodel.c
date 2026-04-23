@@ -194,7 +194,7 @@ rt_submodel_prep(struct soltab *stp, struct rt_db_internal *ip, struct rt_i *rti
 	return -2;
     }
 
-    if (sub_rtip->nsolids <= 0) {
+    if (sub_rtip->stats.nsolids <= 0) {
 	bu_log("rt_submodel_prep(%s): %s No primitives found\n",
 	       stp->st_dp->d_namep, bu_vls_addr(&sip->file));
 	/* Can't call rt_free_rti(sub_rtip) because it may have

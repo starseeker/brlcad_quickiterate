@@ -283,7 +283,7 @@ rt_prep_parallel(struct rt_i *rtip, int ncpu)
 	return;
     }
 
-    if (rtip->nsolids <= 0) {
+    if (rtip->stats.nsolids <= 0) {
 	if (rtip->i->rti_air_discards > 0) {
 	    bu_log("rt_prep_parallel(%s, %d): %zu primitives discarded due to air regions\n",
 		   rtip->rti_dbip->dbi_filename,
@@ -296,7 +296,7 @@ rt_prep_parallel(struct rt_i *rtip, int ncpu)
 	return;
     }
 
-    if (rtip->nregions <= 0) {
+    if (rtip->stats.nregions <= 0) {
 	bu_log("rt_prep_parallel:  no regions left to prep\n");
 	rtip->needprep = 0;		/* rt_gettrees left us nothing */
 	bu_semaphore_release(RT_SEM_RESULTS);
@@ -335,7 +335,7 @@ rt_prep_parallel(struct rt_i *rtip, int ncpu)
      * each region's expression tree.  Set this region's bit in the
      * bit vector of every solid contained in the subtree.
      */
-    rtip->Regions = (struct region **)bu_calloc(rtip->nregions, sizeof(struct region *), "rtip->Regions[]");
+    rtip->Regions = (struct region **)bu_calloc(rtip->stats.nregions, sizeof(struct region *), "rtip->Regions[]");
 
     if (RT_G_DEBUG&RT_DEBUG_REGIONS)
 	bu_log("rt_prep_parallel(%s, %d) about to optimize regions\n",
@@ -368,7 +368,7 @@ rt_prep_parallel(struct rt_i *rtip, int ncpu)
      * to handle round-up.
      */
     rtip->rti_Solids =
-	(struct soltab **)bu_calloc(rtip->nsolids + (1<<BU_BITV_SHIFT),
+	(struct soltab **)bu_calloc(rtip->stats.nsolids + (1<<BU_BITV_SHIFT),
 				    sizeof(struct soltab *),
 				    "rtip->rti_Solids[]");
     /*
@@ -455,7 +455,7 @@ rt_prep_parallel(struct rt_i *rtip, int ncpu)
      *
      * Multiple CPUs can be used here.
      */
-    for (i=1; i<=CUT_MAXIMUM; i++) rtip->rti_ncut_by_type[i] = 0;
+    for (i=1; i<=CUT_MAXIMUM; i++) rtip->stats.rti_ncut_by_type[i] = 0;
     rt_cut_it(rtip, ncpu);
 
     /* Release storage used for bounding RPPs of solid "pieces" */
@@ -568,7 +568,7 @@ clt_prep(struct rt_i *rtip)
 
     RT_CK_RTI(rtip);
 
-    n_primitives = rtip->nsolids+1;
+    n_primitives = rtip->stats.nsolids+1;
     primitives = (struct soltab **)bu_calloc(n_primitives,
 					     sizeof(struct soltab *), "primitives");
 
@@ -633,7 +633,7 @@ clt_prep(struct rt_i *rtip)
 
 	clt_db_store(n_primitives, primitives);
 
-	n_regions = rtip->nregions;
+	n_regions = rtip->stats.nregions;
 
 	if (n_regions != 0) {
 	    /* Build boolean regions */
@@ -1206,7 +1206,7 @@ rt_clean(struct rt_i *rtip)
 	bu_avs_free(&(regp->attr_values));
 	bu_free((void *)regp, "struct region");
     }
-    rtip->nregions = 0;
+    rtip->stats.nregions = 0;
 
     /*
      * Clear out the solid table, AFTER doing the region table.  Can't
@@ -1219,7 +1219,7 @@ rt_clean(struct rt_i *rtip)
 	    rt_free_soltab(stp);
 	}
     }
-    rtip->nsolids = 0;
+    rtip->stats.nsolids = 0;
 
     /* Clean out the array of pointers to regions, if any */
     if (rtip->Regions) {
@@ -1884,19 +1884,19 @@ rt_unprep(struct rt_i *rtip, struct rt_reprep_obj_list *objs, struct resource *r
     }
 
     /* eliminate NULL region structures */
-    objs->old_nregions = rtip->nregions;
+    objs->old_nregions = rtip->stats.nregions;
     i = 0;
-    while (i < rtip->nregions) {
+    while (i < rtip->stats.nregions) {
 	int nulls=0;
 
-	while (i < rtip->nregions && !rtip->Regions[i]) {
+	while (i < rtip->stats.nregions && !rtip->Regions[i]) {
 	    i++;
 	    nulls++;
 	}
 
 	if (nulls) {
-	    rtip->nregions -= nulls;
-	    for (j=i-nulls; j<rtip->nregions; j++) {
+	    rtip->stats.nregions -= nulls;
+	    for (j=i-nulls; j<rtip->stats.nregions; j++) {
 		rtip->Regions[j] = rtip->Regions[j+nulls];
 		if (rtip->Regions[j]) {
 		    rtip->Regions[j]->reg_bit = j;
@@ -1908,25 +1908,25 @@ rt_unprep(struct rt_i *rtip, struct rt_reprep_obj_list *objs, struct resource *r
     }
 
     /* eliminate NULL soltabs */
-    objs->old_nsolids = rtip->nsolids;
+    objs->old_nsolids = rtip->stats.nsolids;
     objs->nsolids_unprepped = 0;
     i = 0;
-    while (i < rtip->nsolids) {
+    while (i < rtip->stats.nsolids) {
 	int nulls=0;
 
-	while (i < rtip->nsolids && !rtip->rti_Solids[i]) {
+	while (i < rtip->stats.nsolids && !rtip->rti_Solids[i]) {
 	    objs->nsolids_unprepped++;
 	    i++;
 	    nulls++;
 	}
 	if (nulls) {
-	    for (j=i-nulls; j+nulls<rtip->nsolids; j++) {
+	    for (j=i-nulls; j+nulls<rtip->stats.nsolids; j++) {
 		rtip->rti_Solids[j] = rtip->rti_Solids[j+nulls];
 		if (rtip->rti_Solids[j]) {
 		    rtip->rti_Solids[j]->st_bit = j;
 		}
 	    }
-	    rtip->nsolids -= nulls;
+	    rtip->stats.nsolids -= nulls;
 	    i -= nulls;
 	} else {
 	    i++;
@@ -1976,10 +1976,10 @@ rt_reprep(struct rt_i *rtip, struct rt_reprep_obj_list *objs, struct resource *r
 
     rtip->needprep = 0;
 
-    if (rtip->nregions > objs->old_nregions) {
+    if (rtip->stats.nregions > objs->old_nregions) {
 	rtip->Regions = (struct region **)bu_realloc(rtip->Regions,
-						     rtip->nregions * sizeof(struct region *), "rtip->Regions");
-	memset(rtip->Regions, 0, rtip->nregions);
+						     rtip->stats.nregions * sizeof(struct region *), "rtip->Regions");
+	memset(rtip->Regions, 0, rtip->stats.nregions);
     }
 
 
@@ -2005,11 +2005,11 @@ rt_reprep(struct rt_i *rtip, struct rt_reprep_obj_list *objs, struct resource *r
 	bitno++;
     }
 
-    if (rtip->nsolids > objs->old_nsolids) {
+    if (rtip->stats.nsolids > objs->old_nsolids) {
 	rtip->rti_Solids = (struct soltab **)bu_realloc(rtip->rti_Solids,
-							rtip->nsolids * sizeof(struct soltab *),
+							rtip->stats.nsolids * sizeof(struct soltab *),
 							"rtip->rti_Solids");
-	memset(rtip->rti_Solids, 0, rtip->nsolids * sizeof(struct soltab *));
+	memset(rtip->rti_Solids, 0, rtip->stats.nsolids * sizeof(struct soltab *));
     }
 
     bitno = 0;

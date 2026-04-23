@@ -49,6 +49,39 @@ typedef void(*rti_clbk_t)(struct rt_i *rtip, struct db_tree_state *tsp, struct r
 struct rt_i_internal; /* forward declaration for private state */
 
 /**
+ * Read-only statistics counters for a ray-trace instance.
+ *
+ * This sub-struct groups all scalar performance and geometry counters
+ * that are maintained by librt during prep and ray-shooting.
+ * Applications may freely read any field; all writes are performed
+ * internally by librt.
+ *
+ * Access pattern:  rtip->stats.nregions,  rtip->stats.rti_nrays, etc.
+ */
+struct rt_i_stats {
+    /* Geometry counts (set during rt_prep) */
+    size_t  nregions;       /**< @brief  total # of regions participating */
+    size_t  nsolids;        /**< @brief  total # of solids participating */
+
+    /* Ray-shooting counters (accumulated during rt_shootray / rt_shootrays) */
+    size_t  rti_nrays;      /**< @brief  # calls to rt_shootray() */
+    size_t  nmiss_model;    /**< @brief  rays missed model RPP */
+    size_t  nshots;         /**< @brief  # of calls to ft_shot() */
+    size_t  nmiss;          /**< @brief  solid ft_shot() returned a miss */
+    size_t  nhits;          /**< @brief  solid ft_shot() returned a hit */
+    size_t  nmiss_tree;     /**< @brief  shots missed sub-tree RPP */
+    size_t  nmiss_solid;    /**< @brief  shots missed solid RPP */
+    size_t  ndup;           /**< @brief  duplicate shots at a given solid */
+    size_t  nempty_cells;   /**< @brief  number of empty spatial partition cells passed through */
+
+    /* Space-partition (cut tree) statistics (set during rt_cut_it) */
+    size_t  rti_cut_maxlen;             /**< @brief  max len RPP list in 1 cut bin */
+    size_t  rti_ncut_by_type[CUT_MAXIMUM+1]; /**< @brief  number of cuts by type */
+    size_t  rti_cut_totobj;             /**< @brief  # objs in all bins, total */
+    size_t  rti_cut_maxdepth;           /**< @brief  max depth of cut tree */
+};
+
+/**
  * This structure keeps track of almost everything for ray-tracing
  * support: Regions, primitives, model bounding box, statistics.
  *
@@ -91,25 +124,11 @@ struct rt_i {
     struct region **    Regions;        /**< @brief  ptrs to regions [reg_bit] */
     struct bu_list      HeadRegion;     /**< @brief  ptr of list of regions in model */
     struct bu_ptbl      delete_regs;    /**< @brief  list of region pointers to delete after light_init() */
-    /* Ray-tracing statistics */
-    size_t              nregions;       /**< @brief  total # of regions participating */
-    size_t              nsolids;        /**< @brief  total # of solids participating */
-    size_t              rti_nrays;      /**< @brief  # calls to rt_shootray() */
-    size_t              nmiss_model;    /**< @brief  rays missed model RPP */
-    size_t              nshots;         /**< @brief  # of calls to ft_shot() */
-    size_t              nmiss;          /**< @brief  solid ft_shot() returned a miss */
-    size_t              nhits;          /**< @brief  solid ft_shot() returned a hit */
-    size_t              nmiss_tree;     /**< @brief  shots missed sub-tree RPP */
-    size_t              nmiss_solid;    /**< @brief  shots missed solid RPP */
-    size_t              ndup;           /**< @brief  duplicate shots at a given solid */
-    size_t              nempty_cells;   /**< @brief  number of empty spatial partition cells passed through */
     union cutter        rti_CutHead;    /**< @brief  Head of cut tree */
-    size_t              rti_cut_maxlen; /**< @brief  max len RPP list in 1 cut bin */
-    size_t              rti_ncut_by_type[CUT_MAXIMUM+1];        /**< @brief  number of cuts by type */
-    size_t              rti_cut_totobj; /**< @brief  # objs in all bins, total */
-    size_t              rti_cut_maxdepth; /**< @brief  max depth of cut tree */
     struct soltab **    rti_Solids;     /**< @brief  ptrs to soltab [st_bit] */
     struct bu_ptbl      rti_resources;  /**< @brief  list of 'struct resource's encountered */
+    /* Read-only statistics for applications; all writes are done by librt */
+    struct rt_i_stats   stats;          /**< @brief  geometry counts and ray-shooting counters */
     /* PRIVATE librt-internal state; see src/librt/librt_private.h */
     struct rt_i_internal *i;
 };

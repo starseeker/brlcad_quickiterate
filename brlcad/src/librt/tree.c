@@ -221,7 +221,7 @@ _rt_gettree_region_end(struct db_tree_state *tsp, const struct db_full_path *pat
     BU_LIST_INSERT(&(rtip->HeadRegion), &rp->l);
 
     /* Assign bit vector pos. */
-    rp->reg_bit = rtip->nregions++;
+    rp->reg_bit = rtip->stats.nregions++;
 
     /* leave critical section */
     bu_semaphore_release(RT_SEM_RESULTS);
@@ -407,7 +407,7 @@ _rt_find_identical_solid(const matp_t mat, struct directory *dp, struct rt_i *rt
      * nsolids++ needs to be locked to a SINGLE thread
      */
     bu_semaphore_acquire(BU_SEM_GENERAL);
-    stp->st_bit = rtip->nsolids++;
+    stp->st_bit = rtip->stats.nsolids++;
     bu_semaphore_release(BU_SEM_GENERAL);
 
     /*
@@ -714,7 +714,7 @@ rt_gettrees_and_attrs(struct rt_i *rtip, const char **attrs, int argc, const cha
     if (argc <= 0)
 	return -1;	/* FAIL */
 
-    prev_sol_count = rtip->nsolids;
+    prev_sol_count = rtip->stats.nsolids;
 
     {
 	struct gettree_data data;
@@ -818,7 +818,7 @@ again:
 	    bu_log("rt_gettrees() cleaning up dead solid '%s'\n",
 		   stp->st_dp->d_namep);
 	    rt_free_soltab(stp);
-	    /* Can't do rtip->nsolids--, that doubles as max bit number! */
+	    /* Can't do rtip->stats.nsolids--, that doubles as max bit number! */
 	    /* The macro makes it hard to regain place, punt */
 	    goto again;
 	}
@@ -878,7 +878,7 @@ again:
     if (ret < 0)
 	return ret;
 
-    if (rtip->nsolids <= prev_sol_count)
+    if (rtip->stats.nsolids <= prev_sol_count)
 	bu_log("rt_gettrees(%s) warning:  no primitives found\n", argv[0]);
     return ret;	/* OK */
 }
