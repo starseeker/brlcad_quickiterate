@@ -607,7 +607,7 @@ rt_plot_cell(const union cutter *cutp, const struct rt_shootray_status *ssp, str
 	for (; stpp >= cutp->bn.bn_list; stpp--) {
 	  register struct soltab *stp = *stpp;
 
-	  rt_plot_solid(fp, rtip, stp, ap->a_resource);
+	  rt_plot_solid(fp, rtip, stp);
 	}
       }
 

@@ -101,6 +101,9 @@ struct db_i_internal {
     struct bu_ptbl dbi_changed_clbks;     /**< @brief dbi_changed_t callbacks */
     struct bu_ptbl dbi_update_nref_clbks; /**< @brief dbi_update_nref_t callbacks */
     int dbi_use_comb_instance_ids;        /**< @brief flag for comb instance tracking */
+
+    struct directory *dbi_directory_hd;         /**< @brief directory entry freelist */
+    struct bu_ptbl   dbi_directory_blocks;      /**< @brief Table of malloc'ed blocks */
 };
 
 struct db_i_internal * db_i_internal_create(void);

@@ -105,7 +105,7 @@ main(int argc, char **argv)
 
 	fprintf(stderr, "%.16s\n", dp->d_namep);
 
-	id = rt_db_get_internal(&intern, dp, dbip, NULL, &rt_uniresource);
+	id = rt_db_get_internal(&intern, dp, dbip, NULL);
 	if (id < 0) {
 	    fprintf(stderr,
 		    "%s: rt_db_get_internal(%s) failure, skipping\n",

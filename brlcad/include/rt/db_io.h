@@ -201,9 +201,7 @@ rt_db_external5_to_internal5(
     struct rt_db_internal *ip,
     const struct bu_external *ep,
     const char *name,
-    const struct db_i *dbip,
-    const mat_t mat,
-    struct resource *resp);
+    const struct db_i *dbip);
 
 /**
  * Get an object from the database, and convert it into its internal
@@ -219,8 +217,7 @@ rt_db_external5_to_internal5(
 RT_EXPORT extern int rt_db_get_internal5(struct rt_db_internal *ip,
 					 const struct directory *dp,
 					 const struct db_i *dbip,
-					 const mat_t mat,
-					 struct resource *resp);
+					 const mat_t mat);
 
 
 /**
@@ -887,7 +884,7 @@ RT_EXPORT extern int db_zapper(struct db_i *,
  * freelist is exhausted.  Rather than simply getting one additional
  * structure, we get a whole batch, saving overhead.
  */
-RT_EXPORT extern void db_alloc_directory_block(struct resource *resp);
+RT_EXPORT extern void db_alloc_directory_block(struct db_i *dbip);
 
 /**
  * This routine is called by the GET_SEG macro when the freelist is

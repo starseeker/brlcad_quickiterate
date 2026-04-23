@@ -130,12 +130,14 @@ RT_EXPORT extern int rt_obj_tnurb(struct nmgregion **r, struct model *m, struct 
 /**
  * v4/v5 object import from disk
  */
-RT_EXPORT extern int rt_obj_import(struct rt_db_internal *ip, const struct bu_external *ep, const mat_t mat, const struct db_i *dbip, struct resource *resp);
+RT_EXPORT extern int rt_obj_import(struct rt_db_internal *ip, const struct bu_external *ep, const mat_t mat);
 
 /**
  * v4/v5 object export to disk
  */
-RT_EXPORT extern int rt_obj_export(struct bu_external *ep, const struct rt_db_internal *ip, double local2mm, const struct db_i *dbip, struct resource *resp);
+RT_EXPORT extern int rt_obj_export(struct bu_external *ep, const struct rt_db_internal *ip, double local2mm);
+DEPRECATED static inline int rt_obj_import_old(struct rt_db_internal *ip, const struct bu_external *ep, const mat_t mat, const struct db_i *dbip, struct resource *resp) { (void)dbip; (void)resp; return rt_obj_import(ip, ep, mat); }
+DEPRECATED static inline int rt_obj_export_old(struct bu_external *ep, const struct rt_db_internal *ip, double local2mm, const struct db_i *dbip, struct resource *resp) { (void)dbip; (void)resp; return rt_obj_export(ep, ip, local2mm); }
 
 /**
  * free the internal representation of an object

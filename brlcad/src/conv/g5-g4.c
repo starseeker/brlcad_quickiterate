@@ -116,7 +116,7 @@ main(int argc, char **argv)
 	    continue;
 	}
 
-	id = rt_db_get_internal( &intern, dp, dbip, NULL, &rt_uniresource );
+	id = rt_db_get_internal( &intern, dp, dbip, NULL);
 	if ( id < 0 )  {
 	    bu_log(
 		"%s: rt_db_get_internal(%s) failure, skipping\n",
