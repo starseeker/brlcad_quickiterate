@@ -196,7 +196,7 @@ DbiState::DbiState(struct ged *ged_p)
     BU_GET(res, struct resource);
     rt_init_resource(res, 0, NULL);
     shared_vs = new BViewState(this);
-    default_selected = new BSelectState(this);
+    default_selected = new SelectionSet(this);
     selected_sets[std::string("default")] = default_selected;
     gedp = ged_p;
     if (!gedp)
@@ -230,9 +230,14 @@ DbiState::~DbiState()
 {
     bu_vls_free(&path_string);
     bu_vls_free(&hash_string);
-    std::unordered_map<std::string, BSelectState *>::iterator ss_it;
+    std::unordered_map<std::string, SelectionSet *>::iterator ss_it;
     for (ss_it = selected_sets.begin(); ss_it != selected_sets.end(); ss_it++) {
 	delete ss_it->second;
+    }
+    default_selected = NULL;
+    // Phase 1-D: delete all GObj instances
+    while (!gobjs.empty()) {
+	delete gobjs.begin()->second; // dtor removes entry from gobjs
     }
     delete shared_vs;
     rt_clean_resource_basic(NULL, res);
@@ -784,6 +789,17 @@ DbiState::update_dp(struct directory *dp, int reset)
 	bu_log("Had to load avs\n");
 	bu_avs_free(&c_avs);
     }
+
+    // Phase 1-D: create (or recreate) the GObj for this directory pointer.
+    // GObj ctor reads from the flat maps we just populated and, for combs,
+    // calls GenCombInstances() to build the CombInst child list.
+    {
+	auto g_it = gobjs.find(hash);
+	if (g_it != gobjs.end())
+	    delete g_it->second; // dtor deregisters the old GObj from gobjs
+	new GObj(this, dp);      // ctor registers the new GObj in gobjs
+    }
+
     return hash;
 }
 
@@ -1183,11 +1199,11 @@ DbiState::get_view_state(struct bview *v)
     return nv;
 }
 
-std::vector<BSelectState *>
+std::vector<SelectionSet *>
 DbiState::get_selected_states(const char *sname)
 {
-    std::vector<BSelectState *> ret;
-    std::unordered_map<std::string, BSelectState *>::iterator ss_it;
+    std::vector<SelectionSet *> ret;
+    std::unordered_map<std::string, SelectionSet *>::iterator ss_it;
 
     if (!sname || BU_STR_EQUIV(sname, "default")) {
 	ret.push_back(default_selected);
@@ -1212,20 +1228,20 @@ DbiState::get_selected_states(const char *sname)
     if (ret.size())
 	return ret;
 
-    BSelectState *ns = new BSelectState(this);
+    SelectionSet *ns = new SelectionSet(this);
     selected_sets[sn] = ns;
     ret.push_back(ns);
     return ret;
 }
 
-BSelectState *
+SelectionSet *
 DbiState::find_selected_state(const char *sname)
 {
     if (!sname || BU_STR_EQUIV(sname, "default")) {
 	return default_selected;
     }
 
-    std::unordered_map<std::string, BSelectState *>::iterator ss_it;
+    std::unordered_map<std::string, SelectionSet *>::iterator ss_it;
     for (ss_it = selected_sets.begin(); ss_it != selected_sets.end(); ss_it++) {
 	if (BU_STR_EQUIV(sname, ss_it->first.c_str())) {
 	    return ss_it->second;
@@ -1243,7 +1259,7 @@ DbiState::put_selected_state(const char *sname)
 	return;
     }
 
-    std::unordered_map<std::string, BSelectState *>::iterator ss_it;
+    std::unordered_map<std::string, SelectionSet *>::iterator ss_it;
     for (ss_it = selected_sets.begin(); ss_it != selected_sets.end(); ss_it++) {
 	if (BU_STR_EQUIV(sname, ss_it->first.c_str())) {
 	    delete ss_it->second;
@@ -1257,12 +1273,100 @@ std::vector<std::string>
 DbiState::list_selection_sets()
 {
     std::vector<std::string> ret;
-    std::unordered_map<std::string, BSelectState *>::iterator ss_it;
+    std::unordered_map<std::string, SelectionSet *>::iterator ss_it;
     for (ss_it = selected_sets.begin(); ss_it != selected_sets.end(); ss_it++) {
 	ret.push_back(ss_it->first);
     }
     std::sort(ret.begin(), ret.end(), &alphanum_cmp);
     return ret;
+}
+
+/* ---- Phase 1-G: new SelectionSet management -------------------------- */
+
+SelectionSet *
+DbiState::get_selection_set(const char *name)
+{
+    if (!name || !name[0] || BU_STR_EQUIV(name, "default"))
+	return default_selected;
+
+    std::string sn(name);
+    std::unordered_map<std::string, SelectionSet *>::iterator ss_it = selected_sets.find(sn);
+    if (ss_it != selected_sets.end())
+	return ss_it->second;
+
+    SelectionSet *ns = new SelectionSet(this);
+    selected_sets[sn] = ns;
+    return ns;
+}
+
+std::vector<SelectionSet *>
+DbiState::get_selection_sets(const char *pattern)
+{
+    return get_selected_states(pattern);
+}
+
+void
+DbiState::add_selection_set(const char *name)
+{
+    if (!name || !name[0] || BU_STR_EQUIV(name, "default"))
+	return;
+    std::string sn(name);
+    if (selected_sets.find(sn) == selected_sets.end())
+	selected_sets[sn] = new SelectionSet(this);
+}
+
+void
+DbiState::remove_selection_set(const char *name)
+{
+    put_selected_state(name);
+}
+
+/* ---- Phase 1-C: observer dispatch ------------------------------------ */
+
+void
+DbiState::add_observer(IDbiObserver *obs)
+{
+    if (!obs) return;
+    dbi_observers_.push_back(obs);
+}
+
+void
+DbiState::remove_observer(IDbiObserver *obs)
+{
+    if (!obs) return;
+    auto it = std::find(dbi_observers_.begin(), dbi_observers_.end(), obs);
+    if (it != dbi_observers_.end())
+	dbi_observers_.erase(it);
+}
+
+void
+DbiState::add_scene_observer(ISceneObserver *obs)
+{
+    if (!obs) return;
+    scene_observers_.push_back(obs);
+}
+
+void
+DbiState::remove_scene_observer(ISceneObserver *obs)
+{
+    if (!obs) return;
+    auto it = std::find(scene_observers_.begin(), scene_observers_.end(), obs);
+    if (it != scene_observers_.end())
+	scene_observers_.erase(it);
+}
+
+void
+DbiState::notify_dbi_observers(const std::vector<DbiChangeEvent> &events)
+{
+    for (IDbiObserver *obs : dbi_observers_)
+	obs->on_dbi_changed(events);
+}
+
+void
+DbiState::notify_scene_observers(const std::vector<SceneChangeEvent> &events)
+{
+    for (ISceneObserver *obs : scene_observers_)
+	obs->on_scene_changed(events);
 }
 
 void
@@ -1392,6 +1496,13 @@ DbiState::update()
 	matrices.erase(*s_it);
 	i_bool.erase(*s_it);
 
+	// Phase 1-D: remove corresponding GObj
+	{
+	    auto g_it2 = gobjs.find(*s_it);
+	    if (g_it2 != gobjs.end())
+		delete g_it2->second; // dtor removes entry from gobjs
+	}
+
 	// We do not clear the instance maps (i_map and i_str) since those containers do not
 	// guarantee uniqueness to one child object.  To remove entries no longer
 	// used anywhere in the database, we have to confirm they are no longer needed on a global
@@ -1454,12 +1565,45 @@ DbiState::update()
 	bv_it->first->redraw(NULL, bv_it->second, 1);
     }
 
+    // Phase 1-C: build change events before clearing the sets
+    std::vector<DbiChangeEvent> events_added, events_changed, events_removed;
+    for (auto *dp : added) {
+	DbiChangeEvent ev;
+	ev.kind = DbiChangeKind::ObjectAdded;
+	ev.object = GHash{bu_data_hash(dp->d_namep, strlen(dp->d_namep) * sizeof(char))};
+	ev.batch = false;
+	events_added.push_back(ev);
+    }
+    for (auto *dp : changed) {
+	DbiChangeEvent ev;
+	ev.kind = DbiChangeKind::ObjectModified;
+	ev.object = GHash{bu_data_hash(dp->d_namep, strlen(dp->d_namep) * sizeof(char))};
+	ev.batch = false;
+	events_changed.push_back(ev);
+    }
+    for (auto h : removed) {
+	DbiChangeEvent ev;
+	ev.kind = DbiChangeKind::ObjectRemoved;
+	ev.object = GHash{h};
+	ev.batch = false;
+	events_removed.push_back(ev);
+    }
+
     // Updates done, clear items stored by callbacks
     added.clear();
     changed.clear();
     changed_hashes.clear();
     removed.clear();
     old_names.clear();
+
+    // Phase 1-C: notify registered observers about the changes that occurred
+    if (!events_added.empty() || !events_changed.empty() || !events_removed.empty()) {
+	std::vector<DbiChangeEvent> events;
+	events.insert(events.end(), events_added.begin(), events_added.end());
+	events.insert(events.end(), events_changed.begin(), events_changed.end());
+	events.insert(events.end(), events_removed.begin(), events_removed.end());
+	notify_dbi_observers(events);
+    }
 
     return ret;
 }
@@ -2508,7 +2652,7 @@ BViewState::refresh(struct bview *v, int argc, const char **argv)
     }
 
     // Do selection sync
-    BSelectState *ss = dbis->find_selected_state(NULL);
+    SelectionSet *ss = dbis->find_selected_state(NULL);
     if (ss) {
 	ss->draw_sync();
 	ret = GED_DBISTATE_VIEW_CHANGE;
@@ -2751,7 +2895,7 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
     // We need to check if any drawn solids are selected.  If so, we need
     // to illuminate them.  This is what ensures that newly drawn solids
     // respect a previously selected set from the command line
-    BSelectState *ss = dbis->find_selected_state(NULL);
+    SelectionSet *ss = dbis->find_selected_state(NULL);
     if (ss) {
 	if (invalid_paths.size() || changed_paths.size()) {
 	    ss->refresh();
@@ -2820,13 +2964,13 @@ BViewState::print_view_state(struct bu_vls *outvls)
 
 /* Handle selection status for various instances in the database */
 
-BSelectState::BSelectState(DbiState *s)
+SelectionSet::SelectionSet(DbiState *s)
 {
     dbis = s;
 }
 
 bool
-BSelectState::select_path(const char *path, bool update)
+SelectionSet::select_path(const char *path, bool update)
 {
     if (!path)
 	return false;
@@ -2842,7 +2986,7 @@ BSelectState::select_path(const char *path, bool update)
 }
 
 bool
-BSelectState::select_hpath(std::vector<unsigned long long> &hpath)
+SelectionSet::select_hpath(std::vector<unsigned long long> &hpath)
 {
     if (!hpath.size())
 	return false;
@@ -2897,7 +3041,7 @@ BSelectState::select_hpath(std::vector<unsigned long long> &hpath)
 }
 
 bool
-BSelectState::deselect_path(const char *path, bool update)
+SelectionSet::deselect_path(const char *path, bool update)
 {
     if (!path)
 	return false;
@@ -2913,7 +3057,7 @@ BSelectState::deselect_path(const char *path, bool update)
 }
 
 bool
-BSelectState::deselect_hpath(std::vector<unsigned long long> &hpath)
+SelectionSet::deselect_hpath(std::vector<unsigned long long> &hpath)
 {
     if (!hpath.size())
 	return false;
@@ -2942,7 +3086,7 @@ BSelectState::deselect_hpath(std::vector<unsigned long long> &hpath)
 }
 
 bool
-BSelectState::is_selected(unsigned long long hpath)
+SelectionSet::is_selected(unsigned long long hpath)
 {
     if (!hpath)
 	return false;
@@ -2954,7 +3098,7 @@ BSelectState::is_selected(unsigned long long hpath)
 }
 
 bool
-BSelectState::is_active(unsigned long long phash)
+SelectionSet::is_active(unsigned long long phash)
 {
     if (!phash)
 	return false;
@@ -2966,7 +3110,7 @@ BSelectState::is_active(unsigned long long phash)
 }
 
 bool
-BSelectState::is_active_parent(unsigned long long phash)
+SelectionSet::is_active_parent(unsigned long long phash)
 {
     if (!phash)
 	return false;
@@ -2978,7 +3122,7 @@ BSelectState::is_active_parent(unsigned long long phash)
 }
 
 bool
-BSelectState::is_parent_obj(unsigned long long hash)
+SelectionSet::is_parent_obj(unsigned long long hash)
 {
     if (is_immediate_parent_obj(hash) || is_grand_parent_obj(hash))
 	return true;
@@ -2987,7 +3131,7 @@ BSelectState::is_parent_obj(unsigned long long hash)
 }
 
 bool
-BSelectState::is_immediate_parent_obj(unsigned long long hash)
+SelectionSet::is_immediate_parent_obj(unsigned long long hash)
 {
     if (!hash)
 	return false;
@@ -2999,7 +3143,7 @@ BSelectState::is_immediate_parent_obj(unsigned long long hash)
 }
 
 bool
-BSelectState::is_grand_parent_obj(unsigned long long hash)
+SelectionSet::is_grand_parent_obj(unsigned long long hash)
 {
 
     if (!hash)
@@ -3012,7 +3156,7 @@ BSelectState::is_grand_parent_obj(unsigned long long hash)
 }
 
 void
-BSelectState::clear()
+SelectionSet::clear()
 {
     selected.clear();
     active_paths.clear();
@@ -3020,7 +3164,7 @@ BSelectState::clear()
 }
 
 std::vector<std::string>
-BSelectState::list_selected_paths()
+SelectionSet::list_selected_paths()
 {
     std::unordered_map<unsigned long long, std::vector<unsigned long long>>::iterator s_it;
     std::vector<std::string> ret;
@@ -3035,7 +3179,7 @@ BSelectState::list_selected_paths()
 }
 
 void
-BSelectState::add_paths(
+SelectionSet::add_paths(
 	unsigned long long c_hash,
 	std::vector<unsigned long long> &path_hashes
 	)
@@ -3061,7 +3205,7 @@ BSelectState::add_paths(
 }
 
 void
-BSelectState::clear_paths(
+SelectionSet::clear_paths(
 	unsigned long long c_hash,
 	std::vector<unsigned long long> &path_hashes
 	)
@@ -3088,7 +3232,7 @@ BSelectState::clear_paths(
 }
 
 void
-BSelectState::expand_paths(
+SelectionSet::expand_paths(
 	std::vector<std::vector<unsigned long long>> &out_paths,
 	unsigned long long c_hash,
 	std::vector<unsigned long long> &path_hashes
@@ -3117,7 +3261,7 @@ BSelectState::expand_paths(
 }
 
 void
-BSelectState::expand()
+SelectionSet::expand()
 {
     // Given the current selection set, expand all the paths to
     // their leaf solids and report those paths
@@ -3141,7 +3285,7 @@ BSelectState::expand()
 }
 
 void
-BSelectState::collapse()
+SelectionSet::collapse()
 {
     std::vector<std::vector<unsigned long long>> collapsed;
     std::map<size_t, std::unordered_set<unsigned long long>> depth_groups;
@@ -3253,9 +3397,9 @@ BSelectState::collapse()
 }
 
 void
-BSelectState::characterize()
+SelectionSet::characterize()
 {
-    //bu_log("BSelectState::characterize\n");
+    //bu_log("SelectionSet::characterize\n");
     active_parents.clear();
     immediate_parents.clear();
     grand_parents.clear();
@@ -3330,7 +3474,7 @@ BSelectState::characterize()
 }
 
 void
-BSelectState::refresh()
+SelectionSet::refresh()
 {
     // If the database may have changed, we need to revalidate selected
     // paths are still current, and regenerate the active_paths set.
@@ -3371,7 +3515,7 @@ BSelectState::refresh()
 }
 
 bool
-BSelectState::draw_sync()
+SelectionSet::draw_sync()
 {
     bool changed = false;
     std::unordered_set<BViewState *> vstates;
@@ -3403,7 +3547,7 @@ BSelectState::draw_sync()
 }
 
 unsigned long long
-BSelectState::state_hash()
+SelectionSet::state_hash()
 {
     std::unordered_map<unsigned long long, std::vector<unsigned long long>>::iterator s_it;
     struct bu_data_hash_state *s = bu_data_hash_create();
@@ -3415,6 +3559,429 @@ BSelectState::state_hash()
     unsigned long long hval = bu_data_hash_val(s);
     bu_data_hash_destroy(s);
     return hval;
+}
+
+
+
+/* ---- Phase 1-F: new SelectionSet methods ----------------------------- */
+
+bool
+SelectionSet::select(unsigned long long path_hash,
+                     const std::vector<unsigned long long> &path_vec,
+                     bool update_hierarchy)
+{
+    if (!path_hash) return false;
+    if (selected.find(path_hash) != selected.end()) return false;
+    selected[path_hash] = path_vec;
+    if (update_hierarchy)
+	characterize();
+    return true;
+}
+
+bool
+SelectionSet::deselect(unsigned long long path_hash, bool update_hierarchy)
+{
+    if (selected.erase(path_hash) == 0) return false;
+    if (update_hierarchy)
+	characterize();
+    return true;
+}
+
+bool
+SelectionSet::select(const DbiPath &path, bool update_hierarchy)
+{
+    if (path.empty()) return false;
+    unsigned long long ph = dbis->path_hash(
+	const_cast<std::vector<unsigned long long>&>(path.hashes), 0);
+    return select(ph, path.hashes, update_hierarchy);
+}
+
+bool
+SelectionSet::deselect(const DbiPath &path, bool update_hierarchy)
+{
+    if (path.empty()) return false;
+    unsigned long long ph = dbis->path_hash(
+	const_cast<std::vector<unsigned long long>&>(path.hashes), 0);
+    return deselect(ph, update_hierarchy);
+}
+
+bool
+SelectionSet::select(const char *path_str, bool update_hierarchy)
+{
+    return select_path(path_str, update_hierarchy);
+}
+
+bool
+SelectionSet::deselect(const char *path_str, bool update_hierarchy)
+{
+    return deselect_path(path_str, update_hierarchy);
+}
+
+bool
+SelectionSet::is_parent(unsigned long long path_hash) const
+{
+    return active_parents.find(path_hash) != active_parents.end();
+}
+
+bool
+SelectionSet::is_ancestor(unsigned long long path_hash) const
+{
+    return (active_parents.find(path_hash) != active_parents.end()) ||
+           (grand_parents.find(path_hash) != grand_parents.end());
+}
+
+bool
+SelectionSet::is_obj_immediate_parent(unsigned long long obj_hash) const
+{
+    return immediate_parents.find(obj_hash) != immediate_parents.end();
+}
+
+bool
+SelectionSet::is_obj_ancestor(unsigned long long obj_hash) const
+{
+    return grand_parents.find(obj_hash) != grand_parents.end();
+}
+
+void
+SelectionSet::recompute_hierarchy()
+{
+    characterize();
+}
+
+std::vector<std::string>
+SelectionSet::selected_paths() const
+{
+    return const_cast<SelectionSet *>(this)->list_selected_paths();
+}
+
+std::unordered_set<unsigned long long>
+SelectionSet::selected_hashes() const
+{
+    std::unordered_set<unsigned long long> result;
+    for (auto &kv : selected)
+        result.insert(kv.first);
+    return result;
+}
+
+unsigned long long
+SelectionSet::state_hash_val() const
+{
+    return const_cast<SelectionSet *>(this)->state_hash();
+}
+
+/* ---- Phase 1-E: DrawList implementation ------------------------------ */
+
+void
+DrawList::add(const std::vector<unsigned long long> &path_hashes, int mode,
+              const DrawSettings *overrides)
+{
+    if (path_hashes.empty()) return;
+    Entry e;
+    e.path = path_hashes;
+    e.full_hash = bu_data_hash(path_hashes.data(),
+                               path_hashes.size() * sizeof(unsigned long long));
+    e.mode = mode;
+    if (overrides) {
+        e.has_settings = true;
+        e.settings = *overrides;
+    }
+    entries_.push_back(std::move(e));
+    dirty_ = true;
+}
+
+void
+DrawList::add(const DbiPath &path, int mode, const DrawSettings *overrides)
+{
+    add(path.hashes, mode, overrides);
+}
+
+void
+DrawList::remove(unsigned long long path_hash, int mode)
+{
+    auto it = entries_.begin();
+    while (it != entries_.end()) {
+        if (it->full_hash == path_hash && (mode < 0 || it->mode == mode))
+            it = entries_.erase(it);
+        else
+            ++it;
+    }
+    dirty_ = true;
+}
+
+void
+DrawList::clear()
+{
+    entries_.clear();
+    drawn_hash_modes_.clear();
+    dirty_ = false;
+}
+
+void
+DrawList::clear(int mode)
+{
+    entries_.erase(
+        std::remove_if(entries_.begin(), entries_.end(),
+                       [mode](const Entry &e) { return e.mode == mode; }),
+        entries_.end());
+    dirty_ = true;
+}
+
+void
+DrawList::rebuild_index() const
+{
+    drawn_hash_modes_.clear();
+    for (const auto &e : entries_) {
+        for (const auto &h : e.path)
+            drawn_hash_modes_[h].insert(e.mode);
+    }
+    dirty_ = false;
+}
+
+DrawState
+DrawList::query(unsigned long long path_hash, int mode) const
+{
+    if (dirty_) rebuild_index();
+    auto it = drawn_hash_modes_.find(path_hash);
+    if (it == drawn_hash_modes_.end()) return DrawState::NOT_DRAWN;
+    if (mode < 0) return DrawState::FULLY_DRAWN;
+    if (it->second.find(mode) != it->second.end()) return DrawState::FULLY_DRAWN;
+    return DrawState::NOT_DRAWN;
+}
+
+std::vector<std::vector<unsigned long long>>
+DrawList::drawn_path_hashes(int mode) const
+{
+    std::vector<std::vector<unsigned long long>> result;
+    for (const auto &e : entries_) {
+        if (mode < 0 || e.mode == mode)
+            result.push_back(e.path);
+    }
+    return result;
+}
+
+size_t
+DrawList::count(int mode) const
+{
+    if (mode < 0) return entries_.size();
+    size_t n = 0;
+    for (const auto &e : entries_)
+        if (e.mode == mode) ++n;
+    return n;
+}
+
+bool DrawList::empty() const { return entries_.empty(); }
+
+/* ---- Phase 1-D: GObj and CombInst implementation -------------------- */
+
+struct gobj_walk_data {
+    GObj *gobj = NULL;
+    std::unordered_map<unsigned long long, unsigned long long> i_count;
+};
+
+static void
+populate_gobj_leaf(void *cd, const char *name, matp_t c_m, int op)
+{
+    struct gobj_walk_data *d = (struct gobj_walk_data *)cd;
+    unsigned long long chash = bu_data_hash(name, strlen(name) * sizeof(char));
+    d->i_count[chash] += 1;
+    CombInst *ci = new CombInst(d->gobj->d, d->gobj->dp->d_namep, name,
+				d->i_count[chash], op, c_m);
+    d->gobj->cv.push_back(ci);
+}
+
+CombInst::CombInst(DbiState *dbis, const char *p_name, const char *o_name,
+                   unsigned long long icnt, int i_op, matp_t i_mat)
+{
+    d = dbis;
+    cname = std::string(p_name);
+    oname = std::string(o_name);
+    iname = std::string("");
+    id = icnt;
+    boolean_op = i_op;
+
+    if (i_mat) {
+	MAT_COPY(m, i_mat);
+	non_default_matrix = true;
+    } else {
+	MAT_IDN(m);
+    }
+
+    /* Build iname for duplicate instances (same algorithm as populate_leaf) */
+    if (icnt > 1) {
+	struct bu_vls iname_c = BU_VLS_INIT_ZERO;
+	bu_vls_sprintf(&iname_c, "%s@%llu", o_name, icnt - 1);
+	iname = std::string(bu_vls_cstr(&iname_c));
+	bu_vls_free(&iname_c);
+    }
+
+    /* ohash = hash(oname), matching the key space used by d_map/gobjs */
+    ohash = bu_data_hash(oname.c_str(), oname.size() * sizeof(char));
+
+    /* chash = hash(parent comb name) */
+    chash = bu_data_hash(cname.c_str(), cname.size() * sizeof(char));
+
+    /* ihash: if duplicated use hash(iname), else use ohash */
+    if (!iname.empty())
+	ihash = bu_data_hash(iname.c_str(), iname.size() * sizeof(char));
+    else
+	ihash = ohash;
+}
+
+CombInst::~CombInst()
+{
+    /* CombInst is owned by GObj::cv; no global registry to deregister from. */
+}
+
+db_op_t
+CombInst::bool_op()
+{
+    if (boolean_op == OP_SUBTRACT)
+	return DB_OP_SUBTRACT;
+    if (boolean_op == OP_INTERSECT)
+	return DB_OP_INTERSECT;
+    return DB_OP_UNION;
+}
+
+void
+CombInst::bbox(point_t *min, point_t *max)
+{
+    if (!min || !max || !d)
+	return;
+
+    auto g_it = d->gobjs.find(ohash);
+    if (g_it == d->gobjs.end())
+	return;
+
+    point_t lbmin, lbmax;
+    VSETALL(lbmin,  INFINITY);
+    VSETALL(lbmax, -INFINITY);
+    g_it->second->bbox(&lbmin, &lbmax);
+
+    if (non_default_matrix) {
+	point_t tbmin, tbmax;
+	MAT4X3PNT(tbmin, m, lbmin);
+	VMOVE(lbmin, tbmin);
+	MAT4X3PNT(tbmax, m, lbmax);
+	VMOVE(lbmax, tbmax);
+    }
+
+    VMINMAX(*min, *max, lbmin);
+    VMINMAX(*min, *max, lbmax);
+}
+
+/* GObj constructor: reads attribute caches from the already-populated flat
+ * maps (avoids a second disk read since update_dp() loaded them first). */
+GObj::GObj(DbiState *dbis, struct directory *dp_i)
+{
+    if (!dbis || !dp_i)
+	return;
+
+    d  = dbis;
+    dp = dp_i;
+    name = std::string(dp->d_namep);
+    hash = bu_data_hash(dp->d_namep, strlen(dp->d_namep) * sizeof(char));
+
+    VSETALL(bb_min,  INFINITY);
+    VSETALL(bb_max, -INFINITY);
+    bb_valid = false;
+
+    {
+	auto it = dbis->c_inherit.find(hash);
+	if (it != dbis->c_inherit.end())
+	    c_inherit = it->second;
+    }
+    {
+	auto it = dbis->region_id.find(hash);
+	if (it != dbis->region_id.end()) {
+	    region_id   = it->second;
+	    region_flag = 1;
+	}
+    }
+    {
+	auto it = dbis->rgb.find(hash);
+	if (it != dbis->rgb.end()) {
+	    unsigned int cval = it->second;
+	    unsigned char lrgb[3];
+	    lrgb[0] = static_cast<unsigned char>( cval        & 0xFF);
+	    lrgb[1] = static_cast<unsigned char>((cval >>  8) & 0xFF);
+	    lrgb[2] = static_cast<unsigned char>((cval >> 16) & 0xFF);
+	    bu_color_from_rgb_chars(&color, lrgb);
+	    color_set = true;
+	}
+    }
+
+    if (dp->d_flags & RT_DIR_COMB)
+	GenCombInstances();
+
+    dbis->gobjs[hash] = this;
+}
+
+GObj::~GObj()
+{
+    for (CombInst *ci : cv)
+	delete ci;
+    cv.clear();
+
+    if (d)
+	d->gobjs.erase(hash);
+}
+
+void
+GObj::GenCombInstances()
+{
+    if (!dp || !(dp->d_flags & RT_DIR_COMB) || !d)
+	return;
+
+    struct rt_db_internal in;
+    if (rt_db_get_internal(&in, dp, d->gedp->dbip, NULL, d->res) < 0)
+	return;
+    struct rt_comb_internal *comb = (struct rt_comb_internal *)in.idb_ptr;
+    if (!comb->tree) {
+	rt_db_free_internal(&in);
+	return;
+    }
+
+    struct gobj_walk_data dw;
+    dw.gobj = this;
+    populate_walk_tree(comb->tree, (void *)&dw, 0, OP_UNION, populate_gobj_leaf);
+
+    rt_db_free_internal(&in);
+}
+
+void
+GObj::bbox(point_t *min, point_t *max)
+{
+    if (!min || !max || !d)
+	return;
+
+    if (!cv.empty()) {
+	for (CombInst *ci : cv) {
+	    point_t lbmin, lbmax;
+	    VSETALL(lbmin,  INFINITY);
+	    VSETALL(lbmax, -INFINITY);
+	    ci->bbox(&lbmin, &lbmax);
+	    VMINMAX(*min, *max, lbmin);
+	    VMINMAX(*min, *max, lbmax);
+	}
+	return;
+    }
+
+    if (bb_valid) {
+	VMINMAX(*min, *max, bb_min);
+	VMINMAX(*min, *max, bb_max);
+	return;
+    }
+
+    point_t bmin, bmax;
+    VSETALL(bmin,  INFINITY);
+    VSETALL(bmax, -INFINITY);
+    if (d->get_bbox(&bmin, &bmax, NULL, hash)) {
+	VMOVE(bb_min, bmin);
+	VMOVE(bb_max, bmax);
+	bb_valid = true;
+	VMINMAX(*min, *max, bb_min);
+	VMINMAX(*min, *max, bb_max);
+    }
 }
 
 /** @} */
