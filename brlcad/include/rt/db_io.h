@@ -201,7 +201,8 @@ rt_db_external5_to_internal5(
     struct rt_db_internal *ip,
     const struct bu_external *ep,
     const char *name,
-    const struct db_i *dbip);
+    const struct db_i *dbip,
+    const mat_t mat);
 
 /**
  * Get an object from the database, and convert it into its internal
