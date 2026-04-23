@@ -1,7 +1,6 @@
 # LIBGED is set up based on a plugin architecture, with common functionality
 # defined in a core library.
 
-brlcad_find_package(LMDB REQUIRED)
 brlcad_find_package(PNG REQUIRED)
 brlcad_find_package(REGEX REQUIRED)
 
@@ -338,7 +337,6 @@ set(
   GED_LIBS
   ${libged_deps}
   ${PNG_LIBRARIES}
-  ${LMDB_LIBRARIES}
   ${REGEX_LIBRARIES}
   ${WINSOCK_LIB}
   ${M_LIBRARY}
@@ -350,7 +348,6 @@ set(
   GED_LOCAL_INCLUDE_DIRS
   ${PNG_INCLUDE_DIRS}
   ${REGEX_INCLUDE_DIRS}
-  ${LMDB_INCLUDE_DIRS}
   ${CMAKE_CURRENT_SOURCE_DIR}/../libbg
   ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${CMAKE_CURRENT_BINARY_DIR}
