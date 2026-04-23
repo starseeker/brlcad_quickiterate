@@ -2896,9 +2896,9 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
     }
 
     // Phase 2-B: Update LoD levels for all drawn adaptive objects.
-    // BViewState owns this decision; s_update_callback is no longer set for
-    // BV_MESH_LOD / BV_CSG_LOD objects.  We iterate each view's drawn objects
-    // directly so per-view view-scale changes are reflected.
+    // BViewState now explicitly drives this pass in addition to the per-frame
+    // s_update_callback path in libdm/view.c, so that view-scale changes from
+    // BViewState::redraw() (e.g. redraw_on_zoom) also propagate LoD levels.
     for (v_it = views.begin(); v_it != views.end(); v_it++) {
 	struct bview *lv = *v_it;
 	std::unordered_map<unsigned long long, std::unordered_map<int, struct bv_scene_obj *>>::iterator ls_it;
