@@ -196,7 +196,8 @@ Sub-items:
     Write-site audit (all direct writes to the deprecated fields):
       s_update_callback:
         src/libged/draw.cpp: bot_adaptive_plot(), brep_adaptive_plot(),
-          wireframe_plot() — all REMOVED in 2-B.
+          wireframe_plot() — RETAINED for per-frame rendering via libdm/view.c.
+          BViewState::redraw() adds an explicit supplementary pass (2-B).
         src/libdm/view.c: draw_scene_obj() calls s_update_callback for
           non-LoD polygon-edit objects — this call remains valid.
       s_dlist_stale:
@@ -212,9 +213,12 @@ Sub-items:
     Blocker: none.
 
   2-B: Move adaptive-plot / LoD trigger to BViewState                 [DONE]
-    s_update_callback = &bv_mesh_lod_view removed from bot_adaptive_plot()
-      and brep_adaptive_plot() (two sites in draw.cpp).
-    s_update_callback = &csg_wireframe_update removed from wireframe_plot().
+    s_update_callback = &bv_mesh_lod_view RETAINED for BV_MESH_LOD objects
+      (bot_adaptive_plot, brep_adaptive_plot) — it is still called per-frame
+      by draw_scene_obj() in libdm/view.c as a rendering-time update.
+      Phase 2-B adds BViewState as an additional explicit trigger.
+    s_update_callback = &csg_wireframe_update RETAINED for BV_CSG_LOD objects
+      in wireframe_plot() for the same reason.
     csg_wireframe_update() made extern "C" (non-static) so dbi_state.cpp
       can call it directly.
     Forward declarations added at top of dbi_state.cpp for draw_scene() and
@@ -222,8 +226,9 @@ Sub-items:
     BViewState::redraw() gains a per-view LoD update pass after draw_scene:
       iterates s_map; for each BV_MESH_LOD child calls bv_mesh_lod_view(),
       for each BV_CSG_LOD child calls csg_wireframe_update().
+      This ensures view-scale changes from redraw_on_zoom also propagate LoD.
     Dead #if 0 block in libbv/util.cpp::bv_update_selected() replaced with
-      an explanatory comment.
+      an explanatory comment (libbv does not call s_update_callback).
     lod.cpp: enabling adaptive_plot now also sets redraw_on_zoom = 1 so
       zoom events trigger a full BViewState::redraw() and LoD levels update.
       Disabling both modes clears redraw_on_zoom back to 0.
@@ -465,13 +470,15 @@ Deprecation policy
   2026-04-23  Phase 2 complete.
               2-A: BV_DEPRECATED comments in include/bv/defines.h for all nine
                 deprecated fields; write-site audit recorded above.
-              2-B: s_update_callback removed for BV_MESH_LOD/BV_CSG_LOD objects;
-                BViewState::redraw() now drives per-view LoD update pass;
-                redraw_on_zoom=1 set when adaptive_plot enabled;
+              2-B: s_update_callback RETAINED for BV_MESH_LOD/BV_CSG_LOD for
+                backward-compat per-frame rendering; BViewState::redraw() adds
+                an explicit supplementary LoD update pass; csg_wireframe_update
+                made extern "C"; redraw_on_zoom=1 set when adaptive_plot enabled;
                 dead #if 0 in bv_update_selected() removed.
               2-C: dm_dlist_sensor struct; dm_register_dlist_sensor/
                 dm_fire_dlist_sensors/dm_dlist_sensors_clear API in libdm;
-                dm_fire_dlist_sensors called after GL dlist regeneration.
+                dm_fire_dlist_sensors called after GL dlist regeneration;
+                dm_dlist_sensors = NULL added to all dm plugin struct literals.
               2-D: bv_view_get/set_scale/size/perspective/aet/rotation/center_vec
                 added to include/bv/util.h and implemented in libbv/util.cpp;
                 migrated loadview.cpp, QgGL.cpp, QgSW.cpp, bindings.cpp.

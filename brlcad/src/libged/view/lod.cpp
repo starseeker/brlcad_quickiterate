@@ -117,9 +117,7 @@ _view_cmd_lod(void *bs, int argc, const char **argv)
 	if (gvp->gv_s->adaptive_plot_mesh || gvp->gv_s->adaptive_plot_csg) {
 	    gvp->gv_s->adaptive_plot_csg = 0;
 	    gvp->gv_s->adaptive_plot_mesh = 0;
-	    /* Only clear redraw_on_zoom if both adaptive modes are off. */
-	    if (!gvp->gv_s->adaptive_plot_csg && !gvp->gv_s->adaptive_plot_mesh)
-		gvp->gv_s->redraw_on_zoom = 0;
+	    gvp->gv_s->redraw_on_zoom = 0;
 	    int rac = 1;
 	    const char *rav[1] = {"redraw"};
 	    ged_exec_redraw(gedp, rac, (const char **)rav);
@@ -145,7 +143,7 @@ _view_cmd_lod(void *bs, int argc, const char **argv)
 	if (BU_STR_EQUAL(argv[1], "0")) {
 	    if (gvp->gv_s->adaptive_plot_csg) {
 		gvp->gv_s->adaptive_plot_csg = 0;
-		if (!gvp->gv_s->adaptive_plot_csg && !gvp->gv_s->adaptive_plot_mesh)
+		if (!gvp->gv_s->adaptive_plot_mesh)
 		    gvp->gv_s->redraw_on_zoom = 0;
 		int rac = 1;
 		const char *rav[1] = {"redraw"};
@@ -175,7 +173,7 @@ _view_cmd_lod(void *bs, int argc, const char **argv)
 	if (BU_STR_EQUAL(argv[1], "0")) {
 	    if (gvp->gv_s->adaptive_plot_mesh) {
 		gvp->gv_s->adaptive_plot_mesh = 0;
-		if (!gvp->gv_s->adaptive_plot_csg && !gvp->gv_s->adaptive_plot_mesh)
+		if (!gvp->gv_s->adaptive_plot_csg)
 		    gvp->gv_s->redraw_on_zoom = 0;
 		int rac = 1;
 		const char *rav[1] = {"redraw"};
