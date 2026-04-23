@@ -133,9 +133,6 @@ RT_EXPORT extern int rt_db_lookup_internal(struct db_i *dbip,
 					   int noisy);
 
 
-DEPRECATED static inline int rt_db_get_internal_old(struct rt_db_internal *ip, const struct directory *dp, const struct db_i *dbip, const mat_t mat, struct resource *resp) { (void)resp; return rt_db_get_internal(ip, dp, dbip, mat); }
-DEPRECATED static inline int rt_db_put_internal_old(struct directory *dp, struct db_i *dbip, struct rt_db_internal *ip, struct resource *resp) { (void)resp; return rt_db_put_internal(dp, dbip, ip); }
-DEPRECATED static inline int rt_db_lookup_internal_old(struct db_i *dbip, const char *obj_name, struct directory **dpp, struct rt_db_internal *ip, int noisy, struct resource *resp) { (void)resp; return rt_db_lookup_internal(dbip, obj_name, dpp, ip, noisy); }
 
 __END_DECLS
 

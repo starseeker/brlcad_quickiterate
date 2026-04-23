@@ -469,7 +469,7 @@ combmem_get(struct ged *gedp, int argc, const char *argv[], enum etypes etype)
     (_comb)->tree = NULL; \
     \
     if ((_tree_index)) \
-	(_final_tree) = (union tree *)db_mkgift_tree((_rt_tree_array), (_node_count), &rt_uniresource); \
+	(_final_tree) = (union tree *)db_mkgift_tree((_rt_tree_array), (_node_count)); \
     else \
 	(_final_tree) = TREE_NULL; \
     \

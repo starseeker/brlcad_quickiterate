@@ -86,7 +86,7 @@ struct lint_worker_vars {
 namespace {
     class lint_worker_data {
 	public:
-	    lint_worker_data(struct rt_i *rtip);
+	    lint_worker_data(struct rt_i *rtip, struct resource *res);
 	    ~lint_worker_data();
 	    void shoot(int ind, bool reverse);
 
@@ -238,7 +238,7 @@ bot_repair_lint_worker(int cpu, void *ptr)
     }
 }
 
-lint_worker_data::lint_worker_data(struct rt_i *rtip)
+lint_worker_data::lint_worker_data(struct rt_i *rtip, struct resource *res)
 {
     RT_APPLICATION_INIT(&ap);
     ap.a_onehit = 0;

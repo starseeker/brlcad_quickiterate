@@ -169,7 +169,7 @@ mk_tree_gift(struct rt_comb_internal *comb, struct bu_list *member_hd)
     BU_ASSERT(node_count == actual_count + (size_t)new_nodes);
 
     /* rebuild the tree with GIFT semantics */
-    comb->tree = (union tree *)db_mkgift_tree(tree_list, node_count, &rt_uniresource);
+    comb->tree = (union tree *)db_mkgift_tree(tree_list, node_count);
 
     bu_free((char *)tree_list, "mk_tree_gift: tree_list");
 

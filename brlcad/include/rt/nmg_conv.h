@@ -172,7 +172,6 @@ RT_EXPORT extern int nmg_boolean(union tree *tp,
 				 struct model *m,
 				 struct bu_list *vlfree,
 				 const struct bn_tol *tol);
-DEPRECATED static inline int nmg_boolean_old(union tree *tp, struct model *m, struct bu_list *vlfree, const struct bn_tol *tol, struct resource *resp) { (void)resp; return nmg_boolean(tp, m, vlfree, tol); }
 
 
 

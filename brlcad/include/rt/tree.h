@@ -720,12 +720,10 @@ RT_EXPORT extern int db_ck_v4gift_tree(const union tree *tp);
  * top of the tree.
  */
 RT_EXPORT extern union tree *db_mkbool_tree(struct rt_tree_array *rt_tree_array,
-					    size_t              howfar,
-					    struct resource     *resp);
+					    size_t              howfar);
 
 RT_EXPORT extern union tree *db_mkgift_tree(struct rt_tree_array *trees,
-					    size_t subtreecount,
-					    struct resource *resp);
+					    size_t subtreecount);
 
 
 RT_EXPORT extern void rt_optim_tree(union tree *tp,

@@ -883,12 +883,8 @@ rt_db_external5_to_internal5(
 	return -3;
     }
 
-    if ((raw.major_type == DB5_MAJORTYPE_BRLCAD)
-	||(raw.major_type == DB5_MAJORTYPE_BINARY_UNIF)) {
-	/* As a convenience to older ft_import routines */
-	if (mat == NULL)
-	    mat = bn_mat_identity;
-    } else {
+    if ((raw.major_type != DB5_MAJORTYPE_BRLCAD)
+	&&(raw.major_type != DB5_MAJORTYPE_BINARY_UNIF)) {
 	bu_log("rt_db_external5_to_internal5(%s):  unable to import non-BRL-CAD object, major=%d minor=%d\n",
 	       name, raw.major_type, raw.minor_type);
 	return -1;		/* FAIL */
@@ -939,9 +935,9 @@ rt_db_external5_to_internal5(
 	 * this isn't needed, but breaks compatibility.  slate for
 	 * v6.
 	 */
-	ret = rt_binunif_import5_minor_type(ip, &raw.body, mat, dbip, NULL, raw.minor_type);
+	ret = rt_binunif_import5_minor_type(ip, &raw.body, bn_mat_identity, dbip, NULL, raw.minor_type);
     } else if (OBJ[id].ft_import5) {
-	ret = OBJ[id].ft_import5(ip, &raw.body, mat, dbip);
+	ret = OBJ[id].ft_import5(ip, &raw.body, bn_mat_identity, dbip);
     }
     if (ret < 0) {
 	bu_log("rt_db_external5_to_internal5(%s):  import failure\n", name);

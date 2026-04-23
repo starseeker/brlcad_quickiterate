@@ -649,7 +649,7 @@ analyze_find_subtracted(struct bu_ptbl *UNUSED(results), struct rt_wdb *wdbp, co
 
 		++curr_count;
 	    }
-	    comb->tree = (union tree *)db_mkgift_tree(tree_list, node_count, &rt_uniresource);
+	    comb->tree = (union tree *)db_mkgift_tree(tree_list, node_count);
 	    if (rt_db_put_internal(cdp, wdbp->dbip, &intern) < 0) {
 		bu_log("error writing out subtraction comb\n");
 	    }

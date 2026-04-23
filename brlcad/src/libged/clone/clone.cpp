@@ -455,7 +455,7 @@ copy_comb_cb(struct db_i *dbip, struct directory *dp, void *cd)
 }
 
 static struct directory *
-copy_tree(struct directory *dp, struct resource *resp, CloneState *state)
+copy_tree(struct directory *dp, CloneState *state)
 {
     struct db_i *dbip = state->gedp->dbip;
     int step = (dp->d_flags & (RT_DIR_SOLID | RT_DIR_REGION))
@@ -487,11 +487,11 @@ copy_tree(struct directory *dp, struct resource *resp, CloneState *state)
 }
 
 static struct directory *
-deep_copy_object(struct resource *resp, CloneState *state)
+deep_copy_object(CloneState *state)
 {
     if (state->srcs.empty() || !state->n_copies) return nullptr;
     state->names.clear();
-    return copy_tree(state->srcs[0], resp, state);
+    return copy_tree(state->srcs[0], state);
 }
 
 
@@ -898,7 +898,7 @@ apply_one_position(CloneState *state, struct directory *src,
     bu_vls_init(&tmp.olist);
 
     state->names.clear();
-    struct directory *copy = deep_copy_object(&rt_uniresource, &tmp);
+    struct directory *copy = deep_copy_object(&tmp);
     for (auto& kv : tmp.names)
 	state->names[kv.first] = kv.second;
     bu_vls_printf(&state->olist, "%s", bu_vls_cstr(&tmp.olist));
@@ -1877,7 +1877,7 @@ ged_clone_core(struct ged *gedp, int argc, const char *argv[])
 	    } else {
 		state.clones_total = 1;
 		state.clones_done  = 0;
-		struct directory *copy = deep_copy_object(&rt_uniresource, &state);
+		struct directory *copy = deep_copy_object(&state);
 		if (copy) {
 		    top_names.push_back(copy->d_namep);
 		    bu_vls_printf(gedp->ged_result_str, "%s", copy->d_namep);

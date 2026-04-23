@@ -721,7 +721,7 @@ rt_comb_import4(
 	}
     }
     if (node_count)
-	tree = db_mkgift_tree(rt_tree_array, node_count, &rt_uniresource);
+	tree = db_mkgift_tree(rt_tree_array, node_count);
     else
 	tree = (union tree *)NULL;
 
@@ -997,7 +997,8 @@ db_tree_flatten_describe(
     struct bu_vls *vls,
     const union tree *tp,
     int indented,
-    int lvl)
+    int lvl,
+    double mm2local)
 {
     size_t i;
     size_t node_count;
@@ -1248,7 +1249,7 @@ db_comb_describe(
 
     if (comb->tree) {
 	if (verbose) {
-	    db_tree_flatten_describe(str, comb->tree, 0, 1);
+	    db_tree_flatten_describe(str, comb->tree, 0, 1, mm2local);
 	} else {
 	    rt_pr_tree_vls(str, comb->tree);
 	}
@@ -1466,7 +1467,7 @@ db_mkgift_tree(struct rt_tree_array *trees, size_t subtreecount)
 	if (j <= 0)
 	    continue;
 
-	curtree = db_mkbool_tree(tstart, (size_t)j, resp);
+	curtree = db_mkbool_tree(tstart, (size_t)j);
 	/* db_mkbool_tree() has side effect of zapping tree array,
 	 * so build new first node in array.
 	 */
@@ -1482,7 +1483,7 @@ db_mkgift_tree(struct rt_tree_array *trees, size_t subtreecount)
 	tstart = tnext;
     }
 
-    curtree = db_mkbool_tree(trees, subtreecount, resp);
+    curtree = db_mkbool_tree(trees, subtreecount);
     if (RT_G_DEBUG&RT_DEBUG_TREEWALK) {
 	bu_log("db_mkgift_tree() returns:\n");
 	rt_pr_tree(curtree, 0);
