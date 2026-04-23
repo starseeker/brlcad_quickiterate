@@ -64,6 +64,8 @@ if(BRLCAD_ENABLE_QT)
       libbu
       Qt6::Widgets
       Qt6::Network
+      Qt6::OpenGL
+      Qt6::OpenGLWidgets
     )
   else()
     target_link_libraries(
