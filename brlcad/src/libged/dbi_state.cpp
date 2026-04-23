@@ -32,17 +32,13 @@
 #include <algorithm>
 #include <map>
 #include <thread>
-#include <fstream>
-#include <sstream>
-
-extern "C" {
-#include "lmdb.h"
-}
+#include <string>
 
 #include "./alphanum.h"
 
 #include "vmath.h"
 #include "bu/app.h"
+#include "bu/cache.h"
 #include "bu/color.h"
 #include "bu/hash.h"
 #include "bu/path.h"
@@ -59,244 +55,20 @@ extern "C" {
 // Subdirectory in BRL-CAD cache to Dbi state data
 #define DBI_CACHEDIR ".Dbi"
 
-// Maximum database size.
-#define CACHE_MAX_DB_SIZE 4294967296
-
-// Define what format of the cache is current - if it doesn't match, we need
-// to wipe and redo.
-#define CACHE_CURRENT_FORMAT 1
-
-/* There are various individual pieces of data in the cache associated with
- * each object key.  For lookup they use short suffix strings to distinguish
- * them - we define those strings here to have consistent definitions for use
- * in multiple functions.
- *
- * Changing any of these requires incrementing CACHE_CURRENT_FORMAT. */
+/* Cache component names for per-object attribute data.
+ * Keys are constructed as "hash:component".
+ * Changing any of these requires clearing existing caches. */
 #define CACHE_OBJ_BOUNDS "bb"
 #define CACHE_REGION_ID "rid"
 #define CACHE_REGION_FLAG "rf"
 #define CACHE_INHERIT_FLAG "if"
 #define CACHE_COLOR "c"
 
-struct ged_draw_cache {
-    MDB_env *env;
-    MDB_txn *txn;
-    MDB_dbi dbi;
-    struct bu_vls *fname;
-};
-
-void
-dbi_cache_clear(struct ged_draw_cache *c)
+// Build a cache lookup key from an object hash and component name.
+static inline std::string
+dbi_cache_key(unsigned long long hash, const char *component)
 {
-    if (!c)
-	return;
-    char dir[MAXPATHLEN];
-    bu_dir(dir, MAXPATHLEN, BU_DIR_CACHE, DBI_CACHEDIR, bu_vls_cstr(c->fname));
-    bu_dirclear((const char *)dir);
-}
-
-struct ged_draw_cache *
-dbi_cache_open(const char *name)
-{
-    // Hash the input filename to generate a key for uniqueness
-    struct bu_vls fname = BU_VLS_INIT_ZERO;
-    bu_vls_sprintf(&fname, "%s", bu_path_normalize(name));
-
-    unsigned long long hash = bu_data_hash(bu_vls_cstr(&fname), bu_vls_strlen(&fname)*sizeof(char));
-    bu_path_component(&fname, bu_path_normalize(name), BU_PATH_BASENAME_EXTLESS);
-    bu_vls_printf(&fname, "_%llu", hash);
-
-    // Set up the container
-    struct ged_draw_cache *c;
-    BU_GET(c, struct ged_draw_cache);
-    BU_GET(c->fname, struct bu_vls);
-    bu_vls_init(c->fname);
-    bu_vls_sprintf(c->fname, "%s", bu_vls_cstr(&fname));
-
-    // Base maximum readers on an estimate of how many threads
-    // we might want to fire off
-    size_t mreaders = std::thread::hardware_concurrency();
-    if (!mreaders)
-	mreaders = 1;
-    int ncpus = bu_avail_cpus();
-    if (ncpus > 0 && (size_t)ncpus > mreaders)
-	mreaders = (size_t)ncpus + 2;
-
-    // Set up LMDB environments
-    if (mdb_env_create(&c->env))
-	goto ged_context_fail;
-    if (mdb_env_set_maxreaders(c->env, mreaders))
-	goto ged_context_close_fail;
-    if (mdb_env_set_mapsize(c->env, CACHE_MAX_DB_SIZE))
-	goto ged_context_close_fail;
-
-    // Ensure the necessary top level dirs are present
-    char dir[MAXPATHLEN];
-    bu_dir(dir, MAXPATHLEN, BU_DIR_CACHE, NULL);
-    if (!bu_file_exists(dir, NULL))
-	bu_mkdir(dir);
-    bu_dir(dir, MAXPATHLEN, BU_DIR_CACHE, DBI_CACHEDIR, NULL);
-    if (!bu_file_exists(dir, NULL)) {
-	bu_mkdir(dir);
-    }
-    bu_dir(dir, MAXPATHLEN, BU_DIR_CACHE, DBI_CACHEDIR, "format", NULL);
-    if (!bu_file_exists(dir, NULL)) {
-	// Note a format, so we can detect if what's there isn't compatible
-	// with what this logic expects (in anticipation of future changes
-	// to the on-disk format).
-	FILE *fp = fopen(dir, "w");
-	if (!fp)
-	    goto ged_context_close_fail;
-	fprintf(fp, "%d\n", CACHE_CURRENT_FORMAT);
-	fclose(fp);
-    } else {
-	std::ifstream format_file(dir);
-	size_t disk_format_version = 0;
-	format_file >> disk_format_version;
-	format_file.close();
-	if (disk_format_version != CACHE_CURRENT_FORMAT) {
-	    bu_log("Old GED drawing info cache (%zd) found - clearing\n", disk_format_version);
-	    dbi_cache_clear(c);
-	    mdb_env_close(c->env);
-	    bu_vls_free(&fname);
-	    bu_vls_free(c->fname);
-	    BU_PUT(c->fname, struct bu_vls);
-	    BU_PUT(c, struct ged_draw_cache);
-	    return dbi_cache_open(name);
-	}
-	FILE *fp = fopen(dir, "w");
-	if (!fp)
-	    goto ged_context_close_fail;
-	fprintf(fp, "%d\n", CACHE_CURRENT_FORMAT);
-	fclose(fp);
-    }
-
-      // Create the specific LMDB cache dir, if not already present
-      bu_dir(dir, MAXPATHLEN, BU_DIR_CACHE, DBI_CACHEDIR, bu_vls_cstr(&fname), NULL);
-      if (!bu_file_exists(dir, NULL))
-          bu_mkdir(dir);
-
-      // Need to call mdb_env_sync() at appropriate points.
-      if (mdb_env_open(c->env, dir, MDB_NOSYNC, 0664))
-	  goto ged_context_close_fail;
-
-      // Success - return the context
-      return c;
-
-      // If something went wrong, clean up and return NULL
-  ged_context_close_fail:
-      mdb_env_close(c->env);
-  ged_context_fail:
-      bu_vls_free(&fname);
-      bu_vls_free(c->fname);
-      BU_PUT(c->fname, struct bu_vls);
-      BU_PUT(c, struct ged_draw_cache);
-      return NULL;
-}
-
-void
-dbi_cache_close(struct ged_draw_cache *c)
-{
-    if (!c)
-	return;
-    mdb_env_close(c->env);
-    bu_vls_free(c->fname);
-    BU_PUT(c->fname, struct bu_vls);
-    BU_PUT(c, struct ged_draw_cache);
-}
-
-static void
-cache_write(struct ged_draw_cache *c, unsigned long long hash, const char *component, std::stringstream &s)
-{
-    if (!c || hash == 0 || !component)
-	return;
-
-    // Prepare inputs for writing
-    MDB_val mdb_key;
-    MDB_val mdb_data[2];
-    std::string keystr = std::to_string(hash) + std::string(":") + std::string(component);
-    std::string buffer = s.str();
-
-    // As implemented this shouldn't be necessary, since all our keys are below
-    // the default size limit (511)
-    //if (keystr.length()*sizeof(char) > mdb_env_get_maxkeysize(c->i->lod_env))
-    //  return false;
-
-    // Write out key/value to LMDB database, where the key is the hash
-    // and the value is the serialized LoD data
-    char *keycstr = bu_strdup(keystr.c_str());
-    void *bdata = bu_calloc(buffer.length()+1, sizeof(char), "bdata");
-    memcpy(bdata, buffer.data(), buffer.length()*sizeof(char));
-    mdb_txn_begin(c->env, NULL, 0, &c->txn);
-    mdb_dbi_open(c->txn, NULL, 0, &c->dbi);
-    mdb_key.mv_size = keystr.length()*sizeof(char);
-    mdb_key.mv_data = (void *)keycstr;
-    mdb_data[0].mv_size = buffer.length()*sizeof(char);
-    mdb_data[0].mv_data = bdata;
-    mdb_data[1].mv_size = 0;
-    mdb_data[1].mv_data = NULL;
-    mdb_put(c->txn, c->dbi, &mdb_key, mdb_data, 0);
-    mdb_txn_commit(c->txn);
-    bu_free(keycstr, "keycstr");
-    bu_free(bdata, "buffer data");
-}
-
-static size_t
-cache_get(struct ged_draw_cache *c, void **data, unsigned long long hash, const char *component)
-{
-    if (!c || !data || hash == 0 || !component)
-	return 0;
-
-    // Construct lookup key
-    MDB_val mdb_key;
-    MDB_val mdb_data[2];
-    std::string keystr = std::to_string(hash) + std::string(":") + std::string(component);
-
-    // As implemented this shouldn't be necessary, since all our keys are below
-    // the default size limit (511)
-    //if (keystr.length()*sizeof(char) > mdb_env_get_maxkeysize(c->env))
-    //  return 0;
-    char *keycstr = bu_strdup(keystr.c_str());
-    mdb_txn_begin(c->env, NULL, 0, &c->txn);
-    mdb_dbi_open(c->txn, NULL, 0, &c->dbi);
-    mdb_key.mv_size = keystr.length()*sizeof(char);
-    mdb_key.mv_data = (void *)keycstr;
-    int rc = mdb_get(c->txn, c->dbi, &mdb_key, &mdb_data[0]);
-    if (rc) {
-	bu_free(keycstr, "keycstr");
-	(*data) = NULL;
-	return 0;
-    }
-    bu_free(keycstr, "keycstr");
-    (*data) = mdb_data[0].mv_data;
-
-    return mdb_data[0].mv_size;
-}
-
-static void
-cache_del(struct ged_draw_cache *c, unsigned long long hash, const char *component)
-{
-    if (!c || hash == 0 || !component)
-	return;
-
-    // Construct lookup key
-    MDB_val mdb_key;
-    std::string keystr = std::to_string(hash) + std::string(":") + std::string(component);
-
-    mdb_txn_begin(c->env, NULL, 0, &c->txn);
-    mdb_dbi_open(c->txn, NULL, 0, &c->dbi);
-    mdb_key.mv_size = keystr.length()*sizeof(char);
-    mdb_key.mv_data = (void *)keystr.c_str();
-    mdb_del(c->txn, c->dbi, &mdb_key, NULL);
-    mdb_txn_commit(c->txn);
-}
-
-static void
-cache_done(struct ged_draw_cache *c)
-{
-    if (!c)
-	return;
-    mdb_txn_commit(c->txn);
+    return std::to_string(hash) + ":" + std::string(component);
 }
 
 
@@ -434,7 +206,18 @@ DbiState::DbiState(struct ged *ged_p)
 	return;
 
     // Set up cache
-    dcache = dbi_cache_open(dbip->dbi_filename);
+    {
+	struct bu_vls fname = BU_VLS_INIT_ZERO;
+	bu_vls_sprintf(&fname, "%s", bu_path_normalize(dbip->dbi_filename));
+	unsigned long long fhash = bu_data_hash(bu_vls_cstr(&fname), bu_vls_strlen(&fname)*sizeof(char));
+	bu_path_component(&fname, bu_path_normalize(dbip->dbi_filename), BU_PATH_BASENAME_EXTLESS);
+	bu_vls_printf(&fname, "_%llu", fhash);
+	struct bu_vls cpath = BU_VLS_INIT_ZERO;
+	bu_vls_sprintf(&cpath, "%s/%s", DBI_CACHEDIR, bu_vls_cstr(&fname));
+	dcache = bu_cache_open(bu_vls_cstr(&cpath), 1, 0);
+	bu_vls_free(&fname);
+	bu_vls_free(&cpath);
+    }
 
     struct directory *dp;
     FOR_ALL_DIRECTORY_START(dp, dbip)
@@ -456,7 +239,7 @@ DbiState::~DbiState()
     BU_PUT(res, struct resource);
 
     if (dcache)
-	dbi_cache_close(dcache);
+	bu_cache_close(dcache);
 }
 
 
@@ -808,11 +591,14 @@ DbiState::clear_cache(struct directory *dp)
 
     unsigned long long hash = bu_data_hash(dp->d_namep, strlen(dp->d_namep)*sizeof(char));
 
-    cache_del(dcache, hash, CACHE_OBJ_BOUNDS);
-    cache_del(dcache, hash, CACHE_REGION_ID);
-    cache_del(dcache, hash, CACHE_REGION_FLAG);
-    cache_del(dcache, hash, CACHE_INHERIT_FLAG);
-    cache_del(dcache, hash, CACHE_COLOR);
+    {
+	std::string k;
+	k = dbi_cache_key(hash, CACHE_OBJ_BOUNDS);  bu_cache_clear(k.c_str(), dcache, NULL);
+	k = dbi_cache_key(hash, CACHE_REGION_ID);   bu_cache_clear(k.c_str(), dcache, NULL);
+	k = dbi_cache_key(hash, CACHE_REGION_FLAG); bu_cache_clear(k.c_str(), dcache, NULL);
+	k = dbi_cache_key(hash, CACHE_INHERIT_FLAG); bu_cache_clear(k.c_str(), dcache, NULL);
+	k = dbi_cache_key(hash, CACHE_COLOR);       bu_cache_clear(k.c_str(), dcache, NULL);
+    }
 
     bboxes.erase(hash);
     region_id.erase(hash);
@@ -848,7 +634,7 @@ DbiState::update_dp(struct directory *dp, int reset)
     rgb.erase(hash);
 
     // First, check the dcache for all remaining needed values
-    const char *b = NULL;
+    void *bdata = NULL;
     size_t bsize = 0;
 
     bool need_region_id_avs = true;
@@ -861,33 +647,48 @@ DbiState::update_dp(struct directory *dp, int reset)
     int color_inherit = 0;
     unsigned int cval = INT_MAX;
 
-    bsize = cache_get(dcache, (void **)&b, hash, CACHE_REGION_ID);
-    if (bsize == sizeof(attr_region_id)) {
-	memcpy(&attr_region_id, b, sizeof(attr_region_id));
-	need_region_id_avs = false;
+    if (dcache) {
+	{
+	    struct bu_cache_txn *t = NULL;
+	    std::string k = dbi_cache_key(hash, CACHE_REGION_ID);
+	    bsize = bu_cache_get(&bdata, k.c_str(), dcache, &t);
+	    if (bsize == sizeof(attr_region_id)) {
+		memcpy(&attr_region_id, bdata, sizeof(attr_region_id));
+		need_region_id_avs = false;
+	    }
+	    bu_cache_get_done(&t);
+	}
+	{
+	    struct bu_cache_txn *t = NULL;
+	    std::string k = dbi_cache_key(hash, CACHE_REGION_FLAG);
+	    bsize = bu_cache_get(&bdata, k.c_str(), dcache, &t);
+	    if (bsize == sizeof(region_flag)) {
+		memcpy(&region_flag, bdata, sizeof(region_flag));
+		need_region_flag_avs = false;
+	    }
+	    bu_cache_get_done(&t);
+	}
+	{
+	    struct bu_cache_txn *t = NULL;
+	    std::string k = dbi_cache_key(hash, CACHE_INHERIT_FLAG);
+	    bsize = bu_cache_get(&bdata, k.c_str(), dcache, &t);
+	    if (bsize == sizeof(color_inherit)) {
+		memcpy(&color_inherit, bdata, sizeof(color_inherit));
+		need_color_inherit_avs = false;
+	    }
+	    bu_cache_get_done(&t);
+	}
+	{
+	    struct bu_cache_txn *t = NULL;
+	    std::string k = dbi_cache_key(hash, CACHE_COLOR);
+	    bsize = bu_cache_get(&bdata, k.c_str(), dcache, &t);
+	    if (bsize == sizeof(cval)) {
+		memcpy(&cval, bdata, sizeof(cval));
+		need_cval_avs = false;
+	    }
+	    bu_cache_get_done(&t);
+	}
     }
-    cache_done(dcache);
-
-    bsize = cache_get(dcache, (void **)&b, hash, CACHE_REGION_FLAG);
-    if (bsize == sizeof(region_flag)) {
-	memcpy(&region_flag, b, sizeof(region_flag));
-	need_region_flag_avs = false;
-    }
-    cache_done(dcache);
-
-    bsize = cache_get(dcache, (void **)&b, hash, CACHE_INHERIT_FLAG);
-    if (bsize == sizeof(color_inherit)) {
-	memcpy(&color_inherit, b, sizeof(color_inherit));
-	need_color_inherit_avs = false;
-    }
-    cache_done(dcache);
-
-    bsize = cache_get(dcache, (void **)&b, hash, CACHE_COLOR);
-    if (bsize == sizeof(cval)) {
-	memcpy(&cval, b, sizeof(cval));
-	need_cval_avs = false;
-    }
-    cache_done(dcache);
 
 
     if (need_region_flag_avs) {
@@ -901,9 +702,10 @@ DbiState::update_dp(struct directory *dp, int reset)
 	    region_flag = 1;
 	}
 
-	std::stringstream s;
-	s.write(reinterpret_cast<const char *>(&region_flag), sizeof(region_flag));
-	cache_write(dcache, hash, CACHE_REGION_FLAG, s);
+	if (dcache) {
+	    std::string k = dbi_cache_key(hash, CACHE_REGION_FLAG);
+	    bu_cache_write(&region_flag, sizeof(region_flag), k.c_str(), dcache, NULL);
+	}
     }
 
 
@@ -917,9 +719,10 @@ DbiState::update_dp(struct directory *dp, int reset)
 	if (region_id_val)
 	    bu_opt_int(NULL, 1, &region_id_val, (void *)&attr_region_id);
 
-	std::stringstream s;
-	s.write(reinterpret_cast<const char *>(&attr_region_id), sizeof(attr_region_id));
-	cache_write(dcache, hash, CACHE_REGION_ID, s);
+	if (dcache) {
+	    std::string k = dbi_cache_key(hash, CACHE_REGION_ID);
+	    bu_cache_write(&attr_region_id, sizeof(attr_region_id), k.c_str(), dcache, NULL);
+	}
     }
 
     if (need_color_inherit_avs) {
@@ -929,9 +732,10 @@ DbiState::update_dp(struct directory *dp, int reset)
 	}
 	color_inherit = (BU_STR_EQUAL(bu_avs_get(&c_avs, "inherit"), "1")) ? 1 : 0;
 
-	std::stringstream s;
-	s.write(reinterpret_cast<const char *>(&color_inherit), sizeof(color_inherit));
-	cache_write(dcache, hash, CACHE_INHERIT_FLAG, s);
+	if (dcache) {
+	    std::string k = dbi_cache_key(hash, CACHE_INHERIT_FLAG);
+	    bu_cache_write(&color_inherit, sizeof(color_inherit), k.c_str(), dcache, NULL);
+	}
     }
 
     if (need_cval_avs) {
@@ -953,9 +757,10 @@ DbiState::update_dp(struct directory *dp, int reset)
 	    bu_log("have color: %u\n", cval);
 	}
 
-	std::stringstream s;
-	s.write(reinterpret_cast<const char *>(&cval), sizeof(cval));
-	cache_write(dcache, hash, CACHE_COLOR, s);
+	if (dcache) {
+	    std::string k = dbi_cache_key(hash, CACHE_COLOR);
+	    bu_cache_write(&cval, sizeof(cval), k.c_str(), dcache, NULL);
+	}
     }
 
     // If a region flag is set but a region_id is not, there is an implicit
@@ -1252,20 +1057,25 @@ DbiState::get_bbox(point_t *bbmin, point_t *bbmax, matp_t curr_mat, unsigned lon
     bool have_bbox = false;
 
     // First, check the dcache
-    const char *b = NULL;
-    size_t bsize = cache_get(dcache, (void **)&b, hash, CACHE_OBJ_BOUNDS);
-    if (bsize) {
-	if (bsize != (sizeof(bmin) + sizeof(bmax))) {
-	    bu_log("Incorrect data size found loading cached bounds data\n");
-	} else {
-	    memcpy(&bmin, b, sizeof(bmin));
-	    b += sizeof(bmin);
-	    memcpy(&bmax, b, sizeof(bmax));
-	    //bu_log("cached: bmin: %f %f %f bbmax: %f %f %f\n", V3ARGS(bmin), V3ARGS(bmax));
-	    have_bbox = true;
+    void *bbox_data = NULL;
+    size_t bsize = 0;
+    if (dcache) {
+	struct bu_cache_txn *t = NULL;
+	std::string k = dbi_cache_key(hash, CACHE_OBJ_BOUNDS);
+	bsize = bu_cache_get(&bbox_data, k.c_str(), dcache, &t);
+	if (bsize) {
+	    if (bsize != (sizeof(bmin) + sizeof(bmax))) {
+		bu_log("Incorrect data size found loading cached bounds data\n");
+	    } else {
+		const char *bp = (const char *)bbox_data;
+		memcpy(&bmin, bp, sizeof(bmin));
+		bp += sizeof(bmin);
+		memcpy(&bmax, bp, sizeof(bmax));
+		have_bbox = true;
+	    }
 	}
+	bu_cache_get_done(&t);
     }
-    cache_done(dcache);
 
 
     // This calculation can be expensive.  If we've already
@@ -1284,10 +1094,13 @@ DbiState::get_bbox(point_t *bbmin, point_t *bbmax, matp_t curr_mat, unsigned lon
 		    VMOVE(bmax, lod->bmax);
 		    have_bbox = true;
 
-		    std::stringstream s;
-		    s.write(reinterpret_cast<const char *>(&bmin), sizeof(bmin));
-		    s.write(reinterpret_cast<const char *>(&bmax), sizeof(bmax));
-		    cache_write(dcache, hash, CACHE_OBJ_BOUNDS, s);
+		    if (dcache) {
+			char buf[sizeof(bmin) + sizeof(bmax)];
+			memcpy(buf, &bmin, sizeof(bmin));
+			memcpy(buf + sizeof(bmin), &bmax, sizeof(bmax));
+			std::string k = dbi_cache_key(hash, CACHE_OBJ_BOUNDS);
+			bu_cache_write(buf, sizeof(buf), k.c_str(), dcache, NULL);
+		    }
 		}
 	    }
 	}
@@ -1303,10 +1116,13 @@ DbiState::get_bbox(point_t *bbmin, point_t *bbmax, matp_t curr_mat, unsigned lon
 	if (bret != -1) {
 	    have_bbox = true;
 
-	    std::stringstream s;
-	    s.write(reinterpret_cast<const char *>(&bmin), sizeof(bmin));
-	    s.write(reinterpret_cast<const char *>(&bmax), sizeof(bmax));
-	    cache_write(dcache, hash, CACHE_OBJ_BOUNDS, s);
+	    if (dcache) {
+		char buf[sizeof(bmin) + sizeof(bmax)];
+		memcpy(buf, &bmin, sizeof(bmin));
+		memcpy(buf + sizeof(bmin), &bmax, sizeof(bmax));
+		std::string k = dbi_cache_key(hash, CACHE_OBJ_BOUNDS);
+		bu_cache_write(buf, sizeof(buf), k.c_str(), dcache, NULL);
+	    }
 	}
     }
 
