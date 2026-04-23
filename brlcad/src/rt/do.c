@@ -477,10 +477,7 @@ int cm_clean(const int UNUSED(argc), const char **UNUSED(argv))
  */
 int cm_closedb(const int UNUSED(argc), const char **UNUSED(argv))
 {
-    db_close(APP.a_rt_i->rti_dbip);
-    APP.a_rt_i->rti_dbip = DBI_NULL;
-
-    bu_free((void *)APP.a_rt_i, "struct rt_i");
+    rt_free_rti(APP.a_rt_i);
     APP.a_rt_i = RTI_NULL;
 
     bu_exit(0, "After _closedb");
