@@ -475,6 +475,101 @@ test_dbistate(const char *moss_g_path)
 }
 
 /* ------------------------------------------------------------------ */
+/* Test 8: IDbiObserver — observer-based notification (Phase 1-C)     */
+/* ------------------------------------------------------------------ */
+
+struct TestObserver : public IDbiObserver {
+    std::vector<DbiChangeEvent> received;
+    void on_dbi_changed(const std::vector<DbiChangeEvent> &events) override {
+	received.insert(received.end(), events.begin(), events.end());
+    }
+};
+
+static int
+test_observer(const char *moss_g_path)
+{
+    int failures = 0;
+    bu_log("=== Test 8: IDbiObserver notification (Phase 1-C) ===\n");
+
+    struct ged *gedp = ged_open("db", moss_g_path, 1);
+    if (!gedp) {
+	bu_log("FAIL: ged_open returned NULL for %s\n", moss_g_path);
+	return 1;
+    }
+    gedp->dbi_state = new DbiState(gedp);
+    DbiState *dbis = (DbiState *)gedp->dbi_state;
+    gedp->new_cmd_forms = 1;
+
+    /* Register observer */
+    TestObserver obs;
+    dbis->add_observer(&obs);
+
+    /* Trigger an update — no changes expected on a freshly-opened db */
+    dbis->update();
+    CHECK(obs.received.empty(),
+	  "no change events expected on a fresh no-op update");
+    if (obs.received.empty())
+	bu_log("  PASS: no spurious events on no-op update\n");
+
+    /* Verify remove_observer prevents further delivery */
+    dbis->remove_observer(&obs);
+    obs.received.clear();
+    dbis->update();
+    CHECK(obs.received.empty(),
+	  "no events should arrive after remove_observer");
+    if (obs.received.empty())
+	bu_log("  PASS: no events delivered after remove_observer\n");
+
+    /* Verify GObj model populated for moss.g objects */
+    unsigned long long allg_hash = bu_data_hash("all.g", strlen("all.g") * sizeof(char));
+    const GObj *gobj = dbis->get_gobj(allg_hash);
+    CHECK(gobj != nullptr, "get_gobj(hash('all.g')) must return non-null GObj");
+    if (gobj) {
+	CHECK(!gobj->cv.empty(), "GObj for all.g comb must have child instances");
+	bu_log("  PASS: GObj for all.g has %zu child CombInst entries\n", gobj->cv.size());
+    }
+
+    /* Test DrawList */
+    BViewState *vs = dbis->get_view_state(gedp->ged_gvp);
+    CHECK(vs != nullptr, "get_view_state must return non-null BViewState");
+    if (vs) {
+	DrawList &dl = vs->draw_list();
+	CHECK(dl.empty(), "fresh DrawList must be empty");
+
+	std::vector<unsigned long long> test_path = {allg_hash};
+	dl.add(test_path, 1);
+	CHECK(dl.count() == 1, "DrawList must have 1 entry after add");
+	CHECK(dl.query(allg_hash, 1) == DrawState::FULLY_DRAWN,
+	      "added path must be FULLY_DRAWN");
+	dl.clear();
+	CHECK(dl.empty(), "DrawList must be empty after clear");
+	bu_log("  PASS: DrawList add/query/clear\n");
+    }
+
+    /* Test SelectionSet via new API */
+    SelectionSet *ss = dbis->get_selection_set(nullptr);
+    CHECK(ss != nullptr, "get_selection_set(null) must return non-null");
+    if (ss) {
+	bool sel = ss->select("all.g/platform.r", true);
+	CHECK(sel, "select('all.g/platform.r') must return true");
+	CHECK(!ss->selected.empty(), "selected map must be non-empty after select");
+	CHECK(ss->state_hash_val() != 0, "state_hash_val must be non-zero with a selection");
+	auto paths = ss->selected_paths();
+	CHECK(!paths.empty(), "selected_paths() must be non-empty");
+	bool desel = ss->deselect("all.g/platform.r", true);
+	CHECK(desel, "deselect('all.g/platform.r') must return true");
+	CHECK(ss->selected.empty(), "selected map must be empty after deselect");
+	bu_log("  PASS: SelectionSet select/deselect/state_hash_val\n");
+    }
+
+    delete (DbiState *)gedp->dbi_state;
+    gedp->dbi_state = NULL;
+    ged_close(gedp);
+
+    return failures;
+}
+
+/* ------------------------------------------------------------------ */
 /* main                                                                 */
 /* ------------------------------------------------------------------ */
 
@@ -526,6 +621,9 @@ main(int ac, char *av[])
 
     /* Tests 2-7: DbiState functional tests */
     ret += test_dbistate(tmp_g);
+
+    /* Test 8: Phase 1-C observer + Phase 1-D GObj + Phase 1-E DrawList + Phase 1-F SelectionSet */
+    ret += test_observer(tmp_g);
 
     /* Accumulate any inline CHECK() failures */
     ret += g_failures;
