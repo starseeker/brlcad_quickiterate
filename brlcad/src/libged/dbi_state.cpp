@@ -52,6 +52,10 @@
 
 #include "./dbi.h"
 
+/* Forward declarations for drawing helpers defined in draw.cpp (Phase 2-B) */
+extern "C" void draw_scene(struct bv_scene_obj *s, struct bview *v);
+extern "C" int  csg_wireframe_update(struct bv_scene_obj *vo, struct bview *v, int flag);
+
 // Subdirectory in BRL-CAD cache to Dbi state data
 #define DBI_CACHEDIR ".Dbi"
 
@@ -2888,6 +2892,34 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
 	for (o_it = objs.begin(); o_it != objs.end(); o_it++) {
 	    bv_log(3, "redraw %s[%s]", bu_vls_cstr(&((*(*o_it)).s_name)), bu_vls_cstr(&((*(*v_it)).gv_name)));
 	    draw_scene(*o_it, *v_it);
+	}
+    }
+
+    // Phase 2-B: Update LoD levels for all drawn adaptive objects.
+    // BViewState owns this decision; s_update_callback is no longer set for
+    // BV_MESH_LOD / BV_CSG_LOD objects.  We iterate each view's drawn objects
+    // directly so per-view view-scale changes are reflected.
+    for (v_it = views.begin(); v_it != views.end(); v_it++) {
+	struct bview *lv = *v_it;
+	std::unordered_map<unsigned long long, std::unordered_map<int, struct bv_scene_obj *>>::iterator ls_it;
+	for (ls_it = s_map.begin(); ls_it != s_map.end(); ls_it++) {
+	    for (auto &mm : ls_it->second) {
+		struct bv_scene_obj *so = mm.second;
+		if (!so) continue;
+		// Recurse into view-specific children
+		for (size_t ci = 0; ci < BU_PTBL_LEN(&so->children); ci++) {
+		    struct bv_scene_obj *co = (struct bv_scene_obj *)BU_PTBL_GET(&so->children, ci);
+		    if (!co) continue;
+		    if (co->s_type_flags & BV_MESH_LOD)
+			bv_mesh_lod_view(co, lv, 0);
+		    if (co->s_type_flags & BV_CSG_LOD)
+			csg_wireframe_update(co, lv, 0);
+		}
+		if (so->s_type_flags & BV_MESH_LOD)
+		    bv_mesh_lod_view(so, lv, 0);
+		if (so->s_type_flags & BV_CSG_LOD)
+		    csg_wireframe_update(so, lv, 0);
+	    }
 	}
     }
 
