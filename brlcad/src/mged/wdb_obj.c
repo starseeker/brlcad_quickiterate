@@ -1366,17 +1366,6 @@ wdb_rt_gettrees_cmd(struct rt_wdb *wdbp,
     /* Establish defaults for this rt_i */
     rtip->rti_hasty_prep = 1;	/* Tcl isn't going to fire many rays */
 
-    /*
-     * In case of multiple instances of the library, make sure that
-     * each instance has a separate resource structure,
-     * because the bit vector lengths depend on # of solids.
-     * And the "overwrite" sequence in Tcl is to create the new
-     * proc before running the Tcl_CmdDeleteProc on the old one,
-     * which in this case would trash rt_uniresource.
-     * Once on the rti_resources list, rt_clean() will clean 'em up.
-     */
-    BU_ASSERT(BU_PTBL_GET(&rtip->rti_resources, 0) != NULL);
-
     BU_ALLOC(ap, struct application);
     RT_APPLICATION_INIT(ap);
     ap->a_magic = RT_AP_MAGIC;

@@ -34,7 +34,6 @@
 #include "bu/avs.h"
 #include "bn/mat.h"
 #include "rt/defines.h"
-#include "rt/resource.h"
 
 __BEGIN_DECLS
 

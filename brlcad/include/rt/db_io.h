@@ -177,7 +177,6 @@ RT_EXPORT extern int rt_db_cvt_to_external5(struct bu_external *ext,
 					    const struct rt_db_internal *ip,
 					    double conv2mm,
 					    struct db_i *dbip,
-					    struct resource *resp,
 					    const int major);
 
 

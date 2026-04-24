@@ -30,7 +30,6 @@
 #include "rt/defines.h"
 #include "rt/debug.h"
 #include "rt/global.h"
-#include "rt/resource.h"
 #include "rt/rt_instance.h"
 
 /*****************************************************************************

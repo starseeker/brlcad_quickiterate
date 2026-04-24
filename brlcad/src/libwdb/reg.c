@@ -92,7 +92,8 @@ mk_tree_pure(struct rt_comb_internal *comb, struct bu_list *member_hd)
  * Add some nodes to a new or existing combination's tree, with GIFT
  * precedence and semantics.
  *
- * NON-PARALLEL due to rt_uniresource
+ * TODO - originally considered NON-PARALLEL due to rt_uniresource -
+ * has that now been fixed?
  *
  * Returns -
  * -1 ERROR

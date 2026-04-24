@@ -27,7 +27,6 @@
 #include "bn/tol.h"
 #include "rt/defines.h"
 #include "rt/db_internal.h"
-#include "rt/resource.h"
 #include "nmg.h"
 
 __BEGIN_DECLS
@@ -40,7 +39,6 @@ RT_EXPORT extern union tree *rt_booltree_leaf_tess(struct db_tree_state *tsp,
 RT_EXPORT extern union tree *rt_booltree_evaluate(union tree *tp,
 						   struct bu_list *vlfree,
 						   const struct bn_tol *tol,
-						   struct resource *resp,
 						   int (*do_bool)(union tree *, union tree *, union tree *, int op, struct bu_list *, const struct bn_tol *, void *),
 						   int verbose,
 						   void *data

@@ -88,7 +88,6 @@ RT_EXPORT extern void rt_pr_cut(const union cutter *cutp,
 				int lvl);
 
 struct rt_i;     /*forward declaration */
-struct resource; /*forward declaration */
 struct soltab;   /*forward declaration */
 RT_EXPORT extern void rt_pr_cut_info(const struct rt_i  *rtip,
 				     const char         *str);

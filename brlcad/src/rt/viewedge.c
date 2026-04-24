@@ -139,7 +139,6 @@ static unsigned char *writeable[MAX_PSW];
 static unsigned char *scanline[MAX_PSW];
 static unsigned char *blendline[MAX_PSW];
 static struct cell *saved[MAX_PSW];
-static struct resource occlusion_resources[MAX_PSW];
 
 int nEdges = 0;
 int nPixels = 0;
@@ -464,10 +463,6 @@ view_init(struct application *ap, char *file, char *UNUSED(obj), int minus_o, in
 
 	occlusion_rtip = rt_new_rti(dbip); /* clones dbip */
 
-	memset(occlusion_resources, 0, sizeof(occlusion_resources));
-	for (i=0; i < MAX_PSW; i++) {
-	}
-
 	db_close(dbip);			 /* releases original dbip */
 
 	for (i=0; i<nObjs; ++i)
@@ -496,7 +491,6 @@ view_init(struct application *ap, char *file, char *UNUSED(obj), int minus_o, in
 	    RT_APPLICATION_INIT(occlusion_apps[i]);
 
 	    occlusion_apps[i]->a_rt_i = occlusion_rtip;
-	    occlusion_apps[i]->a_resource = (struct resource *)BU_PTBL_GET(&occlusion_rtip->rti_resources, i);
 	    occlusion_apps[i]->a_onehit = 1;
 	    occlusion_apps[i]->a_hit = occlusion_hit;
 	    occlusion_apps[i]->a_miss = occlusion_miss;

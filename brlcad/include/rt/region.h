@@ -35,7 +35,6 @@
 __BEGIN_DECLS
 
 union tree; /* forward declaration */
-struct resource; /* forward declaration */
 struct db_i; /* forward declaration */
 
 /**

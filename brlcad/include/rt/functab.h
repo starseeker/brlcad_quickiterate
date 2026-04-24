@@ -47,7 +47,6 @@
 #include "rt/edit.h"
 #include "rt/hit.h"
 #include "rt/misc.h"
-#include "rt/resource.h"
 #include "rt/rt_instance.h"
 #include "rt/seg.h"
 #include "rt/soltab.h"

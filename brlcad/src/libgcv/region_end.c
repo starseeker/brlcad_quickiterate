@@ -28,7 +28,6 @@
 #include "bu/parallel.h"
 #include "rt/wdb.h"
 #include "rt/global.h"
-#include "rt/resource.h"
 #include "rt/nmg_conv.h"
 #include "gcv.h"
 

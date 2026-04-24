@@ -125,7 +125,7 @@ view_cleanup(struct rt_i *rtip)
 int
 rayhit(register struct application *ap, struct partition *PartHeadp)
 {
-    bu_log("hit: 0x%x\n", ap->a_resource);
+    bu_log("hit\n");
 
     return 1;	/* report hit to main routine */
 }
@@ -136,7 +136,7 @@ rayhit(register struct application *ap, struct partition *PartHeadp)
 int
 raymiss(register struct application *ap)
 {
-    bu_log("miss: 0x%x\n", ap->a_resource);
+    bu_log("miss\n");
 
     return 0;
 }

@@ -223,23 +223,6 @@ miss(struct application *ap)
 
 
 static void
-initialize_resources(size_t cnt, struct resource *resp, struct rt_i *rtip)
-{
-    if (!resp)
-	return;
-
-    /* Initialize all the per-CPU memory resources.  Number of
-     * processors can change at runtime, so initialize all.
-     */
-    memset(resp, 0, sizeof(struct resource) * cnt);
-
-    int i;
-    for (i = 0; i < MAX_PSW; i++) {
-    }
-}
-
-
-static void
 init_random(void)
 {
     srand((unsigned int)time(NULL));
@@ -277,9 +260,6 @@ initialize(struct application *ap, const char *db, const char *obj[])
 	bu_exit(3, "No geometry loaded from [%s]\n", db);
 
     rt_prep_parallel(rtip, 1);
-
-    resources = (struct resource *)bu_calloc(MAX_PSW, sizeof(struct resource), "resources");
-    initialize_resources(1, resources, rtip);
 
     RT_APPLICATION_INIT(ap);
     ap->a_rt_i = rtip;
@@ -458,7 +438,6 @@ do_samples_in_parallel(struct application *ap, size_t samples, struct ray *rays,
 	/* give each one their own copy of the app */
 	struct application *a = (struct application *)bu_calloc(1, sizeof(struct application), "app");
 	*a = *ap; /* struct copy */
-	a->a_resource = &(a->a_resource[i]); // index into the array
         pdata[i].ap = a;
         pdata[i].rays = rays;
         pdata[i].start = i * samples_per_cpu;

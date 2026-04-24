@@ -193,23 +193,6 @@ int fb_setup(void) {
 
 
 static void
-initialize_resources(size_t cnt, struct resource *resp, struct rt_i *rtip)
-{
-    if (!resp)
-	return;
-
-    /* Initialize all the per-CPU memory resources.  Number of
-     * processors can change at runtime, so initialize all.
-     */
-    memset(resp, 0, sizeof(struct resource) * cnt);
-
-    int i;
-    for (i = 0; i < MAX_PSW; i++) {
-    }
-}
-
-
-static void
 initialize_option_defaults(void)
 {
     /* GIFT defaults */
@@ -548,7 +531,6 @@ int main(int argc, char *argv[])
 	outputfile = (char *)0;
 
     /* per-CPU preparation */
-    initialize_resources(sizeof(resource) / sizeof(struct resource), resource, rtip);
     memory_summary();
 
 #ifdef SIGUSR1

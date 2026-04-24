@@ -108,8 +108,6 @@ __BEGIN_DECLS
 
 #include "./rt/piece.h"
 
-#include "./rt/resource.h"
-
 #include "./rt/application.h"
 
 #include "./rt/global.h"

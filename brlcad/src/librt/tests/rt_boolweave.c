@@ -19,7 +19,7 @@
  */
 /**
  * Test the rt_boolweave() function.  For simplicity, we assume
- * single-threaded and have hard-coded usage of rt_uniresource.
+ * single-threaded.
  */
 
 #include "common.h"
@@ -31,7 +31,6 @@
 #include "bu.h"
 #include "rt/boolweave.h"
 #include "rt/rt_instance.h"
-#include "rt/resource.h"
 #include "rt/db_io.h"
 #include "rt/seg.h"
 

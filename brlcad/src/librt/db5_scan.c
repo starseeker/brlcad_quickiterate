@@ -261,7 +261,6 @@ db5_diradd(struct db_i *dbip,
 	return RT_DIR_NULL;
     }
 
-    if (rt_uniresource.re_magic == 0)
     /* Duplicates the guts of db_diradd() */
     RT_GET_DIRECTORY(dp, dbip); /* allocates a new dir */
     RT_CK_DIR(dp);

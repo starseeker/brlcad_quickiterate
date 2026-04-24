@@ -128,8 +128,7 @@ rt_bound_instance(point_t *bmin, point_t *bmax,
 	struct db_i *dbip,
 	const struct bg_tess_tol *ttol,
 	const struct bn_tol *tol,
-	mat_t *s_mat,
-	struct resource *res
+	mat_t *s_mat
 	);
 
 /**

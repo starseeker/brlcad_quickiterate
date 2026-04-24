@@ -319,8 +319,6 @@ rt_worker(int UNUSED(cpu), void *g)
 	ap.a_miss = compare_miss;
     }
 
-    ap.a_resource = &rt_uniresource;/*fstate->resource[cpu];*/
-
     ap.a_ray.r_dir[X] = ap.a_ray.r_dir[Y] = 0.0;
     ap.a_ray.r_dir[Z] = 1.0;
     ap.a_uptr = (void *) g;
@@ -450,10 +448,6 @@ fit_rt(char *obj, struct db_i *db, struct fitness_state *fstate)
 	fstate->diff = fstate->same = 0.0;
     }
 
-    /* clean up resources and rtip */
-    /*
-      for (i = 0; i < fstate->max_cpus; i++)
-    */
     rt_free_rti(fstate->rtip);
 
 

@@ -613,19 +613,6 @@ do_run(int a, int b)
 	bu_parallel(worker, (size_t)npsw, NULL);
     }
 
-    /* Statistics are now accumulated directly on rtip->stats via C11
-     * atomic operations during rt_shootray(); no post-campaign tally
-     * step is needed.  The resource magic check is retained to catch
-     * memory corruption early.
-     */
-    size_t cpu;
-    for (cpu = 0; cpu < MAX_PSW; cpu++) {
-	if (resource[cpu].re_magic != RESOURCE_MAGIC) {
-	    bu_log("ERROR: CPU %zu resources corrupted, statistics bad\n", cpu);
-	    continue;
-	}
-    }
-
     return;
 }
 
