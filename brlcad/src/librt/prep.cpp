@@ -994,8 +994,10 @@ rt_clean_resource_basic(struct rt_i *rtip, struct resource *resp)
 	resp->re_parthead.forw = BU_LIST_NULL;
     }
 
-    /* Release the state variables for 'solid pieces' */
-    rt_res_pieces_clean(resp, rtip);
+    /* Release the state variables for 'solid pieces' (Phase 6:
+     * pieces are now owned by struct application via a_pieces;
+     * no per-resource piece data remains to clean up here).
+     */
 
     /* invalidate the resource */
     if (resp != &rt_uniresource)
@@ -1136,6 +1138,12 @@ rt_clean(struct rt_i *rtip)
 	}
     }
     rtip->stats.nsolids = 0;
+
+    /* Reset the piece-solid count so the next rt_gettrees()/rt_prep()
+     * cycle re-counts correctly; piece state is on the application
+     * (a_pieces) and is lazily re-initialized in rt_shootray().
+     */
+    rtip->i->rti_nsolids_with_pieces = 0;
 
     /* Clean out the array of pointers to regions, if any */
     if (rtip->Regions) {
@@ -1661,7 +1669,13 @@ rt_unprep(struct rt_i *rtip, struct rt_reprep_obj_list *objs, struct resource *r
     struct db_full_path *path;
     size_t i, j, k;
 
-    rt_res_pieces_clean(resp, rtip);
+    /* Reset the piece-solid count so the subsequent rt_reprep() cycle
+     * re-counts correctly.  Piece state lives on struct application
+     * (a_pieces) and is lazily re-initialized in rt_shootray(), so
+     * there is nothing per-resource to clean here.
+     */
+    if (rtip)
+	rtip->i->rti_nsolids_with_pieces = 0;
 
     /* find all paths from top objects to objects being unprepped */
     bu_ptbl_init(&objs->paths, 5, "paths");
@@ -1960,17 +1974,11 @@ rt_reprep(struct rt_i *rtip, struct rt_reprep_obj_list *objs, struct resource *r
 	fill_out_bsp(rtip, &rtip->rti_CutHead, resp, bb);
     }
 
-    if (BU_PTBL_LEN(&rtip->rti_resources)) {
-	for (i=0; i<BU_PTBL_LEN(&rtip->rti_resources); i++) {
-	    struct resource *re;
-
-	    re = (struct resource *)BU_PTBL_GET(&rtip->rti_resources, i);
-	    if (re && rtip->i->rti_nsolids_with_pieces)
-		rt_res_pieces_init(re, rtip);
-	}
-    } else if (rtip->i->rti_nsolids_with_pieces) {
-	rt_res_pieces_init(&rt_uniresource, rtip);
-    }
+    /* Phase 6: piece state lives on struct application (a_pieces) and is
+     * lazily re-initialized by rt_shootray() when it detects that
+     * a_pieces->npieces != rti_nsolids_with_pieces.  No per-resource or
+     * per-application initialization is needed here.
+     */
 
     return 0;
 }

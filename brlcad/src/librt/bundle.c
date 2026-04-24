@@ -486,11 +486,11 @@ out:
     bu_free(regionbits, "regionbits");
 
     /*
-     * Count this ray in the per-instance atomic stats, and advance the
-     * per-resource ray sequence counter (for piece-state dedup if needed).
+     * Count this ray in the per-instance atomic stats.  rt_shootray_bundle()
+     * does not use piece shooting (ft_piece_shot), so there is no
+     * per-application piece-state sequence counter to advance here.
      */
     rtip->stats.rti_nrays++;
-    resp->re_ray_seqno++;
 
     /* Terminate any logging */
     if (RT_G_DEBUG&(RT_DEBUG_ALLRAYS|RT_DEBUG_SHOOT|RT_DEBUG_PARTITION|RT_DEBUG_ALLHITS)) {

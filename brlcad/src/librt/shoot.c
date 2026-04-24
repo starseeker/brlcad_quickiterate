@@ -54,17 +54,32 @@ shoot_setup_status(struct rt_shootray_status *ss, struct application *ap)
 
 
 void
-rt_res_pieces_init(struct resource *resp, struct rt_i *rtip)
+rt_ap_pieces_init(struct application *ap, struct rt_i *rtip)
 {
+    struct rt_piecestate_set *pss;
     struct rt_piecestate *psptab;
     struct rt_piecestate *psp;
     struct soltab *stp;
 
-    RT_CK_RESOURCE(resp);
+    RT_CK_AP(ap);
     RT_CK_RTI(rtip);
 
-    psptab = (struct rt_piecestate *)bu_calloc(rtip->i->rti_nsolids_with_pieces, sizeof(struct rt_piecestate), "re_pieces[]");
-    resp->re_pieces = psptab;
+    /* Free any existing state that no longer matches */
+    if (ap->a_pieces)
+	rt_ap_pieces_clean(ap);
+
+    if (rtip->i->rti_nsolids_with_pieces == 0)
+	return;
+
+    BU_ALLOC(pss, struct rt_piecestate_set);
+    pss->magic = RT_PIECESTATE_SET_MAGIC;
+    pss->rtip = rtip;
+    pss->npieces = rtip->i->rti_nsolids_with_pieces;
+    pss->ps_ray_seqno = 0;
+
+    psptab = (struct rt_piecestate *)bu_calloc(pss->npieces, sizeof(struct rt_piecestate), "ap pieces[]");
+    pss->pieces = psptab;
+    bu_ptbl_init(&pss->pending, 100, "ap pieces pending");
 
     RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
 	RT_CK_SOLTAB(stp);
@@ -76,47 +91,44 @@ rt_res_pieces_init(struct resource *resp, struct rt_i *rtip)
 	rt_htbl_init(&psp->htab, 8, "psp->htab");
 	psp->cutp = CUTTER_NULL;
     } RT_VISIT_ALL_SOLTABS_END
-	  }
+
+    ap->a_pieces = pss;
+}
 
 
 void
-rt_res_pieces_clean(struct resource *resp, struct rt_i *rtip)
+rt_ap_pieces_clean(struct application *ap)
 {
+    struct rt_piecestate_set *pss;
     struct rt_piecestate *psp;
     int i;
 
-    RT_CK_RESOURCE(resp);
-    if (rtip) {
-	RT_CK_RTI(rtip);
-    }
-    if (BU_PTBL_TEST(&resp->re_pieces_pending)) {
-	bu_ptbl_free(&resp->re_pieces_pending);
-    }
-
-    if (!resp->re_pieces) {
-	/* no pieces allocated, nothing to do */
-	if (rtip) {
-	    rtip->i->rti_nsolids_with_pieces = 0;
-	}
+    if (!ap || !ap->a_pieces)
 	return;
+
+    RT_CK_AP(ap);
+    pss = ap->a_pieces;
+    RT_CK_PIECESTATE_SET(pss);
+
+    if (BU_PTBL_TEST(&pss->pending)) {
+	bu_ptbl_free(&pss->pending);
     }
 
-    /* pieces allocated, need to clean up */
-    if (rtip) {
-	for (i = rtip->i->rti_nsolids_with_pieces-1; i >= 0; i--) {
-	    psp = &resp->re_pieces[i];
+    if (pss->pieces) {
+	for (i = (int)pss->npieces - 1; i >= 0; i--) {
+	    psp = &pss->pieces[i];
 
 	    /*
 	     * Skip uninitialized structures.
 	     *
 	     * Doing this until we figure out why all "struct
 	     * rt_piecestate" array members are NOT getting
-	     * initialized in rt_res_pieces_init() above.  Initial
+	     * initialized in rt_ap_pieces_init() above.  Initial
 	     * glance looks like tree.c/rt_gettrees_muves() can be
 	     * called in such a way as to assign
 	     * stp->st_piecestate_num multiple times, each time with a
 	     * different value. This value is an index into the
-	     * resp->re_pieces array. When this happens, it causes all
+	     * pss->pieces array. When this happens, it causes all
 	     * but the last referenced "struct rt_piecestate" member
 	     * to be initialized.
 	     */
@@ -129,11 +141,12 @@ rt_res_pieces_clean(struct resource *resp, struct rt_i *rtip)
 	    psp->shot = NULL;	/* sanity */
 	    psp->magic = 0;
 	}
-
-	rtip->i->rti_nsolids_with_pieces = 0;
+	bu_free((char *)pss->pieces, "ap pieces[]");
+	pss->pieces = NULL;
     }
-    bu_free((char *)resp->re_pieces, "re_pieces[]");
-    resp->re_pieces = NULL;
+
+    BU_PUT(pss, struct rt_piecestate_set);
+    ap->a_pieces = NULL;
 }
 
 
@@ -737,15 +750,21 @@ rt_shootray(register struct application *ap)
     BU_ALLOC(regionbits, struct bu_ptbl);
     bu_ptbl_init(regionbits, 7, "rt_shootray() regionbits ptbl");
 
-    if (!resp->re_pieces && rtip->i->rti_nsolids_with_pieces > 0) {
-	/* Initialize this processors 'solid pieces' state */
-	rt_res_pieces_init(resp, rtip);
+    /* Ensure piece state is valid for this rtip.  Lazily allocate on
+     * first use; transparently reallocate if the model has been reprep'd
+     * (rti_nsolids_with_pieces changed) or if this application is being
+     * reused with a different rt_i instance.
+     */
+    if (rtip->i->rti_nsolids_with_pieces > 0) {
+	if (!ap->a_pieces ||
+	    ap->a_pieces->rtip != rtip ||
+	    ap->a_pieces->npieces != rtip->i->rti_nsolids_with_pieces)
+	    rt_ap_pieces_init(ap, rtip);
+	bu_ptbl_reset(&ap->a_pieces->pending);
+    } else if (ap->a_pieces && ap->a_pieces->rtip == rtip) {
+	/* model was reprep'd and no longer has piece solids */
+	rt_ap_pieces_clean(ap);
     }
-    if (UNLIKELY(!BU_LIST_MAGIC_EQUAL(&resp->re_pieces_pending.l, BU_PTBL_MAGIC))) {
-	/* only happens first time through */
-	bu_ptbl_init(&resp->re_pieces_pending, 100, "re_pieces_pending");
-    }
-    bu_ptbl_reset(&resp->re_pieces_pending);
 
     /* Verify that direction vector has unit length */
     if (RT_G_DEBUG) {
@@ -766,10 +785,11 @@ rt_shootray(register struct application *ap)
 
     /*
      * Count this ray in the per-instance atomic stats, and advance the
-     * per-resource ray sequence counter used for piece-state dedup.
+     * per-application ray sequence counter used for piece-state dedup.
      */
     rtip->stats.rti_nrays++;
-    resp->re_ray_seqno++;
+    if (ap->a_pieces)
+	ap->a_pieces->ps_ray_seqno++;
 
     /* Compute the inverse of the direction cosines */
     if (ap->a_ray.r_dir[X] < -SQRT_SMALL_FASTF) {
@@ -981,12 +1001,12 @@ rt_shootray(register struct application *ap)
 		    continue;
 		}
 
-		psp = &(resp->re_pieces[stp->st_piecestate_num]);
+		psp = &(ap->a_pieces->pieces[stp->st_piecestate_num]);
 		RT_CK_PIECESTATE(psp);
-		if (psp->ray_seqno != resp->re_ray_seqno) {
+		if (psp->ray_seqno != ap->a_pieces->ps_ray_seqno) {
 		    /* state is from an earlier ray, scrub */
 		    BU_BITV_ZEROALL(psp->shot);
-		    psp->ray_seqno = resp->re_ray_seqno;
+		    psp->ray_seqno = ap->a_pieces->ps_ray_seqno;
 		    rt_htbl_reset(&psp->htab);
 
 		    /* Compute ray entry and exit to entire solid's
@@ -1050,10 +1070,10 @@ rt_shootray(register struct application *ap)
 		    BU_BITSET(solidbits, stp->st_bit);
 
 		    if (had_hits_before)
-			bu_ptbl_rm(&resp->re_pieces_pending, (long *)psp);
+			bu_ptbl_rm(&ap->a_pieces->pending, (long *)psp);
 		} else {
 		    if (!had_hits_before)
-			bu_ptbl_ins_unique(&resp->re_pieces_pending, (long *)psp);
+			bu_ptbl_ins_unique(&ap->a_pieces->pending, (long *)psp);
 		}
 	    }
 	}
@@ -1149,13 +1169,13 @@ rt_shootray(register struct application *ap)
 		/* Weave these segments into partition list */
 		rt_boolweave(&finished_segs, &waiting_segs, &InitialPart, ap);
 
-		if (BU_PTBL_LEN(&resp->re_pieces_pending) > 0) {
+		if (ap->a_pieces && BU_PTBL_LEN(&ap->a_pieces->pending) > 0) {
 
 		    /* Find the lowest pending mindist, that's as far
 		     * as boolfinal can progress to.
 		     */
 		    struct rt_piecestate **psp;
-		    for (BU_PTBL_FOR(psp, (struct rt_piecestate **), &resp->re_pieces_pending)) {
+		    for (BU_PTBL_FOR(psp, (struct rt_piecestate **), &ap->a_pieces->pending)) {
 			register fastf_t dist;
 
 			dist = (*psp)->mindist;
@@ -1196,9 +1216,9 @@ weave:
 	bu_log("rt_shootray: ray has left known space\n");
 
     /* Process any pending hits into segs */
-    if (BU_PTBL_LEN(&resp->re_pieces_pending) > 0) {
+    if (ap->a_pieces && BU_PTBL_LEN(&ap->a_pieces->pending) > 0) {
 	struct rt_piecestate **psp;
-	for (BU_PTBL_FOR(psp, (struct rt_piecestate **), &resp->re_pieces_pending)) {
+	for (BU_PTBL_FOR(psp, (struct rt_piecestate **), &ap->a_pieces->pending)) {
 	    if ((*psp)->htab.end > 0) {
 		/* Convert any pending hits into segs */
 		/* Distance correction was handled in ft_piece_shot */
@@ -1207,7 +1227,7 @@ weave:
 	    }
 	    *psp = NULL;
 	}
-	bu_ptbl_reset(&resp->re_pieces_pending);
+	bu_ptbl_reset(&ap->a_pieces->pending);
     }
 
     if (BU_LIST_NON_EMPTY(&(waiting_segs.l))) {
@@ -1283,13 +1303,13 @@ out:
     bu_free(regionbits, "regionbits");
 
     /* Clean up any pending hits */
-    if (BU_PTBL_LEN(&resp->re_pieces_pending) > 0) {
+    if (ap->a_pieces && BU_PTBL_LEN(&ap->a_pieces->pending) > 0) {
 	struct rt_piecestate **psp;
-	for (BU_PTBL_FOR(psp, (struct rt_piecestate **), &resp->re_pieces_pending)) {
+	for (BU_PTBL_FOR(psp, (struct rt_piecestate **), &ap->a_pieces->pending)) {
 	    if ((*psp)->htab.end > 0)
 		rt_htbl_reset(&(*psp)->htab);
 	}
-	bu_ptbl_reset(&resp->re_pieces_pending);
+	bu_ptbl_reset(&ap->a_pieces->pending);
     }
 
     /* Terminate any logging */

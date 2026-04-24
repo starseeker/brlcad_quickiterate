@@ -179,6 +179,7 @@ __BEGIN_DECLS
 #define RT_HTBL_MAGIC			0x6874626c /**< htbl */
 #define RT_PIECELIST_MAGIC		0x70636c73 /**< pcls */
 #define RT_PIECESTATE_MAGIC		0x70637374 /**< pcst */
+#define RT_PIECESTATE_SET_MAGIC		0x70736574 /**< pset */
 #define RT_RAY_MAGIC			0x78726179 /**< xray */
 #define RT_REGION_MAGIC			0xdffb8001 /**< ???? */
 #define RT_SEG_MAGIC			0x98bcdef1 /**< ???? */
