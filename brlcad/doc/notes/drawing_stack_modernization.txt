@@ -320,7 +320,7 @@ any bview* back-pointer used for control flow.
 
 == Phase 3 — Generalize the draw cache ==
 
-Status: PLANNED
+Status: DONE
 
 Prerequisite: Phase 0 (bu_cache migration).
 
@@ -330,39 +330,61 @@ Today there are two on-disk LMDB users:
                                color_inherit, color per .g solid
 
 After Phase 0, dbi_state.cpp uses bu_cache.  libbv/lod.cpp still uses raw
-LMDB.  Phase 3 migrates lod.cpp to bu_cache and then introduces a versioned
-namespace scheme so new payload types can be added without invalidating
-existing entries.
+LMDB.  Phase 3 migrates lod.cpp to bu_cache, gives both caches a consistent
+format-file invalidation mechanism, and adds a background OBB worker.
 
 Sub-items:
 
-  3-A: Migrate libbv/lod.cpp LMDB → bu_cache
+  3-A: Migrate libbv/lod.cpp LMDB → bu_cache                      [DONE]
     Replace the two MDB_env instances (lod_env / name_env) with two
     struct bu_cache* instances (lod_cache / name_cache).  All MDB_* calls
     become bu_cache_* calls.  Remove LMDB_LIBRARIES from libbv CMakeLists.txt.
     Reference: qgedobol src/libbsg/lod.cpp (already migrated).
 
-  3-B: Versioned record schema
-    Each namespace (bbox/, lod/, name/) carries a format-version prefix in its
-    key: "v1:hash:component".  A version mismatch triggers cache invalidation
-    for that namespace only, not the whole cache.  This replaces the current
-    CACHE_CURRENT_FORMAT integer and the format file written to disk.
+  3-B: Cache invalidation via format files                         [DONE]
+    Both cache owners use the same mechanism: a plain-text integer version
+    file in the cache root directory.  On startup, if the integer in the file
+    doesn't match the compile-time constant the entire cache directory is
+    cleared via bu_dirclear() before new caches are opened.  Cache keys use
+    plain "hash:component" strings with no embedded version prefix.
 
-  3-C: Background OBB computation via GeomLoader
+    lod.cpp (POPLoD cache):
+      File: BU_DIR_CACHE/.POPLoD/format
+      Constant: CACHE_CURRENT_FORMAT (bumped 1 → 2 to force a clean slate
+      after the LMDB→bu_cache migration in 3-A).
+      Checked in: bv_mesh_lod_context_create().
+
+    dbi_state.cpp (DBI cache, dcache):
+      File: BU_DIR_CACHE/.Dbi/format
+      Constant: DBI_CACHE_FORMAT_VERSION (starts at 1).
+      Checked in: DbiState::DbiState() before bu_cache_open().
+      Covers all six payload keys: bb, rid, rf, if, c, obb.
+
+    When a payload's binary layout changes, or a payload type is added or
+    removed, only the relevant format-version constant needs to be bumped;
+    the next startup automatically wipes and rebuilds the entire cache
+    directory for that cache owner.  No orphaned entries accumulate.
+
+  3-C: Background OBB computation via GeomLoader                   [DONE]
     Introduce a GeomLoader worker (based on the qgedobol DrawPipeline concept)
     that computes OBBs for each solid in the background.  Results are stored in
-    the cache and made available to BViewState via a drain_geom_results() pump.
-    Adds the "obb/" namespace to the cache.
+    dcache (key "hash:obb") and made available to BViewState via a
+    drain_geom_results() pump.  Current OBB computation is a trivial
+    axis-aligned placeholder; a PCA-based OBB can replace it later.
+    GeomLoader declared in dbi.h, implemented in dbi_state.cpp.
+    DbiState::geom_loader created after dcache is opened; destroyed (joining
+    the worker thread) before dcache is closed in ~DbiState().
 
-  3-D: Placeholder rendering ladder
-    BViewState::redraw() draws AABB wireframes (from the "bb/" cache) while
-    OBB computation is in progress, then upgrades to OBB wireframes when ready,
-    then to full LoD geometry.  Driven by sensor callbacks fired by
-    drain_geom_results().
+  3-D: Placeholder rendering ladder                                [DONE]
+    BViewState::redraw() queues OBB computations for all newly drawn solids
+    immediately after draw_scene().  BViewState::drain_geom_results() is
+    exposed as a public method; callers that poll it and get count > 0 should
+    trigger a view refresh to consume the updated OBBs.
     Reference: qgedobol doc/TODO.qged-stack.md §7.4 (fully validated there).
 
 Exit criteria: a new cached payload (OBB) can be added in one place and is
-consumed by the draw path without changes to bv_* headers.
+consumed by the draw path without changes to bv_* headers.  Both caches use
+the format-file mechanism for invalidation; keys are plain "hash:component".
 Qt build requirement: libbv, dm-swrast, and the LoD caching tests must all
 pass; qt6-base-dev / qt6-svg-dev must be installed and -DBRLCAD_ENABLE_QT=ON.
 

@@ -46,6 +46,9 @@
 #ifdef __cplusplus
 #include <set>
 #include <map>
+#include <mutex>
+#include <condition_variable>
+#include <thread>
 #include <unordered_map>
 #include <unordered_set>
 #include <string>
@@ -350,6 +353,73 @@ class GED_EXPORT SelectionSet {
 typedef SelectionSet BSelectState;
 
 
+/* ---- Phase 3-C: Background OBB computation --------------------------- */
+
+/* Work item queued to the GeomLoader for OBB computation. */
+struct GeomLoaderItem {
+    unsigned long long hash;
+    point_t bbmin;
+    point_t bbmax;
+};
+
+/* Result produced by GeomLoader after OBB computation. */
+struct ObbResult {
+    unsigned long long hash;
+    point_t  obb_center;
+    vect_t   obb_extent1;
+    vect_t   obb_extent2;
+    vect_t   obb_extent3;
+};
+
+/**
+ * GeomLoader: background worker that computes oriented bounding boxes (OBBs)
+ * for solids and writes the results into a bu_cache.
+ *
+ * Usage:
+ *   loader->queue_item(hash, bbmin, bbmax);   // enqueue OBB work
+ *   int n = loader->drain_geom_results();     // collect finished results
+ *   bool ok = loader->get_obb(hash, ...);     // read OBB from cache
+ */
+class GED_EXPORT GeomLoader {
+public:
+    explicit GeomLoader(struct bu_cache *cache);
+    ~GeomLoader();
+
+    /* Enqueue an OBB computation for the solid identified by hash. */
+    void queue_item(unsigned long long hash, const point_t bbmin, const point_t bbmax);
+
+    /**
+     * Collect completed OBB results, write each into the cache, and return
+     * the number of new results written.  Intended to be called from the
+     * draw loop to trigger view refreshes when OBBs become available.
+     */
+    int drain_geom_results();
+
+    /**
+     * Read a previously cached OBB for hash.  Returns true and fills the
+     * output pointers on success; returns false if no OBB is cached yet.
+     * Passing NULL for any output pointer is allowed.
+     */
+    bool get_obb(unsigned long long hash,
+                 point_t *obb_center,
+                 vect_t  *obb_extent1,
+                 vect_t  *obb_extent2,
+                 vect_t  *obb_extent3) const;
+
+private:
+    void worker();
+    void stop();
+
+    struct bu_cache         *cache_    = NULL;
+    std::thread              worker_thread_;
+    mutable std::mutex       mtx_;
+    std::condition_variable  cv_;
+    std::queue<GeomLoaderItem>  work_queue_;
+    std::vector<ObbResult>      completed_;
+    bool                     stop_     = false;
+};
+
+
 class GED_EXPORT BViewState {
     public:
 	BViewState(DbiState *);
@@ -393,6 +463,11 @@ class GED_EXPORT BViewState {
 	// the elements will be the same, but adaptive plotting will be view specific even
 	// with otherwise common objects - we must update accordingly.
 	unsigned long long redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *> &views, int no_autoview);
+
+	// Phase 3-D: Drain completed OBB results from the GeomLoader.
+	// Returns the count of new OBBs that are now available in the cache.
+	// Callers should trigger a view refresh when the count > 0.
+	int drain_geom_results();
 
 	// Allow callers to calculate the drawing hash of a path
 	unsigned long long path_hash(std::vector<unsigned long long> &path, size_t max_len);
@@ -675,6 +750,9 @@ class GED_EXPORT DbiState {
 	struct bu_cache *dcache = NULL;
 	struct bu_vls hash_string = BU_VLS_INIT_ZERO;
 	struct bu_vls path_string = BU_VLS_INIT_ZERO;
+
+	// Phase 3-C: background OBB worker
+	GeomLoader *geom_loader = NULL;
 
 	// Phase 1-C: observer dispatch
 	std::vector<IDbiObserver *>   dbi_observers_;
