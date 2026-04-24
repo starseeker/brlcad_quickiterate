@@ -207,8 +207,9 @@ main(int ac, char *av[])
     /* ---- Compare --------------------------------------------------- */
     int ret = 0;
 
-    /* Allow a few off-by-1 pixels (floating-point / rounding in the
-     * scene-root-sync shim vs direct ptbl iteration). */
+    /* Allow a small tolerance: a BSG path that mirrors the dl_* walk pixel-by-pixel
+     * may have up to ~20 off-by-1 pixels from floating-point rounding differences
+     * in the scene-root-sync shim vs direct ptbl iteration. */
     const int ADIFF = 20;
 
     if (!images_identical("bsg_parity_A.png", "bsg_parity_B.png", ADIFF)) {

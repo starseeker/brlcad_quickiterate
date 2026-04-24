@@ -245,7 +245,7 @@ int
 main(int UNUSED(argc), char *argv[])
 {
     bu_setprogname(argv[0]);
-    bu_log("load msgs: %s\n", dm_init_msgs());
+    bu_log("dm_init_msgs: %s\n", dm_init_msgs());
 
     test_register_fire();
     test_multiple_fire();
