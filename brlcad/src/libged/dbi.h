@@ -214,7 +214,7 @@ public:
              const DrawSettings *overrides = nullptr);
 
     /* Remove entries by full-path hash.  mode < 0 removes all modes. */
-    void remove(unsigned long long path_hash, int mode = -1);
+    void drop(unsigned long long path_hash, int mode = -1);
 
     /* Clear all entries, or only those for the given mode. */
     void clear();

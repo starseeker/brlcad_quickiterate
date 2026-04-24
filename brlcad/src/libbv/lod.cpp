@@ -1971,7 +1971,7 @@ bv_mesh_lod_clear_cache(struct bv_mesh_lod_context *c, unsigned long long key)
 	    int nkeys = bu_cache_keys(&keysv, c->i->lod_cache);
 	    std::string prefix = std::to_string(key) + std::string(":");
 	    for (int ki = 0; ki < nkeys; ki++) {
-		if (strncmp(keysv[ki], prefix.c_str(), prefix.length()) == 0)
+		if (bu_strncmp(keysv[ki], prefix.c_str(), prefix.length()) == 0)
 		    bu_cache_clear(keysv[ki], c->i->lod_cache, NULL);
 	    }
 	    if (nkeys)

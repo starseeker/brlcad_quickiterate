@@ -4443,7 +4443,7 @@ DrawList::add(const DbiPath &path, int mode, const DrawSettings *overrides)
 }
 
 void
-DrawList::remove(unsigned long long path_hash, int mode)
+DrawList::drop(unsigned long long path_hash, int mode)
 {
     auto it = entries_.begin();
     while (it != entries_.end()) {
