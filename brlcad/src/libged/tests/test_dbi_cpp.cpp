@@ -675,7 +675,8 @@ test_color_sentinel(const char *moss_g_path)
 	return 0;  /* inconclusive, not a failure */
     }
 
-    /* Verify the object has no color attribute on disk */
+    /* Verify the object has no color attribute on disk.
+     * is_colorless stays true unless a "color" or "rgb" avs attribute is found. */
     struct bu_attribute_value_set avs = BU_AVS_INIT_ZERO;
     bool is_colorless = true;
     if (db5_get_attributes(gedp->dbip, &avs, dp) == 0) {

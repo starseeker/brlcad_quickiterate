@@ -39,12 +39,15 @@
 #include "bv/util.h"
 #include "bv/defines.h"
 
+/* Tolerance for floating-point matrix element comparison */
+#define MAT_TOLERANCE 1e-9
+
 /* compare two 4x4 matrices element-by-element */
 static int
 mat_near_equal(const mat_t a, const mat_t b)
 {
     for (int i = 0; i < 16; i++)
-	if (fabs(a[i] - b[i]) > 1e-9)
+	if (fabs(a[i] - b[i]) > MAT_TOLERANCE)
 	    return 0;
     return 1;
 }
