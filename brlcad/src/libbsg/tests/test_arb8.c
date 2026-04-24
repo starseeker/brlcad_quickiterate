@@ -35,6 +35,7 @@
 #include "common.h"
 
 #include "vmath.h"
+#include "bu/app.h"
 #include "bu/exit.h"
 #include "bu/log.h"
 #include "bu/list.h"
@@ -42,8 +43,9 @@
 #include "bsg/vlist.h"
 
 int
-main(int UNUSED(argc), char *UNUSED(argv[]))
+main(int UNUSED(argc), char *argv[])
 {
+    bu_setprogname(argv[0]);
     /* Unit cube corners */
     point_t pts[8] = {
 	{0.0, 0.0, 0.0}, /* 0 */
