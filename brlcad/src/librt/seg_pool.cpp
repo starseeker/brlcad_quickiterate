@@ -178,9 +178,10 @@ rt_seg_alloc(struct application *ap)
     cpu = ap->a_resource ? ap->a_resource->re_cpu : 0;
     pool = seg_pool_for_cpu(ap->a_rt_i, cpu);
 
-    while (!BU_LIST_WHILE(segp, seg, &pool->re_seg) || !segp)
+    while (BU_LIST_IS_EMPTY(&pool->re_seg))
 	alloc_seg_block(pool);
 
+    segp = BU_LIST_FIRST(seg, &pool->re_seg);
     BU_LIST_DEQUEUE(&segp->l);
     segp->l.forw = segp->l.back = BU_LIST_NULL;
     segp->seg_in.hit_magic = segp->seg_out.hit_magic = RT_HIT_MAGIC;
