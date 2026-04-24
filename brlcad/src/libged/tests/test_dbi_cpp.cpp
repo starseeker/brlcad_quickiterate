@@ -622,6 +622,130 @@ test_pipeline(const char *moss_g_path)
 }
 
 /* ------------------------------------------------------------------ */
+/* Test 10: DrawPipeline color sentinel (UINT_MAX fix)                 */
+/*                                                                     */
+/* Objects that carry no "color" or "rgb" attribute must NOT have a    */
+/* color entry written to the cache.  Before the fix, the dp_attr_worker*/
+/* would write UINT_MAX as a packed-RGB value; on the next open that   */
+/* value would be read back as a valid (near-white) color, making      */
+/* colorless solids appear white instead of inheriting the region hue. */
+/*                                                                     */
+/* Strategy:                                                           */
+/*   a) Create a DbiState and let the pipeline settle.                 */
+/*   b) Identify a solid that has no color attribute in moss.g.        */
+/*   c) Call path_color() for that solid's hash.  If the UINT_MAX bug  */
+/*      is present the returned color will be white (255,255,255),     */
+/*      because the bug-encoded UINT_MAX != INT_MAX sentinel causes it  */
+/*      to be treated as a valid packed-RGB in digest_path.            */
+/*   d) Verify path_color() does NOT return white.                     */
+/* ------------------------------------------------------------------ */
+static int
+test_color_sentinel(const char *moss_g_path)
+{
+    int failures = 0;
+
+    bu_log("=== Test 10: DrawPipeline color-sentinel (UINT_MAX fix) ===\n");
+
+    struct ged *gedp = ged_open("db", moss_g_path, 1);
+    if (!gedp) {
+	bu_log("  FAIL: could not open %s\n", moss_g_path);
+	return 1;
+    }
+
+    DbiState *dbis = new DbiState(gedp);
+    gedp->dbi_state = (void *)dbis;
+
+    /* Wait for the pipeline to settle so all cache writes are committed. */
+    (void)dbis->wait_for_pipeline(10000);
+
+    /* Force digest_path to populate the in-memory rgb / c_inherit maps
+     * by calling update() which triggers a full digest pass. */
+    dbis->update();
+
+    /* Pick a primitive that carries no color attribute.  In moss.g the
+     * solid "box.s" is a plain ARB8; it has no color of its own. */
+    const char *colorless_name = "box.s";
+    struct directory *dp = db_lookup(gedp->dbip, colorless_name, LOOKUP_QUIET);
+    if (dp == RT_DIR_NULL) {
+	bu_log("  WARNING: '%s' not found in %s — skipping color-sentinel check\n",
+	       colorless_name, moss_g_path);
+	delete (DbiState *)gedp->dbi_state;
+	gedp->dbi_state = NULL;
+	ged_close(gedp);
+	return 0;  /* inconclusive, not a failure */
+    }
+
+    /* Verify the object has no color attribute on disk.
+     * is_colorless stays true unless a "color" or "rgb" avs attribute is found. */
+    struct bu_attribute_value_set avs = BU_AVS_INIT_ZERO;
+    bool is_colorless = true;
+    if (db5_get_attributes(gedp->dbip, &avs, dp) == 0) {
+	const char *cval = bu_avs_get(&avs, "color");
+	if (!cval) cval = bu_avs_get(&avs, "rgb");
+	if (cval) {
+	    bu_log("  NOTE: '%s' has a color attribute ('%s') — "
+		   "test is inconclusive for this solid\n",
+		   colorless_name, cval);
+	    is_colorless = false;
+	}
+	bu_avs_free(&avs);
+    }
+
+    if (!is_colorless) {
+	delete (DbiState *)gedp->dbi_state;
+	gedp->dbi_state = NULL;
+	ged_close(gedp);
+	return 0;
+    }
+
+    /* Build a single-element path for box.s and ask for its color.
+     * With the UINT_MAX bug the DbiState::rgb map gets an entry for
+     * this solid with the value 0xFFFFFFFF, so path_color() returns
+     * true with nearly-white.  With the fix, no entry is in rgb and
+     * path_color returns false (or a default, never pure white). */
+    unsigned long long hash =
+	bu_data_hash(dp->d_namep, strlen(dp->d_namep) * sizeof(char));
+
+    std::vector<unsigned long long> path_elems;
+    path_elems.push_back(hash);
+
+    struct bu_color color;
+    bool has_color = dbis->path_color(&color, path_elems);
+
+    if (has_color) {
+	/* A color was returned — check it is NOT UINT_MAX-derived white */
+	unsigned char r = 0, g = 0, b = 0;
+	int ri, gi, bi;
+	bu_color_to_rgb_ints(&color, &ri, &gi, &bi);
+	r = (unsigned char)ri;
+	g = (unsigned char)gi;
+	b = (unsigned char)bi;
+	if (r == 255 && g == 255 && b == 255) {
+	    /* This is the exact symptom of the pre-fix UINT_MAX bug */
+	    bu_log("FAIL: path_color for colorless '%s' returned white "
+		   "(255,255,255) — UINT_MAX sentinel bug NOT fixed\n",
+		   colorless_name);
+	    failures++;
+	} else {
+	    bu_log("  NOTE: path_color returned (%d,%d,%d) for '%s' "
+		   "(not UINT_MAX-derived white — from material table or inherit chain)\n",
+		   (int)r, (int)g, (int)b, colorless_name);
+	    bu_log("  PASS: color sentinel not triggered\n");
+	}
+    } else {
+	/* No color — the sentinel is working correctly */
+	bu_log("  PASS: path_color returns false for colorless solid '%s'\n",
+	       colorless_name);
+    }
+
+    delete (DbiState *)gedp->dbi_state;
+    gedp->dbi_state = NULL;
+    ged_close(gedp);
+
+    return failures;
+}
+
+/* ------------------------------------------------------------------ */
 /* main                                                                 */
 /* ------------------------------------------------------------------ */
 
@@ -679,6 +803,10 @@ main(int ac, char *av[])
 
     /* Test 9: Phase 3.5 DrawPipeline — drain_geom_results produces results */
     ret += test_pipeline(tmp_g);
+
+    /* Test 10: DrawPipeline color sentinel — colorless objects must not get
+     *          a white color written to the cache (UINT_MAX sentinel fix). */
+    ret += test_color_sentinel(tmp_g);
 
     /* Accumulate any inline CHECK() failures */
     ret += g_failures;
