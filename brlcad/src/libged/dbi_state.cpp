@@ -425,8 +425,16 @@ dp_attr_worker(std::shared_ptr<DrawPipelineState> p)
 		colors = (unsigned int)(r + (g << 8) + (b << 16));
 	    }
 	}
-	dp_make_key(ckey, sizeof(ckey), hash, CACHE_COLOR);
-	p->q_write.enqueue(DrawCacheWriteItem(ckey, &colors, sizeof(unsigned int)));
+	// Only cache a color value when one was actually found.  UINT_MAX is
+	// used internally as a "no color" placeholder, but digest_path uses
+	// INT_MAX as its sentinel; writing UINT_MAX here would corrupt the cache
+	// and cause path_color to return white for every colorless solid on the
+	// next run (UINT_MAX != INT_MAX, so digest_path would treat the value as
+	// a valid packed RGB).
+	if (colors != UINT_MAX) {
+	    dp_make_key(ckey, sizeof(ckey), hash, CACHE_COLOR);
+	    p->q_write.enqueue(DrawCacheWriteItem(ckey, &colors, sizeof(unsigned int)));
+	}
 
 	bu_avs_free(&avs);
 
@@ -1430,7 +1438,6 @@ DbiState::update_dp(struct directory *dp, int reset)
 	if (color_val){
 	    bu_opt_color(NULL, 1, &color_val, (void *)&c);
 	    cval = color_int(&c);
-	    bu_log("have color: %u\n", cval);
 	}
 
 	if (dcache) {
@@ -1457,7 +1464,6 @@ DbiState::update_dp(struct directory *dp, int reset)
 
     // Done with attributes
     if (loaded_avs) {
-	bu_log("Had to load avs\n");
 	bu_avs_free(&c_avs);
     }
 
@@ -2144,8 +2150,6 @@ DbiState::update()
 
     // Update the primary data structures
     for(s_it = removed.begin(); s_it != removed.end(); s_it++) {
-	bu_log("removed: %llu\n", *s_it);
-
 	// Combs with this key in their child set need to be updated to refer
 	// to it as an invalid entry.
 	std::unordered_map<unsigned long long, std::vector<unsigned long long>>::iterator pv_it;
@@ -2187,7 +2191,6 @@ DbiState::update()
 
     for(g_it = added.begin(); g_it != added.end(); g_it++) {
 	struct directory *dp = *g_it;
-	bu_log("added: %s\n", dp->d_namep);
 	unsigned long long hash = update_dp(dp, 0);
 
 	// If this name was previously the source of an invalid reference,
@@ -2197,7 +2200,6 @@ DbiState::update()
 
     for(g_it = changed.begin(); g_it != changed.end(); g_it++) {
 	struct directory *dp = *g_it;
-	bu_log("changed: %s\n", dp->d_namep);
 	// Properties need to be updated - comb children, colors, matrices,
 	// bounding box for solids, etc.
 	update_dp(dp, 1);
@@ -2928,6 +2930,20 @@ BViewState::scene_obj(
 		}
 	    }
 
+	    // Refresh s_color from the current path color so that material
+	    // changes (or a cache corruption that left stale values) are always
+	    // reflected before draw_scene_obj is invoked.
+	    {
+		struct bu_color c;
+		dbis->path_color(&c, path_hashes);
+		bu_color_to_rgb_chars(&c, sp->s_color);
+		if (vs && vs->color_override) {
+		    sp->s_color[0] = vs->color[0];
+		    sp->s_color[1] = vs->color[1];
+		    sp->s_color[2] = vs->color[2];
+		}
+	    }
+
 	    return NULL;
 	}
     }
@@ -3323,8 +3339,7 @@ BViewState::refresh(struct bview *v, int argc, const char **argv)
 	    nso->dp = s->dp;
 	    s_map[*k_it][mm_it->first] = nso;
 
-	    //bv_log(3, "refresh %s[%s]", bu_vls_cstr(&(nso->s_name)), bu_vls_cstr(&(v->gv_name)));
-	    bu_log("refresh %s[%s]\n", bu_vls_cstr(&(nso->s_name)), bu_vls_cstr(&(v->gv_name)));
+	    bv_log(3, "refresh %s[%s]", bu_vls_cstr(&(nso->s_name)), bu_vls_cstr(&(v->gv_name)));
 	    draw_scene(nso, v);
 	    bv_obj_put(s);
 	}
@@ -3333,8 +3348,8 @@ BViewState::refresh(struct bview *v, int argc, const char **argv)
     // Do selection sync
     SelectionSet *ss = dbis->find_selected_state(NULL);
     if (ss) {
-	ss->draw_sync();
-	ret = GED_DBISTATE_VIEW_CHANGE;
+	if (ss->draw_sync())
+	    ret |= GED_DBISTATE_VIEW_CHANGE;
     }
 
     return ret;
@@ -3513,7 +3528,6 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
 
 	    // NOTE: Because there is no geometry to update, these scene objs
 	    // are not added to objs
-	    bu_log("invalid expand\n");
 	}
     }
 
@@ -3638,8 +3652,8 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
 	    ss->refresh();
 	    ss->collapse();
 	}
-	ss->draw_sync();
-	ret = GED_DBISTATE_VIEW_CHANGE;
+	if (ss->draw_sync())
+	    ret |= GED_DBISTATE_VIEW_CHANGE;
     }
     // Now that we have the finalized geometry, do a finishing autoview,
     // unless suppressed
