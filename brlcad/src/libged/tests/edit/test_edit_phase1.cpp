@@ -102,7 +102,6 @@ create_p1_fixture(const char *path)
     }
 
     /* group.c referencing tor.s */
-    const char *members[] = { "tor.s", NULL };
     struct wmember wm;
     BU_LIST_INIT(&wm.l);
     mk_addmember("tor.s", &wm.l, NULL, WMOP_UNION);
@@ -110,7 +109,6 @@ create_p1_fixture(const char *path)
         wdb_close(wdbp);
         return BRLCAD_ERROR;
     }
-    (void)members;
 
     wdb_close(wdbp);
     return BRLCAD_OK;
@@ -379,13 +377,13 @@ test_p1_buf_set_get(struct ged *gedp)
     struct db_full_path dfp;
     db_full_path_init(&dfp);
     if (db_string_to_path(&dfp, gedp->dbip, "tor.s") < 0) {
-        CHECK(0, "db_string_to_path for tor.s succeeded");
+        CHECK(0, "db_string_to_path for tor.s failed unexpectedly");
         return;
     }
 
     struct rt_edit *s = rt_edit_create(&dfp, gedp->dbip, &tol, NULL);
     if (!s) {
-        CHECK(0, "rt_edit_create succeeded for tor.s");
+        CHECK(0, "rt_edit_create failed for tor.s");
         db_free_full_path(&dfp);
         return;
     }
@@ -408,13 +406,13 @@ test_p1_buf_abandon(struct ged *gedp)
     struct db_full_path dfp;
     db_full_path_init(&dfp);
     if (db_string_to_path(&dfp, gedp->dbip, "sph.s") < 0) {
-        CHECK(0, "db_string_to_path for sph.s succeeded");
+        CHECK(0, "db_string_to_path for sph.s failed unexpectedly");
         return;
     }
 
     struct rt_edit *s = rt_edit_create(&dfp, gedp->dbip, &tol, NULL);
     if (!s) {
-        CHECK(0, "rt_edit_create succeeded for sph.s");
+        CHECK(0, "rt_edit_create failed for sph.s");
         db_free_full_path(&dfp);
         return;
     }
@@ -444,7 +442,7 @@ test_p1_buf_flush(struct ged *gedp)
     struct rt_edit *s2 = rt_edit_create(&dfp2, gedp->dbip, &tol, NULL);
 
     if (!s1 || !s2) {
-        CHECK(0, "rt_edit_create succeeded for flush test");
+        CHECK(0, "rt_edit_create failed for flush test fixture");
         if (s1) rt_edit_destroy(s1);
         if (s2) rt_edit_destroy(s2);
         db_free_full_path(&dfp1);
