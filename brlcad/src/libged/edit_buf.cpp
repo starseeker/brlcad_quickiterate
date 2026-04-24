@@ -31,7 +31,6 @@
 
 #include "common.h"
 
-#include <functional>
 #include <string>
 #include <vector>
 
@@ -58,14 +57,15 @@ Ged_Internal::~Ged_Internal()
 
 
 /* ------------------------------------------------------------------ *
- * Internal helper: compute a stable hash key from a db_full_path.
+ * Internal helper: compute the canonical path key from a db_full_path.
+ * Uses the full path string so there is zero collision risk.
  * ------------------------------------------------------------------ */
 
-static unsigned long long
+static std::string
 _edit_buf_key(const struct db_full_path *dfp)
 {
     char *pstr = db_path_to_string(dfp);
-    unsigned long long key = (unsigned long long)std::hash<std::string>{}(std::string(pstr));
+    std::string key(pstr);
     bu_free(pstr, "edit_buf path key");
     return key;
 }

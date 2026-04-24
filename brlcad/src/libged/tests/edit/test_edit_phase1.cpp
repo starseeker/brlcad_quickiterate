@@ -374,6 +374,8 @@ test_p1_buf_get_missing(struct ged *gedp)
 static void
 test_p1_buf_set_get(struct ged *gedp)
 {
+    struct bn_tol tol = BN_TOL_INIT_ZERO;
+    BN_TOL_INIT_SET_TOL(&tol);
     struct db_full_path dfp;
     db_full_path_init(&dfp);
     if (db_string_to_path(&dfp, gedp->dbip, "tor.s") < 0) {
@@ -381,7 +383,7 @@ test_p1_buf_set_get(struct ged *gedp)
         return;
     }
 
-    struct rt_edit *s = rt_edit_create(&dfp, gedp->dbip, &BN_TOL_INIT_TOL, NULL);
+    struct rt_edit *s = rt_edit_create(&dfp, gedp->dbip, &tol, NULL);
     if (!s) {
         CHECK(0, "rt_edit_create succeeded for tor.s");
         db_free_full_path(&dfp);
@@ -401,6 +403,8 @@ test_p1_buf_set_get(struct ged *gedp)
 static void
 test_p1_buf_abandon(struct ged *gedp)
 {
+    struct bn_tol tol = BN_TOL_INIT_ZERO;
+    BN_TOL_INIT_SET_TOL(&tol);
     struct db_full_path dfp;
     db_full_path_init(&dfp);
     if (db_string_to_path(&dfp, gedp->dbip, "sph.s") < 0) {
@@ -408,7 +412,7 @@ test_p1_buf_abandon(struct ged *gedp)
         return;
     }
 
-    struct rt_edit *s = rt_edit_create(&dfp, gedp->dbip, &BN_TOL_INIT_TOL, NULL);
+    struct rt_edit *s = rt_edit_create(&dfp, gedp->dbip, &tol, NULL);
     if (!s) {
         CHECK(0, "rt_edit_create succeeded for sph.s");
         db_free_full_path(&dfp);
@@ -428,14 +432,16 @@ test_p1_buf_abandon(struct ged *gedp)
 static void
 test_p1_buf_flush(struct ged *gedp)
 {
+    struct bn_tol tol = BN_TOL_INIT_ZERO;
+    BN_TOL_INIT_SET_TOL(&tol);
     struct db_full_path dfp1, dfp2;
     db_full_path_init(&dfp1);
     db_full_path_init(&dfp2);
     db_string_to_path(&dfp1, gedp->dbip, "tor.s");
     db_string_to_path(&dfp2, gedp->dbip, "sph.s");
 
-    struct rt_edit *s1 = rt_edit_create(&dfp1, gedp->dbip, &BN_TOL_INIT_TOL, NULL);
-    struct rt_edit *s2 = rt_edit_create(&dfp2, gedp->dbip, &BN_TOL_INIT_TOL, NULL);
+    struct rt_edit *s1 = rt_edit_create(&dfp1, gedp->dbip, &tol, NULL);
+    struct rt_edit *s2 = rt_edit_create(&dfp2, gedp->dbip, &tol, NULL);
 
     if (!s1 || !s2) {
         CHECK(0, "rt_edit_create succeeded for flush test");

@@ -121,7 +121,7 @@ class Ged_Internal {
 	vect_t ged_eye_model = VINIT_ZERO;
 	mat_t ged_viewrot = MAT_INIT_ZERO;
 
-	// Temporary edit buffer: maps a path hash to an in-progress rt_edit.
+	// Temporary edit buffer: maps a path string to an in-progress rt_edit.
 	// Survives across command invocations within a session.
 	// Entries are promoted (written to disk) on explicit flush or abandoned
 	// on session close.
@@ -129,7 +129,7 @@ class Ged_Internal {
 	    struct db_full_path dfp;
 	    struct rt_edit *s;
 	};
-	std::unordered_map<unsigned long long, ged_edit_buf_entry> edit_buf;
+	std::unordered_map<std::string, ged_edit_buf_entry> edit_buf;
 };
 
 #else
