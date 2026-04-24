@@ -94,7 +94,7 @@ edarb_extrude(void *data, int argc, const char *argv[])
     }
 
     GED_DB_LOOKUP(gedp, dp, (char *)argv[2], LOOKUP_QUIET, BRLCAD_ERROR);
-    GED_DB_GET_INTERNAL(gedp, &intern, dp, (matp_t)NULL, &rt_uniresource, BRLCAD_ERROR);
+    GED_DB_GET_INTERNAL(gedp, &intern, dp, (matp_t)NULL, BRLCAD_ERROR);
 
     if (intern.idb_type != ID_ARB8) {
 	bu_vls_printf(gedp->ged_result_str, "%s %s: solid type must be ARB\n", argv[0], argv[1]);
@@ -159,7 +159,7 @@ edarb_mirface(void *data, int argc, const char *argv[])
     }
 
     GED_DB_LOOKUP(gedp, dp, (char *)argv[2], LOOKUP_QUIET, BRLCAD_ERROR);
-    GED_DB_GET_INTERNAL(gedp, &intern, dp, (matp_t)NULL, &rt_uniresource, BRLCAD_ERROR);
+    GED_DB_GET_INTERNAL(gedp, &intern, dp, (matp_t)NULL, BRLCAD_ERROR);
 
     if (intern.idb_type != ID_ARB8) {
 	bu_vls_printf(gedp->ged_result_str, "%s %s: solid type must be ARB\n", argv[0], argv[1]);
@@ -222,7 +222,7 @@ edarb_edgedir(void *data, int argc, const char *argv[])
     edge -= 1;
 
     GED_DB_LOOKUP(gedp, dp, (char *)argv[2], LOOKUP_QUIET, BRLCAD_ERROR);
-    GED_DB_GET_INTERNAL(gedp, &intern, dp, (matp_t)NULL, &rt_uniresource, BRLCAD_ERROR);
+    GED_DB_GET_INTERNAL(gedp, &intern, dp, (matp_t)NULL, BRLCAD_ERROR);
 
     if (intern.idb_type != ID_ARB8) {
 	bu_vls_printf(gedp->ged_result_str, "%s %s: solid type must be ARB\n", argv[0], argv[1]);
@@ -306,7 +306,7 @@ edarb_permute(void *data, int argc, const char *argv[])
     }
 
     GED_DB_LOOKUP(gedp, dp, (char *)argv[2], LOOKUP_QUIET, BRLCAD_ERROR);
-    GED_DB_GET_INTERNAL(gedp, &intern, dp, (matp_t)NULL, &rt_uniresource, BRLCAD_ERROR);
+    GED_DB_GET_INTERNAL(gedp, &intern, dp, (matp_t)NULL, BRLCAD_ERROR);
 
     if (intern.idb_type != ID_ARB8) {
 	bu_vls_printf(gedp->ged_result_str, "%s %s: solid type must be ARB\n", argv[0], argv[1]);

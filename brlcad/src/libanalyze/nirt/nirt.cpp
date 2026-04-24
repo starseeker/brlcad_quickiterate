@@ -469,15 +469,6 @@ _nirt_get_rtip(struct nirt_state *nss)
 }
 
 
-struct resource *
-_nirt_get_resource(struct nirt_state *nss)
-{
-    if (!nss || nss->i->dbip == DBI_NULL || nss->i->active_paths.size() == 0) return NULL;
-    if (nss->i->use_air) return nss->i->res_air;
-    return nss->i->res;
-}
-
-
 int
 _nirt_raytrace_prep(struct nirt_state *nss)
 {
@@ -487,7 +478,7 @@ _nirt_raytrace_prep(struct nirt_state *nss)
 
     /* Based on current settings, pick the particular rtip */
     nss->i->ap->a_rt_i = _nirt_get_rtip(nss);
-    nss->i->    /* Don't have enough info to prep yet - can happen if we're in a pre "nirt_init" state */
+    /* Don't have enough info to prep yet - can happen if we're in a pre "nirt_init" state */
     if (!nss->i->ap->a_rt_i) return 0;
 
     // Prepare C-style arrays for rt prep
@@ -1840,7 +1831,7 @@ _nirt_cmd_shoot(void *ns, int argc, const char **UNUSED(argv))
 	} else {
 	    /* Based on current settings, tell the ap which rtip to use */
 	    nss->i->ap->a_rt_i = _nirt_get_rtip(nss);
-	    nss->i->	}
+	}
     }
 
     double bov = _nirt_backout(nss);
@@ -2903,8 +2894,6 @@ nirt_init(struct nirt_state *ns)
 
     BU_GET(n->ap, struct application);
     n->dbip = DBI_NULL;
-    BU_GET(n->res, struct resource);
-    BU_GET(n->res_air, struct resource);
     n->rtip = RTI_NULL;
     n->rtip_air = RTI_NULL;
     n->need_reprep = 1;
@@ -2998,7 +2987,6 @@ nirt_init_dbip(struct nirt_state *ns, struct db_i *dbip)
     ns->i->ap->a_onehit = 0;               /* continue through shotline after hit */
     ns->i->ap->a_purpose = "NIRT ray";
     ns->i->ap->a_rt_i = _nirt_get_rtip(ns);         /* rt_i pointer */
-    ns->i->ap->a_resource = _nirt_get_resource(ns); /* note: resource is initialized by get_rtip */
     ns->i->ap->a_zero1 = 0;           /* sanity check, sayth raytrace.h */
     ns->i->ap->a_zero2 = 0;           /* sanity check, sayth raytrace.h */
     ns->i->ap->a_uptr = (void *)ns;
@@ -3030,7 +3018,7 @@ nirt_clear_dbip(struct nirt_state *ns)
     if (ns->i->rtip) rt_clean(ns->i->rtip);
     if (ns->i->rtip_air) rt_clean(ns->i->rtip_air);
     ns->i->ap->a_rt_i = NULL;
-    ns->i->    ns->i->active_paths.clear();
+    ns->i->active_paths.clear();
 
     ns->i->base2local = 0.0;
     ns->i->local2base = 0.0;
@@ -3055,8 +3043,6 @@ nirt_destroy(struct nirt_state *ns)
 
     BU_PUT(ns->i->vals, struct nirt_output_record);
 
-    BU_PUT(ns->i->res, struct resource);
-    BU_PUT(ns->i->res_air, struct resource);
     BU_PUT(ns->i->err, struct bu_vls);
     BU_PUT(ns->i->msg, struct bu_vls);
     BU_PUT(ns->i->out, struct bu_vls);

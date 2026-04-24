@@ -2230,7 +2230,7 @@ _ged_combadd2(struct ged *gedp,
     }
 
     /* combination exists, add a new member */
-    GED_DB_GET_INTERNAL(gedp, &intern, dp, (fastf_t *)NULL, &rt_uniresource, 0);
+    GED_DB_GET_INTERNAL(gedp, &intern, dp, (fastf_t *)NULL, 0);
 
     comb = (struct rt_comb_internal *)intern.idb_ptr;
     RT_CK_COMB(comb);

@@ -62,7 +62,7 @@ int GPM_WIDTH;
 int GPM_HEIGHT;
 int GPM_RAYS;			/* Number of Sample Rays for each Direction in Irradiance Hemi */
 double GPM_ATOL;		/* Angular Tolerance for Photon Gathering */
-struct resource GPM_RTAB[MAX_PSW];	/* Resource Table for Multi-threading */
+/* Resource table for photon map multi-threading - removed in Phase 8 */
 int HitG, HitB;
 
 
@@ -1023,7 +1023,7 @@ Polar2Euclidian(vect_t Dir, vect_t Normal, double Theta, double Phi)
  * Irradiance Calculation for a given position
  */
 void
-Irradiance(int pid, struct Photon *P, struct application *ap)
+Irradiance(int UNUSED(pid), struct Photon *P, struct application *ap)
 {
     struct application *lap;		/* local application instance */
     int i, j, M, N;
@@ -1034,7 +1034,7 @@ Irradiance(int pid, struct Photon *P, struct application *ap)
     lap->a_rt_i = ap->a_rt_i;
     lap->a_hit = ap->a_hit;
     lap->a_miss = ap->a_miss;
-    l    lap->a_logoverlap = ap->a_logoverlap;
+    lap->a_logoverlap = ap->a_logoverlap;
 
     M = N = GPM_RAYS;
     P->Irrad[0] = P->Irrad[1] = P->Irrad[2] = 0.0;
@@ -1469,9 +1469,6 @@ BuildPhotonMap(struct application *ap, point_t eye_pos, int cpus, int width, int
 	ICSize = 0;
 
 	if (cpus > 1) {
-	    memset(GPM_RTAB, 0, sizeof(GPM_RTAB));
-	    for (i = 0; i < MAX_PSW; i++) {
-	    }
 	    bu_parallel(IrradianceThread, cpus, ap);
 	} else {
 	    /* This will allow profiling for single threaded rendering */

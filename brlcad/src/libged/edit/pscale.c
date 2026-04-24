@@ -98,7 +98,7 @@ ged_pscale_core(struct ged *gedp, int argc, const char *argv[])
 	return BRLCAD_ERROR;
     }
 
-    GED_DB_GET_INTERNAL(gedp, &intern, dp, (matp_t)NULL, &rt_uniresource, BRLCAD_ERROR);
+    GED_DB_GET_INTERNAL(gedp, &intern, dp, (matp_t)NULL, BRLCAD_ERROR);
     RT_CK_DB_INTERNAL(&intern);
 
     if (intern.idb_major_type != DB5_MAJORTYPE_BRLCAD) {

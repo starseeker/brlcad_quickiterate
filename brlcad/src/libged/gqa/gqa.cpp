@@ -2493,7 +2493,7 @@ ged_gqa_core(struct ged *gedp, int argc, const char *argv[])
     struct region_pair *rp;
     struct region *regp;
     static const char *usage = "object [object ...]";
-    struct resource resp[MAX_PSW];	/* memory resources for multi-cpu processing */
+    struct rectangular_grid grid;	/* raytracing grid */
     struct bu_list *vlfree = &rt_vlfree;
 
     GED_CHECK_DATABASE_OPEN(gedp, BRLCAD_ERROR);
@@ -2569,14 +2569,6 @@ ged_gqa_core(struct ged *gedp, int argc, const char *argv[])
 
     start_objs = arg_count;
     num_objects = argc - arg_count;
-
-    /* Initialize all the per-CPU memory resources.  The number of
-     * processors can change at runtime, init them all.
-     */
-    memset(resp, 0, sizeof(resp));
-    for (i = 0; i < MAX_PSW; i++) {
-    }
-    state.resp = resp;
 
     /* Walk trees.  Here we identify any object trees in the database
      * that the user wants included in the ray trace.

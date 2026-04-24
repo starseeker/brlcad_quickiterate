@@ -256,8 +256,6 @@ analyze_obj_inside(struct db_i *dbip, const char *outside_candidate, const char 
 	    state[i].ncpus = ncpus;
 	    state[i].left_name = bu_strdup(outside_candidate);
 	    state[i].right_name = bu_strdup(inside_candidate);
-	    BU_GET(state[i].resp, struct resource);
-	    rt_init_resource(state[i].resp, (int)i, state->rtip);
 	    state[i].rays_cnt = count;
 	    state[i].rays = rays;
 	    state[i].results = ray_results;
@@ -274,7 +272,6 @@ analyze_obj_inside(struct db_i *dbip, const char *outside_candidate, const char 
 	for (i = 0; i < ncpus+1; i++) {
 	    bu_free((void *)state[i].left_name, "left name");
 	    bu_free((void *)state[i].right_name, "right name");
-	    BU_PUT(state[i].resp, struct resource);
 	}
 	bu_free((void *)ray_results, "ray results");
 	bu_free(state, "free state containers");

@@ -402,11 +402,9 @@ analyze_find_subtracted(struct bu_ptbl *UNUSED(results), struct rt_wdb *wdbp, co
     // over all candidates.  Might be worth caching *all* preps on all objects for later more efficient
     // diff validation processing, but that needs more thought
     ccomb_vars = (struct rt_gen_worker_vars *)bu_calloc(ncpus+1, sizeof(struct rt_gen_worker_vars ), "ccomb state");
-    ccomb_resp = (struct resource *)bu_calloc(ncpus+1, sizeof(struct resource), "ccomb resources");
     ccomb_rtip = rt_new_rti(wdbp->dbip);
     for (i = 0; i < ncpus+1; i++) {
 	ccomb_vars[i].rtip = ccomb_rtip;
-	ccomb_vars[i].resp = &ccomb_resp[i];
     }
 
     if (rt_gettrees(ccomb_rtip, 1, &curr_comb, ncpus) < 0) {
@@ -556,11 +554,9 @@ analyze_find_subtracted(struct bu_ptbl *UNUSED(results), struct rt_wdb *wdbp, co
 
 	    // Set up some resources
 	    candidate_vars = (struct rt_gen_worker_vars *)bu_calloc(ncpus+1, sizeof(struct rt_gen_worker_vars ), "candidate state");
-	    candidate_resp = (struct resource *)bu_calloc(ncpus+1, sizeof(struct resource), "candidate resources");
 	    candidate_rtip = rt_new_rti(wdbp->dbip);
 	    for (size_t k = 0; k < ncpus+1; k++) {
 		candidate_vars[k].rtip = candidate_rtip;
-		candidate_vars[k].resp = &candidate_resp[k];
 	    }
 	    if (rt_gettrees(candidate_rtip, 1, (const char **)&dp->d_namep, ncpus) < 0) {
 #if 0
@@ -576,7 +572,6 @@ analyze_find_subtracted(struct bu_ptbl *UNUSED(results), struct rt_wdb *wdbp, co
 
 	    //rt_clean(candidate_rtip);
 	    bu_free(candidate_vars, "free vars");
-	    bu_free(candidate_resp, "free resp");
 
 	    bu_vls_sprintf(&tmp_name, "%s-%s_%s-candidate.pl", pbrep, bu_vls_addr(curr_union_data->id), bu_vls_addr(candidate->id));
 	    plot_min_partitions(&candidate_results, bu_vls_addr(&tmp_name));
@@ -653,7 +648,6 @@ analyze_find_subtracted(struct bu_ptbl *UNUSED(results), struct rt_wdb *wdbp, co
     }
 
     bu_free(ccomb_vars, "free vars");
-    bu_free(ccomb_resp, "free resp");
 
     // Once all candidates are processed, return the BU_PTBL_LEN of results.
     return 0;

@@ -600,11 +600,9 @@ analyze_get_solid_partitions(struct bu_ptbl *results, struct rt_gen_worker_vars 
 
     if (!pstate) {
 	state = (struct rt_gen_worker_vars *)bu_calloc(ncpus+1, sizeof(struct rt_gen_worker_vars), "state");
-	resp = (struct resource *)bu_calloc(ncpus+1, sizeof(struct resource), "resources");
 	rtip = rt_new_rti(dbip);
     } else {
 	state = pstate;
-	resp = state->resp;
 	rtip = state->rtip;
     }
     local_state = (struct solids_container *)bu_calloc(ncpus+1, sizeof(struct solids_container), "local state");
@@ -672,7 +670,6 @@ memfree:
     bu_free(local_state, "free state");
     if (!pstate) {
 	bu_free(state, "free state");
-	bu_free(resp, "free state");
     }
     return ret;
 }

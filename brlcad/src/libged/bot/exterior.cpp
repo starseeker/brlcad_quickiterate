@@ -214,7 +214,6 @@ struct ext_focused2_worker_data {
     double                       per_face_budget_sec; /* 0 = no limit */
     double                       convergence_threshold; /* SA stability % to declare interior */
     uint32_t                     rand_seed;
-    struct resource             *resource; /* one slot from resources[] */
     struct ext_focused2_progress *progress;
     size_t                       n_classified;
     double                       vis_threshold;        /* 0 = disabled */
@@ -533,8 +532,6 @@ bot_exterior_classify_crofton(struct rt_i *rtip,
 	return 0;
     }
 
-    /* Per-CPU resources */
-    for (int i = 0; i < MAX_PSW; i++)
     size_t n_faces = bot->num_faces;
 
     if (opts->vis_threshold > 0.0)
@@ -584,7 +581,6 @@ bot_exterior_classify_crofton(struct rt_i *rtip,
 	wdata[i].per_face_budget_sec   = opts->per_face_budget_sec;
 	wdata[i].convergence_threshold = opts->convergence_threshold;
 	wdata[i].rand_seed             = (uint32_t)h;
-	wdata[i].resource              = &resources[i];
 	wdata[i].progress              = &prog;
 	wdata[i].n_classified          = 0;
 	wdata[i].vis_threshold         = opts->vis_threshold;
@@ -632,15 +628,6 @@ bot_exterior_classify_crofton(struct rt_i *rtip,
 		   "verify the mesh is a closed solid\n");
 	}
     }
-
-    /* Clean up resources: null out rti_resources slots first so that the
-     * caller's rt_free_rti() does not try to re-clean already-freed memory. */
-    for (int i = 0; i < MAX_PSW; i++) {
-	if (resources[i].re_magic == RESOURCE_MAGIC) {
-	    BU_PTBL_SET(&rtip->rti_resources, i, NULL);
-	}
-    }
-    bu_free(resources, "ext resources");
 
     if (n_ext > (size_t)INT_MAX) {
 	bu_log("bot exterior: exterior face count exceeds int range\n");

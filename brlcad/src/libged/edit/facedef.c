@@ -191,7 +191,7 @@ edarb_facedef(void *data, int argc, const char *argv[])
     }
 
     GED_DB_LOOKUP(gedp, dp, (char *)argv[2], LOOKUP_QUIET, BRLCAD_ERROR);
-    GED_DB_GET_INTERNAL(gedp, &intern, dp, (matp_t)NULL, &rt_uniresource, BRLCAD_ERROR);
+    GED_DB_GET_INTERNAL(gedp, &intern, dp, (matp_t)NULL, BRLCAD_ERROR);
     struct rt_wdb *wdbp = wdb_dbopen(gedp->dbip, RT_WDB_TYPE_DB_DEFAULT);
 
     if (intern.idb_type != ID_ARB8) {

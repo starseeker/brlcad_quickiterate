@@ -781,7 +781,6 @@ analyze_polygonize(
     /* Set up raytracing */
     BU_GET(ap, struct application);
     RT_APPLICATION_INIT(ap);
-    BU_GET(resp, struct resource);
     rtip = rt_new_rti(dbip);
     ap->a_rt_i = rtip;
     ap->a_onehit = 1;
@@ -923,7 +922,6 @@ analyze_polygonizer_memfree:
 
     /* LIBRT memory */
     rt_free_rti(rtip);
-    BU_PUT(resp, struct resource);
     BU_PUT(ap, struct application);
     BU_PUT(rtpnt, struct pnt_normal);
 

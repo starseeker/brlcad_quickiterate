@@ -799,7 +799,7 @@ edit_arg_to_apparent_coord(struct ged *gedp, const struct edit_arg *const arg,
 
 	/* sum transformation matrices */
 	GED_DB_GET_INTERNAL(gedp, &intern, d, (fastf_t *)NULL,
-			    &rt_uniresource, BRLCAD_ERROR);
+			    BRLCAD_ERROR);
 	comb_i = (struct rt_comb_internal *)intern.idb_ptr;
 	leaf = db_find_named_leaf(comb_i->tree, d_next->d_namep);
 	BU_ASSERT(leaf != TREE_NULL); /* path is validated */
@@ -833,7 +833,7 @@ edit_arg_to_apparent_coord(struct ged *gedp, const struct edit_arg *const arg,
 	}
 
 	GED_DB_GET_INTERNAL(gedp, &intern, d, (fastf_t *)NULL,
-			    &rt_uniresource, BRLCAD_ERROR);
+			    BRLCAD_ERROR);
 	if (_ged_get_solid_keypoint(gedp, leaf_deltas, &intern, (const fastf_t *)gtd.gtd_xform) == BRLCAD_ERROR) {
 	    bu_vls_printf(gedp->ged_result_str, "\nunable to get natural origin"
 			  " of \"%s\"", d->d_namep);
@@ -1379,7 +1379,7 @@ edit_translate(struct ged *gedp, const vect_t *from,
 
 	d_to_modify = DB_FULL_PATH_GET(path, path->fp_len - (size_t)2);
 	GED_DB_GET_INTERNAL(gedp, &intern, d_to_modify, (fastf_t *)NULL,
-			    &rt_uniresource, BRLCAD_ERROR);
+			    BRLCAD_ERROR);
 	comb = (struct rt_comb_internal *)intern.idb_ptr;
 	leaf_to_modify = db_find_named_leaf(comb->tree, d_obj->d_namep);
 

@@ -56,7 +56,7 @@ ANALYZE_EXPORT extern int analyze_get_solid_partitions(struct bu_ptbl *results, 
 typedef struct xray * (*getray_t)(void *ptr);
 typedef int *         (*getflag_t)(void *ptr);
 
-extern void analyze_seg_filter(struct bu_ptbl *segs, getray_t gray, getflag_t gflag, struct rt_i *rtip, struct resource *resp, fastf_t tol, int ncpus);
+extern void analyze_seg_filter(struct bu_ptbl *segs, getray_t gray, getflag_t gflag, struct rt_i *rtip, fastf_t tol, int ncpus);
 
 /* summary data structure for objects specified on command line */
 struct per_obj_data {

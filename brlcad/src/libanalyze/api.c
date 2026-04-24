@@ -780,7 +780,7 @@ check_terminate(struct current_state *state)
  * This routine must be prepared to run in parallel
  */
 static void
-analyze_worker(int cpu, void *ptr)
+analyze_worker(int UNUSED(cpu), void *ptr)
 {
     struct application ap;
     struct current_state *state = (struct current_state *)ptr;
@@ -1297,7 +1297,6 @@ perform_raytracing(struct current_state *state, struct db_i *dbip, char *names[]
     struct rt_i *rtip;
 
     struct region *regp;
-    struct resource resp[MAX_PSW];
     struct rectangular_grid grid;
     struct region_pair overlapList;
 
@@ -1314,12 +1313,7 @@ perform_raytracing(struct current_state *state, struct db_i *dbip, char *names[]
     rtip = rt_new_rti(dbip);
     rtip->useair = state->use_air;
 
-    memset(resp, 0, sizeof(resp));
-    for(i = 0; i < MAX_PSW; i++) {
-    }
-
     state->rtip = rtip;
-    state->resp = resp;
 
     /* Prep for raytracing */
     state->num_objects = num_objects;

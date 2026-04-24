@@ -217,9 +217,7 @@ analyze_raydiff(struct analyze_raydiff_results **results, struct db_i *dbip,
 	state[i].fhit = raydiff_hit;
 	state[i].fmiss = raydiff_miss;
 	state[i].foverlap = raydiff_overlap;
-	state[i].resp = &resp[i];
 	state[i].ind_src = &ind;
-	rt_init_resource(state[i].resp, (int)i, rtip);
 	/* local */
 	local_state[i].tol = 0.5;
 	local_state[i].left_name = bu_strdup(left);
@@ -290,7 +288,7 @@ analyze_raydiff(struct analyze_raydiff_results **results, struct db_i *dbip,
 		bu_ptbl_ins(&test_tbl, BU_PTBL_GET(local_state[i].right, j));
 	    }
 	}
-	analyze_seg_filter(&test_tbl, &diff_ray, &diff_flag, rtip, resp, 0.5, (int)ncpus);
+	analyze_seg_filter(&test_tbl, &diff_ray, &diff_flag, rtip, 0.5, (int)ncpus);
     } else {
 	/* Not restricting to solids, all are valid */
 	for (i = 0; i < ncpus+1; i++) {
@@ -349,7 +347,6 @@ memfree:
 	}
 	if (local_state[i].left_name)  bu_free((void *)local_state[i].left_name, "left name");
 	if (local_state[i].right_name) bu_free((void *)local_state[i].right_name, "right name");
-	/*BU_PUT(state[i].resp, struct resource);*/
     }
 
     if (rays) {
@@ -362,7 +359,6 @@ memfree:
 
     bu_free(state, "free state containers");
     bu_free(local_state, "free state containers");
-    bu_free(resp, "free resources");
 
     return ret;
 }

@@ -48,7 +48,7 @@ ged_shader_core(struct ged *gedp, int argc, const char *argv[])
 
     GED_DB_LOOKUP(gedp, dp, argv[1], LOOKUP_NOISY, BRLCAD_ERROR);
     GED_CHECK_COMB(gedp, dp, BRLCAD_ERROR);
-    GED_DB_GET_INTERNAL(gedp, &intern, dp, (fastf_t *)NULL, &rt_uniresource, BRLCAD_ERROR);
+    GED_DB_GET_INTERNAL(gedp, &intern, dp, (fastf_t *)NULL, BRLCAD_ERROR);
 
     comb = (struct rt_comb_internal *)intern.idb_ptr;
     RT_CK_COMB(comb);

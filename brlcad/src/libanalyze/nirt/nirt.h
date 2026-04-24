@@ -409,7 +409,6 @@ void _nirt_targ2grid(struct nirt_state *nss);
 void _nirt_dir2ae(struct nirt_state *nss);
 
 struct rt_i * _nirt_get_rtip(struct nirt_state *nss);
-struct resource * _nirt_get_resource(struct nirt_state *nss);
 void _nirt_init_ovlp(struct nirt_state *nss);
 int _nirt_raytrace_prep(struct nirt_state *nss);
 

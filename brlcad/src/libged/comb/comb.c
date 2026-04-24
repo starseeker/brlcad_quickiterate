@@ -101,7 +101,7 @@ comb_tree_clear(struct ged *gedp, struct directory *dp)
     struct rt_db_internal intern;
     struct rt_comb_internal *comb;
     /* Clear the tree from the original object */
-    GED_DB_GET_INTERNAL(gedp, &intern, dp, (matp_t)NULL, &rt_uniresource, BRLCAD_ERROR);
+    GED_DB_GET_INTERNAL(gedp, &intern, dp, (matp_t)NULL, BRLCAD_ERROR);
     RT_CK_DB_INTERNAL(&intern);
     comb = (struct rt_comb_internal *)(&intern)->idb_ptr;
     RT_CK_COMB(comb);
