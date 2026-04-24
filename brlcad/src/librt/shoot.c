@@ -772,9 +772,11 @@ rt_shootray(register struct application *ap)
     }
 
     /*
-     * Record essential statistics in per-processor data structure.
+     * Count this ray in the per-instance atomic stats, and advance the
+     * per-resource ray sequence counter used for piece-state dedup.
      */
-    resp->re_nshootray++;
+    rtip->stats.rti_nrays++;
+    resp->re_ray_seqno++;
 
     /* Compute the inverse of the direction cosines */
     if (ap->a_ray.r_dir[X] < -SQRT_SMALL_FASTF) {
@@ -834,7 +836,7 @@ rt_shootray(register struct application *ap)
 	    shoot_setup_status(&ss, ap);
 	    goto start_cell;
 	}
-	resp->re_nmiss_model++;
+	rtip->stats.nmiss_model++;
 	if (ap->a_miss)
 	    ap->a_return = ap->a_miss(ap);
 	else
@@ -954,7 +956,7 @@ rt_shootray(register struct application *ap)
 	if (cutp->bn.bn_len <= 0 && cutp->bn.bn_piecelen <= 0) {
 	    /* Push ray onwards to next box */
 	    ss.box_start = ss.box_end;
-	    resp->re_nempty_cells++;
+	    rtip->stats.nempty_cells++;
 	    continue;
 	}
 
@@ -988,10 +990,10 @@ rt_shootray(register struct application *ap)
 
 		psp = &(resp->re_pieces[stp->st_piecestate_num]);
 		RT_CK_PIECESTATE(psp);
-		if (psp->ray_seqno != resp->re_nshootray) {
+		if (psp->ray_seqno != resp->re_ray_seqno) {
 		    /* state is from an earlier ray, scrub */
 		    BU_BITV_ZEROALL(psp->shot);
-		    psp->ray_seqno = resp->re_nshootray;
+		    psp->ray_seqno = resp->re_ray_seqno;
 		    rt_htbl_reset(&psp->htab);
 
 		    /* Compute ray entry and exit to entire solid's
@@ -1000,7 +1002,7 @@ rt_shootray(register struct application *ap)
 		    if (!rt_in_rpp(&ss.newray, ss.inv_dir,
 				   stp->st_min, stp->st_max)) {
 			if (debug_shoot)bu_log("rpp miss %s (all pieces)\n", stp->st_name);
-			resp->re_prune_solrpp++;
+			rtip->stats.nmiss_solid++;
 			BU_BITSET(solidbits, stp->st_bit);
 			continue;	/* MISS */
 		    }
@@ -1011,7 +1013,7 @@ rt_shootray(register struct application *ap)
 		} else {
 		    if (BU_BITTEST(solidbits, stp->st_bit)) {
 			/* we missed the solid RPP in an earlier cell */
-			resp->re_ndup++;
+			rtip->stats.ndup++;
 			continue;	/* already shot */
 		    }
 		    had_hits_before = psp->htab.end;
@@ -1025,7 +1027,7 @@ rt_shootray(register struct application *ap)
 		 * ft_piece_shot() must apply to hits calculated using
 		 * 'newray'.
 		 */
-		resp->re_piece_shots++;
+		rtip->stats.nshots++;
 		psp->cutp = cutp;
 
 		ret = -1;
@@ -1034,9 +1036,9 @@ rt_shootray(register struct application *ap)
 		}
 		if (ret <= 0) {
 		    /* No hits at all */
-		    resp->re_piece_shot_miss++;
+		    rtip->stats.nmiss++;
 		} else {
-		    resp->re_piece_shot_hit++;
+		    rtip->stats.nhits++;
 		}
 		if (debug_shoot)bu_log("shooting %s pieces, nhit=%d\n", stp->st_name, ret);
 
@@ -1071,7 +1073,7 @@ rt_shootray(register struct application *ap)
 		int ret;
 
 		if (BU_BITTEST(solidbits, stp->st_bit)) {
-		    resp->re_ndup++;
+		    rtip->stats.ndup++;
 		    continue;	/* already shot */
 		}
 
@@ -1083,18 +1085,18 @@ rt_shootray(register struct application *ap)
 		    if (!rt_in_rpp(&ss.newray, ss.inv_dir,
 				   stp->st_min, stp->st_max)) {
 			if (debug_shoot)bu_log("rpp miss %s\n", stp->st_name);
-			resp->re_prune_solrpp++;
+			rtip->stats.nmiss_solid++;
 			continue;	/* MISS */
 		    }
 		    if (ss.dist_corr + ss.newray.r_max < BACKING_DIST) {
 			if (debug_shoot)bu_log("rpp skip %s, dist_corr=%g, r_max=%g\n", stp->st_name, ss.dist_corr, ss.newray.r_max);
-			resp->re_prune_solrpp++;
+			rtip->stats.nmiss_solid++;
 			continue;	/* MISS */
 		    }
 		}
 
 		if (debug_shoot)bu_log("shooting %s\n", stp->st_name);
-		resp->re_shots++;
+		rtip->stats.nshots++;
 		BU_LIST_INIT(&(new_segs.l));
 
 		ret = -1;
@@ -1102,7 +1104,7 @@ rt_shootray(register struct application *ap)
 		    ret = stp->st_meth->ft_shot(stp, &ss.newray, ap, &new_segs);
 		}
 		if (ret <= 0) {
-		    resp->re_shot_miss++;
+		    rtip->stats.nmiss++;
 		    continue;	/* MISS */
 		}
 
@@ -1118,7 +1120,7 @@ rt_shootray(register struct application *ap)
 			BU_LIST_INSERT(&(waiting_segs.l), &(s2->l));
 		    }
 		}
-		resp->re_shot_hit++;
+		rtip->stats.nhits++;
 	    }
 	}
 	if (RT_G_DEBUG & RT_DEBUG_ADVANCE)
@@ -1506,51 +1508,27 @@ rt_cell_n_on_ray(register struct application *ap, int n)
 void
 rt_zero_res_stats(struct resource *resp)
 {
+    /* DEPRECATED: statistics are now maintained on rtip->stats
+     * directly as C11 atomic counters.  There are no per-resource
+     * stat fields to zero.  This function is a no-op.
+     */
     RT_CK_RESOURCE(resp);
-
-    resp->re_nshootray = 0;
-    resp->re_nmiss_model = 0;
-
-    resp->re_shots = 0;
-    resp->re_shot_hit = 0;
-    resp->re_shot_miss = 0;
-
-    resp->re_prune_solrpp = 0;
-
-    resp->re_ndup = 0;
-    resp->re_nempty_cells = 0;
-
-    resp->re_piece_shots = 0;
-    resp->re_piece_shot_hit = 0;
-    resp->re_piece_shot_miss = 0;
-    resp->re_piece_ndup = 0;
 }
 
 
 void
 rt_add_res_stats(register struct rt_i *rtip, register struct resource *resp)
 {
+    /* DEPRECATED: statistics are now incremented directly on
+     * rtip->stats during rt_shootray() using C11 atomic operations.
+     * No end-of-campaign accumulation step is required.
+     * This function is a no-op.
+     */
     RT_CK_RTI(rtip);
 
-    if (!resp) {
-	resp = &rt_uniresource;
+    if (resp) {
+	RT_CK_RESOURCE(resp);
     }
-    RT_CK_RESOURCE(resp);
-
-    rtip->stats.rti_nrays += resp->re_nshootray;
-    rtip->stats.nmiss_model += resp->re_nmiss_model;
-
-    rtip->stats.nshots += resp->re_shots + resp->re_piece_shots;
-    rtip->stats.nhits += resp->re_shot_hit + resp->re_piece_shot_hit;
-    rtip->stats.nmiss += resp->re_shot_miss + resp->re_piece_shot_miss;
-
-    rtip->stats.nmiss_solid += resp->re_prune_solrpp;
-
-    rtip->stats.ndup += resp->re_ndup + resp->re_piece_ndup;
-    rtip->stats.nempty_cells += resp->re_nempty_cells;
-
-    /* Zero out resource totals, so repeated calls are not harmful */
-    rt_zero_res_stats(resp);
 }
 
 static int

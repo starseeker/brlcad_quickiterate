@@ -56,7 +56,7 @@ struct rt_htbl {
  */
 struct rt_piecestate {
     uint32_t            magic;
-    long                ray_seqno;      /**< @brief  res_nshootray */
+    long                ray_seqno;      /**< @brief  re_ray_seqno value when this entry was last updated */
     struct soltab *     stp;
     struct bu_bitv *    shot;
     fastf_t             mindist;        /**< @brief  dist ray enters solids bounding volume */

@@ -56,8 +56,10 @@ __BEGIN_DECLS
  * Applications are responsible for calling rt_init_resource() on each
  * resource structure before letting LIBRT use them.
  *
- * Per-processor statistics are initially collected in here, and then
- * posted to rt_i by rt_add_res_stats().
+ * Ray-shooting statistics are now accumulated directly on rt_i->stats
+ * using C11 atomic operations; the former re_* stat fields have been
+ * removed.  rt_add_res_stats() and rt_zero_res_stats() are deprecated
+ * no-ops retained for source compatibility.
  */
 struct resource {
     uint32_t            re_magic;       /**< @brief  Magic number */
@@ -77,23 +79,12 @@ struct resource {
     union tree **       re_boolstack;   /**< @brief  Stack for rt_booleval() */
     long                re_boolslen;    /**< @brief  # elements in re_boolstack[] */
     float *             re_randptr;     /**< @brief  ptr into random number table */
-    /* Statistics.  Only for examination by rt_add_res_stats() */
-    long                re_nshootray;   /**< @brief  Calls to rt_shootray() */
-    long                re_nmiss_model; /**< @brief  Rays pruned by model RPP */
-    /* Solid nshots = shot_hit + shot_miss */
-    long                re_shots;       /**< @brief  # calls to ft_shot() */
-    long                re_shot_hit;    /**< @brief  ft_shot() returned a miss */
-    long                re_shot_miss;   /**< @brief  ft_shot() returned a hit */
-    /* Optimizations.  Rays not shot at solids */
-    long                re_prune_solrpp;/**< @brief  shot missed solid RPP, ft_shot skipped */
-    long                re_ndup;        /**< @brief  ft_shot() calls skipped for already-ft_shot() solids */
-    long                re_nempty_cells;        /**< @brief  number of empty spatial partitioning cells passed through */
+    /* Per-ray sequence counter: incremented once per rt_shootray() call.
+     * Used internally to detect stale rt_piecestate entries from prior rays.
+     * Statistics are now accumulated directly on rt_i->stats (see rt_instance.h). */
+    long                re_ray_seqno;   /**< @brief  ray sequence counter (private, for piece dedup) */
     /* Data for accelerating "pieces" of solids */
     struct rt_piecestate *re_pieces;    /**< @brief  array [rti_nsolids_with_pieces] */
-    long                re_piece_ndup;  /**< @brief  ft_piece_shot() calls skipped for already-ft_shot() solids */
-    long                re_piece_shots; /**< @brief  # calls to ft_piece_shot() */
-    long                re_piece_shot_hit;      /**< @brief  ft_piece_shot() returned a miss */
-    long                re_piece_shot_miss;     /**< @brief  ft_piece_shot() returned a hit */
     struct bu_ptbl      re_pieces_pending;      /**< @brief  pieces with an odd hit pending */
     /* Per-processor cache of tree unions, to accelerate "tops" and treewalk */
     union tree *        re_tree_hd;     /**< @brief  Head of free trees */
@@ -106,7 +97,7 @@ struct resource {
 
 #define RESOURCE_NULL   ((struct resource *)0)
 #define RT_CK_RESOURCE(_p) BU_CKMAG(_p, RESOURCE_MAGIC, "struct resource")
-#define RT_RESOURCE_INIT_ZERO { RESOURCE_MAGIC, 0, BU_LIST_INIT_ZERO, BU_PTBL_INIT_ZERO, 0, 0, 0, BU_LIST_INIT_ZERO, 0, 0, 0, BU_LIST_INIT_ZERO, BU_LIST_INIT_ZERO, BU_LIST_INIT_ZERO, NULL, 0, NULL, 0, 0, 0, 0, 0, 0, 0, 0, NULL, 0, 0, 0, 0, BU_PTBL_INIT_ZERO, NULL, 0, 0, 0, NULL, BU_PTBL_INIT_ZERO }
+#define RT_RESOURCE_INIT_ZERO { RESOURCE_MAGIC, 0, BU_LIST_INIT_ZERO, BU_PTBL_INIT_ZERO, 0, 0, 0, BU_LIST_INIT_ZERO, 0, 0, 0, BU_LIST_INIT_ZERO, BU_LIST_INIT_ZERO, BU_LIST_INIT_ZERO, NULL, 0, NULL, 0, NULL, BU_PTBL_INIT_ZERO, NULL, 0, 0, 0, NULL, BU_PTBL_INIT_ZERO }
 
 /**
  * Definition of global parallel-processing semaphores.
