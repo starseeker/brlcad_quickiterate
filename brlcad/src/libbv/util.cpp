@@ -327,6 +327,9 @@ bv_init(struct bview *gvp, struct bview_set *s)
     // can succeed)
     _data_tclcad_init(&gvp->gv_tcl);
 
+    // No BSG scene root until bsg_scene_root_create() is called
+    gvp->bsg_root = NULL;
+
     bv_update(gvp);
 }
 

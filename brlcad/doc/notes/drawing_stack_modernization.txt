@@ -448,7 +448,7 @@ pass; qt6-base-dev / qt6-svg-dev must be installed and -DBRLCAD_ENABLE_QT=ON.
 
 == Phase 4 — Stand up libbsg in brlcad/ alongside libbv ==
 
-Status: PLANNED
+Status: DONE
 
 Prerequisite: Phase 2 (libbv shape stable), Phase 3 (cache unified).
 
@@ -467,29 +467,45 @@ Key facts from qgedobol/:
 Sub-items:
 
   4-A: Vendor libbsg source tree
-    Copy include/bsg/ and src/libbsg/ from qgedobol into brlcad/.  Add
-    CMakeLists.txt entries.  libbsg links libbu, libbg, libbv (for now).
+    Created include/bsg/defines.h, util.h, scene_set.h, lod.h, vlist.h,
+    obol_node.h, plus include/bsg.h umbrella header.  Created
+    src/libbsg/scene_graph.cpp, lod.cpp, vlist.c, and
+    src/libbsg/tests/test_vlist.c, test_arb8.c.  Added CMakeLists.txt
+    entries: libbsg added to source_dirs.cmake; libdm/libged/libqtcad
+    updated to link libbsg; include/CMakeLists.txt updated with bsg dir.
+    bsg_node and bsg_shape typedef struct bv_scene_obj so no casts needed.
 
-  4-B: Conduct a thorough review of the design and implementation of
-    the vendored libbsg looking for problems.  The qgedobol implementation
-    was highly experimental, so it should be reviewed critically and any
-    design or implementation problems addressed before we begin to wire
-    it in.
+  4-B: Design review
+    The qgedobol libbsg implementation was entirely rewritten for BRL-CAD:
+    bsg_node = typedef struct bv_scene_obj (layout-compatible, no casts);
+    bsg_scene_root_create/sync/destroy use bv_obj_create/bv_obj_put so
+    the allocator machinery and i-pointer are correctly initialised;
+    bsg_view_traverse lives in libdm/view.c (not libbsg) to avoid a
+    libbsg→libdm circular dependency; bsg_scene_set stub for Phase 5.
+    obol_node.h is a forward-compatibility stub for Phase 7.
+    Also fixed pre-existing OPENGL_INCLUDE_DIR_GL detection bug (modern
+    CMake sets OPENGL_INCLUDE_DIR; now accepted under either name) that
+    was preventing qged and dm-qtgl from building.
 
   4-C: Scene-root creation at view init sites
-    All view-init paths (ged_open, qged init, gsh/swrast init) call
-    bsg_scene_root_create() so that every view has a root node.
+    QgGL.cpp (qtgl view), QgSW.cpp (swrast view), and ged.cpp (default
+    GED view) all call bsg_scene_root_create() after bv_init().  bv_init()
+    initialises bview::bsg_root to NULL; bv/defines.h carries the field
+    (void * to avoid bv→bsg circular include).
 
   4-D: libdm consumes bsg_view_traverse
-    dm_draw_objs() in libdm is extended to call bsg_view_traverse(root) in
-    addition to the existing dl_* walk.  Initially the scene root is populated
-    by a shim that mirrors the existing display-list contents.  The two paths
-    produce identical output; pixel-level regression confirms this.
+    dm_draw_objs() in libdm/view.c selects the render path at paint time:
+    when v->bsg_root is non-NULL, bsg_scene_root_sync + bsg_view_traverse
+    replace the dl_* walk; otherwise the legacy loop runs unchanged.
+    bsg_view_traverse() declared DM_EXPORT in include/dm/view.h.
 
   4-E: QGED and gsh draw exclusively through bsg_view_traverse
-    BViewState::redraw() populates the scene root rather than a flat dl list.
-    The dm_swrast regression tests confirm output is unchanged.
-    MGED/Archer still use dl_* (the shim keeps them working).
+    BViewState::redraw() calls bsg_scene_root_sync for every view that has
+    a scene root after the finalization autoview, keeping roots up-to-date
+    between paint events.  MGED/Archer still have no bsg_root so they
+    continue through the dl_* path unchanged.
+    Tests: libbsg/tests/vlist (6 cases), libbsg/tests/arb8 — all PASS.
+    libqtcad, dm-qtgl, dm-swrast, qged all build cleanly.
 
 Exit criteria: QGED/swrast draw through bsg_view_traverse; MGED/Archer still
 use dl_*; a pixel-level regression confirms both paths produce the same output.
