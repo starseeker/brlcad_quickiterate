@@ -466,7 +466,6 @@ rt_find_backing_dist(struct rt_shootray_status *ss, struct bu_bitv *backbits) {
     union cutter *cutp;
     struct bu_bitv *solidbits;
     struct xray ray;
-    struct resource *resp;
     struct rt_i *rtip;
     size_t i;
 
@@ -476,7 +475,7 @@ rt_find_backing_dist(struct rt_shootray_status *ss, struct bu_bitv *backbits) {
     /* get a bit vector of our own to avoid duplicate bounding box
      * intersection calculations
      */
-    solidbits = rt_get_solidbitv(rtip->stats.nsolids, resp);
+    solidbits = rt_get_solidbitv(rtip->stats.nsolids);
 
     ray = ss->ap->a_ray;	/* struct copy, don't mess with the original */
 
@@ -670,7 +669,6 @@ rt_shootray(register struct application *ap)
     struct partition FinalPart;	/* Head of Final Partitions */
     struct soltab **stpp;
     register const union cutter *cutp;
-    struct resource *resp;
     struct rt_i *rtip;
     const int debug_shoot = RT_G_DEBUG & RT_DEBUG_SHOOT;
     fastf_t pending_hit = 0; /* dist of closest odd hit pending */
@@ -687,16 +685,13 @@ rt_shootray(register struct application *ap)
 	ap->a_ray.magic = RT_RAY_MAGIC;
     }
 
-    if (ap->a_resource == RESOURCE_NULL) {
-	ap->a_resource = &rt_uniresource;
-	if (RT_G_DEBUG)
+    if (	if (RT_G_DEBUG)
 	    bu_log("rt_shootray:  defaulting a_resource to &rt_uniresource\n");
     }
     ss.ap = ap;
     rtip = ap->a_rt_i;
     RT_CK_RTI(rtip);
     resp = ap->a_resource;
-    RT_CK_RESOURCE(resp);
     ss.resp = resp;
 
     if (RT_G_DEBUG) {
@@ -739,13 +734,12 @@ rt_shootray(register struct application *ap)
 	 * application-provided resource structures are remembered for
 	 * later cleanup by the library.
 	 */
-	rt_init_resource(resp, resp->re_cpu, rtip);
     }
     /* Ensure that this CPU's resource structure is registered */
     if (resp != &rt_uniresource)
 	BU_ASSERT(BU_PTBL_GET(&rtip->rti_resources, resp->re_cpu) != NULL);
 
-    solidbits = rt_get_solidbitv(rtip->stats.nsolids, resp);
+    solidbits = rt_get_solidbitv(rtip->stats.nsolids);
 
     BU_ALLOC(regionbits, struct bu_ptbl);
     bu_ptbl_init(regionbits, 7, "rt_shootray() regionbits ptbl");
@@ -925,7 +919,7 @@ rt_shootray(register struct application *ap)
 	     * having bounding boxes extending behind the ray start
 	     * point and using pieces)
 	     */
-	    backbits = rt_get_solidbitv(rtip->stats.nsolids, resp);
+	    backbits = rt_get_solidbitv(rtip->stats.nsolids);
 
 	    /* call "rt_find_backing_dist()" to calculate the required
 	     * start point for calculation, and to fill in the
@@ -1333,7 +1327,6 @@ rt_cell_n_on_ray(register struct application *ap, int n)
 {
     struct rt_shootray_status ss;
     register const union cutter *cutp;
-    struct resource *resp;
     struct rt_i *rtip;
     const int debug_shoot = RT_G_DEBUG & RT_DEBUG_SHOOT;
 
@@ -1350,15 +1343,12 @@ rt_cell_n_on_ray(register struct application *ap, int n)
     } else {
 	ap->a_ray.magic = RT_RAY_MAGIC;
     }
-    if (ap->a_resource == RESOURCE_NULL) {
-	ap->a_resource = &rt_uniresource;
-	if (RT_G_DEBUG)bu_log("rt_cell_n_on_ray:  defaulting a_resource to &rt_uniresource\n");
+    if (	if (RT_G_DEBUG)bu_log("rt_cell_n_on_ray:  defaulting a_resource to &rt_uniresource\n");
     }
     ss.ap = ap;
     rtip = ap->a_rt_i;
     RT_CK_RTI(rtip);
     resp = ap->a_resource;
-    RT_CK_RESOURCE(resp);
     ss.resp = resp;
 
     if (RT_G_DEBUG&(RT_DEBUG_ALLRAYS|RT_DEBUG_SHOOT|RT_DEBUG_PARTITION|RT_DEBUG_ALLHITS)) {
@@ -1387,7 +1377,6 @@ rt_cell_n_on_ray(register struct application *ap, int n)
 	 * This is how application-provided resource structures
 	 * are remembered for later cleanup by the library.
 	 */
-	rt_init_resource(resp, resp->re_cpu, rtip);
     }
     /* Ensure that this CPU's resource structure is registered */
     BU_ASSERT(BU_PTBL_GET(&rtip->rti_resources, resp->re_cpu) != NULL);

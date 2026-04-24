@@ -385,8 +385,6 @@ QMeasure3DFilter::get_point()
 	    BU_PUT(resp, struct resource);
 	}
 	BU_GET(resp, struct resource);
-	rt_init_resource(resp, 0, rtip);
-	ap->a_resource = resp;
 	ap->a_rt_i = rtip;
 
 	const char **objs = (const char **)bu_calloc(BU_PTBL_LEN(&scene_obj_set) + 1, sizeof(char *), "objs");

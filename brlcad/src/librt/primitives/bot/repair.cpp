@@ -76,7 +76,6 @@
 
 struct lint_worker_vars {
     struct rt_i *rtip;
-    struct resource *resp;
     int tri_start;
     int tri_end;
     bool reverse;
@@ -247,7 +246,6 @@ lint_worker_data::lint_worker_data(struct rt_i *rtip, struct resource *res)
     ap.a_miss = _miss_noop;       /* where to go on a miss */
     ap.a_overlap = _overlap_noop; /* where to go if an overlap is found */
     ap.a_onehit = 0;              /* whether to stop the raytrace on the first hit */
-    ap.a_resource = res;
     ap.a_uptr = (void *)this;
 }
 
@@ -376,8 +374,6 @@ bot_repair_lint(struct rt_bot_internal *bot)
     //size_t ncpus = bu_avail_cpus();
     size_t ncpus = 1;
     struct lint_worker_vars *state = (struct lint_worker_vars *)bu_calloc(ncpus+1, sizeof(struct lint_worker_vars ), "state");
-    struct resource *resp = (struct resource *)bu_calloc(ncpus+1, sizeof(struct resource), "resources");
-
     // We need to divy up the faces.  Since all triangle intersections will
     // (hopefully) take about the same length of time to run, we don't do anything
     // fancy about chunking up the work.

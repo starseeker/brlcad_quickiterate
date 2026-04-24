@@ -162,8 +162,7 @@ RT_EXPORT extern int rt_shader_mat(mat_t                        model_to_shader,
 				   const struct rt_i    *rtip,
 				   const struct region  *rp,
 				   point_t                      p_min,  /* input/output: shader/region min point */
-				   point_t                      p_max,  /* input/output: shader/region max point */
-				   struct resource              *resp);
+				   point_t                      p_max); /* input/output: shader/region max point */
 
 /* mirror.c */
 RT_EXPORT extern struct rt_db_internal *rt_mirror(struct db_i *dpip,
@@ -174,9 +173,7 @@ RT_EXPORT extern struct rt_db_internal *rt_mirror(struct db_i *dpip,
 
 RT_EXPORT extern void rt_plot_all_bboxes(FILE *fp,
 					 struct rt_i *rtip);
-RT_EXPORT extern void rt_plot_all_solids(FILE           *fp,
-					 struct rt_i    *rtip,
-					 struct resource        *resp);
+RT_EXPORT extern void rt_plot_all_solids(FILE           *fp);
 
 
 /* pr.c */

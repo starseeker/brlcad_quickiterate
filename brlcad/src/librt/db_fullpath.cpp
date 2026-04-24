@@ -849,12 +849,8 @@ _comb_instance_matrix(matp_t m, const struct db_i *dbip, struct directory *cdp, 
 }
 
 int
-db_path_to_mat(
-	struct db_i *dbip,
-	struct db_full_path *pathp,
-	mat_t mat,          /* result */
-	int depth,          /* number of arcs */
-	struct resource *resp)
+db_path_to_mat(struct db_i *dbip, struct db_full_path *pathp, mat_t mat, /* result */
+	int depth)
 {
     if (!pathp || !dbip || depth < 0 || !resp)
 	return 0;
@@ -908,10 +904,7 @@ _comb_instance_bool_op(int *bval, const struct db_i *dbip, struct directory *cdp
 // it this way will result in either the current answer or the exposure of
 // an out-of-date db_full_path.
 int
-db_fp_op(const struct db_full_path *pp,
-	struct db_i *dbip,
-	int depth,
-	struct resource *resp)
+db_fp_op(const struct db_full_path *pp, struct db_i *dbip, int depth)
 {
     if (!pp || !dbip || depth < 0 || !resp)
 	return OP_NOP;
@@ -947,11 +940,7 @@ db_fp_op(const struct db_full_path *pp,
 // See if we can just use the attributes - not sure if we need to crack
 // the comb, but it's possible (particularly if attributes aren't synced)
 void
-db_full_path_color(
-	struct bu_color *c,
-	struct db_full_path *pathp,
-	struct db_i *dbip,
-	struct resource *UNUSED(resp))
+db_full_path_color(struct bu_color *c, struct db_full_path *pathp, struct db_i *dbip))
 {
     RT_CHECK_DBI(dbip);
     RT_CK_FULL_PATH(pathp);

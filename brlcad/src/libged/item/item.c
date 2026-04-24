@@ -100,7 +100,7 @@ ged_item_core(struct ged *gedp, int argc, const char *argv[])
 	comb->los = los;
     }
 
-    GED_DB_PUT_INTERNAL(gedp, dp, &intern, &rt_uniresource, BRLCAD_ERROR);
+    GED_DB_PUT_INTERNAL(gedp, dp, &intern, BRLCAD_ERROR);
 
     return status;
 }

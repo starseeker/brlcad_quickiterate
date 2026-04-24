@@ -422,7 +422,6 @@ DbiState::DbiState(struct ged *ged_p)
     bu_vls_init(&path_string);
     bu_vls_init(&hash_string);
     BU_GET(res, struct resource);
-    rt_init_resource(res, 0, NULL);
     shared_vs = new BViewState(this);
     default_selected = new BSelectState(this);
     selected_sets[std::string("default")] = default_selected;
@@ -452,7 +451,6 @@ DbiState::~DbiState()
 	delete ss_it->second;
     }
     delete shared_vs;
-    rt_clean_resource_basic(NULL, res);
     BU_PUT(res, struct resource);
 
     if (dcache)
@@ -1489,7 +1487,7 @@ DbiState::tops(bool show_cyclic)
     std::vector<unsigned long long> ret;
     // First, get the standard tops results
     struct directory **all_paths = NULL;
-    db_update_nref(gedp->dbip, &rt_uniresource);
+    db_update_nref(gedp->dbip);
     int tops_cnt = db_ls(gedp->dbip, DB_LS_TOPS, NULL, &all_paths);
     if (all_paths) {
 	bu_sort(all_paths, tops_cnt, sizeof(struct directory *), alphanum_sort, NULL);
@@ -1539,7 +1537,7 @@ DbiState::update()
     std::unordered_set<struct directory *>::iterator g_it;
 
     if (need_update_nref) {
-	db_update_nref(dbip, res);
+	db_update_nref(dbip);
 	need_update_nref = false;
     }
 

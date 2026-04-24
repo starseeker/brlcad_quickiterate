@@ -138,13 +138,10 @@ rt_vshootray(struct application *ap)
     rtip = ap->a_rt_i;
     RT_AP_CHECK(ap);
     if (!ap->a_resource) {
-	ap->a_resource = &rt_uniresource;
     }
-    RT_CK_RESOURCE(ap->a_resource);
-
     if (RT_G_DEBUG&(RT_DEBUG_ALLRAYS|RT_DEBUG_SHOOT|RT_DEBUG_PARTITION)) {
 	bu_log("\n**********mshootray cpu=%d  %d, %d lvl=%d (%s)\n",
-	       ap->a_resource->re_cpu,
+	       ap->a_cpu,
 	       ap->a_x, ap->a_y,
 	       ap->a_level,
 	       ap->a_purpose != (char *)0 ? ap->a_purpose : "?");
@@ -172,7 +169,7 @@ rt_vshootray(struct application *ap)
 
     HeadSeg = RT_SEG_NULL;
 
-    solidbits = rt_get_solidbitv(rtip->stats.nsolids, ap->a_resource);
+    solidbits = rt_get_solidbitv(rtip->stats.nsolids);
 
     BU_ALLOC(regionbits, struct bu_ptbl);
     bu_ptbl_init(regionbits, 7, "rt_shootray() regionbits ptbl");
@@ -364,7 +361,7 @@ out:
     }
     if (RT_G_DEBUG&(RT_DEBUG_ALLRAYS|RT_DEBUG_SHOOT|RT_DEBUG_PARTITION)) {
 	bu_log("----------mshootray cpu=%d  %d, %d lvl=%d (%s) %s ret=%d\n",
-	       ap->a_resource->re_cpu,
+	       ap->a_cpu,
 	       ap->a_x, ap->a_y,
 	       ap->a_level,
 	       ap->a_purpose != (char *)0 ? ap->a_purpose : "?",

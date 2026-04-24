@@ -180,7 +180,6 @@ csg_wireframe_update(struct bv_scene_obj *vo, struct bview *v, int flag)
 struct ged_full_detail_clbk_data {
     struct db_i *dbip;
     struct directory *dp;
-    struct resource *res;
     struct rt_db_internal *intern;
 };
 

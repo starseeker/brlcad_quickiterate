@@ -52,7 +52,6 @@ db_traverse_subtree(union tree *tp,
     RT_CHECK_DBI(dtp->dbip);
     RT_CK_TREE(tp);
     if (dtp->resp) {
-	RT_CK_RESOURCE(dtp->resp);
     }
 
     switch (tp->tr_op) {
@@ -93,7 +92,6 @@ db_preorder_traverse(struct directory *dp,
     RT_CK_DB_TRAVERSE(dtp);
     RT_CK_DBI(dtp->dbip);
     if (dtp->resp) {
-	RT_CK_RESOURCE(dtp->resp);
     }
 
     if (RT_G_DEBUG & RT_DEBUG_DB)

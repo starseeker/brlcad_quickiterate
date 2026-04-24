@@ -99,7 +99,6 @@ RT_EXPORT extern void insert_in_bsp(struct soltab *stp,
 				    union cutter *cutp);
 RT_EXPORT extern void fill_out_bsp(struct rt_i *rtip,
 				   union cutter *cutp,
-				   struct resource *resp,
 				   fastf_t bb[6]);
 
 /**

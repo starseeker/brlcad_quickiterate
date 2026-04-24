@@ -79,8 +79,6 @@ rt_booltree_leaf_tess(struct db_tree_state *tsp, const struct db_full_path *path
 	NMG_CK_MODEL(*tsp->ts_m);
     BN_CK_TOL(tsp->ts_tol);
     BG_CK_TESS_TOL(tsp->ts_ttol);
-    RT_CK_RESOURCE(tsp->ts_resp);
-
     m = nmg_mm();
 
     if (ip->idb_meth->ft_tessellate(&r1, m, ip, tsp->ts_ttol, tsp->ts_tol) < 0) {
@@ -145,8 +143,6 @@ rt_booltree_evaluate(
     if (tol)
 	BN_CK_TOL(tol);
     if (resp)
-	RT_CK_RESOURCE(resp);
-
     switch (tp->tr_op) {
 	case OP_NOP:
 	    return TREE_NULL;

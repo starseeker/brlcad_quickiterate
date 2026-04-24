@@ -404,7 +404,7 @@ destroy_material(struct ged *gedp, int argc, const char *argv[])
     }
 
     /* Update references. */
-    db_update_nref(gedp->dbip, &rt_uniresource);
+    db_update_nref(gedp->dbip);
 
     return BRLCAD_OK;
 }

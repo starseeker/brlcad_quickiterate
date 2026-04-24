@@ -202,8 +202,6 @@ analyze_raydiff(struct analyze_raydiff_results **results, struct db_i *dbip,
     struct rt_gen_worker_vars *state = (struct rt_gen_worker_vars *)bu_calloc(ncpus+1, sizeof(struct rt_gen_worker_vars ), "state");
     struct raydiff_container *local_state = (struct raydiff_container *)bu_calloc(ncpus+1, sizeof(struct raydiff_container), "local state");
     struct bu_ptbl test_tbl = BU_PTBL_INIT_ZERO;
-    struct resource *resp = (struct resource *)bu_calloc(ncpus+1, sizeof(struct resource), "resources");
-
     if (!dbip || !left || !right|| !tol || ncpus == 0) {
 	ret = 0;
 	goto memfree;

@@ -416,7 +416,6 @@ class GED_EXPORT DbiState {
 	unsigned long long update_dp(struct directory *dp, int reset);
 	unsigned int color_int(struct bu_color *);
 	int int_color(struct bu_color *c, unsigned int);
-	struct resource *res = NULL;
 	struct ged_draw_cache *dcache = NULL;
 	struct bu_vls hash_string = BU_VLS_INIT_ZERO;
 	struct bu_vls path_string = BU_VLS_INIT_ZERO;

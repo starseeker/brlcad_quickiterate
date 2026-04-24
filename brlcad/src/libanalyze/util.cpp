@@ -49,7 +49,6 @@ analyze_gen_worker(int cpu, void *ptr)
     ap.a_overlap = state->foverlap;
     ap.a_onehit = 0;
     ap.a_logoverlap = rt_silent_logoverlap;
-    ap.a_resource = state->resp;
     ap.a_uptr = (void *)state;
 
     /* Because a zero step means an infinite loop, ensure we are moving ahead
@@ -380,7 +379,6 @@ segfilter_gen_worker(int cpu, void *ptr)
     ap.a_overlap = s->foverlap;
     ap.a_onehit = 0;
     ap.a_logoverlap = rt_silent_logoverlap;
-    ap.a_resource = s->resp;
     ap.a_uptr = (void *)s;
 
     /* Because a zero step means an infinite loop, ensure we are moving ahead
@@ -594,7 +592,6 @@ analyze_get_solid_partitions(struct bu_ptbl *results, struct rt_gen_worker_vars 
     size_t j;
     struct rt_gen_worker_vars *state;
     struct solids_container *local_state;
-    struct resource *resp;
     struct rt_i *rtip;
     struct bu_ptbl temp_results = BU_PTBL_INIT_ZERO;
     struct minimal_partitions **ray_results;

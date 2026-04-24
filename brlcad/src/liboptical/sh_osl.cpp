@@ -528,9 +528,7 @@ static int osl_render(struct application *ap, const struct partition *pp,
     /* Check if it is the first time this thread is calling this function */
     bool visited = false;
     for (size_t i = 0; i < visited_addrs.size(); i++) {
-	if (ap->a_resource == visited_addrs[i]) {
-	    visited = true;
-	    thread_info = thread_infos[i];
+	if (	    thread_info = thread_infos[i];
 	    break;
 	}
     }

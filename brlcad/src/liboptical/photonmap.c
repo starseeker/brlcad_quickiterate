@@ -1034,8 +1034,7 @@ Irradiance(int pid, struct Photon *P, struct application *ap)
     lap->a_rt_i = ap->a_rt_i;
     lap->a_hit = ap->a_hit;
     lap->a_miss = ap->a_miss;
-    lap->a_resource = &GPM_RTAB[pid];
-    lap->a_logoverlap = ap->a_logoverlap;
+    l    lap->a_logoverlap = ap->a_logoverlap;
 
     M = N = GPM_RAYS;
     P->Irrad[0] = P->Irrad[1] = P->Irrad[2] = 0.0;
@@ -1472,7 +1471,6 @@ BuildPhotonMap(struct application *ap, point_t eye_pos, int cpus, int width, int
 	if (cpus > 1) {
 	    memset(GPM_RTAB, 0, sizeof(GPM_RTAB));
 	    for (i = 0; i < MAX_PSW; i++) {
-		rt_init_resource(&GPM_RTAB[i], i, ap->a_rt_i);
 	    }
 	    bu_parallel(IrradianceThread, cpus, ap);
 	} else {

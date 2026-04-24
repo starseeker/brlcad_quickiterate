@@ -100,7 +100,7 @@ _gobjs_cmd_create(void *bs, int argc, const char **argv)
     }
     mat_t mat;
     MAT_IDN(mat);
-    if (!db_path_to_mat(dbip, fp, mat, fp->fp_len-1, &rt_uniresource)) {
+    if (!db_path_to_mat(dbip, fp, mat, fp->fp_len-1)) {
 	db_free_full_path(fp);
 	BU_PUT(fp, struct db_full_path);
 	bu_vls_printf(gedp->ged_result_str, "Invalid path matrix: %s\n", gd->vobj);

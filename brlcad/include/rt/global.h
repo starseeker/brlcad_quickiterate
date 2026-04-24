@@ -63,20 +63,6 @@ __BEGIN_DECLS
  * need to (re)allocate massive numbers of individual vlists. */
 RT_EXPORT extern struct bu_list rt_vlfree;
 
-/**
- * Default librt-supplied resource structure for uniprocessor cases.  Because
- * only one of these structures can be used with each thread of execution (see
- * struct resource documentation), rt_uniresource cannot be used for parallel
- * (i.e. multithreaded/multiple CPU) raytracing.   It is a convenient way to
- * supply a resource to single-threaded functions without requiring the client
- * code to create and manage their own resource.
- *
- * Unlike user-declared struct resource instances, rt_uniresource does not need
- * to be initialized with rt_init_resource - that is handled by LIBRT.
- */
-struct resource;
-RT_EXPORT extern struct resource rt_uniresource;
-
 __END_DECLS
 
 #endif /* RT_GLOBAL_H */

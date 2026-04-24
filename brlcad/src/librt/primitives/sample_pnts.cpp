@@ -40,7 +40,6 @@ typedef int (*overlapfunc_t)(struct application *, struct partition *, struct re
 
 struct rt_gen_worker_vars {
     struct rt_i *rtip;
-    struct resource *resp;
     size_t rays_cnt;
     fastf_t *rays;
     hitfunc_t fhit;
@@ -178,7 +177,6 @@ rt_gen_worker(int cpu, void *ptr)
     ap.a_overlap = state->foverlap;
     ap.a_onehit = 0;
     ap.a_logoverlap = rt_silent_logoverlap;
-    ap.a_resource = state->resp;
     ap.a_uptr = (void *)state;
 
     /* Because a zero step means an infinite loop, ensure we are moving ahead
@@ -369,7 +367,6 @@ prand_pnt_worker(int cpu, void *ptr)
     ap.a_overlap = state->foverlap;
     ap.a_onehit = 0;
     ap.a_logoverlap = rt_silent_logoverlap;
-    ap.a_resource = state->resp;
     ap.a_uptr = (void *)state;
 
     for (i = 0; i < state->rays_cnt; i++) {
@@ -439,7 +436,6 @@ rt_gen_obj_pnts(struct rt_pnts_internal *rpnts, fastf_t *avg_thickness, struct d
     struct bu_ptbl **grid_pnts = NULL;
     struct bu_ptbl **rand_pnts = NULL;
     struct bu_ptbl **sobol_pnts = NULL;
-    struct resource *resp = (struct resource *)bu_calloc(ncpus+1, sizeof(struct resource), "resources");
     int pntcnt_grid = 0;
     int pntcnt_rand = 0;
     int pntcnt_sobol = 0;
@@ -728,7 +724,6 @@ memfree:
     if (sobol_pnts) bu_free(sobol_pnts, "free state containers");
 
     for (i = 0; i < ncpus+1; i++) {
-	rt_clean_resource(rtip, &resp[i]);
     }
     rt_free_rti(rtip);
     bu_free(state, "free state containers");

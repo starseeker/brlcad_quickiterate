@@ -68,9 +68,6 @@ test_rt_boolweave(void)
     RT_APPLICATION_INIT(&ap);
     rtip = rt_dirbuild_inmem(NULL, 0, NULL, 0);
     ap.a_rt_i = rtip;
-    ap.a_resource = &rt_uniresource;
-    rt_init_resource(&rt_uniresource, 0, rtip);
-
     BU_LIST_INIT(&in_hd.l);
     BU_LIST_INIT(&out_hd.l);
 

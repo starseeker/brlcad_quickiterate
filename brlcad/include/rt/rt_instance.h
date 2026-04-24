@@ -35,7 +35,6 @@
 #include "rt/defines.h"
 #include "rt/db_instance.h"
 #include "rt/region.h"
-#include "rt/resource.h"
 #include "rt/space_partition.h" /* cutter */
 #include "rt/soltab.h"
 #include "rt/tol.h"
@@ -57,6 +56,17 @@
 #endif
 
 __BEGIN_DECLS
+
+/**
+ * Definition of global parallel-processing semaphores.
+ */
+RT_EXPORT extern int RT_SEM_WORKER;
+RT_EXPORT extern int RT_SEM_MODEL;
+RT_EXPORT extern int RT_SEM_RESULTS;
+RT_EXPORT extern int RT_SEM_TREE0;
+RT_EXPORT extern int RT_SEM_TREE1;
+RT_EXPORT extern int RT_SEM_TREE2;
+RT_EXPORT extern int RT_SEM_TREE3;
 
 // libbu's callback type isn't quite right for this case, so we might as well
 // be specific.
@@ -150,7 +160,6 @@ struct rt_i {
     struct bu_ptbl      delete_regs;    /**< @brief  list of region pointers to delete after light_init() */
     union cutter        rti_CutHead;    /**< @brief  Head of cut tree */
     struct soltab **    rti_Solids;     /**< @brief  ptrs to soltab [st_bit] */
-    struct bu_ptbl      rti_resources;  /**< @brief  list of 'struct resource's encountered */
     /* PRIVATE librt-internal state; see src/librt/librt_private.h */
     struct rt_i_internal *i;
 };
@@ -270,31 +279,14 @@ RT_EXPORT extern void rt_pr_partitions(const struct rt_i *rtip,
 RT_EXPORT extern struct soltab *rt_find_solid(const struct rt_i *rtip,
 					      const char *name);
 
-/**
- * initialize a memory resource structure for use during ray tracing.
- *
- * a given resource structure is prepared for use and marked as the
- * resource for a given thread of execution (indicated by 'cpu_num').
- * if an 'rtip' ray tracing instance pointer is provided, the resource
- * structure will be stored within so that it's available to threads
- * of execution during parallel ray tracing.
- *
- * This routine should initialize all the same resources that
- * rt_clean_resource() releases.  It shouldn't (but currently does for
- * ptbl) allocate any dynamic memory, just init pointers & lists.
- */
 
 struct rt_i; /* forward declaration */
 
-RT_EXPORT extern void rt_init_resource(struct resource *resp, int cpu_num, struct rt_i *rtip);
-
-
-RT_EXPORT extern void rt_clean_resource_basic(struct rt_i *rtip,
-					struct resource *resp);
-RT_EXPORT extern void rt_clean_resource(struct rt_i *rtip,
-					struct resource *resp);
-RT_EXPORT extern void rt_clean_resource_complete(struct rt_i *rtip,
-						 struct resource *resp);
+/**
+ * Pre-warm the per-CPU segment and partition pools for a given CPU.
+ * Call this once per cpu before starting parallel ray tracing.
+ */
+RT_EXPORT extern void rt_pool_cpu_init(struct rt_i *rtip, int cpu);
 
 
 /* Plot a solid */

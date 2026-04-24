@@ -200,7 +200,7 @@ tcl_render(struct application *ap, const struct partition *pp, struct shadework 
 	(struct tcl_specific *)dp;
     point_t pt;
     int tcl_status;
-    register int cpu = ap->a_resource->re_cpu;
+    register int cpu = ap->a_cpu;
 
     /* check the validity of the arguments we got */
     RT_AP_CHECK(ap);

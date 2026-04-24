@@ -309,10 +309,7 @@ QgSelectRayFilter::eventFilter(QObject *, QEvent *e)
     ap->a_logoverlap = NULL;
 
     struct rt_i *rtip = rt_new_rti(dbip);
-    struct resource *resp = NULL;
     BU_GET(resp, struct resource);
-    rt_init_resource(resp, 0, rtip);
-    ap->a_resource = resp;
     ap->a_rt_i = rtip;
     const char **objs = (const char **)bu_calloc(BU_PTBL_LEN(&selected_set) + 1, sizeof(char *), "objs");
     for (size_t i = 0; i < BU_PTBL_LEN(&selected_set); i++) {

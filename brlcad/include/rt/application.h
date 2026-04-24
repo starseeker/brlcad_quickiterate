@@ -37,7 +37,6 @@
 #include "rt/defines.h"
 #include "rt/ray_partition.h"
 #include "rt/region.h"
-#include "rt/resource.h"
 #include "rt/seg.h"
 #include "rt/xray.h"
 
@@ -66,7 +65,6 @@ struct rt_piecestate_set; /* forward declaration */
  *
  * Field            | Description
  * ---------------- | ---------------------------------------------------
- * a_resource       | Pointer to CPU-specific resources.  Multi-CPU only.
  * a_overlap()      | DEPRECATED, set a_multioverlap() instead.
  *                    If non-null, this routine will be called to
  *                    handle overlap conditions.  See librt/bool.c
@@ -108,7 +106,6 @@ struct application {
     struct rt_i *       a_rt_i;         /**< @brief  this librt instance */
     int                 a_zero1;        /**< @brief  must be zero (sanity check) */
     /* THESE ELEMENTS ARE USED BY THE LIBRARY, BUT MAY BE LEFT ZERO */
-    struct resource *   a_resource;     /**< @brief  dynamic memory resources */
     int                 (*a_overlap)(struct application *, struct partition *, struct region *, struct region *, struct partition *);   /**< @brief  DEPRECATED */
     void                (*a_multioverlap)(struct application *, struct partition *, struct bu_ptbl *, struct partition *);      /**< @brief  called to resolve overlaps */
     void                (*a_logoverlap)(struct application *, const struct partition *, const struct bu_ptbl *, const struct partition *);      /**< @brief  called to log overlaps */
@@ -145,6 +142,7 @@ struct application {
     fastf_t             a_cumlen;       /**< @brief  cumulative length of ray */
     int                 a_flag;         /**< @brief  application-specific flag */
     int                 a_zero2;        /**< @brief  must be zero (sanity check) */
+    int                 a_cpu;          /**< @brief  CPU number for pool selection (0=default) */
     /* THESE ELEMENTS WERE FORMERLY IN struct resource */
     float *             a_randptr;      /**< @brief  ptr into random number table (was re_randptr) */
     union tree **       a_boolstack;    /**< @brief  Stack for rt_booleval() (was re_boolstack) */

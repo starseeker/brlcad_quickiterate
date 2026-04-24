@@ -917,8 +917,7 @@ _nirt_diff_cmd_load(void *ndsv, int argc, const char **argv)
     } else {
 	/* based on current settings, tell the ap which rtip to use */
 	nss->i->ap->a_rt_i = _nirt_get_rtip(nss);
-	nss->i->ap->a_resource = _nirt_get_resource(nss);
-    }
+	nss->i->    }
 
     bu_vls_sprintf(&nds->diff_file, "%s", argv[0]);
     while (std::getline(ifs, line)) {

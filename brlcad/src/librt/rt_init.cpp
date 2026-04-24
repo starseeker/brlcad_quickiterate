@@ -45,8 +45,6 @@
 struct bu_list rt_vlfree = BU_LIST_INIT_ZERO;
 
 /* uniprocessor pre-prepared resource */
-struct resource rt_uniresource = RT_RESOURCE_INIT_ZERO;
-
 /* Debug flags */
 unsigned int rt_debug = 0;
 
@@ -58,8 +56,6 @@ static void
 librt_init(void)
 {
     BU_LIST_INIT(&rt_vlfree);
-    rt_init_resource(&rt_uniresource, 0, NULL);
-
     // NOTE - rt_new_rti used to do this, checking if the rtg_vlfree list was
     // initialized.  Since we're doing that initialization in this routine,
     // handle reading LIBRT_DEBUG here as well.

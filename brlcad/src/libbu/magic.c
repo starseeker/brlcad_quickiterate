@@ -310,8 +310,6 @@ bu_identify_magic(register uint32_t magic)
 	    return "pt_hd magic";
 	case PT_MAGIC:
 	    return "librt partition";
-	case RESOURCE_MAGIC:
-	    return "librt resource";
 	case RTI_MAGIC:
 	    return "rt_i";
 	case WDB_METABALLPT_MAGIC:

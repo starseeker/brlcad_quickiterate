@@ -71,7 +71,7 @@ ged_comb_color_core(struct ged *gedp, int argc, const char *argv[])
     }
 
     comb->rgb_valid = 1;
-    GED_DB_PUT_INTERNAL(gedp, dp, &intern, &rt_uniresource, BRLCAD_ERROR);
+    GED_DB_PUT_INTERNAL(gedp, dp, &intern, BRLCAD_ERROR);
 
     return BRLCAD_OK;
 }

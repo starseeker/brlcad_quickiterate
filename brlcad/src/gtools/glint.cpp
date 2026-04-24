@@ -833,7 +833,6 @@ main(int argc, char **argv)
     RT_APPLICATION_INIT(&ap);
     ap.a_hit = (control.glc_what_to_report & ~G_LINT_OVLP) ? rpt_hit : no_op_hit;
     ap.a_miss = no_op_miss;
-    ap.a_resource = RESOURCE_NULL;
     ap.a_overlap = (control.glc_what_to_report & G_LINT_OVLP) ? rpt_ovlp : no_op_overlap;
     ap.a_onehit = 0;	/* Don't stop at first partition */
     ap.a_uptr = (char *) &control;

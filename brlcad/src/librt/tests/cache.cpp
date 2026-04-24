@@ -254,7 +254,6 @@ build_rtip(long int test_num, const char *gfile, const char *objname, int stage_
 	}
 	/* We're doing parallel prep, so we can't use rt_uniresource */
 	for (int i = 0; i < ncpus; i++) {
-	    rt_init_resource(&resp[i], i, rtip);
 	}
 	rt_prep_parallel(rtip, ncpus);
     }
@@ -273,8 +272,6 @@ test_subprocess(int ac, char *av[])
     const char *cache_dir;
     const char *cname;
     size_t ncpus = (bu_avail_cpus() > MAX_PSW) ? MAX_PSW : bu_avail_cpus();
-    struct resource *resp = (struct resource *)bu_calloc(ncpus+1, sizeof(struct resource), "resources");
-
     if (ac != 6) {
 	bu_exit(1, "rt_cache subprocess command invoked incorrectly");
     }
@@ -463,7 +460,6 @@ test_cache(char *rp, long int test_num, long int obj_cnt, int do_parallel, int d
     db_close(dbip);
 
     if (!subprocess_cnt) {
-	struct resource *resp = (struct resource *)bu_calloc(ncpus+1, sizeof(struct resource), "resources");
 	rtip_stage_1 = build_rtip(test_num, bu_vls_cstr(&gfile), bu_vls_cstr(&cname), 1, do_parallel, (int)ncpus, resp);
 
 	// Confirm the presence of the expected number of file(s) in the cache

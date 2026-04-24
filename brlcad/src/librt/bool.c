@@ -64,7 +64,6 @@ static void
 bool_weave0seg(struct seg *segp, struct partition *PartHdp, struct application *ap)
 {
     register struct partition *pp;
-    struct resource *res = ap->a_resource;
     struct rt_i *rtip = ap->a_rt_i;
     register fastf_t tol_dist;
 
@@ -72,7 +71,6 @@ bool_weave0seg(struct seg *segp, struct partition *PartHdp, struct application *
 
     RT_CK_PT_HD(PartHdp);
     RT_CK_RTI(ap->a_rt_i);
-    RT_CK_RESOURCE(res);
     RT_CK_RTI(rtip);
 
     if (RT_G_DEBUG&RT_DEBUG_PARTITION) {
@@ -149,7 +147,6 @@ rt_boolweave(struct seg *out_hd, struct seg *in_hd, struct partition *PartHdp, s
 {
     register struct seg *segp;
     register struct partition *pp;
-    struct resource *res = ap->a_resource;
     struct rt_i *rtip = ap->a_rt_i;
 
     register fastf_t diff, diff_se;
@@ -157,7 +154,6 @@ rt_boolweave(struct seg *out_hd, struct seg *in_hd, struct partition *PartHdp, s
 
     RT_CK_PT_HD(PartHdp);
     RT_CK_RTI(ap->a_rt_i);
-    RT_CK_RESOURCE(res);
     RT_CK_RTI(rtip);
 
     tol_dist = rtip->rti_tol.dist;
@@ -1281,7 +1277,7 @@ bool_eval(register union tree *treep, struct partition *partp, struct applicatio
     RT_CK_PT(partp);
     RT_CK_AP(ap);
 
-    cpu = ap->a_resource ? ap->a_resource->re_cpu : 0;
+    cpu = ap->a_resource ? ap->a_cpu : 0;
 
     while ((sp = ap->a_boolstack) == (union tree **)0)
 	rt_bool_growstack(&ap->a_boolstack, &ap->a_boolslen);

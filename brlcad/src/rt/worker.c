@@ -177,8 +177,6 @@ do_pixel(int cpu, int pat_num, int pixelnum)
 
     /* Obtain fresh copy of global application struct */
     a = APP;				/* struct copy */
-    a.a_resource = &resource[cpu];
-
     /* Initialize per-CPU randptr lazily; save/restore across pixels so
      * sequential pixels on the same CPU advance through the random table. */
     if (!cpu_randptrs[cpu])
@@ -527,8 +525,6 @@ worker(int cpu, void *UNUSED(arg))
 	bu_log("rt/worker() cpu %d > MAX_PSW %d, array overrun\n", cpu, MAX_PSW);
 	bu_exit(EXIT_FAILURE, "rt/worker() cpu > MAX_PSW, array overrun\n");
     }
-    RT_CK_RESOURCE(&resource[cpu]);
-
     pat_num = -1;
     if (hypersample) {
 	int i, ray_samples;

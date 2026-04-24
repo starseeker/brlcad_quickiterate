@@ -305,10 +305,10 @@ static int occludes(struct application *ap, struct cell *here)
     int cpu;
     int oc_hit = 0;
 
-    if (ap->a_resource->re_cpu > 0)
-	cpu = ap->a_resource->re_cpu - 1;
+    if (ap->a_cpu > 0)
+	cpu = ap->a_cpu - 1;
     else
-	cpu = ap->a_resource->re_cpu;
+	cpu = ap->a_cpu;
 
     /*
      * Test the hit distance on the second geometry.  If the second
@@ -466,7 +466,6 @@ view_init(struct application *ap, char *file, char *UNUSED(obj), int minus_o, in
 
 	memset(occlusion_resources, 0, sizeof(occlusion_resources));
 	for (i=0; i < MAX_PSW; i++) {
-	    rt_init_resource(&occlusion_resources[i], i, occlusion_rtip);
 	}
 
 	db_close(dbip);			 /* releases original dbip */
@@ -686,10 +685,10 @@ view_eol(struct application *ap)
     int cpu;
     int i;
 
-    if (ap->a_resource->re_cpu > 0)
-	cpu = ap->a_resource->re_cpu - 1;
+    if (ap->a_cpu > 0)
+	cpu = ap->a_cpu - 1;
     else
-	cpu = ap->a_resource->re_cpu;
+	cpu = ap->a_cpu;
 
     if (overlay) {
 	/*
@@ -1099,7 +1098,6 @@ get_intensity(double *intensity, struct application *ap, const struct cell *UNUS
     aaap.a_miss = raymiss2;
     aaap.a_onehit = 1;
     aaap.a_rt_i = ap->a_rt_i;
-    aaap.a_resource = ap->a_resource;
     aaap.a_logoverlap = ap->a_logoverlap;
 
     /* Above Left */
@@ -1377,10 +1375,10 @@ handle_main_ray(struct application *ap, register struct partition *PartHeadp,
     memset(&below, 0, sizeof(struct cell));
     memset(&left, 0, sizeof(struct cell));
 
-    if (ap->a_resource->re_cpu > 0)
-	cpu = ap->a_resource->re_cpu - 1;
+    if (ap->a_cpu > 0)
+	cpu = ap->a_cpu - 1;
     else
-	cpu = ap->a_resource->re_cpu;
+	cpu = ap->a_cpu;
 
     if (PartHeadp == NULL || segp == NULL) {
 	/* The main shotline missed.  pack the application struct
@@ -1416,7 +1414,6 @@ handle_main_ray(struct application *ap, register struct partition *PartHeadp,
     a2.a_miss = raymiss2;
     a2.a_onehit = 1;
     a2.a_rt_i = ap->a_rt_i;
-    a2.a_resource = ap->a_resource;
     a2.a_logoverlap = ap->a_logoverlap;
 
     VSUB2(a2.a_ray.r_pt, ap->a_ray.r_pt, dy_model); /* below */

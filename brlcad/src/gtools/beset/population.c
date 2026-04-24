@@ -414,9 +414,6 @@ pop_gop(int gop, char *parent1_id, char *parent2_id, char *child1_id, char *chil
 
     RT_CHECK_DBI( dbi_p );
     RT_CHECK_DBI( dbi_c );
-    RT_CK_RESOURCE( resp );
-
-
     crossover_point = (union tree *)NULL;
     crossover_parent = (union tree **)NULL;
     node = (struct node*)NULL;

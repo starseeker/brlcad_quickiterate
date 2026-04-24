@@ -839,8 +839,7 @@ RT_EXPORT extern int db_rename(struct db_i *,
  * entry is referenced by a COMBination in the database).
  *
  */
-RT_EXPORT extern void db_update_nref(struct db_i *dbip,
-				     struct resource *resp);
+RT_EXPORT extern void db_update_nref(struct db_i *dbip);
 
 
 /* db_flags.c */

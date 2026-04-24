@@ -382,11 +382,7 @@ rt_crofton_shoot(struct rt_i                      *rtip,
 	batch = max_rays;   /* single-iteration mode */
 
     /* ---- Initialize per-CPU resources ---- */
-    struct resource *resources = (struct resource *)bu_calloc(
-	MAX_PSW, sizeof(struct resource), "crofton resources");
     for (int i = 0; i < MAX_PSW; i++)
-	rt_init_resource(&resources[i], i, rtip);
-
     /* ---- Set up application template ---- */
     struct application ap;
     RT_APPLICATION_INIT(&ap);
@@ -396,7 +392,6 @@ rt_crofton_shoot(struct rt_i                      *rtip,
     ap.a_overlap      = NULL;
     ap.a_multioverlap = NULL;
     ap.a_logoverlap   = rt_silent_logoverlap;
-    ap.a_resource     = resources;
     ap.a_onehit       = 0;
 
     /* ---- Shared accumulator ---- */
@@ -530,7 +525,6 @@ rt_crofton_shoot(struct rt_i                      *rtip,
      * and then we can safely bu_free the resources array.                */
     for (int i = 0; i < MAX_PSW; i++) {
 	if (resources[i].re_magic == RESOURCE_MAGIC) {
-	    rt_clean_resource_basic(rtip, &resources[i]);
 	    BU_PTBL_SET(&rtip->rti_resources, i, NULL);
 	}
     }
@@ -657,7 +651,7 @@ crofton_from_ip_n(const struct rt_db_internal    *ip,
     /* In the INMEM path ext_buf is stolen; this is safe to call regardless */
     bu_free_external(&ext);
 
-    db_update_nref(dbip, &rt_uniresource);
+    db_update_nref(dbip);
 
     /* ---- Build raytrace instance ---- */
     struct rt_i *rtip = rt_new_rti(dbip);

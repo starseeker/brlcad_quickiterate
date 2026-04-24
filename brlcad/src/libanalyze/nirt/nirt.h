@@ -365,9 +365,7 @@ struct nirt_state_impl {
     struct db_i *dbip;
     /* Note: Parallel structures are needed for operation w/ and w/o air */
     struct rt_i *rtip;
-    struct resource *res;
     struct rt_i *rtip_air;
-    struct resource *res_air;
     int need_reprep;
 
     /* internal format specifier arrays */

@@ -41,7 +41,6 @@ struct rayio_info {
 
 struct rayio_container {
     struct rt_i *rtip;
-    struct resource *resp;
     int ray_dir;
     size_t ncpus;
     const char *left_name;
@@ -122,7 +121,6 @@ rayio_gen_worker(int cpu, void *ptr)
     ap.a_overlap = rayio_overlap;
     ap.a_onehit = 0;
     ap.a_logoverlap = rt_silent_logoverlap;
-    ap.a_resource = state->resp;
     ap.a_uptr = (void *)state;
 
     for (i = start_ind; i <= end_ind; i++) {

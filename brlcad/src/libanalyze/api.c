@@ -793,7 +793,6 @@ analyze_worker(int cpu, void *ptr)
     ap.a_rt_i = (struct rt_i *)state->rtip;	/* application uses this instance */
     ap.a_hit = analyze_hit;    /* where to go on a hit */
     ap.a_miss = analyze_miss;  /* where to go on a miss */
-    ap.a_resource = &state->resp[cpu];
     ap.a_logoverlap = rt_silent_logoverlap;
     ap.A_LENDEN = 0.0; /* really the cumulative length*density for mass computation*/
     ap.A_LEN = 0.0;    /* really the cumulative length for volume computation */
@@ -1317,7 +1316,6 @@ perform_raytracing(struct current_state *state, struct db_i *dbip, char *names[]
 
     memset(resp, 0, sizeof(resp));
     for(i = 0; i < MAX_PSW; i++) {
-	rt_init_resource(&resp[i], i, rtip);
     }
 
     state->rtip = rtip;

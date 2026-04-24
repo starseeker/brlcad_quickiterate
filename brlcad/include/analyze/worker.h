@@ -39,7 +39,6 @@ typedef int (*overlapfunc_t)(struct application *, struct partition *, struct re
 
 struct rt_gen_worker_vars {
     struct rt_i *rtip;
-    struct resource *resp;
     size_t rays_cnt;
     fastf_t *rays;
     hitfunc_t fhit;

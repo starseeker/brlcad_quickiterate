@@ -205,7 +205,6 @@ BU_FORTRAN(frshot, FRSHOT)(int *nloc,			/* input & output */
     ap.a_miss = fr_miss;
     ap.a_level = 0;
     ap.a_onehit = *nloc * 2;
-    ap.a_resource = &rt_uniresource;
     rt_uniresource.re_magic = RESOURCE_MAGIC;
     ap.a_purpose = "frshot";
     ap.a_rt_i = *rtip;

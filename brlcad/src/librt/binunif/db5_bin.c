@@ -88,9 +88,7 @@ rt_binunif_import5_minor_type(struct rt_db_internal *ip,
 
     BU_CK_EXTERNAL(ep);
     if (dbip) RT_CK_DBI(dbip);
-    if (resp) RT_CK_RESOURCE(resp);
-
-    /*
+    if (resp)    /*
      * There's no particular size to expect
      *
      * BU_ASSERT(ep->ext_nbytes == SIZEOF_NETWORK_DOUBLE * 3*4);

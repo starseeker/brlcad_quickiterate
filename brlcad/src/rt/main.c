@@ -205,7 +205,6 @@ initialize_resources(size_t cnt, struct resource *resp, struct rt_i *rtip)
 
     int i;
     for (i = 0; i < MAX_PSW; i++) {
-	rt_init_resource(&resp[i], i, rtip);
     }
 }
 

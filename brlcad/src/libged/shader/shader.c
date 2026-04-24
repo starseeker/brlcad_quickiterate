@@ -71,7 +71,7 @@ ged_shader_core(struct ged *gedp, int argc, const char *argv[])
 	/* Bunch up the rest of the args, space separated */
 	bu_vls_from_argv(&comb->shader, argc-2, (const char **)argv+2);
 
-	GED_DB_PUT_INTERNAL(gedp, dp, &intern, &rt_uniresource, BRLCAD_ERROR);
+	GED_DB_PUT_INTERNAL(gedp, dp, &intern, BRLCAD_ERROR);
 	/* Internal representation has been freed by rt_db_put_internal */
     }
 

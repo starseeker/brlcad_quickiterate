@@ -482,7 +482,6 @@ ph_dirbuild(struct pkg_conn *UNUSED(pc), char *buf)
      */
     memset(resource, 0, sizeof(resource));
     for (n=0; n < MAX_PSW; n++) {
-	rt_init_resource(&resource[n], n, rtip);
     }
 
     if (pkg_send(MSG_DIRBUILD_REPLY, idbuf, strlen(idbuf)+1, pcsrv) < 0)

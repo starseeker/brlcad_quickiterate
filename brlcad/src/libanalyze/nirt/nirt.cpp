@@ -450,7 +450,6 @@ _nirt_get_rtip(struct nirt_state *nss)
 		return RTI_NULL;
 	    }
 	    nss->i->rtip_air->rti_dbip->dbi_read_only = 1;
-	    rt_init_resource(nss->i->res_air, 0, nss->i->rtip_air);
 	    nss->i->rtip_air->useair = 1;
 	}
 	return nss->i->rtip_air;
@@ -465,7 +464,6 @@ _nirt_get_rtip(struct nirt_state *nss)
 	    return RTI_NULL;
 	}
 	nss->i->rtip->rti_dbip->dbi_read_only = 1;
-	rt_init_resource(nss->i->res, 0, nss->i->rtip);
     }
     return nss->i->rtip;
 }
@@ -489,9 +487,7 @@ _nirt_raytrace_prep(struct nirt_state *nss)
 
     /* Based on current settings, pick the particular rtip */
     nss->i->ap->a_rt_i = _nirt_get_rtip(nss);
-    nss->i->ap->a_resource = _nirt_get_resource(nss);
-
-    /* Don't have enough info to prep yet - can happen if we're in a pre "nirt_init" state */
+    nss->i->    /* Don't have enough info to prep yet - can happen if we're in a pre "nirt_init" state */
     if (!nss->i->ap->a_rt_i) return 0;
 
     // Prepare C-style arrays for rt prep
@@ -1844,8 +1840,7 @@ _nirt_cmd_shoot(void *ns, int argc, const char **UNUSED(argv))
 	} else {
 	    /* Based on current settings, tell the ap which rtip to use */
 	    nss->i->ap->a_rt_i = _nirt_get_rtip(nss);
-	    nss->i->ap->a_resource = _nirt_get_resource(nss);
-	}
+	    nss->i->	}
     }
 
     double bov = _nirt_backout(nss);
@@ -3035,9 +3030,7 @@ nirt_clear_dbip(struct nirt_state *ns)
     if (ns->i->rtip) rt_clean(ns->i->rtip);
     if (ns->i->rtip_air) rt_clean(ns->i->rtip_air);
     ns->i->ap->a_rt_i = NULL;
-    ns->i->ap->a_resource = NULL;
-
-    ns->i->active_paths.clear();
+    ns->i->    ns->i->active_paths.clear();
 
     ns->i->base2local = 0.0;
     ns->i->local2base = 0.0;

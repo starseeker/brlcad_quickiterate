@@ -387,7 +387,6 @@ extern "C" int
 analyze_find_subtracted(struct bu_ptbl *UNUSED(results), struct rt_wdb *wdbp, const char *pbrep, struct rt_gen_worker_vars *pbrep_rtvars, const char *curr_comb, struct bu_ptbl *candidates, void *data, int pcpus)
 {
     struct rt_gen_worker_vars *ccomb_vars;
-    struct resource *ccomb_resp;
     struct rt_i *ccomb_rtip;
     //size_t ncpus = bu_avail_cpus();
     size_t ncpus = (size_t)pcpus;
@@ -408,7 +407,6 @@ analyze_find_subtracted(struct bu_ptbl *UNUSED(results), struct rt_wdb *wdbp, co
     for (i = 0; i < ncpus+1; i++) {
 	ccomb_vars[i].rtip = ccomb_rtip;
 	ccomb_vars[i].resp = &ccomb_resp[i];
-	rt_init_resource(ccomb_vars[i].resp, i, ccomb_rtip);
     }
 
     if (rt_gettrees(ccomb_rtip, 1, &curr_comb, ncpus) < 0) {
@@ -539,7 +537,6 @@ analyze_find_subtracted(struct bu_ptbl *UNUSED(results), struct rt_wdb *wdbp, co
 	    struct bu_external external;
 	    struct bu_vls tmp_comb_name = BU_VLS_INIT_ZERO;
 	    struct rt_gen_worker_vars *candidate_vars;
-	    struct resource *candidate_resp;
 	    struct rt_i *candidate_rtip;
 	    bu_log("Testing missing gaps(%d) candidate %s\n", missing_gaps, bu_vls_addr(candidate->obj_name));
 
@@ -564,7 +561,6 @@ analyze_find_subtracted(struct bu_ptbl *UNUSED(results), struct rt_wdb *wdbp, co
 	    for (size_t k = 0; k < ncpus+1; k++) {
 		candidate_vars[k].rtip = candidate_rtip;
 		candidate_vars[k].resp = &candidate_resp[k];
-		rt_init_resource(candidate_vars[k].resp, k, candidate_rtip);
 	    }
 	    if (rt_gettrees(candidate_rtip, 1, (const char **)&dp->d_namep, ncpus) < 0) {
 #if 0

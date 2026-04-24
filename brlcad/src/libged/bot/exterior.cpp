@@ -242,7 +242,6 @@ ext_focused2_worker(struct ext_focused2_worker_data *wd)
     ap.a_overlap      = NULL;
     ap.a_multioverlap = NULL;
     ap.a_logoverlap   = rt_silent_logoverlap;
-    ap.a_resource     = wd->resource;
     ap.a_onehit       = 0;
 
     uint32_t seed = wd->rand_seed;
@@ -535,11 +534,7 @@ bot_exterior_classify_crofton(struct rt_i *rtip,
     }
 
     /* Per-CPU resources */
-    struct resource *resources = (struct resource *)bu_calloc(
-	MAX_PSW, sizeof(struct resource), "ext resources");
     for (int i = 0; i < MAX_PSW; i++)
-	rt_init_resource(&resources[i], i, rtip);
-
     size_t n_faces = bot->num_faces;
 
     if (opts->vis_threshold > 0.0)
@@ -642,7 +637,6 @@ bot_exterior_classify_crofton(struct rt_i *rtip,
      * caller's rt_free_rti() does not try to re-clean already-freed memory. */
     for (int i = 0; i < MAX_PSW; i++) {
 	if (resources[i].re_magic == RESOURCE_MAGIC) {
-	    rt_clean_resource_basic(rtip, &resources[i]);
 	    BU_PTBL_SET(&rtip->rti_resources, i, NULL);
 	}
     }

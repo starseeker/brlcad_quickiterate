@@ -235,7 +235,6 @@ initialize_resources(size_t cnt, struct resource *resp, struct rt_i *rtip)
 
     int i;
     for (i = 0; i < MAX_PSW; i++) {
-	rt_init_resource(&resp[i], i, rtip);
     }
 }
 
@@ -251,8 +250,6 @@ static void
 initialize(struct application *ap, const char *db, const char *obj[])
 {
     struct rt_i *rtip = NULL;
-    struct resource *resources = NULL;
-
     char title[4096] = {'\0'};
 
     BU_ASSERT(ap && db);
@@ -291,8 +288,6 @@ initialize(struct application *ap, const char *db, const char *obj[])
     ap->a_overlap = NULL;
     ap->a_multioverlap = NULL;
     ap->a_logoverlap = rt_silent_logoverlap;
-    ap->a_resource = resources;
-
     /* shoot through. */
     ap->a_onehit = 0;
 

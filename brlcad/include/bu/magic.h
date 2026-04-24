@@ -229,7 +229,6 @@ __BEGIN_DECLS
 #define PL_MAGIC        		0x0beef00d /**< ???? => mm. bee food. */
 #define PT_HD_MAGIC			0x87687680 /**< ?hv? */
 #define PT_MAGIC			0x87687681 /**< ?hv? */
-#define RESOURCE_MAGIC			0x83651835 /**< ?e?5 */
 #define RTI_MAGIC			0x99101658 /**< ???X */
 #define WDB_METABALLPT_MAGIC		0x6d627074 /**< mbpt */
 #define WDB_PIPESEG_MAGIC		0x9723ffef /**< ?\#?? */

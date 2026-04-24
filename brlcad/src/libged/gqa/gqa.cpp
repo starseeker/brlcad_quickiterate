@@ -164,7 +164,6 @@ struct cstate {
     fastf_t *m_moi;       /* one vector per view for collecting the partial moments of inertia calculation */
     fastf_t *m_poi;       /* one vector per view for collecting the partial products of inertia calculation */
 
-    struct resource *resp;
 };
 
 
@@ -1292,7 +1291,6 @@ plane_worker(int cpu, void *ptr)
     ap.a_miss = _gqa_miss;  /* where to go on a miss */
     ap.a_logoverlap = logoverlap;
     ap.a_overlap = _gqa_overlap;
-    ap.a_resource = &state->resp[cpu];
     ap.A_LENDEN = 0.0; /* really the cumulative length*density for weight computation*/
     ap.A_LEN = 0.0;    /* really the cumulative length for volume computation */
 
@@ -2577,7 +2575,6 @@ ged_gqa_core(struct ged *gedp, int argc, const char *argv[])
      */
     memset(resp, 0, sizeof(resp));
     for (i = 0; i < MAX_PSW; i++) {
-	rt_init_resource(&resp[i], i, rtip);
     }
     state.resp = resp;
 

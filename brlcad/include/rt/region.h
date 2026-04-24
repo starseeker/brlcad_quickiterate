@@ -112,8 +112,7 @@ RT_EXPORT extern void rt_pr_region(const struct region *rp);
  */
 RT_EXPORT extern int db_region_mat(mat_t                m,              /* result */
 				   struct db_i  *dbip,
-				   const char   *name,
-				   struct resource *resp);
+				   const char   *name);
 
 
 __END_DECLS

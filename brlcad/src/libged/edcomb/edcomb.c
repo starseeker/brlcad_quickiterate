@@ -86,7 +86,7 @@ ged_edcomb_core(struct ged *gedp, int argc, const char *argv[])
     comb->aircode = air;
     comb->los = los;
     comb->GIFTmater = mat;
-    GED_DB_PUT_INTERNAL(gedp, dp, &intern, &rt_uniresource, BRLCAD_ERROR);
+    GED_DB_PUT_INTERNAL(gedp, dp, &intern, BRLCAD_ERROR);
 
     return BRLCAD_OK;
 }

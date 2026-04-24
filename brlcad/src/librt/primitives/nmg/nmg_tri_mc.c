@@ -685,8 +685,6 @@ fire_row(int cpu, void * ptr)
     a.a_hit = bangbang;
     a.a_miss = missed;
     a.a_onehit = MAX_INTERSECTS;
-    a.a_resource = m->resources + cpu;
-
     x=bin(a.a_rt_i->mdl_min[X], m->step) - m->step + (m->step * cpu);
 
     for (; x<m->endx; x += m->step * (fastf_t)m->ncpu) {
@@ -748,8 +746,6 @@ nmg_mc_evaluate(struct shell *s, struct rt_i *rtip, const struct db_full_path *p
     m.ncpu = bu_avail_cpus();
     m.ncpu = 1; /* seems to be an issue with confused loop calculation in the NMG code. */
     for (i = 0; i < MAX_PSW; i++)
-	rt_init_resource(&m.resources[i], i, rtip);
-
     rt_gettree(rtip, db_path_to_string(pathp));
     rt_prep_parallel(rtip, m.ncpu);
 

@@ -1419,13 +1419,11 @@ edit_translate(struct ged *gedp, const vect_t *from,
 	bn_mat_mul(tmpMat, invXform, dmat);
 	bn_mat_mul(emat, tmpMat, gtd.gtd_xform);
 
-	GED_DB_GET_INTERNAL(gedp, &intern, d_to_modify, emat,
-			    &rt_uniresource, BRLCAD_ERROR);
+	GED_DB_GET_INTERNAL(gedp, &intern, d_to_modify, emat, BRLCAD_ERROR);
     }
 
     RT_CK_DB_INTERNAL(&intern);
-    GED_DB_PUT_INTERNAL(gedp, d_to_modify, &intern, &rt_uniresource,
-			BRLCAD_ERROR);
+    GED_DB_PUT_INTERNAL(gedp, d_to_modify, &intern, BRLCAD_ERROR);
     rt_db_free_internal(&intern);
     return BRLCAD_OK;
 }

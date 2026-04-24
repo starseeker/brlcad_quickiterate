@@ -887,7 +887,7 @@ ged_red_core(struct ged *gedp, int argc, const char **argv)
 
 	    intern.idb_ptr = (void *)comb;
 
-	    GED_DB_PUT_INTERNAL(gedp, tmp_dp, &intern, &rt_uniresource, 0);
+	    GED_DB_PUT_INTERNAL(gedp, tmp_dp, &intern, 0);
 	}
 
 	/* reconstitute the new combination */

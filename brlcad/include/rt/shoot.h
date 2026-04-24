@@ -155,26 +155,6 @@ RT_EXPORT extern int rt_shootray_bundle(struct application *ap, struct xray *ray
 RT_EXPORT extern void rt_zero_ray_stats(struct rt_i *rtip);
 
 
-/**
- * DEPRECATED - statistics are now incremented directly on rtip->stats
- * using C11 atomic operations during rt_shootray().  This function is
- * a no-op retained for source compatibility; it will be removed in a
- * future release.
- *
- * Previously this function tallied per-resource counters into the rt
- * instance structure.  That step is no longer required.
- */
-DEPRECATED RT_EXPORT extern void rt_add_res_stats(struct rt_i *rtip,
-				       struct resource *resp);
-/**
- * DEPRECATED - statistics are now maintained on rtip->stats directly;
- * there are no per-resource stat fields to zero.  This function is a
- * no-op retained for source compatibility; it will be removed in a
- * future release.
- */
-DEPRECATED RT_EXPORT extern void rt_zero_res_stats(struct resource *resp);
-
-
 /* rt_res_pieces_clean() and rt_res_pieces_init() were removed in
  * Phase 6 of the struct resource removal effort.  Their replacements
  * rt_ap_pieces_clean() and rt_ap_pieces_init() are declared below.

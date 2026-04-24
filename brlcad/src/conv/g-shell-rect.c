@@ -484,7 +484,6 @@ shrink_hit(struct application *ap, struct partition *PartHeadp, struct seg *UNUS
     m = r->m_p;
     NMG_CK_MODEL(m);
     memset(&ap2, 0, sizeof(struct application));
-    ap2.a_resource = ap->a_resource;
     ap2.a_ray = ap->a_ray;
 
     pp = PartHeadp->pt_forw;

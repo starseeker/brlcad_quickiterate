@@ -135,7 +135,6 @@ main(int argc, char **argv)
     char **attrs = (char **)NULL;
     const char *argv0 = argv[0];
     int atoival;
-    struct resource res = RT_RESOURCE_INIT_ZERO;
     struct bu_vls attr_key = BU_VLS_INIT_ZERO;
 
     bu_setprogname(argv[0]);
@@ -409,9 +408,6 @@ main(int argc, char **argv)
     }
 
     /* set up our resources */
-    rt_init_resource(&res, 0, rtip);
-    ap.a_resource = &res;
-
     /* Compute r_dir and r_pt from the inputs */
     if (set_at) {
 	if (set_dir) {

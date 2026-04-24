@@ -649,7 +649,6 @@ rt_db_cvt_to_external5(
     if (dbip) RT_CK_DBI(dbip);	/* may be null */
 
     if (resp) {
-	RT_CK_RESOURCE(resp);
     } else {
 	/* needed for call into functab */
 	resp = &rt_uniresource;

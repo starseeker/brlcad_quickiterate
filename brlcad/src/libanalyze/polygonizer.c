@@ -744,7 +744,6 @@ analyze_polygonize(
     int noabort = 0;
     struct polygonizer_mesh *m;
     struct application *ap;
-    struct resource *resp;
     struct rt_i *rtip;
     fastf_t timestamp;
     fastf_t timestamp2;
@@ -784,9 +783,7 @@ analyze_polygonize(
     RT_APPLICATION_INIT(ap);
     BU_GET(resp, struct resource);
     rtip = rt_new_rti(dbip);
-    rt_init_resource(resp, 0, rtip);
     ap->a_rt_i = rtip;
-    ap->a_resource = resp;
     ap->a_onehit = 1;
     ap->a_hit = first_hit;
     ap->a_miss = crossing_miss;
@@ -925,7 +922,6 @@ analyze_polygonizer_memfree:
     bu_free(p.edges, "edgelist");
 
     /* LIBRT memory */
-    rt_clean_resource(rtip, resp);
     rt_free_rti(rtip);
     BU_PUT(resp, struct resource);
     BU_PUT(ap, struct application);

@@ -173,8 +173,6 @@ struct current_state {
     struct rectangular_grid *grid;
 
     struct rt_i *rtip;
-    struct resource *resp;
-
     struct region_pair *overlapList;
     overlap_callback_t overlaps_callback;
     void* overlaps_callback_data;

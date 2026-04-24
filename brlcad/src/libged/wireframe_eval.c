@@ -1808,8 +1808,7 @@ draw_m3(struct bv_scene_obj *s)
 
     BU_ALLOC(dgcdp.ap, struct application);
     RT_APPLICATION_INIT(dgcdp.ap);
-    dgcdp.ap->a_resource = &rt_uniresource;
-    rt_uniresource.re_magic = RESOURCE_MAGIC;
+    dgcdp.    rt_uniresource.re_magic = RESOURCE_MAGIC;
 
     bu_ptbl_init(&dgcdp.leaf_list, 8, "leaf_list");
 

@@ -85,7 +85,6 @@ rt_shootray_bundle(struct application *ap, struct xray *rays, int nrays)
     struct partition FinalPart;	/* Head of Final Partitions */
     struct soltab **stpp;
     register const union cutter *cutp;
-    struct resource *resp;
     struct rt_i *rtip;
     const int debug_shoot = RT_G_DEBUG & RT_DEBUG_SHOOT;
 
@@ -103,14 +102,11 @@ rt_shootray_bundle(struct application *ap, struct xray *rays, int nrays)
 	ap->a_ray.magic = RT_RAY_MAGIC;
     }
     if (!ap->a_resource) {
-	ap->a_resource = &rt_uniresource;
     }
-    RT_CK_RESOURCE(ap->a_resource);
     ss.ap = ap;
     rtip = ap->a_rt_i;
     RT_CK_RTI(rtip);
     resp = ap->a_resource;
-    RT_CK_RESOURCE(resp);
     ss.resp = resp;
 
     if (RT_G_DEBUG&(RT_DEBUG_ALLRAYS|RT_DEBUG_SHOOT|RT_DEBUG_PARTITION|RT_DEBUG_ALLHITS)) {
@@ -150,13 +146,11 @@ rt_shootray_bundle(struct application *ap, struct xray *rays, int nrays)
 	 * This is how application-provided resource structures
 	 * are remembered for later cleanup by the library.
 	 */
-	rt_init_resource(resp, resp->re_cpu, rtip);
-
 	/* Ensure that this CPU's resource structure is registered */
 	BU_ASSERT(BU_PTBL_GET(&rtip->rti_resources, resp->re_cpu) != NULL);
     }
 
-    solidbits = rt_get_solidbitv(rtip->stats.nsolids, resp);
+    solidbits = rt_get_solidbitv(rtip->stats.nsolids);
 
     BU_ALLOC(regionbits, struct bu_ptbl);
     bu_ptbl_init(regionbits, 7, "rt_shootray_bundle() regionbits ptbl");
@@ -668,9 +662,7 @@ rt_shootrays(struct application_bundle *bundle)
 	ray_ap->a_ray.magic = RT_RAY_MAGIC;
 	ray_ap->a_uptr = (void *)pb;
 	ray_ap->a_rt_i = rt_i;
-	ray_ap->a_resource = resource;
-
-	nrays++;
+	ray_	nrays++;
     }
 
     /* PASS3: shoot our rays */

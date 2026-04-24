@@ -51,7 +51,7 @@
 
 extern void rt_ck(struct rt_i *rtip);
 
-static void rt_solid_bitfinder(union tree *treep, struct region *regp, struct resource *resp);
+static void rt_solid_bitfinder(union tree *treep, struct region *regp);
 
 
 int RT_SEM_WORKER = 0;
@@ -135,12 +135,6 @@ rt_new_rti(struct db_i *dbip)
     rtip->needprep = 1;
 
     BU_LIST_INIT(&rtip->HeadRegion);
-
-    /* This table is used for discovering the per-cpu resource structures */
-    bu_ptbl_init(&rtip->rti_resources, MAX_PSW, "rti_resources ptbl");
-    bu_ptbl_trunc(&rtip->rti_resources, MAX_PSW); /* Make 'em all available */
-
-    rt_uniresource.re_magic = RESOURCE_MAGIC;
 
     /* Zero-initialize user data and clbk */
     rtip->rti_gettrees_clbk = NULL;
@@ -231,8 +225,6 @@ rt_free_rti(struct rt_i *rtip)
     db_close_client(rtip->rti_dbip, (long *)rtip);
     rtip->rti_dbip = (struct db_i *)NULL;
 
-    /* Freeing the actual resource structures' memory is the app's job */
-    bu_ptbl_free(&rtip->rti_resources);
     bu_ptbl_free(&rtip->delete_regs);
 
     rt_i_internal_destroy(rtip->i);
@@ -256,7 +248,6 @@ rt_prep_parallel(struct rt_i *rtip, int ncpu)
     struct region *regp;
     struct soltab *stp;
     int i;
-    struct resource *resp;
     vect_t diag;
 
     RT_CK_RTI(rtip);
@@ -266,20 +257,6 @@ rt_prep_parallel(struct rt_i *rtip, int ncpu)
 					 rtip->rti_dbip->i->dbi_uses, ncpu);
 
     bu_semaphore_acquire(RT_SEM_RESULTS);	/* start critical section */
-
-    /*
-     * Check if we're going to try using rt_uniresource.  If we're also asking
-     * for more than one CPU, that's not gonna fly.
-     */
-    resp = (struct resource *)BU_PTBL_GET(&rtip->rti_resources, 0);
-    if (!resp)
-	resp = &rt_uniresource;
-
-    if (ncpu > 1 && resp == &rt_uniresource) {
-	bu_log("ERROR: attempting a parallel prep, but the resource being used is rt_uniresource.  Caller will need to allocate their own resource structures for parallel raytracing.\n");
-	bu_semaphore_release(RT_SEM_RESULTS);
-	return;
-    }
 
     if (!rtip->needprep) {
 	bu_log("WARNING: rt_prep_parallel(%s, %d) invoked a second time, ignored",
@@ -334,9 +311,6 @@ rt_prep_parallel(struct rt_i *rtip, int ncpu)
     VSUB2(diag, rtip->mdl_max, rtip->mdl_min);
     rtip->rti_radius = 0.5 * MAGNITUDE(diag);
 
-    /* Check our resource struct. */
-    RT_CK_RESOURCE(resp);
-
     /* Build array of region pointers indexed by reg_bit.  Optimize
      * each region's expression tree.  Set this region's bit in the
      * bit vector of every solid contained in the subtree.
@@ -352,8 +326,8 @@ rt_prep_parallel(struct rt_i *rtip, int ncpu)
 	/* Ensure bit numbers are unique */
 	BU_ASSERT(rtip->Regions[regp->reg_bit] == REGION_NULL);
 	rtip->Regions[regp->reg_bit] = regp;
-	rt_optim_tree(regp->reg_treetop, resp);
-	rt_solid_bitfinder(regp->reg_treetop, regp, resp);
+	rt_optim_tree(regp->reg_treetop);
+	rt_solid_bitfinder(regp->reg_treetop, regp);
 
 	if (RT_G_DEBUG&RT_DEBUG_REGIONS) {
 	    db_ck_tree(regp->reg_treetop);
@@ -491,7 +465,7 @@ rt_prep_parallel(struct rt_i *rtip, int ncpu)
 
 	plotfp = fopen("rtsolids.plot3", "wb");
 	if (plotfp != NULL) {
-	    rt_plot_all_solids(plotfp, rtip, resp);
+	    rt_plot_all_solids(plotfp);
 	    (void)fclose(plotfp);
 	}
     }
@@ -765,10 +739,7 @@ rt_plot_all_bboxes(FILE *fp, struct rt_i *rtip)
 
 
 void
-rt_plot_all_solids(
-    FILE *fp,
-    struct rt_i *rtip,
-    struct resource *UNUSED(resp))
+rt_plot_all_solids(FILE *fp)
 {
     struct soltab *stp;
 
@@ -799,11 +770,7 @@ rt_plot_all_solids(
  *  0 OK
  */
 int
-rt_vlist_solid(
-    struct bu_list *vhead,
-    struct rt_i *rtip,
-    const struct soltab *stp,
-    struct resource *UNUSED(resp))
+rt_vlist_solid(struct bu_list *vhead, struct rt_i *rtip)
 {
     struct rt_db_internal intern;
     int ret;
@@ -853,7 +820,7 @@ rt_plot_solid(
 
     BU_LIST_INIT(&vhead);
 
-    if (rt_vlist_solid(&vhead, rtip, stp, &rt_uniresource) < 0) {
+    if (rt_vlist_solid(&vhead, rtip) < 0) {
 	bu_log("rt_plot_solid(%s): rt_vlist_solid() failed\n", stp->st_name);
 	return -1; /* FAIL */
     }
@@ -879,15 +846,13 @@ rt_plot_solid(
 }
 
 
+/**
+ * Initialize semaphores for parallel raytracing and warm up the
+ * per-cpu segment/partition pools for the given cpu index.
+ */
 void
-rt_init_resource(struct resource *resp, int cpu_num, struct rt_i *rtip)
+rt_pool_cpu_init(struct rt_i *rtip, int cpu_num)
 {
-    if (!resp)
-	return;
-
-    BU_ASSERT(cpu_num >= 0);
-    BU_ASSERT(cpu_num < MAX_PSW);
-
     if (!RT_SEM_WORKER)
 	RT_SEM_WORKER = bu_semaphore_register("RT_SEM_WORKER");
     if (!RT_SEM_RESULTS)
@@ -903,167 +868,22 @@ rt_init_resource(struct resource *resp, int cpu_num, struct rt_i *rtip)
     if (!RT_SEM_TREE3)
 	RT_SEM_TREE3 = bu_semaphore_register("RT_SEM_TREE3");
 
-    if (rtip)
-	RT_CK_RTI(rtip);
-
-    if (resp == &rt_uniresource) {
-	cpu_num = 0;
-    } else {
-	if (rtip != NULL && rtip->i->rti_treetop) {
-	    /* this is a submodel */
-	    BU_ASSERT(cpu_num < (long)rtip->rti_resources.blen);
-	}
-    }
-
-    /* Note: re_randptr was removed in Phase 4; callers should
-     * initialize a_randptr on their struct application instead.
-     * Note: re_parthead removed in Phase 7; partitions now live in
-     * rt_i_internal::rti_pt_pools (pt_pool.cpp), pooled per-cpu.
-     * Note: re_seg/re_seg_blocks removed in Phase 7B; the segment
-     * freelist now lives in rt_i_internal::rti_seg_pools (seg_pool.cpp).
-     */
-
-    if (!BU_LIST_IS_INITIALIZED(&resp->re_directory_blocks.l))
-	bu_ptbl_init(&resp->re_directory_blocks, 64, "re_directory_blocks ptbl");
-
-    resp->re_cpu = cpu_num;
-    resp->re_magic = RESOURCE_MAGIC;
-
-    if (rtip == NULL)
-	return;	/* only in rt_uniresource case */
-
-    /* Pre-warm the per-cpu seg pool for this cpu on the rt_i. */
-    rt_seg_pool_init_cpu(rtip, cpu_num);
-
-    /* Pre-warm the per-cpu partition pool for this cpu on the rt_i. */
-    rt_pt_pool_init_cpu(rtip, cpu_num);
-
-    /* Ensure that this CPU's resource structure is registered in rt_i */
-    /* It may already be there when we're called from rt_clean_resource */
-    if (resp != &rt_uniresource) {
-	struct resource *ores = (struct resource *)BU_PTBL_GET(&rtip->rti_resources, cpu_num);
-	if (ores != NULL && ores != resp) {
-	    bu_log("rt_init_resource(cpu=%d) re-registering resource, had %p, new=%p\n",
-		   cpu_num,
-		   (void *)ores,
-		   (void *)resp);
-	}
-	BU_PTBL_SET(&rtip->rti_resources, cpu_num, resp);
-    }
-}
-
-
-/**
- * This method contains all the code that was formerly in
- * rt_clean_resource, except for the call to rt_init_resource().
- */
-void
-rt_clean_resource_basic(struct rt_i *rtip, struct resource *resp)
-{
-    if (rtip) {
-	RT_CK_RTI(rtip);
-    }
-    if (resp->re_magic != RESOURCE_MAGIC)
+    if (!rtip)
 	return;
+    RT_CK_RTI(rtip);
+    BU_ASSERT(cpu_num >= 0);
+    BU_ASSERT(cpu_num < MAX_PSW);
 
-    RT_CK_RESOURCE(resp);
-
-    /* Phase 7B: 'struct seg' slab pools are now owned by rt_i_internal
-     * (seg_pool.cpp).  Nothing to drain here; the per-resource seg fields
-     * were removed entirely.
-     */
-
-    /* The "struct hitmiss' guys are individually malloc()ed, and are now
-     * freed directly by NMG_FREE_HITLIST (Phase 5); no freelist here. */
-
-    /* Phase 7: 'struct partition' guys are now individually malloc()ed and
-     * freed directly via FREE_PT; no per-resource freelist to drain here. */
-
-    /* Release the state variables for 'solid pieces' (Phase 6:
-     * pieces are now owned by struct application via a_pieces;
-     * no per-resource piece data remains to clean up here).
-     */
-
-    /* invalidate the resource */
-    if (resp != &rt_uniresource)
-	resp->re_magic = 0;
-}
-
-
-/**
- * This method performs the basic resource clean, and also frees all
- * the directory entry blocks. The resource structure is not
- * re-initialized.
- *
- * DO NOT CALL THIS METHOD IF YOU ARE STILL USING THE RT_I OR DB_I
- * INSTANCES.
- */
-void
-rt_clean_resource_complete(struct rt_i *rtip, struct resource *resp)
-{
-    if (BU_LIST_IS_INITIALIZED(&resp->re_directory_blocks.l)) {
-	struct directory **dpp;
-	BU_CK_PTBL(&resp->re_directory_blocks);
-	for (BU_PTBL_FOR(dpp, (struct directory **), &resp->re_directory_blocks)) {
-	    RT_CK_DIR(*dpp);	/* Head of block will be a valid seg */
-	    bu_free((void *)(*dpp), "struct directory block");
-	}
-	bu_ptbl_free(&resp->re_directory_blocks);
-	resp->re_directory_blocks.l.forw = BU_LIST_NULL;
-	resp->re_directory_hd = NULL;
-    }
-
-    /* invalidates the resource */
-    rt_clean_resource_basic(rtip, resp);
-}
-
-
-/**
- * Deallocate the per-cpu "private" memory resources:
- *
- * segment freelist
- * partition freelist
- *
- * Note: re_boolstack and re_randptr were moved to struct application
- * in Phase 4 of the struct resource removal effort; they are no
- * longer freed here.
- *
- * Note: re_solid_bitv, re_region_ptbl, re_nmgfree, and re_tree_hd
- * were removed in Phase 5; solid bitvectors and region ptbls are now
- * freed directly at the end of each ray-shot call.
- *
- * Some care is required, as rt_uniresource may not be fully
- * initialized before it gets freed.
- *
- * Note that the resource struct's storage is not freed (it may be
- * static or otherwise allocated by a LIBRT application) but any
- * dynamic memory pointed to by it is freed.
- *
- * One exception to this is that the re_directory_hd and
- * re_directory_blocks are not touched unless there is no raytrace
- * instance, because the "directory" structures (which are really part
- * of the db_i) continue to be in use.
- */
-void
-rt_clean_resource(struct rt_i *rtip, struct resource *resp)
-{
-    rt_clean_resource_basic(rtip, resp);
-
-    /* Reinitialize pointers, to be tidy.  No storage is allocated.
-     * actually, some storage is allocated in the calls to
-     * bu_ptbl_init - JRA
-     */
-    rt_init_resource(resp, resp->re_cpu, rtip);
+    rt_seg_pool_init_cpu(rtip, cpu_num);
+    rt_pt_pool_init_cpu(rtip, cpu_num);
 }
 
 
 /**
  * Returns a zero-initialized bitv with space for at least nbits.
- * The resource pointer is accepted for API compatibility but is no
- * longer used (Phase 5: re_solid_bitv freelist removed).
  */
 struct bu_bitv *
-rt_get_solidbitv(size_t nbits, struct resource *UNUSED(resp))
+rt_get_solidbitv(size_t nbits)
 {
     return bu_bitv_new((unsigned int)nbits);
 }
@@ -1164,39 +984,6 @@ rt_clean(struct rt_i *rtip)
     }
 
     /*
-     * Clean out every cpu's "struct resource".  These are provided by
-     * the caller's application (or are defaulted to rt_uniresource)
-     * and can't themselves be freed.  rt_shootray() saved a table of
-     * them for us to use here.  rt_uniresource may or may not be in
-     * this table.
-     */
-    if (BU_LIST_MAGIC_EQUAL(&rtip->rti_resources.l, BU_PTBL_MAGIC)) {
-	struct resource **rpp;
-	BU_CK_PTBL(&rtip->rti_resources);
-	for (BU_PTBL_FOR(rpp, (struct resource **), &rtip->rti_resources)) {
-	    /* After using a submodel, some entries may be NULL
-	     * while others are not NULL
-	     */
-	    if (*rpp == NULL)
-		continue;
-
-	    /* Clean but do not free the resource struct */
-	    rt_clean_resource(rtip, *rpp);
-#if 0
-/* XXX Can't do this, or 'clean' command in RT animation script will dump core. */
-/* rt expects them to stay inited and remembered, forever. */
-/* Submodels will clean up after themselves */
-	    /* Forget remembered ptr, but keep ptbl allocated */
-	    *rpp = NULL;
-#endif
-	}
-    }
-
-    if (rt_uniresource.re_magic) {
-	rt_clean_resource(rtip, &rt_uniresource);/* Used for rt_optim_tree() */
-    }
-
-    /*
      * Re-initialize everything important.
      * This duplicates the code in rt_new_rti().
      */
@@ -1277,7 +1064,7 @@ rt_del_regtree(struct rt_i *rtip, struct region *delregp)
  * region bits have been assigned.
  */
 static void
-rt_solid_bitfinder(union tree *treep, struct region *regp, struct resource *UNUSED(resp))
+rt_solid_bitfinder(union tree *treep, struct region *regp)
 {
     union tree **sp;
     union tree **boolstack = NULL;
@@ -1366,7 +1153,6 @@ rt_find_path(struct db_i *dbip,
 	     struct directory *end,
 	     struct bu_ptbl *paths,
 	     struct db_full_path **curr_path,
-	     struct resource *resp,
 	     void *cmap)
 {
     std::unordered_map<std::string, int> *c_inst_map = (std::unordered_map<std::string, int> *)cmap;
@@ -1402,7 +1188,7 @@ rt_find_path(struct db_i *dbip,
 		}
 		comb = (struct rt_comb_internal *)intern.idb_ptr;
 		std::unordered_map<std::string, int> n_cmap;
-		rt_find_path(dbip, comb->tree, end, paths, curr_path, resp, (void *)&n_cmap);
+		rt_find_path(dbip, comb->tree, end, paths, curr_path, (void *)&n_cmap);
 		rt_db_free_internal(&intern);
 	    }
 	    break;
@@ -1411,13 +1197,13 @@ rt_find_path(struct db_i *dbip,
 	case OP_INTERSECT:
 	case OP_XOR:
 	    /* binary, process both subtrees */
-	    rt_find_path(dbip, tp->tr_b.tb_left, end, paths, curr_path, resp, cmap);
+	    rt_find_path(dbip, tp->tr_b.tb_left, end, paths, curr_path, cmap);
 	    (*curr_path)->fp_len = curr_path_index;
-	    rt_find_path(dbip, tp->tr_b.tb_right, end, paths, curr_path, resp, cmap);
+	    rt_find_path(dbip, tp->tr_b.tb_right, end, paths, curr_path, cmap);
 	    break;
 	case OP_NOT:
 	case OP_GUARD:
-	    rt_find_path(dbip, tp->tr_b.tb_left, end, paths, curr_path, resp, cmap);
+	    rt_find_path(dbip, tp->tr_b.tb_left, end, paths, curr_path, cmap);
 	    break;
 	default:
 	    bu_log("ERROR: rt_find_path(): Unrecognized OP (%d)\n", tp->tr_op);
@@ -1431,11 +1217,7 @@ rt_find_path(struct db_i *dbip,
  * resulting paths are returned in "paths"
  */
 int
-rt_find_paths(struct db_i *dbip,
-	      struct directory *start,
-	      struct directory *end,
-	      struct bu_ptbl *paths,
-	      struct resource *resp)
+rt_find_paths(struct db_i *dbip, struct directory *start, struct directory *end)
 {
     struct rt_db_internal intern;
     struct db_full_path *path;
@@ -1466,7 +1248,7 @@ rt_find_paths(struct db_i *dbip,
 
     comb = (struct rt_comb_internal *)intern.idb_ptr;
     std::unordered_map<std::string, int> c_inst_map;
-    rt_find_path(dbip, comb->tree, end, paths, &path, resp, (void *)&c_inst_map);
+    rt_find_path(dbip, comb->tree, end, paths, &path, (void *)&c_inst_map);
     rt_db_free_internal(&intern);
 
     return 0;
@@ -1522,7 +1304,6 @@ unprep_reg_start(struct db_tree_state *tsp,
 {
     if (tsp) {
 	RT_CK_RTI(tsp->ts_rtip);
-	RT_CK_RESOURCE(tsp->ts_resp);
     }
     if (pathp) RT_CK_FULL_PATH(pathp);
     if (comb) RT_CK_COMB(comb);
@@ -1546,7 +1327,6 @@ unprep_reg_end(struct db_tree_state *tsp,
 {
     if (tsp) {
 	RT_CK_RTI(tsp->ts_rtip);
-	RT_CK_RESOURCE(tsp->ts_resp);
     }
     if (pathp)
 	RT_CK_FULL_PATH(pathp);
@@ -1576,7 +1356,6 @@ unprep_leaf(struct db_tree_state *tsp,
     RT_CK_DB_INTERNAL(ip);
     rtip = tsp->ts_rtip;
     RT_CK_RTI(rtip);
-    RT_CK_RESOURCE(tsp->ts_resp);
     dp = DB_FULL_PATH_CUR_DIR(pathp);
 
     if (!dp)
@@ -1648,7 +1427,7 @@ unprep_leaf(struct db_tree_state *tsp,
  * "unprepped" list of the "objs" structure.
  */
 int
-rt_unprep(struct rt_i *rtip, struct rt_reprep_obj_list *objs, struct resource *resp)
+rt_unprep(struct rt_i *rtip)
 {
     struct bu_ptbl unprep_regions;
     struct db_full_path *path;
@@ -1686,7 +1465,7 @@ rt_unprep(struct rt_i *rtip, struct rt_reprep_obj_list *objs, struct resource *r
 		bu_ptbl_free(&objs->paths);
 		return 1;
 	    }
-	    rt_find_paths(rtip->rti_dbip, start, end, &objs->paths, resp);
+	    rt_find_paths(rtip->rti_dbip, start, end);
 	}
     }
 
@@ -1712,7 +1491,6 @@ rt_unprep(struct rt_i *rtip, struct rt_reprep_obj_list *objs, struct resource *r
 
 	RT_DBTS_INIT(tree_state);
 	tree_state->ts_dbip = rtip->rti_dbip;
-	tree_state->ts_resp = resp;
 	tree_state->ts_rtip = rtip;
 	tree_state->ts_tol = &rtip->rti_tol;
 	objs->tsp[i] = tree_state;
@@ -1860,7 +1638,7 @@ rt_unprep(struct rt_i *rtip, struct rt_reprep_obj_list *objs, struct resource *r
  * previously have been passed to "rt_unprep"
  */
 int
-rt_reprep(struct rt_i *rtip, struct rt_reprep_obj_list *objs, struct resource *resp)
+rt_reprep(struct rt_i *rtip)
 {
     size_t i;
     char **argv;
@@ -1917,7 +1695,7 @@ rt_reprep(struct rt_i *rtip, struct rt_reprep_obj_list *objs, struct resource *r
 		VMINMAX(rtip->mdl_min, rtip->mdl_max, region_min);
 		VMINMAX(rtip->mdl_min, rtip->mdl_max, region_max);
 	    }
-	    rt_solid_bitfinder(rp->reg_treetop, rp, resp);
+	    rt_solid_bitfinder(rp->reg_treetop, rp);
 	}
 	bitno++;
     }
@@ -1956,7 +1734,7 @@ rt_reprep(struct rt_i *rtip, struct rt_reprep_obj_list *objs, struct resource *r
 
 	VSETALL(bb, INFINITY);
 	VSETALL(&bb[3], -INFINITY);
-	fill_out_bsp(rtip, &rtip->rti_CutHead, resp, bb);
+	fill_out_bsp(rtip, &rtip->rti_CutHead, bb);
     }
 
     /* Phase 6: piece state lives on struct application (a_pieces) and is

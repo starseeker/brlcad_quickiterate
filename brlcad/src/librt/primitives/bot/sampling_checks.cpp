@@ -149,7 +149,6 @@ rt_bot_thin_check(struct bu_ptbl *ofaces, struct rt_bot_internal *bot, struct rt
     ap.a_miss = _tc_miss;  /* where to go on a miss */
     ap.a_overlap = _tc_overlap;  /* where to go if an overlap is found */
     ap.a_onehit = 0;
-    ap.a_resource = &rt_uniresource;
     ap.a_uptr = (void *)&tinfo;
 
     for (size_t i = 0; i < bot->num_faces; i++) {
@@ -295,7 +294,6 @@ rt_bot_csg_miss_check(struct bu_ptbl *ofaces, struct rt_bot_internal *bot, struc
     ap.a_miss = _ntc_miss;
     ap.a_overlap = _ntc_overlap;
     ap.a_onehit = 0;
-    ap.a_resource = &rt_uniresource;
     ap.a_uptr = (void *)&ninfo;
 
     for (size_t i = 0; i < bot->num_faces; i++) {

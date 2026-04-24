@@ -153,7 +153,6 @@ skewer_solids(struct ged *gedp, int argc, const char **argv, fastf_t *ray_orig, 
     ap.a_ray.magic = RT_RAY_MAGIC;
     ap.a_hit = rpt_hits;
     ap.a_miss = rpt_miss;
-    ap.a_resource = RESOURCE_NULL;
     ap.a_overlap = no_op;
     ap.a_onehit = 0;
     ap.a_user = 1;	/* Requests full paths to solids, not just basenames */

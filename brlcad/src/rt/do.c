@@ -653,7 +653,6 @@ clt_run(int cur_pixel, int last_pixel)
 
     /* Obtain fresh copy of global application struct */
     a = APP;
-    a.a_resource = &resource[cpu];
     a.a_level = 0;
 
 
@@ -1283,8 +1282,7 @@ do_ae(double azim, double elev)
 void
 res_pr(void)
 {
-    register struct resource *res;
-    register size_t i;
+    register    register size_t i;
 
     bu_log("\nResource use summary, by processor:\n");
     res = &resource[0];
