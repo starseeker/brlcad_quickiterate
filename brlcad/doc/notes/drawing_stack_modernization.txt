@@ -388,6 +388,24 @@ the format-file mechanism for invalidation; keys are plain "hash:component".
 Qt build requirement: libbv, dm-swrast, and the LoD caching tests must all
 pass; qt6-base-dev / qt6-svg-dev must be installed and -DBRLCAD_ENABLE_QT=ON.
 
+== Phase 3.5 — Migrate concurrentqueue.h based drawing data cache in qgedobol
+
+Status: PLANNED
+
+    Investigate what is involved with making minimal changes to our drawing
+    logic to be able to use the more sophisticated concurrentqueue based
+    data caching implementation from qgedobl to enhance GeomLoader.
+    See if it can be used in our code without radical redesign.  Most
+    of its data will not yet be used in the current drawing implementations,
+    but if we can rework what we do have to use the relevant data from
+    that more advanced caching design we will be well positioned for future
+    work.
+Exit criteria: We successfully cache and are able to retrieve all information
+qgedobol's cache stores, and do so without breaking our current LoD features.
+Qt build requirement: libbv, dm-swrast, and the LoD caching tests must all
+pass; qt6-base-dev / qt6-svg-dev must be installed and -DBRLCAD_ENABLE_QT=ON.
+
+
 == Phase 4 — Stand up libbsg in brlcad/ alongside libbv ==
 
 Status: PLANNED
@@ -412,17 +430,23 @@ Sub-items:
     Copy include/bsg/ and src/libbsg/ from qgedobol into brlcad/.  Add
     CMakeLists.txt entries.  libbsg links libbu, libbg, libbv (for now).
 
-  4-B: Scene-root creation at view init sites
+  4-B: Conduct a thorough review of the design and implementation of
+    the vendored libbsg looking for problems.  The qgedobol implementation
+    was highly experimental, so it should be reviewed critically and any
+    design or implementation problems addressed before we begin to wire
+    it in.
+
+  4-C: Scene-root creation at view init sites
     All view-init paths (ged_open, qged init, gsh/swrast init) call
     bsg_scene_root_create() so that every view has a root node.
 
-  4-C: libdm consumes bsg_view_traverse
+  4-D: libdm consumes bsg_view_traverse
     dm_draw_objs() in libdm is extended to call bsg_view_traverse(root) in
     addition to the existing dl_* walk.  Initially the scene root is populated
     by a shim that mirrors the existing display-list contents.  The two paths
     produce identical output; pixel-level regression confirms this.
 
-  4-D: QGED and gsh draw exclusively through bsg_view_traverse
+  4-E: QGED and gsh draw exclusively through bsg_view_traverse
     BViewState::redraw() populates the scene root rather than a flat dl list.
     The dm_swrast regression tests confirm output is unchanged.
     MGED/Archer still use dl_* (the shim keeps them working).
