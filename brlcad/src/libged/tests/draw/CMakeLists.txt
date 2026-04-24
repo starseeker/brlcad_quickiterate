@@ -234,6 +234,42 @@ endif()
 distclean(${CMAKE_CURRENT_BINARY_DIR}/moss_bsg_parity_tmp.g)
 distclean(${CMAKE_CURRENT_BINARY_DIR}/bsg_parity_cache)
 
+# Phase 4 extended: multi-view quad-pane BSG parity (per-view bsg_root independence)
+brlcad_addexec(ged_test_bsg_quad_parity "bsg_quad_parity.cpp;util.cpp" "libged;libdm;libbsg" TEST)
+if(TARGET ged_test_bsg_quad_parity)
+  foreach(tdp ${test_deps})
+    if (TARGET tdp)
+      add_dependencies(ged_test_bsg_quad_parity ${tdp})
+    endif ()
+  endforeach()
+endif(TARGET ged_test_bsg_quad_parity)
+brlcad_add_test(NAME ged_test_bsg_quad_parity
+  COMMAND ged_test_bsg_quad_parity -c "${CMAKE_CURRENT_SOURCE_DIR}")
+if(TARGET ged_test_bsg_quad_parity)
+  set_property(TEST ged_test_bsg_quad_parity
+    APPEND PROPERTY ENVIRONMENT BRLCAD_ROOT=${CMAKE_BINARY_DIR})
+endif()
+distclean(${CMAKE_CURRENT_BINARY_DIR}/moss_bsg_quad_tmp.g)
+distclean(${CMAKE_CURRENT_BINARY_DIR}/bsg_qparity_cache)
+
+# LoD cross-run cache stability (populate cache → close → reopen → same pixels)
+brlcad_addexec(ged_test_lod_crossrun "lod_crossrun.cpp;util.cpp" "libged;libdm" TEST)
+if(TARGET ged_test_lod_crossrun)
+  foreach(tdp ${test_deps})
+    if (TARGET tdp)
+      add_dependencies(ged_test_lod_crossrun ${tdp})
+    endif ()
+  endforeach()
+endif(TARGET ged_test_lod_crossrun)
+brlcad_add_test(NAME ged_test_lod_crossrun
+  COMMAND ged_test_lod_crossrun -c "${CMAKE_CURRENT_SOURCE_DIR}")
+if(TARGET ged_test_lod_crossrun)
+  set_property(TEST ged_test_lod_crossrun
+    APPEND PROPERTY ENVIRONMENT BRLCAD_ROOT=${CMAKE_BINARY_DIR})
+endif()
+distclean(${CMAKE_CURRENT_BINARY_DIR}/moss_lod_cr_tmp.g)
+distclean(${CMAKE_CURRENT_BINARY_DIR}/lod_crossrun_cache)
+
 cmakefiles(
   README
   empty.png
@@ -241,7 +277,10 @@ cmakefiles(
   moss.png
   rook.g
   bsg_parity.cpp
+  bsg_quad_parity.cpp
+  lod_crossrun.cpp
   util.cpp
+  scripts/verify_main_parity.sh
   ${basic_view_test_ctrls}
   ${faceplate_test_ctrls}
   ${lod_test_ctrls}
