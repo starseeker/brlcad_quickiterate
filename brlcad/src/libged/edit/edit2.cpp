@@ -54,7 +54,7 @@
 
 #include "bu/cmd.h"
 #include "bu/opt.h"
-#include "bu/rand.h"
+#include "bn/rand.h"
 
 #include "../ged_private.h"
 #include "../dbi.h"
@@ -447,15 +447,24 @@ ged_edit2_core(struct ged *gedp, int argc, const char *argv[])
 	}
     }
 
-    /* With no geometry or command found yet check if first arg is an
-     * option — if so, help text is appropriate */
+    /* With no geometry or command found yet — all remaining tokens are
+     * candidates for options.  Parse them all: if -h is among them, print
+     * help and return OK; otherwise report the first token as invalid. */
     if (geom_pos == INT_MAX && cmd_pos == INT_MAX) {
-	if (!maybe_opts) {
-	    bu_vls_printf(gedp->ged_result_str,
-		"Invalid geometry specifier: %s\n", argv[0]);
-	} else {
+	if (maybe_opts) {
+	    struct bu_vls opterrs = BU_VLS_INIT_ZERO;
+	    bu_opt_parse(&opterrs, argc, argv, d);
+	    bu_vls_free(&opterrs);
+	    if (help) {
+		_ged_subcmd2_help(gedp, (struct bu_opt_desc *)d, edit_cmds,
+		    "edit", bargs_help, 0, NULL);
+		return BRLCAD_OK;
+	    }
 	    _ged_subcmd2_help(gedp, (struct bu_opt_desc *)d, edit_cmds,
 		"edit", bargs_help, 0, NULL);
+	} else {
+	    bu_vls_printf(gedp->ged_result_str,
+		"Invalid geometry specifier: %s\n", argv[0]);
 	}
 	return BRLCAD_ERROR;
     }
