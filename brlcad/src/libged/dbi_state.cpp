@@ -30,6 +30,7 @@
 #include "common.h"
 
 #include <algorithm>
+#include <fstream>
 #include <map>
 #include <mutex>
 #include <condition_variable>
@@ -61,9 +62,15 @@ extern "C" int  csg_wireframe_update(struct bv_scene_obj *vo, struct bview *v, i
 // Subdirectory in BRL-CAD cache to Dbi state data
 #define DBI_CACHEDIR ".Dbi"
 
+/* On-disk format version.  Increment whenever the binary layout of any cached
+ * payload changes (new component type added, struct layout changed, etc.).
+ * DbiState::DbiState() reads BU_DIR_CACHE/.Dbi/format; a mismatch clears the
+ * entire .Dbi tree via bu_dirclear() before new per-file caches are opened. */
+#define DBI_CACHE_FORMAT_VERSION 1
+
 /* Cache component names for per-object attribute data.
- * Keys are constructed as "hash:component".
- * Changing any of these requires clearing existing caches. */
+ * Keys are plain "hash:component" strings.
+ * Changing any of these requires incrementing DBI_CACHE_FORMAT_VERSION. */
 #define CACHE_OBJ_BOUNDS "bb"
 #define CACHE_REGION_ID "rid"
 #define CACHE_REGION_FLAG "rf"
@@ -71,13 +78,10 @@ extern "C" int  csg_wireframe_update(struct bv_scene_obj *vo, struct bview *v, i
 #define CACHE_COLOR "c"
 
 // Build a cache lookup key from an object hash and component name.
-// A "v1:" prefix is included so that a schema change can be detected
-// per-namespace in future by bumping the prefix, rather than clearing
-// the entire cache directory.
 static inline std::string
 dbi_cache_key(unsigned long long hash, const char *component)
 {
-    return std::string("v1:") + std::to_string(hash) + ":" + std::string(component);
+    return std::to_string(hash) + ":" + std::string(component);
 }
 
 
@@ -200,7 +204,7 @@ populate_walk_tree(union tree *tp, void *d, int subtract_skip, int p_op,
 
 /* ---- Phase 3-C: GeomLoader implementation --------------------------- */
 
-// OBB cache component name.  Versioned key: "v1:<hash>:obb"
+// OBB cache component name.  Key: "hash:obb"
 #define CACHE_OBJ_OBB "obb"
 
 // Serialized OBB record: center (3 doubles) + 3 extent vectors (3 doubles each)
@@ -249,7 +253,7 @@ GeomLoader::drain_geom_results()
 	return 0;
 
     for (const ObbResult &r : done) {
-	std::string key = std::string("v1:") + std::to_string(r.hash) + ":" + std::string(CACHE_OBJ_OBB);
+	std::string key = std::to_string(r.hash) + ":" + std::string(CACHE_OBJ_OBB);
 	ObbRecord rec;
 	rec.center[0] = r.obb_center[X]; rec.center[1] = r.obb_center[Y]; rec.center[2] = r.obb_center[Z];
 	rec.e1[0] = r.obb_extent1[X]; rec.e1[1] = r.obb_extent1[Y]; rec.e1[2] = r.obb_extent1[Z];
@@ -269,7 +273,7 @@ GeomLoader::get_obb(unsigned long long hash,
 {
     if (!hash || !cache_)
 	return false;
-    std::string key = std::string("v1:") + std::to_string(hash) + ":" + std::string(CACHE_OBJ_OBB);
+    std::string key = std::to_string(hash) + ":" + std::string(CACHE_OBJ_OBB);
     void *data = NULL;
     size_t dsize = bu_cache_get(&data, key.c_str(), cache_, NULL);
     if (dsize != sizeof(ObbRecord) || !data) {
@@ -346,6 +350,31 @@ DbiState::DbiState(struct ged *ged_p)
 
     // Set up cache
     {
+	// Check the on-disk format version before opening any per-file cache.
+	// If it doesn't match DBI_CACHE_FORMAT_VERSION, nuke the entire .Dbi
+	// tree so stale entries from old schema don't accumulate.
+	{
+	    char fpath[MAXPATHLEN];
+	    bu_dir(fpath, MAXPATHLEN, BU_DIR_CACHE, DBI_CACHEDIR, "format", NULL);
+	    long disk_fmt = -1;
+	    {
+		std::ifstream fmt_file(fpath);
+		if (fmt_file.is_open())
+		    fmt_file >> disk_fmt;
+	    }
+	    if (disk_fmt > 0 && disk_fmt != DBI_CACHE_FORMAT_VERSION) {
+		char ddir[MAXPATHLEN];
+		bu_dir(ddir, MAXPATHLEN, BU_DIR_CACHE, DBI_CACHEDIR, NULL);
+		bu_log("Old dbi cache version (%ld) found at %s - clearing\n", disk_fmt, fpath);
+		bu_dirclear((const char *)ddir);
+	    }
+	    FILE *fp = fopen(fpath, "w");
+	    if (fp) {
+		fprintf(fp, "%d\n", DBI_CACHE_FORMAT_VERSION);
+		fclose(fp);
+	    }
+	}
+
 	struct bu_vls fname = BU_VLS_INIT_ZERO;
 	bu_vls_sprintf(&fname, "%s", bu_path_normalize(dbip->dbi_filename));
 	unsigned long long fhash = bu_data_hash(bu_vls_cstr(&fname), bu_vls_strlen(&fname)*sizeof(char));

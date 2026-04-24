@@ -330,9 +330,8 @@ Today there are two on-disk LMDB users:
                                color_inherit, color per .g solid
 
 After Phase 0, dbi_state.cpp uses bu_cache.  libbv/lod.cpp still uses raw
-LMDB.  Phase 3 migrates lod.cpp to bu_cache, restores the on-disk format-version
-sentinel that guards lod.cpp's cache, introduces a version-prefixed key scheme
-for dbi_state.cpp's cache, and adds a background OBB worker.
+LMDB.  Phase 3 migrates lod.cpp to bu_cache, gives both caches a consistent
+format-file invalidation mechanism, and adds a background OBB worker.
 
 Sub-items:
 
@@ -342,43 +341,34 @@ Sub-items:
     become bu_cache_* calls.  Remove LMDB_LIBRARIES from libbv CMakeLists.txt.
     Reference: qgedobol src/libbsg/lod.cpp (already migrated).
 
-  3-B: Cache invalidation / versioning                             [DONE]
-    Two different mechanisms are used, one per cache owner:
+  3-B: Cache invalidation via format files                         [DONE]
+    Both cache owners use the same mechanism: a plain-text integer version
+    file in the cache root directory.  On startup, if the integer in the file
+    doesn't match the compile-time constant the entire cache directory is
+    cleared via bu_dirclear() before new caches are opened.  Cache keys use
+    plain "hash:component" strings with no embedded version prefix.
 
     lod.cpp (POPLoD cache):
-      The pre-existing CACHE_CURRENT_FORMAT / format-file mechanism is
-      retained and works independently of LMDB vs. bu_cache.  On every
-      call to bv_mesh_lod_context_create() the file
-        BU_DIR_CACHE/.POPLoD/format
-      is read; if the integer stored there does not match CACHE_CURRENT_FORMAT
-      the entire .POPLoD tree is cleared via bu_dirclear() before new caches
-      are opened.  CACHE_CURRENT_FORMAT was bumped from 1 → 2 to force a
-      clean slate after the LMDB→bu_cache migration.  LOD cache keys use
-      the plain "hash:component" scheme with no embedded version prefix;
-      the format file is the sole invalidation mechanism.
+      File: BU_DIR_CACHE/.POPLoD/format
+      Constant: CACHE_CURRENT_FORMAT (bumped 1 → 2 to force a clean slate
+      after the LMDB→bu_cache migration in 3-A).
+      Checked in: bv_mesh_lod_context_create().
 
     dbi_state.cpp (DBI cache, dcache):
-      All five existing payload keys (bb, rid, rf, if, c) and the new OBB
-      key are constructed via dbi_cache_key(hash, component), which prepends
-      a "v1:" prefix: "v1:hash:component".  When the schema changes in a
-      future phase the prefix is bumped ("v2:…"); stale entries under the old
-      prefix are orphaned (harmless; the data is recomputed on next access).
-      There is no separate format file for dcache because the prefix scheme
-      provides per-namespace discrimination without a whole-directory nuke.
+      File: BU_DIR_CACHE/.Dbi/format
+      Constant: DBI_CACHE_FORMAT_VERSION (starts at 1).
+      Checked in: DbiState::DbiState() before bu_cache_open().
+      Covers all six payload keys: bb, rid, rf, if, c, obb.
 
-    Design rationale for the divergence:
-      The .POPLoD format file predates LMDB and has always been the designed
-      whole-cache invalidation mechanism for lod.cpp.  A key-prefix scheme
-      was considered as a replacement but would leave orphaned disk entries
-      accumulating indefinitely without a corresponding cleanup path.
-      The dbi_state.cpp cache is new (Phase 0) and has no prior format file;
-      the key-prefix scheme was chosen from the start and is sufficient there
-      because the five DBI payloads are small and quickly recomputed.
+    When a payload's binary layout changes, or a payload type is added or
+    removed, only the relevant format-version constant needs to be bumped;
+    the next startup automatically wipes and rebuilds the entire cache
+    directory for that cache owner.  No orphaned entries accumulate.
 
   3-C: Background OBB computation via GeomLoader                   [DONE]
     Introduce a GeomLoader worker (based on the qgedobol DrawPipeline concept)
     that computes OBBs for each solid in the background.  Results are stored in
-    dcache (key "v1:hash:obb") and made available to BViewState via a
+    dcache (key "hash:obb") and made available to BViewState via a
     drain_geom_results() pump.  Current OBB computation is a trivial
     axis-aligned placeholder; a PCA-based OBB can replace it later.
     GeomLoader declared in dbi.h, implemented in dbi_state.cpp.
@@ -393,9 +383,8 @@ Sub-items:
     Reference: qgedobol doc/TODO.qged-stack.md §7.4 (fully validated there).
 
 Exit criteria: a new cached payload (OBB) can be added in one place and is
-consumed by the draw path without changes to bv_* headers.  The lod.cpp cache
-is versioned via the format-file mechanism; the dbi cache is versioned via
-key prefixes.
+consumed by the draw path without changes to bv_* headers.  Both caches use
+the format-file mechanism for invalidation; keys are plain "hash:component".
 Qt build requirement: libbv, dm-swrast, and the LoD caching tests must all
 pass; qt6-base-dev / qt6-svg-dev must be installed and -DBRLCAD_ENABLE_QT=ON.
 

@@ -408,6 +408,7 @@ public:
 
 private:
     void worker();
+    void stop();
 
     struct bu_cache         *cache_    = NULL;
     std::thread              worker_thread_;
