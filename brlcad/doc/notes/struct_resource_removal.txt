@@ -261,18 +261,50 @@ Phase 7 - Seg/partition freelists (A, B)  [DONE]
 Last and hardest.  At this point struct resource holds only these
 two freelists plus re_cpu.
 
-Partition freelist (B) DONE:
-  - re_parthead, re_partlen, re_partget, re_partfree removed.
-  - GET_PT / GET_PT_INIT / RT_DUP_PT now always BU_ALLOC + bu_ptbl_init,
-    ignoring the resource pointer.
-  - FREE_PT now calls bu_ptbl_free + bu_free directly, ignoring the
-    resource pointer.
-  - RT_FREE_PT_LIST composes from the updated FREE_PT.
-  - shoot.c and bundle.c uninitialized-resource guards changed from
-    !BU_LIST_IS_INITIALIZED(&resp->re_parthead) to
-    resp->re_magic != RESOURCE_MAGIC.
-  - rt_clean_resource_basic: partition drain loop removed.
-  - do.c: partition stats log line removed.
+Partition freelist (B) DONE (Phase 7C):
+  Decision: move the pool into rt_i_internal instead of direct
+  bu_malloc/bu_free (Phase 7 originally replaced the freelist with
+  direct allocation; Phase 7C reintroduces pooling using the same
+  unordered_map pattern as Phase 7B for segs).
+
+  - ``struct rt_pt_pool`` defined privately in librt_private.h.
+    Contains: re_pt (BU_LIST head of freelist), re_ptlen, re_ptget,
+    re_ptfree.  No slab allocator: each struct partition embeds a
+    bu_ptbl (pt_seglist) whose backing store survives round-trips
+    via bu_ptbl_reset(), so allocation savings come from reusing
+    both the struct partition and the pt_seglist buffer.
+
+  - ``rt_i_internal::rti_pt_pools`` added as ``void *``; stored as
+    ``std::unordered_map<int, struct rt_pt_pool *> *`` (C++ type
+    hidden behind void * for C compatibility).  Allocated by
+    rt_i_internal_create(), freed by rt_i_internal_destroy() via
+    rt_pt_pool_map_create/destroy() in the new pt_pool.cpp.
+
+  - New file src/librt/pt_pool.cpp contains:
+      rt_pt_pool_map_create()   -- allocate the map
+      rt_pt_pool_map_destroy()  -- free all pools and the map
+      rt_pt_pool_init_cpu()     -- pre-warm pool for one cpu slot
+      rt_pt_alloc(ap)           -- RT_EXPORT: alloc one partition
+      rt_pt_free(pp, ap)        -- RT_EXPORT: return one partition
+      rt_pt_free_list(headp, ap)-- RT_EXPORT: bulk return to pool
+
+  - GET_PT / GET_PT_INIT / RT_DUP_PT / FREE_PT / RT_FREE_PT_LIST
+    macros in include/rt/ray_partition.h now take
+    ``struct application *ap`` (was ``struct rt_i *ip`` and
+    ``struct resource *res``).  The macros call rt_pt_alloc /
+    rt_pt_free / rt_pt_free_list.
+
+  - All call sites in bool.c, shoot.c, bundle.c, vshoot.c,
+    fortray.c, viewg3.c updated.
+
+  - ``struct rt_pt_pool`` is NOT in any public header; the public
+    API is the three thin functions.
+
+  - rt_init_resource calls rt_pt_pool_init_cpu to pre-warm the slot
+    before any shooting begins.
+
+  Documented rule: never switch ap->a_rt_i while a shootray is in
+  flight on that application.  The pool is tied to the rt_i.
 
 Segment freelist (A) DONE (Phase 7B):
   Decision: move the pool into rt_i_internal instead of struct application,

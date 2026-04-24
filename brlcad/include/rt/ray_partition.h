@@ -40,6 +40,8 @@
 
 __BEGIN_DECLS
 
+struct application; /* forward declaration */
+
 /**
  * Partitions of a ray.  Passed from rt_shootray() into user's a_hit()
  * function.
@@ -78,42 +80,37 @@ struct partition {
 #define RT_PT_MIDDLE_LEN(p) \
     (((char *)&(p)->RT_PT_MIDDLE_END) - ((char *)&(p)->RT_PT_MIDDLE_START))
 
-#define RT_DUP_PT(ip, new, old, res) { \
-	GET_PT(ip, new, res); \
+#define RT_DUP_PT(new, old, ap) { \
+	GET_PT(new, ap); \
 	memcpy((char *)(&(new)->RT_PT_MIDDLE_START), (char *)(&(old)->RT_PT_MIDDLE_START), RT_PT_MIDDLE_LEN(old)); \
 	(new)->pt_overlap_reg = NULL; \
 	bu_ptbl_cat(&(new)->pt_seglist, &(old)->pt_seglist);  }
 
 /** Clear out the pointers, empty the hit list */
-#define GET_PT_INIT(ip, p, res) {\
-	GET_PT(ip, p, res); \
+#define GET_PT_INIT(p, ap) {\
+	GET_PT(p, ap); \
 	memset(((char *) &(p)->RT_PT_MIDDLE_START), 0, RT_PT_MIDDLE_LEN(p)); }
 
-#define GET_PT(ip, p, res) { \
-	BU_ALLOC((p), struct partition); \
-	(p)->pt_magic = PT_MAGIC; \
-	bu_ptbl_init(&(p)->pt_seglist, 42, "pt_seglist ptbl"); \
+/**
+ * Allocate one struct partition from the per-cpu pool owned by
+ * ap->a_rt_i.
+ */
+#define GET_PT(p, ap) { \
+	(p) = rt_pt_alloc(ap); \
     }
 
-#define FREE_PT(p, res) { \
-	if ((p)->pt_overlap_reg) { \
-	    bu_free((void *)((p)->pt_overlap_reg), "pt_overlap_reg");\
-	    (p)->pt_overlap_reg = NULL; \
-	} \
-	bu_ptbl_free(&(p)->pt_seglist); \
-	bu_free((void *)(p), "struct partition"); \
-    }
+/**
+ * Return struct partition p to the per-cpu pool owned by ap->a_rt_i.
+ */
+#define FREE_PT(p, ap) \
+    rt_pt_free((p), (ap))
 
-#define RT_FREE_PT_LIST(_headp, _res) { \
-	register struct partition *_pp, *_zap; \
-	for (_pp = (_headp)->pt_forw; _pp != (_headp);) { \
-	    _zap = _pp; \
-	    _pp = _pp->pt_forw; \
-	    BU_LIST_DEQUEUE((struct bu_list *)(_zap)); \
-	    FREE_PT(_zap, _res); \
-	} \
-	(_headp)->pt_forw = (_headp)->pt_back = (_headp); \
-    }
+/**
+ * Return all partitions on list _headp to the per-cpu pool owned by
+ * ap->a_rt_i.  The sentinel head is left pointing to itself.
+ */
+#define RT_FREE_PT_LIST(_headp, ap) \
+    rt_pt_free_list((_headp), (ap))
 
 /** Insert "new" partition in front of "old" partition.  Note order change */
 #define INSERT_PT(_new, _old) BU_LIST_INSERT((struct bu_list *)_old, (struct bu_list *)_new)
@@ -148,6 +145,27 @@ struct partition_bundle {
     struct application  *ap;
 };
 
+
+/**
+ * Allocate one struct partition from the per-cpu pool owned by
+ * ap->a_rt_i.  Sets pt_magic to PT_MAGIC; pt_overlap_reg is NULL and
+ * pt_seglist is reset (count=0, backing store preserved for reuse).
+ */
+RT_EXPORT extern struct partition *rt_pt_alloc(struct application *ap);
+
+/**
+ * Return one struct partition to the per-cpu pool owned by
+ * ap->a_rt_i.  Frees pt_overlap_reg if non-NULL; resets pt_seglist
+ * without freeing its backing store.
+ */
+RT_EXPORT extern void rt_pt_free(struct partition *pp, struct application *ap);
+
+/**
+ * Return all partitions on the list headed by headp to the pool owned
+ * by ap->a_rt_i.  headp is the sentinel list head, not a real node;
+ * it is left pointing to itself (empty list) on return.
+ */
+RT_EXPORT extern void rt_pt_free_list(struct partition *headp, struct application *ap);
 
 /**
  * Return the length of a partition linked list.

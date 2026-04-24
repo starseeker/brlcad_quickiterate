@@ -89,7 +89,7 @@ bool_weave0seg(struct seg *segp, struct partition *PartHdp, struct application *
 
     /* See if this segment ends before start of first partition */
     if (segp->seg_out.hit_dist < PartHdp->pt_forw->pt_inhit->hit_dist) {
-	GET_PT_INIT(rtip, pp, res);
+	GET_PT_INIT(pp, ap);
 	bu_ptbl_ins_unique(&pp->pt_seglist, (long *)segp);
 	pp->pt_inseg = segp;
 	pp->pt_inhit = &segp->seg_in;
@@ -130,7 +130,7 @@ bool_weave0seg(struct seg *segp, struct partition *PartHdp, struct application *
 	    segp->seg_out.hit_dist < pp->pt_forw->pt_inhit->hit_dist) {
 	    struct partition *npp;
 	    if (RT_G_DEBUG&RT_DEBUG_PARTITION) bu_log("0-len segment after existing partition, but before next partition.\n");
-	    GET_PT_INIT(rtip, npp, res);
+	    GET_PT_INIT(npp, ap);
 	    bu_ptbl_ins_unique(&npp->pt_seglist, (long *)segp);
 	    npp->pt_inseg = segp;
 	    npp->pt_inhit = &segp->seg_in;
@@ -251,7 +251,7 @@ rt_boolweave(struct seg *out_hd, struct seg *in_hd, struct partition *PartHdp, s
 	 */
 	if (PartHdp->pt_forw == PartHdp) {
 	    /* No partitions yet, simple! */
-	    GET_PT_INIT(rtip, pp, res);
+	    GET_PT_INIT(pp, ap);
 	    bu_ptbl_ins_unique(&pp->pt_seglist, (long *)segp);
 	    pp->pt_inseg = segp;
 	    pp->pt_inhit = &segp->seg_in;
@@ -276,7 +276,7 @@ rt_boolweave(struct seg *out_hd, struct seg *in_hd, struct partition *PartHdp, s
 		}
 	    }
 
-	    GET_PT_INIT(rtip, newpp, res);
+	    GET_PT_INIT(newpp, ap);
 	    bu_ptbl_ins_unique(&newpp->pt_seglist, (long *)segp);
 	    newpp->pt_inseg = segp;
 	    newpp->pt_inhit = &segp->seg_in;
@@ -296,7 +296,7 @@ rt_boolweave(struct seg *out_hd, struct seg *in_hd, struct partition *PartHdp, s
 		       PartHdp->pt_back->pt_inhit->hit_dist,
 		       PartHdp->pt_back->pt_outhit->hit_dist);
 	    }
-	    GET_PT_INIT(rtip, pp, res);
+	    GET_PT_INIT(pp, ap);
 	    bu_ptbl_ins_unique(&pp->pt_seglist, (long *)segp);
 	    pp->pt_inseg = segp;
 	    pp->pt_inhit = &segp->seg_in;
@@ -377,7 +377,7 @@ rt_boolweave(struct seg *out_hd, struct seg *in_hd, struct partition *PartHdp, s
 		     *	     SSSS...
 		     *	newpp|pp
 		     */
-		    RT_DUP_PT(rtip, newpp, pp, res);
+		    RT_DUP_PT(newpp, pp, ap);
 		    /* new partition is the span before seg joins partition */
 		    pp->pt_inseg = segp;
 		    pp->pt_inhit = &segp->seg_in;
@@ -431,7 +431,7 @@ rt_boolweave(struct seg *out_hd, struct seg *in_hd, struct partition *PartHdp, s
 		     *	     PPPPP...
 		     *	newpp|pp
 		     */
-		    GET_PT_INIT(rtip, newpp, res);
+		    GET_PT_INIT(newpp, ap);
 		    bu_ptbl_ins_unique(&newpp->pt_seglist, (long *)segp);
 		    newpp->pt_inseg = lastseg;
 		    newpp->pt_inhit = lasthit;
@@ -538,7 +538,7 @@ rt_boolweave(struct seg *out_hd, struct seg *in_hd, struct partition *PartHdp, s
 		     *	SSSSSS
 		     *	newpp| pp
 		     */
-		    RT_DUP_PT(rtip, newpp, pp, res);
+		    RT_DUP_PT(newpp, pp, ap);
 		    /* new partition contains segment */
 		    bu_ptbl_ins_unique(&newpp->pt_seglist, (long *)segp);
 		    newpp->pt_outseg = segp;
@@ -568,7 +568,7 @@ rt_boolweave(struct seg *out_hd, struct seg *in_hd, struct partition *PartHdp, s
 	     */
 	    if (pp == PartHdp) {
 		if (RT_G_DEBUG&RT_DEBUG_PARTITION) bu_log("seg extends beyond partition end\n");
-		GET_PT_INIT(rtip, newpp, res);
+		GET_PT_INIT(newpp, ap);
 		bu_ptbl_ins_unique(&newpp->pt_seglist, (long *)segp);
 		newpp->pt_inseg = lastseg;
 		newpp->pt_inhit = lasthit;
@@ -827,7 +827,7 @@ bool_plate_vol_overlap(struct region **fr1, struct region **fr2, struct partitio
 	if (depth < 6.35) {
 	    /* Delete previous partition from list */
 	    DEQUEUE_PT(prev);
-	    FREE_PT(prev, ap->a_resource);
+	    FREE_PT(prev, ap);
 
 	    /* plate mode fr1 wins this partition */
 	    *fr2 = REGION_NULL;
@@ -1555,7 +1555,7 @@ rt_boolfinal(struct partition *InputHdp, struct partition *FinalHdp, fastf_t sta
 	    zap_pp = pp;
 	    pp = pp->pt_forw;
 	    DEQUEUE_PT(zap_pp);
-	    FREE_PT(zap_pp, ap->a_resource);
+	    FREE_PT(zap_pp, ap);
 	    continue;
 	}
 
@@ -1730,7 +1730,7 @@ rt_boolfinal(struct partition *InputHdp, struct partition *FinalHdp, fastf_t sta
 		zap_pp = pp;
 		pp = pp->pt_forw;		/* onwards! */
 		DEQUEUE_PT(zap_pp);
-		FREE_PT(zap_pp, ap->a_resource);
+		FREE_PT(zap_pp, ap);
 		continue;
 	    }
 	}
@@ -1785,7 +1785,7 @@ rt_boolfinal(struct partition *InputHdp, struct partition *FinalHdp, fastf_t sta
 		bu_ptbl_ins_unique(&lastpp->pt_seglist, (long *)newpp->pt_inseg);
 		bu_ptbl_ins_unique(&lastpp->pt_seglist, (long *)newpp->pt_outseg);
 
-		FREE_PT(newpp, ap->a_resource);
+		FREE_PT(newpp, ap);
 		newpp = lastpp;
 	    } else {
 		APPEND_PT(newpp, lastpp);
@@ -1974,7 +1974,7 @@ rt_rebuild_overlaps(struct partition *PartHdp, struct application *ap, int rebui
 			/* create a new partition, link it to the end
 			 * of the current pp, and add it to the open
 			 * list */
-			RT_DUP_PT(ap->a_rt_i, new_pp, pp, ap->a_resource)
+			RT_DUP_PT(new_pp, pp, ap)
 			    new_pp->pt_regionp = pp_reg;
 			new_pp->pt_overlap_reg = (struct region **)NULL;
 			BU_LIST_APPEND((struct bu_list *)curr, (struct bu_list *)new_pp)

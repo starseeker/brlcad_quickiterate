@@ -711,10 +711,6 @@ void view_cleanup(struct rt_i *UNUSED(rtip)) {}
 void
 part_compact(register struct application *ap, register struct partition *PartHeadp, fastf_t tolerance)
 {
-    /* Phase 7: FREE_PT no longer uses the resource argument; suppress
-     * the resulting "unused parameter" diagnostic. */
-    (void)ap;
-
     fastf_t gap;
     struct partition *pp;
     struct partition *nextpp;
@@ -728,7 +724,7 @@ part_compact(register struct application *ap, register struct partition *PartHea
 	comp_thickness = pp->pt_outhit->hit_dist - pp->pt_inhit->hit_dist;
 	if (comp_thickness <= 0.0) {
 	    DEQUEUE_PT(pp);
-	    FREE_PT(pp, ap->a_resource);
+	    FREE_PT(pp, ap);
 	}
 	pp = nextpp;
     }
@@ -771,7 +767,7 @@ part_compact(register struct application *ap, register struct partition *PartHea
 	 * Referenced segments, etc., will be freed by rt_shootray().
 	 */
 	DEQUEUE_PT(nextpp);
-	FREE_PT(nextpp, ap->a_resource);
+	FREE_PT(nextpp, ap);
 
 	goto top;
     }
