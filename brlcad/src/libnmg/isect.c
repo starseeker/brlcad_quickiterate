@@ -2665,9 +2665,6 @@ nmg_class_ray_vs_shell(struct nmg_ray *rp, const struct shell *s, const int in_o
 	       V3ARGS(rp->r_pt), V3ARGS(rp->r_dir));
     }
 
-    if (!BU_LIST_IS_INITIALIZED(&re_nmgfree))
-	BU_LIST_INIT(&re_nmgfree);
-
     rd.rd_m = nmg_find_model(&s->l.magic);
 
     /* If there is a manifolds list attached to the model structure
@@ -2751,16 +2748,6 @@ nmg_class_ray_vs_shell(struct nmg_ray *rp, const struct shell *s, const int in_o
     }
 
     NMG_FREE_HITLIST(&rd.rd_hit);
-
-    /* free the hitmiss freelist, filled during NMG_FREE_HITLIST */
-    if (BU_LIST_IS_INITIALIZED(&re_nmgfree)) {
-	struct nmg_hitmiss *hitp;
-	while (BU_LIST_WHILE(hitp, nmg_hitmiss, &re_nmgfree)) {
-	    NMG_CK_HITMISS(hitp);
-	    BU_LIST_DEQUEUE((struct bu_list *)hitp);
-	    bu_free((void *)hitp, "struct nmg_hitmiss");
-	}
-    }
 
     /* free the hitmiss table */
     bu_free((char *)rd.hitmiss, "free nmg geom hit list");

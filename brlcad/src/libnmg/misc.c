@@ -40,11 +40,29 @@
 
 /* externed */
 uint32_t nmg_debug;
-struct bu_list re_nmgfree;     /**< @brief  head of NMG hitmiss freelist */
 
 void (*nmg_vlblock_anim_upcall)(void);
 
 void (*nmg_mged_debug_display_hack)(void);
+
+
+/**
+ * Free all nmg_hitmiss structs in the given list.
+ * Phase 5: replaces the re_nmgfree global freelist; structs are freed
+ * directly rather than pooled.
+ */
+void
+nmg_free_hitlist(struct bu_list *p)
+{
+    struct nmg_hitmiss *hitp;
+
+    BU_CK_LIST_HEAD(p);
+    while (BU_LIST_WHILE(hitp, nmg_hitmiss, p)) {
+	NMG_CK_HITMISS(hitp);
+	BU_LIST_DEQUEUE(&hitp->l);
+	bu_free(hitp, "nmg_hitmiss");
+    }
+}
 
 int
 nmg_snurb_calc_lu_uv_orient(const struct loopuse *lu)

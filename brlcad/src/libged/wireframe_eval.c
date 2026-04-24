@@ -1810,8 +1810,6 @@ draw_m3(struct bv_scene_obj *s)
     RT_APPLICATION_INIT(dgcdp.ap);
     dgcdp.ap->a_resource = &rt_uniresource;
     rt_uniresource.re_magic = RESOURCE_MAGIC;
-    if (!BU_LIST_IS_INITIALIZED(&rt_uniresource.re_nmgfree))
-	BU_LIST_INIT(&rt_uniresource.re_nmgfree);
 
     bu_ptbl_init(&dgcdp.leaf_list, 8, "leaf_list");
 
