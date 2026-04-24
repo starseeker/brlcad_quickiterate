@@ -51,7 +51,7 @@ create_segment(double in_dist, double out_dist, struct application *ap)
 static void
 free_segment(struct seg* segment, struct application *ap)
 {
-    RT_FREE_SEG(segment, ap)
+    RT_FREE_SEG(segment, ap);
 }
 
 
