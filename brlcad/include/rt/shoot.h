@@ -145,11 +145,9 @@ RT_EXPORT extern int rt_shootray_bundle(struct application *ap, struct xray *ray
 /**
  * Reset all ray-shooting counters in rtip->stats to zero.
  *
- * Zeros the nine per-campaign counters (rti_nrays, nmiss_model,
- * nshots, nmiss, nhits, nmiss_tree, nmiss_solid, ndup,
- * nempty_cells) so that a new shooting campaign starts from a clean
- * baseline.  The geometry counts (nregions, nsolids) and
- * space-partition statistics are not affected.
+ * Zeros the per-campaign statistics counters so that a new shooting
+ * campaign starts from a clean baseline.  The geometry counts
+* (nregions, nsolids) and space-partition statistics are not affected.
  *
  * Call this before launching workers for each new frame / campaign
  * whenever per-campaign statistics are needed.
