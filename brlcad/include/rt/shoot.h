@@ -143,6 +143,21 @@ RT_EXPORT extern struct partition *rt_shootray_simple(struct application *ap,
 RT_EXPORT extern int rt_shootray_bundle(struct application *ap, struct xray *rays, int nrays);
 
 /**
+ * Reset all ray-shooting counters in rtip->stats to zero.
+ *
+ * Zeros the nine per-campaign counters (rti_nrays, nmiss_model,
+ * nshots, nmiss, nhits, nmiss_tree, nmiss_solid, ndup,
+ * nempty_cells) so that a new shooting campaign starts from a clean
+ * baseline.  The geometry counts (nregions, nsolids) and
+ * space-partition statistics are not affected.
+ *
+ * Call this before launching workers for each new frame / campaign
+ * whenever per-campaign statistics are needed.
+ */
+RT_EXPORT extern void rt_zero_ray_stats(struct rt_i *rtip);
+
+
+/**
  * DEPRECATED - statistics are now incremented directly on rtip->stats
  * using C11 atomic operations during rt_shootray().  This function is
  * a no-op retained for source compatibility; it will be removed in a

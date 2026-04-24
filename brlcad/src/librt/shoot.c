@@ -1506,6 +1506,22 @@ rt_cell_n_on_ray(register struct application *ap, int n)
 
 
 void
+rt_zero_ray_stats(struct rt_i *rtip)
+{
+    RT_CK_RTI(rtip);
+    rtip->stats.rti_nrays   = 0;
+    rtip->stats.nmiss_model = 0;
+    rtip->stats.nshots      = 0;
+    rtip->stats.nmiss       = 0;
+    rtip->stats.nhits       = 0;
+    rtip->stats.nmiss_tree  = 0;
+    rtip->stats.nmiss_solid = 0;
+    rtip->stats.ndup        = 0;
+    rtip->stats.nempty_cells = 0;
+}
+
+
+void
 rt_zero_res_stats(struct resource *resp)
 {
     /* DEPRECATED: statistics are now maintained on rtip->stats
