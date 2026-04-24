@@ -1051,13 +1051,7 @@ do_frame(int framenumber)
     }
 #endif
 
-    rtip->stats.nshots = 0;
-    rtip->stats.nmiss_model = 0;
-    rtip->stats.nmiss_tree = 0;
-    rtip->stats.nmiss_solid = 0;
-    rtip->stats.nmiss = 0;
-    rtip->stats.nhits = 0;
-    rtip->stats.rti_nrays = 0;
+    rt_zero_ray_stats(rtip);
 
     if (rt_verbosity & (VERBOSE_LIGHTINFO|VERBOSE_STATS))
 	bu_log("\n");

@@ -677,13 +677,7 @@ prepare(void)
     /* initialize lighting */
     view_2init(&APP, NULL);
 
-    rtip->stats.nshots = 0;
-    rtip->stats.nmiss_model = 0;
-    rtip->stats.nmiss_tree = 0;
-    rtip->stats.nmiss_solid = 0;
-    rtip->stats.nmiss = 0;
-    rtip->stats.nhits = 0;
-    rtip->stats.rti_nrays = 0;
+    rt_zero_ray_stats(rtip);
 
 }
 
@@ -730,7 +724,7 @@ ph_lines(struct pkg_conn *UNUSED(pc), char *buf)
     if (b-a+1 > srv_scanlen)
 	b = a + srv_scanlen - 1;
 
-    rtip->stats.rti_nrays = 0;
+    rt_zero_ray_stats(rtip);
     info.li_startpix = a;
     info.li_endpix = b;
     info.li_frame = fr;
