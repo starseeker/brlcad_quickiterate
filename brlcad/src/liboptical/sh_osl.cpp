@@ -49,7 +49,7 @@ OSLRenderer *oslr = NULL;
 /* Every time a thread reaches osl_render for the first time,
    we save the address of their own buffers, which is an ugly way to
    identify them */
-std::vector<struct resource *> visited_addrs;
+std::vector<void *> visited_addrs;
 /* Holds information about the context necessary to correctly execute a
    shader */
 std::vector<void *> thread_infos;
@@ -533,7 +533,7 @@ static int osl_render(struct application *ap, const struct partition *pp,
 	}
     }
     if (!visited) {
-	visited_addrs.push_back(ap->a_resource);
+	/* a_resource removed - visiting by CPU */
 	/* Get thread specific information from OSLRender system */
 	thread_info = oslr->CreateThreadInfo();
 	thread_infos.push_back(thread_info);

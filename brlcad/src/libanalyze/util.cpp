@@ -450,7 +450,7 @@ segfilter_gen_worker(int cpu, void *ptr)
  * filter all rays surrounded by "similar" results (grab only grazing rays)
  */
 extern "C" void
-analyze_seg_filter(struct bu_ptbl *segs, getray_t gray, getflag_t gflag, struct rt_i *rtip, struct resource *resp, fastf_t tol, int ncpus)
+analyze_seg_filter(struct bu_ptbl *segs, getray_t gray, getflag_t gflag, struct rt_i *rtip, fastf_t tol, int ncpus)
 {
     int i = 0;
     int ind = 0;
@@ -470,7 +470,6 @@ analyze_seg_filter(struct bu_ptbl *segs, getray_t gray, getflag_t gflag, struct 
      * extracted by the gen_worker function. */
     for (i = 0; i < ncpus+1; i++) {
 	state[i].rtip = rtip;
-	state[i].resp = &resp[i];
 	state[i].ind_src = &ind;
 	state[i].fhit = segfilter_hit;
 	state[i].fmiss = segfilter_miss;
@@ -615,8 +614,6 @@ analyze_get_solid_partitions(struct bu_ptbl *results, struct rt_gen_worker_vars 
 	for (i = 0; i < ncpus+1; i++) {
 	    /* standard */
 	    state[i].rtip = rtip;
-	    state[i].resp = &resp[i];
-	    rt_init_resource(state[i].resp, (int)i, rtip);
 	}
 	if (rt_gettree(rtip, obj) < 0) {
 	    ret = -1;
@@ -653,7 +650,7 @@ analyze_get_solid_partitions(struct bu_ptbl *results, struct rt_gen_worker_vars 
 	}
     }
     if (filter) {
-	analyze_seg_filter(&temp_results, &mp_ray, &mp_flag, rtip, resp, 0.5, (int)ncpus);
+	analyze_seg_filter(&temp_results, &mp_ray, &mp_flag, rtip, 0.5, (int)ncpus);
     } else {
 	for (j = 0; j < BU_PTBL_LEN(&temp_results); j++) {
 	    struct minimal_partitions *p = (struct minimal_partitions *)BU_PTBL_GET(&temp_results, j);
