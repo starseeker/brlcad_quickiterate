@@ -274,7 +274,7 @@ done:
     else
 	bu_log("RESULT: all DrawPipeline stress tests PASSED\n");
 
-    return failures;
+    return (failures > 0 ? 1 : 0);
 }
 
 // Local Variables:

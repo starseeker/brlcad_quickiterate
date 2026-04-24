@@ -325,7 +325,7 @@ main(int ac, char *av[])
     else
 	bu_log("RESULT: all quad-BSG parity tests PASSED\n");
 
-    return failures;
+    return (failures > 0 ? 1 : 0);
 }
 
 // Local Variables:

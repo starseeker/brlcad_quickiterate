@@ -76,8 +76,13 @@ if ! git -C "$REPO_ROOT" fetch --unshallow origin 2>/dev/null; then
         echo "      Manually provide --main-build-dir to skip the build step." >&2
         exit 77   # CTest skip code
     }
+else
+    # unshallow succeeded; still need the main branch ref
+    git -C "$REPO_ROOT" fetch origin main:refs/remotes/origin/main || {
+        echo "SKIP: could not fetch main ref after unshallow" >&2
+        exit 77
+    }
 fi
-git -C "$REPO_ROOT" fetch origin main:refs/remotes/origin/main
 
 MAIN_WORKTREE="$TMPDIR_ROOT/main_src"
 git -C "$REPO_ROOT" worktree add "$MAIN_WORKTREE" refs/remotes/origin/main
