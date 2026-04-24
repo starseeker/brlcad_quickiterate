@@ -833,10 +833,10 @@ dm_draw_objs(struct bview *v, void (*dm_draw_custom)(struct bview *, void *), vo
     // as the render loop instead of the legacy dl_* walk.  bsg_scene_root_sync
     // mirrors the current view-obj tables into the root's children list before
     // traversal so that the output is identical to the legacy path.
+    // Note: explicit cast from void* is required for C++ compilation.
     if (v->bsg_root) {
-	bsg_node *bsg_r = (bsg_node *)v->bsg_root;
-	bsg_scene_root_sync(bsg_r, v);
-	bsg_view_traverse(v, bsg_r);
+	bsg_scene_root_sync((bsg_node *)v->bsg_root, v);
+	bsg_view_traverse(v, v->bsg_root);
     } else {
 	// Draw geometry view objects
 	// TODO - draw opaque, then transparent
