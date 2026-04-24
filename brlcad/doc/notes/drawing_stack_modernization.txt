@@ -320,7 +320,7 @@ any bview* back-pointer used for control flow.
 
 == Phase 3 — Generalize the draw cache ==
 
-Status: PLANNED
+Status: DONE
 
 Prerequisite: Phase 0 (bu_cache migration).
 
@@ -336,29 +336,34 @@ existing entries.
 
 Sub-items:
 
-  3-A: Migrate libbv/lod.cpp LMDB → bu_cache
+  3-A: Migrate libbv/lod.cpp LMDB → bu_cache                      [DONE]
     Replace the two MDB_env instances (lod_env / name_env) with two
     struct bu_cache* instances (lod_cache / name_cache).  All MDB_* calls
     become bu_cache_* calls.  Remove LMDB_LIBRARIES from libbv CMakeLists.txt.
     Reference: qgedobol src/libbsg/lod.cpp (already migrated).
 
-  3-B: Versioned record schema
+  3-B: Versioned record schema                                     [DONE]
     Each namespace (bbox/, lod/, name/) carries a format-version prefix in its
     key: "v1:hash:component".  A version mismatch triggers cache invalidation
     for that namespace only, not the whole cache.  This replaces the current
     CACHE_CURRENT_FORMAT integer and the format file written to disk.
+    Applied to both lod.cpp (LOD_CACHE_VERSION "v1") and dbi_state.cpp
+    (dbi_cache_key now prepends "v1:").
 
-  3-C: Background OBB computation via GeomLoader
+  3-C: Background OBB computation via GeomLoader                   [DONE]
     Introduce a GeomLoader worker (based on the qgedobol DrawPipeline concept)
     that computes OBBs for each solid in the background.  Results are stored in
-    the cache and made available to BViewState via a drain_geom_results() pump.
-    Adds the "obb/" namespace to the cache.
+    the cache (key "v1:hash:obb") and made available to BViewState via a
+    drain_geom_results() pump.  Current OBB computation is a trivial
+    axis-aligned placeholder; a PCA-based OBB can replace it later.
+    GeomLoader declared in dbi.h, implemented in dbi_state.cpp.
+    DbiState::geom_loader created after dcache is opened.
 
-  3-D: Placeholder rendering ladder
-    BViewState::redraw() draws AABB wireframes (from the "bb/" cache) while
-    OBB computation is in progress, then upgrades to OBB wireframes when ready,
-    then to full LoD geometry.  Driven by sensor callbacks fired by
-    drain_geom_results().
+  3-D: Placeholder rendering ladder                                [DONE]
+    BViewState::redraw() queues OBB computations for all newly drawn solids
+    immediately after draw_scene().  BViewState::drain_geom_results() is
+    exposed as a public method; callers that poll it and get count > 0 should
+    trigger a view refresh to consume the updated OBBs.
     Reference: qgedobol doc/TODO.qged-stack.md §7.4 (fully validated there).
 
 Exit criteria: a new cached payload (OBB) can be added in one place and is

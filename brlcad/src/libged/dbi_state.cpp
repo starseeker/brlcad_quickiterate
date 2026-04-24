@@ -31,6 +31,8 @@
 
 #include <algorithm>
 #include <map>
+#include <mutex>
+#include <condition_variable>
 #include <thread>
 #include <string>
 
@@ -69,10 +71,12 @@ extern "C" int  csg_wireframe_update(struct bv_scene_obj *vo, struct bview *v, i
 #define CACHE_COLOR "c"
 
 // Build a cache lookup key from an object hash and component name.
+// Keys carry a format-version prefix ("v1:") so that a schema change
+// can be detected per-namespace without invalidating the whole cache.
 static inline std::string
 dbi_cache_key(unsigned long long hash, const char *component)
 {
-    return std::to_string(hash) + ":" + std::string(component);
+    return std::string("v1:") + std::to_string(hash) + ":" + std::string(component);
 }
 
 
@@ -193,6 +197,136 @@ populate_walk_tree(union tree *tp, void *d, int subtract_skip, int p_op,
 }
 
 
+/* ---- Phase 3-C: GeomLoader implementation --------------------------- */
+
+// OBB cache component name.  Versioned key: "v1:<hash>:obb"
+#define CACHE_OBJ_OBB "obb"
+
+// Serialized OBB record: center (3 doubles) + 3 extent vectors (3 doubles each)
+struct ObbRecord {
+    double center[3];
+    double e1[3], e2[3], e3[3];
+};
+
+GeomLoader::GeomLoader(struct bu_cache *cache)
+    : cache_(cache), stop_(false)
+{
+    worker_thread_ = std::thread(&GeomLoader::worker, this);
+}
+
+GeomLoader::~GeomLoader()
+{
+    stop();
+}
+
+void
+GeomLoader::queue_item(unsigned long long hash,
+                       const point_t bbmin, const point_t bbmax)
+{
+    if (!hash)
+	return;
+    GeomLoaderItem item;
+    item.hash = hash;
+    VMOVE(item.bbmin, bbmin);
+    VMOVE(item.bbmax, bbmax);
+    {
+	std::unique_lock<std::mutex> lock(mtx_);
+	work_queue_.push(item);
+    }
+    cv_.notify_one();
+}
+
+int
+GeomLoader::drain_geom_results()
+{
+    std::vector<ObbResult> done;
+    {
+	std::unique_lock<std::mutex> lock(mtx_);
+	done.swap(completed_);
+    }
+    if (done.empty() || !cache_)
+	return 0;
+
+    for (const ObbResult &r : done) {
+	std::string key = std::string("v1:") + std::to_string(r.hash) + ":" + std::string(CACHE_OBJ_OBB);
+	ObbRecord rec;
+	rec.center[0] = r.obb_center[X]; rec.center[1] = r.obb_center[Y]; rec.center[2] = r.obb_center[Z];
+	rec.e1[0] = r.obb_extent1[X]; rec.e1[1] = r.obb_extent1[Y]; rec.e1[2] = r.obb_extent1[Z];
+	rec.e2[0] = r.obb_extent2[X]; rec.e2[1] = r.obb_extent2[Y]; rec.e2[2] = r.obb_extent2[Z];
+	rec.e3[0] = r.obb_extent3[X]; rec.e3[1] = r.obb_extent3[Y]; rec.e3[2] = r.obb_extent3[Z];
+	bu_cache_write(&rec, sizeof(rec), key.c_str(), cache_, NULL);
+    }
+    return (int)done.size();
+}
+
+bool
+GeomLoader::get_obb(unsigned long long hash,
+                    point_t *obb_center,
+                    vect_t  *obb_extent1,
+                    vect_t  *obb_extent2,
+                    vect_t  *obb_extent3) const
+{
+    if (!hash || !cache_)
+	return false;
+    std::string key = std::string("v1:") + std::to_string(hash) + ":" + std::string(CACHE_OBJ_OBB);
+    void *data = NULL;
+    size_t dsize = bu_cache_get(&data, key.c_str(), cache_, NULL);
+    if (dsize != sizeof(ObbRecord) || !data) {
+	if (data) bu_free(data, "obb cache data");
+	return false;
+    }
+    const ObbRecord *rec = (const ObbRecord *)data;
+    if (obb_center)  VSET(*obb_center,  rec->center[0], rec->center[1], rec->center[2]);
+    if (obb_extent1) VSET(*obb_extent1, rec->e1[0], rec->e1[1], rec->e1[2]);
+    if (obb_extent2) VSET(*obb_extent2, rec->e2[0], rec->e2[1], rec->e2[2]);
+    if (obb_extent3) VSET(*obb_extent3, rec->e3[0], rec->e3[1], rec->e3[2]);
+    bu_free(data, "obb cache data");
+    return true;
+}
+
+void
+GeomLoader::stop()
+{
+    {
+	std::unique_lock<std::mutex> lock(mtx_);
+	stop_ = true;
+    }
+    cv_.notify_all();
+    if (worker_thread_.joinable())
+	worker_thread_.join();
+}
+
+void
+GeomLoader::worker()
+{
+    while (true) {
+	GeomLoaderItem item;
+	{
+	    std::unique_lock<std::mutex> lock(mtx_);
+	    cv_.wait(lock, [this]{ return !work_queue_.empty() || stop_; });
+	    if (stop_ && work_queue_.empty())
+		return;
+	    item = work_queue_.front();
+	    work_queue_.pop();
+	}
+
+	// Compute OBB from AABB (trivial placeholder: axis-aligned OBB).
+	// A future phase can replace this with a proper PCA-based OBB.
+	ObbResult r;
+	r.hash = item.hash;
+	VADD2SCALE(r.obb_center, item.bbmax, item.bbmin, 0.5);
+	VSET(r.obb_extent1, (item.bbmax[X] - item.bbmin[X]) * 0.5, 0.0, 0.0);
+	VSET(r.obb_extent2, 0.0, (item.bbmax[Y] - item.bbmin[Y]) * 0.5, 0.0);
+	VSET(r.obb_extent3, 0.0, 0.0, (item.bbmax[Z] - item.bbmin[Z]) * 0.5);
+
+	{
+	    std::unique_lock<std::mutex> lock(mtx_);
+	    completed_.push_back(r);
+	}
+    }
+}
+
+
 DbiState::DbiState(struct ged *ged_p)
 {
     bu_vls_init(&path_string);
@@ -223,6 +357,10 @@ DbiState::DbiState(struct ged *ged_p)
 	bu_vls_free(&cpath);
     }
 
+    // Phase 3-C: start the background OBB worker
+    if (dcache)
+	geom_loader = new GeomLoader(dcache);
+
     struct directory *dp;
     FOR_ALL_DIRECTORY_START(dp, dbip)
 	update_dp(dp, 0);
@@ -246,6 +384,10 @@ DbiState::~DbiState()
     delete shared_vs;
     rt_clean_resource_basic(NULL, res);
     BU_PUT(res, struct resource);
+
+    // Phase 3-C: stop the background OBB worker before closing the cache
+    delete geom_loader;
+    geom_loader = NULL;
 
     if (dcache)
 	bu_cache_close(dcache);
@@ -2465,6 +2607,14 @@ BViewState::clear()
     all_collapsed.clear();
 }
 
+int
+BViewState::drain_geom_results()
+{
+    if (!dbis || !dbis->geom_loader)
+	return 0;
+    return dbis->geom_loader->drain_geom_results();
+}
+
 std::vector<std::string>
 BViewState::list_drawn_paths(int mode, bool list_collapsed)
 {
@@ -2893,6 +3043,27 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
 	for (o_it = objs.begin(); o_it != objs.end(); o_it++) {
 	    bv_log(3, "redraw %s[%s]", bu_vls_cstr(&((*(*o_it)).s_name)), bu_vls_cstr(&((*(*v_it)).gv_name)));
 	    draw_scene(*o_it, *v_it);
+	}
+    }
+
+    // Phase 3-D: Queue OBB computations for all newly drawn solids.
+    // The GeomLoader computes OBBs in the background; callers should poll
+    // drain_geom_results() and refresh views when it returns > 0.
+    if (dbis->geom_loader) {
+	std::unordered_map<unsigned long long, std::unordered_map<int, struct bv_scene_obj *>>::iterator obb_it;
+	for (obb_it = s_map.begin(); obb_it != s_map.end(); obb_it++) {
+	    unsigned long long phash = obb_it->first;
+	    for (auto &mm : obb_it->second) {
+		struct bv_scene_obj *so = mm.second;
+		if (!so) continue;
+		// Only queue objects that were part of this redraw pass
+		if (objs.find(so) == objs.end()) continue;
+		// Only queue if the solid has a meaningful bounding box
+		vect_t diag;
+		VSUB2(diag, so->bmax, so->bmin);
+		if (MAGNITUDE(diag) > SMALL_FASTF)
+		    dbis->geom_loader->queue_item(phash, so->bmin, so->bmax);
+	    }
 	}
     }
 
