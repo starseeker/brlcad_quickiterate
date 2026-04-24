@@ -19,41 +19,32 @@
  */
 /** @file libged/edit2.cpp
  *
- * Testing command for experimenting with editing routines.
+ * New-forms edit command (Phase 1).
  *
- * Among other things, we want the edit command to be aware of
- * the GED selection state, if we have a default one set and
- * the edit command doesn't explicitly specify an object or objects
- * to operate on.
+ * Implements a three-pass command-line parser:
  *
- * In the long term we want this command to pull the necessary info for each
- * primitive type from librt.  If we also want to enable the various options
- * for rotate, translate and scale developed in the edit.c file, there will be
- * a fair bit of design work to think through.  Probably the option parsing for
- * rotate, translate and scale should actually reside in librt, and be
- * available via the primitive edit functab in some fashion along with parameter
- * specific command line parsing.
+ *   Pass 1 — global opts  (-S/-f/-F/-i/-h/-v) harvested before the first
+ *             geometry specifier or subcommand token.
  *
- * The current librt editing API (as of 2025) is most likely no in shape to
- * properly support what we would want in an edit command, and that is
- * deliberately not the initial focus of that effort.  The initial goal is to
- * extract MGED's primitive editing abilities into a form that is both testable
- * with non-GUI inputs and functional (or a least as functional as it was
- * previously) within MGED itself.  That's one reason that API should not be
- * considered stable - it is intended to eventually be the canonical API for
- * all geometry changes, and that will undoubtedly require maturing it beyond
- * its current "extracted from MGED" form.  However, because of how invasive
- * and difficult the migration out of MGED proved, we can't afford to try to
- * tackle too many goals at once - the first order of business is testable
- * primitive editing on MGED's level of capability. We will proceed further
- * once that milestone is achieved.
+ *   Pass 2 — geometry specifiers collected into ged_edit_geom_spec entries.
+ *             Each token is tested as: "." batch marker → URI → db_lookup.
+ *             If no specifiers are found, the active selection state is used
+ *             as a fallback.  Conflicts between an explicit specifier and the
+ *             active selection are detected and reported here.
+ *
+ *   Pass 3 — subcommand dispatch: argv[0] names the operation; the rest are
+ *             its arguments, forwarded to the appropriate ged_subcmd handler.
+ *
+ * All geometry-altering subcommands receive a ged_edit_ctx * (u_data).
  */
 
 #include "common.h"
 
+#include <climits>
 #include <map>
 #include <set>
 #include <string>
+#include <vector>
 
 #include <stdlib.h>
 #include <ctype.h>
@@ -63,20 +54,79 @@
 
 #include "bu/cmd.h"
 #include "bu/opt.h"
+#include "bn/rand.h"
 
 #include "../ged_private.h"
 #include "../dbi.h"
 #include "./ged_edit2.h"
 
-// Container to hold information about top level options and
-// specified geometry options common to all the subcommands.
-struct edit_info {
-    int verbosity;
-    struct directory *dp;
-    struct ged *gedp;
-    float *prand;
-};
 
+/* ------------------------------------------------------------------ *
+ * Helpers: build a ged_edit_geom_spec from a URI-parsed token
+ * ------------------------------------------------------------------ */
+
+/**
+ * Attempt to resolve argv[i] as a geometry specifier via DbiState.
+ * Fills *spec and returns true on success, false if the token does not
+ * resolve to any known database object.
+ *
+ * Handles:
+ *   "."         — batch marker (each object acts as its own reference)
+ *   "name#frag" — URI with fragment (e.g. vertex key)
+ *   "name?q"    — URI with query (e.g. wildcard feature set)
+ *   "path"      — bare name or slash-separated path
+ */
+static bool
+_resolve_geom_spec(ged_edit_geom_spec &spec, const char *token, DbiState *dbis)
+{
+    spec.raw = token;
+    spec.is_batch = false;
+    spec.dp = RT_DIR_NULL;
+
+    /* Batch marker */
+    if (BU_STR_EQUAL(token, ".")) {
+	spec.is_batch = true;
+	/* Batch marker is valid without a db lookup */
+	return true;
+    }
+
+    /* Try URI parse: prefix with "g:" so the class sees a scheme */
+    std::string path_str;
+    try {
+	uri obj_uri(std::string("g:") + std::string(token));
+	path_str = obj_uri.get_path();
+
+	if (obj_uri.get_fragment().length() > 0)
+	    spec.fragment = obj_uri.get_fragment();
+	if (obj_uri.get_query().length() > 0)
+	    spec.query = obj_uri.get_query();
+
+	if (path_str.empty())
+	    path_str = token;
+
+    } catch (const std::invalid_argument &) {
+	path_str = token;
+    }
+
+    spec.path = path_str;
+    spec.hashes = dbis->digest_path(path_str.c_str());
+
+    if (spec.hashes.empty())
+	return false;
+
+    /* Single-element path — get the head dp */
+    if (spec.hashes.size() == 1)
+	spec.dp = dbis->get_hdp(spec.hashes[0]);
+
+    /* Multi-element path (comb instance) — dp stays RT_DIR_NULL */
+
+    return (spec.hashes.size() > 1) || (spec.dp != RT_DIR_NULL);
+}
+
+
+/* ================================================================== *
+ * Subcommand implementations
+ * ================================================================== */
 
 // Rotate command
 class cmd_rotate : public ged_subcmd {
@@ -93,8 +143,8 @@ cmd_rotate::exec(struct ged *gedp, void *u_data, int argc, const char **argv)
     if (!gedp || !u_data || !argc || !argv)
 	return BRLCAD_ERROR;
 
-    struct edit_info *einfo = (struct edit_info *)u_data;
-    if (einfo->dp == RT_DIR_NULL)
+    struct ged_edit_ctx *ctx = (struct ged_edit_ctx *)u_data;
+    if (ctx->dp == RT_DIR_NULL)
 	return BRLCAD_ERROR;
 
     argc--; argv++;
@@ -123,8 +173,8 @@ cmd_tra::exec(struct ged *gedp, void *u_data, int argc, const char **argv)
     if (!gedp || !u_data || !argc || !argv)
 	return BRLCAD_ERROR;
 
-    struct edit_info *einfo = (struct edit_info *)u_data;
-    if (einfo->dp == RT_DIR_NULL)
+    struct ged_edit_ctx *ctx = (struct ged_edit_ctx *)u_data;
+    if (ctx->dp == RT_DIR_NULL)
 	return BRLCAD_ERROR;
 
     argc--; argv++;
@@ -153,8 +203,8 @@ cmd_translate::exec(struct ged *gedp, void *u_data, int argc, const char **argv)
     if (!gedp || !u_data || !argc || !argv)
 	return BRLCAD_ERROR;
 
-    struct edit_info *einfo = (struct edit_info *)u_data;
-    if (einfo->dp == RT_DIR_NULL)
+    struct ged_edit_ctx *ctx = (struct ged_edit_ctx *)u_data;
+    if (ctx->dp == RT_DIR_NULL)
 	return BRLCAD_ERROR;
 
     argc--; argv++;
@@ -183,8 +233,8 @@ cmd_scale::exec(struct ged *gedp, void *u_data, int argc, const char **argv)
     if (!gedp || !u_data || !argc || !argv)
 	return BRLCAD_ERROR;
 
-    struct edit_info *einfo = (struct edit_info *)u_data;
-    if (einfo->dp == RT_DIR_NULL)
+    struct ged_edit_ctx *ctx = (struct ged_edit_ctx *)u_data;
+    if (ctx->dp == RT_DIR_NULL)
 	return BRLCAD_ERROR;
 
     argc--; argv++;
@@ -204,7 +254,7 @@ class cmd_perturb : public ged_subcmd {
 	std::string usage()   { return std::string("edit [options] [geometry] perturb factor"); }
 	std::string purpose() { return std::string("perturb primitive or primitives below comb by the specified factor (must be greater than 0)"); }
 	int exec(struct ged *, void *, int, const char **);
-	struct edit_info *einfo;
+	struct ged_edit_ctx *ctx;
     private:
 	int dp_perturb(struct directory *dp);
 	fastf_t factor = 0;
@@ -214,19 +264,17 @@ static cmd_perturb edit_perturb_cmd;
 int
 cmd_perturb::dp_perturb(struct directory *dp)
 {
-    fastf_t lfactor = factor + factor*0.1*bn_rand_half(einfo->prand);
+    fastf_t lfactor = factor + factor*0.1*bn_rand_half(ctx->prand);
     bu_log("%s: %g\n", dp->d_namep, lfactor);
-    // Get the rt_db_internal
     struct rt_db_internal intern;
     RT_DB_INTERNAL_INIT(&intern);
-    struct db_i *dbip = einfo->gedp->dbip;
+    struct db_i *dbip = ctx->gedp->dbip;
     if (rt_db_get_internal(&intern, dp, dbip, NULL, &rt_uniresource) < 0) {
 	bu_log("rt_db_get_internal failed for %s\n", dp->d_namep);
 	return BRLCAD_ERROR;
     }
 
     if (!intern.idb_meth || !intern.idb_meth->ft_perturb) {
-	// If we have no perturbation method, it's a no-go
 	return BRLCAD_ERROR;
     }
 
@@ -265,8 +313,8 @@ cmd_perturb::exec(struct ged *gedp, void *u_data, int argc, const char **argv)
     if (!gedp || !u_data || !argc || !argv)
 	return BRLCAD_ERROR;
 
-    einfo = (struct edit_info *)u_data;
-    if (einfo->dp == RT_DIR_NULL)
+    ctx = (struct ged_edit_ctx *)u_data;
+    if (ctx->dp == RT_DIR_NULL)
 	return BRLCAD_ERROR;
 
     argc--; argv++;
@@ -284,12 +332,12 @@ cmd_perturb::exec(struct ged *gedp, void *u_data, int argc, const char **argv)
 	return BRLCAD_OK;
 
     struct bu_ptbl objs = BU_PTBL_INIT_ZERO;
-    if (db_search(&objs, DB_SEARCH_RETURN_UNIQ_DP, "-type shape", 1, &einfo->dp, einfo->gedp->dbip, NULL, NULL, NULL) < 0) {
-    	bu_vls_printf(gedp->ged_result_str, "search error\n");
+    if (db_search(&objs, DB_SEARCH_RETURN_UNIQ_DP, "-type shape", 1, &ctx->dp, ctx->gedp->dbip, NULL, NULL, NULL) < 0) {
+	bu_vls_printf(gedp->ged_result_str, "search error\n");
 	return BRLCAD_ERROR;
     }
     if (!BU_PTBL_LEN(&objs)) {
-    	bu_vls_printf(gedp->ged_result_str, "no solids\n");
+	bu_vls_printf(gedp->ged_result_str, "no solids\n");
 	return BRLCAD_OK;
     }
 
@@ -302,287 +350,284 @@ cmd_perturb::exec(struct ged *gedp, void *u_data, int argc, const char **argv)
     }
     bu_ptbl_free(&objs);
 
-    DbiState *dbis = (DbiState *)einfo->gedp->dbi_state;
+    DbiState *dbis = (DbiState *)ctx->gedp->dbi_state;
     dbis->update();
 
     return ret;
 }
 
 
+/* ================================================================== *
+ * Main entry point — three-pass parser
+ * ================================================================== */
+
 extern "C" int
 ged_edit2_core(struct ged *gedp, int argc, const char *argv[])
 {
     int help = 0;
-    std::vector<std::string> geom_objs;
-    struct edit_info einfo;
-    einfo.verbosity = 0;
-    einfo.dp = RT_DIR_NULL;
-    einfo.gedp = gedp;
-    bn_rand_init(einfo.prand, 0);
 
-    // Clear results buffer
+    /* ---- Initialise context ---------------------------------------- */
+    struct ged_edit_ctx ctx;
+    ctx.gedp         = gedp;
+    ctx.verbosity    = 0;
+    ctx.prand        = NULL;
+    ctx.flag_S       = 0;
+    ctx.flag_f       = 0;
+    ctx.flag_F       = 0;
+    ctx.flag_i       = 0;
+    ctx.from_selection = false;
+    ctx.has_conflict = false;
+    ctx.dp           = RT_DIR_NULL;
+    bn_rand_init(ctx.prand, 0);
+
     bu_vls_trunc(gedp->ged_result_str, 0);
 
-    // If we don't have a context that allows us to edit, there's no point
     GED_CHECK_DATABASE_OPEN(gedp, BRLCAD_ERROR);
     GED_CHECK_READ_ONLY(gedp, BRLCAD_ERROR);
 
-    // We know we're the edit command
-    argc--;argv++;
+    /* Skip past the "edit" command name */
+    argc--; argv++;
 
-    // Set up our command map.  Most command editing operations
-    // will be primitive specific, but there are some that are
-    // common to most object types
+    /* ---- Build subcommand map --------------------------------------- */
     std::map<std::string, ged_subcmd *> edit_cmds;
-    edit_cmds[std::string("rot")]       = &edit_rotate_cmd;
-    edit_cmds[std::string("rotate")]    = &edit_rotate_cmd;
-    edit_cmds[std::string("tra")]       = &edit_tra_cmd;
-    edit_cmds[std::string("translate")] = &edit_translate_cmd;
-    edit_cmds[std::string("sca")]       = &edit_scale_cmd;
-    edit_cmds[std::string("scale")]     = &edit_scale_cmd;
-    edit_cmds[std::string("perturb")]   = &edit_perturb_cmd;
+    edit_cmds["rot"]       = &edit_rotate_cmd;
+    edit_cmds["rotate"]    = &edit_rotate_cmd;
+    edit_cmds["tra"]       = &edit_tra_cmd;
+    edit_cmds["translate"] = &edit_translate_cmd;
+    edit_cmds["sca"]       = &edit_scale_cmd;
+    edit_cmds["scale"]     = &edit_scale_cmd;
+    edit_cmds["perturb"]   = &edit_perturb_cmd;
 
-    // See if we have any high level options set
-    struct bu_opt_desc d[3];
-    BU_OPT(d[0], "h", "help",     "",          NULL,         &help,              "Print help");
-    BU_OPT(d[1], "v", "verbose", "",           NULL,         &einfo.verbosity,   "Verbose output");
-    BU_OPT_NULL(d[2]);
-
-    // Set up the edit container and initialize
-    struct bu_opt_desc *bdesc = (struct bu_opt_desc *)d;
+    /* ---- Global option descriptors --------------------------------- */
+    struct bu_opt_desc d[8];
+    BU_OPT(d[0], "h", "help",         "",  NULL, &help,        "Print help");
+    BU_OPT(d[1], "v", "verbose",      "",  NULL, &ctx.verbosity,"Verbose output");
+    BU_OPT(d[2], "S", "selection",    "",  NULL, &ctx.flag_S,  "Operate on selection (ignore cmd-line specifier)");
+    BU_OPT(d[3], "f", "force",        "",  NULL, &ctx.flag_f,  "Force: apply op, write to disk, clear conflict");
+    BU_OPT(d[4], "F", "abandon",      "",  NULL, &ctx.flag_F,  "Abandon: discard intermediate state, use on-disk");
+    BU_OPT(d[5], "i", "intermediate", "",  NULL, &ctx.flag_i,  "Intermediate: apply to temp buffer only (no disk write)");
+    BU_OPT_NULL(d[6]);
 
     const char *bargs_help = "[options] <geometry_specifier> subcommand [args]";
+
     if (!argc) {
-	_ged_subcmd2_help(gedp, bdesc, edit_cmds, "edit", bargs_help, 0, NULL);
+	_ged_subcmd2_help(gedp, (struct bu_opt_desc *)d, edit_cmds, "edit", bargs_help, 0, NULL);
 	return BRLCAD_OK;
     }
 
-    // If we're sure we don't have high level options, we can be more
-    // confident about reporting when the user specifies an invalid
-    // geometry specifier.  If we do have options in play, we can't
-    // reliably distinguish between an option argument and an invalid
-    // geometry specifier - the string may be intended as either.
-    bool maybe_opts =(argv[0][0] == '-') ? true : false;
+    /* Note whether the first token looks like an option.  If so we
+     * can't reliably distinguish option errors from bad geometry specs. */
+    bool maybe_opts = (argv[0][0] == '-');
 
-    // High level options are only defined prior to the geometry specifier
-    // and/or subcommand.
-    int geom_pos = INT_MAX;
-    std::vector<unsigned long long> gs;
+    /* ---- Pass 1: find positions of first geometry spec and subcommand
+     *              so we know how many leading tokens to feed to
+     *              bu_opt_parse as global options.                      */
     DbiState *dbis = (DbiState *)gedp->dbi_state;
+
+    int geom_pos = INT_MAX;
+    int cmd_pos  = INT_MAX;
+    std::vector<unsigned long long> gs;
+
     for (int i = 0; i < argc; i++) {
-	// TODO - de-quote so we can support obj names matching options...
-	// TODO - Allow URI specifications to call out primitive params
-	try
-	{
-	    uri obj_uri(std::string("g:") + std::string(argv[i]));
-	    std::string obj_path = obj_uri.get_path();
-	    if (!obj_path.length()) {
-		obj_path = std::string(argv[i]);
-	    } else {
-		// TODO - store query and fragment info - for example, fragment
-		// could be use to specify an edge or vertex to move on an arb
+	/* Check if this token matches a known subcommand name */
+	if (edit_cmds.find(std::string(argv[i])) != edit_cmds.end()) {
+	    if (cmd_pos == INT_MAX)
+		cmd_pos = i;
+	    break;
+	}
 
-		// obj.s#V1
-		if (obj_uri.get_fragment().length() > 0)
-		    bu_log("have fragment: %s\n", obj_uri.get_fragment().c_str());
-		// obj.s?V*
-		if (obj_uri.get_query().length() > 0)
-		    bu_log("have query: %s\n", obj_uri.get_query().c_str());
+	/* Try to resolve as a geometry specifier */
+	ged_edit_geom_spec spec;
+	if (_resolve_geom_spec(spec, argv[i], dbis)) {
+	    if (geom_pos == INT_MAX) {
+		geom_pos = i;
+		gs = spec.hashes;
 	    }
-	    gs = dbis->digest_path(obj_path.c_str());
-	}
-	catch (std::invalid_argument &uri_e)
-	{
-	    std::string uri_error = uri_e.what();
-	    bu_log("invalid uri: %s\n", uri_error.c_str());
-	    gs = dbis->digest_path(argv[i]);
-	}
-	if (gs.size() > 1 || dbis->get_hdp(gs[0]) != RT_DIR_NULL) {
-	    geom_pos = i;
-
 	    break;
 	}
     }
-    // Record geometry specifier
-    const char *geom_str = (geom_pos < INT_MAX) ? argv[geom_pos] : NULL;
 
-    // We can't recognize primitive specific subcommands without a primitive
-    // to key on, but we can recognize the general commands.
-    int cmd_pos = INT_MAX;
-    std::map<std::string, ged_subcmd *>::iterator e_it;
-    for (e_it = edit_cmds.begin(); e_it != edit_cmds.end(); ++e_it) {
-	for (int i = 0; i < argc; i++) {
-	    std::string astr(argv[i]);
-	    if (e_it->first == astr) {
-		cmd_pos = i;
-		break;
+    /* With no geometry or command found yet — all remaining tokens are
+     * candidates for options.  Parse them all: if -h is among them, print
+     * help and return OK; otherwise report the first token as invalid. */
+    if (geom_pos == INT_MAX && cmd_pos == INT_MAX) {
+	if (maybe_opts) {
+	    struct bu_vls opterrs = BU_VLS_INIT_ZERO;
+	    bu_opt_parse(&opterrs, argc, argv, d);
+	    bu_vls_free(&opterrs);
+	    if (help) {
+		_ged_subcmd2_help(gedp, (struct bu_opt_desc *)d, edit_cmds,
+		    "edit", bargs_help, 0, NULL);
+		return BRLCAD_OK;
+	    }
+	    _ged_subcmd2_help(gedp, (struct bu_opt_desc *)d, edit_cmds,
+		"edit", bargs_help, 0, NULL);
+	} else {
+	    bu_vls_printf(gedp->ged_result_str,
+		"Invalid geometry specifier: %s\n", argv[0]);
+	}
+	return BRLCAD_ERROR;
+    }
+
+    /* The option prefix is everything before the first geom or cmd token */
+    int opt_prefix_len = (geom_pos < cmd_pos) ? geom_pos : cmd_pos;
+
+    /* Parse global options from the prefix */
+    if (opt_prefix_len > 0) {
+	struct bu_vls opterrs = BU_VLS_INIT_ZERO;
+	int opt_ret = bu_opt_parse(&opterrs, opt_prefix_len, argv, d);
+	if (opt_ret < 0) {
+	    bu_vls_printf(gedp->ged_result_str, "%s", bu_vls_cstr(&opterrs));
+	    _ged_subcmd2_help(gedp, (struct bu_opt_desc *)d, edit_cmds,
+		"edit", bargs_help, 0, NULL);
+	    bu_vls_free(&opterrs);
+	    return BRLCAD_ERROR;
+	}
+	bu_vls_free(&opterrs);
+
+	/* Shift remaining tokens to front */
+	int remaining = argc - opt_prefix_len;
+	for (int i = 0; i < remaining; i++)
+	    argv[i] = argv[opt_prefix_len + i];
+	argc -= opt_prefix_len;
+
+	/* Adjust positions after shift */
+	if (geom_pos != INT_MAX) geom_pos -= opt_prefix_len;
+	if (cmd_pos  != INT_MAX) cmd_pos  -= opt_prefix_len;
+    }
+
+    /* Handle -h after option processing */
+    if (help) {
+	const char *cmd_name_for_help = (cmd_pos != INT_MAX) ? argv[cmd_pos] : "edit";
+	_ged_subcmd2_help(gedp, (struct bu_opt_desc *)d, edit_cmds,
+	    cmd_name_for_help, bargs_help, 0, NULL);
+	return BRLCAD_OK;
+    }
+
+    /* Sanity: geometry must come before command if both present */
+    if (geom_pos != INT_MAX && cmd_pos != INT_MAX &&
+	    (geom_pos > cmd_pos || cmd_pos != geom_pos + 1)) {
+	_ged_subcmd2_help(gedp, (struct bu_opt_desc *)d, edit_cmds,
+	    "edit", bargs_help, 0, NULL);
+	return BRLCAD_ERROR;
+    }
+
+    /* ---- Pass 2: collect geometry specifiers ----------------------- */
+
+    /* Re-resolve the geometry specifier(s) into ged_edit_geom_spec entries.
+     * The current implementation collects a single specifier (the one at
+     * geom_pos).  Multi-object editing (dot batch, multiple paths) is
+     * supported structurally but dispatched one-at-a-time. */
+    const char *geom_str = NULL;
+    if (geom_pos != INT_MAX) {
+	geom_str = argv[geom_pos];
+	ged_edit_geom_spec spec;
+	if (_resolve_geom_spec(spec, geom_str, dbis)) {
+	    ctx.geom_specs.push_back(spec);
+	}
+    }
+
+    /* Selection fallback: if no explicit specifier was given, use the
+     * active "default" selection state. */
+    if (ctx.geom_specs.empty() && !ctx.flag_F) {
+	std::vector<BSelectState *> ss = dbis->get_selected_states("default");
+	if (!ss.empty()) {
+	    std::vector<std::string> sel_paths = ss[0]->list_selected_paths();
+	    for (const std::string &spath : sel_paths) {
+		ged_edit_geom_spec spec;
+		if (_resolve_geom_spec(spec, spath.c_str(), dbis))
+		    ctx.geom_specs.push_back(spec);
+	    }
+	    if (!ctx.geom_specs.empty())
+		ctx.from_selection = true;
+	}
+    }
+
+    /* Selection conflict arbiter: explicit specifier present AND the same
+     * object is also in the active selection → require an arbiter flag. */
+    if (!ctx.geom_specs.empty() && !ctx.from_selection && !ctx.flag_S &&
+	    !ctx.flag_f && !ctx.flag_F && !ctx.flag_i) {
+	std::vector<BSelectState *> ss = dbis->get_selected_states("default");
+	if (!ss.empty()) {
+	    std::vector<std::string> sel_paths = ss[0]->list_selected_paths();
+	    for (const auto &gspec : ctx.geom_specs) {
+		for (const std::string &spath : sel_paths) {
+		    if (gspec.path == spath) {
+			ctx.has_conflict = true;
+			bu_vls_printf(gedp->ged_result_str,
+			    "Conflict: \"%s\" has both an explicit command-line "
+			    "specifier and an active selection.\n"
+			    "Use -S to operate on the selection, -f to force "
+			    "a disk write, -F to abandon the intermediate "
+			    "state, or -i to edit the temp buffer.\n",
+			    gspec.path.c_str());
+			return BRLCAD_ERROR;
+		    }
+		}
 	    }
 	}
     }
-    // Record command string
-    const char *cmd_str = (cmd_pos < INT_MAX) ? argv[cmd_pos] : NULL;
 
-    // If we have no geometry specifier and no command, or a generic command
-    // precedes the geometry specifier, we're just going to print generic help
-    if (geom_pos == INT_MAX && cmd_pos == INT_MAX) {
-	if (!maybe_opts && geom_pos == INT_MAX) {
-	    bu_vls_printf(gedp->ged_result_str, "Invalid geometry specifier: %s\n", argv[0]);
-	} else {
-	    _ged_subcmd2_help(gedp, bdesc, edit_cmds, "edit", bargs_help, 0, NULL);
-	}
-	return BRLCAD_ERROR;
-    }
-    if (geom_pos < INT_MAX && cmd_pos < INT_MAX && (geom_pos > cmd_pos || cmd_pos != geom_pos + 1)) {
-	_ged_subcmd2_help(gedp, bdesc, edit_cmds, "edit", bargs_help, 0, NULL);
-	return BRLCAD_ERROR;
-    }
-
-    int acnt = (geom_pos < cmd_pos) ? geom_pos : cmd_pos;
-
-    // Check whether we might have high level options
-    struct bu_vls opterrs = BU_VLS_INIT_ZERO;
-    int opt_ret = bu_opt_parse(&opterrs, acnt, argv, d);
-    // If we had any high level option errors, print help
-    if (opt_ret < 0) {
-	bu_vls_printf(gedp->ged_result_str, "%s", bu_vls_cstr(&opterrs));
-	_ged_subcmd2_help(gedp, bdesc, edit_cmds, "edit", bargs_help, 0, NULL);
-	bu_vls_free(&opterrs);
-	return BRLCAD_ERROR;
-    }
-    bu_vls_free(&opterrs);
-
-    // If we had something the options didn't process, it's either an option
-    // error or invalid geometry processor.
-    if (opt_ret) {
-	bu_vls_printf(gedp->ged_result_str, "Invalid geometry specifier: %s", argv[0]);
-	return BRLCAD_ERROR;
-    }
-
-    // Because we limited the subset of argv bu_opt was processing, we need to
-    // manually shift anything still remaining to the beginning of the argv
-    // array for subsequent processing.
-    if (argc > acnt) {
-	int remaining = argc - acnt;
-	for (int i = 0; i < remaining; i++) {
-	    argv[i] = argv[acnt+i];
+    /* If -S flag is set, discard explicit specifiers and use selection */
+    if (ctx.flag_S) {
+	ctx.geom_specs.clear();
+	std::vector<BSelectState *> ss = dbis->get_selected_states("default");
+	if (!ss.empty()) {
+	    std::vector<std::string> sel_paths = ss[0]->list_selected_paths();
+	    for (const std::string &spath : sel_paths) {
+		ged_edit_geom_spec spec;
+		if (_resolve_geom_spec(spec, spath.c_str(), dbis))
+		    ctx.geom_specs.push_back(spec);
+	    }
+	    ctx.from_selection = true;
 	}
     }
-    argc -= acnt;
 
-    // Clear geometry specifier, if present
+    /* Set convenience dp from first resolved specifier */
+    if (!ctx.geom_specs.empty()) {
+	ctx.dp = ctx.geom_specs[0].dp;
+    }
+
+    /* Advance past the geometry token */
     if (geom_str) {
 	argc--; argv++;
     }
 
-    if (help) {
-	if (cmd_str) {
-	    _ged_subcmd2_help(gedp, bdesc, edit_cmds, cmd_str, bargs_help, argc, argv);
+    /* ---- Pass 3: subcommand dispatch ------------------------------- */
+
+    if (!argc || !argv[0]) {
+	if (!ctx.geom_specs.empty() || ctx.from_selection) {
+	    /* Object specified but no subcommand */
+	    bu_vls_printf(gedp->ged_result_str,
+		"No subcommand specified for \"%s\"\n",
+		geom_str ? geom_str : "(selection)");
 	} else {
-	    _ged_subcmd2_help(gedp, bdesc, edit_cmds, "edit", bargs_help, 0, NULL);
+	    _ged_subcmd2_help(gedp, (struct bu_opt_desc *)d, edit_cmds,
+		"edit", bargs_help, 0, NULL);
 	}
-	return BRLCAD_OK;
-    }
-
-    // Must have a specifier to continue further - we can print command
-    // specific help without a specifier, but we can't do any actual processing
-    // without one.
-    if (!geom_str) {
-	bu_vls_printf(gedp->ged_result_str, ": no valid geometry specifier found, nothing to edit\n");
-	_ged_subcmd2_help(gedp, bdesc, edit_cmds, "edit", bargs_help, 0, NULL);
 	return BRLCAD_ERROR;
     }
 
-    // There are some generic commands (rot, tra, etc.) that apply universally
-    // to all geometry, but the majority of editing operations are specific to
-    // each individual geometric primitive type.  We first decode the specifier,
-    // to determine what operations we're able to support.
-    einfo.dp = dbis->get_hdp(gs[0]);
-    if (gs.size() == 1 && !einfo.dp) {
-	bu_vls_printf(gedp->ged_result_str, ": geometry specifier lookup failed for %s\n", argv[0]);
+    std::string cmd_str(argv[0]);
+    auto e_it = edit_cmds.find(cmd_str);
+    if (e_it == edit_cmds.end()) {
+	bu_vls_printf(gedp->ged_result_str,
+	    "Unknown subcommand: %s\n", argv[0]);
+	_ged_subcmd2_help(gedp, (struct bu_opt_desc *)d, edit_cmds,
+	    "edit", bargs_help, 0, NULL);
 	return BRLCAD_ERROR;
     }
 
-    if (gs.size() > 1) {
-	bu_log("Comb instance specifier - only generic edit operations.\n");
-    } else {
-	// TODO - once we have the object type, ask librt what subcommands and parameters are
-	// supported for this primitive.  We can offer these in addition to the standard
-	// commands.
-    }
-
-    // TODO - need to unpack and validate these prior to subcommand processing - this
-    // will be the same regardless of the specific edit operation, and we'll need
-    // directory pointers, combs, paths, etc rather than strings for actual editing
-    // to succeed.  No point in having the subcommands all replicate that.
-    //
-    // We'll need to give some thought to the interaction between command line object
-    // specification and selection - the user may want to command line manipulate the
-    // selected object without writing to disk (say, for example, as a precision part
-    // of an otherwise interactive GUI editing session) and not expect that edit to
-    // be immediately written to disk, but if they specify the object on the command
-    // line explicitly it's possible they want to override the selection, discard any
-    // uncommitted changes, and instead do the specified command line operation.
-    //
-    // My current thought is that if a command line object is explicitly
-    // specified, and no options are supplied (say, -f to force a clearing of
-    // the state and write, or -S to indicate an operation on a temporary
-    // selection corresponding to the specified name in lieu of writing to
-    // disk) we abort in the case of a specified object and an active selection
-    // conflicting, with a note about how to proceed.  Note that the situation
-    // is more complex than it might appear, since a primitive may be part of a
-    // selected comb tree and have implications that aren't immediately obvious
-    // - we'll have to implement something with the C++ state processing
-    // powerful enough to detect and report such situations intelligently, as
-    // well as rebuilding the selection state in the event of a forced edit
-    // invalidating temporary selection editing objects.
-    //
-    // Another option might be for libged to maintain an explicit set of
-    // temporary edit objects, and have the edit command track in-process
-    // edits independent of the selection command - that way, a user could
-    // also manually perform multiple intermediate edits on a specified object
-    // that isn't selected without being forced to have each step written to
-    // disk.  This is potentially useful in situations like large bot objects
-    // where writing many copies to disk for multiple edits would be problematic
-    // without frequent garbage_collect runs on the .g file.  The drawing layer
-    // could then handle such states consistently regardless of selection state -
-    // perhaps ghosting in the proposed new state unless the selection flag is
-    // set, and ghosting the saved-to-disk state when selection is active.
-    //
-    // For command line, if we do have temporary editing objects, the edit
-    // command should reject an edit on an object with an intermediate state
-    // active unless an explicit flag is set to make sure user intent is clear.
-    // If no flag, error out with message and options.  If -i flag, edit the
-    // intermediate, non-disk temporary state.  if -f/-w, apply the operation
-    // (if any) and then finalize and write the intermediate state to disk.  If
-    // -F, erase the intermediate state and start over with the on-disk state -
-    // the equivalent to an MGED reset.
-#if 0
-    if (opt_ret > 0) {
-	for (int gcnt = 0; gcnt < opt_ret; gcnt++) {
-	    geom_objs.push_back(std::string(argv[gcnt]));
-	}
-    } else {
-	// If nothing is specified, we need at least one selected geometry item or
-	// we have nothing to work on
-	std::vector<BSelectState *> ss = gedp->dbi_state->get_selected_states("default");
-	if (ss.size()) {
-	    geom_objs = ss[0]->list_selected_paths();
-	}
-    }
-
-    if (!geom_objs.size()) {
-	bu_vls_printf(gedp->ged_result_str, "Error: no geometry objects specified or selected\n");
-	return BRLCAD_ERROR;
-    }
-#endif
-
-    // Execute the subcommand
-    if (!cmd_str) {
-	bu_log("No subcommand specified\n");
+    /* Must have a geometry specifier before dispatching */
+    if (ctx.geom_specs.empty()) {
+	bu_vls_printf(gedp->ged_result_str,
+	    "No valid geometry specifier found; nothing to edit.\n");
+	_ged_subcmd2_help(gedp, (struct bu_opt_desc *)d, edit_cmds,
+	    "edit", bargs_help, 0, NULL);
 	return BRLCAD_ERROR;
     }
 
-    return edit_cmds[std::string(cmd_str)]->exec(gedp, &einfo, argc, argv);
+    return e_it->second->exec(gedp, &ctx, argc, argv);
 }
 
 
@@ -595,4 +640,5 @@ ged_edit2_core(struct ged *gedp, int argc, const char *argv[])
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
+
 
