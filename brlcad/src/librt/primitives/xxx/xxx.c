@@ -164,7 +164,7 @@ rt_xxx_shot(struct soltab *stp, struct xray *rp, struct application *ap, struct 
  */
 #ifdef EXAMPLE_NEW_SEGMENT
     /* allocate a segment */
-    RT_GET_SEG(segp, ap->a_resource);
+    RT_GET_SEG(segp, ap);
     segp->seg_stp = stp; /* stash a pointer to the primitive */
 
     segp->seg_in.hit_dist = -1; /* XXX set to real distance to entry point */

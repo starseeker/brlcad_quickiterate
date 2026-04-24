@@ -46,7 +46,8 @@
 
 __BEGIN_DECLS
 
-struct soltab;  /* forward declaration */
+struct soltab;      /* forward declaration */
+struct application; /* forward declaration */
 
 /**
  * Intersection segment.
@@ -67,35 +68,44 @@ struct seg {
 #define RT_CHECK_SEG(_p) BU_CKMAG(_p, RT_SEG_MAGIC, "struct seg")
 #define RT_CK_SEG(_p) BU_CKMAG(_p, RT_SEG_MAGIC, "struct seg")
 
-#define RT_GET_SEG(p, res) { \
-	while (!BU_LIST_WHILE((p), seg, &((res)->re_seg)) || !(p)) \
-	    rt_alloc_seg_block(res); \
-	BU_LIST_DEQUEUE(&((p)->l)); \
-	(p)->l.forw = (p)->l.back = BU_LIST_NULL; \
-	(p)->seg_in.hit_magic = (p)->seg_out.hit_magic = RT_HIT_MAGIC; \
-	res->re_segget++; \
-    }
-
-
-#define RT_FREE_SEG(p, res) { \
-	RT_CHECK_SEG(p); \
-	BU_LIST_INSERT(&((res)->re_seg), &((p)->l)); \
-	res->re_segfree++; \
-    }
-
+/**
+ * Allocate one struct seg from the per-cpu pool owned by
+ * ap->a_rt_i.  Initialises hit_magic fields.  The pool is an
+ * implementation detail hidden inside rt_i_internal; callers never
+ * see or manage it directly.
+ */
+RT_EXPORT extern struct seg *rt_seg_alloc(struct application *ap);
 
 /**
- * This could be
- *      BU_LIST_INSERT_LIST(&((_res)->re_seg), &((_segheadp)->l))
- * except for security of checking & counting each element this way.
+ * Return one struct seg to the per-cpu pool owned by ap->a_rt_i.
  */
-#define RT_FREE_SEG_LIST(_segheadp, _res) { \
-	register struct seg *_a; \
-	while (BU_LIST_WHILE(_a, seg, &((_segheadp)->l))) { \
-	    BU_LIST_DEQUEUE(&(_a->l)); \
-	    RT_FREE_SEG(_a, _res); \
-	} \
-    }
+RT_EXPORT extern void rt_seg_free(struct seg *segp, struct application *ap);
+
+/**
+ * Return all segs on list seghead to the pool owned by ap->a_rt_i.
+ * seghead must be the sentinel list head (from BU_LIST_INIT), not a
+ * real segment node.
+ */
+RT_EXPORT extern void rt_seg_free_list(struct seg *seghead, struct application *ap);
+
+/**
+ * Obtain one struct seg from ap->a_rt_i's per-cpu pool.
+ * Initialises the hit magic fields.
+ */
+#define RT_GET_SEG(p, ap) \
+    do { (p) = rt_seg_alloc(ap); } while (0)
+
+/**
+ * Return struct seg p to ap->a_rt_i's per-cpu pool.
+ */
+#define RT_FREE_SEG(p, ap) \
+    do { RT_CHECK_SEG(p); rt_seg_free((p), (ap)); } while (0)
+
+/**
+ * Return all segs on list _segheadp to ap->a_rt_i's per-cpu pool.
+ */
+#define RT_FREE_SEG_LIST(_segheadp, ap) \
+    rt_seg_free_list((_segheadp), (ap))
 
 /* Print seg struct */
 RT_EXPORT extern void rt_pr_seg(const struct seg *segp);

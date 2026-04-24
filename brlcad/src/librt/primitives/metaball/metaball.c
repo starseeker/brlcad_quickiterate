@@ -428,7 +428,7 @@ rt_metaball_shot(struct soltab *stp, register struct xray *rp, struct applicatio
 			else
 			    if (in)
 				if (step<=mb->finalstep) {
-				    RT_GET_SEG(segp, ap->a_resource);
+				    RT_GET_SEG(segp, ap);
 				    segp->seg_stp = stp;
 				    STEPIN(in)
 					fhin = 1;
@@ -475,7 +475,7 @@ rt_metaball_shot(struct soltab *stp, register struct xray *rp, struct applicatio
 		    const point_t *pA = (const point_t *)&lastpoint;
 		    const point_t *pB = (const point_t *)&p;
 		    rt_metaball_find_intersection(&intersect, mb, pA, pB, step, mb->finalstep);
-		    RT_GET_SEG(segp, ap->a_resource);
+		    RT_GET_SEG(segp, ap);
 		    segp->seg_stp = stp;
 		    --segsleft;
 		    ++retval;

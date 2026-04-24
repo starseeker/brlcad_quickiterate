@@ -116,6 +116,20 @@ void db_i_internal_destroy(struct db_i_internal *i);
  * have no external consumers are stored here.  Only librt code should
  * ever touch this struct directly.
  */
+
+/**
+ * Per-cpu segment slab-allocator pool.  One instance per (rt_i, cpu)
+ * pair, stored in the rti_seg_pools map inside rt_i_internal.
+ * Managed entirely by seg_pool.cpp; never exposed in public headers.
+ */
+struct rt_seg_pool {
+    struct bu_list  re_seg;         /**< @brief head of segment freelist */
+    struct bu_ptbl  re_seg_blocks;  /**< @brief slab blocks (bu_free on cleanup) */
+    long            re_seglen;      /**< @brief total segs pre-allocated */
+    long            re_segget;      /**< @brief segs obtained */
+    long            re_segfree;     /**< @brief segs returned */
+};
+
 struct rt_i_internal {
     /* Space-partitioning / BSP internals */
     union cutter        rti_inf_box;            /**< @brief  List of infinite solids */
@@ -149,10 +163,31 @@ struct rt_i_internal {
     /* Dynamic geometry */
     int                 rti_add_to_new_solids_list;
     struct bu_ptbl      rti_new_solids;
+
+    /* Per-cpu segment freelist pools (Phase 7B).  Stored as a
+     * std::unordered_map<int,struct rt_seg_pool *> * (C++ type);
+     * exposed here as void * so the struct remains C-compatible.
+     * Allocated in rt_i_internal_create(), freed in
+     * rt_i_internal_destroy() via seg_pool.cpp helpers. */
+    void               *rti_seg_pools;
 };
 
 struct rt_i_internal * rt_i_internal_create(void);
 void rt_i_internal_destroy(struct rt_i_internal *i);
+
+/* seg_pool.cpp — per-cpu segment pool helpers (C linkage so prep.cpp can call them) */
+#ifdef __cplusplus
+extern "C" {
+#endif
+/* Allocate a new SegPoolMap; called from rt_i_internal_create(). */
+extern void *rt_seg_pool_map_create(void);
+/* Destroy all pools in the map; called from rt_i_internal_destroy(). */
+extern void  rt_seg_pool_map_destroy(void *map_void);
+/* Ensure the pool for 'cpu' exists in rtip; called from rt_init_resource(). */
+extern void  rt_seg_pool_init_cpu(struct rt_i *rtip, int cpu);
+#ifdef __cplusplus
+}
+#endif
 
 
 /* Used by sketch extrude revolve */

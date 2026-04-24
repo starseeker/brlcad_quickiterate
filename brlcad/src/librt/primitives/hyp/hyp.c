@@ -390,7 +390,7 @@ rt_hyp_shot(struct soltab *stp, struct xray *rp, struct application *ap, struct 
 	/* 2 hits */
 	if (hits[0].hit_dist < hits[1].hit_dist) {
 	    /* entry is [0], exit is [1] */
-	    RT_GET_SEG(segp, ap->a_resource);
+	    RT_GET_SEG(segp, ap);
 	    segp->seg_stp = stp;
 	    segp->seg_in = hits[0];	/* struct copy */
 	    segp->seg_out = hits[1];	/* struct copy */
@@ -398,7 +398,7 @@ rt_hyp_shot(struct soltab *stp, struct xray *rp, struct application *ap, struct 
 	} else {
 	    /* entry is [1], exit is [0] */
 
-	    RT_GET_SEG(segp, ap->a_resource);
+	    RT_GET_SEG(segp, ap);
 	    segp->seg_stp = stp;
 	    segp->seg_in = hits[1];	/* struct copy */
 	    segp->seg_out = hits[0];	/* struct copy */
@@ -431,13 +431,13 @@ rt_hyp_shot(struct soltab *stp, struct xray *rp, struct application *ap, struct 
 	}
 
 	/* hit segments are now (0, 1) and (2, 3) */
-	RT_GET_SEG(segp, ap->a_resource);
+	RT_GET_SEG(segp, ap);
 	segp->seg_stp = stp;
 	segp->seg_in = sorted[0];	/* struct copy */
 	segp->seg_out = sorted[1];	/* struct copy */
 	BU_LIST_INSERT(&(seghead->l), &(segp->l));
 
-	RT_GET_SEG(segp, ap->a_resource);
+	RT_GET_SEG(segp, ap);
 	segp->seg_stp = stp;
 	segp->seg_in = sorted[2];	/* struct copy */
 	segp->seg_out = sorted[3];	/* struct copy */
