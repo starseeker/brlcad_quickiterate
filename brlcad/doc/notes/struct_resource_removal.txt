@@ -255,7 +255,7 @@ Implementation summary:
   - re_pieces, re_pieces_pending, re_ray_seqno removed from
     ``struct resource``; RT_RESOURCE_INIT_ZERO updated to match.
 
-Phase 7 - Seg/partition freelists (A, B)
+Phase 7 - Seg/partition freelists (A, B)  [PARTIAL]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Last and hardest.  At this point struct resource holds only these
@@ -266,11 +266,32 @@ so the pool may no longer pay for itself.  The benchmark corpus to
 use: sphflake, havoc, m35, castle, ktank, bldg391, moss, crod, cube,
 GenericTwin at s=512, 3-run average.
 
-  - If the pool still matters, move ownership to struct application
-    (one worker == one application == one pool).  RT_GET_SEG /
-    RT_FREE_SEG / RT_GET_PT / RT_FREE_PT take an application *.
-  - If the pool no longer matters, inline bu_malloc / bu_free and
-    delete the pool plumbing.
+Partition freelist (B) DONE:
+  - re_parthead, re_partlen, re_partget, re_partfree removed.
+  - GET_PT / GET_PT_INIT / RT_DUP_PT now always BU_ALLOC + bu_ptbl_init,
+    ignoring the resource pointer.
+  - FREE_PT now calls bu_ptbl_free + bu_free directly, ignoring the
+    resource pointer.
+  - RT_FREE_PT_LIST composes from the updated FREE_PT.
+  - shoot.c and bundle.c uninitialized-resource guards changed from
+    !BU_LIST_IS_INITIALIZED(&resp->re_parthead) to
+    resp->re_magic != RESOURCE_MAGIC.
+  - rt_clean_resource_basic: partition drain loop removed.
+  - do.c: partition stats log line removed.
+
+Segment freelist (A) PENDING benchmark:
+  The re_seg / re_seg_blocks / re_seglen / re_segget / re_segfree fields
+  and rt_alloc_seg_block() are RETAINED on struct resource.  RT_GET_SEG /
+  RT_FREE_SEG / RT_FREE_SEG_LIST continue to use the block-allocator pool.
+  Segments are on the inner hot path of every ft_shot call; removing
+  the pool without measured data is too risky.
+
+  Next step: run the benchmark suite above with direct-malloc RT_GET_SEG
+  vs the current pool, 3-run average at s=512.
+    - If no regression: inline bu_malloc/bu_free (delete pool fields).
+    - If regression: move the pool to struct application
+      (one worker == one application == one pool).  RT_GET_SEG /
+      RT_FREE_SEG / RT_FREE_SEG_LIST take an application *.
 
 Phase 8 - Type deletion
 ~~~~~~~~~~~~~~~~~~~~~~~

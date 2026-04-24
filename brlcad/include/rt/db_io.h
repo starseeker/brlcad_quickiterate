@@ -885,6 +885,15 @@ RT_EXPORT extern int db_zapper(struct db_i *,
  */
 RT_EXPORT extern void db_alloc_directory_block(struct db_i *dbip);
 
+/**
+ * This routine is called by the GET_SEG macro when the freelist is
+ * exhausted.  Rather than simply getting one additional structure, we
+ * get a whole batch, saving overhead.  When this routine is called,
+ * the seg resource must already be locked.  malloc() locking is done
+ * in bu_malloc.
+ */
+RT_EXPORT extern void rt_alloc_seg_block(struct resource *res);
+
 
 /**
  * Read named MGED db, build toc.
