@@ -1,0 +1,227 @@
+src/art/art.cpp:168:struct resource* resources;
+src/art/art.h:106:    BrlcadObject(const char* name, const asr::ParamArray& params, struct application* ap, struct resource* resources);
+src/art/art.h:130:    struct resource* resources;
+src/art/brlcadplugin.cpp:191:    struct application* p_ap, struct resource* p_resources)
+src/art/brlcadplugin.cpp:440:	rt_init_resource(&resources[i], (int)i, rtip);
+src/gtools/beset/beset.c:159:	pop_gop(REPRODUCE, argv[ac+2], NULL, argv[ac+2], NULL, source_db, pop.db_c, &rt_uniresource);
+src/gtools/beset/beset.c:189:			pop.db_p, pop.db_c, &rt_uniresource);
+src/gtools/beset/beset.c:206:			pop.db_p, pop.db_c, &rt_uniresource);
+src/gtools/beset/beset.c:218:			pop.db_p, pop.db_c, &rt_uniresource);
+src/gtools/beset/fitness.c:322:    ap.a_resource = &rt_uniresource;/*fstate->resource[cpu];*/
+src/gtools/beset/fitness.h:56:    struct resource resource[MAX_PSW]; /* memory resource for multi-cpu processing */
+src/gtools/beset/population.c:318:	     struct resource *resp,
+src/gtools/beset/population.c:403:pop_gop(int gop, char *parent1_id, char *parent2_id, char *child1_id, char *child2_id, struct db_i *dbi_p, struct db_i *dbi_c, struct resource *resp)
+src/gtools/beset/population.h:76:	     struct db_i *dbi_c, struct resource *resp);
+src/gtools/beset/population.h:78:		     struct resource *resp);
+src/libanalyze/analyze_private.h:59:extern void analyze_seg_filter(struct bu_ptbl *segs, getray_t gray, getflag_t gflag, struct rt_i *rtip, struct resource *resp, fastf_t tol, int ncpus);
+src/libanalyze/api.c:1300:    struct resource resp[MAX_PSW];
+src/libanalyze/find_subtracted_shapes.cpp:405:    ccomb_resp = (struct resource *)bu_calloc(ncpus+1, sizeof(struct resource), "ccomb resources");
+src/libanalyze/find_subtracted_shapes.cpp:559:	    candidate_resp = (struct resource *)bu_calloc(ncpus+1, sizeof(struct resource), "candidate resources");
+src/libanalyze/inside.c:259:	    BU_GET(state[i].resp, struct resource);
+src/libanalyze/inside.c:260:	    rt_init_resource(state[i].resp, (int)i, state->rtip);
+src/libanalyze/inside.c:277:	    BU_PUT(state[i].resp, struct resource);
+src/libanalyze/nirt/nirt.cpp:2906:    BU_GET(n->res, struct resource);
+src/libanalyze/nirt/nirt.cpp:2907:    BU_GET(n->res_air, struct resource);
+src/libanalyze/nirt/nirt.cpp:3001:    ns->i->ap->a_resource = _nirt_get_resource(ns); /* note: resource is initialized by get_rtip */
+src/libanalyze/nirt/nirt.cpp:3058:    BU_PUT(ns->i->res, struct resource);
+src/libanalyze/nirt/nirt.cpp:3059:    BU_PUT(ns->i->res_air, struct resource);
+src/libanalyze/nirt/nirt.cpp:472:struct resource *
+src/libanalyze/nirt/nirt.h:412:struct resource * _nirt_get_resource(struct nirt_state *nss);
+src/libanalyze/obj_to_pnts.cpp:302:	rt_init_resource(state[i].resp, (int)i, rtip);
+src/libanalyze/polygonizer.c:784:    BU_GET(resp, struct resource);
+src/libanalyze/polygonizer.c:926:    BU_PUT(resp, struct resource);
+src/libanalyze/raydiff.c:222:	rt_init_resource(state[i].resp, (int)i, rtip);
+src/libanalyze/raydiff.c:352:	/*BU_PUT(state[i].resp, struct resource);*/
+src/libanalyze/util.cpp:453:analyze_seg_filter(struct bu_ptbl *segs, getray_t gray, getflag_t gflag, struct rt_i *rtip, struct resource *resp, fastf_t tol, int ncpus)
+src/libanalyze/util.cpp:604:	resp = (struct resource *)bu_calloc(ncpus+1, sizeof(struct resource), "resources");
+src/libanalyze/util.cpp:619:	    rt_init_resource(state[i].resp, (int)i, rtip);
+src/libged/adjust/adjust.c:66:    GED_DB_GET_INTERNAL(gedp, &intern, dp, (matp_t)NULL, &rt_uniresource, BRLCAD_ERROR);
+src/libged/analyze/op_pnts_vol.cpp:258:    BU_GET(resp, struct resource);
+src/libged/analyze/op_pnts_vol.cpp:410:    BU_PUT(resp, struct resource);
+src/libged/analyze/op_pnts_vol.cpp:433:    BU_GET(resp, struct resource);
+src/libged/analyze/op_pnts_vol.cpp:450:    BU_PUT(resp, struct resource);
+src/libged/arced/arced.c:88:    /* GED_DB_GET_INTERNAL(gedp, &intern, (fastf_t *)NULL, &rt_uniresource, BRLCAD_ERROR); */
+src/libged/bot/exterior.cpp:217:    struct resource             *resource; /* one slot from resources[] */
+src/libged/bot/exterior.cpp:639:	if (resources[i].re_magic == RESOURCE_MAGIC) {
+src/libged/clone/clone.c:1014:    if ((copy = deep_copy_object(&rt_uniresource, &state)) != (struct directory *)NULL)
+src/libged/clone/clone.c:715:copy_tree(struct directory *dp, struct resource *resp, struct ged_clone_state *state)
+src/libged/clone/clone.c:799:deep_copy_object(struct resource *resp, struct ged_clone_state *state)
+src/libged/comb/comb.c:104:    GED_DB_GET_INTERNAL(gedp, &intern, dp, (matp_t)NULL, &rt_uniresource, BRLCAD_ERROR);
+src/libged/comb_color/comb_color.c:59:    GED_DB_GET_INTERNAL(gedp, &intern, dp, (fastf_t *)NULL, &rt_uniresource, BRLCAD_ERROR);
+src/libged/comb_std/comb_std.c:503:	GED_DB_GET_INTERNAL(gedp, &intern, dp, (fastf_t *)NULL, &rt_uniresource, BRLCAD_ERROR);
+src/libged/dbi_state.cpp:2318:    ud->res = &rt_uniresource; // TODO - at some point this may be from the app or view... local_res is temporary, don't use it here
+src/libged/dbi_state.cpp:424:    BU_GET(res, struct resource);
+src/libged/dbi_state.cpp:454:    BU_PUT(res, struct resource);
+src/libged/draw.cpp:1035:	ud->res = &rt_uniresource; // TODO - at some point this may be from the app or view.  dd->res is temporary, so we don't use it here
+src/libged/draw.cpp:360:	cbd->res = &rt_uniresource;
+src/libged/draw.cpp:511:	cbd->res = &rt_uniresource;
+src/libged/draw/bigE.c:2062:	dgcdp->	rt_uniresource.re_magic = RESOURCE_MAGIC;
+src/libged/edcomb/edcomb.c:76:    GED_DB_GET_INTERNAL(gedp, &intern, dp, (fastf_t *)NULL, &rt_uniresource, BRLCAD_ERROR);
+src/libged/edit/edarb.c:162:    GED_DB_GET_INTERNAL(gedp, &intern, dp, (matp_t)NULL, &rt_uniresource, BRLCAD_ERROR);
+src/libged/edit/edarb.c:225:    GED_DB_GET_INTERNAL(gedp, &intern, dp, (matp_t)NULL, &rt_uniresource, BRLCAD_ERROR);
+src/libged/edit/edarb.c:309:    GED_DB_GET_INTERNAL(gedp, &intern, dp, (matp_t)NULL, &rt_uniresource, BRLCAD_ERROR);
+src/libged/edit/edarb.c:97:    GED_DB_GET_INTERNAL(gedp, &intern, dp, (matp_t)NULL, &rt_uniresource, BRLCAD_ERROR);
+src/libged/edit/edit.c:1382:			    &rt_uniresource, BRLCAD_ERROR);
+src/libged/edit/edit.c:802:			    &rt_uniresource, BRLCAD_ERROR);
+src/libged/edit/edit.c:836:			    &rt_uniresource, BRLCAD_ERROR);
+src/libged/edit/facedef.c:194:    GED_DB_GET_INTERNAL(gedp, &intern, dp, (matp_t)NULL, &rt_uniresource, BRLCAD_ERROR);
+src/libged/edit/protate.c:88:    GED_DB_GET_INTERNAL(gedp, &intern, dp, (matp_t)NULL, &rt_uniresource, BRLCAD_ERROR);
+src/libged/edit/pscale.c:101:    GED_DB_GET_INTERNAL(gedp, &intern, dp, (matp_t)NULL, &rt_uniresource, BRLCAD_ERROR);
+src/libged/edit/ptranslate.c:101:    GED_DB_GET_INTERNAL(gedp, &intern, dp, (matp_t)NULL, &rt_uniresource, BRLCAD_ERROR);
+src/libged/facetize/old_facetize.cpp:1821:	ftree = rt_booltree_evaluate(facetize_tree, vlfree, &wdbp->wdb_tol, &rt_uniresource, &_manifold_do_bool, 0, (void *)o);
+src/libged/facetize/tri.cpp:1047:    ftree = rt_booltree_evaluate(s->facetize_tree, vlfree, &wdbp->wdb_tol, &rt_uniresource, &manifold_do_bool, 0, (void *)s);
+src/libged/ged_track.c:127: * NON-PARALLEL due to rt_uniresource
+src/libged/ged_util.cpp:2233:    GED_DB_GET_INTERNAL(gedp, &intern, dp, (fastf_t *)NULL, &rt_uniresource, 0);
+src/libged/gqa/gqa.cpp:2496:    struct resource resp[MAX_PSW];	/* memory resources for multi-cpu processing */
+src/libged/item/item.c:88:    GED_DB_GET_INTERNAL(gedp, &intern, dp, (fastf_t *)NULL, &rt_uniresource, BRLCAD_ERROR);
+src/libged/lint/lint_bot.cpp:157:	    lint_worker_data(struct rt_i *rtip, struct resource *res);
+src/libged/lint/lint_bot.cpp:183:lint_worker_data::lint_worker_data(struct rt_i *rtip, struct resource *res)
+src/libged/lint/lint_bot.cpp:602:	rt_init_resource(state[i].resp, (int)i, state[i].rtip);
+src/libged/mater/mater.cpp:85:    GED_DB_GET_INTERNAL(gedp, &intern, dp, (fastf_t *)NULL, &rt_uniresource, BRLCAD_ERROR);
+src/libged/material/material.c:431:        GED_DB_GET_INTERNAL(gedp, &intern, dp, (matp_t)NULL, &rt_uniresource, BRLCAD_ERROR);
+src/libged/material/material.c:485:        GED_DB_GET_INTERNAL(gedp, &intern, dp, (matp_t)NULL, &rt_uniresource, BRLCAD_ERROR);
+src/libged/material/material.c:545:        GED_DB_GET_INTERNAL(gedp, &intern, dp, (matp_t)NULL, &rt_uniresource, BRLCAD_ERROR);
+src/libged/pset/pset.c:118:    GED_DB_GET_INTERNAL(gedp, &intern, dp, (matp_t)NULL, &rt_uniresource, BRLCAD_ERROR);
+src/libged/red/red.c:245:    GED_DB_GET_INTERNAL(gedp, &intern, dp, (fastf_t *)NULL, &rt_uniresource, BRLCAD_ERROR);
+src/libged/red/red.c:813:	GED_DB_GET_INTERNAL(gedp, &intern, dp, (fastf_t *)NULL, &rt_uniresource, BRLCAD_ERROR);
+src/libged/shader/shader.c:51:    GED_DB_GET_INTERNAL(gedp, &intern, dp, (fastf_t *)NULL, &rt_uniresource, BRLCAD_ERROR);
+src/libged/simulate/tests/simulate_test.cpp:60:	    if (1 != db_path_to_mat(const_cast<db_i *>(&db), &full_path, matrix, full_path.fp_len, &rt_uniresource))
+src/libged/view/gobjs.cpp:151:    dd.res = &rt_uniresource;
+src/libged/wireframe_eval.c:1811:    dgcdp.    rt_uniresource.re_magic = RESOURCE_MAGIC;
+src/liboptical/photonmap.c:65:struct resource GPM_RTAB[MAX_PSW];	/* Resource Table for Multi-threading */
+src/liboptical/sh_camo.c:193:    db_region_mat(model_to_region, rtip->rti_dbip, rp->reg_name, &rt_uniresource);
+src/liboptical/sh_fire.c:243:		  fire_sp->fire_max, &rt_uniresource);
+src/liboptical/sh_gauss.c:151:tree_solids(union tree *tp, struct tree_bark *tb, int op, struct resource *resp)
+src/liboptical/sh_gauss.c:342:    tree_solids (rp->reg_treetop, &tb, OP_UNION, &rt_uniresource);
+src/liboptical/sh_grass.c:526:    db_region_mat(grass_sp->m_to_sh, rtip->rti_dbip, rp->reg_name, &rt_uniresource);
+src/liboptical/sh_light.c:1449: * a_resource
+src/liboptical/sh_noise.c:231:    db_region_mat(model_to_region, rtip->rti_dbip, rp->reg_name, &rt_uniresource);
+src/liboptical/sh_osl.cpp:52:std::vector<struct resource *> visited_addrs;
+src/liboptical/sh_osl.cpp:536:	visited_addrs.push_back(ap->a_resource);
+src/liboptical/sh_prj.c:565:    db_region_mat(prj_sp->prj_m_to_sh, rtip->rti_dbip, rp->reg_name, &rt_uniresource);
+src/liboptical/sh_tcl.c:160:    db_region_mat(tcl_sp->tcl_m_to_r, rtip->rti_dbip, rp->reg_name, &rt_uniresource);
+src/liboptical/sh_treetherm.c:441:    db_region_mat(tthrm_sp->tthrm_m_to_sh, rtip->rti_dbip, rp->reg_name, &rt_uniresource);
+src/liboptical/sh_xxx.c:207:     * db_region_mat(xxx_sp->xxx_m_to_r, rtip->rti_dbip, rp->reg_name, &rt_uniresource);
+src/libqtcad/QgMeasureFilter.cpp:385:	    BU_PUT(resp, struct resource);
+src/libqtcad/QgMeasureFilter.cpp:387:	BU_GET(resp, struct resource);
+src/libqtcad/QgMeasureFilter.cpp:399:	    BU_PUT(resp, struct resource);
+src/libqtcad/QgSelectFilter.cpp:312:    BU_GET(resp, struct resource);
+src/libqtcad/QgSelectFilter.cpp:322:	BU_PUT(resp, struct resource);
+src/libqtcad/QgSelectFilter.cpp:357:    BU_PUT(resp, struct resource);
+src/librt/bbox.c:420:		  struct resource *res
+src/librt/binunif/db5_bin.c:79:			      struct resource *resp,
+src/librt/bool.c:1280:    cpu = ap->a_resource ? ap->a_cpu : 0;
+src/librt/bool_tess.c:125:	struct resource *resp,
+src/librt/bundle.c:104:    if (!ap->a_resource) {
+src/librt/bundle.c:109:    resp = ap->a_resource;
+src/librt/bundle.c:110:    ss.resp = resp;
+src/librt/bundle.c:115:	       resp->re_cpu,
+src/librt/bundle.c:139:    if (resp->re_magic != RESOURCE_MAGIC) {
+src/librt/bundle.c:150:	BU_ASSERT(BU_PTBL_GET(&rtip->rti_resources, resp->re_cpu) != NULL);
+src/librt/bundle.c:493:	       resp->re_cpu,
+src/librt/bundle.c:600:    struct resource * resource = bundle->b_ap.a_resource;	/**< @brief dynamic memory resources */
+src/librt/cut.c:1343:fill_out_bsp(struct rt_i *rtip, union cutter *cutp, struct resource *resp, fastf_t bb[6])
+src/librt/db5_io.c:635:    struct resource *resp,
+src/librt/db5_io.c:654:	resp = &rt_uniresource;
+src/librt/db5_scan.c:264:    if (rt_uniresource.re_magic == 0)
+src/librt/db_fullpath.cpp:830:_comb_instance_matrix(matp_t m, const struct db_i *dbip, struct directory *cdp, struct directory *dp, struct resource *UNUSED(resp), int itarget)
+src/librt/db_fullpath.cpp:882:_comb_instance_bool_op(int *bval, const struct db_i *dbip, struct directory *cdp, struct directory *dp, struct resource *UNUSED(resp), int itarget)
+src/librt/db_lookup.c:356:	dp->d_forw = rt_uniresource.re_directory_hd;
+src/librt/db_lookup.c:357:	rt_uniresource.re_directory_hd = dp;
+src/librt/db_lookup.c:378:	dp->d_forw = rt_uniresource.re_directory_hd;
+src/librt/db_lookup.c:379:	rt_uniresource.re_directory_hd = dp;
+src/librt/db_open.c:483:	    dp->d_forw = rt_uniresource.re_directory_hd;
+src/librt/db_open.c:484:	    rt_uniresource.re_directory_hd = dp;
+src/librt/fortray.c:208:    rt_uniresource.re_magic = RESOURCE_MAGIC;
+src/librt/librt_private.h:209:/* Ensure the pool for 'cpu' exists in rtip; called from rt_init_resource(). */
+src/librt/librt_private.h:223:/* Ensure the pool for 'cpu' exists in rtip; called from rt_init_resource(). */
+src/librt/librt_private.h:480: * Internal-only helper that operates on struct resource.  This used
+src/librt/nurb_example.c:55:    nmg_nurb_kvknot(&new_kv, srf.order[0], 0.0, 1.0, 100, (struct resource *)NULL);
+src/librt/nurb_example.c:56:    srf2 = (struct face_g_snurb *) nmg_nurb_s_refine(&srf, 0, &new_kv, (struct resource *)NULL);
+src/librt/nurb_example.c:57:    srf3 = (struct face_g_snurb *) nmg_nurb_s_refine(srf2, 1, &new_kv, (struct resource *)NULL);
+src/librt/prep.cpp:208:     * them all on rt_uniresource, which doesn't discriminate
+src/librt/primitives/bot/repair.cpp:240:lint_worker_data::lint_worker_data(struct rt_i *rtip, struct resource *res)
+src/librt/primitives/bot/repair.cpp:385:	rt_init_resource(state[i].resp, (int)i, state[i].rtip);
+src/librt/primitives/bot/repair.cpp:88:	    lint_worker_data(struct rt_i *rtip, struct resource *res);
+src/librt/primitives/crofton.cpp:250:		 struct resource    *resources,
+src/librt/primitives/crofton.cpp:273:	a->a_resource = &resources[i];
+src/librt/primitives/crofton.cpp:519:     * calls rt_clean_resource (which calls rt_init_resource) on every
+src/librt/primitives/crofton.cpp:521:     * become dangling pointers and rt_init_resource reads garbage re_cpu
+src/librt/primitives/crofton.cpp:527:	if (resources[i].re_magic == RESOURCE_MAGIC) {
+src/librt/primitives/crofton.cpp:598:				       dbip, &rt_uniresource,
+src/librt/primitives/crofton.cpp:633:				dbip, &rt_uniresource,
+src/librt/primitives/nmg/nmg.c:2241: * NON-PARALLEL because of rt_uniresource.
+src/librt/primitives/nmg/nmg.c:2278:	if (rt_db_cvt_to_external5(&ext, name, &intern, 1.0, fp->dbip, &rt_uniresource, intern.idb_major_type) < 0) {
+src/librt/primitives/nmg/nmg_tri_mc.c:665:    struct resource resources[MAX_PSW];
+src/librt/primitives/sample_pnts.cpp:471:	rt_init_resource(state[i].resp, (int)i, rtip);
+src/librt/primitives/submodel/submodel.c:169:    BU_ALLOC(resp, struct resource);
+src/librt/primitives/submodel/submodel.c:475:    if ((resp = (struct resource *)BU_PTBL_GET(restbl, cpu)) == NULL) {
+src/librt/primitives/submodel/submodel.c:477:	BU_ALLOC(resp, struct resource);
+src/librt/primitives/submodel/submodel.c:573:    struct resource **rpp;
+src/librt/primitives/submodel/submodel.c:582:    for (BU_PTBL_FOR(rpp, (struct resource **), &rtip->rti_resources)) {
+src/librt/primitives/submodel/submodel.c:584:	if (*rpp == &rt_uniresource) continue;
+src/librt/primitives/submodel/submodel.c:586:	bu_free(*rpp, "struct resource (submodel)");
+src/librt/pt_pool.cpp:131: * rt_init_resource() so the pool slot is registered before any
+src/librt/pt_pool.cpp:163:    cpu = ap->a_resource ? ap->a_cpu : 0;
+src/librt/pt_pool.cpp:198:    cpu = ap->a_resource ? ap->a_cpu : 0;
+src/librt/pt_pool.cpp:228:    cpu = ap->a_resource ? ap->a_cpu : 0;
+src/librt/pt_pool.cpp:23: * Phase 7C of struct resource removal: the partition freelist that
+src/librt/seg_pool.cpp:125: * rt_init_resource() so the pool is ready before any ft_shot fires.
+src/librt/seg_pool.cpp:178:    cpu = ap->a_resource ? ap->a_cpu : 0;
+src/librt/seg_pool.cpp:206:    cpu = ap->a_resource ? ap->a_cpu : 0;
+src/librt/seg_pool.cpp:228:    cpu = ap->a_resource ? ap->a_cpu : 0;
+src/librt/seg_pool.cpp:23: * Phase 7B of struct resource removal: the segment freelist that
+src/librt/seg_pool.cpp:24: * previously lived in struct resource (re_seg / re_seg_blocks / ...)
+src/librt/seg_pool.cpp:99: * callers (rt_shootray, rt_init_resource) hold the semaphore or are
+src/librt/shoot.c:1313:	       resp->re_cpu,
+src/librt/shoot.c:1346:    if (	if (RT_G_DEBUG)bu_log("rt_cell_n_on_ray:  defaulting a_resource to &rt_uniresource\n");
+src/librt/shoot.c:1351:    resp = ap->a_resource;
+src/librt/shoot.c:1352:    ss.resp = resp;
+src/librt/shoot.c:1357:	       resp->re_cpu,
+src/librt/shoot.c:1370:    if (resp->re_magic != RESOURCE_MAGIC) {
+src/librt/shoot.c:1382:    BU_ASSERT(BU_PTBL_GET(&rtip->rti_resources, resp->re_cpu) != NULL);
+src/librt/shoot.c:1524:rt_zero_res_stats(struct resource *resp)
+src/librt/shoot.c:1535:rt_add_res_stats(register struct rt_i *rtip, register struct resource *resp)
+src/librt/shoot.c:472:    resp = ss->ap->a_resource;
+src/librt/shoot.c:689:	    bu_log("rt_shootray:  defaulting a_resource to &rt_uniresource\n");
+src/librt/shoot.c:694:    resp = ap->a_resource;
+src/librt/shoot.c:695:    ss.resp = resp;
+src/librt/shoot.c:702:		   resp->re_cpu,
+src/librt/shoot.c:727:    if (resp->re_magic != RESOURCE_MAGIC) {
+src/librt/shoot.c:739:    if (resp != &rt_uniresource)
+src/librt/shoot.c:740:	BU_ASSERT(BU_PTBL_GET(&rtip->rti_resources, resp->re_cpu) != NULL);
+src/librt/tests/cache.cpp:236:build_rtip(long int test_num, const char *gfile, const char *objname, int stage_num, int do_parallel, int ncpus, struct resource *resp)
+src/librt/tests/cache.cpp:255:	/* We're doing parallel prep, so we can't use rt_uniresource */
+src/librt/tests/prim_tess.c:1061:				       g_wdb->dbip, &rt_uniresource,
+src/librt/tests/rt_boolweave.c:22: * single-threaded and have hard-coded usage of rt_uniresource.
+src/librt/tests/rt_datum.c:246:    (void)db_path_to_mat(dbip, &path)(&m), path.fp_len, &rt_uniresource);
+src/librt/vshoot.c:140:    if (!ap->a_resource) {
+src/librt/wdb.c:264:	if (rt_db_cvt_to_external5(&ext, name, ip, local2mm, wdbp->dbip, &rt_uniresource, ip->idb_major_type) < 0) {
+src/libtclcad/commands.c:6555:     * trash rt_uniresource.  Once on the rti_resources list,
+src/libwdb/reg.c:95: * NON-PARALLEL due to rt_uniresource
+src/mged/clone.c:1158:		dps[j] = copy_object(s->dbip, &rt_uniresource, &state);
+src/mged/clone.c:746:copy_tree(struct db_i *_dbip, struct directory *dp, struct resource *resp, struct clone_state *state)
+src/mged/clone.c:830:copy_object(struct db_i *_dbip, struct resource *resp, struct clone_state *state)
+src/mged/cmd.cpp:2196:     * which in this case would trash rt_uniresource.
+src/mged/cmd.cpp:2199:    BU_ALLOC(resp, struct resource);
+src/mged/edsol.c:1017:    (void)db_path_to_mat(s->dbip, &bdata->s_fullpath)->e_mat, bdata->s_fullpath.fp_len-1, &rt_uniresource);
+src/mged/edsol.c:5872:    (void)db_path_to_mat(s->dbip, &bdata->s_fullpath)->e_mat, bdata->s_fullpath.fp_len-1, &rt_uniresource);
+src/mged/edsol.c:7721:    (void)db_path_to_mat(s->dbip, &bdata->s_fullpath)->e_mat, bdata->s_fullpath.fp_len-1, &rt_uniresource);
+src/mged/wdb_obj.c:1375:     * which in this case would trash rt_uniresource.
+src/proc-db/csgbrep.cpp:51:    int ret = rt_db_cvt_to_external5(&ext, name, ip, 1.0, fp->dbip, &rt_uniresource, ip->idb_major_type);
+src/rt/do.c:1291:	if (res->re_magic != RESOURCE_MAGIC) {
+src/rt/ext.h:135:extern struct resource resource[MAX_PSW];	/* memory resources */
+src/rt/main.c:196:initialize_resources(size_t cnt, struct resource *resp, struct rt_i *rtip)
+src/rt/main.c:204:    memset(resp, 0, sizeof(struct resource) * cnt);
+src/rt/main.c:551:    initialize_resources(sizeof(resource) / sizeof(struct resource), resource, rtip);
+src/rt/opt.c:101:struct resource resource[MAX_PSW] = {0};      /* memory resources */
+src/rt/rtsurf.c:226:initialize_resources(size_t cnt, struct resource *resp, struct rt_i *rtip)
+src/rt/rtsurf.c:234:    memset(resp, 0, sizeof(struct resource) * cnt);
+src/rt/rtsurf.c:281:    resources = (struct resource *)bu_calloc(MAX_PSW, sizeof(struct resource), "resources");
+src/rt/rtsurf.c:461:	a->a_resource = &(a->a_resource[i]); // index into the array
+src/rt/viewdummy.c:128:    bu_log("hit: 0x%x\n", ap->a_resource);
+src/rt/viewdummy.c:139:    bu_log("miss: 0x%x\n", ap->a_resource);
+src/rt/viewedge.c:142:static struct resource occlusion_resources[MAX_PSW];
+src/rt/viewedge.c:499:	    occlusion_apps[i]->a_resource = (struct resource *)BU_PTBL_GET(&occlusion_rtip->rti_resources, i);
+src/rt/viewweight.c:55:extern struct resource resource[];
+src/rt/worker.c:623:	if (resource[cpu].re_magic != RESOURCE_MAGIC) {
