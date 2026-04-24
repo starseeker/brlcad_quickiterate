@@ -58,6 +58,7 @@
 #include "ged/defines.h"
 #include "ged/view.h"
 #include "./ged_private.h"
+#include "bsg/util.h"
 
 #include "./dbi.h"
 
@@ -3651,6 +3652,15 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
     // Now that all path manipulations are finalized, update the
     // sets of drawn paths
     cache_collapsed();
+
+    // Phase 4-E: keep every view's BSG scene root in sync with the
+    // finalized draw state so that bsg_view_traverse() in dm_draw_objs
+    // sees up-to-date children on the next paint event.
+    for (v_it = views.begin(); v_it != views.end(); v_it++) {
+	struct bview *lv = *v_it;
+	if (lv->bsg_root)
+	    bsg_scene_root_sync((bsg_node *)lv->bsg_root, lv);
+    }
 
     return ret;
 }

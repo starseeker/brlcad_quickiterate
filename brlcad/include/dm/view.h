@@ -75,6 +75,18 @@ DM_EXPORT extern void dm_draw_viewobjs(struct rt_wdb *wdbp, struct bview *v, str
 /* Stripped down form of dm_draw_viewobjs that does just what's needed for the new setup */
 DM_EXPORT extern void dm_draw_objs(struct bview *v, void (*dm_draw_custom)(struct bview *, void *), void *u_data);
 
+/**
+ * Phase 4 (drawing_stack_modernization): traverse a BSG scene root and
+ * draw all children through the display manager associated with @p v.
+ * If @p v->dmp is NULL or @p root is NULL the function is a no-op.
+ *
+ * bsg_view_traverse is implemented in libdm/view.c (DM_EXPORT) rather
+ * than in libbsg because it calls draw_scene_obj() which requires the
+ * dm_* rendering symbols — placing it here avoids a libbsg→libdm
+ * circular dependency.
+ */
+DM_EXPORT extern void bsg_view_traverse(struct bview *v, void *root);
+
 __END_DECLS
 
 #endif /* DM_VIEW_H */

@@ -48,6 +48,7 @@
 #include "bv/plot3.h"
 
 #include "bv/defines.h"
+#include "bsg/util.h"
 
 #include "./ged_private.h"
 #include "./include/plugin.h"
@@ -124,6 +125,9 @@ ged_init(struct ged *gedp)
     bu_vls_sprintf(&gedp->ged_gvp->gv_name, "default");
     bv_set_add_view(&gedp->ged_views, gedp->ged_gvp);
     bu_ptbl_ins(&gedp->ged_free_views, (long *)gedp->ged_gvp);
+
+    /* Phase 4-C: create the BSG scene root for the default view */
+    bsg_scene_root_create(gedp->ged_gvp);
 
     /* Create a non-opened fbserv */
     BU_GET(gedp->ged_fbs, struct fbserv_obj);

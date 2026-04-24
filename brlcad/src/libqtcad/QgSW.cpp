@@ -32,6 +32,7 @@
 
 extern "C" {
 #include "bu/malloc.h"
+#include "bsg/util.h"
 }
 #include "bindings.h"
 #include "qtcad/QgSW.h"
@@ -55,6 +56,9 @@ QgSW::QgSW(QWidget *parent, struct fb *fbp)
     bv_init(local_v, NULL);
     bu_vls_sprintf(&local_v->gv_name, "swrast");
     v = local_v;
+
+    /* Phase 4-C: create the BSG scene root for this view */
+    bsg_scene_root_create(local_v);
 
     // Don't dm_open until we have the view.
     dmp = NULL;
