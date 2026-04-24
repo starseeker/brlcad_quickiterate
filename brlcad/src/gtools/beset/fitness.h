@@ -53,7 +53,6 @@ struct fitness_state {
     int sem_work;
     int sem_diff;
     int sem_same;
-    struct resource resource[MAX_PSW]; /* memory resource for multi-cpu processing */
     int ncpu;
     int max_cpus;
     int nodes;

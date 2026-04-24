@@ -1282,19 +1282,7 @@ do_ae(double azim, double elev)
 void
 res_pr(void)
 {
-    register    register size_t i;
-
-    bu_log("\nResource use summary, by processor:\n");
-    res = &resource[0];
-    for (i = 0; i < (size_t)npsw; i++, res++) {
-	bu_log("---CPU %zu:\n", i);
-	if (res->re_magic != RESOURCE_MAGIC) {
-	    bu_log("Bad magic number!\n");
-	    continue;
-	}
-	/* Phase 7: partition freelist counters removed; partitions are
-	 * now allocated/freed directly.  Seg pool stats are now in rt_i_internal. */
-    }
+    /* struct resource removed; per-CPU resource statistics no longer available */
 }
 
 

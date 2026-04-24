@@ -143,8 +143,6 @@ LLVMFuzzerTestOneInput(const int8_t *data, size_t size)
 	bu_exit(2, "Building the database directory for [%s] FAILED\n", file);
     }
 
-   rt_init_resource(&rt_uniresource, 0, rtip);
-
     if (title[0]) {
 	bu_log("Title:\n%s\n", title);
     }
@@ -153,7 +151,6 @@ LLVMFuzzerTestOneInput(const int8_t *data, size_t size)
 
     rt_prep_parallel(rtip, 1);
     RT_APPLICATION_INIT(&ap);
-    ap.a_resource = &rt_uniresource;
     ap.a_rt_i = rtip;
     ap.a_onehit = 0;
     ap.a_hit = fhit;
@@ -165,7 +162,6 @@ LLVMFuzzerTestOneInput(const int8_t *data, size_t size)
     rt_shootray(&ap);
 
     rt_clean(rtip);
-    rt_clean_resource_complete(rtip, &rt_uniresource);
 
     return 0;
 }

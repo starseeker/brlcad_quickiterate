@@ -444,7 +444,6 @@ ph_dirbuild(struct pkg_conn *UNUSED(pc), char *buf)
     long max_argc = 0;
     char **argv = NULL;
     struct rt_i *rtip = NULL;
-    size_t n = 0;
 
     if (debug)
 	fprintf(stderr, "ph_dirbuild: %s\n", buf);
@@ -475,14 +474,6 @@ ph_dirbuild(struct pkg_conn *UNUSED(pc), char *buf)
 	bu_exit(2, "ph_dirbuild:  rt_dirbuild(%s) failure\n", title_file);
     APP.a_rt_i = rtip;
     seen_dirbuild = 1;
-
-    /*
-     * Initialize all the per-CPU memory resources.  Go for the max,
-     * as TCL interface may change npsw as we run.
-     */
-    memset(resource, 0, sizeof(resource));
-    for (n=0; n < MAX_PSW; n++) {
-    }
 
     if (pkg_send(MSG_DIRBUILD_REPLY, idbuf, strlen(idbuf)+1, pcsrv) < 0)
 	fprintf(stderr, "MSG_DIRBUILD_REPLY error\n");

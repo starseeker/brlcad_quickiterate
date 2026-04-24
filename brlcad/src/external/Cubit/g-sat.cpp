@@ -1020,7 +1020,7 @@ output_triangles(nmgregion *r,
 
 
 tree *
-booltree_evaluate(tree *tp, resource *resp)
+booltree_evaluate(tree *tp)
 {
     union tree *tl;
     union tree *tr;
@@ -1050,8 +1050,8 @@ booltree_evaluate(tree *tp, resource *resp)
 	    return 0;
     }
     /* Handle a boolean operation node.  First get its leaves. */
-    tl = booltree_evaluate(tp->tr_b.tb_left, resp);
-    tr = booltree_evaluate(tp->tr_b.tb_right, resp);
+    tl = booltree_evaluate(tp->tr_b.tb_left);
+    tr = booltree_evaluate(tp->tr_b.tb_right);
 
     if (tl == 0 || !tl->tr_d.td_r) {
 	if (tr == 0 || !tr->tr_d.td_r)

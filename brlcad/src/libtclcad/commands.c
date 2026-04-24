@@ -6515,7 +6515,7 @@ to_rt_gettrees_application(struct ged *gedp,
 {
     struct rt_i *rtip;
     struct application *ap;
-    static    if (argc < 1) {
+    if (argc < 1) {
 	return RT_APPLICATION_NULL;
     }
 

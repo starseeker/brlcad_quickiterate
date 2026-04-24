@@ -1273,7 +1273,7 @@ get_next_row(struct cstate *state)
  * This routine must be prepared to run in parallel
  */
 void
-plane_worker(int cpu, void *ptr)
+plane_worker(int UNUSED(cpu), void *ptr)
 {
     struct application ap;
     int u, v;
@@ -2493,7 +2493,6 @@ ged_gqa_core(struct ged *gedp, int argc, const char *argv[])
     struct region_pair *rp;
     struct region *regp;
     static const char *usage = "object [object ...]";
-    struct rectangular_grid grid;	/* raytracing grid */
     struct bu_list *vlfree = &rt_vlfree;
 
     GED_CHECK_DATABASE_OPEN(gedp, BRLCAD_ERROR);

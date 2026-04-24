@@ -1315,7 +1315,7 @@ wdb_rt_gettrees_cmd(struct rt_wdb *wdbp,
     struct rt_i *rtip;
     struct application *ap;
     const char *newprocname;
-    static    RT_CK_WDB(wdbp);
+    RT_CK_WDB(wdbp);
     RT_CK_DBI(wdbp->dbip);
 
     if (argc < 3) {

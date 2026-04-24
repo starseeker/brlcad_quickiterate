@@ -70,6 +70,7 @@ RT_EXPORT extern int RT_SEM_TREE3;
 
 // libbu's callback type isn't quite right for this case, so we might as well
 // be specific.
+struct db_tree_state; /* forward declaration */
 typedef void(*rti_clbk_t)(struct rt_i *rtip, struct db_tree_state *tsp, struct region *r);
 
 struct rt_i_internal; /* forward declaration for private state */

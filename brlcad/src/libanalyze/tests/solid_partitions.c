@@ -38,7 +38,6 @@ main(int argc, char **argv)
     struct directory *dp = RT_DIR_NULL;
     struct bn_tol tol = BN_TOL_INIT_TOL;
     struct bn_tol rtol = {BN_TOL_MAGIC, 10, 0.5 * 0.5, 1.0e-6, 1.0 - 1.0e-6 };
-    struct rt_gen_worker_vars state;
     struct rt_i *rtip;
     struct bu_ptbl results = BU_PTBL_INIT_ZERO;
 
@@ -72,8 +71,6 @@ main(int argc, char **argv)
      * the bounding box.
      */
     rtip = rt_new_rti(dbip);
-    state.rtip = rtip;
-    state.resp = &resp;
     if (rt_gettree(rtip, argv[2]) < 0)
 	return -1;
     rt_prep_parallel(rtip, 1);
