@@ -44,6 +44,7 @@
 __BEGIN_DECLS
 
 struct rt_i; /* forward declaration */
+struct rt_piecestate_set; /* forward declaration */
 
 /**
  * This structure is the only parameter to rt_shootray().  The entire
@@ -148,6 +149,7 @@ struct application {
     float *             a_randptr;      /**< @brief  ptr into random number table (was re_randptr) */
     union tree **       a_boolstack;    /**< @brief  Stack for rt_booleval() (was re_boolstack) */
     long                a_boolslen;     /**< @brief  # elements in a_boolstack[] (was re_boolslen) */
+    struct rt_piecestate_set *a_pieces; /**< @brief  piece-shooting state for this application/worker (was re_pieces/re_pieces_pending/re_ray_seqno) */
 };
 
 /**

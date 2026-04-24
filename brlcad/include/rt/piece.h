@@ -28,11 +28,14 @@
 #include "bu/list.h"
 #include "bu/magic.h"
 #include "bu/bitv.h"
+#include "bu/ptbl.h"
 #include "rt/hit.h"
 #include "rt/soltab.h"
 #include "rt/space_partition.h" /* cutter */
 
 __BEGIN_DECLS
+
+struct rt_i; /* forward declaration */
 
 /**
  * Support for variable length arrays of "struct hit".  Patterned
@@ -88,6 +91,34 @@ struct rt_piecelist {
     struct soltab       *stp;           /**< @brief  ref back to solid */
 };
 #define RT_CK_PIECELIST(_p) BU_CKMAG(_p, RT_PIECELIST_MAGIC, "struct rt_piecelist")
+
+
+/**
+ * Per-application state for solid-piece ray shooting.
+ *
+ * Allocated and attached to struct application by rt_shootray() the
+ * first time it finds the model contains piece-capable solids.
+ * Freed by rt_ap_pieces_clean().
+ *
+ * The pieces[] array is indexed by stp->st_piecestate_num and is
+ * sized to rti_nsolids_with_pieces.  It persists across ray calls so
+ * that per-solid per-ray state can be lazily re-validated using the
+ * ps_ray_seqno counter.  The pending list is reset to empty at the
+ * start of each rt_shootray() call.
+ *
+ * When the model changes (e.g. after rt_reprep()), the stale set is
+ * detected by comparing npieces against rti_nsolids_with_pieces, and
+ * rt_ap_pieces_init() transparently reallocates it.
+ */
+struct rt_piecestate_set {
+    uint32_t                magic;         /**< @brief RT_PIECESTATE_SET_MAGIC */
+    struct rt_i *           rtip;          /**< @brief which rtip these pieces are for */
+    size_t                  npieces;       /**< @brief size of pieces[] array */
+    long                    ps_ray_seqno;  /**< @brief per-ray counter for piece-state dedup (was re_ray_seqno) */
+    struct rt_piecestate *  pieces;        /**< @brief pieces[npieces], indexed by stp->st_piecestate_num */
+    struct bu_ptbl          pending;       /**< @brief pieces with an odd hit pending */
+};
+#define RT_CK_PIECESTATE_SET(_p) BU_CKMAG(_p, RT_PIECESTATE_SET_MAGIC, "struct rt_piecestate_set")
 
 
 __END_DECLS
