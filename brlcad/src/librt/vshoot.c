@@ -137,8 +137,6 @@ rt_vshootray(struct application *ap)
 #define BACKING_DIST (-2.0)		/* mm to look behind start point */
     rtip = ap->a_rt_i;
     RT_AP_CHECK(ap);
-    if (!ap->a_resource) {
-    }
     if (RT_G_DEBUG&(RT_DEBUG_ALLRAYS|RT_DEBUG_SHOOT|RT_DEBUG_PARTITION)) {
 	bu_log("\n**********mshootray cpu=%d  %d, %d lvl=%d (%s)\n",
 	       ap->a_cpu,

@@ -52,9 +52,9 @@ interpolate_data()
     nmg_nurb_sinterp(&srf, 4, (const fastf_t *)grid, 10, 10);
 
     /* lets take a look at it.  Refine to 100 points in both directions. */
-    nmg_nurb_kvknot(&new_kv, srf.order[0], 0.0, 1.0, 100, (struct resource *)NULL);
-    srf2 = (struct face_g_snurb *) nmg_nurb_s_refine(&srf, 0, &new_kv, (struct resource *)NULL);
-    srf3 = (struct face_g_snurb *) nmg_nurb_s_refine(srf2, 1, &new_kv, (struct resource *)NULL);
+    nmg_nurb_kvknot(&new_kv, srf.order[0], 0.0, 1.0, 100);
+    srf2 = (struct face_g_snurb *) nmg_nurb_s_refine(&srf, 0, &new_kv);
+    srf3 = (struct face_g_snurb *) nmg_nurb_s_refine(srf2, 1, &new_kv);
 
     /* Draw refined mesh in yellow */
     pl_color(stdout, 200, 200, 50);

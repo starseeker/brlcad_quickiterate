@@ -85,7 +85,7 @@ struct lint_worker_vars {
 namespace {
     class lint_worker_data {
 	public:
-	    lint_worker_data(struct rt_i *rtip, struct resource *res);
+	    lint_worker_data(struct rt_i *rtip);
 	    ~lint_worker_data();
 	    void shoot(int ind, bool reverse);
 
@@ -237,7 +237,7 @@ bot_repair_lint_worker(int cpu, void *ptr)
     }
 }
 
-lint_worker_data::lint_worker_data(struct rt_i *rtip, struct resource *res)
+lint_worker_data::lint_worker_data(struct rt_i *rtip)
 {
     RT_APPLICATION_INIT(&ap);
     ap.a_onehit = 0;
@@ -381,14 +381,12 @@ bot_repair_lint(struct rt_bot_internal *bot)
 
     for (size_t i = 0; i < ncpus; i++) {
 	state[i].rtip = rtip;
-	state[i].resp = &resp[i];
-	rt_init_resource(state[i].resp, (int)i, state[i].rtip);
 	state[i].tri_start = i * tri_step;
 	state[i].tri_end = state[i].tri_start + tri_step;
 	//bu_log("%d: tri_state: %d, tri_end %d\n", (int)i, state[i].tri_start, state[i].tri_end);
 	state[i].reverse = false;
 
-	lint_worker_data *d = new lint_worker_data(rtip, state[i].resp);
+	lint_worker_data *d = new lint_worker_data(rtip);
 	d->bot = bot;
 	d->ttol = VUNITIZE_TOL;
 	state[i].ptr = (void *)d;
@@ -442,7 +440,6 @@ bot_lint_cleanup:
 
     rt_free_rti(rtip);
     bu_free(state, "state");
-    bu_free(resp, "resp");
     db_close(dbip);
 
     return ret;

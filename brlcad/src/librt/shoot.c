@@ -469,7 +469,6 @@ rt_find_backing_dist(struct rt_shootray_status *ss, struct bu_bitv *backbits) {
     struct rt_i *rtip;
     size_t i;
 
-    resp = ss->ap->a_resource;
     rtip = ss->ap->a_rt_i;
 
     /* get a bit vector of our own to avoid duplicate bounding box
@@ -685,21 +684,16 @@ rt_shootray(register struct application *ap)
 	ap->a_ray.magic = RT_RAY_MAGIC;
     }
 
-    if (	if (RT_G_DEBUG)
-	    bu_log("rt_shootray:  defaulting a_resource to &rt_uniresource\n");
-    }
     ss.ap = ap;
     rtip = ap->a_rt_i;
     RT_CK_RTI(rtip);
-    resp = ap->a_resource;
-    ss.resp = resp;
 
     if (RT_G_DEBUG) {
 	/* only test extensively if something in run-time debug is enabled */
 	if (RT_G_DEBUG & (RT_DEBUG_ALLRAYS|RT_DEBUG_SHOOT|RT_DEBUG_PARTITION|RT_DEBUG_ALLHITS)) {
 	    bu_log_indent_delta(2);
 	    bu_log("\n**********shootray cpu=%d  %d, %d lvl=%d a_onehit=%d (%s)\n",
-		   resp->re_cpu,
+		   ap->a_cpu,
 		   ap->a_x, ap->a_y,
 		   ap->a_level,
 		   ap->a_onehit,
@@ -723,21 +717,6 @@ rt_shootray(register struct application *ap)
     BU_LIST_INIT(&waiting_segs.l);
     BU_LIST_INIT(&finished_segs.l);
     ap->a_finished_segs_hdp = &finished_segs;
-
-    if (resp->re_magic != RESOURCE_MAGIC) {
-	/* XXX This shouldn't happen any more */
-	bu_log("rt_shootray() resp=%p uninitialized, fixing it\n", (void *)resp);
-	/*
-	 * We've been handed a mostly un-initialized resource struct,
-	 * with only a magic number and a cpu number filled in.  Init
-	 * it and add it to the table.  This is how
-	 * application-provided resource structures are remembered for
-	 * later cleanup by the library.
-	 */
-    }
-    /* Ensure that this CPU's resource structure is registered */
-    if (resp != &rt_uniresource)
-	BU_ASSERT(BU_PTBL_GET(&rtip->rti_resources, resp->re_cpu) != NULL);
 
     solidbits = rt_get_solidbitv(rtip->stats.nsolids);
 
@@ -1310,7 +1289,7 @@ out:
     if (RT_G_DEBUG&(RT_DEBUG_ALLRAYS|RT_DEBUG_SHOOT|RT_DEBUG_PARTITION|RT_DEBUG_ALLHITS)) {
 	bu_log_indent_delta(-2);
 	bu_log("----------shootray cpu=%d  %d, %d lvl=%d (%s) %s ret=%d\n",
-	       resp->re_cpu,
+	       ap->a_cpu,
 	       ap->a_x, ap->a_y,
 	       ap->a_level,
 	       ap->a_purpose != (char *)0 ? ap->a_purpose : "?",
@@ -1343,18 +1322,14 @@ rt_cell_n_on_ray(register struct application *ap, int n)
     } else {
 	ap->a_ray.magic = RT_RAY_MAGIC;
     }
-    if (	if (RT_G_DEBUG)bu_log("rt_cell_n_on_ray:  defaulting a_resource to &rt_uniresource\n");
-    }
     ss.ap = ap;
     rtip = ap->a_rt_i;
     RT_CK_RTI(rtip);
-    resp = ap->a_resource;
-    ss.resp = resp;
 
     if (RT_G_DEBUG&(RT_DEBUG_ALLRAYS|RT_DEBUG_SHOOT|RT_DEBUG_PARTITION|RT_DEBUG_ALLHITS)) {
 	bu_log_indent_delta(2);
 	bu_log("\n**********cell_n_on_ray cpu=%d  %d, %d lvl=%d (%s), n=%d\n",
-	       resp->re_cpu,
+	       ap->a_cpu,
 	       ap->a_x, ap->a_y,
 	       ap->a_level,
 	       ap->a_purpose != (char *)0 ? ap->a_purpose : "?", n);
@@ -1366,20 +1341,6 @@ rt_cell_n_on_ray(register struct application *ap, int n)
 
     if (rtip->needprep)
 	rt_prep_parallel(rtip, 1);	/* Stay on our CPU */
-
-    if (resp->re_magic != RESOURCE_MAGIC) {
-	/* XXX This shouldn't happen any more */
-	bu_log("rt_cell_n_on_ray() resp=%p uninitialized, fixing it\n", (void *)resp);
-	/*
-	 * We've been handed a mostly un-initialized resource struct,
-	 * with only a magic number and a cpu number filled in.
-	 * Init it and add it to the table.
-	 * This is how application-provided resource structures
-	 * are remembered for later cleanup by the library.
-	 */
-    }
-    /* Ensure that this CPU's resource structure is registered */
-    BU_ASSERT(BU_PTBL_GET(&rtip->rti_resources, resp->re_cpu) != NULL);
 
     /* Verify that direction vector has unit length */
     if (RT_G_DEBUG) {
@@ -1519,29 +1480,6 @@ rt_zero_ray_stats(struct rt_i *rtip)
     rtip->stats.nempty_cells = 0;
 }
 
-
-void
-rt_zero_res_stats(struct resource *resp)
-{
-    /* DEPRECATED: statistics are now maintained on rtip->stats
-     * directly as C11 atomic counters.  There are no per-resource
-     * stat fields to zero.  This function is a no-op.
-     */
-    (void)resp;
-}
-
-
-void
-rt_add_res_stats(register struct rt_i *rtip, register struct resource *resp)
-{
-    /* DEPRECATED: statistics are now incremented directly on
-     * rtip->stats during rt_shootray() using C11 atomic operations.
-     * No end-of-campaign accumulation step is required.
-     * This function is a no-op.
-     */
-    (void)rtip;
-    (void)resp;
-}
 
 static int
 rt_shootray_simple_hit(struct application *a, struct partition *PartHeadp, struct seg *UNUSED(s))

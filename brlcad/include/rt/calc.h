@@ -172,7 +172,7 @@ RT_EXPORT extern struct rt_db_internal *rt_mirror(struct db_i *dpip,
 
 RT_EXPORT extern void rt_plot_all_bboxes(FILE *fp,
 					 struct rt_i *rtip);
-RT_EXPORT extern void rt_plot_all_solids(FILE           *fp);
+RT_EXPORT extern void rt_plot_all_solids(FILE *fp, struct rt_i *rtip);
 
 
 /* pr.c */

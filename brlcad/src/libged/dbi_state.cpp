@@ -421,7 +421,6 @@ DbiState::DbiState(struct ged *ged_p)
 {
     bu_vls_init(&path_string);
     bu_vls_init(&hash_string);
-    BU_GET(res, struct resource);
     shared_vs = new BViewState(this);
     default_selected = new BSelectState(this);
     selected_sets[std::string("default")] = default_selected;
@@ -451,7 +450,6 @@ DbiState::~DbiState()
 	delete ss_it->second;
     }
     delete shared_vs;
-    BU_PUT(res, struct resource);
 
     if (dcache)
 	dbi_cache_close(dcache);
@@ -1297,7 +1295,7 @@ DbiState::get_bbox(point_t *bbmin, point_t *bbmax, matp_t curr_mat, unsigned lon
 	struct bn_tol tol = BN_TOL_INIT_TOL;
 	mat_t m;
 	MAT_IDN(m);
-	int bret = rt_bound_instance(&bmin, &bmax, dp, dbip, &ttol, &tol, &m, res);
+	int bret = rt_bound_instance(&bmin, &bmax, dp, dbip, &ttol, &tol, &m);
 	if (bret != -1) {
 	    have_bbox = true;
 
@@ -2315,7 +2313,6 @@ BViewState::scene_obj(
     ud->dbip = dbis->gedp->dbip;
     ud->tol = &wdbp->wdb_tol;
     ud->ttol = &wdbp->wdb_ttol;
-    ud->res = &rt_uniresource; // TODO - at some point this may be from the app or view... local_res is temporary, don't use it here
     ud->mesh_c = dbis->gedp->ged_lod;
     sp->dp = dp;
     sp->s_i_data = (void *)ud;

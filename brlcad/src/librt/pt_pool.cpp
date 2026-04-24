@@ -160,7 +160,7 @@ rt_pt_alloc(struct application *ap)
     RT_AP_CHECK(ap);
     RT_CK_RTI(ap->a_rt_i);
 
-    cpu = ap->a_resource ? ap->a_cpu : 0;
+    cpu = ap->a_cpu;
     pool = pt_pool_for_cpu(ap->a_rt_i, cpu);
 
     if (!BU_LIST_IS_EMPTY(&pool->re_pt)) {
@@ -195,7 +195,7 @@ rt_pt_free(struct partition *pp, struct application *ap)
     RT_AP_CHECK(ap);
     RT_CK_RTI(ap->a_rt_i);
 
-    cpu = ap->a_resource ? ap->a_cpu : 0;
+    cpu = ap->a_cpu;
     pool = pt_pool_for_cpu(ap->a_rt_i, cpu);
 
     if (pp->pt_overlap_reg) {
@@ -225,7 +225,7 @@ rt_pt_free_list(struct partition *headp, struct application *ap)
     RT_AP_CHECK(ap);
     RT_CK_RTI(ap->a_rt_i);
 
-    cpu = ap->a_resource ? ap->a_cpu : 0;
+    cpu = ap->a_cpu;
     pool = pt_pool_for_cpu(ap->a_rt_i, cpu);
 
     for (pp = headp->pt_forw; pp != headp;) {

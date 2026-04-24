@@ -1876,7 +1876,7 @@ _db_walk_subtree(
 	    ctsp->cts_s.ts_region_end_func = 0;
 	    /* Use user's leaf function */
 	    ctsp->cts_s.ts_leaf_func = leaf_func;
-	    ctsp->	    /* If region already seen, force flag */
+	    /* If region already seen, force flag */
 	    if (*region_start_statepp)
 		ctsp->cts_s.ts_sofar |= TS_SOFAR_REGION;
 	    else

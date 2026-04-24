@@ -1818,7 +1818,7 @@ _try_manifold_facetize(struct ged *gedp, int argc, const char **argv, struct bu_
     }
 
     if (facetize_tree) {
-	ftree = rt_booltree_evaluate(facetize_tree, vlfree, &wdbp->wdb_tol, &rt_uniresource, &_manifold_do_bool, 0, (void *)o);
+	ftree = rt_booltree_evaluate(facetize_tree, vlfree, &wdbp->wdb_tol, &_manifold_do_bool, 0, (void *)o);
 	if (!ftree) {
 	    _old_ged_facetize_log_default(o);
 	    return NULL;

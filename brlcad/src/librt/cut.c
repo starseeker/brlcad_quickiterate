@@ -1340,7 +1340,7 @@ insert_in_bsp(struct soltab *stp, union cutter *cutp)
 }
 
 void
-fill_out_bsp(struct rt_i *rtip, union cutter *cutp, struct resource *resp, fastf_t bb[6])
+fill_out_bsp(struct rt_i *rtip, union cutter *cutp, fastf_t bb[6])
 {
     fastf_t bb2[6];
     int i, j;
@@ -1364,9 +1364,9 @@ fill_out_bsp(struct rt_i *rtip, union cutter *cutp, struct resource *resp, fastf
 	    VMOVE(bb2, bb);
 	    VMOVE(&bb2[3], &bb[3]);
 	    bb[cutp->cn.cn_axis] = cutp->cn.cn_point;
-	    fill_out_bsp(rtip, cutp->cn.cn_r, resp, bb);
+	    fill_out_bsp(rtip, cutp->cn.cn_r, bb);
 	    bb2[cutp->cn.cn_axis + 3] = cutp->cn.cn_point;
-	    fill_out_bsp(rtip, cutp->cn.cn_l, resp, bb2);
+	    fill_out_bsp(rtip, cutp->cn.cn_l, bb2);
 	    break;
 	default:
 	    bu_log("fill_out_bsp(): unrecognized cut type (%d) in BSP!\n", cutp->cut_type);

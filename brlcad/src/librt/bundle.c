@@ -101,18 +101,14 @@ rt_shootray_bundle(struct application *ap, struct xray *rays, int nrays)
     } else {
 	ap->a_ray.magic = RT_RAY_MAGIC;
     }
-    if (!ap->a_resource) {
-    }
     ss.ap = ap;
     rtip = ap->a_rt_i;
     RT_CK_RTI(rtip);
-    resp = ap->a_resource;
-    ss.resp = resp;
 
     if (RT_G_DEBUG&(RT_DEBUG_ALLRAYS|RT_DEBUG_SHOOT|RT_DEBUG_PARTITION|RT_DEBUG_ALLHITS)) {
 	bu_log_indent_delta(2);
 	bu_log("\n**********shootray_bundle cpu=%d  %d, %d lvl=%d (%s)\n",
-	       resp->re_cpu,
+	       ap->a_cpu,
 	       ap->a_x, ap->a_y,
 	       ap->a_level,
 	       ap->a_purpose != (char *)0 ? ap->a_purpose : "?");
@@ -135,20 +131,6 @@ rt_shootray_bundle(struct application *ap, struct xray *rays, int nrays)
     BU_LIST_INIT(&waiting_segs.l);
     BU_LIST_INIT(&finished_segs.l);
     ap->a_finished_segs_hdp = &finished_segs;
-
-    if (resp->re_magic != RESOURCE_MAGIC) {
-	/* XXX This shouldn't happen any more */
-	bu_log("rt_shootray_bundle() resp=%p uninitialized, fixing it\n", (void *)resp);
-	/*
-	 * We've been handed a mostly un-initialized resource struct,
-	 * with only a magic number and a cpu number filled in.
-	 * Init it and add it to the table.
-	 * This is how application-provided resource structures
-	 * are remembered for later cleanup by the library.
-	 */
-	/* Ensure that this CPU's resource structure is registered */
-	BU_ASSERT(BU_PTBL_GET(&rtip->rti_resources, resp->re_cpu) != NULL);
-    }
 
     solidbits = rt_get_solidbitv(rtip->stats.nsolids);
 
@@ -490,7 +472,7 @@ out:
     if (RT_G_DEBUG&(RT_DEBUG_ALLRAYS|RT_DEBUG_SHOOT|RT_DEBUG_PARTITION|RT_DEBUG_ALLHITS)) {
 	bu_log_indent_delta(-2);
 	bu_log("----------shootray_bundle cpu=%d  %d, %d lvl=%d (%s) %s ret=%d\n",
-	       resp->re_cpu,
+	       ap->a_cpu,
 	       ap->a_x, ap->a_y,
 	       ap->a_level,
 	       ap->a_purpose != (char *)0 ? ap->a_purpose : "?",
@@ -597,7 +579,6 @@ rt_shootrays(struct application_bundle *bundle)
     int (*a_miss)(struct application *);
 
     struct rt_i * rt_i = bundle->b_ap.a_rt_i;		/**< @brief this librt instance */
-    struct resource * resource = bundle->b_ap.a_resource;	/**< @brief dynamic memory resources */
     struct xrays *r;
     struct partition_list *pl;
 
@@ -662,7 +643,7 @@ rt_shootrays(struct application_bundle *bundle)
 	ray_ap->a_ray.magic = RT_RAY_MAGIC;
 	ray_ap->a_uptr = (void *)pb;
 	ray_ap->a_rt_i = rt_i;
-	ray_	nrays++;
+	nrays++;
     }
 
     /* PASS3: shoot our rays */

@@ -39,6 +39,9 @@ __BEGIN_DECLS
 
 
 struct rt_db_internal; /* forward declaration */
+struct db_i;           /* forward declaration */
+struct directory;      /* forward declaration */
+struct rt_wdb;         /* forward declaration */
 
 
 /* db_open.c */

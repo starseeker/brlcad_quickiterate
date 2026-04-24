@@ -1277,7 +1277,7 @@ bool_eval(register union tree *treep, struct partition *partp, struct applicatio
     RT_CK_PT(partp);
     RT_CK_AP(ap);
 
-    cpu = ap->a_resource ? ap->a_cpu : 0;
+    cpu = ap->a_cpu;
 
     while ((sp = ap->a_boolstack) == (union tree **)0)
 	rt_bool_growstack(&ap->a_boolstack, &ap->a_boolslen);

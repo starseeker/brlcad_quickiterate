@@ -175,7 +175,7 @@ rt_seg_alloc(struct application *ap)
     RT_AP_CHECK(ap);
     RT_CK_RTI(ap->a_rt_i);
 
-    cpu = ap->a_resource ? ap->a_cpu : 0;
+    cpu = ap->a_cpu;
     pool = seg_pool_for_cpu(ap->a_rt_i, cpu);
 
     while (BU_LIST_IS_EMPTY(&pool->re_seg))
@@ -203,7 +203,7 @@ rt_seg_free(struct seg *segp, struct application *ap)
     RT_AP_CHECK(ap);
     RT_CK_RTI(ap->a_rt_i);
 
-    cpu = ap->a_resource ? ap->a_cpu : 0;
+    cpu = ap->a_cpu;
     pool = seg_pool_for_cpu(ap->a_rt_i, cpu);
 
     BU_LIST_INSERT(&pool->re_seg, &segp->l);
@@ -225,7 +225,7 @@ rt_seg_free_list(struct seg *seghead, struct application *ap)
     RT_AP_CHECK(ap);
     RT_CK_RTI(ap->a_rt_i);
 
-    cpu = ap->a_resource ? ap->a_cpu : 0;
+    cpu = ap->a_cpu;
     pool = seg_pool_for_cpu(ap->a_rt_i, cpu);
 
     while (BU_LIST_WHILE(segp, seg, &seghead->l)) {

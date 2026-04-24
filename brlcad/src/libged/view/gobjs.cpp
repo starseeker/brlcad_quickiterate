@@ -148,7 +148,6 @@ _gobjs_cmd_create(void *bs, int argc, const char **argv)
     dd.color_inherit = 0;
     dd.bound_only = 0;
     dd.s_size = &s_size;
-    dd.res = &rt_uniresource;
     bu_color_from_rgb_chars(&dd.c, wcolor);
     dd.vs = &vs;
     dd.g = g;

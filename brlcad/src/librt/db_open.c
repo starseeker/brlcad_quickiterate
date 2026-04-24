@@ -278,22 +278,22 @@ db_open(const char *name, const char *mode)
 
     BU_ALLOC(dbip->i->dbi_wdbp, struct rt_wdb);
     wdb_init(dbip->i->dbi_wdbp, dbip, RT_WDB_TYPE_DB_DISK);
-    dbip->i->    BN_TOL_INIT_SET_TOL(&dbip->i->dbi_wdbp->wdb_tol);
+    BN_TOL_INIT_SET_TOL(&dbip->i->dbi_wdbp->wdb_tol);
     BG_TESS_TOL_INIT_SET_TOL(&dbip->i->dbi_wdbp->wdb_ttol);
 
     BU_ALLOC(dbip->i->dbi_wdbp_a, struct rt_wdb);
     wdb_init(dbip->i->dbi_wdbp_a, dbip, RT_WDB_TYPE_DB_DISK_APPEND_ONLY);
-    dbip->i->    BN_TOL_INIT_SET_TOL(&dbip->i->dbi_wdbp_a->wdb_tol);
+    BN_TOL_INIT_SET_TOL(&dbip->i->dbi_wdbp_a->wdb_tol);
     BG_TESS_TOL_INIT_SET_TOL(&dbip->i->dbi_wdbp_a->wdb_ttol);
 
     BU_ALLOC(dbip->i->dbi_wdbp_inmem, struct rt_wdb);
     wdb_init(dbip->i->dbi_wdbp_inmem, dbip, RT_WDB_TYPE_DB_INMEM);
-    dbip->i->    BN_TOL_INIT_SET_TOL(&dbip->i->dbi_wdbp_inmem->wdb_tol);
+    BN_TOL_INIT_SET_TOL(&dbip->i->dbi_wdbp_inmem->wdb_tol);
     BG_TESS_TOL_INIT_SET_TOL(&dbip->i->dbi_wdbp_inmem->wdb_ttol);
 
     BU_ALLOC(dbip->i->dbi_wdbp_inmem_a, struct rt_wdb);
     wdb_init(dbip->i->dbi_wdbp_inmem_a, dbip, RT_WDB_TYPE_DB_INMEM_APPEND_ONLY);
-    dbip->i->    BN_TOL_INIT_SET_TOL(&dbip->i->dbi_wdbp_inmem_a->wdb_tol);
+    BN_TOL_INIT_SET_TOL(&dbip->i->dbi_wdbp_inmem_a->wdb_tol);
     BG_TESS_TOL_INIT_SET_TOL(&dbip->i->dbi_wdbp_inmem_a->wdb_ttol);
 
     return dbip;
@@ -390,7 +390,7 @@ db_close(register struct db_i *dbip)
 	bu_vls_free(&dbip->i->dbi_wdbp->wdb_name);
 	bu_vls_free(&dbip->i->dbi_wdbp->wdb_prestr);
 	dbip->i->dbi_wdbp->type = 0;
-	dbip->i->	dbip->i->dbi_wdbp->wdb_interp = NULL;
+	dbip->i->dbi_wdbp->wdb_interp = NULL;
 	bu_free((void *)dbip->i->dbi_wdbp, "struct rt_wdb");
 	dbip->i->dbi_wdbp = NULL;
     }
@@ -402,7 +402,7 @@ db_close(register struct db_i *dbip)
 	bu_vls_free(&dbip->i->dbi_wdbp_a->wdb_name);
 	bu_vls_free(&dbip->i->dbi_wdbp_a->wdb_prestr);
 	dbip->i->dbi_wdbp_a->type = 0;
-	dbip->i->	dbip->i->dbi_wdbp_a->wdb_interp = NULL;
+	dbip->i->dbi_wdbp_a->wdb_interp = NULL;
 	bu_free((void *)dbip->i->dbi_wdbp_a, "struct rt_wdb");
 	dbip->i->dbi_wdbp_a = NULL;
     }
@@ -414,7 +414,7 @@ db_close(register struct db_i *dbip)
 	bu_vls_free(&dbip->i->dbi_wdbp_inmem->wdb_name);
 	bu_vls_free(&dbip->i->dbi_wdbp_inmem->wdb_prestr);
 	dbip->i->dbi_wdbp_inmem->type = 0;
-	dbip->i->	dbip->i->dbi_wdbp_inmem->wdb_interp = NULL;
+	dbip->i->dbi_wdbp_inmem->wdb_interp = NULL;
 	bu_free((void *)dbip->i->dbi_wdbp_inmem, "struct rt_wdb");
 	dbip->i->dbi_wdbp_inmem = NULL;
     }
@@ -426,7 +426,7 @@ db_close(register struct db_i *dbip)
 	bu_vls_free(&dbip->i->dbi_wdbp_inmem_a->wdb_name);
 	bu_vls_free(&dbip->i->dbi_wdbp_inmem_a->wdb_prestr);
 	dbip->i->dbi_wdbp_inmem_a->type = 0;
-	dbip->i->	dbip->i->dbi_wdbp_inmem_a->wdb_interp = NULL;
+	dbip->i->dbi_wdbp_inmem_a->wdb_interp = NULL;
 	bu_free((void *)dbip->i->dbi_wdbp_inmem_a, "struct rt_wdb");
 	dbip->i->dbi_wdbp_inmem_a = NULL;
     }
@@ -480,8 +480,8 @@ db_close(register struct db_i *dbip)
 	    }
 
 	    /* Put 'dp' back on the freelist */
-	    dp->d_forw = rt_uniresource.re_directory_hd;
-	    rt_uniresource.re_directory_hd = dp;
+	    dp->d_forw = dbip->i->dbi_directory_hd;
+	    dbip->i->dbi_directory_hd = dp;
 
 	    /* null'ing the forward pointer here is a huge
 	     * memory leak as it causes the loss of all

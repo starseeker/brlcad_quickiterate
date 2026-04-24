@@ -243,7 +243,7 @@ report_matrix(struct db_i *dbip, const char *p)
     mat_t m;
     struct db_full_path path;
     (void)db_string_to_path(&path, dbip, p);
-    (void)db_path_to_mat(dbip, &path)(&m), path.fp_len, &rt_uniresource);
+    (void)db_path_to_mat(dbip, &path, m, path.fp_len);
     bn_mat_print(p, m);
 }
 

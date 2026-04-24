@@ -719,7 +719,6 @@ rt_gettrees_and_attrs(struct rt_i *rtip, const char **attrs, int argc, const cha
 	RT_DBTS_INIT(&tree_state);
 	tree_state.ts_dbip = rtip->rti_dbip;
 	tree_state.ts_rtip = rtip;
-	tree_state.ts_resp = NULL;	/* sanity.  Needs to be updated */
 
 	if (attrs) {
 	    if (db_version(rtip->rti_dbip) < 5) {
@@ -1020,7 +1019,7 @@ rt_find_solid(const struct rt_i *rtip, const char *name)
 
 
 void
-rt_optim_tree(union tree *tp))
+rt_optim_tree(union tree *tp)
 {
     union tree **sp;
     union tree **boolstack = NULL;

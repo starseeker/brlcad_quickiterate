@@ -465,7 +465,7 @@ rt_prep_parallel(struct rt_i *rtip, int ncpu)
 
 	plotfp = fopen("rtsolids.plot3", "wb");
 	if (plotfp != NULL) {
-	    rt_plot_all_solids(plotfp);
+	    rt_plot_all_solids(plotfp, rtip);
 	    (void)fclose(plotfp);
 	}
     }
@@ -739,7 +739,7 @@ rt_plot_all_bboxes(FILE *fp, struct rt_i *rtip)
 
 
 void
-rt_plot_all_solids(FILE *fp)
+rt_plot_all_solids(FILE *fp, struct rt_i *rtip)
 {
     struct soltab *stp;
 
@@ -770,7 +770,7 @@ rt_plot_all_solids(FILE *fp)
  *  0 OK
  */
 int
-rt_vlist_solid(struct bu_list *vhead, struct rt_i *rtip)
+rt_vlist_solid(struct bu_list *vhead, struct rt_i *rtip, const struct soltab *stp)
 {
     struct rt_db_internal intern;
     int ret;
@@ -820,7 +820,7 @@ rt_plot_solid(
 
     BU_LIST_INIT(&vhead);
 
-    if (rt_vlist_solid(&vhead, rtip) < 0) {
+    if (rt_vlist_solid(&vhead, rtip, stp) < 0) {
 	bu_log("rt_plot_solid(%s): rt_vlist_solid() failed\n", stp->st_name);
 	return -1; /* FAIL */
     }
@@ -1217,7 +1217,10 @@ rt_find_path(struct db_i *dbip,
  * resulting paths are returned in "paths"
  */
 int
-rt_find_paths(struct db_i *dbip, struct directory *start, struct directory *end)
+rt_find_paths(struct db_i *dbip,
+	      struct directory *start,
+	      struct directory *end,
+	      struct bu_ptbl *paths)
 {
     struct rt_db_internal intern;
     struct db_full_path *path;
@@ -1427,7 +1430,7 @@ unprep_leaf(struct db_tree_state *tsp,
  * "unprepped" list of the "objs" structure.
  */
 int
-rt_unprep(struct rt_i *rtip)
+rt_unprep(struct rt_i *rtip, struct rt_reprep_obj_list *objs)
 {
     struct bu_ptbl unprep_regions;
     struct db_full_path *path;
@@ -1465,7 +1468,7 @@ rt_unprep(struct rt_i *rtip)
 		bu_ptbl_free(&objs->paths);
 		return 1;
 	    }
-	    rt_find_paths(rtip->rti_dbip, start, end);
+	    rt_find_paths(rtip->rti_dbip, start, end, &objs->paths);
 	}
     }
 
@@ -1638,7 +1641,7 @@ rt_unprep(struct rt_i *rtip)
  * previously have been passed to "rt_unprep"
  */
 int
-rt_reprep(struct rt_i *rtip)
+rt_reprep(struct rt_i *rtip, struct rt_reprep_obj_list *objs)
 {
     size_t i;
     char **argv;

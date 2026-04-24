@@ -466,9 +466,7 @@ rt_gen_obj_pnts(struct rt_pnts_internal *rpnts, fastf_t *avg_thickness, struct d
 	}
 	state[i].fmiss = op_miss;
 	state[i].foverlap = op_overlap;
-	state[i].resp = &resp[i];
 	state[i].ind_src = &ind;
-	rt_init_resource(state[i].resp, (int)i, rtip);
     }
     if (rt_gettree(rtip, obj) < 0) return -1;
 
@@ -727,7 +725,6 @@ memfree:
     }
     rt_free_rti(rtip);
     bu_free(state, "free state containers");
-    bu_free(resp, "free resources array");
     return ret;
 }
 

@@ -932,7 +932,7 @@ rt_db_external5_to_internal5(
 	 * this isn't needed, but breaks compatibility.  slate for
 	 * v6.
 	 */
-	ret = rt_binunif_import5_minor_type(ip, &raw.body, mat, dbip, NULL, raw.minor_type);
+	ret = rt_binunif_import5_minor_type(ip, &raw.body, mat, dbip, raw.minor_type);
     } else if (OBJ[id].ft_import5) {
 	ret = OBJ[id].ft_import5(ip, &raw.body, mat, dbip);
     }

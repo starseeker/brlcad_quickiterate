@@ -662,7 +662,6 @@ struct mci_s {
     double step;
     struct rt_i *rtip;
     const struct bn_tol *tol;
-    struct resource resources[MAX_PSW];
     fastf_t endx, endy;
     unsigned long count;
     int ncpu;

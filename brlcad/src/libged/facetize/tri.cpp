@@ -1044,7 +1044,7 @@ _ged_facetize_booleval_tri(struct _ged_facetize_state *s, struct db_i *dbip, str
     }
 
     // Third stage is to execute the boolean operations
-    ftree = rt_booltree_evaluate(s->facetize_tree, vlfree, &wdbp->wdb_tol, &rt_uniresource, &manifold_do_bool, 0, (void *)s);
+    ftree = rt_booltree_evaluate(s->facetize_tree, vlfree, &wdbp->wdb_tol, &manifold_do_bool, 0, (void *)s);
     if (!ftree) {
 	return BRLCAD_ERROR;
     }

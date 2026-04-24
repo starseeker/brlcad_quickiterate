@@ -159,15 +159,6 @@ rt_submodel_prep(struct soltab *stp, struct rt_db_internal *ip, struct rt_i *rti
 	       stp->st_dp->d_namep, sub_dbip->dbi_filename);
     }
 
-    /*
-     * Initialize per-processor resources for the submodel.
-     * We treewalk here with only one processor (CPU 0).
-     * db_walk_tree() as called from
-     * rt_gettrees() will pluck the 0th resource out of the rtip table.
-     * rt_submodel_shot() will get additional resources as needed.
-     */
-    BU_ALLOC(resp, struct resource);
-    BU_PTBL_SET(&sub_rtip->rti_resources, 0, resp);
     /* Propagate some important settings downward */
     sub_rtip->useair = rtip->useair;
     sub_rtip->rti_dont_instance = rtip->rti_dont_instance;
@@ -203,9 +194,6 @@ rt_submodel_prep(struct soltab *stp, struct rt_db_internal *ip, struct rt_i *rti
     /* OK, it's going to work.  Prep the submodel. */
     /* Stay on 1 CPU because we're already multi-threaded at this point. */
     rt_prep_parallel(sub_rtip, 1);
-
-    /* Ensure bu_ptbl rti_resources is full size.  Ptrs will be null */
-    bu_ptbl_trunc(&sub_rtip->rti_resources, sub_rtip->rti_resources.blen);
 
     if (RT_G_DEBUG) rt_pr_cut_info(sub_rtip, stp->st_name);
 
@@ -440,8 +428,6 @@ rt_submodel_shot(struct soltab *stp, struct xray *rp, struct application *ap, st
     struct submodel_gobetween gb;
     vect_t vdiff;
     int code;
-    struct bu_ptbl *restbl;
-    size_t cpu;
 
     RT_CK_SOLTAB(stp);
     RT_CK_RTI(ap->a_rt_i);
@@ -465,18 +451,6 @@ rt_submodel_shot(struct soltab *stp, struct xray *rp, struct application *ap, st
 	if (sub_ap.a_onehit&1) sub_ap.a_onehit++;
     }
 
-    /*
-     * Obtain the resource structure for this CPU.
-     * No need to semaphore because there is one pointer per cpu already.
-     */
-    restbl = &submodel->rtip->rti_resources;	/* a ptbl */
-    cpu = ap->a_cpu;
-    BU_ASSERT(cpu < BU_PTBL_LEN(restbl));
-    if ((resp = (struct resource *)BU_PTBL_GET(restbl, cpu)) == NULL) {
-	/* First ray for this cpu for this submodel, alloc up */
-	BU_ALLOC(resp, struct resource);
-	BU_PTBL_SET(restbl, cpu, resp);
-    }
     /* shootray already computed a_ray.r_min & r_max for us */
     /* Construct the ray in submodel coords. */
     /* Do this in a repeatable way */
@@ -570,24 +544,11 @@ rt_submodel_free(struct soltab *stp)
 {
     struct submodel_specific *submodel =
 	(struct submodel_specific *)stp->st_specific;
-    struct resource **rpp;
     struct rt_i *rtip;
 
     RT_CK_SUBMODEL_SPECIFIC(submodel);
     rtip = submodel->rtip;
     RT_CK_RTI(rtip);
-
-    /* Specifically free resource structures here */
-    BU_CK_PTBL(&rtip->rti_resources);
-    for (BU_PTBL_FOR(rpp, (struct resource **), &rtip->rti_resources)) {
-	if (*rpp == NULL) continue;
-	if (*rpp == &rt_uniresource) continue;
-	/* Cleans but does not free the resource struct */
-	bu_free(*rpp, "struct resource (submodel)");
-	/* Forget remembered ptr */
-	*rpp = NULL;
-    }
-    /* Keep the ptbl allocated. */
 
     rt_free_rti(submodel->rtip);
 

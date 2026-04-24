@@ -37,7 +37,9 @@
 
 __BEGIN_DECLS
 
-struct rt_functab; /* forward declaration */
+struct rt_functab;    /* forward declaration */
+struct db_i;          /* forward declaration */
+struct directory;     /* forward declaration */
 
 /**
  * A handle on the internal format of a BRL-CAD database object.

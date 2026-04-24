@@ -247,7 +247,6 @@ generate_rays(struct crofton_ray *rays, size_t nrays,
 
 static void
 do_one_iteration(struct application *ap_template,
-		 struct resource    *resources,
 		 size_t              nrays,
 		 double              radius,
 		 const point_t       center,
@@ -270,7 +269,6 @@ do_one_iteration(struct application *ap_template,
 	struct application *a = (struct application *)bu_calloc(
 	    1, sizeof(struct application), "crofton app");
 	*a = *ap_template;                  /* struct copy */
-	a->a_resource = &resources[i];
 
 	struct crofton_worker_data *wd = &wdata[i];
 	wd->ap     = a;
@@ -381,8 +379,6 @@ rt_crofton_shoot(struct rt_i                      *rtip,
     if (!use_default && max_rays > 0 && stability_mm <= 0.0 && time_ms <= 0.0)
 	batch = max_rays;   /* single-iteration mode */
 
-    /* ---- Initialize per-CPU resources ---- */
-    for (int i = 0; i < MAX_PSW; i++)
     /* ---- Set up application template ---- */
     struct application ap;
     RT_APPLICATION_INIT(&ap);
@@ -421,7 +417,7 @@ rt_crofton_shoot(struct rt_i                      *rtip,
 		    curr_rays = batch;
 	    }
 
-	    do_one_iteration(&ap, resources, curr_rays, R, center, &shared);
+	    do_one_iteration(&ap, curr_rays, R, center, &shared);
 	    iteration++;
 
 	    if (shared.total_rays == 0) break;
@@ -475,7 +471,7 @@ rt_crofton_shoot(struct rt_i                      *rtip,
 		if (fire > remaining) fire = remaining;
 	    }
 
-	    do_one_iteration(&ap, resources, fire, R, center, &shared);
+	    do_one_iteration(&ap, fire, R, center, &shared);
 	    total_fired += fire;
 
 	    if (shared.total_rays == 0) break;
@@ -512,23 +508,6 @@ rt_crofton_shoot(struct rt_i                      *rtip,
 
     if (out_surf_area) *out_surf_area = curr_est_sa;
     if (out_volume)    *out_volume    = curr_est_v;
-
-    /* Clean each resource and NULL out its slot in rtip->rti_resources.
-     * This is necessary because crofton_from_ip calls rt_free_rti(rtip)
-     * after we return.  rt_free_rti → rt_clean iterates rti_resources and
-     * calls rt_clean_resource (which calls rt_init_resource) on every
-     * non-NULL entry.  If we free the resources array first, those entries
-     * become dangling pointers and rt_init_resource reads garbage re_cpu
-     * values that may exceed MAX_PSW, triggering a BU_ASSERT.
-     *
-     * By setting the slot to NULL we let rt_free_rti's cleanup skip it,
-     * and then we can safely bu_free the resources array.                */
-    for (int i = 0; i < MAX_PSW; i++) {
-	if (resources[i].re_magic == RESOURCE_MAGIC) {
-	    BU_PTBL_SET(&rtip->rti_resources, i, NULL);
-	}
-    }
-    bu_free(resources, "crofton resources");
 
     /* Return the total crossing count so callers can distinguish
      * "zero hits" (return == 0) from "some hits" (return > 0).
@@ -595,7 +574,7 @@ crofton_from_ip_n(const struct rt_db_internal    *ip,
 	    struct bu_external bip_ext;
 	    BU_EXTERNAL_INIT(&bip_ext);
 	    if (rt_db_cvt_to_external5(&bip_ext, data_name, bip, 1.0,
-				       dbip, &rt_uniresource,
+				       dbip,
 				       bip->idb_major_type) == 0) {
 		int bip_flags = db_flags_internal(bip);
 		if (wdb_export_external(wdbp, &bip_ext, data_name,
@@ -630,7 +609,7 @@ crofton_from_ip_n(const struct rt_db_internal    *ip,
     BU_EXTERNAL_INIT(&ext);
 
     if (rt_db_cvt_to_external5(&ext, scratch, &tmp_intern, 1.0,
-				dbip, &rt_uniresource,
+				dbip,
 				ip->idb_major_type) < 0) {
 	bu_log("rt_crofton: rt_db_cvt_to_external5() failed\n");
 	bu_free_external(&ext);
