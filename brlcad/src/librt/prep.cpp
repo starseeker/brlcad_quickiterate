@@ -762,7 +762,7 @@ void
 rt_plot_all_solids(
     FILE *fp,
     struct rt_i *rtip,
-    struct resource *resp)
+    struct resource *UNUSED(resp))
 {
     struct soltab *stp;
 
@@ -779,7 +779,7 @@ rt_plot_all_solids(
 	if (stp->st_aradius >= INFINITY)
 	    continue;
 
-	(void)rt_plot_solid(fp, rtip, stp, resp);
+	(void)rt_plot_solid(fp, rtip, stp);
     } RT_VISIT_ALL_SOLTABS_END;
 }
 
@@ -797,12 +797,12 @@ rt_vlist_solid(
     struct bu_list *vhead,
     struct rt_i *rtip,
     const struct soltab *stp,
-    struct resource *resp)
+    struct resource *UNUSED(resp))
 {
     struct rt_db_internal intern;
     int ret;
 
-    if (rt_db_get_internal(&intern, stp->st_dp, rtip->rti_dbip, stp->st_matp, resp) < 0) {
+    if (rt_db_get_internal(&intern, stp->st_dp, rtip->rti_dbip, stp->st_matp) < 0) {
 	bu_log("rt_vlist_solid(%s): rt_db_get_internal() failed\n", stp->st_name);
 	return -1;			/* FAIL */
     }
@@ -836,8 +836,7 @@ int
 rt_plot_solid(
     FILE *fp,
     struct rt_i *rtip,
-    const struct soltab *stp,
-    struct resource *resp)
+    const struct soltab *stp)
 {
     struct bu_list vhead;
     struct region *regp;
@@ -848,7 +847,7 @@ rt_plot_solid(
 
     BU_LIST_INIT(&vhead);
 
-    if (rt_vlist_solid(&vhead, rtip, stp, resp) < 0) {
+    if (rt_vlist_solid(&vhead, rtip, stp, &rt_uniresource) < 0) {
 	bu_log("rt_plot_solid(%s): rt_vlist_solid() failed\n", stp->st_name);
 	return -1; /* FAIL */
     }
@@ -1196,7 +1195,7 @@ rt_clean(struct rt_i *rtip)
     while (BU_LIST_WHILE(regp, region, &rtip->HeadRegion)) {
 	RT_CK_REGION(regp);
 	BU_LIST_DEQUEUE(&(regp->l));
-	db_free_tree(regp->reg_treetop, NULL);
+	db_free_tree(regp->reg_treetop);
 	bu_free((void *)regp->reg_name, "region name str");
 	regp->reg_name = (char *)0;
 	if (regp->reg_mater.ma_shader) {
@@ -1340,11 +1339,10 @@ rt_clean(struct rt_i *rtip)
  * 0 success
  */
 int
-rt_del_regtree(struct rt_i *rtip, struct region *delregp, struct resource *resp)
+rt_del_regtree(struct rt_i *rtip, struct region *delregp)
 {
     if (rtip)
 	RT_CK_RTI(rtip);
-    RT_CK_RESOURCE(resp);
     RT_CK_REGION(delregp);
 
     if (RT_G_DEBUG & RT_DEBUG_REGIONS)
@@ -1352,7 +1350,7 @@ rt_del_regtree(struct rt_i *rtip, struct region *delregp, struct resource *resp)
 
     BU_LIST_DEQUEUE(&(delregp->l));
 
-    db_free_tree(delregp->reg_treetop, resp);
+    db_free_tree(delregp->reg_treetop);
     delregp->reg_treetop = TREE_NULL;
     bu_free((char *)delregp->reg_name, "region name str");
     delregp->reg_name = (char *)0;
@@ -1485,7 +1483,7 @@ rt_find_path(struct db_i *dbip,
 		db_dup_full_path(newpath, (*curr_path));
 		(*curr_path) = newpath;
 	    } else if ((dp->d_flags & RT_DIR_COMB) && !(dp->d_flags & RT_DIR_REGION)) {
-		if (rt_db_get_internal(&intern, dp, dbip, NULL, resp) < 0) {
+		if (rt_db_get_internal(&intern, dp, dbip, NULL) < 0) {
 		    bu_log("Unable to load [%s]\nAborting.\n", tp->tr_l.tl_name);
 		    return;
 		}
@@ -1547,7 +1545,7 @@ rt_find_paths(struct db_i *dbip,
 	return 1;
     }
 
-    if (rt_db_get_internal(&intern, start, dbip, NULL, resp) < 0) {
+    if (rt_db_get_internal(&intern, start, dbip, NULL) < 0) {
 	db_free_full_path(path);
 	bu_free((char *)path, "path");
 	return 1;
@@ -1872,7 +1870,7 @@ rt_unprep(struct rt_i *rtip, struct rt_reprep_obj_list *objs, struct resource *r
 	BU_LIST_DEQUEUE(&rp->l);
 	rtip->Regions[rp->reg_bit] = (struct region *)NULL;
 
-	/* XXX db_free_tree(rp->reg_treetop, resp); */
+	/* XXX db_free_tree(rp->reg_treetop); */
 	bu_free((void *)rp->reg_name, "region name str");
 	rp->reg_name = (char *)0;
 	if (rp->reg_mater.ma_shader) {

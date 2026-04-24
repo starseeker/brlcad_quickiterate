@@ -575,13 +575,10 @@ struct rt_tree_array *
 db_flatten_tree(
     struct rt_tree_array *rt_tree_array,
     union tree *tp,
-    int op,
-    int freeflag,
-    struct resource *resp)
+    int op)
 {
 
     RT_CK_TREE(tp);
-    RT_CK_RESOURCE(resp);
 
     switch (tp->tr_op) {
 	case OP_DB_LEAF:
@@ -593,10 +590,10 @@ db_flatten_tree(
 	case OP_INTERSECT:
 	case OP_SUBTRACT:
 	    /* This node is known to be a binary op */
-	    rt_tree_array = db_flatten_tree(rt_tree_array, tp->tr_b.tb_left, op, freeflag, resp);
-	    rt_tree_array = db_flatten_tree(rt_tree_array, tp->tr_b.tb_right, tp->tr_op, freeflag, resp);
-	    if (freeflag) {
-		/* The leaves have been stolen, free the binary op */
+	    rt_tree_array = db_flatten_tree(rt_tree_array, tp->tr_b.tb_left, op);
+	    rt_tree_array = db_flatten_tree(rt_tree_array, tp->tr_b.tb_right, tp->tr_op);
+	    if (0) {
+		/* Freeing nodes removed (callers manage tree lifetime) */
 		tp->tr_b.tb_left = TREE_NULL;
 		tp->tr_b.tb_right = TREE_NULL;
 		BU_PUT(tp, union tree);
@@ -617,8 +614,7 @@ rt_comb_import4(
     struct rt_db_internal *ip,
     const struct bu_external *ep,
     const mat_t matrix,		/* NULL if identity */
-    const struct db_i *dbip,
-    struct resource *UNUSED(resp))
+    const struct db_i *dbip)
 {
     union record *rp;
     struct rt_tree_array *rt_tree_array;
@@ -725,7 +721,7 @@ rt_comb_import4(
 	}
     }
     if (node_count)
-	tree = db_mkgift_tree(rt_tree_array, node_count, &rt_uniresource);
+	tree = db_mkgift_tree(rt_tree_array, node_count);
     else
 	tree = (union tree *)NULL;
 
@@ -835,8 +831,7 @@ rt_comb_export4(
     struct bu_external *ep,
     const struct rt_db_internal *ip,
     double UNUSED(local2mm),
-    const struct db_i *dbip,
-    struct resource *resp)
+    const struct db_i *dbip)
 {
     struct rt_comb_internal *comb;
     size_t node_count;
@@ -850,13 +845,12 @@ rt_comb_export4(
 
     RT_CK_DB_INTERNAL(ip);
     if (dbip) RT_CK_DBI(dbip);
-    RT_CK_RESOURCE(resp);
     if (ip->idb_type != ID_COMBINATION) bu_bomb("rt_comb_export4() type not ID_COMBINATION");
     comb = (struct rt_comb_internal *)ip->idb_ptr;
     RT_CK_COMB(comb);
 
     if (comb->tree && db_ck_v4gift_tree(comb->tree) < 0) {
-	db_non_union_push(comb->tree, resp);
+	db_non_union_push(comb->tree);
 	if (db_ck_v4gift_tree(comb->tree) < 0) {
 	    /* Need to further modify tree */
 	    bu_log("rt_comb_export4() Unable to V4-ify tree, aborting.\n");
@@ -871,8 +865,7 @@ rt_comb_export4(
 	rt_tree_array = (struct rt_tree_array *)bu_calloc(node_count, sizeof(struct rt_tree_array), "rt_tree_array");
 
 	/* Convert tree into array form */
-	actual_count = db_flatten_tree(rt_tree_array, comb->tree,
-				       OP_UNION, 1, resp) - rt_tree_array;
+	actual_count = db_flatten_tree(rt_tree_array, comb->tree, OP_UNION) - rt_tree_array;
 	BU_ASSERT(actual_count == node_count);
 	comb->tree = TREE_NULL;
     } else {
@@ -914,7 +907,7 @@ rt_comb_export4(
 	} else {
 	    flip_dbmat_mat(rp[j+1].M.m_mat, bn_mat_identity);
 	}
-	db_free_tree(tp, resp);
+	db_free_tree(tp);
     }
 
     /* Build the Combination record, on the front */
@@ -1005,8 +998,7 @@ db_tree_flatten_describe(
     const union tree *tp,
     int indented,
     int lvl,
-    double mm2local,
-    struct resource *resp)
+    double mm2local)
 {
     size_t i;
     size_t node_count;
@@ -1016,7 +1008,6 @@ db_tree_flatten_describe(
     union tree *ntp;
 
     BU_CK_VLS(vls);
-    RT_CK_RESOURCE(resp);
 
     if (!tp) {
 	/* no tree, probably an empty combination */
@@ -1037,12 +1028,12 @@ db_tree_flatten_describe(
      * argument is 'const'.  Before getting started, make a
      * private copy just for us.
      */
-    ntp = db_dup_subtree(tp, resp);
+    ntp = db_dup_subtree(tp);
     RT_CK_TREE(ntp);
 
     /* Convert to "v4 / GIFT style", so that the flatten makes sense. */
     if (db_ck_v4gift_tree(ntp) < 0)
-	db_non_union_push(ntp, resp);
+	db_non_union_push(ntp);
     RT_CK_TREE(ntp);
 
     node_count = db_tree_nleaves(ntp);
@@ -1051,7 +1042,7 @@ db_tree_flatten_describe(
     /*
      * free=0 means that the tree won't have any leaf nodes freed.
      */
-    (void)db_flatten_tree(rt_tree_array, ntp, OP_UNION, 0, resp);
+    (void)db_flatten_tree(rt_tree_array, ntp, OP_UNION);
 
     for (i=0; i<node_count; i++) {
 	union tree *itp = rt_tree_array[i].tl_tree;
@@ -1104,7 +1095,7 @@ db_tree_flatten_describe(
     }
 
     if (rt_tree_array) bu_free((void *)rt_tree_array, "rt_tree_array");
-    db_free_tree(ntp, resp);
+    db_free_tree(ntp);
 }
 
 
@@ -1258,7 +1249,7 @@ db_comb_describe(
 
     if (comb->tree) {
 	if (verbose) {
-	    db_tree_flatten_describe(str, comb->tree, 0, 1, mm2local, &rt_uniresource);
+	    db_tree_flatten_describe(str, comb->tree, 0, 1, mm2local);
 	} else {
 	    rt_pr_tree_vls(str, comb->tree);
 	}
@@ -1284,7 +1275,7 @@ rt_comb_ifree(struct rt_db_internal *ip)
 	if (comb->src_objname)
 	    bu_free((void *)comb->src_objname, "comb src_objname");
 	/* If tree hasn't been stolen, release it */
-	db_free_tree(comb->tree, &rt_uniresource);
+	db_free_tree(comb->tree);
 	RT_FREE_COMB_INTERNAL(comb);
 	bu_free((void *)comb, "comb ifree");
     }
@@ -1383,8 +1374,7 @@ db_ck_v4gift_tree(const union tree *tp)
 union tree *
 db_mkbool_tree(
     struct rt_tree_array *rt_tree_array,
-    size_t howfar,
-    struct resource *resp)
+    size_t howfar)
 {
     register struct rt_tree_array *tlp;
     size_t i;
@@ -1393,7 +1383,6 @@ db_mkbool_tree(
     register union tree *curtree;
     register int inuse;
 
-    RT_CK_RESOURCE(resp);
 
     if (howfar == 0)
 	return TREE_NULL;
@@ -1444,7 +1433,7 @@ db_mkbool_tree(
 
 
 union tree *
-db_mkgift_tree(struct rt_tree_array *trees, size_t subtreecount, struct resource *resp)
+db_mkgift_tree(struct rt_tree_array *trees, size_t subtreecount)
 {
     struct rt_tree_array *tstart;
     struct rt_tree_array *tnext;
@@ -1453,7 +1442,6 @@ db_mkgift_tree(struct rt_tree_array *trees, size_t subtreecount, struct resource
     long j;
     long treecount;
 
-    RT_CK_RESOURCE(resp);
 
     BU_ASSERT(subtreecount < LONG_MAX);
     treecount = (long)subtreecount;
@@ -1479,7 +1467,7 @@ db_mkgift_tree(struct rt_tree_array *trees, size_t subtreecount, struct resource
 	if (j <= 0)
 	    continue;
 
-	curtree = db_mkbool_tree(tstart, (size_t)j, resp);
+	curtree = db_mkbool_tree(tstart, (size_t)j);
 	/* db_mkbool_tree() has side effect of zapping tree array,
 	 * so build new first node in array.
 	 */
@@ -1495,7 +1483,7 @@ db_mkgift_tree(struct rt_tree_array *trees, size_t subtreecount, struct resource
 	tstart = tnext;
     }
 
-    curtree = db_mkbool_tree(trees, subtreecount, resp);
+    curtree = db_mkbool_tree(trees, subtreecount);
     if (RT_G_DEBUG&RT_DEBUG_TREEWALK) {
 	bu_log("db_mkgift_tree() returns:\n");
 	rt_pr_tree(curtree, 0);
@@ -1552,7 +1540,7 @@ db_comb_mvall(struct directory *dp, struct db_i *dbip, const char *old_name, con
 
     if (!(dp->d_flags & RT_DIR_COMB)) return 0;
 
-    if (rt_db_get_internal(&intern, dp, dbip, (fastf_t *)NULL, &rt_uniresource) < 0) return 0;
+    if (rt_db_get_internal(&intern, dp, dbip, (fastf_t *)NULL) < 0) return 0;
 
     comb = (struct rt_comb_internal *)intern.idb_ptr;
     comb_leaf = comb->tree;
@@ -1582,7 +1570,7 @@ db_comb_mvall(struct directory *dp, struct db_i *dbip, const char *old_name, con
     }
 
     if (changed) {
-	if (rt_db_put_internal(dp, dbip, &intern, &rt_uniresource)) {
+	if (rt_db_put_internal(dp, dbip, &intern)) {
 	    rt_db_free_internal(&intern);
 	    return 2;
 	}
