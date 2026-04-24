@@ -124,8 +124,10 @@ test_sync_children(void)
     bsg_node *root = bsg_scene_root_create(v);
     if (!root) { g_fail++; free_view(v); return; }
 
-    /* Add a synthetic scene object to the view's VIEW_OBJS table */
-    struct bv_scene_obj *obj = bv_obj_create(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
+    /* Add a synthetic scene object to the view's VIEW_OBJS table.
+     * bv_obj_get (not bv_obj_create) inserts the object into the table
+     * so that bsg_scene_root_sync can find it. */
+    struct bv_scene_obj *obj = bv_obj_get(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
     BSGCHECK(obj != NULL, "bv_obj_create succeeded");
 
     bsg_scene_root_sync(root, v);
@@ -134,7 +136,7 @@ test_sync_children(void)
     struct bv_scene_obj *r = (struct bv_scene_obj *)root;
     int found = 0;
     for (size_t i = 0; i < BU_PTBL_LEN(&r->children); i++) {
-	if (BU_PTBL_GET(&r->children, i) == obj) {
+	if ((struct bv_scene_obj *)BU_PTBL_GET(&r->children, i) == obj) {
 	    found = 1;
 	    break;
 	}
@@ -158,8 +160,10 @@ test_find_by_type(void)
     bsg_node *root = bsg_scene_root_create(v);
     if (!root) { g_fail++; free_view(v); return; }
 
-    /* Create a child and tag it with a custom type flag */
-    struct bv_scene_obj *child = bv_obj_create(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
+    /* Create a child and tag it with a custom type flag.
+     * Use bv_obj_get so the object is inserted into the view table,
+     * making it visible to bsg_scene_root_sync. */
+    struct bv_scene_obj *child = bv_obj_get(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
     if (!child) { g_fail++; bsg_scene_root_destroy(root); free_view(v); return; }
 
     child->s_type_flags |= BSG_NODE_SHAPE;
@@ -186,10 +190,11 @@ test_find_by_type(void)
 /* ---- Test 5: sensor_fire ------------------------------------------- */
 static int g_sensor_fired = 0;
 
-static void
+static int
 sensor_callback(struct bv_scene_obj *UNUSED(s), struct bview *UNUSED(v), int UNUSED(mode))
 {
     g_sensor_fired++;
+    return 0;
 }
 
 static void
@@ -202,9 +207,10 @@ test_sensor_fire(void)
     bsg_node *root = bsg_scene_root_create(v);
     if (!root) { g_fail++; free_view(v); return; }
 
-    /* Create a child tagged as BSG_NODE_SENSOR with a callback */
+    /* Create a child tagged as BSG_NODE_SENSOR with a callback.
+     * Use bv_obj_get so the object is inserted into the view table. */
     struct bv_scene_obj *sensor_child =
-	bv_obj_create(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
+	bv_obj_get(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
     if (!sensor_child) { g_fail++; bsg_scene_root_destroy(root); free_view(v); return; }
 
     sensor_child->s_type_flags   |= BSG_NODE_SENSOR;
