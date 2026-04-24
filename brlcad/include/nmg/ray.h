@@ -43,7 +43,18 @@ __BEGIN_DECLS
 
 struct model;
 
-NMG_EXPORT extern struct bu_list re_nmgfree;     /**< @brief  head of NMG hitmiss freelist */
+/**
+ * Allocate a fresh nmg_hitmiss struct.  Phase 5: the re_nmgfree global
+ * freelist has been removed; all hitmiss structs are allocated directly.
+ */
+#define NMG_GET_HITMISS(_p) BU_ALLOC((_p), struct nmg_hitmiss)
+
+/**
+ * Free all nmg_hitmiss structs in list _p.  Phase 5: structs are freed
+ * directly rather than returned to a freelist.
+ */
+NMG_EXPORT extern void nmg_free_hitlist(struct bu_list *p);
+#define NMG_FREE_HITLIST(_p) nmg_free_hitlist(_p)
 
 #define NMG_HIT_LIST    0
 #define NMG_MISS_LIST   1
@@ -121,20 +132,6 @@ NMG_EXPORT extern struct bu_list re_nmgfree;     /**< @brief  head of NMG hitmis
         for (BU_LIST_FOR(_a_hit, nmg_hitmiss, &rd->rd_miss)) {NMG_CK_HITMISS(_a_hit);} \
     }
 #endif
-
-#define NMG_GET_HITMISS(_p) { \
-        (_p) = BU_LIST_FIRST(nmg_hitmiss, &(re_nmgfree)); \
-        if (BU_LIST_IS_HEAD((_p), &(re_nmgfree))) \
-            BU_ALLOC((_p), struct nmg_hitmiss); \
-        else \
-            BU_LIST_DEQUEUE(&((_p)->l)); \
-    }
-
-
-#define NMG_FREE_HITLIST(_p) { \
-        BU_CK_LIST_HEAD((_p)); \
-        BU_LIST_APPEND_LIST(&(re_nmgfree), (_p)); \
-    }
 
 #ifdef NO_BOMBING_MACROS
 #  define nmg_bu_bomb(rd, vlfree, str) (void)(rd)
