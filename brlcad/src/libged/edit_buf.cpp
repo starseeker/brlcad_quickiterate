@@ -21,7 +21,7 @@
  *
  * Temporary edit buffer API.
  *
- * Maintains a per-gedp map of (path_hash -> rt_edit *) that persists across
+ * Maintains a per-gedp map of (path_string -> rt_edit *) that persists across
  * command invocations within a session.  Allows multi-step CLI edits without
  * a disk write per step.
  *
@@ -82,7 +82,7 @@ ged_edit_buf_get(struct ged *gedp, const struct db_full_path *dfp)
 	return NULL;
 
     Ged_Internal *gi = gedp->i->i;
-    unsigned long long key = _edit_buf_key(dfp);
+    std::string key = _edit_buf_key(dfp);
     auto it = gi->edit_buf.find(key);
     if (it == gi->edit_buf.end())
 	return NULL;
@@ -97,7 +97,7 @@ ged_edit_buf_set(struct ged *gedp, const struct db_full_path *dfp, struct rt_edi
 	return;
 
     Ged_Internal *gi = gedp->i->i;
-    unsigned long long key = _edit_buf_key(dfp);
+    std::string key = _edit_buf_key(dfp);
 
     /* If an entry already exists, free it first */
     auto it = gi->edit_buf.find(key);
@@ -122,7 +122,7 @@ ged_edit_buf_promote(struct ged *gedp, const struct db_full_path *dfp)
 	return BRLCAD_ERROR;
 
     Ged_Internal *gi = gedp->i->i;
-    unsigned long long key = _edit_buf_key(dfp);
+    std::string key = _edit_buf_key(dfp);
     auto it = gi->edit_buf.find(key);
     if (it == gi->edit_buf.end())
 	return BRLCAD_ERROR;
@@ -159,7 +159,7 @@ ged_edit_buf_abandon(struct ged *gedp, const struct db_full_path *dfp)
 	return;
 
     Ged_Internal *gi = gedp->i->i;
-    unsigned long long key = _edit_buf_key(dfp);
+    std::string key = _edit_buf_key(dfp);
     auto it = gi->edit_buf.find(key);
     if (it == gi->edit_buf.end())
 	return;
@@ -181,13 +181,13 @@ ged_edit_buf_flush(struct ged *gedp)
 	return;
 
     /* Collect keys up front to avoid iterator invalidation during erase */
-    std::vector<unsigned long long> keys;
+    std::vector<std::string> keys;
     keys.reserve(gi->edit_buf.size());
     for (auto &kv : gi->edit_buf)
 	keys.push_back(kv.first);
 
     bool any_written = false;
-    for (unsigned long long key : keys) {
+    for (const std::string &key : keys) {
 	auto it = gi->edit_buf.find(key);
 	if (it == gi->edit_buf.end())
 	    continue;

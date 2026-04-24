@@ -104,7 +104,7 @@ _resolve_geom_spec(ged_edit_geom_spec &spec, const char *token, DbiState *dbis)
 	if (path_str.empty())
 	    path_str = token;
 
-    } catch (std::invalid_argument &) {
+    } catch (const std::invalid_argument &) {
 	path_str = token;
     }
 

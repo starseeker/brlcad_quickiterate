@@ -1,7 +1,7 @@
 libged `edit` Command — Design Notes
 ======================================
 
-Status:  Phase 0 of the multi-phase implementation plan.
+Status:  Phase 1 complete.
 Date:    2026-04-24
 
 
@@ -309,17 +309,19 @@ Phase 4 priority order (most user-visible first):
 Implementation Phases
 ---------------------
 
-Phase 0 (current): Survey, freeze, harness
+Phase 0 (DONE): Survey, freeze, harness
   - This document
   - Descriptor audit (above)
   - Test directory src/libged/tests/edit/ with fixture and runner
+  - 46/46 assertions pass (ctest -R ged_test_edit_phase0)
 
-Phase 1: Parser foundation
+Phase 1 (DONE): Parser foundation
   - ged_edit_ctx struct replacing struct edit_info
   - Three-pass parser: global opts → geometry specifiers → subcommand+args
   - URI fragment/query parsing, . batch marker, selection fallback
   - Selection conflict arbiter
   - Temp edit buffer API (ged_edit_buf_*)
+  - 21/21 assertions pass (ctest -R ged_test_edit_phase1)
 
 Phase 2: Generic transform commands
   - edit_xform.{h,cpp}: translate ged_edit_ctx → rt_edit calls
