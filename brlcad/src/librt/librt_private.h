@@ -416,11 +416,13 @@ extern size_t clt_bot_pack(struct bu_pool *pool, struct soltab *stp);
  */
 
 /**
- * Increase the size of re_boolstack to double the previous size.
+ * Increase the size of the bool stack to double the previous size.
  * Depend on bu_realloc() to copy the previous data to the new area
- * when the size is increased.
+ * when the size is increased.  The stack and length are passed by
+ * pointer so they can be updated in-place regardless of whether the
+ * storage lives in a struct application or in a local variable.
  */
-RT_EXPORT extern void rt_bool_growstack(struct resource *res);
+RT_EXPORT extern void rt_bool_growstack(union tree ***boolstack, long *boolslen);
 
 /**
  * Release the per-processor state variables needed to support

@@ -1024,16 +1024,18 @@ rt_find_solid(const struct rt_i *rtip, const char *name)
 
 
 void
-rt_optim_tree(union tree *tp, struct resource *resp)
+rt_optim_tree(union tree *tp, struct resource *UNUSED(resp))
 {
     union tree **sp;
+    union tree **boolstack = NULL;
+    long boolslen = 0;
     union tree *low;
     union tree **stackend;
 
     RT_CK_TREE(tp);
-    while ((sp = resp->re_boolstack) == (union tree **)0)
-	rt_bool_growstack(resp);
-    stackend = &(resp->re_boolstack[resp->re_boolslen-1]);
+    while ((sp = boolstack) == (union tree **)0)
+	rt_bool_growstack(&boolstack, &boolslen);
+    stackend = &(boolstack[boolslen-1]);
     *sp++ = TREE_NULL;
     *sp++ = tp;
     while ((tp = *--sp) != TREE_NULL) {
@@ -1057,10 +1059,10 @@ rt_optim_tree(union tree *tp, struct resource *resp)
 		*sp++ = tp->tr_b.tb_right;
 		*sp++ = tp->tr_b.tb_left;
 		if (sp >= stackend) {
-		    int off = sp - resp->re_boolstack;
-		    rt_bool_growstack(resp);
-		    sp = &(resp->re_boolstack[off]);
-		    stackend = &(resp->re_boolstack[resp->re_boolslen-1]);
+		    int off = sp - boolstack;
+		    rt_bool_growstack(&boolstack, &boolslen);
+		    sp = &(boolstack[off]);
+		    stackend = &(boolstack[boolslen-1]);
 		}
 		break;
 	    case OP_UNION:
@@ -1071,10 +1073,10 @@ rt_optim_tree(union tree *tp, struct resource *resp)
 		*sp++ = tp->tr_b.tb_right;
 		*sp++ = tp->tr_b.tb_left;
 		if (sp >= stackend) {
-		    int off = sp - resp->re_boolstack;
-		    rt_bool_growstack(resp);
-		    sp = &(resp->re_boolstack[off]);
-		    stackend = &(resp->re_boolstack[resp->re_boolslen-1]);
+		    int off = sp - boolstack;
+		    rt_bool_growstack(&boolstack, &boolslen);
+		    sp = &(boolstack[off]);
+		    stackend = &(boolstack[boolslen-1]);
 		}
 		break;
 	    default:
@@ -1082,6 +1084,8 @@ rt_optim_tree(union tree *tp, struct resource *resp)
 		break;
 	}
     }
+    if (boolstack)
+	bu_free(boolstack, "boolstack");
 }
 
 

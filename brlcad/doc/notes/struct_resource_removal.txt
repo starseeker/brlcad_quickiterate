@@ -156,14 +156,23 @@ Implemented using C11 _Atomic counters directly on rt_i->stats.
     were updated to remove the now-unnecessary calls.
   - RT_RESOURCE_INIT_ZERO updated to match the smaller struct.
 
-Phase 4 - Move RNG (E) and bool stack (D) onto application
+Phase 4 - Move RNG (E) and bool stack (D) onto application  [DONE]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-  - re_randptr -> a_randptr, initialized by RT_APPLICATION_INIT.
-  - re_boolstack / re_boolslen -> a_boolstack / a_boolslen, or a
-    private struct rt_boolstate referenced from the application.
-    rt_booleval is always invoked in the context of an application,
-    so this is a clean fit.
+  - re_randptr -> a_randptr on struct application (include/rt/application.h).
+    Callers (worker.c, view.c, sh_light.c, sh_text.c) updated to use
+    ap->a_randptr directly.  sh_wood.c uses per-region wd->randptr (added
+    to struct wood_specific) to avoid the rt_uniresource anti-pattern.
+    worker.c maintains a file-scope cpu_randptrs[MAX_PSW] array to preserve
+    per-CPU RNG state across pixel calls.
+  - re_boolstack / re_boolslen -> a_boolstack / a_boolslen on struct
+    application.  rt_bool_growstack() signature changed to
+    (union tree ***boolstack, long *boolslen) so it is usable both from
+    bool_eval (via ap) and from rt_optim_tree / rt_solid_bitfinder (via
+    local variables).  The last two functions now manage their own local
+    boolstack and free it before returning.
+  - bool_eval() signature changed from (tree, partition, resource*) to
+    (tree, partition, application*); re_cpu obtained from ap->a_resource.
 
 Delete these fields from struct resource.
 

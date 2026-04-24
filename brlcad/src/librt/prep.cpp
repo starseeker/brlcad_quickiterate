@@ -912,8 +912,9 @@ rt_init_resource(struct resource *resp, int cpu_num, struct rt_i *rtip)
     /* point to the random number table so we can draw.  set to
      * MAX_PSW*cpu_num just to keep each core a good distance away
      * from each other, but that's not a really great reason.
+     * Note: re_randptr was removed in Phase 4; callers should
+     * initialize a_randptr on their struct application instead.
      */
-    bn_rand_init(resp->re_randptr, MAX_PSW*cpu_num);
 
     if (!BU_LIST_IS_INITIALIZED(&resp->re_seg))
 	BU_LIST_INIT(&resp->re_seg);
@@ -937,9 +938,6 @@ rt_init_resource(struct resource *resp, int cpu_num, struct rt_i *rtip)
      * structures as an intermediate step during lib refactoring */
     if (!BU_LIST_IS_INITIALIZED(&re_nmgfree))
 	BU_LIST_INIT(&re_nmgfree);
-
-    resp->re_boolstack = NULL;
-    resp->re_boolslen = 0;
 
     resp->re_cpu = cpu_num;
     resp->re_magic = RESOURCE_MAGIC;
@@ -1051,13 +1049,6 @@ rt_clean_resource_basic(struct rt_i *rtip, struct resource *resp)
 	}
     }
 
-    /* 're_boolstack' is a simple pointer */
-    if (resp->re_boolstack) {
-	bu_free((void *)resp->re_boolstack, "boolstack");
-	resp->re_boolstack = NULL;
-	resp->re_boolslen = 0;
-    }
-
     /* Release the state variables for 'solid pieces' */
     rt_res_pieces_clean(resp, rtip);
 
@@ -1103,7 +1094,10 @@ rt_clean_resource_complete(struct rt_i *rtip, struct resource *resp)
  * partition freelist
  * solid_bitv freelist
  * region_ptbl freelist
- * re_boolstack
+ *
+ * Note: re_boolstack and re_randptr were moved to struct application
+ * in Phase 4 of the struct resource removal effort; they are no
+ * longer freed here.
  *
  * Some care is required, as rt_uniresource may not be fully
  * initialized before it gets freed.
@@ -1367,18 +1361,19 @@ rt_del_regtree(struct rt_i *rtip, struct region *delregp)
  * region bits have been assigned.
  */
 static void
-rt_solid_bitfinder(union tree *treep, struct region *regp, struct resource *resp)
+rt_solid_bitfinder(union tree *treep, struct region *regp, struct resource *UNUSED(resp))
 {
     union tree **sp;
+    union tree **boolstack = NULL;
+    long boolslen = 0;
     struct soltab *stp;
     union tree **stackend;
 
     RT_CK_REGION(regp);
-    RT_CK_RESOURCE(resp);
 
-    while ((sp = resp->re_boolstack) == (union tree **)0)
-	rt_bool_growstack(resp);
-    stackend = &(resp->re_boolstack[resp->re_boolslen-1]);
+    while ((sp = boolstack) == (union tree **)0)
+	rt_bool_growstack(&boolstack, &boolslen);
+    stackend = &(boolstack[boolslen-1]);
 
     *sp++ = TREE_NULL;
     *sp++ = treep;
@@ -1400,10 +1395,10 @@ rt_solid_bitfinder(union tree *treep, struct region *regp, struct resource *resp
 		*sp++ = treep->tr_b.tb_right;
 		*sp++ = treep->tr_b.tb_left;
 		if (sp >= stackend) {
-		    int off = sp - resp->re_boolstack;
-		    rt_bool_growstack(resp);
-		    sp = &(resp->re_boolstack[off]);
-		    stackend = &(resp->re_boolstack[resp->re_boolslen-1]);
+		    int off = sp - boolstack;
+		    rt_bool_growstack(&boolstack, &boolslen);
+		    sp = &(boolstack[off]);
+		    stackend = &(boolstack[boolslen-1]);
 		}
 		break;
 	    default:
@@ -1411,6 +1406,8 @@ rt_solid_bitfinder(union tree *treep, struct region *regp, struct resource *resp
 		break;
 	}
     }
+    if (boolstack)
+	bu_free(boolstack, "boolstack");
 }
 
 
