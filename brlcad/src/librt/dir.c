@@ -121,8 +121,14 @@ rt_db_get_internal(
 
     RT_DB_INTERNAL_INIT(ip);
 
-    if (dbip->i->dbi_version > 4)
-	return rt_db_get_internal5(ip, dp, dbip);
+    if (dbip->i->dbi_version > 4) {
+	struct bu_external ext5 = BU_EXTERNAL_INIT_ZERO;
+	if (db_get_external(&ext5, dp, dbip) < 0)
+	    return -2;		/* FAIL */
+	ret = rt_db_external5_to_internal5(ip, &ext5, dp->d_namep, dbip, mat);
+	bu_free_external(&ext5);
+	return ret;
+    }
 
     BU_EXTERNAL_INIT(&ext);
 
