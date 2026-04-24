@@ -71,6 +71,24 @@ brlcad_add_test(NAME ged_test_prim_cmds_exist COMMAND ged_check_prim_cmds)
 add_subdirectory(bot)
 add_subdirectory(draw)
 
+# Phase 3.5 DrawPipeline concurrent stress test.
+# Exercises lock-free queue workers under rapid multi-batch push load.
+brlcad_addexec(ged_test_draw_pipeline_stress draw_pipeline_stress.cpp "libged;libdm" TEST)
+if(TARGET ged_test_draw_pipeline_stress)
+  add_dependencies(ged_test_draw_pipeline_stress ged_plugins dm-swrast)
+  target_include_directories(ged_test_draw_pipeline_stress PRIVATE
+    "${CMAKE_SOURCE_DIR}/src/libged"
+  )
+endif(TARGET ged_test_draw_pipeline_stress)
+brlcad_add_test(NAME ged_test_draw_pipeline_stress
+  COMMAND ged_test_draw_pipeline_stress
+    -c "${CMAKE_CURRENT_SOURCE_DIR}/draw/moss.g")
+if(TARGET ged_test_draw_pipeline_stress)
+  set_property(TEST ged_test_draw_pipeline_stress
+    APPEND PROPERTY ENVIRONMENT BRLCAD_ROOT=${CMAKE_BINARY_DIR})
+endif(TARGET ged_test_draw_pipeline_stress)
+distclean(${CMAKE_CURRENT_BINARY_DIR}/dp_stress_cache)
+
 # Note: it is particularly important that the lint tests in particular are kept
 # in a separate file, since its bad input examples stand an excellent chance of
 # breaking commands.
