@@ -627,19 +627,19 @@ bv_mesh_lod_context_create(const char *name)
     // Check the on-disk format version.  If it doesn't match CACHE_CURRENT_FORMAT,
     // clear the entire .POPLoD tree so stale entries don't accumulate.
     {
-	char fpath[MAXPATHLEN];
-	bu_dir(fpath, MAXPATHLEN, BU_DIR_CACHE, POP_CACHEDIR, "format", NULL);
+	char format_path[MAXPATHLEN];
+	bu_dir(format_path, MAXPATHLEN, BU_DIR_CACHE, POP_CACHEDIR, "format", NULL);
 	long disk_format_version = -1;
 	{
-	    std::ifstream format_file(fpath);
+	    std::ifstream format_file(format_path);
 	    if (format_file.is_open())
 		format_file >> disk_format_version;
 	}
 	if (disk_format_version > 0 && disk_format_version != CACHE_CURRENT_FORMAT) {
-	    bu_log("Old mesh lod cache version (%ld) found at %s - clearing\n", disk_format_version, fpath);
+	    bu_log("Old mesh lod cache version (%ld) found in format file at %s - clearing\n", disk_format_version, format_path);
 	    bv_mesh_lod_clear_cache(NULL, 0);
 	}
-	FILE *fp = fopen(fpath, "w");
+	FILE *fp = fopen(format_path, "w");
 	if (fp) {
 	    fprintf(fp, "%d\n", CACHE_CURRENT_FORMAT);
 	    fclose(fp);
