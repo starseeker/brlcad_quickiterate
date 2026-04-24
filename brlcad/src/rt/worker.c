@@ -613,6 +613,7 @@ do_run(int a, int b)
     for (cpu = 0; cpu < MAX_PSW; cpu++) {
 	if (resource[cpu].re_magic != RESOURCE_MAGIC) {
 	    bu_log("ERROR: CPU %zu resources corrupted, statistics bad\n", cpu);
+	    continue;
 	}
     }
 

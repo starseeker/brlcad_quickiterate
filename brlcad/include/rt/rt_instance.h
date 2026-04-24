@@ -42,12 +42,14 @@
 
 /* Ray-shooting counter fields in struct rt_i_stats are incremented from
  * multiple threads concurrently.  In C11 we declare them _Atomic so that
- * every ++ or += in C code is a proper relaxed atomic operation.  C++
+ * every ++ or += in C code is a proper lock-free atomic operation.  C++
  * translation units that only *read* these fields see plain size_t (same
  * size and alignment on every platform BRL-CAD supports), keeping the
- * struct layout identical across language modes.
+ * struct layout identical across language modes.  BRL-CAD requires C11
+ * (CMAKE_C_STANDARD 11 REQUIRED), so <stdatomic.h> is always available
+ * in C translation units.
  */
-#ifndef __cplusplus
+#if !defined(__cplusplus) && defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
 #  include <stdatomic.h>
 #  define _RT_ATOMIC_SIZE_T _Atomic size_t
 #else

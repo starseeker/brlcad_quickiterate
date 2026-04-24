@@ -1512,7 +1512,7 @@ rt_zero_res_stats(struct resource *resp)
      * directly as C11 atomic counters.  There are no per-resource
      * stat fields to zero.  This function is a no-op.
      */
-    RT_CK_RESOURCE(resp);
+    (void)resp;
 }
 
 
@@ -1524,11 +1524,8 @@ rt_add_res_stats(register struct rt_i *rtip, register struct resource *resp)
      * No end-of-campaign accumulation step is required.
      * This function is a no-op.
      */
-    RT_CK_RTI(rtip);
-
-    if (resp) {
-	RT_CK_RESOURCE(resp);
-    }
+    (void)rtip;
+    (void)resp;
 }
 
 static int
