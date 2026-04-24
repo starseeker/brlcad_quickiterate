@@ -1239,14 +1239,14 @@ bool_partition_eligible(register const struct bu_ptbl *regiontable, register con
 
 
 void
-rt_bool_growstack(register struct resource *resp)
+rt_bool_growstack(union tree ***boolstack, long *boolslen)
 {
-    if (resp->re_boolstack == (union tree **)0 || resp->re_boolslen <= 0) {
-	resp->re_boolslen = 128;	/* default len */
-	resp->re_boolstack = (union tree **)bu_malloc(sizeof(union tree *) * resp->re_boolslen,	"initial boolstack");
+    if (*boolstack == (union tree **)0 || *boolslen <= 0) {
+	*boolslen = 128;	/* default len */
+	*boolstack = (union tree **)bu_malloc(sizeof(union tree *) * *boolslen, "initial boolstack");
     } else {
-	resp->re_boolslen <<= 1;
-	resp->re_boolstack = (union tree **)bu_realloc((char *)resp->re_boolstack, sizeof(union tree *) * resp->re_boolslen, "extend boolstack");
+	*boolslen <<= 1;
+	*boolstack = (union tree **)bu_realloc((char *)*boolstack, sizeof(union tree *) * *boolslen, "extend boolstack");
     }
 }
 
@@ -1264,10 +1264,10 @@ rt_bool_growstack(register struct resource *resp)
  * -1 tree is in error (GUARD)
  */
 static int
-bool_eval(register union tree *treep, struct partition *partp, struct resource *resp)
+bool_eval(register union tree *treep, struct partition *partp, struct application *ap)
 /* Tree to evaluate */
 /* Partition to evaluate */
-/* resource pointer for this CPU */
+/* application pointer (for boolstack and CPU index) */
 {
     static union tree tree_not[MAX_PSW];	/* for OP_NOT nodes */
     static union tree tree_guard[MAX_PSW];	/* for OP_GUARD nodes */
@@ -1275,14 +1275,17 @@ bool_eval(register union tree *treep, struct partition *partp, struct resource *
     register union tree **sp;
     register int ret;
     register union tree **stackend;
+    int cpu;
 
     RT_CK_TREE(treep);
     RT_CK_PT(partp);
-    RT_CK_RESOURCE(resp);
+    RT_CK_AP(ap);
 
-    while ((sp = resp->re_boolstack) == (union tree **)0)
-	rt_bool_growstack(resp);
-    stackend = &(resp->re_boolstack[resp->re_boolslen]);
+    cpu = ap->a_resource ? ap->a_resource->re_cpu : 0;
+
+    while ((sp = ap->a_boolstack) == (union tree **)0)
+	rt_bool_growstack(&ap->a_boolstack, &ap->a_boolslen);
+    stackend = &(ap->a_boolstack[ap->a_boolslen]);
     *sp++ = TREE_NULL;
 stack:
     switch (treep->tr_op) {
@@ -1308,10 +1311,10 @@ stack:
 	case OP_XOR:
 	    *sp++ = treep;
 	    if (sp >= stackend) {
-		register int off = sp - resp->re_boolstack;
-		rt_bool_growstack(resp);
-		sp = &(resp->re_boolstack[off]);
-		stackend = &(resp->re_boolstack[resp->re_boolslen]);
+		register int off = sp - ap->a_boolstack;
+		rt_bool_growstack(&ap->a_boolstack, &ap->a_boolslen);
+		sp = &(ap->a_boolstack[off]);
+		stackend = &(ap->a_boolstack[ap->a_boolslen]);
 	    }
 	    treep = treep->tr_b.tb_left;
 	    goto stack;
@@ -1348,8 +1351,8 @@ pop:
 	    if (!ret) goto pop;	/* BOOL_FALSE, we are done */
 	    /* lhs was true, rewrite as NOT of rhs tree */
 	    /* We introduce the special NOT operator here */
-	    tree_not[resp->re_cpu].tr_op = OP_NOT;
-	    *sp++ = &tree_not[resp->re_cpu];
+	    tree_not[cpu].tr_op = OP_NOT;
+	    *sp++ = &tree_not[cpu];
 	    treep = treep->tr_b.tb_right;
 	    goto stack;
 	case OP_NOT:
@@ -1362,18 +1365,18 @@ pop:
 		 * overlap condition.  Rewrite as guard node followed
 		 * by rhs.
 		 */
-		tree_guard[resp->re_cpu].tr_op = OP_GUARD;
+		tree_guard[cpu].tr_op = OP_GUARD;
 		treep = treep->tr_b.tb_right;
 		*sp++ = treep;		/* temp val for guard node */
-		*sp++ = &tree_guard[resp->re_cpu];
+		*sp++ = &tree_guard[cpu];
 	    } else {
 		/* lhs was false, rewrite as xnop node and result of
 		 * rhs.
 		 */
-		tree_xnop[resp->re_cpu].tr_op = OP_XNOP;
+		tree_xnop[cpu].tr_op = OP_XNOP;
 		treep = treep->tr_b.tb_right;
 		*sp++ = treep;		/* temp val for xnop */
-		*sp++ = &tree_xnop[resp->re_cpu];
+		*sp++ = &tree_xnop[cpu];
 	    }
 	    goto stack;
 	case OP_GUARD:
@@ -1662,7 +1665,7 @@ rt_boolfinal(struct partition *InputHdp, struct partition *FinalHdp, fastf_t sta
 		    lastregion = regp;
 		    continue;
 		}
-		if (bool_eval(regp->reg_treetop, pp, ap->a_resource) == BOOL_FALSE) {
+		if (bool_eval(regp->reg_treetop, pp, ap) == BOOL_FALSE) {
 		    if (RT_G_DEBUG&RT_DEBUG_PARTITION)
 			bu_log("BOOL_FALSE\n");
 		    /* Null out non-claiming region's pointer */

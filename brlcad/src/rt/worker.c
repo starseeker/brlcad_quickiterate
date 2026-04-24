@@ -79,6 +79,11 @@ int last_pixel = 0;			/* last pixel number */
 
 int stop_worker = 0;
 
+/* Per-CPU random number table pointers.  Initialized lazily in do_pixel()
+ * and saved back at each pixel exit so that sequential pixels on the same
+ * CPU each begin at a different position in the random table. */
+static float *cpu_randptrs[MAX_PSW];
+
 /**
  * For certain hypersample values there is a particular advantage to
  * subdividing the pixel and shooting a ray in each sub-pixel.  This
@@ -134,15 +139,15 @@ jitter_start_pnt(vect_t point, struct application *a, int samplenum, int pat_num
 
     if (pat_num >= 0) {
 	dx = a->a_x + pt_pats[pat_num].coords[samplenum*2] +
-	    (bn_rand_half(a->a_resource->re_randptr) *
+	    (bn_rand_half(a->a_randptr) *
 	     pt_pats[pat_num].rand_scale[X]);
 
 	dy = a->a_y + pt_pats[pat_num].coords[samplenum*2 + 1] +
-	    (bn_rand_half(a->a_resource->re_randptr) *
+	    (bn_rand_half(a->a_randptr) *
 	     pt_pats[pat_num].rand_scale[Y]);
     } else {
-	dx = a->a_x + bn_rand_half(a->a_resource->re_randptr);
-	dy = a->a_y + bn_rand_half(a->a_resource->re_randptr);
+	dx = a->a_x + bn_rand_half(a->a_randptr);
+	dy = a->a_y + bn_rand_half(a->a_randptr);
     }
     VJOIN2(point, viewbase_model, dx, dx_model, dy, dy_model);
 }
@@ -173,6 +178,12 @@ do_pixel(int cpu, int pat_num, int pixelnum)
     /* Obtain fresh copy of global application struct */
     a = APP;				/* struct copy */
     a.a_resource = &resource[cpu];
+
+    /* Initialize per-CPU randptr lazily; save/restore across pixels so
+     * sequential pixels on the same CPU advance through the random table. */
+    if (!cpu_randptrs[cpu])
+	bn_rand_init(cpu_randptrs[cpu], MAX_PSW*(int)cpu);
+    a.a_randptr = cpu_randptrs[cpu];
 
     if (incr_mode) {
 	register int i = 1<<incr_level;
@@ -234,6 +245,7 @@ do_pixel(int cpu, int pat_num, int pixelnum)
 	    if ((size_t)a.a_x == width-1) {
 		view_eol(&a);		/* End of scan line */
 	    }
+	    cpu_randptrs[cpu] = a.a_randptr;
 	    return;
 	}
     }
@@ -447,6 +459,7 @@ do_pixel(int cpu, int pat_num, int pixelnum)
     if ((size_t)a.a_x == width-1) {
 	view_eol(&a);		/* End of scan line */
     }
+    cpu_randptrs[cpu] = a.a_randptr;
     return;
 }
 

@@ -1170,7 +1170,7 @@ light_vis(struct light_obs_stuff *los, char *flags)
 	 */
 
 	idx = los->lsp->lt_pt_count *
-	    fabs(bn_rand_half(los->ap->a_resource->re_randptr)) *
+	    fabs(bn_rand_half(los->ap->a_randptr)) *
 	    2.0;
 	if (idx == los->lsp->lt_pt_count) idx--;
 
@@ -1294,11 +1294,11 @@ light_vis(struct light_obs_stuff *los, char *flags)
 	 */
 	radius = los->lsp->lt_radius *
 	    /* drand48(); */
-	    fabs(bn_rand_half(los->ap->a_resource->re_randptr)
+	    fabs(bn_rand_half(los->ap->a_randptr)
 		 * 2.0);
 	angle =  M_2PI *
 	    /* drand48(); */
-	    (bn_rand_half(los->ap->a_resource->re_randptr) + 0.5);
+	    (bn_rand_half(los->ap->a_randptr) + 0.5);
 
 	y = radius * bn_tab_sin(angle);
 
