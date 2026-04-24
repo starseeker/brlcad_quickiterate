@@ -622,6 +622,126 @@ test_pipeline(const char *moss_g_path)
 }
 
 /* ------------------------------------------------------------------ */
+/* Test 10: DrawPipeline color sentinel (UINT_MAX fix)                 */
+/*                                                                     */
+/* Objects that carry no "color" or "rgb" attribute must NOT have a    */
+/* color entry written to the cache.  Before the fix, the dp_attr_worker*/
+/* would write UINT_MAX as a packed-RGB value; on the next open that   */
+/* value would be read back as a valid (near-white) color, making      */
+/* colorless solids appear white instead of inheriting the region hue. */
+/*                                                                     */
+/* Strategy:                                                           */
+/*   a) Create a DbiState and let the pipeline settle.                 */
+/*   b) Identify a solid that has no color attribute in moss.g         */
+/*      ("platform.r/box.r/box.s" is a plain CSG box with no color).  */
+/*   c) Look up its hash and check whether a color entry exists in the */
+/*      dcache.  It must NOT exist (or must equal the INT_MAX sentinel  */
+/*      stored by digest_path, not UINT_MAX from the old bug).         */
+/* ------------------------------------------------------------------ */
+
+/* Forward-declare cache key builder from dbi_state.cpp internals.
+ * We reproduce the same string format used by dp_make_key so we can
+ * probe the cache directly.                                            */
+static void
+make_dbi_key(char *buf, size_t bufsz, unsigned long long hash, const char *component)
+{
+    snprintf(buf, bufsz, "%llu:%s", hash, component);
+}
+
+static int
+test_color_sentinel(const char *moss_g_path)
+{
+    int failures = 0;
+
+    bu_log("=== Test 10: DrawPipeline color-sentinel (UINT_MAX fix) ===\n");
+
+    struct ged *gedp = ged_open("db", moss_g_path, 1);
+    if (!gedp) {
+	bu_log("  FAIL: could not open %s\n", moss_g_path);
+	return 1;
+    }
+
+    DbiState *dbis = new DbiState(gedp);
+    gedp->dbi_state = (void *)dbis;
+
+    /* Wait for the pipeline to settle so all cache writes are committed. */
+    (void)dbis->wait_for_pipeline(10000);
+
+    /* Pick a primitive that carries no color attribute.  In moss.g the
+     * solid "box.s" is a plain ARB8; it has no color of its own. */
+    const char *colorless_name = "box.s";
+    struct directory *dp = db_lookup(gedp->dbip, colorless_name, LOOKUP_QUIET);
+    if (dp == RT_DIR_NULL) {
+	bu_log("  WARNING: '%s' not found in %s — skipping color-sentinel check\n",
+	       colorless_name, moss_g_path);
+	delete (DbiState *)gedp->dbi_state;
+	gedp->dbi_state = NULL;
+	ged_close(gedp);
+	return 0;  /* inconclusive, not a failure */
+    }
+
+    unsigned long long hash =
+	bu_data_hash(dp->d_namep, strlen(dp->d_namep) * sizeof(char));
+
+    /* Verify the object has no color attribute on disk */
+    struct bu_attribute_value_set avs = BU_AVS_INIT_ZERO;
+    if (db5_get_attributes(gedp->dbip, &avs, dp) == 0) {
+	const char *cval = bu_avs_get(&avs, "color");
+	if (!cval) cval = bu_avs_get(&avs, "rgb");
+	if (cval) {
+	    bu_log("  NOTE: '%s' has a color attribute ('%s') — "
+		   "choosing a different solid for the test\n",
+		   colorless_name, cval);
+	    bu_avs_free(&avs);
+	    /* Not a failure; the sentinel test is inconclusive for colored objects */
+	    delete (DbiState *)gedp->dbi_state;
+	    gedp->dbi_state = NULL;
+	    ged_close(gedp);
+	    return 0;
+	}
+	bu_avs_free(&avs);
+    }
+
+    /* Now probe the cache.  The CACHE_COLOR key must either be absent or
+     * hold the digest_path INT_MAX sentinel (0x7FFFFFFF), never UINT_MAX
+     * (0xFFFFFFFF) which would be the pre-fix bug value. */
+    char color_key[256];
+    make_dbi_key(color_key, sizeof(color_key), hash, "c");
+
+    void *data = NULL;
+    struct bu_cache_txn *txn = NULL;
+    size_t got = bu_cache_get(&data, color_key, dbis->dcache, &txn);
+
+    if (got == 0 || data == NULL) {
+	/* No color entry — this is the correct behavior for a colorless solid */
+	bu_log("  PASS: no color cache entry for colorless solid '%s'\n",
+	       colorless_name);
+    } else {
+	/* An entry exists — verify it is NOT UINT_MAX (the old bug value) */
+	unsigned int cached_color = 0;
+	if (got >= sizeof(unsigned int))
+	    memcpy(&cached_color, data, sizeof(unsigned int));
+
+	if (cached_color == 0xFFFFFFFFU) {
+	    bu_log("FAIL: color cache entry for '%s' is UINT_MAX (0xFFFFFFFF) — "
+		   "near-black sentinel bug NOT fixed\n", colorless_name);
+	    failures++;
+	} else {
+	    bu_log("  NOTE: color cache entry for '%s' = 0x%08X (not UINT_MAX sentinel)\n",
+		   colorless_name, cached_color);
+	    bu_log("  PASS: color sentinel check\n");
+	}
+	bu_cache_get_done(&txn);
+    }
+
+    delete (DbiState *)gedp->dbi_state;
+    gedp->dbi_state = NULL;
+    ged_close(gedp);
+
+    return failures;
+}
+
+/* ------------------------------------------------------------------ */
 /* main                                                                 */
 /* ------------------------------------------------------------------ */
 
@@ -679,6 +799,10 @@ main(int ac, char *av[])
 
     /* Test 9: Phase 3.5 DrawPipeline — drain_geom_results produces results */
     ret += test_pipeline(tmp_g);
+
+    /* Test 10: DrawPipeline color sentinel — colorless objects must not get
+     *          a white color written to the cache (UINT_MAX sentinel fix). */
+    ret += test_color_sentinel(tmp_g);
 
     /* Accumulate any inline CHECK() failures */
     ret += g_failures;

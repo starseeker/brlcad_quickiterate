@@ -218,12 +218,29 @@ if(TARGET ged_test_aet)
   endforeach()
 endif(TARGET ged_test_aet)
 
+# Phase 4 exit criteria: bsg_view_traverse vs legacy dl_* pixel parity
+brlcad_addexec(ged_test_bsg_parity "bsg_parity.cpp;util.cpp" "libged;libdm;libbsg" TEST)
+if(TARGET ged_test_bsg_parity)
+  foreach(tdp ${test_deps})
+    if (TARGET tdp)
+      add_dependencies(ged_test_bsg_parity ${tdp})
+    endif ()
+  endforeach()
+endif(TARGET ged_test_bsg_parity)
+brlcad_add_test(NAME ged_test_bsg_parity COMMAND ged_test_bsg_parity -c "${CMAKE_CURRENT_SOURCE_DIR}")
+if(TARGET ged_test_bsg_parity)
+  set_property(TEST ged_test_bsg_parity APPEND PROPERTY ENVIRONMENT BRLCAD_ROOT=${CMAKE_BINARY_DIR})
+endif()
+distclean(${CMAKE_CURRENT_BINARY_DIR}/moss_bsg_parity_tmp.g)
+distclean(${CMAKE_CURRENT_BINARY_DIR}/bsg_parity_cache)
+
 cmakefiles(
   README
   empty.png
   moss.g
   moss.png
   rook.g
+  bsg_parity.cpp
   util.cpp
   ${basic_view_test_ctrls}
   ${faceplate_test_ctrls}
