@@ -30,6 +30,7 @@
 
 extern "C" {
 #include "bu/malloc.h"
+#include "bsg/util.h"
 }
 #include "bindings.h"
 #include "qtcad/QgGL.h"
@@ -53,6 +54,9 @@ QgGL::QgGL(QWidget *parent, struct fb *fbp)
     bv_init(local_v, NULL);
     bu_vls_sprintf(&local_v->gv_name, "qtgl");
     v = local_v;
+
+    /* Phase 4-C: create the BSG scene root for this view */
+    bsg_scene_root_create(local_v);
 
     // We can't initialize dmp successfully until more of the OpenGL
     // initialization is complete

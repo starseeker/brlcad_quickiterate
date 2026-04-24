@@ -19,7 +19,13 @@ if(BRLCAD_ENABLE_QT)
     endif(Qt6Widgets_FOUND)
   endif(OPENGL_LIBS)
 
-  set(QG_DIRS ${QG_DIRS} ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR} ${OPENGL_INCLUDE_DIR_GL})
+  # Modern CMake FindOpenGL sets OPENGL_INCLUDE_DIR; older CMake set OPENGL_INCLUDE_DIR_GL.
+  if(OPENGL_INCLUDE_DIR_GL)
+    set(QG_GL_INC ${OPENGL_INCLUDE_DIR_GL})
+  else()
+    set(QG_GL_INC ${OPENGL_INCLUDE_DIR})
+  endif()
+  set(QG_DIRS ${QG_DIRS} ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR} ${QG_GL_INC})
 endif(BRLCAD_ENABLE_QT)
 
 # We build the resources in at this level, but list them out
