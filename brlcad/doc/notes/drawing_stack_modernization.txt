@@ -390,16 +390,56 @@ pass; qt6-base-dev / qt6-svg-dev must be installed and -DBRLCAD_ENABLE_QT=ON.
 
 == Phase 3.5 — Migrate concurrentqueue.h based drawing data cache in qgedobol
 
-Status: PLANNED
+Status: DONE
 
-    Investigate what is involved with making minimal changes to our drawing
-    logic to be able to use the more sophisticated concurrentqueue based
-    data caching implementation from qgedobl to enhance GeomLoader.
-    See if it can be used in our code without radical redesign.  Most
-    of its data will not yet be used in the current drawing implementations,
-    but if we can rework what we do have to use the relevant data from
-    that more advanced caching design we will be well positioned for future
-    work.
+    Replaced the Phase 3-C single-threaded GeomLoader (which computed trivial
+    axis-aligned OBBs as a placeholder) with a 5-stage concurrent pipeline
+    (DrawPipeline) that closely mirrors qgedobol's cache_drawing.cpp design:
+
+    Stage 1 — attr_worker:   reads region flag/id, inherit, color from AVS and
+                             enqueues them for cache writing; cracks geometry and
+                             forwards rt_db_internal to q_aabb.
+    Stage 2 — aabb_worker:  calls ft_bbox to compute a real AABB; posts a
+                             DrawPipeline::Result::AABB to results_q and forwards
+                             the internal to q_obb.
+    Stage 3 — obb_worker:   calls ft_oriented_bbox to compute a tight oriented
+                             bounding box (8 corner points, 24 fastf_t); posts
+                             DrawPipeline::Result::OBB; forwards to q_lod.
+    Stage 4 — lod_worker:   for BoT primitives, calls bv_mesh_lod_cache /
+                             bv_mesh_lod_key_put if not already cached; posts
+                             DrawPipeline::Result::LOD.
+    Stage 5 — write_worker: serialises all bu_cache writes, preventing LMDB
+                             transaction conflicts from concurrent workers.
+
+    All 5 stages use moodycamel::ConcurrentQueue (concurrentqueue.h) for lock-
+    free inter-stage handoff.  A shared DrawPipelineState (held as a
+    shared_ptr) owns the queues and result_q; the pipeline shuts down cleanly
+    when ~DrawPipeline() signals shutdown and waits up to 2 s for all threads.
+
+    New public surface in dbi.h / DbiState:
+      DbiState::obbs       — map from hash to std::array<fastf_t,24> (8 corner pts)
+      DbiState::start_geom_load(items) — push WorkItems to pipeline
+      DbiState::drain_geom_results()   — drain results, update bboxes/obbs
+      DbiState::wait_for_pipeline(ms)  — blocking drain loop (useful for tests)
+      BViewState::drain_geom_results() — delegates to DbiState (return type now size_t)
+
+    DBI_CACHE_FORMAT_VERSION bumped to 2 (OBB format changed from center+extents
+    4×3 doubles to 8 corner points 24 fastf_t).
+
+    DbiState constructor also pushes all solid directory pointers at init time so
+    AABB, OBB and LoD data are pre-populated in the background for the full model.
+
+    BViewState::redraw() Phase 3-D block updated: instead of calling
+    geom_loader->queue_item(hash, bmin, bmax) it builds a DrawPipeline::WorkItem
+    list from the drawn s_map and calls DbiState::start_geom_load().
+
+    Most OBB data will not yet be used in current drawing implementations (Phase 4+
+    will wire OBBs into view-frustum culling and bsg scene nodes), but all the
+    required data is now being computed and stored, positioning us for future work.
+
+    Test 9 added to ged_test_dbi_cpp: opens moss.g, waits for pipeline to settle,
+    verifies at least one AABB result is produced.  9/9 PASS.
+
 Exit criteria: We successfully cache and are able to retrieve all information
 qgedobol's cache stores, and do so without breaking our current LoD features.
 Qt build requirement: libbv, dm-swrast, and the LoD caching tests must all

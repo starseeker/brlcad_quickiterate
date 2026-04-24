@@ -35,13 +35,17 @@
  *   7. BViewState::add_path() + redraw() + count_drawn_paths().
  *   8. Two-pass DbiState construction: second pass reads from the
  *      on-disk cache and produces maps identical to the first pass.
+ *   9. Phase 3.5 DrawPipeline: DbiState::wait_for_pipeline() delivers at
+ *      least one AABB result for the solids in moss.g.
  *
  * Usage: test_dbi_cpp <dir-containing-moss.g>
  */
 
 #include "common.h"
 
+#include <chrono>
 #include <fstream>
+#include <thread>
 #include <unordered_map>
 #include <unordered_set>
 #include <string>
@@ -570,6 +574,54 @@ test_observer(const char *moss_g_path)
 }
 
 /* ------------------------------------------------------------------ */
+/* Test 9: Phase 3.5 DrawPipeline (drain_geom_results)                 */
+/* ------------------------------------------------------------------ */
+
+static int
+test_pipeline(const char *moss_g_path)
+{
+    int failures = 0;
+
+    bu_log("=== Test 9: Phase 3.5 DrawPipeline drain_geom_results ===\n");
+
+    struct ged *gedp = ged_open("db", moss_g_path, 1);
+    if (!gedp) {
+	bu_log("  FAIL: could not open %s\n", moss_g_path);
+	return 1;
+    }
+
+    DbiState *dbis = new DbiState(gedp);
+    gedp->dbi_state = (void *)dbis;
+
+    /* Wait up to 10 seconds for the pipeline to settle and deliver results. */
+    size_t total = dbis->wait_for_pipeline(10000);
+    bu_log("  drain_geom_results produced %zu results\n", total);
+
+    /* The pipeline must have produced at least one AABB result (moss.g has
+     * solid primitives; AABB is always computed for non-comb objects). */
+    CHECK(total > 0, "DrawPipeline must produce at least one result");
+
+    /* obbs map may or may not be populated depending on whether moss.g
+     * primitives support ft_oriented_bbox; just verify no crash. */
+    bu_log("  obbs map contains %zu entries after pipeline drain\n",
+	   dbis->obbs.size());
+    bu_log("  bboxes map contains %zu entries\n", dbis->bboxes.size());
+
+    /* BViewState::drain_geom_results must return size_t (0 after exhausted). */
+    size_t bvs_drain = dbis->shared_vs->drain_geom_results();
+    /* pipeline is now settled so this should return 0 */
+    CHECK(bvs_drain == 0, "BViewState::drain_geom_results must return 0 when settled");
+
+    bu_log("  PASS: DrawPipeline produced results and settled\n");
+
+    delete (DbiState *)gedp->dbi_state;
+    gedp->dbi_state = NULL;
+    ged_close(gedp);
+
+    return failures;
+}
+
+/* ------------------------------------------------------------------ */
 /* main                                                                 */
 /* ------------------------------------------------------------------ */
 
@@ -624,6 +676,9 @@ main(int ac, char *av[])
 
     /* Test 8: Phase 1-C observer + Phase 1-D GObj + Phase 1-E DrawList + Phase 1-F SelectionSet */
     ret += test_observer(tmp_g);
+
+    /* Test 9: Phase 3.5 DrawPipeline — drain_geom_results produces results */
+    ret += test_pipeline(tmp_g);
 
     /* Accumulate any inline CHECK() failures */
     ret += g_failures;

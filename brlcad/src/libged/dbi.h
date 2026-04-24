@@ -44,6 +44,7 @@
 #include "bu/vls.h"
 
 #ifdef __cplusplus
+#include <array>
 #include <set>
 #include <map>
 #include <mutex>
@@ -55,6 +56,7 @@
 #include <vector>
 #include <queue>
 
+#include "bv/lod.h"
 #include "ged/defines.h"
 
 /* ---- Phase 1-A: Typed hash wrappers ---------------------------------- */
@@ -353,70 +355,68 @@ class GED_EXPORT SelectionSet {
 typedef SelectionSet BSelectState;
 
 
-/* ---- Phase 3-C: Background OBB computation --------------------------- */
-
-/* Work item queued to the GeomLoader for OBB computation. */
-struct GeomLoaderItem {
-    unsigned long long hash;
-    point_t bbmin;
-    point_t bbmax;
-};
-
-/* Result produced by GeomLoader after OBB computation. */
-struct ObbResult {
-    unsigned long long hash;
-    point_t  obb_center;
-    vect_t   obb_extent1;
-    vect_t   obb_extent2;
-    vect_t   obb_extent3;
-};
+/* ---- Phase 3.5: Concurrent drawing-data pipeline --------------------- */
 
 /**
- * GeomLoader: background worker that computes oriented bounding boxes (OBBs)
- * for solids and writes the results into a bu_cache.
+ * DrawPipeline: 5-stage concurrent pipeline that pre-computes drawing data
+ * (attributes, AABB, OBB, LoD) in background threads and makes the results
+ * available to the main thread via drain().
  *
- * Usage:
- *   loader->queue_item(hash, bbmin, bbmax);   // enqueue OBB work
- *   int n = loader->drain_geom_results();     // collect finished results
- *   bool ok = loader->get_obb(hash, ...);     // read OBB from cache
+ * Replaces the Phase 3-C GeomLoader (single-threaded, OBB-only) with a
+ * concurrentqueue-based design matching the qgedobol cache_drawing.cpp
+ * pipeline.  Stages:
+ *   1. attr_worker  — reads region attrs from AVS, writes to cache
+ *   2. aabb_worker  — calls ft_bbox, writes AABB to cache, posts Result::AABB
+ *   3. obb_worker   — calls ft_oriented_bbox (real OBB), posts Result::OBB
+ *   4. lod_worker   — bv_mesh_lod_cache for BoTs, posts Result::LOD
+ *   5. write_worker — serialises all bu_cache writes
+ *
+ * Thread-safety: push() and drain() must be called from the main thread.
+ * All worker threads access only their private struct resource instances
+ * and the shared ConcurrentQueue slots; they never write DbiState maps.
  */
-class GED_EXPORT GeomLoader {
+class GED_EXPORT DrawPipeline {
 public:
-    explicit GeomLoader(struct bu_cache *cache);
-    ~GeomLoader();
+    /* Result posted to the main thread after a pipeline stage completes. */
+    struct Result {
+        enum Type { AABB = 0, OBB = 1, LOD = 2 } type = AABB;
+        unsigned long long hash    = 0;
+        std::string        dp_name;
+        /* AABB */
+        point_t bmin;
+        point_t bmax;
+        /* OBB: 8 corner points produced by ft_oriented_bbox */
+        bool    obb_valid = false;
+        point_t obb_pts[8];
+        /* LOD */
+        bool               has_lod = false;
+        unsigned long long lod_key = 0;
+    };
 
-    /* Enqueue an OBB computation for the solid identified by hash. */
-    void queue_item(unsigned long long hash, const point_t bbmin, const point_t bbmax);
+    /* Work item submitted to the pipeline by the main thread. */
+    struct WorkItem {
+        unsigned long long  hash = 0;
+        struct directory   *dp   = nullptr;
+    };
 
-    /**
-     * Collect completed OBB results, write each into the cache, and return
-     * the number of new results written.  Intended to be called from the
-     * draw loop to trigger view refreshes when OBBs become available.
-     */
-    int drain_geom_results();
+    explicit DrawPipeline(struct ged *gedp, struct bu_cache *dcache);
+    ~DrawPipeline();
 
-    /**
-     * Read a previously cached OBB for hash.  Returns true and fills the
-     * output pointers on success; returns false if no OBB is cached yet.
-     * Passing NULL for any output pointer is allowed.
-     */
-    bool get_obb(unsigned long long hash,
-                 point_t *obb_center,
-                 vect_t  *obb_extent1,
-                 vect_t  *obb_extent2,
-                 vect_t  *obb_extent3) const;
+    /* Queue objects for background processing.  MAIN THREAD ONLY. */
+    void push(const std::vector<WorkItem> &items);
+
+    /* Drain all pending Result notifications.  Non-blocking.  MAIN THREAD ONLY. */
+    size_t drain(std::vector<Result> &out);
+
+    /* Returns true when all pipeline queues are empty. */
+    bool settled() const;
+
+    /* Notify the pipeline of the LoD context (may be updated after init). */
+    void set_lod_ctx(struct bv_mesh_lod_context *lod_ctx);
 
 private:
-    void worker();
-    void stop();
-
-    struct bu_cache         *cache_    = NULL;
-    std::thread              worker_thread_;
-    mutable std::mutex       mtx_;
-    std::condition_variable  cv_;
-    std::queue<GeomLoaderItem>  work_queue_;
-    std::vector<ObbResult>      completed_;
-    bool                     stop_     = false;
+    /* Opaque pointer to the internal DrawPipelineState defined in dbi_state.cpp. */
+    struct DrawPipelineState *state_ = nullptr;
 };
 
 
@@ -464,10 +464,11 @@ class GED_EXPORT BViewState {
 	// with otherwise common objects - we must update accordingly.
 	unsigned long long redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *> &views, int no_autoview);
 
-	// Phase 3-D: Drain completed OBB results from the GeomLoader.
-	// Returns the count of new OBBs that are now available in the cache.
-	// Callers should trigger a view refresh when the count > 0.
-	int drain_geom_results();
+	// Phase 3.5: Drain completed pipeline results from DrawPipeline.
+	// Delegates to DbiState::drain_geom_results().
+	// Returns the count of new results now available.
+	// Callers should trigger a view refresh when the return value > 0.
+	size_t drain_geom_results();
 
 	// Allow callers to calculate the drawing hash of a path
 	unsigned long long path_hash(std::vector<unsigned long long> &path, size_t max_len);
@@ -634,6 +635,24 @@ class GED_EXPORT DbiState {
 	void          add_selection_set(const char *name);
 	void          remove_selection_set(const char *name = nullptr);
 
+	// Phase 3.5: background geometry-data pipeline (DrawPipeline).
+	//
+	// start_geom_load() pushes the given (hash, dp) work items onto the
+	// background pipeline's q_init queue.  Workers compute AABB, OBB and
+	// LoD in background threads.  MAIN THREAD ONLY.
+	//
+	// drain_geom_results() drains all available results from the pipeline,
+	// integrates AABBs into bboxes[], OBBs into obbs[], fires scene-observer
+	// notifications.  Returns the number of results processed.
+	// MAIN THREAD ONLY.  Call periodically (e.g. from a Qt timer) and
+	// trigger a view repaint when the return value is non-zero.
+	//
+	// wait_for_pipeline() polls drain_geom_results() until settled() or
+	// max_ms elapsed (max_ms <= 0 == indefinite).  Useful for tests.
+	void   start_geom_load(const std::vector<DrawPipeline::WorkItem> &items);
+	size_t drain_geom_results();
+	size_t wait_for_pipeline(int max_ms = 5000);
+
 	// These maps are the ".g ground truth" of the comb structures - the set
 	// associated with each hash contains all the child hashes from the comb
 	// definition in the database for quick lookup, and the vector preserves
@@ -674,6 +693,12 @@ class GED_EXPORT DbiState {
 	// the disk beyond the initial per-solid calculations, which may be done
 	// once per load and/or dimensional change.
 	std::unordered_map<unsigned long long, std::vector<fastf_t>> bboxes;
+
+	// Oriented bounding boxes (OBBs) as 8 corner points (24 fastf_t values)
+	// from ft_oriented_bbox.  Populated by the OBB stage of DrawPipeline via
+	// drain_geom_results().  These are tighter than AABB and can be used for
+	// better view frustum culling and placeholder rendering.
+	std::unordered_map<unsigned long long, std::array<fastf_t, 24>> obbs;
 
 
 	// We also have a number of standard attributes that can impact drawing,
@@ -751,8 +776,8 @@ class GED_EXPORT DbiState {
 	struct bu_vls hash_string = BU_VLS_INIT_ZERO;
 	struct bu_vls path_string = BU_VLS_INIT_ZERO;
 
-	// Phase 3-C: background OBB worker
-	GeomLoader *geom_loader = NULL;
+	// Phase 3.5: background OBB/AABB/LoD pipeline
+	DrawPipeline *draw_pipeline_ = NULL;
 
 	// Phase 1-C: observer dispatch
 	std::vector<IDbiObserver *>   dbi_observers_;
@@ -765,6 +790,8 @@ class GED_EXPORT DbiState {
 	friend class CombInst;
 	// BViewState needs access to res for per-object draw update data
 	friend class BViewState;
+	// DrawPipeline accesses dbip, gedp, dcache for pipeline operations
+	friend class DrawPipeline;
 };
 
 

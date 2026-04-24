@@ -30,14 +30,20 @@
 #include "common.h"
 
 #include <algorithm>
+#include <atomic>
+#include <chrono>
+#include <cstring>
 #include <fstream>
 #include <map>
 #include <mutex>
 #include <condition_variable>
 #include <thread>
 #include <string>
+#include <unordered_map>
+#include <vector>
 
 #include "./alphanum.h"
+#include "./bot/concurrentqueue.h"
 
 #include "vmath.h"
 #include "bu/app.h"
@@ -65,17 +71,23 @@ extern "C" int  csg_wireframe_update(struct bv_scene_obj *vo, struct bview *v, i
 /* On-disk format version.  Increment whenever the binary layout of any cached
  * payload changes (new component type added, struct layout changed, etc.).
  * DbiState::DbiState() reads BU_DIR_CACHE/.Dbi/format; a mismatch clears the
- * entire .Dbi tree via bu_dirclear() before new per-file caches are opened. */
-#define DBI_CACHE_FORMAT_VERSION 1
+ * entire .Dbi tree via bu_dirclear() before new per-file caches are opened.
+ *
+ * Version history:
+ *   1 — initial (OBB stored as center + 3 extent vectors, 4x3 doubles)
+ *   2 — Phase 3.5: OBB stored as 8 corner points (8x point_t = 24 fastf_t)
+ *                  from ft_oriented_bbox; attr/AABB/LoD now cached by pipeline */
+#define DBI_CACHE_FORMAT_VERSION 2
 
 /* Cache component names for per-object attribute data.
  * Keys are plain "hash:component" strings.
  * Changing any of these requires incrementing DBI_CACHE_FORMAT_VERSION. */
-#define CACHE_OBJ_BOUNDS "bb"
-#define CACHE_REGION_ID "rid"
-#define CACHE_REGION_FLAG "rf"
+#define CACHE_OBJ_BOUNDS   "bb"
+#define CACHE_OBJ_OBB      "obb"
+#define CACHE_REGION_ID    "rid"
+#define CACHE_REGION_FLAG  "rf"
 #define CACHE_INHERIT_FLAG "if"
-#define CACHE_COLOR "c"
+#define CACHE_COLOR        "c"
 
 // Build a cache lookup key from an object hash and component name.
 static inline std::string
@@ -202,134 +214,595 @@ populate_walk_tree(union tree *tp, void *d, int subtract_skip, int p_op,
 }
 
 
-/* ---- Phase 3-C: GeomLoader implementation --------------------------- */
+/* ---- Phase 3.5: DrawPipeline — 5-stage concurrent pipeline ------------ *
+ *
+ * Replaces the Phase 3-C single-threaded GeomLoader with a concurrentqueue-
+ * based design matching qgedobol's cache_drawing.cpp pipeline.
+ *
+ * Stages:
+ *   q_init  → attr_worker  → q_aabb → aabb_worker → q_obb
+ *   q_obb   → obb_worker   → q_lod  → lod_worker
+ *   q_write → write_worker (serialises all bu_cache writes)
+ *
+ * result_q is drained by the main thread via DrawPipeline::drain().
+ * -------------------------------------------------------------------- */
 
-// OBB cache component name.  Key: "hash:obb"
-#define CACHE_OBJ_OBB "obb"
+/* Debug delay helpers (same env vars as qgedobol cache_drawing.cpp). */
+static int g_dp_delay_attr_ms = 0;
+static int g_dp_delay_aabb_ms = 0;
+static int g_dp_delay_obb_ms  = 0;
+static int g_dp_delay_lod_ms  = 0;
 
-// Serialized OBB record: center (3 doubles) + 3 extent vectors (3 doubles each)
-struct ObbRecord {
-    double center[3];
-    double e1[3], e2[3], e3[3];
-};
-
-GeomLoader::GeomLoader(struct bu_cache *cache)
-    : cache_(cache), stop_(false)
+static void
+dp_init_debug_delays(void)
 {
-    worker_thread_ = std::thread(&GeomLoader::worker, this);
+    static bool done = false;
+    if (done) return;
+    done = true;
+    auto getenv_int = [](const char *name) -> int {
+	const char *v = getenv(name);
+	if (!v) return 0;
+	int n = atoi(v);
+	return (n > 0) ? n : 0;
+    };
+    g_dp_delay_attr_ms = getenv_int("BRLCAD_CACHE_ATTR_DELAY_MS");
+    g_dp_delay_aabb_ms = getenv_int("BRLCAD_CACHE_AABB_DELAY_MS");
+    g_dp_delay_obb_ms  = getenv_int("BRLCAD_CACHE_OBB_DELAY_MS");
+    g_dp_delay_lod_ms  = getenv_int("BRLCAD_CACHE_LOD_DELAY_MS");
 }
 
-GeomLoader::~GeomLoader()
+/* Single item queued for writing to the drawing cache. */
+struct DrawCacheWriteItem {
+    char   key[256] = {0};
+    bool   erase_op = false;
+    size_t data_len = 0;
+    void  *data     = nullptr;
+
+    DrawCacheWriteItem() = default;
+    DrawCacheWriteItem(const char *k, const void *d, size_t len)
+    {
+	snprintf(key, sizeof(key), "%s", k);
+	erase_op = (!d || !len);
+	data_len  = len;
+	if (d && len) {
+	    data = bu_malloc(len, "DrawCacheWriteItem");
+	    memcpy(data, d, len);
+	}
+    }
+    DrawCacheWriteItem(const DrawCacheWriteItem &o)
+	: erase_op(o.erase_op), data_len(o.data_len), data(nullptr)
+    {
+	snprintf(key, sizeof(key), "%s", o.key);
+	if (o.data && o.data_len) {
+	    data = bu_malloc(o.data_len, "DrawCacheWriteItem copy");
+	    memcpy(data, o.data, o.data_len);
+	}
+    }
+    DrawCacheWriteItem &operator=(const DrawCacheWriteItem &o)
+    {
+	if (this == &o) return *this;
+	if (data) bu_free(data, "DrawCacheWriteItem free");
+	data = nullptr;
+	erase_op = o.erase_op;
+	data_len  = o.data_len;
+	snprintf(key, sizeof(key), "%s", o.key);
+	if (o.data && o.data_len) {
+	    data = bu_malloc(o.data_len, "DrawCacheWriteItem assign");
+	    memcpy(data, o.data, o.data_len);
+	}
+	return *this;
+    }
+    ~DrawCacheWriteItem()
+    {
+	if (data) bu_free(data, "DrawCacheWriteItem dtor");
+	data = nullptr;
+    }
+};
+
+/* Result posted to the main thread result queue. */
+struct DrawInternalResult {
+    int                type;      /* 0=AABB, 1=OBB, 2=LOD */
+    unsigned long long hash;
+    char               dp_name[256];
+    /* AABB */
+    point_t bmin;
+    point_t bmax;
+    /* OBB: 8 corner points from ft_oriented_bbox */
+    int     obb_valid;
+    point_t obb_pts[8];
+    /* LOD */
+    unsigned long long lod_key;
+};
+
+/* Per-database pipeline state (private to this TU). */
+struct DrawPipelineState {
+    std::atomic<bool> shutdown{false};
+    std::atomic<int>  thread_cnt{0};
+
+    /* Inter-stage lock-free queues. */
+    moodycamel::ConcurrentQueue<std::string>              q_init;  /* names → attr */
+    moodycamel::ConcurrentQueue<struct rt_db_internal *>  q_aabb;  /* internal → AABB */
+    moodycamel::ConcurrentQueue<struct rt_db_internal *>  q_obb;   /* post-AABB → OBB */
+    moodycamel::ConcurrentQueue<struct rt_db_internal *>  q_lod;   /* post-OBB  → LoD */
+    moodycamel::ConcurrentQueue<DrawCacheWriteItem>       q_write; /* → write_worker */
+
+    /* Main-thread result queue. */
+    moodycamel::ConcurrentQueue<DrawInternalResult> results_q;
+
+    /* Name map: maps each in-flight rt_db_internal* to its object name.
+     * Protected by name_mu.  lod_worker is the LAST consumer and must erase. */
+    std::mutex name_mu;
+    std::unordered_map<struct rt_db_internal *, std::string> ip_names;
+
+    struct db_i          *dbip    = nullptr;
+    struct bu_cache      *dcache  = nullptr;
+    struct bv_mesh_lod_context *lod_ctx = nullptr;
+
+    std::vector<std::thread> threads;
+};
+
+/* Helper: build a cache key string */
+static inline void
+dp_make_key(char *buf, size_t bufsz, unsigned long long hash,
+	    const char *component)
 {
-    stop();
+    snprintf(buf, bufsz, "%llu:%s", hash, component);
+}
+
+/* ---- Pipeline stage 1: attr_worker ---------------------------------- */
+static void
+dp_attr_worker(std::shared_ptr<DrawPipelineState> p)
+{
+    char ckey[256];
+    struct resource bres;
+    memset(&bres, 0, sizeof(bres));
+    rt_init_resource(&bres, 1, NULL);
+    dp_init_debug_delays();
+
+    while (!p->shutdown) {
+	if (p->q_init.size_approx() == 0) {
+	    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	    continue;
+	}
+
+	std::string name;
+	if (!p->q_init.try_dequeue(name))
+	    continue;
+
+	struct directory *dp = db_lookup(p->dbip, name.c_str(), LOOKUP_QUIET);
+	if (dp == RT_DIR_NULL)
+	    continue;
+
+	unsigned long long hash =
+	    bu_data_hash(dp->d_namep, strlen(dp->d_namep) * sizeof(char));
+
+	/* Read attributes */
+	struct bu_attribute_value_set avs = BU_AVS_INIT_ZERO;
+	if (db5_get_attributes(p->dbip, &avs, dp) < 0)
+	    bu_avs_free(&avs);
+
+	/* Region flag */
+	int rflag = 0;
+	{
+	    const char *s = bu_avs_get(&avs, "region");
+	    if (s && (BU_STR_EQUAL(s, "R") || BU_STR_EQUAL(s, "1")))
+		rflag = 1;
+	}
+	dp_make_key(ckey, sizeof(ckey), hash, CACHE_REGION_FLAG);
+	p->q_write.enqueue(DrawCacheWriteItem(ckey, &rflag, sizeof(int)));
+
+	/* Region id */
+	int region_id_v = -1;
+	{
+	    const char *s = bu_avs_get(&avs, "region_id");
+	    if (s)
+		bu_opt_int(NULL, 1, &s, (void *)&region_id_v);
+	}
+	dp_make_key(ckey, sizeof(ckey), hash, CACHE_REGION_ID);
+	p->q_write.enqueue(DrawCacheWriteItem(ckey, &region_id_v, sizeof(int)));
+
+	/* Inherit flag */
+	int inherit = 0;
+	{
+	    const char *s = bu_avs_get(&avs, "inherit");
+	    if (s && BU_STR_EQUAL(s, "1"))
+		inherit = 1;
+	}
+	dp_make_key(ckey, sizeof(ckey), hash, CACHE_INHERIT_FLAG);
+	p->q_write.enqueue(DrawCacheWriteItem(ckey, &inherit, sizeof(int)));
+
+	/* Color */
+	unsigned int colors = UINT_MAX;
+	{
+	    const char *s = bu_avs_get(&avs, "color");
+	    if (!s) s = bu_avs_get(&avs, "rgb");
+	    if (s) {
+		struct bu_color col;
+		bu_opt_color(NULL, 1, &s, (void *)&col);
+		int r, g, b;
+		bu_color_to_rgb_ints(&col, &r, &g, &b);
+		colors = (unsigned int)(r + (g << 8) + (b << 16));
+	    }
+	}
+	dp_make_key(ckey, sizeof(ckey), hash, CACHE_COLOR);
+	p->q_write.enqueue(DrawCacheWriteItem(ckey, &colors, sizeof(unsigned int)));
+
+	bu_avs_free(&avs);
+
+	/* Crack the geometry and pass to q_aabb */
+	struct rt_db_internal *ip;
+	BU_GET(ip, struct rt_db_internal);
+	RT_DB_INTERNAL_INIT(ip);
+	if (rt_db_get_internal(ip, dp, p->dbip, NULL, &bres) < 0) {
+	    BU_PUT(ip, struct rt_db_internal);
+	    continue;
+	}
+	{
+	    std::lock_guard<std::mutex> lk(p->name_mu);
+	    p->ip_names[ip] = std::string(dp->d_namep);
+	}
+	if (g_dp_delay_attr_ms > 0)
+	    std::this_thread::sleep_for(
+		std::chrono::milliseconds(g_dp_delay_attr_ms));
+	p->q_aabb.enqueue(ip);
+    }
+
+    rt_clean_resource_basic(NULL, &bres);
+    p->thread_cnt--;
+}
+
+/* ---- Pipeline stage 2: aabb_worker ---------------------------------- */
+static void
+dp_aabb_worker(std::shared_ptr<DrawPipelineState> p)
+{
+    char ckey[256];
+    const struct bn_tol btol = BN_TOL_INIT_TOL;
+
+    while (!p->shutdown) {
+	if (p->q_aabb.size_approx() == 0) {
+	    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	    continue;
+	}
+
+	struct rt_db_internal *ip = nullptr;
+	if (!p->q_aabb.try_dequeue(ip))
+	    continue;
+
+	std::string ip_name;
+	{
+	    std::lock_guard<std::mutex> lk(p->name_mu);
+	    auto it = p->ip_names.find(ip);
+	    if (it == p->ip_names.end()) { p->q_obb.enqueue(ip); continue; }
+	    ip_name = it->second;
+	}
+	const char *name = ip_name.c_str();
+	unsigned long long hash =
+	    bu_data_hash(name, strlen(name) * sizeof(char));
+
+	dp_make_key(ckey, sizeof(ckey), hash, CACHE_OBJ_BOUNDS);
+
+	DrawInternalResult dr{};
+	dr.type = 0; /* AABB */
+	dr.hash = hash;
+	snprintf(dr.dp_name, sizeof(dr.dp_name), "%s", name);
+
+	if (ip->idb_meth && ip->idb_meth->ft_bbox) {
+	    point_t bmin, bmax;
+	    VSETALL(bmin,  INFINITY);
+	    VSETALL(bmax, -INFINITY);
+	    if (ip->idb_meth->ft_bbox(ip, &bmin, &bmax, &btol) == 0) {
+		point_t bb[2];
+		VMOVE(bb[0], bmin);
+		VMOVE(bb[1], bmax);
+		p->q_write.enqueue(
+		    DrawCacheWriteItem(ckey, &bb, 2 * sizeof(point_t)));
+		VMOVE(dr.bmin, bmin);
+		VMOVE(dr.bmax, bmax);
+		p->results_q.enqueue(dr);
+	    } else {
+		p->q_write.enqueue(DrawCacheWriteItem(ckey, nullptr, 0));
+	    }
+	} else {
+	    p->q_write.enqueue(DrawCacheWriteItem(ckey, nullptr, 0));
+	}
+
+	if (g_dp_delay_aabb_ms > 0)
+	    std::this_thread::sleep_for(
+		std::chrono::milliseconds(g_dp_delay_aabb_ms));
+	p->q_obb.enqueue(ip);
+    }
+
+    p->thread_cnt--;
+}
+
+/* ---- Pipeline stage 3: obb_worker ----------------------------------- */
+static void
+dp_obb_worker(std::shared_ptr<DrawPipelineState> p)
+{
+    char ckey[256];
+
+    while (!p->shutdown) {
+	if (p->q_obb.size_approx() == 0) {
+	    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	    continue;
+	}
+
+	struct rt_db_internal *ip = nullptr;
+	if (!p->q_obb.try_dequeue(ip))
+	    continue;
+
+	std::string ip_name;
+	{
+	    std::lock_guard<std::mutex> lk(p->name_mu);
+	    auto it = p->ip_names.find(ip);
+	    if (it == p->ip_names.end()) { p->q_lod.enqueue(ip); continue; }
+	    ip_name = it->second;
+	}
+	const char *name = ip_name.c_str();
+	unsigned long long hash =
+	    bu_data_hash(name, strlen(name) * sizeof(char));
+
+	dp_make_key(ckey, sizeof(ckey), hash, CACHE_OBJ_OBB);
+
+	DrawInternalResult dr{};
+	dr.type      = 1; /* OBB */
+	dr.hash      = hash;
+	dr.obb_valid = 0;
+	snprintf(dr.dp_name, sizeof(dr.dp_name), "%s", name);
+
+	if (ip->idb_meth && ip->idb_meth->ft_oriented_bbox) {
+	    struct rt_arb_internal arb;
+	    arb.magic = RT_ARB_INTERNAL_MAGIC;
+	    double tol_dist = BN_TOL_DIST;
+	    if (ip->idb_meth->ft_oriented_bbox(&arb, ip, tol_dist) == 0) {
+		for (int k = 0; k < 8; k++)
+		    VMOVE(dr.obb_pts[k], arb.pt[k]);
+		dr.obb_valid = 1;
+		p->q_write.enqueue(
+		    DrawCacheWriteItem(ckey, arb.pt, 8 * sizeof(point_t)));
+		p->results_q.enqueue(dr);
+	    } else {
+		p->q_write.enqueue(DrawCacheWriteItem(ckey, nullptr, 0));
+	    }
+	}
+	/* No ft_oriented_bbox — skip OBB silently, still forward to lod */
+
+	if (g_dp_delay_obb_ms > 0)
+	    std::this_thread::sleep_for(
+		std::chrono::milliseconds(g_dp_delay_obb_ms));
+	p->q_lod.enqueue(ip);
+    }
+
+    p->thread_cnt--;
+}
+
+/* ---- Pipeline stage 4: lod_worker ----------------------------------- */
+static void
+dp_lod_worker(std::shared_ptr<DrawPipelineState> p)
+{
+    while (!p->shutdown) {
+	if (p->q_lod.size_approx() == 0) {
+	    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	    continue;
+	}
+
+	struct rt_db_internal *ip = nullptr;
+	if (!p->q_lod.try_dequeue(ip))
+	    continue;
+
+	std::string ip_name;
+	{
+	    std::lock_guard<std::mutex> lk(p->name_mu);
+	    auto it = p->ip_names.find(ip);
+	    if (it != p->ip_names.end())
+		ip_name = it->second;
+	    p->ip_names.erase(ip); /* last consumer — remove from map */
+	}
+	const char *name = ip_name.c_str();
+
+	if (p->lod_ctx && !ip_name.empty() &&
+	    ip->idb_minor_type == DB5_MINORTYPE_BRLCAD_BOT)
+	{
+	    struct rt_bot_internal *bot =
+		(struct rt_bot_internal *)ip->idb_ptr;
+	    if (bot && bot->magic == RT_BOT_INTERNAL_MAGIC
+		&& bot->num_faces > 0 && bot->num_vertices > 0)
+	    {
+		unsigned long long hash =
+		    bu_data_hash(name, strlen(name) * sizeof(char));
+
+		unsigned long long key =
+		    bv_mesh_lod_key_get(p->lod_ctx, name);
+		if (!key) {
+		    key = bv_mesh_lod_cache(
+			p->lod_ctx,
+			(const point_t *)bot->vertices, bot->num_vertices,
+			NULL, bot->faces, bot->num_faces, 0, 0.66);
+		    if (key)
+			bv_mesh_lod_key_put(p->lod_ctx, name, key);
+		}
+		if (key) {
+		    DrawInternalResult dr{};
+		    dr.type    = 2; /* LOD */
+		    dr.hash    = hash;
+		    dr.lod_key = key;
+		    snprintf(dr.dp_name, sizeof(dr.dp_name), "%s", name);
+		    p->results_q.enqueue(dr);
+		}
+	    }
+	}
+
+	if (g_dp_delay_lod_ms > 0)
+	    std::this_thread::sleep_for(
+		std::chrono::milliseconds(g_dp_delay_lod_ms));
+	rt_db_free_internal(ip);
+	BU_PUT(ip, struct rt_db_internal);
+    }
+
+    p->thread_cnt--;
+}
+
+/* ---- Pipeline stage 5: write_worker --------------------------------- */
+static void
+dp_write_worker(std::shared_ptr<DrawPipelineState> p)
+{
+    while (!p->shutdown) {
+	if (p->q_write.size_approx() == 0) {
+	    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	    continue;
+	}
+
+	DrawCacheWriteItem item;
+	if (!p->q_write.try_dequeue(item))
+	    continue;
+
+	if (!p->dcache)
+	    continue;
+
+	if (item.erase_op || !item.data || !item.data_len) {
+	    bu_cache_clear(item.key, p->dcache, NULL);
+	} else {
+	    int tries = 0;
+	    while (tries < 5 &&
+		   !bu_cache_write(item.data, item.data_len,
+				   item.key, p->dcache, NULL))
+	    {
+		tries++;
+		std::this_thread::sleep_for(std::chrono::milliseconds(50));
+	    }
+	}
+    }
+
+    p->thread_cnt--;
+}
+
+/* ---- DrawPipeline implementation ------------------------------------ */
+
+DrawPipeline::DrawPipeline(struct ged *gedp, struct bu_cache *dcache)
+{
+    if (!gedp || !gedp->dbip)
+	return;
+
+    auto state = std::make_shared<DrawPipelineState>();
+    state->dbip   = gedp->dbip;
+    state->dcache = dcache;
+    state->lod_ctx = gedp->ged_lod;
+
+    /* Launch 5 worker threads */
+    state->thread_cnt = 5;
+    state->threads.emplace_back(dp_attr_worker,  state);
+    state->threads.emplace_back(dp_aabb_worker,  state);
+    state->threads.emplace_back(dp_obb_worker,   state);
+    state->threads.emplace_back(dp_lod_worker,   state);
+    state->threads.emplace_back(dp_write_worker, state);
+
+    /* Detach all — they run until shutdown is signalled */
+    for (auto &t : state->threads)
+	t.detach();
+    state->threads.clear();
+
+    /* Store the shared_ptr heap-allocated as an opaque pointer.
+     * ~DrawPipeline() will recover and release it. */
+    state_ = reinterpret_cast<DrawPipelineState *>(
+	new std::shared_ptr<DrawPipelineState>(state));
+}
+
+DrawPipeline::~DrawPipeline()
+{
+    if (!state_)
+	return;
+    auto *pp = reinterpret_cast<std::shared_ptr<DrawPipelineState> *>(state_);
+    if (pp && *pp) {
+	(*pp)->shutdown = true;
+	int waited = 0;
+	while ((*pp)->thread_cnt > 0 && waited < 200) {
+	    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	    waited++;
+	}
+    }
+    delete pp;
+    state_ = nullptr;
 }
 
 void
-GeomLoader::queue_item(unsigned long long hash,
-                       const point_t bbmin, const point_t bbmax)
+DrawPipeline::push(const std::vector<WorkItem> &items)
 {
-    if (!hash)
+    if (items.empty() || !state_)
 	return;
-    GeomLoaderItem item;
-    item.hash = hash;
-    VMOVE(item.bbmin, bbmin);
-    VMOVE(item.bbmax, bbmax);
-    {
-	std::unique_lock<std::mutex> lock(mtx_);
-	work_queue_.push(item);
+    auto *pp = reinterpret_cast<std::shared_ptr<DrawPipelineState> *>(state_);
+    if (!pp || !*pp)
+	return;
+    for (const auto &item : items) {
+	if (!item.dp || !item.hash)
+	    continue;
+	if (item.dp->d_flags & RT_DIR_COMB)
+	    continue;
+	if (item.dp->d_flags & RT_DIR_HIDDEN)
+	    continue;
+	(*pp)->q_init.enqueue(std::string(item.dp->d_namep));
     }
-    cv_.notify_one();
 }
 
-int
-GeomLoader::drain_geom_results()
+size_t
+DrawPipeline::drain(std::vector<Result> &out)
 {
-    std::vector<ObbResult> done;
-    {
-	std::unique_lock<std::mutex> lock(mtx_);
-	done.swap(completed_);
-    }
-    if (done.empty() || !cache_)
+    if (!state_)
 	return 0;
-
-    for (const ObbResult &r : done) {
-	std::string key = std::to_string(r.hash) + ":" + std::string(CACHE_OBJ_OBB);
-	ObbRecord rec;
-	rec.center[0] = r.obb_center[X]; rec.center[1] = r.obb_center[Y]; rec.center[2] = r.obb_center[Z];
-	rec.e1[0] = r.obb_extent1[X]; rec.e1[1] = r.obb_extent1[Y]; rec.e1[2] = r.obb_extent1[Z];
-	rec.e2[0] = r.obb_extent2[X]; rec.e2[1] = r.obb_extent2[Y]; rec.e2[2] = r.obb_extent2[Z];
-	rec.e3[0] = r.obb_extent3[X]; rec.e3[1] = r.obb_extent3[Y]; rec.e3[2] = r.obb_extent3[Z];
-	bu_cache_write(&rec, sizeof(rec), key.c_str(), cache_, NULL);
+    auto *pp = reinterpret_cast<std::shared_ptr<DrawPipelineState> *>(state_);
+    if (!pp || !*pp)
+	return 0;
+    size_t n = 0;
+    DrawInternalResult dr{};
+    while ((*pp)->results_q.try_dequeue(dr)) {
+	Result r;
+	r.hash    = dr.hash;
+	r.dp_name = dr.dp_name;
+	if (dr.type == 0) { /* AABB */
+	    r.type = Result::AABB;
+	    VMOVE(r.bmin, dr.bmin);
+	    VMOVE(r.bmax, dr.bmax);
+	} else if (dr.type == 1) { /* OBB */
+	    r.type      = Result::OBB;
+	    r.obb_valid = (dr.obb_valid != 0);
+	    for (int k = 0; k < 8; k++)
+		VMOVE(r.obb_pts[k], dr.obb_pts[k]);
+	} else { /* LOD */
+	    r.type    = Result::LOD;
+	    r.has_lod = (dr.lod_key != 0);
+	    r.lod_key = dr.lod_key;
+	}
+	out.push_back(r);
+	n++;
     }
-    return (int)done.size();
+    return n;
 }
 
 bool
-GeomLoader::get_obb(unsigned long long hash,
-                    point_t *obb_center,
-                    vect_t  *obb_extent1,
-                    vect_t  *obb_extent2,
-                    vect_t  *obb_extent3) const
+DrawPipeline::settled() const
 {
-    if (!hash || !cache_)
-	return false;
-    std::string key = std::to_string(hash) + ":" + std::string(CACHE_OBJ_OBB);
-    void *data = NULL;
-    size_t dsize = bu_cache_get(&data, key.c_str(), cache_, NULL);
-    if (dsize != sizeof(ObbRecord) || !data) {
-	if (data) bu_free(data, "obb cache data");
-	return false;
-    }
-    const ObbRecord *rec = (const ObbRecord *)data;
-    if (obb_center)  VSET(*obb_center,  rec->center[0], rec->center[1], rec->center[2]);
-    if (obb_extent1) VSET(*obb_extent1, rec->e1[0], rec->e1[1], rec->e1[2]);
-    if (obb_extent2) VSET(*obb_extent2, rec->e2[0], rec->e2[1], rec->e2[2]);
-    if (obb_extent3) VSET(*obb_extent3, rec->e3[0], rec->e3[1], rec->e3[2]);
-    bu_free(data, "obb cache data");
-    return true;
+    if (!state_)
+	return true;
+    auto *pp = reinterpret_cast<std::shared_ptr<DrawPipelineState> *>(state_);
+    if (!pp || !*pp)
+	return true;
+    auto &s = **pp;
+    return (s.q_init.size_approx()  == 0 &&
+	    s.q_aabb.size_approx()  == 0 &&
+	    s.q_obb.size_approx()   == 0 &&
+	    s.q_lod.size_approx()   == 0 &&
+	    s.q_write.size_approx() == 0);
 }
 
 void
-GeomLoader::stop()
+DrawPipeline::set_lod_ctx(struct bv_mesh_lod_context *lod_ctx)
 {
-    {
-	std::unique_lock<std::mutex> lock(mtx_);
-	stop_ = true;
-    }
-    cv_.notify_all();
-    if (worker_thread_.joinable())
-	worker_thread_.join();
+    if (!state_)
+	return;
+    auto *pp = reinterpret_cast<std::shared_ptr<DrawPipelineState> *>(state_);
+    if (pp && *pp)
+	(*pp)->lod_ctx = lod_ctx;
 }
 
-void
-GeomLoader::worker()
-{
-    while (true) {
-	GeomLoaderItem item;
-	{
-	    std::unique_lock<std::mutex> lock(mtx_);
-	    cv_.wait(lock, [this]{ return !work_queue_.empty() || stop_; });
-	    if (stop_ && work_queue_.empty())
-		return;
-	    item = work_queue_.front();
-	    work_queue_.pop();
-	}
-
-	// Compute OBB from AABB (trivial placeholder: axis-aligned OBB).
-	// A future phase can replace this with a proper PCA-based OBB.
-	ObbResult r;
-	r.hash = item.hash;
-	VADD2SCALE(r.obb_center, item.bbmax, item.bbmin, 0.5);
-	VSET(r.obb_extent1, (item.bbmax[X] - item.bbmin[X]) * 0.5, 0.0, 0.0);
-	VSET(r.obb_extent2, 0.0, (item.bbmax[Y] - item.bbmin[Y]) * 0.5, 0.0);
-	VSET(r.obb_extent3, 0.0, 0.0, (item.bbmax[Z] - item.bbmin[Z]) * 0.5);
-
-	{
-	    std::unique_lock<std::mutex> lock(mtx_);
-	    completed_.push_back(r);
-	}
-    }
-}
 
 
 DbiState::DbiState(struct ged *ged_p)
@@ -387,14 +860,32 @@ DbiState::DbiState(struct ged *ged_p)
 	bu_vls_free(&cpath);
     }
 
-    // Phase 3-C: start the background OBB worker
+    // Phase 3.5: start the background geometry pipeline
     if (dcache)
-	geom_loader = new GeomLoader(dcache);
+	draw_pipeline_ = new DrawPipeline(gedp, dcache);
 
     struct directory *dp;
     FOR_ALL_DIRECTORY_START(dp, dbip)
 	update_dp(dp, 0);
     FOR_ALL_DIRECTORY_END;
+
+    // Queue all solid objects for background AABB/OBB/LoD processing.
+    // Objects that already have a cached bbox in bboxes[] will still be
+    // processed for OBB and LoD; the pipeline skips AABB cache writes if
+    // the data hasn't changed.
+    if (draw_pipeline_) {
+	std::vector<DrawPipeline::WorkItem> items;
+	struct directory *qdp;
+	FOR_ALL_DIRECTORY_START(qdp, dbip)
+	    if (qdp->d_flags & RT_DIR_COMB) continue;
+	    if (qdp->d_flags & RT_DIR_HIDDEN) continue;
+	    unsigned long long h =
+		bu_data_hash(qdp->d_namep, strlen(qdp->d_namep)*sizeof(char));
+	    items.push_back({h, qdp});
+	FOR_ALL_DIRECTORY_END;
+	if (!items.empty())
+	    draw_pipeline_->push(items);
+    }
 }
 
 
@@ -415,9 +906,9 @@ DbiState::~DbiState()
     rt_clean_resource_basic(NULL, res);
     BU_PUT(res, struct resource);
 
-    // Phase 3-C: stop the background OBB worker before closing the cache
-    delete geom_loader;
-    geom_loader = NULL;
+    // Phase 3.5: stop the background drawing pipeline before closing the cache
+    delete draw_pipeline_;
+    draw_pipeline_ = NULL;
 
     if (dcache)
 	bu_cache_close(dcache);
@@ -775,6 +1266,7 @@ DbiState::clear_cache(struct directory *dp)
     {
 	std::string k;
 	k = dbi_cache_key(hash, CACHE_OBJ_BOUNDS);  bu_cache_clear(k.c_str(), dcache, NULL);
+	k = dbi_cache_key(hash, CACHE_OBJ_OBB);     bu_cache_clear(k.c_str(), dcache, NULL);
 	k = dbi_cache_key(hash, CACHE_REGION_ID);   bu_cache_clear(k.c_str(), dcache, NULL);
 	k = dbi_cache_key(hash, CACHE_REGION_FLAG); bu_cache_clear(k.c_str(), dcache, NULL);
 	k = dbi_cache_key(hash, CACHE_INHERIT_FLAG); bu_cache_clear(k.c_str(), dcache, NULL);
@@ -782,6 +1274,7 @@ DbiState::clear_cache(struct directory *dp)
     }
 
     bboxes.erase(hash);
+    obbs.erase(hash);
     region_id.erase(hash);
     c_inherit.erase(hash);
     rgb.erase(hash);
@@ -800,6 +1293,7 @@ DbiState::update_dp(struct directory *dp, int reset)
     // Clear any (possibly) state bbox.  bbox calculation
     // can be expensive, so defer it until it's needed
     bboxes.erase(hash);
+    obbs.erase(hash);
 
     // Encode hierarchy info if this is a comb
     if (dp->d_flags & RT_DIR_COMB)
@@ -1666,6 +2160,7 @@ DbiState::update()
 
 	d_map.erase(*s_it);
 	bboxes.erase(*s_it);
+	obbs.erase(*s_it);
 	c_inherit.erase(*s_it);
 	rgb.erase(*s_it);
 	region_id.erase(*s_it);
@@ -2637,12 +3132,12 @@ BViewState::clear()
     all_collapsed.clear();
 }
 
-int
+size_t
 BViewState::drain_geom_results()
 {
-    if (!dbis || !dbis->geom_loader)
+    if (!dbis)
 	return 0;
-    return dbis->geom_loader->drain_geom_results();
+    return dbis->drain_geom_results();
 }
 
 std::vector<std::string>
@@ -3076,25 +3571,34 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
 	}
     }
 
-    // Phase 3-D: Queue OBB computations for all newly drawn solids.
-    // The GeomLoader computes OBBs in the background; callers should poll
-    // drain_geom_results() and refresh views when it returns > 0.
-    if (dbis->geom_loader) {
+    // Phase 3.5: Queue newly drawn solid objects into the DrawPipeline so
+    // that OBB, AABB (if not yet cached) and LoD are computed in the
+    // background.  The pipeline supplements the synchronous AABB already
+    // stored in bboxes[] — it will not overwrite a synchronous bbox but
+    // will add OBB data (new in 3.5) and trigger LoD caching.
+    if (dbis->draw_pipeline_) {
+	std::vector<DrawPipeline::WorkItem> items;
 	std::unordered_map<unsigned long long, std::unordered_map<int, struct bv_scene_obj *>>::iterator obb_it;
 	for (obb_it = s_map.begin(); obb_it != s_map.end(); obb_it++) {
 	    unsigned long long phash = obb_it->first;
+	    // Only queue objects that were part of this redraw pass
+	    bool in_pass = false;
 	    for (auto &mm : obb_it->second) {
-		struct bv_scene_obj *so = mm.second;
-		if (!so) continue;
-		// Only queue objects that were part of this redraw pass
-		if (objs.find(so) == objs.end()) continue;
-		// Only queue if the solid has a meaningful bounding box
-		vect_t diag;
-		VSUB2(diag, so->bmax, so->bmin);
-		if (MAGNITUDE(diag) > SMALL_FASTF)
-		    dbis->geom_loader->queue_item(phash, so->bmin, so->bmax);
+		if (mm.second && objs.find(mm.second) != objs.end()) {
+		    in_pass = true; break;
+		}
 	    }
+	    if (!in_pass) continue;
+	    // Only queue primitives (non-combs) not already in the obbs map
+	    if (dbis->obbs.find(phash) != dbis->obbs.end())
+		continue;
+	    struct directory *dp = dbis->get_hdp(phash);
+	    if (!dp || (dp->d_flags & RT_DIR_COMB))
+		continue;
+	    items.push_back({phash, dp});
 	}
+	if (!items.empty())
+	    dbis->start_geom_load(items);
     }
 
     // Phase 2-B: Update LoD levels for all drawn adaptive objects.
@@ -4215,6 +4719,101 @@ GObj::bbox(point_t *min, point_t *max)
 	VMINMAX(*min, *max, bb_min);
 	VMINMAX(*min, *max, bb_max);
     }
+}
+
+/* ---- Phase 3.5: DbiState pipeline management ----------------------- */
+
+void
+DbiState::start_geom_load(const std::vector<DrawPipeline::WorkItem> &items)
+{
+    if (items.empty() || !draw_pipeline_)
+	return;
+    if (gedp && gedp->ged_lod)
+	draw_pipeline_->set_lod_ctx(gedp->ged_lod);
+    draw_pipeline_->push(items);
+}
+
+size_t
+DbiState::drain_geom_results()
+{
+    if (!draw_pipeline_)
+	return 0;
+
+    std::vector<DrawPipeline::Result> results;
+    size_t n = draw_pipeline_->drain(results);
+    if (n == 0)
+	return 0;
+
+    for (const auto &r : results) {
+	if (r.type == DrawPipeline::Result::AABB) {
+	    /* Only update if we don't already have a synchronous bbox.
+	     * The sync path in get_bbox may have beaten us to it; if so,
+	     * the sync version wins. */
+	    if (bboxes.find(r.hash) == bboxes.end()) {
+		bboxes[r.hash].clear();
+		bboxes[r.hash].reserve(6);
+		for (int i = 0; i < 3; i++) bboxes[r.hash].push_back(r.bmin[i]);
+		for (int i = 0; i < 3; i++) bboxes[r.hash].push_back(r.bmax[i]);
+	    }
+	} else if (r.type == DrawPipeline::Result::OBB && r.obb_valid) {
+	    /* Store 8 OBB corner points */
+	    std::array<fastf_t, 24> obb_data;
+	    for (int k = 0; k < 8; k++) {
+		obb_data[k*3+0] = r.obb_pts[k][X];
+		obb_data[k*3+1] = r.obb_pts[k][Y];
+		obb_data[k*3+2] = r.obb_pts[k][Z];
+	    }
+	    obbs[r.hash] = obb_data;
+	}
+	/* LOD results: LoD data is now in the bv_mesh_lod_context cache;
+	 * bv_mesh_lod_view() will use it on the next redraw.  No extra work
+	 * needed here for Phase 3.5; future phases can stale scene objects. */
+    }
+
+    /* Fire a batched scene-change notification so that observers
+     * (e.g. QgViewport) know to request a repaint. */
+    {
+	std::vector<SceneChangeEvent> events;
+	events.reserve(n);
+	for (const auto &r : results) {
+	    SceneChangeEvent ev;
+	    ev.path  = PathHash{r.hash};
+	    ev.batch = false;
+	    events.push_back(ev);
+	}
+	notify_scene_observers(events);
+    }
+
+    return n;
+}
+
+size_t
+DbiState::wait_for_pipeline(int max_ms)
+{
+    if (!draw_pipeline_)
+	return 0;
+
+    size_t total = 0;
+    auto t0 = std::chrono::steady_clock::now();
+
+    while (true) {
+	total += drain_geom_results();
+
+	if (draw_pipeline_->settled())
+	    break;
+
+	if (max_ms > 0) {
+	    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+		std::chrono::steady_clock::now() - t0).count();
+	    if (elapsed >= max_ms)
+		break;
+	}
+	std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    /* One final drain to capture any results posted just before settled(). */
+    total += drain_geom_results();
+    return total;
 }
 
 /** @} */
