@@ -126,17 +126,35 @@ pattern).
 This removes the only reason most DB-path code references
 rt_uniresource at all.
 
-Phase 3 - Move statistics (G) off the resource
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Phase 3 - Move statistics (G) off the resource  [DONE]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Add per-thread stats either as a field on struct application
-(a_stats, reduced at the end of rt_shootray campaigns) or as C11
-_Atomic counters directly on rt_i->stats.  The fields are
-contention-insensitive (at most one increment per ray per shot), so
-atomics are workable.
+Implemented using C11 _Atomic counters directly on rt_i->stats.
 
-Rework rt_add_res_stats and rt_zero_res_stats as deprecated shims,
-then delete the re_* stat fields from struct resource.
+  - Added _RT_ATOMIC_SIZE_T conditional macro in rt_instance.h:
+    expands to ``_Atomic size_t`` in C11 translation units and to
+    plain ``size_t`` in C++ (same size/alignment on all supported
+    platforms, so struct layout is binary-compatible).
+  - Changed the nine ray-shooting counter fields in struct rt_i_stats
+    (rti_nrays, nmiss_model, nshots, nmiss, nhits, nmiss_tree,
+    nmiss_solid, ndup, nempty_cells) from ``size_t`` to
+    ``_RT_ATOMIC_SIZE_T``.
+  - rt_shootray() and rt_shootray_bundle() now increment rtip->stats.*
+    directly using the C11 atomic ++ operator (memory_order_seq_cst,
+    which degrades to a simple lock-free increment on x86-64/ARM64).
+  - re_nshootray renamed to re_ray_seqno: it remains in struct resource
+    as a private per-thread counter used only to detect stale
+    rt_piecestate entries (the pieces dedup mechanism).  It is no
+    longer reported as a statistic.
+  - Removed all eleven per-resource stat fields:
+      re_nmiss_model, re_shots, re_shot_hit, re_shot_miss,
+      re_prune_solrpp, re_ndup, re_nempty_cells,
+      re_piece_ndup, re_piece_shots, re_piece_shot_hit,
+      re_piece_shot_miss
+  - rt_add_res_stats() and rt_zero_res_stats() are now no-op shims
+    marked DEPRECATED; callers in src/rt/worker.c and src/rt/do.c
+    were updated to remove the now-unnecessary calls.
+  - RT_RESOURCE_INIT_ZERO updated to match the smaller struct.
 
 Phase 4 - Move RNG (E) and bool stack (D) onto application
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

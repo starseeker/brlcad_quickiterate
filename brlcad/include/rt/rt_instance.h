@@ -40,6 +40,22 @@
 #include "rt/soltab.h"
 #include "rt/tol.h"
 
+/* Ray-shooting counter fields in struct rt_i_stats are incremented from
+ * multiple threads concurrently.  In C11 we declare them _Atomic so that
+ * every ++ or += in C code is a proper lock-free atomic operation.  C++
+ * translation units that only *read* these fields see plain size_t (same
+ * size and alignment on every platform BRL-CAD supports), keeping the
+ * struct layout identical across language modes.  BRL-CAD requires C11
+ * (CMAKE_C_STANDARD 11 REQUIRED), so <stdatomic.h> is always available
+ * in C translation units.
+ */
+#if !defined(__cplusplus) && defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
+#  include <stdatomic.h>
+#  define _RT_ATOMIC_SIZE_T _Atomic size_t
+#else
+#  define _RT_ATOMIC_SIZE_T size_t
+#endif
+
 __BEGIN_DECLS
 
 // libbu's callback type isn't quite right for this case, so we might as well
@@ -49,32 +65,39 @@ typedef void(*rti_clbk_t)(struct rt_i *rtip, struct db_tree_state *tsp, struct r
 struct rt_i_internal; /* forward declaration for private state */
 
 /**
- * Read-only statistics counters for a ray-trace instance.
+ * Statistics counters for a ray-trace instance.
  *
  * This sub-struct groups all scalar performance and geometry counters
  * that are maintained by librt during prep and ray-shooting.
  * Applications may freely read any field; all writes are performed
  * internally by librt.
  *
+ * The ray-shooting counters (rti_nrays through nempty_cells) are
+ * incremented concurrently from worker threads and are declared with
+ * _RT_ATOMIC_SIZE_T so that every increment is a lock-free atomic
+ * operation in C11 translation units.  No explicit rt_add_res_stats()
+ * call is needed after a shooting campaign; the values are always
+ * up-to-date.
+ *
  * Access pattern:  rtip->stats.nregions,  rtip->stats.rti_nrays, etc.
  */
 struct rt_i_stats {
-    /* Geometry counts (set during rt_prep) */
+    /* Geometry counts (set during rt_prep, single-threaded) */
     size_t  nregions;       /**< @brief  total # of regions participating */
     size_t  nsolids;        /**< @brief  total # of solids participating */
 
-    /* Ray-shooting counters (accumulated during rt_shootray / rt_shootrays) */
-    size_t  rti_nrays;      /**< @brief  # calls to rt_shootray() */
-    size_t  nmiss_model;    /**< @brief  rays missed model RPP */
-    size_t  nshots;         /**< @brief  # of calls to ft_shot() */
-    size_t  nmiss;          /**< @brief  solid ft_shot() returned a miss */
-    size_t  nhits;          /**< @brief  solid ft_shot() returned a hit */
-    size_t  nmiss_tree;     /**< @brief  shots missed sub-tree RPP */
-    size_t  nmiss_solid;    /**< @brief  shots missed solid RPP */
-    size_t  ndup;           /**< @brief  duplicate shots at a given solid */
-    size_t  nempty_cells;   /**< @brief  number of empty spatial partition cells passed through */
+    /* Ray-shooting counters (incremented atomically during rt_shootray / rt_shootrays) */
+    _RT_ATOMIC_SIZE_T  rti_nrays;      /**< @brief  # calls to rt_shootray() */
+    _RT_ATOMIC_SIZE_T  nmiss_model;    /**< @brief  rays missed model RPP */
+    _RT_ATOMIC_SIZE_T  nshots;         /**< @brief  # of calls to ft_shot() */
+    _RT_ATOMIC_SIZE_T  nmiss;          /**< @brief  solid ft_shot() returned a miss */
+    _RT_ATOMIC_SIZE_T  nhits;          /**< @brief  solid ft_shot() returned a hit */
+    _RT_ATOMIC_SIZE_T  nmiss_tree;     /**< @brief  shots missed sub-tree RPP */
+    _RT_ATOMIC_SIZE_T  nmiss_solid;    /**< @brief  shots missed solid RPP */
+    _RT_ATOMIC_SIZE_T  ndup;           /**< @brief  duplicate shots at a given solid */
+    _RT_ATOMIC_SIZE_T  nempty_cells;   /**< @brief  number of empty spatial partition cells passed through */
 
-    /* Space-partition (cut tree) statistics (set during rt_cut_it) */
+    /* Space-partition (cut tree) statistics (set during rt_cut_it, single-threaded) */
     size_t  rti_cut_maxlen;             /**< @brief  max len RPP list in 1 cut bin */
     size_t  rti_ncut_by_type[CUT_MAXIMUM+1]; /**< @brief  number of cuts by type */
     size_t  rti_cut_totobj;             /**< @brief  # objs in all bins, total */

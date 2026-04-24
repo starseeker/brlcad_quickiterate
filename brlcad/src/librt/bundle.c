@@ -224,7 +224,7 @@ rt_shootray_bundle(struct application *ap, struct xray *rays, int nrays)
      */
     if (!rt_in_rpp(&ap->a_ray, ss.inv_dir, rtip->mdl_min, rtip->mdl_max)  ||
 	ap->a_ray.r_max < 0.0) {
-	resp->re_nmiss_model++;
+	rtip->stats.nmiss_model++;
 	if (ap->a_miss)
 	    ap->a_return = ap->a_miss(ap);
 	else
@@ -288,7 +288,7 @@ rt_shootray_bundle(struct application *ap, struct xray *rays, int nrays)
 	if (cutp->bn.bn_len <= 0) {
 	    /* Push ray onwards to next box */
 	    ss.box_start = ss.box_end;
-	    resp->re_nempty_cells++;
+	    rtip->stats.nempty_cells++;
 	    continue;
 	}
 
@@ -299,7 +299,7 @@ rt_shootray_bundle(struct application *ap, struct xray *rays, int nrays)
 	    int ray;
 
 	    if (BU_BITTEST(solidbits, stp->st_bit)) {
-		resp->re_ndup++;
+		rtip->stats.ndup++;
 		continue;	/* already shot */
 	    }
 
@@ -320,18 +320,18 @@ rt_shootray_bundle(struct application *ap, struct xray *rays, int nrays)
 		    if (!rt_in_rpp(&ss2_newray, ss.inv_dir,
 				   stp->st_min, stp->st_max)) {
 			if (debug_shoot)bu_log("rpp miss %s by ray %d\n", stp->st_name, ray);
-			resp->re_prune_solrpp++;
+			rtip->stats.nmiss_solid++;
 			continue;	/* MISS */
 		    }
 		    if (ss.dist_corr + ss2_newray.r_max < BACKING_DIST) {
 			if (debug_shoot)bu_log("rpp skip %s, dist_corr=%g, r_max=%g, by ray %d\n", stp->st_name, ss.dist_corr, ss2_newray.r_max, ray);
-			resp->re_prune_solrpp++;
+			rtip->stats.nmiss_solid++;
 			continue;	/* MISS */
 		    }
 		}
 
 		if (debug_shoot)bu_log("shooting %s with ray %d\n", stp->st_name, ray);
-		resp->re_shots++;
+		rtip->stats.nshots++;
 
 		BU_LIST_INIT(&(new_segs.l));
 
@@ -340,7 +340,7 @@ rt_shootray_bundle(struct application *ap, struct xray *rays, int nrays)
 		    ret = OBJ[stp->st_id].ft_shot(stp, &ss2_newray, ap, &new_segs);
 		}
 		if (ret <= 0) {
-		    resp->re_shot_miss++;
+		    rtip->stats.nmiss++;
 		    continue;	/* MISS */
 		}
 
@@ -356,7 +356,7 @@ rt_shootray_bundle(struct application *ap, struct xray *rays, int nrays)
 			BU_LIST_INSERT(&(waiting_segs.l), &(s2->l));
 		    }
 		}
-		resp->re_shot_hit++;
+		rtip->stats.nhits++;
 		break;			/* HIT */
 	    }
 	}
@@ -493,9 +493,11 @@ out:
     BU_LIST_APPEND(&resp->re_region_ptbl, &regionbits->l);
 
     /*
-     * Record essential statistics in per-processor data structure.
+     * Count this ray in the per-instance atomic stats, and advance the
+     * per-resource ray sequence counter (for piece-state dedup if needed).
      */
-    resp->re_nshootray++;
+    rtip->stats.rti_nrays++;
+    resp->re_ray_seqno++;
 
     /* Terminate any logging */
     if (RT_G_DEBUG&(RT_DEBUG_ALLRAYS|RT_DEBUG_SHOOT|RT_DEBUG_PARTITION|RT_DEBUG_ALLHITS)) {

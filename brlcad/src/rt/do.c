@@ -721,14 +721,10 @@ clt_run(int cur_pixel, int last_pixel)
 	   sub_grid_mode, fullfloat_mode, hypersample, jitter & JITTER_CELL,
 	   a.a_rt_i->rti_prismtrace, rt_perspective, stereo);
 
-    /* Tally up the statistics */
-    for (cpu = 0; cpu < MAX_PSW; cpu++) {
-	if (resource[cpu].re_magic != RESOURCE_MAGIC) {
-	    bu_log("ERROR: CPU %d resources corrupted, statistics bad\n", cpu);
-	    continue;
-	}
-	rt_add_res_stats(APP.a_rt_i, &resource[cpu]);
-    }
+    /* Statistics are now accumulated directly on rtip->stats via C11
+     * atomic operations during rt_shootray(); no post-campaign tally
+     * step is needed.
+     */
     bu_log("SHOT: opencl\n");
 }
 #endif
@@ -1055,13 +1051,7 @@ do_frame(int framenumber)
     }
 #endif
 
-    rtip->stats.nshots = 0;
-    rtip->stats.nmiss_model = 0;
-    rtip->stats.nmiss_tree = 0;
-    rtip->stats.nmiss_solid = 0;
-    rtip->stats.nmiss = 0;
-    rtip->stats.nhits = 0;
-    rtip->stats.rti_nrays = 0;
+    rt_zero_ray_stats(rtip);
 
     if (rt_verbosity & (VERBOSE_LIGHTINFO|VERBOSE_STATS))
 	bu_log("\n");
