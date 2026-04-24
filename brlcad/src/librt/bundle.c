@@ -158,14 +158,8 @@ rt_shootray_bundle(struct application *ap, struct xray *rays, int nrays)
 
     solidbits = rt_get_solidbitv(rtip->stats.nsolids, resp);
 
-    if (BU_LIST_IS_EMPTY(&resp->re_region_ptbl)) {
-	BU_ALLOC(regionbits, struct bu_ptbl);
-	bu_ptbl_init(regionbits, 7, "rt_shootray_bundle() regionbits ptbl");
-    } else {
-	regionbits = BU_LIST_FIRST(bu_ptbl, &resp->re_region_ptbl);
-	BU_LIST_DEQUEUE(&regionbits->l);
-	BU_CK_PTBL(regionbits);
-    }
+    BU_ALLOC(regionbits, struct bu_ptbl);
+    bu_ptbl_init(regionbits, 7, "rt_shootray_bundle() regionbits ptbl");
 
     /* Verify that direction vector has unit length */
     if (RT_G_DEBUG) {
@@ -487,10 +481,9 @@ hitit:
      */
 out:
     /* Return dynamic resources to their freelists.  */
-    BU_CK_BITV(solidbits);
-    BU_LIST_APPEND(&resp->re_solid_bitv, &solidbits->l);
-    BU_CK_PTBL(regionbits);
-    BU_LIST_APPEND(&resp->re_region_ptbl, &regionbits->l);
+    bu_bitv_free(solidbits);
+    bu_ptbl_free(regionbits);
+    bu_free(regionbits, "regionbits");
 
     /*
      * Count this ray in the per-instance atomic stats, and advance the

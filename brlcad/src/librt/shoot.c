@@ -532,9 +532,8 @@ rt_find_backing_dist(struct rt_shootray_status *ss, struct bu_bitv *backbits) {
     }
 
 done:
-    /* put our bit vector on the resource list */
-    BU_CK_BITV(solidbits);
-    BU_LIST_APPEND(&resp->re_solid_bitv, &solidbits->l);
+    /* free the bit vector for this helper call */
+    bu_bitv_free(solidbits);
 
     /* return our minimum backing distance */
     return min_backing_dist;
@@ -735,14 +734,8 @@ rt_shootray(register struct application *ap)
 
     solidbits = rt_get_solidbitv(rtip->stats.nsolids, resp);
 
-    if (BU_LIST_IS_EMPTY(&resp->re_region_ptbl)) {
-	BU_ALLOC(regionbits, struct bu_ptbl);
-	bu_ptbl_init(regionbits, 7, "rt_shootray() regionbits ptbl");
-    } else {
-	regionbits = BU_LIST_FIRST(bu_ptbl, &resp->re_region_ptbl);
-	BU_LIST_DEQUEUE(&regionbits->l);
-	BU_CK_PTBL(regionbits);
-    }
+    BU_ALLOC(regionbits, struct bu_ptbl);
+    bu_ptbl_init(regionbits, 7, "rt_shootray() regionbits ptbl");
 
     if (!resp->re_pieces && rtip->i->rti_nsolids_with_pieces > 0) {
 	/* Initialize this processors 'solid pieces' state */
@@ -1282,15 +1275,12 @@ hitit:
      * Processing of this ray is complete.
      */
 out:
-    /* Return dynamic resources to their freelists.  */
-    BU_CK_BITV(solidbits);
-    BU_LIST_APPEND(&resp->re_solid_bitv, &solidbits->l);
-    if (backbits) {
-	BU_CK_BITV(backbits);
-	BU_LIST_APPEND(&resp->re_solid_bitv, &backbits->l);
-    }
-    BU_CK_PTBL(regionbits);
-    BU_LIST_APPEND(&resp->re_region_ptbl, &regionbits->l);
+    /* Free dynamic resources used for this ray.  */
+    bu_bitv_free(solidbits);
+    if (backbits)
+	bu_bitv_free(backbits);
+    bu_ptbl_free(regionbits);
+    bu_free(regionbits, "regionbits");
 
     /* Clean up any pending hits */
     if (BU_PTBL_LEN(&resp->re_pieces_pending) > 0) {

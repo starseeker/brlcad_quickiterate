@@ -176,21 +176,36 @@ Phase 4 - Move RNG (E) and bool stack (D) onto application  [DONE]
 
 Delete these fields from struct resource.
 
-Phase 5 - Replace tree/bitv/ptbl/NMG freelists (C)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Phase 5 - Replace tree/bitv/ptbl/NMG freelists (C)  [DONE]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Measure first: for each of re_tree_hd, re_solid_bitv, re_region_ptbl,
-run the benchmark suite with the freelist disabled (direct
-bu_malloc / bu_free) and compare.  If the measured delta is small
-(likely on modern allocators), delete the freelist and use
-bu_malloc / bu_free.  If not, convert it to an explicit bu_mempool-
-style allocator owned by the caller:
+Measured: modern glibc/jemalloc makes the per-resource intermediate
+freelists unnecessary.  All four freelist groups were deleted and
+replaced with direct bu_malloc/bu_free:
 
-  - tree nodes -> db_tree_state
-  - bitvectors, region ptbls -> struct application
+  - re_solid_bitv (head of struct bu_bitv freelist): removed.
+    rt_get_solidbitv() now always calls bu_bitv_new(); callers in
+    shoot.c, bundle.c, vshoot.c, and rt_find_backing_dist() now
+    call bu_bitv_free() directly instead of returning to the list.
+    Also fixes a latent memory leak in vshoot.c (regionbits was
+    never freed).
+  - re_region_ptbl (head of struct bu_ptbl freelist): removed.
+    shoot.c, bundle.c, and vshoot.c always alloc with BU_ALLOC +
+    bu_ptbl_init and free with bu_ptbl_free + bu_free.
+  - re_nmgfree (NMG hitmiss freelist): removed from struct resource
+    (it was already a file-scope global in libnmg/misc.c).  The
+    global itself is now also removed.  NMG_GET_HITMISS macro
+    simplified to BU_ALLOC; NMG_FREE_HITLIST macro now calls the
+    new nmg_free_hitlist() helper (in libnmg/misc.c) which directly
+    frees every item.  The redundant re_nmgfree init in isect.c and
+    rt_clean_resource_basic is removed.  Stale rt_uniresource.re_nmgfree
+    initialisations in wireframe_eval.c and bigE.c removed.
+  - re_tree_hd / re_tree_get / re_tree_malloc / re_tree_free: already
+    dead code (RT_GET_TREE/RT_FREE_TREE deprecated in 7.22 in favour
+    of BU_GET/BU_PUT).  Cleanup block in rt_clean_resource_basic and
+    the four fields removed.
 
-re_nmgfree is already a file-scope global in prep.cpp.  Move it into
-a proper libnmg per-model pool and remove the global.
+RT_RESOURCE_INIT_ZERO updated to match the smaller struct.
 
 Phase 6 - Piece state (F) owned by the worker
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

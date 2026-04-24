@@ -928,17 +928,6 @@ rt_init_resource(struct resource *resp, int cpu_num, struct rt_i *rtip)
     if (!BU_LIST_IS_INITIALIZED(&resp->re_parthead))
 	BU_LIST_INIT(&resp->re_parthead);
 
-    if (!BU_LIST_IS_INITIALIZED(&resp->re_solid_bitv))
-	BU_LIST_INIT(&resp->re_solid_bitv);
-
-    if (!BU_LIST_IS_INITIALIZED(&resp->re_region_ptbl))
-	BU_LIST_INIT(&resp->re_region_ptbl);
-
-    /* transitioning to using a global independent of the librt
-     * structures as an intermediate step during lib refactoring */
-    if (!BU_LIST_IS_INITIALIZED(&re_nmgfree))
-	BU_LIST_INIT(&re_nmgfree);
-
     resp->re_cpu = cpu_num;
     resp->re_magic = RESOURCE_MAGIC;
 
@@ -990,16 +979,8 @@ rt_clean_resource_basic(struct rt_i *rtip, struct resource *resp)
 	resp->re_seg_blocks.l.forw = BU_LIST_NULL;
     }
 
-    /* The "struct hitmiss' guys are individually malloc()ed */
-    if (BU_LIST_IS_INITIALIZED(&re_nmgfree)) {
-	struct hitmiss *hitp;
-	while (BU_LIST_WHILE(hitp, hitmiss, &re_nmgfree)) {
-	    NMG_CK_HITMISS(hitp);
-	    BU_LIST_DEQUEUE((struct bu_list *)hitp);
-	    bu_free((void *)hitp, "struct hitmiss");
-	}
-	re_nmgfree.forw = BU_LIST_NULL;
-    }
+    /* The "struct hitmiss' guys are individually malloc()ed, and are now
+     * freed directly by NMG_FREE_HITLIST (Phase 5); no freelist here. */
 
     /* The 'struct partition' guys are individually malloc()ed */
     if (BU_LIST_IS_INITIALIZED(&resp->re_parthead)) {
@@ -1011,42 +992,6 @@ rt_clean_resource_basic(struct rt_i *rtip, struct resource *resp)
 	    bu_free((void *)pp, "struct partition");
 	}
 	resp->re_parthead.forw = BU_LIST_NULL;
-    }
-
-    /* The 'struct bu_bitv' guys on re_solid_bitv are individually malloc()ed */
-    if (BU_LIST_IS_INITIALIZED(&resp->re_solid_bitv)) {
-	struct bu_bitv *bvp;
-	while (BU_LIST_WHILE(bvp, bu_bitv, &resp->re_solid_bitv)) {
-	    BU_CK_BITV(bvp);
-	    BU_LIST_DEQUEUE(&bvp->l);
-	    bvp->nbits = 0;		/* sanity */
-	    bu_free((void *)bvp, "struct bu_bitv");
-	}
-	resp->re_solid_bitv.forw = BU_LIST_NULL;
-    }
-
-    /* The 'struct bu_ptbl' guys on re_region_ptbl are individually malloc()ed */
-    if (BU_LIST_IS_INITIALIZED(&resp->re_region_ptbl)) {
-	struct bu_ptbl *tabp;
-	while (BU_LIST_WHILE(tabp, bu_ptbl, &resp->re_region_ptbl)) {
-	    BU_CK_PTBL(tabp);
-	    BU_LIST_DEQUEUE(&tabp->l);
-	    bu_ptbl_free(tabp);
-	    bu_free((void *)tabp, "struct bu_ptbl");
-	}
-	resp->re_region_ptbl.forw = BU_LIST_NULL;
-    }
-
-    /* The 're_tree' guys are individually malloc()ed and linked using the 'tb_left' field */
-    if (resp->re_tree_hd != TREE_NULL) {
-	union tree *tp;
-
-	tp = resp->re_tree_hd;
-	while (tp != TREE_NULL) {
-	    resp->re_tree_hd = tp->tr_b.tb_left;
-	    bu_free((char *)tp, "union tree in resource struct");
-	    tp = resp->re_tree_hd;
-	}
     }
 
     /* Release the state variables for 'solid pieces' */
@@ -1090,14 +1035,15 @@ rt_clean_resource_complete(struct rt_i *rtip, struct resource *resp)
  * Deallocate the per-cpu "private" memory resources:
  *
  * segment freelist
- * hitmiss freelist for NMG raytracer
  * partition freelist
- * solid_bitv freelist
- * region_ptbl freelist
  *
  * Note: re_boolstack and re_randptr were moved to struct application
  * in Phase 4 of the struct resource removal effort; they are no
  * longer freed here.
+ *
+ * Note: re_solid_bitv, re_region_ptbl, re_nmgfree, and re_tree_hd
+ * were removed in Phase 5; solid bitvectors and region ptbls are now
+ * freed directly at the end of each ray-shot call.
  *
  * Some care is required, as rt_uniresource may not be fully
  * initialized before it gets freed.
@@ -1125,37 +1071,14 @@ rt_clean_resource(struct rt_i *rtip, struct resource *resp)
 
 
 /**
- * returns a bitv zero-initialized with space for least nbits back to
- * the caller.  if a resource pointer is provided, a previously
- * allocated bitv may be reused or a new one will be allocated.
+ * Returns a zero-initialized bitv with space for at least nbits.
+ * The resource pointer is accepted for API compatibility but is no
+ * longer used (Phase 5: re_solid_bitv freelist removed).
  */
 struct bu_bitv *
-rt_get_solidbitv(size_t nbits, struct resource *resp)
+rt_get_solidbitv(size_t nbits, struct resource *UNUSED(resp))
 {
-    struct bu_bitv *solidbits;
-
-    if (resp && resp->re_solid_bitv.magic != BU_LIST_HEAD_MAGIC) {
-	bu_bomb("Bad magic number in re_solid_btiv list\n");
-    }
-
-    if (!resp || BU_LIST_IS_EMPTY(&resp->re_solid_bitv)) {
-	solidbits = bu_bitv_new((unsigned int)nbits);
-    } else {
-	/* scan list for a reusable bitv */
-	for (BU_LIST_FOR(solidbits, bu_bitv, &resp->re_solid_bitv)) {
-	    if (solidbits->nbits >= nbits) {
-		BU_LIST_DEQUEUE(&solidbits->l);
-		bu_bitv_clear(solidbits);
-		break;
-	    }
-	}
-	/* no match, allocate a new one */
-	if (solidbits == (struct bu_bitv *)&resp->re_solid_bitv) {
-	    solidbits = bu_bitv_new((unsigned int)nbits);
-	}
-    }
-
-    return solidbits;
+    return bu_bitv_new((unsigned int)nbits);
 }
 
 
