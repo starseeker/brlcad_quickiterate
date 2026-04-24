@@ -144,7 +144,8 @@ rt_booltree_evaluate(
     RT_CK_TREE(tp);
     if (tol)
 	BN_CK_TOL(tol);
-    RT_CK_RESOURCE(resp);
+    if (resp)
+	RT_CK_RESOURCE(resp);
 
     switch (tp->tr_op) {
 	case OP_NOP:
