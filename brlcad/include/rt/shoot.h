@@ -175,9 +175,33 @@ DEPRECATED RT_EXPORT extern void rt_add_res_stats(struct rt_i *rtip,
 DEPRECATED RT_EXPORT extern void rt_zero_res_stats(struct resource *resp);
 
 
-/* rt_res_pieces_clean() and rt_res_pieces_init() are internal to
- * LIBRT; their declarations live in src/librt/librt_private.h.
+/* rt_res_pieces_clean() and rt_res_pieces_init() were removed in
+ * Phase 6 of the struct resource removal effort.  Their replacements
+ * rt_ap_pieces_clean() and rt_ap_pieces_init() are declared below.
  */
+
+/**
+ * Allocate and initialize the piece-shooting state for an application.
+ *
+ * This is called automatically by rt_shootray() but may also be
+ * invoked explicitly when a model is known to contain piece-capable
+ * solids.  If @p ap->a_pieces already exists for a different @p rtip
+ * or a different piece count (e.g. after rt_reprep()), the old state
+ * is freed and replaced transparently.
+ *
+ * Safe to call multiple times; it is a no-op when the existing state
+ * already matches @p rtip and rti_nsolids_with_pieces.
+ */
+RT_EXPORT extern void rt_ap_pieces_init(struct application *ap, struct rt_i *rtip);
+
+/**
+ * Free the piece-shooting state attached to an application.
+ *
+ * This should be called when the application is no longer needed or
+ * before the owning rt_i instance is destroyed.  Safe to call even
+ * if @p ap->a_pieces is NULL.
+ */
+RT_EXPORT extern void rt_ap_pieces_clean(struct application *ap);
 
 RT_EXPORT extern void rt_vstub(struct soltab *stp[],
 			       struct xray *rp[],

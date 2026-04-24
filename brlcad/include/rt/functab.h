@@ -61,6 +61,8 @@
 
 __BEGIN_DECLS
 
+struct rt_piecestate; /* forward declaration for ft_piece_shot / ft_piece_hitsegs */
+
 /**
  * This needs to be at the end of the raytrace.h header file, so that
  * all the structure names are known.  The "union record" and "struct

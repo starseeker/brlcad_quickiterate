@@ -207,15 +207,53 @@ replaced with direct bu_malloc/bu_free:
 
 RT_RESOURCE_INIT_ZERO updated to match the smaller struct.
 
-Phase 6 - Piece state (F) owned by the worker
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Phase 6 - Piece state (F) owned by the worker  [DONE]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The re_pieces[], re_pieces_pending, and piece stat fields are only
-touched inside shoot.c and prep.cpp.  Wrap them in a new struct
-rt_piecestate_set allocated per-worker by the rt_shootray setup code
-and hung off struct application (or passed down the shoot recursion
-on the stack).  Fix the lifetime bugs referenced at shoot.c:119 and
-crofton.cpp:524-533 as part of this phase.
+The re_pieces[], re_pieces_pending, re_ray_seqno, and piece stat
+fields were only touched inside shoot.c and prep.cpp.  They have been
+wrapped in a new ``struct rt_piecestate_set`` allocated per-worker by
+the rt_shootray setup code and hung off ``struct application`` as the
+``a_pieces`` pointer.
+
+Implementation summary:
+
+  - ``struct rt_piecestate_set`` defined in include/rt/piece.h.
+    Contains: magic, rtip pointer, npieces count, ps_ray_seqno
+    (was re_ray_seqno), pieces array, and pending ptbl.
+  - ``RT_PIECESTATE_SET_MAGIC`` (0x70736574, "pset") added to
+    include/bu/magic.h.
+  - ``a_pieces`` pointer added to ``struct application``
+    (include/rt/application.h).  include/rt/application.h now
+    includes rt/piece.h directly.
+  - Two new public API functions declared in include/rt/shoot.h and
+    defined in src/librt/shoot.c:
+      rt_ap_pieces_init(ap, rtip) - lazily allocate / transparently
+          reallocate piece state.  Called by rt_shootray() but may
+          also be invoked explicitly.
+      rt_ap_pieces_clean(ap) - free piece state.  Should be called
+          when the application is no longer needed or before the
+          owning rt_i is destroyed.
+  - rt_shootray() now uses ap->a_pieces for all piece state instead
+    of resp->re_pieces / resp->re_pieces_pending / resp->re_ray_seqno.
+    Lazy init checks npieces != rti_nsolids_with_pieces to detect a
+    model that was reprep'd between ray calls.
+  - rt_shootray_bundle() no longer increments a ray-sequence counter
+    (it never uses piece shooting).
+  - rt_clean_resource_basic() no longer calls rt_res_pieces_clean()
+    since there is no per-resource piece data to clean.
+  - rt_clean() now resets rtip->i->rti_nsolids_with_pieces = 0 when
+    it tears down the solid table.
+  - rt_unprep() replaces rt_res_pieces_clean(resp, rtip) with a
+    direct rtip->i->rti_nsolids_with_pieces = 0 reset; piece state
+    on any live application is silently invalidated and lazily
+    re-built on the next rt_shootray() call.
+  - rt_reprep() no longer calls rt_res_pieces_init() for registered
+    resources; lazy re-init in rt_shootray() handles it.
+  - rt_res_pieces_init() and rt_res_pieces_clean() removed from
+    src/librt/shoot.c and from src/librt/librt_private.h.
+  - re_pieces, re_pieces_pending, re_ray_seqno removed from
+    ``struct resource``; RT_RESOURCE_INIT_ZERO updated to match.
 
 Phase 7 - Seg/partition freelists (A, B)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

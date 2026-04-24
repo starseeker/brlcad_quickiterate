@@ -77,24 +77,19 @@ struct resource {
     long                re_partlen;
     long                re_partget;
     long                re_partfree;
-    /* Per-ray sequence counter: incremented once per rt_shootray() call.
-     * Used internally to detect stale rt_piecestate entries from prior rays.
-     * Statistics are now accumulated directly on rt_i->stats (see rt_instance.h).
-     * RNG pointer (re_randptr), bool stack (re_boolstack, re_boolslen) have moved
-     * to struct application (a_randptr, a_boolstack, a_boolslen) in Phase 4.
-     * re_solid_bitv, re_region_ptbl, re_nmgfree, re_tree_hd/get/malloc/free
-     * were removed in Phase 5 (replaced by direct bu_malloc/bu_free). */
-    long                re_ray_seqno;   /**< @brief  ray sequence counter (private, for piece dedup) */
-    /* Data for accelerating "pieces" of solids */
-    struct rt_piecestate *re_pieces;    /**< @brief  array [rti_nsolids_with_pieces] */
-    struct bu_ptbl      re_pieces_pending;      /**< @brief  pieces with an odd hit pending */
+    /* Former fields removed in earlier phases:
+     *  Phase 4: re_randptr, re_boolstack, re_boolslen → a_randptr, a_boolstack, a_boolslen on struct application
+     *  Phase 5: re_solid_bitv, re_region_ptbl, re_nmgfree, re_tree_hd/get/malloc/free → direct bu_malloc/bu_free
+     *  Phase 6: re_ray_seqno, re_pieces, re_pieces_pending → struct rt_piecestate_set * a_pieces on struct application
+     * Statistics are accumulated on rt_i->stats (see rt_instance.h) using C11 atomics.
+     */
     struct directory *  re_directory_hd;
     struct bu_ptbl      re_directory_blocks;    /**< @brief  Table of malloc'ed blocks */
 };
 
 #define RESOURCE_NULL   ((struct resource *)0)
 #define RT_CK_RESOURCE(_p) BU_CKMAG(_p, RESOURCE_MAGIC, "struct resource")
-#define RT_RESOURCE_INIT_ZERO { RESOURCE_MAGIC, 0, BU_LIST_INIT_ZERO, BU_PTBL_INIT_ZERO, 0, 0, 0, BU_LIST_INIT_ZERO, 0, 0, 0, 0, NULL, BU_PTBL_INIT_ZERO, NULL, BU_PTBL_INIT_ZERO }
+#define RT_RESOURCE_INIT_ZERO { RESOURCE_MAGIC, 0, BU_LIST_INIT_ZERO, BU_PTBL_INIT_ZERO, 0, 0, 0, BU_LIST_INIT_ZERO, 0, 0, 0, NULL, BU_PTBL_INIT_ZERO }
 
 /**
  * Definition of global parallel-processing semaphores.
