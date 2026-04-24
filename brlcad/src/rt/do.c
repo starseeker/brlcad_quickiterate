@@ -1296,7 +1296,6 @@ res_pr(void)
 	}
 	bu_log("seg       len=%10ld get=%10ld free=%10ld\n", res->re_seglen, res->re_segget, res->re_segfree);
 	bu_log("partition len=%10ld get=%10ld free=%10ld\n", res->re_partlen, res->re_partget, res->re_partfree);
-	bu_log("boolstack len=%10ld\n", res->re_boolslen);
     }
 }
 

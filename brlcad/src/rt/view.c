@@ -217,15 +217,15 @@ view_pixel(struct application *ap)
 	     */
 	    double ex = 1.0/gamma_corr;
 	    r = floor(pow(ap->a_color[0], ex)*255.+
-		      bn_rand0to1(ap->a_resource->re_randptr) + 0.5);
+		      bn_rand0to1(ap->a_randptr) + 0.5);
 	    g = floor(pow(ap->a_color[1], ex)*255.+
-		      bn_rand0to1(ap->a_resource->re_randptr) + 0.5);
+		      bn_rand0to1(ap->a_randptr) + 0.5);
 	    b = floor(pow(ap->a_color[2], ex)*255.+
-		      bn_rand0to1(ap->a_resource->re_randptr) + 0.5);
+		      bn_rand0to1(ap->a_randptr) + 0.5);
 	} else {
-	    r = ap->a_color[0]*255.+bn_rand0to1(ap->a_resource->re_randptr);
-	    g = ap->a_color[1]*255.+bn_rand0to1(ap->a_resource->re_randptr);
-	    b = ap->a_color[2]*255.+bn_rand0to1(ap->a_resource->re_randptr);
+	    r = ap->a_color[0]*255.+bn_rand0to1(ap->a_randptr);
+	    g = ap->a_color[1]*255.+bn_rand0to1(ap->a_randptr);
+	    b = ap->a_color[2]*255.+bn_rand0to1(ap->a_randptr);
 	}
 	if (r > 255) r = 255;
 	else if (r < 0) r = 0;

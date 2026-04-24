@@ -76,12 +76,11 @@ struct resource {
     struct bu_list      re_solid_bitv;  /**< @brief  head of freelist */
     struct bu_list      re_region_ptbl; /**< @brief  head of freelist */
     struct bu_list      re_nmgfree;     /**< @brief  head of NMG hitmiss freelist */
-    union tree **       re_boolstack;   /**< @brief  Stack for rt_booleval() */
-    long                re_boolslen;    /**< @brief  # elements in re_boolstack[] */
-    float *             re_randptr;     /**< @brief  ptr into random number table */
     /* Per-ray sequence counter: incremented once per rt_shootray() call.
      * Used internally to detect stale rt_piecestate entries from prior rays.
-     * Statistics are now accumulated directly on rt_i->stats (see rt_instance.h). */
+     * Statistics are now accumulated directly on rt_i->stats (see rt_instance.h).
+     * RNG pointer (re_randptr), bool stack (re_boolstack, re_boolslen) have moved
+     * to struct application (a_randptr, a_boolstack, a_boolslen) in Phase 4. */
     long                re_ray_seqno;   /**< @brief  ray sequence counter (private, for piece dedup) */
     /* Data for accelerating "pieces" of solids */
     struct rt_piecestate *re_pieces;    /**< @brief  array [rti_nsolids_with_pieces] */
@@ -97,7 +96,7 @@ struct resource {
 
 #define RESOURCE_NULL   ((struct resource *)0)
 #define RT_CK_RESOURCE(_p) BU_CKMAG(_p, RESOURCE_MAGIC, "struct resource")
-#define RT_RESOURCE_INIT_ZERO { RESOURCE_MAGIC, 0, BU_LIST_INIT_ZERO, BU_PTBL_INIT_ZERO, 0, 0, 0, BU_LIST_INIT_ZERO, 0, 0, 0, BU_LIST_INIT_ZERO, BU_LIST_INIT_ZERO, BU_LIST_INIT_ZERO, NULL, 0, NULL, 0, NULL, BU_PTBL_INIT_ZERO, NULL, 0, 0, 0, NULL, BU_PTBL_INIT_ZERO }
+#define RT_RESOURCE_INIT_ZERO { RESOURCE_MAGIC, 0, BU_LIST_INIT_ZERO, BU_PTBL_INIT_ZERO, 0, 0, 0, BU_LIST_INIT_ZERO, 0, 0, 0, BU_LIST_INIT_ZERO, BU_LIST_INIT_ZERO, BU_LIST_INIT_ZERO, 0, NULL, BU_PTBL_INIT_ZERO, NULL, 0, 0, 0, NULL, BU_PTBL_INIT_ZERO }
 
 /**
  * Definition of global parallel-processing semaphores.

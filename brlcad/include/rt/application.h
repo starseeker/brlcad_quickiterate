@@ -144,6 +144,10 @@ struct application {
     fastf_t             a_cumlen;       /**< @brief  cumulative length of ray */
     int                 a_flag;         /**< @brief  application-specific flag */
     int                 a_zero2;        /**< @brief  must be zero (sanity check) */
+    /* THESE ELEMENTS WERE FORMERLY IN struct resource */
+    float *             a_randptr;      /**< @brief  ptr into random number table (was re_randptr) */
+    union tree **       a_boolstack;    /**< @brief  Stack for rt_booleval() (was re_boolstack) */
+    long                a_boolslen;     /**< @brief  # elements in a_boolstack[] (was re_boolslen) */
 };
 
 /**

@@ -135,6 +135,7 @@ struct wood_specific {
     vect_t c_max;
     vect_t D;
     vect_t V;
+    float *randptr;		/**< @brief  per-region RNG state (into bn_rand_halftab) */
 };
 
 
@@ -245,8 +246,6 @@ wood_setup(register struct region *rp, struct bu_vls *matparm, void **dpp, const
     register int i;
     register struct wood_specific *wd;
 
-    register struct resource *resp = &rt_uniresource;
-
     /*
      * Get the impure storage for the control block
      */
@@ -254,6 +253,10 @@ wood_setup(register struct region *rp, struct bu_vls *matparm, void **dpp, const
     BU_CK_VLS(matparm);
     BU_GET(wd, struct wood_specific);
     *dpp = wd;
+
+    /* Initialize per-region RNG state with a seed derived from the region
+     * pointer address so that each region gets independent randomness. */
+    bn_rand_init(wd->randptr, ((uintptr_t)wd / sizeof(uintptr_t)) % BN_RANDHALFTABSIZE);
 
     /*
      * Load the default values
@@ -287,9 +290,9 @@ wood_setup(register struct region *rp, struct bu_vls *matparm, void **dpp, const
     wd->phase     = 5;
     wd->depth     = 0;
 
-    wd->dither[0] = bn_rand0to1(resp->re_randptr);
-    wd->dither[1] = bn_rand0to1(resp->re_randptr);
-    wd->dither[2] = bn_rand0to1(resp->re_randptr);
+    wd->dither[0] = bn_rand0to1(wd->randptr);
+    wd->dither[1] = bn_rand0to1(wd->randptr);
+    wd->dither[2] = bn_rand0to1(wd->randptr);
 
     VSETALL(wd->rot, 0);
     VSETALL(wd->vertex, 0);
@@ -413,8 +416,6 @@ wood_setup_2(struct wood_specific *wd)
     int i;
     vect_t a_vertex, a_dir;
 
-    register struct resource *resp = &rt_uniresource;
-
     /*
      * See if the user specified absolute coordinates for the vertex and
      * direction.  If so, use those instead of the RPP.
@@ -433,15 +434,15 @@ wood_setup_2(struct wood_specific *wd)
 	    }
 	    /* Z component is [2] */
 	    a_vertex[2] = ((wd->b_max[2] - wd->b_min[2]) *
-			   (bn_rand0to1(resp->re_randptr) * wd->dz)) + wd->b_min[2];
+			   (bn_rand0to1(wd->randptr) * wd->dz)) + wd->b_min[2];
 	    a_dir[2]    = ((wd->b_max[2] - wd->b_min[2]) *
-			   (bn_rand0to1(resp->re_randptr) * wd->dz)) + wd->b_min[2];
+			   (bn_rand0to1(wd->randptr) * wd->dz)) + wd->b_min[2];
 	} else {
 	    for (i = 0; i < 3; i++) {
 		a_vertex[i] = ((wd->b_max[i] - wd->b_min[i]) *
-			       (bn_rand0to1(resp->re_randptr) * wd->dd)) + wd->b_min[i];
+			       (bn_rand0to1(wd->randptr) * wd->dd)) + wd->b_min[i];
 		a_dir[i]    = ((wd->b_max[i] - wd->b_min[i]) *
-			       (bn_rand0to1(resp->re_randptr) * wd->dd)) + wd->b_max[i];
+			       (bn_rand0to1(wd->randptr) * wd->dd)) + wd->b_max[i];
 	    }
 	}
 	MAT4X3PNT(wd->vertex, xlate, a_vertex);
@@ -536,8 +537,6 @@ wood_noise(double x, double y, double z, struct wood_specific *wd)
 static double
 wood_turb(double x, double y, double z, struct wood_specific *wd)
 {
-    register struct resource *resp = &rt_uniresource;
-
     int i;
     fastf_t a, b, c, turb = 0.0, scale;
 
@@ -545,15 +544,15 @@ wood_turb(double x, double y, double z, struct wood_specific *wd)
 	scale = (double)i / (double)wd->ns;
 
 	a = (x * scale) +
-	    (bn_rand_half(resp->re_randptr) * wd->jitter) +
+	    (bn_rand_half(wd->randptr) * wd->jitter) +
 	    wd->dither[X];
 
 	b = (y * scale) +
-	    (bn_rand_half(resp->re_randptr) * wd->jitter) +
+	    (bn_rand_half(wd->randptr) * wd->jitter) +
 	    wd->dither[Y];
 
 	c = (z * scale) +
-	    (bn_rand_half(resp->re_randptr) * wd->jitter) +
+	    (bn_rand_half(wd->randptr) * wd->jitter) +
 	    wd->dither[Z];
 
 	turb += wood_noise(a, b, c, wd);
