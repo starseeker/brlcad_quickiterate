@@ -914,9 +914,15 @@ rt_init_resource(struct resource *resp, int cpu_num, struct rt_i *rtip)
      * from each other, but that's not a really great reason.
      * Note: re_randptr was removed in Phase 4; callers should
      * initialize a_randptr on their struct application instead.
-     * Note: re_seg/re_seg_blocks and re_parthead freelists removed in
-     * Phase 7; seg and partition storage is now allocated directly.
+     * Note: re_parthead removed in Phase 7; partitions are now
+     * allocated/freed directly.  re_seg is RETAINED pending benchmark.
      */
+
+    if (!BU_LIST_IS_INITIALIZED(&resp->re_seg))
+	BU_LIST_INIT(&resp->re_seg);
+
+    if (!BU_LIST_IS_INITIALIZED(&resp->re_seg_blocks.l))
+	bu_ptbl_init(&resp->re_seg_blocks, 64, "re_seg_blocks ptbl");
 
     if (!BU_LIST_IS_INITIALIZED(&resp->re_directory_blocks.l))
 	bu_ptbl_init(&resp->re_directory_blocks, 64, "re_directory_blocks ptbl");
@@ -957,13 +963,27 @@ rt_clean_resource_basic(struct rt_i *rtip, struct resource *resp)
 
     RT_CK_RESOURCE(resp);
 
-    /* Phase 7: seg and partition freelists removed; segs and partitions
-     * are now allocated and freed individually via bu_malloc/bu_free,
-     * so there is no pool to clean up here.
+    /* The 'struct seg' guys are malloc()ed in blocks, not
+     * individually, so they're kept track of two different ways.
+     * re_seg freelist is RETAINED (Phase 7 partial) pending benchmark.
      */
+    BU_LIST_INIT(&resp->re_seg);	/* abandon the list of individuals */
+    if (BU_LIST_IS_INITIALIZED(&resp->re_seg_blocks.l)) {
+	struct seg **spp;
+	BU_CK_PTBL(&resp->re_seg_blocks);
+	for (BU_PTBL_FOR(spp, (struct seg **), &resp->re_seg_blocks)) {
+	    RT_CK_SEG(*spp);	/* Head of block will be a valid seg */
+	    bu_free((void *)(*spp), "struct seg block");
+	}
+	bu_ptbl_free(&resp->re_seg_blocks);
+	resp->re_seg_blocks.l.forw = BU_LIST_NULL;
+    }
 
     /* The "struct hitmiss' guys are individually malloc()ed, and are now
      * freed directly by NMG_FREE_HITLIST (Phase 5); no freelist here. */
+
+    /* Phase 7: 'struct partition' guys are now individually malloc()ed and
+     * freed directly via FREE_PT; no per-resource freelist to drain here. */
 
     /* Release the state variables for 'solid pieces' (Phase 6:
      * pieces are now owned by struct application via a_pieces;

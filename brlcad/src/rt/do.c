@@ -1294,8 +1294,9 @@ res_pr(void)
 	    bu_log("Bad magic number!\n");
 	    continue;
 	}
-	/* Phase 7: seg and partition freelist counters removed;
-	 * storage is now allocated/freed directly. */
+	/* Phase 7: partition freelist counters removed; partitions are
+	 * now allocated/freed directly.  Seg counters retained. */
+	bu_log("seg       len=%10ld get=%10ld free=%10ld\n", res->re_seglen, res->re_segget, res->re_segfree);
     }
 }
 
