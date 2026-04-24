@@ -130,6 +130,22 @@ struct rt_seg_pool {
     long            re_segfree;     /**< @brief segs returned */
 };
 
+/**
+ * Per-cpu partition freelist pool.  One instance per (rt_i, cpu)
+ * pair, stored in the rti_pt_pools map inside rt_i_internal.
+ * Managed entirely by pt_pool.cpp; never exposed in public headers.
+ *
+ * Unlike the segment pool there is no slab allocator here because
+ * each struct partition embeds a bu_ptbl (pt_seglist) whose backing
+ * store is preserved across pool round-trips via bu_ptbl_reset().
+ */
+struct rt_pt_pool {
+    struct bu_list  re_pt;          /**< @brief head of partition freelist */
+    long            re_ptlen;       /**< @brief total partitions allocated */
+    long            re_ptget;       /**< @brief partitions obtained */
+    long            re_ptfree;      /**< @brief partitions returned */
+};
+
 struct rt_i_internal {
     /* Space-partitioning / BSP internals */
     union cutter        rti_inf_box;            /**< @brief  List of infinite solids */
@@ -170,6 +186,13 @@ struct rt_i_internal {
      * Allocated in rt_i_internal_create(), freed in
      * rt_i_internal_destroy() via seg_pool.cpp helpers. */
     void               *rti_seg_pools;
+
+    /* Per-cpu partition freelist pools (Phase 7C).  Stored as a
+     * std::unordered_map<int,struct rt_pt_pool *> * (C++ type);
+     * exposed here as void * so the struct remains C-compatible.
+     * Allocated in rt_i_internal_create(), freed in
+     * rt_i_internal_destroy() via pt_pool.cpp helpers. */
+    void               *rti_pt_pools;
 };
 
 struct rt_i_internal * rt_i_internal_create(void);
@@ -185,6 +208,20 @@ extern void *rt_seg_pool_map_create(void);
 extern void  rt_seg_pool_map_destroy(void *map_void);
 /* Ensure the pool for 'cpu' exists in rtip; called from rt_init_resource(). */
 extern void  rt_seg_pool_init_cpu(struct rt_i *rtip, int cpu);
+#ifdef __cplusplus
+}
+#endif
+
+/* pt_pool.cpp — per-cpu partition pool helpers (C linkage so prep.cpp can call them) */
+#ifdef __cplusplus
+extern "C" {
+#endif
+/* Allocate a new PtPoolMap; called from rt_i_internal_create(). */
+extern void *rt_pt_pool_map_create(void);
+/* Destroy all pools in the map; called from rt_i_internal_destroy(). */
+extern void  rt_pt_pool_map_destroy(void *map_void);
+/* Ensure the pool for 'cpu' exists in rtip; called from rt_init_resource(). */
+extern void  rt_pt_pool_init_cpu(struct rt_i *rtip, int cpu);
 #ifdef __cplusplus
 }
 #endif

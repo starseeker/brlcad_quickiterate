@@ -435,7 +435,7 @@ weave:
 	else
 	    ap->a_return = 0;
 	status = "MISS bool";
-	RT_FREE_PT_LIST(&InitialPart, resp);
+	RT_FREE_PT_LIST(&InitialPart, ap);
 	RT_FREE_SEG_LIST(&finished_segs, ap);
 	goto out;
     }
@@ -460,7 +460,7 @@ hitit:
      * partitions.  finished_segs can not be released yet, because
      * FinalPart partitions will point to hits in those segments.
      */
-    RT_FREE_PT_LIST(&InitialPart, resp);
+    RT_FREE_PT_LIST(&InitialPart, ap);
 
     /*
      * finished_segs is only used by special hit routines which don't
@@ -474,7 +474,7 @@ hitit:
     status = "HIT";
 
     RT_FREE_SEG_LIST(&finished_segs, ap);
-    RT_FREE_PT_LIST(&FinalPart, resp);
+    RT_FREE_PT_LIST(&FinalPart, ap);
 
     /*
      * Processing of this ray is complete.
@@ -702,7 +702,7 @@ rt_shootrays(struct application_bundle *bundle)
 	while (BU_LIST_WHILE(pl, partition_list, &(pb->list->l))) {
 	    BU_LIST_DEQUEUE(&(pl->l));
 	    RT_FREE_SEG_LIST(&pl->segHeadp, &bundle->b_ap);
-	    RT_FREE_PT_LIST(&pl->PartHeadp, resource);
+	    RT_FREE_PT_LIST(&pl->PartHeadp, pl->ap);
 	    bu_free(pl, "free partition_list pl");
 	}
 	bu_free(pb->list, "free partition_list header");

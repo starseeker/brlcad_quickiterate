@@ -256,7 +256,7 @@ BU_FORTRAN(frshot, FRSHOT)(int *nloc,			/* input & output */
 
 	newpp = pp;
 	pp = pp->pt_forw;
-	FREE_PT(newpp, (&rt_uniresource));
+	FREE_PT(newpp, &ap);
     }
 }
 

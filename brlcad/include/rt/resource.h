@@ -71,12 +71,11 @@ __BEGIN_DECLS
  * RT_GET_SEG/RT_FREE_SEG/RT_FREE_SEG_LIST now accept struct application *
  * and look up the pool via ap->a_rt_i->i->rti_seg_pools[cpu].
  *
- * Phase 7 (partial): re_parthead, re_partlen, re_partget, re_partfree
- * removed - the partition freelist is replaced with direct bu_malloc/bu_free;
- * GET_PT/FREE_PT now accept but ignore the resource pointer.
- * re_seg and associated fields are RETAINED pending benchmark of the
- * segment hot path; they will move to struct application or be removed
- * once performance measurements confirm the correct approach.
+ * Phase 7 (complete): re_parthead, re_partlen, re_partget, re_partfree
+ * removed - the partition freelist (struct rt_pt_pool) now lives
+ * inside rt_i_internal, indexed by CPU (hidden from users).
+ * GET_PT/FREE_PT/RT_FREE_PT_LIST now accept struct application *
+ * and look up the pool via ap->a_rt_i->i->rti_pt_pools[cpu].
  */
 struct resource {
     uint32_t            re_magic;       /**< @brief  Magic number */
@@ -85,7 +84,7 @@ struct resource {
      *  Phase 4: re_randptr, re_boolstack, re_boolslen → a_randptr, a_boolstack, a_boolslen on struct application
      *  Phase 5: re_solid_bitv, re_region_ptbl, re_nmgfree, re_tree_hd/get/malloc/free → direct bu_malloc/bu_free
      *  Phase 6: re_ray_seqno, re_pieces, re_pieces_pending → struct rt_piecestate_set * a_pieces on struct application
-     *  Phase 7: re_parthead, re_partlen/get/free → direct bu_malloc/bu_free (GET_PT/FREE_PT)
+     *  Phase 7: re_parthead, re_partlen/get/free → struct rt_pt_pool inside rt_i_internal
      *  Phase 7B: re_seg, re_seg_blocks, re_seglen, re_segget, re_segfree → struct rt_seg_pool inside rt_i_internal
      * Statistics are accumulated on rt_i->stats (see rt_instance.h) using C11 atomics.
      */

@@ -339,14 +339,14 @@ freeup:
 	    register struct partition *newpp;
 	    newpp = pp;
 	    pp = pp->pt_forw;
-	    FREE_PT(newpp, ap->a_resource);
+	    FREE_PT(newpp, ap);
 	}
 	/* Free up final partition list */
 	for (pp = FinalPart.pt_forw; pp != &FinalPart;) {
 	    register struct partition *newpp;
 	    newpp = pp;
 	    pp = pp->pt_forw;
-	    FREE_PT(newpp, ap->a_resource);
+	    FREE_PT(newpp, ap);
 	}
     }
 

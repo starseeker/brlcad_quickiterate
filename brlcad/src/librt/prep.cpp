@@ -75,6 +75,7 @@ rt_i_internal_create(void)
     BU_GET(i, struct rt_i_internal);
     memset(i, 0, sizeof(struct rt_i_internal));
     i->rti_seg_pools = rt_seg_pool_map_create();
+    i->rti_pt_pools  = rt_pt_pool_map_create();
     return i;
 }
 
@@ -90,6 +91,8 @@ rt_i_internal_destroy(struct rt_i_internal *i)
 	return;
     rt_seg_pool_map_destroy(i->rti_seg_pools);
     i->rti_seg_pools = NULL;
+    rt_pt_pool_map_destroy(i->rti_pt_pools);
+    i->rti_pt_pools = NULL;
     BU_PUT(i, struct rt_i_internal);
 }
 
@@ -914,8 +917,8 @@ rt_init_resource(struct resource *resp, int cpu_num, struct rt_i *rtip)
 
     /* Note: re_randptr was removed in Phase 4; callers should
      * initialize a_randptr on their struct application instead.
-     * Note: re_parthead removed in Phase 7; partitions are now
-     * allocated/freed directly.
+     * Note: re_parthead removed in Phase 7; partitions now live in
+     * rt_i_internal::rti_pt_pools (pt_pool.cpp), pooled per-cpu.
      * Note: re_seg/re_seg_blocks removed in Phase 7B; the segment
      * freelist now lives in rt_i_internal::rti_seg_pools (seg_pool.cpp).
      */
@@ -931,6 +934,9 @@ rt_init_resource(struct resource *resp, int cpu_num, struct rt_i *rtip)
 
     /* Pre-warm the per-cpu seg pool for this cpu on the rt_i. */
     rt_seg_pool_init_cpu(rtip, cpu_num);
+
+    /* Pre-warm the per-cpu partition pool for this cpu on the rt_i. */
+    rt_pt_pool_init_cpu(rtip, cpu_num);
 
     /* Ensure that this CPU's resource structure is registered in rt_i */
     /* It may already be there when we're called from rt_clean_resource */

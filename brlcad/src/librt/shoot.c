@@ -1258,7 +1258,7 @@ weave:
 	else
 	    ap->a_return = 0;
 	status = "MISS bool";
-	RT_FREE_PT_LIST(&InitialPart, resp);
+	RT_FREE_PT_LIST(&InitialPart, ap);
 	RT_FREE_SEG_LIST(&finished_segs, ap);
 	goto out;
     }
@@ -1272,7 +1272,7 @@ hitit:
      * partitions.  finished_segs can not be released yet, because
      * FinalPart partitions will point to hits in those segments.
      */
-    RT_FREE_PT_LIST(&InitialPart, resp);
+    RT_FREE_PT_LIST(&InitialPart, ap);
 
     /* finished_segs is only used by special hit routines which don't
      * follow the traditional solid modeling paradigm.
@@ -1289,7 +1289,7 @@ hitit:
     }
 
     RT_FREE_SEG_LIST(&finished_segs, ap);
-    RT_FREE_PT_LIST(&FinalPart, resp);
+    RT_FREE_PT_LIST(&FinalPart, ap);
 
     /*
      * Processing of this ray is complete.

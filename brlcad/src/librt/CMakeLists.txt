@@ -119,6 +119,7 @@ set(
   db5_types.c
   db_alloc.c
   seg_pool.cpp
+  pt_pool.cpp
   db_anim.c
   db_corrupt.c
   db_diff.c
