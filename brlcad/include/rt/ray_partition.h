@@ -90,24 +90,19 @@ struct partition {
 	memset(((char *) &(p)->RT_PT_MIDDLE_START), 0, RT_PT_MIDDLE_LEN(p)); }
 
 #define GET_PT(ip, p, res) { \
-	if (BU_LIST_NON_EMPTY_P(p, partition, &res->re_parthead)) { \
-	    BU_LIST_DEQUEUE((struct bu_list *)(p)); \
-	    bu_ptbl_reset(&(p)->pt_seglist); \
-	} else { \
-	    BU_ALLOC((p), struct partition); \
-	    (p)->pt_magic = PT_MAGIC; \
-	    bu_ptbl_init(&(p)->pt_seglist, 42, "pt_seglist ptbl"); \
-	    (res)->re_partlen++; \
-	} \
-	res->re_partget++; }
+	BU_ALLOC((p), struct partition); \
+	(p)->pt_magic = PT_MAGIC; \
+	bu_ptbl_init(&(p)->pt_seglist, 42, "pt_seglist ptbl"); \
+    }
 
 #define FREE_PT(p, res) { \
-	BU_LIST_APPEND(&(res->re_parthead), (struct bu_list *)(p)); \
 	if ((p)->pt_overlap_reg) { \
 	    bu_free((void *)((p)->pt_overlap_reg), "pt_overlap_reg");\
 	    (p)->pt_overlap_reg = NULL; \
 	} \
-	res->re_partfree++; }
+	bu_ptbl_free(&(p)->pt_seglist); \
+	bu_free((void *)(p), "struct partition"); \
+    }
 
 #define RT_FREE_PT_LIST(_headp, _res) { \
 	register struct partition *_pp, *_zap; \

@@ -67,28 +67,23 @@ struct seg {
 #define RT_CHECK_SEG(_p) BU_CKMAG(_p, RT_SEG_MAGIC, "struct seg")
 #define RT_CK_SEG(_p) BU_CKMAG(_p, RT_SEG_MAGIC, "struct seg")
 
+/* Phase 7: seg freelist removed; RT_GET_SEG/RT_FREE_SEG now use direct
+ * bu_malloc/bu_free.  The 'res' parameter is accepted but ignored so
+ * that all existing call sites continue to compile without change.
+ */
 #define RT_GET_SEG(p, res) { \
-	while (!BU_LIST_WHILE((p), seg, &((res)->re_seg)) || !(p)) \
-	    rt_alloc_seg_block(res); \
-	BU_LIST_DEQUEUE(&((p)->l)); \
-	(p)->l.forw = (p)->l.back = BU_LIST_NULL; \
+	BU_ALLOC((p), struct seg); \
+	(p)->l.magic = RT_SEG_MAGIC; \
 	(p)->seg_in.hit_magic = (p)->seg_out.hit_magic = RT_HIT_MAGIC; \
-	res->re_segget++; \
     }
 
 
 #define RT_FREE_SEG(p, res) { \
 	RT_CHECK_SEG(p); \
-	BU_LIST_INSERT(&((res)->re_seg), &((p)->l)); \
-	res->re_segfree++; \
+	bu_free((void *)(p), "struct seg"); \
     }
 
 
-/**
- * This could be
- *      BU_LIST_INSERT_LIST(&((_res)->re_seg), &((_segheadp)->l))
- * except for security of checking & counting each element this way.
- */
 #define RT_FREE_SEG_LIST(_segheadp, _res) { \
 	register struct seg *_a; \
 	while (BU_LIST_WHILE(_a, seg, &((_segheadp)->l))) { \
