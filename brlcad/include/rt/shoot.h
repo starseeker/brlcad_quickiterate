@@ -143,17 +143,23 @@ RT_EXPORT extern struct partition *rt_shootray_simple(struct application *ap,
 RT_EXPORT extern int rt_shootray_bundle(struct application *ap, struct xray *rays, int nrays);
 
 /**
- * To be called only in non-parallel mode, to tally up the statistics
- * from the resource structure(s) into the rt instance structure.
+ * DEPRECATED - statistics are now incremented directly on rtip->stats
+ * using C11 atomic operations during rt_shootray().  This function is
+ * a no-op retained for source compatibility; it will be removed in a
+ * future release.
  *
- * Non-parallel programs should call
- * rt_add_res_stats(rtip, RESOURCE_NULL);
- * to have the default resource results tallied in.
+ * Previously this function tallied per-resource counters into the rt
+ * instance structure.  That step is no longer required.
  */
-RT_EXPORT extern void rt_add_res_stats(struct rt_i *rtip,
+DEPRECATED RT_EXPORT extern void rt_add_res_stats(struct rt_i *rtip,
 				       struct resource *resp);
-/** Tally stats into struct rt_i */
-RT_EXPORT extern void rt_zero_res_stats(struct resource *resp);
+/**
+ * DEPRECATED - statistics are now maintained on rtip->stats directly;
+ * there are no per-resource stat fields to zero.  This function is a
+ * no-op retained for source compatibility; it will be removed in a
+ * future release.
+ */
+DEPRECATED RT_EXPORT extern void rt_zero_res_stats(struct resource *resp);
 
 
 /* rt_res_pieces_clean() and rt_res_pieces_init() are internal to
