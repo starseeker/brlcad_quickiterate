@@ -65,6 +65,7 @@
 #include <unordered_set>
 #include <limits>
 #include <math.h>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -99,13 +100,17 @@
 // Factor by which to bump out bounds to avoid points on box edges
 #define MBUMP 1.01
 
+/* On-disk format version.  Increment whenever the binary layout of any cached
+ * payload changes.  bv_mesh_lod_context_create() reads this from
+ * BU_DIR_CACHE/.POPLoD/format; a mismatch clears the entire .POPLoD tree. */
+#define CACHE_CURRENT_FORMAT 2
+
 /* There are various individual pieces of data in the cache associated with
  * each object key.  For lookup they use short suffix strings to distinguish
  * them - we define those strings here to have consistent definitions for use
  * in multiple functions.
  *
- * Changing any of these requires updating the LOD_CACHE_VERSION string. */
-#define LOD_CACHE_VERSION "v1"
+ * Changing any of these requires incrementing CACHE_CURRENT_FORMAT. */
 #define CACHE_POP_MAX_LEVEL "th"
 #define CACHE_POP_SWITCH_LEVEL "sw"
 #define CACHE_VERTEX_COUNT "vc"
@@ -619,6 +624,28 @@ bv_mesh_lod_context_create(const char *name)
     bu_vls_sprintf(i->fname, "%s", bu_vls_cstr(&fname));
     i->lod_rtxn = NULL;
 
+    // Check the on-disk format version.  If it doesn't match CACHE_CURRENT_FORMAT,
+    // clear the entire .POPLoD tree so stale entries don't accumulate.
+    {
+	char fpath[MAXPATHLEN];
+	bu_dir(fpath, MAXPATHLEN, BU_DIR_CACHE, POP_CACHEDIR, "format", NULL);
+	long disk_format_version = -1;
+	{
+	    std::ifstream format_file(fpath);
+	    if (format_file.is_open())
+		format_file >> disk_format_version;
+	}
+	if (disk_format_version > 0 && disk_format_version != CACHE_CURRENT_FORMAT) {
+	    bu_log("Old mesh lod cache version (%ld) found at %s - clearing\n", disk_format_version, fpath);
+	    bv_mesh_lod_clear_cache(NULL, 0);
+	}
+	FILE *fp = fopen(fpath, "w");
+	if (fp) {
+	    fprintf(fp, "%d\n", CACHE_CURRENT_FORMAT);
+	    fclose(fp);
+	}
+    }
+
     // Build relative cache paths (relative to BU_DIR_CACHE)
     struct bu_vls lod_cpath = BU_VLS_INIT_ZERO;
     struct bu_vls name_cpath = BU_VLS_INIT_ZERO;
@@ -677,7 +704,7 @@ bv_mesh_lod_key_get(struct bv_mesh_lod_context *c, const char *name)
 	bu_vls_printf(&keystr, "GGGGGGGGGGGGG");
     }
     unsigned long long hash = bu_data_hash(bu_vls_cstr(&keystr), bu_vls_strlen(&keystr)*sizeof(char));
-    bu_vls_sprintf(&keystr, "%s:%llu:namekey", LOD_CACHE_VERSION, hash);
+    bu_vls_sprintf(&keystr, "%llu:namekey", hash);
 
     void *data = NULL;
     size_t dsize = bu_cache_get(&data, bu_vls_cstr(&keystr), c->i->name_cache, NULL);
@@ -705,7 +732,7 @@ bv_mesh_lod_key_put(struct bv_mesh_lod_context *c, const char *name, unsigned lo
 	bu_vls_printf(&keystr, "GGGGGGGGGGGGG");
     }
     unsigned long long hash = bu_data_hash(bu_vls_cstr(&keystr), bu_vls_strlen(&keystr)*sizeof(char));
-    bu_vls_sprintf(&keystr, "%s:%llu:namekey", LOD_CACHE_VERSION, hash);
+    bu_vls_sprintf(&keystr, "%llu:namekey", hash);
 
     size_t wsize = bu_cache_write((void *)&key, sizeof(key), bu_vls_cstr(&keystr), c->i->name_cache, NULL);
     bu_vls_free(&keystr);
@@ -1426,7 +1453,7 @@ POPState::set_level(int level)
 bool
 POPState::cache_write(const char *component, std::stringstream &s)
 {
-    std::string keystr = std::string(LOD_CACHE_VERSION) + std::string(":") + std::to_string(hash) + std::string(":") + std::string(component);
+    std::string keystr = std::to_string(hash) + std::string(":") + std::string(component);
     std::string buffer = s.str();
     size_t wsize = bu_cache_write((void *)buffer.data(), buffer.length(), keystr.c_str(), c->i->lod_cache, NULL);
     return (wsize > 0);
@@ -1438,7 +1465,7 @@ POPState::cache_write(const char *component, std::stringstream &s)
 size_t
 POPState::cache_get(void **data, const char *component)
 {
-    std::string keystr = std::string(LOD_CACHE_VERSION) + std::string(":") + std::to_string(hash) + std::string(":") + std::string(component);
+    std::string keystr = std::to_string(hash) + std::string(":") + std::string(component);
     return bu_cache_get(data, keystr.c_str(), c->i->lod_cache, &c->i->lod_rtxn);
 }
 
@@ -1917,7 +1944,7 @@ bv_mesh_lod_memshrink(struct bv_scene_obj *s)
 static void
 cache_del(struct bv_mesh_lod_context *c, unsigned long long hash, const char *component)
 {
-    std::string keystr = std::string(LOD_CACHE_VERSION) + std::string(":") + std::to_string(hash) + std::string(":") + std::string(component);
+    std::string keystr = std::to_string(hash) + std::string(":") + std::string(component);
     bu_cache_clear(keystr.c_str(), c->i->lod_cache, NULL);
 }
 
@@ -1942,7 +1969,7 @@ bv_mesh_lod_clear_cache(struct bv_mesh_lod_context *c, unsigned long long key)
 	{
 	    char **keysv = NULL;
 	    int nkeys = bu_cache_keys(&keysv, c->i->lod_cache);
-	    std::string prefix = std::string(LOD_CACHE_VERSION) + std::string(":") + std::to_string(key) + std::string(":");
+	    std::string prefix = std::to_string(key) + std::string(":");
 	    for (int ki = 0; ki < nkeys; ki++) {
 		if (strncmp(keysv[ki], prefix.c_str(), prefix.length()) == 0)
 		    bu_cache_clear(keysv[ki], c->i->lod_cache, NULL);
