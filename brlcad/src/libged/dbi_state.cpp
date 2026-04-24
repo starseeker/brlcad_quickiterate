@@ -71,8 +71,9 @@ extern "C" int  csg_wireframe_update(struct bv_scene_obj *vo, struct bview *v, i
 #define CACHE_COLOR "c"
 
 // Build a cache lookup key from an object hash and component name.
-// Keys carry a format-version prefix ("v1:") so that a schema change
-// can be detected per-namespace without invalidating the whole cache.
+// A "v1:" prefix is included so that a schema change can be detected
+// per-namespace in future by bumping the prefix, rather than clearing
+// the entire cache directory.
 static inline std::string
 dbi_cache_key(unsigned long long hash, const char *component)
 {
