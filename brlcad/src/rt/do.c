@@ -1294,8 +1294,8 @@ res_pr(void)
 	    bu_log("Bad magic number!\n");
 	    continue;
 	}
-	bu_log("seg       len=%10ld get=%10ld free=%10ld\n", res->re_seglen, res->re_segget, res->re_segfree);
-	bu_log("partition len=%10ld get=%10ld free=%10ld\n", res->re_partlen, res->re_partget, res->re_partfree);
+	/* Phase 7: partition freelist counters removed; partitions are
+	 * now allocated/freed directly.  Seg pool stats are now in rt_i_internal. */
     }
 }
 

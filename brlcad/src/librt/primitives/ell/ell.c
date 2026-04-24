@@ -460,7 +460,7 @@ rt_ell_shot(struct soltab *stp, register struct xray *rp, struct application *ap
 	return 0;		/* No hit */
     root = sqrt(root);
 
-    RT_GET_SEG(segp, ap->a_resource);
+    RT_GET_SEG(segp, ap);
     segp->seg_stp = stp;
     if ((k1=(-dp+root)/dd) <= (k2=(-dp-root)/dd)) {
 	/* k1 is entry, k2 is exit */

@@ -264,7 +264,7 @@ rt_sph_shot(struct soltab *stp, register struct xray *rp, struct application *ap
     }
     root = sqrt(root);
 
-    RT_GET_SEG(segp, ap->a_resource);
+    RT_GET_SEG(segp, ap);
     segp->seg_stp = stp;
 
     /* we know root is positive, so we know the smaller t */

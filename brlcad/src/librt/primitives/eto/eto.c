@@ -560,7 +560,7 @@ rt_eto_shot(struct soltab *stp, struct xray *rp, struct application *ap, struct 
 
     /* Now, t[0] > t[npts-1] */
     /* k[1] is entry point, and k[0] is farthest exit point */
-    RT_GET_SEG(segp, ap->a_resource);
+    RT_GET_SEG(segp, ap);
     segp->seg_stp = stp;
     segp->seg_in.hit_dist = k[1];
     segp->seg_out.hit_dist = k[0];
@@ -576,7 +576,7 @@ rt_eto_shot(struct soltab *stp, struct xray *rp, struct application *ap, struct 
 
     /* 4 points */
     /* k[3] is entry point, and k[2] is exit point */
-    RT_GET_SEG(segp, ap->a_resource);
+    RT_GET_SEG(segp, ap);
     segp->seg_stp = stp;
     segp->seg_in.hit_dist = k[3];
     segp->seg_out.hit_dist = k[2];

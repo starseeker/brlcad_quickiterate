@@ -240,7 +240,7 @@ rt_cline_shot(struct soltab *stp, register struct xray *rp, struct application *
 
 	/* volume mode */
 
-	RT_GET_SEG(segp, ap->a_resource);
+	RT_GET_SEG(segp, ap);
 	segp->seg_stp = stp;
 	segp->seg_in.hit_dist = dist[0];
 	segp->seg_in.hit_surfno = 1;
@@ -295,7 +295,7 @@ rt_cline_shot(struct soltab *stp, register struct xray *rp, struct application *
     if (cline->thickness <= 0.0) {
 	/* volume mode */
 
-	RT_GET_SEG(segp, ap->a_resource);
+	RT_GET_SEG(segp, ap);
 	segp->seg_stp = stp;
 	segp->seg_in.hit_surfno = 2;
 	segp->seg_in.hit_dist = dist[1] - half_los;
@@ -314,7 +314,7 @@ rt_cline_shot(struct soltab *stp, register struct xray *rp, struct application *
     } else {
 	/* plate mode */
 
-	RT_GET_SEG(segp, ap->a_resource);
+	RT_GET_SEG(segp, ap);
 	segp->seg_stp = stp;
 	segp->seg_in.hit_surfno = 2;
 	segp->seg_in.hit_dist = dist[1] - half_los;
@@ -327,7 +327,7 @@ rt_cline_shot(struct soltab *stp, register struct xray *rp, struct application *
 	VMOVE(segp->seg_out.hit_vpriv, cline->h);
 	BU_LIST_INSERT(&(seghead->l), &(segp->l));
 
-	RT_GET_SEG(segp, ap->a_resource);
+	RT_GET_SEG(segp, ap);
 	segp->seg_stp = stp;
 	segp->seg_in.hit_surfno = 2;
 	segp->seg_in.hit_dist = dist[1] + half_los;

@@ -1747,7 +1747,7 @@ rt_pipe_shot(
     }
 
     for (i = 0 ; i < total_hits ; i += 2) {
-	RT_GET_SEG(segp, ap->a_resource);
+	RT_GET_SEG(segp, ap);
 
 	segp->seg_stp = stp;
 	segp->seg_in = hits[i];

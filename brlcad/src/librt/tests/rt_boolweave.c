@@ -37,10 +37,10 @@
 
 
 static struct seg*
-create_segment(double in_dist, double out_dist)
+create_segment(double in_dist, double out_dist, struct application *ap)
 {
     struct seg* segment;
-    RT_GET_SEG(segment, (&rt_uniresource));
+    RT_GET_SEG(segment, ap);
     segment->seg_in.hit_dist = in_dist;
     segment->seg_out.hit_dist = out_dist;
     return segment;
@@ -49,9 +49,9 @@ create_segment(double in_dist, double out_dist)
 
 
 static void
-free_segment(struct seg* segment)
+free_segment(struct seg* segment, struct application *ap)
 {
-    RT_FREE_SEG(segment, (&rt_uniresource))
+    RT_FREE_SEG(segment, ap);
 }
 
 
@@ -69,6 +69,7 @@ test_rt_boolweave(void)
     rtip = rt_dirbuild_inmem(NULL, 0, NULL, 0);
     ap.a_rt_i = rtip;
     ap.a_resource = &rt_uniresource;
+    rt_init_resource(&rt_uniresource, 0, rtip);
 
     BU_LIST_INIT(&in_hd.l);
     BU_LIST_INIT(&out_hd.l);
@@ -83,8 +84,8 @@ test_rt_boolweave(void)
      * seg2          |-------------------|
      *      0       10        20        30
      */
-    struct seg* seg1 = create_segment(0.0, 20.0);
-    struct seg* seg2 = create_segment(10.0, 30.0);
+    struct seg* seg1 = create_segment(0.0, 20.0, &ap);
+    struct seg* seg2 = create_segment(10.0, 30.0, &ap);
 
     BU_LIST_INSERT(&(in_hd.l), &(seg1->l));
     BU_LIST_INSERT(&(in_hd.l), &(seg2->l));
@@ -100,8 +101,8 @@ test_rt_boolweave(void)
     // Clean up
     BU_LIST_DEQUEUE(&seg1->l);
     BU_LIST_DEQUEUE(&seg2->l);
-    free_segment(seg1);
-    free_segment(seg2);
+    free_segment(seg1, &ap);
+    free_segment(seg2, &ap);
 }
 
 

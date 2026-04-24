@@ -74,6 +74,7 @@ rt_i_internal_create(void)
     struct rt_i_internal *i;
     BU_GET(i, struct rt_i_internal);
     memset(i, 0, sizeof(struct rt_i_internal));
+    i->rti_seg_pools = rt_seg_pool_map_create();
     return i;
 }
 
@@ -87,6 +88,8 @@ rt_i_internal_destroy(struct rt_i_internal *i)
 {
     if (!i)
 	return;
+    rt_seg_pool_map_destroy(i->rti_seg_pools);
+    i->rti_seg_pools = NULL;
     BU_PUT(i, struct rt_i_internal);
 }
 
@@ -909,30 +912,25 @@ rt_init_resource(struct resource *resp, int cpu_num, struct rt_i *rtip)
 	}
     }
 
-    /* point to the random number table so we can draw.  set to
-     * MAX_PSW*cpu_num just to keep each core a good distance away
-     * from each other, but that's not a really great reason.
-     * Note: re_randptr was removed in Phase 4; callers should
+    /* Note: re_randptr was removed in Phase 4; callers should
      * initialize a_randptr on their struct application instead.
+     * Note: re_parthead removed in Phase 7; partitions are now
+     * allocated/freed directly.
+     * Note: re_seg/re_seg_blocks removed in Phase 7B; the segment
+     * freelist now lives in rt_i_internal::rti_seg_pools (seg_pool.cpp).
      */
-
-    if (!BU_LIST_IS_INITIALIZED(&resp->re_seg))
-	BU_LIST_INIT(&resp->re_seg);
-
-    if (!BU_LIST_IS_INITIALIZED(&resp->re_seg_blocks.l))
-	bu_ptbl_init(&resp->re_seg_blocks, 64, "re_seg_blocks ptbl");
 
     if (!BU_LIST_IS_INITIALIZED(&resp->re_directory_blocks.l))
 	bu_ptbl_init(&resp->re_directory_blocks, 64, "re_directory_blocks ptbl");
-
-    if (!BU_LIST_IS_INITIALIZED(&resp->re_parthead))
-	BU_LIST_INIT(&resp->re_parthead);
 
     resp->re_cpu = cpu_num;
     resp->re_magic = RESOURCE_MAGIC;
 
     if (rtip == NULL)
 	return;	/* only in rt_uniresource case */
+
+    /* Pre-warm the per-cpu seg pool for this cpu on the rt_i. */
+    rt_seg_pool_init_cpu(rtip, cpu_num);
 
     /* Ensure that this CPU's resource structure is registered in rt_i */
     /* It may already be there when we're called from rt_clean_resource */
@@ -964,35 +962,16 @@ rt_clean_resource_basic(struct rt_i *rtip, struct resource *resp)
 
     RT_CK_RESOURCE(resp);
 
-    /* The 'struct seg' guys are malloc()ed in blocks, not
-     * individually, so they're kept track of two different ways.
+    /* Phase 7B: 'struct seg' slab pools are now owned by rt_i_internal
+     * (seg_pool.cpp).  Nothing to drain here; the per-resource seg fields
+     * were removed entirely.
      */
-    BU_LIST_INIT(&resp->re_seg);	/* abandon the list of individuals */
-    if (BU_LIST_IS_INITIALIZED(&resp->re_seg_blocks.l)) {
-	struct seg **spp;
-	BU_CK_PTBL(&resp->re_seg_blocks);
-	for (BU_PTBL_FOR(spp, (struct seg **), &resp->re_seg_blocks)) {
-	    RT_CK_SEG(*spp);	/* Head of block will be a valid seg */
-	    bu_free((void *)(*spp), "struct seg block");
-	}
-	bu_ptbl_free(&resp->re_seg_blocks);
-	resp->re_seg_blocks.l.forw = BU_LIST_NULL;
-    }
 
     /* The "struct hitmiss' guys are individually malloc()ed, and are now
      * freed directly by NMG_FREE_HITLIST (Phase 5); no freelist here. */
 
-    /* The 'struct partition' guys are individually malloc()ed */
-    if (BU_LIST_IS_INITIALIZED(&resp->re_parthead)) {
-	struct partition *pp;
-	while (BU_LIST_WHILE(pp, partition, &resp->re_parthead)) {
-	    RT_CK_PT(pp);
-	    BU_LIST_DEQUEUE((struct bu_list *)pp);
-	    bu_ptbl_free(&pp->pt_seglist);
-	    bu_free((void *)pp, "struct partition");
-	}
-	resp->re_parthead.forw = BU_LIST_NULL;
-    }
+    /* Phase 7: 'struct partition' guys are now individually malloc()ed and
+     * freed directly via FREE_PT; no per-resource freelist to drain here. */
 
     /* Release the state variables for 'solid pieces' (Phase 6:
      * pieces are now owned by struct application via a_pieces;

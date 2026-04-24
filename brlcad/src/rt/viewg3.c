@@ -711,6 +711,9 @@ void view_cleanup(struct rt_i *UNUSED(rtip)) {}
 void
 part_compact(register struct application *ap, register struct partition *PartHeadp, fastf_t tolerance)
 {
+    /* Phase 7: FREE_PT no longer uses the resource argument; suppress
+     * the resulting "unused parameter" diagnostic. */
+    (void)ap;
 
     fastf_t gap;
     struct partition *pp;

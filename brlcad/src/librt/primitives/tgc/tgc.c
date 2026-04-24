@@ -996,7 +996,7 @@ rt_tgc_shot(struct soltab *stp, register struct xray *rp, struct application *ap
 
     intersect = 0;
     for (i=npts-1; i>0; i -= 2) {
-	RT_GET_SEG(segp, ap->a_resource);
+	RT_GET_SEG(segp, ap);
 	segp->seg_stp = stp;
 
 	segp->seg_in.hit_dist = k[i] * t_scale;

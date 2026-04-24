@@ -1204,7 +1204,7 @@ add_seg(struct isect_stuff *isect,
     }
 
 
-    RT_GET_SEG(seg, isect->ap->a_resource);
+    RT_GET_SEG(seg, isect->ap);
 
     seg->seg_in.hit_dist    = in_hit->hit_dist;
     seg->seg_out.hit_dist   = out_hit->hit_dist;

@@ -613,7 +613,7 @@ rt_hrt_shot(struct soltab *stp, register struct xray *rp, struct application *ap
 
     /* Now, t[0] > t[npts-1] */
     /* real[1] is entry point, and real[0] is farthest exit point */
-    RT_GET_SEG(segp, ap->a_resource);
+    RT_GET_SEG(segp, ap);
     segp->seg_stp = stp;
     segp->seg_in.hit_dist = real[1];
     segp->seg_out.hit_dist = real[0];
@@ -628,7 +628,7 @@ rt_hrt_shot(struct soltab *stp, register struct xray *rp, struct application *ap
 
     /* 4 points */
     /* real[3] is entry point, and real[2] is exit point */
-    RT_GET_SEG(segp, ap->a_resource);
+    RT_GET_SEG(segp, ap);
     segp->seg_stp = stp;
     segp->seg_in.hit_dist = real[3];
     segp->seg_out.hit_dist = real[2];
@@ -643,7 +643,7 @@ rt_hrt_shot(struct soltab *stp, register struct xray *rp, struct application *ap
 
     /* 6 points */
     /* real[5] is entry point, and real[4] is exit point */
-    RT_GET_SEG(segp, ap->a_resource);
+    RT_GET_SEG(segp, ap);
     segp->seg_stp = stp;
     segp->seg_in.hit_dist = real[5];
     segp->seg_out.hit_dist = real[4];

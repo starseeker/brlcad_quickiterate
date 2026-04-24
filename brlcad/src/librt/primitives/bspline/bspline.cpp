@@ -395,7 +395,7 @@ rt_nurb_shot(struct soltab *stp, struct xray *rp, struct application *ap, struct
     while (hit_list.next != NULL_HIT) {
 	struct nurb_hit * h1, * h2;
 
-	RT_GET_SEG(segp, ap->a_resource);
+	RT_GET_SEG(segp, ap);
 
 	h1 = (struct nurb_hit *) rt_return_nurb_hit(&hit_list);
 	h2 = (struct nurb_hit *) rt_return_nurb_hit(&hit_list);

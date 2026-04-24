@@ -68,7 +68,7 @@ vshot_stub(struct soltab **stp, struct xray **rp, struct seg *segp, int n, struc
 		tmp_seg = BU_LIST_FIRST(seg, &(seghead.l));
 		BU_LIST_DEQUEUE(&(tmp_seg->l));
 		segp[i] = *tmp_seg; /* structure copy */
-		RT_FREE_SEG(tmp_seg, ap->a_resource);
+		RT_FREE_SEG(tmp_seg, ap);
 	    }
 	}
     }
@@ -255,7 +255,7 @@ rt_vshootray(struct application *ap)
 
 	    /* For now, do it the slow way.  sb [ray] */
 	    /* MUST dup it -- all segs have to live till after a_hit() */
-	    RT_GET_SEG(seg2, ap->a_resource);
+	    RT_GET_SEG(seg2, ap);
 	    *seg2 = ary_seg[i];	/* struct copy */
 	    /* rt_boolweave(seg2, &InitialPart, ap); */
 	    bu_bomb("FIXME: need to call boolweave here");

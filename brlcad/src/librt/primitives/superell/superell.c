@@ -564,7 +564,7 @@ rt_superell_shot(struct soltab *stp, struct xray *rp, struct application *ap, st
 
     /* Now, t[0] > t[npts-1] */
     /* realRoot[1] is entry point, and realRoot[0] is farthest exit point */
-    RT_GET_SEG(segp, ap->a_resource);
+    RT_GET_SEG(segp, ap);
     segp->seg_stp = stp;
     segp->seg_in.hit_dist = realRoot[1];
     segp->seg_out.hit_dist = realRoot[0];
@@ -580,7 +580,7 @@ rt_superell_shot(struct soltab *stp, struct xray *rp, struct application *ap, st
 
     /* 4 points */
     /* realRoot[3] is entry point, and realRoot[2] is exit point */
-    RT_GET_SEG(segp, ap->a_resource);
+    RT_GET_SEG(segp, ap);
     segp->seg_stp = stp;
     segp->seg_in.hit_dist = realRoot[3]*superell->superell_e;
     segp->seg_out.hit_dist = realRoot[2]*superell->superell_e;

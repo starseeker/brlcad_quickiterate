@@ -1115,7 +1115,7 @@ rt_bot_plate_segs(struct hit *hits,
 	if (LIKELY(bot->bot_facemode != NULL) && BU_BITTEST(bot->bot_facemode, hits[i].hit_surfno)) {
 
 	    /* append thickness to hit point */
-	    RT_GET_SEG(segp, ap->a_resource);
+	    RT_GET_SEG(segp, ap);
 	    segp->seg_stp = stp;
 
 	    /* set in hit */
@@ -1133,7 +1133,7 @@ rt_bot_plate_segs(struct hit *hits,
 	    BU_LIST_INSERT(&(seghead->l), &(segp->l));
 	} else {
 	    /* center thickness about hit point */
-	    RT_GET_SEG(segp, ap->a_resource);
+	    RT_GET_SEG(segp, ap);
 	    segp->seg_stp = stp;
 
 	    /* set in hit */
@@ -1174,7 +1174,7 @@ rt_bot_surface_segs(struct hit *hits, size_t nhits, struct soltab *stp, struct a
     for (i = 0; i < snhits; i++) {
 	triangle_s *trip=(triangle_s *)hits[i].hit_private;
 
-	RT_GET_SEG(segp, ap->a_resource);
+	RT_GET_SEG(segp, ap);
 	segp->seg_stp = stp;
 
 	/* set in hit */
@@ -1215,7 +1215,7 @@ rt_bot_unoriented_segs(struct hit *hits,
 	triangle_s *trip = (triangle_s *)hits[0].hit_private;
 
 	/* make a zero length partition */
-	RT_GET_SEG(segp, ap->a_resource);
+	RT_GET_SEG(segp, ap);
 	segp->seg_stp = stp;
 
 	/* set in hit */
@@ -1267,7 +1267,7 @@ rt_bot_unoriented_segs(struct hit *hits,
     for (i = 0; i < (nhits&~1); i += 2) {
 	triangle_s *trip = (triangle_s *)hits[i].hit_private;
 
-	RT_GET_SEG(segp, ap->a_resource);
+	RT_GET_SEG(segp, ap);
 	segp->seg_stp = stp;
 
 	/* set in hit */
@@ -1663,7 +1663,7 @@ rt_bot_oriented_segs(hit_da *hits_da, struct soltab *stp, struct application *ap
     for (i = 0; i < snhits; i += 2) {
 	triangle_s *trip;
 
-	RT_GET_SEG(segp, ap->a_resource);
+	RT_GET_SEG(segp, ap);
 	segp->seg_stp = stp;
 	segp->seg_in = hits[i];	/* struct copy */
 	trip = (triangle_s *)hits[i].hit_private;

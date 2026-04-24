@@ -1170,7 +1170,7 @@ rt_extrude_shot(struct soltab *stp, struct xray *rp, struct application *ap, str
 	    hits[1].hit_surfno = -top_face;
 	    VMOVE(hits[1].hit_normal, extr->pl1);
 
-	    RT_GET_SEG(segp, ap->a_resource);
+	    RT_GET_SEG(segp, ap);
 	    segp->seg_stp = stp;
 	    segp->seg_in = hits[0];	/* struct copy */
 	    segp->seg_out = hits[1];	/* struct copy */
@@ -1234,7 +1234,7 @@ rt_extrude_shot(struct soltab *stp, struct xray *rp, struct application *ap, str
 	struct seg *segp;
 
 	for (cnt = 0; cnt < hit_count; cnt += 2) {
-	    RT_GET_SEG(segp, ap->a_resource);
+	    RT_GET_SEG(segp, ap);
 	    segp->seg_stp = stp;
 	    segp->seg_in = hits[cnt];	/* struct copy */
 	    segp->seg_out = hits[cnt+1];	/* struct copy */
