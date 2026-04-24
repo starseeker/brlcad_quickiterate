@@ -35,8 +35,19 @@
 #include "vmath.h"
 #include "bu/app.h"
 #include "bu/log.h"
+#include "bu/malloc.h"
 #include "bv/util.h"
 #include "bv/defines.h"
+
+/* compare two 4x4 matrices element-by-element */
+static int
+mat_near_equal(const mat_t a, const mat_t b)
+{
+    for (int i = 0; i < 16; i++)
+	if (fabs(a[i] - b[i]) > 1e-9)
+	    return 0;
+    return 1;
+}
 
 static int g_fail = 0;
 
@@ -206,7 +217,7 @@ test_rotation(void)
     MAT_IDN(rot_in);
     bv_view_set_rotation(v, rot_in);
     bv_view_get_rotation(v, rot_out);
-    BVCHECK(MAT_ARE_EQUAL(rot_in, rot_out),
+    BVCHECK(mat_near_equal(rot_in, rot_out),
 	    "set_rotation(idn) -> get_rotation == identity");
 
     /* NULL guard */
@@ -214,7 +225,7 @@ test_rotation(void)
     MAT_ZERO(dummy);
     bv_view_set_rotation(NULL, rot_in);   /* no crash */
     bv_view_get_rotation(NULL, dummy);    /* no crash, should give identity */
-    BVCHECK(MAT_ARE_EQUAL(dummy, rot_in), /* identity was written */
+    BVCHECK(mat_near_equal(dummy, rot_in), /* identity was written */
 	    "get_rotation(NULL) fills identity");
 
     free_view(v);

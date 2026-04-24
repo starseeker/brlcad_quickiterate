@@ -632,22 +632,13 @@ test_pipeline(const char *moss_g_path)
 /*                                                                     */
 /* Strategy:                                                           */
 /*   a) Create a DbiState and let the pipeline settle.                 */
-/*   b) Identify a solid that has no color attribute in moss.g         */
-/*      ("platform.r/box.r/box.s" is a plain CSG box with no color).  */
-/*   c) Look up its hash and check whether a color entry exists in the */
-/*      dcache.  It must NOT exist (or must equal the INT_MAX sentinel  */
-/*      stored by digest_path, not UINT_MAX from the old bug).         */
+/*   b) Identify a solid that has no color attribute in moss.g.        */
+/*   c) Call path_color() for that solid's hash.  If the UINT_MAX bug  */
+/*      is present the returned color will be white (255,255,255),     */
+/*      because the bug-encoded UINT_MAX != INT_MAX sentinel causes it  */
+/*      to be treated as a valid packed-RGB in digest_path.            */
+/*   d) Verify path_color() does NOT return white.                     */
 /* ------------------------------------------------------------------ */
-
-/* Forward-declare cache key builder from dbi_state.cpp internals.
- * We reproduce the same string format used by dp_make_key so we can
- * probe the cache directly.                                            */
-static void
-make_dbi_key(char *buf, size_t bufsz, unsigned long long hash, const char *component)
-{
-    snprintf(buf, bufsz, "%llu:%s", hash, component);
-}
-
 static int
 test_color_sentinel(const char *moss_g_path)
 {
@@ -667,6 +658,10 @@ test_color_sentinel(const char *moss_g_path)
     /* Wait for the pipeline to settle so all cache writes are committed. */
     (void)dbis->wait_for_pipeline(10000);
 
+    /* Force digest_path to populate the in-memory rgb / c_inherit maps
+     * by calling update() which triggers a full digest pass. */
+    dbis->update();
+
     /* Pick a primitive that carries no color attribute.  In moss.g the
      * solid "box.s" is a plain ARB8; it has no color of its own. */
     const char *colorless_name = "box.s";
@@ -680,58 +675,66 @@ test_color_sentinel(const char *moss_g_path)
 	return 0;  /* inconclusive, not a failure */
     }
 
-    unsigned long long hash =
-	bu_data_hash(dp->d_namep, strlen(dp->d_namep) * sizeof(char));
-
     /* Verify the object has no color attribute on disk */
     struct bu_attribute_value_set avs = BU_AVS_INIT_ZERO;
+    bool is_colorless = true;
     if (db5_get_attributes(gedp->dbip, &avs, dp) == 0) {
 	const char *cval = bu_avs_get(&avs, "color");
 	if (!cval) cval = bu_avs_get(&avs, "rgb");
 	if (cval) {
 	    bu_log("  NOTE: '%s' has a color attribute ('%s') — "
-		   "choosing a different solid for the test\n",
+		   "test is inconclusive for this solid\n",
 		   colorless_name, cval);
-	    bu_avs_free(&avs);
-	    /* Not a failure; the sentinel test is inconclusive for colored objects */
-	    delete (DbiState *)gedp->dbi_state;
-	    gedp->dbi_state = NULL;
-	    ged_close(gedp);
-	    return 0;
+	    is_colorless = false;
 	}
 	bu_avs_free(&avs);
     }
 
-    /* Now probe the cache.  The CACHE_COLOR key must either be absent or
-     * hold the digest_path INT_MAX sentinel (0x7FFFFFFF), never UINT_MAX
-     * (0xFFFFFFFF) which would be the pre-fix bug value. */
-    char color_key[256];
-    make_dbi_key(color_key, sizeof(color_key), hash, "c");
+    if (!is_colorless) {
+	delete (DbiState *)gedp->dbi_state;
+	gedp->dbi_state = NULL;
+	ged_close(gedp);
+	return 0;
+    }
 
-    void *data = NULL;
-    struct bu_cache_txn *txn = NULL;
-    size_t got = bu_cache_get(&data, color_key, dbis->dcache, &txn);
+    /* Build a single-element path for box.s and ask for its color.
+     * With the UINT_MAX bug the DbiState::rgb map gets an entry for
+     * this solid with the value 0xFFFFFFFF, so path_color() returns
+     * true with nearly-white.  With the fix, no entry is in rgb and
+     * path_color returns false (or a default, never pure white). */
+    unsigned long long hash =
+	bu_data_hash(dp->d_namep, strlen(dp->d_namep) * sizeof(char));
 
-    if (got == 0 || data == NULL) {
-	/* No color entry — this is the correct behavior for a colorless solid */
-	bu_log("  PASS: no color cache entry for colorless solid '%s'\n",
-	       colorless_name);
-    } else {
-	/* An entry exists — verify it is NOT UINT_MAX (the old bug value) */
-	unsigned int cached_color = 0;
-	if (got >= sizeof(unsigned int))
-	    memcpy(&cached_color, data, sizeof(unsigned int));
+    std::vector<unsigned long long> path_elems;
+    path_elems.push_back(hash);
 
-	if (cached_color == 0xFFFFFFFFU) {
-	    bu_log("FAIL: color cache entry for '%s' is UINT_MAX (0xFFFFFFFF) — "
-		   "near-black sentinel bug NOT fixed\n", colorless_name);
+    struct bu_color color;
+    bool has_color = dbis->path_color(&color, path_elems);
+
+    if (has_color) {
+	/* A color was returned — check it is NOT UINT_MAX-derived white */
+	unsigned char r = 0, g = 0, b = 0;
+	int ri, gi, bi;
+	bu_color_to_rgb_ints(&color, &ri, &gi, &bi);
+	r = (unsigned char)ri;
+	g = (unsigned char)gi;
+	b = (unsigned char)bi;
+	if (r == 255 && g == 255 && b == 255) {
+	    /* This is the exact symptom of the pre-fix UINT_MAX bug */
+	    bu_log("FAIL: path_color for colorless '%s' returned white "
+		   "(255,255,255) — UINT_MAX sentinel bug NOT fixed\n",
+		   colorless_name);
 	    failures++;
 	} else {
-	    bu_log("  NOTE: color cache entry for '%s' = 0x%08X (not UINT_MAX sentinel)\n",
-		   colorless_name, cached_color);
-	    bu_log("  PASS: color sentinel check\n");
+	    bu_log("  NOTE: path_color returned (%d,%d,%d) for '%s' "
+		   "(not UINT_MAX-derived white — from material table or inherit chain)\n",
+		   (int)r, (int)g, (int)b, colorless_name);
+	    bu_log("  PASS: color sentinel not triggered\n");
 	}
-	bu_cache_get_done(&txn);
+    } else {
+	/* No color — the sentinel is working correctly */
+	bu_log("  PASS: path_color returns false for colorless solid '%s'\n",
+	       colorless_name);
     }
 
     delete (DbiState *)gedp->dbi_state;

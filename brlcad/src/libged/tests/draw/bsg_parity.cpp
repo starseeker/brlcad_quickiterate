@@ -43,6 +43,7 @@
 #include <unordered_set>
 
 #include <bu.h>
+#include "bu/opt.h"
 #include <icv.h>
 #define DM_WITH_RT
 #include <dm.h>
@@ -113,11 +114,19 @@ main(int ac, char *av[])
 {
     bu_setprogname(av[0]);
 
-    if (ac != 2) {
-	bu_exit(EXIT_FAILURE, "Usage: %s <directory-containing-moss.g>\n", av[0]);
+    int soft_fail = 0;
+    struct bu_opt_desc d[2];
+    BU_OPT(d[0], "c", "continue", "", NULL, &soft_fail, "Continue on failure.");
+    BU_OPT_NULL(d[1]);
+
+    int uac = bu_opt_parse(NULL, ac, (const char **)av, d);
+    if (uac != 2) {
+	bu_exit(EXIT_FAILURE,
+		"Usage: %s [-c] <directory-containing-moss.g>\n", av[0]);
     }
-    if (!bu_file_directory(av[1])) {
-	bu_exit(EXIT_FAILURE, "ERROR: [%s] is not a directory\n", av[1]);
+    const char *datadir = av[1];
+    if (!bu_file_directory(datadir)) {
+	bu_exit(EXIT_FAILURE, "ERROR: [%s] is not a directory\n", datadir);
     }
 
     /* Private cache so tests are hermetic */
@@ -130,7 +139,7 @@ main(int ac, char *av[])
 
     /* Copy moss.g to a temp file */
     struct bu_vls fname = BU_VLS_INIT_ZERO;
-    bu_vls_sprintf(&fname, "%s/moss.g", av[1]);
+    bu_vls_sprintf(&fname, "%s/moss.g", datadir);
     std::ifstream orig(bu_vls_cstr(&fname), std::ios::binary);
     std::ofstream tmpg("moss_bsg_parity_tmp.g", std::ios::binary);
     tmpg << orig.rdbuf();
@@ -217,10 +226,10 @@ main(int ac, char *av[])
     }
 
     /* Cleanup */
-    bu_unlink("bsg_parity_A.png");
-    bu_unlink("bsg_parity_B.png");
-    bu_unlink("bsg_parity_C.png");
-    bu_unlink("moss_bsg_parity_tmp.g");
+    bu_file_delete("bsg_parity_A.png");
+    bu_file_delete("bsg_parity_B.png");
+    bu_file_delete("bsg_parity_C.png");
+    bu_file_delete("moss_bsg_parity_tmp.g");
     bu_dirclear(lcache);
 
     ged_close(gedp);

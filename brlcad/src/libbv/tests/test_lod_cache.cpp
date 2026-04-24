@@ -178,7 +178,7 @@ test_cache_create_lod(void)
 	LODCHECK(lod != NULL, "bv_mesh_lod_create returns non-NULL for cached key");
 
 	if (lod) {
-	    bv_mesh_lod_free(lod);
+	    bv_mesh_lod_destroy(lod);
 	    bu_log("  PASS: cache + create + free cycle\n");
 	}
     }
@@ -220,7 +220,7 @@ test_format_invalidation(void)
 	bu_dir(fmt_path, MAXPATHLEN, BU_DIR_CACHE, ".POPLoD", "format", NULL);
 	FILE *fp = fopen(fmt_path, "w");
 	if (fp) {
-	    fprintf(fp, "0\n");   /* version 0 — forces invalidation */
+	    fprintf(fp, "1\n");   /* version 1 — older than current, forces invalidation */
 	    fclose(fp);
 	    bu_log("  Corrupted format file at %s\n", fmt_path);
 	} else {
