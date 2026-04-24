@@ -327,7 +327,7 @@ rt_arbn_shot(struct soltab *stp, struct xray *rp, struct application *ap, struct
     {
 	struct seg *segp;
 
-	RT_GET_SEG(segp, ap->a_resource);
+	RT_GET_SEG(segp, ap);
 	segp->seg_stp = stp;
 	segp->seg_in.hit_dist = in;
 	segp->seg_in.hit_surfno = iplane;

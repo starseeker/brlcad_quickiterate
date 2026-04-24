@@ -585,7 +585,7 @@ set_inpoint(struct seg **seg_p, struct hitmiss *a_hit, struct soltab *stp, struc
 
     /* if we don't have a seg struct yet, get one */
     if (*seg_p == (struct seg *)NULL) {
-	RT_GET_SEG(*seg_p, ap->a_resource);
+	RT_GET_SEG(*seg_p, ap);
 	(*seg_p)->seg_stp = stp;
     }
 

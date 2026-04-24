@@ -294,12 +294,12 @@ rt_seg_planeclip(struct seg *out_hd, struct seg *in_hd, vect_t out_norm, fastf_t
 	if (RT_G_DEBUG&RT_DEBUG_EBM)bu_log(" rt_seg_planeclip seg(%g, %g)\n", curr->seg_in.hit_dist, curr->seg_out.hit_dist);
 	if (curr->seg_out.hit_dist <= kmin) {
 	    if (RT_G_DEBUG&RT_DEBUG_EBM)bu_log("seg_out %g <= kmin %g, freeing\n", curr->seg_out.hit_dist, kmin);
-	    RT_FREE_SEG(curr, ap->a_resource);
+	    RT_FREE_SEG(curr, ap);
 	    continue;
 	}
 	if (curr->seg_in.hit_dist >= kmax) {
 	    if (RT_G_DEBUG&RT_DEBUG_EBM)bu_log("seg_in  %g >= kmax %g, freeing\n", curr->seg_in.hit_dist, kmax);
-	    RT_FREE_SEG(curr, ap->a_resource);
+	    RT_FREE_SEG(curr, ap);
 	    continue;
 	}
 	if (curr->seg_in.hit_dist <= kmin) {
@@ -381,7 +381,7 @@ rt_ebm_dda(register struct xray *rp, struct soltab *stp, struct application *ap,
 	if (RT_G_DEBUG&RT_DEBUG_EBM)bu_log("ray on local Z axis\n");
 	if (*bit(&ebmp->ebm_i, igrid[X], igrid[Y]) == 0)
 	    return 0;	/* MISS */
-	RT_GET_SEG(segp, ap->a_resource);
+	RT_GET_SEG(segp, ap);
 	segp->seg_stp = stp;
 	segp->seg_in.hit_dist = 0;
 	segp->seg_out.hit_dist = INFINITY;
@@ -492,7 +492,7 @@ rt_ebm_dda(register struct xray *rp, struct soltab *stp, struct application *ap,
 		/* Start of segment (entering a full voxel) */
 		inside = 1;
 
-		RT_GET_SEG(segp, ap->a_resource);
+		RT_GET_SEG(segp, ap);
 		segp->seg_stp = stp;
 		segp->seg_in.hit_dist = t0;
 

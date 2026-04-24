@@ -493,7 +493,7 @@ check_plates:
 	/* entry is [0], exit is [1] */
 	struct seg *segp;
 
-	RT_GET_SEG(segp, ap->a_resource);
+	RT_GET_SEG(segp, ap);
 	segp->seg_stp = stp;
 	segp->seg_in = hits[0];		/* struct copy */
 	segp->seg_out = hits[1];	/* struct copy */
@@ -502,7 +502,7 @@ check_plates:
 	/* entry is [1], exit is [0] */
 	struct seg *segp;
 
-	RT_GET_SEG(segp, ap->a_resource);
+	RT_GET_SEG(segp, ap);
 	segp->seg_stp = stp;
 	segp->seg_in = hits[1];		/* struct copy */
 	segp->seg_out = hits[0];	/* struct copy */

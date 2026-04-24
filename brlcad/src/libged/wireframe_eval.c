@@ -75,11 +75,11 @@ union E_tree *build_etree(union tree *tp, struct bigE_data *dgcdp);
 
 #define NOT_SEG_OVERLAP(_a, _b)	((_a->seg_out.hit_dist <= _b->seg_in.hit_dist) || (_b->seg_out.hit_dist <= _a->seg_in.hit_dist))
 
-#define BIGE_FREE_SEG_LIST(_segheadp, _res) do { \
+#define BIGE_FREE_SEG_LIST(_segheadp, _ap) do { \
 	struct seg *_a; \
 	while (BU_LIST_WHILE (_a, seg, (_segheadp))) { \
 	    BU_LIST_DEQUEUE(&(_a->l)); \
-	    RT_FREE_SEG(_a, _res); \
+	    RT_FREE_SEG(_a, _ap); \
 	} } while (0)
 
 /* stolen from g_half.c */
@@ -336,7 +336,7 @@ eliminate_overlaps(struct bu_list *seghead,
 		    a->seg_out.hit_dist = b->seg_out.hit_dist;
 
 		BU_LIST_DEQUEUE(&b->l);
-		RT_FREE_SEG(b, dgcdp->ap->a_resource);
+		RT_FREE_SEG(b, dgcdp->ap);
 		b = nextb;
 		continue;
 	    }
@@ -364,7 +364,7 @@ do_intersect(struct seg *A,
     if (NOT_SEG_OVERLAP(A, B))
 	return;
 
-    RT_GET_SEG(tmp, dgcdp->ap->a_resource);
+    RT_GET_SEG(tmp, dgcdp->ap);
     if (A->seg_in.hit_dist <= B->seg_in.hit_dist) {
 	if (B->seg_out.hit_dist <= A->seg_out.hit_dist) {
 	    *tmp = *B;
@@ -404,7 +404,7 @@ do_subtract(struct seg *A,
     struct seg *tmp=(struct seg *)NULL;
 
     if (NOT_SEG_OVERLAP(A, B)) {
-	RT_GET_SEG(tmp, dgcdp->ap->a_resource);
+	RT_GET_SEG(tmp, dgcdp->ap);
 	*tmp = *A;
 	BU_LIST_INSERT(seghead, &tmp->l);
 	return;
@@ -412,7 +412,7 @@ do_subtract(struct seg *A,
 
     if (B->seg_in.hit_dist<= A->seg_in.hit_dist) {
 	if (B->seg_out.hit_dist < A->seg_out.hit_dist) {
-	    RT_GET_SEG(tmp, dgcdp->ap->a_resource);
+	    RT_GET_SEG(tmp, dgcdp->ap);
 	    *tmp = *A;
 	    tmp->seg_in.hit_dist = B->seg_out.hit_dist;
 	    BU_LIST_INSERT(seghead, &tmp->l);
@@ -422,18 +422,18 @@ do_subtract(struct seg *A,
 	}
     } else {
 	if (B->seg_out.hit_dist >= A->seg_out.hit_dist) {
-	    RT_GET_SEG(tmp, dgcdp->ap->a_resource);
+	    RT_GET_SEG(tmp, dgcdp->ap);
 	    *tmp = *A;
 	    tmp->seg_out.hit_dist = B->seg_in.hit_dist;
 	    BU_LIST_INSERT(seghead, &tmp->l);
 	    return;
 	} else {
-	    RT_GET_SEG(tmp, dgcdp->ap->a_resource);
+	    RT_GET_SEG(tmp, dgcdp->ap);
 	    tmp->seg_in.hit_dist = A->seg_in.hit_dist;
 	    tmp->seg_out.hit_dist = B->seg_in.hit_dist;
 	    tmp->seg_stp = A->seg_stp;
 	    BU_LIST_INSERT(seghead, &tmp->l);
-	    RT_GET_SEG(tmp, dgcdp->ap->a_resource);
+	    RT_GET_SEG(tmp, dgcdp->ap);
 	    tmp->seg_in.hit_dist = B->seg_out.hit_dist;
 	    tmp->seg_out.hit_dist = A->seg_out.hit_dist;
 	    tmp->seg_stp = A->seg_stp;
@@ -467,7 +467,7 @@ promote_ints(struct bu_list *head,
 		    tmp = b;
 		    b = BU_LIST_PNEXT(seg, &b->l);
 		    BU_LIST_DEQUEUE(&tmp->l);
-		    RT_FREE_SEG(tmp, dgcdp->ap->a_resource);
+		    RT_FREE_SEG(tmp, dgcdp->ap);
 		    continue;
 		}
 
@@ -480,7 +480,7 @@ promote_ints(struct bu_list *head,
 			tmp = a;
 			a  = BU_LIST_PLAST(seg, &a->l);
 			BU_LIST_DEQUEUE(&tmp->l);
-			RT_FREE_SEG(tmp, dgcdp->ap->a_resource);
+			RT_FREE_SEG(tmp, dgcdp->ap);
 			break;
 		    }
 		} else if (ZERO(a->seg_in.hit_dist - b->seg_in.hit_dist)) {
@@ -493,7 +493,7 @@ promote_ints(struct bu_list *head,
 		    a->seg_stp = ON_SURF;
 		    b->seg_stp = ON_INT;
 		} else {
-		    RT_GET_SEG(tmp, dgcdp->ap->a_resource);
+		    RT_GET_SEG(tmp, dgcdp->ap);
 		    *tmp = *a;
 		    tmp->seg_in.hit_dist = b->seg_out.hit_dist;
 		    a->seg_out.hit_dist = b->seg_in.hit_dist;
@@ -512,7 +512,7 @@ promote_ints(struct bu_list *head,
 		    tmp = a;
 		    a = BU_LIST_PLAST(seg, &a->l);
 		    BU_LIST_DEQUEUE(&tmp->l);
-		    RT_FREE_SEG(tmp, dgcdp->ap->a_resource);
+		    RT_FREE_SEG(tmp, dgcdp->ap);
 		    break;
 		}
 
@@ -520,7 +520,7 @@ promote_ints(struct bu_list *head,
 		    tmp = b;
 		    b = BU_LIST_PNEXT(seg, &b->l);
 		    BU_LIST_DEQUEUE(&tmp->l);
-		    RT_FREE_SEG(tmp, dgcdp->ap->a_resource);
+		    RT_FREE_SEG(tmp, dgcdp->ap);
 		} else if (b->seg_out.hit_dist < a->seg_out.hit_dist) {
 		    if (a->seg_in.hit_dist > b->seg_in.hit_dist)
 			b->seg_out.hit_dist = a->seg_in.hit_dist;
@@ -528,13 +528,13 @@ promote_ints(struct bu_list *head,
 			tmp = b;
 			b = BU_LIST_PNEXT(seg, &b->l);
 			BU_LIST_DEQUEUE(&tmp->l);
-			RT_FREE_SEG(tmp, dgcdp->ap->a_resource);
+			RT_FREE_SEG(tmp, dgcdp->ap);
 			continue;
 		    }
 		} else if (ZERO(b->seg_in.hit_dist - a->seg_in.hit_dist)) {
 		    b->seg_in.hit_dist = a->seg_out.hit_dist;
 		} else {
-		    RT_GET_SEG(tmp, dgcdp->ap->a_resource);
+		    RT_GET_SEG(tmp, dgcdp->ap);
 		    *tmp = *b;
 		    tmp->seg_in.hit_dist = a->seg_out.hit_dist;
 		    b->seg_out.hit_dist = a->seg_in.hit_dist;
@@ -557,7 +557,7 @@ promote_ints(struct bu_list *head,
 	    {
 		a->seg_stp = ON_SURF;
 		BU_LIST_DEQUEUE(&b->l);
-		RT_FREE_SEG(b, dgcdp->ap->a_resource);
+		RT_FREE_SEG(b, dgcdp->ap);
 		break;
 	    }
 
@@ -566,7 +566,7 @@ promote_ints(struct bu_list *head,
 		a->seg_out.hit_dist = b->seg_in.hit_dist;
 	    } else if (a->seg_out.hit_dist < b->seg_out.hit_dist) {
 		if (b->seg_in.hit_dist > a->seg_in.hit_dist) {
-		    RT_GET_SEG(tmp, dgcdp->ap->a_resource);
+		    RT_GET_SEG(tmp, dgcdp->ap);
 		    tmp->seg_stp = ON_SURF;
 		    tmp->seg_in.hit_dist = b->seg_in.hit_dist;
 		    tmp->seg_out.hit_dist = a->seg_out.hit_dist;
@@ -587,7 +587,7 @@ promote_ints(struct bu_list *head,
 		    b->seg_in.hit_dist = a->seg_out.hit_dist;
 		    b->seg_out.hit_dist = tmp_dist;
 		} else {
-		    RT_GET_SEG(tmp, dgcdp->ap->a_resource);
+		    RT_GET_SEG(tmp, dgcdp->ap);
 		    *tmp = *a;
 		    tmp->seg_in.hit_dist = b->seg_out.hit_dist;
 		    a->seg_out.hit_dist = b->seg_in.hit_dist;
@@ -623,7 +623,7 @@ eval_op(struct bu_list *A,
     switch (op) {
 	case OP_SUBTRACT:
 	    if (BU_LIST_IS_EMPTY(A)) {
-		BIGE_FREE_SEG_LIST(B, dgcdp->ap->a_resource);
+		BIGE_FREE_SEG_LIST(B, dgcdp->ap);
 		bu_free((char *)B, "bu_list");
 		return A;
 	    } else if (BU_LIST_IS_EMPTY(B)) {
@@ -649,15 +649,15 @@ eval_op(struct bu_list *A,
 		    }
 		}
 	    }
-	    BIGE_FREE_SEG_LIST(B, dgcdp->ap->a_resource);
+	    BIGE_FREE_SEG_LIST(B, dgcdp->ap);
 	    bu_free((char *)B, "bu_list");
-	    BIGE_FREE_SEG_LIST(A, dgcdp->ap->a_resource);
+	    BIGE_FREE_SEG_LIST(A, dgcdp->ap);
 	    BU_LIST_INSERT_LIST(A, &ret);
 	    return A;
 	case OP_INTERSECT:
 	    if (BU_LIST_IS_EMPTY(A) || BU_LIST_IS_EMPTY(B)) {
-		BIGE_FREE_SEG_LIST(A, dgcdp->ap->a_resource);
-		BIGE_FREE_SEG_LIST(B, dgcdp->ap->a_resource);
+		BIGE_FREE_SEG_LIST(A, dgcdp->ap);
+		BIGE_FREE_SEG_LIST(B, dgcdp->ap);
 		bu_free((char *)B, "bu_list");
 		return A;
 	    }
@@ -677,9 +677,9 @@ eval_op(struct bu_list *A,
 			do_intersect(segb, sega, &ret, segb->seg_stp, dgcdp);
 		}
 	    }
-	    BIGE_FREE_SEG_LIST(B, dgcdp->ap->a_resource);
+	    BIGE_FREE_SEG_LIST(B, dgcdp->ap);
 	    bu_free((char *)B, "bu_list");
-	    BIGE_FREE_SEG_LIST(A, dgcdp->ap->a_resource);
+	    BIGE_FREE_SEG_LIST(A, dgcdp->ap);
 	    BU_LIST_INSERT_LIST(A, &ret)
 	    return A;
 	case OP_UNION:
@@ -768,7 +768,7 @@ eval_op(struct bu_list *A,
 			segb->seg_out.hit_dist >= sega->seg_out.hit_dist) {
 			/* eliminate sega */
 			BU_LIST_DEQUEUE(&sega->l);
-			RT_FREE_SEG(sega, dgcdp->ap->a_resource);
+			RT_FREE_SEG(sega, dgcdp->ap);
 			break;
 		    }
 
@@ -776,7 +776,7 @@ eval_op(struct bu_list *A,
 			segb->seg_out.hit_dist < sega->seg_out.hit_dist)
 		    {
 			/* split sega */
-			RT_GET_SEG(tmp, dgcdp->ap->a_resource);
+			RT_GET_SEG(tmp, dgcdp->ap);
 			*tmp = *sega;
 			tmp->seg_in.hit_dist = segb->seg_out.hit_dist;
 			sega->seg_out.hit_dist = segb->seg_in.hit_dist;
@@ -813,16 +813,16 @@ eval_op(struct bu_list *A,
 		    BU_LIST_INSERT(&ret, &sega->l)
 			}
 
-	    BIGE_FREE_SEG_LIST(B, dgcdp->ap->a_resource);
+	    BIGE_FREE_SEG_LIST(B, dgcdp->ap);
 	    bu_free((char *)B, "bu_list");
-	    BIGE_FREE_SEG_LIST(A, dgcdp->ap->a_resource);
+	    BIGE_FREE_SEG_LIST(A, dgcdp->ap);
 	    BU_LIST_INSERT_LIST(A, &ret)
 	    return A;
     }
 
     /* should never get here */
-    BIGE_FREE_SEG_LIST(A, dgcdp->ap->a_resource);
-    BIGE_FREE_SEG_LIST(B, dgcdp->ap->a_resource);
+    BIGE_FREE_SEG_LIST(A, dgcdp->ap);
+    BIGE_FREE_SEG_LIST(B, dgcdp->ap);
     bu_free((char *)B, "bu_list");
     return A;
 }
@@ -899,7 +899,7 @@ classify_seg(struct seg *segp, struct soltab *shoot, struct xray *rp, struct big
 		    ret = ON_SURF;
 		}
 	    }
-	    RT_FREE_SEG(seg, dgcdp->ap->a_resource);
+	    RT_FREE_SEG(seg, dgcdp->ap);
 	}
     }
 
@@ -924,7 +924,7 @@ classify_seg(struct seg *segp, struct soltab *shoot, struct xray *rp, struct big
 			ret = ON_SURF;
 		    }
 		}
-		RT_FREE_SEG(seg, dgcdp->ap->a_resource);
+		RT_FREE_SEG(seg, dgcdp->ap);
 	    }
 	}
     }
@@ -983,7 +983,7 @@ shoot_and_plot(point_t start_pt,
 	shoot = (union E_tree *)BU_PTBL_GET(&dgcdp->leaf_list, shoot_leaf);
 
 	if (BU_LIST_NON_EMPTY(&shoot->l.seghead)) {
-	    BIGE_FREE_SEG_LIST(&shoot->l.seghead, dgcdp->ap->a_resource);
+	    BIGE_FREE_SEG_LIST(&shoot->l.seghead, dgcdp->ap);
 	}
 	BU_LIST_INIT(&shoot->l.seghead);
 
@@ -1050,7 +1050,7 @@ shoot_and_plot(point_t start_pt,
 	    /* put entire edge in seg list and mark it as ON the
 	     * surface.
 	     */
-	    RT_GET_SEG(seg, dgcdp->ap->a_resource);
+	    RT_GET_SEG(seg, dgcdp->ap);
 	    seg->l.magic = RT_SEG_MAGIC;
 	    seg->seg_in.hit_dist = 0.0;
 	    seg->seg_out.hit_dist = edge_len;
@@ -1078,7 +1078,7 @@ shoot_and_plot(point_t start_pt,
 		    BU_LIST_DEQUEUE(&seg->l);
 		    /* clip segments to the edge being considered */
 		    if (seg->seg_in.hit_dist >= edge_len || seg->seg_out.hit_dist <= 0) {
-			RT_FREE_SEG(seg, dgcdp->ap->a_resource);
+			RT_FREE_SEG(seg, dgcdp->ap);
 		    } else {
 			if (seg->seg_in.hit_dist < 0.0)
 			    seg->seg_in.hit_dist = 0.0;
@@ -1119,7 +1119,7 @@ shoot_and_plot(point_t start_pt,
     }
 
     if (final_segs)
-	BIGE_FREE_SEG_LIST(final_segs, dgcdp->ap->a_resource);
+	BIGE_FREE_SEG_LIST(final_segs, dgcdp->ap);
     bu_free((char *)final_segs, "bu_list");
 }
 
@@ -1429,7 +1429,7 @@ Eplot(union E_tree *eptr,
 			if (NEAR_ZERO(diff, tol->dist)) {
 			    continue;
 			}
-			RT_GET_SEG(aseg, dgcdp->ap->a_resource);
+			RT_GET_SEG(aseg, dgcdp->ap);
 			aseg->l.magic = RT_SEG_MAGIC;
 			aseg->seg_stp = ON_INT;
 			VMOVE(aseg->seg_in.hit_point, hits1[i-1]);
@@ -1447,7 +1447,7 @@ Eplot(union E_tree *eptr,
 			if (NEAR_ZERO(diff, tol->dist)) {
 			    continue;
 			}
-			RT_GET_SEG(aseg, dgcdp->ap->a_resource);
+			RT_GET_SEG(aseg, dgcdp->ap);
 			aseg->l.magic = RT_SEG_MAGIC;
 			aseg->seg_stp = ON_INT;
 			VMOVE(aseg->seg_in.hit_point, hits2[i-1]);
@@ -1468,7 +1468,7 @@ Eplot(union E_tree *eptr,
 				       aseg->seg_out.hit_dist - aseg->seg_in.hit_dist,
 				       (int)leaf_no, (int)leaf2, eptr, ON_INT, dgcdp);
 		    }
-		    BIGE_FREE_SEG_LIST(result, dgcdp->ap->a_resource);
+		    BIGE_FREE_SEG_LIST(result, dgcdp->ap);
 
 		    bu_free((char *)dists1, "dists1");
 		    bu_free((char *)dists2, "dists2");
@@ -1503,7 +1503,7 @@ free_etree(union E_tree *eptr,
 		eptr->l.m = (struct model *)NULL;
 	    }
 	    if (BU_LIST_NON_EMPTY(&eptr->l.seghead)) {
-		BIGE_FREE_SEG_LIST(&eptr->l.seghead, dgcdp->ap->a_resource);
+		BIGE_FREE_SEG_LIST(&eptr->l.seghead, dgcdp->ap);
 	    }
 	    if (BU_LIST_NON_EMPTY(&eptr->l.edge_list.l)) {
 		bu_ptbl_free(&eptr->l.edge_list);

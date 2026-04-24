@@ -331,7 +331,7 @@ rt_submodel_a_hit(struct application *ap, struct partition *PartHeadp, struct se
 	 * Take seg_in and seg_out literally, to track surfno, etc.,
 	 * then update specific values.
 	 */
-	RT_GET_SEG(up_segp, up_ap->a_resource);
+	RT_GET_SEG(up_segp, up_ap);
 	up_segp->seg_in = inseg->seg_in;		/* struct copy */
 	up_segp->seg_out = outseg->seg_out;	/* struct copy */
 	up_segp->seg_stp = up_stp;

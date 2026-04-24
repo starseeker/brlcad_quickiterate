@@ -1259,7 +1259,7 @@ weave:
 	    ap->a_return = 0;
 	status = "MISS bool";
 	RT_FREE_PT_LIST(&InitialPart, resp);
-	RT_FREE_SEG_LIST(&finished_segs, resp);
+	RT_FREE_SEG_LIST(&finished_segs, ap);
 	goto out;
     }
 
@@ -1288,7 +1288,7 @@ hitit:
 	status = "MISS (unexpected)";
     }
 
-    RT_FREE_SEG_LIST(&finished_segs, resp);
+    RT_FREE_SEG_LIST(&finished_segs, ap);
     RT_FREE_PT_LIST(&FinalPart, resp);
 
     /*

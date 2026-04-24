@@ -535,7 +535,7 @@ rt_part_shot(struct soltab *stp, register struct xray *rp, struct application *a
 	}
 	root = sqrt(root);
 
-	RT_GET_SEG(segp, ap->a_resource);
+	RT_GET_SEG(segp, ap);
 	segp->seg_stp = stp;
 
 	/* we know root is positive, so we know the smaller t */
@@ -763,14 +763,14 @@ rt_part_shot(struct soltab *stp, register struct xray *rp, struct application *a
 
     if (hits[0].hit_dist < hits[1].hit_dist) {
 	/* entry is [0], exit is [1] */
-	RT_GET_SEG(segp, ap->a_resource);
+	RT_GET_SEG(segp, ap);
 	segp->seg_stp = stp;
 	segp->seg_in = hits[0];		/* struct copy */
 	segp->seg_out = hits[1];	/* struct copy */
 	BU_LIST_INSERT(&(seghead->l), &(segp->l));
     } else {
 	/* entry is [1], exit is [0] */
-	RT_GET_SEG(segp, ap->a_resource);
+	RT_GET_SEG(segp, ap);
 	segp->seg_stp = stp;
 	segp->seg_in = hits[1];		/* struct copy */
 	segp->seg_out = hits[0];	/* struct copy */

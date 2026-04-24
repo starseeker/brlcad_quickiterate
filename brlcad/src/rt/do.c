@@ -1295,8 +1295,7 @@ res_pr(void)
 	    continue;
 	}
 	/* Phase 7: partition freelist counters removed; partitions are
-	 * now allocated/freed directly.  Seg counters retained. */
-	bu_log("seg       len=%10ld get=%10ld free=%10ld\n", res->re_seglen, res->re_segget, res->re_segfree);
+	 * now allocated/freed directly.  Seg pool stats are now in rt_i_internal. */
     }
 }
 

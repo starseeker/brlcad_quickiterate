@@ -1394,7 +1394,7 @@ rt_brep_shot(struct soltab *stp, struct xray *rp, struct application *ap, struct
 		double los = brep_platemode_thickness(*rp, in, *bs);
 
 		struct seg* segp;
-		RT_GET_SEG(segp, ap->a_resource);
+		RT_GET_SEG(segp, ap);
 		segp->seg_stp = stp;
 
 		/* set in hit */
@@ -1456,7 +1456,7 @@ rt_brep_shot(struct soltab *stp, struct xray *rp, struct application *ap, struct
 		    const brep_hit& out = *i;
 
 		    struct seg* segp;
-		    RT_GET_SEG(segp, ap->a_resource);
+		    RT_GET_SEG(segp, ap);
 		    segp->seg_stp = stp;
 
 		    VMOVE(segp->seg_in.hit_point, in.point);

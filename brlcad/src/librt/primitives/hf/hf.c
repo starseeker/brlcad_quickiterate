@@ -1519,7 +1519,7 @@ rt_hf_shot(struct soltab *stp, struct xray *rp, struct application *ap, struct s
 	struct seg *segp;
 	int i;
 	for (i = 0; i < nhits; i += 2) {
-	    RT_GET_SEG(segp, ap->a_resource);
+	    RT_GET_SEG(segp, ap);
 	    segp->seg_stp = stp;
 	    segp->seg_in = hits[i];
 	    segp->seg_out= hits[i+1];

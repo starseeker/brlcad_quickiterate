@@ -572,7 +572,7 @@ rt_tor_shot(struct soltab *stp, register struct xray *rp, struct application *ap
 
     /* Now, t[0] > t[npts-1] */
     /* k[1] is entry point, and k[0] is next exit point */
-    RT_GET_SEG(segp, ap->a_resource);
+    RT_GET_SEG(segp, ap);
     segp->seg_stp = stp;
     segp->seg_in.hit_dist = k[1]*tor->tor_r1;
     segp->seg_out.hit_dist = k[0]*tor->tor_r1;
@@ -587,7 +587,7 @@ rt_tor_shot(struct soltab *stp, register struct xray *rp, struct application *ap
 
     /* 4 points */
     /* k[3] is entry point, and k[2] is last exit point */
-    RT_GET_SEG(segp, ap->a_resource);
+    RT_GET_SEG(segp, ap);
     segp->seg_stp = stp;
     segp->seg_in.hit_dist = k[3]*tor->tor_r1;
     segp->seg_out.hit_dist = k[2]*tor->tor_r1;

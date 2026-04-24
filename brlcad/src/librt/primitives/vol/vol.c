@@ -340,7 +340,7 @@ rt_vol_shot(struct soltab *stp, register struct xray *rp, struct application *ap
 		/* Start of segment (entering a full voxel) */
 		inside = 1;
 
-		RT_GET_SEG(segp, ap->a_resource);
+		RT_GET_SEG(segp, ap);
 		segp->seg_stp = stp;
 		segp->seg_in.hit_dist = t0;
 

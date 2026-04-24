@@ -436,7 +436,7 @@ weave:
 	    ap->a_return = 0;
 	status = "MISS bool";
 	RT_FREE_PT_LIST(&InitialPart, resp);
-	RT_FREE_SEG_LIST(&finished_segs, resp);
+	RT_FREE_SEG_LIST(&finished_segs, ap);
 	goto out;
     }
 
@@ -473,7 +473,7 @@ hitit:
 	ap->a_return = 0;
     status = "HIT";
 
-    RT_FREE_SEG_LIST(&finished_segs, resp);
+    RT_FREE_SEG_LIST(&finished_segs, ap);
     RT_FREE_PT_LIST(&FinalPart, resp);
 
     /*
@@ -701,7 +701,7 @@ rt_shootrays(struct application_bundle *bundle)
     if (pb->list != NULL) {
 	while (BU_LIST_WHILE(pl, partition_list, &(pb->list->l))) {
 	    BU_LIST_DEQUEUE(&(pl->l));
-	    RT_FREE_SEG_LIST(&pl->segHeadp, resource);
+	    RT_FREE_SEG_LIST(&pl->segHeadp, &bundle->b_ap);
 	    RT_FREE_PT_LIST(&pl->PartHeadp, resource);
 	    bu_free(pl, "free partition_list pl");
 	}
