@@ -155,8 +155,7 @@ main(int ac, char *av[])
     /* Construct fake argc/argv so QApplication is happy; the real
      * bu_opt_parse has already consumed our arguments above. */
     int fake_argc = 1;
-    static char prog_arg[] = "ged_test_qged_swrast";
-    char *fake_argv[2] = { prog_arg, NULL };
+    char *fake_argv[2] = { av[0], NULL };
     QApplication app(fake_argc, fake_argv);
 
     /* ---- Create QgSW widget (exercises bsg_scene_root_create) ---- */
@@ -258,7 +257,7 @@ main(int ac, char *av[])
     bu_file_delete("moss_qgswrast_tmp.g");
     bu_dirclear(lcache);
 
-    return g_fail;
+    return (g_fail > 0 ? 1 : 0);
 }
 
 // Local Variables:
