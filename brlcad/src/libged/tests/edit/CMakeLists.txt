@@ -28,10 +28,25 @@ if(TARGET ged_test_edit_phase1)
 endif()
 brlcad_add_test(NAME ged_test_edit_phase1 COMMAND ged_test_edit_phase1)
 
+# Phase 2: rotate / translate / tra / scale / checkpoint / revert / reset / mat
+brlcad_addexec(ged_test_edit_phase2
+  test_edit_phase2.cpp
+  "libged;libwdb"
+  TEST
+)
+if(TARGET ged_test_edit_phase2)
+  add_dependencies(ged_test_edit_phase2 ged_plugins)
+  if(TARGET ged-edit)
+    add_dependencies(ged_test_edit_phase2 ged-edit)
+  endif()
+endif()
+brlcad_add_test(NAME ged_test_edit_phase2 COMMAND ged_test_edit_phase2)
+
 cmakefiles(
   CMakeLists.txt
   test_edit.cpp
   test_edit_phase1.cpp
+  test_edit_phase2.cpp
 )
 
 # Local Variables:
