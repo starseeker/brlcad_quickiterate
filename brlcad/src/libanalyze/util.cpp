@@ -45,8 +45,6 @@ analyze_gen_worker(int cpu, void *ptr)
     RT_APPLICATION_INIT(&ap);
     ap.a_cpu = cpu;
     ap.a_rt_i = state->rtip;
-    ap.a_seg_pool = rt_seg_pool_lookup(state->rtip, cpu);
-    ap.a_pt_pool  = rt_pt_pool_lookup(state->rtip, cpu);
     ap.a_hit = state->fhit;
     ap.a_miss = state->fmiss;
     ap.a_overlap = state->foverlap;
@@ -378,8 +376,6 @@ segfilter_gen_worker(int cpu, void *ptr)
     RT_APPLICATION_INIT(&ap);
     ap.a_cpu = cpu;
     ap.a_rt_i = s->rtip;
-    ap.a_seg_pool = rt_seg_pool_lookup(s->rtip, cpu);
-    ap.a_pt_pool  = rt_pt_pool_lookup(s->rtip, cpu);
     ap.a_hit = s->fhit;
     ap.a_miss = s->fmiss;
     ap.a_overlap = s->foverlap;

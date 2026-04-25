@@ -92,18 +92,6 @@ RT_EXPORT extern void rt_seg_free(struct seg *segp, struct application *ap);
 RT_EXPORT extern void rt_seg_free_list(struct seg *seghead, struct application *ap);
 
 /**
- * Look up (or lazily create) the segment pool for 'cpu' in rtip and
- * return a pointer to it.  Workers should call this once — after
- * ap->a_cpu is set to the correct thread ID — and store the result in
- * ap->a_seg_pool.  Subsequent rt_seg_alloc/rt_seg_free calls will
- * then use the pointer directly without any further map lookup.
- *
- * Ownership of the returned pool remains with rtip; callers must not
- * free it.
- */
-RT_EXPORT extern struct rt_seg_pool *rt_seg_pool_lookup(struct rt_i *rtip, int cpu);
-
-/**
  * Obtain one struct seg from ap->a_rt_i's per-cpu pool.
  * Initialises the hit magic fields.
  */

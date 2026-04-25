@@ -457,8 +457,6 @@ bot_lint_worker(int cpu, void *ptr)
     lint_worker_data *d = (lint_worker_data *)state->ptr;
 
     d->ap.a_cpu = cpu;
-    d->ap.a_seg_pool = rt_seg_pool_lookup(d->ap.a_rt_i, cpu);
-    d->ap.a_pt_pool  = rt_pt_pool_lookup(d->ap.a_rt_i, cpu);
     for (int i = state->tri_start; i < state->tri_end; i++) {
 	d->shoot(i, state->reverse);
     }

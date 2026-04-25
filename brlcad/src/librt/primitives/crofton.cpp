@@ -285,8 +285,6 @@ do_one_iteration(struct application *ap_template,
 	wd->end    = (i == ncpus - 1) ? nrays : (i + 1) * per_cpu;
 	wd->shared = shared;
 	a->a_cpu   = (int)slot;  /* matches the 1-based id bu_parallel passes */
-	a->a_seg_pool = rt_seg_pool_lookup(ap_template->a_rt_i, (int)slot);
-	a->a_pt_pool  = rt_pt_pool_lookup(ap_template->a_rt_i, (int)slot);
 	a->a_uptr  = wd;
     }
     /* Slot 0 is used when bu_parallel calls func(0,...) for single-cpu.
@@ -301,8 +299,6 @@ do_one_iteration(struct application *ap_template,
 	wdata[0].end    = nrays;
 	wdata[0].shared = shared;
 	a0->a_cpu       = 0;
-	a0->a_seg_pool  = rt_seg_pool_lookup(ap_template->a_rt_i, 0);
-	a0->a_pt_pool   = rt_pt_pool_lookup(ap_template->a_rt_i, 0);
 	a0->a_uptr      = &wdata[0];
     }
 

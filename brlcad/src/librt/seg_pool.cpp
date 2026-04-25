@@ -28,6 +28,11 @@
  * directly; they call RT_GET_SEG / RT_FREE_SEG / RT_FREE_SEG_LIST
  * which dispatch through rt_seg_alloc / rt_seg_free / rt_seg_free_list.
  *
+ * The pool key is bu_parallel_id() (thread-local CPU slot), NOT
+ * ap->a_cpu.  Using the thread-local value ensures sub-applications
+ * created inside hit callbacks (which default to a_cpu=0) still route
+ * to the calling thread's pool, preventing concurrent access to pool[0].
+ *
  * Lifetime rule: never switch ap->a_rt_i while a ray is in flight on
  * that application — the pool is tied to the rt_i, not the application.
  */
@@ -37,6 +42,7 @@
 #include <unordered_map>
 
 #include "vmath.h"
+#include "bu/parallel.h"
 #include "raytrace.h"
 #include "librt_private.h"
 
@@ -144,20 +150,6 @@ rt_seg_pool_init_cpu(struct rt_i *rtip, int cpu)
 
 
 /**
- * Return the pool pointer for 'cpu' in rtip, creating it if needed.
- * Workers call this once (while a_cpu is correct) to cache the pointer
- * in ap->a_seg_pool, eliminating per-alloc map lookups.
- */
-struct rt_seg_pool *
-rt_seg_pool_lookup(struct rt_i *rtip, int cpu)
-{
-    if (!rtip)
-	return NULL;
-    return seg_pool_for_cpu(rtip, cpu);
-}
-
-
-/**
  * Fill pool->re_seg with a fresh slab of struct seg nodes.
  * Private to this file; exposed only for use from seg_pool_for_cpu.
  */
@@ -200,11 +192,7 @@ rt_seg_alloc(struct application *ap)
     RT_AP_CHECK(ap);
     RT_CK_RTI(ap->a_rt_i);
 
-    if (ap->a_seg_pool) {
-	pool = ap->a_seg_pool;
-    } else {
-	pool = seg_pool_for_cpu(ap->a_rt_i, ap->a_cpu);
-    }
+    pool = seg_pool_for_cpu(ap->a_rt_i, bu_parallel_id());
 
     while (BU_LIST_IS_EMPTY(&pool->re_seg))
 	alloc_seg_block(pool);
@@ -219,8 +207,9 @@ rt_seg_alloc(struct application *ap)
 
 
 /**
- * Return one struct seg to the pool.  Uses ap->a_seg_pool directly
- * when set; falls back to a cpu-keyed map lookup otherwise.
+ * Return one struct seg to the pool.  Uses bu_parallel_id() to
+ * identify the current thread's pool, ensuring the correct per-thread
+ * pool is always used regardless of ap->a_cpu.
  */
 void
 rt_seg_free(struct seg *segp, struct application *ap)
@@ -231,11 +220,7 @@ rt_seg_free(struct seg *segp, struct application *ap)
     RT_AP_CHECK(ap);
     RT_CK_RTI(ap->a_rt_i);
 
-    if (ap->a_seg_pool) {
-	pool = ap->a_seg_pool;
-    } else {
-	pool = seg_pool_for_cpu(ap->a_rt_i, ap->a_cpu);
-    }
+    pool = seg_pool_for_cpu(ap->a_rt_i, bu_parallel_id());
 
     BU_LIST_INSERT(&pool->re_seg, &segp->l);
     pool->re_segfree++;
@@ -255,11 +240,7 @@ rt_seg_free_list(struct seg *seghead, struct application *ap)
     RT_AP_CHECK(ap);
     RT_CK_RTI(ap->a_rt_i);
 
-    if (ap->a_seg_pool) {
-	pool = ap->a_seg_pool;
-    } else {
-	pool = seg_pool_for_cpu(ap->a_rt_i, ap->a_cpu);
-    }
+    pool = seg_pool_for_cpu(ap->a_rt_i, bu_parallel_id());
 
     while (BU_LIST_WHILE(segp, seg, &seghead->l)) {
 	BU_LIST_DEQUEUE(&segp->l);

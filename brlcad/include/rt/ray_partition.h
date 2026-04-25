@@ -170,18 +170,6 @@ RT_EXPORT extern void rt_pt_free(struct partition *pp, struct application *ap);
 RT_EXPORT extern void rt_pt_free_list(struct partition *headp, struct application *ap);
 
 /**
- * Look up (or lazily create) the partition pool for 'cpu' in rtip and
- * return a pointer to it.  Workers should call this once — after
- * ap->a_cpu is set to the correct thread ID — and store the result in
- * ap->a_pt_pool.  Subsequent GET_PT/FREE_PT calls will then use the
- * pointer directly without any further map lookup.
- *
- * Ownership of the returned pool remains with rtip; callers must not
- * free it.
- */
-RT_EXPORT extern struct rt_pt_pool *rt_pt_pool_lookup(struct rt_i *rtip, int cpu);
-
-/**
  * Return the length of a partition linked list.
  */
 RT_EXPORT extern int rt_partition_len(const struct partition *partheadp);
