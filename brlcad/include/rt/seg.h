@@ -48,6 +48,7 @@ __BEGIN_DECLS
 
 struct soltab;      /* forward declaration */
 struct application; /* forward declaration */
+struct rt_seg_pool; /* forward declaration (private librt type) */
 
 /**
  * Intersection segment.
@@ -68,6 +69,8 @@ struct seg {
 #define RT_CHECK_SEG(_p) BU_CKMAG(_p, RT_SEG_MAGIC, "struct seg")
 #define RT_CK_SEG(_p) BU_CKMAG(_p, RT_SEG_MAGIC, "struct seg")
 
+struct rt_i; /* forward declaration */
+
 /**
  * Allocate one struct seg from the per-cpu pool owned by
  * ap->a_rt_i.  Initialises hit_magic fields.  The pool is an
@@ -87,6 +90,18 @@ RT_EXPORT extern void rt_seg_free(struct seg *segp, struct application *ap);
  * real segment node.
  */
 RT_EXPORT extern void rt_seg_free_list(struct seg *seghead, struct application *ap);
+
+/**
+ * Look up (or lazily create) the segment pool for 'cpu' in rtip and
+ * return a pointer to it.  Workers should call this once — after
+ * ap->a_cpu is set to the correct thread ID — and store the result in
+ * ap->a_seg_pool.  Subsequent rt_seg_alloc/rt_seg_free calls will
+ * then use the pointer directly without any further map lookup.
+ *
+ * Ownership of the returned pool remains with rtip; callers must not
+ * free it.
+ */
+RT_EXPORT extern struct rt_seg_pool *rt_seg_pool_lookup(struct rt_i *rtip, int cpu);
 
 /**
  * Obtain one struct seg from ap->a_rt_i's per-cpu pool.

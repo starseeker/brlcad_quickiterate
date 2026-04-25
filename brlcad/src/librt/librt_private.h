@@ -208,6 +208,8 @@ extern void *rt_seg_pool_map_create(void);
 extern void  rt_seg_pool_map_destroy(void *map_void);
 /* Ensure the pool for 'cpu' exists in rtip; called from rt_init_resource(). */
 extern void  rt_seg_pool_init_cpu(struct rt_i *rtip, int cpu);
+/* Return the pool pointer for 'cpu' in rtip (creating it if necessary). */
+extern struct rt_seg_pool *rt_seg_pool_lookup(struct rt_i *rtip, int cpu);
 #ifdef __cplusplus
 }
 #endif
@@ -222,6 +224,8 @@ extern void *rt_pt_pool_map_create(void);
 extern void  rt_pt_pool_map_destroy(void *map_void);
 /* Ensure the pool for 'cpu' exists in rtip; called from rt_init_resource(). */
 extern void  rt_pt_pool_init_cpu(struct rt_i *rtip, int cpu);
+/* Return the pool pointer for 'cpu' in rtip (creating it if necessary). */
+extern struct rt_pt_pool *rt_pt_pool_lookup(struct rt_i *rtip, int cpu);
 #ifdef __cplusplus
 }
 #endif

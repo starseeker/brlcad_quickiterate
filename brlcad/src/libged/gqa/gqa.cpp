@@ -1288,6 +1288,8 @@ plane_worker(int cpu, void *ptr)
     RT_APPLICATION_INIT(&ap);
     ap.a_cpu = cpu;
     ap.a_rt_i = (struct rt_i *)state->rtip;	/* application uses this instance */
+    ap.a_seg_pool = rt_seg_pool_lookup(ap.a_rt_i, cpu);
+    ap.a_pt_pool  = rt_pt_pool_lookup(ap.a_rt_i, cpu);
     ap.a_hit = _gqa_hit;    /* where to go on a hit */
     ap.a_miss = _gqa_miss;  /* where to go on a miss */
     ap.a_logoverlap = logoverlap;

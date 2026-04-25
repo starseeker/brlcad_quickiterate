@@ -149,28 +149,43 @@ rt_pt_pool_init_cpu(struct rt_i *rtip, int cpu)
 }
 
 
+/**
+ * Return the pool pointer for 'cpu' in rtip, creating it if needed.
+ * Workers call this once (while a_cpu is correct) to cache the pointer
+ * in ap->a_pt_pool, eliminating per-alloc map lookups.
+ */
+struct rt_pt_pool *
+rt_pt_pool_lookup(struct rt_i *rtip, int cpu)
+{
+    if (!rtip)
+	return NULL;
+    return pt_pool_for_cpu(rtip, cpu);
+}
+
+
 /* ------------------------------------------------------------------ */
 /* Public API — declared in include/rt/ray_partition.h                */
 /* ------------------------------------------------------------------ */
 
 /**
- * Allocate one struct partition from the per-cpu pool owned by
- * ap->a_rt_i.  The partition's pt_magic is set to PT_MAGIC.
- * When taken from the pool, pt_overlap_reg is NULL and pt_seglist
- * has been reset (count=0, backing store preserved).
+ * Allocate one struct partition.
+ * Uses ap->a_pt_pool directly when set; falls back to a cpu-keyed
+ * map lookup for callers that have not set a_pt_pool.
  */
 struct partition *
 rt_pt_alloc(struct application *ap)
 {
     struct partition *pp;
-    int cpu;
     struct rt_pt_pool *pool;
 
     RT_AP_CHECK(ap);
     RT_CK_RTI(ap->a_rt_i);
 
-    cpu = ap->a_cpu;
-    pool = pt_pool_for_cpu(ap->a_rt_i, cpu);
+    if (ap->a_pt_pool) {
+	pool = ap->a_pt_pool;
+    } else {
+	pool = pt_pool_for_cpu(ap->a_rt_i, ap->a_cpu);
+    }
 
     if (!BU_LIST_IS_EMPTY(&pool->re_pt)) {
 	pp = BU_LIST_FIRST(partition, &pool->re_pt);
@@ -190,22 +205,23 @@ rt_pt_alloc(struct application *ap)
 
 
 /**
- * Return one struct partition to the per-cpu pool owned by
- * ap->a_rt_i.  Frees pt_overlap_reg if non-NULL; resets pt_seglist
- * without freeing its backing store (for reuse on the next alloc).
+ * Return one struct partition to the pool.
+ * Uses ap->a_pt_pool directly when set; falls back to map lookup otherwise.
  */
 void
 rt_pt_free(struct partition *pp, struct application *ap)
 {
-    int cpu;
     struct rt_pt_pool *pool;
 
     RT_CK_PARTITION(pp);
     RT_AP_CHECK(ap);
     RT_CK_RTI(ap->a_rt_i);
 
-    cpu = ap->a_cpu;
-    pool = pt_pool_for_cpu(ap->a_rt_i, cpu);
+    if (ap->a_pt_pool) {
+	pool = ap->a_pt_pool;
+    } else {
+	pool = pt_pool_for_cpu(ap->a_rt_i, ap->a_cpu);
+    }
 
     if (pp->pt_overlap_reg) {
 	bu_free((void *)pp->pt_overlap_reg, "pt_overlap_reg");
@@ -219,23 +235,24 @@ rt_pt_free(struct partition *pp, struct application *ap)
 
 
 /**
- * Return all partitions on the list headed by headp to the pool owned
- * by ap->a_rt_i.  headp is the sentinel list head, not a real
- * partition node; it is left pointing to itself (empty list) on
- * return.
+ * Return all partitions on the list headed by headp to the pool.
+ * Uses ap->a_pt_pool directly when set; falls back to map lookup otherwise.
  */
 void
 rt_pt_free_list(struct partition *headp, struct application *ap)
 {
     struct partition *pp, *zap;
-    int cpu;
     struct rt_pt_pool *pool;
 
     RT_AP_CHECK(ap);
     RT_CK_RTI(ap->a_rt_i);
 
-    cpu = ap->a_cpu;
-    pool = pt_pool_for_cpu(ap->a_rt_i, cpu);
+    if (ap->a_pt_pool) {
+	pool = ap->a_pt_pool;
+    } else {
+	pool = pt_pool_for_cpu(ap->a_rt_i, ap->a_cpu);
+	ap->a_pt_pool = pool;
+    }
 
     for (pp = headp->pt_forw; pp != headp;) {
 	zap = pp;

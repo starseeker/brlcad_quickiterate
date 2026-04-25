@@ -178,6 +178,12 @@ do_pixel(int cpu, int pat_num, int pixelnum)
     /* Obtain fresh copy of global application struct */
     a = APP;				/* struct copy */
     a.a_cpu = cpu;
+    /* Cache the pool pointers for this CPU slot so that alloc/free
+     * operations never need a map lookup.  The pools were pre-warmed
+     * by rt_prep_parallel(); if for some reason they are missing,
+     * rt_seg_pool_lookup/rt_pt_pool_lookup will create them. */
+    a.a_seg_pool = rt_seg_pool_lookup(APP.a_rt_i, cpu);
+    a.a_pt_pool  = rt_pt_pool_lookup(APP.a_rt_i, cpu);
     /* Initialize per-CPU randptr lazily; save/restore across pixels so
      * sequential pixels on the same CPU advance through the random table. */
     if (!cpu_randptrs[cpu])
