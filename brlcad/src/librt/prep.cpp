@@ -470,6 +470,22 @@ rt_prep_parallel(struct rt_i *rtip, int ncpu)
 	}
     }
     rtip->needprep = 0;		/* prep is done */
+
+    /* Pre-warm per-cpu seg/partition pools for all cpu slots that
+     * bu_parallel will use (IDs 0 for ncpu==1, or 1..ncpu for ncpu>1).
+     * This must be done serially here so that parallel ray workers
+     * never have to insert into the pool maps concurrently. */
+    if (ncpu <= 1) {
+	rt_seg_pool_init_cpu(rtip, 0);
+	rt_pt_pool_init_cpu(rtip, 0);
+    } else {
+	int ci;
+	for (ci = 1; ci <= ncpu; ci++) {
+	    rt_seg_pool_init_cpu(rtip, ci);
+	    rt_pt_pool_init_cpu(rtip, ci);
+	}
+    }
+
     bu_semaphore_release(RT_SEM_RESULTS);	/* end critical section */
 
     if (RT_G_DEBUG&RT_DEBUG_REGIONS) {

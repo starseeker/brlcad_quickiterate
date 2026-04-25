@@ -95,9 +95,9 @@ rt_seg_pool_map_destroy(void *map_void)
 
 /**
  * Look up (or lazily create) the seg pool for the given cpu in the
- * rt_i identified by rtip.  Thread-safe under RT_SEM_MODEL because
- * callers (rt_shootray, rt_init_resource) hold the semaphore or are
- * single-cpu when this path is first reached for a given cpu slot.
+ * rt_i identified by rtip.  The fast path (pool already created) is
+ * lock-free; the first-init path is serialized with RT_SEM_WORKER to
+ * prevent concurrent map insertions.
  */
 static struct rt_seg_pool *
 seg_pool_for_cpu(struct rt_i *rtip, int cpu)
@@ -106,16 +106,26 @@ seg_pool_for_cpu(struct rt_i *rtip, int cpu)
     SegPoolMap *m = static_cast<SegPoolMap *>(rtip->i->rti_seg_pools);
     BU_ASSERT(m != nullptr);
 
+    /* Fast path: pool already initialized (no lock needed for read
+     * since no concurrent writers once the entry exists). */
     auto it = m->find(cpu);
     if (it != m->end())
 	return it->second;
 
-    /* First use for this cpu — allocate the pool. */
+    /* First use for this cpu — serialize pool creation. */
+    bu_semaphore_acquire(RT_SEM_WORKER);
+    /* Re-check under lock in case another thread raced us here. */
+    it = m->find(cpu);
+    if (it != m->end()) {
+	bu_semaphore_release(RT_SEM_WORKER);
+	return it->second;
+    }
     struct rt_seg_pool *pool = new rt_seg_pool;
     BU_LIST_INIT(&pool->re_seg);
     bu_ptbl_init(&pool->re_seg_blocks, 64, "rt_seg_pool blocks");
     pool->re_seglen = pool->re_segget = pool->re_segfree = 0;
     (*m)[cpu] = pool;
+    bu_semaphore_release(RT_SEM_WORKER);
     return pool;
 }
 

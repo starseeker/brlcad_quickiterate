@@ -155,7 +155,7 @@ analyze_obj_inside(struct db_i *dbip, const char *outside_candidate, const char 
     rtip = rt_new_rti(dbip);
     if (rt_gettree(rtip, outside_candidate) < 0) return 0;
     if (rt_gettree(rtip, inside_candidate) < 0) return 0;
-    rt_prep_parallel(rtip, 1);
+    rt_prep_parallel(rtip, (int)ncpus);
 
     /* Now we've got the bounding box - set up the grids */
     VMOVE(min, rtip->mdl_min);

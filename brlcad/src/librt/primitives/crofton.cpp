@@ -170,7 +170,9 @@ crofton_miss(struct application *ap)
 static void
 crofton_worker(int id, void *data)
 {
-    struct crofton_worker_data *wd = &((struct crofton_worker_data *)data)[id - 1];
+    /* wdata is indexed directly by id (0 for single-cpu, 1..N for multi-cpu).
+     * Slot 0 holds the work for single-cpu; slots 1..N for multi-cpu. */
+    struct crofton_worker_data *wd = &((struct crofton_worker_data *)data)[id];
     struct application         *ap = wd->ap;
     struct crofton_ray         *rays = wd->rays;
 
@@ -260,29 +262,60 @@ do_one_iteration(struct application *ap_template,
     size_t ncpus = bu_avail_cpus();
     if (ncpus < 1) ncpus = 1;
 
+    /* Allocate ncpus+1 slots: slot 0 for single-cpu (bu_parallel passes
+     * id=0), slots 1..ncpus for multi-cpu (bu_parallel passes id=1..N).
+     * crofton_worker indexes wdata[id] directly. */
     struct crofton_worker_data *wdata = (struct crofton_worker_data *)bu_calloc(
-	ncpus, sizeof(struct crofton_worker_data), "crofton wdata");
+	ncpus + 1, sizeof(struct crofton_worker_data), "crofton wdata");
 
     size_t per_cpu = nrays / ncpus;
 
+    /* Fill slots 1..ncpus for multi-cpu (bu_parallel passes ids 1..ncpus).
+     * Also populate slot 0 for single-cpu (bu_parallel passes id=0). */
     for (size_t i = 0; i < ncpus; i++) {
 	struct application *a = (struct application *)bu_calloc(
 	    1, sizeof(struct application), "crofton app");
 	*a = *ap_template;                  /* struct copy */
 
-	struct crofton_worker_data *wd = &wdata[i];
+	size_t slot = i + 1;  /* 1-based slot for multi-cpu */
+	struct crofton_worker_data *wd = &wdata[slot];
 	wd->ap     = a;
 	wd->rays   = rays;
 	wd->start  = i * per_cpu;
 	wd->end    = (i == ncpus - 1) ? nrays : (i + 1) * per_cpu;
 	wd->shared = shared;
-	a->a_cpu   = (int)i;        /* 0-based; worker uses id-1 to index wdata */
+	a->a_cpu   = (int)slot;  /* matches the 1-based id bu_parallel passes */
 	a->a_uptr  = wd;
+    }
+    /* Slot 0 is used when bu_parallel calls func(0,...) for single-cpu.
+     * Create a fresh application with a_cpu=0 and assign all rays to it. */
+    {
+	struct application *a0 = (struct application *)bu_calloc(
+	    1, sizeof(struct application), "crofton app 0");
+	*a0 = *ap_template;
+	wdata[0].ap     = a0;
+	wdata[0].rays   = rays;
+	wdata[0].start  = 0;
+	wdata[0].end    = nrays;
+	wdata[0].shared = shared;
+	a0->a_cpu       = 0;
+	a0->a_uptr      = &wdata[0];
+    }
+
+    /* Pre-warm per-cpu pool slots that bu_parallel will use.
+     * Single-cpu: id=0; multi-cpu: ids=1..ncpus. */
+    {
+	struct rt_i *rtip = ap_template->a_rt_i;
+	int ci;
+	rt_pool_cpu_init(rtip, 0);
+	for (ci = 1; ci <= (int)ncpus; ci++)
+	    rt_pool_cpu_init(rtip, ci);
     }
 
     bu_parallel(crofton_worker, (int)ncpus, (void *)wdata);
 
-    for (size_t i = 0; i < ncpus; i++)
+    bu_free(wdata[0].ap, "crofton app 0");
+    for (size_t i = 1; i <= ncpus; i++)
 	bu_free(wdata[i].ap, "crofton app");
     bu_free(wdata, "crofton wdata");
     bu_free(rays,  "crofton rays");

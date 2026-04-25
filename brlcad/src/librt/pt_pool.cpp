@@ -104,7 +104,8 @@ rt_pt_pool_map_destroy(void *map_void)
 
 /**
  * Look up (or lazily create) the partition pool for the given cpu in
- * the rt_i identified by rtip.
+ * the rt_i identified by rtip.  The fast path (pool already created)
+ * is lock-free; the first-init path is serialized with RT_SEM_WORKER.
  */
 static struct rt_pt_pool *
 pt_pool_for_cpu(struct rt_i *rtip, int cpu)
@@ -113,15 +114,23 @@ pt_pool_for_cpu(struct rt_i *rtip, int cpu)
     PtPoolMap *m = static_cast<PtPoolMap *>(rtip->i->rti_pt_pools);
     BU_ASSERT(m != nullptr);
 
+    /* Fast path: pool already initialized. */
     auto it = m->find(cpu);
     if (it != m->end())
 	return it->second;
 
-    /* First use for this cpu — allocate the pool. */
+    /* First use for this cpu — serialize pool creation. */
+    bu_semaphore_acquire(RT_SEM_WORKER);
+    it = m->find(cpu);
+    if (it != m->end()) {
+	bu_semaphore_release(RT_SEM_WORKER);
+	return it->second;
+    }
     struct rt_pt_pool *pool = new rt_pt_pool;
     BU_LIST_INIT(&pool->re_pt);
     pool->re_ptlen = pool->re_ptget = pool->re_ptfree = 0;
     (*m)[cpu] = pool;
+    bu_semaphore_release(RT_SEM_WORKER);
     return pool;
 }
 

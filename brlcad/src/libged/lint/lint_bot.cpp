@@ -581,7 +581,6 @@ bot_checks(lint_data *bdata, struct directory *dp, struct rt_bot_internal *bot)
     // Note that these won't work as expected if the BoT is self-intersecting.
     struct rt_i *rtip = rt_new_rti(bdata->gedp->dbip);
     rt_gettree(rtip, dp->d_namep);
-    rt_prep(rtip);
 
     // If we can't hit a triangle face, there's no point in doing other tests
     // with it - that'll just complicate the reporting results.  If the
@@ -589,8 +588,11 @@ bot_checks(lint_data *bdata, struct directory *dp, struct rt_bot_internal *bot)
     // most common case (multi-test) it should help.
     std::unordered_set<int> bad_faces;
 
-
     size_t ncpus = bu_avail_cpus();
+
+    /* Prepare with the actual thread count so pools are pre-warmed for
+     * all CPU slots bu_parallel will use. */
+    rt_prep_parallel(rtip, (int)ncpus);
     struct lint_worker_vars *state = (struct lint_worker_vars *)bu_calloc(ncpus+1, sizeof(struct lint_worker_vars ), "state");
     // We need to divy up the faces.  Since all triangle intersections will
     // (hopefully) take about the same length of time to run, we don't do anything
