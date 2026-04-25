@@ -192,6 +192,7 @@ analyze_prand_pnt_worker(int cpu, void *ptr)
     size_t i;
 
     RT_APPLICATION_INIT(&ap);
+    ap.a_cpu = cpu;
     ap.a_rt_i = state->rtip;
     ap.a_hit = state->fhit;
     ap.a_miss = state->fmiss;

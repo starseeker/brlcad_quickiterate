@@ -177,6 +177,7 @@ do_pixel(int cpu, int pat_num, int pixelnum)
 
     /* Obtain fresh copy of global application struct */
     a = APP;				/* struct copy */
+    a.a_cpu = cpu;
     /* Initialize per-CPU randptr lazily; save/restore across pixels so
      * sequential pixels on the same CPU advance through the random table. */
     if (!cpu_randptrs[cpu])

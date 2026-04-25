@@ -232,6 +232,7 @@ bot_repair_lint_worker(int cpu, void *ptr)
     struct lint_worker_vars *state = &(((struct lint_worker_vars *)ptr)[cpu]);
     lint_worker_data *d = (lint_worker_data *)state->ptr;
 
+    d->ap.a_cpu = cpu;
     for (int i = state->tri_start; i < state->tri_end; i++) {
 	d->shoot(i, state->reverse);
     }

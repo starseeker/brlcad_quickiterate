@@ -43,6 +43,7 @@ analyze_gen_worker(int cpu, void *ptr)
     int state_jmp = 0;
 
     RT_APPLICATION_INIT(&ap);
+    ap.a_cpu = cpu;
     ap.a_rt_i = state->rtip;
     ap.a_hit = state->fhit;
     ap.a_miss = state->fmiss;
@@ -373,6 +374,7 @@ segfilter_gen_worker(int cpu, void *ptr)
     if (!state->test || !BU_PTBL_LEN(state->test)) return;
 
     RT_APPLICATION_INIT(&ap);
+    ap.a_cpu = cpu;
     ap.a_rt_i = s->rtip;
     ap.a_hit = s->fhit;
     ap.a_miss = s->fmiss;

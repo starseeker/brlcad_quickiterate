@@ -115,6 +115,7 @@ rayio_gen_worker(int cpu, void *ptr)
     }
 
     RT_APPLICATION_INIT(&ap);
+    ap.a_cpu = cpu;
     ap.a_rt_i = state->rtip;
     ap.a_hit = rayio_hit;
     ap.a_miss = rayio_miss;

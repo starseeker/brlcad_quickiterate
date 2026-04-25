@@ -276,6 +276,7 @@ do_one_iteration(struct application *ap_template,
 	wd->start  = i * per_cpu;
 	wd->end    = (i == ncpus - 1) ? nrays : (i + 1) * per_cpu;
 	wd->shared = shared;
+	a->a_cpu   = (int)i;        /* 0-based; worker uses id-1 to index wdata */
 	a->a_uptr  = wd;
     }
 

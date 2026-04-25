@@ -780,7 +780,7 @@ check_terminate(struct current_state *state)
  * This routine must be prepared to run in parallel
  */
 static void
-analyze_worker(int UNUSED(cpu), void *ptr)
+analyze_worker(int cpu, void *ptr)
 {
     struct application ap;
     struct current_state *state = (struct current_state *)ptr;
@@ -790,6 +790,7 @@ analyze_worker(int UNUSED(cpu), void *ptr)
 	return;
 
     RT_APPLICATION_INIT(&ap);
+    ap.a_cpu = cpu;
     ap.a_rt_i = (struct rt_i *)state->rtip;	/* application uses this instance */
     ap.a_hit = analyze_hit;    /* where to go on a hit */
     ap.a_miss = analyze_miss;  /* where to go on a miss */

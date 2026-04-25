@@ -1273,7 +1273,7 @@ get_next_row(struct cstate *state)
  * This routine must be prepared to run in parallel
  */
 void
-plane_worker(int UNUSED(cpu), void *ptr)
+plane_worker(int cpu, void *ptr)
 {
     struct application ap;
     int u, v;
@@ -1286,6 +1286,7 @@ plane_worker(int UNUSED(cpu), void *ptr)
 	return;
 
     RT_APPLICATION_INIT(&ap);
+    ap.a_cpu = cpu;
     ap.a_rt_i = (struct rt_i *)state->rtip;	/* application uses this instance */
     ap.a_hit = _gqa_hit;    /* where to go on a hit */
     ap.a_miss = _gqa_miss;  /* where to go on a miss */
