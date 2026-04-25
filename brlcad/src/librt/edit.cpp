@@ -1214,6 +1214,10 @@ rt_edit_revert(struct rt_edit *s)
     rt_db_free_internal(&s->es_int);
     RT_DB_INTERNAL_INIT(&s->es_int);
 
+    /* rt_obj_import dispatches on ip->idb_minor_type, which RT_DB_INTERNAL_INIT
+     * resets to -1.  Restore the saved type so the right ft_importN is called. */
+    s->es_int.idb_minor_type = type;
+
     mat_t identity;
     MAT_IDN(identity);
     if (rt_obj_import(&s->es_int, &s->es_ckpt, identity, s->dbip, &rt_uniresource) < 0) {
