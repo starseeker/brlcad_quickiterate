@@ -276,7 +276,8 @@ RT_EXPORT extern void rt_clean_resource_basic(struct rt_i *rtip,
 					struct resource *resp);
 RT_EXPORT extern void rt_clean_resource(struct rt_i *rtip,
 					struct resource *resp);
-RT_EXPORT extern void rt_clean_resource_complete(struct rt_i *rtip,
+/* Deprecated - use rt_clean_resource_basic */
+DEPRECATED RT_EXPORT extern void rt_clean_resource_complete(struct rt_i *rtip,
 						 struct resource *resp);
 
 
@@ -284,14 +285,12 @@ RT_EXPORT extern void rt_clean_resource_complete(struct rt_i *rtip,
 int rt_plot_solid(
     FILE                *fp,
     struct rt_i         *rtip,
-    const struct soltab *stp,
-    struct resource     *resp);
+    const struct soltab *stp);
 
 /* Release storage assoc with rt_i */
 RT_EXPORT extern void rt_clean(struct rt_i *rtip);
 RT_EXPORT extern int rt_del_regtree(struct rt_i *rtip,
-				    struct region *delregp,
-				    struct resource *resp);
+				    struct region *delregp);
 
 /**
  * Iterate over all regions in the rt_i, calling @p callback for each one.
