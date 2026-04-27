@@ -24,6 +24,7 @@
 
 #include "common.h"
 
+#include <chrono>
 #include <map>
 #include <set>
 #include <vector>
@@ -33,6 +34,7 @@
 #include <iostream>
 #include <fstream>
 #include <queue>
+#include <thread>
 
 #include <string.h>
 
@@ -51,6 +53,7 @@
 static const size_t FACETIZE_EMPTY_CHECK_CROFTON_RAYS = 800u;
 static const double FACETIZE_EMPTY_CHECK_REL_VOL_TOL = 1.0e-9;
 static const double FACETIZE_EMPTY_CHECK_ABS_VOL_TOL = 1.0e-12;
+static const size_t FACETIZE_PROGRESS_INTERVAL = 25;
 
 static int
 bot_to_manifold(void **out, struct db_tree_state *tsp, struct rt_db_internal *ip, int flip)
@@ -707,17 +710,232 @@ tess_run(struct _ged_facetize_state *s, const char **tess_cmd, int tess_cmd_cnt,
     return (w_rc ? BRLCAD_ERROR : BRLCAD_OK);
 }
 
-/*
- * Tessellate variant primitives that were created by _ged_facetize_build_variant_plan().
- * Processes all names using the NMG method (same fixed command structure as
- * _ged_facetize_leaves_tri).  Tessellation failures are logged but do not
- * abort: the booleval will silently fall back to the original (non-variant)
- * mesh for any variant whose BoT is not available.
- */
-int
-_ged_facetize_tessellate_variant_names(struct _ged_facetize_state *s,
-				       FacetizeVariantPlan *plan)
+/* -----------------------------------------------------------------------
+ * TessSession — long-lived tessellator subprocess.
+ *
+ * Implements the class declared in ged_facetize.h.  The subprocess is
+ * started in `--server` mode; the parent sends one-line commands on stdin
+ * and reads one-line responses from stdout.
+ * ----------------------------------------------------------------------- */
+
+TessSession::TessSession()
+    : proc_(nullptr), alive_(false), started_(false)
 {
+    memset(tess_exec_, 0, sizeof(tess_exec_));
+    bu_dir(tess_exec_, MAXPATHLEN, BU_DIR_BIN, "ged_exec", BU_DIR_EXT, NULL);
+}
+
+TessSession::~TessSession()
+{
+    stop();
+    delete proc_;
+    proc_ = nullptr;
+}
+
+bool
+TessSession::start(const char *wfile,
+		   const std::string &methods,
+		   const std::string &method_opts,
+		   const char *cache_dir)
+{
+    wfile_       = wfile ? std::string(wfile) : std::string();
+    methods_     = methods;
+    method_opts_ = method_opts;
+    cache_dir_   = cache_dir ? std::string(cache_dir) : std::string();
+    started_     = true;
+    return restart();
+}
+
+bool
+TessSession::restart()
+{
+    if (!started_)
+	return false;
+
+    /* Clean up any previous process handle */
+    if (proc_) {
+	if (alive_)
+	    subprocess_terminate(proc_);
+	subprocess_destroy(proc_);
+	delete proc_;
+	proc_ = nullptr;
+    }
+    alive_ = false;
+    stdout_buf_.clear();
+
+    /* Build the argv array for the server subprocess */
+    std::vector<const char *> args;
+    args.push_back(tess_exec_);
+    args.push_back("facetize_process");
+    args.push_back("--server");
+    args.push_back("-O");
+    args.push_back(wfile_.c_str());
+    std::string methods_arg;
+    std::string mopts_arg;
+    if (!methods_.empty()) {
+	args.push_back("--methods");
+	methods_arg = methods_;
+	args.push_back(methods_arg.c_str());
+    }
+    if (!method_opts_.empty()) {
+	args.push_back("--method-opts");
+	mopts_arg = method_opts_;
+	args.push_back(mopts_arg.c_str());
+    }
+    std::string cdir_arg;
+    if (!cache_dir_.empty()) {
+	args.push_back("--cache-dir");
+	cdir_arg = cache_dir_;
+	args.push_back(cdir_arg.c_str());
+    }
+    args.push_back(NULL);
+
+    proc_ = new struct subprocess_s;
+    memset(proc_, 0, sizeof(*proc_));
+    int flags = subprocess_option_no_window
+	      | subprocess_option_enable_async
+	      | subprocess_option_inherit_environment;
+    if (subprocess_create(args.data(), flags, proc_)) {
+	delete proc_;
+	proc_ = nullptr;
+	return false;
+    }
+
+    /* Wait for "READY\n" from the server */
+    std::string ready = read_line(10000 /* 10 s */);
+    if (ready.find("READY") == std::string::npos) {
+	subprocess_terminate(proc_);
+	subprocess_destroy(proc_);
+	delete proc_;
+	proc_ = nullptr;
+	return false;
+    }
+
+    alive_ = true;
+    return true;
+}
+
+void
+TessSession::stop()
+{
+    if (!proc_ || !alive_)
+	return;
+    FILE *fin = subprocess_stdin(proc_);
+    if (fin) {
+	fprintf(fin, "quit\n");
+	fflush(fin);
+    }
+    int rc = 0;
+    subprocess_join(proc_, &rc);
+    subprocess_destroy(proc_);
+    delete proc_;
+    proc_ = nullptr;
+    alive_ = false;
+}
+
+std::string
+TessSession::read_line(int timeout_ms)
+{
+    if (!proc_)
+	return std::string();
+
+    int64_t deadline = bu_gettime() + (int64_t)timeout_ms * 1000LL;
+    char buf[4096];
+
+    while (true) {
+	/* Check if we already have a complete line buffered */
+	size_t nl = stdout_buf_.find('\n');
+	if (nl != std::string::npos) {
+	    std::string line = stdout_buf_.substr(0, nl);
+	    stdout_buf_.erase(0, nl + 1);
+	    /* Strip trailing \r */
+	    if (!line.empty() && line.back() == '\r')
+		line.pop_back();
+	    return line;
+	}
+
+	/* Check timeout */
+	if (bu_gettime() > deadline)
+	    return std::string();
+
+	/* Check if subprocess is still alive */
+	if (!subprocess_alive(proc_)) {
+	    alive_ = false;
+	    return std::string();
+	}
+
+	/* Try to read more data */
+	memset(buf, 0, sizeof(buf));
+	int nr = subprocess_read_stdout(proc_, buf, sizeof(buf) - 1);
+	if (nr > 0) {
+	    stdout_buf_.append(buf, nr);
+	} else {
+	    /* Nothing available yet — sleep briefly */
+	    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+	}
+    }
+}
+
+TessSession::Result
+TessSession::run_leaf(const char *leafname,
+		      const char *method,
+		      fastf_t max_time_s,
+		      long long *elapsed_ms)
+{
+    if (!proc_ || !alive_)
+	return SESS_CRASH;
+
+    if (elapsed_ms)
+	*elapsed_ms = -1;
+
+    /* Send the tess command */
+    FILE *fin = subprocess_stdin(proc_);
+    if (!fin)
+	return SESS_CRASH;
+    fprintf(fin, "tess %s %s\n", method, leafname);
+    fflush(fin);
+
+    /* Wait for the response, honoring max_time_s */
+    int timeout_ms = (int)(max_time_s * 1000.0) + 5000; /* +5 s grace */
+    int64_t t0 = bu_gettime();
+    std::string resp = read_line(timeout_ms);
+    int64_t elapsed = bu_gettime() - t0;
+
+    if (elapsed_ms)
+	*elapsed_ms = (long long)(elapsed / 1000LL);
+
+    if (resp.empty()) {
+	/* No response within allotted time — treat as timeout */
+	alive_ = false;
+	if (subprocess_alive(proc_))
+	    subprocess_terminate(proc_);
+	return SESS_TIMEOUT;
+    }
+
+    if (!subprocess_alive(proc_))
+	alive_ = false;
+
+    /* Parse response: "OK <name> <ms>" or "FAIL <name> <reason>" */
+    if (resp.rfind("OK ", 0) == 0) {
+	/* Parse elapsed from the subprocess if provided */
+	std::istringstream ss(resp.substr(3));
+	std::string rname, ms_str;
+	ss >> rname >> ms_str;
+	if (!ms_str.empty() && elapsed_ms) {
+	    try { *elapsed_ms = std::stoll(ms_str); }
+	    catch (...) { /* ignore parse failures */ }
+	}
+	return SESS_OK;
+    }
+
+    if (resp.rfind("FAIL ", 0) == 0)
+	return SESS_FAIL;
+
+    /* Unexpected response */
+    return SESS_FAIL;
+}
+
+
     if (!s || !plan || plan->variant_names.empty())
 	return BRLCAD_OK;
 
@@ -899,10 +1117,6 @@ _ged_facetize_leaves_tri(struct _ged_facetize_state *s, struct db_i *dbip, struc
 	return BRLCAD_OK;
     }
 
-    // Build up the path to the ged_exec executable
-    char tess_exec[MAXPATHLEN];
-    bu_dir(tess_exec, MAXPATHLEN, BU_DIR_BIN, "ged_exec", BU_DIR_EXT, NULL);
-
     // Set up a priority order of methods to try when processing primitives.
     std::vector<std::string> avail_methods = tess_avail_methods();
     if (avail_methods.size() == 0) {
@@ -912,248 +1126,364 @@ _ged_facetize_leaves_tri(struct _ged_facetize_state *s, struct db_i *dbip, struc
     }
 
     method_options_t *mo = (method_options_t*)s->method_opts;
-    std::queue<std::string> method_flags;
-    std::queue<std::string> method_flags_bak;
+    std::vector<std::string> method_list;
     for (size_t i = 0; i < mo->methods.size(); i++) {
 	std::string cmethod = mo->methods[i];
 	if (std::find(avail_methods.begin(), avail_methods.end(), cmethod) != avail_methods.end()) {
-	    method_flags.push(cmethod);
+	    method_list.push_back(cmethod);
 	} else {
 	    bu_log("Warning: user requested %s tessellation method not found.\n", cmethod.c_str());
 	}
     }
 
-    if (mo->methods.size() && !method_flags.size()) {
+    if (mo->methods.size() && !method_list.size()) {
 	bu_log("Error: all user requested tessellation methods unsupported.\n");
 	bu_dirclear(s->wdir);
 	return BRLCAD_ERROR;
     }
 
-    if (!method_flags.size() && avail_methods.size()) {
-	for (size_t i = 0; i < avail_methods.size(); i++) {
-	    method_flags.push(avail_methods[i]);
-	}
+    if (!method_list.size() && avail_methods.size()) {
+	method_list = avail_methods;
     }
 
-    method_flags_bak = method_flags;
-
-    // We want the subprocess to be using the same cache directory
-    // as the parent
+    // We want the subprocess to be using the same cache directory as the parent
     char lcache[MAXPATHLEN] = {0};
     bu_dir(lcache, MAXPATHLEN, BU_DIR_CACHE, NULL);
 
+    /* -----------------------------------------------------------------------
+     * Phase 0: seed / rewind attribute state on the working .g copy.
+     * On --resume, any leaf still tagged "working::<method>::..." is rewound
+     * to "nottried" so it will be retried with the new parameters.
+     * On a fresh run, all candidate leaves get "nottried".
+     * ----------------------------------------------------------------------- */
+    {
+	struct db_i *wdbip = db_open(bu_vls_cstr(s->wfile), DB_OPEN_READWRITE);
+	if (wdbip) {
+	    db_dirbuild(wdbip);
+	    db_update_nref(wdbip);
+	    if (s->resume) {
+		facetize_resume_rewind_working(wdbip, leaf_dps);
+	    } else {
+		facetize_seed_leaves_nottried(wdbip, leaf_dps);
+	    }
+	    db_close(wdbip);
+	}
+    }
 
-    // Call ged_exec to produce evaluated solids.
-    // First step is to build up the command to run
+    /* -----------------------------------------------------------------------
+     * Phase 1 main loop: iterate over each method in priority order.
+     *
+     * Per-leaf state transitions:
+     *   nottried → working::<method>::... (before sending to subprocess)
+     *   working::<method>::... → <method>::... (on OK)
+     *   working::<method>::... stays (on FAIL/TIMEOUT/CRASH → next method)
+     * ----------------------------------------------------------------------- */
     std::vector<std::string> failed_dps;
-    std::string mstrpp;
-    int l_max_time;
-    struct bu_vls method_str = BU_VLS_INIT_ZERO;
-    struct bu_vls method_opts_str = BU_VLS_INIT_ZERO;
-    const char *tess_cmd[MAXPATHLEN] = {NULL};
-    int method_ind = 5;
-    int method_opt_ind = 7;
-    tess_cmd[ 0] = tess_exec;
-    tess_cmd[ 1] = "facetize_process";
-    tess_cmd[ 2] = "-O";
-    tess_cmd[ 3] = bu_vls_cstr(s->wfile);
-    tess_cmd[ 4] = "--methods";
-    tess_cmd[ 5] = NULL;
-    tess_cmd[ 6] = "--method-opts";
-    tess_cmd[ 7] = NULL;
-    tess_cmd[ 8] = "--cache-dir";
-    tess_cmd[ 9] = lcache;
-    int cmd_fixed_cnt = 10;
-    while (!pq.empty()) {
-	int obj_cnt = 0;
 
-	// Starting a new round of object processing - reset method flags
-	method_flags = method_flags_bak;
+    /* Build combined method options string for the TessSession startup */
+    auto method_opts_for = [&](const std::string &m) -> std::string {
+	return mo->method_optstr(m, dbip);
+    };
 
-	// There are a number of methods that can be tried.  We try them in priority
-	// order, timing out if one of them goes too long.
-	mstrpp = method_flags.front();
-	method_flags.pop();
-	bu_vls_sprintf(&method_str, "%s", mstrpp.c_str());
-	tess_cmd[method_ind] = bu_vls_cstr(&method_str);
-	// Each method has its own default (or possibly user set) time limit
-	l_max_time = mo->max_time[mstrpp];
-	// Get defined options for this particular method
-	bu_vls_sprintf(&method_opts_str, "%s", mo->method_optstr(mstrpp, dbip).c_str());
-	tess_cmd[method_opt_ind] = bu_vls_cstr(&method_opts_str);
+    /* Process the standard queue using the priority-ordered method list */
+    {
+	/* Build flat list of candidates (from pq in priority order) */
+	std::vector<struct directory *> std_leaves;
+	std::priority_queue<struct directory *, std::vector<struct directory *>, DpCompare> pq_copy = pq;
+	while (!pq_copy.empty()) {
+	    std_leaves.push_back(pq_copy.top());
+	    pq_copy.pop();
+	}
 
-	std::vector<struct directory *> dps;
-	std::vector<struct directory *> bad_dps;
-	struct bu_vls cmd = BU_VLS_INIT_ZERO;
-	for (int i = 0; i < cmd_fixed_cnt; i++)
-	    bu_vls_printf(&cmd, "%s ", tess_cmd[i]);
-	while (bu_vls_strlen(&cmd) < CMD_LEN_MAX) {
-	    if (pq.empty() || cmd_fixed_cnt+dps.size() == MAXPATHLEN)
-		break;
-	    struct directory *ldp = pq.top();
-	    if ((bu_vls_strlen(&cmd) + strlen(ldp->d_namep)) > CMD_LEN_MAX) {
-		// This would be too long -  we've listed all we can
+	for (size_t mi = 0; mi < method_list.size() && !std_leaves.empty(); mi++) {
+	    const std::string &method = method_list[mi];
+	    fastf_t l_max_time = (fastf_t)mo->max_time[method];
+	    std::string mopts = method_opts_for(method);
+
+	    /* Build comma-separated list of all methods for subprocess startup */
+	    std::string methods_csv;
+	    for (size_t j = 0; j < method_list.size(); j++) {
+		if (j) methods_csv += ",";
+		methods_csv += method_list[j];
+	    }
+
+	    /* Start (or restart) the TessSession for this method sweep */
+	    TessSession sess;
+	    struct bu_vls mopts_arg = BU_VLS_INIT_ZERO;
+	    bu_vls_sprintf(&mopts_arg, "NMG %s", mopts.c_str());
+	    if (!sess.start(bu_vls_cstr(s->wfile), method, bu_vls_cstr(&mopts_arg), lcache)) {
+		bu_vls_free(&mopts_arg);
+		bu_log("FACETIZE: failed to start tessellation subprocess for method %s\n", method.c_str());
+		/* Mark all remaining leaves as failed */
+		struct db_i *wdbip = db_open(bu_vls_cstr(s->wfile), DB_OPEN_READWRITE);
+		if (wdbip) {
+		    db_dirbuild(wdbip);
+		    for (auto *ldp : std_leaves)
+			facetize_status_set(wdbip, ldp->d_namep, "skipped");
+		    db_close(wdbip);
+		}
 		break;
 	    }
-	    obj_cnt++;
-	    pq.pop();
-	    dps.push_back(ldp);
-	    bu_vls_printf(&cmd, "%s ", ldp->d_namep);
-	}
-	bu_vls_free(&cmd);
+	    bu_vls_free(&mopts_arg);
 
-	// We have the list of objects to feed the process - now, trigger
-	// the runs with as many methods as it takes to facetize all the
-	// primitives
-	int err_cnt = 0;
-	while (bu_vls_strlen(&method_str)) {
-	    if (BU_STR_EQUAL(bu_vls_cstr(&method_str), "NMG")) {
-		err_cnt = bisect_run(s, bad_dps, dps, tess_cmd, cmd_fixed_cnt, l_max_time, obj_cnt);
-	    } else {
-		// If we're in fallback territory, process individually rather
-		// than doing the bisect - at least for now, those methods are
-		// much more expensive and likely to fail as compared to NMG.
-		for (size_t i = 0; i < dps.size(); i++) {
-		    tess_cmd[cmd_fixed_cnt] = dps[i]->d_namep;
-		    int tess_ret = tess_run(s, tess_cmd, cmd_fixed_cnt + 1, l_max_time, 1);
-		    if (tess_ret != BRLCAD_OK) {
-			bad_dps.push_back(dps[i]);
-			err_cnt++;
+	    size_t total_this_method = std_leaves.size();
+	    std::vector<struct directory *> still_failing;
+
+	    for (size_t li = 0; li < std_leaves.size(); li++) {
+		struct directory *ldp = std_leaves[li];
+
+		/* Progress reporting */
+		if (s->verbosity == 0 && ((li + 1) % FACETIZE_PROGRESS_INTERVAL == 0 || li + 1 == total_this_method)) {
+		    facetize_log(s, 0, "  [%s] %zu/%zu solids processed\n", method.c_str(), li + 1, total_this_method);
+		} else if (s->verbosity >= 2) {
+		    facetize_log(s, 2, "  [%s] tessellating %s\n", method.c_str(), ldp->d_namep);
+		}
+
+		/* Mark leaf as in-flight in the working .g */
+		{
+		    struct db_i *wdbip = db_open(bu_vls_cstr(s->wfile), DB_OPEN_READWRITE);
+		    if (wdbip) {
+			db_dirbuild(wdbip);
+			struct bu_vls working_status = BU_VLS_INIT_ZERO;
+			bu_vls_sprintf(&working_status, "working::%s::%s",
+				       method.c_str(), mopts.c_str());
+			facetize_status_set(wdbip, ldp->d_namep, bu_vls_cstr(&working_status));
+			bu_vls_free(&working_status);
+			db_close(wdbip);
 		    }
+		}
+
+		/* If the session crashed, restart it */
+		if (!sess.alive()) {
+		    if (!sess.restart()) {
+			/* Can't restart — leave this and remaining leaves as working:: */
+			still_failing.push_back(ldp);
+			for (size_t k = li + 1; k < std_leaves.size(); k++)
+			    still_failing.push_back(std_leaves[k]);
+			break;
+		    }
+		}
+
+		long long elapsed_ms = -1;
+		TessSession::Result res = sess.run_leaf(ldp->d_namep, method.c_str(),
+							l_max_time, &elapsed_ms);
+
+		struct db_i *wdbip = db_open(bu_vls_cstr(s->wfile), DB_OPEN_READWRITE);
+		if (!wdbip) {
+		    still_failing.push_back(ldp);
+		    continue;
+		}
+		db_dirbuild(wdbip);
+		db_update_nref(wdbip);
+
+		if (res == TessSession::SESS_OK) {
+		    /* Strip the "working::" prefix → status = <method>::<opts> */
+		    struct bu_vls done_status = BU_VLS_INIT_ZERO;
+		    bu_vls_sprintf(&done_status, "%s::%s", method.c_str(), mopts.c_str());
+		    facetize_status_set(wdbip, ldp->d_namep, bu_vls_cstr(&done_status));
+		    /* Also set legacy method attr for backward compat */
+		    struct bu_attribute_value_set avs = BU_AVS_INIT_ZERO;
+		    struct directory *wdp = db_lookup(wdbip, ldp->d_namep, LOOKUP_QUIET);
+		    if (wdp) {
+			db5_get_attributes(wdbip, &avs, wdp);
+			bu_avs_add(&avs, FACETIZE_METHOD_ATTR, method.c_str());
+			db5_update_attributes(wdp, &avs, wdbip);
+		    }
+		    bu_avs_free(&avs);
+		    bu_vls_free(&done_status);
+		    if (s->verbosity >= 2)
+			facetize_log(s, 2, "    OK (%lld ms)\n", elapsed_ms);
+		} else {
+		    /* FAIL / TIMEOUT / CRASH — leave working:: prefix for next method */
+		    still_failing.push_back(ldp);
+		    if (res == TessSession::SESS_TIMEOUT || res == TessSession::SESS_CRASH) {
+			/* Restart will happen at top of next leaf iteration */
+			if (res == TessSession::SESS_TIMEOUT)
+			    facetize_log(s, 1, "  [%s] %s timed out (%.0f s limit)\n",
+					 method.c_str(), ldp->d_namep, (double)l_max_time);
+		    }
+		}
+		db_close(wdbip);
+	    }
+
+	    sess.stop();
+	    std_leaves = still_failing;
+	}
+
+	/* After all methods exhausted, std_leaves holds unconvertible primitives */
+	for (auto *ldp : std_leaves)
+	    failed_dps.push_back(std::string(ldp->d_namep));
+    }
+
+    /* Process DSP displacement map leaves — always CM */
+    {
+	std::string cm_method = "CM";
+	fastf_t cm_max_time = (fastf_t)mo->max_time[cm_method];
+	std::string cm_opts = method_opts_for(cm_method);
+
+	TessSession cm_sess;
+	struct bu_vls mopts_arg = BU_VLS_INIT_ZERO;
+	bu_vls_sprintf(&mopts_arg, "CM %s", cm_opts.c_str());
+	bool cm_started = cm_sess.start(bu_vls_cstr(s->wfile), cm_method, bu_vls_cstr(&mopts_arg), lcache);
+	bu_vls_free(&mopts_arg);
+
+	while (!q_dsp.empty()) {
+	    struct directory *ldp = q_dsp.front();
+	    q_dsp.pop();
+
+	    if (!cm_started) {
+		failed_dps.push_back(std::string(ldp->d_namep));
+		continue;
+	    }
+
+	    {
+		struct db_i *wdbip = db_open(bu_vls_cstr(s->wfile), DB_OPEN_READWRITE);
+		if (wdbip) {
+		    db_dirbuild(wdbip);
+		    facetize_status_set(wdbip, ldp->d_namep, "working::CM");
+		    db_close(wdbip);
 		}
 	    }
 
-	    // If we dealt successfully with everything, we're done
-	    if (!err_cnt)
-		break;
+	    if (!cm_sess.alive() && !cm_sess.restart()) {
+		failed_dps.push_back(std::string(ldp->d_namep));
+		continue;
+	    }
 
-	    if (method_flags.size()) {
-		// If we still have available methods to try, go another round
-		err_cnt = 0;
-		mstrpp = method_flags.front();
-		method_flags.pop();
-		bu_vls_sprintf(&method_str, "%s", mstrpp.c_str());
-		tess_cmd[method_ind] = bu_vls_cstr(&method_str);
-		// Each method has its own default (or possibly user set) time limit
-		l_max_time = mo->max_time[mstrpp];
-		// Get defined options for this particular method
-		bu_vls_sprintf(&method_opts_str, "\"%s\"", mo->method_optstr(mstrpp, dbip).c_str());
-		tess_cmd[method_opt_ind] = bu_vls_cstr(&method_opts_str);
-		dps = bad_dps;
-		bad_dps.clear();
+	    long long elapsed_ms = -1;
+	    TessSession::Result res = cm_sess.run_leaf(ldp->d_namep, "CM", cm_max_time, &elapsed_ms);
+
+	    struct db_i *wdbip = db_open(bu_vls_cstr(s->wfile), DB_OPEN_READWRITE);
+	    if (wdbip) {
+		db_dirbuild(wdbip);
+		db_update_nref(wdbip);
+		if (res == TessSession::SESS_OK) {
+		    struct bu_vls done_status = BU_VLS_INIT_ZERO;
+		    bu_vls_sprintf(&done_status, "CM::%s", cm_opts.c_str());
+		    facetize_status_set(wdbip, ldp->d_namep, bu_vls_cstr(&done_status));
+		    struct bu_attribute_value_set avs = BU_AVS_INIT_ZERO;
+		    struct directory *wdp = db_lookup(wdbip, ldp->d_namep, LOOKUP_QUIET);
+		    if (wdp) {
+			db5_get_attributes(wdbip, &avs, wdp);
+			bu_avs_add(&avs, FACETIZE_METHOD_ATTR, "CM");
+			db5_update_attributes(wdp, &avs, wdbip);
+		    }
+		    bu_avs_free(&avs);
+		    bu_vls_free(&done_status);
+		} else {
+		    failed_dps.push_back(std::string(ldp->d_namep));
+		}
+		db_close(wdbip);
 	    } else {
-		// All done - nothing left to try
-		bu_vls_trunc(&method_str, 0);
-		tess_cmd[method_ind] = NULL;
+		failed_dps.push_back(std::string(ldp->d_namep));
 	    }
 	}
-
-	if (err_cnt || bad_dps.size() > 0) {
-	    // If we tried all the active methods and still had failures, we have an
-	    // error.  We'll keep trying to process all the leaves, since we want to
-	    // get a full picture of what the issues with the conversion are, but
-	    // we need to record these as a full-on failure.
-	    for (size_t i = 0; i < bad_dps.size(); i++)
-		failed_dps.push_back(std::string(bad_dps[i]->d_namep));
-	}
+	cm_sess.stop();
     }
 
-    while (!q_dsp.empty()) {
-	bu_vls_sprintf(&method_str, "CM");
-	tess_cmd[method_ind] = bu_vls_cstr(&method_str);
-	mstrpp = std::string("CM");
-	l_max_time = mo->max_time[mstrpp];
-	bu_vls_sprintf(&method_opts_str, "\"%s\"", mo->method_optstr(mstrpp, dbip).c_str());
-	tess_cmd[method_opt_ind] = bu_vls_cstr(&method_opts_str);
-	std::vector<struct directory *> dps;
-	struct bu_vls cmd = BU_VLS_INIT_ZERO;
-	for (int i = 0; i < cmd_fixed_cnt; i++)
-	    bu_vls_printf(&cmd, "%s ", tess_cmd[i]);
-	while (bu_vls_strlen(&cmd) < CMD_LEN_MAX) {
-	    if (q_dsp.empty() || cmd_fixed_cnt+dps.size() == MAXPATHLEN)
-		break;
-	    struct directory *ldp = q_dsp.front();
-	    if ((bu_vls_strlen(&cmd) + strlen(ldp->d_namep)) > CMD_LEN_MAX) {
-		// This would be too long -  we've listed all we can
-		break;
-	    }
-	    q_dsp.pop();
-	    dps.push_back(ldp);
-	    bu_vls_printf(&cmd, "%s ", ldp->d_namep);
-	}
-	bu_vls_free(&cmd);
+    /* Process plate-mode BoTs — NMG with the plate max_time */
+    {
+	std::string nmg_method = "NMG";
+	fastf_t plate_max_time = (fastf_t)mo->plate_max_time;
+	std::string nmg_opts = method_opts_for(nmg_method);
 
-	// We have the list of objects to feed the process - now, trigger
-	// the runs with as many methods as it takes to facetize all the
-	// primitives
-	for (size_t i = 0; i < dps.size(); i++) {
-	    tess_cmd[cmd_fixed_cnt] = dps[i]->d_namep;
-	    int err_cnt = tess_run(s, tess_cmd, cmd_fixed_cnt + 1, l_max_time, 1);
-	    if (err_cnt)
-		failed_dps.push_back(std::string(dps[i]->d_namep));
-	}
-    }
+	TessSession pbot_sess;
+	struct bu_vls mopts_arg = BU_VLS_INIT_ZERO;
+	bu_vls_sprintf(&mopts_arg, "NMG %s", nmg_opts.c_str());
+	bool pbot_started = pbot_sess.start(bu_vls_cstr(s->wfile), nmg_method, bu_vls_cstr(&mopts_arg), lcache);
+	bu_vls_free(&mopts_arg);
+	bool pbot_any_fail = false;
 
-    while (!q_pbot.empty()) {
-	bu_vls_sprintf(&method_str, "NMG");
-	tess_cmd[method_ind] = bu_vls_cstr(&method_str);
-	mstrpp = std::string("NMG");
-	l_max_time = mo->plate_max_time;
-	bu_vls_sprintf(&method_opts_str, "\"%s\"", mo->method_optstr(mstrpp, dbip).c_str());
-	tess_cmd[method_opt_ind] = bu_vls_cstr(&method_opts_str);
-
-
-	std::vector<struct directory *> dps;
-	std::vector<struct directory *> bad_dps;
-	struct bu_vls cmd = BU_VLS_INIT_ZERO;
-	for (int i = 0; i < cmd_fixed_cnt; i++)
-	    bu_vls_printf(&cmd, "%s ", tess_cmd[i]);
-	int obj_cnt = 0;
-	while (bu_vls_strlen(&cmd) < CMD_LEN_MAX) {
-	    if (q_pbot.empty() || cmd_fixed_cnt+dps.size() == MAXPATHLEN)
-		break;
+	while (!q_pbot.empty()) {
 	    struct directory *ldp = q_pbot.top();
-	    if ((bu_vls_strlen(&cmd) + strlen(ldp->d_namep)) > CMD_LEN_MAX) {
-		// This would be too long -  we've listed all we can
-		break;
-	    }
-	    obj_cnt++;
 	    q_pbot.pop();
-	    dps.push_back(ldp);
-	    bu_vls_printf(&cmd, "%s ", ldp->d_namep);
+
+	    if (!pbot_started) {
+		pbot_any_fail = true;
+		continue;
+	    }
+
+	    {
+		struct db_i *wdbip = db_open(bu_vls_cstr(s->wfile), DB_OPEN_READWRITE);
+		if (wdbip) {
+		    db_dirbuild(wdbip);
+		    facetize_status_set(wdbip, ldp->d_namep, "working::NMG_PLATE");
+		    db_close(wdbip);
+		}
+	    }
+
+	    if (!pbot_sess.alive() && !pbot_sess.restart()) {
+		pbot_any_fail = true;
+		continue;
+	    }
+
+	    long long elapsed_ms = -1;
+	    TessSession::Result res = pbot_sess.run_leaf(ldp->d_namep, "NMG", plate_max_time, &elapsed_ms);
+
+	    struct db_i *wdbip = db_open(bu_vls_cstr(s->wfile), DB_OPEN_READWRITE);
+	    if (wdbip) {
+		db_dirbuild(wdbip);
+		db_update_nref(wdbip);
+		if (res == TessSession::SESS_OK) {
+		    struct bu_vls done_status = BU_VLS_INIT_ZERO;
+		    bu_vls_sprintf(&done_status, "NMG_PLATE::%s", nmg_opts.c_str());
+		    facetize_status_set(wdbip, ldp->d_namep, bu_vls_cstr(&done_status));
+		    struct bu_attribute_value_set avs = BU_AVS_INIT_ZERO;
+		    struct directory *wdp = db_lookup(wdbip, ldp->d_namep, LOOKUP_QUIET);
+		    if (wdp) {
+			db5_get_attributes(wdbip, &avs, wdp);
+			bu_avs_add(&avs, FACETIZE_METHOD_ATTR, "PLATE");
+			db5_update_attributes(wdp, &avs, wdbip);
+		    }
+		    bu_avs_free(&avs);
+		    bu_vls_free(&done_status);
+		} else {
+		    pbot_any_fail = true;
+		}
+		db_close(wdbip);
+	    } else {
+		pbot_any_fail = true;
+	    }
 	}
-	bu_vls_free(&cmd);
+	pbot_sess.stop();
 
-
-	int err_cnt = bisect_run(s, bad_dps, dps, tess_cmd, cmd_fixed_cnt, l_max_time * dps.size(), obj_cnt);
-	if (err_cnt) {
-	    // If we couldn't handle the plate mode conversion, we can't do the
-	    // boolean evaluation
+	if (pbot_any_fail) {
 	    facetize_log(s, 0, "Plate mode conversion wasn't able to complete\n");
 	    return BRLCAD_ERROR;
 	}
     }
 
     if (failed_dps.size()) {
-	// As the parent process, we can know when we've run out of options
-       // to try.  If we get there, flag the solid in the working copy so
-       // the summary knows to report it.
-       struct db_i *cdbip = db_open(bu_vls_cstr(s->wfile), DB_OPEN_READWRITE);
-       if (cdbip) {
-           db_dirbuild(cdbip);
-           db_update_nref(cdbip);
-           for (size_t i = 0; i < failed_dps.size(); i++) {
-	       struct directory *dp = db_lookup(cdbip, failed_dps[i].c_str(), LOOKUP_QUIET);
-	       if (!dp)
-		   continue;
-               struct bu_attribute_value_set avs = BU_AVS_INIT_ZERO;
-               db5_get_attributes(cdbip, &avs, dp);
-               (void)bu_avs_add(&avs, FACETIZE_METHOD_ATTR, "FAIL");
-               (void)db5_update_attributes(dp, &avs, cdbip);
-           }
-           db_close(cdbip);
-       }
-       return BRLCAD_ERROR;
+	// All methods exhausted — decide what to do with the remaining failures.
+	struct db_i *cdbip = db_open(bu_vls_cstr(s->wfile), DB_OPEN_READWRITE);
+	if (cdbip) {
+	    db_dirbuild(cdbip);
+	    db_update_nref(cdbip);
+	    for (size_t i = 0; i < failed_dps.size(); i++) {
+		struct directory *dp = db_lookup(cdbip, failed_dps[i].c_str(), LOOKUP_QUIET);
+		if (!dp)
+		    continue;
+		if (s->partial) {
+		    /* --partial: mark as skipped so Phase 2 can substitute empty BoTs */
+		    facetize_status_set(cdbip, failed_dps[i].c_str(), "skipped");
+		} else {
+		    /* Strict mode: mark as FAIL for summary; keep working:: attrs
+		     * intact so the user can --resume with different options. */
+		    struct bu_attribute_value_set avs = BU_AVS_INIT_ZERO;
+		    db5_get_attributes(cdbip, dp, &avs);
+		    (void)bu_avs_add(&avs, FACETIZE_METHOD_ATTR, "FAIL");
+		    (void)db5_update_attributes(dp, &avs, cdbip);
+		    bu_avs_free(&avs);
+		}
+	    }
+	    db_close(cdbip);
+	}
+
+	if (!s->partial) {
+	    /* Return error — caller must NOT delete the working dir so the user
+	     * can --resume with adjusted options/methods. */
+	    return BRLCAD_ERROR;
+	}
     }
 
     return BRLCAD_OK;

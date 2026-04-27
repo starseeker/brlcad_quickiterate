@@ -842,6 +842,41 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 	nmg_wstate.dbip = wdbip;
 
 	int bret = BRLCAD_OK;
+
+	/* --partial: check if any leaf in this comb's subtree has been marked
+	 * "skipped".  If so, substitute an empty BoT for each skipped leaf in
+	 * the working .g copy before running booleval so the tree is well-formed.
+	 * Record all skipped leaf names in facetize_partial on the output BoT
+	 * later. */
+	std::vector<std::string> partial_leaves;
+	if (s->partial) {
+	    struct db_i *wdbip_ro = db_open(bu_vls_cstr(s->wfile), DB_OPEN_READWRITE);
+	    if (wdbip_ro) {
+		db_dirbuild(wdbip_ro);
+		db_update_nref(wdbip_ro);
+		/* Walk the subtree in the working .g and find skipped leaves */
+		struct bu_ptbl subtree_leaves = BU_PTBL_INIT_ZERO;
+		const char *av_sub[2] = {dpw[0]->d_namep, NULL};
+		db_search(&subtree_leaves, DB_SEARCH_TREE | DB_SEARCH_RETURN_UNIQ_DP,
+			  "-type shape", 1, av_sub, wdbip_ro, NULL);
+		for (size_t si = 0; si < BU_PTBL_LEN(&subtree_leaves); si++) {
+		    struct directory *sldp = (struct directory *)BU_PTBL_GET(&subtree_leaves, si);
+		    std::string st = facetize_status_get(wdbip_ro, sldp->d_namep);
+		    if (st == "skipped") {
+			partial_leaves.push_back(std::string(sldp->d_namep));
+			/* Substitute an empty BoT so booleval has something to consume */
+			_write_empty_bot(wdbip_ro, sldp->d_namep, s->verbosity);
+		    }
+		}
+		bu_ptbl_free(&subtree_leaves);
+		db_close(wdbip_ro);
+	    }
+	    if (!partial_leaves.empty()) {
+		facetize_log(s, 1, "FACETIZE: %s: %zu skipped leaf(ves) substituted with empty BoTs\n",
+			     dpw[0]->d_namep, partial_leaves.size());
+	    }
+	}
+
 	if (s->make_nmg || s->nmg_booleval) {
 	    char *obj_name = bu_strdup(dpw[0]->d_namep);
 	    bret = _ged_facetize_nmgeval(&nmg_wstate, 1, (const char **)&obj_name, bu_vls_cstr(&bname));
@@ -855,17 +890,17 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 	    bu_free(obj_name, "obj_name");
 
 	    bool can_validate = false;
-	    if (!s->no_perturb) {
+	    if (!s->no_validate && !s->no_perturb) {
 		std::set<std::string> visited;
 		can_validate = _has_perturbable_leaf(s->dbip, dpw[0], visited);
 	    }
-	    if (!s->no_perturb && !can_validate) {
+	    if (!s->no_validate && !s->no_perturb && !can_validate) {
 		vcnt_skip++;
 		if (s->verbosity > 0)
 		    bu_log("FACETIZE: %s has no ft_perturb-capable leaves; skipping raytrace validation\n", dpw[0]->d_namep);
 	    }
 
-	    if (bret == BRLCAD_OK && !s->no_perturb && can_validate) {
+	    if (bret == BRLCAD_OK && !s->no_validate && !s->no_perturb && can_validate) {
 		vcnt_total++;
 		double sa_err_pct = -1.0, vol_err_pct = -1.0;
 		int vret = _validate_csg_vs_bot(s->dbip, dpw[0]->d_namep, wdbip, bu_vls_cstr(&bname),
@@ -1002,6 +1037,29 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 		    if (s->verbosity > 0)
 			bu_log("FACETIZE: validation unavailable for %s (crofton/metric prep failure)\n", dpw[0]->d_namep);
 		}
+
+		/* Record validation metrics as attributes on the output BoT so
+		 * the final summary can be regenerated from the working .g
+		 * without re-running validation. */
+		if (vret >= 0) {
+		    struct directory *bot_dp = db_lookup(wdbip, bu_vls_cstr(&bname), LOOKUP_QUIET);
+		    if (bot_dp) {
+			struct bu_attribute_value_set avs = BU_AVS_INIT_ZERO;
+			db5_get_attributes(wdbip, &avs, bot_dp);
+			struct bu_vls tmp = BU_VLS_INIT_ZERO;
+			bu_vls_sprintf(&tmp, "%.6g", sa_err_pct);
+			bu_avs_add(&avs, FACETIZE_SA_ERR_ATTR, bu_vls_cstr(&tmp));
+			bu_vls_sprintf(&tmp, "%.6g", vol_err_pct);
+			bu_avs_add(&avs, FACETIZE_VOL_ERR_ATTR, bu_vls_cstr(&tmp));
+			if (vret == 0)
+			    bu_avs_add(&avs, FACETIZE_EVAL_STATUS_ATTR, "validate_fail");
+			else
+			    bu_avs_add(&avs, FACETIZE_EVAL_STATUS_ATTR, "ok");
+			db5_update_attributes(bot_dp, &avs, wdbip);
+			bu_avs_free(&avs);
+			bu_vls_free(&tmp);
+		    }
+		}
 	    }
 	    db_close(wdbip);
 	}
@@ -1009,6 +1067,11 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 	if (bret != BRLCAD_OK) {
 	    if (s->verbosity >= 0)
 		bu_log("regions.cpp:%d Failed to generate %s.\n", __LINE__, bu_vls_cstr(&bname));
+	    /* --partial: continue past booleval failures */
+	    if (s->partial) {
+		facetize_log(s, 1, "FACETIZE --partial: booleval failed for %s, continuing\n", dpw[0]->d_namep);
+		continue;
+	    }
 	    if (s->variant_plan) {
 		delete (FacetizeVariantPlan *)s->variant_plan;
 		s->variant_plan = NULL;
@@ -1069,6 +1132,21 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 		return BRLCAD_ERROR;
 	    }
 	}
+
+	/* Record facetize_partial attribute on the output BoT if any leaves
+	 * were skipped under --partial. */
+	if (!partial_leaves.empty()) {
+	    /* The output may now be named dpw[0]->d_namep (after the rename above) or bname */
+	    const char *bot_name = bu_vls_cstr(&bname);
+	    struct directory *bdp = db_lookup(wdbip, bot_name, LOOKUP_QUIET);
+	    if (!bdp)
+		bdp = db_lookup(wdbip, dpw[0]->d_namep, LOOKUP_QUIET);
+	    if (bdp) {
+		for (const auto &pl : partial_leaves)
+		    facetize_partial_append(wdbip, bdp->d_namep, pl.c_str());
+	    }
+	}
+
 	db_update_nref(wdbip);
 	db_close(wdbip);
     }

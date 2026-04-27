@@ -29,6 +29,9 @@
 
 #include <iostream>
 #include <fstream>
+#include <string>
+#include <tuple>
+#include <vector>
 
 #include "bu/app.h"
 #include "bu/path.h"
@@ -65,6 +68,163 @@ facetize_log(struct _ged_facetize_state *s, int msg_level, const char *fmt, ...)
 	bu_log("%s", bu_vls_cstr(&output));
 
     bu_vls_free(&output);
+}
+
+/* -----------------------------------------------------------------------
+ * Attribute state-machine helpers
+ * ----------------------------------------------------------------------- */
+
+/* Generic helper: read one named attribute from one named object. */
+static std::string
+_attr_get(struct db_i *dbip, const char *objname, const char *attr_name)
+{
+    if (!dbip || !objname || !attr_name)
+	return std::string();
+    struct directory *dp = db_lookup(dbip, objname, LOOKUP_QUIET);
+    if (!dp)
+	return std::string();
+    struct bu_attribute_value_set avs = BU_AVS_INIT_ZERO;
+    if (db5_get_attributes(dbip, &avs, dp)) {
+	bu_avs_free(&avs);
+	return std::string();
+    }
+    const char *val = bu_avs_get(&avs, attr_name);
+    std::string result = val ? std::string(val) : std::string();
+    bu_avs_free(&avs);
+    return result;
+}
+
+/* Generic helper: set one named attribute on one named object. */
+static int
+_attr_set(struct db_i *dbip, const char *objname, const char *attr_name, const char *value)
+{
+    if (!dbip || !objname || !attr_name || !value)
+	return BRLCAD_ERROR;
+    struct directory *dp = db_lookup(dbip, objname, LOOKUP_QUIET);
+    if (!dp)
+	return BRLCAD_ERROR;
+    struct bu_attribute_value_set avs = BU_AVS_INIT_ZERO;
+    db5_get_attributes(dbip, &avs, dp);
+    bu_avs_add_vls(&avs, attr_name, NULL);  /* ensure slot exists */
+    bu_avs_add(&avs, attr_name, value);
+    int ret = db5_update_attributes(dp, &avs, dbip);
+    bu_avs_free(&avs);
+    return (ret == 0) ? BRLCAD_OK : BRLCAD_ERROR;
+}
+
+std::string
+facetize_status_get(struct db_i *dbip, const char *name)
+{
+    return _attr_get(dbip, name, FACETIZE_STATUS_ATTR);
+}
+
+int
+facetize_status_set(struct db_i *dbip, const char *name, const char *status)
+{
+    return _attr_set(dbip, name, FACETIZE_STATUS_ATTR, status);
+}
+
+std::string
+facetize_eval_status_get(struct db_i *dbip, const char *name)
+{
+    return _attr_get(dbip, name, FACETIZE_EVAL_STATUS_ATTR);
+}
+
+int
+facetize_eval_status_set(struct db_i *dbip, const char *name, const char *status)
+{
+    return _attr_set(dbip, name, FACETIZE_EVAL_STATUS_ATTR, status);
+}
+
+void
+facetize_partial_append(struct db_i *dbip, const char *obj_name, const char *leaf_name)
+{
+    if (!dbip || !obj_name || !leaf_name)
+	return;
+    struct directory *dp = db_lookup(dbip, obj_name, LOOKUP_QUIET);
+    if (!dp)
+	return;
+    struct bu_attribute_value_set avs = BU_AVS_INIT_ZERO;
+    db5_get_attributes(dbip, &avs, dp);
+    const char *cur = bu_avs_get(&avs, FACETIZE_PARTIAL_ATTR);
+    struct bu_vls newval = BU_VLS_INIT_ZERO;
+    if (cur && strlen(cur))
+	bu_vls_sprintf(&newval, "%s;%s", cur, leaf_name);
+    else
+	bu_vls_sprintf(&newval, "%s", leaf_name);
+    bu_avs_add(&avs, FACETIZE_PARTIAL_ATTR, bu_vls_cstr(&newval));
+    db5_update_attributes(dp, &avs, dbip);
+    bu_avs_free(&avs);
+    bu_vls_free(&newval);
+}
+
+int
+facetize_seed_leaves_nottried(struct db_i *wdbip, struct bu_ptbl *leaf_dps)
+{
+    if (!wdbip || !leaf_dps)
+	return BRLCAD_ERROR;
+    for (size_t i = 0; i < BU_PTBL_LEN(leaf_dps); i++) {
+	struct directory *ldp = (struct directory *)BU_PTBL_GET(leaf_dps, i);
+	if (!ldp)
+	    continue;
+	/* Look up the same-named object in the working database */
+	struct directory *wdp = db_lookup(wdbip, ldp->d_namep, LOOKUP_QUIET);
+	if (!wdp)
+	    continue;
+	std::string cur = _attr_get(wdbip, ldp->d_namep, FACETIZE_STATUS_ATTR);
+	if (cur.empty())
+	    _attr_set(wdbip, ldp->d_namep, FACETIZE_STATUS_ATTR, "nottried");
+    }
+    return BRLCAD_OK;
+}
+
+int
+facetize_resume_rewind_working(struct db_i *wdbip, struct bu_ptbl *leaf_dps)
+{
+    if (!wdbip || !leaf_dps)
+	return BRLCAD_ERROR;
+    for (size_t i = 0; i < BU_PTBL_LEN(leaf_dps); i++) {
+	struct directory *ldp = (struct directory *)BU_PTBL_GET(leaf_dps, i);
+	if (!ldp)
+	    continue;
+	std::string cur = _attr_get(wdbip, ldp->d_namep, FACETIZE_STATUS_ATTR);
+	/* Reset any leaf that was mid-flight when the previous run died */
+	if (cur.rfind("working::", 0) == 0)
+	    _attr_set(wdbip, ldp->d_namep, FACETIZE_STATUS_ATTR, "nottried");
+    }
+    return BRLCAD_OK;
+}
+
+bool
+facetize_any_skipped(struct db_i *wdbip, struct bu_ptbl *leaf_dps)
+{
+    if (!wdbip || !leaf_dps)
+	return false;
+    for (size_t i = 0; i < BU_PTBL_LEN(leaf_dps); i++) {
+	struct directory *ldp = (struct directory *)BU_PTBL_GET(leaf_dps, i);
+	if (!ldp)
+	    continue;
+	std::string cur = _attr_get(wdbip, ldp->d_namep, FACETIZE_STATUS_ATTR);
+	if (cur == "skipped")
+	    return true;
+    }
+    return false;
+}
+
+bool
+facetize_any_working(struct db_i *wdbip, struct bu_ptbl *leaf_dps)
+{
+    if (!wdbip || !leaf_dps)
+	return false;
+    for (size_t i = 0; i < BU_PTBL_LEN(leaf_dps); i++) {
+	struct directory *ldp = (struct directory *)BU_PTBL_GET(leaf_dps, i);
+	if (!ldp)
+	    continue;
+	std::string cur = _attr_get(wdbip, ldp->d_namep, FACETIZE_STATUS_ATTR);
+	if (cur.rfind("working::", 0) == 0)
+	    return true;
+    }
+    return false;
 }
 
 int
@@ -483,23 +643,61 @@ facetize_primitives_summary(struct _ged_facetize_state *s)
     std::map<std::string, std::set<std::string>> method_sets;
     std::map<std::string, std::set<std::string>>::iterator m_it;
     std::set<std::string>::iterator s_it;
+    std::set<std::string> skipped_leaves;
+
     struct db_i *cdbip = db_open(bu_vls_cstr(s->wfile), DB_OPEN_READONLY);
     if (cdbip) {
 	db_dirbuild(cdbip);
 	db_update_nref(cdbip);
+
+	/* Collect method info from the legacy FACETIZE_METHOD_ATTR */
 	method_scan(&method_sets, cdbip);
+
+	/* Also scan the new FACETIZE_STATUS_ATTR to find skipped leaves and
+	 * to augment method_sets for leaves that only have the new attr. */
+	struct directory *dp;
+	FOR_ALL_DIRECTORY_START(dp, cdbip)
+	    struct bu_attribute_value_set avs = BU_AVS_INIT_ZERO;
+	    if (db5_get_attributes(cdbip, &avs, dp)) {
+		bu_avs_free(&avs);
+		continue;
+	    }
+	    const char *st = bu_avs_get(&avs, FACETIZE_STATUS_ATTR);
+	    if (st && strlen(st)) {
+		if (BU_STR_EQUAL(st, "skipped")) {
+		    skipped_leaves.insert(std::string(dp->d_namep));
+		    method_sets[std::string("SKIPPED")].insert(std::string(dp->d_namep));
+		} else if (st[0] != '\0' && st[0] != 'n') {
+		    /* Has a successful status that's not "nottried" and not
+		     * starting with "working::" — extract the bare method name
+		     * from status strings like "NMG::rel=..." */
+		    std::string ststr(st);
+		    size_t colpos = ststr.find("::");
+		    std::string mname = (colpos != std::string::npos) ? ststr.substr(0, colpos) : ststr;
+		    if (!mname.empty() && mname != "working" && mname != "nottried" && mname != "skipped") {
+			method_sets[mname].insert(std::string(dp->d_namep));
+		    }
+		}
+	    }
+	    bu_avs_free(&avs);
+	FOR_ALL_DIRECTORY_END;
+
 	size_t total = 0;
 	size_t fail_cnt = 0;
 	size_t repair_cnt = 0;
 	size_t plate_cnt = 0;
+	size_t skipped_cnt = skipped_leaves.size();
 	for (m_it = method_sets.begin(); m_it != method_sets.end(); ++m_it) {
-	    total += m_it->second.size();
+	    if (m_it->first != std::string("SKIPPED"))
+		total += m_it->second.size();
 	    if (m_it->first == std::string("FAIL")) fail_cnt += m_it->second.size();
 	    if (m_it->first == std::string("REPAIR")) repair_cnt += m_it->second.size();
 	    if (m_it->first == std::string("PLATE")) plate_cnt += m_it->second.size();
 	}
 	facetize_log(s, 0, "  %-33s %8zu\n", "Total solids evaluated", total);
 	facetize_log(s, 0, "  %-33s %8zu\n", "Failed tessellation", fail_cnt);
+	if (skipped_cnt)
+	    facetize_log(s, 0, "  %-33s %8zu\n", "Skipped (--partial)", skipped_cnt);
 	facetize_log(s, 0, "  %-33s %8zu\n", "Plate extrusions", plate_cnt);
 	facetize_log(s, 0, "  %-33s %8zu\n", "BoT repair closures", repair_cnt);
 	facetize_log(s, 0, "\n  Method breakdown:\n");
@@ -510,6 +708,8 @@ facetize_primitives_summary(struct _ged_facetize_state *s)
 		facetize_log(s, 0, "    %-28s %8zu\n", "plate extrusion", m_it->second.size());
 	    } else if (m_it->first == std::string("FAIL")) {
 		facetize_log(s, 0, "    %-28s %8zu\n", "failed", m_it->second.size());
+	    } else if (m_it->first == std::string("SKIPPED")) {
+		facetize_log(s, 0, "    %-28s %8zu\n", "skipped (--partial)", m_it->second.size());
 	    } else {
 		std::string mlabel = std::string("success: ") + m_it->first;
 		facetize_log(s, 0, "    %-28s %8zu\n", mlabel.c_str(), m_it->second.size());
@@ -522,6 +722,67 @@ facetize_primitives_summary(struct _ged_facetize_state *s)
 		for (s_it = m_it->second.begin(); s_it != m_it->second.end(); ++s_it) {
 		    facetize_log(s, 1, "\t%s\n", (*s_it).c_str());
 		}
+	    }
+	}
+
+	/* --- Table 1: Empty BoTs --- */
+	std::vector<std::pair<std::string,std::string>> empty_bots;
+	FOR_ALL_DIRECTORY_START(dp, cdbip)
+	    if (!(dp->d_flags & RT_DIR_SOLID))
+		continue;
+	    struct bu_attribute_value_set avs = BU_AVS_INIT_ZERO;
+	    db5_get_attributes(cdbip, &avs, dp);
+	    const char *eval_st = bu_avs_get(&avs, FACETIZE_EVAL_STATUS_ATTR);
+	    if (eval_st && (BU_STR_EQUAL(eval_st, "empty_setops") || BU_STR_EQUAL(eval_st, "empty_raytrace"))) {
+		const char *reason = bu_avs_get(&avs, FACETIZE_EMPTY_REASON_ATTR);
+		empty_bots.push_back({std::string(dp->d_namep), reason ? std::string(reason) : std::string("unknown")});
+	    }
+	    bu_avs_free(&avs);
+	FOR_ALL_DIRECTORY_END;
+
+	if (!empty_bots.empty()) {
+	    facetize_log(s, 0, "\nEmpty BoTs:\n");
+	    facetize_log(s, 0, "  %-40s  %s\n", "Object", "Reason");
+	    facetize_log(s, 0, "  %-40s  %s\n", "------", "------");
+	    for (const auto &eb : empty_bots)
+		facetize_log(s, 0, "  %-40s  %s\n", eb.first.c_str(), eb.second.c_str());
+	}
+
+	/* --- Table 2: Validation failures with metrics --- */
+	std::vector<std::tuple<std::string,double,double,double,double,double,double>> vfail_rows;
+	FOR_ALL_DIRECTORY_START(dp, cdbip)
+	    struct bu_attribute_value_set avs = BU_AVS_INIT_ZERO;
+	    db5_get_attributes(cdbip, &avs, dp);
+	    const char *eval_st = bu_avs_get(&avs, FACETIZE_EVAL_STATUS_ATTR);
+	    if (eval_st && BU_STR_EQUAL(eval_st, "validate_fail")) {
+		const char *sa_csg_s   = bu_avs_get(&avs, FACETIZE_SA_CSG_ATTR);
+		const char *sa_bot_s   = bu_avs_get(&avs, FACETIZE_SA_BOT_ATTR);
+		const char *vol_csg_s  = bu_avs_get(&avs, FACETIZE_VOL_CSG_ATTR);
+		const char *vol_bot_s  = bu_avs_get(&avs, FACETIZE_VOL_BOT_ATTR);
+		const char *sa_err_s   = bu_avs_get(&avs, FACETIZE_SA_ERR_ATTR);
+		const char *vol_err_s  = bu_avs_get(&avs, FACETIZE_VOL_ERR_ATTR);
+		double sa_csg  = sa_csg_s  ? atof(sa_csg_s)  : -1.0;
+		double sa_bot  = sa_bot_s  ? atof(sa_bot_s)  : -1.0;
+		double vol_csg = vol_csg_s ? atof(vol_csg_s) : -1.0;
+		double vol_bot = vol_bot_s ? atof(vol_bot_s) : -1.0;
+		double sa_err  = sa_err_s  ? atof(sa_err_s)  : -1.0;
+		double vol_err = vol_err_s ? atof(vol_err_s) : -1.0;
+		vfail_rows.push_back({dp->d_namep, sa_csg, sa_bot, sa_err, vol_csg, vol_bot, vol_err});
+	    }
+	    bu_avs_free(&avs);
+	FOR_ALL_DIRECTORY_END;
+
+	if (!vfail_rows.empty()) {
+	    facetize_log(s, 0, "\nValidation failures:\n");
+	    facetize_log(s, 0, "  %-30s %10s %10s %8s %10s %10s %8s\n",
+		    "Object", "CSG SA", "BoT SA", "%delta", "CSG Vol", "BoT Vol", "%delta");
+	    facetize_log(s, 0, "  %-30s %10s %10s %8s %10s %10s %8s\n",
+		    "------", "------", "------", "------", "-------", "-------", "------");
+	    for (const auto &row : vfail_rows) {
+		facetize_log(s, 0, "  %-30s %10.4g %10.4g %8.2f %10.4g %10.4g %8.2f\n",
+			std::get<0>(row).c_str(),
+			std::get<1>(row), std::get<2>(row), std::get<3>(row),
+			std::get<4>(row), std::get<5>(row), std::get<6>(row));
 	    }
 	}
     }

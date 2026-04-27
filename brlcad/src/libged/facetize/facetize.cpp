@@ -90,6 +90,8 @@ _ged_facetize_state_create()
     s->no_fixup = 0;
     s->nmg_booleval = 0;
     s->use_variant_plan = 1;
+    s->partial = 0;
+    s->no_validate = 0;
     s->perturb_sa_tol  = 10.0;
     s->perturb_vol_tol = 10.0;
 
@@ -245,7 +247,33 @@ _ged_facetize_objs(struct _ged_facetize_state *s, int argc, const char **argv)
     facetize_primitives_summary(s);
 
     // After collecting info for summary, we can now clean up working files
-    bu_dirclear(s->wdir);
+    // only if there are no unfinished (working::) leaves remaining.
+    // If any working:: leaves are present the user can --resume.
+    {
+	struct db_i *cdbip = db_open(bu_vls_cstr(s->wfile), DB_OPEN_READONLY);
+	bool keep_wdir = false;
+	if (cdbip) {
+	    db_dirbuild(cdbip);
+	    /* Quick scan: any leaf still tagged working:: means tessellation was
+	     * interrupted; preserve the working dir so --resume can recover. */
+	    struct directory *dp;
+	    FOR_ALL_DIRECTORY_START(dp, cdbip)
+		struct bu_attribute_value_set avs = BU_AVS_INIT_ZERO;
+		db5_get_attributes(cdbip, &avs, dp);
+		const char *st = bu_avs_get(&avs, FACETIZE_STATUS_ATTR);
+		if (st && strncmp(st, "working::", 9) == 0)
+		    keep_wdir = true;
+		bu_avs_free(&avs);
+		if (keep_wdir)
+		    break;
+	    FOR_ALL_DIRECTORY_END;
+	    db_close(cdbip);
+	}
+	if (!keep_wdir)
+	    bu_dirclear(s->wdir);
+	else
+	    facetize_log(s, 0, "Note: working directory preserved for --resume: %s\n", s->wdir);
+    }
 
 booleval_cleanup:
     bu_free(dpa, "dp array");
@@ -270,7 +298,7 @@ ged_facetize_core(struct ged *gedp, int argc, const char *argv[])
     s->method_opts = method_options;
 
     /* General options */
-    struct bu_opt_desc d[23];
+    struct bu_opt_desc d[27];
     BU_OPT(d[ 0], "h", "help",                                      "",                  NULL,           &print_help, "Print help and exit");
     BU_OPT(d[ 1], "v", "verbose",                                   "",  &bu_opt_incr_long,       &verbosity, "Verbose output (multiple flags increase verbosity)");
     BU_OPT(d[ 2], "q", "quiet",                                     "",                  NULL,                &quiet, "Suppress all output (overrides verbose flag)");
@@ -291,9 +319,13 @@ ged_facetize_core(struct ged *gedp, int argc, const char *argv[])
     BU_OPT(d[17],  "", "no-perturb",                                "",                  NULL,       &s->no_perturb, "Disable the coplanarity-avoidance perturbation step (variant plan).");
     BU_OPT(d[18], "B", "",                                          "",                  NULL,      &s->nonovlp_brep, "EXPERIMENTAL: non-overlapping facetization to BoT objects of union-only brep comb tree.");
     BU_OPT(d[19], "t", "threshold",                                "#",       &bu_opt_fastf_t, &s->nonovlp_threshold, "EXPERIMENTAL: max ovlp threshold length for -B mode.");
-    BU_OPT(d[20],  "", "perturb-sa-tol",                           "#",       &bu_opt_fastf_t,   &s->perturb_sa_tol,  "Surface-area percentage threshold (0–100) that triggers the coplanarity-avoidance perturb retry when the CSG Crofton SA differs from the BoT SA by more than this amount. Default is 10.");
-    BU_OPT(d[21],  "", "perturb-vol-tol",                          "#",       &bu_opt_fastf_t,   &s->perturb_vol_tol, "Volume percentage threshold (0–100) that triggers the coplanarity-avoidance perturb retry when the CSG Crofton volume differs from the BoT volume by more than this amount. Default is 10.");
-    BU_OPT_NULL(d[22]);
+    BU_OPT(d[20],  "", "perturb-sa-tol",                           "#",       &bu_opt_fastf_t,   &s->perturb_sa_tol,  "Surface-area percentage threshold (0–100) that triggers the coplanarity-avoidance perturb retry. Also controls validation pass/fail. Default is 10. Alias: --validate-sa-tol.");
+    BU_OPT(d[21],  "", "perturb-vol-tol",                          "#",       &bu_opt_fastf_t,   &s->perturb_vol_tol, "Volume percentage threshold (0–100) that triggers the coplanarity-avoidance perturb retry. Also controls validation pass/fail. Default is 10. Alias: --validate-vol-tol.");
+    BU_OPT(d[22],  "", "validate-sa-tol",                          "#",       &bu_opt_fastf_t,   &s->perturb_sa_tol,  "Surface-area percentage threshold for CSG-vs-BoT validation (0–100). Default is 10. (Hidden alias for --perturb-sa-tol.)");
+    BU_OPT(d[23],  "", "validate-vol-tol",                         "#",       &bu_opt_fastf_t,   &s->perturb_vol_tol, "Volume percentage threshold for CSG-vs-BoT validation (0–100). Default is 10. (Hidden alias for --perturb-vol-tol.)");
+    BU_OPT(d[24],  "", "partial",                                   "",                  NULL,        &(s->partial),  "Continue past unconvertible leaves/combs; annotate parent BoTs with a list of skipped inputs.");
+    BU_OPT(d[25],  "", "no-validate",                               "",                  NULL,     &(s->no_validate), "Disable Phase 3 CSG-vs-BoT validation and Phase 4 perturb retry.");
+    BU_OPT_NULL(d[26]);
 
     GED_CHECK_DATABASE_OPEN(gedp, BRLCAD_ERROR);
     GED_CHECK_READ_ONLY(gedp, BRLCAD_ERROR);

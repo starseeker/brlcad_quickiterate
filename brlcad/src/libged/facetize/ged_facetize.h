@@ -43,7 +43,34 @@
 
 __BEGIN_DECLS
 
+/* Legacy method attribute (kept for backward compat / inspection) */
 #define FACETIZE_METHOD_ATTR "facetize_method"
+
+/* Per-leaf tessellation state machine attribute on objects in the working .g.
+ * Lifecycle:
+ *   (unset)                                         → nottried
+ *   "nottried"                                      → enqueued
+ *   "working::<METHOD>::rel=r:abs=a:norm=n"        → in flight
+ *   "<METHOD>::rel=r:abs=a:norm=n"                 → succeeded (no working:: prefix)
+ *   "<METHOD>::rel=r:abs=a:norm=n::perturbed"      → succeeded after perturb retry
+ *   "skipped"                                       → --partial gave up on this leaf
+ */
+#define FACETIZE_STATUS_ATTR "facetize_status"
+
+/* Per-output-BoT / comb boolean evaluation state attribute. */
+#define FACETIZE_EVAL_STATUS_ATTR "facetize_eval_status"
+
+/* Semicolon-separated list of lowest-level offenders skipped under --partial */
+#define FACETIZE_PARTIAL_ATTR "facetize_partial"
+
+/* Validation metric attributes recorded on output BoTs */
+#define FACETIZE_SA_CSG_ATTR     "facetize_sa_csg"
+#define FACETIZE_SA_BOT_ATTR     "facetize_sa_bot"
+#define FACETIZE_VOL_CSG_ATTR    "facetize_vol_csg"
+#define FACETIZE_VOL_BOT_ATTR    "facetize_vol_bot"
+#define FACETIZE_SA_ERR_ATTR     "facetize_sa_err_pct"
+#define FACETIZE_VOL_ERR_ATTR    "facetize_vol_err_pct"
+#define FACETIZE_EMPTY_REASON_ATTR "facetize_empty_reason"
 
 struct _ged_facetize_state {
 
@@ -56,9 +83,19 @@ struct _ged_facetize_state {
     int no_perturb;
     int use_variant_plan;
 
-    /* Perturb validation thresholds (percentage, 0–100).
-     * Trigger the perturb retry when the CSG–BoT difference exceeds these
-     * values.  Defaults are 10 % for both surface area and volume. */
+    /* Failure-tolerance mode: skip unconvertible leaves/combs, annotate
+     * parent BoTs with FACETIZE_PARTIAL_ATTR holding a semicolon-separated
+     * list of the lowest-level offenders. */
+    int partial;
+
+    /* When set, skip Phase 3 (CSG-vs-BoT validation) and Phase 4
+     * (perturb retry).  Implies results are returned without scrutiny. */
+    int no_validate;
+
+    /* Perturb / validation thresholds (percentage, 0–100).
+     * In validate mode: trigger the perturb retry and mark validate_fail
+     * when the CSG–BoT difference exceeds these values.
+     * Defaults are 10 % for both surface area and volume. */
     fastf_t perturb_sa_tol;
     fastf_t perturb_vol_tol;
 
@@ -102,6 +139,41 @@ facetize_log(struct _ged_facetize_state *, int msg_level, const char *, ...) _BU
 
 extern int
 _db_uniq_test(struct bu_vls *n, void *data);
+
+/* --- Attribute state-machine helpers (util.cpp) --- */
+
+/* Read facetize_status from the named object in dbip.  Returns empty string
+ * if the attribute is not set. */
+extern std::string facetize_status_get(struct db_i *dbip, const char *name);
+
+/* Write facetize_status onto the named object in dbip. */
+extern int facetize_status_set(struct db_i *dbip, const char *name, const char *status);
+
+/* Read facetize_eval_status from the named object in dbip. */
+extern std::string facetize_eval_status_get(struct db_i *dbip, const char *name);
+
+/* Write facetize_eval_status onto the named object in dbip. */
+extern int facetize_eval_status_set(struct db_i *dbip, const char *name, const char *status);
+
+/* Append leaf_name to the FACETIZE_PARTIAL_ATTR semicolon list on the named
+ * object.  Creates the attribute if it does not yet exist. */
+extern void facetize_partial_append(struct db_i *dbip, const char *obj_name, const char *leaf_name);
+
+/* Walk leaf_dps in the working database wdbip.  For any leaf whose
+ * FACETIZE_STATUS_ATTR is unset or empty, set it to "nottried". */
+extern int facetize_seed_leaves_nottried(struct db_i *wdbip, struct bu_ptbl *leaf_dps);
+
+/* Walk leaf_dps in the working database wdbip.  For any leaf whose
+ * FACETIZE_STATUS_ATTR starts with "working::", reset it to "nottried" so a
+ * --resume run will retry those leaves with new parameters. */
+extern int facetize_resume_rewind_working(struct db_i *wdbip, struct bu_ptbl *leaf_dps);
+
+/* Returns true if any leaf in leaf_dps has facetize_status == "skipped". */
+extern bool facetize_any_skipped(struct db_i *wdbip, struct bu_ptbl *leaf_dps);
+
+/* Returns true if any leaf in leaf_dps still has a "working::" prefix
+ * (i.e. tessellation was never completed). */
+extern bool facetize_any_working(struct db_i *wdbip, struct bu_ptbl *leaf_dps);
 
 extern int
 _ged_validate_objs_list(struct _ged_facetize_state *s, int argc, const char *argv[], int newobj_cnt);
@@ -224,15 +296,72 @@ tess_run(struct _ged_facetize_state *s,
          fastf_t max_time,
          int ocnt);
 
-#endif /* LIBGED_FACETIZE_GED_PRIVATE_H */
+/* Forward-declare subprocess_s so TessSession can hold one by value without
+ * requiring consumers of this header to pull in all of subprocess.h. */
+struct subprocess_s;
 
-/** @} */
-/*
- * Local Variables:
- * mode: C
- * tab-width: 8
- * indent-tabs-mode: t
- * c-file-style: "stroustrup"
- * End:
- * ex: shiftwidth=4 tabstop=8
+/**
+ * Long-lived tessellator subprocess manager.
+ *
+ * Starts a single `facetize_process --server` child process for the duration
+ * of a facetize session.  Exposes a run_leaf() call that sends a single
+ * `tess <method> <name>` command to the subprocess and waits for an
+ * `OK` or `FAIL` response line.
+ *
+ * If the child times out or crashes, the caller is responsible for calling
+ * restart() before the next run_leaf() call.
  */
+class TessSession {
+public:
+    enum Result { SESS_OK, SESS_FAIL, SESS_TIMEOUT, SESS_CRASH };
+
+    TessSession();
+    ~TessSession();
+
+    /* Start the subprocess.  wfile is the working .g path; methods is the
+     * comma-separated list of methods (e.g. "NMG,CM"); method_opts is the
+     * --method-opts string; cache_dir is the libbu cache directory.
+     * Returns true on success. */
+    bool start(const char *wfile,
+               const std::string &methods,
+               const std::string &method_opts,
+               const char *cache_dir);
+
+    /* Restart after a crash or timeout (reuses the same startup parameters). */
+    bool restart();
+
+    /* Send `tess <method> <leafname>` and wait for a response.
+     * max_time_s is the per-leaf wall-clock limit.
+     * On SESS_OK, *elapsed_ms is set to the tessellation time in ms.
+     * On SESS_CRASH the subprocess has exited; caller should call restart(). */
+    Result run_leaf(const char *leafname,
+                    const char *method,
+                    fastf_t max_time_s,
+                    long long *elapsed_ms);
+
+    /* Gracefully shut down (sends "quit"). */
+    void stop();
+
+    bool alive() const { return alive_; }
+
+private:
+    /* Heap-allocated to avoid needing subprocess.h in consumers. */
+    struct subprocess_s *proc_;
+    bool alive_;
+    bool started_;
+    std::string wfile_;
+    std::string methods_;
+    std::string method_opts_;
+    std::string cache_dir_;
+    char tess_exec_[MAXPATHLEN];
+
+    /* Accumulated stdout buffer for partial-line reads */
+    std::string stdout_buf_;
+
+    /* Read one complete newline-terminated line from the subprocess stdout.
+     * Blocks until data arrives or timeout_ms milliseconds have passed.
+     * Returns empty string on timeout or process death. */
+    std::string read_line(int timeout_ms);
+};
+
+#endif /* LIBGED_FACETIZE_GED_PRIVATE_H */

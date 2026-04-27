@@ -35,6 +35,8 @@
 #include "bu/app.h"
 #include "bu/env.h"
 #include "bu/opt.h"
+#include "bu/str.h"
+#include "bu/time.h"
 #include "bg/trimesh.h"
 #include "rt/primitives/bot.h"
 #include "ged.h"
@@ -300,8 +302,9 @@ facetize_process(int argc, const char **argv)
     int list_methods = 0;
     int max_time = 0;
     int max_pnts = 0;
+    int server_mode = 0;
 
-    struct bu_opt_desc d[ 9];
+    struct bu_opt_desc d[10];
     BU_OPT(d[ 0],  "h",         "help",                         "",                  NULL,           &print_help, "Print help and exit");
     BU_OPT(d[ 1],   "", "list-methods",                         "",                  NULL,         &list_methods, "List available tessellation methods.  When used with -h, print an informational summary of each method.");
     BU_OPT(d[ 2],  "O",    "overwrite",                         "",                  NULL,    &(s.overwrite_obj), "Replace original object with BoT");
@@ -310,7 +313,8 @@ facetize_process(int argc, const char **argv)
     BU_OPT(d[ 5],   "",     "max-time",                        "#",           &bu_opt_int,             &max_time, "Maximum number of seconds to allow for runtime (not supported by all methods).");
     BU_OPT(d[ 6],   "",     "max-pnts",                        "#",           &bu_opt_int,             &max_pnts, "Maximum number of pnts to use when applying ray sampling methods.");
     BU_OPT(d[ 7],   "",     "cache-dir",                     "dir",           &bu_opt_vls,            &cache_dir, "Directory to use for cached outputs (default is libbu cache directory).");
-    BU_OPT_NULL(d[ 8]);
+    BU_OPT(d[ 8],   "",       "server",                         "",                  NULL,          &server_mode, "Run as a long-lived server: read tess/quit commands from stdin, write OK/FAIL to stdout.");
+    BU_OPT_NULL(d[ 9]);
 
     /* parse options */
     struct bu_vls omsg = BU_VLS_INIT_ZERO;
@@ -358,6 +362,122 @@ facetize_process(int argc, const char **argv)
 
     // Do the setup for the various methods
     method_setup(&s);
+
+    /* --server mode: first remaining arg is the .g file; then loop on stdin
+     * reading commands:
+     *   tess <method> <objname>   - tessellate one object
+     *   quit                      - exit cleanly
+     *
+     * Responses written to stdout (one line per command):
+     *   OK <objname> <elapsed_ms>
+     *   FAIL <objname> <reason>
+     */
+    if (server_mode) {
+	if (argc < 1) {
+	    bu_log("facetize_process --server: need a .g filename\n");
+	    bu_vls_free(&cache_dir);
+	    return BRLCAD_ERROR;
+	}
+	const char *gfile = argv[0];
+
+	struct ged *gedp = ged_open("db", gfile, 1);
+	if (!gedp) {
+	    bu_log("facetize_process --server: cannot open %s\n", gfile);
+	    bu_vls_free(&cache_dir);
+	    return BRLCAD_ERROR;
+	}
+
+	/* Signal to the parent that we are ready */
+	fprintf(stdout, "READY\n");
+	fflush(stdout);
+
+	char line[MAXPATHLEN * 2];
+	while (fgets(line, sizeof(line), stdin)) {
+	    /* Strip trailing newline */
+	    size_t len = strlen(line);
+	    while (len > 0 && (line[len-1] == '\n' || line[len-1] == '\r'))
+		line[--len] = '\0';
+
+	    if (BU_STR_EQUAL(line, "quit"))
+		break;
+
+	    /* Parse: tess <method> <objname> */
+	    if (strncmp(line, "tess ", 5) == 0) {
+		/* Split remaining: "<method> <objname>" */
+		const char *rest = line + 5;
+		const char *sp = strchr(rest, ' ');
+		if (!sp) {
+		    fprintf(stdout, "FAIL (unknown) bad_command\n");
+		    fflush(stdout);
+		    continue;
+		}
+		std::string method(rest, sp - rest);
+		const char *objname = sp + 1;
+
+		/* Temporarily set the active method list to just this method */
+		s.method_opts.methods.clear();
+		s.method_opts.methods.push_back(method);
+		method_setup(&s);
+
+		struct directory *dp = db_lookup(gedp->dbip, objname, LOOKUP_QUIET);
+		if (!dp || dp->d_major_type != DB5_MAJORTYPE_BRLCAD) {
+		    fprintf(stdout, "FAIL %s not_found\n", objname);
+		    fflush(stdout);
+		    continue;
+		}
+
+		int64_t t0 = bu_gettime();
+		struct rt_bot_internal *obot = NULL;
+		struct bu_vls method_flag = BU_VLS_INIT_ZERO;
+		int ret = dp_tessellate(&obot, &method_flag, gedp, dp, &s);
+		long long elapsed_ms = (long long)((bu_gettime() - t0) / 1000LL);
+
+		if (ret != BRLCAD_OK || BU_STR_EQUAL(bu_vls_cstr(&method_flag), "FAIL")) {
+		    fprintf(stdout, "FAIL %s %s\n", objname, bu_vls_cstr(&method_flag));
+		    fflush(stdout);
+		    bu_vls_free(&method_flag);
+		    if (obot)
+			rt_bot_internal_free(obot);
+		    continue;
+		}
+
+		/* NMG_BREP_CSG: the write already happened inside dp_tessellate */
+		if (BU_STR_EQUAL(bu_vls_cstr(&method_flag), "NMG_BREP_CSG")) {
+		    fprintf(stdout, "OK %s %lld\n", objname, elapsed_ms);
+		    fflush(stdout);
+		    bu_vls_free(&method_flag);
+		    continue;
+		}
+
+		if (obot) {
+		    /* Write the BoT back to the working .g overwriting the primitive */
+		    int wret = _tess_facetize_write_bot(gedp->dbip, obot, objname,
+						        bu_vls_cstr(&method_flag));
+		    bu_vls_free(&method_flag);
+		    if (wret != BRLCAD_OK) {
+			fprintf(stdout, "FAIL %s write_error\n", objname);
+		    } else {
+			fprintf(stdout, "OK %s %lld\n", objname, elapsed_ms);
+		    }
+		} else {
+		    fprintf(stdout, "OK %s %lld\n", objname, elapsed_ms);
+		    bu_vls_free(&method_flag);
+		}
+		fflush(stdout);
+		continue;
+	    }
+
+	    /* Unknown command - ignore gracefully */
+	    fprintf(stdout, "FAIL (unknown) unknown_command\n");
+	    fflush(stdout);
+	}
+
+	ged_close(gedp);
+	bu_vls_free(&cache_dir);
+	return BRLCAD_OK;
+    }
+
+    /* --- Original one-shot mode below --- */
 
     // Open the database
     struct ged *gedp = ged_open("db", argv[0], 1);
