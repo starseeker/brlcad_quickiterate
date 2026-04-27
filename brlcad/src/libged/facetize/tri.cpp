@@ -50,10 +50,9 @@
 #include "./tess_opts.h"
 #include "./subprocess.h"
 
-static const size_t FACETIZE_EMPTY_CHECK_CROFTON_RAYS = 800u;
-static const double FACETIZE_EMPTY_CHECK_REL_VOL_TOL = 1.0e-9;
-static const double FACETIZE_EMPTY_CHECK_ABS_VOL_TOL = 1.0e-12;
-static const size_t FACETIZE_PROGRESS_INTERVAL = 25;
+static const int TESS_SESSION_READY_TIMEOUT_MS  = 10000;
+static const int TESS_SESSION_GRACE_PERIOD_MS   =  5000;
+static const int TESS_SESSION_POLL_INTERVAL_MS  =     5;
 
 static int
 bot_to_manifold(void **out, struct db_tree_state *tsp, struct rt_db_internal *ip, int flip)
@@ -802,7 +801,7 @@ TessSession::restart()
     }
 
     /* Wait for "READY\n" from the server */
-    std::string ready = read_line(10000 /* 10 s */);
+    std::string ready = read_line(TESS_SESSION_READY_TIMEOUT_MS);
     if (ready.find("READY") == std::string::npos) {
 	subprocess_terminate(proc_);
 	subprocess_destroy(proc_);
@@ -871,7 +870,7 @@ TessSession::read_line(int timeout_ms)
 	    stdout_buf_.append(buf, nr);
 	} else {
 	    /* Nothing available yet — sleep briefly */
-	    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+	    std::this_thread::sleep_for(std::chrono::milliseconds(TESS_SESSION_POLL_INTERVAL_MS));
 	}
     }
 }
@@ -896,7 +895,7 @@ TessSession::run_leaf(const char *leafname,
     fflush(fin);
 
     /* Wait for the response, honoring max_time_s */
-    int timeout_ms = (int)(max_time_s * 1000.0) + 5000; /* +5 s grace */
+    int timeout_ms = (int)(max_time_s * 1000.0) + TESS_SESSION_GRACE_PERIOD_MS;
     int64_t t0 = bu_gettime();
     std::string resp = read_line(timeout_ms);
     int64_t elapsed = bu_gettime() - t0;
@@ -1200,17 +1199,13 @@ _ged_facetize_leaves_tri(struct _ged_facetize_state *s, struct db_i *dbip, struc
 	    fastf_t l_max_time = (fastf_t)mo->max_time[method];
 	    std::string mopts = method_opts_for(method);
 
-	    /* Build comma-separated list of all methods for subprocess startup */
-	    std::string methods_csv;
-	    for (size_t j = 0; j < method_list.size(); j++) {
-		if (j) methods_csv += ",";
-		methods_csv += method_list[j];
-	    }
-
-	    /* Start (or restart) the TessSession for this method sweep */
+	    /* Start (or restart) the TessSession for this method sweep.
+	     * The session is configured for a single method at a time; the
+	     * subprocess selects which algorithm to use based on the per-tess
+	     * command's method argument. */
 	    TessSession sess;
 	    struct bu_vls mopts_arg = BU_VLS_INIT_ZERO;
-	    bu_vls_sprintf(&mopts_arg, "NMG %s", mopts.c_str());
+	    bu_vls_sprintf(&mopts_arg, "%s %s", method.c_str(), mopts.c_str());
 	    if (!sess.start(bu_vls_cstr(s->wfile), method, bu_vls_cstr(&mopts_arg), lcache)) {
 		bu_vls_free(&mopts_arg);
 		bu_log("FACETIZE: failed to start tessellation subprocess for method %s\n", method.c_str());
@@ -1323,7 +1318,7 @@ _ged_facetize_leaves_tri(struct _ged_facetize_state *s, struct db_i *dbip, struc
 
 	TessSession cm_sess;
 	struct bu_vls mopts_arg = BU_VLS_INIT_ZERO;
-	bu_vls_sprintf(&mopts_arg, "CM %s", cm_opts.c_str());
+	bu_vls_sprintf(&mopts_arg, "%s %s", cm_method.c_str(), cm_opts.c_str());
 	bool cm_started = cm_sess.start(bu_vls_cstr(s->wfile), cm_method, bu_vls_cstr(&mopts_arg), lcache);
 	bu_vls_free(&mopts_arg);
 
@@ -1389,7 +1384,7 @@ _ged_facetize_leaves_tri(struct _ged_facetize_state *s, struct db_i *dbip, struc
 
 	TessSession pbot_sess;
 	struct bu_vls mopts_arg = BU_VLS_INIT_ZERO;
-	bu_vls_sprintf(&mopts_arg, "NMG %s", nmg_opts.c_str());
+	bu_vls_sprintf(&mopts_arg, "%s %s", nmg_method.c_str(), nmg_opts.c_str());
 	bool pbot_started = pbot_sess.start(bu_vls_cstr(s->wfile), nmg_method, bu_vls_cstr(&mopts_arg), lcache);
 	bu_vls_free(&mopts_arg);
 	bool pbot_any_fail = false;

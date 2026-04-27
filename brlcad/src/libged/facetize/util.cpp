@@ -667,10 +667,9 @@ facetize_primitives_summary(struct _ged_facetize_state *s)
 		if (BU_STR_EQUAL(st, "skipped")) {
 		    skipped_leaves.insert(std::string(dp->d_namep));
 		    method_sets[std::string("SKIPPED")].insert(std::string(dp->d_namep));
-		} else if (st[0] != '\0' && st[0] != 'n') {
-		    /* Has a successful status that's not "nottried" and not
-		     * starting with "working::" — extract the bare method name
-		     * from status strings like "NMG::rel=..." */
+		} else if (!BU_STR_EQUAL(st, "nottried") && strncmp(st, "working::", 9) != 0) {
+		    /* Has a finished (non-nottried, non-working::) status —
+		     * extract the bare method name from strings like "NMG::rel=..." */
 		    std::string ststr(st);
 		    size_t colpos = ststr.find("::");
 		    std::string mname = (colpos != std::string::npos) ? ststr.substr(0, colpos) : ststr;
