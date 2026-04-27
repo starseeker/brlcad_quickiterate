@@ -526,7 +526,9 @@ main(int ac, char *av[])
     }
 
     /* Determine fixture path */
-    if (opt_ret == 1 && av[opt_ret] && av[opt_ret][0] != '-') {
+    if (opt_ret > 1) {
+        bu_vls_sprintf(&db_path, "%s", av[opt_ret]);
+    } else if (opt_ret == 1 && av[opt_ret] && av[opt_ret][0] != '-') {
         bu_vls_sprintf(&db_path, "%s", av[opt_ret]);
     } else {
         char tmpname[MAXPATHLEN] = {0};
