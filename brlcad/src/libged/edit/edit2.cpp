@@ -485,12 +485,46 @@ cmd_tra::exec(struct ged *gedp, void *u_data, int argc, const char **argv)
 
 
 /* ------------------------------------------------------------------ *
+ * Phase C helper: parse a position (1–3 floats) or object-name keypoint.
+ * Returns the number of argv tokens consumed (≥ 1), or -1 on failure.
+ * ------------------------------------------------------------------ */
+static int
+_parse_pos_or_obj(point_t *pos, const char **argv, int argc, struct ged *gedp)
+{
+    if (argc < 1 || !argv || !argv[0])
+	return -1;
+
+    fastf_t f0;
+    if (bu_opt_fastf_t(NULL, 1, argv, &f0) >= 0) {
+	/* Numeric — consume 1–3 floats */
+	(*pos)[X] = (*pos)[Y] = (*pos)[Z] = f0;
+	int n = 1;
+	fastf_t f1, f2;
+	if (n < argc && bu_opt_fastf_t(NULL, 1, argv + n, &f1) >= 0) {
+	    (*pos)[Y] = f1;
+	    n++;
+	    if (n < argc && bu_opt_fastf_t(NULL, 1, argv + n, &f2) >= 0) {
+		(*pos)[Z] = f2;
+		n++;
+	    }
+	}
+	return n;
+    }
+
+    /* Not numeric — try as an object name */
+    if (_edit_get_obj_keypoint(pos, argv[0], gedp) == BRLCAD_OK)
+	return 1;
+    return -1;
+}
+
+
+/* ------------------------------------------------------------------ *
  * rotate
  * ------------------------------------------------------------------ */
 class cmd_rotate : public ged_subcmd {
     public:
-	std::string usage()   { return std::string("edit [options] [geometry] rotate [-R] [-x|-y|-z] X [Y [Z]]"); }
-	std::string purpose() { return std::string("rotate primitive or comb instance (Euler angles in degrees, or radians with -R)"); }
+	std::string usage()   { return std::string("edit [options] [geometry] rotate [-R] [-x|-y|-z] [[-k AXIS_FROM] [-a|-r AXIS_TO] [-c CENTER] [-d DEGREES]] X [Y [Z]]"); }
+	std::string purpose() { return std::string("rotate primitive or comb instance (Euler angles, or arbitrary-axis with -k/-a/-r)"); }
 	int exec(struct ged *, void *, int, const char **);
 };
 static cmd_rotate edit_rotate_cmd;
@@ -507,46 +541,241 @@ cmd_rotate::exec(struct ged *gedp, void *u_data, int argc, const char **argv)
 
     argc--; argv++;   /* skip "rotate" */
 
-    /* ---- Option parsing ------------------------------------------ */
-    int rad_flag = 0;
-    int x_only = 0, y_only = 0, z_only = 0;
+    /* ---- Manual option scan --------------------------------------- *
+     * Supported options:                                               *
+     *   -R                → angles are radians                        *
+     *   -x / -y / -z      → Euler single-axis constrain               *
+     *   -o                → override axis constraint (Euler mode)      *
+     *   -k POS|OBJ        → axis-from position (axis mode)            *
+     *   -a POS|OBJ        → axis-to position, absolute (axis mode)    *
+     *   -r POS|OBJ        → axis-to position, relative (axis mode)    *
+     *   -c POS|OBJ        → rotation center                           *
+     *   -O POS|OBJ        → angle origin (angle-from reference)       *
+     *   -d DEGREES        → explicit rotation angle (axis mode)       *
+     * ----------------------------------------------------------------*/
+    bool rad_flag = false;
+    bool x_only = false, y_only = false, z_only = false;
 
-    struct bu_opt_desc d[6];
-    BU_OPT(d[0], "R", "",  "",  NULL, &rad_flag, "Interpret angles as radians");
-    BU_OPT(d[1], "x", "",  "",  NULL, &x_only,   "Rotate about X axis only");
-    BU_OPT(d[2], "y", "",  "",  NULL, &y_only,   "Rotate about Y axis only");
-    BU_OPT(d[3], "z", "",  "",  NULL, &z_only,   "Rotate about Z axis only");
-    BU_OPT_NULL(d[4]);
+    /* Axis mode state */
+    bool have_axis_from [[maybe_unused]] = false, have_axis_to = false;
+    bool axis_to_rel    = false;
+    point_t axis_from   = VINIT_ZERO;   /* axis start position */
+    point_t axis_to     = VINIT_ZERO;   /* axis end   position */
 
-    struct bu_vls opterrs = BU_VLS_INIT_ZERO;
-    int nrem = bu_opt_parse(&opterrs, argc, argv, d);
-    bu_vls_free(&opterrs);
+    /* Center / angle-origin */
+    bool have_center = false, have_angle_origin = false;
+    point_t center       = VINIT_ZERO;
+    point_t angle_origin = VINIT_ZERO;
 
-    if (nrem < 0) {
-	bu_vls_printf(gedp->ged_result_str, "%s\n", usage().c_str());
-	return BRLCAD_ERROR;
-    }
+    /* Explicit angle override (-d) */
+    bool have_d_angle = false;
+    fastf_t d_angle   = 0.0;
 
-    int n_coord_flags = x_only + y_only + z_only;
-
-    /* ---- Parse angle values --------------------------------------- */
+    /* Positional angle values (Euler or single) */
     vect_t angles = VINIT_ZERO;
+    int n_angle_vals = 0;
 
-    if (n_coord_flags == 0) {
-	if (nrem < 1) {
-	    bu_vls_printf(gedp->ged_result_str,
-		"rotate: missing angle(s)\n");
-	    return BRLCAD_ERROR;
-	}
-	if (nrem == 1) {
-	    /* Single unconstrained angle — 180° is ambiguous */
-	    fastf_t a = 0.0;
-	    if (bu_opt_fastf_t(NULL, 1, &argv[0], &a) < 0) {
+    /* Pending flag: last -k/-a/-r seen waits for a positional arg */
+    int pending = 0;   /* 0 = none, 'k' = -k, 'a' = -a, 'r' = -r */
+
+    int i = 0;
+    while (i < argc) {
+	/* ---- Boolean flags ---------------------------------------- */
+	if (BU_STR_EQUAL(argv[i], "-R")) { rad_flag = true; i++; continue; }
+	if (BU_STR_EQUAL(argv[i], "-x")) { x_only   = true; i++; continue; }
+	if (BU_STR_EQUAL(argv[i], "-y")) { y_only   = true; i++; continue; }
+	if (BU_STR_EQUAL(argv[i], "-z")) { z_only   = true; i++; continue; }
+	if (BU_STR_EQUAL(argv[i], "-o")) { /* override — noted, ignored */ i++; continue; }
+	if (BU_STR_EQUAL(argv[i], "-n")) { i++; continue; }   /* natural-origin modifier */
+
+	/* ---- Two-token options ------------------------------------ */
+	if (BU_STR_EQUAL(argv[i], "-d") && i + 1 < argc) {
+	    i++;
+	    if (bu_opt_fastf_t(NULL, 1, &argv[i], &d_angle) < 0) {
 		bu_vls_printf(gedp->ged_result_str,
-		    "rotate: bad angle value '%s'\n", argv[0]);
+		    "rotate: bad -d angle '%s'\n", argv[i]);
 		return BRLCAD_ERROR;
 	    }
-	    fastf_t adeg = rad_flag ? (a * RAD2DEG) : a;
+	    have_d_angle = true;
+	    i++;
+	    continue;
+	}
+
+	if (BU_STR_EQUAL(argv[i], "-c")) {
+	    i++;
+	    int nr = _parse_pos_or_obj(&center, argv + i, argc - i, gedp);
+	    if (nr < 1) {
+		bu_vls_printf(gedp->ged_result_str,
+		    "rotate: bad -c center argument '%s'\n",
+		    (i < argc) ? argv[i] : "(missing)");
+		return BRLCAD_ERROR;
+	    }
+	    have_center = true;
+	    i += nr;
+	    continue;
+	}
+
+	if (BU_STR_EQUAL(argv[i], "-O")) {
+	    i++;
+	    int nr = _parse_pos_or_obj(&angle_origin, argv + i, argc - i, gedp);
+	    if (nr < 1) {
+		bu_vls_printf(gedp->ged_result_str,
+		    "rotate: bad -O argument '%s'\n",
+		    (i < argc) ? argv[i] : "(missing)");
+		return BRLCAD_ERROR;
+	    }
+	    have_angle_origin = true;
+	    i += nr;
+	    continue;
+	}
+
+	/* ---- Pending-position options ------------------------------ */
+	if (BU_STR_EQUAL(argv[i], "-k")) { pending = 'k'; i++; continue; }
+	if (BU_STR_EQUAL(argv[i], "-a")) { pending = 'a'; i++; continue; }
+	if (BU_STR_EQUAL(argv[i], "-r")) { pending = 'r'; i++; continue; }
+
+	/* ---- Positional / pending argument ------------------------- */
+	if (pending) {
+	    point_t tmp_pos = VINIT_ZERO;
+	    int nr = _parse_pos_or_obj(&tmp_pos, argv + i, argc - i, gedp);
+	    if (nr < 1) {
+		bu_vls_printf(gedp->ged_result_str,
+		    "rotate: bad argument for -%c: '%s'\n",
+		    pending, argv[i]);
+		return BRLCAD_ERROR;
+	    }
+	    if (pending == 'k') {
+		VMOVE(axis_from, tmp_pos);
+		have_axis_from = true;
+	    } else if (pending == 'a') {
+		VMOVE(axis_to, tmp_pos);
+		have_axis_to  = true;
+		axis_to_rel   = false;
+	    } else { /* 'r' */
+		VMOVE(axis_to, tmp_pos);
+		have_axis_to  = true;
+		axis_to_rel   = true;
+	    }
+	    pending = 0;
+	    i += nr;
+	    continue;
+	}
+
+	/* ---- Positional angle values ------------------------------- */
+	if (argv[i][0] != '-') {
+	    /* Read up to 3 floats (Euler angles or single rotation amount) */
+	    int vret = bu_opt_vect_t(NULL, argc - i, argv + i, &angles);
+	    if (vret > 0) {
+		n_angle_vals = vret;
+		i += vret;
+	    } else {
+		fastf_t f;
+		if (bu_opt_fastf_t(NULL, 1, &argv[i], &f) >= 0) {
+		    angles[X] = angles[Y] = angles[Z] = f;
+		    n_angle_vals = 1;
+		    i++;
+		} else {
+		    i++;   /* skip unrecognised */
+		}
+	    }
+	    continue;
+	}
+
+	/* skip unrecognised flag tokens */
+	i++;
+    }
+
+    /* ============================================================ *
+     *  Mode dispatch                                                *
+     * ============================================================ */
+
+    if (have_axis_to) {
+	/* ---- AXIS MODE: rotate around an explicit axis ----------- *
+	 * Build the axis direction vector, get the angle, call        *
+	 * bn_mat_arb_rot to produce a pure rotation matrix            *
+	 * (about the origin), then let edit_srot apply it about       *
+	 * s->e_keypoint.                                              */
+
+	/* Build axis direction */
+	vect_t axis_dir;
+	if (axis_to_rel) {
+	    VADD2(axis_dir, axis_from, axis_to);
+	} else {
+	    VSUB2(axis_dir, axis_to, axis_from);
+	}
+	fastf_t axlen = MAGNITUDE(axis_dir);
+	if (axlen < SMALL_FASTF) {
+	    bu_vls_printf(gedp->ged_result_str,
+		"rotate: axis-from and axis-to are the same point; "
+		"cannot determine rotation axis\n");
+	    return BRLCAD_ERROR;
+	}
+	VSCALE(axis_dir, axis_dir, 1.0 / axlen);
+
+	/* Get the rotation angle (in radians for bn_mat_arb_rot) */
+	fastf_t angle_rad;
+	if (have_d_angle) {
+	    angle_rad = rad_flag ? d_angle : d_angle * DEG2RAD;
+	} else if (n_angle_vals >= 1) {
+	    /* Use the first positional value as the rotation angle */
+	    fastf_t aval = angles[X];
+	    angle_rad = rad_flag ? aval : aval * DEG2RAD;
+	} else {
+	    bu_vls_printf(gedp->ged_result_str,
+		"rotate (axis mode): missing rotation angle; "
+		"use -d DEGREES or provide a positional angle argument\n");
+	    return BRLCAD_ERROR;
+	}
+
+	/* Build a pure rotation matrix about the origin. edit_srot    *
+	 * will translate it to/from the rotation center (e_keypoint). */
+	mat_t pure_rot;
+	MAT_IDN(pure_rot);
+	point_t origin = VINIT_ZERO;
+	bn_mat_arb_rot(pure_rot, origin, axis_dir, angle_rad);
+
+	/* Rotation center: use supplied -c CENTER, otherwise falls    *
+	 * through to e_keypoint (the primitive's natural keypoint).   */
+	bool use_custom_center = have_center;
+	point_t rot_center = VINIT_ZERO;
+	if (use_custom_center) VMOVE(rot_center, center);
+	else if (have_angle_origin) VMOVE(rot_center, angle_origin);
+
+	return _edit_xform_apply(gedp, ctx->dp, ctx->flag_i,
+	    [&](struct rt_edit *s) -> int
+	    {
+		if (use_custom_center || have_angle_origin) {
+		    VMOVE(s->e_keypoint, rot_center);
+		    s->e_keyfixed = 1;
+		}
+		MAT_IDN(s->acc_rot_sol);
+		MAT_COPY(s->incr_change, pure_rot);
+		bn_mat_mul2(s->incr_change, s->acc_rot_sol);
+		s->e_inpara = 0;
+		rt_edit_set_edflag(s, RT_PARAMS_EDIT_ROT);
+		rt_edit_process(s);
+		return BRLCAD_OK;
+	    });
+    }
+
+    /* ---- EULER MODE (existing path) ------------------------------ */
+
+    int n_coord_flags = (int)x_only + (int)y_only + (int)z_only;
+
+    if (n_coord_flags == 0) {
+	if (n_angle_vals < 1) {
+	    /* No positional angles: check for a -d angle */
+	    if (have_d_angle) {
+		angles[Z] = d_angle;
+		n_angle_vals = 1;
+	    } else {
+		bu_vls_printf(gedp->ged_result_str,
+		    "rotate: missing angle(s)\n");
+		return BRLCAD_ERROR;
+	    }
+	} else if (n_angle_vals == 1) {
+	    /* Single unconstrained angle — 180° is ambiguous */
+	    fastf_t adeg = rad_flag ? (angles[X] * RAD2DEG) : angles[X];
 	    if (NEAR_EQUAL(fabs(adeg), 180.0, 1e-10)) {
 		bu_vls_printf(gedp->ged_result_str,
 		    "rotate: single-angle 180° is ambiguous — "
@@ -554,61 +783,51 @@ cmd_rotate::exec(struct ged *gedp, void *u_data, int argc, const char **argv)
 		return BRLCAD_ERROR;
 	    }
 	    /* Default single-angle axis: Z */
-	    angles[Z] = a;
-	} else if (nrem == 2) {
-	    /* Two angles → X, Y (Z = 0) */
-	    if (bu_opt_fastf_t(NULL, 1, &argv[0], &angles[X]) < 0 ||
-		bu_opt_fastf_t(NULL, 1, &argv[1], &angles[Y]) < 0)
-	    {
-		bu_vls_printf(gedp->ged_result_str,
-		    "rotate: bad angle values\n");
-		return BRLCAD_ERROR;
-	    }
-	} else {
-	    /* Three angles: X, Y, Z via bu_opt_vect_t */
-	    if (bu_opt_vect_t(NULL, nrem, argv, &angles) < 0) {
-		bu_vls_printf(gedp->ged_result_str,
-		    "rotate: bad angle values\n");
-		return BRLCAD_ERROR;
-	    }
+	    angles[Z] = angles[X];
+	    angles[X] = 0.0;
+	    angles[Y] = 0.0;
 	}
+	/* Two or three angles: already in angles[X/Y/Z] */
     } else if (n_coord_flags == 1) {
-	/* Single axis specified: read one angle */
-	if (nrem < 1) {
-	    bu_vls_printf(gedp->ged_result_str,
-		"rotate: missing angle\n");
-	    return BRLCAD_ERROR;
-	}
-	fastf_t a = 0.0;
-	if (bu_opt_fastf_t(NULL, 1, &argv[0], &a) < 0) {
-	    bu_vls_printf(gedp->ged_result_str,
-		"rotate: bad angle value '%s'\n", argv[0]);
-	    return BRLCAD_ERROR;
-	}
+	/* Single axis flag: the angle is in the positional arg (may *
+	 * already be in angles[X] after bu_opt_vect_t) or -d. */
+	fastf_t a = (have_d_angle ? d_angle : (n_angle_vals >= 1 ? angles[X] : 0.0));
+	VSETALL(angles, 0.0);
 	if (x_only) angles[X] = a;
 	else if (y_only) angles[Y] = a;
 	else angles[Z] = a;
     } else {
-	/* Multiple axis flags: read one angle per flag in X/Y/Z order */
+	/* Multiple axis flags: one angle per flag in X/Y/Z order */
+	vect_t tmp = VINIT_ZERO;
 	int ci = 0;
-	if (x_only && ci < nrem)
-	    bu_opt_fastf_t(NULL, 1, &argv[ci++], &angles[X]);
-	if (y_only && ci < nrem)
-	    bu_opt_fastf_t(NULL, 1, &argv[ci++], &angles[Y]);
-	if (z_only && ci < nrem)
-	    bu_opt_fastf_t(NULL, 1, &argv[ci++], &angles[Z]);
+	if (x_only && ci < n_angle_vals) { tmp[X] = angles[ci++]; }
+	if (y_only && ci < n_angle_vals) { tmp[Y] = angles[ci++]; }
+	if (z_only && ci < n_angle_vals) { tmp[Z] = angles[ci]; }
+	VMOVE(angles, tmp);
     }
 
-    /* Convert radians → degrees if -R was given */
+    /* Convert radians → degrees if -R was given (librt works in degrees) */
     if (rad_flag) {
 	angles[X] *= RAD2DEG;
 	angles[Y] *= RAD2DEG;
 	angles[Z] *= RAD2DEG;
     }
 
+    bool use_euler_center = have_center;
+    point_t euler_center = VINIT_ZERO;
+    if (use_euler_center) VMOVE(euler_center, center);
+    else if (have_angle_origin) {
+	use_euler_center = true;
+	VMOVE(euler_center, angle_origin);
+    }
+
     return _edit_xform_apply(gedp, ctx->dp, ctx->flag_i,
 	[&](struct rt_edit *s) -> int
 	{
+	    if (use_euler_center) {
+		VMOVE(s->e_keypoint, euler_center);
+		s->e_keyfixed = 1;
+	    }
 	    /* Reset accumulated rotation so the supplied angles are applied
 	     * relative to the current geometry state, not accumulated with
 	     * any previous interactive rotation */
@@ -629,8 +848,8 @@ cmd_rotate::exec(struct ged *gedp, void *u_data, int argc, const char **argv)
  * ------------------------------------------------------------------ */
 class cmd_scale : public ged_subcmd {
     public:
-	std::string usage()   { return std::string("edit [options] [geometry] scale [-k FROM] [-a|-r TO] FACTOR"); }
-	std::string purpose() { return std::string("uniformly scale primitive or comb instance (factor must be > 0)"); }
+	std::string usage()   { return std::string("edit [options] [geometry] scale [-k FROM] [-c CENTER] [-a|-r TO] FACTOR"); }
+	std::string purpose() { return std::string("scale primitive or comb instance (uniform or per-axis factor > 0)"); }
 	int exec(struct ged *, void *, int, const char **);
 };
 static cmd_scale edit_scale_cmd;
@@ -647,12 +866,15 @@ cmd_scale::exec(struct ged *gedp, void *u_data, int argc, const char **argv)
 
     argc--; argv++;   /* skip "scale" */
 
-    /* Manual scan: -k/-a/-r each take 1-3 numbers; use bu_opt_* to
-     * parse those numbers.  Boolean flags are handled inline.           */
+    /* Manual scan: -k/-a/-r/-c each take 1–3 number or object-name args. */
     vect_t k_vec = VINIT_ZERO;
     vect_t a_vec = VINIT_ZERO;
     vect_t r_vec = VINIT_ZERO;
     bool have_k = false, have_a = false, have_r = false;
+
+    bool have_center = false;
+    point_t center_pos = VINIT_ZERO;
+
     vect_t pos_vals = VINIT_ZERO;
     int n_pos = 0;
 
@@ -660,29 +882,35 @@ cmd_scale::exec(struct ged *gedp, void *u_data, int argc, const char **argv)
     while (i < argc) {
 	if (BU_STR_EQUAL(argv[i], "-k") && i + 1 < argc) {
 	    i++;
-	    int vret = bu_opt_vect_t(NULL, argc - i, argv + i, &k_vec);
-	    if (vret < 0) {
+	    point_t tmp = VINIT_ZERO;
+	    int nr = _parse_pos_or_obj(&tmp, argv + i, argc - i, gedp);
+	    if (nr < 1) {
 		bu_vls_printf(gedp->ged_result_str,
 		    "scale: bad -k value '%s'\n", argv[i]);
 		return BRLCAD_ERROR;
 	    }
-	    i += vret;
+	    VMOVE(k_vec, tmp);
+	    i += nr;
 	    have_k = true;
 	} else if (BU_STR_EQUAL(argv[i], "-a") && i + 1 < argc) {
 	    i++;
-	    int vret = bu_opt_vect_t(NULL, argc - i, argv + i, &a_vec);
-	    if (vret < 0) {
+	    point_t tmp = VINIT_ZERO;
+	    int nr = _parse_pos_or_obj(&tmp, argv + i, argc - i, gedp);
+	    if (nr < 1) {
 		bu_vls_printf(gedp->ged_result_str,
 		    "scale: bad -a value '%s'\n", argv[i]);
 		return BRLCAD_ERROR;
 	    }
-	    i += vret;
+	    VMOVE(a_vec, tmp);
+	    i += nr;
 	    have_a = true;
 	} else if (BU_STR_EQUAL(argv[i], "-r") && i + 1 < argc) {
 	    i++;
-	    int vret = bu_opt_vect_t(NULL, argc - i, argv + i, &r_vec);
-	    if (vret > 0) {
-		i += vret;
+	    point_t tmp = VINIT_ZERO;
+	    int nr = _parse_pos_or_obj(&tmp, argv + i, argc - i, gedp);
+	    if (nr > 0) {
+		VMOVE(r_vec, tmp);
+		i += nr;
 	    } else {
 		fastf_t f = 0.0;
 		if (bu_opt_fastf_t(NULL, 1, &argv[i], &f) < 0) {
@@ -695,8 +923,15 @@ cmd_scale::exec(struct ged *gedp, void *u_data, int argc, const char **argv)
 	    }
 	    have_r = true;
 	} else if (BU_STR_EQUAL(argv[i], "-c") && i + 1 < argc) {
-	    /* Center argument — consumed but not yet acted upon */
-	    i += 2;
+	    i++;
+	    int nr = _parse_pos_or_obj(&center_pos, argv + i, argc - i, gedp);
+	    if (nr < 1) {
+		bu_vls_printf(gedp->ged_result_str,
+		    "scale: bad -c center value '%s'\n", argv[i]);
+		return BRLCAD_ERROR;
+	    }
+	    have_center = true;
+	    i += nr;
 	} else if (BU_STR_EQUAL(argv[i], "-n")) {
 	    i++;
 	} else if (argv[i][0] != '-') {
@@ -721,9 +956,14 @@ cmd_scale::exec(struct ged *gedp, void *u_data, int argc, const char **argv)
 	}
     }
 
-    /* ---- Compute a uniform scale factor from whatever was provided - */
-    /* Helper: uniform factor from a vector (all-equal → first component,
-     * otherwise RMS of the three components).                           */
+    /* ---- Determine scale factors from whatever was provided -------- */
+    /* Helper: detect if the three vector components are all nearly equal */
+    auto vec_is_uniform = [](const vect_t v) -> bool {
+	return NEAR_EQUAL(v[X], v[Y], SMALL_FASTF) &&
+	       NEAR_EQUAL(v[Y], v[Z], SMALL_FASTF);
+    };
+
+    /* Helper: compute a single (uniform) factor from a vector */
     auto vec_to_factor = [](const vect_t v) -> fastf_t {
 	if (NEAR_EQUAL(v[X], v[Y], SMALL_FASTF) &&
 	    NEAR_EQUAL(v[Y], v[Z], SMALL_FASTF))
@@ -731,36 +971,113 @@ cmd_scale::exec(struct ged *gedp, void *u_data, int argc, const char **argv)
 	return sqrt(VDOT(v, v) / 3.0);
     };
 
-    fastf_t factor = 1.0;
+    /* Factor vector (per-axis scale factors before any reference division) */
+    vect_t factors = VINIT_ZERO;
+    bool have_factors = false;
+
     if (have_r) {
-	factor = vec_to_factor(r_vec);
+	VMOVE(factors, r_vec);
+	have_factors = true;
     } else if (have_k && have_a) {
 	/* Factor from the FROM→TO reference vector */
-	vect_t diff;
-	VSUB2(diff, a_vec, k_vec);
-	factor = vec_to_factor(diff);
+	VSUB2(factors, a_vec, k_vec);
+	have_factors = true;
     } else if (n_pos > 0) {
-	factor = vec_to_factor(pos_vals);
-    } else {
+	VMOVE(factors, pos_vals);
+	have_factors = true;
+    }
+
+    if (!have_factors) {
 	bu_vls_printf(gedp->ged_result_str, "%s\n", usage().c_str());
 	return BRLCAD_ERROR;
     }
 
-    if (factor <= 0.0) {
+    /* Decide: uniform scale or per-axis scale? */
+    bool is_uniform = vec_is_uniform(factors);
+
+    if (is_uniform) {
+	/* ---- Uniform scale path ----------------------------------- */
+	fastf_t factor = factors[X];
+	if (factor <= 0.0) {
+	    bu_vls_printf(gedp->ged_result_str,
+		"scale: factor must be > 0 (got %g)\n", factor);
+	    return BRLCAD_ERROR;
+	}
+
+	return _edit_xform_apply(gedp, ctx->dp, ctx->flag_i,
+	    [&](struct rt_edit *s) -> int
+	    {
+		if (have_center) {
+		    VMOVE(s->e_keypoint, center_pos);
+		    s->e_keyfixed = 1;
+		}
+		/* Set es_scale directly; bypass the e_para/acc_sc_sol
+		 * accumulator so that each CLI scale call is relative to
+		 * the current geometry state. */
+		s->es_scale = factor;
+		s->e_inpara  = 0;
+		rt_edit_set_edflag(s, RT_PARAMS_EDIT_SCALE);
+		rt_edit_process(s);
+		return BRLCAD_OK;
+	    });
+    }
+
+    /* ---- Per-axis (anisotropic) scale path ------------------------ *
+     * Build a diagonal scale matrix and apply via ft_mat.             *
+     * Note: not all primitive types support anisotropic scale; the    *
+     * operation will fail gracefully for those that do not provide     *
+     * ft_mat.                                                          */
+
+    /* Validate all three factors */
+    if (factors[X] <= 0.0 || factors[Y] <= 0.0 || factors[Z] <= 0.0) {
 	bu_vls_printf(gedp->ged_result_str,
-	    "scale: factor must be > 0 (got %g)\n", factor);
+	    "scale: all per-axis factors must be > 0 (got %g %g %g)\n",
+	    factors[X], factors[Y], factors[Z]);
 	return BRLCAD_ERROR;
     }
+
+    /* suppress unused-variable warning for vec_to_factor which is only
+     * needed for the uniform branch */
+    (void)vec_to_factor;
 
     return _edit_xform_apply(gedp, ctx->dp, ctx->flag_i,
 	[&](struct rt_edit *s) -> int
 	{
-	    /* Set es_scale directly; bypass the e_para/acc_sc_sol accumulator
-	     * so that each CLI scale call is relative to current geometry.  */
-	    s->es_scale = factor;
-	    s->e_inpara  = 0;
-	    rt_edit_set_edflag(s, RT_PARAMS_EDIT_SCALE);
-	    rt_edit_process(s);
+	    struct rt_db_internal *ip = &s->es_int;
+	    if (!ip->idb_meth || !ip->idb_meth->ft_mat) {
+		bu_vls_printf(gedp->ged_result_str,
+		    "scale: this primitive type does not support "
+		    "per-axis (anisotropic) scale\n");
+		return BRLCAD_ERROR;
+	    }
+
+	    /* Resolve the scale center in primitive-local space */
+	    point_t c_world = VINIT_ZERO;
+	    if (have_center) {
+		VMOVE(c_world, center_pos);
+	    } else {
+		/* Use the primitive keypoint */
+		VMOVE(c_world, s->e_keypoint);
+	    }
+
+	    /* Build a 4×4 per-axis diagonal scale matrix */
+	    mat_t diag;
+	    MAT_IDN(diag);
+	    diag[0]  = factors[X];
+	    diag[5]  = factors[Y];
+	    diag[10] = factors[Z];
+
+	    /* Wrap it about the center point:
+	     *   T(-c) * diag * T(c)                                    */
+	    mat_t scale_about_c;
+	    bn_mat_xform_about_pnt(scale_about_c, diag, c_world);
+
+	    /* Combine with e_mat / e_invmat like edit_sscale does */
+	    mat_t mat1, mat;
+	    bn_mat_mul(mat1, scale_about_c, s->e_mat);
+	    bn_mat_mul(mat, s->e_invmat, mat1);
+
+	    (*ip->idb_meth->ft_mat)(ip, mat, ip);
 	    return BRLCAD_OK;
 	});
 }

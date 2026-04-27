@@ -56,12 +56,27 @@ if(TARGET ged_test_edit_phase_a)
 endif()
 brlcad_add_test(NAME ged_test_edit_phase_a COMMAND ged_test_edit_phase_a)
 
+# Phase C: rotate axis-mode, rotate -c center, scale -c center, per-axis scale
+brlcad_addexec(ged_test_edit_phase_c
+  test_edit_phase_c.cpp
+  "libged;libwdb"
+  TEST
+)
+if(TARGET ged_test_edit_phase_c)
+  add_dependencies(ged_test_edit_phase_c ged_plugins)
+  if(TARGET ged-edit)
+    add_dependencies(ged_test_edit_phase_c ged-edit)
+  endif()
+endif()
+brlcad_add_test(NAME ged_test_edit_phase_c COMMAND ged_test_edit_phase_c)
+
 cmakefiles(
   CMakeLists.txt
   test_edit.cpp
   test_edit_phase1.cpp
   test_edit_phase2.cpp
   test_edit_phase_a.cpp
+  test_edit_phase_c.cpp
 )
 
 # Local Variables:

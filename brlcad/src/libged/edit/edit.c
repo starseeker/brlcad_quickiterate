@@ -19,7 +19,21 @@
  */
 /** @file libged/edit.c
  *
- * Command to edit objects by translating, rotating, and scaling.
+ * DEPRECATED — Legacy implementation of the `edit` command.
+ *
+ * The canonical implementation has moved to edit2.cpp.  The
+ * gedp->new_cmd_forms flag now defaults to 1, so ged_edit_core()
+ * at the bottom of this file immediately delegates to
+ * ged_edit2_core() for all new code paths.
+ *
+ * This file is retained only to avoid breaking any code that still
+ * compiles against the edit_arg / edit_cmd helper infrastructure
+ * declared in ged_edit.h.  Once Phase E retirement is confirmed
+ * (all downstream consumers migrated), this file and the associated
+ * legacy helpers in ged_edit.h should be removed together with the
+ * corresponding entry in CMakeLists.txt (edit_srcs).
+ *
+ * DO NOT ADD NEW FEATURES HERE — implement them in edit2.cpp instead.
  */
 
 #include "common.h"
