@@ -46,6 +46,12 @@ __BEGIN_DECLS
 // be specific.
 typedef void(*rti_clbk_t)(struct rt_i *rtip, struct db_tree_state *tsp, struct region *r);
 
+/**
+ * Callback type for rt_iterate_regions().  Return 0 to continue
+ * iteration; return non-zero to stop early.
+ */
+typedef int (*rt_region_callback_t)(struct region *regp, void *udata);
+
 struct rt_i_internal; /* forward declaration for private state */
 
 /**
@@ -286,6 +292,23 @@ RT_EXPORT extern void rt_clean(struct rt_i *rtip);
 RT_EXPORT extern int rt_del_regtree(struct rt_i *rtip,
 				    struct region *delregp,
 				    struct resource *resp);
+
+/**
+ * Iterate over all regions in the rt_i, calling @p callback for each one.
+ * Iteration stops early if @p callback returns non-zero.
+ * This API hides the internal bu_list representation of the region list.
+ */
+RT_EXPORT extern void rt_iterate_regions(struct rt_i *rtip,
+					 rt_region_callback_t callback,
+					 void *udata);
+
+/**
+ * Mark a region for deletion after light_init() completes.
+ * This hides the internal delete_regs bu_ptbl storage.
+ */
+RT_EXPORT extern void rt_mark_region_deleted(struct rt_i *rtip,
+					     struct region *regp);
+
 /* Check in-memory data structures */
 RT_EXPORT extern void rt_ck(struct rt_i *rtip);
 
