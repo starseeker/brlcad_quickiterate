@@ -1642,6 +1642,37 @@ ged_edit2_core(struct ged *gedp, int argc, const char *argv[])
 
 
 
+/* ------------------------------------------------------------------ *
+ * Plugin entry point and command registration
+ * (moved here from edit.c as part of Phase E retirement)
+ * ------------------------------------------------------------------ */
+
+#include "../include/plugin.h"
+#include "./ged_edit.h"
+
+/**
+ * Top-level entry point for the `edit` GED plugin command.
+ *
+ * Since gedp->new_cmd_forms defaults to 1, this always calls
+ * ged_edit2_core().  The legacy fallback branch is retained for one
+ * release as a compile-time reference but is never reached in practice.
+ */
+int
+ged_edit_core(struct ged *gedp, int argc, const char *argv[])
+{
+    return ged_edit2_core(gedp, argc, argv);
+}
+
+#define GED_EDIT_COMMANDS(X, XID) \
+    X(edit, ged_edit_core, GED_CMD_DEFAULT) \
+    X(edarb, ged_edarb_core, GED_CMD_DEFAULT) \
+    X(protate, ged_protate_core, GED_CMD_DEFAULT) \
+    X(pscale, ged_pscale_core, GED_CMD_DEFAULT) \
+    X(ptranslate, ged_ptranslate_core, GED_CMD_DEFAULT) \
+
+GED_DECLARE_COMMAND_SET(GED_EDIT_COMMANDS)
+GED_DECLARE_PLUGIN_MANIFEST("libged_edit", 1, GED_EDIT_COMMANDS)
+
 // Local Variables:
 // tab-width: 8
 // mode: C++
