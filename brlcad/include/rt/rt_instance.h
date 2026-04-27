@@ -125,15 +125,13 @@ struct rt_i {
     point_t             rti_pmax;       /**< @brief  for plotting, max RPP */
     double              rti_radius;     /**< @brief  radius of model bounding sphere */
     struct db_i *       rti_dbip;       /**< @brief  prt to Database instance struct */
-    struct rt_i_stats   stats;          /**< @brief  geometry counts and ray-shooting counters */
-    /* THESE ITEMS SHOULD BE CONSIDERED OPAQUE, AND SUBJECT TO CHANGE */
     int                 needprep;       /**< @brief  needs rt_prep */
-    struct region **    Regions;        /**< @brief  ptrs to regions [reg_bit] */
+    struct rt_i_stats   stats;          /**< @brief  geometry counts and ray-shooting counters */
+
+    /* THESE ITEMS SHOULD BE CONSIDERED OPAQUE, AND SUBJECT TO CHANGE */
     struct bu_list      HeadRegion;     /**< @brief  ptr of list of regions in model */
-    struct bu_ptbl      delete_regs;    /**< @brief  list of region pointers to delete after light_init() */
-    union cutter        rti_CutHead;    /**< @brief  Head of cut tree */
-    struct soltab **    rti_Solids;     /**< @brief  ptrs to soltab [st_bit] */
     struct bu_ptbl      rti_resources;  /**< @brief  list of 'struct resource's encountered */
+
     /* PRIVATE librt-internal state; see src/librt/librt_private.h */
     struct rt_i_internal *i;
 };
@@ -307,6 +305,17 @@ RT_EXPORT extern void rt_iterate_regions(struct rt_i *rtip,
  */
 RT_EXPORT extern void rt_mark_region_deleted(struct rt_i *rtip,
 					     struct region *regp);
+
+/**
+ * Report count of delete_regs (used by src/rt.view.c)
+ */
+RT_EXPORT extern size_t rt_deleted_regions_cnt(struct rt_i *rtip);
+
+/**
+ * Get deleted region n
+ */
+RT_EXPORT extern struct region * rt_deleted_region_get(struct rt_i *rtip, size_t n);
+
 
 /* Check in-memory data structures */
 RT_EXPORT extern void rt_ck(struct rt_i *rtip);
