@@ -627,7 +627,7 @@ view_setup(struct rt_i *rtip)
 	    case 2:
 		/* Full success, and this region should get dropped later */
 		/* Add to list of regions to drop */
-		bu_ptbl_ins(&rtip->delete_regs, (long *)regp);
+		rt_mark_region_deleted(rtip, regp);
 		break;
 	}
 	regp = BU_LIST_NEXT(region, &regp->l);

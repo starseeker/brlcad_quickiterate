@@ -2019,8 +2019,48 @@ rt_reprep(struct rt_i *rtip, struct rt_reprep_obj_list *objs, struct resource *r
 /** @} */
 
 
+void
+rt_iterate_regions(struct rt_i *rtip, rt_region_callback_t callback, void *udata)
+{
+    struct region *regp;
 
-// Local Variables:
+    RT_CK_RTI(rtip);
+
+    for (BU_LIST_FOR(regp, region, &(rtip->HeadRegion))) {
+	if (callback(regp, udata) != 0)
+	    return;
+    }
+}
+
+
+void
+rt_mark_region_deleted(struct rt_i *rtip, struct region *regp)
+{
+    RT_CK_RTI(rtip);
+    RT_CK_REGION(regp);
+
+    bu_ptbl_ins(&rtip->delete_regs, (long *)regp);
+}
+
+
+void
+rt_dynamic_add_solid(struct rt_i *rtip, struct soltab *stp)
+{
+    RT_CK_RTI(rtip);
+    RT_CHECK_SOLTAB(stp);
+
+    /* Grow the rti_Solids array to accommodate the new entry. */
+    rtip->rti_Solids = (struct soltab **)bu_realloc(rtip->rti_Solids,
+						    rtip->stats.nsolids * sizeof(struct soltab *),
+						    "rti_Solids");
+    rtip->rti_Solids[stp->st_bit] = stp;
+
+    /* Insert into the existing space-partitioning tree. */
+    insert_in_bsp(stp, &rtip->rti_CutHead);
+}
+
+
+
 // tab-width: 8
 // mode: C++
 // c-basic-offset: 4
