@@ -42,11 +42,26 @@ if(TARGET ged_test_edit_phase2)
 endif()
 brlcad_add_test(NAME ged_test_edit_phase2 COMMAND ged_test_edit_phase2)
 
+# Phase A: DbiState null-safety — edit command must work without DbiState
+brlcad_addexec(ged_test_edit_phase_a
+  test_edit_phase_a.cpp
+  "libged;libwdb"
+  TEST
+)
+if(TARGET ged_test_edit_phase_a)
+  add_dependencies(ged_test_edit_phase_a ged_plugins)
+  if(TARGET ged-edit)
+    add_dependencies(ged_test_edit_phase_a ged-edit)
+  endif()
+endif()
+brlcad_add_test(NAME ged_test_edit_phase_a COMMAND ged_test_edit_phase_a)
+
 cmakefiles(
   CMakeLists.txt
   test_edit.cpp
   test_edit_phase1.cpp
   test_edit_phase2.cpp
+  test_edit_phase_a.cpp
 )
 
 # Local Variables:

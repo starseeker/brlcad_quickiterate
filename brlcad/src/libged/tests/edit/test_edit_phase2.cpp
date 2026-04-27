@@ -86,7 +86,7 @@ read_ell(struct ged *gedp, const char *name, struct rt_ell_internal *out)
 
     struct rt_db_internal intern;
     RT_DB_INTERNAL_INIT(&intern);
-    if (rt_db_get_internal(&intern, dp, gedp->dbip, NULL, &rt_uniresource) < 0)
+    if (rt_db_get_internal(&intern, dp, gedp->dbip, NULL) < 0)
         return BRLCAD_ERROR;
 
     if (intern.idb_minor_type != DB5_MINORTYPE_BRLCAD_ELL) {

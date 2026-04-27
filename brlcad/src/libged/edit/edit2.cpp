@@ -80,7 +80,8 @@
  *   "path"      — bare name or slash-separated path
  */
 static bool
-_resolve_geom_spec(ged_edit_geom_spec &spec, const char *token, DbiState *dbis)
+_resolve_geom_spec(ged_edit_geom_spec &spec, const char *token,
+		   struct ged *gedp, DbiState *dbis)
 {
     spec.raw = token;
     spec.is_batch = false;
@@ -112,18 +113,44 @@ _resolve_geom_spec(ged_edit_geom_spec &spec, const char *token, DbiState *dbis)
     }
 
     spec.path = path_str;
-    spec.hashes = dbis->digest_path(path_str.c_str());
 
-    if (spec.hashes.empty())
-	return false;
+    /* When DbiState is available, use its richer path resolution.
+     * When it is absent (older code paths that have not initialised
+     * DbiState), fall back to a plain db_lookup so the command still
+     * functions in non-GUI contexts.  URI fragments/queries are
+     * silently ignored in the no-DbiState path. */
+    if (dbis) {
+	spec.hashes = dbis->digest_path(path_str.c_str());
 
-    /* Single-element path — get the head dp */
-    if (spec.hashes.size() == 1)
-	spec.dp = dbis->get_hdp(spec.hashes[0]);
+	if (spec.hashes.empty())
+	    return false;
 
-    /* Multi-element path (comb instance) — dp stays RT_DIR_NULL */
+	/* Single-element path — get the head dp */
+	if (spec.hashes.size() == 1)
+	    spec.dp = dbis->get_hdp(spec.hashes[0]);
 
-    return (spec.hashes.size() > 1) || (spec.dp != RT_DIR_NULL);
+	/* Multi-element path (comb instance) — dp stays RT_DIR_NULL */
+	return (spec.hashes.size() > 1) || (spec.dp != RT_DIR_NULL);
+    }
+
+    /* No DbiState: plain directory lookup against gedp->dbip.
+     * Only bare names are reliably resolvable; for slash-paths we use
+     * the last component as a best-effort lookup. */
+    {
+	std::string bare = path_str;
+	std::string::size_type slash = bare.rfind('/');
+	if (slash != std::string::npos)
+	    bare = bare.substr(slash + 1);
+
+	struct directory *dp = db_lookup(gedp->dbip, bare.c_str(), LOOKUP_QUIET);
+	if (dp == RT_DIR_NULL)
+	    return false;
+
+	spec.dp = dp;
+	/* Use the directory address as a stand-in hash */
+	spec.hashes.push_back((unsigned long long)(uintptr_t)dp);
+	return true;
+    }
 }
 
 
@@ -166,8 +193,7 @@ _edit_get_obj_keypoint(point_t *kp, const char *name, struct ged *gedp)
 
     struct rt_db_internal ip;
     RT_DB_INTERNAL_INIT(&ip);
-    if (rt_db_get_internal(&ip, dp, gedp->dbip, bn_mat_identity,
-			   &rt_uniresource) < 0)
+    if (rt_db_get_internal(&ip, dp, gedp->dbip, bn_mat_identity) < 0)
 	return BRLCAD_ERROR;
 
     VSETALL(*kp, 0.0);
@@ -1013,7 +1039,8 @@ cmd_perturb::exec(struct ged *gedp, void *u_data, int argc, const char **argv)
     bu_ptbl_free(&objs);
 
     DbiState *dbis = (DbiState *)ctx->gedp->dbi_state;
-    dbis->update();
+    if (dbis)
+	dbis->update();
 
     return ret;
 }
@@ -1104,7 +1131,7 @@ ged_edit2_core(struct ged *gedp, int argc, const char *argv[])
 
 	/* Try to resolve as a geometry specifier */
 	ged_edit_geom_spec spec;
-	if (_resolve_geom_spec(spec, argv[i], dbis)) {
+	if (_resolve_geom_spec(spec, argv[i], gedp, dbis)) {
 	    if (geom_pos == INT_MAX) {
 		geom_pos = i;
 		gs = spec.hashes;
@@ -1188,20 +1215,20 @@ ged_edit2_core(struct ged *gedp, int argc, const char *argv[])
     if (geom_pos != INT_MAX) {
 	geom_str = argv[geom_pos];
 	ged_edit_geom_spec spec;
-	if (_resolve_geom_spec(spec, geom_str, dbis)) {
+	if (_resolve_geom_spec(spec, geom_str, gedp, dbis)) {
 	    ctx.geom_specs.push_back(spec);
 	}
     }
 
     /* Selection fallback: if no explicit specifier was given, use the
      * active "default" selection state. */
-    if (ctx.geom_specs.empty() && !ctx.flag_F) {
+    if (ctx.geom_specs.empty() && !ctx.flag_F && dbis) {
 	std::vector<BSelectState *> ss = dbis->get_selected_states("default");
 	if (!ss.empty()) {
 	    std::vector<std::string> sel_paths = ss[0]->list_selected_paths();
 	    for (const std::string &spath : sel_paths) {
 		ged_edit_geom_spec spec;
-		if (_resolve_geom_spec(spec, spath.c_str(), dbis))
+		if (_resolve_geom_spec(spec, spath.c_str(), gedp, dbis))
 		    ctx.geom_specs.push_back(spec);
 	    }
 	    if (!ctx.geom_specs.empty())
@@ -1211,7 +1238,7 @@ ged_edit2_core(struct ged *gedp, int argc, const char *argv[])
 
     /* Selection conflict arbiter: explicit specifier present AND the same
      * object is also in the active selection → require an arbiter flag. */
-    if (!ctx.geom_specs.empty() && !ctx.from_selection && !ctx.flag_S &&
+    if (dbis && !ctx.geom_specs.empty() && !ctx.from_selection && !ctx.flag_S &&
 	    !ctx.flag_f && !ctx.flag_F && !ctx.flag_i) {
 	std::vector<BSelectState *> ss = dbis->get_selected_states("default");
 	if (!ss.empty()) {
@@ -1235,14 +1262,14 @@ ged_edit2_core(struct ged *gedp, int argc, const char *argv[])
     }
 
     /* If -S flag is set, discard explicit specifiers and use selection */
-    if (ctx.flag_S) {
+    if (ctx.flag_S && dbis) {
 	ctx.geom_specs.clear();
 	std::vector<BSelectState *> ss = dbis->get_selected_states("default");
 	if (!ss.empty()) {
 	    std::vector<std::string> sel_paths = ss[0]->list_selected_paths();
 	    for (const std::string &spath : sel_paths) {
 		ged_edit_geom_spec spec;
-		if (_resolve_geom_spec(spec, spath.c_str(), dbis))
+		if (_resolve_geom_spec(spec, spath.c_str(), gedp, dbis))
 		    ctx.geom_specs.push_back(spec);
 	    }
 	    ctx.from_selection = true;
