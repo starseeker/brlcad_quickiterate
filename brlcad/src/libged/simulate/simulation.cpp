@@ -139,12 +139,12 @@ get_aabb(db_i &db, const db_full_path &path)
     std::stack<const tree *> stack;
 
     rt_iterate_regions(rti.ptr,
-		       [](struct region *regp, void *udata) -> int {
-			   auto *s = static_cast<std::stack<const tree *> *>(udata);
-			   s->push(regp->reg_treetop);
-			   return 0;
-		       },
-		       &stack);
+        [](struct region *regp, void *udata) -> int {
+            auto *s = static_cast<std::stack<const tree *> *>(udata);
+            s->push(regp->reg_treetop);
+            return 0;
+        },
+        &stack);
 
     std::pair<btVector3, btVector3> result(btVector3(0.0, 0.0, 0.0),
 					   btVector3(0.0, 0.0, 0.0));
