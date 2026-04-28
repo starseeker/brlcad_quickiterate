@@ -387,7 +387,7 @@ test_nirt_shots(const char *tmpdir)
 		char line[512];
 		int found_xyz = 0;
 		double lx = 0, ly = 0, lz = 0;
-		while (fgets(line, sizeof(line), rfp)) {
+		while (bu_fgets(line, sizeof(line), rfp)) {
 		    if (bu_strncmp(line, "xyz ", 4) == 0) {
 			if (sscanf(line + 4, "%lf %lf %lf", &lx, &ly, &lz) == 3)
 			    found_xyz = 1;

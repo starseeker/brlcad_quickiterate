@@ -35,6 +35,7 @@
 #include <stdio.h>
 #include <sys/stat.h>
 
+#include "bio.h"
 #include "bu.h"
 #include "icv.h"
 

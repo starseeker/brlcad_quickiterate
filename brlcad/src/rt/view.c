@@ -131,14 +131,6 @@ int inonbackground[3] = {0};		/* integer non-background */
 fastf_t gamma_corr = 0.0;		/* gamma correction if !0 */
 
 /**
- * When non-zero, embed scene + camera metadata into the output PNG as
- * tEXt chunks so that icv_diff / imgdiff can later reconstruct the
- * exact nirt shotlines for any differing pixel.
- * Enable with:  rt ... -c 'set embed_icv_metadata=1'
- */
-int embed_icv_metadata = 0;
-
-/**
  * The default a_onehit = -1 requires at least one non-air hit, (stop
  * at first surface) and stops ray/geometry intersection after that.
  * Set to 0 to turn off first hit optimization, with -c 'set

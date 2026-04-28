@@ -402,6 +402,138 @@ icv_diff_nirt_shots(const icv_image_t *img1, const icv_image_t *img2,
 }
 
 
+extern "C" int
+icv_diff(
+	int *matching, int *off_by_1, int *off_by_many,
+	icv_image_t *img1, icv_image_t *img2
+	)
+{
+    if (!img1 || !img2)
+	return -1;
+
+    int ret = 0;
+
+    /* Compare channel by channel, matching pixdiff counting semantics:
+     * matching  = number of channel bytes with identical values
+     * off_by_1  = number of channel bytes differing by exactly 1
+     * off_by_many = number of channel bytes differing by more than 1
+     */
+    unsigned char *d1 = icv_data2uchar(img1);
+    unsigned char *d2 = icv_data2uchar(img2);
+    size_t s1 = img1->width * img1->height;
+    size_t s2 = img2->width * img2->height;
+    size_t smin = (s1 < s2) ? s1 : s2;
+    size_t smax = (s1 > s2) ? s1 : s2;
+
+    for (size_t i = 0; i < smin; i++) {
+	int ch;
+	for (ch = 0; ch < 3; ch++) {
+	    int c1 = d1[i*3+ch];
+	    int c2 = d2[i*3+ch];
+	    int diff = c1 - c2;
+	    if (diff < 0) diff = -diff;
+	    if (diff == 0) {
+		if (matching) (*matching)++;
+	    } else if (diff == 1) {
+		ret = 1;
+		if (off_by_1) (*off_by_1)++;
+	    } else {
+		ret = 1;
+		if (off_by_many) (*off_by_many)++;
+	    }
+	}
+    }
+
+    /* Count any extra channels in the larger image as off_by_many */
+    if (smin != smax) {
+	ret = 1;
+	if (off_by_many) {
+	    (*off_by_many) += (int)((smax - smin) * 3);
+	}
+    }
+
+    bu_free(d1, "image 1 rgb");
+    bu_free(d2, "image 2 rgb");
+
+    return ret;
+}
+
+extern "C" icv_image_t *
+icv_diffimg(icv_image_t *img1, icv_image_t *img2)
+{
+    long p;
+
+    if (!img1 || !img2 || !img1->width || !img2->width)
+	return NULL;
+
+    if ((img1->width != img2->width) || (img1->height != img2->height) || (img1->channels != img2->channels)) {
+	bu_log("icv_diffimg : Image Parameters not Equal");
+	return NULL;
+    }
+
+    /* For each pixel:
+     *   - If all channels match: output half-intensity greyscale (NTSC average)
+     *   - If any channel differs: for each channel independently,
+     *       |diff| > 1 → output 0xFF for that channel
+     *       |diff| == 1 → output 0xC0 for that channel
+     *       diff == 0   → output 0x00 for that channel
+     *
+     * This matches pixdiff semantics: a pixel different in only one channel
+     * appears as a pure R, G, or B highlight rather than white/grey.
+     */
+    unsigned char *d1 = icv_data2uchar(img1);
+    unsigned char *d2 = icv_data2uchar(img2);
+    size_t s = img1->width * img1->height;
+    size_t nbytes = s * 3;
+    unsigned char *od = (unsigned char *)bu_malloc(nbytes, "diffimg output");
+    memset(od, 0, nbytes);
+
+    for (size_t i = 0; i < s; i++) {
+	int r1 = d1[i*3+0], g1 = d1[i*3+1], b1 = d1[i*3+2];
+	int r2 = d2[i*3+0], g2 = d2[i*3+1], b2 = d2[i*3+2];
+
+	if (r1 == r2 && g1 == g2 && b1 == b2) {
+	    /* Common case: equal - half-intensity NTSC greyscale */
+	    p = ((22937 * r1 + 36044 * g1 + 6553 * b1) >> 17);
+	    if (p < 0) p = 0;
+	    p /= 2;
+	    od[3*i+0] = (unsigned char)p;
+	    od[3*i+1] = (unsigned char)p;
+	    od[3*i+2] = (unsigned char)p;
+	} else {
+	    /* Per-channel difference highlighting */
+	    int ch;
+	    const int c1[3] = { r1, g1, b1 };
+	    const int c2[3] = { r2, g2, b2 };
+	    for (ch = 0; ch < 3; ch++) {
+		int diff = c1[ch] - c2[ch];
+		if (diff < 0) diff = -diff;
+		if (diff == 0)
+		    od[3*i+ch] = 0x00;
+		else if (diff == 1)
+		    od[3*i+ch] = 0xC0;
+		else
+		    od[3*i+ch] = 0xFF;
+	    }
+	}
+    }
+
+    icv_image_t *out_img;
+    BU_ALLOC(out_img, struct icv_image);
+    ICV_IMAGE_INIT(out_img);
+    out_img->width = img1->width;
+    out_img->height = img1->height;
+    out_img->channels = 3;
+    out_img->color_space = ICV_COLOR_SPACE_RGB;
+    out_img->data = icv_uchar2double(od, nbytes);
+
+    bu_free(d1, "image 1 rgb");
+    bu_free(d2, "image 2 rgb");
+    bu_free(od, "diffimg output");
+
+    return out_img;
+}
+
 /*
  * Local Variables:
  * tab-width: 8
