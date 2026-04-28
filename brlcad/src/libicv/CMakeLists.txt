@@ -18,7 +18,7 @@ set(
   operations.c
   pdiff.cpp
   pix.c
-  png.c
+  png.cpp
   ppm.c
   rle.cpp
   rot.c
