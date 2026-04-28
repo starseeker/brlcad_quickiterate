@@ -15,15 +15,17 @@ edit [options] geometry scale X_FACTOR Y_FACTOR Z_FACTOR
 edit [options] geometry scale -r FACTOR
 edit [options] geometry scale -r X_FACTOR Y_FACTOR Z_FACTOR
 edit [options] geometry scale [-k FROM_POS|FROM_OBJ] -a TO_POS|TO_OBJ
+edit [options] geometry scale [-k SCALE_FROM] -a SCALE_TO -r FACTOR
+edit [options] geometry scale [-k SCALE_FROM] -a SCALE_TO -r X_FACTOR Y_FACTOR Z_FACTOR
 edit [options] geometry scale [-c CENTER_POS|CENTER_OBJ] FACTOR
 edit [options] geometry scale [-c CENTER_POS|CENTER_OBJ]
     X_FACTOR Y_FACTOR Z_FACTOR
 ----
 
-where *FROM_POS*, *TO_POS*, and *CENTER_POS* each accept one to
-three scalar values (broadcast to a 3-vector when fewer are given),
-and *FROM_OBJ*, *TO_OBJ*, *CENTER_OBJ* are names of existing
-database objects whose bounding-box centers are used.
+where *FROM_POS*, *TO_POS*, *SCALE_FROM*, *SCALE_TO*, and *CENTER_POS*
+each accept one to three scalar values (broadcast to a 3-vector when
+fewer are given), and *FROM_OBJ*, *TO_OBJ*, *CENTER_OBJ* are names of
+existing database objects whose bounding-box centers are used.
 
 == DESCRIPTION
 
@@ -40,28 +42,36 @@ scale path and is supported by all primitives.  *Anisotropic
 matrix via `ft_mat` and is only available for primitives that provide
 that function.
 
-The conceptual model behind the original *edit* scale design used a
-pair of SCALE reference vectors and a FACTOR pair.  The idea was:
+The conceptual model behind *edit scale* uses two independent reference
+pairs — a SCALE ruler and a FACTOR ruler:
 
 ....
-  SCALE = vector from SCALE_FROM to SCALE_TO   (the reference "ruler")
-  FACTOR = vector from FACTOR_FROM to FACTOR_TO (the desired result "ruler")
-  effective factor = |FACTOR| / |SCALE| per axis
+  SCALE  = vector from SCALE_FROM (-k) to SCALE_TO (-a|-r)
+           the reference "ruler" — measures a known distance in the scene
+  FACTOR = the desired result ruler — how large the result should be
+           expressed as the positional argument(s), or -r when combined
+           with a -k/-a pair
+  effective factor[i] = FACTOR[i] / |SCALE[i]|   per axis
 ....
 
-In the current *edit2* implementation this model is simplified:
+The three supported calling patterns are:
 
-* *Positional* — supply 1 or 3 scalar factor values directly.
-* *`-r` explicit* — same as positional, with an explicit flag.
-* *`-k FROM -a TO`* — the effective factor vector is computed as
-  `TO - FROM` (simple vector subtraction).  When FROM is the origin,
-  this is simply TO: `scale -k 0 0 0 -a 2 2 2` yields factors `{2, 2,
-  2}` which doubles the object (2 - 0 = 2).  When FROM is not the
-  origin the subtracted vector is used directly as the scale factor;
-  there is no ratio division, unlike the original design's SCALE ruler
-  model.
-* When `-r` is present alongside `-k`/`-a`, the explicit `-r` value
-  overrides the FROM/TO vector.
+* *Positional (or explicit `-r` alone)* — supply 1 or 3 scalar factor
+  values directly.  The implicit SCALE ruler is the unit vector
+  `(1, 1, 1)`, so the effective factor equals FACTOR directly.
+  `scale 2` and `scale -r 2` both double the object.
+* *`-k FROM -a TO` only* — the effective factor vector is computed as
+  `TO - FROM`.  When FROM is the origin this is simply TO:
+  `scale -k 0 0 0 -a 2 2 2` yields factors `{2, 2, 2}`.
+* *`-k FROM -a SCALE_TO -r FACTOR` (two-pair form)* — the `-k`/`-a`
+  pair defines the SCALE reference ruler; `-r` is the FACTOR ruler.
+  The effective factor is `FACTOR / |SCALE|` per axis.  For example:
+  `scale -k 5 10 15 -a 7 11 -2 -r 4 2 34` computes SCALE=(2,1,17) and
+  FACTOR=(4,2,34), giving effective factors (2, 2, 2) — a uniform 2×
+  scale regardless of the absolute coordinates.  This form is the
+  primary motivation for supplying a SCALE ruler: the FROM/TO pair
+  captures a known real-world distance and the `-r` value expresses the
+  desired outcome in the same units.
 
 The pivot CENTER defaults to the bounding-box center of the target
 object when `-c` is not specified.  The batch-marker `.` is supported
@@ -75,23 +85,29 @@ Global options (`-S`, `-f`, `-F`, `-i`) are described in
 
 == OPTIONS
 
-*-k* FROM_POS | FROM_OBJ::
-  Set the FROM (keypoint) position for the scale reference vector.
+*-k* SCALE_FROM_POS | SCALE_FROM_OBJ::
+  Set SCALE_FROM, the tail of the SCALE reference ruler vector.
   Accepts 1–3 scalar values (broadcast to a 3-vector when fewer than
   three are given) or an object name whose bounding-box center is
-  used.  When combined with `-a TO`, the effective scale factor is
-  `TO - FROM`.  If absent, FROM defaults to the origin `(0, 0, 0)`.
+  used.  When combined with `-a SCALE_TO` only (no `-r`), the
+  effective scale factor is `SCALE_TO - SCALE_FROM`.  When combined
+  with both `-a SCALE_TO` and `-r FACTOR`, the `-k`/`-a` pair defines
+  the SCALE reference ruler and `-r` provides the FACTOR ruler; the
+  effective factor is `FACTOR / |SCALE|` per axis.  If absent, FROM
+  defaults to the origin `(0, 0, 0)`.
 
-*-a* TO_POS | TO_OBJ::
-  Set the TO (target) position for the scale reference vector,
-  interpreted as an absolute position.  Required when TO is specified
-  as an object name.  Combined with `-k FROM`, effective factors =
-  `TO - FROM`.  This flag is required to use an object name as TO.
+*-a* SCALE_TO_POS | SCALE_TO_OBJ::
+  Set SCALE_TO as an absolute position, defining the head of the SCALE
+  reference ruler.  Required when SCALE_TO is specified as an object
+  name.  When used alone with `-k`, effective factors = `TO - FROM`.
+  When combined with `-r FACTOR`, triggers the two-pair ratio model.
 
 *-r* FACTOR | X_FACTOR Y_FACTOR Z_FACTOR::
-  Provide the scale factor(s) explicitly.  Overrides any `-k`/`-a`
-  vector when all three are given together.  Accepts 1 value
-  (broadcast to all three axes) or 3 separate per-axis values.
+  Provide the FACTOR ruler explicitly.  When used without `-k`/`-a`,
+  this is the direct scale factor (broadcast or per-axis).  When
+  combined with a `-k`/`-a` SCALE pair, this becomes the FACTOR ruler
+  and the effective factor is `r_vec[i] / |SCALE[i]|` per axis.
+  Accepts 1 value (broadcast to all three axes) or 3 per-axis values.
 
 *-c* CENTER_POS | CENTER_OBJ | `.`::
   Set the pivot center from which the scale expands or contracts.
@@ -158,7 +174,7 @@ Scale from the cube's own center (the default; written explicitly):
   mged> **edit cube scale -c cube 2**
 ====
 
-.Understanding the -k / -a vector model
+.Understanding the -k / -a vector model and the two-pair ratio form
 [example]
 ====
 When FROM is the origin and TO is the desired factor, the model is
@@ -174,14 +190,26 @@ When FROM is *not* the origin, the effective factor is simply TO - FROM.
 `scale -k 1 1 1 -a 3 3 3` yields factors `{2, 2, 2}` — it doubles,
 not triples, because 3-1=2.  Plan your FROM/TO values accordingly.
 
-NOTE: the original *edit* design described a richer ratio model where
-SCALE and FACTOR were independent ruler vectors and the effective
-factor was their per-axis ratio.  In that model, for example,
-`scale -k 0 0 0 -a 1 1 1 -k 0 0 0 -r 2 2 2` was equivalent to a
-factor of 2.  The current *edit2* implementation does not support two
-independent FROM/TO pairs; when `-r` is present it is used directly
-as the factor, making the preceding `-k`/`-a` pair irrelevant.  Use
-the direct scalar forms shown above for clearest intent.
+*Two-pair (ratio) form:* When `-k FROM -a SCALE_TO -r FACTOR` are all
+supplied together, the `-k`/`-a` pair is the SCALE reference ruler and
+`-r` is the FACTOR ruler.  The effective factor is computed as
+`FACTOR / |SCALE|` per axis.  For example:
+
+  mged> **edit cube scale -k 0 0 0 -a 1 1 1 -r 2**
+
+Here SCALE=(1,1,1) and FACTOR=(2,2,2), so effective factor = 2/1 = 2
+(doubles the cube).  A more complex example illustrating that the sign
+of SCALE components is ignored (only magnitude matters):
+
+  mged> **edit cube scale -k 5 10 15 -a 7 11 -2 -r 4 2 34**
+
+SCALE vector = (2, 1, -17), |per axis| = (2, 1, 17).
+FACTOR = (4, 2, 34).
+effective = (4/2, 2/1, 34/17) = (2, 2, 2) — a uniform 2× scale.
+
+This form is most useful when the SCALE ruler is derived from known
+scene measurements: specify FROM and TO as points that span a known
+reference distance, then use `-r` to state the desired result size.
 ====
 
 .Non-uniform (anisotropic) scale: stretch X by 2, shrink Y by 0.5, leave Z unchanged
