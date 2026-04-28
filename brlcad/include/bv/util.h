@@ -57,7 +57,9 @@ BV_EXPORT extern void bv_autoview(struct bview *v, fastf_t scale, int all_view_o
 /* Copy the size and camera info (deliberately not a full copy of all view state) */
 BV_EXPORT extern void bv_sync(struct bview *dest, struct bview *src);
 
-/* Camera accessor functions (Phase 2-D: drawing_stack_modernization.txt)
+
+
+/* Camera accessor functions
  *
  * These replace direct writes to gv_scale / gv_size / gv_isize / gv_perspective /
  * gv_aet / gv_rotation / gv_center, ensuring derived fields are kept consistent
@@ -89,6 +91,8 @@ BV_EXPORT extern void bv_view_set_rotation(struct bview *v, const mat_t rot);
  * MAT_DELTAS_VEC_NEG so gv_center holds the negated translation. */
 BV_EXPORT extern void bv_view_get_center_vec(const struct bview *v, point_t center);
 BV_EXPORT extern void bv_view_set_center_vec(struct bview *v, const point_t center);
+
+
 
 /* Copy settings (potentially) common to the view and scene objects.
  * Return 0 if no changes were made to dest.  If dest did have one

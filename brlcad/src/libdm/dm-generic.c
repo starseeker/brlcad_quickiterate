@@ -66,7 +66,7 @@ dm_set_udata(struct dm *dmp, void *udata)
 }
 
 
-/* --- Dlist sensor API (Phase 2-C) --- */
+/* --- Dlist sensor API --- */
 
 int
 dm_register_dlist_sensor(struct dm *dmp,

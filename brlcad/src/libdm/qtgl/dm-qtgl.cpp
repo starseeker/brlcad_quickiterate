@@ -685,7 +685,7 @@ struct dm_impl dm_qtgl_impl = {
     0,				/* Tcl interpreter */
     NULL,                       /* Drawing context */
     NULL,                       /* App data */
-    NULL                        /* dlist sensors (Phase 2-C) */
+    NULL                        /* dlist sensors */
 };
 
 struct dm dm_qtgl = { DM_MAGIC, &dm_qtgl_impl, 0 };

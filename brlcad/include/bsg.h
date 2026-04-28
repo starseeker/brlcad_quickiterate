@@ -21,6 +21,9 @@
  *
  * @brief
  * Umbrella header for the BSG scene-graph library.
+ *
+ * NOTE!!!!!! THIS API IS HIGHLY EXPERIMENTAL, and UNTIL THIS NOTICE IS REMOVED
+ * IT SHOULD *NOT* BE CONSIDERED STABLE.
  */
 /** @{ */
 /* @file bsg.h */

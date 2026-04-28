@@ -74,13 +74,13 @@ brlcad_add_test(NAME bview_vlist_cmd_cnt_45 COMMAND bview_test vlist 45)
 brlcad_add_test(NAME bview_vlist_cmd_cnt_500 COMMAND bview_test vlist 500)
 
 #
-#  *** Phase 2-D: bv_view_get/set_* camera accessor tests ***
+#  *** bv_view_get/set_* camera accessor tests ***
 #
 brlcad_addexec(test_bv_camera test_camera.c "libbv;libbu" TEST)
 brlcad_add_test(NAME bv_camera_accessors COMMAND test_bv_camera)
 
 #
-#  *** Phase 3-A/3-B: LoD bu_cache + format-file invalidation tests ***
+#  *** LoD bu_cache + format-file invalidation tests ***
 #
 brlcad_addexec(test_bv_lod_cache test_lod_cache.cpp "libbv;libbu" TEST)
 brlcad_add_test(NAME bv_lod_cache COMMAND test_bv_lod_cache)

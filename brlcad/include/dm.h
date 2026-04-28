@@ -271,7 +271,7 @@ DM_EXPORT extern void dm_set_bound_flag(struct dm *dmp, int bound);
 
 DM_EXPORT extern int dm_draw_obj(struct dm *dmp, struct bv_scene_obj *s);
 
-/* Dlist sensor API (Phase 2-C: drawing_stack_modernization.txt)
+/* Dlist sensor API
  *
  * Sensors provide a push-based notification when a display list has been
  * regenerated, replacing per-frame polling of bv_scene_obj::s_dlist_stale.

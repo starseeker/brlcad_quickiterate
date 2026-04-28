@@ -19,7 +19,7 @@
  */
 /** @file libdm/tests/test_dlist_sensor.c
  *
- * Phase 2-C regression: unit tests for the dm_dlist_sensor API
+ * regression: unit tests for the dm_dlist_sensor API
  * (dm_register_dlist_sensor / dm_fire_dlist_sensors / dm_dlist_sensors_clear).
  *
  * Tests:

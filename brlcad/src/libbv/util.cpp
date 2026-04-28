@@ -541,7 +541,7 @@ bv_mat_aet(struct bview *v)
     bn_mat_mul2(tmat, v->gv_rotation);
 }
 
-/* --- Camera accessor implementations (Phase 2-D) --- */
+/* --- Camera accessor implementations --- */
 
 fastf_t
 bv_view_get_scale(const struct bview *v)
@@ -880,8 +880,6 @@ bv_update_selected(struct bview *gvp)
     int ret = 0;
     if (!gvp)
 	return 0;
-    /* libbv no longer calls s_update_callback directly (Phase 2-B).
-     * LoD / CSG adaptive-wireframe updates are now driven by BViewState::redraw(). */
     return (ret > 0) ? 1 : 0;
 }
 

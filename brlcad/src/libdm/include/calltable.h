@@ -59,7 +59,7 @@ struct dm_vars {
  */
 
 /**
- * Singly-linked list node for the display-list sensor mechanism (Phase 2-C).
+ * Singly-linked list node for the display-list sensor mechanism.
  * Sensors are fired by dm_fire_dlist_sensors() when a display list is
  * regenerated, providing a push-based alternative to polling s_dlist_stale.
  */
@@ -175,7 +175,7 @@ struct dm_impl {
     void *dm_interp;		/**< @brief interpreter */
     void *dm_ctx;		/**< @brief drawing context */
     void *dm_udata;		/**< @brief associate general application data here */
-    /** @brief singly-linked list of dlist sensors (Phase 2-C); NULL when empty */
+    /** @brief singly-linked list of dlist sensors; NULL when empty */
     struct dm_dlist_sensor *dm_dlist_sensors;
 };
 

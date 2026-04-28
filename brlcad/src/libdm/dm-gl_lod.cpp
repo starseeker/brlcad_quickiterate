@@ -347,7 +347,7 @@ gl_draw_tri(struct dm *dmp, struct bv_mesh_lod *lod)
 		bv_mesh_lod_memshrink(s);
 	    }
 
-	    /* Phase 2-C: notify registered sensors that the dlist was regenerated */
+	    /* notify registered sensors that the dlist was regenerated */
 	    dm_fire_dlist_sensors(dmp);
 
 	    MAT_COPY(save_mat, s->s_v->gv_model2view);
@@ -522,7 +522,7 @@ gl_csg_lod(struct dm *dmp, struct bv_scene_obj *s)
 	    }
 	}
 
-	/* Phase 2-C: notify registered sensors that the dlist was regenerated */
+	/* notify registered sensors that the dlist was regenerated */
 	dm_fire_dlist_sensors(dmp);
 
 	MAT_COPY(save_mat, s->s_v->gv_model2view);
