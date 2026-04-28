@@ -42,6 +42,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <cstdio>
+#include <unordered_set>
 
 #include <bu.h>
 #include "bu/opt.h"
@@ -58,8 +59,11 @@
 
 extern "C" void ged_changed_callback(struct db_i *UNUSED(dbip), struct directory *dp, int mode, void *u_data);
 
-/* ---- helpers copied from bsg_parity.cpp ---------------------------------- */
+/* ---- helpers (mirrored from bsg_parity.cpp) ------------------------------ */
 
+/* Simple draw-only refresh: honors manually set s_iflag / gv_edit_mat.
+ * Does NOT resync the BSG from the database — preserves any manual state
+ * changes made directly to scene objects (illumination, edit matrix, etc.). */
 static void
 do_refresh(struct ged *gedp)
 {
@@ -70,25 +74,40 @@ do_refresh(struct ged *gedp)
     dm_draw_end(dmp);
 }
 
+/* Full redraw via BViewState (BSG scene sync then render).
+ * Used only for BSG-vs-legacy parity tests where we want the full pipeline. */
 static void
-capture(struct ged *gedp, const char *name)
+do_full_refresh(struct ged *gedp)
 {
     struct bview *v = gedp->ged_gvp;
-    struct dm    *dmp = (struct dm *)v->dmp;
-    struct icv_image *img = dm_get_image(dmp);
-    if (!img) {
-	bu_log("ERROR: dm_get_image returned NULL for %s\n", name);
-	return;
-    }
-    icv_write(img, name, ICV_IMAGE_PNG);
-    icv_destroy(img);
+    DbiState *dbis  = (DbiState *)gedp->dbi_state;
+    BViewState *bvs = dbis->get_view_state(v);
+    dbis->update();
+    std::unordered_set<struct bview *> uset;
+    uset.insert(v);
+    bvs->redraw(NULL, uset, 1);
+
+    struct dm *dmp = (struct dm *)v->dmp;
+    unsigned char *bg1, *bg2;
+    dm_get_bg(&bg1, &bg2, dmp);
+    dm_set_bg(dmp, bg1[0], bg1[1], bg1[2], bg2[0], bg2[1], bg2[2]);
+    dm_set_dirty(dmp, 0);
+    dm_draw_objs(v, NULL, NULL);
+    dm_draw_end(dmp);
+}
+
+static int
+capture(struct ged *gedp, const char *name)
+{
+    const char *s_av[3] = {"screengrab", name, NULL};
+    return ged_exec_screengrab(gedp, 2, s_av);
 }
 
 /* Count non-background pixels in a PNG.  Background is black (0,0,0). */
 static long
 count_nonblack(const char *fname)
 {
-    struct icv_image *img = icv_read(fname, BU_MIME_IMAGE_PNG, 0, 0);
+    icv_image_t *img = icv_read(fname, BU_MIME_IMAGE_PNG, 0, 0);
     if (!img) return -1;
     long cnt = 0;
     size_t npix = (size_t)img->width * img->height;
@@ -101,59 +120,39 @@ count_nonblack(const char *fname)
     return cnt;
 }
 
-/* Check whether pixel at (px,py) is approximately white (r,g,b all > 0.9) */
-static int
-pixel_is_white(struct icv_image *img, int px, int py)
-{
-    if (!img) return 0;
-    if (px < 0 || px >= img->width || py < 0 || py >= img->height) return 0;
-    /* ICV images are stored bottom-up */
-    int row = img->height - 1 - py;
-    double *pix = img->data + (row * img->width + px) * 3;
-    return (pix[0] > 0.85 && pix[1] > 0.85 && pix[2] > 0.85) ? 1 : 0;
-}
-
-/* Count white pixels in the image */
+/* Count white pixels (r,g,b all > 0.85) in a PNG. */
 static long
 count_white(const char *fname)
 {
-    struct icv_image *img = icv_read(fname, BU_MIME_IMAGE_PNG, 0, 0);
+    icv_image_t *img = icv_read(fname, BU_MIME_IMAGE_PNG, 0, 0);
     if (!img) return -1;
     long cnt = 0;
-    for (int r = 0; r < img->height; r++) {
-	for (int c = 0; c < img->width; c++) {
-	    if (pixel_is_white(img, c, r))
-		cnt++;
-	}
+    size_t npix = (size_t)img->width * img->height;
+    double *d = img->data;
+    for (size_t i = 0; i < npix; i++) {
+	if (d[3*i] > 0.85 && d[3*i+1] > 0.85 && d[3*i+2] > 0.85)
+	    cnt++;
     }
     icv_destroy(img);
     return cnt;
 }
 
-/* Compare two images with tolerance (max differing pixels). */
+/* Compare two images.  Returns 1 if identical within adiff_allow off-by-1 pixels. */
 static int
-images_identical(const char *a, const char *b, int tol)
+images_identical(const char *a, const char *b, int adiff_allow)
 {
-    struct icv_image *ia = icv_read(a, BU_MIME_IMAGE_PNG, 0, 0);
-    struct icv_image *ib = icv_read(b, BU_MIME_IMAGE_PNG, 0, 0);
+    icv_image_t *ia = icv_read(a, BU_MIME_IMAGE_PNG, 0, 0);
+    icv_image_t *ib = icv_read(b, BU_MIME_IMAGE_PNG, 0, 0);
     if (!ia || !ib) {
 	if (ia) icv_destroy(ia);
 	if (ib) icv_destroy(ib);
 	return 0;
     }
-    if (ia->width != ib->width || ia->height != ib->height) {
-	icv_destroy(ia); icv_destroy(ib);
-	return 0;
-    }
-    int ndiff = 0;
-    size_t npix = (size_t)ia->width * ia->height;
-    for (size_t i = 0; i < npix * 3; i++) {
-	double delta = ia->data[i] - ib->data[i];
-	if (delta < 0) delta = -delta;
-	if (delta > 0.02) ndiff++;
-    }
+    int match = 0, off1 = 0, offmany = 0;
+    icv_diff(&match, &off1, &offmany, ia, ib);
     icv_destroy(ia); icv_destroy(ib);
-    return (ndiff <= tol) ? 1 : 0;
+    int bad = offmany + (off1 > adiff_allow ? off1 - adiff_allow : 0);
+    return (bad == 0) ? 1 : 0;
 }
 
 /* ---- common GED + swrast setup ------------------------------------------- */
@@ -483,14 +482,14 @@ test_bsg_legacy_parity(const char *datadir)
     struct bview *v = gedp->ged_gvp;
 
     /* Image A: BSG path */
-    do_refresh(gedp);
+    do_full_refresh(gedp);
     capture(gedp, "mged_bsg_t5_A.png");
     bu_log("Captured image A (BSG path)\n");
 
     /* Image B: legacy path (null out bsg_root temporarily) */
     void *saved_root = v->bsg_root;
     v->bsg_root = NULL;
-    do_refresh(gedp);
+    do_full_refresh(gedp);
     capture(gedp, "mged_bsg_t5_B.png");
     bu_log("Captured image B (legacy dl_* path)\n");
 

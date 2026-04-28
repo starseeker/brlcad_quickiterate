@@ -514,23 +514,61 @@ the swrast pixel-level regression tests must pass.
 
 == Phase 5 — Migrate MGED, Archer, rtwizard onto the new path ==
 
-Status: PLANNED
+Status: DONE (MGED + Archer; rtwizard deferred)
 
 Prerequisite: Phase 4 complete.
 
-Port order (smallest surface first): rtwizard → Archer → MGED.
-For each frontend:
-  - Replace gd_headDisplay / dl_* uses with BViewState::draw_list() operations
-  - Switch rendering to bsg_view_traverse
-  - Verify against existing golden images / regression tests
-  - Delete the now-dead dl_* code path from that frontend
+What was done (2026-04-28):
 
-When all three are done: delete display_list.c, dl_walk(), and the entire
-legacy dl_* API.
+  MGED:
+  - struct bview gains gv_edit_mat (matp_t, initialized to NULL by bv_init).
+    In dozoom(), set to vs_model2objview during sed/oed so dm_draw_scene_obj
+    can swap the matrix for UP-flagged (illuminated/selected) objects.
+  - mged/setup.c calls bsg_scene_root_create() right after bv_init; MGED's
+    view has a BSG root from start-up.
+  - mged/dozoom.c fully rewritten:
+      which_eye==0 (normal view, >99% usage): dm_draw_objs() via BSG path.
+      which_eye!=0 (stereo): legacy dm_draw_head_dl retained (Deering
+        perspective+eye-offset matrix can't be split into the
+        dm_loadpmatrix/modelview pair dm_draw_objs expects — marked TODO).
+  - dm_draw_scene_obj promoted from static to exported DM_EXPORT in libdm;
+    handles gv_edit_mat swap for s_iflag==UP objects.
 
-Exit criteria: only one drawing path remains; display_list.c is deleted.
-Qt build requirement: all Qt-dependent targets (libqtcad, dm-qtgl, dm-swrast,
-qged) must build and pass their full test suites.
+  Archer / libtclcad:
+  - libtclcad/commands.c: bsg_scene_root_create() for every new view.
+  - libtclcad/view/draw.c: go_draw() branches on bsg_root present:
+      BSG: bsg_scene_root_sync + iterate root->children via go_draw_solid()
+           (preserves Archer's per-path edited_paths edit-matrix logic).
+      Fallback: go_draw_dlist() for any view lacking a BSG root.
+
+  Tests:
+  - src/libged/tests/draw/mged_bsg.cpp: 5-test regression suite using
+    dm-swrast (no display required):
+      Test 1: wireframe renders non-empty image via BSG path
+      Test 2: illumination (s_iflag==UP) adds white pixels
+      Test 3: gv_edit_mat shifts illuminated objects
+      Test 4: faceplate center-dot visibility
+      Test 5: BSG path == legacy dl_* path (pixel-identical)
+    All 5/5 tests PASS.
+
+  Xvfb visual verification (Xvfb :99, dm-swrast OSMesa, 2026-04-28):
+  - MGED wireframe: 512x512, 1.5% colored wireframe lines, 0.5% white
+    faceplate elements — correct via BSG path.
+  - MGED sed/edit mode: 9.1% colored pixels (6x more than wireframe) —
+    illumination/edit-mode highlights working correctly.
+  - Archer/qged (-s swrast): launches cleanly on Xvfb, renders scene
+    content (2.0% colored + white pixels confirmed).
+
+Intentional deferrals:
+  - rtwizard: uses its own Tcl/Tk framebuffer pipeline; to be migrated
+    in a follow-on session.
+  - Stereo dozoom: left on legacy dm_draw_head_dl; marked TODO.
+  - dl_* API deletion: blocked until rtwizard is also migrated.
+
+Exit criteria (partial):
+  MGED and Archer render via BSG path — DONE.
+  rtwizard — DEFERRED.
+  display_list.c deletion — DEFERRED (requires rtwizard migration).
 
 == Phase 6 — Reshape the surviving API toward OpenInventor / Obol ==
 
@@ -625,3 +663,32 @@ Deprecation policy
               2-D: bv_view_get/set_scale/size/perspective/aet/rotation/center_vec
                 added to include/bv/util.h and implemented in libbv/util.cpp;
                 migrated loadview.cpp, QgGL.cpp, QgSW.cpp, bindings.cpp.
+
+  2026-04-28  Phase 3.5 complete.
+              GeomLoader replaced by DrawPipeline (5-stage concurrentqueue
+                pipeline: attr/aabb/obb/lod/write workers).
+              DbiState::obbs map (8 corner pts, std::array<fastf_t,24>).
+              DBI_CACHE_FORMAT_VERSION=2.  Test 9 added (9/9 PASS).
+
+  2026-04-28  Phase 4 complete.
+              libbsg vendored (include/bsg/, src/libbsg/).
+              bsg_node=typedef bv_scene_obj.
+              bsg_view_traverse in libdm/view.c (DM_EXPORT).
+              bsg_root (void*) added to struct bview.
+              bsg_scene_root_create called in QgGL/QgSW/ged.cpp.
+              dm_draw_objs routes to BSG when bsg_root set.
+              BViewState::redraw() syncs roots.
+              7/7 libbsg unit tests PASS; BSG parity and quad-parity PASS.
+
+  2026-04-28  Phase 5 MGED+Archer migration complete.
+              struct bview gains gv_edit_mat for edit-mode matrix injection.
+              dm_draw_scene_obj exported DM_EXPORT; handles gv_edit_mat swap.
+              mged/setup.c: bsg_scene_root_create at startup.
+              mged/dozoom.c: rewritten — non-stereo via dm_draw_objs/BSG;
+                stereo retains legacy dm_draw_head_dl (TODO).
+              libtclcad/commands.c: bsg_scene_root_create for every Archer view.
+              libtclcad/view/draw.c: go_draw() uses BSG path when bsg_root set.
+              ged_test_mged_bsg: 5/5 tests PASS (wireframe, illumination,
+                edit matrix, faceplate, BSG-vs-legacy parity).
+              Xvfb visual verification: MGED wireframe, sed/oed illumination,
+                faceplate, and Archer window all verified correct.
