@@ -844,7 +844,7 @@ DbiState::DbiState(struct ged *ged_p)
 		if (fmt_file.is_open())
 		    fmt_file >> disk_fmt;
 	    }
-	    if (disk_fmt >= 0 && disk_fmt != DBI_CACHE_FORMAT_VERSION) {
+	    if (disk_fmt > 0 && disk_fmt != DBI_CACHE_FORMAT_VERSION) {
 		char ddir[MAXPATHLEN];
 		bu_dir(ddir, MAXPATHLEN, BU_DIR_CACHE, DBI_CACHEDIR, NULL);
 		bu_log("Old dbi cache version (%ld) found at %s - clearing\n", disk_fmt, fpath);

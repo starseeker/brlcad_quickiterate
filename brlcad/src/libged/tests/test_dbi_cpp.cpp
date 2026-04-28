@@ -779,7 +779,7 @@ test_format_version_mismatch(const char *moss_g_path)
 	FILE *fp = fopen(fmt_path, "w");
 	CHECK(fp != NULL, "could not write stale format file");
 	if (fp) {
-	    fprintf(fp, "0\n");   /* version 0 — always stale */
+	    fprintf(fp, "1\n");   /* version 1 — previous format, always stale here */
 	    fclose(fp);
 	}
     }
