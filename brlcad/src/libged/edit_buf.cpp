@@ -134,7 +134,7 @@ ged_edit_buf_promote(struct ged *gedp, const struct db_full_path *dfp)
     if (dp && gedp->dbip) {
 	/* rt_db_put_internal frees es_int internals and re-initializes it
 	 * via RT_DB_INTERNAL_INIT, so the subsequent rt_edit_destroy is safe. */
-	int put_ret = rt_db_put_internal(dp, gedp->dbip, &s->es_int, NULL);
+	int put_ret = rt_db_put_internal(dp, gedp->dbip, &s->es_int);
 	ret = (put_ret < 0) ? BRLCAD_ERROR : BRLCAD_OK;
     }
 
@@ -196,7 +196,7 @@ ged_edit_buf_flush(struct ged *gedp)
 	struct directory *dp = DB_FULL_PATH_CUR_DIR(&it->second.dfp);
 
 	if (dp && gedp->dbip) {
-	    rt_db_put_internal(dp, gedp->dbip, &s->es_int, NULL);
+	    rt_db_put_internal(dp, gedp->dbip, &s->es_int);
 	    any_written = true;
 	}
 

@@ -1,7 +1,6 @@
 set(PLUGIN_LIBS libged libbu)
 
 set(edit_srcs
-  edit.c
   edit2.cpp
   protate.c
   pscale.c

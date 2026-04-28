@@ -1,52 +1,23 @@
-# The edit test needs libged + libwdb (to populate the fixture database)
-# plus the ged-edit plugin and DbiState (from the ged internals).
-brlcad_addexec(ged_test_edit_phase0
+# Single comprehensive edit test: all phase content consolidated into test_edit.cpp.
+# Covers: infrastructure (section 0), parser/selection/buffer (section 1),
+# translate/rotate/scale/checkpoint/mat (section 2),
+# DbiState null-safety (section A), axis-mode rotate / scale -c (section C).
+brlcad_addexec(ged_test_edit
   test_edit.cpp
   "libged;libwdb"
   TEST
 )
-if(TARGET ged_test_edit_phase0)
-  add_dependencies(ged_test_edit_phase0 ged_plugins)
-  # ged-edit plugin must be present for `edit` command registration
+if(TARGET ged_test_edit)
+  add_dependencies(ged_test_edit ged_plugins)
   if(TARGET ged-edit)
-    add_dependencies(ged_test_edit_phase0 ged-edit)
+    add_dependencies(ged_test_edit ged-edit)
   endif()
 endif()
-brlcad_add_test(NAME ged_test_edit_phase0 COMMAND ged_test_edit_phase0)
-
-# Phase 1: parser foundation, URI, selection, conflict arbiter, edit buffer
-brlcad_addexec(ged_test_edit_phase1
-  test_edit_phase1.cpp
-  "libged;libwdb"
-  TEST
-)
-if(TARGET ged_test_edit_phase1)
-  add_dependencies(ged_test_edit_phase1 ged_plugins)
-  if(TARGET ged-edit)
-    add_dependencies(ged_test_edit_phase1 ged-edit)
-  endif()
-endif()
-brlcad_add_test(NAME ged_test_edit_phase1 COMMAND ged_test_edit_phase1)
-
-# Phase 2: rotate / translate / tra / scale / checkpoint / revert / reset / mat
-brlcad_addexec(ged_test_edit_phase2
-  test_edit_phase2.cpp
-  "libged;libwdb"
-  TEST
-)
-if(TARGET ged_test_edit_phase2)
-  add_dependencies(ged_test_edit_phase2 ged_plugins)
-  if(TARGET ged-edit)
-    add_dependencies(ged_test_edit_phase2 ged-edit)
-  endif()
-endif()
-brlcad_add_test(NAME ged_test_edit_phase2 COMMAND ged_test_edit_phase2)
+brlcad_add_test(NAME ged_test_edit COMMAND ged_test_edit)
 
 cmakefiles(
   CMakeLists.txt
   test_edit.cpp
-  test_edit_phase1.cpp
-  test_edit_phase2.cpp
 )
 
 # Local Variables:

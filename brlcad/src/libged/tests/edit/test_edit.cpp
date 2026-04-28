@@ -19,24 +19,34 @@
  */
 /** @file test_edit.cpp
  *
- * Phase 0 test harness for the libged `edit` command.
+ * Comprehensive test suite for the libged `edit` command (edit2.cpp).
  *
- * This file establishes the test infrastructure that later phases will
- * populate with real assertions.  Currently it:
+ * Consolidates all incremental phase tests.  Covers:
  *
- *   1. Creates (or opens) a fixture .g file containing representative
- *      primitives of each type that has a non-NULL ft_edit_desc().
- *   2. Verifies the `edit` command is registered and reachable.
- *   3. Runs a small set of smoke tests against the new command path
- *      (gedp->new_cmd_forms == 1) to ensure the harness is wired up
- *      correctly.
+ *  Section 0 — Infrastructure smoke tests (command registration,
+ *               ft_edit_desc coverage, fixture integrity).
+ *  Section 1 — Three-pass parser, URI fragment/query, batch marker,
+ *               selection fallback, conflict arbiter (-S/-f/-F/-i),
+ *               temporary edit buffer API.
+ *  Section 2 — translate (-a/-r/-k/-x/-y/-z), tra alias,
+ *               rotate (Euler 1/2/3 angles, coord flags, -R radians,
+ *               ±180° ambiguity), scale (scalar/xyz/-k/-a/-r),
+ *               checkpoint/revert/reset lifecycle, mat subcommand.
+ *  Section A — DbiState null-safety: all operations work when
+ *               gedp->dbi_state is NULL.
+ *  Section C — rotate axis-mode (-k/-a/-r/-d/-c), scale -c center,
+ *               per-axis (anisotropic) scale factors.
  *
- * No geometry-altering edits are performed in Phase 0; the goal is a
- * green test target that future phases can extend incrementally.
+ * edit2.cpp is a proper superset of the original edit.c:
+ *   original edit.c had translate enabled, rotate/scale disabled;
+ *   edit2.cpp provides all three plus tra/sca/rot aliases, perturb,
+ *   checkpoint, revert, reset, and mat.
  */
 
 #include "common.h"
 
+#include <climits>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -44,42 +54,124 @@
 #include "bu.h"
 #include "vmath.h"
 #include "raytrace.h"
+#include "rt/db_fullpath.h"
 #include "rt/geom.h"
 #include "rt/edit.h"
 #include "wdb.h"
 #include "ged.h"
 
 #include "../../dbi.h"
+#include "../../ged_private.h"
+#include "../../edit/uri.hh"
 
-/* ------------------------------------------------------------------ *
- * Minimal test bookkeeping
- * ------------------------------------------------------------------ */
+/* ================================================================== *
+ * Shared infrastructure
+ * ================================================================== */
 
 static int total_tests  = 0;
 static int failed_tests = 0;
 
-#define CHECK(cond, msg)                                            \
-    do {                                                            \
-        ++total_tests;                                              \
-        if (!(cond)) {                                              \
-            ++failed_tests;                                         \
-            bu_log("FAIL [%s:%d]: %s\n", __FILE__, __LINE__, msg); \
-        } else {                                                    \
-            bu_log("PASS: %s\n", msg);                              \
-        }                                                           \
+/* Numeric tolerance: lenient enough for trig (sin/cos) results. */
+#define NEAR_ENOUGH 1e-4
+
+#define CHECK(cond, msg)                                             \
+    do {                                                             \
+        ++total_tests;                                               \
+        if (!(cond)) {                                               \
+            ++failed_tests;                                          \
+            bu_log("FAIL [%s:%d]: %s\n", __FILE__, __LINE__, msg);  \
+        } else {                                                     \
+            bu_log("PASS: %s\n", msg);                               \
+        }                                                            \
     } while (0)
 
 
 /* ------------------------------------------------------------------ *
- * Fixture creation
- *
- * Populates a fresh .g file with one representative primitive of each
- * type that already has a non-NULL ft_edit_desc().  Additional geometry
- * (arb8, sph, etc.) is included for generic transform tests in Phase 2.
+ * Shared helper: read rt_ell_internal for an ell or sphere by name.
  * ------------------------------------------------------------------ */
-
 static int
-create_fixture(const char *dbpath)
+read_ell(struct ged *gedp, const char *name, struct rt_ell_internal *out)
+{
+    struct directory *dp = db_lookup(gedp->dbip, name, LOOKUP_QUIET);
+    if (dp == RT_DIR_NULL)
+        return BRLCAD_ERROR;
+
+    struct rt_db_internal intern;
+    RT_DB_INTERNAL_INIT(&intern);
+    if (rt_db_get_internal(&intern, dp, gedp->dbip, NULL) < 0)
+        return BRLCAD_ERROR;
+
+    if (intern.idb_minor_type != DB5_MINORTYPE_BRLCAD_ELL) {
+        rt_db_free_internal(&intern);
+        return BRLCAD_ERROR;
+    }
+
+    *out = *(struct rt_ell_internal *)intern.idb_ptr;
+    intern.idb_ptr = NULL;
+    rt_db_free_internal(&intern);
+    return BRLCAD_OK;
+}
+
+
+/* ------------------------------------------------------------------ *
+ * Shared helper: open a fixture database with new_cmd_forms=1 and
+ * a freshly constructed DbiState.
+ * ------------------------------------------------------------------ */
+static struct ged *
+open_fixture(const char *path)
+{
+    struct ged *gedp = ged_open("db", path, 1);
+    if (!gedp)
+        return NULL;
+    gedp->new_cmd_forms = 1;
+    gedp->dbi_state = new DbiState(gedp);
+    return gedp;
+}
+
+
+/* ------------------------------------------------------------------ *
+ * Shared helper: open a fixture database with new_cmd_forms=1 but
+ * WITHOUT DbiState (Phase A null-safety tests).
+ * ------------------------------------------------------------------ */
+static struct ged *
+open_fixture_no_dbistate(const char *path)
+{
+    struct ged *gedp = ged_open("db", path, 1);
+    if (!gedp)
+        return NULL;
+    gedp->new_cmd_forms = 1;
+    /* Deliberately leave gedp->dbi_state = NULL */
+    return gedp;
+}
+
+
+/* ------------------------------------------------------------------ *
+ * Shared helper: allocate a fresh writable temp-file path.
+ * The caller must bu_vls_free(v) when done.
+ * ------------------------------------------------------------------ */
+static int
+make_temp_path(struct bu_vls *v)
+{
+    char tmpname[MAXPATHLEN] = {0};
+    FILE *fp = bu_temp_file(tmpname, MAXPATHLEN);
+    if (!fp)
+        return BRLCAD_ERROR;
+    fclose(fp);
+    bu_vls_sprintf(v, "%s", tmpname);
+    return BRLCAD_OK;
+}
+
+
+/* ================================================================== *
+ * Section 0 — Infrastructure smoke tests
+ * ================================================================== */
+
+/**
+ * Phase 0 fixture: one representative primitive of each type that has
+ * a non-NULL ft_edit_desc(), plus arb8 and sph for generic tests.
+ */
+static int
+create_p0_fixture(const char *dbpath)
 {
     struct rt_wdb *wdbp = wdb_fopen(dbpath);
     if (!wdbp) {
@@ -257,80 +349,36 @@ create_fixture(const char *dbpath)
 
 
 /* ------------------------------------------------------------------ *
- * Helpers
+ * Section 0 test functions
  * ------------------------------------------------------------------ */
 
-/* run_edit() will be used in Phase 2+ tests; placeholder defined here
- * so reviewers can see the intended calling pattern.
- *
- * Usage:
- *   const char *out = run_edit(gedp, argc, argv);
- *   CHECK(strstr(out, "expected") != NULL, "output contains expected");
- *
- * static const char *
- * run_edit(struct ged *gedp, int argc, const char **argv)
- * {
- *     bu_vls_trunc(gedp->ged_result_str, 0);
- *     ged_exec(gedp, argc, argv);
- *     return bu_vls_cstr(gedp->ged_result_str);
- * }
- */
-
-
-/* ------------------------------------------------------------------ *
- * Phase 0 tests
- * ------------------------------------------------------------------ */
-
-/**
- * Test 1: edit command is registered.
- * Verifies that the `edit` plugin was loaded successfully.
- */
 static void
-test_edit_cmd_exists(void)
+test_p0_cmd_exists(void)
 {
     CHECK(ged_cmd_exists("edit"), "edit command is registered");
 }
 
-
-/**
- * Test 2: edit with no arguments returns OK (prints help).
- * The command should not crash or report an error when invoked
- * without arguments, per the existing edit2 implementation.
- */
 static void
-test_edit_noargs(struct ged *gedp)
+test_p0_noargs(struct ged *gedp)
 {
     const char *argv[] = {"edit", NULL};
     bu_vls_trunc(gedp->ged_result_str, 0);
     int ret = ged_exec(gedp, 1, argv);
-    (void)ret;  /* may be OK or print help — both are acceptable */
-    /* We only require no crash; content is not asserted in Phase 0 */
+    (void)ret;
     CHECK(1, "edit with no args does not crash");
 }
 
-
-/**
- * Test 3: edit with an unknown geometry specifier reports an error.
- */
 static void
-test_edit_bad_geom(struct ged *gedp)
+test_p0_bad_geom(struct ged *gedp)
 {
     const char *argv[] = {"edit", "nonexistent_object_xyzzy", NULL};
     bu_vls_trunc(gedp->ged_result_str, 0);
-    int ret = ged_exec(gedp, 2, argv);
-    /* Expect error or a helpful message — either outcome is acceptable
-     * for Phase 0; we just verify we don't segfault. */
-    (void)ret;
+    ged_exec(gedp, 2, argv);
     CHECK(1, "edit with nonexistent geometry does not crash");
 }
 
-
-/**
- * Test 4: fixture contains expected objects.
- * Enumerates each primitive we created and confirms db_lookup finds it.
- */
 static void
-test_fixture_objects_exist(struct ged *gedp)
+test_p0_fixture_objects_exist(struct ged *gedp)
 {
     static const char *names[] = {
         "tor.s", "tgc.s", "ell.s", "sph.s", "arb8.s",
@@ -338,7 +386,6 @@ test_fixture_objects_exist(struct ged *gedp)
         "hyp.s", "part.s", "superell.s", "cline.s",
         NULL
     };
-
     for (int i = 0; names[i] != NULL; i++) {
         struct directory *dp = db_lookup(gedp->dbip, names[i], LOOKUP_QUIET);
         std::string msg = std::string("fixture object exists: ") + names[i];
@@ -346,59 +393,35 @@ test_fixture_objects_exist(struct ged *gedp)
     }
 }
 
-
-/**
- * Test 5: edit help output for a known object does not crash.
- * Runs `edit tor.s` (no subcommand) which should print type-specific
- * help in future phases; for now we verify it doesn't crash.
- */
 static void
-test_edit_obj_nosubcmd(struct ged *gedp)
+test_p0_obj_nosubcmd(struct ged *gedp)
 {
     const char *argv[] = {"edit", "tor.s", NULL};
     bu_vls_trunc(gedp->ged_result_str, 0);
-    int ret = ged_exec(gedp, 2, argv);
-    (void)ret;
+    ged_exec(gedp, 2, argv);
     CHECK(1, "edit <obj> with no subcommand does not crash");
 }
 
-
-/**
- * Test 6: edit perturb command runs without crashing on tor.s.
- * This exercises the one already-working subcommand path in edit2.cpp
- * to confirm the existing infrastructure is intact.
- */
 static void
-test_edit_perturb(struct ged *gedp)
+test_p0_perturb(struct ged *gedp)
 {
     const char *argv[] = {"edit", "tor.s", "perturb", "0.1", NULL};
     bu_vls_trunc(gedp->ged_result_str, 0);
-    int ret = ged_exec(gedp, 4, argv);
-    /* perturb may succeed or fail depending on ft_perturb support, but
-     * it must not crash. */
-    (void)ret;
+    ged_exec(gedp, 4, argv);
     CHECK(1, "edit tor.s perturb does not crash");
 }
 
-
-/**
- * Test 7: ft_edit_desc coverage — primitives with descriptors accessible.
- * Calls rt_edit_type_to_json for each type with a non-NULL ft_edit_desc
- * and verifies it returns BRLCAD_OK with non-empty JSON.
- */
 static void
-test_desc_coverage(void)
+test_p0_desc_coverage(void)
 {
-    /* primitive IDs known to have ft_edit_desc as of Phase 0 audit */
     static const int typed_prims[] = {
         ID_TOR, ID_TGC, ID_ELL,
         ID_EBM, ID_VOL, ID_PIPE, ID_PARTICLE,
         ID_RPC, ID_RHC, ID_EPA, ID_EHY, ID_ETO,
         ID_DSP, ID_CLINE, ID_COMBINATION,
         ID_SUPERELL, ID_HYP,
-        -1  /* sentinel */
+        -1
     };
-
     for (int i = 0; typed_prims[i] >= 0; i++) {
         struct bu_vls out = BU_VLS_INIT_ZERO;
         int ret = rt_edit_type_to_json(&out, typed_prims[i]);
@@ -409,28 +432,19 @@ test_desc_coverage(void)
     }
 }
 
-
-/**
- * Test 8: primitives without ft_edit_desc return BRLCAD_ERROR from
- * rt_edit_type_to_json, confirming the audit table is accurate.
- */
 static void
-test_no_desc_returns_error(void)
+test_p0_no_desc_returns_error(void)
 {
-    /* A sample of primitives that currently lack ft_edit_desc */
     static const int no_desc[] = {
         ID_ARB8, ID_ARS, ID_HALF, ID_SPH, ID_NMG, ID_ARBN,
         ID_BOT, ID_SKETCH, ID_EXTRUDE, ID_HRT,
         -1
     };
-
     for (int i = 0; no_desc[i] >= 0; i++) {
         struct bu_vls out = BU_VLS_INIT_ZERO;
         int ret = rt_edit_type_to_json(&out, no_desc[i]);
         std::string msg = std::string("rt_edit_type_to_json returns error for undescribed prim id ")
             + std::to_string(no_desc[i]);
-        /* Either BRLCAD_ERROR or empty JSON is acceptable — the key point
-         * is that it does NOT return a non-empty JSON string with valid ops. */
         bool acceptable = (ret != BRLCAD_OK) || (bu_vls_strlen(&out) == 0);
         CHECK(acceptable, msg.c_str());
         bu_vls_free(&out);
@@ -438,15 +452,957 @@ test_no_desc_returns_error(void)
 }
 
 
-/* ------------------------------------------------------------------ *
+/* ================================================================== *
+ * Section 1 — Parser, selection, conflict arbiter, edit buffer
+ * ================================================================== */
+
+static int
+create_p1_fixture(const char *path)
+{
+    struct rt_wdb *wdbp = wdb_fopen(path);
+    if (!wdbp)
+        return BRLCAD_ERROR;
+
+    point_t v  = VINIT_ZERO;
+    vect_t  h  = {0, 0, 1};
+    if (mk_tor(wdbp, "tor.s", v, h, 4.0, 1.0) != 0) { wdb_close(wdbp); return BRLCAD_ERROR; }
+
+    point_t sp = {10, 0, 0};
+    if (mk_sph(wdbp, "sph.s", sp, 2.0) != 0) { wdb_close(wdbp); return BRLCAD_ERROR; }
+
+    struct wmember wm;
+    BU_LIST_INIT(&wm.l);
+    mk_addmember("tor.s", &wm.l, NULL, WMOP_UNION);
+    if (mk_lcomb(wdbp, "group.c", &wm, 0, NULL, NULL, NULL, 0) != 0) {
+        wdb_close(wdbp);
+        return BRLCAD_ERROR;
+    }
+
+    wdb_close(wdbp);
+    return BRLCAD_OK;
+}
+
+static void
+test_p1_noargs(struct ged *gedp)
+{
+    const char *av[] = { "edit", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    int ret = ged_exec(gedp, 1, av);
+    CHECK(ret == BRLCAD_OK, "edit (no args) returns OK (prints help)");
+}
+
+static void
+test_p1_bad_geom(struct ged *gedp)
+{
+    const char *av[] = { "edit", "nonexistent_object_xyz", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    int ret = ged_exec(gedp, 2, av);
+    CHECK(ret == BRLCAD_ERROR, "edit <nonexistent_object> returns error");
+}
+
+static void
+test_p1_obj_nosubcmd(struct ged *gedp)
+{
+    const char *av[] = { "edit", "tor.s", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    int ret = ged_exec(gedp, 2, av);
+    CHECK(ret == BRLCAD_ERROR, "edit tor.s (no subcommand) returns error");
+    CHECK(bu_vls_strlen(gedp->ged_result_str) > 0,
+          "edit tor.s (no subcommand) prints a message");
+}
+
+static void
+test_p1_help_flag(struct ged *gedp)
+{
+    const char *av[] = { "edit", "-h", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    int ret = ged_exec(gedp, 2, av);
+    CHECK(ret == BRLCAD_OK, "edit -h returns OK");
+}
+
+static void
+test_p1_uri_fragment(void)
+{
+    std::string raw = "tor.s#V1";
+    bool has_fragment = false;
+    std::string fragment_val;
+    try {
+        uri obj_uri(std::string("g:") + raw);
+        fragment_val = obj_uri.get_fragment();
+        has_fragment = !fragment_val.empty();
+    } catch (...) {}
+    CHECK(has_fragment,         "URI fragment 'V1' is parsed from 'tor.s#V1'");
+    CHECK(fragment_val == "V1", "URI fragment value is 'V1'");
+}
+
+static void
+test_p1_uri_query(void)
+{
+    std::string raw = "tor.s?V*";
+    bool has_query = false;
+    std::string query_val;
+    try {
+        uri obj_uri(std::string("g:") + raw);
+        query_val = obj_uri.get_query();
+        has_query = !query_val.empty();
+    } catch (...) {}
+    CHECK(has_query,          "URI query 'V*' is parsed from 'tor.s?V*'");
+    CHECK(query_val == "V*",  "URI query value is 'V*'");
+}
+
+static void
+test_p1_batch_marker(struct ged *gedp)
+{
+    const char *av[] = { "edit", ".", "perturb", "0.1", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    int ret = ged_exec(gedp, 4, av);
+    CHECK(ret == BRLCAD_ERROR,
+          "edit . perturb (no selection) returns error");
+}
+
+static void
+test_p1_selection_fallback(struct ged *gedp)
+{
+    DbiState *dbis = (DbiState *)gedp->dbi_state;
+    std::vector<BSelectState *> ss = dbis->get_selected_states("default");
+    if (ss.empty()) { CHECK(0, "Could not get default selection state"); return; }
+    ss[0]->select_path("tor.s", false);
+
+    const char *av[] = { "edit", "perturb", "0.0", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    int ret = ged_exec(gedp, 3, av);
+    CHECK(ret == BRLCAD_OK,
+          "edit perturb 0.0 (via selection fallback) returns OK");
+    ss[0]->deselect_path("tor.s", false);
+}
+
+static void
+test_p1_no_geom_no_sel(struct ged *gedp)
+{
+    DbiState *dbis = (DbiState *)gedp->dbi_state;
+    std::vector<BSelectState *> ss = dbis->get_selected_states("default");
+    if (!ss.empty()) ss[0]->deselect_path("tor.s", false);
+
+    const char *av[] = { "edit", "perturb", "0.1", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    int ret = ged_exec(gedp, 3, av);
+    CHECK(ret == BRLCAD_ERROR,
+          "edit perturb (no geom, no selection) returns error");
+}
+
+static void
+test_p1_conflict_arbiter(struct ged *gedp)
+{
+    DbiState *dbis = (DbiState *)gedp->dbi_state;
+    std::vector<BSelectState *> ss = dbis->get_selected_states("default");
+    if (ss.empty()) { CHECK(0, "Could not get default selection state"); return; }
+    ss[0]->select_path("tor.s", false);
+
+    const char *av[] = { "edit", "tor.s", "perturb", "0.1", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    int ret = ged_exec(gedp, 4, av);
+    CHECK(ret == BRLCAD_ERROR,
+          "edit tor.s perturb (selection conflict, no flag) returns error");
+    bool has_conflict_msg =
+        (bu_vls_strlen(gedp->ged_result_str) > 0) &&
+        (strstr(bu_vls_cstr(gedp->ged_result_str), "Conflict") != NULL ||
+         strstr(bu_vls_cstr(gedp->ged_result_str), "conflict") != NULL);
+    CHECK(has_conflict_msg,
+          "edit tor.s perturb (selection conflict) prints conflict message");
+    ss[0]->deselect_path("tor.s", false);
+}
+
+static void
+test_p1_flag_S(struct ged *gedp)
+{
+    DbiState *dbis = (DbiState *)gedp->dbi_state;
+    std::vector<BSelectState *> ss = dbis->get_selected_states("default");
+    if (ss.empty()) { CHECK(0, "Could not get default selection state"); return; }
+    ss[0]->select_path("tor.s", false);
+
+    const char *av[] = { "edit", "-S", "sph.s", "perturb", "0.0", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    int ret = ged_exec(gedp, 5, av);
+    CHECK(ret == BRLCAD_OK,
+          "edit -S sph.s perturb 0.0 (uses selection tor.s, not sph.s) returns OK");
+    ss[0]->deselect_path("tor.s", false);
+}
+
+static void
+test_p1_flag_f(struct ged *gedp)
+{
+    DbiState *dbis = (DbiState *)gedp->dbi_state;
+    std::vector<BSelectState *> ss = dbis->get_selected_states("default");
+    if (ss.empty()) { CHECK(0, "Could not get default selection state"); return; }
+    ss[0]->select_path("tor.s", false);
+
+    const char *av[] = { "edit", "-f", "tor.s", "perturb", "0.0", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    int ret = ged_exec(gedp, 5, av);
+    CHECK(ret == BRLCAD_OK,
+          "edit -f tor.s perturb 0.0 (force, bypasses conflict) returns OK");
+    ss[0]->deselect_path("tor.s", false);
+}
+
+static void
+test_p1_buf_get_missing(struct ged *gedp)
+{
+    struct db_full_path dfp;
+    db_full_path_init(&dfp);
+    db_string_to_path(&dfp, gedp->dbip, "tor.s");
+
+    struct rt_edit *s = ged_edit_buf_get(gedp, &dfp);
+    CHECK(s == NULL, "ged_edit_buf_get returns NULL for absent entry");
+    db_free_full_path(&dfp);
+}
+
+static void
+test_p1_buf_set_get(struct ged *gedp)
+{
+    struct bn_tol tol = BN_TOL_INIT_ZERO;
+    BN_TOL_INIT_SET_TOL(&tol);
+    struct db_full_path dfp;
+    db_full_path_init(&dfp);
+    if (db_string_to_path(&dfp, gedp->dbip, "tor.s") < 0) {
+        CHECK(0, "db_string_to_path for tor.s failed unexpectedly");
+        return;
+    }
+    struct rt_edit *s = rt_edit_create(&dfp, gedp->dbip, &tol, NULL);
+    if (!s) { CHECK(0, "rt_edit_create failed for tor.s"); db_free_full_path(&dfp); return; }
+
+    ged_edit_buf_set(gedp, &dfp, s);
+    struct rt_edit *got = ged_edit_buf_get(gedp, &dfp);
+    CHECK(got == s, "ged_edit_buf_get returns the stored rt_edit * after set");
+
+    ged_edit_buf_abandon(gedp, &dfp);
+    db_free_full_path(&dfp);
+}
+
+static void
+test_p1_buf_abandon(struct ged *gedp)
+{
+    struct bn_tol tol = BN_TOL_INIT_ZERO;
+    BN_TOL_INIT_SET_TOL(&tol);
+    struct db_full_path dfp;
+    db_full_path_init(&dfp);
+    if (db_string_to_path(&dfp, gedp->dbip, "sph.s") < 0) {
+        CHECK(0, "db_string_to_path for sph.s failed unexpectedly");
+        return;
+    }
+    struct rt_edit *s = rt_edit_create(&dfp, gedp->dbip, &tol, NULL);
+    if (!s) { CHECK(0, "rt_edit_create failed for sph.s"); db_free_full_path(&dfp); return; }
+
+    ged_edit_buf_set(gedp, &dfp, s);
+    ged_edit_buf_abandon(gedp, &dfp);
+    struct rt_edit *got = ged_edit_buf_get(gedp, &dfp);
+    CHECK(got == NULL, "ged_edit_buf_get returns NULL after abandon");
+    db_free_full_path(&dfp);
+}
+
+static void
+test_p1_buf_flush(struct ged *gedp)
+{
+    struct bn_tol tol = BN_TOL_INIT_ZERO;
+    BN_TOL_INIT_SET_TOL(&tol);
+    struct db_full_path dfp1, dfp2;
+    db_full_path_init(&dfp1);
+    db_full_path_init(&dfp2);
+    db_string_to_path(&dfp1, gedp->dbip, "tor.s");
+    db_string_to_path(&dfp2, gedp->dbip, "sph.s");
+
+    struct rt_edit *s1 = rt_edit_create(&dfp1, gedp->dbip, &tol, NULL);
+    struct rt_edit *s2 = rt_edit_create(&dfp2, gedp->dbip, &tol, NULL);
+    if (!s1 || !s2) {
+        CHECK(0, "rt_edit_create failed for flush test fixture");
+        if (s1) rt_edit_destroy(s1);
+        if (s2) rt_edit_destroy(s2);
+        db_free_full_path(&dfp1);
+        db_free_full_path(&dfp2);
+        return;
+    }
+
+    ged_edit_buf_set(gedp, &dfp1, s1);
+    ged_edit_buf_set(gedp, &dfp2, s2);
+    ged_edit_buf_flush(gedp);
+
+    struct rt_edit *g1 = ged_edit_buf_get(gedp, &dfp1);
+    struct rt_edit *g2 = ged_edit_buf_get(gedp, &dfp2);
+    CHECK(g1 == NULL && g2 == NULL, "ged_edit_buf_flush removes all entries");
+
+    db_free_full_path(&dfp1);
+    db_free_full_path(&dfp2);
+}
+
+static void
+test_p1_perturb_regression(struct ged *gedp)
+{
+    const char *av[] = { "edit", "tor.s", "perturb", "0.001", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    int ret = ged_exec(gedp, 4, av);
+    CHECK(ret == BRLCAD_OK, "edit tor.s perturb 0.001 (regression) returns OK");
+}
+
+
+/* ================================================================== *
+ * Section 2 — translate / rotate / scale / checkpoint / revert / mat
+ * ================================================================== */
+
+/**
+ * Phase 2 fixture:
+ *   sph.s   — sphere at (10,0,0), r=2     (translate tests)
+ *   other.s — sphere at (20,0,0), r=2     (translate -k/-a reference)
+ *   ell.s   — ell at origin, A=(5,0,0)    (rotate tests)
+ *   sca.s   — sphere at origin, r=3       (scale tests)
+ *   tor.s   — torus at origin             (checkpoint/revert/mat tests)
+ */
+static int
+create_p2_fixture(const char *path)
+{
+    struct rt_wdb *wdbp = wdb_fopen(path);
+    if (!wdbp)
+        return BRLCAD_ERROR;
+
+    point_t sp = {10.0, 0.0, 0.0};
+    if (mk_sph(wdbp, "sph.s", sp, 2.0) != 0) goto fail;
+
+    { point_t op = {20.0, 0.0, 0.0};
+      if (mk_sph(wdbp, "other.s", op, 2.0) != 0) goto fail; }
+
+    { point_t ev = VINIT_ZERO;
+      vect_t ea = {5.0,0,0}, eb = {0,2.0,0}, ec = {0,0,3.0};
+      if (mk_ell(wdbp, "ell.s", ev, ea, eb, ec) != 0) goto fail; }
+
+    { point_t sv = VINIT_ZERO;
+      if (mk_sph(wdbp, "sca.s", sv, 3.0) != 0) goto fail; }
+
+    { point_t tv = VINIT_ZERO; vect_t th = {0,0,1};
+      if (mk_tor(wdbp, "tor.s", tv, th, 4.0, 1.0) != 0) goto fail; }
+
+    wdb_close(wdbp);
+    return BRLCAD_OK;
+fail:
+    wdb_close(wdbp);
+    return BRLCAD_ERROR;
+}
+
+/* ---- translate ---------------------------------------------------- */
+
+static void
+test_p2_translate_abs(struct ged *gedp)
+{
+    const char *av[] = { "edit", "sph.s", "translate", "-a", "15", "0", "0", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 7, av) == BRLCAD_OK, "translate -a 15 0 0 returns OK");
+    struct rt_ell_internal ell;
+    if (read_ell(gedp, "sph.s", &ell) == BRLCAD_OK) {
+        CHECK(NEAR_EQUAL(ell.v[X], 15.0, NEAR_ENOUGH), "translate -a: sph.s V.x == 15");
+        CHECK(NEAR_EQUAL(ell.v[Y],  0.0, NEAR_ENOUGH), "translate -a: sph.s V.y == 0");
+    } else { CHECK(0, "translate -a: read_ell(sph.s) succeeded"); }
+}
+
+static void
+test_p2_translate_rel(struct ged *gedp)
+{
+    const char *av[] = { "edit", "sph.s", "translate", "-r", "-5", "0", "0", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 7, av) == BRLCAD_OK, "translate -r -5 0 0 returns OK");
+    struct rt_ell_internal ell;
+    if (read_ell(gedp, "sph.s", &ell) == BRLCAD_OK)
+        CHECK(NEAR_EQUAL(ell.v[X], 10.0, NEAR_ENOUGH), "translate -r: sph.s V.x == 10");
+    else CHECK(0, "translate -r: read_ell(sph.s) succeeded");
+}
+
+static void
+test_p2_tra(struct ged *gedp)
+{
+    const char *av[] = { "edit", "sph.s", "tra", "5", "0", "0", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 6, av) == BRLCAD_OK, "tra 5 0 0 returns OK");
+    struct rt_ell_internal ell;
+    if (read_ell(gedp, "sph.s", &ell) == BRLCAD_OK)
+        CHECK(NEAR_EQUAL(ell.v[X], 15.0, NEAR_ENOUGH), "tra: sph.s V.x == 15");
+    else CHECK(0, "tra: read_ell(sph.s) succeeded");
+}
+
+static void
+test_p2_translate_from_to(struct ged *gedp)
+{
+    /* sph.s at (15,0,0); other.s at (20,0,0).  -k sph.s -a other.s → move to (20,0,0). */
+    const char *av[] = { "edit", "sph.s", "translate", "-k", "sph.s", "-a", "other.s", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 7, av) == BRLCAD_OK, "translate -k sph.s -a other.s returns OK");
+    struct rt_ell_internal ell;
+    if (read_ell(gedp, "sph.s", &ell) == BRLCAD_OK)
+        CHECK(NEAR_EQUAL(ell.v[X], 20.0, NEAR_ENOUGH), "translate -k/-a: sph.s V.x == 20");
+    else CHECK(0, "translate -k/-a: read_ell(sph.s) succeeded");
+}
+
+static void
+test_p2_translate_xonly(struct ged *gedp)
+{
+    /* sph.s at (20,0,0); -r -x 5 → (25,0,0) */
+    const char *av[] = { "edit", "sph.s", "translate", "-r", "-x", "5", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 6, av) == BRLCAD_OK, "translate -r -x 5 returns OK");
+    struct rt_ell_internal ell;
+    if (read_ell(gedp, "sph.s", &ell) == BRLCAD_OK) {
+        CHECK(NEAR_EQUAL(ell.v[X], 25.0, NEAR_ENOUGH), "translate -x: sph.s V.x == 25");
+        CHECK(NEAR_EQUAL(ell.v[Y],  0.0, NEAR_ENOUGH), "translate -x: sph.s V.y unchanged == 0");
+    } else CHECK(0, "translate -x: read_ell(sph.s) succeeded");
+}
+
+/* ---- rotate ------------------------------------------------------- */
+
+static void
+test_p2_rotate_3angle(struct ged *gedp)
+{
+    const char *av[] = { "edit", "ell.s", "rotate", "0", "0", "90", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 6, av) == BRLCAD_OK, "rotate 0 0 90 returns OK");
+    struct rt_ell_internal ell;
+    if (read_ell(gedp, "ell.s", &ell) == BRLCAD_OK) {
+        CHECK(NEAR_EQUAL(ell.a[X], 0.0, NEAR_ENOUGH), "rotate 0 0 90: ell.s A.x ≈ 0");
+        CHECK(NEAR_EQUAL(ell.a[Y], 5.0, NEAR_ENOUGH), "rotate 0 0 90: ell.s A.y ≈ 5");
+        CHECK(NEAR_EQUAL(ell.b[X], -2.0, NEAR_ENOUGH), "rotate 0 0 90: ell.s B.x ≈ -2");
+    } else CHECK(0, "rotate 0 0 90: read_ell(ell.s) succeeded");
+}
+
+static void
+test_p2_rotate_undo(struct ged *gedp)
+{
+    const char *av[] = { "edit", "ell.s", "rotate", "0", "0", "-90", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 6, av) == BRLCAD_OK, "rotate 0 0 -90 returns OK");
+    struct rt_ell_internal ell;
+    if (read_ell(gedp, "ell.s", &ell) == BRLCAD_OK) {
+        CHECK(NEAR_EQUAL(ell.a[X], 5.0, NEAR_ENOUGH), "rotate 0 0 -90: ell.s A.x ≈ 5 (undone)");
+        CHECK(NEAR_EQUAL(ell.a[Y], 0.0, NEAR_ENOUGH), "rotate 0 0 -90: ell.s A.y ≈ 0 (undone)");
+    } else CHECK(0, "rotate 0 0 -90: read_ell(ell.s) succeeded");
+}
+
+static void
+test_p2_rotate_z_flag(struct ged *gedp)
+{
+    const char *av[] = { "edit", "ell.s", "rotate", "-z", "45", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 5, av) == BRLCAD_OK, "rotate -z 45 returns OK");
+    struct rt_ell_internal ell;
+    if (read_ell(gedp, "ell.s", &ell) == BRLCAD_OK) {
+        fastf_t expected = 5.0 * cos(45.0 * DEG2RAD);
+        CHECK(NEAR_EQUAL(ell.a[X], expected, 1e-4), "rotate -z 45: ell.s A.x ≈ 5·cos(45°)");
+        CHECK(NEAR_EQUAL(ell.a[Y], expected, 1e-4), "rotate -z 45: ell.s A.y ≈ 5·sin(45°)");
+    } else CHECK(0, "rotate -z 45: read_ell(ell.s) succeeded");
+}
+
+static void
+test_p2_rotate_single_angle(struct ged *gedp)
+{
+    const char *av[] = { "edit", "ell.s", "rotate", "90", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 4, av) == BRLCAD_OK, "rotate 90 (single angle) returns OK");
+}
+
+static void
+test_p2_rotate_180_ambiguous(struct ged *gedp)
+{
+    const char *av[] = { "edit", "ell.s", "rotate", "180", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    int ret = ged_exec(gedp, 4, av);
+    CHECK(ret == BRLCAD_ERROR, "rotate 180 (no axis) returns error (ambiguous)");
+    bool has_msg = (strstr(bu_vls_cstr(gedp->ged_result_str), "ambiguous") != NULL ||
+                    strstr(bu_vls_cstr(gedp->ged_result_str), "axis")      != NULL);
+    CHECK(has_msg, "rotate 180 prints ambiguity message");
+}
+
+static void
+test_p2_rotate_radians(struct ged *gedp)
+{
+    struct rt_ell_internal before;
+    bool have_before = (read_ell(gedp, "ell.s", &before) == BRLCAD_OK);
+
+    const char *av[] = {
+        "edit", "ell.s", "rotate", "-R", "0", "0", "1.5707963267948966", NULL
+    };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 7, av) == BRLCAD_OK, "rotate -R 0 0 pi/2 returns OK");
+
+    if (have_before) {
+        struct rt_ell_internal after;
+        if (read_ell(gedp, "ell.s", &after) == BRLCAD_OK) {
+            CHECK(NEAR_EQUAL(after.a[X], -before.a[Y], 1e-4), "rotate -R pi/2: A.x ≈ -before.A.y");
+            CHECK(NEAR_EQUAL(after.a[Y],  before.a[X], 1e-4), "rotate -R pi/2: A.y ≈  before.A.x");
+        } else CHECK(0, "rotate -R: read_ell after rotation succeeded");
+    }
+}
+
+static void
+test_p2_rotate_two_angles(struct ged *gedp)
+{
+    const char *av[] = { "edit", "ell.s", "rotate", "-45", "45", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 5, av) == BRLCAD_OK, "rotate -45 45 (two-angle) returns OK");
+}
+
+/* ---- scale -------------------------------------------------------- */
+
+static void
+test_p2_scale_scalar(struct ged *gedp)
+{
+    const char *av[] = { "edit", "sca.s", "scale", "2", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 4, av) == BRLCAD_OK, "scale 2 returns OK");
+    struct rt_ell_internal ell;
+    if (read_ell(gedp, "sca.s", &ell) == BRLCAD_OK)
+        CHECK(NEAR_EQUAL(MAGNITUDE(ell.a), 6.0, NEAR_ENOUGH), "scale 2: sca.s |A| == 6");
+    else CHECK(0, "scale 2: read_ell(sca.s) succeeded");
+}
+
+static void
+test_p2_scale_vector(struct ged *gedp)
+{
+    const char *av[] = { "edit", "sca.s", "scale", "2", "2", "2", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 6, av) == BRLCAD_OK, "scale 2 2 2 returns OK");
+    struct rt_ell_internal ell;
+    if (read_ell(gedp, "sca.s", &ell) == BRLCAD_OK)
+        CHECK(NEAR_EQUAL(MAGNITUDE(ell.a), 12.0, NEAR_ENOUGH), "scale 2 2 2: sca.s |A| == 12");
+    else CHECK(0, "scale 2 2 2: read_ell(sca.s) succeeded");
+}
+
+static void
+test_p2_scale_from_to(struct ged *gedp)
+{
+    const char *av[] = {
+        "edit", "sca.s", "scale", "-k", "0", "0", "0", "-a", "2", "2", "2", NULL
+    };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 11, av) == BRLCAD_OK, "scale -k 0 0 0 -a 2 2 2 returns OK");
+    struct rt_ell_internal ell;
+    if (read_ell(gedp, "sca.s", &ell) == BRLCAD_OK)
+        CHECK(NEAR_EQUAL(MAGNITUDE(ell.a), 24.0, NEAR_ENOUGH), "scale -k/-a: sca.s |A| == 24");
+    else CHECK(0, "scale -k/-a: read_ell(sca.s) succeeded");
+}
+
+static void
+test_p2_scale_explicit_r(struct ged *gedp)
+{
+    const char *av[] = {
+        "edit", "sca.s", "scale", "-k", "0","0","0", "-a","1","1","1", "-r","2", NULL
+    };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 13, av) == BRLCAD_OK, "scale -k 0 0 0 -a 1 1 1 -r 2 returns OK");
+}
+
+static void
+test_p2_scale_complex(struct ged *gedp)
+{
+    const char *av[] = {
+        "edit", "sca.s", "scale",
+        "-k","5","10","15", "-a","7","11","-2", "-r","4","2","34", NULL
+    };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 15, av) == BRLCAD_OK, "scale -k 5 10 15 -a 7 11 -2 -r 4 2 34 returns OK");
+}
+
+static void
+test_p2_scale_zero_error(struct ged *gedp)
+{
+    const char *av[] = { "edit", "sca.s", "scale", "0", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 4, av) == BRLCAD_ERROR, "scale 0 returns error");
+}
+
+/* ---- checkpoint / revert / reset ---------------------------------- */
+
+static void
+test_p2_checkpoint(struct ged *gedp)
+{
+    const char *av[] = { "edit", "tor.s", "checkpoint", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 3, av) == BRLCAD_OK, "checkpoint returns OK");
+
+    struct db_full_path dfp;
+    db_full_path_init(&dfp);
+    db_string_to_path(&dfp, gedp->dbip, "tor.s");
+    struct rt_edit *s = ged_edit_buf_get(gedp, &dfp);
+    CHECK(s != NULL, "checkpoint: edit buffer has entry for tor.s");
+    db_free_full_path(&dfp);
+}
+
+static void
+test_p2_revert(struct ged *gedp)
+{
+    { const char *av[] = { "edit", "tor.s", "checkpoint", NULL }; ged_exec(gedp, 3, av); }
+
+    { const char *av[] = { "edit", "-i", "tor.s", "translate", "-r", "100", "0", "0", NULL };
+      bu_vls_trunc(gedp->ged_result_str, 0);
+      CHECK(ged_exec(gedp, 8, av) == BRLCAD_OK, "revert test: -i translate returns OK"); }
+
+    { const char *av[] = { "edit", "tor.s", "revert", NULL };
+      bu_vls_trunc(gedp->ged_result_str, 0);
+      CHECK(ged_exec(gedp, 3, av) == BRLCAD_OK, "revert returns OK"); }
+}
+
+static void
+test_p2_reset(struct ged *gedp)
+{
+    { const char *av[] = { "edit", "tor.s", "checkpoint", NULL }; ged_exec(gedp, 3, av); }
+
+    { const char *av[] = { "edit", "tor.s", "reset", NULL };
+      bu_vls_trunc(gedp->ged_result_str, 0);
+      CHECK(ged_exec(gedp, 3, av) == BRLCAD_OK, "reset returns OK"); }
+
+    struct db_full_path dfp;
+    db_full_path_init(&dfp);
+    db_string_to_path(&dfp, gedp->dbip, "tor.s");
+    struct rt_edit *s = ged_edit_buf_get(gedp, &dfp);
+    CHECK(s == NULL, "reset: buffer entry removed for tor.s");
+    db_free_full_path(&dfp);
+}
+
+static void
+test_p2_revert_no_checkpoint(struct ged *gedp)
+{
+    { struct db_full_path dfp;
+      db_full_path_init(&dfp);
+      db_string_to_path(&dfp, gedp->dbip, "sca.s");
+      ged_edit_buf_abandon(gedp, &dfp);
+      db_free_full_path(&dfp); }
+
+    const char *av[] = { "edit", "sca.s", "revert", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 3, av) == BRLCAD_ERROR, "revert with no buffer entry returns error");
+}
+
+/* ---- mat ---------------------------------------------------------- */
+
+static void
+test_p2_mat_identity(struct ged *gedp)
+{
+    struct rt_ell_internal before;
+    bool have_before = (read_ell(gedp, "ell.s", &before) == BRLCAD_OK);
+
+    const char *av[] = {
+        "edit", "ell.s", "mat",
+        "1","0","0","0","0","1","0","0","0","0","1","0","0","0","0","1", NULL
+    };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 19, av) == BRLCAD_OK, "mat identity returns OK");
+
+    if (have_before) {
+        struct rt_ell_internal after;
+        if (read_ell(gedp, "ell.s", &after) == BRLCAD_OK)
+            CHECK(NEAR_EQUAL(MAGNITUDE(after.a), MAGNITUDE(before.a), 1e-6),
+                  "mat identity: |A| unchanged");
+        else CHECK(0, "mat identity: read_ell after succeeded");
+    }
+}
+
+static void
+test_p2_mat_missing_values(struct ged *gedp)
+{
+    const char *av[] = {
+        "edit", "ell.s", "mat",
+        "1","0","0","0","0","1","0","0", NULL   /* only 8 of 16 */
+    };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 10, av) == BRLCAD_ERROR, "mat with <16 values returns error");
+}
+
+
+/* ================================================================== *
+ * Section A — DbiState null-safety
+ * ================================================================== */
+
+static int
+create_pa_fixture(const char *path)
+{
+    struct rt_wdb *wdbp = wdb_fopen(path);
+    if (!wdbp)
+        return BRLCAD_ERROR;
+
+    point_t sp = {10.0, 0.0, 0.0};
+    if (mk_sph(wdbp, "pa_sph.s", sp, 2.0) != 0) goto fail;
+
+    { point_t ev = VINIT_ZERO;
+      vect_t ea = {5,0,0}, eb = {0,2,0}, ec = {0,0,3};
+      if (mk_ell(wdbp, "pa_ell.s", ev, ea, eb, ec) != 0) goto fail; }
+
+    { point_t sv = VINIT_ZERO;
+      if (mk_sph(wdbp, "pa_sca.s", sv, 3.0) != 0) goto fail; }
+
+    wdb_close(wdbp);
+    return BRLCAD_OK;
+fail:
+    wdb_close(wdbp);
+    return BRLCAD_ERROR;
+}
+
+static void
+test_pa_translate_abs(struct ged *gedp)
+{
+    const char *av[] = { "edit", "pa_sph.s", "translate", "-a", "15", "0", "0", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 7, av) == BRLCAD_OK, "no-DbiState translate -a returns OK");
+    struct rt_ell_internal ell;
+    if (read_ell(gedp, "pa_sph.s", &ell) == BRLCAD_OK)
+        CHECK(NEAR_EQUAL(ell.v[X], 15.0, NEAR_ENOUGH),
+              "no-DbiState translate -a: pa_sph.s V.x == 15");
+    else CHECK(0, "no-DbiState translate -a: read_ell succeeded");
+}
+
+static void
+test_pa_translate_rel(struct ged *gedp)
+{
+    const char *av[] = { "edit", "pa_sph.s", "translate", "-r", "-5", "0", "0", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 7, av) == BRLCAD_OK, "no-DbiState translate -r returns OK");
+    struct rt_ell_internal ell;
+    if (read_ell(gedp, "pa_sph.s", &ell) == BRLCAD_OK)
+        CHECK(NEAR_EQUAL(ell.v[X], 10.0, NEAR_ENOUGH),
+              "no-DbiState translate -r: pa_sph.s V.x == 10 (restored)");
+    else CHECK(0, "no-DbiState translate -r: read_ell succeeded");
+}
+
+static void
+test_pa_rotate(struct ged *gedp)
+{
+    const char *av[] = { "edit", "pa_ell.s", "rotate", "0", "0", "90", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 6, av) == BRLCAD_OK, "no-DbiState rotate 0 0 90 returns OK");
+    struct rt_ell_internal ell;
+    if (read_ell(gedp, "pa_ell.s", &ell) == BRLCAD_OK) {
+        CHECK(NEAR_EQUAL(ell.a[X], 0.0, NEAR_ENOUGH), "no-DbiState rotate: pa_ell.s A.x ≈ 0");
+        CHECK(NEAR_EQUAL(ell.a[Y], 5.0, NEAR_ENOUGH), "no-DbiState rotate: pa_ell.s A.y ≈ 5");
+    } else CHECK(0, "no-DbiState rotate: read_ell succeeded");
+}
+
+static void
+test_pa_scale(struct ged *gedp)
+{
+    const char *av[] = { "edit", "pa_sca.s", "scale", "2", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 4, av) == BRLCAD_OK, "no-DbiState scale 2 returns OK");
+    struct rt_ell_internal ell;
+    if (read_ell(gedp, "pa_sca.s", &ell) == BRLCAD_OK)
+        CHECK(NEAR_EQUAL(MAGNITUDE(ell.a), 6.0, NEAR_ENOUGH),
+              "no-DbiState scale 2: pa_sca.s |A| == 6");
+    else CHECK(0, "no-DbiState scale 2: read_ell succeeded");
+}
+
+static void
+test_pa_S_flag_no_crash(struct ged *gedp)
+{
+    const char *av[] = { "edit", "-S", "translate", "-r", "1", "0", "0", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    ged_exec(gedp, 7, av);
+    CHECK(1, "no-DbiState -S flag does not crash");
+}
+
+static void
+test_pa_unknown_obj(struct ged *gedp)
+{
+    const char *av[] = { "edit", "nonexistent.s", "translate", "-r", "1", "0", "0", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 7, av) == BRLCAD_ERROR,
+          "no-DbiState unknown object returns error");
+}
+
+
+/* ================================================================== *
+ * Section C — rotate axis-mode, scale -c, per-axis scale
+ * ================================================================== */
+
+/**
+ * Phase C fixture:
+ *   ell.s   — ell at origin, A=(5,0,0), B=(0,2,0), C=(0,0,3)  (rotate axis tests)
+ *   sca2.s  — ell at origin, A=(6,0,0), B=(0,3,0), C=(0,0,2)  (per-axis scale)
+ *   ctr.s   — sphere at (10,0,0), r=2                          (center-based tests)
+ */
+static int
+create_pc_fixture(const char *path)
+{
+    struct rt_wdb *wdbp = wdb_fopen(path);
+    if (!wdbp)
+        return BRLCAD_ERROR;
+
+    { point_t ev = VINIT_ZERO;
+      vect_t ea = {5,0,0}, eb = {0,2,0}, ec = {0,0,3};
+      if (mk_ell(wdbp, "ell.s", ev, ea, eb, ec) != 0) goto fail; }
+
+    { point_t v = VINIT_ZERO;
+      vect_t a = {6,0,0}, b = {0,3,0}, c = {0,0,2};
+      if (mk_ell(wdbp, "sca2.s", v, a, b, c) != 0) goto fail; }
+
+    { point_t cv = {10.0, 0.0, 0.0};
+      if (mk_sph(wdbp, "ctr.s", cv, 2.0) != 0) goto fail; }
+
+    wdb_close(wdbp);
+    return BRLCAD_OK;
+fail:
+    wdb_close(wdbp);
+    return BRLCAD_ERROR;
+}
+
+/* RC1: rotate -k 0 0 0 -a 0 0 1 -d 90 */
+static void
+test_pc_rotate_axis_z90(struct ged *gedp)
+{
+    { const char *av[] = { "edit","ell.s","rotate","0","0","0",NULL }; ged_exec(gedp,6,av); }
+
+    const char *av[] = {
+        "edit","ell.s","rotate","-k","0","0","0","-a","0","0","1","-d","90",NULL
+    };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 13, av) == BRLCAD_OK, "rotate -k 0 0 0 -a 0 0 1 -d 90 returns OK");
+    struct rt_ell_internal ell;
+    if (read_ell(gedp, "ell.s", &ell) == BRLCAD_OK) {
+        CHECK(NEAR_EQUAL(ell.a[X], 0.0, NEAR_ENOUGH), "axis rotate Z 90: ell.s A.x ≈ 0");
+        CHECK(NEAR_EQUAL(ell.a[Y], 5.0, NEAR_ENOUGH), "axis rotate Z 90: ell.s A.y ≈ 5");
+        CHECK(NEAR_EQUAL(ell.a[Z], 0.0, NEAR_ENOUGH), "axis rotate Z 90: ell.s A.z ≈ 0");
+    } else CHECK(0, "axis rotate Z 90: read_ell(ell.s) succeeded");
+}
+
+/* RC2: rotate -k 0 0 0 -r 0 0 1 -d 90 (relative axis offset, same result) */
+static void
+test_pc_rotate_axis_z90_rel(struct ged *gedp)
+{
+    const char *av[] = {
+        "edit","ell.s","rotate","-k","0","0","0","-r","0","0","1","-d","90",NULL
+    };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 13, av) == BRLCAD_OK, "rotate -k 0 0 0 -r 0 0 1 -d 90 returns OK");
+    struct rt_ell_internal ell;
+    if (read_ell(gedp, "ell.s", &ell) == BRLCAD_OK) {
+        CHECK(NEAR_EQUAL(ell.a[X], -5.0, NEAR_ENOUGH), "axis rotate Z 90 (rel): ell.s A.x ≈ -5");
+        CHECK(NEAR_EQUAL(ell.a[Y],  0.0, NEAR_ENOUGH), "axis rotate Z 90 (rel): ell.s A.y ≈ 0");
+    } else CHECK(0, "axis rotate Z 90 (rel): read_ell(ell.s) succeeded");
+}
+
+/* RC3: rotate ctr.s 90° around X-axis; center should stay at (10,0,0) */
+static void
+test_pc_rotate_axis_x90(struct ged *gedp)
+{
+    const char *av[] = {
+        "edit","ctr.s","rotate","-k","0","0","0","-a","1","0","0","-d","90",NULL
+    };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 13, av) == BRLCAD_OK, "rotate -k 0 0 0 -a 1 0 0 -d 90 returns OK");
+    struct rt_ell_internal ell;
+    if (read_ell(gedp, "ctr.s", &ell) == BRLCAD_OK) {
+        CHECK(NEAR_EQUAL(ell.v[X], 10.0, NEAR_ENOUGH), "axis rotate X 90: ctr.s V.x ≈ 10");
+        CHECK(NEAR_EQUAL(ell.v[Y],  0.0, NEAR_ENOUGH), "axis rotate X 90: ctr.s V.y ≈ 0");
+        CHECK(NEAR_EQUAL(ell.v[Z],  0.0, NEAR_ENOUGH), "axis rotate X 90: ctr.s V.z ≈ 0");
+    } else CHECK(0, "axis rotate X 90: read_ell(ctr.s) succeeded");
+}
+
+/* RC4: rotate ctr.s 90° around Z with center at its own position → center unchanged */
+static void
+test_pc_rotate_euler_center(struct ged *gedp)
+{
+    const char *av[] = {
+        "edit","ctr.s","rotate","-c","10","0","0","0","0","90",NULL
+    };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 10, av) == BRLCAD_OK, "rotate -c 10 0 0  0 0 90 returns OK");
+    struct rt_ell_internal ell;
+    if (read_ell(gedp, "ctr.s", &ell) == BRLCAD_OK) {
+        CHECK(NEAR_EQUAL(ell.v[X], 10.0, NEAR_ENOUGH), "rotate euler -c 10 0 0: ctr.s V.x ≈ 10");
+        CHECK(NEAR_EQUAL(ell.v[Y],  0.0, NEAR_ENOUGH), "rotate euler -c 10 0 0: ctr.s V.y ≈ 0");
+        CHECK(NEAR_EQUAL(ell.v[Z],  0.0, NEAR_ENOUGH), "rotate euler -c 10 0 0: ctr.s V.z ≈ 0");
+    } else CHECK(0, "rotate euler -c center: read_ell(ctr.s) succeeded");
+}
+
+/* RC5: axis-mode with missing angle → error */
+static void
+test_pc_rotate_axis_missing_angle(struct ged *gedp)
+{
+    const char *av[] = {
+        "edit","ell.s","rotate","-k","0","0","0","-a","0","0","1",NULL
+    };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 11, av) == BRLCAD_ERROR,
+          "rotate axis mode without angle returns error");
+    const char *msg = bu_vls_cstr(gedp->ged_result_str);
+    CHECK((strstr(msg,"missing") != NULL || strstr(msg,"angle") != NULL),
+          "rotate axis mode without angle prints helpful message");
+}
+
+/* SC1: scale -c 0 0 0 2 */
+static void
+test_pc_scale_uniform_center(struct ged *gedp)
+{
+    const char *av[] = { "edit","sca2.s","scale","-c","0","0","0","2",NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 8, av) == BRLCAD_OK, "scale -c 0 0 0 2 returns OK");
+    struct rt_ell_internal ell;
+    if (read_ell(gedp, "sca2.s", &ell) == BRLCAD_OK) {
+        CHECK(NEAR_EQUAL(ell.a[X], 12.0, NEAR_ENOUGH), "scale -c: sca2.s A.x ≈ 12");
+        CHECK(NEAR_EQUAL(ell.b[Y],  6.0, NEAR_ENOUGH), "scale -c: sca2.s B.y ≈ 6");
+        CHECK(NEAR_EQUAL(ell.c[Z],  4.0, NEAR_ENOUGH), "scale -c: sca2.s C.z ≈ 4");
+    } else CHECK(0, "scale -c: read_ell(sca2.s) succeeded");
+}
+
+/* SC2: scale -c 0 0 0 0.5 (undo SC1) */
+static void
+test_pc_scale_center_halve(struct ged *gedp)
+{
+    const char *av[] = { "edit","sca2.s","scale","-c","0","0","0","0.5",NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 8, av) == BRLCAD_OK, "scale -c 0 0 0 0.5 returns OK");
+    struct rt_ell_internal ell;
+    if (read_ell(gedp, "sca2.s", &ell) == BRLCAD_OK) {
+        CHECK(NEAR_EQUAL(ell.a[X], 6.0, NEAR_ENOUGH), "scale -c 0.5: sca2.s A.x ≈ 6 (restored)");
+        CHECK(NEAR_EQUAL(ell.b[Y], 3.0, NEAR_ENOUGH), "scale -c 0.5: sca2.s B.y ≈ 3 (restored)");
+    } else CHECK(0, "scale -c 0.5: read_ell(sca2.s) succeeded");
+}
+
+/* SA1: scale 2 2 2 (three equal — still uniform) */
+static void
+test_pc_scale_three_equal(struct ged *gedp)
+{
+    const char *av[] = { "edit","sca2.s","scale","2","2","2",NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 6, av) == BRLCAD_OK, "scale 2 2 2 (uniform via 3 equal) returns OK");
+    struct rt_ell_internal ell;
+    if (read_ell(gedp, "sca2.s", &ell) == BRLCAD_OK)
+        CHECK(NEAR_EQUAL(ell.a[X], 12.0, NEAR_ENOUGH), "scale 2 2 2: sca2.s A.x ≈ 12");
+    else CHECK(0, "scale 2 2 2: read_ell(sca2.s) succeeded");
+}
+
+/* SA2: scale 1 1 0.5 (anisotropic — halve Z only) */
+static void
+test_pc_scale_anisotropic(struct ged *gedp)
+{
+    /* After SA1: A=(12,0,0), B=(0,6,0), C=(0,0,4) */
+    const char *av[] = { "edit","sca2.s","scale","1","1","0.5",NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 6, av) == BRLCAD_OK, "scale 1 1 0.5 (anisotropic Z) returns OK");
+    struct rt_ell_internal ell;
+    if (read_ell(gedp, "sca2.s", &ell) == BRLCAD_OK) {
+        CHECK(NEAR_EQUAL(ell.a[X], 12.0, NEAR_ENOUGH), "scale anisotropic: A.x unchanged (≈ 12)");
+        CHECK(NEAR_EQUAL(ell.b[Y],  6.0, NEAR_ENOUGH), "scale anisotropic: B.y unchanged (≈ 6)");
+        CHECK(NEAR_EQUAL(ell.c[Z],  2.0, NEAR_ENOUGH), "scale anisotropic: C.z halved (≈ 2)");
+    } else CHECK(0, "scale anisotropic: read_ell(sca2.s) succeeded");
+}
+
+/* SA3: scale 0 1 1 → error */
+static void
+test_pc_scale_anisotropic_zero_error(struct ged *gedp)
+{
+    const char *av[] = { "edit","sca2.s","scale","0","1","1",NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 6, av) == BRLCAD_ERROR, "scale 0 1 1 (zero factor) returns error");
+}
+
+
+/* ================================================================== *
  * main
- * ------------------------------------------------------------------ */
+ * ================================================================== */
 
 int
 main(int ac, char *av[])
 {
-    struct ged *gedp;
-    struct bu_vls db_path = BU_VLS_INIT_ZERO;
     int need_help = 0;
 
     bu_setprogname(av[0]);
@@ -457,73 +1413,182 @@ main(int ac, char *av[])
 
     int opt_ret = bu_opt_parse(NULL, ac, (const char **)av, d);
     if (need_help || opt_ret < 0) {
-        bu_log("Usage: %s [-h] [fixture.g]\n", av[0]);
-        bu_log("  fixture.g  optional path; a temp file is used if omitted\n");
+        bu_log("Usage: %s [-h]\n", av[0]);
         return (need_help) ? 0 : 1;
     }
 
-    /* Determine fixture path */
-    if (opt_ret > 1) {
-        /* caller provided path after options */
-        bu_vls_sprintf(&db_path, "%s", av[opt_ret]);
-    } else if (opt_ret == 1 && av[opt_ret] && av[opt_ret][0] != '-') {
-        bu_vls_sprintf(&db_path, "%s", av[opt_ret]);
-    } else {
-        /* create a temp file */
-        char tmpname[MAXPATHLEN] = {0};
-        FILE *fp = bu_temp_file(tmpname, MAXPATHLEN);
-        if (!fp) {
-            bu_log("ERROR: unable to create temp file\n");
-            bu_vls_free(&db_path);
-            return 1;
-        }
-        fclose(fp);
-        bu_vls_sprintf(&db_path, "%s", tmpname);
+    /* ---------------------------------------------------------------- *
+     * Section 0 — Infrastructure / smoke tests
+     * ---------------------------------------------------------------- */
+    struct bu_vls p0_path = BU_VLS_INIT_ZERO;
+    if (make_temp_path(&p0_path) != BRLCAD_OK) {
+        bu_log("ERROR: cannot create temp file for section 0\n"); return 1;
     }
-
-    /* ---- 0. Create / populate fixture -------------------------------- */
-    if (!bu_file_exists(bu_vls_cstr(&db_path), NULL) ||
-        bu_file_size(bu_vls_cstr(&db_path)) == 0)
+    if (create_p0_fixture(bu_vls_cstr(&p0_path)) != BRLCAD_OK) {
+        bu_log("ERROR: section 0 fixture creation failed\n");
+        bu_vls_free(&p0_path); return 1;
+    }
     {
-        if (create_fixture(bu_vls_cstr(&db_path)) != BRLCAD_OK) {
-            bu_log("ERROR: fixture creation failed\n");
-            bu_vls_free(&db_path);
-            return 1;
-        }
+        struct ged *gedp = open_fixture(bu_vls_cstr(&p0_path));
+        if (!gedp) { bu_log("ERROR: ged_open failed (section 0)\n"); bu_vls_free(&p0_path); return 1; }
+        bu_log("\n--- Section 0: infrastructure ---\n");
+        test_p0_cmd_exists();
+        test_p0_fixture_objects_exist(gedp);
+        test_p0_noargs(gedp);
+        test_p0_bad_geom(gedp);
+        test_p0_obj_nosubcmd(gedp);
+        test_p0_perturb(gedp);
+        test_p0_desc_coverage();
+        test_p0_no_desc_returns_error();
+        ged_close(gedp);
     }
+    bu_vls_free(&p0_path);
 
-    /* ---- 1. Open the fixture database via GED ----------------------- */
-    gedp = ged_open("db", bu_vls_cstr(&db_path), 1);
-    if (!gedp) {
-        bu_log("ERROR: ged_open failed for %s\n", bu_vls_cstr(&db_path));
-        bu_vls_free(&db_path);
-        return 1;
+    /* ---------------------------------------------------------------- *
+     * Section 1 — Parser, selection, conflict arbiter, edit buffer
+     * ---------------------------------------------------------------- */
+    struct bu_vls p1_path = BU_VLS_INIT_ZERO;
+    if (make_temp_path(&p1_path) != BRLCAD_OK) {
+        bu_log("ERROR: cannot create temp file for section 1\n"); return 1;
     }
+    if (create_p1_fixture(bu_vls_cstr(&p1_path)) != BRLCAD_OK) {
+        bu_log("ERROR: section 1 fixture creation failed\n");
+        bu_vls_free(&p1_path); return 1;
+    }
+    {
+        struct ged *gedp = open_fixture(bu_vls_cstr(&p1_path));
+        if (!gedp) { bu_log("ERROR: ged_open failed (section 1)\n"); bu_vls_free(&p1_path); return 1; }
+        bu_log("\n--- Section 1: parser / selection / edit buffer ---\n");
+        test_p1_noargs(gedp);
+        test_p1_bad_geom(gedp);
+        test_p1_obj_nosubcmd(gedp);
+        test_p1_help_flag(gedp);
+        test_p1_uri_fragment();
+        test_p1_uri_query();
+        test_p1_batch_marker(gedp);
+        test_p1_selection_fallback(gedp);
+        test_p1_no_geom_no_sel(gedp);
+        test_p1_conflict_arbiter(gedp);
+        test_p1_flag_S(gedp);
+        test_p1_flag_f(gedp);
+        test_p1_buf_get_missing(gedp);
+        test_p1_buf_set_get(gedp);
+        test_p1_buf_abandon(gedp);
+        test_p1_buf_flush(gedp);
+        test_p1_perturb_regression(gedp);
+        ged_close(gedp);
+    }
+    bu_vls_free(&p1_path);
 
-    /* Enable the new command forms so edit2 path is used */
-    gedp->new_cmd_forms = 1;
+    /* ---------------------------------------------------------------- *
+     * Section 2 — translate / rotate / scale / checkpoint / mat
+     * ---------------------------------------------------------------- */
+    struct bu_vls p2_path = BU_VLS_INIT_ZERO;
+    if (make_temp_path(&p2_path) != BRLCAD_OK) {
+        bu_log("ERROR: cannot create temp file for section 2\n"); return 1;
+    }
+    if (create_p2_fixture(bu_vls_cstr(&p2_path)) != BRLCAD_OK) {
+        bu_log("ERROR: section 2 fixture creation failed\n");
+        bu_vls_free(&p2_path); return 1;
+    }
+    {
+        struct ged *gedp = open_fixture(bu_vls_cstr(&p2_path));
+        if (!gedp) { bu_log("ERROR: ged_open failed (section 2)\n"); bu_vls_free(&p2_path); return 1; }
+        bu_log("\n--- Section 2: translate ---\n");
+        test_p2_translate_abs(gedp);
+        test_p2_translate_rel(gedp);
+        test_p2_tra(gedp);
+        test_p2_translate_from_to(gedp);
+        test_p2_translate_xonly(gedp);
+        bu_log("--- Section 2: rotate ---\n");
+        test_p2_rotate_3angle(gedp);
+        test_p2_rotate_undo(gedp);
+        test_p2_rotate_z_flag(gedp);
+        test_p2_rotate_single_angle(gedp);
+        test_p2_rotate_180_ambiguous(gedp);
+        test_p2_rotate_radians(gedp);
+        test_p2_rotate_two_angles(gedp);
+        bu_log("--- Section 2: scale ---\n");
+        test_p2_scale_scalar(gedp);
+        test_p2_scale_vector(gedp);
+        test_p2_scale_from_to(gedp);
+        test_p2_scale_explicit_r(gedp);
+        test_p2_scale_complex(gedp);
+        test_p2_scale_zero_error(gedp);
+        bu_log("--- Section 2: checkpoint/revert/reset/mat ---\n");
+        test_p2_checkpoint(gedp);
+        test_p2_revert(gedp);
+        test_p2_reset(gedp);
+        test_p2_revert_no_checkpoint(gedp);
+        test_p2_mat_identity(gedp);
+        test_p2_mat_missing_values(gedp);
+        ged_close(gedp);
+    }
+    bu_vls_free(&p2_path);
 
-    /* DbiState is required by edit2 */
-    gedp->dbi_state = new DbiState(gedp);
+    /* ---------------------------------------------------------------- *
+     * Section A — DbiState null-safety
+     * ---------------------------------------------------------------- */
+    struct bu_vls pa_path = BU_VLS_INIT_ZERO;
+    if (make_temp_path(&pa_path) != BRLCAD_OK) {
+        bu_log("ERROR: cannot create temp file for section A\n"); return 1;
+    }
+    if (create_pa_fixture(bu_vls_cstr(&pa_path)) != BRLCAD_OK) {
+        bu_log("ERROR: section A fixture creation failed\n");
+        bu_vls_free(&pa_path); return 1;
+    }
+    {
+        struct ged *gedp = open_fixture_no_dbistate(bu_vls_cstr(&pa_path));
+        if (!gedp) { bu_log("ERROR: ged_open failed (section A)\n"); bu_vls_free(&pa_path); return 1; }
+        CHECK(gedp->dbi_state == NULL, "fixture opened without DbiState (dbi_state == NULL)");
+        bu_log("\n--- Section A: DbiState null-safety ---\n");
+        test_pa_translate_abs(gedp);
+        test_pa_translate_rel(gedp);
+        test_pa_rotate(gedp);
+        test_pa_scale(gedp);
+        test_pa_S_flag_no_crash(gedp);
+        test_pa_unknown_obj(gedp);
+        ged_close(gedp);
+    }
+    bu_vls_free(&pa_path);
 
-    /* ---- 2. Run Phase 0 tests --------------------------------------- */
-    test_edit_cmd_exists();
-    test_fixture_objects_exist(gedp);
-    test_edit_noargs(gedp);
-    test_edit_bad_geom(gedp);
-    test_edit_obj_nosubcmd(gedp);
-    test_edit_perturb(gedp);
-    test_desc_coverage();
-    test_no_desc_returns_error();
+    /* ---------------------------------------------------------------- *
+     * Section C — rotate axis-mode, scale -c, per-axis scale
+     * ---------------------------------------------------------------- */
+    struct bu_vls pc_path = BU_VLS_INIT_ZERO;
+    if (make_temp_path(&pc_path) != BRLCAD_OK) {
+        bu_log("ERROR: cannot create temp file for section C\n"); return 1;
+    }
+    if (create_pc_fixture(bu_vls_cstr(&pc_path)) != BRLCAD_OK) {
+        bu_log("ERROR: section C fixture creation failed\n");
+        bu_vls_free(&pc_path); return 1;
+    }
+    {
+        struct ged *gedp = open_fixture(bu_vls_cstr(&pc_path));
+        if (!gedp) { bu_log("ERROR: ged_open failed (section C)\n"); bu_vls_free(&pc_path); return 1; }
+        bu_log("\n--- Section C: rotate axis-mode ---\n");
+        test_pc_rotate_axis_z90(gedp);
+        test_pc_rotate_axis_z90_rel(gedp);
+        test_pc_rotate_axis_x90(gedp);
+        test_pc_rotate_euler_center(gedp);
+        test_pc_rotate_axis_missing_angle(gedp);
+        bu_log("--- Section C: scale -c and per-axis ---\n");
+        test_pc_scale_uniform_center(gedp);
+        test_pc_scale_center_halve(gedp);
+        test_pc_scale_three_equal(gedp);
+        test_pc_scale_anisotropic(gedp);
+        test_pc_scale_anisotropic_zero_error(gedp);
+        ged_close(gedp);
+    }
+    bu_vls_free(&pc_path);
 
-    /* ---- 3. Summarize ----------------------------------------------- */
+    /* ---------------------------------------------------------------- *
+     * Summary
+     * ---------------------------------------------------------------- */
     bu_log("\n========================================\n");
-    bu_log("edit Phase 0 tests: %d/%d passed\n",
+    bu_log("edit comprehensive tests: %d/%d passed\n",
            total_tests - failed_tests, total_tests);
     bu_log("========================================\n");
-
-    ged_close(gedp);
-    bu_vls_free(&db_path);
 
     return (failed_tests == 0) ? 0 : 1;
 }

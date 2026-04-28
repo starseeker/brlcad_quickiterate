@@ -182,7 +182,7 @@ ged_init(struct ged *gedp)
 
     gedp->ged_interp = NULL;
 
-    gedp->new_cmd_forms = 0;
+    gedp->new_cmd_forms = 1;
 }
 
 struct ged *
