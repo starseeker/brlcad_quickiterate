@@ -440,6 +440,41 @@ test_nirt_shots(const char *tmpdir)
     bu_file_delete(bu_vls_cstr(&nirt_fname));
     bu_vls_free(&nirt_fname);
 
+    /* Sub-test: img1 has no render_info but img2 does – should still work */
+    {
+	icv_image_t *img_a = make_solid(IMG_W, IMG_H, 0.0, 0.0, 0.0);
+	icv_image_t *img_b = make_solid(IMG_W, IMG_H, 0.0, 0.0, 0.0);
+
+	/* Change one pixel in img_b so there is a diff */
+	img_b->data[(test_row * IMG_W + test_col) * 3 + 0] = 1.0;
+
+	/* Only img_b gets render_info; img_a has none */
+	struct icv_render_info *ri2 = icv_render_info_create();
+	ri2->db_filename = bu_strdup("test_scene.g");
+	ri2->objects     = bu_strdup("sph.r");
+	MAT_IDN(ri2->viewrotscale);
+	ri2->viewrotscale[15] = 0.5 * 400.0;
+	VSET(ri2->eye_model, 0.0, 0.0, 0.0);
+	ri2->viewsize    = 400.0;
+	ri2->aspect      = 1.0;
+	ri2->perspective = 0.0;
+	icv_image_set_render_info(img_b, ri2);
+
+	struct bu_vls fname2 = BU_VLS_INIT_ZERO;
+	bu_vls_printf(&fname2, "%s/test_shots_b.nirt", tmpdir);
+	FILE *fp2 = fopen(bu_vls_cstr(&fname2), "w");
+	CHECK(fp2 != NULL, "opened nirt output file (img2-only render_info)");
+	if (fp2) {
+	    int ns = icv_diff_nirt_shots(img_a, img_b, fp2);
+	    fclose(fp2);
+	    CHECK(ns == 1, "icv_diff_nirt_shots works when only img2 has render_info");
+	}
+	bu_file_delete(bu_vls_cstr(&fname2));
+	bu_vls_free(&fname2);
+	icv_destroy(img_a);
+	icv_destroy(img_b);
+    }
+
     icv_destroy(img1);
     icv_destroy(img2);
 }

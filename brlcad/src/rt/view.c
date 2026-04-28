@@ -131,6 +131,14 @@ int inonbackground[3] = {0};		/* integer non-background */
 fastf_t gamma_corr = 0.0;		/* gamma correction if !0 */
 
 /**
+ * When non-zero, embed scene + camera metadata into the output PNG as
+ * tEXt chunks so that icv_diff / imgdiff can later reconstruct the
+ * exact nirt shotlines for any differing pixel.
+ * Enable with:  rt ... -c 'set embed_icv_metadata=1'
+ */
+int embed_icv_metadata = 0;
+
+/**
  * The default a_onehit = -1 requires at least one non-air hit, (stop
  * at first surface) and stops ray/geometry intersection after that.
  * Set to 0 to turn off first hit optimization, with -c 'set
@@ -164,6 +172,7 @@ struct bu_structparse view_parse[] = {
     {"%g", 1, "ambRadius", 0, BU_STRUCTPARSE_FUNC_NULL, NULL, NULL},
     {"%g", 1, "ambOffset", 0, BU_STRUCTPARSE_FUNC_NULL, NULL, NULL},
     {"%d", 1, "ambSlow", 0, BU_STRUCTPARSE_FUNC_NULL, NULL, NULL},
+    {"%d", 1, "embed_icv_metadata", 0, BU_STRUCTPARSE_FUNC_NULL, NULL, NULL},
     {"", 0, (char *)0, 0, BU_STRUCTPARSE_FUNC_NULL, NULL, NULL}
 };
 
@@ -1845,12 +1854,14 @@ application_init(void)
     view_parse[ 9].sp_offset = bu_byteoffset(ambRadius);
     view_parse[10].sp_offset = bu_byteoffset(ambOffset);
     view_parse[11].sp_offset = bu_byteoffset(ambSlow);
+    view_parse[12].sp_offset = bu_byteoffset(embed_icv_metadata);
 
     option("", "-A #", "Set image brightness, ambient light intensity (default: 0.4)", 0);
     option("Raytrace", "-i", "Enable incremental (progressive-style) rendering", 1);
     option("Raytrace", "-t", "Render from top to bottom (default: from bottom up)", 1);
     option("Advanced", "-O file.dpix", "Render to .dpix format file, double precision image data", 1);
     option("Advanced", "-m density, r, g, b", "Render hazy air (e.g., 0.0002, 0.8, 0.9, 1 for sky-blue haze)", 1);
+    option("Advanced", "-c 'set embed_icv_metadata=1'", "Embed scene+camera metadata in output PNG for icv_diff/imgdiff nirt analysis", 1);
     option("Developer", "-l #", "Select lighting model (default is 0)", 1);
 
     /* this reassignment hack ensures help is last in the first list */

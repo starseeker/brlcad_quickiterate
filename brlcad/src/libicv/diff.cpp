@@ -22,7 +22,8 @@
  * Higher-level image diffing utilities:
  *
  *  icv_diff_render_info  – compare embedded render metadata between two images
- *  icv_diff_nirt_shots   – generate nirt shotline commands for differing pixels
+ *  icv_diff_nirt_shots   – generate nirt shotline commands for differing pixels;
+ *                          uses render_info from whichever image has it
  */
 
 #include "common.h"
@@ -156,7 +157,9 @@ icv_diff_render_info(const icv_image_t *img1, const icv_image_t *img2, struct bu
  * icv_diff_nirt_shots
  *
  * For each pixel that differs between img1 and img2, reconstruct the
- * world-space ray from img1's render metadata and write nirt commands.
+ * world-space ray from whichever image has render metadata and write
+ * nirt commands.  If only one image has render_info, that metadata is
+ * used; we assume the views match since we cannot prove otherwise.
  *
  * Ray reconstruction mirrors BRL-CAD rt/grid.c grid_setup() for the
  * orthographic case (rt_perspective == 0):
@@ -182,9 +185,12 @@ icv_diff_nirt_shots(const icv_image_t *img1, const icv_image_t *img2, FILE *nirt
 	return -1;
     }
 
+    /* Use whichever image has render_info; prefer img1 when both have it */
     const struct icv_render_info *ri = img1->render_info;
+    if (!ri)
+	ri = img2->render_info;
     if (!ri) {
-	bu_log("icv_diff_nirt_shots: img1 has no render_info – cannot compute rays\n");
+	bu_log("icv_diff_nirt_shots: neither image has render_info – cannot compute rays\n");
 	return -1;
     }
     if (ri->viewsize <= 0.0) {
