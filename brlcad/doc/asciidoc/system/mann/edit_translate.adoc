@@ -62,16 +62,17 @@ Global options (`-S`, `-f`, `-F`, `-i`) are described in
   nominated axis coordinate of *TO* is applied; the remaining axes
   stay at their current values.  Multiple axis flags may be combined.
 
-*-k* FROM_OBJECT::
-  Set the reference keypoint (FROM position).  *FROM* must be an
-  object name — its bounding-box center is used as FROM.  Numeric
-  coordinate values are *not* accepted for `-k` in translate; to move
-  relative to an arbitrary coordinate, use `-a X Y Z` without `-k`.
-  The batch marker `.` can be used as the *geometry specifier* on the
-  command line, but it is *not* a valid object name for the `-k`
-  argument.
+*-k* FROM_COORDS | FROM_OBJECT::
+  Set the reference keypoint (FROM position).  *FROM* accepts:
+
+  * A numeric coordinate triple `x y z` (1 or 2 values are broadcast
+    to a 3-vector).
+  * An object name — its bounding-box center is used.
+  * The batch marker `.` — causes each target object to use its own
+    current keypoint as FROM.  Useful for per-object relative moves:
+    `translate -k . -a target.s` aligns each object individually.
 +
-  When `-k` is supplied together with `-a OBJ2`, the delta
+  When `-k` is supplied together with a TO reference, the delta
   FROM→TO is applied to the target object (rather than moving it to
   an absolute position directly).
 
@@ -84,12 +85,11 @@ Global options (`-S`, `-f`, `-F`, `-i`) are described in
 +
   * A coordinate triple `x y z` (absolute if `-a`, relative if `-r`).
   * A single scalar combined with an axis flag (e.g., `-a -z 7.8`).
-  * An object name (moves to that object's keypoint; requires `-a`).
-+
-  The batch marker `.` is valid only as the *geometry specifier* (the
-  object being edited, on the command line before the subcommand), not
-  as a *TO* argument.  Using `.` as TO causes a database lookup failure
-  because `.` is not a real database entry.
+  * An object name (moves to that object's keypoint; use `-a` for clarity).
+  * The batch marker `.` — each target object uses its own current
+    keypoint as TO.  Combined with `-k FROM_COORDS`, this computes a
+    per-object delta of (own_keypoint − FROM_COORDS), enabling an
+    explosion-from-point effect.
 
 == EXAMPLES
 
@@ -109,13 +109,21 @@ Using the *tra* alias (always relative):
   mged> **edit sph.s tra 5 0 0**
 ====
 
-.Move sph.s from its center to other.s's center
+.Move sph.s from its center to other.s's center (object-name form)
 [example]
 ====
 The `-k sph.s -a other.s` form computes the delta between the two
 keypoints and applies it:
 
   mged> **edit sph.s translate -k sph.s -a other.s**
+
+The same delta can also be specified with coordinate positions for `-k`:
+
+  mged> **edit sph.s translate -k 10 0 0 -a other.s**
+
+Or with an explicit coordinate destination:
+
+  mged> **edit sph.s translate -k 10 0 0 -a 20 0 0**
 ====
 
 .Align only the Z coordinate of obj to a target elevation of 7.8
@@ -124,46 +132,41 @@ keypoints and applies it:
   mged> **edit obj translate -a -z 7.8**
 ====
 
-.Align several objects to the same Z elevation
+.Align several objects to the same Z elevation — using a reference object
 [example]
 ====
-Set the Z coordinate of obj1 and obj2 to an explicit elevation while
+Set the Z coordinate of obj1 and obj2 to ref.s's Z elevation while
 leaving X and Y unchanged:
 
-  mged> **edit obj1 translate -a -z 7.8**
-  mged> **edit obj2 translate -a -z 7.8**
+  mged> **edit obj1 translate -a -z ref.s**
+  mged> **edit obj2 translate -a -z ref.s**
 
-To match the Z of a reference object, look up its Z coordinate first
-(e.g., with `bb -v ref.s`) and substitute the value:
+The `-a -z OBJ` form extracts the Z component of ref.s's keypoint
+(its bounding-box center) and applies it absolutely, keeping the
+target's own X and Y.  Multiple axis flags can be combined:
 
-  mged> **edit obj1 translate -a -z COMPUTED_Z**
+  mged> **edit obj1 translate -a -x -z ref.s**
+
+This copies both the X and Z of ref.s into obj1, leaving Y unchanged.
 ====
 
-.Move a pair of objects away from the origin toward themselves (explosion effect)
+.Move a pair of objects away from the origin (explosion effect)
 [example]
 ====
 Each object is moved by a delta equal to its own current position
-vector (doubling its distance from the origin).  Because the translate
-command currently acts on one object at a time, issue individual
-commands:
+vector, doubling its distance from the origin.  Use the `.` batch
+marker as TO and `0 0 0` as FROM:
 
-  mged> **edit sph.s translate -k sph.s -a sph.s**
+  mged> **edit sph.s translate -k 0 0 0 .**
+  mged> **edit other.s translate -k 0 0 0 .**
 
-The command above is a no-op (FROM and TO are the same point).
-Apply the known delta directly instead:
+For sph.s at (10,0,0): FROM=(0,0,0), TO=own_keypoint=(10,0,0),
+delta=(10,0,0), result=(20,0,0) — doubled distance from origin.
 
-  mged> **edit sph.s translate -r 10 0 0**
-
-For a genuine "explode from origin" effect when sph.s is at (10,0,0)
-and other.s is at (20,0,0):
+Equivalently with explicit deltas (when positions are known):
 
   mged> **edit sph.s translate -r 10 0 0**
   mged> **edit other.s translate -r 20 0 0**
-
-NOTE: The original *edit* design supported a batch-marker form
-`translate -k 0 0 0 -a . sph.s other.s` where `.` meant "use each
-OBJECT's own position as the TO reference".  That syntax is not yet
-implemented; issue one command per object instead.
 ====
 
 .Move a set of objects so that the assembly origin aligns with target.s

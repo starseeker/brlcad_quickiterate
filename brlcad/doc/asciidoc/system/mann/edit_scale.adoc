@@ -64,9 +64,9 @@ In the current *edit2* implementation this model is simplified:
   overrides the FROM/TO vector.
 
 The pivot CENTER defaults to the bounding-box center of the target
-object when `-c` is not specified.  Note: the batch-marker `.` is
-*not* supported as a `-c` argument; pass explicit coordinates or a
-named object.
+object when `-c` is not specified.  The batch-marker `.` is supported
+as a `-c` argument to use each target object's own keypoint as the
+pivot center.
 
 The alias *sca* is equivalent to *scale*.
 
@@ -93,11 +93,11 @@ Global options (`-S`, `-f`, `-F`, `-i`) are described in
   vector when all three are given together.  Accepts 1 value
   (broadcast to all three axes) or 3 separate per-axis values.
 
-*-c* CENTER_POS | CENTER_OBJ::
+*-c* CENTER_POS | CENTER_OBJ | `.`::
   Set the pivot center from which the scale expands or contracts.
   Defaults to the bounding-box center of the target object.  Accepts
-  1–3 scalar values or an object name.  The `.` batch marker is
-  *not* supported here; use the object's name or actual coordinates.
+  1–3 scalar values, an object name, or the batch marker `.` to use
+  each target object's own keypoint as the pivot center.
 
 *-n*::
   Accepted for compatibility; intended to select natural origin over
@@ -215,19 +215,20 @@ Pivot on a world-space coordinate:
   mged> **edit cube scale -c 10 0 0 1.5**
 ====
 
-.Batch scale: each object scales from its own center
+.Batch scale: each object scales from its own center using -c .
 [example]
 ====
-Issue individual commands, one per object, using each object's own
-center as the pivot:
+Use `-c .` to pivot each object on its own keypoint (bounding-box center)
+in a single command per object:
+
+  mged> **edit sph.s scale -c . 2**
+  mged> **edit other.s scale -c . 2**
+
+The `.` causes each object's own current keypoint to serve as the
+pivot center, equivalent to naming each object explicitly:
 
   mged> **edit sph.s scale -c sph.s 2**
   mged> **edit other.s scale -c other.s 2**
-
-NOTE: the original design supported a `.` batch marker as `-c .` to
-scale each object from its own center in a single command.  That
-form is not yet implemented; the `.` marker is not a valid database
-object name and will cause a lookup failure.
 ====
 
 .Use the intermediate buffer: scale tentatively, then revert if unsatisfied
