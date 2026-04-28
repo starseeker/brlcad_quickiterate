@@ -68,9 +68,9 @@ static int tests_passed = 0;
 #define CHECK(cond, msg) do { \
     tests_run++; \
     if (cond) { \
-tests_passed++; \
+	tests_passed++; \
     } else { \
-bu_log("FAIL [%s:%d]: %s\n", __FILE__, __LINE__, msg); \
+	bu_log("FAIL [%s:%d]: %s\n", __FILE__, __LINE__, msg); \
     } \
 } while (0)
 

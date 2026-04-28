@@ -245,8 +245,8 @@ text_chunk.key  = (png_charp)ICV_PNG_KEY_SCENE;
 text_chunk.text = (png_charp)scene_json.c_str();
 text_chunk.text_length = scene_json.size();
 
-/* scene_json must remain valid until after png_write_info() since some
- * libpng builds may store a pointer rather than copying the text. */
+/* scene_json must remain valid until after png_write_info() because
+	 * libpng may store a pointer to the text rather than copying it. */
 png_set_text(png_ptr, info_ptr, &text_chunk, 1);
     }
 
