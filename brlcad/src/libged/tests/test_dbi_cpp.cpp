@@ -746,6 +746,137 @@ test_color_sentinel(const char *moss_g_path)
 }
 
 /* ------------------------------------------------------------------ */
+/* Test 11: DBI cache format-version mismatch detection                */
+/*                                                                     */
+/* Scenario: simulate what happens when a stale format file (written   */
+/* by an older build) is present in the cache directory.  DbiState     */
+/* must detect the version mismatch, clear the old cache, and write    */
+/* the current format version into the file so a second construction   */
+/* does NOT trigger another clear.                                     */
+/* ------------------------------------------------------------------ */
+static int
+test_format_version_mismatch(const char *moss_g_path)
+{
+    int failures = 0;
+
+    bu_log("=== Test 11: DBI cache format-version mismatch detection ===\n");
+
+    /* Make a dedicated private cache sub-directory for this test so that
+     * previous tests' cache state does not interfere. */
+    char fmt_cache[MAXPATHLEN] = {0};
+    bu_dir(fmt_cache, MAXPATHLEN, BU_DIR_CURR, "ged_dbi_fmt_test_cache", NULL);
+    bu_mkdir(fmt_cache);
+    bu_setenv("BU_DIR_CACHE", fmt_cache, 1);
+
+    /* Create the .Dbi directory and inject a stale format file. */
+    char dbi_dir[MAXPATHLEN] = {0};
+    bu_dir(dbi_dir, MAXPATHLEN, BU_DIR_CACHE, ".Dbi", NULL);
+    bu_mkdir(dbi_dir);
+
+    char fmt_path[MAXPATHLEN] = {0};
+    bu_dir(fmt_path, MAXPATHLEN, BU_DIR_CACHE, ".Dbi", "format", NULL);
+    {
+	FILE *fp = fopen(fmt_path, "w");
+	CHECK(fp != NULL, "could not write stale format file");
+	if (fp) {
+	    fprintf(fp, "1\n");   /* version 1 — previous format, always stale here */
+	    fclose(fp);
+	}
+    }
+
+    /* Also plant a sentinel file inside .Dbi to confirm it gets cleared. */
+    char sentinel[MAXPATHLEN] = {0};
+    bu_dir(sentinel, MAXPATHLEN, BU_DIR_CACHE, ".Dbi", "stale_sentinel", NULL);
+    {
+	FILE *fp = fopen(sentinel, "w");
+	CHECK(fp != NULL, "could not write sentinel file");
+	if (fp) fclose(fp);
+    }
+
+    /* First DbiState construction: should detect version 0 != current,
+     * clear .Dbi, recreate it, and write the current format number. */
+    struct ged *gedp = ged_open("db", moss_g_path, 1);
+    if (!gedp) {
+	bu_log("  FAIL: could not open %s\n", moss_g_path);
+	return ++failures;
+    }
+    DbiState *dbis = new DbiState(gedp);
+    gedp->dbi_state = (void *)dbis;
+    (void)dbis->wait_for_pipeline(5000);
+
+    /* Verify: format file now contains a valid (non-zero) version. */
+    {
+	int new_fmt = -1;
+	std::ifstream ff(fmt_path);
+	if (ff.is_open())
+	    ff >> new_fmt;
+	if (new_fmt <= 0) {
+	    bu_log("  FAIL: format file not updated after mismatch clear "
+		   "(got %d, expected > 0)\n", new_fmt);
+	    failures++;
+	} else {
+	    bu_log("  OK: format file updated to version %d\n", new_fmt);
+	}
+    }
+
+    /* Verify: the sentinel file was removed (old cache was cleared). */
+    if (bu_file_exists(sentinel, NULL)) {
+	bu_log("  FAIL: stale sentinel file survived the cache clear\n");
+	failures++;
+    } else {
+	bu_log("  OK: stale data was cleared on format mismatch\n");
+    }
+
+    delete (DbiState *)gedp->dbi_state;
+    gedp->dbi_state = NULL;
+    ged_close(gedp);
+
+    /* Second DbiState construction: format now matches — no clear should
+     * occur and the sentinel must still be absent. */
+    gedp = ged_open("db", moss_g_path, 1);
+    if (!gedp) {
+	bu_log("  FAIL: could not reopen %s\n", moss_g_path);
+	return ++failures;
+    }
+    dbis = new DbiState(gedp);
+    gedp->dbi_state = (void *)dbis;
+    (void)dbis->wait_for_pipeline(5000);
+
+    /* Plant a fresh sentinel, then construct DbiState a third time.
+     * A spurious extra clear would remove it. */
+    {
+	FILE *fp = fopen(sentinel, "w");
+	if (fp) fclose(fp);
+    }
+
+    delete (DbiState *)gedp->dbi_state;
+    gedp->dbi_state = NULL;
+    ged_close(gedp);
+
+    gedp = ged_open("db", moss_g_path, 1);
+    if (!gedp) {
+	bu_log("  FAIL: could not open %s for third pass\n", moss_g_path);
+	return ++failures;
+    }
+    dbis = new DbiState(gedp);
+    gedp->dbi_state = (void *)dbis;
+    (void)dbis->wait_for_pipeline(5000);
+
+    if (!bu_file_exists(sentinel, NULL)) {
+	bu_log("  FAIL: sentinel removed on second open — spurious extra clear\n");
+	failures++;
+    } else {
+	bu_log("  OK: no spurious clear on second open (format already current)\n");
+    }
+
+    delete (DbiState *)gedp->dbi_state;
+    gedp->dbi_state = NULL;
+    ged_close(gedp);
+
+    return failures;
+}
+
+/* ------------------------------------------------------------------ */
 /* main                                                                 */
 /* ------------------------------------------------------------------ */
 
@@ -807,6 +938,12 @@ main(int ac, char *av[])
     /* Test 10: DrawPipeline color sentinel — colorless objects must not get
      *          a white color written to the cache (UINT_MAX sentinel fix). */
     ret += test_color_sentinel(tmp_g);
+
+    /* Test 11: DBI cache format-version mismatch detection — stale format
+     *          triggers clear; matching format does not trigger a second clear. */
+    ret += test_format_version_mismatch(tmp_g);
+    /* Restore the test-wide cache dir for any future tests that might be added. */
+    bu_setenv("BU_DIR_CACHE", lcache, 1);
 
     /* Accumulate any inline CHECK() failures */
     ret += g_failures;

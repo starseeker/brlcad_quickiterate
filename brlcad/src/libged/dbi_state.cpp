@@ -849,6 +849,9 @@ DbiState::DbiState(struct ged *ged_p)
 		bu_dir(ddir, MAXPATHLEN, BU_DIR_CACHE, DBI_CACHEDIR, NULL);
 		bu_log("Old dbi cache version (%ld) found at %s - clearing\n", disk_fmt, fpath);
 		bu_dirclear((const char *)ddir);
+		/* bu_dirclear removes the directory itself; recreate it so the
+		 * format file write below succeeds. */
+		bu_mkdir(ddir);
 	    }
 	    FILE *fp = fopen(fpath, "w");
 	    if (fp) {
