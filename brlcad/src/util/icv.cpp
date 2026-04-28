@@ -124,6 +124,10 @@ icv_read_auto(const char *path, bu_mime_image_t fmt, size_t width, size_t height
 	    bu_log("Error: unable to stat '%s'\n", path);
 	    return NULL;
 	}
+	if (sbuf.st_size <= 0) {
+	    bu_log("Error: '%s' has zero or invalid size\n", path);
+	    return NULL;
+	}
 	if (!icv_image_size(NULL, 0, (size_t)sbuf.st_size, fmt, &width, &height)) {
 	    bu_log("Error: unable to determine dimensions of '%s';\n"
 		   "  use -w/-n to specify width/height explicitly.\n", path);
