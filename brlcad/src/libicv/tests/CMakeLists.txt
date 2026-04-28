@@ -12,6 +12,9 @@ brlcad_addexec(icv_operations operations.c "libicv;libbu" TEST)
 brlcad_addexec(icv_rle rle.cpp "libicv;libbu" TEST)
 brlcad_add_test(NAME icv_rle  COMMAND icv_rle)
 
+brlcad_addexec(icv_diff_test icv_diff_test.c "libicv;libbu" TEST)
+brlcad_add_test(NAME icv_diff_test COMMAND icv_diff_test ${CMAKE_CURRENT_BINARY_DIR})
+
 cmakefiles(CMakeLists.txt)
 
 # Local Variables:

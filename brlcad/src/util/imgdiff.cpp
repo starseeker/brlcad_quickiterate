@@ -80,6 +80,7 @@ main(int ac, const char **av)
     size_t width2 = 0;
     size_t height2 = 0;
     int approx_diff = 0;
+    int meta_diff = 0;
     uint32_t pret = 0;
     const char *in_fmt = NULL;
     const char *out_fmt = NULL;
@@ -87,6 +88,7 @@ main(int ac, const char **av)
     static bu_mime_image_t in_type_2 = BU_MIME_IMAGE_UNKNOWN;
     static bu_mime_image_t out_type = BU_MIME_IMAGE_UNKNOWN;
     const char *out_path = NULL;
+    const char *nirt_path = NULL;
     int need_help = 0;
     int matching = 0;
     int off_by_1 = 0;
@@ -103,7 +105,8 @@ main(int ac, const char **av)
     struct bu_opt_desc icv_opt_desc[] = {
 	{"h", "help",             "",           NULL,         &need_help,             "Print help and exit."                      },
 	{"?", "",                 "",           NULL,         &need_help,             "",                                         },
-	{"o", "output",           "file",       &file_null,   (void *)&out_path,      "Output file.",                             },
+	{"o", "output",           "file",       &file_null,   (void *)&out_path,      "Output diff image file.",                  },
+	{"n", "nirt-output",      "file",       &file_null,   (void *)&nirt_path,     "Write nirt shotline script for differing pixels (requires PNG render metadata in img1)." },
 	{"",  "width-img1",       "#",          &bu_opt_int,  (void *)&width1,        "Image width of first image.",              },
 	{"",  "height-img1",      "#",          &bu_opt_int,  (void *)&height1,       "Image height of first image.",             },
 	{"",  "width-img2",       "#",          &bu_opt_int,  (void *)&width2,        "Image width of second image.",             },
@@ -111,7 +114,8 @@ main(int ac, const char **av)
 	{"",  "format-img1",      "format",     &image_mime,  (void *)&in_type_1,     "File format of first input file.",         },
 	{"",  "format-img2",      "format",     &image_mime,  (void *)&in_type_2,     "File format of second input file.",        },
 	{"",  "output-format",    "format",     &image_mime,  (void *)&out_type,      "File format of output file."               },
-	{"A", "approximate",      "",           NULL,         (void *)&approx_diff ,  "Calculate approximate difference metric."  },
+	{"A", "approximate",      "",           NULL,         (void *)&approx_diff,   "Calculate approximate difference metric."  },
+	{"m", "metadata",         "",           NULL,         (void *)&meta_diff,     "Compare embedded render metadata (PNG only)." },
 	BU_OPT_DESC_NULL
     };
 
@@ -216,24 +220,62 @@ main(int ac, const char **av)
 	bu_log("Hamming distance: %" PRIu32 "\n", pret);
 	ret = 0;
 	goto cleanup;
-    } else {
-	ret = icv_diff(&matching, &off_by_1, &off_by_many, img1, img2);
+    }
 
-	bu_log("%d matching, %d off by 1, %d off by many\n", matching, off_by_1, off_by_many);
+    /* Pixel diff */
+    ret = icv_diff(&matching, &off_by_1, &off_by_many, img1, img2);
+    bu_log("icv_diff channels: %d matching, %d off by 1, %d off by many\n",
+	   matching, off_by_1, off_by_many);
 
-	if (out_path && (off_by_1 || off_by_many)) {
-	    oimg = icv_diffimg(img1, img2);
-	    icv_write(oimg, out_path, out_type);
+    if (out_path && (off_by_1 || off_by_many)) {
+	oimg = icv_diffimg(img1, img2);
+	icv_write(oimg, out_path, out_type);
+	icv_destroy(oimg);
+    }
+
+    /* Optional metadata comparison */
+    if (meta_diff) {
+	struct bu_vls meta_report = BU_VLS_INIT_ZERO;
+	int mret = icv_diff_render_info(img1, img2, &meta_report);
+	if (mret == -1) {
+	    bu_log("metadata: neither image contains embedded render metadata\n");
+	} else if (mret == 0) {
+	    bu_log("metadata: identical\n%s", bu_vls_cstr(&meta_report));
+	} else {
+	    bu_log("metadata: DIFFERS\n%s", bu_vls_cstr(&meta_report));
+	    ret = 1;
+	}
+	bu_vls_free(&meta_report);
+    }
+
+    /* Optional nirt shotline generation */
+    if (nirt_path) {
+	FILE *nirt_fp = fopen(nirt_path, "w");
+	if (!nirt_fp) {
+	    bu_log("ERROR: cannot open '%s' for writing nirt shotlines\n", nirt_path);
+	} else {
+	    int nshots = icv_diff_nirt_shots(img1, img2, nirt_fp);
+	    fclose(nirt_fp);
+	    if (nshots < 0) {
+		bu_log("nirt shotlines: failed (see above)\n");
+	    } else {
+		bu_log("nirt shotlines: %d differing pixel(s) written to '%s'\n",
+		       nshots, nirt_path);
+	    }
 	}
     }
 
     /* Clean up */
+    icv_destroy(img1);
+    icv_destroy(img2);
+
 cleanup:
     if (bu_vls_strlen(&slog) > 0)
 	bu_log("%s", bu_vls_addr(&slog));
     bu_free((char *)in_fmt, "input format string");
     bu_free((char *)out_fmt, "output format string");
     bu_vls_free(&slog);
+    bu_vls_free(&parse_msgs);
     return ret;
 }
 
