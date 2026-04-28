@@ -12,60 +12,61 @@ edit scale, edit sca - Resize one or more objects in the database by a scale fac
 ----
 edit [options] geometry scale FACTOR
 edit [options] geometry scale X_FACTOR Y_FACTOR Z_FACTOR
-edit [options] geometry scale [SCALE] [CENTER] FACTOR OBJECT ...
-edit [options] geometry scale [[SCALE_FROM] SCALE_TO] [CENTER]
-    [FACTOR_FROM] FACTOR_TO OBJECT ...
-edit [options] geometry scale
-    [[-n] -k {SCALE_FROM_OBJECT | SCALE_FROM_POS}]
-    [[-n] [-a | -r] {SCALE_TO_OBJECT | SCALE_TO_POS}]
-    [[-n] -c {CENTER_OBJECT | CENTER_POS}]
-    [[-n] -k {FACTOR_FROM_OBJECT | FACTOR_FROM_POS}]
-    [[-n] [-a | -r] {FACTOR_TO_OBJECT | FACTOR_TO_POS}]
-    OBJECT ...
+edit [options] geometry scale -r FACTOR
+edit [options] geometry scale -r X_FACTOR Y_FACTOR Z_FACTOR
+edit [options] geometry scale [-k FROM_POS|FROM_OBJ] -a TO_POS|TO_OBJ
+edit [options] geometry scale [-c CENTER_POS|CENTER_OBJ] FACTOR
+edit [options] geometry scale [-c CENTER_POS|CENTER_OBJ]
+    X_FACTOR Y_FACTOR Z_FACTOR
 ----
 
-where a *FACTOR_TO_POS* argument has the form:
-
-[source]
-----
-{xyz_factor | {x y [z]}} | {[-x {x | X_OBJ}] [-y {y | Y_OBJ}] [-z {z | Z_OBJ}]}
-----
-
-and other *POS* arguments have the form:
-
-[source]
-----
-{x [y [z]]} | {[-x {x | X_OBJ}] [-y {y | Y_OBJ}] [-z {z | Z_OBJ}]}
-----
+where *FROM_POS*, *TO_POS*, and *CENTER_POS* each accept one to
+three scalar values (broadcast to a 3-vector when fewer are given),
+and *FROM_OBJ*, *TO_OBJ*, *CENTER_OBJ* are names of existing
+database objects whose bounding-box centers are used.
 
 == DESCRIPTION
 
 Used to enlarge or reduce the size of one or more instances of
-primitive or combination objects by applying a scaling factor.
-OBJECTs are scaled by a FACTOR of SCALE, at CENTER.
+primitive or combination objects by a scaling factor.
 
-It is important to note that FACTOR is interpreted as a factor of
-SCALE.  Although it might appear so, the distance between SCALE and
-FACTOR points is irrelevant.
+A scale factor greater than 1 enlarges the object; a factor between
+0 and 1 shrinks it; a factor of exactly 0 or a negative factor is
+rejected as invalid.
 
-By default, the reference scale SCALE is from a SCALE_FROM_POS of
-(0, 0, 0) to a SCALE_TO_POS of (1, 1, 1).  Given these default SCALE
-values, specifying a FACTOR_TO_POS of (2, 2, 2) would double the size
-of OBJECT, while (0.5, 0.5, 0.5) would halve its size.
+*Uniform scale* (all three factors equal) uses the primitive's native
+scale path and is supported by all primitives.  *Anisotropic
+(per-axis) scale* (X, Y, Z factors differ) applies a diagonal scale
+matrix via `ft_mat` and is only available for primitives that provide
+that function.
 
-If SCALE were from a SCALE_FROM_POS of (0, 0, 0) to a SCALE_TO_POS
-of (5, 10, 15), doubling the size of OBJECT would require a
-FACTOR_TO_POS of (10, 20, 30), or of (2.5, 5, 7.5) in order to halve
-it.  Specifying a FACTOR_TO_POS of (30, 30, 30) would result in the
-x-axes of all OBJECTs being stretched to quintuple their original
-lengths, y-axes tripled in length, and z-axes doubled in length.
+The conceptual model behind the original *edit* scale design used a
+pair of SCALE reference vectors and a FACTOR pair.  The idea was:
 
-When the three scale factor components are equal (uniform scale), the
-operation uses the standard primitive-level scale mechanism.  When the
-components differ (anisotropic scale), the operation uses the
-primitive's `ft_mat` function to apply a per-axis diagonal scale
-matrix; not all primitive types support anisotropic scale, and the
-operation will fail gracefully for those that do not provide `ft_mat`.
+....
+  SCALE = vector from SCALE_FROM to SCALE_TO   (the reference "ruler")
+  FACTOR = vector from FACTOR_FROM to FACTOR_TO (the desired result "ruler")
+  effective factor = |FACTOR| / |SCALE| per axis
+....
+
+In the current *edit2* implementation this model is simplified:
+
+* *Positional* — supply 1 or 3 scalar factor values directly.
+* *`-r` explicit* — same as positional, with an explicit flag.
+* *`-k FROM -a TO`* — the effective factor vector is computed as
+  `TO - FROM` (simple vector subtraction).  This matches the original
+  model only when FROM is the origin; `scale -k 0 0 0 -a 2 2 2`
+  yields factors `{2, 2, 2}` which doubles the object, matching the
+  original `FACTOR_TO / SCALE_TO = 2/1 = 2`.  When FROM is not the
+  origin the subtracted vector is the scale factor applied directly,
+  not the ratio of two ruler lengths.
+* When `-r` is present alongside `-k`/`-a`, the explicit `-r` value
+  overrides the FROM/TO vector.
+
+The pivot CENTER defaults to the bounding-box center of the target
+object when `-c` is not specified.  Note: the batch-marker `.` is
+*not* supported as a `-c` argument; pass explicit coordinates or a
+named object.
 
 The alias *sca* is equivalent to *scale*.
 
@@ -74,63 +75,56 @@ Global options (`-S`, `-f`, `-F`, `-i`) are described in
 
 == OPTIONS
 
-*-n* `*_FROM_OBJECT` | `*_TO_OBJECT`::
-  Use the natural origin of `*_FROM_OBJECT` and/or `*_TO_OBJECT`,
-  rather than the default of its bounding box center.
+*-k* FROM_POS | FROM_OBJ::
+  Set the FROM (keypoint) position for the scale reference vector.
+  Accepts 1–3 scalar values (broadcast to a 3-vector when fewer than
+  three are given) or an object name whose bounding-box center is
+  used.  When combined with `-a TO`, the effective scale factor is
+  `TO - FROM`.  If absent, FROM defaults to the origin `(0, 0, 0)`.
 
-*-k* `*_FROM_OBJECT` | `*_FROM_POS`::
-  Sets the keypoint to `*_FROM_OBJECT`'s bounding box center (or
-  natural origin if `-n` is used).  If this option is omitted, the
-  keypoint defaults to the first OBJECT's bounding box center.
-+
-  When both `-k FROM` and `-a TO` are provided together, the vector
-  FROM→TO is used as the scale reference (equivalent to the SCALE
-  reference in the conceptual model above).
+*-a* TO_POS | TO_OBJ::
+  Set the TO (target) position for the scale reference vector,
+  interpreted as an absolute position.  Required when TO is specified
+  as an object name.  Combined with `-k FROM`, effective factors =
+  `TO - FROM`.  This flag is required to use an object name as TO.
 
-*-c* CENTER_OBJECT | CENTER_POS::
-  Set CENTER of where the scale will occur.  If omitted, CENTER
-  defaults to the bounding box center of the first OBJECT.  To use
-  the natural origin of the first OBJECT as CENTER, you must set
-  CENTER_OBJECT to OBJECT and enable the matching `-n` option.  Set
-  CENTER_OBJECT to `.` to force each OBJECT to scale from its own
-  center.
+*-r* FACTOR | X_FACTOR Y_FACTOR Z_FACTOR::
+  Provide the scale factor(s) explicitly.  Overrides any `-k`/`-a`
+  vector when all three are given together.  Accepts 1 value
+  (broadcast to all three axes) or 3 separate per-axis values.
 
-*-r* `*_TO_POS`::
-  Interpret `*_TO_POS` as the relative distance to scale OBJECTs from
-  the FROM keypoint.  This is the default if `*_TO_POS` is set.  Must
-  be omitted if `*_TO_OBJECT` is specified.
+*-c* CENTER_POS | CENTER_OBJ::
+  Set the pivot center from which the scale expands or contracts.
+  Defaults to the bounding-box center of the target object.  Accepts
+  1–3 scalar values or an object name.  The `.` batch marker is
+  *not* supported here; use the object's name or actual coordinates.
 
-*-a* `*_TO_POS` | `*_TO_OBJECT`::
-  Interpret TO_POS / TO_OBJECT as an absolute position.  The vector
-  implied by FROM and TO is used to scale OBJECT.  This option is
-  required if TO_OBJECT is specified.
+*-n*::
+  Accepted for compatibility; intended to select natural origin over
+  bounding-box center for an object argument.  Has minimal effect in
+  the current implementation.
 
 == EXAMPLES
 
-.Double the size of cube from its center — equivalent forms
+.Double the size of cube from its center — simple forms
 [example]
 ====
+A single scalar factor:
+
   mged> **edit cube scale 2**
+
+Three equal factors (still uniform):
+
   mged> **edit cube scale 2 2 2**
-  mged> **edit cube scale -r 2 2 2**
+
+Explicit relative flag:
+
   mged> **edit cube scale -r 2**
+  mged> **edit cube scale -r 2 2 2**
+
+Using the FROM/TO reference pair (origin → 2 = factor of 2):
+
   mged> **edit cube scale -k 0 0 0 -a 2 2 2**
-  mged> **edit cube scale -k 0 0 0 -a 1 1 1 -c cube -r 2**
-  mged> **edit cube scale -k 0 0 0 -a 1 1 1 -c . -r 2**
-  mged> **edit cube scale -k 0 0 0 -a 1 1 1 -c . -a 2 2 2**
-====
-
-.Scale using explicit FROM/TO reference vectors
-[example]
-====
-The following all double the size of cube (the reference vectors
-resolve to a net factor of 2):
-
-  mged> **edit cube scale -k 5 10 15 -a 7 11 -2 -r 4 2 34**
-  mged> **edit cube scale -k 5 10 15 -a 7 11 -2 -k 0 0 0 -a 4 2 34**
-  mged> **edit cube scale -k 5 10 15 -a 7 11 -2 -k 0 0 0 -r 4 2 34**
-  mged> **edit cube scale -k 5 10 15 -a 7 11 -2 -k 3 6 9 -r 7 8 43**
-  mged> **edit cube scale -k 5 10 15 -a 7 11 -2 -c cube -k 3 6 9 -r 7 8 43**
 ====
 
 .Halve the size of sph.s
@@ -138,25 +132,102 @@ resolve to a net factor of 2):
 ====
   mged> **edit sph.s scale 0.5**
 
-Or using the reference-frame model:
+Using the FROM/TO reference pair:
 
-  mged> **edit sph.s scale -k 0 0 0 -a 2 2 2 -r 1 1 1**
+  mged> **edit sph.s scale -k 0 0 0 -a 0.5 0.5 0.5**
+
+Using explicit `-r`:
+
+  mged> **edit sph.s scale -r 0.5**
+====
+
+.Scale with a fixed pivot center
+[example]
+====
+Scale sph.s by 2 but keep its surface nearest the origin fixed
+(pivot at the origin):
+
+  mged> **edit sph.s scale -c 0 0 0 2**
+
+Scale cube from a named object's position as the pivot:
+
+  mged> **edit cube scale -c sphere1 2**
+
+Scale from the cube's own center (the default; written explicitly):
+
+  mged> **edit cube scale -c cube 2**
+====
+
+.Understanding the -k / -a vector model
+[example]
+====
+When FROM is the origin and TO is the desired factor, the model is
+intuitive: `scale -k 0 0 0 -a F F F` applies a uniform factor F.
+
+  mged> **edit cube scale -k 0 0 0 -a 3 3 3**
+
+The above triples the object.  The following halves it:
+
+  mged> **edit cube scale -k 0 0 0 -a 0.5 0.5 0.5**
+
+When FROM is *not* the origin, the effective factor is simply TO - FROM.
+`scale -k 1 1 1 -a 3 3 3` yields factors `{2, 2, 2}` — it doubles,
+not triples, because 3-1=2.  Plan your FROM/TO values accordingly.
+
+NOTE: the original *edit* design described a richer ratio model where
+SCALE and FACTOR were independent ruler vectors and the effective
+factor was their per-axis ratio.  In that model, for example,
+`scale -k 0 0 0 -a 1 1 1 -k 0 0 0 -r 2 2 2` was equivalent to a
+factor of 2.  The current *edit2* implementation does not support two
+independent FROM/TO pairs; when `-r` is present it is used directly
+as the factor, making the preceding `-k`/`-a` pair irrelevant.  Use
+the direct scalar forms shown above for clearest intent.
 ====
 
 .Non-uniform (anisotropic) scale: stretch X by 2, shrink Y by 0.5, leave Z unchanged
 [example]
 ====
-Only primitives that provide `ft_mat` support per-axis scale:
+Only primitives that implement `ft_mat` support per-axis scale.  For
+primitives without `ft_mat` (e.g. `arb8`, `bot`, `brep`) this will
+return an error:
 
   mged> **edit ell.s scale 2 0.5 1**
+
+The three values map to X, Y, Z scale factors respectively.  A zero
+in any position is rejected:
+
+  mged> **edit ell.s scale 0 1 1**   ← error, zero factor
+
+Equal factors are treated as uniform (uses the native scale path):
+
+  mged> **edit ell.s scale 2 2 2**   ← uniform, equivalent to scale 2
 ====
 
-.Scale from a named object's position as the center
+.Scale with an explicit center and an explicit factor
 [example]
 ====
-Scale cube from the position of sphere1 as the pivot center:
+Apply a factor of 1.5 to cube, pivoting on sphere1's keypoint:
 
-  mged> **edit cube scale -c sphere1 2**
+  mged> **edit cube scale -c sphere1 1.5**
+
+Pivot on a world-space coordinate:
+
+  mged> **edit cube scale -c 10 0 0 1.5**
+====
+
+.Batch scale: each object scales from its own center
+[example]
+====
+Issue individual commands, one per object, using each object's own
+center as the pivot:
+
+  mged> **edit sph.s scale -c sph.s 2**
+  mged> **edit other.s scale -c other.s 2**
+
+NOTE: the original design supported a `.` batch marker as `-c .` to
+scale each object from its own center in a single command.  That
+form is not yet implemented; the `.` marker is not a valid database
+object name and will cause a lookup failure.
 ====
 
 .Use the intermediate buffer: scale tentatively, then revert if unsatisfied
@@ -165,12 +236,6 @@ Scale cube from the position of sphere1 as the pivot center:
   mged> **edit cube checkpoint**
   mged> **edit -i cube scale 2**
   mged> **edit cube revert**
-====
-
-.Batch scale: each object scales from its own center
-[example]
-====
-  mged> **edit sph.s scale -c . 2**
 ====
 
 == SEE ALSO

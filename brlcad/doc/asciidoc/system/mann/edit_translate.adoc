@@ -62,16 +62,20 @@ Global options (`-S`, `-f`, `-F`, `-i`) are described in
   nominated axis coordinate of *TO* is applied; the remaining axes
   stay at their current values.  Multiple axis flags may be combined.
 
-*-k* FROM_OBJECT | FROM_POS::
-  Set the reference keypoint (FROM position).  *FROM* may be:
+*-k* FROM_OBJECT::
+  Set the reference keypoint (FROM position).  *FROM* must be:
 +
   * An object name — its bounding-box center is used as FROM.
-  * A coordinate triple `x y z`.
-  * The batch marker `.` — each target OBJECT's own keypoint is used.
+    (Numeric coordinate values are *not* accepted for `-k` in
+    translate; pass them as a named reference object or use the
+    absolute `-a X Y Z` form without `-k`.)
+  * The batch marker `.` as a geometry specifier on the command line
+    causes each target OBJECT to be operated on individually, but
+    `.` is *not* valid as an object name argument to `-k`.
 +
-  When `-k` is supplied together with `-a`, the delta FROM→TO is
-  applied to the target object (rather than moving it to an absolute
-  position directly).
+  When `-k` is supplied together with `-a OBJ2`, the delta
+  FROM→TO is applied to the target object (rather than moving it to
+  an absolute position directly).
 
 *-n*::
   Use the natural origin of `*_FROM_OBJECT` or `*_TO_OBJECT` rather
@@ -81,10 +85,13 @@ Global options (`-S`, `-f`, `-F`, `-i`) are described in
   The destination.  May be:
 +
   * A coordinate triple `x y z` (absolute if `-a`, relative if `-r`).
-  * A single scalar with an axis flag (e.g., `-z 7.8`).
-  * An object name (absolute position of its keypoint; requires `-a`).
-  * The batch marker `.` — each target OBJECT is moved to its own
-    current position (no-op; useful as a placeholder in scripts).
+  * A single scalar with an axis flag (e.g., `-a -z 7.8`).
+  * An object name (moves to that object's keypoint; use `-a` flag).
++
+  NOTE: The batch marker `.` is supported as the *geometry specifier*
+  portion of the command (the object being edited), but `.` is *not*
+  a valid object name for the *TO* argument because it is not a real
+  database entry.
 
 == EXAMPLES
 
@@ -119,22 +126,42 @@ keypoints and applies it:
   mged> **edit obj translate -a -z 7.8**
 ====
 
-.Align several objects to the same Z elevation as ref.s
+.Align several objects to the same Z elevation
 [example]
 ====
-Each object's X and Y stay unchanged; only Z moves to match ref.s:
+Set the Z coordinate of obj1 and obj2 to an explicit elevation while
+leaving X and Y unchanged:
 
-  mged> **edit obj1 translate -a -z ref.s**
-  mged> **edit obj2 translate -a -z ref.s**
+  mged> **edit obj1 translate -a -z 7.8**
+  mged> **edit obj2 translate -a -z 7.8**
+
+To match the Z of a reference object, look up its Z coordinate first
+(e.g., with `bb -v ref.s`) and substitute the value:
+
+  mged> **edit obj1 translate -a -z COMPUTED_Z**
 ====
 
-.Batch explosion: move each object away from the origin toward itself
+.Move a pair of objects away from the origin toward themselves (explosion effect)
 [example]
 ====
-The `.` batch marker causes each OBJECT to use its own keypoint as
-the FROM reference:
+Each object is moved by a delta equal to its own current position
+vector (doubling its distance from the origin).  Because the translate
+command currently acts on one object at a time, issue individual
+commands:
 
-  mged> **edit translate -k 0 0 0 -a . sph.s other.s**
+  mged> **edit sph.s translate -k sph.s -a sph.s**   ← no-op: stays at current position
+  mged> **edit sph.s translate -r 10 0 0**             ← or apply the known delta directly
+
+For a genuine "explode from origin" effect when sph.s is at (10,0,0)
+and other.s is at (20,0,0):
+
+  mged> **edit sph.s translate -r 10 0 0**
+  mged> **edit other.s translate -r 20 0 0**
+
+NOTE: The original *edit* design supported a batch-marker form
+`translate -k 0 0 0 -a . sph.s other.s` where `.` meant "use each
+OBJECT's own position as the TO reference".  That syntax is not yet
+implemented; issue one command per object instead.
 ====
 
 .Move a set of objects so that the assembly origin aligns with target.s

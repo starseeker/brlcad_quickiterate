@@ -12,73 +12,68 @@ edit rotate, edit rot - Rotate one or more objects in the database.
 ----
 edit [options] geometry rotate [X_DEG [Y_DEG [Z_DEG]]]
 edit [options] geometry rotate [-x|-y|-z] DEGREES
-edit [options] geometry rotate [-R] [AXIS] [CENTER] ANGLE OBJECT ...
-edit [options] geometry rotate [-R] [[AXIS_FROM] AXIS_TO] [CENTER]
-    [ANGLE_ORIGIN] [ANGLE_FROM] ANGLE_TO OBJECT ...
 edit [options] geometry rotate [-R]
-    [[-n] -k {AXIS_FROM_OBJECT | AXIS_FROM_POS}]
-    [[-n] [-a | -r] {AXIS_TO_OBJECT | AXIS_TO_POS}]
-    [[-n] -c {CENTER_OBJECT | CENTER_POS}]
-    [[-n] -O {ANGLE_ORIGIN_OBJECT | ANGLE_ORIGIN_POS}]
-    {[[-n] -k {ANGLE_FROM_OBJECT | ANGLE_FROM_POS}]
-    [-n | -o] [-a | -r | -d] {ANGLE_TO_OBJECT | ANGLE_TO_POS}}
-    OBJECT ...
+    [-k AXIS_FROM_POS|AXIS_FROM_OBJ]
+    (-a|-r) AXIS_TO_POS|AXIS_TO_OBJ
+    [-c CENTER_POS|CENTER_OBJ]
+    [-O ANGLE_ORIGIN_POS|ANGLE_ORIGIN_OBJ]
+    (-d DEGREES | DEGREES)
 ----
 
-where an *OBJECT* argument has the form:
-
-[source]
-----
-[PATH/]OBJECT [OFFSET_DIST]
-[PATH/]OBJECT [x [y [z]]]
-----
-
-and a *POS* argument has the form:
+where *AXIS_FROM_POS*, *AXIS_TO_POS*, *CENTER_POS*, and
+*ANGLE_ORIGIN_POS* each accept one to three scalar values:
 
 [source]
 ----
-{x [y [z]]} | {[-x {x | X_OBJECT}] [-y {y | Y_OBJECT}] [-z {z | Z_OBJECT}]}
+x | x y | x y z
 ----
+
+and *AXIS_FROM_OBJ*, *AXIS_TO_OBJ*, *CENTER_OBJ*,
+*ANGLE_ORIGIN_OBJ* are names of existing database objects whose
+bounding-box centers are used.
 
 == DESCRIPTION
 
 Used to rotate one or more instances of primitive or combination
-objects.  OBJECTs rotate around CENTER at ANGLE, which is optionally
-constrained to rotating around AXIS.  *POS arguments represent
-either position, distance, degrees, or radians, depending on the
-context and supplied arguments.
+objects.  OBJECTs rotate around CENTER by ANGLE.  In axis mode, the
+rotation is further constrained to a specific AXIS direction.
 
-*edit rotate* operates in one of two modes depending on which options
-are supplied:
+*edit rotate* operates in one of two modes:
 
-*Euler mode* (no `-a` or `-r` option)::
-  Angles are supplied directly as X, Y, Z rotations in degrees (or
-  radians with `-R`).  One angle defaults to a Z-axis rotation.  Two
-  angles are X then Y.  Three angles are X, Y, Z in sequence.
+*Euler mode* (default, no `-a` or `-r` option)::
+  Angles are supplied directly as one, two, or three degree values.
+  One angle is a Z-axis rotation; two angles are X then Y rotations;
+  three angles are X, Y, Z rotations applied in sequence.  The
+  `-x`, `-y`, and `-z` flags restrict the single positional angle to
+  the named axis only.
 
 *Axis mode* (triggered by `-a` or `-r`)::
-  An explicit axis of rotation is supplied as the vector from
-  AXIS_FROM to AXIS_TO.  ANGLE_TO specifies the amount to rotate,
-  in degrees (default) or radians (`-R`).  CENTER controls the pivot
-  point.
+  An explicit rotation axis is specified as the direction vector from
+  AXIS_FROM to AXIS_TO.  The rotation angle is supplied by `-d` or as
+  a trailing positional value.  CENTER and ANGLE_ORIGIN control the
+  pivot location.  Axis mode is useful for rotating around an
+  arbitrary axis defined by two scene objects, for example:
+  `rotate -k sphere1 -a sphere2 -d 90 cube` rotates cube 90° around
+  the axis running from sphere1 to sphere2.
 
-AXIS_FROM_POS is always interpreted as an absolute position.
-AXIS_TO_POS may be either an absolute position (`-a`), or a relative
-distance (`-r`) from AXIS_FROM.  OFFSET_DIST is always a relative
-distance.  A special case is made for ANGLE_TO_POS, which defaults
-to relative degrees from ANGLE_FROM_POS (`-d`), but may also be
-interpreted as a relative distance from ANGLE_FROM_POS (`-r`) or an
-absolute position (`-a`).  All `*_TO_OBJECT` arguments are always
-interpreted as absolute positions (`-a`).
+Rotation center defaults to the bounding-box center of the target
+object.  A rotation of exactly 180° with no explicit axis is rejected
+as ambiguous; use `-k` / `-a` to specify the axis, or use `-z 180`
+to force the Z-axis.
 
-By default, AXIS is interpreted as the axis to rotate upon (but does
-not specify where), with the rotation angle ANGLE_TO_POS in relative
-degrees.  The default AXIS is the x-axis, with AXIS_FROM at the
-origin and AXIS_TO at 1, 0, 0.
-
-Any `*_OBJECT` argument may be set to `.`, which causes each
-individual OBJECT to be used in its place (a batch operation if there
-is more than one OBJECT).
+NOTE: The original *edit* command design also described a rich
+ANGLE_FROM / ANGLE_TO reference-object model that allowed specifying
+the rotation angle implicitly as the angular displacement from one
+reference object to another.  For example, `rotate -k sphere1
+-a sphere2 cube` (without an explicit `-d` value) was intended to
+automatically derive the rotation angle from the arc between sphere1
+and sphere2 as seen from the cube's center.  Additionally,
+per-component reference-object extraction (e.g., `-y sphere2` to use
+only the Y coordinate of sphere2) was planned.  These features are
+not yet implemented in the current *edit2* backend; all the examples
+below use the implemented interface where axis mode requires an
+explicit degree value and reference positions are specified as full
+coordinate triples or object keypoints.
 
 The alias *rot* is equivalent to *rotate*.
 
@@ -88,130 +83,70 @@ Global options (`-S`, `-f`, `-F`, `-i`) are described in
 == OPTIONS
 
 *-R*::
-  Interpret angle values as radians instead of degrees.
-+
-If `-R` is not given, the default is to interpret AXIS_FROM as the
-"zero" point of a new axis of rotation, and AXIS_TO as its endpoint,
-with ANGLE_TO_POS interpreted as relative degrees to rotate from
-ANGLE_FROM.
+  Interpret all angle values as radians instead of degrees.
 
-*-c* CENTER_OBJECT | CENTER_POS::
-  Set CENTER of the rotation.  If omitted, CENTER defaults to the
-  bounding box center of the first OBJECT.  To use the natural origin
-  of the first OBJECT as CENTER, you must set CENTER_OBJECT to OBJECT
-  and enable the matching `-n` option.  Set CENTER_OBJECT to `.` to
-  force each OBJECT to rotate around its own center.
+*-k* AXIS_FROM_POS | AXIS_FROM_OBJ::
+  Set AXIS_FROM, the tail of the rotation-axis direction vector.
+  Accepts up to three scalar values (broadcast to a 3-vector if
+  fewer are given) or an object name whose bounding-box center is
+  used.  Defaults to the origin `(0, 0, 0)` when absent.
++
+  NOTE: AXIS_FROM is parsed with `_parse_pos_or_obj`, which reads up
+  to three scalar values from the command line.  Axis-flag forms such
+  as `-k -z 0` are *not* supported; pass the full coordinate triple
+  `0 0 0` instead.  Only one `-k` / `-a` pair per command is
+  supported; specifying them more than once overwrites the earlier
+  values.
 
-*-O* ANGLE_ORIGIN_OBJECT | ANGLE_ORIGIN_POS::
-  Sets ANGLE_ORIGIN, the origin of ANGLE.  ANGLE_ORIGIN defaults to
-  CENTER, the center of the rotation.
+*-a* AXIS_TO_POS | AXIS_TO_OBJ::
+  Set AXIS_TO as an absolute position, triggering axis mode.
+  Accepts coordinates or an object name.
 
-*-n* `*_FROM_OBJECT` | `*_TO_OBJECT`::
-  Use the natural origin of `*_FROM_OBJECT` or `*_TO_OBJECT`, rather
-  than the default of the bounding box center.
+*-r* AXIS_TO_POS::
+  Set AXIS_TO as a position relative to AXIS_FROM, triggering axis
+  mode.  Not available with an object name.
 
-*-k* `*_FROM_POS` | `*_FROM_OBJECT`::
-  Sets the keypoint for the angle or axis of rotation.
-+
-If the AXIS_FROM keypoint is omitted, it defaults to the origin
-(0, 0, 0).
-+
-The line between the points ANGLE_ORIGIN and ANGLE_FROM defines the
-y-axis of a custom AXIS.  Therefore, if AXIS is omitted, ANGLE_FROM
-defaults to a point y-offset +1 from ANGLE_ORIGIN; the y-axis of the
-drawing.  In essence, ANGLE_FROM helps define the y-axis, and AXIS
-defines the x-axis.
-+
-If AXIS is provided, then ANGLE_FROM is aligned to it in such a way
-that the 90 degree angle created by the following points is maintained:
-+
-1. ANGLE_FROM ->
-2. AXIS_TO superimposed onto ANGLE_ORIGIN ->
-3. AXIS_FROM the same relative distance from the superimposed AXIS_TO
-   that it was from the actual AXIS_TO
-+
-....
- Default:                        | Default 90 degree angle:
-                                 |
-          +z    ANGLE_ORIGIN     |   AXIS_TO->ANGLE_ORIGIN
-           |   / (from OBJECT)   |    \  90
- AXIS_FROM |  o                  |     o/  ANGLE_FROM
-          \|                     |     ^  /
- AXIS_TO   o     o               |   o   o          _______
-        \ / \     \              |    \            |compass
-         o   \     ANGLE_FROM    |     AXIS_FROM   |  +z
-      +x/   +y\    (ANGLE_ORIGIN |                 |   |
-                    -y 1)        |                 |+x/ \+y
-....
-+
-This is achieved in a consistent manner by starting ANGLE_FROM at the
-x/y of the superimposed AXIS_FROM, and the z coordinate of
-ANGLE_ORIGIN, and rotating it counterclockwise around the z-axis of
-ANGLE_ORIGIN.  The first encountered 90 degree angle is used.  The
-result is that the line between ANGLE_ORIGIN and ANGLE_FROM defines
-the y-axis of the rotation, from the origin to positive-y.  The
-rotation y-axis (ANGLE_FROM) is always perpendicular to the z-axis of
-the coordinate system.
-+
-If ANGLE_FROM is set, the default AXIS is ignored, and the rotation to
-ANGLE_TO is unconstrained.  This means that OBJECT may rotate at
-CENTER using any ANGLE.  There is one exception: unconstrained
-rotations of exactly 180 degrees are ambiguous, and will therefore
-fail.  To bypass this limitation, perform a relative rotation of 180
-degrees in the direction required.
-+
-If both ANGLE_FROM and AXIS are set, the rotation from ANGLE_FROM to
-ANGLE_TO is constrained around AXIS.  This allows for the use of
-reference objects that are not perfectly lined up on AXIS.
+*-d* DEGREES::
+  Specify the rotation angle as a single scalar degree value (radians
+  if `-R` is also set).  Required in axis mode when no trailing
+  positional angle is provided.  In Euler mode, `-d` supplies the
+  single angle that would otherwise come from the first positional
+  argument.
 
-*-o* ANGLE_TO_POS::
-  Overrides constraint to AXIS.  Only allowed when AXIS is supplied,
-  and ANGLE_TO_POS is given in degrees or radians.  Use `-O` when the
-  axis you would like to rotate on is difficult to reference, but you
-  are able to set AXIS to an axis that is perpendicular to it.
-  ANGLE_TO_POS options `-y` or `-z` would then enable rotation upon
-  the desired axis.
+*-c* CENTER_POS | CENTER_OBJ::
+  Set the pivot center of the rotation.  Accepts coordinates or an
+  object name whose keypoint is used.  Defaults to the bounding-box
+  center of the target object.  The batch-marker `.` is *not*
+  supported as a center argument; specify explicit coordinates or a
+  named object instead.
 
-*-a* `*_TO_POS` | `*_TO_OBJECT`::
-  Interpret `*_TO_POS` or `*_TO_OBJECT` as an absolute position.
-  This option is required if `*_TO_OBJECT` is supplied.
-+
-  If any arguments precede AXIS_TO or ANGLE_TO, they are required to
-  have a matching `-a`, `-r`, or, in the case of ANGLE_TO, `-d`.
+*-O* ANGLE_ORIGIN_POS | ANGLE_ORIGIN_OBJ::
+  Sets the angle-measurement origin.  Defaults to CENTER.  Accepts
+  coordinates or an object name.  In the original design this defined
+  the "zero" reference for the angle-from/angle-to reference model;
+  in the current implementation it serves as an alternative way to
+  specify the rotation pivot.
 
-*-r* `*_TO_POS`::
-  Interpret `*_TO_POS` as a point a relative distance from its
-  `*_FROM_POS` keypoint.  This is the default if `*_TO_POS` is set
-  but `*_FROM_POS` is omitted.  Must be omitted if `*_TO_OBJECT` is
-  specified.
-+
-  If any arguments precede AXIS_TO or ANGLE_TO, they are required to
-  have a matching `-a`, `-r`, or, in the case of ANGLE_TO, `-d`.
+*-n*::
+  Accepted for compatibility with the original design but has minimal
+  effect in the current implementation.  Intended to cause a following
+  `*_OBJECT` to use its natural origin rather than its bounding-box
+  center.
 
-*-d* ANGLE_TO_POS::
-  Interpret ANGLE_TO_POS as relative degrees (or radians if `-R` is
-  also set) to rotate its ANGLE_FROM_POS keypoint.  This option
-  implies `-o` (override AXIS), since constraining to AXIS is not
-  helpful in this case.  This option (`-d`) is the default, but in
-  some cases it is required:
-+
-  If any arguments precede ANGLE_TO, it is required to have matching
-  `-a`, `-r`, or `-d`.
+*-o*::
+  Accepted for compatibility; reserved for the axis-override feature
+  from the original design.
 
 *-x*, *-y*, *-z*::
-  Restrict the rotation to the specified axis only (Euler mode).  The
-  angle value is taken from the single following positional argument or
-  from `-d`.
+  Restrict the rotation to the specified axis (Euler mode).  The
+  angle value comes from the next positional argument.  Cannot be
+  combined with axis mode (`-a` / `-r`).
 
 == EXAMPLES
 
-The following examples assume we are facing the top of a cube, which
-is centered at the origin, and intersects the x and y axes
-perpendicularly.  Two spheres serve to illustrate how reference
-objects may be used to aid in complex rotations.  The angle between
-the spheres is intended to exactly represent the angle between the
-points at the corners of the cube that are facing us in the 2nd and
-4th quadrants.
+The following examples use a cube centered at the origin that
+intersects the +x/+y axes at its corners.  Two helper spheres sit at
+q1 and q4 corners to illustrate axis-mode rotation.
 
 ....
           +y     cube  sphere1
@@ -229,120 +164,206 @@ points at the corners of the cube that are facing us in the 2nd and
 ====
   mged> **edit cube rotate -z 45**
 
-All of these produce the same result:
+Equivalent forms using other supported syntax:
 
   mged> **edit cube rotate 0 0 45**
-  mged> **edit cube rotate -c 0 0 0 -d 0 0 45**
+  mged> **edit cube rotate -c 0 0 0 0 0 45**
   mged> **edit cube rotate -c cube 0 0 45**
-  mged> **edit cube rotate -c . 0 0 45**
-  mged> **edit cube rotate -c . -z 17 -z 45 -z -17**
 
-Return it to the last position (clockwise):
+Return it to the last position (clockwise by 45°):
 
   mged> **edit cube rotate -z -45**
 
-Return it to its last position (counterclockwise):
+Return counterclockwise by 315°:
 
   mged> **edit cube rotate -z 315**
+
+The following are *not* valid in the current implementation and will
+fail or produce unexpected results: `rotate -c 0 0 0 -d 0 0 45`
+(`-d` takes only one scalar, not three), `rotate -c . 0 0 45`
+(`.` is not a valid object name for the `-c` argument).
 ====
 
-.Rotate the cube so that the edge facing us in the positive-y quadrants rolls toward us
+.Rotate the cube so that the forward edge rolls toward the viewer
 [example]
 ====
+A single positional angle value rotates around the Z-axis:
+
   mged> **edit cube rotate 90**
+
+The `-x` flag restricts to the X-axis, rolling toward the viewer
+(assuming +x is "forward"):
+
+  mged> **edit cube rotate -x 90**
 ====
 
-.Rotate the cube so that the corner facing us in q3 points directly at us
+.Rotate the cube so that the q3 corner points directly toward the viewer
 [example]
 ====
+Two positional angles apply as an X rotation then a Y rotation:
+
   mged> **edit cube rotate -45 45**
 ====
 
-.Rotate the cube on its center, from sphere1 to sphere2 (happens to lie on the z-axis)
+.Rotate the cube around an explicit axis — axis from sphere1 to sphere2
 [example]
 ====
-  mged> **edit cube rotate -k sphere1 -a sphere2**
+In axis mode, `-k` and `-a` define the rotation axis; `-d` supplies
+the angle.  Here sphere1 and sphere2 are database objects whose
+bounding-box centers define the axis direction:
 
-All of these produce the same result:
+  mged> **edit cube rotate -k sphere1 -a sphere2 -d 90**
 
-  mged> **edit cube rotate -c cube -k sphere1 -a sphere2**
-  mged> **edit cube rotate -c . -k sphere1 -a sphere2**
-  mged> **edit cube rotate -k -z 0 -r -z 1 -k sphere1 -a sphere2**
-  mged> **edit cube rotate -k -z 0 -a -z 1 -k sphere1 -a sphere2**
-  mged> **edit cube rotate -k -z 0 -r -z 1 -c . -k sphere1 -a sphere2**
+Rotate back the same way:
 
-All of these rotate it back:
+  mged> **edit cube rotate -k sphere1 -a sphere2 -d -90**
 
-  mged> **edit cube rotate -k -z 1 -r -z -1 -k sphere1 -a sphere2**
-  mged> **edit cube rotate -k -z 1 -a -z 0 -k sphere1 -a sphere2**
-  mged> **edit cube rotate -k -z 5000 -a -z 23 -k sphere1 -a sphere2**
+Or equivalently, reverse the axis direction:
 
-Note: in the examples where AXIS is specified, even if sphere1 and
-sphere2 had different z-coordinates for their centers, the rotate
-behavior would be the same as above.  In the examples where AXIS is
-not specified, however, the cube would rotate unconstrained in the
-z-axis as well.
+  mged> **edit cube rotate -k sphere2 -a sphere1 -d 90**
+
+Use explicit coordinates when the axis is known:
+
+  mged> **edit cube rotate -k 0 0 0 -a 0 0 1 -d 45**
+
+NOTE: in the original *edit* design, `rotate -k sphere1 -a sphere2
+cube` (without `-d`) was intended to automatically derive the
+rotation angle from the angular arc that sphere1→sphere2 subtends
+around the cube's center, treating sphere1 as ANGLE_FROM and sphere2
+as ANGLE_TO.  That automatic angle-derivation feature is not yet
+implemented; the current interface requires `-d` or a trailing
+positional angle value.
 ====
 
-.Rotate the cube around a point 25 units in front of itself so it faces the opposite direction
+.Rotate the cube around its own center along the z-axis, constrained to an explicit axis
 [example]
 ====
-  mged> **edit cube rotate -c . -x 25 -d 180**
+Using the default center (cube's own keypoint) while specifying the
+z-axis direction explicitly:
 
-Same effect (preferred method):
+  mged> **edit cube rotate -k 0 0 0 -a 0 0 1 -c cube -d 45**
 
-  mged> **edit cube rotate -a 180 -x 25**
+Using a positional angle instead of `-d`:
+
+  mged> **edit cube rotate -k 0 0 0 -a 0 0 1 -c cube 45**
+
+Center on cube and keep center fixed while rotating:
+
+  mged> **edit cube rotate -c cube -z 45**
 ====
 
-.Rotate the cube so that the face facing us is instead facing sphere1 (a 3-D rotation)
+.Rotate the cube 180° around a point offset from its own center
 [example]
 ====
-CENTER defaults to OBJECT's bounding box center, and ANGLE_CENTER
-defaults to CENTER.
+Specify the pivot as a world-space coordinate (e.g., 25 units in the
++x direction from the origin):
 
-  mged> **edit cube rotate -k . -z 1 -a sphere1**
+  mged> **edit cube rotate -c 25 0 0 -d 180**
 
-All of these produce the same result:
+Using a Z-axis axis mode:
 
-  mged> **edit cube rotate -k . -z 5981 -a sphere1**
-  mged> **edit cube rotate -k . -z .01 -a sphere1**
-
-Move it back:
-
-  mged> **edit cube rotate -k sphere1 -a . -z 1**
+  mged> **edit cube rotate -k 0 0 0 -a 0 0 1 -c 25 0 0 -d 180**
 ====
 
-.Rotate cube around an axis from sphere2 to sphere1
+.Rotate the cube to face a specific direction in 3-D using an axis defined by two points
 [example]
 ====
+When you want to rotate the cube so that a face that currently points
+toward +Z instead points toward sphere1, you need to:
+
+1. Determine the current "up" direction (here assumed to be +Z):
+   AXIS_FROM = `0 0 1`, or equivalently any point along +Z.
+2. Use sphere1 as AXIS_TO (the target direction).
+3. Determine the required rotation angle.  If sphere1 is in the
+   XY-plane at a 45° bearing, the required angle is 90°.
+
+  mged> **edit cube rotate -k 0 0 1 -a sphere1 -d 90**
+
+For an arbitrary target direction, the required axis is the
+cross-product of the current "forward" vector and the target vector,
+and the angle is their arc-cosine.  Compute those values externally
+and supply them explicitly:
+
+  mged> **edit cube rotate -k AX AY AZ -a TX TY TZ -d COMPUTED_DEGREES**
+
+NOTE: The original design supported `rotate -k . -z 1 -a sphere1
+cube` where the `.` batch marker caused the cube's own +Z point to
+be used as ANGLE_FROM, and sphere1 was ANGLE_TO; the rotation was
+automatically constrained to the perpendicular axis.  This per-object
+self-reference with automatic angle computation is not yet
+implemented.
+====
+
+.Rotate cube around an axis from sphere2 to sphere1, with and without custom center
+[example]
+====
+The axis is the direction vector sphere2 → sphere1.  The rotation
+center is set explicitly to sphere2 so that sphere2 remains fixed:
+
   mged> **edit cube rotate -k sphere2 -a sphere1 -c sphere2 -d 180**
 
-Rotate cube on the same axis so that it is in front of the spheres:
+Place cube "in front of" the spheres by rotating 90° around the
+same axis, pivoting on sphere1:
 
   mged> **edit cube rotate -k sphere2 -a sphere1 -c sphere1 -d 90**
 ====
 
-.Rotate both spheres individually around separate axes (each stays facing cube but is upside-down)
+.Rotate a sphere 180° around the axis from its own center to the cube
 [example]
 ====
-  mged> **edit sphere1 rotate -k . -a cube -c . -d 180**
-  mged> **edit sphere2 rotate -k . -a cube -c . -d 180**
+The sphere's own center is the AXIS_FROM, the cube's center is
+AXIS_TO.  Pivoting on the sphere keeps the sphere's center stationary
+while its orientation flips:
+
+  mged> **edit sphere1 rotate -k sphere1 -a cube -c sphere1 -d 180**
+  mged> **edit sphere2 rotate -k sphere2 -a cube -c sphere2 -d 180**
+
+NOTE: The original design supported the batch form
+`rotate -k . -a cube -c . -d 180 sphere1 sphere2` where `.` was a
+per-object self-reference.  This batch-marker use within sub-arguments
+(`-k`, `-a`, `-c`) is not yet implemented; issue individual commands
+per object instead.
 ====
 
-.Rotate both spheres around the midpoint axis so they switch places
+.Rotate two spheres 180° around the axis joining them so they swap positions
 [example]
 ====
-Any point on the AXIS could have been used as CENTER.  If the spheres
-were at different z-coordinates, this would still work:
+The axis runs from sphere1 to sphere2.  The pivot should lie on the
+axis — use the midpoint if sphere1 and sphere2 are at known positions
+(say sphere1 at (1, 1, 0) and sphere2 at (1, -1, 0), midpoint at
+(1, 0, 0)):
 
-  mged> **edit sphere1 rotate -k sphere1 -y sphere2 -a sphere2 -y sphere1 -c sphere2 -y sphere1 -d 180**
-  mged> **edit sphere2 rotate -k sphere1 -y sphere2 -a sphere2 -y sphere1 -c sphere2 -y sphere1 -d 180**
+  mged> **edit sphere1 rotate -k sphere1 -a sphere2 -c 1 0 0 -d 180**
+  mged> **edit sphere2 rotate -k sphere1 -a sphere2 -c 1 0 0 -d 180**
+
+If the midpoint coordinates are not known in advance, compute them
+from the sphere positions before issuing the command.
+
+NOTE: The original design supported per-component object references
+such as `-y sphere2` to extract only the Y coordinate of sphere2
+while keeping the X and Z from another reference.  That syntax is
+not yet implemented; pass full coordinate triples instead.
 ====
 
 .Rotate by π/2 radians around the Z-axis
 [example]
 ====
+  mged> **edit ell.s rotate -R 0 0 1.5707963**
+
+Or using the `-z` flag in Euler mode:
+
   mged> **edit ell.s rotate -R -z 1.5707963**
+====
+
+.Apply cumulative Euler rotations in multiple steps
+[example]
+====
+Each invocation is applied to the current state of the geometry,
+so three separate rotations compose:
+
+  mged> **edit ell.s rotate 30 0 0**
+  mged> **edit ell.s rotate 0 45 0**
+  mged> **edit ell.s rotate 0 0 60**
 ====
 
 .Use the intermediate buffer: rotate tentatively, then revert if unsatisfied
