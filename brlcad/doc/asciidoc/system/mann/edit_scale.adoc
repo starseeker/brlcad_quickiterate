@@ -1,0 +1,190 @@
+= EDIT SCALE(nged)
+:doctype: manpage
+:mansource: BRL-CAD
+:manmanual: BRL-CAD User Commands
+
+== NAME
+edit scale, edit sca - Resize one or more objects in the database by a scale factor.
+
+== SYNOPSIS
+
+[source]
+----
+edit [options] geometry scale FACTOR
+edit [options] geometry scale X_FACTOR Y_FACTOR Z_FACTOR
+edit [options] geometry scale [SCALE] [CENTER] FACTOR OBJECT ...
+edit [options] geometry scale [[SCALE_FROM] SCALE_TO] [CENTER]
+    [FACTOR_FROM] FACTOR_TO OBJECT ...
+edit [options] geometry scale
+    [[-n] -k {SCALE_FROM_OBJECT | SCALE_FROM_POS}]
+    [[-n] [-a | -r] {SCALE_TO_OBJECT | SCALE_TO_POS}]
+    [[-n] -c {CENTER_OBJECT | CENTER_POS}]
+    [[-n] -k {FACTOR_FROM_OBJECT | FACTOR_FROM_POS}]
+    [[-n] [-a | -r] {FACTOR_TO_OBJECT | FACTOR_TO_POS}]
+    OBJECT ...
+----
+
+where a *FACTOR_TO_POS* argument has the form:
+
+[source]
+----
+{xyz_factor | {x y [z]}} | {[-x {x | X_OBJ}] [-y {y | Y_OBJ}] [-z {z | Z_OBJ}]}
+----
+
+and other *POS* arguments have the form:
+
+[source]
+----
+{x [y [z]]} | {[-x {x | X_OBJ}] [-y {y | Y_OBJ}] [-z {z | Z_OBJ}]}
+----
+
+== DESCRIPTION
+
+Used to enlarge or reduce the size of one or more instances of
+primitive or combination objects by applying a scaling factor.
+OBJECTs are scaled by a FACTOR of SCALE, at CENTER.
+
+It is important to note that FACTOR is interpreted as a factor of
+SCALE.  Although it might appear so, the distance between SCALE and
+FACTOR points is irrelevant.
+
+By default, the reference scale SCALE is from a SCALE_FROM_POS of
+(0, 0, 0) to a SCALE_TO_POS of (1, 1, 1).  Given these default SCALE
+values, specifying a FACTOR_TO_POS of (2, 2, 2) would double the size
+of OBJECT, while (0.5, 0.5, 0.5) would halve its size.
+
+If SCALE were from a SCALE_FROM_POS of (0, 0, 0) to a SCALE_TO_POS
+of (5, 10, 15), doubling the size of OBJECT would require a
+FACTOR_TO_POS of (10, 20, 30), or of (2.5, 5, 7.5) in order to halve
+it.  Specifying a FACTOR_TO_POS of (30, 30, 30) would result in the
+x-axes of all OBJECTs being stretched to quintuple their original
+lengths, y-axes tripled in length, and z-axes doubled in length.
+
+When the three scale factor components are equal (uniform scale), the
+operation uses the standard primitive-level scale mechanism.  When the
+components differ (anisotropic scale), the operation uses the
+primitive's `ft_mat` function to apply a per-axis diagonal scale
+matrix; not all primitive types support anisotropic scale, and the
+operation will fail gracefully for those that do not provide `ft_mat`.
+
+The alias *sca* is equivalent to *scale*.
+
+Global options (`-S`, `-f`, `-F`, `-i`) are described in
+*edit*(nged).
+
+== OPTIONS
+
+*-n* `*_FROM_OBJECT` | `*_TO_OBJECT`::
+  Use the natural origin of `*_FROM_OBJECT` and/or `*_TO_OBJECT`,
+  rather than the default of its bounding box center.
+
+*-k* `*_FROM_OBJECT` | `*_FROM_POS`::
+  Sets the keypoint to `*_FROM_OBJECT`'s bounding box center (or
+  natural origin if `-n` is used).  If this option is omitted, the
+  keypoint defaults to the first OBJECT's bounding box center.
++
+  When both `-k FROM` and `-a TO` are provided together, the vector
+  FROM→TO is used as the scale reference (equivalent to the SCALE
+  reference in the conceptual model above).
+
+*-c* CENTER_OBJECT | CENTER_POS::
+  Set CENTER of where the scale will occur.  If omitted, CENTER
+  defaults to the bounding box center of the first OBJECT.  To use
+  the natural origin of the first OBJECT as CENTER, you must set
+  CENTER_OBJECT to OBJECT and enable the matching `-n` option.  Set
+  CENTER_OBJECT to `.` to force each OBJECT to scale from its own
+  center.
+
+*-r* `*_TO_POS`::
+  Interpret `*_TO_POS` as the relative distance to scale OBJECTs from
+  the FROM keypoint.  This is the default if `*_TO_POS` is set.  Must
+  be omitted if `*_TO_OBJECT` is specified.
+
+*-a* `*_TO_POS` | `*_TO_OBJECT`::
+  Interpret TO_POS / TO_OBJECT as an absolute position.  The vector
+  implied by FROM and TO is used to scale OBJECT.  This option is
+  required if TO_OBJECT is specified.
+
+== EXAMPLES
+
+.Double the size of cube from its center — equivalent forms
+[example]
+====
+  mged> **edit cube scale 2**
+  mged> **edit cube scale 2 2 2**
+  mged> **edit cube scale -r 2 2 2**
+  mged> **edit cube scale -r 2**
+  mged> **edit cube scale -k 0 0 0 -a 2 2 2**
+  mged> **edit cube scale -k 0 0 0 -a 1 1 1 -c cube -r 2**
+  mged> **edit cube scale -k 0 0 0 -a 1 1 1 -c . -r 2**
+  mged> **edit cube scale -k 0 0 0 -a 1 1 1 -c . -a 2 2 2**
+====
+
+.Scale using explicit FROM/TO reference vectors
+[example]
+====
+The following all double the size of cube (the reference vectors
+resolve to a net factor of 2):
+
+  mged> **edit cube scale -k 5 10 15 -a 7 11 -2 -r 4 2 34**
+  mged> **edit cube scale -k 5 10 15 -a 7 11 -2 -k 0 0 0 -a 4 2 34**
+  mged> **edit cube scale -k 5 10 15 -a 7 11 -2 -k 0 0 0 -r 4 2 34**
+  mged> **edit cube scale -k 5 10 15 -a 7 11 -2 -k 3 6 9 -r 7 8 43**
+  mged> **edit cube scale -k 5 10 15 -a 7 11 -2 -c cube -k 3 6 9 -r 7 8 43**
+====
+
+.Halve the size of sph.s
+[example]
+====
+  mged> **edit sph.s scale 0.5**
+
+Or using the reference-frame model:
+
+  mged> **edit sph.s scale -k 0 0 0 -a 2 2 2 -r 1 1 1**
+====
+
+.Non-uniform (anisotropic) scale: stretch X by 2, shrink Y by 0.5, leave Z unchanged
+[example]
+====
+Only primitives that provide `ft_mat` support per-axis scale:
+
+  mged> **edit ell.s scale 2 0.5 1**
+====
+
+.Scale from a named object's position as the center
+[example]
+====
+Scale cube from the position of sphere1 as the pivot center:
+
+  mged> **edit cube scale -c sphere1 2**
+====
+
+.Use the intermediate buffer: scale tentatively, then revert if unsatisfied
+[example]
+====
+  mged> **edit cube checkpoint**
+  mged> **edit -i cube scale 2**
+  mged> **edit cube revert**
+====
+
+.Batch scale: each object scales from its own center
+[example]
+====
+  mged> **edit sph.s scale -c . 2**
+====
+
+== SEE ALSO
+
+*edit*(nged), *edit rotate*(nged), *edit translate*(nged),
+*oscale*(nged), *pscale*(nged)
+
+[[author]]
+== AUTHOR
+
+BRL-CAD Team
+
+
+[[bug_reports]]
+== BUG REPORTS
+
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org
