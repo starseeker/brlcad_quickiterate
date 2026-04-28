@@ -1151,7 +1151,29 @@ cmd_scale::exec(struct ged *gedp, void *u_data, int argc, const char **argv)
     vect_t factors = VINIT_ZERO;
     bool have_factors = false;
 
-    if (have_r) {
+    if (have_k && have_a && have_r) {
+	/* Full ratio model: (-k FROM -a SCALE_TO) defines a SCALE reference
+	 * ruler; -r FACTOR is the desired result ruler.
+	 * effective_factor[i] = FACTOR[i] / |SCALE_VEC[i]|
+	 * This is the two-pair form from the original edit.c design:
+	 *   SCALE = SCALE_TO - SCALE_FROM   (the reference "ruler")
+	 *   FACTOR = r_vec                  (the desired result "ruler")
+	 *   effective = FACTOR / |SCALE|    per axis
+	 * Example: -k 5 10 15 -a 7 11 -2 -r 4 2 34
+	 *   SCALE = (2, 1, 17) → effective = (4/2, 2/1, 34/17) = (2, 2, 2) */
+	vect_t scale_vec;
+	VSUB2(scale_vec, a_vec, k_vec);
+	for (int j = 0; j < 3; j++) {
+	    double sv = fabs(scale_vec[j]);
+	    if (sv < SMALL_FASTF) {
+		/* SCALE has zero extent on this axis; use FACTOR directly */
+		factors[j] = r_vec[j];
+	    } else {
+		factors[j] = r_vec[j] / sv;
+	    }
+	}
+	have_factors = true;
+    } else if (have_r) {
 	VMOVE(factors, r_vec);
 	have_factors = true;
     } else if (have_k && have_a) {

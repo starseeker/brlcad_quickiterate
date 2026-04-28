@@ -962,22 +962,37 @@ test_p2_scale_from_to(struct ged *gedp)
 static void
 test_p2_scale_explicit_r(struct ged *gedp)
 {
+    /* Ratio model: SCALE=(1,1,1)->(0,0,0) = (1,1,1), FACTOR=2 → effective=2/1=2
+     * sca.s |A| was 24 before this call, so after: 24 * 2 = 48. */
     const char *av[] = {
         "edit", "sca.s", "scale", "-k", "0","0","0", "-a","1","1","1", "-r","2", NULL
     };
     bu_vls_trunc(gedp->ged_result_str, 0);
     CHECK(ged_exec(gedp, 13, av) == BRLCAD_OK, "scale -k 0 0 0 -a 1 1 1 -r 2 returns OK");
+    struct rt_ell_internal ell;
+    if (read_ell(gedp, "sca.s", &ell) == BRLCAD_OK)
+        CHECK(NEAR_EQUAL(MAGNITUDE(ell.a), 48.0, NEAR_ENOUGH),
+              "scale ratio (-k 0 0 0 -a 1 1 1 -r 2): sca.s |A| == 48");
+    else CHECK(0, "scale ratio: read_ell(sca.s) failed");
 }
 
 static void
 test_p2_scale_complex(struct ged *gedp)
 {
+    /* Full ratio model: SCALE=(7-5, 11-10, -2-15)=(2,1,-17), |per-axis|=(2,1,17)
+     * FACTOR=(4,2,34) → effective=(4/2, 2/1, 34/17)=(2,2,2) → uniform 2x scale.
+     * sca.s |A| was 48 before this call, so after: 48 * 2 = 96. */
     const char *av[] = {
         "edit", "sca.s", "scale",
         "-k","5","10","15", "-a","7","11","-2", "-r","4","2","34", NULL
     };
     bu_vls_trunc(gedp->ged_result_str, 0);
     CHECK(ged_exec(gedp, 15, av) == BRLCAD_OK, "scale -k 5 10 15 -a 7 11 -2 -r 4 2 34 returns OK");
+    struct rt_ell_internal ell;
+    if (read_ell(gedp, "sca.s", &ell) == BRLCAD_OK)
+        CHECK(NEAR_EQUAL(MAGNITUDE(ell.a), 96.0, NEAR_ENOUGH),
+              "scale ratio (-k 5 10 15 -a 7 11 -2 -r 4 2 34): sca.s |A| == 96");
+    else CHECK(0, "scale ratio complex: read_ell(sca.s) failed");
 }
 
 static void
