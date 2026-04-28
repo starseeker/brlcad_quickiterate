@@ -442,7 +442,7 @@ dp_attr_worker(std::shared_ptr<DrawPipelineState> p)
 	struct rt_db_internal *ip;
 	BU_GET(ip, struct rt_db_internal);
 	RT_DB_INTERNAL_INIT(ip);
-	if (rt_db_get_internal(ip, dp, p->dbip, NULL, &bres) < 0) {
+	if (rt_db_get_internal(ip, dp, p->dbip, NULL) < 0) {
 	    BU_PUT(ip, struct rt_db_internal);
 	    continue;
 	}
@@ -4693,7 +4693,7 @@ GObj::GenCombInstances()
 	return;
 
     struct rt_db_internal in;
-    if (rt_db_get_internal(&in, dp, d->gedp->dbip, NULL, d->res) < 0)
+    if (rt_db_get_internal(&in, dp, d->gedp->dbip, NULL) < 0)
 	return;
     struct rt_comb_internal *comb = (struct rt_comb_internal *)in.idb_ptr;
     if (!comb->tree) {
