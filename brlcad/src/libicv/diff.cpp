@@ -25,6 +25,11 @@
  *  icv_diff_nirt_shots   – generate nirt shotline commands for differing pixels;
  *                          writes a separate script for each image that has
  *                          render_info, so the caller can use whichever is needed
+ *
+ * Render metadata is stored in PNG files as a single tEXt chunk with the key
+ * "BRL-CAD-scene" containing a JSON document (see png.cpp for the schema).
+ * The icv_render_info struct is the in-memory representation; the functions
+ * here operate on that struct and are format-agnostic.
  */
 
 #include "common.h"
