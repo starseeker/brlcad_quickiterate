@@ -451,16 +451,39 @@ function(
       set_target_properties(${libname} PROPERTIES PREFIX "")
     endif(${libname} MATCHES "^lib*")
 
+    # Set the EXPORT_NAME so installed targets appear as BRLCAD::<short>
+    # (e.g. BRLCAD::bu rather than BRLCAD::libbu).
+    set_target_properties(${libname} PROPERTIES EXPORT_NAME ${LOWERCORE})
+
     # Set the standard build definitions for all BRL-CAD targets
     target_compile_definitions(${libname} PRIVATE BRLCADBUILD HAVE_CONFIG_H)
 
-    # Set includes on shared target
+    # Set includes on shared target.
+    # brlcad_include_dirs() adds paths with correct ordering and SYSTEM flags;
+    # this populates both INCLUDE_DIRECTORIES (for building the lib itself) and
+    # INTERFACE_INCLUDE_DIRECTORIES (for consumers).  The raw absolute paths it
+    # puts in INTERFACE_INCLUDE_DIRECTORIES must be replaced with generator
+    # expressions so that the exported BRLCADTargets.cmake is relocatable.
     brlcad_include_dirs(${libname} PUBLIC_HDRS PUBLIC)
     brlcad_include_dirs(${libname} PRIVATE_HDRS PRIVATE)
 
+    # Replace raw absolute paths in INTERFACE_INCLUDE_DIRECTORIES with
+    # BUILD_INTERFACE-guarded versions and add the INSTALL_INTERFACE entry.
+    # INCLUDE_DIRECTORIES (used to compile this target) is left untouched.
+    get_target_property(_raw_iface_dirs ${libname} INTERFACE_INCLUDE_DIRECTORIES)
+    set_property(TARGET ${libname} PROPERTY INTERFACE_INCLUDE_DIRECTORIES)
+    if(_raw_iface_dirs)
+      foreach(_dir ${_raw_iface_dirs})
+        target_include_directories(${libname} INTERFACE $<BUILD_INTERFACE:${_dir}>)
+      endforeach()
+    endif()
+    target_include_directories(${libname} INTERFACE $<INSTALL_INTERFACE:include>)
+
     if(HIDE_INTERNAL_SYMBOLS)
       set_property(TARGET ${libname} APPEND PROPERTY COMPILE_DEFINITIONS "${UPPER_CORE}_DLL_EXPORTS")
-      set_property(TARGET ${libname} APPEND PROPERTY INTERFACE_COMPILE_DEFINITIONS "${UPPER_CORE}_DLL_IMPORTS")
+      # Use target_compile_definitions so the INTERFACE entry is exported via
+      # install(EXPORT) and consumers automatically get the right import macro.
+      target_compile_definitions(${libname} INTERFACE "${UPPER_CORE}_DLL_IMPORTS")
     endif(HIDE_INTERNAL_SYMBOLS)
 
     # Enable unity build on the shared library target.  When USE_OBJECT_LIBS is
@@ -559,6 +582,7 @@ function(
     if(NOT L_NO_INSTALL)
       install(
         TARGETS ${libname}
+        EXPORT BRLCADTargets
         RUNTIME DESTINATION ${BIN_DIR}
         LIBRARY DESTINATION ${LIB_DIR}
         ARCHIVE DESTINATION ${LIB_DIR}
