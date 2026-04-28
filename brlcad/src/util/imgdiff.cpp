@@ -93,7 +93,9 @@ main(int ac, const char **av)
     int matching = 0;
     int off_by_1 = 0;
     int off_by_many = 0;
-    icv_image_t *img1, *img2, *oimg;
+    icv_image_t *img1 = NULL;
+    icv_image_t *img2 = NULL;
+    icv_image_t *oimg;
     const char *img_path_1 = NULL;
     const char *img_path_2 = NULL;
     bu_setprogname(av[0]);
@@ -294,10 +296,9 @@ main(int ac, const char **av)
     }
 
     /* Clean up */
+cleanup:
     icv_destroy(img1);
     icv_destroy(img2);
-
-cleanup:
     if (bu_vls_strlen(&slog) > 0)
 	bu_log("%s", bu_vls_addr(&slog));
     bu_free((char *)in_fmt, "input format string");

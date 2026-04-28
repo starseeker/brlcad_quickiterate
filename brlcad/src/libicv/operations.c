@@ -387,6 +387,7 @@ icv_diffimg(icv_image_t *img1, icv_image_t *img2)
     size_t s = img1->width * img1->height;
     size_t nbytes = s * 3;
     unsigned char *od = (unsigned char *)bu_malloc(nbytes, "diffimg output");
+    memset(od, 0, nbytes);
 
     for (size_t i = 0; i < s; i++) {
 	int r1 = d1[i*3+0], g1 = d1[i*3+1], b1 = d1[i*3+2];

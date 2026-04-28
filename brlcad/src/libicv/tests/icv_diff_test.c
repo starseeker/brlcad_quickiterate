@@ -467,10 +467,10 @@ test_nirt_shots(const char *tmpdir)
 
 	    /* Both output files should be non-empty */
 	    struct stat sb1, sb2;
-	    stat(bu_vls_cstr(&fname1), &sb1);
-	    stat(bu_vls_cstr(&fname2), &sb2);
-	    CHECK(sb1.st_size > 0, "img1 nirt script is non-empty");
-	    CHECK(sb2.st_size > 0, "img2 nirt script is non-empty");
+	    int r1s = stat(bu_vls_cstr(&fname1), &sb1);
+	    int r2s = stat(bu_vls_cstr(&fname2), &sb2);
+	    CHECK(r1s == 0 && sb1.st_size > 0, "img1 nirt script is non-empty");
+	    CHECK(r2s == 0 && sb2.st_size > 0, "img2 nirt script is non-empty");
 	} else {
 	    if (fp1) fclose(fp1);
 	    if (fp2) fclose(fp2);
