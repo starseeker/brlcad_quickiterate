@@ -36,6 +36,12 @@
  *               gedp->dbi_state is NULL.
  *  Section C — rotate axis-mode (-k/-a/-r/-d/-c), scale -c center,
  *               per-axis (anisotropic) scale factors.
+ *  Section D — Design-completion features:
+ *               translate -k with coordinate positions,
+ *               translate per-component object extraction (-z OBJ),
+ *               translate/rotate/scale -c . (self-center reference),
+ *               rotate implicit angle from ANGLE_FROM→ANGLE_TO,
+ *               rotate two -k/-a pairs (axis pair + angle ref pair).
  *
  * edit2.cpp is a proper superset of the original edit.c:
  *   original edit.c had translate enabled, rotate/scale disabled;
@@ -1397,6 +1403,378 @@ test_pc_scale_anisotropic_zero_error(struct ged *gedp)
 
 
 /* ================================================================== *
+ * Section D — New design completions (edit2.cpp maturity):
+ *   D1: translate -k with coordinate positions
+ *   D2: translate -k . (self-reference as FROM)
+ *   D3: translate per-component object extraction (-z ref.s)
+ *   D4: rotate -c . (self-center rotation)
+ *   D5: scale -c . (scale from own center)
+ *   D6: rotate implicit angle from ANGLE_FROM→ANGLE_TO
+ *   D7: rotate second -k/-a pair for explicit angle references
+ * ================================================================== */
+
+/**
+ * Section D fixture:
+ *   anchor.s — sphere at (0,0,0), r=1      (fixed reference origin)
+ *   sph.s    — sphere at (10,0,0), r=2     (translate target)
+ *   ref.s    — sphere at (0,7,3), r=1      (component-extraction reference)
+ *   ell.s    — ell at origin, A=(5,0,0)    (rotate target)
+ *   ctr.s    — sphere at (10,0,0), r=2     (rotate self-center target)
+ *   sca.s    — sphere at origin, r=4       (scale target)
+ */
+static int
+create_pd_fixture(const char *path)
+{
+    struct rt_wdb *wdbp = wdb_fopen(path);
+    if (!wdbp)
+	return BRLCAD_ERROR;
+
+    { point_t v = VINIT_ZERO;
+      if (mk_sph(wdbp, "anchor.s", v, 1.0) != 0) goto fail; }
+
+    { point_t v = {10.0, 0.0, 0.0};
+      if (mk_sph(wdbp, "sph.s", v, 2.0) != 0) goto fail; }
+
+    { point_t v = {0.0, 7.0, 3.0};
+      if (mk_sph(wdbp, "ref.s", v, 1.0) != 0) goto fail; }
+
+    { point_t v = VINIT_ZERO;
+      vect_t a = {5,0,0}, b = {0,2,0}, c = {0,0,3};
+      if (mk_ell(wdbp, "ell.s", v, a, b, c) != 0) goto fail; }
+
+    { point_t v = {10.0, 0.0, 0.0};
+      if (mk_sph(wdbp, "ctr.s", v, 2.0) != 0) goto fail; }
+
+    { point_t v = VINIT_ZERO;
+      vect_t a = {5,0,0}, b = {0,2,0}, c = {0,0,3};
+      if (mk_ell(wdbp, "ell2.s", v, a, b, c) != 0) goto fail; }
+
+    { point_t v = VINIT_ZERO;
+      vect_t a = {5,0,0}, b = {0,2,0}, c = {0,0,3};
+      if (mk_ell(wdbp, "ell3.s", v, a, b, c) != 0) goto fail; }
+
+    { point_t v = VINIT_ZERO;
+      if (mk_sph(wdbp, "sca.s", v, 4.0) != 0) goto fail; }
+
+    wdb_close(wdbp);
+    return BRLCAD_OK;
+fail:
+    wdb_close(wdbp);
+    return BRLCAD_ERROR;
+}
+
+
+/* D1: translate -k with explicit coordinate position (not object name) */
+static void
+test_pd_translate_k_coords(struct ged *gedp)
+{
+    /* sph.s starts at (10,0,0).  -k 10 0 0 -a 20 0 0: move by (10,0,0) */
+    const char *av[] = {
+	"edit","sph.s","translate","-k","10","0","0","-a","20","0","0",NULL
+    };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 11, av) == BRLCAD_OK,
+	  "translate -k 10 0 0 -a 20 0 0 returns OK");
+    struct rt_ell_internal ell;
+    if (read_ell(gedp, "sph.s", &ell) == BRLCAD_OK) {
+	CHECK(NEAR_EQUAL(ell.v[X], 20.0, NEAR_ENOUGH),
+	      "translate -k coord: sph.s V.x == 20");
+    } else {
+	CHECK(0, "translate -k coord: read_ell(sph.s) succeeded");
+    }
+}
+
+/* Reset sph.s to (10,0,0) for subsequent tests */
+static void reset_pd_sph(struct ged *gedp)
+{
+    const char *av[] = {"edit","sph.s","translate","-a","10","0","0",NULL};
+    ged_exec(gedp, 7, av);
+}
+
+/* D2: translate -k . (self-reference: FROM = own keypoint) */
+static void
+test_pd_translate_k_self(struct ged *gedp)
+{
+    /* sph.s at (10,0,0).  -k . means FROM=own_keypoint=(10,0,0); with -a 20 0 0
+     * as TO, delta = (10,0,0), target = (20,0,0). */
+    const char *av[] = {
+	"edit","sph.s","translate","-k",".","20","0","0",NULL
+    };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 8, av) == BRLCAD_OK,
+	  "translate -k . 20 0 0 returns OK");
+    struct rt_ell_internal ell;
+    if (read_ell(gedp, "sph.s", &ell) == BRLCAD_OK) {
+	/* Without -a flag: the positional "20 0 0" is a relative delta, and
+	 * -k . (FROM=own) is used only when combined with an explicit TO ref.
+	 * With no -a, the mode is relative: delta=(20,0,0), target=(30,0,0). */
+	CHECK(NEAR_EQUAL(ell.v[X], 30.0, NEAR_ENOUGH),
+	      "translate -k . rel: sph.s V.x == 30 (relative, FROM=own)");
+    } else {
+	CHECK(0, "translate -k . rel: read_ell(sph.s) succeeded");
+    }
+}
+
+/* D3: translate per-component object extraction (-a -z ref.s) */
+static void
+test_pd_translate_component_obj(struct ged *gedp)
+{
+    /* sph.s at (10,0,0); ref.s at (0,7,3).
+     * -a -z ref.s: absolute Z = ref.s.z = 3, keep own X=10 and Y=0. */
+    const char *av[] = {
+	"edit","sph.s","translate","-a","-z","ref.s",NULL
+    };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 6, av) == BRLCAD_OK,
+	  "translate -a -z ref.s returns OK");
+    struct rt_ell_internal ell;
+    if (read_ell(gedp, "sph.s", &ell) == BRLCAD_OK) {
+	CHECK(NEAR_EQUAL(ell.v[X], 10.0, NEAR_ENOUGH),
+	      "translate -a -z ref.s: V.x unchanged == 10");
+	CHECK(NEAR_EQUAL(ell.v[Y],  0.0, NEAR_ENOUGH),
+	      "translate -a -z ref.s: V.y unchanged == 0");
+	CHECK(NEAR_EQUAL(ell.v[Z],  3.0, NEAR_ENOUGH),
+	      "translate -a -z ref.s: V.z == ref.s.z == 3");
+    } else {
+	CHECK(0, "translate -a -z ref.s: read_ell(sph.s) succeeded");
+    }
+}
+
+/* D3b: translate -a -y ref.s (extract Y component) */
+static void
+test_pd_translate_component_obj_y(struct ged *gedp)
+{
+    /* sph.s now at (10,0,3) after D3.  ref.s at (0,7,3).
+     * -a -y ref.s: absolute Y = ref.s.y = 7, keep own X and Z. */
+    const char *av[] = {
+	"edit","sph.s","translate","-a","-y","ref.s",NULL
+    };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 6, av) == BRLCAD_OK,
+	  "translate -a -y ref.s returns OK");
+    struct rt_ell_internal ell;
+    if (read_ell(gedp, "sph.s", &ell) == BRLCAD_OK) {
+	CHECK(NEAR_EQUAL(ell.v[X], 10.0, NEAR_ENOUGH),
+	      "translate -a -y ref.s: V.x unchanged == 10");
+	CHECK(NEAR_EQUAL(ell.v[Y],  7.0, NEAR_ENOUGH),
+	      "translate -a -y ref.s: V.y == ref.s.y == 7");
+	CHECK(NEAR_EQUAL(ell.v[Z],  3.0, NEAR_ENOUGH),
+	      "translate -a -y ref.s: V.z unchanged == 3");
+    } else {
+	CHECK(0, "translate -a -y ref.s: read_ell(sph.s) succeeded");
+    }
+}
+
+/* D4: rotate -c . (self-center: pivot on own keypoint) */
+static void
+test_pd_rotate_c_self(struct ged *gedp)
+{
+    /* ctr.s is at (10,0,0).  Rotate 90° around Z with -c . → center stays
+     * at own keypoint (10,0,0).  A sphere's keypoint is its center, so
+     * the center is unaffected, and interior axes rotate (trivially no-op
+     * geometry change for a sphere).  We verify the command succeeds. */
+    const char *av[] = {
+	"edit","ctr.s","rotate","-c",".","0","0","90",NULL
+    };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 9, av) == BRLCAD_OK,
+	  "rotate -c . 0 0 90 returns OK");
+    struct rt_ell_internal ell;
+    if (read_ell(gedp, "ctr.s", &ell) == BRLCAD_OK) {
+	/* Center of a sphere should not move when rotating about its own center */
+	CHECK(NEAR_EQUAL(ell.v[X], 10.0, NEAR_ENOUGH),
+	      "rotate -c .: ctr.s V.x unchanged == 10");
+	CHECK(NEAR_EQUAL(ell.v[Y],  0.0, NEAR_ENOUGH),
+	      "rotate -c .: ctr.s V.y unchanged == 0");
+	CHECK(NEAR_EQUAL(ell.v[Z],  0.0, NEAR_ENOUGH),
+	      "rotate -c .: ctr.s V.z unchanged == 0");
+    } else {
+	CHECK(0, "rotate -c .: read_ell(ctr.s) succeeded");
+    }
+}
+
+/* D4b: rotate -c . in axis mode */
+static void
+test_pd_rotate_axis_c_self(struct ged *gedp)
+{
+    /* ell.s at origin with A=(5,0,0) at the start of section D.
+     * No prior test in section D has touched ell.s.
+     * Rotate 90° around Z-axis with -c . → pivot at own keypoint (origin).
+     * A should go from (5,0,0) to (0,5,0). */
+    const char *av[] = {
+	"edit","ell.s","rotate","-k","0","0","0","-a","0","0","1","-c",".","90",NULL
+    };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 14, av) == BRLCAD_OK,
+	  "rotate -k 0 0 0 -a 0 0 1 -c . 90 returns OK");
+    struct rt_ell_internal ell;
+    if (read_ell(gedp, "ell.s", &ell) == BRLCAD_OK) {
+	CHECK(NEAR_EQUAL(ell.a[X], 0.0, NEAR_ENOUGH),
+	      "rotate axis -c .: ell.s A.x ≈ 0");
+	CHECK(NEAR_EQUAL(ell.a[Y], 5.0, NEAR_ENOUGH),
+	      "rotate axis -c .: ell.s A.y ≈ 5");
+    } else {
+	CHECK(0, "rotate axis -c .: read_ell(ell.s) succeeded");
+    }
+}
+
+/* D5: scale -c . (scale about own center) */
+static void
+test_pd_scale_c_self(struct ged *gedp)
+{
+    /* sca.s at (0,0,0), r=4.  Scale 2 from own center: r → 8. */
+    const char *av[] = {
+	"edit","sca.s","scale","-c",".","2",NULL
+    };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 6, av) == BRLCAD_OK,
+	  "scale -c . 2 returns OK");
+    struct rt_ell_internal ell;
+    if (read_ell(gedp, "sca.s", &ell) == BRLCAD_OK) {
+	CHECK(NEAR_EQUAL(MAGNITUDE(ell.a), 8.0, NEAR_ENOUGH),
+	      "scale -c . 2: sca.s |A| == 8");
+    } else {
+	CHECK(0, "scale -c . 2: read_ell(sca.s) succeeded");
+    }
+}
+
+/* D5b: scale -c . anisotropic */
+static void
+test_pd_scale_c_self_aniso(struct ged *gedp)
+{
+    /* sca.s |A|=8 after D5.  Scale 0.5 0.5 0.5 from own center → |A|=4. */
+    const char *av[] = {
+	"edit","sca.s","scale","-c",".","0.5","0.5","0.5",NULL
+    };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 8, av) == BRLCAD_OK,
+	  "scale -c . 0.5 0.5 0.5 returns OK");
+    struct rt_ell_internal ell;
+    if (read_ell(gedp, "sca.s", &ell) == BRLCAD_OK) {
+	CHECK(NEAR_EQUAL(MAGNITUDE(ell.a), 4.0, NEAR_ENOUGH),
+	      "scale -c . 0.5 0.5 0.5: sca.s |A| ≈ 4 (restored)");
+    } else {
+	CHECK(0, "scale -c . aniso: read_ell(sca.s) succeeded");
+    }
+}
+
+/* D6: rotate implicit angle — single -k/-a pair, no -d
+ *
+ * ell2.s is a fresh ellipsoid at origin with A=(5,0,0) (separate from ell.s
+ * which D4b rotates).
+ *
+ * Single-pair example:
+ *   -k (1,0,0) -a (0,0,1):
+ *     axis_dir = normalize((0,0,1)-(1,0,0)) = (-1,0,1)/√2
+ *     angle_from defaults to axis_from = (1,0,0)
+ *     angle_to  defaults to axis_to   = (0,0,1)
+ *     center defaults to ell2.s keypoint = (0,0,0)
+ *     vf_proj and vt_proj are non-zero (axis_from/to not on the axis) →
+ *     implicit angle is computed and applied.
+ */
+static void
+test_pd_rotate_implicit_angle_single_pair(struct ged *gedp)
+{
+    const char *av[] = {
+	"edit","ell2.s","rotate","-k","1","0","0","-a","0","0","1",NULL
+    };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    int ret = ged_exec(gedp, 11, av);
+    /* The angle derivation from projected arc should succeed for this
+     * configuration (neither reference lies on the axis). */
+    CHECK(ret == BRLCAD_OK,
+	  "rotate -k 1 0 0 -a 0 0 1 (implicit angle, single pair) returns OK");
+}
+
+/* D6b: implicit angle where reference lies exactly on the axis → error */
+static void
+test_pd_rotate_implicit_angle_on_axis(struct ged *gedp)
+{
+    /* axis_dir = Z = (0,0,1).  angle_from defaults to axis_from = (0,0,0).
+     * (0,0,0) − center(0,0,0) = (0,0,0) → projection is zero vector → error. */
+    const char *av[] = {
+	"edit","ell2.s","rotate","-k","0","0","0","-a","0","0","1",NULL
+    };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    int ret = ged_exec(gedp, 11, av);
+    /* axis_from = (0,0,0) = center → vf = (0,0,0) → |vf_proj| = 0 →
+     * "reference lies on axis" error. */
+    CHECK(ret == BRLCAD_ERROR,
+	  "rotate -k 0 0 0 -a 0 0 1 (reference on axis) returns error");
+}
+
+/* D7: rotate two -k/-a pairs — explicit ANGLE_FROM/ANGLE_TO
+ *
+ * ell2.s at origin with A=(5,0,0) (state after D6 applies some implicit
+ * rotation; we use a fresh "ell3.s" to keep tests independent).
+ *
+ * Actually we add ell3.s to the fixture for complete isolation.
+ * If ell3.s is not in the fixture, fall back: just verify OK return.
+ *
+ * Two-pair command:
+ *   First  pair: axis_from=(0,0,0), axis_to=(0,0,1) → rotation axis = +Z
+ *   Second pair: angle_from=(1,0,0), angle_to=(0,1,0)
+ *     proj(angle_from) = (1,0,0) ⊥ Z → keeps (1,0,0)
+ *     proj(angle_to)   = (0,1,0) ⊥ Z → keeps (0,1,0)
+ *     angle = atan2(dot(Z, cross((1,0,0),(0,1,0))), dot((1,0,0),(0,1,0)))
+ *           = atan2(dot(Z,(0,0,1)), 0) = atan2(1,0) = 90°
+ *
+ * ell3.s A=(5,0,0) after 90° Z rotation → A=(0,5,0).
+ */
+static void
+test_pd_rotate_implicit_angle_two_pairs(struct ged *gedp)
+{
+    const char *av[] = {
+	"edit","ell3.s","rotate",
+	"-k","0","0","0","-a","0","0","1",   /* axis: from origin up Z */
+	"-k","1","0","0","-a","0","1","0",   /* angle ref: X→Y = 90° */
+	NULL
+    };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 19, av) == BRLCAD_OK,
+	  "rotate two-pair implicit angle returns OK");
+    struct rt_ell_internal ell;
+    if (read_ell(gedp, "ell3.s", &ell) == BRLCAD_OK) {
+	CHECK(NEAR_EQUAL(ell.a[X], 0.0, 1e-4),
+	      "rotate two-pair: ell3.s A.x ≈ 0 (after 90° Z)");
+	CHECK(NEAR_EQUAL(ell.a[Y], 5.0, 1e-4),
+	      "rotate two-pair: ell3.s A.y ≈ 5 (after 90° Z)");
+	CHECK(NEAR_EQUAL(ell.a[Z], 0.0, 1e-4),
+	      "rotate two-pair: ell3.s A.z ≈ 0");
+    } else {
+	CHECK(0, "rotate two-pair: read_ell(ell3.s) succeeded");
+    }
+}
+
+/* D7b: rotate two pairs with reversed angle references → -90° result */
+static void
+test_pd_rotate_implicit_angle_reversed(struct ged *gedp)
+{
+    /* ell3.s is now at A≈(0,5,0) after D7.
+     * Same axis (Z), but angle ref reversed: (0,1,0)→(1,0,0) = -90°.
+     * Result: A should go back to ≈(5,0,0). */
+    const char *av[] = {
+	"edit","ell3.s","rotate",
+	"-k","0","0","0","-a","0","0","1",
+	"-k","0","1","0","-a","1","0","0",
+	NULL
+    };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 19, av) == BRLCAD_OK,
+	  "rotate two-pair reversed angle returns OK");
+    struct rt_ell_internal ell;
+    if (read_ell(gedp, "ell3.s", &ell) == BRLCAD_OK) {
+	CHECK(NEAR_EQUAL(ell.a[X], 5.0, 1e-4),
+	      "rotate two-pair reversed: ell3.s A.x ≈ 5 (restored)");
+	CHECK(NEAR_EQUAL(ell.a[Y], 0.0, 1e-4),
+	      "rotate two-pair reversed: ell3.s A.y ≈ 0 (restored)");
+    } else {
+	CHECK(0, "rotate two-pair reversed: read_ell(ell3.s) succeeded");
+    }
+}
+
+
+/* ================================================================== *
  * main
  * ================================================================== */
 
@@ -1581,6 +1959,41 @@ main(int ac, char *av[])
         ged_close(gedp);
     }
     bu_vls_free(&pc_path);
+
+    /* ---------------------------------------------------------------- *
+     * Section D — Design-completion features
+     * ---------------------------------------------------------------- */
+    struct bu_vls pd_path = BU_VLS_INIT_ZERO;
+    if (make_temp_path(&pd_path) != BRLCAD_OK) {
+        bu_log("ERROR: cannot create temp file for section D\n"); return 1;
+    }
+    if (create_pd_fixture(bu_vls_cstr(&pd_path)) != BRLCAD_OK) {
+        bu_log("ERROR: section D fixture creation failed\n");
+        bu_vls_free(&pd_path); return 1;
+    }
+    {
+        struct ged *gedp = open_fixture(bu_vls_cstr(&pd_path));
+        if (!gedp) { bu_log("ERROR: ged_open failed (section D)\n"); bu_vls_free(&pd_path); return 1; }
+        bu_log("\n--- Section D: translate design completions ---\n");
+        test_pd_translate_k_coords(gedp);
+        reset_pd_sph(gedp);
+        test_pd_translate_k_self(gedp);
+        reset_pd_sph(gedp);
+        test_pd_translate_component_obj(gedp);
+        test_pd_translate_component_obj_y(gedp);
+        bu_log("--- Section D: rotate -c . and implicit angle ---\n");
+        test_pd_rotate_c_self(gedp);
+        test_pd_rotate_axis_c_self(gedp);
+        test_pd_rotate_implicit_angle_single_pair(gedp);
+        test_pd_rotate_implicit_angle_on_axis(gedp);
+        test_pd_rotate_implicit_angle_two_pairs(gedp);
+        test_pd_rotate_implicit_angle_reversed(gedp);
+        bu_log("--- Section D: scale -c . ---\n");
+        test_pd_scale_c_self(gedp);
+        test_pd_scale_c_self_aniso(gedp);
+        ged_close(gedp);
+    }
+    bu_vls_free(&pd_path);
 
     /* ---------------------------------------------------------------- *
      * Summary

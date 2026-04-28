@@ -284,6 +284,9 @@ _edit_xform_apply(struct ged *gedp,
  * Subcommand implementations
  * ================================================================== */
 
+/* Forward declaration — full definition appears after cmd_tra (below) */
+static int _parse_pos_or_obj(point_t *pos, const char **argv, int argc, struct ged *gedp);
+
 /* ------------------------------------------------------------------ *
  * translate
  * ------------------------------------------------------------------ */
@@ -307,83 +310,162 @@ cmd_translate::exec(struct ged *gedp, void *u_data, int argc, const char **argv)
 
     argc--; argv++;   /* skip "translate" */
 
-    /* ---- Option parsing ------------------------------------------ */
+    /* ---- Manual option scan ----------------------------------------
+     * Supported options:
+     *   -a           → absolute mode
+     *   -r           → relative mode (default)
+     *   -x / -y / -z → per-axis constraint
+     *   -n           → natural origin (accepted, ignored)
+     *   -k POS|OBJ|. → FROM reference position/object/self-ref
+     * Positional args supply the TO destination (coords or object or .)
+     * --------------------------------------------------------------- */
     int abs_flag = 0, rel_flag = 0;
-    int x_only = 0, y_only = 0, z_only = 0, n_flag = 0;
-    struct bu_vls k_vls = BU_VLS_INIT_ZERO;
+    int x_only = 0, y_only = 0, z_only = 0;
 
-    struct bu_opt_desc d[9];
-    BU_OPT(d[0], "a", "absolute", "",  NULL,       &abs_flag, "Absolute position");
-    BU_OPT(d[1], "r", "relative", "",  NULL,       &rel_flag, "Relative offset (default)");
-    BU_OPT(d[2], "x", "",         "",  NULL,       &x_only,   "X axis only");
-    BU_OPT(d[3], "y", "",         "",  NULL,       &y_only,   "Y axis only");
-    BU_OPT(d[4], "z", "",         "",  NULL,       &z_only,   "Z axis only");
-    BU_OPT(d[5], "k", "",         "#", bu_opt_vls, &k_vls,    "FROM reference object");
-    BU_OPT(d[6], "n", "",         "",  NULL,       &n_flag,   "Natural origin");
-    BU_OPT_NULL(d[7]);
+    bool   have_k    = false;
+    bool   k_is_self = false;   /* -k . → use own keypoint */
+    point_t k_pos    = VINIT_ZERO;
 
-    struct bu_vls opterrs = BU_VLS_INIT_ZERO;
-    int nrem = bu_opt_parse(&opterrs, argc, argv, d);
-    bu_vls_free(&opterrs);
+    bool   to_is_self = false;  /* positional "." → use own keypoint */
+    const char *to_name = NULL; /* positional object name */
+    vect_t to_vec = VINIT_ZERO;
+    bool   have_to = false;
 
-    if (nrem < 0) {
-	bu_vls_free(&k_vls);
-	bu_vls_printf(gedp->ged_result_str, "%s\n", usage().c_str());
+    int i = 0;
+    while (i < argc) {
+	if (BU_STR_EQUAL(argv[i], "-a")) { abs_flag = 1; i++; continue; }
+	if (BU_STR_EQUAL(argv[i], "-r")) { rel_flag = 1; i++; continue; }
+	if (BU_STR_EQUAL(argv[i], "-x")) { x_only   = 1; i++; continue; }
+	if (BU_STR_EQUAL(argv[i], "-y")) { y_only   = 1; i++; continue; }
+	if (BU_STR_EQUAL(argv[i], "-z")) { z_only   = 1; i++; continue; }
+	if (BU_STR_EQUAL(argv[i], "-n")) { i++;           continue; }
+
+	if (BU_STR_EQUAL(argv[i], "-k") && i + 1 < argc) {
+	    i++;
+	    if (BU_STR_EQUAL(argv[i], ".")) {
+		/* "." → use the target object's own keypoint as FROM */
+		k_is_self = true;
+		i++;
+	    } else {
+		/* Accept 1–3 floats OR an object name */
+		point_t tmp = VINIT_ZERO;
+		int nr = _parse_pos_or_obj(&tmp, argv + i, argc - i, gedp);
+		if (nr < 1) {
+		    bu_vls_printf(gedp->ged_result_str,
+			"translate: bad -k argument '%s'\n", argv[i]);
+		    return BRLCAD_ERROR;
+		}
+		VMOVE(k_pos, tmp);
+		i += nr;
+	    }
+	    have_k = true;
+	    continue;
+	}
+
+	/* Positional: TO destination — also accept negative numbers like "-5" */
+	{
+	    bool is_neg_num = (argv[i][0] == '-') &&
+		(isdigit((unsigned char)argv[i][1]) || argv[i][1] == '.');
+	    if ((argv[i][0] != '-' || is_neg_num) && !have_to) {
+		if (BU_STR_EQUAL(argv[i], ".")) {
+		    /* "." → use the target object's own keypoint as TO */
+		    to_is_self = true;
+		    have_to    = true;
+		    i++;
+		} else {
+		    int n_coord_flags_l = x_only + y_only + z_only;
+		    if (n_coord_flags_l == 0) {
+			/* Try 3-vector, then 1-scalar, then object name */
+			int vret = bu_opt_vect_t(NULL, argc - i, argv + i, &to_vec);
+			if (vret > 0) {
+			    have_to = true;
+			    i += vret;
+			} else {
+			    fastf_t f;
+			    if (bu_opt_fastf_t(NULL, 1, &argv[i], &f) >= 0) {
+				to_vec[X] = to_vec[Y] = to_vec[Z] = f;
+				have_to = true;
+				i++;
+			    } else {
+				to_name = argv[i];
+				have_to = true;
+				i++;
+			    }
+			}
+		    } else {
+			/* Per-axis mode: each axis flag consumes one value or object name */
+			if (x_only) {
+			    if (bu_opt_fastf_t(NULL, 1, &argv[i], &to_vec[X]) >= 0) {
+				i++;
+			    } else {
+				to_name = argv[i];
+				i++;
+			    }
+			}
+			if (y_only && i < argc) {
+			    if (bu_opt_fastf_t(NULL, 1, &argv[i], &to_vec[Y]) >= 0) {
+				i++;
+			    } else if (!to_name) {
+				to_name = argv[i];
+				i++;
+			    }
+			}
+			if (z_only && i < argc) {
+			    if (bu_opt_fastf_t(NULL, 1, &argv[i], &to_vec[Z]) >= 0) {
+				i++;
+			    } else if (!to_name) {
+				to_name = argv[i];
+				i++;
+			    }
+			}
+			have_to = true;
+		    }
+		}
+		continue;
+	    }
+	}
+
+	i++;  /* skip unrecognised tokens */
+    }
+
+    if (!have_to && !to_is_self && !to_name) {
+	bu_vls_printf(gedp->ged_result_str, "translate: missing destination\n");
 	return BRLCAD_ERROR;
     }
 
-    const char *k_arg = bu_vls_strlen(&k_vls) ? bu_vls_cstr(&k_vls) : NULL;
-    int n_coord_flags = x_only + y_only + z_only;
-
-    /* ---- Parse destination coordinates / object name -------------- */
-    vect_t to_vec = VINIT_ZERO;
-    const char *to_name = NULL;
-
-    if (n_coord_flags == 0) {
-	/* Try as 3-component vector first */
-	int vret = bu_opt_vect_t(NULL, nrem, argv, &to_vec);
-	if (vret > 0) {
-	    /* got coordinates */
-	} else if (nrem >= 1) {
-	    /* treat as object name */
-	    to_name = argv[0];
-	} else {
-	    bu_vls_free(&k_vls);
-	    bu_vls_printf(gedp->ged_result_str, "translate: missing destination\n");
-	    return BRLCAD_ERROR;
-	}
-    } else {
-	/* Read one float per selected axis, in X/Y/Z order */
-	int ci = 0;
-	if (x_only && ci < nrem && bu_opt_fastf_t(NULL, 1, &argv[ci], &to_vec[X]) < 0) {
-	    bu_vls_free(&k_vls);
-	    bu_vls_printf(gedp->ged_result_str, "translate: bad X value '%s'\n", argv[ci]);
-	    return BRLCAD_ERROR;
-	}
-	if (x_only) ci++;
-	if (y_only && ci < nrem && bu_opt_fastf_t(NULL, 1, &argv[ci], &to_vec[Y]) < 0) {
-	    bu_vls_free(&k_vls);
-	    bu_vls_printf(gedp->ged_result_str, "translate: bad Y value '%s'\n", argv[ci]);
-	    return BRLCAD_ERROR;
-	}
-	if (y_only) ci++;
-	if (z_only && ci < nrem && bu_opt_fastf_t(NULL, 1, &argv[ci], &to_vec[Z]) < 0) {
-	    bu_vls_free(&k_vls);
-	    bu_vls_printf(gedp->ged_result_str, "translate: bad Z value '%s'\n", argv[ci]);
-	    return BRLCAD_ERROR;
-	}
-    }
-
-    /* Capture locals for the lambda */
     int  flag_i    = ctx->flag_i;
+    int  n_coord_flags = x_only + y_only + z_only;
     bool do_abs    = (abs_flag && !rel_flag);
 
-    int ret = _edit_xform_apply(gedp, ctx->dp, flag_i,
+    return _edit_xform_apply(gedp, ctx->dp, flag_i,
 	[&](struct rt_edit *s) -> int
 	{
-	    vect_t target;
+	    /* Resolve FROM position (k) */
+	    point_t from_kp = VINIT_ZERO;
+	    bool     have_from = false;
+	    if (k_is_self) {
+		VMOVE(from_kp, s->e_keypoint);
+		have_from = true;
+	    } else if (have_k) {
+		VMOVE(from_kp, k_pos);
+		have_from = true;
+	    }
 
-	    if (to_name) {
+	    /* Resolve TO position */
+	    vect_t target;
+	    if (to_is_self) {
+		/* "." as TO: use own keypoint — meaningful when -k FROM is given */
+		point_t own_kp;
+		VMOVE(own_kp, s->e_keypoint);
+		if (have_from) {
+		    vect_t delta;
+		    VSUB2(delta, own_kp, from_kp);
+		    VADD2(target, s->e_keypoint, delta);
+		} else {
+		    /* No -k: translate by zero (no-op, but valid) */
+		    VMOVE(target, s->e_keypoint);
+		}
+	    } else if (to_name) {
 		/* TO is an object name */
 		point_t to_kp;
 		if (_edit_get_obj_keypoint(&to_kp, to_name, gedp) != BRLCAD_OK) {
@@ -391,14 +473,15 @@ cmd_translate::exec(struct ged *gedp, void *u_data, int argc, const char **argv)
 			"translate: cannot resolve object '%s'\n", to_name);
 		    return BRLCAD_ERROR;
 		}
-		if (k_arg) {
+		if (n_coord_flags > 0) {
+		    /* Per-component extraction: use flagged axes from to_kp,
+		     * keep other axes at current keypoint (absolute move). */
+		    VMOVE(target, s->e_keypoint);
+		    if (x_only) target[X] = to_kp[X];
+		    if (y_only) target[Y] = to_kp[Y];
+		    if (z_only) target[Z] = to_kp[Z];
+		} else if (have_from) {
 		    /* Move so that FROM keypoint coincides with TO keypoint */
-		    point_t from_kp;
-		    if (_edit_get_obj_keypoint(&from_kp, k_arg, gedp) != BRLCAD_OK) {
-			bu_vls_printf(gedp->ged_result_str,
-			    "translate: cannot resolve -k object '%s'\n", k_arg);
-			return BRLCAD_ERROR;
-		    }
 		    vect_t delta;
 		    VSUB2(delta, to_kp, from_kp);
 		    VADD2(target, s->e_keypoint, delta);
@@ -414,6 +497,13 @@ cmd_translate::exec(struct ged *gedp, void *u_data, int argc, const char **argv)
 		    if (!x_only) target[X] = s->e_keypoint[X];
 		    if (!y_only) target[Y] = s->e_keypoint[Y];
 		    if (!z_only) target[Z] = s->e_keypoint[Z];
+		}
+		/* When -k FROM is given alongside explicit coordinates,
+		 * treat to_vec as the TO reference and move by (TO - FROM). */
+		if (have_from) {
+		    vect_t delta;
+		    VSUB2(delta, target, from_kp);
+		    VADD2(target, s->e_keypoint, delta);
 		}
 	    } else {
 		/* Relative translate (default): to_vec is a delta */
@@ -434,9 +524,6 @@ cmd_translate::exec(struct ged *gedp, void *u_data, int argc, const char **argv)
 	    rt_edit_process(s);
 	    return BRLCAD_OK;
 	});
-
-    bu_vls_free(&k_vls);
-    return ret;
 }
 
 
@@ -546,12 +633,24 @@ cmd_rotate::exec(struct ged *gedp, void *u_data, int argc, const char **argv)
      *   -R                → angles are radians                        *
      *   -x / -y / -z      → Euler single-axis constrain               *
      *   -o                → override axis constraint (Euler mode)      *
-     *   -k POS|OBJ        → axis-from position (axis mode)            *
-     *   -a POS|OBJ        → axis-to position, absolute (axis mode)    *
-     *   -r POS|OBJ        → axis-to position, relative (axis mode)    *
-     *   -c POS|OBJ        → rotation center                           *
+     *   -k POS|OBJ        → axis-from (1st use) or angle-from (2nd)  *
+     *   -a POS|OBJ        → axis-to   (1st use) or angle-to  (2nd)   *
+     *   -r POS|OBJ        → axis-to relative or angle-to relative     *
+     *   -c POS|OBJ|.      → rotation center (.=own keypoint)          *
      *   -O POS|OBJ        → angle origin (angle-from reference)       *
      *   -d DEGREES        → explicit rotation angle (axis mode)       *
+     *                                                                  *
+     * Two -k/-a pairs are supported in axis mode:                     *
+     *   first  -k/-a: defines the rotation axis                       *
+     *   second -k/-a: defines ANGLE_FROM / ANGLE_TO for implicit      *
+     *                 angle derivation (no -d required when present)  *
+     *                                                                  *
+     * When axis mode is active and no explicit angle (-d or positional)*
+     * is given, the rotation angle is derived automatically by         *
+     * projecting the ANGLE_FROM → ANGLE_TO arc onto the plane         *
+     * perpendicular to the axis through the rotation center.  When no *
+     * explicit angle references are supplied, AXIS_FROM and AXIS_TO   *
+     * serve double duty as ANGLE_FROM and ANGLE_TO.                   *
      * ----------------------------------------------------------------*/
     bool rad_flag = false;
     bool x_only = false, y_only = false, z_only = false;
@@ -562,8 +661,15 @@ cmd_rotate::exec(struct ged *gedp, void *u_data, int argc, const char **argv)
     point_t axis_from   = VINIT_ZERO;   /* axis start position */
     point_t axis_to     = VINIT_ZERO;   /* axis end   position */
 
+    /* Angle reference state (second -k/-a pair, or falls back to axis pts) */
+    bool have_angle_from = false, have_angle_to = false;
+    bool angle_to_rel [[maybe_unused]] = false;
+    point_t angle_from_pos = VINIT_ZERO;
+    point_t angle_to_pos   = VINIT_ZERO;
+
     /* Center / angle-origin */
     bool have_center = false, have_angle_origin = false;
+    bool center_is_self = false;   /* -c . → use own keypoint as pivot */
     point_t center       = VINIT_ZERO;
     point_t angle_origin = VINIT_ZERO;
 
@@ -603,15 +709,21 @@ cmd_rotate::exec(struct ged *gedp, void *u_data, int argc, const char **argv)
 
 	if (BU_STR_EQUAL(argv[i], "-c")) {
 	    i++;
-	    int nr = _parse_pos_or_obj(&center, argv + i, argc - i, gedp);
-	    if (nr < 1) {
-		bu_vls_printf(gedp->ged_result_str,
-		    "rotate: bad -c center argument '%s'\n",
-		    (i < argc) ? argv[i] : "(missing)");
-		return BRLCAD_ERROR;
+	    if (i < argc && BU_STR_EQUAL(argv[i], ".")) {
+		/* "." → use the target object's own keypoint as center */
+		center_is_self = true;
+		i++;
+	    } else {
+		int nr = _parse_pos_or_obj(&center, argv + i, argc - i, gedp);
+		if (nr < 1) {
+		    bu_vls_printf(gedp->ged_result_str,
+			"rotate: bad -c center argument '%s'\n",
+			(i < argc) ? argv[i] : "(missing)");
+		    return BRLCAD_ERROR;
+		}
+		have_center = true;
+		i += nr;
 	    }
-	    have_center = true;
-	    i += nr;
 	    continue;
 	}
 
@@ -645,16 +757,39 @@ cmd_rotate::exec(struct ged *gedp, void *u_data, int argc, const char **argv)
 		return BRLCAD_ERROR;
 	    }
 	    if (pending == 'k') {
-		VMOVE(axis_from, tmp_pos);
-		have_axis_from = true;
+		if (!have_axis_to) {
+		    /* First -k: sets axis-from */
+		    VMOVE(axis_from, tmp_pos);
+		    have_axis_from = true;
+		} else {
+		    /* Second -k: sets angle-from reference */
+		    VMOVE(angle_from_pos, tmp_pos);
+		    have_angle_from = true;
+		}
 	    } else if (pending == 'a') {
-		VMOVE(axis_to, tmp_pos);
-		have_axis_to  = true;
-		axis_to_rel   = false;
+		if (!have_axis_to) {
+		    /* First -a: sets axis-to (absolute) */
+		    VMOVE(axis_to, tmp_pos);
+		    have_axis_to  = true;
+		    axis_to_rel   = false;
+		} else {
+		    /* Second -a: sets angle-to reference (absolute) */
+		    VMOVE(angle_to_pos, tmp_pos);
+		    have_angle_to  = true;
+		    angle_to_rel   = false;
+		}
 	    } else { /* 'r' */
-		VMOVE(axis_to, tmp_pos);
-		have_axis_to  = true;
-		axis_to_rel   = true;
+		if (!have_axis_to) {
+		    /* First -r: sets axis-to (relative to axis-from) */
+		    VMOVE(axis_to, tmp_pos);
+		    have_axis_to  = true;
+		    axis_to_rel   = true;
+		} else {
+		    /* Second -r: sets angle-to reference (relative) */
+		    VMOVE(angle_to_pos, tmp_pos);
+		    have_angle_to  = true;
+		    angle_to_rel   = true;
+		}
 	    }
 	    pending = 0;
 	    i += nr;
@@ -691,10 +826,14 @@ cmd_rotate::exec(struct ged *gedp, void *u_data, int argc, const char **argv)
 
     if (have_axis_to) {
 	/* ---- AXIS MODE: rotate around an explicit axis ----------- *
-	 * Build the axis direction vector, get the angle, call        *
-	 * bn_mat_arb_rot to produce a pure rotation matrix            *
-	 * (about the origin), then let edit_srot apply it about       *
-	 * s->e_keypoint.                                              */
+	 * Build the axis direction vector.  The rotation angle is     *
+	 * either:                                                      *
+	 *   (a) explicit via -d DEGREES or a trailing positional      *
+	 *   (b) derived from projecting ANGLE_FROM→ANGLE_TO onto the  *
+	 *       plane perpendicular to the axis through the center     *
+	 *                                                              *
+	 * When no explicit angle reference pair is supplied, AXIS_FROM *
+	 * and AXIS_TO double as ANGLE_FROM and ANGLE_TO.              */
 
 	/* Build axis direction */
 	vect_t axis_dir;
@@ -712,42 +851,84 @@ cmd_rotate::exec(struct ged *gedp, void *u_data, int argc, const char **argv)
 	}
 	VSCALE(axis_dir, axis_dir, 1.0 / axlen);
 
-	/* Get the rotation angle (in radians for bn_mat_arb_rot) */
-	fastf_t angle_rad;
-	if (have_d_angle) {
-	    angle_rad = rad_flag ? d_angle : d_angle * DEG2RAD;
-	} else if (n_angle_vals >= 1) {
-	    /* Use the first positional value as the rotation angle */
-	    fastf_t aval = angles[X];
-	    angle_rad = rad_flag ? aval : aval * DEG2RAD;
-	} else {
-	    bu_vls_printf(gedp->ged_result_str,
-		"rotate (axis mode): missing rotation angle; "
-		"use -d DEGREES or provide a positional angle argument\n");
-	    return BRLCAD_ERROR;
+	/* Determine whether we use an explicit angle or compute it. */
+	bool have_explicit_angle = (have_d_angle || n_angle_vals >= 1);
+	fastf_t explicit_angle_rad = 0.0;
+	if (have_explicit_angle) {
+	    fastf_t aval = have_d_angle ? d_angle : angles[X];
+	    explicit_angle_rad = rad_flag ? aval : aval * DEG2RAD;
 	}
 
-	/* Build a pure rotation matrix about the origin. edit_srot    *
-	 * will translate it to/from the rotation center (e_keypoint). */
-	mat_t pure_rot;
-	MAT_IDN(pure_rot);
-	point_t origin = VINIT_ZERO;
-	bn_mat_arb_rot(pure_rot, origin, axis_dir, angle_rad);
+	/* Implicit angle references: default to (axis_from, axis_to)  *
+	 * when no explicit angle reference pair was given.             */
+	point_t af_ref, at_ref;
+	VMOVE(af_ref, have_angle_from ? angle_from_pos : axis_from);
+	VMOVE(at_ref, have_angle_to   ? angle_to_pos   : axis_to);
 
-	/* Rotation center: use supplied -c CENTER, otherwise falls    *
-	 * through to e_keypoint (the primitive's natural keypoint).   */
-	bool use_custom_center = have_center;
+	/* Rotation center: -c CENTER overrides, then -O, then default */
+	bool use_custom_center = have_center || center_is_self;
 	point_t rot_center = VINIT_ZERO;
-	if (use_custom_center) VMOVE(rot_center, center);
+	if (have_center)      VMOVE(rot_center, center);
 	else if (have_angle_origin) VMOVE(rot_center, angle_origin);
+	/* center_is_self: resolved inside lambda from s->e_keypoint */
 
 	return _edit_xform_apply(gedp, ctx->dp, ctx->flag_i,
 	    [&](struct rt_edit *s) -> int
 	    {
-		if (use_custom_center || have_angle_origin) {
-		    VMOVE(s->e_keypoint, rot_center);
-		    s->e_keyfixed = 1;
+		/* Resolve actual rotation center */
+		point_t actual_center;
+		if (center_is_self) {
+		    VMOVE(actual_center, s->e_keypoint);
+		} else if (use_custom_center || have_angle_origin) {
+		    VMOVE(actual_center, rot_center);
+		} else {
+		    VMOVE(actual_center, s->e_keypoint);
 		}
+
+		/* Determine the rotation angle in radians */
+		fastf_t angle_rad;
+		if (have_explicit_angle) {
+		    angle_rad = explicit_angle_rad;
+		} else {
+		    /* Derive angle by projecting af_ref and at_ref onto   *
+		     * the plane perpendicular to axis_dir through center. */
+		    vect_t vf, vt;
+		    VSUB2(vf, af_ref, actual_center);
+		    VSUB2(vt, at_ref, actual_center);
+
+		    /* Remove components along the rotation axis */
+		    fastf_t df = VDOT(vf, axis_dir);
+		    fastf_t dt = VDOT(vt, axis_dir);
+		    vect_t vf_proj, vt_proj;
+		    VJOIN1(vf_proj, vf, -df, axis_dir);
+		    VJOIN1(vt_proj, vt, -dt, axis_dir);
+
+		    fastf_t lf = MAGNITUDE(vf_proj);
+		    fastf_t lt = MAGNITUDE(vt_proj);
+		    if (lf < SMALL_FASTF || lt < SMALL_FASTF) {
+			bu_vls_printf(gedp->ged_result_str,
+			    "rotate: angle reference point lies on the "
+			    "rotation axis; cannot derive rotation angle\n");
+			return BRLCAD_ERROR;
+		    }
+
+		    /* Signed angle from vf_proj to vt_proj around axis_dir:
+		     *   angle = atan2(dot(axis, cross(vf, vt)), dot(vf, vt)) */
+		    vect_t cross_vf_vt;
+		    VCROSS(cross_vf_vt, vf_proj, vt_proj);
+		    angle_rad = atan2(VDOT(axis_dir, cross_vf_vt),
+				     VDOT(vf_proj,  vt_proj));
+		}
+
+		/* Build a pure rotation matrix about the world origin,     *
+		 * then apply it with the resolved center as the pivot.     */
+		mat_t pure_rot;
+		MAT_IDN(pure_rot);
+		point_t world_origin = VINIT_ZERO;
+		bn_mat_arb_rot(pure_rot, world_origin, axis_dir, angle_rad);
+
+		VMOVE(s->e_keypoint, actual_center);
+		s->e_keyfixed = 1;
 		MAT_IDN(s->acc_rot_sol);
 		MAT_COPY(s->incr_change, pure_rot);
 		bn_mat_mul2(s->incr_change, s->acc_rot_sol);
@@ -813,18 +994,22 @@ cmd_rotate::exec(struct ged *gedp, void *u_data, int argc, const char **argv)
 	angles[Z] *= RAD2DEG;
     }
 
-    bool use_euler_center = have_center;
+    bool use_euler_center = have_center || center_is_self;
     point_t euler_center = VINIT_ZERO;
-    if (use_euler_center) VMOVE(euler_center, center);
+    if (have_center) VMOVE(euler_center, center);
     else if (have_angle_origin) {
 	use_euler_center = true;
 	VMOVE(euler_center, angle_origin);
     }
+    /* center_is_self: resolved inside lambda */
 
     return _edit_xform_apply(gedp, ctx->dp, ctx->flag_i,
 	[&](struct rt_edit *s) -> int
 	{
-	    if (use_euler_center) {
+	    if (center_is_self) {
+		/* Own keypoint is already in s->e_keypoint; just pin it */
+		s->e_keyfixed = 1;
+	    } else if (use_euler_center) {
 		VMOVE(s->e_keypoint, euler_center);
 		s->e_keyfixed = 1;
 	    }
@@ -873,6 +1058,7 @@ cmd_scale::exec(struct ged *gedp, void *u_data, int argc, const char **argv)
     bool have_k = false, have_a = false, have_r = false;
 
     bool have_center = false;
+    bool center_is_self = false;   /* -c . → use own keypoint as pivot */
     point_t center_pos = VINIT_ZERO;
 
     vect_t pos_vals = VINIT_ZERO;
@@ -924,14 +1110,20 @@ cmd_scale::exec(struct ged *gedp, void *u_data, int argc, const char **argv)
 	    have_r = true;
 	} else if (BU_STR_EQUAL(argv[i], "-c") && i + 1 < argc) {
 	    i++;
-	    int nr = _parse_pos_or_obj(&center_pos, argv + i, argc - i, gedp);
-	    if (nr < 1) {
-		bu_vls_printf(gedp->ged_result_str,
-		    "scale: bad -c center value '%s'\n", argv[i]);
-		return BRLCAD_ERROR;
+	    if (BU_STR_EQUAL(argv[i], ".")) {
+		/* "." → use the target object's own keypoint as pivot */
+		center_is_self = true;
+		i++;
+	    } else {
+		int nr = _parse_pos_or_obj(&center_pos, argv + i, argc - i, gedp);
+		if (nr < 1) {
+		    bu_vls_printf(gedp->ged_result_str,
+			"scale: bad -c center value '%s'\n", argv[i]);
+		    return BRLCAD_ERROR;
+		}
+		have_center = true;
+		i += nr;
 	    }
-	    have_center = true;
-	    i += nr;
 	} else if (BU_STR_EQUAL(argv[i], "-n")) {
 	    i++;
 	} else if (argv[i][0] != '-') {
@@ -1007,7 +1199,10 @@ cmd_scale::exec(struct ged *gedp, void *u_data, int argc, const char **argv)
 	return _edit_xform_apply(gedp, ctx->dp, ctx->flag_i,
 	    [&](struct rt_edit *s) -> int
 	    {
-		if (have_center) {
+		if (center_is_self) {
+		    /* Own keypoint is already in s->e_keypoint; just pin it */
+		    s->e_keyfixed = 1;
+		} else if (have_center) {
 		    VMOVE(s->e_keypoint, center_pos);
 		    s->e_keyfixed = 1;
 		}
@@ -1053,7 +1248,9 @@ cmd_scale::exec(struct ged *gedp, void *u_data, int argc, const char **argv)
 
 	    /* Resolve the scale center in primitive-local space */
 	    point_t c_world = VINIT_ZERO;
-	    if (have_center) {
+	    if (center_is_self) {
+		VMOVE(c_world, s->e_keypoint);
+	    } else if (have_center) {
 		VMOVE(c_world, center_pos);
 	    } else {
 		/* Use the primitive keypoint */
