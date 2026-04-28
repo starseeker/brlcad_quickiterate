@@ -1697,9 +1697,10 @@ test_pd_rotate_implicit_angle_on_axis(struct ged *gedp)
     };
     bu_vls_trunc(gedp->ged_result_str, 0);
     int ret = ged_exec(gedp, 11, av);
-    /* Should fail gracefully — error about reference on axis, not a crash. */
-    (void)ret;
-    CHECK(1, "rotate -k 0 0 0 -a 0 0 1 (reference on axis) does not crash");
+    /* axis_from = (0,0,0) = center → vf = (0,0,0) → |vf_proj| = 0 →
+     * "reference lies on axis" error. */
+    CHECK(ret == BRLCAD_ERROR,
+	  "rotate -k 0 0 0 -a 0 0 1 (reference on axis) returns error");
 }
 
 /* D7: rotate two -k/-a pairs — explicit ANGLE_FROM/ANGLE_TO

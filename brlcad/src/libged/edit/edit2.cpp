@@ -1007,8 +1007,7 @@ cmd_rotate::exec(struct ged *gedp, void *u_data, int argc, const char **argv)
 	[&](struct rt_edit *s) -> int
 	{
 	    if (center_is_self) {
-		/* Use own keypoint (already the default, but set explicit) */
-		VMOVE(s->e_keypoint, s->e_keypoint);
+		/* Own keypoint is already in s->e_keypoint; just pin it */
 		s->e_keyfixed = 1;
 	    } else if (use_euler_center) {
 		VMOVE(s->e_keypoint, euler_center);
@@ -1201,7 +1200,7 @@ cmd_scale::exec(struct ged *gedp, void *u_data, int argc, const char **argv)
 	    [&](struct rt_edit *s) -> int
 	    {
 		if (center_is_self) {
-		    /* Use own keypoint — already the default, but mark explicit */
+		    /* Own keypoint is already in s->e_keypoint; just pin it */
 		    s->e_keyfixed = 1;
 		} else if (have_center) {
 		    VMOVE(s->e_keypoint, center_pos);
