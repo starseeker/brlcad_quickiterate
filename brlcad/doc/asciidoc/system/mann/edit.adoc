@@ -169,7 +169,7 @@ model, and examples.
 ====
   mged> **edit ell.s rotate 0 0 90**
   mged> **edit ell.s rotate -z 90**
-  mged> **edit cube rotate -k sphere1 -a sphere2**
+  mged> **edit cube rotate -k sphere1 -a sphere2 -d 90**
 ====
 
 

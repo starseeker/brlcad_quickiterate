@@ -57,9 +57,10 @@ rotation is further constrained to a specific AXIS direction.
   the axis running from sphere1 to sphere2.
 
 Rotation center defaults to the bounding-box center of the target
-object.  A rotation of exactly 180° with no explicit axis is rejected
-as ambiguous; use `-k` / `-a` to specify the axis, or use `-z 180`
-to force the Z-axis.
+object.  A rotation of exactly 180° without specifying an axis (e.g.,
+`rotate 180`) is rejected as ambiguous because the rotation direction
+is undefined.  Supply an explicit axis by using `-z 180` to force the
+Z-axis, or use axis mode (`-k` / `-a`) to supply a direction vector.
 
 NOTE: The original *edit* command design also described a rich
 ANGLE_FROM / ANGLE_TO reference-object model that allowed specifying
@@ -178,10 +179,12 @@ Return counterclockwise by 315°:
 
   mged> **edit cube rotate -z 315**
 
-The following are *not* valid in the current implementation and will
-fail or produce unexpected results: `rotate -c 0 0 0 -d 0 0 45`
-(`-d` takes only one scalar, not three), `rotate -c . 0 0 45`
-(`.` is not a valid object name for the `-c` argument).
+The following are *not* valid in the current implementation:
+`rotate -c 0 0 0 -d 45` is fine, but `rotate -c 0 0 0 -d 0 0 45`
+is incorrect because `-d` takes only one scalar angle value — the
+`0 0` after `-d` would be parsed as the single angle (zero) with
+`0 45` left as extra positional args.  Likewise `rotate -c . 0 0 45`
+fails because `.` is not a valid database object name for `-c`.
 ====
 
 .Rotate the cube so that the forward edge rolls toward the viewer
@@ -271,11 +274,11 @@ Using a Z-axis axis mode:
 When you want to rotate the cube so that a face that currently points
 toward +Z instead points toward sphere1, you need to:
 
-1. Determine the current "up" direction (here assumed to be +Z):
-   AXIS_FROM = `0 0 1`, or equivalently any point along +Z.
+1. Identify the current face direction (here +Z, so a point on that
+   direction is `0 0 1`): set AXIS_FROM = `0 0 1`.
 2. Use sphere1 as AXIS_TO (the target direction).
-3. Determine the required rotation angle.  If sphere1 is in the
-   XY-plane at a 45° bearing, the required angle is 90°.
+3. Determine the required rotation angle.  If sphere1 lies in the
+   XY-plane at a 45° bearing from the cube, the required angle is 90°.
 
   mged> **edit cube rotate -k 0 0 1 -a sphere1 -d 90**
 

@@ -63,15 +63,13 @@ Global options (`-S`, `-f`, `-F`, `-i`) are described in
   stay at their current values.  Multiple axis flags may be combined.
 
 *-k* FROM_OBJECT::
-  Set the reference keypoint (FROM position).  *FROM* must be:
-+
-  * An object name — its bounding-box center is used as FROM.
-    (Numeric coordinate values are *not* accepted for `-k` in
-    translate; pass them as a named reference object or use the
-    absolute `-a X Y Z` form without `-k`.)
-  * The batch marker `.` as a geometry specifier on the command line
-    causes each target OBJECT to be operated on individually, but
-    `.` is *not* valid as an object name argument to `-k`.
+  Set the reference keypoint (FROM position).  *FROM* must be an
+  object name — its bounding-box center is used as FROM.  Numeric
+  coordinate values are *not* accepted for `-k` in translate; to move
+  relative to an arbitrary coordinate, use `-a X Y Z` without `-k`.
+  The batch marker `.` can be used as the *geometry specifier* on the
+  command line, but it is *not* a valid object name for the `-k`
+  argument.
 +
   When `-k` is supplied together with `-a OBJ2`, the delta
   FROM→TO is applied to the target object (rather than moving it to
@@ -85,13 +83,13 @@ Global options (`-S`, `-f`, `-F`, `-i`) are described in
   The destination.  May be:
 +
   * A coordinate triple `x y z` (absolute if `-a`, relative if `-r`).
-  * A single scalar with an axis flag (e.g., `-a -z 7.8`).
-  * An object name (moves to that object's keypoint; use `-a` flag).
+  * A single scalar combined with an axis flag (e.g., `-a -z 7.8`).
+  * An object name (moves to that object's keypoint; requires `-a`).
 +
-  NOTE: The batch marker `.` is supported as the *geometry specifier*
-  portion of the command (the object being edited), but `.` is *not*
-  a valid object name for the *TO* argument because it is not a real
-  database entry.
+  The batch marker `.` is valid only as the *geometry specifier* (the
+  object being edited, on the command line before the subcommand), not
+  as a *TO* argument.  Using `.` as TO causes a database lookup failure
+  because `.` is not a real database entry.
 
 == EXAMPLES
 
@@ -149,8 +147,12 @@ vector (doubling its distance from the origin).  Because the translate
 command currently acts on one object at a time, issue individual
 commands:
 
-  mged> **edit sph.s translate -k sph.s -a sph.s**   ← no-op: stays at current position
-  mged> **edit sph.s translate -r 10 0 0**             ← or apply the known delta directly
+  mged> **edit sph.s translate -k sph.s -a sph.s**
+
+The command above is a no-op (FROM and TO are the same point).
+Apply the known delta directly instead:
+
+  mged> **edit sph.s translate -r 10 0 0**
 
 For a genuine "explode from origin" effect when sph.s is at (10,0,0)
 and other.s is at (20,0,0):

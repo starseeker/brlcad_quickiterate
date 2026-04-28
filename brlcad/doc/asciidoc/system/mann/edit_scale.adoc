@@ -54,12 +54,12 @@ In the current *edit2* implementation this model is simplified:
 * *Positional* — supply 1 or 3 scalar factor values directly.
 * *`-r` explicit* — same as positional, with an explicit flag.
 * *`-k FROM -a TO`* — the effective factor vector is computed as
-  `TO - FROM` (simple vector subtraction).  This matches the original
-  model only when FROM is the origin; `scale -k 0 0 0 -a 2 2 2`
-  yields factors `{2, 2, 2}` which doubles the object, matching the
-  original `FACTOR_TO / SCALE_TO = 2/1 = 2`.  When FROM is not the
-  origin the subtracted vector is the scale factor applied directly,
-  not the ratio of two ruler lengths.
+  `TO - FROM` (simple vector subtraction).  When FROM is the origin,
+  this is simply TO: `scale -k 0 0 0 -a 2 2 2` yields factors `{2, 2,
+  2}` which doubles the object (2 - 0 = 2).  When FROM is not the
+  origin the subtracted vector is used directly as the scale factor;
+  there is no ratio division, unlike the original design's SCALE ruler
+  model.
 * When `-r` is present alongside `-k`/`-a`, the explicit `-r` value
   overrides the FROM/TO vector.
 
