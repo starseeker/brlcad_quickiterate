@@ -19,6 +19,21 @@
  */
 /** @file mged/dozoom.c
  *
+ * Phase 5 (drawing_stack_modernization): MGED scene rendering via the BSG
+ * draw path.
+ *
+ * The non-stereo rendering path (which_eye == 0) now delegates entirely to
+ * dm_draw_objs(), which uses bsg_view_traverse() when a BSG scene root is
+ * present.  Edit-mode objects (s_iflag == UP) are rendered at their
+ * edited position by setting view_state->vs_gvp->gv_edit_mat to point at
+ * vs_model2objview before the draw call; dm_draw_scene_obj() picks this up
+ * and swaps the modelview matrix for the duration of each such object.
+ *
+ * The stereo path (which_eye != 0) retains the legacy dm_draw_head_dl()
+ * implementation: stereo uses a combined perspective + eye-offset matrix that
+ * cannot be expressed cleanly through the separate dm_loadpmatrix / modelview
+ * split that dm_draw_objs() expects.  It is left as a known TODO for a
+ * follow-on phase.
  */
 
 #include "common.h"
@@ -26,6 +41,8 @@
 #include <math.h>
 #include "vmath.h"
 #include "bn.h"
+#include "bsg/util.h"
+#include "dm/view.h"
 
 #include "./mged.h"
 #include "./sedit.h"
@@ -34,26 +51,25 @@
 mat_t perspective_mat;
 mat_t identity;
 
+/* Assumed physical screen width in mm (stereo eye-separation calculation) */
+#ifndef SCR_WIDTH_PHYS
+#  define SCR_WIDTH_PHYS 330
+#endif
 
 /* This is a holding place for the current display managers default wireframe color */
 unsigned char geometry_default_color[] = { 255, 0, 0 };
 
 /*
- * This routine reviews all of the solids in the solids table,
- * to see if they are visible within the current viewing
- * window.  If they are, the routine computes the scale and appropriate
- * screen position for the object.
+ * Paint one eye of the scene.
+ *
+ * which_eye == 0  Normal (non-stereo) view — BSG path.
+ * which_eye == 1  Stereo right eye — legacy dl_* path.
+ * which_eye == 2  Stereo left eye  — legacy dl_* path.
  */
 void
 dozoom(struct mged_state *s, int which_eye)
 {
-    int ndrawn = 0;
-    fastf_t inv_viewsize = 0.0;
-    mat_t newmat = MAT_INIT_ZERO;
-    matp_t mat = newmat;
-    short r = -1;
-    short g = -1;
-    short b = -1;
+    struct bview *v = view_state->vs_gvp;
 
     /*
      * The vectorThreshold stuff in libdm may turn the
@@ -62,152 +78,171 @@ dozoom(struct mged_state *s, int which_eye)
     struct mged_dm *save_dm_list = s->mged_curr_dm;
 
     s->mged_curr_dm->dm_ndrawn = 0;
-    inv_viewsize = view_state->vs_gvp->gv_isize;
 
-    /*
-     * Draw all solids not involved in an edit.
-     */
-    if (view_state->vs_gvp->gv_perspective < SMALL_FASTF && EQUAL(view_state->vs_gvp->gv_eye_pos[Z], 1.0)) {
-	mat = view_state->vs_gvp->gv_model2view;
-    } else {
-	/*
-	 * There are two strategies that could be used:
-	 * 1) Assume a standard head location w.r.t. the
-	 * screen, and fix the perspective angle.
-	 * 2) Based upon the perspective angle, compute
-	 * where the head should be to achieve that field of view.
-	 * Try strategy #2 for now.
-	 */
-	fastf_t to_eye_scr;	/* screen space dist to eye */
-	fastf_t eye_delta_scr;	/* scr, 1/2 inter-occular dist */
-	point_t l, h, eye;
-
-	/* Determine where eye should be */
-	to_eye_scr = 1 / tan(view_state->vs_gvp->gv_perspective * DEG2RAD * 0.5);
-
-#define SCR_WIDTH_PHYS 330	/* Assume a 330 mm wide screen */
-
-	eye_delta_scr = mged_variables->mv_eye_sep_dist * 0.5 / SCR_WIDTH_PHYS;
-
-	VSET(l, -1.0, -1.0, -1.0);
-	VSET(h, 1.0, 1.0, 200.0);
-	if (which_eye) {
-	    printf("d=%gscr, d=%gmm, delta=%gscr\n", to_eye_scr, to_eye_scr * SCR_WIDTH_PHYS, eye_delta_scr);
-	    VPRINT("l", l);
-	    VPRINT("h", h);
+    /* ------------------------------------------------------------------
+     * Non-stereo path: clean BSG rendering via dm_draw_objs().
+     * ------------------------------------------------------------------ */
+    if (which_eye == 0) {
+	/* Ensure gv_pmat is current.  The GED "perspective" command normally
+	 * keeps this in sync, but if the shear-perspective (gv_eye_pos[Z] !=
+	 * 1.0) mode is in use we recompute it here. */
+	if (v->gv_perspective >= SMALL_FASTF) {
+	    if (!EQUAL(v->gv_eye_pos[Z], 1.0)) {
+		point_t l, h;
+		VSET(l, -1.0, -1.0, -1.0);
+		VSET(h,  1.0,  1.0, 200.0);
+		deering_persp_mat(v->gv_pmat, l, h, v->gv_eye_pos);
+		/* Keep the file-scope copy for titles.c which reads it. */
+		MAT_COPY(perspective_mat, v->gv_pmat);
+	    } else {
+		persp_mat(perspective_mat, v->gv_perspective,
+			  (fastf_t)1.0f, (fastf_t)0.01f,
+			  (fastf_t)1.0e10f, (fastf_t)1.0f);
+		MAT_COPY(v->gv_pmat, perspective_mat);
+	    }
 	}
+
+	/* Expose the edit-mode matrix on the view so dm_draw_scene_obj()
+	 * can use it for illuminated objects without a second render pass. */
+	if (s->global_editing_state != ST_VIEW)
+	    v->gv_edit_mat = view_state->vs_model2objview;
+	else
+	    v->gv_edit_mat = NULL;
+
+	/* dm_draw_objs() handles:
+	 *   - framebuffer overlay/underlay
+	 *   - dm_loadmatrix(gv_model2view)
+	 *   - dm_loadpmatrix(gv_pmat) for perspective
+	 *   - bsg_scene_root_sync + bsg_view_traverse (BSG path, since
+	 *     setup.c has called bsg_scene_root_create for this view)
+	 *   - per-object edit matrix swap for s_iflag == UP objects
+	 */
+	dm_draw_objs(v, NULL, NULL);
+
+	/* draw predictor vlist */
+	if (mged_variables->mv_predictor) {
+	    dm_set_fg(DMP,
+		      color_scheme->cs_predictor[0],
+		      color_scheme->cs_predictor[1],
+		      color_scheme->cs_predictor[2], 1, 1.0);
+	    dm_draw_vlist(DMP, (struct bv_vlist *)&s->mged_curr_dm->dm_p_vlist);
+	}
+
+	/* Clear the edit-mat pointer now that the frame is done. */
+	v->gv_edit_mat = NULL;
+
+	/* Count drawn objects for usepen.c zone-based picking.  All objects
+	 * whose s_flag is UP after the traversal were actually rendered. */
+	if (v->bsg_root) {
+	    struct bv_scene_obj *root = (struct bv_scene_obj *)v->bsg_root;
+	    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+		struct bv_scene_obj *sp =
+		    (struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
+		if (sp && sp->s_flag == UP)
+		    s->mged_curr_dm->dm_ndrawn++;
+	    }
+	}
+
+	if (s->mged_curr_dm != save_dm_list) set_curr_dm(s, save_dm_list);
+	return;
+    }
+
+    /* ------------------------------------------------------------------
+     * Stereo path (which_eye == 1 or 2): legacy dm_draw_head_dl().
+     *
+     * Stereo uses a combined Deering perspective + eye-offset matrix that
+     * cannot be separated into the dm_loadpmatrix / modelview split that
+     * dm_draw_objs() expects.  TODO: revisit in a follow-on phase.
+     * ------------------------------------------------------------------ */
+    {
+	int ndrawn = 0;
+	fastf_t inv_viewsize = v->gv_isize;
+	mat_t newmat = MAT_INIT_ZERO;
+	matp_t mat = newmat;
+	short r = -1, g = -1, b = -1;
+
+	fastf_t to_eye_scr = 1 / tan(v->gv_perspective * DEG2RAD * 0.5);
+	fastf_t eye_delta_scr = mged_variables->mv_eye_sep_dist * 0.5 / SCR_WIDTH_PHYS;
+	point_t l, h, eye;
+	VSET(l, -1.0, -1.0, -1.0);
+	VSET(h,  1.0,  1.0, 200.0);
 	VSET(eye, 0.0, 0.0, to_eye_scr);
 
-	switch (which_eye) {
-	    case 0:
-		/* Non-stereo case */
-		mat = view_state->vs_gvp->gv_model2view;
-		if (EQUAL(view_state->vs_gvp->gv_eye_pos[Z], 1.0)) {
-		    /* This way works, with reasonable Z-clipping */
-		    persp_mat(perspective_mat, view_state->vs_gvp->gv_perspective,
-			    (fastf_t)1.0f, (fastf_t)0.01f, (fastf_t)1.0e10f, (fastf_t)1.0f);
-		} else {
-		    /* This way does not have reasonable Z-clipping,
-		     * but includes shear, for GDurf's testing.
-		     */
-		    deering_persp_mat(perspective_mat, l, h, view_state->vs_gvp->gv_eye_pos);
-		}
-		break;
-	    case 1:
-		/* R */
-		mat = view_state->vs_gvp->gv_model2view;
-		eye[X] = eye_delta_scr;
-		deering_persp_mat(perspective_mat, l, h, eye);
-		break;
-	    case 2:
-		/* L */
-		mat = view_state->vs_gvp->gv_model2view;
-		eye[X] = -eye_delta_scr;
-		deering_persp_mat(perspective_mat, l, h, eye);
-		break;
+	if (which_eye == 1) {
+	    eye[X] = eye_delta_scr;
+	    printf("d=%gscr, d=%gmm, delta=%gscr\n",
+		   to_eye_scr, to_eye_scr * SCR_WIDTH_PHYS, eye_delta_scr);
+	    VPRINT("l", l); VPRINT("h", h);
+	} else {
+	    eye[X] = -eye_delta_scr;
 	}
+	deering_persp_mat(perspective_mat, l, h, eye);
+	mat = v->gv_model2view;
 	bn_mat_mul(newmat, perspective_mat, mat);
 	mat = newmat;
-    }
 
-    dm_loadmatrix(DMP, mat, which_eye);
+	dm_loadmatrix(DMP, mat, which_eye);
 
-    if (dm_get_transparency(DMP)) {
-	/* First, draw opaque stuff */
-
-	ndrawn = dm_draw_head_dl(DMP, (struct bu_list *)ged_dl(s->gedp), 1.0, inv_viewsize,
-				      r, g, b, mged_variables->mv_linewidth, mged_variables->mv_dlist, 0,
-				      geometry_default_color, 1, mged_variables->mv_dlist);
-
-	/* The vectorThreshold stuff in libdm may turn the Tcl-crank causing s->mged_curr_dm to change. */
+	if (dm_get_transparency(DMP)) {
+	    ndrawn = dm_draw_head_dl(DMP, (struct bu_list *)ged_dl(s->gedp),
+				    1.0, inv_viewsize, r, g, b,
+				    mged_variables->mv_linewidth,
+				    mged_variables->mv_dlist, 0,
+				    geometry_default_color, 1,
+				    mged_variables->mv_dlist);
+	    if (s->mged_curr_dm != save_dm_list) set_curr_dm(s, save_dm_list);
+	    s->mged_curr_dm->dm_ndrawn += ndrawn;
+	    dm_set_depth_mask(DMP, 0);
+	    ndrawn = dm_draw_head_dl(DMP, (struct bu_list *)ged_dl(s->gedp),
+				    0.0, inv_viewsize, r, g, b,
+				    mged_variables->mv_linewidth,
+				    mged_variables->mv_dlist, 0,
+				    geometry_default_color, 0,
+				    mged_variables->mv_dlist);
+	    dm_set_depth_mask(DMP, 1);
+	} else {
+	    ndrawn = dm_draw_head_dl(DMP, (struct bu_list *)ged_dl(s->gedp),
+				    1.0, inv_viewsize, r, g, b,
+				    mged_variables->mv_linewidth,
+				    mged_variables->mv_dlist, 0,
+				    geometry_default_color, 1,
+				    mged_variables->mv_dlist);
+	}
 	if (s->mged_curr_dm != save_dm_list) set_curr_dm(s, save_dm_list);
-
 	s->mged_curr_dm->dm_ndrawn += ndrawn;
 
-	/* disable write to depth buffer */
-	dm_set_depth_mask(DMP, 0);
+	if (mged_variables->mv_predictor) {
+	    dm_set_fg(DMP,
+		      color_scheme->cs_predictor[0],
+		      color_scheme->cs_predictor[1],
+		      color_scheme->cs_predictor[2], 1, 1.0);
+	    dm_draw_vlist(DMP, (struct bv_vlist *)&s->mged_curr_dm->dm_p_vlist);
+	}
 
-	/* Second, draw transparent stuff */
+	if (s->global_editing_state == ST_VIEW)
+	    return;
 
-	ndrawn = dm_draw_head_dl(DMP, (struct bu_list *)ged_dl(s->gedp), 0.0, inv_viewsize,
-				      r, g, b, mged_variables->mv_linewidth, mged_variables->mv_dlist, 0,
-				      geometry_default_color, 0, mged_variables->mv_dlist);
-
-	/* re-enable write of depth buffer */
-	dm_set_depth_mask(DMP, 1);
-
-    } else {
-
-	ndrawn = dm_draw_head_dl(DMP, (struct bu_list *)ged_dl(s->gedp), 1.0, inv_viewsize,
-				      r, g, b, mged_variables->mv_linewidth, mged_variables->mv_dlist, 0,
-				      geometry_default_color, 1, mged_variables->mv_dlist);
-
-    }
-
-    /* The vectorThreshold stuff in libdm may turn the Tcl-crank causing s->mged_curr_dm to change. */
-    if (s->mged_curr_dm != save_dm_list) set_curr_dm(s, save_dm_list);
-
-    s->mged_curr_dm->dm_ndrawn += ndrawn;
-
-
-    /* draw predictor vlist */
-    if (mged_variables->mv_predictor) {
+	if (v->gv_perspective <= 0) {
+	    mat = view_state->vs_model2objview;
+	} else {
+	    bn_mat_mul(newmat, perspective_mat, view_state->vs_model2objview);
+	    mat = newmat;
+	}
+	dm_loadmatrix(DMP, mat, which_eye);
+	inv_viewsize /= MEDIT(s)->model_changes[15];
 	dm_set_fg(DMP,
-		       color_scheme->cs_predictor[0],
-		       color_scheme->cs_predictor[1],
-		       color_scheme->cs_predictor[2], 1, 1.0);
-	dm_draw_vlist(DMP, (struct bv_vlist *)&s->mged_curr_dm->dm_p_vlist);
+		  color_scheme->cs_geo_hl[0],
+		  color_scheme->cs_geo_hl[1],
+		  color_scheme->cs_geo_hl[2], 1, 1.0);
+	ndrawn = dm_draw_head_dl(DMP, (struct bu_list *)ged_dl(s->gedp),
+				 1.0, inv_viewsize, r, g, b,
+				 mged_variables->mv_linewidth,
+				 mged_variables->mv_dlist, 1,
+				 geometry_default_color, 0,
+				 mged_variables->mv_dlist);
+	s->mged_curr_dm->dm_ndrawn += ndrawn;
+	if (s->mged_curr_dm != save_dm_list) set_curr_dm(s, save_dm_list);
     }
-
-    /*
-     * Draw all solids involved in editing.
-     * They may be getting transformed away from the other solids.
-     */
-    if (s->global_editing_state == ST_VIEW)
-	return;
-
-    if (view_state->vs_gvp->gv_perspective <= 0) {
-	mat = view_state->vs_model2objview;
-    } else {
-	bn_mat_mul(newmat, perspective_mat, view_state->vs_model2objview);
-	mat = newmat;
-    }
-    dm_loadmatrix(DMP, mat, which_eye);
-    inv_viewsize /= MEDIT(s)->model_changes[15];
-    dm_set_fg(DMP,
-		   color_scheme->cs_geo_hl[0],
-		   color_scheme->cs_geo_hl[1],
-		   color_scheme->cs_geo_hl[2], 1, 1.0);
-
-
-    ndrawn = dm_draw_head_dl(DMP, (struct bu_list *)ged_dl(s->gedp), 1.0, inv_viewsize,
-	    r, g, b, mged_variables->mv_linewidth, mged_variables->mv_dlist, 1,
-	    geometry_default_color, 0, mged_variables->mv_dlist);
-
-    s->mged_curr_dm->dm_ndrawn += ndrawn;
-
-    /* The vectorThreshold stuff in libdm may turn the Tcl-crank causing s->mged_curr_dm to change. */
-    if (s->mged_curr_dm != save_dm_list) set_curr_dm(s, save_dm_list);
 }
 
 /*
@@ -330,3 +365,4 @@ freeDListsAll(void *data, unsigned int dlist, int range)
  * End:
  * ex: shiftwidth=4 tabstop=8
  */
+

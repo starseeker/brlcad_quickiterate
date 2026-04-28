@@ -35,6 +35,7 @@
 #include "bu/app.h"
 #include "bn.h"
 #include "bv/util.h"
+#include "bsg/util.h"
 #include "tclcad.h"
 #include "ged.h"
 
@@ -568,6 +569,9 @@ mged_setup(struct mged_state *s)
 
     BU_ALLOC(view_state->vs_gvp, struct bview);
     bv_init(view_state->vs_gvp, NULL);
+    /* Phase 5: give MGED's view a BSG scene root so the new draw path can
+     * sync the view-object table into it each frame. */
+    bsg_scene_root_create(view_state->vs_gvp);
     BU_GET(view_state->vs_gvp->callbacks, struct bu_ptbl);
     bu_ptbl_init(view_state->vs_gvp->callbacks, 8, "bv callbacks");
 

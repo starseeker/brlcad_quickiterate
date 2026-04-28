@@ -270,6 +270,25 @@ endif()
 distclean(${CMAKE_CURRENT_BINARY_DIR}/moss_lod_cr_tmp.g)
 distclean(${CMAKE_CURRENT_BINARY_DIR}/lod_crossrun_cache)
 
+# Phase 5: MGED BSG migration regression tests
+brlcad_addexec(ged_test_mged_bsg "mged_bsg.cpp;util.cpp" "libged;libdm;libbsg" TEST)
+if(TARGET ged_test_mged_bsg)
+  foreach(tdp ${test_deps})
+    if (TARGET tdp)
+      add_dependencies(ged_test_mged_bsg ${tdp})
+    endif ()
+  endforeach()
+endif(TARGET ged_test_mged_bsg)
+brlcad_add_test(NAME ged_test_mged_bsg COMMAND ged_test_mged_bsg -c "${CMAKE_CURRENT_SOURCE_DIR}")
+if(TARGET ged_test_mged_bsg)
+  set_property(TEST ged_test_mged_bsg APPEND PROPERTY ENVIRONMENT BRLCAD_ROOT=${CMAKE_BINARY_DIR})
+endif()
+distclean(${CMAKE_CURRENT_BINARY_DIR}/mged_bsg_t1.g)
+distclean(${CMAKE_CURRENT_BINARY_DIR}/mged_bsg_t2.g)
+distclean(${CMAKE_CURRENT_BINARY_DIR}/mged_bsg_t3.g)
+distclean(${CMAKE_CURRENT_BINARY_DIR}/mged_bsg_t4.g)
+distclean(${CMAKE_CURRENT_BINARY_DIR}/mged_bsg_t5.g)
+
 cmakefiles(
   README
   empty.png
@@ -279,6 +298,7 @@ cmakefiles(
   bsg_parity.cpp
   bsg_quad_parity.cpp
   lod_crossrun.cpp
+  mged_bsg.cpp
   util.cpp
   scripts/verify_main_parity.sh
   ${basic_view_test_ctrls}

@@ -573,8 +573,8 @@ dm_draw_labels(struct dm *dmp, struct bv_data_label_state *gdlsp, matp_t m2vmat)
     }
 }
 
-static void
-draw_scene_obj(struct dm *dmp, struct bv_scene_obj *s, struct bview *v, int force_draw, struct bv_obj_settings *obj_settings)
+void
+dm_draw_scene_obj(struct dm *dmp, struct bv_scene_obj *s, struct bview *v, int force_draw, struct bv_obj_settings *obj_settings)
 {
     if (!s || !v || (s->s_flag == DOWN && !force_draw))
 	return;
@@ -586,7 +586,7 @@ draw_scene_obj(struct dm *dmp, struct bv_scene_obj *s, struct bview *v, int forc
     // children tables to provide some control
     for (size_t i = 0; i < BU_PTBL_LEN(&s->children); i++) {
 	struct bv_scene_obj *s_c = (struct bv_scene_obj *)BU_PTBL_GET(&s->children, i);
-	draw_scene_obj(dmp, s_c, v, do_force_draw, obj_settings);
+	dm_draw_scene_obj(dmp, s_c, v, do_force_draw, obj_settings);
     }
 
     // Assign color attributes
@@ -605,15 +605,26 @@ draw_scene_obj(struct dm *dmp, struct bv_scene_obj *s, struct bview *v, int forc
     }
     dm_set_line_attr(dmp, s->s_os->s_line_width, s->s_soldash);
 
+    /* Phase 5: if this object is illuminated (edit mode) and the view carries
+     * an edit-mode matrix override, temporarily swap the modelview matrix so
+     * the object is drawn at its edit-transformed position.  We reload the
+     * normal view matrix afterwards to leave the DM state clean for the next
+     * object. */
+    int edit_mat_swapped = 0;
+    if (s->s_iflag == UP && v->gv_edit_mat) {
+	dm_loadmatrix(dmp, v->gv_edit_mat, 0);
+	edit_mat_swapped = 1;
+    }
+
     // Primary object drawing.  See if we have an active view-specific object - if so,
     // use that, otherwise use the original object
     if (s->s_type_flags & BV_DB_OBJS) {
 	struct bv_scene_obj *vo = bv_obj_for_view(s, v);
 	if (!vo) {
 	    vo = s;
-	    bv_log(1, "draw_scene_obj - no view obj, drawing %s", bu_vls_cstr(&s->s_name));
+	    bv_log(1, "dm_draw_scene_obj - no view obj, drawing %s", bu_vls_cstr(&s->s_name));
 	} else {
-	    bv_log(1, "draw_scene_obj - drawing view obj %s[%s]", bu_vls_cstr(&vo->s_name), bu_vls_cstr(&v->gv_name));
+	    bv_log(1, "dm_draw_scene_obj - drawing view obj %s[%s]", bu_vls_cstr(&vo->s_name), bu_vls_cstr(&v->gv_name));
 	}
 
 	// If this is a database object, it may have a view dependent
@@ -624,6 +635,12 @@ draw_scene_obj(struct dm *dmp, struct bv_scene_obj *s, struct bview *v, int forc
 	dm_draw_obj(dmp, vo);
     } else {
 	dm_draw_obj(dmp, s);
+    }
+
+    if (edit_mat_swapped) {
+	/* Restore the standard view matrix so subsequent objects are
+	 * drawn in the right coordinate frame. */
+	dm_loadmatrix(dmp, v->gv_model2view, 0);
     }
 
     if (!(s->s_type_flags & BV_MESH_LOD)) {
@@ -637,6 +654,13 @@ draw_scene_obj(struct dm *dmp, struct bv_scene_obj *s, struct bview *v, int forc
     if (s->s_type_flags & BV_LABELS) {
 	dm_draw_label(dmp, s);
     }
+}
+
+/* Internal alias — keeps existing static call sites compiling unchanged. */
+static void
+draw_scene_obj(struct dm *dmp, struct bv_scene_obj *s, struct bview *v, int force_draw, struct bv_obj_settings *obj_settings)
+{
+    dm_draw_scene_obj(dmp, s, v, force_draw, obj_settings);
 }
 
 void
