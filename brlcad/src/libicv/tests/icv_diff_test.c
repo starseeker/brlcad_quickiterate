@@ -33,6 +33,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <math.h>
+#include <sys/stat.h>
 
 #include "bu/app.h"
 #include "bu/log.h"
@@ -366,111 +367,151 @@ test_nirt_shots(const char *tmpdir)
 
     icv_image_set_render_info(img1, ri);
 
-    /* Write nirt shots to a temp file */
-    struct bu_vls nirt_fname = BU_VLS_INIT_ZERO;
-    bu_vls_printf(&nirt_fname, "%s/test_shots.nirt", tmpdir);
-    FILE *fp = fopen(bu_vls_cstr(&nirt_fname), "w");
-    CHECK(fp != NULL, "opened nirt output file");
+    /* Sub-test A: only img1 has metadata → only nirt_out1 is written */
+    {
+	struct bu_vls nirt_fname = BU_VLS_INIT_ZERO;
+	bu_vls_printf(&nirt_fname, "%s/test_shots_1.nirt", tmpdir);
+	FILE *fp = fopen(bu_vls_cstr(&nirt_fname), "w");
+	CHECK(fp != NULL, "opened nirt output file (img1 only)");
 
-    if (fp) {
-	int nshots = icv_diff_nirt_shots(img1, img2, fp);
-	fclose(fp);
-	CHECK(nshots == 1, "icv_diff_nirt_shots found exactly 1 differing pixel");
-	bu_log("  nshots = %d  (expect 1)\n", nshots);
+	if (fp) {
+	    int nshots = icv_diff_nirt_shots(img1, img2, fp, NULL);
+	    fclose(fp);
+	    CHECK(nshots == 1, "icv_diff_nirt_shots (img1-only) found exactly 1 differing pixel");
+	    bu_log("  nshots = %d  (expect 1)\n", nshots);
 
-	/* Read the file back and spot-check the xyz line */
-	FILE *rfp = fopen(bu_vls_cstr(&nirt_fname), "r");
-	CHECK(rfp != NULL, "re-opened nirt output file for verification");
-	if (rfp) {
-	    char line[512];
-	    int found_xyz = 0;
-	    double lx = 0, ly = 0, lz = 0;
-	    while (fgets(line, sizeof(line), rfp)) {
-		if (bu_strncmp(line, "xyz ", 4) == 0) {
-		    if (sscanf(line + 4, "%lf %lf %lf", &lx, &ly, &lz) == 3)
-			found_xyz = 1;
+	    /* Read the file back and spot-check the xyz line */
+	    FILE *rfp = fopen(bu_vls_cstr(&nirt_fname), "r");
+	    CHECK(rfp != NULL, "re-opened nirt output file for verification");
+	    if (rfp) {
+		char line[512];
+		int found_xyz = 0;
+		double lx = 0, ly = 0, lz = 0;
+		while (fgets(line, sizeof(line), rfp)) {
+		    if (bu_strncmp(line, "xyz ", 4) == 0) {
+			if (sscanf(line + 4, "%lf %lf %lf", &lx, &ly, &lz) == 3)
+			    found_xyz = 1;
+		    }
+		}
+		fclose(rfp);
+
+		CHECK(found_xyz, "nirt file contains an xyz command");
+
+		if (found_xyz) {
+		    /*
+		     * For the identity view, viewbase is at (-1, -1/aspect, 0) in
+		     * view space.  With viewsize=400, view2model is the identity
+		     * (after the eye translation which is zero here), so:
+		     *
+		     *   viewbase_model = (-1, -1, 0) world  (in normalised coords)
+		     *   cell_width  = 400/4 = 100
+		     *   cell_height = 400/4 = 100
+		     *   dx_model = (100, 0, 0)
+		     *   dy_model = (0, 100, 0)
+		     *
+		     * pixel(col=2, row=1):
+		     *   x = -200 + 2*100 = 0  mm
+		     *   y = -200 + 1*100 = -100 mm
+		     *   z = 0
+		     */
+		    const double expected_x = -200.0 + test_col * 100.0;  /* 0 */
+		    const double expected_y = -200.0 + test_row * 100.0;  /* -100 */
+		    const double expected_z = 0.0;
+		    const double tol = 1e-6;
+
+		    bu_log("  xyz read back: (%.6g, %.6g, %.6g)\n", lx, ly, lz);
+		    bu_log("  expected:      (%.6g, %.6g, %.6g)\n",
+			   expected_x, expected_y, expected_z);
+
+		    CHECK(fabs(lx - expected_x) < tol, "nirt shot x coordinate correct");
+		    CHECK(fabs(ly - expected_y) < tol, "nirt shot y coordinate correct");
+		    CHECK(fabs(lz - expected_z) < tol, "nirt shot z coordinate correct");
 		}
 	    }
-	    fclose(rfp);
-
-	    CHECK(found_xyz, "nirt file contains an xyz command");
-
-	    if (found_xyz) {
-		/*
-		 * For the identity view, viewbase is at (-1, -1/aspect, 0) in
-		 * view space.  With viewsize=400, view2model is the identity
-		 * (after the eye translation which is zero here), so:
-		 *
-		 *   viewbase_model = (-1, -1, 0) world  (in normalised coords)
-		 *   cell_width  = 400/4 = 100
-		 *   cell_height = 400/4 = 100
-		 *   dx_model = (100, 0, 0)
-		 *   dy_model = (0, 100, 0)
-		 *
-		 * pixel(col=2, row=1):
-		 *   x = -1*(400/2) + 2*100 = -200 + 200 = 0
-		 *   y = -1*(400/2) + 1*100 = -200 + 100 = -100
-		 *   z = 0
-		 *
-		 * But viewrotscale[15] = 0.5*viewsize means the scale factor
-		 * in the matrix is 1/viewscale = 1/(0.5*400) = 0.005,
-		 * making view coords range -1..+1.  Let's verify in absolute terms.
-		 *
-		 * Expected: x = viewbase_x + col*cell_width
-		 *         = -200 + 2*100 = 0  mm
-		 *           y = -200 + 1*100 = -100 mm
-		 *           z = 0
-		 */
-		const double expected_x = -200.0 + test_col * 100.0;  /* 0 */
-		const double expected_y = -200.0 + test_row * 100.0;  /* -100 */
-		const double expected_z = 0.0;
-		const double tol = 1e-6;
-
-		bu_log("  xyz read back: (%.6g, %.6g, %.6g)\n", lx, ly, lz);
-		bu_log("  expected:      (%.6g, %.6g, %.6g)\n",
-		       expected_x, expected_y, expected_z);
-
-		CHECK(fabs(lx - expected_x) < tol, "nirt shot x coordinate correct");
-		CHECK(fabs(ly - expected_y) < tol, "nirt shot y coordinate correct");
-		CHECK(fabs(lz - expected_z) < tol, "nirt shot z coordinate correct");
-	    }
 	}
+
+	bu_file_delete(bu_vls_cstr(&nirt_fname));
+	bu_vls_free(&nirt_fname);
     }
 
-    bu_file_delete(bu_vls_cstr(&nirt_fname));
-    bu_vls_free(&nirt_fname);
+    /* Sub-test B: both images have metadata → both outputs are written.
+     * Give img2 a different db_filename/objects (different scene) to verify
+     * that the function still writes both scripts regardless. */
+    {
+	struct icv_render_info *ri2 = icv_render_info_create();
+	ri2->db_filename = bu_strdup("other_scene.g");  /* different from img1! */
+	ri2->objects     = bu_strdup("cube.r");
+	MAT_IDN(ri2->viewrotscale);
+	ri2->viewrotscale[15] = 0.5 * 400.0;
+	VSET(ri2->eye_model, 10.0, 0.0, 0.0);          /* slightly different eye */
+	ri2->viewsize    = 400.0;
+	ri2->aspect      = 1.0;
+	ri2->perspective = 0.0;
+	icv_image_set_render_info(img2, ri2);
 
-    /* Sub-test: img1 has no render_info but img2 does – should still work */
+	struct bu_vls fname1 = BU_VLS_INIT_ZERO;
+	struct bu_vls fname2 = BU_VLS_INIT_ZERO;
+	bu_vls_printf(&fname1, "%s/test_shots_both1.nirt", tmpdir);
+	bu_vls_printf(&fname2, "%s/test_shots_both2.nirt", tmpdir);
+
+	FILE *fp1 = fopen(bu_vls_cstr(&fname1), "w");
+	FILE *fp2 = fopen(bu_vls_cstr(&fname2), "w");
+	CHECK(fp1 != NULL, "opened nirt output file for img1 (both-metadata test)");
+	CHECK(fp2 != NULL, "opened nirt output file for img2 (both-metadata test)");
+
+	if (fp1 && fp2) {
+	    int ns = icv_diff_nirt_shots(img1, img2, fp1, fp2);
+	    fclose(fp1);
+	    fclose(fp2);
+	    CHECK(ns == 1, "icv_diff_nirt_shots (both metadata) found exactly 1 differing pixel");
+
+	    /* Both output files should be non-empty */
+	    struct stat sb1, sb2;
+	    stat(bu_vls_cstr(&fname1), &sb1);
+	    stat(bu_vls_cstr(&fname2), &sb2);
+	    CHECK(sb1.st_size > 0, "img1 nirt script is non-empty");
+	    CHECK(sb2.st_size > 0, "img2 nirt script is non-empty");
+	} else {
+	    if (fp1) fclose(fp1);
+	    if (fp2) fclose(fp2);
+	}
+
+	bu_file_delete(bu_vls_cstr(&fname1));
+	bu_file_delete(bu_vls_cstr(&fname2));
+	bu_vls_free(&fname1);
+	bu_vls_free(&fname2);
+    }
+
+    /* Sub-test C: img1 has no render_info but img2 does → only fp2 is written */
     {
 	icv_image_t *img_a = make_solid(IMG_W, IMG_H, 0.0, 0.0, 0.0);
 	icv_image_t *img_b = make_solid(IMG_W, IMG_H, 0.0, 0.0, 0.0);
 
-	/* Change one pixel in img_b so there is a diff */
 	img_b->data[(test_row * IMG_W + test_col) * 3 + 0] = 1.0;
 
-	/* Only img_b gets render_info; img_a has none */
-	struct icv_render_info *ri2 = icv_render_info_create();
-	ri2->db_filename = bu_strdup("test_scene.g");
-	ri2->objects     = bu_strdup("sph.r");
-	MAT_IDN(ri2->viewrotscale);
-	ri2->viewrotscale[15] = 0.5 * 400.0;
-	VSET(ri2->eye_model, 0.0, 0.0, 0.0);
-	ri2->viewsize    = 400.0;
-	ri2->aspect      = 1.0;
-	ri2->perspective = 0.0;
-	icv_image_set_render_info(img_b, ri2);
+	struct icv_render_info *ri3 = icv_render_info_create();
+	ri3->db_filename = bu_strdup("test_scene.g");
+	ri3->objects     = bu_strdup("sph.r");
+	MAT_IDN(ri3->viewrotscale);
+	ri3->viewrotscale[15] = 0.5 * 400.0;
+	VSET(ri3->eye_model, 0.0, 0.0, 0.0);
+	ri3->viewsize    = 400.0;
+	ri3->aspect      = 1.0;
+	ri3->perspective = 0.0;
+	icv_image_set_render_info(img_b, ri3);
 
-	struct bu_vls fname2 = BU_VLS_INIT_ZERO;
-	bu_vls_printf(&fname2, "%s/test_shots_b.nirt", tmpdir);
-	FILE *fp2 = fopen(bu_vls_cstr(&fname2), "w");
-	CHECK(fp2 != NULL, "opened nirt output file (img2-only render_info)");
-	if (fp2) {
-	    int ns = icv_diff_nirt_shots(img_a, img_b, fp2);
-	    fclose(fp2);
+	struct bu_vls fname_c = BU_VLS_INIT_ZERO;
+	bu_vls_printf(&fname_c, "%s/test_shots_c.nirt", tmpdir);
+	FILE *fp_c = fopen(bu_vls_cstr(&fname_c), "w");
+	CHECK(fp_c != NULL, "opened nirt output for img2-only render_info");
+	if (fp_c) {
+	    /* Pass NULL for fp1 since img_a has no render_info */
+	    int ns = icv_diff_nirt_shots(img_a, img_b, NULL, fp_c);
+	    fclose(fp_c);
 	    CHECK(ns == 1, "icv_diff_nirt_shots works when only img2 has render_info");
 	}
-	bu_file_delete(bu_vls_cstr(&fname2));
-	bu_vls_free(&fname2);
+	bu_file_delete(bu_vls_cstr(&fname_c));
+	bu_vls_free(&fname_c);
 	icv_destroy(img_a);
 	icv_destroy(img_b);
     }

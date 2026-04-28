@@ -247,23 +247,29 @@ ICV_EXPORT extern int icv_diff_render_info(const icv_image_t *img1, const icv_im
  * Generate nirt shotline commands for every pixel that differs between
  * @p img1 and @p img2.
  *
- * For each differing pixel, the corresponding world-space ray is reconstructed
- * from the render metadata embedded in whichever image has a valid
- * icv_render_info attached.  @p img1's metadata is preferred when both images
- * have it; the function falls back to @p img2's metadata when only @p img2 has
- * it.  The caller is responsible for ensuring the views match when metadata is
- * present in only one image.  The result is a self-contained nirt script:
+ * A separate nirt script is written for each image that has render_info
+ * attached.  Both scripts encode shotlines for the same set of differing
+ * pixels; they differ only in the camera parameters used to reconstruct the
+ * rays and in the scene header comment.  This allows the caller to
+ * interrogate either scene independently even when the images were rendered
+ * from different .g files or with different object sets.
  *
- *   nirt -f <output_file> model.g objects...
+ * Ray reconstruction mirrors BRL-CAD rt/grid.c grid_setup() for the
+ * orthographic case (rt_perspective == 0).  Perspective is also handled.
  *
- * @param img1       First image; if it has icv_render_info its metadata is used
- * @param img2       Second image; its metadata is used if img1 has none
- * @param nirt_out   Open FILE* to write the nirt script; must not be NULL
+ * Either output file pointer may be NULL to suppress that output.  If an
+ * image has no render_info the corresponding output is silently skipped.
+ *
+ * @param img1       First image
+ * @param img2       Second image
+ * @param nirt_out1  Open FILE* to write img1's nirt script (may be NULL)
+ * @param nirt_out2  Open FILE* to write img2's nirt script (may be NULL)
  *
  * Returns the number of differing pixels for which shots were written, or -1
- * on error (e.g., neither image has render metadata, mismatched image sizes).
+ * on error (e.g., neither active output has render metadata, mismatched sizes).
  */
-ICV_EXPORT extern int icv_diff_nirt_shots(const icv_image_t *img1, const icv_image_t *img2, FILE *nirt_out);
+ICV_EXPORT extern int icv_diff_nirt_shots(const icv_image_t *img1, const icv_image_t *img2,
+					  FILE *nirt_out1, FILE *nirt_out2);
 
 /**
  * Fit an image to suggested dimensions.

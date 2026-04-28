@@ -23,7 +23,8 @@
  *
  *  icv_diff_render_info  – compare embedded render metadata between two images
  *  icv_diff_nirt_shots   – generate nirt shotline commands for differing pixels;
- *                          uses render_info from whichever image has it
+ *                          writes a separate script for each image that has
+ *                          render_info, so the caller can use whichever is needed
  */
 
 #include "common.h"
@@ -154,52 +155,20 @@ icv_diff_render_info(const icv_image_t *img1, const icv_image_t *img2, struct bu
 
 
 /*
- * icv_diff_nirt_shots
+ * write_nirt_shots_for_ri
  *
- * For each pixel that differs between img1 and img2, reconstruct the
- * world-space ray from whichever image has render metadata and write
- * nirt commands.  If only one image has render_info, that metadata is
- * used; we assume the views match since we cannot prove otherwise.
+ * Internal helper: given a specific render_info and a list of differing
+ * pixels, reconstruct world-space rays and write a nirt script to fp.
  *
- * Ray reconstruction mirrors BRL-CAD rt/grid.c grid_setup() for the
- * orthographic case (rt_perspective == 0):
- *
- *   1. Rebuild model2view from Viewrotscale + toEye(eye_model)
- *   2. Invert to get view2model
- *   3. dx_model = MAT3X3VEC(view2model, (1,0,0)) * cell_width
- *   4. dy_model = MAT3X3VEC(view2model, (0,1,0)) * cell_height
- *   5. viewbase_model = MAT4X3PNT(view2model, (-1, -1/aspect, 0))
- *   6. For pixel (col, row): ray_pt = viewbase + col*dx + row*dy
- *   7. ray_dir = MAT4X3VEC(view2model, (0, 0, -1)), normalised
- *
- * For perspective, a diverging ray is computed similarly.
+ * diffs is a flat array of (col, row, r1, g1, b1, r2, g2, b2) tuples stored
+ * as 8 ints each.  ndiff is the number of such tuples.
  */
-extern "C" int
-icv_diff_nirt_shots(const icv_image_t *img1, const icv_image_t *img2, FILE *nirt_out)
+static void
+write_nirt_shots_for_ri(const struct icv_render_info *ri,
+			const unsigned int *diffs, int ndiff,
+			size_t width, size_t height,
+			FILE *fp)
 {
-    if (!img1 || !img2 || !nirt_out)
-	return -1;
-
-    if (img1->width != img2->width || img1->height != img2->height) {
-	bu_log("icv_diff_nirt_shots: images must be the same size\n");
-	return -1;
-    }
-
-    /* Use whichever image has render_info; prefer img1 when both have it */
-    const struct icv_render_info *ri = img1->render_info;
-    if (!ri)
-	ri = img2->render_info;
-    if (!ri) {
-	bu_log("icv_diff_nirt_shots: neither image has render_info – cannot compute rays\n");
-	return -1;
-    }
-    if (ri->viewsize <= 0.0) {
-	bu_log("icv_diff_nirt_shots: render_info has invalid viewsize (%g)\n", ri->viewsize);
-	return -1;
-    }
-
-    const size_t width  = img1->width;
-    const size_t height = img1->height;
     const double aspect = (ri->aspect > 0.0) ? ri->aspect : ((double)width / (double)height);
     const double viewsize = ri->viewsize;
 
@@ -260,77 +229,169 @@ icv_diff_nirt_shots(const icv_image_t *img1, const icv_image_t *img2, FILE *nirt
 	VUNITIZE(ray_dir);
     }
 
+    /* Header comment */
+    fprintf(fp, "# nirt shotlines for differing pixels\n");
+    if (ri->db_filename)
+	fprintf(fp, "# database: %s\n", ri->db_filename);
+    if (ri->objects)
+	fprintf(fp, "# objects:  %s\n", ri->objects);
+    fprintf(fp, "#\n");
+    fprintf(fp, "# Usage: nirt -f <this_file> %s %s\n",
+	    ri->db_filename ? ri->db_filename : "model.g",
+	    ri->objects     ? ri->objects     : "[objects...]");
+    fprintf(fp, "#\n");
+
+    /* Set the ray direction once (same for all pixels in orthographic) */
+    fprintf(fp, "dir %.17g %.17g %.17g\n",
+	    ray_dir[X], ray_dir[Y], ray_dir[Z]);
+    fprintf(fp, "\n");
+
+    for (int i = 0; i < ndiff; i++) {
+	const unsigned int *t = diffs + i * 8;
+	size_t col = (size_t)t[0];
+	size_t row = (size_t)t[1];
+	int r1 = (int)t[2], g1 = (int)t[3], b1 = (int)t[4];
+	int r2 = (int)t[5], g2 = (int)t[6], b2 = (int)t[7];
+
+	point_t ray_pt;
+
+	if (ri->perspective > 0.0) {
+	    /* Perspective: diverging rays from a single eye point */
+	    vect_t temp;
+	    VSET(temp, -1.0 + 2.0 * (col + 0.5) / (double)width,
+		       (-1.0 / aspect) + 2.0 * (row + 0.5) / ((double)height * aspect),
+		       -zoomout);
+	    vect_t world_dir;
+	    MAT4X3VEC(world_dir, view2model, temp);
+	    VUNITIZE(world_dir);
+	    VMOVE(ray_pt, ri->eye_model);
+	    fprintf(fp, "# pixel col=%zu row=%zu  rgb1=(%d,%d,%d) rgb2=(%d,%d,%d)\n",
+		    col, row, r1, g1, b1, r2, g2, b2);
+	    fprintf(fp, "xyz %.17g %.17g %.17g\n",
+		    ray_pt[X], ray_pt[Y], ray_pt[Z]);
+	    fprintf(fp, "dir %.17g %.17g %.17g\n",
+		    world_dir[X], world_dir[Y], world_dir[Z]);
+	    fprintf(fp, "s\n\n");
+	} else {
+	    /* Orthographic */
+	    VJOIN2(ray_pt, viewbase_model,
+		   (double)col, dx_model,
+		   (double)row, dy_model);
+	    fprintf(fp, "# pixel col=%zu row=%zu  rgb1=(%d,%d,%d) rgb2=(%d,%d,%d)\n",
+		    col, row, r1, g1, b1, r2, g2, b2);
+	    fprintf(fp, "xyz %.17g %.17g %.17g\n",
+		    ray_pt[X], ray_pt[Y], ray_pt[Z]);
+	    fprintf(fp, "s\n\n");
+	}
+    }
+}
+
+
+/*
+ * icv_diff_nirt_shots
+ *
+ * For each pixel that differs between img1 and img2, reconstruct
+ * world-space rays and write nirt commands.  A separate script is written
+ * for each image that has render_info (and whose corresponding output FILE*
+ * is non-NULL).  Both scripts contain shotlines for the same set of differing
+ * pixels; they differ only in the camera parameters used for reconstruction
+ * and the scene header comment.  This lets the caller interrogate either
+ * scene independently, even when the db filenames or object names differ.
+ *
+ * Ray reconstruction mirrors BRL-CAD rt/grid.c grid_setup() for the
+ * orthographic case (rt_perspective == 0):
+ *
+ *   1. Rebuild model2view from Viewrotscale + toEye(eye_model)
+ *   2. Invert to get view2model
+ *   3. dx_model = MAT3X3VEC(view2model, (1,0,0)) * cell_width
+ *   4. dy_model = MAT3X3VEC(view2model, (0,1,0)) * cell_height
+ *   5. viewbase_model = MAT4X3PNT(view2model, (-1, -1/aspect, 0))
+ *   6. For pixel (col, row): ray_pt = viewbase + col*dx + row*dy
+ *   7. ray_dir = MAT4X3VEC(view2model, (0, 0, -1)), normalised
+ *
+ * For perspective, a diverging ray is computed similarly.
+ */
+extern "C" int
+icv_diff_nirt_shots(const icv_image_t *img1, const icv_image_t *img2,
+		    FILE *nirt_out1, FILE *nirt_out2)
+{
+    if (!img1 || !img2)
+	return -1;
+    if (!nirt_out1 && !nirt_out2)
+	return -1;
+
+    if (img1->width != img2->width || img1->height != img2->height) {
+	bu_log("icv_diff_nirt_shots: images must be the same size\n");
+	return -1;
+    }
+
+    const struct icv_render_info *ri1 = img1->render_info;
+    const struct icv_render_info *ri2 = img2->render_info;
+
+    /* We need at least one valid render_info for the requested outputs */
+    if (nirt_out1 && !ri1) {
+	bu_log("icv_diff_nirt_shots: img1 has no render_info – cannot write img1 nirt script\n");
+	nirt_out1 = NULL;
+    }
+    if (nirt_out2 && !ri2) {
+	bu_log("icv_diff_nirt_shots: img2 has no render_info – cannot write img2 nirt script\n");
+	nirt_out2 = NULL;
+    }
+    if (!nirt_out1 && !nirt_out2) {
+	bu_log("icv_diff_nirt_shots: neither active output has render_info – cannot compute rays\n");
+	return -1;
+    }
+    if (ri1 && nirt_out1 && ri1->viewsize <= 0.0) {
+	bu_log("icv_diff_nirt_shots: img1 render_info has invalid viewsize (%g)\n", ri1->viewsize);
+	nirt_out1 = NULL;
+    }
+    if (ri2 && nirt_out2 && ri2->viewsize <= 0.0) {
+	bu_log("icv_diff_nirt_shots: img2 render_info has invalid viewsize (%g)\n", ri2->viewsize);
+	nirt_out2 = NULL;
+    }
+    if (!nirt_out1 && !nirt_out2)
+	return -1;
+
+    const size_t width  = img1->width;
+    const size_t height = img1->height;
+
     /* Get uint8 pixel data for comparison */
     unsigned char *d1 = icv_data2uchar(img1);
     unsigned char *d2 = icv_data2uchar(img2);
 
-    /* Header comment */
-    fprintf(nirt_out, "# nirt shotlines for differing pixels\n");
-    if (ri->db_filename)
-	fprintf(nirt_out, "# database: %s\n", ri->db_filename);
-    if (ri->objects)
-	fprintf(nirt_out, "# objects:  %s\n", ri->objects);
-    fprintf(nirt_out, "#\n");
-    fprintf(nirt_out, "# Usage: nirt -f <this_file> %s %s\n",
-	    ri->db_filename ? ri->db_filename : "model.g",
-	    ri->objects     ? ri->objects     : "[objects...]");
-    fprintf(nirt_out, "#\n");
-
-    /* Set the ray direction once (same for all pixels in orthographic) */
-    fprintf(nirt_out, "dir %.17g %.17g %.17g\n",
-	    ray_dir[X], ray_dir[Y], ray_dir[Z]);
-    fprintf(nirt_out, "\n");
-
+    /* Collect all differing pixels into a flat tuple array */
+    unsigned int *diffs = (unsigned int *)bu_malloc(
+	width * height * 8 * sizeof(unsigned int), "nirt diffs");
     int ndiff = 0;
 
     for (size_t row = 0; row < height; row++) {
 	for (size_t col = 0; col < width; col++) {
 	    size_t idx = row * width + col;
-	    int r1 = d1[idx*3+0], g1 = d1[idx*3+1], b1 = d1[idx*3+2];
-	    int r2 = d2[idx*3+0], g2 = d2[idx*3+1], b2 = d2[idx*3+2];
+	    unsigned int r1p = d1[idx*3+0], g1p = d1[idx*3+1], b1p = d1[idx*3+2];
+	    unsigned int r2p = d2[idx*3+0], g2p = d2[idx*3+1], b2p = d2[idx*3+2];
 
-	    if (r1 == r2 && g1 == g2 && b1 == b2)
-		continue;   /* pixel matches */
+	    if (r1p == r2p && g1p == g2p && b1p == b2p)
+		continue;
 
-	    /* Compute ray origin for this pixel */
-	    point_t ray_pt;
-
-	    if (ri->perspective > 0.0) {
-		/* Perspective: diverging rays from a single eye point */
-		vect_t temp;
-		VSET(temp, -1.0 + 2.0 * (col + 0.5) / (double)width,
-		           (-1.0 / aspect) + 2.0 * (row + 0.5) / ((double)height * aspect),
-		           -zoomout);
-		vect_t world_dir;
-		MAT4X3VEC(world_dir, view2model, temp);
-		VUNITIZE(world_dir);
-		/* Eye point is the ray origin; direction is per-pixel */
-		VMOVE(ray_pt, ri->eye_model);
-		fprintf(nirt_out, "# pixel col=%zu row=%zu  rgb1=(%d,%d,%d) rgb2=(%d,%d,%d)\n",
-			col, row, r1, g1, b1, r2, g2, b2);
-		fprintf(nirt_out, "xyz %.17g %.17g %.17g\n",
-			ray_pt[X], ray_pt[Y], ray_pt[Z]);
-		fprintf(nirt_out, "dir %.17g %.17g %.17g\n",
-			world_dir[X], world_dir[Y], world_dir[Z]);
-		fprintf(nirt_out, "s\n\n");
-	    } else {
-		/* Orthographic */
-		VJOIN2(ray_pt, viewbase_model,
-		       (double)col, dx_model,
-		       (double)row, dy_model);
-		fprintf(nirt_out, "# pixel col=%zu row=%zu  rgb1=(%d,%d,%d) rgb2=(%d,%d,%d)\n",
-			col, row, r1, g1, b1, r2, g2, b2);
-		fprintf(nirt_out, "xyz %.17g %.17g %.17g\n",
-			ray_pt[X], ray_pt[Y], ray_pt[Z]);
-		fprintf(nirt_out, "s\n\n");
-	    }
-
+	    unsigned int *t = diffs + ndiff * 8;
+	    t[0] = (unsigned int)col;
+	    t[1] = (unsigned int)row;
+	    t[2] = r1p; t[3] = g1p; t[4] = b1p;
+	    t[5] = r2p; t[6] = g2p; t[7] = b2p;
 	    ndiff++;
 	}
     }
 
     bu_free(d1, "icv_diff_nirt d1");
     bu_free(d2, "icv_diff_nirt d2");
+
+    /* Write a script for each image that has metadata and an open output */
+    if (nirt_out1)
+	write_nirt_shots_for_ri(ri1, diffs, ndiff, width, height, nirt_out1);
+    if (nirt_out2)
+	write_nirt_shots_for_ri(ri2, diffs, ndiff, width, height, nirt_out2);
+
+    bu_free(diffs, "nirt diffs");
 
     return ndiff;
 }

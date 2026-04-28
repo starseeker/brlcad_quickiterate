@@ -88,7 +88,7 @@ main(int ac, const char **av)
     static bu_mime_image_t in_type_2 = BU_MIME_IMAGE_UNKNOWN;
     static bu_mime_image_t out_type = BU_MIME_IMAGE_UNKNOWN;
     const char *out_path = NULL;
-    const char *nirt_path = NULL;
+    const char *nirt_prefix = NULL;
     int need_help = 0;
     int matching = 0;
     int off_by_1 = 0;
@@ -106,7 +106,7 @@ main(int ac, const char **av)
 	{"h", "help",             "",           NULL,         &need_help,             "Print help and exit."                      },
 	{"?", "",                 "",           NULL,         &need_help,             "",                                         },
 	{"o", "output",           "file",       &file_null,   (void *)&out_path,      "Output diff image file.",                  },
-	{"n", "nirt-output",      "file",       &file_null,   (void *)&nirt_path,     "Write nirt shotline script for differing pixels (requires PNG render metadata in img1)." },
+	{"n", "nirt-output",      "prefix",     &bu_opt_str,  (void *)&nirt_prefix,   "Write nirt shotline script(s) for differing pixels. One file is produced per image that has PNG render metadata: <prefix>_img1.nirt and/or <prefix>_img2.nirt." },
 	{"",  "width-img1",       "#",          &bu_opt_int,  (void *)&width1,        "Image width of first image.",              },
 	{"",  "height-img1",      "#",          &bu_opt_int,  (void *)&height1,       "Image height of first image.",             },
 	{"",  "width-img2",       "#",          &bu_opt_int,  (void *)&width2,        "Image width of second image.",             },
@@ -249,20 +249,48 @@ main(int ac, const char **av)
     }
 
     /* Optional nirt shotline generation */
-    if (nirt_path) {
-	FILE *nirt_fp = fopen(nirt_path, "w");
-	if (!nirt_fp) {
-	    bu_log("ERROR: cannot open '%s' for writing nirt shotlines\n", nirt_path);
-	} else {
-	    int nshots = icv_diff_nirt_shots(img1, img2, nirt_fp);
-	    fclose(nirt_fp);
-	    if (nshots < 0) {
-		bu_log("nirt shotlines: failed (see above)\n");
-	    } else {
-		bu_log("nirt shotlines: %d differing pixel(s) written to '%s'\n",
-		       nshots, nirt_path);
-	    }
+    if (nirt_prefix) {
+	struct bu_vls path1 = BU_VLS_INIT_ZERO;
+	struct bu_vls path2 = BU_VLS_INIT_ZERO;
+	bu_vls_printf(&path1, "%s_img1.nirt", nirt_prefix);
+	bu_vls_printf(&path2, "%s_img2.nirt", nirt_prefix);
+
+	FILE *fp1 = NULL;
+	FILE *fp2 = NULL;
+
+	if (img1->render_info) {
+	    fp1 = fopen(bu_vls_cstr(&path1), "w");
+	    if (!fp1)
+		bu_log("ERROR: cannot open '%s' for writing nirt shotlines\n", bu_vls_cstr(&path1));
 	}
+	if (img2->render_info) {
+	    fp2 = fopen(bu_vls_cstr(&path2), "w");
+	    if (!fp2)
+		bu_log("ERROR: cannot open '%s' for writing nirt shotlines\n", bu_vls_cstr(&path2));
+	}
+
+	if (fp1 || fp2) {
+	    int nshots = icv_diff_nirt_shots(img1, img2, fp1, fp2);
+	    if (fp1) {
+		fclose(fp1);
+		if (nshots >= 0)
+		    bu_log("nirt shotlines (img1): %d differing pixel(s) written to '%s'\n",
+			   nshots, bu_vls_cstr(&path1));
+	    }
+	    if (fp2) {
+		fclose(fp2);
+		if (nshots >= 0)
+		    bu_log("nirt shotlines (img2): %d differing pixel(s) written to '%s'\n",
+			   nshots, bu_vls_cstr(&path2));
+	    }
+	    if (nshots < 0)
+		bu_log("nirt shotlines: failed (see above)\n");
+	} else {
+	    bu_log("nirt shotlines: neither image has embedded render metadata\n");
+	}
+
+	bu_vls_free(&path1);
+	bu_vls_free(&path2);
     }
 
     /* Clean up */
