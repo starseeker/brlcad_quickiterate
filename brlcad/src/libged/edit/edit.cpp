@@ -1,4 +1,4 @@
-/*                       E D I T 2 . C P P
+/*                       E D I T . C P P
  * BRL-CAD
  *
  * Copyright (c) 2008-2026 United States Government as represented by
@@ -17,25 +17,9 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/** @file libged/edit2.cpp
+/** @file libged/edit.cpp
  *
- * New-forms edit command (Phase 1 + Phase 2).
- *
- * Implements a three-pass command-line parser:
- *
- *   Pass 1 — global opts  (-S/-f/-F/-i/-h/-v) harvested before the first
- *             geometry specifier or subcommand token.
- *
- *   Pass 2 — geometry specifiers collected into ged_edit_geom_spec entries.
- *             Each token is tested as: "." batch marker → URI → db_lookup.
- *             If no specifiers are found, the active selection state is used
- *             as a fallback.  Conflicts between an explicit specifier and the
- *             active selection are detected and reported here.
- *
- *   Pass 3 — subcommand dispatch: argv[0] names the operation; the rest are
- *             its arguments, forwarded to the appropriate ged_subcmd handler.
- *
- * All geometry-altering subcommands receive a ged_edit_ctx * (u_data).
+ *  Command line geometry editing.
  */
 
 #include "common.h"
@@ -61,7 +45,7 @@
 
 #include "../ged_private.h"
 #include "../dbi.h"
-#include "./ged_edit2.h"
+#include "./ged_edit.h"
 
 
 /* ------------------------------------------------------------------ *
@@ -1565,7 +1549,7 @@ cmd_perturb::exec(struct ged *gedp, void *u_data, int argc, const char **argv)
  * ================================================================== */
 
 extern "C" int
-ged_edit2_core(struct ged *gedp, int argc, const char *argv[])
+ged_edit_core(struct ged *gedp, int argc, const char *argv[])
 {
     int help = 0;
 
@@ -1846,19 +1830,6 @@ ged_edit2_core(struct ged *gedp, int argc, const char *argv[])
 
 #include "../include/plugin.h"
 #include "./ged_edit.h"
-
-/**
- * Top-level entry point for the `edit` GED plugin command.
- *
- * Since gedp->new_cmd_forms defaults to 1, this always calls
- * ged_edit2_core().  The legacy fallback branch is retained for one
- * release as a compile-time reference but is never reached in practice.
- */
-int
-ged_edit_core(struct ged *gedp, int argc, const char *argv[])
-{
-    return ged_edit2_core(gedp, argc, argv);
-}
 
 #define GED_EDIT_COMMANDS(X, XID) \
     X(edit, ged_edit_core, GED_CMD_DEFAULT) \

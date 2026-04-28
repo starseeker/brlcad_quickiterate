@@ -24,13 +24,16 @@ name, slash-separated path, URI, or via the active selection state.
 
 All geometry-altering subcommands share the same lifecycle:
 
-1. Identify the object(s) to edit via a geometry specifier or the active
-   selection.
-2. Load the object into a temporary edit buffer (or create a fresh buffer
-   entry if none exists).
-3. Apply the requested transformation.
-4. Commit the result to the database (unless *-i* is given, which leaves the
-   buffer entry pending for further operations).
+. Identify the object(s) to edit via a geometry specifier or the active
+selection.
+
+. Load the object into a temporary edit buffer (or create a fresh buffer
+entry if none exists).
+
+. Apply the requested transformation.
+
+. Commit the result to the database (unless *-i* is given, which leaves the
+buffer entry pending for further operations).
 
 The *checkpoint*, *revert*, *reset*, and *mat* subcommands provide lifecycle
 management for the temporary buffer.

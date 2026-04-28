@@ -19,34 +19,7 @@
  */
 /** @file test_edit.cpp
  *
- * Comprehensive test suite for the libged `edit` command (edit2.cpp).
- *
- * Consolidates all incremental phase tests.  Covers:
- *
- *  Section 0 — Infrastructure smoke tests (command registration,
- *               ft_edit_desc coverage, fixture integrity).
- *  Section 1 — Three-pass parser, URI fragment/query, batch marker,
- *               selection fallback, conflict arbiter (-S/-f/-F/-i),
- *               temporary edit buffer API.
- *  Section 2 — translate (-a/-r/-k/-x/-y/-z), tra alias,
- *               rotate (Euler 1/2/3 angles, coord flags, -R radians,
- *               ±180° ambiguity), scale (scalar/xyz/-k/-a/-r),
- *               checkpoint/revert/reset lifecycle, mat subcommand.
- *  Section A — DbiState null-safety: all operations work when
- *               gedp->dbi_state is NULL.
- *  Section C — rotate axis-mode (-k/-a/-r/-d/-c), scale -c center,
- *               per-axis (anisotropic) scale factors.
- *  Section D — Design-completion features:
- *               translate -k with coordinate positions,
- *               translate per-component object extraction (-z OBJ),
- *               translate/rotate/scale -c . (self-center reference),
- *               rotate implicit angle from ANGLE_FROM→ANGLE_TO,
- *               rotate two -k/-a pairs (axis pair + angle ref pair).
- *
- * edit2.cpp is a proper superset of the original edit.c:
- *   original edit.c had translate enabled, rotate/scale disabled;
- *   edit2.cpp provides all three plus tra/sca/rot aliases, perturb,
- *   checkpoint, revert, reset, and mat.
+ * Comprehensive test suite for the libged `edit` command.
  */
 
 #include "common.h"
@@ -120,8 +93,8 @@ read_ell(struct ged *gedp, const char *name, struct rt_ell_internal *out)
 
 
 /* ------------------------------------------------------------------ *
- * Shared helper: open a fixture database with new_cmd_forms=1 and
- * a freshly constructed DbiState.
+ * Shared helper: open a fixture database with a freshly constructed
+ * DbiState.
  * ------------------------------------------------------------------ */
 static struct ged *
 open_fixture(const char *path)
@@ -129,15 +102,13 @@ open_fixture(const char *path)
     struct ged *gedp = ged_open("db", path, 1);
     if (!gedp)
         return NULL;
-    gedp->new_cmd_forms = 1;
     gedp->dbi_state = new DbiState(gedp);
     return gedp;
 }
 
 
 /* ------------------------------------------------------------------ *
- * Shared helper: open a fixture database with new_cmd_forms=1 but
- * WITHOUT DbiState (Phase A null-safety tests).
+ * Shared helper: open a fixture database WITHOUT DbiState.
  * ------------------------------------------------------------------ */
 static struct ged *
 open_fixture_no_dbistate(const char *path)
@@ -145,7 +116,6 @@ open_fixture_no_dbistate(const char *path)
     struct ged *gedp = ged_open("db", path, 1);
     if (!gedp)
         return NULL;
-    gedp->new_cmd_forms = 1;
     /* Deliberately leave gedp->dbi_state = NULL */
     return gedp;
 }

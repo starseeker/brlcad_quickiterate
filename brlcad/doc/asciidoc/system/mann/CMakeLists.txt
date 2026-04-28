@@ -137,6 +137,7 @@ set(
   lint.adoc
   listeval.adoc
   loadtk.adoc
+  loadview.adoc
   lookat.adoc
   ls.adoc
   lt.adoc
