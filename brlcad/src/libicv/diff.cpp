@@ -228,12 +228,16 @@ icv_diff_nirt_shots(const icv_image_t *img1, const icv_image_t *img2, FILE *nirt
 	VSCALE(dy_model, dy_model, cell_height);
     }
 
+    /* Precompute the perspective zoomout factor (0 for orthographic) */
+    const double zoomout = (ri->perspective > 0.0)
+	? 1.0 / tan(DEG2RAD * ri->perspective / 2.0)
+	: 0.0;
+
     /* viewbase_model – lower-left corner of the view plane */
     point_t viewbase_model;
     {
 	vect_t temp;
 	if (ri->perspective > 0.0) {
-	    const double zoomout = 1.0 / tan(DEG2RAD * ri->perspective / 2.0);
 	    VSET(temp, -1.0, -1.0 / aspect, -zoomout);
 	} else {
 	    VSET(temp, -1.0, -1.0 / aspect, 0.0);
@@ -288,7 +292,6 @@ icv_diff_nirt_shots(const icv_image_t *img1, const icv_image_t *img2, FILE *nirt
 	    if (ri->perspective > 0.0) {
 		/* Perspective: diverging rays from a single eye point */
 		vect_t temp;
-		const double zoomout = 1.0 / tan(DEG2RAD * ri->perspective / 2.0);
 		VSET(temp, -1.0 + 2.0 * (col + 0.5) / (double)width,
 		           (-1.0 / aspect) + 2.0 * (row + 0.5) / ((double)height * aspect),
 		           -zoomout);

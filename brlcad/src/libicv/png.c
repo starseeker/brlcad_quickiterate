@@ -325,8 +325,6 @@ png_read(FILE *fp)
 		    if (ri->objects) bu_free(ri->objects, "ri objects");
 		    ri->objects = bu_strdup(text_ptr[i].text);
 		} else if (BU_STR_EQUAL(text_ptr[i].key, ICV_PNG_KEY_CAMERA)) {
-		    if (!ri)
-			ri = icv_render_info_create();
 		    if (!camera_str_to_render_info(text_ptr[i].text, ri)) {
 			bu_log("png_read: WARNING: failed to parse BRL-CAD camera metadata\n");
 		    }
