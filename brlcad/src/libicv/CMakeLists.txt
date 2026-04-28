@@ -9,6 +9,7 @@ set(
   bw.c
   color_space.c
   crop.c
+  diff.cpp
   dpix.c
   encoding.c
   fileformat.c
