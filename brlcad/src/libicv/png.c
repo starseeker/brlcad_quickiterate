@@ -185,14 +185,18 @@ png_write(icv_image_t *bif, FILE *fp)
     unsigned char *data = icv_data2uchar(bif);
 
     png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-    if (UNLIKELY(png_ptr == NULL))
+    if (UNLIKELY(png_ptr == NULL)) {
+	bu_free(data, "png write uchar data");
+	bu_vls_free(&cam_str);
 	return BRLCAD_ERROR;
+    }
 
     png_infop info_ptr = png_create_info_struct(png_ptr);
     if (info_ptr == NULL || setjmp(png_jmpbuf(png_ptr))) {
 	png_destroy_read_struct(&png_ptr, info_ptr ? &info_ptr : NULL, NULL);
 	bu_log("ERROR: Unable to create png header\n");
 	bu_vls_free(&cam_str);
+	bu_free(data, "png write uchar data");
 	return BRLCAD_ERROR;
     }
 
@@ -361,7 +365,6 @@ png_read(FILE *fp)
 	rows[bif->height - 1 - i] = image+(i * bif->width * 3);
 
     png_read_image(png_p, rows);
-    bu_free(rows, "png rows");
 
     bif->data = icv_uchar2double(image, 3 * bif->width * bif->height);
     bu_free(image, "png_read : unsigned char data");
@@ -370,6 +373,7 @@ png_read(FILE *fp)
     bif->color_space = ICV_COLOR_SPACE_RGB;
 
     png_destroy_read_struct(&png_p, &info_p, NULL);
+    bu_free(rows, "png rows");
 
     return bif;
 }

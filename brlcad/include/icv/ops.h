@@ -248,18 +248,20 @@ ICV_EXPORT extern int icv_diff_render_info(const icv_image_t *img1, const icv_im
  * @p img1 and @p img2.
  *
  * For each differing pixel, the corresponding world-space ray is reconstructed
- * from the render metadata embedded in @p img1 (which must contain a valid
- * icv_render_info with a properly filled camera description).  The result is a
- * self-contained nirt script that can be fed to nirt directly:
+ * from the render metadata embedded in whichever image has a valid
+ * icv_render_info attached.  @p img1's metadata is preferred when both images
+ * have it; the function falls back to @p img2's metadata when only @p img2 has
+ * it.  The caller is responsible for ensuring the views match when metadata is
+ * present in only one image.  The result is a self-contained nirt script:
  *
  *   nirt -f <output_file> model.g objects...
  *
- * @param img1       Reference image – must have icv_render_info attached
- * @param img2       Comparison image
+ * @param img1       First image; if it has icv_render_info its metadata is used
+ * @param img2       Second image; its metadata is used if img1 has none
  * @param nirt_out   Open FILE* to write the nirt script; must not be NULL
  *
  * Returns the number of differing pixels for which shots were written, or -1
- * on error (e.g., missing render metadata, mismatched image sizes).
+ * on error (e.g., neither image has render metadata, mismatched image sizes).
  */
 ICV_EXPORT extern int icv_diff_nirt_shots(const icv_image_t *img1, const icv_image_t *img2, FILE *nirt_out);
 
