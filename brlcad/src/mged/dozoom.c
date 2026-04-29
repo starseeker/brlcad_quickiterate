@@ -85,11 +85,6 @@ dozoom(struct mged_state *s, int which_eye)
      * s->mged_curr_dm without updating the view's dmp pointer. */
     v->dmp = (void *)DMP;
 
-    static int dozoom_count = 0;
-    if (++dozoom_count <= 5 || dozoom_count % 100 == 0)
-	fprintf(stderr, "DOZOOM[%d]: which_eye=%d bsg_root=%p dmp=%p independent=%d\n",
-		dozoom_count, which_eye, v->bsg_root, v->dmp, v->independent);
-
     /* ------------------------------------------------------------------
      * Non-stereo path: clean BSG rendering via dm_draw_objs().
      * ------------------------------------------------------------------ */

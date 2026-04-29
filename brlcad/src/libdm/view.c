@@ -20,7 +20,6 @@
 
 #include "common.h"
 
-#include <stdio.h>
 #include "bu/time.h"
 #include "bu/units.h"
 #include "bu/vls.h"
@@ -785,13 +784,10 @@ bsg_view_traverse(struct bview *v, void *root)
 	return;
 
     struct bv_scene_obj *r = (struct bv_scene_obj *)root;
-    fprintf(stderr, "BSG_TRAVERSE: %zu children\n", BU_PTBL_LEN(&r->children));
     for (size_t i = 0; i < BU_PTBL_LEN(&r->children); i++) {
 	struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(&r->children, i);
 	if (!s)
 	    continue;
-	fprintf(stderr, "  child[%zu]: %s s_flag=%d s_force_draw=%d\n",
-		i, bu_vls_cstr(&s->s_name), s->s_flag, s->s_force_draw);
 	draw_scene_obj(dmp, s, v, s->s_force_draw,
 		       (s->s_inherit_settings) ? s->s_os : NULL);
     }

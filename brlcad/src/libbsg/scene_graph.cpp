@@ -37,7 +37,6 @@
 
 #include "common.h"
 
-#include <stdio.h>
 #include "bu/log.h"
 #include "bu/malloc.h"
 #include "bu/ptbl.h"
@@ -110,32 +109,16 @@ bsg_scene_root_sync(bsg_node *root, struct bview *v)
     /* Shared db objects */
     struct bu_ptbl *sobjs = bv_view_objs(v, BV_DB_OBJS);
     if (sobjs) {
-	fprintf(stderr, "BSG_SYNC[%s]: shared_db_objs=%zu\n", bu_vls_cstr(&v->gv_name), BU_PTBL_LEN(sobjs));
-	for (size_t i = 0; i < BU_PTBL_LEN(sobjs); i++) {
-	    struct bv_scene_obj *so = (struct bv_scene_obj *)BU_PTBL_GET(sobjs, i);
-	    if (so) fprintf(stderr, "  shared_db[%zu]: %s s_flag=%d\n", i, bu_vls_cstr(&so->s_name), so->s_flag);
+	for (size_t i = 0; i < BU_PTBL_LEN(sobjs); i++)
 	    bu_ptbl_ins(&r->children, BU_PTBL_GET(sobjs, i));
-	}
-    } else {
-	fprintf(stderr, "BSG_SYNC[%s]: shared_db_objs=NULL (vset=%p)\n", bu_vls_cstr(&v->gv_name), (void *)v->vset);
     }
 
     /* Local db objects (only if distinct from shared) */
     struct bu_ptbl *lobjs = bv_view_objs(v, BV_DB_OBJS | BV_LOCAL_OBJS);
     if (lobjs && lobjs != sobjs) {
-	fprintf(stderr, "BSG_SYNC[%s]: local_db_objs=%zu\n", bu_vls_cstr(&v->gv_name), BU_PTBL_LEN(lobjs));
-	for (size_t i = 0; i < BU_PTBL_LEN(lobjs); i++) {
-	    struct bv_scene_obj *lo = (struct bv_scene_obj *)BU_PTBL_GET(lobjs, i);
-	    if (lo) fprintf(stderr, "  local_db[%zu]: %s s_flag=%d\n", i, bu_vls_cstr(&lo->s_name), lo->s_flag);
+	for (size_t i = 0; i < BU_PTBL_LEN(lobjs); i++)
 	    bu_ptbl_ins(&r->children, BU_PTBL_GET(lobjs, i));
-	}
-    } else {
-	fprintf(stderr, "BSG_SYNC[%s]: local_db_objs=%zu (same as shared or NULL)\n",
-		bu_vls_cstr(&v->gv_name), lobjs ? BU_PTBL_LEN(lobjs) : 0);
     }
-
-    fprintf(stderr, "BSG_SYNC[%s]: total children after sync=%zu independent=%d\n",
-	    bu_vls_cstr(&v->gv_name), BU_PTBL_LEN(&r->children), v->independent);
 
     /* Shared view-only objects */
     struct bu_ptbl *vobjs = bv_view_objs(v, BV_VIEW_OBJS);
