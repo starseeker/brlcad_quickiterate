@@ -277,8 +277,8 @@ server_ciao(struct pkg_conn* connection, char *buf)
 void
 run_server(int port)
 {
-    struct pkg_conn *client;
-    pkg_listener_t *listener;
+    struct pkg_conn *client = NULL;
+    pkg_listener_t *listener = NULL;
     char portname[MAX_DIGITS] = {0};
     int pkg_result  = 0;
     char *title;
@@ -399,7 +399,7 @@ run_server(int port)
 
     /* shut down the server */
     pkg_close(client);
-    pkg_listener_close(listener);
+    if (listener) pkg_listener_close(listener);
 }
 
 
