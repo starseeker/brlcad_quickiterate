@@ -79,6 +79,12 @@ dozoom(struct mged_state *s, int which_eye)
 
     s->mged_curr_dm->dm_ndrawn = 0;
 
+    /* Keep v->dmp in sync with the active display manager so that
+     * dm_draw_objs() can find the DM.  This must be done every frame
+     * because set_curr_dm() (called from refresh()) updates
+     * s->mged_curr_dm without updating the view's dmp pointer. */
+    v->dmp = (void *)DMP;
+
     /* ------------------------------------------------------------------
      * Non-stereo path: clean BSG rendering via dm_draw_objs().
      * ------------------------------------------------------------------ */
