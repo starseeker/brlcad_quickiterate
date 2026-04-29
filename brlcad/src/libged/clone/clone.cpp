@@ -1758,11 +1758,9 @@ resolve_axis_kvs(struct bu_vls *msg, PatternMode pat,
 		 const std::vector<AxisKV>& kvs,
 		 std::vector<ResolvedAxis>& axes,
 		 const char *opt_name,
-		 fastf_t (*select)(ResolvedAxis&),
 		 bool   (*explicit_get)(const ResolvedAxis&),
 		 void   (*setter)(ResolvedAxis&, fastf_t, bool /*explicit_kw*/))
 {
-    (void)select;
     /* Two passes: first explicit bindings (AXIS= form), then defaults. */
     for (const auto& kv : kvs) {
 	if (kv.axis.empty()) continue;
@@ -1795,9 +1793,6 @@ resolve_axis_kvs(struct bu_vls *msg, PatternMode pat,
 }
 
 /* Helpers for the resolve_axis_kvs templates above. */
-static fastf_t sel_n(ResolvedAxis& a)     { return (fastf_t)a.n; }
-static fastf_t sel_d(ResolvedAxis& a)     { return a.d; }
-static fastf_t sel_start(ResolvedAxis& a) { return a.start; }
 static bool exp_n(const ResolvedAxis& a)     { return a.n_explicit; }
 static bool exp_d(const ResolvedAxis& a)     { return a.d_explicit; }
 static bool exp_start(const ResolvedAxis& a) { return a.start_explicit; }
@@ -1944,14 +1939,13 @@ clone_parse_args(struct ged *gedp, int argc, const char **argv,
 
     /* Apply -n/-d/--start key/value bindings. */
     if (resolve_axis_kvs(gedp->ged_result_str, state->pattern, axopts.n_kv,
-			 axes, "-n", sel_n, exp_n, set_n) != BRLCAD_OK)
+			 axes, "-n", exp_n, set_n) != BRLCAD_OK)
 	return BRLCAD_ERROR;
     if (resolve_axis_kvs(gedp->ged_result_str, state->pattern, axopts.d_kv,
-			 axes, "-d", sel_d, exp_d, set_d) != BRLCAD_OK)
+			 axes, "-d", exp_d, set_d) != BRLCAD_OK)
 	return BRLCAD_ERROR;
     if (resolve_axis_kvs(gedp->ged_result_str, state->pattern, axopts.start_kv,
-			 axes, "--start", sel_start, exp_start, set_start)
-	!= BRLCAD_OK)
+			 axes, "--start", exp_start, set_start) != BRLCAD_OK)
 	return BRLCAD_ERROR;
 
     /* Apply --list (AXIS= form only). */
@@ -2235,9 +2229,10 @@ clone_parse_args(struct ged *gedp, int argc, const char **argv,
     state->miraxis = mirror_opt.axis;
     state->mirpos  = mirror_opt.dist * l2b;
 
-    /* center_pat / center_obj / center_base are scaled to model units
-     * later by the runners (they already multiply by l2b internally for
-     * sph/cyl).  rect's grid origin is plumbed through center_pat below. */
+    /* Note: center_pat / center_obj / center_base are scaled to model
+     * units later by the runners (they multiply by l2b internally for
+     * sph/cyl).  The rect grid origin is plumbed through center_pat
+     * earlier in the RECT projection above. */
 
     return BRLCAD_OK;
 }
