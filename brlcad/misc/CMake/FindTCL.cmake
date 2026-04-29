@@ -553,7 +553,7 @@ mark_as_advanced(
 # prevents a relative DT_NEEDED entry that the runtime loader can't
 # resolve via RUNPATH.
 if(TCL_FOUND AND NOT TARGET TCL::TCL)
-  add_library(TCL::TCL SHARED IMPORTED)
+  add_library(TCL::TCL SHARED IMPORTED GLOBAL)
   get_filename_component(_tcl_soname "${TCL_LIBRARY}" NAME)
   set_target_properties(TCL::TCL PROPERTIES
     IMPORTED_LOCATION "${TCL_LIBRARY}"
@@ -564,7 +564,7 @@ if(TCL_FOUND AND NOT TARGET TCL::TCL)
 endif()
 
 if(TCL_FOUND AND TCL_STUB_LIBRARY AND NOT TARGET TCL::Stub)
-  add_library(TCL::Stub STATIC IMPORTED)
+  add_library(TCL::Stub STATIC IMPORTED GLOBAL)
   set_target_properties(TCL::Stub PROPERTIES
     IMPORTED_LOCATION "${TCL_STUB_LIBRARY}"
     INTERFACE_INCLUDE_DIRECTORIES "${TCL_INCLUDE_PATH}"
@@ -572,7 +572,7 @@ if(TCL_FOUND AND TCL_STUB_LIBRARY AND NOT TARGET TCL::Stub)
 endif()
 
 if(TCL_ENABLE_TK AND TK_FOUND AND NOT TARGET TK::TK)
-  add_library(TK::TK SHARED IMPORTED)
+  add_library(TK::TK SHARED IMPORTED GLOBAL)
   get_filename_component(_tk_soname "${TK_LIBRARY}" NAME)
   set_target_properties(TK::TK PROPERTIES
     IMPORTED_LOCATION "${TK_LIBRARY}"

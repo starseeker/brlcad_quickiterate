@@ -515,6 +515,29 @@ function(
       endforeach()
     endif()
 
+    # Strip raw build-tree paths from INTERFACE_LINK_LIBRARIES on the
+    # shared-library target.  For a shared library the ELF DT_NEEDED
+    # entries already encode all runtime dependencies; a raw absolute
+    # path to a bundled library in the build tree is therefore both
+    # redundant and harmful in the installed BRLCADTargets.cmake (it
+    # references a path that does not exist on consumers' machines).
+    # Named targets (BRLCAD::*, ZLIB::*, etc.) and generator expressions
+    # are preserved; only bare paths are removed.
+    get_target_property(_raw_iface_libs ${libname} INTERFACE_LINK_LIBRARIES)
+    if(_raw_iface_libs)
+      set_property(TARGET ${libname} PROPERTY INTERFACE_LINK_LIBRARIES)
+      foreach(_lib ${_raw_iface_libs})
+        if(_lib MATCHES "^/" OR _lib MATCHES "^[A-Za-z]:\\\\")
+          # Raw absolute path — guard it so it is only used from the build tree.
+          set_property(TARGET ${libname} APPEND PROPERTY
+            INTERFACE_LINK_LIBRARIES $<BUILD_INTERFACE:${_lib}>)
+        else()
+          set_property(TARGET ${libname} APPEND PROPERTY
+            INTERFACE_LINK_LIBRARIES ${_lib})
+        endif()
+      endforeach()
+    endif()
+
     if(HIDE_INTERNAL_SYMBOLS)
       set_property(TARGET ${libname} APPEND PROPERTY COMPILE_DEFINITIONS "${UPPER_CORE}_DLL_EXPORTS")
       # Use target_compile_definitions so the INTERFACE entry is exported via
@@ -661,6 +684,25 @@ function(
         else()
           set_property(TARGET ${libstatic} APPEND PROPERTY
             INTERFACE_SYSTEM_INCLUDE_DIRECTORIES ${_sdir})
+        endif()
+      endforeach()
+    endif()
+
+    # Strip raw build-tree paths from INTERFACE_LINK_LIBRARIES on the
+    # static target.  Unlike shared libs, static libs do need transitive
+    # link deps recorded for consumers, but build-tree absolute paths are
+    # invalid in the installed targets file.  Guard them with
+    # $<BUILD_INTERFACE:...> so they are only visible when building in-tree.
+    get_target_property(_raw_siface_libs ${libstatic} INTERFACE_LINK_LIBRARIES)
+    if(_raw_siface_libs)
+      set_property(TARGET ${libstatic} PROPERTY INTERFACE_LINK_LIBRARIES)
+      foreach(_lib ${_raw_siface_libs})
+        if(_lib MATCHES "^/" OR _lib MATCHES "^[A-Za-z]:\\\\")
+          set_property(TARGET ${libstatic} APPEND PROPERTY
+            INTERFACE_LINK_LIBRARIES $<BUILD_INTERFACE:${_lib}>)
+        else()
+          set_property(TARGET ${libstatic} APPEND PROPERTY
+            INTERFACE_LINK_LIBRARIES ${_lib})
         endif()
       endforeach()
     endif()
