@@ -551,9 +551,12 @@ rt_opt_white_bg(struct bu_vls *UNUSED(msg), size_t UNUSED(argc), const char **UN
 static int
 rt_opt_ambient(struct bu_vls *msg, size_t argc, const char **argv, void *UNUSED(set_var))
 {
-    BU_OPT_CHECK_ARGV0(msg, argc, argv, "ambient");
-    AmbientIntensity = atof(argv[0]);
-    return 1;
+    fastf_t tmp = (fastf_t)0.0;
+    int ret;
+    ret = bu_opt_fastf_t(msg, argc, argv, &tmp);
+    if (ret > 0)
+	AmbientIntensity = tmp;
+    return ret;
 }
 
 
