@@ -573,7 +573,7 @@ main(int argc, char **argv)
     netfd = 0;
     if (is_socket(netfd)) {
 	init_syslog();
-	fbserv_new_client(pkg_transerver(pkg_switch, communications_error));
+	fbserv_new_client(pkg_adopt_stdio(pkg_switch, communications_error));
 	max_fd = 8;
 	once_only = 1;
 	main_loop();

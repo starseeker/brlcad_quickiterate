@@ -2195,6 +2195,7 @@ pkg_suckin(struct pkg_conn *pc)
 
 struct pkg_listener {
     int fd;
+    int port;
     pkg_errlog errlog;
 };
 
@@ -2219,6 +2220,7 @@ pkg_listen(const char *service, const char *iface_or_null, int backlog, pkg_errl
 	return NULL;
     }
     L->fd     = lfd;
+    L->port   = pkg_permport;   /* pkg_permserver() sets this global */
     L->errlog = errlog;
     return L;
 }
@@ -2234,6 +2236,12 @@ int
 pkg_get_listener_fd(const pkg_listener_t *L)
 {
     return L ? L->fd : -1;
+}
+
+int
+pkg_get_listener_port(const pkg_listener_t *L)
+{
+    return L ? L->port : -1;
 }
 
 void

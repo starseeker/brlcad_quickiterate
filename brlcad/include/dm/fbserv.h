@@ -64,12 +64,13 @@ __BEGIN_DECLS
 struct fbserv_obj;
 
 struct fbserv_listener {
-    int fbsl_fd;                        /**< @brief socket to listen for connections */
+    int fbsl_fd;                        /**< @brief socket fd to listen for connections (copy of listener fd) */
     void *fbsl_chan;                    /**< @brief platform/toolkit specific channel */
     int fbsl_port;                      /**< @brief port number to listen on */
     int fbsl_listen;                    /**< @brief !0 means listen for connections */
     struct fbserv_obj *fbsl_fbsp;       /**< @brief points to its fbserv object */
     struct pkg_conn *fbsl_ipc_child;    /**< @brief IPC child-end channel (NULL when using TCP) */
+    struct pkg_listener *fbsl_listener; /**< @brief TCP listener (NULL when using IPC or Tcl channel) */
 };
 
 

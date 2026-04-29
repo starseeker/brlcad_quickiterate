@@ -466,6 +466,13 @@ PKG_EXPORT extern int pkg_pair_prefer(struct pkg_conn **parent_end,
 PKG_EXPORT extern const char *pkg_child_addr_env(struct pkg_conn *pc);
 
 /**
+ * Return just the raw address string (e.g. "pipe:4,7" or "socket:5")
+ * for use in argv["-I addr"] style arguments to a child process.
+ * The pointer is valid until pkg_close().
+ */
+PKG_EXPORT extern const char *pkg_child_addr(struct pkg_conn *pc);
+
+/**
  * Connect the child side from an address string.
  * Returns pkg_conn* on success, PKC_ERROR on failure.
  */
@@ -515,6 +522,7 @@ PKG_EXPORT extern struct pkg_conn *pkg_accept(pkg_listener_t *L,
 					      pkg_errlog errlog,
 					      int nonblocking);
 PKG_EXPORT extern int pkg_get_listener_fd(const pkg_listener_t *L);
+PKG_EXPORT extern int pkg_get_listener_port(const pkg_listener_t *L);
 PKG_EXPORT extern void pkg_listener_close(pkg_listener_t *L);
 
 

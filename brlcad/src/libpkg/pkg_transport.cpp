@@ -386,6 +386,13 @@ pkg_child_addr_env(struct pkg_conn *pc)
     return (pc->pkc_addr_env[0] != '\0') ? pc->pkc_addr_env : NULL;
 }
 
+const char *
+pkg_child_addr(struct pkg_conn *pc)
+{
+    if (!pc || pc == PKC_ERROR) return NULL;
+    return (pc->pkc_addr[0] != '\0') ? pc->pkc_addr : NULL;
+}
+
 
 /* ================================================================== */
 /* pkg_connect_addr / pkg_connect_env                                   */

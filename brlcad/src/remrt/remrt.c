@@ -276,9 +276,10 @@ int detached = 0;		/* continue after EOF */
 fd_set clients;
 int print_on = 1;
 
-/* Count of active server connections that use PKG_STDIO_MODE (pipe transport).
- * These cannot be tracked in the clients fd_set (pkc_fd == PKG_STDIO_MODE == -3).
- * Used by the "done" checks to know when all workers have disconnected.        */
+/* Count of active server connections using pipe/socket IPC transport.
+ * These cannot be tracked in the clients fd_set when pkc_tx_kind is
+ * PKG_TX_IPC (read/write fd are a private pair, not a select-able socket).
+ * Used by the "done" checks to know when all workers have disconnected.    */
 static int n_pipe_servers = 0;
 /* Cumulative count: incremented each time a pipe server is added via
  * addclient_ipc().  Never decremented.  Used by do_work() to detect
@@ -449,7 +450,7 @@ char *our_hostname;
 
 int tcp_listen_fd;
 pkg_listener_t *tcp_listener = NULL;
-/* pkg_permport is declared (with correct DLL-import on Windows) via pkg.h */
+/* tcp_listener stores the listener; use pkg_get_listener_port(tcp_listener) to get the TCP port */
 
 int rem_debug;		/* dispatcher debugging flag */
 
@@ -1398,7 +1399,7 @@ add_host(struct ihost *ihp)
 	}
     }
 
-    snprintf(port_str, sizeof(port_str), "%d", pkg_permport);
+    snprintf(port_str, sizeof(port_str), "%d", pkg_get_listener_port(tcp_listener));
 
     switch (ihp->ht_where) {
 	case HT_CD:
@@ -1543,7 +1544,7 @@ add_host_local(struct ihost *ihp)
      * platforms where argv passing is unavailable.  Save the address string
      * before we close ce (which would free the internal buffer).           */
     char ipc_addr_buf[256];
-    bu_strlcpy(ipc_addr_buf, bu_ipc_addr(ce), sizeof(ipc_addr_buf));
+    bu_strlcpy(ipc_addr_buf, pkg_child_addr(ce), sizeof(ipc_addr_buf));
 
     argv[argc++] = rtsrv_path;
     argv[argc++] = "-I";
@@ -1556,42 +1557,36 @@ add_host_local(struct ihost *ihp)
 
     if (rem_debug)
 	bu_log("%s local rtsrv %s (%s=%s)\n",
-	       stamp(), rtsrv_path, BU_IPC_ADDR_ENVVAR, bu_ipc_addr(ce));
+	       stamp(), rtsrv_path, PKG_ADDR_ENVVAR, pkg_child_addr(ce));
 
     bu_process_create(&p, argv, BU_PROCESS_DEFAULT);
 
     /* Clear the env var now that the fork has captured it.  The child
      * already has its own independent copy so this cannot affect it.       */
-    bu_setenv(BU_IPC_ADDR_ENVVAR, "", 1);
+    bu_setenv(PKG_ADDR_ENVVAR, "", 1);
 
     /* Parent closes its copy of the child end — only the child needs it. */
-    bu_ipc_close(ce);
+    pkg_close(ce);
     ce = NULL;
 
     if (p == NULL) {
 	bu_log("add_host_local: failed to spawn rtsrv for %s\n", ihp->ht_name);
-	bu_ipc_close(pe);
+	pkg_close(pe);
 	return;
     }
 
     if (helper_proc_count < MAX_HELPER_PROCS)
 	helper_procs[helper_proc_count++] = p;
 
-    /* Wrap the parent end of the IPC channel into a pkg_conn. */
-    rfd = bu_ipc_fileno(pe);
-    wfd = bu_ipc_fileno_write(pe);
-    pc = pkg_open_fds(rfd, wfd, pkgswitch, remrt_log);
+    /* pe is already a pkg_conn; use it directly as the parent-end connection. */
+    pc = pe;
+    pe = NULL;
     if (pc == PKC_ERROR || pc == PKC_NULL) {
-	bu_log("add_host_local: pkg_open_fds failed for %s\n", ihp->ht_name);
-	bu_ipc_close(pe);
+	bu_log("add_host_local: IPC parent-end conn invalid for %s\n", ihp->ht_name);
 	return;
     }
 
-    /* pe struct can now be freed; the fds inside it are owned by pkg_conn.
-     * Use bu_ipc_detach() (not bu_ipc_close()) to avoid closing the fd
-     * that pkg_conn will later use for I/O and select().              */
     addclient_ipc(pc, ihp);
-    bu_ipc_detach(pe);   /* struct freed; fds remain open in pkg_conn */
 
     /* Let the new connection's first message (MSG_VERSION) arrive. */
     check_input(1);
@@ -2965,7 +2960,7 @@ cd_status(const int UNUSED(argc), const char **UNUSED(argv))
     bu_log("%s Printing of remote messages is %s\n",
 	   s, print_on?"ON":"Off");
     bu_log("%s Listening at %s, port %d\n",
-	   s, our_hostname, pkg_permport);
+	   s, our_hostname, pkg_get_listener_port(tcp_listener));
 
     /* Print work assignments */
     bu_log("%s Worker assignment interval=%d seconds:\n",
@@ -3190,7 +3185,7 @@ cd_host(const int argc, const char **argv)
 	ihp->ht_where = HT_USE;
 	ihp->ht_path = bu_strdup(argv[argpoint+1]);
     } else if (BU_STR_EQUAL(argv[argpoint], "local")) {
-	/* Spawn rtsrv directly on this machine via bu_ipc (no SSH).
+	/* Spawn rtsrv directly on this machine via pkg IPC (no SSH).
 	 * The path argument gives the directory where the geometry file
 	 * lives (same role as the path argument for "cd").             */
 	ihp->ht_where = HT_LOCAL;
@@ -4057,20 +4052,21 @@ main(int argc, char *argv[])
 
     /* Listen for our PKG connections */
     int tcp_num = 0;
-    if ((tcp_listen_fd = pkg_permserver("rtsrv", "tcp", 8, remrt_log)) < 0) {
+    if ((tcp_listener = pkg_listen("rtsrv", NULL, 8, remrt_log)) == NULL) {
 	char num[128];
 	/* Do it by the numbers */
 	for (i = 0; i < 10; i++) {
 	    tcp_num = REMRT_TCP_DEFAULT_PORT+i;
 	    snprintf(num, sizeof(num), "%d", tcp_num);
-	    if ((tcp_listen_fd = pkg_permserver(num, "tcp", 8, remrt_log)) < 0)
+	    if ((tcp_listener = pkg_listen(num, NULL, 8, remrt_log)) == NULL)
 		continue;
 	    break;
 	}
 	if (i >= 10)
 	    bu_exit(1, "Unable to find a port to listen on\n");
     }
-    /* Now, pkg_permport has tcp port number */
+    tcp_listen_fd = pkg_get_listener_fd(tcp_listener);
+    /* Now, pkg_get_listener_port(tcp_listener) has tcp port number */
 
 #ifdef SIGPIPE
     (void)signal(SIGPIPE, SIG_IGN);
@@ -4079,7 +4075,7 @@ main(int argc, char *argv[])
     if (argc <= 1) {
 	(void)signal(SIGINT, SIG_IGN);
 	bu_log("%s Interactive REMRT on %s\n", stamp(), our_hostname);
-	bu_log("%s Assigned LIBPKG permport %d\n", stamp(), pkg_permport);
+	bu_log("%s Assigned LIBPKG port %d\n", stamp(), pkg_get_listener_port(tcp_listener));
 	if (tcp_num > 0) {
 	    bu_log("%s Listening at TCP port %d\n", stamp(), tcp_num);
 	}
@@ -4107,7 +4103,7 @@ main(int argc, char *argv[])
 	bu_log("%s Out of clients\n", stamp());
     } else {
 	bu_log("%s Automatic REMRT on %s\n", stamp(), our_hostname);
-	bu_log("%s Assigned LIBPKG permport %d\n", stamp(), pkg_permport);
+	bu_log("%s Assigned LIBPKG port %d\n", stamp(), pkg_get_listener_port(tcp_listener));
 	if (tcp_num > 0) {
 	    bu_log("%s Listening at TCP port %d\n", stamp(), tcp_num);
 	}
