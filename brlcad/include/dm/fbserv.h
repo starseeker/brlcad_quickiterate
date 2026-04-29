@@ -35,11 +35,11 @@
  * problem.  Improving this to be more generic and less dependent on specific
  * toolkits and/or platform mechanisms would be a laudable goal, if practical.
  *
- * bu_ipc path (fbs_open_ipc):
- *   Instead of binding a TCP listen socket, creates a bu_ipc_pair() and
+ * pkg IPC path (fbs_open_ipc):
+ *   Instead of binding a TCP listen socket, creates a pkg_pair() and
  *   immediately wraps the parent end as a pre-connected pkg_conn client.
  *   The child-end address is retrieved via fbs_ipc_child_addr_env() and
- *   passed to the spawned rt subprocess via the BU_IPC_ADDR environment
+ *   passed to the spawned rt subprocess via the PKG_ADDR environment
  *   variable (set with bu_setenv() before the fork, cleared after).
  *
  */
@@ -49,7 +49,6 @@
 
 #include "common.h"
 #include "pkg.h"
-#include "bu/ipc.h"
 #include "dm/defines.h"
 
 __BEGIN_DECLS
@@ -70,7 +69,7 @@ struct fbserv_listener {
     int fbsl_port;                      /**< @brief port number to listen on */
     int fbsl_listen;                    /**< @brief !0 means listen for connections */
     struct fbserv_obj *fbsl_fbsp;       /**< @brief points to its fbserv object */
-    bu_ipc_chan_t *fbsl_ipc_child;      /**< @brief IPC child-end channel (NULL when using TCP) */
+    struct pkg_conn *fbsl_ipc_child;    /**< @brief IPC child-end channel (NULL when using TCP) */
 };
 
 
@@ -82,7 +81,7 @@ struct fbserv_client {
     struct fbserv_obj *fbsc_fbsp;       /**< @brief points to its fbserv object */
     int fbsc_auth_ok;                   /**< @brief !0 = client has sent a valid MSG_FBAUTH */
     int fbsc_pending_drop;              /**< @brief !0 = drop this client after pkg_process() returns */
-    int fbsc_is_ipc;                    /**< @brief !0 = client is connected via bu_ipc (not TCP) */
+    int fbsc_is_ipc;                    /**< @brief !0 = client is connected via IPC (not TCP) */
 };
 
 
@@ -102,7 +101,7 @@ struct fbserv_obj {
      * @brief Optional IPC-specific client open handler.
      *
      * When non-NULL, called by fbs_open_ipc() instead of fbs_open_client_handler
-     * for clients whose connection was established via bu_ipc (pipe/socketpair).
+     * for clients whose connection was established via IPC (pipe/socketpair).
      * The toolkit-specific TCP client setup (e.g. QTcpSocket connections) is
      * not appropriate for IPC clients; this handler installs fd-based I/O
      * monitoring instead (e.g. Tcl_CreateFileHandler, QSocketNotifier).
@@ -139,7 +138,7 @@ DM_EXPORT extern void fbs_existing_client_handler(void *clientData, int mask);
 /**
  * @brief Open an IPC-based framebuffer server (no TCP listen socket).
  *
- * Creates a bu_ipc_pair(), wraps the parent end as a pre-connected pkg_conn
+ * Creates a pkg_pair(), wraps the parent end as a pre-connected pkg_conn
  * client (bypassing the TCP accept loop entirely), and registers it via
  * fbs_open_ipc_client_handler (or fbs_open_client_handler if the former is
  * NULL).  The child end's address is stored in fbsp->fbs_listener.fbsl_ipc_child
@@ -147,20 +146,20 @@ DM_EXPORT extern void fbs_existing_client_handler(void *clientData, int mask);
  *
  * Callers should:
  *   1. Call fbs_open_ipc() to start the server.
- *   2. Call fbs_ipc_child_addr_env() to get "BU_IPC_ADDR=<addr>".
+ *   2. Call fbs_ipc_child_addr_env() to get "PKG_ADDR=<addr>".
  *   3. Set that variable in the parent env (bu_setenv) before spawning rt.
  *   4. Clear the variable after bu_process_create() returns.
  *   5. Pass "-F 0" (or any port spec) to rt so it opens a remote framebuffer;
- *      if_remote.c will detect BU_IPC_ADDR and use the IPC channel instead.
+ *      if_remote.c will detect PKG_ADDR and use the IPC channel instead.
  *
- * The child end is closed (bu_ipc_close) when fbs_close() is called.
+ * The child end is closed (pkg_close) when fbs_close() is called.
  *
- * @return BRLCAD_OK on success, BRLCAD_ERROR if bu_ipc_pair or pkg_open_fds fails.
+ * @return BRLCAD_OK on success, BRLCAD_ERROR if pkg_pair fails.
  */
 DM_EXPORT extern int fbs_open_ipc(struct fbserv_obj *fbsp);
 
 /**
- * @brief Return the "BU_IPC_ADDR=<addr>" env string for the spawned child.
+ * @brief Return the "PKG_ADDR=<addr>" env string for the spawned child.
  *
  * Valid after a successful fbs_open_ipc() call and until fbs_close() is
  * called.  Returns NULL if no IPC channel is active.

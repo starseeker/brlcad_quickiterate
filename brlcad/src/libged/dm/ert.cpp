@@ -39,7 +39,6 @@
 
 #include "bu/app.h"
 #include "bu/env.h"
-#include "bu/ipc.h"
 #include "bu/process.h"
 #include "raytrace.h"
 #include "dm.h"
@@ -117,7 +116,7 @@ ged_ert_core(struct ged *gedp, int argc, const char *argv[])
     args.push_back(std::string("-F"));
     if (using_ipc) {
 	/* Any numeric framebuffer spec routes through if_remote.c, which will
-	 * detect BU_IPC_ADDR and use the IPC channel instead of TCP.         */
+	 * detect PKG_ADDR and use the IPC channel instead of TCP.         */
 	args.push_back(std::string("0"));
     } else {
 	args.push_back(std::to_string(fbs->fbs_listener.fbsl_port));
@@ -183,23 +182,23 @@ ged_ert_core(struct ged *gedp, int argc, const char *argv[])
      * environment immediately before forking.  bu_process_create() inherits
      * all open file descriptors (the child-end fds have been moved high by
      * fbs_open_ipc to survive any descriptor sweep), and the child reads
-     * BU_IPC_ADDR via getenv() in if_remote.c::rem_open().
+     * PKG_ADDR via getenv() in if_remote.c::rem_open().
      * We clear the variable right after the fork because the child already
      * has its own independent copy of the environment.                       */
     if (using_ipc) {
 	const char *addr_env = fbs_ipc_child_addr_env(fbs);
 	if (addr_env) {
-	    /* addr_env is "BU_IPC_ADDR=pipe:4,7" — strip the "KEY=" prefix */
+	    /* addr_env is "PKG_ADDR=pipe:4,7" — strip the "KEY=" prefix */
 	    const char *eq = strchr(addr_env, '=');
 	    if (eq)
-		bu_setenv(BU_IPC_ADDR_ENVVAR, eq + 1, 1);
+		bu_setenv(PKG_ADDR_ENVVAR, eq + 1, 1);
 	}
     }
 
     ret = _ged_run_rt(gedp, gd_rt_cmd_len, (const char **)gd_rt_cmd, (argc - i), &(argv[i]), 0, &rt_pid, clbk, u2);
 
     if (using_ipc)
-	bu_setenv(BU_IPC_ADDR_ENVVAR, "", 1); /* clear parent's env copy */
+	bu_setenv(PKG_ADDR_ENVVAR, "", 1); /* clear parent's env copy */
 
     clbk = NULL;
     u1 = (void *)&rt_pid;

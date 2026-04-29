@@ -35,7 +35,6 @@
 #include "bio.h"
 #include "bnetwork.h"
 
-#include "bu/ipc.h"
 #include "bu/str.h"
 #include "raytrace.h"
 #include "dm.h"
@@ -975,7 +974,7 @@ fbs_close(struct fbserv_obj *fbsp)
 
     /* Close the IPC child-end channel if one was created by fbs_open_ipc(). */
     if (fbsp->fbs_listener.fbsl_ipc_child) {
-	bu_ipc_close(fbsp->fbs_listener.fbsl_ipc_child);
+	pkg_close(fbsp->fbs_listener.fbsl_ipc_child);
 	fbsp->fbs_listener.fbsl_ipc_child = NULL;
     }
 
@@ -1174,31 +1173,22 @@ _fbs_ipc_comm_error(const char *msg)
 int
 fbs_open_ipc(struct fbserv_obj *fbsp)
 {
-    bu_ipc_chan_t *pe = NULL, *ce = NULL;
+    struct pkg_conn *pe = NULL, *ce = NULL;
     struct pkg_conn *pc;
-    int rfd, wfd, i;
+    int i;
 
-    if (bu_ipc_pair(&pe, &ce) != 0) {
+    if (pkg_pair(&pe, &ce, fbs_pkg_switch(), _fbs_ipc_comm_error) != 0) {
 	if (fbsp->msgs)
-	    bu_vls_printf(fbsp->msgs, "fbs_open_ipc: bu_ipc_pair failed\n");
+	    bu_vls_printf(fbsp->msgs, "fbs_open_ipc: pkg_pair failed\n");
 	return BRLCAD_ERROR;
     }
 
     /* Move child-end fd(s) above bu_process_create()'s close(3..19) sweep
      * so the fd survives into the spawned subprocess after exec().          */
-    if (bu_ipc_move_high_fd(ce, 64) != 0)
-	bu_log("fbs_open_ipc: bu_ipc_move_high_fd failed; fd may be swept\n");
+    if (pkg_move_high_fd(ce, 64) != 0)
+	bu_log("fbs_open_ipc: pkg_move_high_fd failed; fd may be swept\n");
 
-    rfd = bu_ipc_fileno(pe);
-    wfd = bu_ipc_fileno_write(pe);
-    pc = pkg_open_fds(rfd, wfd, fbs_pkg_switch(), _fbs_ipc_comm_error);
-    if (pc == PKC_ERROR || pc == PKC_NULL) {
-	bu_ipc_close(ce);
-	bu_ipc_close(pe);
-	if (fbsp->msgs)
-	    bu_vls_printf(fbsp->msgs, "fbs_open_ipc: pkg_open_fds failed\n");
-	return BRLCAD_ERROR;
-    }
+    pc = pe;
 
     /* Find an empty client slot and register the pre-connected pkg_conn.
      * The transport may be a unidirectional pipe pair internally, so the
@@ -1233,18 +1223,15 @@ fbs_open_ipc(struct fbserv_obj *fbsp)
 
     if (i < 0) {
 	bu_log("fbs_open_ipc: too many clients\n");
-	bu_ipc_close(ce);
+	pkg_close(ce);
 	pkg_close(pc);
 	return BRLCAD_ERROR;
     }
 
-    /* Parent end's fds are now owned by pkg_conn; release the wrapper. */
-    bu_ipc_detach(pe);
-
     /* Store the child end so fbs_ipc_child_addr_env() can retrieve it, and
      * so fbs_close() can close it when the session ends.                    */
     if (fbsp->fbs_listener.fbsl_ipc_child)
-	bu_ipc_close(fbsp->fbs_listener.fbsl_ipc_child);
+	pkg_close(fbsp->fbs_listener.fbsl_ipc_child);
     fbsp->fbs_listener.fbsl_ipc_child = ce;
 
     return BRLCAD_OK;
@@ -1256,7 +1243,7 @@ fbs_ipc_child_addr_env(struct fbserv_obj *fbsp)
 {
     if (!fbsp || !fbsp->fbs_listener.fbsl_ipc_child)
 	return NULL;
-    return bu_ipc_addr_env(fbsp->fbs_listener.fbsl_ipc_child);
+    return pkg_child_addr_env(fbsp->fbs_listener.fbsl_ipc_child);
 }
 
 
