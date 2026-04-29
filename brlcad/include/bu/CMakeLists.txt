@@ -21,7 +21,6 @@ set(
   hist.h
   hook.h
   interrupt.h
-  ipc.h
   list.h
   log.h
   magic.h

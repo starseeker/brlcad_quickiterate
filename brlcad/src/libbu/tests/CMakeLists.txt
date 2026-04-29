@@ -808,11 +808,6 @@ brlcad_add_test(NAME bu_snooze COMMAND bu_test snooze)
 #
 add_subdirectory(dylib)
 
-#
-#  *********** bu_ipc round-trip test ************
-#
-add_subdirectory(ipc)
-
 cmakefiles(
   CMakeLists.txt
   bu_test.cpp.in
@@ -823,9 +818,6 @@ cmakefiles(
   dylib/plugin_1.cpp
   dylib/plugin_2.cpp
   dylib/run.c
-  ipc/CMakeLists.txt
-  ipc/ipc_worker.c
-  ipc/run.c
   path_match.in
   tests_bitv.cmake
   tests_vls.cmake
