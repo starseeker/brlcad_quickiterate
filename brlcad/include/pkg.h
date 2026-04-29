@@ -366,6 +366,105 @@ PKG_EXPORT extern struct pkg_conn *pkg_getclient(int fd, const struct pkg_switch
 
 
 /****************************
+ * Transport accessors      *
+ ****************************/
+
+/**
+ * Return the file descriptor a caller should pass to select(), poll(),
+ * QSocketNotifier, libuv, etc. for read-readiness notification.
+ *
+ * Hides the distinction between bidirectional sockets (where read and
+ * write share a single fd) and pipe-pair connections (where the read
+ * end is a separate fd kept internally as pkc_in_fd).  Callers should
+ * use this in preference to looking at pkc_fd / pkc_in_fd directly.
+ *
+ * Returns -1 on error.
+ */
+PKG_EXPORT extern int pkg_get_read_fd(const struct pkg_conn *pc);
+
+/**
+ * Return the file descriptor used for write-readiness notification.
+ * Equal to pkg_get_read_fd() for bidirectional transports (TCP /
+ * socketpair); for pipe-pair connections this is the write fd.
+ *
+ * Returns -1 on error.
+ */
+PKG_EXPORT extern int pkg_get_write_fd(const struct pkg_conn *pc);
+
+/**
+ * Return non-zero if the connection uses split read/write fds (i.e.
+ * the unidirectional pipe transport that was historically signalled
+ * by pkc_fd == PKG_STDIO_MODE).  Use this in preference to comparing
+ * pkc_fd to PKG_STDIO_MODE directly so future transport changes are
+ * source-compatible.
+ */
+PKG_EXPORT extern int pkg_is_stdio_mode(const struct pkg_conn *pc);
+
+/**
+ * Set the kernel send-buffer size on the underlying socket
+ * (equivalent to setsockopt(SOL_SOCKET, SO_SNDBUF)).
+ *
+ * Silently succeeds (returns 0) for transports where send-buffer
+ * tuning is not applicable (pipe / split-fd connections).
+ *
+ * Returns 0 on success, -1 on error.
+ */
+PKG_EXPORT extern int pkg_set_send_buffer(struct pkg_conn *pc, size_t bytes);
+
+/**
+ * Set the kernel receive-buffer size on the underlying socket
+ * (equivalent to setsockopt(SOL_SOCKET, SO_RCVBUF)).
+ *
+ * Silently succeeds (returns 0) for transports where receive-buffer
+ * tuning is not applicable.  Returns 0 on success, -1 on error.
+ */
+PKG_EXPORT extern int pkg_set_recv_buffer(struct pkg_conn *pc, size_t bytes);
+
+/**
+ * Set TCP_NODELAY on the underlying socket.  No-op on non-TCP
+ * transports.  Returns 0 on success, -1 on error.
+ */
+PKG_EXPORT extern int pkg_set_nodelay(struct pkg_conn *pc, int on);
+
+/**
+ * Install a TLS / framing-cipher I/O shim on the connection.
+ *
+ * When @p tls_read / @p tls_write are non-NULL they completely replace
+ * the raw read()/write() calls inside pkg_suckin(), pkg_send(),
+ * pkg_2send(), and pkg_flush().  @p tls_ctx is the opaque context
+ * pointer forwarded as the first argument to both callbacks.
+ *
+ * @p tls_free (if non-NULL) is invoked by pkg_close() before closing
+ * the underlying transport, giving the TLS layer a chance to send a
+ * clean close_notify and free its own state.
+ *
+ * Returns 0 on success, -1 on error.
+ */
+PKG_EXPORT extern int pkg_set_tls(struct pkg_conn *pc,
+				  void *tls_ctx,
+				  ptrdiff_t (*tls_read)(void *ctx, void *buf, size_t n),
+				  ptrdiff_t (*tls_write)(void *ctx, const void *buf, size_t n),
+				  void (*tls_free)(void *ctx));
+
+/**
+ * Wrap an already-connected socket fd in a pkg_conn without performing
+ * any network connect/accept.
+ *
+ * Replaces the historical pattern of allocating a pkg_conn and
+ * hand-initialising pkc_magic / pkc_fd / pkc_switch / pkc_left etc.
+ * Used by callers that obtain a connected socket from another framework
+ * (Tcl/Qt) and want to drive it through libpkg's framing protocol.
+ *
+ * On Windows this also performs WinSock initialisation if necessary.
+ *
+ * Returns a pkg_conn handle on success, PKC_ERROR on failure.
+ */
+PKG_EXPORT extern struct pkg_conn *pkg_adopt_socket(int fd,
+						    const struct pkg_switch *switchp,
+						    pkg_errlog errlog);
+
+
+/****************************
  * Data conversion routines *
  ****************************/
 
