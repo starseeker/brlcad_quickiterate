@@ -4,20 +4,31 @@ include(CheckCXXCompilerFlag)
 # anything with the results of computations
 check_cxx_compiler_flag(-Wno-unused-but-set-variable HAVE_NO_UNUSED_BUT_SET_VARIABLE)
 
-# Check whether fuzzing support is available.
+# Check whether the compiler accepts the fuzzer flag in compilation, then
+# separately verify that the libFuzzer runtime is available for linking.
+set(CHECK_FUZZER_FLAG_CODE "int fuzz_flag_probe = 0;")
 cmake_push_check_state()
+set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
 set(CMAKE_REQUIRED_FLAGS -fsanitize=fuzzer)
-# Unreliable:
-# check_cxx_compiler_flag(-fsanitize=fuzzer HAVE_FSANITIZE_FUZZER)
-set(CHECK_FUZZER_CODE "#include <iostream>\nint main() { return 0; }")
-check_cxx_source_compiles("${CHECK_FUZZER_CODE}" HAVE_FSANITIZE_FUZZER)
+check_cxx_source_compiles("${CHECK_FUZZER_FLAG_CODE}" HAVE_FSANITIZE_FUZZER_FLAG)
 cmake_pop_check_state()
 
-if(HAVE_FSANITIZE_FUZZER)
-  message(STATUS "The '-fsanitize=fuzzer' flag is supported.")
-else()
-  message(STATUS "The '-fsanitize=fuzzer' flag is not supported.")
-endif()
+set(
+  CHECK_FUZZER_CODE
+  "
+#include <stdint.h>
+#include <stddef.h>
+extern \"C\" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
+  (void)data;
+  (void)size;
+  return 0;
+}
+"
+)
+cmake_push_check_state()
+set(CMAKE_REQUIRED_FLAGS -fsanitize=fuzzer)
+check_cxx_source_compiles("${CHECK_FUZZER_CODE}" HAVE_FSANITIZE_FUZZER)
+cmake_pop_check_state()
 
 # Set up the fuzzer option like a library
 set(FUZZER_LIBRARY)
@@ -41,7 +52,19 @@ extern \\\"C\\\" int LLVMFuzzerTestOneInput(const uint8_t *, size_t) {
   if(HAVE_LLVMFUZZER)
     set(FUZZER_LIBRARY "-fsanitize=fuzzer")
   endif(HAVE_LLVMFUZZER)
+else()
+  set(FUZZER_LIBRARY "-fsanitize=fuzzer")
 endif(NOT HAVE_FSANITIZE_FUZZER)
+
+if(HAVE_FSANITIZE_FUZZER)
+  message(STATUS "The '-fsanitize=fuzzer' flag and libFuzzer runtime are supported.")
+elseif(HAVE_LLVMFUZZER)
+  message(STATUS "The libFuzzer runtime is available, but direct '-fsanitize=fuzzer' probing failed.")
+elseif(HAVE_FSANITIZE_FUZZER_FLAG)
+  message(STATUS "The compiler accepts '-fsanitize=fuzzer', but the libFuzzer runtime is unavailable.")
+else()
+  message(STATUS "The compiler does not support '-fsanitize=fuzzer'.")
+endif()
 
 if(TARGET libged)
   set(FUZZ_GED_SRCS fuzz_ged.cpp)
@@ -51,7 +74,7 @@ if(TARGET libged)
     # provide simple main() so they at least compile and run
     set(FUZZ_GED_SRCS ${FUZZ_GED_SRCS} fuzz_stub.cpp)
     set(FUZZ_SHOOTRAY_SRCS ${FUZZ_SHOOTRAY_SRCS} fuzz_stub.cpp)
-  endif(NOT HAVE_FSANITIZE_FUZZER AND NOT HAVE_LLVMFUZZER)
+  endif()
 
   brlcad_addexec(fuzz_ged_test "${FUZZ_GED_SRCS}" "libbu;librt;libged;${FUZZER_LIBRARY}" TEST)
   brlcad_addexec(fuzz_shootray_test "${FUZZ_SHOOTRAY_SRCS}" "libbu;librt;libged;${FUZZER_LIBRARY}" TEST)
@@ -61,22 +84,22 @@ if(TARGET libged)
   #BRLCAD_ADD_TEST(NAME fuzz_ged COMMAND fuzz_ged_test)
   #BRLCAD_ADD_TEST(NAME fuzz_shootray COMMAND fuzz_shootray_test)
 
-  if(HAVE_FSANITIZE_FUZZER OR HAVE_LLVMFUZZER)
+  if(HAVE_FSANITIZE_FUZZER)
     if(TARGET fuzz_ged_test)
       target_compile_options(fuzz_ged_test PRIVATE -fsanitize=fuzzer)
     endif()
     if(TARGET fuzz_shootray_test)
       target_compile_options(fuzz_shootray_test PRIVATE -fsanitize=fuzzer)
     endif()
-  endif(HAVE_FSANITIZE_FUZZER OR HAVE_LLVMFUZZER)
+  endif()
 
-  if(TARGET fuzz_ged_test AND HAVE_FSANITIZE_FUZZER)
+  if(TARGET fuzz_ged_test AND HAVE_LLVMFUZZER)
     target_link_options(fuzz_ged_test PRIVATE -fsanitize=fuzzer)
-  endif(TARGET fuzz_ged_test AND HAVE_FSANITIZE_FUZZER)
+  endif()
 
-  if(TARGET fuzz_shootray_test AND HAVE_FSANITIZE_FUZZER)
+  if(TARGET fuzz_shootray_test AND HAVE_LLVMFUZZER)
     target_link_options(fuzz_shootray_test PRIVATE -fsanitize=fuzzer)
-  endif(TARGET fuzz_shootray_test AND HAVE_FSANITIZE_FUZZER)
+  endif()
 endif(TARGET libged)
 
 cmakefiles(
