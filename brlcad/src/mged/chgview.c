@@ -870,6 +870,18 @@ edit_com(struct mged_state *s,
 	    bu_log("%s\n", bu_vls_addr(s->gedp->ged_result_str));
 	    return TCL_OK;
 	}
+
+	/* Debug: report how many objects are now in view tables */
+	{
+	    struct bview *cv = s->gedp->ged_gvp;
+	    struct bu_ptbl *sobjs = bv_view_objs(cv, BV_DB_OBJS);
+	    struct bu_ptbl *lobjs = bv_view_objs(cv, BV_DB_OBJS | BV_LOCAL_OBJS);
+	    fprintf(stderr, "EDIT_COM[%s]: shared_db=%zu local_db=%zu independent=%d vset=%p bsg_root=%p\n",
+		    argv[0],
+		    sobjs ? BU_PTBL_LEN(sobjs) : 0,
+		    lobjs ? BU_PTBL_LEN(lobjs) : 0,
+		    cv->independent, (void *)cv->vset, (void *)cv->bsg_root);
+	}
     }
 
     s->update_views = 1;
