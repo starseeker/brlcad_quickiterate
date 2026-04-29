@@ -1,0 +1,48 @@
+From: BRL-CAD developers <devs@brlcad.org>
+Subject: [PATCH] Build both shared and static manifold; drop MANIFOLD_DEBUG
+
+Two changes to the bext manifold build:
+
+1. Add -DMANIFOLD_BUILD_STATIC_LIBS=ON so bext produces both
+   libmanifold.so and libmanifold.a alongside the existing shared
+   library.  This allows BRL-CAD's static library targets
+   (BRLCAD::rt-static, etc.) to link manifold::manifold-static instead
+   of falling back to the shared library, removing the runtime
+   libmanifold.so dependency for consumers that link BRL-CAD statically
+   (e.g. MOOSE).
+
+   Requires the companion manifold_static_lib.patch to be applied to
+   the manifold upstream first.
+
+2. Drop -DMANIFOLD_DEBUG=ON.  Enabling debug tracing in a library
+   installed as part of BRL-CAD leaks verbose timing output to end-user
+   applications and results in extra debug symbols in the installed
+   library.  Release builds should not carry debug instrumentation.
+
+Applies to: BRL-CAD/bext, main branch (manifold/CMakeLists.txt)
+--- a/manifold/CMakeLists.txt
++++ b/manifold/CMakeLists.txt
+@@ -19,7 +19,8 @@ if (ENABLE_MANIFOLD)
+     CMAKE_ARGS
+     ${BUILD_TYPE_SPECIFIER}
+     $<$<BOOL:${CLIPPER2_TARGET}>:-DClipper2_ROOT=${CMAKE_BUNDLE_INSTALL_PREFIX}>
+-    -DMANIFOLD_CBIND=OFF
+-    -DMANIFOLD_DEBUG=ON
+-    -DMANIFOLD_DOWNLOADS=OFF
+-    -DMANIFOLD_EXPORT=OFF
+-    -DMANIFOLD_JSBIND=OFF
+-    -DMANIFOLD_OPTIMIZED=ON
+-    -DMANIFOLD_PAR=OFF
+-    -DMANIFOLD_STRICT=OFF
+-    -DMANIFOLD_TEST=OFF
++    -DMANIFOLD_BUILD_STATIC_LIBS=ON
++    -DMANIFOLD_CBIND=OFF
++    -DMANIFOLD_DEBUG=OFF
++    -DMANIFOLD_DOWNLOADS=OFF
++    -DMANIFOLD_EXPORT=OFF
++    -DMANIFOLD_JSBIND=OFF
++    -DMANIFOLD_OPTIMIZED=ON
++    -DMANIFOLD_PAR=OFF
++    -DMANIFOLD_STRICT=OFF
++    -DMANIFOLD_TEST=OFF
+     -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
