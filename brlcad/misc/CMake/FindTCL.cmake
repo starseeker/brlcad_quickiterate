@@ -546,6 +546,35 @@ mark_as_advanced(
   TTK_STUB_LIBRARY
 )
 
+# Create imported targets so downstream CMakeLists.txt can use
+# target-based link syntax (which produces relocatable exports).
+if(TCL_FOUND AND NOT TARGET TCL::TCL)
+  add_library(TCL::TCL UNKNOWN IMPORTED)
+  set_target_properties(TCL::TCL PROPERTIES
+    IMPORTED_LOCATION "${TCL_LIBRARY}"
+    INTERFACE_INCLUDE_DIRECTORIES "${TCL_INCLUDE_PATH}"
+  )
+endif()
+
+if(TCL_FOUND AND TCL_STUB_LIBRARY AND NOT TARGET TCL::Stub)
+  add_library(TCL::Stub UNKNOWN IMPORTED)
+  set_target_properties(TCL::Stub PROPERTIES
+    IMPORTED_LOCATION "${TCL_STUB_LIBRARY}"
+    INTERFACE_INCLUDE_DIRECTORIES "${TCL_INCLUDE_PATH}"
+  )
+endif()
+
+if(TCL_ENABLE_TK AND TK_FOUND AND NOT TARGET TK::TK)
+  add_library(TK::TK UNKNOWN IMPORTED)
+  set_target_properties(TK::TK PROPERTIES
+    IMPORTED_LOCATION "${TK_LIBRARY}"
+    INTERFACE_INCLUDE_DIRECTORIES "${TK_INCLUDE_PATH}"
+  )
+  if(TARGET TCL::TCL)
+    set_property(TARGET TK::TK APPEND PROPERTY INTERFACE_LINK_LIBRARIES TCL::TCL)
+  endif()
+endif()
+
 # Local Variables:
 # tab-width: 8
 # mode: cmake

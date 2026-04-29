@@ -494,6 +494,27 @@ function(
     endif()
     target_include_directories(${libname} INTERFACE $<INSTALL_INTERFACE:include>;$<INSTALL_INTERFACE:include/brlcad>)
 
+    # INTERFACE_SYSTEM_INCLUDE_DIRECTORIES can accumulate raw build-tree paths
+    # from transitive deps whose find-modules set INTERFACE_INCLUDE_DIRECTORIES
+    # to absolute paths (e.g. Geogram::geogram, OPENNURBS::OPENNURBS).  Wrap
+    # every raw path in $<BUILD_INTERFACE:...> so it is only visible when
+    # consuming the build tree; install-tree consumers re-create those targets
+    # via find_dependency() in BRLCADConfig.cmake and therefore get the correct
+    # include dirs from those re-found targets instead.
+    get_target_property(_raw_sys_dirs ${libname} INTERFACE_SYSTEM_INCLUDE_DIRECTORIES)
+    if(_raw_sys_dirs)
+      set_property(TARGET ${libname} PROPERTY INTERFACE_SYSTEM_INCLUDE_DIRECTORIES)
+      foreach(_sdir ${_raw_sys_dirs})
+        if(NOT _sdir MATCHES "^\\$<")
+          set_property(TARGET ${libname} APPEND PROPERTY
+            INTERFACE_SYSTEM_INCLUDE_DIRECTORIES $<BUILD_INTERFACE:${_sdir}>)
+        else()
+          set_property(TARGET ${libname} APPEND PROPERTY
+            INTERFACE_SYSTEM_INCLUDE_DIRECTORIES ${_sdir})
+        endif()
+      endforeach()
+    endif()
+
     if(HIDE_INTERNAL_SYMBOLS)
       set_property(TARGET ${libname} APPEND PROPERTY COMPILE_DEFINITIONS "${UPPER_CORE}_DLL_EXPORTS")
       # Use target_compile_definitions so the INTERFACE entry is exported via
@@ -628,6 +649,21 @@ function(
       endforeach()
     endif()
     target_include_directories(${libstatic} INTERFACE $<INSTALL_INTERFACE:include>;$<INSTALL_INTERFACE:include/brlcad>)
+
+    # Same fix for INTERFACE_SYSTEM_INCLUDE_DIRECTORIES on the static target.
+    get_target_property(_raw_ssys_dirs ${libstatic} INTERFACE_SYSTEM_INCLUDE_DIRECTORIES)
+    if(_raw_ssys_dirs)
+      set_property(TARGET ${libstatic} PROPERTY INTERFACE_SYSTEM_INCLUDE_DIRECTORIES)
+      foreach(_sdir ${_raw_ssys_dirs})
+        if(NOT _sdir MATCHES "^\\$<")
+          set_property(TARGET ${libstatic} APPEND PROPERTY
+            INTERFACE_SYSTEM_INCLUDE_DIRECTORIES $<BUILD_INTERFACE:${_sdir}>)
+        else()
+          set_property(TARGET ${libstatic} APPEND PROPERTY
+            INTERFACE_SYSTEM_INCLUDE_DIRECTORIES ${_sdir})
+        endif()
+      endforeach()
+    endif()
 
     # Propagate the DLL-import compile definition so Windows consumers
     # don't need to set it manually.
