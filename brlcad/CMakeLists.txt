@@ -2318,7 +2318,6 @@ configure_package_config_file(
     BRLCAD_INCLUDE_INSTALL_DIR
     BRLCAD_LIB_INSTALL_DIR
     BRLCAD_DATA_INSTALL_DIR
-  NO_CHECK_REQUIRED_COMPONENTS_MACRO
 )
 
 write_basic_package_version_file(
@@ -2374,7 +2373,6 @@ configure_package_config_file(
     BRLCAD_INCLUDE_INSTALL_DIR
     BRLCAD_LIB_INSTALL_DIR
     BRLCAD_DATA_INSTALL_DIR
-  NO_CHECK_REQUIRED_COMPONENTS_MACRO
 )
 
 # Export the build-tree targets file
