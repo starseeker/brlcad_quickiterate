@@ -99,7 +99,7 @@ new_client_handler(ClientData clientData, int UNUSED(port))
     // does it make sense to assign it there?
     pcp = fbs_makeconn((int)pfd, pswitch);
 #else
-    pcp = pkg_getclient(fd, pswitch, comm_error, 0);
+    pcp = pkg_accept(fbslp->fbsl_listener, pswitch, comm_error, 0);
 #endif
 
     fbs_new_client(fbsp, pcp, cdata);
@@ -142,9 +142,11 @@ tclcad_listen_on_port(struct fbserv_obj *fbsp, int available_port)
 #else
     char portname[32] = {0};
     sprintf(portname, "%d", available_port);
-    fbsp->fbs_listener.fbsl_fd = pkg_permserver(portname, 0, 0, comm_error);
-    if (fbsp->fbs_listener.fbsl_fd >= 0)
+    fbsp->fbs_listener.fbsl_listener = pkg_listen(portname, NULL, 0, comm_error);
+    if (fbsp->fbs_listener.fbsl_listener) {
+	fbsp->fbs_listener.fbsl_fd = pkg_get_listener_fd(fbsp->fbs_listener.fbsl_listener);
 	return 1;
+    }
 #endif
     return 0;
 }

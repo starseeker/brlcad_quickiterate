@@ -967,8 +967,13 @@ fbs_close(struct fbserv_obj *fbsp)
 
     (*fbsp->fbs_close_server_handler)(fbsp);
 
-    if (0 <= fbsp->fbs_listener.fbsl_fd)
+    /* Close the TCP listener if one was created by fbs_listen_on_port(). */
+    if (fbsp->fbs_listener.fbsl_listener) {
+	pkg_listener_close(fbsp->fbs_listener.fbsl_listener);
+	fbsp->fbs_listener.fbsl_listener = NULL;
+    } else if (0 <= fbsp->fbs_listener.fbsl_fd) {
 	close(fbsp->fbs_listener.fbsl_fd);
+    }
     fbsp->fbs_listener.fbsl_fd = -1;
     fbsp->fbs_listener.fbsl_port = -1;
 
