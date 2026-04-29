@@ -637,6 +637,11 @@ dm_draw_scene_obj(struct dm *dmp, struct bv_scene_obj *s, struct bview *v, int f
 	dm_draw_obj(dmp, s);
     }
 
+    /* Mirror the legacy dm_drawSolid behaviour: mark this object as
+     * successfully rendered for the current frame.  dozoom.c and other
+     * callers count drawn objects by testing s_flag == UP. */
+    s->s_flag = UP;
+
     if (edit_mat_swapped) {
 	/* Restore the standard view matrix so subsequent objects are
 	 * drawn in the right coordinate frame. */

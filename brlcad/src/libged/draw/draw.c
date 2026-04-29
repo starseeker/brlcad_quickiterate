@@ -111,7 +111,6 @@ dl_add_path(int dashflag, struct bu_list *vhead, const struct db_full_path *path
 
     db_dup_full_path(&bdata->s_fullpath, pathp);
 
-    sp->s_flag = DOWN;
     sp->s_iflag = DOWN;
     sp->s_soldash = dashflag;
     sp->s_old.s_Eflag = 0;
@@ -341,7 +340,6 @@ append_solid_to_display_list(
 
     sp->s_vlen = 0;
     db_dup_full_path(&bdata->s_fullpath, pathp);
-    sp->s_flag = DOWN;
     sp->s_iflag = DOWN;
 
     if (bv_data->draw_solid_lines_only) {
