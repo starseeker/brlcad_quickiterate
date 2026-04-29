@@ -46,7 +46,7 @@
 #include "bsocket.h"
 
 #include "bu/app.h"
-#include "bu/ipc.h"
+/* bu/ipc.h removed - transport handled by libpkg */
 #include "bu/str.h"
 #include "bu/process.h"
 #include "bu/snooze.h"
@@ -230,38 +230,28 @@ main(int argc, char **argv)
     }
 
     /* Determine IPC mode: -I flag takes explicit precedence; fall back to
-     * the BU_IPC_ADDR environment variable (BU_IPC_ADDR_ENVVAR) set by
+     * the PKG_ADDR environment variable (PKG_ADDR_ENVVAR) set by
      * the parent before fork() (see add_host_local() in remrt.c).         */
     {
-	bu_ipc_chan_t *ch = NULL;
 	if (ipc_addr) {
-	    ch = bu_ipc_connect(ipc_addr);
-	    if (!ch) {
-		fprintf(stderr, "rtsrv: bu_ipc_connect(%s) failed\n", ipc_addr);
+	    pcsrv = pkg_connect_addr(ipc_addr, pkgswitch, NULL);
+	    if (pcsrv == PKC_ERROR || pcsrv == PKC_NULL) {
+		fprintf(stderr, "rtsrv: pkg_connect_addr(%s) failed\n", ipc_addr);
 		return 1;
 	    }
 	} else {
-	    ch = bu_ipc_connect_env();
+	    pcsrv = pkg_connect_env(pkgswitch, NULL);
 	}
 
-	if (ch) {
+	if (pcsrv != PKC_ERROR && pcsrv != PKC_NULL) {
 	    /* IPC mode: remrt created a socketpair, moved the child-end fd
 	     * above the close(3..19) sweep in bu_process_create(), and
-	     * advertised it via -I or BU_IPC_ADDR (BU_IPC_ADDR_ENVVAR).
-	     * bu_ipc_connect (or bu_ipc_connect_env) wraps the already-
-	     * inherited fd.  Wrap it into a pkg_conn so the rest of the code
-	     * is transport-agnostic.  No host/port positional args consumed. */
-	    pcsrv = pkg_open_fds(bu_ipc_fileno(ch),
-				 bu_ipc_fileno_write(ch),
-				 pkgswitch, NULL);
-	    bu_ipc_detach(ch);   /* pkg_conn owns the fds now */
-	    if (pcsrv == PKC_ERROR || pcsrv == PKC_NULL) {
-		fprintf(stderr, "rtsrv: pkg_open_fds() failed in IPC mode\n");
-		return 1;
-	    }
+	     * advertised it via -I or PKG_ADDR (PKG_ADDR_ENVVAR).
+	     * pkg_connect_addr/env wraps the already-inherited fd into a
+	     * pkg_conn so the rest of the code is transport-agnostic. */
 	    if (debug)
 		fprintf(stderr, "rtsrv: IPC mode active (addr=%s)\n",
-			ipc_addr ? ipc_addr : getenv(BU_IPC_ADDR_ENVVAR));
+			ipc_addr ? ipc_addr : getenv(PKG_ADDR_ENVVAR));
 	} else {
 	    /* Normal TCP mode */
 	    if (argc != 3 && argc != 4) {

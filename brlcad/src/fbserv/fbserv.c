@@ -80,7 +80,7 @@
 #include "bu/exit.h"
 #include "bu/getopt.h"
 #include "bu/interrupt.h"
-#include "bu/ipc.h"
+/* bu/ipc.h removed - transport handled by libpkg */
 #include "bu/log.h"
 #include "bu/malloc.h"
 #include "bu/snooze.h"
@@ -111,7 +111,8 @@ static int height = 0;
 static int port = 0;
 static int port_set = 0;		/* !0 if user supplied port num */
 static int once_only = 0;
-static int netfd;
+static pkg_listener_t *netlistener = NULL; /* TCP listener */
+static int netfd; /* fd for select(), from pkg_get_listener_fd() */
 
 /*
  * Session authentication token.  Generated once at startup.
@@ -478,7 +479,7 @@ main_loop(void)
 
 	/* Accept any new client connections */
 	if (netfd > 0 && FD_ISSET(netfd, &infds)) {
-	    fbserv_new_client(pkg_getclient(netfd, pkg_switch, communications_error, 0));
+	    fbserv_new_client(pkg_accept(netlistener, pkg_switch, communications_error, 0));
 	    nopens++;
 	}
 
@@ -593,9 +594,7 @@ main(int argc, char **argv)
      * This is analogous to the -I flag in rtsrv and allows the parent to
      * avoid TCP port binding entirely for local fbserv instances.            */
     if (ipc_addr_flag) {
-	bu_ipc_chan_t *chan;
 	struct pkg_conn *pcp;
-	int rfd, wfd;
 	int pkgr;
 
 	if (framebuffer != NULL) {
@@ -605,23 +604,12 @@ main(int argc, char **argv)
 	    fb_server_retain_on_close = 1;
 	}
 
-	chan = bu_ipc_connect(ipc_addr_flag);
-	if (!chan) {
-	    fprintf(stderr, "fbserv: bu_ipc_connect('%s') failed\n", ipc_addr_flag);
-	    return 1;
-	}
-
-	rfd = bu_ipc_fileno(chan);
-	wfd = bu_ipc_fileno_write(chan);
-	pcp = pkg_open_fds(rfd, wfd, pkg_switch, communications_error);
+	pcp = pkg_connect_addr(ipc_addr_flag, pkg_switch, communications_error);
 	if (pcp == PKC_ERROR || pcp == PKC_NULL) {
-	    fprintf(stderr, "fbserv: pkg_open_fds failed for IPC address '%s'\n",
+	    fprintf(stderr, "fbserv: pkg_connect_addr('%s') failed\n",
 		    ipc_addr_flag);
-	    bu_ipc_close(chan);
 	    return 1;
 	}
-	/* pkg_conn now owns the fds; release the channel wrapper */
-	bu_ipc_detach(chan);
 
 	/* IPC service loop: pkg_suckin/pkg_process without select().
 	 * We bypass fbserv_new_client() + main_loop() because those use
@@ -703,8 +691,10 @@ main(int argc, char **argv)
 	/*
 	 * Hang an unending listen for PKG connections
 	 */
-	if ((netfd = pkg_permserver(portname, 0, 0, communications_error)) < 0)
+	netlistener = pkg_listen(portname, NULL, 0, communications_error);
+	if (!netlistener)
 	    bu_exit(-1, NULL);
+	netfd = pkg_get_listener_fd(netlistener);
 	FD_SET(netfd, &select_list);
 	V_MAX(max_fd, netfd);
 
@@ -726,7 +716,7 @@ main(int argc, char **argv)
     }
 
     init_syslog();
-    while ((netfd = pkg_permserver(portname, 0, 0, communications_error)) < 0) {
+    while ((netlistener = pkg_listen(portname, NULL, 0, communications_error)) == NULL) {
 	static int error_count=0;
 	bu_snooze(BU_SEC2USEC(1));
 	if (error_count++ < 60) {
@@ -735,18 +725,19 @@ main(int argc, char **argv)
 	communications_error("Unable to start the stand-alone framebuffer daemon after 60 seconds, giving up.");
 	return 1;
     }
+    netfd = pkg_get_listener_fd(netlistener);
 
     while (1) {
 	int fbstat;
 	struct pkg_conn *pcp;
 
-	pcp = pkg_getclient(netfd, pkg_switch, communications_error, 0);
+	pcp = pkg_accept(netlistener, pkg_switch, communications_error, 0);
 	if (pcp == PKC_ERROR)
 	    break;		/* continue is unlikely to work */
 
 	if (fork() == 0) {
 	    /* 1st level child process */
-	    (void)close(netfd);	/* Child is not listener */
+	    pkg_listener_close(netlistener);	/* Child is not listener */
 
 	    /* Create 2nd level child process, "double detach" */
 	    if (fork() == 0) {
