@@ -154,7 +154,7 @@ static int _pkg_send_win(int d, const void *buf, int nbytes) {
 #endif
 
 int pkg_nochecking = 0;	/* set to disable extra checking for input */
-static int pkg_permport = 0;	/* TCP port that pkg_permserver() is listening on (internal) */
+static int pkg_permport = 0;	/* TCP port that pkg_listen() is listening on (internal) */
 
 /* Internal sentinel fd value for split-fd (pipe) transport mode.
  * Not exposed publicly; use pkg_is_stdio_mode() to test.         */

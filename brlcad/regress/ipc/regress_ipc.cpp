@@ -236,7 +236,9 @@ test_pkg_connect(void)
     TEST("child addr non-NULL", addr != nullptr);
 
     if (addr) {
-        /* pkg_connect_addr adopts ce's fds — do not close ce afterward */
+        /* pkg_connect_addr parses the addr string and creates a new pkg_conn
+         * wrapping the same inherited fds that ce holds.  After pkg_close(conn)
+         * those fds are closed, so we must not also call pkg_close(ce).      */
         struct pkg_conn *conn = pkg_connect_addr(addr, NULL, NULL);
         TEST("pkg_connect_addr via child addr succeeds", conn != nullptr && conn != PKC_ERROR);
 
@@ -381,7 +383,9 @@ test_env_var_end_to_end(void)
             TEST("pixel data matches end-to-end",
                  memcmp(buf, pkt, sizeof(pkt)-1) == 0);
 
-            /* child_conn owns the fds from fbsl_ipc_child — don't close fbsl_ipc_child */
+            /* conn wraps the same underlying fds as ce (inherited from the
+             * address string), so closing conn closes those fds.  Clear
+             * fbsl_ipc_child so fbs_close() does not double-close them.  */
             pkg_close(child_conn);
             fbs.fbs_listener.fbsl_ipc_child = nullptr;
         }
