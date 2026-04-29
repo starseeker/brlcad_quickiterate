@@ -59,6 +59,13 @@
 
 #include "pkg.h"
 
+/* Internal pkg.c helpers used by this translation unit (not public API). */
+extern "C" {
+struct pkg_conn *pkg_open_fds(int rfd, int wfd,
+                              const struct pkg_switch *switchp,
+                              pkg_errlog errlog);
+}
+
 
 /* ================================================================== */
 /* Internal helpers                                                     */

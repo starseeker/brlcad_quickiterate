@@ -307,7 +307,7 @@ tclcad_close_ipc_client_win(struct fbserv_obj *fbsp, int sub)
  * uses PeekNamedPipe() to check availability without consuming data, then
  * calls fbs_existing_client_handler() when data is ready.
  *
- * If the open succeeds and @p interp is non-NULL, the BU_IPC_ADDR child-end
+ * If the open succeeds and @p interp is non-NULL, the PKG_ADDR child-end
  * address string is stored in the Tcl variable fbserv(ipc_addr) so that
  * Tcl scripts (rtwizard, MGED's rt.tcl) can pass it to subprocesses.
  *

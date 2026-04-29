@@ -170,7 +170,7 @@ TCLCAD_EXPORT extern struct application *to_rt_gettrees_application(struct ged *
  * PeekNamedPipe() is used because Tcl's Windows pipe channel driver
  * consumes data via a background reader thread.
  *
- * If @p interp is non-NULL, the BU_IPC_ADDR child-end address string
+ * If @p interp is non-NULL, the PKG_ADDR child-end address string
  * is stored in the Tcl variable fbserv(ipc_addr).
  *
  * @return BRLCAD_OK on success, BRLCAD_ERROR on failure.

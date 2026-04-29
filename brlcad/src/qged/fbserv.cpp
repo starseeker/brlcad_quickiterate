@@ -33,7 +33,7 @@
 
 #include "common.h"
 
-#include "bu/ipc.h"
+/* bu/ipc.h removed - transport handled by libpkg */
 #include "bu/log.h"
 #include "bu/malloc.h"
 #include "bu/vls.h"
