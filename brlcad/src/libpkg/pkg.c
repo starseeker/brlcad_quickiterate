@@ -293,7 +293,7 @@ _pkg_io_read(struct pkg_conn *pc, void *buf, size_t n)
 {
     if (pc->pkc_tls_read)
 	return (ssize_t)pc->pkc_tls_read(pc->pkc_tls_ctx, buf, n);
-    if (pc->pkc_fd == PKG_STDIO_MODE)
+    if (pc->pkc_tx_kind == 1)
 	return PKG_READ(pc->pkc_in_fd, buf, n);
 #ifdef HAVE_WINSOCK_H
     /* pkc_fd is a WinSock SOCKET stored as int.  _get_osfhandle() must NOT
@@ -326,7 +326,7 @@ _pkg_io_write(struct pkg_conn *pc, const void *buf, size_t n)
 {
     if (pc->pkc_tls_write)
 	return (ssize_t)pc->pkc_tls_write(pc->pkc_tls_ctx, buf, n);
-    if (pc->pkc_fd == PKG_STDIO_MODE)
+    if (pc->pkc_tx_kind == 1)
 	return PKG_SEND(pc->pkc_out_fd, buf, n);
 #ifdef HAVE_WINSOCK_H
     /* Same reasoning as _pkg_io_read: pkc_fd is a WinSock SOCKET; must use
@@ -389,6 +389,10 @@ _pkg_makeconn(int fd, const struct pkg_switch *switchp, void (*errlog)(const cha
     pc->pkc_curpos = (char *)0;
     pc->pkc_strpos = 0;
     pc->pkc_incur = pc->pkc_inend = 0;
+    pc->pkc_tx_kind   = (fd == PKG_STDIO_MODE) ? 1 : 0;
+    pc->pkc_listen_fd = -1;
+    pc->pkc_addr[0]   = '\0';
+    pc->pkc_addr_env[0] = '\0';
     return pc;
 }
 
@@ -483,7 +487,7 @@ pkg_get_read_fd(const struct pkg_conn *pc)
 {
     if (pc == PKC_NULL || pc == PKC_ERROR)
 	return -1;
-    if (pc->pkc_fd == PKG_STDIO_MODE)
+    if (pc->pkc_tx_kind == 1)
 	return pc->pkc_in_fd;
     return pc->pkc_fd;
 }
@@ -494,7 +498,7 @@ pkg_get_write_fd(const struct pkg_conn *pc)
 {
     if (pc == PKC_NULL || pc == PKC_ERROR)
 	return -1;
-    if (pc->pkc_fd == PKG_STDIO_MODE)
+    if (pc->pkc_tx_kind == 1)
 	return pc->pkc_out_fd;
     return pc->pkc_fd;
 }
@@ -505,7 +509,7 @@ pkg_is_stdio_mode(const struct pkg_conn *pc)
 {
     if (pc == PKC_NULL || pc == PKC_ERROR)
 	return 0;
-    return (pc->pkc_fd == PKG_STDIO_MODE) ? 1 : 0;
+    return (pc->pkc_tx_kind == 1) ? 1 : 0;
 }
 
 
@@ -515,7 +519,7 @@ pkg_set_send_buffer(struct pkg_conn *pc, size_t bytes)
     if (pc == PKC_NULL || pc == PKC_ERROR)
 	return -1;
     /* Pipe / split-fd transports do not support socket buffer tuning. */
-    if (pc->pkc_fd == PKG_STDIO_MODE)
+    if (pc->pkc_tx_kind == 1)
 	return 0;
 #ifdef SOL_SOCKET
     {
@@ -538,7 +542,7 @@ pkg_set_recv_buffer(struct pkg_conn *pc, size_t bytes)
 {
     if (pc == PKC_NULL || pc == PKC_ERROR)
 	return -1;
-    if (pc->pkc_fd == PKG_STDIO_MODE)
+    if (pc->pkc_tx_kind == 1)
 	return 0;
 #ifdef SOL_SOCKET
     {
@@ -561,7 +565,7 @@ pkg_set_nodelay(struct pkg_conn *pc, int on)
 {
     if (pc == PKC_NULL || pc == PKC_ERROR)
 	return -1;
-    if (pc->pkc_fd == PKG_STDIO_MODE)
+    if (pc->pkc_tx_kind == 1)
 	return 0;
 #if defined(TCP_NODELAY)
     {
@@ -1097,23 +1101,32 @@ pkg_close(struct pkg_conn *pc)
 	pc->pkc_inlen = 0;
     }
 
-    if (pc->pkc_fd != PKG_STDIO_MODE) {
-	/* Give TLS a chance to send close_notify and free its state
-	 * before the underlying socket is closed. */
+    if (pc->pkc_tx_kind == 1) {
+	/* Pipe pair transport: close both ends. */
+	if (pc->pkc_in_fd  >= 0) (void)close(pc->pkc_in_fd);
+	if (pc->pkc_out_fd >= 0 && pc->pkc_out_fd != pc->pkc_in_fd)
+	    (void)close(pc->pkc_out_fd);
+    } else {
+	/* Socket/TCP transport. */
 	if (pc->pkc_tls_free && pc->pkc_tls_ctx)
 	    pc->pkc_tls_free(pc->pkc_tls_ctx);
 	pc->pkc_tls_ctx = NULL;
-
+	if (pc->pkc_listen_fd >= 0) {
 #ifdef HAVE_WINSOCK_H
-	(void)closesocket(pc->pkc_fd);
+	    (void)closesocket(pc->pkc_listen_fd);
 #else
-	(void)close(pc->pkc_fd);
+	    (void)close(pc->pkc_listen_fd);
 #endif
-
+	    pc->pkc_listen_fd = -1;
+	}
+	if (pc->pkc_fd >= 0) {
 #ifdef HAVE_WINSOCK_H
-	/* deinitialize Windows socket networking, decrements ref count */
-	WSACleanup();
+	    (void)closesocket(pc->pkc_fd);
+	    WSACleanup();
+#else
+	    (void)close(pc->pkc_fd);
 #endif
+	}
     }
 
     pc->pkc_fd = -1;		/* safety */
@@ -1181,12 +1194,12 @@ _pkg_checkin(struct pkg_conn *pc, int nodelay)
 
     errno = 0;
     FD_ZERO(&bits);
-    if (pc->pkc_fd == PKG_STDIO_MODE) {
+    if (pc->pkc_tx_kind == 1) {
 	FD_SET(pc->pkc_in_fd, &bits);
     } else {
 	FD_SET(pc->pkc_fd, &bits);
     }
-    if (pc->pkc_fd == PKG_STDIO_MODE) {
+    if (pc->pkc_tx_kind == 1) {
 	// TODO - select doesn't work on non-socket file descriptors on Windows,
 	// so this isn't going to fly there.
 	i = select(pc->pkc_in_fd+1, &bits, (fd_set *)0, (fd_set *)0, &tv);
@@ -1308,7 +1321,7 @@ pkg_send(int type, const char *buf, size_t len, struct pkg_conn *pc)
 	    }
 	    return (int)(i > (ssize_t)sizeof(hdr) ? i - sizeof(hdr) : 0);
 	}
-    } else if (pc->pkc_fd == PKG_STDIO_MODE) {
+    } else if (pc->pkc_tx_kind == 1) {
 	i = writev(pc->pkc_out_fd, cmdvec, (len>0)?2:1);
     } else {
 	i = writev(pc->pkc_fd, cmdvec, (len>0)?2:1);
@@ -1465,7 +1478,7 @@ pkg_2send(int type, const char *buf1, size_t len1, const char *buf2, size_t len2
 	    }
 	    return (int)(i > (ssize_t)sizeof(hdr) ? i - sizeof(hdr) : 0);
 	}
-    } else if (pc->pkc_fd == PKG_STDIO_MODE) {
+    } else if (pc->pkc_tx_kind == 1) {
 	i = writev(pc->pkc_out_fd, cmdvec, 3);
     } else {
 	i = writev(pc->pkc_fd, cmdvec, 3);
