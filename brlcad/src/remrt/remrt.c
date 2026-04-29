@@ -55,7 +55,6 @@
 #include "bu/app.h"
 #include "bu/env.h"
 #include "bu/interrupt.h"
-#include "bu/ipc.h"
 #include "bu/time.h"
 #include "bu/vls.h"
 
@@ -449,6 +448,7 @@ char object_list[512];	/* contains list of "MGED" objects */
 char *our_hostname;
 
 int tcp_listen_fd;
+pkg_listener_t *tcp_listener = NULL;
 /* pkg_permport is declared (with correct DLL-import on Windows) via pkg.h */
 
 int rem_debug;		/* dispatcher debugging flag */
@@ -859,11 +859,11 @@ check_input(int waittime)
      * underneath because Windows requires the WaitForMultipleObjects()
      * vs. WSAEventSelect() split.  pkg_is_stdio_mode() reports which.
      *
-     * On POSIX bu_ipc_mux wraps select(); on Windows it uses
+     * On POSIX pkg_mux wraps select(); on Windows it uses
      * WaitForMultipleObjects() for pipe handles and WSAEventSelect()
      * for WinSock sockets — callers need not know which.               */
-    bu_ipc_mux_t *mux = bu_ipc_mux_create();
-    bu_ipc_mux_add_socket(mux, tcp_listen_fd);
+    pkg_mux_t *mux = pkg_mux_create();
+    pkg_mux_add_fd(mux, tcp_listen_fd, 1);
 
     for (i = 0; i < (int)MAXSERVERS; i++) {
 	pc = servers[i].sr_pc;
@@ -873,11 +873,11 @@ check_input(int waittime)
 	    if (rfd < 0)
 		continue;
 	    if (pkg_is_stdio_mode(pc)) {
-		/* Pipe: rfd is a real CRT fd — safe for bu_ipc_mux_add() */
-		bu_ipc_mux_add(mux, rfd);
+		/* Pipe: rfd is a real CRT fd — safe for pkg_mux_add_fd() */
+		pkg_mux_add_fd(mux, rfd, 0);
 	    } else {
 		/* Socket: rfd is a WinSock SOCKET cast to int */
-		bu_ipc_mux_add_socket(mux, rfd);
+		pkg_mux_add_fd(mux, rfd, 1);
 	    }
 	}
     }
@@ -886,28 +886,28 @@ check_input(int waittime)
     int stdin_fd = -1;
     if (waittime > 0 && !feof(stdin) && FD_ISSET(fileno(stdin), &clients)) {
 	stdin_fd = fileno(stdin);
-	bu_ipc_mux_add(mux, stdin_fd);
+	pkg_mux_add_fd(mux, stdin_fd, 0);
     }
 
     /* Step 3: Wait */
     int timeout_ms = (waittime > 0) ? waittime * 1000 : 0;
-    val = bu_ipc_mux_wait(mux, timeout_ms);
+    val = pkg_mux_wait(mux, timeout_ms);
 
     if (val < 0) {
-	bu_log("check_input: bu_ipc_mux_wait error\n");
-	bu_ipc_mux_destroy(mux);
+	bu_log("check_input: pkg_mux_wait error\n");
+	pkg_mux_destroy(mux);
 	return;
     }
     if (val == 0) {
 	if (rem_debug > 1)
 	    bu_log("%s check_input: timed out after %d s\n", stamp(), waittime);
-	bu_ipc_mux_destroy(mux);
+	pkg_mux_destroy(mux);
 	return;
     }
 
     /* Step 4: Accept pending TCP connections */
-    if (bu_ipc_mux_is_ready(mux, tcp_listen_fd)) {
-	pc = pkg_getclient(tcp_listen_fd, pkgswitch, input_error, 1);
+    if (pkg_mux_is_ready_fd(mux, tcp_listen_fd)) {
+	pc = pkg_accept(tcp_listener, pkgswitch, input_error, 1);
 	if (pc != PKC_NULL && pc != PKC_ERROR)
 	    addclient(pc);
     }
@@ -917,7 +917,7 @@ check_input(int waittime)
 	struct pkg_conn *spc = servers[i].sr_pc;
 	if (spc == PKC_NULL) continue;
 	int rfd = pkg_get_read_fd(spc);
-	if (rfd < 0 || !bu_ipc_mux_is_ready(mux, rfd)) continue;
+	if (rfd < 0 || !pkg_mux_is_ready_fd(mux, rfd)) continue;
 	val = pkg_suckin(spc);
 	if (val < 0)
 	    drop_server(&servers[i], "pkg_suckin() error");
@@ -934,10 +934,10 @@ check_input(int waittime)
     }
 
     /* Step 7: Handle interactive stdin commands */
-    if (stdin_fd >= 0 && bu_ipc_mux_is_ready(mux, stdin_fd))
+    if (stdin_fd >= 0 && pkg_mux_is_ready_fd(mux, stdin_fd))
 	interactive_cmd(stdin);
 
-    bu_ipc_mux_destroy(mux);
+    pkg_mux_destroy(mux);
 }
 
 
@@ -1469,33 +1469,32 @@ add_host(struct ihost *ihp)
 
 
 /*
- * Launch a local rtsrv worker connected to remrt via a bu_ipc channel.
+ * Launch a local rtsrv worker connected to remrt via a pkg IPC channel.
  *
  * Called from add_host() when ht_where == HT_LOCAL.  Separated out so
  * the HT_LOCAL path can return early on error without interfering with
  * the common bu_process_create() tail of add_host().
  *
  * Transport selection:
- *   bu_ipc_pair_prefer(BU_IPC_PIPE) tries: anonymous pipe → socketpair
- *   (POSIX) → TCP loopback.  check_input() uses bu_ipc_mux which
+ *   pkg_pair_prefer(PKG_TRANSPORT_PIPE) tries: anonymous pipe → socketpair
+ *   (POSIX) → TCP loopback.  check_input() uses pkg_mux which
  *   handles all three transports on all platforms via platform-native
  *   wait APIs (select on POSIX; WaitForMultipleObjects + WSAEventSelect
  *   on Windows), so no platform-specific transport override is needed.
  *
  * The child-end IPC address is communicated to rtsrv via the -I flag and
- * also via the BU_IPC_ADDR environment variable (BU_IPC_ADDR_ENVVAR).
+ * also via the PKG_ADDR environment variable (PKG_ADDR_ENVVAR).
  */
 static void
 add_host_local(struct ihost *ihp)
 {
-    bu_ipc_chan_t *pe = NULL, *ce = NULL;
+    struct pkg_conn *pe = NULL, *ce = NULL;
     char rtsrv_path[MAXPATHLEN];
     /* Slots: exe, -I, addr, [-S, token,] NULL — 6 entries minimum. */
     const char *argv[8];
     int argc = 0;
     struct bu_process *p = NULL;
     struct pkg_conn *pc;
-    int rfd, wfd;
 
     if (ihp->ht_flags & HT_HOLD) return;
 
@@ -1508,13 +1507,13 @@ add_host_local(struct ihost *ihp)
 
     /* Create an IPC channel between remrt (parent) and rtsrv (child).
      * Transport selection:
-     *   bu_ipc_pair_prefer(BU_IPC_PIPE) tries: anonymous pipe → socketpair
-     *   (POSIX) → TCP loopback.  check_input() uses bu_ipc_mux which
+     *   pkg_pair_prefer(PKG_TRANSPORT_PIPE) tries: anonymous pipe → socketpair
+     *   (POSIX) → TCP loopback.  check_input() uses pkg_mux which
      *   handles all three transports on all platforms via platform-native
      *   wait APIs (select on POSIX; WaitForMultipleObjects + WSAEventSelect
      *   on Windows), so no platform-specific transport override is needed. */
-    if (bu_ipc_pair_prefer(&pe, &ce, BU_IPC_PIPE) != 0) {
-	bu_log("add_host_local: bu_ipc_pair failed for %s — "
+    if (pkg_pair_prefer(&pe, &ce, pkgswitch, remrt_log, PKG_TRANSPORT_PIPE) != 0) {
+	bu_log("add_host_local: pkg_pair failed for %s — "
 	       "falling back to TCP host\n", ihp->ht_name);
 	/* Nothing to clean up; fall through to the normal TCP path. */
 	ihp->ht_where = HT_CD;
@@ -1524,10 +1523,10 @@ add_host_local(struct ihost *ihp)
 
     /* Move the child-end fd above bu_process_create()'s close(3..19) sweep
      * so that the fd is still open when rtsrv inherits it after exec().    */
-    if (bu_ipc_move_high_fd(ce, 64) != 0) {
-	bu_log("add_host_local: bu_ipc_move_high_fd failed for %s\n", ihp->ht_name);
-	bu_ipc_close(ce);
-	bu_ipc_close(pe);
+    if (pkg_move_high_fd(ce, 64) != 0) {
+	bu_log("add_host_local: pkg_move_high_fd failed for %s\n", ihp->ht_name);
+	pkg_close(ce);
+	pkg_close(pe);
 	return;
     }
 
@@ -1535,7 +1534,8 @@ add_host_local(struct ihost *ihp)
      * can find it without a -I command-line argument.  fork() inside
      * bu_process_create() gives the child its own copy of the environment,
      * so clearing the var in the parent after the call is race-free.       */
-    bu_setenv(BU_IPC_ADDR_ENVVAR, bu_ipc_addr(ce), 1);
+    bu_setenv(PKG_ADDR_ENVVAR, "", 1);
+    { const char *ae = pkg_child_addr_env(ce); const char *eq = ae ? strchr(ae, '=') : NULL; bu_setenv(PKG_ADDR_ENVVAR, eq ? eq+1 : "", 1); }
 
     /* Build rtsrv argv.  Always pass the IPC address explicitly via -I so
      * that rtsrv has at least one flag argument and passes the argc<2 guard
