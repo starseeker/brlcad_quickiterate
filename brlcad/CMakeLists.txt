@@ -2345,6 +2345,18 @@ install(
   FILE BRLCADTargets.cmake
 )
 
+# Install the static targets file when BUILD_STATIC_LIBS is enabled.
+# BRLCADStaticTargets.cmake is populated by BRLCAD_ADDLIB for every library
+# that is built alongside its shared twin (i.e. when BUILD_STATIC_LIBS=ON).
+if(BUILD_STATIC_LIBS)
+  install(
+    EXPORT BRLCADStaticTargets
+    NAMESPACE BRLCAD::
+    DESTINATION "${BRLCAD_CMAKE_PKG_DIR}"
+    FILE BRLCADStaticTargets.cmake
+  )
+endif(BUILD_STATIC_LIBS)
+
 # Install the private find-modules that bundled deps may need
 install(
   DIRECTORY "${BRLCAD_CMAKE_DIR}/"
@@ -2375,7 +2387,8 @@ configure_package_config_file(
     BRLCAD_DATA_INSTALL_DIR
 )
 
-# Export the build-tree targets file
+# Export the build-tree targets file (shared only; static targets have
+# internal build-time deps that cannot be resolved without an install).
 export(
   EXPORT BRLCADTargets
   NAMESPACE BRLCAD::

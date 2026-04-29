@@ -387,7 +387,17 @@ function(
     if(TARGET ${ll})
       get_target_property(IDIRS ${ll} INTERFACE_INCLUDE_DIRECTORIES)
       if(IDIRS)
-        list(APPEND PUBLIC_HDRS ${IDIRS})
+        foreach(_idir ${IDIRS})
+          # Accept raw paths directly.
+          # Unwrap $<BUILD_INTERFACE:path> to get the build-tree path used
+          # for compilation.  Skip $<INSTALL_INTERFACE:...> and any other
+          # generator expression that does not carry a build-tree path.
+          if(_idir MATCHES "^\\$<BUILD_INTERFACE:(.+)>$")
+            list(APPEND PUBLIC_HDRS "${CMAKE_MATCH_1}")
+          elseif(NOT _idir MATCHES "^\\$<")
+            list(APPEND PUBLIC_HDRS "${_idir}")
+          endif()
+        endforeach()
       endif(IDIRS)
     endif(TARGET ${ll})
   endforeach(ll ${libslist})
@@ -470,11 +480,16 @@ function(
     # Replace raw absolute paths in INTERFACE_INCLUDE_DIRECTORIES with
     # BUILD_INTERFACE-guarded versions and add the INSTALL_INTERFACE entry.
     # INCLUDE_DIRECTORIES (used to compile this target) is left untouched.
+    # Paths that are already generator expressions (propagated from deps)
+    # are dropped here — they remain accessible transitively through
+    # INTERFACE_LINK_LIBRARIES and re-wrapping causes nested genexprs.
     get_target_property(_raw_iface_dirs ${libname} INTERFACE_INCLUDE_DIRECTORIES)
     set_property(TARGET ${libname} PROPERTY INTERFACE_INCLUDE_DIRECTORIES)
     if(_raw_iface_dirs)
       foreach(_dir ${_raw_iface_dirs})
-        target_include_directories(${libname} INTERFACE $<BUILD_INTERFACE:${_dir}>)
+        if(NOT _dir MATCHES "^\\$<")
+          target_include_directories(${libname} INTERFACE $<BUILD_INTERFACE:${_dir}>)
+        endif()
       endforeach()
     endif()
     target_include_directories(${libname} INTERFACE $<INSTALL_INTERFACE:include>)
@@ -561,9 +576,69 @@ function(
     set_target_properties(${libstatic} PROPERTIES FOLDER "BRL-CAD Static Libraries${SUBFOLDER}")
     validate_style("${libstatic}" "${srcslist};${L_STATIC_SRCS}")
 
+    # ----------------------------------------------------------------
+    # Export setup for static targets
+    #
+    # L_STATIC means this library is built static-only (no shared twin);
+    # it belongs in the primary BRLCADTargets export under the plain
+    # short name (e.g. BRLCAD::bu).
+    #
+    # When both shared and static are built (BUILD_STATIC_LIBS), the
+    # static variant gets a "-static" suffix (e.g. BRLCAD::bu-static)
+    # and goes into the separate BRLCADStaticTargets export so consumers
+    # can opt in via BRLCAD_USE_STATIC_LIBS=ON.
+    if(L_STATIC)
+      set_target_properties(${libstatic} PROPERTIES EXPORT_NAME ${LOWERCORE})
+      set(_static_export_name ${LOWERCORE})
+      set(_static_export_set  BRLCADTargets)
+    else()
+      set_target_properties(${libstatic} PROPERTIES EXPORT_NAME ${LOWERCORE}-static)
+      set(_static_export_name ${LOWERCORE}-static)
+      set(_static_export_set  BRLCADStaticTargets)
+    endif()
+
+    # Link static variants of each BRL-CAD dep.  For targets that exist
+    # only as shared (no -static twin), fall back to the shared target
+    # so the consumer at least gets the right link interface.
+    if(NOT "${libslist}" STREQUAL "" AND NOT "${libslist}" STREQUAL "NONE")
+      foreach(ll ${libslist})
+        if(TARGET ${ll}-static)
+          target_link_libraries(${libstatic} PUBLIC ${ll}-static)
+        elseif(TARGET ${ll})
+          target_link_libraries(${libstatic} PUBLIC ${ll})
+        else()
+          target_link_libraries(${libstatic} PUBLIC ${ll})
+        endif()
+      endforeach()
+    endif()
+
+    # Fix INTERFACE_INCLUDE_DIRECTORIES for export: replace the raw
+    # absolute paths set by brlcad_include_dirs() with BUILD_INTERFACE-
+    # guarded genexprs and add the INSTALL_INTERFACE entry.
+    # Paths that are already generator expressions (propagated from dep
+    # targets) are dropped here — they are served transitively through
+    # INTERFACE_LINK_LIBRARIES and re-adding them causes nested genexprs.
+    get_target_property(_raw_siface_dirs ${libstatic} INTERFACE_INCLUDE_DIRECTORIES)
+    set_property(TARGET ${libstatic} PROPERTY INTERFACE_INCLUDE_DIRECTORIES)
+    if(_raw_siface_dirs)
+      foreach(_dir ${_raw_siface_dirs})
+        if(NOT _dir MATCHES "^\\$<")
+          target_include_directories(${libstatic} INTERFACE $<BUILD_INTERFACE:${_dir}>)
+        endif()
+      endforeach()
+    endif()
+    target_include_directories(${libstatic} INTERFACE $<INSTALL_INTERFACE:include>)
+
+    # Propagate the DLL-import compile definition so Windows consumers
+    # don't need to set it manually.
+    if(HIDE_INTERNAL_SYMBOLS)
+      target_compile_definitions(${libstatic} INTERFACE "${UPPER_CORE}_DLL_IMPORTS")
+    endif(HIDE_INTERNAL_SYMBOLS)
+
     if(NOT L_NO_INSTALL)
       install(
         TARGETS ${libstatic}
+        EXPORT ${_static_export_set}
         RUNTIME DESTINATION ${BIN_DIR}
         LIBRARY DESTINATION ${LIB_DIR}
         ARCHIVE DESTINATION ${LIB_DIR}
