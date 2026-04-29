@@ -58,6 +58,23 @@ struct dm_view_data {
 
 DM_EXPORT extern void dm_draw_faceplate(struct bview *v);
 
+/**
+ * Phase 5 (drawing_stack_modernization): draw a single scene object through
+ * the display manager associated with @p v, honouring v->gv_edit_mat for
+ * illuminated objects (s_iflag == UP).
+ *
+ * @param dmp           display manager to draw into
+ * @param s             scene object to draw
+ * @param v             view providing the projection matrices
+ * @param force_draw    non-zero to draw even when s->s_flag == DOWN
+ * @param obj_settings  if non-NULL, override per-object colour/style
+ */
+DM_EXPORT extern void dm_draw_scene_obj(struct dm *dmp,
+					struct bv_scene_obj *s,
+					struct bview *v,
+					int force_draw,
+					struct bv_obj_settings *obj_settings);
+
 /* As a temporary measure, require client codes to specifically ask to enable
  * the bits that require librt in the headers if they're not going to be
  * calling them.  Not ideal, but pulling in rt also pulls in openNURBS, which
