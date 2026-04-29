@@ -492,7 +492,7 @@ function(
         endif()
       endforeach()
     endif()
-    target_include_directories(${libname} INTERFACE $<INSTALL_INTERFACE:include>)
+    target_include_directories(${libname} INTERFACE $<INSTALL_INTERFACE:include>;$<INSTALL_INTERFACE:include/brlcad>)
 
     if(HIDE_INTERNAL_SYMBOLS)
       set_property(TARGET ${libname} APPEND PROPERTY COMPILE_DEFINITIONS "${UPPER_CORE}_DLL_EXPORTS")
@@ -627,7 +627,7 @@ function(
         endif()
       endforeach()
     endif()
-    target_include_directories(${libstatic} INTERFACE $<INSTALL_INTERFACE:include>)
+    target_include_directories(${libstatic} INTERFACE $<INSTALL_INTERFACE:include>;$<INSTALL_INTERFACE:include/brlcad>)
 
     # Propagate the DLL-import compile definition so Windows consumers
     # don't need to set it manually.

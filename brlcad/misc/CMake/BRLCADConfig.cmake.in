@@ -84,6 +84,18 @@ set_and_check(BRLCAD_LIB_DIR      "@PACKAGE_BRLCAD_LIB_INSTALL_DIR@")
 set(BRLCAD_DATA_DIR   "@PACKAGE_BRLCAD_DATA_INSTALL_DIR@")
 set(BRLCAD_PLUGIN_DIR "@PACKAGE_BRLCAD_LIB_INSTALL_DIR@/brlcad/plugins")
 
+# BRL-CAD headers live under <prefix>/include/brlcad/ (e.g. rt/geom.h is at
+# include/brlcad/rt/geom.h).  Legacy FindBRLCAD.cmake exposed both the parent
+# directory (so <prefix>/include/brlcad.h works) and the brlcad/ subdirectory
+# (so rt/geom.h works).  Replicate that here so consumers that do
+#   INCLUDE_DIRECTORIES(${BRLCAD_INCLUDE_DIRS})
+# get the same behaviour they had before.
+if(IS_DIRECTORY "${BRLCAD_INCLUDE_DIR}/brlcad")
+  set(BRLCAD_HEADERS_DIR "${BRLCAD_INCLUDE_DIR}/brlcad")
+else()
+  set(BRLCAD_HEADERS_DIR "${BRLCAD_INCLUDE_DIR}")
+endif()
+
 # ------------------------------------------------------------------
 # 3.  Search-path setup for bundled dependencies
 #
@@ -116,6 +128,10 @@ find_dependency(Threads)
 @BRLCAD_FIND_DEP_LMDB@
 @BRLCAD_FIND_DEP_REGEX@
 @BRLCAD_FIND_DEP_PNG@
+@BRLCAD_FIND_DEP_NETPBM@
+@BRLCAD_FIND_DEP_JPEG@
+@BRLCAD_FIND_DEP_OPENNURBS@
+@BRLCAD_FIND_DEP_GEOGRAM@
 
 # BRL-CAD bundled mesh/geometry libraries whose targets appear in
 # the exported link interface of librt.
@@ -282,7 +298,11 @@ endforeach()
 # 9.  Backward-compatible variable surface (mirrors FindBRLCAD.cmake)
 
 set(BRLCAD_FOUND TRUE)
-set(BRLCAD_INCLUDE_DIRS "${BRLCAD_INCLUDE_DIR}")
+# Expose both the parent include dir and the brlcad/ subdirectory so that
+# consumers who do INCLUDE_DIRECTORIES(${BRLCAD_INCLUDE_DIRS}) can use
+# both #include "brlcad/bu.h" and #include "bu.h" / #include "rt/geom.h".
+set(BRLCAD_INCLUDE_DIRS "${BRLCAD_INCLUDE_DIR}" "${BRLCAD_HEADERS_DIR}")
+list(REMOVE_DUPLICATES BRLCAD_INCLUDE_DIRS)
 set(BRLCAD_LIBRARIES BRLCAD::brlcad)
 
 foreach(_lib
