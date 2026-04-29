@@ -1,0 +1,37 @@
+From: BRL-CAD developers <devs@brlcad.org>
+Subject: [PATCH] Set VERSION and SOVERSION on the mmesh shared library
+
+The shared library libmmesh.so is currently installed without a SONAME
+version number (SONAME = "libmmesh.so", same as the .so symlink name).
+Well-behaved shared libraries on Linux follow the libfoo.so.MAJOR
+convention so that:
+
+ - The dynamic linker records the SONAME (libmmesh.so.1) in the
+   dependent binary, not the unversioned name.
+ - Multiple API versions can coexist under the same prefix without
+   collisions.
+ - Package managers know which .so file represents the library ABI and
+   which is the development symlink.
+
+The top-level CMakeLists.txt already declares project(mmesh VERSION 1.0.0),
+so PROJECT_VERSION and PROJECT_VERSION_MAJOR are available.  We just need
+to apply them to the shared library target via set_target_properties.
+
+Applies to: BRL-CAD/mmesh, main branch (src/CMakeLists.txt)
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -12,6 +12,10 @@ if (BUILD_SHARED_LIBS)
+   add_library(mmesh SHARED ${MMESH_SOURCES})
+   target_include_directories(
+     mmesh PUBLIC
+     $<INSTALL_INTERFACE:${INCLUDE_DIR}>
+     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
+   )
+   target_link_libraries(mmesh PRIVATE ${MM_LIBS})
++  set_target_properties(mmesh PROPERTIES
++    VERSION   ${PROJECT_VERSION}
++    SOVERSION ${PROJECT_VERSION_MAJOR}
++  )
+   set_property(TARGET mmesh APPEND PROPERTY COMPILE_DEFINITIONS "MMESH_DLL_EXPORTS")
+   set_property(TARGET mmesh APPEND PROPERTY INTERFACE_COMPILE_DEFINITIONS "MMESH_DLL_IMPORTS")
+   install(TARGETS mmesh

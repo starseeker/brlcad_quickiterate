@@ -135,8 +135,8 @@ find_dependency(Threads)
 
 # BRL-CAD bundled mesh/geometry libraries whose targets appear in
 # the exported link interface of librt.
-find_dependency(mmesh QUIET)
-find_dependency(manifold QUIET)
+find_dependency(mmesh)
+find_dependency(manifold)
 
 # Optional deps gated by the build-time feature flags
 if(@BRLCAD_HAVE_TCL@)

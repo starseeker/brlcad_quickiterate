@@ -1,0 +1,109 @@
+From: BRL-CAD developers <devs@brlcad.org>
+Subject: [PATCH] Add MANIFOLD_BUILD_STATIC_LIBS option to produce a static archive alongside the shared library
+
+Consumers that link their own code statically (e.g. BRL-CAD's static
+library targets, MOOSE, or other scientific computing frameworks) need a
+static manifold archive so they do not have to carry libmanifold.so as a
+runtime dependency.
+
+manifold already builds with CMAKE_POSITION_INDEPENDENT_CODE=ON
+unconditionally, so the object files are suitable for inclusion in a
+static archive without rebuilding.  This patch adds an opt-in option
+MANIFOLD_BUILD_STATIC_LIBS that:
+
+ - Builds a second target, manifold_static, from the same source list
+   using add_library(... STATIC ...).
+ - Sets EXPORT_NAME manifold-static so the installed cmake target is
+   manifold::manifold-static, following the conventional -static suffix
+   naming used by other BRL-CAD bundled deps (e.g. mmesh::mmesh-static).
+ - Adds the static target to the manifoldTargets export set so that
+   manifoldConfig.cmake exposes it to consumers automatically.
+ - Propagates the same public compile definitions and include directories
+   as the shared target.
+
+Default is OFF so no existing workflow is changed.
+
+Applies to: elalish/manifold, tag v3.2.1
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -50,6 +50,7 @@ option(BUILD_SHARED_LIBS "Build shared library" ON)
+ # Set some option values in the CMake cache
+ set(MANIFOLD_FLAGS "" CACHE STRING "Manifold compiler flags")
++option(MANIFOLD_BUILD_STATIC_LIBS "Also build a static library (manifold-static) alongside the shared library" OFF)
+ 
+ # Development options
+ option(TRACY_ENABLE "Use tracy profiling" OFF)
+
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -86,6 +86,60 @@ target_include_directories(
+ 
+ exportlib(manifold)
+ 
++# -----------------------------------------------------------------------
++# Optional static library target
++# -----------------------------------------------------------------------
++if(MANIFOLD_BUILD_STATIC_LIBS)
++  add_library(manifold_static STATIC ${MANIFOLD_SRCS} ${MANIFOLD_PRIVATE_HDRS})
++
++  # Export as manifold::manifold-static (the conventional -static suffix)
++  set_target_properties(manifold_static PROPERTIES
++    OUTPUT_NAME manifold
++    EXPORT_NAME manifold-static
++  )
++
++  # Same public interface as the shared target
++  target_compile_features(manifold_static PUBLIC cxx_std_17)
++
++  target_compile_definitions(manifold_static PUBLIC MANIFOLD_PAR=-1)
++  if(MANIFOLD_PAR)
++    set_property(TARGET manifold_static PROPERTY
++      INTERFACE_COMPILE_DEFINITIONS MANIFOLD_PAR=1)
++  endif()
++
++  set(
++    _STATIC_OPTIONS
++    MANIFOLD_DEBUG
++    MANIFOLD_ASSERT
++    MANIFOLD_CROSS_SECTION
++    MANIFOLD_EXPORT
++    TRACY_ENABLE
++    TRACY_MEMORY_USAGE
++  )
++  foreach(OPT IN LISTS _STATIC_OPTIONS)
++    if(${${OPT}})
++      target_compile_definitions(manifold_static PUBLIC ${OPT})
++    endif()
++  endforeach()
++  unset(_STATIC_OPTIONS)
++
++  target_compile_options(manifold_static PRIVATE ${MANIFOLD_FLAGS})
++
++  # Link against the same optional dependencies as the shared target.
++  # For a static archive consumers must also link these, so PUBLIC.
++  target_link_libraries(manifold_static
++    PUBLIC
++      $<$<BOOL:${TRACY_ENABLE}>:TracyClient>
++      $<$<BOOL:${MANIFOLD_CROSS_SECTION}>:Clipper2::Clipper2>
++    PRIVATE
++      $<$<BOOL:${MANIFOLD_PAR}>:TBB::tbb>
++      $<$<BOOL:${MANIFOLD_EXPORT}>:assimp::assimp>
++  )
++
++  target_include_directories(
++    manifold_static
++    PUBLIC
++      $<INSTALL_INTERFACE:include>
++      $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
++      $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
++    PRIVATE ${MANIFOLD_INCLUDE_DIRS}
++  )
++
++  install(TARGETS manifold_static EXPORT manifoldTargets
++    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
++    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
++  )
++endif()
++# -----------------------------------------------------------------------
++
+ install(TARGETS manifold EXPORT manifoldTargets

@@ -1,0 +1,49 @@
+From: BRL-CAD developers <devs@brlcad.org>
+Subject: [PATCH] Use target_compile_definitions instead of target_compile_options for -D flags
+
+Preprocessor definitions should be propagated through
+INTERFACE_COMPILE_DEFINITIONS, not INTERFACE_COMPILE_OPTIONS.  When
+-DMANIFOLD_DEBUG etc. are placed in compile_options they end up in the
+installed manifoldTargets.cmake as INTERFACE_COMPILE_OPTIONS which:
+
+ 1. Causes consumers to receive the raw "-D..." strings in their compile
+    command lines rather than proper definitions (harmless but incorrect).
+ 2. More importantly, CMake's de-duplication and filtering logic that
+    strips duplicates only operates on COMPILE_DEFINITIONS; keeping them
+    in COMPILE_OPTIONS means every consumer pays the cost of extra
+    command-line tokens that may interact unexpectedly with other flags.
+ 3. Makes it impossible to inspect compile-time feature flags through the
+    standard INTERFACE_COMPILE_DEFINITIONS target property.
+
+The fix is a one-line change per usage: replace target_compile_options
+with target_compile_definitions and drop the -D prefix that the latter
+adds automatically.
+
+Applies to: elalish/manifold, tag v3.2.1 (src/CMakeLists.txt)
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -67,14 +67,14 @@ target_compile_options(manifold PRIVATE ${MANIFOLD_FLAGS})
+ # make sure users use appropriate c++ standard when including our headers
+ target_compile_features(manifold PUBLIC cxx_std_17)
+ set(
+   OPTIONS
+   MANIFOLD_DEBUG
+   MANIFOLD_ASSERT
+   MANIFOLD_CROSS_SECTION
+   MANIFOLD_EXPORT
+   TRACY_ENABLE
+   TRACY_MEMORY_USAGE
+ )
+ foreach(OPT IN LISTS OPTIONS)
+   if(${${OPT}})
+-    target_compile_options(manifold PUBLIC -D${OPT})
++    target_compile_definitions(manifold PUBLIC ${OPT})
+   endif()
+ endforeach()
+ if(MANIFOLD_PAR)
+-  target_compile_options(manifold PUBLIC -DMANIFOLD_PAR=1)
++  target_compile_definitions(manifold PUBLIC MANIFOLD_PAR=1)
+ else()
+-  target_compile_options(manifold PUBLIC -DMANIFOLD_PAR=-1)
++  target_compile_definitions(manifold PUBLIC MANIFOLD_PAR=-1)
+ endif()
