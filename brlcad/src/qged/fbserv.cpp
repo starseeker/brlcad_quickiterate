@@ -129,22 +129,17 @@ QFBServer::on_Connect()
 
     int fd = tcps->socketDescriptor();
     bu_log("fd: %d\n", fd);
-    struct pkg_conn *pc;
-    BU_GET(pc, struct pkg_conn);
-    pc->pkc_magic = PKG_MAGIC;
-    pc->pkc_fd = fd;
-    pc->pkc_switch = fbs_pkg_switch();
-    pc->pkc_errlog = 0;
-    pc->pkc_left = -1;
-    pc->pkc_buf = (char *)0;
-    pc->pkc_curpos = (char *)0;
-    pc->pkc_strpos = 0;
-    pc->pkc_incur = pc->pkc_inend = 0;
+    struct pkg_conn *pc = pkg_adopt_socket(fd, fbs_pkg_switch(), 0);
+    if (pc == PKC_ERROR) {
+	bu_log("new connection failed (pkg_adopt_socket)");
+	tcps->close();
+	return;
+    }
 
     fs->ind = fbs_new_client(fbsp, pc, (void *)fs);
     if (fs->ind == -1) {
 	bu_log("new connection failed");
-	BU_PUT(pc, struct pkg_conn);
+	pkg_close(pc);
 	tcps->close();
     }
 }

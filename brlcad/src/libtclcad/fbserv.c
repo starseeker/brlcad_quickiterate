@@ -63,38 +63,10 @@ comm_error(const char *str)
 static struct pkg_conn *
 fbs_makeconn(int fd, const struct pkg_switch *switchp)
 {
-    register struct pkg_conn *pc;
-#ifdef HAVE_WINSOCK_H
-    WSADATA wsaData;
-    WORD wVersionRequested; /* initialize Windows socket networking,
-			     * increment reference count.
-			     */
-#endif
-
-    if ((pc = (struct pkg_conn *)malloc(sizeof(struct pkg_conn))) == PKC_NULL) {
-	comm_error("fbs_makeconn: malloc failure\n");
-	return PKC_ERROR;
+    struct pkg_conn *pc = pkg_adopt_socket(fd, switchp, comm_error);
+    if (pc == PKC_ERROR) {
+	comm_error("fbs_makeconn: pkg_adopt_socket failure\n");
     }
-
-#ifdef HAVE_WINSOCK_H
-    wVersionRequested = MAKEWORD(1, 1);
-    if (WSAStartup(wVersionRequested, &wsaData) != 0) {
-	comm_error("fbs_makeconn:  could not find a usable WinSock DLL\n");
-	return PKC_ERROR;
-    }
-#endif
-
-    memset((char *)pc, 0, sizeof(struct pkg_conn));
-    pc->pkc_magic = PKG_MAGIC;
-    pc->pkc_fd = fd;
-    pc->pkc_switch = switchp;
-    pc->pkc_errlog = 0;
-    pc->pkc_left = -1;
-    pc->pkc_buf = (char *)0;
-    pc->pkc_curpos = (char *)0;
-    pc->pkc_strpos = 0;
-    pc->pkc_incur = pc->pkc_inend = 0;
-
     return pc;
 }
 #endif

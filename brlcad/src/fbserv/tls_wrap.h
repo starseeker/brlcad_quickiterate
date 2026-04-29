@@ -285,7 +285,7 @@ fbserv_tls_accept(SSL_CTX *ctx, struct pkg_conn *pc)
 	return FBSERV_TLS_ERR;
     }
 
-    if (SSL_set_fd(ssl, pc->pkc_fd) != 1) {
+    if (SSL_set_fd(ssl, pkg_get_read_fd(pc)) != 1) {
 	_fbserv_tls_log_errors("SSL_set_fd (fbserv server)");
 	SSL_free(ssl);
 	return FBSERV_TLS_ERR;
@@ -298,10 +298,8 @@ fbserv_tls_accept(SSL_CTX *ctx, struct pkg_conn *pc)
 	return FBSERV_TLS_ERR;
     }
 
-    pc->pkc_tls_ctx   = (void *)ssl;
-    pc->pkc_tls_read  = _fbserv_ssl_read;
-    pc->pkc_tls_write = _fbserv_ssl_write;
-    pc->pkc_tls_free  = _fbserv_ssl_free;
+    pkg_set_tls(pc, (void *)ssl,
+		_fbserv_ssl_read, _fbserv_ssl_write, _fbserv_ssl_free);
 
     return FBSERV_TLS_OK;
 }
@@ -355,7 +353,7 @@ fbserv_tls_connect(SSL_CTX *ctx, struct pkg_conn *pc)
 	return FBSERV_TLS_ERR;
     }
 
-    if (SSL_set_fd(ssl, pc->pkc_fd) != 1) {
+    if (SSL_set_fd(ssl, pkg_get_read_fd(pc)) != 1) {
 	_fbserv_tls_log_errors("SSL_set_fd (fbserv client)");
 	SSL_free(ssl);
 	return FBSERV_TLS_ERR;
@@ -368,10 +366,8 @@ fbserv_tls_connect(SSL_CTX *ctx, struct pkg_conn *pc)
 	return FBSERV_TLS_ERR;
     }
 
-    pc->pkc_tls_ctx   = (void *)ssl;
-    pc->pkc_tls_read  = _fbserv_ssl_read;
-    pc->pkc_tls_write = _fbserv_ssl_write;
-    pc->pkc_tls_free  = _fbserv_ssl_free;
+    pkg_set_tls(pc, (void *)ssl,
+		_fbserv_ssl_read, _fbserv_ssl_write, _fbserv_ssl_free);
 
     return FBSERV_TLS_OK;
 }

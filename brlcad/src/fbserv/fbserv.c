@@ -377,7 +377,7 @@ fbserv_drop_client(int sub)
     if (clients[sub] == PKC_NULL)
 	return;
 
-    fd = clients[sub]->pkc_fd;
+    fd = pkg_get_read_fd(clients[sub]);
 
     FD_CLR(fd, &select_list);
     pkg_close(clients[sub]);
@@ -400,9 +400,12 @@ fbserv_new_client(struct pkg_conn *pcp)
 	clients[i] = pcp;
 	clients_auth[i] = 0;  /* not yet authenticated */
 	clients_pending_drop[i] = 0;
-	FD_SET(pcp->pkc_fd, &select_list);
-	V_MAX(max_fd, pcp->pkc_fd);
-	fbserv_setup_socket(pcp->pkc_fd);
+	{
+	    int rfd = pkg_get_read_fd(pcp);
+	    FD_SET(rfd, &select_list);
+	    V_MAX(max_fd, rfd);
+	    fbserv_setup_socket(rfd);
+	}
 
 #ifdef HAVE_OPENSSL_SSL_H
 	/* Optional TLS: perform server-side handshake before any PKG
@@ -414,7 +417,7 @@ fbserv_new_client(struct pkg_conn *pcp)
 	    } else {
 		fprintf(stderr, "fbserv: TLS handshake failed for client %d; "
 			"dropping connection\n", i);
-		FD_CLR(pcp->pkc_fd, &select_list);
+		FD_CLR(pkg_get_read_fd(pcp), &select_list);
 		pkg_close(pcp);
 		clients[i] = PKC_NULL;
 		clients_auth[i] = 0;
@@ -495,7 +498,7 @@ main_loop(void)
 		continue;
 	    }
 	    if (clients[i] == NULL) continue;
-	    if (! FD_ISSET(clients[i]->pkc_fd, &infds)) continue;
+	    if (! FD_ISSET(pkg_get_read_fd(clients[i]), &infds)) continue;
 	    if (pkg_suckin(clients[i]) <= 0) {
 		/* Probably EOF */
 		fbserv_drop_client(i);
@@ -621,11 +624,12 @@ main(int argc, char **argv)
 	bu_ipc_detach(chan);
 
 	/* IPC service loop: pkg_suckin/pkg_process without select().
-	 * We bypass fbserv_new_client() + main_loop() because those rely on
-	 * FD_SET(pkc_fd, ...) which is invalid when pkc_fd == PKG_STDIO_MODE
-	 * (-3) as is the case for pipe-based IPC transport.
-	 * pkg_suckin/pkg_process handle PKG_STDIO_MODE internally via pkc_in_fd
-	 * and pkc_out_fd, so they work correctly here.                         */
+	 * We bypass fbserv_new_client() + main_loop() because those use
+	 * FD_SET on a transport read fd, which is not always meaningful
+	 * for split-fd transports (pkg_get_read_fd() returns the read end
+	 * but the select-based main_loop is geared for bidirectional fds).
+	 * pkg_suckin/pkg_process work transport-agnostically through the
+	 * pkg_conn so the simple poll loop below is correct here.            */
 	do {
 	    pkgr = pkg_process(pcp);
 	    if (pkgr < 0) break;

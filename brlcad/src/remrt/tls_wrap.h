@@ -304,7 +304,7 @@ remrt_tls_accept(SSL_CTX *ctx, struct pkg_conn *pc)
 	return REMRT_TLS_ERR;
     }
 
-    if (SSL_set_fd(ssl, pc->pkc_fd) != 1) {
+    if (SSL_set_fd(ssl, pkg_get_read_fd(pc)) != 1) {
 	_remrt_tls_log_errors("SSL_set_fd (server)");
 	SSL_free(ssl);
 	return REMRT_TLS_ERR;
@@ -318,10 +318,8 @@ remrt_tls_accept(SSL_CTX *ctx, struct pkg_conn *pc)
     }
 
     /* Attach to pkg_conn */
-    pc->pkc_tls_ctx   = (void *)ssl;
-    pc->pkc_tls_read  = _remrt_ssl_read;
-    pc->pkc_tls_write = _remrt_ssl_write;
-    pc->pkc_tls_free  = _remrt_ssl_free;
+    pkg_set_tls(pc, (void *)ssl,
+		_remrt_ssl_read, _remrt_ssl_write, _remrt_ssl_free);
 
     return REMRT_TLS_OK;
 }
@@ -380,7 +378,7 @@ remrt_tls_connect(SSL_CTX *ctx, struct pkg_conn *pc)
 	return REMRT_TLS_ERR;
     }
 
-    if (SSL_set_fd(ssl, pc->pkc_fd) != 1) {
+    if (SSL_set_fd(ssl, pkg_get_read_fd(pc)) != 1) {
 	_remrt_tls_log_errors("SSL_set_fd (client)");
 	SSL_free(ssl);
 	return REMRT_TLS_ERR;
@@ -394,10 +392,8 @@ remrt_tls_connect(SSL_CTX *ctx, struct pkg_conn *pc)
     }
 
     /* Attach to pkg_conn */
-    pc->pkc_tls_ctx   = (void *)ssl;
-    pc->pkc_tls_read  = _remrt_ssl_read;
-    pc->pkc_tls_write = _remrt_ssl_write;
-    pc->pkc_tls_free  = _remrt_ssl_free;
+    pkg_set_tls(pc, (void *)ssl,
+		_remrt_ssl_read, _remrt_ssl_write, _remrt_ssl_free);
 
     return REMRT_TLS_OK;
 }

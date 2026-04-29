@@ -200,36 +200,10 @@ found:
 static struct pkg_conn *
 fbserv_makeconn(int fd, const struct pkg_switch *switchp)
 {
-    struct pkg_conn *pc;
-#ifdef HAVE_WINSOCK_H
-    WORD wVersionRequested;		/* initialize Windows socket networking, increment reference count */
-    WSADATA wsaData;
-#endif
-
-    if ((pc = (struct pkg_conn *)malloc(sizeof(struct pkg_conn))) == PKC_NULL) {
-	communications_error("fbserv_makeconn: malloc failure\n");
-	return PKC_ERROR;
+    struct pkg_conn *pc = pkg_adopt_socket(fd, switchp, communications_error);
+    if (pc == PKC_ERROR) {
+	communications_error("fbserv_makeconn: pkg_adopt_socket failure\n");
     }
-
-#ifdef HAVE_WINSOCK_H
-    wVersionRequested = MAKEWORD(1, 1);
-    if (WSAStartup(wVersionRequested, &wsaData) != 0) {
-	communications_error("fbserv_makeconn:  could not find a usable WinSock DLL\n");
-	return PKC_ERROR;
-    }
-#endif
-
-    memset((char *)pc, 0, sizeof(struct pkg_conn));
-    pc->pkc_magic = PKG_MAGIC;
-    pc->pkc_fd = fd;
-    pc->pkc_switch = switchp;
-    pc->pkc_errlog = 0;
-    pc->pkc_left = -1;
-    pc->pkc_buf = (char *)0;
-    pc->pkc_curpos = (char *)0;
-    pc->pkc_strpos = 0;
-    pc->pkc_incur = pc->pkc_inend = 0;
-
     return pc;
 }
 
@@ -248,10 +222,10 @@ fbserv_new_client(struct pkg_conn *pcp, Tcl_Channel chan)
 
 	/* Found an available slot */
 	clients[i].c_pkg = pcp;
-	clients[i].c_fd = pcp->pkc_fd;
+	clients[i].c_fd = pkg_get_read_fd(pcp);
 	clients[i].c_auth_ok = 0;
 	clients[i].c_pending_drop = 0;
-	fbserv_setup_socket(pcp->pkc_fd);
+	fbserv_setup_socket(pkg_get_read_fd(pcp));
 
 	clients[i].c_chan = chan;
 	clients[i].c_handler = fbserv_existing_client_handler;

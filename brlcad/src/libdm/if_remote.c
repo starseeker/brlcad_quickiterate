@@ -249,7 +249,7 @@ rem_open(register struct fb *ifp, const char *file, int width, int height)
 		if (pc != PKC_ERROR && pc != PKC_NULL) {
 		    bu_ipc_detach(chan);   /* fds now owned by pkg_conn */
 		    PCPL(ifp) = (char *)pc;
-		    ifp->i->if_fd = pc->pkc_fd;
+		    ifp->i->if_fd = pkg_get_read_fd(pc);
 		    /* Fall through to MSG_FBOPEN / MSG_RETURN handshake below. */
 		    goto ipc_connected;
 		}
@@ -287,7 +287,7 @@ rem_open(register struct fb *ifp, const char *file, int width, int height)
 	}
     }
     PCPL(ifp) = (char *)pc;		/* stash in u1 */
-    ifp->i->if_fd = pc->pkc_fd;		/* unused */
+    ifp->i->if_fd = pkg_get_read_fd(pc);	/* unused */
 
 ipc_connected:
 
@@ -320,19 +320,8 @@ ipc_connected:
     }
 
 #ifdef HAVE_SYS_SOCKET_H
-    {
-	int n;
-	int val;
-	val = 32767;
-	n = setsockopt(pc->pkc_fd, SOL_SOCKET, SO_SNDBUF, (char *)&val, sizeof(val));
-	if (n < 0)
-	    perror("setsockopt: SO_SNDBUF");
-
-	val = 32767;
-	n = setsockopt(pc->pkc_fd, SOL_SOCKET, SO_RCVBUF, (char *)&val, sizeof(val));
-	if (n < 0)
-	    perror("setsockopt: SO_RCVBUF");
-    }
+    pkg_set_send_buffer(pc, 32767);
+    pkg_set_recv_buffer(pc, 32767);
 #endif
 
     *(uint32_t *)&buf[0*NET_LONG_LEN] = htonl(width);

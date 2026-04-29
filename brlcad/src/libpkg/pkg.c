@@ -448,6 +448,155 @@ pkg_open_fds(int rfd, int wfd, const struct pkg_switch *switchp, void (*errlog)(
 
 
 struct pkg_conn *
+pkg_adopt_socket(int fd, const struct pkg_switch *switchp, pkg_errlog errlog)
+{
+#ifdef HAVE_WINSOCK_H
+    WORD wVersionRequested;
+    WSADATA wsaData;
+#endif
+
+    if (fd < 0)
+	return PKC_ERROR;
+
+    if (errlog == NULL)
+	errlog = _pkg_errlog;
+
+#ifdef HAVE_WINSOCK_H
+    /* WSAStartup is reference-counted; safe to call once per pkg_conn. */
+    wVersionRequested = MAKEWORD(1, 1);
+    if (WSAStartup(wVersionRequested, &wsaData) != 0) {
+	_pkg_perror(errlog, "pkg_adopt_socket: could not find a usable WinSock DLL");
+	return PKC_ERROR;
+    }
+#endif
+
+    return _pkg_makeconn(fd, switchp, errlog);
+}
+
+
+/* ---------------------------------------------------------------- */
+/* Transport accessors                                              */
+/* ---------------------------------------------------------------- */
+
+int
+pkg_get_read_fd(const struct pkg_conn *pc)
+{
+    if (pc == PKC_NULL || pc == PKC_ERROR)
+	return -1;
+    if (pc->pkc_fd == PKG_STDIO_MODE)
+	return pc->pkc_in_fd;
+    return pc->pkc_fd;
+}
+
+
+int
+pkg_get_write_fd(const struct pkg_conn *pc)
+{
+    if (pc == PKC_NULL || pc == PKC_ERROR)
+	return -1;
+    if (pc->pkc_fd == PKG_STDIO_MODE)
+	return pc->pkc_out_fd;
+    return pc->pkc_fd;
+}
+
+
+int
+pkg_is_stdio_mode(const struct pkg_conn *pc)
+{
+    if (pc == PKC_NULL || pc == PKC_ERROR)
+	return 0;
+    return (pc->pkc_fd == PKG_STDIO_MODE) ? 1 : 0;
+}
+
+
+int
+pkg_set_send_buffer(struct pkg_conn *pc, size_t bytes)
+{
+    if (pc == PKC_NULL || pc == PKC_ERROR)
+	return -1;
+    /* Pipe / split-fd transports do not support socket buffer tuning. */
+    if (pc->pkc_fd == PKG_STDIO_MODE)
+	return 0;
+#ifdef SOL_SOCKET
+    {
+	int val = (int)bytes;
+	if (setsockopt(pc->pkc_fd, SOL_SOCKET, SO_SNDBUF,
+		       (const char *)&val, sizeof(val)) < 0) {
+	    _pkg_perror(pc->pkc_errlog, "pkg_set_send_buffer: setsockopt SO_SNDBUF");
+	    return -1;
+	}
+    }
+#else
+    (void)bytes;
+#endif
+    return 0;
+}
+
+
+int
+pkg_set_recv_buffer(struct pkg_conn *pc, size_t bytes)
+{
+    if (pc == PKC_NULL || pc == PKC_ERROR)
+	return -1;
+    if (pc->pkc_fd == PKG_STDIO_MODE)
+	return 0;
+#ifdef SOL_SOCKET
+    {
+	int val = (int)bytes;
+	if (setsockopt(pc->pkc_fd, SOL_SOCKET, SO_RCVBUF,
+		       (const char *)&val, sizeof(val)) < 0) {
+	    _pkg_perror(pc->pkc_errlog, "pkg_set_recv_buffer: setsockopt SO_RCVBUF");
+	    return -1;
+	}
+    }
+#else
+    (void)bytes;
+#endif
+    return 0;
+}
+
+
+int
+pkg_set_nodelay(struct pkg_conn *pc, int on)
+{
+    if (pc == PKC_NULL || pc == PKC_ERROR)
+	return -1;
+    if (pc->pkc_fd == PKG_STDIO_MODE)
+	return 0;
+#if defined(TCP_NODELAY)
+    {
+	int val = on ? 1 : 0;
+	if (setsockopt(pc->pkc_fd, IPPROTO_TCP, TCP_NODELAY,
+		       (const char *)&val, sizeof(val)) < 0) {
+	    _pkg_perror(pc->pkc_errlog, "pkg_set_nodelay: setsockopt TCP_NODELAY");
+	    return -1;
+	}
+    }
+#else
+    (void)on;
+#endif
+    return 0;
+}
+
+
+int
+pkg_set_tls(struct pkg_conn *pc,
+	    void *tls_ctx,
+	    ptrdiff_t (*tls_read)(void *ctx, void *buf, size_t n),
+	    ptrdiff_t (*tls_write)(void *ctx, const void *buf, size_t n),
+	    void (*tls_free)(void *ctx))
+{
+    if (pc == PKC_NULL || pc == PKC_ERROR)
+	return -1;
+    pc->pkc_tls_ctx   = tls_ctx;
+    pc->pkc_tls_read  = tls_read;
+    pc->pkc_tls_write = tls_write;
+    pc->pkc_tls_free  = tls_free;
+    return 0;
+}
+
+
+struct pkg_conn *
 pkg_open(const char *host, const char *service, const char *protocol, const char *uname, const char *UNUSED(passwd), const struct pkg_switch *switchp, void (*errlog)(const char *msg))
 {
     if (strlen(host) == 5 && !strncmp(host, "STDIO", 5)) {

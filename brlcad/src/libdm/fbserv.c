@@ -1127,12 +1127,12 @@ fbs_new_client(struct fbserv_obj *fbsp, struct pkg_conn *pcp, void *data)
 	    continue;
 
 	/* Found an available slot */
-	fbsp->fbs_clients[i].fbsc_fd = pcp->pkc_fd;
+	fbsp->fbs_clients[i].fbsc_fd = pkg_get_read_fd(pcp);
 	fbsp->fbs_clients[i].fbsc_pkg = pcp;
 	fbsp->fbs_clients[i].fbsc_fbsp = fbsp;
 	fbsp->fbs_clients[i].fbsc_auth_ok = 0;
 	fbsp->fbs_clients[i].fbsc_pending_drop = 0;
-	fbs_setup_socket(pcp->pkc_fd);
+	fbs_setup_socket(pkg_get_read_fd(pcp));
 
 	/* Point pkc_server_data at the fbserv_client so handlers can
 	 * reach back to the fbserv_obj (needed for auth checks). */
@@ -1201,12 +1201,12 @@ fbs_open_ipc(struct fbserv_obj *fbsp)
     }
 
     /* Find an empty client slot and register the pre-connected pkg_conn.
-     * For pipe-based IPC transport pkg_open_fds() uses PKG_STDIO_MODE
-     * internally (pkc_fd == -3); the actual readable fd is pkc_in_fd.
-     * fbsc_fd is used by callers (Tcl_CreateFileHandler, select-based loops,
-     * etc.) as the fd to monitor for readability, so it must always hold a
-     * valid (>= 0) file descriptor.                                          */
-    int effective_fd = (pc->pkc_fd == PKG_STDIO_MODE) ? pc->pkc_in_fd : pc->pkc_fd;
+     * The transport may be a unidirectional pipe pair internally, so the
+     * fd to monitor for readability must come from pkg_get_read_fd(),
+     * not from struct internals.  fbsc_fd is used by callers
+     * (Tcl_CreateFileHandler, select-based loops, etc.) as the fd to
+     * monitor for readability, so it must always hold a valid (>= 0) fd. */
+    int effective_fd = pkg_get_read_fd(pc);
 
     for (i = MAX_CLIENTS - 1; i >= 0; i--) {
 	if (fbsp->fbs_clients[i].fbsc_fd != 0)

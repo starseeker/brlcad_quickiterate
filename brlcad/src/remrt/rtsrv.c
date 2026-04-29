@@ -336,16 +336,9 @@ main(int argc, char **argv)
 
 #ifdef SO_SNDBUF
     /* increase the default send buffer size to 32k since we're
-     * sending pixels more than likely.
-     * Skip for pipe transport where pkc_fd == PKG_STDIO_MODE (-3) — setsockopt
-     * on a non-socket fd would fail with EBADF.
+     * sending pixels more than likely.  No-op for pipe transports.
      */
-    if (pcsrv->pkc_fd != PKG_STDIO_MODE) {
-	int val = 32767;
-	n = setsockopt(pcsrv->pkc_fd, SOL_SOCKET, SO_SNDBUF, (const void *)&val, sizeof(val));
-	if (n < 0)
-	    perror("setsockopt: SO_SNDBUF");
-    }
+    pkg_set_send_buffer(pcsrv, 32767);
 #endif
 
     if (!debug) {
@@ -487,12 +480,11 @@ main(int argc, char **argv)
 
 	/* Second, see if any input to read */
 	FD_ZERO(&ifds);
-	/* For pipe transport pkg_open_fds() uses PKG_STDIO_MODE (-3) as pkc_fd;
-	 * pkc_in_fd holds the real read-end file descriptor in that case.
-	 * Using pkc_fd directly with FD_SET would pass -3, which triggers
-	 * glibc's out-of-range assertion and aborts the process on Linux.    */
+	/* The transport may be a unidirectional pipe pair internally;
+	 * pkg_get_read_fd() returns the correct CRT fd to pass to select().
+	 */
 	{
-	    int sel_fd = (pcsrv->pkc_fd == PKG_STDIO_MODE) ? pcsrv->pkc_in_fd : pcsrv->pkc_fd;
+	    int sel_fd = pkg_get_read_fd(pcsrv);
 	    FD_SET(sel_fd, &ifds);
 	    tv.tv_sec = BU_LIST_NON_EMPTY(&WorkHead) ? 0L : 9999L;
 	    tv.tv_usec = 0L;

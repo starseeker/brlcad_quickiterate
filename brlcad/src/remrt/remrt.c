@@ -586,15 +586,15 @@ drop_server(struct servers *sp, char *why)
     }
 
     /* Clear the bits from "clients" now, to prevent further select()s */
-    fd = pc->pkc_fd;
-    if (fd == PKG_STDIO_MODE) {
+    fd = pkg_get_read_fd(pc);
+    if (pkg_is_stdio_mode(pc)) {
 	/* Pipe-based IPC connection: tracked outside the clients fd_set. */
 	if (n_pipe_servers > 0) n_pipe_servers--;
     } else if (fd < 0) {
 	bu_log("drop_server: fd=%d is unreasonable, forget it!\n", fd);
 	return;
     } else {
-	FD_CLR(sp->sr_pc->pkc_fd, &clients);
+	FD_CLR(fd, &clients);
     }
 
     if (oldstate != SRST_READY && oldstate != SRST_NEED_TREE) return;
@@ -690,7 +690,7 @@ addclient(struct pkg_conn *pc)
     struct sockaddr_in from;
     int fd;
 
-    fd = pc->pkc_fd;
+    fd = pkg_get_read_fd(pc);
 
     fromlen = (socklen_t) sizeof (from);
 
@@ -786,12 +786,12 @@ addclient_ipc(struct pkg_conn *pc, struct ihost *ihp)
 
     if (!pc || !ihp) return;
 
-    fd = pc->pkc_fd;
+    fd = pkg_get_read_fd(pc);
 
     if (rem_debug)
 	bu_log("%s addclient_ipc(%s, fd=%d)\n", stamp(), ihp->ht_name, fd);
 
-    if (fd == PKG_STDIO_MODE) {
+    if (pkg_is_stdio_mode(pc)) {
 	/* Pipe-based connection: cannot use FD_SET with -3.
 	 * Track separately so done-checks remain accurate.  */
 	n_pipe_servers++;
@@ -854,10 +854,10 @@ check_input(int waittime)
 
     /* Step 2: Build the readiness mux.
      *
-     * For each server connection we watch the "readable" fd:
-     *   - Socket connections (pkc_fd != PKG_STDIO_MODE): watch pkc_fd.
-     *   - Pipe connections   (pkc_fd == PKG_STDIO_MODE): watch pkc_in_fd,
-     *     which is the CRT fd for the pipe read end.
+     * For each server connection we watch the "readable" fd returned by
+     * pkg_get_read_fd().  We still have to discriminate pipe vs socket
+     * underneath because Windows requires the WaitForMultipleObjects()
+     * vs. WSAEventSelect() split.  pkg_is_stdio_mode() reports which.
      *
      * On POSIX bu_ipc_mux wraps select(); on Windows it uses
      * WaitForMultipleObjects() for pipe handles and WSAEventSelect()
@@ -868,14 +868,17 @@ check_input(int waittime)
     for (i = 0; i < (int)MAXSERVERS; i++) {
 	pc = servers[i].sr_pc;
 	if (pc == PKC_NULL) continue;
-	if (pc->pkc_fd == PKG_STDIO_MODE) {
-	    /* Pipe: pkc_in_fd is a real CRT fd — safe for bu_ipc_mux_add() */
-	    if (pc->pkc_in_fd >= 0)
-		bu_ipc_mux_add(mux, pc->pkc_in_fd);
-	} else {
-	    /* Socket: pkc_fd is a WinSock SOCKET cast to int */
-	    if (pc->pkc_fd >= 0)
-		bu_ipc_mux_add_socket(mux, pc->pkc_fd);
+	{
+	    int rfd = pkg_get_read_fd(pc);
+	    if (rfd < 0)
+		continue;
+	    if (pkg_is_stdio_mode(pc)) {
+		/* Pipe: rfd is a real CRT fd — safe for bu_ipc_mux_add() */
+		bu_ipc_mux_add(mux, rfd);
+	    } else {
+		/* Socket: rfd is a WinSock SOCKET cast to int */
+		bu_ipc_mux_add_socket(mux, rfd);
+	    }
 	}
     }
 
@@ -913,7 +916,7 @@ check_input(int waittime)
     for (i = 0; i < (int)MAXSERVERS; i++) {
 	struct pkg_conn *spc = servers[i].sr_pc;
 	if (spc == PKC_NULL) continue;
-	int rfd = (spc->pkc_fd == PKG_STDIO_MODE) ? spc->pkc_in_fd : spc->pkc_fd;
+	int rfd = pkg_get_read_fd(spc);
 	if (rfd < 0 || !bu_ipc_mux_is_ready(mux, rfd)) continue;
 	val = pkg_suckin(spc);
 	if (val < 0)
@@ -2296,10 +2299,10 @@ schedule(struct timeval *nowp)
 	    case SRST_CLOSING:
 		/* Handle final closing */
 		if (rem_debug>1) bu_log("%s Final close on %s\n", stamp(), sp->sr_host->ht_name);
-		if (sp->sr_pc->pkc_fd == PKG_STDIO_MODE) {
+		if (pkg_is_stdio_mode(sp->sr_pc)) {
 		    if (n_pipe_servers > 0) n_pipe_servers--;
 		} else {
-		    FD_CLR(sp->sr_pc->pkc_fd, &clients);
+		    FD_CLR(pkg_get_read_fd(sp->sr_pc), &clients);
 		}
 		pkg_close(sp->sr_pc);
 
@@ -2970,7 +2973,7 @@ cd_status(const int UNUSED(argc), const char **UNUSED(argv))
     for (sp = &servers[0]; sp < &servers[MAXSERVERS]; sp++) {
 	if (sp->sr_pc == PKC_NULL) continue;
 	bu_log("  %2d  %s %s",
-	       sp->sr_pc->pkc_fd, sp->sr_host->ht_name,
+	       pkg_get_read_fd(sp->sr_pc), sp->sr_host->ht_name,
 	       state_to_string(sp->sr_state));
 	if (sp->sr_curframe != FRAME_NULL) {
 	    CHECK_FRAME(sp->sr_curframe);
@@ -3564,7 +3567,7 @@ ph_dirbuild_reply(struct pkg_conn *pc, char *buf)
 
     sp = get_server_by_pc(pc);
     if (sp == SERVERS_NULL) {
-	bu_log("MSG_DIRBUILD_REPLY from unknown connection fd %d\n", pc->pkc_fd);
+	bu_log("MSG_DIRBUILD_REPLY from unknown connection fd %d\n", pkg_get_read_fd(pc));
 	if (buf) (void)free(buf);
 	return;
     }
@@ -3594,7 +3597,7 @@ ph_gettrees_reply(struct pkg_conn *pc, char *buf)
 
     sp = get_server_by_pc(pc);
     if (sp == SERVERS_NULL) {
-	bu_log("MSG_GETTREES_REPLY from unknown connection fd %d\n", pc->pkc_fd);
+	bu_log("MSG_GETTREES_REPLY from unknown connection fd %d\n", pkg_get_read_fd(pc));
 	if (buf) (void)free(buf);
 	return;
     }
@@ -3639,7 +3642,7 @@ ph_version(struct pkg_conn *pc, char *buf)
 
     sp = get_server_by_pc(pc);
     if (sp == SERVERS_NULL) {
-	bu_log("MSG_VERSION from unknown connection fd %d\n", pc->pkc_fd);
+	bu_log("MSG_VERSION from unknown connection fd %d\n", pkg_get_read_fd(pc));
 	if (buf) (void)free(buf);
 	return;
     }
@@ -3700,7 +3703,7 @@ ph_cmd(struct pkg_conn *pc, char *buf)
 
     sp = get_server_by_pc(pc);
     if (sp == SERVERS_NULL) {
-	bu_log("MSG_CMD from unknown connection fd %d: '%s'\n", pc->pkc_fd, buf);
+	bu_log("MSG_CMD from unknown connection fd %d: '%s'\n", pkg_get_read_fd(pc), buf);
 	(void)rt_do_cmd((struct rt_i *)0, buf, cmd_tab);
 	if (buf) (void)free(buf);
 	return;
@@ -3734,7 +3737,7 @@ ph_pixels(struct pkg_conn *pc, char *buf)
     sp = get_server_by_pc(pc);
     if (sp == SERVERS_NULL) {
 	bu_log("%s Ignoring MSG_PIXELS from unknown connection fd %d\n",
-	       stamp(), pc->pkc_fd);
+	       stamp(), pkg_get_read_fd(pc));
 	goto out;
     }
     if (sp->sr_state != SRST_READY && sp->sr_state != SRST_NEED_TREE &&
