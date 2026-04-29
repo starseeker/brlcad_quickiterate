@@ -141,10 +141,10 @@ struct pkg_conn {
     ptrdiff_t (*pkc_tls_read)(void *ctx, void *buf, size_t n);		/**< @brief TLS read callback; NULL = use raw fd */
     ptrdiff_t (*pkc_tls_write)(void *ctx, const void *buf, size_t n);	/**< @brief TLS write callback; NULL = use raw fd */
     void (*pkc_tls_free)(void *ctx);					/**< @brief called by pkg_close() to free TLS state */
-    char pkc_addr[128];        /**< @brief transport address string */
-    char pkc_addr_env[160];    /**< @brief PKG_ADDR=... for child spawn env */
-    int  pkc_tx_kind;          /**< @brief 0=socket/TCP, 1=pipe pair */
-    int  pkc_listen_fd;        /**< @brief TCP pair: listening socket for lazy accept */
+    char pkc_addr[128];        /**< @brief transport address string (populated by future phases) */
+    char pkc_addr_env[160];    /**< @brief PKG_ADDR=... env string for child spawn (future phases) */
+    int  pkc_tx_kind;          /**< @brief transport kind: 0=socket/TCP, 1=pipe pair */
+    int  pkc_listen_fd;        /**< @brief listening socket fd for lazy-accept (TCP, future phases) */
 };
 #define PKC_NULL	((struct pkg_conn *)0)
 #define PKC_ERROR	((struct pkg_conn *)(-1L))
