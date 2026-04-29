@@ -85,12 +85,19 @@ set(BRLCAD_DATA_DIR   "@PACKAGE_BRLCAD_DATA_INSTALL_DIR@")
 set(BRLCAD_PLUGIN_DIR "@PACKAGE_BRLCAD_LIB_INSTALL_DIR@/brlcad/plugins")
 
 # ------------------------------------------------------------------
-# 3.  Private Find-module search path for bundled dependencies
+# 3.  Search-path setup for bundled dependencies
 #
 # Prepend the modules/ sub-directory shipped alongside this file so
 # that find_dependency() calls below can locate BRL-CAD's private
 # find-modules for packages that were bundled at build time.
 list(INSERT CMAKE_MODULE_PATH 0 "${CMAKE_CURRENT_LIST_DIR}/modules")
+
+# Also prepend the BRL-CAD installation prefix to CMAKE_PREFIX_PATH so
+# that find_dependency() can locate packaged bundled deps (mmesh, manifold,
+# etc.) installed to <prefix>/lib/cmake/<Dep>/<Dep>Config.cmake.
+# BRLCAD_LIB_DIR is already set and validated above; its parent is the prefix.
+get_filename_component(_brlcad_prefix "${BRLCAD_LIB_DIR}/.." ABSOLUTE)
+list(INSERT CMAKE_PREFIX_PATH 0 "${_brlcad_prefix}")
 
 # ------------------------------------------------------------------
 # 4.  Re-find external dependencies required by BRL-CAD's targets
@@ -109,6 +116,11 @@ find_dependency(Threads)
 @BRLCAD_FIND_DEP_LMDB@
 @BRLCAD_FIND_DEP_REGEX@
 @BRLCAD_FIND_DEP_PNG@
+
+# BRL-CAD bundled mesh/geometry libraries whose targets appear in
+# the exported link interface of librt.
+find_dependency(mmesh QUIET)
+find_dependency(manifold QUIET)
 
 # Optional deps gated by the build-time feature flags
 if(@BRLCAD_HAVE_TCL@)
