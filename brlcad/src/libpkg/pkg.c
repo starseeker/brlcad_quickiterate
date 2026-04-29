@@ -160,6 +160,11 @@ int pkg_permport = 0;	/* TCP port that pkg_permserver() is listening on XXX */
 static char _pkg_errbuf[MAX_PKG_ERRBUF_SIZE] = {0};
 static FILE *_pkg_debug = (FILE*)NULL;
 
+/* Forward declarations for internal functions used by the Listener API */
+static int pkg_permserver(const char *service, const char *protocol, int backlog, void (*errlog)(const char *msg));
+static struct pkg_conn *
+pkg_getclient(int fd, const struct pkg_switch *switchp, void (*errlog)(const char *msg), int nodelay);
+
 
 /*
  * Routines to insert/extract short/long's into char arrays,
@@ -761,29 +766,6 @@ pkg_open(const char *host, const char *service, const char *protocol, const char
 }
 
 
-struct pkg_conn *
-pkg_transerver(const struct pkg_switch *switchp, void (*errlog)(const char *))
-{
-    struct pkg_conn *conn;
-
-    _pkg_ck_debug();
-    if (_pkg_debug) {
-	_pkg_timestamp();
-	fprintf(_pkg_debug,
-		"pkg_transerver(switchp=%p, errlog=x%llx)\n",
-		(void *)switchp, (unsigned long long)((uintptr_t)errlog));
-	fflush(_pkg_debug);
-    }
-
-    /*
-     * XXX - Somehow the system has to know what connection was
-     * accepted, its protocol, etc.  For UNIX/inetd we use stdin.
-     */
-    conn = _pkg_makeconn(STDIN_FILENO, switchp, errlog);
-    return conn;
-}
-
-
 /**
  * This is a private implementation function.
  */
@@ -953,7 +935,7 @@ _pkg_permserver_impl(struct in_addr iface, const char *service, const char *prot
 }
 
 
-int
+static int
 pkg_permserver(const char *service, const char *protocol, int backlog, void (*errlog)(const char *msg))
 {
     struct in_addr iface;
@@ -962,29 +944,7 @@ pkg_permserver(const char *service, const char *protocol, int backlog, void (*er
 }
 
 
-int
-pkg_permserver_ip(const char *ipOrHostname, const char *service, const char *protocol, int backlog, void (*errlog)(const char *msg))
-{
-    struct hostent* host;
-    struct in_addr iface;
-    /* if ipOrHostname starts with a number, it's an IP */
-    if (ipOrHostname) {
-	if (ipOrHostname[0] >= '0' && ipOrHostname[0] <= '9') {
-	    iface.s_addr = inet_addr(ipOrHostname);
-	} else {
-	    /* XXX gethostbyname is deprecated on Windows */
-	    host = gethostbyname(ipOrHostname);
-	    iface = *(struct in_addr*)host->h_addr_list[0];
-	}
-	return _pkg_permserver_impl(iface, service, protocol, backlog, errlog);
-    } else {
-	_pkg_perror(errlog, "pkg: ipOrHostname cannot be NULL");
-	return -1;
-    }
-}
-
-
-struct pkg_conn *
+static struct pkg_conn *
 pkg_getclient(int fd, const struct pkg_switch *switchp, void (*errlog)(const char *msg), int nodelay)
 {
     if (fd == PKG_STDIO_MODE) {
@@ -2229,8 +2189,69 @@ pkg_suckin(struct pkg_conn *pc)
 }
 
 
+/* ---------------------------------------------------------------- */
+/* Listener API                                                      */
+/* ---------------------------------------------------------------- */
+
+struct pkg_listener {
+    int fd;
+    pkg_errlog errlog;
+};
+
+pkg_listener_t *
+pkg_listen(const char *service, const char *iface_or_null, int backlog, pkg_errlog errlog)
+{
+    int lfd;
+    struct pkg_listener *L;
+
+    /* iface_or_null is ignored for now - binds to INADDR_ANY */
+    (void)iface_or_null;
+    lfd = pkg_permserver(service, "tcp", backlog, errlog);
+    if (lfd < 0) return NULL;
+
+    L = (struct pkg_listener *)malloc(sizeof(struct pkg_listener));
+    if (!L) {
+#ifdef HAVE_WINSOCK_H
+	closesocket(lfd);
+#else
+	close(lfd);
+#endif
+	return NULL;
+    }
+    L->fd     = lfd;
+    L->errlog = errlog;
+    return L;
+}
+
+struct pkg_conn *
+pkg_accept(pkg_listener_t *L, const struct pkg_switch *switchp, pkg_errlog errlog, int nonblocking)
+{
+    if (!L || L->fd < 0) return PKC_ERROR;
+    return pkg_getclient(L->fd, switchp, errlog, nonblocking);
+}
+
+int
+pkg_get_listener_fd(const pkg_listener_t *L)
+{
+    return L ? L->fd : -1;
+}
+
+void
+pkg_listener_close(pkg_listener_t *L)
+{
+    if (!L) return;
+    if (L->fd >= 0) {
+#ifdef HAVE_WINSOCK_H
+	closesocket(L->fd);
+#else
+	close(L->fd);
+#endif
+    }
+    free(L);
+}
+
+
 /*
- * Local Variables:
  * mode: C
  * tab-width: 8
  * indent-tabs-mode: t
