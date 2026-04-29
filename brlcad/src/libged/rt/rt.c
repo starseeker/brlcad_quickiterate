@@ -112,7 +112,7 @@ ged_rt_core(struct ged *gedp, int argc, const char *argv[])
 	if (BU_STR_EQUAL(argv[i], "-u") ||
 	    BU_STR_EQUAL(argv[i], "--units") ||
 	    (argv[i][0] == '-' && argv[i][1] == 'u' && strlen(argv[i]) > 2) ||
-	    strncmp(argv[i], "--units=", 8) == 0) {
+	    bu_strncmp(argv[i], "--units=", 8) == 0) {
 	    units_supplied = 1;
 	}
 	*vp++ = (char *)argv[i];

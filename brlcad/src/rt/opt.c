@@ -545,6 +545,18 @@ rt_opt_white_bg(struct bu_vls *UNUSED(msg), size_t UNUSED(argc), const char **UN
 }
 
 
+/* -A / --ambient  #
+ * Wrapper callback needed because AmbientIntensity is a DLL-imported symbol
+ * on Windows, so &AmbientIntensity cannot appear in a static initializer.  */
+static int
+rt_opt_ambient(struct bu_vls *msg, size_t argc, const char **argv, void *UNUSED(set_var))
+{
+    BU_OPT_CHECK_ARGV0(msg, argc, argv, "ambient");
+    AmbientIntensity = atof(argv[0]);
+    return 1;
+}
+
+
 /* -w / --width  # */
 static int
 rt_opt_width(struct bu_vls *msg, size_t argc, const char **argv, void *UNUSED(set_var))
@@ -919,7 +931,7 @@ static struct bu_opt_desc opt_defs[] = {
      "Apply a cutting plane (equivalent to subtracting a halfspace)"},
 
     /* --- Rendering parameters ------------------------------------------ */
-    {"A",  "ambient",         "#",       bu_opt_fastf_t, &AmbientIntensity,
+    {"A",  "ambient",         "#",       rt_opt_ambient,   NULL,
      "Ambient light intensity as a fraction 0.0-1.0"},
     {"l",  "light-model",     "#[,args]",rt_opt_light_model,   NULL,
      "Select lighting model (default 0; use -l7,... for photon mapping)"},
@@ -1024,18 +1036,78 @@ get_args(int argc, const char *argv[])
     /* Make a working copy of argv[1..argc-1] to pass to bu_opt_parse.
      * bu_opt_parse reorders its argv array to place unknowns at the front;
      * we must not shuffle the caller's original argv because main.c
-     * accesses it by index (using bu_optind) after we return. */
-    opt_argv = (const char **)bu_malloc(
-	(size_t)(argc - 1) * sizeof(const char *), "rt opt_argv");
-    for (i = 0; i < argc - 1; i++)
-	opt_argv[i] = argv[i + 1];
+     * accesses it by index (using bu_optind) after we return.
+     *
+     * Pre-processing: split any "-XVALUE" token (where X is a single-char
+     * short option that takes an argument) into two separate tokens "-X"
+     * and "VALUE".  This is necessary for the common shell idiom
+     * -c"set foo=1 bar=2" which the shell delivers as a single argv token
+     * "-cset foo=1 bar=2".  Without splitting, bu_opt_parse's can_be_opt()
+     * would reject the string (it contains spaces) and the option would
+     * never be recognized.  It also avoids a double-execution of the
+     * arg_process callback that would otherwise occur via opt_is_flag(). */
+    {
+	int n_extra = 0;
+	int di;
+	for (i = 0; i < argc - 1; i++) {
+	    const char *tok = argv[i + 1];
+	    if (!tok || tok[0] != '-' || tok[1] == '-' || tok[1] == '\0' || tok[2] == '\0')
+		continue;
+	    /* tok is "-XREST" with len > 2: check if X is a short opt with arg */
+	    for (di = 0; opt_defs[di].shortopt != NULL || opt_defs[di].longopt != NULL; di++) {
+		if (opt_defs[di].shortopt && opt_defs[di].shortopt[0] == tok[1] &&
+		    opt_defs[di].arg_process) {
+		    n_extra++;
+		    break;
+		}
+	    }
+	}
+	opt_argv = (const char **)bu_malloc(
+	    (size_t)(argc - 1 + n_extra) * sizeof(const char *), "rt opt_argv");
+	{
+	    int out = 0;
+	    char **split_flags = NULL;
+	    int n_split_used = 0;
+	    if (n_extra > 0)
+		split_flags = (char **)bu_malloc((size_t)n_extra * sizeof(char *), "rt split flags");
+	    for (i = 0; i < argc - 1; i++) {
+		const char *tok = argv[i + 1];
+		int split = 0;
+		if (tok && tok[0] == '-' && tok[1] != '-' && tok[1] != '\0' && tok[2] != '\0') {
+		    for (di = 0; opt_defs[di].shortopt != NULL || opt_defs[di].longopt != NULL; di++) {
+			if (opt_defs[di].shortopt && opt_defs[di].shortopt[0] == tok[1] &&
+			    opt_defs[di].arg_process) {
+			    /* Emit "-X" as a fresh string and VALUE as a pointer into tok */
+			    char *flag = (char *)bu_malloc(3, "rt short opt split");
+			    flag[0] = '-'; flag[1] = tok[1]; flag[2] = '\0';
+			    split_flags[n_split_used++] = flag;
+			    opt_argv[out++] = flag;
+			    opt_argv[out++] = tok + 2;
+			    split = 1;
+			    break;
+			}
+		    }
+		}
+		if (!split)
+		    opt_argv[out++] = tok;
+	    }
+	    n_unknown = bu_opt_parse(&msgs, (size_t)out, opt_argv, opt_defs);
 
-    n_unknown = bu_opt_parse(&msgs, (size_t)(argc - 1), opt_argv, opt_defs);
+	    /* Emit any diagnostic messages produced by the parser */
+	    if (bu_vls_strlen(&msgs) > 0)
+		bu_log("%s", bu_vls_cstr(&msgs));
+	    bu_vls_free(&msgs);
 
-    /* Emit any diagnostic messages produced by the parser */
-    if (bu_vls_strlen(&msgs) > 0)
-	bu_log("%s", bu_vls_cstr(&msgs));
-    bu_vls_free(&msgs);
+	    /* Free the split flag strings ("-X") that we allocated.
+	     * Their pointers appear in opt_argv[known_args] which we
+	     * never access again; the unknown (positional) entries at
+	     * opt_argv[0..n_unknown-1] are all original argv pointers. */
+	    for (i = 0; i < n_split_used; i++)
+		bu_free(split_flags[i], "rt short opt split");
+	    if (split_flags)
+		bu_free(split_flags, "rt split flags");
+	}
+    }
 
     if (n_unknown < 0) {
 	/* Fatal parse error */

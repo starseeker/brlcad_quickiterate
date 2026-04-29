@@ -268,7 +268,7 @@ reset_globals(void)
     const char *_e = (expected); \
     const char *_a = (actual); \
     g_total_tests++; \
-    if (!_a || strcmp(_e, _a) != 0) { \
+    if (!_a || bu_strcmp(_e, _a) != 0) { \
 	bu_log("FAIL [%s]: expected '%s', got '%s'\n", (name), _e, _a ? _a : "(null)"); \
 	g_failed_tests++; \
     } \
@@ -284,7 +284,7 @@ reset_globals(void)
 
 /* Convenience: call get_args and check it returns the expected code */
 #define CALL_GET_ARGS(av, expected_ret) do { \
-    if (g_short_only && av##_argc > 1 && strncmp(av[1], "--", 2) == 0) { \
+    if (g_short_only && av##_argc > 1 && bu_strncmp(av[1], "--", 2) == 0) { \
 	g_skip_current_checks = 1; \
     } else { \
 	int _ret = get_args(av##_argc, av); \
@@ -1067,7 +1067,7 @@ test_opt_objects_file(void)
 	}
     }
 
-    remove(tmpfile);
+    bu_file_delete(tmpfile);
 }
 
 
