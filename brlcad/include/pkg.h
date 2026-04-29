@@ -51,11 +51,6 @@
 extern "C" {
 #endif
 
-#define PKG_STDIO_MODE -3
-
-/* ?? used in remrt */
-PKG_EXPORT extern int pkg_permport;
-
 struct pkg_conn;
 
 typedef void (*pkg_callback)(struct pkg_conn*, char*);
@@ -85,17 +80,8 @@ struct pkg_header {
 #define	PKG_STREAMLEN	(32*1024)
 struct pkg_conn {
     int	pkc_fd;					/**< @brief TCP connection fd */
-
-    // TODO - these were added to support PKG_STDIO_MODE back in 5/2021 as an
-    // experiment to test whether we could use stdout/stderr piping on Windows
-    // to enable local pkg support without TCP/IP. That didn't work, so look at
-    // replacing/repurposing these to use with libuv, which supplies a cross
-    // platform uv_pipe_t.  The places in the code checking for PKG_STDIO_MODE
-    // are a good start for where we will need logic to support a uv_pipe_t
-    // version, although the need for pipe names will most likely require
-    // further changes.
-    int pkc_in_fd;                              /**< @brief input connection fd */
-    int pkc_out_fd;                             /**< @brief output connection fd */
+    int pkc_in_fd;                              /**< @brief input fd for split-fd (pipe) transports */
+    int pkc_out_fd;                             /**< @brief output fd for split-fd (pipe) transports */
 
     const struct pkg_switch *pkc_switch;	/**< @brief Array of message handlers */
     pkg_errlog pkc_errlog;			/**< @brief Error message logger */
@@ -163,34 +149,6 @@ struct pkg_conn {
  * Returns PKC_ERROR on error.
  */
 PKG_EXPORT extern struct pkg_conn *pkg_open(const char *host, const char *service, const char *protocol, const char *username, const char *passwd, const struct pkg_switch* switchp, pkg_errlog errlog);
-
-/**
- * Create a pkg_conn from a pair of pre-connected file descriptors.
- *
- * Wraps an already-connected fd pair (e.g. from socketpair(2) or pipe(2))
- * into a pkg_conn without performing any network connect/accept.
- *
- * When @p rfd == @p wfd (bidirectional socket), the resulting pkg_conn
- * behaves exactly like one returned by pkg_open(): pkc_fd is set to that
- * fd.  When @p rfd != @p wfd (unidirectional pipe pair), the connection
- * uses PKG_STDIO_MODE internally with pkc_in_fd = rfd, pkc_out_fd = wfd.
- *
- * Typical use: after creating a bu_ipc channel pair with bu_ipc_pair(),
- * wrap the parent end for use with the rest of the pkg machinery:
- *
- * @code
- *   bu_ipc_chan_t *pe, *ce;
- *   bu_ipc_pair(&pe, &ce);
- *   // spawn child with ce's address in its env
- *   struct pkg_conn *pc = pkg_open_fds(bu_ipc_fileno(pe),
- *                                       bu_ipc_fileno_write(pe),
- *                                       pkgswitch, errlog);
- *   bu_ipc_close(ce);   // parent closes child end after spawn
- * @endcode
- *
- * Returns a pkg_conn handle on success, PKC_ERROR on failure.
- */
-PKG_EXPORT extern struct pkg_conn *pkg_open_fds(int rfd, int wfd, const struct pkg_switch *switchp, pkg_errlog errlog);
 
 /**
  * Close a network connection.
@@ -348,10 +306,9 @@ PKG_EXPORT extern int pkg_get_write_fd(const struct pkg_conn *pc);
 
 /**
  * Return non-zero if the connection uses split read/write fds (i.e.
- * the unidirectional pipe transport that was historically signalled
- * by pkc_fd == PKG_STDIO_MODE).  Use this in preference to comparing
- * pkc_fd to PKG_STDIO_MODE directly so future transport changes are
- * source-compatible.
+ * the unidirectional pipe transport; pkc_in_fd != pkc_out_fd).
+ * Use this in preference to inspecting pkc_fd / pkc_in_fd / pkc_out_fd
+ * directly so future transport changes remain source-compatible.
  */
 PKG_EXPORT extern int pkg_is_stdio_mode(const struct pkg_conn *pc);
 

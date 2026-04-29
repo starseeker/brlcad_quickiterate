@@ -154,7 +154,11 @@ static int _pkg_send_win(int d, const void *buf, int nbytes) {
 #endif
 
 int pkg_nochecking = 0;	/* set to disable extra checking for input */
-int pkg_permport = 0;	/* TCP port that pkg_permserver() is listening on XXX */
+static int pkg_permport = 0;	/* TCP port that pkg_permserver() is listening on (internal) */
+
+/* Internal sentinel fd value for split-fd (pipe) transport mode.
+ * Not exposed publicly; use pkg_is_stdio_mode() to test.         */
+#define PKG_STDIO_MODE (-3)
 
 #define MAX_PKG_ERRBUF_SIZE 2048 + 100 /* Use the fallback MAXPATHLEN from common.h plus some extra for the msgs */
 static char _pkg_errbuf[MAX_PKG_ERRBUF_SIZE] = {0};
@@ -446,7 +450,7 @@ pkg_open_fds(int rfd, int wfd, const struct pkg_switch *switchp, void (*errlog)(
 	return _pkg_makeconn(rfd, switchp, errlog);
     }
 
-    /* Unidirectional pipe pair: use PKG_STDIO_MODE with separate fds. */
+    /* Unidirectional pipe pair: use internal sentinel fd for split-fd transport. */
     pc = _pkg_makeconn(PKG_STDIO_MODE, switchp, errlog);
     if (pc == PKC_ERROR || pc == PKC_NULL)
 	return pc;

@@ -59,13 +59,22 @@
 #include <QSocketNotifier>
 #include <QTimer>
 
-#include "bu/ipc.h"
+/* bu/ipc.h removed - transport handled by libpkg */
 #include "bu/str.h"
 #include "bu/env.h"
 #include "bu/app.h"
+#include "bu/snooze.h"
 #include "dm/fbserv.h"
 #include "dm.h"    /* MSG_FBCLOSE, NET_LONG_LEN */
 #include "pkg.h"
+
+/* Portable low-level fd write (used when we only have the raw fd). */
+#ifdef _WIN32
+#  include <io.h>
+#  define ipc_fd_write(fd, buf, n)  ((bu_ssize_t)_write((fd), (buf), (unsigned)(n)))
+#else
+#  define ipc_fd_write(fd, buf, n)  ((bu_ssize_t)write((fd), (buf), (n)))
+#endif
 
 /* ------------------------------------------------------------------ */
 /* Test harness                                                        */
@@ -165,16 +174,16 @@ test_qsocketnotifier_delivery(void)
 	 notifier.isEnabled());
 
     /* ---- 5. Write from the child end to make parent_rfd readable ---- */
-    bu_ipc_chan_t *ce = fbs.fbs_listener.fbsl_ipc_child;
+    struct pkg_conn *ce = fbs.fbs_listener.fbsl_ipc_child;
     TEST("A5: fbsl_ipc_child non-NULL after fbs_open_ipc", ce != nullptr);
     if (!ce) { fbs_close(&fbs); return; }
 
-    int ce_wfd = bu_ipc_fileno_write(ce);
+    int ce_wfd = pkg_get_write_fd(ce);
     TEST("A6: child write fd valid", ce_wfd >= 0);
     if (ce_wfd < 0) { fbs_close(&fbs); return; }
 
     static const char payload[] = "QT_NOTIFIER_TEST";
-    bu_ssize_t n = bu_ipc_write(ce, payload, sizeof(payload)-1);
+    bu_ssize_t n = ipc_fd_write(ce_wfd, payload, sizeof(payload)-1);
     TEST("A7: write from child end succeeds", n == (bu_ssize_t)(sizeof(payload)-1));
     if (n < 0) { fbs_close(&fbs); return; }
 
@@ -242,7 +251,7 @@ qt_close_ipc_client_handler(struct fbserv_obj *, int)
  * kept as documentation of the protocol helper pattern.
  *
  * static int
- * send_fbclose_via_child(bu_ipc_chan_t *ce) { ... }
+ * send_fbclose_via_child(struct pkg_conn *ce) { ... }
  */
 
 static void
@@ -275,12 +284,12 @@ test_qt_handler_pkgproc(void)
     TEST("B3: QSocketNotifier enabled",
 	 g_qipc.notifier && g_qipc.notifier->isEnabled());
 
-    bu_ipc_chan_t *ce = fbs.fbs_listener.fbsl_ipc_child;
+    struct pkg_conn *ce = fbs.fbs_listener.fbsl_ipc_child;
     TEST("B4: fbsl_ipc_child stored", ce != nullptr);
     if (!ce) { fbs_close(&fbs); return; }
 
     /* ---- 3. Send a well-formed PKG frame from the child end ---- */
-    int child_wfd = bu_ipc_fileno_write(ce);
+    int child_wfd = pkg_get_write_fd(ce);
     TEST("B5: child write fd valid", child_wfd >= 0);
     if (child_wfd < 0) { fbs_close(&fbs); return; }
 
@@ -304,7 +313,7 @@ test_qt_handler_pkgproc(void)
     frame[6] = (blen >>  8) & 0xff;
     frame[7] =  blen        & 0xff;
     /* body: 5 longs, all zero */
-    bu_ssize_t nw = bu_ipc_write(ce, frame, sizeof(frame));
+    bu_ssize_t nw = ipc_fd_write(child_wfd, frame, sizeof(frame));
     TEST("B6: child sends PKG frame", nw == (bu_ssize_t)sizeof(frame));
     if (nw < 0) { fbs_close(&fbs); return; }
 

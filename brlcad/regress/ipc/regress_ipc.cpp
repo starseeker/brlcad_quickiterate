@@ -20,15 +20,18 @@
 /**
  * @file regress_ipc.cpp
  *
- * Regression tests for the bu_ipc + fbs_open_ipc + libtclcad IPC data-path.
+ * Regression tests for the pkg IPC + fbs_open_ipc + libtclcad IPC data-path.
  *
- * These tests exercise the code added in the "Expand bu_ipc usage" PR:
+ * These tests exercise the code path using the libpkg transport API:
  *
- *   Phase 1: fbs_open_ipc() + fbs_ipc_child_addr_env()  (libdm/fbserv.c)
- *   Phase 2: BU_IPC_ADDR env-var detection               (libdm/if_remote.c)
- *   Phase 4: Tcl_CreateFileHandler callback mechanism    (libtclcad/fbserv.c)
- *   Phase 7: fbserv -I <addr> flag                       (src/fbserv/fbserv.c)
- *   Phase 8: gtransfer IPC path                          (src/gtools/gtransfer.c)
+ *   Group 1: pkg_pair_prefer() basics
+ *   Group 2: round-trip data through pipe/socketpair
+ *   Group 3: pkg_connect_addr() via addr string
+ *   Group 4: fbs_open_ipc() smoke test
+ *   Group 5: PKG_ADDR env-var end-to-end
+ *   Group 6: Tcl_CreateFileHandler callback path (POSIX only)
+ *   Group 7: tclcad_listen_ipc() Tcl variable path / Windows timer path
+ *   Group 8: fbserv -I <addr> flag
  *
  * Tests are self-contained and headless (no display required).
  *
@@ -60,13 +63,13 @@
 #include <tcl.h>
 
 #include "bu/app.h"
-#include "bu/ipc.h"
+/* bu/ipc.h removed - transport handled by libpkg */
 #include "bu/str.h"
 #include "bu/env.h"
 #include "bu/snooze.h"
 #include "dm/fbserv.h"
 #include "tclcad/misc.h"  /* tclcad_listen_ipc() */
-#include "pkg.h"   /* PKG_STDIO_MODE, pkc_in_fd, pkc_out_fd */
+#include "pkg.h"
 
 /* Portable low-level fd read/write (used when we only have the raw fd). */
 #ifdef _WIN32
@@ -100,8 +103,7 @@ static bool g_verbose   = false;
 static int
 pkc_wfd(struct pkg_conn *pc)
 {
-    if (!pc) return -1;
-    return (pc->pkc_fd == PKG_STDIO_MODE) ? pc->pkc_out_fd : pc->pkc_fd;
+    return pkg_get_write_fd(pc);
 }
 
 /* ------------------------------------------------------------------ */
@@ -131,41 +133,41 @@ init_fbs_noops(struct fbserv_obj *fbs)
 
 
 /* ================================================================== */
-/* Group 1: bu_ipc_pair() basics                                       */
+/* Group 1: pkg_pair_prefer() basics                                   */
 /* ================================================================== */
 static void
-test_bu_ipc_pair_basics(void)
+test_pkg_pair_basics(void)
 {
-    if (g_verbose) fprintf(stdout, "\n[Group 1] bu_ipc_pair() basics\n");
+    if (g_verbose) fprintf(stdout, "\n[Group 1] pkg_pair_prefer() basics\n");
 
-    bu_ipc_chan_t *pe = nullptr, *ce = nullptr;
-    int rc = bu_ipc_pair(&pe, &ce);
-    TEST("bu_ipc_pair returns 0",        rc == 0);
-    TEST("parent channel non-NULL",      pe != nullptr);
-    TEST("child channel non-NULL",       ce != nullptr);
+    struct pkg_conn *pe = nullptr, *ce = nullptr;
+    int rc = pkg_pair_prefer(&pe, &ce, NULL, NULL, PKG_TRANSPORT_AUTO);
+    TEST("pkg_pair_prefer returns 0",       rc == 0);
+    TEST("parent channel non-NULL",         pe != nullptr);
+    TEST("child channel non-NULL",          ce != nullptr);
 
     if (!pe || !ce) {
-        if (pe) bu_ipc_close(pe);
-        if (ce) bu_ipc_close(ce);
+        if (pe) pkg_close(pe);
+        if (ce) pkg_close(ce);
         return;
     }
 
-    TEST("parent read  fd >= 0",  bu_ipc_fileno(pe)       >= 0);
-    TEST("parent write fd >= 0",  bu_ipc_fileno_write(pe) >= 0);
-    TEST("child  read  fd >= 0",  bu_ipc_fileno(ce)       >= 0);
-    TEST("child  write fd >= 0",  bu_ipc_fileno_write(ce) >= 0);
+    TEST("parent read  fd >= 0",  pkg_get_read_fd(pe)  >= 0);
+    TEST("parent write fd >= 0",  pkg_get_write_fd(pe) >= 0);
+    TEST("child  read  fd >= 0",  pkg_get_read_fd(ce)  >= 0);
+    TEST("child  write fd >= 0",  pkg_get_write_fd(ce) >= 0);
 
-    const char *ae_pe = bu_ipc_addr_env(pe);
-    const char *ae_ce = bu_ipc_addr_env(ce);
-    TEST("parent addr_env non-NULL",               ae_pe != nullptr);
-    TEST("child  addr_env non-NULL",               ae_ce != nullptr);
-    TEST("parent addr_env has BU_IPC_ADDR= prefix",
-         ae_pe && bu_strncmp(ae_pe, "BU_IPC_ADDR=", 12) == 0);
-    TEST("child  addr_env has BU_IPC_ADDR= prefix",
-         ae_ce && bu_strncmp(ae_ce, "BU_IPC_ADDR=", 12) == 0);
+    const char *ae_pe = pkg_child_addr_env(pe);
+    const char *ae_ce = pkg_child_addr_env(ce);
+    TEST("parent addr_env non-NULL",              ae_pe != nullptr);
+    TEST("child  addr_env non-NULL",              ae_ce != nullptr);
+    TEST("parent addr_env has PKG_ADDR= prefix",
+         ae_pe && bu_strncmp(ae_pe, "PKG_ADDR=", 9) == 0);
+    TEST("child  addr_env has PKG_ADDR= prefix",
+         ae_ce && bu_strncmp(ae_ce, "PKG_ADDR=", 9) == 0);
 
-    bu_ipc_close(pe);
-    bu_ipc_close(ce);
+    pkg_close(pe);
+    pkg_close(ce);
 }
 
 
@@ -173,86 +175,94 @@ test_bu_ipc_pair_basics(void)
 /* Group 2: round-trip data through pipe/socketpair                    */
 /* ================================================================== */
 static void
-test_bu_ipc_roundtrip(void)
+test_pkg_roundtrip(void)
 {
-    if (g_verbose) fprintf(stdout, "\n[Group 2] bu_ipc round-trip data\n");
+    if (g_verbose) fprintf(stdout, "\n[Group 2] pkg_pair round-trip data\n");
 
-    bu_ipc_chan_t *pe = nullptr, *ce = nullptr;
-    if (bu_ipc_pair(&pe, &ce) != 0 || !pe || !ce) {
-        TEST("bu_ipc_pair for round-trip", 0);
-        if (pe) bu_ipc_close(pe);
-        if (ce) bu_ipc_close(ce);
+    struct pkg_conn *pe = nullptr, *ce = nullptr;
+    if (pkg_pair_prefer(&pe, &ce, NULL, NULL, PKG_TRANSPORT_AUTO) != 0 || !pe || !ce) {
+        TEST("pkg_pair_prefer for round-trip", 0);
+        if (pe) pkg_close(pe);
+        if (ce) pkg_close(ce);
         return;
     }
-    TEST("bu_ipc_pair for round-trip", 1);
+    TEST("pkg_pair_prefer for round-trip", 1);
+
+    int pe_wfd = pkg_get_write_fd(pe);
+    int ce_rfd = pkg_get_read_fd(ce);
+    int ce_wfd = pkg_get_write_fd(ce);
+    int pe_rfd = pkg_get_read_fd(pe);
 
     static const char msg1[] = "PARENT_TO_CHILD";
-    bu_ssize_t n = bu_ipc_write(pe, msg1, sizeof(msg1)-1);
+    bu_ssize_t n = ipc_fd_write(pe_wfd, msg1, sizeof(msg1)-1);
     TEST("parent writes to child", n == (bu_ssize_t)(sizeof(msg1)-1));
 
     char buf[64]; memset(buf, 0, sizeof(buf));
-    n = bu_ipc_read(ce, buf, sizeof(msg1)-1);
+    n = ipc_fd_read(ce_rfd, buf, sizeof(msg1)-1);
     TEST("child reads from parent", n == (bu_ssize_t)(sizeof(msg1)-1));
     TEST("parent→child data matches", memcmp(buf, msg1, sizeof(msg1)-1) == 0);
 
     static const char msg2[] = "CHILD_TO_PARENT";
-    n = bu_ipc_write(ce, msg2, sizeof(msg2)-1);
+    n = ipc_fd_write(ce_wfd, msg2, sizeof(msg2)-1);
     TEST("child writes to parent", n == (bu_ssize_t)(sizeof(msg2)-1));
 
     memset(buf, 0, sizeof(buf));
-    n = bu_ipc_read(pe, buf, sizeof(msg2)-1);
+    n = ipc_fd_read(pe_rfd, buf, sizeof(msg2)-1);
     TEST("parent reads from child", n == (bu_ssize_t)(sizeof(msg2)-1));
     TEST("child→parent data matches", memcmp(buf, msg2, sizeof(msg2)-1) == 0);
 
-    bu_ipc_close(pe); bu_ipc_close(ce);
+    pkg_close(pe); pkg_close(ce);
 }
 
 
 /* ================================================================== */
-/* Group 3: bu_ipc_connect() via addr string                           */
+/* Group 3: pkg_connect_addr() via addr string                         */
 /* ================================================================== */
 static void
-test_bu_ipc_connect(void)
+test_pkg_connect(void)
 {
-    if (g_verbose) fprintf(stdout, "\n[Group 3] bu_ipc_connect() via addr string\n");
+    if (g_verbose) fprintf(stdout, "\n[Group 3] pkg_connect_addr() via addr string\n");
 
-    bu_ipc_chan_t *pe = nullptr, *ce = nullptr;
-    if (bu_ipc_pair(&pe, &ce) != 0 || !pe || !ce) {
-        TEST("bu_ipc_pair for connect test", 0);
-        if (pe) bu_ipc_close(pe);
-        if (ce) bu_ipc_close(ce);
+    struct pkg_conn *pe = nullptr, *ce = nullptr;
+    if (pkg_pair_prefer(&pe, &ce, NULL, NULL, PKG_TRANSPORT_AUTO) != 0 || !pe || !ce) {
+        TEST("pkg_pair_prefer for connect test", 0);
+        if (pe) pkg_close(pe);
+        if (ce) pkg_close(ce);
         return;
     }
-    TEST("bu_ipc_pair for connect test", 1);
+    TEST("pkg_pair_prefer for connect test", 1);
 
-    const char *ae = bu_ipc_addr_env(ce);
-    const char *eq = ae ? strchr(ae, '=') : nullptr;
-    TEST("child addr_env has '=' separator", eq != nullptr);
+    const char *addr = pkg_child_addr(ce);
+    TEST("child addr non-NULL", addr != nullptr);
 
-    if (eq) {
-        bu_ipc_chan_t *conn = bu_ipc_connect(eq+1);
-        TEST("bu_ipc_connect via child addr succeeds", conn != nullptr);
+    if (addr) {
+        /* pkg_connect_addr adopts ce's fds — do not close ce afterward */
+        struct pkg_conn *conn = pkg_connect_addr(addr, NULL, NULL);
+        TEST("pkg_connect_addr via child addr succeeds", conn != nullptr && conn != PKC_ERROR);
 
-        if (conn) {
-            int rfd = bu_ipc_fileno(conn);
+        if (conn && conn != PKC_ERROR) {
+            int rfd = pkg_get_read_fd(conn);
             TEST("connected channel read fd >= 0", rfd >= 0);
 
-            /* Write from parent, read via connected channel */
+            /* Write from parent (pe), read via connected channel (conn wraps ce's fds) */
             static const char msg[] = "CONNECT_OK";
-            bu_ssize_t n = bu_ipc_write(pe, msg, sizeof(msg)-1);
+            int pe_wfd = pkg_get_write_fd(pe);
+            bu_ssize_t n = ipc_fd_write(pe_wfd, msg, sizeof(msg)-1);
             TEST("parent write succeeds", n == (bu_ssize_t)(sizeof(msg)-1));
 
             char buf[64]; memset(buf, 0, sizeof(buf));
-            n = bu_ipc_read(conn, buf, sizeof(msg)-1);
+            n = ipc_fd_read(rfd, buf, sizeof(msg)-1);
             TEST("connected-channel read succeeds", n == (bu_ssize_t)(sizeof(msg)-1));
             TEST("connected-channel data matches", memcmp(buf, msg, sizeof(msg)-1) == 0);
 
-            /* Detach: conn wraps the same fds as ce — don't close them twice */
-            bu_ipc_detach(conn);
+            /* conn owns ce's fds — close conn and skip closing ce to avoid double-close */
+            pkg_close(conn);
+            ce = nullptr;
         }
     }
 
-    bu_ipc_close(pe); bu_ipc_close(ce);
+    pkg_close(pe);
+    if (ce) pkg_close(ce);
 }
 
 
@@ -272,9 +282,9 @@ test_fbs_open_ipc_smoke(void)
 
     if (rc == BRLCAD_OK) {
         const char *ae = fbs_ipc_child_addr_env(&fbs);
-        TEST("fbs_ipc_child_addr_env non-NULL",              ae != nullptr);
-        TEST("fbs_ipc_child_addr_env has BU_IPC_ADDR= pfx",
-             ae && bu_strncmp(ae, "BU_IPC_ADDR=", 12) == 0);
+        TEST("fbs_ipc_child_addr_env non-NULL",             ae != nullptr);
+        TEST("fbs_ipc_child_addr_env has PKG_ADDR= prefix",
+             ae && bu_strncmp(ae, "PKG_ADDR=", 9) == 0);
         TEST("fbsl_ipc_child non-NULL",
              fbs.fbs_listener.fbsl_ipc_child != nullptr);
 
@@ -287,9 +297,9 @@ test_fbs_open_ipc_smoke(void)
         }
         TEST("IPC client slot has fbsc_is_ipc set", found_ipc != 0);
 
-        /* fbsc_fd must be a valid (>= 0) file descriptor,
-         * not PKG_STDIO_MODE (-3).  This is required by callers like
-         * Tcl_CreateFileHandler and select()-based loops.              */
+        /* fbsc_fd must be a valid (>= 0) file descriptor.
+         * This is required by callers like Tcl_CreateFileHandler
+         * and select()-based loops.              */
         int valid_fd = 0;
         for (int i = 0; i < MAX_CLIENTS; i++) {
             if (fbs.fbs_clients[i].fbsc_is_ipc) {
@@ -307,12 +317,12 @@ test_fbs_open_ipc_smoke(void)
 
 
 /* ================================================================== */
-/* Group 5: BU_IPC_ADDR env-var end-to-end (Phase 2 + Phase 3)        */
+/* Group 5: PKG_ADDR env-var end-to-end (pkg IPC path)                */
 /* ================================================================== */
 static void
 test_env_var_end_to_end(void)
 {
-    if (g_verbose) fprintf(stdout, "\n[Group 5] BU_IPC_ADDR env-var end-to-end\n");
+    if (g_verbose) fprintf(stdout, "\n[Group 5] PKG_ADDR env-var end-to-end\n");
 
     struct fbserv_obj fbs;
     init_fbs_noops(&fbs);
@@ -343,20 +353,21 @@ test_env_var_end_to_end(void)
     if (!eq) { fbs_close(&fbs); return; }
 
     const char *addr_val = eq+1;
-    bu_setenv(BU_IPC_ADDR_ENVVAR, addr_val, 1);
+    bu_setenv(PKG_ADDR_ENVVAR, addr_val, 1);
 
-    /* Simulate rem_open() in if_remote.c: getenv → bu_ipc_connect */
-    const char *from_env = getenv(BU_IPC_ADDR_ENVVAR);
-    TEST("getenv(BU_IPC_ADDR_ENVVAR) returns non-NULL", from_env != nullptr);
+    /* Simulate rem_open() in if_remote.c: getenv → pkg_connect_addr */
+    const char *from_env = getenv(PKG_ADDR_ENVVAR);
+    TEST("getenv(PKG_ADDR_ENVVAR) returns non-NULL", from_env != nullptr);
     TEST("getenv value matches addr_val",
          from_env && BU_STR_EQUAL(from_env, addr_val));
 
     if (from_env) {
-        bu_ipc_chan_t *child_chan = bu_ipc_connect(from_env);
-        TEST("rem_open-style bu_ipc_connect succeeds", child_chan != nullptr);
+        struct pkg_conn *child_conn = pkg_connect_addr(from_env, NULL, NULL);
+        TEST("rem_open-style pkg_connect_addr succeeds",
+             child_conn != nullptr && child_conn != PKC_ERROR);
 
-        if (child_chan) {
-            int child_rfd = bu_ipc_fileno(child_chan);
+        if (child_conn && child_conn != PKC_ERROR) {
+            int child_rfd = pkg_get_read_fd(child_conn);
             TEST("child channel read fd >= 0", child_rfd >= 0);
 
             /* Pixel data: parent (fbserv side) → child (rt side) */
@@ -365,17 +376,18 @@ test_env_var_end_to_end(void)
             TEST("parent pkg_conn write to child", n == (bu_ssize_t)(sizeof(pkt)-1));
 
             char buf[64]; memset(buf, 0, sizeof(buf));
-            n = bu_ipc_read(child_chan, buf, sizeof(pkt)-1);
+            n = ipc_fd_read(child_rfd, buf, sizeof(pkt)-1);
             TEST("child reads pixel data", n == (bu_ssize_t)(sizeof(pkt)-1));
             TEST("pixel data matches end-to-end",
                  memcmp(buf, pkt, sizeof(pkt)-1) == 0);
 
-            /* Detach: don't close fds that fbs still owns */
-            bu_ipc_detach(child_chan);
+            /* child_conn owns the fds from fbsl_ipc_child — don't close fbsl_ipc_child */
+            pkg_close(child_conn);
+            fbs.fbs_listener.fbsl_ipc_child = nullptr;
         }
     }
 
-    bu_setenv(BU_IPC_ADDR_ENVVAR, "", 1);
+    bu_setenv(PKG_ADDR_ENVVAR, "", 1);
     fbs_close(&fbs);
 }
 
@@ -443,14 +455,14 @@ test_tcl_file_handler(void)
         TEST("fbsl_ipc_child non-NULL", fbs.fbs_listener.fbsl_ipc_child != nullptr);
 
         /* The Tcl handler is watching the parent's READ fd (fbsc_fd = pkc_in_fd).
-         * To make it readable, write FROM the child end (ce→parent direction). */
-        bu_ipc_chan_t *ce = fbs.fbs_listener.fbsl_ipc_child;
-        int ce_wfd = bu_ipc_fileno_write(ce);
+         * To make it readable, write FROM the child end. */
+        struct pkg_conn *ce = fbs.fbs_listener.fbsl_ipc_child;
+        int ce_wfd = pkg_get_write_fd(ce);
         TEST("child write fd valid for Tcl trigger", ce_wfd >= 0);
 
         if (ce_wfd >= 0) {
             static const char msg[] = "TCL_HANDLER_TRIGGER";
-            bu_ssize_t n = bu_ipc_write(ce, msg, sizeof(msg)-1);
+            bu_ssize_t n = ipc_fd_write(ce_wfd, msg, sizeof(msg)-1);
             TEST("write from child end succeeds", n == (bu_ssize_t)(sizeof(msg)-1));
 
             g_tcl_handler_invoked = 0;
@@ -470,7 +482,7 @@ test_tcl_file_handler(void)
 
 
 /* ================================================================== */
-/* Group 7: $fbserv(ipc_addr) Tcl variable path (Phase 6)             */
+/* Group 7: $fbserv(ipc_addr) Tcl variable path                        */
 /* ================================================================== */
 
 #ifndef _WIN32
@@ -640,22 +652,22 @@ test_fbserv_minus_I(const char *fbserv_bin)
 {
     if (g_verbose) fprintf(stdout, "\n[Group 8] fbserv -I <addr> flag\n");
 
-    bu_ipc_chan_t *pe = nullptr, *ce = nullptr;
-    if (bu_ipc_pair(&pe, &ce) != 0 || !pe || !ce) {
-        TEST("bu_ipc_pair for fbserv -I test", 0);
-        if (pe) bu_ipc_close(pe);
-        if (ce) bu_ipc_close(ce);
+    struct pkg_conn *pe = nullptr, *ce = nullptr;
+    if (pkg_pair_prefer(&pe, &ce, NULL, NULL, PKG_TRANSPORT_AUTO) != 0 || !pe || !ce) {
+        TEST("pkg_pair_prefer for fbserv -I test", 0);
+        if (pe) pkg_close(pe);
+        if (ce) pkg_close(ce);
         return;
     }
-    TEST("bu_ipc_pair for fbserv -I test", 1);
+    TEST("pkg_pair_prefer for fbserv -I test", 1);
 
     /* Move child-end fds high so they survive exec()'s fd sweep */
-    (void)bu_ipc_move_high_fd(ce, 64);
+    (void)pkg_move_high_fd(ce, 64);
 
-    const char *ae = bu_ipc_addr_env(ce);
+    const char *ae = pkg_child_addr_env(ce);
     const char *eq = ae ? strchr(ae, '=') : nullptr;
     TEST("child addr_env for fbserv -I test", eq != nullptr);
-    if (!eq) { bu_ipc_close(pe); bu_ipc_close(ce); return; }
+    if (!eq) { pkg_close(pe); pkg_close(ce); return; }
 
     const char *addr = eq+1;
     char log_path[256];
@@ -695,8 +707,8 @@ test_fbserv_minus_I(const char *fbserv_bin)
         TEST("fbserv -I log file created", 0);
     }
 
-    bu_ipc_close(pe);
-    bu_ipc_close(ce);
+    pkg_close(pe);
+    pkg_close(ce);
     bu_snooze(BU_SEC2USEC(0.2));
 }
 #endif /* !_WIN32 */
@@ -754,14 +766,14 @@ main(int argc, const char **argv)
 
     if (g_verbose) {
         fprintf(stdout, "\n==============================================\n");
-        fprintf(stdout, "  bu_ipc / fbs_open_ipc Regression Tests\n");
+        fprintf(stdout, "  pkg IPC / fbs_open_ipc Regression Tests\n");
         fprintf(stdout, "==============================================\n");
         fprintf(stdout, "  fbserv binary: %s\n\n", fbserv_bin);
     }
 
-    test_bu_ipc_pair_basics();
-    test_bu_ipc_roundtrip();
-    test_bu_ipc_connect();
+    test_pkg_pair_basics();
+    test_pkg_roundtrip();
+    test_pkg_connect();
     test_fbs_open_ipc_smoke();
     test_env_var_end_to_end();
 #ifndef _WIN32
