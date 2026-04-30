@@ -34,6 +34,7 @@
 #include "rt/db_fullpath.h"
 #include "rt/db_instance.h"
 #include "ged/defines.h"
+#include "ged/bsg_view_obj.h"
 
 __BEGIN_DECLS
 
