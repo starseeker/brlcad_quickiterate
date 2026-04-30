@@ -88,6 +88,7 @@ dl_add_path(int dashflag, struct bu_list *vhead, const struct db_full_path *path
     struct bv_scene_obj *sp = bv_obj_get(dgcdp->v, BV_DB_OBJS);
     if (!sp)
 	return;
+    sp->s_type_flags |= BSG_NODE_SHAPE;
 
     struct ged_bv_data *bdata = (sp->s_u_data) ? (struct ged_bv_data *)sp->s_u_data : NULL;
     if (!bdata) {
@@ -274,6 +275,7 @@ append_solid_to_display_list(
 
     /* create solid */
     struct bv_scene_obj *sp = bv_obj_get(bv_data->v, BV_DB_OBJS);
+    sp->s_type_flags |= BSG_NODE_SHAPE;
     struct ged_bv_data *bdata = (sp->s_u_data) ? (struct ged_bv_data *)sp->s_u_data : NULL;
     if (!bdata) {
 	BU_GET(bdata, struct ged_bv_data);

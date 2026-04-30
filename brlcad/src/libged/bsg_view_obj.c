@@ -53,6 +53,7 @@
 #include "bv/plot3.h"
 #include "bg/clip.h"
 #include "bsg/defines.h"
+#include "bsg/visit.h"
 
 #include "ged.h"
 #include "ged/bsg_view_obj.h"
@@ -757,6 +758,7 @@ _sg_invent(struct ged *gedp, char *name, struct bu_list *vhead, long int rgb,
 
     /* Obtain a fresh solid structure */
     struct bv_scene_obj *sp = bv_obj_get(gedp->ged_gvp, BV_DB_OBJS);
+    sp->s_type_flags |= BSG_NODE_SHAPE;
     struct ged_bv_data *bdata =
         (sp->s_u_data) ? (struct ged_bv_data *)sp->s_u_data : NULL;
     if (!bdata) {
@@ -910,6 +912,15 @@ bsg_view_obj_ensure_root(struct ged *gedp)
 }
 
 
+struct bv_scene_obj *
+bsg_view_obj_root(struct ged *gedp)
+{
+    if (!gedp)
+        return NULL;
+    return gedp->i->ged_gdp->gd_draw_root;
+}
+
+
 void *
 bsg_view_obj_lookup_or_add_path(struct ged *gedp, const char *path)
 {
@@ -1001,21 +1012,10 @@ bsg_view_obj_foreach_solid(struct ged *gedp,
 {
     if (!gedp || !cb)
         return;
-
-    struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
-    if (!root)
-        return;
-
-    for (size_t gi = 0; gi < BU_PTBL_LEN(&root->children); gi++) {
-        struct bv_scene_obj *g =
-            (struct bv_scene_obj *)BU_PTBL_GET(&root->children, gi);
-        for (size_t si = 0; si < BU_PTBL_LEN(&g->children); si++) {
-            struct bv_scene_obj *sp =
-                (struct bv_scene_obj *)BU_PTBL_GET(&g->children, si);
-            if (!(*cb)(sp, userdata))
-                return;
-        }
-    }
+    bsg_visit((bsg_node *)gedp->i->ged_gdp->gd_draw_root,
+              BSG_NODE_SHAPE,
+              (int (*)(bsg_node *, void *))cb,
+              userdata);
 }
 
 

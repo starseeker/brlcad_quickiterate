@@ -42,6 +42,52 @@ struct bv_scene_obj *illump = NULL;	/* == 0 if none, else points to ill. solid *
 int ipathpos = 0;	/* path index of illuminated element */
 
 
+/* Callback: select the solid at position 'count' in display order (illuminate). */
+struct _illuminate_data {
+    int count;
+};
+
+static int
+_illuminate_cb(bsg_node *n, void *ud)
+{
+    struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
+    struct _illuminate_data *d = (struct _illuminate_data *)ud;
+    if (sp->s_flag == UP) {
+	if (d->count-- == 0) {
+	    sp->s_iflag = UP;
+	    illump = sp;
+	    illum_gdlp = sp->parent;
+	} else {
+	    sp->s_iflag = DOWN;
+	}
+    }
+    return 1;
+}
+
+
+/* Callback: accept solids whose top 'ipathpos' path elements match bdata. */
+struct _matpick_data {
+    struct ged_bv_data *bdata;
+    size_t ipathpos;
+};
+
+static int
+_matpick_topmat_cb(bsg_node *n, void *ud)
+{
+    struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
+    struct _matpick_data *d = (struct _matpick_data *)ud;
+    size_t j;
+    if (!sp->s_u_data) return 1;
+    struct ged_bv_data *bdatas = (struct ged_bv_data *)sp->s_u_data;
+    for (j = 0; j <= d->ipathpos; j++) {
+	if (DB_FULL_PATH_GET(&bdatas->s_fullpath, j) !=
+	    DB_FULL_PATH_GET(&d->bdata->s_fullpath, j))
+	    break;
+    }
+    sp->s_iflag = (j == d->ipathpos + 1) ? UP : DOWN;
+    return 1;
+}
+
 /*
  * All solids except for the illuminated one have s_iflag set to DOWN.
  * The illuminated one has s_iflag set to UP, and also has the global
@@ -49,9 +95,7 @@ int ipathpos = 0;	/* path index of illuminated element */
  */
 static void
 illuminate(struct mged_state *s, int y) {
-    void *gdlp;
     int count;
-    struct bv_scene_obj *sp;
 
     /*
      * Divide the mouse into 's->mged_curr_dm->dm_ndrawn' VERTICAL
@@ -60,23 +104,9 @@ illuminate(struct mged_state *s, int y) {
      */
     count = ((fastf_t)y + BV_MAX) * s->mged_curr_dm->dm_ndrawn / BV_RANGE;
 
-    for (gdlp = bsg_view_obj_first_group(s->gedp); gdlp;
-	 gdlp = bsg_view_obj_next_group(s->gedp, gdlp)) {
-	struct bu_ptbl *_sl = bsg_view_obj_group_solid_list(gdlp);
-	for (size_t _si = 0; _si < BU_PTBL_LEN(_sl); _si++) {
-	    sp = (struct bv_scene_obj *)BU_PTBL_GET(_sl, _si);
-	    if (sp->s_flag == UP) {
-		if (count-- == 0) {
-		    sp->s_iflag = UP;
-		    illump = sp;
-		    illum_gdlp = gdlp;
-		} else {
-		    /* All other solids have s_iflag set DOWN */
-		    sp->s_iflag = DOWN;
-		}
-	    }
-	}
-    }
+    struct _illuminate_data d;
+    d.count = count;
+    bsg_visit(bsg_view_obj_root(s->gedp), BSG_NODE_SHAPE, _illuminate_cb, &d);
 
     s->update_views = 1;
     dm_set_dirty(DMP, 1);
@@ -206,8 +236,6 @@ f_matpick(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
 
-    void *gdlp;
-    struct bv_scene_obj *sp;
     char *cp;
     size_t j;
     int illum_only = 0;
@@ -270,27 +298,11 @@ f_matpick(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[
     }
  got:
     /* Include all solids with same tree top */
-    for (gdlp = bsg_view_obj_first_group(s->gedp); gdlp;
-
-         gdlp = bsg_view_obj_next_group(s->gedp, gdlp)) {
-
-	struct bu_ptbl *_sl = bsg_view_obj_group_solid_list(gdlp);
-	for (size_t _si = 0; _si < BU_PTBL_LEN(_sl); _si++) {
-	    sp = (struct bv_scene_obj *)BU_PTBL_GET(_sl, _si);
-	    if (!sp->s_u_data)
-		continue;
-	    struct ged_bv_data *bdatas = (struct ged_bv_data *)sp->s_u_data;
-	    for (j = 0; j <= (size_t)ipathpos; j++) {
-		if (DB_FULL_PATH_GET(&bdatas->s_fullpath, j) !=
-		    DB_FULL_PATH_GET(&bdata->s_fullpath, j))
-		    break;
-	    }
-	    /* Only accept if top of tree is identical */
-	    if (j == (size_t)ipathpos+1)
-		sp->s_iflag = UP;
-	    else
-		sp->s_iflag = DOWN;
-	}
+    {
+	struct _matpick_data d;
+	d.bdata = bdata;
+	d.ipathpos = (size_t)ipathpos;
+	bsg_visit(bsg_view_obj_root(s->gedp), BSG_NODE_SHAPE, _matpick_topmat_cb, &d);
     }
 
     if (!illum_only) {
