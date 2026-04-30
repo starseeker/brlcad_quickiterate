@@ -956,3 +956,44 @@ Deprecation policy
                 Step 6 / Step 7.
 
               Build clean: mged — zero errors, zero warnings.
+
+  2026-05-01  Phase 6.5 Step 6 complete — out-of-libged display_list
+              consumers migrated.
+
+              src/libged/tests/test_gqa.c: the post-gqa loop that walked
+                ged_dl(gedp) looking for the "OVERLAPSffff00" group and
+                pulled the first solid out of dl_head_scene_obj has been
+                rewritten on top of bsg_view_obj_foreach_group() +
+                bsg_view_obj_group_first_solid().  A small new helper
+                bsg_view_obj_group_path() was added (header + impl) so
+                the test can identify the target group by its dl_path
+                without poking display_list internals.
+
+              src/libbv/hash.c / include/bv/util.h: bv_dl_hash() was the
+                only function in libbv (a dependency *below* libged) that
+                referenced struct display_list — and a tree-wide search
+                showed it had zero callers anywhere.  The function and
+                its declaration have been deleted, removing libbv's only
+                tie to the libged-private display_list type and
+                eliminating a layering inversion before Step 7's
+                struct-deletion.
+
+              src/libged/tests/draw/rtwizard_bsg.cpp: only contained
+                comment-level mentions of go_draw_dlist (the legacy
+                fallback whose absence Test 3 already verifies).  Left
+                unchanged; the test still validates that bsg_root is
+                non-NULL on rtwizard's null-DM views, which is the
+                required Step 6 invariant.
+
+              Zero references to dl_head_scene_obj / struct display_list
+                / gd_headDisplay now remain outside libged itself
+                (display_list.c, bsg_view_obj.c, ged_private.h).
+
+              Build clean: libbv, ged_test_gqa, ged_test_bsg_view_obj,
+                mged — zero errors, zero warnings.
+              Regression: ged_test_bsg_view_obj 27/27 PASS.
+
+              Next: Step 7 — delete display_list.c, struct display_list,
+              gd_headDisplay, dl_head_scene_obj, s_dlist, dm_draw_head_dl,
+              go_draw_dlist (and the gsh.cpp:597 legacy branch that still
+              calls dm_draw_head_dl).

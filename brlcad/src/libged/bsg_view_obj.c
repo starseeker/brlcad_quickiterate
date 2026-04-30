@@ -349,6 +349,15 @@ bsg_view_obj_group_solid_list(void *group_handle)
 }
 
 
+const char *
+bsg_view_obj_group_path(void *group_handle)
+{
+    if (!group_handle)
+	return NULL;
+    return bu_vls_cstr(&((struct display_list *)group_handle)->dl_path);
+}
+
+
 void
 bsg_view_obj_append_to_last_group(struct ged *gedp, struct bv_scene_obj *sp)
 {

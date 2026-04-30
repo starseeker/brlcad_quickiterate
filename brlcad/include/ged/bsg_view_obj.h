@@ -280,6 +280,17 @@ GED_EXPORT extern struct bu_list *
 bsg_view_obj_group_solid_list(void *group_handle);
 
 /**
+ * Returns the path string associated with a group returned by
+ * bsg_view_obj_foreach_group(), or NULL if @p group_handle is NULL.
+ * The pointer is valid only for the lifetime of the group; callers
+ * that need to retain it across draw modifications should copy.
+ *
+ * Replaces direct reads of gdlp->dl_path.
+ */
+GED_EXPORT extern const char *
+bsg_view_obj_group_path(void *group_handle);
+
+/**
  * Append @p sp to the last display-list group in @p gedp's draw set.
  * Used by dodraw.c when inserting a newly computed solid into the
  * current draw operation.

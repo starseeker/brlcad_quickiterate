@@ -240,9 +240,6 @@ BV_EXPORT extern int bv_differ(struct bview *v1, struct bview *v2);
 /* Return a hash of the contents of the bv container.  Returns 0 on failure. */
 BV_EXPORT extern unsigned long long bv_hash(struct bview *v);
 
-/* Return a hash of the contents of a display list.  Returns 0 on failure. */
-BV_EXPORT extern unsigned long long bv_dl_hash(struct display_list *dl);
-
 /* Returns number of objects defined in any object container
  * known to this view (0 if completely cleared). */
 BV_EXPORT extern size_t bv_clear(struct bview *v, int flags);

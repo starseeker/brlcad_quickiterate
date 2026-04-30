@@ -226,40 +226,6 @@ bv_scene_obj_hash(struct bu_data_hash_state *state, struct bv_scene_obj *s)
     _bv_obj_settings_hash(state, &s->s_local_os);
 }
 
-unsigned long long
-bv_dl_hash(struct display_list *dl)
-{
-    if (!dl)
-	return 0;
-
-    struct bu_data_hash_state *state = bu_data_hash_create();
-    if (!state)
-	return 0;
-
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
-    struct bv_scene_obj *sp;
-
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)dl);
-    while (BU_LIST_NOT_HEAD(gdlp, dl)) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	bu_data_hash_update(state, gdlp, sizeof(struct display_list));
-	bu_data_hash_update(state, bu_vls_cstr(&gdlp->dl_path), bu_vls_strlen(&gdlp->dl_path));
-
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-	    bv_scene_obj_hash(state, sp);
-	}
-
-	gdlp = next_gdlp;
-    }
-
-    unsigned long long hash_val = bu_data_hash_val(state);
-    bu_data_hash_destroy(state);
-
-    return hash_val;
-}
-
 void
 bv_settings_hash(struct bu_data_hash_state *state, struct bview_settings *s)
 {
