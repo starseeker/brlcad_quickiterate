@@ -220,13 +220,19 @@ _edit_xform_apply(struct ged *gedp,
     struct rt_edit *s = ged_edit_buf_get(gedp, &dfp);
     bool is_new = (s == NULL);
 
+    /* tol must live for the entire function since s->tol may point to it */
+    struct bn_tol tol = BN_TOL_INIT_TOL;
+
     if (is_new) {
-	struct bn_tol tol = BN_TOL_INIT_TOL;
 	s = rt_edit_create(&dfp, gedp->dbip, &tol, NULL);
 	if (!s) {
 	    db_free_full_path(&dfp);
 	    return BRLCAD_ERROR;
 	}
+    } else {
+	/* Refresh the tolerance pointer on reused entries so that any
+	 * handler that dereferences s->tol gets a valid object.       */
+	s->tol = &tol;
     }
 
     /* Temporarily install a minimal CLI bview (stack-allocated) */

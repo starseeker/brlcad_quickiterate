@@ -33,6 +33,7 @@
 #include "rt/geom.h"
 #include "rt/primitives/arb8.h"
 #include "rt/db4.h"
+#include "rt/edit.h"
 #include "../edit_private.h"
 
 #define EARB			4009
@@ -43,6 +44,187 @@
 #define ECMD_ARB_SETUP_ROTFACE	4014
 #define ECMD_ARB_ROTATE_FACE	4015
 #define ECMD_ARB_MOVE_EDGE	4036
+
+/* ------------------------------------------------------------------ */
+/* ft_edit_desc descriptor for the ARB8 primitive                     */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Parameter layout for the combined-index commands:
+ *
+ *   move_face / move_edge / move_vertex:
+ *     e_para[0] = integer index (face 0-5, edge 0-11, or vertex 0-7)
+ *     e_para[1..3] = X Y Z  (point/vector in model coords)
+ *     → total e_inpara = 4
+ *
+ *   rotate_face:
+ *     e_para[0] = integer face index
+ *     e_para[1] = integer fixed-vertex index (fixv)
+ *     e_para[2..4] = Euler rotation angles (X Y Z, degrees)
+ *     → total e_inpara = 5
+ */
+static const struct rt_edit_param_desc arb_move_face_params[] = {
+    {
+	"face",               /* name         */
+	"Face Index",         /* label        */
+	RT_EDIT_PARAM_INTEGER, /* type        */
+	0,                    /* index        */
+	0.0,                  /* range_min    */
+	5.0,                  /* range_max    */
+	NULL,                 /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    },
+    {
+	"pt",                 /* name         */
+	"Point X Y Z",        /* label        */
+	RT_EDIT_PARAM_POINT,  /* type         */
+	1,                    /* index        */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_min  */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"length",             /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+static const struct rt_edit_param_desc arb_move_edge_params[] = {
+    {
+	"edge",               /* name         */
+	"Edge Index",         /* label        */
+	RT_EDIT_PARAM_INTEGER, /* type        */
+	0,                    /* index        */
+	0.0,                  /* range_min    */
+	11.0,                 /* range_max    */
+	NULL,                 /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    },
+    {
+	"pt",                 /* name         */
+	"Endpoint X Y Z",     /* label        */
+	RT_EDIT_PARAM_POINT,  /* type         */
+	1,                    /* index        */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_min  */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"length",             /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+static const struct rt_edit_param_desc arb_move_vertex_params[] = {
+    {
+	"vtx",                /* name         */
+	"Vertex Index",       /* label        */
+	RT_EDIT_PARAM_INTEGER, /* type        */
+	0,                    /* index        */
+	0.0,                  /* range_min    */
+	7.0,                  /* range_max    */
+	NULL,                 /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    },
+    {
+	"pt",                 /* name         */
+	"New Position X Y Z", /* label        */
+	RT_EDIT_PARAM_POINT,  /* type         */
+	1,                    /* index        */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_min  */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"length",             /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+static const struct rt_edit_param_desc arb_rotate_face_params[] = {
+    {
+	"face",               /* name         */
+	"Face Index",         /* label        */
+	RT_EDIT_PARAM_INTEGER, /* type        */
+	0,                    /* index        */
+	0.0,                  /* range_min    */
+	5.0,                  /* range_max    */
+	NULL,                 /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    },
+    {
+	"fixv",               /* name         */
+	"Fixed Vertex Index", /* label        */
+	RT_EDIT_PARAM_INTEGER, /* type        */
+	1,                    /* index        */
+	0.0,                  /* range_min    */
+	7.0,                  /* range_max    */
+	NULL,                 /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    },
+    {
+	"rot",                /* name         */
+	"Euler Angles X Y Z", /* label        */
+	RT_EDIT_PARAM_VECTOR, /* type         */
+	2,                    /* index        */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_min  */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"degrees",            /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+static const struct rt_edit_cmd_desc arb_cmds[] = {
+    {
+	ECMD_ARB_MOVE_FACE,   /* cmd_id       */
+	"Move Face",          /* label        */
+	"geometry",           /* category     */
+	2,                    /* nparam       */
+	arb_move_face_params, /* params       */
+	1,                    /* interactive  */
+	10                    /* display_order */
+    },
+    {
+	EARB,                 /* cmd_id       */
+	"Move Edge",          /* label        */
+	"geometry",           /* category     */
+	2,                    /* nparam       */
+	arb_move_edge_params, /* params       */
+	1,                    /* interactive  */
+	20                    /* display_order */
+    },
+    {
+	PTARB,                /* cmd_id       */
+	"Move Vertex",        /* label        */
+	"geometry",           /* category     */
+	2,                    /* nparam       */
+	arb_move_vertex_params, /* params     */
+	1,                    /* interactive  */
+	30                    /* display_order */
+    },
+    {
+	ECMD_ARB_ROTATE_FACE, /* cmd_id       */
+	"Rotate Face",        /* label        */
+	"geometry",           /* category     */
+	3,                    /* nparam       */
+	arb_rotate_face_params, /* params     */
+	1,                    /* interactive  */
+	40                    /* display_order */
+    }
+};
+
+static const struct rt_edit_prim_desc arb_prim_desc = {
+    "arb8",               /* prim_type    */
+    "ARB",                /* prim_label   */
+    4,                    /* ncmd         */
+    arb_cmds              /* cmds         */
+};
+
+const struct rt_edit_prim_desc *
+rt_edit_arb_edit_desc(void)
+{
+    return &arb_prim_desc;
+}
 
 void *
 rt_edit_arb_prim_edit_create(struct rt_edit *UNUSED(s))
@@ -948,6 +1130,18 @@ ecmd_arb_move_face(struct rt_edit *s)
     /* move face through definite point */
     if (s->e_inpara) {
 
+	/*
+	 * Extended form: 4 parameters → e_para[0]=face_index, e_para[1..3]=point.
+	 * Read the face index from e_para[0] and shift the coords down.
+	 */
+	if (s->e_inpara == 4) {
+	    a->edit_menu = (int)s->e_para[0];
+	    s->e_para[0] = s->e_para[1];
+	    s->e_para[1] = s->e_para[2];
+	    s->e_para[2] = s->e_para[3];
+	    s->e_inpara = 3;
+	}
+
 	if (s->e_inpara != 3) {
 	    bu_vls_printf(s->log_str, "ERROR: three arguments needed\n");
 	    s->e_inpara = 0;
@@ -1036,6 +1230,33 @@ ecmd_arb_rotate_face(struct rt_edit *s)
 
     struct rt_arb_internal *arb = (struct rt_arb_internal *)s->es_int.idb_ptr;
     RT_ARB_CK_MAGIC(arb);
+
+    /*
+     * Extended form (from descriptor): 5 parameters:
+     *   e_para[0] = face index  → a->edit_menu
+     *   e_para[1] = fixv index  → a->fixv
+     *   e_para[2..4] = Euler rotation angles X Y Z (degrees)
+     * Unpack and reduce to the standard 3-param case.
+     */
+    if (s->e_inpara == 5) {
+	a->edit_menu = (int)s->e_para[0];
+	a->fixv      = (int)s->e_para[1];
+	s->e_para[0] = s->e_para[2];
+	s->e_para[1] = s->e_para[3];
+	s->e_para[2] = s->e_para[4];
+	s->e_inpara  = 3;
+	/* Ensure plane equations are current before we rotate */
+	{
+	    struct bu_vls error_msg = BU_VLS_INIT_ZERO;
+	    int arb_type2 = rt_arb_std_type(&s->es_int, s->tol);
+	    if (rt_arb_calc_planes(&error_msg, arb, arb_type2, a->es_peqn, s->tol)) {
+		bu_vls_printf(s->log_str, "Cannot calculate plane equations for ARB8\n");
+		bu_vls_free(&error_msg);
+		return BRLCAD_ERROR;
+	    }
+	    bu_vls_free(&error_msg);
+	}
+    }
 
     if (s->e_inpara) {
 
@@ -1150,8 +1371,21 @@ ecmd_arb_rotate_face(struct rt_edit *s)
 int
 edit_arb_element(struct rt_edit *s)
 {
+    struct rt_arb8_edit *a = (struct rt_arb8_edit *)s->ipe_ptr;
 
     if (s->e_inpara) {
+
+	/*
+	 * Extended form: 4 parameters → e_para[0]=index, e_para[1..3]=coords.
+	 * Set edit_menu from the supplied index then shift the coord triple.
+	 */
+	if (s->e_inpara == 4) {
+	    a->edit_menu = (int)s->e_para[0];
+	    s->e_para[0] = s->e_para[1];
+	    s->e_para[1] = s->e_para[2];
+	    s->e_para[2] = s->e_para[3];
+	    s->e_inpara = 3;
+	}
 
 	if (s->e_inpara != 3) {
 	    bu_vls_printf(s->log_str, "ERROR: three arguments needed\n");

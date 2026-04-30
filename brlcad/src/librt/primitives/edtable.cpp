@@ -66,6 +66,7 @@ extern const struct rt_edit_prim_desc *rt_edit_vol_edit_desc(void);
 extern const struct rt_edit_prim_desc *rt_edit_pipe_edit_desc(void);
 extern const struct rt_edit_prim_desc *rt_edit_comb_edit_desc(void);
 extern const struct rt_edit_prim_desc *rt_edit_extrude_edit_desc(void);
+extern const struct rt_edit_prim_desc *rt_edit_arb_edit_desc(void);
 
 /* Forward declarations for ft_edit_get_params implementations */
 extern int rt_edit_tor_get_params(struct rt_edit *s, int cmd_id, fastf_t *vals);
@@ -213,7 +214,7 @@ const struct rt_edit_functab EDOBJ[] = {
 	EDFUNCTAB_FUNC_MENU_STR_CAST(rt_edit_arb_menu_str),   /* menu_str */
 	EDFUNCTAB_FUNC_SET_EDIT_MODE_CAST(rt_edit_arb_set_edit_mode), /* set edit mode */
 	EDFUNCTAB_FUNC_MENU_ITEM_CAST(rt_edit_arb_menu_item)    /* menu_item */,
-	NULL   /* edit_desc */,
+	EDFUNCTAB_FUNC_EDIT_DESC_CAST(rt_edit_arb_edit_desc)   /* edit_desc */,
 	NULL   /* edit_get_params */
     },
 

@@ -392,6 +392,7 @@ test_p0_desc_coverage(void)
 {
     static const int typed_prims[] = {
         ID_TOR, ID_TGC, ID_ELL,
+        ID_ARB8,
         ID_EBM, ID_VOL, ID_PIPE, ID_PARTICLE,
         ID_RPC, ID_RHC, ID_EPA, ID_EHY, ID_ETO,
         ID_DSP, ID_CLINE, ID_COMBINATION,
@@ -412,7 +413,7 @@ static void
 test_p0_no_desc_returns_error(void)
 {
     static const int no_desc[] = {
-        ID_ARB8, ID_ARS, ID_HALF, ID_SPH, ID_NMG, ID_ARBN,
+        ID_ARS, ID_HALF, ID_SPH, ID_NMG, ID_ARBN,
         ID_BOT, ID_SKETCH, ID_HRT,
         -1
     };
@@ -2428,6 +2429,295 @@ test_p4_all_prim_ops_has_extrude(struct ged *gedp)
 
 
 /* ================================================================== *
+ * Section 5 — Phase 4+: pipe descriptor completions + arb8 descriptor
+ * ================================================================== */
+
+/* ------------------------------------------------------------------ *
+ * Fixture helper: create a 3-point pipe + an arb8 box                *
+ * ------------------------------------------------------------------ */
+static int
+create_p5_fixture(const char *dbpath)
+{
+    struct rt_wdb *wdbp = wdb_fopen(dbpath);
+    if (!wdbp) {
+        bu_log("ERROR: unable to create p5 fixture %s\n", dbpath);
+        return BRLCAD_ERROR;
+    }
+
+    /* --- pipe with 3 points ----------------------------------------- */
+    struct bu_list pipe_head;
+    mk_pipe_init(&pipe_head);
+    point_t pp0 = {0, 0,  0};
+    point_t pp1 = {0, 0, 10};
+    point_t pp2 = {0, 0, 20};
+    mk_add_pipe_pnt(&pipe_head, pp0, 4.0, 2.0, 5.0);
+    mk_add_pipe_pnt(&pipe_head, pp1, 4.0, 2.0, 5.0);
+    mk_add_pipe_pnt(&pipe_head, pp2, 4.0, 2.0, 5.0);
+    if (mk_pipe(wdbp, "pipe.s", &pipe_head) != 0) {
+        bu_log("mk_pipe failed\n");
+        mk_pipe_free(&pipe_head);
+        db_close(wdbp->dbip);
+        return BRLCAD_ERROR;
+    }
+    mk_pipe_free(&pipe_head);
+
+    /* --- arb8 box --------------------------------------------------- */
+    fastf_t arb_pts[8*3] = {
+        -5,-5,-5,  5,-5,-5,  5, 5,-5, -5, 5,-5,
+        -5,-5, 5,  5,-5, 5,  5, 5, 5, -5, 5, 5
+    };
+    if (mk_arb8(wdbp, "arb8.s", arb_pts) != 0) {
+        bu_log("mk_arb8 failed\n");
+        db_close(wdbp->dbip);
+        return BRLCAD_ERROR;
+    }
+
+    db_close(wdbp->dbip);
+    return BRLCAD_OK;
+}
+
+/* ------------------------------------------------------------------ *
+ * pipe: --list-ops includes the new ops                              *
+ * ------------------------------------------------------------------ */
+static void
+test_p5_pipe_list_ops(struct ged *gedp)
+{
+    const char *av[] = { "edit", "pipe", "--list-ops", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 3, av) == BRLCAD_OK,
+          "edit pipe --list-ops returns OK");
+    const char *out = bu_vls_cstr(gedp->ged_result_str);
+    CHECK(out && strstr(out, "select_point") != NULL,
+          "edit pipe --list-ops lists 'select_point'");
+    CHECK(out && strstr(out, "next_point") != NULL,
+          "edit pipe --list-ops lists 'next_point'");
+    CHECK(out && strstr(out, "previous_point") != NULL,
+          "edit pipe --list-ops lists 'previous_point'");
+    CHECK(out && strstr(out, "move_point") != NULL,
+          "edit pipe --list-ops lists 'move_point'");
+    CHECK(out && strstr(out, "delete_point") != NULL,
+          "edit pipe --list-ops lists 'delete_point'");
+    CHECK(out && strstr(out, "append_point") != NULL,
+          "edit pipe --list-ops lists 'append_point'");
+    CHECK(out && strstr(out, "prepend_point") != NULL,
+          "edit pipe --list-ops lists 'prepend_point'");
+    CHECK(out && strstr(out, "split_segment") != NULL,
+          "edit pipe --list-ops lists 'split_segment'");
+}
+
+/* ------------------------------------------------------------------ *
+ * pipe: select + next_pt + prev_pt navigation                        *
+ * ------------------------------------------------------------------ */
+static void
+test_p5_pipe_select_next_prev(struct ged *gedp)
+{
+    /* Select the point nearest (0,0,0) */
+    {
+        const char *av[] = { "edit", "pipe.s", "select_point", "0", "0", "0", NULL };
+        bu_vls_trunc(gedp->ged_result_str, 0);
+        int ret = ged_exec(gedp, 6, av);
+        CHECK(ret == BRLCAD_OK,
+              "pipe.s select_point 0 0 0 returns OK");
+    }
+    /* Advance to the next point (0,0,10) */
+    {
+        const char *av[] = { "edit", "pipe.s", "next_point", NULL };
+        bu_vls_trunc(gedp->ged_result_str, 0);
+        int ret = ged_exec(gedp, 3, av);
+        CHECK(ret == BRLCAD_OK,
+              "pipe.s next_point returns OK");
+    }
+    /* Step back to the first point */
+    {
+        const char *av[] = { "edit", "pipe.s", "previous_point", NULL };
+        bu_vls_trunc(gedp->ged_result_str, 0);
+        int ret = ged_exec(gedp, 3, av);
+        CHECK(ret == BRLCAD_OK,
+              "pipe.s previous_point returns OK");
+    }
+}
+
+/* ------------------------------------------------------------------ *
+ * pipe: append + delete point round-trip                             *
+ * ------------------------------------------------------------------ */
+static void
+test_p5_pipe_append_del(struct ged *gedp)
+{
+    /* Append a new point at (0, 0, 30) */
+    {
+        const char *av[] = { "edit", "pipe.s", "append_point", "0", "0", "30", NULL };
+        bu_vls_trunc(gedp->ged_result_str, 0);
+        CHECK(ged_exec(gedp, 6, av) == BRLCAD_OK,
+              "pipe.s append_point 0 0 30 returns OK");
+    }
+    /* Select that new point */
+    {
+        const char *av[] = { "edit", "pipe.s", "select_point", "0", "0", "30", NULL };
+        bu_vls_trunc(gedp->ged_result_str, 0);
+        ged_exec(gedp, 6, av);
+    }
+    /* Delete it */
+    {
+        const char *av[] = { "edit", "pipe.s", "delete_point", NULL };
+        bu_vls_trunc(gedp->ged_result_str, 0);
+        CHECK(ged_exec(gedp, 3, av) == BRLCAD_OK,
+              "pipe.s delete_point returns OK");
+    }
+}
+
+/* ------------------------------------------------------------------ *
+ * pipe: prepend point                                                 *
+ * ------------------------------------------------------------------ */
+static void
+test_p5_pipe_prepend(struct ged *gedp)
+{
+    const char *av[] = { "edit", "pipe.s", "prepend_point", "0", "0", "-10", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 6, av) == BRLCAD_OK,
+          "pipe.s prepend_point 0 0 -10 returns OK");
+}
+
+/* ------------------------------------------------------------------ *
+ * pipe: split_segment                                                 *
+ * ------------------------------------------------------------------ */
+static void
+test_p5_pipe_split(struct ged *gedp)
+{
+    /* First select a point */
+    {
+        const char *av[] = { "edit", "pipe.s", "select_point", "0", "0", "0", NULL };
+        bu_vls_trunc(gedp->ged_result_str, 0);
+        ged_exec(gedp, 6, av);
+    }
+    /* Split segment between point 0 and point 1 */
+    {
+        const char *av[] = { "edit", "pipe.s", "split_segment", "0", "0", "5", NULL };
+        bu_vls_trunc(gedp->ged_result_str, 0);
+        CHECK(ged_exec(gedp, 6, av) == BRLCAD_OK,
+              "pipe.s split_segment 0 0 5 returns OK");
+    }
+}
+
+/* ------------------------------------------------------------------ *
+ * arb8: --list-ops includes the new ops                              *
+ * ------------------------------------------------------------------ */
+static void
+test_p5_arb8_list_ops(struct ged *gedp)
+{
+    const char *av[] = { "edit", "arb8", "--list-ops", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 3, av) == BRLCAD_OK,
+          "edit arb8 --list-ops returns OK");
+    const char *out = bu_vls_cstr(gedp->ged_result_str);
+    CHECK(out && strstr(out, "move_face") != NULL,
+          "edit arb8 --list-ops lists 'move_face'");
+    CHECK(out && strstr(out, "move_edge") != NULL,
+          "edit arb8 --list-ops lists 'move_edge'");
+    CHECK(out && strstr(out, "move_vertex") != NULL,
+          "edit arb8 --list-ops lists 'move_vertex'");
+    CHECK(out && strstr(out, "rotate_face") != NULL,
+          "edit arb8 --list-ops lists 'rotate_face'");
+}
+
+/* ------------------------------------------------------------------ *
+ * arb8: move_face (face 0 through a point)                           *
+ * The box runs from -5,-5,-5 to 5,5,5.  Face 0 is the bottom (Z=-5).*
+ * Moving it through (0,0,-7) should shift the bottom face down.      *
+ * ------------------------------------------------------------------ */
+static int
+read_arb8(struct ged *gedp, const char *name, struct rt_arb_internal *out)
+{
+    struct directory *dp = db_lookup(gedp->dbip, name, LOOKUP_QUIET);
+    if (dp == RT_DIR_NULL)
+        return BRLCAD_ERROR;
+    struct rt_db_internal intern;
+    RT_DB_INTERNAL_INIT(&intern);
+    if (rt_db_get_internal(&intern, dp, gedp->dbip, NULL) < 0)
+        return BRLCAD_ERROR;
+    if (intern.idb_minor_type != DB5_MINORTYPE_BRLCAD_ARB8) {
+        rt_db_free_internal(&intern);
+        return BRLCAD_ERROR;
+    }
+    *out = *(struct rt_arb_internal *)intern.idb_ptr;
+    intern.idb_ptr = NULL;
+    rt_db_free_internal(&intern);
+    return BRLCAD_OK;
+}
+
+static void
+test_p5_arb8_move_face(struct ged *gedp)
+{
+    struct rt_arb_internal before;
+    read_arb8(gedp, "arb8.s", &before);
+
+    /* Move face 0 through point (0, 0, -7) */
+    const char *av[] = { "edit", "arb8.s", "move_face",
+                         "0", "0", "0", "-7", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    int ret = ged_exec(gedp, 7, av);
+    CHECK(ret == BRLCAD_OK,
+          "arb8.s move_face 0  0 0 -7 returns OK");
+
+    struct rt_arb_internal after;
+    if (read_arb8(gedp, "arb8.s", &after) == BRLCAD_OK) {
+        /* At least one vertex should have changed */
+        double d = DIST_PNT_PNT(before.pt[0], after.pt[0]);
+        CHECK(d > 0.01,
+              "arb8.s: face moved — vertex 0 changed");
+    } else {
+        CHECK(0, "arb8.s: read arb8 after move_face");
+    }
+}
+
+/* ------------------------------------------------------------------ *
+ * arb8: move_vertex (vertex 0 to a new position)                     *
+ * ------------------------------------------------------------------ */
+static void
+test_p5_arb8_move_vertex(struct ged *gedp)
+{
+    /* Move vertex 0 (originally at -5,-5,-5) to (-6,-5,-5) */
+    const char *av[] = { "edit", "arb8.s", "move_vertex",
+                         "0", "-6", "-5", "-5", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    int ret = ged_exec(gedp, 7, av);
+    CHECK(ret == BRLCAD_OK,
+          "arb8.s move_vertex 0  -6 -5 -5 returns OK");
+}
+
+/* ------------------------------------------------------------------ *
+ * arb8: --list-ops=json includes arb8                                *
+ * ------------------------------------------------------------------ */
+static void
+test_p5_arb8_list_ops_json(struct ged *gedp)
+{
+    const char *av[] = { "edit", "arb8", "--list-ops=json", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 3, av) == BRLCAD_OK,
+          "edit arb8 --list-ops=json returns OK");
+    const char *json = bu_vls_cstr(gedp->ged_result_str);
+    CHECK(json && strstr(json, "\"arb8\"") != NULL,
+          "edit arb8 --list-ops=json contains '\"arb8\"'");
+    CHECK(json && strstr(json, "Move Face") != NULL,
+          "edit arb8 --list-ops=json contains 'Move Face'");
+}
+
+/* ------------------------------------------------------------------ *
+ * all-prim-ops includes arb8                                         *
+ * ------------------------------------------------------------------ */
+static void
+test_p5_all_prim_ops_has_arb8(struct ged *gedp)
+{
+    const char *av[] = { "edit", "--list-all-prim-ops=json", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 2, av) == BRLCAD_OK,
+          "edit --list-all-prim-ops=json still returns OK after arb8 added");
+    const char *json = bu_vls_cstr(gedp->ged_result_str);
+    CHECK(json && strstr(json, "\"arb8\"") != NULL,
+          "edit --list-all-prim-ops=json includes '\"arb8\"'");
+}
+
+
+/* ================================================================== *
  * main
  * ================================================================== */
 
@@ -2728,8 +3018,34 @@ main(int ac, char *av[])
     bu_vls_free(&p4_path);
 
     /* ---------------------------------------------------------------- *
-     * Summary
+     * Section 5 — Phase 4+: pipe descriptor completions + arb8 desc.
      * ---------------------------------------------------------------- */
+    struct bu_vls p5_path = BU_VLS_INIT_ZERO;
+    if (make_temp_path(&p5_path) != BRLCAD_OK) {
+        bu_log("ERROR: cannot create temp file for section 5\n"); return 1;
+    }
+    if (create_p5_fixture(bu_vls_cstr(&p5_path)) != BRLCAD_OK) {
+        bu_log("ERROR: section 5 fixture creation failed\n");
+        bu_vls_free(&p5_path); return 1;
+    }
+    {
+        struct ged *gedp = open_fixture(bu_vls_cstr(&p5_path));
+        if (!gedp) { bu_log("ERROR: ged_open failed (section 5)\n"); bu_vls_free(&p5_path); return 1; }
+        bu_log("\n--- Section 5: pipe descriptor completions ---\n");
+        test_p5_pipe_list_ops(gedp);
+        test_p5_pipe_select_next_prev(gedp);
+        test_p5_pipe_append_del(gedp);
+        test_p5_pipe_prepend(gedp);
+        test_p5_pipe_split(gedp);
+        bu_log("--- Section 5: arb8 descriptor ---\n");
+        test_p5_arb8_list_ops(gedp);
+        test_p5_arb8_list_ops_json(gedp);
+        test_p5_all_prim_ops_has_arb8(gedp);
+        test_p5_arb8_move_face(gedp);
+        test_p5_arb8_move_vertex(gedp);
+        ged_close(gedp);
+    }
+    bu_vls_free(&p5_path);
     bu_log("\n========================================\n");
     bu_log("edit comprehensive tests: %d/%d passed\n",
            total_tests - failed_tests, total_tests);

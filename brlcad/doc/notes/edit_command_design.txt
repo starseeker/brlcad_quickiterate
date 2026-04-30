@@ -1,7 +1,7 @@
 libged `edit` Command — Design Notes
 ======================================
 
-Status:  Phase 4 complete.
+Status:  Phase 4+ complete (2026-04-30: pipe/dsp/arb8 gap-closure pass).
 Date:    2026-04-30
 
 
@@ -237,25 +237,30 @@ edit.c feature spec (implemented in Phase 2)
       scale -k 5 10 15 -a 7 11 -2 -r 4 2 34 cube
 
 
-ft_edit_desc() Coverage Audit (as of 2026-04-30)
---------------------------------------------------
+ft_edit_desc() Coverage Audit (as of 2026-04-30, Phase 4+ gap-closure)
+------------------------------------------------------------------------
 
-Primitives with ft_edit_desc (18/47):
+Primitives WITH ft_edit_desc (19/47):
   tor         (ID_TOR)        — 2 ops    COMPLETE
   tgc         (ID_TGC)        — 17 ops   COMPLETE (added MV_H, MV_HH, MV_H_CD, MV_H_V_AB,
                                                     ROT_H, ROT_AB in Phase 4)
   ell         (ID_ELL)        — 4 ops    COMPLETE
+  arb8        (ID_ARB8)       — 4 ops    COMPLETE (Phase 4+: MOVE_FACE, MOVE_EDGE,
+                                                    MOVE_VERTEX, ROTATE_FACE; each takes
+                                                    an index + data parameter(s))
   ebm         (ID_EBM)        — 3 ops    COMPLETE
   vol         (ID_VOL)        — 5 ops    COMPLETE
-  pipe        (ID_PIPE)       — 6/14 ops missing: SELECT, SPLIT, PT_ADD, PT_INS, PT_DEL, PT_MOVE, NEXT_PT, PREV_PT
-                                          (these require interactive state; deferred)
+  pipe        (ID_PIPE)       — 14 ops   COMPLETE (Phase 4+: added SELECT, NEXT_PT,
+                                                    PREV_PT, PT_MOVE, PT_ADD, PT_INS,
+                                                    PT_DEL, SPLIT)
   part        (ID_PARTICLE)   — 3 ops    COMPLETE
   rpc         (ID_RPC)        — 3 ops    COMPLETE
   rhc         (ID_RHC)        — 4 ops    COMPLETE
   epa         (ID_EPA)        — 3 ops    COMPLETE
   ehy         (ID_EHY)        — 4 ops    COMPLETE
   eto         (ID_ETO)        — 4 ops    COMPLETE (added ROT_C in Phase 4)
-  dsp         (ID_DSP)        — 6/7 ops  missing: FSIZE (partially implemented, no effect)
+  dsp         (ID_DSP)        — 7 ops    COMPLETE (Phase 4+: added FSIZE: xcnt, ycnt
+                                                    INTEGER params, handler implemented)
   cline       (ID_CLINE)      — 4 ops    COMPLETE (added MOVE_H in Phase 4)
   comb        (ID_COMBINATION)— 11 ops   COMPLETE (matrix-only + comb tree ops)
   superell    (ID_SUPERELL)   — 4 ops    COMPLETE
@@ -264,9 +269,7 @@ Primitives with ft_edit_desc (18/47):
                                                     SCALE_H, MOV_H, ROT_H, SCALE_A,
                                                     ROT_A, SCALE_B, ROT_B, SKT_NAME)
 
-Primitives WITHOUT ft_edit_desc (29/47) — remaining backlog:
-  arb8    (ID_ARB8)      — 6 ECMDs: MAIN_MENU, SPECIFIC_MENU, MOVE_FACE,
-                                     SETUP_ROTFACE, ROTATE_FACE, MOVE_EDGE
+Primitives WITHOUT ft_edit_desc (28/47) — remaining backlog:
   ars     (ID_ARS)       — 17 ECMDs (vertex/curve pick/move/add/del ops)
   half    (ID_HALF)      — no ECMDs defined (generic matrix edit only)
   rec     (ID_REC)       — no ECMDs (alias of tgc; shares tgc edit)
@@ -295,14 +298,12 @@ Primitives WITHOUT ft_edit_desc (29/47) — remaining backlog:
   material(ID_MATERIAL)  — no ECMDs
 
 Phase 5 priority order (most user-visible first):
-  1. arb8    — fundamental solid, 6 interactive edit modes
-  2. bot     — large meshes, 17 ops (may need special treatment)
-  3. ars     — 17 ops
-  4. sketch  — 20 ops (depends on sketch data structures)
-  5. nmg     — 14 ops
-  6. metaball— 12 ops
-  7. bspline — 5 ops
-  8. pipe    — complete the 8 missing point-manipulation ops (require SELECT state)
+  1. bot     — large meshes, 17 ops (may need special treatment)
+  2. ars     — 17 ops
+  3. sketch  — 20 ops (depends on sketch data structures)
+  4. nmg     — 14 ops
+  5. metaball— 12 ops
+  6. bspline — 5 ops
 
 
 Implementation Phases
@@ -351,6 +352,21 @@ Phase 4 (DONE): Descriptor completeness — all primitives with functional
              ROT_H/ROT_A/ROT_B (VECTOR), SCALE_A/SCALE_B (SCALAR),
              SKT_NAME (STRING); registered in edtable.cpp
   - 276/276 assertions pass (test_edit.cpp sections 0–4)
+
+Phase 4+ gap-closure (DONE): Three previously-identified gaps resolved
+  - pipe: added 8 missing ops to descriptor (SELECT, NEXT_PT, PREV_PT,
+          PT_MOVE, PT_ADD, PT_INS, PT_DEL, SPLIT); NEXT_PT and PREV_PT
+          implemented as navigation handlers in rt_edit_pipe_edit
+  - dsp: added FSIZE (Set File Size) op: 2-param (xcnt/ycnt INTEGER);
+         implemented ecmd_dsp_fsize() writing dsp_xcnt/dsp_ycnt directly
+  - arb8: new 4-op descriptor (MOVE_FACE, MOVE_EDGE, MOVE_VERTEX,
+          ROTATE_FACE); handlers extended to accept index+data parameter
+          form (e_inpara==4 for move ops, e_inpara==5 for rotate);
+          registered rt_edit_arb_edit_desc in edtable.cpp
+  - Bug fix: _edit_xform_apply tol lifetime — bn_tol was stack-allocated
+    inside the if(is_new) block, causing s->tol to be a dangling pointer
+    when do_edit(s) was called; fixed by hoisting to function scope
+  - 305/305 assertions pass (test_edit.cpp sections 0–5)
 
 Phase 5: Auto-generated mann pages
   - rt_edit_doc_gen.cpp linked against librt
