@@ -267,12 +267,7 @@ GED_EXPORT extern int _ged_combadd2(struct ged *gedp,
 			 matp_t m,
 			 int validate);
 
-/* defined in display_list.c */
-GED_EXPORT extern void _dl_eraseAllNamesFromDisplay(struct ged *gedp, const char *name, const int skip_first);
-GED_EXPORT extern void _dl_eraseAllPathsFromDisplay(struct ged *gedp, const char *path, const int skip_first);
-extern void _dl_freeDisplayListItem(struct ged *gedp, struct display_list *gdlp);
-GED_EXPORT extern int dl_bounding_sph(struct bu_list *hdlp, vect_t *min, vect_t *max, int pflag);
-
+/* defined in bsg_view_obj.c */
 GED_EXPORT extern void color_soltab(struct db_i *dbip, struct bv_scene_obj *sp);
 
 /* defined in draw.c */
@@ -399,9 +394,6 @@ GED_EXPORT extern void _ged_vls_col_pr4v(struct bu_vls *vls,
 			      size_t num_in_list,
 			      int no_decorate,
 			      int ssflag);
-
-
-GED_EXPORT extern int invent_solid(struct ged *gedp, char *name, struct bu_list *vhead, long int rgb, int copy, fastf_t transparency, int dmode, int csoltab);
 
 #if 0
 /**
