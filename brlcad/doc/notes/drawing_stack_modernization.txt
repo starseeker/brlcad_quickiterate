@@ -751,3 +751,46 @@ Deprecation policy
               src/libged/tests/draw/rtwizard_bsg.cpp: 3/3 tests PASS
                 (null-DM view bsg_root, finite eye model, per-view independence).
               Phase 5 fully complete; display_list.c deletion unblocked for Phase 6.
+
+  2026-04-30  Phase 6.5 begun — "Excise legacy display_list".
+              Audit recap: src/libged/display_list.c (818 lines) defines 11
+                externally-called symbols and is load-bearing well beyond
+                the renderer.  The deletion unblockers identified for
+                Phase 5 (to_edit_redraw, to_create_vlist_callback) covered
+                the libtclcad surface only; the wider audit found ~23
+                libged commands, ~12 MGED files, ~6 libdm files, and the
+                public ABI (struct display_list in include/ged/view.h plus
+                gd_headDisplay in libged) all still tied to the legacy
+                chain.  See the Phase 6.5 audit memo for the full list.
+
+              Phase 6.5 staged plan:
+                Step 1 — BSG view-object query API (this commit).
+                Step 2 — migrate the ~23 libged commands.
+                Step 3 — migrate to_create_vlist_callback (libtclcad).
+                Step 4 — migrate MGED edit/illuminate/usepen path.
+                Step 5 — stereo dozoom in libdm.
+                Step 6 — migrate test_gqa, rtwizard_bsg.cpp, libbv/hash.c.
+                Step 7 — delete display_list.c, struct display_list,
+                         gd_headDisplay, dl_head_scene_obj, s_dlist,
+                         dm_draw_head_dl, go_draw_dlist.
+                Step 8 — full validate (build all, ctest, MGED/Archer/qged
+                         smoke, doc update).
+
+              Step 1 (this change) is purely additive:
+                include/ged/bsg_view_obj.h declares 9 helpers covering
+                  the full external surface of display_list.c
+                  (lookup_or_add_path, erase_by_path, erase_by_name,
+                   erase_all_paths, bounds, set_iflag, color_from_soltab,
+                   invent, name_hash).
+                src/libged/bsg_view_obj.c implements them as thin
+                  wrappers around the legacy dl_* functions, preserving
+                  observable behavior bit-for-bit.
+                src/libged/tests/draw/bsg_view_obj.cpp registers
+                  ged_test_bsg_view_obj — 27 assertions covering NULL-arg
+                  safety, empty state, draw+probe, invent, erase_*, and
+                  zap+rehash on moss.g (all 27/27 PASS).
+              No existing caller was modified; no existing code was
+                deleted.  Steps 2–7 will migrate callers off dl_* onto
+                bsg_view_obj_* and then swap the wrappers' bodies for a
+                pure BSG view-tree implementation before deleting
+                display_list.c.
