@@ -1354,44 +1354,42 @@ f_ill(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 
          gdlp = bsg_view_obj_next_group(s->gedp, gdlp)) {
 
-	{
-	    struct bu_ptbl *_sl = bsg_view_obj_group_solid_list(gdlp);
-	    for (size_t _si = 0; _si < BU_PTBL_LEN(_sl); _si++) {
-		sp = (struct bv_scene_obj *)BU_PTBL_GET(_sl, _si);
-		int a_new_match;
-		if (!sp->s_u_data)
-		    continue;
-		struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+	struct bu_ptbl *_sl = bsg_view_obj_group_solid_list(gdlp);
+	for (size_t _si = 0; _si < BU_PTBL_LEN(_sl); _si++) {
+	    sp = (struct bv_scene_obj *)BU_PTBL_GET(_sl, _si);
+	    int a_new_match;
+	    if (!sp->s_u_data)
+		continue;
+	    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
 
-		if (exact && nm_pieces != bdata->s_fullpath.fp_len)
-		    continue;
+	    if (exact && nm_pieces != bdata->s_fullpath.fp_len)
+		continue;
 
-		/* XXX Could this make use of db_full_path_subset()? */
-		if (nmatch == 0 || nmatch != ri) {
-		    i = bdata->s_fullpath.fp_len - 1;
+	    /* XXX Could this make use of db_full_path_subset()? */
+	    if (nmatch == 0 || nmatch != ri) {
+		i = bdata->s_fullpath.fp_len - 1;
 
-		    if (DB_FULL_PATH_GET(&bdata->s_fullpath, i) == dp) {
-			a_new_match = 1;
-			j = nm_pieces - 1;
+		if (DB_FULL_PATH_GET(&bdata->s_fullpath, i) == dp) {
+		    a_new_match = 1;
+		    j = nm_pieces - 1;
 
-			for (; a_new_match && (i >= 0) && (j >= 0); --i, --j) {
-			    sname = DB_FULL_PATH_GET(&bdata->s_fullpath, i)->d_namep;
+		    for (; a_new_match && (i >= 0) && (j >= 0); --i, --j) {
+			sname = DB_FULL_PATH_GET(&bdata->s_fullpath, i)->d_namep;
 
-			    if ((*sname != *(path_piece[j]))
-				|| !BU_STR_EQUAL(sname, path_piece[j])) {
-				a_new_match = 0;
-			    }
-			}
-
-			if (a_new_match && ((i >= 0) || (j < 0))) {
-			    lastfound = sp;
-			    ++nmatch;
+			if ((*sname != *(path_piece[j]))
+			    || !BU_STR_EQUAL(sname, path_piece[j])) {
+			    a_new_match = 0;
 			}
 		    }
-		}
 
-		sp->s_iflag = DOWN;
+		    if (a_new_match && ((i >= 0) || (j < 0))) {
+			lastfound = sp;
+			++nmatch;
+		    }
+		}
 	    }
+
+	    sp->s_iflag = DOWN;
 	}
     }
 
