@@ -1,3 +1,7 @@
+brlcad_addexec(rt_edit_test_arbn arbn.cpp "librt" TEST)
+brlcad_addexec(rt_edit_test_datum datum.cpp "librt;libwdb" TEST)
+brlcad_addexec(rt_edit_test_annot annot.cpp "librt;libwdb" TEST)
+brlcad_addexec(rt_edit_test_revolve revolve.cpp "librt;libwdb" TEST)
 brlcad_addexec(rt_edit_test_tor tor.cpp "librt" TEST)
 brlcad_addexec(rt_edit_test_ell ell.cpp "librt" TEST)
 brlcad_addexec(rt_edit_test_tgc tgc.cpp "librt" TEST)
@@ -34,6 +38,10 @@ brlcad_addexec(rt_edit_test_str_get_params edit_str_get_params.cpp "librt" TEST)
 set(
   distcheck_files
   CMakeLists.txt
+  arbn.cpp
+  annot.cpp
+  datum.cpp
+  revolve.cpp
   tor.cpp
   ell.cpp
   tgc.cpp
