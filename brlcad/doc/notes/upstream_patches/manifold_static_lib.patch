@@ -1,5 +1,5 @@
 From: BRL-CAD developers <devs@brlcad.org>
-Subject: [PATCH] Add MANIFOLD_BUILD_STATIC_LIBS option to produce a self-contained static archive alongside the shared library
+Subject: [PATCH] Add MANIFOLD_BUILD_STATIC_LIBS option to produce a static archive alongside the shared library
 
 Consumers that link their own code statically (e.g. BRL-CAD's static
 library targets, MOOSE, or other scientific computing frameworks) need a
@@ -20,14 +20,17 @@ MANIFOLD_BUILD_STATIC_LIBS that:
    manifoldConfig.cmake exposes it to consumers automatically.
  - Reuses the OPTIONS variable already set by the shared-target section
    rather than duplicating the list.
- - Self-contained Clipper2 absorption: when MANIFOLD_USE_BUILTIN_CLIPPER2
-   is ON, manifoldDeps.cmake builds Clipper2 as a static library via
-   FetchContent (BUILD_SHARED_LIBS is forced OFF before the fetch).  The
-   static manifold target absorbs those object files directly via the
-   $<TARGET_OBJECTS:Clipper2> generator expression so that libmanifold.a
-   has no runtime dependency on any Clipper2 library.  When an external
-   (shared) Clipper2 is used instead, Clipper2::Clipper2 is recorded as a
-   PUBLIC link dependency so consumers are aware they need to provide it.
+ - Clipper2 dependency: links Clipper2::Clipper2-static as a PRIVATE
+   dependency of manifold_static when MANIFOLD_CROSS_SECTION is ON.
+   CMake records this as $<LINK_ONLY:Clipper2::Clipper2-static> in the
+   exported interface, so consumers of manifold::manifold-static get the
+   Clipper2 static archive pulled in automatically without needing to
+   declare it themselves.  Clipper2::Clipper2-static is provided by the
+   companion clipper2_static_lib.patch applied to the Clipper2 upstream
+   and the bext_clipper2_static.patch applied to bext.
+   The shared manifold target retains Clipper2::Clipper2 as a PUBLIC
+   dependency (shared-library consumers need the soname in their link
+   graph).
 
 Default is OFF so no existing workflow is changed.
 
@@ -41,10 +44,10 @@ Applies to: elalish/manifold, tag v3.2.1
  
  # Development options
  option(TRACY_ENABLE "Use tracy profiling" OFF)
-
+ 
 --- a/src/CMakeLists.txt
 +++ b/src/CMakeLists.txt
-@@ -86,6 +86,50 @@ target_include_directories(
+@@ -86,6 +86,46 @@ target_include_directories(
  
  exportlib(manifold)
  
@@ -52,20 +55,9 @@ Applies to: elalish/manifold, tag v3.2.1
 +# Optional static library target
 +# -----------------------------------------------------------------------
 +if(MANIFOLD_BUILD_STATIC_LIBS)
-+  # When the builtin Clipper2 is active, manifoldDeps.cmake already built it
-+  # as a STATIC library (it forces BUILD_SHARED_LIBS=OFF before FetchContent).
-+  # Absorb those objects directly into our archive so libmanifold.a is
-+  # self-contained.  With an external (shared) Clipper2 we fall back to
-+  # recording it as a PUBLIC link dependency instead.
-+  set(_clipper2_objects "")
-+  if(MANIFOLD_CROSS_SECTION AND MANIFOLD_USE_BUILTIN_CLIPPER2)
-+    set(_clipper2_objects $<TARGET_OBJECTS:Clipper2>)
-+  endif()
-+
 +  add_library(manifold_static STATIC
-+    ${MANIFOLD_SRCS} ${MANIFOLD_PRIVATE_HDRS} ${_clipper2_objects}
++    ${MANIFOLD_SRCS} ${MANIFOLD_PRIVATE_HDRS}
 +  )
-+  unset(_clipper2_objects)
 +
 +  set_target_properties(manifold_static PROPERTIES
 +    OUTPUT_NAME  manifold
@@ -99,9 +91,8 @@ Applies to: elalish/manifold, tag v3.2.1
 +  target_link_libraries(manifold_static
 +    PUBLIC
 +      $<$<BOOL:${TRACY_ENABLE}>:TracyClient>
-+      # External Clipper2 only: builtin objects are already absorbed above.
-+      $<$<AND:$<BOOL:${MANIFOLD_CROSS_SECTION}>,$<NOT:$<BOOL:${MANIFOLD_USE_BUILTIN_CLIPPER2}>>>:Clipper2::Clipper2>
 +    PRIVATE
++      $<$<BOOL:${MANIFOLD_CROSS_SECTION}>:Clipper2::Clipper2-static>
 +      $<$<BOOL:${MANIFOLD_PAR}>:TBB::tbb>
 +      $<$<BOOL:${MANIFOLD_EXPORT}>:assimp::assimp>
 +  )
@@ -114,3 +105,19 @@ Applies to: elalish/manifold, tag v3.2.1
 +# -----------------------------------------------------------------------
 +
  install(TARGETS manifold EXPORT manifoldTargets
+
+--- a/cmake/manifoldConfig.cmake.in
++++ b/cmake/manifoldConfig.cmake.in
+@@ -18,6 +18,13 @@ if(MANIFOLD_CROSS_SECTION AND NOT MANIFOLD_USE_BUILTIN_CLIPPER2)
+   set(Clipper2_ROOT "${_FIND_ROOT}")
+   find_package(Clipper2 REQUIRED)
++  # When the static manifold target was built, it recorded
++  # Clipper2::Clipper2-static as a PRIVATE (link-only) dependency.
++  # Verify that the installed Clipper2 package exposes the static target.
++  if(@MANIFOLD_BUILD_STATIC_LIBS@ AND NOT TARGET Clipper2::Clipper2-static)
++    message(FATAL_ERROR
++      "manifold was built with MANIFOLD_BUILD_STATIC_LIBS=ON but "
++      "Clipper2::Clipper2-static is not available after find_package(Clipper2). "
++      "Re-install Clipper2 with -DCLIPPER2_BUILD_STATIC_LIBS=ON.")
++  endif()
+ endif()
