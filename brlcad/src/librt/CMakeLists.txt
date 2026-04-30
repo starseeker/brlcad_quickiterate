@@ -260,6 +260,7 @@ set(
   primitives/poly/poly_brep.cpp
   primitives/poly/poly_mirror.c
   primitives/primitive_util.c
+  primitives/rec/edrec.c
   primitives/rec/rec.c
   primitives/revolve/revolve.c
   primitives/revolve/revolve_brep.cpp
@@ -276,6 +277,7 @@ set(
   primitives/sketch/sketch.c
   primitives/sketch/sketch_brep.cpp
   primitives/sketch/sketch_tess.cpp
+  primitives/sph/edsph.c
   primitives/sph/sph.c
   primitives/sph/sph_brep.cpp
   primitives/submodel/submodel.c
