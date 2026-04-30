@@ -319,25 +319,6 @@ createDListSolid(void *vlist_ctx, struct bv_scene_obj *sp)
     set_curr_dm(s, save_dlp);
 }
 
-/*
- * Create a display list for "sp" for every display manager
- * manager that:
- * 1 - supports display lists
- * 2 - is actively using display lists
- * 3 - has not already been created (i.e. sharing with a
- * display manager that has already created the display list)
- */
-void
-createDListAll(void *vlist_ctx, struct display_list *gdlp)
-{
-    struct mged_state *s = (struct mged_state *)vlist_ctx;
-    MGED_CK_STATE(s);
-    struct bv_scene_obj *sp;
-    for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-	createDListSolid(s, sp);
-    }
-}
-
 
 /*
  * Free the range of display lists for all display managers

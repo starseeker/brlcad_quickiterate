@@ -454,11 +454,13 @@ set_dlist(const struct bu_structparse *UNUSED(sdp),
 		    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
 			next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
 
-			(void)dm_make_current(dlp1->dm_dmp);
-			(void)dm_free_dlists(dlp1->dm_dmp,
-				      BU_LIST_FIRST(bv_scene_obj, &gdlp->dl_head_scene_obj)->s_dlist,
-				      BU_LIST_LAST(bv_scene_obj, &gdlp->dl_head_scene_obj)->s_dlist -
-				      BU_LIST_FIRST(bv_scene_obj, &gdlp->dl_head_scene_obj)->s_dlist + 1);
+			if (bsg_view_obj_group_is_nonempty(gdlp)) {
+			    (void)dm_make_current(dlp1->dm_dmp);
+			    (void)dm_free_dlists(dlp1->dm_dmp,
+					  bsg_view_obj_group_first_solid(gdlp)->s_dlist,
+					  bsg_view_obj_group_last_solid(gdlp)->s_dlist -
+					  bsg_view_obj_group_first_solid(gdlp)->s_dlist + 1);
+			}
 
 			gdlp = next_gdlp;
 		    }

@@ -65,8 +65,7 @@ illuminate(struct mged_state *s, int y) {
     while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
 	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
 
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-	    /* Only consider solids which are presently in view */
+	for (BU_LIST_FOR(sp, bv_scene_obj, bsg_view_obj_group_solid_list(gdlp))) {
 	    if (sp->s_flag == UP) {
 		if (count-- == 0) {
 		    sp->s_iflag = UP;
@@ -97,7 +96,6 @@ f_aip(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
 
-    struct display_list *gdlp;
     struct bv_scene_obj *sp;
     struct ged_bv_data *bdata = NULL;
 
@@ -135,40 +133,19 @@ f_aip(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     } else {
 	if (illump == NULL)
 	    return TCL_ERROR;
-	gdlp = illum_gdlp;
 	sp = illump;
 	sp->s_iflag = DOWN;
 	if (argc == 1 || *argv[1] == 'f') {
-	    if (BU_LIST_NEXT_IS_HEAD(sp, &gdlp->dl_head_scene_obj)) {
-		/* Advance the gdlp (i.e. display list) */
-		if (BU_LIST_NEXT_IS_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp)))
-		    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-		else
-		    gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-
-		sp = BU_LIST_NEXT(bv_scene_obj, &gdlp->dl_head_scene_obj);
-	    } else
-		sp = BU_LIST_PNEXT(bv_scene_obj, sp);
+	    sp = bsg_view_obj_next_solid(s->gedp, sp);
 	} else if (*argv[1] == 'b') {
-	    if (BU_LIST_PREV_IS_HEAD(sp, &gdlp->dl_head_scene_obj)) {
-		/* Advance the gdlp (i.e. display list) */
-		if (BU_LIST_PREV_IS_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp)))
-		    gdlp = BU_LIST_PREV(display_list, (struct bu_list *)ged_dl(s->gedp));
-		else
-		    gdlp = BU_LIST_PLAST(display_list, gdlp);
-
-		sp = BU_LIST_PREV(bv_scene_obj, &gdlp->dl_head_scene_obj);
-	    } else
-		sp = BU_LIST_PLAST(bv_scene_obj, sp);
+	    sp = bsg_view_obj_prev_solid(s->gedp, sp);
 	} else {
 	    Tcl_AppendResult(interp, "aip: bad parameter - ", argv[1], "\n", (char *)NULL);
 	    return TCL_ERROR;
 	}
-
 	sp->s_iflag = UP;
 	illump = sp;
-	illum_gdlp = gdlp;
+	illum_gdlp = (struct display_list *)bsg_view_obj_group_of_solid(s->gedp, sp);
     }
 
     s->update_views = 1;
@@ -301,7 +278,7 @@ f_matpick(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[
     while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
 	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
 
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+	for (BU_LIST_FOR(sp, bv_scene_obj, bsg_view_obj_group_solid_list(gdlp))) {
 	    if (!sp->s_u_data)
 		continue;
 	    struct ged_bv_data *bdatas = (struct ged_bv_data *)sp->s_u_data;
