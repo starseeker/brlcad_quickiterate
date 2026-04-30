@@ -1169,7 +1169,7 @@ bsg_view_obj_prev_solid(struct ged *gedp, struct bv_scene_obj *sp)
 }
 
 
-void *
+struct bv_scene_obj *
 bsg_view_obj_group_of_solid(struct ged *gedp, struct bv_scene_obj *sp)
 {
     (void)gedp;
@@ -1181,7 +1181,7 @@ bsg_view_obj_group_of_solid(struct ged *gedp, struct bv_scene_obj *sp)
 
 void
 bsg_view_obj_foreach_group(struct ged *gedp,
-                           int (*cb)(void *, void *),
+                           int (*cb)(struct bv_scene_obj *, void *),
                            void *userdata)
 {
     if (!gedp || !cb)
@@ -1194,44 +1194,41 @@ bsg_view_obj_foreach_group(struct ged *gedp,
     for (size_t gi = 0; gi < BU_PTBL_LEN(&root->children); gi++) {
         struct bv_scene_obj *g =
             (struct bv_scene_obj *)BU_PTBL_GET(&root->children, gi);
-        if (!(*cb)((void *)g, userdata))
+        if (!(*cb)(g, userdata))
             return;
     }
 }
 
 
 struct bv_scene_obj *
-bsg_view_obj_group_first_solid(void *group_handle)
+bsg_view_obj_group_first_solid(struct bv_scene_obj *group)
 {
-    if (!group_handle)
+    if (!group)
         return NULL;
-    struct bv_scene_obj *g = (struct bv_scene_obj *)group_handle;
-    if (BU_PTBL_LEN(&g->children) == 0)
+    if (BU_PTBL_LEN(&group->children) == 0)
         return NULL;
-    return (struct bv_scene_obj *)BU_PTBL_GET(&g->children, 0);
+    return (struct bv_scene_obj *)BU_PTBL_GET(&group->children, 0);
 }
 
 
 struct bv_scene_obj *
-bsg_view_obj_group_last_solid(void *group_handle)
+bsg_view_obj_group_last_solid(struct bv_scene_obj *group)
 {
-    if (!group_handle)
+    if (!group)
         return NULL;
-    struct bv_scene_obj *g = (struct bv_scene_obj *)group_handle;
-    size_t n = BU_PTBL_LEN(&g->children);
+    size_t n = BU_PTBL_LEN(&group->children);
     if (n == 0)
         return NULL;
-    return (struct bv_scene_obj *)BU_PTBL_GET(&g->children, n - 1);
+    return (struct bv_scene_obj *)BU_PTBL_GET(&group->children, n - 1);
 }
 
 
 int
-bsg_view_obj_group_is_nonempty(void *group_handle)
+bsg_view_obj_group_is_nonempty(struct bv_scene_obj *group)
 {
-    if (!group_handle)
+    if (!group)
         return 0;
-    struct bv_scene_obj *g = (struct bv_scene_obj *)group_handle;
-    return (BU_PTBL_LEN(&g->children) > 0) ? 1 : 0;
+    return (BU_PTBL_LEN(&group->children) > 0) ? 1 : 0;
 }
 
 
@@ -1245,11 +1242,11 @@ bsg_view_obj_group_solid_list(void *group_handle)
 
 
 const char *
-bsg_view_obj_group_path(void *group_handle)
+bsg_view_obj_group_path(struct bv_scene_obj *group)
 {
-    if (!group_handle)
+    if (!group)
         return NULL;
-    return bu_vls_cstr(&((struct bv_scene_obj *)group_handle)->s_name);
+    return bu_vls_cstr(&group->s_name);
 }
 
 
@@ -1272,24 +1269,22 @@ bsg_view_obj_append_to_last_group(struct ged *gedp, struct bv_scene_obj *sp)
 
 
 void
-bsg_view_obj_group_set_path(void *group_handle, const char *new_path)
+bsg_view_obj_group_set_path(struct bv_scene_obj *group, const char *new_path)
 {
-    if (!group_handle || !new_path)
+    if (!group || !new_path)
         return;
-    struct bv_scene_obj *g = (struct bv_scene_obj *)group_handle;
-    bu_vls_sprintf(&g->s_name, "%s", new_path);
+    bu_vls_sprintf(&group->s_name, "%s", new_path);
 }
 
 
 int
-bsg_view_obj_group_is_phony(void *group_handle)
+bsg_view_obj_group_is_phony(struct bv_scene_obj *group)
 {
-    if (!group_handle)
+    if (!group)
         return 0;
-    struct bv_scene_obj *g = (struct bv_scene_obj *)group_handle;
-    if (!g->dp)
+    if (!group->dp)
         return 0;
-    struct directory *dp = (struct directory *)g->dp;
+    struct directory *dp = (struct directory *)group->dp;
     return (dp->d_addr == RT_DIR_PHONY_ADDR) ? 1 : 0;
 }
 
@@ -1344,48 +1339,13 @@ bsg_view_obj_has_groups(struct ged *gedp)
 }
 
 
-void *
-bsg_view_obj_first_group(struct ged *gedp)
-{
-    if (!gedp || !gedp->i || !gedp->i->ged_gdp)
-        return NULL;
-    struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
-    if (!root || BU_PTBL_LEN(&root->children) == 0)
-        return NULL;
-    return BU_PTBL_GET(&root->children, 0);
-}
-
-
-void *
-bsg_view_obj_next_group(struct ged *gedp, void *group_handle)
-{
-    if (!gedp || !gedp->i || !gedp->i->ged_gdp || !group_handle)
-        return NULL;
-
-    struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
-    if (!root)
-        return NULL;
-
-    struct bv_scene_obj *g = (struct bv_scene_obj *)group_handle;
-    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
-        if ((struct bv_scene_obj *)BU_PTBL_GET(&root->children, i) == g) {
-            if (i + 1 < BU_PTBL_LEN(&root->children))
-                return BU_PTBL_GET(&root->children, i + 1);
-            return NULL;
-        }
-    }
-    return NULL;
-}
-
-
 void
-bsg_view_obj_append_solid_to_group(void *group_handle, struct bv_scene_obj *sp)
+bsg_view_obj_append_solid_to_group(struct bv_scene_obj *group, struct bv_scene_obj *sp)
 {
-    if (!group_handle || !sp)
+    if (!group || !sp)
         return;
-    struct bv_scene_obj *g = (struct bv_scene_obj *)group_handle;
-    sp->parent = g;
-    bu_ptbl_ins(&g->children, (long *)sp);
+    sp->parent = group;
+    bu_ptbl_ins(&group->children, (long *)sp);
 }
 
 
