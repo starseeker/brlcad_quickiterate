@@ -337,6 +337,34 @@ bsg_view_obj_zap(struct ged *gedp);
 GED_EXPORT extern int
 bsg_view_obj_has_groups(struct ged *gedp);
 
+/**
+ * Return a handle to the first group in @p gedp's draw set, or NULL
+ * if the draw set is empty.  Used together with bsg_view_obj_next_group()
+ * for simple for-loop iteration over all groups without a callback:
+ *
+ *   for (void *g = bsg_view_obj_first_group(gedp); g;
+ *        g = bsg_view_obj_next_group(gedp, g)) { ... }
+ */
+GED_EXPORT extern void *
+bsg_view_obj_first_group(struct ged *gedp);
+
+/**
+ * Return the group handle that follows @p group_handle in @p gedp's
+ * draw set, or NULL when @p group_handle is the last group.
+ */
+GED_EXPORT extern void *
+bsg_view_obj_next_group(struct ged *gedp, void *group_handle);
+
+/**
+ * Append @p sp to the solid list of the specific group @p group_handle.
+ * Unlike bsg_view_obj_append_to_last_group(), this targets an arbitrary
+ * group rather than always using the last one.  Used by the parallel
+ * drawing path in draw.c / bigE.c where the group was looked up earlier.
+ */
+GED_EXPORT extern void
+bsg_view_obj_append_solid_to_group(void *group_handle,
+				   struct bv_scene_obj *sp);
+
 __END_DECLS
 
 #endif /* GED_BSG_VIEW_OBJ_H */

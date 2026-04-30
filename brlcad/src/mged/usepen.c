@@ -37,7 +37,7 @@
 #include "./menu.h"
 
 
-struct display_list *illum_gdlp = GED_DISPLAY_LIST_NULL;
+void *illum_gdlp = NULL;
 struct bv_scene_obj *illump = NULL;	/* == 0 if none, else points to ill. solid */
 int ipathpos = 0;	/* path index of illuminated element */
 
@@ -49,8 +49,7 @@ int ipathpos = 0;	/* path index of illuminated element */
  */
 static void
 illuminate(struct mged_state *s, int y) {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
+    void *gdlp;
     int count;
     struct bv_scene_obj *sp;
 
@@ -61,10 +60,8 @@ illuminate(struct mged_state *s, int y) {
      */
     count = ((fastf_t)y + BV_MAX) * s->mged_curr_dm->dm_ndrawn / BV_RANGE;
 
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
+    for (gdlp = bsg_view_obj_first_group(s->gedp); gdlp;
+	 gdlp = bsg_view_obj_next_group(s->gedp, gdlp)) {
 	for (BU_LIST_FOR(sp, bv_scene_obj, bsg_view_obj_group_solid_list(gdlp))) {
 	    if (sp->s_flag == UP) {
 		if (count-- == 0) {
@@ -77,8 +74,6 @@ illuminate(struct mged_state *s, int y) {
 		}
 	    }
 	}
-
-	gdlp = next_gdlp;
     }
 
     s->update_views = 1;
@@ -145,7 +140,7 @@ f_aip(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	}
 	sp->s_iflag = UP;
 	illump = sp;
-	illum_gdlp = (struct display_list *)bsg_view_obj_group_of_solid(s->gedp, sp);
+	illum_gdlp = bsg_view_obj_group_of_solid(s->gedp, sp);
     }
 
     s->update_views = 1;
@@ -209,8 +204,7 @@ f_matpick(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
 
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
+    void *gdlp;
     struct bv_scene_obj *sp;
     char *cp;
     size_t j;
@@ -274,9 +268,9 @@ f_matpick(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[
     }
  got:
     /* Include all solids with same tree top */
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
+    for (gdlp = bsg_view_obj_first_group(s->gedp); gdlp;
+
+         gdlp = bsg_view_obj_next_group(s->gedp, gdlp)) {
 
 	for (BU_LIST_FOR(sp, bv_scene_obj, bsg_view_obj_group_solid_list(gdlp))) {
 	    if (!sp->s_u_data)
@@ -293,8 +287,6 @@ f_matpick(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[
 	    else
 		sp->s_iflag = DOWN;
 	}
-
-	gdlp = next_gdlp;
     }
 
     if (!illum_only) {

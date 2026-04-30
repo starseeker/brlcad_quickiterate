@@ -143,51 +143,6 @@ _ged_do_tra(struct ged *gedp,
     return BRLCAD_OK;
 }
 
-unsigned long long
-ged_dl_hash(struct display_list *dl)
-{
-    if (!dl)
-	return 0;
-
-    struct bu_data_hash_state *state = bu_data_hash_create();
-    if (!state)
-	return 0;
-
-    /* Note: ged_dl_hash is a legacy API taking display_list pointer.
-     * Since we don't have direct access to the ged struct, we still
-     * iterate using the display_list structure directly. This function
-     * will be replaced by bsg_view_obj_name_hash() in the future. */
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
-    struct bv_scene_obj *sp;
-
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)dl);
-    while (BU_LIST_NOT_HEAD(gdlp, dl)) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-	    if (!sp->s_u_data)
-		continue;
-	    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
-	    bu_data_hash_update(state, &bdata->s_fullpath.fp_len, sizeof(size_t));
-	    bu_data_hash_update(state, &bdata->s_fullpath.fp_maxlen, sizeof(size_t));
-	    for (size_t i = 0; i < DB_FULL_PATH_LEN(&bdata->s_fullpath); i++) {
-		/* In principle we should check all of struct directory
-		 * contents, but names are unique in the database and should
-		 * suffice for this purpose - we care if the path has changed. */
-		struct directory *dp = DB_FULL_PATH_GET(&bdata->s_fullpath, i);
-		bu_data_hash_update(state, &dp->d_namep, strlen(dp->d_namep));
-	    }
-	}
-	gdlp = next_gdlp;
-    }
-
-    unsigned long long hash_val = bu_data_hash_val(state);
-    bu_data_hash_destroy(state);
-
-    return hash_val;
-}
-
 void
 nmg_plot_eu(struct ged *gedp, struct edgeuse *es_eu, const struct bn_tol *tol, struct bu_list *vlfree)
 {

@@ -190,7 +190,7 @@ DisplayHash::hash(struct ged *gedp, bool dbi_state_check, bool new_cmd_forms)
 	l = bsg_view_obj_name_hash(gedp);
     }
 
-    g = ged_dl_hash(ged_dl(gedp));
+    g = bsg_view_obj_name_hash(gedp);
 
     return true;
 }
@@ -588,25 +588,6 @@ GshState::view_update()
 	    dm_set_bg(dmp, dm_bg1[0], dm_bg1[1], dm_bg1[2], dm_bg2[0], dm_bg2[1], dm_bg2[2]);
 	    dm_set_dirty(dmp, 0);
 	    dm_draw_objs(v, NULL, NULL);
-	    dm_draw_end(dmp);
-	} else {
-	    matp_t mat = gedp->ged_gvp->gv_model2view;
-	    dm_loadmatrix(dmp, mat, 0);
-	    unsigned char geometry_default_color[] = { 255, 0, 0 };
-	    dm_draw_begin(dmp);
-	    dm_draw_head_dl(dmp, (struct bu_list *)ged_dl(gedp),
-		    1.0, gedp->ged_gvp->gv_isize, -1, -1, -1, 1,
-		    0, 0, geometry_default_color, 1, 0);
-
-	    // Faceplate drawing
-	    if (gedp->dbip) {
-		struct rt_wdb *wdbp = wdb_dbopen(gedp->dbip, RT_WDB_TYPE_DB_DEFAULT);
-		v->gv_base2local = gedp->dbip->dbi_base2local;
-		v->gv_local2base = gedp->dbip->dbi_local2base;
-		dm_draw_viewobjs(wdbp, v, NULL);
-	    } else {
-		dm_draw_viewobjs(NULL, v, NULL);
-	    }
 	    dm_draw_end(dmp);
 	}
     }

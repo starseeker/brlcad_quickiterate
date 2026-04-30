@@ -168,15 +168,12 @@ ged_saveview_core(struct ged *gedp, int argc, const char *argv[])
     }
     fprintf(fp, " '%s'\\\n ", inputg);
 
-    /* Write out display list paths using callback */
+    /* Write out display list paths */
     {
-	struct bu_list *hdlp = gedp->i->ged_gdp->gd_headDisplay;
-	struct display_list *gdlp;
-	gdlp = BU_LIST_NEXT(display_list, hdlp);
-	while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
-	    struct display_list *next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-	    fprintf(fp, "'%s' ", bu_vls_addr(&gdlp->dl_path));
-	    gdlp = next_gdlp;
+	void *gdlp;
+	for (gdlp = bsg_view_obj_first_group(gedp); gdlp;
+	     gdlp = bsg_view_obj_next_group(gedp, gdlp)) {
+	    fprintf(fp, "'%s' ", bsg_view_obj_group_path(gdlp));
 	}
     }
 

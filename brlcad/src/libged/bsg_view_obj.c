@@ -460,6 +460,45 @@ bsg_view_obj_has_groups(struct ged *gedp)
 }
 
 
+void *
+bsg_view_obj_first_group(struct ged *gedp)
+{
+    if (!gedp || !gedp->i || !gedp->i->ged_gdp)
+	return NULL;
+    struct bu_list *hdlp = gedp->i->ged_gdp->gd_headDisplay;
+    if (!hdlp)
+	return NULL;
+    struct display_list *first = BU_LIST_NEXT(display_list, hdlp);
+    if (BU_LIST_IS_HEAD(first, hdlp))
+	return NULL;
+    return (void *)first;
+}
+
+
+void *
+bsg_view_obj_next_group(struct ged *gedp, void *group_handle)
+{
+    if (!gedp || !gedp->i || !gedp->i->ged_gdp || !group_handle)
+	return NULL;
+    struct bu_list *hdlp = gedp->i->ged_gdp->gd_headDisplay;
+    struct display_list *gdlp = (struct display_list *)group_handle;
+    struct display_list *next = BU_LIST_PNEXT(display_list, gdlp);
+    if (BU_LIST_IS_HEAD(next, hdlp))
+	return NULL;
+    return (void *)next;
+}
+
+
+void
+bsg_view_obj_append_solid_to_group(void *group_handle, struct bv_scene_obj *sp)
+{
+    if (!group_handle || !sp)
+	return;
+    struct display_list *gdlp = (struct display_list *)group_handle;
+    BU_LIST_APPEND(gdlp->dl_head_scene_obj.back, &sp->l);
+}
+
+
 /*
  * Local Variables:
  * mode: C
