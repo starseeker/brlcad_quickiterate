@@ -51,6 +51,7 @@
 #include "bsg/util.h"
 
 #include "./ged_private.h"
+#include "./dbi.h"
 #include "./include/plugin.h"
 
 extern "C" void libged_init(void);
@@ -66,27 +67,44 @@ ged_close(struct ged *gedp)
     if (gedp == GED_NULL)
 	return;
 
+    /* Clear all displayed geometry BEFORE closing the database.
+     * Scene objects hold directory pointers that are only valid while dbip is
+     * open; closing dbip first causes use-after-free during BSG / dl_*
+     * scene-object teardown.  ged_close_core() in close/close.cpp already
+     * follows this order — this function must match it. */
+    if (gedp->dbip) {
+	const char *av[1] = {"zap"};
+	ged_exec_zap(gedp, 1, (const char **)av);
+    }
+
+    /* Tear down the DbiState acceleration structure before db_close(), since
+     * DbiState holds internal references into dbip. */
+    if (gedp->dbi_state) {
+	delete (DbiState *)gedp->dbi_state;
+	gedp->dbi_state = NULL;
+    }
+
     if (gedp->dbip) {
 	db_close(gedp->dbip);
 	gedp->dbip = NULL;
     }
 
-    if (gedp->ged_lod)
+    if (gedp->ged_lod) {
 	bv_mesh_lod_context_destroy(gedp->ged_lod);
+	gedp->ged_lod = NULL;
+    }
 
     /* Terminate any ged subprocesses */
-    if (gedp != GED_NULL) {
-	for (size_t i = 0; i < BU_PTBL_LEN(&gedp->ged_subp); i++) {
-	    struct ged_subprocess *rrp = (struct ged_subprocess *)BU_PTBL_GET(&gedp->ged_subp, i);
-	    if (!rrp->aborted) {
-		bu_pid_terminate(bu_process_pid(rrp->p));
-		rrp->aborted = 1;
-	    }
-	    bu_ptbl_rm(&gedp->ged_subp, (long *)rrp);
-	    BU_PUT(rrp, struct ged_subprocess);
+    for (size_t i = 0; i < BU_PTBL_LEN(&gedp->ged_subp); i++) {
+	struct ged_subprocess *rrp = (struct ged_subprocess *)BU_PTBL_GET(&gedp->ged_subp, i);
+	if (!rrp->aborted) {
+	    bu_pid_terminate(bu_process_pid(rrp->p));
+	    rrp->aborted = 1;
 	}
-	bu_ptbl_reset(&gedp->ged_subp);
+	bu_ptbl_rm(&gedp->ged_subp, (long *)rrp);
+	BU_PUT(rrp, struct ged_subprocess);
     }
+    bu_ptbl_reset(&gedp->ged_subp);
 
     ged_destroy(gedp);
     gedp = NULL;

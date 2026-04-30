@@ -77,19 +77,10 @@ extern "C" void ged_changed_callback(struct db_i *UNUSED(dbip), struct directory
 
 /* ---- helpers ------------------------------------------------------------- */
 
-/*
- * Properly close a GED instance: use the "close" command implementation which
- * calls ged_exec_zap() before db_close() — the correct order for BSG scene
- * root teardown.  Then call ged_destroy() to free the GED struct itself.
- */
 static void
 close_gedp(struct ged *gedp)
 {
-    if (!gedp) return;
-    /* ged_exec_close = ged_close_core: calls zap, db_close, delete DbiState */
-    const char *av[2] = {"close", NULL};
-    ged_exec_close(gedp, 1, av);
-    ged_destroy(gedp);
+    ged_close(gedp);
 }
 
 /*
