@@ -1903,7 +1903,7 @@ test_p3_ell_set_abc(struct ged *gedp)
     }
 }
 
-/* 3-6: 'edit tor --list-ops' emits non-empty JSON containing prim_type */
+/* 3-6: 'edit tor --list-ops' now emits human-readable help (not JSON) */
 static void
 test_p3_list_ops_tor(struct ged *gedp)
 {
@@ -1911,13 +1911,33 @@ test_p3_list_ops_tor(struct ged *gedp)
     bu_vls_trunc(gedp->ged_result_str, 0);
     CHECK(ged_exec(gedp, 3, av) == BRLCAD_OK,
           "edit tor --list-ops returns OK");
+    const char *out = bu_vls_cstr(gedp->ged_result_str);
+    CHECK(out && strlen(out) > 10,
+          "edit tor --list-ops output is non-empty");
+    CHECK(out && strstr(out, "Torus") != NULL,
+          "edit tor --list-ops (human) mentions 'Torus'");
+    CHECK(out && strstr(out, "set_radius") != NULL,
+          "edit tor --list-ops (human) lists 'set_radius'");
+    /* Must NOT be raw JSON */
+    CHECK(out && strstr(out, "\"prim_type\"") == NULL,
+          "edit tor --list-ops (human) does not contain raw JSON prim_type key");
+}
+
+/* 3-6b: 'edit tor --list-ops=json' emits JSON descriptor */
+static void
+test_p3_list_ops_tor_json(struct ged *gedp)
+{
+    const char *av[] = { "edit", "tor", "--list-ops=json", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 3, av) == BRLCAD_OK,
+          "edit tor --list-ops=json returns OK");
     const char *json = bu_vls_cstr(gedp->ged_result_str);
     CHECK(json && strlen(json) > 10,
-          "edit tor --list-ops output is non-empty");
+          "edit tor --list-ops=json output is non-empty");
     CHECK(json && strstr(json, "prim_type") != NULL,
-          "edit tor --list-ops JSON contains 'prim_type'");
-    CHECK(json && strstr(json, "tor") != NULL,
-          "edit tor --list-ops JSON contains 'tor'");
+          "edit tor --list-ops=json contains 'prim_type' JSON key");
+    CHECK(json && strstr(json, "\"tor\"") != NULL,
+          "edit tor --list-ops=json contains '\"tor\"'");
 }
 
 /* 3-7: 'edit tor' (type-name help) prints category-grouped info */
@@ -1958,7 +1978,7 @@ test_p3_missing_param(struct ged *gedp)
           "edit tor.s set_radius_1 (no value) returns BRLCAD_ERROR");
 }
 
-/* 3-10: 'edit ell --list-ops' works for ell type too */
+/* 3-10: 'edit ell --list-ops' emits human-readable help */
 static void
 test_p3_list_ops_ell(struct ged *gedp)
 {
@@ -1966,9 +1986,68 @@ test_p3_list_ops_ell(struct ged *gedp)
     bu_vls_trunc(gedp->ged_result_str, 0);
     CHECK(ged_exec(gedp, 3, av) == BRLCAD_OK,
           "edit ell --list-ops returns OK");
+    const char *out = bu_vls_cstr(gedp->ged_result_str);
+    CHECK(out && strstr(out, "Ellipsoid") != NULL,
+          "edit ell --list-ops (human) mentions 'Ellipsoid'");
+    CHECK(out && strstr(out, "\"prim_type\"") == NULL,
+          "edit ell --list-ops (human) does not contain raw JSON");
+}
+
+/* 3-10b: 'edit ell --list-ops=json' emits JSON */
+static void
+test_p3_list_ops_ell_json(struct ged *gedp)
+{
+    const char *av[] = { "edit", "ell", "--list-ops=json", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 3, av) == BRLCAD_OK,
+          "edit ell --list-ops=json returns OK");
     const char *json = bu_vls_cstr(gedp->ged_result_str);
     CHECK(json && strstr(json, "\"ell\"") != NULL,
-          "edit ell --list-ops JSON contains '\"ell\"'");
+          "edit ell --list-ops=json contains '\"ell\"'");
+}
+
+/* 3-11: 'edit --list-all-prim-ops' prints human-readable block for all types */
+static void
+test_p3_list_all_prim_ops(struct ged *gedp)
+{
+    const char *av[] = { "edit", "--list-all-prim-ops", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 2, av) == BRLCAD_OK,
+          "edit --list-all-prim-ops returns OK");
+    const char *out = bu_vls_cstr(gedp->ged_result_str);
+    CHECK(out && strlen(out) > 50,
+          "edit --list-all-prim-ops output is non-trivial");
+    /* Should mention several known primitive types */
+    CHECK(out && strstr(out, "Torus") != NULL,
+          "edit --list-all-prim-ops mentions 'Torus'");
+    CHECK(out && strstr(out, "Ellipsoid") != NULL,
+          "edit --list-all-prim-ops mentions 'Ellipsoid'");
+    /* Must not be raw JSON */
+    CHECK(out && strstr(out, "\"prim_type\"") == NULL,
+          "edit --list-all-prim-ops (human) does not contain raw JSON key");
+}
+
+/* 3-12: 'edit --list-all-prim-ops=json' emits a JSON array */
+static void
+test_p3_list_all_prim_ops_json(struct ged *gedp)
+{
+    const char *av[] = { "edit", "--list-all-prim-ops=json", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 2, av) == BRLCAD_OK,
+          "edit --list-all-prim-ops=json returns OK");
+    const char *json = bu_vls_cstr(gedp->ged_result_str);
+    CHECK(json && strlen(json) > 50,
+          "edit --list-all-prim-ops=json output is non-trivial");
+    /* Should be a JSON array and contain multiple prim_type entries */
+    CHECK(json && json[0] == '[',
+          "edit --list-all-prim-ops=json starts with '['");
+    CHECK(json && strstr(json, "prim_type") != NULL,
+          "edit --list-all-prim-ops=json contains 'prim_type'");
+    /* Must mention at least tor and ell */
+    CHECK(json && strstr(json, "\"tor\"") != NULL,
+          "edit --list-all-prim-ops=json contains '\"tor\"'");
+    CHECK(json && strstr(json, "\"ell\"") != NULL,
+          "edit --list-all-prim-ops=json contains '\"ell\"'");
 }
 
 
@@ -2215,10 +2294,15 @@ main(int ac, char *av[])
         test_p3_ell_set_a(gedp);
         test_p3_ell_a_alias(gedp);
         test_p3_ell_set_abc(gedp);
-        bu_log("--- Section 3: type-level help and --list-ops ---\n");
+        bu_log("--- Section 3: type-level help, --list-ops, and --list-ops=json ---\n");
         test_p3_list_ops_tor(gedp);
+        test_p3_list_ops_tor_json(gedp);
         test_p3_type_help_tor(gedp);
         test_p3_list_ops_ell(gedp);
+        test_p3_list_ops_ell_json(gedp);
+        bu_log("--- Section 3: --list-all-prim-ops ---\n");
+        test_p3_list_all_prim_ops(gedp);
+        test_p3_list_all_prim_ops_json(gedp);
         bu_log("--- Section 3: error cases ---\n");
         test_p3_unknown_prim_op(gedp);
         test_p3_missing_param(gedp);

@@ -1725,7 +1725,7 @@ _print_prim_help(struct ged *gedp, const struct rt_edit_prim_desc *desc)
     }
 
     bu_vls_printf(gedp->ged_result_str,
-	"Use 'edit %s --list-ops' for the full JSON descriptor.\n",
+	"Use 'edit %s --list-ops=json' for the full JSON descriptor.\n",
 	desc->prim_type);
 }
 
@@ -2036,8 +2036,13 @@ ged_edit_core(struct ged *gedp, int argc, const char *argv[])
      * candidates for options.  Parse them all: if -h is among them, print
      * help and return OK; otherwise report the first token as invalid.
      *
-     * Phase 3 intercept: if the first token is a known primitive type name
-     * (not a DB object), handle 'edit <type>' and 'edit <type> --list-ops'. */
+     * Phase 3 intercepts:
+     *   edit <type>              → human-readable per-type help
+     *   edit <type> --list-ops   → human-readable per-type help (same as above)
+     *   edit <type> --list-ops=json → full JSON descriptor
+     *   edit --list-all-prim-ops      → human-readable listing for all types
+     *   edit --list-all-prim-ops=json → JSON array for all types
+     */
     if (geom_pos == INT_MAX && cmd_pos == INT_MAX) {
 	if (!maybe_opts && argc >= 1) {
 	    int type_id = _prim_type_id_from_str(argv[0]);
@@ -2045,9 +2050,19 @@ ged_edit_core(struct ged *gedp, int argc, const char *argv[])
 		extern const struct rt_edit_functab EDOBJ[];
 		const struct rt_edit_prim_desc *desc =
 		    (*EDOBJ[type_id].ft_edit_desc)();
-		/* edit <type> --list-ops → emit full JSON descriptor */
-		bool list_ops = (argc >= 2 && BU_STR_EQUAL(argv[1], "--list-ops"));
-		if (list_ops) {
+
+		/* Determine whether a --list-ops[=json] flag was given */
+		bool list_ops      = false;
+		bool list_ops_json = false;
+		if (argc >= 2) {
+		    if (BU_STR_EQUAL(argv[1], "--list-ops"))
+			list_ops = true;
+		    else if (BU_STR_EQUAL(argv[1], "--list-ops=json"))
+			list_ops = list_ops_json = true;
+		}
+
+		if (list_ops && list_ops_json) {
+		    /* --list-ops=json → emit full JSON descriptor */
 		    struct bu_vls json = BU_VLS_INIT_ZERO;
 		    if (rt_edit_type_to_json(&json, type_id) == BRLCAD_OK) {
 			bu_vls_printf(gedp->ged_result_str,
@@ -2060,12 +2075,50 @@ ged_edit_core(struct ged *gedp, int argc, const char *argv[])
 			"edit: no JSON descriptor for type '%s'\n", argv[0]);
 		    return BRLCAD_ERROR;
 		}
-		/* edit <type>  → category-grouped help */
+
+		/* --list-ops (human-readable) or bare type name → same output */
 		_print_prim_help(gedp, desc);
 		return BRLCAD_OK;
 	    }
 	}
 	if (maybe_opts) {
+	    /* --list-all-prim-ops[=json]: handled before regular opt parse */
+	    if (argc >= 1) {
+		bool lap      = BU_STR_EQUAL(argv[0], "--list-all-prim-ops");
+		bool lap_json = BU_STR_EQUAL(argv[0], "--list-all-prim-ops=json");
+		if (lap || lap_json) {
+		    extern const struct rt_edit_functab EDOBJ[];
+		    if (lap_json) {
+			/* JSON array of all primitive descriptors */
+			bu_vls_strcat(gedp->ged_result_str, "[\n");
+			bool first_entry = true;
+			for (int i = 0; EDOBJ[i].magic == RT_FUNCTAB_MAGIC; i++) {
+			    if (!EDOBJ[i].ft_edit_desc)
+				continue;
+			    if (!first_entry)
+				bu_vls_strcat(gedp->ged_result_str, ",\n");
+			    struct bu_vls json = BU_VLS_INIT_ZERO;
+			    if (rt_edit_type_to_json(&json, i) == BRLCAD_OK)
+				bu_vls_printf(gedp->ged_result_str,
+				    "%s", bu_vls_cstr(&json));
+			    bu_vls_free(&json);
+			    first_entry = false;
+			}
+			bu_vls_strcat(gedp->ged_result_str, "]\n");
+		    } else {
+			/* Human-readable listing for every descriptor type */
+			for (int i = 0; EDOBJ[i].magic == RT_FUNCTAB_MAGIC; i++) {
+			    if (!EDOBJ[i].ft_edit_desc)
+				continue;
+			    const struct rt_edit_prim_desc *desc =
+				(*EDOBJ[i].ft_edit_desc)();
+			    _print_prim_help(gedp, desc);
+			    bu_vls_putc(gedp->ged_result_str, '\n');
+			}
+		    }
+		    return BRLCAD_OK;
+		}
+	    }
 	    struct bu_vls opterrs = BU_VLS_INIT_ZERO;
 	    bu_opt_parse(&opterrs, argc, argv, d);
 	    bu_vls_free(&opterrs);
