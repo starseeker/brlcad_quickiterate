@@ -321,11 +321,9 @@ _pkg_io_read(struct pkg_conn *pc, void *buf, size_t n)
      * to the raw-fd POSIX path; TLS callbacks manage their own state. */
     {
 	ssize_t ret;
+	int fd = (pc->pkc_tx_kind == 1) ? pc->pkc_in_fd : pc->pkc_fd;
 	do {
-	    if (pc->pkc_tx_kind == 1)
-		ret = PKG_READ(pc->pkc_in_fd, buf, n);
-	    else
-		ret = PKG_READ(pc->pkc_fd, buf, n);
+	    ret = PKG_READ(fd, buf, n);
 	} while (ret < 0 && errno == EINTR);
 	return ret;
     }
@@ -361,11 +359,9 @@ _pkg_io_write(struct pkg_conn *pc, const void *buf, size_t n)
     /* Retry on EINTR (see _pkg_io_read comment). */
     {
 	ssize_t ret;
+	int fd = (pc->pkc_tx_kind == 1) ? pc->pkc_out_fd : pc->pkc_fd;
 	do {
-	    if (pc->pkc_tx_kind == 1)
-		ret = PKG_SEND(pc->pkc_out_fd, buf, n);
-	    else
-		ret = PKG_SEND(pc->pkc_fd, buf, n);
+	    ret = PKG_SEND(fd, buf, n);
 	} while (ret < 0 && errno == EINTR);
 	return ret;
     }

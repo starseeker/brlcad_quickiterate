@@ -135,7 +135,6 @@ server_main(int UNUSED(argc), const char *UNUSED(argv)) {
 	    bu_log("ERROR: client == PKC_ERROR\n");
 	    pkg_listener_close(listener);
 	    bu_exit(-1, "Server exiting\n");
-	    continue;
 	}
 
 	// Something happened - reset idle timer
