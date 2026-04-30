@@ -68,9 +68,10 @@ extern const struct rt_edit_prim_desc *rt_edit_comb_edit_desc(void);
 extern const struct rt_edit_prim_desc *rt_edit_extrude_edit_desc(void);
 extern const struct rt_edit_prim_desc *rt_edit_arb_edit_desc(void);
 
-/* Forward declarations for ft_edit_get_params implementations */
+extern const struct rt_edit_prim_desc *rt_edit_metaball_edit_desc(void);
 extern int rt_edit_tor_get_params(struct rt_edit *s, int cmd_id, fastf_t *vals);
 extern int rt_edit_ell_get_params(struct rt_edit *s, int cmd_id, fastf_t *vals);
+extern int rt_edit_metaball_get_params(struct rt_edit *s, int cmd_id, fastf_t *vals);
 
 EDIT_DECLARE_INTERFACE(tor);
 EDIT_DECLARE_INTERFACE(tgc);
@@ -852,8 +853,8 @@ const struct rt_edit_functab EDOBJ[] = {
 	EDFUNCTAB_FUNC_LABELS_CAST(rt_edit_metaball_labels),    /* label */
 	EDFUNCTAB_FUNC_KEYPOINT_CAST(rt_edit_metaball_keypoint), /* keypoint */
 	NULL,  /* s->e_axes_pos */
-	NULL,  /* write_params */
-	NULL,  /* read_params */
+	EDFUNCTAB_FUNC_WRITE_PARAMS_CAST(rt_edit_metaball_write_params), /* write_params */
+	EDFUNCTAB_FUNC_READ_PARAMS_CAST(rt_edit_metaball_read_params),   /* read_params */
 	EDFUNCTAB_FUNC_EDIT_CAST(rt_edit_metaball_edit),    /* edit */
 	EDFUNCTAB_FUNC_EDITXY_CAST(rt_edit_metaball_edit_xy), /* edit xy */
 	EDFUNCTAB_FUNC_PRIMEDIT_CREATE_CAST(rt_edit_metaball_prim_edit_create),    /* prim edit create */
@@ -862,8 +863,8 @@ const struct rt_edit_functab EDOBJ[] = {
 	EDFUNCTAB_FUNC_MENU_STR_CAST(edit_menu_str),   /* menu_str */
 	EDFUNCTAB_FUNC_SET_EDIT_MODE_CAST(rt_edit_metaball_set_edit_mode), /* set edit mode */
 	EDFUNCTAB_FUNC_MENU_ITEM_CAST(rt_edit_metaball_menu_item)    /* menu_item */,
-	NULL   /* edit_desc */,
-	NULL   /* edit_get_params */
+	EDFUNCTAB_FUNC_EDIT_DESC_CAST(rt_edit_metaball_edit_desc)   /* edit_desc */,
+	EDFUNCTAB_FUNC_GET_PARAMS_CAST(rt_edit_metaball_get_params)  /* edit_get_params */
     },
 
     {
