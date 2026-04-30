@@ -1,5 +1,5 @@
 From: BRL-CAD developers <devs@brlcad.org>
-Subject: [PATCH] Add MANIFOLD_BUILD_STATIC_LIBS option to produce a static archive alongside the shared library
+Subject: [PATCH] Add MANIFOLD_BUILD_STATIC_LIBS option to produce a self-contained static archive alongside the shared library
 
 Consumers that link their own code statically (e.g. BRL-CAD's static
 library targets, MOOSE, or other scientific computing frameworks) need a
@@ -18,8 +18,16 @@ MANIFOLD_BUILD_STATIC_LIBS that:
    naming used by other BRL-CAD bundled deps (e.g. mmesh::mmesh-static).
  - Adds the static target to the manifoldTargets export set so that
    manifoldConfig.cmake exposes it to consumers automatically.
- - Propagates the same public compile definitions and include directories
-   as the shared target.
+ - Reuses the OPTIONS variable already set by the shared-target section
+   rather than duplicating the list.
+ - Self-contained Clipper2 absorption: when MANIFOLD_USE_BUILTIN_CLIPPER2
+   is ON, manifoldDeps.cmake builds Clipper2 as a static library via
+   FetchContent (BUILD_SHARED_LIBS is forced OFF before the fetch).  The
+   static manifold target absorbs those object files directly via the
+   $<TARGET_OBJECTS:Clipper2> generator expression so that libmanifold.a
+   has no runtime dependency on any Clipper2 library.  When an external
+   (shared) Clipper2 is used instead, Clipper2::Clipper2 is recorded as a
+   PUBLIC link dependency so consumers are aware they need to provide it.
 
 Default is OFF so no existing workflow is changed.
 
@@ -36,7 +44,7 @@ Applies to: elalish/manifold, tag v3.2.1
 
 --- a/src/CMakeLists.txt
 +++ b/src/CMakeLists.txt
-@@ -86,6 +86,60 @@ target_include_directories(
+@@ -86,6 +86,50 @@ target_include_directories(
  
  exportlib(manifold)
  
@@ -44,63 +52,62 @@ Applies to: elalish/manifold, tag v3.2.1
 +# Optional static library target
 +# -----------------------------------------------------------------------
 +if(MANIFOLD_BUILD_STATIC_LIBS)
-+  add_library(manifold_static STATIC ${MANIFOLD_SRCS} ${MANIFOLD_PRIVATE_HDRS})
-+
-+  # Export as manifold::manifold-static (the conventional -static suffix)
-+  set_target_properties(manifold_static PROPERTIES
-+    OUTPUT_NAME manifold
-+    EXPORT_NAME manifold-static
-+  )
-+
-+  # Same public interface as the shared target
-+  target_compile_features(manifold_static PUBLIC cxx_std_17)
-+
-+  target_compile_definitions(manifold_static PUBLIC MANIFOLD_PAR=-1)
-+  if(MANIFOLD_PAR)
-+    set_property(TARGET manifold_static PROPERTY
-+      INTERFACE_COMPILE_DEFINITIONS MANIFOLD_PAR=1)
++  # When the builtin Clipper2 is active, manifoldDeps.cmake already built it
++  # as a STATIC library (it forces BUILD_SHARED_LIBS=OFF before FetchContent).
++  # Absorb those objects directly into our archive so libmanifold.a is
++  # self-contained.  With an external (shared) Clipper2 we fall back to
++  # recording it as a PUBLIC link dependency instead.
++  set(_clipper2_objects "")
++  if(MANIFOLD_CROSS_SECTION AND MANIFOLD_USE_BUILTIN_CLIPPER2)
++    set(_clipper2_objects $<TARGET_OBJECTS:Clipper2>)
 +  endif()
 +
-+  set(
-+    _STATIC_OPTIONS
-+    MANIFOLD_DEBUG
-+    MANIFOLD_ASSERT
-+    MANIFOLD_CROSS_SECTION
-+    MANIFOLD_EXPORT
-+    TRACY_ENABLE
-+    TRACY_MEMORY_USAGE
++  add_library(manifold_static STATIC
++    ${MANIFOLD_SRCS} ${MANIFOLD_PRIVATE_HDRS} ${_clipper2_objects}
 +  )
-+  foreach(OPT IN LISTS _STATIC_OPTIONS)
++  unset(_clipper2_objects)
++
++  set_target_properties(manifold_static PROPERTIES
++    OUTPUT_NAME  manifold
++    EXPORT_NAME  manifold-static
++  )
++
++  target_compile_features(manifold_static PUBLIC cxx_std_17)
++  target_compile_options(manifold_static PRIVATE ${MANIFOLD_FLAGS})
++
++  # Reuse the OPTIONS list already set above for the shared target.
++  foreach(OPT IN LISTS OPTIONS)
 +    if(${${OPT}})
 +      target_compile_definitions(manifold_static PUBLIC ${OPT})
 +    endif()
 +  endforeach()
-+  unset(_STATIC_OPTIONS)
++  if(MANIFOLD_PAR)
++    target_compile_definitions(manifold_static PUBLIC MANIFOLD_PAR=1)
++  else()
++    target_compile_definitions(manifold_static PUBLIC MANIFOLD_PAR=-1)
++  endif()
 +
-+  target_compile_options(manifold_static PRIVATE ${MANIFOLD_FLAGS})
++  target_include_directories(manifold_static
++    PUBLIC
++      $<INSTALL_INTERFACE:include>
++      $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
++      $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
++    PRIVATE
++      ${MANIFOLD_INCLUDE_DIRS}
++  )
 +
-+  # Link against the same optional dependencies as the shared target.
-+  # For a static archive consumers must also link these, so PUBLIC.
 +  target_link_libraries(manifold_static
 +    PUBLIC
 +      $<$<BOOL:${TRACY_ENABLE}>:TracyClient>
-+      $<$<BOOL:${MANIFOLD_CROSS_SECTION}>:Clipper2::Clipper2>
++      # External Clipper2 only: builtin objects are already absorbed above.
++      $<$<AND:$<BOOL:${MANIFOLD_CROSS_SECTION}>,$<NOT:$<BOOL:${MANIFOLD_USE_BUILTIN_CLIPPER2}>>>:Clipper2::Clipper2>
 +    PRIVATE
 +      $<$<BOOL:${MANIFOLD_PAR}>:TBB::tbb>
 +      $<$<BOOL:${MANIFOLD_EXPORT}>:assimp::assimp>
 +  )
 +
-+  target_include_directories(
-+    manifold_static
-+    PUBLIC
-+      $<INSTALL_INTERFACE:include>
-+      $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
-+      $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
-+    PRIVATE ${MANIFOLD_INCLUDE_DIRS}
-+  )
-+
 +  install(TARGETS manifold_static EXPORT manifoldTargets
-+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
++    ARCHIVE  DESTINATION ${CMAKE_INSTALL_LIBDIR}
 +    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 +  )
 +endif()
