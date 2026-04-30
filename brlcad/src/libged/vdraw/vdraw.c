@@ -543,7 +543,7 @@ vdraw_send(void *data, int argc, const char *argv[])
     }
 
     /* 0 means OK, -1 means conflict with real solid name */
-    idx = invent_solid(gedp, solid_name, &(gedp->i->ged_gdp->gd_currVHead->vdc_vhd), gedp->i->ged_gdp->gd_currVHead->vdc_rgb, 1, 1.0, 0, 0);
+    idx = bsg_view_obj_invent(gedp, solid_name, &(gedp->i->ged_gdp->gd_currVHead->vdc_vhd), gedp->i->ged_gdp->gd_currVHead->vdc_rgb, 1, 1.0, 0, 0);
 
     bu_vls_printf(gedp->ged_result_str, "%d", idx);
 
