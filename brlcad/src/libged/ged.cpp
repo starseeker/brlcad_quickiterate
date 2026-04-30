@@ -49,6 +49,7 @@
 
 #include "bv/defines.h"
 #include "bsg/util.h"
+#include "ged/bsg_view_obj.h"
 
 #include "./ged_private.h"
 #include "./dbi.h"
@@ -158,6 +159,9 @@ ged_init(struct ged *gedp)
 
     gedp->i->ged_gdp->gd_uplotOutputMode = PL_OUTPUT_MODE_BINARY;
     qray_init(gedp->i->ged_gdp);
+
+    /* Eagerly create the draw root so GED_CHECK_DRAWABLE succeeds */
+    bsg_view_obj_ensure_root(gedp);
 
     BU_GET(gedp->ged_log, struct bu_vls);
     bu_vls_init(gedp->ged_log);

@@ -780,7 +780,7 @@ dm_draw(struct dm *dmp, struct bv_vlist *(*callback)(void *), void **data)
     return dmp->i->dm_draw(dmp, callback, data);
 }
 int
-dm_draw_display_list(struct dm *dmp, struct bu_list *solids)
+dm_draw_display_list(struct dm *dmp, struct bu_ptbl *solids)
 {
     if (!dmp || !solids) return 0;
     return dmp->i->dm_draw_display_list(dmp, solids);

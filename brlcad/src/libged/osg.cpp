@@ -164,7 +164,9 @@ _ged_osgLoadScene(struct ged *gedp, void *osgData)
     bu_log("_ged_osgLoadScene: enter\n");
     for (gdlp = bsg_view_obj_first_group(gedp); gdlp;
 	 gdlp = bsg_view_obj_next_group(gedp, gdlp)) {
-	FOR_ALL_SOLIDS(sp, bsg_view_obj_group_solid_list(gdlp)) {
+	{ struct bu_ptbl *_sl = bsg_view_obj_group_solid_list(gdlp);
+	for (size_t _si = 0; _si < BU_PTBL_LEN(_sl); _si++) {
+	    sp = (struct bv_scene_obj *)BU_PTBL_GET(_sl, _si);
 	    if (sp->s_dmode == 4) {
 		_osgLoadHiddenSolid(geode, sp);
 	    } else {
@@ -180,7 +182,7 @@ _ged_osgLoadScene(struct ged *gedp, void *osgData)
 		geom->setUseDisplayList(true);
 		geode->addDrawable(geom);
 	    }
-	}
+	}}
     }
 
     root->addChild(geode);

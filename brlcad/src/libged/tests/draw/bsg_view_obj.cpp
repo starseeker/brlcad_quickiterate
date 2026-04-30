@@ -197,7 +197,9 @@ main(int ac, char *av[])
 	struct bv_scene_obj *sp;
 	for (gdlp = bsg_view_obj_first_group(gedp); gdlp;
 	     gdlp = bsg_view_obj_next_group(gedp, gdlp)) {
-	    for (BU_LIST_FOR(sp, bv_scene_obj, bsg_view_obj_group_solid_list(gdlp))) {
+	    struct bu_ptbl *_sl = bsg_view_obj_group_solid_list(gdlp);
+	for (size_t _si = 0; _si < BU_PTBL_LEN(_sl); _si++) {
+	    sp = (struct bv_scene_obj *)BU_PTBL_GET(_sl, _si);
 		if (sp->s_iflag != UP) all_up = 0;
 	    }
 	}
@@ -210,7 +212,9 @@ main(int ac, char *av[])
 	struct bv_scene_obj *sp;
 	for (gdlp = bsg_view_obj_first_group(gedp); gdlp;
 	     gdlp = bsg_view_obj_next_group(gedp, gdlp)) {
-	    for (BU_LIST_FOR(sp, bv_scene_obj, bsg_view_obj_group_solid_list(gdlp))) {
+	    struct bu_ptbl *_sl = bsg_view_obj_group_solid_list(gdlp);
+	for (size_t _si = 0; _si < BU_PTBL_LEN(_sl); _si++) {
+	    sp = (struct bv_scene_obj *)BU_PTBL_GET(_sl, _si);
 		if (sp->s_iflag != DOWN) all_down = 0;
 	    }
 	}

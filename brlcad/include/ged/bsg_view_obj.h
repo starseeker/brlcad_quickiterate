@@ -45,6 +45,15 @@
 __BEGIN_DECLS
 
 /**
+ * Ensure the per-GED draw root exists (idempotent; safe to call at any time,
+ * including before the first draw command).  Returns the root node or NULL
+ * if no active view is configured.  Called automatically during ged_open so
+ * that GED_CHECK_DRAWABLE always succeeds after initialization.
+ */
+GED_EXPORT extern struct bv_scene_obj *
+bsg_view_obj_ensure_root(struct ged *gedp);
+
+/**
  * Look up a drawn path on @p gedp's active view set, or insert a new
  * top-level scene-group entry for it if not already present.  Returns
  * an opaque handle (a ged_scene_group *) usable as the

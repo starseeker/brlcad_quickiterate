@@ -901,6 +901,15 @@ _sg_color_soltab(struct ged *gedp)
 /* Public BSG view-object API                                         */
 /* ================================================================== */
 
+struct bv_scene_obj *
+bsg_view_obj_ensure_root(struct ged *gedp)
+{
+    if (!gedp)
+        return NULL;
+    return _sg_root(gedp);
+}
+
+
 void *
 bsg_view_obj_lookup_or_add_path(struct ged *gedp, const char *path)
 {

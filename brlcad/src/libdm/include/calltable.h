@@ -119,7 +119,7 @@ struct dm_impl {
     int (*dm_drawDList)(unsigned int list);
     int (*dm_freeDLists)(struct dm *dmp, unsigned int list, int range);
     int (*dm_genDLists)(struct dm *dmp, size_t range);
-    int (*dm_draw_display_list)(struct dm *dmp, struct bu_list *solids);
+    int (*dm_draw_display_list)(struct dm *dmp, struct bu_ptbl *solids);
     int (*dm_getDisplayImage)(struct dm *dmp, unsigned char **image, int flip, int alpha);  /**< @brief (0,0) is upper left pixel */
     int (*dm_reshape)(struct dm *dmp, int width, int height);
     int (*dm_makeCurrent)(struct dm *dmp);
