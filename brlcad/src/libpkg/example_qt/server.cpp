@@ -34,7 +34,6 @@
 #include "bu/interrupt.h"
 #include "bu/log.h"
 #include "bu/str.h"
-#include "bu/malloc.h"
 #include "bu/getopt.h"
 #include "bu/vls.h"
 #include "bu/snooze.h"
@@ -51,9 +50,8 @@ PKGServer::PKGServer()
 
 PKGServer::~PKGServer()
 {
-    if (client->pkc_inbuf)
-	free(client->pkc_inbuf);
-    BU_PUT(client, struct pkg_conn);
+    if (client)
+	pkg_close(client);
     bu_vls_free(&buffer);
 }
 
@@ -66,16 +64,16 @@ PKGServer::pgetc()
 
     int fd = s->socketDescriptor();
     bu_log("fd: %d\n", fd);
-    BU_GET(client, struct pkg_conn);
-    client->pkc_magic = PKG_MAGIC;
-    client->pkc_fd = fd;
-    client->pkc_switch = callbacks;
-    client->pkc_errlog = 0;
-    client->pkc_left = -1;
-    client->pkc_buf = (char *)0;
-    client->pkc_curpos = (char *)0;
-    client->pkc_strpos = 0;
-    client->pkc_incur = client->pkc_inend = 0;
+
+    /* pkg_adopt_socket() is the correct way to wrap an already-connected
+     * fd obtained from an external framework (Qt, Tcl, etc.) in a
+     * pkg_conn without re-doing the TCP connect/accept.  It replaces the
+     * historical pattern of BU_GET + manual field initialisation. */
+    client = pkg_adopt_socket(fd, callbacks, NULL);
+    if (client == PKC_ERROR) {
+	bu_log("pkg_adopt_socket failed for fd %d\n", fd);
+	return;
+    }
 
     int have_hello = 0;
     do {

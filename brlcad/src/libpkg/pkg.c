@@ -302,20 +302,33 @@ _pkg_io_read(struct pkg_conn *pc, void *buf, size_t n)
 {
     if (pc->pkc_tls_read)
 	return (ssize_t)pc->pkc_tls_read(pc->pkc_tls_ctx, buf, n);
-    if (pc->pkc_tx_kind == 1)
-	return PKG_READ(pc->pkc_in_fd, buf, n);
 #ifdef HAVE_WINSOCK_H
     /* pkc_fd is a WinSock SOCKET stored as int.  _get_osfhandle() must NOT
      * be called with a raw SOCKET value — on modern Windows it invokes
      * _invalid_parameter_noinfo_noreturn() which calls __fastfail() and
      * terminates the process with STATUS_FAST_FAIL_EXCEPTION (0xC0000409).
      * recv() accepts the SOCKET directly and is the correct call here.     */
+    if (pc->pkc_tx_kind == 1)
+	return PKG_READ(pc->pkc_in_fd, buf, n);
     {
 	int nb = (n > (size_t)INT_MAX) ? INT_MAX : (int)n;
 	return (ssize_t)recv((SOCKET)(uintptr_t)pc->pkc_fd, (char *)buf, nb, 0);
     }
 #else
-    return PKG_READ(pc->pkc_fd, buf, n);
+    /* Retry on EINTR: a signal may interrupt read()/write() before any
+     * bytes are transferred.  Per libcurl Curl_recv_plain (lib/sendf.c),
+     * the correct response is to restart the syscall.  This only applies
+     * to the raw-fd POSIX path; TLS callbacks manage their own state. */
+    {
+	ssize_t ret;
+	do {
+	    if (pc->pkc_tx_kind == 1)
+		ret = PKG_READ(pc->pkc_in_fd, buf, n);
+	    else
+		ret = PKG_READ(pc->pkc_fd, buf, n);
+	} while (ret < 0 && errno == EINTR);
+	return ret;
+    }
 #endif
 }
 
@@ -335,17 +348,27 @@ _pkg_io_write(struct pkg_conn *pc, const void *buf, size_t n)
 {
     if (pc->pkc_tls_write)
 	return (ssize_t)pc->pkc_tls_write(pc->pkc_tls_ctx, buf, n);
-    if (pc->pkc_tx_kind == 1)
-	return PKG_SEND(pc->pkc_out_fd, buf, n);
 #ifdef HAVE_WINSOCK_H
     /* Same reasoning as _pkg_io_read: pkc_fd is a WinSock SOCKET; must use
      * send() directly rather than PKG_SEND/_get_osfhandle().               */
+    if (pc->pkc_tx_kind == 1)
+	return PKG_SEND(pc->pkc_out_fd, buf, n);
     {
 	int nb = (n > (size_t)INT_MAX) ? INT_MAX : (int)n;
 	return (ssize_t)send((SOCKET)(uintptr_t)pc->pkc_fd, (const char *)buf, nb, 0);
     }
 #else
-    return PKG_SEND(pc->pkc_fd, buf, n);
+    /* Retry on EINTR (see _pkg_io_read comment). */
+    {
+	ssize_t ret;
+	do {
+	    if (pc->pkc_tx_kind == 1)
+		ret = PKG_SEND(pc->pkc_out_fd, buf, n);
+	    else
+		ret = PKG_SEND(pc->pkc_fd, buf, n);
+	} while (ret < 0 && errno == EINTR);
+	return ret;
+    }
 #endif
 }
 
@@ -1286,9 +1309,13 @@ pkg_send(int type, const char *buf, size_t len, struct pkg_conn *pc)
 	    return (int)(i > (ssize_t)sizeof(hdr) ? i - sizeof(hdr) : 0);
 	}
     } else if (pc->pkc_tx_kind == 1) {
-	i = writev(pc->pkc_out_fd, cmdvec, (len>0)?2:1);
+	/* Retry on EINTR: writev() may be interrupted before writing any
+	 * bytes (POSIX.1-2017 §2.9.5).  Per libcurl Curl_send_plain
+	 * (lib/sendf.c), restart the syscall.  A short write (0 < i <
+	 * total) cannot be retried atomically and is handled below. */
+	do { i = writev(pc->pkc_out_fd, cmdvec, (len>0)?2:1); } while (i < 0 && errno == EINTR);
     } else {
-	i = writev(pc->pkc_fd, cmdvec, (len>0)?2:1);
+	do { i = writev(pc->pkc_fd, cmdvec, (len>0)?2:1); } while (i < 0 && errno == EINTR);
     }
     if (!pc->pkc_tls_write && i != (ssize_t)(len+sizeof(hdr))) {
 	if (i < 0) {
@@ -1443,9 +1470,9 @@ pkg_2send(int type, const char *buf1, size_t len1, const char *buf2, size_t len2
 	    return (int)(i > (ssize_t)sizeof(hdr) ? i - sizeof(hdr) : 0);
 	}
     } else if (pc->pkc_tx_kind == 1) {
-	i = writev(pc->pkc_out_fd, cmdvec, 3);
+	do { i = writev(pc->pkc_out_fd, cmdvec, 3); } while (i < 0 && errno == EINTR);
     } else {
-	i = writev(pc->pkc_fd, cmdvec, 3);
+	do { i = writev(pc->pkc_fd, cmdvec, 3); } while (i < 0 && errno == EINTR);
     }
     if (!pc->pkc_tls_write && i != (ssize_t)(len1+len2+sizeof(hdr))) {
 	if (i < 0) {
