@@ -34,6 +34,7 @@
 #include "bu/time.h"
 #include "raytrace.h"
 
+#include "ged/bsg_view_obj.h"
 #include "../ged_private.h"
 #include "./ged_draw.h"
 
@@ -1422,7 +1423,7 @@ ged_draw_guts(struct ged *gedp, int argc, const char *argv[], int kind)
 	    /* Done checking options. If our display is non-empty,
 	     * add -R to keep current view.
 	     */
-	    if (BU_LIST_NON_EMPTY(gedp->i->ged_gdp->gd_headDisplay)) {
+	    if (bsg_view_obj_has_groups(gedp)) {
 		bu_vls_strcat(&vls, " -R");
 	    }
 	    break;
@@ -1549,7 +1550,7 @@ ged_draw_guts(struct ged *gedp, int argc, const char *argv[], int kind)
 	bu_vls_free(&vls);
 
 	empty_display = 1;
-	if (BU_LIST_NON_EMPTY(gedp->i->ged_gdp->gd_headDisplay)) {
+	if (bsg_view_obj_has_groups(gedp)) {
 	    empty_display = 0;
 	}
 

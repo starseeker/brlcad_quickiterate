@@ -330,6 +330,13 @@ bsg_view_obj_group_is_phony(void *group_handle);
 GED_EXPORT extern void
 bsg_view_obj_zap(struct ged *gedp);
 
+/**
+ * Return 1 if any display-list groups exist (i.e., something is drawn),
+ * 0 if the display is empty.
+ */
+GED_EXPORT extern int
+bsg_view_obj_has_groups(struct ged *gedp);
+
 __END_DECLS
 
 #endif /* GED_BSG_VIEW_OBJ_H */

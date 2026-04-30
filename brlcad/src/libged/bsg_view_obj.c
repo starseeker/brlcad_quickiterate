@@ -449,6 +449,17 @@ bsg_view_obj_zap(struct ged *gedp)
 }
 
 
+int
+bsg_view_obj_has_groups(struct ged *gedp)
+{
+    struct bu_list *hdlp;
+    if (!gedp || !gedp->i || !gedp->i->ged_gdp)
+	return 0;
+    hdlp = gedp->i->ged_gdp->gd_headDisplay;
+    return BU_LIST_NON_EMPTY(hdlp);
+}
+
+
 /*
  * Local Variables:
  * mode: C
