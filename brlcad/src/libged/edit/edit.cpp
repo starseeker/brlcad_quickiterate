@@ -1875,7 +1875,7 @@ _exec_desc_cmd_on_edit(struct rt_edit *s, struct ged *gedp,
 				argv[argi]);
 			return BRLCAD_ERROR;
 		    }
-		    s->e_para[ci] = val;
+		    s->e_para[p->index + ci] = val;
 		    argi++;
 		}
 		break;
