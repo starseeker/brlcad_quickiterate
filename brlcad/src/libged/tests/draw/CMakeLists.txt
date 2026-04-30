@@ -290,7 +290,7 @@ distclean(${CMAKE_CURRENT_BINARY_DIR}/mged_bsg_t4.g)
 distclean(${CMAKE_CURRENT_BINARY_DIR}/mged_bsg_t5.g)
 
 # Phase 5: rtwizard BSG migration exit-criteria test
-brlcad_addexec(ged_test_rtwizard_bsg "rtwizard_bsg.cpp;util.cpp" "libged;libdm;libbsg" TEST)
+brlcad_addexec(ged_test_rtwizard_bsg "rtwizard_bsg.cpp;util.cpp" "libged;libdm;libbsg;libicv" TEST)
 if(TARGET ged_test_rtwizard_bsg)
   foreach(tdp ${test_deps})
     if (TARGET tdp)
@@ -305,6 +305,8 @@ endif()
 distclean(${CMAKE_CURRENT_BINARY_DIR}/rtw_bsg_t1.g)
 distclean(${CMAKE_CURRENT_BINARY_DIR}/rtw_bsg_t2.g)
 distclean(${CMAKE_CURRENT_BINARY_DIR}/rtw_bsg_t3.g)
+distclean(${CMAKE_CURRENT_BINARY_DIR}/rtw_bsg_t4.g)
+distclean(${CMAKE_CURRENT_BINARY_DIR}/rtw_bsg_t5.g)
 
 cmakefiles(
   README
