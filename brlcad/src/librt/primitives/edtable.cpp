@@ -69,9 +69,11 @@ extern const struct rt_edit_prim_desc *rt_edit_extrude_edit_desc(void);
 extern const struct rt_edit_prim_desc *rt_edit_arb_edit_desc(void);
 
 extern const struct rt_edit_prim_desc *rt_edit_metaball_edit_desc(void);
+extern const struct rt_edit_prim_desc *rt_edit_brep_edit_desc(void);
 extern int rt_edit_tor_get_params(struct rt_edit *s, int cmd_id, fastf_t *vals);
 extern int rt_edit_ell_get_params(struct rt_edit *s, int cmd_id, fastf_t *vals);
 extern int rt_edit_metaball_get_params(struct rt_edit *s, int cmd_id, fastf_t *vals);
+extern int rt_edit_brep_get_params(struct rt_edit *s, int cmd_id, fastf_t *vals);
 
 EDIT_DECLARE_INTERFACE(tor);
 EDIT_DECLARE_INTERFACE(tgc);
@@ -871,20 +873,21 @@ const struct rt_edit_functab EDOBJ[] = {
 	/* 37 */
 	RT_FUNCTAB_MAGIC, "ID_BREP", "brep",
 	NULL,  /* label */
-	NULL,  /* keypoint */
+	NULL,  /* keypoint — OBJ[ID_BREP].ft_keypoint is NULL; generic
+		   edit_keypoint would crash if used */
 	NULL,  /* s->e_axes_pos */
 	NULL,  /* write_params */
 	NULL,  /* read_params */
-	EDFUNCTAB_FUNC_EDIT_CAST(edit_generic), /* edit */
-	EDFUNCTAB_FUNC_EDITXY_CAST(edit_generic_xy), /* edit xy - BREP has a dedicated editor in Archer (BRep editor plugin); basic matrix-level XY editing via edit_generic_xy is the fallback here */
-       	NULL,  /* prim edit create */
-	NULL,  /* prim edit destroy */
-       	NULL,  /* prim edit reset*/
-	NULL,  /* menu_str */
-	NULL,  /* set edit mode */
-        NULL   /* menu_item */,
-	NULL   /* edit_desc */,
-	NULL   /* edit_get_params */
+	EDFUNCTAB_FUNC_EDIT_CAST(rt_edit_brep_edit), /* edit */
+	EDFUNCTAB_FUNC_EDITXY_CAST(rt_edit_brep_edit_xy), /* edit xy */
+	EDFUNCTAB_FUNC_PRIMEDIT_CREATE_CAST(rt_edit_brep_prim_edit_create),    /* prim edit create */
+	EDFUNCTAB_FUNC_PRIMEDIT_DESTROY_CAST(rt_edit_brep_prim_edit_destroy),  /* prim edit destroy */
+	EDFUNCTAB_FUNC_PRIMEDIT_RESET_CAST(rt_edit_brep_prim_edit_reset),      /* prim edit reset */
+	EDFUNCTAB_FUNC_MENU_STR_CAST(edit_menu_str),   /* menu_str */
+	EDFUNCTAB_FUNC_SET_EDIT_MODE_CAST(rt_edit_brep_set_edit_mode), /* set edit mode */
+	NULL   /* menu_item */,
+	EDFUNCTAB_FUNC_EDIT_DESC_CAST(rt_edit_brep_edit_desc)   /* edit_desc */,
+	EDFUNCTAB_FUNC_GET_PARAMS_CAST(rt_edit_brep_get_params)  /* edit_get_params */
     },
 
     {

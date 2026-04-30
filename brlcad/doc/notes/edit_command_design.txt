@@ -147,7 +147,9 @@ Primitives WITHOUT ft_edit_desc (28/47) — remaining backlog:
   bot     (ID_BOT)       — 17 ECMDs (vertex/edge/tri pick/move/fuse/del)
   UNUSED1/UNUSED2        — skip
   binunif (ID_BINUNIF)   — no ECMDs (not needed - arbitrary blob data, no sensible ops)
-  brep    (ID_BREP)      — no ECMDs currently (rich future work)
+  brep    (ID_BREP)      — 3 ECMDs: SRF_SELECT, SRF_CV_MOVE, SRF_CV_SET
+                           (Phase 5.1 DONE — CV edits do not check trim
+                           influence; see edbrep.cpp NOTE)
   constrnt(ID_CONSTRAINT)— no ECMDs
   revolve (ID_REVOLVE)   — no ECMDs
   pnts    (ID_PNTS)      — no ECMDs
@@ -158,7 +160,11 @@ Primitives WITHOUT ft_edit_desc (28/47) — remaining backlog:
   material(ID_MATERIAL)  — no ECMDs
 
 Phase 5 priority order:
-  1. brep    — investigate Archer brep editing support, should at least express that - ideally any editing capabilities the old bspline solid offered as well (to move a control point we will need at least MOVE_CP and PICK_CP, for example), since brep is supposed to replace it.  Definitely recall being able to manipulate brep control points in Archer at one time in the past, although our original implementation wasn't able to maintain brep patch alignment at trimming edges while doing so.  Might be a good idea to only permit editing of control points where movement of them can't distort regions involved with trimming curves unless a user specifies a force flag.
+  1. brep    — DONE (Phase 5.1): SRF_SELECT, SRF_CV_MOVE, SRF_CV_SET.
+               No trim-safety guard (per revised plan); users should validate
+               brep after CV edits.  'brep geo' deprecated in favour of
+               'edit <obj> select_surface_cv / move_surface_cv /
+               set_surface_cv_position'.
   2. arbn    - need ability to add, remove planes and manipulate individual planes (rotate and translate)
   3. datum   - check how we currently manipulate these - we probably need to be able to change type, move rotate, and ???
   4. annot   - check what existing commands we have for annotation manipulation - there's probably some reorganization/consolidation to do for annotate.

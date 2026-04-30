@@ -24,6 +24,7 @@ brlcad_addexec(rt_edit_test_bot bot.cpp "librt" TEST)
 
 brlcad_addexec(rt_edit_test_sketch sketch.cpp "librt" TEST)
 brlcad_addexec(rt_edit_test_bspline bspline.cpp "librt" TEST)
+brlcad_addexec(rt_edit_test_brep brep.cpp "librt;libbrep" TEST)
 brlcad_addexec(rt_edit_test_nmg nmg.cpp "librt;libnmg;libwdb" TEST)
 brlcad_addexec(rt_edit_test_comb comb.cpp "librt;libwdb" TEST)
 
@@ -48,6 +49,7 @@ set(
   extrude.cpp
   sketch.cpp
   bspline.cpp
+  brep.cpp
   metaball.cpp
   hrt.cpp
   ars.cpp

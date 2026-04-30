@@ -17,6 +17,7 @@ set(
   primitives/arb8/edarb.c
   primitives/ars/edars.c
   primitives/bot/edbot.c
+  primitives/brep/edbrep.cpp
   primitives/bspline/edbspline.c
   primitives/cline/edcline.c
   primitives/datum/eddatum.c
