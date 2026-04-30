@@ -19,21 +19,24 @@
  */
 /** @file mged/dozoom.c
  *
- * Phase 5 (drawing_stack_modernization): MGED scene rendering via the BSG
- * draw path.
+ * Phase 6.5 (drawing_stack_modernization): MGED scene rendering via the BSG
+ * draw path, for both non-stereo and stereo eyes.
  *
- * The non-stereo rendering path (which_eye == 0) now delegates entirely to
- * dm_draw_objs(), which uses bsg_view_traverse() when a BSG scene root is
- * present.  Edit-mode objects (s_iflag == UP) are rendered at their
- * edited position by setting view_state->vs_gvp->gv_edit_mat to point at
- * vs_model2objview before the draw call; dm_draw_scene_obj() picks this up
- * and swaps the modelview matrix for the duration of each such object.
+ * Both paths delegate to dm_draw_objs(), which uses bsg_view_traverse() when
+ * a BSG scene root is present.  Edit-mode objects (s_iflag == UP) are
+ * rendered at their edited position by setting view_state->vs_gvp->gv_edit_mat
+ * to point at vs_model2objview before the draw call; dm_draw_scene_obj()
+ * picks this up and swaps the modelview matrix for the duration of each
+ * such object.
  *
- * The stereo path (which_eye != 0) retains the legacy dm_draw_head_dl()
- * implementation: stereo uses a combined perspective + eye-offset matrix that
- * cannot be expressed cleanly through the separate dm_loadpmatrix / modelview
- * split that dm_draw_objs() expects.  It is left as a known TODO for a
- * follow-on phase.
+ * The stereo path (which_eye == 1 or 2) builds a Deering perspective matrix
+ * with a left/right eye offset and installs it into v->gv_pmat; dm_draw_objs()
+ * then loads it via dm_loadpmatrix() in the standard separated
+ * projection/modelview pipeline.  Stereo viewport selection (which controls
+ * the split-screen left/right scissor regions in gl_loadMatrix) is performed
+ * by an explicit dm_loadmatrix() with which_eye != 0 before dm_draw_objs()
+ * runs.  v->gv_pmat is saved and restored around the stereo render so the
+ * non-stereo perspective state is not perturbed.
  */
 
 #include "common.h"
@@ -62,9 +65,19 @@ unsigned char geometry_default_color[] = { 255, 0, 0 };
 /*
  * Paint one eye of the scene.
  *
- * which_eye == 0  Normal (non-stereo) view — BSG path.
- * which_eye == 1  Stereo right eye — legacy dl_* path.
- * which_eye == 2  Stereo left eye  — legacy dl_* path.
+ * which_eye == 0  Normal (non-stereo) view.
+ * which_eye == 1  Stereo right eye.
+ * which_eye == 2  Stereo left eye.
+ *
+ * In all cases rendering is performed by dm_draw_objs(), which uses the
+ * BSG view traverse when v->bsg_root is set.  The stereo case differs from
+ * the non-stereo case only in that:
+ *   - v->gv_pmat is overridden with a Deering eye-offset perspective for
+ *     the duration of the call (saved/restored around dm_draw_objs);
+ *   - dm_loadmatrix(DMP, gv_model2view, which_eye) is called once before
+ *     dm_draw_objs() so that gl_loadMatrix() can select the correct stereo
+ *     viewport/scissor region (the matrix upload there is harmless because
+ *     dm_draw_objs() will re-upload model2view immediately after).
  */
 void
 dozoom(struct mged_state *s, int which_eye)
@@ -85,20 +98,22 @@ dozoom(struct mged_state *s, int which_eye)
      * s->mged_curr_dm without updating the view's dmp pointer. */
     v->dmp = (void *)DMP;
 
-    /* ------------------------------------------------------------------
-     * Non-stereo path: clean BSG rendering via dm_draw_objs().
-     * ------------------------------------------------------------------ */
+    /* gv_pmat may be replaced for the stereo path; remember the original
+     * so we can restore it before returning. */
+    mat_t saved_pmat;
+    MAT_COPY(saved_pmat, v->gv_pmat);
+
     if (which_eye == 0) {
-	/* Ensure gv_pmat is current.  The GED "perspective" command normally
-	 * keeps this in sync, but if the shear-perspective (gv_eye_pos[Z] !=
-	 * 1.0) mode is in use we recompute it here. */
+	/* ----- Non-stereo: keep gv_pmat in sync with the perspective state.
+	 * The GED "perspective" command normally maintains this, but the
+	 * shear-perspective (gv_eye_pos[Z] != 1.0) mode needs an explicit
+	 * rebuild here. */
 	if (v->gv_perspective >= SMALL_FASTF) {
 	    if (!EQUAL(v->gv_eye_pos[Z], 1.0)) {
 		point_t l, h;
 		VSET(l, -1.0, -1.0, -1.0);
 		VSET(h,  1.0,  1.0, 200.0);
 		deering_persp_mat(v->gv_pmat, l, h, v->gv_eye_pos);
-		/* Keep the file-scope copy for titles.c which reads it. */
 		MAT_COPY(perspective_mat, v->gv_pmat);
 	    } else {
 		persp_mat(perspective_mat, v->gv_perspective,
@@ -107,67 +122,18 @@ dozoom(struct mged_state *s, int which_eye)
 		MAT_COPY(v->gv_pmat, perspective_mat);
 	    }
 	}
-
-	/* Expose the edit-mode matrix on the view so dm_draw_scene_obj()
-	 * can use it for illuminated objects without a second render pass. */
-	if (s->global_editing_state != ST_VIEW)
-	    v->gv_edit_mat = view_state->vs_model2objview;
-	else
-	    v->gv_edit_mat = NULL;
-
-	/* dm_draw_objs() handles:
-	 *   - framebuffer overlay/underlay
-	 *   - dm_loadmatrix(gv_model2view)
-	 *   - dm_loadpmatrix(gv_pmat) for perspective
-	 *   - bsg_scene_root_sync + bsg_view_traverse (BSG path, since
-	 *     setup.c has called bsg_scene_root_create for this view)
-	 *   - per-object edit matrix swap for s_iflag == UP objects
-	 */
-	dm_draw_objs(v, NULL, NULL);
-
-	/* draw predictor vlist */
-	if (mged_variables->mv_predictor) {
-	    dm_set_fg(DMP,
-		      color_scheme->cs_predictor[0],
-		      color_scheme->cs_predictor[1],
-		      color_scheme->cs_predictor[2], 1, 1.0);
-	    dm_draw_vlist(DMP, (struct bv_vlist *)&s->mged_curr_dm->dm_p_vlist);
-	}
-
-	/* Clear the edit-mat pointer now that the frame is done. */
-	v->gv_edit_mat = NULL;
-
-	/* Count drawn objects for usepen.c zone-based picking.  All objects
-	 * whose s_flag is UP after the traversal were actually rendered. */
-	if (v->bsg_root) {
-	    struct bv_scene_obj *root = (struct bv_scene_obj *)v->bsg_root;
-	    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
-		struct bv_scene_obj *sp =
-		    (struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
-		if (sp && sp->s_flag == UP)
-		    s->mged_curr_dm->dm_ndrawn++;
-	    }
-	}
-
-	if (s->mged_curr_dm != save_dm_list) set_curr_dm(s, save_dm_list);
-	return;
-    }
-
-    /* ------------------------------------------------------------------
-     * Stereo path (which_eye == 1 or 2): legacy dm_draw_head_dl().
-     *
-     * Stereo uses a combined Deering perspective + eye-offset matrix that
-     * cannot be separated into the dm_loadpmatrix / modelview split that
-     * dm_draw_objs() expects.  TODO: revisit in a follow-on phase.
-     * ------------------------------------------------------------------ */
-    {
-	int ndrawn = 0;
-	fastf_t inv_viewsize = v->gv_isize;
-	mat_t newmat = MAT_INIT_ZERO;
-	matp_t mat = newmat;
-	short r = -1, g = -1, b = -1;
-
-	fastf_t to_eye_scr = 1 / tan(v->gv_perspective * DEG2RAD * 0.5);
+    } else {
+	/* ----- Stereo: install a Deering eye-offset perspective into
+	 * v->gv_pmat so dm_draw_objs() will load it via dm_loadpmatrix().
+	 *
+	 * Stereo requires a non-zero gv_perspective: the eye-distance
+	 * to_eye_scr below derives from it.  When mv_perspective_mode is
+	 * enabled but gv_perspective happens to be 0, fall back to a
+	 * sensible default so we don't divide by zero. */
+	fastf_t persp = v->gv_perspective;
+	if (persp < SMALL_FASTF)
+	    persp = 90.0;
+	fastf_t to_eye_scr = 1 / tan(persp * DEG2RAD * 0.5);
 	fastf_t eye_delta_scr = mged_variables->mv_eye_sep_dist * 0.5 / SCR_WIDTH_PHYS;
 	point_t l, h, eye;
 	VSET(l, -1.0, -1.0, -1.0);
@@ -182,73 +148,67 @@ dozoom(struct mged_state *s, int which_eye)
 	} else {
 	    eye[X] = -eye_delta_scr;
 	}
-	deering_persp_mat(perspective_mat, l, h, eye);
-	mat = v->gv_model2view;
-	bn_mat_mul(newmat, perspective_mat, mat);
-	mat = newmat;
+	deering_persp_mat(v->gv_pmat, l, h, eye);
+	MAT_COPY(perspective_mat, v->gv_pmat);
 
-	dm_loadmatrix(DMP, mat, which_eye);
+	/* Force dm_draw_objs() to apply the perspective matrix even if
+	 * v->gv_perspective itself was 0 (it gates the dm_loadpmatrix call
+	 * on SMALL_FASTF < gv_perspective). */
+	if (v->gv_perspective < SMALL_FASTF)
+	    v->gv_perspective = persp;
 
-	if (dm_get_transparency(DMP)) {
-	    ndrawn = dm_draw_head_dl(DMP, (struct bu_list *)ged_dl(s->gedp),
-				    1.0, inv_viewsize, r, g, b,
-				    mged_variables->mv_linewidth,
-				    mged_variables->mv_dlist, 0,
-				    geometry_default_color, 1,
-				    mged_variables->mv_dlist);
-	    if (s->mged_curr_dm != save_dm_list) set_curr_dm(s, save_dm_list);
-	    s->mged_curr_dm->dm_ndrawn += ndrawn;
-	    dm_set_depth_mask(DMP, 0);
-	    ndrawn = dm_draw_head_dl(DMP, (struct bu_list *)ged_dl(s->gedp),
-				    0.0, inv_viewsize, r, g, b,
-				    mged_variables->mv_linewidth,
-				    mged_variables->mv_dlist, 0,
-				    geometry_default_color, 0,
-				    mged_variables->mv_dlist);
-	    dm_set_depth_mask(DMP, 1);
-	} else {
-	    ndrawn = dm_draw_head_dl(DMP, (struct bu_list *)ged_dl(s->gedp),
-				    1.0, inv_viewsize, r, g, b,
-				    mged_variables->mv_linewidth,
-				    mged_variables->mv_dlist, 0,
-				    geometry_default_color, 1,
-				    mged_variables->mv_dlist);
-	}
-	if (s->mged_curr_dm != save_dm_list) set_curr_dm(s, save_dm_list);
-	s->mged_curr_dm->dm_ndrawn += ndrawn;
-
-	if (mged_variables->mv_predictor) {
-	    dm_set_fg(DMP,
-		      color_scheme->cs_predictor[0],
-		      color_scheme->cs_predictor[1],
-		      color_scheme->cs_predictor[2], 1, 1.0);
-	    dm_draw_vlist(DMP, (struct bv_vlist *)&s->mged_curr_dm->dm_p_vlist);
-	}
-
-	if (s->global_editing_state == ST_VIEW)
-	    return;
-
-	if (v->gv_perspective <= 0) {
-	    mat = view_state->vs_model2objview;
-	} else {
-	    bn_mat_mul(newmat, perspective_mat, view_state->vs_model2objview);
-	    mat = newmat;
-	}
-	dm_loadmatrix(DMP, mat, which_eye);
-	inv_viewsize /= MEDIT(s)->model_changes[15];
-	dm_set_fg(DMP,
-		  color_scheme->cs_geo_hl[0],
-		  color_scheme->cs_geo_hl[1],
-		  color_scheme->cs_geo_hl[2], 1, 1.0);
-	ndrawn = dm_draw_head_dl(DMP, (struct bu_list *)ged_dl(s->gedp),
-				 1.0, inv_viewsize, r, g, b,
-				 mged_variables->mv_linewidth,
-				 mged_variables->mv_dlist, 1,
-				 geometry_default_color, 0,
-				 mged_variables->mv_dlist);
-	s->mged_curr_dm->dm_ndrawn += ndrawn;
-	if (s->mged_curr_dm != save_dm_list) set_curr_dm(s, save_dm_list);
+	/* Stereo viewport / scissor selection.  gl_loadMatrix() inspects
+	 * which_eye (1 = right, 2 = left) and adjusts glViewport+glScissor
+	 * accordingly; the matrix upload itself is then redone by
+	 * dm_draw_objs() with which_eye=0 (which is a no-op for viewport). */
+	dm_loadmatrix(DMP, v->gv_model2view, which_eye);
     }
+
+    /* Expose the edit-mode matrix on the view so dm_draw_scene_obj() can
+     * use it for illuminated objects (s_iflag == UP) without a second pass. */
+    if (s->global_editing_state != ST_VIEW)
+	v->gv_edit_mat = view_state->vs_model2objview;
+    else
+	v->gv_edit_mat = NULL;
+
+    /* dm_draw_objs() handles:
+     *   - framebuffer overlay/underlay
+     *   - dm_loadmatrix(gv_model2view)
+     *   - dm_loadpmatrix(gv_pmat) for perspective (incl. stereo eye-offset)
+     *   - bsg_scene_root_sync + bsg_view_traverse (BSG path, since
+     *     setup.c has called bsg_scene_root_create for this view)
+     *   - per-object edit matrix swap for s_iflag == UP objects
+     */
+    dm_draw_objs(v, NULL, NULL);
+
+    /* draw predictor vlist */
+    if (mged_variables->mv_predictor) {
+	dm_set_fg(DMP,
+		  color_scheme->cs_predictor[0],
+		  color_scheme->cs_predictor[1],
+		  color_scheme->cs_predictor[2], 1, 1.0);
+	dm_draw_vlist(DMP, (struct bv_vlist *)&s->mged_curr_dm->dm_p_vlist);
+    }
+
+    /* Clear edit-mat pointer now that the frame is done. */
+    v->gv_edit_mat = NULL;
+
+    /* Restore gv_pmat (no-op for which_eye == 0). */
+    MAT_COPY(v->gv_pmat, saved_pmat);
+
+    /* Count drawn objects for usepen.c zone-based picking.  All objects
+     * whose s_flag is UP after the traversal were actually rendered. */
+    if (v->bsg_root) {
+	struct bv_scene_obj *root = (struct bv_scene_obj *)v->bsg_root;
+	for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+	    struct bv_scene_obj *sp =
+		(struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
+	    if (sp && sp->s_flag == UP)
+		s->mged_curr_dm->dm_ndrawn++;
+	}
+    }
+
+    if (s->mged_curr_dm != save_dm_list) set_curr_dm(s, save_dm_list);
 }
 
 /*
