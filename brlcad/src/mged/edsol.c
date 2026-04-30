@@ -6021,8 +6021,8 @@ oedit_accept(struct mged_state *s)
 	     gdlp = bsg_view_obj_next_group(s->gedp, gdlp)) {
 
 	    struct bu_ptbl *_sl = bsg_view_obj_group_solid_list(gdlp);
-	for (size_t _si = 0; _si < BU_PTBL_LEN(_sl); _si++) {
-	    sp = (struct bv_scene_obj *)BU_PTBL_GET(_sl, _si);
+	    for (size_t _si = 0; _si < BU_PTBL_LEN(_sl); _si++) {
+		sp = (struct bv_scene_obj *)BU_PTBL_GET(_sl, _si);
 		if (sp->s_iflag == DOWN)
 		    continue;
 		(void)replot_original_solid(s, sp);
@@ -6280,8 +6280,8 @@ sedit_reject(struct mged_state *s)
 	     gdlp = bsg_view_obj_next_group(s->gedp, gdlp)) {
 
 	    struct bu_ptbl *_sl = bsg_view_obj_group_solid_list(gdlp);
-	for (size_t _si = 0; _si < BU_PTBL_LEN(_sl); _si++) {
-	    sp = (struct bv_scene_obj *)BU_PTBL_GET(_sl, _si);
+	    for (size_t _si = 0; _si < BU_PTBL_LEN(_sl); _si++) {
+		sp = (struct bv_scene_obj *)BU_PTBL_GET(_sl, _si);
 		if (!sp->s_u_data)
 		    continue;
 		struct ged_bv_data *bdatas = (struct ged_bv_data *)sp->s_u_data;
