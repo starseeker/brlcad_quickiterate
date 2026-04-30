@@ -138,32 +138,56 @@ Primitives WITHOUT ft_edit_desc (28/47) — remaining backlog:
   bspline (ID_BSPLINE)   — 5 ECMDs: VTRANS, SPLINE_VPICK, PICK_CP, PICK_KNOT, SET_KNOT
   sph     (ID_SPH)       — no ECMDs (ell with A=B=C; shares ell edit - provide edit ops that present sph parameters to user rather than full ELL params)
   nmg     (ID_NMG)       — 14 ECMDs (vertex/edge/face pick/move/split/kill)
-  arbn    (ID_ARBN)      — no ECMDs
+  arbn    (ID_ARBN)      — 6 ECMDs: PLANE_SELECT, PLANE_SET_DIST, PLANE_SET_NORM,
+                           PLANE_ROTATE, PLANE_ADD, PLANE_DEL
+                           (Phase 5.2 DONE — also fixed pre-existing shallow-copy
+                           bug in annot.c ant_copy ANN_TSEG_MAGIC path)
   grip    (ID_GRIP)      — no ECMDs
   joint   (ID_JOINT)     — no ECMDs
   hf      (ID_HF)        — no ECMDs (height field, deprecated)
   sketch  (ID_SKETCH)    — 20 ECMDs (vertex/segment add/move/del/split)
   submodel(ID_SUBMODEL)  — no ECMDs
   bot     (ID_BOT)       — 17 ECMDs (vertex/edge/tri pick/move/fuse/del)
+                           (Phase 5.6 DONE — descriptor + get_params for all
+                           17 ops; PICKV/PICKE/PICKT now accept e_para index
+                           selection; MODE/ORIENT/FLAGS/FMODE accept e_para
+                           direct-set in addition to interactive callback path)
   UNUSED1/UNUSED2        — skip
   binunif (ID_BINUNIF)   — no ECMDs (not needed - arbitrary blob data, no sensible ops)
-  brep    (ID_BREP)      — no ECMDs currently (rich future work)
+  brep    (ID_BREP)      — 3 ECMDs: SRF_SELECT, SRF_CV_MOVE, SRF_CV_SET
+                           (Phase 5.1 DONE — CV edits do not check trim
+                           influence; see edbrep.cpp NOTE)
   constrnt(ID_CONSTRAINT)— no ECMDs
-  revolve (ID_REVOLVE)   — no ECMDs
+  revolve (ID_REVOLVE)   — 5 ECMDs: SET_V, SET_AXIS, SET_R, SET_ANG, SET_SKT
+                           (Phase 5.5 DONE)
   pnts    (ID_PNTS)      — no ECMDs
-  annot   (ID_ANNOT)     — no ECMDs
+  annot   (ID_ANNOT)     — 4 ECMDs: SET_TEXT, SET_POS, SET_TSEG_TXT_SIZE, VERT_MOVE
+                           (Phase 5.4 DONE)
   hrt     (ID_HRT)       — no ECMDs
-  datum   (ID_DATUM)     — no ECMDs
+  datum   (ID_DATUM)     — 4 ECMDs: SET_TYPE, SET_PNT, SET_DIR, SET_W
+                           (Phase 5.3 DONE)
   script  (ID_SCRIPT)    — no ECMDs
   material(ID_MATERIAL)  — no ECMDs
 
 Phase 5 priority order:
-  1. brep    — investigate Archer brep editing support, should at least express that - ideally any editing capabilities the old bspline solid offered as well (to move a control point we will need at least MOVE_CP and PICK_CP, for example), since brep is supposed to replace it.  Definitely recall being able to manipulate brep control points in Archer at one time in the past, although our original implementation wasn't able to maintain brep patch alignment at trimming edges while doing so.  Might be a good idea to only permit editing of control points where movement of them can't distort regions involved with trimming curves unless a user specifies a force flag.
-  2. arbn    - need ability to add, remove planes and manipulate individual planes (rotate and translate)
-  3. datum   - check how we currently manipulate these - we probably need to be able to change type, move rotate, and ???
-  4. annot   - check what existing commands we have for annotation manipulation - there's probably some reorganization/consolidation to do for annotate.
-  5. revolve
-  6. bot     — large meshes, 17 ops (may need special treatment)
+  1. brep    — DONE (Phase 5.1): SRF_SELECT, SRF_CV_MOVE, SRF_CV_SET.
+               No trim-safety guard (per revised plan); users should validate
+               brep after CV edits.  'brep geo' deprecated in favour of
+               'edit <obj> select_surface_cv / move_surface_cv /
+               set_surface_cv_position'.
+  2. arbn    — DONE (Phase 5.2): 6 plane ops (select, set_dist, set_norm,
+               rotate, add, del).  Also fixed shallow-copy bug in annot.c.
+  3. datum   — DONE (Phase 5.3): 4 ops (set_type, set_pnt, set_dir, set_w).
+               Type lowering zeroes removed fields silently.
+  4. annot   — DONE (Phase 5.4): 4 ops (set_text, set_pos, set_tseg_txt_size,
+               vert_move).  Operates on first ANN_TSEG_MAGIC segment.
+  5. revolve — DONE (Phase 5.5): 5 ops (set_v, set_axis, set_r, set_ang,
+               set_skt).  Angle in degrees in/out; stored as radians.
+  6. bot     — DONE (Phase 5.6): 17 ops (select_vertex/edge/face by index,
+               move_vertex/edge/face/vertex_list, split_edge/face, delete_face,
+               fuse_vertices/faces, set_mode/orientation/face_thickness/
+               face_mode/flags).  Interactive pick/mode/orient callbacks
+               preserved; e_para path added for CLI/descriptor use.
   7. pnts    - add pt, remove pt, select/deselect pnt (either by index or by "within spherical or bounding box volume", move selected pts
   8. sketch  — 20 ops (depends on sketch data structures)
   9. ars     — 17 ops

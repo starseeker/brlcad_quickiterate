@@ -14,12 +14,17 @@ endif(BRLCAD_ENABLE_OPENCL)
 
 set(
   LIBRT_PRIMEDIT_SOURCES
+  primitives/annot/edannot.c
   primitives/arb8/edarb.c
+  primitives/arbn/edarbn.c
   primitives/ars/edars.c
   primitives/bot/edbot.c
+  primitives/brep/edbrep.cpp
   primitives/bspline/edbspline.c
   primitives/cline/edcline.c
   primitives/datum/eddatum.c
+  primitives/datum/eddatum2.c
+  primitives/revolve/edrevolve.c
   primitives/dsp/eddsp.c
   primitives/ebm/edebm.c
   primitives/ehy/edehy.c
