@@ -32,13 +32,63 @@
 #include "bu/str.h"
 #include "bu/getopt.h"
 #include "rt/geom.h"
+#include "ged/bsg_view_obj.h"
 
 #include "../ged_private.h"
+
+/* Callback data for renaming group paths (anywhere in path) */
+struct move_all_rename_data {
+    const char *old_name;
+    const char *new_name;
+};
+
+static int
+move_all_rename_group_cb(void *group_handle, void *userdata)
+{
+    struct move_all_rename_data *data = (struct move_all_rename_data *)userdata;
+    const char *path = bsg_view_obj_group_path(group_handle);
+    if (!path)
+	return 1; /* continue */
+
+    int first = 1;
+    int found = 0;
+    struct bu_vls new_path = BU_VLS_INIT_ZERO;
+    char *dupstr = bu_strdup(path);
+    char *tok = strtok(dupstr, "/");
+
+    while (tok) {
+	if (BU_STR_EQUAL(tok, data->old_name)) {
+	    found = 1;
+	    if (first) {
+		first = 0;
+		bu_vls_printf(&new_path, "%s", data->new_name);
+	    } else {
+		bu_vls_printf(&new_path, "/%s", data->new_name);
+	    }
+	} else {
+	    if (first) {
+		first = 0;
+		bu_vls_printf(&new_path, "%s", tok);
+	    } else {
+		bu_vls_printf(&new_path, "/%s", tok);
+	    }
+	}
+	tok = strtok((char *)NULL, "/");
+    }
+
+    if (found) {
+	bsg_view_obj_group_set_path(group_handle, bu_vls_cstr(&new_path));
+    }
+
+    free((void *)dupstr);
+    bu_vls_free(&new_path);
+    return 1; /* continue */
+}
+
 
 static int
 move_all_func(struct ged *gedp, int nflag, const char *old_name, const char *new_name)
 {
-    struct display_list *gdlp;
     struct directory *dp;
     struct rt_db_internal intern;
     struct rt_comb_internal *comb;
@@ -182,41 +232,8 @@ move_all_func(struct ged *gedp, int nflag, const char *old_name, const char *new
 
     if (!nflag) {
 	/* Change object name anywhere in the display list path. */
-	for (BU_LIST_FOR(gdlp, display_list, gedp->i->ged_gdp->gd_headDisplay)) {
-	    int first = 1;
-	    int found = 0;
-	    struct bu_vls new_path = BU_VLS_INIT_ZERO;
-	    char *dupstr = bu_strdup(bu_vls_addr(&gdlp->dl_path));
-	    char *tok = strtok(dupstr, "/");
-
-	    while (tok) {
-		if (BU_STR_EQUAL(tok, old_name)) {
-		    found = 1;
-
-		    if (first) {
-			first = 0;
-			bu_vls_printf(&new_path, "%s", new_name);
-		    } else
-			bu_vls_printf(&new_path, "/%s", new_name);
-		} else {
-		    if (first) {
-			first = 0;
-			bu_vls_printf(&new_path, "%s", tok);
-		    } else
-			bu_vls_printf(&new_path, "/%s", tok);
-		}
-
-		tok = strtok((char *)NULL, "/");
-	    }
-
-	    if (found) {
-		bu_vls_free(&gdlp->dl_path);
-		bu_vls_printf(&gdlp->dl_path, "%s", bu_vls_addr(&new_path));
-	    }
-
-	    free((void *)dupstr);
-	    bu_vls_free(&new_path);
-	}
+	struct move_all_rename_data data = { old_name, new_name };
+	bsg_view_obj_foreach_group(gedp, move_all_rename_group_cb, &data);
     }
 
     if (!moved) {

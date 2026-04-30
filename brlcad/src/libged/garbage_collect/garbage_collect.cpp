@@ -37,6 +37,7 @@
 #include "bu/path.h"
 #include "raytrace.h"
 #include "ged.h"
+#include "ged/bsg_view_obj.h"
 
 #include "../dbi.h"
 
@@ -55,6 +56,17 @@ void print_help_msg(struct bu_vls *str)
     bu_vls_printf(str, "\n");
     bu_vls_printf(str, "DUE TO THE POTENTIAL FOR DATA CORRUPTION, PLEASE MANUALLY BACK UP\n");
     bu_vls_printf(str, "YOUR GEOMETRY FILE BEFORE RUNNING 'garbage_collect'.\n");
+}
+
+/* Callback for collecting display paths */
+static int
+gc_collect_paths_cb(void *group_handle, void *userdata)
+{
+    std::vector<std::string> *who_objs = (std::vector<std::string> *)userdata;
+    const char *path = bsg_view_obj_group_path(group_handle);
+    if (path)
+	who_objs->push_back(std::string(path));
+    return 1; /* continue */
 }
 
 extern "C" int
@@ -163,9 +175,8 @@ ged_garbage_collect_core(struct ged *gedp, int argc, const char *argv[])
 	    who_objs.push_back(wpaths[i]);
 	}
     } else {
-	struct display_list *gdlp;
-	for (BU_LIST_FOR(gdlp, display_list, (struct bu_list *)ged_dl(gedp)))
-	    who_objs.push_back(std::string(bu_vls_cstr(&gdlp->dl_path)));
+	/* Use callback to iterate over display groups */
+	bsg_view_obj_foreach_group(gedp, gc_collect_paths_cb, &who_objs);
     }
 
     /* Create "working" database. */

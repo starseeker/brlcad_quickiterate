@@ -41,6 +41,7 @@
 
 #include "common.h"
 
+#include "bu/ptbl.h"
 #include "ged.h"
 #include "ged/bsg_view_obj.h"
 #include "./ged_private.h"
@@ -365,6 +366,86 @@ bsg_view_obj_append_to_last_group(struct ged *gedp, struct bv_scene_obj *sp)
 	return;
     struct display_list *gdlp = BU_LIST_PREV(display_list, (struct bu_list *)ged_dl(gedp));
     BU_LIST_APPEND(gdlp->dl_head_scene_obj.back, &sp->l);
+}
+
+
+void
+bsg_view_obj_group_set_path(void *group_handle, const char *new_path)
+{
+    if (!group_handle || !new_path)
+	return;
+    struct display_list *gdlp = (struct display_list *)group_handle;
+    bu_vls_free(&gdlp->dl_path);
+    bu_vls_printf(&gdlp->dl_path, "%s", new_path);
+}
+
+
+int
+bsg_view_obj_group_is_phony(void *group_handle)
+{
+    if (!group_handle)
+	return 0;
+    struct display_list *gdlp = (struct display_list *)group_handle;
+    if (!gdlp->dl_dp)
+	return 0;
+    struct directory *dp = (struct directory *)gdlp->dl_dp;
+    return (dp->d_addr == RT_DIR_PHONY_ADDR) ? 1 : 0;
+}
+
+
+void
+bsg_view_obj_zap(struct ged *gedp)
+{
+    if (!gedp)
+	return;
+
+    struct bu_list *hdlp = gedp->i->ged_gdp->gd_headDisplay;
+    struct db_i *dbip = gedp->dbip;
+    struct bv_scene_obj *sp = NULL;
+    struct display_list *gdlp = NULL;
+    struct bu_ptbl dls = BU_PTBL_INIT_ZERO;
+    struct directory *dp = RT_DIR_NULL;
+    size_t i = 0;
+    struct bv_scene_obj *free_scene_obj = bv_set_fsos(&gedp->ged_views);
+    struct bu_list *vlfree = &rt_vlfree;
+
+    while (BU_LIST_WHILE(gdlp, display_list, hdlp)) {
+
+	if (BU_LIST_NON_EMPTY(&gdlp->dl_head_scene_obj))
+	    ged_destroy_vlist_cb(gedp, BU_LIST_FIRST(bv_scene_obj, &gdlp->dl_head_scene_obj)->s_dlist,
+				 BU_LIST_LAST(bv_scene_obj, &gdlp->dl_head_scene_obj)->s_dlist -
+				 BU_LIST_FIRST(bv_scene_obj, &gdlp->dl_head_scene_obj)->s_dlist + 1);
+
+	while (BU_LIST_WHILE(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+	    if (sp->s_u_data) {
+		struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+		dp = bdata->s_fullpath.fp_names[0];
+		RT_CK_DIR(dp);
+		if (dp->d_addr == RT_DIR_PHONY_ADDR) {
+		    if (db_dirdelete(dbip, dp) < 0) {
+			bu_log("bsg_view_obj_zap: db_dirdelete failed\n");
+		    }
+		}
+	    }
+
+	    BU_LIST_DEQUEUE(&sp->l);
+	    BU_LIST_APPEND(&free_scene_obj->l, &sp->l);
+	    BV_FREE_VLIST(vlfree, &sp->s_vlist);
+	}
+
+	BU_LIST_DEQUEUE(&gdlp->l);
+	/* queue up for free */
+	bu_ptbl_ins_unique(&dls, (long *)gdlp);
+	gdlp = NULL;
+    }
+
+    /* Free all display lists */
+    for(i = 0; i < BU_PTBL_LEN(&dls); i++) {
+	gdlp = (struct display_list *)BU_PTBL_GET(&dls, i);
+	bu_vls_free(&gdlp->dl_path);
+	BU_FREE(gdlp, struct display_list);
+    }
+    bu_ptbl_free(&dls);
 }
 
 
