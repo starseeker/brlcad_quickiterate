@@ -66,7 +66,7 @@ __BEGIN_DECLS
 /**
  * Look up a drawn path on @p gedp's active view set, or insert a new
  * top-level scene-group entry for it if not already present.  Returns
- * an opaque handle (currently a struct display_list *) usable as the
+ * an opaque handle (a ged_scene_group *) usable as the
  * insertion-point for child scene objects.  Returns NULL if the leaf
  * directory entry does not exist or any argument is NULL.
  *
@@ -222,8 +222,8 @@ GED_EXPORT extern struct bv_scene_obj *
 bsg_view_obj_prev_solid(struct ged *gedp, struct bv_scene_obj *sp);
 
 /**
- * Returns the display-list group (opaque handle; currently
- * struct display_list *) that contains @p sp, or NULL if @p sp is not
+ * Returns the scene group (opaque handle; ged_scene_group *) that
+ * contains @p sp, or NULL if @p sp is not
  * a member of any current group.
  *
  * Used to update MGED's illum_gdlp after finding the illuminated solid
@@ -233,10 +233,10 @@ GED_EXPORT extern void *
 bsg_view_obj_group_of_solid(struct ged *gedp, struct bv_scene_obj *sp);
 
 /**
- * Iterate over display-list groups, calling @p cb(group_handle,
+ * Iterate over scene groups, calling @p cb(group_handle,
  * userdata) for each group.  @p cb returns 0 to stop iteration early.
  * The @p group_handle argument to @p cb is an opaque pointer
- * (currently struct display_list *) usable with
+ * (ged_scene_group *) usable with
  * bsg_view_obj_group_first_solid(), bsg_view_obj_group_last_solid(),
  * bsg_view_obj_group_is_nonempty(), bsg_view_obj_group_solid_list(),
  * and bsg_view_obj_append_to_last_group().

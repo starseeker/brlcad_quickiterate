@@ -1031,3 +1031,32 @@ Deprecation policy
               include/bv/tcl_data.h as the internal node type used by the
               display-list linked lists; it is no longer exposed via any
               libged public header.
+
+  2026-05-02  Phase 6.5 post-step: struct display_list internals replaced
+              with struct ged_scene_group in bsg_view_obj.c.
+
+              Motivation: struct display_list lived in include/bv/tcl_data.h
+              (a libbv public header) despite being used exclusively by
+              one libged TU.  No user-visible behaviour changes; the
+              bsg_view_obj_* public API surfaces opaque void * group handles
+              to all callers.
+
+              Changes:
+                src/libged/bsg_view_obj.c: introduced file-private struct
+                  ged_scene_group (same memory layout as the former
+                  struct display_list; fields renamed sg_dp / sg_path /
+                  sg_head_scene_obj / sg_wflag).  All static helpers and
+                  public API functions updated throughout.
+                include/bv/tcl_data.h: added deprecation notice to struct
+                  display_list; the struct is retained for external
+                  consumers for one release cycle.
+                include/ged/defines.h: GED_DISPLAY_LIST_NULL marked
+                  deprecated (macro retained for one release cycle).
+                include/ged/bsg_view_obj.h: updated comments to say
+                  "ged_scene_group *" instead of "struct display_list *".
+                src/libged/ged.cpp: fixed pre-existing BU_PUT type mismatch
+                  (struct bu_vls → struct bu_list for gd_headDisplay free).
+
+              Build: libged, libqtcad, dm-qtgl, dm-swrast, mged — zero
+                errors, zero warnings.
+              Regression: ged_test_bsg_view_obj 27/27 PASS.
