@@ -1060,3 +1060,54 @@ Deprecation policy
               Build: libged, libqtcad, dm-qtgl, dm-swrast, mged — zero
                 errors, zero warnings.
               Regression: ged_test_bsg_view_obj 27/27 PASS.
+
+  2026-04-30  Phase 7 Layer A complete — BSG tree replaces ged_scene_group
+              linked list; dm_draw_display_list migrated to bu_ptbl *.
+
+              Motivation: ged_scene_group used a BU_LIST-based linked list
+              for both the subgroup chain and the per-group solid list.
+              Migrating to a ptbl-indexed BSG_NODE_GROUP tree removes the
+              final BU_LIST coupling in the draw stack and enables O(1)
+              random access to drawn shapes by index, consistent with the
+              BSG node model introduced in Phase 6.
+
+              Changes:
+
+              src/libged/bsg_view_obj.c (Phase 7 Layer A rewrite):
+                - struct ged_scene_group + its BU_LIST machinery replaced by
+                  a BSG_NODE_GROUP tree rooted at gd_draw_root
+                  (struct bv_scene_obj * in ged_private.h / ged_drawable).
+                - Group nodes: bv_obj_create(v, BV_CHILD_OBJS).
+                - Shape nodes: bv_obj_get(v, BV_DB_OBJS) as before.
+                - Iteration: BU_PTBL_GET(&root->children, i) / group->children.
+                - bsg_view_obj_ensure_root() added (idempotent init).
+
+              include/ged/bsg_view_obj.h: bsg_view_obj_ensure_root declared.
+
+              include/dm.h / src/libdm/include/calltable.h /
+              src/libdm/dm-generic.c / src/libdm/dm-gl.c /
+              src/libdm/dm-gl.h:
+                - dm_draw_display_list signature changed from
+                  (struct dm *, struct bu_list *) to
+                  (struct dm *, struct bu_ptbl *).
+
+              src/mged/dozoom.c + src/mged/mged.h:
+                - createDLists signature updated to (void *, struct bv_scene_obj *).
+
+              BU_LIST_FOR -> ptbl loop conversions (~17 sites):
+                mged/chgview.c, mged/chgtree.c, mged/edsol.c, mged/plot.c,
+                mged/usepen.c, mged/rtif.c, libtclcad/view/draw.c,
+                libged/osg.cpp, libged/tests/draw/bsg_view_obj.cpp.
+
+              include/bsg/visit.h + src/libbsg/visit.c (NEW):
+                - bsg_visit(root, type_mask, cb, userdata): parameterized
+                  DFS tree walker replaces ad-hoc foreach_solid / foreach_group
+                  / BU_LIST_FOR idioms.
+
+              src/libged/ged.cpp:
+                - bsg_view_obj_ensure_root() called during ged_open() so
+                  GED_CHECK_DRAWABLE succeeds on a newly-opened database
+                  without requiring the caller to draw first.
+
+              Build: libged, libdm, libtclcad, mged -- zero errors.
+              Regression: ged_test_bsg_view_obj 27/27 PASS, libbsg 9/9 PASS.
