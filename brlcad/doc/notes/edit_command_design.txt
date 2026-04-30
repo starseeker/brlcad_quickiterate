@@ -172,7 +172,7 @@ Phase 5 priority order:
 Implementation Phases
 ---------------------
 
-Phase 5: Add new support as above and auto-generate mann pages
+Phase 5: Add new support as above
   - rt_edit_doc_gen.cpp linked against librt
   - Generates edit_<type>.adoc per primitive from descriptors
   - Hooked into docs/asciidoc CMakeLists
