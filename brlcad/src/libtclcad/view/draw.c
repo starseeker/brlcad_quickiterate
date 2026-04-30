@@ -27,6 +27,7 @@
 #include "common.h"
 #include "dm/view.h"
 #include "bsg/util.h"
+#include "bsg/visit.h"
 #include "ged.h"
 #include "ged/bsg_view_obj.h"
 #include "tclcad.h"
@@ -34,6 +35,7 @@
 /* Private headers */
 #include "../tclcad_private.h"
 #include "../view/view.h"
+
 
 
 struct path_match_data {
@@ -120,74 +122,64 @@ go_draw_solid(struct bview *gdvp, struct bv_scene_obj *sp)
     }
 }
 
+/* ------------------------------------------------------------------ */
+/* bsg_visit callbacks for go_draw_dlist transparency passes           */
+/* ------------------------------------------------------------------ */
+
+struct _go_draw_data {
+    struct bview *gdvp;
+    int line_style;
+    int transparency_pass; /* 0=all, 1=opaque, 2=transparent */
+};
+
+static int
+_go_draw_solid_cb(bsg_node *n, void *ud)
+{
+    struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
+    struct _go_draw_data *d = (struct _go_draw_data *)ud;
+    struct dm *dmp = (struct dm *)d->gdvp->dmp;
+
+    if (d->transparency_pass == 1 && sp->s_os->transparency < 1.0) return 1;
+    if (d->transparency_pass == 2 && ZERO(sp->s_os->transparency - 1.0)) return 1;
+
+    if (d->line_style != sp->s_soldash) {
+	d->line_style = sp->s_soldash;
+	(void)dm_set_line_attr(dmp, dm_get_linewidth(dmp), d->line_style);
+    }
+    go_draw_solid(d->gdvp, sp);
+    return 1;
+}
+
+/* ------------------------------------------------------------------ */
+
 /* Draw all display lists */
 static int
 go_draw_dlist(struct bview *gdvp)
 {
-    void *gdlp;
-    struct bv_scene_obj *sp;
-    int line_style = -1;
     struct dm *dmp = (struct dm *)gdvp->dmp;
     struct tclcad_view_data *tvd = (struct tclcad_view_data *)gdvp->u_data;
     struct ged *lgedp = tvd->gedp;
+    struct _go_draw_data d;
+    d.gdvp = gdvp;
+    d.line_style = -1;
 
     if (dm_get_transparency(dmp)) {
 	/* First, draw opaque stuff */
-	for (gdlp = bsg_view_obj_first_group(lgedp); gdlp;
-	     gdlp = bsg_view_obj_next_group(lgedp, gdlp)) {
-	    struct bu_ptbl *_sl = bsg_view_obj_group_solid_list(gdlp);
-	for (size_t _si = 0; _si < BU_PTBL_LEN(_sl); _si++) {
-	    sp = (struct bv_scene_obj *)BU_PTBL_GET(_sl, _si);
-		if (sp->s_os->transparency < 1.0)
-		    continue;
-
-		if (line_style != sp->s_soldash) {
-		    line_style = sp->s_soldash;
-		    (void)dm_set_line_attr(dmp, dm_get_linewidth(dmp), line_style);
-		}
-
-		go_draw_solid(gdvp, sp);
-	    }
-	}
+	d.transparency_pass = 1;
+	bsg_visit(bsg_view_obj_root(lgedp), BSG_NODE_SHAPE, _go_draw_solid_cb, &d);
 
 	/* disable write to depth buffer */
 	(void)dm_set_depth_mask(dmp, 0);
 
 	/* Second, draw transparent stuff */
-	for (gdlp = bsg_view_obj_first_group(lgedp); gdlp;
-	     gdlp = bsg_view_obj_next_group(lgedp, gdlp)) {
-	    struct bu_ptbl *_sl = bsg_view_obj_group_solid_list(gdlp);
-	for (size_t _si = 0; _si < BU_PTBL_LEN(_sl); _si++) {
-	    sp = (struct bv_scene_obj *)BU_PTBL_GET(_sl, _si);
-		/* already drawn above */
-		if (ZERO(sp->s_os->transparency - 1.0))
-		    continue;
-
-		if (line_style != sp->s_soldash) {
-		    line_style = sp->s_soldash;
-		    (void)dm_set_line_attr(dmp, dm_get_linewidth(dmp), line_style);
-		}
-
-		go_draw_solid(gdvp, sp);
-	    }
-	}
+	d.transparency_pass = 2;
+	bsg_visit(bsg_view_obj_root(lgedp), BSG_NODE_SHAPE, _go_draw_solid_cb, &d);
 
 	/* re-enable write to depth buffer */
 	(void)dm_set_depth_mask(dmp, 1);
     } else {
-	for (gdlp = bsg_view_obj_first_group(lgedp); gdlp;
-	     gdlp = bsg_view_obj_next_group(lgedp, gdlp)) {
-	    struct bu_ptbl *_sl = bsg_view_obj_group_solid_list(gdlp);
-	for (size_t _si = 0; _si < BU_PTBL_LEN(_sl); _si++) {
-	    sp = (struct bv_scene_obj *)BU_PTBL_GET(_sl, _si);
-		if (line_style != sp->s_soldash) {
-		    line_style = sp->s_soldash;
-		    (void)dm_set_line_attr(dmp, dm_get_linewidth(dmp), line_style);
-		}
-
-		go_draw_solid(gdvp, sp);
-	    }
-	}
+	d.transparency_pass = 0;
+	bsg_visit(bsg_view_obj_root(lgedp), BSG_NODE_SHAPE, _go_draw_solid_cb, &d);
     }
 
     return BRLCAD_OK;

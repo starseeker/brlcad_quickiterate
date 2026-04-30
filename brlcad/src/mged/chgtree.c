@@ -138,46 +138,45 @@ f_copy_inv(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv
 }
 
 
+struct _fswp_data {
+    struct db_full_path *pathp;
+    struct bv_scene_obj *ret;
+    int count;
+};
+
+static int
+_find_solid_with_path_cb(bsg_node *n, void *ud)
+{
+    struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
+    struct _fswp_data *d = (struct _fswp_data *)ud;
+    if (!sp->s_u_data) return 1;
+    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+    if (!db_identical_full_paths(d->pathp, &bdata->s_fullpath)) return 1;
+    illum_gdlp = sp->parent;
+    d->ret = sp;
+    d->count++;
+    return 1; /* keep scanning for duplicates */
+}
+
 struct bv_scene_obj *
 find_solid_with_path(struct mged_state *s, struct db_full_path *pathp)
 {
-    void *gdlp;
-    struct bv_scene_obj *sp;
-    int count = 0;
-    struct bv_scene_obj *ret = (struct bv_scene_obj *)NULL;
-
     RT_CK_FULL_PATH(pathp);
 
-    for (gdlp = bsg_view_obj_first_group(s->gedp); gdlp;
+    struct _fswp_data d;
+    d.pathp = pathp;
+    d.ret = NULL;
+    d.count = 0;
+    bsg_visit(bsg_view_obj_root(s->gedp), BSG_NODE_SHAPE, _find_solid_with_path_cb, &d);
 
-
-         gdlp = bsg_view_obj_next_group(s->gedp, gdlp)) {
-
-	struct bu_ptbl *_sl = bsg_view_obj_group_solid_list(gdlp);
-	for (size_t _si = 0; _si < BU_PTBL_LEN(_sl); _si++) {
-	    sp = (struct bv_scene_obj *)BU_PTBL_GET(_sl, _si);
-	    if (!sp->s_u_data)
-		continue;
-	    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
-
-	    if (!db_identical_full_paths(pathp, &bdata->s_fullpath)) continue;
-
-	    /* Paths are the same */
-	    illum_gdlp = gdlp;
-	    ret = sp;
-	    count++;
-	}
-    }
-
-    if (count > 1) {
+    if (d.count > 1) {
 	struct bu_vls tmp_vls = BU_VLS_INIT_ZERO;
-
-	bu_vls_printf(&tmp_vls, "find_solid_with_path() found %d matches\n", count);
+	bu_vls_printf(&tmp_vls, "find_solid_with_path() found %d matches\n", d.count);
 	Tcl_AppendResult(s->interp, bu_vls_addr(&tmp_vls), (char *)NULL);
 	bu_vls_free(&tmp_vls);
     }
 
-    return ret;
+    return d.ret;
 }
 
 

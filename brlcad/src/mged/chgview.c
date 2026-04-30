@@ -1212,6 +1212,51 @@ f_refresh(ClientData clientData, Tcl_Interp *interp, int argc, const char *UNUSE
 
 static char **path_parse(char *path);
 
+/* Callback data for f_ill's "fill/illuminate" solid search via bsg_visit. */
+struct _fill_data {
+    struct directory *dp;
+    char            **path_piece;
+    size_t            nm_pieces;
+    int               exact;
+    int               ri;
+    int               nmatch;
+    struct bv_scene_obj *lastfound;
+};
+
+static int
+_fill_solid_cb(bsg_node *n, void *ud)
+{
+    struct bv_scene_obj *fsp = (struct bv_scene_obj *)n;
+    struct _fill_data *d = (struct _fill_data *)ud;
+    int a_new_match;
+    int fi, fj;
+    const char *fsname;
+
+    fsp->s_iflag = DOWN;
+    if (!fsp->s_u_data) return 1;
+    struct ged_bv_data *bdata = (struct ged_bv_data *)fsp->s_u_data;
+    if (d->exact && d->nm_pieces != bdata->s_fullpath.fp_len) return 1;
+    /* XXX Could this make use of db_full_path_subset()? */
+    if (d->nmatch == 0 || d->nmatch != d->ri) {
+	fi = (int)bdata->s_fullpath.fp_len - 1;
+	if (DB_FULL_PATH_GET(&bdata->s_fullpath, fi) == d->dp) {
+	    a_new_match = 1;
+	    fj = (int)d->nm_pieces - 1;
+	    for (; a_new_match && (fi >= 0) && (fj >= 0); --fi, --fj) {
+		fsname = DB_FULL_PATH_GET(&bdata->s_fullpath, fi)->d_namep;
+		if ((*fsname != *(d->path_piece[fj]))
+		    || !BU_STR_EQUAL(fsname, d->path_piece[fj]))
+		    a_new_match = 0;
+	    }
+	    if (a_new_match && ((fi >= 0) || (fj < 0))) {
+		d->lastfound = fsp;
+		++d->nmatch;
+	    }
+	}
+    }
+    return 1;
+}
+
 /* Illuminate the named object */
 int
 f_ill(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
@@ -1219,20 +1264,17 @@ f_ill(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     struct cmdtab *ctp = (struct cmdtab *)clientData;
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
-    void *gdlp;
     struct directory *dp;
-    struct bv_scene_obj *sp;
     struct bv_scene_obj *lastfound = NULL;
-    int i, j;
     int nmatch;
     int c;
+    size_t i;
     int ri = 0;
     size_t nm_pieces;
     int illum_only = 0;
     int exact = 0;
     char **path_piece = 0;
     char *mged_basename;
-    char *sname;
 
     int early_out = 0;
 
@@ -1349,48 +1391,18 @@ f_ill(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	goto bail_out;
     }
 
-    for (gdlp = bsg_view_obj_first_group(s->gedp); gdlp;
-
-
-         gdlp = bsg_view_obj_next_group(s->gedp, gdlp)) {
-
-	struct bu_ptbl *_sl = bsg_view_obj_group_solid_list(gdlp);
-	for (size_t _si = 0; _si < BU_PTBL_LEN(_sl); _si++) {
-	    sp = (struct bv_scene_obj *)BU_PTBL_GET(_sl, _si);
-	    int a_new_match;
-	    if (!sp->s_u_data)
-		continue;
-	    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
-
-	    if (exact && nm_pieces != bdata->s_fullpath.fp_len)
-		continue;
-
-	    /* XXX Could this make use of db_full_path_subset()? */
-	    if (nmatch == 0 || nmatch != ri) {
-		i = bdata->s_fullpath.fp_len - 1;
-
-		if (DB_FULL_PATH_GET(&bdata->s_fullpath, i) == dp) {
-		    a_new_match = 1;
-		    j = nm_pieces - 1;
-
-		    for (; a_new_match && (i >= 0) && (j >= 0); --i, --j) {
-			sname = DB_FULL_PATH_GET(&bdata->s_fullpath, i)->d_namep;
-
-			if ((*sname != *(path_piece[j]))
-			    || !BU_STR_EQUAL(sname, path_piece[j])) {
-			    a_new_match = 0;
-			}
-		    }
-
-		    if (a_new_match && ((i >= 0) || (j < 0))) {
-			lastfound = sp;
-			++nmatch;
-		    }
-		}
-	    }
-
-	    sp->s_iflag = DOWN;
-	}
+    {
+	struct _fill_data fd;
+	fd.dp = dp;
+	fd.path_piece = path_piece;
+	fd.nm_pieces = nm_pieces;
+	fd.exact = exact;
+	fd.ri = ri;
+	fd.nmatch = 0;
+	fd.lastfound = NULL;
+	bsg_visit(bsg_view_obj_root(s->gedp), BSG_NODE_SHAPE, _fill_solid_cb, &fd);
+	nmatch = fd.nmatch;
+	lastfound = fd.lastfound;
     }
 
     if (nmatch == 0) {

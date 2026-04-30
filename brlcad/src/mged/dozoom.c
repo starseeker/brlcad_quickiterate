@@ -220,14 +220,11 @@ createDLists(void *data, struct bv_scene_obj *hdlp)
 {
     struct mged_state *s = (struct mged_state *)data;
     MGED_CK_STATE(s);
-    void *gdlp;
-    (void)hdlp;  /* now using s->gedp for iteration */
+    (void)hdlp;
 
-    for (gdlp = bsg_view_obj_first_group(s->gedp); gdlp;
-	 gdlp = bsg_view_obj_next_group(s->gedp, gdlp)) {
-	dm_set_dirty(DMP, 1);
-	dm_draw_display_list(DMP, bsg_view_obj_group_solid_list(gdlp));
-    }
+    /* Compile vlists for every drawn solid in a single bsg_visit pass. */
+    dm_set_dirty(DMP, 1);
+    dm_draw_display_list(DMP, bsg_view_obj_root(s->gedp));
 }
 
 /*

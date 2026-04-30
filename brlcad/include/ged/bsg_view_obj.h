@@ -40,6 +40,7 @@
 #include "vmath.h"
 #include "bu/list.h"
 #include "bu/ptbl.h"
+#include "bsg/visit.h"
 #include "ged/defines.h"
 
 __BEGIN_DECLS
@@ -52,6 +53,23 @@ __BEGIN_DECLS
  */
 GED_EXPORT extern struct bv_scene_obj *
 bsg_view_obj_ensure_root(struct ged *gedp);
+
+/**
+ * Returns the BSG draw root node (BSG_NODE_GROUP) for @p gedp, or NULL if
+ * no objects have been drawn yet.  Use together with bsg_visit() to iterate
+ * all drawn shapes without going through the per-group wrapper API.
+ *
+ * The root node itself has BSG_NODE_GROUP set; its first-level children are
+ * per-path subgroups (also BSG_NODE_GROUP); their children are the drawn
+ * solid/shape nodes (BSG_NODE_SHAPE).
+ *
+ * Example — visit every drawn solid:
+ * @code
+ *   bsg_visit(bsg_view_obj_root(gedp), BSG_NODE_SHAPE, my_cb, userdata);
+ * @endcode
+ */
+GED_EXPORT extern struct bv_scene_obj *
+bsg_view_obj_root(struct ged *gedp);
 
 /**
  * Look up a drawn path on @p gedp's active view set, or insert a new
