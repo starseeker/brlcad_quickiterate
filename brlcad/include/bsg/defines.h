@@ -64,6 +64,24 @@ __BEGIN_DECLS
 #define BSG_NODE_SENSOR      0x400000000ULL  /**< @brief sensor / trigger node */
 
 /**
+ * Payload type flags — stored in s_type_flags alongside BSG_NODE_* bits.
+ * These describe what kind of data payload a BSG_NODE_SHAPE carries.
+ *
+ * Bit allocation:
+ *   bits 28-34: BSG_NODE_* taxonomy flags
+ *   bits 36-38: BSG_SENSOR_* sub-type flags (defined in sensor.h)
+ *   bits 40-44: BSG_PAYLOAD_* payload type flags (this block)
+ */
+#define BSG_PAYLOAD_VLIST   0x10000000000ULL  /**< @brief raw bv_vlist payload (bit 40) */
+#define BSG_PAYLOAD_CSG     0x20000000000ULL  /**< @brief CSG wireframe payload (bit 41) */
+#define BSG_PAYLOAD_MESH    0x40000000000ULL  /**< @brief BoT LoD mesh payload (bit 42) */
+#define BSG_PAYLOAD_BREP    0x80000000000ULL  /**< @brief BRep payload (bit 43) */
+#define BSG_PAYLOAD_OVERLAY 0x100000000000ULL /**< @brief HUD overlay element (bit 44) */
+
+/** Mask covering all payload bits */
+#define BSG_PAYLOAD_MASK    0x1F0000000000ULL
+
+/**
  * bsg_node is a layout-compatible alias for struct bv_scene_obj.
  * Using the same struct pointer avoids any ABI mismatch.  Callers can
  * freely cast between bsg_node * and struct bv_scene_obj * without risk.
