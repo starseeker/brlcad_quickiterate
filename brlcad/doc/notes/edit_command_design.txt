@@ -148,6 +148,10 @@ Primitives WITHOUT ft_edit_desc (28/47) — remaining backlog:
   sketch  (ID_SKETCH)    — 20 ECMDs (vertex/segment add/move/del/split)
   submodel(ID_SUBMODEL)  — no ECMDs
   bot     (ID_BOT)       — 17 ECMDs (vertex/edge/tri pick/move/fuse/del)
+                           (Phase 5.6 DONE — descriptor + get_params for all
+                           17 ops; PICKV/PICKE/PICKT now accept e_para index
+                           selection; MODE/ORIENT/FLAGS/FMODE accept e_para
+                           direct-set in addition to interactive callback path)
   UNUSED1/UNUSED2        — skip
   binunif (ID_BINUNIF)   — no ECMDs (not needed - arbitrary blob data, no sensible ops)
   brep    (ID_BREP)      — 3 ECMDs: SRF_SELECT, SRF_CV_MOVE, SRF_CV_SET
@@ -179,7 +183,11 @@ Phase 5 priority order:
                vert_move).  Operates on first ANN_TSEG_MAGIC segment.
   5. revolve — DONE (Phase 5.5): 5 ops (set_v, set_axis, set_r, set_ang,
                set_skt).  Angle in degrees in/out; stored as radians.
-  6. bot     — large meshes, 17 ops (may need special treatment)
+  6. bot     — DONE (Phase 5.6): 17 ops (select_vertex/edge/face by index,
+               move_vertex/edge/face/vertex_list, split_edge/face, delete_face,
+               fuse_vertices/faces, set_mode/orientation/face_thickness/
+               face_mode/flags).  Interactive pick/mode/orient callbacks
+               preserved; e_para path added for CLI/descriptor use.
   7. pnts    - add pt, remove pt, select/deselect pnt (either by index or by "within spherical or bounding box volume", move selected pts
   8. sketch  — 20 ops (depends on sketch data structures)
   9. ars     — 17 ops

@@ -70,6 +70,8 @@ extern const struct rt_edit_prim_desc *rt_edit_arb_edit_desc(void);
 
 extern const struct rt_edit_prim_desc *rt_edit_metaball_edit_desc(void);
 extern const struct rt_edit_prim_desc *rt_edit_brep_edit_desc(void);
+extern const struct rt_edit_prim_desc *rt_edit_bot_edit_desc(void);
+extern int rt_edit_bot_get_params(struct rt_edit *s, int cmd_id, fastf_t *vals);
 extern const struct rt_edit_prim_desc *rt_edit_arbn_edit_desc(void);
 extern const struct rt_edit_prim_desc *rt_edit_datum_edit_desc(void);
 extern const struct rt_edit_prim_desc *rt_edit_annot_edit_desc(void);
@@ -749,8 +751,8 @@ const struct rt_edit_functab EDOBJ[] = {
 	EDFUNCTAB_FUNC_MENU_STR_CAST(edit_menu_str),   /* menu_str */
 	EDFUNCTAB_FUNC_SET_EDIT_MODE_CAST(rt_edit_bot_set_edit_mode), /* set edit mode */
 	EDFUNCTAB_FUNC_MENU_ITEM_CAST(rt_edit_bot_menu_item)    /* menu_item */,
-	NULL   /* edit_desc */,
-	NULL   /* edit_get_params */
+	EDFUNCTAB_FUNC_EDIT_DESC_CAST(rt_edit_bot_edit_desc)   /* edit_desc */,
+	EDFUNCTAB_FUNC_GET_PARAMS_CAST(rt_edit_bot_get_params)   /* edit_get_params */
     },
 
     {
