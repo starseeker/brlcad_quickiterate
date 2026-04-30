@@ -1760,6 +1760,219 @@ test_pd_rotate_implicit_angle_reversed(struct ged *gedp)
 
 
 /* ================================================================== *
+ * Section 3 — Descriptor-driven per-primitive editing (Phase 3)
+ * ================================================================== */
+
+/**
+ * Helper: read rt_tor_internal for a torus by name from the database.
+ * Caller must *not* free the returned data — the idb_ptr points into a
+ * stack copy that is released by the caller after use.
+ */
+static int
+read_tor(struct ged *gedp, const char *name, struct rt_tor_internal *out)
+{
+    struct directory *dp = db_lookup(gedp->dbip, name, LOOKUP_QUIET);
+    if (dp == RT_DIR_NULL)
+        return BRLCAD_ERROR;
+
+    struct rt_db_internal intern;
+    RT_DB_INTERNAL_INIT(&intern);
+    if (rt_db_get_internal(&intern, dp, gedp->dbip, NULL) < 0)
+        return BRLCAD_ERROR;
+
+    if (intern.idb_minor_type != DB5_MINORTYPE_BRLCAD_TOR) {
+        rt_db_free_internal(&intern);
+        return BRLCAD_ERROR;
+    }
+
+    *out = *(struct rt_tor_internal *)intern.idb_ptr;
+    intern.idb_ptr = NULL;
+    rt_db_free_internal(&intern);
+    return BRLCAD_OK;
+}
+
+
+/* Section 3 uses the Phase 0 fixture (tor.s + ell.s are already there) */
+
+/* 3-0: descriptor-driven edit — change torus major radius (r1) via slug */
+static void
+test_p3_tor_set_radius_1(struct ged *gedp)
+{
+    const char *av[] = { "edit", "tor.s", "set_radius_1", "12.0", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 4, av) == BRLCAD_OK,
+          "tor set_radius_1 12.0 returns OK");
+    struct rt_tor_internal tor;
+    if (read_tor(gedp, "tor.s", &tor) == BRLCAD_OK) {
+        /* r_a is stored in base units (mm); compare with 12.0 */
+        CHECK(NEAR_EQUAL(tor.r_a, 12.0, 0.1),
+              "tor: r_a ≈ 12.0 after set_radius_1 12.0");
+    } else {
+        CHECK(0, "tor: read_tor succeeded after set_radius_1");
+    }
+}
+
+/* 3-1: change torus minor radius (r2) via slug */
+static void
+test_p3_tor_set_radius_2(struct ged *gedp)
+{
+    const char *av[] = { "edit", "tor.s", "set_radius_2", "2.5", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 4, av) == BRLCAD_OK,
+          "tor set_radius_2 2.5 returns OK");
+    struct rt_tor_internal tor;
+    if (read_tor(gedp, "tor.s", &tor) == BRLCAD_OK) {
+        CHECK(NEAR_EQUAL(tor.r_h, 2.5, 0.1),
+              "tor: r_h ≈ 2.5 after set_radius_2 2.5");
+    } else {
+        CHECK(0, "tor: read_tor succeeded after set_radius_2");
+    }
+}
+
+/* 3-2: also accept param name "r1" as an alias for "set_radius_1" */
+static void
+test_p3_tor_r1_alias(struct ged *gedp)
+{
+    const char *av[] = { "edit", "tor.s", "r1", "15.0", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 4, av) == BRLCAD_OK,
+          "tor r1 15.0 (param-name alias) returns OK");
+    struct rt_tor_internal tor;
+    if (read_tor(gedp, "tor.s", &tor) == BRLCAD_OK) {
+        CHECK(NEAR_EQUAL(tor.r_a, 15.0, 0.1),
+              "tor: r_a ≈ 15.0 after r1 alias");
+    } else {
+        CHECK(0, "tor: read_tor succeeded after r1 alias");
+    }
+}
+
+/* 3-3: ell set_a — change semi-axis A magnitude */
+static void
+test_p3_ell_set_a(struct ged *gedp)
+{
+    const char *av[] = { "edit", "ell.s", "set_a", "6.0", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 4, av) == BRLCAD_OK,
+          "ell set_a 6.0 returns OK");
+    struct rt_ell_internal ell;
+    if (read_ell(gedp, "ell.s", &ell) == BRLCAD_OK) {
+        CHECK(NEAR_EQUAL(MAGNITUDE(ell.a), 6.0, 0.1),
+              "ell: |A| ≈ 6.0 after set_a 6.0");
+    } else {
+        CHECK(0, "ell: read_ell succeeded after set_a");
+    }
+}
+
+/* 3-4: ell "a" param-name alias for set_a */
+static void
+test_p3_ell_a_alias(struct ged *gedp)
+{
+    const char *av[] = { "edit", "ell.s", "a", "7.0", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 4, av) == BRLCAD_OK,
+          "ell a 7.0 (param-name alias) returns OK");
+    struct rt_ell_internal ell;
+    if (read_ell(gedp, "ell.s", &ell) == BRLCAD_OK) {
+        CHECK(NEAR_EQUAL(MAGNITUDE(ell.a), 7.0, 0.1),
+              "ell: |A| ≈ 7.0 after 'a 7.0' alias");
+    } else {
+        CHECK(0, "ell: read_ell succeeded after 'a' alias");
+    }
+}
+
+/* 3-5: ell set_a_b_c — uniform scale all three semi-axes */
+static void
+test_p3_ell_set_abc(struct ged *gedp)
+{
+    const char *av[] = { "edit", "ell.s", "set_a_b_c", "4.0", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 4, av) == BRLCAD_OK,
+          "ell set_a_b_c 4.0 returns OK");
+    struct rt_ell_internal ell;
+    if (read_ell(gedp, "ell.s", &ell) == BRLCAD_OK) {
+        /* All three semi-axes should be equal in magnitude after uniform scale */
+        double ma = MAGNITUDE(ell.a);
+        double mb = MAGNITUDE(ell.b);
+        double mc = MAGNITUDE(ell.c);
+        CHECK(NEAR_EQUAL(ma, mb, 0.2),
+              "ell: |A| ≈ |B| after set_a_b_c");
+        CHECK(NEAR_EQUAL(mb, mc, 0.2),
+              "ell: |B| ≈ |C| after set_a_b_c");
+    } else {
+        CHECK(0, "ell: read_ell succeeded after set_a_b_c");
+    }
+}
+
+/* 3-6: 'edit tor --list-ops' emits non-empty JSON containing prim_type */
+static void
+test_p3_list_ops_tor(struct ged *gedp)
+{
+    const char *av[] = { "edit", "tor", "--list-ops", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 3, av) == BRLCAD_OK,
+          "edit tor --list-ops returns OK");
+    const char *json = bu_vls_cstr(gedp->ged_result_str);
+    CHECK(json && strlen(json) > 10,
+          "edit tor --list-ops output is non-empty");
+    CHECK(json && strstr(json, "prim_type") != NULL,
+          "edit tor --list-ops JSON contains 'prim_type'");
+    CHECK(json && strstr(json, "tor") != NULL,
+          "edit tor --list-ops JSON contains 'tor'");
+}
+
+/* 3-7: 'edit tor' (type-name help) prints category-grouped info */
+static void
+test_p3_type_help_tor(struct ged *gedp)
+{
+    const char *av[] = { "edit", "tor", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 2, av) == BRLCAD_OK,
+          "edit tor (type help) returns OK");
+    const char *help = bu_vls_cstr(gedp->ged_result_str);
+    CHECK(help && strlen(help) > 10,
+          "edit tor help output is non-empty");
+    CHECK(help && strstr(help, "Torus") != NULL,
+          "edit tor help mentions 'Torus'");
+}
+
+/* 3-8: unknown op for a descriptor primitive gives error + prim help */
+static void
+test_p3_unknown_prim_op(struct ged *gedp)
+{
+    const char *av[] = { "edit", "tor.s", "no_such_op", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 3, av) == BRLCAD_ERROR,
+          "edit tor.s no_such_op returns BRLCAD_ERROR");
+    const char *msg = bu_vls_cstr(gedp->ged_result_str);
+    CHECK(msg && strlen(msg) > 0,
+          "edit tor.s no_such_op prints an error message");
+}
+
+/* 3-9: missing value for a scalar param gives error */
+static void
+test_p3_missing_param(struct ged *gedp)
+{
+    const char *av[] = { "edit", "tor.s", "set_radius_1", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 3, av) == BRLCAD_ERROR,
+          "edit tor.s set_radius_1 (no value) returns BRLCAD_ERROR");
+}
+
+/* 3-10: 'edit ell --list-ops' works for ell type too */
+static void
+test_p3_list_ops_ell(struct ged *gedp)
+{
+    const char *av[] = { "edit", "ell", "--list-ops", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 3, av) == BRLCAD_OK,
+          "edit ell --list-ops returns OK");
+    const char *json = bu_vls_cstr(gedp->ged_result_str);
+    CHECK(json && strstr(json, "\"ell\"") != NULL,
+          "edit ell --list-ops JSON contains '\"ell\"'");
+}
+
+
+/* ================================================================== *
  * main
  * ================================================================== */
 
@@ -1979,6 +2192,39 @@ main(int ac, char *av[])
         ged_close(gedp);
     }
     bu_vls_free(&pd_path);
+
+    /* ---------------------------------------------------------------- *
+     * Section 3 — Descriptor-driven per-primitive editing (Phase 3)
+     * Uses the Phase 0 fixture which already has tor.s and ell.s.
+     * ---------------------------------------------------------------- */
+    struct bu_vls p3_path = BU_VLS_INIT_ZERO;
+    if (make_temp_path(&p3_path) != BRLCAD_OK) {
+        bu_log("ERROR: cannot create temp file for section 3\n"); return 1;
+    }
+    if (create_p0_fixture(bu_vls_cstr(&p3_path)) != BRLCAD_OK) {
+        bu_log("ERROR: section 3 fixture creation failed\n");
+        bu_vls_free(&p3_path); return 1;
+    }
+    {
+        struct ged *gedp = open_fixture(bu_vls_cstr(&p3_path));
+        if (!gedp) { bu_log("ERROR: ged_open failed (section 3)\n"); bu_vls_free(&p3_path); return 1; }
+        bu_log("\n--- Section 3: descriptor-driven primitive editing ---\n");
+        test_p3_tor_set_radius_1(gedp);
+        test_p3_tor_set_radius_2(gedp);
+        test_p3_tor_r1_alias(gedp);
+        test_p3_ell_set_a(gedp);
+        test_p3_ell_a_alias(gedp);
+        test_p3_ell_set_abc(gedp);
+        bu_log("--- Section 3: type-level help and --list-ops ---\n");
+        test_p3_list_ops_tor(gedp);
+        test_p3_type_help_tor(gedp);
+        test_p3_list_ops_ell(gedp);
+        bu_log("--- Section 3: error cases ---\n");
+        test_p3_unknown_prim_op(gedp);
+        test_p3_missing_param(gedp);
+        ged_close(gedp);
+    }
+    bu_vls_free(&p3_path);
 
     /* ---------------------------------------------------------------- *
      * Summary

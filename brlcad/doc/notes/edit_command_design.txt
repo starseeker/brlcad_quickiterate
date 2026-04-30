@@ -1,8 +1,8 @@
 libged `edit` Command — Design Notes
 ======================================
 
-Status:  Phase 1 complete.
-Date:    2026-04-24
+Status:  Phase 3 complete.
+Date:    2026-04-30
 
 
 Overview
@@ -323,17 +323,24 @@ Phase 1 (DONE): Parser foundation
   - Temp edit buffer API (ged_edit_buf_*)
   - 21/21 assertions pass (ctest -R ged_test_edit_phase1)
 
-Phase 2: Generic transform commands
-  - edit_xform.{h,cpp}: translate ged_edit_ctx → rt_edit calls
-  - Full edit.c option grammar ported to bu_opt_desc
-  - rotate / translate / tra / scale / perturb / mat / checkpoint / revert / reset
-  - Exhaustive tests against edit.c EXAMPLES block
+Phase 2 (DONE): Generic transform commands
+  - translate / tra / rotate / scale / perturb / mat / checkpoint / revert / reset
+  - Full option grammar: -a/-r/-x/-y/-z/-k/-d/-c/-R/-O
+  - _edit_xform_apply() helper managing temp buffer + disk promotion
+  - 48/48 assertions pass (test_edit.cpp section 2)
 
-Phase 3: Descriptor-driven per-primitive editing
-  - edit_prim_cmds.cpp: build subcommand trees from ft_edit_desc() at runtime
-  - Generic trampoline exec() with per-param-type bu_opt converters
-  - Category-grouped help and --list-ops JSON introspection
-  - No primitive-specific code in libged
+Phase 3 (DONE): Descriptor-driven per-primitive editing
+  - CLI slug derivation: "Set Radius 1" → "set_radius_1" (_prim_cmd_slug)
+  - Param-name alias for single-param commands: "r1" → ECMD_TOR_R1
+  - _exec_desc_cmd_on_edit(): per-param-type bu_opt converters fill e_para[]/e_str[]
+  - _exec_desc_cmd(): wraps via _edit_xform_apply (buffer + disk promotion)
+  - _find_desc_cmd(): slug, param-name, and case-insensitive label matching
+  - 'edit <type>' → category-grouped help (_print_prim_help)
+  - 'edit <type> --list-ops' → rt_edit_type_to_json() JSON output
+  - 'edit <geom> <unknown_op>' → per-primitive error + type help
+  - All supported param types: SCALAR, INTEGER, BOOLEAN, ENUM, POINT, VECTOR,
+    COLOR, MATRIX, STRING
+  - 22 new Section 3 assertions in test_edit.cpp (217/217 total pass)
 
 Phase 4: Descriptor completeness backlog
   - Extend rt_ecmd_scanner.cpp to detect undescribed ECMDs
