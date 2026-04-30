@@ -612,14 +612,22 @@ rt_edit_metaball_read_params(
 	ln = strchr(lc, tc);
 	if (ln) *ln = '\0';
 
-	/* Skip if not a point line */
-	if (!bu_strncmp(lc, "point", 5)) {
-	    /* skip to bracket ] */
+	/* Only process lines that start with "point[" */
+	if (!bu_strncmp(lc, "point[", 6)) {
+	    /* skip to closing bracket, then past the colon separator */
 	    const char *after = strchr(lc, ']');
 	    if (!after) break;
-	    double x, y, z, fs = 1.0, bl = 1.0;
-	    sscanf(after + 1, "%lf %lf %lf field_strength=%lf blobbiness=%lf",
-		   &x, &y, &z, &fs, &bl);
+	    const char *coords = strchr(after, ':');
+	    if (!coords) break;
+	    coords++; /* step past ':' */
+	    double x = 0.0, y = 0.0, z = 0.0, fs = 1.0, bl = 1.0;
+	    int nread = sscanf(coords,
+			      " %lf %lf %lf field_strength=%lf blobbiness=%lf",
+			      &x, &y, &z, &fs, &bl);
+	    if (nread < 3) {
+		bu_log("rt_edit_metaball_read_params: malformed point line, skipping\n");
+		continue;
+	    }
 	    point_t loc;
 	    VSET(loc, x * local2base, y * local2base, z * local2base);
 	    rt_metaball_add_point(ball, (const point_t *)&loc, (fastf_t)fs, (fastf_t)bl);
