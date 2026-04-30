@@ -1219,8 +1219,7 @@ f_ill(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     struct cmdtab *ctp = (struct cmdtab *)clientData;
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
+    void *gdlp;
     struct directory *dp;
     struct bv_scene_obj *sp;
     struct bv_scene_obj *lastfound = NULL;
@@ -1350,10 +1349,10 @@ f_ill(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	goto bail_out;
     }
 
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
+    for (gdlp = bsg_view_obj_first_group(s->gedp); gdlp;
 
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
+
+         gdlp = bsg_view_obj_next_group(s->gedp, gdlp)) {
 
 	for (BU_LIST_FOR(sp, bv_scene_obj, bsg_view_obj_group_solid_list(gdlp))) {
 	    int a_new_match;
@@ -1390,8 +1389,6 @@ f_ill(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 
 	    sp->s_iflag = DOWN;
 	}
-
-	gdlp = next_gdlp;
     }
 
     if (nmatch == 0) {

@@ -28,6 +28,7 @@
 #include "dm/view.h"
 #include "bsg/util.h"
 #include "ged.h"
+#include "ged/bsg_view_obj.h"
 #include "tclcad.h"
 
 /* Private headers */
@@ -123,21 +124,18 @@ go_draw_solid(struct bview *gdvp, struct bv_scene_obj *sp)
 static int
 go_draw_dlist(struct bview *gdvp)
 {
-    register struct display_list *gdlp;
-    register struct display_list *next_gdlp;
+    void *gdlp;
     struct bv_scene_obj *sp;
     int line_style = -1;
     struct dm *dmp = (struct dm *)gdvp->dmp;
     struct tclcad_view_data *tvd = (struct tclcad_view_data *)gdvp->u_data;
-    struct bu_list *hdlp = (struct bu_list *)ged_dl(tvd->gedp);
+    struct ged *lgedp = tvd->gedp;
 
     if (dm_get_transparency(dmp)) {
 	/* First, draw opaque stuff */
-	gdlp = BU_LIST_NEXT(display_list, hdlp);
-	while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
-	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	    for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+	for (gdlp = bsg_view_obj_first_group(lgedp); gdlp;
+	     gdlp = bsg_view_obj_next_group(lgedp, gdlp)) {
+	    for (BU_LIST_FOR(sp, bv_scene_obj, bsg_view_obj_group_solid_list(gdlp))) {
 		if (sp->s_os->transparency < 1.0)
 		    continue;
 
@@ -148,19 +146,15 @@ go_draw_dlist(struct bview *gdvp)
 
 		go_draw_solid(gdvp, sp);
 	    }
-
-	    gdlp = next_gdlp;
 	}
 
 	/* disable write to depth buffer */
 	(void)dm_set_depth_mask(dmp, 0);
 
 	/* Second, draw transparent stuff */
-	gdlp = BU_LIST_NEXT(display_list, hdlp);
-	while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
-	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	    for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+	for (gdlp = bsg_view_obj_first_group(lgedp); gdlp;
+	     gdlp = bsg_view_obj_next_group(lgedp, gdlp)) {
+	    for (BU_LIST_FOR(sp, bv_scene_obj, bsg_view_obj_group_solid_list(gdlp))) {
 		/* already drawn above */
 		if (ZERO(sp->s_os->transparency - 1.0))
 		    continue;
@@ -172,18 +166,14 @@ go_draw_dlist(struct bview *gdvp)
 
 		go_draw_solid(gdvp, sp);
 	    }
-
-	    gdlp = next_gdlp;
 	}
 
 	/* re-enable write to depth buffer */
 	(void)dm_set_depth_mask(dmp, 1);
     } else {
-	gdlp = BU_LIST_NEXT(display_list, hdlp);
-	while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
-	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	    for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+	for (gdlp = bsg_view_obj_first_group(lgedp); gdlp;
+	     gdlp = bsg_view_obj_next_group(lgedp, gdlp)) {
+	    for (BU_LIST_FOR(sp, bv_scene_obj, bsg_view_obj_group_solid_list(gdlp))) {
 		if (line_style != sp->s_soldash) {
 		    line_style = sp->s_soldash;
 		    (void)dm_set_line_attr(dmp, dm_get_linewidth(dmp), line_style);
@@ -191,8 +181,6 @@ go_draw_dlist(struct bview *gdvp)
 
 		go_draw_solid(gdvp, sp);
 	    }
-
-	    gdlp = next_gdlp;
 	}
     }
 

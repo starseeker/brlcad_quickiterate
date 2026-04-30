@@ -60,18 +60,15 @@
 static int nchecks = 0;
 static int nfails  = 0;
 
-/* Count drawn entries in the legacy display list. */
+/* Count drawn groups via the public API. */
 static int
 dl_count(struct ged *gedp)
 {
-    struct bu_list *hdlp = gedp->i->ged_gdp->gd_headDisplay;
-    if (!hdlp) return 0;
     int n = 0;
-    struct display_list *gdlp;
-    for (BU_LIST_FOR(gdlp, display_list, hdlp)) {
-	(void)gdlp;
+    void *gdlp;
+    for (gdlp = bsg_view_obj_first_group(gedp); gdlp;
+	 gdlp = bsg_view_obj_next_group(gedp, gdlp))
 	n++;
-    }
     return n;
 }
 
@@ -196,11 +193,11 @@ main(int ac, char *av[])
     bsg_view_obj_set_iflag(gedp, UP);
     {
 	int all_up = 1;
-	struct bu_list *hdlp = gedp->i->ged_gdp->gd_headDisplay;
-	struct display_list *gdlp;
+	void *gdlp;
 	struct bv_scene_obj *sp;
-	for (BU_LIST_FOR(gdlp, display_list, hdlp)) {
-	    for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+	for (gdlp = bsg_view_obj_first_group(gedp); gdlp;
+	     gdlp = bsg_view_obj_next_group(gedp, gdlp)) {
+	    for (BU_LIST_FOR(sp, bv_scene_obj, bsg_view_obj_group_solid_list(gdlp))) {
 		if (sp->s_iflag != UP) all_up = 0;
 	    }
 	}
@@ -209,11 +206,11 @@ main(int ac, char *av[])
     bsg_view_obj_set_iflag(gedp, DOWN);
     {
 	int all_down = 1;
-	struct bu_list *hdlp = gedp->i->ged_gdp->gd_headDisplay;
-	struct display_list *gdlp;
+	void *gdlp;
 	struct bv_scene_obj *sp;
-	for (BU_LIST_FOR(gdlp, display_list, hdlp)) {
-	    for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+	for (gdlp = bsg_view_obj_first_group(gedp); gdlp;
+	     gdlp = bsg_view_obj_next_group(gedp, gdlp)) {
+	    for (BU_LIST_FOR(sp, bv_scene_obj, bsg_view_obj_group_solid_list(gdlp))) {
 		if (sp->s_iflag != DOWN) all_down = 0;
 	    }
 	}

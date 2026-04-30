@@ -46,6 +46,7 @@
 #include "bn.h"
 #include "bsg/util.h"
 #include "dm/view.h"
+#include "ged/bsg_view_obj.h"
 
 #include "./mged.h"
 #include "./sedit.h"
@@ -219,17 +220,13 @@ createDLists(void *data, struct bu_list *hdlp)
 {
     struct mged_state *s = (struct mged_state *)data;
     MGED_CK_STATE(s);
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
+    void *gdlp;
+    (void)hdlp;  /* now using s->gedp for iteration */
 
-    gdlp = BU_LIST_NEXT(display_list, hdlp);
-    while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
+    for (gdlp = bsg_view_obj_first_group(s->gedp); gdlp;
+	 gdlp = bsg_view_obj_next_group(s->gedp, gdlp)) {
 	dm_set_dirty(DMP, 1);
-	dm_draw_display_list(DMP, gdlp);
-
-	gdlp = next_gdlp;
+	dm_draw_display_list(DMP, bsg_view_obj_group_solid_list(gdlp));
     }
 }
 

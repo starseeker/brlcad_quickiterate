@@ -141,17 +141,17 @@ f_copy_inv(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv
 struct bv_scene_obj *
 find_solid_with_path(struct mged_state *s, struct db_full_path *pathp)
 {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
+    void *gdlp;
     struct bv_scene_obj *sp;
     int count = 0;
     struct bv_scene_obj *ret = (struct bv_scene_obj *)NULL;
 
     RT_CK_FULL_PATH(pathp);
 
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
+    for (gdlp = bsg_view_obj_first_group(s->gedp); gdlp;
+
+
+         gdlp = bsg_view_obj_next_group(s->gedp, gdlp)) {
 
 	for (BU_LIST_FOR(sp, bv_scene_obj, bsg_view_obj_group_solid_list(gdlp))) {
 	    if (!sp->s_u_data)
@@ -165,8 +165,6 @@ find_solid_with_path(struct mged_state *s, struct db_full_path *pathp)
 	    ret = sp;
 	    count++;
 	}
-
-	gdlp = next_gdlp;
     }
 
     if (count > 1) {
@@ -244,7 +242,7 @@ cmd_oed(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 
     /* Patterned after ill_common() ... */
     illump = bsg_view_obj_first_solid(s->gedp);
-    illum_gdlp = (struct display_list *)bsg_view_obj_group_of_solid(s->gedp, illump);
+    illum_gdlp = bsg_view_obj_group_of_solid(s->gedp, illump);
     edobj = 0;		/* sanity */
     movedir = 0;		/* No edit modes set */
     MAT_IDN(MEDIT(s)->model_changes);	/* No changes yet */
@@ -260,7 +258,7 @@ cmd_oed(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	db_free_full_path(&rhs);
 	db_free_full_path(&both);
 	Tcl_AppendResult(interp, "Unable to find solid matching path", (char *)NULL);
-	illum_gdlp = GED_DISPLAY_LIST_NULL;
+	illum_gdlp = NULL;
 	illump = 0;
 	(void)chg_state(s, ST_O_PICK, ST_VIEW, "error recovery");
 	return TCL_ERROR;

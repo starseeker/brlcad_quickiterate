@@ -558,7 +558,7 @@ ill_common(struct mged_state *s) {
     }
 
     illump = bsg_view_obj_first_solid(s->gedp);
-    illum_gdlp = (struct display_list *)bsg_view_obj_group_of_solid(s->gedp, illump);
+    illum_gdlp = bsg_view_obj_group_of_solid(s->gedp, illump);
     illump->s_iflag = UP;
     edobj = 0;		/* sanity */
     edsol = 0;		/* sanity */
@@ -794,7 +794,7 @@ be_accept(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), c
 
 	bsg_view_obj_set_iflag(s->gedp, DOWN);
 
-	illum_gdlp = GED_DISPLAY_LIST_NULL;
+	illum_gdlp = NULL;
 	illump = NULL;
 	mged_color_soltab(s);
 	(void)chg_state(s, ST_S_EDIT, ST_VIEW, "Edit Accept");
@@ -807,7 +807,7 @@ be_accept(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), c
 
 	mmenu_set_all(s, MENU_L2, NULL);
 
-	illum_gdlp = GED_DISPLAY_LIST_NULL;
+	illum_gdlp = NULL;
 	illump = NULL;
 	mged_color_soltab(s);
 	(void)chg_state(s, ST_O_EDIT, ST_VIEW, "Edit Accept");
@@ -877,7 +877,7 @@ be_reject(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), c
     edsol = 0;
     edobj = 0;
     MEDIT(s)->edit_flag = -1;
-    illum_gdlp = GED_DISPLAY_LIST_NULL;
+    illum_gdlp = NULL;
     illump = NULL;		/* None selected */
 
     /* Clear illumination flags */
