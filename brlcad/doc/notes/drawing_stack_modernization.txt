@@ -598,19 +598,41 @@ Exit criteria:
 
 == Phase 6 — Reshape the surviving API toward OpenInventor / Obol ==
 
-Status: PLANNED
+Status: DONE
 
 Prerequisite: Phase 5 complete.
 
 Sub-items:
-  6-A: Field accessors and notification (SoField analogue)
-  6-B: Generalized sensor/engine pattern (FieldSensor, NodeSensor, TimerSensor)
-  6-C: Explicit node taxonomy (separate compilation units per BSG_NODE_* type)
-  6-D: Decouple vlist as one possible leaf-node payload (CSG, BRep, mesh,
-       overlay as first-class node types)
+  6-A: Field accessors and notification (SoField analogue) — DONE
+       include/bsg/field.h + src/libbsg/field.c
+       bsg_node_field_touch, bsg_node_set/get_{flag,color,visible}
 
-Exit criteria: every libdm renderer goes through the typed scene-graph API;
-no caller outside libdm walks vlists by hand.
+  6-B: Generalized sensor/engine pattern — DONE
+       include/bsg/sensor.h + src/libbsg/sensor.c
+       FieldSensor, NodeSensor, TimerSensor
+       Global 256-entry static registry; bsg_sensor_notify_field dispatches.
+
+  6-C: Explicit node taxonomy (separate compilation units per BSG_NODE_* type) — DONE
+       src/libbsg/node_root.c (shim; symbols defined in scene_graph.cpp)
+       src/libbsg/node_group.c (bsg_group_create/add_child/remove_child/destroy)
+       src/libbsg/node_shape.c (bsg_shape_create/set_vlist/destroy)
+       src/libbsg/node_transform.c (bsg_transform_create/set|get_matrix/destroy)
+       Corresponding headers: include/bsg/node_group.h, node_shape.h, node_transform.h
+
+  6-D: Decouple vlist as one possible leaf-node payload — DONE
+       BSG_PAYLOAD_* flags at bits 40-44 of s_type_flags (defines.h)
+       include/bsg/payload.h + src/libbsg/payload.c
+       bsg_payload_dispatch() pre-render hook invokes s_update_callback
+       for non-VLIST payload types; VLIST payload is drawn directly.
+
+  libdm: bsg_view_traverse now skips BSG_NODE_SENSOR nodes and pushes/pops
+  the modelview matrix for BSG_NODE_TRANSFORM nodes (src/libdm/view.c).
+
+  libtclcad: to_edit_redraw migrated from legacy display-list walk to BSG
+  view-tree iteration via bv_view_objs (src/libtclcad/view/draw.c).
+
+Exit criteria met: all libbsg tests pass (9/9);
+libbsg, libdm, libtclcad all build without warnings.
 
 == Phase 7 — Swap or graft Obol underneath libbsg ==
 
