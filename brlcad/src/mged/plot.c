@@ -56,11 +56,9 @@ f_area(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     static vect_t fin;
     char result[RT_MAXLINE] = {0};
     char tol_str[32] = {0};
-    int is_empty = 1;
 
 #ifndef _WIN32
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
+    void *gdlp;
     struct bv_scene_obj *sp;
     struct bv_vlist *vp;
     FILE *fp_r;
@@ -90,28 +88,17 @@ f_area(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     if (not_state(s, ST_VIEW, "Presented Area Calculation") == TCL_ERROR)
 	return TCL_ERROR;
 
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	if (BU_LIST_NON_EMPTY(&gdlp->dl_head_scene_obj)) {
-	    is_empty = 0;
-	    break;
-	}
-
-	gdlp = next_gdlp;
-    }
-
-    if (is_empty) {
+    if (!bsg_view_obj_is_nonempty(s->gedp)) {
 	Tcl_AppendResult(interp, "No objects displayed!!!\n", (char *)NULL);
 	return TCL_ERROR;
     }
 
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
+    for (gdlp = bsg_view_obj_first_group(s->gedp); gdlp;
 
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+
+         gdlp = bsg_view_obj_next_group(s->gedp, gdlp)) {
+
+	for (BU_LIST_FOR(sp, bv_scene_obj, bsg_view_obj_group_solid_list(gdlp))) {
 	    if (!sp->s_old.s_Eflag && sp->s_soldash != 0) {
 		struct bu_vls vls = BU_VLS_INIT_ZERO;
 
@@ -121,8 +108,6 @@ f_area(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 		return TCL_ERROR;
 	    }
 	}
-
-	gdlp = next_gdlp;
     }
 
     if (argc == 2) {
@@ -198,11 +183,11 @@ f_area(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
      * Write out rotated but unclipped, untranslated,
      * and unscaled vectors
      */
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
+    for (gdlp = bsg_view_obj_first_group(s->gedp); gdlp;
 
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+         gdlp = bsg_view_obj_next_group(s->gedp, gdlp)) {
+
+	for (BU_LIST_FOR(sp, bv_scene_obj, bsg_view_obj_group_solid_list(gdlp))) {
 	    for (BU_LIST_FOR(vp, bv_vlist, &(sp->s_vlist))) {
 		int i;
 		int nused = vp->nused;
@@ -241,8 +226,6 @@ f_area(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 		}
 	    }
 	}
-
-	gdlp = next_gdlp;
     }
 
     fclose(fp_w);

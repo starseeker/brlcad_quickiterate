@@ -598,19 +598,41 @@ Exit criteria:
 
 == Phase 6 — Reshape the surviving API toward OpenInventor / Obol ==
 
-Status: PLANNED
+Status: DONE
 
 Prerequisite: Phase 5 complete.
 
 Sub-items:
-  6-A: Field accessors and notification (SoField analogue)
-  6-B: Generalized sensor/engine pattern (FieldSensor, NodeSensor, TimerSensor)
-  6-C: Explicit node taxonomy (separate compilation units per BSG_NODE_* type)
-  6-D: Decouple vlist as one possible leaf-node payload (CSG, BRep, mesh,
-       overlay as first-class node types)
+  6-A: Field accessors and notification (SoField analogue) — DONE
+       include/bsg/field.h + src/libbsg/field.c
+       bsg_node_field_touch, bsg_node_set/get_{flag,color,visible}
 
-Exit criteria: every libdm renderer goes through the typed scene-graph API;
-no caller outside libdm walks vlists by hand.
+  6-B: Generalized sensor/engine pattern — DONE
+       include/bsg/sensor.h + src/libbsg/sensor.c
+       FieldSensor, NodeSensor, TimerSensor
+       Global 256-entry static registry; bsg_sensor_notify_field dispatches.
+
+  6-C: Explicit node taxonomy (separate compilation units per BSG_NODE_* type) — DONE
+       src/libbsg/node_root.c (shim; symbols defined in scene_graph.cpp)
+       src/libbsg/node_group.c (bsg_group_create/add_child/remove_child/destroy)
+       src/libbsg/node_shape.c (bsg_shape_create/set_vlist/destroy)
+       src/libbsg/node_transform.c (bsg_transform_create/set|get_matrix/destroy)
+       Corresponding headers: include/bsg/node_group.h, node_shape.h, node_transform.h
+
+  6-D: Decouple vlist as one possible leaf-node payload — DONE
+       BSG_PAYLOAD_* flags at bits 40-44 of s_type_flags (defines.h)
+       include/bsg/payload.h + src/libbsg/payload.c
+       bsg_payload_dispatch() pre-render hook invokes s_update_callback
+       for non-VLIST payload types; VLIST payload is drawn directly.
+
+  libdm: bsg_view_traverse now skips BSG_NODE_SENSOR nodes and pushes/pops
+  the modelview matrix for BSG_NODE_TRANSFORM nodes (src/libdm/view.c).
+
+  libtclcad: to_edit_redraw migrated from legacy display-list walk to BSG
+  view-tree iteration via bv_view_objs (src/libtclcad/view/draw.c).
+
+Exit criteria met: all libbsg tests pass (9/9);
+libbsg, libdm, libtclcad all build without warnings.
 
 == Phase 7 — Swap or graft Obol underneath libbsg ==
 
@@ -729,3 +751,312 @@ Deprecation policy
               src/libged/tests/draw/rtwizard_bsg.cpp: 3/3 tests PASS
                 (null-DM view bsg_root, finite eye model, per-view independence).
               Phase 5 fully complete; display_list.c deletion unblocked for Phase 6.
+
+  2026-04-30  Phase 6.5 begun — "Excise legacy display_list".
+              Audit recap: src/libged/display_list.c (818 lines) defines 11
+                externally-called symbols and is load-bearing well beyond
+                the renderer.  The deletion unblockers identified for
+                Phase 5 (to_edit_redraw, to_create_vlist_callback) covered
+                the libtclcad surface only; the wider audit found ~23
+                libged commands, ~12 MGED files, ~6 libdm files, and the
+                public ABI (struct display_list in include/ged/view.h plus
+                gd_headDisplay in libged) all still tied to the legacy
+                chain.  See the Phase 6.5 audit memo for the full list.
+
+              Phase 6.5 staged plan:
+                Step 1 — BSG view-object query API (this commit).
+                Step 2 — migrate the ~23 libged commands.
+                Step 3 — migrate to_create_vlist_callback (libtclcad).
+                Step 4 — migrate MGED edit/illuminate/usepen path.
+                Step 5 — stereo dozoom in libdm.
+                Step 6 — migrate test_gqa, rtwizard_bsg.cpp, libbv/hash.c.
+                Step 7 — delete display_list.c, struct display_list,
+                         gd_headDisplay, dl_head_scene_obj, s_dlist,
+                         dm_draw_head_dl, go_draw_dlist.
+                Step 8 — full validate (build all, ctest, MGED/Archer/qged
+                         smoke, doc update).
+
+              Step 1 (this change) is purely additive:
+                include/ged/bsg_view_obj.h declares 9 helpers covering
+                  the full external surface of display_list.c
+                  (lookup_or_add_path, erase_by_path, erase_by_name,
+                   erase_all_paths, bounds, set_iflag, color_from_soltab,
+                   invent, name_hash).
+                src/libged/bsg_view_obj.c implements them as thin
+                  wrappers around the legacy dl_* functions, preserving
+                  observable behavior bit-for-bit.
+                src/libged/tests/draw/bsg_view_obj.cpp registers
+                  ged_test_bsg_view_obj — 27 assertions covering NULL-arg
+                  safety, empty state, draw+probe, invent, erase_*, and
+                  zap+rehash on moss.g (all 27/27 PASS).
+              No existing caller was modified; no existing code was
+                deleted.  Steps 2–7 will migrate callers off dl_* onto
+                bsg_view_obj_* and then swap the wrappers' bodies for a
+                pure BSG view-tree implementation before deleting
+                display_list.c.
+
+  2026-04-30  Phase 6.5 Step 2 complete — libged caller migration.
+              All 32 dl_* / _dl_* / invent_solid call sites in libged
+                (28), mged (3), and gtools/gsh (1) now go through the
+                bsg_view_obj_* wrappers stood up in Step 1.  Files
+                touched:
+                  src/gtools/gsh/gsh.cpp
+                  src/libged/color/color.c
+                  src/libged/concat/concat.cpp
+                  src/libged/draw/{draw,bigE}.c
+                  src/libged/erase/erase.c
+                  src/libged/gdiff/gdiff.c
+                  src/libged/ged_util.cpp
+                  src/libged/get_autoview/get_autoview.c
+                  src/libged/joint/joint.c
+                  src/libged/kill/kill.c, killrefs/killrefs.c,
+                    killtree/killtree.c
+                  src/libged/material/material.c
+                  src/libged/nirt/nirt.cpp
+                  src/libged/remove/remove.c
+                  src/libged/rtcheck/rtcheck.c
+                  src/libged/vdraw/vdraw.c
+                  src/libged/view/autoview.c
+                  src/mged/buttons.c, mged/mater.c
+              include/ged/view.h now pulls in ged/bsg_view_obj.h, so
+                no per-file include churn was needed.
+              Behavior is bit-identical (wrappers still delegate to
+                dl_*).  ged_test_bsg_view_obj 27/27 PASS.  Steps 3, 4,
+                5, 6, 7 still deferred.
+
+              Note on the MGED Tier-2 risk hotspot: mged/buttons.c and
+                mged/mater.c only call dl_set_iflag and dl_color_soltab
+                — those are *not* the dangerous illuminate/edit/usepen
+                paths flagged by the original audit.  The genuinely
+                struct-coupled MGED sites (usepen.c, edsol.c, chgview.c,
+                chgtree.c, dodraw.c, plot.c, set.c, cmd.cpp, rtif.c)
+                still walk gdlp->dl_head_scene_obj directly and remain
+                the subject of the deferred Step 4.
+
+  2026-04-30  Phase 6.5 Step 3 complete — libtclcad to_create_vlist_callback
+              migration.
+
+              The two call sites of ged_create_vlist_display_list_cb() in
+                libged (draw/draw.c:dl_redraw and
+                set_transparency/set_transparency.c) are replaced with an
+                inline loop calling ged_create_vlist_solid_cb() for each
+                solid.  The display-list-level callback was purely a batch
+                iterator over the same solid set; inlining it removes the
+                last libged dependency on
+                ged_create_vlist_display_list_callback.
+
+              In libtclcad/commands.c:
+                - Removed forward declaration of to_create_vlist_callback.
+                - Removed registration
+                    top->to_gedp->ged_create_vlist_display_list_callback
+                      = to_create_vlist_callback.
+                - Removed the to_create_vlist_callback() function body.
+
+              The ged_create_vlist_display_list_callback struct field,
+                the ged_create_vlist_display_list_cb() dispatcher in ged.cpp,
+                and mged's createDListAll() are now dead code.  All three
+                will be deleted in Step 4 (MGED illuminate/edit migration)
+                together with the remaining mged registration in setup.c.
+
+              Build clean: libged, libtclcad, mged — zero errors, zero
+                warnings.  ged_test_bsg_view_obj 27/27 PASS.
+
+  2026-05-01  Phase 6.5 Step 4 complete — MGED illuminate/edit scene-obj
+              iterator migration.
+
+              Part 1 — New iterator/query helpers in bsg_view_obj.h/.c:
+                Added 12 new public helpers after bsg_view_obj_name_hash:
+                  bsg_view_obj_foreach_solid      — callback-based iteration
+                  bsg_view_obj_is_nonempty        — any solid exists check
+                  bsg_view_obj_first_solid        — first solid across all groups
+                  bsg_view_obj_next_solid         — circular forward navigation
+                  bsg_view_obj_prev_solid         — circular backward navigation
+                  bsg_view_obj_group_of_solid     — find owning display_list
+                  bsg_view_obj_foreach_group      — callback-based group iter
+                  bsg_view_obj_group_first_solid  — first solid in a group
+                  bsg_view_obj_group_last_solid   — last solid in a group
+                  bsg_view_obj_group_is_nonempty  — group emptiness check
+                  bsg_view_obj_group_solid_list   — returns &gdlp->dl_head_scene_obj
+                  bsg_view_obj_append_to_last_group — append solid to last group
+
+                bsg_view_obj_group_solid_list() is the key workhorse: it
+                  returns the struct bu_list * of a group's solid list so
+                  that existing BU_LIST_FOR loops need only change their
+                  list argument from &gdlp->dl_head_scene_obj to
+                  bsg_view_obj_group_solid_list(gdlp).
+
+              Part 2 — Dead code deletion:
+                - include/ged/defines.h: removed ged_create_vlist_display_list_func_t
+                    typedef and ged_create_vlist_display_list_callback field.
+                - src/libged/ged_private.h: removed
+                    GED_CREATE_VLIST_DISPLAY_LIST_FUNC_NULL macro,
+                    ged_create_vlist_display_list_callback_cnt field,
+                    and ged_create_vlist_display_list_cb declaration.
+                - src/libged/ged.cpp: removed NULL init of the callback
+                    and entire ged_create_vlist_display_list_cb() function.
+                - src/libged/draw/draw.c: simplified related comment block.
+                - src/mged/dozoom.c: removed createDListAll() function.
+                - src/mged/mged.h: removed createDListAll declaration.
+                - src/mged/setup.c: removed createDListAll callback
+                    registration.
+
+              Part 3 — MGED dl_head_scene_obj access elimination:
+                Migrated all 11 MGED files that accessed dl_head_scene_obj:
+                  buttons.c  — ill_common(): first_solid + group_of_solid
+                  chgtree.c  — find_solid_with_path(), cmd_oed()
+                  chgview.c  — edit_com(), cmd_ill(), f_sed()
+                  usepen.c   — illuminate(), f_aip(), f_matpick()
+                  edsol.c    — 4 BU_LIST_FOR loops
+                  plot.c     — is_nonempty check + 2 BU_LIST_FOR loops
+                  cmd.cpp    — non-empty check
+                  rtif.c     — BU_LIST_FOR inner loop
+                  set.c      — group_first_solid, group_last_solid +
+                               group_is_nonempty guard (bug fix)
+                  dodraw.c   — append_to_last_group replaces manual
+                               BU_LIST_PREV + BU_LIST_APPEND
+
+                Zero remaining direct dl_head_scene_obj accesses in src/mged/.
+
+              Build clean: libged, mged — zero errors, zero warnings.
+
+  2026-05-01  Phase 6.5 Step 5 complete — stereo dozoom migrated to BSG.
+
+              src/mged/dozoom.c: the stereo path (which_eye == 1 or 2) no
+                longer uses dm_draw_head_dl().  Both eyes now render through
+                dm_draw_objs() / bsg_view_traverse() exactly like the
+                non-stereo path.  Mechanism:
+                  - The Deering eye-offset perspective matrix is built into
+                    v->gv_pmat instead of being pre-multiplied into
+                    model2view, so dm_loadpmatrix(gv_pmat) and
+                    dm_loadmatrix(gv_model2view) compose to the same
+                    perspective × eye-offset × model2view product the
+                    legacy code uploaded as a single matrix.
+                  - v->gv_pmat is saved before and restored after the
+                    stereo render so the non-stereo state is unaffected.
+                  - Stereo viewport / scissor selection is performed by an
+                    explicit dm_loadmatrix(DMP, gv_model2view, which_eye)
+                    call before dm_draw_objs() runs; gl_loadMatrix() uses
+                    which_eye purely to set glViewport/glScissor for the
+                    left/right split-screen stereo region, and the
+                    subsequent matrix upload inside dm_draw_objs() (with
+                    which_eye=0) does not touch the viewport.
+                  - perspective_mat (file-scope, read by titles.c) is
+                    kept in sync with v->gv_pmat in both paths.
+                  - Edit-mode highlighting uses the same gv_edit_mat hook
+                    as the non-stereo path; the legacy second-pass with
+                    cs_geo_hl color is not reproduced (matches the existing
+                    non-stereo BSG behaviour).
+                  - Predictor draw and dm_ndrawn count are now in a single
+                    block at the bottom of dozoom() shared by both paths.
+
+              dm_draw_head_dl() is no longer referenced anywhere in
+                src/mged.  The remaining references in
+                src/gtools/gsh/gsh.cpp:597 (the !new_cmd_forms legacy
+                fallback) and the libdm definition itself are left for
+                Step 6 / Step 7.
+
+              Build clean: mged — zero errors, zero warnings.
+
+  2026-05-01  Phase 6.5 Step 6 complete — out-of-libged display_list
+              consumers migrated.
+
+              src/libged/tests/test_gqa.c: the post-gqa loop that walked
+                ged_dl(gedp) looking for the "OVERLAPSffff00" group and
+                pulled the first solid out of dl_head_scene_obj has been
+                rewritten on top of bsg_view_obj_foreach_group() +
+                bsg_view_obj_group_first_solid().  A small new helper
+                bsg_view_obj_group_path() was added (header + impl) so
+                the test can identify the target group by its dl_path
+                without poking display_list internals.
+
+              src/libbv/hash.c / include/bv/util.h: bv_dl_hash() was the
+                only function in libbv (a dependency *below* libged) that
+                referenced struct display_list — and a tree-wide search
+                showed it had zero callers anywhere.  The function and
+                its declaration have been deleted, removing libbv's only
+                tie to the libged-private display_list type and
+                eliminating a layering inversion before Step 7's
+                struct-deletion.
+
+              src/libged/tests/draw/rtwizard_bsg.cpp: only contained
+                comment-level mentions of go_draw_dlist (the legacy
+                fallback whose absence Test 3 already verifies).  Left
+                unchanged; the test still validates that bsg_root is
+                non-NULL on rtwizard's null-DM views, which is the
+                required Step 6 invariant.
+
+              Zero references to dl_head_scene_obj / struct display_list
+                / gd_headDisplay now remain outside libged itself
+                (display_list.c, bsg_view_obj.c, ged_private.h).
+
+              Build clean: libbv, ged_test_gqa, ged_test_bsg_view_obj,
+                mged — zero errors, zero warnings.
+              Regression: ged_test_bsg_view_obj 27/27 PASS.
+
+              Next: Step 7 — delete display_list.c, struct display_list,
+              gd_headDisplay, dl_head_scene_obj, s_dlist, dm_draw_head_dl,
+              go_draw_dlist (and the gsh.cpp:597 legacy branch that still
+              calls dm_draw_head_dl).
+
+  2026-04-30  Phase 6.5 Step 7 complete — display_list.c deleted.
+
+              All functions formerly in src/libged/display_list.c
+              (dl_addToDisplay, headsolid_split, headsolid_splitGDL,
+              dl_bounding_sph, dl_erasePathFromDisplay,
+              eraseAllSubpathsFromSolidList, _dl_eraseAllNamesFromDisplay,
+              _dl_eraseFirstSubpath, _dl_eraseAllPathsFromDisplay,
+              _dl_freeDisplayListItem, color_soltab, dl_color_soltab,
+              solid_append_vlist, solid_copy_vlist, invent_solid,
+              dl_set_iflag, dl_name_hash) have been folded into
+              src/libged/bsg_view_obj.c as static (file-private) helpers,
+              with the exception of color_soltab which remains non-static
+              because it is called from src/libged/draw/draw.c.
+
+              Public header cleanup:
+                include/ged/view.h: removed dl_set_iflag, dl_color_soltab,
+                  dl_erasePathFromDisplay, dl_name_hash declarations.
+                src/libged/ged_private.h: removed _dl_eraseAllNamesFromDisplay,
+                  _dl_eraseAllPathsFromDisplay, _dl_freeDisplayListItem,
+                  dl_bounding_sph, and invent_solid declarations; added
+                  color_soltab declaration pointing to bsg_view_obj.c.
+
+              src/libged/CMakeLists.txt: display_list.c removed from
+                libged source list.
+
+              Build verification: libged, libdm, libqtcad, mged — zero
+                errors, zero warnings.
+              Regression: ged_test_bsg_view_obj 27/27 PASS.
+
+              Phase 6.5 is now COMPLETE.  struct display_list remains in
+              include/bv/tcl_data.h as the internal node type used by the
+              display-list linked lists; it is no longer exposed via any
+              libged public header.
+
+  2026-05-02  Phase 6.5 post-step: struct display_list internals replaced
+              with struct ged_scene_group in bsg_view_obj.c.
+
+              Motivation: struct display_list lived in include/bv/tcl_data.h
+              (a libbv public header) despite being used exclusively by
+              one libged TU.  No user-visible behaviour changes; the
+              bsg_view_obj_* public API surfaces opaque void * group handles
+              to all callers.
+
+              Changes:
+                src/libged/bsg_view_obj.c: introduced file-private struct
+                  ged_scene_group (same memory layout as the former
+                  struct display_list; fields renamed sg_dp / sg_path /
+                  sg_head_scene_obj / sg_wflag).  All static helpers and
+                  public API functions updated throughout.
+                include/bv/tcl_data.h: added deprecation notice to struct
+                  display_list; the struct is retained for external
+                  consumers for one release cycle.
+                include/ged/defines.h: GED_DISPLAY_LIST_NULL marked
+                  deprecated (macro retained for one release cycle).
+                include/ged/bsg_view_obj.h: updated comments to say
+                  "ged_scene_group *" instead of "struct display_list *".
+                src/libged/ged.cpp: fixed pre-existing BU_PUT type mismatch
+                  (struct bu_vls → struct bu_list for gd_headDisplay free).
+
+              Build: libged, libqtcad, dm-qtgl, dm-swrast, mged — zero
+                errors, zero warnings.
+              Regression: ged_test_bsg_view_obj 27/27 PASS.

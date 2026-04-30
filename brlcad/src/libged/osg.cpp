@@ -29,6 +29,7 @@
 #include "common.h"
 
 #include "ged.h"
+#include "ged/bsg_view_obj.h"
 #include "bv/defines.h"
 #include <assert.h>
 
@@ -42,7 +43,7 @@
 
 
 __BEGIN_DECLS
-void _ged_osgLoadScene(struct bu_list *hdlp, void *osgData);
+void _ged_osgLoadScene(struct ged *gedp, void *osgData);
 __END_DECLS
 
 
@@ -147,10 +148,9 @@ _osgLoadSolid(osg::Geode *geode, osg::Geometry *geom, osg::Vec3dArray *vertices,
 
 
 void
-_ged_osgLoadScene(struct bu_list *hdlp, void *osgData)
+_ged_osgLoadScene(struct ged *gedp, void *osgData)
 {
-    register struct display_list *gdlp;
-    register struct display_list *next_gdlp;
+    void *gdlp;
     struct bv_scene_obj *sp;
     struct osg_stuff *osp = (struct osg_stuff *)osgData;
 
@@ -162,11 +162,9 @@ _ged_osgLoadScene(struct bu_list *hdlp, void *osgData)
 
     bu_log("before: max frame rate - %lf\n", osp->viewer->getRunMaxFrameRate());
     bu_log("_ged_osgLoadScene: enter\n");
-    gdlp = BU_LIST_NEXT(display_list, hdlp);
-    while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	FOR_ALL_SOLIDS(sp, &gdlp->dl_head_scene_obj) {
+    for (gdlp = bsg_view_obj_first_group(gedp); gdlp;
+	 gdlp = bsg_view_obj_next_group(gedp, gdlp)) {
+	FOR_ALL_SOLIDS(sp, bsg_view_obj_group_solid_list(gdlp)) {
 	    if (sp->s_dmode == 4) {
 		_osgLoadHiddenSolid(geode, sp);
 	    } else {
@@ -183,8 +181,6 @@ _ged_osgLoadScene(struct bu_list *hdlp, void *osgData)
 		geode->addDrawable(geom);
 	    }
 	}
-
-	gdlp = next_gdlp;
     }
 
     root->addChild(geode);

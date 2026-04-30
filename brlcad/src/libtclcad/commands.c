@@ -531,7 +531,6 @@ static int to_zclip(struct ged *gedp,
 /* Utility Functions */
 
 static void to_create_vlist_callback_solid(void *, struct bv_scene_obj *gdlp);
-static void to_create_vlist_callback(void *, struct display_list *gdlp);
 static void to_destroy_vlist_callback(void *, unsigned int dlist, int range);
 static void to_rt_end_callback_internal(int aborted);
 
@@ -1269,7 +1268,6 @@ to_open_tcl(ClientData UNUSED(clientData),
     top->to_gedp->ged_output_handler = to_output_handler;
     top->to_gedp->ged_refresh_handler = to_refresh_handler;
     top->to_gedp->ged_create_vlist_scene_obj_callback = to_create_vlist_callback_solid;
-    top->to_gedp->ged_create_vlist_display_list_callback = to_create_vlist_callback;
     top->to_gedp->ged_destroy_vlist_callback = to_destroy_vlist_callback;
 
     ged_dl_notify_func_set(top->to_gedp, to_rt_end_callback_internal);
@@ -6431,16 +6429,6 @@ to_create_vlist_callback_solid(void *UNUSED(ctx), struct bv_scene_obj *sp)
 
 	    (void)dm_end_dlist((struct dm *)gdvp->dmp);
 	}
-    }
-}
-
-
-static void
-to_create_vlist_callback(void *ctx, struct display_list *gdlp)
-{
-    struct bv_scene_obj *sp;
-    for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-	to_create_vlist_callback_solid(ctx, sp);
     }
 }
 

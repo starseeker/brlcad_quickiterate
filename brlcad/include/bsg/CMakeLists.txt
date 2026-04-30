@@ -1,9 +1,15 @@
 set(
   bsg_headers
   defines.h
+  field.h
   lod.h
+  node_group.h
+  node_shape.h
+  node_transform.h
   obol_node.h
+  payload.h
   scene_set.h
+  sensor.h
   util.h
   vlist.h
 )

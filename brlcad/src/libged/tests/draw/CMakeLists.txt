@@ -308,6 +308,22 @@ distclean(${CMAKE_CURRENT_BINARY_DIR}/rtw_bsg_t3.g)
 distclean(${CMAKE_CURRENT_BINARY_DIR}/rtw_bsg_t4.g)
 distclean(${CMAKE_CURRENT_BINARY_DIR}/rtw_bsg_t5.g)
 
+# Phase 6.5: BSG view-object API (Step 1 — additive helpers)
+brlcad_addexec(ged_test_bsg_view_obj "bsg_view_obj.cpp" "libged" TEST)
+if(TARGET ged_test_bsg_view_obj)
+  foreach(tdp ${test_deps})
+    if (TARGET tdp)
+      add_dependencies(ged_test_bsg_view_obj ${tdp})
+    endif ()
+  endforeach()
+endif(TARGET ged_test_bsg_view_obj)
+brlcad_add_test(NAME ged_test_bsg_view_obj COMMAND ged_test_bsg_view_obj "${CMAKE_CURRENT_SOURCE_DIR}")
+if(TARGET ged_test_bsg_view_obj)
+  set_property(TEST ged_test_bsg_view_obj APPEND PROPERTY ENVIRONMENT BRLCAD_ROOT=${CMAKE_BINARY_DIR})
+endif()
+distclean(${CMAKE_CURRENT_BINARY_DIR}/bsg_view_obj_tmp.g)
+distclean(${CMAKE_CURRENT_BINARY_DIR}/ged_bsg_view_obj_cache)
+
 cmakefiles(
   README
   empty.png
@@ -316,6 +332,7 @@ cmakefiles(
   rook.g
   bsg_parity.cpp
   bsg_quad_parity.cpp
+  bsg_view_obj.cpp
   lod_crossrun.cpp
   mged_bsg.cpp
   rtwizard_bsg.cpp

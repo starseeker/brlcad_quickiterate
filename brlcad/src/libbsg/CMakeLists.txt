@@ -1,7 +1,14 @@
 set(
   LIBBSG_SRCS
+  field.c
   lod.cpp
+  node_group.c
+  node_root.c
+  node_shape.c
+  node_transform.c
+  payload.c
   scene_graph.cpp
+  sensor.c
   vlist.c
 )
 
@@ -21,6 +28,13 @@ add_subdirectory(tests)
 
 cmakefiles(
   CMakeLists.txt
+  field.c
+  node_group.c
+  node_root.c
+  node_shape.c
+  node_transform.c
+  payload.c
+  sensor.c
 )
 
 # Local Variables:

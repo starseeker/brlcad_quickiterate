@@ -56,6 +56,7 @@
 #include "bv.h"
 
 #include "ged.h"
+#include "ged/bsg_view_obj.h"
 #include "./ged_private.h"
 #include "./dbi.h"
 
@@ -1062,6 +1063,15 @@ ged_scale_args(struct ged *gedp, int argc, const char *argv[], fastf_t *sf1, fas
     return ret;
 }
 
+/* Callback for ged_who_argc to count groups */
+static int
+who_argc_cb(void * /* group_handle */, void *userdata)
+{
+    size_t *cnt = (size_t *)userdata;
+    (*cnt)++;
+    return 1; /* continue */
+}
+
 size_t
 ged_who_argc(struct ged *gedp)
 {
@@ -1075,19 +1085,46 @@ ged_who_argc(struct ged *gedp)
 	return 0;
     }
 
-    struct display_list *gdlp = NULL;
-    size_t visibleCount = 0;
-
-    if (!gedp || !gedp->i->ged_gdp || !gedp->i->ged_gdp->gd_headDisplay)
+    if (!gedp)
 	return 0;
 
-    for (BU_LIST_FOR(gdlp, display_list, gedp->i->ged_gdp->gd_headDisplay)) {
-	visibleCount++;
-    }
-
+    size_t visibleCount = 0;
+    bsg_view_obj_foreach_group(gedp, who_argc_cb, &visibleCount);
     return visibleCount;
 }
 
+
+/* Callback data for ged_who_argv */
+struct who_argv_data {
+    struct ged *gedp;
+    char **vp;
+    const char **end;
+    int overflow;
+};
+
+/* Callback for ged_who_argv */
+static int
+who_argv_cb(void *group_handle, void *userdata)
+{
+    struct who_argv_data *data = (struct who_argv_data *)userdata;
+
+    /* Skip phony addresses */
+    if (bsg_view_obj_group_is_phony(group_handle))
+	return 1;
+
+    const char *path = bsg_view_obj_group_path(group_handle);
+    if (!path)
+	return 1;
+
+    if ((data->vp != NULL) && ((const char **)data->vp < data->end)) {
+	*data->vp++ = bu_strdup(path);
+    } else {
+	bu_vls_printf(data->gedp->ged_result_str, "INTERNAL ERROR: ged_who_argv() ran out of space\n");
+	data->overflow = 1;
+	return 0; /* stop iteration */
+    }
+    return 1; /* continue */
+}
 
 /**
  * Build a command line vector of the tops of all objects in view.
@@ -1123,33 +1160,23 @@ ged_who_argv(struct ged *gedp, char **start, const char **end)
 	}
     }
 
-    struct display_list *gdlp;
-
-    if (!gedp || !gedp->i->ged_gdp || !gedp->i->ged_gdp->gd_headDisplay)
-	return 0;
-
     if (UNLIKELY(!start || !end)) {
 	bu_vls_printf(gedp->ged_result_str, "INTERNAL ERROR: ged_who_argv() called with NULL args\n");
 	return 0;
     }
 
-    for (BU_LIST_FOR(gdlp, display_list, gedp->i->ged_gdp->gd_headDisplay)) {
-	if (((struct directory *)gdlp->dl_dp)->d_addr == RT_DIR_PHONY_ADDR)
-	    continue;
+    struct who_argv_data data;
+    data.gedp = gedp;
+    data.vp = start;
+    data.end = end;
+    data.overflow = 0;
+    bsg_view_obj_foreach_group(gedp, who_argv_cb, &data);
 
-	if ((vp != NULL) && ((const char **)vp < end)) {
-	    *vp++ = bu_strdup(bu_vls_addr(&gdlp->dl_path));
-	} else {
-	    bu_vls_printf(gedp->ged_result_str, "INTERNAL ERROR: ged_who_argv() ran out of space at %s\n", ((struct directory *)gdlp->dl_dp)->d_namep);
-	    break;
-	}
+    if ((data.vp != NULL) && ((const char **)data.vp < data.end)) {
+	*data.vp = (char *) 0;
     }
 
-    if ((vp != NULL) && ((const char **)vp < end)) {
-	*vp = (char *) 0;
-    }
-
-    return vp-start;
+    return data.vp - start;
 }
 
 void
@@ -1230,7 +1257,7 @@ _ged_cvt_vlblock_to_solids(struct ged *gedp, struct bv_vlblock *vbp, const char 
 	if (BU_LIST_IS_EMPTY(&(vbp->head[i])))
 	    continue;
 	snprintf(namebuf, 64, "%s%lx", shortname, vbp->rgb[i]);
-	invent_solid(gedp, namebuf, &vbp->head[i], vbp->rgb[i], copy, 1.0, 0, 0);
+	bsg_view_obj_invent(gedp, namebuf, &vbp->head[i], vbp->rgb[i], copy, 1.0, 0, 0);
     }
 }
 
@@ -1713,7 +1740,7 @@ _ged_rt_set_eye_model(struct ged *gedp,
 	    if (local_db_objs)
 		(void)scene_bounding_sph(local_db_objs, &(extremum[0]), &(extremum[1]), 1);
 	} else {
-	    (void)dl_bounding_sph(gedp->i->ged_gdp->gd_headDisplay, &(extremum[0]), &(extremum[1]), 1);
+	    (void)bsg_view_obj_bounds(gedp, &(extremum[0]), &(extremum[1]), 1);
 	}
 
 	VMOVEN(direction, gedp->ged_gvp->gv_rotation + 8, 3);
@@ -1900,64 +1927,90 @@ _ged_rt_output_handler(void *clientData, int mask)
 }
 
 
-static void
-dl_bitwise_and_fullpath(struct bu_list *hdlp, int flag_val)
+/* Callback data for dl_bitwise_and_fullpath */
+struct bitwise_and_data {
+    int flag_val;
+};
+
+/* Callback for dl_bitwise_and_fullpath */
+static int
+bitwise_and_fullpath_cb(struct bv_scene_obj *sp, void *userdata)
 {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
-    size_t i;
-    struct bv_scene_obj *sp;
+    struct bitwise_and_data *data = (struct bitwise_and_data *)userdata;
 
-    gdlp = BU_LIST_NEXT(display_list, hdlp);
-    while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
-        next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
+    if (!sp->s_u_data)
+	return 1;
+    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
 
-        for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-	    if (!sp->s_u_data)
-		continue;
-	    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
-
-	    for (i = 0; i < bdata->s_fullpath.fp_len; i++) {
-                DB_FULL_PATH_GET(&bdata->s_fullpath, i)->d_flags &= flag_val;
-	    }
-        }
-
-        gdlp = next_gdlp;
+    for (size_t i = 0; i < bdata->s_fullpath.fp_len; i++) {
+	DB_FULL_PATH_GET(&bdata->s_fullpath, i)->d_flags &= data->flag_val;
     }
+    return 1; /* continue */
+}
+
+static void
+dl_bitwise_and_fullpath(struct ged *gedp, int flag_val)
+{
+    struct bitwise_and_data data;
+    data.flag_val = flag_val;
+    bsg_view_obj_foreach_solid(gedp, bitwise_and_fullpath_cb, &data);
 }
 
 
+/* Callback data for dl_write_animate */
+struct write_animate_data {
+    FILE *fp;
+};
+
+/* Callback for dl_write_animate */
+static int
+write_animate_cb(struct bv_scene_obj *sp, void *userdata)
+{
+    struct write_animate_data *data = (struct write_animate_data *)userdata;
+
+    if (!sp->s_u_data)
+	return 1;
+    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+
+    for (size_t i = 0; i < bdata->s_fullpath.fp_len; i++) {
+	if (!(DB_FULL_PATH_GET(&bdata->s_fullpath, i)->d_flags & RT_DIR_USED)) {
+	    struct animate *anp;
+	    for (anp = DB_FULL_PATH_GET(&bdata->s_fullpath, i)->d_animate; anp; anp=anp->an_forw) {
+		db_write_anim(data->fp, anp);
+	    }
+	    DB_FULL_PATH_GET(&bdata->s_fullpath, i)->d_flags |= RT_DIR_USED;
+	}
+    }
+    return 1; /* continue */
+}
 
 static void
-dl_write_animate(struct bu_list *hdlp, FILE *fp)
+dl_write_animate(struct ged *gedp, FILE *fp)
 {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
-    size_t i;
-    struct bv_scene_obj *sp;
+    struct write_animate_data data;
+    data.fp = fp;
+    bsg_view_obj_foreach_solid(gedp, write_animate_cb, &data);
+}
 
-    gdlp = BU_LIST_NEXT(display_list, hdlp);
-    while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
-        next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
+/* Callback data for _ged_rt_write draw loop */
+struct rt_write_draw_data {
+    FILE *fp;
+};
 
-        for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-	    if (!sp->s_u_data)
-		continue;
-	    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+/* Callback for writing draw commands in _ged_rt_write */
+static int
+rt_write_draw_cb(void *group_handle, void *userdata)
+{
+    struct rt_write_draw_data *data = (struct rt_write_draw_data *)userdata;
 
-	    for (i = 0; i < bdata->s_fullpath.fp_len; i++) {
-                if (!(DB_FULL_PATH_GET(&bdata->s_fullpath, i)->d_flags & RT_DIR_USED)) {
-		    struct animate *anp;
-                    for (anp = DB_FULL_PATH_GET(&bdata->s_fullpath, i)->d_animate; anp; anp=anp->an_forw) {
-			db_write_anim(fp, anp);
-		    }
-                    DB_FULL_PATH_GET(&bdata->s_fullpath, i)->d_flags |= RT_DIR_USED;
-		}
-	    }
-        }
+    /* Skip phony addresses */
+    if (bsg_view_obj_group_is_phony(group_handle))
+	return 1;
 
-        gdlp = next_gdlp;
-    }
+    const char *path = bsg_view_obj_group_path(group_handle);
+    if (path)
+	fprintf(data->fp, "draw %s;\n", path);
+    return 1; /* continue */
 }
 
 void
@@ -2005,12 +2058,9 @@ _ged_rt_write(struct ged *gedp,
 		    }
 		}
 	    } else {
-		struct display_list *gdlp;
-		for (BU_LIST_FOR(gdlp, display_list, gedp->i->ged_gdp->gd_headDisplay)) {
-		    if (((struct directory *)gdlp->dl_dp)->d_addr == RT_DIR_PHONY_ADDR)
-			continue;
-		    fprintf(fp, "draw %s;\n", bu_vls_addr(&gdlp->dl_path));
-		}
+		struct rt_write_draw_data data;
+		data.fp = fp;
+		bsg_view_obj_foreach_group(gedp, rt_write_draw_cb, &data);
 	    }
 	} else {
 	    int i = 0;
@@ -2022,11 +2072,11 @@ _ged_rt_write(struct ged *gedp,
 	fprintf(fp, "prep;\n");
     }
 
-    dl_bitwise_and_fullpath(gedp->i->ged_gdp->gd_headDisplay, ~RT_DIR_USED);
+    dl_bitwise_and_fullpath(gedp, ~RT_DIR_USED);
 
-    dl_write_animate(gedp->i->ged_gdp->gd_headDisplay, fp);
+    dl_write_animate(gedp, fp);
 
-    dl_bitwise_and_fullpath(gedp->i->ged_gdp->gd_headDisplay, ~RT_DIR_USED);
+    dl_bitwise_and_fullpath(gedp, ~RT_DIR_USED);
 
     fprintf(fp, "end;\n");
 }
@@ -2534,12 +2584,12 @@ _ged_characterize_pathspec(struct bu_vls *normalized, struct ged *gedp, const ch
 
 #endif
 
-struct display_list *
+struct bu_list *
 ged_dl(struct ged *gedp)
 {
     if (!gedp || !gedp->i || !gedp->i->ged_gdp)
 	return NULL;
-    return (struct display_list *)gedp->i->ged_gdp->gd_headDisplay;
+    return gedp->i->ged_gdp->gd_headDisplay;
 }
 
 void

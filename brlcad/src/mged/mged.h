@@ -318,7 +318,7 @@ void history_setup(void);
 #define ROTARROW 010 /* Object rotation enabled */
 extern int movedir;  /* RARROW | UARROW | SARROW | ROTARROW */
 
-extern struct display_list *illum_gdlp; /* Pointer to solid in solid table to be illuminated */
+extern void *illum_gdlp; /* Pointer to solid in solid table to be illuminated */
 extern struct bv_scene_obj *illump; /* == 0 if none, else points to ill. solid */
 extern int ipathpos; /* path index of illuminated element */
 extern int sedraw; /* apply solid editing changes */
@@ -447,7 +447,6 @@ int redraw_visible_objects(struct mged_state *s);
 /* dozoom.c */
 void createDLists(void *, struct bu_list *hdlp);
 void createDListSolid(void *, struct bv_scene_obj *);
-void createDListAll(void *, struct display_list *);
 void freeDListsAll(void *, unsigned int dlist, int range);
 
 /* edarb.c */

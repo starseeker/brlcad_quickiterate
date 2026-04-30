@@ -695,8 +695,6 @@ edit_com(struct mged_state *s,
 	 int argc,
 	 const char *argv[])
 {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
     struct mged_dm *save_m_dmp;
     struct cmd_list *save_cmd_list;
     int ret;
@@ -712,19 +710,7 @@ edit_com(struct mged_state *s,
 
     CHECK_DBI_NULL;
 
-    /* Common part of illumination */
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	if (BU_LIST_NON_EMPTY(&gdlp->dl_head_scene_obj)) {
-	    initial_blank_screen = 0;
-	    break;
-	}
-
-	gdlp = next_gdlp;
-    }
+    initial_blank_screen = bsg_view_obj_is_nonempty(s->gedp) ? 0 : 1;
 
     /* check args for "-A" (attributes) and "-o" and "-R" */
     bu_vls_strcpy(&vls, argv[0]);
@@ -898,18 +884,7 @@ edit_com(struct mged_state *s,
 
 	s->gedp->ged_gvp = view_state->vs_gvp;
 
-	gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-
-	while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	    if (BU_LIST_NON_EMPTY(&gdlp->dl_head_scene_obj)) {
-		non_empty = 1;
-		break;
-	    }
-
-	    gdlp = next_gdlp;
-	}
+	non_empty = bsg_view_obj_is_nonempty(s->gedp);
 
 	/* If we went from blank screen to non-blank, resize */
 	if (mged_variables->mv_autosize && initial_blank_screen && non_empty) {
@@ -1244,8 +1219,7 @@ f_ill(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     struct cmdtab *ctp = (struct cmdtab *)clientData;
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
+    void *gdlp;
     struct directory *dp;
     struct bv_scene_obj *sp;
     struct bv_scene_obj *lastfound = NULL;
@@ -1375,12 +1349,12 @@ f_ill(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	goto bail_out;
     }
 
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
+    for (gdlp = bsg_view_obj_first_group(s->gedp); gdlp;
 
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
 
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+         gdlp = bsg_view_obj_next_group(s->gedp, gdlp)) {
+
+	for (BU_LIST_FOR(sp, bv_scene_obj, bsg_view_obj_group_solid_list(gdlp))) {
 	    int a_new_match;
 	    if (!sp->s_u_data)
 		continue;
@@ -1415,8 +1389,6 @@ f_ill(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 
 	    sp->s_iflag = DOWN;
 	}
-
-	gdlp = next_gdlp;
     }
 
     if (nmatch == 0) {
@@ -1502,9 +1474,6 @@ f_sed(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     struct cmdtab *ctp = (struct cmdtab *)clientData;
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
-    int is_empty = 1;
 
     CHECK_DBI_NULL;
     CHECK_READ_ONLY;
@@ -1524,20 +1493,7 @@ f_sed(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     }
 
     /* Common part of illumination */
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	if (BU_LIST_NON_EMPTY(&gdlp->dl_head_scene_obj)) {
-	    is_empty = 0;
-	    break;
-	}
-
-	gdlp = next_gdlp;
-    }
-
-    if (is_empty) {
+    if (!bsg_view_obj_is_nonempty(s->gedp)) {
 	Tcl_AppendResult(interp, "no solids being displayed\n", (char *)NULL);
 	return TCL_ERROR;
     }

@@ -34,6 +34,7 @@
 #include "rt/db_fullpath.h"
 #include "rt/db_instance.h"
 #include "ged/defines.h"
+#include "ged/bsg_view_obj.h"
 
 __BEGIN_DECLS
 
@@ -64,16 +65,6 @@ struct ged_bv_data {
     struct db_full_path s_fullpath;
     void *u_data;
 };
-
-/* defined in display_list.c */
-GED_EXPORT void dl_set_iflag(struct bu_list *hdlp, int iflag);
-GED_EXPORT extern void dl_color_soltab(struct bu_list *hdlp, struct db_i *dbip);
-GED_EXPORT extern void dl_erasePathFromDisplay(struct ged *gedp, const char *path, int allow_split);
-GED_EXPORT extern struct display_list *dl_addToDisplay(struct bu_list *hdlp, struct db_i *dbip, const char *name);
-
-/* Check ged_bv data associated with a display list */
-GED_EXPORT extern unsigned long long ged_dl_hash(struct display_list *dl);
-
 
 GED_EXPORT extern int ged_export_polygon(struct ged *gedp, bv_data_polygon_state *gdpsp, size_t polygon_i, const char *sname);
 GED_EXPORT extern struct bg_polygon *ged_import_polygon(struct ged *gedp, const char *sname);
@@ -215,9 +206,6 @@ struct draw_update_data_t {
     struct bv_mesh_lod_context *mesh_c;
 };
 
-GED_EXPORT extern unsigned long long dl_name_hash(struct ged *gedp);
-
-
 /**
  * Return ged selections for specified object. Created if it doesn't
  * exist.
@@ -241,7 +229,7 @@ GED_EXPORT struct rt_selection_set *ged_get_selection_set(struct ged *gedp,
  */
 typedef void (*ged_drawable_notify_func_t)(int);
 
-GED_EXPORT struct display_list *
+GED_EXPORT struct bu_list *
 ged_dl(struct ged *gedp);
 GED_EXPORT void
 ged_dl_notify_func_set(struct ged *gedp, ged_drawable_notify_func_t f);

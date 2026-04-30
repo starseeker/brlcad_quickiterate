@@ -72,8 +72,6 @@ basename_without_suffix(const char *p1, const char *suff)
 int
 ged_saveview_core(struct ged *gedp, int argc, const char *argv[])
 {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
     int i;
     FILE *fp;
     char *base;
@@ -170,11 +168,13 @@ ged_saveview_core(struct ged *gedp, int argc, const char *argv[])
     }
     fprintf(fp, " '%s'\\\n ", inputg);
 
-    gdlp = BU_LIST_NEXT(display_list, gedp->i->ged_gdp->gd_headDisplay);
-    while (BU_LIST_NOT_HEAD(gdlp, gedp->i->ged_gdp->gd_headDisplay)) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-	fprintf(fp, "'%s' ", bu_vls_addr(&gdlp->dl_path));
-	gdlp = next_gdlp;
+    /* Write out display list paths */
+    {
+	void *gdlp;
+	for (gdlp = bsg_view_obj_first_group(gedp); gdlp;
+	     gdlp = bsg_view_obj_next_group(gedp, gdlp)) {
+	    fprintf(fp, "'%s' ", bsg_view_obj_group_path(gdlp));
+	}
     }
 
     fprintf(fp, "\\\n 2>> %s\\\n", outlog);

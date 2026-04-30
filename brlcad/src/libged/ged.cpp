@@ -178,7 +178,6 @@ ged_init(struct ged *gedp)
     gedp->ged_refresh_clientdata = NULL;
     gedp->ged_output_handler = NULL;
     gedp->ged_create_vlist_scene_obj_callback = NULL;
-    gedp->ged_create_vlist_display_list_callback = NULL;
     gedp->ged_destroy_vlist_callback = NULL;
     gedp->ged_create_io_handler = NULL;
     gedp->ged_delete_io_handler = NULL;
@@ -250,7 +249,7 @@ ged_free(struct ged *gedp)
 	bu_ptbl_free(&gedp->free_solids);
 
 	if (gedp->i->ged_gdp->gd_headDisplay)
-	    BU_PUT(gedp->i->ged_gdp->gd_headDisplay, struct bu_vls);
+	    BU_PUT(gedp->i->ged_gdp->gd_headDisplay, struct bu_list);
 	if (gedp->i->ged_gdp->gd_headVDraw)
 	    BU_PUT(gedp->i->ged_gdp->gd_headVDraw, struct bu_vls);
 	qray_free(gedp->i->ged_gdp);
@@ -481,19 +480,6 @@ ged_create_vlist_solid_cb(struct ged *gedp, struct bv_scene_obj *s)
 	}
 	(*gedp->ged_create_vlist_scene_obj_callback)(gedp->vlist_ctx, s);
 	gedp->ged_cbs->ged_create_vlist_scene_obj_callback_cnt--;
-    }
-}
-
-void
-ged_create_vlist_display_list_cb(struct ged *gedp, struct display_list *dl)
-{
-    if (gedp->ged_create_vlist_display_list_callback != GED_CREATE_VLIST_DISPLAY_LIST_FUNC_NULL) {
-	gedp->ged_cbs->ged_create_vlist_display_list_callback_cnt++;
-	if (gedp->ged_cbs->ged_create_vlist_display_list_callback_cnt > 1) {
-	    bu_log("Warning - recursive call of gedp->ged_create_vlist_callback!\n");
-	}
-	(*gedp->ged_create_vlist_display_list_callback)(gedp->vlist_ctx, dl);
-	gedp->ged_cbs->ged_create_vlist_display_list_callback_cnt--;
     }
 }
 

@@ -34,26 +34,23 @@
 #include "bresource.h"
 
 #include "bu/app.h"
+#include "ged/bsg_view_obj.h"
 
 #include "../ged_private.h"
 
-static void
-dl_set_flag(struct bu_list *hdlp, int flag)
+/* Callback for setting s_flag on all solids */
+static int
+set_flag_cb(struct bv_scene_obj *sp, void *userdata)
 {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
-    struct bv_scene_obj *sp;
-    /* calculate the bounding for of all solids being displayed */
-    gdlp = BU_LIST_NEXT(display_list, hdlp);
-    while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
+    int flag = *(int *)userdata;
+    sp->s_flag = flag;
+    return 1; /* continue */
+}
 
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-	    sp->s_flag = flag;
-	}
-
-	gdlp = next_gdlp;
-    }
+static void
+dl_set_flag(struct ged *gedp, int flag)
+{
+    bsg_view_obj_foreach_solid(gedp, set_flag_cb, &flag);
 }
 
 struct ged_rtcheck {
@@ -110,7 +107,7 @@ rtcheck_vector_handler(void *clientData, int UNUSED(mask))
 
 	rtcp->draw_read_failed = 1;
 
-	dl_set_flag(gedp->i->ged_gdp->gd_headDisplay, DOWN);
+	dl_set_flag(gedp, DOWN);
 
 	/* Add overlay (or, if nothing to draw, clear any stale overlay) */
 	if (rtcp->vbp) {
@@ -134,7 +131,7 @@ rtcheck_vector_handler(void *clientData, int UNUSED(mask))
 	    const char *sname_obj = "OVERLAPSffff00";
 	    struct directory *dp = db_lookup(gedp->dbip, sname_obj, LOOKUP_QUIET);
 	    if (dp != RT_DIR_NULL) {
-		dl_erasePathFromDisplay(gedp, sname_obj, 0);
+		bsg_view_obj_erase_by_path(gedp, sname_obj, 0);
 	    }
 	}
 

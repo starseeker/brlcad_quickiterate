@@ -28,6 +28,7 @@
 #include "dm/view.h"
 #include "bsg/util.h"
 #include "ged.h"
+#include "ged/bsg_view_obj.h"
 #include "tclcad.h"
 
 /* Private headers */
@@ -123,21 +124,18 @@ go_draw_solid(struct bview *gdvp, struct bv_scene_obj *sp)
 static int
 go_draw_dlist(struct bview *gdvp)
 {
-    register struct display_list *gdlp;
-    register struct display_list *next_gdlp;
+    void *gdlp;
     struct bv_scene_obj *sp;
     int line_style = -1;
     struct dm *dmp = (struct dm *)gdvp->dmp;
     struct tclcad_view_data *tvd = (struct tclcad_view_data *)gdvp->u_data;
-    struct bu_list *hdlp = (struct bu_list *)ged_dl(tvd->gedp);
+    struct ged *lgedp = tvd->gedp;
 
     if (dm_get_transparency(dmp)) {
 	/* First, draw opaque stuff */
-	gdlp = BU_LIST_NEXT(display_list, hdlp);
-	while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
-	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	    for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+	for (gdlp = bsg_view_obj_first_group(lgedp); gdlp;
+	     gdlp = bsg_view_obj_next_group(lgedp, gdlp)) {
+	    for (BU_LIST_FOR(sp, bv_scene_obj, bsg_view_obj_group_solid_list(gdlp))) {
 		if (sp->s_os->transparency < 1.0)
 		    continue;
 
@@ -148,19 +146,15 @@ go_draw_dlist(struct bview *gdvp)
 
 		go_draw_solid(gdvp, sp);
 	    }
-
-	    gdlp = next_gdlp;
 	}
 
 	/* disable write to depth buffer */
 	(void)dm_set_depth_mask(dmp, 0);
 
 	/* Second, draw transparent stuff */
-	gdlp = BU_LIST_NEXT(display_list, hdlp);
-	while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
-	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	    for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+	for (gdlp = bsg_view_obj_first_group(lgedp); gdlp;
+	     gdlp = bsg_view_obj_next_group(lgedp, gdlp)) {
+	    for (BU_LIST_FOR(sp, bv_scene_obj, bsg_view_obj_group_solid_list(gdlp))) {
 		/* already drawn above */
 		if (ZERO(sp->s_os->transparency - 1.0))
 		    continue;
@@ -172,18 +166,14 @@ go_draw_dlist(struct bview *gdvp)
 
 		go_draw_solid(gdvp, sp);
 	    }
-
-	    gdlp = next_gdlp;
 	}
 
 	/* re-enable write to depth buffer */
 	(void)dm_set_depth_mask(dmp, 1);
     } else {
-	gdlp = BU_LIST_NEXT(display_list, hdlp);
-	while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
-	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	    for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+	for (gdlp = bsg_view_obj_first_group(lgedp); gdlp;
+	     gdlp = bsg_view_obj_next_group(lgedp, gdlp)) {
+	    for (BU_LIST_FOR(sp, bv_scene_obj, bsg_view_obj_group_solid_list(gdlp))) {
 		if (line_style != sp->s_soldash) {
 		    line_style = sp->s_soldash;
 		    (void)dm_set_line_attr(dmp, dm_get_linewidth(dmp), line_style);
@@ -191,8 +181,6 @@ go_draw_dlist(struct bview *gdvp)
 
 		go_draw_solid(gdvp, sp);
 	    }
-
-	    gdlp = next_gdlp;
 	}
     }
 
@@ -279,94 +267,67 @@ to_edit_redraw(struct ged *gedp,
 	       int argc,
 	       const char *argv[])
 {
-    size_t i;
-    register struct display_list *gdlp;
-    register struct display_list *next_gdlp;
-    struct db_full_path subpath;
-    int ret = BRLCAD_OK;
-
     if (argc != 2)
 	return BRLCAD_ERROR;
 
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(gedp));
-    while (BU_LIST_NOT_HEAD(gdlp, ged_dl(gedp))) {
-	gdlp->dl_wflag = 0;
-	gdlp = BU_LIST_PNEXT(display_list, gdlp);
-    }
+    struct db_full_path subpath;
+    if (db_string_to_path(&subpath, gedp->dbip, argv[1]) != 0)
+	return BRLCAD_OK;  /* path not found — nothing to do */
 
-    if (db_string_to_path(&subpath, gedp->dbip, argv[1]) == 0) {
-	for (i = 0; i < subpath.fp_len; ++i) {
-	    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(gedp));
-	    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(gedp))) {
-		register struct bv_scene_obj *curr_sp;
+    /* Phase 6: iterate the BSG view tree (BV_DB_OBJS) instead of walking
+     * the legacy ged_dl / dl_head_scene_obj display-list chain. */
+    struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+    size_t vi;
+    for (vi = 0; vi < BU_PTBL_LEN(views); vi++) {
+	struct bview *v = (struct bview *)BU_PTBL_GET(views, vi);
+	struct bu_ptbl *db_objs = bv_view_objs(v, BV_DB_OBJS);
+	if (!db_objs)
+	    continue;
 
-		next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
+	size_t oi;
+	for (oi = 0; oi < BU_PTBL_LEN(db_objs); oi++) {
+	    struct bv_scene_obj *sp =
+		(struct bv_scene_obj *)BU_PTBL_GET(db_objs, oi);
+	    if (!sp || !sp->s_u_data)
+		continue;
 
-		if (gdlp->dl_wflag) {
-		    gdlp = next_gdlp;
+	    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+	    size_t pi;
+	    for (pi = 0; pi < subpath.fp_len; pi++) {
+		if (!db_full_path_search(&bdata->s_fullpath,
+					 subpath.fp_names[pi]))
 		    continue;
+
+		/* Match found — re-execute draw for this path */
+		struct bu_vls mflag = BU_VLS_INIT_ZERO;
+		struct bu_vls xflag = BU_VLS_INIT_ZERO;
+		char *av[5] = {0};
+		int arg = 0;
+
+		av[arg++] = (char *)argv[0];
+		if (sp->s_os->s_dmode == 4) {
+		    av[arg++] = "-h";
+		} else {
+		    bu_vls_printf(&mflag, "-m%d", sp->s_os->s_dmode);
+		    bu_vls_printf(&xflag, "-x%f", sp->s_os->transparency);
+		    av[arg++] = bu_vls_addr(&mflag);
+		    av[arg++] = bu_vls_addr(&xflag);
 		}
+		av[arg] = bu_vls_strdup(&sp->s_name);
 
-		for (BU_LIST_FOR(curr_sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+		ged_exec(gedp, arg + 1, (const char **)av);
 
-		    if (!curr_sp->s_u_data)
-			continue;
-		    struct ged_bv_data *bdata = (struct ged_bv_data *)curr_sp->s_u_data;
-
-		    if (db_full_path_search(&bdata->s_fullpath, subpath.fp_names[i])) {
-			struct display_list *last_gdlp;
-			struct bv_scene_obj *sp = BU_LIST_NEXT(bv_scene_obj, &gdlp->dl_head_scene_obj);
-			struct bu_vls mflag = BU_VLS_INIT_ZERO;
-			struct bu_vls xflag = BU_VLS_INIT_ZERO;
-			char *av[5] = {0};
-			int arg = 0;
-
-			av[arg++] = (char *)argv[0];
-			if (sp->s_os->s_dmode == 4) {
-			    av[arg++] = "-h";
-			} else {
-			    bu_vls_printf(&mflag, "-m%d", sp->s_os->s_dmode);
-			    bu_vls_printf(&xflag, "-x%f", sp->s_os->transparency);
-			    av[arg++] = bu_vls_addr(&mflag);
-			    av[arg++] = bu_vls_addr(&xflag);
-			}
-			av[arg] = bu_vls_strdup(&gdlp->dl_path);
-
-			ret = ged_exec(gedp, arg + 1, (const char **)av);
-
-			bu_free(av[arg], "to_edit_redraw");
-			bu_vls_free(&mflag);
-			bu_vls_free(&xflag);
-
-			/* The function call above causes gdlp to be
-			 * removed from the display list. A new one is
-			 * then created and appended to the end.  Here
-			 * we put it back where it belongs (i.e. as
-			 * specified by the user).  This also prevents
-			 * an infinite loop where the last and the
-			 * second to last list items play leap frog
-			 * with the end of list.
-			 */
-			last_gdlp = BU_LIST_PREV(display_list, (struct bu_list *)ged_dl(gedp));
-			BU_LIST_DEQUEUE(&last_gdlp->l);
-			BU_LIST_INSERT(&next_gdlp->l, &last_gdlp->l);
-			last_gdlp->dl_wflag = 1;
-
-			goto end;
-		    }
-		}
-
-	    end:
-		gdlp = next_gdlp;
+		bu_free(av[arg], "to_edit_redraw");
+		bu_vls_free(&mflag);
+		bu_vls_free(&xflag);
+		break;
 	    }
 	}
-
-	db_free_full_path(&subpath);
     }
 
+    db_free_full_path(&subpath);
     to_refresh_all_views(current_top);
-
-    return ret;
+    return BRLCAD_OK;
 }
 
 int

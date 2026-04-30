@@ -23,10 +23,12 @@
 #include "bu/time.h"
 #include "bu/units.h"
 #include "bu/vls.h"
+#include "bn.h"
 #include "bv/defines.h"
 #include "bv/lod.h"
 #include "bv/util.h"
 #include "bsg/util.h"
+#include "bsg/defines.h"
 #define DM_WITH_RT
 #include "dm.h"
 
@@ -793,6 +795,23 @@ bsg_view_traverse(struct bview *v, void *root)
 	struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(&r->children, i);
 	if (!s)
 	    continue;
+
+	/* Phase 6: skip sensor nodes — they are not drawable */
+	if (s->s_type_flags & BSG_NODE_SENSOR)
+	    continue;
+
+	/* Phase 6: handle transform nodes — push matrix, recurse, pop */
+	if (s->s_type_flags & BSG_NODE_TRANSFORM) {
+	    mat_t save_mat;
+	    MAT_COPY(save_mat, v->gv_model2view);
+	    mat_t new_mat;
+	    bn_mat_mul(new_mat, v->gv_model2view, s->s_mat);
+	    dm_loadmatrix(dmp, new_mat, 0);
+	    bsg_view_traverse(v, s);
+	    dm_loadmatrix(dmp, save_mat, 0);
+	    continue;
+	}
+
 	draw_scene_obj(dmp, s, v, s->s_force_draw,
 		       (s->s_inherit_settings) ? s->s_os : NULL);
     }
