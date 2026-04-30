@@ -1558,9 +1558,24 @@ view_2init(struct application *ap, char *UNUSED(framename))
 	/* Have each CPU do a whole scanline.  Saves lots of semaphore
 	 * overhead.  For load balancing make sure each CPU has
 	 * several lines to do.
+	 *
+	 * BUFMODE_SCANLINE relies on each parallel chunk covering
+	 * exactly one scanline so that scanline[].sl_buf / sl_left can
+	 * be updated without RT_SEM_RESULTS protection.  That requires
+	 * the chunk start (cur_pixel == pix_start) to lie on a scanline
+	 * boundary.  If the user supplied an unaligned -b X Y starting
+	 * pixel, fall back to BUFMODE_DYNAMIC which uses RT_SEM_RESULTS
+	 * to serialize concurrent updates to the same scanline.
 	 */
-	per_processor_chunk = width;
-	buf_mode = BUFMODE_SCANLINE;
+	{
+	    extern int pix_start;
+	    if (width > 0 && (pix_start % (int)width) != 0) {
+		buf_mode = BUFMODE_DYNAMIC;
+	    } else {
+		per_processor_chunk = width;
+		buf_mode = BUFMODE_SCANLINE;
+	    }
+	}
     }
     else {
 	buf_mode = BUFMODE_DYNAMIC;
