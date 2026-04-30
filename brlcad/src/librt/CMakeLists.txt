@@ -413,12 +413,10 @@ set(
   ${librt_deps}
   OPENNURBS::OPENNURBS
   Geogram::geogram
-  mmesh::mmesh
   REGEX::REGEX
   ${WINSOCK_LIB}
   ${RPCRT_LIB}
   ${STDCXX_LIBRARIES}
-  manifold::manifold
 )
 
 # Include directories needed by librt users; OPENNURBS include dirs are
@@ -482,6 +480,23 @@ brlcad_addlib(librt "${LIBRT_SOURCES}" "${LIBRT_LIBS}" "${RT_INCLUDE_DIRS}" "${R
 
 # set(MATERIALX_LIBS ${CMAKE_CURRENT_SOURCE_DIR}/../../../MaterialXSource/lib/MaterialXCore.lib;${CMAKE_CURRENT_SOURCE_DIR}/../../../MaterialXSource/lib/MaterialXFormat.lib;${CMAKE_CURRENT_SOURCE_DIR}/../../../MaterialXSource/lib/MaterialXGenOsl.lib;${CMAKE_CURRENT_SOURCE_DIR}/../../../MaterialXSource/lib/MaterialXGenShader.lib)
 # BRLCAD_ADDLIB(librt "${LIBRT_SOURCES}" "${MATERIALX_LIBS};${OPENCL_LIBS};libbrep;libnmg;libbg;libbv;libbn;libbu;${OPENNURBS_LIBRARIES};${REGEX_LIBRARIES};${WINSOCK_LIB};${RPCRT_LIB};${STDCXX_LIBRARIES}")
+
+# mmesh and manifold are implementation-only dependencies; their headers are
+# not exposed in librt's public API.  Link them privately so they do not appear
+# in the exported INTERFACE_LINK_LIBRARIES and consumers do not need to call
+# find_dependency(mmesh) / find_dependency(manifold).  Use the static variants
+# so the symbols are absorbed into librt.so rather than requiring separate
+# runtime libraries.
+if(TARGET mmesh::mmesh-static)
+  target_link_libraries(librt PRIVATE mmesh::mmesh-static)
+else()
+  target_link_libraries(librt PRIVATE mmesh::mmesh)
+endif()
+if(TARGET manifold::manifold-static)
+  target_link_libraries(librt PRIVATE manifold::manifold-static)
+else()
+  target_link_libraries(librt PRIVATE manifold::manifold)
+endif()
 
 set_target_properties(librt PROPERTIES VERSION 20.0.1 SOVERSION 20)
 if(HIDE_INTERNAL_SYMBOLS)

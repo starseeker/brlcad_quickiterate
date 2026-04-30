@@ -53,6 +53,7 @@ jobs:
             -DENABLE_ALL=ON \
             -DUSE_GDAL=OFF \
             -DUSE_QT=OFF \
+            -DBUILD_STATIC_LIBS=ON \
             -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/bext_output
           cmake --build bext_build --config Release -j$(nproc)
           cmake -E rm -rf bext
