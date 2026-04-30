@@ -66,12 +66,6 @@ struct ged_bv_data {
     void *u_data;
 };
 
-/* defined in display_list.c */
-GED_EXPORT void dl_set_iflag(struct bu_list *hdlp, int iflag);
-GED_EXPORT extern void dl_color_soltab(struct bu_list *hdlp, struct db_i *dbip);
-GED_EXPORT extern void dl_erasePathFromDisplay(struct ged *gedp, const char *path, int allow_split);
-
-
 GED_EXPORT extern int ged_export_polygon(struct ged *gedp, bv_data_polygon_state *gdpsp, size_t polygon_i, const char *sname);
 GED_EXPORT extern struct bg_polygon *ged_import_polygon(struct ged *gedp, const char *sname);
 GED_EXPORT extern int ged_polygons_overlap(struct ged *gedp, struct bg_polygon *polyA, struct bg_polygon *polyB);
@@ -211,9 +205,6 @@ struct draw_update_data_t {
     const struct bg_tess_tol *ttol;
     struct bv_mesh_lod_context *mesh_c;
 };
-
-GED_EXPORT extern unsigned long long dl_name_hash(struct ged *gedp);
-
 
 /**
  * Return ged selections for specified object. Created if it doesn't

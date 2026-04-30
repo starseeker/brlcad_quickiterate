@@ -997,3 +997,37 @@ Deprecation policy
               gd_headDisplay, dl_head_scene_obj, s_dlist, dm_draw_head_dl,
               go_draw_dlist (and the gsh.cpp:597 legacy branch that still
               calls dm_draw_head_dl).
+
+  2026-04-30  Phase 6.5 Step 7 complete — display_list.c deleted.
+
+              All functions formerly in src/libged/display_list.c
+              (dl_addToDisplay, headsolid_split, headsolid_splitGDL,
+              dl_bounding_sph, dl_erasePathFromDisplay,
+              eraseAllSubpathsFromSolidList, _dl_eraseAllNamesFromDisplay,
+              _dl_eraseFirstSubpath, _dl_eraseAllPathsFromDisplay,
+              _dl_freeDisplayListItem, color_soltab, dl_color_soltab,
+              solid_append_vlist, solid_copy_vlist, invent_solid,
+              dl_set_iflag, dl_name_hash) have been folded into
+              src/libged/bsg_view_obj.c as static (file-private) helpers,
+              with the exception of color_soltab which remains non-static
+              because it is called from src/libged/draw/draw.c.
+
+              Public header cleanup:
+                include/ged/view.h: removed dl_set_iflag, dl_color_soltab,
+                  dl_erasePathFromDisplay, dl_name_hash declarations.
+                src/libged/ged_private.h: removed _dl_eraseAllNamesFromDisplay,
+                  _dl_eraseAllPathsFromDisplay, _dl_freeDisplayListItem,
+                  dl_bounding_sph, and invent_solid declarations; added
+                  color_soltab declaration pointing to bsg_view_obj.c.
+
+              src/libged/CMakeLists.txt: display_list.c removed from
+                libged source list.
+
+              Build verification: libged, libdm, libqtcad, mged — zero
+                errors, zero warnings.
+              Regression: ged_test_bsg_view_obj 27/27 PASS.
+
+              Phase 6.5 is now COMPLETE.  struct display_list remains in
+              include/bv/tcl_data.h as the internal node type used by the
+              display-list linked lists; it is no longer exposed via any
+              libged public header.

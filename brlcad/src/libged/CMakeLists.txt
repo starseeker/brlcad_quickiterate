@@ -305,7 +305,6 @@ set(
   ged_init.cpp
   columns.c
   dbi_state.cpp
-  display_list.c
   draw.cpp
   ged.cpp
   ged_inside.c
