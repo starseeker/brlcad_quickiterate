@@ -71,7 +71,7 @@ add_library(manifold::manifold-static STATIC IMPORTED)
 set_target_properties(manifold::manifold-static PROPERTIES
   INTERFACE_COMPILE_DEFINITIONS "MANIFOLD_DEBUG;MANIFOLD_CROSS_SECTION;MANIFOLD_PAR=-1"
   INTERFACE_COMPILE_FEATURES "cxx_std_17"
-  INTERFACE_INCLUDE_DIRECTORIES "${_IMPORT_PREFIX}/include;${_IMPORT_PREFIX}/include"
+  INTERFACE_INCLUDE_DIRECTORIES "${_IMPORT_PREFIX}/include"
   INTERFACE_LINK_LIBRARIES "\$<\$<BOOL:OFF>:TracyClient>;\$<LINK_ONLY:\$<\$<BOOL:ON>:Clipper2::Clipper2-static>>;\$<LINK_ONLY:\$<\$<BOOL:OFF>:TBB::tbb>>;\$<LINK_ONLY:\$<\$<BOOL:OFF>:assimp::assimp>>"
 )
 

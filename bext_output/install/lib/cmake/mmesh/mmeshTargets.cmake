@@ -60,7 +60,7 @@ add_library(mmesh::mmesh SHARED IMPORTED)
 
 set_target_properties(mmesh::mmesh PROPERTIES
   INTERFACE_COMPILE_DEFINITIONS "MMESH_DLL_IMPORTS"
-  INTERFACE_INCLUDE_DIRECTORIES "${_IMPORT_PREFIX}/include;${_IMPORT_PREFIX}/include"
+  INTERFACE_INCLUDE_DIRECTORIES "${_IMPORT_PREFIX}/include"
 )
 
 # Create imported target mmesh::mmesh-static
@@ -68,7 +68,7 @@ add_library(mmesh::mmesh-static STATIC IMPORTED)
 
 set_target_properties(mmesh::mmesh-static PROPERTIES
   INTERFACE_COMPILE_DEFINITIONS "MMESH_DLL_IMPORTS"
-  INTERFACE_INCLUDE_DIRECTORIES "${_IMPORT_PREFIX}/include;${_IMPORT_PREFIX}/include"
+  INTERFACE_INCLUDE_DIRECTORIES "${_IMPORT_PREFIX}/include"
   INTERFACE_LINK_LIBRARIES "\$<LINK_ONLY:m>;\$<LINK_ONLY:Threads::Threads>"
 )
 
