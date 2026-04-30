@@ -218,13 +218,109 @@ if(TARGET ged_test_aet)
   endforeach()
 endif(TARGET ged_test_aet)
 
+# Phase 4 exit criteria: bsg_view_traverse vs legacy dl_* pixel parity
+brlcad_addexec(ged_test_bsg_parity "bsg_parity.cpp;util.cpp" "libged;libdm;libbsg" TEST)
+if(TARGET ged_test_bsg_parity)
+  foreach(tdp ${test_deps})
+    if (TARGET tdp)
+      add_dependencies(ged_test_bsg_parity ${tdp})
+    endif ()
+  endforeach()
+endif(TARGET ged_test_bsg_parity)
+brlcad_add_test(NAME ged_test_bsg_parity COMMAND ged_test_bsg_parity -c "${CMAKE_CURRENT_SOURCE_DIR}")
+if(TARGET ged_test_bsg_parity)
+  set_property(TEST ged_test_bsg_parity APPEND PROPERTY ENVIRONMENT BRLCAD_ROOT=${CMAKE_BINARY_DIR})
+endif()
+distclean(${CMAKE_CURRENT_BINARY_DIR}/moss_bsg_parity_tmp.g)
+distclean(${CMAKE_CURRENT_BINARY_DIR}/bsg_parity_cache)
+
+# Phase 4 extended: multi-view quad-pane BSG parity (per-view bsg_root independence)
+brlcad_addexec(ged_test_bsg_quad_parity "bsg_quad_parity.cpp;util.cpp" "libged;libdm;libbsg" TEST)
+if(TARGET ged_test_bsg_quad_parity)
+  foreach(tdp ${test_deps})
+    if (TARGET tdp)
+      add_dependencies(ged_test_bsg_quad_parity ${tdp})
+    endif ()
+  endforeach()
+endif(TARGET ged_test_bsg_quad_parity)
+brlcad_add_test(NAME ged_test_bsg_quad_parity
+  COMMAND ged_test_bsg_quad_parity -c "${CMAKE_CURRENT_SOURCE_DIR}")
+if(TARGET ged_test_bsg_quad_parity)
+  set_property(TEST ged_test_bsg_quad_parity
+    APPEND PROPERTY ENVIRONMENT BRLCAD_ROOT=${CMAKE_BINARY_DIR})
+endif()
+distclean(${CMAKE_CURRENT_BINARY_DIR}/moss_bsg_quad_tmp.g)
+distclean(${CMAKE_CURRENT_BINARY_DIR}/bsg_qparity_cache)
+
+# LoD cross-run cache stability (populate cache → close → reopen → same pixels)
+brlcad_addexec(ged_test_lod_crossrun "lod_crossrun.cpp;util.cpp" "libged;libdm" TEST)
+if(TARGET ged_test_lod_crossrun)
+  foreach(tdp ${test_deps})
+    if (TARGET tdp)
+      add_dependencies(ged_test_lod_crossrun ${tdp})
+    endif ()
+  endforeach()
+endif(TARGET ged_test_lod_crossrun)
+brlcad_add_test(NAME ged_test_lod_crossrun
+  COMMAND ged_test_lod_crossrun -c "${CMAKE_CURRENT_SOURCE_DIR}")
+if(TARGET ged_test_lod_crossrun)
+  set_property(TEST ged_test_lod_crossrun
+    APPEND PROPERTY ENVIRONMENT BRLCAD_ROOT=${CMAKE_BINARY_DIR})
+endif()
+distclean(${CMAKE_CURRENT_BINARY_DIR}/moss_lod_cr_tmp.g)
+distclean(${CMAKE_CURRENT_BINARY_DIR}/lod_crossrun_cache)
+
+# Phase 5: MGED BSG migration regression tests
+brlcad_addexec(ged_test_mged_bsg "mged_bsg.cpp;util.cpp" "libged;libdm;libbsg" TEST)
+if(TARGET ged_test_mged_bsg)
+  foreach(tdp ${test_deps})
+    if (TARGET tdp)
+      add_dependencies(ged_test_mged_bsg ${tdp})
+    endif ()
+  endforeach()
+endif(TARGET ged_test_mged_bsg)
+brlcad_add_test(NAME ged_test_mged_bsg COMMAND ged_test_mged_bsg -c "${CMAKE_CURRENT_SOURCE_DIR}")
+if(TARGET ged_test_mged_bsg)
+  set_property(TEST ged_test_mged_bsg APPEND PROPERTY ENVIRONMENT BRLCAD_ROOT=${CMAKE_BINARY_DIR})
+endif()
+distclean(${CMAKE_CURRENT_BINARY_DIR}/mged_bsg_t1.g)
+distclean(${CMAKE_CURRENT_BINARY_DIR}/mged_bsg_t2.g)
+distclean(${CMAKE_CURRENT_BINARY_DIR}/mged_bsg_t3.g)
+distclean(${CMAKE_CURRENT_BINARY_DIR}/mged_bsg_t4.g)
+distclean(${CMAKE_CURRENT_BINARY_DIR}/mged_bsg_t5.g)
+
+# Phase 5: rtwizard BSG migration exit-criteria test
+brlcad_addexec(ged_test_rtwizard_bsg "rtwizard_bsg.cpp;util.cpp" "libged;libdm;libbsg;libicv" TEST)
+if(TARGET ged_test_rtwizard_bsg)
+  foreach(tdp ${test_deps})
+    if (TARGET tdp)
+      add_dependencies(ged_test_rtwizard_bsg ${tdp})
+    endif ()
+  endforeach()
+endif(TARGET ged_test_rtwizard_bsg)
+brlcad_add_test(NAME ged_test_rtwizard_bsg COMMAND ged_test_rtwizard_bsg -c "${CMAKE_CURRENT_SOURCE_DIR}")
+if(TARGET ged_test_rtwizard_bsg)
+  set_property(TEST ged_test_rtwizard_bsg APPEND PROPERTY ENVIRONMENT BRLCAD_ROOT=${CMAKE_BINARY_DIR})
+endif()
+distclean(${CMAKE_CURRENT_BINARY_DIR}/rtw_bsg_t1.g)
+distclean(${CMAKE_CURRENT_BINARY_DIR}/rtw_bsg_t2.g)
+distclean(${CMAKE_CURRENT_BINARY_DIR}/rtw_bsg_t3.g)
+distclean(${CMAKE_CURRENT_BINARY_DIR}/rtw_bsg_t4.g)
+distclean(${CMAKE_CURRENT_BINARY_DIR}/rtw_bsg_t5.g)
+
 cmakefiles(
   README
   empty.png
   moss.g
   moss.png
   rook.g
+  bsg_parity.cpp
+  bsg_quad_parity.cpp
+  lod_crossrun.cpp
+  mged_bsg.cpp
+  rtwizard_bsg.cpp
   util.cpp
+  scripts/verify_main_parity.sh
   ${basic_view_test_ctrls}
   ${faceplate_test_ctrls}
   ${lod_test_ctrls}

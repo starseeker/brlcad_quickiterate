@@ -1,0 +1,401 @@
+/*                          G R I D . C
+ * BRL-CAD
+ *
+ * Copyright (c) 1998-2026 United States Government as represented by
+ * the U.S. Army Research Laboratory.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * version 2.1 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this file; see the file named COPYING for more
+ * information.
+ */
+/** @file mged/grid.c
+ *
+ * Routines to implement MGED's snap to grid capability.
+ *
+ */
+
+#include "common.h"
+
+#include <math.h>
+
+#include "vmath.h"
+#include "ged.h"
+
+#include "./mged.h"
+#include "./mged_dm.h"
+#include "bsg/util.h"
+
+
+static void grid_set_dirty_flag(const struct bu_structparse *, const char *, void *, const char *, void *);
+static void set_grid_draw(const struct bu_structparse *, const char *, void *, const char *, void *);
+static void set_grid_res(const struct bu_structparse *, const char *, void *, const char *, void *);
+
+
+struct bsg_grid_state default_grid_state = {
+    /* rc */		1,
+    /* draw */		0,
+    /* non-adaptive*/   0,
+    /* snap */		0,
+    /* anchor */	VINIT_ZERO,
+    /* res_h */		1.0,
+    /* res_v */		1.0,
+    /* res_major_h */	5,
+    /* res_major_v */	5,
+    /* color */         {0, 0, 0}
+};
+
+
+#define GRID_O(_m) bu_offsetof(struct bsg_grid_state, _m)
+struct bu_structparse grid_vparse[] = {
+    {"%d", 1, "draw",	GRID_O(draw),        set_grid_draw, NULL, NULL },
+    {"%d", 1, "snap",	GRID_O(snap),        grid_set_dirty_flag, NULL, NULL },
+    {"%f", 3, "anchor",	GRID_O(anchor),      grid_set_dirty_flag, NULL, NULL },
+    {"%f", 1, "rh",	GRID_O(res_h),       set_grid_res, NULL, NULL },
+    {"%f", 1, "rv",	GRID_O(res_v),       set_grid_res, NULL, NULL },
+    {"%d", 1, "mrh",	GRID_O(res_major_h), set_grid_res, NULL, NULL },
+    {"%d", 1, "mrv",	GRID_O(res_major_v), set_grid_res, NULL, NULL },
+    {"",   0, NULL,	0,                   BU_STRUCTPARSE_FUNC_NULL, NULL, NULL }
+};
+
+
+static void
+grid_set_dirty_flag(const struct bu_structparse *UNUSED(sdp),
+		    const char *UNUSED(name),
+		    void *UNUSED(base),
+		    const char *UNUSED(value),
+		    void *data)
+{
+    struct mged_state *s = (struct mged_state *)data;
+    MGED_CK_STATE(s);
+    /* Step 7.20: mp_dmp removed; update_views triggers Obol refresh. */
+    s->update_views = 1;
+}
+
+
+static void
+set_grid_draw(const struct bu_structparse *sdp,
+	      const char *name,
+	      void *base,
+	      const char *value,
+	      void *data)
+{
+    struct mged_state *s = (struct mged_state *)data;
+    MGED_CK_STATE(s);
+
+    if (s->dbip == DBI_NULL) {
+	grid_state->draw = 0;
+	return;
+    }
+
+    grid_set_dirty_flag(sdp, name, base, value, data);
+
+    /* This gets done at most one time. */
+    if (grid_auto_size && grid_state->draw) {
+	fastf_t res = view_state->vs_gvp->gv_size*s->dbip->dbi_base2local / 64.0;
+
+	grid_state->res_h = res;
+	grid_state->res_v = res;
+	/* Step 7.20: mp_dmp removed; iterate all panes. */
+	for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	    struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	    if (mp->mp_grid_state == grid_state)
+		mp->mp_grid_auto_size = 0;
+	}
+    }
+}
+
+
+static void
+set_grid_res(const struct bu_structparse *sdp,
+	     const char *name,
+	     void *base,
+	     const char *value,
+	     void *data)
+{
+    struct mged_state *s = (struct mged_state *)data;
+    MGED_CK_STATE(s);
+
+    grid_set_dirty_flag(sdp, name, base, value, data);
+
+    if (!grid_auto_size)
+	return;
+
+    /* Step 7.20: mp_dmp removed; iterate all panes. */
+    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	if (mp->mp_grid_state == grid_state)
+	    mp->mp_grid_auto_size = 0;
+    }
+}
+
+
+void
+draw_grid(struct mged_state *UNUSED(s))
+{
+    /* Step 7.20: libdm removed — no-op (was only called from dm rendering loop). */
+}
+
+
+void
+snap_to_grid(
+    struct mged_state *s,
+    fastf_t *mx,		/* input and return values */
+    fastf_t *my)		/* input and return values */
+{
+    int nh, nv;		/* whole grid units */
+    point_t view_pt;
+    point_t view_grid_anchor;
+    point_t model_grid_anchor;
+    fastf_t grid_units_h;		/* eventually holds only fractional horizontal grid units */
+    fastf_t grid_units_v;		/* eventually holds only fractional vertical grid units */
+    fastf_t sf;
+    fastf_t inv_sf;
+
+    if (s->dbip == DBI_NULL ||
+	ZERO(grid_state->res_h) ||
+	ZERO(grid_state->res_v))
+	return;
+
+    sf = view_state->vs_gvp->gv_scale*s->dbip->dbi_base2local;
+    inv_sf = 1 / sf;
+
+    VSET(view_pt, *mx, *my, 0.0);
+    VSCALE(view_pt, view_pt, sf);  /* view_pt now in local units */
+
+    VSCALE(model_grid_anchor, grid_state->anchor, s->dbip->dbi_local2base);
+    { struct bsg_camera _gca; bsg_view_get_camera(view_state->vs_gvp, &_gca); MAT4X3PNT(view_grid_anchor, _gca.model2view, model_grid_anchor); }
+    VSCALE(view_grid_anchor, view_grid_anchor, sf);  /* view_grid_anchor now in local units */
+
+    grid_units_h = (view_grid_anchor[X] - view_pt[X]) / grid_state->res_h;
+    grid_units_v = (view_grid_anchor[Y] - view_pt[Y]) / grid_state->res_v;
+    nh = grid_units_h;
+    nv = grid_units_v;
+
+    grid_units_h -= nh;		/* now contains only the fraction part */
+    grid_units_v -= nv;		/* now contains only the fraction part */
+
+    if (grid_units_h <= -0.5)
+	*mx = view_grid_anchor[X] - ((nh - 1) * grid_state->res_h);
+    else if (0.5 <= grid_units_h)
+	*mx = view_grid_anchor[X] - ((nh + 1) * grid_state->res_h);
+    else
+	*mx = view_grid_anchor[X] - (nh * grid_state->res_h);
+
+    if (grid_units_v <= -0.5)
+	*my = view_grid_anchor[Y] - ((nv - 1) * grid_state->res_v);
+    else if (0.5 <= grid_units_v)
+	*my = view_grid_anchor[Y] - ((nv + 1) * grid_state->res_v);
+    else
+	*my = view_grid_anchor[Y] - (nv * grid_state->res_v);
+
+    *mx *= inv_sf;
+    *my *= inv_sf;
+}
+
+
+void
+snap_keypoint_to_grid(struct mged_state *s)
+{
+    point_t view_pt;
+    point_t model_pt;
+    struct bu_vls cmd = BU_VLS_INIT_ZERO;
+
+    if (s->dbip == DBI_NULL)
+	return;
+
+    if (s->global_editing_state != ST_S_EDIT && s->global_editing_state != ST_O_EDIT) {
+	bu_log("snap_keypoint_to_grid: must be in an edit state\n");
+	return;
+    }
+
+    if (s->global_editing_state == ST_S_EDIT) {
+	{ struct bsg_camera _gc1; bsg_view_get_camera(view_state->vs_gvp, &_gc1); MAT4X3PNT(view_pt, _gc1.model2view, MEDIT(s)->curr_e_axes_pos); }
+    } else {
+	MAT4X3PNT(model_pt, MEDIT(s)->model_changes, MEDIT(s)->e_axes_pos);
+	{ struct bsg_camera _gc2; bsg_view_get_camera(view_state->vs_gvp, &_gc2); MAT4X3PNT(view_pt, _gc2.model2view, model_pt); }
+    }
+    snap_to_grid(s, &view_pt[X], &view_pt[Y]);
+    { struct bsg_camera _gc3; bsg_view_get_camera(view_state->vs_gvp, &_gc3); MAT4X3PNT(model_pt, _gc3.view2model, view_pt); }
+    VSCALE(model_pt, model_pt, s->dbip->dbi_base2local);
+
+    if (s->global_editing_state == ST_S_EDIT)
+	bu_vls_printf(&cmd, "p %lf %lf %lf", model_pt[X], model_pt[Y], model_pt[Z]);
+    else
+	bu_vls_printf(&cmd, "translate %lf %lf %lf", model_pt[X], model_pt[Y], model_pt[Z]);
+    (void)Tcl_Eval(s->interp, bu_vls_addr(&cmd));
+    bu_vls_free(&cmd);
+
+    /* save model_pt in local units */
+    VMOVE(dm_work_pt, model_pt);
+    dm_mouse_dx = dm_mouse_dy = 0;
+}
+
+
+void
+snap_view_center_to_grid(struct mged_state *s)
+{
+    point_t view_pt, model_pt;
+
+    if (s->dbip == DBI_NULL)
+	return;
+
+    { struct bsg_camera _gc4; bsg_view_get_camera(view_state->vs_gvp, &_gc4); MAT_DELTAS_GET_NEG(model_pt, _gc4.center); }
+    { struct bsg_camera _gc2; bsg_view_get_camera(view_state->vs_gvp, &_gc2); MAT4X3PNT(view_pt, _gc2.model2view, model_pt); }
+    snap_to_grid(s, &view_pt[X], &view_pt[Y]);
+    { struct bsg_camera _gc3; bsg_view_get_camera(view_state->vs_gvp, &_gc3); MAT4X3PNT(model_pt, _gc3.view2model, view_pt); }
+
+    { struct bsg_camera _gc6; bsg_view_get_camera(view_state->vs_gvp, &_gc6); MAT_DELTAS_VEC_NEG(_gc6.center, model_pt); bsg_view_set_camera(view_state->vs_gvp, &_gc6); }
+    new_mats(s);
+
+    VSCALE(model_pt, model_pt, s->dbip->dbi_base2local);
+
+    /* save new center in local units */
+    VMOVE(dm_work_pt, model_pt);
+    dm_mouse_dx = dm_mouse_dy = 0;
+}
+
+
+/*
+ * Expect values in the +-2.0 range,
+ * Return values in the +-2.0 range that have been snapped to the nearest grid distance.
+ */
+void
+round_to_grid(struct mged_state *s, fastf_t *view_dx, fastf_t *view_dy)
+{
+    fastf_t grid_units_h, grid_units_v;
+    fastf_t sf, inv_sf;
+    int nh, nv;
+
+    if (s->dbip == DBI_NULL ||
+	ZERO(grid_state->res_h) ||
+	ZERO(grid_state->res_v))
+	return;
+
+    sf = view_state->vs_gvp->gv_scale*s->dbip->dbi_base2local;
+    inv_sf = 1 / sf;
+
+    /* convert mouse distance to grid units */
+    grid_units_h = *view_dx * sf / grid_state->res_h;
+    grid_units_v = *view_dy * sf /  grid_state->res_v;
+    nh = grid_units_h;
+    nv = grid_units_v;
+    grid_units_h -= nh;
+    grid_units_v -= nv;
+
+    if (grid_units_h <= -0.5)
+	*view_dx = (nh - 1) * grid_state->res_h;
+    else if (0.5 <= grid_units_h)
+	*view_dx = (nh + 1) * grid_state->res_h;
+    else
+	*view_dx = nh * grid_state->res_h;
+
+    if (grid_units_v <= -0.5)
+	*view_dy = (nv - 1) * grid_state->res_v;
+    else if (0.5 <= grid_units_v)
+	*view_dy = (nv + 1) * grid_state->res_v;
+    else
+	*view_dy = nv * grid_state->res_v;
+
+    *view_dx *= inv_sf;
+    *view_dy *= inv_sf;
+}
+
+
+void
+snap_view_to_grid(struct mged_state *s, fastf_t view_dx, fastf_t view_dy)
+{
+    point_t model_pt, view_pt;
+    point_t vcenter, diff;
+
+    if (s->dbip == DBI_NULL ||
+	ZERO(grid_state->res_h) ||
+	ZERO(grid_state->res_v))
+	return;
+
+    round_to_grid(s, &view_dx, &view_dy);
+
+    VSET(view_pt, view_dx, view_dy, 0.0);
+
+    { struct bsg_camera _gc3; bsg_view_get_camera(view_state->vs_gvp, &_gc3); MAT4X3PNT(model_pt, _gc3.view2model, view_pt); }
+    { struct bsg_camera _gc5; bsg_view_get_camera(view_state->vs_gvp, &_gc5); MAT_DELTAS_GET_NEG(vcenter, _gc5.center); }
+    VSUB2(diff, model_pt, vcenter);
+    VSCALE(diff, diff, s->dbip->dbi_base2local);
+    VSUB2(model_pt, dm_work_pt, diff);
+
+    VSCALE(model_pt, model_pt, s->dbip->dbi_local2base);
+    { struct bsg_camera _gc7; bsg_view_get_camera(view_state->vs_gvp, &_gc7); MAT_DELTAS_VEC_NEG(_gc7.center, model_pt); bsg_view_set_camera(view_state->vs_gvp, &_gc7); }
+    new_mats(s);
+}
+
+
+void
+update_grids(struct mged_state *s, fastf_t sf)
+{
+    struct bu_vls save_result = BU_VLS_INIT_ZERO;
+    struct bu_vls cmd = BU_VLS_INIT_ZERO;
+
+    /* Step 6.b: iterate active_pane_set for all pane types. */
+    for (size_t pi = 0; pi < BU_PTBL_LEN(&active_pane_set); pi++) {
+	struct mged_pane *mp = (struct mged_pane *)BU_PTBL_GET(&active_pane_set, pi);
+	if (!mp->mp_grid_state) continue;
+	mp->mp_grid_state->res_h *= sf;
+	mp->mp_grid_state->res_v *= sf;
+	VSCALE(mp->mp_grid_state->anchor, mp->mp_grid_state->anchor, sf);
+    }
+
+    bu_vls_strcpy(&save_result, Tcl_GetStringResult(s->interp));
+
+    bu_vls_printf(&cmd, "grid_control_update %lf\n", sf);
+    (void)Tcl_Eval(s->interp, bu_vls_addr(&cmd));
+
+    Tcl_SetResult(s->interp, bu_vls_addr(&save_result), TCL_VOLATILE);
+
+    bu_vls_free(&save_result);
+    bu_vls_free(&cmd);
+}
+
+
+int
+f_grid_set (ClientData clientData, Tcl_Interp *interpreter, int argc, const char *argv[])
+{
+    struct cmdtab *ctp = (struct cmdtab *)clientData;
+    MGED_CK_CMD(ctp);
+    struct mged_state *s = ctp->s;
+
+    struct bu_vls vls = BU_VLS_INIT_ZERO;
+
+    if (argc < 1 || 5 < argc) {
+	bu_vls_printf(&vls, "help grid_set");
+	Tcl_Eval(interpreter, bu_vls_addr(&vls));
+	bu_vls_free(&vls);
+
+	return TCL_ERROR;
+    }
+
+    mged_vls_struct_parse(s, &vls, "Grid", grid_vparse,
+			  (char *)grid_state, argc, argv);
+    Tcl_AppendResult(interpreter, bu_vls_addr(&vls), (char *)NULL);
+    bu_vls_free(&vls);
+
+    return TCL_OK;
+}
+
+
+/*
+ * Local Variables:
+ * mode: C
+ * tab-width: 8
+ * indent-tabs-mode: t
+ * c-file-style: "stroustrup"
+ * End:
+ * ex: shiftwidth=4 tabstop=8
+ */

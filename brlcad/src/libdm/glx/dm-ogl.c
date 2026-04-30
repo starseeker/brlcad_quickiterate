@@ -1435,7 +1435,7 @@ struct dm_impl dm_ogl_impl = {
     gl_drawPoints3D,
     gl_drawVList,
     gl_drawVListHiddenLine,
-    null_draw_obj,
+    gl_draw_obj,
     gl_draw_data_axes,
     gl_draw,
     gl_setFGColor,

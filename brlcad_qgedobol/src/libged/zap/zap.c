@@ -1,0 +1,122 @@
+/*                         Z A P . C
+ * BRL-CAD
+ *
+ * Copyright (c) 2008-2026 United States Government as represented by
+ * the U.S. Army Research Laboratory.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * version 2.1 as published by the Free Software Foundation.
+ *
+ * This library is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this file; see the file named COPYING for more
+ * information.
+ */
+/** @file libged/zap.c
+ *
+ * The zap command.
+ *
+ */
+
+#include "common.h"
+
+#include <stdlib.h>
+
+
+#include "../ged_private.h"
+
+extern int ged_zap2_core(struct ged *gedp, int argc, const char *argv[]);
+
+#define FIRST_SOLID(_sp)      ((_sp)->s_fullpath.fp_names[0])
+#define FREE_BV_SCENE_OBJ(p, fp) { \
+        BU_LIST_APPEND(fp, &((p)->l)); \
+        BSG_FREE_VLIST(vlfree, &((p)->s_vlist)); }
+static void
+dl_zap(struct ged *gedp)
+{
+    struct db_i *dbip = gedp->dbip;
+    bsg_shape *free_scene_obj = bsg_scene_fsos(&gedp->ged_views);
+    struct bu_list *vlfree = &rt_vlfree;
+
+    /* Free all shapes from root->children across all views */
+    struct bu_ptbl *views = bsg_scene_views(&gedp->ged_views);
+    if (views) {
+	for (size_t vi = 0; vi < BU_PTBL_LEN(views); vi++) {
+	    bsg_view *v = (bsg_view *)BU_PTBL_GET(views, vi);
+	    bsg_shape *root = bsg_scene_root_get(v);
+	    if (!root) continue;
+	    for (size_t si = 0; si < BU_PTBL_LEN(&root->children); si++) {
+		bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+		if (!sp) continue;
+		if (sp->s_u_data) {
+		    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+		    struct directory *dp = FIRST_SOLID(bdata);
+		    RT_CK_DIR(dp);
+		    if (dp->d_addr == RT_DIR_PHONY_ADDR) {
+			if (db_dirdelete(dbip, dp) < 0)
+			    bu_log("ged_zap: db_dirdelete failed\n");
+		    }
+		}
+		ged_destroy_vlist_cb(gedp, sp->s_dlist, 1);
+		BU_LIST_APPEND(&free_scene_obj->l, &(sp)->l);
+		BSG_FREE_VLIST(vlfree, &sp->s_vlist);
+	    }
+	    bu_ptbl_reset(&root->children);
+	}
+    }
+}
+
+/*
+ * Erase all currently displayed geometry
+ *
+ * Usage:
+ * zap
+ *
+ */
+int
+ged_zap_core(struct ged *gedp, int argc, const char *argv[])
+{
+
+    if (gedp->new_cmd_forms)
+	return ged_zap2_core(gedp, argc, argv);
+
+    GED_CHECK_DRAWABLE(gedp, BRLCAD_ERROR);
+    GED_CHECK_ARGC_GT_0(gedp, argc, BRLCAD_ERROR);
+
+    /* initialize result */
+    bu_vls_trunc(gedp->ged_result_str, 0);
+
+    if (argc != 1) {
+	bu_vls_printf(gedp->ged_result_str, "Usage: %s", argv[0]);
+	return BRLCAD_ERROR;
+    }
+
+    dl_zap(gedp);
+
+    return BRLCAD_OK;
+}
+
+
+#include "../include/plugin.h"
+
+#define GED_ZAP_COMMANDS(X, XID) \
+    X(Z, ged_zap_core, GED_CMD_DEFAULT) \
+    X(zap, ged_zap_core, GED_CMD_DEFAULT) \
+
+GED_DECLARE_COMMAND_SET(GED_ZAP_COMMANDS)
+GED_DECLARE_PLUGIN_MANIFEST("libged_zap", 1, GED_ZAP_COMMANDS)
+
+/*
+ * Local Variables:
+ * mode: C
+ * tab-width: 8
+ * indent-tabs-mode: t
+ * c-file-style: "stroustrup"
+ * End:
+ * ex: shiftwidth=4 tabstop=8
+ */

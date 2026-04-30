@@ -1,0 +1,731 @@
+Drawing Stack Modernization — Phase Cross-Walk
+===============================================
+
+This document is the single source of truth for the incremental modernization
+of BRL-CAD's 3D drawing stack.  It maps changes that have already been proven
+in the experimental brlcad_qgedobol/ tree to their equivalent work items in
+the canonical brlcad/ tree, records which changes block which, and tracks the
+status of each.
+
+The high-level goal is to progress from two drawing stacks with an opaque
+dbi_state toward a single, Inventor-shaped scene-graph stack that can be
+directly backed by Obol (or an equivalent portable scene-management library).
+The full plan is in seven phases; this document covers the first four in detail
+and describes the remaining ones at a higher level.
+
+See also: doc/notes/struct_resource_removal.txt (precedent for phased
+structural refactoring across many sessions).
+
+== Build prerequisites ==
+
+The Qt stack (libqtcad, dm-qtgl, dm-swrast, qged) is central to this
+work.  Every phase MUST be built and validated with Qt enabled.  Never use
+-DBRLCAD_ENABLE_QT=OFF for work in this area.
+
+Required packages on Ubuntu/Debian:
+
+  sudo apt-get install -y \
+    xserver-xorg-dev libx11-dev libxi-dev libxext-dev \
+    libglu1-mesa-dev libfontconfig-dev libgl-dev xvfb \
+    astyle re2c xsltproc libxml2-utils \
+    libfontconfig1-dev libfreetype6-dev \
+    libx11-xcb-dev libxfixes-dev libxrender-dev \
+    libxcb1-dev libxcb-cursor-dev libxcb-glx0-dev \
+    libxcb-keysyms1-dev libxcb-image0-dev libxcb-shm0-dev \
+    libxcb-icccm4-dev libxcb-sync-dev libxcb-xfixes0-dev \
+    libxcb-shape0-dev libxcb-randr0-dev libxcb-render-util0-dev \
+    libxcb-util-dev libxcb-xinerama0-dev libxcb-xkb-dev \
+    libxkbcommon-dev libxkbcommon-x11-dev \
+    qt6-base-dev qt6-svg-dev qt6-tools-dev \
+    libqt6opengl6t64 libqt6openglwidgets6t64
+
+CMake configure command (brlcad_quickiterate repo):
+
+  cmake -S brlcad -B brlcad_build \
+    -DBRLCAD_EXT_DIR=bext_output \
+    -DBRLCAD_EXTRADOCS=OFF \
+    -DBRLCAD_ENABLE_STEP=OFF \
+    -DBRLCAD_ENABLE_GDAL=OFF \
+    -DBRLCAD_ENABLE_QT=ON
+
+Exit criteria for every phase include a clean Qt build of at minimum:
+  libqtcad, dm-qtgl, dm-swrast, qged.
+
+Guiding principles
+------------------
+1. Never break MGED/Archer/rtwizard during the transition.
+2. Land every change as a small, independently mergeable commit.
+3. Move responsibilities UP the stack (deep libbv should not make view
+   decisions; that belongs in libged or higher).
+4. Make state inspectable: replace opaque unordered_map<unsigned long long,…>
+   with named, typed value types and an explicit observer protocol.
+5. Target an OpenInventor-shaped API as the final destination, not the next
+   step; each phase leaves the code closer without requiring a flag-day.
+
+== Phase 0 — Establish a shared baseline ==
+
+Status: DONE
+
+Goals
+  a. Produce this cross-walk document.
+  b. Migrate dbi_state.cpp from raw LMDB to the bu_cache abstraction that
+     libbv/lod.cpp and the rest of brlcad will eventually share.
+  c. Audit existing test surface; add regression tests for BViewState::redraw()
+     and the legacy dl_* path so Phase 1-2 refactors have something to defend.
+
+Item 0-A: Cross-walk document                                    [DONE - here]
+
+Item 0-B: Migrate dbi_state.cpp LMDB → bu_cache                  [DONE - this session]
+
+  Current state (brlcad/):
+    src/libged/dbi_state.cpp contains a private struct ged_draw_cache that
+    wraps a raw LMDB environment (MDB_env/MDB_txn/MDB_dbi).  It uses LMDB
+    directly for five on-disk payloads per .g object:
+      CACHE_OBJ_BOUNDS ("bb")    — 6 fastf_t bounding box
+      CACHE_REGION_ID ("rid")    — int region_id attribute
+      CACHE_REGION_FLAG ("rf")   — int region flag
+      CACHE_INHERIT_FLAG ("if")  — int color inheritance flag
+      CACHE_COLOR ("c")          — unsigned int packed RGB
+    Two private helpers (cache_write, cache_get) wrap single-transaction
+    LMDB reads and writes. cache_done() is a no-op commit stub.
+
+  After this session (brlcad/):
+    ged_draw_cache is replaced by struct bu_cache (from bu/cache.h).
+    Key construction: dbi_cache_key(hash, component) → "hash:component".
+    Open:  bu_cache_open(relative_path, 1/*create*/, 0/*default size*/)
+    Write: bu_cache_write(data, size, key, dcache, NULL)
+    Get:   bu_cache_get(&data, key, dcache, &txn) / bu_cache_get_done(&txn)
+    Clear: bu_cache_clear(key, dcache, NULL)
+    Close: bu_cache_close(dcache)
+    The LMDB_LIBRARIES / LMDB_INCLUDE_DIRS entries are removed from
+    src/libged/CMakeLists.txt (libbu already links LMDB for bu_cache).
+
+  qgedobol reference: src/libged/dbi_state.cpp lines 79-302, 688-870, 1173-1217
+
+Item 0-C: Test surface audit                                          [DONE - this session]
+
+  Existing visual/pixel-comparison tests:
+    src/libged/tests/draw/ — basic, faceplate, lod, select, quad, aet
+    These cover the QGED draw path through dm-swrast offscreen rendering.
+
+  Gap: no unit test for BViewState::redraw() or the legacy dl_* walk.
+  Resolution: added src/libged/tests/test_dbi_cpp.cpp — a lightweight C++
+  test (no Qt, no dm, no pixel comparison) that exercises:
+    • DbiState construction from a known .g file (moss.g)
+    • DbiState::tops() — verifies top-level object set
+    • DbiState::digest_path() — valid and invalid paths, correct depth
+    • DbiState::valid_hash() / valid_hash_path()
+    • DbiState::get_bbox() — finite, non-degenerate bbox for a known comb
+    • BViewState::add_path() + redraw() + count_drawn_paths() + is_hdrawn()
+    • Two-pass DbiState construction (warm-cache path produces identical maps)
+  Registered in src/libged/tests/CMakeLists.txt as ged_test_dbi_cpp.
+
+  Gap: no test that the dcache cache round-trip (write + read) works for each
+  of the five payload types.
+  Resolution: test_dbi_cpp.cpp test_cache_roundtrip() directly exercises
+  bu_cache_write + bu_cache_get for each of the five DBI payload formats:
+  CACHE_OBJ_BOUNDS (2×point_t), CACHE_REGION_ID (int), CACHE_REGION_FLAG (int),
+  CACHE_INHERIT_FLAG (int), CACHE_COLOR (unsigned int).
+
+== Phase 1 — Fix the dbi_state opacity problem ==
+
+Status: DONE
+
+Prerequisite: Phase 0 complete.
+
+The core problem: dbi_state.cpp and dbi.h expose their internal state as
+seventeen separate unordered_map<unsigned long long, …> fields, making it
+impossible to understand at a glance which map is keyed by what kind of hash
+(object name hash vs. instance hash vs. full-path hash), and impossible to
+add/remove a debugger watch on "all data for object X".
+
+Reference design: brlcad_qgedobol/include/ged/dbi.h (the fully redesigned API)
+
+Sub-items (each an independent commit):
+
+  1-A: Typed hash wrappers (GHash / InstHash / PathHash / DbiPath)   [DONE]
+    Three unit structs (GHash, InstHash, PathHash) each wrapping
+    unsigned long long, with operator== / operator!= / explicit bool and
+    std::hash specializations.  DbiPath (typed path vector) has an implicit
+    conversion to const vector<ull>& for backward compatibility.
+    All defined in src/libged/dbi.h.
+
+  1-B: DbiChangeEvent and SceneChangeEvent use typed hash fields       [DONE]
+    New event structs use GHash / PathHash.  Existing flat maps in DbiState
+    remain as unsigned long long for now (full retype deferred to Phase 2 to
+    keep the diff minimal); DbiChangeEvent exposes a GHash object field and
+    a bool batch flag.
+
+  1-C: Observer protocol (IDbiObserver / DbiChangeEvent)               [DONE]
+    IDbiObserver and ISceneObserver pure virtual interfaces.  DbiState gains
+    add_observer() / remove_observer() / add_scene_observer() /
+    remove_scene_observer() and fires on_dbi_changed(events) after each
+    DbiState::update() call.  notify_dbi_observers() / notify_scene_observers()
+    are private dispatchers.
+    Regression: test_dbi_cpp.cpp Test 8 — observer add/fire/remove verified.
+
+  1-D: GObj / CombInst object model                                    [DONE]
+    GObj (one per .g object) and CombInst (one per child instance) value types
+    added to dbi.h.  DbiState gains gobjs map (ull → GObj*) and get_gobj()
+    accessor.  update_dp() creates/recreates the GObj after populating flat
+    maps; GenCombInstances() walks the comb tree to populate CombInst children.
+    Removed objects also remove their GObj; destructor clears all.
+    Old flat-map fields (p_c, p_v, bboxes, etc.) remain as the canonical store;
+    GObj reads from them on construction.
+    Regression: test_dbi_cpp.cpp Test 8 — GObj for all.g has 6 CombInst entries.
+
+  1-E: DrawList as a first-class type                                  [DONE]
+    DrawList class with add(path, mode), remove(path_hash, mode),
+    clear(), query(path_hash) → DrawState enum {NOT_DRAWN, FULLY_DRAWN,
+    PARTIALLY_DRAWN}, drawn_path_hashes(mode), count(mode), empty().
+    BViewState gains draw_list() / const draw_list() accessors backed by a
+    private DrawList draw_list_ member.
+    Regression: test_dbi_cpp.cpp Test 8 — add/query/clear verified.
+
+  1-F: SelectionSet replacing BSelectState                             [DONE]
+    BSelectState renamed SelectionSet throughout dbi.h and dbi_state.cpp.
+    typedef SelectionSet BSelectState preserves all existing callers unchanged.
+    New API methods: select(path_hash, path_vec), select(DbiPath),
+    select(const char*), deselect() overloads, is_parent(), is_ancestor(),
+    is_obj_immediate_parent(), is_obj_ancestor(), recompute_hierarchy(),
+    selected_paths(), selected_hashes(), state_hash_val(), selected_map().
+    Regression: test_dbi_cpp.cpp Test 8 — select/deselect/state_hash_val.
+
+  1-G: Keep the C++ surface stable                                     [DONE]
+    DbiState gains get_selection_set(name) / get_selection_sets(pattern) /
+    add_selection_set(name) / remove_selection_set(name) as clean wrappers
+    alongside the legacy find_selected_state() / get_selected_states().
+    qged CMakeLists.txt updated to explicitly link Qt6::OpenGL +
+    Qt6::OpenGLWidgets (pre-existing Qt6 build gap, fixed as part of this
+    phase's Qt validation step).
+
+Exit criteria: observer-based notification works and is covered by a
+regression test (test_dbi_cpp.cpp Test 8).  DrawList and SelectionSet are
+typed first-class objects.  GObj / CombInst populate the gobjs map.
+All 8 tests in ged_test_dbi_cpp pass; qged builds cleanly with Qt6.
+
+== Phase 2 — Drain view-dependent behavior out of libbv ==
+
+Status: DONE
+
+Prerequisite: Phase 1 in progress (libbv shape must be stable before libbsg
+can be vendored in Phase 4).
+
+The core problem: bv_scene_obj carries s_update_callback, s_dlist_stale,
+s_dlist_free_callback, adaptive_wireframe, view_scale, bot_threshold,
+curve_scale, point_scale, plus the s_v back-pointer to a bview.  These fields
+push view-policy decisions into the data model.  Nothing in the scene data
+record should know about adaptive rendering or display-list staleness; those
+are concerns of the renderer (libdm) and the draw manager (libged).
+
+Reference design: brlcad_qgedobol/src/libbsg/ (scene_graph.cpp, lod.cpp)
+
+Sub-items:
+
+  2-A: Annotate & audit callers                                       [DONE]
+    BV_DEPRECATED (Phase 2) comments added in include/bv/defines.h for:
+      s_v (used for control flow), s_update_callback (LoD/CSG path removed),
+      s_dlist_stale, s_dlist_free_callback, adaptive_wireframe, view_scale,
+      bot_threshold, curve_scale, point_scale.
+
+    Write-site audit (all direct writes to the deprecated fields):
+      s_update_callback:
+        src/libged/draw.cpp: bot_adaptive_plot(), brep_adaptive_plot(),
+          wireframe_plot() — RETAINED for per-frame rendering via libdm/view.c.
+          BViewState::redraw() adds an explicit supplementary pass (2-B).
+        src/libdm/view.c: draw_scene_obj() calls s_update_callback for
+          non-LoD polygon-edit objects — this call remains valid.
+      s_dlist_stale:
+        src/libbv/util.cpp bv_obj_stale() sets s_dlist_stale=1 — remains.
+        src/libdm/dm-gl_lod.cpp: polled on entry; cleared after dlist gen — remains
+          for backward compat; sensor fires on dlist regeneration (2-C).
+      s_dlist_free_callback:
+        src/libdm/dm-gl_lod.cpp: set during dlist creation — remains; will
+          be removed in 2-E after libdm owns teardown via sensor pattern.
+      adaptive_wireframe, view_scale, bot_threshold, curve_scale, point_scale:
+        Written in csg_wireframe_update() and bv_mesh_lod_view() — these
+        remain as snapshot cache; ownership tracking moved to BViewState (2-B).
+    Blocker: none.
+
+  2-B: Move adaptive-plot / LoD trigger to BViewState                 [DONE]
+    s_update_callback = &bv_mesh_lod_view RETAINED for BV_MESH_LOD objects
+      (bot_adaptive_plot, brep_adaptive_plot) — it is still called per-frame
+      by draw_scene_obj() in libdm/view.c as a rendering-time update.
+      Phase 2-B adds BViewState as an additional explicit trigger.
+    s_update_callback = &csg_wireframe_update RETAINED for BV_CSG_LOD objects
+      in wireframe_plot() for the same reason.
+    csg_wireframe_update() made extern "C" (non-static) so dbi_state.cpp
+      can call it directly.
+    Forward declarations added at top of dbi_state.cpp for draw_scene() and
+      csg_wireframe_update().
+    BViewState::redraw() gains a per-view LoD update pass after draw_scene:
+      iterates s_map; for each BV_MESH_LOD child calls bv_mesh_lod_view(),
+      for each BV_CSG_LOD child calls csg_wireframe_update().
+      This ensures view-scale changes from redraw_on_zoom also propagate LoD.
+    Dead #if 0 block in libbv/util.cpp::bv_update_selected() replaced with
+      an explanatory comment (libbv does not call s_update_callback).
+    lod.cpp: enabling adaptive_plot now also sets redraw_on_zoom = 1 so
+      zoom events trigger a full BViewState::redraw() and LoD levels update.
+      Disabling both modes clears redraw_on_zoom back to 0.
+    Blocker: Phase 1-E (DrawList), 2-A.
+
+  2-C: Sensor pattern for dlist staleness                             [DONE]
+    struct dm_dlist_sensor added to calltable.h (singly-linked list node
+      with bv_scene_obj*, callback, data, next).
+    dm_dlist_sensors (struct dm_dlist_sensor*) field added to dm_impl.
+    dm_register_dlist_sensor(), dm_fire_dlist_sensors(),
+      dm_dlist_sensors_clear() added to include/dm.h and implemented in
+      src/libdm/dm-generic.c.
+    dm_close() in dm-generic.c calls dm_dlist_sensors_clear() before
+      delegating to the plugin's close function.
+    dm-gl_lod.cpp: gl_draw_tri() and gl_csg_lod() call dm_fire_dlist_sensors()
+      after regenerating a GL display list (Phase 2-C hook point).
+    s_dlist_stale polling in dm-gl_lod.cpp REMAINS (backward compat) but is
+      now marked BV_DEPRECATED; the sensor provides a proactive alternative.
+    Reference: qgedobol src/libdm/dm-gl.c gl_register_dlist_sensor pattern.
+    Blocker: 2-A.
+
+  2-D: Camera accessors                                               [DONE]
+    New public API in include/bv/util.h:
+      bv_view_get_scale / bv_view_set_scale — gv_scale + consistent gv_size/isize
+      bv_view_get_size  / bv_view_set_size  — gv_size  + consistent gv_scale/isize
+      bv_view_get_perspective / bv_view_set_perspective — gv_perspective
+      bv_view_get_aet  / bv_view_set_aet   — gv_aet + recomputes gv_rotation
+                                              via bv_mat_aet()
+      bv_view_get_rotation / bv_view_set_rotation — raw gv_rotation matrix
+      bv_view_get_center_vec / bv_view_set_center_vec — gv_center point
+                                              using MAT_DELTAS_GET/SET_NEG
+    Implemented in src/libbv/util.cpp immediately after bv_mat_aet().
+    Migration sites:
+      src/libged/draw/loadview.cpp: gv_size+gv_scale+gv_isize → bv_view_set_size;
+        gv_rotation+gv_center → bv_view_set_rotation+bv_view_set_center_vec;
+        gv_perspective → bv_view_set_perspective.
+      src/libqtcad/QgGL.cpp QgGL::aet(): inline rotation computation replaced
+        by bv_view_set_aet() + bv_update().
+      src/libqtcad/QgSW.cpp QgSW::aet(): same.
+      src/libqtcad/bindings.cpp CADkeyPressEvent(): all twelve
+        bn_decode_vect(v->gv_aet,...)+bv_mat_aet() pairs replaced by
+        vect_t aet; bn_decode_vect(aet,...); bv_view_set_aet(v,aet).
+    Reference: qgedobol src/libbsg/scene_graph.cpp bsg_view_get/set_camera.
+    Blocker: 2-A.
+
+  2-E: Remove deprecated fields
+    After one release cycle with BV_DEPRECATED shims, remove the fields
+    enumerated in 2-A from bv_scene_obj and bview.
+    Blocker: 2-B, 2-C, 2-D, all callers migrated.
+
+Exit criteria: bv_scene_obj no longer contains s_update_callback, s_dlist_*,
+adaptive_wireframe, view_scale, bot_threshold, curve_scale, point_scale, or
+any bview* back-pointer used for control flow.
+
+== Phase 3 — Generalize the draw cache ==
+
+Status: DONE
+
+Prerequisite: Phase 0 (bu_cache migration).
+
+Today there are two on-disk LMDB users:
+  - src/libbv/lod.cpp  — stores BoT LoD geometry and mesh-name→key mappings
+  - src/libged/dbi_state.cpp — stores bbox, region_id, region_flag,
+                               color_inherit, color per .g solid
+
+After Phase 0, dbi_state.cpp uses bu_cache.  libbv/lod.cpp still uses raw
+LMDB.  Phase 3 migrates lod.cpp to bu_cache, gives both caches a consistent
+format-file invalidation mechanism, and adds a background OBB worker.
+
+Sub-items:
+
+  3-A: Migrate libbv/lod.cpp LMDB → bu_cache                      [DONE]
+    Replace the two MDB_env instances (lod_env / name_env) with two
+    struct bu_cache* instances (lod_cache / name_cache).  All MDB_* calls
+    become bu_cache_* calls.  Remove LMDB_LIBRARIES from libbv CMakeLists.txt.
+    Reference: qgedobol src/libbsg/lod.cpp (already migrated).
+
+  3-B: Cache invalidation via format files                         [DONE]
+    Both cache owners use the same mechanism: a plain-text integer version
+    file in the cache root directory.  On startup, if the integer in the file
+    doesn't match the compile-time constant the entire cache directory is
+    cleared via bu_dirclear() before new caches are opened.  Cache keys use
+    plain "hash:component" strings with no embedded version prefix.
+
+    lod.cpp (POPLoD cache):
+      File: BU_DIR_CACHE/.POPLoD/format
+      Constant: CACHE_CURRENT_FORMAT (bumped 1 → 2 to force a clean slate
+      after the LMDB→bu_cache migration in 3-A).
+      Checked in: bv_mesh_lod_context_create().
+
+    dbi_state.cpp (DBI cache, dcache):
+      File: BU_DIR_CACHE/.Dbi/format
+      Constant: DBI_CACHE_FORMAT_VERSION (starts at 1).
+      Checked in: DbiState::DbiState() before bu_cache_open().
+      Covers all six payload keys: bb, rid, rf, if, c, obb.
+
+    When a payload's binary layout changes, or a payload type is added or
+    removed, only the relevant format-version constant needs to be bumped;
+    the next startup automatically wipes and rebuilds the entire cache
+    directory for that cache owner.  No orphaned entries accumulate.
+
+  3-C: Background OBB computation via GeomLoader                   [DONE]
+    Introduce a GeomLoader worker (based on the qgedobol DrawPipeline concept)
+    that computes OBBs for each solid in the background.  Results are stored in
+    dcache (key "hash:obb") and made available to BViewState via a
+    drain_geom_results() pump.  Current OBB computation is a trivial
+    axis-aligned placeholder; a PCA-based OBB can replace it later.
+    GeomLoader declared in dbi.h, implemented in dbi_state.cpp.
+    DbiState::geom_loader created after dcache is opened; destroyed (joining
+    the worker thread) before dcache is closed in ~DbiState().
+
+  3-D: Placeholder rendering ladder                                [DONE]
+    BViewState::redraw() queues OBB computations for all newly drawn solids
+    immediately after draw_scene().  BViewState::drain_geom_results() is
+    exposed as a public method; callers that poll it and get count > 0 should
+    trigger a view refresh to consume the updated OBBs.
+    Reference: qgedobol doc/TODO.qged-stack.md §7.4 (fully validated there).
+
+Exit criteria: a new cached payload (OBB) can be added in one place and is
+consumed by the draw path without changes to bv_* headers.  Both caches use
+the format-file mechanism for invalidation; keys are plain "hash:component".
+Qt build requirement: libbv, dm-swrast, and the LoD caching tests must all
+pass; qt6-base-dev / qt6-svg-dev must be installed and -DBRLCAD_ENABLE_QT=ON.
+
+== Phase 3.5 — Migrate concurrentqueue.h based drawing data cache in qgedobol
+
+Status: DONE
+
+    Replaced the Phase 3-C single-threaded GeomLoader (which computed trivial
+    axis-aligned OBBs as a placeholder) with a 5-stage concurrent pipeline
+    (DrawPipeline) that closely mirrors qgedobol's cache_drawing.cpp design:
+
+    Stage 1 — attr_worker:   reads region flag/id, inherit, color from AVS and
+                             enqueues them for cache writing; cracks geometry and
+                             forwards rt_db_internal to q_aabb.
+    Stage 2 — aabb_worker:  calls ft_bbox to compute a real AABB; posts a
+                             DrawPipeline::Result::AABB to results_q and forwards
+                             the internal to q_obb.
+    Stage 3 — obb_worker:   calls ft_oriented_bbox to compute a tight oriented
+                             bounding box (8 corner points, 24 fastf_t); posts
+                             DrawPipeline::Result::OBB; forwards to q_lod.
+    Stage 4 — lod_worker:   for BoT primitives, calls bv_mesh_lod_cache /
+                             bv_mesh_lod_key_put if not already cached; posts
+                             DrawPipeline::Result::LOD.
+    Stage 5 — write_worker: serialises all bu_cache writes, preventing LMDB
+                             transaction conflicts from concurrent workers.
+
+    All 5 stages use moodycamel::ConcurrentQueue (concurrentqueue.h) for lock-
+    free inter-stage handoff.  A shared DrawPipelineState (held as a
+    shared_ptr) owns the queues and result_q; the pipeline shuts down cleanly
+    when ~DrawPipeline() signals shutdown and waits up to 2 s for all threads.
+
+    New public surface in dbi.h / DbiState:
+      DbiState::obbs       — map from hash to std::array<fastf_t,24> (8 corner pts)
+      DbiState::start_geom_load(items) — push WorkItems to pipeline
+      DbiState::drain_geom_results()   — drain results, update bboxes/obbs
+      DbiState::wait_for_pipeline(ms)  — blocking drain loop (useful for tests)
+      BViewState::drain_geom_results() — delegates to DbiState (return type now size_t)
+
+    DBI_CACHE_FORMAT_VERSION bumped to 2 (OBB format changed from center+extents
+    4×3 doubles to 8 corner points 24 fastf_t).
+
+    DbiState constructor also pushes all solid directory pointers at init time so
+    AABB, OBB and LoD data are pre-populated in the background for the full model.
+
+    BViewState::redraw() Phase 3-D block updated: instead of calling
+    geom_loader->queue_item(hash, bmin, bmax) it builds a DrawPipeline::WorkItem
+    list from the drawn s_map and calls DbiState::start_geom_load().
+
+    Most OBB data will not yet be used in current drawing implementations (Phase 4+
+    will wire OBBs into view-frustum culling and bsg scene nodes), but all the
+    required data is now being computed and stored, positioning us for future work.
+
+    Test 9 added to ged_test_dbi_cpp: opens moss.g, waits for pipeline to settle,
+    verifies at least one AABB result is produced.  9/9 PASS.
+
+Exit criteria: We successfully cache and are able to retrieve all information
+qgedobol's cache stores, and do so without breaking our current LoD features.
+Qt build requirement: libbv, dm-swrast, and the LoD caching tests must all
+pass; qt6-base-dev / qt6-svg-dev must be installed and -DBRLCAD_ENABLE_QT=ON.
+
+
+== Phase 4 — Stand up libbsg in brlcad/ alongside libbv ==
+
+Status: DONE
+
+Prerequisite: Phase 2 (libbv shape stable), Phase 3 (cache unified).
+
+This phase is additive: libbv still ships and works.  libbsg is vendored in
+alongside it, providing the scene-graph API that will eventually replace the
+dl_* walk.
+
+Key facts from qgedobol/:
+  - include/bsg/defines.h, include/bsg/util.h, include/bsg/scene_set.h
+  - include/bsg/lod.h, include/bsg/vlist.h, include/bsg/obol_node.h
+  - src/libbsg/scene_graph.cpp, src/libbsg/lod.cpp, src/libbsg/vlist.c
+  - bsg_shape mirrors bv_scene_obj layout (identical field prefix so no casts)
+  - bsg_view_traverse(root) is the single render loop
+  - bsg_view_find_by_type(), bsg_sensor_fire() are the key cross-cutting helpers
+
+Sub-items:
+
+  4-A: Vendor libbsg source tree
+    Created include/bsg/defines.h, util.h, scene_set.h, lod.h, vlist.h,
+    obol_node.h, plus include/bsg.h umbrella header.  Created
+    src/libbsg/scene_graph.cpp, lod.cpp, vlist.c, and
+    src/libbsg/tests/test_vlist.c, test_arb8.c.  Added CMakeLists.txt
+    entries: libbsg added to source_dirs.cmake; libdm/libged/libqtcad
+    updated to link libbsg; include/CMakeLists.txt updated with bsg dir.
+    bsg_node and bsg_shape typedef struct bv_scene_obj so no casts needed.
+
+  4-B: Design review
+    The qgedobol libbsg implementation was entirely rewritten for BRL-CAD:
+    bsg_node = typedef struct bv_scene_obj (layout-compatible, no casts);
+    bsg_scene_root_create/sync/destroy use bv_obj_create/bv_obj_put so
+    the allocator machinery and i-pointer are correctly initialised;
+    bsg_view_traverse lives in libdm/view.c (not libbsg) to avoid a
+    libbsg→libdm circular dependency; bsg_scene_set stub for Phase 5.
+    obol_node.h is a forward-compatibility stub for Phase 7.
+    Also fixed pre-existing OPENGL_INCLUDE_DIR_GL detection bug (modern
+    CMake sets OPENGL_INCLUDE_DIR; now accepted under either name) that
+    was preventing qged and dm-qtgl from building.
+
+  4-C: Scene-root creation at view init sites
+    QgGL.cpp (qtgl view), QgSW.cpp (swrast view), and ged.cpp (default
+    GED view) all call bsg_scene_root_create() after bv_init().  bv_init()
+    initialises bview::bsg_root to NULL; bv/defines.h carries the field
+    (void * to avoid bv→bsg circular include).
+
+  4-D: libdm consumes bsg_view_traverse
+    dm_draw_objs() in libdm/view.c selects the render path at paint time:
+    when v->bsg_root is non-NULL, bsg_scene_root_sync + bsg_view_traverse
+    replace the dl_* walk; otherwise the legacy loop runs unchanged.
+    bsg_view_traverse() declared DM_EXPORT in include/dm/view.h.
+
+  4-E: QGED and gsh draw exclusively through bsg_view_traverse
+    BViewState::redraw() calls bsg_scene_root_sync for every view that has
+    a scene root after the finalization autoview, keeping roots up-to-date
+    between paint events.  MGED/Archer still have no bsg_root so they
+    continue through the dl_* path unchanged.
+    Tests: libbsg/tests/vlist (6 cases), libbsg/tests/arb8 — all PASS.
+    libqtcad, dm-qtgl, dm-swrast, qged all build cleanly.
+
+Exit criteria: QGED/swrast draw through bsg_view_traverse; MGED/Archer still
+use dl_*; a pixel-level regression confirms both paths produce the same output.
+Qt build requirement: qged, dm-qtgl, dm-swrast must all build and
+the swrast pixel-level regression tests must pass.
+
+== Phase 5 — Migrate MGED, Archer, rtwizard onto the new path ==
+
+Status: DONE
+
+Prerequisite: Phase 4 complete.
+
+What was done (2026-04-28):
+
+  MGED:
+  - struct bview gains gv_edit_mat (matp_t, initialized to NULL by bv_init).
+    In dozoom(), set to vs_model2objview during sed/oed so dm_draw_scene_obj
+    can swap the matrix for UP-flagged (illuminated/selected) objects.
+  - mged/setup.c calls bsg_scene_root_create() right after bv_init; MGED's
+    view has a BSG root from start-up.
+  - mged/dozoom.c fully rewritten:
+      which_eye==0 (normal view, >99% usage): dm_draw_objs() via BSG path.
+      which_eye!=0 (stereo): legacy dm_draw_head_dl retained (Deering
+        perspective+eye-offset matrix can't be split into the
+        dm_loadpmatrix/modelview pair dm_draw_objs expects — marked TODO).
+  - dm_draw_scene_obj promoted from static to exported DM_EXPORT in libdm;
+    handles gv_edit_mat swap for s_iflag==UP objects.
+
+  Archer / libtclcad:
+  - libtclcad/commands.c: bsg_scene_root_create() for every new view.
+  - libtclcad/view/draw.c: go_draw() branches on bsg_root present:
+      BSG: bsg_scene_root_sync + iterate root->children via go_draw_solid()
+           (preserves Archer's per-path edited_paths edit-matrix logic).
+      Fallback: go_draw_dlist() for any view lacking a BSG root.
+
+  rtwizard:
+  - rtwizard's headless (--no-gui) pipeline uses the libtclcad GED API only
+    for camera parameter computation (new_view + draw + autoview +
+    get_eyemodel); no DM rendering occurs.  The actual image is produced by
+    an rt/rtedge subprocess that receives viewsize/orientation/eye_pt.
+  - Because libtclcad/commands.c already calls bsg_scene_root_create() for
+    every new view (including "db new_view v1 nu"), rtwizard's secondary
+    null-DM view is BSG-enabled from the moment of creation.
+  - With bsg_root set, go_draw_dlist() is never entered; the go_draw()
+    BSG branch fires instead, making the go_draw_dlist dl_* walk dead code.
+  - _ged_rt_set_eye_model branches on gedp->new_cmd_forms: when 1 (the
+    value set by ged_init) it uses bv_view_objs() (BSG-compatible) instead
+    of the legacy dl_bounding_sph() path.
+
+  Tests:
+  - src/libged/tests/draw/mged_bsg.cpp: 5-test regression suite using
+    dm-swrast (no display required):
+      Test 1: wireframe renders non-empty image via BSG path
+      Test 2: illumination (s_iflag==UP) adds white pixels
+      Test 3: gv_edit_mat shifts illuminated objects
+      Test 4: faceplate center-dot visibility
+      Test 5: BSG path == legacy dl_* path (pixel-identical)
+    All 5/5 tests PASS.
+  - src/libged/tests/draw/rtwizard_bsg.cpp: 3-test rtwizard migration
+    exit-criteria suite (null DM, no display required):
+      Test 1: null-DM secondary view (simulating "new_view v1 nu") gets
+              a BSG root — verifies the Phase 5 libtclcad change.
+      Test 2: draw + autoview + get_eyemodel on null-DM view produces a
+              finite, non-degenerate eye model (viewsize > 0, |q| ≈ 1,
+              finite eye_pt).
+      Test 3: Four independent null-DM views each have distinct bsg_root
+              pointers — per-view independence confirmed, go_draw_dlist
+              legacy path is provably not entered.
+    All 3/3 tests PASS.
+
+  Xvfb visual verification (Xvfb :99, dm-swrast OSMesa, 2026-04-28):
+  - MGED wireframe: 512x512, 1.5% colored wireframe lines, 0.5% white
+    faceplate elements — correct via BSG path.
+  - MGED sed/edit mode: 9.1% colored pixels (6x more than wireframe) —
+    illumination/edit-mode highlights working correctly.
+  - Archer/qged (-s swrast): launches cleanly on Xvfb, renders scene
+    content (2.0% colored + white pixels confirmed).
+
+Remaining deferral:
+  - Stereo dozoom: left on legacy dm_draw_head_dl; marked TODO.
+  - go_draw_dlist() and display_list.c deletion: blocked on cleanup of
+    to_edit_redraw() and to_create_vlist_callback() in libtclcad (both
+    still reference ged_dl/dl_head_scene_obj); scheduled for Phase 6.
+
+Exit criteria:
+  MGED renders via BSG path — DONE.
+  Archer renders via BSG path — DONE.
+  rtwizard null-DM view uses BSG (bsg_root set, go_draw_dlist not entered) — DONE.
+  display_list.c deletion prerequisite (rtwizard migration) — DONE.
+
+== Phase 6 — Reshape the surviving API toward OpenInventor / Obol ==
+
+Status: PLANNED
+
+Prerequisite: Phase 5 complete.
+
+Sub-items:
+  6-A: Field accessors and notification (SoField analogue)
+  6-B: Generalized sensor/engine pattern (FieldSensor, NodeSensor, TimerSensor)
+  6-C: Explicit node taxonomy (separate compilation units per BSG_NODE_* type)
+  6-D: Decouple vlist as one possible leaf-node payload (CSG, BRep, mesh,
+       overlay as first-class node types)
+
+Exit criteria: every libdm renderer goes through the typed scene-graph API;
+no caller outside libdm walks vlists by hand.
+
+== Phase 7 — Swap or graft Obol underneath libbsg ==
+
+Status: PLANNED (open-ended; strategy chosen when Phase 6 is complete)
+
+Two strategies:
+  Backend-style: libbsg keeps its public API; implementations delegate to Obol.
+    Prefer this when API stability is paramount (many out-of-tree consumers
+    depend on the libbsg surface) or when Obol's public API is not yet stable
+    enough to expose directly.
+  Adapter-style: Obol becomes the public scene API; libbsg shrinks to a shim.
+    Prefer this when Obol's API has stabilized, performance measurements show
+    the extra indirection through libbsg is material, and the remaining
+    out-of-tree consumers are few enough to migrate in one pass.
+
+Key decision factors when the time comes:
+  - Obol API stability: is the obol/ public surface frozen or still evolving?
+  - Callsite count: how many files outside of libbsg still call libbsg symbols?
+    (A large number favors the backend-style to avoid a flag-day migration.)
+  - Performance: does the backend-style double-dispatch introduce measurable
+    overhead on the draw-test benchmark set?
+  - Maintenance cost: adapter-style allows deleting libbsg entirely once
+    migration is complete, reducing long-term maintenance burden.
+
+== Cross-cutting concerns ==
+
+Tests
+  Template: qgedobol/doc/TODO.qged-stack.md §9 (test coverage summary).
+  Every phase adds tests BEFORE the refactor it enables.
+  Key suites to establish:
+    test_dbi_cpp.cpp   — DbiState / BViewState / DrawList / SelectionSet C++
+    test_dbi_c.c       — C surface (ged_dbi_* / ged_selection_*)
+    drawpipeline_test  — bbox + OBB + LoD drain counts (GenericTwin.g)
+    libbsg/tests/vlist — bsg_vlist_cmd_cnt
+    libbsg/tests/arb8  — bsg_vlist_arb8 generates 18 commands
+
+Performance
+  Any change touching the redraw path is benchmarked before/after on the
+  D_overlap regression set (sphflake, m35, havoc, GenericTwin, castle, bldg391,
+  ktank, crod, cube, moss).
+
+Deprecation policy
+  Every removed public symbol gets BV_DEPRECATED (or equivalent) for one
+  release cycle before deletion.
+
+== Change log ==
+
+  2026-04-23  Phase 0 started.
+              Cross-walk document written (this file).
+              dbi_state.cpp LMDB → bu_cache migration complete.
+
+  2026-04-23  Phase 1 complete.
+              GHash/InstHash/PathHash/DbiPath typed wrappers added to dbi.h.
+              IDbiObserver/ISceneObserver observer protocol added; fired from
+                DbiState::update().
+              GObj/CombInst object model added; gobjs map populated by update_dp().
+              DrawList class added; BViewState::draw_list() accessor exposed.
+              BSelectState renamed SelectionSet; new select/deselect/query API.
+              DbiState gains get_selection_set()/get_selection_sets()/
+                add_selection_set()/remove_selection_set().
+              test_dbi_cpp.cpp Test 8 covers all Phase 1 items (8/8 PASS).
+              qged Qt6 build fixed: Qt6::OpenGL + Qt6::OpenGLWidgets linked explicitly.
+
+  2026-04-23  Phase 2 complete.
+              2-A: BV_DEPRECATED comments in include/bv/defines.h for all nine
+                deprecated fields; write-site audit recorded above.
+              2-B: s_update_callback RETAINED for BV_MESH_LOD/BV_CSG_LOD for
+                backward-compat per-frame rendering; BViewState::redraw() adds
+                an explicit supplementary LoD update pass; csg_wireframe_update
+                made extern "C"; redraw_on_zoom=1 set when adaptive_plot enabled;
+                dead #if 0 in bv_update_selected() removed.
+              2-C: dm_dlist_sensor struct; dm_register_dlist_sensor/
+                dm_fire_dlist_sensors/dm_dlist_sensors_clear API in libdm;
+                dm_fire_dlist_sensors called after GL dlist regeneration;
+                dm_dlist_sensors = NULL added to all dm plugin struct literals.
+              2-D: bv_view_get/set_scale/size/perspective/aet/rotation/center_vec
+                added to include/bv/util.h and implemented in libbv/util.cpp;
+                migrated loadview.cpp, QgGL.cpp, QgSW.cpp, bindings.cpp.
+
+  2026-04-28  Phase 3.5 complete.
+              GeomLoader replaced by DrawPipeline (5-stage concurrentqueue
+                pipeline: attr/aabb/obb/lod/write workers).
+              DbiState::obbs map (8 corner pts, std::array<fastf_t,24>).
+              DBI_CACHE_FORMAT_VERSION=2.  Test 9 added (9/9 PASS).
+
+  2026-04-28  Phase 4 complete.
+              libbsg vendored (include/bsg/, src/libbsg/).
+              bsg_node=typedef bv_scene_obj.
+              bsg_view_traverse in libdm/view.c (DM_EXPORT).
+              bsg_root (void*) added to struct bview.
+              bsg_scene_root_create called in QgGL/QgSW/ged.cpp.
+              dm_draw_objs routes to BSG when bsg_root set.
+              BViewState::redraw() syncs roots.
+              7/7 libbsg unit tests PASS; BSG parity and quad-parity PASS.
+
+  2026-04-28  Phase 5 MGED+Archer migration complete.
+              struct bview gains gv_edit_mat for edit-mode matrix injection.
+              dm_draw_scene_obj exported DM_EXPORT; handles gv_edit_mat swap.
+              mged/setup.c: bsg_scene_root_create at startup.
+              mged/dozoom.c: rewritten — non-stereo via dm_draw_objs/BSG;
+                stereo retains legacy dm_draw_head_dl (TODO).
+              libtclcad/commands.c: bsg_scene_root_create for every Archer view.
+              libtclcad/view/draw.c: go_draw() uses BSG path when bsg_root set.
+              ged_test_mged_bsg: 5/5 tests PASS (wireframe, illumination,
+                edit matrix, faceplate, BSG-vs-legacy parity).
+              Xvfb visual verification: MGED wireframe, sed/oed illumination,
+                faceplate, and Archer window all verified correct.
+
+  2026-04-30  Phase 5 rtwizard migration complete.
+              rtwizard null-DM secondary view ("new_view v1 nu") already gets
+                bsg_scene_root_create via libtclcad/commands.c Phase 5 change.
+              go_draw() BSG branch fires for rtwizard views (bsg_root set);
+                go_draw_dlist dl_* walk is dead code for all rtwizard views.
+              _ged_rt_set_eye_model uses bv_view_objs() (new_cmd_forms=1);
+                legacy dl_bounding_sph() path is bypassed.
+              src/libged/tests/draw/rtwizard_bsg.cpp: 3/3 tests PASS
+                (null-DM view bsg_root, finite eye model, per-view independence).
+              Phase 5 fully complete; display_list.c deletion unblocked for Phase 6.

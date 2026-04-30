@@ -104,7 +104,8 @@ draw_free_data(struct bv_scene_obj *s)
 }
 
 
-static int
+/* Non-static: called directly by BViewState::redraw() for Phase 2-B */
+extern "C" int
 csg_wireframe_update(struct bv_scene_obj *vo, struct bview *v, int flag)
 {
     /* Validate */
@@ -362,7 +363,8 @@ bot_adaptive_plot(struct bv_scene_obj *s, struct bview *v)
 	bv_mesh_lod_detail_clear_clbk(lod, &bot_mesh_info_clear_clbk);
 	bv_mesh_lod_detail_free_clbk(lod, &bot_mesh_info_free_clbk);
 
-	// LoD will need to re-check its level settings whenever the view changes
+	// LoD will need to re-check its level settings whenever the view changes.
+	// Phase 2-B: BViewState::redraw() also drives LoD updates explicitly.
 	vo->s_update_callback = &bv_mesh_lod_view;
 	vo->s_free_callback = &bv_mesh_lod_free;
 
@@ -512,7 +514,8 @@ brep_adaptive_plot(struct bv_scene_obj *s, struct bview *v)
 	bv_mesh_lod_detail_clear_clbk(lod, &bot_mesh_info_clear_clbk);
 	bv_mesh_lod_detail_free_clbk(lod, &bot_mesh_info_free_clbk);
 
-	// LoD will need to re-check its level settings whenever the view changes
+	// LoD will need to re-check its level settings whenever the view changes.
+	// Phase 2-B: BViewState::redraw() also drives LoD updates explicitly.
 	vo->s_update_callback = &bv_mesh_lod_view;
 	vo->s_free_callback = &bv_mesh_lod_free;
 
@@ -571,7 +574,7 @@ wireframe_plot(struct bv_scene_obj *s, struct bview *v, struct rt_db_internal *i
 	    vo->s_i_data= (void *)ld;
 
 	    // We're adaptive - have to plot when the view changes.  Set the
-	    // callbacks
+	    // callbacks.  Phase 2-B: BViewState::redraw() also drives this.
 	    vo->s_update_callback = &csg_wireframe_update;
 	    vo->s_free_callback = &draw_free_data;
 

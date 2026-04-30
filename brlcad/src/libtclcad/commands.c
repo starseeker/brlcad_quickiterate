@@ -63,6 +63,7 @@
 #include "bv/defines.h"
 #include "dm.h"
 #include "bv/util.h"
+#include "bsg/util.h"
 #include "bg/lseg.h"
 
 #include "icv/io.h"
@@ -4521,6 +4522,9 @@ to_new_view(struct ged *gedp,
 
     bu_vls_sprintf(&new_gdvp->gv_name, "%s", argv[name_index]);
     bv_init(new_gdvp, &current_top->to_gedp->ged_views);
+    /* Phase 5: give every Archer/libtclcad view a BSG scene root so it
+     * renders through bsg_view_traverse() instead of the legacy dl_* walk. */
+    bsg_scene_root_create(new_gdvp);
     new_gdvp->callbacks = callbacks;
     bv_set_add_view(&current_top->to_gedp->ged_views, new_gdvp);
     if (new_gdvp != gedp->ged_gvp)
