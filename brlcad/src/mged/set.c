@@ -48,6 +48,20 @@ static void set_dlist(const struct bu_structparse *, const char *, void *, const
 static void set_rotate_about(const struct bu_structparse *, const char *, void *, const char *, void *);
 static void toggle_perspective(const struct bu_structparse *, const char *, void *, const char *, void *);
 
+struct set_free_dlists_ctx { struct mged_dm *dlp; };
+static int
+set_free_dlists_cb(struct bv_scene_obj *g, void *ud) {
+    struct set_free_dlists_ctx *ctx = (struct set_free_dlists_ctx *)ud;
+    if (bsg_view_obj_group_is_nonempty(g)) {
+        (void)dm_make_current(ctx->dlp->dm_dmp);
+        (void)dm_free_dlists(ctx->dlp->dm_dmp,
+            bsg_view_obj_group_first_solid(g)->s_dlist,
+            bsg_view_obj_group_last_solid(g)->s_dlist -
+            bsg_view_obj_group_first_solid(g)->s_dlist + 1);
+    }
+    return 1;
+}
+
 static char *read_var(ClientData clientData, Tcl_Interp *interp, const char *name1, const char *name2, int flags);
 static char *write_var(ClientData clientData, Tcl_Interp *interp, const char *name1, const char *name2, int flags);
 static char *unset_var(ClientData clientData, Tcl_Interp *interp, const char *name1, const char *name2, int flags);
@@ -445,23 +459,10 @@ set_dlist(const struct bu_structparse *UNUSED(sdp),
 
 		/* these display lists are not being used, so free them */
 		if (dlp2 == MGED_DM_NULL) {
-		    void *gdlp;
-		
+		    struct set_free_dlists_ctx sfd_ctx;
+		    sfd_ctx.dlp = dlp1;
 		    dlp1->dm_dlist_state->dl_active = 0;
-
-		    for (gdlp = bsg_view_obj_first_group(s->gedp); gdlp;
-
-
-		         gdlp = bsg_view_obj_next_group(s->gedp, gdlp)) {
-
-			if (bsg_view_obj_group_is_nonempty(gdlp)) {
-			    (void)dm_make_current(dlp1->dm_dmp);
-			    (void)dm_free_dlists(dlp1->dm_dmp,
-					  bsg_view_obj_group_first_solid(gdlp)->s_dlist,
-					  bsg_view_obj_group_last_solid(gdlp)->s_dlist -
-					  bsg_view_obj_group_first_solid(gdlp)->s_dlist + 1);
-			}
-		    }
+		    bsg_view_obj_foreach_group(s->gedp, set_free_dlists_cb, &sfd_ctx);
 		}
 	    }
 	}

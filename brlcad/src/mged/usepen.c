@@ -37,7 +37,7 @@
 #include "./menu.h"
 
 
-void *illum_gdlp = NULL;
+struct bv_scene_obj *illum_gdlp = NULL;
 struct bv_scene_obj *illump = NULL;	/* == 0 if none, else points to ill. solid */
 int ipathpos = 0;	/* path index of illuminated element */
 
