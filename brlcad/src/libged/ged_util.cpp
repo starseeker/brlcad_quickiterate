@@ -2584,12 +2584,12 @@ _ged_characterize_pathspec(struct bu_vls *normalized, struct ged *gedp, const ch
 
 #endif
 
-struct display_list *
+struct bu_list *
 ged_dl(struct ged *gedp)
 {
     if (!gedp || !gedp->i || !gedp->i->ged_gdp)
 	return NULL;
-    return (struct display_list *)gedp->i->ged_gdp->gd_headDisplay;
+    return gedp->i->ged_gdp->gd_headDisplay;
 }
 
 void

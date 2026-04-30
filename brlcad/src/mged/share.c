@@ -196,7 +196,7 @@ f_share(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *ar
 			    save_dlp = s->mged_curr_dm;
 
 			    set_curr_dm(s, dlp1);
-			    createDLists(s, (struct bu_list *)ged_dl(s->gedp));
+			    createDLists(s, ged_dl(s->gedp));
 
 			    /* restore */
 			    set_curr_dm(s, save_dlp);

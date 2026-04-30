@@ -1541,12 +1541,12 @@ int gl_genDLists(struct dm *dmp, size_t range)
     return glGenLists((GLsizei)range);
 }
 
-int gl_draw_display_list(struct dm *dmp, struct display_list *obj)
+int gl_draw_display_list(struct dm *dmp, struct bu_list *solids)
 {
     gl_debug_print(dmp, "gl_draw_obj", dmp->i->dm_debugLevel);
 
     struct bv_scene_obj *sp;
-    for (BU_LIST_FOR(sp, bv_scene_obj, &obj->dl_head_scene_obj)) {
+    for (BU_LIST_FOR(sp, bv_scene_obj, solids)) {
 	if (sp->s_dlist == 0)
 	    sp->s_dlist = gl_genDLists(dmp, 1);
 
