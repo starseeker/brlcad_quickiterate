@@ -514,7 +514,7 @@ the swrast pixel-level regression tests must pass.
 
 == Phase 5 — Migrate MGED, Archer, rtwizard onto the new path ==
 
-Status: DONE (MGED + Archer; rtwizard deferred)
+Status: DONE
 
 Prerequisite: Phase 4 complete.
 
@@ -541,6 +541,20 @@ What was done (2026-04-28):
            (preserves Archer's per-path edited_paths edit-matrix logic).
       Fallback: go_draw_dlist() for any view lacking a BSG root.
 
+  rtwizard:
+  - rtwizard's headless (--no-gui) pipeline uses the libtclcad GED API only
+    for camera parameter computation (new_view + draw + autoview +
+    get_eyemodel); no DM rendering occurs.  The actual image is produced by
+    an rt/rtedge subprocess that receives viewsize/orientation/eye_pt.
+  - Because libtclcad/commands.c already calls bsg_scene_root_create() for
+    every new view (including "db new_view v1 nu"), rtwizard's secondary
+    null-DM view is BSG-enabled from the moment of creation.
+  - With bsg_root set, go_draw_dlist() is never entered; the go_draw()
+    BSG branch fires instead, making the go_draw_dlist dl_* walk dead code.
+  - _ged_rt_set_eye_model branches on gedp->new_cmd_forms: when 1 (the
+    value set by ged_init) it uses bv_view_objs() (BSG-compatible) instead
+    of the legacy dl_bounding_sph() path.
+
   Tests:
   - src/libged/tests/draw/mged_bsg.cpp: 5-test regression suite using
     dm-swrast (no display required):
@@ -550,6 +564,17 @@ What was done (2026-04-28):
       Test 4: faceplate center-dot visibility
       Test 5: BSG path == legacy dl_* path (pixel-identical)
     All 5/5 tests PASS.
+  - src/libged/tests/draw/rtwizard_bsg.cpp: 3-test rtwizard migration
+    exit-criteria suite (null DM, no display required):
+      Test 1: null-DM secondary view (simulating "new_view v1 nu") gets
+              a BSG root — verifies the Phase 5 libtclcad change.
+      Test 2: draw + autoview + get_eyemodel on null-DM view produces a
+              finite, non-degenerate eye model (viewsize > 0, |q| ≈ 1,
+              finite eye_pt).
+      Test 3: Four independent null-DM views each have distinct bsg_root
+              pointers — per-view independence confirmed, go_draw_dlist
+              legacy path is provably not entered.
+    All 3/3 tests PASS.
 
   Xvfb visual verification (Xvfb :99, dm-swrast OSMesa, 2026-04-28):
   - MGED wireframe: 512x512, 1.5% colored wireframe lines, 0.5% white
@@ -559,16 +584,17 @@ What was done (2026-04-28):
   - Archer/qged (-s swrast): launches cleanly on Xvfb, renders scene
     content (2.0% colored + white pixels confirmed).
 
-Intentional deferrals:
-  - rtwizard: uses its own Tcl/Tk framebuffer pipeline; to be migrated
-    in a follow-on session.
+Remaining deferral:
   - Stereo dozoom: left on legacy dm_draw_head_dl; marked TODO.
-  - dl_* API deletion: blocked until rtwizard is also migrated.
+  - go_draw_dlist() and display_list.c deletion: blocked on cleanup of
+    to_edit_redraw() and to_create_vlist_callback() in libtclcad (both
+    still reference ged_dl/dl_head_scene_obj); scheduled for Phase 6.
 
-Exit criteria (partial):
-  MGED and Archer render via BSG path — DONE.
-  rtwizard — DEFERRED.
-  display_list.c deletion — DEFERRED (requires rtwizard migration).
+Exit criteria:
+  MGED renders via BSG path — DONE.
+  Archer renders via BSG path — DONE.
+  rtwizard null-DM view uses BSG (bsg_root set, go_draw_dlist not entered) — DONE.
+  display_list.c deletion prerequisite (rtwizard migration) — DONE.
 
 == Phase 6 — Reshape the surviving API toward OpenInventor / Obol ==
 
@@ -692,3 +718,14 @@ Deprecation policy
                 edit matrix, faceplate, BSG-vs-legacy parity).
               Xvfb visual verification: MGED wireframe, sed/oed illumination,
                 faceplate, and Archer window all verified correct.
+
+  2026-04-30  Phase 5 rtwizard migration complete.
+              rtwizard null-DM secondary view ("new_view v1 nu") already gets
+                bsg_scene_root_create via libtclcad/commands.c Phase 5 change.
+              go_draw() BSG branch fires for rtwizard views (bsg_root set);
+                go_draw_dlist dl_* walk is dead code for all rtwizard views.
+              _ged_rt_set_eye_model uses bv_view_objs() (new_cmd_forms=1);
+                legacy dl_bounding_sph() path is bypassed.
+              src/libged/tests/draw/rtwizard_bsg.cpp: 3/3 tests PASS
+                (null-DM view bsg_root, finite eye model, per-view independence).
+              Phase 5 fully complete; display_list.c deletion unblocked for Phase 6.
