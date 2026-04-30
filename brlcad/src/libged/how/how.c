@@ -31,57 +31,55 @@
 #include "bu/cmd.h"
 #include "bu/str.h"
 #include "dm.h"
+#include "ged/bsg_view_obj.h"
 #include "../ged_private.h"
 
+/* Callback data for how command */
+struct how_data {
+    struct bu_vls *vls;
+    struct directory **dpp;
+    int both;
+    int found;
+};
+
 static int
-dl_how(struct bu_list *hdlp, struct bu_vls *vls, struct directory **dpp, int both)
+how_solid_cb(struct bv_scene_obj *sp, void *userdata)
 {
+    struct how_data *data = (struct how_data *)userdata;
+    if (data->found)
+	return 0; /* stop - already found */
+
+    if (!sp->s_u_data)
+	return 1; /* continue */
+    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+
     size_t i;
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
-    struct bv_scene_obj *sp;
     struct directory **tmp_dpp;
-
-    gdlp = BU_LIST_NEXT(display_list, hdlp);
-    while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-	    if (!sp->s_u_data)
-		continue;
-	    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
-
-	    for (i = 0, tmp_dpp = dpp;
-		 i < bdata->s_fullpath.fp_len && *tmp_dpp != RT_DIR_NULL;
-		 ++i, ++tmp_dpp) {
-		if (bdata->s_fullpath.fp_names[i] != *tmp_dpp)
-		    break;
-	    }
-
-	    if (*tmp_dpp != RT_DIR_NULL)
-		continue;
-
-
-	    /* found a match */
-	    if (sp->s_os->s_dmode == 4) {
-		if (both)
-		    bu_vls_printf(vls, "%d 1", _GED_HIDDEN_LINE);
-		else
-		    bu_vls_printf(vls, "%d", _GED_HIDDEN_LINE);
-	    } else {
-		if (both)
-		    bu_vls_printf(vls, "%d %g", sp->s_os->s_dmode, sp->s_os->transparency);
-		else
-		    bu_vls_printf(vls, "%d", sp->s_os->s_dmode);
-	    }
-
-	    return 1;
-	}
-
-	gdlp = next_gdlp;
+    for (i = 0, tmp_dpp = data->dpp;
+	 i < bdata->s_fullpath.fp_len && *tmp_dpp != RT_DIR_NULL;
+	 ++i, ++tmp_dpp) {
+	if (bdata->s_fullpath.fp_names[i] != *tmp_dpp)
+	    break;
     }
 
-    return 0;
+    if (*tmp_dpp != RT_DIR_NULL)
+	return 1; /* continue */
+
+    /* found a match */
+    data->found = 1;
+    if (sp->s_os->s_dmode == 4) {
+	if (data->both)
+	    bu_vls_printf(data->vls, "%d 1", _GED_HIDDEN_LINE);
+	else
+	    bu_vls_printf(data->vls, "%d", _GED_HIDDEN_LINE);
+    } else {
+	if (data->both)
+	    bu_vls_printf(data->vls, "%d %g", sp->s_os->s_dmode, sp->s_os->transparency);
+	else
+	    bu_vls_printf(data->vls, "%d", sp->s_os->s_dmode);
+    }
+
+    return 0; /* stop iteration */
 }
 
 
@@ -95,7 +93,6 @@ dl_how(struct bu_list *hdlp, struct bu_vls *vls, struct directory **dpp, int bot
 int
 ged_how_core(struct ged *gedp, int argc, const char *argv[])
 {
-    int good;
     struct directory **dpp;
     int both = 0;
     static const char *usage = "[-b] object";
@@ -130,10 +127,15 @@ ged_how_core(struct ged *gedp, int argc, const char *argv[])
 	    goto good_label;
     }
 
-    good = dl_how(gedp->i->ged_gdp->gd_headDisplay, gedp->ged_result_str, dpp, both);
+    struct how_data data;
+    data.vls = gedp->ged_result_str;
+    data.dpp = dpp;
+    data.both = both;
+    data.found = 0;
+    bsg_view_obj_foreach_solid(gedp, how_solid_cb, &data);
 
     /* match NOT found */
-    if (!good) bu_vls_printf(gedp->ged_result_str, "-1");
+    if (!data.found) bu_vls_printf(gedp->ged_result_str, "-1");
 
 good_label:
     if (dpp != (struct directory **)NULL)

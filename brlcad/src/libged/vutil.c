@@ -29,6 +29,7 @@
 
 #include "./ged_private.h"
 #include "ged/view.h"
+#include "ged/bsg_view_obj.h"
 
 int
 _ged_do_rot(struct ged *gedp,
@@ -152,6 +153,10 @@ ged_dl_hash(struct display_list *dl)
     if (!state)
 	return 0;
 
+    /* Note: ged_dl_hash is a legacy API taking display_list pointer.
+     * Since we don't have direct access to the ged struct, we still
+     * iterate using the display_list structure directly. This function
+     * will be replaced by bsg_view_obj_name_hash() in the future. */
     struct display_list *gdlp;
     struct display_list *next_gdlp;
     struct bv_scene_obj *sp;
@@ -167,9 +172,9 @@ ged_dl_hash(struct display_list *dl)
 	    bu_data_hash_update(state, &bdata->s_fullpath.fp_len, sizeof(size_t));
 	    bu_data_hash_update(state, &bdata->s_fullpath.fp_maxlen, sizeof(size_t));
 	    for (size_t i = 0; i < DB_FULL_PATH_LEN(&bdata->s_fullpath); i++) {
-		// In principle we should check all of struct directory
-		// contents, but names are unique in the database and should
-		// suffice for this purpose - we care if the path has changed.
+		/* In principle we should check all of struct directory
+		 * contents, but names are unique in the database and should
+		 * suffice for this purpose - we care if the path has changed. */
 		struct directory *dp = DB_FULL_PATH_GET(&bdata->s_fullpath, i);
 		bu_data_hash_update(state, &dp->d_namep, strlen(dp->d_namep));
 	    }

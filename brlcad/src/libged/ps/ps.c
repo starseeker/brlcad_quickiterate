@@ -35,6 +35,7 @@
 #include "bn.h"
 #include "bg/clip.h"
 
+#include "ged/bsg_view_obj.h"
 #include "../ged_private.h"
 
 static void
@@ -218,16 +219,28 @@ ps_draw_solid(fastf_t perspective, FILE *fp, struct bv_scene_obj *sp, matp_t psm
     }
 }
 
+/* Callback data for ps_draw_body */
+struct ps_draw_data {
+    FILE *fp;
+    matp_t mat;
+    fastf_t perspective;
+};
+
+static int
+ps_draw_body_cb(struct bv_scene_obj *sp, void *userdata)
+{
+    struct ps_draw_data *pd = (struct ps_draw_data *)userdata;
+    ps_draw_solid(pd->perspective, pd->fp, sp, pd->mat);
+    return 1; /* continue */
+}
 
 static void
-ps_draw_body(struct bu_list *hdlp, FILE *fp, mat_t model2view, fastf_t perspective, vect_t eye_pos)
+ps_draw_body(struct ged *gedp, FILE *fp, mat_t model2view, fastf_t perspective, vect_t eye_pos)
 {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
     mat_t newmat;
     matp_t mat;
     mat_t perspective_mat;
-    struct bv_scene_obj *sp;
+    struct ps_draw_data pd;
 
     mat = model2view;
 
@@ -252,16 +265,10 @@ ps_draw_body(struct bu_list *hdlp, FILE *fp, mat_t model2view, fastf_t perspecti
         mat = newmat;
     }
 
-    gdlp = BU_LIST_NEXT(display_list, hdlp);
-    while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
-        next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-        for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-            ps_draw_solid(perspective, fp, sp, mat);
-        }
-
-        gdlp = next_gdlp;
-    }
+    pd.fp = fp;
+    pd.mat = mat;
+    pd.perspective = perspective;
+    bsg_view_obj_foreach_solid(gedp, ps_draw_body_cb, &pd);
 }
 
 
@@ -285,12 +292,12 @@ ps_draw_footer(FILE *fp)
 
 
 static void
-dl_ps(struct bu_list *hdlp, FILE *fp, int border, char *font, char *title, char *creator, int linewidth, fastf_t scale, int xoffset, int yoffset, mat_t model2view, fastf_t perspective, vect_t eye_pos, float red, float green, float blue)
+dl_ps(struct ged *gedp, FILE *fp, int border, char *font, char *title, char *creator, int linewidth, fastf_t scale, int xoffset, int yoffset, mat_t model2view, fastf_t perspective, vect_t eye_pos, float red, float green, float blue)
 {
     ps_draw_header(fp, font, title, creator, linewidth, scale, xoffset, yoffset);
     if (border)
 	ps_draw_border(fp, red, green, blue);
-    ps_draw_body(hdlp, fp, model2view, perspective, eye_pos);
+    ps_draw_body(gedp, fp, model2view, perspective, eye_pos);
     ps_draw_footer(fp);
 
 }
@@ -436,7 +443,7 @@ ged_ps_core(struct ged *gedp, int argc, const char *argv[])
 	goto bad;
     }
 
-    dl_ps(gedp->i->ged_gdp->gd_headDisplay, fp, border, bu_vls_addr(&font), bu_vls_addr(&title), bu_vls_addr(&creator), linewidth, scale, xoffset, yoffset, gedp->ged_gvp->gv_model2view, gedp->ged_gvp->gv_perspective, gedp->ged_gvp->gv_eye_pos, border_red, border_green, border_blue);
+    dl_ps(gedp, fp, border, bu_vls_addr(&font), bu_vls_addr(&title), bu_vls_addr(&creator), linewidth, scale, xoffset, yoffset, gedp->ged_gvp->gv_model2view, gedp->ged_gvp->gv_perspective, gedp->ged_gvp->gv_eye_pos, border_red, border_green, border_blue);
 
     fclose(fp);
 

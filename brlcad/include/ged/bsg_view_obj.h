@@ -302,6 +302,34 @@ bsg_view_obj_group_path(void *group_handle);
 GED_EXPORT extern void
 bsg_view_obj_append_to_last_group(struct ged *gedp, struct bv_scene_obj *sp);
 
+/**
+ * Set or update the path string associated with a group returned by
+ * bsg_view_obj_foreach_group().  @p group_handle must be a valid group
+ * and @p new_path must be non-NULL.
+ *
+ * Replaces direct writes to gdlp->dl_path via bu_vls_free/bu_vls_printf.
+ */
+GED_EXPORT extern void
+bsg_view_obj_group_set_path(void *group_handle, const char *new_path);
+
+/**
+ * Returns 1 if the group is a pseudo-solid (phony), 0 otherwise.
+ * A phony group has d_addr == RT_DIR_PHONY_ADDR for its directory entry.
+ *
+ * Replaces direct checks of ((struct directory *)gdlp->dl_dp)->d_addr ==
+ * RT_DIR_PHONY_ADDR.
+ */
+GED_EXPORT extern int
+bsg_view_obj_group_is_phony(void *group_handle);
+
+/**
+ * Erase all display-list groups from @p gedp's drawn-object set,
+ * destroying vlists and freeing all associated scene objects.
+ * This is the "zap" operation.
+ */
+GED_EXPORT extern void
+bsg_view_obj_zap(struct ged *gedp);
+
 __END_DECLS
 
 #endif /* GED_BSG_VIEW_OBJ_H */

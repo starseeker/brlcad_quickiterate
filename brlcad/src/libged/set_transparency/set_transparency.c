@@ -25,52 +25,55 @@
 
 #include "common.h"
 
-
+#include "ged/bsg_view_obj.h"
 #include "../ged_private.h"
+
+/* Callback data for set_transparency */
+struct set_transparency_data {
+    struct ged *gedp;
+    struct directory **dpp;
+    double transparency;
+};
+
+static int
+set_transparency_cb(struct bv_scene_obj *sp, void *userdata)
+{
+    struct set_transparency_data *data = (struct set_transparency_data *)userdata;
+    size_t i;
+    struct directory **tmp_dpp;
+
+    if (!sp->s_u_data)
+	return 1; /* continue */
+
+    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+
+    for (i = 0, tmp_dpp = data->dpp;
+	 i < bdata->s_fullpath.fp_len && *tmp_dpp != RT_DIR_NULL;
+	 ++i, ++tmp_dpp) {
+	if (bdata->s_fullpath.fp_names[i] != *tmp_dpp)
+	    break;
+    }
+
+    if (*tmp_dpp != RT_DIR_NULL)
+	return 1; /* continue */
+
+    /* found a match */
+    sp->s_os->transparency = data->transparency;
+
+    /* Phase 6.5 Step 3: fire per-solid vlist callback */
+    ged_create_vlist_solid_cb(data->gedp, sp);
+
+    return 1; /* continue */
+}
 
 void
 dl_set_transparency(struct ged *gedp, struct directory **dpp, double transparency)
 {
-    struct bu_list *hdlp = gedp->i->ged_gdp->gd_headDisplay;
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
-    struct bv_scene_obj *sp;
-    size_t i;
-    struct directory **tmp_dpp;
-
-    gdlp = BU_LIST_NEXT(display_list, hdlp);
-    while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
-        next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-	    if (!sp->s_u_data)
-		continue;
-	    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
-
-	    for (i = 0, tmp_dpp = dpp;
-		 i < bdata->s_fullpath.fp_len && *tmp_dpp != RT_DIR_NULL;
-		 ++i, ++tmp_dpp) {
-		if (bdata->s_fullpath.fp_names[i] != *tmp_dpp)
-		    break;
-	    }
-
-	    if (*tmp_dpp != RT_DIR_NULL)
-		continue;
-
-	    /* found a match */
-	    sp->s_os->transparency = transparency;
-
-	}
-
-	/* Phase 6.5 Step 3: fire per-solid vlist callbacks instead of the
-	 * display-list-level callback (same solids, no dl_head_scene_obj
-	 * dependency needed after this point). */
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj))
-	    ged_create_vlist_solid_cb(gedp, sp);
-
-        gdlp = next_gdlp;
-    }
-
+    struct set_transparency_data data;
+    data.gedp = gedp;
+    data.dpp = dpp;
+    data.transparency = transparency;
+    bsg_view_obj_foreach_solid(gedp, set_transparency_cb, &data);
 }
 
 

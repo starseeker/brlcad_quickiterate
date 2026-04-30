@@ -36,7 +36,7 @@
 #include "bn.h"
 #include "bg/clip.h"
 
-
+#include "ged/bsg_view_obj.h"
 #include "../ged_private.h"
 
 
@@ -268,16 +268,30 @@ draw_png_solid(fastf_t perspective, unsigned char **image, struct bv_scene_obj *
     }
 }
 
+/* Callback data for dl_png */
+struct png_draw_data {
+    unsigned char **image;
+    matp_t mat;
+    fastf_t perspective;
+    size_t size;
+    size_t half_size;
+};
+
+static int
+dl_png_cb(struct bv_scene_obj *sp, void *userdata)
+{
+    struct png_draw_data *pd = (struct png_draw_data *)userdata;
+    draw_png_solid(pd->perspective, pd->image, sp, pd->mat, pd->size, pd->half_size);
+    return 1; /* continue */
+}
 
 static void
-dl_png(struct bu_list *hdlp, mat_t model2view, fastf_t perspective, vect_t eye_pos, size_t size, size_t half_size, unsigned char **image)
+dl_png(struct ged *gedp, mat_t model2view, fastf_t perspective, vect_t eye_pos, size_t size, size_t half_size, unsigned char **image)
 {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
     mat_t newmat;
     matp_t mat;
     mat_t perspective_mat;
-    struct bv_scene_obj *sp;
+    struct png_draw_data pd;
 
     mat = model2view;
 
@@ -302,16 +316,12 @@ dl_png(struct bu_list *hdlp, mat_t model2view, fastf_t perspective, vect_t eye_p
         mat = newmat;
     }
 
-    gdlp = BU_LIST_NEXT(display_list, hdlp);
-    while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
-        next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-        for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-            draw_png_solid(perspective, image, sp, mat, size, half_size);
-        }
-
-        gdlp = next_gdlp;
-    }
+    pd.image = image;
+    pd.mat = mat;
+    pd.perspective = perspective;
+    pd.size = size;
+    pd.half_size = half_size;
+    bsg_view_obj_foreach_solid(gedp, dl_png_cb, &pd);
 }
 
 
@@ -372,7 +382,7 @@ draw_png(struct ged *gedp, FILE *fp)
 	image[i] = (unsigned char *)(bytes + ((img_size-i) * num_bytes_per_row));
     }
 
-    dl_png(gedp->i->ged_gdp->gd_headDisplay, gedp->ged_gvp->gv_model2view, gedp->ged_gvp->gv_perspective, gedp->ged_gvp->gv_eye_pos, (size_t)img_size, (size_t)img_half_size, image);
+    dl_png(gedp, gedp->ged_gvp->gv_model2view, gedp->ged_gvp->gv_perspective, gedp->ged_gvp->gv_eye_pos, (size_t)img_size, (size_t)img_half_size, image);
 
     /* Write out pixels */
     png_write_image(png_p, image);
