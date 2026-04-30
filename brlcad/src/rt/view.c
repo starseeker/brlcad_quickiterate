@@ -1401,6 +1401,7 @@ reproject_splat(int ix, int iy, struct floatpixel *ip, const fastf_t *new_view_p
 extern int per_processor_chunk;	/* how many pixels to do at once */
 extern int cur_pixel;		/* current pixel number, 0..last_pixel */
 extern int last_pixel;		/* last pixel number */
+extern int pix_start;		/* starting pixel of frame, from do.c */
 
 void
 reproject_worker(int UNUSED(cpu), void *UNUSED(arg))
@@ -1567,14 +1568,13 @@ view_2init(struct application *ap, char *UNUSED(framename))
 	 * pixel, fall back to BUFMODE_DYNAMIC which uses RT_SEM_RESULTS
 	 * to serialize concurrent updates to the same scanline.
 	 */
+	if (width > 0 && pix_start >= 0
+	    && ((size_t)pix_start % width) != 0)
 	{
-	    extern int pix_start;
-	    if (width > 0 && (pix_start % (int)width) != 0) {
-		buf_mode = BUFMODE_DYNAMIC;
-	    } else {
-		per_processor_chunk = width;
-		buf_mode = BUFMODE_SCANLINE;
-	    }
+	    buf_mode = BUFMODE_DYNAMIC;
+	} else {
+	    per_processor_chunk = width;
+	    buf_mode = BUFMODE_SCANLINE;
 	}
     }
     else {
