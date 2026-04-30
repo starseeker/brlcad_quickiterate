@@ -918,3 +918,41 @@ Deprecation policy
                 Zero remaining direct dl_head_scene_obj accesses in src/mged/.
 
               Build clean: libged, mged — zero errors, zero warnings.
+
+  2026-05-01  Phase 6.5 Step 5 complete — stereo dozoom migrated to BSG.
+
+              src/mged/dozoom.c: the stereo path (which_eye == 1 or 2) no
+                longer uses dm_draw_head_dl().  Both eyes now render through
+                dm_draw_objs() / bsg_view_traverse() exactly like the
+                non-stereo path.  Mechanism:
+                  - The Deering eye-offset perspective matrix is built into
+                    v->gv_pmat instead of being pre-multiplied into
+                    model2view, so dm_loadpmatrix(gv_pmat) and
+                    dm_loadmatrix(gv_model2view) compose to the same
+                    perspective × eye-offset × model2view product the
+                    legacy code uploaded as a single matrix.
+                  - v->gv_pmat is saved before and restored after the
+                    stereo render so the non-stereo state is unaffected.
+                  - Stereo viewport / scissor selection is performed by an
+                    explicit dm_loadmatrix(DMP, gv_model2view, which_eye)
+                    call before dm_draw_objs() runs; gl_loadMatrix() uses
+                    which_eye purely to set glViewport/glScissor for the
+                    left/right split-screen stereo region, and the
+                    subsequent matrix upload inside dm_draw_objs() (with
+                    which_eye=0) does not touch the viewport.
+                  - perspective_mat (file-scope, read by titles.c) is
+                    kept in sync with v->gv_pmat in both paths.
+                  - Edit-mode highlighting uses the same gv_edit_mat hook
+                    as the non-stereo path; the legacy second-pass with
+                    cs_geo_hl color is not reproduced (matches the existing
+                    non-stereo BSG behaviour).
+                  - Predictor draw and dm_ndrawn count are now in a single
+                    block at the bottom of dozoom() shared by both paths.
+
+              dm_draw_head_dl() is no longer referenced anywhere in
+                src/mged.  The remaining references in
+                src/gtools/gsh/gsh.cpp:597 (the !new_cmd_forms legacy
+                fallback) and the libdm definition itself are left for
+                Step 6 / Step 7.
+
+              Build clean: mged — zero errors, zero warnings.
