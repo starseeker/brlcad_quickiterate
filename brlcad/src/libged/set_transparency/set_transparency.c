@@ -62,7 +62,11 @@ dl_set_transparency(struct ged *gedp, struct directory **dpp, double transparenc
 
 	}
 
-	ged_create_vlist_display_list_cb(gedp, gdlp);
+	/* Phase 6.5 Step 3: fire per-solid vlist callbacks instead of the
+	 * display-list-level callback (same solids, no dl_head_scene_obj
+	 * dependency needed after this point). */
+	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj))
+	    ged_create_vlist_solid_cb(gedp, sp);
 
         gdlp = next_gdlp;
     }
