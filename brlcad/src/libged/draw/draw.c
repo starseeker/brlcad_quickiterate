@@ -227,15 +227,18 @@ dl_redraw(void *gdlp, struct ged *gedp, int skip_subtractions)
     int ret = 0;
     struct bv_scene_obj *sp;
     struct bu_list *vlfree = &rt_vlfree;
-    struct bu_list *solids = bsg_view_obj_group_solid_list(gdlp);
-    for (BU_LIST_FOR(sp, bv_scene_obj, solids)) {
+    struct bu_ptbl *solids = bsg_view_obj_group_solid_list(gdlp);
+    for (size_t _i = 0; _i < BU_PTBL_LEN(solids); _i++) {
+	sp = (struct bv_scene_obj *)BU_PTBL_GET(solids, _i);
 	if (!skip_subtractions || (skip_subtractions && !sp->s_soldash)) {
 	    ret += redraw_solid(sp, dbip, tsp, gvp, vlfree);
 	}
     }
     /* Phase 6.5 Step 3: fire the per-solid vlist callback for each solid. */
-    for (BU_LIST_FOR(sp, bv_scene_obj, solids))
+    for (size_t _i = 0; _i < BU_PTBL_LEN(solids); _i++) {
+	sp = (struct bv_scene_obj *)BU_PTBL_GET(solids, _i);
 	ged_create_vlist_solid_cb(gedp, sp);
+    }
     return ret;
 }
 

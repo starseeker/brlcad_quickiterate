@@ -20,34 +20,14 @@
 /** @addtogroup ged_view
  *
  * @brief
- * BSG view-object query API.
+ * BSG view-object query API — BSG_NODE_GROUP tree backed.
  *
- * These helpers are the migration target for the legacy
- * src/libged/display_list.c routines that walk the
- * gedp->i->ged_gdp->gd_headDisplay chain.  The drawing-stack
- * modernization plan (Phase 6.5) calls for a phased excision of
- * display_list.c; new and migrated callers should use this API instead
- * of the dl_* / _dl_* / invent_solid functions.
+ * The drawn set is a BSG_NODE_GROUP tree rooted at gd_draw_root:
+ *   - one subgroup per drawn path (BSG_NODE_GROUP)
+ *   - each subgroup holds BSG_NODE_SHAPE leaves in a bu_ptbl children list
  *
- * The current implementation is a thin wrapper around the legacy
- * dl_* functions.  This is deliberate: it lets caller migration (Step 2
- * of the plan) proceed against a stable API surface while the
- * implementation is still backed by the well-tested legacy code.  Once
- * every caller has migrated, the implementation will be replaced with a
- * pure BSG view-tree walk and display_list.c will be deleted (Step 7).
- *
- * Migration map (see doc/notes/drawing_stack_modernization.txt
- * Phase 6.5):
- *
- *   dl_addToDisplay              -> bsg_view_obj_lookup_or_add_path
- *   dl_erasePathFromDisplay      -> bsg_view_obj_erase_by_path
- *   _dl_eraseAllNamesFromDisplay -> bsg_view_obj_erase_by_name
- *   _dl_eraseAllPathsFromDisplay -> bsg_view_obj_erase_all_paths
- *   dl_bounding_sph              -> bsg_view_obj_bounds
- *   dl_color_soltab              -> bsg_view_obj_color_from_soltab
- *   invent_solid                 -> bsg_view_obj_invent
- *   dl_set_iflag                 -> bsg_view_obj_set_iflag
- *   dl_name_hash                 -> bsg_view_obj_name_hash
+ * Group iteration: bsg_view_obj_first_group / bsg_view_obj_next_group
+ * Shape iteration per group: BU_PTBL_LEN / BU_PTBL_GET on bsg_view_obj_group_solid_list()
  */
 /** @{ */
 /* @file ged/bsg_view_obj.h */
@@ -59,6 +39,7 @@
 
 #include "vmath.h"
 #include "bu/list.h"
+#include "bu/ptbl.h"
 #include "ged/defines.h"
 
 __BEGIN_DECLS
@@ -271,12 +252,12 @@ GED_EXPORT extern int
 bsg_view_obj_group_is_nonempty(void *group_handle);
 
 /**
- * Returns a pointer to the bu_list head of the solid list for a group
- * returned by bsg_view_obj_foreach_group().  Suitable for use as the
- * third argument to BU_LIST_FOR, replacing &gdlp->dl_head_scene_obj.
+ * Returns a pointer to the bu_ptbl children list for a group returned
+ * by bsg_view_obj_foreach_group().  Items are accessed via
+ * BU_PTBL_LEN() / BU_PTBL_GET(), replacing BU_LIST_FOR loops.
  * Returns NULL if @p group_handle is NULL.
  */
-GED_EXPORT extern struct bu_list *
+GED_EXPORT extern struct bu_ptbl *
 bsg_view_obj_group_solid_list(void *group_handle);
 
 /**
