@@ -674,6 +674,21 @@ struct bview {
     struct bu_ptbl *callbacks;
     void           *dmp;             /* Display manager pointer, if one is associated with this view */
     void           *u_data;          /* Caller data associated with this view */
+
+    /* Phase 4 (drawing_stack_modernization): BSG scene-graph root for this
+     * view.  Stored as void * to avoid a circular include dependency between
+     * bv/defines.h and bsg/defines.h.  Cast to struct bv_scene_obj * (which
+     * is typedef'd as bsg_node) before use.  NULL until bsg_scene_root_create
+     * is called for this view. */
+    void           *bsg_root;
+
+    /* Phase 5 (drawing_stack_modernization): per-frame edit-mode matrix
+     * override.  When non-NULL, draw_scene_obj() renders objects whose
+     * s_iflag == UP with this matrix instead of gv_model2view.  MGED sets
+     * this to view_state->vs_model2objview while the frame is being painted
+     * and clears it to NULL immediately afterward.  Never heap-allocated;
+     * always points into caller-owned storage. */
+    matp_t          gv_edit_mat;
 };
 
 // Because bview instances frequently share objects in applications, they are

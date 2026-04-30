@@ -1,0 +1,320 @@
+if(BRLCAD_ENABLE_QT)
+  find_package_qt(REQUIRED)
+endif(BRLCAD_ENABLE_QT)
+
+# Find Obol from the bext dependency tree.
+# Obol_DIR tells CMake where to look for obol-config.cmake; the
+# brlcad_find_package macro sets the search root to CMAKE_BINARY_DIR
+# which is populated from BRLCAD_EXT_DIR/install by brlcad_bext_process().
+if(BRLCAD_ENABLE_QT)
+  brlcad_find_package(Obol)
+  if(TARGET Obol::Obol)
+    set(BRLCAD_ENABLE_OBOL ON CACHE BOOL "Obol scene-graph library available" FORCE)
+    message(STATUS "Obol found — Obol-based rendering enabled in qged")
+    # Propagate dual-GL flag from obol-config.cmake (set by Obol_BUILD_DUAL_GL).
+    # When building obol from source (not bext_output) the variable is set by
+    # obol-config.cmake.in; for older pre-built packages it may be absent.
+    #
+    # Fall back: probe for libosmesa.so next to libObol.so.  Pre-built Obol
+    # packages that include OSMesa are shipped with libosmesa.so in the same
+    # lib directory; its presence is a reliable indicator of dual-GL support.
+    if(NOT Obol_BUILD_DUAL_GL)
+      get_target_property(_obol_lib Obol::Obol IMPORTED_LOCATION_RELEASE)
+      if(NOT _obol_lib)
+        get_target_property(_obol_lib Obol::Obol IMPORTED_LOCATION)
+      endif()
+      if(_obol_lib)
+        get_filename_component(_obol_libdir "${_obol_lib}" DIRECTORY)
+        if(EXISTS "${_obol_libdir}/libosmesa.so" OR
+           EXISTS "${_obol_libdir}/libosmesa.so.0" OR
+           EXISTS "${_obol_libdir}/libosmesa.dll")
+          set(Obol_BUILD_DUAL_GL ON)
+        endif()
+      endif()
+    endif()
+    if(Obol_BUILD_DUAL_GL)
+      set(BRLCAD_OBOL_DUAL_GL ON CACHE BOOL "Obol built with dual-GL (OSMesa) support" FORCE)
+      message(STATUS "Obol dual-GL (OSMesa swrast) support: ON")
+      # Find libosmesa alongside libObol so qged/qged_test can link it.
+      # libObol.so has undefined references to OSMesa symbols that must be
+      # resolved at link time by the application (runtime-loader also accepts
+      # LD_PRELOAD or RPATH that includes libosmesa, but explicit link is safer).
+      if(NOT _obol_libdir)
+        get_target_property(_obol_lib_for_osmesa Obol::Obol IMPORTED_LOCATION_RELEASE)
+        if(NOT _obol_lib_for_osmesa)
+          get_target_property(_obol_lib_for_osmesa Obol::Obol IMPORTED_LOCATION)
+        endif()
+        if(_obol_lib_for_osmesa)
+          get_filename_component(_obol_libdir "${_obol_lib_for_osmesa}" DIRECTORY)
+        endif()
+      endif()
+      # Always use the bundled bext libosmesa so that OSMesaGetCurrentContext()
+      # and OSMesaGetProcAddress() used by Obol's osmesa_SoGLContext_* dispatch
+      # resolve through the same library instance as our context creation calls.
+      # Mixing system and bundled OSMesa causes Coin3D to see NULL for the
+      # current GL context (the two libraries maintain independent state).
+      # The bundled Mesa 6.5 provides GL 2.0; the GL2 compat flag in
+      # obol_cad_assembly routes shapes to the per-shape SoSeparator fallback.
+      #
+      # Use a private (non-cached, leading-underscore) variable so the global
+      # OSMESA_LIBRARY (set by FindOSMESA.cmake for libdm/swrast) is not
+      # overridden.
+      find_library(_qged_osmesa_lib
+        NAMES osmesa OSMesa
+        HINTS "${_obol_libdir}"
+        NO_DEFAULT_PATH)
+      if(NOT _qged_osmesa_lib)
+        find_library(_qged_osmesa_lib NAMES osmesa OSMesa)
+      endif()
+      if(_qged_osmesa_lib)
+        message(STATUS "qged OSMesa library (bundled for Obol dispatch): ${_qged_osmesa_lib}")
+      else()
+        message(WARNING "qged OSMesa library not found — swrast link may fail")
+      endif()
+    else()
+      set(BRLCAD_OBOL_DUAL_GL OFF CACHE BOOL "Obol built with dual-GL (OSMesa) support" FORCE)
+      message(STATUS "Obol dual-GL (OSMesa swrast) support: OFF (pre-built without dual-GL)")
+    endif()
+  else()
+    set(BRLCAD_ENABLE_OBOL OFF CACHE BOOL "Obol scene-graph library available" FORCE)
+    set(BRLCAD_OBOL_DUAL_GL OFF CACHE BOOL "Obol built with dual-GL (OSMesa) support" FORCE)
+    message(STATUS "Obol NOT found — qged will use libdm rendering")
+  endif()
+endif(BRLCAD_ENABLE_QT)
+
+# TODO - need this now for code in lower level directories,
+# need to do some cleanup.
+include_directories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
+
+# NOTE: We can't use the CMake global values for automoc et. al.
+# because most of BRL-CAD's targets are not Qt targets.  We don't
+# want to run the automatic moc logic for all of them.
+
+set(
+  qged_srcs
+  QgEdMainWindow.cpp
+  QgEdApp.cpp
+  QgEdFilter.cpp
+  fbserv.cpp
+  QgEdPalette.cpp
+)
+
+set(
+  qth_names
+  QgEdApp
+  QgEdFilter
+  fbserv
+  QgEdMainWindow
+  QgEdPalette
+)
+foreach(qh ${qth_names})
+  set(moc_headers ${moc_headers} ${qh}.h)
+endforeach(qh ${qth_names})
+
+if(BRLCAD_ENABLE_QT)
+  # Let the plugin lookup know what the platform's extension is so it knows
+  # what plugin filenames to look for
+  set_property(
+    SOURCE QgEdPalette.cpp
+    APPEND
+    PROPERTY COMPILE_DEFINITIONS "QGED_PLUGIN_SUFFIX=\"${CMAKE_SHARED_LIBRARY_SUFFIX}\""
+  )
+
+  if(Qt6Widgets_FOUND)
+    qt6_wrap_cpp(moc_srcs ${moc_headers})
+  else()
+    qt5_wrap_cpp(moc_srcs ${moc_headers})
+  endif(Qt6Widgets_FOUND)
+
+  # When Obol is available, also MOC-process the QgObolView header so that
+  # its Q_OBJECT signals and slots are wired up.
+  if(BRLCAD_ENABLE_OBOL AND TARGET Obol::Obol)
+    set(_obol_moc_defs -DBRLCAD_ENABLE_OBOL)
+    if(BRLCAD_OBOL_DUAL_GL)
+      list(APPEND _obol_moc_defs -DOBOL_BUILD_DUAL_GL)
+    endif()
+    if(Qt6Widgets_FOUND)
+      qt6_wrap_cpp(obol_moc_srcs QgObolView.h OPTIONS --no-notes ${_obol_moc_defs})
+    else()
+      qt5_wrap_cpp(obol_moc_srcs QgObolView.h OPTIONS --no-notes ${_obol_moc_defs})
+    endif()
+    list(APPEND moc_srcs ${obol_moc_srcs})
+  endif()
+
+  # https://github.com/Alexhuszagh/BreezeStyleSheets
+  if(Qt6Widgets_FOUND)
+    qt6_add_resources(theme_qrc theme/breeze.qrc)
+  else()
+    qt5_add_resources(theme_qrc theme/breeze.qrc)
+  endif(Qt6Widgets_FOUND)
+
+  add_executable(qged WIN32 main.cpp ${qged_srcs} ${moc_srcs} ${theme_qrc})
+  # Note - Network is needed for async embedded raytracing display
+  if(Qt6Widgets_FOUND)
+    target_link_libraries(
+      qged
+      libqtcad
+      libged
+      librt
+      libbu
+      Qt6::Widgets
+      Qt6::Network
+    )
+  else()
+    target_link_libraries(
+      qged
+      libqtcad
+      libged
+      librt
+      libbu
+      Qt5::Widgets
+      Qt5::Network
+    )
+  endif(Qt6Widgets_FOUND)
+  if(BRLCAD_ENABLE_OBOL AND TARGET Obol::Obol)
+    target_link_libraries(qged Obol::Obol)
+    if(BRLCAD_OBOL_DUAL_GL AND _qged_osmesa_lib)
+      target_link_libraries(qged "${_qged_osmesa_lib}")
+    endif()
+    # Stage 20: QgObolView no longer calls fb_readrect/fb_getwidth/fb_getheight.
+    # The Obol-native fbserv packet handlers write directly into fbs_pixbuf, so
+    # qged no longer needs an explicit libdm link in Obol builds.
+    # QgObolView.h uses QOpenGLWidget from Qt6::OpenGLWidgets
+    if(Qt6Widgets_FOUND)
+      find_package(Qt6 COMPONENTS OpenGLWidgets QUIET)
+      if(TARGET Qt6::OpenGLWidgets)
+	target_link_libraries(qged Qt6::OpenGLWidgets)
+      endif()
+    endif()
+    target_include_directories(qged PRIVATE
+      ${Obol_INCLUDE_DIR}
+      # obol_scene.h lives in src/libged — needed by QgObolView.h
+      ${CMAKE_SOURCE_DIR}/src/libged
+      # System osmesa.h (GL/osmesa.h) for OSMesaCreateContextAttribs
+      $<$<BOOL:${OSMESA_INCLUDE_DIR}>:${OSMESA_INCLUDE_DIR}>)
+    target_compile_definitions(qged PRIVATE BRLCAD_ENABLE_OBOL)
+    if(BRLCAD_OBOL_DUAL_GL)
+      target_compile_definitions(qged PRIVATE OBOL_BUILD_DUAL_GL)
+    endif()
+  endif()
+  target_compile_definitions(qged PRIVATE BRLCADBUILD HAVE_CONFIG_H)
+  install(TARGETS qged RUNTIME DESTINATION ${BIN_DIR} LIBRARY DESTINATION ${LIB_DIR} ARCHIVE DESTINATION ${LIB_DIR})
+
+  # Make sure all dm and ged plugins are accounted for when we build qged
+  add_dependencies(qged dm_plugins ged_plugins)
+
+  # Automated qged draw validation test (swrast, moss.g)
+  if(Qt6Widgets_FOUND)
+    qt6_wrap_cpp(qged_test_moc_srcs qged_test_runner.h OPTIONS --no-notes)
+  else()
+    qt5_wrap_cpp(qged_test_moc_srcs qged_test_runner.h OPTIONS --no-notes)
+  endif()
+  add_executable(qged_test qged_test.cpp ${qged_test_moc_srcs} ${qged_srcs} ${moc_srcs} ${theme_qrc})
+  target_compile_definitions(qged_test PRIVATE BRLCADBUILD HAVE_CONFIG_H)
+  if(Qt6Widgets_FOUND)
+    target_link_libraries(qged_test libqtcad libged librt libbu libpkg Qt6::Widgets Qt6::Network)
+  else()
+    target_link_libraries(qged_test libqtcad libged librt libbu libpkg Qt5::Widgets Qt5::Network)
+  endif()
+  if(BRLCAD_ENABLE_OBOL AND TARGET Obol::Obol)
+    target_link_libraries(qged_test Obol::Obol)
+    if(BRLCAD_OBOL_DUAL_GL AND _qged_osmesa_lib)
+      target_link_libraries(qged_test "${_qged_osmesa_lib}")
+    endif()
+    # Stage 20: libdm no longer needed in Obol builds (fbs_pixbuf path).
+    if(Qt6Widgets_FOUND AND TARGET Qt6::OpenGLWidgets)
+      target_link_libraries(qged_test Qt6::OpenGLWidgets)
+    endif()
+    target_include_directories(qged_test PRIVATE
+      ${Obol_INCLUDE_DIR}
+      ${CMAKE_SOURCE_DIR}/src/libged
+      $<$<BOOL:${OSMESA_INCLUDE_DIR}>:${OSMESA_INCLUDE_DIR}>)
+    target_compile_definitions(qged_test PRIVATE BRLCAD_ENABLE_OBOL)
+    if(BRLCAD_OBOL_DUAL_GL)
+      target_compile_definitions(qged_test PRIVATE OBOL_BUILD_DUAL_GL)
+    endif()
+  endif()
+  add_dependencies(qged_test dm_plugins ged_plugins draw_test_moss_g)
+  set_target_properties(qged_test PROPERTIES EXCLUDE_FROM_ALL TRUE)
+
+  # AABB/OBB/LoD pipeline validation test (swrast, GenericTwin.g)
+  if(Qt6Widgets_FOUND)
+    qt6_wrap_cpp(qged_pipeline_moc_srcs qged_pipeline_runner.h OPTIONS --no-notes)
+  else()
+    qt5_wrap_cpp(qged_pipeline_moc_srcs qged_pipeline_runner.h OPTIONS --no-notes)
+  endif()
+  add_executable(qged_pipeline_test
+    qged_pipeline_test.cpp
+    ${qged_pipeline_moc_srcs}
+    ${qged_srcs} ${moc_srcs} ${theme_qrc}
+  )
+  target_compile_definitions(qged_pipeline_test PRIVATE BRLCADBUILD HAVE_CONFIG_H)
+  if(Qt6Widgets_FOUND)
+    target_link_libraries(qged_pipeline_test
+      libqtcad libged librt libbu libpkg Qt6::Widgets Qt6::Network)
+  else()
+    target_link_libraries(qged_pipeline_test
+      libqtcad libged librt libbu libpkg Qt5::Widgets Qt5::Network)
+  endif()
+  if(BRLCAD_ENABLE_OBOL AND TARGET Obol::Obol)
+    target_link_libraries(qged_pipeline_test Obol::Obol)
+    if(BRLCAD_OBOL_DUAL_GL AND _qged_osmesa_lib)
+      target_link_libraries(qged_pipeline_test "${_qged_osmesa_lib}")
+    endif()
+    # Stage 20: libdm no longer needed in Obol builds (fbs_pixbuf path).
+    if(Qt6Widgets_FOUND AND TARGET Qt6::OpenGLWidgets)
+      target_link_libraries(qged_pipeline_test Qt6::OpenGLWidgets)
+    endif()
+    target_include_directories(qged_pipeline_test PRIVATE
+      ${Obol_INCLUDE_DIR}
+      ${CMAKE_SOURCE_DIR}/src/libged
+      $<$<BOOL:${OSMESA_INCLUDE_DIR}>:${OSMESA_INCLUDE_DIR}>)
+    target_compile_definitions(qged_pipeline_test PRIVATE BRLCAD_ENABLE_OBOL)
+    if(BRLCAD_OBOL_DUAL_GL)
+      target_compile_definitions(qged_pipeline_test PRIVATE OBOL_BUILD_DUAL_GL)
+    endif()
+  endif()
+  add_dependencies(qged_pipeline_test dm_plugins ged_plugins Generic_Twin.g)
+  set_target_properties(qged_pipeline_test PROPERTIES EXCLUDE_FROM_ALL TRUE)
+
+  foreach(qh ${qth_names})
+    distclean(moc_${qh}.cpp_parameters)
+  endforeach(qh ${qth_names})
+  distclean(${CMAKE_CURRENT_BINARY_DIR}/theme/breeze.qrc.depends)
+endif(BRLCAD_ENABLE_QT)
+
+# Core application is defined, now handle plugins
+add_subdirectory(plugins)
+
+# Theme subdirectory handles file bookkeeping for CMake
+add_subdirectory(theme)
+
+set(
+  qged_ignore_srcs
+  ${qged_srcs}
+  ${moc_headers}
+  BUILDING_QT
+  CMakeLists.txt
+  TODO
+  fonts/Inconsolata-LICENSE.txt
+  fonts/Inconsolata.otf
+  main.cpp
+  qged_signals.eps
+  qged_signals.dia
+  view_update_cycle.odg
+  view_update_cycle.pdf
+  qged_test.cpp
+  qged_test_runner.h
+  qged_pipeline_test.cpp
+  qged_pipeline_runner.h
+  QgObolView.h
+)
+
+cmakefiles(${qged_ignore_srcs})
+
+# Local Variables:
+# tab-width: 8
+# mode: cmake
+# indent-tabs-mode: t
+# End:
+# ex: shiftwidth=2 tabstop=8

@@ -85,6 +85,13 @@ main(int ac, char *av[]) {
 	return 2;
     }
 
+    /* Use a local working-directory cache so we do not pollute the user's
+     * real BRL-CAD cache and so the test is fully self-contained. */
+    char lcache[MAXPATHLEN] = {0};
+    bu_dir(lcache, MAXPATHLEN, BU_DIR_CURR, "ged_fp_test_cache", NULL);
+    bu_mkdir(lcache);
+    bu_setenv("BU_DIR_CACHE", lcache, 1);
+
     /* Open the temp file, then dbconcat argv[1] into it */
     bu_vls_sprintf(&fname, "%s/moss.g", av[1]);
     gedp = ged_open("db", bu_vls_cstr(&fname), 1);

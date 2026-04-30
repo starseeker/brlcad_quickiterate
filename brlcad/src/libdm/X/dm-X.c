@@ -2143,6 +2143,23 @@ X_event_cmp(struct dm *dmp, dm_event_t type, int event)
     };
 }
 
+
+/* Draw a scene object using the X11 vlist path.  LoD mesh/CSG rendering
+ * requires OpenGL and is not supported by this backend, but standard vlist
+ * wireframes work fine via X_drawVList. */
+static int
+X_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
+{
+    if (bu_list_len(&s->s_vlist)) {
+	if (s->s_os->s_dmode == 4)
+	    dm_draw_vlist_hidden_line(dmp, (struct bv_vlist *)&s->s_vlist);
+	else
+	    dm_draw_vlist(dmp, (struct bv_vlist *)&s->s_vlist);
+	return BRLCAD_OK;
+    }
+    return BRLCAD_ERROR;
+}
+
 /* Display Manager package interface */
 struct dm_impl dm_X_impl = {
     X_open,
@@ -2165,7 +2182,7 @@ struct dm_impl dm_X_impl = {
     null_drawPoints3D,
     X_drawVList,
     X_drawVList,
-    null_draw_obj,
+    X_draw_obj,
     NULL,
     X_draw,
     X_setFGColor,

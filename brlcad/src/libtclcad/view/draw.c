@@ -26,6 +26,7 @@
 
 #include "common.h"
 #include "dm/view.h"
+#include "bsg/util.h"
 #include "ged.h"
 #include "tclcad.h"
 
@@ -201,12 +202,74 @@ go_draw_dlist(struct bview *gdvp)
 void
 go_draw(struct bview *gdvp)
 {
-    (void)dm_loadmatrix((struct dm *)gdvp->dmp, gdvp->gv_model2view, 0);
+    struct dm *dmp = (struct dm *)gdvp->dmp;
+
+    (void)dm_loadmatrix(dmp, gdvp->gv_model2view, 0);
 
     if (SMALL_FASTF < gdvp->gv_perspective)
-	(void)dm_loadpmatrix((struct dm *)gdvp->dmp, gdvp->gv_pmat);
+	(void)dm_loadpmatrix(dmp, gdvp->gv_pmat);
     else
-	(void)dm_loadpmatrix((struct dm *)gdvp->dmp, (fastf_t *)NULL);
+	(void)dm_loadpmatrix(dmp, (fastf_t *)NULL);
+
+    /* Phase 5 (drawing_stack_modernization): when a BSG scene root has been
+     * created for this view, synchronise it from the view-object tables and
+     * then iterate its children via go_draw_solid().  This preserves Archer's
+     * per-path edit-matrix logic (tgd->go_dmv.edited_paths) while getting
+     * scene management through the modern BSG infrastructure.  Views without
+     * a BSG root (e.g. during application start-up) fall back to the legacy
+     * go_draw_dlist() path. */
+    if (gdvp->bsg_root) {
+	bsg_scene_root_sync((bsg_node *)gdvp->bsg_root, gdvp);
+	struct bv_scene_obj *root = (struct bv_scene_obj *)gdvp->bsg_root;
+	int line_style = -1;
+
+	if (dm_get_transparency(dmp)) {
+	    /* First pass — opaque objects */
+	    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+		struct bv_scene_obj *sp =
+		    (struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
+		if (!sp || sp->s_os->transparency < 1.0)
+		    continue;
+		if (line_style != sp->s_soldash) {
+		    line_style = sp->s_soldash;
+		    (void)dm_set_line_attr(dmp, dm_get_linewidth(dmp), line_style);
+		}
+		go_draw_solid(gdvp, sp);
+	    }
+
+	    /* disable write to depth buffer for transparent pass */
+	    (void)dm_set_depth_mask(dmp, 0);
+
+	    /* Second pass — transparent objects */
+	    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+		struct bv_scene_obj *sp =
+		    (struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
+		if (!sp || ZERO(sp->s_os->transparency - 1.0))
+		    continue;
+		if (line_style != sp->s_soldash) {
+		    line_style = sp->s_soldash;
+		    (void)dm_set_line_attr(dmp, dm_get_linewidth(dmp), line_style);
+		}
+		go_draw_solid(gdvp, sp);
+	    }
+
+	    /* re-enable write to depth buffer */
+	    (void)dm_set_depth_mask(dmp, 1);
+	} else {
+	    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+		struct bv_scene_obj *sp =
+		    (struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
+		if (!sp)
+		    continue;
+		if (line_style != sp->s_soldash) {
+		    line_style = sp->s_soldash;
+		    (void)dm_set_line_attr(dmp, dm_get_linewidth(dmp), line_style);
+		}
+		go_draw_solid(gdvp, sp);
+	    }
+	}
+	return;
+    }
 
     go_draw_dlist(gdvp);
 }
