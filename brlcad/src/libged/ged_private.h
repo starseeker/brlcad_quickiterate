@@ -75,7 +75,7 @@ struct vd_curve {
 #define VD_CURVE_NULL   ((struct vd_curve *)NULL)
 
 struct ged_drawable {
-    struct bu_list              *gd_headDisplay;        /**< @brief  head of display list */
+    struct bv_scene_obj         *gd_draw_root;          /**< @brief  BSG_NODE_GROUP root of drawn-set tree */
     struct bu_list              *gd_headVDraw;          /**< @brief  head of vdraw list */
     struct vd_curve             *gd_currVHead;          /**< @brief  current vdraw head */
 

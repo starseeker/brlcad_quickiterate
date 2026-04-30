@@ -299,7 +299,7 @@ struct bv_scene_obj  {
     struct bu_ptbl children;
 
     /* Parent object of this object */
-    struct bv_scene_ob *parent;
+    struct bv_scene_obj *parent;
 
     /* Object level pointers to parent containers.  These are stored so
      * that the object itself knows everything needed for data manipulation
