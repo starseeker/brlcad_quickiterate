@@ -17,7 +17,7 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/** @file primitives/edsph.c
+/** @file primitives/sph/edsph.c
  *
  * Editing support for the Sphere (SPH) primitive.
  *
@@ -53,7 +53,7 @@
 static const struct rt_edit_param_desc sph_v_params[] = {
     {
 	"v",                        /* name */
-	"Centre (X Y Z)",           /* label */
+	"Center (X Y Z)",           /* label */
 	RT_EDIT_PARAM_POINT,        /* type */
 	0,                          /* index */
 	RT_EDIT_PARAM_NO_LIMIT,     /* range_min */

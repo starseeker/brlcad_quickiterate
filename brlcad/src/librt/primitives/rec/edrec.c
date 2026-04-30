@@ -17,7 +17,7 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/** @file primitives/edrec.c
+/** @file primitives/rec/edrec.c
  *
  * Editing support for the Right Elliptic Cylinder (REC) primitive.
  *
@@ -60,7 +60,7 @@
 static const struct rt_edit_param_desc rec_v_params[] = {
     {
 	"v",                        /* name */
-	"Base Centre (X Y Z)",      /* label */
+	"Base Center (X Y Z)",      /* label */
 	RT_EDIT_PARAM_POINT,        /* type */
 	0,                          /* index */
 	RT_EDIT_PARAM_NO_LIMIT,     /* range_min */
