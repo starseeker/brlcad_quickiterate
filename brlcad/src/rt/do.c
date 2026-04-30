@@ -63,12 +63,6 @@ extern mat_t view2model;
 extern mat_t model2view;
 /***** end of sharing with viewing model *****/
 
-/* Defined here (in the shared LIBRTUIF_SOURCES) so every rt executable
- * that uses do.c gets the definition, regardless of which view*.c it pairs
- * with.  view.c references this via the extern declaration in ext.h.
- */
-int embed_icv_metadata = 0;
-
 /***** variables shared with opt.c *****/
 extern int	orientflag;		/* 1 means orientation has been set */
 /***** end variables shared with opt.c *****/
