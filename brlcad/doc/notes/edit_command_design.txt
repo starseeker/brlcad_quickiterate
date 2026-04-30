@@ -127,147 +127,8 @@ Temp edit buffer
     - rt_edit_reinit()  when reloading after external disk change
 
 
-edit.c feature spec (implemented in Phase 2)
---------------------------------------------
-
-  The following is the complete grammar inherited from edit.c.  Every
-  feature listed here MUST be covered by a test in src/libged/tests/edit/.
-
-  Coordinate flags (per-axis modifiers)
-  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    -x val     Use only the X component of the following argument
-    -y val     Use only the Y component
-    -z val     Use only the Z component
-    (no flag)  Use all three components (X, Y, Z) from the next tokens
-
-  edit_arg types
-  ~~~~~~~~~~~~~~
-
-    *_FROM     keypoint: source of reference vector / axis
-    *_TO       target:   where we want to end up
-    *_POS      coordinate literal {x [y [z]]} or per-component -x/-y/-z
-    *_OBJECT   an existing object in the database
-
-    Modifier flags on *_TO:
-      -a    interpret as absolute position (default for *_TO_OBJECT)
-      -r    interpret as relative distance from FROM (default if no FROM)
-      -d    interpret as relative degrees (ANGLE_TO only, default)
-      -R    interpret angles in radians (rotate only)
-
-    Object flags:
-      -n    use natural origin of the object instead of bbox centre
-      .     each operation uses the object itself as its own reference
-
-  rotate subcommand grammar
-  ~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    rotate [-R] [AXIS] [CENTER] ANGLE OBJECT ...
-    rotate [-R] [[AXIS_FROM] AXIS_TO] [CENTER] [ANGLE_ORIGIN]
-               [ANGLE_FROM] ANGLE_TO OBJECT ...
-
-    Options:
-      -R                  interpret ANGLE_TO as radians
-      -c CENTER           centre of rotation (default: bbox centre of 1st OBJECT)
-      -O ANGLE_ORIGIN     origin of ANGLE (default: CENTER)
-      -k AXIS_FROM        keypoint for axis (default: origin 0,0,0)
-      -a AXIS_TO          AXIS_TO as absolute position (required with *_OBJECT)
-      -r AXIS_TO          AXIS_TO as relative distance from AXIS_FROM
-      -d ANGLE_TO         ANGLE_TO as relative degrees (default)
-      -o                  override AXIS constraint (deg/rad rotate)
-      -n *_FROM|*_TO      use natural origin of the given object
-      -k ANGLE_FROM       keypoint for angle reference
-      -a ANGLE_TO         ANGLE_TO as absolute position
-      -r ANGLE_TO         ANGLE_TO as relative distance
-
-    Test coverage required:
-      rotate -z 45 cube                       (z-axis, 45 deg from bbox centre)
-      rotate 0 0 45 cube                      (same, positional syntax)
-      rotate -c 0 0 0 -d 0 0 45 cube         (explicit centre, explicit deg)
-      rotate -c cube 0 0 45 cube             (centre from bbox)
-      rotate -c . 0 0 45 cube                (each object its own centre)
-      rotate -k sphere1 -a sphere2 cube      (axis from obj to obj)
-      rotate -c . -x 25 -d 180 cube          (180 deg about offset axis)
-      rotate -a 180 cube -x 25              (preferred form)
-      rotate 90 cube                          (unconstrained single-angle)
-      rotate -45 45 cube                      (two-angle)
-      rotate -R ...                           (radian form)
-      rotate 180 cube  (ambiguous, should fail)
-
-  translate subcommand grammar
-  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    translate [[FROM] TO] OBJECT ...
-    translate [[-n] -k {FROM_OBJECT | FROM_POS}]
-              [-n] [-a | -r] {TO_OBJECT | TO_POS}
-              OBJECT ...
-
-    Options:
-      -k FROM     keypoint for translation (default: bbox centre of 1st OBJECT)
-      -a TO       TO as absolute position
-      -r TO       TO as relative distance from FROM (default if no FROM)
-      -n          use natural origin
-
-    tra OBJECT X Y Z  is an alias for:  translate -r OBJECT X Y Z
-
-    Test coverage required:
-      translate -a 10 0 0 sph.s     (abs move to (10,0,0))
-      translate -r  5 0 0 sph.s     (rel move +5 in X)
-      tra 5 0 0 sph.s               (same as translate -r)
-      translate -k sph.s -a other.s sph.s   (from-to object form)
-
-  scale subcommand grammar
-  ~~~~~~~~~~~~~~~~~~~~~~~~
-
-    scale [SCALE] [CENTER] FACTOR OBJECT ...
-    scale [[SCALE_FROM] SCALE_TO] [CENTER] [FACTOR_FROM] FACTOR_TO OBJECT ...
-
-    Options:
-      -k SCALE_FROM   reference scale from-point (default 0,0,0)
-      -a SCALE_TO     reference scale to-point as absolute
-      -r SCALE_TO     reference scale to-point as relative
-      -c CENTER       centre of scaling (default: bbox centre of 1st OBJECT)
-      -n              natural origin
-
-    Test coverage required:
-      scale 2 cube              (uniform 2x from bbox centre)
-      scale 2 2 2 cube          (same, explicit xyz factor)
-      scale -k 0 0 0 -a 2 2 2 cube
-      scale -k 0 0 0 -a 1 1 1 -c . -r 2 cube
-      scale -k 5 10 15 -a 7 11 -2 -r 4 2 34 cube
-
-
-ft_edit_desc() Coverage Audit (as of 2026-04-30, Phase 4+ gap-closure)
-------------------------------------------------------------------------
-
-Primitives WITH ft_edit_desc (19/47):
-  tor         (ID_TOR)        — 2 ops    COMPLETE
-  tgc         (ID_TGC)        — 17 ops   COMPLETE (added MV_H, MV_HH, MV_H_CD, MV_H_V_AB,
-                                                    ROT_H, ROT_AB in Phase 4)
-  ell         (ID_ELL)        — 4 ops    COMPLETE
-  arb8        (ID_ARB8)       — 4 ops    COMPLETE (Phase 4+: MOVE_FACE, MOVE_EDGE,
-                                                    MOVE_VERTEX, ROTATE_FACE; each takes
-                                                    an index + data parameter(s))
-  ebm         (ID_EBM)        — 3 ops    COMPLETE
-  vol         (ID_VOL)        — 5 ops    COMPLETE
-  pipe        (ID_PIPE)       — 14 ops   COMPLETE (Phase 4+: added SELECT, NEXT_PT,
-                                                    PREV_PT, PT_MOVE, PT_ADD, PT_INS,
-                                                    PT_DEL, SPLIT)
-  part        (ID_PARTICLE)   — 3 ops    COMPLETE
-  rpc         (ID_RPC)        — 3 ops    COMPLETE
-  rhc         (ID_RHC)        — 4 ops    COMPLETE
-  epa         (ID_EPA)        — 3 ops    COMPLETE
-  ehy         (ID_EHY)        — 4 ops    COMPLETE
-  eto         (ID_ETO)        — 4 ops    COMPLETE (added ROT_C in Phase 4)
-  dsp         (ID_DSP)        — 7 ops    COMPLETE (Phase 4+: added FSIZE: xcnt, ycnt
-                                                    INTEGER params, handler implemented)
-  cline       (ID_CLINE)      — 4 ops    COMPLETE (added MOVE_H in Phase 4)
-  comb        (ID_COMBINATION)— 11 ops   COMPLETE (matrix-only + comb tree ops)
-  superell    (ID_SUPERELL)   — 4 ops    COMPLETE
-  hyp         (ID_HYP)        — 5 ops    COMPLETE (added ROT_H in Phase 4)
-  extrude     (ID_EXTRUDE)    — 8 ops    COMPLETE (new descriptor in Phase 4:
-                                                    SCALE_H, MOV_H, ROT_H, SCALE_A,
-                                                    ROT_A, SCALE_B, ROT_B, SKT_NAME)
+We have implemented the basic capabilities, and are in the process of filling
+out support for editing primitives with lacking support (see below)
 
 Primitives WITHOUT ft_edit_desc (28/47) — remaining backlog:
   ars     (ID_ARS)       — 17 ECMDs (vertex/curve pick/move/add/del ops)
@@ -275,7 +136,7 @@ Primitives WITHOUT ft_edit_desc (28/47) — remaining backlog:
   rec     (ID_REC)       — no ECMDs (alias of tgc; shares tgc edit)
   poly    (ID_POLY)      — no ECMDs
   bspline (ID_BSPLINE)   — 5 ECMDs: VTRANS, SPLINE_VPICK, PICK_CP, PICK_KNOT, SET_KNOT
-  sph     (ID_SPH)       — no ECMDs (ell with A=B=C; shares ell edit)
+  sph     (ID_SPH)       — no ECMDs (ell with A=B=C; shares ell edit - provide edit ops that present sph parameters to user rather than full ELL params)
   nmg     (ID_NMG)       — 14 ECMDs (vertex/edge/face pick/move/split/kill)
   arbn    (ID_ARBN)      — no ECMDs
   grip    (ID_GRIP)      — no ECMDs
@@ -285,8 +146,7 @@ Primitives WITHOUT ft_edit_desc (28/47) — remaining backlog:
   submodel(ID_SUBMODEL)  — no ECMDs
   bot     (ID_BOT)       — 17 ECMDs (vertex/edge/tri pick/move/fuse/del)
   UNUSED1/UNUSED2        — skip
-  binunif (ID_BINUNIF)   — no ECMDs
-  metaball(ID_METABALL)  — 12 ECMDs (point pick/add/del/move/scale ops)
+  binunif (ID_BINUNIF)   — no ECMDs (not needed - arbitrary blob data, no sensible ops)
   brep    (ID_BREP)      — no ECMDs currently (rich future work)
   constrnt(ID_CONSTRAINT)— no ECMDs
   revolve (ID_REVOLVE)   — no ECMDs
@@ -297,114 +157,35 @@ Primitives WITHOUT ft_edit_desc (28/47) — remaining backlog:
   script  (ID_SCRIPT)    — no ECMDs
   material(ID_MATERIAL)  — no ECMDs
 
-Phase 5 priority order (most user-visible first):
-  1. bot     — large meshes, 17 ops (may need special treatment)
-  2. ars     — 17 ops
-  3. sketch  — 20 ops (depends on sketch data structures)
-  4. nmg     — 14 ops
-  5. metaball— 12 ops
-  6. bspline — 5 ops
-
+Phase 5 priority order:
+  1. brep    — investigate Archer brep editing support, should at least express that - ideally any editing capabilities the old bspline solid offered as well (to move a control point we will need at least MOVE_CP and PICK_CP, for example), since brep is supposed to replace it.  Definitely recall being able to manipulate brep control points in Archer at one time in the past, although our original implementation wasn't able to maintain brep patch alignment at trimming edges while doing so.  Might be a good idea to only permit editing of control points where movement of them can't distort regions involved with trimming curves unless a user specifies a force flag.
+  2. arbn    - need ability to add, remove planes and manipulate individual planes (rotate and translate)
+  3. datum   - check how we currently manipulate these - we probably need to be able to change type, move rotate, and ???
+  4. annot   - check what existing commands we have for annotation manipulation - there's probably some reorganization/consolidation to do for annotate.
+  5. revolve
+  6. bot     — large meshes, 17 ops (may need special treatment)
+  7. pnts    - add pt, remove pt, select/deselect pnt (either by index or by "within spherical or bounding box volume", move selected pts
+  8. sketch  — 20 ops (depends on sketch data structures)
+  9. ars     — 17 ops
+  10. nmg     — 14 ops
 
 Implementation Phases
 ---------------------
 
-Phase 0 (DONE): Survey, freeze, harness
-  - This document
-  - Descriptor audit (above)
-  - Test directory src/libged/tests/edit/ with fixture and runner
-  - 46/46 assertions pass (ctest -R ged_test_edit_phase0)
-
-Phase 1 (DONE): Parser foundation
-  - ged_edit_ctx struct replacing struct edit_info
-  - Three-pass parser: global opts → geometry specifiers → subcommand+args
-  - URI fragment/query parsing, . batch marker, selection fallback
-  - Selection conflict arbiter
-  - Temp edit buffer API (ged_edit_buf_*)
-  - 21/21 assertions pass (ctest -R ged_test_edit_phase1)
-
-Phase 2 (DONE): Generic transform commands
-  - translate / tra / rotate / scale / perturb / mat / checkpoint / revert / reset
-  - Full option grammar: -a/-r/-x/-y/-z/-k/-d/-c/-R/-O
-  - _edit_xform_apply() helper managing temp buffer + disk promotion
-  - 48/48 assertions pass (test_edit.cpp section 2)
-
-Phase 3 (DONE): Descriptor-driven per-primitive editing
-  - CLI slug derivation: "Set Radius 1" → "set_radius_1" (_prim_cmd_slug)
-  - Param-name alias for single-param commands: "r1" → ECMD_TOR_R1
-  - _exec_desc_cmd_on_edit(): per-param-type bu_opt converters fill e_para[]/e_str[]
-  - _exec_desc_cmd(): wraps via _edit_xform_apply (buffer + disk promotion)
-  - _find_desc_cmd(): slug, param-name, and case-insensitive label matching
-  - 'edit <type>' → category-grouped help (_print_prim_help)
-  - 'edit <type> --list-ops' → rt_edit_type_to_json() JSON output
-  - 'edit <geom> <unknown_op>' → per-primitive error + type help
-  - All supported param types: SCALAR, INTEGER, BOOLEAN, ENUM, POINT, VECTOR,
-    COLOR, MATRIX, STRING
-  - 22 new Section 3 assertions in test_edit.cpp (217/217 total pass)
-
-Phase 4 (DONE): Descriptor completeness — all primitives with functional
-                  CLI-accessible edit ops now have descriptors
-  - tgc: added MV_H, MV_HH, MV_H_CD, MV_H_V_AB (POINT), ROT_H, ROT_AB (VECTOR)
-  - eto: added ROT_C (VECTOR)
-  - cline: added MOVE_H (POINT)
-  - hyp: added ROT_H (VECTOR)
-  - extrude: new full descriptor — SCALE_H (SCALAR), MOV_H (POINT),
-             ROT_H/ROT_A/ROT_B (VECTOR), SCALE_A/SCALE_B (SCALAR),
-             SKT_NAME (STRING); registered in edtable.cpp
-  - 276/276 assertions pass (test_edit.cpp sections 0–4)
-
-Phase 4+ gap-closure (DONE): Three previously-identified gaps resolved
-  - pipe: added 8 missing ops to descriptor (SELECT, NEXT_PT, PREV_PT,
-          PT_MOVE, PT_ADD, PT_INS, PT_DEL, SPLIT); NEXT_PT and PREV_PT
-          implemented as navigation handlers in rt_edit_pipe_edit
-  - dsp: added FSIZE (Set File Size) op: 2-param (xcnt/ycnt INTEGER);
-         implemented ecmd_dsp_fsize() writing dsp_xcnt/dsp_ycnt directly
-  - arb8: new 4-op descriptor (MOVE_FACE, MOVE_EDGE, MOVE_VERTEX,
-          ROTATE_FACE); handlers extended to accept index+data parameter
-          form (e_inpara==4 for move ops, e_inpara==5 for rotate);
-          registered rt_edit_arb_edit_desc in edtable.cpp
-  - Bug fix: _edit_xform_apply tol lifetime — bn_tol was stack-allocated
-    inside the if(is_new) block, causing s->tol to be a dangling pointer
-    when do_edit(s) was called; fixed by hoisting to function scope
-  - 305/305 assertions pass (test_edit.cpp sections 0–5)
-
-Phase 5: Auto-generated mann pages
+Phase 5: Add new support as above and auto-generate mann pages
   - rt_edit_doc_gen.cpp linked against librt
   - Generates edit_<type>.adoc per primitive from descriptors
   - Hooked into docs/asciidoc CMakeLists
 
-Phase 6: Flip default and retire edit.c
-  - gedp->new_cmd_forms defaults to 1
-  - Legacy path kept behind env var for one release
-  - Remove old C helper files once parity confirmed
-
-
-Key risks
----------
-
-  1. edit.c semantics are subtle (axis/angle constraints, 180 ambiguity,
-     -k/-a/-r/-d/-o interactions).  Phase 2 MUST start from a golden
-     transcript of the edit.c EXAMPLES block verified against the legacy
-     binary BEFORE implementing the new path.
-
-  2. Descriptor quality varies.  Phase 4 is a backlog, not a blocker for
-     Phase 3.  Primitives without descriptors still get generic transform
-     operations.
-
-  3. Temp edit buffer ownership.  rt_edit_destroy() must be called on
-     session close; rt_edit_reset()+rt_edit_reinit() for reload scenarios.
-     Tests must cover db-close and ged_open reuse.
-
-  4. ABI instability.  rt_edit_prim_desc is explicitly marked experimental
-     in rt/edit.h.  Any struct additions for Phase 5 (e.g., example field)
-     must append-only.
+A note about ABI instability - rt_edit_prim_desc is explicitly marked
+experimental in rt/edit.h, so make any changes you need to to achieve a clean
+implementation.  The API is in flux, so this is the time to do what we need to.
 
 
 References
 ----------
 
-  src/libged/edit/edit.c        — legacy parser (feature spec source)
-  src/libged/edit/edit2.cpp     — new framework stub
+  src/libged/edit/edit.cpp      — primary command
   include/rt/edit.h             — rt_edit struct, descriptor types, API
   src/librt/primitives/edtable.cpp — EDOBJ table (ft_edit_desc slots)
   src/librt/primitives/*/ed*.c  — per-primitive edit implementations
