@@ -54,6 +54,7 @@
 #endif
 
 #define GED_NULL ((struct ged *)0)
+/* GED_DISPLAY_LIST_NULL is deprecated — use NULL directly */
 #define GED_DISPLAY_LIST_NULL ((struct display_list *)0)
 #define GED_DRAWABLE_NULL ((struct ged_drawable *)0)
 #define GED_VIEW_NULL ((struct bview *)0)

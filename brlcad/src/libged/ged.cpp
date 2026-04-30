@@ -249,7 +249,7 @@ ged_free(struct ged *gedp)
 	bu_ptbl_free(&gedp->free_solids);
 
 	if (gedp->i->ged_gdp->gd_headDisplay)
-	    BU_PUT(gedp->i->ged_gdp->gd_headDisplay, struct bu_vls);
+	    BU_PUT(gedp->i->ged_gdp->gd_headDisplay, struct bu_list);
 	if (gedp->i->ged_gdp->gd_headVDraw)
 	    BU_PUT(gedp->i->ged_gdp->gd_headVDraw, struct bu_vls);
 	qray_free(gedp->i->ged_gdp);

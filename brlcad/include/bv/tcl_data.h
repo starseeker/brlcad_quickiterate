@@ -53,7 +53,12 @@ struct bv_scene_obj_old_settings {
 
 /* A display list corresponds (typically) to a database object.  It is composed of one
  * or more scene objects, which can be manipulated independently but collectively make
- * up the displayed representation of an object. */
+ * up the displayed representation of an object.
+ *
+ * NOTE: this type is no longer used by any BRL-CAD library.  It is kept here
+ * temporarily for external consumers; use the bsg_view_obj_* API in
+ * include/ged/bsg_view_obj.h instead.  This definition will be removed in a
+ * future release. */
 struct display_list {
     struct bu_list      l;
     void               *dl_dp;                 /* Normally this will be a struct directory pointer */
