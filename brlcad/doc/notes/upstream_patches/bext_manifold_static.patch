@@ -1,5 +1,5 @@
 From: BRL-CAD developers <devs@brlcad.org>
-Subject: [PATCH] Build both shared and static manifold; self-contain Clipper2 in the static archive
+Subject: [PATCH] Build both shared and static manifold in bext; use external Clipper2
 
 Three changes to the bext manifold build:
 
@@ -13,25 +13,18 @@ Three changes to the bext manifold build:
    Requires the companion manifold_static_lib.patch to be applied to the
    manifold upstream first.
 
-2. Switch to MANIFOLD_USE_BUILTIN_CLIPPER2=ON with
-   FETCHCONTENT_SOURCE_DIR_CLIPPER2 pointing at bext's own Clipper2 source
-   tree.  This makes manifold build its own internal static Clipper2 via
-   FetchContent (manifoldDeps.cmake already forces BUILD_SHARED_LIBS=OFF
-   before the fetch), which the static manifold target then absorbs via
-   $<TARGET_OBJECTS:Clipper2>.  The result is a fully self-contained
-   libmanifold.a with no Clipper2 runtime dependency.
+2. Keep MANIFOLD_CROSS_SECTION=ON and pass Clipper2_ROOT pointing at the
+   bext bundle install prefix so manifold's find_package(Clipper2) picks
+   up the bext-installed Clipper2 (built with both shared and static
+   targets via bext_clipper2_static.patch).  The static manifold target
+   then links Clipper2::Clipper2-static privately (recorded as
+   $<LINK_ONLY:Clipper2::Clipper2-static> in the export), so consumers of
+   manifold::manifold-static get Clipper2 resolved without needing to
+   declare it themselves.
 
-   Using FETCHCONTENT_SOURCE_DIR_CLIPPER2 with MANIFOLD_DOWNLOADS=OFF is
-   explicitly supported by manifoldDeps.cmake: logmissingdep() returns
-   early (no error) when FETCHCONTENT_SOURCE_DIR_Clipper2 is defined,
-   regardless of MANIFOLD_DOWNLOADS.
-
-   The Clipper2_ROOT pass-through is removed because the external
-   installed Clipper2 is no longer used by this build.
-
-   Note: the bext-installed libClipper2.so is still built and installed by
-   the separate CLIPPER2_BLD ExternalProject for any consumers that want
-   to use Clipper2 directly.
+   Requires the companion clipper2_static_lib.patch applied to the
+   Clipper2 upstream and bext_clipper2_static.patch applied to bext so
+   that Clipper2::Clipper2-static is installed under the bundle prefix.
 
 3. Drop -DMANIFOLD_DEBUG=ON.  Enabling debug tracing in a library
    installed as part of BRL-CAD leaks verbose timing output to end-user
@@ -53,6 +46,7 @@ Applies to: BRL-CAD/bext, main branch (manifold/CMakeLists.txt)
 -    -DMANIFOLD_PAR=OFF
 -    -DMANIFOLD_STRICT=OFF
 -    -DMANIFOLD_TEST=OFF
++    $<$<BOOL:${CLIPPER2_TARGET}>:-DClipper2_ROOT=${CMAKE_BUNDLE_INSTALL_PREFIX}>
 +    -DMANIFOLD_BUILD_STATIC_LIBS=ON
 +    -DMANIFOLD_CBIND=OFF
 +    -DMANIFOLD_CROSS_SECTION=ON
@@ -64,6 +58,4 @@ Applies to: BRL-CAD/bext, main branch (manifold/CMakeLists.txt)
 +    -DMANIFOLD_PAR=OFF
 +    -DMANIFOLD_STRICT=OFF
 +    -DMANIFOLD_TEST=OFF
-+    -DMANIFOLD_USE_BUILTIN_CLIPPER2=ON
-+    -DFETCHCONTENT_SOURCE_DIR_CLIPPER2=${CMAKE_CURRENT_SOURCE_DIR}/../clipper2/Clipper2/CPP
      -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}

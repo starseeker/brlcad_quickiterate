@@ -1,0 +1,87 @@
+From: BRL-CAD developers <devs@brlcad.org>
+Subject: [PATCH] Add CLIPPER2_BUILD_STATIC_LIBS option to produce a static archive alongside the shared library
+
+Consumers that link their own code statically (e.g. BRL-CAD's static
+library targets, or any framework that avoids runtime shared-library
+dependencies) need a static Clipper2 archive so they can link without
+carrying libClipper2.so as a runtime dependency.
+
+Clipper2 already sets CMAKE_POSITION_INDEPENDENT_CODE=ON globally, so
+the object files produced for the shared library are already PIC-clean.
+This patch adds an opt-in option CLIPPER2_BUILD_STATIC_LIBS that:
+
+ - Builds a second target, Clipper2_static, from the same source list
+   using add_library(... STATIC ...) immediately after the shared target
+   is defined.
+ - Sets OUTPUT_NAME Clipper2 (so the archive is libClipper2.a on disk,
+   avoiding a confusingly named libClipper2_static.a).
+ - Sets EXPORT_NAME Clipper2-static so the installed CMake target is
+   Clipper2::Clipper2-static, following the conventional -static suffix
+   naming used by other BRL-CAD bundled deps (e.g. manifold::manifold-static).
+ - Propagates the same PUBLIC compile definitions (CLIPPER2_MAX_DECIMAL_PRECISION,
+   CLIPPER2_HI_PRECISION) and include directories as the shared target.
+ - Adds the static target to the Clipper2Targets export set so that
+   Clipper2Config.cmake exposes it to consumers automatically.
+
+Default is OFF so no existing workflow is changed.
+
+A consumer that does:
+
+  target_link_libraries(myapp PRIVATE Clipper2::Clipper2-static)
+
+gets the full static Clipper2 archive linked in without needing to carry
+libClipper2.so at runtime.  The shared Clipper2::Clipper2 target is
+unchanged and continues to work as before.
+
+Applies to: AngusJohnson/Clipper2, tag 1.5.2 (CPP/CMakeLists.txt)
+--- a/CPP/CMakeLists.txt
++++ b/CPP/CMakeLists.txt
+@@ -6,6 +6,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+ option(CLIPPER2_UTILS "Build utilities" OFF)
+ option(CLIPPER2_EXAMPLES "Build examples" OFF)
+ option(CLIPPER2_TESTS "Build tests" OFF)
+ option(CLIPPER2_USINGZ "Build Z coordinate version" FALSE)
++option(CLIPPER2_BUILD_STATIC_LIBS "Also build a static library (Clipper2-static) alongside the shared library" OFF)
+ 
+ if(MSVC)
+   set(CMAKE_CXX_STANDARD 20)
+
+@@ -56,6 +57,42 @@ install(TARGETS Clipper2 EXPORT Clipper2Targets
+   PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/clipper2
+   INCLUDES      DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+ )
++
++# -----------------------------------------------------------------------
++# Optional static library target
++# -----------------------------------------------------------------------
++if(CLIPPER2_BUILD_STATIC_LIBS)
++  add_library(Clipper2_static STATIC ${CLIPPER2_INC} ${CLIPPER2_SRC})
++
++  set_target_properties(Clipper2_static PROPERTIES
++    OUTPUT_NAME  Clipper2
++    EXPORT_NAME  Clipper2-static
++  )
++
++  target_compile_definitions(Clipper2_static PUBLIC
++    CLIPPER2_MAX_DECIMAL_PRECISION=8
++    $<$<BOOL:${CLIPPER2_USINGZ}>:CLIPPER2_HI_PRECISION>
++  )
++
++  target_include_directories(Clipper2_static
++    PUBLIC
++      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
++      $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
++  )
++
++  target_link_libraries(Clipper2_static PUBLIC $<$<NOT:$<BOOL:${WIN32}>>:m>)
++
++  install(TARGETS Clipper2_static EXPORT Clipper2Targets
++    ARCHIVE  DESTINATION ${CMAKE_INSTALL_LIBDIR}
++    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
++  )
++endif()
++# -----------------------------------------------------------------------
++
+ install(EXPORT Clipper2Targets
+   NAMESPACE Clipper2::
+   FILE Clipper2Targets.cmake
