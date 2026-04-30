@@ -11,6 +11,7 @@ set(
   scene_set.h
   sensor.h
   util.h
+  visit.h
   vlist.h
 )
 brlcad_manage_files(bsg_headers ${INCLUDE_DIR}/brlcad/bsg REQUIRED libbsg)

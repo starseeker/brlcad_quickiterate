@@ -98,7 +98,9 @@ f_area(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 
          gdlp = bsg_view_obj_next_group(s->gedp, gdlp)) {
 
-	for (BU_LIST_FOR(sp, bv_scene_obj, bsg_view_obj_group_solid_list(gdlp))) {
+	struct bu_ptbl *_sl = bsg_view_obj_group_solid_list(gdlp);
+	for (size_t _si = 0; _si < BU_PTBL_LEN(_sl); _si++) {
+	    sp = (struct bv_scene_obj *)BU_PTBL_GET(_sl, _si);
 	    if (!sp->s_old.s_Eflag && sp->s_soldash != 0) {
 		struct bu_vls vls = BU_VLS_INIT_ZERO;
 
@@ -187,7 +189,9 @@ f_area(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 
          gdlp = bsg_view_obj_next_group(s->gedp, gdlp)) {
 
-	for (BU_LIST_FOR(sp, bv_scene_obj, bsg_view_obj_group_solid_list(gdlp))) {
+	struct bu_ptbl *_sl = bsg_view_obj_group_solid_list(gdlp);
+	for (size_t _si = 0; _si < BU_PTBL_LEN(_sl); _si++) {
+	    sp = (struct bv_scene_obj *)BU_PTBL_GET(_sl, _si);
 	    for (BU_LIST_FOR(vp, bv_vlist, &(sp->s_vlist))) {
 		int i;
 		int nused = vp->nused;

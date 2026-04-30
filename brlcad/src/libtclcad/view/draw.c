@@ -135,7 +135,9 @@ go_draw_dlist(struct bview *gdvp)
 	/* First, draw opaque stuff */
 	for (gdlp = bsg_view_obj_first_group(lgedp); gdlp;
 	     gdlp = bsg_view_obj_next_group(lgedp, gdlp)) {
-	    for (BU_LIST_FOR(sp, bv_scene_obj, bsg_view_obj_group_solid_list(gdlp))) {
+	    struct bu_ptbl *_sl = bsg_view_obj_group_solid_list(gdlp);
+	for (size_t _si = 0; _si < BU_PTBL_LEN(_sl); _si++) {
+	    sp = (struct bv_scene_obj *)BU_PTBL_GET(_sl, _si);
 		if (sp->s_os->transparency < 1.0)
 		    continue;
 
@@ -154,7 +156,9 @@ go_draw_dlist(struct bview *gdvp)
 	/* Second, draw transparent stuff */
 	for (gdlp = bsg_view_obj_first_group(lgedp); gdlp;
 	     gdlp = bsg_view_obj_next_group(lgedp, gdlp)) {
-	    for (BU_LIST_FOR(sp, bv_scene_obj, bsg_view_obj_group_solid_list(gdlp))) {
+	    struct bu_ptbl *_sl = bsg_view_obj_group_solid_list(gdlp);
+	for (size_t _si = 0; _si < BU_PTBL_LEN(_sl); _si++) {
+	    sp = (struct bv_scene_obj *)BU_PTBL_GET(_sl, _si);
 		/* already drawn above */
 		if (ZERO(sp->s_os->transparency - 1.0))
 		    continue;
@@ -173,7 +177,9 @@ go_draw_dlist(struct bview *gdvp)
     } else {
 	for (gdlp = bsg_view_obj_first_group(lgedp); gdlp;
 	     gdlp = bsg_view_obj_next_group(lgedp, gdlp)) {
-	    for (BU_LIST_FOR(sp, bv_scene_obj, bsg_view_obj_group_solid_list(gdlp))) {
+	    struct bu_ptbl *_sl = bsg_view_obj_group_solid_list(gdlp);
+	for (size_t _si = 0; _si < BU_PTBL_LEN(_sl); _si++) {
+	    sp = (struct bv_scene_obj *)BU_PTBL_GET(_sl, _si);
 		if (line_style != sp->s_soldash) {
 		    line_style = sp->s_soldash;
 		    (void)dm_set_line_attr(dmp, dm_get_linewidth(dmp), line_style);

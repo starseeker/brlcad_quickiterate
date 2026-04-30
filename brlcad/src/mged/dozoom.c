@@ -216,7 +216,7 @@ dozoom(struct mged_state *s, int which_eye)
  * Create Display Lists
  */
 void
-createDLists(void *data, struct bu_list *hdlp)
+createDLists(void *data, struct bv_scene_obj *hdlp)
 {
     struct mged_state *s = (struct mged_state *)data;
     MGED_CK_STATE(s);

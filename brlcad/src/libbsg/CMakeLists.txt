@@ -9,6 +9,7 @@ set(
   payload.c
   scene_graph.cpp
   sensor.c
+  visit.c
   vlist.c
 )
 
@@ -35,6 +36,7 @@ cmakefiles(
   node_transform.c
   payload.c
   sensor.c
+  visit.c
 )
 
 # Local Variables:
