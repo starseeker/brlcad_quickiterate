@@ -1,4 +1,11 @@
-/*
+/*                          M A I N . C
+ * BRL-CAD
+ *
+ * Published in 2026 by the United States Government.
+ * This work is in the public domain.
+ *
+ */
+/** @file main.c
  * Minimal BRL-CAD consumer example.
  *
  * Demonstrates using the modern find_package(BRLCAD CONFIG ...) interface.
@@ -33,3 +40,13 @@ int main(int argc, char *argv[])
     rt_free_rti(rtip);
     return 0;
 }
+
+/*
+ * Local Variables:
+ * tab-width: 8
+ * mode: C
+ * indent-tabs-mode: t
+ * c-file-style: "stroustrup"
+ * End:
+ * ex: shiftwidth=4 tabstop=8 cino=N-s
+ */
