@@ -168,6 +168,129 @@ bsg_view_obj_invent(struct ged *gedp, char *name, struct bu_list *vhead,
 GED_EXPORT extern unsigned long long
 bsg_view_obj_name_hash(struct ged *gedp);
 
+/**
+ * Iterate over every drawn scene object in display order, calling
+ * @p cb(sp, userdata) for each.  Iteration stops early when @p cb
+ * returns 0.
+ *
+ * Replaces the two-level "for each gdlp → for each sp in
+ * gdlp->dl_head_scene_obj" idiom used throughout MGED.
+ */
+GED_EXPORT extern void
+bsg_view_obj_foreach_solid(struct ged *gedp,
+			   int (*cb)(struct bv_scene_obj *sp, void *userdata),
+			   void *userdata);
+
+/**
+ * Returns 1 if @p gedp has at least one display list containing at
+ * least one drawn solid, 0 otherwise.
+ *
+ * Replaces: loop-over-gdlp checking BU_LIST_NON_EMPTY(&gdlp->dl_head_scene_obj).
+ */
+GED_EXPORT extern int
+bsg_view_obj_is_nonempty(struct ged *gedp);
+
+/**
+ * Returns the first drawn scene object in display order, or NULL if
+ * none are drawn.
+ *
+ * Replaces: find first non-empty gdlp, then BU_LIST_NEXT(bv_scene_obj,
+ * &gdlp->dl_head_scene_obj).
+ */
+GED_EXPORT extern struct bv_scene_obj *
+bsg_view_obj_first_solid(struct ged *gedp);
+
+/**
+ * Returns the next drawn solid after @p sp in display order, wrapping
+ * circularly from the last solid back to the first.  @p sp must be a
+ * currently-drawn solid.  Returns NULL only when no solids are drawn.
+ *
+ * Replaces f_aip() forward cross-list navigation.
+ */
+GED_EXPORT extern struct bv_scene_obj *
+bsg_view_obj_next_solid(struct ged *gedp, struct bv_scene_obj *sp);
+
+/**
+ * Returns the previous drawn solid before @p sp in display order,
+ * wrapping circularly from the first solid back to the last.  @p sp
+ * must be a currently-drawn solid.  Returns NULL only when no solids
+ * are drawn.
+ *
+ * Replaces f_aip() backward cross-list navigation.
+ */
+GED_EXPORT extern struct bv_scene_obj *
+bsg_view_obj_prev_solid(struct ged *gedp, struct bv_scene_obj *sp);
+
+/**
+ * Returns the display-list group (opaque handle; currently
+ * struct display_list *) that contains @p sp, or NULL if @p sp is not
+ * a member of any current group.
+ *
+ * Used to update MGED's illum_gdlp after finding the illuminated solid
+ * via bsg_view_obj_foreach_solid() or bsg_view_obj_first_solid().
+ */
+GED_EXPORT extern void *
+bsg_view_obj_group_of_solid(struct ged *gedp, struct bv_scene_obj *sp);
+
+/**
+ * Iterate over display-list groups, calling @p cb(group_handle,
+ * userdata) for each group.  @p cb returns 0 to stop iteration early.
+ * The @p group_handle argument to @p cb is an opaque pointer
+ * (currently struct display_list *) usable with
+ * bsg_view_obj_group_first_solid(), bsg_view_obj_group_last_solid(),
+ * bsg_view_obj_group_is_nonempty(), bsg_view_obj_group_solid_list(),
+ * and bsg_view_obj_append_to_last_group().
+ *
+ * Replaces the outer for-gdlp loop in sites where per-group identity
+ * matters (e.g. set.c OpenGL DList range freeing).
+ */
+GED_EXPORT extern void
+bsg_view_obj_foreach_group(struct ged *gedp,
+			   int (*cb)(void *group_handle, void *userdata),
+			   void *userdata);
+
+/**
+ * Returns the first drawn scene object in a group returned by
+ * bsg_view_obj_foreach_group(), or NULL if the group is empty.
+ */
+GED_EXPORT extern struct bv_scene_obj *
+bsg_view_obj_group_first_solid(void *group_handle);
+
+/**
+ * Returns the last drawn scene object in a group returned by
+ * bsg_view_obj_foreach_group(), or NULL if the group is empty.
+ */
+GED_EXPORT extern struct bv_scene_obj *
+bsg_view_obj_group_last_solid(void *group_handle);
+
+/**
+ * Returns 1 if a group returned by bsg_view_obj_foreach_group() has
+ * at least one drawn solid, 0 otherwise.
+ */
+GED_EXPORT extern int
+bsg_view_obj_group_is_nonempty(void *group_handle);
+
+/**
+ * Returns a pointer to the bu_list head of the solid list for a group
+ * returned by bsg_view_obj_foreach_group().  Suitable for use as the
+ * third argument to BU_LIST_FOR, replacing &gdlp->dl_head_scene_obj.
+ * Returns NULL if @p group_handle is NULL.
+ */
+GED_EXPORT extern struct bu_list *
+bsg_view_obj_group_solid_list(void *group_handle);
+
+/**
+ * Append @p sp to the last display-list group in @p gedp's draw set.
+ * Used by dodraw.c when inserting a newly computed solid into the
+ * current draw operation.
+ *
+ * Replaces:
+ *   gdlp = BU_LIST_PREV(display_list, (struct bu_list *)ged_dl(gedp));
+ *   BU_LIST_APPEND(gdlp->dl_head_scene_obj.back, &sp->l);
+ */
+GED_EXPORT extern void
+bsg_view_obj_append_to_last_group(struct ged *gedp, struct bv_scene_obj *sp);
+
 __END_DECLS
 
 #endif /* GED_BSG_VIEW_OBJ_H */

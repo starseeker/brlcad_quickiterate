@@ -188,7 +188,6 @@ __BEGIN_DECLS
 /* Callback management related structures */
 #define GED_REFRESH_FUNC_NULL ((ged_refresh_func_t)0)
 #define GED_CREATE_VLIST_SOLID_FUNC_NULL ((ged_create_vlist_solid_func_t)0)
-#define GED_CREATE_VLIST_DISPLAY_LIST_FUNC_NULL ((ged_create_vlist_display_list_func_t)0)
 #define GED_DESTROY_VLIST_FUNC_NULL ((ged_destroy_vlist_func_t)0)
 
 /* Common flags used by multiple GED commands for help printing */
@@ -200,7 +199,6 @@ struct ged_callback_state {
     int ged_refresh_handler_cnt;
     int ged_output_handler_cnt;
     int ged_create_vlist_scene_obj_callback_cnt;
-    int ged_create_vlist_display_list_callback_cnt;
     int ged_destroy_vlist_callback_cnt;
     int ged_io_handler_callback_cnt;
 };
@@ -212,7 +210,6 @@ struct ged_callback_state {
 GED_EXPORT extern void ged_refresh_cb(struct ged *);
 GED_EXPORT extern void ged_output_handler_cb(struct ged *, char *);
 GED_EXPORT extern void ged_create_vlist_solid_cb(struct ged *, struct bv_scene_obj *);
-GED_EXPORT extern void ged_create_vlist_display_list_cb(struct ged *, struct display_list *);
 GED_EXPORT extern void ged_destroy_vlist_cb(struct ged *, unsigned int, int);
 GED_EXPORT extern void ged_io_handler_cb(struct ged *, void *, int);
 

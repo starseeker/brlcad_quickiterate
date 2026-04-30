@@ -447,7 +447,6 @@ int redraw_visible_objects(struct mged_state *s);
 /* dozoom.c */
 void createDLists(void *, struct bu_list *hdlp);
 void createDListSolid(void *, struct bv_scene_obj *);
-void createDListAll(void *, struct display_list *);
 void freeDListsAll(void *, unsigned int dlist, int range);
 
 /* edarb.c */

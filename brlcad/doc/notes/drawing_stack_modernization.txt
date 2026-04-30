@@ -860,3 +860,61 @@ Deprecation policy
 
               Build clean: libged, libtclcad, mged — zero errors, zero
                 warnings.  ged_test_bsg_view_obj 27/27 PASS.
+
+  2026-05-01  Phase 6.5 Step 4 complete — MGED illuminate/edit scene-obj
+              iterator migration.
+
+              Part 1 — New iterator/query helpers in bsg_view_obj.h/.c:
+                Added 12 new public helpers after bsg_view_obj_name_hash:
+                  bsg_view_obj_foreach_solid      — callback-based iteration
+                  bsg_view_obj_is_nonempty        — any solid exists check
+                  bsg_view_obj_first_solid        — first solid across all groups
+                  bsg_view_obj_next_solid         — circular forward navigation
+                  bsg_view_obj_prev_solid         — circular backward navigation
+                  bsg_view_obj_group_of_solid     — find owning display_list
+                  bsg_view_obj_foreach_group      — callback-based group iter
+                  bsg_view_obj_group_first_solid  — first solid in a group
+                  bsg_view_obj_group_last_solid   — last solid in a group
+                  bsg_view_obj_group_is_nonempty  — group emptiness check
+                  bsg_view_obj_group_solid_list   — returns &gdlp->dl_head_scene_obj
+                  bsg_view_obj_append_to_last_group — append solid to last group
+
+                bsg_view_obj_group_solid_list() is the key workhorse: it
+                  returns the struct bu_list * of a group's solid list so
+                  that existing BU_LIST_FOR loops need only change their
+                  list argument from &gdlp->dl_head_scene_obj to
+                  bsg_view_obj_group_solid_list(gdlp).
+
+              Part 2 — Dead code deletion:
+                - include/ged/defines.h: removed ged_create_vlist_display_list_func_t
+                    typedef and ged_create_vlist_display_list_callback field.
+                - src/libged/ged_private.h: removed
+                    GED_CREATE_VLIST_DISPLAY_LIST_FUNC_NULL macro,
+                    ged_create_vlist_display_list_callback_cnt field,
+                    and ged_create_vlist_display_list_cb declaration.
+                - src/libged/ged.cpp: removed NULL init of the callback
+                    and entire ged_create_vlist_display_list_cb() function.
+                - src/libged/draw/draw.c: simplified related comment block.
+                - src/mged/dozoom.c: removed createDListAll() function.
+                - src/mged/mged.h: removed createDListAll declaration.
+                - src/mged/setup.c: removed createDListAll callback
+                    registration.
+
+              Part 3 — MGED dl_head_scene_obj access elimination:
+                Migrated all 11 MGED files that accessed dl_head_scene_obj:
+                  buttons.c  — ill_common(): first_solid + group_of_solid
+                  chgtree.c  — find_solid_with_path(), cmd_oed()
+                  chgview.c  — edit_com(), cmd_ill(), f_sed()
+                  usepen.c   — illuminate(), f_aip(), f_matpick()
+                  edsol.c    — 4 BU_LIST_FOR loops
+                  plot.c     — is_nonempty check + 2 BU_LIST_FOR loops
+                  cmd.cpp    — non-empty check
+                  rtif.c     — BU_LIST_FOR inner loop
+                  set.c      — group_first_solid, group_last_solid +
+                               group_is_nonempty guard (bug fix)
+                  dodraw.c   — append_to_last_group replaces manual
+                               BU_LIST_PREV + BU_LIST_APPEND
+
+                Zero remaining direct dl_head_scene_obj accesses in src/mged/.
+
+              Build clean: libged, mged — zero errors, zero warnings.

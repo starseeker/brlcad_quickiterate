@@ -153,7 +153,7 @@ find_solid_with_path(struct mged_state *s, struct db_full_path *pathp)
     while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
 	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
 
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+	for (BU_LIST_FOR(sp, bv_scene_obj, bsg_view_obj_group_solid_list(gdlp))) {
 	    if (!sp->s_u_data)
 		continue;
 	    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
@@ -197,12 +197,9 @@ cmd_oed(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     struct cmdtab *ctp = (struct cmdtab *)clientData;
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
     struct db_full_path lhs;
     struct db_full_path rhs;
     struct db_full_path both;
-    int is_empty = 1;
 
     CHECK_DBI_NULL;
 
@@ -220,19 +217,7 @@ cmd_oed(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     }
 
     /* Common part of illumination */
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	if (BU_LIST_NON_EMPTY(&gdlp->dl_head_scene_obj)) {
-	    is_empty = 0;
-	    break;
-	}
-
-	gdlp = next_gdlp;
-    }
-
-    if (is_empty) {
+    if (!bsg_view_obj_is_nonempty(s->gedp)) {
 	Tcl_AppendResult(interp, "no solids in view", (char *)NULL);
 	return TCL_ERROR;
     }
@@ -258,8 +243,8 @@ cmd_oed(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     db_append_full_path(&both, &rhs);
 
     /* Patterned after ill_common() ... */
-    illum_gdlp = gdlp;
-    illump = BU_LIST_NEXT(bv_scene_obj, &gdlp->dl_head_scene_obj);/* any valid solid would do */
+    illump = bsg_view_obj_first_solid(s->gedp);
+    illum_gdlp = (struct display_list *)bsg_view_obj_group_of_solid(s->gedp, illump);
     edobj = 0;		/* sanity */
     movedir = 0;		/* No edit modes set */
     MAT_IDN(MEDIT(s)->model_changes);	/* No changes yet */

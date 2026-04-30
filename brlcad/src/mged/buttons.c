@@ -551,30 +551,14 @@ bv_35_25(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), ch
 /* returns 0 if error, !0 if success */
 static int
 ill_common(struct mged_state *s) {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
-    int is_empty = 1;
-
     /* Common part of illumination */
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	if (BU_LIST_NON_EMPTY(&gdlp->dl_head_scene_obj)) {
-	    is_empty = 0;
-	    break;
-	}
-
-	gdlp = next_gdlp;
-    }
-
-    if (is_empty) {
+    if (!bsg_view_obj_is_nonempty(s->gedp)) {
 	Tcl_AppendResult(s->interp, "no solids in view\n", (char *)NULL);
 	return 0;	/* BAD */
     }
 
-    illum_gdlp = gdlp;
-    illump = BU_LIST_NEXT(bv_scene_obj, &gdlp->dl_head_scene_obj);/* any valid solid would do */
+    illump = bsg_view_obj_first_solid(s->gedp);
+    illum_gdlp = (struct display_list *)bsg_view_obj_group_of_solid(s->gedp, illump);
     illump->s_iflag = UP;
     edobj = 0;		/* sanity */
     edsol = 0;		/* sanity */
