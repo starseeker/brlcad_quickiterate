@@ -395,7 +395,7 @@ test_p0_desc_coverage(void)
         ID_EBM, ID_VOL, ID_PIPE, ID_PARTICLE,
         ID_RPC, ID_RHC, ID_EPA, ID_EHY, ID_ETO,
         ID_DSP, ID_CLINE, ID_COMBINATION,
-        ID_SUPERELL, ID_HYP,
+        ID_SUPERELL, ID_HYP, ID_EXTRUDE,
         -1
     };
     for (int i = 0; typed_prims[i] >= 0; i++) {
@@ -413,7 +413,7 @@ test_p0_no_desc_returns_error(void)
 {
     static const int no_desc[] = {
         ID_ARB8, ID_ARS, ID_HALF, ID_SPH, ID_NMG, ID_ARBN,
-        ID_BOT, ID_SKETCH, ID_EXTRUDE, ID_HRT,
+        ID_BOT, ID_SKETCH, ID_HRT,
         -1
     };
     for (int i = 0; no_desc[i] >= 0; i++) {
@@ -2052,6 +2052,382 @@ test_p3_list_all_prim_ops_json(struct ged *gedp)
 
 
 /* ================================================================== *
+ * Section 4 — Phase 4 descriptor completeness
+ * ================================================================== */
+
+/* ------------------------------------------------------------------ *
+ * Helper: read rt_tgc_internal                                       *
+ * ------------------------------------------------------------------ */
+static int
+read_tgc(struct ged *gedp, const char *name, struct rt_tgc_internal *out)
+{
+    struct directory *dp = db_lookup(gedp->dbip, name, LOOKUP_QUIET);
+    if (dp == RT_DIR_NULL)
+        return BRLCAD_ERROR;
+    struct rt_db_internal intern;
+    RT_DB_INTERNAL_INIT(&intern);
+    if (rt_db_get_internal(&intern, dp, gedp->dbip, NULL) < 0)
+        return BRLCAD_ERROR;
+    if (intern.idb_minor_type != DB5_MINORTYPE_BRLCAD_TGC) {
+        rt_db_free_internal(&intern);
+        return BRLCAD_ERROR;
+    }
+    *out = *(struct rt_tgc_internal *)intern.idb_ptr;
+    intern.idb_ptr = NULL;
+    rt_db_free_internal(&intern);
+    return BRLCAD_OK;
+}
+
+/* ------------------------------------------------------------------ *
+ * Helper: read rt_eto_internal                                       *
+ * ------------------------------------------------------------------ */
+static int
+read_eto(struct ged *gedp, const char *name, struct rt_eto_internal *out)
+{
+    struct directory *dp = db_lookup(gedp->dbip, name, LOOKUP_QUIET);
+    if (dp == RT_DIR_NULL)
+        return BRLCAD_ERROR;
+    struct rt_db_internal intern;
+    RT_DB_INTERNAL_INIT(&intern);
+    if (rt_db_get_internal(&intern, dp, gedp->dbip, NULL) < 0)
+        return BRLCAD_ERROR;
+    if (intern.idb_minor_type != DB5_MINORTYPE_BRLCAD_ETO) {
+        rt_db_free_internal(&intern);
+        return BRLCAD_ERROR;
+    }
+    *out = *(struct rt_eto_internal *)intern.idb_ptr;
+    intern.idb_ptr = NULL;
+    rt_db_free_internal(&intern);
+    return BRLCAD_OK;
+}
+
+/* ------------------------------------------------------------------ *
+ * Helper: read rt_cline_internal                                     *
+ * ------------------------------------------------------------------ */
+static int
+read_cline(struct ged *gedp, const char *name, struct rt_cline_internal *out)
+{
+    struct directory *dp = db_lookup(gedp->dbip, name, LOOKUP_QUIET);
+    if (dp == RT_DIR_NULL)
+        return BRLCAD_ERROR;
+    struct rt_db_internal intern;
+    RT_DB_INTERNAL_INIT(&intern);
+    if (rt_db_get_internal(&intern, dp, gedp->dbip, NULL) < 0)
+        return BRLCAD_ERROR;
+    if (intern.idb_minor_type != DB5_MINORTYPE_BRLCAD_CLINE) {
+        rt_db_free_internal(&intern);
+        return BRLCAD_ERROR;
+    }
+    *out = *(struct rt_cline_internal *)intern.idb_ptr;
+    intern.idb_ptr = NULL;
+    rt_db_free_internal(&intern);
+    return BRLCAD_OK;
+}
+
+/* ------------------------------------------------------------------ *
+ * Helper: read rt_hyp_internal                                       *
+ * ------------------------------------------------------------------ */
+static int
+read_hyp(struct ged *gedp, const char *name, struct rt_hyp_internal *out)
+{
+    struct directory *dp = db_lookup(gedp->dbip, name, LOOKUP_QUIET);
+    if (dp == RT_DIR_NULL)
+        return BRLCAD_ERROR;
+    struct rt_db_internal intern;
+    RT_DB_INTERNAL_INIT(&intern);
+    if (rt_db_get_internal(&intern, dp, gedp->dbip, NULL) < 0)
+        return BRLCAD_ERROR;
+    if (intern.idb_minor_type != DB5_MINORTYPE_BRLCAD_HYP) {
+        rt_db_free_internal(&intern);
+        return BRLCAD_ERROR;
+    }
+    *out = *(struct rt_hyp_internal *)intern.idb_ptr;
+    intern.idb_ptr = NULL;
+    rt_db_free_internal(&intern);
+    return BRLCAD_OK;
+}
+
+/* 4-0: tgc move_end_h_rt — POINT param moves H endpoint */
+static void
+test_p4_tgc_move_end_h_rt(struct ged *gedp)
+{
+    /* tgc.s: V={20,0,0}, H={0,0,10}; move H endpoint to (20,0,15) */
+    const char *av[] = { "edit", "tgc.s", "move_end_h_rt", "20", "0", "15", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 6, av) == BRLCAD_OK,
+          "tgc move_end_h_rt 20 0 15 returns OK");
+    struct rt_tgc_internal tgc;
+    if (read_tgc(gedp, "tgc.s", &tgc) == BRLCAD_OK) {
+        /* new H = endpoint - V = {0,0,15} */
+        CHECK(NEAR_EQUAL(MAGNITUDE(tgc.h), 15.0, 0.2),
+              "tgc: |H| ≈ 15 after move_end_h_rt to (20,0,15)");
+    } else {
+        CHECK(0, "tgc: read_tgc succeeded after move_end_h_rt");
+    }
+}
+
+/* 4-1: tgc move_end_h — POINT param, leave ends alone */
+static void
+test_p4_tgc_move_end_h(struct ged *gedp)
+{
+    const char *av[] = { "edit", "tgc.s", "move_end_h", "20", "0", "12", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 6, av) == BRLCAD_OK,
+          "tgc move_end_h 20 0 12 returns OK");
+    struct rt_tgc_internal tgc;
+    if (read_tgc(gedp, "tgc.s", &tgc) == BRLCAD_OK) {
+        CHECK(NEAR_EQUAL(MAGNITUDE(tgc.h), 12.0, 0.2),
+              "tgc: |H| ≈ 12 after move_end_h to (20,0,12)");
+    } else {
+        CHECK(0, "tgc: read_tgc succeeded after move_end_h");
+    }
+}
+
+/* 4-2: tgc rotate_h — VECTOR (degrees) rotates the H vector */
+static void
+test_p4_tgc_rotate_h(struct ged *gedp)
+{
+    /* Rotate H 90° around Y: initial H is approx (0,0,12), after rotation
+     * it should point roughly along +X with the same magnitude. */
+    const char *av[] = { "edit", "tgc.s", "rotate_h", "0", "90", "0", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 6, av) == BRLCAD_OK,
+          "tgc rotate_h 0 90 0 returns OK");
+    struct rt_tgc_internal tgc;
+    if (read_tgc(gedp, "tgc.s", &tgc) == BRLCAD_OK) {
+        /* H magnitude must be preserved; direction should have changed */
+        double mag = MAGNITUDE(tgc.h);
+        CHECK(mag > 0.1, "tgc: |H| > 0 after rotate_h");
+        /* After 90° around Y, Z component should be near zero */
+        CHECK(fabs(tgc.h[Z]) < 1.0,
+              "tgc: H[Z] ≈ 0 after 90° Y-rotation");
+    } else {
+        CHECK(0, "tgc: read_tgc succeeded after rotate_h");
+    }
+}
+
+/* 4-3: tgc rotate_axb — VECTOR (degrees) rotates A,B,C,D vectors */
+static void
+test_p4_tgc_rotate_axb(struct ged *gedp)
+{
+    /* Rotate AxB by 45° around Z */
+    struct rt_tgc_internal before;
+    if (read_tgc(gedp, "tgc.s", &before) != BRLCAD_OK) {
+        CHECK(0, "tgc: read_tgc before rotate_axb"); return;
+    }
+    const char *av[] = { "edit", "tgc.s", "rotate_axb", "0", "0", "45", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 6, av) == BRLCAD_OK,
+          "tgc rotate_axb 0 0 45 returns OK");
+    struct rt_tgc_internal after;
+    if (read_tgc(gedp, "tgc.s", &after) == BRLCAD_OK) {
+        /* |A| must be preserved */
+        CHECK(NEAR_EQUAL(MAGNITUDE(after.a), MAGNITUDE(before.a), 0.3),
+              "tgc: |A| preserved after rotate_axb 45°");
+    } else {
+        CHECK(0, "tgc: read_tgc succeeded after rotate_axb");
+    }
+}
+
+/* 4-4: eto rotate_c — VECTOR (degrees) rotates the C vector */
+static void
+test_p4_eto_rotate_c(struct ged *gedp)
+{
+    /* eto.s: C = {8,0,2} — rotate 90° around Z */
+    struct rt_eto_internal before;
+    if (read_eto(gedp, "eto.s", &before) != BRLCAD_OK) {
+        CHECK(0, "eto: read_eto before rotate_c"); return;
+    }
+    const char *av[] = { "edit", "eto.s", "rotate_c", "0", "0", "90", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 6, av) == BRLCAD_OK,
+          "eto rotate_c 0 0 90 returns OK");
+    struct rt_eto_internal after;
+    if (read_eto(gedp, "eto.s", &after) == BRLCAD_OK) {
+        /* |C| must be preserved */
+        double mag_before = MAGNITUDE(before.eto_C);
+        double mag_after  = MAGNITUDE(after.eto_C);
+        CHECK(NEAR_EQUAL(mag_before, mag_after, 0.3),
+              "eto: |C| preserved after rotate_c 90°");
+        /* Direction must have changed */
+        CHECK(!NEAR_EQUAL(before.eto_C[X], after.eto_C[X], 0.5),
+              "eto: C[X] changed after rotate_c 90°");
+    } else {
+        CHECK(0, "eto: read_eto succeeded after rotate_c");
+    }
+}
+
+/* 4-5: cline move_end_h — POINT param relocates the H endpoint */
+static void
+test_p4_cline_move_end_h(struct ged *gedp)
+{
+    /* cline.s: V={80,40,0}, H={0,0,15}; move endpoint to (80,40,10) */
+    const char *av[] = { "edit", "cline.s", "move_end_h", "80", "40", "10", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 6, av) == BRLCAD_OK,
+          "cline move_end_h 80 40 10 returns OK");
+    struct rt_cline_internal cli;
+    if (read_cline(gedp, "cline.s", &cli) == BRLCAD_OK) {
+        /* new H = endpoint - V = {0,0,10} */
+        CHECK(NEAR_EQUAL(MAGNITUDE(cli.h), 10.0, 0.2),
+              "cline: |H| ≈ 10 after move_end_h to (80,40,10)");
+    } else {
+        CHECK(0, "cline: read_cline succeeded after move_end_h");
+    }
+}
+
+/* 4-6: hyp rotate_h — VECTOR (degrees) rotates the H vector */
+static void
+test_p4_hyp_rotate_h(struct ged *gedp)
+{
+    /* hyp.s: H={0,0,10}; rotate 90° around X */
+    struct rt_hyp_internal before;
+    if (read_hyp(gedp, "hyp.s", &before) != BRLCAD_OK) {
+        CHECK(0, "hyp: read_hyp before rotate_h"); return;
+    }
+    const char *av[] = { "edit", "hyp.s", "rotate_h", "90", "0", "0", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 6, av) == BRLCAD_OK,
+          "hyp rotate_h 90 0 0 returns OK");
+    struct rt_hyp_internal after;
+    if (read_hyp(gedp, "hyp.s", &after) == BRLCAD_OK) {
+        /* |H| must be preserved */
+        double mag_before = MAGNITUDE(before.hyp_Hi);
+        double mag_after  = MAGNITUDE(after.hyp_Hi);
+        CHECK(NEAR_EQUAL(mag_before, mag_after, 0.3),
+              "hyp: |H| preserved after rotate_h 90°");
+        /* Z component should now be near zero after 90° X rotation */
+        CHECK(fabs(after.hyp_Hi[Z]) < 1.0,
+              "hyp: H[Z] ≈ 0 after 90° X-rotation");
+    } else {
+        CHECK(0, "hyp: read_hyp succeeded after rotate_h");
+    }
+}
+
+/* 4-7: extrude --list-ops shows the extrude descriptor (no object needed) */
+static void
+test_p4_extrude_list_ops(struct ged *gedp)
+{
+    const char *av[] = { "edit", "extrude", "--list-ops", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 3, av) == BRLCAD_OK,
+          "edit extrude --list-ops returns OK");
+    const char *out = bu_vls_cstr(gedp->ged_result_str);
+    CHECK(out && strlen(out) > 10,
+          "edit extrude --list-ops output is non-empty");
+    CHECK(out && strstr(out, "Extrusion") != NULL,
+          "edit extrude --list-ops mentions 'Extrusion'");
+    CHECK(out && strstr(out, "set_h") != NULL,
+          "edit extrude --list-ops lists 'set_h'");
+    CHECK(out && strstr(out, "move_end_h") != NULL,
+          "edit extrude --list-ops lists 'move_end_h'");
+    CHECK(out && strstr(out, "rotate_h") != NULL,
+          "edit extrude --list-ops lists 'rotate_h'");
+}
+
+/* 4-8: extrude --list-ops=json returns valid JSON descriptor */
+static void
+test_p4_extrude_list_ops_json(struct ged *gedp)
+{
+    const char *av[] = { "edit", "extrude", "--list-ops=json", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 3, av) == BRLCAD_OK,
+          "edit extrude --list-ops=json returns OK");
+    const char *json = bu_vls_cstr(gedp->ged_result_str);
+    CHECK(json && strstr(json, "\"extrude\"") != NULL,
+          "edit extrude --list-ops=json contains '\"extrude\"'");
+    CHECK(json && strstr(json, "\"Set H\"") != NULL,
+          "edit extrude --list-ops=json contains '\"Set H\"'");
+}
+
+/* 4-9: tgc --list-ops now includes the new move/rotation ops */
+static void
+test_p4_tgc_list_ops_complete(struct ged *gedp)
+{
+    const char *av[] = { "edit", "tgc", "--list-ops", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 3, av) == BRLCAD_OK,
+          "edit tgc --list-ops returns OK");
+    const char *out = bu_vls_cstr(gedp->ged_result_str);
+    CHECK(out && strstr(out, "move_end_h_rt") != NULL,
+          "edit tgc --list-ops lists 'move_end_h_rt'");
+    CHECK(out && strstr(out, "rotate_h") != NULL,
+          "edit tgc --list-ops lists 'rotate_h'");
+    CHECK(out && strstr(out, "rotate_axb") != NULL,
+          "edit tgc --list-ops lists 'rotate_axb'");
+}
+
+/* 4-10: cline --list-ops now includes move_end_h */
+static void
+test_p4_cline_list_ops_complete(struct ged *gedp)
+{
+    const char *av[] = { "edit", "cline", "--list-ops", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 3, av) == BRLCAD_OK,
+          "edit cline --list-ops returns OK");
+    const char *out = bu_vls_cstr(gedp->ged_result_str);
+    CHECK(out && strstr(out, "move_end_h") != NULL,
+          "edit cline --list-ops lists 'move_end_h'");
+}
+
+/* 4-11: hyp --list-ops now includes rotate_h */
+static void
+test_p4_hyp_list_ops_complete(struct ged *gedp)
+{
+    const char *av[] = { "edit", "hyp", "--list-ops", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 3, av) == BRLCAD_OK,
+          "edit hyp --list-ops returns OK");
+    const char *out = bu_vls_cstr(gedp->ged_result_str);
+    CHECK(out && strstr(out, "rotate_h") != NULL,
+          "edit hyp --list-ops lists 'rotate_h'");
+}
+
+/* 4-12: eto --list-ops now includes rotate_c */
+static void
+test_p4_eto_list_ops_complete(struct ged *gedp)
+{
+    const char *av[] = { "edit", "eto", "--list-ops", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 3, av) == BRLCAD_OK,
+          "edit eto --list-ops returns OK");
+    const char *out = bu_vls_cstr(gedp->ged_result_str);
+    CHECK(out && strstr(out, "rotate_c") != NULL,
+          "edit eto --list-ops lists 'rotate_c'");
+}
+
+/* 4-13: tgc move_end_h_adj_c_d — POINT param (adj C,D variant) */
+static void
+test_p4_tgc_move_end_h_adj_cd(struct ged *gedp)
+{
+    const char *av[] = { "edit", "tgc.s", "move_end_h_adj_c_d", "20", "0", "8", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 6, av) == BRLCAD_OK,
+          "tgc move_end_h_adj_c_d 20 0 8 returns OK");
+    struct rt_tgc_internal tgc;
+    if (read_tgc(gedp, "tgc.s", &tgc) == BRLCAD_OK) {
+        double mag = MAGNITUDE(tgc.h);
+        CHECK(mag > 0.1, "tgc: |H| > 0 after move_end_h_adj_c_d");
+    } else {
+        CHECK(0, "tgc: read_tgc succeeded after move_end_h_adj_c_d");
+    }
+}
+
+/* 4-14: extrude is in --list-all-prim-ops */
+static void
+test_p4_all_prim_ops_has_extrude(struct ged *gedp)
+{
+    const char *av[] = { "edit", "--list-all-prim-ops=json", NULL };
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    CHECK(ged_exec(gedp, 2, av) == BRLCAD_OK,
+          "edit --list-all-prim-ops=json still returns OK after extrude added");
+    const char *json = bu_vls_cstr(gedp->ged_result_str);
+    CHECK(json && strstr(json, "\"extrude\"") != NULL,
+          "edit --list-all-prim-ops=json includes '\"extrude\"'");
+}
+
+
+/* ================================================================== *
  * main
  * ================================================================== */
 
@@ -2309,6 +2685,47 @@ main(int ac, char *av[])
         ged_close(gedp);
     }
     bu_vls_free(&p3_path);
+
+    /* ---------------------------------------------------------------- *
+     * Section 4 — Phase 4: complete descriptor coverage
+     * Uses the Phase 0 fixture (all needed primitives already there).
+     * ---------------------------------------------------------------- */
+    struct bu_vls p4_path = BU_VLS_INIT_ZERO;
+    if (make_temp_path(&p4_path) != BRLCAD_OK) {
+        bu_log("ERROR: cannot create temp file for section 4\n"); return 1;
+    }
+    if (create_p0_fixture(bu_vls_cstr(&p4_path)) != BRLCAD_OK) {
+        bu_log("ERROR: section 4 fixture creation failed\n");
+        bu_vls_free(&p4_path); return 1;
+    }
+    {
+        struct ged *gedp = open_fixture(bu_vls_cstr(&p4_path));
+        if (!gedp) { bu_log("ERROR: ged_open failed (section 4)\n"); bu_vls_free(&p4_path); return 1; }
+        bu_log("\n--- Section 4: Phase 4 descriptor completeness ---\n");
+        bu_log("--- tgc: new POINT and VECTOR ops ---\n");
+        test_p4_tgc_move_end_h_rt(gedp);
+        test_p4_tgc_move_end_h(gedp);
+        test_p4_tgc_rotate_h(gedp);
+        test_p4_tgc_rotate_axb(gedp);
+        test_p4_tgc_move_end_h_adj_cd(gedp);
+        bu_log("--- eto: ROT_C ---\n");
+        test_p4_eto_rotate_c(gedp);
+        bu_log("--- cline: MOVE_H ---\n");
+        test_p4_cline_move_end_h(gedp);
+        bu_log("--- hyp: ROT_H ---\n");
+        test_p4_hyp_rotate_h(gedp);
+        bu_log("--- extrude: new descriptor ---\n");
+        test_p4_extrude_list_ops(gedp);
+        test_p4_extrude_list_ops_json(gedp);
+        test_p4_all_prim_ops_has_extrude(gedp);
+        bu_log("--- --list-ops completeness checks ---\n");
+        test_p4_tgc_list_ops_complete(gedp);
+        test_p4_cline_list_ops_complete(gedp);
+        test_p4_hyp_list_ops_complete(gedp);
+        test_p4_eto_list_ops_complete(gedp);
+        ged_close(gedp);
+    }
+    bu_vls_free(&p4_path);
 
     /* ---------------------------------------------------------------- *
      * Summary

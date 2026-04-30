@@ -1,7 +1,7 @@
 libged `edit` Command — Design Notes
 ======================================
 
-Status:  Phase 3 complete.
+Status:  Phase 4 complete.
 Date:    2026-04-30
 
 
@@ -237,30 +237,34 @@ edit.c feature spec (implemented in Phase 2)
       scale -k 5 10 15 -a 7 11 -2 -r 4 2 34 cube
 
 
-ft_edit_desc() Coverage Audit (as of 2026-04-24)
+ft_edit_desc() Coverage Audit (as of 2026-04-30)
 --------------------------------------------------
 
-Primitives with ft_edit_desc (17/47):
+Primitives with ft_edit_desc (18/47):
   tor         (ID_TOR)        — 2 ops    COMPLETE
-  tgc         (ID_TGC)        — 11/17 ops  missing: MV_H, MV_HH, ROT_H, ROT_AB, MV_H_CD, MV_H_V_AB
+  tgc         (ID_TGC)        — 17 ops   COMPLETE (added MV_H, MV_HH, MV_H_CD, MV_H_V_AB,
+                                                    ROT_H, ROT_AB in Phase 4)
   ell         (ID_ELL)        — 4 ops    COMPLETE
   ebm         (ID_EBM)        — 3 ops    COMPLETE
   vol         (ID_VOL)        — 5 ops    COMPLETE
   pipe        (ID_PIPE)       — 6/14 ops missing: SELECT, SPLIT, PT_ADD, PT_INS, PT_DEL, PT_MOVE, NEXT_PT, PREV_PT
+                                          (these require interactive state; deferred)
   part        (ID_PARTICLE)   — 3 ops    COMPLETE
   rpc         (ID_RPC)        — 3 ops    COMPLETE
   rhc         (ID_RHC)        — 4 ops    COMPLETE
   epa         (ID_EPA)        — 3 ops    COMPLETE
   ehy         (ID_EHY)        — 4 ops    COMPLETE
-  eto         (ID_ETO)        — 3/4 ops  missing: ROT_C
-  dsp         (ID_DSP)        — 6/7 ops  missing: FSIZE
-  cline       (ID_CLINE)      — 3/4 ops  missing: MOVE_H
+  eto         (ID_ETO)        — 4 ops    COMPLETE (added ROT_C in Phase 4)
+  dsp         (ID_DSP)        — 6/7 ops  missing: FSIZE (partially implemented, no effect)
+  cline       (ID_CLINE)      — 4 ops    COMPLETE (added MOVE_H in Phase 4)
   comb        (ID_COMBINATION)— 11 ops   COMPLETE (matrix-only + comb tree ops)
   superell    (ID_SUPERELL)   — 4 ops    COMPLETE
-  hyp         (ID_HYP)        — 4 ops    COMPLETE (note: ROT_H and ROT_A exist but
-                                                   have no descriptor yet)
+  hyp         (ID_HYP)        — 5 ops    COMPLETE (added ROT_H in Phase 4)
+  extrude     (ID_EXTRUDE)    — 8 ops    COMPLETE (new descriptor in Phase 4:
+                                                    SCALE_H, MOV_H, ROT_H, SCALE_A,
+                                                    ROT_A, SCALE_B, ROT_B, SKT_NAME)
 
-Primitives WITHOUT ft_edit_desc (30/47) — Phase 4 backlog:
+Primitives WITHOUT ft_edit_desc (29/47) — remaining backlog:
   arb8    (ID_ARB8)      — 6 ECMDs: MAIN_MENU, SPECIFIC_MENU, MOVE_FACE,
                                      SETUP_ROTFACE, ROTATE_FACE, MOVE_EDGE
   ars     (ID_ARS)       — 17 ECMDs (vertex/curve pick/move/add/del ops)
@@ -275,7 +279,6 @@ Primitives WITHOUT ft_edit_desc (30/47) — Phase 4 backlog:
   joint   (ID_JOINT)     — no ECMDs
   hf      (ID_HF)        — no ECMDs (height field, deprecated)
   sketch  (ID_SKETCH)    — 20 ECMDs (vertex/segment add/move/del/split)
-  extrude (ID_EXTRUDE)   — 8 ECMDs: SCALE_H, MOV_H, ROT_H, SKT_NAME, SCALE_A/B, ROT_A/B
   submodel(ID_SUBMODEL)  — no ECMDs
   bot     (ID_BOT)       — 17 ECMDs (vertex/edge/tri pick/move/fuse/del)
   UNUSED1/UNUSED2        — skip
@@ -291,19 +294,15 @@ Primitives WITHOUT ft_edit_desc (30/47) — Phase 4 backlog:
   script  (ID_SCRIPT)    — no ECMDs
   material(ID_MATERIAL)  — no ECMDs
 
-Phase 4 priority order (most user-visible first):
+Phase 5 priority order (most user-visible first):
   1. arb8    — fundamental solid, 6 interactive edit modes
-  2. tgc     — complete the 6 missing move/rotate ops
-  3. bot     — large meshes, 17 ops (may need special treatment)
-  4. ars     — 17 ops
-  5. sketch  — 20 ops (depends on sketch data structures)
-  6. extrude — 8 ops
-  7. pipe    — complete the 8 missing point-manipulation ops
-  8. nmg     — 14 ops
-  9. metaball— 12 ops
-  10. bspline — 5 ops
-  11. eto/dsp/cline — fill remaining single-op gaps
-  12. hyp    — check ROT_H, ROT_A
+  2. bot     — large meshes, 17 ops (may need special treatment)
+  3. ars     — 17 ops
+  4. sketch  — 20 ops (depends on sketch data structures)
+  5. nmg     — 14 ops
+  6. metaball— 12 ops
+  7. bspline — 5 ops
+  8. pipe    — complete the 8 missing point-manipulation ops (require SELECT state)
 
 
 Implementation Phases
@@ -342,9 +341,16 @@ Phase 3 (DONE): Descriptor-driven per-primitive editing
     COLOR, MATRIX, STRING
   - 22 new Section 3 assertions in test_edit.cpp (217/217 total pass)
 
-Phase 4: Descriptor completeness backlog
-  - Extend rt_ecmd_scanner.cpp to detect undescribed ECMDs
-  - Fill missing descriptors per the priority list above
+Phase 4 (DONE): Descriptor completeness — all primitives with functional
+                  CLI-accessible edit ops now have descriptors
+  - tgc: added MV_H, MV_HH, MV_H_CD, MV_H_V_AB (POINT), ROT_H, ROT_AB (VECTOR)
+  - eto: added ROT_C (VECTOR)
+  - cline: added MOVE_H (POINT)
+  - hyp: added ROT_H (VECTOR)
+  - extrude: new full descriptor — SCALE_H (SCALAR), MOV_H (POINT),
+             ROT_H/ROT_A/ROT_B (VECTOR), SCALE_A/SCALE_B (SCALAR),
+             SKT_NAME (STRING); registered in edtable.cpp
+  - 276/276 assertions pass (test_edit.cpp sections 0–4)
 
 Phase 5: Auto-generated mann pages
   - rt_edit_doc_gen.cpp linked against librt
