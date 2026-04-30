@@ -373,11 +373,11 @@ ged_gdiff_core(struct ged *gedp, int argc, const char *argv[])
 
 	/* Clear any previous diff drawing */
 	if (db_lookup(gedp->dbip, "diff_visualff", LOOKUP_QUIET) != RT_DIR_NULL)
-	    dl_erasePathFromDisplay(gedp, "diff_visualff", 1);
+	    bsg_view_obj_erase_by_path(gedp, "diff_visualff", 1);
 	if (db_lookup(gedp->dbip, "diff_visualff0000", LOOKUP_QUIET) != RT_DIR_NULL)
-	    dl_erasePathFromDisplay(gedp, "diff_visualff0000", 1);
+	    bsg_view_obj_erase_by_path(gedp, "diff_visualff0000", 1);
 	if (db_lookup(gedp->dbip, "diff_visualffffff", LOOKUP_QUIET) != RT_DIR_NULL)
-	    dl_erasePathFromDisplay(gedp, "diff_visualffffff", 1);
+	    bsg_view_obj_erase_by_path(gedp, "diff_visualffffff", 1);
 
 	/* Draw left-only lines */
 	if (view_left) {

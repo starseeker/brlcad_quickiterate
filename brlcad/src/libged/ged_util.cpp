@@ -1230,7 +1230,7 @@ _ged_cvt_vlblock_to_solids(struct ged *gedp, struct bv_vlblock *vbp, const char 
 	if (BU_LIST_IS_EMPTY(&(vbp->head[i])))
 	    continue;
 	snprintf(namebuf, 64, "%s%lx", shortname, vbp->rgb[i]);
-	invent_solid(gedp, namebuf, &vbp->head[i], vbp->rgb[i], copy, 1.0, 0, 0);
+	bsg_view_obj_invent(gedp, namebuf, &vbp->head[i], vbp->rgb[i], copy, 1.0, 0, 0);
     }
 }
 
@@ -1713,7 +1713,7 @@ _ged_rt_set_eye_model(struct ged *gedp,
 	    if (local_db_objs)
 		(void)scene_bounding_sph(local_db_objs, &(extremum[0]), &(extremum[1]), 1);
 	} else {
-	    (void)dl_bounding_sph(gedp->i->ged_gdp->gd_headDisplay, &(extremum[0]), &(extremum[1]), 1);
+	    (void)bsg_view_obj_bounds(gedp, &(extremum[0]), &(extremum[1]), 1);
 	}
 
 	VMOVEN(direction, gedp->ged_gvp->gv_rotation + 8, 3);

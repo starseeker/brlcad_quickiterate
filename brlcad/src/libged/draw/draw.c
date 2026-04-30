@@ -1199,7 +1199,7 @@ _ged_drawtrees(struct ged *gedp, int argc, const char *argv[], int kind, struct 
 
 		for (i = 0; i < argc; ++i) {
 		    if (drawtrees_depth == 1)
-			dgcdp.gdlp = dl_addToDisplay(gedp->i->ged_gdp->gd_headDisplay, gedp->dbip, argv[i]);
+			dgcdp.gdlp = (struct display_list *)bsg_view_obj_lookup_or_add_path(gedp, argv[i]);
 
 		    if (dgcdp.gdlp == GED_DISPLAY_LIST_NULL)
 			continue;
@@ -1258,7 +1258,7 @@ _ged_drawtrees(struct ged *gedp, int argc, const char *argv[], int kind, struct 
 		    bv_data.dmode = dgcdp.vs.s_dmode;
 		    bv_data.v = gedp->ged_gvp;
 
-		    dgcdp.gdlp = dl_addToDisplay(gedp->i->ged_gdp->gd_headDisplay, gedp->dbip, argv[i]);
+		    dgcdp.gdlp = (struct display_list *)bsg_view_obj_lookup_or_add_path(gedp, argv[i]);
 		    bv_data.gdlp = dgcdp.gdlp;
 
 		    /* store draw path */
@@ -1329,7 +1329,7 @@ _ged_drawtrees(struct ged *gedp, int argc, const char *argv[], int kind, struct 
 
 		for (i = 0; i < argc; ++i) {
 		    if (drawtrees_depth == 1)
-			dgcdp.gdlp = dl_addToDisplay(gedp->i->ged_gdp->gd_headDisplay, gedp->dbip, argv[i]);
+			dgcdp.gdlp = (struct display_list *)bsg_view_obj_lookup_or_add_path(gedp, argv[i]);
 
 		    if (dgcdp.gdlp == GED_DISPLAY_LIST_NULL)
 			continue;
@@ -1533,7 +1533,7 @@ ged_draw_guts(struct ged *gedp, int argc, const char *argv[], int kind)
 		continue;
 	    }
 
-	    dl_erasePathFromDisplay(gedp, new_argv[i], 0);
+	    bsg_view_obj_erase_by_path(gedp, new_argv[i], 0);
 	}
 
 	drawtrees_retval = _ged_drawtrees(gedp, new_argc, (const char **)new_argv, kind, (struct _ged_client_data *)0);
@@ -1567,7 +1567,7 @@ ged_draw_guts(struct ged *gedp, int argc, const char *argv[], int kind)
 		continue;
 	    }
 
-	    dl_erasePathFromDisplay(gedp, argv[i], 0);
+	    bsg_view_obj_erase_by_path(gedp, argv[i], 0);
 	}
 
 	/* if our display is non-empty add -R to keep current view */

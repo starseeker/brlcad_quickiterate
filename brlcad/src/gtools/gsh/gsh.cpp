@@ -187,7 +187,7 @@ DisplayHash::hash(struct ged *gedp, bool dbi_state_check, bool new_cmd_forms)
 	    l = 0;
 	}
     } else {
-	l = dl_name_hash(gedp);
+	l = bsg_view_obj_name_hash(gedp);
     }
 
     g = ged_dl_hash(ged_dl(gedp));

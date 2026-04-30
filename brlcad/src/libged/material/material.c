@@ -388,7 +388,7 @@ destroy_material(struct ged *gedp, int argc, const char *argv[])
     /* initialize result */
     bu_vls_trunc(gedp->ged_result_str, 0);
 
-    _dl_eraseAllNamesFromDisplay(gedp, argv[2], 0);
+    bsg_view_obj_erase_by_name(gedp, argv[2], 0);
 
     if ((dp = db_lookup(gedp->dbip,  argv[2], 0)) != RT_DIR_NULL) {
 	if (dp->d_major_type == DB5_MAJORTYPE_ATTRIBUTE_ONLY && dp->d_minor_type == 0) {

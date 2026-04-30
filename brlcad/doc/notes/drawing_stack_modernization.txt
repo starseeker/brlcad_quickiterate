@@ -794,3 +794,41 @@ Deprecation policy
                 bsg_view_obj_* and then swap the wrappers' bodies for a
                 pure BSG view-tree implementation before deleting
                 display_list.c.
+
+  2026-04-30  Phase 6.5 Step 2 complete — libged caller migration.
+              All 32 dl_* / _dl_* / invent_solid call sites in libged
+                (28), mged (3), and gtools/gsh (1) now go through the
+                bsg_view_obj_* wrappers stood up in Step 1.  Files
+                touched:
+                  src/gtools/gsh/gsh.cpp
+                  src/libged/color/color.c
+                  src/libged/concat/concat.cpp
+                  src/libged/draw/{draw,bigE}.c
+                  src/libged/erase/erase.c
+                  src/libged/gdiff/gdiff.c
+                  src/libged/ged_util.cpp
+                  src/libged/get_autoview/get_autoview.c
+                  src/libged/joint/joint.c
+                  src/libged/kill/kill.c, killrefs/killrefs.c,
+                    killtree/killtree.c
+                  src/libged/material/material.c
+                  src/libged/nirt/nirt.cpp
+                  src/libged/remove/remove.c
+                  src/libged/rtcheck/rtcheck.c
+                  src/libged/vdraw/vdraw.c
+                  src/libged/view/autoview.c
+                  src/mged/buttons.c, mged/mater.c
+              include/ged/view.h now pulls in ged/bsg_view_obj.h, so
+                no per-file include churn was needed.
+              Behavior is bit-identical (wrappers still delegate to
+                dl_*).  ged_test_bsg_view_obj 27/27 PASS.  Steps 3, 4,
+                5, 6, 7 still deferred.
+
+              Note on the MGED Tier-2 risk hotspot: mged/buttons.c and
+                mged/mater.c only call dl_set_iflag and dl_color_soltab
+                — those are *not* the dangerous illuminate/edit/usepen
+                paths flagged by the original audit.  The genuinely
+                struct-coupled MGED sites (usepen.c, edsol.c, chgview.c,
+                chgtree.c, dodraw.c, plot.c, set.c, cmd.cpp, rtif.c)
+                still walk gdlp->dl_head_scene_obj directly and remain
+                the subject of the deferred Step 4.

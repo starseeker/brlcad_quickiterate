@@ -69,7 +69,7 @@ ged_killrefs_core(struct ged *gedp, int argc, const char *argv[])
 
     if (!nflag && !gedp->ged_internal_call) {
 	for (k = 1; k < argc; k++)
-	    _dl_eraseAllNamesFromDisplay(gedp, argv[k], 1);
+	    bsg_view_obj_erase_by_name(gedp, argv[k], 1);
     }
 
     ret = BRLCAD_OK;
