@@ -231,7 +231,13 @@ dl_redraw(struct display_list *gdlp, struct ged *gedp, int skip_subtractions)
 	    ret += redraw_solid(sp, dbip, tsp, gvp, vlfree);
 	}
     }
-    ged_create_vlist_display_list_cb(gedp, gdlp);
+    /* Phase 6.5 Step 3: fire the per-solid vlist callback for each solid
+     * instead of the display-list-level callback.  The display_list callback
+     * was purely a batch iterator over the same set of solids; inlining that
+     * loop here removes the last libged dependency on
+     * ged_create_vlist_display_list_callback. */
+    for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj))
+	ged_create_vlist_solid_cb(gedp, sp);
     return ret;
 }
 

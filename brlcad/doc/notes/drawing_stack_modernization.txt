@@ -832,3 +832,31 @@ Deprecation policy
                 chgtree.c, dodraw.c, plot.c, set.c, cmd.cpp, rtif.c)
                 still walk gdlp->dl_head_scene_obj directly and remain
                 the subject of the deferred Step 4.
+
+  2026-04-30  Phase 6.5 Step 3 complete — libtclcad to_create_vlist_callback
+              migration.
+
+              The two call sites of ged_create_vlist_display_list_cb() in
+                libged (draw/draw.c:dl_redraw and
+                set_transparency/set_transparency.c) are replaced with an
+                inline loop calling ged_create_vlist_solid_cb() for each
+                solid.  The display-list-level callback was purely a batch
+                iterator over the same solid set; inlining it removes the
+                last libged dependency on
+                ged_create_vlist_display_list_callback.
+
+              In libtclcad/commands.c:
+                - Removed forward declaration of to_create_vlist_callback.
+                - Removed registration
+                    top->to_gedp->ged_create_vlist_display_list_callback
+                      = to_create_vlist_callback.
+                - Removed the to_create_vlist_callback() function body.
+
+              The ged_create_vlist_display_list_callback struct field,
+                the ged_create_vlist_display_list_cb() dispatcher in ged.cpp,
+                and mged's createDListAll() are now dead code.  All three
+                will be deleted in Step 4 (MGED illuminate/edit migration)
+                together with the remaining mged registration in setup.c.
+
+              Build clean: libged, libtclcad, mged — zero errors, zero
+                warnings.  ged_test_bsg_view_obj 27/27 PASS.
