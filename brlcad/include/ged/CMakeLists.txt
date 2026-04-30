@@ -1,5 +1,6 @@
 set(
   ged_headers
+  bsg_view_obj.h
   commands.h
   database.h
   debug.h
