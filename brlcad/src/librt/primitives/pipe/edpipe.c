@@ -250,7 +250,8 @@ static const struct rt_edit_param_desc pipe_pt_radius_params[] = {
     }
 };
 
-/* POINT parameter for point-picking / point-manipulation commands */
+/* POINT parameter used by ops that take a 3D location: SELECT, PT_MOVE,
+ * PT_ADD, PT_INS, and SPLIT all supply the target world-space coordinate. */
 static const struct rt_edit_param_desc pipe_point_params[] = {
     {
 	"pt",                 /* name         */

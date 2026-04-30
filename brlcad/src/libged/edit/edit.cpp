@@ -220,7 +220,14 @@ _edit_xform_apply(struct ged *gedp,
     struct rt_edit *s = ged_edit_buf_get(gedp, &dfp);
     bool is_new = (s == NULL);
 
-    /* tol must live for the entire function since s->tol may point to it */
+    /*
+     * tol must have function scope: rt_edit_create stores &tol in s->tol,
+     * so if tol were declared inside the if(is_new) block it would become a
+     * dangling pointer the moment that block's } was reached — causing any
+     * handler that calls BN_CK_TOL(s->tol) (e.g. arb8's rt_arb_std_type)
+     * to abort.  For reused buffer entries we refresh s->tol here so it
+     * always points to a valid object for the duration of do_edit(s).
+     */
     struct bn_tol tol = BN_TOL_INIT_TOL;
 
     if (is_new) {
