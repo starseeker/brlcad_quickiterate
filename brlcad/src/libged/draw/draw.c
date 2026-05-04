@@ -100,6 +100,9 @@ dl_add_path(int dashflag, struct bu_list *vhead, const struct db_full_path *path
     }
     if (!sp->s_u_data)
 	return;
+    /* Phase 7 Step 9: register back-pointer + illum-clear callback. */
+    bdata->gedp = dgcdp->gedp;
+    sp->s_free_callback = ged_bv_illum_free_cb;
 
 
     if (BU_LIST_IS_EMPTY(&(sp->s_vlist)))
@@ -286,6 +289,9 @@ append_solid_to_display_list(
     }
     if (!sp->s_u_data)
 	return TREE_NULL;
+    /* Phase 7 Step 9: register back-pointer + illum-clear callback. */
+    bdata->gedp = bv_data->gedp;
+    sp->s_free_callback = ged_bv_illum_free_cb;
 
     sp->s_size = 0;
     VSETALL(sp->s_center, 0.0);

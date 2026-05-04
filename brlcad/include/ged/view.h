@@ -63,6 +63,7 @@ __BEGIN_DECLS
 
 struct ged_bv_data {
     struct db_full_path s_fullpath;
+    struct ged *gedp; /**< @brief back-pointer to owning GED session; used by the per-solid s_free_callback to clear the illumination tracker (gd_illum_solid) without requiring gedp to be passed through the BSG freeing path (Phase 7 Step 9). */
     void *u_data;
 };
 

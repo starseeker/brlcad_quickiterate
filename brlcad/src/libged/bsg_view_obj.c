@@ -224,14 +224,29 @@ _sg_erase_overlay_by_name(struct ged *gedp, const char *name)
 
 
 /*
- * Clear gd_illum_solid if it matches @p sp (called from shape-freeing
- * paths to prevent dangling pointers after an illuminated solid is erased).
+ * Per-solid s_free_callback: clear the GED illumination tracker if this solid
+ * is currently registered as the illuminated solid.
+ *
+ * This fires both when the BSG freeing path explicitly calls it before
+ * FREE_BV_SCENE_OBJ, and again (harmlessly) during pool teardown in bv_free.
+ * The second call is a no-op because gd_illum_solid will already be NULL or
+ * pointing to a different solid.
+ *
+ * Registered at shape-creation time on each BSG_NODE_SHAPE node (Phase 7
+ * Step 9).  Replaces the file-private _sg_clear_illum_if_match(gedp, sp)
+ * call pattern, removing the gedp dependency from the BSG freeing path for
+ * the illumination-clear concern.
  */
-static void
-_sg_clear_illum_if_match(struct ged *gedp, struct bv_scene_obj *sp)
+void
+ged_bv_illum_free_cb(struct bv_scene_obj *sp)
 {
-    if (gedp->i->ged_gdp->gd_illum_solid == sp)
-        gedp->i->ged_gdp->gd_illum_solid = NULL;
+    if (!sp->s_u_data)
+        return;
+    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+    if (!bdata->gedp)
+        return;
+    if (bdata->gedp->i->ged_gdp->gd_illum_solid == sp)
+        bdata->gedp->i->ged_gdp->gd_illum_solid = NULL;
 }
 
 
@@ -262,8 +277,12 @@ _sg_free_children_recursive(struct ged *gedp, struct bv_scene_obj *g,
              * dependency from this recursive freeing helper. */
             if (child->s_dlist_free_callback)
                 (*child->s_dlist_free_callback)(child);
+            /* Phase 7 Step 9: s_free_callback fires the illum-clear
+             * (registered as _sg_illum_free_cb at shape-creation time).
+             * No direct gedp reference needed here for this concern. */
+            if (child->s_free_callback)
+                (*child->s_free_callback)(child);
             child->parent = NULL;
-            _sg_clear_illum_if_match(gedp, child);
             FREE_BV_SCENE_OBJ(child, &fso->l, vlf);
         }
     }
@@ -476,10 +495,13 @@ _sg_erase_nested_subpath(struct ged *gedp, struct bv_scene_obj *parent,
                 /* Phase 7 Step 8: per-object callback, no gedp needed. */
                 if (sp->s_dlist_free_callback)
                     (*sp->s_dlist_free_callback)(sp);
+                /* Phase 7 Step 9: s_free_callback fires the illum-clear
+                 * registered at shape-creation time (_sg_illum_free_cb). */
+                if (sp->s_free_callback)
+                    (*sp->s_free_callback)(sp);
                 bu_ptbl_rm(&cur->children, (const long *)sp);
                 _sg_bump_rev(gedp);
                 sp->parent = NULL;
-                _sg_clear_illum_if_match(gedp, sp);
                 FREE_BV_SCENE_OBJ(sp, &fso->l, vlf);
             }
             bu_ptbl_free(&snap);
@@ -846,6 +868,9 @@ _sg_invent(struct ged *gedp, char *name, struct bu_list *vhead, long int rgb,
     }
     if (!sp->s_u_data)
         return -1;
+    /* Phase 7 Step 9: register back-pointer + illum-clear callback. */
+    bdata->gedp = gedp;
+    sp->s_free_callback = ged_bv_illum_free_cb;
 
     if (copy)
         solid_copy_vlist(dbip, sp, (struct bv_vlist *)vhead, vlfree);

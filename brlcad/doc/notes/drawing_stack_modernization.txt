@@ -1849,3 +1849,73 @@ Deprecation policy
               libbsg functions would need to carry a thin bsg_draw_ctx pointer
               instead of struct ged *.  Deferred.
 
+           ── Phase 7 Step 9: illum-clear via s_free_callback (option 4) ──
+
+           2026-05-04
+
+              Investigation: Why does gd_illum_solid exist, and can the
+              per-object s_free_callback mechanism replace _sg_clear_illum_if_match?
+
+              Background: s_iflag (char on bv_scene_obj) is the per-object
+              illumination state (UP = highlighted, DOWN = normal). gd_illum_solid
+              is a GED-level pointer to the single currently-illuminated shape,
+              added in Phase 7 Step 6 as an O(1) optimization: clearing illumination
+              across the entire tree (bsg_view_obj_set_iflag DOWN) only needs to
+              touch the one tracked pointer instead of sweeping N shapes.
+
+              The dangling-pointer hazard: if a shape is freed while it is the
+              illuminated solid, gd_illum_solid becomes a dangling pointer.
+              _sg_clear_illum_if_match(gedp, sp) was called explicitly in every
+              freeing path to prevent this.  This required passing gedp into
+              _sg_free_children_recursive and _sg_erase_nested_subpath (case b),
+              blocking those helpers from moving to libbsg.
+
+              Fix (option 4):
+                1.  Added struct ged *gedp back-pointer to struct ged_bv_data
+                    (include/ged/view.h) — one pointer per pool slot, set once
+                    per shape creation, reused across pool recycles.
+
+                2.  Added ged_bv_illum_free_cb() (non-static, declared in
+                    include/ged/bsg_view_obj.h) — reads bdata->gedp, clears
+                    gd_illum_solid if it matches sp. No-op on second call
+                    (e.g. during bv_free pool teardown).
+
+                3.  Registered ged_bv_illum_free_cb as sp->s_free_callback at
+                    every BSG_NODE_SHAPE creation site:
+                      bsg_view_obj.c _sg_invent (overlay shapes)
+                      draw.c dl_add_path (main draw path)
+                      draw.c append_solid_to_display_list (bigE path)
+
+                4.  In _sg_free_children_recursive and _sg_erase_nested_subpath
+                    (case b): added explicit `if (sp->s_free_callback)
+                    (*sp->s_free_callback)(sp)` call before FREE_BV_SCENE_OBJ
+                    (same pattern already used for s_dlist_free_callback).
+                    Removed _sg_clear_illum_if_match(gedp, ...) calls.
+                    Deleted the _sg_clear_illum_if_match helper entirely.
+
+              gd_illum_solid and the O(1) fast path are retained — they are
+              correct and the fast path is genuinely useful for interactive
+              editing. The change removes only the GED-dependency concern from
+              the freeing path for this specific bookkeeping operation.
+
+              NOTE: _sg_bump_rev(gedp) is still in the freeing paths — those
+              call sites still need gedp for the draw-revision counter.
+              Abstracting gd_draw_rev (e.g. via gv_draw_root->s_i_data) would
+              be the next step to eliminate the last gedp dependencies from the
+              BSG freeing helpers.
+
+              Files changed:
+                brlcad/include/ged/view.h
+                  (struct ged_bv_data: added gedp field)
+                brlcad/include/ged/bsg_view_obj.h
+                  (declared ged_bv_illum_free_cb)
+                brlcad/src/libged/bsg_view_obj.c
+                  (replaced _sg_clear_illum_if_match with ged_bv_illum_free_cb;
+                   registered callback in _sg_invent)
+                brlcad/src/libged/draw/draw.c
+                  (registered callback in dl_add_path +
+                   append_solid_to_display_list)
+
+              Build: libged — zero errors.
+              Regression: ged_test_bsg_view_obj 97/97 PASS.
+

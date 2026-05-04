@@ -429,6 +429,18 @@ bsg_view_obj_append_solid_to_group(struct ged *gedp,
 				   struct bv_scene_obj *group,
 				   struct bv_scene_obj *sp);
 
+/**
+ * Per-solid s_free_callback that clears the GED illumination tracker
+ * (gd_illum_solid) when the shape being freed is currently registered as the
+ * illuminated solid.
+ *
+ * Register this on every BSG_NODE_SHAPE node at creation time alongside
+ * setting ged_bv_data::gedp.  The BSG freeing paths call it explicitly before
+ * FREE_BV_SCENE_OBJ; bv_free() calls it again during pool teardown, but the
+ * second call is a safe no-op (Phase 7 Step 9).
+ */
+GED_EXPORT extern void ged_bv_illum_free_cb(struct bv_scene_obj *sp);
+
 __END_DECLS
 
 #endif /* GED_BSG_VIEW_OBJ_H */
