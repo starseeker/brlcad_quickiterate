@@ -1792,3 +1792,60 @@ Deprecation policy
                 pure tree ops can finish moving to libbsg/draw_set.c and
                 libbsg/overlay.c and bsg_view_obj.c can be deleted.
 
+           ── Phase 7 Step 8: s_dlist_free_callback replaces ged_destroy_vlist_cb ──
+
+           2026-05-04
+
+              Investigation: does the display-list destroy callback requirement
+              suggest a general mechanism is needed for bv_scene_obj?
+
+              Answer: NO — the mechanism already exists.  struct bv_scene_obj
+              already carries two per-object teardown hooks:
+
+                s_free_callback     — general custom-data cleanup (s_i_data,
+                                      s_path, draw_data), called by libbv
+                                      when a scene object is freed.
+                s_dlist_free_callback — GL display-list teardown, registered
+                                        by libdm (dm-gl_lod.cpp), called by
+                                        libbv during pool destruction.
+
+              The three ged_destroy_vlist_cb(gedp, sp->s_dlist, 1) calls in
+              bsg_view_obj.c were redundant with s_dlist_free_callback: both
+              call glDeleteLists (the former via a GED application callback,
+              the latter via the dm-registered per-object hook).  The GED
+              callback layer adds multi-DM dirty-marking on top; that is a
+              rendering-state concern owned by the GED erase command layer,
+              not by the BSG tree manipulation.
+
+              Fix: replaced all three call sites with:
+                if (sp->s_dlist_free_callback)
+                    (*sp->s_dlist_free_callback)(sp);
+
+              This removes the ged_destroy_vlist_callback / vlist_ctx dependency
+              from the BSG shape-freeing path.  The remaining gedp references
+              inside _sg_free_children_recursive, _sg_erase_nested_subpath
+              (case b), and _sg_erase_overlay_by_name are for:
+                • _sg_clear_illum_if_match(gedp, sp) — GED illuminated-solid
+                  tracker bookkeeping (genuine GED state)
+                • _sg_bump_rev(gedp) — GED draw-revision counter
+                • gd_draw_root / overlay-group access (now also in v->gv_draw_root)
+
+              These are GED-layer concerns.  The display-list concern is fully
+              resolved.
+
+              Files changed:
+                brlcad/src/libged/bsg_view_obj.c (3 call sites replaced)
+
+              Build: libged, mged — zero errors.
+              Regression: ged_test_bsg_view_obj 97/97 PASS.
+
+              ── REMAINING ─────────────────────────────────────────────
+
+              The bsg_view_obj.c erase / free functions still carry gedp for
+              GED bookkeeping (_sg_clear_illum_if_match, _sg_bump_rev).  To
+              fully move these to libbsg, the bookkeeping state would need to
+              be routed through the BSG draw-state (stored in gd_draw_root
+              or v->gv_draw_root->s_i_data) with function pointers, or the
+              libbsg functions would need to carry a thin bsg_draw_ctx pointer
+              instead of struct ged *.  Deferred.
+

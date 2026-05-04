@@ -198,7 +198,13 @@ _sg_erase_overlay_by_name(struct ged *gedp, const char *name)
             (struct bv_scene_obj *)BU_PTBL_GET(&snap, i);
         if (!BU_STR_EQUAL(name, bu_vls_cstr(&sp->s_name)))
             continue;
-        ged_destroy_vlist_cb(gedp, sp->s_dlist, 1);
+        /* Use the per-object dlist teardown callback registered by libdm
+         * (s_dlist_free_callback / dm_register_dlist_sensor path).  This
+         * avoids the GED-level ged_destroy_vlist_callback indirection and
+         * removes the gedp dependency from the overlay-erase hot path
+         * (Phase 7 Step 8). */
+        if (sp->s_dlist_free_callback)
+            (*sp->s_dlist_free_callback)(sp);
         bu_ptbl_rm(&ov->children, (const long *)sp);
         sp->parent = NULL;
         FREE_BV_SCENE_OBJ(sp, &free_scene_obj->l, vlfree);
@@ -251,7 +257,11 @@ _sg_free_children_recursive(struct ged *gedp, struct bv_scene_obj *g,
             if (cfso)
                 FREE_BV_SCENE_OBJ(child, &cfso->l, child->vlfree);
         } else {
-            ged_destroy_vlist_cb(gedp, child->s_dlist, 1);
+            /* Phase 7 Step 8: use per-object s_dlist_free_callback instead
+             * of ged_destroy_vlist_cb to remove the GED-level callback
+             * dependency from this recursive freeing helper. */
+            if (child->s_dlist_free_callback)
+                (*child->s_dlist_free_callback)(child);
             child->parent = NULL;
             _sg_clear_illum_if_match(gedp, child);
             FREE_BV_SCENE_OBJ(child, &fso->l, vlf);
@@ -463,7 +473,9 @@ _sg_erase_nested_subpath(struct ged *gedp, struct bv_scene_obj *parent,
             for (size_t j = 0; j < BU_PTBL_LEN(&snap); j++) {
                 struct bv_scene_obj *sp =
                     (struct bv_scene_obj *)BU_PTBL_GET(&snap, j);
-                ged_destroy_vlist_cb(gedp, sp->s_dlist, 1);
+                /* Phase 7 Step 8: per-object callback, no gedp needed. */
+                if (sp->s_dlist_free_callback)
+                    (*sp->s_dlist_free_callback)(sp);
                 bu_ptbl_rm(&cur->children, (const long *)sp);
                 _sg_bump_rev(gedp);
                 sp->parent = NULL;
