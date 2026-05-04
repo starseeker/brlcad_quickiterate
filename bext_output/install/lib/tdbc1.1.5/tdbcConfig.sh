@@ -19,8 +19,8 @@ tdbc_LIB_FILE=libtdbc1.1.5.so
 TDBC_LIB_FILE=libtdbc1.1.5.so
 
 # String to pass to the linker to pick up the TDBC library from its build dir
-tdbc_BUILD_LIB_SPEC="-L/home/cyapp/bext_quickiterate/tcl/TCL_BLD-prefix/src/TCL_BLD-build/pkgs/tdbc1.1.5 -ltdbc1.1.5"
-TDBC_BUILD_LIB_SPEC="-L/home/cyapp/bext_quickiterate/tcl/TCL_BLD-prefix/src/TCL_BLD-build/pkgs/tdbc1.1.5 -ltdbc1.1.5"
+tdbc_BUILD_LIB_SPEC="-L/home/cyapp/bext/build_quick/tcl/TCL_BLD-prefix/src/TCL_BLD-build/pkgs/tdbc1.1.5 -ltdbc1.1.5"
+TDBC_BUILD_LIB_SPEC="-L/home/cyapp/bext/build_quick/tcl/TCL_BLD-prefix/src/TCL_BLD-build/pkgs/tdbc1.1.5 -ltdbc1.1.5"
 
 # String to pass to the linker to pick up the TDBC library from its installed
 # dir.
@@ -33,8 +33,8 @@ TDBC_STUB_LIB_FILE="libtdbcstub1.1.5.a"
 
 # String to pass to the linker to pick up the TDBC stub library from its
 # build directory
-tdbc_BUILD_STUB_LIB_SPEC="-L/home/cyapp/bext_quickiterate/tcl/TCL_BLD-prefix/src/TCL_BLD-build/pkgs/tdbc1.1.5 -ltdbcstub1.1.5"
-TDBC_BUILD_STUB_LIB_SPEC="-L/home/cyapp/bext_quickiterate/tcl/TCL_BLD-prefix/src/TCL_BLD-build/pkgs/tdbc1.1.5 -ltdbcstub1.1.5"
+tdbc_BUILD_STUB_LIB_SPEC="-L/home/cyapp/bext/build_quick/tcl/TCL_BLD-prefix/src/TCL_BLD-build/pkgs/tdbc1.1.5 -ltdbcstub1.1.5"
+TDBC_BUILD_STUB_LIB_SPEC="-L/home/cyapp/bext/build_quick/tcl/TCL_BLD-prefix/src/TCL_BLD-build/pkgs/tdbc1.1.5 -ltdbcstub1.1.5"
 
 # String to pass to the linker to pick up the TDBC stub library from its
 # installed directory
@@ -42,8 +42,8 @@ tdbc_STUB_LIB_SPEC="-L/home/cyapp/brlcad_quickiterate/bext_output/install/lib/td
 TDBC_STUB_LIB_SPEC="-L/home/cyapp/brlcad_quickiterate/bext_output/install/lib/tdbc1.1.5 -ltdbcstub1.1.5"
 
 # Path name of the TDBC stub library in its build directory
-tdbc_BUILD_STUB_LIB_PATH="/home/cyapp/bext_quickiterate/tcl/TCL_BLD-prefix/src/TCL_BLD-build/pkgs/tdbc1.1.5/libtdbcstub1.1.5.a"
-TDBC_BUILD_STUB_LIB_PATH="/home/cyapp/bext_quickiterate/tcl/TCL_BLD-prefix/src/TCL_BLD-build/pkgs/tdbc1.1.5/libtdbcstub1.1.5.a"
+tdbc_BUILD_STUB_LIB_PATH="/home/cyapp/bext/build_quick/tcl/TCL_BLD-prefix/src/TCL_BLD-build/pkgs/tdbc1.1.5/libtdbcstub1.1.5.a"
+TDBC_BUILD_STUB_LIB_PATH="/home/cyapp/bext/build_quick/tcl/TCL_BLD-prefix/src/TCL_BLD-build/pkgs/tdbc1.1.5/libtdbcstub1.1.5.a"
 
 # Path name of the TDBC stub library in its installed directory
 tdbc_STUB_LIB_PATH="/home/cyapp/brlcad_quickiterate/bext_output/install/lib/tdbc1.1.5/libtdbcstub1.1.5.a"
@@ -54,8 +54,8 @@ TDBC_STUB_LIB_PATH="/home/cyapp/brlcad_quickiterate/bext_output/install/lib/tdbc
 # was compiled in a directory other than the source directory, this still
 # points to the location of the sources, not the location where TDBC was
 # compiled.
-tdbc_SRC_DIR="/home/cyapp/bext_quickiterate/tcl/TCL_BLD-prefix/src/TCL_BLD/pkgs/tdbc1.1.5"
-TDBC_SRC_DIR="/home/cyapp/bext_quickiterate/tcl/TCL_BLD-prefix/src/TCL_BLD/pkgs/tdbc1.1.5"
+tdbc_SRC_DIR="/home/cyapp/bext/build_quick/tcl/TCL_BLD-prefix/src/TCL_BLD/pkgs/tdbc1.1.5"
+TDBC_SRC_DIR="/home/cyapp/bext/build_quick/tcl/TCL_BLD-prefix/src/TCL_BLD/pkgs/tdbc1.1.5"
 
 # String to pass to the compiler so that an extension can find installed TDBC
 # headers
@@ -64,16 +64,16 @@ TDBC_INCLUDE_SPEC="-I/home/cyapp/brlcad_quickiterate/bext_output/install/include
 
 # String to pass to the compiler so that an extension can find TDBC headers
 # in the source directory
-tdbc_BUILD_INCLUDE_SPEC="-I/home/cyapp/bext_quickiterate/tcl/TCL_BLD-prefix/src/TCL_BLD/pkgs/tdbc1.1.5/generic"
-TDBC_BUILD_INCLUDE_SPEC="-I/home/cyapp/bext_quickiterate/tcl/TCL_BLD-prefix/src/TCL_BLD/pkgs/tdbc1.1.5/generic"
+tdbc_BUILD_INCLUDE_SPEC="-I/home/cyapp/bext/build_quick/tcl/TCL_BLD-prefix/src/TCL_BLD/pkgs/tdbc1.1.5/generic"
+TDBC_BUILD_INCLUDE_SPEC="-I/home/cyapp/bext/build_quick/tcl/TCL_BLD-prefix/src/TCL_BLD/pkgs/tdbc1.1.5/generic"
 
 # Path name where .tcl files in the tdbc package appear at run time.
 tdbc_LIBRARY_PATH="/home/cyapp/brlcad_quickiterate/bext_output/install/lib/tdbc1.1.5"
 TDBC_LIBRARY_PATH="/home/cyapp/brlcad_quickiterate/bext_output/install/lib/tdbc1.1.5"
 
 # Path name where .tcl files in the tdbc package appear at build time.
-tdbc_BUILD_LIBRARY_PATH="/home/cyapp/bext_quickiterate/tcl/TCL_BLD-prefix/src/TCL_BLD/pkgs/tdbc1.1.5/library"
-TDBC_BUILD_LIBRARY_PATH="/home/cyapp/bext_quickiterate/tcl/TCL_BLD-prefix/src/TCL_BLD/pkgs/tdbc1.1.5/library"
+tdbc_BUILD_LIBRARY_PATH="/home/cyapp/bext/build_quick/tcl/TCL_BLD-prefix/src/TCL_BLD/pkgs/tdbc1.1.5/library"
+TDBC_BUILD_LIBRARY_PATH="/home/cyapp/bext/build_quick/tcl/TCL_BLD-prefix/src/TCL_BLD/pkgs/tdbc1.1.5/library"
 
 # Additional flags that must be passed to the C compiler to use tdbc
 tdbc_CFLAGS=

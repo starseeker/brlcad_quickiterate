@@ -1,0 +1,38 @@
+# Copyright (C) 2025 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
+# This file sets the transitive properties supported by Qt Libraries.
+if(NOT QT_NO_CREATE_TARGETS AND CMAKE_VERSION VERSION_GREATER_EQUAL 3.30)
+    foreach(_qt_OpenGLWidgets_transitive_property_type COMPILE LINK)
+        string(TOLOWER "${_qt_OpenGLWidgets_transitive_property_type}"
+            _qt_OpenGLWidgets_transitive_property_type_lower)
+
+        get_target_property(_qt_OpenGLWidgets_transitive_properties Qt6::OpenGLWidgets
+            _qt_transitive_${_qt_OpenGLWidgets_transitive_property_type_lower}_properties)
+        if(NOT _qt_OpenGLWidgets_transitive_properties)
+            continue()
+        endif()
+
+        foreach(_qt_OpenGLWidgets_transitive_property IN LISTS _qt_OpenGLWidgets_transitive_properties)
+            string(TOLOWER "_qt_internal_${_qt_OpenGLWidgets_transitive_property}"
+                _qt_OpenGLWidgets_transitive_property_internal)
+            get_target_property(_qt_OpenGLWidgets_transitive_property_value
+                Qt6::OpenGLWidgets ${_qt_OpenGLWidgets_transitive_property_internal})
+
+            if(_qt_OpenGLWidgets_transitive_property_value)
+                _qt_internal_add_transitive_property(Qt6::OpenGLWidgets
+                    ${_qt_OpenGLWidgets_transitive_property_type} ${_qt_OpenGLWidgets_transitive_property})
+
+                set_property(TARGET Qt6::OpenGLWidgets PROPERTY
+                    INTERFACE_${_qt_OpenGLWidgets_transitive_property}
+                    "${_qt_OpenGLWidgets_transitive_property_value}")
+            endif()
+        endforeach()
+    endforeach()
+    unset(_qt_OpenGLWidgets_transitive_property_value)
+    unset(_qt_OpenGLWidgets_transitive_property_internal)
+    unset(_qt_OpenGLWidgets_transitive_property)
+    unset(_qt_OpenGLWidgets_transitive_properties)
+    unset(_qt_OpenGLWidgets_transitive_property_type_lower)
+    unset(_qt_OpenGLWidgets_transitive_property_type)
+endif()

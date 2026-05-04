@@ -19,7 +19,7 @@ set(CMAKE_IMPORT_FILE_VERSION 1)
 set(_cmake_targets_defined "")
 set(_cmake_targets_not_defined "")
 set(_cmake_expected_targets "")
-foreach(_cmake_expected_target IN ITEMS Clipper2::Clipper2)
+foreach(_cmake_expected_target IN ITEMS Clipper2::Clipper2-static Clipper2::Clipper2)
   list(APPEND _cmake_expected_targets "${_cmake_expected_target}")
   if(TARGET "${_cmake_expected_target}")
     list(APPEND _cmake_targets_defined "${_cmake_expected_target}")
@@ -54,6 +54,15 @@ get_filename_component(_IMPORT_PREFIX "${_IMPORT_PREFIX}" PATH)
 if(_IMPORT_PREFIX STREQUAL "/")
   set(_IMPORT_PREFIX "")
 endif()
+
+# Create imported target Clipper2::Clipper2-static
+add_library(Clipper2::Clipper2-static STATIC IMPORTED)
+
+set_target_properties(Clipper2::Clipper2-static PROPERTIES
+  INTERFACE_COMPILE_DEFINITIONS "CLIPPER2_MAX_DECIMAL_PRECISION=8;\$<\$<BOOL:OFF>:CLIPPER2_HI_PRECISION>"
+  INTERFACE_INCLUDE_DIRECTORIES "${_IMPORT_PREFIX}/include;${_IMPORT_PREFIX}/include"
+  INTERFACE_LINK_LIBRARIES "m"
+)
 
 # Create imported target Clipper2::Clipper2
 add_library(Clipper2::Clipper2 SHARED IMPORTED)

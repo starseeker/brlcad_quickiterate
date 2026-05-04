@@ -52,7 +52,7 @@ TK_LIB_FLAG='-ltk8.6'
 
 # String to pass to linker to pick up the Tk library from its
 # build directory.
-TK_BUILD_LIB_SPEC='-L/home/cyapp/bext_quickiterate/tk/TK_BLD-prefix/src/TK_BLD-build -ltk8.6'
+TK_BUILD_LIB_SPEC='-L/home/cyapp/bext/build_quick/tk/TK_BLD-prefix/src/TK_BLD-build -ltk8.6'
 
 # String to pass to linker to pick up the Tk library from its
 # installed directory.
@@ -68,7 +68,7 @@ TK_INCLUDE_SPEC='-I/home/cyapp/brlcad_quickiterate/bext_output/install/include'
 # different place than the directory containing the source files, this
 # points to the location of the sources, not the location where Tk was
 # compiled.
-TK_SRC_DIR='/home/cyapp/bext_quickiterate/tk/TK_BLD-prefix/src/TK_BLD'
+TK_SRC_DIR='/home/cyapp/bext/build_quick/tk/TK_BLD-prefix/src/TK_BLD'
 
 # Needed if you want to make a 'fat' shared library library
 # containing tk objects or link a different wish.
@@ -83,14 +83,14 @@ TK_STUB_LIB_FLAG='-ltkstub8.6'
 
 # String to pass to linker to pick up the Tk stub library from its
 # build directory.
-TK_BUILD_STUB_LIB_SPEC='-L/home/cyapp/bext_quickiterate/tk/TK_BLD-prefix/src/TK_BLD-build -ltkstub8.6'
+TK_BUILD_STUB_LIB_SPEC='-L/home/cyapp/bext/build_quick/tk/TK_BLD-prefix/src/TK_BLD-build -ltkstub8.6'
 
 # String to pass to linker to pick up the Tk stub library from its
 # installed directory.
 TK_STUB_LIB_SPEC='-L/home/cyapp/brlcad_quickiterate/bext_output/install/lib -ltkstub8.6'
 
 # Path to the Tk stub library in the build directory.
-TK_BUILD_STUB_LIB_PATH='/home/cyapp/bext_quickiterate/tk/TK_BLD-prefix/src/TK_BLD-build/libtkstub8.6.a'
+TK_BUILD_STUB_LIB_PATH='/home/cyapp/bext/build_quick/tk/TK_BLD-prefix/src/TK_BLD-build/libtkstub8.6.a'
 
 # Path to the Tk stub library in the install directory.
 TK_STUB_LIB_PATH='/home/cyapp/brlcad_quickiterate/bext_output/install/lib/libtkstub8.6.a'
