@@ -121,10 +121,9 @@ bsg_view_obj_erase_all_paths(struct ged *gedp, const char *path,
 
 /**
  * Compute the axis-aligned bounding box of every drawn scene object in
- * @p gedp's active view set.  When @p pflag is zero, pseudo-solids
- * (those whose first directory entry has d_addr == RT_DIR_PHONY_ADDR)
- * are excluded.  Returns 1 if the result is empty (no contributing
- * objects), 0 otherwise.
+ * @p gedp's active view set.  When @p pflag is zero, overlay shapes
+ * (those with BSG_PAYLOAD_OVERLAY set in s_type_flags) are excluded.
+ * Returns 1 if the result is empty (no contributing objects), 0 otherwise.
  *
  * Replaces dl_bounding_sph().
  */
@@ -152,13 +151,14 @@ GED_EXPORT extern void
 bsg_view_obj_color_from_soltab(struct ged *gedp);
 
 /**
- * Insert a "phony" pseudo-solid with the given vlist as a top-level
- * drawn entry.  If @p copy is non-zero the vlist is copied; otherwise
- * @p vhead is consumed (re-INIT'd).  @p rgb encodes the wireframe
- * color (0xRRGGBB), @p transparency is in [0,1], @p dmode is the draw
- * mode, and @p csoltab when non-zero applies soltab-based recoloring
- * after insertion.  Returns 0 on success, -1 on failure (e.g. name
- * collides with a real database entry).
+ * Insert a pseudo-solid overlay with the given vlist.  The overlay is placed
+ * into the `_overlays` BSG_NODE_GROUP under the scene root and tagged with
+ * BSG_PAYLOAD_OVERLAY — no phony database directory entry is created.  If
+ * @p copy is non-zero the vlist is copied; otherwise @p vhead is consumed
+ * (re-INIT'd).  @p rgb encodes the wireframe color (0xRRGGBB),
+ * @p transparency is in [0,1], @p dmode is the draw mode, and @p csoltab
+ * when non-zero applies soltab-based recoloring after insertion.  Returns 0
+ * on success, -1 on failure (e.g. name collides with a real database entry).
  *
  * Replaces invent_solid().
  */
@@ -169,13 +169,27 @@ bsg_view_obj_invent(struct ged *gedp, char *name, struct bu_list *vhead,
 
 /**
  * Compute a content-derived hash over the current drawn-object set's
- * path namespace.  Returns 0 when the set is empty.  Used by tooling
- * that needs to detect "what is drawn" changes cheaply.
+ * path namespace.  Returns 0 when the set is empty or after a zap.
+ * Uses a structural revision counter (O(1)) rather than computing a
+ * content hash, so two calls may return equal values only when no
+ * structural mutation has occurred between them.
  *
  * Replaces dl_name_hash().
  */
 GED_EXPORT extern unsigned long long
 bsg_view_obj_name_hash(struct ged *gedp);
+
+/**
+ * Return the raw structural revision counter for @p gedp's draw tree.
+ * The counter is incremented on every structural mutation (group/shape
+ * addition or removal) and reset to 0 by bsg_view_obj_zap().  Returns
+ * 0 when no objects have been drawn since the last zap (or ever).
+ *
+ * Callers that need to detect "drawn set changed" cheaply should compare
+ * snapshots of this value rather than recomputing a content hash.
+ */
+GED_EXPORT extern uint64_t
+bsg_view_obj_draw_rev(struct ged *gedp);
 
 /**
  * Iterate over every drawn scene object in display order, calling
@@ -210,11 +224,52 @@ GED_EXPORT extern struct bv_scene_obj *
 bsg_view_obj_first_solid(struct ged *gedp);
 
 /**
+ * Returns the total number of non-overlay drawn solids (i.e. excludes
+ * shapes in the _overlays group).  Builds a DFS snapshot internally
+ * and frees it before returning; O(N) per call.
+ */
+GED_EXPORT extern int
+bsg_view_obj_solid_count(struct ged *gedp);
+
+/**
+ * Returns the drawn solid at position @p idx in DFS snapshot order
+ * (overlay shapes excluded).  @p idx is wrapped modulo the total
+ * solid count, so negative indices and out-of-range indices are both
+ * handled safely.  Returns NULL when no non-overlay solids are drawn.
+ */
+GED_EXPORT extern struct bv_scene_obj *
+bsg_view_obj_solid_at(struct ged *gedp, int idx);
+
+/**
+ * Returns the DFS snapshot index of @p target among non-overlay drawn
+ * solids, or -1 if @p target is not currently drawn (or is an overlay).
+ *
+ * Together with bsg_view_obj_solid_at() this allows callers to express
+ * "advance illuminated solid by N" purely as integer arithmetic without
+ * holding any internal iterator state.
+ */
+GED_EXPORT extern int
+bsg_view_obj_solid_index(struct ged *gedp, struct bv_scene_obj *target);
+
+/**
+ * Advance @p sp by @p delta positions in DFS snapshot order (positive =
+ * forward, negative = backward), wrapping circularly.  Overlay shapes
+ * are excluded from the index.  Builds a single DFS snapshot internally.
+ *
+ * Replaces the pair of bsg_view_obj_next_solid / bsg_view_obj_prev_solid
+ * calls inside MGED's f_aip(); direct callers of those functions can
+ * migrate to this single API to avoid repeated snapshot construction.
+ */
+GED_EXPORT extern struct bv_scene_obj *
+bsg_view_obj_advance_solid(struct ged *gedp, struct bv_scene_obj *sp, int delta);
+
+/**
  * Returns the next drawn solid after @p sp in display order, wrapping
  * circularly from the last solid back to the first.  @p sp must be a
- * currently-drawn solid.  Returns NULL only when no solids are drawn.
+ * currently-drawn non-overlay solid.  Returns NULL only when no solids
+ * are drawn.
  *
- * Replaces f_aip() forward cross-list navigation.
+ * Delegates to bsg_view_obj_advance_solid(gedp, sp, +1).
  */
 GED_EXPORT extern struct bv_scene_obj *
 bsg_view_obj_next_solid(struct ged *gedp, struct bv_scene_obj *sp);
@@ -222,10 +277,10 @@ bsg_view_obj_next_solid(struct ged *gedp, struct bv_scene_obj *sp);
 /**
  * Returns the previous drawn solid before @p sp in display order,
  * wrapping circularly from the first solid back to the last.  @p sp
- * must be a currently-drawn solid.  Returns NULL only when no solids
- * are drawn.
+ * must be a currently-drawn non-overlay solid.  Returns NULL only when
+ * no solids are drawn.
  *
- * Replaces f_aip() backward cross-list navigation.
+ * Delegates to bsg_view_obj_advance_solid(gedp, sp, -1).
  */
 GED_EXPORT extern struct bv_scene_obj *
 bsg_view_obj_prev_solid(struct ged *gedp, struct bv_scene_obj *sp);
@@ -305,8 +360,9 @@ GED_EXPORT extern void
 bsg_view_obj_group_set_path(struct bv_scene_obj *group, const char *new_path);
 
 /**
- * Returns 1 if the group is a pseudo-solid (phony), 0 otherwise.
- * A phony group has d_addr == RT_DIR_PHONY_ADDR for its directory entry.
+ * Returns 1 if @p group is the synthetic _overlays group (which holds
+ * overlay/invented shapes and should be excluded from "who" listings and
+ * rt write commands), 0 for any real drawn-path group.
  *
  * Replaces direct checks of ((struct directory *)gdlp->dl_dp)->d_addr ==
  * RT_DIR_PHONY_ADDR.

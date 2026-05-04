@@ -76,6 +76,7 @@ struct vd_curve {
 
 struct ged_drawable {
     struct bv_scene_obj         *gd_draw_root;          /**< @brief  BSG_NODE_GROUP root of drawn-set tree */
+    uint64_t                     gd_draw_rev;           /**< @brief  monotonic revision counter; bumped on every structural mutation of the draw tree; reset to 0 by bsg_view_obj_zap */
     struct bu_list              *gd_headVDraw;          /**< @brief  head of vdraw list */
     struct vd_curve             *gd_currVHead;          /**< @brief  current vdraw head */
 

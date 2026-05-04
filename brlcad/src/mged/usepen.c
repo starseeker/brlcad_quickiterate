@@ -162,13 +162,20 @@ f_aip(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	    return TCL_ERROR;
 	sp = illump;
 	sp->s_iflag = DOWN;
-	if (argc == 1 || *argv[1] == 'f') {
-	    sp = bsg_view_obj_next_solid(s->gedp, sp);
-	} else if (*argv[1] == 'b') {
-	    sp = bsg_view_obj_prev_solid(s->gedp, sp);
-	} else {
+
+	/* Advance using snapshotted DFS integer index — single snapshot
+	 * build, O(N) total.  bsg_view_obj_advance_solid wraps circularly. */
+	int delta = (argc == 1 || *argv[1] == 'f') ? +1
+	            : (*argv[1] == 'b')             ? -1
+	            : 0;
+	if (delta == 0) {
 	    Tcl_AppendResult(interp, "aip: bad parameter - ", argv[1], "\n", (char *)NULL);
 	    return TCL_ERROR;
+	}
+	sp = bsg_view_obj_advance_solid(s->gedp, sp, delta);
+	if (!sp) {
+	    /* No solids drawn — nothing to advance to */
+	    return TCL_OK;
 	}
 	sp->s_iflag = UP;
 	illump = sp;

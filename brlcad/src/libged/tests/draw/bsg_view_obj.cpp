@@ -46,6 +46,7 @@
 #include "bv/tcl_data.h"
 #include <ged.h>
 #include "ged/bsg_view_obj.h"
+#include "bsg/defines.h"
 #include "bsg/visit.h"
 #include "../../ged_private.h"
 
@@ -236,7 +237,8 @@ main(int ac, char *av[])
 	BV_ADD_VLIST(vlfree, &vhead, p1, BV_VLIST_LINE_MOVE);
 	BV_ADD_VLIST(vlfree, &vhead, p2, BV_VLIST_LINE_DRAW);
 
-	/* Save current count so we can verify a new entry was added. */
+	/* Save current count so we can verify a new entry was added.
+	 * The invent call creates the _overlays group as a new root child. */
 	int before_invent = dl_count(gedp);
 	int rc = bsg_view_obj_invent(gedp,
 				     (char *)"_bsg_test_phony", &vhead,
@@ -246,11 +248,39 @@ main(int ac, char *av[])
 	ASSERT(rc == 0);
 	ASSERT(dl_count(gedp) > before_invent);
 
+	/* The _overlays group must be present as a root child and be phony. */
+	{
+	    struct bv_scene_obj *root = bsg_view_obj_root(gedp);
+	    struct bv_scene_obj *overlays_grp = NULL;
+	    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+		struct bv_scene_obj *g =
+		    (struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
+		if (BU_STR_EQUAL("_overlays", bu_vls_cstr(&g->s_name))) {
+		    overlays_grp = g;
+		    break;
+		}
+	    }
+	    ASSERT(overlays_grp != NULL);
+	    ASSERT(bsg_view_obj_group_is_phony(overlays_grp));
+
+	    /* The overlay shape must have BSG_PAYLOAD_OVERLAY set. */
+	    if (overlays_grp && BU_PTBL_LEN(&overlays_grp->children) > 0) {
+		struct bv_scene_obj *sp =
+		    (struct bv_scene_obj *)BU_PTBL_GET(&overlays_grp->children, 0);
+		ASSERT(sp->s_type_flags & BSG_PAYLOAD_OVERLAY);
+		/* No phony db entry should exist for this name. */
+		ASSERT(db_lookup(gedp->dbip, "_bsg_test_phony", LOOKUP_QUIET)
+		       == RT_DIR_NULL);
+	    }
+	}
+
 	/* Free the local vlist (we passed copy=1, so vhead still owns it). */
 	BV_FREE_VLIST(vlfree, &vhead);
 
 	/* Erase the phony solid by name. */
 	bsg_view_obj_erase_by_name(gedp, "_bsg_test_phony", 0);
+	/* _overlays group should be gone (empty → freed). */
+	ASSERT(dl_count(gedp) == before_invent);
     }
 
     /* ---------------------------------------------------------------- *
@@ -283,6 +313,125 @@ main(int ac, char *av[])
      * 6. zap then verify hash returns to zero.                          *
      * ---------------------------------------------------------------- */
     bu_log("[6] zap and rehash...\n");
+    {
+	const char *s_av[2] = {"zap", NULL};
+	ged_exec(gedp, 1, s_av);
+	ASSERT(bsg_view_obj_name_hash(gedp) == 0);
+	ASSERT(dl_count(gedp) == 0);
+    }
+
+    /* ---------------------------------------------------------------- *
+     * 7. solid_count / solid_at / solid_index — snapshotted DFS index. *
+     * ---------------------------------------------------------------- */
+    bu_log("[7] solid_count/at/index...\n");
+    {
+	/* Draw moss scene. */
+	const char *s_av[3] = {"draw", "all.g", NULL};
+	ged_exec(gedp, 2, s_av);
+
+	int count = bsg_view_obj_solid_count(gedp);
+	ASSERT(count > 0);
+
+	/* solid_at(0) must be non-NULL and equal to first_solid. */
+	struct bv_scene_obj *first = bsg_view_obj_first_solid(gedp);
+	struct bv_scene_obj *at0 = bsg_view_obj_solid_at(gedp, 0);
+	ASSERT(at0 != NULL);
+	ASSERT(at0 == first);
+
+	/* solid_index must round-trip with solid_at. */
+	int idx_first = bsg_view_obj_solid_index(gedp, first);
+	ASSERT(idx_first == 0);
+
+	/* last solid: solid_at(-1) should wrap to count-1. */
+	struct bv_scene_obj *last = bsg_view_obj_solid_at(gedp, -1);
+	ASSERT(last != NULL);
+	int idx_last = bsg_view_obj_solid_index(gedp, last);
+	ASSERT(idx_last == count - 1);
+
+	/* advance_solid wraps correctly: last+1 == first. */
+	struct bv_scene_obj *wrap_fwd = bsg_view_obj_advance_solid(gedp, last, 1);
+	ASSERT(wrap_fwd == first);
+
+	/* advance_solid backward: first-1 == last. */
+	struct bv_scene_obj *wrap_bwd = bsg_view_obj_advance_solid(gedp, first, -1);
+	ASSERT(wrap_bwd == last);
+
+	/* Non-drawn pointer returns -1 from solid_index. */
+	ASSERT(bsg_view_obj_solid_index(gedp, NULL) == -1);
+
+	/* Overlay shapes should NOT appear in the snapshot. */
+	{
+	    struct bu_list vhead;
+	    BU_LIST_INIT(&vhead);
+	    struct bu_list *vlfree = &rt_vlfree;
+	    point_t p1 = {0, 0, 0};
+	    BV_ADD_VLIST(vlfree, &vhead, p1, BV_VLIST_LINE_MOVE);
+	    bsg_view_obj_invent(gedp, (char *)"_snap_test_overlay",
+			       &vhead, 0xFF0000, 1, 1.0, 0, 0);
+	    BV_FREE_VLIST(vlfree, &vhead);
+
+	    /* count must not have changed */
+	    ASSERT(bsg_view_obj_solid_count(gedp) == count);
+	    /* Clean up */
+	    bsg_view_obj_erase_by_name(gedp, "_snap_test_overlay", 0);
+	}
+    }
+
+    /* ---------------------------------------------------------------- *
+     * 8. draw_rev / name_hash revision counter (Step 4 / B7).          *
+     * ---------------------------------------------------------------- */
+    bu_log("[8] draw_rev revision counter...\n");
+    {
+	/* Zap → rev must be 0, hash must be 0. */
+	{
+	    const char *s_av[2] = {"zap", NULL};
+	    ged_exec(gedp, 1, s_av);
+	}
+	ASSERT(bsg_view_obj_draw_rev(gedp) == 0);
+	ASSERT(bsg_view_obj_name_hash(gedp) == 0);
+
+	/* Draw something — rev must be non-zero. */
+	{
+	    const char *s_av[3] = {"draw", "all.g", NULL};
+	    ged_exec(gedp, 2, s_av);
+	}
+	uint64_t rev_after_draw = bsg_view_obj_draw_rev(gedp);
+	ASSERT(rev_after_draw != 0);
+	ASSERT(bsg_view_obj_name_hash(gedp) == (unsigned long long)rev_after_draw);
+
+	/* Erase something — rev must have increased again. */
+	bsg_view_obj_erase_by_path(gedp, "all.g", 0);
+	uint64_t rev_after_erase = bsg_view_obj_draw_rev(gedp);
+	ASSERT(rev_after_erase > rev_after_draw);
+
+	/* Zap → rev reset to 0. */
+	{
+	    const char *s_av[2] = {"zap", NULL};
+	    ged_exec(gedp, 1, s_av);
+	}
+	ASSERT(bsg_view_obj_draw_rev(gedp) == 0);
+
+	/* Invent an overlay → rev bumped. */
+	{
+	    const char *s_av[3] = {"draw", "all.g", NULL};
+	    ged_exec(gedp, 2, s_av);
+	    uint64_t rev_pre = bsg_view_obj_draw_rev(gedp);
+
+	    struct bu_list vhead;
+	    BU_LIST_INIT(&vhead);
+	    struct bu_list *vlfree = &rt_vlfree;
+	    point_t p = {1, 1, 1};
+	    BV_ADD_VLIST(vlfree, &vhead, p, BV_VLIST_LINE_MOVE);
+	    bsg_view_obj_invent(gedp, (char *)"_rev_test_ov",
+			       &vhead, 0x00FF00, 1, 1.0, 0, 0);
+	    BV_FREE_VLIST(vlfree, &vhead);
+	    ASSERT(bsg_view_obj_draw_rev(gedp) > rev_pre);
+
+	    bsg_view_obj_erase_by_name(gedp, "_rev_test_ov", 0);
+	}
+    }
+
+    /* Final zap to leave clean state. */
     {
 	const char *s_av[2] = {"zap", NULL};
 	ged_exec(gedp, 1, s_av);
