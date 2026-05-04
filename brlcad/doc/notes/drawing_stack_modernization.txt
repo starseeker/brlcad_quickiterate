@@ -1,2059 +1,359 @@
-Drawing Stack Modernization — Phase Cross-Walk
-===============================================
+Drawing Stack Modernization — Current Audit
+===========================================
 
-This document is the single source of truth for the incremental modernization
-of BRL-CAD's 3D drawing stack.  It maps changes that have already been proven
-in the experimental brlcad_qgedobol/ tree to their equivalent work items in
-the canonical brlcad/ tree, records which changes block which, and tracks the
-status of each.
+Purpose
+-------
+This note is the current-state summary for the BRL-CAD drawing-stack
+modernization work.  It replaces the older session-by-session log with the
+information future sessions actually need:
 
-The high-level goal is to progress from two drawing stacks with an opaque
-dbi_state toward a single, Inventor-shaped scene-graph stack that can be
-directly backed by Obol (or an equivalent portable scene-management library).
-The full plan is in seven phases; this document covers the first four in detail
-and describes the remaining ones at a higher level.
+1. what the high-level plan in the repository root file `draw_migration_plan.rtf` (outside the brlcad/ subtree) was trying to do,
+2. what the code in brlcad/ implements now,
+3. which parts of that plan are truly done versus only approximated,
+4. what work still remains, and
+5. the recommended order for the remaining work.
 
-See also: doc/notes/struct_resource_removal.txt (precedent for phased
-structural refactoring across many sessions).
+Read this first, then read the RTF plan file `draw_migration_plan.rtf` at the
+repository root (outside the brlcad/ subtree) if you need the original
+end-state rationale.
 
-== Build prerequisites ==
-
-The Qt stack (libqtcad, dm-qtgl, dm-swrast, qged) is central to this
-work.  Every phase MUST be built and validated with Qt enabled.  Never use
--DBRLCAD_ENABLE_QT=OFF for work in this area.
-
-Required packages on Ubuntu/Debian:
-
-  sudo apt-get install -y \
-    xserver-xorg-dev libx11-dev libxi-dev libxext-dev \
-    libglu1-mesa-dev libfontconfig-dev libgl-dev xvfb \
-    astyle re2c xsltproc libxml2-utils \
-    libfontconfig1-dev libfreetype6-dev \
-    libx11-xcb-dev libxfixes-dev libxrender-dev \
-    libxcb1-dev libxcb-cursor-dev libxcb-glx0-dev \
-    libxcb-keysyms1-dev libxcb-image0-dev libxcb-shm0-dev \
-    libxcb-icccm4-dev libxcb-sync-dev libxcb-xfixes0-dev \
-    libxcb-shape0-dev libxcb-randr0-dev libxcb-render-util0-dev \
-    libxcb-util-dev libxcb-xinerama0-dev libxcb-xkb-dev \
-    libxkbcommon-dev libxkbcommon-x11-dev \
-    qt6-base-dev qt6-svg-dev qt6-tools-dev \
-    libqt6opengl6t64 libqt6openglwidgets6t64
-
-CMake configure command (brlcad_quickiterate repo):
+Build/validation reminders
+--------------------------
+This work area is Qt-sensitive.  Always configure with Qt enabled.
 
   cmake -S brlcad -B brlcad_build \
     -DBRLCAD_EXT_DIR=bext_output \
+    -DCMAKE_PREFIX_PATH=bext_output/install \
     -DBRLCAD_EXTRADOCS=OFF \
     -DBRLCAD_ENABLE_STEP=OFF \
     -DBRLCAD_ENABLE_GDAL=OFF \
+    -DBRLCAD_ENABLE_OPENGL=ON \
     -DBRLCAD_ENABLE_QT=ON
 
-Exit criteria for every phase include a clean Qt build of at minimum:
-  libqtcad, dm-qtgl, dm-swrast, qged.
+At minimum, any code change in this area should keep the Qt drawing targets
+healthy: libqtcad, dm-qtgl, dm-swrast, qged, and archer.
 
-Guiding principles
+High-level status
+-----------------
+The important headline is:
+
+- The legacy display_list implementation is no longer the canonical drawn-set
+  data structure.
+- The canonical drawn set is now a BSG tree rooted at
+  ged_drawable::gd_draw_root.
+- Phase 7's internal refactor steps (1-15) have been implemented.
+- Pure tree manipulation logic has been moved into libbsg.
+- However, the full end-state sketched in draw_migration_plan.rtf is NOT 100%
+  realized yet.
+
+Against the RTF plan, the project is here:
+
+- Layer A: effectively done.
+- Layer B: mostly done; B4 is still only partial.
+- Layer C: internally far along, but the public libged API and some user-facing
+  semantics still expose legacy ideas.
+- User-facing redesign items R1/R2 from the RTF are not fully finished.
+- The "backend-style vs adapter-style" end-state decision is still open.
+
+What has been accomplished already
+----------------------------------
+Condensed history:
+
+- Phases 0-4 established the supporting infrastructure:
+  - dbi_state was modernized away from raw LMDB usage.
+  - typed observer/state machinery was added.
+  - libbsg was vendored into brlcad/.
+  - libdm gained BSG traversal support.
+  - views gained bsg_root plumbing.
+
+- Phase 5 migrated the major front ends to the BSG-capable path:
+  - MGED, Archer, and rtwizard were moved onto the modern draw path.
+  - The renderer could already consume a BSG scene root instead of the old
+    display-list walk.
+
+- Phase 6.5 removed the standalone legacy display_list implementation:
+  - src/libged/display_list.c was deleted.
+  - Its helpers were folded into libged and then progressively replaced.
+  - The internal linked-list-only model stopped being the renderer's source of
+    truth.
+
+- Phase 7 turned the GED draw set into a real BSG tree:
+  - gd_draw_root became the canonical per-GED draw root.
+  - nested per-component groups replaced top-level path-string splitting.
+  - DFS snapshot navigation replaced cross-list next/prev traversal.
+  - overlays moved to a dedicated _overlays tree branch using
+    BSG_PAYLOAD_OVERLAY instead of RT_DIR_PHONY_ADDR in the drawing path.
+  - freeing/revision helpers were pushed down into libbsg.
+  - bsg_view_obj.c was renamed to bsg_ged_draw.c because it is now primarily
+    GED-layer wrapper code.
+
+Current architecture and why it looks this way
+----------------------------------------------
+These are the important present-day design facts future sessions should not
+have to rediscover:
+
+1. The canonical drawn set is a BSG tree.
+   - Root: ged_drawable::gd_draw_root
+   - Root type: BSG_NODE_GROUP
+   - Real drawn geometry lives under child groups/shapes of that root.
+   - The renderer consumes this tree via libdm's BSG traversal path.
+   - The old gd_headDisplay chain is no longer the authoritative store.
+
+2. gv_draw_root exists so the active bview can point directly at the GED-owned
+   draw tree.
+   - This is the A3 realization from the RTF.
+   - The important consequence is that gv_objs is now derived/supporting state,
+     not the canonical structure to mutate first.
+
+3. libbsg now owns the pure tree logic.
+   - src/libbsg/draw_set.c: draw-tree structure/free/revision helpers,
+     nested-subpath erase helper, child-group utilities.
+   - src/libbsg/overlay.c: overlay-group helpers.
+   - include/bsg/draw_ctx.h: per-root context used by libbsg helpers to reach
+     the owner's revision counter and free-object pool without needing a
+     struct ged *.
+
+4. bsg_draw_ctx in root->s_i_data is intentional.
+   - It exists so libbsg code can bump gd_draw_rev and recycle nodes without
+     carrying GED-private state through every helper.
+   - Do not remove it unless there is a better owner/context handoff design.
+
+5. _overlays plus BSG_PAYLOAD_OVERLAY is the replacement for the old phony-db
+   overlay trick.
+   - In the drawing path, overlays are now scene nodes, not fake database
+     objects.
+   - This was necessary to stop RT_DIR_PHONY_ADDR from being load-bearing in
+     draw-tree bookkeeping.
+
+6. gd_illum_solid is still present on purpose.
+   - The current code uses it to make the common "clear current illumination"
+     path O(1).
+   - This is not the full sensor-driven end-state described in the RTF, but it
+     is the reason the current implementation behaves acceptably.
+
+7. s_color_rev already exists on bv_scene_obj.
+   - It is the infrastructure for lazy material recoloring.
+   - The optimization is not active yet because gd_mater_rev is still bumped by
+     the sweep itself.
+   - Do not add a second cache token; finish the one that already exists.
+
+Files future sessions should read first
+---------------------------------------
+If you need to continue this work, start with these files:
+
+- repository root `draw_migration_plan.rtf` (outside brlcad/)
+- brlcad/doc/notes/drawing_stack_modernization.txt (this file)
+- brlcad/src/libged/bsg_ged_draw.c
+- brlcad/src/libbsg/draw_set.c
+- brlcad/src/libbsg/overlay.c
+- brlcad/include/bsg/draw_ctx.h
+- brlcad/include/ged/bsg_view_obj.h
+- brlcad/src/libged/who/who.c
+- brlcad/src/libged/ged_util.cpp
+- brlcad/src/libged/tests/draw/bsg_view_obj.cpp
+
+Audit against the RTF plan
+--------------------------
+The RTF plan is still the best description of the desired end-state.  The table
+below records how closely the current code matches it.
+
+Layer A — make the drawn set a BSG tree
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+A1  DONE
+    The canonical drawn set is gd_draw_root, not a list of display_list nodes.
+
+A2  MOSTLY DONE
+    The storage model is now tree-based, and nested groups represent path
+    structure.  However, the public API is still path-string-oriented
+    (lookup_or_add_path, erase_by_path, erase_all_paths, group_path,
+    group_set_path).
+
+A3  DONE
+    gv_draw_root lets the view point at the GED-owned draw tree directly.
+
+A4  DONE
+    next/prev-style navigation is now implemented via a DFS snapshot and integer
+    indexing rather than linked-list pointer chasing.
+
+Layer B — re-express each legacy role in BSG terms
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+B1  MOSTLY DONE
+    Drawn paths are realized as BSG groups/shapes and append_solid_to_group now
+    builds nested groups correctly.  The public API is still legacy-shaped, so
+    the internal model is ahead of the surface API.
+
+B2  MOSTLY DONE
+    Nested erase is now tree-based, and the old split-heavy implementation has
+    effectively been retired from the core logic.  However, public compatibility
+    knobs such as allow_split and skip_first still exist.
+
+B3  MOSTLY DONE
+    Overlay filtering now uses BSG_PAYLOAD_OVERLAY rather than phony directory
+    addresses.  The "better" node-bbox/sensor invalidation design from the RTF
+    has not been implemented; bounds are still computed by walking nodes.
+
+B4  PARTIAL
+    The infrastructure exists:
+      - ged_drawable::gd_mater_rev
+      - bv_scene_obj::s_color_rev
+      - color_from_soltab skip logic
+    But the optimization is dormant because gd_mater_rev is still incremented at
+    the end of bsg_view_obj_color_from_soltab().  The remaining work is to bump
+    gd_mater_rev from actual material-change events instead.
+
+B5  MOSTLY DONE
+    The common clear-illumination path is O(1) through gd_illum_solid, which
+    captures most of the practical win the RTF wanted.  The exact sensor-driven
+    design described in the RTF is not what is currently implemented.
+
+B6  MOSTLY DONE
+    Overlays now live under _overlays and no longer require fake db entries in
+    the drawing path.  The remaining gap is user-facing policy cleanup: commands
+    such as who still think in "real vs phony" terms.
+
+B7  DONE
+    Structural revision tracking is now a cheap counter (gd_draw_rev) rather
+    than a content hash walk.
+
+B8  DONE
+    MGED's "advance illuminated solid" logic uses DFS snapshot order and integer
+    indexing rather than cross-list traversal.
+
+B9  DONE
+    Visitor-style traversal is in place and callers were migrated off the old
+    nested group/solid iteration pattern.
+
+Layer C — cleanly lift the redesign into libbsg / delete the old shape
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C1  MOSTLY DONE
+    Pure tree mechanics have been moved into libbsg.  The remaining gap is that
+    the libged public API still exposes legacy drawing-stack vocabulary and
+    compatibility shims.
+
+C2  BY DESIGN STAYS ABOVE LIBBSG
+    The plan explicitly says policy belongs in libged/mged.  This is still the
+    right split.
+
+C3  PARTIAL
+    A large amount of legacy machinery is gone, and bsg_view_obj.c has already
+    been renamed to bsg_ged_draw.c.  However, the end-state sketched in the RTF
+    is stricter than the current tree:
+      - bsg_view_obj_invent still exists as a public GED entry point.
+      - include/ged/bsg_view_obj.h still presents a legacy compatibility API.
+      - several callers still reason in terms of "phony" groups rather than a
+        first-class overlay policy.
+
+RTF user-facing redesign items
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+R1  NOT FINISHED
+    The RTF says overlays should stop masquerading as database objects and be
+    reported separately from real drawn geometry.  The internal draw tree is now
+    structured that way, but user-facing reporting has not been fully updated.
+    Example: src/libged/who/who.c still filters "real/phony/both" by doing a
+    db_lookup() on the displayed path leaf.
+
+R2  NOT FINISHED
+    The RTF says erase semantics should ultimately be described in tree terms
+    rather than by public skip_first/allow_split compatibility knobs.  The
+    internals are much closer to that goal than the public API is.
+
+What remains to do
 ------------------
-1. Never break MGED/Archer/rtwizard during the transition.
-2. Land every change as a small, independently mergeable commit.
-3. Move responsibilities UP the stack (deep libbv should not make view
-   decisions; that belongs in libged or higher).
-4. Make state inspectable: replace opaque unordered_map<unsigned long long,…>
-   with named, typed value types and an explicit observer protocol.
-5. Target an OpenInventor-shaped API as the final destination, not the next
-   step; each phase leaves the code closer without requiring a flag-day.
-
-== Phase 0 — Establish a shared baseline ==
-
-Status: DONE
-
-Goals
-  a. Produce this cross-walk document.
-  b. Migrate dbi_state.cpp from raw LMDB to the bu_cache abstraction that
-     libbv/lod.cpp and the rest of brlcad will eventually share.
-  c. Audit existing test surface; add regression tests for BViewState::redraw()
-     and the legacy dl_* path so Phase 1-2 refactors have something to defend.
-
-Item 0-A: Cross-walk document                                    [DONE - here]
-
-Item 0-B: Migrate dbi_state.cpp LMDB → bu_cache                  [DONE - this session]
-
-  Current state (brlcad/):
-    src/libged/dbi_state.cpp contains a private struct ged_draw_cache that
-    wraps a raw LMDB environment (MDB_env/MDB_txn/MDB_dbi).  It uses LMDB
-    directly for five on-disk payloads per .g object:
-      CACHE_OBJ_BOUNDS ("bb")    — 6 fastf_t bounding box
-      CACHE_REGION_ID ("rid")    — int region_id attribute
-      CACHE_REGION_FLAG ("rf")   — int region flag
-      CACHE_INHERIT_FLAG ("if")  — int color inheritance flag
-      CACHE_COLOR ("c")          — unsigned int packed RGB
-    Two private helpers (cache_write, cache_get) wrap single-transaction
-    LMDB reads and writes. cache_done() is a no-op commit stub.
-
-  After this session (brlcad/):
-    ged_draw_cache is replaced by struct bu_cache (from bu/cache.h).
-    Key construction: dbi_cache_key(hash, component) → "hash:component".
-    Open:  bu_cache_open(relative_path, 1/*create*/, 0/*default size*/)
-    Write: bu_cache_write(data, size, key, dcache, NULL)
-    Get:   bu_cache_get(&data, key, dcache, &txn) / bu_cache_get_done(&txn)
-    Clear: bu_cache_clear(key, dcache, NULL)
-    Close: bu_cache_close(dcache)
-    The LMDB_LIBRARIES / LMDB_INCLUDE_DIRS entries are removed from
-    src/libged/CMakeLists.txt (libbu already links LMDB for bu_cache).
-
-  qgedobol reference: src/libged/dbi_state.cpp lines 79-302, 688-870, 1173-1217
-
-Item 0-C: Test surface audit                                          [DONE - this session]
-
-  Existing visual/pixel-comparison tests:
-    src/libged/tests/draw/ — basic, faceplate, lod, select, quad, aet
-    These cover the QGED draw path through dm-swrast offscreen rendering.
-
-  Gap: no unit test for BViewState::redraw() or the legacy dl_* walk.
-  Resolution: added src/libged/tests/test_dbi_cpp.cpp — a lightweight C++
-  test (no Qt, no dm, no pixel comparison) that exercises:
-    • DbiState construction from a known .g file (moss.g)
-    • DbiState::tops() — verifies top-level object set
-    • DbiState::digest_path() — valid and invalid paths, correct depth
-    • DbiState::valid_hash() / valid_hash_path()
-    • DbiState::get_bbox() — finite, non-degenerate bbox for a known comb
-    • BViewState::add_path() + redraw() + count_drawn_paths() + is_hdrawn()
-    • Two-pass DbiState construction (warm-cache path produces identical maps)
-  Registered in src/libged/tests/CMakeLists.txt as ged_test_dbi_cpp.
-
-  Gap: no test that the dcache cache round-trip (write + read) works for each
-  of the five payload types.
-  Resolution: test_dbi_cpp.cpp test_cache_roundtrip() directly exercises
-  bu_cache_write + bu_cache_get for each of the five DBI payload formats:
-  CACHE_OBJ_BOUNDS (2×point_t), CACHE_REGION_ID (int), CACHE_REGION_FLAG (int),
-  CACHE_INHERIT_FLAG (int), CACHE_COLOR (unsigned int).
-
-== Phase 1 — Fix the dbi_state opacity problem ==
-
-Status: DONE
-
-Prerequisite: Phase 0 complete.
-
-The core problem: dbi_state.cpp and dbi.h expose their internal state as
-seventeen separate unordered_map<unsigned long long, …> fields, making it
-impossible to understand at a glance which map is keyed by what kind of hash
-(object name hash vs. instance hash vs. full-path hash), and impossible to
-add/remove a debugger watch on "all data for object X".
-
-Reference design: brlcad_qgedobol/include/ged/dbi.h (the fully redesigned API)
-
-Sub-items (each an independent commit):
-
-  1-A: Typed hash wrappers (GHash / InstHash / PathHash / DbiPath)   [DONE]
-    Three unit structs (GHash, InstHash, PathHash) each wrapping
-    unsigned long long, with operator== / operator!= / explicit bool and
-    std::hash specializations.  DbiPath (typed path vector) has an implicit
-    conversion to const vector<ull>& for backward compatibility.
-    All defined in src/libged/dbi.h.
-
-  1-B: DbiChangeEvent and SceneChangeEvent use typed hash fields       [DONE]
-    New event structs use GHash / PathHash.  Existing flat maps in DbiState
-    remain as unsigned long long for now (full retype deferred to Phase 2 to
-    keep the diff minimal); DbiChangeEvent exposes a GHash object field and
-    a bool batch flag.
-
-  1-C: Observer protocol (IDbiObserver / DbiChangeEvent)               [DONE]
-    IDbiObserver and ISceneObserver pure virtual interfaces.  DbiState gains
-    add_observer() / remove_observer() / add_scene_observer() /
-    remove_scene_observer() and fires on_dbi_changed(events) after each
-    DbiState::update() call.  notify_dbi_observers() / notify_scene_observers()
-    are private dispatchers.
-    Regression: test_dbi_cpp.cpp Test 8 — observer add/fire/remove verified.
-
-  1-D: GObj / CombInst object model                                    [DONE]
-    GObj (one per .g object) and CombInst (one per child instance) value types
-    added to dbi.h.  DbiState gains gobjs map (ull → GObj*) and get_gobj()
-    accessor.  update_dp() creates/recreates the GObj after populating flat
-    maps; GenCombInstances() walks the comb tree to populate CombInst children.
-    Removed objects also remove their GObj; destructor clears all.
-    Old flat-map fields (p_c, p_v, bboxes, etc.) remain as the canonical store;
-    GObj reads from them on construction.
-    Regression: test_dbi_cpp.cpp Test 8 — GObj for all.g has 6 CombInst entries.
-
-  1-E: DrawList as a first-class type                                  [DONE]
-    DrawList class with add(path, mode), remove(path_hash, mode),
-    clear(), query(path_hash) → DrawState enum {NOT_DRAWN, FULLY_DRAWN,
-    PARTIALLY_DRAWN}, drawn_path_hashes(mode), count(mode), empty().
-    BViewState gains draw_list() / const draw_list() accessors backed by a
-    private DrawList draw_list_ member.
-    Regression: test_dbi_cpp.cpp Test 8 — add/query/clear verified.
-
-  1-F: SelectionSet replacing BSelectState                             [DONE]
-    BSelectState renamed SelectionSet throughout dbi.h and dbi_state.cpp.
-    typedef SelectionSet BSelectState preserves all existing callers unchanged.
-    New API methods: select(path_hash, path_vec), select(DbiPath),
-    select(const char*), deselect() overloads, is_parent(), is_ancestor(),
-    is_obj_immediate_parent(), is_obj_ancestor(), recompute_hierarchy(),
-    selected_paths(), selected_hashes(), state_hash_val(), selected_map().
-    Regression: test_dbi_cpp.cpp Test 8 — select/deselect/state_hash_val.
-
-  1-G: Keep the C++ surface stable                                     [DONE]
-    DbiState gains get_selection_set(name) / get_selection_sets(pattern) /
-    add_selection_set(name) / remove_selection_set(name) as clean wrappers
-    alongside the legacy find_selected_state() / get_selected_states().
-    qged CMakeLists.txt updated to explicitly link Qt6::OpenGL +
-    Qt6::OpenGLWidgets (pre-existing Qt6 build gap, fixed as part of this
-    phase's Qt validation step).
-
-Exit criteria: observer-based notification works and is covered by a
-regression test (test_dbi_cpp.cpp Test 8).  DrawList and SelectionSet are
-typed first-class objects.  GObj / CombInst populate the gobjs map.
-All 8 tests in ged_test_dbi_cpp pass; qged builds cleanly with Qt6.
-
-== Phase 2 — Drain view-dependent behavior out of libbv ==
-
-Status: DONE
-
-Prerequisite: Phase 1 in progress (libbv shape must be stable before libbsg
-can be vendored in Phase 4).
-
-The core problem: bv_scene_obj carries s_update_callback, s_dlist_stale,
-s_dlist_free_callback, adaptive_wireframe, view_scale, bot_threshold,
-curve_scale, point_scale, plus the s_v back-pointer to a bview.  These fields
-push view-policy decisions into the data model.  Nothing in the scene data
-record should know about adaptive rendering or display-list staleness; those
-are concerns of the renderer (libdm) and the draw manager (libged).
-
-Reference design: brlcad_qgedobol/src/libbsg/ (scene_graph.cpp, lod.cpp)
-
-Sub-items:
-
-  2-A: Annotate & audit callers                                       [DONE]
-    BV_DEPRECATED (Phase 2) comments added in include/bv/defines.h for:
-      s_v (used for control flow), s_update_callback (LoD/CSG path removed),
-      s_dlist_stale, s_dlist_free_callback, adaptive_wireframe, view_scale,
-      bot_threshold, curve_scale, point_scale.
-
-    Write-site audit (all direct writes to the deprecated fields):
-      s_update_callback:
-        src/libged/draw.cpp: bot_adaptive_plot(), brep_adaptive_plot(),
-          wireframe_plot() — RETAINED for per-frame rendering via libdm/view.c.
-          BViewState::redraw() adds an explicit supplementary pass (2-B).
-        src/libdm/view.c: draw_scene_obj() calls s_update_callback for
-          non-LoD polygon-edit objects — this call remains valid.
-      s_dlist_stale:
-        src/libbv/util.cpp bv_obj_stale() sets s_dlist_stale=1 — remains.
-        src/libdm/dm-gl_lod.cpp: polled on entry; cleared after dlist gen — remains
-          for backward compat; sensor fires on dlist regeneration (2-C).
-      s_dlist_free_callback:
-        src/libdm/dm-gl_lod.cpp: set during dlist creation — remains; will
-          be removed in 2-E after libdm owns teardown via sensor pattern.
-      adaptive_wireframe, view_scale, bot_threshold, curve_scale, point_scale:
-        Written in csg_wireframe_update() and bv_mesh_lod_view() — these
-        remain as snapshot cache; ownership tracking moved to BViewState (2-B).
-    Blocker: none.
-
-  2-B: Move adaptive-plot / LoD trigger to BViewState                 [DONE]
-    s_update_callback = &bv_mesh_lod_view RETAINED for BV_MESH_LOD objects
-      (bot_adaptive_plot, brep_adaptive_plot) — it is still called per-frame
-      by draw_scene_obj() in libdm/view.c as a rendering-time update.
-      Phase 2-B adds BViewState as an additional explicit trigger.
-    s_update_callback = &csg_wireframe_update RETAINED for BV_CSG_LOD objects
-      in wireframe_plot() for the same reason.
-    csg_wireframe_update() made extern "C" (non-static) so dbi_state.cpp
-      can call it directly.
-    Forward declarations added at top of dbi_state.cpp for draw_scene() and
-      csg_wireframe_update().
-    BViewState::redraw() gains a per-view LoD update pass after draw_scene:
-      iterates s_map; for each BV_MESH_LOD child calls bv_mesh_lod_view(),
-      for each BV_CSG_LOD child calls csg_wireframe_update().
-      This ensures view-scale changes from redraw_on_zoom also propagate LoD.
-    Dead #if 0 block in libbv/util.cpp::bv_update_selected() replaced with
-      an explanatory comment (libbv does not call s_update_callback).
-    lod.cpp: enabling adaptive_plot now also sets redraw_on_zoom = 1 so
-      zoom events trigger a full BViewState::redraw() and LoD levels update.
-      Disabling both modes clears redraw_on_zoom back to 0.
-    Blocker: Phase 1-E (DrawList), 2-A.
-
-  2-C: Sensor pattern for dlist staleness                             [DONE]
-    struct dm_dlist_sensor added to calltable.h (singly-linked list node
-      with bv_scene_obj*, callback, data, next).
-    dm_dlist_sensors (struct dm_dlist_sensor*) field added to dm_impl.
-    dm_register_dlist_sensor(), dm_fire_dlist_sensors(),
-      dm_dlist_sensors_clear() added to include/dm.h and implemented in
-      src/libdm/dm-generic.c.
-    dm_close() in dm-generic.c calls dm_dlist_sensors_clear() before
-      delegating to the plugin's close function.
-    dm-gl_lod.cpp: gl_draw_tri() and gl_csg_lod() call dm_fire_dlist_sensors()
-      after regenerating a GL display list (Phase 2-C hook point).
-    s_dlist_stale polling in dm-gl_lod.cpp REMAINS (backward compat) but is
-      now marked BV_DEPRECATED; the sensor provides a proactive alternative.
-    Reference: qgedobol src/libdm/dm-gl.c gl_register_dlist_sensor pattern.
-    Blocker: 2-A.
-
-  2-D: Camera accessors                                               [DONE]
-    New public API in include/bv/util.h:
-      bv_view_get_scale / bv_view_set_scale — gv_scale + consistent gv_size/isize
-      bv_view_get_size  / bv_view_set_size  — gv_size  + consistent gv_scale/isize
-      bv_view_get_perspective / bv_view_set_perspective — gv_perspective
-      bv_view_get_aet  / bv_view_set_aet   — gv_aet + recomputes gv_rotation
-                                              via bv_mat_aet()
-      bv_view_get_rotation / bv_view_set_rotation — raw gv_rotation matrix
-      bv_view_get_center_vec / bv_view_set_center_vec — gv_center point
-                                              using MAT_DELTAS_GET/SET_NEG
-    Implemented in src/libbv/util.cpp immediately after bv_mat_aet().
-    Migration sites:
-      src/libged/draw/loadview.cpp: gv_size+gv_scale+gv_isize → bv_view_set_size;
-        gv_rotation+gv_center → bv_view_set_rotation+bv_view_set_center_vec;
-        gv_perspective → bv_view_set_perspective.
-      src/libqtcad/QgGL.cpp QgGL::aet(): inline rotation computation replaced
-        by bv_view_set_aet() + bv_update().
-      src/libqtcad/QgSW.cpp QgSW::aet(): same.
-      src/libqtcad/bindings.cpp CADkeyPressEvent(): all twelve
-        bn_decode_vect(v->gv_aet,...)+bv_mat_aet() pairs replaced by
-        vect_t aet; bn_decode_vect(aet,...); bv_view_set_aet(v,aet).
-    Reference: qgedobol src/libbsg/scene_graph.cpp bsg_view_get/set_camera.
-    Blocker: 2-A.
-
-  2-E: Remove deprecated fields
-    After one release cycle with BV_DEPRECATED shims, remove the fields
-    enumerated in 2-A from bv_scene_obj and bview.
-    Blocker: 2-B, 2-C, 2-D, all callers migrated.
-
-Exit criteria: bv_scene_obj no longer contains s_update_callback, s_dlist_*,
-adaptive_wireframe, view_scale, bot_threshold, curve_scale, point_scale, or
-any bview* back-pointer used for control flow.
-
-== Phase 3 — Generalize the draw cache ==
-
-Status: DONE
-
-Prerequisite: Phase 0 (bu_cache migration).
-
-Today there are two on-disk LMDB users:
-  - src/libbv/lod.cpp  — stores BoT LoD geometry and mesh-name→key mappings
-  - src/libged/dbi_state.cpp — stores bbox, region_id, region_flag,
-                               color_inherit, color per .g solid
-
-After Phase 0, dbi_state.cpp uses bu_cache.  libbv/lod.cpp still uses raw
-LMDB.  Phase 3 migrates lod.cpp to bu_cache, gives both caches a consistent
-format-file invalidation mechanism, and adds a background OBB worker.
-
-Sub-items:
-
-  3-A: Migrate libbv/lod.cpp LMDB → bu_cache                      [DONE]
-    Replace the two MDB_env instances (lod_env / name_env) with two
-    struct bu_cache* instances (lod_cache / name_cache).  All MDB_* calls
-    become bu_cache_* calls.  Remove LMDB_LIBRARIES from libbv CMakeLists.txt.
-    Reference: qgedobol src/libbsg/lod.cpp (already migrated).
-
-  3-B: Cache invalidation via format files                         [DONE]
-    Both cache owners use the same mechanism: a plain-text integer version
-    file in the cache root directory.  On startup, if the integer in the file
-    doesn't match the compile-time constant the entire cache directory is
-    cleared via bu_dirclear() before new caches are opened.  Cache keys use
-    plain "hash:component" strings with no embedded version prefix.
-
-    lod.cpp (POPLoD cache):
-      File: BU_DIR_CACHE/.POPLoD/format
-      Constant: CACHE_CURRENT_FORMAT (bumped 1 → 2 to force a clean slate
-      after the LMDB→bu_cache migration in 3-A).
-      Checked in: bv_mesh_lod_context_create().
-
-    dbi_state.cpp (DBI cache, dcache):
-      File: BU_DIR_CACHE/.Dbi/format
-      Constant: DBI_CACHE_FORMAT_VERSION (starts at 1).
-      Checked in: DbiState::DbiState() before bu_cache_open().
-      Covers all six payload keys: bb, rid, rf, if, c, obb.
-
-    When a payload's binary layout changes, or a payload type is added or
-    removed, only the relevant format-version constant needs to be bumped;
-    the next startup automatically wipes and rebuilds the entire cache
-    directory for that cache owner.  No orphaned entries accumulate.
-
-  3-C: Background OBB computation via GeomLoader                   [DONE]
-    Introduce a GeomLoader worker (based on the qgedobol DrawPipeline concept)
-    that computes OBBs for each solid in the background.  Results are stored in
-    dcache (key "hash:obb") and made available to BViewState via a
-    drain_geom_results() pump.  Current OBB computation is a trivial
-    axis-aligned placeholder; a PCA-based OBB can replace it later.
-    GeomLoader declared in dbi.h, implemented in dbi_state.cpp.
-    DbiState::geom_loader created after dcache is opened; destroyed (joining
-    the worker thread) before dcache is closed in ~DbiState().
-
-  3-D: Placeholder rendering ladder                                [DONE]
-    BViewState::redraw() queues OBB computations for all newly drawn solids
-    immediately after draw_scene().  BViewState::drain_geom_results() is
-    exposed as a public method; callers that poll it and get count > 0 should
-    trigger a view refresh to consume the updated OBBs.
-    Reference: qgedobol doc/TODO.qged-stack.md §7.4 (fully validated there).
-
-Exit criteria: a new cached payload (OBB) can be added in one place and is
-consumed by the draw path without changes to bv_* headers.  Both caches use
-the format-file mechanism for invalidation; keys are plain "hash:component".
-Qt build requirement: libbv, dm-swrast, and the LoD caching tests must all
-pass; qt6-base-dev / qt6-svg-dev must be installed and -DBRLCAD_ENABLE_QT=ON.
-
-== Phase 3.5 — Migrate concurrentqueue.h based drawing data cache in qgedobol
-
-Status: DONE
-
-    Replaced the Phase 3-C single-threaded GeomLoader (which computed trivial
-    axis-aligned OBBs as a placeholder) with a 5-stage concurrent pipeline
-    (DrawPipeline) that closely mirrors qgedobol's cache_drawing.cpp design:
-
-    Stage 1 — attr_worker:   reads region flag/id, inherit, color from AVS and
-                             enqueues them for cache writing; cracks geometry and
-                             forwards rt_db_internal to q_aabb.
-    Stage 2 — aabb_worker:  calls ft_bbox to compute a real AABB; posts a
-                             DrawPipeline::Result::AABB to results_q and forwards
-                             the internal to q_obb.
-    Stage 3 — obb_worker:   calls ft_oriented_bbox to compute a tight oriented
-                             bounding box (8 corner points, 24 fastf_t); posts
-                             DrawPipeline::Result::OBB; forwards to q_lod.
-    Stage 4 — lod_worker:   for BoT primitives, calls bv_mesh_lod_cache /
-                             bv_mesh_lod_key_put if not already cached; posts
-                             DrawPipeline::Result::LOD.
-    Stage 5 — write_worker: serialises all bu_cache writes, preventing LMDB
-                             transaction conflicts from concurrent workers.
-
-    All 5 stages use moodycamel::ConcurrentQueue (concurrentqueue.h) for lock-
-    free inter-stage handoff.  A shared DrawPipelineState (held as a
-    shared_ptr) owns the queues and result_q; the pipeline shuts down cleanly
-    when ~DrawPipeline() signals shutdown and waits up to 2 s for all threads.
-
-    New public surface in dbi.h / DbiState:
-      DbiState::obbs       — map from hash to std::array<fastf_t,24> (8 corner pts)
-      DbiState::start_geom_load(items) — push WorkItems to pipeline
-      DbiState::drain_geom_results()   — drain results, update bboxes/obbs
-      DbiState::wait_for_pipeline(ms)  — blocking drain loop (useful for tests)
-      BViewState::drain_geom_results() — delegates to DbiState (return type now size_t)
-
-    DBI_CACHE_FORMAT_VERSION bumped to 2 (OBB format changed from center+extents
-    4×3 doubles to 8 corner points 24 fastf_t).
-
-    DbiState constructor also pushes all solid directory pointers at init time so
-    AABB, OBB and LoD data are pre-populated in the background for the full model.
-
-    BViewState::redraw() Phase 3-D block updated: instead of calling
-    geom_loader->queue_item(hash, bmin, bmax) it builds a DrawPipeline::WorkItem
-    list from the drawn s_map and calls DbiState::start_geom_load().
-
-    Most OBB data will not yet be used in current drawing implementations (Phase 4+
-    will wire OBBs into view-frustum culling and bsg scene nodes), but all the
-    required data is now being computed and stored, positioning us for future work.
-
-    Test 9 added to ged_test_dbi_cpp: opens moss.g, waits for pipeline to settle,
-    verifies at least one AABB result is produced.  9/9 PASS.
-
-Exit criteria: We successfully cache and are able to retrieve all information
-qgedobol's cache stores, and do so without breaking our current LoD features.
-Qt build requirement: libbv, dm-swrast, and the LoD caching tests must all
-pass; qt6-base-dev / qt6-svg-dev must be installed and -DBRLCAD_ENABLE_QT=ON.
-
-
-== Phase 4 — Stand up libbsg in brlcad/ alongside libbv ==
-
-Status: DONE
-
-Prerequisite: Phase 2 (libbv shape stable), Phase 3 (cache unified).
-
-This phase is additive: libbv still ships and works.  libbsg is vendored in
-alongside it, providing the scene-graph API that will eventually replace the
-dl_* walk.
-
-Key facts from qgedobol/:
-  - include/bsg/defines.h, include/bsg/util.h, include/bsg/scene_set.h
-  - include/bsg/lod.h, include/bsg/vlist.h, include/bsg/obol_node.h
-  - src/libbsg/scene_graph.cpp, src/libbsg/lod.cpp, src/libbsg/vlist.c
-  - bsg_shape mirrors bv_scene_obj layout (identical field prefix so no casts)
-  - bsg_view_traverse(root) is the single render loop
-  - bsg_view_find_by_type(), bsg_sensor_fire() are the key cross-cutting helpers
-
-Sub-items:
-
-  4-A: Vendor libbsg source tree
-    Created include/bsg/defines.h, util.h, scene_set.h, lod.h, vlist.h,
-    obol_node.h, plus include/bsg.h umbrella header.  Created
-    src/libbsg/scene_graph.cpp, lod.cpp, vlist.c, and
-    src/libbsg/tests/test_vlist.c, test_arb8.c.  Added CMakeLists.txt
-    entries: libbsg added to source_dirs.cmake; libdm/libged/libqtcad
-    updated to link libbsg; include/CMakeLists.txt updated with bsg dir.
-    bsg_node and bsg_shape typedef struct bv_scene_obj so no casts needed.
-
-  4-B: Design review
-    The qgedobol libbsg implementation was entirely rewritten for BRL-CAD:
-    bsg_node = typedef struct bv_scene_obj (layout-compatible, no casts);
-    bsg_scene_root_create/sync/destroy use bv_obj_create/bv_obj_put so
-    the allocator machinery and i-pointer are correctly initialised;
-    bsg_view_traverse lives in libdm/view.c (not libbsg) to avoid a
-    libbsg→libdm circular dependency; bsg_scene_set stub for Phase 5.
-    obol_node.h is a forward-compatibility stub for Phase 7.
-    Also fixed pre-existing OPENGL_INCLUDE_DIR_GL detection bug (modern
-    CMake sets OPENGL_INCLUDE_DIR; now accepted under either name) that
-    was preventing qged and dm-qtgl from building.
-
-  4-C: Scene-root creation at view init sites
-    QgGL.cpp (qtgl view), QgSW.cpp (swrast view), and ged.cpp (default
-    GED view) all call bsg_scene_root_create() after bv_init().  bv_init()
-    initialises bview::bsg_root to NULL; bv/defines.h carries the field
-    (void * to avoid bv→bsg circular include).
-
-  4-D: libdm consumes bsg_view_traverse
-    dm_draw_objs() in libdm/view.c selects the render path at paint time:
-    when v->bsg_root is non-NULL, bsg_scene_root_sync + bsg_view_traverse
-    replace the dl_* walk; otherwise the legacy loop runs unchanged.
-    bsg_view_traverse() declared DM_EXPORT in include/dm/view.h.
-
-  4-E: QGED and gsh draw exclusively through bsg_view_traverse
-    BViewState::redraw() calls bsg_scene_root_sync for every view that has
-    a scene root after the finalization autoview, keeping roots up-to-date
-    between paint events.  MGED/Archer still have no bsg_root so they
-    continue through the dl_* path unchanged.
-    Tests: libbsg/tests/vlist (6 cases), libbsg/tests/arb8 — all PASS.
-    libqtcad, dm-qtgl, dm-swrast, qged all build cleanly.
-
-Exit criteria: QGED/swrast draw through bsg_view_traverse; MGED/Archer still
-use dl_*; a pixel-level regression confirms both paths produce the same output.
-Qt build requirement: qged, dm-qtgl, dm-swrast must all build and
-the swrast pixel-level regression tests must pass.
-
-== Phase 5 — Migrate MGED, Archer, rtwizard onto the new path ==
-
-Status: DONE
-
-Prerequisite: Phase 4 complete.
-
-What was done (2026-04-28):
-
-  MGED:
-  - struct bview gains gv_edit_mat (matp_t, initialized to NULL by bv_init).
-    In dozoom(), set to vs_model2objview during sed/oed so dm_draw_scene_obj
-    can swap the matrix for UP-flagged (illuminated/selected) objects.
-  - mged/setup.c calls bsg_scene_root_create() right after bv_init; MGED's
-    view has a BSG root from start-up.
-  - mged/dozoom.c fully rewritten:
-      which_eye==0 (normal view, >99% usage): dm_draw_objs() via BSG path.
-      which_eye!=0 (stereo): legacy dm_draw_head_dl retained (Deering
-        perspective+eye-offset matrix can't be split into the
-        dm_loadpmatrix/modelview pair dm_draw_objs expects — marked TODO).
-  - dm_draw_scene_obj promoted from static to exported DM_EXPORT in libdm;
-    handles gv_edit_mat swap for s_iflag==UP objects.
-
-  Archer / libtclcad:
-  - libtclcad/commands.c: bsg_scene_root_create() for every new view.
-  - libtclcad/view/draw.c: go_draw() branches on bsg_root present:
-      BSG: bsg_scene_root_sync + iterate root->children via go_draw_solid()
-           (preserves Archer's per-path edited_paths edit-matrix logic).
-      Fallback: go_draw_dlist() for any view lacking a BSG root.
-
-  rtwizard:
-  - rtwizard's headless (--no-gui) pipeline uses the libtclcad GED API only
-    for camera parameter computation (new_view + draw + autoview +
-    get_eyemodel); no DM rendering occurs.  The actual image is produced by
-    an rt/rtedge subprocess that receives viewsize/orientation/eye_pt.
-  - Because libtclcad/commands.c already calls bsg_scene_root_create() for
-    every new view (including "db new_view v1 nu"), rtwizard's secondary
-    null-DM view is BSG-enabled from the moment of creation.
-  - With bsg_root set, go_draw_dlist() is never entered; the go_draw()
-    BSG branch fires instead, making the go_draw_dlist dl_* walk dead code.
-  - _ged_rt_set_eye_model branches on gedp->new_cmd_forms: when 1 (the
-    value set by ged_init) it uses bv_view_objs() (BSG-compatible) instead
-    of the legacy dl_bounding_sph() path.
-
-  Tests:
-  - src/libged/tests/draw/mged_bsg.cpp: 5-test regression suite using
-    dm-swrast (no display required):
-      Test 1: wireframe renders non-empty image via BSG path
-      Test 2: illumination (s_iflag==UP) adds white pixels
-      Test 3: gv_edit_mat shifts illuminated objects
-      Test 4: faceplate center-dot visibility
-      Test 5: BSG path == legacy dl_* path (pixel-identical)
-    All 5/5 tests PASS.
-  - src/libged/tests/draw/rtwizard_bsg.cpp: 3-test rtwizard migration
-    exit-criteria suite (null DM, no display required):
-      Test 1: null-DM secondary view (simulating "new_view v1 nu") gets
-              a BSG root — verifies the Phase 5 libtclcad change.
-      Test 2: draw + autoview + get_eyemodel on null-DM view produces a
-              finite, non-degenerate eye model (viewsize > 0, |q| ≈ 1,
-              finite eye_pt).
-      Test 3: Four independent null-DM views each have distinct bsg_root
-              pointers — per-view independence confirmed, go_draw_dlist
-              legacy path is provably not entered.
-    All 3/3 tests PASS.
-
-  Xvfb visual verification (Xvfb :99, dm-swrast OSMesa, 2026-04-28):
-  - MGED wireframe: 512x512, 1.5% colored wireframe lines, 0.5% white
-    faceplate elements — correct via BSG path.
-  - MGED sed/edit mode: 9.1% colored pixels (6x more than wireframe) —
-    illumination/edit-mode highlights working correctly.
-  - Archer/qged (-s swrast): launches cleanly on Xvfb, renders scene
-    content (2.0% colored + white pixels confirmed).
-
-Remaining deferral:
-  - Stereo dozoom: left on legacy dm_draw_head_dl; marked TODO.
-  - go_draw_dlist() and display_list.c deletion: blocked on cleanup of
-    to_edit_redraw() and to_create_vlist_callback() in libtclcad (both
-    still reference ged_dl/dl_head_scene_obj); scheduled for Phase 6.
-
-Exit criteria:
-  MGED renders via BSG path — DONE.
-  Archer renders via BSG path — DONE.
-  rtwizard null-DM view uses BSG (bsg_root set, go_draw_dlist not entered) — DONE.
-  display_list.c deletion prerequisite (rtwizard migration) — DONE.
-
-== Phase 6 — Reshape the surviving API toward OpenInventor / Obol ==
-
-Status: DONE
-
-Prerequisite: Phase 5 complete.
-
-Sub-items:
-  6-A: Field accessors and notification (SoField analogue) — DONE
-       include/bsg/field.h + src/libbsg/field.c
-       bsg_node_field_touch, bsg_node_set/get_{flag,color,visible}
-
-  6-B: Generalized sensor/engine pattern — DONE
-       include/bsg/sensor.h + src/libbsg/sensor.c
-       FieldSensor, NodeSensor, TimerSensor
-       Global 256-entry static registry; bsg_sensor_notify_field dispatches.
-
-  6-C: Explicit node taxonomy (separate compilation units per BSG_NODE_* type) — DONE
-       src/libbsg/node_root.c (shim; symbols defined in scene_graph.cpp)
-       src/libbsg/node_group.c (bsg_group_create/add_child/remove_child/destroy)
-       src/libbsg/node_shape.c (bsg_shape_create/set_vlist/destroy)
-       src/libbsg/node_transform.c (bsg_transform_create/set|get_matrix/destroy)
-       Corresponding headers: include/bsg/node_group.h, node_shape.h, node_transform.h
-
-  6-D: Decouple vlist as one possible leaf-node payload — DONE
-       BSG_PAYLOAD_* flags at bits 40-44 of s_type_flags (defines.h)
-       include/bsg/payload.h + src/libbsg/payload.c
-       bsg_payload_dispatch() pre-render hook invokes s_update_callback
-       for non-VLIST payload types; VLIST payload is drawn directly.
-
-  libdm: bsg_view_traverse now skips BSG_NODE_SENSOR nodes and pushes/pops
-  the modelview matrix for BSG_NODE_TRANSFORM nodes (src/libdm/view.c).
-
-  libtclcad: to_edit_redraw migrated from legacy display-list walk to BSG
-  view-tree iteration via bv_view_objs (src/libtclcad/view/draw.c).
-
-Exit criteria met: all libbsg tests pass (9/9);
-libbsg, libdm, libtclcad all build without warnings.
-
-== Phase 7 — Swap or graft Obol underneath libbsg ==
-
-Status: IN PROGRESS — BSG draw-tree refactor Steps 1–15 complete (Steps 12,
-         13, 15 done this session); bsg_ged_draw.c contains only GED-layer
-         wrappers; all pure tree logic lives in libbsg.  97/97 PASS.
-
-Two strategies:
-  Backend-style: libbsg keeps its public API; implementations delegate to Obol.
-    Prefer this when API stability is paramount (many out-of-tree consumers
-    depend on the libbsg surface) or when Obol's public API is not yet stable
-    enough to expose directly.
-  Adapter-style: Obol becomes the public scene API; libbsg shrinks to a shim.
-    Prefer this when Obol's API has stabilized, performance measurements show
-    the extra indirection through libbsg is material, and the remaining
-    out-of-tree consumers are few enough to migrate in one pass.
-
-Key decision factors when the time comes:
-  - Obol API stability: is the obol/ public surface frozen or still evolving?
-  - Callsite count: how many files outside of libbsg still call libbsg symbols?
-    (A large number favors the backend-style to avoid a flag-day migration.)
-  - Performance: does the backend-style double-dispatch introduce measurable
-    overhead on the draw-test benchmark set?
-  - Maintenance cost: adapter-style allows deleting libbsg entirely once
-    migration is complete, reducing long-term maintenance burden.
-
-== Cross-cutting concerns ==
-
-Tests
-  Template: qgedobol/doc/TODO.qged-stack.md §9 (test coverage summary).
-  Every phase adds tests BEFORE the refactor it enables.
-  Key suites to establish:
-    test_dbi_cpp.cpp   — DbiState / BViewState / DrawList / SelectionSet C++
-    test_dbi_c.c       — C surface (ged_dbi_* / ged_selection_*)
-    drawpipeline_test  — bbox + OBB + LoD drain counts (GenericTwin.g)
-    libbsg/tests/vlist — bsg_vlist_cmd_cnt
-    libbsg/tests/arb8  — bsg_vlist_arb8 generates 18 commands
-
-Performance
-  Any change touching the redraw path is benchmarked before/after on the
-  D_overlap regression set (sphflake, m35, havoc, GenericTwin, castle, bldg391,
-  ktank, crod, cube, moss).
-
-Deprecation policy
-  Every removed public symbol gets BV_DEPRECATED (or equivalent) for one
-  release cycle before deletion.
-
-== Change log ==
-
-  2026-04-23  Phase 0 started.
-              Cross-walk document written (this file).
-              dbi_state.cpp LMDB → bu_cache migration complete.
-
-  2026-04-23  Phase 1 complete.
-              GHash/InstHash/PathHash/DbiPath typed wrappers added to dbi.h.
-              IDbiObserver/ISceneObserver observer protocol added; fired from
-                DbiState::update().
-              GObj/CombInst object model added; gobjs map populated by update_dp().
-              DrawList class added; BViewState::draw_list() accessor exposed.
-              BSelectState renamed SelectionSet; new select/deselect/query API.
-              DbiState gains get_selection_set()/get_selection_sets()/
-                add_selection_set()/remove_selection_set().
-              test_dbi_cpp.cpp Test 8 covers all Phase 1 items (8/8 PASS).
-              qged Qt6 build fixed: Qt6::OpenGL + Qt6::OpenGLWidgets linked explicitly.
-
-  2026-04-23  Phase 2 complete.
-              2-A: BV_DEPRECATED comments in include/bv/defines.h for all nine
-                deprecated fields; write-site audit recorded above.
-              2-B: s_update_callback RETAINED for BV_MESH_LOD/BV_CSG_LOD for
-                backward-compat per-frame rendering; BViewState::redraw() adds
-                an explicit supplementary LoD update pass; csg_wireframe_update
-                made extern "C"; redraw_on_zoom=1 set when adaptive_plot enabled;
-                dead #if 0 in bv_update_selected() removed.
-              2-C: dm_dlist_sensor struct; dm_register_dlist_sensor/
-                dm_fire_dlist_sensors/dm_dlist_sensors_clear API in libdm;
-                dm_fire_dlist_sensors called after GL dlist regeneration;
-                dm_dlist_sensors = NULL added to all dm plugin struct literals.
-              2-D: bv_view_get/set_scale/size/perspective/aet/rotation/center_vec
-                added to include/bv/util.h and implemented in libbv/util.cpp;
-                migrated loadview.cpp, QgGL.cpp, QgSW.cpp, bindings.cpp.
-
-  2026-04-28  Phase 3.5 complete.
-              GeomLoader replaced by DrawPipeline (5-stage concurrentqueue
-                pipeline: attr/aabb/obb/lod/write workers).
-              DbiState::obbs map (8 corner pts, std::array<fastf_t,24>).
-              DBI_CACHE_FORMAT_VERSION=2.  Test 9 added (9/9 PASS).
-
-  2026-04-28  Phase 4 complete.
-              libbsg vendored (include/bsg/, src/libbsg/).
-              bsg_node=typedef bv_scene_obj.
-              bsg_view_traverse in libdm/view.c (DM_EXPORT).
-              bsg_root (void*) added to struct bview.
-              bsg_scene_root_create called in QgGL/QgSW/ged.cpp.
-              dm_draw_objs routes to BSG when bsg_root set.
-              BViewState::redraw() syncs roots.
-              7/7 libbsg unit tests PASS; BSG parity and quad-parity PASS.
-
-  2026-04-28  Phase 5 MGED+Archer migration complete.
-              struct bview gains gv_edit_mat for edit-mode matrix injection.
-              dm_draw_scene_obj exported DM_EXPORT; handles gv_edit_mat swap.
-              mged/setup.c: bsg_scene_root_create at startup.
-              mged/dozoom.c: rewritten — non-stereo via dm_draw_objs/BSG;
-                stereo retains legacy dm_draw_head_dl (TODO).
-              libtclcad/commands.c: bsg_scene_root_create for every Archer view.
-              libtclcad/view/draw.c: go_draw() uses BSG path when bsg_root set.
-              ged_test_mged_bsg: 5/5 tests PASS (wireframe, illumination,
-                edit matrix, faceplate, BSG-vs-legacy parity).
-              Xvfb visual verification: MGED wireframe, sed/oed illumination,
-                faceplate, and Archer window all verified correct.
-
-  2026-04-30  Phase 5 rtwizard migration complete.
-              rtwizard null-DM secondary view ("new_view v1 nu") already gets
-                bsg_scene_root_create via libtclcad/commands.c Phase 5 change.
-              go_draw() BSG branch fires for rtwizard views (bsg_root set);
-                go_draw_dlist dl_* walk is dead code for all rtwizard views.
-              _ged_rt_set_eye_model uses bv_view_objs() (new_cmd_forms=1);
-                legacy dl_bounding_sph() path is bypassed.
-              src/libged/tests/draw/rtwizard_bsg.cpp: 3/3 tests PASS
-                (null-DM view bsg_root, finite eye model, per-view independence).
-              Phase 5 fully complete; display_list.c deletion unblocked for Phase 6.
-
-  2026-04-30  Phase 6.5 begun — "Excise legacy display_list".
-              Audit recap: src/libged/display_list.c (818 lines) defines 11
-                externally-called symbols and is load-bearing well beyond
-                the renderer.  The deletion unblockers identified for
-                Phase 5 (to_edit_redraw, to_create_vlist_callback) covered
-                the libtclcad surface only; the wider audit found ~23
-                libged commands, ~12 MGED files, ~6 libdm files, and the
-                public ABI (struct display_list in include/ged/view.h plus
-                gd_headDisplay in libged) all still tied to the legacy
-                chain.  See the Phase 6.5 audit memo for the full list.
-
-              Phase 6.5 staged plan:
-                Step 1 — BSG view-object query API (this commit).
-                Step 2 — migrate the ~23 libged commands.
-                Step 3 — migrate to_create_vlist_callback (libtclcad).
-                Step 4 — migrate MGED edit/illuminate/usepen path.
-                Step 5 — stereo dozoom in libdm.
-                Step 6 — migrate test_gqa, rtwizard_bsg.cpp, libbv/hash.c.
-                Step 7 — delete display_list.c, struct display_list,
-                         gd_headDisplay, dl_head_scene_obj, s_dlist,
-                         dm_draw_head_dl, go_draw_dlist.
-                Step 8 — full validate (build all, ctest, MGED/Archer/qged
-                         smoke, doc update).
-
-              Step 1 (this change) is purely additive:
-                include/ged/bsg_view_obj.h declares 9 helpers covering
-                  the full external surface of display_list.c
-                  (lookup_or_add_path, erase_by_path, erase_by_name,
-                   erase_all_paths, bounds, set_iflag, color_from_soltab,
-                   invent, name_hash).
-                src/libged/bsg_view_obj.c implements them as thin
-                  wrappers around the legacy dl_* functions, preserving
-                  observable behavior bit-for-bit.
-                src/libged/tests/draw/bsg_view_obj.cpp registers
-                  ged_test_bsg_view_obj — 27 assertions covering NULL-arg
-                  safety, empty state, draw+probe, invent, erase_*, and
-                  zap+rehash on moss.g (all 27/27 PASS).
-              No existing caller was modified; no existing code was
-                deleted.  Steps 2–7 will migrate callers off dl_* onto
-                bsg_view_obj_* and then swap the wrappers' bodies for a
-                pure BSG view-tree implementation before deleting
-                display_list.c.
-
-  2026-04-30  Phase 6.5 Step 2 complete — libged caller migration.
-              All 32 dl_* / _dl_* / invent_solid call sites in libged
-                (28), mged (3), and gtools/gsh (1) now go through the
-                bsg_view_obj_* wrappers stood up in Step 1.  Files
-                touched:
-                  src/gtools/gsh/gsh.cpp
-                  src/libged/color/color.c
-                  src/libged/concat/concat.cpp
-                  src/libged/draw/{draw,bigE}.c
-                  src/libged/erase/erase.c
-                  src/libged/gdiff/gdiff.c
-                  src/libged/ged_util.cpp
-                  src/libged/get_autoview/get_autoview.c
-                  src/libged/joint/joint.c
-                  src/libged/kill/kill.c, killrefs/killrefs.c,
-                    killtree/killtree.c
-                  src/libged/material/material.c
-                  src/libged/nirt/nirt.cpp
-                  src/libged/remove/remove.c
-                  src/libged/rtcheck/rtcheck.c
-                  src/libged/vdraw/vdraw.c
-                  src/libged/view/autoview.c
-                  src/mged/buttons.c, mged/mater.c
-              include/ged/view.h now pulls in ged/bsg_view_obj.h, so
-                no per-file include churn was needed.
-              Behavior is bit-identical (wrappers still delegate to
-                dl_*).  ged_test_bsg_view_obj 27/27 PASS.  Steps 3, 4,
-                5, 6, 7 still deferred.
-
-              Note on the MGED Tier-2 risk hotspot: mged/buttons.c and
-                mged/mater.c only call dl_set_iflag and dl_color_soltab
-                — those are *not* the dangerous illuminate/edit/usepen
-                paths flagged by the original audit.  The genuinely
-                struct-coupled MGED sites (usepen.c, edsol.c, chgview.c,
-                chgtree.c, dodraw.c, plot.c, set.c, cmd.cpp, rtif.c)
-                still walk gdlp->dl_head_scene_obj directly and remain
-                the subject of the deferred Step 4.
-
-  2026-04-30  Phase 6.5 Step 3 complete — libtclcad to_create_vlist_callback
-              migration.
-
-              The two call sites of ged_create_vlist_display_list_cb() in
-                libged (draw/draw.c:dl_redraw and
-                set_transparency/set_transparency.c) are replaced with an
-                inline loop calling ged_create_vlist_solid_cb() for each
-                solid.  The display-list-level callback was purely a batch
-                iterator over the same solid set; inlining it removes the
-                last libged dependency on
-                ged_create_vlist_display_list_callback.
-
-              In libtclcad/commands.c:
-                - Removed forward declaration of to_create_vlist_callback.
-                - Removed registration
-                    top->to_gedp->ged_create_vlist_display_list_callback
-                      = to_create_vlist_callback.
-                - Removed the to_create_vlist_callback() function body.
-
-              The ged_create_vlist_display_list_callback struct field,
-                the ged_create_vlist_display_list_cb() dispatcher in ged.cpp,
-                and mged's createDListAll() are now dead code.  All three
-                will be deleted in Step 4 (MGED illuminate/edit migration)
-                together with the remaining mged registration in setup.c.
-
-              Build clean: libged, libtclcad, mged — zero errors, zero
-                warnings.  ged_test_bsg_view_obj 27/27 PASS.
-
-  2026-05-01  Phase 6.5 Step 4 complete — MGED illuminate/edit scene-obj
-              iterator migration.
-
-              Part 1 — New iterator/query helpers in bsg_view_obj.h/.c:
-                Added 12 new public helpers after bsg_view_obj_name_hash:
-                  bsg_view_obj_foreach_solid      — callback-based iteration
-                  bsg_view_obj_is_nonempty        — any solid exists check
-                  bsg_view_obj_first_solid        — first solid across all groups
-                  bsg_view_obj_next_solid         — circular forward navigation
-                  bsg_view_obj_prev_solid         — circular backward navigation
-                  bsg_view_obj_group_of_solid     — find owning display_list
-                  bsg_view_obj_foreach_group      — callback-based group iter
-                  bsg_view_obj_group_first_solid  — first solid in a group
-                  bsg_view_obj_group_last_solid   — last solid in a group
-                  bsg_view_obj_group_is_nonempty  — group emptiness check
-                  bsg_view_obj_group_solid_list   — returns &gdlp->dl_head_scene_obj
-                  bsg_view_obj_append_to_last_group — append solid to last group
-
-                bsg_view_obj_group_solid_list() is the key workhorse: it
-                  returns the struct bu_list * of a group's solid list so
-                  that existing BU_LIST_FOR loops need only change their
-                  list argument from &gdlp->dl_head_scene_obj to
-                  bsg_view_obj_group_solid_list(gdlp).
-
-              Part 2 — Dead code deletion:
-                - include/ged/defines.h: removed ged_create_vlist_display_list_func_t
-                    typedef and ged_create_vlist_display_list_callback field.
-                - src/libged/ged_private.h: removed
-                    GED_CREATE_VLIST_DISPLAY_LIST_FUNC_NULL macro,
-                    ged_create_vlist_display_list_callback_cnt field,
-                    and ged_create_vlist_display_list_cb declaration.
-                - src/libged/ged.cpp: removed NULL init of the callback
-                    and entire ged_create_vlist_display_list_cb() function.
-                - src/libged/draw/draw.c: simplified related comment block.
-                - src/mged/dozoom.c: removed createDListAll() function.
-                - src/mged/mged.h: removed createDListAll declaration.
-                - src/mged/setup.c: removed createDListAll callback
-                    registration.
-
-              Part 3 — MGED dl_head_scene_obj access elimination:
-                Migrated all 11 MGED files that accessed dl_head_scene_obj:
-                  buttons.c  — ill_common(): first_solid + group_of_solid
-                  chgtree.c  — find_solid_with_path(), cmd_oed()
-                  chgview.c  — edit_com(), cmd_ill(), f_sed()
-                  usepen.c   — illuminate(), f_aip(), f_matpick()
-                  edsol.c    — 4 BU_LIST_FOR loops
-                  plot.c     — is_nonempty check + 2 BU_LIST_FOR loops
-                  cmd.cpp    — non-empty check
-                  rtif.c     — BU_LIST_FOR inner loop
-                  set.c      — group_first_solid, group_last_solid +
-                               group_is_nonempty guard (bug fix)
-                  dodraw.c   — append_to_last_group replaces manual
-                               BU_LIST_PREV + BU_LIST_APPEND
-
-                Zero remaining direct dl_head_scene_obj accesses in src/mged/.
-
-              Build clean: libged, mged — zero errors, zero warnings.
-
-  2026-05-01  Phase 6.5 Step 5 complete — stereo dozoom migrated to BSG.
-
-              src/mged/dozoom.c: the stereo path (which_eye == 1 or 2) no
-                longer uses dm_draw_head_dl().  Both eyes now render through
-                dm_draw_objs() / bsg_view_traverse() exactly like the
-                non-stereo path.  Mechanism:
-                  - The Deering eye-offset perspective matrix is built into
-                    v->gv_pmat instead of being pre-multiplied into
-                    model2view, so dm_loadpmatrix(gv_pmat) and
-                    dm_loadmatrix(gv_model2view) compose to the same
-                    perspective × eye-offset × model2view product the
-                    legacy code uploaded as a single matrix.
-                  - v->gv_pmat is saved before and restored after the
-                    stereo render so the non-stereo state is unaffected.
-                  - Stereo viewport / scissor selection is performed by an
-                    explicit dm_loadmatrix(DMP, gv_model2view, which_eye)
-                    call before dm_draw_objs() runs; gl_loadMatrix() uses
-                    which_eye purely to set glViewport/glScissor for the
-                    left/right split-screen stereo region, and the
-                    subsequent matrix upload inside dm_draw_objs() (with
-                    which_eye=0) does not touch the viewport.
-                  - perspective_mat (file-scope, read by titles.c) is
-                    kept in sync with v->gv_pmat in both paths.
-                  - Edit-mode highlighting uses the same gv_edit_mat hook
-                    as the non-stereo path; the legacy second-pass with
-                    cs_geo_hl color is not reproduced (matches the existing
-                    non-stereo BSG behaviour).
-                  - Predictor draw and dm_ndrawn count are now in a single
-                    block at the bottom of dozoom() shared by both paths.
-
-              dm_draw_head_dl() is no longer referenced anywhere in
-                src/mged.  The remaining references in
-                src/gtools/gsh/gsh.cpp:597 (the !new_cmd_forms legacy
-                fallback) and the libdm definition itself are left for
-                Step 6 / Step 7.
-
-              Build clean: mged — zero errors, zero warnings.
-
-  2026-05-01  Phase 6.5 Step 6 complete — out-of-libged display_list
-              consumers migrated.
-
-              src/libged/tests/test_gqa.c: the post-gqa loop that walked
-                ged_dl(gedp) looking for the "OVERLAPSffff00" group and
-                pulled the first solid out of dl_head_scene_obj has been
-                rewritten on top of bsg_view_obj_foreach_group() +
-                bsg_view_obj_group_first_solid().  A small new helper
-                bsg_view_obj_group_path() was added (header + impl) so
-                the test can identify the target group by its dl_path
-                without poking display_list internals.
-
-              src/libbv/hash.c / include/bv/util.h: bv_dl_hash() was the
-                only function in libbv (a dependency *below* libged) that
-                referenced struct display_list — and a tree-wide search
-                showed it had zero callers anywhere.  The function and
-                its declaration have been deleted, removing libbv's only
-                tie to the libged-private display_list type and
-                eliminating a layering inversion before Step 7's
-                struct-deletion.
-
-              src/libged/tests/draw/rtwizard_bsg.cpp: only contained
-                comment-level mentions of go_draw_dlist (the legacy
-                fallback whose absence Test 3 already verifies).  Left
-                unchanged; the test still validates that bsg_root is
-                non-NULL on rtwizard's null-DM views, which is the
-                required Step 6 invariant.
-
-              Zero references to dl_head_scene_obj / struct display_list
-                / gd_headDisplay now remain outside libged itself
-                (display_list.c, bsg_view_obj.c, ged_private.h).
-
-              Build clean: libbv, ged_test_gqa, ged_test_bsg_view_obj,
-                mged — zero errors, zero warnings.
-              Regression: ged_test_bsg_view_obj 27/27 PASS.
-
-              Next: Step 7 — delete display_list.c, struct display_list,
-              gd_headDisplay, dl_head_scene_obj, s_dlist, dm_draw_head_dl,
-              go_draw_dlist (and the gsh.cpp:597 legacy branch that still
-              calls dm_draw_head_dl).
-
-  2026-04-30  Phase 6.5 Step 7 complete — display_list.c deleted.
-
-              All functions formerly in src/libged/display_list.c
-              (dl_addToDisplay, headsolid_split, headsolid_splitGDL,
-              dl_bounding_sph, dl_erasePathFromDisplay,
-              eraseAllSubpathsFromSolidList, _dl_eraseAllNamesFromDisplay,
-              _dl_eraseFirstSubpath, _dl_eraseAllPathsFromDisplay,
-              _dl_freeDisplayListItem, color_soltab, dl_color_soltab,
-              solid_append_vlist, solid_copy_vlist, invent_solid,
-              dl_set_iflag, dl_name_hash) have been folded into
-              src/libged/bsg_view_obj.c as static (file-private) helpers,
-              with the exception of color_soltab which remains non-static
-              because it is called from src/libged/draw/draw.c.
-
-              Public header cleanup:
-                include/ged/view.h: removed dl_set_iflag, dl_color_soltab,
-                  dl_erasePathFromDisplay, dl_name_hash declarations.
-                src/libged/ged_private.h: removed _dl_eraseAllNamesFromDisplay,
-                  _dl_eraseAllPathsFromDisplay, _dl_freeDisplayListItem,
-                  dl_bounding_sph, and invent_solid declarations; added
-                  color_soltab declaration pointing to bsg_view_obj.c.
-
-              src/libged/CMakeLists.txt: display_list.c removed from
-                libged source list.
-
-              Build verification: libged, libdm, libqtcad, mged — zero
-                errors, zero warnings.
-              Regression: ged_test_bsg_view_obj 27/27 PASS.
-
-              Phase 6.5 is now COMPLETE.  struct display_list remains in
-              include/bv/tcl_data.h as the internal node type used by the
-              display-list linked lists; it is no longer exposed via any
-              libged public header.
-
-  2026-05-02  Phase 6.5 post-step: struct display_list internals replaced
-              with struct ged_scene_group in bsg_view_obj.c.
-
-              Motivation: struct display_list lived in include/bv/tcl_data.h
-              (a libbv public header) despite being used exclusively by
-              one libged TU.  No user-visible behaviour changes; the
-              bsg_view_obj_* public API surfaces opaque void * group handles
-              to all callers.
-
-              Changes:
-                src/libged/bsg_view_obj.c: introduced file-private struct
-                  ged_scene_group (same memory layout as the former
-                  struct display_list; fields renamed sg_dp / sg_path /
-                  sg_head_scene_obj / sg_wflag).  All static helpers and
-                  public API functions updated throughout.
-                include/bv/tcl_data.h: added deprecation notice to struct
-                  display_list; the struct is retained for external
-                  consumers for one release cycle.
-                include/ged/defines.h: GED_DISPLAY_LIST_NULL marked
-                  deprecated (macro retained for one release cycle).
-                include/ged/bsg_view_obj.h: updated comments to say
-                  "ged_scene_group *" instead of "struct display_list *".
-                src/libged/ged.cpp: fixed pre-existing BU_PUT type mismatch
-                  (struct bu_vls → struct bu_list for gd_headDisplay free).
-
-              Build: libged, libqtcad, dm-qtgl, dm-swrast, mged — zero
-                errors, zero warnings.
-              Regression: ged_test_bsg_view_obj 27/27 PASS.
-
-  2026-04-30  Phase 7 Layer A complete — BSG tree replaces ged_scene_group
-              linked list; dm_draw_display_list migrated to bu_ptbl *.
-
-              Motivation: ged_scene_group used a BU_LIST-based linked list
-              for both the subgroup chain and the per-group solid list.
-              Migrating to a ptbl-indexed BSG_NODE_GROUP tree removes the
-              final BU_LIST coupling in the draw stack and enables O(1)
-              random access to drawn shapes by index, consistent with the
-              BSG node model introduced in Phase 6.
-
-              Changes:
-
-              src/libged/bsg_view_obj.c (Phase 7 Layer A rewrite):
-                - struct ged_scene_group + its BU_LIST machinery replaced by
-                  a BSG_NODE_GROUP tree rooted at gd_draw_root
-                  (struct bv_scene_obj * in ged_private.h / ged_drawable).
-                - Group nodes: bv_obj_create(v, BV_CHILD_OBJS).
-                - Shape nodes: bv_obj_get(v, BV_DB_OBJS) as before.
-                - Iteration: BU_PTBL_GET(&root->children, i) / group->children.
-                - bsg_view_obj_ensure_root() added (idempotent init).
-
-              include/ged/bsg_view_obj.h: bsg_view_obj_ensure_root declared.
-
-              include/dm.h / src/libdm/include/calltable.h /
-              src/libdm/dm-generic.c / src/libdm/dm-gl.c /
-              src/libdm/dm-gl.h:
-                - dm_draw_display_list signature changed from
-                  (struct dm *, struct bu_list *) to
-                  (struct dm *, struct bu_ptbl *).
-
-              src/mged/dozoom.c + src/mged/mged.h:
-                - createDLists signature updated to (void *, struct bv_scene_obj *).
-
-              BU_LIST_FOR -> ptbl loop conversions (~17 sites):
-                mged/chgview.c, mged/chgtree.c, mged/edsol.c, mged/plot.c,
-                mged/usepen.c, mged/rtif.c, libtclcad/view/draw.c,
-                libged/osg.cpp, libged/tests/draw/bsg_view_obj.cpp.
-
-              include/bsg/visit.h + src/libbsg/visit.c (NEW):
-                - bsg_visit(root, type_mask, cb, userdata): parameterized
-                  DFS tree walker replaces ad-hoc foreach_solid / foreach_group
-                  / BU_LIST_FOR idioms.
-
-              src/libged/ged.cpp:
-                - bsg_view_obj_ensure_root() called during ged_open() so
-                  GED_CHECK_DRAWABLE succeeds on a newly-opened database
-                  without requiring the caller to draw first.
-
-              Build: libged, libdm, libtclcad, mged -- zero errors.
-              Regression: ged_test_bsg_view_obj 27/27 PASS, libbsg 9/9 PASS.
-
-  2026-05-04  Phase 7 Layer C complete — group-handle API de-opaqued
-
-              The migration target API in include/ged/bsg_view_obj.h
-              previously exposed groups as `void *group_handle` so the
-              compiler could not type-check insertion-point arguments.
-              With Phase 7 Layer A having replaced the linked-list draw
-              root with a BSG_NODE_GROUP tree of `struct bv_scene_obj`,
-              the public API has been retyped to match the underlying
-              representation:
-
-                bsg_view_obj_lookup_or_add_path() now returns
-                  `struct bv_scene_obj *` (was `void *`).
-
-                bsg_view_obj_foreach_group() callback now takes
-                  `struct bv_scene_obj *group` (was `void *group_handle`).
-
-              Removed from the public API (no longer needed):
-                bsg_view_obj_first_group / bsg_view_obj_next_group
-                bsg_view_obj_group_solid_list
-
-              Callers migrated:
-                libged/who/who.c, libged/ged_util.cpp (3 callbacks),
-                libged/move_all/move_all.c, libged/move/move.c,
-                libged/garbage_collect/garbage_collect.cpp,
-                libged/tests/test_gqa.c.
-
-              Loops converted to bsg_visit / foreach callbacks:
-                libged/osg.cpp _ged_osgLoadScene
-                  -- bsg_visit(BSG_NODE_SHAPE) replaces 2-level loop.
-                libged/view/saveview.c
-                  -- bsg_view_obj_foreach_group replaces 1-level loop.
-                libged/tests/draw/bsg_view_obj.cpp
-                  -- dl_count + 2 iflag checks rewritten with
-                     foreach_group / foreach_solid callbacks.
-
-              Field types corrected (no behaviour change):
-                struct ged_solid_data::gdlp,
-                struct _ged_client_data::gdlp,
-                local `paths_to_draw[]` and `gdlp` in draw.c
-                  -- `void *` -> `struct bv_scene_obj *`.
-
-              Build: libged, libdm, libtclcad, libqtcad, mged, qged,
-              archer -- zero errors.
-              Regression: ged_test_bsg_view_obj 27/27 PASS.
-
-  2026-05-04  Phase 7 post-session audit — what has been achieved vs. what
-              remains from the original Layers A / B / C proposal
-
-              This entry records the gap analysis performed after the Phase 7
-              A/B/C sessions so future contributors know exactly what still
-              needs to be done.
-
-              ── DONE ─────────────────────────────────────────────────────
-
-              A1  gd_headDisplay (bu_list of ged_scene_group) replaced with
-                  gd_draw_root (struct bv_scene_obj*) — a BSG group node.
-                  Subgroups are bv_obj_create children of that root.
-
-              A2 (partial)  Subgroup identity stored in s_name (bu_vls)
-                  rather than a separate sg_path field.  Top-level subgroups
-                  are still keyed by the full path string, not by individual
-                  directory components (see remaining A2 work below).
-
-              B9  bsg_visit(root, type_mask, cb, userdata) DFS walker added
-                  to libbsg (include/bsg/visit.h, src/libbsg/visit.c).
-                  bsg_view_obj_foreach_solid and foreach_group delegate to it.
-                  All double group/solid loops in mged/libtclcad/libged
-                  converted to bsg_visit callbacks.
-
-              C (partial)  Public API de-opaqued: group handles are now
-                  typed struct bv_scene_obj* throughout; first/next_group
-                  and group_solid_list removed from the public header.
-
-              ── REMAINING (as of this post-session audit) ────────────────
-              (items below have been addressed in Steps 1–10; see change log)
-
-              A2 (rest)  DONE — Step 5: per-component nested groups.
-              A3          DONE — Step 7: gv_draw_root in struct bview.
-              A4 / B8     DONE — Steps 3+4: snapshotted DFS index.
-              B1 (rest)   DONE — Step 5: nested group creation.
-              B2          DONE — Step 5: _sg_split_at_subpath retired.
-              B3          DONE — Steps 1+2: BSG_PAYLOAD_OVERLAY flag.
-              B4 (partial) DONE (partial) — Step 6: mater_rev counter added;
-                          full FieldSensor-per-shape deferred (see next-steps).
-              B5          DONE — Step 6: O(1) set_iflag + illum tracker.
-              B6          DONE — Steps 1+2: _overlays group.
-              B7          DONE — Steps 3+4: revision-counter hash.
-              C1 / C3     PARTIAL — Steps 7–10 removed all GED-callback
-                          dependencies from freeing helpers; see "Phase 7 —
-                          Current state and next steps" entry in change log.
-
-              ── SEQUENCING SUMMARY ───────────────────────────────────────
-
-              Steps 1–7 from the original plan above are fully complete
-              (Steps 1+2, 3+4, 5, 6, 7 in the change log respectively).
-              Steps 8–10 (s_dlist_free_callback, illum-clear via
-              s_free_callback, gd_draw_rev via bsg_draw_ctx) were added
-              after the original sequencing and are also done.
-              See the "Phase 7 — Current state and next steps" change-log
-              entry for Steps 11–15.
-
-  2026-05-04  Phase 7 Steps 1+2 (B6+B3) complete — overlay group,
-              BSG_PAYLOAD_OVERLAY, bounds fix
-
-              Steps 1 (B6) and 2 (B3) from the post-session sequencing
-              plan were implemented together in one session.
-
-              ── B6: _overlays group + BSG_PAYLOAD_OVERLAY ─────────────
-
-              src/libged/bsg_view_obj.c:
-
-              _sg_overlay_root(gedp) — lazily creates an _overlays
-              BSG_NODE_GROUP as a direct child of gd_draw_root.  The
-              group is created on the first bsg_view_obj_invent() call
-              and removed automatically when its last child is erased.
-
-              _sg_erase_overlay_by_name(gedp, name) — removes a named
-              overlay shape from the _overlays group; frees the group
-              when it becomes empty.
-
-              _sg_invent() rewritten:
-                - No db_diradd / RT_DIR_PHONY_ADDR usage.
-                - Checks db_lookup for real-entry collision (returns -1
-                  if a real db object has the same name).
-                - Calls _sg_erase_overlay_by_name to evict any
-                  same-named pre-existing overlay.
-                - Creates BSG_NODE_SHAPE with BSG_PAYLOAD_OVERLAY set
-                  and stores name in sp->s_name.
-                - bdata->s_fullpath.fp_len = 0 (no phony dp).
-                - Attaches shape to _overlays via _sg_overlay_root.
-
-              _sg_free_group_contents() updated: skips db_dirdelete for
-              nodes with BSG_PAYLOAD_OVERLAY (fp_len check still guards
-              any transitional pre-existing data).
-
-              _sg_erase_all_names() updated: calls
-              _sg_erase_overlay_by_name first; skips the _overlays
-              meta-group in the path-component iteration loop.
-
-              bsg_view_obj_group_is_phony() updated: returns 1 iff
-              group->s_name == "_overlays".  Real drawn-path groups have
-              non-phony dp and a non-overlay name; they always return 0.
-
-              vdraw.c vdraw_send():
-                - Removed the RT_DIR_PHONY_ADDR check entirely.
-                - db_lookup now only refuses if the name matches a real
-                  db entry; overlay names always pass through to
-                  bsg_view_obj_invent.
-
-              ── B3: bounds visitor uses BSG_PAYLOAD_OVERLAY ────────────
-
-              _sg_bounding_sph():
-                Replaced the bdata->s_fullpath.fp_names[0]->d_addr ==
-                RT_DIR_PHONY_ADDR test with a single flag check:
-                  if (!pflag && (sp->s_type_flags & BSG_PAYLOAD_OVERLAY))
-                      continue;
-                No bdata dereference needed for the exclusion path.
-
-              ── Updated docstrings ─────────────────────────────────────
-
-              include/ged/bsg_view_obj.h:
-                bsg_view_obj_invent() — removed "phony" / PHONY_ADDR
-                  language; explains BSG_PAYLOAD_OVERLAY instead.
-                bsg_view_obj_bounds() — documents BSG_PAYLOAD_OVERLAY
-                  exclusion.
-                bsg_view_obj_group_is_phony() — updated to describe
-                  _overlays detection.
-
-              ── Test ───────────────────────────────────────────────────
-
-              src/libged/tests/draw/bsg_view_obj.cpp section [4]:
-                5 new assertions:
-                  • _overlays group exists and is_phony after invent.
-                  • Shape has BSG_PAYLOAD_OVERLAY set.
-                  • No phony db entry created (db_lookup returns NULL).
-                  • dl_count returns to pre-invent value after erase.
-
-              Build: libged, libdm, libtclcad, mged — zero errors.
-              Regression: ged_test_bsg_view_obj 32/32 PASS.
-
-              ── REMAINING (unchanged from above) ──────────────────────
-
-              A2 (rest), A3, A4/B8, B1 (rest), B2, B4, B5, B7, C1/C3
-              — see sequencing Steps 3–7 above.
-
-  2026-05-04  Phase 7 Steps 3+4 (A4+B8, B7) complete — snapshotted DFS
-              index, usepen integer offset, revision-counter hash
-
-              Steps 3 (A4+B8) and 4 (B7) from the post-session
-              sequencing plan were implemented together in one session.
-
-              ── A4+B8: snapshotted DFS index ──────────────────────────
-
-              src/libged/bsg_view_obj.c:
-
-              _sg_build_solid_snapshot(gedp, bu_ptbl *out) — file-private
-              helper that does a DFS over root->children, skipping the
-              _overlays group, and appends all BSG_NODE_SHAPE children to
-              the caller-provided bu_ptbl.  O(N) per call; callers own the
-              bu_ptbl lifetime (must call bu_ptbl_free).
-
-              bsg_view_obj_solid_count(gedp) — returns the number of
-              non-overlay drawn shapes by building a snapshot and returning
-              its length.
-
-              bsg_view_obj_solid_at(gedp, int idx) — returns the shape at
-              DFS position idx; idx is wrapped modulo count (so negative
-              indices and wraparound are both handled).  Returns NULL when
-              no non-overlay shapes are drawn.
-
-              bsg_view_obj_solid_index(gedp, sp) — returns the DFS
-              snapshot index of sp among non-overlay shapes, or -1 if sp
-              is not currently in the snapshot.
-
-              bsg_view_obj_advance_solid(gedp, sp, int delta) — advances
-              sp by delta positions in snapshot order (positive = forward,
-              negative = backward), wrapping circularly; builds one
-              snapshot internally.  Replaces the ad-hoc next/prev cross-
-              list walk.
-
-              bsg_view_obj_next_solid / prev_solid rewritten as trivial
-              one-liners delegating to advance_solid(+1/-1).
-
-              src/mged/usepen.c, f_aip():
-
-              The "advance illuminated solid" section was rewritten from
-              a direct call to bsg_view_obj_next_solid / prev_solid to
-              using bsg_view_obj_advance_solid with an integer delta (+1 or
-              -1), plus a NULL-return guard (returns TCL_OK when no solids
-              are drawn rather than crashing on a NULL dereference).
-
-              include/ged/bsg_view_obj.h:
-
-              Added declarations for bsg_view_obj_solid_count,
-              bsg_view_obj_solid_at, bsg_view_obj_solid_index,
-              bsg_view_obj_advance_solid.  Updated docstrings for
-              bsg_view_obj_next_solid / prev_solid to document the
-              delegation.
-
-              ── B7: revision-counter hash ─────────────────────────────
-
-              src/libged/ged_private.h:
-
-              Added uint64_t gd_draw_rev to struct ged_drawable.  The
-              counter is zero-initialized.
-
-              src/libged/bsg_view_obj.c:
-
-              _sg_bump_rev(gedp) macro — increments gd_draw_rev; used
-              at every structural mutation point:
-                  _sg_add_path     — when a new subgroup is inserted
-                  _sg_free_group   — when a subgroup is removed
-                  _sg_erase_path (exact match) — on group removal
-                  _sg_erase_path (empty group) — on group removal
-                  _sg_erase_path (split case) — on group removal
-                  _sg_erase_all_subpaths_from_group — per shape removed
-                  _sg_erase_overlay_by_name — per overlay shape removed
-                  _sg_invent — when an overlay shape is attached
-
-              bsg_view_obj_zap rewritten to NOT free the root node
-              itself.  Previously it freed the root and set gd_draw_root =
-              NULL, which caused GED_CHECK_DRAWABLE (which calls ged_dl()
-              = gd_draw_root) to fail on all subsequent draw commands.
-              Now zap only clears root->children (freeing all subgroups
-              and shapes) and resets gd_draw_rev = 0.  gd_draw_root
-              remains valid and ged_dl() remains non-NULL.
-
-              _sg_name_hash() rewritten: instead of the former O(N)
-              walk that hashed s_name strings together, it now returns
-              gd_draw_rev directly (O(1)).
-
-              bsg_view_obj_draw_rev(gedp) — new public O(1) function
-              that exposes the raw revision counter.
-
-              include/ged/bsg_view_obj.h:
-
-              bsg_view_obj_name_hash() docstring updated to explain the
-              O(1) revision-counter semantics.
-              Added bsg_view_obj_draw_rev() declaration.
-
-              ── Removed dependency ────────────────────────────────────
-
-              bu/hash.h include removed from bsg_view_obj.c (no longer
-              needed after the O(N) hash implementation was replaced).
-
-              ── Test ──────────────────────────────────────────────────
-
-              src/libged/tests/draw/bsg_view_obj.cpp:
-
-              Section [7]: solid_count / solid_at / solid_index tests:
-                • solid_count > 0 after draw.
-                • solid_at(0) == first_solid().
-                • solid_index round-trips with solid_at.
-                • solid_at(-1) wraps to last solid; index == count-1.
-                • advance_solid wraps forward: last+1 == first.
-                • advance_solid wraps backward: first-1 == last.
-                • solid_index(NULL) == -1.
-                • Overlay shapes NOT included in snapshot (count
-                  unchanged after invent, then after erase).
-
-              Section [8]: draw_rev revision counter:
-                • draw_rev == 0 and name_hash == 0 after zap.
-                • draw_rev != 0 and name_hash == draw_rev after draw.
-                • draw_rev increases after erase.
-                • draw_rev reset to 0 on second zap.
-                • draw_rev increases after bsg_view_obj_invent.
-
-              Build: libged, mged — zero errors.
-              Regression: ged_test_bsg_view_obj 51/51 PASS.
-
-              ── REMAINING (unchanged from above) ──────────────────────
-
-              A2 (rest), A3, B1 (rest), B2, B4, B5, C1/C3
-              — see sequencing Steps 5–7 above.
-
-  2026-05-04  Phase 7 Step 5 (A2+B1+B2) complete — per-component
-              nested groups; erase leaf-shape fix; group accessor
-              correctness for deep trees
-
-              ── A2 (rest) + B1 (rest): nested group tree ──────────────
-
-              src/libged/bsg_view_obj.c:
-
-              _sg_find_or_create_child_group(gedp, parent, comp_name)
-                — unchanged from previous session; creates/finds a
-                BSG_NODE_GROUP child with a single path component as
-                its name.
-
-              _sg_add_path() (bsg_view_obj_lookup_or_add_path) already
-                creates one group node per path component; no change
-                needed here.
-
-              bsg_view_obj_append_solid_to_group(gedp, group, sp)
-                — new signature (gedp added).  Uses _sg_tree_depth(group)
-                to determine how many path components the group covers.
-                Navigates/creates sub-group nodes for components
-                [group_depth .. fp_len-2] using
-                _sg_find_or_create_child_group, then appends the shape
-                to the deepest sub-group.  When sp has no s_u_data or
-                fp_len == 0 the shape is appended directly to group
-                (backward-compatible path for overlays / test shapes).
-
-              bsg_view_obj_append_to_last_group(gedp, sp)
-                — updated to delegate to the new
-                bsg_view_obj_append_solid_to_group.
-
-              ── B2: erase handles leaf-primitive final component ───────
-
-              _sg_erase_nested_subpath():
-                At the FINAL path component two cases now handled:
-                  (a) A BSG_NODE_GROUP child with that name exists →
-                      free its entire subtree and remove it (unchanged).
-                  (b) No such group → the component names a leaf solid.
-                      All BSG_NODE_SHAPE children of the current group
-                      whose db_full_path matches the subpath via
-                      db_full_path_match_top() are freed individually.
-                This fixes the "all.g/hull.r/hull.s" erase failure
-                reported by the user where hull.s is a primitive shape
-                rather than a comb group.
-
-              ── Group accessor correctness for deep trees ──────────────
-
-              bsg_view_obj_group_of_solid(gedp, sp):
-                Now walks the parent chain to the root child (depth 1)
-                instead of returning sp->parent directly.  The walk
-                stops when parent->parent == NULL (i.e., parent is the
-                draw root).
-
-              bsg_view_obj_group_first_solid(group):
-                Replaced children[0] access with bsg_visit + existing
-                _first_solid_cb so the DFS finds the first SHAPE node
-                in the sub-tree rather than the first child (which may
-                be a sub-group in nested trees).
-
-              bsg_view_obj_group_last_solid(group):
-                Added _last_solid_cb (visits all shapes, records the
-                last one) and replaced children[n-1] access with
-                bsg_visit call.
-
-              bsg_view_obj_group_is_nonempty(group):
-                Replaced children-count check with bsg_visit using
-                existing _any_solid_cb so it returns 1 only when
-                at least one SHAPE exists in the sub-tree.
-
-              ── Parent-chain walk for illum_gdlp in MGED ──────────────
-
-              src/mged/usepen.c — _illuminate_cb:
-                Replaced "illum_gdlp = sp->parent" with an inline
-                parent-chain walk to the depth-1 root child.
-
-              src/mged/chgtree.c — _find_solid_with_path_cb:
-                Same parent-chain walk fix for illum_gdlp.
-
-              ── Public API changes ────────────────────────────────────
-
-              include/ged/bsg_view_obj.h:
-                bsg_view_obj_append_solid_to_group signature changed to
-                  (struct ged *gedp, struct bv_scene_obj *group,
-                   struct bv_scene_obj *sp)
-                Doc comment updated to describe nested placement.
-
-              src/libged/draw/ged_draw.h:
-                struct ged_solid_data gains 'struct ged *gedp' field.
-
-              src/libged/draw/draw.c:
-                Two call sites of bsg_view_obj_append_solid_to_group
-                updated to pass gedp.  'bv_data.gedp = gedp' assignment
-                added at bv_data setup site.
-
-              ── Test section [9]: nested group structure ───────────────
-
-              src/libged/tests/draw/bsg_view_obj.cpp:
-                After drawing "all.g":
-                • Root child named "all.g" (single component, not full
-                  path string).
-                • Root child has at least one BSG_NODE_GROUP sub-child
-                  (not just flat shapes).
-                • group_first_solid / group_last_solid return SHAPE
-                  nodes (not GROUP nodes) even in mixed children.
-                • group_is_nonempty returns 1 when sub-tree has shapes.
-                • group_of_solid returns root child for any depth shape.
-                • erase_by_path cleans up completely.
-
-              Build: libged, mged — zero errors.
-              Regression: ged_test_bsg_view_obj 65/65 PASS.
-
-              ── REMAINING ─────────────────────────────────────────────
-
-              A3, B4, B5, C1/C3
-              — Step 6 (B4+B5): FieldSensor-driven color + iflag.
-              — Step 7 (C1+C3): split bsg_view_obj.c into libbsg/.
-
-  2026-05-04  Phase 7 Step 6 (B4+B5) complete — illum-solid tracker,
-              O(1) set_iflag(DOWN), mater-revision counter
-
-              ── B5: illuminated-solid tracker ─────────────────────────
-
-              src/libged/ged_private.h:
-                struct ged_drawable gains two new fields:
-                  gd_illum_solid  (struct bv_scene_obj *)
-                    Currently illuminated solid, or NULL.  Non-NULL
-                    enables O(1) set_iflag(DOWN) without sweeping the
-                    whole draw tree.
-                  gd_mater_rev  (uint64_t)
-                    Mater-table revision counter (B4 partial, see below).
-
-              src/libged/bsg_view_obj.c:
-                _sg_set_illum(gedp, sp)
-                  File-private helper: clears old gd_illum_solid->s_iflag
-                  (if non-NULL), sets sp->s_iflag=UP (if sp non-NULL),
-                  stores sp in gd_illum_solid.
-
-                _sg_clear_illum_if_match(gedp, sp)
-                  Nulls gd_illum_solid when it equals @p sp.  Called
-                  from all shape-freeing paths to prevent dangling
-                  pointers after an illuminated solid is erased.
-
-                bsg_view_obj_set_iflag(gedp, DOWN) — modified:
-                  If gd_illum_solid is non-NULL: clears that solid in
-                  O(1) and returns.  Falls back to the O(N) bsg_visit
-                  sweep only when gd_illum_solid is NULL (nothing
-                  tracked, or tracking was explicitly invalidated by a
-                  multi-solid UP operation such as matpick).
-
-                bsg_view_obj_zap(gedp) — modified:
-                  Clears gd_illum_solid to NULL (all solids freed).
-
-                _sg_free_children_recursive — modified (SHAPE path):
-                  Calls _sg_clear_illum_if_match before FREE_BV_SCENE_OBJ.
-
-                _sg_erase_nested_subpath case (b) — modified:
-                  Same _sg_clear_illum_if_match call for leaf-shape frees.
-
-              include/ged/bsg_view_obj.h — new public API:
-                bsg_view_obj_set_illum(gedp, sp)
-                  Register @p sp as the single illuminated solid (O(1)
-                  clear enabled).  Pass NULL to signal "multiple solids
-                  may be UP" and force O(N) fallback on the next
-                  set_iflag(DOWN) call.
-                bsg_view_obj_get_illum(gedp)
-                  Return currently tracked illuminated solid or NULL.
-
-              src/mged/usepen.c — three call-site updates:
-                illuminate():
-                  After bsg_visit, calls
-                  bsg_view_obj_set_illum(s->gedp, illump) so that the
-                  single winner is registered in GED.
-                f_aip (advance):
-                  sp->s_iflag = UP replaced by
-                  bsg_view_obj_set_illum(s->gedp, sp).  The old
-                  explicit sp->s_iflag = DOWN (on the previous illump)
-                  is kept as a safety net for the first call.
-                f_matpick (matpick sweep):
-                  After bsg_visit/_matpick_topmat_cb, calls
-                  bsg_view_obj_set_illum(s->gedp, NULL) to invalidate
-                  tracking because the sweep may place multiple solids
-                  in the UP state (same tree-top prefix match).
-
-              ── B4: mater-revision counter (partial) ──────────────────
-
-              src/libged/bsg_view_obj.c:
-                _sg_bump_mater_rev(gedp) — static helper, called at the
-                end of _sg_color_soltab().
-
-              include/ged/bsg_view_obj.h — new public API:
-                bsg_view_obj_mater_rev(gedp) → uint64_t
-                  Returns gd_mater_rev.  Consumers that cache per-solid
-                  colors can compare against a stored snapshot to detect
-                  when recoloring is needed and skip redundant sweeps.
-
-              Full FieldSensor-per-shape dirty-bit approach deferred:
-              requires per-solid version fields in bv_scene_obj which
-              do not yet exist.  The counter provides the foundation.
-
-              ── Test section [10]: set_illum / mater_rev ──────────────
-
-              src/libged/tests/draw/bsg_view_obj.cpp:
-                • get_illum returns NULL initially.
-                • set_illum(s0) → get_illum()==s0, s0->s_iflag==UP.
-                • set_iflag(DOWN) runs O(1): s0->s_iflag==DOWN,
-                  get_illum()==NULL.
-                • set_illum(s0) then set_illum(s1): s0→DOWN, s1→UP.
-                • set_illum(NULL) invalidates; next set_iflag(DOWN) does
-                  O(N) sweep and still clears all UP flags correctly.
-                • mater_rev increases after each color_from_soltab call.
-                • zap clears get_illum to NULL.
-
-              Build: libged, mged — zero errors.
-              Regression: ged_test_bsg_view_obj 84/84 PASS.
-
-           ── Phase 7 Step 7 (A3 + C1/C3 partial) ────────────────────
-
-           2026-05-04
-
-              ── A3: gv_draw_root in struct bview; gv_objs becomes derived ──
-
-              include/bv/defines.h:
-                Added void *gv_draw_root to struct bview (after bsg_root,
-                same void* pattern to avoid circular includes).  Set by
-                bsg_view_obj_ensure_root when GED initialises the draw
-                tree; cleared on GED close.
-
-              src/libged/bsg_view_obj.c — _sg_root() modified:
-                After creating gd_draw_root, sets gedp->ged_gvp->gv_draw_root
-                = root.  The draw root is now visible to libbsg helpers
-                without accessing ged_private.h.
-
-              src/libged/ged.cpp — teardown modified:
-                When setting gd_draw_root = NULL on close, also clears
-                gedp->ged_gvp->gv_draw_root to keep the view in sync.
-
-              src/libbsg/scene_graph.cpp — bsg_scene_root_sync modified:
-                When v->gv_draw_root is non-NULL, populates root->children
-                directly from the GED draw tree's top-level children
-                (groups + _overlays group).  bsg_view_traverse handles the
-                nested structure recursively.  gv_objs is bypassed for
-                rendering; libged still updates it for backward-compatible
-                callers.  When v->gv_draw_root is NULL the legacy gv_objs
-                path runs unchanged.
-
-              ── C1/C3 (partial): tree-navigation helpers moved to libbsg ──
-
-              include/bsg/draw_set.h  (new public BSG header):
-                bsg_draw_tree_depth(const bsg_node *g) → int
-                  Depth of g in its tree (root = 0).  Replaces the
-                  file-private _sg_tree_depth() in bsg_view_obj.c.
-                bsg_group_find_child(bsg_node *parent, const char *name)
-                  → bsg_node*
-                  Finds a BSG_NODE_GROUP child by name; NULL if absent.
-                bsg_group_ensure_child(bsg_node *parent, struct bview *v,
-                                       const char *name, void *dp_hint)
-                  → bsg_node*
-                  Finds or creates a BSG_NODE_GROUP child.  Uses only
-                  libbv types (bv_obj_create); the GED-specific
-                  db_lookup() call remains in the libged wrapper.
-
-              src/libbsg/draw_set.c  (new compilation unit):
-                Implements the three functions above.  No librt, no libged
-                dependency — only libbv (bv_obj_create, bv/defines.h) and
-                bu (bu_ptbl, bu_vls, bu_str).
-
-              src/libbsg/CMakeLists.txt: draw_set.c added to LIBBSG_SRCS.
-
-              src/libged/bsg_view_obj.c — _sg_tree_depth, _sg_find_or_create_child_group:
-                Both now delegate to bsg_draw_tree_depth() and
-                bsg_group_find_child()/bsg_group_ensure_child().
-                The db_lookup() call and _sg_bump_rev() remain in the
-                libged wrapper (GED-specific).
-                Adds #include "bsg/draw_set.h".
-
-              ── Test section [11]: A3 / gv_draw_root ──────────────────
-
-              src/libged/tests/draw/bsg_view_obj.cpp:
-                • gv_draw_root is non-NULL after first draw.
-                • gv_draw_root == gd_draw_root (same pointer).
-                • bsg_draw_tree_depth(draw_root) == 0.
-                • First child's depth == 1.
-                • bsg_scene_root_sync populates bsg_root->children from
-                  the GED draw tree (same pointers, same count).
-                • After zap, sync produces empty bsg_root->children.
-                • gv_draw_root remains valid after zap.
-
-              Build: libbsg, libged — zero errors.
-              Regression: ged_test_bsg_view_obj 97/97 PASS.
-
-              ── REMAINING ─────────────────────────────────────────────
-
-              C1/C3 (remainder)
-              — Shape-freeing helpers (_sg_free_children_recursive,
-                _sg_erase_nested_subpath shape-free path) still call
-                ged_destroy_vlist_cb(gedp, ...) directly.  Moving these
-                to libbsg requires abstracting the display-list destroy
-                callback (e.g. storing it in bsg_draw_state as a fn ptr
-                in gd_draw_root->s_i_data, or using the existing
-                s_dlist_free_callback hook).  Deferred to a future step.
-              — _sg_add_path (db_string_to_path, db_lookup) and the
-                overlay helpers (bsg_view_obj_invent, _sg_find_overlay_group,
-                _sg_erase_overlay_by_name) remain in libged for the same
-                reason.  Once the display-list callback is abstracted, the
-                pure tree ops can finish moving to libbsg/draw_set.c and
-                libbsg/overlay.c and bsg_view_obj.c can be deleted.
-
-           ── Phase 7 Step 8: s_dlist_free_callback replaces ged_destroy_vlist_cb ──
-
-           2026-05-04
-
-              Investigation: does the display-list destroy callback requirement
-              suggest a general mechanism is needed for bv_scene_obj?
-
-              Answer: NO — the mechanism already exists.  struct bv_scene_obj
-              already carries two per-object teardown hooks:
-
-                s_free_callback     — general custom-data cleanup (s_i_data,
-                                      s_path, draw_data), called by libbv
-                                      when a scene object is freed.
-                s_dlist_free_callback — GL display-list teardown, registered
-                                        by libdm (dm-gl_lod.cpp), called by
-                                        libbv during pool destruction.
-
-              The three ged_destroy_vlist_cb(gedp, sp->s_dlist, 1) calls in
-              bsg_view_obj.c were redundant with s_dlist_free_callback: both
-              call glDeleteLists (the former via a GED application callback,
-              the latter via the dm-registered per-object hook).  The GED
-              callback layer adds multi-DM dirty-marking on top; that is a
-              rendering-state concern owned by the GED erase command layer,
-              not by the BSG tree manipulation.
-
-              Fix: replaced all three call sites with:
-                if (sp->s_dlist_free_callback)
-                    (*sp->s_dlist_free_callback)(sp);
-
-              This removes the ged_destroy_vlist_callback / vlist_ctx dependency
-              from the BSG shape-freeing path.  The remaining gedp references
-              inside _sg_free_children_recursive, _sg_erase_nested_subpath
-              (case b), and _sg_erase_overlay_by_name are for:
-                • _sg_clear_illum_if_match(gedp, sp) — GED illuminated-solid
-                  tracker bookkeeping (genuine GED state)
-                • _sg_bump_rev(gedp) — GED draw-revision counter
-                • gd_draw_root / overlay-group access (now also in v->gv_draw_root)
-
-              These are GED-layer concerns.  The display-list concern is fully
-              resolved.
-
-              Files changed:
-                brlcad/src/libged/bsg_view_obj.c (3 call sites replaced)
-
-              Build: libged, mged — zero errors.
-              Regression: ged_test_bsg_view_obj 97/97 PASS.
-
-              ── REMAINING ─────────────────────────────────────────────
-
-              The bsg_view_obj.c erase / free functions still carry gedp for
-              GED bookkeeping (_sg_clear_illum_if_match, _sg_bump_rev).  To
-              fully move these to libbsg, the bookkeeping state would need to
-              be routed through the BSG draw-state (stored in gd_draw_root
-              or v->gv_draw_root->s_i_data) with function pointers, or the
-              libbsg functions would need to carry a thin bsg_draw_ctx pointer
-              instead of struct ged *.  Deferred.
-
-           ── Phase 7 Step 9: illum-clear via s_free_callback (option 4) ──
-
-           2026-05-04
-
-              Investigation: Why does gd_illum_solid exist, and can the
-              per-object s_free_callback mechanism replace _sg_clear_illum_if_match?
-
-              Background: s_iflag (char on bv_scene_obj) is the per-object
-              illumination state (UP = highlighted, DOWN = normal). gd_illum_solid
-              is a GED-level pointer to the single currently-illuminated shape,
-              added in Phase 7 Step 6 as an O(1) optimization: clearing illumination
-              across the entire tree (bsg_view_obj_set_iflag DOWN) only needs to
-              touch the one tracked pointer instead of sweeping N shapes.
-
-              The dangling-pointer hazard: if a shape is freed while it is the
-              illuminated solid, gd_illum_solid becomes a dangling pointer.
-              _sg_clear_illum_if_match(gedp, sp) was called explicitly in every
-              freeing path to prevent this.  This required passing gedp into
-              _sg_free_children_recursive and _sg_erase_nested_subpath (case b),
-              blocking those helpers from moving to libbsg.
-
-              Fix (option 4):
-                1.  Added struct ged *gedp back-pointer to struct ged_bv_data
-                    (include/ged/view.h) — one pointer per pool slot, set once
-                    per shape creation, reused across pool recycles.
-
-                2.  Added ged_bv_illum_free_cb() (non-static, declared in
-                    include/ged/bsg_view_obj.h) — reads bdata->gedp, clears
-                    gd_illum_solid if it matches sp. No-op on second call
-                    (e.g. during bv_free pool teardown).
-
-                3.  Registered ged_bv_illum_free_cb as sp->s_free_callback at
-                    every BSG_NODE_SHAPE creation site:
-                      bsg_view_obj.c _sg_invent (overlay shapes)
-                      draw.c dl_add_path (main draw path)
-                      draw.c append_solid_to_display_list (bigE path)
-
-                4.  In _sg_free_children_recursive and _sg_erase_nested_subpath
-                    (case b): added explicit `if (sp->s_free_callback)
-                    (*sp->s_free_callback)(sp)` call before FREE_BV_SCENE_OBJ
-                    (same pattern already used for s_dlist_free_callback).
-                    Removed _sg_clear_illum_if_match(gedp, ...) calls.
-                    Deleted the _sg_clear_illum_if_match helper entirely.
-
-              gd_illum_solid and the O(1) fast path are retained — they are
-              correct and the fast path is genuinely useful for interactive
-              editing. The change removes only the GED-dependency concern from
-              the freeing path for this specific bookkeeping operation.
-
-              NOTE: _sg_bump_rev(gedp) is still in the freeing paths — those
-              call sites still need gedp for the draw-revision counter.
-              Abstracting gd_draw_rev (e.g. via gv_draw_root->s_i_data) would
-              be the next step to eliminate the last gedp dependencies from the
-              BSG freeing helpers.
-
-              Files changed:
-                brlcad/include/ged/view.h
-                  (struct ged_bv_data: added gedp field)
-                brlcad/include/ged/bsg_view_obj.h
-                  (declared ged_bv_illum_free_cb)
-                brlcad/src/libged/bsg_view_obj.c
-                  (replaced _sg_clear_illum_if_match with ged_bv_illum_free_cb;
-                   registered callback in _sg_invent)
-                brlcad/src/libged/draw/draw.c
-                  (registered callback in dl_add_path +
-                   append_solid_to_display_list)
-
-              Build: libged — zero errors.
-              Regression: ged_test_bsg_view_obj 97/97 PASS.
-
-
-        ── Phase 7 Step 10: expose gd_draw_rev via bsg_draw_ctx ──
-
-           2026-05-04
-
-              The last gedp dependency in the BSG freeing helpers was
-              _sg_bump_rev(gedp), which incremented
-              ged_drawable::gd_draw_rev.  Abstracting that counter via
-              gv_draw_root->s_i_data removes the need to pass gedp into
-              the bump call sites.
-
-              Design — bsg_draw_ctx (include/bsg/draw_ctx.h):
-                A minimal struct { uint64_t *draw_rev; } stored as a
-                field (bsg_ctx) in ged_drawable (ged_private.h).  At
-                root creation (_sg_root) bsg_ctx.draw_rev is pointed at
-                &gd_draw_rev, and root->s_i_data = &bsg_ctx.  No heap
-                allocation: the ctx lives with ged_drawable and is
-                implicitly freed when BU_PUT(ged_drawable) runs.
-
-              New helper — _sg_bump_rev_node(bv_scene_obj *n):
-                Walks the parent chain from n to the draw root (parent
-                == NULL), then casts root->s_i_data to bsg_draw_ctx *
-                and increments *ctx->draw_rev.  O(depth), where depth ≤
-                path length + 2. Used instead of the old macro at every
-                mutation site.
-
-              The _sg_bump_rev(gedp) macro is deleted (zero call sites
-              remain after migration).  All 7 former macro call sites
-              replaced:
-                _sg_erase_overlay_by_name  → _sg_bump_rev_node(root)
-                _sg_free_group             → _sg_bump_rev_node(g)
-                _sg_find_or_create_child   → _sg_bump_rev_node(parent)
-                _sg_erase_nested_subpath a → _sg_bump_rev_node(cur)
-                _sg_erase_nested_subpath b → _sg_bump_rev_node(cur)
-                _sg_erase_subgroups_by_name→ _sg_bump_rev_node(parent)
-                _sg_invent (overlay attach) → _sg_bump_rev_node(ov)
-
-              Parent-pointer validity at each site: confirmed in each
-              case the parent chain is intact when the bump fires (cleared
-              only after the bump in the freeing paths, or never for
-              creation paths).
-
-              Bonus cleanup: _sg_free_children_recursive no longer takes
-              struct ged * — that parameter was only passed through to
-              recursive calls after Step 9 removed the
-              _sg_clear_illum_if_match call.  Signature simplified.
-              draw_set.h added to include/bsg/CMakeLists.txt (had been
-              omitted; draw_ctx.h added at the same time).
-
-              Files changed:
-                brlcad/include/bsg/draw_ctx.h  (new)
-                brlcad/include/bsg/CMakeLists.txt  (draw_ctx.h + draw_set.h)
-                brlcad/src/libged/ged_private.h
-                  (bsg/draw_ctx.h include; bsg_ctx field in ged_drawable)
-                brlcad/src/libged/bsg_view_obj.c
-                  (bsg/draw_ctx.h include; _sg_root: set bsg_ctx +
-                   root->s_i_data; new _sg_bump_rev_node helper; 7 macro
-                   call sites replaced; _sg_bump_rev macro deleted;
-                   _sg_free_children_recursive: gedp param removed)
-
-              Build: libged — zero errors.
-              Regression: ged_test_bsg_view_obj 97/97 PASS.
-
-   2026-05-04  Phase 7 — Steps 11 and 14 complete
-
-              ── What is done (Steps 1–11 + 14) ───────────────────────────
-
-              All seven originally-planned steps from the post-session audit
-              (Steps 1–7) are complete, plus additional steps 8–11 and 14
-              that became apparent or were planned during implementation:
-
-                Step 1+2  B6+B3:  _overlays group, BSG_PAYLOAD_OVERLAY,
-                                   bounds fix.
-                Step 3+4  A4+B8+B7: snapshotted DFS index, advance_solid,
-                                   gd_draw_rev revision counter.
-                Step 5    A2+B1+B2: per-component nested groups, nested
-                                   erase, group-accessor depth fixes.
-                Step 6    B4+B5:  mater_rev counter, O(1) set_iflag,
-                                   gd_illum_solid tracker.
-                Step 7    A3+C1/C3 partial: gv_draw_root in struct bview,
-                                   bsg_scene_root_sync uses GED draw tree,
-                                   draw_set.c + draw_set.h moved to libbsg.
-                Step 8    C1/C3:  ged_destroy_vlist_cb replaced by
-                                   s_dlist_free_callback in freeing paths.
-                Step 9    C1:    illum-clear via s_free_callback
-                                   (ged_bv_illum_free_cb); gedp removed from
-                                   _sg_free_children_recursive.
-                Step 10   C1:    gd_draw_rev exposed via bsg_draw_ctx in
-                                   gv_draw_root->s_i_data; _sg_bump_rev(gedp)
-                                   macro deleted; gedp removed from
-                                   _sg_free_children_recursive signature.
-                Step 11   C1 (a): bsg_draw_ctx extended with struct
-                                   bv_scene_obj *fso field (set in _sg_root
-                                   via bv_set_fsos).  Four helpers moved to
-                                   libbsg/draw_set.c as BSG_EXPORT API:
-                                     bsg_bump_rev_node()
-                                     bsg_free_children_recursive(g, fso)
-                                     bsg_free_group_contents(g)
-                                     bsg_free_group(g)
-                                   bsg_view_obj.c now has thin one-line
-                                   wrappers (_sg_bump_rev_node, _sg_free_group,
-                                   _sg_free_group_contents) that delegate to
-                                   libbsg.  gedp removed from both
-                                   _sg_free_group_contents and _sg_free_group.
-                                   Added missing #include "bv/view_sets.h" to
-                                   bsg_view_obj.c.  97/97 PASS.
-                Step 14   B4 (infrastructure): added uint32_t s_color_rev
-                                   to struct bv_scene_obj (bv/defines.h).
-                                   _color_solid_cb now uses a _color_ctx
-                                   struct (dbip + mater_rev) and stamps each
-                                   shape with s_color_rev = mater_rev after
-                                   coloring.  Skip check: if s_color_rev ==
-                                   ctx.mater_rev the shape is already at the
-                                   current generation and is skipped.  The
-                                   skip does not fire yet in practice because
-                                   gd_mater_rev is still bumped inside every
-                                   color_from_soltab call; the full lazy-color
-                                   optimization requires external material-
-                                   change events to bump gd_mater_rev (a
-                                   future step).  97/97 PASS.
-
-              ── What remains ──────────────────────────────────────────────
-
-              B4 (full lazy-color)
-                  The per-shape s_color_rev stamp is in place (Step 14).
-                  The skip currently never fires because gd_mater_rev is
-                  bumped inside every color_from_soltab call.  To activate
-                  the optimization, gd_mater_rev must be bumped by material-
-                  change events (mater table reload, user "color" command,
-                  etc.) rather than by the sweep itself.  Doing so requires
-                  auditing all sites that change the material table.
-
-              C1 / C3 — ALL DONE (Steps 12, 13, 15 this session)
-                  bsg_ged_draw.c (formerly bsg_view_obj.c) now contains only
-                  GED-layer wrapper code.  All pure BSG tree logic has been
-                  extracted:
-
-                  a. _sg_erase_nested_subpath: DONE (Step 12)
-                       bsg_path_match_fn typedef + bsg_erase_nested_subpath()
-                       in libbsg/draw_set.c.  GED callback in bsg_ged_draw.c.
-
-                  b. _sg_add_path / _sg_erase_path: stays in libged (correct)
-                       These use db_string_to_path, db_lookup (librt), and
-                       gedp->dbip.  They require librt semantics by design.
-
-                  c. Overlay helpers: DONE (Step 13)
-                       bsg_find_overlay_group / bsg_ensure_overlay_group /
-                       bsg_erase_overlay_by_name moved to libbsg/overlay.c.
-                       Thin wrappers remain in bsg_ged_draw.c.
-
-              Next: B4 lazy-color activation (bump gd_mater_rev from
-              external material-change events) and any further Obol
-              integration work.
-
-              ── Steps 12–15 DONE (this session) ──────────────────────────
-
-              Step 12  C1 (b): DONE — bsg_path_match_fn typedef added to
-                          include/bsg/draw_set.h.  bsg_erase_nested_subpath()
-                          implemented in src/libbsg/draw_set.c.  The GED-
-                          specific db_full_path_match_top() call is
-                          encapsulated in _sg_path_match_cb() in
-                          src/libged/bsg_ged_draw.c.  _sg_erase_nested_subpath
-                          is now a thin wrapper; gedp removed from its
-                          signature.  97/97 PASS.
-
-              Step 13  C3 (overlay): DONE — include/bsg/overlay.h and
-                          src/libbsg/overlay.c created with three BSG_EXPORT
-                          functions:
-                            bsg_find_overlay_group(draw_root)
-                            bsg_ensure_overlay_group(draw_root, v)
-                            bsg_erase_overlay_by_name(draw_root, name)
-                          bsg_ged_draw.c has thin wrappers _sg_overlay_root
-                          and _sg_erase_overlay_by_name.
-                          Shared _ctx_of_node() extracted to
-                          src/libbsg/bsg_private.h (static inline, not
-                          installed) to avoid redefinition in unity builds.
-                          97/97 PASS.
-
-              Step 14  B4 (infrastructure): DONE (previous session) —
-                          s_color_rev stamp on bv_scene_obj; lazy-color skip
-                          infrastructure in place.
-
-              Step 15  C3 (final): DONE — bsg_view_obj.c renamed to
-                          bsg_ged_draw.c.  src/libged/CMakeLists.txt updated.
-                          @file header updated.  The file now contains only:
-                            • GED-layer tree-navigation wrappers (thin)
-                            • _sg_invent (GED-specific: db_lookup guard,
-                              ged_bv_data allocation, callback registration)
-                            • _sg_root, _sg_erase_path/_sg_erase_all_paths,
-                              bsg_view_obj_append_solid_to_group (librt path
-                              parsing, ged_bv_data access)
-                            • bsg_view_obj_* public API entry points
-                          All pure BSG tree logic lives in libbsg.
-                          97/97 PASS.
+There are three real buckets of remaining work.
+
+1. Finish B4: make lazy material recoloring actually activate.
+   This is the most concrete unfinished technical task and the one already
+   prepared by the code.
+
+   Required work:
+   - find every command/site that mutates the effective material table or causes
+     a recolor-relevant material change (start with `brlcad/src/libged/color/color.c`'s
+     regionid_colortable import path, `brlcad/src/libged/mater/mater.cpp`,
+     `brlcad/src/libged/edmater/edmater.c`'s wmater/rmater flow, and the MGED
+     wrapper in `brlcad/src/mged/mater.c`),
+   - move gd_mater_rev bumps to those mutation sites,
+   - stop using the recolor sweep itself as the revision bump source,
+   - add/update tests proving that:
+       a) two successive color_from_soltab calls without a material change skip
+          already-stamped shapes, and
+       b) a real material change causes the next sweep to recolor the affected
+          shapes.
+
+2. Finish the user-facing overlay/policy cleanup.
+   The data model is no longer using phony db objects for overlays, but some
+   commands still behave as though that is true.
+
+   The important follow-up sites are:
+   - src/libged/who/who.c
+   - helpers in src/libged/ged_util.cpp that skip phony groups
+   - any command/reporting path that still talks about "phony" instead of
+     overlays as a first-class draw-tree branch
+
+   Desired end-state:
+   - "who" reports real drawn database geometry by default,
+   - overlays are listed explicitly via a dedicated overlay-aware path/flag if
+     needed,
+   - phony-db lookup logic is no longer part of normal overlay reporting.
+
+3. Decide how far to push the public API toward the RTF end-state.
+   Internally the tree is modern; the remaining question is how much of the
+   legacy libged surface to preserve.
+
+   Open decision:
+   - Backend-style: keep bsg_view_obj_* as a compatibility layer over the new
+     tree and eventually over Obol.
+   - Adapter-style: aggressively shrink/deprecate that API and expose a more
+     direct scene-graph-shaped surface.
+
+   In either case, future cleanup should target:
+   - reducing path-string-centric entry points where practical,
+   - retiring skip_first / allow_split style compatibility knobs,
+   - removing or renaming API that still advertises old display-list concepts,
+   - keeping policy decisions in libged/mged rather than pushing them back down.
+
+Recommended execution order
+---------------------------
+If continuing this work in code, do it in this order:
+
+1. B4 completion first.
+   It is the smallest well-bounded remaining technical task and the one most
+   directly called out by the current code/comments.
+
+2. Overlay reporting cleanup second.
+   After the internal overlay model is fixed, make user-facing reporting match
+   it.  This closes the biggest remaining semantic mismatch between the code and
+   the RTF.
+
+3. Public API cleanup/deprecation third.
+   Once overlay reporting is settled, decide whether bsg_view_obj_* is remaining
+   as a compatibility facade or being slimmed toward a more scene-graph-native
+   surface.
+
+4. Only after that, revisit larger end-state questions.
+   Examples:
+   - bbox/sensor invalidation improvements,
+   - fuller sensorization of highlight state,
+   - backend-style vs adapter-style libbsg/Obol integration.
+
+What not to redo
+----------------
+Future sessions should NOT spend time rediscovering or re-arguing these points:
+
+- Do not reintroduce display_list/gd_headDisplay as the canonical drawn-set
+  structure.
+- Do not reintroduce RT_DIR_PHONY_ADDR into the drawing path for overlays.
+- Do not replace s_color_rev with a different lazy-color token; finish the
+  existing mechanism.
+- Do not move GED/MGED policy decisions down into libbsg just to make the lower
+  layer "look complete".
+- Do not treat the rename to bsg_ged_draw.c as cosmetic; it marks the real split
+  between pure tree logic (libbsg) and GED policy/wrappers (libged).
+
+Bottom line
+-----------
+The modernization effort is past the risky structural part.  The draw tree is
+already BSG-native enough that future work should focus on finishing the
+remaining semantic mismatches, not on more large-scale storage rewrites.
+
+The next practical milestone is simple: finish B4, then make overlay reporting
+and the public API tell the same story the internals already do.
