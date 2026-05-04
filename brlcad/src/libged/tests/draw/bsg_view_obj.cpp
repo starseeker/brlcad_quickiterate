@@ -321,6 +321,125 @@ main(int ac, char *av[])
     }
 
     /* ---------------------------------------------------------------- *
+     * 7. solid_count / solid_at / solid_index — snapshotted DFS index. *
+     * ---------------------------------------------------------------- */
+    bu_log("[7] solid_count/at/index...\n");
+    {
+	/* Draw moss scene. */
+	const char *s_av[3] = {"draw", "all.g", NULL};
+	ged_exec(gedp, 2, s_av);
+
+	int count = bsg_view_obj_solid_count(gedp);
+	ASSERT(count > 0);
+
+	/* solid_at(0) must be non-NULL and equal to first_solid. */
+	struct bv_scene_obj *first = bsg_view_obj_first_solid(gedp);
+	struct bv_scene_obj *at0 = bsg_view_obj_solid_at(gedp, 0);
+	ASSERT(at0 != NULL);
+	ASSERT(at0 == first);
+
+	/* solid_index must round-trip with solid_at. */
+	int idx_first = bsg_view_obj_solid_index(gedp, first);
+	ASSERT(idx_first == 0);
+
+	/* last solid: solid_at(-1) should wrap to count-1. */
+	struct bv_scene_obj *last = bsg_view_obj_solid_at(gedp, -1);
+	ASSERT(last != NULL);
+	int idx_last = bsg_view_obj_solid_index(gedp, last);
+	ASSERT(idx_last == count - 1);
+
+	/* advance_solid wraps correctly: last+1 == first. */
+	struct bv_scene_obj *wrap_fwd = bsg_view_obj_advance_solid(gedp, last, 1);
+	ASSERT(wrap_fwd == first);
+
+	/* advance_solid backward: first-1 == last. */
+	struct bv_scene_obj *wrap_bwd = bsg_view_obj_advance_solid(gedp, first, -1);
+	ASSERT(wrap_bwd == last);
+
+	/* Non-drawn pointer returns -1 from solid_index. */
+	ASSERT(bsg_view_obj_solid_index(gedp, NULL) == -1);
+
+	/* Overlay shapes should NOT appear in the snapshot. */
+	{
+	    struct bu_list vhead;
+	    BU_LIST_INIT(&vhead);
+	    struct bu_list *vlfree = &rt_vlfree;
+	    point_t p1 = {0, 0, 0};
+	    BV_ADD_VLIST(vlfree, &vhead, p1, BV_VLIST_LINE_MOVE);
+	    bsg_view_obj_invent(gedp, (char *)"_snap_test_overlay",
+			       &vhead, 0xFF0000, 1, 1.0, 0, 0);
+	    BV_FREE_VLIST(vlfree, &vhead);
+
+	    /* count must not have changed */
+	    ASSERT(bsg_view_obj_solid_count(gedp) == count);
+	    /* Clean up */
+	    bsg_view_obj_erase_by_name(gedp, "_snap_test_overlay", 0);
+	}
+    }
+
+    /* ---------------------------------------------------------------- *
+     * 8. draw_rev / name_hash revision counter (Step 4 / B7).          *
+     * ---------------------------------------------------------------- */
+    bu_log("[8] draw_rev revision counter...\n");
+    {
+	/* Zap → rev must be 0, hash must be 0. */
+	{
+	    const char *s_av[2] = {"zap", NULL};
+	    ged_exec(gedp, 1, s_av);
+	}
+	ASSERT(bsg_view_obj_draw_rev(gedp) == 0);
+	ASSERT(bsg_view_obj_name_hash(gedp) == 0);
+
+	/* Draw something — rev must be non-zero. */
+	{
+	    const char *s_av[3] = {"draw", "all.g", NULL};
+	    ged_exec(gedp, 2, s_av);
+	}
+	uint64_t rev_after_draw = bsg_view_obj_draw_rev(gedp);
+	ASSERT(rev_after_draw != 0);
+	ASSERT(bsg_view_obj_name_hash(gedp) == (unsigned long long)rev_after_draw);
+
+	/* Erase something — rev must have increased again. */
+	bsg_view_obj_erase_by_path(gedp, "all.g", 0);
+	uint64_t rev_after_erase = bsg_view_obj_draw_rev(gedp);
+	ASSERT(rev_after_erase > rev_after_draw);
+
+	/* Zap → rev reset to 0. */
+	{
+	    const char *s_av[2] = {"zap", NULL};
+	    ged_exec(gedp, 1, s_av);
+	}
+	ASSERT(bsg_view_obj_draw_rev(gedp) == 0);
+
+	/* Invent an overlay → rev bumped. */
+	{
+	    const char *s_av[3] = {"draw", "all.g", NULL};
+	    ged_exec(gedp, 2, s_av);
+	    uint64_t rev_pre = bsg_view_obj_draw_rev(gedp);
+
+	    struct bu_list vhead;
+	    BU_LIST_INIT(&vhead);
+	    struct bu_list *vlfree = &rt_vlfree;
+	    point_t p = {1, 1, 1};
+	    BV_ADD_VLIST(vlfree, &vhead, p, BV_VLIST_LINE_MOVE);
+	    bsg_view_obj_invent(gedp, (char *)"_rev_test_ov",
+			       &vhead, 0x00FF00, 1, 1.0, 0, 0);
+	    BV_FREE_VLIST(vlfree, &vhead);
+	    ASSERT(bsg_view_obj_draw_rev(gedp) > rev_pre);
+
+	    bsg_view_obj_erase_by_name(gedp, "_rev_test_ov", 0);
+	}
+    }
+
+    /* Final zap to leave clean state. */
+    {
+	const char *s_av[2] = {"zap", NULL};
+	ged_exec(gedp, 1, s_av);
+	ASSERT(bsg_view_obj_name_hash(gedp) == 0);
+	ASSERT(dl_count(gedp) == 0);
+    }
+
+    /* ---------------------------------------------------------------- *
      * Summary.                                                          *
      * ---------------------------------------------------------------- */
     ged_close(gedp);

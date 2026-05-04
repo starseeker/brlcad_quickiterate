@@ -46,7 +46,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "bu/hash.h"
 #include "bu/ptbl.h"
 #include "bu/str.h"
 #include "bu/color.h"
@@ -67,6 +66,10 @@
 #define FREE_BV_SCENE_OBJ(p, fp, vlf) { \
         BU_LIST_APPEND(fp, &((p)->l)); \
         BV_FREE_VLIST(vlf, &((p)->s_vlist)); }
+
+/* Increment the structural revision counter.  Call on every add/remove
+ * of a group or shape (but NOT on incremental solid-data updates). */
+#define _sg_bump_rev(_gedp) (++((_gedp)->i->ged_gdp->gd_draw_rev))
 
 /* defined in draw_calc.cpp */
 extern fastf_t brep_est_avg_curve_len(struct rt_brep_internal *bi);
@@ -188,6 +191,7 @@ _sg_erase_overlay_by_name(struct ged *gedp, const char *name)
         bu_ptbl_rm(&ov->children, (const long *)sp);
         sp->parent = NULL;
         FREE_BV_SCENE_OBJ(sp, &free_scene_obj->l, vlfree);
+        _sg_bump_rev(gedp);
     }
     bu_ptbl_free(&snap);
 
@@ -267,6 +271,8 @@ _sg_free_group(struct ged *gedp, struct bv_scene_obj *g)
     if (root)
         bu_ptbl_rm(&root->children, (const long *)g);
 
+    _sg_bump_rev(gedp);
+
     g->parent = NULL;
 
     /* Return group node to free pool (children already cleared above) */
@@ -345,6 +351,7 @@ _sg_add_path(struct ged *gedp, const char *name)
     bu_vls_sprintf(&g->s_name, "%s", name);
 
     bu_ptbl_ins(&root->children, (long *)g);
+    _sg_bump_rev(gedp);
 
     if (found_namepath)
         db_free_full_path(&namepath);
@@ -470,6 +477,7 @@ _sg_erase_path(struct ged *gedp, const char *path, int allow_split)
             /* Exact match: free whole group */
             _sg_free_group_contents(gedp, g);
             bu_ptbl_rm(&root->children, (const long *)g);
+            _sg_bump_rev(gedp);
             g->parent = NULL;
             struct bv_scene_obj *fso = g->free_scene_obj;
             if (fso) FREE_BV_SCENE_OBJ(g, &fso->l, g->vlfree);
@@ -507,12 +515,14 @@ _sg_erase_path(struct ged *gedp, const char *path, int allow_split)
         if (BU_PTBL_LEN(&g->children) == 0) {
             /* Group is now empty — remove it */
             bu_ptbl_rm(&root->children, (const long *)g);
+            _sg_bump_rev(gedp);
             g->parent = NULL;
             struct bv_scene_obj *fso = g->free_scene_obj;
             if (fso) FREE_BV_SCENE_OBJ(g, &fso->l, g->vlfree);
         } else if (allow_split && need_split) {
             /* Split remaining shapes into per-path subgroups */
             bu_ptbl_rm(&root->children, (const long *)g);
+            _sg_bump_rev(gedp);
             --subpath.fp_len;
             _sg_split_gdl(gedp, g, &subpath);
             ++subpath.fp_len;
@@ -553,6 +563,7 @@ _sg_erase_all_subpaths_from_group(struct ged *gedp, struct bv_scene_obj *g,
         bu_ptbl_rm(&g->children, (const long *)sp);
         sp->parent = NULL;
         FREE_BV_SCENE_OBJ(sp, &free_scene_obj->l, vlfree);
+        _sg_bump_rev(gedp);
     }
 
     bu_ptbl_free(&snap);
@@ -892,6 +903,7 @@ _sg_invent(struct ged *gedp, char *name, struct bu_list *vhead, long int rgb,
     if (ov) {
         sp->parent = ov;
         bu_ptbl_ins(&ov->children, (long *)sp);
+        _sg_bump_rev(gedp);
     }
 
     sp->s_iflag              = DOWN;
@@ -941,40 +953,18 @@ _sg_set_iflag(struct ged *gedp, int iflag)
 
 
 /* ------------------------------------------------------------------ */
-/* name hash                                                           */
+/* name hash / revision counter                                        */
 /* ------------------------------------------------------------------ */
 
+/*
+ * Return the revision counter as a cheap change-detection token.
+ * Returns 0 when nothing has been drawn since the last zap (or ever).
+ * Replaces the former O(N) name-concatenation hash with an O(1) read.
+ */
 static unsigned long long
 _sg_name_hash(struct ged *gedp)
 {
-    struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
-    if (!root || BU_PTBL_LEN(&root->children) == 0)
-        return 0;
-
-    struct bu_data_hash_state *state = bu_data_hash_create();
-    if (!state)
-        return 0;
-
-    for (size_t gi = 0; gi < BU_PTBL_LEN(&root->children); gi++) {
-        struct bv_scene_obj *g =
-            (struct bv_scene_obj *)BU_PTBL_GET(&root->children, gi);
-        for (size_t si = 0; si < BU_PTBL_LEN(&g->children); si++) {
-            struct bv_scene_obj *sp =
-                (struct bv_scene_obj *)BU_PTBL_GET(&g->children, si);
-            if (!sp->s_u_data)
-                continue;
-            struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
-            for (size_t pi = 0; pi < bdata->s_fullpath.fp_len; pi++) {
-                struct directory *pdp = bdata->s_fullpath.fp_names[pi];
-                bu_data_hash_update(state, pdp->d_namep,
-                                    strlen(pdp->d_namep));
-            }
-        }
-    }
-
-    unsigned long long hv = bu_data_hash_val(state);
-    bu_data_hash_destroy(state);
-    return hv;
+    return (unsigned long long)gedp->i->ged_gdp->gd_draw_rev;
 }
 
 
@@ -1107,6 +1097,15 @@ bsg_view_obj_name_hash(struct ged *gedp)
 }
 
 
+uint64_t
+bsg_view_obj_draw_rev(struct ged *gedp)
+{
+    if (!gedp)
+        return 0;
+    return gedp->i->ged_gdp->gd_draw_rev;
+}
+
+
 void
 bsg_view_obj_foreach_solid(struct ged *gedp,
                            int (*cb)(struct bv_scene_obj *, void *),
@@ -1158,116 +1157,134 @@ bsg_view_obj_first_solid(struct ged *gedp)
 
 
 /*
+ * Build a DFS-order flat snapshot of all non-overlay drawn shapes into
+ * @p out.  The _overlays group is skipped entirely so that invented
+ * pseudo-solids are not included in navigation order.
+ *
+ * Callers must call bu_ptbl_free(out) when done.
+ */
+static void
+_sg_build_solid_snapshot(struct ged *gedp, struct bu_ptbl *out)
+{
+    struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
+    if (!root)
+        return;
+
+    for (size_t gi = 0; gi < BU_PTBL_LEN(&root->children); gi++) {
+        struct bv_scene_obj *g =
+            (struct bv_scene_obj *)BU_PTBL_GET(&root->children, gi);
+        /* Skip the _overlays meta-group */
+        if (BU_STR_EQUAL("_overlays", bu_vls_cstr(&g->s_name)))
+            continue;
+        for (size_t si = 0; si < BU_PTBL_LEN(&g->children); si++) {
+            bu_ptbl_ins(out,
+                        BU_PTBL_GET(&g->children, si));
+        }
+    }
+}
+
+
+int
+bsg_view_obj_solid_count(struct ged *gedp)
+{
+    if (!gedp)
+        return 0;
+    struct bu_ptbl snap = BU_PTBL_INIT_ZERO;
+    _sg_build_solid_snapshot(gedp, &snap);
+    int n = (int)BU_PTBL_LEN(&snap);
+    bu_ptbl_free(&snap);
+    return n;
+}
+
+
+struct bv_scene_obj *
+bsg_view_obj_solid_at(struct ged *gedp, int idx)
+{
+    if (!gedp)
+        return NULL;
+    struct bu_ptbl snap = BU_PTBL_INIT_ZERO;
+    _sg_build_solid_snapshot(gedp, &snap);
+    struct bv_scene_obj *sp = NULL;
+    int n = (int)BU_PTBL_LEN(&snap);
+    if (n > 0) {
+        /* Wrap negative indices as well as overflow */
+        idx = ((idx % n) + n) % n;
+        sp = (struct bv_scene_obj *)BU_PTBL_GET(&snap, idx);
+    }
+    bu_ptbl_free(&snap);
+    return sp;
+}
+
+
+int
+bsg_view_obj_solid_index(struct ged *gedp, struct bv_scene_obj *target)
+{
+    if (!gedp || !target)
+        return -1;
+    struct bu_ptbl snap = BU_PTBL_INIT_ZERO;
+    _sg_build_solid_snapshot(gedp, &snap);
+    int found = -1;
+    for (int i = 0; i < (int)BU_PTBL_LEN(&snap); i++) {
+        if ((struct bv_scene_obj *)BU_PTBL_GET(&snap, i) == target) {
+            found = i;
+            break;
+        }
+    }
+    bu_ptbl_free(&snap);
+    return found;
+}
+
+
+/*
+ * Advance @p sp by @p delta positions (positive = forward, negative = backward)
+ * in DFS snapshot order, with circular wraparound.  Overlay shapes are
+ * excluded from the index.  Returns the shape at the new position, or NULL
+ * when no non-overlay shapes are drawn.
+ *
+ * Builds one DFS snapshot internally.
+ */
+struct bv_scene_obj *
+bsg_view_obj_advance_solid(struct ged *gedp, struct bv_scene_obj *sp, int delta)
+{
+    if (!gedp)
+        return NULL;
+    struct bu_ptbl snap = BU_PTBL_INIT_ZERO;
+    _sg_build_solid_snapshot(gedp, &snap);
+    struct bv_scene_obj *result = NULL;
+    int n = (int)BU_PTBL_LEN(&snap);
+    if (n > 0) {
+        int idx = 0;
+        if (sp) {
+            for (int i = 0; i < n; i++) {
+                if ((struct bv_scene_obj *)BU_PTBL_GET(&snap, i) == sp) {
+                    idx = i;
+                    break;
+                }
+            }
+        }
+        int new_idx = (((idx + delta) % n) + n) % n;
+        result = (struct bv_scene_obj *)BU_PTBL_GET(&snap, new_idx);
+    }
+    bu_ptbl_free(&snap);
+    return result;
+}
+
+
+/*
  * DFS-order next solid with circular wraparound.
- * Finds sp's index within its parent group, then advances; wraps
- * across groups and back to the start.
+ * Now delegates to the snapshotted index approach.
  */
 struct bv_scene_obj *
 bsg_view_obj_next_solid(struct ged *gedp, struct bv_scene_obj *sp)
 {
-    if (!gedp || !sp)
-        return NULL;
-
-    struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
-    if (!root)
-        return NULL;
-
-    struct bv_scene_obj *g = (struct bv_scene_obj *)sp->parent;
-    if (!g)
-        return NULL;
-
-    /* Find sp index in its group */
-    size_t si = (size_t)-1;
-    for (size_t i = 0; i < BU_PTBL_LEN(&g->children); i++) {
-        if ((struct bv_scene_obj *)BU_PTBL_GET(&g->children, i) == sp) {
-            si = i;
-            break;
-        }
-    }
-    if (si == (size_t)-1)
-        return NULL;
-
-    /* Next within same group? */
-    if (si + 1 < BU_PTBL_LEN(&g->children))
-        return (struct bv_scene_obj *)BU_PTBL_GET(&g->children, si + 1);
-
-    /* Find group index */
-    size_t gi = (size_t)-1;
-    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
-        if ((struct bv_scene_obj *)BU_PTBL_GET(&root->children, i) == g) {
-            gi = i;
-            break;
-        }
-    }
-    if (gi == (size_t)-1)
-        return NULL;
-
-    /* Advance to next non-empty group, wrapping */
-    size_t ngroups = BU_PTBL_LEN(&root->children);
-    for (size_t k = 1; k <= ngroups; k++) {
-        size_t next_gi = (gi + k) % ngroups;
-        struct bv_scene_obj *ng =
-            (struct bv_scene_obj *)BU_PTBL_GET(&root->children, next_gi);
-        if (BU_PTBL_LEN(&ng->children) > 0)
-            return (struct bv_scene_obj *)BU_PTBL_GET(&ng->children, 0);
-    }
-
-    return NULL;
+    return bsg_view_obj_advance_solid(gedp, sp, 1);
 }
 
 
 struct bv_scene_obj *
 bsg_view_obj_prev_solid(struct ged *gedp, struct bv_scene_obj *sp)
 {
-    if (!gedp || !sp)
-        return NULL;
-
-    struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
-    if (!root)
-        return NULL;
-
-    struct bv_scene_obj *g = (struct bv_scene_obj *)sp->parent;
-    if (!g)
-        return NULL;
-
-    size_t si = (size_t)-1;
-    for (size_t i = 0; i < BU_PTBL_LEN(&g->children); i++) {
-        if ((struct bv_scene_obj *)BU_PTBL_GET(&g->children, i) == sp) {
-            si = i;
-            break;
-        }
-    }
-    if (si == (size_t)-1)
-        return NULL;
-
-    /* Prev within same group? */
-    if (si > 0)
-        return (struct bv_scene_obj *)BU_PTBL_GET(&g->children, si - 1);
-
-    /* Find group index */
-    size_t gi = (size_t)-1;
-    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
-        if ((struct bv_scene_obj *)BU_PTBL_GET(&root->children, i) == g) {
-            gi = i;
-            break;
-        }
-    }
-    if (gi == (size_t)-1)
-        return NULL;
-
-    /* Retreat to prev non-empty group, wrapping */
-    size_t ngroups = BU_PTBL_LEN(&root->children);
-    for (size_t k = 1; k <= ngroups; k++) {
-        size_t prev_gi = (gi + ngroups - k) % ngroups;
-        struct bv_scene_obj *pg =
-            (struct bv_scene_obj *)BU_PTBL_GET(&root->children, prev_gi);
-        size_t plen = BU_PTBL_LEN(&pg->children);
-        if (plen > 0)
-            return (struct bv_scene_obj *)BU_PTBL_GET(&pg->children,
-                                                       plen - 1);
-    }
-
-    return NULL;
+    return bsg_view_obj_advance_solid(gedp, sp, -1);
 }
 
 
@@ -1407,15 +1424,15 @@ bsg_view_obj_zap(struct ged *gedp)
     }
     bu_ptbl_free(&snap);
 
+    /* Clear all subgroups from the root but leave the root node alive so
+     * that GED_CHECK_DRAWABLE (which tests ged_dl() != NULL) continues to
+     * pass after a zap.  This preserves the invariant established by
+     * bsg_view_obj_ensure_root() in ged_open(). */
     bu_ptbl_reset(&root->children);
 
-    /* Free the root node itself */
-    struct bv_scene_obj *fso = root->free_scene_obj;
-    root->parent = NULL;
-    if (fso)
-        FREE_BV_SCENE_OBJ(root, &fso->l, root->vlfree);
-
-    gedp->i->ged_gdp->gd_draw_root = NULL;
+    /* Reset revision counter: after a full zap the drawn set is empty,
+     * so the hash should return 0 (matching initial state). */
+    gedp->i->ged_gdp->gd_draw_rev = 0;
 }
 
 

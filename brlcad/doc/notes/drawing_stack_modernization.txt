@@ -1354,3 +1354,133 @@ Deprecation policy
 
               A2 (rest), A3, A4/B8, B1 (rest), B2, B4, B5, B7, C1/C3
               — see sequencing Steps 3–7 above.
+
+  2026-05-04  Phase 7 Steps 3+4 (A4+B8, B7) complete — snapshotted DFS
+              index, usepen integer offset, revision-counter hash
+
+              Steps 3 (A4+B8) and 4 (B7) from the post-session
+              sequencing plan were implemented together in one session.
+
+              ── A4+B8: snapshotted DFS index ──────────────────────────
+
+              src/libged/bsg_view_obj.c:
+
+              _sg_build_solid_snapshot(gedp, bu_ptbl *out) — file-private
+              helper that does a DFS over root->children, skipping the
+              _overlays group, and appends all BSG_NODE_SHAPE children to
+              the caller-provided bu_ptbl.  O(N) per call; callers own the
+              bu_ptbl lifetime (must call bu_ptbl_free).
+
+              bsg_view_obj_solid_count(gedp) — returns the number of
+              non-overlay drawn shapes by building a snapshot and returning
+              its length.
+
+              bsg_view_obj_solid_at(gedp, int idx) — returns the shape at
+              DFS position idx; idx is wrapped modulo count (so negative
+              indices and wraparound are both handled).  Returns NULL when
+              no non-overlay shapes are drawn.
+
+              bsg_view_obj_solid_index(gedp, sp) — returns the DFS
+              snapshot index of sp among non-overlay shapes, or -1 if sp
+              is not currently in the snapshot.
+
+              bsg_view_obj_advance_solid(gedp, sp, int delta) — advances
+              sp by delta positions in snapshot order (positive = forward,
+              negative = backward), wrapping circularly; builds one
+              snapshot internally.  Replaces the ad-hoc next/prev cross-
+              list walk.
+
+              bsg_view_obj_next_solid / prev_solid rewritten as trivial
+              one-liners delegating to advance_solid(+1/-1).
+
+              src/mged/usepen.c, f_aip():
+
+              The "advance illuminated solid" section was rewritten from
+              a direct call to bsg_view_obj_next_solid / prev_solid to
+              using bsg_view_obj_advance_solid with an integer delta (+1 or
+              -1), plus a NULL-return guard (returns TCL_OK when no solids
+              are drawn rather than crashing on a NULL dereference).
+
+              include/ged/bsg_view_obj.h:
+
+              Added declarations for bsg_view_obj_solid_count,
+              bsg_view_obj_solid_at, bsg_view_obj_solid_index,
+              bsg_view_obj_advance_solid.  Updated docstrings for
+              bsg_view_obj_next_solid / prev_solid to document the
+              delegation.
+
+              ── B7: revision-counter hash ─────────────────────────────
+
+              src/libged/ged_private.h:
+
+              Added uint64_t gd_draw_rev to struct ged_drawable.  The
+              counter is zero-initialized.
+
+              src/libged/bsg_view_obj.c:
+
+              _sg_bump_rev(gedp) macro — increments gd_draw_rev; used
+              at every structural mutation point:
+                  _sg_add_path     — when a new subgroup is inserted
+                  _sg_free_group   — when a subgroup is removed
+                  _sg_erase_path (exact match) — on group removal
+                  _sg_erase_path (empty group) — on group removal
+                  _sg_erase_path (split case) — on group removal
+                  _sg_erase_all_subpaths_from_group — per shape removed
+                  _sg_erase_overlay_by_name — per overlay shape removed
+                  _sg_invent — when an overlay shape is attached
+
+              bsg_view_obj_zap rewritten to NOT free the root node
+              itself.  Previously it freed the root and set gd_draw_root =
+              NULL, which caused GED_CHECK_DRAWABLE (which calls ged_dl()
+              = gd_draw_root) to fail on all subsequent draw commands.
+              Now zap only clears root->children (freeing all subgroups
+              and shapes) and resets gd_draw_rev = 0.  gd_draw_root
+              remains valid and ged_dl() remains non-NULL.
+
+              _sg_name_hash() rewritten: instead of the former O(N)
+              walk that hashed s_name strings together, it now returns
+              gd_draw_rev directly (O(1)).
+
+              bsg_view_obj_draw_rev(gedp) — new public O(1) function
+              that exposes the raw revision counter.
+
+              include/ged/bsg_view_obj.h:
+
+              bsg_view_obj_name_hash() docstring updated to explain the
+              O(1) revision-counter semantics.
+              Added bsg_view_obj_draw_rev() declaration.
+
+              ── Removed dependency ────────────────────────────────────
+
+              bu/hash.h include removed from bsg_view_obj.c (no longer
+              needed after the O(N) hash implementation was replaced).
+
+              ── Test ──────────────────────────────────────────────────
+
+              src/libged/tests/draw/bsg_view_obj.cpp:
+
+              Section [7]: solid_count / solid_at / solid_index tests:
+                • solid_count > 0 after draw.
+                • solid_at(0) == first_solid().
+                • solid_index round-trips with solid_at.
+                • solid_at(-1) wraps to last solid; index == count-1.
+                • advance_solid wraps forward: last+1 == first.
+                • advance_solid wraps backward: first-1 == last.
+                • solid_index(NULL) == -1.
+                • Overlay shapes NOT included in snapshot (count
+                  unchanged after invent, then after erase).
+
+              Section [8]: draw_rev revision counter:
+                • draw_rev == 0 and name_hash == 0 after zap.
+                • draw_rev != 0 and name_hash == draw_rev after draw.
+                • draw_rev increases after erase.
+                • draw_rev reset to 0 on second zap.
+                • draw_rev increases after bsg_view_obj_invent.
+
+              Build: libged, mged — zero errors.
+              Regression: ged_test_bsg_view_obj 51/51 PASS.
+
+              ── REMAINING (unchanged from above) ──────────────────────
+
+              A2 (rest), A3, B1 (rest), B2, B4, B5, C1/C3
+              — see sequencing Steps 5–7 above.
