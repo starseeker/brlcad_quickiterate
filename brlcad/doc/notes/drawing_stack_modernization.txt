@@ -7,13 +7,13 @@ This note is the current-state summary for the BRL-CAD drawing-stack
 modernization work.  It replaces the older session-by-session log with the
 information future sessions actually need:
 
-1. what the high-level plan in the repository-root file draw_migration_plan.rtf was trying to do,
+1. what the high-level plan in the repository root file draw_migration_plan.rtf was trying to do,
 2. what the code in brlcad/ implements now,
 3. which parts of that plan are truly done versus only approximated,
 4. what work still remains, and
 5. the recommended order for the remaining work.
 
-Read this first, then read the repository-root file draw_migration_plan.rtf if
+Read this first, then read the repository root file draw_migration_plan.rtf if
 you need the original end-state rationale.
 
 Build/validation reminders
@@ -140,7 +140,7 @@ Files future sessions should read first
 ---------------------------------------
 If you need to continue this work, start with these files:
 
-- repository-root draw_migration_plan.rtf
+- repository root draw_migration_plan.rtf
 - brlcad/doc/notes/drawing_stack_modernization.txt (this file)
 - brlcad/src/libged/bsg_ged_draw.c
 - brlcad/src/libbsg/draw_set.c
