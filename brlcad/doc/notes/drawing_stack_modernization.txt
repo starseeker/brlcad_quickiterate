@@ -1156,3 +1156,117 @@ Deprecation policy
               Build: libged, libdm, libtclcad, libqtcad, mged, qged,
               archer -- zero errors.
               Regression: ged_test_bsg_view_obj 27/27 PASS.
+
+  2026-05-04  Phase 7 post-session audit — what has been achieved vs. what
+              remains from the original Layers A / B / C proposal
+
+              This entry records the gap analysis performed after the Phase 7
+              A/B/C sessions so future contributors know exactly what still
+              needs to be done.
+
+              ── DONE ─────────────────────────────────────────────────────
+
+              A1  gd_headDisplay (bu_list of ged_scene_group) replaced with
+                  gd_draw_root (struct bv_scene_obj*) — a BSG group node.
+                  Subgroups are bv_obj_create children of that root.
+
+              A2 (partial)  Subgroup identity stored in s_name (bu_vls)
+                  rather than a separate sg_path field.  Top-level subgroups
+                  are still keyed by the full path string, not by individual
+                  directory components (see remaining A2 work below).
+
+              B9  bsg_visit(root, type_mask, cb, userdata) DFS walker added
+                  to libbsg (include/bsg/visit.h, src/libbsg/visit.c).
+                  bsg_view_obj_foreach_solid and foreach_group delegate to it.
+                  All double group/solid loops in mged/libtclcad/libged
+                  converted to bsg_visit callbacks.
+
+              C (partial)  Public API de-opaqued: group handles are now
+                  typed struct bv_scene_obj* throughout; first/next_group
+                  and group_solid_list removed from the public header.
+
+              ── REMAINING ────────────────────────────────────────────────
+
+              A2 (rest)  Top-level subgroups are still keyed by the full
+                  drawn path string ("all/foo/bar").  The plan calls for
+                  each directory component to be a separate nested group
+                  node so that path semantics emerge from the tree rather
+                  than from a stored string.  _sg_split_at_subpath and
+                  the skip_first knob exist only because of flat path keys.
+
+              A3  bview::bsg_root is still re-synced from gv_objs at draw
+                  time.  Plan: the GED-owned group tree becomes canonical;
+                  gv_objs ptbls become a derived flat index.
+
+              A4 / B8  bsg_view_obj_next_solid / prev_solid still walk the
+                  cross-list with BU_LIST_PNEXT/PLAST wraparound
+                  (src/libged/bsg_view_obj.c lines ~1064-1172).
+                  src/mged/usepen.c:166-168 still calls them directly.
+                  Plan: replace with a snapshotted DFS index; MGED
+                  "advance illuminated solid" becomes an integer offset.
+
+              B1 (rest)  lookup_or_add_path still identifies subgroups by
+                  full path string.  append_to_last_group /
+                  append_solid_to_group still exist.  Plan: draw-context
+                  pattern where dgcdp.gdlp is the BSG group and solids
+                  attach via bsg_group_add_child.
+
+              B2  _sg_split_at_subpath (~line 256: "Equivalent to
+                  headsolid_split"), _sg_erase_all_names, _sg_erase_all_paths,
+                  and the skip_first knob (lines 433, 461, 486, 504, 516,
+                  533, 567) all still present.  Plan: in a proper BSG tree
+                  every path component is a group node so sub-path erases
+                  become bsg_group_remove_child — no split needed.
+
+              B3  bsg_view_obj_bounds still tests dp->d_addr ==
+                  RT_DIR_PHONY_ADDR (lines 141, 653).  Plan: check
+                  s_type_flags & BSG_PAYLOAD_OVERLAY instead.
+
+              B4  bsg_view_obj_color_from_soltab is still an imperative
+                  bulk sweep (line 979).  No BSG_SENSOR_FIELD registrations
+                  exist anywhere in src/libged/ or src/mged/.  Plan: each
+                  BSG_NODE_SHAPE registers a FieldSensor on dbip's mater
+                  chain version counter; sensor fires color_soltab at next
+                  traversal.
+
+              B5  bsg_view_obj_set_iflag is still an O(N) bulk sweep.
+                  Plan: per-node selection flag + sensor-driven clearing of
+                  the previous illuminated node.
+
+              B6  bsg_view_obj_invent (line 988) still calls
+                  db_diradd(dbip, name, RT_DIR_PHONY_ADDR, ...) (line 776).
+                  Live callers: vdraw/vdraw.c:546, ged_util.cpp:1260.
+                  Plan: introduce an _overlays BSG_NODE_GROUP under the
+                  scene root; overlays become BSG_NODE_SHAPE children with
+                  BSG_PAYLOAD_OVERLAY set; RT_DIR_PHONY_ADDR is retired
+                  from the drawing path entirely.
+
+              B7  bsg_view_obj_name_hash still concatenates s_name strings
+                  (line 845).  Plan: bump a revision counter on the root
+                  group on structural mutations.
+
+              C1 / C3  bsg_view_obj.c is still 1351 lines in src/libged/.
+                  The plan calls for splitting it into:
+                    src/libbsg/draw_set.c   -- root+subgroup helpers
+                    src/libbsg/visit.c      -- already done
+                    src/libbsg/overlay.c    -- _overlays helpers
+                  and deleting the file once all legacy logic is gone.
+                  Outright-delete list: _sg_split_at_subpath,
+                  _sg_erase_all_names/_all_paths, the skip_first knob,
+                  the RT_DIR_PHONY_ADDR tests in bounds, the
+                  BU_LIST_PNEXT/PLAST wraparound in next/prev_solid,
+                  and bsg_view_obj_invent itself.
+
+              ── SUGGESTED SEQUENCING FOR NEXT SESSION ────────────────────
+
+              Step 1  B6: overlay group + BSG_PAYLOAD_OVERLAY; retire
+                          bsg_view_obj_invent and RT_DIR_PHONY_ADDR.
+                          ~3 callers; well-bounded; unblocks B3.
+              Step 2  B3: bounds visitor reads BSG_PAYLOAD_OVERLAY flag.
+              Step 3  A4+B8: snapshotted DFS index replaces next/prev_solid
+                          cross-list walk; rewire mged/usepen.c.
+              Step 4  B7: revision-counter hash (isolated, small).
+              Step 5  A2+B1+B2: per-component nested groups; retire
+                          _sg_split_at_subpath / skip_first.
+              Step 6  B4+B5: FieldSensor-driven color + iflag clearing.
+              Step 7  C1+C3: split bsg_view_obj.c into libbsg/; delete.
