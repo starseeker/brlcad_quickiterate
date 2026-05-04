@@ -7,14 +7,14 @@ This note is the current-state summary for the BRL-CAD drawing-stack
 modernization work.  It replaces the older session-by-session log with the
 information future sessions actually need:
 
-1. what the high-level plan in the repository root file draw_migration_plan.rtf was trying to do,
+1. what the high-level plan in the repository root file draw_migration_plan.rtf (outside the brlcad/ subtree) was trying to do,
 2. what the code in brlcad/ implements now,
 3. which parts of that plan are truly done versus only approximated,
 4. what work still remains, and
 5. the recommended order for the remaining work.
 
-Read this first, then read the repository root file draw_migration_plan.rtf if
-you need the original end-state rationale.
+Read this first, then read the repository root file draw_migration_plan.rtf
+(outside the brlcad/ subtree) if you need the original end-state rationale.
 
 Build/validation reminders
 --------------------------
@@ -140,7 +140,7 @@ Files future sessions should read first
 ---------------------------------------
 If you need to continue this work, start with these files:
 
-- repository root draw_migration_plan.rtf
+- repository root draw_migration_plan.rtf (outside brlcad/)
 - brlcad/doc/notes/drawing_stack_modernization.txt (this file)
 - brlcad/src/libged/bsg_ged_draw.c
 - brlcad/src/libbsg/draw_set.c
@@ -266,10 +266,10 @@ There are three real buckets of remaining work.
 
    Required work:
    - find every command/site that mutates the effective material table or causes
-     a recolor-relevant material change (start with libged/color/color.c's
-     regionid_colortable import path, libged/mater/mater.cpp,
-     libged/edmater/edmater.c's wmater/rmater flow, and the MGED wrapper in
-     src/mged/mater.c),
+     a recolor-relevant material change (start with brlcad/src/libged/color/color.c's
+     regionid_colortable import path, brlcad/src/libged/mater/mater.cpp,
+     brlcad/src/libged/edmater/edmater.c's wmater/rmater flow, and the MGED
+     wrapper in brlcad/src/mged/mater.c),
    - move gd_mater_rev bumps to those mutation sites,
    - stop using the recolor sweep itself as the revision bump source,
    - add/update tests proving that:
