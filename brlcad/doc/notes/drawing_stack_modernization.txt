@@ -636,9 +636,9 @@ libbsg, libdm, libtclcad all build without warnings.
 
 == Phase 7 — Swap or graft Obol underneath libbsg ==
 
-Status: IN PROGRESS — BSG draw-tree refactor Steps 1–12 complete (Step 12
-         partial: Steps 11 and 14 done this session); libbsg migration (C1/C3)
-         further work (Steps 12–13) and final rename (Step 15) remain.
+Status: IN PROGRESS — BSG draw-tree refactor Steps 1–15 complete (Steps 12,
+         13, 15 done this session); bsg_ged_draw.c contains only GED-layer
+         wrappers; all pure tree logic lives in libbsg.  97/97 PASS.
 
 Two strategies:
   Backend-style: libbsg keeps its public API; implementations delegate to Obol.
@@ -1995,49 +1995,65 @@ Deprecation policy
                   etc.) rather than by the sweep itself.  Doing so requires
                   auditing all sites that change the material table.
 
-              C1 / C3 (rest)
-                  bsg_view_obj.c still lives in src/libged/ (~1500 lines
-                  after Step 11).  Remaining GED/librt dependencies:
+              C1 / C3 — ALL DONE (Steps 12, 13, 15 this session)
+                  bsg_ged_draw.c (formerly bsg_view_obj.c) now contains only
+                  GED-layer wrapper code.  All pure BSG tree logic has been
+                  extracted:
 
-                  a. _sg_erase_nested_subpath case (b):
-                       Casts s_u_data to struct ged_bv_data * (GED type)
-                       and calls db_full_path_match_top() (librt).
-                       Options: store a path-match callback in bsg_draw_ctx,
-                       or pass a typed match-fn into the helper.  Then the
-                       function can move to libbsg/draw_set.c.
+                  a. _sg_erase_nested_subpath: DONE (Step 12)
+                       bsg_path_match_fn typedef + bsg_erase_nested_subpath()
+                       in libbsg/draw_set.c.  GED callback in bsg_ged_draw.c.
 
-                  b. _sg_add_path / _sg_erase_path:
-                       Use db_string_to_path, db_lookup (librt), and
-                       gedp->dbip.  These require librt semantics and
-                       will stay in libged; only the pure tree-manipulation
-                       part (bsg_group_ensure_child calls) belongs in libbsg.
+                  b. _sg_add_path / _sg_erase_path: stays in libged (correct)
+                       These use db_string_to_path, db_lookup (librt), and
+                       gedp->dbip.  They require librt semantics by design.
 
-                  c. Overlay helpers (_sg_overlay_root,
-                     _sg_erase_overlay_by_name, _sg_invent):
-                       Use gedp->ged_gvp (bview) and gedp->dbip.  The db-
-                       lookup guard and callback registration belong in
-                       libged.  The pure tree manipulation could go to
-                       libbsg/overlay.c once (a) is resolved.
+                  c. Overlay helpers: DONE (Step 13)
+                       bsg_find_overlay_group / bsg_ensure_overlay_group /
+                       bsg_erase_overlay_by_name moved to libbsg/overlay.c.
+                       Thin wrappers remain in bsg_ged_draw.c.
 
-              ── Steps 12–15 (next session) ───────────────────────────────
+              Next: B4 lazy-color activation (bump gd_mater_rev from
+              external material-change events) and any further Obol
+              integration work.
 
-              Step 12  C1 (b): abstract the path-match in
-                          _sg_erase_nested_subpath case (b) — e.g., add a
-                          path-match callback pointer to bsg_draw_ctx so
-                          the shape-free inner loop can be moved to libbsg
-                          without carrying librt.  Remove gedp from
-                          _sg_erase_nested_subpath; move to libbsg/draw_set.c.
+              ── Steps 12–15 DONE (this session) ──────────────────────────
 
-              Step 13  C3 (overlay): once Steps 11–12 are done, extract
-                          the pure tree-manipulation code from
-                          bsg_view_obj_invent / _sg_overlay_root /
-                          _sg_erase_overlay_by_name into libbsg/overlay.c.
-                          The GED-specific db-lookup and callback
-                          registration remain in a thin libged wrapper.
+              Step 12  C1 (b): DONE — bsg_path_match_fn typedef added to
+                          include/bsg/draw_set.h.  bsg_erase_nested_subpath()
+                          implemented in src/libbsg/draw_set.c.  The GED-
+                          specific db_full_path_match_top() call is
+                          encapsulated in _sg_path_match_cb() in
+                          src/libged/bsg_ged_draw.c.  _sg_erase_nested_subpath
+                          is now a thin wrapper; gedp removed from its
+                          signature.  97/97 PASS.
 
-              Step 15  C3 (final): once libbsg/{draw_set,overlay}.c hold
-                          all pure tree logic and bsg_view_obj.c contains
-                          only GED-layer wrappers (librt path parsing,
-                          ged_bv_data access, callback registration), rename
-                          it src/libged/bsg_ged_draw.c to make the split
-                          explicit, and update CMakeLists accordingly.
+              Step 13  C3 (overlay): DONE — include/bsg/overlay.h and
+                          src/libbsg/overlay.c created with three BSG_EXPORT
+                          functions:
+                            bsg_find_overlay_group(draw_root)
+                            bsg_ensure_overlay_group(draw_root, v)
+                            bsg_erase_overlay_by_name(draw_root, name)
+                          bsg_ged_draw.c has thin wrappers _sg_overlay_root
+                          and _sg_erase_overlay_by_name.
+                          Shared _ctx_of_node() extracted to
+                          src/libbsg/bsg_private.h (static inline, not
+                          installed) to avoid redefinition in unity builds.
+                          97/97 PASS.
+
+              Step 14  B4 (infrastructure): DONE (previous session) —
+                          s_color_rev stamp on bv_scene_obj; lazy-color skip
+                          infrastructure in place.
+
+              Step 15  C3 (final): DONE — bsg_view_obj.c renamed to
+                          bsg_ged_draw.c.  src/libged/CMakeLists.txt updated.
+                          @file header updated.  The file now contains only:
+                            • GED-layer tree-navigation wrappers (thin)
+                            • _sg_invent (GED-specific: db_lookup guard,
+                              ged_bv_data allocation, callback registration)
+                            • _sg_root, _sg_erase_path/_sg_erase_all_paths,
+                              bsg_view_obj_append_solid_to_group (librt path
+                              parsing, ged_bv_data access)
+                            • bsg_view_obj_* public API entry points
+                          All pure BSG tree logic lives in libbsg.
+                          97/97 PASS.

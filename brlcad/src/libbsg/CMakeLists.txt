@@ -31,6 +31,7 @@ add_subdirectory(tests)
 
 cmakefiles(
   CMakeLists.txt
+  bsg_private.h
   draw_set.c
   field.c
   node_group.c

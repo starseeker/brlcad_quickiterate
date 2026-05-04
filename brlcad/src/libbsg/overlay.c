@@ -45,6 +45,7 @@
 #include "bsg/draw_ctx.h"
 #include "bsg/draw_set.h"
 #include "bsg/overlay.h"
+#include "bsg_private.h"
 
 
 /* ------------------------------------------------------------------ */
@@ -55,26 +56,11 @@
  * FREE_BV_SCENE_OBJ: recycle a bv_scene_obj back into the free-pool
  * list @p fp and free its vlist data using the vlist pool @p vlf.
  *
- * Mirrors the identical macro in bsg_view_obj.c / libbsg/draw_set.c.
+ * Mirrors the identical macro in libbsg/draw_set.c.
  */
 #define FREE_BV_SCENE_OBJ(p, fp, vlf) { \
     BU_LIST_APPEND(fp, &((p)->l)); \
     BV_FREE_VLIST(vlf, &((p)->s_vlist)); }
-
-
-/*
- * Walk node @p n up to the draw root and return the bsg_draw_ctx stored
- * in root->s_i_data.  Returns NULL if the root has no context.
- */
-static struct bsg_draw_ctx *
-_ctx_of_node(struct bv_scene_obj *n)
-{
-    if (!n)
-	return NULL;
-    while (n->parent)
-	n = (struct bv_scene_obj *)n->parent;
-    return (struct bsg_draw_ctx *)n->s_i_data;
-}
 
 
 /* ------------------------------------------------------------------ */
@@ -114,7 +100,7 @@ bsg_ensure_overlay_group(bsg_node *draw_root, struct bview *v)
     ov->s_type_flags = BSG_NODE_GROUP;
     ov->s_flag       = UP;
     ov->dp           = NULL;
-    ov->parent       = (void *)draw_root;
+    ov->parent       = draw_root;
     bu_vls_sprintf(&ov->s_name, "_overlays");
     bu_ptbl_ins(&root->children, (long *)ov);
 
