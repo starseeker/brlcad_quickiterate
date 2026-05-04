@@ -1,4 +1,4 @@
-/*                B S G _ V I E W _ O B J . C
+/*                B S G _ G E D _ D R A W . C
  * BRL-CAD
  *
  * Copyright (c) 2026 United States Government as represented by
