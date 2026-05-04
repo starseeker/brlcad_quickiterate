@@ -1,6 +1,8 @@
 set(
   bsg_headers
   defines.h
+  draw_ctx.h
+  draw_set.h
   field.h
   lod.h
   node_group.h

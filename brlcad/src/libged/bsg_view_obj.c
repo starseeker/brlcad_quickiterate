@@ -54,6 +54,7 @@
 #include "bv/plot3.h"
 #include "bg/clip.h"
 #include "bsg/defines.h"
+#include "bsg/draw_ctx.h"
 #include "bsg/draw_set.h"
 #include "bsg/visit.h"
 
@@ -71,8 +72,27 @@
         BV_FREE_VLIST(vlf, &((p)->s_vlist)); }
 
 /* Increment the structural revision counter.  Call on every add/remove
- * of a group or shape (but NOT on incremental solid-data updates). */
-#define _sg_bump_rev(_gedp) (++((_gedp)->i->ged_gdp->gd_draw_rev))
+ * of a group or shape (but NOT on incremental solid-data updates).
+ *
+ * Walk the parent chain from @p n to the draw root, then bump the counter
+ * via the bsg_draw_ctx stored in root->s_i_data.  This removes the need
+ * to pass struct ged * into every freeing/creation helper (Phase 7 Step 10).
+ */
+static void
+_sg_bump_rev_node(struct bv_scene_obj *n)
+{
+    if (!n)
+        return;
+    /* Walk up to root (parent == NULL) */
+    while (n->parent)
+        n = (struct bv_scene_obj *)n->parent;
+    /* n is the draw root; s_i_data holds the bsg_draw_ctx */
+    if (n->s_i_data) {
+        struct bsg_draw_ctx *ctx = (struct bsg_draw_ctx *)n->s_i_data;
+        if (ctx->draw_rev)
+            ++(*ctx->draw_rev);
+    }
+}
 
 /* defined in draw_calc.cpp */
 extern fastf_t brep_est_avg_curve_len(struct rt_brep_internal *bi);
@@ -108,6 +128,11 @@ _sg_root(struct ged *gedp)
     bu_vls_sprintf(&root->s_name, "_draw_root");
 
     gedp->i->ged_gdp->gd_draw_root = root;
+
+    /* Phase 7 Step 10: store a bsg_draw_ctx in root->s_i_data so that
+     * freeing helpers can bump gd_draw_rev without carrying gedp. */
+    gedp->i->ged_gdp->bsg_ctx.draw_rev = &gedp->i->ged_gdp->gd_draw_rev;
+    root->s_i_data = &gedp->i->ged_gdp->bsg_ctx;
 
     /* A3: register in the view so that bsg_scene_root_sync can use the GED
      * draw tree directly without reading gv_objs. */
@@ -208,7 +233,8 @@ _sg_erase_overlay_by_name(struct ged *gedp, const char *name)
         bu_ptbl_rm(&ov->children, (const long *)sp);
         sp->parent = NULL;
         FREE_BV_SCENE_OBJ(sp, &free_scene_obj->l, vlfree);
-        _sg_bump_rev(gedp);
+        /* sp->parent is already NULL; use root (available as local var) */
+        _sg_bump_rev_node(root);
     }
     bu_ptbl_free(&snap);
 
@@ -255,7 +281,7 @@ ged_bv_illum_free_cb(struct bv_scene_obj *sp)
  * Does NOT free @p g itself.
  */
 static void
-_sg_free_children_recursive(struct ged *gedp, struct bv_scene_obj *g,
+_sg_free_children_recursive(struct bv_scene_obj *g,
                               struct bv_scene_obj *fso, struct bu_list *vlf)
 {
     struct bu_ptbl snap = BU_PTBL_INIT_ZERO;
@@ -266,7 +292,7 @@ _sg_free_children_recursive(struct ged *gedp, struct bv_scene_obj *g,
         struct bv_scene_obj *child =
             (struct bv_scene_obj *)BU_PTBL_GET(&snap, i);
         if (child->s_type_flags & BSG_NODE_GROUP) {
-            _sg_free_children_recursive(gedp, child, fso, vlf);
+            _sg_free_children_recursive(child, fso, vlf);
             child->parent = NULL;
             struct bv_scene_obj *cfso = child->free_scene_obj;
             if (cfso)
@@ -278,8 +304,8 @@ _sg_free_children_recursive(struct ged *gedp, struct bv_scene_obj *g,
             if (child->s_dlist_free_callback)
                 (*child->s_dlist_free_callback)(child);
             /* Phase 7 Step 9: s_free_callback fires the illum-clear
-             * (registered as _sg_illum_free_cb at shape-creation time).
-             * No direct gedp reference needed here for this concern. */
+             * (registered as ged_bv_illum_free_cb at shape-creation time).
+             * No direct gedp reference needed here. */
             if (child->s_free_callback)
                 (*child->s_free_callback)(child);
             child->parent = NULL;
@@ -298,7 +324,7 @@ _sg_free_group_contents(struct ged *gedp, struct bv_scene_obj *g)
         return;
     struct bv_scene_obj *fso = bv_set_fsos(&gedp->ged_views);
     struct bu_list *vlf = &rt_vlfree;
-    _sg_free_children_recursive(gedp, g, fso, vlf);
+    _sg_free_children_recursive(g, fso, vlf);
 }
 
 
@@ -315,7 +341,8 @@ _sg_free_group(struct ged *gedp, struct bv_scene_obj *g)
     if (parent)
         bu_ptbl_rm(&parent->children, (const long *)g);
 
-    _sg_bump_rev(gedp);
+    /* g->parent is still valid at this point; walk up to root for ctx */
+    _sg_bump_rev_node(g);
 
     g->parent = NULL;
     struct bv_scene_obj *fso = g->free_scene_obj;
@@ -366,7 +393,7 @@ _sg_find_or_create_child_group(struct ged *gedp, struct bv_scene_obj *parent,
     if (!child)
         return NULL;
 
-    _sg_bump_rev(gedp);
+    _sg_bump_rev_node(parent);
     return (struct bv_scene_obj *)child;
 }
 
@@ -471,7 +498,8 @@ _sg_erase_nested_subpath(struct ged *gedp, struct bv_scene_obj *parent,
             /* Case (a): a group node with this name — free its entire subtree */
             _sg_free_group_contents(gedp, child_group);
             bu_ptbl_rm(&cur->children, (const long *)child_group);
-            _sg_bump_rev(gedp);
+            /* cur is still in the tree; walk up for ctx */
+            _sg_bump_rev_node(cur);
             child_group->parent = NULL;
             struct bv_scene_obj *cfso = child_group->free_scene_obj;
             if (cfso)
@@ -500,7 +528,8 @@ _sg_erase_nested_subpath(struct ged *gedp, struct bv_scene_obj *parent,
                 if (sp->s_free_callback)
                     (*sp->s_free_callback)(sp);
                 bu_ptbl_rm(&cur->children, (const long *)sp);
-                _sg_bump_rev(gedp);
+                /* cur is in the tree; sp->parent cleared after this */
+                _sg_bump_rev_node(cur);
                 sp->parent = NULL;
                 FREE_BV_SCENE_OBJ(sp, &fso->l, vlf);
             }
@@ -589,7 +618,8 @@ _sg_erase_subgroups_by_name(struct ged *gedp, struct bv_scene_obj *parent,
         if (BU_STR_EQUAL(bu_vls_cstr(&c->s_name), name)) {
             _sg_free_group_contents(gedp, c);
             bu_ptbl_rm(&parent->children, (const long *)c);
-            _sg_bump_rev(gedp);
+            /* parent is in the tree */
+            _sg_bump_rev_node(parent);
             c->parent = NULL;
             struct bv_scene_obj *fso = c->free_scene_obj;
             if (fso)
@@ -885,7 +915,8 @@ _sg_invent(struct ged *gedp, char *name, struct bu_list *vhead, long int rgb,
     if (ov) {
         sp->parent = ov;
         bu_ptbl_ins(&ov->children, (long *)sp);
-        _sg_bump_rev(gedp);
+        /* ov->parent is set (ov is under the draw root) */
+        _sg_bump_rev_node(ov);
     }
 
     sp->s_iflag              = DOWN;

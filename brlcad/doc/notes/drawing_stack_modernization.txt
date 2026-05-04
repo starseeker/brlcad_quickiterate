@@ -1919,3 +1919,65 @@ Deprecation policy
               Build: libged — zero errors.
               Regression: ged_test_bsg_view_obj 97/97 PASS.
 
+
+        ── Phase 7 Step 10: expose gd_draw_rev via bsg_draw_ctx ──
+
+           2026-05-04
+
+              The last gedp dependency in the BSG freeing helpers was
+              _sg_bump_rev(gedp), which incremented
+              ged_drawable::gd_draw_rev.  Abstracting that counter via
+              gv_draw_root->s_i_data removes the need to pass gedp into
+              the bump call sites.
+
+              Design — bsg_draw_ctx (include/bsg/draw_ctx.h):
+                A minimal struct { uint64_t *draw_rev; } stored as a
+                field (bsg_ctx) in ged_drawable (ged_private.h).  At
+                root creation (_sg_root) bsg_ctx.draw_rev is pointed at
+                &gd_draw_rev, and root->s_i_data = &bsg_ctx.  No heap
+                allocation: the ctx lives with ged_drawable and is
+                implicitly freed when BU_PUT(ged_drawable) runs.
+
+              New helper — _sg_bump_rev_node(bv_scene_obj *n):
+                Walks the parent chain from n to the draw root (parent
+                == NULL), then casts root->s_i_data to bsg_draw_ctx *
+                and increments *ctx->draw_rev.  O(depth), where depth ≤
+                path length + 2. Used instead of the old macro at every
+                mutation site.
+
+              The _sg_bump_rev(gedp) macro is deleted (zero call sites
+              remain after migration).  All 7 former macro call sites
+              replaced:
+                _sg_erase_overlay_by_name  → _sg_bump_rev_node(root)
+                _sg_free_group             → _sg_bump_rev_node(g)
+                _sg_find_or_create_child   → _sg_bump_rev_node(parent)
+                _sg_erase_nested_subpath a → _sg_bump_rev_node(cur)
+                _sg_erase_nested_subpath b → _sg_bump_rev_node(cur)
+                _sg_erase_subgroups_by_name→ _sg_bump_rev_node(parent)
+                _sg_invent (overlay attach) → _sg_bump_rev_node(ov)
+
+              Parent-pointer validity at each site: confirmed in each
+              case the parent chain is intact when the bump fires (cleared
+              only after the bump in the freeing paths, or never for
+              creation paths).
+
+              Bonus cleanup: _sg_free_children_recursive no longer takes
+              struct ged * — that parameter was only passed through to
+              recursive calls after Step 9 removed the
+              _sg_clear_illum_if_match call.  Signature simplified.
+              draw_set.h added to include/bsg/CMakeLists.txt (had been
+              omitted; draw_ctx.h added at the same time).
+
+              Files changed:
+                brlcad/include/bsg/draw_ctx.h  (new)
+                brlcad/include/bsg/CMakeLists.txt  (draw_ctx.h + draw_set.h)
+                brlcad/src/libged/ged_private.h
+                  (bsg/draw_ctx.h include; bsg_ctx field in ged_drawable)
+                brlcad/src/libged/bsg_view_obj.c
+                  (bsg/draw_ctx.h include; _sg_root: set bsg_ctx +
+                   root->s_i_data; new _sg_bump_rev_node helper; 7 macro
+                   call sites replaced; _sg_bump_rev macro deleted;
+                   _sg_free_children_recursive: gedp param removed)
+
+              Build: libged — zero errors.
+              Regression: ged_test_bsg_view_obj 97/97 PASS.
