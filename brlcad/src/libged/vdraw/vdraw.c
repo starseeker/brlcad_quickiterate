@@ -517,7 +517,6 @@ vdraw_send(void *data, int argc, const char *argv[])
     struct directory *dp;
     char solid_name [RT_VDRW_MAXNAME+RT_VDRW_PREFIX_LEN+1];
     int idx;
-    int real_flag;
 
     if (argc < 2) {
 	bu_vls_printf(gedp->ged_result_str, "ERROR: missing parameter after [%s]", argv[0]);
@@ -530,14 +529,11 @@ vdraw_send(void *data, int argc, const char *argv[])
     }
 
     snprintf(solid_name, RT_VDRW_MAXNAME+RT_VDRW_PREFIX_LEN+1, "%s%s", RT_VDRW_PREFIX, gedp->i->ged_gdp->gd_currVHead->vdc_name);
-    if ((dp = db_lookup(gedp->dbip, solid_name, LOOKUP_QUIET)) == RT_DIR_NULL) {
-	real_flag = 0;
-    } else {
-	real_flag = (dp->d_addr == RT_DIR_PHONY_ADDR) ? 0 : 1;
-    }
 
-    if (real_flag) {
-	/* solid exists - don't kill */
+    /* Overlays no longer create phony db entries; refuse only if the name
+     * collides with an actual database object. */
+    if ((dp = db_lookup(gedp->dbip, solid_name, LOOKUP_QUIET)) != RT_DIR_NULL) {
+	/* solid name matches a real database entry - don't overwrite */
 	bu_vls_printf(gedp->ged_result_str, "-1");
 	return BRLCAD_OK;
     }

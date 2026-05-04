@@ -121,10 +121,9 @@ bsg_view_obj_erase_all_paths(struct ged *gedp, const char *path,
 
 /**
  * Compute the axis-aligned bounding box of every drawn scene object in
- * @p gedp's active view set.  When @p pflag is zero, pseudo-solids
- * (those whose first directory entry has d_addr == RT_DIR_PHONY_ADDR)
- * are excluded.  Returns 1 if the result is empty (no contributing
- * objects), 0 otherwise.
+ * @p gedp's active view set.  When @p pflag is zero, overlay shapes
+ * (those with BSG_PAYLOAD_OVERLAY set in s_type_flags) are excluded.
+ * Returns 1 if the result is empty (no contributing objects), 0 otherwise.
  *
  * Replaces dl_bounding_sph().
  */
@@ -152,13 +151,14 @@ GED_EXPORT extern void
 bsg_view_obj_color_from_soltab(struct ged *gedp);
 
 /**
- * Insert a "phony" pseudo-solid with the given vlist as a top-level
- * drawn entry.  If @p copy is non-zero the vlist is copied; otherwise
- * @p vhead is consumed (re-INIT'd).  @p rgb encodes the wireframe
- * color (0xRRGGBB), @p transparency is in [0,1], @p dmode is the draw
- * mode, and @p csoltab when non-zero applies soltab-based recoloring
- * after insertion.  Returns 0 on success, -1 on failure (e.g. name
- * collides with a real database entry).
+ * Insert a pseudo-solid overlay with the given vlist.  The overlay is placed
+ * into the `_overlays` BSG_NODE_GROUP under the scene root and tagged with
+ * BSG_PAYLOAD_OVERLAY — no phony database directory entry is created.  If
+ * @p copy is non-zero the vlist is copied; otherwise @p vhead is consumed
+ * (re-INIT'd).  @p rgb encodes the wireframe color (0xRRGGBB),
+ * @p transparency is in [0,1], @p dmode is the draw mode, and @p csoltab
+ * when non-zero applies soltab-based recoloring after insertion.  Returns 0
+ * on success, -1 on failure (e.g. name collides with a real database entry).
  *
  * Replaces invent_solid().
  */
@@ -305,8 +305,9 @@ GED_EXPORT extern void
 bsg_view_obj_group_set_path(struct bv_scene_obj *group, const char *new_path);
 
 /**
- * Returns 1 if the group is a pseudo-solid (phony), 0 otherwise.
- * A phony group has d_addr == RT_DIR_PHONY_ADDR for its directory entry.
+ * Returns 1 if @p group is the synthetic _overlays group (which holds
+ * overlay/invented shapes and should be excluded from "who" listings and
+ * rt write commands), 0 for any real drawn-path group.
  *
  * Replaces direct checks of ((struct directory *)gdlp->dl_dp)->d_addr ==
  * RT_DIR_PHONY_ADDR.

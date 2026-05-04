@@ -1270,3 +1270,87 @@ Deprecation policy
                           _sg_split_at_subpath / skip_first.
               Step 6  B4+B5: FieldSensor-driven color + iflag clearing.
               Step 7  C1+C3: split bsg_view_obj.c into libbsg/; delete.
+
+  2026-05-04  Phase 7 Steps 1+2 (B6+B3) complete — overlay group,
+              BSG_PAYLOAD_OVERLAY, bounds fix
+
+              Steps 1 (B6) and 2 (B3) from the post-session sequencing
+              plan were implemented together in one session.
+
+              ── B6: _overlays group + BSG_PAYLOAD_OVERLAY ─────────────
+
+              src/libged/bsg_view_obj.c:
+
+              _sg_overlay_root(gedp) — lazily creates an _overlays
+              BSG_NODE_GROUP as a direct child of gd_draw_root.  The
+              group is created on the first bsg_view_obj_invent() call
+              and removed automatically when its last child is erased.
+
+              _sg_erase_overlay_by_name(gedp, name) — removes a named
+              overlay shape from the _overlays group; frees the group
+              when it becomes empty.
+
+              _sg_invent() rewritten:
+                - No db_diradd / RT_DIR_PHONY_ADDR usage.
+                - Checks db_lookup for real-entry collision (returns -1
+                  if a real db object has the same name).
+                - Calls _sg_erase_overlay_by_name to evict any
+                  same-named pre-existing overlay.
+                - Creates BSG_NODE_SHAPE with BSG_PAYLOAD_OVERLAY set
+                  and stores name in sp->s_name.
+                - bdata->s_fullpath.fp_len = 0 (no phony dp).
+                - Attaches shape to _overlays via _sg_overlay_root.
+
+              _sg_free_group_contents() updated: skips db_dirdelete for
+              nodes with BSG_PAYLOAD_OVERLAY (fp_len check still guards
+              any transitional pre-existing data).
+
+              _sg_erase_all_names() updated: calls
+              _sg_erase_overlay_by_name first; skips the _overlays
+              meta-group in the path-component iteration loop.
+
+              bsg_view_obj_group_is_phony() updated: returns 1 iff
+              group->s_name == "_overlays".  Real drawn-path groups have
+              non-phony dp and a non-overlay name; they always return 0.
+
+              vdraw.c vdraw_send():
+                - Removed the RT_DIR_PHONY_ADDR check entirely.
+                - db_lookup now only refuses if the name matches a real
+                  db entry; overlay names always pass through to
+                  bsg_view_obj_invent.
+
+              ── B3: bounds visitor uses BSG_PAYLOAD_OVERLAY ────────────
+
+              _sg_bounding_sph():
+                Replaced the bdata->s_fullpath.fp_names[0]->d_addr ==
+                RT_DIR_PHONY_ADDR test with a single flag check:
+                  if (!pflag && (sp->s_type_flags & BSG_PAYLOAD_OVERLAY))
+                      continue;
+                No bdata dereference needed for the exclusion path.
+
+              ── Updated docstrings ─────────────────────────────────────
+
+              include/ged/bsg_view_obj.h:
+                bsg_view_obj_invent() — removed "phony" / PHONY_ADDR
+                  language; explains BSG_PAYLOAD_OVERLAY instead.
+                bsg_view_obj_bounds() — documents BSG_PAYLOAD_OVERLAY
+                  exclusion.
+                bsg_view_obj_group_is_phony() — updated to describe
+                  _overlays detection.
+
+              ── Test ───────────────────────────────────────────────────
+
+              src/libged/tests/draw/bsg_view_obj.cpp section [4]:
+                5 new assertions:
+                  • _overlays group exists and is_phony after invent.
+                  • Shape has BSG_PAYLOAD_OVERLAY set.
+                  • No phony db entry created (db_lookup returns NULL).
+                  • dl_count returns to pre-invent value after erase.
+
+              Build: libged, libdm, libtclcad, mged — zero errors.
+              Regression: ged_test_bsg_view_obj 32/32 PASS.
+
+              ── REMAINING (unchanged from above) ──────────────────────
+
+              A2 (rest), A3, A4/B8, B1 (rest), B2, B4, B5, B7, C1/C3
+              — see sequencing Steps 3–7 above.

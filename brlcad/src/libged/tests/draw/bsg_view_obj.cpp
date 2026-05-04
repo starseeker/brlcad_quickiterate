@@ -46,6 +46,7 @@
 #include "bv/tcl_data.h"
 #include <ged.h>
 #include "ged/bsg_view_obj.h"
+#include "bsg/defines.h"
 #include "bsg/visit.h"
 #include "../../ged_private.h"
 
@@ -236,7 +237,8 @@ main(int ac, char *av[])
 	BV_ADD_VLIST(vlfree, &vhead, p1, BV_VLIST_LINE_MOVE);
 	BV_ADD_VLIST(vlfree, &vhead, p2, BV_VLIST_LINE_DRAW);
 
-	/* Save current count so we can verify a new entry was added. */
+	/* Save current count so we can verify a new entry was added.
+	 * The invent call creates the _overlays group as a new root child. */
 	int before_invent = dl_count(gedp);
 	int rc = bsg_view_obj_invent(gedp,
 				     (char *)"_bsg_test_phony", &vhead,
@@ -246,11 +248,39 @@ main(int ac, char *av[])
 	ASSERT(rc == 0);
 	ASSERT(dl_count(gedp) > before_invent);
 
+	/* The _overlays group must be present as a root child and be phony. */
+	{
+	    struct bv_scene_obj *root = bsg_view_obj_root(gedp);
+	    struct bv_scene_obj *overlays_grp = NULL;
+	    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+		struct bv_scene_obj *g =
+		    (struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
+		if (BU_STR_EQUAL("_overlays", bu_vls_cstr(&g->s_name))) {
+		    overlays_grp = g;
+		    break;
+		}
+	    }
+	    ASSERT(overlays_grp != NULL);
+	    ASSERT(bsg_view_obj_group_is_phony(overlays_grp));
+
+	    /* The overlay shape must have BSG_PAYLOAD_OVERLAY set. */
+	    if (overlays_grp && BU_PTBL_LEN(&overlays_grp->children) > 0) {
+		struct bv_scene_obj *sp =
+		    (struct bv_scene_obj *)BU_PTBL_GET(&overlays_grp->children, 0);
+		ASSERT(sp->s_type_flags & BSG_PAYLOAD_OVERLAY);
+		/* No phony db entry should exist for this name. */
+		ASSERT(db_lookup(gedp->dbip, "_bsg_test_phony", LOOKUP_QUIET)
+		       == RT_DIR_NULL);
+	    }
+	}
+
 	/* Free the local vlist (we passed copy=1, so vhead still owns it). */
 	BV_FREE_VLIST(vlfree, &vhead);
 
 	/* Erase the phony solid by name. */
 	bsg_view_obj_erase_by_name(gedp, "_bsg_test_phony", 0);
+	/* _overlays group should be gone (empty → freed). */
+	ASSERT(dl_count(gedp) == before_invent);
     }
 
     /* ---------------------------------------------------------------- *
