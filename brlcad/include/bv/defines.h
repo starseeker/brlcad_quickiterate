@@ -682,6 +682,14 @@ struct bview {
      * is called for this view. */
     void           *bsg_root;
 
+    /* Phase 7 step 7 A3 (drawing_stack_modernization): GED draw-tree root for
+     * this view.  Stored as void * to avoid circular headers.  Cast to
+     * struct bv_scene_obj * (= bsg_node) before use.  Set by
+     * bsg_view_obj_ensure_root() when GED initialises the draw tree.  When
+     * non-NULL, bsg_scene_root_sync() uses this tree as the authoritative
+     * source of drawn objects (gv_objs is then a derived flat index). */
+    void           *gv_draw_root;
+
     /* Phase 5 (drawing_stack_modernization): per-frame edit-mode matrix
      * override.  When non-NULL, draw_scene_obj() renders objects whose
      * s_iflag == UP with this matrix instead of gv_model2view.  MGED sets

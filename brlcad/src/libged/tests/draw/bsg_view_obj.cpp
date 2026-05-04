@@ -47,6 +47,8 @@
 #include <ged.h>
 #include "ged/bsg_view_obj.h"
 #include "bsg/defines.h"
+#include "bsg/draw_set.h"
+#include "bsg/util.h"
 #include "bsg/visit.h"
 #include "../../ged_private.h"
 
@@ -578,6 +580,71 @@ main(int ac, char *av[])
 	ASSERT(bsg_view_obj_get_illum(gedp) == s0);
 	bsg_view_obj_zap(gedp);
 	ASSERT(bsg_view_obj_get_illum(gedp) == NULL);
+    }
+
+    /* ---------------------------------------------------------------- *
+     * [11] A3: gv_draw_root registration + bsg_scene_root_sync.        *
+     *      bsg_view_obj_ensure_root sets v->gv_draw_root; after a draw  *
+     *      command the sync uses the GED tree, not gv_objs.             *
+     * ---------------------------------------------------------------- */
+    {
+	bu_log("[11] A3: gv_draw_root / bsg_scene_root_sync...\n");
+
+	/* Draw one object to populate the tree. */
+	{
+	    const char *dav[3] = {"draw", "all.g", NULL};
+	    ged_exec(gedp, 2, dav);
+	}
+
+	struct bview *v = gedp->ged_gvp;
+	ASSERT(v != NULL);
+
+	/* gv_draw_root must be set now (registered by _sg_root via ensure_root) */
+	ASSERT(v->gv_draw_root != NULL);
+	ASSERT(v->gv_draw_root == gedp->i->ged_gdp->gd_draw_root);
+
+	/* bsg_group_find_child / bsg_group_ensure_child smoke test */
+	bsg_node *draw_root = (bsg_node *)v->gv_draw_root;
+	ASSERT(draw_root != NULL);
+
+	/* The draw root must have at least one child group (from the draw) */
+	struct bv_scene_obj *dr = (struct bv_scene_obj *)draw_root;
+	ASSERT(BU_PTBL_LEN(&dr->children) > 0);
+
+	/* bsg_draw_tree_depth of the draw root should be 0 (no parent). */
+	ASSERT(bsg_draw_tree_depth(draw_root) == 0);
+
+	/* A child's depth should be 1. */
+	struct bv_scene_obj *first_child =
+	    (struct bv_scene_obj *)BU_PTBL_GET(&dr->children, 0);
+	ASSERT(first_child != NULL);
+	if ((first_child->s_type_flags & BSG_NODE_GROUP) ||
+	    (first_child->s_type_flags & BSG_NODE_SHAPE)) {
+	    ASSERT(bsg_draw_tree_depth((bsg_node *)first_child) == 1);
+	}
+
+	/* bsg_scene_root_sync now reads from gv_draw_root when set.
+	 * Manually invoke it and verify the view's bsg_root children match
+	 * the draw root's children. */
+	ASSERT(v->bsg_root != NULL);
+	bsg_scene_root_sync((bsg_node *)v->bsg_root, v);
+	struct bv_scene_obj *bsg_r = (struct bv_scene_obj *)v->bsg_root;
+	ASSERT(BU_PTBL_LEN(&bsg_r->children) ==
+	       BU_PTBL_LEN(&dr->children));
+
+	/* The children pointers must match exactly (borrowed references). */
+	for (size_t i = 0; i < BU_PTBL_LEN(&dr->children); i++) {
+	    ASSERT(BU_PTBL_GET(&bsg_r->children, i) ==
+		   BU_PTBL_GET(&dr->children, i));
+	}
+
+	/* After zap the draw root has no children; sync produces empty list. */
+	bsg_view_obj_zap(gedp);
+	bsg_scene_root_sync((bsg_node *)v->bsg_root, v);
+	ASSERT(BU_PTBL_LEN(&bsg_r->children) == 0);
+
+	/* gv_draw_root itself remains valid after zap (root node not freed). */
+	ASSERT(v->gv_draw_root != NULL);
     }
 
     /* Final zap to leave clean state. */

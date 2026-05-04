@@ -1,5 +1,6 @@
 set(
   LIBBSG_SRCS
+  draw_set.c
   field.c
   lod.cpp
   node_group.c
@@ -29,6 +30,7 @@ add_subdirectory(tests)
 
 cmakefiles(
   CMakeLists.txt
+  draw_set.c
   field.c
   node_group.c
   node_root.c

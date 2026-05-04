@@ -54,6 +54,7 @@
 #include "bv/plot3.h"
 #include "bg/clip.h"
 #include "bsg/defines.h"
+#include "bsg/draw_set.h"
 #include "bsg/visit.h"
 
 #include "ged.h"
@@ -83,6 +84,9 @@ extern void createDListSolid(struct bv_scene_obj *sp);
 
 /*
  * Lazily create (on first draw) and return the per-GED draw root.
+ * Also stores the root in gedp->ged_gvp->gv_draw_root so that libbsg
+ * helpers (bsg_scene_root_sync in particular) can find it without
+ * accessing GED-private headers (Phase 7 step 7 A3).
  */
 static struct bv_scene_obj *
 _sg_root(struct ged *gedp)
@@ -104,6 +108,11 @@ _sg_root(struct ged *gedp)
     bu_vls_sprintf(&root->s_name, "_draw_root");
 
     gedp->i->ged_gdp->gd_draw_root = root;
+
+    /* A3: register in the view so that bsg_scene_root_sync can use the GED
+     * draw tree directly without reading gv_objs. */
+    v->gv_draw_root = root;
+
     return root;
 }
 
@@ -288,54 +297,48 @@ _sg_free_group(struct ged *gedp, struct bv_scene_obj *g)
 
 /*
  * Return the depth of @p g in the draw tree (root = 0, root children = 1, …).
+ * Delegates to bsg_draw_tree_depth() in libbsg (Phase 7 step 7 C1/C3).
  */
 static int
 _sg_tree_depth(const struct bv_scene_obj *g)
 {
-    int depth = 0;
-    const struct bv_scene_obj *cur = g;
-    while (cur->parent) {
-        depth++;
-        cur = (const struct bv_scene_obj *)cur->parent;
-    }
-    return depth;
+    return bsg_draw_tree_depth((const bsg_node *)g);
 }
 
 
 /*
  * Find or create a BSG_NODE_GROUP child of @p parent named @p comp_name.
  * Returns the (possibly new) child group, or NULL on failure.
+ *
+ * The GED-specific db_lookup() call belongs here (libged); the pure tree
+ * manipulation delegates to bsg_group_ensure_child() in libbsg (C1/C3).
+ * The revision bump must happen after the child is created so we keep it
+ * here where gedp is available.
  */
 static struct bv_scene_obj *
 _sg_find_or_create_child_group(struct ged *gedp, struct bv_scene_obj *parent,
                                 const char *comp_name)
 {
-    for (size_t i = 0; i < BU_PTBL_LEN(&parent->children); i++) {
-        struct bv_scene_obj *c =
-            (struct bv_scene_obj *)BU_PTBL_GET(&parent->children, i);
-        if ((c->s_type_flags & BSG_NODE_GROUP) &&
-            BU_STR_EQUAL(comp_name, bu_vls_cstr(&c->s_name)))
-            return c;
-    }
+    /* Fast path: already exists (no rev bump needed) */
+    bsg_node *existing = bsg_group_find_child((bsg_node *)parent, comp_name);
+    if (existing)
+        return (struct bv_scene_obj *)existing;
 
     struct bview *v = gedp->ged_gvp;
     if (!v)
         return NULL;
 
-    struct bv_scene_obj *child = bv_obj_create(v, BV_CHILD_OBJS);
+    /* Resolve the db directory entry (GED-specific — stays in libged) */
+    struct directory *dp = db_lookup(gedp->dbip, comp_name, LOOKUP_QUIET);
+
+    /* Pure tree creation delegates to libbsg */
+    bsg_node *child = bsg_group_ensure_child((bsg_node *)parent, v,
+                                              comp_name, (void *)dp);
     if (!child)
         return NULL;
 
-    struct directory *dp = db_lookup(gedp->dbip, comp_name, LOOKUP_QUIET);
-    child->s_type_flags = BSG_NODE_GROUP;
-    child->s_flag       = UP;
-    child->s_iflag      = DOWN;
-    child->dp           = (void *)dp;
-    child->parent       = parent;
-    bu_vls_sprintf(&child->s_name, "%s", comp_name);
-    bu_ptbl_ins(&parent->children, (long *)child);
     _sg_bump_rev(gedp);
-    return child;
+    return (struct bv_scene_obj *)child;
 }
 
 

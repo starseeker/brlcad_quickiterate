@@ -1700,17 +1700,95 @@ Deprecation policy
               Build: libged, mged — zero errors.
               Regression: ged_test_bsg_view_obj 84/84 PASS.
 
+           ── Phase 7 Step 7 (A3 + C1/C3 partial) ────────────────────
+
+           2026-05-04
+
+              ── A3: gv_draw_root in struct bview; gv_objs becomes derived ──
+
+              include/bv/defines.h:
+                Added void *gv_draw_root to struct bview (after bsg_root,
+                same void* pattern to avoid circular includes).  Set by
+                bsg_view_obj_ensure_root when GED initialises the draw
+                tree; cleared on GED close.
+
+              src/libged/bsg_view_obj.c — _sg_root() modified:
+                After creating gd_draw_root, sets gedp->ged_gvp->gv_draw_root
+                = root.  The draw root is now visible to libbsg helpers
+                without accessing ged_private.h.
+
+              src/libged/ged.cpp — teardown modified:
+                When setting gd_draw_root = NULL on close, also clears
+                gedp->ged_gvp->gv_draw_root to keep the view in sync.
+
+              src/libbsg/scene_graph.cpp — bsg_scene_root_sync modified:
+                When v->gv_draw_root is non-NULL, populates root->children
+                directly from the GED draw tree's top-level children
+                (groups + _overlays group).  bsg_view_traverse handles the
+                nested structure recursively.  gv_objs is bypassed for
+                rendering; libged still updates it for backward-compatible
+                callers.  When v->gv_draw_root is NULL the legacy gv_objs
+                path runs unchanged.
+
+              ── C1/C3 (partial): tree-navigation helpers moved to libbsg ──
+
+              include/bsg/draw_set.h  (new public BSG header):
+                bsg_draw_tree_depth(const bsg_node *g) → int
+                  Depth of g in its tree (root = 0).  Replaces the
+                  file-private _sg_tree_depth() in bsg_view_obj.c.
+                bsg_group_find_child(bsg_node *parent, const char *name)
+                  → bsg_node*
+                  Finds a BSG_NODE_GROUP child by name; NULL if absent.
+                bsg_group_ensure_child(bsg_node *parent, struct bview *v,
+                                       const char *name, void *dp_hint)
+                  → bsg_node*
+                  Finds or creates a BSG_NODE_GROUP child.  Uses only
+                  libbv types (bv_obj_create); the GED-specific
+                  db_lookup() call remains in the libged wrapper.
+
+              src/libbsg/draw_set.c  (new compilation unit):
+                Implements the three functions above.  No librt, no libged
+                dependency — only libbv (bv_obj_create, bv/defines.h) and
+                bu (bu_ptbl, bu_vls, bu_str).
+
+              src/libbsg/CMakeLists.txt: draw_set.c added to LIBBSG_SRCS.
+
+              src/libged/bsg_view_obj.c — _sg_tree_depth, _sg_find_or_create_child_group:
+                Both now delegate to bsg_draw_tree_depth() and
+                bsg_group_find_child()/bsg_group_ensure_child().
+                The db_lookup() call and _sg_bump_rev() remain in the
+                libged wrapper (GED-specific).
+                Adds #include "bsg/draw_set.h".
+
+              ── Test section [11]: A3 / gv_draw_root ──────────────────
+
+              src/libged/tests/draw/bsg_view_obj.cpp:
+                • gv_draw_root is non-NULL after first draw.
+                • gv_draw_root == gd_draw_root (same pointer).
+                • bsg_draw_tree_depth(draw_root) == 0.
+                • First child's depth == 1.
+                • bsg_scene_root_sync populates bsg_root->children from
+                  the GED draw tree (same pointers, same count).
+                • After zap, sync produces empty bsg_root->children.
+                • gv_draw_root remains valid after zap.
+
+              Build: libbsg, libged — zero errors.
+              Regression: ged_test_bsg_view_obj 97/97 PASS.
+
               ── REMAINING ─────────────────────────────────────────────
 
-              A3, C1/C3
-              — A3: bview::bsg_root canonical; gv_objs derived.
-                    Requires removing gv_objs from the authoritative
-                    draw path (complex architectural change).
-              — C1/C3: split bsg_view_obj.c into libbsg/.
-                    Blocked by A3: bsg_view_obj.c uses ged-specific
-                    types (struct ged, ged_private.h) that cannot be
-                    imported into libbsg without creating a circular
-                    dependency (libbsg → ged types → libged → libbsg).
-                    The split becomes feasible once A3 makes the BSG
-                    tree standalone and gv_objs a derived index.
+              C1/C3 (remainder)
+              — Shape-freeing helpers (_sg_free_children_recursive,
+                _sg_erase_nested_subpath shape-free path) still call
+                ged_destroy_vlist_cb(gedp, ...) directly.  Moving these
+                to libbsg requires abstracting the display-list destroy
+                callback (e.g. storing it in bsg_draw_state as a fn ptr
+                in gd_draw_root->s_i_data, or using the existing
+                s_dlist_free_callback hook).  Deferred to a future step.
+              — _sg_add_path (db_string_to_path, db_lookup) and the
+                overlay helpers (bsg_view_obj_invent, _sg_find_overlay_group,
+                _sg_erase_overlay_by_name) remain in libged for the same
+                reason.  Once the display-list callback is abstracted, the
+                pure tree ops can finish moving to libbsg/draw_set.c and
+                libbsg/overlay.c and bsg_view_obj.c can be deleted.
 
