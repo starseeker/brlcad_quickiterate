@@ -254,6 +254,91 @@ bsg_free_group(bsg_node *gn)
 }
 
 
+/* ------------------------------------------------------------------ */
+/* Path-navigation erase helper (Phase 7 Step 12)                     */
+/* ------------------------------------------------------------------ */
+
+void
+bsg_erase_nested_subpath(bsg_node *parent_node,
+			 const char * const *comp_names, size_t comp_count,
+			 size_t depth_start,
+			 bsg_path_match_fn match_fn, void *match_ctx)
+{
+    if (!parent_node || !comp_names || comp_count == 0 || depth_start >= comp_count)
+	return;
+
+    struct bv_scene_obj *cur = (struct bv_scene_obj *)parent_node;
+
+    for (size_t i = depth_start; i < comp_count; i++) {
+	const char *comp = comp_names[i];
+	struct bv_scene_obj *child_group = NULL;
+
+	for (size_t j = 0; j < BU_PTBL_LEN(&cur->children); j++) {
+	    struct bv_scene_obj *c =
+		(struct bv_scene_obj *)BU_PTBL_GET(&cur->children, j);
+	    if ((c->s_type_flags & BSG_NODE_GROUP) &&
+		BU_STR_EQUAL(bu_vls_cstr(&c->s_name), comp)) {
+		child_group = c;
+		break;
+	    }
+	}
+
+	if (i < comp_count - 1) {
+	    /* Intermediate component — must be a group */
+	    if (!child_group)
+		return;
+	    cur = child_group;
+	    continue;
+	}
+
+	/* Final component */
+	if (child_group) {
+	    /* Case (a): a group node with this name — free its entire subtree */
+	    bsg_free_group_contents((bsg_node *)child_group);
+	    bu_ptbl_rm(&cur->children, (const long *)child_group);
+	    /* cur is still in the tree; bump rev before clearing parent */
+	    bsg_bump_rev_node((bsg_node *)cur);
+	    child_group->parent = NULL;
+	    struct bv_scene_obj *cfso = child_group->free_scene_obj;
+	    if (cfso)
+		FREE_BV_SCENE_OBJ(child_group, &cfso->l, child_group->vlfree);
+	} else {
+	    /* Case (b): the final component is a leaf primitive — erase
+	     * matching BSG_NODE_SHAPE children by calling match_fn. */
+	    struct bsg_draw_ctx *ctx = _ctx_of_node(cur);
+	    struct bv_scene_obj *fso = (ctx && ctx->fso) ? ctx->fso : NULL;
+
+	    struct bu_ptbl snap = BU_PTBL_INIT_ZERO;
+	    for (size_t j = 0; j < BU_PTBL_LEN(&cur->children); j++) {
+		struct bv_scene_obj *c =
+		    (struct bv_scene_obj *)BU_PTBL_GET(&cur->children, j);
+		if (!(c->s_type_flags & BSG_NODE_SHAPE))
+		    continue;
+		if (!match_fn || match_fn(c->s_u_data, match_ctx))
+		    bu_ptbl_ins(&snap, (long *)c);
+	    }
+	    for (size_t j = 0; j < BU_PTBL_LEN(&snap); j++) {
+		struct bv_scene_obj *sp =
+		    (struct bv_scene_obj *)BU_PTBL_GET(&snap, j);
+		if (sp->s_dlist_free_callback)
+		    (*sp->s_dlist_free_callback)(sp);
+		if (sp->s_free_callback)
+		    (*sp->s_free_callback)(sp);
+		bu_ptbl_rm(&cur->children, (const long *)sp);
+		/* cur is in the tree; bump rev then clear parent */
+		bsg_bump_rev_node((bsg_node *)cur);
+		sp->parent = NULL;
+		struct bv_scene_obj *sfso = fso ? fso : sp->free_scene_obj;
+		if (sfso)
+		    FREE_BV_SCENE_OBJ(sp, &sfso->l, sp->vlfree);
+	    }
+	    bu_ptbl_free(&snap);
+	}
+	return;
+    }
+}
+
+
 /*
  * Local Variables:
  * mode: C

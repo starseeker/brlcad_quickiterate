@@ -47,6 +47,22 @@ struct bview;          /* forward-declare to avoid circular includes */
 struct bv_scene_obj;   /* forward-declare to avoid circular includes */
 
 /**
+ * Signature for a caller-supplied shape path-match predicate.
+ *
+ * Used by bsg_erase_nested_subpath() in case (b) — the leaf-primitive case
+ * where a BSG_NODE_SHAPE child should be erased only when its s_u_data
+ * satisfies the match condition.
+ *
+ * @p shape_u_data  The @c s_u_data pointer of the candidate shape node.
+ *                  May be NULL; the callback should return 0 in that case.
+ * @p match_ctx     Opaque context supplied by the caller (e.g. a pointer to
+ *                  a @c struct @c db_full_path in the GED layer).
+ *
+ * Returns non-zero if the shape should be erased, zero otherwise.
+ */
+typedef int (*bsg_path_match_fn)(void *shape_u_data, void *match_ctx);
+
+/**
  * Return the depth of node @p g in its BSG tree.
  *
  * The root node (no parent) has depth 0; immediate children of the root have
@@ -167,6 +183,44 @@ bsg_free_group_contents(bsg_node *g);
  */
 BSG_EXPORT extern void
 bsg_free_group(bsg_node *g);
+
+
+/**
+ * Navigate the draw sub-tree below @p parent and erase the matching
+ * sub-group or leaf shape(s) at the deepest path component.
+ *
+ * @p comp_names  Array of @p comp_count path-component name strings,
+ *                indexing from 0.  These correspond to successive BSG
+ *                group names below @p parent.
+ * @p comp_count  Total number of components in @p comp_names.
+ * @p depth_start Index into @p comp_names where navigation should begin.
+ *                Pass 0 to start from the first component; pass n to skip
+ *                the first n components (use when @p parent already
+ *                represents those n components).
+ * @p match_fn    Path-match predicate called in case (b) — the leaf
+ *                primitive case — to decide whether a BSG_NODE_SHAPE child
+ *                should be erased.  The first argument is the shape's
+ *                @c s_u_data pointer; the second is @p match_ctx.
+ *                If NULL, every BSG_NODE_SHAPE child at the leaf level is
+ *                erased.
+ * @p match_ctx   Opaque context forwarded verbatim to @p match_fn.
+ *
+ * Two cases at the final component:
+ *   a) A BSG_NODE_GROUP child with that name exists — its entire sub-tree
+ *      is freed and the group node is removed from its parent.
+ *   b) No matching group — the component is treated as a leaf primitive;
+ *      all BSG_NODE_SHAPE children that satisfy @p match_fn are freed.
+ *
+ * The structural revision counter is bumped for each erasure.
+ *
+ * Extracted from the file-private @c _sg_erase_nested_subpath() helper in
+ * src/libged/bsg_ged_draw.c (Phase 7 Step 12).
+ */
+BSG_EXPORT extern void
+bsg_erase_nested_subpath(bsg_node *parent,
+			 const char * const *comp_names, size_t comp_count,
+			 size_t depth_start,
+			 bsg_path_match_fn match_fn, void *match_ctx);
 
 
 __END_DECLS

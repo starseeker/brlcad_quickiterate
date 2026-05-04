@@ -321,7 +321,7 @@ set(
   trace.c
   vers.c
   vutil.c
-  bsg_view_obj.c
+  bsg_ged_draw.c
   view/data_lines.c
   wdb_importFg4Section.c
   wireframe_eval.c

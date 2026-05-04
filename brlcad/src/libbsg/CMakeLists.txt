@@ -7,6 +7,7 @@ set(
   node_root.c
   node_shape.c
   node_transform.c
+  overlay.c
   payload.c
   scene_graph.cpp
   sensor.c
@@ -36,6 +37,7 @@ cmakefiles(
   node_root.c
   node_shape.c
   node_transform.c
+  overlay.c
   payload.c
   sensor.c
   visit.c

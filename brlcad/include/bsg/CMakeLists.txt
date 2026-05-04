@@ -9,6 +9,7 @@ set(
   node_shape.h
   node_transform.h
   obol_node.h
+  overlay.h
   payload.h
   scene_set.h
   sensor.h

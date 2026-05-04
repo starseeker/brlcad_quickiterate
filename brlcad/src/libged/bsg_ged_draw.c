@@ -17,7 +17,7 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/** @file libged/bsg_view_obj.c
+/** @file libged/bsg_ged_draw.c
  *
  * Phase 7 Layer A (drawing-stack modernization).
  *
@@ -56,6 +56,7 @@
 #include "bsg/defines.h"
 #include "bsg/draw_ctx.h"
 #include "bsg/draw_set.h"
+#include "bsg/overlay.h"
 #include "bsg/visit.h"
 
 #include "bv/view_sets.h"
@@ -136,112 +137,31 @@ _sg_root(struct ged *gedp)
 }
 
 
-/*
- * Find the existing _overlays subgroup under the draw root, or NULL if
- * it has not been created yet.  Does not create it.
- */
-static struct bv_scene_obj *
-_sg_find_overlay_group(struct ged *gedp)
-{
-    struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
-    if (!root)
-        return NULL;
-    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
-        struct bv_scene_obj *g =
-            (struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
-        if (BU_STR_EQUAL("_overlays", bu_vls_cstr(&g->s_name)))
-            return g;
-    }
-    return NULL;
-}
-
 
 /*
- * Lazily create (on first overlay insertion) and return the _overlays
- * subgroup.  This group lives as a direct child of the draw root and
- * collects all pseudo-solid / invented overlay shapes.
+ * Thin wrappers for overlay-group management.
+ *
+ * Phase 7 Step 13: the pure BSG tree logic has moved to libbsg/overlay.c
+ * (bsg_find_overlay_group, bsg_ensure_overlay_group, bsg_erase_overlay_by_name).
+ * These wrappers supply the GED context (draw root pointer, view pointer)
+ * without requiring libbsg to know about struct ged.
  */
 static struct bv_scene_obj *
 _sg_overlay_root(struct ged *gedp)
 {
-    struct bv_scene_obj *ov = _sg_find_overlay_group(gedp);
-    if (ov)
-        return ov;
-
     struct bv_scene_obj *root = _sg_root(gedp);
     if (!root)
         return NULL;
-
-    struct bview *v = gedp->ged_gvp;
-    if (!v)
-        return NULL;
-
-    ov = bv_obj_create(v, BV_CHILD_OBJS);
-    if (!ov)
-        return NULL;
-
-    ov->s_type_flags = BSG_NODE_GROUP;
-    ov->s_flag = UP;
-    ov->dp = NULL;
-    ov->parent = root;
-    bu_vls_sprintf(&ov->s_name, "_overlays");
-    bu_ptbl_ins(&root->children, (long *)ov);
-    return ov;
+    return (struct bv_scene_obj *)bsg_ensure_overlay_group(
+        (bsg_node *)root, gedp->ged_gvp);
 }
 
-
-/*
- * Erase an overlay shape by name from the _overlays group.  If the
- * _overlays group becomes empty it is freed and removed from the root.
- */
 static void
 _sg_erase_overlay_by_name(struct ged *gedp, const char *name)
 {
-    struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
-    if (!root)
-        return;
-
-    struct bv_scene_obj *ov = _sg_find_overlay_group(gedp);
-    if (!ov)
-        return;
-
-    struct bv_scene_obj *free_scene_obj = bv_set_fsos(&gedp->ged_views);
-    struct bu_list *vlfree = &rt_vlfree;
-
-    struct bu_ptbl snap = BU_PTBL_INIT_ZERO;
-    for (size_t i = 0; i < BU_PTBL_LEN(&ov->children); i++)
-        bu_ptbl_ins(&snap, BU_PTBL_GET(&ov->children, i));
-
-    for (size_t i = 0; i < BU_PTBL_LEN(&snap); i++) {
-        struct bv_scene_obj *sp =
-            (struct bv_scene_obj *)BU_PTBL_GET(&snap, i);
-        if (!BU_STR_EQUAL(name, bu_vls_cstr(&sp->s_name)))
-            continue;
-        /* Use the per-object dlist teardown callback registered by libdm
-         * (s_dlist_free_callback / dm_register_dlist_sensor path).  This
-         * avoids the GED-level ged_destroy_vlist_callback indirection and
-         * removes the gedp dependency from the overlay-erase hot path
-         * (Phase 7 Step 8). */
-        if (sp->s_dlist_free_callback)
-            (*sp->s_dlist_free_callback)(sp);
-        bu_ptbl_rm(&ov->children, (const long *)sp);
-        sp->parent = NULL;
-        FREE_BV_SCENE_OBJ(sp, &free_scene_obj->l, vlfree);
-        /* sp->parent is already NULL; use root (available as local var) */
-        _sg_bump_rev_node(root);
-    }
-    bu_ptbl_free(&snap);
-
-    /* Remove empty _overlays group from root */
-    if (BU_PTBL_LEN(&ov->children) == 0) {
-        bu_ptbl_rm(&root->children, (const long *)ov);
-        ov->parent = NULL;
-        struct bv_scene_obj *fso = ov->free_scene_obj;
-        if (fso)
-            FREE_BV_SCENE_OBJ(ov, &fso->l, ov->vlfree);
-    }
+    bsg_erase_overlay_by_name(
+        (bsg_node *)gedp->i->ged_gdp->gd_draw_root, name);
 }
-
 
 /*
  * Per-solid s_free_callback: clear the GED illumination tracker if this solid
@@ -391,93 +311,49 @@ _sg_add_path(struct ged *gedp, const char *name)
 /* ------------------------------------------------------------------ */
 
 /*
+ * Path-match callback for bsg_erase_nested_subpath case (b).
+ * @p shape_u_data is bv_scene_obj::s_u_data (struct ged_bv_data *).
+ * @p match_ctx    is a struct db_full_path * (the subpath being erased).
+ *
+ * Phase 7 Step 12: the case (b) inner loop now lives in libbsg/draw_set.c
+ * (bsg_erase_nested_subpath); this callback supplies the GED-specific path
+ * comparison without carrying a struct ged * into libbsg.
+ */
+static int
+_sg_path_match_cb(void *shape_u_data, void *match_ctx)
+{
+    if (!shape_u_data || !match_ctx)
+        return 0;
+    struct ged_bv_data *bd = (struct ged_bv_data *)shape_u_data;
+    struct db_full_path *subpath = (struct db_full_path *)match_ctx;
+    return db_full_path_match_top(subpath, &bd->s_fullpath);
+}
+
+
+/*
  * Navigate from @p parent following subpath->fp_names[depth_start..fp_len-1]
  * and erase the matching sub-group (or leaf shape(s)) at the deepest level
  * found.
  *
- * Two cases at the final component:
- *  a) A matching BSG_NODE_GROUP exists → free its entire subtree and remove it.
- *  b) No matching group → the component names a leaf primitive; find all SHAPE
- *     children whose db_full_path matches @p subpath and free those shapes.
- *
- * After erasure the caller is responsible for removing empty ancestors.
+ * Phase 7 Step 12: thin wrapper around bsg_erase_nested_subpath() in
+ * libbsg/draw_set.c.  The GED-specific path-match logic is encapsulated
+ * in _sg_path_match_cb; gedp is no longer needed here.
  */
 static void
-_sg_erase_nested_subpath(struct ged *gedp, struct bv_scene_obj *parent,
+_sg_erase_nested_subpath(struct bv_scene_obj *parent,
                           struct db_full_path *subpath, size_t depth_start)
 {
-    struct bv_scene_obj *fso = bv_set_fsos(&gedp->ged_views);
-    struct bu_list *vlf = &rt_vlfree;
-    struct bv_scene_obj *cur = parent;
+    const char **names = (const char **)bu_malloc(
+        sizeof(const char *) * subpath->fp_len, "subpath names");
+    for (size_t i = 0; i < subpath->fp_len; i++)
+        names[i] = subpath->fp_names[i]->d_namep;
 
-    for (size_t i = depth_start; i < subpath->fp_len; i++) {
-        const char *comp = subpath->fp_names[i]->d_namep;
-        struct bv_scene_obj *child_group = NULL;
+    bsg_erase_nested_subpath((bsg_node *)parent,
+                              names, subpath->fp_len, depth_start,
+                              _sg_path_match_cb, (void *)subpath);
 
-        for (size_t j = 0; j < BU_PTBL_LEN(&cur->children); j++) {
-            struct bv_scene_obj *c =
-                (struct bv_scene_obj *)BU_PTBL_GET(&cur->children, j);
-            if ((c->s_type_flags & BSG_NODE_GROUP) &&
-                BU_STR_EQUAL(bu_vls_cstr(&c->s_name), comp)) {
-                child_group = c;
-                break;
-            }
-        }
-
-        if (i < subpath->fp_len - 1) {
-            /* Intermediate component — must be a group */
-            if (!child_group)
-                return;
-            cur = child_group;
-            continue;
-        }
-
-        /* Final component */
-        if (child_group) {
-            /* Case (a): a group node with this name — free its entire subtree */
-            _sg_free_group_contents(child_group);
-            bu_ptbl_rm(&cur->children, (const long *)child_group);
-            /* cur is still in the tree; walk up for ctx */
-            _sg_bump_rev_node(cur);
-            child_group->parent = NULL;
-            struct bv_scene_obj *cfso = child_group->free_scene_obj;
-            if (cfso)
-                FREE_BV_SCENE_OBJ(child_group, &cfso->l, child_group->vlfree);
-        } else {
-            /* Case (b): the final component is a leaf primitive — erase
-             * matching SHAPE children by comparing their db_full_path. */
-            struct bu_ptbl snap = BU_PTBL_INIT_ZERO;
-            for (size_t j = 0; j < BU_PTBL_LEN(&cur->children); j++) {
-                struct bv_scene_obj *c =
-                    (struct bv_scene_obj *)BU_PTBL_GET(&cur->children, j);
-                if (!(c->s_type_flags & BSG_NODE_SHAPE) || !c->s_u_data)
-                    continue;
-                struct ged_bv_data *bd = (struct ged_bv_data *)c->s_u_data;
-                if (db_full_path_match_top(subpath, &bd->s_fullpath))
-                    bu_ptbl_ins(&snap, (long *)c);
-            }
-            for (size_t j = 0; j < BU_PTBL_LEN(&snap); j++) {
-                struct bv_scene_obj *sp =
-                    (struct bv_scene_obj *)BU_PTBL_GET(&snap, j);
-                /* Phase 7 Step 8: per-object callback, no gedp needed. */
-                if (sp->s_dlist_free_callback)
-                    (*sp->s_dlist_free_callback)(sp);
-                /* Phase 7 Step 9: s_free_callback fires the illum-clear
-                 * registered at shape-creation time (_sg_illum_free_cb). */
-                if (sp->s_free_callback)
-                    (*sp->s_free_callback)(sp);
-                bu_ptbl_rm(&cur->children, (const long *)sp);
-                /* cur is in the tree; sp->parent cleared after this */
-                _sg_bump_rev_node(cur);
-                sp->parent = NULL;
-                FREE_BV_SCENE_OBJ(sp, &fso->l, vlf);
-            }
-            bu_ptbl_free(&snap);
-        }
-        return;
-    }
+    bu_free(names, "subpath names");
 }
-
 
 static void
 _sg_erase_path(struct ged *gedp, const char *path, int allow_split)
@@ -522,7 +398,7 @@ _sg_erase_path(struct ged *gedp, const char *path, int allow_split)
         db_free_full_path(&gdlpath);
 
         if (is_ancestor && ancestor_depth < subpath.fp_len) {
-            _sg_erase_nested_subpath(gedp, g, &subpath, ancestor_depth);
+            _sg_erase_nested_subpath(g, &subpath, ancestor_depth);
             if (BU_PTBL_LEN(&g->children) == 0)
                 _sg_free_group(g);
             break;
@@ -672,7 +548,7 @@ _sg_erase_all_paths(struct ged *gedp, const char *path, int skip_first)
                 fullpath.fp_len < subpath.fp_len) {
                 size_t depth = fullpath.fp_len;
                 db_free_full_path(&fullpath);
-                _sg_erase_nested_subpath(gedp, g, &subpath, depth);
+                _sg_erase_nested_subpath(g, &subpath, depth);
                 if (BU_PTBL_LEN(&g->children) == 0)
                     _sg_free_group(g);
                 restart = 1;
