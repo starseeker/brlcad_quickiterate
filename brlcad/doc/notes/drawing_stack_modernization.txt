@@ -266,7 +266,10 @@ There are three real buckets of remaining work.
 
    Required work:
    - find every command/site that mutates the effective material table or causes
-     a recolor-relevant material change,
+     a recolor-relevant material change (start with libged/color/color.c's
+     regionid_colortable import path, libged/mater/mater.cpp,
+     libged/edmater/edmater.c's wmater/rmater flow, and the MGED wrapper in
+     src/mged/mater.c),
    - move gd_mater_rev bumps to those mutation sites,
    - stop using the recolor sweep itself as the revision bump source,
    - add/update tests proving that:
