@@ -1601,3 +1601,116 @@ Deprecation policy
               A3, B4, B5, C1/C3
               — Step 6 (B4+B5): FieldSensor-driven color + iflag.
               — Step 7 (C1+C3): split bsg_view_obj.c into libbsg/.
+
+  2026-05-04  Phase 7 Step 6 (B4+B5) complete — illum-solid tracker,
+              O(1) set_iflag(DOWN), mater-revision counter
+
+              ── B5: illuminated-solid tracker ─────────────────────────
+
+              src/libged/ged_private.h:
+                struct ged_drawable gains two new fields:
+                  gd_illum_solid  (struct bv_scene_obj *)
+                    Currently illuminated solid, or NULL.  Non-NULL
+                    enables O(1) set_iflag(DOWN) without sweeping the
+                    whole draw tree.
+                  gd_mater_rev  (uint64_t)
+                    Mater-table revision counter (B4 partial, see below).
+
+              src/libged/bsg_view_obj.c:
+                _sg_set_illum(gedp, sp)
+                  File-private helper: clears old gd_illum_solid->s_iflag
+                  (if non-NULL), sets sp->s_iflag=UP (if sp non-NULL),
+                  stores sp in gd_illum_solid.
+
+                _sg_clear_illum_if_match(gedp, sp)
+                  Nulls gd_illum_solid when it equals @p sp.  Called
+                  from all shape-freeing paths to prevent dangling
+                  pointers after an illuminated solid is erased.
+
+                bsg_view_obj_set_iflag(gedp, DOWN) — modified:
+                  If gd_illum_solid is non-NULL: clears that solid in
+                  O(1) and returns.  Falls back to the O(N) bsg_visit
+                  sweep only when gd_illum_solid is NULL (nothing
+                  tracked, or tracking was explicitly invalidated by a
+                  multi-solid UP operation such as matpick).
+
+                bsg_view_obj_zap(gedp) — modified:
+                  Clears gd_illum_solid to NULL (all solids freed).
+
+                _sg_free_children_recursive — modified (SHAPE path):
+                  Calls _sg_clear_illum_if_match before FREE_BV_SCENE_OBJ.
+
+                _sg_erase_nested_subpath case (b) — modified:
+                  Same _sg_clear_illum_if_match call for leaf-shape frees.
+
+              include/ged/bsg_view_obj.h — new public API:
+                bsg_view_obj_set_illum(gedp, sp)
+                  Register @p sp as the single illuminated solid (O(1)
+                  clear enabled).  Pass NULL to signal "multiple solids
+                  may be UP" and force O(N) fallback on the next
+                  set_iflag(DOWN) call.
+                bsg_view_obj_get_illum(gedp)
+                  Return currently tracked illuminated solid or NULL.
+
+              src/mged/usepen.c — three call-site updates:
+                illuminate():
+                  After bsg_visit, calls
+                  bsg_view_obj_set_illum(s->gedp, illump) so that the
+                  single winner is registered in GED.
+                f_aip (advance):
+                  sp->s_iflag = UP replaced by
+                  bsg_view_obj_set_illum(s->gedp, sp).  The old
+                  explicit sp->s_iflag = DOWN (on the previous illump)
+                  is kept as a safety net for the first call.
+                f_matpick (matpick sweep):
+                  After bsg_visit/_matpick_topmat_cb, calls
+                  bsg_view_obj_set_illum(s->gedp, NULL) to invalidate
+                  tracking because the sweep may place multiple solids
+                  in the UP state (same tree-top prefix match).
+
+              ── B4: mater-revision counter (partial) ──────────────────
+
+              src/libged/bsg_view_obj.c:
+                _sg_bump_mater_rev(gedp) — static helper, called at the
+                end of _sg_color_soltab().
+
+              include/ged/bsg_view_obj.h — new public API:
+                bsg_view_obj_mater_rev(gedp) → uint64_t
+                  Returns gd_mater_rev.  Consumers that cache per-solid
+                  colors can compare against a stored snapshot to detect
+                  when recoloring is needed and skip redundant sweeps.
+
+              Full FieldSensor-per-shape dirty-bit approach deferred:
+              requires per-solid version fields in bv_scene_obj which
+              do not yet exist.  The counter provides the foundation.
+
+              ── Test section [10]: set_illum / mater_rev ──────────────
+
+              src/libged/tests/draw/bsg_view_obj.cpp:
+                • get_illum returns NULL initially.
+                • set_illum(s0) → get_illum()==s0, s0->s_iflag==UP.
+                • set_iflag(DOWN) runs O(1): s0->s_iflag==DOWN,
+                  get_illum()==NULL.
+                • set_illum(s0) then set_illum(s1): s0→DOWN, s1→UP.
+                • set_illum(NULL) invalidates; next set_iflag(DOWN) does
+                  O(N) sweep and still clears all UP flags correctly.
+                • mater_rev increases after each color_from_soltab call.
+                • zap clears get_illum to NULL.
+
+              Build: libged, mged — zero errors.
+              Regression: ged_test_bsg_view_obj 84/84 PASS.
+
+              ── REMAINING ─────────────────────────────────────────────
+
+              A3, C1/C3
+              — A3: bview::bsg_root canonical; gv_objs derived.
+                    Requires removing gv_objs from the authoritative
+                    draw path (complex architectural change).
+              — C1/C3: split bsg_view_obj.c into libbsg/.
+                    Blocked by A3: bsg_view_obj.c uses ged-specific
+                    types (struct ged, ged_private.h) that cannot be
+                    imported into libbsg without creating a circular
+                    dependency (libbsg → ged types → libged → libbsg).
+                    The split becomes feasible once A3 makes the BSG
+                    tree standalone and gv_objs a derived index.
+

@@ -142,6 +142,35 @@ GED_EXPORT extern void
 bsg_view_obj_set_iflag(struct ged *gedp, int iflag);
 
 /**
+ * Register @p sp as the single currently-illuminated solid (B5).
+ * Clears any previously registered solid's s_iflag to DOWN first.
+ * Pass NULL to deregister (signals that set_iflag(DOWN) must fall back
+ * to the O(N) sweep because multiple solids may be in the UP state).
+ *
+ * Call this after any operation that illuminates exactly one solid so
+ * that the subsequent bsg_view_obj_set_iflag(gedp, DOWN) can run in O(1)
+ * instead of sweeping the whole draw tree.
+ */
+GED_EXPORT extern void
+bsg_view_obj_set_illum(struct ged *gedp, struct bv_scene_obj *sp);
+
+/**
+ * Return the currently-tracked illuminated solid, or NULL when none is
+ * registered or tracking has been invalidated.
+ */
+GED_EXPORT extern struct bv_scene_obj *
+bsg_view_obj_get_illum(const struct ged *gedp);
+
+/**
+ * Return the mater-revision counter (B4 partial).  The counter is
+ * incremented each time bsg_view_obj_color_from_soltab() completes a
+ * sweep.  Callers that cache per-solid color data can store a snapshot
+ * and skip redundant recolor calls when the value is unchanged.
+ */
+GED_EXPORT extern uint64_t
+bsg_view_obj_mater_rev(const struct ged *gedp);
+
+/**
  * Refresh per-object base color from the dbip's region/material table
  * (mater_struct chain) for every drawn scene object.
  *

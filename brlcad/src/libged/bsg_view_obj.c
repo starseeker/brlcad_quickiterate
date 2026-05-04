@@ -209,6 +209,18 @@ _sg_erase_overlay_by_name(struct ged *gedp, const char *name)
 
 
 /*
+ * Clear gd_illum_solid if it matches @p sp (called from shape-freeing
+ * paths to prevent dangling pointers after an illuminated solid is erased).
+ */
+static void
+_sg_clear_illum_if_match(struct ged *gedp, struct bv_scene_obj *sp)
+{
+    if (gedp->i->ged_gdp->gd_illum_solid == sp)
+        gedp->i->ged_gdp->gd_illum_solid = NULL;
+}
+
+
+/*
  * Recursively free all descendants of @p g (shapes and nested sub-groups).
  * Does NOT free @p g itself.
  */
@@ -232,6 +244,7 @@ _sg_free_children_recursive(struct ged *gedp, struct bv_scene_obj *g,
         } else {
             ged_destroy_vlist_cb(gedp, child->s_dlist, 1);
             child->parent = NULL;
+            _sg_clear_illum_if_match(gedp, child);
             FREE_BV_SCENE_OBJ(child, &fso->l, vlf);
         }
     }
@@ -451,6 +464,7 @@ _sg_erase_nested_subpath(struct ged *gedp, struct bv_scene_obj *parent,
                 bu_ptbl_rm(&cur->children, (const long *)sp);
                 _sg_bump_rev(gedp);
                 sp->parent = NULL;
+                _sg_clear_illum_if_match(gedp, sp);
                 FREE_BV_SCENE_OBJ(sp, &fso->l, vlf);
             }
             bu_ptbl_free(&snap);
@@ -897,6 +911,45 @@ _sg_name_hash(struct ged *gedp)
 
 
 /* ------------------------------------------------------------------ */
+/* mater revision counter (B4: lazy-color token)                      */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Bump the mater-revision counter.  Called each time color_from_soltab
+ * completes a sweep so that future consumers can detect a change and
+ * avoid redundant recolor work.
+ */
+static void
+_sg_bump_mater_rev(struct ged *gedp)
+{
+    gedp->i->ged_gdp->gd_mater_rev++;
+}
+
+
+/* ------------------------------------------------------------------ */
+/* illuminated-solid tracker (B5: O(1) set_iflag(DOWN))               */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Register @p sp as the single currently-illuminated solid.
+ * Clears the s_iflag of any previously registered solid first.
+ * Passing NULL deregisters without setting a new illuminated solid (used
+ * after operations that place multiple solids in the UP state, such as
+ * matpick, so that the fallback O(N) sweep remains safe).
+ */
+static void
+_sg_set_illum(struct ged *gedp, struct bv_scene_obj *sp)
+{
+    struct bv_scene_obj *old = gedp->i->ged_gdp->gd_illum_solid;
+    if (old && old != sp)
+        old->s_iflag = DOWN;
+    if (sp)
+        sp->s_iflag = UP;
+    gedp->i->ged_gdp->gd_illum_solid = sp;
+}
+
+
+/* ------------------------------------------------------------------ */
 /* color_from_soltab                                                   */
 /* ------------------------------------------------------------------ */
 
@@ -916,6 +969,7 @@ _sg_color_soltab(struct ged *gedp)
         return;
     bsg_visit((bsg_node *)root, BSG_NODE_SHAPE, _color_solid_cb,
               (void *)gedp->dbip);
+    _sg_bump_mater_rev(gedp);
 }
 
 
@@ -991,6 +1045,16 @@ bsg_view_obj_set_iflag(struct ged *gedp, int iflag)
 {
     if (!gedp)
         return;
+    if (iflag == DOWN) {
+        /* B5 fast path: when exactly one solid is illuminated and tracked,
+         * clear only that solid in O(1) rather than sweeping the whole tree. */
+        struct bv_scene_obj *illum = gedp->i->ged_gdp->gd_illum_solid;
+        if (illum) {
+            illum->s_iflag = DOWN;
+            gedp->i->ged_gdp->gd_illum_solid = NULL;
+            return;
+        }
+    }
     _sg_set_iflag(gedp, iflag);
 }
 
@@ -1394,6 +1458,9 @@ bsg_view_obj_zap(struct ged *gedp)
     /* Reset revision counter: after a full zap the drawn set is empty,
      * so the hash should return 0 (matching initial state). */
     gedp->i->ged_gdp->gd_draw_rev = 0;
+
+    /* Clear illuminated-solid tracker: the solid no longer exists. */
+    gedp->i->ged_gdp->gd_illum_solid = NULL;
 }
 
 
@@ -1461,6 +1528,75 @@ bsg_view_obj_append_solid_to_group(struct ged *gedp,
 
     sp->parent = cur;
     bu_ptbl_ins(&cur->children, (long *)sp);
+}
+
+
+/* ================================================================== */
+/* B5: illuminated-solid tracker — public API                         */
+/* ================================================================== */
+
+/**
+ * Set @p sp as the single currently-illuminated solid (s_iflag = UP).
+ * Any previously registered solid is cleared first (s_iflag = DOWN).
+ * Passing NULL deregisters without setting a new illuminated solid.
+ *
+ * After this call, bsg_view_obj_set_iflag(gedp, DOWN) can resolve in
+ * O(1) rather than sweeping the entire draw tree.
+ *
+ * When an operation may place MULTIPLE solids in the UP state (e.g.
+ * matpick path-prefix sweep), call bsg_view_obj_set_illum(gedp, NULL)
+ * to signal that the fast path cannot be used; set_iflag(DOWN) then
+ * falls back to the O(N) full sweep.
+ */
+void
+bsg_view_obj_set_illum(struct ged *gedp, struct bv_scene_obj *sp)
+{
+    if (!gedp)
+        return;
+    _sg_set_illum(gedp, sp);
+}
+
+
+/**
+ * Return the currently-registered illuminated solid, or NULL when none
+ * is tracked (either nothing is illuminated or tracking was invalidated
+ * because multiple solids may be UP).
+ */
+struct bv_scene_obj *
+bsg_view_obj_get_illum(const struct ged *gedp)
+{
+    if (!gedp)
+        return NULL;
+    return gedp->i->ged_gdp->gd_illum_solid;
+}
+
+
+/* ================================================================== */
+/* B4: mater-revision counter — public API                            */
+/* ================================================================== */
+
+/**
+ * Return the current mater-revision counter.  The counter is bumped
+ * each time bsg_view_obj_color_from_soltab() completes a sweep.
+ *
+ * Consumers that cache per-solid colors can store a snapshot of this
+ * value and skip re-querying when the counter is unchanged.  For example:
+ *
+ *   if (saved_mater_rev != bsg_view_obj_mater_rev(gedp)) {
+ *       bsg_view_obj_color_from_soltab(gedp);
+ *       saved_mater_rev = bsg_view_obj_mater_rev(gedp);
+ *   }
+ *
+ * This is a partial B4 implementation.  The full FieldSensor-per-shape
+ * dirty-bit approach is deferred until bv_scene_obj grows per-solid
+ * version fields.
+ */
+uint64_t
+bsg_view_obj_mater_rev(const struct ged *gedp)
+{
+    if (!gedp)
+        return 0;
+    return gedp->i->ged_gdp->gd_mater_rev;
 }
 
 

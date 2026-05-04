@@ -507,6 +507,79 @@ main(int ac, char *av[])
 	ASSERT(dl_count(gedp) == 0);
     }
 
+    /* ---------------------------------------------------------------- *
+     * [10] B5: set_illum / set_iflag O(1) / mater_rev (B4 counter).   *
+     * ---------------------------------------------------------------- */
+    {
+	bu_log("[10] set_illum/mater_rev...\n");
+
+	/* Draw all.g again to have some solids in the tree. */
+	{
+	    const char *s_av[3] = {"draw", "all.g", NULL};
+	    ged_exec(gedp, 2, s_av);
+	}
+	int ns = bsg_view_obj_solid_count(gedp);
+	ASSERT(ns > 0);
+
+	/* get_illum returns NULL initially (nothing illuminated). */
+	ASSERT(bsg_view_obj_get_illum(gedp) == NULL);
+
+	/* Illuminate the first solid. */
+	struct bv_scene_obj *s0 = bsg_view_obj_solid_at(gedp, 0);
+	ASSERT(s0 != NULL);
+	bsg_view_obj_set_illum(gedp, s0);
+
+	/* get_illum returns s0 and s0->s_iflag is UP. */
+	ASSERT(bsg_view_obj_get_illum(gedp) == s0);
+	ASSERT(s0->s_iflag == UP);
+
+	/* set_iflag(DOWN) should run in O(1) — s0 is the tracked solid. */
+	bsg_view_obj_set_iflag(gedp, DOWN);
+	ASSERT(s0->s_iflag == DOWN);
+	ASSERT(bsg_view_obj_get_illum(gedp) == NULL);
+
+	/* set_illum(s0) then set_illum(s1) clears s0 and illuminates s1. */
+	if (ns >= 2) {
+	    struct bv_scene_obj *s1 = bsg_view_obj_solid_at(gedp, 1);
+	    ASSERT(s1 != NULL);
+	    bsg_view_obj_set_illum(gedp, s0);
+	    ASSERT(s0->s_iflag == UP);
+	    bsg_view_obj_set_illum(gedp, s1);
+	    ASSERT(s0->s_iflag == DOWN);
+	    ASSERT(s1->s_iflag == UP);
+	    ASSERT(bsg_view_obj_get_illum(gedp) == s1);
+	    /* Clean up */
+	    bsg_view_obj_set_iflag(gedp, DOWN);
+	    ASSERT(s1->s_iflag == DOWN);
+	}
+
+	/* set_illum(NULL) invalidates tracking — subsequent set_iflag(DOWN)
+	 * falls back to O(N) sweep (both paths yield correct result). */
+	bsg_view_obj_set_illum(gedp, s0);
+	s0->s_iflag = UP;
+	bsg_view_obj_set_illum(gedp, NULL);  /* invalidate */
+	ASSERT(bsg_view_obj_get_illum(gedp) == NULL);
+	bsg_view_obj_set_iflag(gedp, DOWN);  /* O(N) fallback */
+	/* After O(N) sweep, s0 must be DOWN. */
+	ASSERT(s0->s_iflag == DOWN);
+
+	/* mater_rev increases after color_from_soltab. */
+	uint64_t rev0 = bsg_view_obj_mater_rev(gedp);
+	bsg_view_obj_color_from_soltab(gedp);
+	uint64_t rev1 = bsg_view_obj_mater_rev(gedp);
+	ASSERT(rev1 > rev0);
+
+	/* Second call bumps again. */
+	bsg_view_obj_color_from_soltab(gedp);
+	ASSERT(bsg_view_obj_mater_rev(gedp) > rev1);
+
+	/* set_illum pointer is cleared by zap. */
+	bsg_view_obj_set_illum(gedp, s0);
+	ASSERT(bsg_view_obj_get_illum(gedp) == s0);
+	bsg_view_obj_zap(gedp);
+	ASSERT(bsg_view_obj_get_illum(gedp) == NULL);
+    }
+
     /* Final zap to leave clean state. */
     {
 	const char *s_av[2] = {"zap", NULL};
