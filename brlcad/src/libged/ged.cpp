@@ -49,6 +49,7 @@
 
 #include "bv/defines.h"
 #include "bsg/util.h"
+#include "ged/bsg_view_obj.h"
 
 #include "./ged_private.h"
 #include "./dbi.h"
@@ -152,13 +153,15 @@ ged_init(struct ged *gedp)
     gedp->ged_fbs->fbs_listener.fbsl_fd = -1;
 
     BU_GET(gedp->i->ged_gdp, struct ged_drawable);
-    BU_GET(gedp->i->ged_gdp->gd_headDisplay, struct bu_list);
-    BU_LIST_INIT(gedp->i->ged_gdp->gd_headDisplay);
+    gedp->i->ged_gdp->gd_draw_root = NULL;
     BU_GET(gedp->i->ged_gdp->gd_headVDraw, struct bu_list);
     BU_LIST_INIT(gedp->i->ged_gdp->gd_headVDraw);
 
     gedp->i->ged_gdp->gd_uplotOutputMode = PL_OUTPUT_MODE_BINARY;
     qray_init(gedp->i->ged_gdp);
+
+    /* Eagerly create the draw root so GED_CHECK_DRAWABLE succeeds */
+    bsg_view_obj_ensure_root(gedp);
 
     BU_GET(gedp->ged_log, struct bu_vls);
     bu_vls_init(gedp->ged_log);
@@ -248,8 +251,7 @@ ged_free(struct ged *gedp)
 	}
 	bu_ptbl_free(&gedp->free_solids);
 
-	if (gedp->i->ged_gdp->gd_headDisplay)
-	    BU_PUT(gedp->i->ged_gdp->gd_headDisplay, struct bu_list);
+	gedp->i->ged_gdp->gd_draw_root = NULL;  /* freed by zap */
 	if (gedp->i->ged_gdp->gd_headVDraw)
 	    BU_PUT(gedp->i->ged_gdp->gd_headVDraw, struct bu_vls);
 	qray_free(gedp->i->ged_gdp);

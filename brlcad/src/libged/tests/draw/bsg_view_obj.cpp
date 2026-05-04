@@ -46,6 +46,7 @@
 #include "bv/tcl_data.h"
 #include <ged.h>
 #include "ged/bsg_view_obj.h"
+#include "bsg/visit.h"
 #include "../../ged_private.h"
 
 
@@ -62,13 +63,18 @@ static int nfails  = 0;
 
 /* Count drawn groups via the public API. */
 static int
+_dl_count_cb(struct bv_scene_obj * /*g*/, void *ud)
+{
+    int *n = (int *)ud;
+    (*n)++;
+    return 1;
+}
+
+static int
 dl_count(struct ged *gedp)
 {
     int n = 0;
-    void *gdlp;
-    for (gdlp = bsg_view_obj_first_group(gedp); gdlp;
-	 gdlp = bsg_view_obj_next_group(gedp, gdlp))
-	n++;
+    bsg_view_obj_foreach_group(gedp, _dl_count_cb, &n);
     return n;
 }
 
@@ -193,27 +199,25 @@ main(int ac, char *av[])
     bsg_view_obj_set_iflag(gedp, UP);
     {
 	int all_up = 1;
-	void *gdlp;
-	struct bv_scene_obj *sp;
-	for (gdlp = bsg_view_obj_first_group(gedp); gdlp;
-	     gdlp = bsg_view_obj_next_group(gedp, gdlp)) {
-	    for (BU_LIST_FOR(sp, bv_scene_obj, bsg_view_obj_group_solid_list(gdlp))) {
-		if (sp->s_iflag != UP) all_up = 0;
-	    }
-	}
+	struct iflag_check { int *ok; int target; } cu = { &all_up, UP };
+	auto cb = +[](struct bv_scene_obj *sp, void *ud) -> int {
+	    struct iflag_check *c = (struct iflag_check *)ud;
+	    if (sp->s_iflag != c->target) *c->ok = 0;
+	    return 1;
+	};
+	bsg_view_obj_foreach_solid(gedp, cb, &cu);
 	ASSERT(all_up);
     }
     bsg_view_obj_set_iflag(gedp, DOWN);
     {
 	int all_down = 1;
-	void *gdlp;
-	struct bv_scene_obj *sp;
-	for (gdlp = bsg_view_obj_first_group(gedp); gdlp;
-	     gdlp = bsg_view_obj_next_group(gedp, gdlp)) {
-	    for (BU_LIST_FOR(sp, bv_scene_obj, bsg_view_obj_group_solid_list(gdlp))) {
-		if (sp->s_iflag != DOWN) all_down = 0;
-	    }
-	}
+	struct iflag_check { int *ok; int target; } cd = { &all_down, DOWN };
+	auto cb = +[](struct bv_scene_obj *sp, void *ud) -> int {
+	    struct iflag_check *c = (struct iflag_check *)ud;
+	    if (sp->s_iflag != c->target) *c->ok = 0;
+	    return 1;
+	};
+	bsg_view_obj_foreach_solid(gedp, cb, &cd);
 	ASSERT(all_down);
     }
 

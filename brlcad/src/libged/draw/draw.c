@@ -88,6 +88,7 @@ dl_add_path(int dashflag, struct bu_list *vhead, const struct db_full_path *path
     struct bv_scene_obj *sp = bv_obj_get(dgcdp->v, BV_DB_OBJS);
     if (!sp)
 	return;
+    sp->s_type_flags |= BSG_NODE_SHAPE;
 
     struct ged_bv_data *bdata = (sp->s_u_data) ? (struct ged_bv_data *)sp->s_u_data : NULL;
     if (!bdata) {
@@ -218,7 +219,7 @@ redraw_solid(struct bv_scene_obj *sp, struct db_i *dbip, struct db_tree_state *t
 }
 
 static int
-dl_redraw(void *gdlp, struct ged *gedp, int skip_subtractions)
+dl_redraw(struct bv_scene_obj *g, struct ged *gedp, int skip_subtractions)
 {
     struct db_i *dbip = gedp->dbip;
     struct rt_wdb *wdbp = wdb_dbopen(gedp->dbip, RT_WDB_TYPE_DB_DEFAULT);
@@ -227,15 +228,18 @@ dl_redraw(void *gdlp, struct ged *gedp, int skip_subtractions)
     int ret = 0;
     struct bv_scene_obj *sp;
     struct bu_list *vlfree = &rt_vlfree;
-    struct bu_list *solids = bsg_view_obj_group_solid_list(gdlp);
-    for (BU_LIST_FOR(sp, bv_scene_obj, solids)) {
+    struct bu_ptbl *solids = &g->children;
+    for (size_t _i = 0; _i < BU_PTBL_LEN(solids); _i++) {
+	sp = (struct bv_scene_obj *)BU_PTBL_GET(solids, _i);
 	if (!skip_subtractions || (skip_subtractions && !sp->s_soldash)) {
 	    ret += redraw_solid(sp, dbip, tsp, gvp, vlfree);
 	}
     }
     /* Phase 6.5 Step 3: fire the per-solid vlist callback for each solid. */
-    for (BU_LIST_FOR(sp, bv_scene_obj, solids))
+    for (size_t _i = 0; _i < BU_PTBL_LEN(solids); _i++) {
+	sp = (struct bv_scene_obj *)BU_PTBL_GET(solids, _i);
 	ged_create_vlist_solid_cb(gedp, sp);
+    }
     return ret;
 }
 
@@ -271,6 +275,7 @@ append_solid_to_display_list(
 
     /* create solid */
     struct bv_scene_obj *sp = bv_obj_get(bv_data->v, BV_DB_OBJS);
+    sp->s_type_flags |= BSG_NODE_SHAPE;
     struct ged_bv_data *bdata = (sp->s_u_data) ? (struct ged_bv_data *)sp->s_u_data : NULL;
     if (!bdata) {
 	BU_GET(bdata, struct ged_bv_data);
@@ -1243,11 +1248,11 @@ _ged_drawtrees(struct ged *gedp, int argc, const char *argv[], int kind, struct 
 		bu_free(eav, "eav");
 		return eret;
 	    } else {
-		void **paths_to_draw;
-		void *gdlp;
+		struct bv_scene_obj **paths_to_draw;
+		struct bv_scene_obj *gdlp;
 
-		paths_to_draw = (void **)
-		    bu_malloc(sizeof(void *) * argc,
+		paths_to_draw = (struct bv_scene_obj **)
+		    bu_malloc(sizeof(struct bv_scene_obj *) * argc,
 		    "redraw paths");
 
 		/* create solids */
@@ -1637,6 +1642,50 @@ ged_ev_core(struct ged *gedp, int argc, const char *argv[])
 }
 
 extern int ged_redraw2_core(struct ged *gedp, int argc, const char *argv[]);
+
+struct dl_redraw_ctx { struct ged *gedp; const char *cmd; int ret; };
+static int
+dl_redraw_all_cb(struct bv_scene_obj *g, void *ud) {
+    struct dl_redraw_ctx *ctx = (struct dl_redraw_ctx *)ud;
+    ctx->ret = dl_redraw(g, ctx->gedp, 0);
+    if (ctx->ret < 0) {
+	bu_vls_printf(ctx->gedp->ged_result_str, "%s: redraw failure\n", ctx->cmd);
+	return 0;
+    }
+    return 1;
+}
+
+struct dl_redraw_path_ctx {
+    struct ged *gedp;
+    const char *cmd;
+    struct db_full_path *obj_path;
+    int found;
+    int ret;
+};
+static int
+dl_redraw_path_cb(struct bv_scene_obj *g, void *ud) {
+    struct dl_redraw_path_ctx *ctx = (struct dl_redraw_path_ctx *)ud;
+    const char *gpath = bsg_view_obj_group_path(g);
+    struct db_full_path dl_path;
+    int r = db_string_to_path(&dl_path, ctx->gedp->dbip, gpath);
+    if (r < 0) {
+	bu_vls_printf(ctx->gedp->ged_result_str, "%s: %s is not a valid path\n",
+		ctx->cmd, gpath);
+	ctx->ret = -1;
+	return 0;
+    }
+    if (db_full_path_match_top(&dl_path, ctx->obj_path)) {
+	ctx->found = 1;
+	db_free_full_path(&dl_path);
+	ctx->ret = dl_redraw(g, ctx->gedp, 0);
+	if (ctx->ret < 0)
+	    bu_vls_printf(ctx->gedp->ged_result_str, "%s: redraw failure\n", ctx->cmd);
+	return 0; /* stop after first match */
+    }
+    db_free_full_path(&dl_path);
+    return 1;
+}
+
 int
 ged_redraw_core(struct ged *gedp, int argc, const char *argv[])
 {
@@ -1644,7 +1693,6 @@ ged_redraw_core(struct ged *gedp, int argc, const char *argv[])
 	return ged_redraw2_core(gedp, argc, argv);
 
     int ret;
-    void *gdlp;
 
     GED_CHECK_DATABASE_OPEN(gedp, BRLCAD_ERROR);
     GED_CHECK_DRAWABLE(gedp, BRLCAD_ERROR);
@@ -1655,18 +1703,16 @@ ged_redraw_core(struct ged *gedp, int argc, const char *argv[])
 
     if (argc == 1) {
 	/* redraw everything */
-	for (gdlp = bsg_view_obj_first_group(gedp); gdlp;
-	     gdlp = bsg_view_obj_next_group(gedp, gdlp))
-	{
-	    ret = dl_redraw(gdlp, gedp, 0);
-	    if (ret < 0) {
-		bu_vls_printf(gedp->ged_result_str, "%s: redraw failure\n", argv[0]);
-		return BRLCAD_ERROR;
-	    }
-	}
+	struct dl_redraw_ctx rctx;
+	rctx.gedp = gedp;
+	rctx.cmd = argv[0];
+	rctx.ret = 0;
+	bsg_view_obj_foreach_group(gedp, dl_redraw_all_cb, &rctx);
+	if (rctx.ret < 0)
+	    return BRLCAD_ERROR;
     } else {
-	int i, found_path;
-	struct db_full_path obj_path, dl_path;
+	int i;
+	struct db_full_path obj_path;
 
 	/* redraw the specified paths */
 	for (i = 1; i < argc; ++i) {
@@ -1677,37 +1723,20 @@ ged_redraw_core(struct ged *gedp, int argc, const char *argv[])
 		return BRLCAD_ERROR;
 	    }
 
-	    found_path = 0;
-	    for (gdlp = bsg_view_obj_first_group(gedp); gdlp;
-		 gdlp = bsg_view_obj_next_group(gedp, gdlp))
-	    {
-		const char *gpath = bsg_view_obj_group_path(gdlp);
-		ret = db_string_to_path(&dl_path, gedp->dbip, gpath);
-		if (ret < 0) {
-		    bu_vls_printf(gedp->ged_result_str,
-			    "%s: %s is not a valid path\n", argv[0], gpath);
-		    return BRLCAD_ERROR;
-		}
-
-		/* this display list path matches/contains the redraw path */
-		if (db_full_path_match_top(&dl_path, &obj_path)) {
-		    found_path = 1;
-		    db_free_full_path(&dl_path);
-
-		    ret = dl_redraw(gdlp, gedp, 0);
-		    if (ret < 0) {
-			bu_vls_printf(gedp->ged_result_str,
-				"%s: %s redraw failure\n", argv[0], argv[i]);
-			return BRLCAD_ERROR;
-		    }
-		    break;
-		}
-		db_free_full_path(&dl_path);
-	    }
+	    struct dl_redraw_path_ctx pctx;
+	    pctx.gedp = gedp;
+	    pctx.cmd = argv[0];
+	    pctx.obj_path = &obj_path;
+	    pctx.found = 0;
+	    pctx.ret = 0;
+	    bsg_view_obj_foreach_group(gedp, dl_redraw_path_cb, &pctx);
 
 	    db_free_full_path(&obj_path);
 
-	    if (!found_path) {
+	    if (pctx.ret < 0)
+		return BRLCAD_ERROR;
+
+	    if (!pctx.found) {
 		bu_vls_printf(gedp->ged_result_str,
 			"%s: %s is not being displayed\n", argv[0], argv[i]);
 		return BRLCAD_ERROR;

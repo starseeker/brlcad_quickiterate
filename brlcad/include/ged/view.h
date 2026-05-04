@@ -229,7 +229,7 @@ GED_EXPORT struct rt_selection_set *ged_get_selection_set(struct ged *gedp,
  */
 typedef void (*ged_drawable_notify_func_t)(int);
 
-GED_EXPORT struct bu_list *
+GED_EXPORT struct bv_scene_obj *
 ged_dl(struct ged *gedp);
 GED_EXPORT void
 ged_dl_notify_func_set(struct ged *gedp, ged_drawable_notify_func_t f);

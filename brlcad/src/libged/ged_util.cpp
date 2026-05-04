@@ -1065,7 +1065,7 @@ ged_scale_args(struct ged *gedp, int argc, const char *argv[], fastf_t *sf1, fas
 
 /* Callback for ged_who_argc to count groups */
 static int
-who_argc_cb(void * /* group_handle */, void *userdata)
+who_argc_cb(struct bv_scene_obj * /* group */, void *userdata)
 {
     size_t *cnt = (size_t *)userdata;
     (*cnt)++;
@@ -1104,15 +1104,15 @@ struct who_argv_data {
 
 /* Callback for ged_who_argv */
 static int
-who_argv_cb(void *group_handle, void *userdata)
+who_argv_cb(struct bv_scene_obj *group, void *userdata)
 {
     struct who_argv_data *data = (struct who_argv_data *)userdata;
 
     /* Skip phony addresses */
-    if (bsg_view_obj_group_is_phony(group_handle))
+    if (bsg_view_obj_group_is_phony(group))
 	return 1;
 
-    const char *path = bsg_view_obj_group_path(group_handle);
+    const char *path = bsg_view_obj_group_path(group);
     if (!path)
 	return 1;
 
@@ -1999,15 +1999,15 @@ struct rt_write_draw_data {
 
 /* Callback for writing draw commands in _ged_rt_write */
 static int
-rt_write_draw_cb(void *group_handle, void *userdata)
+rt_write_draw_cb(struct bv_scene_obj *group, void *userdata)
 {
     struct rt_write_draw_data *data = (struct rt_write_draw_data *)userdata;
 
     /* Skip phony addresses */
-    if (bsg_view_obj_group_is_phony(group_handle))
+    if (bsg_view_obj_group_is_phony(group))
 	return 1;
 
-    const char *path = bsg_view_obj_group_path(group_handle);
+    const char *path = bsg_view_obj_group_path(group);
     if (path)
 	fprintf(data->fp, "draw %s;\n", path);
     return 1; /* continue */
@@ -2584,12 +2584,12 @@ _ged_characterize_pathspec(struct bu_vls *normalized, struct ged *gedp, const ch
 
 #endif
 
-struct bu_list *
+struct bv_scene_obj *
 ged_dl(struct ged *gedp)
 {
     if (!gedp || !gedp->i || !gedp->i->ged_gdp)
 	return NULL;
-    return gedp->i->ged_gdp->gd_headDisplay;
+    return gedp->i->ged_gdp->gd_draw_root;
 }
 
 void

@@ -298,7 +298,7 @@ DM_EXPORT extern int dm_begin_dlist(struct dm *dmp, unsigned int list);
 DM_EXPORT extern int dm_draw_dlist(struct dm *dmp, unsigned int list);
 DM_EXPORT extern int dm_end_dlist(struct dm *dmp);
 DM_EXPORT extern int dm_free_dlists(struct dm *dmp, unsigned int list, int range);
-DM_EXPORT extern int dm_draw_display_list(struct dm *dmp, struct bu_list *solids);
+DM_EXPORT extern int dm_draw_display_list(struct dm *dmp, struct bv_scene_obj *root);
 
 // TODO - this should be using libicv  - right now this is just moving the guts
 // of dmo_png_cmd behind the call table, so only provides PNG...

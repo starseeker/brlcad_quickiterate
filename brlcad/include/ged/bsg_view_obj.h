@@ -20,34 +20,15 @@
 /** @addtogroup ged_view
  *
  * @brief
- * BSG view-object query API.
+ * BSG view-object query API — BSG_NODE_GROUP tree backed.
  *
- * These helpers are the migration target for the legacy
- * src/libged/display_list.c routines that walk the
- * gedp->i->ged_gdp->gd_headDisplay chain.  The drawing-stack
- * modernization plan (Phase 6.5) calls for a phased excision of
- * display_list.c; new and migrated callers should use this API instead
- * of the dl_* / _dl_* / invent_solid functions.
+ * The drawn set is a BSG_NODE_GROUP tree rooted at gd_draw_root:
+ *   - one subgroup per drawn path (BSG_NODE_GROUP), typed as struct bv_scene_obj *
+ *   - each subgroup holds BSG_NODE_SHAPE leaves in a bu_ptbl children list
  *
- * The current implementation is a thin wrapper around the legacy
- * dl_* functions.  This is deliberate: it lets caller migration (Step 2
- * of the plan) proceed against a stable API surface while the
- * implementation is still backed by the well-tested legacy code.  Once
- * every caller has migrated, the implementation will be replaced with a
- * pure BSG view-tree walk and display_list.c will be deleted (Step 7).
- *
- * Migration map (see doc/notes/drawing_stack_modernization.txt
- * Phase 6.5):
- *
- *   dl_addToDisplay              -> bsg_view_obj_lookup_or_add_path
- *   dl_erasePathFromDisplay      -> bsg_view_obj_erase_by_path
- *   _dl_eraseAllNamesFromDisplay -> bsg_view_obj_erase_by_name
- *   _dl_eraseAllPathsFromDisplay -> bsg_view_obj_erase_all_paths
- *   dl_bounding_sph              -> bsg_view_obj_bounds
- *   dl_color_soltab              -> bsg_view_obj_color_from_soltab
- *   invent_solid                 -> bsg_view_obj_invent
- *   dl_set_iflag                 -> bsg_view_obj_set_iflag
- *   dl_name_hash                 -> bsg_view_obj_name_hash
+ * Group iteration: bsg_view_obj_foreach_group(gedp, cb, userdata)
+ *   where cb receives a struct bv_scene_obj * group directly.
+ * Shape iteration per group: BU_PTBL_LEN / BU_PTBL_GET on &group->children
  */
 /** @{ */
 /* @file ged/bsg_view_obj.h */
@@ -59,9 +40,37 @@
 
 #include "vmath.h"
 #include "bu/list.h"
+#include "bu/ptbl.h"
+#include "bsg/visit.h"
 #include "ged/defines.h"
 
 __BEGIN_DECLS
+
+/**
+ * Ensure the per-GED draw root exists (idempotent; safe to call at any time,
+ * including before the first draw command).  Returns the root node or NULL
+ * if no active view is configured.  Called automatically during ged_open so
+ * that GED_CHECK_DRAWABLE always succeeds after initialization.
+ */
+GED_EXPORT extern struct bv_scene_obj *
+bsg_view_obj_ensure_root(struct ged *gedp);
+
+/**
+ * Returns the BSG draw root node (BSG_NODE_GROUP) for @p gedp, or NULL if
+ * no objects have been drawn yet.  Use together with bsg_visit() to iterate
+ * all drawn shapes without going through the per-group wrapper API.
+ *
+ * The root node itself has BSG_NODE_GROUP set; its first-level children are
+ * per-path subgroups (also BSG_NODE_GROUP); their children are the drawn
+ * solid/shape nodes (BSG_NODE_SHAPE).
+ *
+ * Example — visit every drawn solid:
+ * @code
+ *   bsg_visit(bsg_view_obj_root(gedp), BSG_NODE_SHAPE, my_cb, userdata);
+ * @endcode
+ */
+GED_EXPORT extern struct bv_scene_obj *
+bsg_view_obj_root(struct ged *gedp);
 
 /**
  * Look up a drawn path on @p gedp's active view set, or insert a new
@@ -72,7 +81,7 @@ __BEGIN_DECLS
  *
  * Replaces dl_addToDisplay().
  */
-GED_EXPORT extern void *
+GED_EXPORT extern struct bv_scene_obj *
 bsg_view_obj_lookup_or_add_path(struct ged *gedp, const char *path);
 
 /**
@@ -222,73 +231,57 @@ GED_EXPORT extern struct bv_scene_obj *
 bsg_view_obj_prev_solid(struct ged *gedp, struct bv_scene_obj *sp);
 
 /**
- * Returns the scene group (opaque handle; ged_scene_group *) that
- * contains @p sp, or NULL if @p sp is not
- * a member of any current group.
+ * Returns the scene group (struct bv_scene_obj *) that contains @p sp,
+ * or NULL if @p sp is not a member of any current group.
  *
  * Used to update MGED's illum_gdlp after finding the illuminated solid
  * via bsg_view_obj_foreach_solid() or bsg_view_obj_first_solid().
  */
-GED_EXPORT extern void *
+GED_EXPORT extern struct bv_scene_obj *
 bsg_view_obj_group_of_solid(struct ged *gedp, struct bv_scene_obj *sp);
 
 /**
- * Iterate over scene groups, calling @p cb(group_handle,
- * userdata) for each group.  @p cb returns 0 to stop iteration early.
- * The @p group_handle argument to @p cb is an opaque pointer
- * (ged_scene_group *) usable with
+ * Iterate over scene groups, calling @p cb(group, userdata) for each
+ * group.  @p cb returns 0 to stop iteration early.  The @p group
+ * argument to @p cb is a struct bv_scene_obj * usable with
  * bsg_view_obj_group_first_solid(), bsg_view_obj_group_last_solid(),
- * bsg_view_obj_group_is_nonempty(), bsg_view_obj_group_solid_list(),
- * and bsg_view_obj_append_to_last_group().
+ * bsg_view_obj_group_is_nonempty(), and bsg_view_obj_append_solid_to_group().
  *
  * Replaces the outer for-gdlp loop in sites where per-group identity
  * matters (e.g. set.c OpenGL DList range freeing).
  */
 GED_EXPORT extern void
 bsg_view_obj_foreach_group(struct ged *gedp,
-			   int (*cb)(void *group_handle, void *userdata),
+			   int (*cb)(struct bv_scene_obj *group, void *userdata),
 			   void *userdata);
 
 /**
- * Returns the first drawn scene object in a group returned by
- * bsg_view_obj_foreach_group(), or NULL if the group is empty.
+ * Returns the first drawn scene object in a group, or NULL if the group is empty.
  */
 GED_EXPORT extern struct bv_scene_obj *
-bsg_view_obj_group_first_solid(void *group_handle);
+bsg_view_obj_group_first_solid(struct bv_scene_obj *group);
 
 /**
- * Returns the last drawn scene object in a group returned by
- * bsg_view_obj_foreach_group(), or NULL if the group is empty.
+ * Returns the last drawn scene object in a group, or NULL if the group is empty.
  */
 GED_EXPORT extern struct bv_scene_obj *
-bsg_view_obj_group_last_solid(void *group_handle);
+bsg_view_obj_group_last_solid(struct bv_scene_obj *group);
 
 /**
- * Returns 1 if a group returned by bsg_view_obj_foreach_group() has
- * at least one drawn solid, 0 otherwise.
+ * Returns 1 if a group has at least one drawn solid, 0 otherwise.
  */
 GED_EXPORT extern int
-bsg_view_obj_group_is_nonempty(void *group_handle);
+bsg_view_obj_group_is_nonempty(struct bv_scene_obj *group);
 
 /**
- * Returns a pointer to the bu_list head of the solid list for a group
- * returned by bsg_view_obj_foreach_group().  Suitable for use as the
- * third argument to BU_LIST_FOR, replacing &gdlp->dl_head_scene_obj.
- * Returns NULL if @p group_handle is NULL.
- */
-GED_EXPORT extern struct bu_list *
-bsg_view_obj_group_solid_list(void *group_handle);
-
-/**
- * Returns the path string associated with a group returned by
- * bsg_view_obj_foreach_group(), or NULL if @p group_handle is NULL.
- * The pointer is valid only for the lifetime of the group; callers
- * that need to retain it across draw modifications should copy.
+ * Returns the path string associated with a group, or NULL if @p group
+ * is NULL.  The pointer is valid only for the lifetime of the group;
+ * callers that need to retain it across draw modifications should copy.
  *
  * Replaces direct reads of gdlp->dl_path.
  */
 GED_EXPORT extern const char *
-bsg_view_obj_group_path(void *group_handle);
+bsg_view_obj_group_path(struct bv_scene_obj *group);
 
 /**
  * Append @p sp to the last display-list group in @p gedp's draw set.
@@ -303,14 +296,13 @@ GED_EXPORT extern void
 bsg_view_obj_append_to_last_group(struct ged *gedp, struct bv_scene_obj *sp);
 
 /**
- * Set or update the path string associated with a group returned by
- * bsg_view_obj_foreach_group().  @p group_handle must be a valid group
- * and @p new_path must be non-NULL.
+ * Set or update the path string associated with a group.  @p group
+ * must be a valid group and @p new_path must be non-NULL.
  *
  * Replaces direct writes to gdlp->dl_path via bu_vls_free/bu_vls_printf.
  */
 GED_EXPORT extern void
-bsg_view_obj_group_set_path(void *group_handle, const char *new_path);
+bsg_view_obj_group_set_path(struct bv_scene_obj *group, const char *new_path);
 
 /**
  * Returns 1 if the group is a pseudo-solid (phony), 0 otherwise.
@@ -320,7 +312,7 @@ bsg_view_obj_group_set_path(void *group_handle, const char *new_path);
  * RT_DIR_PHONY_ADDR.
  */
 GED_EXPORT extern int
-bsg_view_obj_group_is_phony(void *group_handle);
+bsg_view_obj_group_is_phony(struct bv_scene_obj *group);
 
 /**
  * Erase all display-list groups from @p gedp's drawn-object set,
@@ -338,31 +330,13 @@ GED_EXPORT extern int
 bsg_view_obj_has_groups(struct ged *gedp);
 
 /**
- * Return a handle to the first group in @p gedp's draw set, or NULL
- * if the draw set is empty.  Used together with bsg_view_obj_next_group()
- * for simple for-loop iteration over all groups without a callback:
- *
- *   for (void *g = bsg_view_obj_first_group(gedp); g;
- *        g = bsg_view_obj_next_group(gedp, g)) { ... }
- */
-GED_EXPORT extern void *
-bsg_view_obj_first_group(struct ged *gedp);
-
-/**
- * Return the group handle that follows @p group_handle in @p gedp's
- * draw set, or NULL when @p group_handle is the last group.
- */
-GED_EXPORT extern void *
-bsg_view_obj_next_group(struct ged *gedp, void *group_handle);
-
-/**
- * Append @p sp to the solid list of the specific group @p group_handle.
+ * Append @p sp to the solid list of the specific group @p group.
  * Unlike bsg_view_obj_append_to_last_group(), this targets an arbitrary
  * group rather than always using the last one.  Used by the parallel
  * drawing path in draw.c / bigE.c where the group was looked up earlier.
  */
 GED_EXPORT extern void
-bsg_view_obj_append_solid_to_group(void *group_handle,
+bsg_view_obj_append_solid_to_group(struct bv_scene_obj *group,
 				   struct bv_scene_obj *sp);
 
 __END_DECLS
