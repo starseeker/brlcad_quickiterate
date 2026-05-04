@@ -34,14 +34,52 @@
 
 #include "common.h"
 
+#include "bu/list.h"
 #include "bu/ptbl.h"
 #include "bu/str.h"
 #include "bu/vls.h"
 #include "bv/defines.h"
 #include "bv/util.h"
+#include "bv/vlist.h"
 
 #include "bsg/defines.h"
+#include "bsg/draw_ctx.h"
 #include "bsg/draw_set.h"
+
+
+/* ------------------------------------------------------------------ */
+/* Internal helpers                                                    */
+/* ------------------------------------------------------------------ */
+
+/*
+ * FREE_BV_SCENE_OBJ: recycle a bv_scene_obj back into the free-pool
+ * list @p fp and free its vlist data using the vlist pool @p vlf.
+ *
+ * This mirrors the identical macro defined in src/libged/bsg_view_obj.c
+ * and src/libbv/vlist.c.  It is defined here as a file-private macro so
+ * that libbsg/draw_set.c can call it without pulling in libged or librt.
+ */
+#define FREE_BV_SCENE_OBJ(p, fp, vlf) { \
+    BU_LIST_APPEND(fp, &((p)->l)); \
+    BV_FREE_VLIST(vlf, &((p)->s_vlist)); }
+
+
+/*
+ * Walk node @p n up to the draw root and return the bsg_draw_ctx stored
+ * in root->s_i_data.  Returns NULL if the root has no context.
+ */
+static struct bsg_draw_ctx *
+_ctx_of_node(struct bv_scene_obj *n)
+{
+    if (!n)
+	return NULL;
+    while (n->parent)
+	n = (struct bv_scene_obj *)n->parent;
+    return (struct bsg_draw_ctx *)n->s_i_data;
+}
+
+
+/* ------------------------------------------------------------------ */
 
 
 int
@@ -112,6 +150,107 @@ bsg_group_ensure_child(bsg_node *parent, struct bview *v,
     bu_ptbl_ins(&p->children, (long *)child);
 
     return (bsg_node *)child;
+}
+
+
+/* ------------------------------------------------------------------ */
+/* Free-group helpers (Phase 7 Step 11)                               */
+/* ------------------------------------------------------------------ */
+
+void
+bsg_bump_rev_node(bsg_node *n)
+{
+    if (!n)
+	return;
+    struct bv_scene_obj *cur = (struct bv_scene_obj *)n;
+    /* Walk up to root (parent == NULL) */
+    while (cur->parent)
+	cur = (struct bv_scene_obj *)cur->parent;
+    /* cur is the draw root; s_i_data holds the bsg_draw_ctx */
+    if (cur->s_i_data) {
+	struct bsg_draw_ctx *ctx = (struct bsg_draw_ctx *)cur->s_i_data;
+	if (ctx->draw_rev)
+	    ++(*ctx->draw_rev);
+    }
+}
+
+
+void
+bsg_free_children_recursive(bsg_node *gn, struct bv_scene_obj *fso)
+{
+    struct bv_scene_obj *g = (struct bv_scene_obj *)gn;
+
+    struct bu_ptbl snap = BU_PTBL_INIT_ZERO;
+    for (size_t i = 0; i < BU_PTBL_LEN(&g->children); i++)
+	bu_ptbl_ins(&snap, BU_PTBL_GET(&g->children, i));
+
+    for (size_t i = 0; i < BU_PTBL_LEN(&snap); i++) {
+	struct bv_scene_obj *child =
+	    (struct bv_scene_obj *)BU_PTBL_GET(&snap, i);
+	if (child->s_type_flags & BSG_NODE_GROUP) {
+	    bsg_free_children_recursive((bsg_node *)child, fso);
+	    child->parent = NULL;
+	    struct bv_scene_obj *cfso = child->free_scene_obj;
+	    if (cfso)
+		FREE_BV_SCENE_OBJ(child, &cfso->l, child->vlfree);
+	} else {
+	    /* Fire per-object teardown callbacks before recycling.
+	     * s_dlist_free_callback releases display-list GPU resources
+	     * registered by libdm.  s_free_callback fires the illumination-
+	     * clear registered as ged_bv_illum_free_cb at shape-creation
+	     * time (Phase 7 Steps 8-9). */
+	    if (child->s_dlist_free_callback)
+		(*child->s_dlist_free_callback)(child);
+	    if (child->s_free_callback)
+		(*child->s_free_callback)(child);
+	    child->parent = NULL;
+	    struct bv_scene_obj *sfso = fso ? fso : child->free_scene_obj;
+	    if (sfso)
+		FREE_BV_SCENE_OBJ(child, &sfso->l, child->vlfree);
+	}
+    }
+    bu_ptbl_free(&snap);
+    bu_ptbl_reset(&g->children);
+}
+
+
+void
+bsg_free_group_contents(bsg_node *gn)
+{
+    struct bv_scene_obj *g = (struct bv_scene_obj *)gn;
+    if (!g || BU_PTBL_LEN(&g->children) == 0)
+	return;
+
+    /* Obtain the free-object pool pointer from the draw-tree context
+     * stored in the root's s_i_data.  Fall back to the group's own
+     * free_scene_obj if no context is present. */
+    struct bsg_draw_ctx *ctx = _ctx_of_node(g);
+    struct bv_scene_obj *fso = (ctx && ctx->fso) ? ctx->fso : g->free_scene_obj;
+
+    bsg_free_children_recursive(gn, fso);
+}
+
+
+void
+bsg_free_group(bsg_node *gn)
+{
+    struct bv_scene_obj *g = (struct bv_scene_obj *)gn;
+    if (!g)
+	return;
+
+    bsg_free_group_contents(gn);
+
+    struct bv_scene_obj *parent = (struct bv_scene_obj *)g->parent;
+    if (parent)
+	bu_ptbl_rm(&parent->children, (const long *)g);
+
+    /* g->parent is still set at this point; walk up to root for ctx */
+    bsg_bump_rev_node(gn);
+
+    g->parent = NULL;
+    struct bv_scene_obj *fso = g->free_scene_obj;
+    if (fso)
+	FREE_BV_SCENE_OBJ(g, &fso->l, g->vlfree);
 }
 
 

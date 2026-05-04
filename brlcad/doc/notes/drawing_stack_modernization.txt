@@ -636,9 +636,9 @@ libbsg, libdm, libtclcad all build without warnings.
 
 == Phase 7 — Swap or graft Obol underneath libbsg ==
 
-Status: IN PROGRESS — BSG draw-tree refactor Steps 1–10 complete;
-         libbsg migration (C1/C3) and FieldSensor color work (B4) remain
-         (see change log below for current state and next steps).
+Status: IN PROGRESS — BSG draw-tree refactor Steps 1–12 complete (Step 12
+         partial: Steps 11 and 14 done this session); libbsg migration (C1/C3)
+         further work (Steps 12–13) and final rename (Step 15) remain.
 
 Two strategies:
   Backend-style: libbsg keeps its public API; implementations delegate to Obol.
@@ -1926,13 +1926,13 @@ Deprecation policy
               Build: libged — zero errors.
               Regression: ged_test_bsg_view_obj 97/97 PASS.
 
-   2026-05-04  Phase 7 — Current state after Step 10 and next steps
+   2026-05-04  Phase 7 — Steps 11 and 14 complete
 
-              ── What is done ──────────────────────────────────────────────
+              ── What is done (Steps 1–11 + 14) ───────────────────────────
 
               All seven originally-planned steps from the post-session audit
-              (Steps 1–7) are complete, plus three additional steps (8–10)
-              that became apparent during implementation:
+              (Steps 1–7) are complete, plus additional steps 8–11 and 14
+              that became apparent or were planned during implementation:
 
                 Step 1+2  B6+B3:  _overlays group, BSG_PAYLOAD_OVERLAY,
                                    bounds fix.
@@ -1954,58 +1954,72 @@ Deprecation policy
                                    gv_draw_root->s_i_data; _sg_bump_rev(gedp)
                                    macro deleted; gedp removed from
                                    _sg_free_children_recursive signature.
+                Step 11   C1 (a): bsg_draw_ctx extended with struct
+                                   bv_scene_obj *fso field (set in _sg_root
+                                   via bv_set_fsos).  Four helpers moved to
+                                   libbsg/draw_set.c as BSG_EXPORT API:
+                                     bsg_bump_rev_node()
+                                     bsg_free_children_recursive(g, fso)
+                                     bsg_free_group_contents(g)
+                                     bsg_free_group(g)
+                                   bsg_view_obj.c now has thin one-line
+                                   wrappers (_sg_bump_rev_node, _sg_free_group,
+                                   _sg_free_group_contents) that delegate to
+                                   libbsg.  gedp removed from both
+                                   _sg_free_group_contents and _sg_free_group.
+                                   Added missing #include "bv/view_sets.h" to
+                                   bsg_view_obj.c.  97/97 PASS.
+                Step 14   B4 (infrastructure): added uint32_t s_color_rev
+                                   to struct bv_scene_obj (bv/defines.h).
+                                   _color_solid_cb now uses a _color_ctx
+                                   struct (dbip + mater_rev) and stamps each
+                                   shape with s_color_rev = mater_rev after
+                                   coloring.  Skip check: if s_color_rev ==
+                                   ctx.mater_rev the shape is already at the
+                                   current generation and is skipped.  The
+                                   skip does not fire yet in practice because
+                                   gd_mater_rev is still bumped inside every
+                                   color_from_soltab call; the full lazy-color
+                                   optimization requires external material-
+                                   change events to bump gd_mater_rev (a
+                                   future step).  97/97 PASS.
 
               ── What remains ──────────────────────────────────────────────
 
-              B4 (rest)
-                  The mater_rev counter (gd_mater_rev, bumped on every
-                  bsg_view_obj_color_from_soltab sweep) is in place.  The
-                  full FieldSensor-per-shape approach — where each
-                  BSG_NODE_SHAPE would hold a version stamp and the sweep
-                  is skipped unless the stamp is stale — is deferred.  It
-                  requires adding a per-solid version field to bv_scene_obj
-                  (include/bv/defines.h) which does not yet exist.
+              B4 (full lazy-color)
+                  The per-shape s_color_rev stamp is in place (Step 14).
+                  The skip currently never fires because gd_mater_rev is
+                  bumped inside every color_from_soltab call.  To activate
+                  the optimization, gd_mater_rev must be bumped by material-
+                  change events (mater table reload, user "color" command,
+                  etc.) rather than by the sweep itself.  Doing so requires
+                  auditing all sites that change the material table.
 
               C1 / C3 (rest)
-                  bsg_view_obj.c still lives in src/libged/ (~1600 lines
-                  as of Step 10).  The remaining GED/librt dependencies
-                  that prevent a full move to libbsg are:
+                  bsg_view_obj.c still lives in src/libged/ (~1500 lines
+                  after Step 11).  Remaining GED/librt dependencies:
 
-                  a. _sg_free_group_contents / _sg_free_group:
-                       bv_set_fsos(&gedp->ged_views) — free-object pool.
-                       Once the pool ptr (or a wrapper) is stored in
-                       bsg_draw_ctx (root->s_i_data), gedp is no longer
-                       needed here.
-
-                  b. _sg_erase_nested_subpath case (b):
+                  a. _sg_erase_nested_subpath case (b):
                        Casts s_u_data to struct ged_bv_data * (GED type)
                        and calls db_full_path_match_top() (librt).
-                       Options: move the path-match predicate into a
-                       stored callback on the shape node, or pass a
-                       typed match-fn into the helper.
+                       Options: store a path-match callback in bsg_draw_ctx,
+                       or pass a typed match-fn into the helper.  Then the
+                       function can move to libbsg/draw_set.c.
 
-                  c. _sg_add_path / _sg_erase_path:
+                  b. _sg_add_path / _sg_erase_path:
                        Use db_string_to_path, db_lookup (librt), and
                        gedp->dbip.  These require librt semantics and
                        will stay in libged; only the pure tree-manipulation
                        part (bsg_group_ensure_child calls) belongs in libbsg.
 
-                  d. Overlay helpers (_sg_overlay_root,
+                  c. Overlay helpers (_sg_overlay_root,
                      _sg_erase_overlay_by_name, _sg_invent):
                        Use gedp->ged_gvp (bview) and gedp->dbip.  The db-
                        lookup guard and callback registration belong in
-                       libged.  The pure tree manipulation (bsg_group_ensure_
-                       child, FREE_BV_SCENE_OBJ) could go to libbsg/overlay.c
-                       once (a) is resolved.
+                       libged.  The pure tree manipulation could go to
+                       libbsg/overlay.c once (a) is resolved.
 
-              ── Steps 11–15 (next session) ───────────────────────────────
-
-              Step 11  C1 (a): store the free-object pool pointer in
-                          bsg_draw_ctx (extend struct bsg_draw_ctx with a
-                          struct bv_scene_obj *fso field; set it in _sg_root
-                          alongside draw_rev).  Remove gedp from
-                          _sg_free_group_contents and _sg_free_group; move
-                          both to libbsg/draw_set.c.
+              ── Steps 12–15 (next session) ───────────────────────────────
 
               Step 12  C1 (b): abstract the path-match in
                           _sg_erase_nested_subpath case (b) — e.g., add a
@@ -2020,13 +2034,6 @@ Deprecation policy
                           _sg_erase_overlay_by_name into libbsg/overlay.c.
                           The GED-specific db-lookup and callback
                           registration remain in a thin libged wrapper.
-
-              Step 14  B4 (rest): add a uint32_t s_color_rev (or similar
-                          version stamp) to bv_scene_obj (bv/defines.h).
-                          bsg_view_obj_color_from_soltab bumps the stamp on
-                          the shape, skips shapes whose stamp already matches
-                          gd_mater_rev.  Eliminates the full-tree sweep on
-                          repeated color queries.
 
               Step 15  C3 (final): once libbsg/{draw_set,overlay}.c hold
                           all pure tree logic and bsg_view_obj.c contains

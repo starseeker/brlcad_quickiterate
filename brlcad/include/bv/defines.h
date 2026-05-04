@@ -256,6 +256,7 @@ struct bv_scene_obj  {
     char s_iflag;	        /**< @brief  UP = illuminated, DOWN = regular */
     int s_force_draw;           /**< @brief  1 = overrides s_flag and s_iflag - always draw (allows parents to force children to be visible) */
     unsigned char s_color[3];	/**< @brief  color to draw as */
+    uint32_t s_color_rev;       /**< @brief  material-revision stamp; set to gd_mater_rev each time this shape's color is recalculated by bsg_view_obj_color_from_soltab (B4 infrastructure, Phase 7 Step 14) */
     int s_soldash;		/**< @brief  solid/dashed line flag: 0 = solid, 1 = dashed*/
     int s_arrow;		/**< @brief  arrow flag for view object drawing routines */
     int s_changed;		/**< @brief  changed flag - set by s_update_callback if a change occurred */

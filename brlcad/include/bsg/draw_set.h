@@ -43,7 +43,8 @@
 
 __BEGIN_DECLS
 
-struct bview;   /* forward-declare to avoid circular includes */
+struct bview;          /* forward-declare to avoid circular includes */
+struct bv_scene_obj;   /* forward-declare to avoid circular includes */
 
 /**
  * Return the depth of node @p g in its BSG tree.
@@ -95,6 +96,78 @@ bsg_group_find_child(bsg_node *parent, const char *name);
 BSG_EXPORT extern bsg_node *
 bsg_group_ensure_child(bsg_node *parent, struct bview *v,
 		       const char *name, void *dp_hint);
+
+
+/**
+ * Walk from node @p n to the draw root and bump the structural revision
+ * counter stored in the root's bsg_draw_ctx.
+ *
+ * Call on every add or remove of a group or shape node in the draw tree.
+ * Does nothing if @p n is NULL or if the root has no bsg_draw_ctx.
+ *
+ * Replaces the file-private @c _sg_bump_rev_node() helper in
+ * src/libged/bsg_view_obj.c (Phase 7 Step 11).
+ */
+BSG_EXPORT extern void
+bsg_bump_rev_node(bsg_node *n);
+
+
+/**
+ * Recursively free all descendant nodes of @p g (shapes and nested
+ * sub-groups) without freeing @p g itself.
+ *
+ * @p fso must be the free-object pool pointer for this draw tree.
+ * Obtain it from the bsg_draw_ctx that the root's s_i_data points to
+ * (field bsg_draw_ctx::fso), or fall back to the individual node's
+ * free_scene_obj field.
+ *
+ * Each freed shape node has its s_dlist_free_callback and s_free_callback
+ * fired before recycling.  Group nodes are freed recursively.
+ *
+ * This function does NOT bump the draw-tree revision counter; callers
+ * must call bsg_bump_rev_node() at the appropriate ancestor.
+ *
+ * Replaces the file-private @c _sg_free_children_recursive() helper in
+ * src/libged/bsg_view_obj.c (Phase 7 Step 11).
+ */
+BSG_EXPORT extern void
+bsg_free_children_recursive(bsg_node *g, struct bv_scene_obj *fso);
+
+
+/**
+ * Free all descendant nodes of @p g without freeing @p g itself.
+ *
+ * Obtains the free-object pool pointer from the bsg_draw_ctx stored in
+ * the draw root's s_i_data (field bsg_draw_ctx::fso).  Falls back to
+ * the individual node's free_scene_obj field when the context is absent.
+ *
+ * This function does NOT bump the draw-tree revision counter; callers
+ * must call bsg_bump_rev_node() at the appropriate ancestor after
+ * structural changes.
+ *
+ * Replaces the file-private @c _sg_free_group_contents() helper in
+ * src/libged/bsg_view_obj.c (Phase 7 Step 11).
+ */
+BSG_EXPORT extern void
+bsg_free_group_contents(bsg_node *g);
+
+
+/**
+ * Free the entire subtree rooted at @p g, including @p g itself.
+ *
+ * Removes @p g from its parent's children table, bumps the draw-tree
+ * revision counter, then frees all descendants followed by @p g itself.
+ *
+ * It is safe to call this function on a group that has already been
+ * unlinked from its parent (parent == NULL), but in that case the
+ * revision bump is a no-op.
+ *
+ * Replaces the file-private @c _sg_free_group() helper in
+ * src/libged/bsg_view_obj.c (Phase 7 Step 11).
+ */
+BSG_EXPORT extern void
+bsg_free_group(bsg_node *g);
+
 
 __END_DECLS
 

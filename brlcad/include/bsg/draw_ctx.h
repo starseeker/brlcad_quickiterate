@@ -38,14 +38,27 @@
 
 #include <stdint.h>
 
+struct bv_scene_obj; /* forward-declare to avoid circular includes */
+
 /**
  * Per-root draw-tree context.  Stored in the draw root's s_i_data by
  * the owner that creates the root.  Accessed (read-only pointer) by
- * libbsg helpers that need to bump the revision counter without access
- * to the owning application's private state.
+ * libbsg helpers that need to bump the revision counter or free objects
+ * without access to the owning application's private state.
+ *
+ * Fields:
+ *   draw_rev  - pointer to the owner's structural revision counter
+ *               (set by libged to &ged_drawable::gd_draw_rev at root-
+ *               creation time, Phase 7 Step 10).
+ *   fso       - pointer to the draw-tree's free-object pool node whose
+ *               bu_list chain is used for FREE_BV_SCENE_OBJ recycling
+ *               (set by libged via bv_set_fsos at root-creation time,
+ *               Phase 7 Step 11).  If NULL, individual node->free_scene_obj
+ *               pointers are used as fallback.
  */
 struct bsg_draw_ctx {
-    uint64_t *draw_rev;  /**< @brief pointer to the owner's revision counter */
+    uint64_t          *draw_rev;  /**< @brief pointer to the owner's revision counter */
+    struct bv_scene_obj *fso;     /**< @brief free-object pool for this draw tree */
 };
 
 #endif /* BSG_DRAW_CTX_H */
