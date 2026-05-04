@@ -100,7 +100,7 @@ TCL_LIB_FLAG='-ltcl8.6'
 
 # String to pass to linker to pick up the Tcl library from its
 # build directory.
-TCL_BUILD_LIB_SPEC='-L/home/cyapp/bext_quickiterate/tcl/TCL_BLD-prefix/src/TCL_BLD-build -ltcl8.6'
+TCL_BUILD_LIB_SPEC='-L/home/cyapp/bext/build_quick/tcl/TCL_BLD-prefix/src/TCL_BLD-build -ltcl8.6'
 
 # String to pass to linker to pick up the Tcl library from its
 # installed directory.
@@ -135,7 +135,7 @@ TCL_UNSHARED_LIB_SUFFIX='${VERSION}.a'
 # different place than the directory containing the source files, this
 # points to the location of the sources, not the location where Tcl was
 # compiled.
-TCL_SRC_DIR='/home/cyapp/bext_quickiterate/tcl/TCL_BLD-prefix/src/TCL_BLD'
+TCL_SRC_DIR='/home/cyapp/bext/build_quick/tcl/TCL_BLD-prefix/src/TCL_BLD'
 
 # List of standard directories in which to look for packages during
 # "package require" commands.  Contains the "prefix" directory plus also
@@ -153,14 +153,14 @@ TCL_STUB_LIB_FLAG='-ltclstub8.6'
 
 # String to pass to linker to pick up the Tcl stub library from its
 # build directory.
-TCL_BUILD_STUB_LIB_SPEC='-L/home/cyapp/bext_quickiterate/tcl/TCL_BLD-prefix/src/TCL_BLD-build -ltclstub8.6'
+TCL_BUILD_STUB_LIB_SPEC='-L/home/cyapp/bext/build_quick/tcl/TCL_BLD-prefix/src/TCL_BLD-build -ltclstub8.6'
 
 # String to pass to linker to pick up the Tcl stub library from its
 # installed directory.
 TCL_STUB_LIB_SPEC='-L/home/cyapp/brlcad_quickiterate/bext_output/install/lib -ltclstub8.6'
 
 # Path to the Tcl stub library in the build directory.
-TCL_BUILD_STUB_LIB_PATH='/home/cyapp/bext_quickiterate/tcl/TCL_BLD-prefix/src/TCL_BLD-build/libtclstub8.6.a'
+TCL_BUILD_STUB_LIB_PATH='/home/cyapp/bext/build_quick/tcl/TCL_BLD-prefix/src/TCL_BLD-build/libtclstub8.6.a'
 
 # Path to the Tcl stub library in the install directory.
 TCL_STUB_LIB_PATH='/home/cyapp/brlcad_quickiterate/bext_output/install/lib/libtclstub8.6.a'

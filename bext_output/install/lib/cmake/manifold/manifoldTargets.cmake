@@ -19,7 +19,7 @@ set(CMAKE_IMPORT_FILE_VERSION 1)
 set(_cmake_targets_defined "")
 set(_cmake_targets_not_defined "")
 set(_cmake_expected_targets "")
-foreach(_cmake_expected_target IN ITEMS manifold::manifold)
+foreach(_cmake_expected_target IN ITEMS manifold::manifold manifold::manifold-static)
   list(APPEND _cmake_expected_targets "${_cmake_expected_target}")
   if(TARGET "${_cmake_expected_target}")
     list(APPEND _cmake_targets_defined "${_cmake_expected_target}")
@@ -63,6 +63,16 @@ set_target_properties(manifold::manifold PROPERTIES
   INTERFACE_COMPILE_OPTIONS "-DMANIFOLD_DEBUG;-DMANIFOLD_CROSS_SECTION;-DMANIFOLD_PAR=-1"
   INTERFACE_INCLUDE_DIRECTORIES "${_IMPORT_PREFIX}/include"
   INTERFACE_LINK_LIBRARIES "\$<\$<BOOL:OFF>:TracyClient>"
+)
+
+# Create imported target manifold::manifold-static
+add_library(manifold::manifold-static STATIC IMPORTED)
+
+set_target_properties(manifold::manifold-static PROPERTIES
+  INTERFACE_COMPILE_DEFINITIONS "MANIFOLD_DEBUG;MANIFOLD_CROSS_SECTION;MANIFOLD_PAR=-1"
+  INTERFACE_COMPILE_FEATURES "cxx_std_17"
+  INTERFACE_INCLUDE_DIRECTORIES "${_IMPORT_PREFIX}/include;${_IMPORT_PREFIX}/include"
+  INTERFACE_LINK_LIBRARIES "\$<\$<BOOL:OFF>:TracyClient>;\$<LINK_ONLY:\$<\$<BOOL:ON>:Clipper2::Clipper2-static>>;\$<LINK_ONLY:\$<\$<BOOL:OFF>:TBB::tbb>>;\$<LINK_ONLY:\$<\$<BOOL:OFF>:assimp::assimp>>"
 )
 
 if(CMAKE_VERSION VERSION_LESS 2.8.12)
