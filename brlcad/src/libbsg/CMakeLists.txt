@@ -1,11 +1,13 @@
 set(
   LIBBSG_SRCS
+  draw_set.c
   field.c
   lod.cpp
   node_group.c
   node_root.c
   node_shape.c
   node_transform.c
+  overlay.c
   payload.c
   scene_graph.cpp
   sensor.c
@@ -29,11 +31,14 @@ add_subdirectory(tests)
 
 cmakefiles(
   CMakeLists.txt
+  bsg_private.h
+  draw_set.c
   field.c
   node_group.c
   node_root.c
   node_shape.c
   node_transform.c
+  overlay.c
   payload.c
   sensor.c
   visit.c

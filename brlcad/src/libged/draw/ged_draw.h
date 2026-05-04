@@ -34,6 +34,7 @@
 __BEGIN_DECLS
 
 struct ged_solid_data {
+    struct ged *gedp;
     struct bv_scene_obj *gdlp;
     int draw_solid_lines_only;
     int wireframe_color_override;

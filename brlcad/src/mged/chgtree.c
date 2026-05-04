@@ -152,7 +152,14 @@ _find_solid_with_path_cb(bsg_node *n, void *ud)
     if (!sp->s_u_data) return 1;
     struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
     if (!db_identical_full_paths(d->pathp, &bdata->s_fullpath)) return 1;
-    illum_gdlp = sp->parent;
+    /* Walk up to the root child (depth-1 group) */
+    {
+	struct bv_scene_obj *_g = (struct bv_scene_obj *)sp->parent;
+	while (_g && _g->parent &&
+	       ((struct bv_scene_obj *)_g->parent)->parent != NULL)
+	    _g = (struct bv_scene_obj *)_g->parent;
+	illum_gdlp = _g;
+    }
     d->ret = sp;
     d->count++;
     return 1; /* keep scanning for duplicates */

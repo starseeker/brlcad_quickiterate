@@ -40,6 +40,7 @@
 #include "rt/geom.h"
 #include "bv/defines.h"
 #include "bv/util.h"
+#include "bsg/draw_ctx.h"
 #include "ged.h"
 #include "include/plugin.h"
 
@@ -77,6 +78,9 @@ struct vd_curve {
 struct ged_drawable {
     struct bv_scene_obj         *gd_draw_root;          /**< @brief  BSG_NODE_GROUP root of drawn-set tree */
     uint64_t                     gd_draw_rev;           /**< @brief  monotonic revision counter; bumped on every structural mutation of the draw tree; reset to 0 by bsg_view_obj_zap */
+    struct bsg_draw_ctx          bsg_ctx;               /**< @brief  draw-tree context stored in gd_draw_root->s_i_data; draw_rev points at gd_draw_rev so freeing helpers can bump without gedp (Phase 7 Step 10) */
+    struct bv_scene_obj         *gd_illum_solid;        /**< @brief  currently illuminated solid, or NULL; enables O(1) set_iflag(DOWN) when single-solid illumination is tracked (B5) */
+    uint64_t                     gd_mater_rev;          /**< @brief  mater-table revision counter; bumped whenever color_from_soltab runs; lazy-color consumers compare against a saved value to skip redundant sweeps (B4) */
     struct bu_list              *gd_headVDraw;          /**< @brief  head of vdraw list */
     struct vd_curve             *gd_currVHead;          /**< @brief  current vdraw head */
 

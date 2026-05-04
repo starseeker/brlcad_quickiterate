@@ -142,6 +142,35 @@ GED_EXPORT extern void
 bsg_view_obj_set_iflag(struct ged *gedp, int iflag);
 
 /**
+ * Register @p sp as the single currently-illuminated solid (B5).
+ * Clears any previously registered solid's s_iflag to DOWN first.
+ * Pass NULL to deregister (signals that set_iflag(DOWN) must fall back
+ * to the O(N) sweep because multiple solids may be in the UP state).
+ *
+ * Call this after any operation that illuminates exactly one solid so
+ * that the subsequent bsg_view_obj_set_iflag(gedp, DOWN) can run in O(1)
+ * instead of sweeping the whole draw tree.
+ */
+GED_EXPORT extern void
+bsg_view_obj_set_illum(struct ged *gedp, struct bv_scene_obj *sp);
+
+/**
+ * Return the currently-tracked illuminated solid, or NULL when none is
+ * registered or tracking has been invalidated.
+ */
+GED_EXPORT extern struct bv_scene_obj *
+bsg_view_obj_get_illum(const struct ged *gedp);
+
+/**
+ * Return the mater-revision counter (B4 partial).  The counter is
+ * incremented each time bsg_view_obj_color_from_soltab() completes a
+ * sweep.  Callers that cache per-solid color data can store a snapshot
+ * and skip redundant recolor calls when the value is unchanged.
+ */
+GED_EXPORT extern uint64_t
+bsg_view_obj_mater_rev(const struct ged *gedp);
+
+/**
  * Refresh per-object base color from the dbip's region/material table
  * (mater_struct chain) for every drawn scene object.
  *
@@ -386,14 +415,31 @@ GED_EXPORT extern int
 bsg_view_obj_has_groups(struct ged *gedp);
 
 /**
- * Append @p sp to the solid list of the specific group @p group.
+ * Append @p sp to the solid list of the specific group @p group,
+ * creating nested sub-group nodes as needed based on @p sp's db_full_path.
  * Unlike bsg_view_obj_append_to_last_group(), this targets an arbitrary
  * group rather than always using the last one.  Used by the parallel
  * drawing path in draw.c / bigE.c where the group was looked up earlier.
+ *
+ * @p gedp is required when @p sp has a db_full_path deeper than the current
+ * group depth, so that intermediate sub-group nodes can be created.
  */
 GED_EXPORT extern void
-bsg_view_obj_append_solid_to_group(struct bv_scene_obj *group,
+bsg_view_obj_append_solid_to_group(struct ged *gedp,
+				   struct bv_scene_obj *group,
 				   struct bv_scene_obj *sp);
+
+/**
+ * Per-solid s_free_callback that clears the GED illumination tracker
+ * (gd_illum_solid) when the shape being freed is currently registered as the
+ * illuminated solid.
+ *
+ * Register this on every BSG_NODE_SHAPE node at creation time alongside
+ * setting ged_bv_data::gedp.  The BSG freeing paths call it explicitly before
+ * FREE_BV_SCENE_OBJ; bv_free() calls it again during pool teardown, but the
+ * second call is a safe no-op (Phase 7 Step 9).
+ */
+GED_EXPORT extern void ged_bv_illum_free_cb(struct bv_scene_obj *sp);
 
 __END_DECLS
 

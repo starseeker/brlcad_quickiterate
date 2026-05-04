@@ -47,6 +47,8 @@
 #include <ged.h>
 #include "ged/bsg_view_obj.h"
 #include "bsg/defines.h"
+#include "bsg/draw_set.h"
+#include "bsg/util.h"
 #include "bsg/visit.h"
 #include "../../ged_private.h"
 
@@ -429,6 +431,220 @@ main(int ac, char *av[])
 
 	    bsg_view_obj_erase_by_name(gedp, "_rev_test_ov", 0);
 	}
+    }
+
+    /* ---------------------------------------------------------------- *
+     * 9. Nested group tree structure (Step 5 — A2+B1+B2).             *
+     * ---------------------------------------------------------------- */
+    bu_log("[9] nested group tree structure...\n");
+    {
+	/* Start with a clean slate */
+	{
+	    const char *s_av[2] = {"zap", NULL};
+	    ged_exec(gedp, 1, s_av);
+	}
+
+	/* Draw "all.g" */
+	{
+	    const char *s_av[3] = {"draw", "all.g", NULL};
+	    ged_exec(gedp, 2, s_av);
+	}
+
+	struct bv_scene_obj *root = bsg_view_obj_root(gedp);
+	ASSERT(root != NULL);
+
+	/* Root should have exactly one non-_overlays child after drawing "all.g" */
+	int real_groups = 0;
+	struct bv_scene_obj *all_g_group = NULL;
+	for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+	    struct bv_scene_obj *g =
+		(struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
+	    if (!BU_STR_EQUAL("_overlays", bu_vls_cstr(&g->s_name))) {
+		real_groups++;
+		if (!all_g_group)
+		    all_g_group = g;
+	    }
+	}
+	ASSERT(real_groups == 1);
+	ASSERT(all_g_group != NULL);
+
+	/* Root child must be named "all.g" (single component, not "all.g/hull.r") */
+	ASSERT(BU_STR_EQUAL("all.g", bu_vls_cstr(&all_g_group->s_name)));
+
+	/* Root child must contain sub-groups (not just flat shapes) for any
+	 * multi-level hierarchy in moss.g */
+	int has_subgroup = 0;
+	for (size_t i = 0; i < BU_PTBL_LEN(&all_g_group->children); i++) {
+	    struct bv_scene_obj *c =
+		(struct bv_scene_obj *)BU_PTBL_GET(&all_g_group->children, i);
+	    if (c->s_type_flags & BSG_NODE_GROUP) {
+		has_subgroup = 1;
+		break;
+	    }
+	}
+	ASSERT(has_subgroup);
+
+	/* group_first_solid and group_last_solid must return SHAPE nodes
+	 * (not GROUP nodes) even when children include sub-groups */
+	struct bv_scene_obj *fs = bsg_view_obj_group_first_solid(all_g_group);
+	ASSERT(fs != NULL);
+	ASSERT((fs->s_type_flags & BSG_NODE_SHAPE) != 0);
+
+	struct bv_scene_obj *ls = bsg_view_obj_group_last_solid(all_g_group);
+	ASSERT(ls != NULL);
+	ASSERT((ls->s_type_flags & BSG_NODE_SHAPE) != 0);
+
+	/* group_is_nonempty must return 1 when shapes exist in sub-tree */
+	ASSERT(bsg_view_obj_group_is_nonempty(all_g_group) == 1);
+
+	/* group_of_solid must return the root child, not the immediate parent */
+	ASSERT(bsg_view_obj_group_of_solid(gedp, fs) == all_g_group);
+
+	/* group_of_solid on the last solid also returns the root child */
+	ASSERT(bsg_view_obj_group_of_solid(gedp, ls) == all_g_group);
+
+	/* Erase "all.g" should clean up cleanly */
+	bsg_view_obj_erase_by_path(gedp, "all.g", 0);
+	ASSERT(bsg_view_obj_solid_count(gedp) == 0);
+	ASSERT(dl_count(gedp) == 0);
+    }
+
+    /* ---------------------------------------------------------------- *
+     * [10] B5: set_illum / set_iflag O(1) / mater_rev (B4 counter).   *
+     * ---------------------------------------------------------------- */
+    {
+	bu_log("[10] set_illum/mater_rev...\n");
+
+	/* Draw all.g again to have some solids in the tree. */
+	{
+	    const char *s_av[3] = {"draw", "all.g", NULL};
+	    ged_exec(gedp, 2, s_av);
+	}
+	int ns = bsg_view_obj_solid_count(gedp);
+	ASSERT(ns > 0);
+
+	/* get_illum returns NULL initially (nothing illuminated). */
+	ASSERT(bsg_view_obj_get_illum(gedp) == NULL);
+
+	/* Illuminate the first solid. */
+	struct bv_scene_obj *s0 = bsg_view_obj_solid_at(gedp, 0);
+	ASSERT(s0 != NULL);
+	bsg_view_obj_set_illum(gedp, s0);
+
+	/* get_illum returns s0 and s0->s_iflag is UP. */
+	ASSERT(bsg_view_obj_get_illum(gedp) == s0);
+	ASSERT(s0->s_iflag == UP);
+
+	/* set_iflag(DOWN) should run in O(1) — s0 is the tracked solid. */
+	bsg_view_obj_set_iflag(gedp, DOWN);
+	ASSERT(s0->s_iflag == DOWN);
+	ASSERT(bsg_view_obj_get_illum(gedp) == NULL);
+
+	/* set_illum(s0) then set_illum(s1) clears s0 and illuminates s1. */
+	if (ns >= 2) {
+	    struct bv_scene_obj *s1 = bsg_view_obj_solid_at(gedp, 1);
+	    ASSERT(s1 != NULL);
+	    bsg_view_obj_set_illum(gedp, s0);
+	    ASSERT(s0->s_iflag == UP);
+	    bsg_view_obj_set_illum(gedp, s1);
+	    ASSERT(s0->s_iflag == DOWN);
+	    ASSERT(s1->s_iflag == UP);
+	    ASSERT(bsg_view_obj_get_illum(gedp) == s1);
+	    /* Clean up */
+	    bsg_view_obj_set_iflag(gedp, DOWN);
+	    ASSERT(s1->s_iflag == DOWN);
+	}
+
+	/* set_illum(NULL) invalidates tracking — subsequent set_iflag(DOWN)
+	 * falls back to O(N) sweep (both paths yield correct result). */
+	bsg_view_obj_set_illum(gedp, s0);
+	s0->s_iflag = UP;
+	bsg_view_obj_set_illum(gedp, NULL);  /* invalidate */
+	ASSERT(bsg_view_obj_get_illum(gedp) == NULL);
+	bsg_view_obj_set_iflag(gedp, DOWN);  /* O(N) fallback */
+	/* After O(N) sweep, s0 must be DOWN. */
+	ASSERT(s0->s_iflag == DOWN);
+
+	/* mater_rev increases after color_from_soltab. */
+	uint64_t rev0 = bsg_view_obj_mater_rev(gedp);
+	bsg_view_obj_color_from_soltab(gedp);
+	uint64_t rev1 = bsg_view_obj_mater_rev(gedp);
+	ASSERT(rev1 > rev0);
+
+	/* Second call bumps again. */
+	bsg_view_obj_color_from_soltab(gedp);
+	ASSERT(bsg_view_obj_mater_rev(gedp) > rev1);
+
+	/* set_illum pointer is cleared by zap. */
+	bsg_view_obj_set_illum(gedp, s0);
+	ASSERT(bsg_view_obj_get_illum(gedp) == s0);
+	bsg_view_obj_zap(gedp);
+	ASSERT(bsg_view_obj_get_illum(gedp) == NULL);
+    }
+
+    /* ---------------------------------------------------------------- *
+     * [11] A3: gv_draw_root registration + bsg_scene_root_sync.        *
+     *      bsg_view_obj_ensure_root sets v->gv_draw_root; after a draw  *
+     *      command the sync uses the GED tree, not gv_objs.             *
+     * ---------------------------------------------------------------- */
+    {
+	bu_log("[11] A3: gv_draw_root / bsg_scene_root_sync...\n");
+
+	/* Draw one object to populate the tree. */
+	{
+	    const char *dav[3] = {"draw", "all.g", NULL};
+	    ged_exec(gedp, 2, dav);
+	}
+
+	struct bview *v = gedp->ged_gvp;
+	ASSERT(v != NULL);
+
+	/* gv_draw_root must be set now (registered by _sg_root via ensure_root) */
+	ASSERT(v->gv_draw_root != NULL);
+	ASSERT(v->gv_draw_root == gedp->i->ged_gdp->gd_draw_root);
+
+	/* bsg_group_find_child / bsg_group_ensure_child smoke test */
+	bsg_node *draw_root = (bsg_node *)v->gv_draw_root;
+	ASSERT(draw_root != NULL);
+
+	/* The draw root must have at least one child group (from the draw) */
+	struct bv_scene_obj *dr = (struct bv_scene_obj *)draw_root;
+	ASSERT(BU_PTBL_LEN(&dr->children) > 0);
+
+	/* bsg_draw_tree_depth of the draw root should be 0 (no parent). */
+	ASSERT(bsg_draw_tree_depth(draw_root) == 0);
+
+	/* A child's depth should be 1. */
+	struct bv_scene_obj *first_child =
+	    (struct bv_scene_obj *)BU_PTBL_GET(&dr->children, 0);
+	ASSERT(first_child != NULL);
+	if ((first_child->s_type_flags & BSG_NODE_GROUP) ||
+	    (first_child->s_type_flags & BSG_NODE_SHAPE)) {
+	    ASSERT(bsg_draw_tree_depth((bsg_node *)first_child) == 1);
+	}
+
+	/* bsg_scene_root_sync now reads from gv_draw_root when set.
+	 * Manually invoke it and verify the view's bsg_root children match
+	 * the draw root's children. */
+	ASSERT(v->bsg_root != NULL);
+	bsg_scene_root_sync((bsg_node *)v->bsg_root, v);
+	struct bv_scene_obj *bsg_r = (struct bv_scene_obj *)v->bsg_root;
+	ASSERT(BU_PTBL_LEN(&bsg_r->children) ==
+	       BU_PTBL_LEN(&dr->children));
+
+	/* The children pointers must match exactly (borrowed references). */
+	for (size_t i = 0; i < BU_PTBL_LEN(&dr->children); i++) {
+	    ASSERT(BU_PTBL_GET(&bsg_r->children, i) ==
+		   BU_PTBL_GET(&dr->children, i));
+	}
+
+	/* After zap the draw root has no children; sync produces empty list. */
+	bsg_view_obj_zap(gedp);
+	bsg_scene_root_sync((bsg_node *)v->bsg_root, v);
+	ASSERT(BU_PTBL_LEN(&bsg_r->children) == 0);
+
+	/* gv_draw_root itself remains valid after zap (root node not freed). */
+	ASSERT(v->gv_draw_root != NULL);
     }
 
     /* Final zap to leave clean state. */

@@ -1,12 +1,15 @@
 set(
   bsg_headers
   defines.h
+  draw_ctx.h
+  draw_set.h
   field.h
   lod.h
   node_group.h
   node_shape.h
   node_transform.h
   obol_node.h
+  overlay.h
   payload.h
   scene_set.h
   sensor.h

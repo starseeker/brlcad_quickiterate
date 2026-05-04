@@ -100,6 +100,9 @@ dl_add_path(int dashflag, struct bu_list *vhead, const struct db_full_path *path
     }
     if (!sp->s_u_data)
 	return;
+    /* Phase 7 Step 9: register back-pointer + illum-clear callback. */
+    bdata->gedp = dgcdp->gedp;
+    sp->s_free_callback = ged_bv_illum_free_cb;
 
 
     if (BU_LIST_IS_EMPTY(&(sp->s_vlist)))
@@ -129,7 +132,7 @@ dl_add_path(int dashflag, struct bu_list *vhead, const struct db_full_path *path
 
     /* append solid to display list */
     bu_semaphore_acquire(RT_SEM_MODEL);
-    bsg_view_obj_append_solid_to_group(dgcdp->gdlp, sp);
+    bsg_view_obj_append_solid_to_group(dgcdp->gedp, dgcdp->gdlp, sp);
     bu_semaphore_release(RT_SEM_MODEL);
 
     ged_create_vlist_solid_cb(dgcdp->gedp, sp);
@@ -286,6 +289,9 @@ append_solid_to_display_list(
     }
     if (!sp->s_u_data)
 	return TREE_NULL;
+    /* Phase 7 Step 9: register back-pointer + illum-clear callback. */
+    bdata->gedp = bv_data->gedp;
+    sp->s_free_callback = ged_bv_illum_free_cb;
 
     sp->s_size = 0;
     VSETALL(sp->s_center, 0.0);
@@ -422,7 +428,7 @@ append_solid_to_display_list(
 
     /* append solid to display list */
     bu_semaphore_acquire(RT_SEM_MODEL);
-    bsg_view_obj_append_solid_to_group(bv_data->gdlp, sp);
+    bsg_view_obj_append_solid_to_group(bv_data->gedp, bv_data->gdlp, sp);
     bu_semaphore_release(RT_SEM_MODEL);
 
     /* indicate success by returning something other than TREE_NULL */
@@ -1266,6 +1272,7 @@ _ged_drawtrees(struct ged *gedp, int argc, const char *argv[], int kind, struct 
 		    bv_data.transparency= dgcdp.vs.transparency;
 		    bv_data.dmode = dgcdp.vs.s_dmode;
 		    bv_data.v = gedp->ged_gvp;
+		    bv_data.gedp = gedp;
 
 		    dgcdp.gdlp = bsg_view_obj_lookup_or_add_path(gedp, argv[i]);
 		    bv_data.gdlp = dgcdp.gdlp;

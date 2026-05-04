@@ -252,6 +252,9 @@ ged_free(struct ged *gedp)
 	bu_ptbl_free(&gedp->free_solids);
 
 	gedp->i->ged_gdp->gd_draw_root = NULL;  /* freed by zap */
+	/* A3: keep the view in sync */
+	if (gedp->ged_gvp)
+	    gedp->ged_gvp->gv_draw_root = NULL;
 	if (gedp->i->ged_gdp->gd_headVDraw)
 	    BU_PUT(gedp->i->ged_gdp->gd_headVDraw, struct bu_vls);
 	qray_free(gedp->i->ged_gdp);

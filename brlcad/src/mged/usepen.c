@@ -56,7 +56,14 @@ _illuminate_cb(bsg_node *n, void *ud)
 	if (d->count-- == 0) {
 	    sp->s_iflag = UP;
 	    illump = sp;
-	    illum_gdlp = sp->parent;
+	    /* Walk up to the root child (depth-1 group) */
+	    {
+		struct bv_scene_obj *_g = (struct bv_scene_obj *)sp->parent;
+		while (_g && _g->parent &&
+		       ((struct bv_scene_obj *)_g->parent)->parent != NULL)
+		    _g = (struct bv_scene_obj *)_g->parent;
+		illum_gdlp = _g;
+	    }
 	} else {
 	    sp->s_iflag = DOWN;
 	}
@@ -107,6 +114,10 @@ illuminate(struct mged_state *s, int y) {
     struct _illuminate_data d;
     d.count = count;
     bsg_visit(bsg_view_obj_root(s->gedp), BSG_NODE_SHAPE, _illuminate_cb, &d);
+
+    /* Register the illuminated solid in GED so set_iflag(DOWN) can run
+     * O(1) instead of sweeping the full tree (B5). */
+    bsg_view_obj_set_illum(s->gedp, illump);
 
     s->update_views = 1;
     dm_set_dirty(DMP, 1);
@@ -177,7 +188,8 @@ f_aip(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	    /* No solids drawn — nothing to advance to */
 	    return TCL_OK;
 	}
-	sp->s_iflag = UP;
+	/* Use set_illum: clears old iflag, sets new UP, updates GED tracker (B5). */
+	bsg_view_obj_set_illum(s->gedp, sp);
 	illump = sp;
 	illum_gdlp = bsg_view_obj_group_of_solid(s->gedp, sp);
     }
@@ -310,6 +322,10 @@ f_matpick(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[
 	d.bdata = bdata;
 	d.ipathpos = (size_t)ipathpos;
 	bsg_visit(bsg_view_obj_root(s->gedp), BSG_NODE_SHAPE, _matpick_topmat_cb, &d);
+	/* matpick may place multiple solids in the UP state (same tree-top).
+	 * Invalidate the single-solid illum tracker so set_iflag(DOWN) uses
+	 * the safe O(N) sweep (B5). */
+	bsg_view_obj_set_illum(s->gedp, NULL);
     }
 
     if (!illum_only) {

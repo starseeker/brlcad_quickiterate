@@ -45,7 +45,9 @@
 #include "bv/util.h"
 
 #include "bsg/defines.h"
+#include "bsg/draw_set.h"
 #include "bsg/util.h"
+#include "bsg/visit.h"
 #include "bsg/scene_set.h"
 
 /* ---------------------------------------------------------------------- */
@@ -102,9 +104,25 @@ bsg_scene_root_sync(bsg_node *root, struct bview *v)
 
     struct bv_scene_obj *r = (struct bv_scene_obj *)root;
 
-    /* Reset children without freeing them — they are borrowed references
-     * owned by the view's gv_objs tables. */
+    /* Reset children without freeing them — they are borrowed references. */
     bu_ptbl_reset(&r->children);
+
+    /* Phase 7 step 7 A3: when a GED draw-tree root is registered on the view,
+     * use it as the authoritative source.  The draw tree's top-level children
+     * (groups + overlay group) are inserted directly into the render root;
+     * bsg_view_traverse() handles the nested structure recursively.
+     * This makes gv_objs a "derived index" — it is still kept in sync by
+     * libged for backward-compat callers, but the render path no longer reads
+     * from it when gv_draw_root is set. */
+    if (v->gv_draw_root) {
+	struct bv_scene_obj *dr = (struct bv_scene_obj *)v->gv_draw_root;
+	for (size_t i = 0; i < BU_PTBL_LEN(&dr->children); i++)
+	    bu_ptbl_ins(&r->children, BU_PTBL_GET(&dr->children, i));
+	return;
+    }
+
+    /* Legacy fallback: read from the view's gv_objs ptbls.  Used when no GED
+     * draw tree has been registered (e.g. non-GED BSG consumers). */
 
     /* Shared db objects */
     struct bu_ptbl *sobjs = bv_view_objs(v, BV_DB_OBJS);
