@@ -81,7 +81,7 @@ bsg_view_obj_root(struct ged *gedp);
  *
  * Replaces dl_addToDisplay().
  */
-GED_EXPORT extern void *
+GED_EXPORT extern struct bv_scene_obj *
 bsg_view_obj_lookup_or_add_path(struct ged *gedp, const char *path);
 
 /**

@@ -37,14 +37,14 @@ struct gqa_match {
 };
 
 static int
-gqa_find_group(void *group_handle, void *userdata)
+gqa_find_group(struct bv_scene_obj *group, void *userdata)
 {
     struct gqa_match *m = (struct gqa_match *)userdata;
-    const char *path = bsg_view_obj_group_path(group_handle);
+    const char *path = bsg_view_obj_group_path(group);
     if (!path || !BU_STR_EQUAL(path, m->target))
 	return 1; /* keep iterating */
     printf("found %s;\n", path);
-    m->result = bsg_view_obj_group_first_solid(group_handle);
+    m->result = bsg_view_obj_group_first_solid(group);
     return 0; /* stop */
 }
 

@@ -30,6 +30,7 @@
 
 #include "ged.h"
 #include "ged/bsg_view_obj.h"
+#include "bsg/visit.h"
 #include "bv/defines.h"
 #include <assert.h>
 
@@ -147,11 +148,35 @@ _osgLoadSolid(osg::Geode *geode, osg::Geometry *geom, osg::Vec3dArray *vertices,
 }
 
 
+struct osg_load_ctx {
+    osg::Geode *geode;
+};
+
+static int
+_osg_solid_cb(bsg_node *node, void *ud)
+{
+    struct osg_load_ctx *ctx = (struct osg_load_ctx *)ud;
+    struct bv_scene_obj *sp = (struct bv_scene_obj *)node;
+    if (sp->s_dmode == 4) {
+	_osgLoadHiddenSolid(ctx->geode, sp);
+    } else {
+	osg::Geometry *geom = new osg::Geometry();
+	osg::Vec3dArray *vertices = new osg::Vec3dArray;
+	osg::Vec3dArray *normals = new osg::Vec3dArray;
+	_osgLoadSolid(ctx->geode, geom, vertices, normals, sp);
+	geom->setVertexArray(vertices);
+	geom->setNormalArray(normals);
+	geom->setNormalBinding(osg::Geometry::BIND_PER_PRIMITIVE_SET);
+	geom->setUseDisplayList(true);
+	ctx->geode->addDrawable(geom);
+    }
+    return 1;
+}
+
+
 void
 _ged_osgLoadScene(struct ged *gedp, void *osgData)
 {
-    void *gdlp;
-    struct bv_scene_obj *sp;
     struct osg_stuff *osp = (struct osg_stuff *)osgData;
 
     bu_log("_ged_osgLoadScene: part B\n");
@@ -162,28 +187,9 @@ _ged_osgLoadScene(struct ged *gedp, void *osgData)
 
     bu_log("before: max frame rate - %lf\n", osp->viewer->getRunMaxFrameRate());
     bu_log("_ged_osgLoadScene: enter\n");
-    for (gdlp = bsg_view_obj_first_group(gedp); gdlp;
-	 gdlp = bsg_view_obj_next_group(gedp, gdlp)) {
-	{ struct bu_ptbl *_sl = bsg_view_obj_group_solid_list(gdlp);
-	for (size_t _si = 0; _si < BU_PTBL_LEN(_sl); _si++) {
-	    sp = (struct bv_scene_obj *)BU_PTBL_GET(_sl, _si);
-	    if (sp->s_dmode == 4) {
-		_osgLoadHiddenSolid(geode, sp);
-	    } else {
-		osg::Geometry* geom = new osg::Geometry();
-		osg::Vec3dArray* vertices = new osg::Vec3dArray;
-		osg::Vec3dArray* normals = new osg::Vec3dArray;
-		_osgLoadSolid(geode, geom, vertices, normals, sp);
-		geom->setVertexArray(vertices);
-		geom->setNormalArray(normals);
-		geom->setNormalBinding(osg::Geometry::BIND_PER_PRIMITIVE_SET);
-		//osg::RenderInfo ri(osp->viewer->getCamera()->getGraphicsContext()->getState(), osp->viewer->getCamera()->getView());
-		//geom->compileGLObjects(ri);
-		geom->setUseDisplayList(true);
-		geode->addDrawable(geom);
-	    }
-	}}
-    }
+
+    struct osg_load_ctx ctx = { geode };
+    bsg_visit(bsg_view_obj_root(gedp), BSG_NODE_SHAPE, _osg_solid_cb, &ctx);
 
     root->addChild(geode);
     osp->viewer->setSceneData(root);
