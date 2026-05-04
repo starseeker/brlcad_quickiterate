@@ -381,40 +381,81 @@ _sg_add_path(struct ged *gedp, const char *name)
 
 /*
  * Navigate from @p parent following subpath->fp_names[depth_start..fp_len-1]
- * and erase the matching sub-group at the deepest level found.
+ * and erase the matching sub-group (or leaf shape(s)) at the deepest level
+ * found.
+ *
+ * Two cases at the final component:
+ *  a) A matching BSG_NODE_GROUP exists → free its entire subtree and remove it.
+ *  b) No matching group → the component names a leaf primitive; find all SHAPE
+ *     children whose db_full_path matches @p subpath and free those shapes.
+ *
  * After erasure the caller is responsible for removing empty ancestors.
  */
 static void
 _sg_erase_nested_subpath(struct ged *gedp, struct bv_scene_obj *parent,
                           struct db_full_path *subpath, size_t depth_start)
 {
+    struct bv_scene_obj *fso = bv_set_fsos(&gedp->ged_views);
+    struct bu_list *vlf = &rt_vlfree;
     struct bv_scene_obj *cur = parent;
+
     for (size_t i = depth_start; i < subpath->fp_len; i++) {
         const char *comp = subpath->fp_names[i]->d_namep;
-        struct bv_scene_obj *child = NULL;
+        struct bv_scene_obj *child_group = NULL;
+
         for (size_t j = 0; j < BU_PTBL_LEN(&cur->children); j++) {
             struct bv_scene_obj *c =
                 (struct bv_scene_obj *)BU_PTBL_GET(&cur->children, j);
             if ((c->s_type_flags & BSG_NODE_GROUP) &&
                 BU_STR_EQUAL(bu_vls_cstr(&c->s_name), comp)) {
-                child = c;
+                child_group = c;
                 break;
             }
         }
-        if (!child)
-            return;
 
-        if (i == subpath->fp_len - 1) {
-            _sg_free_group_contents(gedp, child);
-            bu_ptbl_rm(&cur->children, (const long *)child);
-            _sg_bump_rev(gedp);
-            child->parent = NULL;
-            struct bv_scene_obj *fso = child->free_scene_obj;
-            if (fso)
-                FREE_BV_SCENE_OBJ(child, &fso->l, child->vlfree);
-            return;
+        if (i < subpath->fp_len - 1) {
+            /* Intermediate component — must be a group */
+            if (!child_group)
+                return;
+            cur = child_group;
+            continue;
         }
-        cur = child;
+
+        /* Final component */
+        if (child_group) {
+            /* Case (a): a group node with this name — free its entire subtree */
+            _sg_free_group_contents(gedp, child_group);
+            bu_ptbl_rm(&cur->children, (const long *)child_group);
+            _sg_bump_rev(gedp);
+            child_group->parent = NULL;
+            struct bv_scene_obj *cfso = child_group->free_scene_obj;
+            if (cfso)
+                FREE_BV_SCENE_OBJ(child_group, &cfso->l, child_group->vlfree);
+        } else {
+            /* Case (b): the final component is a leaf primitive — erase
+             * matching SHAPE children by comparing their db_full_path. */
+            struct bu_ptbl snap = BU_PTBL_INIT_ZERO;
+            for (size_t j = 0; j < BU_PTBL_LEN(&cur->children); j++) {
+                struct bv_scene_obj *c =
+                    (struct bv_scene_obj *)BU_PTBL_GET(&cur->children, j);
+                if (!(c->s_type_flags & BSG_NODE_SHAPE) || !c->s_u_data)
+                    continue;
+                struct ged_bv_data *bd = (struct ged_bv_data *)c->s_u_data;
+                if (db_full_path_match_top(subpath, &bd->s_fullpath))
+                    bu_ptbl_ins(&snap, (long *)c);
+            }
+            for (size_t j = 0; j < BU_PTBL_LEN(&snap); j++) {
+                struct bv_scene_obj *sp =
+                    (struct bv_scene_obj *)BU_PTBL_GET(&snap, j);
+                ged_destroy_vlist_cb(gedp, sp->s_dlist, 1);
+                bu_ptbl_rm(&cur->children, (const long *)sp);
+                _sg_bump_rev(gedp);
+                sp->parent = NULL;
+                FREE_BV_SCENE_OBJ(sp, &fso->l, vlf);
+            }
+            bu_ptbl_free(&snap);
+        }
+        return;
     }
 }
 
@@ -1201,7 +1242,13 @@ bsg_view_obj_group_of_solid(struct ged *gedp, struct bv_scene_obj *sp)
     (void)gedp;
     if (!sp)
         return NULL;
-    return sp->parent; /* O(1) via parent pointer */
+    /* Walk up the parent chain to find the root child (depth == 1):
+     * that is the group whose parent is the draw root (which has no parent). */
+    struct bv_scene_obj *g = (struct bv_scene_obj *)sp->parent;
+    while (g && g->parent &&
+           ((struct bv_scene_obj *)g->parent)->parent != NULL)
+        g = (struct bv_scene_obj *)g->parent;
+    return g;
 }
 
 
@@ -1231,21 +1278,27 @@ bsg_view_obj_group_first_solid(struct bv_scene_obj *group)
 {
     if (!group)
         return NULL;
-    if (BU_PTBL_LEN(&group->children) == 0)
-        return NULL;
-    return (struct bv_scene_obj *)BU_PTBL_GET(&group->children, 0);
+    struct _first_solid_data d = { NULL };
+    bsg_visit((bsg_node *)group, BSG_NODE_SHAPE, _first_solid_cb, &d);
+    return d.result;
 }
 
+
+static int
+_last_solid_cb(bsg_node *n, void *ud)
+{
+    *(struct bv_scene_obj **)ud = (struct bv_scene_obj *)n;
+    return 1; /* keep going to find the last one */
+}
 
 struct bv_scene_obj *
 bsg_view_obj_group_last_solid(struct bv_scene_obj *group)
 {
     if (!group)
         return NULL;
-    size_t n = BU_PTBL_LEN(&group->children);
-    if (n == 0)
-        return NULL;
-    return (struct bv_scene_obj *)BU_PTBL_GET(&group->children, n - 1);
+    struct bv_scene_obj *last = NULL;
+    bsg_visit((bsg_node *)group, BSG_NODE_SHAPE, _last_solid_cb, &last);
+    return last;
 }
 
 
@@ -1254,7 +1307,9 @@ bsg_view_obj_group_is_nonempty(struct bv_scene_obj *group)
 {
     if (!group)
         return 0;
-    return (BU_PTBL_LEN(&group->children) > 0) ? 1 : 0;
+    int found = 0;
+    bsg_visit((bsg_node *)group, BSG_NODE_SHAPE, _any_solid_cb, &found);
+    return found;
 }
 
 
@@ -1280,8 +1335,7 @@ bsg_view_obj_append_to_last_group(struct ged *gedp, struct bv_scene_obj *sp)
     struct bv_scene_obj *g =
         (struct bv_scene_obj *)BU_PTBL_GET(&root->children,
                                             BU_PTBL_LEN(&root->children) - 1);
-    sp->parent = g;
-    bu_ptbl_ins(&g->children, (long *)sp);
+    bsg_view_obj_append_solid_to_group(gedp, g, sp);
 }
 
 
@@ -1355,13 +1409,58 @@ bsg_view_obj_has_groups(struct ged *gedp)
 }
 
 
+/*
+ * Append @p sp to the correct position in the nested group hierarchy
+ * rooted at @p group.
+ *
+ * @p group is at tree depth D (root = 0, root-children = 1, ...).
+ * @p sp's db_full_path has fp_len components.  The components at indices
+ * [D .. fp_len-2] name intermediate sub-groups that must exist between
+ * @p group and the leaf shape; these are created on demand via
+ * _sg_find_or_create_child_group.  The shape is then appended to the
+ * deepest sub-group.
+ *
+ * When sp has no s_u_data (e.g. an internally created shape without a
+ * full db path), it is appended directly to @p group.
+ */
 void
-bsg_view_obj_append_solid_to_group(struct bv_scene_obj *group, struct bv_scene_obj *sp)
+bsg_view_obj_append_solid_to_group(struct ged *gedp,
+                                    struct bv_scene_obj *group,
+                                    struct bv_scene_obj *sp)
 {
     if (!group || !sp)
         return;
-    sp->parent = group;
-    bu_ptbl_ins(&group->children, (long *)sp);
+
+    /* Determine which sub-groups to create/navigate */
+    struct ged_bv_data *bdata =
+        (sp->s_u_data) ? (struct ged_bv_data *)sp->s_u_data : NULL;
+    int fp_len = bdata ? (int)bdata->s_fullpath.fp_len : 0;
+
+    if (!gedp || fp_len == 0) {
+        /* No path info — append directly */
+        sp->parent = group;
+        bu_ptbl_ins(&group->children, (long *)sp);
+        return;
+    }
+
+    int group_depth = _sg_tree_depth(group);
+    /* Number of intermediate sub-group components to create between
+     * group (at group_depth) and the shape (at fp_len - 1 = leaf index).
+     * Components at indices [group_depth .. fp_len - 2] are sub-groups.
+     * (fp_len - 2) is the index of the deepest comb above the leaf;
+     * if group_depth >= fp_len - 1 there are no intermediate groups needed. */
+    struct bv_scene_obj *cur = group;
+    for (int d = group_depth; d < fp_len - 1; d++) {
+        const char *comp = bdata->s_fullpath.fp_names[d]->d_namep;
+        struct bv_scene_obj *child =
+            _sg_find_or_create_child_group(gedp, cur, comp);
+        if (!child)
+            break;
+        cur = child;
+    }
+
+    sp->parent = cur;
+    bu_ptbl_ins(&cur->children, (long *)sp);
 }
 
 

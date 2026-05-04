@@ -1484,3 +1484,120 @@ Deprecation policy
 
               A2 (rest), A3, B1 (rest), B2, B4, B5, C1/C3
               — see sequencing Steps 5–7 above.
+
+  2026-05-04  Phase 7 Step 5 (A2+B1+B2) complete — per-component
+              nested groups; erase leaf-shape fix; group accessor
+              correctness for deep trees
+
+              ── A2 (rest) + B1 (rest): nested group tree ──────────────
+
+              src/libged/bsg_view_obj.c:
+
+              _sg_find_or_create_child_group(gedp, parent, comp_name)
+                — unchanged from previous session; creates/finds a
+                BSG_NODE_GROUP child with a single path component as
+                its name.
+
+              _sg_add_path() (bsg_view_obj_lookup_or_add_path) already
+                creates one group node per path component; no change
+                needed here.
+
+              bsg_view_obj_append_solid_to_group(gedp, group, sp)
+                — new signature (gedp added).  Uses _sg_tree_depth(group)
+                to determine how many path components the group covers.
+                Navigates/creates sub-group nodes for components
+                [group_depth .. fp_len-2] using
+                _sg_find_or_create_child_group, then appends the shape
+                to the deepest sub-group.  When sp has no s_u_data or
+                fp_len == 0 the shape is appended directly to group
+                (backward-compatible path for overlays / test shapes).
+
+              bsg_view_obj_append_to_last_group(gedp, sp)
+                — updated to delegate to the new
+                bsg_view_obj_append_solid_to_group.
+
+              ── B2: erase handles leaf-primitive final component ───────
+
+              _sg_erase_nested_subpath():
+                At the FINAL path component two cases now handled:
+                  (a) A BSG_NODE_GROUP child with that name exists →
+                      free its entire subtree and remove it (unchanged).
+                  (b) No such group → the component names a leaf solid.
+                      All BSG_NODE_SHAPE children of the current group
+                      whose db_full_path matches the subpath via
+                      db_full_path_match_top() are freed individually.
+                This fixes the "all.g/hull.r/hull.s" erase failure
+                reported by the user where hull.s is a primitive shape
+                rather than a comb group.
+
+              ── Group accessor correctness for deep trees ──────────────
+
+              bsg_view_obj_group_of_solid(gedp, sp):
+                Now walks the parent chain to the root child (depth 1)
+                instead of returning sp->parent directly.  The walk
+                stops when parent->parent == NULL (i.e., parent is the
+                draw root).
+
+              bsg_view_obj_group_first_solid(group):
+                Replaced children[0] access with bsg_visit + existing
+                _first_solid_cb so the DFS finds the first SHAPE node
+                in the sub-tree rather than the first child (which may
+                be a sub-group in nested trees).
+
+              bsg_view_obj_group_last_solid(group):
+                Added _last_solid_cb (visits all shapes, records the
+                last one) and replaced children[n-1] access with
+                bsg_visit call.
+
+              bsg_view_obj_group_is_nonempty(group):
+                Replaced children-count check with bsg_visit using
+                existing _any_solid_cb so it returns 1 only when
+                at least one SHAPE exists in the sub-tree.
+
+              ── Parent-chain walk for illum_gdlp in MGED ──────────────
+
+              src/mged/usepen.c — _illuminate_cb:
+                Replaced "illum_gdlp = sp->parent" with an inline
+                parent-chain walk to the depth-1 root child.
+
+              src/mged/chgtree.c — _find_solid_with_path_cb:
+                Same parent-chain walk fix for illum_gdlp.
+
+              ── Public API changes ────────────────────────────────────
+
+              include/ged/bsg_view_obj.h:
+                bsg_view_obj_append_solid_to_group signature changed to
+                  (struct ged *gedp, struct bv_scene_obj *group,
+                   struct bv_scene_obj *sp)
+                Doc comment updated to describe nested placement.
+
+              src/libged/draw/ged_draw.h:
+                struct ged_solid_data gains 'struct ged *gedp' field.
+
+              src/libged/draw/draw.c:
+                Two call sites of bsg_view_obj_append_solid_to_group
+                updated to pass gedp.  'bv_data.gedp = gedp' assignment
+                added at bv_data setup site.
+
+              ── Test section [9]: nested group structure ───────────────
+
+              src/libged/tests/draw/bsg_view_obj.cpp:
+                After drawing "all.g":
+                • Root child named "all.g" (single component, not full
+                  path string).
+                • Root child has at least one BSG_NODE_GROUP sub-child
+                  (not just flat shapes).
+                • group_first_solid / group_last_solid return SHAPE
+                  nodes (not GROUP nodes) even in mixed children.
+                • group_is_nonempty returns 1 when sub-tree has shapes.
+                • group_of_solid returns root child for any depth shape.
+                • erase_by_path cleans up completely.
+
+              Build: libged, mged — zero errors.
+              Regression: ged_test_bsg_view_obj 65/65 PASS.
+
+              ── REMAINING ─────────────────────────────────────────────
+
+              A3, B4, B5, C1/C3
+              — Step 6 (B4+B5): FieldSensor-driven color + iflag.
+              — Step 7 (C1+C3): split bsg_view_obj.c into libbsg/.

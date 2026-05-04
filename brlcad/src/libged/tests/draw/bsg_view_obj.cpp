@@ -431,6 +431,82 @@ main(int ac, char *av[])
 	}
     }
 
+    /* ---------------------------------------------------------------- *
+     * 9. Nested group tree structure (Step 5 — A2+B1+B2).             *
+     * ---------------------------------------------------------------- */
+    bu_log("[9] nested group tree structure...\n");
+    {
+	/* Start with a clean slate */
+	{
+	    const char *s_av[2] = {"zap", NULL};
+	    ged_exec(gedp, 1, s_av);
+	}
+
+	/* Draw "all.g" */
+	{
+	    const char *s_av[3] = {"draw", "all.g", NULL};
+	    ged_exec(gedp, 2, s_av);
+	}
+
+	struct bv_scene_obj *root = bsg_view_obj_root(gedp);
+	ASSERT(root != NULL);
+
+	/* Root should have exactly one non-_overlays child after drawing "all.g" */
+	int real_groups = 0;
+	struct bv_scene_obj *all_g_group = NULL;
+	for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+	    struct bv_scene_obj *g =
+		(struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
+	    if (!BU_STR_EQUAL("_overlays", bu_vls_cstr(&g->s_name))) {
+		real_groups++;
+		if (!all_g_group)
+		    all_g_group = g;
+	    }
+	}
+	ASSERT(real_groups == 1);
+	ASSERT(all_g_group != NULL);
+
+	/* Root child must be named "all.g" (single component, not "all.g/hull.r") */
+	ASSERT(BU_STR_EQUAL("all.g", bu_vls_cstr(&all_g_group->s_name)));
+
+	/* Root child must contain sub-groups (not just flat shapes) for any
+	 * multi-level hierarchy in moss.g */
+	int has_subgroup = 0;
+	for (size_t i = 0; i < BU_PTBL_LEN(&all_g_group->children); i++) {
+	    struct bv_scene_obj *c =
+		(struct bv_scene_obj *)BU_PTBL_GET(&all_g_group->children, i);
+	    if (c->s_type_flags & BSG_NODE_GROUP) {
+		has_subgroup = 1;
+		break;
+	    }
+	}
+	ASSERT(has_subgroup);
+
+	/* group_first_solid and group_last_solid must return SHAPE nodes
+	 * (not GROUP nodes) even when children include sub-groups */
+	struct bv_scene_obj *fs = bsg_view_obj_group_first_solid(all_g_group);
+	ASSERT(fs != NULL);
+	ASSERT((fs->s_type_flags & BSG_NODE_SHAPE) != 0);
+
+	struct bv_scene_obj *ls = bsg_view_obj_group_last_solid(all_g_group);
+	ASSERT(ls != NULL);
+	ASSERT((ls->s_type_flags & BSG_NODE_SHAPE) != 0);
+
+	/* group_is_nonempty must return 1 when shapes exist in sub-tree */
+	ASSERT(bsg_view_obj_group_is_nonempty(all_g_group) == 1);
+
+	/* group_of_solid must return the root child, not the immediate parent */
+	ASSERT(bsg_view_obj_group_of_solid(gedp, fs) == all_g_group);
+
+	/* group_of_solid on the last solid also returns the root child */
+	ASSERT(bsg_view_obj_group_of_solid(gedp, ls) == all_g_group);
+
+	/* Erase "all.g" should clean up cleanly */
+	bsg_view_obj_erase_by_path(gedp, "all.g", 0);
+	ASSERT(bsg_view_obj_solid_count(gedp) == 0);
+	ASSERT(dl_count(gedp) == 0);
+    }
+
     /* Final zap to leave clean state. */
     {
 	const char *s_av[2] = {"zap", NULL};

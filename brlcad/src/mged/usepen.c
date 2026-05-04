@@ -56,7 +56,14 @@ _illuminate_cb(bsg_node *n, void *ud)
 	if (d->count-- == 0) {
 	    sp->s_iflag = UP;
 	    illump = sp;
-	    illum_gdlp = sp->parent;
+	    /* Walk up to the root child (depth-1 group) */
+	    {
+		struct bv_scene_obj *_g = (struct bv_scene_obj *)sp->parent;
+		while (_g && _g->parent &&
+		       ((struct bv_scene_obj *)_g->parent)->parent != NULL)
+		    _g = (struct bv_scene_obj *)_g->parent;
+		illum_gdlp = _g;
+	    }
 	} else {
 	    sp->s_iflag = DOWN;
 	}

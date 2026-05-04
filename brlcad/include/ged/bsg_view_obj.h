@@ -386,13 +386,18 @@ GED_EXPORT extern int
 bsg_view_obj_has_groups(struct ged *gedp);
 
 /**
- * Append @p sp to the solid list of the specific group @p group.
+ * Append @p sp to the solid list of the specific group @p group,
+ * creating nested sub-group nodes as needed based on @p sp's db_full_path.
  * Unlike bsg_view_obj_append_to_last_group(), this targets an arbitrary
  * group rather than always using the last one.  Used by the parallel
  * drawing path in draw.c / bigE.c where the group was looked up earlier.
+ *
+ * @p gedp is required when @p sp has a db_full_path deeper than the current
+ * group depth, so that intermediate sub-group nodes can be created.
  */
 GED_EXPORT extern void
-bsg_view_obj_append_solid_to_group(struct bv_scene_obj *group,
+bsg_view_obj_append_solid_to_group(struct ged *gedp,
+				   struct bv_scene_obj *group,
 				   struct bv_scene_obj *sp);
 
 __END_DECLS
