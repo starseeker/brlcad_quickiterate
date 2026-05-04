@@ -33,6 +33,7 @@
 #include "bu/file.h"
 #include "bu/getopt.h"
 #include "ged.h"
+#include "ged/bsg_view_obj.h"
 #include "rt/db4.h"
 #include "raytrace.h"
 
@@ -242,6 +243,7 @@ _edcolor(struct ged *gedp, int argc, const char *argv[])
     bu_file_delete(tmpfil);
 
     /* if there are drawables, update their colors */
+    bsg_view_obj_bump_mater_rev(gedp);
     bsg_view_obj_color_from_soltab(gedp);
 
     return BRLCAD_OK;
@@ -355,6 +357,10 @@ ged_color_core(struct ged *gedp, int argc, const char *argv[])
 	db5_update_attribute("_GLOBAL", "regionid_colortable", bu_vls_addr(&colors), gedp->dbip);
 	bu_vls_free(&colors);
     }
+
+    /* Update drawn objects to reflect the new color entry. */
+    bsg_view_obj_bump_mater_rev(gedp);
+    bsg_view_obj_color_from_soltab(gedp);
 
     return BRLCAD_OK;
 }

@@ -1369,6 +1369,7 @@ bv_obj_reset(struct bv_scene_obj *s)
     s->point_scale = 0;
     s->s_arrow = 0;
     s->s_csize = 0;
+    s->s_color_rev = 0;
     s->s_flag = UP;
     s->s_force_draw = 0;
     s->s_i_data = NULL;

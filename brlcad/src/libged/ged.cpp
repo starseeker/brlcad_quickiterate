@@ -154,6 +154,9 @@ ged_init(struct ged *gedp)
 
     BU_GET(gedp->i->ged_gdp, struct ged_drawable);
     gedp->i->ged_gdp->gd_draw_root = NULL;
+    /* Start at 1 so that freshly-drawn shapes (s_color_rev=0 from calloc)
+     * are always stale on the first color_from_soltab call (B4). */
+    gedp->i->ged_gdp->gd_mater_rev = 1;
     BU_GET(gedp->i->ged_gdp->gd_headVDraw, struct bu_list);
     BU_LIST_INIT(gedp->i->ged_gdp->gd_headVDraw);
 

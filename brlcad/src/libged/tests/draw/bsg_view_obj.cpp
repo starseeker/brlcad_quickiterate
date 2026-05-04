@@ -565,15 +565,43 @@ main(int ac, char *av[])
 	/* After O(N) sweep, s0 must be DOWN. */
 	ASSERT(s0->s_iflag == DOWN);
 
-	/* mater_rev increases after color_from_soltab. */
+	/* B4 activated: color_from_soltab does NOT bump mater_rev by itself.
+	 * The counter is event-driven: only bsg_view_obj_bump_mater_rev() moves it.
+	 *
+	 * Freshly drawn shapes have s_color_rev=0 (from calloc).
+	 * gd_mater_rev is initialized to 1 so new shapes are always stale.
+	 * The first color_from_soltab call colors them and stamps s_color_rev=1.
+	 * The counter itself stays at 1 (no self-bump). */
 	uint64_t rev0 = bsg_view_obj_mater_rev(gedp);
 	bsg_view_obj_color_from_soltab(gedp);
-	uint64_t rev1 = bsg_view_obj_mater_rev(gedp);
-	ASSERT(rev1 > rev0);
+	/* Counter must be unchanged — no material-change event occurred. */
+	ASSERT(bsg_view_obj_mater_rev(gedp) == rev0);
 
-	/* Second call bumps again. */
+	/* Verify the first shape was stamped with rev0. */
+	ASSERT(s0 != NULL);
+	ASSERT((uint64_t)s0->s_color_rev == rev0);
+
+	/* Simulate a material-change event: bump the counter. */
+	bsg_view_obj_bump_mater_rev(gedp);
+	uint64_t rev1 = bsg_view_obj_mater_rev(gedp);
+	ASSERT(rev1 == rev0 + 1);
+
+	/* After a bump, color_from_soltab recolors stale shapes and stamps
+	 * them with the new rev, but the counter itself stays put. */
 	bsg_view_obj_color_from_soltab(gedp);
-	ASSERT(bsg_view_obj_mater_rev(gedp) > rev1);
+	ASSERT(bsg_view_obj_mater_rev(gedp) == rev1);  /* unchanged */
+	ASSERT((uint64_t)s0->s_color_rev == rev1);      /* stamped at rev1 */
+
+	/* A second call without a bump must skip all already-stamped shapes.
+	 * Verify by force-setting a known color and checking it is unchanged. */
+	s0->s_color[0] = 123;
+	s0->s_color[1] = 45;
+	s0->s_color[2] = 67;
+	bsg_view_obj_color_from_soltab(gedp);  /* skip: s_color_rev == mater_rev */
+	ASSERT(s0->s_color[0] == 123);         /* must be unchanged */
+	ASSERT(s0->s_color[1] == 45);
+	ASSERT(s0->s_color[2] == 67);
+	ASSERT((uint64_t)s0->s_color_rev == rev1);  /* stamp unchanged */
 
 	/* set_illum pointer is cleared by zap. */
 	bsg_view_obj_set_illum(gedp, s0);

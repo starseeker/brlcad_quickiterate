@@ -801,9 +801,13 @@ _sg_name_hash(struct ged *gedp)
 /* ------------------------------------------------------------------ */
 
 /*
- * Bump the mater-revision counter.  Called each time color_from_soltab
- * completes a sweep so that future consumers can detect a change and
- * avoid redundant recolor work.
+ * Bump the mater-revision counter.  Must be called whenever the effective
+ * material/color table changes (e.g. after 'color', 'mater', 'rmater').
+ * Invalidates the per-shape color stamps so that the next call to
+ * bsg_view_obj_color_from_soltab() recolors affected shapes.
+ *
+ * NOT called from inside color_from_soltab itself — the counter is
+ * event-driven, not sweep-driven (B4 activation).
  */
 static void
 _sg_bump_mater_rev(struct ged *gedp)
@@ -855,14 +859,12 @@ _color_solid_cb(bsg_node *n, void *ud)
     struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
     struct _color_ctx *ctx = (struct _color_ctx *)ud;
 
-    /* Phase 7 Step 14 (B4 infrastructure): skip shapes whose color stamp
-     * already matches the current mater-revision.  In the current code
-     * gd_mater_rev is bumped at the END of every color_from_soltab call,
-     * so the skip fires only when color_from_soltab is called a second time
-     * with the same gd_mater_rev (which requires an external bump of
-     * gd_mater_rev to have been issued by a material-change event — a
-     * future step).  For now, the stamp is always set so that the skip can
-     * take effect once external bumping is wired up. */
+    /* B4 lazy-color skip: if this shape's color stamp already matches the
+     * current mater-revision, it was colored since the last material-change
+     * event and can be skipped.  gd_mater_rev is bumped only by external
+     * material-change events (via bsg_view_obj_bump_mater_rev), not by the
+     * sweep itself, so shapes stamped at the current revision will be skipped
+     * on every subsequent call until another material change occurs. */
     if ((uint64_t)sp->s_color_rev == ctx->mater_rev)
         return 1;
 
@@ -881,7 +883,9 @@ _sg_color_soltab(struct ged *gedp)
     ctx.dbip      = gedp->dbip;
     ctx.mater_rev = gedp->i->ged_gdp->gd_mater_rev;
     bsg_visit((bsg_node *)root, BSG_NODE_SHAPE, _color_solid_cb, &ctx);
-    _sg_bump_mater_rev(gedp);
+    /* B4 activation: do NOT bump gd_mater_rev here.  The counter is
+     * event-driven — only bsg_view_obj_bump_mater_rev() (called by
+     * material-change commands) advances it. */
 }
 
 
@@ -1488,8 +1492,10 @@ bsg_view_obj_get_illum(const struct ged *gedp)
 /* ================================================================== */
 
 /**
- * Return the current mater-revision counter.  The counter is bumped
- * each time bsg_view_obj_color_from_soltab() completes a sweep.
+ * Return the current mater-revision counter.  The counter is bumped by
+ * bsg_view_obj_bump_mater_rev() whenever the material/color table changes.
+ * color_from_soltab() does NOT bump the counter; it only stamps per-shape
+ * s_color_rev fields to match the current counter value.
  *
  * Consumers that cache per-solid colors can store a snapshot of this
  * value and skip re-querying when the counter is unchanged.  For example:
@@ -1498,10 +1504,6 @@ bsg_view_obj_get_illum(const struct ged *gedp)
  *       bsg_view_obj_color_from_soltab(gedp);
  *       saved_mater_rev = bsg_view_obj_mater_rev(gedp);
  *   }
- *
- * This is a partial B4 implementation.  The full FieldSensor-per-shape
- * dirty-bit approach is deferred until bv_scene_obj grows per-solid
- * version fields.
  */
 uint64_t
 bsg_view_obj_mater_rev(const struct ged *gedp)
@@ -1509,6 +1511,26 @@ bsg_view_obj_mater_rev(const struct ged *gedp)
     if (!gedp)
         return 0;
     return gedp->i->ged_gdp->gd_mater_rev;
+}
+
+
+/**
+ * Bump the mater-revision counter (B4 activation).
+ *
+ * Must be called after any operation that changes the effective material
+ * or color table so that the next bsg_view_obj_color_from_soltab() call
+ * recolors shapes whose s_color_rev is now stale.
+ *
+ * Typical callers: 'color', 'mater', 'rmater', 'edmater' commands and
+ * any other code path that mutates dbip->dbi_mater or per-combination
+ * shader/rgb attributes.
+ */
+void
+bsg_view_obj_bump_mater_rev(struct ged *gedp)
+{
+    if (!gedp)
+        return;
+    _sg_bump_mater_rev(gedp);
 }
 
 

@@ -34,6 +34,7 @@
 #include "bu/app.h"
 #include "bu/file.h"
 #include "bu/getopt.h"
+#include "ged/bsg_view_obj.h"
 #include "../ged_private.h"
 
 
@@ -101,6 +102,11 @@ ged_edmater_core(struct ged *gedp, int argc, const char *argv[])
 	av[0] = "rmater";
 	av[2] = NULL;
 	status = ged_exec_rmater(gedp, 2, av);
+	if (status == BRLCAD_OK) {
+	    /* material properties changed — invalidate color stamps (B4) */
+	    bsg_view_obj_bump_mater_rev(gedp);
+	    bsg_view_obj_color_from_soltab(gedp);
+	}
     } else {
 	status = BRLCAD_ERROR;
     }

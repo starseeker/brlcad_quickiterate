@@ -162,17 +162,35 @@ GED_EXPORT extern struct bv_scene_obj *
 bsg_view_obj_get_illum(const struct ged *gedp);
 
 /**
- * Return the mater-revision counter (B4 partial).  The counter is
- * incremented each time bsg_view_obj_color_from_soltab() completes a
- * sweep.  Callers that cache per-solid color data can store a snapshot
- * and skip redundant recolor calls when the value is unchanged.
+ * Return the mater-revision counter (B4).  The counter is incremented by
+ * bsg_view_obj_bump_mater_rev() whenever the material/color table changes.
+ * bsg_view_obj_color_from_soltab() does NOT increment the counter; it only
+ * stamps per-shape s_color_rev fields.  Callers that cache per-solid color
+ * data can compare a saved snapshot to detect when a recolor sweep is needed.
  */
 GED_EXPORT extern uint64_t
 bsg_view_obj_mater_rev(const struct ged *gedp);
 
 /**
+ * Bump the mater-revision counter (B4 activation).
+ *
+ * Call this after any operation that changes the effective material or
+ * color table (e.g. 'color', 'mater', 'rmater', 'edmater') so that the
+ * next bsg_view_obj_color_from_soltab() call recolors shapes that are
+ * now stale (s_color_rev < gd_mater_rev).
+ */
+GED_EXPORT extern void
+bsg_view_obj_bump_mater_rev(struct ged *gedp);
+
+/**
  * Refresh per-object base color from the dbip's region/material table
- * (mater_struct chain) for every drawn scene object.
+ * (mater_struct chain) for every drawn scene object whose s_color_rev is
+ * stale (i.e. less than the current gd_mater_rev counter).  Shapes that
+ * were already colored since the last material-change event are skipped.
+ *
+ * Callers must invoke bsg_view_obj_bump_mater_rev() before this function
+ * to signal that a material change occurred; without that bump, successive
+ * calls will skip all already-stamped shapes.
  *
  * Replaces dl_color_soltab().
  */
