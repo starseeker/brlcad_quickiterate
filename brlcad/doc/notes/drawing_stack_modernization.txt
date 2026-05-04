@@ -1111,3 +1111,48 @@ Deprecation policy
 
               Build: libged, libdm, libtclcad, mged -- zero errors.
               Regression: ged_test_bsg_view_obj 27/27 PASS, libbsg 9/9 PASS.
+
+  2026-05-04  Phase 7 Layer C complete — group-handle API de-opaqued
+
+              The migration target API in include/ged/bsg_view_obj.h
+              previously exposed groups as `void *group_handle` so the
+              compiler could not type-check insertion-point arguments.
+              With Phase 7 Layer A having replaced the linked-list draw
+              root with a BSG_NODE_GROUP tree of `struct bv_scene_obj`,
+              the public API has been retyped to match the underlying
+              representation:
+
+                bsg_view_obj_lookup_or_add_path() now returns
+                  `struct bv_scene_obj *` (was `void *`).
+
+                bsg_view_obj_foreach_group() callback now takes
+                  `struct bv_scene_obj *group` (was `void *group_handle`).
+
+              Removed from the public API (no longer needed):
+                bsg_view_obj_first_group / bsg_view_obj_next_group
+                bsg_view_obj_group_solid_list
+
+              Callers migrated:
+                libged/who/who.c, libged/ged_util.cpp (3 callbacks),
+                libged/move_all/move_all.c, libged/move/move.c,
+                libged/garbage_collect/garbage_collect.cpp,
+                libged/tests/test_gqa.c.
+
+              Loops converted to bsg_visit / foreach callbacks:
+                libged/osg.cpp _ged_osgLoadScene
+                  -- bsg_visit(BSG_NODE_SHAPE) replaces 2-level loop.
+                libged/view/saveview.c
+                  -- bsg_view_obj_foreach_group replaces 1-level loop.
+                libged/tests/draw/bsg_view_obj.cpp
+                  -- dl_count + 2 iflag checks rewritten with
+                     foreach_group / foreach_solid callbacks.
+
+              Field types corrected (no behaviour change):
+                struct ged_solid_data::gdlp,
+                struct _ged_client_data::gdlp,
+                local `paths_to_draw[]` and `gdlp` in draw.c
+                  -- `void *` -> `struct bv_scene_obj *`.
+
+              Build: libged, libdm, libtclcad, libqtcad, mged, qged,
+              archer -- zero errors.
+              Regression: ged_test_bsg_view_obj 27/27 PASS.
