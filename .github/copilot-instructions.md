@@ -42,6 +42,7 @@ sudo apt-get install -y \
 # Qt6 development packages (Widgets, SVG, Network, OpenGL, OpenGLWidgets)
 sudo apt-get install -y \
   qt6-base-dev \
+  qt6-opengl-dev \
   qt6-svg-dev \
   qt6-tools-dev \
   libqt6opengl6t64 \
@@ -61,9 +62,11 @@ REPO_ROOT=/home/runner/work/brlcad_quickiterate/brlcad_quickiterate
 mkdir -p brlcad_build
 cmake -S "$REPO_ROOT/brlcad" -B "$REPO_ROOT/brlcad_build" \
   -DBRLCAD_EXT_DIR="$REPO_ROOT/bext_output" \
+  -DCMAKE_PREFIX_PATH="$REPO_ROOT/bext_output/install" \
   -DBRLCAD_EXTRADOCS=OFF \
   -DBRLCAD_ENABLE_STEP=OFF \
   -DBRLCAD_ENABLE_GDAL=OFF \
+  -DBRLCAD_ENABLE_OPENGL=ON
   -DBRLCAD_ENABLE_QT=ON
 ```
 
