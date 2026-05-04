@@ -60,10 +60,10 @@ void print_help_msg(struct bu_vls *str)
 
 /* Callback for collecting display paths */
 static int
-gc_collect_paths_cb(void *group_handle, void *userdata)
+gc_collect_paths_cb(struct bv_scene_obj *group, void *userdata)
 {
     std::vector<std::string> *who_objs = (std::vector<std::string> *)userdata;
-    const char *path = bsg_view_obj_group_path(group_handle);
+    const char *path = bsg_view_obj_group_path(group);
     if (path)
 	who_objs->push_back(std::string(path));
     return 1; /* continue */

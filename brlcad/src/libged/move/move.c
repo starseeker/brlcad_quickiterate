@@ -42,10 +42,10 @@ struct move_rename_data {
 };
 
 static int
-move_rename_group_cb(void *group_handle, void *userdata)
+move_rename_group_cb(struct bv_scene_obj *group, void *userdata)
 {
     struct move_rename_data *data = (struct move_rename_data *)userdata;
-    const char *path = bsg_view_obj_group_path(group_handle);
+    const char *path = bsg_view_obj_group_path(group);
     if (!path)
 	return 1; /* continue */
 
@@ -72,7 +72,7 @@ move_rename_group_cb(void *group_handle, void *userdata)
     }
 
     if (found) {
-	bsg_view_obj_group_set_path(group_handle, bu_vls_cstr(&new_path));
+	bsg_view_obj_group_set_path(group, bu_vls_cstr(&new_path));
     }
 
     free((void *)dupstr);

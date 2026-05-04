@@ -1248,11 +1248,11 @@ _ged_drawtrees(struct ged *gedp, int argc, const char *argv[], int kind, struct 
 		bu_free(eav, "eav");
 		return eret;
 	    } else {
-		void **paths_to_draw;
-		void *gdlp;
+		struct bv_scene_obj **paths_to_draw;
+		struct bv_scene_obj *gdlp;
 
-		paths_to_draw = (void **)
-		    bu_malloc(sizeof(void *) * argc,
+		paths_to_draw = (struct bv_scene_obj **)
+		    bu_malloc(sizeof(struct bv_scene_obj *) * argc,
 		    "redraw paths");
 
 		/* create solids */

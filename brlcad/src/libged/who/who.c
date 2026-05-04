@@ -38,10 +38,10 @@ struct who_data {
 };
 
 static int
-who_group_cb(void *group_handle, void *userdata)
+who_group_cb(struct bv_scene_obj *group, void *userdata)
 {
     struct who_data *data = (struct who_data *)userdata;
-    const char *path = bsg_view_obj_group_path(group_handle);
+    const char *path = bsg_view_obj_group_path(group);
     if (!path)
 	return 1; /* continue */
 

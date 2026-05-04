@@ -921,12 +921,12 @@ bsg_view_obj_root(struct ged *gedp)
 }
 
 
-void *
+struct bv_scene_obj *
 bsg_view_obj_lookup_or_add_path(struct ged *gedp, const char *path)
 {
     if (!gedp || !path)
         return NULL;
-    return (void *)_sg_add_path(gedp, path);
+    return (struct bv_scene_obj *)_sg_add_path(gedp, path);
 }
 
 
@@ -1229,15 +1229,6 @@ bsg_view_obj_group_is_nonempty(struct bv_scene_obj *group)
     if (!group)
         return 0;
     return (BU_PTBL_LEN(&group->children) > 0) ? 1 : 0;
-}
-
-
-struct bu_ptbl *
-bsg_view_obj_group_solid_list(void *group_handle)
-{
-    if (!group_handle)
-        return NULL;
-    return &((struct bv_scene_obj *)group_handle)->children;
 }
 
 
