@@ -482,6 +482,7 @@ draw_forced_wireframe(
 
     /* draw the path with the given client data, but force wireframe mode */
     struct _ged_client_data dgcd = *dgcdp;
+    int saved_shaded_mode = dgcd.gedp->i->ged_gdp->gd_shaded_mode;
     dgcd.gedp->i->ged_gdp->gd_shaded_mode = 0;
     dgcd.vs.s_dmode = _GED_WIREFRAME;
 
@@ -489,6 +490,12 @@ draw_forced_wireframe(
     av[1] = (char *)0;
 
     _ged_drawtrees(dgcd.gedp, ac, av, _GED_DRAW_WIREFRAME, &dgcd);
+
+    /* Restore the persistent shaded-mode setting so that subsequent draw
+     * calls (without an explicit -m flag) still honour the user's preference.
+     * We only need the zero temporarily to prevent the recursive
+     * _ged_drawtrees call from re-entering shaded mode. */
+    dgcd.gedp->i->ged_gdp->gd_shaded_mode = saved_shaded_mode;
 
     bu_free((void *)av[0], "draw_forced_wireframe: av[0]");
 }
@@ -1231,6 +1238,7 @@ _ged_drawtrees(struct ged *gedp, int argc, const char *argv[], int kind, struct 
 		dgcdp.vs.s_dmode == _GED_HIDDEN_LINE)
 	    {
 		struct _ged_client_data dgcdp_save;
+		int saved_shaded_mode;
 
 		for (i = 0; i < argc; ++i) {
 		    if (drawtrees_depth == 1)
@@ -1241,12 +1249,22 @@ _ged_drawtrees(struct ged *gedp, int argc, const char *argv[], int kind, struct 
 
 		    dgcdp_save = dgcdp;
 
+		    /* Remember the persistent shaded-mode before any per-object
+		     * fallback logic can modify it.  We restore it after each
+		     * object so that the user's shaded_mode preference is not
+		     * permanently clobbered by a single non-shadeable primitive. */
+		    saved_shaded_mode = gedp->i->ged_gdp->gd_shaded_mode;
+
 		    if (dgcdp.vs.s_dmode == _GED_SHADED_MODE_EVAL) {
 			ret = plot_shaded_eval(gedp, argv[i], &dgcdp);
 			if (ret == BRLCAD_OK) {
+			    gedp->i->ged_gdp->gd_shaded_mode = saved_shaded_mode;
 			    continue;
 			}
-			/* if evaluated shading failed, fall back to "all" mode */
+			/* if evaluated shading failed, fall back to "all" mode.
+			 * Temporarily zero gd_shaded_mode so that the recursive
+			 * _ged_drawtrees calls inside draw_check_leaf / plot_shaded
+			 * do not re-enter the eval path. */
 			dgcdp.gedp->i->ged_gdp->gd_shaded_mode = 0;
 			dgcdp.vs.s_dmode = _GED_SHADED_MODE_ALL;
 		    }
@@ -1262,6 +1280,10 @@ _ged_drawtrees(struct ged *gedp, int argc, const char *argv[], int kind, struct 
 				       draw_check_leaf,
 				       (void *)&dgcdp);
 
+		    /* Restore the persistent shaded-mode regardless of what the
+		     * tree walk (or any wireframe-fallback within it) may have
+		     * temporarily set it to. */
+		    gedp->i->ged_gdp->gd_shaded_mode = saved_shaded_mode;
 		    dgcdp = dgcdp_save;
 		}
 	    } else if (dgcdp.vs.s_dmode == _GED_WIREFRAME_EVAL) {

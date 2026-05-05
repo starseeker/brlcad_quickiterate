@@ -121,6 +121,15 @@ if {![info exists mged_default(gdisplay)]} {
     set mged_default(gdisplay) $mged_default(display)
 }
 
+# Returns 1 if the given display manager type supports zbuffer, lighting,
+# and depthcue settings via "dm set".  This covers all OpenGL-capable
+# backends: the legacy X11-based ogl/wgl DMs as well as the Qt-based qtgl
+# and the off-screen swrast backends.
+proc dm_has_zbuffer_lighting {dtype} {
+    return [expr {$dtype eq "ogl" || $dtype eq "wgl" ||
+		  $dtype eq "qtgl" || $dtype eq "swrast"}]
+}
+
 if {![info exists mged_default(dm_type)]} {
     set mged_default(dm_type) [dm_bestXType $mged_default(gdisplay)]
 }
@@ -1810,8 +1819,7 @@ hoc_register_menu_data "Create" "$ptype..." "Make a $ptype" $ksl
 	modify the state of the drawing window) will apply only to the
 	drawing window wherein the user typed. This feature is provided
 	to lessen the need to use the mouse." } }
-    if {$mged_gui($id,dtype) == "ogl" || $mged_gui($id,dtype) == "wgl"} {
-	.$id.menubar.misc add checkbutton -offvalue 0 -onvalue 1\
+    if {[dm_has_zbuffer_lighting $mged_gui($id,dtype)]} {
 	    -variable mged_gui($id,depthcue) -label "Depth Cueing" -underline 0\
 	    -command "mged_apply $id \"dm set depthcue \$mged_gui($id,depthcue)\""
 	hoc_register_menu_data "Misc" "Depth Cueing" "Depth Cueing"\
@@ -2245,7 +2253,7 @@ hoc_register_menu_data "Create" "$ptype..." "Make a $ptype" $ksl
     update_mged_vars $id
     set mged_gui($id,qray_effects) [qray effects]
 
-    if {$mged_gui($id,dtype) == "ogl" || $mged_gui($id,dtype) == "wgl"} {
+    if {[dm_has_zbuffer_lighting $mged_gui($id,dtype)]} {
 	mged_apply_local $id "dm set zbuffer $mged_default(zbuffer)"
     }
 
@@ -2417,7 +2425,7 @@ proc update_mged_vars { id } {
     set mged_gui($id,orig_gui) $orig_gui
     set mged_gui($id,forward_keys) $forwarding_key($mged_gui($id,active_dm))
 
-    if {$mged_gui($id,dtype) == "ogl" || $mged_gui($id,dtype) == "ogl"} {
+    if {[dm_has_zbuffer_lighting $mged_gui($id,dtype)]} {
 	set mged_gui($id,depthcue) [dm set depthcue]
 	set mged_gui($id,zbuffer) [dm set zbuffer]
 	set mged_gui($id,lighting) [dm set lighting]
