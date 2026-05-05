@@ -636,6 +636,10 @@ run_prepped_ray_checks(const struct dsp_case *tc, struct rt_i *rtip)
 				     o, d, 1, expected_vertical_in,
 				     expected_vertical_out, 0);
     } else if (tc->ray_checks == 2) {
+	VSET(o, 0.5 * x_extent, 0.5 * y_extent, 10000.0);
+	VSET(d, 0.0, 0.0, -1.0);
+	failures += check_direct_ray("smooth-mode direct vertical shot", stp, rtip,
+				     o, d, 1, -1.0, -1.0, 0);
 	failures += check_smooth_normal(tc, stp);
     }
 
