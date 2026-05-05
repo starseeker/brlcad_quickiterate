@@ -50,6 +50,7 @@
 
 #include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include <setjmp.h>
@@ -181,9 +182,10 @@ struct dsp_specific {
     struct dsp_bb_layer *layer;
     struct dsp_bb *bb_array;
 
-    /* BVH-based shot path (built at prep time).
-     * When bvh_root != NULL, rt_dsp_shot uses the BVH instead of the
-     * legacy HBB pyramid + 2D DDA path.
+    /* Optional BVH-based shot path.
+     * The height-field HBB pyramid + 2D DDA path is the default DSP raytracer.
+     * bvh_root is populated only when LIBRT_DSP_ENABLE_BVH is set for
+     * diagnostic/reference comparisons.
      */
     struct bvh_flat_node *bvh_root;   /* flattened HLBVH node array           */
     triangle_s           *bvh_tris;   /* terrain + wall + bottom triangles     */
@@ -990,8 +992,22 @@ rt_dsp_prep(struct soltab *stp, struct rt_db_internal *ip, struct rt_i *rtip)
 	       V3ARGS(stp->st_max));
     }
 
-    /* Build the HLBVH for the primary shot path */
-    dsp_build_bvh(dsp);
+    /* Keep the height-field HBB pyramid + 2D DDA path as the default.  The
+     * full-terrain triangle BVH is useful as a diagnostic/reference path, but
+     * it is too expensive in prep memory/time and per-ray work for large DSP
+     * terrains to build unconditionally.
+     */
+    {
+	const char *enable_bvh = getenv("LIBRT_DSP_ENABLE_BVH");
+	if (enable_bvh && enable_bvh[0] &&
+	    !BU_STR_EQUAL(enable_bvh, "0") &&
+	    !BU_STR_EQUAL(enable_bvh, "false") &&
+	    !BU_STR_EQUAL(enable_bvh, "FALSE") &&
+	    !BU_STR_EQUAL(enable_bvh, "off") &&
+	    !BU_STR_EQUAL(enable_bvh, "OFF")) {
+	    dsp_build_bvh(dsp);
+	}
+    }
 
     return 0;
 }
@@ -1006,10 +1022,9 @@ rt_dsp_prep(struct soltab *stp, struct rt_db_internal *ip, struct rt_i *rtip)
  * dsp_specific.  At shot time dsp_shot_bvh() traverses the HLBVH, collects
  * all surface-crossing hits, sorts them and pairs them into solid segments.
  *
- * This path entirely replaces the HBB-pyramid + 2D-DDA traversal for the
- * primary shot function.  The legacy DDA code remains in place and is still
- * used by the rt_crofton_shoot path (which fires very large numbers of short
- * random rays and benefits from the fast 2D-DDA skip of empty cells).
+ * This path is opt-in only.  The height-field HBB-pyramid + 2D-DDA traversal
+ * remains the default DSP shot routine because it avoids materializing the
+ * full terrain as triangles and preserves grid-ordered traversal/pruning.
  * ----------------------------------------------------------------------- */
 
 #define DSP_BVH_MIN_DN           1.0e-9
@@ -3025,9 +3040,8 @@ rt_dsp_shot(struct soltab *stp, register struct xray *rp, struct application *ap
 	       V3ARGS(isect.r.r_dir));
     }
 
-    /* Use the BVH shot path when the BVH was successfully built.
-     * The legacy HBB-pyramid + 2D-DDA path is retained as a fallback for
-     * cases where the BVH could not be built (degenerate DSP, out-of-memory).
+    /* Use the BVH shot path only when explicitly enabled at prep time.
+     * Otherwise use the default HBB-pyramid + 2D-DDA height-field traversal.
      */
     if (dsp->bvh_root) {
 	/* Pass the unit-direction solid-space ray to the BVH shot function. */

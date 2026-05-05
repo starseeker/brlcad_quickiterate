@@ -21,8 +21,10 @@
  *
  * Consistency and timing comparison for the DSP raytrace paths:
  *
- *   Path A (BVH): dsp_shot_bvh() — HLBVH over explicit triangles.
- *   Path B (DDA): legacy HBB-pyramid + 2D Amanatides-Woo DDA.
+ *   Path A (DDA): HBB-pyramid + 2D Amanatides-Woo DDA.  This is the
+ *      default DSP raytracer and treats DSPs as height fields.
+ *   Path B (BVH): optional diagnostic path, enabled only when
+ *      LIBRT_DSP_ENABLE_BVH is set before prep.
  *
  * For each test geometry the program runs FOUR independent estimates:
  *
@@ -30,17 +32,16 @@
  *      using the same triangulation as the BVH (deterministic, no sampling).
  *      This is the ground-truth reference.
  *
- *   2. BVH Crofton: rt_crofton_shoot with the HLBVH shot path enabled.
- *      Should agree with Mesh-Ref within ~5% (Crofton sampling error).
+ *   2. DDA Crofton: rt_crofton_shoot with the default HBB-pyramid + 2D-DDA
+ *      shot path.  Should agree with Mesh-Ref within ~5%.
  *
- *   3. DDA Crofton: rt_crofton_shoot with the BVH disabled so the legacy
- *      HBB-pyramid + 2D-DDA shot path is used.
- *      Should agree with Mesh-Ref within ~5%.
+ *   3. Optional BVH Crofton: rt_crofton_shoot with the HLBVH shot path
+ *      enabled, if the BVH was explicitly requested.
  *
  *   4. For synthetic flat cases: closed-form analytical SA/vol for a
  *      sanity double-check of the Mesh-Ref computation itself.
  *
- * Timing metrics are collected for both Crofton paths.
+ * Timing metrics are collected for all active Crofton paths.
  *
  * Usage:
  *   dsp_raytrace_check                          (synthetic cases only)
@@ -86,18 +87,17 @@
 #define CROFTON_TIMING_RAYS     50000u
 
 /*
- * The BVH path is the PRIMARY ray-trace path for DSP.  It is built at prep
- * time from a full triangle mesh (terrain + walls + bottom) and should agree
- * with the mesh-ref ground truth to within Crofton sampling noise (~0.5%
- * typical with the convergence-based accuracy pass).
+ * The BVH path is opt-in diagnostic/reference coverage.  It is built at prep
+ * time from a full triangle mesh (terrain + walls + bottom) when
+ * LIBRT_DSP_ENABLE_BVH is set, and should agree with the mesh-ref ground
+ * truth to within Crofton sampling noise.
  */
 #define DSP_BVH_MESHREF_PCT      8.0   /* BVH vs mesh-ref (primary path) */
 
 /*
- * The DDA / HBB-pyramid path is a LEGACY FALLBACK used only when the BVH
- * could not be built (e.g., degenerate DSP, out-of-memory).  It should
- * agree with the mesh reference to within typical Crofton sampling noise
- * (~5 %).  Errors larger than DSP_DDA_MESHREF_PCT are test failures.
+ * The DDA / HBB-pyramid path is the default DSP raytracer.  It should agree
+ * with the mesh reference to within typical Crofton sampling noise (~5 %).
+ * Errors larger than DSP_DDA_MESHREF_PCT are test failures.
  */
 #define DSP_DDA_MESHREF_PCT     10.0   /* DDA vs mesh-ref tolerance */
 #define DSP_AGREE_PCT           15.0   /* BVH vs DDA agreement tolerance */
@@ -334,7 +334,7 @@ run_crofton(struct rt_i *rtip, size_t nrays, double thresh_pct)
 
 
 /* ------------------------------------------------------------------ */
-/* Core comparison: mesh-ref vs BVH Crofton vs DDA Crofton            */
+/* Core comparison: mesh-ref vs default DDA Crofton vs optional BVH    */
 /* ------------------------------------------------------------------ */
 
 static double
@@ -348,7 +348,7 @@ return (fabs(a) < SMALL_FASTF) ? 0.0 : 100.0;
 
 
 /**
- * Run BVH and DDA Crofton passes on an already-prepped @p rtip, compare
+ * Run DDA and optional BVH Crofton passes on an already-prepped @p rtip, compare
  * against @p ref_sa / @p ref_vol (from compute_grid_sa_vol), and report
  * timing.  Also compare flat-case analytical values when provided.
  *
@@ -365,36 +365,56 @@ compare_paths(const char  *label,
       size_t       bvh_ntris)
 {
     int failures = 0;
+    size_t ndsp = 0;
+    int have_bvh = 0;
+    void **saved = dsp_swap_all_bvh(rtip, NULL, &ndsp);
+
+    if (!ndsp) {
+	printf("\n  %-55s\n", label);
+	printf("    WARNING: no DSP solids found\n");
+	if (saved) bu_free(saved, "saved bvh roots");
+	return 1;
+    }
+
+    for (size_t i = 0; i < ndsp; i++) {
+	if (saved[i]) {
+	    have_bvh = 1;
+	    break;
+	}
+    }
+
+    struct crofton_result dda_acc;
+    struct crofton_result dda_tim;
+    struct crofton_result bvh_acc;
+    struct crofton_result bvh_tim;
+    memset(&dda_acc, 0, sizeof(dda_acc));
+    memset(&dda_tim, 0, sizeof(dda_tim));
+    memset(&bvh_acc, 0, sizeof(bvh_acc));
+    memset(&bvh_tim, 0, sizeof(bvh_tim));
 
     printf("\n  %-55s\n", label);
     if (prep_sec > 0.0)
-printf("    Prep (incl. BVH build): %.3f s\n", prep_sec);
+printf("    Prep%s: %.3f s\n",
+       have_bvh ? " (incl. optional BVH build)" : " (DDA default)", prep_sec);
     if (bvh_ntris)
 printf("    BVH triangle count:     %zu\n", bvh_ntris);
 
-    /* --- Path A: BVH -------------------------------------------------- */
-    struct crofton_result bvh_acc = run_crofton(rtip,
+    /* --- Path A: DDA default ----------------------------------------- */
+    dda_acc = run_crofton(rtip,
 0 /* n_rays: 0 → use convergence-based path (thresh_pct > 0) */,
 CROFTON_ACCURACY_THRESH);
-    struct crofton_result bvh_tim = run_crofton(rtip,
+    dda_tim = run_crofton(rtip,
 CROFTON_TIMING_RAYS, 0.0);
 
-    /* --- Path B: DDA -------------------------------------------------- */
-    size_t ndsp = 0;
-    void **saved = dsp_swap_all_bvh(rtip, NULL, &ndsp);
-    if (!ndsp) {
-printf("    WARNING: no DSP solids found\n");
-if (saved) bu_free(saved, "saved bvh roots");
-return 1;
+    /* --- Path B: optional BVH diagnostic ----------------------------- */
+    if (have_bvh) {
+	dsp_restore_all_bvh(rtip, saved, ndsp);
+	bvh_acc = run_crofton(rtip,
+0 /* n_rays: 0 → use convergence-based path (thresh_pct > 0) */,
+CROFTON_ACCURACY_THRESH);
+	bvh_tim = run_crofton(rtip,
+CROFTON_TIMING_RAYS, 0.0);
     }
-
-    struct crofton_result dda_acc = run_crofton(rtip,
-0 /* n_rays: 0 → use convergence-based path (thresh_pct > 0) */,
-CROFTON_ACCURACY_THRESH);
-    struct crofton_result dda_tim = run_crofton(rtip,
-CROFTON_TIMING_RAYS, 0.0);
-
-    dsp_restore_all_bvh(rtip, saved, ndsp);
     bu_free(saved, "saved bvh roots");
 
     /* --- Result table -------------------------------------------------- */
@@ -423,17 +443,10 @@ if (avol_err > 1.0) {
 }
     }
 
-    double bvh_sa_err  = (ref_sa  > 0.0) ? pct_err(bvh_acc.sa,  ref_sa)  : -1.0;
-    double bvh_vol_err = (ref_vol > 0.0) ? pct_err(bvh_acc.vol, ref_vol) : -1.0;
+    double bvh_sa_err  = (have_bvh && ref_sa  > 0.0) ? pct_err(bvh_acc.sa,  ref_sa)  : -1.0;
+    double bvh_vol_err = (have_bvh && ref_vol > 0.0) ? pct_err(bvh_acc.vol, ref_vol) : -1.0;
     double dda_sa_err  = (ref_sa  > 0.0) ? pct_err(dda_acc.sa,  ref_sa)  : -1.0;
     double dda_vol_err = (ref_vol > 0.0) ? pct_err(dda_acc.vol, ref_vol) : -1.0;
-
-    if (bvh_sa_err >= 0.0)
-printf("    %-12s  %14.6g  %14.6g  %9.2f%%  %9.2f%%\n",
-       "BVH", bvh_acc.sa, bvh_acc.vol, bvh_sa_err, bvh_vol_err);
-    else
-printf("    %-12s  %14.6g  %14.6g\n",
-       "BVH", bvh_acc.sa, bvh_acc.vol);
 
     if (dda_sa_err >= 0.0)
 printf("    %-12s  %14.6g  %14.6g  %9.2f%%  %9.2f%%\n",
@@ -442,52 +455,63 @@ printf("    %-12s  %14.6g  %14.6g  %9.2f%%  %9.2f%%\n",
 printf("    %-12s  %14.6g  %14.6g\n",
        "DDA", dda_acc.sa, dda_acc.vol);
 
-    double bvh_dda_sa  = pct_err(bvh_acc.sa,  dda_acc.sa);
-    double bvh_dda_vol = pct_err(bvh_acc.vol, dda_acc.vol);
-    printf("    BVH vs DDA:     SA %.2f%%  Vol %.2f%%\n",
-   bvh_dda_sa, bvh_dda_vol);
+    double bvh_dda_sa  = have_bvh ? pct_err(bvh_acc.sa,  dda_acc.sa)  : -1.0;
+    double bvh_dda_vol = have_bvh ? pct_err(bvh_acc.vol, dda_acc.vol) : -1.0;
+    if (have_bvh) {
+	if (bvh_sa_err >= 0.0)
+	    printf("    %-12s  %14.6g  %14.6g  %9.2f%%  %9.2f%%\n",
+		   "BVH(opt)", bvh_acc.sa, bvh_acc.vol, bvh_sa_err, bvh_vol_err);
+	else
+	    printf("    %-12s  %14.6g  %14.6g\n",
+		   "BVH(opt)", bvh_acc.sa, bvh_acc.vol);
+	printf("    BVH vs DDA:     SA %.2f%%  Vol %.2f%%\n",
+	       bvh_dda_sa, bvh_dda_vol);
+    } else {
+	printf("    BVH(opt):       disabled (set LIBRT_DSP_ENABLE_BVH=1 before prep to test)\n");
+    }
 
     /* --- Timing -------------------------------------------------------- */
-    double bvh_rps = (bvh_tim.wall_sec > 1e-9)
+    double bvh_rps = (have_bvh && bvh_tim.wall_sec > 1e-9)
 ? CROFTON_TIMING_RAYS / bvh_tim.wall_sec : 0.0;
     double dda_rps = (dda_tim.wall_sec > 1e-9)
 ? CROFTON_TIMING_RAYS / dda_tim.wall_sec : 0.0;
-    double speedup = (dda_tim.wall_sec > 1e-9 && bvh_tim.wall_sec > 1e-9)
+    double speedup = (have_bvh && dda_tim.wall_sec > 1e-9 && bvh_tim.wall_sec > 1e-9)
 ? dda_tim.wall_sec / bvh_tim.wall_sec : 0.0;
 
     printf("\n    %-12s  %8s  %12s  %12s\n",
    "PATH", "rays", "wall_sec", "rays/sec");
     printf("    %-12s  %8u  %12.4f  %12.0f\n",
-   "BVH", CROFTON_TIMING_RAYS, bvh_tim.wall_sec, bvh_rps);
-    printf("    %-12s  %8u  %12.4f  %12.0f\n",
    "DDA", CROFTON_TIMING_RAYS, dda_tim.wall_sec, dda_rps);
+    if (have_bvh)
+	printf("    %-12s  %8u  %12.4f  %12.0f\n",
+	       "BVH(opt)", CROFTON_TIMING_RAYS, bvh_tim.wall_sec, bvh_rps);
     if (speedup > 0.0)
 printf("    BVH speedup vs DDA: %.2fx  (%s)\n",
        speedup,
        speedup >= 1.0 ? "BVH faster" : "DDA faster");
 
     /* --- Pass/fail ----------------------------------------------------- */
-    /* BVH (primary path) failures are test FAILs. */
-    const char *bsa  = (bvh_sa_err  < 0.0 || bvh_sa_err  <= DSP_BVH_MESHREF_PCT) ? "OK" : "FAIL";
-    const char *bvol = (bvh_vol_err < 0.0 || bvh_vol_err <= DSP_BVH_MESHREF_PCT) ? "OK" : "FAIL";
-    /* DDA (legacy fallback) failures are also test FAILs. */
+    /* DDA (primary path) failures are test FAILs. */
     const char *dsa  = (dda_sa_err  < 0.0 || dda_sa_err  <= DSP_DDA_MESHREF_PCT) ? "OK" : "FAIL";
     const char *dvol = (dda_vol_err < 0.0 || dda_vol_err <= DSP_DDA_MESHREF_PCT) ? "OK" : "FAIL";
-    const char *agsa  = (bvh_dda_sa  <= DSP_AGREE_PCT) ? "OK" : "FAIL";
-    const char *agvol = (bvh_dda_vol <= DSP_AGREE_PCT) ? "OK" : "FAIL";
-
-    printf("    Checks: BVH/Ref SA[%s] BVH/Ref Vol[%s]"
-   "  DDA/Ref SA[%s] DDA/Ref Vol[%s]"
-   "  Agree SA[%s] Agree Vol[%s]\n",
-   bsa, bvol, dsa, dvol, agsa, agvol);
+    printf("    Checks: DDA/Ref SA[%s] DDA/Ref Vol[%s]", dsa, dvol);
+    if (have_bvh) {
+	const char *bsa  = (bvh_sa_err  < 0.0 || bvh_sa_err  <= DSP_BVH_MESHREF_PCT) ? "OK" : "FAIL";
+	const char *bvol = (bvh_vol_err < 0.0 || bvh_vol_err <= DSP_BVH_MESHREF_PCT) ? "OK" : "FAIL";
+	const char *agsa  = (bvh_dda_sa  <= DSP_AGREE_PCT) ? "OK" : "FAIL";
+	const char *agvol = (bvh_dda_vol <= DSP_AGREE_PCT) ? "OK" : "FAIL";
+	printf("  BVH/Ref SA[%s] BVH/Ref Vol[%s] Agree SA[%s] Agree Vol[%s]",
+	       bsa, bvol, agsa, agvol);
+    }
+    printf("\n");
 
     if (ref_sa > 0.0) {
-	if (bvh_sa_err  > DSP_BVH_MESHREF_PCT) {
+	if (have_bvh && bvh_sa_err  > DSP_BVH_MESHREF_PCT) {
 	    printf("    FAIL: BVH SA vs Mesh-Ref: %.2f%% > %.1f%%\n",
 		   bvh_sa_err, DSP_BVH_MESHREF_PCT);
 	    failures++;
 	}
-	if (bvh_vol_err > DSP_BVH_MESHREF_PCT) {
+	if (have_bvh && bvh_vol_err > DSP_BVH_MESHREF_PCT) {
 	    printf("    FAIL: BVH vol vs Mesh-Ref: %.2f%% > %.1f%%\n",
 		   bvh_vol_err, DSP_BVH_MESHREF_PCT);
 	    failures++;
@@ -503,12 +527,12 @@ printf("    BVH speedup vs DDA: %.2fx  (%s)\n",
 	    failures++;
 	}
     }
-    if (bvh_dda_sa  > DSP_AGREE_PCT) {
+    if (have_bvh && bvh_dda_sa  > DSP_AGREE_PCT) {
 	printf("    FAIL: BVH/DDA SA  disagreement %.2f%% > %.1f%%\n",
 	       bvh_dda_sa, DSP_AGREE_PCT);
 	failures++;
     }
-    if (bvh_dda_vol > DSP_AGREE_PCT) {
+    if (have_bvh && bvh_dda_vol > DSP_AGREE_PCT) {
 	printf("    FAIL: BVH/DDA vol disagreement %.2f%% > %.1f%%\n",
 	       bvh_dda_vol, DSP_AGREE_PCT);
 	failures++;
@@ -818,6 +842,28 @@ struct dsp_case tc = {
 };
 failures += run_inmem_case(&tc);
 bu_free(buf, "33x33 buf");
+    }
+
+    /* --- 7. Larger terrain to keep the default DDA path under test --- */
+    {
+const uint32_t GW = 129, GH = 129;
+unsigned short *buf = (unsigned short *)bu_calloc(
+    GW * GH, sizeof(unsigned short), "129x129 buf");
+for (uint32_t y = 0; y < GH; y++)
+    for (uint32_t x = 0; x < GW; x++) {
+double fx = (double)x / (GW - 1);
+double fy = (double)y / (GH - 1);
+double ridge = 120.0 * sin(12.0 * fx) * cos(8.0 * fy);
+double ramp = 300.0 * fx + 150.0 * fy;
+buf[y*GW + x] = (unsigned short)(int)(700.0 + ramp + ridge);
+    }
+
+struct dsp_case tc = {
+    "larger 129x129 mixed ramp/wave terrain",
+    GW, GH, buf, 1.0, 1.0, 1.0, -1.0, -1.0
+};
+failures += run_inmem_case(&tc);
+bu_free(buf, "129x129 buf");
     }
 
     printf("\n=== Synthetic: %d failure(s) ===\n", failures);
