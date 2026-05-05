@@ -623,6 +623,8 @@ test_opt_cut_plane(void)
 {
     extern int do_kut_plane;
     extern plane_t kut_plane;
+    const double inv_sqrt3 = 1.0 / sqrt(3.0);
+    const double sqrt3 = sqrt(3.0);
     reset_globals();
     /* Normal vector (1,0,0) at dist=5 */
     MAKE_ARGV(av, "rt", "-k", "1,0,0,5");
@@ -661,10 +663,10 @@ test_opt_cut_plane(void)
     MAKE_ARGV(av5, "rt", "-k", "1,1,1,1,1,1");
     CALL_GET_ARGS(av5, 1);
     CHECK_INT("-k diagonal point+normal", 1, do_kut_plane);
-    CHECK_DBL("-k diagonal point+normal kut_plane[0]", 0.5773502691896257, kut_plane[0]);
-    CHECK_DBL("-k diagonal point+normal kut_plane[1]", 0.5773502691896257, kut_plane[1]);
-    CHECK_DBL("-k diagonal point+normal kut_plane[2]", 0.5773502691896257, kut_plane[2]);
-    CHECK_DBL("-k diagonal point+normal kut_plane[W]", 1.7320508075688772, kut_plane[W]);
+    CHECK_DBL("-k diagonal point+normal kut_plane[0]", inv_sqrt3, kut_plane[0]);
+    CHECK_DBL("-k diagonal point+normal kut_plane[1]", inv_sqrt3, kut_plane[1]);
+    CHECK_DBL("-k diagonal point+normal kut_plane[2]", inv_sqrt3, kut_plane[2]);
+    CHECK_DBL("-k diagonal point+normal kut_plane[W]", sqrt3, kut_plane[W]);
 }
 
 
