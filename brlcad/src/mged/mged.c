@@ -2301,6 +2301,21 @@ main(int argc, char *argv[])
 
     bu_setprogname(argv[0]);
 
+    /* If any libdm display manager plugins failed to load, surface the
+     * diagnostic now so users don't see a silent fallback (e.g. "ogl"
+     * missing from `attach` / `dm_list_types`) without any clue why.
+     * This mirrors the diagnostic qged already prints (see
+     * src/qged/QgEdApp.cpp). */
+    {
+	const char *dm_msgs = dm_init_msgs();
+	if (dm_msgs && dm_msgs[0] != '\0') {
+	    bu_log("WARNING: libdm plugin initialization issues:\n%s",
+		   dm_msgs);
+	    if (dm_msgs[strlen(dm_msgs) - 1] != '\n')
+		bu_log("\n");
+	}
+    }
+
 #if defined(HAVE_TK)
     if (dm_have_graphics()) {
 	s->classic_mged = 0;
