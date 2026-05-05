@@ -173,7 +173,7 @@ add_ref_triangle(double ax, double ay, double az,
     double nz = abx * acy - aby * acx;
 
     *sa += 0.5 * sqrt(nx*nx + ny*ny + nz*nz);
-    *vol += fabs(nz) * (az + bz + cz) / 6.0;
+    *vol += nz * (az + bz + cz) / 6.0;
 }
 
 
@@ -540,8 +540,6 @@ check_smooth_normal(const struct dsp_case *tc, struct soltab *stp)
     struct xray ray;
     struct hit hit;
     point_t p;
-
-    RT_DSP_CK_MAGIC((struct rt_dsp_internal *)stp->st_specific);
 
     VSET(p, 1.5 * tc->dx, 1.5 * tc->dy, 0.0);
     VSET(ray.r_pt, p[X], p[Y], 10000.0);
