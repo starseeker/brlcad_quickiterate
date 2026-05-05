@@ -560,7 +560,16 @@ int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
     // "Standard" vlist object drawing
     if (bu_list_len(&s->s_vlist)) {
 	if (s->s_os->s_dmode == 4) {
+	    /* Hidden-line mode always uses the explicit vlist path so the
+	     * line/edge drawing logic in dm_draw_vlist_hidden_line runs. */
 	    dm_draw_vlist_hidden_line(dmp, (struct bv_vlist *)&s->s_vlist);
+	} else if (dm_get_displaylist(dmp) && s->s_dlist != 0) {
+	    /* Phase 2 (BSG render contract): if a compiled GL display list
+	     * has been generated for this object (gl_draw_display_list +
+	     * _gl_compile_dlist) and the dm has its display-list mode on,
+	     * replay it via dm_draw_dlist instead of re-walking the vlist
+	     * each frame.  This restores the legacy mv_dlist fast path. */
+	    dm_draw_dlist(dmp, s->s_dlist);
 	} else {
 	    dm_draw_vlist(dmp, (struct bv_vlist *)&s->s_vlist);
 	}

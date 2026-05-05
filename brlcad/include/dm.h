@@ -200,6 +200,8 @@ DM_EXPORT extern int dm_get_bg(unsigned char **bg1, unsigned char **bg2, struct 
 DM_EXPORT extern int dm_set_bg(struct dm *dmp, unsigned char r1, unsigned char g1, unsigned char b1, unsigned char r2, unsigned char g2, unsigned char b2);
 DM_EXPORT extern unsigned char *dm_get_fg(struct dm *dmp);
 DM_EXPORT extern int dm_set_fg(struct dm *dmp, unsigned char r, unsigned char g, unsigned char b, int strict, fastf_t transparency);
+DM_EXPORT extern unsigned char *dm_get_geometry_default_color(struct dm *dmp);
+DM_EXPORT extern void dm_set_geometry_default_color(struct dm *dmp, unsigned char r, unsigned char g, unsigned char b);
 DM_EXPORT extern int dm_reshape(struct dm *dmp, int width, int height);
 DM_EXPORT extern int dm_make_current(struct dm *dmp);
 DM_EXPORT extern int dm_doevent(struct dm *dmp, void *clientData, void *eventPtr);

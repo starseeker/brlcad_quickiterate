@@ -1791,6 +1791,13 @@ refresh(struct mged_state *s)
 	    DMP_dirty = 0;
 	    do_time = 1;
 	    VMOVE(geometry_default_color, color_scheme->cs_geo_def);
+	    /* Phase 4 (BSG render contract): push the current geometry
+	     * default colour into the dm so dm_draw_scene_obj can honour
+	     * s_old.s_cflag without reaching back into MGED globals. */
+	    dm_set_geometry_default_color(DMP,
+					  geometry_default_color[0],
+					  geometry_default_color[1],
+					  geometry_default_color[2]);
 
 	    if (s->dbip != DBI_NULL) {
 		if (do_overlay) {

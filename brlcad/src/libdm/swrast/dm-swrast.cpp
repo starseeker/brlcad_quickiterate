@@ -726,6 +726,7 @@ struct dm_impl dm_swrast_impl = {
     {0, 0, 0},			/* bg1 color */
     {0, 0, 0},			/* bg2 color */
     {0, 0, 0},			/* fg color */
+    {255, 0, 0},/* geometry default color */
     {BV_MIN, BV_MIN, BV_MIN},	/* clipmin */
     {BV_MAX, BV_MAX, BV_MAX},	/* clipmax */
     0,				/* no debugging */
