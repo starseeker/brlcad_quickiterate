@@ -491,7 +491,7 @@ printf("    %-12s  %14.6g  %14.6g\n",
     if (have_bvh)
 	printf("    %-12s  %8u  %12.4f  %12.0f\n",
 	       "BVH(opt)", CROFTON_TIMING_RAYS, bvh_tim.wall_sec, bvh_rps);
-    if (speedup > 0.0)
+    if (have_bvh && speedup > 0.0)
 printf("    BVH speedup vs DDA: %.2fx  (%s)\n",
        speedup,
        speedup >= 1.0 ? "BVH faster" : "DDA faster");
@@ -852,7 +852,8 @@ bu_free(buf, "33x33 buf");
 
     /* --- 7. Larger terrain to keep the default DDA path under test --- */
     {
-const uint32_t GW = DSP_TEST_LARGE_GRID_DIM, GH = DSP_TEST_LARGE_GRID_DIM;
+const uint32_t grid_width = DSP_TEST_LARGE_GRID_DIM;
+const uint32_t grid_height = DSP_TEST_LARGE_GRID_DIM;
 const double ridge_height = 120.0;
 /* Unequal wave frequencies avoid a symmetric height field and produce rays
  * that visit varied HBB/DDA child paths across the power-of-two cell grid.
@@ -863,19 +864,19 @@ const double ramp_x_height = 300.0;
 const double ramp_y_height = 150.0;
 const double base_height = 700.0;
 unsigned short *buf = (unsigned short *)bu_calloc(
-    GW * GH, sizeof(unsigned short), "129x129 buf");
-for (uint32_t y = 0; y < GH; y++)
-    for (uint32_t x = 0; x < GW; x++) {
-double fx = (double)x / (GW - 1);
-double fy = (double)y / (GH - 1);
+    grid_width * grid_height, sizeof(unsigned short), "129x129 buf");
+for (uint32_t y = 0; y < grid_height; y++)
+    for (uint32_t x = 0; x < grid_width; x++) {
+double fx = (double)x / (grid_width - 1);
+double fy = (double)y / (grid_height - 1);
 double ridge = ridge_height * sin(ridge_x_freq * fx) * cos(ridge_y_freq * fy);
 double ramp = ramp_x_height * fx + ramp_y_height * fy;
-buf[y*GW + x] = (unsigned short)(int)(base_height + ramp + ridge);
+buf[y*grid_width + x] = (unsigned short)(base_height + ramp + ridge);
     }
 
 struct dsp_case tc = {
     "larger 129x129 mixed ramp/wave terrain",
-    GW, GH, buf, 1.0, 1.0, 1.0, -1.0, -1.0
+    grid_width, grid_height, buf, 1.0, 1.0, 1.0, -1.0, -1.0
 };
 failures += run_inmem_case(&tc);
 bu_free(buf, "129x129 buf");
