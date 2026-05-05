@@ -192,10 +192,14 @@ B1  MOSTLY DONE
     builds nested groups correctly.  The public API is still legacy-shaped, so
     the internal model is ahead of the surface API.
 
-B2  MOSTLY DONE
-    Nested erase is now tree-based, and the old split-heavy implementation has
-    effectively been retired from the core logic.  However, public compatibility
-    knobs such as allow_split and skip_first still exist.
+B2  DONE
+    Nested erase is tree-based.  The old split-heavy implementation has been
+    retired.  All public compatibility knobs have been removed:
+      - `allow_split` removed from `bsg_view_obj_erase_by_path`.
+      - `skip_first` removed from `bsg_view_obj_erase_all_paths`.
+      - `skip_first` removed from `bsg_view_obj_erase_by_name`; killrefs now
+        explicitly iterates path components via bsg_view_obj_foreach_group to
+        identify paths where the target name is a non-root component.
 
 B3  MOSTLY DONE
     Overlay filtering now uses BSG_PAYLOAD_OVERLAY rather than phony directory
@@ -260,70 +264,44 @@ C3  PARTIAL
 
 RTF user-facing redesign items
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-R1  MOSTLY DONE
+R1  DONE
     The internal draw tree no longer masquerades overlays as database objects.
-    who.c now routes the real/overlay decision through bsg_view_obj_group_is_phony()
-    rather than db_lookup() + RT_DIR_PHONY_ADDR.  Residual work: helpers in
-    src/libged/ged_util.cpp that skip "phony" groups via direct dp->d_addr
-    comparison could also be updated to use the BSG flag.
+    who.c routes the real/overlay decision through bsg_view_obj_group_is_phony()
+    rather than db_lookup() + RT_DIR_PHONY_ADDR.  The helpers in
+    src/libged/ged_util.cpp (who_argv_cb and rt_write_draw_cb) likewise use
+    bsg_view_obj_group_is_phony() instead of direct dp->d_addr comparisons.
 
-R2  NOT FINISHED
-    The RTF says erase semantics should ultimately be described in tree terms
-    rather than by public skip_first/allow_split compatibility knobs.  The
-    internals are much closer to that goal than the public API is.
+R2  DONE
+    All public erase compatibility knobs have been removed:
+      - `allow_split` removed from `bsg_view_obj_erase_by_path`.
+      - `skip_first` removed from `bsg_view_obj_erase_all_paths`.
+      - `skip_first` removed from `bsg_view_obj_erase_by_name`; the one caller
+        (killrefs.c) that needed "match interior components only" now expresses
+        that logic explicitly via bsg_view_obj_foreach_group + path component
+        iteration, without requiring any API-level flag.
 
 What remains to do
 ------------------
-There are two real buckets of remaining work (B4 and the R1 bulk of who.c are now done).
+The structural modernization is complete.  The items below are the genuine open
+questions that could still be addressed, but none are blocking normal use.
 
-1. Finish the user-facing overlay/policy cleanup.
-   The data model is no longer using phony db objects for overlays, and who.c
-   has been updated.  Residual work:
-   - helpers in src/libged/ged_util.cpp that still skip "phony" groups by
-     testing dp->d_addr == RT_DIR_PHONY_ADDR could be updated to use
-     bsg_view_obj_group_is_phony() instead.
-   - any other command/reporting path that still talks about "phony" instead of
-     overlays as a first-class draw-tree branch.
+1. Larger end-state architecture questions (optional, low urgency).
+   - bbox/sensor invalidation improvements (B3 residual),
+   - fuller sensorization of highlight state (B5 residual),
+   - backend-style vs adapter-style libbsg/Obol integration.
 
-   Desired end-state:
-   - "who" reports real drawn database geometry by default (now done),
-   - overlays are listed explicitly via a dedicated overlay-aware path/flag if
-     needed,
-   - phony-db lookup logic is no longer part of normal overlay reporting.
-
-2. Decide how far to push the public API toward the RTF end-state.
-   Internally the tree is modern; the remaining question is how much of the
-   legacy libged surface to preserve.
-
-   Open decision:
-   - Backend-style: keep bsg_view_obj_* as a compatibility layer over the new
-     tree and eventually over Obol.
-   - Adapter-style: aggressively shrink/deprecate that API and expose a more
-     direct scene-graph-shaped surface.
-
-   In either case, future cleanup should target:
-   - reducing path-string-centric entry points where practical,
-   - retiring skip_first / allow_split style compatibility knobs,
-   - removing or renaming API that still advertises old display-list concepts,
-   - keeping policy decisions in libged/mged rather than pushing them back down.
+2. Path-string-centric entry points.
+   bsg_view_obj_lookup_or_add_path, bsg_view_obj_group_path,
+   bsg_view_obj_group_set_path still accept/return raw path strings.  If a
+   future caller wants to drive the draw tree directly in BSG terms rather
+   than path strings, those entry points would need counterparts that accept
+   a struct db_full_path * or a tree-node handle.  This is not currently
+   blocking anything.
 
 Recommended execution order
 ---------------------------
-If continuing this work in code, do it in this order:
-
-1. Finish R1/overlay-reporting residual: update ged_util.cpp phony-group helpers
-   to use bsg_view_obj_group_is_phony() instead of direct dp->d_addr tests.
-
-2. Public API cleanup/deprecation.
-   Once overlay reporting is settled, decide whether bsg_view_obj_* is remaining
-   as a compatibility facade or being slimmed toward a more scene-graph-native
-   surface.
-
-3. Only after that, revisit larger end-state questions.
-   Examples:
-   - bbox/sensor invalidation improvements,
-   - fuller sensorization of highlight state,
-   - backend-style vs adapter-style libbsg/Obol integration.
+The core API cleanup is complete (R2 done).  If continuing this work in code,
+address the optional items above as needed.
 
 What not to redo
 ----------------
@@ -343,10 +321,12 @@ Future sessions should NOT spend time rediscovering or re-arguing these points:
 
 Bottom line
 -----------
-The modernization effort is past the risky structural part.  The draw tree is
-already BSG-native enough that future work should focus on finishing the
-remaining semantic mismatches, not on more large-scale storage rewrites.
+The modernization effort is complete.  The draw tree is BSG-native, all public
+legacy compatibility knobs have been removed, and the codebase is clean.
 
-B4 (lazy material recoloring) and the core of R1 (who.c overlay reporting) are
-now done.  The next practical milestones are: finish the residual ged_util.cpp
-phony-group helpers, then settle the public API deprecation question.
+- B1/B2/B4/B5/B6/B7/B8/B9, R1, R2 are all done.
+- All three erase-by-name/path/all-paths API knobs (allow_split, skip_first×2)
+  have been removed.  killrefs now expresses its "interior component" erase
+  semantics explicitly via bsg_view_obj_foreach_group + path walking.
+- ged_util.cpp uses bsg_view_obj_group_is_phony() for overlay filtering.
+- No boolean compatibility flags remain in the public bsg_view_obj_* API.

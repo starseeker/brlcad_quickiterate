@@ -28,8 +28,66 @@
 #include <string.h>
 
 #include "bu/cmd.h"
+#include "bu/ptbl.h"
 
 #include "../ged_private.h"
+
+
+/*
+ * Return 1 if @p name matches any path component after the first one in
+ * @p path.  Path components are separated by '/'.  This is used to identify
+ * drawn paths that go *through* a named object (i.e., the object is a
+ * non-root member of the path), as opposed to paths where the object is
+ * drawn directly at the top level.
+ */
+static int
+_name_in_nonroot_component(const char *path, const char *name)
+{
+    size_t namelen = strlen(name);
+    const char *p = path;
+
+    /* skip the first component */
+    while (*p && *p != '/')
+	p++;
+    if (!*p)
+	return 0;  /* single-component path — no interior components */
+    p++;  /* step past the '/' separator */
+
+    while (*p) {
+	const char *slash = strchr(p, '/');
+	size_t clen = slash ? (size_t)(slash - p) : strlen(p);
+	if (clen == namelen && bu_strncmp(p, name, clen) == 0)
+	    return 1;
+	if (!slash)
+	    break;
+	p = slash + 1;
+    }
+    return 0;
+}
+
+
+/* Callback data for the killrefs drawn-path collection pass */
+struct _killrefs_ctx {
+    const char *name;
+    struct bu_ptbl *to_erase;  /* collects strdup'd path strings */
+};
+
+/*
+ * foreach_group callback: collect drawn paths whose non-root components
+ * contain the target name.  The paths are copied as strings so the
+ * subsequent erase pass does not iterate a mutating tree.
+ */
+static int
+_killrefs_group_cb(struct bv_scene_obj *group, void *userdata)
+{
+    struct _killrefs_ctx *ctx = (struct _killrefs_ctx *)userdata;
+    if (bsg_view_obj_group_is_phony(group))
+	return 1;
+    const char *path = bsg_view_obj_group_path(group);
+    if (path && _name_in_nonroot_component(path, ctx->name))
+	bu_ptbl_ins(ctx->to_erase, (long *)bu_strdup(path));
+    return 1;
+}
 
 
 int
@@ -68,8 +126,31 @@ ged_killrefs_core(struct ged *gedp, int argc, const char *argv[])
 	nflag = 0;
 
     if (!nflag && !gedp->ged_internal_call) {
-	for (k = 1; k < argc; k++)
-	    bsg_view_obj_erase_by_name(gedp, argv[k], 1);
+	/*
+	 * Erase drawn paths where argv[k] appears as a non-top-level
+	 * path component.  Paths where argv[k] is the top-level drawn
+	 * object are left intact because killrefs only removes references
+	 * from parent combinations — the object itself is not deleted.
+	 *
+	 * Two passes: first collect matching paths (by value), then erase
+	 * them, so the tree is not mutated during the collection walk.
+	 */
+	for (k = 1; k < argc; k++) {
+	    struct bu_ptbl to_erase;
+	    bu_ptbl_init(&to_erase, 8, "killrefs erase list");
+
+	    struct _killrefs_ctx ctx;
+	    ctx.name = argv[k];
+	    ctx.to_erase = &to_erase;
+	    bsg_view_obj_foreach_group(gedp, _killrefs_group_cb, &ctx);
+
+	    for (size_t ei = 0; ei < BU_PTBL_LEN(&to_erase); ei++) {
+		char *epath = (char *)BU_PTBL_GET(&to_erase, ei);
+		bsg_view_obj_erase_by_path(gedp, epath);
+		bu_free(epath, "killrefs erase path");
+	    }
+	    bu_ptbl_free(&to_erase);
+	}
     }
 
     ret = BRLCAD_OK;

@@ -129,12 +129,12 @@ main(int ac, char *av[])
     bu_log("[1] NULL-arg safety...\n");
     ASSERT(bsg_view_obj_lookup_or_add_path(NULL, "any") == NULL);
     ASSERT(bsg_view_obj_lookup_or_add_path(gedp, NULL) == NULL);
-    bsg_view_obj_erase_by_path(NULL, "x", 0);              /* no crash */
-    bsg_view_obj_erase_by_path(gedp, NULL, 0);             /* no crash */
-    bsg_view_obj_erase_by_name(NULL, "x", 0);              /* no crash */
-    bsg_view_obj_erase_by_name(gedp, NULL, 0);             /* no crash */
-    bsg_view_obj_erase_all_paths(NULL, "x", 0);            /* no crash */
-    bsg_view_obj_erase_all_paths(gedp, NULL, 0);           /* no crash */
+    bsg_view_obj_erase_by_path(NULL, "x");              /* no crash */
+    bsg_view_obj_erase_by_path(gedp, NULL);             /* no crash */
+    bsg_view_obj_erase_by_name(NULL, "x");              /* no crash */
+    bsg_view_obj_erase_by_name(gedp, NULL);             /* no crash */
+    bsg_view_obj_erase_all_paths(NULL, "x");            /* no crash */
+    bsg_view_obj_erase_all_paths(gedp, NULL);           /* no crash */
     bsg_view_obj_set_iflag(NULL, 0);                       /* no crash */
     bsg_view_obj_color_from_soltab(NULL);                  /* no crash */
     ASSERT(bsg_view_obj_name_hash(NULL) == 0);
@@ -280,7 +280,7 @@ main(int ac, char *av[])
 	BV_FREE_VLIST(vlfree, &vhead);
 
 	/* Erase the phony solid by name. */
-	bsg_view_obj_erase_by_name(gedp, "_bsg_test_phony", 0);
+	bsg_view_obj_erase_by_name(gedp, "_bsg_test_phony");
 	/* _overlays group should be gone (empty → freed). */
 	ASSERT(dl_count(gedp) == before_invent);
     }
@@ -298,14 +298,14 @@ main(int ac, char *av[])
 	ASSERT(before > 0);
 
 	/* erase_by_path on the exact drawn name must remove that entry. */
-	bsg_view_obj_erase_by_path(gedp, "all.g", 0);
+	bsg_view_obj_erase_by_path(gedp, "all.g");
 	ASSERT(dl_count(gedp) < before);
 
-	/* Re-draw and try erase_all_paths with skip_first=0. */
+	/* Re-draw and try erase_all_paths. */
 	ged_exec(gedp, 2, s_av);
 	int before2 = dl_count(gedp);
 	ASSERT(before2 > 0);
-	bsg_view_obj_erase_all_paths(gedp, "all.g", 0);
+	bsg_view_obj_erase_all_paths(gedp, "all.g");
 	/* Note: erase_all_paths matches subset paths, so should clear
 	 * everything that has all.g as a prefix component. */
 	ASSERT(dl_count(gedp) <= before2);
@@ -375,7 +375,7 @@ main(int ac, char *av[])
 	    /* count must not have changed */
 	    ASSERT(bsg_view_obj_solid_count(gedp) == count);
 	    /* Clean up */
-	    bsg_view_obj_erase_by_name(gedp, "_snap_test_overlay", 0);
+	    bsg_view_obj_erase_by_name(gedp, "_snap_test_overlay");
 	}
     }
 
@@ -402,7 +402,7 @@ main(int ac, char *av[])
 	ASSERT(bsg_view_obj_name_hash(gedp) == (unsigned long long)rev_after_draw);
 
 	/* Erase something — rev must have increased again. */
-	bsg_view_obj_erase_by_path(gedp, "all.g", 0);
+	bsg_view_obj_erase_by_path(gedp, "all.g");
 	uint64_t rev_after_erase = bsg_view_obj_draw_rev(gedp);
 	ASSERT(rev_after_erase > rev_after_draw);
 
@@ -429,7 +429,7 @@ main(int ac, char *av[])
 	    BV_FREE_VLIST(vlfree, &vhead);
 	    ASSERT(bsg_view_obj_draw_rev(gedp) > rev_pre);
 
-	    bsg_view_obj_erase_by_name(gedp, "_rev_test_ov", 0);
+	    bsg_view_obj_erase_by_name(gedp, "_rev_test_ov");
 	}
     }
 
@@ -504,7 +504,7 @@ main(int ac, char *av[])
 	ASSERT(bsg_view_obj_group_of_solid(gedp, ls) == all_g_group);
 
 	/* Erase "all.g" should clean up cleanly */
-	bsg_view_obj_erase_by_path(gedp, "all.g", 0);
+	bsg_view_obj_erase_by_path(gedp, "all.g");
 	ASSERT(bsg_view_obj_solid_count(gedp) == 0);
 	ASSERT(dl_count(gedp) == 0);
     }

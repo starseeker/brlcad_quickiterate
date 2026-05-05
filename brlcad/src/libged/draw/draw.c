@@ -221,29 +221,49 @@ redraw_solid(struct bv_scene_obj *sp, struct db_i *dbip, struct db_tree_state *t
     return 0;
 }
 
+struct _dl_redraw_ctx {
+    struct db_i *dbip;
+    struct db_tree_state *tsp;
+    struct bview *gvp;
+    struct bu_list *vlfree;
+    struct ged *gedp;
+    int skip_subtractions;
+    int ret;
+};
+
+static int
+_dl_redraw_shape_cb(bsg_node *n, void *ud)
+{
+    struct _dl_redraw_ctx *ctx = (struct _dl_redraw_ctx *)ud;
+    struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
+    if (!ctx->skip_subtractions || !sp->s_soldash)
+	ctx->ret += redraw_solid(sp, ctx->dbip, ctx->tsp, ctx->gvp, ctx->vlfree);
+    /* Phase 6.5 Step 3: fire the per-solid vlist callback for each solid. */
+    ged_create_vlist_solid_cb(ctx->gedp, sp);
+    return 1;
+}
+
 static int
 dl_redraw(struct bv_scene_obj *g, struct ged *gedp, int skip_subtractions)
 {
-    struct db_i *dbip = gedp->dbip;
     struct rt_wdb *wdbp = wdb_dbopen(gedp->dbip, RT_WDB_TYPE_DB_DEFAULT);
-    struct db_tree_state *tsp = &wdbp->wdb_initial_tree_state;
-    struct bview *gvp = gedp->ged_gvp;
-    int ret = 0;
-    struct bv_scene_obj *sp;
-    struct bu_list *vlfree = &rt_vlfree;
-    struct bu_ptbl *solids = &g->children;
-    for (size_t _i = 0; _i < BU_PTBL_LEN(solids); _i++) {
-	sp = (struct bv_scene_obj *)BU_PTBL_GET(solids, _i);
-	if (!skip_subtractions || (skip_subtractions && !sp->s_soldash)) {
-	    ret += redraw_solid(sp, dbip, tsp, gvp, vlfree);
-	}
-    }
-    /* Phase 6.5 Step 3: fire the per-solid vlist callback for each solid. */
-    for (size_t _i = 0; _i < BU_PTBL_LEN(solids); _i++) {
-	sp = (struct bv_scene_obj *)BU_PTBL_GET(solids, _i);
-	ged_create_vlist_solid_cb(gedp, sp);
-    }
-    return ret;
+    struct _dl_redraw_ctx ctx;
+    ctx.dbip = gedp->dbip;
+    ctx.tsp = &wdbp->wdb_initial_tree_state;
+    ctx.gvp = gedp->ged_gvp;
+    ctx.vlfree = &rt_vlfree;
+    ctx.gedp = gedp;
+    ctx.skip_subtractions = skip_subtractions;
+    ctx.ret = 0;
+
+    /* Walk all SHAPE nodes in the nested BSG sub-tree rather than
+     * iterating g->children directly.  Since Phase 7 Step 5, the
+     * immediate children of a drawn group are intermediate sub-groups,
+     * not flat solid nodes; bsg_visit(BSG_NODE_SHAPE) descends to the
+     * actual leaf shapes regardless of nesting depth. */
+    bsg_visit((bsg_node *)g, BSG_NODE_SHAPE, _dl_redraw_shape_cb, &ctx);
+
+    return ctx.ret;
 }
 
 union tree *
@@ -1549,7 +1569,7 @@ ged_draw_guts(struct ged *gedp, int argc, const char *argv[], int kind)
 		continue;
 	    }
 
-	    bsg_view_obj_erase_by_path(gedp, new_argv[i], 0);
+	    bsg_view_obj_erase_by_path(gedp, new_argv[i]);
 	}
 
 	drawtrees_retval = _ged_drawtrees(gedp, new_argc, (const char **)new_argv, kind, (struct _ged_client_data *)0);
@@ -1583,7 +1603,7 @@ ged_draw_guts(struct ged *gedp, int argc, const char *argv[], int kind)
 		continue;
 	    }
 
-	    bsg_view_obj_erase_by_path(gedp, argv[i], 0);
+	    bsg_view_obj_erase_by_path(gedp, argv[i]);
 	}
 
 	/* if our display is non-empty add -R to keep current view */

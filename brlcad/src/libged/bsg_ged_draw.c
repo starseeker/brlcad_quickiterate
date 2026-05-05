@@ -356,10 +356,8 @@ _sg_erase_nested_subpath(struct bv_scene_obj *parent,
 }
 
 static void
-_sg_erase_path(struct ged *gedp, const char *path, int allow_split)
+_sg_erase_path(struct ged *gedp, const char *path)
 {
-    (void)allow_split; /* no longer needed with nested group tree */
-
     struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
     if (!root)
         return;
@@ -448,7 +446,7 @@ _sg_erase_subgroups_by_name(struct ged *gedp, struct bv_scene_obj *parent,
 
 
 static void
-_sg_erase_all_names(struct ged *gedp, const char *name, int skip_first)
+_sg_erase_all_names(struct ged *gedp, const char *name)
 {
     struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
     if (!root)
@@ -468,19 +466,12 @@ _sg_erase_all_names(struct ged *gedp, const char *name, int skip_first)
         struct bv_scene_obj *g =
             (struct bv_scene_obj *)BU_PTBL_GET(&snap, gi);
 
-        /* Check root child's path components for a direct name match */
+        /* Check path components for a name match */
         char *dup_path = bu_strdup(bu_vls_cstr(&g->s_name));
         char *tok;
-        int first = 1, found = 0;
+        int found = 0;
         tok = strtok(dup_path, "/");
         while (tok) {
-            if (first) {
-                first = 0;
-                if (skip_first) {
-                    tok = strtok(NULL, "/");
-                    continue;
-                }
-            }
             if (BU_STR_EQUAL(tok, name)) {
                 _sg_free_group(g);
                 found = 1;
@@ -501,7 +492,7 @@ _sg_erase_all_names(struct ged *gedp, const char *name, int skip_first)
 
 
 static void
-_sg_erase_all_paths(struct ged *gedp, const char *path, int skip_first)
+_sg_erase_all_paths(struct ged *gedp, const char *path)
 {
     struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
     if (!root)
@@ -535,7 +526,7 @@ _sg_erase_all_paths(struct ged *gedp, const char *path, int skip_first)
                 continue;
 
             /* Case A: root child is fully contained by (or equal to) subpath */
-            if (db_full_path_subset(&fullpath, &subpath, skip_first)) {
+            if (db_full_path_subset(&fullpath, &subpath, 0)) {
                 db_free_full_path(&fullpath);
                 _sg_free_group(g);
                 restart = 1;
@@ -543,8 +534,7 @@ _sg_erase_all_paths(struct ged *gedp, const char *path, int skip_first)
             }
 
             /* Case B: root child is an ancestor of subpath — navigate sub-tree */
-            if (!skip_first &&
-                db_full_path_match_top(&fullpath, &subpath) &&
+            if (db_full_path_match_top(&fullpath, &subpath) &&
                 fullpath.fp_len < subpath.fp_len) {
                 size_t depth = fullpath.fp_len;
                 db_free_full_path(&fullpath);
@@ -921,29 +911,29 @@ bsg_view_obj_lookup_or_add_path(struct ged *gedp, const char *path)
 
 
 void
-bsg_view_obj_erase_by_path(struct ged *gedp, const char *path, int allow_split)
+bsg_view_obj_erase_by_path(struct ged *gedp, const char *path)
 {
     if (!gedp || !path)
         return;
-    _sg_erase_path(gedp, path, allow_split);
+    _sg_erase_path(gedp, path);
 }
 
 
 void
-bsg_view_obj_erase_by_name(struct ged *gedp, const char *name, int skip_first)
+bsg_view_obj_erase_by_name(struct ged *gedp, const char *name)
 {
     if (!gedp || !name)
         return;
-    _sg_erase_all_names(gedp, name, skip_first);
+    _sg_erase_all_names(gedp, name);
 }
 
 
 void
-bsg_view_obj_erase_all_paths(struct ged *gedp, const char *path, int skip_first)
+bsg_view_obj_erase_all_paths(struct ged *gedp, const char *path)
 {
     if (!gedp || !path)
         return;
-    _sg_erase_all_paths(gedp, path, skip_first);
+    _sg_erase_all_paths(gedp, path);
 }
 
 
