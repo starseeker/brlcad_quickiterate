@@ -135,6 +135,12 @@ bsg_group_ensure_child(bsg_node *parent, struct bview *v,
     bu_vls_sprintf(&child->s_name, "%s", name);
     bu_ptbl_ins(&p->children, (long *)child);
 
+    /* Phase 9.1: a new child invalidates the parent chain's cached
+     * aggregate bbox.  The new group itself is leaf-empty so its own
+     * cache (when computed later) will simply read back as the empty
+     * box; clearing now on the parent and above is what matters. */
+    bsg_node_bbox_invalidate(parent);
+
     return (bsg_node *)child;
 }
 
@@ -165,6 +171,11 @@ void
 bsg_free_children_recursive(bsg_node *gn, struct bv_scene_obj *fso)
 {
     struct bv_scene_obj *g = (struct bv_scene_obj *)gn;
+
+    /* Phase 9.1: removing children invalidates this group's aggregate
+     * bbox cache (and that of all of its ancestors). */
+    if (BU_PTBL_LEN(&g->children) > 0)
+	bsg_node_bbox_invalidate(gn);
 
     struct bu_ptbl snap = BU_PTBL_INIT_ZERO;
     for (size_t i = 0; i < BU_PTBL_LEN(&g->children); i++)
@@ -232,6 +243,8 @@ bsg_free_group(bsg_node *gn)
 
     /* g->parent is still set at this point; walk up to root for ctx */
     bsg_bump_rev_node(gn);
+    /* Phase 9.1: removing this subtree invalidates ancestors' bbox caches. */
+    bsg_node_bbox_invalidate(gn);
 
     g->parent = NULL;
     struct bv_scene_obj *fso = g->free_scene_obj;
@@ -284,6 +297,8 @@ bsg_erase_nested_subpath(bsg_node *parent_node,
 	    bu_ptbl_rm(&cur->children, (const long *)child_group);
 	    /* cur is still in the tree; bump rev before clearing parent */
 	    bsg_bump_rev_node((bsg_node *)cur);
+	    /* Phase 9.1: shrinking cur invalidates its (and ancestors') bbox cache. */
+	    bsg_node_bbox_invalidate((bsg_node *)cur);
 	    child_group->parent = NULL;
 	    struct bv_scene_obj *cfso = child_group->free_scene_obj;
 	    if (cfso)
@@ -313,6 +328,8 @@ bsg_erase_nested_subpath(bsg_node *parent_node,
 		bu_ptbl_rm(&cur->children, (const long *)sp);
 		/* cur is in the tree; bump rev then clear parent */
 		bsg_bump_rev_node((bsg_node *)cur);
+		/* Phase 9.1: shrinking cur invalidates its (and ancestors') bbox cache. */
+		bsg_node_bbox_invalidate((bsg_node *)cur);
 		sp->parent = NULL;
 		struct bv_scene_obj *sfso = fso ? fso : sp->free_scene_obj;
 		if (sfso)
@@ -322,6 +339,151 @@ bsg_erase_nested_subpath(bsg_node *parent_node,
 	}
 	return;
     }
+}
+
+
+/* ------------------------------------------------------------------ */
+/* Subtree bbox cache (Phase 9.1, B3 residual)                        */
+/* ------------------------------------------------------------------ */
+
+void
+bsg_node_bbox_invalidate(bsg_node *n)
+{
+    if (!n)
+	return;
+    struct bv_scene_obj *cur = (struct bv_scene_obj *)n;
+
+    /* Walk up the parent chain; clear s_bbox_cached on every ancestor
+     * that is still cached.  Stop at the first already-dirty ancestor
+     * (any further ancestor must already be dirty too).
+     *
+     * The starting node itself is included in the walk: if @p n is a
+     * leaf shape we skip to its parent (leaves have no aggregate
+     * cache); otherwise we clear @p n too.
+     */
+    while (cur) {
+	if (cur->s_type_flags & (BSG_NODE_GROUP | BSG_NODE_ROOT)) {
+	    if (!cur->s_bbox_cached)
+		return;  /* already dirty up from here */
+	    cur->s_bbox_cached = 0;
+	}
+	cur = (struct bv_scene_obj *)cur->parent;
+    }
+}
+
+
+/*
+ * Internal: aggregate the bbox of a single shape leaf into (*min, *max).
+ * Uses (s_center - s_size, s_center + s_size) to match the historical
+ * _sg_bounding_sph behaviour exactly.
+ */
+static void
+_bsg_shape_bbox_accum(const struct bv_scene_obj *sp,
+		      vect_t *min, vect_t *max)
+{
+    vect_t lmin, lmax;
+    lmin[X] = sp->s_center[X] - sp->s_size;
+    lmin[Y] = sp->s_center[Y] - sp->s_size;
+    lmin[Z] = sp->s_center[Z] - sp->s_size;
+    lmax[X] = sp->s_center[X] + sp->s_size;
+    lmax[Y] = sp->s_center[Y] + sp->s_size;
+    lmax[Z] = sp->s_center[Z] + sp->s_size;
+    VMIN(*min, lmin);
+    VMAX(*max, lmax);
+}
+
+
+/*
+ * Internal recursive aggregator.  Returns 1 when the subtree contributes
+ * something to the bbox, 0 when it is empty.  When @p cache is non-zero
+ * the caller is in the cached (no-overlay) mode and we may store the
+ * aggregate at GROUP/ROOT nodes.
+ */
+static int
+_bsg_subtree_bbox_walk(struct bv_scene_obj *n,
+		       vect_t *min, vect_t *max,
+		       int include_overlays, int cache)
+{
+    if (!n)
+	return 0;
+
+    if (n->s_type_flags & BSG_NODE_SHAPE) {
+	if (!include_overlays && (n->s_type_flags & BSG_PAYLOAD_OVERLAY))
+	    return 0;
+	_bsg_shape_bbox_accum(n, min, max);
+	return 1;
+    }
+
+    if (!(n->s_type_flags & (BSG_NODE_GROUP | BSG_NODE_ROOT)))
+	return 0;
+
+    /* Cache hit: in cached mode and this group's aggregate is current. */
+    if (cache && n->s_bbox_cached) {
+	/* An empty subtree caches as an empty box (bmin=+INF, bmax=-INF).
+	 * Detect that by checking VMIN(bmin, bmax) — accumulating an
+	 * empty box is a no-op. */
+	if (n->bmin[X] <= n->bmax[X]) {
+	    VMIN(*min, n->bmin);
+	    VMAX(*max, n->bmax);
+	    return 1;
+	}
+	return 0;
+    }
+
+    /* Recompute: aggregate over children into a local min/max so we can
+     * cache the result for this subtree before merging into the caller's
+     * accumulator. */
+    vect_t lmin, lmax;
+    VSETALL(lmin,  INFINITY);
+    VSETALL(lmax, -INFINITY);
+    int contributed = 0;
+
+    for (size_t i = 0; i < BU_PTBL_LEN(&n->children); i++) {
+	struct bv_scene_obj *c =
+	    (struct bv_scene_obj *)BU_PTBL_GET(&n->children, i);
+	if (!c)
+	    continue;
+	if (_bsg_subtree_bbox_walk(c, &lmin, &lmax, include_overlays, cache))
+	    contributed = 1;
+    }
+
+    if (cache) {
+	/* Store local result into the node cache.  Empty subtrees cache
+	 * the (+INF, -INF) sentinel pair so a subsequent hit detects them. */
+	VMOVE(n->bmin, lmin);
+	VMOVE(n->bmax, lmax);
+	n->s_bbox_cached = 1;
+    }
+
+    if (contributed) {
+	VMIN(*min, lmin);
+	VMAX(*max, lmax);
+    }
+    return contributed;
+}
+
+
+int
+bsg_subtree_bbox(bsg_node *n,
+		 vect_t *min, vect_t *max,
+		 int include_overlays)
+{
+    if (!min || !max)
+	return 1;
+
+    VSETALL((*min),  INFINITY);
+    VSETALL((*max), -INFINITY);
+
+    if (!n)
+	return 1;
+
+    int cache = include_overlays ? 0 : 1;
+    int contributed =
+	_bsg_subtree_bbox_walk((struct bv_scene_obj *)n,
+			       min, max, include_overlays, cache);
+
+    /* Return 1 for empty (matches _sg_bounding_sph contract). */
+    return contributed ? 0 : 1;
 }
 
 

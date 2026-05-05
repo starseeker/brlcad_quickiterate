@@ -250,6 +250,14 @@ struct bv_scene_obj  {
     point_t bmin;
     point_t bmax;
     int have_bbox;
+    /* Phase 9.1 (drawing_stack_modernization B3 residual):
+     * For BSG_NODE_GROUP/ROOT nodes, indicates whether bmin/bmax currently
+     * holds a valid cached aggregate bbox of the subtree's non-overlay
+     * descendants.  Cleared on any structural mutation that could affect
+     * the aggregate via bsg_node_bbox_invalidate().  Set by bsg_subtree_bbox
+     * when it computes a fresh aggregate.  Unused on BSG_NODE_SHAPE leaves
+     * (their bbox is always derivable from s_center/s_size). */
+    int s_bbox_cached;
 
     /* Display properties */
     char s_flag;		/**< @brief  UP = object visible, DOWN = obj invis */
@@ -257,6 +265,16 @@ struct bv_scene_obj  {
     int s_force_draw;           /**< @brief  1 = overrides s_flag and s_iflag - always draw (allows parents to force children to be visible) */
     unsigned char s_color[3];	/**< @brief  color to draw as */
     uint32_t s_color_rev;       /**< @brief  material-revision stamp; set to gd_mater_rev each time this shape's color is recalculated by bsg_view_obj_color_from_soltab (B4 infrastructure, Phase 7 Step 14) */
+    /* Phase 9.2 (drawing_stack_modernization): per-shape "drawn this frame"
+     * generation counter.  When the renderer paints the object during
+     * dm_draw_objs(), it stamps s_drawn_rev := bview::gv_frame_rev.  Callers
+     * test whether a shape was actually drawn in the most recent frame by
+     * comparing s_drawn_rev to the bview's current gv_frame_rev — replacing
+     * the legacy "set every shape's s_flag = DOWN at the start of a frame
+     * and UP only after rendering" sweep.  Initial value 0 is correct because
+     * gv_frame_rev is bumped before the first draw, so an undrawn shape
+     * will always disagree with the current frame. */
+    uint64_t s_drawn_rev;
     int s_soldash;		/**< @brief  solid/dashed line flag: 0 = solid, 1 = dashed*/
     int s_arrow;		/**< @brief  arrow flag for view object drawing routines */
     int s_changed;		/**< @brief  changed flag - set by s_update_callback if a change occurred */
@@ -698,6 +716,16 @@ struct bview {
      * and clears it to NULL immediately afterward.  Never heap-allocated;
      * always points into caller-owned storage. */
     matp_t          gv_edit_mat;
+
+    /* Phase 9.2 (drawing_stack_modernization B5 residual): per-frame
+     * generation counter.  Bumped at the top of dm_draw_objs() so that
+     * shapes painted in the current frame can be identified by
+     * s_drawn_rev == gv_frame_rev without any per-frame full-tree
+     * "reset s_flag = DOWN" sweep.  Starts at 0; first dm_draw_objs()
+     * call observes 1.  Wraps cleanly on uint64_t overflow (would take
+     * billions of years at 60 fps, but the comparison still produces
+     * the right answer for any pair of consecutive frames). */
+    uint64_t        gv_frame_rev;
 };
 
 // Because bview instances frequently share objects in applications, they are

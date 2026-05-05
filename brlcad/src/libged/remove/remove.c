@@ -87,7 +87,13 @@ ged_remove_core(struct ged *gedp, int argc, const char *argv[])
 	    struct bu_vls path = BU_VLS_INIT_ZERO;
 
 	    bu_vls_printf(&path, "%s/%s", dp->d_namep, argv[i]);
-	    bsg_view_obj_erase_all_paths(gedp, bu_vls_addr(&path));
+	    {
+		struct db_full_path dfp;
+		db_full_path_init(&dfp);
+		if (db_string_to_path(&dfp, gedp->dbip, bu_vls_cstr(&path)) == 0)
+		    bsg_view_obj_erase_all_dbpaths(gedp, &dfp);
+		db_free_full_path(&dfp);
+	    }
 	    bu_vls_free(&path);
 	    bu_vls_printf(gedp->ged_result_str, "deleted %s/%s\n", dp->d_namep, argv[i]);
 	}

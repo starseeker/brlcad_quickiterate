@@ -37,6 +37,7 @@
 
 /* Callback data for renaming group paths */
 struct move_rename_data {
+    struct ged *gedp;
     const char *old_name;
     const char *new_name;
 };
@@ -72,7 +73,11 @@ move_rename_group_cb(struct bv_scene_obj *group, void *userdata)
     }
 
     if (found) {
-	bsg_view_obj_group_set_path(group, bu_vls_cstr(&new_path));
+	struct db_full_path dfp;
+	db_full_path_init(&dfp);
+	if (db_string_to_path(&dfp, data->gedp->dbip, bu_vls_cstr(&new_path)) == 0)
+	    bsg_view_obj_group_set_dbpath(group, &dfp);
+	db_free_full_path(&dfp);
     }
 
     free((void *)dupstr);
@@ -133,7 +138,7 @@ ged_move_core(struct ged *gedp, int argc, const char *argv[])
     }
 
     /* Change object name if it matches the first element in the display list path. */
-    struct move_rename_data data = { argv[1], argv[2] };
+    struct move_rename_data data = { gedp, argv[1], argv[2] };
     bsg_view_obj_foreach_group(gedp, move_rename_group_cb, &data);
 
     return BRLCAD_OK;

@@ -597,8 +597,13 @@ ged_nirt_core(struct ged *gedp, int argc, const char *argv[])
 	struct bu_vls dp_pattern = BU_VLS_INIT_ZERO;
 	bu_vls_sprintf(&dp_pattern, "%s*", bu_vls_cstr(&gedp->i->ged_gdp->gd_qray_basename));
 	size_t lscnt = db_ls(gedp->dbip, DB_LS_PHONY, bu_vls_cstr(&dp_pattern), &dpv);
-	for (size_t i = 0; i < lscnt; i++)
-	    bsg_view_obj_erase_by_path(gedp, dpv[i]->d_namep);
+	for (size_t i = 0; i < lscnt; i++) {
+	    struct db_full_path dfp;
+	    db_full_path_init(&dfp);
+	    if (db_string_to_path(&dfp, gedp->dbip, dpv[i]->d_namep) == 0)
+		bsg_view_obj_erase_by_dbpath(gedp, &dfp);
+	    db_free_full_path(&dfp);
+	}
 	bu_vls_free(&dp_pattern);
     }
 

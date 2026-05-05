@@ -56,7 +56,9 @@
 #include "bsg/defines.h"
 #include "bsg/draw_ctx.h"
 #include "bsg/draw_set.h"
+#include "bsg/field.h"
 #include "bsg/overlay.h"
+#include "bsg/sensor.h"
 #include "bsg/visit.h"
 
 #include "bv/view_sets.h"
@@ -176,6 +178,10 @@ _sg_erase_overlay_by_name(struct ged *gedp, const char *name)
  * Step 9).  Replaces the file-private _sg_clear_illum_if_match(gedp, sp)
  * call pattern, removing the gedp dependency from the BSG freeing path for
  * the illumination-clear concern.
+ *
+ * Phase 9.3: when the freed solid was the illuminated one, also tear down
+ * the NodeSensor that was tracking its field changes and bump
+ * gd_illum_rev so observers see the highlight-state transition.
  */
 void
 ged_bv_illum_free_cb(struct bv_scene_obj *sp)
@@ -185,8 +191,15 @@ ged_bv_illum_free_cb(struct bv_scene_obj *sp)
     struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
     if (!bdata->gedp)
         return;
-    if (bdata->gedp->i->ged_gdp->gd_illum_solid == sp)
-        bdata->gedp->i->ged_gdp->gd_illum_solid = NULL;
+    struct ged_drawable *gdp = bdata->gedp->i->ged_gdp;
+    if (gdp->gd_illum_solid == sp) {
+        gdp->gd_illum_solid = NULL;
+        if (gdp->gd_illum_sensor) {
+            bsg_sensor_destroy((bsg_node *)gdp->gd_illum_sensor);
+            gdp->gd_illum_sensor = NULL;
+        }
+        gdp->gd_illum_rev++;
+    }
 }
 
 
@@ -557,48 +570,15 @@ _sg_erase_all_paths(struct ged *gedp, const char *path)
 /* Bounds                                                              */
 /* ------------------------------------------------------------------ */
 
-struct _sph_ctx {
-    vect_t *min;
-    vect_t *max;
-    int pflag;
-    int *is_empty;
-};
-
-static int
-_sph_solid_cb(bsg_node *n, void *ud)
-{
-    struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
-    struct _sph_ctx *ctx = (struct _sph_ctx *)ud;
-    if (!ctx->pflag && (sp->s_type_flags & BSG_PAYLOAD_OVERLAY))
-        return 1;
-    vect_t minus, plus;
-    minus[X] = sp->s_center[X] - sp->s_size;
-    minus[Y] = sp->s_center[Y] - sp->s_size;
-    minus[Z] = sp->s_center[Z] - sp->s_size;
-    VMIN(*(ctx->min), minus);
-    plus[X] = sp->s_center[X] + sp->s_size;
-    plus[Y] = sp->s_center[Y] + sp->s_size;
-    plus[Z] = sp->s_center[Z] + sp->s_size;
-    VMAX(*(ctx->max), plus);
-    *(ctx->is_empty) = 0;
-    return 1;
-}
-
 static int
 _sg_bounding_sph(struct ged *gedp, vect_t *min, vect_t *max, int pflag)
 {
     struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
 
-    VSETALL((*min),  INFINITY);
-    VSETALL((*max), -INFINITY);
-
-    if (!root)
-        return 1;
-
-    int is_empty = 1;
-    struct _sph_ctx ctx = { min, max, pflag, &is_empty };
-    bsg_visit((bsg_node *)root, BSG_NODE_SHAPE, _sph_solid_cb, &ctx);
-    return is_empty;
+    /* Phase 9.1: delegate to the libbsg cached aggregator.
+     * - pflag == 0 (no overlays): uses per-group bbox cache, O(touched).
+     * - pflag != 0 (include overlays): full walk, no cache (rare path). */
+    return bsg_subtree_bbox((bsg_node *)root, min, max, pflag);
 }
 
 
@@ -722,6 +702,10 @@ _sg_invent(struct ged *gedp, char *name, struct bu_list *vhead, long int rgb,
         bu_ptbl_ins(&ov->children, (long *)sp);
         /* ov->parent is set (ov is under the draw root) */
         _sg_bump_rev_node(ov);
+        /* Phase 9.1: a new shape under ov invalidates ancestors' bbox cache.
+         * Overlay shapes themselves don't contribute to the cached
+         * (no-overlay) aggregate, but invalidating is safe and cheap. */
+        bsg_node_bbox_invalidate((bsg_node *)ov);
     }
 
     sp->s_iflag              = DOWN;
@@ -811,21 +795,76 @@ _sg_bump_mater_rev(struct ged *gedp)
 /* ------------------------------------------------------------------ */
 
 /*
+ * Phase 9.3 (drawing_stack_modernization B5 residual): NodeSensor callback
+ * fired on every bsg_node_field_touch() targeting the currently-illuminated
+ * solid.  Bumps gd_illum_rev so external observers can detect highlight-
+ * state changes by comparing snapshots — without needing to subscribe to
+ * the sensor themselves or poll gd_illum_solid directly.
+ */
+static int
+_sg_illum_sensor_cb(bsg_node *target, void *data)
+{
+    struct ged *gedp = (struct ged *)data;
+    if (!gedp || !target)
+        return 1;
+    /* Only bump while the touched node is still the registered illum
+     * solid; if it was un-set out from under the sensor (which
+     * shouldn't happen — _sg_set_illum tears down the sensor first —
+     * but be defensive), do nothing. */
+    if (gedp->i->ged_gdp->gd_illum_solid == (struct bv_scene_obj *)target)
+        gedp->i->ged_gdp->gd_illum_rev++;
+    return 1;
+}
+
+/*
  * Register @p sp as the single currently-illuminated solid.
  * Clears the s_iflag of any previously registered solid first.
  * Passing NULL deregisters without setting a new illuminated solid (used
  * after operations that place multiple solids in the UP state, such as
  * matpick, so that the fallback O(N) sweep remains safe).
+ *
+ * Phase 9.3: also manages the NodeSensor that fires on field changes to
+ * the illuminated solid.  Each transition (clear, replace, or set) tears
+ * down the previous sensor (if any), bumps gd_illum_rev, and creates a
+ * fresh sensor on the new target.
  */
 static void
 _sg_set_illum(struct ged *gedp, struct bv_scene_obj *sp)
 {
-    struct bv_scene_obj *old = gedp->i->ged_gdp->gd_illum_solid;
-    if (old && old != sp)
+    struct ged_drawable *gdp = gedp->i->ged_gdp;
+    struct bv_scene_obj *old = gdp->gd_illum_solid;
+
+    if (old == sp) {
+        /* No-op fast path: same target, no transition. */
+        return;
+    }
+
+    if (old)
         old->s_iflag = DOWN;
     if (sp)
         sp->s_iflag = UP;
-    gedp->i->ged_gdp->gd_illum_solid = sp;
+    gdp->gd_illum_solid = sp;
+
+    /* Tear down any previously-registered NodeSensor. */
+    if (gdp->gd_illum_sensor) {
+        bsg_sensor_destroy((bsg_node *)gdp->gd_illum_sensor);
+        gdp->gd_illum_sensor = NULL;
+    }
+
+    /* Register a fresh sensor on the new target.  Keep going on
+     * registry-full: the gd_illum_solid cache still works as before;
+     * only the lazy-notification side is degraded to "must poll
+     * gd_illum_solid directly". */
+    if (sp && gdp->gd_draw_root) {
+        gdp->gd_illum_sensor = bsg_node_sensor_create(
+            (bsg_node *)gdp->gd_draw_root,
+            (bsg_node *)sp,
+            _sg_illum_sensor_cb,
+            (void *)gedp);
+    }
+
+    /* Every transition is itself a highlight-state change. */
+    gdp->gd_illum_rev++;
 }
 
 
@@ -937,6 +976,73 @@ bsg_view_obj_erase_all_paths(struct ged *gedp, const char *path)
 }
 
 
+/*
+ * Phase 10 (drawing-stack modernization): db_full_path-keyed counterparts
+ * to the path-string entry points above.  All three are thin facades that
+ * format @p dfp via db_path_to_string() and forward to the existing
+ * implementation.  Once internal storage on group nodes also moves to a
+ * struct db_full_path, these become the canonical path and the wrappers
+ * flip — at that point the path-string variants can be marked
+ * __attribute__((deprecated)) and eventually removed.
+ *
+ * db_path_to_string() prepends a leading '/'; the legacy path-string
+ * implementations expect no leading slash, so normalize before
+ * forwarding.
+ */
+static const char *
+_dbpath_skip_lead_slash(const char *s)
+{
+    if (s && *s == '/')
+        return s + 1;
+    return s;
+}
+
+struct bv_scene_obj *
+bsg_view_obj_lookup_or_add_dbpath(struct ged *gedp,
+                                  const struct db_full_path *dfp)
+{
+    if (!gedp || !dfp)
+        return NULL;
+    char *s = db_path_to_string(dfp);
+    if (!s)
+        return NULL;
+    /* Call the file-private helper directly so this entry point does
+     * not depend on the deprecated public path-string wrapper. */
+    struct bv_scene_obj *r =
+        (struct bv_scene_obj *)_sg_add_path(gedp, _dbpath_skip_lead_slash(s));
+    bu_free(s, "bsg_view_obj_lookup_or_add_dbpath: path string");
+    return r;
+}
+
+
+void
+bsg_view_obj_erase_by_dbpath(struct ged *gedp,
+                             const struct db_full_path *dfp)
+{
+    if (!gedp || !dfp)
+        return;
+    char *s = db_path_to_string(dfp);
+    if (!s)
+        return;
+    _sg_erase_path(gedp, _dbpath_skip_lead_slash(s));
+    bu_free(s, "bsg_view_obj_erase_by_dbpath: path string");
+}
+
+
+void
+bsg_view_obj_erase_all_dbpaths(struct ged *gedp,
+                               const struct db_full_path *dfp)
+{
+    if (!gedp || !dfp)
+        return;
+    char *s = db_path_to_string(dfp);
+    if (!s)
+        return;
+    _sg_erase_all_paths(gedp, _dbpath_skip_lead_slash(s));
+    bu_free(s, "bsg_view_obj_erase_all_dbpaths: path string");
+}
+
+
 int
 bsg_view_obj_bounds(struct ged *gedp, vect_t *min, vect_t *max, int pflag)
 {
@@ -954,10 +1060,17 @@ bsg_view_obj_set_iflag(struct ged *gedp, int iflag)
     if (iflag == DOWN) {
         /* B5 fast path: when exactly one solid is illuminated and tracked,
          * clear only that solid in O(1) rather than sweeping the whole tree. */
-        struct bv_scene_obj *illum = gedp->i->ged_gdp->gd_illum_solid;
+        struct ged_drawable *gdp = gedp->i->ged_gdp;
+        struct bv_scene_obj *illum = gdp->gd_illum_solid;
         if (illum) {
             illum->s_iflag = DOWN;
-            gedp->i->ged_gdp->gd_illum_solid = NULL;
+            gdp->gd_illum_solid = NULL;
+            /* Phase 9.3: tear down NodeSensor + bump highlight rev. */
+            if (gdp->gd_illum_sensor) {
+                bsg_sensor_destroy((bsg_node *)gdp->gd_illum_sensor);
+                gdp->gd_illum_sensor = NULL;
+            }
+            gdp->gd_illum_rev++;
             return;
         }
     }
@@ -1318,6 +1431,51 @@ bsg_view_obj_group_set_path(struct bv_scene_obj *group, const char *new_path)
 }
 
 
+/*
+ * Phase 10: db_full_path-keyed setter.  Formats @p new_dfp via
+ * db_path_to_string() and delegates to the path-string variant.
+ */
+void
+bsg_view_obj_group_set_dbpath(struct bv_scene_obj *group,
+                              const struct db_full_path *new_dfp)
+{
+    if (!group || !new_dfp)
+        return;
+    char *s = db_path_to_string(new_dfp);
+    if (!s)
+        return;
+    /* Write s_name directly so this entry point does not depend on the
+     * deprecated public path-string wrapper. */
+    bu_vls_sprintf(&group->s_name, "%s", _dbpath_skip_lead_slash(s));
+    bu_free(s, "bsg_view_obj_group_set_dbpath: path string");
+}
+
+
+/*
+ * Phase 10: db_full_path-keyed getter.  Group nodes currently store their
+ * path as a string in s_name; this accessor parses that string into the
+ * caller-supplied @p out buffer using @p gedp's dbip.  @p out must be
+ * caller-initialized via db_full_path_init() (or equivalent), and the
+ * caller is responsible for db_free_full_path() afterwards.  Returns 0
+ * on success, non-zero on failure (NULL group, NULL dbip, parse error,
+ * or synthetic group with no path).
+ */
+int
+bsg_view_obj_group_dbpath(struct ged *gedp,
+                          struct bv_scene_obj *group,
+                          struct db_full_path *out)
+{
+    if (!gedp || !group || !out || !gedp->dbip)
+        return -1;
+    if (bsg_view_obj_group_is_phony(group))
+        return -1;
+    const char *s = bu_vls_cstr(&group->s_name);
+    if (!s || !*s)
+        return -1;
+    return db_string_to_path(out, gedp->dbip, s);
+}
+
+
 int
 bsg_view_obj_group_is_phony(struct bv_scene_obj *group)
 {
@@ -1366,7 +1524,16 @@ bsg_view_obj_zap(struct ged *gedp)
     gedp->i->ged_gdp->gd_draw_rev = 0;
 
     /* Clear illuminated-solid tracker: the solid no longer exists. */
-    gedp->i->ged_gdp->gd_illum_solid = NULL;
+    {
+        struct ged_drawable *gdp = gedp->i->ged_gdp;
+        gdp->gd_illum_solid = NULL;
+        /* Phase 9.3: tear down sensor + bump highlight rev. */
+        if (gdp->gd_illum_sensor) {
+            bsg_sensor_destroy((bsg_node *)gdp->gd_illum_sensor);
+            gdp->gd_illum_sensor = NULL;
+        }
+        gdp->gd_illum_rev++;
+    }
 }
 
 
@@ -1413,6 +1580,8 @@ bsg_view_obj_append_solid_to_group(struct ged *gedp,
         /* No path info — append directly */
         sp->parent = group;
         bu_ptbl_ins(&group->children, (long *)sp);
+        /* Phase 9.1: shape added under group invalidates aggregate bbox cache. */
+        bsg_node_bbox_invalidate((bsg_node *)group);
         return;
     }
 
@@ -1434,6 +1603,8 @@ bsg_view_obj_append_solid_to_group(struct ged *gedp,
 
     sp->parent = cur;
     bu_ptbl_ins(&cur->children, (long *)sp);
+    /* Phase 9.1: shape added under cur invalidates aggregate bbox cache. */
+    bsg_node_bbox_invalidate((bsg_node *)cur);
 }
 
 
@@ -1474,6 +1645,25 @@ bsg_view_obj_get_illum(const struct ged *gedp)
     if (!gedp)
         return NULL;
     return gedp->i->ged_gdp->gd_illum_solid;
+}
+
+
+/**
+ * Phase 9.3 (drawing_stack_modernization B5 residual): return the
+ * highlight-state revision counter.  Bumped on every transition of
+ * gd_illum_solid and on every bsg_node_field_touch on the currently
+ * illuminated solid (delivered through the registered NodeSensor).
+ *
+ * Cache a snapshot, then compare against a later live read to detect
+ * "highlight may have changed since I last looked" without polling
+ * gd_illum_solid identity directly.
+ */
+uint64_t
+bsg_view_obj_illum_rev(const struct ged *gedp)
+{
+    if (!gedp || !gedp->i || !gedp->i->ged_gdp)
+        return 0;
+    return gedp->i->ged_gdp->gd_illum_rev;
 }
 
 

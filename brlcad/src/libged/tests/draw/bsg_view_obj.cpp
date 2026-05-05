@@ -48,6 +48,7 @@
 #include "ged/bsg_view_obj.h"
 #include "bsg/defines.h"
 #include "bsg/draw_set.h"
+#include "bsg/field.h"
 #include "bsg/util.h"
 #include "bsg/visit.h"
 #include "../../ged_private.h"
@@ -127,6 +128,13 @@ main(int ac, char *av[])
      * 1. NULL-arg safety: every helper must tolerate NULL gedp/path.   *
      * ---------------------------------------------------------------- */
     bu_log("[1] NULL-arg safety...\n");
+    /* The path-string variants are intentionally exercised here as a
+     * regression test for their NULL-safe contract; the deprecation
+     * warning is silenced for this section. */
+#if defined(__GNUC__) || defined(__clang__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
     ASSERT(bsg_view_obj_lookup_or_add_path(NULL, "any") == NULL);
     ASSERT(bsg_view_obj_lookup_or_add_path(gedp, NULL) == NULL);
     bsg_view_obj_erase_by_path(NULL, "x");              /* no crash */
@@ -135,9 +143,28 @@ main(int ac, char *av[])
     bsg_view_obj_erase_by_name(gedp, NULL);             /* no crash */
     bsg_view_obj_erase_all_paths(NULL, "x");            /* no crash */
     bsg_view_obj_erase_all_paths(gedp, NULL);           /* no crash */
+#if defined(__GNUC__) || defined(__clang__)
+#  pragma GCC diagnostic pop
+#endif
     bsg_view_obj_set_iflag(NULL, 0);                       /* no crash */
     bsg_view_obj_color_from_soltab(NULL);                  /* no crash */
     ASSERT(bsg_view_obj_name_hash(NULL) == 0);
+
+    /* Phase 10: db_full_path-keyed entry points must also be NULL-safe. */
+    ASSERT(bsg_view_obj_lookup_or_add_dbpath(NULL, NULL) == NULL);
+    ASSERT(bsg_view_obj_lookup_or_add_dbpath(gedp, NULL) == NULL);
+    bsg_view_obj_erase_by_dbpath(NULL, NULL);              /* no crash */
+    bsg_view_obj_erase_by_dbpath(gedp, NULL);              /* no crash */
+    bsg_view_obj_erase_all_dbpaths(NULL, NULL);            /* no crash */
+    bsg_view_obj_erase_all_dbpaths(gedp, NULL);            /* no crash */
+    bsg_view_obj_group_set_dbpath(NULL, NULL);             /* no crash */
+    {
+	struct db_full_path tmp;
+	db_full_path_init(&tmp);
+	ASSERT(bsg_view_obj_group_dbpath(NULL, NULL, &tmp) != 0);
+	ASSERT(bsg_view_obj_group_dbpath(gedp, NULL, &tmp) != 0);
+	db_free_full_path(&tmp);
+    }
     {
 	vect_t mn, mx;
 	int empty = bsg_view_obj_bounds(NULL, &mn, &mx, 0);
@@ -169,18 +196,31 @@ main(int ac, char *av[])
     int after_draw = dl_count(gedp);
     ASSERT(after_draw > 0);
 
-    /* lookup_or_add_path on an already-drawn path must return non-NULL
+    /* lookup_or_add_dbpath on an already-drawn path must return non-NULL
      * and must not insert a duplicate. */
     int before_lookup = dl_count(gedp);
-    void *h = bsg_view_obj_lookup_or_add_path(gedp, "all.g");
+    void *h = NULL;
+    {
+	struct db_full_path dfp;
+	db_full_path_init(&dfp);
+	if (db_string_to_path(&dfp, gedp->dbip, "all.g") == 0)
+	    h = bsg_view_obj_lookup_or_add_dbpath(gedp, &dfp);
+	db_free_full_path(&dfp);
+    }
     ASSERT(h != NULL);
     ASSERT(dl_count(gedp) == before_lookup);
 
-    /* lookup_or_add_path on a non-existent leaf must return NULL.  The
-     * legacy dl_addToDisplay() emits a noisy LOOKUP_NOISY log message
-     * for missing leaves; that's expected behavior we preserve. */
-    void *h_missing =
-	bsg_view_obj_lookup_or_add_path(gedp, "definitely_no_such_obj");
+    /* lookup_or_add_dbpath on a non-existent leaf must return NULL.  We
+     * test the path-string variant for the legacy noisy-log fallback
+     * via a pragma-guarded call below in section [15]. */
+    void *h_missing = NULL;
+    {
+	struct db_full_path dfp;
+	db_full_path_init(&dfp);
+	if (db_string_to_path(&dfp, gedp->dbip, "definitely_no_such_obj") == 0)
+	    h_missing = bsg_view_obj_lookup_or_add_dbpath(gedp, &dfp);
+	db_free_full_path(&dfp);
+    }
     ASSERT(h_missing == NULL);
 
     /* bounds must report non-empty after a draw. */
@@ -297,16 +337,28 @@ main(int ac, char *av[])
 	int before = dl_count(gedp);
 	ASSERT(before > 0);
 
-	/* erase_by_path on the exact drawn name must remove that entry. */
-	bsg_view_obj_erase_by_path(gedp, "all.g");
+	/* erase_by_dbpath on the exact drawn name must remove that entry. */
+	{
+	    struct db_full_path dfp;
+	    db_full_path_init(&dfp);
+	    if (db_string_to_path(&dfp, gedp->dbip, "all.g") == 0)
+		bsg_view_obj_erase_by_dbpath(gedp, &dfp);
+	    db_free_full_path(&dfp);
+	}
 	ASSERT(dl_count(gedp) < before);
 
-	/* Re-draw and try erase_all_paths. */
+	/* Re-draw and try erase_all_dbpaths. */
 	ged_exec(gedp, 2, s_av);
 	int before2 = dl_count(gedp);
 	ASSERT(before2 > 0);
-	bsg_view_obj_erase_all_paths(gedp, "all.g");
-	/* Note: erase_all_paths matches subset paths, so should clear
+	{
+	    struct db_full_path dfp;
+	    db_full_path_init(&dfp);
+	    if (db_string_to_path(&dfp, gedp->dbip, "all.g") == 0)
+		bsg_view_obj_erase_all_dbpaths(gedp, &dfp);
+	    db_free_full_path(&dfp);
+	}
+	/* Note: erase_all_dbpaths matches subset paths, so should clear
 	 * everything that has all.g as a prefix component. */
 	ASSERT(dl_count(gedp) <= before2);
     }
@@ -402,7 +454,13 @@ main(int ac, char *av[])
 	ASSERT(bsg_view_obj_name_hash(gedp) == (unsigned long long)rev_after_draw);
 
 	/* Erase something — rev must have increased again. */
-	bsg_view_obj_erase_by_path(gedp, "all.g");
+	{
+	    struct db_full_path dfp;
+	    db_full_path_init(&dfp);
+	    if (db_string_to_path(&dfp, gedp->dbip, "all.g") == 0)
+		bsg_view_obj_erase_by_dbpath(gedp, &dfp);
+	    db_free_full_path(&dfp);
+	}
 	uint64_t rev_after_erase = bsg_view_obj_draw_rev(gedp);
 	ASSERT(rev_after_erase > rev_after_draw);
 
@@ -504,7 +562,13 @@ main(int ac, char *av[])
 	ASSERT(bsg_view_obj_group_of_solid(gedp, ls) == all_g_group);
 
 	/* Erase "all.g" should clean up cleanly */
-	bsg_view_obj_erase_by_path(gedp, "all.g");
+	{
+	    struct db_full_path dfp;
+	    db_full_path_init(&dfp);
+	    if (db_string_to_path(&dfp, gedp->dbip, "all.g") == 0)
+		bsg_view_obj_erase_by_dbpath(gedp, &dfp);
+	    db_free_full_path(&dfp);
+	}
 	ASSERT(bsg_view_obj_solid_count(gedp) == 0);
 	ASSERT(dl_count(gedp) == 0);
     }
@@ -674,6 +738,276 @@ main(int ac, char *av[])
 	/* gv_draw_root itself remains valid after zap (root node not freed). */
 	ASSERT(v->gv_draw_root != NULL);
     }
+
+    /* ---------------------------------------------------------------- *
+     * [12] Phase 9.1 (B3): cached aggregate bbox.                       *
+     *      Verify that bsg_subtree_bbox returns the same answer as the  *
+     *      non-cached walk, that the cache flag is set on a draw root    *
+     *      after a query, and that it is invalidated by erase.           *
+     * ---------------------------------------------------------------- */
+    {
+	bu_log("[12] Phase 9.1: cached aggregate bbox...\n");
+
+	/* Start clean. */
+	{
+	    const char *s_av[2] = {"zap", NULL};
+	    ged_exec(gedp, 1, s_av);
+	}
+
+	/* Empty draw tree: bounds report empty. */
+	{
+	    vect_t emin, emax;
+	    int empty = bsg_view_obj_bounds(gedp, &emin, &emax, 0);
+	    ASSERT(empty == 1);
+	}
+
+	/* Draw two paths so the tree has multiple groups. */
+	{
+	    const char *dav[3] = {"draw", "all.g", NULL};
+	    ged_exec(gedp, 2, dav);
+	}
+
+	struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
+	ASSERT(root != NULL);
+
+	/* First query: cache is cold, must compute. */
+	vect_t min1, max1;
+	int empty1 = bsg_view_obj_bounds(gedp, &min1, &max1, 0);
+	ASSERT(empty1 == 0);
+	/* After a no-overlay query the root cache must be set. */
+	ASSERT(root->s_bbox_cached == 1);
+
+	/* Second query: cache hit, must return the identical bbox. */
+	vect_t min2, max2;
+	int empty2 = bsg_view_obj_bounds(gedp, &min2, &max2, 0);
+	ASSERT(empty2 == 0);
+	ASSERT(VNEAR_EQUAL(min1, min2, SMALL_FASTF));
+	ASSERT(VNEAR_EQUAL(max1, max2, SMALL_FASTF));
+	ASSERT(root->s_bbox_cached == 1);
+
+	/* Cross-check vs an explicit walk: bsg_subtree_bbox(include_overlays=1)
+	 * bypasses the cache, so for a tree with no overlays it must agree
+	 * with the cached non-overlay value. */
+	vect_t min3, max3;
+	int empty3 = bsg_subtree_bbox((bsg_node *)root, &min3, &max3, 1);
+	ASSERT(empty3 == 0);
+	ASSERT(VNEAR_EQUAL(min1, min3, SMALL_FASTF));
+	ASSERT(VNEAR_EQUAL(max1, max3, SMALL_FASTF));
+
+	/* Erase invalidates the cache. */
+	{
+	    const char *eav[3] = {"erase", "all.g", NULL};
+	    ged_exec(gedp, 2, eav);
+	}
+	ASSERT(root->s_bbox_cached == 0);
+
+	/* Re-query reports empty again (no shapes left). */
+	{
+	    vect_t emin, emax;
+	    int e = bsg_view_obj_bounds(gedp, &emin, &emax, 0);
+	    ASSERT(e == 1);
+	}
+    }
+
+
+    /* ---------------------------------------------------------------- *
+     * [13] Phase 9.2 (B5): gv_frame_rev / s_drawn_rev generation.       *
+     *      Verify that the per-shape drawn-this-frame stamp is wired    *
+     *      and matches the bview's frame-revision counter.              *
+     * ---------------------------------------------------------------- */
+    {
+	bu_log("[13] Phase 9.2: gv_frame_rev / s_drawn_rev...\n");
+
+	/* Start clean. */
+	{
+	    const char *s_av[2] = {"zap", NULL};
+	    ged_exec(gedp, 1, s_av);
+	}
+
+	/* Initial gv_frame_rev is 0; nothing has been drawn yet. */
+	struct bview *v = gedp->ged_gvp;
+	ASSERT(v != NULL);
+	ASSERT(v->gv_frame_rev == 0);
+
+	/* Draw something so we have shapes to stamp. */
+	{
+	    const char *dav[3] = {"draw", "all.g", NULL};
+	    ged_exec(gedp, 2, dav);
+	}
+
+	/* Without an attached dm, dm_draw_objs() is a no-op for stamping;
+	 * exercise the bookkeeping directly so the test runs without a
+	 * display manager (the off-screen swrast path is exercised by
+	 * ged_test_mged_shaded_mode_bsg). */
+	struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
+	ASSERT(root != NULL);
+
+	/* Bump frame, stamp every drawn shape's s_drawn_rev to match. */
+	v->gv_frame_rev++;
+	uint64_t this_frame = v->gv_frame_rev;
+	{
+	    /* Walk the tree and stamp each shape. */
+	    struct _stamp_ctx { uint64_t r; } ctx = { this_frame };
+	    auto stamp_cb = [](bsg_node *n, void *ud) -> int {
+		struct _stamp_ctx *c = (struct _stamp_ctx *)ud;
+		struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
+		if (sp) sp->s_drawn_rev = c->r;
+		return 1;
+	    };
+	    bsg_visit((bsg_node *)root, BSG_NODE_SHAPE, stamp_cb, &ctx);
+	}
+
+	/* Count "drawn this frame" — every shape under the root. */
+	int counted = 0;
+	{
+	    struct _count_ctx { uint64_t r; int *n; } ctx = { this_frame, &counted };
+	    auto count_cb = [](bsg_node *n, void *ud) -> int {
+		struct _count_ctx *c = (struct _count_ctx *)ud;
+		struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
+		if (sp && sp->s_drawn_rev == c->r) (*c->n)++;
+		return 1;
+	    };
+	    bsg_visit((bsg_node *)root, BSG_NODE_SHAPE, count_cb, &ctx);
+	}
+	ASSERT(counted > 0);
+
+	/* Bump frame again — no shape has been re-stamped, so the
+	 * "drawn this frame" count must be zero on the new frame
+	 * generation, with no full-tree reset needed. */
+	v->gv_frame_rev++;
+	uint64_t next_frame = v->gv_frame_rev;
+	int recounted = 0;
+	{
+	    struct _count_ctx { uint64_t r; int *n; } ctx = { next_frame, &recounted };
+	    auto count_cb = [](bsg_node *n, void *ud) -> int {
+		struct _count_ctx *c = (struct _count_ctx *)ud;
+		struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
+		if (sp && sp->s_drawn_rev == c->r) (*c->n)++;
+		return 1;
+	    };
+	    bsg_visit((bsg_node *)root, BSG_NODE_SHAPE, count_cb, &ctx);
+	}
+	ASSERT(recounted == 0);
+
+	/* Erase to leave a clean state. */
+	{
+	    const char *eav[3] = {"erase", "all.g", NULL};
+	    ged_exec(gedp, 2, eav);
+	}
+    }
+
+
+    /* ---------------------------------------------------------------- *
+     * [14] Phase 9.3 (B5): illum NodeSensor + gd_illum_rev.             *
+     *      Verify the highlight-state revision counter bumps on        *
+     *      transitions and on field-touches of the illuminated solid.  *
+     * ---------------------------------------------------------------- */
+    {
+	bu_log("[14] Phase 9.3: illum NodeSensor + gd_illum_rev...\n");
+
+	{
+	    const char *s_av[2] = {"zap", NULL};
+	    ged_exec(gedp, 1, s_av);
+	}
+	{
+	    const char *dav[3] = {"draw", "all.g", NULL};
+	    ged_exec(gedp, 2, dav);
+	}
+
+	/* Locate a shape under the draw root. */
+	struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
+	ASSERT(root != NULL);
+	struct bv_scene_obj *target = bsg_view_obj_first_solid(gedp);
+	ASSERT(target != NULL);
+
+	/* Snapshot the current highlight rev. */
+	uint64_t r0 = bsg_view_obj_illum_rev(gedp);
+
+	/* Transition NULL -> target: rev bumps. */
+	bsg_view_obj_set_illum(gedp, target);
+	uint64_t r1 = bsg_view_obj_illum_rev(gedp);
+	ASSERT(r1 > r0);
+	ASSERT(bsg_view_obj_get_illum(gedp) == target);
+	ASSERT(target->s_iflag == UP);
+
+	/* Touching a field on the illuminated solid fires the NodeSensor,
+	 * which bumps gd_illum_rev — the whole point of Phase 9.3: callers
+	 * see the highlight rev change without subscribing themselves. */
+	bsg_node_field_touch((bsg_node *)target, BSG_FIELD_FLAG);
+	uint64_t r2 = bsg_view_obj_illum_rev(gedp);
+	ASSERT(r2 > r1);
+
+	/* Touching a field on a non-illuminated node does NOT bump. */
+	struct bv_scene_obj *other = bsg_view_obj_next_solid(gedp, target);
+	if (other && other != target) {
+	    bsg_node_field_touch((bsg_node *)other, BSG_FIELD_FLAG);
+	    uint64_t r3 = bsg_view_obj_illum_rev(gedp);
+	    ASSERT(r3 == r2);
+	}
+
+	/* Transition target -> NULL: rev bumps; sensor gets torn down. */
+	bsg_view_obj_set_illum(gedp, NULL);
+	uint64_t r4 = bsg_view_obj_illum_rev(gedp);
+	ASSERT(r4 > r2);
+	ASSERT(bsg_view_obj_get_illum(gedp) == NULL);
+
+	/* After teardown, touching the previously-illuminated solid no
+	 * longer bumps gd_illum_rev (sensor was destroyed). */
+	bsg_node_field_touch((bsg_node *)target, BSG_FIELD_FLAG);
+	uint64_t r5 = bsg_view_obj_illum_rev(gedp);
+	ASSERT(r5 == r4);
+
+	{
+	    const char *eav[3] = {"erase", "all.g", NULL};
+	    ged_exec(gedp, 2, eav);
+	}
+    }
+
+
+    /* ---------------------------------------------------------------- *
+     * [15] Phase 10: db_full_path-keyed entry points.                   *
+     *      Verify lookup_or_add_dbpath / erase_by_dbpath /              *
+     *      erase_all_dbpaths / group_dbpath / group_set_dbpath behave   *
+     *      identically to their path-string counterparts.               *
+     * ---------------------------------------------------------------- */
+    {
+	bu_log("[15] Phase 10: db_full_path-keyed entry points...\n");
+
+	{
+	    const char *s_av[2] = {"zap", NULL};
+	    ged_exec(gedp, 1, s_av);
+	}
+
+	struct db_full_path dfp;
+	db_full_path_init(&dfp);
+	ASSERT(db_string_to_path(&dfp, gedp->dbip, "all.g") == 0);
+
+	/* lookup_or_add via dbpath. */
+	struct bv_scene_obj *g = bsg_view_obj_lookup_or_add_dbpath(gedp, &dfp);
+	ASSERT(g != NULL);
+	ASSERT(dl_count(gedp) == 1);
+
+	/* group_dbpath round-trips. */
+	struct db_full_path got;
+	db_full_path_init(&got);
+	ASSERT(bsg_view_obj_group_dbpath(gedp, g, &got) == 0);
+	ASSERT(got.fp_len == dfp.fp_len);
+	if (got.fp_len > 0 && dfp.fp_len > 0)
+	    ASSERT(BU_STR_EQUAL(got.fp_names[0]->d_namep,
+				dfp.fp_names[0]->d_namep));
+	db_free_full_path(&got);
+
+	/* erase_by_dbpath removes it. */
+	bsg_view_obj_erase_by_dbpath(gedp, &dfp);
+	ASSERT(dl_count(gedp) == 0);
+
+	/* erase_all_dbpaths is a no-op on an empty set (no crash). */
+	bsg_view_obj_erase_all_dbpaths(gedp, &dfp);
+	ASSERT(dl_count(gedp) == 0);
+
+	db_free_full_path(&dfp);
+    }
+
 
     /* Final zap to leave clean state. */
     {

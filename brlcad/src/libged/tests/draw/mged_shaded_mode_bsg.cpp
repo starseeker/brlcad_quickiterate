@@ -42,11 +42,12 @@
  *             accessor round-trips correctly so that dm_draw_scene_obj can
  *             honour s_old.s_cflag.
  *
- *   Test 4 — s_flag per-frame reset (Phase 3 contract)
+ *   Test 4 — per-frame drawn-set generation (Phase 9.2 contract)
  *             After a zap the bsg root is re-populated from scratch.  Draw once,
  *             capture the non-black pixel count.  Zap and re-draw.  The second
- *             count must match the first — proving s_flag = DOWN resets the
- *             per-frame "drawn" set correctly and dm_ndrawn doesn't over-count.
+ *             count must match the first — proving the gv_frame_rev / s_drawn_rev
+ *             generation counter correctly identifies the "drawn this frame" set
+ *             and dm_ndrawn doesn't over-count.
  *
  * Uses dm-swrast for off-screen rendering; no display hardware required.
  *
@@ -408,12 +409,12 @@ test_geometry_default_color(const char *datadir)
 }
 
 /* ========================================================================== */
-/* Test 4: s_flag per-frame reset — dm_ndrawn doesn't over-count (Phase 3)    */
+/* Test 4: per-frame drawn-set generation — dm_ndrawn doesn't over-count (Phase 9.2) */
 /* ========================================================================== */
 static int
 test_sflags_per_frame_reset(const char *datadir)
 {
-    bu_log("\n--- Test 4: s_flag per-frame reset / dm_ndrawn accuracy ---\n");
+    bu_log("\n--- Test 4: per-frame drawn-set generation / dm_ndrawn accuracy ---\n");
 
     struct bu_vls fname = BU_VLS_INIT_ZERO;
     bu_vls_sprintf(&fname, "%s/moss.g", datadir);
@@ -440,19 +441,21 @@ test_sflags_per_frame_reset(const char *datadir)
     long pix_first = count_nonblack("smb_t4_first.png");
     bu_log("First render: %ld non-black pixels\n", pix_first);
 
-    /* Count shapes whose s_flag == UP after first frame */
+    /* Count shapes whose s_drawn_rev matches the bview's current
+     * gv_frame_rev after first frame (Phase 9.2). */
     int nup_first = 0;
     {
 	struct bv_scene_obj *root = (struct bv_scene_obj *)gedp->ged_gvp->bsg_root;
+	uint64_t fr = gedp->ged_gvp->gv_frame_rev;
 	if (root) {
 	    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
 		struct bv_scene_obj *sp =
 		    (struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
-		if (sp && sp->s_flag == UP) nup_first++;
+		if (sp && sp->s_drawn_rev == fr) nup_first++;
 	    }
 	}
     }
-    bu_log("After first frame: %d top-level shapes with s_flag == UP\n", nup_first);
+    bu_log("After first frame: %d top-level shapes drawn this frame\n", nup_first);
 
     /* Zap and re-draw identically */
     s_av[0] = "Z"; s_av[1] = NULL;
@@ -480,30 +483,34 @@ test_sflags_per_frame_reset(const char *datadir)
 	       pix_first, pix_second);
     }
 
-    /* After the second frame the s_flag count should NOT be larger than the
-     * first frame count.  Before Phase 3 it would grow unboundedly because
-     * s_flag was never reset. */
+    /* After the second frame the drawn-this-frame count should NOT be
+     * larger than the first frame count.  Before Phase 9.2 (when this
+     * was tested via s_flag = UP) the count grew unboundedly because
+     * s_flag was never reset; with the gv_frame_rev / s_drawn_rev
+     * generation counter, only shapes painted in the current frame
+     * compare equal. */
     int nup_second = 0;
     {
 	struct bv_scene_obj *root = (struct bv_scene_obj *)gedp->ged_gvp->bsg_root;
+	uint64_t fr = gedp->ged_gvp->gv_frame_rev;
 	if (root) {
 	    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
 		struct bv_scene_obj *sp =
 		    (struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
-		if (sp && sp->s_flag == UP) nup_second++;
+		if (sp && sp->s_drawn_rev == fr) nup_second++;
 	    }
 	}
     }
-    bu_log("After second frame: %d top-level shapes with s_flag == UP\n", nup_second);
+    bu_log("After second frame: %d top-level shapes drawn this frame\n", nup_second);
 
     if (nup_second > nup_first + 1) {
 	/* Allow ±1 for rendering artefacts, but a runaway accumulator will
 	 * differ by the full bsg root child count. */
-	bu_log("FAIL: s_flag UP count grew from %d to %d across zap/redraw — "
-	       "per-frame reset is not working\n", nup_first, nup_second);
+	bu_log("FAIL: drawn-this-frame count grew from %d to %d across zap/redraw — "
+	       "per-frame generation counter is not working\n", nup_first, nup_second);
 	fail++;
     } else {
-	bu_log("PASS: s_flag UP count stable across zap/redraw "
+	bu_log("PASS: drawn-this-frame count stable across zap/redraw "
 	       "(%d → %d)\n", nup_first, nup_second);
     }
 

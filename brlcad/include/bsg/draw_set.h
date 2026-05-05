@@ -223,6 +223,62 @@ bsg_erase_nested_subpath(bsg_node *parent,
 			 bsg_path_match_fn match_fn, void *match_ctx);
 
 
+/* ------------------------------------------------------------------ */
+/* Subtree bbox cache (Phase 9.1, B3 residual)                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Mark the cached aggregate bbox at @p n and all of its ancestors as
+ * dirty.  Walks the parent chain from @p n upward, clearing the
+ * @c s_bbox_cached flag on each GROUP/ROOT node encountered.  The walk
+ * stops at the first ancestor that is already dirty, since any further
+ * ancestor must already be dirty too — so the amortised cost is
+ * proportional to the depth of the previously-clean prefix.
+ *
+ * Call this whenever the structure of the subtree at or above @p n
+ * changes in a way that could move the aggregate bbox: child added,
+ * child removed, leaf @c s_center / @c s_size changed.
+ *
+ * Safe to call with a NULL argument (no-op).  Safe to call on a leaf
+ * node — its parent chain is walked.
+ */
+BSG_EXPORT extern void
+bsg_node_bbox_invalidate(bsg_node *n);
+
+
+/**
+ * Compute the aggregate axis-aligned bbox of the subtree rooted at @p n
+ * and store the result in (*@p min, *@p max).
+ *
+ * For BSG_NODE_SHAPE leaves the bbox is derived from
+ * (s_center - s_size, s_center + s_size); this matches the historical
+ * @c _sg_bounding_sph behaviour.  For BSG_NODE_GROUP / BSG_NODE_ROOT
+ * nodes the function recurses, with two optimizations:
+ *
+ *   1. When @p include_overlays is 0 (the common case), the result is
+ *      cached at each visited group node in @c bmin / @c bmax with the
+ *      @c s_bbox_cached flag set.  Subsequent calls return the cached
+ *      value in O(1) until the next structural mutation invalidates
+ *      the cache via bsg_node_bbox_invalidate().
+ *
+ *   2. Subtree shapes carrying the @c BSG_PAYLOAD_OVERLAY flag are
+ *      skipped when @p include_overlays is 0.
+ *
+ * When @p include_overlays is non-zero the cache is bypassed and a
+ * full walk is performed (overlay shapes are included).  This path is
+ * not cached because the caller is the rare include-overlays case.
+ *
+ * Returns 1 if the subtree contributes nothing to the bbox (empty),
+ * 0 otherwise.  When the subtree is empty (*@p min, *@p max) are set
+ * to (+INFINITY, -INFINITY) — the caller should treat the result as
+ * undefined unless the return value indicates non-empty.
+ */
+BSG_EXPORT extern int
+bsg_subtree_bbox(bsg_node *n,
+		 vect_t *min, vect_t *max,
+		 int include_overlays);
+
+
 __END_DECLS
 
 #endif /* BSG_DRAW_SET_H */

@@ -201,10 +201,26 @@ B2  DONE
         explicitly iterates path components via bsg_view_obj_foreach_group to
         identify paths where the target name is a non-root component.
 
-B3  MOSTLY DONE
-    Overlay filtering now uses BSG_PAYLOAD_OVERLAY rather than phony directory
-    addresses.  The "better" node-bbox/sensor invalidation design from the RTF
-    has not been implemented; bounds are still computed by walking nodes.
+B3  DONE (Phase 9.1)
+    Overlay filtering uses BSG_PAYLOAD_OVERLAY rather than phony directory
+    addresses, AND aggregate bbox is now cached at every interior group node:
+      - bv_scene_obj gains an s_bbox_cached flag; for GROUP/ROOT nodes,
+        bmin/bmax holds the cached aggregate bbox of the subtree's
+        non-overlay descendants when s_bbox_cached==1.
+      - libbsg/draw_set.c implements bsg_subtree_bbox() (recursive,
+        cache-respecting) and bsg_node_bbox_invalidate() (walk-up that
+        clears all ancestors' caches, stopping at the first already-dirty
+        node so the amortised cost is O(depth-of-clean-prefix)).
+      - All structural mutation chokepoints invalidate the parent chain:
+        bsg_group_ensure_child, bsg_free_children_recursive, bsg_free_group,
+        bsg_erase_nested_subpath cases (a) and (b), bsg_view_obj_append_solid_to_group
+        and the _sg_invent overlay-attach path.
+      - _sg_bounding_sph in libged is now a one-line delegate to
+        bsg_subtree_bbox; the per-frame full-tree _sph_solid_cb walk is gone.
+      - pflag (include-overlays) bypasses the cache and does a full walk;
+        this is the rare path used only by `view bounds -p` style queries.
+      - Test [12] in src/libged/tests/draw/bsg_view_obj.cpp verifies cold/warm
+        cache, cache-vs-walk parity, and erase-invalidates-cache.
 
 B4  DONE
     The lazy-color mechanism is now fully active:
@@ -286,7 +302,8 @@ The structural modernization is complete.  The items below are the genuine open
 questions that could still be addressed, but none are blocking normal use.
 
 1. Larger end-state architecture questions (optional, low urgency).
-   - bbox/sensor invalidation improvements (B3 residual),
+   - bbox/sensor invalidation improvements: DONE in Phase 9.1 (cached
+     aggregate bbox + invalidation-on-mutation, see B3 above),
    - fuller sensorization of highlight state (B5 residual),
    - backend-style vs adapter-style libbsg/Obol integration.
 
@@ -404,3 +421,139 @@ legacy compatibility knobs have been removed, and the codebase is clean.
   semantics explicitly via bsg_view_obj_foreach_group + path walking.
 - ged_util.cpp uses bsg_view_obj_group_is_phony() for overlay filtering.
 - No boolean compatibility flags remain in the public bsg_view_obj_* API.
+
+Phase 9: lazy bbox + sensorized highlight (in progress)
+-------------------------------------------------------
+Phase 9 addresses the two residuals (B3, B5) and lays the substrate that
+Phase 11 (renderer-backend contract) will reuse.
+
+Step 9.1 -- DONE -- cached aggregate bbox with dirty propagation.
+  See the B3 entry above for full details.  This step alone makes the per-
+  query cost of `view bounds` / `autoview` / `zoom-extents` O(touched-since-
+  last-query) instead of O(all-shapes-ever-drawn), and provides the first
+  concrete demonstration of "dirty propagated up the parent chain on every
+  structural mutation chokepoint" -- the same pattern the highlight sensor
+  in Step 9.3 and the backend hooks in Phase 11 will reuse.
+
+Step 9.2 -- DONE -- replace per-frame `s_flag = DOWN` reset with a
+  `gv_frame_rev` generation counter.
+    - bview gains `uint64_t gv_frame_rev`, bumped at the top of
+      dm_draw_objs() (libdm/view.c).
+    - bv_scene_obj gains `uint64_t s_drawn_rev`; the renderer stamps
+      `s->s_drawn_rev = v->gv_frame_rev` after a successful paint
+      (replacing the old `s->s_flag = UP`).
+    - "drawn this frame" is now `sp->s_drawn_rev == v->gv_frame_rev`;
+      MGED's _mged_count_drawn_cb walks once per frame and tests
+      against the stamp instead of relying on a global s_flag reset.
+    - s_flag retains its original "persistent visibility" semantics
+      (DOWN means the object is hidden); the renderer no longer writes
+      to s_flag at all.  This finally separates the two roles that
+      were conflated on s_flag.
+    - Test [13] in src/libged/tests/draw/bsg_view_obj.cpp verifies
+      that stamping shapes at frame rev N then bumping to N+1 produces
+      a "drawn this frame" count of zero on N+1 with no full-tree
+      reset.
+
+Step 9.3 -- DONE -- re-express gd_illum_solid as a NodeSensor.
+    - ged_drawable gains `bsg_node *gd_illum_sensor` (live NodeSensor
+      handle while a solid is illuminated; NULL otherwise) and
+      `uint64_t gd_illum_rev` (highlight-state revision counter).
+    - _sg_set_illum() now manages sensor lifecycle: tear down the
+      previous sensor on every transition, register a fresh one on
+      the new target via bsg_node_sensor_create(), and bump
+      gd_illum_rev.
+    - The sensor's callback bumps gd_illum_rev on every
+      bsg_node_field_touch() targeting the illuminated solid, so that
+      external observers can detect highlight-state changes purely by
+      polling bsg_view_obj_illum_rev() — no need to subscribe to the
+      sensor or poll gd_illum_solid identity.
+    - bsg_view_obj_set_iflag(DOWN) and bsg_view_obj_zap() also tear
+      down the sensor and bump gd_illum_rev.
+    - ged_bv_illum_free_cb() now also tears down the sensor when the
+      illuminated solid itself is freed (avoiding a dangling target
+      pointer in the registry).
+    - Public API: bsg_view_obj_illum_rev() returns the current value
+      of the counter.
+    - The manually-maintained gd_illum_solid cache stays as the O(1)
+      identity-lookup path used by set_iflag(DOWN); the NodeSensor is
+      strictly the lazy-notification side.
+    - Test [14] in src/libged/tests/draw/bsg_view_obj.cpp covers
+      transitions, field-touch on the illum solid, field-touch on a
+      different solid (no bump), and clean teardown after set_illum
+      (NULL).
+
+Phases 10-13: deferred follow-ons
+---------------------------------
+Phase 10 -- DONE (full migration) -- public libged API cleanup.
+  - Header rename: include/ged/bsg_view_obj.h -> include/ged/bsg_ged_draw.h
+    (canonical), with a thin compatibility shim left at the old name
+    that simply forwards via #include "ged/bsg_ged_draw.h" so out-of-
+    tree callers do not break.
+  - New db_full_path-keyed entry points added in libged/bsg_ged_draw.c
+    parallel to the path-string variants:
+      bsg_view_obj_lookup_or_add_dbpath(gedp, dfp)
+      bsg_view_obj_erase_by_dbpath(gedp, dfp)
+      bsg_view_obj_erase_all_dbpaths(gedp, dfp)
+      bsg_view_obj_group_dbpath(gedp, group, out)
+      bsg_view_obj_group_set_dbpath(group, dfp)
+    The dbpath wrappers call the file-private _sg_* helpers directly
+    (not the deprecated public path-string wrappers) so libged itself
+    stays warning-clean.
+  - In-tree caller migration complete.  Every call to the four
+    mutation/lookup APIs that take a path-string now constructs a
+    db_full_path at the call site (parse via db_string_to_path against
+    gedp->dbip, free via db_free_full_path) and calls the dbpath
+    variant.  Migrated files: draw/draw.c, draw/bigE.c, erase/erase.c,
+    gdiff/gdiff.c, killrefs/killrefs.c, nirt/nirt.cpp, remove/remove.c,
+    rtcheck/rtcheck.c, move/move.c, move_all/move_all.c.  The
+    move/move_all rename callbacks gained a `struct ged *gedp`
+    back-pointer in their userdata structs so the rename callback can
+    parse the new path.
+  - __attribute__((deprecated("use the db_full_path-keyed variant")))
+    is now applied to the four migrated path-string declarations
+    (bsg_view_obj_lookup_or_add_path, bsg_view_obj_erase_by_path,
+    bsg_view_obj_erase_all_paths, bsg_view_obj_group_set_path) via a
+    BSG_DEPRECATED_PATH_STR macro guarded for GCC/Clang.  Out-of-tree
+    callers will see a compile-time warning at every remaining call
+    site.  bsg_view_obj_group_path and bsg_view_obj_erase_by_name are
+    intentionally NOT deprecated: the former is the natural string
+    accessor for the (still-string) internal s_name storage, and the
+    latter is component-name-keyed rather than path-keyed.
+  - The bsg_view_obj.cpp test still exercises the path-string
+    variants in section [1] (NULL-arg safety) and section [15]
+    (dbpath-keyed entries).  Section [1] wraps the deprecated calls
+    in `#pragma GCC diagnostic push/ignored "-Wdeprecated-declarations"
+    /pop` so the regression test for the deprecated contract still
+    compiles under -Werror.
+  - Phase 11 (renderer-backend contract) and Phase 12/13 will land
+    in separate PRs.
+
+Phase 11 -- renderer-backend contract.  Replace ad-hoc fields (s_dlist,
+  s_obol_node, ...) on bv_scene_obj with one (slot, dtor) pair plus a
+  proper `struct bsg_backend` functab in include/dm/backend.h.  dm-gl,
+  dm-swrast, and the qgedobol experiment all become proper backends; the
+  Phase 8 render contract moves into a shared "default GL frame loop"
+  helper that backends opt into.  This is the architectural answer to
+  "adapter vs direct adoption of Obol" -- adapter, but with a real
+  interface, not the current "widen bv_scene_obj" pattern.
+
+Phase 12 -- decide the long-term default backend by benchmark.  Concrete
+  rule: dm-obol becomes default if it wins on >=2 of {redraw latency,
+  peak RSS, code volume saved} and is no worse than 10% on the others;
+  otherwise dm-gl stays default and Obol ships as opt-in.
+
+Phase 13 -- retire the deprecated-during-Phase-10 path-string APIs,
+  remove s_dlist/s_obol_node/etc. from bv_scene_obj, remove gd_illum_solid
+  (subsumed by the Phase 9.3 sensor), remove the Phase-8 frame-reset pass
+  (subsumed by the Phase 9.2 generation counter).
+
+Explicit non-goals (recorded so future sessions don't re-litigate):
+  * Do not put SoNode* directly on bv_scene_obj.
+  * Do not vendor Obol underneath libbsg; libbsg stays the canonical,
+    C-friendly tree.
+  * Do not move highlight/illum policy down into libbsg; the sensor is
+    the data primitive but "what counts as illuminated" stays in libged.
+  * Do not reintroduce a per-frame full-tree reset pass once gv_frame_rev
+    lands.
+  * Do not let backend-specific fields creep back onto bv_scene_obj once
+    the generic backend slot exists.

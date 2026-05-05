@@ -1233,8 +1233,15 @@ _ged_drawtrees(struct ged *gedp, int argc, const char *argv[], int kind, struct 
 		struct _ged_client_data dgcdp_save;
 
 		for (i = 0; i < argc; ++i) {
-		    if (drawtrees_depth == 1)
-			dgcdp.gdlp = bsg_view_obj_lookup_or_add_path(gedp, argv[i]);
+		    if (drawtrees_depth == 1) {
+			struct db_full_path dfp;
+			db_full_path_init(&dfp);
+			if (db_string_to_path(&dfp, gedp->dbip, argv[i]) == 0)
+			    dgcdp.gdlp = bsg_view_obj_lookup_or_add_dbpath(gedp, &dfp);
+			else
+			    dgcdp.gdlp = NULL;
+			db_free_full_path(&dfp);
+		    }
 
 		    if (dgcdp.gdlp == NULL)
 			continue;
@@ -1294,7 +1301,15 @@ _ged_drawtrees(struct ged *gedp, int argc, const char *argv[], int kind, struct 
 		    bv_data.v = gedp->ged_gvp;
 		    bv_data.gedp = gedp;
 
-		    dgcdp.gdlp = bsg_view_obj_lookup_or_add_path(gedp, argv[i]);
+		    {
+			struct db_full_path dfp;
+			db_full_path_init(&dfp);
+			if (db_string_to_path(&dfp, gedp->dbip, argv[i]) == 0)
+			    dgcdp.gdlp = bsg_view_obj_lookup_or_add_dbpath(gedp, &dfp);
+			else
+			    dgcdp.gdlp = NULL;
+			db_free_full_path(&dfp);
+		    }
 		    bv_data.gdlp = dgcdp.gdlp;
 
 		    /* store draw path */
@@ -1364,8 +1379,15 @@ _ged_drawtrees(struct ged *gedp, int argc, const char *argv[], int kind, struct 
 		}
 
 		for (i = 0; i < argc; ++i) {
-		    if (drawtrees_depth == 1)
-			dgcdp.gdlp = bsg_view_obj_lookup_or_add_path(gedp, argv[i]);
+		    if (drawtrees_depth == 1) {
+			struct db_full_path dfp;
+			db_full_path_init(&dfp);
+			if (db_string_to_path(&dfp, gedp->dbip, argv[i]) == 0)
+			    dgcdp.gdlp = bsg_view_obj_lookup_or_add_dbpath(gedp, &dfp);
+			else
+			    dgcdp.gdlp = NULL;
+			db_free_full_path(&dfp);
+		    }
 
 		    if (dgcdp.gdlp == NULL)
 			continue;
@@ -1569,7 +1591,13 @@ ged_draw_guts(struct ged *gedp, int argc, const char *argv[], int kind)
 		continue;
 	    }
 
-	    bsg_view_obj_erase_by_path(gedp, new_argv[i]);
+	    {
+		struct db_full_path dfp;
+		db_full_path_init(&dfp);
+		if (db_string_to_path(&dfp, gedp->dbip, new_argv[i]) == 0)
+		    bsg_view_obj_erase_by_dbpath(gedp, &dfp);
+		db_free_full_path(&dfp);
+	    }
 	}
 
 	drawtrees_retval = _ged_drawtrees(gedp, new_argc, (const char **)new_argv, kind, (struct _ged_client_data *)0);
@@ -1603,7 +1631,13 @@ ged_draw_guts(struct ged *gedp, int argc, const char *argv[], int kind)
 		continue;
 	    }
 
-	    bsg_view_obj_erase_by_path(gedp, argv[i]);
+	    {
+		struct db_full_path dfp;
+		db_full_path_init(&dfp);
+		if (db_string_to_path(&dfp, gedp->dbip, argv[i]) == 0)
+		    bsg_view_obj_erase_by_dbpath(gedp, &dfp);
+		db_free_full_path(&dfp);
+	    }
 	}
 
 	/* if our display is non-empty add -R to keep current view */
