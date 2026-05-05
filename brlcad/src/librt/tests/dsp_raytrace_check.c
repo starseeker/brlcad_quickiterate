@@ -84,6 +84,9 @@
  * normal regression test.
  */
 #define DSP_TEST_LARGE_GRID_DIM 129u
+/* Private dsp.c surface number for terrain-top hits.  The test keeps this
+ * local rather than including private primitive internals.
+ */
 #define DSP_TEST_ZTOP 7
 
 
@@ -141,6 +144,11 @@ cell_cuttype(const unsigned short *buf, unsigned int xcnt, unsigned int ycnt,
     if (cuttype != DSP_CUT_DIR_ADAPT)
 	return cuttype;
 
+    /* Mirror dsp.c:permute_cell().  Adaptive mode estimates curvature along
+     * the two possible diagonals using the neighboring diagonal samples.  The
+     * diagonal with lower accumulated second-difference curvature is selected
+     * so the two triangles follow the locally smoother direction.
+     */
     unsigned int lo_x = (x > 0) ? x - 1 : 0;
     unsigned int lo_y = (y > 0) ? y - 1 : 0;
     unsigned int hi_x = (x + 2 < xcnt) ? x + 2 : xcnt - 1;
@@ -588,6 +596,8 @@ run_prepped_ray_checks(const struct dsp_case *tc, struct rt_i *rtip)
     double x_extent = (tc->xcnt - 1) * tc->dx;
     double y_extent = (tc->ycnt - 1) * tc->dy;
     double top_z = (double)tc->buf[0] * tc->dz;
+    double expected_vertical_in = 10.0;
+    double expected_vertical_out = expected_vertical_in + top_z;
     point_t o;
     vect_t d;
 
@@ -595,7 +605,8 @@ run_prepped_ray_checks(const struct dsp_case *tc, struct rt_i *rtip)
 	VSET(o, 0.5 * x_extent, 0.5 * y_extent, top_z + 10.0);
 	VSET(d, 0.0, 0.0, -1.0);
 	failures += check_direct_ray("vertical down flat DSP", stp, rtip,
-				     o, d, 1, 10.0, 10.0 + top_z, tc->smooth);
+				     o, d, 1, expected_vertical_in,
+				     expected_vertical_out, tc->smooth);
 
 	VSET(o, -tc->dx, 0.5 * y_extent, 0.5 * top_z);
 	VSET(d, 1.0, 0.0, 0.0);
@@ -615,7 +626,8 @@ run_prepped_ray_checks(const struct dsp_case *tc, struct rt_i *rtip)
 	VSET(o, 0.5 * x_extent, 0.5 * y_extent, -10.0);
 	VSET(d, 0.0, 0.0, 1.0);
 	failures += check_direct_ray("vertical up flat DSP", stp, rtip,
-				     o, d, 1, 10.0, 10.0 + top_z, 0);
+				     o, d, 1, expected_vertical_in,
+				     expected_vertical_out, 0);
     } else if (tc->ray_checks == 2) {
 	failures += check_smooth_normal(tc, stp);
     }
