@@ -97,15 +97,12 @@ bsg_view_obj_erase_by_path(struct ged *gedp, const char *path);
 
 /**
  * Erase from @p gedp's drawn-object set every scene object whose path
- * contains @p name as one of its directory components.  When
- * @p skip_first is non-zero, the first (top-level) component of each
- * path is excluded from the match.
+ * contains @p name as one of its directory components.
  *
  * Replaces _dl_eraseAllNamesFromDisplay().
  */
 GED_EXPORT extern void
-bsg_view_obj_erase_by_name(struct ged *gedp, const char *name,
-			   int skip_first);
+bsg_view_obj_erase_by_name(struct ged *gedp, const char *name);
 
 /**
  * Erase from @p gedp's drawn-object set every scene object whose path

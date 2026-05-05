@@ -446,7 +446,7 @@ _sg_erase_subgroups_by_name(struct ged *gedp, struct bv_scene_obj *parent,
 
 
 static void
-_sg_erase_all_names(struct ged *gedp, const char *name, int skip_first)
+_sg_erase_all_names(struct ged *gedp, const char *name)
 {
     struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
     if (!root)
@@ -466,19 +466,12 @@ _sg_erase_all_names(struct ged *gedp, const char *name, int skip_first)
         struct bv_scene_obj *g =
             (struct bv_scene_obj *)BU_PTBL_GET(&snap, gi);
 
-        /* Check root child's path components for a direct name match */
+        /* Check path components for a name match */
         char *dup_path = bu_strdup(bu_vls_cstr(&g->s_name));
         char *tok;
-        int first = 1, found = 0;
+        int found = 0;
         tok = strtok(dup_path, "/");
         while (tok) {
-            if (first) {
-                first = 0;
-                if (skip_first) {
-                    tok = strtok(NULL, "/");
-                    continue;
-                }
-            }
             if (BU_STR_EQUAL(tok, name)) {
                 _sg_free_group(g);
                 found = 1;
@@ -927,11 +920,11 @@ bsg_view_obj_erase_by_path(struct ged *gedp, const char *path)
 
 
 void
-bsg_view_obj_erase_by_name(struct ged *gedp, const char *name, int skip_first)
+bsg_view_obj_erase_by_name(struct ged *gedp, const char *name)
 {
     if (!gedp || !name)
         return;
-    _sg_erase_all_names(gedp, name, skip_first);
+    _sg_erase_all_names(gedp, name);
 }
 
 

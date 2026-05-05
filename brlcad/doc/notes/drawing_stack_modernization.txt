@@ -194,12 +194,12 @@ B1  MOSTLY DONE
 
 B2  DONE
     Nested erase is tree-based.  The old split-heavy implementation has been
-    retired.  The `allow_split` compatibility knob has been removed from the
-    public `bsg_view_obj_erase_by_path` API (the implementation was already
-    ignoring it).  The `skip_first` knob has been removed from
-    `bsg_view_obj_erase_all_paths` (no caller needed it).  The `skip_first`
-    knob on `bsg_view_obj_erase_by_name` is retained because killrefs uses it
-    to match interior path components rather than the top-level name.
+    retired.  All public compatibility knobs have been removed:
+      - `allow_split` removed from `bsg_view_obj_erase_by_path`.
+      - `skip_first` removed from `bsg_view_obj_erase_all_paths`.
+      - `skip_first` removed from `bsg_view_obj_erase_by_name`; killrefs now
+        explicitly iterates path components via bsg_view_obj_foreach_group to
+        identify paths where the target name is a non-root component.
 
 B3  MOSTLY DONE
     Overlay filtering now uses BSG_PAYLOAD_OVERLAY rather than phony directory
@@ -271,31 +271,26 @@ R1  DONE
     src/libged/ged_util.cpp (who_argv_cb and rt_write_draw_cb) likewise use
     bsg_view_obj_group_is_phony() instead of direct dp->d_addr comparisons.
 
-R2  MOSTLY DONE
-    The `allow_split` compatibility knob has been removed from the public
-    `bsg_view_obj_erase_by_path` API, and the `skip_first` knob has been
-    removed from `bsg_view_obj_erase_all_paths`.  The internals now fully
-    describe erase semantics in tree terms without these legacy flags.
-    Remaining: `skip_first` on `bsg_view_obj_erase_by_name` is retained
-    because killrefs.c uses it with a non-zero value for a distinct semantic
-    (match interior path components rather than the top-level name).
+R2  DONE
+    All public erase compatibility knobs have been removed:
+      - `allow_split` removed from `bsg_view_obj_erase_by_path`.
+      - `skip_first` removed from `bsg_view_obj_erase_all_paths`.
+      - `skip_first` removed from `bsg_view_obj_erase_by_name`; the one caller
+        (killrefs.c) that needed "match interior components only" now expresses
+        that logic explicitly via bsg_view_obj_foreach_group + path component
+        iteration, without requiring any API-level flag.
 
 What remains to do
 ------------------
-The structural modernization is effectively complete.  The items below are the
-genuine open questions that could still be addressed.
+The structural modernization is complete.  The items below are the genuine open
+questions that could still be addressed, but none are blocking normal use.
 
-1. Decide the final shape of the public bsg_view_obj_erase_by_name skip_first knob.
-   killrefs.c is the only caller that passes skip_first=1.  If killrefs semantics
-   can be expressed cleanly without the flag (e.g. by iterating path components
-   explicitly), the parameter could be removed to complete R2.
-
-2. Larger end-state architecture questions (optional, low urgency).
+1. Larger end-state architecture questions (optional, low urgency).
    - bbox/sensor invalidation improvements (B3 residual),
    - fuller sensorization of highlight state (B5 residual),
    - backend-style vs adapter-style libbsg/Obol integration.
 
-3. Path-string-centric entry points.
+2. Path-string-centric entry points.
    bsg_view_obj_lookup_or_add_path, bsg_view_obj_group_path,
    bsg_view_obj_group_set_path still accept/return raw path strings.  If a
    future caller wants to drive the draw tree directly in BSG terms rather
@@ -305,18 +300,8 @@ genuine open questions that could still be addressed.
 
 Recommended execution order
 ---------------------------
-If continuing this work in code, do it in this order:
-
-1. Consider removing skip_first from bsg_view_obj_erase_by_name.
-   killrefs.c is the only remaining caller that uses skip_first=1.  If
-   killrefs can be rewritten to iterate path components explicitly, the
-   parameter can be removed to fully complete R2.
-
-2. Only after that, revisit larger end-state questions.
-   Examples:
-   - bbox/sensor invalidation improvements,
-   - fuller sensorization of highlight state,
-   - backend-style vs adapter-style libbsg/Obol integration.
+The core API cleanup is complete (R2 done).  If continuing this work in code,
+address the optional items above as needed.
 
 What not to redo
 ----------------
@@ -336,14 +321,12 @@ Future sessions should NOT spend time rediscovering or re-arguing these points:
 
 Bottom line
 -----------
-The modernization effort is essentially complete.  The draw tree is BSG-native,
-all major legacy knobs have been cleaned up, and the remaining items are minor
-API finish work (erase_by_name skip_first) and optional end-state architecture
-questions that are not blocking normal use.
+The modernization effort is complete.  The draw tree is BSG-native, all public
+legacy compatibility knobs have been removed, and the codebase is clean.
 
-- B1/B2/B4/B5/B6/B7/B8/B9, R1, and most of R2 are done.
-- The `allow_split` parameter has been removed from bsg_view_obj_erase_by_path.
-- The `skip_first` parameter has been removed from bsg_view_obj_erase_all_paths.
+- B1/B2/B4/B5/B6/B7/B8/B9, R1, R2 are all done.
+- All three erase-by-name/path/all-paths API knobs (allow_split, skip_first×2)
+  have been removed.  killrefs now expresses its "interior component" erase
+  semantics explicitly via bsg_view_obj_foreach_group + path walking.
 - ged_util.cpp uses bsg_view_obj_group_is_phony() for overlay filtering.
-- The only remaining compatibility knob is skip_first in bsg_view_obj_erase_by_name,
-  which killrefs.c uses with a non-zero value for a semantically distinct purpose.
+- No boolean compatibility flags remain in the public bsg_view_obj_* API.

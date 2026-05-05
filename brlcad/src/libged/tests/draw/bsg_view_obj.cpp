@@ -131,8 +131,8 @@ main(int ac, char *av[])
     ASSERT(bsg_view_obj_lookup_or_add_path(gedp, NULL) == NULL);
     bsg_view_obj_erase_by_path(NULL, "x");              /* no crash */
     bsg_view_obj_erase_by_path(gedp, NULL);             /* no crash */
-    bsg_view_obj_erase_by_name(NULL, "x", 0);              /* no crash */
-    bsg_view_obj_erase_by_name(gedp, NULL, 0);             /* no crash */
+    bsg_view_obj_erase_by_name(NULL, "x");              /* no crash */
+    bsg_view_obj_erase_by_name(gedp, NULL);             /* no crash */
     bsg_view_obj_erase_all_paths(NULL, "x");            /* no crash */
     bsg_view_obj_erase_all_paths(gedp, NULL);           /* no crash */
     bsg_view_obj_set_iflag(NULL, 0);                       /* no crash */
@@ -280,7 +280,7 @@ main(int ac, char *av[])
 	BV_FREE_VLIST(vlfree, &vhead);
 
 	/* Erase the phony solid by name. */
-	bsg_view_obj_erase_by_name(gedp, "_bsg_test_phony", 0);
+	bsg_view_obj_erase_by_name(gedp, "_bsg_test_phony");
 	/* _overlays group should be gone (empty → freed). */
 	ASSERT(dl_count(gedp) == before_invent);
     }
@@ -375,7 +375,7 @@ main(int ac, char *av[])
 	    /* count must not have changed */
 	    ASSERT(bsg_view_obj_solid_count(gedp) == count);
 	    /* Clean up */
-	    bsg_view_obj_erase_by_name(gedp, "_snap_test_overlay", 0);
+	    bsg_view_obj_erase_by_name(gedp, "_snap_test_overlay");
 	}
     }
 
@@ -429,7 +429,7 @@ main(int ac, char *av[])
 	    BV_FREE_VLIST(vlfree, &vhead);
 	    ASSERT(bsg_view_obj_draw_rev(gedp) > rev_pre);
 
-	    bsg_view_obj_erase_by_name(gedp, "_rev_test_ov", 0);
+	    bsg_view_obj_erase_by_name(gedp, "_rev_test_ov");
 	}
     }
 
