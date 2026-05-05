@@ -845,19 +845,6 @@ dm_draw_viewobjs(struct rt_wdb *wdbp, struct bview *v, struct dm_view_data *vd)
 // state and then draws each child node using the same draw_scene_obj
 // path as the legacy dl_* walk, producing identical output.
 
-/* Phase 3 (BSG render contract): per-frame s_flag reset.  Called once
- * at the very top of a frame (from dm_draw_objs); marks every shape
- * DOWN so that dm_draw_scene_obj's "set UP on successful draw" then
- * gives us an accurate "what was drawn this frame" set for callers
- * like dozoom (drawn-count) and usepen (illuminate). */
-static int
-_reset_drawn_cb(bsg_node *n, void *UNUSED(ud))
-{
-    struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
-    sp->s_flag = DOWN;
-    return 1;
-}
-
 /* Internal traversal — supports transparency-pass filtering and the
  * accumulated transform-stack matrix.  Public bsg_view_traverse() and
  * dm_draw_objs() both delegate here. */
@@ -982,12 +969,6 @@ dm_draw_objs(struct bview *v, void (*dm_draw_custom)(struct bview *, void *), vo
     // Note: explicit cast from void* is required for C++ compilation.
     if (v->bsg_root) {
 	bsg_scene_root_sync((bsg_node *)v->bsg_root, v);
-
-	/* Phase 3 (BSG render contract): reset s_flag = DOWN on every
-	 * shape under the root before rendering, so that dm_draw_scene_obj
-	 * setting s_flag = UP on each successful draw gives an accurate
-	 * "what was drawn this frame" set when this frame is finished. */
-	bsg_visit((bsg_node *)v->bsg_root, BSG_NODE_SHAPE, _reset_drawn_cb, NULL);
 
 	/* Phase 1 (BSG render contract): two-pass transparency render.
 	 * Opaque first with depth writes on, then transparent with depth
