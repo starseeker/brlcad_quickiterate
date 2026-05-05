@@ -86,15 +86,14 @@ bsg_view_obj_lookup_or_add_path(struct ged *gedp, const char *path);
 
 /**
  * Erase from @p gedp's drawn-object set every entry whose path string
- * matches @p path exactly.  When @p allow_split is non-zero and the
- * scene-group's path is a strict ancestor of one of its children, the
- * group is split so that only the matching subpath is erased.
+ * matches @p path exactly.  When the scene-group's path is a strict
+ * ancestor of the erase path, the matching sub-tree is removed
+ * without disturbing sibling sub-groups.
  *
  * Replaces dl_erasePathFromDisplay().
  */
 GED_EXPORT extern void
-bsg_view_obj_erase_by_path(struct ged *gedp, const char *path,
-			   int allow_split);
+bsg_view_obj_erase_by_path(struct ged *gedp, const char *path);
 
 /**
  * Erase from @p gedp's drawn-object set every scene object whose path
@@ -110,14 +109,12 @@ bsg_view_obj_erase_by_name(struct ged *gedp, const char *name,
 
 /**
  * Erase from @p gedp's drawn-object set every scene object whose path
- * has @p path as a prefix subset.  When @p skip_first is non-zero, the
- * first component of @p path is not required to match.
+ * has @p path as a prefix subset.
  *
  * Replaces _dl_eraseAllPathsFromDisplay().
  */
 GED_EXPORT extern void
-bsg_view_obj_erase_all_paths(struct ged *gedp, const char *path,
-			     int skip_first);
+bsg_view_obj_erase_all_paths(struct ged *gedp, const char *path);
 
 /**
  * Compute the axis-aligned bounding box of every drawn scene object in

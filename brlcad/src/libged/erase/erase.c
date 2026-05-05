@@ -77,7 +77,7 @@ ged_erase_core(struct ged *gedp, int argc, const char *argv[])
 
 	if (strchr(argv[i], 'r')) {
 		for (i = 1; i < (size_t)argc; ++i)
-		bsg_view_obj_erase_all_paths(gedp, argv[i], 0);
+		bsg_view_obj_erase_all_paths(gedp, argv[i]);
 	    return BRLCAD_OK;
 	}
 
@@ -174,11 +174,11 @@ ged_erase_core(struct ged *gedp, int argc, const char *argv[])
 	    if (new_argv[i][0] == '-')
 		continue;
 
-	    bsg_view_obj_erase_by_path(gedp, new_argv[i], 1);
+	    bsg_view_obj_erase_by_path(gedp, new_argv[i]);
 	}
     } else {
 	for (i = 0; i < (size_t)argc; ++i)
-	    bsg_view_obj_erase_by_path(gedp, argv[i], 1);
+	    bsg_view_obj_erase_by_path(gedp, argv[i]);
     }
 
     return BRLCAD_OK;

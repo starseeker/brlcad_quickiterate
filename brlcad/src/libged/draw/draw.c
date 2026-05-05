@@ -1549,7 +1549,7 @@ ged_draw_guts(struct ged *gedp, int argc, const char *argv[], int kind)
 		continue;
 	    }
 
-	    bsg_view_obj_erase_by_path(gedp, new_argv[i], 0);
+	    bsg_view_obj_erase_by_path(gedp, new_argv[i]);
 	}
 
 	drawtrees_retval = _ged_drawtrees(gedp, new_argc, (const char **)new_argv, kind, (struct _ged_client_data *)0);
@@ -1583,7 +1583,7 @@ ged_draw_guts(struct ged *gedp, int argc, const char *argv[], int kind)
 		continue;
 	    }
 
-	    bsg_view_obj_erase_by_path(gedp, argv[i], 0);
+	    bsg_view_obj_erase_by_path(gedp, argv[i]);
 	}
 
 	/* if our display is non-empty add -R to keep current view */
