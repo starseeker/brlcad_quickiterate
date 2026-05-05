@@ -2309,9 +2309,10 @@ main(int argc, char *argv[])
     {
 	const char *dm_msgs = dm_init_msgs();
 	if (dm_msgs && dm_msgs[0] != '\0') {
+	    size_t dm_msgs_len = strlen(dm_msgs);
 	    bu_log("WARNING: libdm plugin initialization issues:\n%s",
 		   dm_msgs);
-	    if (dm_msgs[strlen(dm_msgs) - 1] != '\n')
+	    if (dm_msgs[dm_msgs_len - 1] != '\n')
 		bu_log("\n");
 	}
     }
