@@ -887,6 +887,10 @@ dsp_bvh_enabled(void)
 
     bu_semaphore_acquire(BU_SEM_GENERAL);
     if (!initialized) {
+	/* Read once.  LIBRT_DSP_ENABLE_BVH is an opt-in diagnostic knob that
+	 * must be set before threaded prep begins; callers must not mutate the
+	 * process environment concurrently with rt_prep_parallel.
+	 */
 	const char *enable_bvh = getenv("LIBRT_DSP_ENABLE_BVH");
 	enabled = (enable_bvh && bu_str_true(enable_bvh));
 	initialized = 1;

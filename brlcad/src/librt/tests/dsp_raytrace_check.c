@@ -855,8 +855,9 @@ bu_free(buf, "33x33 buf");
 const uint32_t grid_width = DSP_TEST_LARGE_GRID_DIM;
 const uint32_t grid_height = DSP_TEST_LARGE_GRID_DIM;
 const double ridge_height = 120.0;
-/* Unequal wave frequencies avoid a symmetric height field and produce rays
- * that visit varied HBB/DDA child paths across the power-of-two cell grid.
+/* Different X/Y wave frequencies (12 vs. 8 cycles across the unit grid) avoid
+ * a symmetric height field and produce rays that visit varied HBB/DDA child
+ * paths across the power-of-two cell grid.
  */
 const double ridge_x_freq = 12.0;
 const double ridge_y_freq = 8.0;
