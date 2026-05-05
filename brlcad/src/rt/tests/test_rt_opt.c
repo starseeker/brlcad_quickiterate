@@ -656,6 +656,15 @@ test_opt_cut_plane(void)
     CHECK_DBL("--cut-plane point+normal kut_plane[1]", 0.0, kut_plane[1]);
     CHECK_DBL("--cut-plane point+normal kut_plane[2]", 0.0, kut_plane[2]);
     CHECK_DBL("--cut-plane point+normal kut_plane[W]", 4.0, kut_plane[W]);
+
+    reset_globals();
+    MAKE_ARGV(av5, "rt", "-k", "1,1,1,1,1,1");
+    CALL_GET_ARGS(av5, 1);
+    CHECK_INT("-k diagonal point+normal", 1, do_kut_plane);
+    CHECK_DBL("-k diagonal point+normal kut_plane[0]", 0.5773502691896257, kut_plane[0]);
+    CHECK_DBL("-k diagonal point+normal kut_plane[1]", 0.5773502691896257, kut_plane[1]);
+    CHECK_DBL("-k diagonal point+normal kut_plane[2]", 0.5773502691896257, kut_plane[2]);
+    CHECK_DBL("-k diagonal point+normal kut_plane[W]", 1.7320508075688772, kut_plane[W]);
 }
 
 

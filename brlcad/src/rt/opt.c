@@ -326,6 +326,7 @@ rt_opt_cut_plane(struct bu_vls *msg, size_t argc, const char **argv, void *UNUSE
 	    bu_exit(EXIT_FAILURE, "ERROR: bad normal for cutting plane, length=%g\n", f);
 	VUNITIZE(nrml);
 	VMOVE(kut_plane, nrml);
+	/* Plane form is N . X = d, so derive d from the supplied point. */
 	kut_plane[W] = VDOT(pt, nrml);
 	return 1;
     }
