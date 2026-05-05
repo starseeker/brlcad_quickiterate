@@ -372,12 +372,20 @@ ged_gdiff_core(struct ged *gedp, int argc, const char *argv[])
 	vbp = bv_vlblock_init(&local_vlist, 32);
 
 	/* Clear any previous diff drawing */
-	if (db_lookup(gedp->dbip, "diff_visualff", LOOKUP_QUIET) != RT_DIR_NULL)
-	    bsg_view_obj_erase_by_path(gedp, "diff_visualff");
-	if (db_lookup(gedp->dbip, "diff_visualff0000", LOOKUP_QUIET) != RT_DIR_NULL)
-	    bsg_view_obj_erase_by_path(gedp, "diff_visualff0000");
-	if (db_lookup(gedp->dbip, "diff_visualffffff", LOOKUP_QUIET) != RT_DIR_NULL)
-	    bsg_view_obj_erase_by_path(gedp, "diff_visualffffff");
+	{
+	    static const char * const _diff_names[] = {
+		"diff_visualff", "diff_visualff0000", "diff_visualffffff"
+	    };
+	    for (size_t _i = 0; _i < sizeof(_diff_names)/sizeof(_diff_names[0]); _i++) {
+		if (db_lookup(gedp->dbip, _diff_names[_i], LOOKUP_QUIET) == RT_DIR_NULL)
+		    continue;
+		struct db_full_path dfp;
+		db_full_path_init(&dfp);
+		if (db_string_to_path(&dfp, gedp->dbip, _diff_names[_i]) == 0)
+		    bsg_view_obj_erase_by_dbpath(gedp, &dfp);
+		db_free_full_path(&dfp);
+	    }
+	}
 
 	/* Draw left-only lines */
 	if (view_left) {

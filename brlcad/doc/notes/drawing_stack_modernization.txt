@@ -484,7 +484,7 @@ Step 9.3 -- DONE -- re-express gd_illum_solid as a NodeSensor.
 
 Phases 10-13: deferred follow-ons
 ---------------------------------
-Phase 10 -- DONE (deprecation step) -- public libged API cleanup.
+Phase 10 -- DONE (full migration) -- public libged API cleanup.
   - Header rename: include/ged/bsg_view_obj.h -> include/ged/bsg_ged_draw.h
     (canonical), with a thin compatibility shim left at the old name
     that simply forwards via #include "ged/bsg_ged_draw.h" so out-of-
@@ -496,18 +496,35 @@ Phase 10 -- DONE (deprecation step) -- public libged API cleanup.
       bsg_view_obj_erase_all_dbpaths(gedp, dfp)
       bsg_view_obj_group_dbpath(gedp, group, out)
       bsg_view_obj_group_set_dbpath(group, dfp)
-    These are currently thin facades over the path-string impls
-    (format via db_path_to_string, strip the leading '/', forward).
-  - Doxygen @deprecated tags added to the path-string variants in
-    bsg_ged_draw.h, but no __attribute__((deprecated)) marker yet:
-    BRL-CAD builds with -Werror and the migration touches a large
-    surface (gdiff, killrefs, erase, remove, ged_util, draw, who,
-    saveview, garbage_collect, mged, qged, archer, ...).  Adding the
-    compile-time marker is the next step, after the caller-by-caller
-    migration is complete.
-  - Test coverage: section [15] in src/libged/tests/draw/bsg_view_obj.cpp
-    exercises the new dbpath-keyed entries (lookup_or_add, erase_by,
-    erase_all, group_dbpath round-trip).
+    The dbpath wrappers call the file-private _sg_* helpers directly
+    (not the deprecated public path-string wrappers) so libged itself
+    stays warning-clean.
+  - In-tree caller migration complete.  Every call to the four
+    mutation/lookup APIs that take a path-string now constructs a
+    db_full_path at the call site (parse via db_string_to_path against
+    gedp->dbip, free via db_free_full_path) and calls the dbpath
+    variant.  Migrated files: draw/draw.c, draw/bigE.c, erase/erase.c,
+    gdiff/gdiff.c, killrefs/killrefs.c, nirt/nirt.cpp, remove/remove.c,
+    rtcheck/rtcheck.c, move/move.c, move_all/move_all.c.  The
+    move/move_all rename callbacks gained a `struct ged *gedp`
+    back-pointer in their userdata structs so the rename callback can
+    parse the new path.
+  - __attribute__((deprecated("use the db_full_path-keyed variant")))
+    is now applied to the four migrated path-string declarations
+    (bsg_view_obj_lookup_or_add_path, bsg_view_obj_erase_by_path,
+    bsg_view_obj_erase_all_paths, bsg_view_obj_group_set_path) via a
+    BSG_DEPRECATED_PATH_STR macro guarded for GCC/Clang.  Out-of-tree
+    callers will see a compile-time warning at every remaining call
+    site.  bsg_view_obj_group_path and bsg_view_obj_erase_by_name are
+    intentionally NOT deprecated: the former is the natural string
+    accessor for the (still-string) internal s_name storage, and the
+    latter is component-name-keyed rather than path-keyed.
+  - The bsg_view_obj.cpp test still exercises the path-string
+    variants in section [1] (NULL-arg safety) and section [15]
+    (dbpath-keyed entries).  Section [1] wraps the deprecated calls
+    in `#pragma GCC diagnostic push/ignored "-Wdeprecated-declarations"
+    /pop` so the regression test for the deprecated contract still
+    compiles under -Werror.
   - Phase 11 (renderer-backend contract) and Phase 12/13 will land
     in separate PRs.
 

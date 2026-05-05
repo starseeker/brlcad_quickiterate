@@ -1006,8 +1006,10 @@ bsg_view_obj_lookup_or_add_dbpath(struct ged *gedp,
     char *s = db_path_to_string(dfp);
     if (!s)
         return NULL;
+    /* Call the file-private helper directly so this entry point does
+     * not depend on the deprecated public path-string wrapper. */
     struct bv_scene_obj *r =
-        bsg_view_obj_lookup_or_add_path(gedp, _dbpath_skip_lead_slash(s));
+        (struct bv_scene_obj *)_sg_add_path(gedp, _dbpath_skip_lead_slash(s));
     bu_free(s, "bsg_view_obj_lookup_or_add_dbpath: path string");
     return r;
 }
@@ -1022,7 +1024,7 @@ bsg_view_obj_erase_by_dbpath(struct ged *gedp,
     char *s = db_path_to_string(dfp);
     if (!s)
         return;
-    bsg_view_obj_erase_by_path(gedp, _dbpath_skip_lead_slash(s));
+    _sg_erase_path(gedp, _dbpath_skip_lead_slash(s));
     bu_free(s, "bsg_view_obj_erase_by_dbpath: path string");
 }
 
@@ -1036,7 +1038,7 @@ bsg_view_obj_erase_all_dbpaths(struct ged *gedp,
     char *s = db_path_to_string(dfp);
     if (!s)
         return;
-    bsg_view_obj_erase_all_paths(gedp, _dbpath_skip_lead_slash(s));
+    _sg_erase_all_paths(gedp, _dbpath_skip_lead_slash(s));
     bu_free(s, "bsg_view_obj_erase_all_dbpaths: path string");
 }
 
@@ -1442,7 +1444,9 @@ bsg_view_obj_group_set_dbpath(struct bv_scene_obj *group,
     char *s = db_path_to_string(new_dfp);
     if (!s)
         return;
-    bsg_view_obj_group_set_path(group, _dbpath_skip_lead_slash(s));
+    /* Write s_name directly so this entry point does not depend on the
+     * deprecated public path-string wrapper. */
+    bu_vls_sprintf(&group->s_name, "%s", _dbpath_skip_lead_slash(s));
     bu_free(s, "bsg_view_obj_group_set_dbpath: path string");
 }
 

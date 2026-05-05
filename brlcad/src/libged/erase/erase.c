@@ -76,8 +76,13 @@ ged_erase_core(struct ged *gedp, int argc, const char *argv[])
 	    break;
 
 	if (strchr(argv[i], 'r')) {
-		for (i = 1; i < (size_t)argc; ++i)
-		bsg_view_obj_erase_all_paths(gedp, argv[i]);
+		for (i = 1; i < (size_t)argc; ++i) {
+		struct db_full_path dfp;
+		db_full_path_init(&dfp);
+		if (db_string_to_path(&dfp, gedp->dbip, argv[i]) == 0)
+		    bsg_view_obj_erase_all_dbpaths(gedp, &dfp);
+		db_free_full_path(&dfp);
+		}
 	    return BRLCAD_OK;
 	}
 
@@ -174,11 +179,20 @@ ged_erase_core(struct ged *gedp, int argc, const char *argv[])
 	    if (new_argv[i][0] == '-')
 		continue;
 
-	    bsg_view_obj_erase_by_path(gedp, new_argv[i]);
+	    struct db_full_path dfp;
+	    db_full_path_init(&dfp);
+	    if (db_string_to_path(&dfp, gedp->dbip, new_argv[i]) == 0)
+		bsg_view_obj_erase_by_dbpath(gedp, &dfp);
+	    db_free_full_path(&dfp);
 	}
     } else {
-	for (i = 0; i < (size_t)argc; ++i)
-	    bsg_view_obj_erase_by_path(gedp, argv[i]);
+	for (i = 0; i < (size_t)argc; ++i) {
+	    struct db_full_path dfp;
+	    db_full_path_init(&dfp);
+	    if (db_string_to_path(&dfp, gedp->dbip, argv[i]) == 0)
+		bsg_view_obj_erase_by_dbpath(gedp, &dfp);
+	    db_free_full_path(&dfp);
+	}
     }
 
     return BRLCAD_OK;

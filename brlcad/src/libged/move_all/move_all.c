@@ -38,6 +38,7 @@
 
 /* Callback data for renaming group paths (anywhere in path) */
 struct move_all_rename_data {
+    struct ged *gedp;
     const char *old_name;
     const char *new_name;
 };
@@ -77,7 +78,11 @@ move_all_rename_group_cb(struct bv_scene_obj *group, void *userdata)
     }
 
     if (found) {
-	bsg_view_obj_group_set_path(group, bu_vls_cstr(&new_path));
+	struct db_full_path dfp;
+	db_full_path_init(&dfp);
+	if (db_string_to_path(&dfp, data->gedp->dbip, bu_vls_cstr(&new_path)) == 0)
+	    bsg_view_obj_group_set_dbpath(group, &dfp);
+	db_free_full_path(&dfp);
     }
 
     free((void *)dupstr);
@@ -232,7 +237,7 @@ move_all_func(struct ged *gedp, int nflag, const char *old_name, const char *new
 
     if (!nflag) {
 	/* Change object name anywhere in the display list path. */
-	struct move_all_rename_data data = { old_name, new_name };
+	struct move_all_rename_data data = { gedp, old_name, new_name };
 	bsg_view_obj_foreach_group(gedp, move_all_rename_group_cb, &data);
     }
 

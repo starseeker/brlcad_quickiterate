@@ -60,11 +60,17 @@ struct db_full_path;
 
 /* Phase 10 (drawing-stack modernization): the path-string entry points
  * documented as @deprecated below are scheduled for removal once all
- * in-tree callers have migrated to their `db_full_path *`-keyed
- * counterparts.  No __attribute__((deprecated)) marker is applied yet
- * because BRL-CAD builds with -Werror and the migration touches a
- * large surface — adding the marker is the next step after the
- * caller-by-caller migration is complete. */
+ * out-of-tree callers have migrated to their `db_full_path *`-keyed
+ * counterparts.  In-tree callers were migrated as part of the Phase 10
+ * caller-migration step, so the path-string variants now carry an
+ * __attribute__((deprecated)) marker that produces a compile-time
+ * warning (an error under -Werror) at every remaining call site. */
+#if defined(__GNUC__) || defined(__clang__)
+#  define BSG_DEPRECATED_PATH_STR \
+    __attribute__((deprecated("use the db_full_path-keyed variant")))
+#else
+#  define BSG_DEPRECATED_PATH_STR
+#endif
 
 __BEGIN_DECLS
 
@@ -108,7 +114,7 @@ bsg_view_obj_root(struct ged *gedp);
  *    parse-then-resolve round trip.
  */
 GED_EXPORT extern struct bv_scene_obj *
-bsg_view_obj_lookup_or_add_path(struct ged *gedp, const char *path);
+bsg_view_obj_lookup_or_add_path(struct ged *gedp, const char *path) BSG_DEPRECATED_PATH_STR;
 
 /**
  * Phase 10 (drawing-stack modernization): db_full_path-keyed counterpart to
@@ -133,7 +139,7 @@ bsg_view_obj_lookup_or_add_dbpath(struct ged *gedp,
  * @deprecated Phase 10: prefer @ref bsg_view_obj_erase_by_dbpath.
  */
 GED_EXPORT extern void
-bsg_view_obj_erase_by_path(struct ged *gedp, const char *path);
+bsg_view_obj_erase_by_path(struct ged *gedp, const char *path) BSG_DEPRECATED_PATH_STR;
 
 /**
  * Phase 10: db_full_path-keyed counterpart to @ref bsg_view_obj_erase_by_path.
@@ -161,7 +167,7 @@ bsg_view_obj_erase_by_name(struct ged *gedp, const char *name);
  * @deprecated Phase 10: prefer @ref bsg_view_obj_erase_all_dbpaths.
  */
 GED_EXPORT extern void
-bsg_view_obj_erase_all_paths(struct ged *gedp, const char *path);
+bsg_view_obj_erase_all_paths(struct ged *gedp, const char *path) BSG_DEPRECATED_PATH_STR;
 
 /**
  * Phase 10: db_full_path-keyed counterpart to @ref bsg_view_obj_erase_all_paths.
@@ -486,7 +492,7 @@ bsg_view_obj_append_to_last_group(struct ged *gedp, struct bv_scene_obj *sp);
  * @deprecated Phase 10: prefer @ref bsg_view_obj_group_set_dbpath.
  */
 GED_EXPORT extern void
-bsg_view_obj_group_set_path(struct bv_scene_obj *group, const char *new_path);
+bsg_view_obj_group_set_path(struct bv_scene_obj *group, const char *new_path) BSG_DEPRECATED_PATH_STR;
 
 /**
  * Phase 10: structured counterpart to @ref bsg_view_obj_group_set_path.

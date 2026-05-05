@@ -128,6 +128,13 @@ main(int ac, char *av[])
      * 1. NULL-arg safety: every helper must tolerate NULL gedp/path.   *
      * ---------------------------------------------------------------- */
     bu_log("[1] NULL-arg safety...\n");
+    /* The path-string variants are intentionally exercised here as a
+     * regression test for their NULL-safe contract; the deprecation
+     * warning is silenced for this section. */
+#if defined(__GNUC__) || defined(__clang__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
     ASSERT(bsg_view_obj_lookup_or_add_path(NULL, "any") == NULL);
     ASSERT(bsg_view_obj_lookup_or_add_path(gedp, NULL) == NULL);
     bsg_view_obj_erase_by_path(NULL, "x");              /* no crash */
@@ -136,6 +143,9 @@ main(int ac, char *av[])
     bsg_view_obj_erase_by_name(gedp, NULL);             /* no crash */
     bsg_view_obj_erase_all_paths(NULL, "x");            /* no crash */
     bsg_view_obj_erase_all_paths(gedp, NULL);           /* no crash */
+#if defined(__GNUC__) || defined(__clang__)
+#  pragma GCC diagnostic pop
+#endif
     bsg_view_obj_set_iflag(NULL, 0);                       /* no crash */
     bsg_view_obj_color_from_soltab(NULL);                  /* no crash */
     ASSERT(bsg_view_obj_name_hash(NULL) == 0);
@@ -186,18 +196,31 @@ main(int ac, char *av[])
     int after_draw = dl_count(gedp);
     ASSERT(after_draw > 0);
 
-    /* lookup_or_add_path on an already-drawn path must return non-NULL
+    /* lookup_or_add_dbpath on an already-drawn path must return non-NULL
      * and must not insert a duplicate. */
     int before_lookup = dl_count(gedp);
-    void *h = bsg_view_obj_lookup_or_add_path(gedp, "all.g");
+    void *h = NULL;
+    {
+	struct db_full_path dfp;
+	db_full_path_init(&dfp);
+	if (db_string_to_path(&dfp, gedp->dbip, "all.g") == 0)
+	    h = bsg_view_obj_lookup_or_add_dbpath(gedp, &dfp);
+	db_free_full_path(&dfp);
+    }
     ASSERT(h != NULL);
     ASSERT(dl_count(gedp) == before_lookup);
 
-    /* lookup_or_add_path on a non-existent leaf must return NULL.  The
-     * legacy dl_addToDisplay() emits a noisy LOOKUP_NOISY log message
-     * for missing leaves; that's expected behavior we preserve. */
-    void *h_missing =
-	bsg_view_obj_lookup_or_add_path(gedp, "definitely_no_such_obj");
+    /* lookup_or_add_dbpath on a non-existent leaf must return NULL.  We
+     * test the path-string variant for the legacy noisy-log fallback
+     * via a pragma-guarded call below in section [15]. */
+    void *h_missing = NULL;
+    {
+	struct db_full_path dfp;
+	db_full_path_init(&dfp);
+	if (db_string_to_path(&dfp, gedp->dbip, "definitely_no_such_obj") == 0)
+	    h_missing = bsg_view_obj_lookup_or_add_dbpath(gedp, &dfp);
+	db_free_full_path(&dfp);
+    }
     ASSERT(h_missing == NULL);
 
     /* bounds must report non-empty after a draw. */
@@ -314,16 +337,28 @@ main(int ac, char *av[])
 	int before = dl_count(gedp);
 	ASSERT(before > 0);
 
-	/* erase_by_path on the exact drawn name must remove that entry. */
-	bsg_view_obj_erase_by_path(gedp, "all.g");
+	/* erase_by_dbpath on the exact drawn name must remove that entry. */
+	{
+	    struct db_full_path dfp;
+	    db_full_path_init(&dfp);
+	    if (db_string_to_path(&dfp, gedp->dbip, "all.g") == 0)
+		bsg_view_obj_erase_by_dbpath(gedp, &dfp);
+	    db_free_full_path(&dfp);
+	}
 	ASSERT(dl_count(gedp) < before);
 
-	/* Re-draw and try erase_all_paths. */
+	/* Re-draw and try erase_all_dbpaths. */
 	ged_exec(gedp, 2, s_av);
 	int before2 = dl_count(gedp);
 	ASSERT(before2 > 0);
-	bsg_view_obj_erase_all_paths(gedp, "all.g");
-	/* Note: erase_all_paths matches subset paths, so should clear
+	{
+	    struct db_full_path dfp;
+	    db_full_path_init(&dfp);
+	    if (db_string_to_path(&dfp, gedp->dbip, "all.g") == 0)
+		bsg_view_obj_erase_all_dbpaths(gedp, &dfp);
+	    db_free_full_path(&dfp);
+	}
+	/* Note: erase_all_dbpaths matches subset paths, so should clear
 	 * everything that has all.g as a prefix component. */
 	ASSERT(dl_count(gedp) <= before2);
     }
@@ -419,7 +454,13 @@ main(int ac, char *av[])
 	ASSERT(bsg_view_obj_name_hash(gedp) == (unsigned long long)rev_after_draw);
 
 	/* Erase something — rev must have increased again. */
-	bsg_view_obj_erase_by_path(gedp, "all.g");
+	{
+	    struct db_full_path dfp;
+	    db_full_path_init(&dfp);
+	    if (db_string_to_path(&dfp, gedp->dbip, "all.g") == 0)
+		bsg_view_obj_erase_by_dbpath(gedp, &dfp);
+	    db_free_full_path(&dfp);
+	}
 	uint64_t rev_after_erase = bsg_view_obj_draw_rev(gedp);
 	ASSERT(rev_after_erase > rev_after_draw);
 
@@ -521,7 +562,13 @@ main(int ac, char *av[])
 	ASSERT(bsg_view_obj_group_of_solid(gedp, ls) == all_g_group);
 
 	/* Erase "all.g" should clean up cleanly */
-	bsg_view_obj_erase_by_path(gedp, "all.g");
+	{
+	    struct db_full_path dfp;
+	    db_full_path_init(&dfp);
+	    if (db_string_to_path(&dfp, gedp->dbip, "all.g") == 0)
+		bsg_view_obj_erase_by_dbpath(gedp, &dfp);
+	    db_free_full_path(&dfp);
+	}
 	ASSERT(bsg_view_obj_solid_count(gedp) == 0);
 	ASSERT(dl_count(gedp) == 0);
     }

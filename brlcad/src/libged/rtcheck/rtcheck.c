@@ -131,7 +131,11 @@ rtcheck_vector_handler(void *clientData, int UNUSED(mask))
 	    const char *sname_obj = "OVERLAPSffff00";
 	    struct directory *dp = db_lookup(gedp->dbip, sname_obj, LOOKUP_QUIET);
 	    if (dp != RT_DIR_NULL) {
-		bsg_view_obj_erase_by_path(gedp, sname_obj);
+		struct db_full_path dfp;
+		db_full_path_init(&dfp);
+		if (db_string_to_path(&dfp, gedp->dbip, sname_obj) == 0)
+		    bsg_view_obj_erase_by_dbpath(gedp, &dfp);
+		db_free_full_path(&dfp);
 	    }
 	}
 

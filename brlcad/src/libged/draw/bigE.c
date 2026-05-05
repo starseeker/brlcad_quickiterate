@@ -2054,8 +2054,17 @@ ged_E_core(struct ged *gedp, int argc, const char *argv[])
 
     av[1] = (char *)0;
     for (i = 0; i < argc; ++i) {
-	bsg_view_obj_erase_by_path(gedp, argv[i]);
-	dgcdp->gdlp = bsg_view_obj_lookup_or_add_path(gedp, argv[i]);
+	{
+	    struct db_full_path dfp;
+	    db_full_path_init(&dfp);
+	    if (db_string_to_path(&dfp, gedp->dbip, argv[i]) == 0) {
+		bsg_view_obj_erase_by_dbpath(gedp, &dfp);
+		dgcdp->gdlp = bsg_view_obj_lookup_or_add_dbpath(gedp, &dfp);
+	    } else {
+		dgcdp->gdlp = NULL;
+	    }
+	    db_free_full_path(&dfp);
+	}
 
 	BU_ALLOC(dgcdp->ap, struct application);
 	RT_APPLICATION_INIT(dgcdp->ap);

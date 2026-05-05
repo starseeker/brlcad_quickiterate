@@ -146,7 +146,11 @@ ged_killrefs_core(struct ged *gedp, int argc, const char *argv[])
 
 	    for (size_t ei = 0; ei < BU_PTBL_LEN(&to_erase); ei++) {
 		char *epath = (char *)BU_PTBL_GET(&to_erase, ei);
-		bsg_view_obj_erase_by_path(gedp, epath);
+		struct db_full_path dfp;
+		db_full_path_init(&dfp);
+		if (db_string_to_path(&dfp, gedp->dbip, epath) == 0)
+		    bsg_view_obj_erase_by_dbpath(gedp, &dfp);
+		db_free_full_path(&dfp);
 		bu_free(epath, "killrefs erase path");
 	    }
 	    bu_ptbl_free(&to_erase);
