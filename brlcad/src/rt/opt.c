@@ -323,7 +323,7 @@ rt_opt_cut_plane(struct bu_vls *msg, size_t argc, const char **argv, void *UNUSE
 	VSET(nrml, scan[3], scan[4], scan[5]);
 	f = MAGNITUDE(nrml);
 	if (f <= SMALL)
-	    bu_exit(EXIT_FAILURE, "Bad normal for cutting plane, length=%g\n", f);
+	    bu_exit(EXIT_FAILURE, "ERROR: bad normal for cutting plane, length=%g\n", f);
 	VUNITIZE(nrml);
 	VMOVE(kut_plane, nrml);
 	kut_plane[W] = VDOT(pt, nrml);
@@ -337,7 +337,7 @@ rt_opt_cut_plane(struct bu_vls *msg, size_t argc, const char **argv, void *UNUSE
     HMOVE(kut_plane, scan); /* double to fastf_t */
     f = MAGNITUDE(kut_plane);
     if (f <= SMALL)
-	bu_exit(EXIT_FAILURE, "Bad normal for cutting plane, length=%g\n", f);
+	bu_exit(EXIT_FAILURE, "ERROR: bad normal for cutting plane, length=%g\n", f);
     f = 1.0 / f;
     VSCALE(kut_plane, kut_plane, f);
     kut_plane[W] *= f;
