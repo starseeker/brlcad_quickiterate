@@ -25,6 +25,8 @@ System Qt6 dev packages must be installed first:
   sudo apt-get install -y qt6-base-dev qt6-svg-dev qt6-tools-dev \
     libqt6opengl6t64 libqt6openglwidgets6t64
 
+You may need to work around a libinput10 security mirror 404 error by installing the slightly older mainline version.
+
   cmake -S brlcad -B brlcad_build \
     -DBRLCAD_EXT_DIR=bext_output \
     "-DCMAKE_PREFIX_PATH=/usr/lib/x86_64-linux-gnu;bext_output/install" \
