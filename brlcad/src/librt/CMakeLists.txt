@@ -4,9 +4,7 @@ brlcad_find_package(manifold REQUIRED)
 brlcad_find_package(mmesh REQUIRED)
 brlcad_find_package(OPENNURBS REQUIRED SYSPATTERN openNURBS)
 brlcad_find_package(REGEX REQUIRED)
-brlcad_find_package(Geogram REQUIRED SYSPATTERN geogram)
 find_package_gte(REQUIRED)
-add_definitions(-DUSE_GEOGRAM)
 
 if(BRLCAD_ENABLE_OPENCL)
   add_definitions(-DUSE_OPENCL)
@@ -14,12 +12,17 @@ endif(BRLCAD_ENABLE_OPENCL)
 
 set(
   LIBRT_PRIMEDIT_SOURCES
+  primitives/annot/edannot.c
   primitives/arb8/edarb.c
+  primitives/arbn/edarbn.c
   primitives/ars/edars.c
   primitives/bot/edbot.c
+  primitives/brep/edbrep.cpp
   primitives/bspline/edbspline.c
   primitives/cline/edcline.c
   primitives/datum/eddatum.c
+  primitives/datum/eddatum2.c
+  primitives/revolve/edrevolve.c
   primitives/dsp/eddsp.c
   primitives/ebm/edebm.c
   primitives/ehy/edehy.c
@@ -29,6 +32,7 @@ set(
   primitives/extrude/edextrude.c
   primitives/grip/edgrip.c
   primitives/half/edhalf.c
+  primitives/hrt/edhrt.c
   primitives/hyp/edhyp.c
   primitives/metaball/edmetaball.c
   primitives/nmg/ednmg.c
@@ -255,6 +259,7 @@ set(
   primitives/poly/poly_brep.cpp
   primitives/poly/poly_mirror.c
   primitives/primitive_util.c
+  primitives/rec/edrec.c
   primitives/rec/rec.c
   primitives/revolve/revolve.c
   primitives/revolve/revolve_brep.cpp
@@ -271,6 +276,7 @@ set(
   primitives/sketch/sketch.c
   primitives/sketch/sketch_brep.cpp
   primitives/sketch/sketch_tess.cpp
+  primitives/sph/edsph.c
   primitives/sph/sph.c
   primitives/sph/sph_brep.cpp
   primitives/submodel/submodel.c
@@ -412,7 +418,6 @@ set(
   ${OPENCL_LIBS}
   ${librt_deps}
   ${OPENNURBS_LIBRARIES}
-  ${Geogram_LIBRARY}
   mmesh::mmesh
   ${REGEX_LIBRARIES}
   ${WINSOCK_LIB}
@@ -422,7 +427,10 @@ set(
 )
 
 # Include directories needed by librt users
-set(RT_INCLUDE_DIRS ${OPENNURBS_INCLUDE_DIRS} ${OPENCL_INCLUDE_DIRS} ${GTE_INCLUDE_DIR})
+# ${GTE_INCLUDE_DIR} is still needed by primitives/bot/bot_oriented_bbox.cpp
+# which uses GTE's ContOrientedBox3.h.
+set(RT_INCLUDE_DIRS ${OPENNURBS_INCLUDE_DIRS} ${OPENCL_INCLUDE_DIRS}
+  ${GTE_INCLUDE_DIR})
 
 # locally used but not needed by users of the library
 set(
@@ -430,7 +438,6 @@ set(
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_CURRENT_SOURCE_DIR}/vds
   ${REGEX_INCLUDE_DIRS}
-  ${Geogram_INCLUDE_DIR}
 )
 # FIXME: needs materialX
 #  ${CMAKE_CURRENT_SOURCE_DIR}/../../../MaterialXSource/source
