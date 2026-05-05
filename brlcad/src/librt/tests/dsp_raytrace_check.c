@@ -846,8 +846,15 @@ bu_free(buf, "33x33 buf");
 
     /* --- 7. Larger terrain to keep the default DDA path under test --- */
     {
-const uint32_t GW = 129, GH = 129;
-/* 129 == 2^7 + 1 gives a moderately large grid with power-of-two cell
+enum { DSP_TEST_LARGE_GRID_DIM = 129 };
+const uint32_t GW = DSP_TEST_LARGE_GRID_DIM, GH = DSP_TEST_LARGE_GRID_DIM;
+const double ridge_height = 120.0;
+const double ridge_x_freq = 12.0;
+const double ridge_y_freq = 8.0;
+const double ramp_x_height = 300.0;
+const double ramp_y_height = 150.0;
+const double base_height = 700.0;
+/* DSP_TEST_LARGE_GRID_DIM == 2^7 + 1 gives a moderately large grid with power-of-two cell
  * counts, a common terrain layout that exercises several HBB/DDA levels
  * without making the normal regression test expensive.
  */
@@ -857,9 +864,9 @@ for (uint32_t y = 0; y < GH; y++)
     for (uint32_t x = 0; x < GW; x++) {
 double fx = (double)x / (GW - 1);
 double fy = (double)y / (GH - 1);
-double ridge = 120.0 * sin(12.0 * fx) * cos(8.0 * fy);
-double ramp = 300.0 * fx + 150.0 * fy;
-buf[y*GW + x] = (unsigned short)(int)(700.0 + ramp + ridge);
+double ridge = ridge_height * sin(ridge_x_freq * fx) * cos(ridge_y_freq * fy);
+double ramp = ramp_x_height * fx + ramp_y_height * fy;
+buf[y*GW + x] = (unsigned short)(int)(base_height + ramp + ridge);
     }
 
 struct dsp_case tc = {

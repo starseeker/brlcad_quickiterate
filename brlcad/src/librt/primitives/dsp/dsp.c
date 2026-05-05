@@ -1000,7 +1000,7 @@ rt_dsp_prep(struct soltab *stp, struct rt_db_internal *ip, struct rt_i *rtip)
      */
     {
 	const char *enable_bvh = getenv("LIBRT_DSP_ENABLE_BVH");
-	if (bu_str_true(enable_bvh)) {
+	if (enable_bvh && bu_str_true(enable_bvh)) {
 	    dsp_build_bvh(dsp);
 	}
     }
