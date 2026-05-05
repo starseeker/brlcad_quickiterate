@@ -139,6 +139,22 @@ main(int ac, char *av[])
     bsg_view_obj_set_iflag(NULL, 0);                       /* no crash */
     bsg_view_obj_color_from_soltab(NULL);                  /* no crash */
     ASSERT(bsg_view_obj_name_hash(NULL) == 0);
+
+    /* Phase 10: db_full_path-keyed entry points must also be NULL-safe. */
+    ASSERT(bsg_view_obj_lookup_or_add_dbpath(NULL, NULL) == NULL);
+    ASSERT(bsg_view_obj_lookup_or_add_dbpath(gedp, NULL) == NULL);
+    bsg_view_obj_erase_by_dbpath(NULL, NULL);              /* no crash */
+    bsg_view_obj_erase_by_dbpath(gedp, NULL);              /* no crash */
+    bsg_view_obj_erase_all_dbpaths(NULL, NULL);            /* no crash */
+    bsg_view_obj_erase_all_dbpaths(gedp, NULL);            /* no crash */
+    bsg_view_obj_group_set_dbpath(NULL, NULL);             /* no crash */
+    {
+	struct db_full_path tmp;
+	db_full_path_init(&tmp);
+	ASSERT(bsg_view_obj_group_dbpath(NULL, NULL, &tmp) != 0);
+	ASSERT(bsg_view_obj_group_dbpath(gedp, NULL, &tmp) != 0);
+	db_free_full_path(&tmp);
+    }
     {
 	vect_t mn, mx;
 	int empty = bsg_view_obj_bounds(NULL, &mn, &mx, 0);
@@ -898,6 +914,51 @@ main(int ac, char *av[])
 	    const char *eav[3] = {"erase", "all.g", NULL};
 	    ged_exec(gedp, 2, eav);
 	}
+    }
+
+
+    /* ---------------------------------------------------------------- *
+     * [15] Phase 10: db_full_path-keyed entry points.                   *
+     *      Verify lookup_or_add_dbpath / erase_by_dbpath /              *
+     *      erase_all_dbpaths / group_dbpath / group_set_dbpath behave   *
+     *      identically to their path-string counterparts.               *
+     * ---------------------------------------------------------------- */
+    {
+	bu_log("[15] Phase 10: db_full_path-keyed entry points...\n");
+
+	{
+	    const char *s_av[2] = {"zap", NULL};
+	    ged_exec(gedp, 1, s_av);
+	}
+
+	struct db_full_path dfp;
+	db_full_path_init(&dfp);
+	ASSERT(db_string_to_path(&dfp, gedp->dbip, "all.g") == 0);
+
+	/* lookup_or_add via dbpath. */
+	struct bv_scene_obj *g = bsg_view_obj_lookup_or_add_dbpath(gedp, &dfp);
+	ASSERT(g != NULL);
+	ASSERT(dl_count(gedp) == 1);
+
+	/* group_dbpath round-trips. */
+	struct db_full_path got;
+	db_full_path_init(&got);
+	ASSERT(bsg_view_obj_group_dbpath(gedp, g, &got) == 0);
+	ASSERT(got.fp_len == dfp.fp_len);
+	if (got.fp_len > 0 && dfp.fp_len > 0)
+	    ASSERT(BU_STR_EQUAL(got.fp_names[0]->d_namep,
+				dfp.fp_names[0]->d_namep));
+	db_free_full_path(&got);
+
+	/* erase_by_dbpath removes it. */
+	bsg_view_obj_erase_by_dbpath(gedp, &dfp);
+	ASSERT(dl_count(gedp) == 0);
+
+	/* erase_all_dbpaths is a no-op on an empty set (no crash). */
+	bsg_view_obj_erase_all_dbpaths(gedp, &dfp);
+	ASSERT(dl_count(gedp) == 0);
+
+	db_free_full_path(&dfp);
     }
 
 

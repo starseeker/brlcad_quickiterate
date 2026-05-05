@@ -976,6 +976,71 @@ bsg_view_obj_erase_all_paths(struct ged *gedp, const char *path)
 }
 
 
+/*
+ * Phase 10 (drawing-stack modernization): db_full_path-keyed counterparts
+ * to the path-string entry points above.  All three are thin facades that
+ * format @p dfp via db_path_to_string() and forward to the existing
+ * implementation.  Once internal storage on group nodes also moves to a
+ * struct db_full_path, these become the canonical path and the wrappers
+ * flip — at that point the path-string variants can be marked
+ * __attribute__((deprecated)) and eventually removed.
+ *
+ * db_path_to_string() prepends a leading '/'; the legacy path-string
+ * implementations expect no leading slash, so normalize before
+ * forwarding.
+ */
+static const char *
+_dbpath_skip_lead_slash(const char *s)
+{
+    if (s && *s == '/')
+        return s + 1;
+    return s;
+}
+
+struct bv_scene_obj *
+bsg_view_obj_lookup_or_add_dbpath(struct ged *gedp,
+                                  const struct db_full_path *dfp)
+{
+    if (!gedp || !dfp)
+        return NULL;
+    char *s = db_path_to_string(dfp);
+    if (!s)
+        return NULL;
+    struct bv_scene_obj *r =
+        bsg_view_obj_lookup_or_add_path(gedp, _dbpath_skip_lead_slash(s));
+    bu_free(s, "bsg_view_obj_lookup_or_add_dbpath: path string");
+    return r;
+}
+
+
+void
+bsg_view_obj_erase_by_dbpath(struct ged *gedp,
+                             const struct db_full_path *dfp)
+{
+    if (!gedp || !dfp)
+        return;
+    char *s = db_path_to_string(dfp);
+    if (!s)
+        return;
+    bsg_view_obj_erase_by_path(gedp, _dbpath_skip_lead_slash(s));
+    bu_free(s, "bsg_view_obj_erase_by_dbpath: path string");
+}
+
+
+void
+bsg_view_obj_erase_all_dbpaths(struct ged *gedp,
+                               const struct db_full_path *dfp)
+{
+    if (!gedp || !dfp)
+        return;
+    char *s = db_path_to_string(dfp);
+    if (!s)
+        return;
+    bsg_view_obj_erase_all_paths(gedp, _dbpath_skip_lead_slash(s));
+    bu_free(s, "bsg_view_obj_erase_all_dbpaths: path string");
+}
+
+
 int
 bsg_view_obj_bounds(struct ged *gedp, vect_t *min, vect_t *max, int pflag)
 {
@@ -1361,6 +1426,49 @@ bsg_view_obj_group_set_path(struct bv_scene_obj *group, const char *new_path)
     if (!group || !new_path)
         return;
     bu_vls_sprintf(&group->s_name, "%s", new_path);
+}
+
+
+/*
+ * Phase 10: db_full_path-keyed setter.  Formats @p new_dfp via
+ * db_path_to_string() and delegates to the path-string variant.
+ */
+void
+bsg_view_obj_group_set_dbpath(struct bv_scene_obj *group,
+                              const struct db_full_path *new_dfp)
+{
+    if (!group || !new_dfp)
+        return;
+    char *s = db_path_to_string(new_dfp);
+    if (!s)
+        return;
+    bsg_view_obj_group_set_path(group, _dbpath_skip_lead_slash(s));
+    bu_free(s, "bsg_view_obj_group_set_dbpath: path string");
+}
+
+
+/*
+ * Phase 10: db_full_path-keyed getter.  Group nodes currently store their
+ * path as a string in s_name; this accessor parses that string into the
+ * caller-supplied @p out buffer using @p gedp's dbip.  @p out must be
+ * caller-initialized via db_full_path_init() (or equivalent), and the
+ * caller is responsible for db_free_full_path() afterwards.  Returns 0
+ * on success, non-zero on failure (NULL group, NULL dbip, parse error,
+ * or synthetic group with no path).
+ */
+int
+bsg_view_obj_group_dbpath(struct ged *gedp,
+                          struct bv_scene_obj *group,
+                          struct db_full_path *out)
+{
+    if (!gedp || !group || !out || !gedp->dbip)
+        return -1;
+    if (bsg_view_obj_group_is_phony(group))
+        return -1;
+    const char *s = bu_vls_cstr(&group->s_name);
+    if (!s || !*s)
+        return -1;
+    return db_string_to_path(out, gedp->dbip, s);
 }
 
 

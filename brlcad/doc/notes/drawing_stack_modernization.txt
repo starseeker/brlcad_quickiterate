@@ -484,9 +484,32 @@ Step 9.3 -- DONE -- re-express gd_illum_solid as a NodeSensor.
 
 Phases 10-13: deferred follow-ons
 ---------------------------------
-Phase 10 -- public libged API cleanup (path-string -> db_full_path/bsg_node
-  entry points; deprecate the legacy variants; rename bsg_view_obj.h ->
-  bsg_ged_draw.h with a thin compat shim).
+Phase 10 -- DONE (deprecation step) -- public libged API cleanup.
+  - Header rename: include/ged/bsg_view_obj.h -> include/ged/bsg_ged_draw.h
+    (canonical), with a thin compatibility shim left at the old name
+    that simply forwards via #include "ged/bsg_ged_draw.h" so out-of-
+    tree callers do not break.
+  - New db_full_path-keyed entry points added in libged/bsg_ged_draw.c
+    parallel to the path-string variants:
+      bsg_view_obj_lookup_or_add_dbpath(gedp, dfp)
+      bsg_view_obj_erase_by_dbpath(gedp, dfp)
+      bsg_view_obj_erase_all_dbpaths(gedp, dfp)
+      bsg_view_obj_group_dbpath(gedp, group, out)
+      bsg_view_obj_group_set_dbpath(group, dfp)
+    These are currently thin facades over the path-string impls
+    (format via db_path_to_string, strip the leading '/', forward).
+  - Doxygen @deprecated tags added to the path-string variants in
+    bsg_ged_draw.h, but no __attribute__((deprecated)) marker yet:
+    BRL-CAD builds with -Werror and the migration touches a large
+    surface (gdiff, killrefs, erase, remove, ged_util, draw, who,
+    saveview, garbage_collect, mged, qged, archer, ...).  Adding the
+    compile-time marker is the next step, after the caller-by-caller
+    migration is complete.
+  - Test coverage: section [15] in src/libged/tests/draw/bsg_view_obj.cpp
+    exercises the new dbpath-keyed entries (lookup_or_add, erase_by,
+    erase_all, group_dbpath round-trip).
+  - Phase 11 (renderer-backend contract) and Phase 12/13 will land
+    in separate PRs.
 
 Phase 11 -- renderer-backend contract.  Replace ad-hoc fields (s_dlist,
   s_obol_node, ...) on bv_scene_obj with one (slot, dtor) pair plus a
