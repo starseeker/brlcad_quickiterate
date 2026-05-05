@@ -335,6 +335,9 @@ f_attach(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
     if (!dm_valid_type(argv[argc-1], NULL)) {
 	Tcl_AppendResult(interpreter, "attach(", argv[argc - 1], "): BAD\n", (char *)NULL);
 	print_valid_dm(interpreter);
+	Tcl_AppendResult(interpreter,
+			 "Hint: run `dm initmsg` to see why other plugins (e.g. ogl) may have failed to register.\n",
+			 (char *)NULL);
 	return TCL_ERROR;
     }
 
