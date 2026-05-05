@@ -101,7 +101,7 @@ brlcad_addexec(rt_prim_tess prim_tess.c "librt;libnmg;libwdb;libbg;libbu" TEST)
 brlcad_addexec(rt_crofton crofton.c "librt;libwdb;libbu" TEST)
 brlcad_add_test(NAME rt_crofton COMMAND rt_crofton)
 
-# DSP raytrace consistency + timing check (BVH path vs legacy HBB+DDA path)
+# DSP raytrace consistency + timing check (HBB+DDA path)
 brlcad_addexec(rt_dsp_raytrace_check dsp_raytrace_check.c "librt;libwdb;libbu" TEST)
 brlcad_add_test(NAME rt_dsp_raytrace_check COMMAND rt_dsp_raytrace_check)
 
