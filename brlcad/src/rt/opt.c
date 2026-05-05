@@ -304,24 +304,36 @@ rt_opt_subgrid(struct bu_vls *msg, size_t argc, const char **argv, void *UNUSED(
 }
 
 
-/* -k / --cut-plane  xd,yd,zd,dist */
+/* -k / --cut-plane  xd,yd,zd,dist OR x,y,z,nx,ny,nz */
 static int
 rt_opt_cut_plane(struct bu_vls *msg, size_t argc, const char **argv, void *UNUSED(set_var))
 {
     fastf_t f;
-    double scan[4];
+    point_t pt;
+    vect_t nrml;
+    double scan[6];
     int n;
     BU_OPT_CHECK_ARGV0(msg, argc, argv, "cut-plane");
     do_kut_plane = 1;
-    n = sscanf(argv[0], "%lg,%lg,%lg,%lg",
-	       &scan[0], &scan[1], &scan[2], &scan[3]);
-    if (n != 4) {
-	/* try with spaces after commas */
-	n = sscanf(argv[0], "%lg, %lg, %lg, %lg",
-		   &scan[0], &scan[1], &scan[2], &scan[3]);
+
+    n = sscanf(argv[0], "%lg ,%lg ,%lg ,%lg ,%lg ,%lg",
+	       &scan[0], &scan[1], &scan[2], &scan[3], &scan[4], &scan[5]);
+    if (n == 6) {
+	VSET(pt, scan[0], scan[1], scan[2]);
+	VSET(nrml, scan[3], scan[4], scan[5]);
+	f = MAGNITUDE(nrml);
+	if (f <= SMALL)
+	    bu_exit(EXIT_FAILURE, "Bad normal for cutting plane, length=%g\n", f);
+	VUNITIZE(nrml);
+	VMOVE(kut_plane, nrml);
+	kut_plane[W] = VDOT(pt, nrml);
+	return 1;
     }
+
+    n = sscanf(argv[0], "%lg ,%lg ,%lg ,%lg",
+	       &scan[0], &scan[1], &scan[2], &scan[3]);
     if (n != 4)
-	bu_exit(EXIT_FAILURE, "ERROR: bad cutting plane\n");
+	bu_exit(EXIT_FAILURE, "ERROR: bad cutting plane, expected xdir,ydir,zdir,dist or x,y,z,nx,ny,nz\n");
     HMOVE(kut_plane, scan); /* double to fastf_t */
     f = MAGNITUDE(kut_plane);
     if (f <= SMALL)
@@ -930,7 +942,7 @@ static struct bu_opt_desc opt_defs[] = {
      "Grid cell height in mm"},
     {"j",  "subgrid",         "xmin,ymin,xmax,ymax", rt_opt_subgrid, NULL,
      "Raytrace only a sub-rectangle of the view"},
-    {"k",  "cut-plane",       "xd,yd,zd,dist", rt_opt_cut_plane, NULL,
+    {"k",  "cut-plane",       "xdir,ydir,zdir,dist | x,y,z,nx,ny,nz", rt_opt_cut_plane, NULL,
      "Apply a cutting plane (equivalent to subtracting a halfspace)"},
 
     /* --- Rendering parameters ------------------------------------------ */
