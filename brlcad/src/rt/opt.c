@@ -34,6 +34,7 @@
 #include "bu/debug.h"
 #include "bu/file.h"
 #include "bu/getopt.h"
+#include "bu/malloc.h"
 #include "bu/opt.h"
 #include "bu/parallel.h"
 #include "bu/units.h"
@@ -320,7 +321,7 @@ rt_opt_cut_plane(struct bu_vls *msg, size_t argc, const char **argv, void *UNUSE
     do_kut_plane = 1;
 
     len = strlen(arg);
-    scan_arg = (char *)malloc(len + 1);
+    scan_arg = (char *)bu_malloc(len + 1, "cut-plane parse buffer");
     for (i = 0, j = 0; i < len; i++) {
 	if (!isspace((unsigned char)arg[i]))
 	    scan_arg[j++] = arg[i];
@@ -339,13 +340,13 @@ rt_opt_cut_plane(struct bu_vls *msg, size_t argc, const char **argv, void *UNUSE
 	VMOVE(kut_plane, nrml);
 	/* Plane form is N . X = d, so derive d from the supplied point. */
 	kut_plane[W] = VDOT(pt, nrml);
-	free(scan_arg);
+	bu_free(scan_arg, "cut-plane parse buffer");
 	return 1;
     }
 
     n = sscanf(scan_arg, "%lg,%lg,%lg,%lg",
 	       &scan[0], &scan[1], &scan[2], &scan[3]);
-    free(scan_arg);
+    bu_free(scan_arg, "cut-plane parse buffer");
     if (n != 4)
 	bu_exit(EXIT_FAILURE, "ERROR: bad cutting plane, expected xdir,ydir,zdir,dist or x,y,z,nx,ny,nz\n");
     HMOVE(kut_plane, scan); /* double to fastf_t */
