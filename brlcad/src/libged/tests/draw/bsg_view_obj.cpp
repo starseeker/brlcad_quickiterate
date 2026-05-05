@@ -48,6 +48,7 @@
 #include "ged/bsg_view_obj.h"
 #include "bsg/defines.h"
 #include "bsg/draw_set.h"
+#include "bsg/field.h"
 #include "bsg/util.h"
 #include "bsg/visit.h"
 #include "../../ged_private.h"
@@ -826,6 +827,73 @@ main(int ac, char *av[])
 	ASSERT(recounted == 0);
 
 	/* Erase to leave a clean state. */
+	{
+	    const char *eav[3] = {"erase", "all.g", NULL};
+	    ged_exec(gedp, 2, eav);
+	}
+    }
+
+
+    /* ---------------------------------------------------------------- *
+     * [14] Phase 9.3 (B5): illum NodeSensor + gd_illum_rev.             *
+     *      Verify the highlight-state revision counter bumps on        *
+     *      transitions and on field-touches of the illuminated solid.  *
+     * ---------------------------------------------------------------- */
+    {
+	bu_log("[14] Phase 9.3: illum NodeSensor + gd_illum_rev...\n");
+
+	{
+	    const char *s_av[2] = {"zap", NULL};
+	    ged_exec(gedp, 1, s_av);
+	}
+	{
+	    const char *dav[3] = {"draw", "all.g", NULL};
+	    ged_exec(gedp, 2, dav);
+	}
+
+	/* Locate a shape under the draw root. */
+	struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
+	ASSERT(root != NULL);
+	struct bv_scene_obj *target = bsg_view_obj_first_solid(gedp);
+	ASSERT(target != NULL);
+
+	/* Snapshot the current highlight rev. */
+	uint64_t r0 = bsg_view_obj_illum_rev(gedp);
+
+	/* Transition NULL -> target: rev bumps. */
+	bsg_view_obj_set_illum(gedp, target);
+	uint64_t r1 = bsg_view_obj_illum_rev(gedp);
+	ASSERT(r1 > r0);
+	ASSERT(bsg_view_obj_get_illum(gedp) == target);
+	ASSERT(target->s_iflag == UP);
+
+	/* Touching a field on the illuminated solid fires the NodeSensor,
+	 * which bumps gd_illum_rev — the whole point of Phase 9.3: callers
+	 * see the highlight rev change without subscribing themselves. */
+	bsg_node_field_touch((bsg_node *)target, BSG_FIELD_FLAG);
+	uint64_t r2 = bsg_view_obj_illum_rev(gedp);
+	ASSERT(r2 > r1);
+
+	/* Touching a field on a non-illuminated node does NOT bump. */
+	struct bv_scene_obj *other = bsg_view_obj_next_solid(gedp, target);
+	if (other && other != target) {
+	    bsg_node_field_touch((bsg_node *)other, BSG_FIELD_FLAG);
+	    uint64_t r3 = bsg_view_obj_illum_rev(gedp);
+	    ASSERT(r3 == r2);
+	}
+
+	/* Transition target -> NULL: rev bumps; sensor gets torn down. */
+	bsg_view_obj_set_illum(gedp, NULL);
+	uint64_t r4 = bsg_view_obj_illum_rev(gedp);
+	ASSERT(r4 > r2);
+	ASSERT(bsg_view_obj_get_illum(gedp) == NULL);
+
+	/* After teardown, touching the previously-illuminated solid no
+	 * longer bumps gd_illum_rev (sensor was destroyed). */
+	bsg_node_field_touch((bsg_node *)target, BSG_FIELD_FLAG);
+	uint64_t r5 = bsg_view_obj_illum_rev(gedp);
+	ASSERT(r5 == r4);
+
 	{
 	    const char *eav[3] = {"erase", "all.g", NULL};
 	    ged_exec(gedp, 2, eav);

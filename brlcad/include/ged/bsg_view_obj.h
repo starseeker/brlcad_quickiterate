@@ -156,6 +156,16 @@ GED_EXPORT extern struct bv_scene_obj *
 bsg_view_obj_get_illum(const struct ged *gedp);
 
 /**
+ * Phase 9.3: return the highlight-state revision counter.  Bumped on every
+ * transition of the illuminated solid and on every bsg_node_field_touch on
+ * that solid (delivered through a libbsg NodeSensor that bsg_view_obj_set_illum
+ * registers for the lifetime of the highlight).  Cache a snapshot and compare
+ * to detect "highlight may have changed since I last looked" cheaply.
+ */
+GED_EXPORT extern uint64_t
+bsg_view_obj_illum_rev(const struct ged *gedp);
+
+/**
  * Return the mater-revision counter (B4).  The counter is incremented by
  * bsg_view_obj_bump_mater_rev() whenever the material/color table changes.
  * bsg_view_obj_color_from_soltab() does NOT increment the counter; it only

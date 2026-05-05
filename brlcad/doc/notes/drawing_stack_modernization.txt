@@ -454,10 +454,33 @@ Step 9.2 -- DONE -- replace per-frame `s_flag = DOWN` reset with a
       a "drawn this frame" count of zero on N+1 with no full-tree
       reset.
 
-Step 9.3 -- TODO -- re-express gd_illum_solid as a NodeSensor.  The
-  manually-maintained cache stays as an internal optimization, but the
-  public "what is illuminated" answer goes through the libbsg sensor
-  registry (which already exists but is currently unused by libged).
+Step 9.3 -- DONE -- re-express gd_illum_solid as a NodeSensor.
+    - ged_drawable gains `bsg_node *gd_illum_sensor` (live NodeSensor
+      handle while a solid is illuminated; NULL otherwise) and
+      `uint64_t gd_illum_rev` (highlight-state revision counter).
+    - _sg_set_illum() now manages sensor lifecycle: tear down the
+      previous sensor on every transition, register a fresh one on
+      the new target via bsg_node_sensor_create(), and bump
+      gd_illum_rev.
+    - The sensor's callback bumps gd_illum_rev on every
+      bsg_node_field_touch() targeting the illuminated solid, so that
+      external observers can detect highlight-state changes purely by
+      polling bsg_view_obj_illum_rev() — no need to subscribe to the
+      sensor or poll gd_illum_solid identity.
+    - bsg_view_obj_set_iflag(DOWN) and bsg_view_obj_zap() also tear
+      down the sensor and bump gd_illum_rev.
+    - ged_bv_illum_free_cb() now also tears down the sensor when the
+      illuminated solid itself is freed (avoiding a dangling target
+      pointer in the registry).
+    - Public API: bsg_view_obj_illum_rev() returns the current value
+      of the counter.
+    - The manually-maintained gd_illum_solid cache stays as the O(1)
+      identity-lookup path used by set_iflag(DOWN); the NodeSensor is
+      strictly the lazy-notification side.
+    - Test [14] in src/libged/tests/draw/bsg_view_obj.cpp covers
+      transitions, field-touch on the illum solid, field-touch on a
+      different solid (no bump), and clean teardown after set_illum
+      (NULL).
 
 Phases 10-13: deferred follow-ons
 ---------------------------------
