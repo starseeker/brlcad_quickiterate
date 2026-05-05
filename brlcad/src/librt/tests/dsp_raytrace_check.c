@@ -151,6 +151,10 @@ cell_cuttype(const unsigned short *buf, unsigned int xcnt, unsigned int ycnt,
      */
     unsigned int lo_x = (x > 0) ? x - 1 : 0;
     unsigned int lo_y = (y > 0) ? y - 1 : 0;
+    /* For interior cells, hi_* is one sample beyond the cell's high edge
+     * (x+2/y+2), matching dsp.c.  At the outer boundary this clamps to the
+     * high cell edge itself (x+1/y+1), preserving local curvature sampling.
+     */
     unsigned int hi_x = (x + 2 < xcnt) ? x + 2 : xcnt - 1;
     unsigned int hi_y = (y + 2 < ycnt) ? y + 2 : ycnt - 1;
 
@@ -595,6 +599,9 @@ run_prepped_ray_checks(const struct dsp_case *tc, struct rt_i *rtip)
 
     double x_extent = (tc->xcnt - 1) * tc->dx;
     double y_extent = (tc->ycnt - 1) * tc->dy;
+    /* ray_checks == 1 is reserved for flat DSP cases, so buf[0] is the
+     * expected terrain height for the deterministic vertical/side rays.
+     */
     double top_z = (double)tc->buf[0] * tc->dz;
     double expected_vertical_in = 10.0;
     double expected_vertical_out = expected_vertical_in + top_z;

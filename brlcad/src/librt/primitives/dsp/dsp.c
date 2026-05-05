@@ -1176,7 +1176,7 @@ add_seg(struct isect_stuff *isect,
 	/* a_onehit == 0 means "find all hits" (Crofton, compositing);
 	 * only apply the limit when a_onehit is positive.  The segment has
 	 * already been inserted above, so equality means the requested number
-	 * of segments has been collected and traversal can stop.
+	 * of segments has been collected; greater-than is retained as a guard.
 	 */
 	if (isect->ap->a_onehit > 0 && isect->num_segs >= isect->ap->a_onehit)
 	    return 1;
