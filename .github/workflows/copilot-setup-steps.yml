@@ -1,0 +1,50 @@
+name: "Copilot Setup Steps"
+
+# Run automatically when this file changes (validates the setup steps work),
+# and allow manual runs from the Actions tab.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+
+jobs:
+  # The job MUST be called `copilot-setup-steps` to be picked up by Copilot.
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Install system and Qt6 dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo apt-get update
+          # X11 and OpenGL support needed for display-related builds and tests
+          sudo apt-get install -y xserver-xorg-dev libx11-dev libxi-dev libxext-dev \
+            libglu1-mesa-dev libfontconfig-dev libgl-dev xvfb
+          # Tools required by BRL-CAD build and test
+          sudo apt-get install -y astyle re2c xsltproc libxml2-utils
+          # XCB / input dev packages required by the Qt6 platform plugin on Linux
+          # See: https://doc.qt.io/qt-6/linux-requirements.html
+          sudo apt-get install -y \
+            libfontconfig1-dev libfreetype6-dev \
+            libx11-xcb-dev libxfixes-dev libxrender-dev \
+            libxcb1-dev libxcb-cursor-dev libxcb-glx0-dev \
+            libxcb-keysyms1-dev libxcb-image0-dev libxcb-shm0-dev \
+            libxcb-icccm4-dev libxcb-sync-dev libxcb-xfixes0-dev \
+            libxcb-shape0-dev libxcb-randr0-dev libxcb-render-util0-dev \
+            libxcb-util-dev libxcb-xinerama0-dev libxcb-xkb-dev \
+            libxkbcommon-dev libxkbcommon-x11-dev
+          # Qt6 development packages (Widgets, SVG, Network, OpenGL, OpenGLWidgets)
+          sudo apt-get install -y \
+            qt6-base-dev \
+            qt6-opengl-dev \
+            qt6-svg-dev \
+            qt6-tools-dev \
+            libqt6opengl6t64 \
+            libqt6openglwidgets6t64

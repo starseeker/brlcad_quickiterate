@@ -94,7 +94,6 @@ mged_bound_solid(struct mged_state *s, struct bv_scene_obj *sp)
 void
 drawH_part2(struct mged_state *s, int dashflag, struct bu_list *vhead, const struct db_full_path *pathp, struct db_tree_state *tsp, struct bv_scene_obj *existing_sp)
 {
-    struct display_list *gdlp;
     struct bv_scene_obj *sp;
 
     if (!existing_sp) {
@@ -153,9 +152,7 @@ drawH_part2(struct mged_state *s, int dashflag, struct bu_list *vhead, const str
 	/* Add to linked list of solid structs */
 	bu_semaphore_acquire(RT_SEM_MODEL);
 
-	/* Grab the last display list */
-	gdlp = BU_LIST_PREV(display_list, (struct bu_list *)ged_dl(s->gedp));
-	BU_LIST_APPEND(gdlp->dl_head_scene_obj.back, &sp->l);
+	bsg_view_obj_append_to_last_group(s->gedp, sp);
 
 	bu_semaphore_release(RT_SEM_MODEL);
     } else {

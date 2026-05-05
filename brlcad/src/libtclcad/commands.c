@@ -63,6 +63,7 @@
 #include "bv/defines.h"
 #include "dm.h"
 #include "bv/util.h"
+#include "bsg/util.h"
 #include "bg/lseg.h"
 
 #include "icv/io.h"
@@ -530,7 +531,6 @@ static int to_zclip(struct ged *gedp,
 /* Utility Functions */
 
 static void to_create_vlist_callback_solid(void *, struct bv_scene_obj *gdlp);
-static void to_create_vlist_callback(void *, struct display_list *gdlp);
 static void to_destroy_vlist_callback(void *, unsigned int dlist, int range);
 static void to_rt_end_callback_internal(int aborted);
 
@@ -1268,7 +1268,6 @@ to_open_tcl(ClientData UNUSED(clientData),
     top->to_gedp->ged_output_handler = to_output_handler;
     top->to_gedp->ged_refresh_handler = to_refresh_handler;
     top->to_gedp->ged_create_vlist_scene_obj_callback = to_create_vlist_callback_solid;
-    top->to_gedp->ged_create_vlist_display_list_callback = to_create_vlist_callback;
     top->to_gedp->ged_destroy_vlist_callback = to_destroy_vlist_callback;
 
     ged_dl_notify_func_set(top->to_gedp, to_rt_end_callback_internal);
@@ -4521,6 +4520,9 @@ to_new_view(struct ged *gedp,
 
     bu_vls_sprintf(&new_gdvp->gv_name, "%s", argv[name_index]);
     bv_init(new_gdvp, &current_top->to_gedp->ged_views);
+    /* Phase 5: give every Archer/libtclcad view a BSG scene root so it
+     * renders through bsg_view_traverse() instead of the legacy dl_* walk. */
+    bsg_scene_root_create(new_gdvp);
     new_gdvp->callbacks = callbacks;
     bv_set_add_view(&current_top->to_gedp->ged_views, new_gdvp);
     if (new_gdvp != gedp->ged_gvp)
@@ -6427,16 +6429,6 @@ to_create_vlist_callback_solid(void *UNUSED(ctx), struct bv_scene_obj *sp)
 
 	    (void)dm_end_dlist((struct dm *)gdvp->dmp);
 	}
-    }
-}
-
-
-static void
-to_create_vlist_callback(void *ctx, struct display_list *gdlp)
-{
-    struct bv_scene_obj *sp;
-    for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-	to_create_vlist_callback_solid(ctx, sp);
     }
 }
 

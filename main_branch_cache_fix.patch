@@ -1,0 +1,99 @@
+From: BRL-CAD Copilot Agent
+Date: 2026-04-28
+Subject: [PATCH] Fix DBI cache format-mismatch infinite recursion and test cache isolation
+
+Three bugs fixed:
+
+1. src/libged/dbi_state.cpp - infinite recursion / segfault on format mismatch
+
+   When dbi_cache_open() detects that the on-disk CACHE_CURRENT_FORMAT does
+   not match the format file, it calls dbi_cache_clear() (which removes only
+   the per-file LMDB directory, NOT the format file) and then recursively
+   calls dbi_cache_open().  The recursive call reads the same stale format
+   number, hits the mismatch again, and recurses indefinitely.  The result is
+   a stack overflow and segfault - exactly what was observed when the main
+   branch test suite ran after a newer-format cache had been written to the
+   user's real cache directory.
+
+   Fix: call bu_file_delete(dir) to remove the stale format file immediately
+   before the recursive dbi_cache_open() call.  The recursive invocation then
+   finds no format file and writes a fresh one with CACHE_CURRENT_FORMAT,
+   breaking the cycle.
+
+2. src/libged/tests/draw/faceplate.cpp - uses the real user cache
+
+   The faceplate draw test did not redirect BU_DIR_CACHE to a local scratch
+   directory.  All other draw tests (basic, lod, quad, select, bsg_parity,
+   lod_crossrun) already use a private per-test cache dir.  Without
+   isolation, any format mismatch in the real user cache triggers bug #1.
+
+3. src/libged/tests/draw/aet.cpp and src/libged/tests/test_select.cpp
+
+   Same omission as faceplate.cpp.
+
+---
+--- src/libged/dbi_state.cpp	2026-04-28 02:35:52.841141878 +0000
++++ src/libged/dbi_state_fixed.cpp	2026-04-28 02:36:19.830488947 +0000
+@@ -157,6 +157,10 @@
+ 	if (disk_format_version != CACHE_CURRENT_FORMAT) {
+ 	    bu_log("Old GED drawing info cache (%zd) found - clearing\n", disk_format_version);
+ 	    dbi_cache_clear(c);
++	    /* Delete the stale format file before recursing.  Without this
++	     * the recursive call reads the same wrong version and recurses
++	     * indefinitely, causing a stack overflow / segfault. */
++	    bu_file_delete(dir);
+ 	    mdb_env_close(c->env);
+ 	    bu_vls_free(&fname);
+ 	    bu_vls_free(c->fname);
+
+--- src/libged/tests/draw/faceplate.cpp	2026-04-28 02:35:52.843141878 +0000
++++ src/libged/tests/draw/faceplate_fixed.cpp	2026-04-28 02:36:29.856018714 +0000
+@@ -73,6 +73,13 @@
+     /* Enable all the experimental logic */
+     bu_setenv("LIBRT_USE_COMB_INSTANCE_SPECIFIERS", "1", 1);
+ 
++    /* Use a local working-directory cache so we do not pollute the user's
++     * real BRL-CAD cache and so the test is fully self-contained. */
++    char lcache[MAXPATHLEN] = {0};
++    bu_dir(lcache, MAXPATHLEN, BU_DIR_CURR, "ged_fp_test_cache", NULL);
++    bu_mkdir(lcache);
++    bu_setenv("BU_DIR_CACHE", lcache, 1);
++
+     if (!bu_file_exists(av[1], NULL)) {
+ 	printf("ERROR: [%s] does not exist, expecting .g file\n", av[1]);
+ 	return 2;
+
+--- src/libged/tests/draw/aet.cpp	2026-04-28 02:35:52.845141877 +0000
++++ src/libged/tests/draw/aet_fixed.cpp	2026-04-28 02:36:36.969146965 +0000
+@@ -170,6 +170,13 @@
+     /* Enable all the experimental logic */
+     bu_setenv("LIBRT_USE_COMB_INSTANCE_SPECIFIERS", "1", 1);
+ 
++    /* Use a local working-directory cache so we do not pollute the user's
++     * real BRL-CAD cache and so the test is fully self-contained. */
++    char lcache[MAXPATHLEN] = {0};
++    bu_dir(lcache, MAXPATHLEN, BU_DIR_CURR, "ged_aet_test_cache", NULL);
++    bu_mkdir(lcache);
++    bu_setenv("BU_DIR_CACHE", lcache, 1);
++
+     if (!bu_file_exists(av[1], NULL)) {
+ 	printf("ERROR: [%s] does not exist, expecting .g file\n", av[1]);
+ 	return 2;
+
+--- src/libged/tests/test_select.cpp	2026-04-28 02:35:52.847141877 +0000
++++ src/libged/tests/test_select_fixed.cpp	2026-04-28 02:36:45.480775575 +0000
+@@ -44,6 +44,13 @@
+ 	return 2;
+     }
+ 
++    /* Use a local working-directory cache so we do not pollute the user's
++     * real BRL-CAD cache and so the test is fully self-contained. */
++    char lcache[MAXPATHLEN] = {0};
++    bu_dir(lcache, MAXPATHLEN, BU_DIR_CURR, "ged_select_test_cache", NULL);
++    bu_mkdir(lcache);
++    bu_setenv("BU_DIR_CACHE", lcache, 1);
++
+     gedp = ged_open("db", av[1], 1);
+ 
+     // Set up new cmd data (not yet done by default in ged_open
+

@@ -1122,15 +1122,18 @@ macro(find_package_qt)
     Core
     Widgets
     Gui
-    Svg
     Network
+  )
+  set(
+    QtOptionalComponents
+    Svg
   )
   if(BRLCAD_ENABLE_OPENGL)
     set(QtComponents ${QtComponents} OpenGL OpenGLWidgets)
   endif(BRLCAD_ENABLE_OPENGL)
 
   if(RESET_TP)
-    foreach(qc ${QtComponents})
+    foreach(qc ${QtComponents} ${QtOptionalComponents})
       unset(Qt6${qc}_DIR CACHE)
       unset(Qt6${qc}_FOUND CACHE)
       unset(Qt5${qc}_DIR CACHE)
@@ -1142,12 +1145,12 @@ macro(find_package_qt)
   set(Qt6_DIR_TMP "${Qt6_DIR}")
   set(Qt6_DIR "${CMAKE_BINARY_DIR}/${LIB_DIR}/cmake/Qt6")
   set(Qt6_ROOT ${CMAKE_BINARY_DIR})
-  find_package(Qt6 COMPONENTS ${QtComponents})
+  find_package(Qt6 COMPONENTS ${QtComponents} OPTIONAL_COMPONENTS ${QtOptionalComponents})
   unset(Qt6_ROOT)
 
   if(NOT Qt6Widgets_FOUND)
     set(Qt6_DIR "${Qt6_DIR_TMP}")
-    find_package(Qt6 COMPONENTS ${QtComponents})
+    find_package(Qt6 COMPONENTS ${QtComponents} OPTIONAL_COMPONENTS ${QtOptionalComponents})
   endif(NOT Qt6Widgets_FOUND)
   if(NOT Qt6Widgets_FOUND)
     # We didn't find 6, try 5.  For non-standard install locations,

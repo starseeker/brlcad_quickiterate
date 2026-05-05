@@ -52,6 +52,72 @@ static void init_sedit_vars(struct mged_state *), init_oedit_vars(struct mged_st
 
 int nurb_closest2d(int *surface, int *uval, int *vval, const struct rt_nurb_internal *spl, const point_t ref_pt  , const mat_t mat);
 
+
+/* ------------------------------------------------------------------ */
+/* bsg_visit callbacks for solid-list iteration                        */
+/* ------------------------------------------------------------------ */
+
+/* Callback: replot solids whose LAST_SOLID matches illdp (replot_modified). */
+struct _replot_modified_data {
+    struct mged_state *s;
+    struct directory *illdp;
+    struct rt_db_internal *es_int;
+};
+
+static int
+_replot_modified_solid_cb(bsg_node *n, void *ud)
+{
+    struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
+    struct _replot_modified_data *d = (struct _replot_modified_data *)ud;
+    if (!sp->s_u_data) return 1;
+    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+    if (LAST_SOLID(bdata) == d->illdp) {
+	mat_t mat;
+	(void)db_path_to_mat(d->s->dbip, &bdata->s_fullpath, mat,
+			     bdata->s_fullpath.fp_len - 1);
+	(void)replot_modified_solid(d->s, sp, d->es_int, mat);
+    }
+    return 1;
+}
+
+/* Callback: replot active (s_iflag==UP) solids; optionally set flag DOWN. */
+struct _replot_active_data {
+    struct mged_state *s;
+    int continue_editing; /* if DOWN, set s_iflag=DOWN after replot */
+};
+
+static int
+_replot_active_solid_cb(bsg_node *n, void *ud)
+{
+    struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
+    struct _replot_active_data *d = (struct _replot_active_data *)ud;
+    if (sp->s_iflag == DOWN) return 1;
+    (void)replot_original_solid(d->s, sp);
+    if (d->continue_editing == DOWN)
+	sp->s_iflag = DOWN;
+    return 1;
+}
+
+/* Callback: replot solids sharing the same LAST_SOLID as target_dp. */
+struct _replot_lastsol_data {
+    struct mged_state *s;
+    struct directory *target_dp;
+};
+
+static int
+_replot_lastsol_cb(bsg_node *n, void *ud)
+{
+    struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
+    struct _replot_lastsol_data *d = (struct _replot_lastsol_data *)ud;
+    if (!sp->s_u_data) return 1;
+    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+    if (LAST_SOLID(bdata) == d->target_dp)
+	(void)replot_original_solid(d->s, sp);
+    return 1;
+}
+
+/* ------------------------------------------------------------------ */
+
 // FIXME:  Globals
 
 short int fixv;		/* used in ECMD_ARB_ROTATE_FACE, f_eqn(): fixed vertex */
@@ -1089,10 +1155,6 @@ init_sedit_vars(struct mged_state *s)
 void
 replot_editing_solid(struct mged_state *s)
 {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
-    mat_t mat;
-    struct bv_scene_obj *sp;
     struct directory *illdp;
 
     if (!illump) {
@@ -1103,22 +1165,11 @@ replot_editing_solid(struct mged_state *s)
     struct ged_bv_data *bdata = (struct ged_bv_data *)illump->s_u_data;
     illdp = LAST_SOLID(bdata);
 
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-	    if (sp->s_u_data) {
-		bdata = (struct ged_bv_data *)sp->s_u_data;
-		if (LAST_SOLID(bdata) == illdp) {
-		    (void)db_path_to_mat(s->dbip, &bdata->s_fullpath, mat, bdata->s_fullpath.fp_len-1);
-		    (void)replot_modified_solid(s, sp, &MEDIT(s)->es_int, mat);
-		}
-	    }
-	}
-
-	gdlp = next_gdlp;
-    }
+    struct _replot_modified_data d;
+    d.s = s;
+    d.illdp = illdp;
+    d.es_int = &MEDIT(s)->es_int;
+    bsg_visit(bsg_view_obj_root(s->gedp), BSG_NODE_SHAPE, _replot_modified_solid_cb, &d);
 }
 
 
@@ -5932,9 +5983,6 @@ void oedit_reject(struct mged_state *s);
 static void
 oedit_apply(struct mged_state *s, int continue_editing)
 {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
-    struct bv_scene_obj *sp;
     /* matrices used to accept editing done from a depth
      * >= 2 from the top of the illuminated path
      */
@@ -5985,21 +6033,11 @@ oedit_apply(struct mged_state *s, int continue_editing)
     MEDIT(s)->model_changes[15] = 1000000000;	/* => small ratio */
 
     /* Now, recompute new chunks of displaylist */
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-	    if (sp->s_iflag == DOWN)
-		continue;
-	    (void)replot_original_solid(s, sp);
-
-	    if (continue_editing == DOWN) {
-		sp->s_iflag = DOWN;
-	    }
-	}
-
-	gdlp = next_gdlp;
+    {
+	struct _replot_active_data d;
+	d.s = s;
+	d.continue_editing = continue_editing;
+	bsg_visit(bsg_view_obj_root(s->gedp), BSG_NODE_SHAPE, _replot_active_solid_cb, &d);
     }
 }
 
@@ -6007,28 +6045,18 @@ oedit_apply(struct mged_state *s, int continue_editing)
 void
 oedit_accept(struct mged_state *s)
 {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
-    struct bv_scene_obj *sp;
-
     if (s->dbip == DBI_NULL)
 	return;
 
     if (s->dbip->dbi_read_only) {
 	oedit_reject(s);
 
-	gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-	while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	    for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-		if (sp->s_iflag == DOWN)
-		    continue;
-		(void)replot_original_solid(s, sp);
-		sp->s_iflag = DOWN;
-	    }
-
-	    gdlp = next_gdlp;
+	{
+	    struct _replot_active_data d;
+	    d.s = s;
+	    d.continue_editing = DOWN;
+	    bsg_visit(bsg_view_obj_root(s->gedp), BSG_NODE_SHAPE,
+		      _replot_active_solid_cb, &d);
 	}
 
 	bu_log("Sorry, this database is READ-ONLY\n");
@@ -6269,27 +6297,15 @@ sedit_reject(struct mged_state *s)
 
     /* Restore the original solid everywhere */
     {
-	struct display_list *gdlp;
-	struct display_list *next_gdlp;
-	struct bv_scene_obj *sp;
 	if (!illump->s_u_data)
 	    return;
 	struct ged_bv_data *bdata = (struct ged_bv_data *)illump->s_u_data;
 
-	gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-	while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	    for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-		if (!sp->s_u_data)
-		    continue;
-		struct ged_bv_data *bdatas = (struct ged_bv_data *)sp->s_u_data;
-		if (LAST_SOLID(bdatas) == LAST_SOLID(bdata))
-		    (void)replot_original_solid(s, sp);
-	    }
-
-	    gdlp = next_gdlp;
-	}
+	struct _replot_lastsol_data d;
+	d.s = s;
+	d.target_dp = LAST_SOLID(bdata);
+	bsg_visit(bsg_view_obj_root(s->gedp), BSG_NODE_SHAPE,
+		  _replot_lastsol_cb, &d);
     }
 
     menu_state->ms_flag = 0;

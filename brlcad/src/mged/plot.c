@@ -45,6 +45,76 @@
 extern FILE *fdopen(int fd, const char *mode);
 #endif
 
+/* ------------------------------------------------------------------ */
+/* bsg_visit callbacks for solid iteration in plot/area routines      */
+/* ------------------------------------------------------------------ */
+
+/* Callback: check whether any solid fails the "area" eligibility test. */
+static int
+_area_check_solid_cb(bsg_node *n, void *ud)
+{
+    struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
+    int *error = (int *)ud;
+    if (!sp->s_old.s_Eflag && sp->s_soldash != 0) {
+	*error = 1;
+	return 0; /* early stop */
+    }
+    return 1;
+}
+
+/* Callback: write solid vlists to cad_boundp pipe. */
+struct _area_write_data {
+    FILE *fp_w;
+    const mat_t *rotation;
+    struct db_i *dbip;
+    vect_t last;
+    vect_t fin;
+};
+
+static int
+_area_write_solid_cb(bsg_node *n, void *ud)
+{
+    struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
+    struct _area_write_data *d = (struct _area_write_data *)ud;
+    struct bv_vlist *vp;
+    for (BU_LIST_FOR(vp, bv_vlist, &(sp->s_vlist))) {
+	int i;
+	int nused = vp->nused;
+	int *cmd = vp->cmd;
+	point_t *pt = vp->pt;
+	for (i = 0; i < nused; i++, cmd++, pt++) {
+	    switch (*cmd) {
+		case BV_VLIST_POLY_START:
+		case BV_VLIST_POLY_VERTNORM:
+		case BV_VLIST_TRI_START:
+		case BV_VLIST_TRI_VERTNORM:
+		    continue;
+		case BV_VLIST_POLY_MOVE:
+		case BV_VLIST_LINE_MOVE:
+		case BV_VLIST_TRI_MOVE:
+		    MAT4X3VEC(d->last, *d->rotation, *pt);
+		    continue;
+		case BV_VLIST_POLY_DRAW:
+		case BV_VLIST_POLY_END:
+		case BV_VLIST_LINE_DRAW:
+		case BV_VLIST_TRI_DRAW:
+		case BV_VLIST_TRI_END:
+		    MAT4X3VEC(d->fin, *d->rotation, *pt);
+		    break;
+	    }
+	    fprintf(d->fp_w, "%.9e %.9e %.9e %.9e\n",
+		    d->last[X] * d->dbip->dbi_base2local,
+		    d->last[Y] * d->dbip->dbi_base2local,
+		    d->fin[X]  * d->dbip->dbi_base2local,
+		    d->fin[Y]  * d->dbip->dbi_base2local);
+	    VMOVE(d->last, d->fin);
+	}
+    }
+    return 1;
+}
+
+/* ------------------------------------------------------------------ */
+
 int
 f_area(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 {
@@ -52,17 +122,10 @@ f_area(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
 
-    static vect_t last;
-    static vect_t fin;
     char result[RT_MAXLINE] = {0};
     char tol_str[32] = {0};
-    int is_empty = 1;
 
 #ifndef _WIN32
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
-    struct bv_scene_obj *sp;
-    struct bv_vlist *vp;
     FILE *fp_r;
     FILE *fp_w;
     int rpid;
@@ -90,39 +153,22 @@ f_area(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     if (not_state(s, ST_VIEW, "Presented Area Calculation") == TCL_ERROR)
 	return TCL_ERROR;
 
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	if (BU_LIST_NON_EMPTY(&gdlp->dl_head_scene_obj)) {
-	    is_empty = 0;
-	    break;
-	}
-
-	gdlp = next_gdlp;
-    }
-
-    if (is_empty) {
+    if (!bsg_view_obj_is_nonempty(s->gedp)) {
 	Tcl_AppendResult(interp, "No objects displayed!!!\n", (char *)NULL);
 	return TCL_ERROR;
     }
 
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-	    if (!sp->s_old.s_Eflag && sp->s_soldash != 0) {
-		struct bu_vls vls = BU_VLS_INIT_ZERO;
-
-		bu_vls_printf(&vls, "help area");
-		Tcl_Eval(interp, bu_vls_addr(&vls));
-		bu_vls_free(&vls);
-		return TCL_ERROR;
-	    }
+    {
+	int area_err = 0;
+	bsg_visit(bsg_view_obj_root(s->gedp), BSG_NODE_SHAPE,
+		  _area_check_solid_cb, &area_err);
+	if (area_err) {
+	    struct bu_vls vls = BU_VLS_INIT_ZERO;
+	    bu_vls_printf(&vls, "help area");
+	    Tcl_Eval(interp, bu_vls_addr(&vls));
+	    bu_vls_free(&vls);
+	    return TCL_ERROR;
 	}
-
-	gdlp = next_gdlp;
     }
 
     if (argc == 2) {
@@ -198,51 +244,15 @@ f_area(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
      * Write out rotated but unclipped, untranslated,
      * and unscaled vectors
      */
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-	    for (BU_LIST_FOR(vp, bv_vlist, &(sp->s_vlist))) {
-		int i;
-		int nused = vp->nused;
-		int *cmd = vp->cmd;
-		point_t *pt = vp->pt;
-		for (i = 0; i < nused; i++, cmd++, pt++) {
-		    switch (*cmd) {
-			case BV_VLIST_POLY_START:
-			case BV_VLIST_POLY_VERTNORM:
-			case BV_VLIST_TRI_START:
-			case BV_VLIST_TRI_VERTNORM:
-			    continue;
-			case BV_VLIST_POLY_MOVE:
-			case BV_VLIST_LINE_MOVE:
-			case BV_VLIST_TRI_MOVE:
-			    /* Move, not draw */
-			    MAT4X3VEC(last, view_state->vs_gvp->gv_rotation, *pt);
-			    continue;
-			case BV_VLIST_POLY_DRAW:
-			case BV_VLIST_POLY_END:
-			case BV_VLIST_LINE_DRAW:
-			case BV_VLIST_TRI_DRAW:
-			case BV_VLIST_TRI_END:
-			    /* draw.  */
-			    MAT4X3VEC(fin, view_state->vs_gvp->gv_rotation, *pt);
-			    break;
-		    }
-
-		    fprintf(fp_w, "%.9e %.9e %.9e %.9e\n",
-			    last[X] * s->dbip->dbi_base2local,
-			    last[Y] * s->dbip->dbi_base2local,
-			    fin[X] * s->dbip->dbi_base2local,
-			    fin[Y] * s->dbip->dbi_base2local);
-
-		    VMOVE(last, fin);
-		}
-	    }
-	}
-
-	gdlp = next_gdlp;
+    {
+	struct _area_write_data wd;
+	wd.fp_w = fp_w;
+	wd.rotation = (const mat_t *)&view_state->vs_gvp->gv_rotation;
+	wd.dbip = s->dbip;
+	VSETALL(wd.last, 0.0);
+	VSETALL(wd.fin, 0.0);
+	bsg_visit(bsg_view_obj_root(s->gedp), BSG_NODE_SHAPE,
+		  _area_write_solid_cb, &wd);
     }
 
     fclose(fp_w);

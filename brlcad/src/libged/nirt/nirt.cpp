@@ -54,26 +54,23 @@
 #include "bu/process.h"
 #include "vmath.h"
 
+#include "ged/bsg_view_obj.h"
 #include "../qray.h"
 #include "../ged_private.h"
 
-static void
-dl_set_wflag(struct bu_list *hdlp, int wflag)
+/* Callback for setting wflag on all solids */
+static int
+set_wflag_cb(struct bv_scene_obj *sp, void *userdata)
 {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
-    struct bv_scene_obj *sp;
-    /* calculate the bounding for of all solids being displayed */
-    gdlp = BU_LIST_NEXT(display_list, hdlp);
-    while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
+    int wflag = *(int *)userdata;
+    sp->s_old.s_wflag = wflag;
+    return 1; /* continue */
+}
 
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-	    sp->s_old.s_wflag = wflag;
-	}
-
-	gdlp = next_gdlp;
-    }
+static void
+dl_set_wflag(struct ged *gedp, int wflag)
+{
+    bsg_view_obj_foreach_solid(gedp, set_wflag_cb, &wflag);
 }
 
 struct nirt_info {
@@ -220,7 +217,7 @@ ged_nirt_core(struct ged *gedp, int argc, const char *argv[])
 	if (retcode != 0)
 	    _ged_wait_status(gedp->ged_result_str, retcode);
 
-	dl_set_wflag(gedp->i->ged_gdp->gd_headDisplay, DOWN);
+	dl_set_wflag(gedp, DOWN);
 
 	return BRLCAD_OK;
     }
@@ -586,7 +583,7 @@ ged_nirt_core(struct ged *gedp, int argc, const char *argv[])
     if (retcode != 0)
 	_ged_wait_status(gedp->ged_result_str, retcode);
 
-    dl_set_wflag(gedp->i->ged_gdp->gd_headDisplay, DOWN);
+    dl_set_wflag(gedp, DOWN);
 
     /* Whether or not we're doing graphics, if we took a shot we should clear any
      * old objects from prior shots. */
@@ -601,7 +598,7 @@ ged_nirt_core(struct ged *gedp, int argc, const char *argv[])
 	bu_vls_sprintf(&dp_pattern, "%s*", bu_vls_cstr(&gedp->i->ged_gdp->gd_qray_basename));
 	size_t lscnt = db_ls(gedp->dbip, DB_LS_PHONY, bu_vls_cstr(&dp_pattern), &dpv);
 	for (size_t i = 0; i < lscnt; i++)
-	    dl_erasePathFromDisplay(gedp, dpv[i]->d_namep, 0);
+	    bsg_view_obj_erase_by_path(gedp, dpv[i]->d_namep);
 	bu_vls_free(&dp_pattern);
     }
 

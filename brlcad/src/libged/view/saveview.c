@@ -35,6 +35,7 @@
 
 
 #include "../ged_private.h"
+#include "ged/bsg_view_obj.h"
 
 
 /**
@@ -69,11 +70,21 @@ basename_without_suffix(const char *p1, const char *suff)
 }
 
 
+/* Write a draw-path token for each drawn group. */
+static int
+saveview_draw_path_cb(struct bv_scene_obj *group, void *fp_)
+{
+    FILE *fp = (FILE *)fp_;
+    const char *path = bsg_view_obj_group_path(group);
+    if (path)
+	fprintf(fp, "'%s' ", path);
+    return 1;
+}
+
+
 int
 ged_saveview_core(struct ged *gedp, int argc, const char *argv[])
 {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
     int i;
     FILE *fp;
     char *base;
@@ -170,12 +181,8 @@ ged_saveview_core(struct ged *gedp, int argc, const char *argv[])
     }
     fprintf(fp, " '%s'\\\n ", inputg);
 
-    gdlp = BU_LIST_NEXT(display_list, gedp->i->ged_gdp->gd_headDisplay);
-    while (BU_LIST_NOT_HEAD(gdlp, gedp->i->ged_gdp->gd_headDisplay)) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-	fprintf(fp, "'%s' ", bu_vls_addr(&gdlp->dl_path));
-	gdlp = next_gdlp;
-    }
+    /* Write out display list paths */
+    bsg_view_obj_foreach_group(gedp, saveview_draw_path_cb, fp);
 
     fprintf(fp, "\\\n 2>> %s\\\n", outlog);
     fprintf(fp, " <<EOF\n");

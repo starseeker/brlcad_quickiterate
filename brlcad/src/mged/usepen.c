@@ -37,10 +37,63 @@
 #include "./menu.h"
 
 
-struct display_list *illum_gdlp = GED_DISPLAY_LIST_NULL;
+struct bv_scene_obj *illum_gdlp = NULL;
 struct bv_scene_obj *illump = NULL;	/* == 0 if none, else points to ill. solid */
 int ipathpos = 0;	/* path index of illuminated element */
 
+
+/* Callback: select the solid at position 'count' in display order (illuminate). */
+struct _illuminate_data {
+    int count;
+};
+
+static int
+_illuminate_cb(bsg_node *n, void *ud)
+{
+    struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
+    struct _illuminate_data *d = (struct _illuminate_data *)ud;
+    if (sp->s_flag == UP) {
+	if (d->count-- == 0) {
+	    sp->s_iflag = UP;
+	    illump = sp;
+	    /* Walk up to the root child (depth-1 group) */
+	    {
+		struct bv_scene_obj *_g = (struct bv_scene_obj *)sp->parent;
+		while (_g && _g->parent &&
+		       ((struct bv_scene_obj *)_g->parent)->parent != NULL)
+		    _g = (struct bv_scene_obj *)_g->parent;
+		illum_gdlp = _g;
+	    }
+	} else {
+	    sp->s_iflag = DOWN;
+	}
+    }
+    return 1;
+}
+
+
+/* Callback: accept solids whose top 'ipathpos' path elements match bdata. */
+struct _matpick_data {
+    struct ged_bv_data *bdata;
+    size_t ipathpos;
+};
+
+static int
+_matpick_topmat_cb(bsg_node *n, void *ud)
+{
+    struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
+    struct _matpick_data *d = (struct _matpick_data *)ud;
+    size_t j;
+    if (!sp->s_u_data) return 1;
+    struct ged_bv_data *bdatas = (struct ged_bv_data *)sp->s_u_data;
+    for (j = 0; j <= d->ipathpos; j++) {
+	if (DB_FULL_PATH_GET(&bdatas->s_fullpath, j) !=
+	    DB_FULL_PATH_GET(&d->bdata->s_fullpath, j))
+	    break;
+    }
+    sp->s_iflag = (j == d->ipathpos + 1) ? UP : DOWN;
+    return 1;
+}
 
 /*
  * All solids except for the illuminated one have s_iflag set to DOWN.
@@ -49,10 +102,7 @@ int ipathpos = 0;	/* path index of illuminated element */
  */
 static void
 illuminate(struct mged_state *s, int y) {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
     int count;
-    struct bv_scene_obj *sp;
 
     /*
      * Divide the mouse into 's->mged_curr_dm->dm_ndrawn' VERTICAL
@@ -61,26 +111,13 @@ illuminate(struct mged_state *s, int y) {
      */
     count = ((fastf_t)y + BV_MAX) * s->mged_curr_dm->dm_ndrawn / BV_RANGE;
 
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
+    struct _illuminate_data d;
+    d.count = count;
+    bsg_visit(bsg_view_obj_root(s->gedp), BSG_NODE_SHAPE, _illuminate_cb, &d);
 
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-	    /* Only consider solids which are presently in view */
-	    if (sp->s_flag == UP) {
-		if (count-- == 0) {
-		    sp->s_iflag = UP;
-		    illump = sp;
-		    illum_gdlp = gdlp;
-		} else {
-		    /* All other solids have s_iflag set DOWN */
-		    sp->s_iflag = DOWN;
-		}
-	    }
-	}
-
-	gdlp = next_gdlp;
-    }
+    /* Register the illuminated solid in GED so set_iflag(DOWN) can run
+     * O(1) instead of sweeping the full tree (B5). */
+    bsg_view_obj_set_illum(s->gedp, illump);
 
     s->update_views = 1;
     dm_set_dirty(DMP, 1);
@@ -97,7 +134,6 @@ f_aip(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
 
-    struct display_list *gdlp;
     struct bv_scene_obj *sp;
     struct ged_bv_data *bdata = NULL;
 
@@ -135,40 +171,27 @@ f_aip(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     } else {
 	if (illump == NULL)
 	    return TCL_ERROR;
-	gdlp = illum_gdlp;
 	sp = illump;
 	sp->s_iflag = DOWN;
-	if (argc == 1 || *argv[1] == 'f') {
-	    if (BU_LIST_NEXT_IS_HEAD(sp, &gdlp->dl_head_scene_obj)) {
-		/* Advance the gdlp (i.e. display list) */
-		if (BU_LIST_NEXT_IS_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp)))
-		    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-		else
-		    gdlp = BU_LIST_PNEXT(display_list, gdlp);
 
-
-		sp = BU_LIST_NEXT(bv_scene_obj, &gdlp->dl_head_scene_obj);
-	    } else
-		sp = BU_LIST_PNEXT(bv_scene_obj, sp);
-	} else if (*argv[1] == 'b') {
-	    if (BU_LIST_PREV_IS_HEAD(sp, &gdlp->dl_head_scene_obj)) {
-		/* Advance the gdlp (i.e. display list) */
-		if (BU_LIST_PREV_IS_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp)))
-		    gdlp = BU_LIST_PREV(display_list, (struct bu_list *)ged_dl(s->gedp));
-		else
-		    gdlp = BU_LIST_PLAST(display_list, gdlp);
-
-		sp = BU_LIST_PREV(bv_scene_obj, &gdlp->dl_head_scene_obj);
-	    } else
-		sp = BU_LIST_PLAST(bv_scene_obj, sp);
-	} else {
+	/* Advance using snapshotted DFS integer index — single snapshot
+	 * build, O(N) total.  bsg_view_obj_advance_solid wraps circularly. */
+	int delta = (argc == 1 || *argv[1] == 'f') ? +1
+	            : (*argv[1] == 'b')             ? -1
+	            : 0;
+	if (delta == 0) {
 	    Tcl_AppendResult(interp, "aip: bad parameter - ", argv[1], "\n", (char *)NULL);
 	    return TCL_ERROR;
 	}
-
-	sp->s_iflag = UP;
+	sp = bsg_view_obj_advance_solid(s->gedp, sp, delta);
+	if (!sp) {
+	    /* No solids drawn — nothing to advance to */
+	    return TCL_OK;
+	}
+	/* Use set_illum: clears old iflag, sets new UP, updates GED tracker (B5). */
+	bsg_view_obj_set_illum(s->gedp, sp);
 	illump = sp;
-	illum_gdlp = gdlp;
+	illum_gdlp = bsg_view_obj_group_of_solid(s->gedp, sp);
     }
 
     s->update_views = 1;
@@ -232,9 +255,6 @@ f_matpick(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
 
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
-    struct bv_scene_obj *sp;
     char *cp;
     size_t j;
     int illum_only = 0;
@@ -297,27 +317,15 @@ f_matpick(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[
     }
  got:
     /* Include all solids with same tree top */
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-	    if (!sp->s_u_data)
-		continue;
-	    struct ged_bv_data *bdatas = (struct ged_bv_data *)sp->s_u_data;
-	    for (j = 0; j <= (size_t)ipathpos; j++) {
-		if (DB_FULL_PATH_GET(&bdatas->s_fullpath, j) !=
-		    DB_FULL_PATH_GET(&bdata->s_fullpath, j))
-		    break;
-	    }
-	    /* Only accept if top of tree is identical */
-	    if (j == (size_t)ipathpos+1)
-		sp->s_iflag = UP;
-	    else
-		sp->s_iflag = DOWN;
-	}
-
-	gdlp = next_gdlp;
+    {
+	struct _matpick_data d;
+	d.bdata = bdata;
+	d.ipathpos = (size_t)ipathpos;
+	bsg_visit(bsg_view_obj_root(s->gedp), BSG_NODE_SHAPE, _matpick_topmat_cb, &d);
+	/* matpick may place multiple solids in the UP state (same tree-top).
+	 * Invalidate the single-solid illum tracker so set_iflag(DOWN) uses
+	 * the safe O(N) sweep (B5). */
+	bsg_view_obj_set_illum(s->gedp, NULL);
     }
 
     if (!illum_only) {

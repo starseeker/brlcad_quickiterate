@@ -551,30 +551,14 @@ bv_35_25(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), ch
 /* returns 0 if error, !0 if success */
 static int
 ill_common(struct mged_state *s) {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
-    int is_empty = 1;
-
     /* Common part of illumination */
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	if (BU_LIST_NON_EMPTY(&gdlp->dl_head_scene_obj)) {
-	    is_empty = 0;
-	    break;
-	}
-
-	gdlp = next_gdlp;
-    }
-
-    if (is_empty) {
+    if (!bsg_view_obj_is_nonempty(s->gedp)) {
 	Tcl_AppendResult(s->interp, "no solids in view\n", (char *)NULL);
 	return 0;	/* BAD */
     }
 
-    illum_gdlp = gdlp;
-    illump = BU_LIST_NEXT(bv_scene_obj, &gdlp->dl_head_scene_obj);/* any valid solid would do */
+    illump = bsg_view_obj_first_solid(s->gedp);
+    illum_gdlp = bsg_view_obj_group_of_solid(s->gedp, illump);
     illump->s_iflag = UP;
     edobj = 0;		/* sanity */
     edsol = 0;		/* sanity */
@@ -808,9 +792,9 @@ be_accept(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), c
 	mmenu_set_all(s, MENU_L1, NULL);
 	mmenu_set_all(s, MENU_L2, NULL);
 
-	dl_set_iflag((struct bu_list *)ged_dl(s->gedp), DOWN);
+	bsg_view_obj_set_iflag(s->gedp, DOWN);
 
-	illum_gdlp = GED_DISPLAY_LIST_NULL;
+	illum_gdlp = NULL;
 	illump = NULL;
 	mged_color_soltab(s);
 	(void)chg_state(s, ST_S_EDIT, ST_VIEW, "Edit Accept");
@@ -823,7 +807,7 @@ be_accept(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), c
 
 	mmenu_set_all(s, MENU_L2, NULL);
 
-	illum_gdlp = GED_DISPLAY_LIST_NULL;
+	illum_gdlp = NULL;
 	illump = NULL;
 	mged_color_soltab(s);
 	(void)chg_state(s, ST_O_EDIT, ST_VIEW, "Edit Accept");
@@ -893,11 +877,11 @@ be_reject(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), c
     edsol = 0;
     edobj = 0;
     MEDIT(s)->edit_flag = -1;
-    illum_gdlp = GED_DISPLAY_LIST_NULL;
+    illum_gdlp = NULL;
     illump = NULL;		/* None selected */
 
     /* Clear illumination flags */
-    dl_set_iflag((struct bu_list *)ged_dl(s->gedp), DOWN);
+    bsg_view_obj_set_iflag(s->gedp, DOWN);
 
     mged_color_soltab(s);
     (void)chg_state(s, s->global_editing_state, ST_VIEW, "Edit Reject");

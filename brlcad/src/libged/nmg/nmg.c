@@ -36,6 +36,7 @@
 #include "dm.h"  // For labelface - see if the dm_set_dirty is really needed
 
 #include "ged.h"
+#include "ged/bsg_view_obj.h"
 #include "../ged_private.h"
 
 
@@ -96,13 +97,37 @@ get_face_list( const struct model* m, struct bu_list* f_list )
 }
 
 /* Usage:  labelface solid(s) */
+/* Callback data for nmg labelface solid lookup */
+struct labelface_data {
+    struct directory *dp;
+    struct model *m;
+    struct bv_vlblock *vbp;
+    mat_t mat;
+    fastf_t scale;
+    struct db_i *dbip;
+    struct bu_list *f_list;
+};
+
+static int
+labelface_solid_cb(struct bv_scene_obj *s, void *userdata)
+{
+    struct labelface_data *lfd = (struct labelface_data *)userdata;
+
+    if (!s->s_u_data)
+	return 1;
+    struct ged_bv_data *bdata = (struct ged_bv_data *)s->s_u_data;
+    if (db_full_path_search(&bdata->s_fullpath, lfd->dp)) {
+	get_face_list(lfd->m, lfd->f_list);
+	rt_label_vlist_faces(lfd->vbp, lfd->f_list, lfd->mat, lfd->scale, lfd->dbip->dbi_base2local);
+    }
+    return 1; /* continue */
+}
+
 int
 ged_labelface_core(struct ged *gedp, int argc, const char *argv[])
 {
     struct rt_db_internal internal;
     struct directory *dp;
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
     int i;
     struct bv_vlblock *vbp;
     mat_t mat;
@@ -150,27 +175,22 @@ ged_labelface_core(struct ged *gedp, int argc, const char *argv[])
     MAT_IDN(mat);
     bn_mat_inv(mat, gedp->ged_gvp->gv_rotation);
     scale = gedp->ged_gvp->gv_size / 100;      /* divide by # chars/screen */
+
+    struct labelface_data lfd;
+    lfd.m = m;
+    lfd.vbp = vbp;
+    MAT_COPY(lfd.mat, mat);
+    lfd.scale = scale;
+    lfd.dbip = gedp->dbip;
+    lfd.f_list = &f_list;
+
     for (i=1; i<argc; i++) {
-	struct bv_scene_obj *s;
 	if ((dp = db_lookup(gedp->dbip, argv[i], LOOKUP_NOISY)) == RT_DIR_NULL)
 	    continue;
 
 	/* Find uses of this solid in the solid table */
-	gdlp = BU_LIST_NEXT(display_list, gedp->i->ged_gdp->gd_headDisplay);
-	while (BU_LIST_NOT_HEAD(gdlp, gedp->i->ged_gdp->gd_headDisplay)) {
-	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-	    for (BU_LIST_FOR(s, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-		if (!s->s_u_data)
-		    continue;
-		struct ged_bv_data *bdata = (struct ged_bv_data *)s->s_u_data;
-		if (db_full_path_search(&bdata->s_fullpath, dp)) {
-		    get_face_list(m, &f_list);
-		    rt_label_vlist_faces(vbp, &f_list, mat, scale, gedp->dbip->dbi_base2local);
-		}
-	    }
-
-	    gdlp = next_gdlp;
-	}
+	lfd.dp = dp;
+	bsg_view_obj_foreach_solid(gedp, labelface_solid_cb, &lfd);
     }
 
     _ged_cvt_vlblock_to_solids(gedp, vbp, "_LABELFACE_", 0);

@@ -1,0 +1,29 @@
+set(
+  bsg_headers
+  defines.h
+  draw_ctx.h
+  draw_set.h
+  field.h
+  lod.h
+  node_group.h
+  node_shape.h
+  node_transform.h
+  obol_node.h
+  overlay.h
+  payload.h
+  scene_set.h
+  sensor.h
+  util.h
+  visit.h
+  vlist.h
+)
+brlcad_manage_files(bsg_headers ${INCLUDE_DIR}/brlcad/bsg REQUIRED libbsg)
+
+cmakefiles(CMakeLists.txt)
+
+# Local Variables:
+# tab-width: 8
+# mode: cmake
+# indent-tabs-mode: t
+# End:
+# ex: shiftwidth=2 tabstop=8

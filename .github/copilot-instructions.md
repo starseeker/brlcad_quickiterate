@@ -12,19 +12,62 @@ brlcad_quickiterate/
     └── copilot-instructions.md   # This file
 ```
 
+## Required System Dependencies
+
+**IMPORTANT: The drawing stack modernization work heavily involves the BRL-CAD Qt
+stack (libqtcad, dm-qtgl, dm-swrast, qged, archer).  Qt must be installed and
+`-DBRLCAD_ENABLE_QT=ON` must be used at every phase.  Never build with
+`-DBRLCAD_ENABLE_QT=OFF` unless specifically asked to test the non-Qt path.**
+
+Install system and Qt6 development packages before configuring or building:
+
+```bash
+sudo apt-get update
+# X11 and OpenGL
+sudo apt-get install -y xserver-xorg-dev libx11-dev libxi-dev libxext-dev \
+  libglu1-mesa-dev libfontconfig-dev libgl-dev xvfb
+# Build tools
+sudo apt-get install -y astyle re2c xsltproc libxml2-utils
+# XCB / input packages required by the Qt6 XCB platform plugin on Linux
+# See: https://doc.qt.io/qt-6/linux-requirements.html
+sudo apt-get install -y \
+  libfontconfig1-dev libfreetype6-dev \
+  libx11-xcb-dev libxfixes-dev libxrender-dev \
+  libxcb1-dev libxcb-cursor-dev libxcb-glx0-dev \
+  libxcb-keysyms1-dev libxcb-image0-dev libxcb-shm0-dev \
+  libxcb-icccm4-dev libxcb-sync-dev libxcb-xfixes0-dev \
+  libxcb-shape0-dev libxcb-randr0-dev libxcb-render-util0-dev \
+  libxcb-util-dev libxcb-xinerama0-dev libxcb-xkb-dev \
+  libxkbcommon-dev libxkbcommon-x11-dev
+# Qt6 development packages (Widgets, SVG, Network, OpenGL, OpenGLWidgets)
+sudo apt-get install -y \
+  qt6-base-dev \
+  qt6-opengl-dev \
+  qt6-svg-dev \
+  qt6-tools-dev \
+  libqt6opengl6t64 \
+  libqt6openglwidgets6t64
+```
+
+These packages are also pre-installed by `.github/workflows/copilot-setup-steps.yml`
+so they will be present in every Copilot agent session automatically.
+
 ## Configuring BRL-CAD
 
-Use the pre-built dependencies in `bext_output/` together with the flags below to minimize configure and build time.  Run these commands from the **repository root**:
+Use the pre-built dependencies in `bext_output/` together with the flags below to
+minimize configure and build time.  Run these commands from the **repository root**:
 
 ```bash
 REPO_ROOT=/home/runner/work/brlcad_quickiterate/brlcad_quickiterate
 mkdir -p brlcad_build
 cmake -S "$REPO_ROOT/brlcad" -B "$REPO_ROOT/brlcad_build" \
   -DBRLCAD_EXT_DIR="$REPO_ROOT/bext_output" \
+  -DCMAKE_PREFIX_PATH="$REPO_ROOT/bext_output/install" \
   -DBRLCAD_EXTRADOCS=OFF \
   -DBRLCAD_ENABLE_STEP=OFF \
   -DBRLCAD_ENABLE_GDAL=OFF \
-  -DBRLCAD_ENABLE_QT=OFF
+  -DBRLCAD_ENABLE_OPENGL=ON
+  -DBRLCAD_ENABLE_QT=ON
 ```
 
 Expected configure time: ~55 seconds on a fresh build directory (a few seconds on a re-configure).
@@ -42,6 +85,13 @@ To build only a specific target (e.g. `libbu`):
 ```bash
 cmake --build /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build --target libbu -j$(nproc)
 ```
+
+Key Qt-dependent targets to verify when touching the drawing stack:
+- `libqtcad`   — Qt camera, event, and binding abstractions (libqtcad.so)
+- `dm-qtgl`    — OpenGL display manager Qt plugin
+- `dm-swrast`  — software rasterizer display manager Qt plugin
+- `qged`       — QGED main window binary
+- `archer`     — Archer GUI application
 
 ## Important Notes
 

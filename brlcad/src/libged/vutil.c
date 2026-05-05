@@ -29,6 +29,7 @@
 
 #include "./ged_private.h"
 #include "ged/view.h"
+#include "ged/bsg_view_obj.h"
 
 int
 _ged_do_rot(struct ged *gedp,
@@ -140,47 +141,6 @@ _ged_do_tra(struct ged *gedp,
     bv_update(gedp->ged_gvp);
 
     return BRLCAD_OK;
-}
-
-unsigned long long
-ged_dl_hash(struct display_list *dl)
-{
-    if (!dl)
-	return 0;
-
-    struct bu_data_hash_state *state = bu_data_hash_create();
-    if (!state)
-	return 0;
-
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
-    struct bv_scene_obj *sp;
-
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)dl);
-    while (BU_LIST_NOT_HEAD(gdlp, dl)) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-	    if (!sp->s_u_data)
-		continue;
-	    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
-	    bu_data_hash_update(state, &bdata->s_fullpath.fp_len, sizeof(size_t));
-	    bu_data_hash_update(state, &bdata->s_fullpath.fp_maxlen, sizeof(size_t));
-	    for (size_t i = 0; i < DB_FULL_PATH_LEN(&bdata->s_fullpath); i++) {
-		// In principle we should check all of struct directory
-		// contents, but names are unique in the database and should
-		// suffice for this purpose - we care if the path has changed.
-		struct directory *dp = DB_FULL_PATH_GET(&bdata->s_fullpath, i);
-		bu_data_hash_update(state, &dp->d_namep, strlen(dp->d_namep));
-	    }
-	}
-	gdlp = next_gdlp;
-    }
-
-    unsigned long long hash_val = bu_data_hash_val(state);
-    bu_data_hash_destroy(state);
-
-    return hash_val;
 }
 
 void

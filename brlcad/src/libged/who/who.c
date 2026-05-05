@@ -24,8 +24,39 @@
  */
 
 #include "ged.h"
+#include "ged/bsg_view_obj.h"
+#include "../ged_private.h"
 
 extern int ged_who2_core(struct ged *gedp, int argc, const char **argv);
+
+/* Callback data for who command */
+struct who_data {
+    struct ged *gedp;
+    int skip_real;
+    int skip_overlays;
+};
+
+static int
+who_group_cb(struct bv_scene_obj *group, void *userdata)
+{
+    struct who_data *data = (struct who_data *)userdata;
+
+    /* Use the BSG overlay flag instead of a db_lookup + phony-addr check.
+     * bsg_view_obj_group_is_phony returns 1 for the _overlays group and
+     * any other synthetic overlay branch (R1 cleanup). */
+    if (bsg_view_obj_group_is_phony(group)) {
+	if (data->skip_overlays) return 1; /* continue: skip overlays */
+    } else {
+	if (data->skip_real) return 1; /* continue: skip real geometry */
+    }
+
+    const char *path = bsg_view_obj_group_path(group);
+    if (!path)
+	return 1; /* continue */
+
+    bu_vls_printf(data->gedp->ged_result_str, "%s ", path);
+    return 1; /* continue */
+}
 
 /*
  * List the objects currently prepped for drawing
@@ -40,8 +71,7 @@ ged_who_core(struct ged *gedp, int argc, const char *argv[])
     if (gedp->new_cmd_forms)
 	return ged_who2_core(gedp, argc, argv);
 
-    struct display_list *gdlp;
-    int skip_real, skip_phony;
+    struct who_data data;
     static const char *usage = "[r(eal)|p(hony)|b(oth)]";
 
     GED_CHECK_DRAWABLE(gedp, BRLCAD_ERROR);
@@ -55,21 +85,22 @@ ged_who_core(struct ged *gedp, int argc, const char *argv[])
 	return BRLCAD_ERROR;
     }
 
-    skip_real = 0;
-    skip_phony = 1;
+    data.gedp = gedp;
+    data.skip_real = 0;
+    data.skip_overlays = 1;
     if (argc == 2) {
 	switch (argv[1][0]) {
 	    case 'b':
-		skip_real = 0;
-		skip_phony = 0;
+		data.skip_real = 0;
+		data.skip_overlays = 0;
 		break;
 	    case 'p':
-		skip_real = 1;
-		skip_phony = 0;
+		data.skip_real = 1;
+		data.skip_overlays = 0;
 		break;
 	    case 'r':
-		skip_real = 0;
-		skip_phony = 1;
+		data.skip_real = 0;
+		data.skip_overlays = 1;
 		break;
 	    default:
 		bu_vls_printf(gedp->ged_result_str, "ged_who_core: argument not understood\n");
@@ -77,15 +108,7 @@ ged_who_core(struct ged *gedp, int argc, const char *argv[])
 	}
     }
 
-    for (BU_LIST_FOR(gdlp, display_list, (struct bu_list *)ged_dl(gedp))) {
-	if (((struct directory *)gdlp->dl_dp)->d_addr == RT_DIR_PHONY_ADDR) {
-	    if (skip_phony) continue;
-	} else {
-	    if (skip_real) continue;
-	}
-
-	bu_vls_printf(gedp->ged_result_str, "%s ", bu_vls_addr(&gdlp->dl_path));
-    }
+    bsg_view_obj_foreach_group(gedp, who_group_cb, &data);
 
     return BRLCAD_OK;
 }

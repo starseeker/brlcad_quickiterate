@@ -30,19 +30,24 @@
 #include "common.h"
 
 #include <algorithm>
-#include <map>
-#include <thread>
+#include <atomic>
+#include <chrono>
+#include <cstring>
 #include <fstream>
-#include <sstream>
-
-extern "C" {
-#include "lmdb.h"
-}
+#include <map>
+#include <mutex>
+#include <condition_variable>
+#include <thread>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 #include "./alphanum.h"
+#include "./bot/concurrentqueue.h"
 
 #include "vmath.h"
 #include "bu/app.h"
+#include "bu/cache.h"
 #include "bu/color.h"
 #include "bu/hash.h"
 #include "bu/path.h"
@@ -53,254 +58,43 @@ extern "C" {
 #include "ged/defines.h"
 #include "ged/view.h"
 #include "./ged_private.h"
+#include "bsg/util.h"
 
 #include "./dbi.h"
+
+/* Forward declarations for drawing helpers defined in draw.cpp (Phase 2-B) */
+extern "C" void draw_scene(struct bv_scene_obj *s, struct bview *v);
+extern "C" int  csg_wireframe_update(struct bv_scene_obj *vo, struct bview *v, int flag);
 
 // Subdirectory in BRL-CAD cache to Dbi state data
 #define DBI_CACHEDIR ".Dbi"
 
-// Maximum database size.
-#define CACHE_MAX_DB_SIZE 4294967296
-
-// Define what format of the cache is current - if it doesn't match, we need
-// to wipe and redo.
-#define CACHE_CURRENT_FORMAT 1
-
-/* There are various individual pieces of data in the cache associated with
- * each object key.  For lookup they use short suffix strings to distinguish
- * them - we define those strings here to have consistent definitions for use
- * in multiple functions.
+/* On-disk format version.  Increment whenever the binary layout of any cached
+ * payload changes (new component type added, struct layout changed, etc.).
+ * DbiState::DbiState() reads BU_DIR_CACHE/.Dbi/format; a mismatch clears the
+ * entire .Dbi tree via bu_dirclear() before new per-file caches are opened.
  *
- * Changing any of these requires incrementing CACHE_CURRENT_FORMAT. */
-#define CACHE_OBJ_BOUNDS "bb"
-#define CACHE_REGION_ID "rid"
-#define CACHE_REGION_FLAG "rf"
+ * Version history:
+ *   1 — initial (OBB stored as center + 3 extent vectors, 4x3 doubles)
+ *   2 — Phase 3.5: OBB stored as 8 corner points (8x point_t = 24 fastf_t)
+ *                  from ft_oriented_bbox; attr/AABB/LoD now cached by pipeline */
+#define DBI_CACHE_FORMAT_VERSION 2
+
+/* Cache component names for per-object attribute data.
+ * Keys are plain "hash:component" strings.
+ * Changing any of these requires incrementing DBI_CACHE_FORMAT_VERSION. */
+#define CACHE_OBJ_BOUNDS   "bb"
+#define CACHE_OBJ_OBB      "obb"
+#define CACHE_REGION_ID    "rid"
+#define CACHE_REGION_FLAG  "rf"
 #define CACHE_INHERIT_FLAG "if"
-#define CACHE_COLOR "c"
+#define CACHE_COLOR        "c"
 
-struct ged_draw_cache {
-    MDB_env *env;
-    MDB_txn *txn;
-    MDB_dbi dbi;
-    struct bu_vls *fname;
-};
-
-void
-dbi_cache_clear(struct ged_draw_cache *c)
+// Build a cache lookup key from an object hash and component name.
+static inline std::string
+dbi_cache_key(unsigned long long hash, const char *component)
 {
-    if (!c)
-	return;
-    char dir[MAXPATHLEN];
-    bu_dir(dir, MAXPATHLEN, BU_DIR_CACHE, DBI_CACHEDIR, bu_vls_cstr(c->fname));
-    bu_dirclear((const char *)dir);
-}
-
-struct ged_draw_cache *
-dbi_cache_open(const char *name)
-{
-    // Hash the input filename to generate a key for uniqueness
-    struct bu_vls fname = BU_VLS_INIT_ZERO;
-    bu_vls_sprintf(&fname, "%s", bu_path_normalize(name));
-
-    unsigned long long hash = bu_data_hash(bu_vls_cstr(&fname), bu_vls_strlen(&fname)*sizeof(char));
-    bu_path_component(&fname, bu_path_normalize(name), BU_PATH_BASENAME_EXTLESS);
-    bu_vls_printf(&fname, "_%llu", hash);
-
-    // Set up the container
-    struct ged_draw_cache *c;
-    BU_GET(c, struct ged_draw_cache);
-    BU_GET(c->fname, struct bu_vls);
-    bu_vls_init(c->fname);
-    bu_vls_sprintf(c->fname, "%s", bu_vls_cstr(&fname));
-
-    // Base maximum readers on an estimate of how many threads
-    // we might want to fire off
-    size_t mreaders = std::thread::hardware_concurrency();
-    if (!mreaders)
-	mreaders = 1;
-    int ncpus = bu_avail_cpus();
-    if (ncpus > 0 && (size_t)ncpus > mreaders)
-	mreaders = (size_t)ncpus + 2;
-
-    // Set up LMDB environments
-    if (mdb_env_create(&c->env))
-	goto ged_context_fail;
-    if (mdb_env_set_maxreaders(c->env, mreaders))
-	goto ged_context_close_fail;
-    if (mdb_env_set_mapsize(c->env, CACHE_MAX_DB_SIZE))
-	goto ged_context_close_fail;
-
-    // Ensure the necessary top level dirs are present
-    char dir[MAXPATHLEN];
-    bu_dir(dir, MAXPATHLEN, BU_DIR_CACHE, NULL);
-    if (!bu_file_exists(dir, NULL))
-	bu_mkdir(dir);
-    bu_dir(dir, MAXPATHLEN, BU_DIR_CACHE, DBI_CACHEDIR, NULL);
-    if (!bu_file_exists(dir, NULL)) {
-	bu_mkdir(dir);
-    }
-    bu_dir(dir, MAXPATHLEN, BU_DIR_CACHE, DBI_CACHEDIR, "format", NULL);
-    if (!bu_file_exists(dir, NULL)) {
-	// Note a format, so we can detect if what's there isn't compatible
-	// with what this logic expects (in anticipation of future changes
-	// to the on-disk format).
-	FILE *fp = fopen(dir, "w");
-	if (!fp)
-	    goto ged_context_close_fail;
-	fprintf(fp, "%d\n", CACHE_CURRENT_FORMAT);
-	fclose(fp);
-    } else {
-	std::ifstream format_file(dir);
-	size_t disk_format_version = 0;
-	format_file >> disk_format_version;
-	format_file.close();
-	if (disk_format_version != CACHE_CURRENT_FORMAT) {
-	    bu_log("Old GED drawing info cache (%zd) found - clearing\n", disk_format_version);
-	    dbi_cache_clear(c);
-	    /* Delete the stale format file before recursing.  Without this
-	     * the recursive call reads the same wrong version and recurses
-	     * indefinitely, causing a stack overflow / segfault. */
-	    bu_file_delete(dir);
-	    mdb_env_close(c->env);
-	    bu_vls_free(&fname);
-	    bu_vls_free(c->fname);
-	    BU_PUT(c->fname, struct bu_vls);
-	    BU_PUT(c, struct ged_draw_cache);
-	    return dbi_cache_open(name);
-	}
-	FILE *fp = fopen(dir, "w");
-	if (!fp)
-	    goto ged_context_close_fail;
-	fprintf(fp, "%d\n", CACHE_CURRENT_FORMAT);
-	fclose(fp);
-    }
-
-      // Create the specific LMDB cache dir, if not already present
-      bu_dir(dir, MAXPATHLEN, BU_DIR_CACHE, DBI_CACHEDIR, bu_vls_cstr(&fname), NULL);
-      if (!bu_file_exists(dir, NULL))
-          bu_mkdir(dir);
-
-      // Need to call mdb_env_sync() at appropriate points.
-      if (mdb_env_open(c->env, dir, MDB_NOSYNC, 0664))
-	  goto ged_context_close_fail;
-
-      // Success - return the context
-      return c;
-
-      // If something went wrong, clean up and return NULL
-  ged_context_close_fail:
-      mdb_env_close(c->env);
-  ged_context_fail:
-      bu_vls_free(&fname);
-      bu_vls_free(c->fname);
-      BU_PUT(c->fname, struct bu_vls);
-      BU_PUT(c, struct ged_draw_cache);
-      return NULL;
-}
-
-void
-dbi_cache_close(struct ged_draw_cache *c)
-{
-    if (!c)
-	return;
-    mdb_env_close(c->env);
-    bu_vls_free(c->fname);
-    BU_PUT(c->fname, struct bu_vls);
-    BU_PUT(c, struct ged_draw_cache);
-}
-
-static void
-cache_write(struct ged_draw_cache *c, unsigned long long hash, const char *component, std::stringstream &s)
-{
-    if (!c || hash == 0 || !component)
-	return;
-
-    // Prepare inputs for writing
-    MDB_val mdb_key;
-    MDB_val mdb_data[2];
-    std::string keystr = std::to_string(hash) + std::string(":") + std::string(component);
-    std::string buffer = s.str();
-
-    // As implemented this shouldn't be necessary, since all our keys are below
-    // the default size limit (511)
-    //if (keystr.length()*sizeof(char) > mdb_env_get_maxkeysize(c->i->lod_env))
-    //  return false;
-
-    // Write out key/value to LMDB database, where the key is the hash
-    // and the value is the serialized LoD data
-    char *keycstr = bu_strdup(keystr.c_str());
-    void *bdata = bu_calloc(buffer.length()+1, sizeof(char), "bdata");
-    memcpy(bdata, buffer.data(), buffer.length()*sizeof(char));
-    mdb_txn_begin(c->env, NULL, 0, &c->txn);
-    mdb_dbi_open(c->txn, NULL, 0, &c->dbi);
-    mdb_key.mv_size = keystr.length()*sizeof(char);
-    mdb_key.mv_data = (void *)keycstr;
-    mdb_data[0].mv_size = buffer.length()*sizeof(char);
-    mdb_data[0].mv_data = bdata;
-    mdb_data[1].mv_size = 0;
-    mdb_data[1].mv_data = NULL;
-    mdb_put(c->txn, c->dbi, &mdb_key, mdb_data, 0);
-    mdb_txn_commit(c->txn);
-    bu_free(keycstr, "keycstr");
-    bu_free(bdata, "buffer data");
-}
-
-static size_t
-cache_get(struct ged_draw_cache *c, void **data, unsigned long long hash, const char *component)
-{
-    if (!c || !data || hash == 0 || !component)
-	return 0;
-
-    // Construct lookup key
-    MDB_val mdb_key;
-    MDB_val mdb_data[2];
-    std::string keystr = std::to_string(hash) + std::string(":") + std::string(component);
-
-    // As implemented this shouldn't be necessary, since all our keys are below
-    // the default size limit (511)
-    //if (keystr.length()*sizeof(char) > mdb_env_get_maxkeysize(c->env))
-    //  return 0;
-    char *keycstr = bu_strdup(keystr.c_str());
-    mdb_txn_begin(c->env, NULL, 0, &c->txn);
-    mdb_dbi_open(c->txn, NULL, 0, &c->dbi);
-    mdb_key.mv_size = keystr.length()*sizeof(char);
-    mdb_key.mv_data = (void *)keycstr;
-    int rc = mdb_get(c->txn, c->dbi, &mdb_key, &mdb_data[0]);
-    if (rc) {
-	bu_free(keycstr, "keycstr");
-	(*data) = NULL;
-	return 0;
-    }
-    bu_free(keycstr, "keycstr");
-    (*data) = mdb_data[0].mv_data;
-
-    return mdb_data[0].mv_size;
-}
-
-static void
-cache_del(struct ged_draw_cache *c, unsigned long long hash, const char *component)
-{
-    if (!c || hash == 0 || !component)
-	return;
-
-    // Construct lookup key
-    MDB_val mdb_key;
-    std::string keystr = std::to_string(hash) + std::string(":") + std::string(component);
-
-    mdb_txn_begin(c->env, NULL, 0, &c->txn);
-    mdb_dbi_open(c->txn, NULL, 0, &c->dbi);
-    mdb_key.mv_size = keystr.length()*sizeof(char);
-    mdb_key.mv_data = (void *)keystr.c_str();
-    mdb_del(c->txn, c->dbi, &mdb_key, NULL);
-    mdb_txn_commit(c->txn);
-}
-
-static void
-cache_done(struct ged_draw_cache *c)
-{
-    if (!c)
-	return;
-    mdb_txn_commit(c->txn);
+    return std::to_string(hash) + ":" + std::string(component);
 }
 
 
@@ -421,6 +215,605 @@ populate_walk_tree(union tree *tp, void *d, int subtract_skip, int p_op,
 }
 
 
+/* ---- Phase 3.5: DrawPipeline — 5-stage concurrent pipeline ------------ *
+ *
+ * Replaces the Phase 3-C single-threaded GeomLoader with a concurrentqueue-
+ * based design matching qgedobol's cache_drawing.cpp pipeline.
+ *
+ * Stages:
+ *   q_init  → attr_worker  → q_aabb → aabb_worker → q_obb
+ *   q_obb   → obb_worker   → q_lod  → lod_worker
+ *   q_write → write_worker (serialises all bu_cache writes)
+ *
+ * result_q is drained by the main thread via DrawPipeline::drain().
+ * -------------------------------------------------------------------- */
+
+/* Debug delay helpers (same env vars as qgedobol cache_drawing.cpp). */
+static int g_dp_delay_attr_ms = 0;
+static int g_dp_delay_aabb_ms = 0;
+static int g_dp_delay_obb_ms  = 0;
+static int g_dp_delay_lod_ms  = 0;
+
+static void
+dp_init_debug_delays(void)
+{
+    static bool done = false;
+    if (done) return;
+    done = true;
+    auto getenv_int = [](const char *name) -> int {
+	const char *v = getenv(name);
+	if (!v) return 0;
+	int n = atoi(v);
+	return (n > 0) ? n : 0;
+    };
+    g_dp_delay_attr_ms = getenv_int("BRLCAD_CACHE_ATTR_DELAY_MS");
+    g_dp_delay_aabb_ms = getenv_int("BRLCAD_CACHE_AABB_DELAY_MS");
+    g_dp_delay_obb_ms  = getenv_int("BRLCAD_CACHE_OBB_DELAY_MS");
+    g_dp_delay_lod_ms  = getenv_int("BRLCAD_CACHE_LOD_DELAY_MS");
+}
+
+/* Single item queued for writing to the drawing cache. */
+struct DrawCacheWriteItem {
+    char   key[256] = {0};
+    bool   erase_op = false;
+    size_t data_len = 0;
+    void  *data     = nullptr;
+
+    DrawCacheWriteItem() = default;
+    DrawCacheWriteItem(const char *k, const void *d, size_t len)
+    {
+	snprintf(key, sizeof(key), "%s", k);
+	erase_op = (!d || !len);
+	data_len  = len;
+	if (d && len) {
+	    data = bu_malloc(len, "DrawCacheWriteItem");
+	    memcpy(data, d, len);
+	}
+    }
+    DrawCacheWriteItem(const DrawCacheWriteItem &o)
+	: erase_op(o.erase_op), data_len(o.data_len), data(nullptr)
+    {
+	snprintf(key, sizeof(key), "%s", o.key);
+	if (o.data && o.data_len) {
+	    data = bu_malloc(o.data_len, "DrawCacheWriteItem copy");
+	    memcpy(data, o.data, o.data_len);
+	}
+    }
+    DrawCacheWriteItem &operator=(const DrawCacheWriteItem &o)
+    {
+	if (this == &o) return *this;
+	if (data) bu_free(data, "DrawCacheWriteItem free");
+	data = nullptr;
+	erase_op = o.erase_op;
+	data_len  = o.data_len;
+	snprintf(key, sizeof(key), "%s", o.key);
+	if (o.data && o.data_len) {
+	    data = bu_malloc(o.data_len, "DrawCacheWriteItem assign");
+	    memcpy(data, o.data, o.data_len);
+	}
+	return *this;
+    }
+    ~DrawCacheWriteItem()
+    {
+	if (data) bu_free(data, "DrawCacheWriteItem dtor");
+	data = nullptr;
+    }
+};
+
+/* Result posted to the main thread result queue. */
+struct DrawInternalResult {
+    int                type;      /* 0=AABB, 1=OBB, 2=LOD */
+    unsigned long long hash;
+    char               dp_name[256];
+    /* AABB */
+    point_t bmin;
+    point_t bmax;
+    /* OBB: 8 corner points from ft_oriented_bbox */
+    int     obb_valid;
+    point_t obb_pts[8];
+    /* LOD */
+    unsigned long long lod_key;
+};
+
+/* Per-database pipeline state (private to this TU). */
+struct DrawPipelineState {
+    std::atomic<bool> shutdown{false};
+    std::atomic<int>  thread_cnt{0};
+
+    /* Inter-stage lock-free queues. */
+    moodycamel::ConcurrentQueue<std::string>              q_init;  /* names → attr */
+    moodycamel::ConcurrentQueue<struct rt_db_internal *>  q_aabb;  /* internal → AABB */
+    moodycamel::ConcurrentQueue<struct rt_db_internal *>  q_obb;   /* post-AABB → OBB */
+    moodycamel::ConcurrentQueue<struct rt_db_internal *>  q_lod;   /* post-OBB  → LoD */
+    moodycamel::ConcurrentQueue<DrawCacheWriteItem>       q_write; /* → write_worker */
+
+    /* Main-thread result queue. */
+    moodycamel::ConcurrentQueue<DrawInternalResult> results_q;
+
+    /* Name map: maps each in-flight rt_db_internal* to its object name.
+     * Protected by name_mu.  lod_worker is the LAST consumer and must erase. */
+    std::mutex name_mu;
+    std::unordered_map<struct rt_db_internal *, std::string> ip_names;
+
+    struct db_i          *dbip    = nullptr;
+    struct bu_cache      *dcache  = nullptr;
+    struct bv_mesh_lod_context *lod_ctx = nullptr;
+
+    std::vector<std::thread> threads;
+};
+
+/* Helper: build a cache key string */
+static inline void
+dp_make_key(char *buf, size_t bufsz, unsigned long long hash,
+	    const char *component)
+{
+    snprintf(buf, bufsz, "%llu:%s", hash, component);
+}
+
+/* ---- Pipeline stage 1: attr_worker ---------------------------------- */
+static void
+dp_attr_worker(std::shared_ptr<DrawPipelineState> p)
+{
+    char ckey[256];
+    struct resource bres;
+    memset(&bres, 0, sizeof(bres));
+    rt_init_resource(&bres, 1, NULL);
+    dp_init_debug_delays();
+
+    while (!p->shutdown) {
+	if (p->q_init.size_approx() == 0) {
+	    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	    continue;
+	}
+
+	std::string name;
+	if (!p->q_init.try_dequeue(name))
+	    continue;
+
+	struct directory *dp = db_lookup(p->dbip, name.c_str(), LOOKUP_QUIET);
+	if (dp == RT_DIR_NULL)
+	    continue;
+
+	unsigned long long hash =
+	    bu_data_hash(dp->d_namep, strlen(dp->d_namep) * sizeof(char));
+
+	/* Read attributes */
+	struct bu_attribute_value_set avs = BU_AVS_INIT_ZERO;
+	if (db5_get_attributes(p->dbip, &avs, dp) < 0)
+	    bu_avs_free(&avs);
+
+	/* Region flag */
+	int rflag = 0;
+	{
+	    const char *s = bu_avs_get(&avs, "region");
+	    if (s && (BU_STR_EQUAL(s, "R") || BU_STR_EQUAL(s, "1")))
+		rflag = 1;
+	}
+	dp_make_key(ckey, sizeof(ckey), hash, CACHE_REGION_FLAG);
+	p->q_write.enqueue(DrawCacheWriteItem(ckey, &rflag, sizeof(int)));
+
+	/* Region id */
+	int region_id_v = -1;
+	{
+	    const char *s = bu_avs_get(&avs, "region_id");
+	    if (s)
+		bu_opt_int(NULL, 1, &s, (void *)&region_id_v);
+	}
+	dp_make_key(ckey, sizeof(ckey), hash, CACHE_REGION_ID);
+	p->q_write.enqueue(DrawCacheWriteItem(ckey, &region_id_v, sizeof(int)));
+
+	/* Inherit flag */
+	int inherit = 0;
+	{
+	    const char *s = bu_avs_get(&avs, "inherit");
+	    if (s && BU_STR_EQUAL(s, "1"))
+		inherit = 1;
+	}
+	dp_make_key(ckey, sizeof(ckey), hash, CACHE_INHERIT_FLAG);
+	p->q_write.enqueue(DrawCacheWriteItem(ckey, &inherit, sizeof(int)));
+
+	/* Color */
+	unsigned int colors = UINT_MAX;
+	{
+	    const char *s = bu_avs_get(&avs, "color");
+	    if (!s) s = bu_avs_get(&avs, "rgb");
+	    if (s) {
+		struct bu_color col;
+		bu_opt_color(NULL, 1, &s, (void *)&col);
+		int r, g, b;
+		bu_color_to_rgb_ints(&col, &r, &g, &b);
+		colors = (unsigned int)(r + (g << 8) + (b << 16));
+	    }
+	}
+	// Only cache a color value when one was actually found.  UINT_MAX is
+	// used internally as a "no color" placeholder, but digest_path uses
+	// INT_MAX as its sentinel; writing UINT_MAX here would corrupt the cache
+	// and cause path_color to return white for every colorless solid on the
+	// next run (UINT_MAX != INT_MAX, so digest_path would treat the value as
+	// a valid packed RGB).
+	if (colors != UINT_MAX) {
+	    dp_make_key(ckey, sizeof(ckey), hash, CACHE_COLOR);
+	    p->q_write.enqueue(DrawCacheWriteItem(ckey, &colors, sizeof(unsigned int)));
+	}
+
+	bu_avs_free(&avs);
+
+	/* Crack the geometry and pass to q_aabb */
+	struct rt_db_internal *ip;
+	BU_GET(ip, struct rt_db_internal);
+	RT_DB_INTERNAL_INIT(ip);
+	if (rt_db_get_internal(ip, dp, p->dbip, NULL) < 0) {
+	    BU_PUT(ip, struct rt_db_internal);
+	    continue;
+	}
+	{
+	    std::lock_guard<std::mutex> lk(p->name_mu);
+	    p->ip_names[ip] = std::string(dp->d_namep);
+	}
+	if (g_dp_delay_attr_ms > 0)
+	    std::this_thread::sleep_for(
+		std::chrono::milliseconds(g_dp_delay_attr_ms));
+	p->q_aabb.enqueue(ip);
+    }
+
+    rt_clean_resource_basic(NULL, &bres);
+    p->thread_cnt--;
+}
+
+/* ---- Pipeline stage 2: aabb_worker ---------------------------------- */
+static void
+dp_aabb_worker(std::shared_ptr<DrawPipelineState> p)
+{
+    char ckey[256];
+    const struct bn_tol btol = BN_TOL_INIT_TOL;
+
+    while (!p->shutdown) {
+	if (p->q_aabb.size_approx() == 0) {
+	    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	    continue;
+	}
+
+	struct rt_db_internal *ip = nullptr;
+	if (!p->q_aabb.try_dequeue(ip))
+	    continue;
+
+	std::string ip_name;
+	{
+	    std::lock_guard<std::mutex> lk(p->name_mu);
+	    auto it = p->ip_names.find(ip);
+	    if (it == p->ip_names.end()) { p->q_obb.enqueue(ip); continue; }
+	    ip_name = it->second;
+	}
+	const char *name = ip_name.c_str();
+	unsigned long long hash =
+	    bu_data_hash(name, strlen(name) * sizeof(char));
+
+	dp_make_key(ckey, sizeof(ckey), hash, CACHE_OBJ_BOUNDS);
+
+	DrawInternalResult dr{};
+	dr.type = 0; /* AABB */
+	dr.hash = hash;
+	snprintf(dr.dp_name, sizeof(dr.dp_name), "%s", name);
+
+	if (ip->idb_meth && ip->idb_meth->ft_bbox) {
+	    point_t bmin, bmax;
+	    VSETALL(bmin,  INFINITY);
+	    VSETALL(bmax, -INFINITY);
+	    if (ip->idb_meth->ft_bbox(ip, &bmin, &bmax, &btol) == 0) {
+		point_t bb[2];
+		VMOVE(bb[0], bmin);
+		VMOVE(bb[1], bmax);
+		p->q_write.enqueue(
+		    DrawCacheWriteItem(ckey, &bb, 2 * sizeof(point_t)));
+		VMOVE(dr.bmin, bmin);
+		VMOVE(dr.bmax, bmax);
+		p->results_q.enqueue(dr);
+	    } else {
+		p->q_write.enqueue(DrawCacheWriteItem(ckey, nullptr, 0));
+	    }
+	} else {
+	    p->q_write.enqueue(DrawCacheWriteItem(ckey, nullptr, 0));
+	}
+
+	if (g_dp_delay_aabb_ms > 0)
+	    std::this_thread::sleep_for(
+		std::chrono::milliseconds(g_dp_delay_aabb_ms));
+	p->q_obb.enqueue(ip);
+    }
+
+    p->thread_cnt--;
+}
+
+/* ---- Pipeline stage 3: obb_worker ----------------------------------- */
+static void
+dp_obb_worker(std::shared_ptr<DrawPipelineState> p)
+{
+    char ckey[256];
+
+    while (!p->shutdown) {
+	if (p->q_obb.size_approx() == 0) {
+	    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	    continue;
+	}
+
+	struct rt_db_internal *ip = nullptr;
+	if (!p->q_obb.try_dequeue(ip))
+	    continue;
+
+	std::string ip_name;
+	{
+	    std::lock_guard<std::mutex> lk(p->name_mu);
+	    auto it = p->ip_names.find(ip);
+	    if (it == p->ip_names.end()) { p->q_lod.enqueue(ip); continue; }
+	    ip_name = it->second;
+	}
+	const char *name = ip_name.c_str();
+	unsigned long long hash =
+	    bu_data_hash(name, strlen(name) * sizeof(char));
+
+	dp_make_key(ckey, sizeof(ckey), hash, CACHE_OBJ_OBB);
+
+	DrawInternalResult dr{};
+	dr.type      = 1; /* OBB */
+	dr.hash      = hash;
+	dr.obb_valid = 0;
+	snprintf(dr.dp_name, sizeof(dr.dp_name), "%s", name);
+
+	if (ip->idb_meth && ip->idb_meth->ft_oriented_bbox) {
+	    struct rt_arb_internal arb;
+	    arb.magic = RT_ARB_INTERNAL_MAGIC;
+	    double tol_dist = BN_TOL_DIST;
+	    if (ip->idb_meth->ft_oriented_bbox(&arb, ip, tol_dist) == 0) {
+		for (int k = 0; k < 8; k++)
+		    VMOVE(dr.obb_pts[k], arb.pt[k]);
+		dr.obb_valid = 1;
+		p->q_write.enqueue(
+		    DrawCacheWriteItem(ckey, arb.pt, 8 * sizeof(point_t)));
+		p->results_q.enqueue(dr);
+	    } else {
+		p->q_write.enqueue(DrawCacheWriteItem(ckey, nullptr, 0));
+	    }
+	}
+	/* No ft_oriented_bbox — skip OBB silently, still forward to lod */
+
+	if (g_dp_delay_obb_ms > 0)
+	    std::this_thread::sleep_for(
+		std::chrono::milliseconds(g_dp_delay_obb_ms));
+	p->q_lod.enqueue(ip);
+    }
+
+    p->thread_cnt--;
+}
+
+/* ---- Pipeline stage 4: lod_worker ----------------------------------- */
+static void
+dp_lod_worker(std::shared_ptr<DrawPipelineState> p)
+{
+    while (!p->shutdown) {
+	if (p->q_lod.size_approx() == 0) {
+	    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	    continue;
+	}
+
+	struct rt_db_internal *ip = nullptr;
+	if (!p->q_lod.try_dequeue(ip))
+	    continue;
+
+	std::string ip_name;
+	{
+	    std::lock_guard<std::mutex> lk(p->name_mu);
+	    auto it = p->ip_names.find(ip);
+	    if (it != p->ip_names.end())
+		ip_name = it->second;
+	    p->ip_names.erase(ip); /* last consumer — remove from map */
+	}
+	const char *name = ip_name.c_str();
+
+	if (p->lod_ctx && !ip_name.empty() &&
+	    ip->idb_minor_type == DB5_MINORTYPE_BRLCAD_BOT)
+	{
+	    struct rt_bot_internal *bot =
+		(struct rt_bot_internal *)ip->idb_ptr;
+	    if (bot && bot->magic == RT_BOT_INTERNAL_MAGIC
+		&& bot->num_faces > 0 && bot->num_vertices > 0)
+	    {
+		unsigned long long hash =
+		    bu_data_hash(name, strlen(name) * sizeof(char));
+
+		unsigned long long key =
+		    bv_mesh_lod_key_get(p->lod_ctx, name);
+		if (!key) {
+		    key = bv_mesh_lod_cache(
+			p->lod_ctx,
+			(const point_t *)bot->vertices, bot->num_vertices,
+			NULL, bot->faces, bot->num_faces, 0, 0.66);
+		    if (key)
+			bv_mesh_lod_key_put(p->lod_ctx, name, key);
+		}
+		if (key) {
+		    DrawInternalResult dr{};
+		    dr.type    = 2; /* LOD */
+		    dr.hash    = hash;
+		    dr.lod_key = key;
+		    snprintf(dr.dp_name, sizeof(dr.dp_name), "%s", name);
+		    p->results_q.enqueue(dr);
+		}
+	    }
+	}
+
+	if (g_dp_delay_lod_ms > 0)
+	    std::this_thread::sleep_for(
+		std::chrono::milliseconds(g_dp_delay_lod_ms));
+	rt_db_free_internal(ip);
+	BU_PUT(ip, struct rt_db_internal);
+    }
+
+    p->thread_cnt--;
+}
+
+/* ---- Pipeline stage 5: write_worker --------------------------------- */
+static void
+dp_write_worker(std::shared_ptr<DrawPipelineState> p)
+{
+    while (!p->shutdown) {
+	if (p->q_write.size_approx() == 0) {
+	    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	    continue;
+	}
+
+	DrawCacheWriteItem item;
+	if (!p->q_write.try_dequeue(item))
+	    continue;
+
+	if (!p->dcache)
+	    continue;
+
+	if (item.erase_op || !item.data || !item.data_len) {
+	    bu_cache_clear(item.key, p->dcache, NULL);
+	} else {
+	    int tries = 0;
+	    while (tries < 5 &&
+		   !bu_cache_write(item.data, item.data_len,
+				   item.key, p->dcache, NULL))
+	    {
+		tries++;
+		std::this_thread::sleep_for(std::chrono::milliseconds(50));
+	    }
+	}
+    }
+
+    p->thread_cnt--;
+}
+
+/* ---- DrawPipeline implementation ------------------------------------ */
+
+DrawPipeline::DrawPipeline(struct ged *gedp, struct bu_cache *dcache)
+{
+    if (!gedp || !gedp->dbip)
+	return;
+
+    auto state = std::make_shared<DrawPipelineState>();
+    state->dbip   = gedp->dbip;
+    state->dcache = dcache;
+    state->lod_ctx = gedp->ged_lod;
+
+    /* Launch 5 worker threads */
+    state->thread_cnt = 5;
+    state->threads.emplace_back(dp_attr_worker,  state);
+    state->threads.emplace_back(dp_aabb_worker,  state);
+    state->threads.emplace_back(dp_obb_worker,   state);
+    state->threads.emplace_back(dp_lod_worker,   state);
+    state->threads.emplace_back(dp_write_worker, state);
+
+    /* Detach all — they run until shutdown is signalled */
+    for (auto &t : state->threads)
+	t.detach();
+    state->threads.clear();
+
+    /* Store the shared_ptr heap-allocated as an opaque pointer.
+     * ~DrawPipeline() will recover and release it. */
+    state_ = reinterpret_cast<DrawPipelineState *>(
+	new std::shared_ptr<DrawPipelineState>(state));
+}
+
+DrawPipeline::~DrawPipeline()
+{
+    if (!state_)
+	return;
+    auto *pp = reinterpret_cast<std::shared_ptr<DrawPipelineState> *>(state_);
+    if (pp && *pp) {
+	(*pp)->shutdown = true;
+	int waited = 0;
+	while ((*pp)->thread_cnt > 0 && waited < 200) {
+	    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	    waited++;
+	}
+    }
+    delete pp;
+    state_ = nullptr;
+}
+
+void
+DrawPipeline::push(const std::vector<WorkItem> &items)
+{
+    if (items.empty() || !state_)
+	return;
+    auto *pp = reinterpret_cast<std::shared_ptr<DrawPipelineState> *>(state_);
+    if (!pp || !*pp)
+	return;
+    for (const auto &item : items) {
+	if (!item.dp || !item.hash)
+	    continue;
+	if (item.dp->d_flags & RT_DIR_COMB)
+	    continue;
+	if (item.dp->d_flags & RT_DIR_HIDDEN)
+	    continue;
+	(*pp)->q_init.enqueue(std::string(item.dp->d_namep));
+    }
+}
+
+size_t
+DrawPipeline::drain(std::vector<Result> &out)
+{
+    if (!state_)
+	return 0;
+    auto *pp = reinterpret_cast<std::shared_ptr<DrawPipelineState> *>(state_);
+    if (!pp || !*pp)
+	return 0;
+    size_t n = 0;
+    DrawInternalResult dr{};
+    while ((*pp)->results_q.try_dequeue(dr)) {
+	Result r;
+	r.hash    = dr.hash;
+	r.dp_name = dr.dp_name;
+	if (dr.type == 0) { /* AABB */
+	    r.type = Result::AABB;
+	    VMOVE(r.bmin, dr.bmin);
+	    VMOVE(r.bmax, dr.bmax);
+	} else if (dr.type == 1) { /* OBB */
+	    r.type      = Result::OBB;
+	    r.obb_valid = (dr.obb_valid != 0);
+	    for (int k = 0; k < 8; k++)
+		VMOVE(r.obb_pts[k], dr.obb_pts[k]);
+	} else { /* LOD */
+	    r.type    = Result::LOD;
+	    r.has_lod = (dr.lod_key != 0);
+	    r.lod_key = dr.lod_key;
+	}
+	out.push_back(r);
+	n++;
+    }
+    return n;
+}
+
+bool
+DrawPipeline::settled() const
+{
+    if (!state_)
+	return true;
+    auto *pp = reinterpret_cast<std::shared_ptr<DrawPipelineState> *>(state_);
+    if (!pp || !*pp)
+	return true;
+    auto &s = **pp;
+    return (s.q_init.size_approx()  == 0 &&
+	    s.q_aabb.size_approx()  == 0 &&
+	    s.q_obb.size_approx()   == 0 &&
+	    s.q_lod.size_approx()   == 0 &&
+	    s.q_write.size_approx() == 0);
+}
+
+void
+DrawPipeline::set_lod_ctx(struct bv_mesh_lod_context *lod_ctx)
+{
+    if (!state_)
+	return;
+    auto *pp = reinterpret_cast<std::shared_ptr<DrawPipelineState> *>(state_);
+    if (pp && *pp)
+	(*pp)->lod_ctx = lod_ctx;
+}
+
+
+
 DbiState::DbiState(struct ged *ged_p)
 {
     bu_vls_init(&path_string);
@@ -428,7 +821,7 @@ DbiState::DbiState(struct ged *ged_p)
     BU_GET(res, struct resource);
     rt_init_resource(res, 0, NULL);
     shared_vs = new BViewState(this);
-    default_selected = new BSelectState(this);
+    default_selected = new SelectionSet(this);
     selected_sets[std::string("default")] = default_selected;
     gedp = ged_p;
     if (!gedp)
@@ -438,12 +831,73 @@ DbiState::DbiState(struct ged *ged_p)
 	return;
 
     // Set up cache
-    dcache = dbi_cache_open(dbip->dbi_filename);
+    {
+	// Check the on-disk format version before opening any per-file cache.
+	// If it doesn't match DBI_CACHE_FORMAT_VERSION, nuke the entire .Dbi
+	// tree so stale entries from old schema don't accumulate.
+	{
+	    char fpath[MAXPATHLEN];
+	    bu_dir(fpath, MAXPATHLEN, BU_DIR_CACHE, DBI_CACHEDIR, "format", NULL);
+	    long disk_fmt = -1;
+	    {
+		std::ifstream fmt_file(fpath);
+		if (fmt_file.is_open())
+		    fmt_file >> disk_fmt;
+	    }
+	    if (disk_fmt > 0 && disk_fmt != DBI_CACHE_FORMAT_VERSION) {
+		char ddir[MAXPATHLEN];
+		bu_dir(ddir, MAXPATHLEN, BU_DIR_CACHE, DBI_CACHEDIR, NULL);
+		bu_log("Old dbi cache version (%ld) found at %s - clearing\n", disk_fmt, fpath);
+		bu_dirclear((const char *)ddir);
+		/* bu_dirclear removes the directory itself; recreate it so the
+		 * format file write below succeeds. */
+		bu_mkdir(ddir);
+	    }
+	    FILE *fp = fopen(fpath, "w");
+	    if (fp) {
+		fprintf(fp, "%d\n", DBI_CACHE_FORMAT_VERSION);
+		fclose(fp);
+	    }
+	}
+
+	struct bu_vls fname = BU_VLS_INIT_ZERO;
+	bu_vls_sprintf(&fname, "%s", bu_path_normalize(dbip->dbi_filename));
+	unsigned long long fhash = bu_data_hash(bu_vls_cstr(&fname), bu_vls_strlen(&fname)*sizeof(char));
+	bu_path_component(&fname, bu_path_normalize(dbip->dbi_filename), BU_PATH_BASENAME_EXTLESS);
+	bu_vls_printf(&fname, "_%llu", fhash);
+	struct bu_vls cpath = BU_VLS_INIT_ZERO;
+	bu_vls_sprintf(&cpath, "%s/%s", DBI_CACHEDIR, bu_vls_cstr(&fname));
+	dcache = bu_cache_open(bu_vls_cstr(&cpath), 1, 0);
+	bu_vls_free(&fname);
+	bu_vls_free(&cpath);
+    }
+
+    // Phase 3.5: start the background geometry pipeline
+    if (dcache)
+	draw_pipeline_ = new DrawPipeline(gedp, dcache);
 
     struct directory *dp;
     FOR_ALL_DIRECTORY_START(dp, dbip)
 	update_dp(dp, 0);
     FOR_ALL_DIRECTORY_END;
+
+    // Queue all solid objects for background AABB/OBB/LoD processing.
+    // Objects that already have a cached bbox in bboxes[] will still be
+    // processed for OBB and LoD; the pipeline skips AABB cache writes if
+    // the data hasn't changed.
+    if (draw_pipeline_) {
+	std::vector<DrawPipeline::WorkItem> items;
+	struct directory *qdp;
+	FOR_ALL_DIRECTORY_START(qdp, dbip)
+	    if (qdp->d_flags & RT_DIR_COMB) continue;
+	    if (qdp->d_flags & RT_DIR_HIDDEN) continue;
+	    unsigned long long h =
+		bu_data_hash(qdp->d_namep, strlen(qdp->d_namep)*sizeof(char));
+	    items.push_back({h, qdp});
+	FOR_ALL_DIRECTORY_END;
+	if (!items.empty())
+	    draw_pipeline_->push(items);
+    }
 }
 
 
@@ -451,16 +905,25 @@ DbiState::~DbiState()
 {
     bu_vls_free(&path_string);
     bu_vls_free(&hash_string);
-    std::unordered_map<std::string, BSelectState *>::iterator ss_it;
+    std::unordered_map<std::string, SelectionSet *>::iterator ss_it;
     for (ss_it = selected_sets.begin(); ss_it != selected_sets.end(); ss_it++) {
 	delete ss_it->second;
+    }
+    default_selected = NULL;
+    // Phase 1-D: delete all GObj instances
+    while (!gobjs.empty()) {
+	delete gobjs.begin()->second; // dtor removes entry from gobjs
     }
     delete shared_vs;
     rt_clean_resource_basic(NULL, res);
     BU_PUT(res, struct resource);
 
+    // Phase 3.5: stop the background drawing pipeline before closing the cache
+    delete draw_pipeline_;
+    draw_pipeline_ = NULL;
+
     if (dcache)
-	dbi_cache_close(dcache);
+	bu_cache_close(dcache);
 }
 
 
@@ -812,13 +1275,18 @@ DbiState::clear_cache(struct directory *dp)
 
     unsigned long long hash = bu_data_hash(dp->d_namep, strlen(dp->d_namep)*sizeof(char));
 
-    cache_del(dcache, hash, CACHE_OBJ_BOUNDS);
-    cache_del(dcache, hash, CACHE_REGION_ID);
-    cache_del(dcache, hash, CACHE_REGION_FLAG);
-    cache_del(dcache, hash, CACHE_INHERIT_FLAG);
-    cache_del(dcache, hash, CACHE_COLOR);
+    {
+	std::string k;
+	k = dbi_cache_key(hash, CACHE_OBJ_BOUNDS);  bu_cache_clear(k.c_str(), dcache, NULL);
+	k = dbi_cache_key(hash, CACHE_OBJ_OBB);     bu_cache_clear(k.c_str(), dcache, NULL);
+	k = dbi_cache_key(hash, CACHE_REGION_ID);   bu_cache_clear(k.c_str(), dcache, NULL);
+	k = dbi_cache_key(hash, CACHE_REGION_FLAG); bu_cache_clear(k.c_str(), dcache, NULL);
+	k = dbi_cache_key(hash, CACHE_INHERIT_FLAG); bu_cache_clear(k.c_str(), dcache, NULL);
+	k = dbi_cache_key(hash, CACHE_COLOR);       bu_cache_clear(k.c_str(), dcache, NULL);
+    }
 
     bboxes.erase(hash);
+    obbs.erase(hash);
     region_id.erase(hash);
     c_inherit.erase(hash);
     rgb.erase(hash);
@@ -837,6 +1305,7 @@ DbiState::update_dp(struct directory *dp, int reset)
     // Clear any (possibly) state bbox.  bbox calculation
     // can be expensive, so defer it until it's needed
     bboxes.erase(hash);
+    obbs.erase(hash);
 
     // Encode hierarchy info if this is a comb
     if (dp->d_flags & RT_DIR_COMB)
@@ -852,7 +1321,7 @@ DbiState::update_dp(struct directory *dp, int reset)
     rgb.erase(hash);
 
     // First, check the dcache for all remaining needed values
-    const char *b = NULL;
+    void *bdata = NULL;
     size_t bsize = 0;
 
     bool need_region_id_avs = true;
@@ -865,33 +1334,48 @@ DbiState::update_dp(struct directory *dp, int reset)
     int color_inherit = 0;
     unsigned int cval = INT_MAX;
 
-    bsize = cache_get(dcache, (void **)&b, hash, CACHE_REGION_ID);
-    if (bsize == sizeof(attr_region_id)) {
-	memcpy(&attr_region_id, b, sizeof(attr_region_id));
-	need_region_id_avs = false;
+    if (dcache) {
+	{
+	    struct bu_cache_txn *t = NULL;
+	    std::string k = dbi_cache_key(hash, CACHE_REGION_ID);
+	    bsize = bu_cache_get(&bdata, k.c_str(), dcache, &t);
+	    if (bsize == sizeof(attr_region_id)) {
+		memcpy(&attr_region_id, bdata, sizeof(attr_region_id));
+		need_region_id_avs = false;
+	    }
+	    bu_cache_get_done(&t);
+	}
+	{
+	    struct bu_cache_txn *t = NULL;
+	    std::string k = dbi_cache_key(hash, CACHE_REGION_FLAG);
+	    bsize = bu_cache_get(&bdata, k.c_str(), dcache, &t);
+	    if (bsize == sizeof(region_flag)) {
+		memcpy(&region_flag, bdata, sizeof(region_flag));
+		need_region_flag_avs = false;
+	    }
+	    bu_cache_get_done(&t);
+	}
+	{
+	    struct bu_cache_txn *t = NULL;
+	    std::string k = dbi_cache_key(hash, CACHE_INHERIT_FLAG);
+	    bsize = bu_cache_get(&bdata, k.c_str(), dcache, &t);
+	    if (bsize == sizeof(color_inherit)) {
+		memcpy(&color_inherit, bdata, sizeof(color_inherit));
+		need_color_inherit_avs = false;
+	    }
+	    bu_cache_get_done(&t);
+	}
+	{
+	    struct bu_cache_txn *t = NULL;
+	    std::string k = dbi_cache_key(hash, CACHE_COLOR);
+	    bsize = bu_cache_get(&bdata, k.c_str(), dcache, &t);
+	    if (bsize == sizeof(cval)) {
+		memcpy(&cval, bdata, sizeof(cval));
+		need_cval_avs = false;
+	    }
+	    bu_cache_get_done(&t);
+	}
     }
-    cache_done(dcache);
-
-    bsize = cache_get(dcache, (void **)&b, hash, CACHE_REGION_FLAG);
-    if (bsize == sizeof(region_flag)) {
-	memcpy(&region_flag, b, sizeof(region_flag));
-	need_region_flag_avs = false;
-    }
-    cache_done(dcache);
-
-    bsize = cache_get(dcache, (void **)&b, hash, CACHE_INHERIT_FLAG);
-    if (bsize == sizeof(color_inherit)) {
-	memcpy(&color_inherit, b, sizeof(color_inherit));
-	need_color_inherit_avs = false;
-    }
-    cache_done(dcache);
-
-    bsize = cache_get(dcache, (void **)&b, hash, CACHE_COLOR);
-    if (bsize == sizeof(cval)) {
-	memcpy(&cval, b, sizeof(cval));
-	need_cval_avs = false;
-    }
-    cache_done(dcache);
 
 
     if (need_region_flag_avs) {
@@ -905,9 +1389,10 @@ DbiState::update_dp(struct directory *dp, int reset)
 	    region_flag = 1;
 	}
 
-	std::stringstream s;
-	s.write(reinterpret_cast<const char *>(&region_flag), sizeof(region_flag));
-	cache_write(dcache, hash, CACHE_REGION_FLAG, s);
+	if (dcache) {
+	    std::string k = dbi_cache_key(hash, CACHE_REGION_FLAG);
+	    bu_cache_write(&region_flag, sizeof(region_flag), k.c_str(), dcache, NULL);
+	}
     }
 
 
@@ -921,9 +1406,10 @@ DbiState::update_dp(struct directory *dp, int reset)
 	if (region_id_val)
 	    bu_opt_int(NULL, 1, &region_id_val, (void *)&attr_region_id);
 
-	std::stringstream s;
-	s.write(reinterpret_cast<const char *>(&attr_region_id), sizeof(attr_region_id));
-	cache_write(dcache, hash, CACHE_REGION_ID, s);
+	if (dcache) {
+	    std::string k = dbi_cache_key(hash, CACHE_REGION_ID);
+	    bu_cache_write(&attr_region_id, sizeof(attr_region_id), k.c_str(), dcache, NULL);
+	}
     }
 
     if (need_color_inherit_avs) {
@@ -933,9 +1419,10 @@ DbiState::update_dp(struct directory *dp, int reset)
 	}
 	color_inherit = (BU_STR_EQUAL(bu_avs_get(&c_avs, "inherit"), "1")) ? 1 : 0;
 
-	std::stringstream s;
-	s.write(reinterpret_cast<const char *>(&color_inherit), sizeof(color_inherit));
-	cache_write(dcache, hash, CACHE_INHERIT_FLAG, s);
+	if (dcache) {
+	    std::string k = dbi_cache_key(hash, CACHE_INHERIT_FLAG);
+	    bu_cache_write(&color_inherit, sizeof(color_inherit), k.c_str(), dcache, NULL);
+	}
     }
 
     if (need_cval_avs) {
@@ -954,12 +1441,12 @@ DbiState::update_dp(struct directory *dp, int reset)
 	if (color_val){
 	    bu_opt_color(NULL, 1, &color_val, (void *)&c);
 	    cval = color_int(&c);
-	    bu_log("have color: %u\n", cval);
 	}
 
-	std::stringstream s;
-	s.write(reinterpret_cast<const char *>(&cval), sizeof(cval));
-	cache_write(dcache, hash, CACHE_COLOR, s);
+	if (dcache) {
+	    std::string k = dbi_cache_key(hash, CACHE_COLOR);
+	    bu_cache_write(&cval, sizeof(cval), k.c_str(), dcache, NULL);
+	}
     }
 
     // If a region flag is set but a region_id is not, there is an implicit
@@ -980,9 +1467,19 @@ DbiState::update_dp(struct directory *dp, int reset)
 
     // Done with attributes
     if (loaded_avs) {
-	bu_log("Had to load avs\n");
 	bu_avs_free(&c_avs);
     }
+
+    // Phase 1-D: create (or recreate) the GObj for this directory pointer.
+    // GObj ctor reads from the flat maps we just populated and, for combs,
+    // calls GenCombInstances() to build the CombInst child list.
+    {
+	auto g_it = gobjs.find(hash);
+	if (g_it != gobjs.end())
+	    delete g_it->second; // dtor deregisters the old GObj from gobjs
+	new GObj(this, dp);      // ctor registers the new GObj in gobjs
+    }
+
     return hash;
 }
 
@@ -1256,20 +1753,25 @@ DbiState::get_bbox(point_t *bbmin, point_t *bbmax, matp_t curr_mat, unsigned lon
     bool have_bbox = false;
 
     // First, check the dcache
-    const char *b = NULL;
-    size_t bsize = cache_get(dcache, (void **)&b, hash, CACHE_OBJ_BOUNDS);
-    if (bsize) {
-	if (bsize != (sizeof(bmin) + sizeof(bmax))) {
-	    bu_log("Incorrect data size found loading cached bounds data\n");
-	} else {
-	    memcpy(&bmin, b, sizeof(bmin));
-	    b += sizeof(bmin);
-	    memcpy(&bmax, b, sizeof(bmax));
-	    //bu_log("cached: bmin: %f %f %f bbmax: %f %f %f\n", V3ARGS(bmin), V3ARGS(bmax));
-	    have_bbox = true;
+    void *bbox_data = NULL;
+    size_t bsize = 0;
+    if (dcache) {
+	struct bu_cache_txn *t = NULL;
+	std::string k = dbi_cache_key(hash, CACHE_OBJ_BOUNDS);
+	bsize = bu_cache_get(&bbox_data, k.c_str(), dcache, &t);
+	if (bsize) {
+	    if (bsize != (sizeof(bmin) + sizeof(bmax))) {
+		bu_log("Incorrect data size found loading cached bounds data\n");
+	    } else {
+		const char *bp = (const char *)bbox_data;
+		memcpy(&bmin, bp, sizeof(bmin));
+		bp += sizeof(bmin);
+		memcpy(&bmax, bp, sizeof(bmax));
+		have_bbox = true;
+	    }
 	}
+	bu_cache_get_done(&t);
     }
-    cache_done(dcache);
 
 
     // This calculation can be expensive.  If we've already
@@ -1288,10 +1790,13 @@ DbiState::get_bbox(point_t *bbmin, point_t *bbmax, matp_t curr_mat, unsigned lon
 		    VMOVE(bmax, lod->bmax);
 		    have_bbox = true;
 
-		    std::stringstream s;
-		    s.write(reinterpret_cast<const char *>(&bmin), sizeof(bmin));
-		    s.write(reinterpret_cast<const char *>(&bmax), sizeof(bmax));
-		    cache_write(dcache, hash, CACHE_OBJ_BOUNDS, s);
+		    if (dcache) {
+			char buf[sizeof(bmin) + sizeof(bmax)];
+			memcpy(buf, &bmin, sizeof(bmin));
+			memcpy(buf + sizeof(bmin), &bmax, sizeof(bmax));
+			std::string k = dbi_cache_key(hash, CACHE_OBJ_BOUNDS);
+			bu_cache_write(buf, sizeof(buf), k.c_str(), dcache, NULL);
+		    }
 		}
 	    }
 	}
@@ -1307,10 +1812,13 @@ DbiState::get_bbox(point_t *bbmin, point_t *bbmax, matp_t curr_mat, unsigned lon
 	if (bret != -1) {
 	    have_bbox = true;
 
-	    std::stringstream s;
-	    s.write(reinterpret_cast<const char *>(&bmin), sizeof(bmin));
-	    s.write(reinterpret_cast<const char *>(&bmax), sizeof(bmax));
-	    cache_write(dcache, hash, CACHE_OBJ_BOUNDS, s);
+	    if (dcache) {
+		char buf[sizeof(bmin) + sizeof(bmax)];
+		memcpy(buf, &bmin, sizeof(bmin));
+		memcpy(buf + sizeof(bmin), &bmax, sizeof(bmax));
+		std::string k = dbi_cache_key(hash, CACHE_OBJ_BOUNDS);
+		bu_cache_write(buf, sizeof(buf), k.c_str(), dcache, NULL);
+	    }
 	}
     }
 
@@ -1371,11 +1879,11 @@ DbiState::get_view_state(struct bview *v)
     return nv;
 }
 
-std::vector<BSelectState *>
+std::vector<SelectionSet *>
 DbiState::get_selected_states(const char *sname)
 {
-    std::vector<BSelectState *> ret;
-    std::unordered_map<std::string, BSelectState *>::iterator ss_it;
+    std::vector<SelectionSet *> ret;
+    std::unordered_map<std::string, SelectionSet *>::iterator ss_it;
 
     if (!sname || BU_STR_EQUIV(sname, "default")) {
 	ret.push_back(default_selected);
@@ -1400,20 +1908,20 @@ DbiState::get_selected_states(const char *sname)
     if (ret.size())
 	return ret;
 
-    BSelectState *ns = new BSelectState(this);
+    SelectionSet *ns = new SelectionSet(this);
     selected_sets[sn] = ns;
     ret.push_back(ns);
     return ret;
 }
 
-BSelectState *
+SelectionSet *
 DbiState::find_selected_state(const char *sname)
 {
     if (!sname || BU_STR_EQUIV(sname, "default")) {
 	return default_selected;
     }
 
-    std::unordered_map<std::string, BSelectState *>::iterator ss_it;
+    std::unordered_map<std::string, SelectionSet *>::iterator ss_it;
     for (ss_it = selected_sets.begin(); ss_it != selected_sets.end(); ss_it++) {
 	if (BU_STR_EQUIV(sname, ss_it->first.c_str())) {
 	    return ss_it->second;
@@ -1431,7 +1939,7 @@ DbiState::put_selected_state(const char *sname)
 	return;
     }
 
-    std::unordered_map<std::string, BSelectState *>::iterator ss_it;
+    std::unordered_map<std::string, SelectionSet *>::iterator ss_it;
     for (ss_it = selected_sets.begin(); ss_it != selected_sets.end(); ss_it++) {
 	if (BU_STR_EQUIV(sname, ss_it->first.c_str())) {
 	    delete ss_it->second;
@@ -1445,12 +1953,100 @@ std::vector<std::string>
 DbiState::list_selection_sets()
 {
     std::vector<std::string> ret;
-    std::unordered_map<std::string, BSelectState *>::iterator ss_it;
+    std::unordered_map<std::string, SelectionSet *>::iterator ss_it;
     for (ss_it = selected_sets.begin(); ss_it != selected_sets.end(); ss_it++) {
 	ret.push_back(ss_it->first);
     }
     std::sort(ret.begin(), ret.end(), &alphanum_cmp);
     return ret;
+}
+
+/* ---- Phase 1-G: new SelectionSet management -------------------------- */
+
+SelectionSet *
+DbiState::get_selection_set(const char *name)
+{
+    if (!name || !name[0] || BU_STR_EQUIV(name, "default"))
+	return default_selected;
+
+    std::string sn(name);
+    std::unordered_map<std::string, SelectionSet *>::iterator ss_it = selected_sets.find(sn);
+    if (ss_it != selected_sets.end())
+	return ss_it->second;
+
+    SelectionSet *ns = new SelectionSet(this);
+    selected_sets[sn] = ns;
+    return ns;
+}
+
+std::vector<SelectionSet *>
+DbiState::get_selection_sets(const char *pattern)
+{
+    return get_selected_states(pattern);
+}
+
+void
+DbiState::add_selection_set(const char *name)
+{
+    if (!name || !name[0] || BU_STR_EQUIV(name, "default"))
+	return;
+    std::string sn(name);
+    if (selected_sets.find(sn) == selected_sets.end())
+	selected_sets[sn] = new SelectionSet(this);
+}
+
+void
+DbiState::remove_selection_set(const char *name)
+{
+    put_selected_state(name);
+}
+
+/* ---- Phase 1-C: observer dispatch ------------------------------------ */
+
+void
+DbiState::add_observer(IDbiObserver *obs)
+{
+    if (!obs) return;
+    dbi_observers_.push_back(obs);
+}
+
+void
+DbiState::remove_observer(IDbiObserver *obs)
+{
+    if (!obs) return;
+    auto it = std::find(dbi_observers_.begin(), dbi_observers_.end(), obs);
+    if (it != dbi_observers_.end())
+	dbi_observers_.erase(it);
+}
+
+void
+DbiState::add_scene_observer(ISceneObserver *obs)
+{
+    if (!obs) return;
+    scene_observers_.push_back(obs);
+}
+
+void
+DbiState::remove_scene_observer(ISceneObserver *obs)
+{
+    if (!obs) return;
+    auto it = std::find(scene_observers_.begin(), scene_observers_.end(), obs);
+    if (it != scene_observers_.end())
+	scene_observers_.erase(it);
+}
+
+void
+DbiState::notify_dbi_observers(const std::vector<DbiChangeEvent> &events)
+{
+    for (IDbiObserver *obs : dbi_observers_)
+	obs->on_dbi_changed(events);
+}
+
+void
+DbiState::notify_scene_observers(const std::vector<SceneChangeEvent> &events)
+{
+    for (ISceneObserver *obs : scene_observers_)
+	obs->on_scene_changed(events);
 }
 
 void
@@ -1557,8 +2153,6 @@ DbiState::update()
 
     // Update the primary data structures
     for(s_it = removed.begin(); s_it != removed.end(); s_it++) {
-	bu_log("removed: %llu\n", *s_it);
-
 	// Combs with this key in their child set need to be updated to refer
 	// to it as an invalid entry.
 	std::unordered_map<unsigned long long, std::vector<unsigned long long>>::iterator pv_it;
@@ -1574,11 +2168,19 @@ DbiState::update()
 
 	d_map.erase(*s_it);
 	bboxes.erase(*s_it);
+	obbs.erase(*s_it);
 	c_inherit.erase(*s_it);
 	rgb.erase(*s_it);
 	region_id.erase(*s_it);
 	matrices.erase(*s_it);
 	i_bool.erase(*s_it);
+
+	// Phase 1-D: remove corresponding GObj
+	{
+	    auto g_it2 = gobjs.find(*s_it);
+	    if (g_it2 != gobjs.end())
+		delete g_it2->second; // dtor removes entry from gobjs
+	}
 
 	// We do not clear the instance maps (i_map and i_str) since those containers do not
 	// guarantee uniqueness to one child object.  To remove entries no longer
@@ -1592,7 +2194,6 @@ DbiState::update()
 
     for(g_it = added.begin(); g_it != added.end(); g_it++) {
 	struct directory *dp = *g_it;
-	bu_log("added: %s\n", dp->d_namep);
 	unsigned long long hash = update_dp(dp, 0);
 
 	// If this name was previously the source of an invalid reference,
@@ -1602,7 +2203,6 @@ DbiState::update()
 
     for(g_it = changed.begin(); g_it != changed.end(); g_it++) {
 	struct directory *dp = *g_it;
-	bu_log("changed: %s\n", dp->d_namep);
 	// Properties need to be updated - comb children, colors, matrices,
 	// bounding box for solids, etc.
 	update_dp(dp, 1);
@@ -1642,12 +2242,45 @@ DbiState::update()
 	bv_it->first->redraw(NULL, bv_it->second, 1);
     }
 
+    // Phase 1-C: build change events before clearing the sets
+    std::vector<DbiChangeEvent> events_added, events_changed, events_removed;
+    for (auto *dp : added) {
+	DbiChangeEvent ev;
+	ev.kind = DbiChangeKind::ObjectAdded;
+	ev.object = GHash{bu_data_hash(dp->d_namep, strlen(dp->d_namep) * sizeof(char))};
+	ev.batch = false;
+	events_added.push_back(ev);
+    }
+    for (auto *dp : changed) {
+	DbiChangeEvent ev;
+	ev.kind = DbiChangeKind::ObjectModified;
+	ev.object = GHash{bu_data_hash(dp->d_namep, strlen(dp->d_namep) * sizeof(char))};
+	ev.batch = false;
+	events_changed.push_back(ev);
+    }
+    for (auto h : removed) {
+	DbiChangeEvent ev;
+	ev.kind = DbiChangeKind::ObjectRemoved;
+	ev.object = GHash{h};
+	ev.batch = false;
+	events_removed.push_back(ev);
+    }
+
     // Updates done, clear items stored by callbacks
     added.clear();
     changed.clear();
     changed_hashes.clear();
     removed.clear();
     old_names.clear();
+
+    // Phase 1-C: notify registered observers about the changes that occurred
+    if (!events_added.empty() || !events_changed.empty() || !events_removed.empty()) {
+	std::vector<DbiChangeEvent> events;
+	events.insert(events.end(), events_added.begin(), events_added.end());
+	events.insert(events.end(), events_changed.begin(), events_changed.end());
+	events.insert(events.end(), events_removed.begin(), events_removed.end());
+	notify_dbi_observers(events);
+    }
 
     return ret;
 }
@@ -2300,6 +2933,20 @@ BViewState::scene_obj(
 		}
 	    }
 
+	    // Refresh s_color from the current path color so that material
+	    // changes (or a cache corruption that left stale values) are always
+	    // reflected before draw_scene_obj is invoked.
+	    {
+		struct bu_color c;
+		dbis->path_color(&c, path_hashes);
+		bu_color_to_rgb_chars(&c, sp->s_color);
+		if (vs && vs->color_override) {
+		    sp->s_color[0] = vs->color[0];
+		    sp->s_color[1] = vs->color[1];
+		    sp->s_color[2] = vs->color[2];
+		}
+	    }
+
 	    return NULL;
 	}
     }
@@ -2504,6 +3151,14 @@ BViewState::clear()
     all_collapsed.clear();
 }
 
+size_t
+BViewState::drain_geom_results()
+{
+    if (!dbis)
+	return 0;
+    return dbis->drain_geom_results();
+}
+
 std::vector<std::string>
 BViewState::list_drawn_paths(int mode, bool list_collapsed)
 {
@@ -2687,18 +3342,17 @@ BViewState::refresh(struct bview *v, int argc, const char **argv)
 	    nso->dp = s->dp;
 	    s_map[*k_it][mm_it->first] = nso;
 
-	    //bv_log(3, "refresh %s[%s]", bu_vls_cstr(&(nso->s_name)), bu_vls_cstr(&(v->gv_name)));
-	    bu_log("refresh %s[%s]\n", bu_vls_cstr(&(nso->s_name)), bu_vls_cstr(&(v->gv_name)));
+	    bv_log(3, "refresh %s[%s]", bu_vls_cstr(&(nso->s_name)), bu_vls_cstr(&(v->gv_name)));
 	    draw_scene(nso, v);
 	    bv_obj_put(s);
 	}
     }
 
     // Do selection sync
-    BSelectState *ss = dbis->find_selected_state(NULL);
+    SelectionSet *ss = dbis->find_selected_state(NULL);
     if (ss) {
-	ss->draw_sync();
-	ret = GED_DBISTATE_VIEW_CHANGE;
+	if (ss->draw_sync())
+	    ret |= GED_DBISTATE_VIEW_CHANGE;
     }
 
     return ret;
@@ -2877,7 +3531,6 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
 
 	    // NOTE: Because there is no geometry to update, these scene objs
 	    // are not added to objs
-	    bu_log("invalid expand\n");
 	}
     }
 
@@ -2935,17 +3588,75 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
 	}
     }
 
+    // Phase 3.5: Queue newly drawn solid objects into the DrawPipeline so
+    // that OBB, AABB (if not yet cached) and LoD are computed in the
+    // background.  The pipeline supplements the synchronous AABB already
+    // stored in bboxes[] — it will not overwrite a synchronous bbox but
+    // will add OBB data (new in 3.5) and trigger LoD caching.
+    if (dbis->draw_pipeline_) {
+	std::vector<DrawPipeline::WorkItem> items;
+	std::unordered_map<unsigned long long, std::unordered_map<int, struct bv_scene_obj *>>::iterator obb_it;
+	for (obb_it = s_map.begin(); obb_it != s_map.end(); obb_it++) {
+	    unsigned long long phash = obb_it->first;
+	    // Only queue objects that were part of this redraw pass
+	    bool in_pass = false;
+	    for (auto &mm : obb_it->second) {
+		if (mm.second && objs.find(mm.second) != objs.end()) {
+		    in_pass = true; break;
+		}
+	    }
+	    if (!in_pass) continue;
+	    // Only queue primitives (non-combs) not already in the obbs map
+	    if (dbis->obbs.find(phash) != dbis->obbs.end())
+		continue;
+	    struct directory *dp = dbis->get_hdp(phash);
+	    if (!dp || (dp->d_flags & RT_DIR_COMB))
+		continue;
+	    items.push_back({phash, dp});
+	}
+	if (!items.empty())
+	    dbis->start_geom_load(items);
+    }
+
+    // Phase 2-B: Update LoD levels for all drawn adaptive objects.
+    // BViewState now explicitly drives this pass in addition to the per-frame
+    // s_update_callback path in libdm/view.c, so that view-scale changes from
+    // BViewState::redraw() (e.g. redraw_on_zoom) also propagate LoD levels.
+    for (v_it = views.begin(); v_it != views.end(); v_it++) {
+	struct bview *lv = *v_it;
+	std::unordered_map<unsigned long long, std::unordered_map<int, struct bv_scene_obj *>>::iterator ls_it;
+	for (ls_it = s_map.begin(); ls_it != s_map.end(); ls_it++) {
+	    for (auto &mm : ls_it->second) {
+		struct bv_scene_obj *so = mm.second;
+		if (!so) continue;
+		// Recurse into view-specific children
+		for (size_t ci = 0; ci < BU_PTBL_LEN(&so->children); ci++) {
+		    struct bv_scene_obj *co = (struct bv_scene_obj *)BU_PTBL_GET(&so->children, ci);
+		    if (!co) continue;
+		    if (co->s_type_flags & BV_MESH_LOD)
+			bv_mesh_lod_view(co, lv, 0);
+		    if (co->s_type_flags & BV_CSG_LOD)
+			csg_wireframe_update(co, lv, 0);
+		}
+		if (so->s_type_flags & BV_MESH_LOD)
+		    bv_mesh_lod_view(so, lv, 0);
+		if (so->s_type_flags & BV_CSG_LOD)
+		    csg_wireframe_update(so, lv, 0);
+	    }
+	}
+    }
+
     // We need to check if any drawn solids are selected.  If so, we need
     // to illuminate them.  This is what ensures that newly drawn solids
     // respect a previously selected set from the command line
-    BSelectState *ss = dbis->find_selected_state(NULL);
+    SelectionSet *ss = dbis->find_selected_state(NULL);
     if (ss) {
 	if (invalid_paths.size() || changed_paths.size()) {
 	    ss->refresh();
 	    ss->collapse();
 	}
-	ss->draw_sync();
-	ret = GED_DBISTATE_VIEW_CHANGE;
+	if (ss->draw_sync())
+	    ret |= GED_DBISTATE_VIEW_CHANGE;
     }
     // Now that we have the finalized geometry, do a finishing autoview,
     // unless suppressed
@@ -2958,6 +3669,15 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
     // Now that all path manipulations are finalized, update the
     // sets of drawn paths
     cache_collapsed();
+
+    // Phase 4-E: keep every view's BSG scene root in sync with the
+    // finalized draw state so that bsg_view_traverse() in dm_draw_objs
+    // sees up-to-date children on the next paint event.
+    for (v_it = views.begin(); v_it != views.end(); v_it++) {
+	struct bview *lv = *v_it;
+	if (lv->bsg_root)
+	    bsg_scene_root_sync((bsg_node *)lv->bsg_root, lv);
+    }
 
     return ret;
 }
@@ -3007,13 +3727,13 @@ BViewState::print_view_state(struct bu_vls *outvls)
 
 /* Handle selection status for various instances in the database */
 
-BSelectState::BSelectState(DbiState *s)
+SelectionSet::SelectionSet(DbiState *s)
 {
     dbis = s;
 }
 
 bool
-BSelectState::select_path(const char *path, bool update)
+SelectionSet::select_path(const char *path, bool update)
 {
     if (!path)
 	return false;
@@ -3029,7 +3749,7 @@ BSelectState::select_path(const char *path, bool update)
 }
 
 bool
-BSelectState::select_hpath(std::vector<unsigned long long> &hpath)
+SelectionSet::select_hpath(std::vector<unsigned long long> &hpath)
 {
     if (!hpath.size())
 	return false;
@@ -3084,7 +3804,7 @@ BSelectState::select_hpath(std::vector<unsigned long long> &hpath)
 }
 
 bool
-BSelectState::deselect_path(const char *path, bool update)
+SelectionSet::deselect_path(const char *path, bool update)
 {
     if (!path)
 	return false;
@@ -3100,7 +3820,7 @@ BSelectState::deselect_path(const char *path, bool update)
 }
 
 bool
-BSelectState::deselect_hpath(std::vector<unsigned long long> &hpath)
+SelectionSet::deselect_hpath(std::vector<unsigned long long> &hpath)
 {
     if (!hpath.size())
 	return false;
@@ -3129,7 +3849,7 @@ BSelectState::deselect_hpath(std::vector<unsigned long long> &hpath)
 }
 
 bool
-BSelectState::is_selected(unsigned long long hpath)
+SelectionSet::is_selected(unsigned long long hpath)
 {
     if (!hpath)
 	return false;
@@ -3141,7 +3861,7 @@ BSelectState::is_selected(unsigned long long hpath)
 }
 
 bool
-BSelectState::is_active(unsigned long long phash)
+SelectionSet::is_active(unsigned long long phash)
 {
     if (!phash)
 	return false;
@@ -3153,7 +3873,7 @@ BSelectState::is_active(unsigned long long phash)
 }
 
 bool
-BSelectState::is_active_parent(unsigned long long phash)
+SelectionSet::is_active_parent(unsigned long long phash)
 {
     if (!phash)
 	return false;
@@ -3165,7 +3885,7 @@ BSelectState::is_active_parent(unsigned long long phash)
 }
 
 bool
-BSelectState::is_parent_obj(unsigned long long hash)
+SelectionSet::is_parent_obj(unsigned long long hash)
 {
     if (is_immediate_parent_obj(hash) || is_grand_parent_obj(hash))
 	return true;
@@ -3174,7 +3894,7 @@ BSelectState::is_parent_obj(unsigned long long hash)
 }
 
 bool
-BSelectState::is_immediate_parent_obj(unsigned long long hash)
+SelectionSet::is_immediate_parent_obj(unsigned long long hash)
 {
     if (!hash)
 	return false;
@@ -3186,7 +3906,7 @@ BSelectState::is_immediate_parent_obj(unsigned long long hash)
 }
 
 bool
-BSelectState::is_grand_parent_obj(unsigned long long hash)
+SelectionSet::is_grand_parent_obj(unsigned long long hash)
 {
 
     if (!hash)
@@ -3199,7 +3919,7 @@ BSelectState::is_grand_parent_obj(unsigned long long hash)
 }
 
 void
-BSelectState::clear()
+SelectionSet::clear()
 {
     selected.clear();
     active_paths.clear();
@@ -3207,7 +3927,7 @@ BSelectState::clear()
 }
 
 std::vector<std::string>
-BSelectState::list_selected_paths()
+SelectionSet::list_selected_paths()
 {
     std::unordered_map<unsigned long long, std::vector<unsigned long long>>::iterator s_it;
     std::vector<std::string> ret;
@@ -3222,7 +3942,7 @@ BSelectState::list_selected_paths()
 }
 
 void
-BSelectState::add_paths(
+SelectionSet::add_paths(
 	unsigned long long c_hash,
 	std::vector<unsigned long long> &path_hashes
 	)
@@ -3248,7 +3968,7 @@ BSelectState::add_paths(
 }
 
 void
-BSelectState::clear_paths(
+SelectionSet::clear_paths(
 	unsigned long long c_hash,
 	std::vector<unsigned long long> &path_hashes
 	)
@@ -3275,7 +3995,7 @@ BSelectState::clear_paths(
 }
 
 void
-BSelectState::expand_paths(
+SelectionSet::expand_paths(
 	std::vector<std::vector<unsigned long long>> &out_paths,
 	unsigned long long c_hash,
 	std::vector<unsigned long long> &path_hashes
@@ -3304,7 +4024,7 @@ BSelectState::expand_paths(
 }
 
 void
-BSelectState::expand()
+SelectionSet::expand()
 {
     // Given the current selection set, expand all the paths to
     // their leaf solids and report those paths
@@ -3328,7 +4048,7 @@ BSelectState::expand()
 }
 
 void
-BSelectState::collapse()
+SelectionSet::collapse()
 {
     std::vector<std::vector<unsigned long long>> collapsed;
     std::map<size_t, std::unordered_set<unsigned long long>> depth_groups;
@@ -3440,9 +4160,9 @@ BSelectState::collapse()
 }
 
 void
-BSelectState::characterize()
+SelectionSet::characterize()
 {
-    //bu_log("BSelectState::characterize\n");
+    //bu_log("SelectionSet::characterize\n");
     active_parents.clear();
     immediate_parents.clear();
     grand_parents.clear();
@@ -3517,7 +4237,7 @@ BSelectState::characterize()
 }
 
 void
-BSelectState::refresh()
+SelectionSet::refresh()
 {
     // If the database may have changed, we need to revalidate selected
     // paths are still current, and regenerate the active_paths set.
@@ -3558,7 +4278,7 @@ BSelectState::refresh()
 }
 
 bool
-BSelectState::draw_sync()
+SelectionSet::draw_sync()
 {
     bool changed = false;
     std::unordered_set<BViewState *> vstates;
@@ -3590,7 +4310,7 @@ BSelectState::draw_sync()
 }
 
 unsigned long long
-BSelectState::state_hash()
+SelectionSet::state_hash()
 {
     std::unordered_map<unsigned long long, std::vector<unsigned long long>>::iterator s_it;
     struct bu_data_hash_state *s = bu_data_hash_create();
@@ -3602,6 +4322,524 @@ BSelectState::state_hash()
     unsigned long long hval = bu_data_hash_val(s);
     bu_data_hash_destroy(s);
     return hval;
+}
+
+
+
+/* ---- Phase 1-F: new SelectionSet methods ----------------------------- */
+
+bool
+SelectionSet::select(unsigned long long path_hash,
+                     const std::vector<unsigned long long> &path_vec,
+                     bool update_hierarchy)
+{
+    if (!path_hash) return false;
+    if (selected.find(path_hash) != selected.end()) return false;
+    selected[path_hash] = path_vec;
+    if (update_hierarchy)
+	characterize();
+    return true;
+}
+
+bool
+SelectionSet::deselect(unsigned long long path_hash, bool update_hierarchy)
+{
+    if (selected.erase(path_hash) == 0) return false;
+    if (update_hierarchy)
+	characterize();
+    return true;
+}
+
+bool
+SelectionSet::select(const DbiPath &path, bool update_hierarchy)
+{
+    if (path.empty()) return false;
+    unsigned long long ph = dbis->path_hash(
+	const_cast<std::vector<unsigned long long>&>(path.hashes), 0);
+    return select(ph, path.hashes, update_hierarchy);
+}
+
+bool
+SelectionSet::deselect(const DbiPath &path, bool update_hierarchy)
+{
+    if (path.empty()) return false;
+    unsigned long long ph = dbis->path_hash(
+	const_cast<std::vector<unsigned long long>&>(path.hashes), 0);
+    return deselect(ph, update_hierarchy);
+}
+
+bool
+SelectionSet::select(const char *path_str, bool update_hierarchy)
+{
+    return select_path(path_str, update_hierarchy);
+}
+
+bool
+SelectionSet::deselect(const char *path_str, bool update_hierarchy)
+{
+    return deselect_path(path_str, update_hierarchy);
+}
+
+bool
+SelectionSet::is_parent(unsigned long long path_hash) const
+{
+    return active_parents.find(path_hash) != active_parents.end();
+}
+
+bool
+SelectionSet::is_ancestor(unsigned long long path_hash) const
+{
+    return (active_parents.find(path_hash) != active_parents.end()) ||
+           (grand_parents.find(path_hash) != grand_parents.end());
+}
+
+bool
+SelectionSet::is_obj_immediate_parent(unsigned long long obj_hash) const
+{
+    return immediate_parents.find(obj_hash) != immediate_parents.end();
+}
+
+bool
+SelectionSet::is_obj_ancestor(unsigned long long obj_hash) const
+{
+    return grand_parents.find(obj_hash) != grand_parents.end();
+}
+
+void
+SelectionSet::recompute_hierarchy()
+{
+    characterize();
+}
+
+std::vector<std::string>
+SelectionSet::selected_paths() const
+{
+    return const_cast<SelectionSet *>(this)->list_selected_paths();
+}
+
+std::unordered_set<unsigned long long>
+SelectionSet::selected_hashes() const
+{
+    std::unordered_set<unsigned long long> result;
+    for (auto &kv : selected)
+        result.insert(kv.first);
+    return result;
+}
+
+unsigned long long
+SelectionSet::state_hash_val() const
+{
+    return const_cast<SelectionSet *>(this)->state_hash();
+}
+
+/* ---- Phase 1-E: DrawList implementation ------------------------------ */
+
+void
+DrawList::add(const std::vector<unsigned long long> &path_hashes, int mode,
+              const DrawSettings *overrides)
+{
+    if (path_hashes.empty()) return;
+    Entry e;
+    e.path = path_hashes;
+    e.full_hash = bu_data_hash(path_hashes.data(),
+                               path_hashes.size() * sizeof(unsigned long long));
+    e.mode = mode;
+    if (overrides) {
+        e.has_settings = true;
+        e.settings = *overrides;
+    }
+    entries_.push_back(std::move(e));
+    dirty_ = true;
+}
+
+void
+DrawList::add(const DbiPath &path, int mode, const DrawSettings *overrides)
+{
+    add(path.hashes, mode, overrides);
+}
+
+void
+DrawList::drop(unsigned long long path_hash, int mode)
+{
+    auto it = entries_.begin();
+    while (it != entries_.end()) {
+        if (it->full_hash == path_hash && (mode < 0 || it->mode == mode))
+            it = entries_.erase(it);
+        else
+            ++it;
+    }
+    dirty_ = true;
+}
+
+void
+DrawList::clear()
+{
+    entries_.clear();
+    drawn_hash_modes_.clear();
+    dirty_ = false;
+}
+
+void
+DrawList::clear(int mode)
+{
+    entries_.erase(
+        std::remove_if(entries_.begin(), entries_.end(),
+                       [mode](const Entry &e) { return e.mode == mode; }),
+        entries_.end());
+    dirty_ = true;
+}
+
+void
+DrawList::rebuild_index() const
+{
+    drawn_hash_modes_.clear();
+    for (const auto &e : entries_) {
+        for (const auto &h : e.path)
+            drawn_hash_modes_[h].insert(e.mode);
+    }
+    dirty_ = false;
+}
+
+DrawState
+DrawList::query(unsigned long long path_hash, int mode) const
+{
+    if (dirty_) rebuild_index();
+    auto it = drawn_hash_modes_.find(path_hash);
+    if (it == drawn_hash_modes_.end()) return DrawState::NOT_DRAWN;
+    if (mode < 0) return DrawState::FULLY_DRAWN;
+    if (it->second.find(mode) != it->second.end()) return DrawState::FULLY_DRAWN;
+    return DrawState::NOT_DRAWN;
+}
+
+std::vector<std::vector<unsigned long long>>
+DrawList::drawn_path_hashes(int mode) const
+{
+    std::vector<std::vector<unsigned long long>> result;
+    for (const auto &e : entries_) {
+        if (mode < 0 || e.mode == mode)
+            result.push_back(e.path);
+    }
+    return result;
+}
+
+size_t
+DrawList::count(int mode) const
+{
+    if (mode < 0) return entries_.size();
+    size_t n = 0;
+    for (const auto &e : entries_)
+        if (e.mode == mode) ++n;
+    return n;
+}
+
+bool DrawList::empty() const { return entries_.empty(); }
+
+/* ---- Phase 1-D: GObj and CombInst implementation -------------------- */
+
+struct gobj_walk_data {
+    GObj *gobj = NULL;
+    std::unordered_map<unsigned long long, unsigned long long> i_count;
+};
+
+static void
+populate_gobj_leaf(void *cd, const char *name, matp_t c_m, int op)
+{
+    struct gobj_walk_data *d = (struct gobj_walk_data *)cd;
+    unsigned long long chash = bu_data_hash(name, strlen(name) * sizeof(char));
+    d->i_count[chash] += 1;
+    CombInst *ci = new CombInst(d->gobj->d, d->gobj->dp->d_namep, name,
+				d->i_count[chash], op, c_m);
+    d->gobj->cv.push_back(ci);
+}
+
+CombInst::CombInst(DbiState *dbis, const char *p_name, const char *o_name,
+                   unsigned long long icnt, int i_op, matp_t i_mat)
+{
+    d = dbis;
+    cname = std::string(p_name);
+    oname = std::string(o_name);
+    iname = std::string("");
+    id = icnt;
+    boolean_op = i_op;
+
+    if (i_mat) {
+	MAT_COPY(m, i_mat);
+	non_default_matrix = true;
+    } else {
+	MAT_IDN(m);
+    }
+
+    /* Build iname for duplicate instances (same algorithm as populate_leaf) */
+    if (icnt > 1) {
+	struct bu_vls iname_c = BU_VLS_INIT_ZERO;
+	bu_vls_sprintf(&iname_c, "%s@%llu", o_name, icnt - 1);
+	iname = std::string(bu_vls_cstr(&iname_c));
+	bu_vls_free(&iname_c);
+    }
+
+    /* ohash = hash(oname), matching the key space used by d_map/gobjs */
+    ohash = bu_data_hash(oname.c_str(), oname.size() * sizeof(char));
+
+    /* chash = hash(parent comb name) */
+    chash = bu_data_hash(cname.c_str(), cname.size() * sizeof(char));
+
+    /* ihash: if duplicated use hash(iname), else use ohash */
+    if (!iname.empty())
+	ihash = bu_data_hash(iname.c_str(), iname.size() * sizeof(char));
+    else
+	ihash = ohash;
+}
+
+CombInst::~CombInst()
+{
+    /* CombInst is owned by GObj::cv; no global registry to deregister from. */
+}
+
+db_op_t
+CombInst::bool_op()
+{
+    if (boolean_op == OP_SUBTRACT)
+	return DB_OP_SUBTRACT;
+    if (boolean_op == OP_INTERSECT)
+	return DB_OP_INTERSECT;
+    return DB_OP_UNION;
+}
+
+void
+CombInst::bbox(point_t *min, point_t *max)
+{
+    if (!min || !max || !d)
+	return;
+
+    auto g_it = d->gobjs.find(ohash);
+    if (g_it == d->gobjs.end())
+	return;
+
+    point_t lbmin, lbmax;
+    VSETALL(lbmin,  INFINITY);
+    VSETALL(lbmax, -INFINITY);
+    g_it->second->bbox(&lbmin, &lbmax);
+
+    if (non_default_matrix) {
+	point_t tbmin, tbmax;
+	MAT4X3PNT(tbmin, m, lbmin);
+	VMOVE(lbmin, tbmin);
+	MAT4X3PNT(tbmax, m, lbmax);
+	VMOVE(lbmax, tbmax);
+    }
+
+    VMINMAX(*min, *max, lbmin);
+    VMINMAX(*min, *max, lbmax);
+}
+
+/* GObj constructor: reads attribute caches from the already-populated flat
+ * maps (avoids a second disk read since update_dp() loaded them first). */
+GObj::GObj(DbiState *dbis, struct directory *dp_i)
+{
+    if (!dbis || !dp_i)
+	return;
+
+    d  = dbis;
+    dp = dp_i;
+    name = std::string(dp->d_namep);
+    hash = bu_data_hash(dp->d_namep, strlen(dp->d_namep) * sizeof(char));
+
+    VSETALL(bb_min,  INFINITY);
+    VSETALL(bb_max, -INFINITY);
+    bb_valid = false;
+
+    {
+	auto it = dbis->c_inherit.find(hash);
+	if (it != dbis->c_inherit.end())
+	    c_inherit = it->second;
+    }
+    {
+	auto it = dbis->region_id.find(hash);
+	if (it != dbis->region_id.end()) {
+	    region_id   = it->second;
+	    region_flag = 1;
+	}
+    }
+    {
+	auto it = dbis->rgb.find(hash);
+	if (it != dbis->rgb.end()) {
+	    unsigned int cval = it->second;
+	    unsigned char lrgb[3];
+	    lrgb[0] = static_cast<unsigned char>( cval        & 0xFF);
+	    lrgb[1] = static_cast<unsigned char>((cval >>  8) & 0xFF);
+	    lrgb[2] = static_cast<unsigned char>((cval >> 16) & 0xFF);
+	    bu_color_from_rgb_chars(&color, lrgb);
+	    color_set = true;
+	}
+    }
+
+    if (dp->d_flags & RT_DIR_COMB)
+	GenCombInstances();
+
+    dbis->gobjs[hash] = this;
+}
+
+GObj::~GObj()
+{
+    for (CombInst *ci : cv)
+	delete ci;
+    cv.clear();
+
+    if (d)
+	d->gobjs.erase(hash);
+}
+
+void
+GObj::GenCombInstances()
+{
+    if (!dp || !(dp->d_flags & RT_DIR_COMB) || !d)
+	return;
+
+    struct rt_db_internal in;
+    if (rt_db_get_internal(&in, dp, d->gedp->dbip, NULL) < 0)
+	return;
+    struct rt_comb_internal *comb = (struct rt_comb_internal *)in.idb_ptr;
+    if (!comb->tree) {
+	rt_db_free_internal(&in);
+	return;
+    }
+
+    struct gobj_walk_data dw;
+    dw.gobj = this;
+    populate_walk_tree(comb->tree, (void *)&dw, 0, OP_UNION, populate_gobj_leaf);
+
+    rt_db_free_internal(&in);
+}
+
+void
+GObj::bbox(point_t *min, point_t *max)
+{
+    if (!min || !max || !d)
+	return;
+
+    if (!cv.empty()) {
+	for (CombInst *ci : cv) {
+	    point_t lbmin, lbmax;
+	    VSETALL(lbmin,  INFINITY);
+	    VSETALL(lbmax, -INFINITY);
+	    ci->bbox(&lbmin, &lbmax);
+	    VMINMAX(*min, *max, lbmin);
+	    VMINMAX(*min, *max, lbmax);
+	}
+	return;
+    }
+
+    if (bb_valid) {
+	VMINMAX(*min, *max, bb_min);
+	VMINMAX(*min, *max, bb_max);
+	return;
+    }
+
+    point_t bmin, bmax;
+    VSETALL(bmin,  INFINITY);
+    VSETALL(bmax, -INFINITY);
+    if (d->get_bbox(&bmin, &bmax, NULL, hash)) {
+	VMOVE(bb_min, bmin);
+	VMOVE(bb_max, bmax);
+	bb_valid = true;
+	VMINMAX(*min, *max, bb_min);
+	VMINMAX(*min, *max, bb_max);
+    }
+}
+
+/* ---- Phase 3.5: DbiState pipeline management ----------------------- */
+
+void
+DbiState::start_geom_load(const std::vector<DrawPipeline::WorkItem> &items)
+{
+    if (items.empty() || !draw_pipeline_)
+	return;
+    if (gedp && gedp->ged_lod)
+	draw_pipeline_->set_lod_ctx(gedp->ged_lod);
+    draw_pipeline_->push(items);
+}
+
+size_t
+DbiState::drain_geom_results()
+{
+    if (!draw_pipeline_)
+	return 0;
+
+    std::vector<DrawPipeline::Result> results;
+    size_t n = draw_pipeline_->drain(results);
+    if (n == 0)
+	return 0;
+
+    for (const auto &r : results) {
+	if (r.type == DrawPipeline::Result::AABB) {
+	    /* Only update if we don't already have a synchronous bbox.
+	     * The sync path in get_bbox may have beaten us to it; if so,
+	     * the sync version wins. */
+	    if (bboxes.find(r.hash) == bboxes.end()) {
+		bboxes[r.hash].clear();
+		bboxes[r.hash].reserve(6);
+		for (int i = 0; i < 3; i++) bboxes[r.hash].push_back(r.bmin[i]);
+		for (int i = 0; i < 3; i++) bboxes[r.hash].push_back(r.bmax[i]);
+	    }
+	} else if (r.type == DrawPipeline::Result::OBB && r.obb_valid) {
+	    /* Store 8 OBB corner points */
+	    std::array<fastf_t, 24> obb_data;
+	    for (int k = 0; k < 8; k++) {
+		obb_data[k*3+0] = r.obb_pts[k][X];
+		obb_data[k*3+1] = r.obb_pts[k][Y];
+		obb_data[k*3+2] = r.obb_pts[k][Z];
+	    }
+	    obbs[r.hash] = obb_data;
+	}
+	/* LOD results: LoD data is now in the bv_mesh_lod_context cache;
+	 * bv_mesh_lod_view() will use it on the next redraw.  No extra work
+	 * needed here for Phase 3.5; future phases can stale scene objects. */
+    }
+
+    /* Fire a batched scene-change notification so that observers
+     * (e.g. QgViewport) know to request a repaint. */
+    {
+	std::vector<SceneChangeEvent> events;
+	events.reserve(n);
+	for (const auto &r : results) {
+	    SceneChangeEvent ev;
+	    ev.path  = PathHash{r.hash};
+	    ev.batch = false;
+	    events.push_back(ev);
+	}
+	notify_scene_observers(events);
+    }
+
+    return n;
+}
+
+size_t
+DbiState::wait_for_pipeline(int max_ms)
+{
+    if (!draw_pipeline_)
+	return 0;
+
+    size_t total = 0;
+    auto t0 = std::chrono::steady_clock::now();
+
+    while (true) {
+	total += drain_geom_results();
+
+	if (draw_pipeline_->settled())
+	    break;
+
+	if (max_ms > 0) {
+	    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+		std::chrono::steady_clock::now() - t0).count();
+	    if (elapsed >= max_ms)
+		break;
+	}
+	std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    /* One final drain to capture any results posted just before settled(). */
+    total += drain_geom_results();
+    return total;
 }
 
 /** @} */
