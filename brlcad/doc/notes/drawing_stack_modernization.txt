@@ -20,10 +20,15 @@ end-state rationale.
 Build/validation reminders
 --------------------------
 This work area is Qt-sensitive.  Always configure with Qt enabled.
+System Qt6 dev packages must be installed first:
+
+  sudo apt-get install -y qt6-base-dev qt6-svg-dev qt6-tools-dev \
+    libqt6opengl6t64 libqt6openglwidgets6t64
 
   cmake -S brlcad -B brlcad_build \
     -DBRLCAD_EXT_DIR=bext_output \
-    -DCMAKE_PREFIX_PATH=bext_output/install \
+    "-DCMAKE_PREFIX_PATH=/usr/lib/x86_64-linux-gnu;bext_output/install" \
+    -DQt6_DIR=/usr/lib/x86_64-linux-gnu/cmake/Qt6 \
     -DBRLCAD_EXTRADOCS=OFF \
     -DBRLCAD_ENABLE_STEP=OFF \
     -DBRLCAD_ENABLE_GDAL=OFF \
@@ -131,11 +136,14 @@ have to rediscover:
    - This is not the full sensor-driven end-state described in the RTF, but it
      is the reason the current implementation behaves acceptably.
 
-7. s_color_rev already exists on bv_scene_obj.
-   - It is the infrastructure for lazy material recoloring.
-   - The optimization is not active yet because gd_mater_rev is still bumped by
-     the sweep itself.
-   - Do not add a second cache token; finish the one that already exists.
+7. s_color_rev / gd_mater_rev implement lazy material recoloring (B4, now active).
+   - gd_mater_rev is initialized to 1; freshly-drawn shapes have s_color_rev=0
+     and are always stale on the first sweep.
+   - Callers that change the material table must call bsg_view_obj_bump_mater_rev()
+     to advance gd_mater_rev.  color_from_soltab does NOT bump it.
+   - color_from_soltab stamps each visited shape with the current gd_mater_rev.
+     A second call without an intervening bump is a full no-op for all shapes.
+   - Do not add a second cache token; the existing mechanism is complete.
 
 Files future sessions should read first
 ---------------------------------------
@@ -192,24 +200,29 @@ B3  MOSTLY DONE
     addresses.  The "better" node-bbox/sensor invalidation design from the RTF
     has not been implemented; bounds are still computed by walking nodes.
 
-B4  PARTIAL
-    The infrastructure exists:
-      - ged_drawable::gd_mater_rev
-      - bv_scene_obj::s_color_rev
-      - color_from_soltab skip logic
-    But the optimization is dormant because gd_mater_rev is still incremented at
-    the end of bsg_view_obj_color_from_soltab().  The remaining work is to bump
-    gd_mater_rev from actual material-change events instead.
+B4  DONE
+    The lazy-color mechanism is now fully active:
+      - gd_mater_rev initializes to 1; freshly-drawn shapes have s_color_rev=0,
+        so they are always stale on the first color_from_soltab call.
+      - bsg_view_obj_bump_mater_rev() is the only caller that advances
+        gd_mater_rev; it must be called before any material-change event.
+      - bsg_view_obj_color_from_soltab() stamps s_color_rev on each shape it
+        colors but does NOT advance gd_mater_rev itself.
+      - bump is wired at: color.c (ged_color_core + edcolor import path),
+        mater.cpp (mater_shader), edmater.c (post-rmater flow).
+      - Tests verify: skip fires on repeated calls without a material change;
+        a bump followed by a sweep recolors stale shapes; counter stays stable.
 
 B5  MOSTLY DONE
     The common clear-illumination path is O(1) through gd_illum_solid, which
     captures most of the practical win the RTF wanted.  The exact sensor-driven
     design described in the RTF is not what is currently implemented.
 
-B6  MOSTLY DONE
+B6  DONE
     Overlays now live under _overlays and no longer require fake db entries in
-    the drawing path.  The remaining gap is user-facing policy cleanup: commands
-    such as who still think in "real vs phony" terms.
+    the drawing path.  User-facing reporting is now also cleaned up: who.c
+    uses bsg_view_obj_group_is_phony() instead of db_lookup()+phony-addr
+    comparison (R1 cleanup).
 
 B7  DONE
     Structural revision tracking is now a cheap counter (gd_draw_rev) rather
@@ -245,12 +258,12 @@ C3  PARTIAL
 
 RTF user-facing redesign items
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-R1  NOT FINISHED
-    The RTF says overlays should stop masquerading as database objects and be
-    reported separately from real drawn geometry.  The internal draw tree is now
-    structured that way, but user-facing reporting has not been fully updated.
-    Example: src/libged/who/who.c still filters "real/phony/both" by doing a
-    db_lookup() on the displayed path leaf.
+R1  MOSTLY DONE
+    The internal draw tree no longer masquerades overlays as database objects.
+    who.c now routes the real/overlay decision through bsg_view_obj_group_is_phony()
+    rather than db_lookup() + RT_DIR_PHONY_ADDR.  Residual work: helpers in
+    src/libged/ged_util.cpp that skip "phony" groups via direct dp->d_addr
+    comparison could also be updated to use the BSG flag.
 
 R2  NOT FINISHED
     The RTF says erase semantics should ultimately be described in tree terms
@@ -259,43 +272,24 @@ R2  NOT FINISHED
 
 What remains to do
 ------------------
-There are three real buckets of remaining work.
+There are two real buckets of remaining work (B4 and the R1 bulk of who.c are now done).
 
-1. Finish B4: make lazy material recoloring actually activate.
-   This is the most concrete unfinished technical task and the one already
-   prepared by the code.
-
-   Required work:
-   - find every command/site that mutates the effective material table or causes
-     a recolor-relevant material change (start with `brlcad/src/libged/color/color.c`'s
-     regionid_colortable import path, `brlcad/src/libged/mater/mater.cpp`,
-     `brlcad/src/libged/edmater/edmater.c`'s wmater/rmater flow, and the MGED
-     wrapper in `brlcad/src/mged/mater.c`),
-   - move gd_mater_rev bumps to those mutation sites,
-   - stop using the recolor sweep itself as the revision bump source,
-   - add/update tests proving that:
-       a) two successive color_from_soltab calls without a material change skip
-          already-stamped shapes, and
-       b) a real material change causes the next sweep to recolor the affected
-          shapes.
-
-2. Finish the user-facing overlay/policy cleanup.
-   The data model is no longer using phony db objects for overlays, but some
-   commands still behave as though that is true.
-
-   The important follow-up sites are:
-   - src/libged/who/who.c
-   - helpers in src/libged/ged_util.cpp that skip phony groups
-   - any command/reporting path that still talks about "phony" instead of
-     overlays as a first-class draw-tree branch
+1. Finish the user-facing overlay/policy cleanup.
+   The data model is no longer using phony db objects for overlays, and who.c
+   has been updated.  Residual work:
+   - helpers in src/libged/ged_util.cpp that still skip "phony" groups by
+     testing dp->d_addr == RT_DIR_PHONY_ADDR could be updated to use
+     bsg_view_obj_group_is_phony() instead.
+   - any other command/reporting path that still talks about "phony" instead of
+     overlays as a first-class draw-tree branch.
 
    Desired end-state:
-   - "who" reports real drawn database geometry by default,
+   - "who" reports real drawn database geometry by default (now done),
    - overlays are listed explicitly via a dedicated overlay-aware path/flag if
      needed,
    - phony-db lookup logic is no longer part of normal overlay reporting.
 
-3. Decide how far to push the public API toward the RTF end-state.
+2. Decide how far to push the public API toward the RTF end-state.
    Internally the tree is modern; the remaining question is how much of the
    legacy libged surface to preserve.
 
@@ -315,21 +309,15 @@ Recommended execution order
 ---------------------------
 If continuing this work in code, do it in this order:
 
-1. B4 completion first.
-   It is the smallest well-bounded remaining technical task and the one most
-   directly called out by the current code/comments.
+1. Finish R1/overlay-reporting residual: update ged_util.cpp phony-group helpers
+   to use bsg_view_obj_group_is_phony() instead of direct dp->d_addr tests.
 
-2. Overlay reporting cleanup second.
-   After the internal overlay model is fixed, make user-facing reporting match
-   it.  This closes the biggest remaining semantic mismatch between the code and
-   the RTF.
-
-3. Public API cleanup/deprecation third.
+2. Public API cleanup/deprecation.
    Once overlay reporting is settled, decide whether bsg_view_obj_* is remaining
    as a compatibility facade or being slimmed toward a more scene-graph-native
    surface.
 
-4. Only after that, revisit larger end-state questions.
+3. Only after that, revisit larger end-state questions.
    Examples:
    - bbox/sensor invalidation improvements,
    - fuller sensorization of highlight state,
@@ -342,8 +330,10 @@ Future sessions should NOT spend time rediscovering or re-arguing these points:
 - Do not reintroduce display_list/gd_headDisplay as the canonical drawn-set
   structure.
 - Do not reintroduce RT_DIR_PHONY_ADDR into the drawing path for overlays.
-- Do not replace s_color_rev with a different lazy-color token; finish the
-  existing mechanism.
+- Do not replace s_color_rev with a different lazy-color token; the existing
+  mechanism is done and working.
+- Do not make color_from_soltab bump gd_mater_rev itself; the bump must come
+  from material-change event callers only.
 - Do not move GED/MGED policy decisions down into libbsg just to make the lower
   layer "look complete".
 - Do not treat the rename to bsg_ged_draw.c as cosmetic; it marks the real split
@@ -355,5 +345,6 @@ The modernization effort is past the risky structural part.  The draw tree is
 already BSG-native enough that future work should focus on finishing the
 remaining semantic mismatches, not on more large-scale storage rewrites.
 
-The next practical milestone is simple: finish B4, then make overlay reporting
-and the public API tell the same story the internals already do.
+B4 (lazy material recoloring) and the core of R1 (who.c overlay reporting) are
+now done.  The next practical milestones are: finish the residual ged_util.cpp
+phony-group helpers, then settle the public API deprecation question.
