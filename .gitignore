@@ -6,6 +6,38 @@
 /out
 brlcad/*build*
 
+# CMake in-source build artifacts (when build dir == repo root)
+/CMakeCache.txt
+/CMakeFiles/
+/CMakeTmp/
+/CPackConfig.cmake
+/CPackProperties.cmake
+/CPackSourceConfig.cmake
+/CTestTestfile.cmake
+/DartConfiguration.tcl
+/Makefile
+/BRLCAD_CPackOptions.cmake
+/brlcadexec.cmake
+/cmake_install.cmake
+/cmakefiles.cmake
+/distclean.cmake
+/toplevel_DOCFILES.sentinel
+/.qt/
+/bin/
+/lib/
+/libexec/
+/include/
+/libdata/
+/man/
+/misc/
+/regress/
+/sh/
+/share/
+/doc/
+/db/
+/bench/
+/src/
+
 # Temporary files
 *~
 \#*\#
@@ -40,3 +72,4 @@ CMakeLists.txt.user
 .clang-format
 
 
+bsg_view_obj_tmp.g

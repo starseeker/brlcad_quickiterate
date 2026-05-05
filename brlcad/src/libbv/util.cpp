@@ -327,6 +327,12 @@ bv_init(struct bview *gvp, struct bview_set *s)
     // can succeed)
     _data_tclcad_init(&gvp->gv_tcl);
 
+    // No BSG scene root until bsg_scene_root_create() is called
+    gvp->bsg_root = NULL;
+
+    // No edit-mode matrix override until explicitly set by the renderer
+    gvp->gv_edit_mat = NULL;
+
     bv_update(gvp);
 }
 
@@ -1363,6 +1369,7 @@ bv_obj_reset(struct bv_scene_obj *s)
     s->point_scale = 0;
     s->s_arrow = 0;
     s->s_csize = 0;
+    s->s_color_rev = 0;
     s->s_flag = UP;
     s->s_force_draw = 0;
     s->s_i_data = NULL;

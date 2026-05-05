@@ -1,0 +1,526 @@
+/*                  D I S P L A Y _ L I S T . C
+ * BRL-CAD
+ *
+ * Copyright (c) 2008-2026 United States Government as represented by
+ * the U.S. Army Research Laboratory.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * version 2.1 as published by the Free Software Foundation.
+ *
+ * This library is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this file; see the file named COPYING for more
+ * information.
+ */
+/** @file libged/display_list.c
+ *
+ * Collect display list manipulation logic here as it is refactored.
+ *
+ */
+
+#include "common.h"
+
+#include <stdlib.h>
+#include <string.h>
+
+#include "bu/hash.h"
+#include "bu/ptbl.h"
+#include "bu/str.h"
+#include "bu/color.h"
+#include "bsg/plot3.h"
+#include "bg/clip.h"
+
+#include "bsg/util.h"
+#include "ged.h"
+#include "./ged_private.h"
+
+#define FIRST_SOLID(_sp)      ((_sp)->s_fullpath.fp_names[0])
+#define FREE_BV_SCENE_OBJ(p, fp, vlf) { \
+        BU_LIST_APPEND(fp, &((p)->l)); \
+        BSG_FREE_VLIST(vlf, &((p)->s_vlist)); }
+
+
+/* defined in draw_calc.cpp */
+extern fastf_t brep_est_avg_curve_len(struct rt_brep_internal *bi);
+extern void createDListSolid(bsg_shape *sp);
+
+/* --------------------------------------------------------------------------
+ * Phase 2e helpers: iterate root->children across all views, filtering by
+ * path prefix (dl_path_str) or subpath subset.  These replace all patterns
+ * that previously iterated gdlp->dl_head_scene_obj.
+ * ------------------------------------------------------------------------ */
+
+/*
+ * Collect all bsg_shape nodes whose s_fullpath starts with match_path
+ * from every view's scene-root children.
+ */
+static void
+dl_match_shapes(struct ged *gedp, struct db_full_path *match_path,
+struct bu_ptbl *out)
+{
+    struct bu_ptbl *views = bsg_scene_views(&gedp->ged_views);
+    if (!views) return;
+    for (size_t vi = 0; vi < BU_PTBL_LEN(views); vi++) {
+bsg_view *v = (bsg_view *)BU_PTBL_GET(views, vi);
+bsg_shape *root = bsg_scene_root_get(v);
+if (!root || !BU_PTBL_IS_INITIALIZED(&root->children)) continue;
+for (size_t si = 0; si < BU_PTBL_LEN(&root->children); si++) {
+    bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+    if (!sp || !sp->s_u_data) continue;
+    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+    if (db_full_path_match_top(match_path, &bdata->s_fullpath))
+bu_ptbl_ins_unique(out, (long *)sp);
+}
+    }
+}
+
+/*
+ * Free a single bsg_shape: fire destroy-vlist callback, remove from
+ * scene-root children, and recycle via free_scene_obj pool.
+ */
+static void
+dl_free_shape(struct ged *gedp, bsg_shape *sp)
+{
+    bsg_shape *free_scene_obj = bsg_scene_fsos(&gedp->ged_views);
+    struct bu_list *vlfree = &rt_vlfree;
+
+    ged_destroy_vlist_cb(gedp, sp->s_dlist, 1);
+
+    if (sp->s_u_data) {
+struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+struct directory *dp = FIRST_SOLID(bdata);
+RT_CK_DIR(dp);
+if (dp->d_addr == RT_DIR_PHONY_ADDR)
+    (void)db_dirdelete(gedp->dbip, dp);
+    }
+
+    bsg_view *sp_view = (bsg_view *)sp->s_v;
+    if (sp_view) {
+bsg_shape *scene_root = bsg_scene_root_get(sp_view);
+if (scene_root) bu_ptbl_rm(&scene_root->children, (const long *)sp);
+    }
+
+    FREE_BV_SCENE_OBJ(sp, &free_scene_obj->l, vlfree);
+}
+
+
+/*
+ * BSG Phase 2e version of dl_bounding_sph: iterates scene-root children
+ * for the given view, avoiding the nested gdlp → dl_head_scene_obj loop.
+ */
+int
+bsg_bounding_sph(bsg_view *v, vect_t *min, vect_t *max, int pflag)
+{
+    vect_t minus, plus;
+    int is_empty = 1;
+
+    VSETALL((*min),  INFINITY);
+    VSETALL((*max), -INFINITY);
+
+    bsg_shape *root = bsg_scene_root_get(v);
+    size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
+    for (size_t si = 0; si < nshapes; si++) {
+	bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+	if (!sp->s_u_data)
+	    continue;
+	struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+	if (!pflag &&
+	    bdata->s_fullpath.fp_names != (struct directory **)0 &&
+	    bdata->s_fullpath.fp_names[0] != (struct directory *)0 &&
+	    bdata->s_fullpath.fp_names[0]->d_addr == RT_DIR_PHONY_ADDR)
+	    continue;
+
+	minus[X] = sp->s_center[X] - sp->s_size;
+	minus[Y] = sp->s_center[Y] - sp->s_size;
+	minus[Z] = sp->s_center[Z] - sp->s_size;
+	VMIN((*min), minus);
+	plus[X] = sp->s_center[X] + sp->s_size;
+	plus[Y] = sp->s_center[Y] + sp->s_size;
+	plus[Z] = sp->s_center[Z] + sp->s_size;
+	VMAX((*max), plus);
+
+	is_empty = 0;
+    }
+
+    return is_empty;
+}
+
+
+/*
+ * Erase/remove scene shapes matching path from scene-root children.
+ *
+ */
+void
+dl_erasePathFromDisplay(struct ged *gedp, const char *path, int UNUSED(allow_split))
+{
+    struct db_full_path subpath;
+    if (db_string_to_path(&subpath, gedp->dbip, path) != 0)
+	return;
+
+    struct bu_ptbl to_free = BU_PTBL_INIT_ZERO;
+    bu_ptbl_init(&to_free, 8, "erasePathFromDisplay");
+    dl_match_shapes(gedp, &subpath, &to_free);
+    for (size_t _si = 0; _si < BU_PTBL_LEN(&to_free); _si++) {
+	bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&to_free, _si);
+	if (sp) dl_free_shape(gedp, sp);
+    }
+    bu_ptbl_free(&to_free);
+    db_free_full_path(&subpath);
+}
+
+
+/*
+ * Erase/remove display list item from headDisplay if name is found anywhere along item's path with
+ * the exception that the first path element is skipped if skip_first is true.
+ *
+ * Note - name is not expected to contain path separators.
+ *
+ */
+void
+_dl_eraseAllNamesFromDisplay(struct ged *gedp, const char *name, const int skip_first)
+{
+    struct bu_ptbl *views = bsg_scene_views(&gedp->ged_views);
+    if (!views) return;
+
+    struct bu_ptbl to_free = BU_PTBL_INIT_ZERO;
+    bu_ptbl_init(&to_free, 8, "_dl_eraseAllNamesFromDisplay");
+
+    for (size_t vi = 0; vi < BU_PTBL_LEN(views); vi++) {
+	bsg_view *v = (bsg_view *)BU_PTBL_GET(views, vi);
+	bsg_shape *root = bsg_scene_root_get(v);
+	if (!root || !BU_PTBL_IS_INITIALIZED(&root->children)) continue;
+	for (size_t si = 0; si < BU_PTBL_LEN(&root->children); si++) {
+	    bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+	    if (!sp || !sp->s_u_data) continue;
+	    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+	    for (size_t k = skip_first ? 1 : 0; k < bdata->s_fullpath.fp_len; k++) {
+		if (BU_STR_EQUAL(bdata->s_fullpath.fp_names[k]->d_namep, name)) {
+		    bu_ptbl_ins_unique(&to_free, (long *)sp);
+		    break;
+		}
+	    }
+	}
+    }
+
+    for (size_t i = 0; i < BU_PTBL_LEN(&to_free); i++) {
+	bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&to_free, i);
+	if (sp) dl_free_shape(gedp, sp);
+    }
+    bu_ptbl_free(&to_free);
+}
+
+
+/*
+ * Erase/remove scene shapes whose path is a subset of path.
+ */
+void
+_dl_eraseAllPathsFromDisplay(struct ged *gedp, const char *path, const int skip_first)
+{
+    struct db_full_path subpath;
+    if (db_string_to_path(&subpath, gedp->dbip, path) != 0)
+	return;
+
+    struct bu_ptbl *views = bsg_scene_views(&gedp->ged_views);
+    if (!views) {
+	db_free_full_path(&subpath);
+	return;
+    }
+
+    struct bu_ptbl to_free = BU_PTBL_INIT_ZERO;
+    bu_ptbl_init(&to_free, 8, "_dl_eraseAllPathsFromDisplay");
+
+    for (size_t vi = 0; vi < BU_PTBL_LEN(views); vi++) {
+	bsg_view *v = (bsg_view *)BU_PTBL_GET(views, vi);
+	bsg_shape *root = bsg_scene_root_get(v);
+	if (!root || !BU_PTBL_IS_INITIALIZED(&root->children)) continue;
+	for (size_t si = 0; si < BU_PTBL_LEN(&root->children); si++) {
+	    bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+	    if (!sp || !sp->s_u_data) continue;
+	    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+	    if (db_full_path_subset(&bdata->s_fullpath, &subpath, skip_first))
+		bu_ptbl_ins_unique(&to_free, (long *)sp);
+	}
+    }
+
+    for (size_t i = 0; i < BU_PTBL_LEN(&to_free); i++) {
+	bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&to_free, i);
+	if (sp) dl_free_shape(gedp, sp);
+    }
+    bu_ptbl_free(&to_free);
+    db_free_full_path(&subpath);
+}
+
+
+void
+color_soltab(bsg_shape *sp)
+{
+    const struct mater *mp;
+
+    sp->s_old.s_cflag = 0;
+
+    /* the user specified the color, so use it */
+    if (sp->s_old.s_uflag) {
+	sp->s_color[0] = sp->s_old.s_basecolor[0];
+	sp->s_color[1] = sp->s_old.s_basecolor[1];
+	sp->s_color[2] = sp->s_old.s_basecolor[2];
+
+	return;
+    }
+
+    if (dbip) {
+	for (mp = db_mater_head(dbip); mp != MATER_NULL; mp = mp->mt_forw) {
+	    if (sp->s_old.s_regionid <= mp->mt_high &&
+		sp->s_old.s_regionid >= mp->mt_low) {
+		sp->s_color[0] = mp->mt_r;
+		sp->s_color[1] = mp->mt_g;
+		sp->s_color[2] = mp->mt_b;
+
+		return;
+	    }
+	}
+    }
+
+    /*
+     * There is no region-id-based coloring entry in the
+     * table, so use the combination-record ("mater"
+     * command) based color if one was provided. Otherwise,
+     * use the default wireframe color.
+     * This is the "new way" of coloring things.
+     */
+
+    /* use wireframe_default_color */
+    if (sp->s_old.s_dflag)
+	sp->s_old.s_cflag = 1;
+
+    /* Be conservative and copy color anyway, to avoid black */
+    sp->s_color[0] = sp->s_old.s_basecolor[0];
+    sp->s_color[1] = sp->s_old.s_basecolor[1];
+    sp->s_color[2] = sp->s_old.s_basecolor[2];
+}
+
+
+/*
+ * BSG Phase 2e version: recolor all shapes in the scene-root children of v.
+ */
+void
+bsg_color_soltab(bsg_view *v)
+{
+    if (!v) return;
+    bsg_shape *root = bsg_scene_root_get(v);
+    if (!root) return;
+    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+	bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&root->children, i);
+	color_soltab(sp);
+    }
+}
+
+static void
+solid_append_vlist(bsg_shape *sp, struct bsg_vlist *vlist)
+{
+    if (BU_LIST_IS_EMPTY(&(sp->s_vlist))) {
+	sp->s_vlen = 0;
+    }
+
+    sp->s_vlen += bsg_vlist_cmd_cnt(vlist);
+    BU_LIST_APPEND_LIST(&(sp->s_vlist), &(vlist->l));
+}
+
+static void
+solid_copy_vlist(struct db_i *UNUSED(dbip), bsg_shape *sp, struct bsg_vlist *vlist, struct bu_list *vlfree)
+{
+    BU_LIST_INIT(&(sp->s_vlist));
+    bsg_vlist_copy(vlfree, &(sp->s_vlist), (struct bu_list *)vlist);
+    sp->s_vlen = bsg_vlist_cmd_cnt((struct bsg_vlist *)(&(sp->s_vlist)));
+}
+
+
+int invent_solid(struct ged *gedp, char *name, struct bu_list *vhead, long int rgb, int copy,
+		 fastf_t transparency, int dmode, int csoltab)
+{
+    if (!gedp || !gedp->ged_gvp)
+	return 0;
+
+    struct db_i *dbip = gedp->dbip;
+    struct directory *dp;
+    bsg_shape *sp;
+    unsigned char type='0';
+    struct bu_list *vlfree = &rt_vlfree;
+
+    if (dbip == DBI_NULL)
+	return 0;
+
+    if ((dp = db_lookup(dbip, name, LOOKUP_QUIET)) != RT_DIR_NULL) {
+	if (dp->d_addr != RT_DIR_PHONY_ADDR) {
+	    bu_log("invent_solid(%s) would clobber existing database entry, ignored\n", name);
+	    return -1;
+	}
+
+	/*
+	 * Name exists from some other overlay,
+	 * zap any associated solids
+	 */
+	dl_erasePathFromDisplay(gedp, name, 0);
+    }
+
+    /* Obtain a fresh solid structure, and fill it in */
+    sp = bsg_shape_get(gedp->ged_gvp, BSG_DB_OBJS);
+    struct ged_bv_data *bdata = (sp->s_u_data) ? (struct ged_bv_data *)sp->s_u_data : NULL;
+    if (!bdata) {
+	BU_GET(bdata, struct ged_bv_data);
+	db_full_path_init(&bdata->s_fullpath);
+	sp->s_u_data = (void *)bdata;
+    } else {
+	bdata->s_fullpath.fp_len = 0;
+    }
+    if (!sp->s_u_data)
+	return -1;
+
+    /* Need to enter phony name in directory structure */
+    dp = db_diradd(dbip, name, RT_DIR_PHONY_ADDR, 0, RT_DIR_SOLID, (void *)&type);
+
+    if (copy) {
+	solid_copy_vlist(dbip, sp, (struct bsg_vlist *)vhead, vlfree);
+    } else {
+	solid_append_vlist(sp, (struct bsg_vlist *)vhead);
+	BU_LIST_INIT(vhead);
+    }
+    bsg_shape_bound(sp, gedp->ged_gvp);
+
+    /* set path information -- this is a top level node */
+    db_add_node_to_full_path(&bdata->s_fullpath, dp);
+
+    /* Phase 2e: shapes are registered in scene-root by bsg_shape_get() above */
+
+    sp->s_iflag = DOWN;
+    sp->s_soldash = 0;
+    sp->s_old.s_Eflag = 1;            /* Can't be solid edited! */
+    sp->s_color[0] = sp->s_old.s_basecolor[0] = (rgb>>16) & 0xFF;
+    sp->s_color[1] = sp->s_old.s_basecolor[1] = (rgb>> 8) & 0xFF;
+    sp->s_color[2] = sp->s_old.s_basecolor[2] = (rgb) & 0xFF;
+    sp->s_old.s_regionid = 0;
+    sp->s_dlist = 0;
+
+    sp->s_old.s_uflag = 0;
+    sp->s_old.s_dflag = 0;
+    sp->s_old.s_cflag = 0;
+    sp->s_old.s_wflag = 0;
+
+    sp->s_os->transparency = transparency;
+    sp->s_os->s_dmode = dmode;
+
+    if (csoltab)
+	color_soltab(gedp->dbip, sp);
+
+    ged_create_vlist_solid_cb(gedp, sp);
+
+    return 0;           /* OK */
+
+}
+
+
+/*
+ * BSG Phase 2e version: set the iflag on all shapes in the scene-root children.
+ */
+void
+bsg_set_iflag(bsg_view *v, int iflag)
+{
+    if (!v) return;
+    bsg_shape *root = bsg_scene_root_get(v);
+    if (!root) return;
+    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+	bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&root->children, i);
+	sp->s_iflag = iflag;
+    }
+}
+
+
+
+unsigned long long
+dl_name_hash(struct ged *gedp)
+{
+    bsg_shape *root = (gedp->ged_gvp) ? bsg_scene_root_get(gedp->ged_gvp) : NULL;
+    size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
+
+    if (!nshapes)
+	return 0;
+
+    struct bu_data_hash_state *state = bu_data_hash_create();
+    if (!state)
+	return 0;
+
+    if (root) {
+	/* Phase 2e: scene-root children is the sole source */
+	for (size_t i = 0; i < nshapes; i++) {
+	    bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&root->children, i);
+	    if (!sp->s_u_data) continue;
+	    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+	    for (size_t j = 0; j < bdata->s_fullpath.fp_len; j++) {
+		struct directory *dp = bdata->s_fullpath.fp_names[j];
+		bu_data_hash_update(state, dp->d_namep, strlen(dp->d_namep));
+	    }
+	}
+    }
+
+    unsigned long long hash_val = bu_data_hash_val(state);
+    bu_data_hash_destroy(state);
+
+    return hash_val;
+}
+
+/*
+ * ged_find_shapes_by_path — BSG Phase 2e helper.
+ *
+ * Searches the scene-root children of view @p v for bsg_shape nodes whose
+ * ged_bv_data::s_fullpath exactly matches @p path, and appends them to
+ * @p result.
+ *
+ * This replaces the legacy nested loop pattern:
+ *
+ *   for each gdlp in ged_dl(gedp):
+ *       for each sp in gdlp->dl_head_scene_obj:
+ *           if (db_identical_full_paths(path, &bdata->s_fullpath)) …
+ *
+ * After Phase 2e (all shapes in scene root) this single pass is the only
+ * lookup needed.  During the transition period the scene-root children are
+ * populated by the dual-write in dodraw.c / display_list.c.
+ */
+void
+ged_find_shapes_by_path(struct ged *gedp, bsg_view *v,
+			const struct db_full_path *path,
+			struct bu_ptbl *result)
+{
+    if (!gedp || !v || !path || !result)
+	return;
+
+    bsg_shape *root = bsg_scene_root_get(v);
+    if (!root)
+	return;
+
+    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+	bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&root->children, i);
+	/* BU_PTBL_GET should never return NULL here, but guard defensively */
+	if (!sp)
+	    continue;
+	if (!sp->s_u_data)
+	    continue;
+	struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+	if (db_identical_full_paths(path, &bdata->s_fullpath))
+	    bu_ptbl_ins(result, (long *)sp);
+    }
+}
+
+
+/*
+ * Local Variables:
+ * mode: C
+ * tab-width: 8
+ * indent-tabs-mode: t
+ * c-file-style: "stroustrup"
+ * End:
+ * ex: shiftwidth=4 tabstop=8
+ */

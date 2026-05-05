@@ -325,7 +325,7 @@ copy_object(struct ged *gedp,
     /* if overwriting -
      * we've added the new object, its safe to delete the original */
     if (oride_dp) {
-	_dl_eraseAllNamesFromDisplay(gedp, owrite_backup.c_str(), 0);
+	bsg_view_obj_erase_by_name(gedp, owrite_backup.c_str());
 	if (db_delete(gedp->dbip, oride_dp) != 0 || db_dirdelete(gedp->dbip, oride_dp) != 0) {
 	    /* Abort processing on first error */
 	    bu_vls_printf(gedp->ged_result_str, "an error occurred while deleting %s\n", owrite_backup.c_str());

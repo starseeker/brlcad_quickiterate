@@ -35,6 +35,7 @@
 #include "bu/path.h"
 #include "analyze.h"
 #include "ged.h"
+#include "ged/bsg_view_obj.h"
 #include "../ged_private.h"
 
 #include <string.h>
@@ -251,6 +252,10 @@ mater_shader(struct ged *gedp, size_t argc, const char *argv[])
     }
 
     bu_avs_free(&avs);
+
+    /* Invalidate per-shape color stamps so the next color_from_soltab sweep
+     * picks up the changed shader/rgb (B4). */
+    bsg_view_obj_bump_mater_rev(gedp);
 
     return BRLCAD_OK;
 }

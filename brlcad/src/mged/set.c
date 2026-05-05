@@ -48,6 +48,20 @@ static void set_dlist(const struct bu_structparse *, const char *, void *, const
 static void set_rotate_about(const struct bu_structparse *, const char *, void *, const char *, void *);
 static void toggle_perspective(const struct bu_structparse *, const char *, void *, const char *, void *);
 
+struct set_free_dlists_ctx { struct mged_dm *dlp; };
+static int
+set_free_dlists_cb(struct bv_scene_obj *g, void *ud) {
+    struct set_free_dlists_ctx *ctx = (struct set_free_dlists_ctx *)ud;
+    if (bsg_view_obj_group_is_nonempty(g)) {
+        (void)dm_make_current(ctx->dlp->dm_dmp);
+        (void)dm_free_dlists(ctx->dlp->dm_dmp,
+            bsg_view_obj_group_first_solid(g)->s_dlist,
+            bsg_view_obj_group_last_solid(g)->s_dlist -
+            bsg_view_obj_group_first_solid(g)->s_dlist + 1);
+    }
+    return 1;
+}
+
 static char *read_var(ClientData clientData, Tcl_Interp *interp, const char *name1, const char *name2, int flags);
 static char *write_var(ClientData clientData, Tcl_Interp *interp, const char *name1, const char *name2, int flags);
 static char *unset_var(ClientData clientData, Tcl_Interp *interp, const char *name1, const char *name2, int flags);
@@ -407,7 +421,7 @@ set_dlist(const struct bu_structparse *UNUSED(sdp),
 	    if (dm_get_displaylist(dlp1->dm_dmp) &&
 		dlp1->dm_dlist_state->dl_active == 0) {
 		set_curr_dm(s, dlp1);
-		createDLists((void *)s, (struct bu_list *)ged_dl(s->gedp));
+		createDLists((void *)s, ged_dl(s->gedp));
 		dlp1->dm_dlist_state->dl_active = 1;
 		dlp1->dm_dirty = 1;
 		dm_set_dirty(dlp1->dm_dmp, 1);
@@ -445,23 +459,10 @@ set_dlist(const struct bu_structparse *UNUSED(sdp),
 
 		/* these display lists are not being used, so free them */
 		if (dlp2 == MGED_DM_NULL) {
-		    struct display_list *gdlp;
-		    struct display_list *next_gdlp;
-
+		    struct set_free_dlists_ctx sfd_ctx;
+		    sfd_ctx.dlp = dlp1;
 		    dlp1->dm_dlist_state->dl_active = 0;
-
-		    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-		    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-			next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-			(void)dm_make_current(dlp1->dm_dmp);
-			(void)dm_free_dlists(dlp1->dm_dmp,
-				      BU_LIST_FIRST(bv_scene_obj, &gdlp->dl_head_scene_obj)->s_dlist,
-				      BU_LIST_LAST(bv_scene_obj, &gdlp->dl_head_scene_obj)->s_dlist -
-				      BU_LIST_FIRST(bv_scene_obj, &gdlp->dl_head_scene_obj)->s_dlist + 1);
-
-			gdlp = next_gdlp;
-		    }
+		    bsg_view_obj_foreach_group(s->gedp, set_free_dlists_cb, &sfd_ctx);
 		}
 	    }
 	}

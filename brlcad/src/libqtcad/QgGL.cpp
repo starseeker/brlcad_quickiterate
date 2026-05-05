@@ -30,6 +30,7 @@
 
 extern "C" {
 #include "bu/malloc.h"
+#include "bsg/util.h"
 }
 #include "bindings.h"
 #include "qtcad/QgGL.h"
@@ -53,6 +54,9 @@ QgGL::QgGL(QWidget *parent, struct fb *fbp)
     bv_init(local_v, NULL);
     bu_vls_sprintf(&local_v->gv_name, "qtgl");
     v = local_v;
+
+    /* Phase 4-C: create the BSG scene root for this view */
+    bsg_scene_root_create(local_v);
 
     // We can't initialize dmp successfully until more of the OpenGL
     // initialization is complete
@@ -388,19 +392,7 @@ void QgGL::aet(double a, double e, double t)
     /* convert from double to fastf_t */
     VMOVE(aet, aetd);
 
-    VMOVE(v->gv_aet, aet);
-
-    /* TODO - based on the suspect bv_mat_aet... */
-    mat_t tmat;
-    fastf_t twist;
-    fastf_t c_twist;
-    fastf_t s_twist;
-    bn_mat_angles(v->gv_rotation, 270.0 + v->gv_aet[1], 0.0, 270.0 - v->gv_aet[0]);
-    twist = -v->gv_aet[2] * DEG2RAD;
-    c_twist = cos(twist);
-    s_twist = sin(twist);
-    bn_mat_zrot(tmat, s_twist, c_twist);
-    bn_mat_mul2(tmat, v->gv_rotation);
+    bv_view_set_aet(v, aet);
 
     bv_update(v);
 }

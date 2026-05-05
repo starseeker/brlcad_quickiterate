@@ -256,6 +256,7 @@ struct bv_scene_obj  {
     char s_iflag;	        /**< @brief  UP = illuminated, DOWN = regular */
     int s_force_draw;           /**< @brief  1 = overrides s_flag and s_iflag - always draw (allows parents to force children to be visible) */
     unsigned char s_color[3];	/**< @brief  color to draw as */
+    uint32_t s_color_rev;       /**< @brief  material-revision stamp; set to gd_mater_rev each time this shape's color is recalculated by bsg_view_obj_color_from_soltab (B4 infrastructure, Phase 7 Step 14) */
     int s_soldash;		/**< @brief  solid/dashed line flag: 0 = solid, 1 = dashed*/
     int s_arrow;		/**< @brief  arrow flag for view object drawing routines */
     int s_changed;		/**< @brief  changed flag - set by s_update_callback if a change occurred */
@@ -299,7 +300,7 @@ struct bv_scene_obj  {
     struct bu_ptbl children;
 
     /* Parent object of this object */
-    struct bv_scene_ob *parent;
+    struct bv_scene_obj *parent;
 
     /* Object level pointers to parent containers.  These are stored so
      * that the object itself knows everything needed for data manipulation
@@ -674,6 +675,29 @@ struct bview {
     struct bu_ptbl *callbacks;
     void           *dmp;             /* Display manager pointer, if one is associated with this view */
     void           *u_data;          /* Caller data associated with this view */
+
+    /* Phase 4 (drawing_stack_modernization): BSG scene-graph root for this
+     * view.  Stored as void * to avoid a circular include dependency between
+     * bv/defines.h and bsg/defines.h.  Cast to struct bv_scene_obj * (which
+     * is typedef'd as bsg_node) before use.  NULL until bsg_scene_root_create
+     * is called for this view. */
+    void           *bsg_root;
+
+    /* Phase 7 step 7 A3 (drawing_stack_modernization): GED draw-tree root for
+     * this view.  Stored as void * to avoid circular headers.  Cast to
+     * struct bv_scene_obj * (= bsg_node) before use.  Set by
+     * bsg_view_obj_ensure_root() when GED initialises the draw tree.  When
+     * non-NULL, bsg_scene_root_sync() uses this tree as the authoritative
+     * source of drawn objects (gv_objs is then a derived flat index). */
+    void           *gv_draw_root;
+
+    /* Phase 5 (drawing_stack_modernization): per-frame edit-mode matrix
+     * override.  When non-NULL, draw_scene_obj() renders objects whose
+     * s_iflag == UP with this matrix instead of gv_model2view.  MGED sets
+     * this to view_state->vs_model2objview while the frame is being painted
+     * and clears it to NULL immediately afterward.  Never heap-allocated;
+     * always points into caller-owned storage. */
+    matp_t          gv_edit_mat;
 };
 
 // Because bview instances frequently share objects in applications, they are

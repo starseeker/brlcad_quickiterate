@@ -1,0 +1,332 @@
+Drawing Stack Modernization — Current Audit
+===========================================
+
+Purpose
+-------
+This note is the current-state summary for the BRL-CAD drawing-stack
+modernization work.  It replaces the older session-by-session log with the
+information future sessions actually need:
+
+1. what the high-level plan in the repository root file `draw_migration_plan.rtf` (outside the brlcad/ subtree) was trying to do,
+2. what the code in brlcad/ implements now,
+3. which parts of that plan are truly done versus only approximated,
+4. what work still remains, and
+5. the recommended order for the remaining work.
+
+Read this first, then read the RTF plan file `draw_migration_plan.rtf` at the
+repository root (outside the brlcad/ subtree) if you need the original
+end-state rationale.
+
+Build/validation reminders
+--------------------------
+This work area is Qt-sensitive.  Always configure with Qt enabled.
+System Qt6 dev packages must be installed first:
+
+  sudo apt-get install -y qt6-base-dev qt6-svg-dev qt6-tools-dev \
+    libqt6opengl6t64 libqt6openglwidgets6t64
+
+You may need to work around a libinput10 security mirror 404 error by installing the slightly older mainline version.
+
+  cmake -S brlcad -B brlcad_build \
+    -DBRLCAD_EXT_DIR=bext_output \
+    "-DCMAKE_PREFIX_PATH=/usr/lib/x86_64-linux-gnu;bext_output/install" \
+    -DQt6_DIR=/usr/lib/x86_64-linux-gnu/cmake/Qt6 \
+    -DBRLCAD_EXTRADOCS=OFF \
+    -DBRLCAD_ENABLE_STEP=OFF \
+    -DBRLCAD_ENABLE_GDAL=OFF \
+    -DBRLCAD_ENABLE_OPENGL=ON \
+    -DBRLCAD_ENABLE_QT=ON
+
+At minimum, any code change in this area should keep the Qt drawing targets
+healthy: libqtcad, dm-qtgl, dm-swrast, qged, and archer.
+
+High-level status
+-----------------
+The important headline is:
+
+- The legacy display_list implementation is no longer the canonical drawn-set
+  data structure.
+- The canonical drawn set is now a BSG tree rooted at
+  ged_drawable::gd_draw_root.
+- Phase 7's internal refactor steps (1-15) have been implemented.
+- Pure tree manipulation logic has been moved into libbsg.
+- However, the full end-state sketched in draw_migration_plan.rtf is NOT 100%
+  realized yet.
+
+Against the RTF plan, the project is here:
+
+- Layer A: effectively done.
+- Layer B: mostly done; B4 is still only partial.
+- Layer C: internally far along, but the public libged API and some user-facing
+  semantics still expose legacy ideas.
+- User-facing redesign items R1/R2 from the RTF are not fully finished.
+- The "backend-style vs adapter-style" end-state decision is still open.
+
+What has been accomplished already
+----------------------------------
+Condensed history:
+
+- Phases 0-4 established the supporting infrastructure:
+  - dbi_state was modernized away from raw LMDB usage.
+  - typed observer/state machinery was added.
+  - libbsg was vendored into brlcad/.
+  - libdm gained BSG traversal support.
+  - views gained bsg_root plumbing.
+
+- Phase 5 migrated the major front ends to the BSG-capable path:
+  - MGED, Archer, and rtwizard were moved onto the modern draw path.
+  - The renderer could already consume a BSG scene root instead of the old
+    display-list walk.
+
+- Phase 6.5 removed the standalone legacy display_list implementation:
+  - src/libged/display_list.c was deleted.
+  - Its helpers were folded into libged and then progressively replaced.
+  - The internal linked-list-only model stopped being the renderer's source of
+    truth.
+
+- Phase 7 turned the GED draw set into a real BSG tree:
+  - gd_draw_root became the canonical per-GED draw root.
+  - nested per-component groups replaced top-level path-string splitting.
+  - DFS snapshot navigation replaced cross-list next/prev traversal.
+  - overlays moved to a dedicated _overlays tree branch using
+    BSG_PAYLOAD_OVERLAY instead of RT_DIR_PHONY_ADDR in the drawing path.
+  - freeing/revision helpers were pushed down into libbsg.
+  - bsg_view_obj.c was renamed to bsg_ged_draw.c because it is now primarily
+    GED-layer wrapper code.
+
+Current architecture and why it looks this way
+----------------------------------------------
+These are the important present-day design facts future sessions should not
+have to rediscover:
+
+1. The canonical drawn set is a BSG tree.
+   - Root: ged_drawable::gd_draw_root
+   - Root type: BSG_NODE_GROUP
+   - Real drawn geometry lives under child groups/shapes of that root.
+   - The renderer consumes this tree via libdm's BSG traversal path.
+   - The old gd_headDisplay chain is no longer the authoritative store.
+
+2. gv_draw_root exists so the active bview can point directly at the GED-owned
+   draw tree.
+   - This is the A3 realization from the RTF.
+   - The important consequence is that gv_objs is now derived/supporting state,
+     not the canonical structure to mutate first.
+
+3. libbsg now owns the pure tree logic.
+   - src/libbsg/draw_set.c: draw-tree structure/free/revision helpers,
+     nested-subpath erase helper, child-group utilities.
+   - src/libbsg/overlay.c: overlay-group helpers.
+   - include/bsg/draw_ctx.h: per-root context used by libbsg helpers to reach
+     the owner's revision counter and free-object pool without needing a
+     struct ged *.
+
+4. bsg_draw_ctx in root->s_i_data is intentional.
+   - It exists so libbsg code can bump gd_draw_rev and recycle nodes without
+     carrying GED-private state through every helper.
+   - Do not remove it unless there is a better owner/context handoff design.
+
+5. _overlays plus BSG_PAYLOAD_OVERLAY is the replacement for the old phony-db
+   overlay trick.
+   - In the drawing path, overlays are now scene nodes, not fake database
+     objects.
+   - This was necessary to stop RT_DIR_PHONY_ADDR from being load-bearing in
+     draw-tree bookkeeping.
+
+6. gd_illum_solid is still present on purpose.
+   - The current code uses it to make the common "clear current illumination"
+     path O(1).
+   - This is not the full sensor-driven end-state described in the RTF, but it
+     is the reason the current implementation behaves acceptably.
+
+7. s_color_rev / gd_mater_rev implement lazy material recoloring (B4, now active).
+   - gd_mater_rev is initialized to 1; freshly-drawn shapes have s_color_rev=0
+     and are always stale on the first sweep.
+   - Callers that change the material table must call bsg_view_obj_bump_mater_rev()
+     to advance gd_mater_rev.  color_from_soltab does NOT bump it.
+   - color_from_soltab stamps each visited shape with the current gd_mater_rev.
+     A second call without an intervening bump is a full no-op for all shapes.
+   - Do not add a second cache token; the existing mechanism is complete.
+
+Files future sessions should read first
+---------------------------------------
+If you need to continue this work, start with these files:
+
+- repository root `draw_migration_plan.rtf` (outside brlcad/)
+- brlcad/doc/notes/drawing_stack_modernization.txt (this file)
+- brlcad/src/libged/bsg_ged_draw.c
+- brlcad/src/libbsg/draw_set.c
+- brlcad/src/libbsg/overlay.c
+- brlcad/include/bsg/draw_ctx.h
+- brlcad/include/ged/bsg_view_obj.h
+- brlcad/src/libged/who/who.c
+- brlcad/src/libged/ged_util.cpp
+- brlcad/src/libged/tests/draw/bsg_view_obj.cpp
+
+Audit against the RTF plan
+--------------------------
+The RTF plan is still the best description of the desired end-state.  The table
+below records how closely the current code matches it.
+
+Layer A — make the drawn set a BSG tree
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+A1  DONE
+    The canonical drawn set is gd_draw_root, not a list of display_list nodes.
+
+A2  MOSTLY DONE
+    The storage model is now tree-based, and nested groups represent path
+    structure.  However, the public API is still path-string-oriented
+    (lookup_or_add_path, erase_by_path, erase_all_paths, group_path,
+    group_set_path).
+
+A3  DONE
+    gv_draw_root lets the view point at the GED-owned draw tree directly.
+
+A4  DONE
+    next/prev-style navigation is now implemented via a DFS snapshot and integer
+    indexing rather than linked-list pointer chasing.
+
+Layer B — re-express each legacy role in BSG terms
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+B1  MOSTLY DONE
+    Drawn paths are realized as BSG groups/shapes and append_solid_to_group now
+    builds nested groups correctly.  The public API is still legacy-shaped, so
+    the internal model is ahead of the surface API.
+
+B2  DONE
+    Nested erase is tree-based.  The old split-heavy implementation has been
+    retired.  All public compatibility knobs have been removed:
+      - `allow_split` removed from `bsg_view_obj_erase_by_path`.
+      - `skip_first` removed from `bsg_view_obj_erase_all_paths`.
+      - `skip_first` removed from `bsg_view_obj_erase_by_name`; killrefs now
+        explicitly iterates path components via bsg_view_obj_foreach_group to
+        identify paths where the target name is a non-root component.
+
+B3  MOSTLY DONE
+    Overlay filtering now uses BSG_PAYLOAD_OVERLAY rather than phony directory
+    addresses.  The "better" node-bbox/sensor invalidation design from the RTF
+    has not been implemented; bounds are still computed by walking nodes.
+
+B4  DONE
+    The lazy-color mechanism is now fully active:
+      - gd_mater_rev initializes to 1; freshly-drawn shapes have s_color_rev=0,
+        so they are always stale on the first color_from_soltab call.
+      - bsg_view_obj_bump_mater_rev() is the only caller that advances
+        gd_mater_rev; it must be called before any material-change event.
+      - bsg_view_obj_color_from_soltab() stamps s_color_rev on each shape it
+        colors but does NOT advance gd_mater_rev itself.
+      - bump is wired at: color.c (ged_color_core + edcolor import path),
+        mater.cpp (mater_shader), edmater.c (post-rmater flow).
+      - Tests verify: skip fires on repeated calls without a material change;
+        a bump followed by a sweep recolors stale shapes; counter stays stable.
+
+B5  MOSTLY DONE
+    The common clear-illumination path is O(1) through gd_illum_solid, which
+    captures most of the practical win the RTF wanted.  The exact sensor-driven
+    design described in the RTF is not what is currently implemented.
+
+B6  DONE
+    Overlays now live under _overlays and no longer require fake db entries in
+    the drawing path.  User-facing reporting is now also cleaned up: who.c
+    uses bsg_view_obj_group_is_phony() instead of db_lookup()+phony-addr
+    comparison (R1 cleanup).
+
+B7  DONE
+    Structural revision tracking is now a cheap counter (gd_draw_rev) rather
+    than a content hash walk.
+
+B8  DONE
+    MGED's "advance illuminated solid" logic uses DFS snapshot order and integer
+    indexing rather than cross-list traversal.
+
+B9  DONE
+    Visitor-style traversal is in place and callers were migrated off the old
+    nested group/solid iteration pattern.
+
+Layer C — cleanly lift the redesign into libbsg / delete the old shape
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C1  MOSTLY DONE
+    Pure tree mechanics have been moved into libbsg.  The remaining gap is that
+    the libged public API still exposes legacy drawing-stack vocabulary and
+    compatibility shims.
+
+C2  BY DESIGN STAYS ABOVE LIBBSG
+    The plan explicitly says policy belongs in libged/mged.  This is still the
+    right split.
+
+C3  PARTIAL
+    A large amount of legacy machinery is gone, and bsg_view_obj.c has already
+    been renamed to bsg_ged_draw.c.  However, the end-state sketched in the RTF
+    is stricter than the current tree:
+      - bsg_view_obj_invent still exists as a public GED entry point.
+      - include/ged/bsg_view_obj.h still presents a legacy compatibility API.
+      - several callers still reason in terms of "phony" groups rather than a
+        first-class overlay policy.
+
+RTF user-facing redesign items
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+R1  DONE
+    The internal draw tree no longer masquerades overlays as database objects.
+    who.c routes the real/overlay decision through bsg_view_obj_group_is_phony()
+    rather than db_lookup() + RT_DIR_PHONY_ADDR.  The helpers in
+    src/libged/ged_util.cpp (who_argv_cb and rt_write_draw_cb) likewise use
+    bsg_view_obj_group_is_phony() instead of direct dp->d_addr comparisons.
+
+R2  DONE
+    All public erase compatibility knobs have been removed:
+      - `allow_split` removed from `bsg_view_obj_erase_by_path`.
+      - `skip_first` removed from `bsg_view_obj_erase_all_paths`.
+      - `skip_first` removed from `bsg_view_obj_erase_by_name`; the one caller
+        (killrefs.c) that needed "match interior components only" now expresses
+        that logic explicitly via bsg_view_obj_foreach_group + path component
+        iteration, without requiring any API-level flag.
+
+What remains to do
+------------------
+The structural modernization is complete.  The items below are the genuine open
+questions that could still be addressed, but none are blocking normal use.
+
+1. Larger end-state architecture questions (optional, low urgency).
+   - bbox/sensor invalidation improvements (B3 residual),
+   - fuller sensorization of highlight state (B5 residual),
+   - backend-style vs adapter-style libbsg/Obol integration.
+
+2. Path-string-centric entry points.
+   bsg_view_obj_lookup_or_add_path, bsg_view_obj_group_path,
+   bsg_view_obj_group_set_path still accept/return raw path strings.  If a
+   future caller wants to drive the draw tree directly in BSG terms rather
+   than path strings, those entry points would need counterparts that accept
+   a struct db_full_path * or a tree-node handle.  This is not currently
+   blocking anything.
+
+Recommended execution order
+---------------------------
+The core API cleanup is complete (R2 done).  If continuing this work in code,
+address the optional items above as needed.
+
+What not to redo
+----------------
+Future sessions should NOT spend time rediscovering or re-arguing these points:
+
+- Do not reintroduce display_list/gd_headDisplay as the canonical drawn-set
+  structure.
+- Do not reintroduce RT_DIR_PHONY_ADDR into the drawing path for overlays.
+- Do not replace s_color_rev with a different lazy-color token; the existing
+  mechanism is done and working.
+- Do not make color_from_soltab bump gd_mater_rev itself; the bump must come
+  from material-change event callers only.
+- Do not move GED/MGED policy decisions down into libbsg just to make the lower
+  layer "look complete".
+- Do not treat the rename to bsg_ged_draw.c as cosmetic; it marks the real split
+  between pure tree logic (libbsg) and GED policy/wrappers (libged).
+
+Bottom line
+-----------
+The modernization effort is complete.  The draw tree is BSG-native, all public
+legacy compatibility knobs have been removed, and the codebase is clean.
+
+- B1/B2/B4/B5/B6/B7/B8/B9, R1, R2 are all done.
+- All three erase-by-name/path/all-paths API knobs (allow_split, skip_first×2)
+  have been removed.  killrefs now expresses its "interior component" erase
+  semantics explicitly via bsg_view_obj_foreach_group + path walking.
+- ged_util.cpp uses bsg_view_obj_group_is_phony() for overlay filtering.
+- No boolean compatibility flags remain in the public bsg_view_obj_* API.

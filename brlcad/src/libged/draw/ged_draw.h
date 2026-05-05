@@ -34,7 +34,8 @@
 __BEGIN_DECLS
 
 struct ged_solid_data {
-    struct display_list *gdlp;
+    struct ged *gedp;
+    struct bv_scene_obj *gdlp;
     int draw_solid_lines_only;
     int wireframe_color_override;
     int wireframe_color[3];
@@ -47,7 +48,7 @@ struct _ged_client_data {
     uint32_t magic;  /* add this so a pointer to the struct and a pointer to any of its active elements will differ */
     struct ged *gedp;
     struct rt_wdb *wdbp;
-    struct display_list *gdlp;
+    struct bv_scene_obj *gdlp;
     int fastpath_count;			/* statistics */
     struct bv_vlblock *draw_edge_uses_vbp;
     struct bview *v;

@@ -48,6 +48,34 @@
 #include "./cmd.h"
 
 
+/* Callback: find the solid named "EYE" (LAST_SOLID matches dp) for rmats. */
+struct _rtif_eye_data {
+    struct directory *dp;
+    Tcl_Interp *interp;
+    vect_t sav_start;
+    vect_t sav_center;
+    struct bv_scene_obj *sp; /* set on match */
+    int found;
+};
+
+static int
+_rtif_eye_solid_cb(bsg_node *n, void *ud)
+{
+    struct bv_scene_obj *fsp = (struct bv_scene_obj *)n;
+    struct _rtif_eye_data *d = (struct _rtif_eye_data *)ud;
+    if (!fsp->s_u_data) return 1;
+    struct ged_bv_data *bdata = (struct ged_bv_data *)fsp->s_u_data;
+    if (LAST_SOLID(bdata) != d->dp) return 1;
+    if (BU_LIST_IS_EMPTY(&(fsp->s_vlist))) return 1;
+    struct bv_vlist *vp = BU_LIST_LAST(bv_vlist, &(fsp->s_vlist));
+    VMOVE(d->sav_start, vp->pt[vp->nused - 1]);
+    VMOVE(d->sav_center, fsp->s_center);
+    d->sp = fsp;
+    Tcl_AppendResult(d->interp, "animating EYE solid\n", (char *)NULL);
+    d->found = 1;
+    return 0; /* stop visiting */
+}
+
 /**
  * rt, rtarea, rtweight, rtcheck, and rtedge all use this.
  */
@@ -171,8 +199,6 @@ f_rmats(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     mat_t rot;
     struct bv_vlist *vp = NULL;
     struct directory *dp = NULL;
-    struct display_list *gdlp = NULL;
-    struct display_list *next_gdlp = NULL;
     vect_t eye_model = VINIT_ZERO;
     vect_t sav_center = VINIT_ZERO;
     vect_t sav_start = VINIT_ZERO;
@@ -213,24 +239,22 @@ f_rmats(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 		break;
 	    }
 
-	    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-	    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-		next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-		for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-		    if (!sp->s_u_data)
-			continue;
-		    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
-		    if (LAST_SOLID(bdata) != dp) continue;
-		    if (BU_LIST_IS_EMPTY(&(sp->s_vlist))) continue;
-		    vp = BU_LIST_LAST(bv_vlist, &(sp->s_vlist));
-		    VMOVE(sav_start, vp->pt[vp->nused-1]);
-		    VMOVE(sav_center, sp->s_center);
-		    Tcl_AppendResult(interp, "animating EYE solid\n", (char *)NULL);
+	    {
+		struct _rtif_eye_data d;
+		d.dp = dp;
+		d.interp = interp;
+		VSETALL(d.sav_start, 0.0);
+		VSETALL(d.sav_center, 0.0);
+		d.sp = NULL;
+		d.found = 0;
+		bsg_visit(bsg_view_obj_root(s->gedp), BSG_NODE_SHAPE,
+			  _rtif_eye_solid_cb, &d);
+		if (d.found) {
+		    VMOVE(sav_start, d.sav_start);
+		    VMOVE(sav_center, d.sav_center);
+		    sp = d.sp;
 		    goto work;
 		}
-
-		gdlp = next_gdlp;
 	    }
 	    /* Fall through */
 	default:

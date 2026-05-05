@@ -54,6 +54,7 @@
 #endif
 
 #define GED_NULL ((struct ged *)0)
+/* GED_DISPLAY_LIST_NULL is deprecated — use NULL directly */
 #define GED_DISPLAY_LIST_NULL ((struct display_list *)0)
 #define GED_DRAWABLE_NULL ((struct ged_drawable *)0)
 #define GED_VIEW_NULL ((struct bview *)0)
@@ -83,7 +84,6 @@ typedef int (*ged_func_ptr)(struct ged *, int, const char *[]);
 typedef void (*ged_io_func_t)(void *, int);
 typedef void (*ged_refresh_func_t)(void *);
 typedef void (*ged_create_vlist_solid_func_t)(void *, struct bv_scene_obj *);
-typedef void (*ged_create_vlist_display_list_func_t)(void *, struct display_list *);
 typedef void (*ged_destroy_vlist_func_t)(void *, unsigned int, int);
 struct ged_callback_state;
 
@@ -237,7 +237,6 @@ struct ged {
     void *ged_refresh_clientdata;	/**< @brief  client data passed to refresh handler */
     void (*ged_output_handler)(struct ged *, char *);	/**< @brief  function for handling output */
     void (*ged_create_vlist_scene_obj_callback)(void *, struct bv_scene_obj *);	/**< @brief  function to call after creating a vlist to create display list for solid */
-    void (*ged_create_vlist_display_list_callback)(void *, struct display_list *);	/**< @brief  function to call after all vlist created that loops through creating display list for each solid  */
     void (*ged_destroy_vlist_callback)(void *, unsigned int, int);	/**< @brief  function to call after freeing a vlist */
     void *vlist_ctx;
 

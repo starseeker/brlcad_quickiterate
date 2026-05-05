@@ -23,9 +23,12 @@
 #include "bu/time.h"
 #include "bu/units.h"
 #include "bu/vls.h"
+#include "bn.h"
 #include "bv/defines.h"
 #include "bv/lod.h"
 #include "bv/util.h"
+#include "bsg/util.h"
+#include "bsg/defines.h"
 #define DM_WITH_RT
 #include "dm.h"
 
@@ -572,8 +575,8 @@ dm_draw_labels(struct dm *dmp, struct bv_data_label_state *gdlsp, matp_t m2vmat)
     }
 }
 
-static void
-draw_scene_obj(struct dm *dmp, struct bv_scene_obj *s, struct bview *v, int force_draw, struct bv_obj_settings *obj_settings)
+void
+dm_draw_scene_obj(struct dm *dmp, struct bv_scene_obj *s, struct bview *v, int force_draw, struct bv_obj_settings *obj_settings)
 {
     if (!s || !v || (s->s_flag == DOWN && !force_draw))
 	return;
@@ -585,7 +588,7 @@ draw_scene_obj(struct dm *dmp, struct bv_scene_obj *s, struct bview *v, int forc
     // children tables to provide some control
     for (size_t i = 0; i < BU_PTBL_LEN(&s->children); i++) {
 	struct bv_scene_obj *s_c = (struct bv_scene_obj *)BU_PTBL_GET(&s->children, i);
-	draw_scene_obj(dmp, s_c, v, do_force_draw, obj_settings);
+	dm_draw_scene_obj(dmp, s_c, v, do_force_draw, obj_settings);
     }
 
     // Assign color attributes
@@ -604,15 +607,26 @@ draw_scene_obj(struct dm *dmp, struct bv_scene_obj *s, struct bview *v, int forc
     }
     dm_set_line_attr(dmp, s->s_os->s_line_width, s->s_soldash);
 
+    /* Phase 5: if this object is illuminated (edit mode) and the view carries
+     * an edit-mode matrix override, temporarily swap the modelview matrix so
+     * the object is drawn at its edit-transformed position.  We reload the
+     * normal view matrix afterwards to leave the DM state clean for the next
+     * object. */
+    int edit_mat_swapped = 0;
+    if (s->s_iflag == UP && v->gv_edit_mat) {
+	dm_loadmatrix(dmp, v->gv_edit_mat, 0);
+	edit_mat_swapped = 1;
+    }
+
     // Primary object drawing.  See if we have an active view-specific object - if so,
     // use that, otherwise use the original object
     if (s->s_type_flags & BV_DB_OBJS) {
 	struct bv_scene_obj *vo = bv_obj_for_view(s, v);
 	if (!vo) {
 	    vo = s;
-	    bv_log(1, "draw_scene_obj - no view obj, drawing %s", bu_vls_cstr(&s->s_name));
+	    bv_log(1, "dm_draw_scene_obj - no view obj, drawing %s", bu_vls_cstr(&s->s_name));
 	} else {
-	    bv_log(1, "draw_scene_obj - drawing view obj %s[%s]", bu_vls_cstr(&vo->s_name), bu_vls_cstr(&v->gv_name));
+	    bv_log(1, "dm_draw_scene_obj - drawing view obj %s[%s]", bu_vls_cstr(&vo->s_name), bu_vls_cstr(&v->gv_name));
 	}
 
 	// If this is a database object, it may have a view dependent
@@ -623,6 +637,17 @@ draw_scene_obj(struct dm *dmp, struct bv_scene_obj *s, struct bview *v, int forc
 	dm_draw_obj(dmp, vo);
     } else {
 	dm_draw_obj(dmp, s);
+    }
+
+    /* Mirror the legacy dm_drawSolid behaviour: mark this object as
+     * successfully rendered for the current frame.  dozoom.c and other
+     * callers count drawn objects by testing s_flag == UP. */
+    s->s_flag = UP;
+
+    if (edit_mat_swapped) {
+	/* Restore the standard view matrix so subsequent objects are
+	 * drawn in the right coordinate frame. */
+	dm_loadmatrix(dmp, v->gv_model2view, 0);
     }
 
     if (!(s->s_type_flags & BV_MESH_LOD)) {
@@ -636,6 +661,13 @@ draw_scene_obj(struct dm *dmp, struct bv_scene_obj *s, struct bview *v, int forc
     if (s->s_type_flags & BV_LABELS) {
 	dm_draw_label(dmp, s);
     }
+}
+
+/* Internal alias — keeps existing static call sites compiling unchanged. */
+static void
+draw_scene_obj(struct dm *dmp, struct bv_scene_obj *s, struct bview *v, int force_draw, struct bv_obj_settings *obj_settings)
+{
+    dm_draw_scene_obj(dmp, s, v, force_draw, obj_settings);
 }
 
 void
@@ -738,6 +770,53 @@ dm_draw_viewobjs(struct rt_wdb *wdbp, struct bview *v, struct dm_view_data *vd)
 
 }
 
+// Phase 4-D (drawing_stack_modernization): BSG render traversal.
+// Declared in dm/view.h as DM_EXPORT.  Defined here (in libdm) rather
+// than in libbsg because the traversal calls draw_scene_obj() which
+// requires dm_* rendering functions — putting it here avoids a
+// libbsg → libdm circular dependency.
+//
+// bsg_view_traverse syncs the scene root from the view's current draw
+// state and then draws each child node using the same draw_scene_obj
+// path as the legacy dl_* walk, producing identical output.
+void
+bsg_view_traverse(struct bview *v, void *root)
+{
+    bv_log(3, "libdm:bsg_view_traverse");
+    if (!v || !root)
+	return;
+
+    struct dm *dmp = (struct dm *)v->dmp;
+    if (!dmp)
+	return;
+
+    struct bv_scene_obj *r = (struct bv_scene_obj *)root;
+    for (size_t i = 0; i < BU_PTBL_LEN(&r->children); i++) {
+	struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(&r->children, i);
+	if (!s)
+	    continue;
+
+	/* Phase 6: skip sensor nodes — they are not drawable */
+	if (s->s_type_flags & BSG_NODE_SENSOR)
+	    continue;
+
+	/* Phase 6: handle transform nodes — push matrix, recurse, pop */
+	if (s->s_type_flags & BSG_NODE_TRANSFORM) {
+	    mat_t save_mat;
+	    MAT_COPY(save_mat, v->gv_model2view);
+	    mat_t new_mat;
+	    bn_mat_mul(new_mat, v->gv_model2view, s->s_mat);
+	    dm_loadmatrix(dmp, new_mat, 0);
+	    bsg_view_traverse(v, s);
+	    dm_loadmatrix(dmp, save_mat, 0);
+	    continue;
+	}
+
+	draw_scene_obj(dmp, s, v, s->s_force_draw,
+		       (s->s_inherit_settings) ? s->s_os : NULL);
+    }
+}
+
 // To allow completely custom modes like the sketch editor to be defined by
 // applications in terms of libdm, we allow an optional callback that can be
 // passed in to this function.  If non-NULL, that function will be called in
@@ -798,38 +877,48 @@ dm_draw_objs(struct bview *v, void (*dm_draw_custom)(struct bview *, void *), vo
     }
 
 
-    // Draw geometry view objects
-    // TODO - draw opaque, then transparent
-    struct bu_ptbl *sobjs = bv_view_objs(v, BV_DB_OBJS);
-    if (!v->independent && sobjs) {
-	for (size_t i = 0; i < BU_PTBL_LEN(sobjs); i++) {
-	    struct bv_scene_group *g = (struct bv_scene_group *)BU_PTBL_GET(sobjs, i);
-	    //bu_log("dm_draw_objs %s\n", bu_vls_cstr(&g->s_name));
-	    draw_scene_obj(dmp, g, v, g->s_force_draw, (g->s_inherit_settings) ? g->s_os : NULL);
+    // Phase 4-D/E: if this view has a BSG scene root, use bsg_view_traverse
+    // as the render loop instead of the legacy dl_* walk.  bsg_scene_root_sync
+    // mirrors the current view-obj tables into the root's children list before
+    // traversal so that the output is identical to the legacy path.
+    // Note: explicit cast from void* is required for C++ compilation.
+    if (v->bsg_root) {
+	bsg_scene_root_sync((bsg_node *)v->bsg_root, v);
+	bsg_view_traverse(v, v->bsg_root);
+    } else {
+	// Draw geometry view objects
+	// TODO - draw opaque, then transparent
+	struct bu_ptbl *sobjs = bv_view_objs(v, BV_DB_OBJS);
+	if (!v->independent && sobjs) {
+	    for (size_t i = 0; i < BU_PTBL_LEN(sobjs); i++) {
+		struct bv_scene_group *g = (struct bv_scene_group *)BU_PTBL_GET(sobjs, i);
+		//bu_log("dm_draw_objs %s\n", bu_vls_cstr(&g->s_name));
+		draw_scene_obj(dmp, g, v, g->s_force_draw, (g->s_inherit_settings) ? g->s_os : NULL);
+	    }
 	}
-    }
-    struct bu_ptbl *iobjs = bv_view_objs(v, BV_DB_OBJS | BV_LOCAL_OBJS);
-    if (iobjs && (iobjs != sobjs || v->independent)) {
-	for (size_t i = 0; i < BU_PTBL_LEN(iobjs); i++) {
-	    struct bv_scene_group *g = (struct bv_scene_group *)BU_PTBL_GET(iobjs, i);
-	    //bu_log("dm_draw_objs(i) %s\n", bu_vls_cstr(&g->s_name));
-	    draw_scene_obj(dmp, g, v, g->s_force_draw, (g->s_inherit_settings) ? g->s_os : NULL);
+	struct bu_ptbl *iobjs = bv_view_objs(v, BV_DB_OBJS | BV_LOCAL_OBJS);
+	if (iobjs && (iobjs != sobjs || v->independent)) {
+	    for (size_t i = 0; i < BU_PTBL_LEN(iobjs); i++) {
+		struct bv_scene_group *g = (struct bv_scene_group *)BU_PTBL_GET(iobjs, i);
+		//bu_log("dm_draw_objs(i) %s\n", bu_vls_cstr(&g->s_name));
+		draw_scene_obj(dmp, g, v, g->s_force_draw, (g->s_inherit_settings) ? g->s_os : NULL);
+	    }
 	}
-    }
 
-    // Draw view-only objects
-    struct bu_ptbl *view_objs = bv_view_objs(v, BV_VIEW_OBJS);
-    if (view_objs && !v->independent) {
-	for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
-	    struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(view_objs, i);
-	    draw_scene_obj(dmp, s, v, s->s_force_draw, (s->s_inherit_settings) ? s->s_os : NULL);
+	// Draw view-only objects
+	struct bu_ptbl *view_objs = bv_view_objs(v, BV_VIEW_OBJS);
+	if (view_objs && !v->independent) {
+	    for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
+		struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(view_objs, i);
+		draw_scene_obj(dmp, s, v, s->s_force_draw, (s->s_inherit_settings) ? s->s_os : NULL);
+	    }
 	}
-    }
-    struct bu_ptbl *vo = bv_view_objs(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
-    if (vo && (vo != view_objs || v->independent)) {
-	for (size_t i = 0; i < BU_PTBL_LEN(vo); i++) {
-	    struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(vo, i);
-	    draw_scene_obj(dmp, s, v, s->s_force_draw, (s->s_inherit_settings) ? s->s_os : NULL);
+	struct bu_ptbl *vo = bv_view_objs(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
+	if (vo && (vo != view_objs || v->independent)) {
+	    for (size_t i = 0; i < BU_PTBL_LEN(vo); i++) {
+		struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(vo, i);
+		draw_scene_obj(dmp, s, v, s->s_force_draw, (s->s_inherit_settings) ? s->s_os : NULL);
+	    }
 	}
     }
 
