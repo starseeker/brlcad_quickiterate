@@ -311,12 +311,23 @@ rt_opt_cut_plane(struct bu_vls *msg, size_t argc, const char **argv, void *UNUSE
     fastf_t f;
     point_t pt;
     vect_t nrml;
+    const char *arg = argv[0];
+    char *scan_arg;
     double scan[6];
     int n;
+    size_t i, j, len;
     BU_OPT_CHECK_ARGV0(msg, argc, argv, "cut-plane");
     do_kut_plane = 1;
 
-    n = sscanf(argv[0], "%lg ,%lg ,%lg ,%lg ,%lg ,%lg",
+    len = strlen(arg);
+    scan_arg = (char *)malloc(len + 1);
+    for (i = 0, j = 0; i < len; i++) {
+	if (!isspace((unsigned char)arg[i]))
+	    scan_arg[j++] = arg[i];
+    }
+    scan_arg[j] = '\0';
+
+    n = sscanf(scan_arg, "%lg,%lg,%lg,%lg,%lg,%lg",
 	       &scan[0], &scan[1], &scan[2], &scan[3], &scan[4], &scan[5]);
     if (n == 6) {
 	VSET(pt, scan[0], scan[1], scan[2]);
@@ -328,11 +339,13 @@ rt_opt_cut_plane(struct bu_vls *msg, size_t argc, const char **argv, void *UNUSE
 	VMOVE(kut_plane, nrml);
 	/* Plane form is N . X = d, so derive d from the supplied point. */
 	kut_plane[W] = VDOT(pt, nrml);
+	free(scan_arg);
 	return 1;
     }
 
-    n = sscanf(argv[0], "%lg ,%lg ,%lg ,%lg",
+    n = sscanf(scan_arg, "%lg,%lg,%lg,%lg",
 	       &scan[0], &scan[1], &scan[2], &scan[3]);
+    free(scan_arg);
     if (n != 4)
 	bu_exit(EXIT_FAILURE, "ERROR: bad cutting plane, expected xdir,ydir,zdir,dist or x,y,z,nx,ny,nz\n");
     HMOVE(kut_plane, scan); /* double to fastf_t */
