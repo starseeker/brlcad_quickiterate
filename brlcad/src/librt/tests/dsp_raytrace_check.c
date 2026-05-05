@@ -85,9 +85,10 @@
  */
 #define DSP_TEST_LARGE_GRID_DIM 129u
 #define DSP_RAY_CHECK_TOLERANCE 1.0e-5
-#define DSP_NEAR_TOP_OFFSET 1.0e-4
+#define DSP_RAY_CHECK_NEAR_TOP_OFFSET 1.0e-4
 /* Private dsp.c surface number for terrain-top hits.  The test keeps this
- * local rather than including private primitive internals.
+ * local rather than including private primitive internals; keep synchronized
+ * with ZTOP in primitives/dsp/dsp.c.
  */
 #define DSP_TEST_ZTOP 7
 
@@ -627,7 +628,7 @@ run_prepped_ray_checks(const struct dsp_case *tc, struct rt_i *rtip)
 	failures += check_direct_ray("inside start flat DSP", stp, rtip,
 				     o, d, 1, -0.5 * x_extent, 0.5 * x_extent, 0);
 
-	VSET(o, -tc->dx, 0.25 * y_extent, top_z - DSP_NEAR_TOP_OFFSET);
+	VSET(o, -tc->dx, 0.25 * y_extent, top_z - DSP_RAY_CHECK_NEAR_TOP_OFFSET);
 	VSET(d, 1.0, 0.0, 0.0);
 	failures += check_direct_ray("near-top side entry flat DSP", stp, rtip,
 				     o, d, 1, tc->dx, tc->dx + x_extent, 0);
