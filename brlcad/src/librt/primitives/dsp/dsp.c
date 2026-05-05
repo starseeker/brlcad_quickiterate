@@ -58,6 +58,7 @@
 
 #include "bu/cv.h"
 #include "bu/parallel.h"
+#include "bu/str.h"
 #include "vmath.h"
 #include "raytrace.h"
 #include "rt/geom.h"
@@ -999,12 +1000,7 @@ rt_dsp_prep(struct soltab *stp, struct rt_db_internal *ip, struct rt_i *rtip)
      */
     {
 	const char *enable_bvh = getenv("LIBRT_DSP_ENABLE_BVH");
-	if (enable_bvh && enable_bvh[0] &&
-	    !BU_STR_EQUAL(enable_bvh, "0") &&
-	    !BU_STR_EQUAL(enable_bvh, "false") &&
-	    !BU_STR_EQUAL(enable_bvh, "FALSE") &&
-	    !BU_STR_EQUAL(enable_bvh, "off") &&
-	    !BU_STR_EQUAL(enable_bvh, "OFF")) {
+	if (bu_str_true(enable_bvh)) {
 	    dsp_build_bvh(dsp);
 	}
     }

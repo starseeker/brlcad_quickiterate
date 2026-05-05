@@ -847,6 +847,10 @@ bu_free(buf, "33x33 buf");
     /* --- 7. Larger terrain to keep the default DDA path under test --- */
     {
 const uint32_t GW = 129, GH = 129;
+/* 129 == 2^7 + 1 gives a moderately large grid with power-of-two cell
+ * counts, a common terrain layout that exercises several HBB/DDA levels
+ * without making the normal regression test expensive.
+ */
 unsigned short *buf = (unsigned short *)bu_calloc(
     GW * GH, sizeof(unsigned short), "129x129 buf");
 for (uint32_t y = 0; y < GH; y++)
