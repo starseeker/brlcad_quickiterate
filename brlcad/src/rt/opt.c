@@ -348,14 +348,14 @@ rt_opt_cut_plane(struct bu_vls *msg, size_t argc, const char **argv, void *UNUSE
 	       &scan[0], &scan[1], &scan[2], &scan[3]);
     if (n == 3) {
 	VSET(pt, scan[0], scan[1], scan[2]);
-	VMOVE(nrml, pt);
-	bu_free(scan_arg, "cut-plane parse buffer");
+	VSET(nrml, scan[0], scan[1], scan[2]);
 	f = MAGNITUDE(nrml);
 	if (f <= SMALL)
 	    bu_exit(EXIT_FAILURE, "ERROR: bad normal for cutting plane, length=%g\n", f);
 	VUNITIZE(nrml);
 	VMOVE(kut_plane, nrml);
 	kut_plane[W] = VDOT(pt, nrml);
+	bu_free(scan_arg, "cut-plane parse buffer");
 	return 1;
     }
     bu_free(scan_arg, "cut-plane parse buffer");
