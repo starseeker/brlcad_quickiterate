@@ -883,18 +883,18 @@ dsp_bvh_enabled(void)
 {
     static int initialized = 0;
     static int enabled = 0;
+    int ret;
 
+    bu_semaphore_acquire(BU_SEM_GENERAL);
     if (!initialized) {
-	bu_semaphore_acquire(BU_SEM_GENERAL);
-	if (!initialized) {
-	    const char *enable_bvh = getenv("LIBRT_DSP_ENABLE_BVH");
-	    enabled = (enable_bvh && bu_str_true(enable_bvh));
-	    initialized = 1;
-	}
-	bu_semaphore_release(BU_SEM_GENERAL);
+	const char *enable_bvh = getenv("LIBRT_DSP_ENABLE_BVH");
+	enabled = (enable_bvh && bu_str_true(enable_bvh));
+	initialized = 1;
     }
+    ret = enabled;
+    bu_semaphore_release(BU_SEM_GENERAL);
 
-    return enabled;
+    return ret;
 }
 
 int
