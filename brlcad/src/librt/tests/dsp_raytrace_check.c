@@ -86,6 +86,12 @@
 /* Rays for the single-iteration timing measurement. */
 #define CROFTON_TIMING_RAYS     50000u
 
+/* 129 vertices define 128 cells, a power-of-two cell count common in terrain
+ * grids and useful for exercising multiple HBB/DDA levels without an expensive
+ * normal regression test.
+ */
+#define DSP_TEST_LARGE_GRID_DIM 129u
+
 /*
  * The BVH path is opt-in diagnostic/reference coverage.  It is built at prep
  * time from a full triangle mesh (terrain + walls + bottom) when
@@ -846,7 +852,6 @@ bu_free(buf, "33x33 buf");
 
     /* --- 7. Larger terrain to keep the default DDA path under test --- */
     {
-enum { DSP_TEST_LARGE_GRID_DIM = 129 };
 const uint32_t GW = DSP_TEST_LARGE_GRID_DIM, GH = DSP_TEST_LARGE_GRID_DIM;
 const double ridge_height = 120.0;
 const double ridge_x_freq = 12.0;
@@ -854,10 +859,6 @@ const double ridge_y_freq = 8.0;
 const double ramp_x_height = 300.0;
 const double ramp_y_height = 150.0;
 const double base_height = 700.0;
-/* DSP_TEST_LARGE_GRID_DIM == 2^7 + 1 gives a moderately large grid with power-of-two cell
- * counts, a common terrain layout that exercises several HBB/DDA levels
- * without making the normal regression test expensive.
- */
 unsigned short *buf = (unsigned short *)bu_calloc(
     GW * GH, sizeof(unsigned short), "129x129 buf");
 for (uint32_t y = 0; y < GH; y++)

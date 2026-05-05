@@ -878,6 +878,25 @@ rt_dsp_bbox(struct rt_db_internal *ip, point_t *min, point_t *max, const struct 
 /* Forward declaration for dsp_build_bvh which is defined after rt_dsp_prep */
 static void dsp_build_bvh(struct dsp_specific *dsp);
 
+static int
+dsp_bvh_enabled(void)
+{
+    static int initialized = 0;
+    static int enabled = 0;
+
+    if (!initialized) {
+	bu_semaphore_acquire(BU_SEM_GENERAL);
+	if (!initialized) {
+	    const char *enable_bvh = getenv("LIBRT_DSP_ENABLE_BVH");
+	    enabled = (enable_bvh && bu_str_true(enable_bvh));
+	    initialized = 1;
+	}
+	bu_semaphore_release(BU_SEM_GENERAL);
+    }
+
+    return enabled;
+}
+
 int
 rt_dsp_prep(struct soltab *stp, struct rt_db_internal *ip, struct rt_i *rtip)
 {
@@ -998,11 +1017,8 @@ rt_dsp_prep(struct soltab *stp, struct rt_db_internal *ip, struct rt_i *rtip)
      * it is too expensive in prep memory/time and per-ray work for large DSP
      * terrains to build unconditionally.
      */
-    {
-	const char *enable_bvh = getenv("LIBRT_DSP_ENABLE_BVH");
-	if (enable_bvh && bu_str_true(enable_bvh)) {
-	    dsp_build_bvh(dsp);
-	}
+    if (dsp_bvh_enabled()) {
+	dsp_build_bvh(dsp);
     }
 
     return 0;
