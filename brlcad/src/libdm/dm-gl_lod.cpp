@@ -41,9 +41,9 @@ extern "C" {
 }
 
 static int
-gl_swrast_db_wireframe(struct dm *dmp, struct bv_scene_obj *s)
+gl_swrast_database_wireframe(struct dm *dmp, struct bv_scene_obj *s)
 {
-    if (!dmp || !s || !dm_get_dm_name(dmp) || BU_STR_EQUAL(dm_get_dm_name(dmp), "swrast") == 0)
+    if (!dmp || !s || !dm_get_dm_name(dmp) || !BU_STR_EQUAL(dm_get_dm_name(dmp), "swrast"))
 	return 0;
 
     if (!(s->s_type_flags & BV_DB_OBJS))
@@ -560,7 +560,7 @@ gl_csg_lod(struct dm *dmp, struct bv_scene_obj *s)
 extern "C"
 int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
 {
-    GLint originalShadeModel = GL_SMOOTH;
+    GLint originalShadeModel = 0;
     int restoreShadeModel = 0;
 
     if (s->s_type_flags & BV_MESH_LOD) {
@@ -574,7 +574,7 @@ int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
 
     // "Standard" vlist object drawing
     if (bu_list_len(&s->s_vlist)) {
-	if (gl_swrast_db_wireframe(dmp, s)) {
+	if (gl_swrast_database_wireframe(dmp, s)) {
 	    glGetIntegerv(GL_SHADE_MODEL, &originalShadeModel);
 	    if (originalShadeModel != GL_FLAT) {
 		glShadeModel(GL_FLAT);
