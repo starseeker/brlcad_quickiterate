@@ -298,6 +298,80 @@ questions that could still be addressed, but none are blocking normal use.
    a struct db_full_path * or a tree-node handle.  This is not currently
    blocking anything.
 
+Phase 8: BSG render contract
+----------------------------
+This phase corrected a set of regressions caused by the BSG render path not
+re-creating behaviour that the legacy dm_draw_head_dl() / dm_drawSolid() had
+encoded implicitly.  The fixes restore parity without reintroducing
+display_list, dm_draw_head_dl, or the gv_objs ptbls.
+
+Status: DONE for items 1-6 below (the user-visible regressions); items 7-8
+are verification / documentation polish.
+
+The "BSG render contract" — what dm_draw_objs / bsg_view_traverse /
+dm_draw_scene_obj must do per frame, contractually:
+
+  C1. Two-pass transparency render.
+      When dm_get_transparency(dmp) is true, dm_draw_objs() walks the BSG
+      tree TWICE:
+        - Pass 1 — opaque (s_os->transparency >= 1.0), depth writes on.
+        - dm_set_depth_mask(dmp, 0).
+        - Pass 2 — transparent (s_os->transparency != 1.0), depth writes off.
+        - dm_set_depth_mask(dmp, 1).
+      Implemented in libdm/view.c via _dm_draw_scene_obj_internal's
+      transparency_pass argument; dm_draw_objs supplies pass=1 then pass=2.
+
+  C2. Per-frame s_flag = DOWN reset.
+      At the very top of every frame dm_draw_objs() runs
+        bsg_visit(root, BSG_NODE_SHAPE, _reset_drawn_cb, NULL)
+      so that dm_draw_scene_obj's "set s_flag = UP on successful draw" then
+      gives an accurate "what was drawn this frame" set for downstream
+      consumers (dozoom dm_ndrawn count, usepen.c illumination).
+
+  C3. Geometry default colour.
+      When sp->s_old.s_cflag is set (i.e. "use the dm's default wireframe
+      colour"), _dm_draw_scene_obj_internal calls
+      dm_get_geometry_default_color(dmp) instead of using s->s_color.
+      MGED pushes its current geometry_default_color[] into the dm via
+      dm_set_geometry_default_color() at the top of refresh.
+
+  C4. Line-width fallback.
+      _dm_draw_scene_obj_internal honours s->s_os->s_line_width when nonzero,
+      otherwise falls back to dm_get_linewidth(dmp).  This makes
+      `set linewidth` propagate through to shaded-triangle edges.
+
+  C5. mv_dlist (compiled GL display list) replay.
+      gl_draw_obj() in dm-gl_lod.cpp falls through to
+      dm_draw_dlist(dmp, sp->s_dlist) when dm_get_displaylist(dmp) is true
+      and sp->s_dlist is nonzero (and s_dmode != 4 so hidden-line still uses
+      the explicit vlist path).  This restores the legacy fast path.
+
+  C6. Bound-flag size-based culling.
+      _dm_draw_scene_obj_internal skips BSG_NODE_SHAPE objects when
+        dm_get_bound_flag(dmp) && !s->s_displayobj
+        && (s->s_size * v->gv_isize) < 0.001
+      restoring `dm set bound` and pan-time small-geometry skipping.
+
+  C7. Transform-stack matrix restore.
+      _bsg_view_traverse_impl carries an accumulated cur_mat through
+      recursion.  When entering a BSG_NODE_TRANSFORM child, it pushes
+      cur_mat * s->s_mat as the new cur_mat; on return it restores the
+      outer cur_mat.  When _dm_draw_scene_obj_internal swaps in
+      v->gv_edit_mat for an s_iflag == UP child, it restores cur_mat
+      afterwards (rather than always falling back to gv_model2view).
+      This is latent today (libged emits no BSG_NODE_TRANSFORM children)
+      but is the contract any future transform-emitting consumer relies on.
+
+Note on libtclcad/view/draw.c:
+The Archer-style go_draw / go_draw_dlist still use their own inline two-pass
+walk via go_draw_solid because go_draw_solid implements the per-path
+edited_paths matrix swap (an Archer-specific feature that dm_draw_scene_obj
+does not currently replicate).  The contract above applies to dm_draw_objs;
+the libtclcad path independently implements C1 and inherits C2 once the
+draw tree is reset by dm_draw_objs.  A future cleanup may migrate Archer's
+edited_paths to per-scene-obj attribution and let go_draw delegate to
+dm_draw_objs(gdvp, NULL, NULL).
+
 Recommended execution order
 ---------------------------
 The core API cleanup is complete (R2 done).  If continuing this work in code,
