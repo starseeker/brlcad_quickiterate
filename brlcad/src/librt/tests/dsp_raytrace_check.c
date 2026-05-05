@@ -84,6 +84,8 @@
  * normal regression test.
  */
 #define DSP_TEST_LARGE_GRID_DIM 129u
+#define DSP_RAY_CHECK_TOLERANCE 1.0e-5
+#define DSP_NEAR_TOP_OFFSET 1.0e-4
 /* Private dsp.c surface number for terrain-top hits.  The test keeps this
  * local rather than including private primitive internals.
  */
@@ -152,8 +154,8 @@ cell_cuttype(const unsigned short *buf, unsigned int xcnt, unsigned int ycnt,
     unsigned int lo_x = (x > 0) ? x - 1 : 0;
     unsigned int lo_y = (y > 0) ? y - 1 : 0;
     /* For interior cells, hi_* is one sample beyond the cell's high edge
-     * (x+2/y+2), matching dsp.c.  At the outer boundary this clamps to the
-     * high cell edge itself (x+1/y+1), preserving local curvature sampling.
+     * (x+2/y+2), matching dsp.c.  At the outer boundary no beyond-cell sample
+     * exists, so this clamps to the cell's high edge (x+1/y+1).
      */
     unsigned int hi_x = (x + 2 < xcnt) ? x + 2 : xcnt - 1;
     unsigned int hi_y = (y + 2 < ycnt) ? y + 2 : ycnt - 1;
@@ -512,12 +514,12 @@ check_direct_ray(const char *label, struct soltab *stp, struct rt_i *rtip,
 
     if (expect_segments > 0) {
 	segp = BU_LIST_FIRST(seg, &seghead.l);
-	if (expect_in >= 0.0 && fabs(segp->seg_in.hit_dist - expect_in) > 1.0e-5) {
+	if (expect_in >= 0.0 && fabs(segp->seg_in.hit_dist - expect_in) > DSP_RAY_CHECK_TOLERANCE) {
 	    printf("    FAIL: %s in dist %.9g != %.9g\n",
 		   label, segp->seg_in.hit_dist, expect_in);
 	    failures++;
 	}
-	if (expect_out >= 0.0 && fabs(segp->seg_out.hit_dist - expect_out) > 1.0e-5) {
+	if (expect_out >= 0.0 && fabs(segp->seg_out.hit_dist - expect_out) > DSP_RAY_CHECK_TOLERANCE) {
 	    printf("    FAIL: %s out dist %.9g != %.9g\n",
 		   label, segp->seg_out.hit_dist, expect_out);
 	    failures++;
@@ -531,7 +533,7 @@ check_direct_ray(const char *label, struct soltab *stp, struct rt_i *rtip,
 	    } else {
 		rt_obj_norm(&nhit, stp, &ap.a_ray);
 		double nmag = MAGNITUDE(nhit.hit_normal);
-		if (fabs(nmag - 1.0) > 1.0e-5 || nhit.hit_normal[Z] <= 0.0) {
+		if (fabs(nmag - 1.0) > DSP_RAY_CHECK_TOLERANCE || nhit.hit_normal[Z] <= 0.0) {
 		    printf("    FAIL: %s normal invalid (%g %g %g), |N|=%g\n",
 			   label, V3ARGS(nhit.hit_normal), nmag);
 		    failures++;
@@ -574,7 +576,7 @@ check_smooth_normal(const struct dsp_case *tc, struct soltab *stp)
 
     rt_obj_norm(&hit, stp, &ray);
     double nmag = MAGNITUDE(hit.hit_normal);
-    if (fabs(nmag - 1.0) > 1.0e-5 || hit.hit_normal[Z] <= 0.0) {
+    if (fabs(nmag - 1.0) > DSP_RAY_CHECK_TOLERANCE || hit.hit_normal[Z] <= 0.0) {
 	printf("    FAIL: smooth=%d synthetic ZTOP normal invalid (%g %g %g), |N|=%g\n",
 	       tc->smooth, V3ARGS(hit.hit_normal), nmag);
 	return 1;
@@ -625,7 +627,7 @@ run_prepped_ray_checks(const struct dsp_case *tc, struct rt_i *rtip)
 	failures += check_direct_ray("inside start flat DSP", stp, rtip,
 				     o, d, 1, -0.5 * x_extent, 0.5 * x_extent, 0);
 
-	VSET(o, -tc->dx, 0.25 * y_extent, top_z - 1.0e-4);
+	VSET(o, -tc->dx, 0.25 * y_extent, top_z - DSP_NEAR_TOP_OFFSET);
 	VSET(d, 1.0, 0.0, 0.0);
 	failures += check_direct_ray("near-top side entry flat DSP", stp, rtip,
 				     o, d, 1, tc->dx, tc->dx + x_extent, 0);
