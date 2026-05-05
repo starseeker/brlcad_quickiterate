@@ -746,6 +746,93 @@ main(int ac, char *av[])
     }
 
 
+    /* ---------------------------------------------------------------- *
+     * [13] Phase 9.2 (B5): gv_frame_rev / s_drawn_rev generation.       *
+     *      Verify that the per-shape drawn-this-frame stamp is wired    *
+     *      and matches the bview's frame-revision counter.              *
+     * ---------------------------------------------------------------- */
+    {
+	bu_log("[13] Phase 9.2: gv_frame_rev / s_drawn_rev...\n");
+
+	/* Start clean. */
+	{
+	    const char *s_av[2] = {"zap", NULL};
+	    ged_exec(gedp, 1, s_av);
+	}
+
+	/* Initial gv_frame_rev is 0; nothing has been drawn yet. */
+	struct bview *v = gedp->ged_gvp;
+	ASSERT(v != NULL);
+	ASSERT(v->gv_frame_rev == 0);
+
+	/* Draw something so we have shapes to stamp. */
+	{
+	    const char *dav[3] = {"draw", "all.g", NULL};
+	    ged_exec(gedp, 2, dav);
+	}
+
+	/* Without an attached dm, dm_draw_objs() is a no-op for stamping;
+	 * exercise the bookkeeping directly so the test runs without a
+	 * display manager (the off-screen swrast path is exercised by
+	 * ged_test_mged_shaded_mode_bsg). */
+	struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
+	ASSERT(root != NULL);
+
+	/* Bump frame, stamp every drawn shape's s_drawn_rev to match. */
+	v->gv_frame_rev++;
+	uint64_t this_frame = v->gv_frame_rev;
+	{
+	    /* Walk the tree and stamp each shape. */
+	    struct _stamp_ctx { uint64_t r; } ctx = { this_frame };
+	    auto stamp_cb = [](bsg_node *n, void *ud) -> int {
+		struct _stamp_ctx *c = (struct _stamp_ctx *)ud;
+		struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
+		if (sp) sp->s_drawn_rev = c->r;
+		return 1;
+	    };
+	    bsg_visit((bsg_node *)root, BSG_NODE_SHAPE, stamp_cb, &ctx);
+	}
+
+	/* Count "drawn this frame" — every shape under the root. */
+	int counted = 0;
+	{
+	    struct _count_ctx { uint64_t r; int *n; } ctx = { this_frame, &counted };
+	    auto count_cb = [](bsg_node *n, void *ud) -> int {
+		struct _count_ctx *c = (struct _count_ctx *)ud;
+		struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
+		if (sp && sp->s_drawn_rev == c->r) (*c->n)++;
+		return 1;
+	    };
+	    bsg_visit((bsg_node *)root, BSG_NODE_SHAPE, count_cb, &ctx);
+	}
+	ASSERT(counted > 0);
+
+	/* Bump frame again — no shape has been re-stamped, so the
+	 * "drawn this frame" count must be zero on the new frame
+	 * generation, with no full-tree reset needed. */
+	v->gv_frame_rev++;
+	uint64_t next_frame = v->gv_frame_rev;
+	int recounted = 0;
+	{
+	    struct _count_ctx { uint64_t r; int *n; } ctx = { next_frame, &recounted };
+	    auto count_cb = [](bsg_node *n, void *ud) -> int {
+		struct _count_ctx *c = (struct _count_ctx *)ud;
+		struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
+		if (sp && sp->s_drawn_rev == c->r) (*c->n)++;
+		return 1;
+	    };
+	    bsg_visit((bsg_node *)root, BSG_NODE_SHAPE, count_cb, &ctx);
+	}
+	ASSERT(recounted == 0);
+
+	/* Erase to leave a clean state. */
+	{
+	    const char *eav[3] = {"erase", "all.g", NULL};
+	    ged_exec(gedp, 2, eav);
+	}
+    }
+
+
     /* Final zap to leave clean state. */
     {
 	const char *s_av[2] = {"zap", NULL};

@@ -42,11 +42,12 @@
  *             accessor round-trips correctly so that dm_draw_scene_obj can
  *             honour s_old.s_cflag.
  *
- *   Test 4 — s_flag per-frame reset (Phase 3 contract)
+ *   Test 4 — per-frame drawn-set generation (Phase 9.2 contract)
  *             After a zap the bsg root is re-populated from scratch.  Draw once,
  *             capture the non-black pixel count.  Zap and re-draw.  The second
- *             count must match the first — proving s_flag = DOWN resets the
- *             per-frame "drawn" set correctly and dm_ndrawn doesn't over-count.
+ *             count must match the first — proving the gv_frame_rev / s_drawn_rev
+ *             generation counter correctly identifies the "drawn this frame" set
+ *             and dm_ndrawn doesn't over-count.
  *
  * Uses dm-swrast for off-screen rendering; no display hardware required.
  *

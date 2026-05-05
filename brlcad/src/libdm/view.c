@@ -689,10 +689,16 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
 	dm_draw_obj(dmp, s);
     }
 
-    /* Mirror the legacy dm_drawSolid behaviour: mark this object as
-     * successfully rendered for the current frame.  dozoom.c and other
-     * callers count drawn objects by testing s_flag == UP. */
-    s->s_flag = UP;
+    /* Phase 9.2 (BSG render contract): per-frame generation stamp.
+     * Mirror the legacy dm_drawSolid behaviour and mark this object as
+     * successfully rendered in the current frame, but via the v->gv_frame_rev
+     * generation counter rather than s_flag = UP.  Callers (e.g. mged
+     * dozoom counting drawn objects) test
+     *   sp->s_drawn_rev == v->gv_frame_rev
+     * to identify "drawn this frame" without needing a per-frame full-tree
+     * reset of s_flag.  s_flag remains the persistent visibility bit
+     * (DOWN means hidden); it is no longer toggled UP by the renderer. */
+    s->s_drawn_rev = v->gv_frame_rev;
 
     if (edit_mat_swapped) {
 	/* Phase 6 (BSG render contract): restore the accumulated matrix
@@ -927,6 +933,13 @@ dm_draw_objs(struct bview *v, void (*dm_draw_custom)(struct bview *, void *), vo
 	bu_log("Warning - dm_draw_objs called when view has no associated display manager\n");
 	return;
     }
+
+    /* Phase 9.2 (drawing_stack_modernization B5): bump the frame generation
+     * counter.  Every shape rendered below stamps s->s_drawn_rev := this
+     * value, so callers can detect "drawn this frame" by simple equality
+     * test against v->gv_frame_rev — replacing the legacy per-frame
+     * full-tree "reset every s_flag to DOWN" sweep. */
+    v->gv_frame_rev++;
 
     // This is the start of a draw cycle - start the stopwatch to time the
     // frame.  If the faceplate fps display is enabled, the faceplate draw at
