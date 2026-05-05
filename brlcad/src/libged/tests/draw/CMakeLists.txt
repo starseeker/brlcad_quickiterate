@@ -324,6 +324,26 @@ endif()
 distclean(${CMAKE_CURRENT_BINARY_DIR}/bsg_view_obj_tmp.g)
 distclean(${CMAKE_CURRENT_BINARY_DIR}/ged_bsg_view_obj_cache)
 
+# Phase 7: lighting/zbuffer/zclip regression test (mged_shaded_mode_helper path)
+brlcad_addexec(ged_test_mged_shaded_mode_bsg "mged_shaded_mode_bsg.cpp;util.cpp" "libged;libdm;libbsg;libicv" TEST)
+if(TARGET ged_test_mged_shaded_mode_bsg)
+  foreach(tdp ${test_deps})
+    if (TARGET tdp)
+      add_dependencies(ged_test_mged_shaded_mode_bsg ${tdp})
+    endif ()
+  endforeach()
+endif(TARGET ged_test_mged_shaded_mode_bsg)
+brlcad_add_test(NAME ged_test_mged_shaded_mode_bsg
+  COMMAND ged_test_mged_shaded_mode_bsg "${CMAKE_CURRENT_SOURCE_DIR}")
+if(TARGET ged_test_mged_shaded_mode_bsg)
+  set_property(TEST ged_test_mged_shaded_mode_bsg
+    APPEND PROPERTY ENVIRONMENT BRLCAD_ROOT=${CMAKE_BINARY_DIR})
+endif()
+distclean(${CMAKE_CURRENT_BINARY_DIR}/smb_t1.g)
+distclean(${CMAKE_CURRENT_BINARY_DIR}/smb_t2.g)
+distclean(${CMAKE_CURRENT_BINARY_DIR}/smb_t3.g)
+distclean(${CMAKE_CURRENT_BINARY_DIR}/smb_t4.g)
+
 cmakefiles(
   README
   empty.png
@@ -335,6 +355,7 @@ cmakefiles(
   bsg_view_obj.cpp
   lod_crossrun.cpp
   mged_bsg.cpp
+  mged_shaded_mode_bsg.cpp
   rtwizard_bsg.cpp
   util.cpp
   scripts/verify_main_parity.sh
