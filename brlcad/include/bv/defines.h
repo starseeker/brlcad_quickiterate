@@ -250,6 +250,14 @@ struct bv_scene_obj  {
     point_t bmin;
     point_t bmax;
     int have_bbox;
+    /* Phase 9.1 (drawing_stack_modernization B3 residual):
+     * For BSG_NODE_GROUP/ROOT nodes, indicates whether bmin/bmax currently
+     * holds a valid cached aggregate bbox of the subtree's non-overlay
+     * descendants.  Cleared on any structural mutation that could affect
+     * the aggregate via bsg_node_bbox_invalidate().  Set by bsg_subtree_bbox
+     * when it computes a fresh aggregate.  Unused on BSG_NODE_SHAPE leaves
+     * (their bbox is always derivable from s_center/s_size). */
+    int s_bbox_cached;
 
     /* Display properties */
     char s_flag;		/**< @brief  UP = object visible, DOWN = obj invis */

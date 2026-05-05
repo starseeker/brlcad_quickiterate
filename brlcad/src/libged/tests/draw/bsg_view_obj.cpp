@@ -675,6 +675,77 @@ main(int ac, char *av[])
 	ASSERT(v->gv_draw_root != NULL);
     }
 
+    /* ---------------------------------------------------------------- *
+     * [12] Phase 9.1 (B3): cached aggregate bbox.                       *
+     *      Verify that bsg_subtree_bbox returns the same answer as the  *
+     *      non-cached walk, that the cache flag is set on a draw root    *
+     *      after a query, and that it is invalidated by erase.           *
+     * ---------------------------------------------------------------- */
+    {
+	bu_log("[12] Phase 9.1: cached aggregate bbox...\n");
+
+	/* Start clean. */
+	{
+	    const char *s_av[2] = {"zap", NULL};
+	    ged_exec(gedp, 1, s_av);
+	}
+
+	/* Empty draw tree: bounds report empty. */
+	{
+	    vect_t emin, emax;
+	    int empty = bsg_view_obj_bounds(gedp, &emin, &emax, 0);
+	    ASSERT(empty == 1);
+	}
+
+	/* Draw two paths so the tree has multiple groups. */
+	{
+	    const char *dav[3] = {"draw", "all.g", NULL};
+	    ged_exec(gedp, 2, dav);
+	}
+
+	struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
+	ASSERT(root != NULL);
+
+	/* First query: cache is cold, must compute. */
+	vect_t min1, max1;
+	int empty1 = bsg_view_obj_bounds(gedp, &min1, &max1, 0);
+	ASSERT(empty1 == 0);
+	/* After a no-overlay query the root cache must be set. */
+	ASSERT(root->s_bbox_cached == 1);
+
+	/* Second query: cache hit, must return the identical bbox. */
+	vect_t min2, max2;
+	int empty2 = bsg_view_obj_bounds(gedp, &min2, &max2, 0);
+	ASSERT(empty2 == 0);
+	ASSERT(VNEAR_EQUAL(min1, min2, SMALL_FASTF));
+	ASSERT(VNEAR_EQUAL(max1, max2, SMALL_FASTF));
+	ASSERT(root->s_bbox_cached == 1);
+
+	/* Cross-check vs an explicit walk: bsg_subtree_bbox(include_overlays=1)
+	 * bypasses the cache, so for a tree with no overlays it must agree
+	 * with the cached non-overlay value. */
+	vect_t min3, max3;
+	int empty3 = bsg_subtree_bbox((bsg_node *)root, &min3, &max3, 1);
+	ASSERT(empty3 == 0);
+	ASSERT(VNEAR_EQUAL(min1, min3, SMALL_FASTF));
+	ASSERT(VNEAR_EQUAL(max1, max3, SMALL_FASTF));
+
+	/* Erase invalidates the cache. */
+	{
+	    const char *eav[3] = {"erase", "all.g", NULL};
+	    ged_exec(gedp, 2, eav);
+	}
+	ASSERT(root->s_bbox_cached == 0);
+
+	/* Re-query reports empty again (no shapes left). */
+	{
+	    vect_t emin, emax;
+	    int e = bsg_view_obj_bounds(gedp, &emin, &emax, 0);
+	    ASSERT(e == 1);
+	}
+    }
+
+
     /* Final zap to leave clean state. */
     {
 	const char *s_av[2] = {"zap", NULL};

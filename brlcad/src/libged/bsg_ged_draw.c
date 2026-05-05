@@ -557,48 +557,15 @@ _sg_erase_all_paths(struct ged *gedp, const char *path)
 /* Bounds                                                              */
 /* ------------------------------------------------------------------ */
 
-struct _sph_ctx {
-    vect_t *min;
-    vect_t *max;
-    int pflag;
-    int *is_empty;
-};
-
-static int
-_sph_solid_cb(bsg_node *n, void *ud)
-{
-    struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
-    struct _sph_ctx *ctx = (struct _sph_ctx *)ud;
-    if (!ctx->pflag && (sp->s_type_flags & BSG_PAYLOAD_OVERLAY))
-        return 1;
-    vect_t minus, plus;
-    minus[X] = sp->s_center[X] - sp->s_size;
-    minus[Y] = sp->s_center[Y] - sp->s_size;
-    minus[Z] = sp->s_center[Z] - sp->s_size;
-    VMIN(*(ctx->min), minus);
-    plus[X] = sp->s_center[X] + sp->s_size;
-    plus[Y] = sp->s_center[Y] + sp->s_size;
-    plus[Z] = sp->s_center[Z] + sp->s_size;
-    VMAX(*(ctx->max), plus);
-    *(ctx->is_empty) = 0;
-    return 1;
-}
-
 static int
 _sg_bounding_sph(struct ged *gedp, vect_t *min, vect_t *max, int pflag)
 {
     struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
 
-    VSETALL((*min),  INFINITY);
-    VSETALL((*max), -INFINITY);
-
-    if (!root)
-        return 1;
-
-    int is_empty = 1;
-    struct _sph_ctx ctx = { min, max, pflag, &is_empty };
-    bsg_visit((bsg_node *)root, BSG_NODE_SHAPE, _sph_solid_cb, &ctx);
-    return is_empty;
+    /* Phase 9.1: delegate to the libbsg cached aggregator.
+     * - pflag == 0 (no overlays): uses per-group bbox cache, O(touched).
+     * - pflag != 0 (include overlays): full walk, no cache (rare path). */
+    return bsg_subtree_bbox((bsg_node *)root, min, max, pflag);
 }
 
 
@@ -722,6 +689,10 @@ _sg_invent(struct ged *gedp, char *name, struct bu_list *vhead, long int rgb,
         bu_ptbl_ins(&ov->children, (long *)sp);
         /* ov->parent is set (ov is under the draw root) */
         _sg_bump_rev_node(ov);
+        /* Phase 9.1: a new shape under ov invalidates ancestors' bbox cache.
+         * Overlay shapes themselves don't contribute to the cached
+         * (no-overlay) aggregate, but invalidating is safe and cheap. */
+        bsg_node_bbox_invalidate((bsg_node *)ov);
     }
 
     sp->s_iflag              = DOWN;
@@ -1413,6 +1384,8 @@ bsg_view_obj_append_solid_to_group(struct ged *gedp,
         /* No path info — append directly */
         sp->parent = group;
         bu_ptbl_ins(&group->children, (long *)sp);
+        /* Phase 9.1: shape added under group invalidates aggregate bbox cache. */
+        bsg_node_bbox_invalidate((bsg_node *)group);
         return;
     }
 
@@ -1434,6 +1407,8 @@ bsg_view_obj_append_solid_to_group(struct ged *gedp,
 
     sp->parent = cur;
     bu_ptbl_ins(&cur->children, (long *)sp);
+    /* Phase 9.1: shape added under cur invalidates aggregate bbox cache. */
+    bsg_node_bbox_invalidate((bsg_node *)cur);
 }
 
 
