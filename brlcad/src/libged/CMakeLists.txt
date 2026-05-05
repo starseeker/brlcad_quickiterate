@@ -669,7 +669,6 @@ set(
   ged_private.h
   include/plugin.h
   joint/joint.h
-  osg.cpp
   pnts_util.h
   qray.h
 )
