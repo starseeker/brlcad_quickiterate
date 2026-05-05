@@ -604,6 +604,16 @@ run_prepped_ray_checks(const struct dsp_case *tc, struct rt_i *rtip)
 	failures += check_direct_ray("side entry flat DSP", stp, rtip,
 				     o, d, 1, tc->dx, tc->dx + x_extent, 0);
 
+	VSET(o, 0.5 * x_extent, 0.5 * y_extent, 0.5 * top_z);
+	VSET(d, 1.0, 0.0, 0.0);
+	failures += check_direct_ray("inside start flat DSP", stp, rtip,
+				     o, d, 1, -0.5 * x_extent, 0.5 * x_extent, 0);
+
+	VSET(o, -tc->dx, 0.25 * y_extent, top_z - 1.0e-4);
+	VSET(d, 1.0, 0.0, 0.0);
+	failures += check_direct_ray("near-top side entry flat DSP", stp, rtip,
+				     o, d, 1, tc->dx, tc->dx + x_extent, 0);
+
 	VSET(o, 0.5 * x_extent, 0.5 * y_extent, -10.0);
 	VSET(d, 0.0, 0.0, 1.0);
 	failures += check_direct_ray("vertical up flat DSP", stp, rtip,
