@@ -45,6 +45,8 @@
 #include "vmath.h"
 #include "bn.h"
 #include "bsg/util.h"
+#include "bsg/visit.h"
+#include "bsg/defines.h"
 #include "dm/view.h"
 #include "ged/bsg_view_obj.h"
 
@@ -62,6 +64,18 @@ mat_t identity;
 
 /* This is a holding place for the current display managers default wireframe color */
 unsigned char geometry_default_color[] = { 255, 0, 0 };
+
+/* Count of BSG_NODE_SHAPE nodes whose s_flag is UP after a frame.
+ * Used by dozoom() to populate dm_ndrawn (consumed by usepen.c). */
+static int
+_mged_count_drawn_cb(bsg_node *n, void *userdata)
+{
+    struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
+    int *np = (int *)userdata;
+    if (sp && sp->s_flag == UP)
+	(*np)++;
+    return 1; /* continue traversal */
+}
 
 /*
  * Paint one eye of the scene.
@@ -197,16 +211,18 @@ dozoom(struct mged_state *s, int which_eye)
     /* Restore gv_pmat (no-op for which_eye == 0). */
     MAT_COPY(v->gv_pmat, saved_pmat);
 
-    /* Count drawn objects for usepen.c zone-based picking.  All objects
-     * whose s_flag is UP after the traversal were actually rendered. */
+    /* Count drawn objects for usepen.c zone-based picking.  After
+     * Phase 3 of the BSG render contract, every shape under the draw
+     * root is reset to s_flag = DOWN at the start of dm_draw_objs and
+     * marked s_flag = UP only when actually rendered, so this gives a
+     * correct frame-by-frame "what got drawn" count.  Walk recursively
+     * via bsg_visit because shapes live below per-component group
+     * nodes, not directly under the root. */
     if (v->bsg_root) {
-	struct bv_scene_obj *root = (struct bv_scene_obj *)v->bsg_root;
-	for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
-	    struct bv_scene_obj *sp =
-		(struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
-	    if (sp && sp->s_flag == UP)
-		s->mged_curr_dm->dm_ndrawn++;
-	}
+	int ndrawn = 0;
+	bsg_visit((bsg_node *)v->bsg_root, BSG_NODE_SHAPE,
+		  _mged_count_drawn_cb, &ndrawn);
+	s->mged_curr_dm->dm_ndrawn += ndrawn;
     }
 
     if (s->mged_curr_dm != save_dm_list) set_curr_dm(s, save_dm_list);

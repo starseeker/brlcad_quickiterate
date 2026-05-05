@@ -359,6 +359,23 @@ dm_set_fg(struct dm *dmp, unsigned char r, unsigned char g, unsigned char b, int
     return dmp->i->dm_setFGColor(dmp, r, g, b, strict, transparency);
 }
 
+unsigned char *
+dm_get_geometry_default_color(struct dm *dmp)
+{
+    static unsigned char dgc[3] = {255, 0, 0};
+    if (UNLIKELY(!dmp)) return dgc;
+    return dmp->i->dm_geometry_default_color;
+}
+
+void
+dm_set_geometry_default_color(struct dm *dmp, unsigned char r, unsigned char g, unsigned char b)
+{
+    if (UNLIKELY(!dmp)) return;
+    dmp->i->dm_geometry_default_color[0] = r;
+    dmp->i->dm_geometry_default_color[1] = g;
+    dmp->i->dm_geometry_default_color[2] = b;
+}
+
 int
 dm_reshape(struct dm *dmp, int width, int height)
 {

@@ -163,6 +163,7 @@ struct dm_impl {
     unsigned char dm_bg1[3];	/**< @brief background color 1*/
     unsigned char dm_bg2[3];	/**< @brief background color 2 (if different than bg1, draw gradient)*/
     unsigned char dm_fg[3];	/**< @brief foreground color */
+    unsigned char dm_geometry_default_color[3]; /**< @brief default wireframe color used when a scene object's s_old.s_cflag is set */
     vect_t dm_clipmin;		/**< @brief minimum clipping vector */
     vect_t dm_clipmax;		/**< @brief maximum clipping vector */
     int dm_debugLevel;		/**< @brief !0 means debugging */

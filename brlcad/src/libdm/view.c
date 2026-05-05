@@ -29,6 +29,7 @@
 #include "bv/util.h"
 #include "bsg/util.h"
 #include "bsg/defines.h"
+#include "bsg/visit.h"
 #define DM_WITH_RT
 #include "dm.h"
 
@@ -575,21 +576,58 @@ dm_draw_labels(struct dm *dmp, struct bv_data_label_state *gdlsp, matp_t m2vmat)
     }
 }
 
-void
-dm_draw_scene_obj(struct dm *dmp, struct bv_scene_obj *s, struct bview *v, int force_draw, struct bv_obj_settings *obj_settings)
+/* Phase 8 BSG render contract:
+ *
+ *   transparency_pass values for the BSG traversal helpers below:
+ *     0 - draw all objects regardless of transparency (single-pass)
+ *     1 - draw only opaque objects (s_os->transparency >= 1.0)
+ *     2 - draw only transparent objects
+ */
+static void
+_dm_draw_scene_obj_internal(struct dm *dmp,
+			    struct bv_scene_obj *s,
+			    struct bview *v,
+			    int force_draw,
+			    struct bv_obj_settings *obj_settings,
+			    int transparency_pass,
+			    const fastf_t *cur_mat)
 {
     if (!s || !v || (s->s_flag == DOWN && !force_draw))
 	return;
 
     int do_force_draw = (force_draw || s->s_force_draw) ? 1 : 0;
 
+    /* Phase 1 (BSG render contract): transparency-pass filter.  Note we
+     * *do* still recurse into children — a non-leaf scene-obj may have
+     * children with different transparency than the parent. */
+    int pass_skip = 0;
+    if (transparency_pass == 1 && s->s_os->transparency < 1.0)
+	pass_skip = 1;
+    if (transparency_pass == 2 && ZERO(s->s_os->transparency - 1.0))
+	pass_skip = 1;
+
+    /* Phase 5 (BSG render contract): bound-flag size-based culling — skip
+     * very small geometry on a panning frame when the dm has set bound. */
+    if (!pass_skip
+	&& dm_get_bound_flag(dmp)
+	&& !s->s_displayobj
+	&& (s->s_type_flags & BSG_NODE_SHAPE)
+	&& v->gv_isize > 0
+	&& (s->s_size * v->gv_isize) < 0.001) {
+	pass_skip = 1;
+    }
+
     // Draw children. TODO - drawing children first may not
     // always be the desired behavior - might need interior and exterior
     // children tables to provide some control
     for (size_t i = 0; i < BU_PTBL_LEN(&s->children); i++) {
 	struct bv_scene_obj *s_c = (struct bv_scene_obj *)BU_PTBL_GET(&s->children, i);
-	dm_draw_scene_obj(dmp, s_c, v, do_force_draw, obj_settings);
+	_dm_draw_scene_obj_internal(dmp, s_c, v, do_force_draw, obj_settings,
+				    transparency_pass, cur_mat);
     }
+
+    if (pass_skip)
+	return;
 
     // Assign color attributes
     if (obj_settings) {
@@ -597,21 +635,33 @@ dm_draw_scene_obj(struct dm *dmp, struct bv_scene_obj *s, struct bview *v, int f
     } else {
 	if (s->s_iflag == UP) {
 	    dm_set_fg(dmp, 255, 255, 255, 0, s->s_os->transparency);
+	} else if (s->s_os->color_override) {
+	    dm_set_fg(dmp, s->s_os->color[0], s->s_os->color[1], s->s_os->color[2], 0, s->s_os->transparency);
+	} else if (s->s_old.s_cflag) {
+	    /* Phase 4 (BSG render contract): legacy "use the dm's geometry
+	     * default colour" behaviour — drives objects that asked for it
+	     * via dl_add_path/solid_set_color_info. */
+	    unsigned char *gdc = dm_get_geometry_default_color(dmp);
+	    dm_set_fg(dmp, gdc[0], gdc[1], gdc[2], 0, s->s_os->transparency);
 	} else {
-	    if (s->s_os->color_override) {
-		dm_set_fg(dmp, s->s_os->color[0], s->s_os->color[1], s->s_os->color[2], 0, s->s_os->transparency);
-	    } else {
-		dm_set_fg(dmp, s->s_color[0], s->s_color[1], s->s_color[2], 0, s->s_os->transparency);
-	    }
+	    dm_set_fg(dmp, s->s_color[0], s->s_color[1], s->s_color[2], 0, s->s_os->transparency);
 	}
     }
-    dm_set_line_attr(dmp, s->s_os->s_line_width, s->s_soldash);
 
-    /* Phase 5: if this object is illuminated (edit mode) and the view carries
-     * an edit-mode matrix override, temporarily swap the modelview matrix so
-     * the object is drawn at its edit-transformed position.  We reload the
-     * normal view matrix afterwards to leave the DM state clean for the next
-     * object. */
+    /* Phase 4 (BSG render contract): line-width fallback.  When the
+     * per-object override is zero (or negative), use the dm's current
+     * global linewidth so `set linewidth` propagates through. */
+    int lw = s->s_os->s_line_width;
+    if (lw <= 0)
+	lw = dm_get_linewidth(dmp);
+    dm_set_line_attr(dmp, lw, s->s_soldash);
+
+    /* Phase 6 (BSG render contract): if this object is illuminated (edit
+     * mode) and the view carries an edit-mode matrix override,
+     * temporarily swap the modelview matrix so the object is drawn at
+     * its edit-transformed position.  Restore the *current* accumulated
+     * matrix afterwards (cur_mat) — falling back to gv_model2view when
+     * we are not under a transform node. */
     int edit_mat_swapped = 0;
     if (s->s_iflag == UP && v->gv_edit_mat) {
 	dm_loadmatrix(dmp, v->gv_edit_mat, 0);
@@ -645,9 +695,14 @@ dm_draw_scene_obj(struct dm *dmp, struct bv_scene_obj *s, struct bview *v, int f
     s->s_flag = UP;
 
     if (edit_mat_swapped) {
-	/* Restore the standard view matrix so subsequent objects are
-	 * drawn in the right coordinate frame. */
-	dm_loadmatrix(dmp, v->gv_model2view, 0);
+	/* Phase 6 (BSG render contract): restore the accumulated matrix
+	 * if we are under a transform node, otherwise restore the standard
+	 * view matrix so subsequent objects are drawn in the right
+	 * coordinate frame. */
+	if (cur_mat)
+	    dm_loadmatrix(dmp, (fastf_t *)cur_mat, 0);
+	else
+	    dm_loadmatrix(dmp, v->gv_model2view, 0);
     }
 
     if (!(s->s_type_flags & BV_MESH_LOD)) {
@@ -661,6 +716,16 @@ dm_draw_scene_obj(struct dm *dmp, struct bv_scene_obj *s, struct bview *v, int f
     if (s->s_type_flags & BV_LABELS) {
 	dm_draw_label(dmp, s);
     }
+}
+
+void
+dm_draw_scene_obj(struct dm *dmp, struct bv_scene_obj *s, struct bview *v, int force_draw, struct bv_obj_settings *obj_settings)
+{
+    /* Public single-pass API — preserves legacy behaviour: draw any
+     * object regardless of transparency, restore gv_model2view after
+     * any edit-matrix swap. */
+    _dm_draw_scene_obj_internal(dmp, s, v, force_draw, obj_settings,
+				/*transparency_pass=*/0, /*cur_mat=*/NULL);
 }
 
 /* Internal alias — keeps existing static call sites compiling unchanged. */
@@ -779,10 +844,28 @@ dm_draw_viewobjs(struct rt_wdb *wdbp, struct bview *v, struct dm_view_data *vd)
 // bsg_view_traverse syncs the scene root from the view's current draw
 // state and then draws each child node using the same draw_scene_obj
 // path as the legacy dl_* walk, producing identical output.
-void
-bsg_view_traverse(struct bview *v, void *root)
+
+/* Phase 3 (BSG render contract): per-frame s_flag reset.  Called once
+ * at the very top of a frame (from dm_draw_objs); marks every shape
+ * DOWN so that dm_draw_scene_obj's "set UP on successful draw" then
+ * gives us an accurate "what was drawn this frame" set for callers
+ * like dozoom (drawn-count) and usepen (illuminate). */
+static int
+_reset_drawn_cb(bsg_node *n, void *UNUSED(ud))
 {
-    bv_log(3, "libdm:bsg_view_traverse");
+    struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
+    sp->s_flag = DOWN;
+    return 1;
+}
+
+/* Internal traversal — supports transparency-pass filtering and the
+ * accumulated transform-stack matrix.  Public bsg_view_traverse() and
+ * dm_draw_objs() both delegate here. */
+static void
+_bsg_view_traverse_impl(struct bview *v, void *root,
+			int transparency_pass,
+			const fastf_t *cur_mat)
+{
     if (!v || !root)
 	return;
 
@@ -800,21 +883,36 @@ bsg_view_traverse(struct bview *v, void *root)
 	if (s->s_type_flags & BSG_NODE_SENSOR)
 	    continue;
 
-	/* Phase 6: handle transform nodes — push matrix, recurse, pop */
+	/* Phase 6 (BSG render contract): handle transform nodes — push
+	 * matrix, recurse, pop.  Carry the new accumulated matrix
+	 * through to dm_draw_scene_obj so that an s_iflag==UP child
+	 * under this transform restores back to the transform after the
+	 * gv_edit_mat swap, not to gv_model2view. */
 	if (s->s_type_flags & BSG_NODE_TRANSFORM) {
 	    mat_t save_mat;
-	    MAT_COPY(save_mat, v->gv_model2view);
+	    if (cur_mat)
+		MAT_COPY(save_mat, cur_mat);
+	    else
+		MAT_COPY(save_mat, v->gv_model2view);
 	    mat_t new_mat;
-	    bn_mat_mul(new_mat, v->gv_model2view, s->s_mat);
+	    bn_mat_mul(new_mat, save_mat, s->s_mat);
 	    dm_loadmatrix(dmp, new_mat, 0);
-	    bsg_view_traverse(v, s);
+	    _bsg_view_traverse_impl(v, s, transparency_pass, new_mat);
 	    dm_loadmatrix(dmp, save_mat, 0);
 	    continue;
 	}
 
-	draw_scene_obj(dmp, s, v, s->s_force_draw,
-		       (s->s_inherit_settings) ? s->s_os : NULL);
+	_dm_draw_scene_obj_internal(dmp, s, v, s->s_force_draw,
+				    (s->s_inherit_settings) ? s->s_os : NULL,
+				    transparency_pass, cur_mat);
     }
+}
+
+void
+bsg_view_traverse(struct bview *v, void *root)
+{
+    bv_log(3, "libdm:bsg_view_traverse");
+    _bsg_view_traverse_impl(v, root, /*transparency_pass=*/0, /*cur_mat=*/NULL);
 }
 
 // To allow completely custom modes like the sketch editor to be defined by
@@ -884,7 +982,28 @@ dm_draw_objs(struct bview *v, void (*dm_draw_custom)(struct bview *, void *), vo
     // Note: explicit cast from void* is required for C++ compilation.
     if (v->bsg_root) {
 	bsg_scene_root_sync((bsg_node *)v->bsg_root, v);
-	bsg_view_traverse(v, v->bsg_root);
+
+	/* Phase 3 (BSG render contract): reset s_flag = DOWN on every
+	 * shape under the root before rendering, so that dm_draw_scene_obj
+	 * setting s_flag = UP on each successful draw gives an accurate
+	 * "what was drawn this frame" set when this frame is finished. */
+	bsg_visit((bsg_node *)v->bsg_root, BSG_NODE_SHAPE, _reset_drawn_cb, NULL);
+
+	/* Phase 1 (BSG render contract): two-pass transparency render.
+	 * Opaque first with depth writes on, then transparent with depth
+	 * writes off.  When the dm doesn't support / want transparency
+	 * sorting, fall back to a single all-objects pass. */
+	if (dm_get_transparency(dmp)) {
+	    /* Opaque pass */
+	    _bsg_view_traverse_impl(v, v->bsg_root, /*transparency_pass=*/1, NULL);
+	    /* disable depth writes for the transparent pass so back-to-front
+	     * blending doesn't stomp the opaque depth buffer */
+	    (void)dm_set_depth_mask(dmp, 0);
+	    _bsg_view_traverse_impl(v, v->bsg_root, /*transparency_pass=*/2, NULL);
+	    (void)dm_set_depth_mask(dmp, 1);
+	} else {
+	    _bsg_view_traverse_impl(v, v->bsg_root, /*transparency_pass=*/0, NULL);
+	}
     } else {
 	// Draw geometry view objects
 	// TODO - draw opaque, then transparent
