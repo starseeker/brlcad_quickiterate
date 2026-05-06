@@ -287,7 +287,7 @@ draw_edges(struct ged *gedp, struct rt_bot_internal *bot, int num_edges, int edg
 	BV_ADD_VLIST(vbp->free_vlist_hd, vhead, b, BV_VLIST_LINE_DRAW);
     }
 
-    if (gedp->new_cmd_forms) {
+    if (gedp->dbi_state) {
 	struct bu_vls nroot = BU_VLS_INIT_ZERO;
 	bu_vls_sprintf(&nroot, "bot_check::%s", draw_name);
 	struct bview *view = gedp->ged_gvp;

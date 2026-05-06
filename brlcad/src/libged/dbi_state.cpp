@@ -57,8 +57,10 @@
 #include "raytrace.h"
 #include "ged/defines.h"
 #include "ged/view.h"
+#include "ged/bsg_ged_draw.h"
 #include "./ged_private.h"
 #include "bsg/util.h"
+#include "bsg/draw_set.h"
 
 #include "./dbi.h"
 
@@ -2392,6 +2394,111 @@ BViewState::BViewState(DbiState *s)
     dbis = s;
 }
 
+/* ------------------------------------------------------------------ */
+/* BSG integration helpers (Phase B short-term hot-fix).               */
+/*                                                                    */
+/* BViewState was historically depositing its leaf scene objects into  */
+/* bv_view_objs(v, BV_DB_OBJS).  The BSG render path in dm_draw_objs   */
+/* now reads from gd_draw_root only, so those leaves were invisible.   */
+/* These helpers attach/detach BViewState-allocated leaves to/from the */
+/* GED draw tree at gd_draw_root via the public bsg_view_obj_* API,    */
+/* without changing BViewState's own s_map[phash][mode] bookkeeping.   */
+/* ------------------------------------------------------------------ */
+static void
+_bview_state_attach_leaf(struct ged *gedp,
+			 struct bv_scene_obj *sp,
+			 const std::vector<unsigned long long> &path_hashes,
+			 DbiState *dbis)
+{
+    if (!gedp || !sp || path_hashes.empty() || !dbis)
+	return;
+    if (!gedp->dbip)
+	return;
+
+    /* Build the leaf full-path string and parse it into a db_full_path.
+     * print_path produces a slash-separated path with no leading '/',
+     * which is what db_string_to_path expects. */
+    struct bu_vls pstr = BU_VLS_INIT_ZERO;
+    {
+	std::vector<unsigned long long> &cp =
+	    const_cast<std::vector<unsigned long long> &>(path_hashes);
+	dbis->print_path(&pstr, cp);
+    }
+    if (!bu_vls_strlen(&pstr)) {
+	bu_vls_free(&pstr);
+	return;
+    }
+
+    struct db_full_path leaf_dfp;
+    db_full_path_init(&leaf_dfp);
+    if (db_string_to_path(&leaf_dfp, gedp->dbip, bu_vls_cstr(&pstr)) != 0) {
+	/* Path parse failed (invalid entry) — leave sp un-attached.
+	 * It will not render, which matches the prior behaviour. */
+	db_free_full_path(&leaf_dfp);
+	bu_vls_free(&pstr);
+	return;
+    }
+    bu_vls_free(&pstr);
+
+    /* Set up ged_bv_data so bsg_view_obj_append_solid_to_group can walk
+     * the path components and so the per-solid free callback can clear
+     * the illumination NodeSensor (Phase 7 Step 9). */
+    struct ged_bv_data *bdata =
+	(sp->s_u_data) ? (struct ged_bv_data *)sp->s_u_data : NULL;
+    if (!bdata) {
+	BU_GET(bdata, struct ged_bv_data);
+	db_full_path_init(&bdata->s_fullpath);
+	sp->s_u_data = (void *)bdata;
+    } else {
+	bdata->s_fullpath.fp_len = 0;
+    }
+    bdata->gedp = gedp;
+    db_dup_full_path(&bdata->s_fullpath, &leaf_dfp);
+    sp->s_free_callback = ged_bv_illum_free_cb;
+
+    /* Build a single-component db_full_path for the top-level group
+     * (the user-typed root, e.g. "all.g") and look it up / create it. */
+    struct directory *top_dp = leaf_dfp.fp_names[0];
+    struct db_full_path top_dfp;
+    db_full_path_init(&top_dfp);
+    db_add_node_to_full_path(&top_dfp, top_dp);
+
+    struct bv_scene_obj *gdlp =
+	bsg_view_obj_lookup_or_add_dbpath(gedp, &top_dfp);
+    db_free_full_path(&top_dfp);
+    db_free_full_path(&leaf_dfp);
+
+    if (!gdlp)
+	return;
+
+    /* Append the leaf to the BSG tree.  This walks down from the
+     * top-level group, creating intermediate sub-group nodes as needed
+     * based on bdata->s_fullpath. */
+    bsg_view_obj_append_solid_to_group(gedp, gdlp, sp);
+}
+
+/*
+ * Unlink @p sp from its BSG parent's children ptbl, bump the parent's
+ * revision counter and invalidate cached aggregate bboxes.  Safe to
+ * call on objects that were never attached (sp->parent == NULL).
+ *
+ * Must be called before bv_obj_put(sp), because bv_obj_put() does NOT
+ * remove the object from any parent BSG node's children ptbl — only
+ * from sp->otbl (the gv_objs ptbl it was minted into).
+ */
+static void
+_bview_state_detach_leaf(struct bv_scene_obj *sp)
+{
+    if (!sp || !sp->parent)
+	return;
+    struct bv_scene_obj *p = sp->parent;
+    bu_ptbl_rm(&p->children, (const long *)sp);
+    bsg_bump_rev_node((bsg_node *)p);
+    bsg_node_bbox_invalidate((bsg_node *)p);
+    sp->parent = NULL;
+}
+
+
 // 0 = valid, 3 = need re-eval
 int
 BViewState::leaf_check(
@@ -2594,14 +2701,17 @@ BViewState::erase_hpath(int mode, unsigned long long c_hash, std::vector<unsigne
 	if (sm_it != s_map.end()) {
 	    std::unordered_map<int, struct bv_scene_obj *>::iterator s_it;
 	    if (mode < 0) {
-		for (s_it = sm_it->second.begin(); s_it != sm_it->second.end(); s_it++)
+		for (s_it = sm_it->second.begin(); s_it != sm_it->second.end(); s_it++) {
+		    _bview_state_detach_leaf(s_it->second);
 		    bv_obj_put(s_it->second);
+		}
 		for (m_it = drawn_paths.begin(); m_it != drawn_paths.end(); m_it++)
 		    m_it->second.erase(phash);
 		s_map.erase(phash);
 	    } else {
 		s_it = sm_it->second.find(mode);
 		if (s_it != sm_it->second.end()) {
+		    _bview_state_detach_leaf(s_it->second);
 		    bv_obj_put(s_it->second);
 		    sm_it->second.erase(s_it);
 		    drawn_paths[mode].erase(phash);
@@ -3036,6 +3146,13 @@ BViewState::scene_obj(
     s_map[phash][sp->s_os->s_dmode] = sp;
     s_keys[phash] = path_hashes;
 
+    /* Phase B short-term hot-fix: attach the new leaf as a BSG_NODE_SHAPE
+     * under gd_draw_root so that dm_draw_objs / bsg_view_traverse can find
+     * it.  BViewState's s_map[phash][mode] continues to own the path-hash
+     * → bv_scene_obj mapping; this only changes where the leaf lives. */
+    if (dbis && dbis->gedp)
+	_bview_state_attach_leaf(dbis->gedp, sp, path_hashes, dbis);
+
     // Final geometry generation is deferred - see draw_scene
     objs.insert(sp);
 
@@ -3141,6 +3258,22 @@ BViewState::gather_paths(
 void
 BViewState::clear()
 {
+    /* Phase B: detach every BSG-attached leaf before clearing s_map.
+     * The leaves themselves are still owned by the per-view BV_DB_OBJS
+     * ptbl and will be freed by the bv_clear() call that follows
+     * bvs->clear() in zap2_core (or by the next bv_obj_put on each
+     * leaf).  Do NOT call bsg_view_obj_zap() here: with shared
+     * BViewStates and multiple views, the BSG tree is shared and
+     * may still contain leaves owned by other views; those would
+     * then be double-freed via bv_obj_put. */
+    if (dbis && dbis->gedp) {
+	for (auto &kv : s_map) {
+	    for (auto &mkv : kv.second) {
+		_bview_state_detach_leaf(mkv.second);
+	    }
+	}
+    }
+
     s_map.clear();
     s_keys.clear();
     staged.clear();
@@ -3342,6 +3475,13 @@ BViewState::refresh(struct bview *v, int argc, const char **argv)
 	    nso->dp = s->dp;
 	    s_map[*k_it][mm_it->first] = nso;
 
+	    /* Phase B: replace the BSG-attached predecessor with the new
+	     * synced object so the draw tree remains consistent. */
+	    if (dbis && dbis->gedp) {
+		_bview_state_detach_leaf(s);
+		_bview_state_attach_leaf(dbis->gedp, nso, cp, dbis);
+	    }
+
 	    bv_log(3, "refresh %s[%s]", bu_vls_cstr(&(nso->s_name)), bu_vls_cstr(&(v->gv_name)));
 	    draw_scene(nso, v);
 	    bv_obj_put(s);
@@ -3478,6 +3618,7 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
 	    }
 	    if (s) {
 		// Geometry is suspect - clear to prepare for regeneration
+		_bview_state_detach_leaf(s);
 		bv_obj_put(s);
 		s_map[*iv_it].erase(mm_it->first);
 		ret = GED_DBISTATE_VIEW_CHANGE;

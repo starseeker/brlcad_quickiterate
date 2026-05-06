@@ -67,7 +67,7 @@ ged_rt_core(struct ged *gedp, int argc, const char *argv[])
 	return BRLCAD_ERROR;
     }
 
-    if (gedp->new_cmd_forms) {
+    if (gedp->dbi_state) {
 	args = argc + 9 + 2 + (int)ged_who_argc(gedp);
     } else {
 	args = argc + 7 + 2 + (int)ged_who_argc(gedp);
@@ -89,7 +89,7 @@ ged_rt_core(struct ged *gedp, int argc, const char *argv[])
     vp = &gd_rt_cmd[0];
     *vp++ = rt;
 
-    if (gedp->new_cmd_forms) {
+    if (gedp->dbi_state) {
 	*vp++ = "-F";
 	// TODO - look up dm type for this...
 	*vp++ = "/dev/qtgl";

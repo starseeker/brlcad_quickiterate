@@ -167,7 +167,7 @@ ged_garbage_collect_core(struct ged *gedp, int argc, const char *argv[])
      * views to their original state when we open the garbage collected
      * database.  Save the who list. (TODO - do we need to save views?  Or
      * will drawing without resize work?) */
-    if (gedp->new_cmd_forms) {
+    if (gedp->dbi_state) {
 	DbiState *dbis = (DbiState *)gedp->dbi_state;
 	BViewState *bvs = dbis->get_view_state(gedp->ged_gvp);
 	std::vector<std::string> wpaths = bvs->list_drawn_paths(-1, false);

@@ -39,7 +39,7 @@ extern int ged_erase2_core(struct ged *gedp, int argc, const char **argv);
 int
 ged_erase_core(struct ged *gedp, int argc, const char *argv[])
 {
-    if (gedp->new_cmd_forms)
+    if (gedp->dbi_state)
 	return ged_erase2_core(gedp, argc, argv);
 
     size_t i;

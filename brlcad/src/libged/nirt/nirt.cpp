@@ -587,7 +587,7 @@ ged_nirt_core(struct ged *gedp, int argc, const char *argv[])
 
     /* Whether or not we're doing graphics, if we took a shot we should clear any
      * old objects from prior shots. */
-    if (gedp->new_cmd_forms) {
+    if (gedp->dbi_state) {
 	struct bview *view = gedp->ged_gvp;
 	struct bv_scene_obj *nobj = bv_find_obj(view, bu_vls_cstr(&gedp->i->ged_gdp->gd_qray_basename));
 	if (nobj)
@@ -619,7 +619,7 @@ ged_nirt_core(struct ged *gedp, int argc, const char *argv[])
 	    if (pret < 0) {
 		bu_log("Error loading plot data from %s\n", bu_vls_cstr(&nv.plotfile));
 	    } else {
-		if (gedp->new_cmd_forms) {
+		if (gedp->dbi_state) {
 		    struct bview *view = gedp->ged_gvp;
 		    struct bv_scene_obj *nobj = bv_vlblock_obj(vbp, view, bu_vls_cstr(&gedp->i->ged_gdp->gd_qray_basename));
 		    bu_vls_sprintf(&nobj->s_name, "%s", bu_vls_cstr(&gedp->i->ged_gdp->gd_qray_basename));

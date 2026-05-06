@@ -43,7 +43,7 @@ int
 ged_zap_core(struct ged *gedp, int argc, const char *argv[])
 {
 
-    if (gedp->new_cmd_forms)
+    if (gedp->dbi_state)
 	return ged_zap2_core(gedp, argc, argv);
 
     GED_CHECK_DRAWABLE(gedp, BRLCAD_ERROR);

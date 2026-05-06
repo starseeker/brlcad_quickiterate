@@ -660,7 +660,7 @@ static void
 _bot_vlblock_plot(struct ged *gedp, struct bv_vlblock *vbp, const char *sname)
 {
     struct bview *view = gedp->ged_gvp;
-    if (gedp->new_cmd_forms) {
+    if (gedp->dbi_state) {
 	struct bu_vls nroot = BU_VLS_INIT_ZERO;
 	bu_vls_sprintf(&nroot, "bot::%s", sname);
 	bv_vlblock_obj(vbp, view, bu_vls_cstr(&nroot));

@@ -234,7 +234,7 @@ ged_overlay_core(struct ged *gedp, int argc, const char *argv[])
 	    }
 	}
 
-	if (gedp->new_cmd_forms) {
+	if (gedp->dbi_state) {
 	    struct bview *v = gedp->ged_gvp;
 	    bv_vlblock_obj(vbp, v, bu_vls_cstr(&nroot));
 	} else {
