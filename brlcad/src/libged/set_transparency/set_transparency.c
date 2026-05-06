@@ -60,9 +60,6 @@ set_transparency_cb(struct bv_scene_obj *sp, void *userdata)
     /* found a match */
     sp->s_os->transparency = data->transparency;
 
-    /* Phase 6.5 Step 3: fire per-solid vlist callback */
-    ged_create_vlist_solid_cb(data->gedp, sp);
-
     return 1; /* continue */
 }
 

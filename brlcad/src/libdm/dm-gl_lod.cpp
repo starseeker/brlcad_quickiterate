@@ -52,59 +52,129 @@ gl_swrast_database_wireframe(struct dm *dmp, struct bv_scene_obj *s)
     return (s->s_os->s_dmode == 0 || s->s_os->s_dmode == 3);
 }
 
+/* ---------------------------------------------------------------------
+ * Phase 13 (drawing_stack_modernization): GL-backend per-shape state.
+ *
+ * The GL family of display managers (dm-gl, dm-qtgl, dm-glx, dm-wgl,
+ * dm-swrast) caches its per-shape OpenGL display list and the mode it was
+ * compiled in here, attached to the generic bv_scene_obj::s_backend slot.
+ * This replaces the BV_DEPRECATED s_dlist / s_dlist_mode / s_dlist_stale
+ * fields that previously lived on every scene object.
+ *
+ * Lifecycle:
+ *   - allocated lazily by gl_backend_handle_get(s, true) the first time the
+ *     backend caches a list for the shape;
+ *   - the dm_backend_ops invalidate callback (gl_backend_invalidate_obj)
+ *     simply flips dlist_stale on the existing handle if any;
+ *   - the dm_backend_ops release callback (gl_backend_release_obj) is
+ *     fired through bv_scene_obj_release_backend (from bv_obj_reset,
+ *     bv_obj_put, the libbsg tree free paths, ...) and tears down the GL
+ *     list and the handle itself.
+ */
+struct gl_backend_handle {
+    unsigned int dlist;     /* compiled GL display list index, 0 if none */
+    int dlist_mode;         /* mode the list was compiled in (s_os->s_dmode) */
+    int dlist_stale;        /* set by invalidate_obj; next draw regenerates */
+};
+
+static void gl_backend_release_obj(struct dm *dmp, struct bv_scene_obj *s);
+static void gl_backend_release_obj_free(struct bv_scene_obj *s);
+static void gl_backend_invalidate_obj_free(struct bv_scene_obj *s);
+
+/* Fetch (or lazily allocate) the GL backend handle for shape s.
+ * Returns NULL if no handle exists and create==false, or if s is NULL. */
+static struct gl_backend_handle *
+gl_backend_handle_get(struct bv_scene_obj *s, bool create)
+{
+    if (!s)
+	return NULL;
+    if (s->s_backend) {
+	if (s->s_backend->type_tag != BV_BACKEND_GL)
+	    return NULL;
+	return (struct gl_backend_handle *)s->s_backend->handle;
+    }
+    if (!create)
+	return NULL;
+
+    struct bv_obj_backend *be;
+    BU_GET(be, struct bv_obj_backend);
+    be->type_tag = BV_BACKEND_GL;
+    be->free = gl_backend_release_obj_free;
+    be->invalidate = gl_backend_invalidate_obj_free;
+
+    struct gl_backend_handle *h;
+    BU_GET(h, struct gl_backend_handle);
+    h->dlist = 0;
+    h->dlist_mode = 0;
+    h->dlist_stale = 0;
+    be->handle = h;
+    s->s_backend = be;
+    return h;
+}
+
+/* Release any GL display list held by shape s and free the backing
+ * gl_backend_handle / bv_obj_backend descriptor.  Recurses into children
+ * for group-style scene objects, matching the legacy dlist_free_callback
+ * walk.  Safe to call when no backend handle is attached. */
 static void
-dlist_free_callback(struct bv_scene_obj *s)
+gl_backend_handle_release(struct bv_scene_obj *s)
 {
     if (!s)
 	return;
-    bu_log("dlist cleanup\n");
     for (size_t i = 0; i < BU_PTBL_LEN(&s->children); i++) {
 	struct bv_scene_group *cg = (struct bv_scene_group *)BU_PTBL_GET(&s->children, i);
-	dlist_free_callback(cg);
+	gl_backend_handle_release(cg);
     }
-    if (s->s_dlist) {
-	glDeleteLists(s->s_dlist, 1);
-	s->s_dlist = 0;
+    if (s->s_backend && s->s_backend->type_tag == BV_BACKEND_GL) {
+	struct gl_backend_handle *h = (struct gl_backend_handle *)s->s_backend->handle;
+	if (h) {
+	    if (h->dlist) {
+		glDeleteLists(h->dlist, 1);
+		h->dlist = 0;
+	    }
+	    BU_PUT(h, struct gl_backend_handle);
+	    s->s_backend->handle = NULL;
+	}
+	BU_PUT(s->s_backend, struct bv_obj_backend);
+	s->s_backend = NULL;
     }
-    s->s_dlist_stale = 0;
-    s->s_dlist_mode = 0;
 }
 
-/* ---------------------------------------------------------------------
- * Phase 11 (drawing_stack_modernization): renderer-backend contract for
- * the GL family of display managers (dm-gl, dm-qtgl, dm-glx, dm-wgl,
- * dm-swrast).
- *
- * The current GL backend stores its per-shape state in the legacy
- * BV_DEPRECATED fields s_dlist / s_dlist_mode / s_dlist_stale on
- * bv_scene_obj.  Phase 11 introduces a generic backend-ops contract on
- * the dm side; for now the GL ops simply forward to the existing logic,
- * so:
- *
- *   - draw_obj       == gl_draw_obj (same path as dm_impl::dm_draw_obj),
- *   - invalidate_obj == set the BV_DEPRECATED s_dlist_stale flag so the
- *                       next draw-time check regenerates the list,
- *   - release_obj    == call dlist_free_callback to delete the GL list.
- *
- * Phase 13 will move the backing storage from the legacy fields into a
- * struct gl_backend_handle attached via s_backend->handle and drop the
- * BV_DEPRECATED fields entirely; the contract here will not change. */
-extern "C" int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s);
-
-static void
-gl_backend_invalidate_obj(struct dm *dmp, struct bv_scene_obj *s)
-{
-    (void)dmp;
-    if (!s)
-	return;
-    s->s_dlist_stale = 1;
-}
-
+/* dm_backend_ops::release_obj — tear down GL state for this shape. */
 static void
 gl_backend_release_obj(struct dm *dmp, struct bv_scene_obj *s)
 {
     (void)dmp;
-    dlist_free_callback(s);
+    gl_backend_handle_release(s);
+}
+
+/* bv_obj_backend::free — also fired indirectly by
+ * bv_scene_obj_release_backend; same semantics as the dm-side wrapper. */
+static void
+gl_backend_release_obj_free(struct bv_scene_obj *s)
+{
+    gl_backend_handle_release(s);
+}
+
+extern "C" int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s);
+
+/* dm_backend_ops::invalidate_obj — mark the cached GL list stale. */
+static void
+gl_backend_invalidate_obj(struct dm *dmp, struct bv_scene_obj *s)
+{
+    (void)dmp;
+    struct gl_backend_handle *h = gl_backend_handle_get(s, false);
+    if (h)
+	h->dlist_stale = 1;
+}
+
+/* bv_obj_backend::invalidate — same semantics as the dm-side wrapper. */
+static void
+gl_backend_invalidate_obj_free(struct bv_scene_obj *s)
+{
+    struct gl_backend_handle *h = gl_backend_handle_get(s, false);
+    if (h)
+	h->dlist_stale = 1;
 }
 
 extern "C" const struct dm_backend_ops gl_backend_ops = {
@@ -145,10 +215,15 @@ gl_draw_tri(struct dm *dmp, struct bv_mesh_lod *lod)
 
     gl_debug_print(dmp, "gl_draw_tri", dmp->i->dm_debugLevel);
 
+    struct gl_backend_handle *h = gl_backend_handle_get(s, false);
+
     // If the dlist is stale, clear it
-    if (s->s_dlist_stale) {
-	glDeleteLists(s->s_dlist, 1);
-	s->s_dlist = 0;
+    if (h && h->dlist_stale) {
+	if (h->dlist) {
+	    glDeleteLists(h->dlist, 1);
+	    h->dlist = 0;
+	}
+	h->dlist_stale = 0;
 
 	if (!pcnt || !fcnt) {
 	    // If we've had a memshrink, the loaded data isn't
@@ -215,13 +290,13 @@ gl_draw_tri(struct dm *dmp, struct bv_mesh_lod *lod)
     }
 
     // If we have a dlist in the correct mode, use it
-    if (s->s_dlist) {
-	if (mode == s->s_dlist_mode) {
-	    //bu_log("use dlist %d\n", s->s_dlist);
+    if (h && h->dlist) {
+	if (mode == h->dlist_mode) {
+	    //bu_log("use dlist %d\n", h->dlist);
 	    MAT_COPY(save_mat, s->s_v->gv_model2view);
 	    bn_mat_mul(draw_mat, s->s_v->gv_model2view, s->s_mat);
 	    dm_loadmatrix(dmp, draw_mat, 0);
-	    glCallList(s->s_dlist);
+	    glCallList(h->dlist);
 	    dm_loadmatrix(dmp, save_mat, 0);
 	    glLineWidth(originalLineWidth);
 	    if (mvars->transparency_on)
@@ -230,8 +305,8 @@ gl_draw_tri(struct dm *dmp, struct bv_mesh_lod *lod)
 	} else {
 	    // Display list mode is incorrect (wireframe when we
 	    // want shaded, or vice versa.)
-	    glDeleteLists(s->s_dlist, 1);
-	    s->s_dlist = 0;
+	    glDeleteLists(h->dlist, 1);
+	    h->dlist = 0;
 	}
     }
 
@@ -244,13 +319,14 @@ gl_draw_tri(struct dm *dmp, struct bv_mesh_lod *lod)
     ssize_t avail_mem = 0.5*bu_mem(BU_MEM_AVAIL, NULL);
     size_t size_est = (size_t)(fcnt*3*sizeof(point_t));
     bool gen_dlist = false;
-    if (!s->s_dlist && avail_mem > 0 && size_est < (size_t)avail_mem) {
+    if ((!h || !h->dlist) && avail_mem > 0 && size_est < (size_t)avail_mem) {
 	gen_dlist = true;
-	s->s_dlist = glGenLists(1);
-	s->s_dlist_mode = mode;
-	//bu_log("gen_dlist: %d\n", s->s_dlist);
-	s->s_dlist_free_callback = &dlist_free_callback;
-	glNewList(s->s_dlist, GL_COMPILE);
+	if (!h)
+	    h = gl_backend_handle_get(s, true);
+	h->dlist = glGenLists(1);
+	h->dlist_mode = mode;
+	//bu_log("gen_dlist: %d\n", h->dlist);
+	glNewList(h->dlist, GL_COMPILE);
     } else {
 	bu_log("Not using dlist\n");
 	// Straight-up drawing - set up the matrix
@@ -289,7 +365,7 @@ gl_draw_tri(struct dm *dmp, struct bv_mesh_lod *lod)
 	}
 	if (gen_dlist) {
 	    glEndList();
-	    s->s_dlist_stale = 0;
+	    h->dlist_stale = 0;
 	    if (size_est > (avail_mem * 0.01)) {
 		// If the original data is sizable, clear it to save system memory.
 		// The dlist has what it needs, and the LoD code will re-load info
@@ -300,7 +376,7 @@ gl_draw_tri(struct dm *dmp, struct bv_mesh_lod *lod)
 	    MAT_COPY(save_mat, s->s_v->gv_model2view);
 	    bn_mat_mul(draw_mat, s->s_v->gv_model2view, s->s_mat);
 	    dm_loadmatrix(dmp, draw_mat, 0);
-	    glCallList(s->s_dlist);
+	    glCallList(h->dlist);
 	    dm_loadmatrix(dmp, save_mat, 0);
 	}
 
@@ -310,7 +386,7 @@ gl_draw_tri(struct dm *dmp, struct bv_mesh_lod *lod)
 	    glDisable(GL_BLEND);
 
 	// Without dlist, we had to set the matrix - restore
-	if (!s->s_dlist)
+	if (!h || !h->dlist)
 	    dm_loadmatrix(dmp, save_mat, 0);
 
 	return BRLCAD_OK;
@@ -396,7 +472,7 @@ gl_draw_tri(struct dm *dmp, struct bv_mesh_lod *lod)
 
 	if (gen_dlist) {
 	    glEndList();
-	    s->s_dlist_stale = 0;
+	    h->dlist_stale = 0;
 	    if (size_est > (avail_mem * 0.01)) {
 		// If the original data is sizable, clear it to save system memory.
 		// The dlist has what it needs, and the LoD code will re-load info
@@ -410,7 +486,7 @@ gl_draw_tri(struct dm *dmp, struct bv_mesh_lod *lod)
 	    MAT_COPY(save_mat, s->s_v->gv_model2view);
 	    bn_mat_mul(draw_mat, s->s_v->gv_model2view, s->s_mat);
 	    dm_loadmatrix(dmp, draw_mat, 0);
-	    glCallList(s->s_dlist);
+	    glCallList(h->dlist);
 	    dm_loadmatrix(dmp, save_mat, 0);
 	}
 
@@ -423,7 +499,7 @@ gl_draw_tri(struct dm *dmp, struct bv_mesh_lod *lod)
 	glLineWidth(originalLineWidth);
 
 	// If we're not using a pre-baked dlist, restore matrix
-	if (!s->s_dlist)
+	if (!h || !h->dlist)
 	    dm_loadmatrix(dmp, save_mat, 0);
 
 	return BRLCAD_OK;
@@ -451,10 +527,15 @@ gl_csg_lod(struct dm *dmp, struct bv_scene_obj *s)
 
     gl_debug_print(dmp, "gl_csg_lod", dmp->i->dm_debugLevel);
 
+    struct gl_backend_handle *h = gl_backend_handle_get(s, false);
+
     // If the dlist is stale, clear it
-    if (s->s_dlist_stale) {
-	glDeleteLists(s->s_dlist, 1);
-	s->s_dlist = 0;
+    if (h && h->dlist_stale) {
+	if (h->dlist) {
+	    glDeleteLists(h->dlist, 1);
+	    h->dlist = 0;
+	}
+	h->dlist_stale = 0;
     }
 
     // We don't want color to be part of the dlist, to allow the app
@@ -473,21 +554,21 @@ gl_csg_lod(struct dm *dmp, struct bv_scene_obj *s)
     }
 
     // If we have a dlist in the correct mode, use it
-    if (s->s_dlist) {
-	if (mode == s->s_dlist_mode) {
-	    //bu_log("use dlist %d\n", s->s_dlist);
+    if (h && h->dlist) {
+	if (mode == h->dlist_mode) {
+	    //bu_log("use dlist %d\n", h->dlist);
 	    MAT_COPY(save_mat, s->s_v->gv_model2view);
 	    bn_mat_mul(draw_mat, s->s_v->gv_model2view, s->s_mat);
 	    dm_loadmatrix(dmp, draw_mat, 0);
-	    glCallList(s->s_dlist);
+	    glCallList(h->dlist);
 	    dm_loadmatrix(dmp, save_mat, 0);
 	    glLineWidth(originalLineWidth);
 	    return BRLCAD_OK;
 	} else {
 	    // Display list mode is incorrect (wireframe when we
 	    // want shaded, or vice versa.)
-	    glDeleteLists(s->s_dlist, 1);
-	    s->s_dlist = 0;
+	    glDeleteLists(h->dlist, 1);
+	    h->dlist = 0;
 	}
     }
 
@@ -499,13 +580,14 @@ gl_csg_lod(struct dm *dmp, struct bv_scene_obj *s)
     ssize_t avail_mem = 0.5*bu_mem(BU_MEM_AVAIL, NULL);
     size_t size_est = (bu_list_len(&s->s_vlist)*sizeof(point_t));
     bool gen_dlist = false;
-    if (!s->s_dlist && avail_mem > 0 && size_est < (size_t)avail_mem) {
+    if ((!h || !h->dlist) && avail_mem > 0 && size_est < (size_t)avail_mem) {
 	gen_dlist = true;
-	s->s_dlist = glGenLists(1);
-	s->s_dlist_mode = mode;
-	bu_log("gen_dlist: %d\n", s->s_dlist);
-	s->s_dlist_free_callback = &dlist_free_callback;
-	glNewList(s->s_dlist, GL_COMPILE);
+	if (!h)
+	    h = gl_backend_handle_get(s, true);
+	h->dlist = glGenLists(1);
+	h->dlist_mode = mode;
+	bu_log("gen_dlist: %d\n", h->dlist);
+	glNewList(h->dlist, GL_COMPILE);
     } else {
 	bu_log("Not using dlist\n");
 	// Straight-up drawing - set up the matrix
@@ -561,7 +643,7 @@ gl_csg_lod(struct dm *dmp, struct bv_scene_obj *s)
 
     if (gen_dlist) {
 	glEndList();
-	s->s_dlist_stale = 0;
+	h->dlist_stale = 0;
 	if (size_est > (avail_mem * 0.01)) {
 	    // If the original data is sizable, clear it to save system memory.
 	    // The dlist has what it needs, and the LoD code will re-load info
@@ -585,7 +667,7 @@ gl_csg_lod(struct dm *dmp, struct bv_scene_obj *s)
 	MAT_COPY(save_mat, s->s_v->gv_model2view);
 	bn_mat_mul(draw_mat, s->s_v->gv_model2view, s->s_mat);
 	dm_loadmatrix(dmp, draw_mat, 0);
-	glCallList(s->s_dlist);
+	glCallList(h->dlist);
 	dm_loadmatrix(dmp, save_mat, 0);
     }
 
@@ -596,7 +678,7 @@ gl_csg_lod(struct dm *dmp, struct bv_scene_obj *s)
     glLineWidth(originalLineWidth);
 
     // Without dlist, we had to set the matrix - restore
-    if (!s->s_dlist)
+    if (!h || !h->dlist)
 	dm_loadmatrix(dmp, save_mat, 0);
 
     return BRLCAD_OK;
@@ -642,17 +724,19 @@ int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
 	     * so changes to s_color (e.g. via the `color` / `mater` commands)
 	     * take effect immediately without dlist invalidation.  Geometry
 	     * mutations route through dm_backend_ops::invalidate_obj which
-	     * flips s_dlist_stale; the next draw regenerates the list.  When
-	     * available memory is too tight to safely buffer the recording,
-	     * fall back to immediate-mode dm_draw_vlist.  This replaces the
-	     * legacy MGED/libtclcad eager pre-generation paths
-	     * (createDListSolid / to_create_vlist_callback_solid). */
-	    if (s->s_dlist != 0 && s->s_dlist_stale) {
-		glDeleteLists(s->s_dlist, 1);
-		s->s_dlist = 0;
-		s->s_dlist_stale = 0;
+	     * flips dlist_stale on the gl_backend_handle; the next draw
+	     * regenerates the list.  When available memory is too tight to
+	     * safely buffer the recording, fall back to immediate-mode
+	     * dm_draw_vlist.  This replaces the legacy MGED/libtclcad eager
+	     * pre-generation paths (createDListSolid /
+	     * to_create_vlist_callback_solid). */
+	    struct gl_backend_handle *h = gl_backend_handle_get(s, false);
+	    if (h && h->dlist != 0 && h->dlist_stale) {
+		glDeleteLists(h->dlist, 1);
+		h->dlist = 0;
+		h->dlist_stale = 0;
 	    }
-	    if (s->s_dlist == 0) {
+	    if (!h || h->dlist == 0) {
 		size_t size_est = 0;
 		struct bv_vlist *vp;
 		for (BU_LIST_FOR(vp, bv_vlist, &s->s_vlist)) {
@@ -660,17 +744,18 @@ int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
 		}
 		ssize_t avail_mem = 0.5 * bu_mem(BU_MEM_AVAIL, NULL);
 		if (avail_mem > 0 && size_est < (size_t)avail_mem) {
-		    s->s_dlist = glGenLists(1);
-		    if (s->s_dlist != 0) {
-			s->s_dlist_free_callback = &dlist_free_callback;
-			glNewList(s->s_dlist, GL_COMPILE);
+		    if (!h)
+			h = gl_backend_handle_get(s, true);
+		    h->dlist = glGenLists(1);
+		    if (h->dlist != 0) {
+			glNewList(h->dlist, GL_COMPILE);
 			dm_draw_vlist(dmp, (struct bv_vlist *)&s->s_vlist);
 			glEndList();
 		    }
 		}
 	    }
-	    if (s->s_dlist != 0) {
-		dm_draw_dlist(dmp, s->s_dlist);
+	    if (h && h->dlist != 0) {
+		dm_draw_dlist(dmp, h->dlist);
 	    } else {
 		/* Memory was tight or list allocation failed; fall back to
 		 * immediate-mode drawing so the object still renders. */

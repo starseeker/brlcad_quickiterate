@@ -308,19 +308,14 @@ BV_EXPORT void bv_obj_stale(struct bv_scene_obj *s);
 /* Phase 11 (drawing_stack_modernization): renderer-backend contract helpers.
  *
  * These are the canonical entry points for releasing/invalidating per-shape
- * backend resources; they replace ad-hoc direct calls to s_dlist_free_callback
- * and direct writes to s_dlist_stale.  Each helper:
- *   - fires the new-contract callback on s_backend (if set);
- *   - fires the legacy s_dlist_free_callback (release path) or sets the
- *     legacy s_dlist_stale=1 (invalidate path) for source-compatibility with
- *     callers that have not yet migrated.
+ * backend resources.
  *
- * bv_scene_obj_release_backend  - shape is being destroyed/recycled; releases
- *   any backend handle, fires both the new and legacy free callbacks, and
- *   clears s_backend.  Safe to call when s_backend is NULL.
+ * bv_scene_obj_release_backend  - shape is being destroyed/recycled; fires
+ *   the backend free callback (if set) and clears s_backend.  Safe to call
+ *   when s_backend is NULL.
  * bv_scene_obj_invalidate_backend - cached backend resource is stale and
- *   needs to be regenerated.  Fires the new invalidate callback if set, sets
- *   the legacy s_dlist_stale flag.  Does NOT recurse into children. */
+ *   needs to be regenerated.  Fires the backend invalidate callback if set.
+ *   Does NOT recurse into children. */
 BV_EXPORT void bv_scene_obj_release_backend(struct bv_scene_obj *s);
 BV_EXPORT void bv_scene_obj_invalidate_backend(struct bv_scene_obj *s);
 

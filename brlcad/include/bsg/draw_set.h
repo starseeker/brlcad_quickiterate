@@ -137,8 +137,9 @@ bsg_bump_rev_node(bsg_node *n);
  * (field bsg_draw_ctx::fso), or fall back to the individual node's
  * free_scene_obj field.
  *
- * Each freed shape node has its s_dlist_free_callback and s_free_callback
- * fired before recycling.  Group nodes are freed recursively.
+ * Each freed shape node has its backend state released via
+ * bv_scene_obj_release_backend() and its s_free_callback fired before
+ * recycling.  Group nodes are freed recursively.
  *
  * This function does NOT bump the draw-tree revision counter; callers
  * must call bsg_bump_rev_node() at the appropriate ancestor.

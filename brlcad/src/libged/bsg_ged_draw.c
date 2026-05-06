@@ -715,7 +715,6 @@ _sg_invent(struct ged *gedp, char *name, struct bu_list *vhead, long int rgb,
     sp->s_color[1]           = sp->s_old.s_basecolor[1] = (rgb >>  8) & 0xFF;
     sp->s_color[2]           = sp->s_old.s_basecolor[2] = (rgb      ) & 0xFF;
     sp->s_old.s_regionid     = 0;
-    sp->s_dlist              = 0;
     sp->s_old.s_uflag        = 0;
     sp->s_old.s_dflag        = 0;
     sp->s_old.s_cflag        = 0;
@@ -726,7 +725,6 @@ _sg_invent(struct ged *gedp, char *name, struct bu_list *vhead, long int rgb,
     if (csoltab)
         color_soltab(gedp->dbip, sp);
 
-    ged_create_vlist_solid_cb(gedp, sp);
     return 0;
 }
 

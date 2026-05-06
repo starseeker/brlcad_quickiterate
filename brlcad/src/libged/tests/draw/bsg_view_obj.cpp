@@ -1003,9 +1003,7 @@ main(int ac, char *av[])
      * [16] Phase 11: renderer-backend contract.                         *
      *      Stub a dm_backend_ops, attach an s_backend descriptor on a  *
      *      shape, and verify that bv_scene_obj_invalidate_backend /    *
-     *      bv_scene_obj_release_backend fire the new ops AND keep the  *
-     *      legacy s_dlist_stale / s_dlist_free_callback paths working  *
-     *      for backward compatibility.                                  *
+     *      bv_scene_obj_release_backend fire the new ops.              *
      * ---------------------------------------------------------------- */
     {
 	bu_log("[16] Phase 11: renderer-backend contract...\n");
@@ -1014,7 +1012,6 @@ main(int ac, char *av[])
 	struct phase11_state {
 	    int free_calls;
 	    int invalidate_calls;
-	    int legacy_free_calls;
 	    struct bv_scene_obj *last_obj;
 	} st;
 	memset(&st, 0, sizeof(st));
@@ -1058,54 +1055,30 @@ main(int ac, char *av[])
 	be->invalidate = phase11_helpers::backend_invalidate;
 	target->s_backend = be;
 
-	/* Sub-test 1: invalidate fires the new contract callback AND
-	 * keeps the legacy s_dlist_stale flag set for compat. */
-	target->s_dlist_stale = 0;
+	/* Sub-test 1: invalidate fires the new contract callback. */
 	bv_scene_obj_invalidate_backend(target);
 	ASSERT(st.invalidate_calls == 1);
 	ASSERT(st.last_obj == target);
-	ASSERT(target->s_dlist_stale == 1);
 
 	/* Sub-test 2: bv_obj_stale recurses into children and ultimately
 	 * reaches our shape via bv_scene_obj_invalidate_backend. */
 	st.invalidate_calls = 0;
-	target->s_dlist_stale = 0;
 	bv_obj_stale(target);
 	ASSERT(st.invalidate_calls == 1);
-	ASSERT(target->s_dlist_stale == 1);
 
-	/* Sub-test 3: release_backend fires the new free, also fires the
-	 * legacy s_dlist_free_callback (compat shim), and clears the
-	 * s_backend slot.  We register a separate legacy callback that
-	 * just bumps a counter via s_dlist_mode. */
-	int legacy_seen = 0;
-	target->s_dlist_mode = 0;
-	target->s_dlist_free_callback =
-	    +[] (struct bv_scene_obj *s) {
-		/* Legacy compat: BV_DEPRECATED, but Phase 11 promises
-		 * to keep firing it during the transition window. */
-		s->s_dlist_mode = 42;  /* sentinel */
-	    };
+	/* Sub-test 3: release_backend fires the new free and clears the
+	 * s_backend slot. */
 	bv_scene_obj_release_backend(target);
 	ASSERT(st.free_calls == 1);
 	ASSERT(target->s_backend == NULL);
-	ASSERT(target->s_dlist_mode == 42);
-	ASSERT(target->s_dlist_free_callback == NULL); /* cleared by release */
-	(void)legacy_seen;
 
 	/* Sub-test 4: release_backend on an object with no backend slot
-	 * is a safe no-op (and still fires any legacy callback). */
+	 * is a safe no-op. */
 	struct bv_scene_obj *bare = bsg_view_obj_next_solid(gedp, target);
 	if (bare && bare != target) {
-	    int bare_seen = 0;
-	    bare->s_dlist_mode = 0;
 	    bare->s_backend = NULL;
-	    bare->s_dlist_free_callback =
-		+[] (struct bv_scene_obj *s) { s->s_dlist_mode = 7; };
 	    bv_scene_obj_release_backend(bare);
-	    ASSERT(bare->s_dlist_mode == 7);
-	    ASSERT(bare->s_dlist_free_callback == NULL);
-	    (void)bare_seen;
+	    ASSERT(bare->s_backend == NULL);
 	}
 
 	/* Sub-test 5: dm-side dispatch wrappers tolerate a NULL dmp. */

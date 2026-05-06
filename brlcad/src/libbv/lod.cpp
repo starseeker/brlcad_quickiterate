@@ -1845,8 +1845,7 @@ dlist_stale(struct bv_scene_obj *s)
 	dlist_stale(cg);
     }
     /* Phase 11: route through the backend contract so any registered
-     * invalidate callback fires; also keeps the legacy s_dlist_stale flag
-     * in sync for backward compatibility. */
+     * invalidate callback fires. */
     bv_scene_obj_invalidate_backend(s);
 }
 

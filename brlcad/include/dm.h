@@ -276,7 +276,7 @@ DM_EXPORT extern int dm_draw_obj(struct dm *dmp, struct bv_scene_obj *s);
 /* Dlist sensor API
  *
  * Sensors provide a push-based notification when a display list has been
- * regenerated, replacing per-frame polling of bv_scene_obj::s_dlist_stale.
+ * regenerated, replacing per-frame polling for invalidation flags.
  *
  * dm_register_dlist_sensor  - attach a callback to be invoked whenever
  *                             dm_fire_dlist_sensors() is called on this dm.

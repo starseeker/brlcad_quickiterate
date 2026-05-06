@@ -57,19 +57,24 @@ Completed work includes:
   deprecation of the remaining path-string mutation/lookup APIs.
 - Phase 11: renderer-backend contract; backends attach per-shape state via a
   single generic slot on `bv_scene_obj` (`s_backend`) and a libdm-side ops
-  table (`struct dm_backend_ops`).  The legacy GL fields
-  (`s_dlist`/`s_dlist_mode`/`s_dlist_stale`/`s_dlist_free_callback`) are
-  marked `BV_DEPRECATED` and retained for source compatibility through the
-  Phase 13 cleanup window.
+  table (`struct dm_backend_ops`).  The GL family stores its compiled display
+  list, list-compile mode, and stale flag on a private
+  `gl_backend_handle` (libdm/dm-gl_lod.cpp) attached through that slot.
 - Phase 13 (partial): the Phase 10 deprecated path-string mutation/lookup
   entry points (`bsg_view_obj_lookup_or_add_path`, `bsg_view_obj_erase_by_path`,
   `bsg_view_obj_erase_all_paths`, `bsg_view_obj_group_set_path`) and the
   `BSG_DEPRECATED_PATH_STR` machinery have been removed.  The
   `include/ged/bsg_view_obj.h` compatibility shim has been retired and all
   in-tree includes now use the canonical `include/ged/bsg_ged_draw.h`
-  directly.  Backend-field cleanup (`s_dlist*`, `s_dlist_free_callback`,
-  legacy `createDListSolid`/`to_create_vlist_callback_solid` paths) and
-  `gd_illum_solid` collapse remain.
+  directly.  Phase 13 C is also complete: the BV_DEPRECATED `s_dlist`,
+  `s_dlist_mode`, `s_dlist_stale`, and `s_dlist_free_callback` fields on
+  `bv_scene_obj` have been removed (storage migrated to
+  `gl_backend_handle` on `s_backend->handle`), all libbv/libbsg legacy
+  compat firing has been dropped, and the libged
+  `ged_create_vlist_scene_obj_callback` / `ged_destroy_vlist_callback` /
+  `vlist_ctx` fields plus their `ged_create_vlist_solid_cb` /
+  `ged_destroy_vlist_cb` wrappers have been retired.  `gd_illum_solid`
+  collapse remains.
 
 The remaining work is not to make the current tree viable; it is follow-on
 architecture cleanup and backend selection:
@@ -307,20 +312,21 @@ What landed:
   (include/dm.h, src/libdm/dm-generic.c) are the display-manager-side
   counterpart.  Each `dm_impl` carries a `dm_backend_ops` pointer.
 - `gl_backend_ops` (src/libdm/dm-gl_lod.cpp) provides the GL implementation
-  (`gl_draw_obj`, `s_dlist_stale=1`, `dlist_free_callback`).  Every GL plugin
+  (`gl_draw_obj` and the `gl_backend_handle` lifecycle).  Every GL plugin
   (dm-gl, dm-qtgl, dm-glx, dm-wgl, dm-swrast) wires it into its `dm_impl`
   template.
-- All in-tree fire points for the legacy `s_dlist_free_callback` and direct
-  `s_dlist_stale=1` writes (libbv/util.cpp, libbv/view_sets.cpp,
-  libbv/lod.cpp, libbsg/draw_set.c, libbsg/overlay.c) now route through the
-  helpers, so ops registered on `s_backend` fire automatically.
-- The legacy fields `s_dlist`, `s_dlist_mode`, `s_dlist_stale`,
-  `s_dlist_free_callback` carry `BV_DEPRECATED` notices; their storage is
-  retained through Phase 13 to keep `libtclcad/{commands.c, view/draw.c}` and
-  `mged/{dozoom.c, set.c}` compiling unchanged.
+- All in-tree fire points for per-shape backend release/invalidate
+  (libbv/util.cpp, libbv/view_sets.cpp, libbv/lod.cpp, libbsg/draw_set.c,
+  libbsg/overlay.c) route through the helpers, so ops registered on
+  `s_backend` fire automatically.
+- Per-shape GL state (compiled display list, list-compile mode, stale flag)
+  now lives on `struct gl_backend_handle` attached via `s_backend->handle`
+  in libdm-private code.  The Phase 11 transitional BV_DEPRECATED fields
+  (`s_dlist`, `s_dlist_mode`, `s_dlist_stale`, `s_dlist_free_callback`)
+  have been removed in Phase 13 C; see the Phase 13 section below.
 - Section [16] in `src/libged/tests/draw/bsg_view_obj.cpp` exercises the
-  contract with a stub backend and verifies both the new ops and the legacy
-  callback fire on release/invalidate.
+  contract with a stub backend and verifies the new ops fire on
+  release/invalidate.
 
 Phase 12: default backend decision
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -356,22 +362,26 @@ Done:
   includes (libged, libtclcad, mged, and the bsg_view_obj test) now
   reference the canonical header directly.
 
+- Phase 13 C — bv_scene_obj field migration: the BV_DEPRECATED `s_dlist`,
+  `s_dlist_mode`, `s_dlist_stale`, and `s_dlist_free_callback` fields on
+  `bv_scene_obj` have been removed.  GL-backend per-shape state now lives
+  on `struct gl_backend_handle` (libdm/dm-gl_lod.cpp) attached via
+  `s_backend->handle`; the handle is allocated lazily the first time the
+  backend caches a list and torn down through the dm_backend_ops
+  release/invalidate callbacks.  All in-tree callers that touched the
+  legacy fields (libged `draw/draw.c`, `bsg_ged_draw.c`,
+  `set_transparency`, mged `dodraw.c`) have been migrated, the legacy
+  `s_dlist_free_callback` compat firing in `src/libbv/{util.cpp,
+  view_sets.cpp,lod.cpp}` and `src/libbsg/{draw_set.c,overlay.c}` has been
+  removed, and the libged `ged_create_vlist_scene_obj_callback` /
+  `ged_destroy_vlist_callback` / `vlist_ctx` fields on `struct ged` plus
+  the `ged_create_vlist_solid_cb` / `ged_destroy_vlist_cb` wrappers (and
+  associated callback typedefs and counter fields) have been retired.
+  Test [16] in `src/libged/tests/draw/bsg_view_obj.cpp` was updated to
+  exercise only the Phase 11 contract.
+
 Remaining candidates:
 
-- backend-specific scene-object fields that Phase 11 replaces — the
-  BV_DEPRECATED `s_dlist`, `s_dlist_mode`, `s_dlist_stale`, and
-  `s_dlist_free_callback` fields on `bv_scene_obj`.  Removing these
-  requires migrating the GL backend (`src/libdm/dm-gl_lod.cpp`,
-  `gl_backend_ops`) to attach a small per-shape struct via
-  `s_backend->handle` and migrating the legacy display-list pre-generation
-  paths in MGED (`src/mged/dozoom.c::createDListSolid`,
-  `src/mged/set.c`) and tclcad (`src/libtclcad/commands.c::to_create_vlist_callback_solid`,
-  `src/libtclcad/view/draw.c`) to read/write the dlist handle through a
-  libdm-side accessor instead of touching the deprecated field directly.
-  Once no caller touches the BV_DEPRECATED fields, the storage and the
-  legacy `s_dlist_free_callback` compat firing in
-  `src/libbv/{util.cpp,view_sets.cpp,lod.cpp}`,
-  `src/libbsg/{draw_set.c,overlay.c}` can go.
 - `gd_illum_solid`, once libged's internal use sites no longer rely on it
   as the O(1) identity cache.  Today the architecture intentionally
   retains `gd_illum_solid` as the fast identity path used by
@@ -383,12 +393,6 @@ Remaining candidates:
   public `bsg_view_obj_set_illum()` setter (used by MGED's selection
   path) and `bsg_view_obj_get_illum()` accessor (used by the bsg_view_obj
   regression test) are retained.
-- any remaining compatibility path that reintroduces display-list-era
-  semantics into public drawing APIs — the legacy
-  `ged_create_vlist_scene_obj_callback` / `ged_destroy_vlist_callback`
-  hook fields on `struct ged` exist purely to drive the per-object
-  display-list pre-generation paths above; they will be retired alongside
-  the s_dlist field cleanup.
 
 Do not remove these prematurely: each remaining item has at least one
 in-tree caller that must be migrated first.
