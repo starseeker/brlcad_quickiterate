@@ -29,7 +29,7 @@
 
 
 #include "bu/getopt.h"
-#include "ged/bsg_view_obj.h"
+#include "ged/bsg_ged_draw.h"
 #include "../ged_private.h"
 
 static int

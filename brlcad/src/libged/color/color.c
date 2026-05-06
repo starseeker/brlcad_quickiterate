@@ -33,7 +33,7 @@
 #include "bu/file.h"
 #include "bu/getopt.h"
 #include "ged.h"
-#include "ged/bsg_view_obj.h"
+#include "ged/bsg_ged_draw.h"
 #include "rt/db4.h"
 #include "raytrace.h"
 

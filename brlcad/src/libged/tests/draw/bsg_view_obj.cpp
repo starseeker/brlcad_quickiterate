@@ -22,7 +22,7 @@
  * Phase 6.5 (drawing-stack modernization) — Step 1 regression test.
  *
  * Exercises the bsg_view_obj_* migration-target API declared in
- * include/ged/bsg_view_obj.h.  Each helper is currently a thin wrapper
+ * include/ged/bsg_ged_draw.h.  Each helper is currently a thin wrapper
  * over the legacy dl_* functions; this test pins the API surface so
  * that subsequent caller migrations (Step 2) and the eventual swap to
  * a pure BSG view-tree implementation (Step 7) can be done without
@@ -47,7 +47,7 @@
 #include "bv/util.h"
 #include "dm.h"
 #include <ged.h>
-#include "ged/bsg_view_obj.h"
+#include "ged/bsg_ged_draw.h"
 #include "bsg/defines.h"
 #include "bsg/draw_set.h"
 #include "bsg/field.h"

@@ -48,7 +48,7 @@
 #include "bsg/visit.h"
 #include "bsg/defines.h"
 #include "dm/view.h"
-#include "ged/bsg_view_obj.h"
+#include "ged/bsg_ged_draw.h"
 
 #include "./mged.h"
 #include "./sedit.h"

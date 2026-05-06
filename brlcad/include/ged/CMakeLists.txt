@@ -1,7 +1,6 @@
 set(
   ged_headers
   bsg_ged_draw.h
-  bsg_view_obj.h
   commands.h
   database.h
   debug.h

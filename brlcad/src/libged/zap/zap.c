@@ -27,7 +27,7 @@
 
 #include <stdlib.h>
 
-#include "ged/bsg_view_obj.h"
+#include "ged/bsg_ged_draw.h"
 #include "../ged_private.h"
 
 extern int ged_zap2_core(struct ged *gedp, int argc, const char *argv[]);
