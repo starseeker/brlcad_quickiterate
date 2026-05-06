@@ -1463,7 +1463,6 @@ struct dm_impl dm_ogl_impl = {
     gl_drawDList,
     gl_freeDLists,
     gl_genDLists,
-    gl_draw_display_list,
     gl_getDisplayImage, /* display to image function */
     gl_reshape,
     ogl_makeCurrent,

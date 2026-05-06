@@ -629,7 +629,6 @@ struct dm_impl dm_qtgl_impl = {
     gl_drawDList,
     gl_freeDLists,
     gl_genDLists,
-    gl_draw_display_list,
     qtgl_getDisplayImage, /* display to image function */
     gl_reshape,
     qtgl_makeCurrent,

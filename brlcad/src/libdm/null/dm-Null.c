@@ -468,7 +468,6 @@ struct dm_impl dm_null_impl = {
     null_drawDList,
     null_freeDLists,
     null_genDLists,
-    NULL,
     null_getDisplayImage,
     null_reshape,
     null_makeCurrent,

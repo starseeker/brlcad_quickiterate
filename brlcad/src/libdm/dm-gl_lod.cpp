@@ -632,27 +632,50 @@ int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
 	    dm_draw_vlist_hidden_line(dmp, (struct bv_vlist *)&s->s_vlist);
 	} else if (dm_get_displaylist(dmp)) {
 	    /* Phase 13 (drawing_stack_modernization): the GL backend owns the
-	     * dlist lifecycle.  When the dm supports display lists, lazily
-	     * compile this shape's vlist into a named GL list on first draw,
-	     * then replay it via dm_draw_dlist on subsequent frames.  The
-	     * legacy s_dlist_stale flag (flipped by gl_backend_invalidate_obj)
-	     * forces a regenerate on the next draw.  This replaces the
-	     * MGED/libtclcad eager pre-generation paths
-	     * (createDListSolid / to_create_vlist_callback_solid) which used
-	     * to compile lists at vlist-creation time on every active dm. */
+	     * per-shape display-list lifecycle for ordinary vlist objects
+	     * (matching the gl_draw_tri pattern for mesh LoD).  When the dm
+	     * advertises display-list support, lazily compile the vlist into
+	     * a named GL display list on first draw, then replay it via
+	     * dm_draw_dlist on subsequent frames.  Color is intentionally NOT
+	     * baked into the list — the BSG render contract sets the current
+	     * GL colour via dm_set_fg before each call to dm_backend_draw_obj,
+	     * so changes to s_color (e.g. via the `color` / `mater` commands)
+	     * take effect immediately without dlist invalidation.  Geometry
+	     * mutations route through dm_backend_ops::invalidate_obj which
+	     * flips s_dlist_stale; the next draw regenerates the list.  When
+	     * available memory is too tight to safely buffer the recording,
+	     * fall back to immediate-mode dm_draw_vlist.  This replaces the
+	     * legacy MGED/libtclcad eager pre-generation paths
+	     * (createDListSolid / to_create_vlist_callback_solid). */
 	    if (s->s_dlist != 0 && s->s_dlist_stale) {
 		glDeleteLists(s->s_dlist, 1);
 		s->s_dlist = 0;
 		s->s_dlist_stale = 0;
 	    }
 	    if (s->s_dlist == 0) {
-		s->s_dlist = glGenLists(1);
-		s->s_dlist_free_callback = &dlist_free_callback;
-		glNewList(s->s_dlist, GL_COMPILE);
-		dm_draw_vlist(dmp, (struct bv_vlist *)&s->s_vlist);
-		glEndList();
+		size_t size_est = 0;
+		struct bv_vlist *vp;
+		for (BU_LIST_FOR(vp, bv_vlist, &s->s_vlist)) {
+		    size_est += vp->nused * sizeof(point_t);
+		}
+		ssize_t avail_mem = 0.5 * bu_mem(BU_MEM_AVAIL, NULL);
+		if (avail_mem > 0 && size_est < (size_t)avail_mem) {
+		    s->s_dlist = glGenLists(1);
+		    if (s->s_dlist != 0) {
+			s->s_dlist_free_callback = &dlist_free_callback;
+			glNewList(s->s_dlist, GL_COMPILE);
+			dm_draw_vlist(dmp, (struct bv_vlist *)&s->s_vlist);
+			glEndList();
+		    }
+		}
 	    }
-	    dm_draw_dlist(dmp, s->s_dlist);
+	    if (s->s_dlist != 0) {
+		dm_draw_dlist(dmp, s->s_dlist);
+	    } else {
+		/* Memory was tight or list allocation failed; fall back to
+		 * immediate-mode drawing so the object still renders. */
+		dm_draw_vlist(dmp, (struct bv_vlist *)&s->s_vlist);
+	    }
 	} else {
 	    dm_draw_vlist(dmp, (struct bv_vlist *)&s->s_vlist);
 	}
