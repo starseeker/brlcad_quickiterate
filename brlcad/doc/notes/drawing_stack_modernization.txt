@@ -453,8 +453,51 @@ Phase B — BViewState writes through BSG.
   `_mged_count_drawn_cb` (Phase 9.2).
 
   Status: short-term hot-fix landed (above section).  Full migration
-  of `bv_view_objs(v, BV_DB_OBJS)` readers to BSG traversal still
-  pending.
+  of `bv_view_objs(v, BV_DB_OBJS)` readers to BSG traversal is the
+  remaining Phase B work.  Concrete steps, in order:
+
+  B-full-1. Stop `BViewState` from depositing scene-object leaves
+    into `BV_DB_OBJS`.  The four `bv_obj_get(v, BV_DB_OBJS)` calls
+    in `dbi_state.cpp` (currently lines ~3065, ~3465, ~3611, ~3667)
+    register each new leaf with the per-view ptbl *and* with the BSG
+    tree; only the BSG registration is needed once this phase is done.
+    Switching to a flag that does not add to the ptbl (or calling
+    `bv_obj_get` with `BV_VIEW_OBJS` for private leaves) is the key
+    correctness change.
+
+  B-full-2. Provide a `bv_view_objs_visit_db()` libbv helper: given
+    a view, iterate db-derived shape leaves by preferring
+    `bsg_visit(BSG_NODE_SHAPE, v->gv_draw_root)` when `gv_draw_root`
+    is set, and falling back to `bv_view_objs(v, BV_DB_OBJS)` for
+    non-GED consumers.  This gives callers in libbv (snap.c,
+    hash.c, lod.cpp) a single migration target without requiring
+    them to take a `bsg_node *` they do not currently hold.
+
+  B-full-3. Migrate each `bv_view_objs(v, BV_DB_OBJS)` reader to the
+    new helper, one file at a time.  Affected files to consider:
+      - `src/libdm/view.c` — the fallback branch of `dm_draw_objs`
+        and the `dm_draw_viewobjs` path (the BSG branch is already
+        correct; the fallback branch can be left for Phase E or
+        narrowed to non-GED consumers only)
+      - `src/libtclcad/view/draw.c`
+      - `src/libqtcad/QgQuadView.cpp`
+      - `src/libged/view/objs.cpp` (view objs/list reporting)
+      - `src/libged/view/view.c` (view bounds)
+      - `src/libged/ged_util.cpp`
+      - `src/libged/draw/draw2.cpp`
+      - `src/libbv/{lod.cpp,snap.c,hash.c,util.cpp}` (use the new
+        libbv helper — these are cache/snap/hash callers, not render
+        callers, so the BSG fallback matters for correctness)
+
+  B-full-4. Investigate and fix the remaining open rendering failures
+    listed in the "Phase B short-term hot-fix" section above (shaded
+    mode 1 with LoD off, hidden lines mode 4, LoD test suite).  These
+    likely require work in the adaptive-plot / `bv_obj_for_view`
+    integration with the BSG render contract.
+
+  Validation: `ged_test_drawing_basic`, `ged_test_drawing_faceplate`,
+  the LoD tests, and the full `bsg_view_obj` + `mged_shaded_mode_bsg`
+  + `mged_bsg` test suites must all continue to pass after each step.
 
 Phase C — push the stack-1 helpers needed by qged into the shared API.
 
@@ -467,6 +510,19 @@ Phase C — push the stack-1 helpers needed by qged into the shared API.
   `bsg_sensor_target` / `bsg_view_obj_illum_rev` / `gv_frame_rev`
   rather than the old gv_objs-based paths it still has in places.
 
+  Status: DONE (no-op found).  An audit of `src/qged/` and
+  `src/libqtcad/` (source files only, excluding diagram/doc files)
+  found zero occurrences of `gd_illum`, `s_iflag`, `gv_frame_rev`,
+  `bsg_sensor_target`, `bsg_view_obj_illum_rev`, and `gv_objs`.
+  The "old gv_objs-based paths" referenced here were eliminated by
+  the Phase 9.3 + Phase 13 illumination-collapse work before Phase C
+  began.  No code migration was required.  The shared BSG facilities
+  (NodeSensor, `gd_illum_rev`, `gv_frame_rev`, lazy material rev)
+  are available to qged via the BSG tree and `bsg_ged_draw.h` APIs;
+  qged's only relevant `DbiState` usage is through `BSelectState`
+  and `BViewState::is_hdrawn` / `erase_hpath`, which are on the
+  correct path already.
+
 Phase D — extract a thin `dbi_state` interface.
 
   Move `DbiState`/`BViewState` either fully into `libged` (it is
@@ -475,6 +531,30 @@ Phase D — extract a thin `dbi_state` interface.
   (e.g. fast `is_drawn(path)` checks driven from cached path
   hashes).  This is the only step where MGED/Archer would gain
   anything from `dbi_state`; until then they ignore it.
+
+  Status: DONE.  A new public C header `include/ged/dbi_state.h`
+  exposes two entry points keyed on `gedp->dbi_state != NULL`:
+
+  - `ged_dbi_is_drawn(gedp, v, path)` — returns 0 (not drawn),
+    1 (fully drawn), or 2 (partially drawn) by calling
+    `DbiState::digest_path` to hash the path string, then
+    `BViewState::is_hdrawn(-1, phash)` against the view's drawn
+    state.  When `dbi_state` is NULL (MGED/Archer), returns 0
+    immediately without touching the database.
+
+  - `ged_dbi_list_drawn(gedp, v, mode, result)` — appends the list
+    of drawn path strings into a `bu_vls *` (one per line) using
+    `BViewState::list_drawn_paths(mode, /*collapsed=*/false)`.
+    When `dbi_state` is NULL, appends nothing and returns 0.
+    `mode == -1` lists all draw modes; a non-negative mode value
+    limits the list to that mode.
+
+  The `DbiState` C++ class and `dbi.h` private header are unchanged
+  and remain libged-internal.  MGED, Archer, and any C-only libged
+  client can call `ged_dbi_is_drawn` / `ged_dbi_list_drawn` without
+  including `dbi.h` or depending on C++ linkage.
+  The new header is registered in `include/ged/CMakeLists.txt`.
+  Implementations live at the end of `src/libged/dbi_state.cpp`.
 
 Phase E — finish retiring the BSG legacy fallback.
 

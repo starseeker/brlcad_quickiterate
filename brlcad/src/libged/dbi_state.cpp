@@ -4984,6 +4984,63 @@ DbiState::wait_for_pipeline(int max_ms)
 }
 
 /** @} */
+/* ============================================================
+ * Phase D: thin C interface to DbiState / BViewState
+ * (drawing_stack_modernization.txt "Phase D" section).
+ *
+ * These wrappers let C callers query drawn-set state without
+ * depending on the C++ dbi.h private header.  They are safe
+ * to call with any ged instance: when dbi_state is NULL (e.g.
+ * MGED) they return 0 / empty immediately.
+ * ============================================================ */
+
+extern "C" {
+
+int
+ged_dbi_is_drawn(struct ged *gedp, struct bview *v, const char *path)
+{
+    if (!gedp || !gedp->dbi_state || !path)
+	return 0;
+
+    DbiState *dbis = (DbiState *)gedp->dbi_state;
+
+    /* Resolve the view: fall back to the shared view state when v is NULL. */
+    BViewState *bvs = dbis->get_view_state(v);
+    if (!bvs)
+	return 0;
+
+    /* Digest the path string to the per-object hash sequence. */
+    std::vector<unsigned long long> hashes = dbis->digest_path(path);
+    if (hashes.empty())
+	return 0;
+
+    /* The drawn check is keyed on the full-path hash (last element of the
+     * digest, which encodes the complete path). */
+    unsigned long long phash = dbis->path_hash(hashes, 0);
+    return bvs->is_hdrawn(-1, phash);
+}
+
+size_t
+ged_dbi_list_drawn(struct ged *gedp, struct bview *v, int mode, struct bu_vls *result)
+{
+    if (!gedp || !gedp->dbi_state || !result)
+	return 0;
+
+    DbiState *dbis = (DbiState *)gedp->dbi_state;
+
+    BViewState *bvs = dbis->get_view_state(v);
+    if (!bvs)
+	return 0;
+
+    std::vector<std::string> paths = bvs->list_drawn_paths(mode, /*list_collapsed=*/false);
+    for (const std::string &p : paths) {
+	bu_vls_printf(result, "%s\n", p.c_str());
+    }
+    return paths.size();
+}
+
+} /* extern "C" */
+
 // Local Variables:
 // tab-width: 8
 // mode: C++
