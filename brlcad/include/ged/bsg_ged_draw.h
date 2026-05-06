@@ -504,8 +504,8 @@ bsg_view_obj_append_solid_to_group(struct ged *gedp,
 
 /**
  * Per-solid s_free_callback that clears the GED illumination tracker
- * (gd_illum_solid) when the shape being freed is currently registered as the
- * illuminated solid.
+ * (the libbsg NodeSensor on `gd_illum_sensor`) when the shape being freed
+ * is currently registered as the illuminated solid.
  *
  * Register this on every BSG_NODE_SHAPE node at creation time alongside
  * setting ged_bv_data::gedp.  The BSG freeing paths call it explicitly before

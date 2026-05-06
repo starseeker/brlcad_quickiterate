@@ -220,6 +220,20 @@ bsg_sensor_destroy(bsg_node *sensor)
 }
 
 
+bsg_node *
+bsg_sensor_target(bsg_node *sensor)
+{
+    if (!sensor)
+	return NULL;
+    _registry_ensure_init();
+    for (int i = 0; i < BSG_SENSOR_MAX; i++) {
+	if (s_registry[i].active && s_registry[i].handle == sensor)
+	    return s_registry[i].target;
+    }
+    return NULL;
+}
+
+
 void
 bsg_sensor_notify_field(bsg_node *target, bsg_field_id_t fid)
 {

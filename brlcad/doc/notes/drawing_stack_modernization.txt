@@ -74,16 +74,16 @@ Completed work includes:
   `ged_create_vlist_scene_obj_callback` / `ged_destroy_vlist_callback` /
   `vlist_ctx` fields plus their `ged_create_vlist_solid_cb` /
   `ged_destroy_vlist_cb` wrappers have been retired.  `gd_illum_solid`
-  collapse remains.
+  has been collapsed (Phase 13 cleanup): the registered NodeSensor on
+  `gd_illum_sensor` is now the single source of truth for the illuminated
+  -solid identity, read back via `bsg_sensor_target()`.
 
 The remaining work is not to make the current tree viable; it is follow-on
 architecture cleanup and backend selection:
 
 - Phase 12: benchmark-based default backend decision.
 - Phase 13 (remaining): retirement of the BV_DEPRECATED `s_dlist*` fields
-  and the legacy display-list pre-generation paths in MGED + tclcad; and
-  collapse of `gd_illum_solid` once libged's internal use sites no longer
-  rely on it as the O(1) identity cache.
+  and the legacy display-list pre-generation paths in MGED + tclcad.
 
 Current architecture
 --------------------
@@ -129,12 +129,15 @@ Future sessions should start from these present-day facts.
    - "Drawn this frame" means `s_drawn_rev == gv_frame_rev`.
    - Do not restore a per-frame full-tree `s_flag = DOWN` reset.
 
-7. Illumination has both an O(1) identity cache and a sensor revision.
-   - `ged_drawable::gd_illum_solid` remains as the fast identity path used by
-     current GED logic.
-   - `ged_drawable::gd_illum_sensor` and `gd_illum_rev` provide lazy change
-     notification for the illuminated node.
-   - `bsg_view_obj_illum_rev()` exposes the revision counter.
+7. Illumination identity lives on the NodeSensor; revisions notify lazily.
+   - `ged_drawable::gd_illum_sensor` carries the libbsg NodeSensor watching
+     the currently illuminated node; `bsg_sensor_target()` reads back the
+     identity.  When no solid is illuminated, the field is NULL.
+   - `ged_drawable::gd_illum_rev` is bumped on every transition (set/clear/
+     replace) and on every `bsg_node_field_touch` against the illuminated
+     node (delivered through the sensor callback).
+   - `bsg_view_obj_illum_rev()` exposes the revision counter; observers
+     cache a snapshot and compare to detect "highlight may have changed".
 
 8. Aggregate bounding boxes are cached on group nodes.
    - `bv_scene_obj::s_bbox_cached` marks valid aggregate bbox data for group/root
@@ -228,7 +231,10 @@ Step 9.2: drawn-this-frame generation counter
     destructive reset pass.
 
 Step 9.3: illumination NodeSensor
-  - `gd_illum_sensor` tracks the currently illuminated node.
+  - `gd_illum_sensor` tracks the currently illuminated node and is the
+    single source of truth for the highlight identity (Phase 13:
+    `gd_illum_solid` cache field collapsed; `bsg_sensor_target()` reads
+    the identity off the sensor handle).
   - Sensor callbacks bump `gd_illum_rev` when the illuminated node changes.
   - `set_iflag(DOWN)`, `zap`, free callbacks, and illumination transitions tear
     the sensor down cleanly.
@@ -268,17 +274,18 @@ A1 canonical BSG drawn set, A2 tree-based storage, A3 view draw-root plumbing,
 and A4 DFS snapshot navigation are complete.  The remaining path-string APIs are
 compatibility surfaces, not evidence that storage is still list-based.
 
-Layer B — re-express legacy roles in BSG terms: DONE with one transitional cache
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-B1/B2/B3/B4/B6/B7/B8/B9 are complete.  B5's lazy notification side is implemented
-with a NodeSensor and `gd_illum_rev`; `gd_illum_solid` intentionally remains as a
-transitional O(1) identity cache until Phase 13.
+Layer B — re-express legacy roles in BSG terms: DONE
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+B1/B2/B3/B4/B5/B6/B7/B8/B9 are complete.  B5 keeps illumination identity on the
+libbsg NodeSensor (`gd_illum_sensor`, read back via `bsg_sensor_target()`)
+together with `gd_illum_rev` for lazy change notification — no separate cache
+field.
 
 Layer C — lift tree mechanics into libbsg/delete old shape: MOSTLY DONE
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Pure tree mechanics are in libbsg and GED policy is above it.  The remaining
-cleanup belongs to Phases 11 and 13: backend-specific per-shape fields,
-deprecated path-string entry points, and transitional illumination identity state.
+cleanup belongs to Phase 13: backend-specific per-shape fields and deprecated
+path-string entry points.
 
 User-facing redesign items R1/R2: DONE
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -382,17 +389,13 @@ Done:
 
 Remaining candidates:
 
-- `gd_illum_solid`, once libged's internal use sites no longer rely on it
-  as the O(1) identity cache.  Today the architecture intentionally
-  retains `gd_illum_solid` as the fast identity path used by
-  `bsg_view_obj_set_iflag(DOWN)` and the per-solid free callback.  The
-  sensor-revision side (`gd_illum_sensor` / `gd_illum_rev` /
-  `bsg_view_obj_illum_rev()`) is already in place; what is missing is a
-  refactor of those internal use sites to read identity through the
-  sensor instead of polling the field.  Until that refactor, the
+- (none — `gd_illum_solid` was collapsed in Phase 13.  The libbsg
+  NodeSensor on `gd_illum_sensor` is the single source of truth: identity
+  is read via `bsg_sensor_target((bsg_node *)gdp->gd_illum_sensor)`.  The
   public `bsg_view_obj_set_illum()` setter (used by MGED's selection
-  path) and `bsg_view_obj_get_illum()` accessor (used by the bsg_view_obj
-  regression test) are retained.
+  path), `bsg_view_obj_get_illum()` accessor (used by libged callers),
+  and `bsg_view_obj_illum_rev()` revision counter all derive from the
+  same handle and need no separate cache field.)
 
 Do not remove these prematurely: each remaining item has at least one
 in-tree caller that must be migrated first.

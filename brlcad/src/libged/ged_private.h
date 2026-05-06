@@ -79,20 +79,19 @@ struct ged_drawable {
     struct bv_scene_obj         *gd_draw_root;          /**< @brief  BSG_NODE_GROUP root of drawn-set tree */
     uint64_t                     gd_draw_rev;           /**< @brief  monotonic revision counter; bumped on every structural mutation of the draw tree; reset to 0 by bsg_view_obj_zap */
     struct bsg_draw_ctx          bsg_ctx;               /**< @brief  draw-tree context stored in gd_draw_root->s_i_data; draw_rev points at gd_draw_rev so freeing helpers can bump without gedp (Phase 7 Step 10) */
-    struct bv_scene_obj         *gd_illum_solid;        /**< @brief  currently illuminated solid, or NULL; enables O(1) set_iflag(DOWN) when single-solid illumination is tracked (B5) */
-    /* Phase 9.3 (drawing_stack_modernization B5 residual): NodeSensor handle
-     * registered on gd_illum_solid while it is non-NULL.  When set, any
-     * bsg_node_field_touch(gd_illum_solid, *) bumps gd_illum_rev so that
-     * external observers can detect highlight-state changes without polling
-     * gd_illum_solid directly or subscribing to the sensor themselves.
-     * NULL when no solid is illuminated.  Owned by libged; created and
-     * destroyed by _sg_set_illum on transitions to/from a non-NULL solid.
-     * Stored as struct bv_scene_obj * (= bsg_node) to avoid pulling in
-     * bsg/defines.h here. */
+    /* Phase 9.3 / 13 (drawing_stack_modernization B5 residual): NodeSensor
+     * handle registered on the currently-illuminated solid, or NULL when
+     * nothing is illuminated.  This handle is the single source of truth
+     * for the illuminated-solid identity (read back via
+     * bsg_sensor_target()); a separate gd_illum_solid cache field used to
+     * exist alongside it but was retired in Phase 13.  Owned by libged;
+     * created and destroyed by _sg_set_illum on transitions to/from a
+     * non-NULL solid.  Stored as struct bv_scene_obj * (= bsg_node) to
+     * avoid pulling in bsg/defines.h here. */
     struct bv_scene_obj         *gd_illum_sensor;
     /* Phase 9.3 (drawing_stack_modernization B5 residual): monotonic
      * highlight-state revision counter.  Bumped on:
-     *   - every transition of gd_illum_solid (set/clear/replace) and
+     *   - every transition of the illuminated solid (set/clear/replace) and
      *   - every bsg_node_field_touch on the currently illuminated solid
      *     (delivered through gd_illum_sensor).
      * Wraps cleanly on uint64_t overflow.  Callers cache a snapshot and
