@@ -34,7 +34,7 @@
 #include "bv/plot3.h"
 #include "bg/clip.h"
 
-#include "ged/bsg_view_obj.h"
+#include "ged/bsg_ged_draw.h"
 #include "../ged_private.h"
 
 #if defined(HAVE_POPEN) && !defined(HAVE_DECL_POPEN) && !defined(popen)

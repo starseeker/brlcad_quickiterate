@@ -97,7 +97,6 @@ f_share(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *ar
 {
     struct cmdtab *ctp = (struct cmdtab *)clientData;
     MGED_CK_CMD(ctp);
-    struct mged_state *s = ctp->s;
 
     int uflag = 0;		/* unshare flag */
     struct mged_dm *dlp1 = MGED_DM_NULL;
@@ -190,18 +189,10 @@ f_share(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *ar
 		    if (uflag) {
 			dlp1->dm_dlist_state->dl_active = dlp1->dm_mged_variables->mv_dlist;
 
-			if (dlp1->dm_mged_variables->mv_dlist) {
-			    struct mged_dm *save_dlp;
-
-			    save_dlp = s->mged_curr_dm;
-
-			    set_curr_dm(s, dlp1);
-			    createDLists(s, ged_dl(s->gedp));
-
-			    /* restore */
-			    set_curr_dm(s, save_dlp);
-			}
-
+			/* Phase 13 (drawing_stack_modernization): the GL
+			 * backend lazily compiles per-shape display lists
+			 * on first draw; just dirty the dm and let the
+			 * next refresh populate them. */
 			dlp1->dm_dirty = 1;
 			dm_set_dirty(dlp1->dm_dmp, 1);
 		    } else {

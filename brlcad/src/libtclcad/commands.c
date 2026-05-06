@@ -530,8 +530,6 @@ static int to_zclip(struct ged *gedp,
 
 /* Utility Functions */
 
-static void to_create_vlist_callback_solid(void *, struct bv_scene_obj *gdlp);
-static void to_destroy_vlist_callback(void *, unsigned int dlist, int range);
 static void to_rt_end_callback_internal(int aborted);
 
 static void to_output_handler(struct ged *gedp, char *line);
@@ -1267,8 +1265,6 @@ to_open_tcl(ClientData UNUSED(clientData),
 
     top->to_gedp->ged_output_handler = to_output_handler;
     top->to_gedp->ged_refresh_handler = to_refresh_handler;
-    top->to_gedp->ged_create_vlist_scene_obj_callback = to_create_vlist_callback_solid;
-    top->to_gedp->ged_destroy_vlist_callback = to_destroy_vlist_callback;
 
     ged_dl_notify_func_set(top->to_gedp, to_rt_end_callback_internal);
 
@@ -6391,64 +6387,6 @@ to_zclip(struct ged *gedp,
 
 
 /*************************** Local Utility Functions ***************************/
-
-static void
-to_create_vlist_callback_solid(void *UNUSED(ctx), struct bv_scene_obj *sp)
-{
-    struct bview *gdvp;
-    int first = 1;
-    struct tclcad_ged_data *tgd = (struct tclcad_ged_data *)current_top->to_gedp->u_data;
-
-    struct bu_ptbl *views = bv_set_views(&current_top->to_gedp->ged_views);
-    for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
-	gdvp = (struct bview *)BU_PTBL_GET(views, i);
-	if (tgd->go_dmv.dlist_on && to_is_viewable(gdvp)) {
-
-	    (void)dm_make_current((struct dm *)gdvp->dmp);
-
-	    if (first) {
-		sp->s_dlist = dm_gen_dlists((struct dm *)gdvp->dmp, 1);
-		first = 0;
-	    }
-
-	    (void)dm_begin_dlist((struct dm *)gdvp->dmp, sp->s_dlist);
-
-	    if (sp->s_iflag == UP)
-		(void)dm_set_fg((struct dm *)gdvp->dmp, 255, 255, 255, 0, sp->s_os->transparency);
-	    else
-		(void)dm_set_fg((struct dm *)gdvp->dmp,
-			(unsigned char)sp->s_color[0],
-			(unsigned char)sp->s_color[1],
-			(unsigned char)sp->s_color[2], 0, sp->s_os->transparency);
-
-	    if (sp->s_os->s_dmode == 4) {
-		(void)dm_draw_vlist_hidden_line((struct dm *)gdvp->dmp, (struct bv_vlist *)&sp->s_vlist);
-	    } else {
-		(void)dm_draw_vlist((struct dm *)gdvp->dmp, (struct bv_vlist *)&sp->s_vlist);
-	    }
-
-	    (void)dm_end_dlist((struct dm *)gdvp->dmp);
-	}
-    }
-}
-
-
-static void
-to_destroy_vlist_callback(void *UNUSED(ctx), unsigned int dlist, int range)
-{
-    struct bview *gdvp;
-    struct tclcad_ged_data *tgd = (struct tclcad_ged_data *)current_top->to_gedp->u_data;
-
-    struct bu_ptbl *views = bv_set_views(&current_top->to_gedp->ged_views);
-    for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
-	gdvp = (struct bview *)BU_PTBL_GET(views, i);
-	if (tgd->go_dmv.dlist_on && to_is_viewable(gdvp)) {
-	    (void)dm_make_current((struct dm *)gdvp->dmp);
-	    (void)dm_free_dlists((struct dm *)gdvp->dmp, dlist, range);
-	}
-    }
-}
-
 
 static void
 to_rt_end_callback_internal(int aborted)

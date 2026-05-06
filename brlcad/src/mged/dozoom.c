@@ -48,7 +48,7 @@
 #include "bsg/visit.h"
 #include "bsg/defines.h"
 #include "dm/view.h"
-#include "ged/bsg_view_obj.h"
+#include "ged/bsg_ged_draw.h"
 
 #include "./mged.h"
 #include "./sedit.h"
@@ -239,91 +239,6 @@ dozoom(struct mged_state *s, int which_eye)
 
     if (s->mged_curr_dm != save_dm_list) set_curr_dm(s, save_dm_list);
 }
-
-/*
- * Create Display Lists
- */
-void
-createDLists(void *data, struct bv_scene_obj *hdlp)
-{
-    struct mged_state *s = (struct mged_state *)data;
-    MGED_CK_STATE(s);
-    (void)hdlp;
-
-    /* Compile vlists for every drawn solid in a single bsg_visit pass. */
-    dm_set_dirty(DMP, 1);
-    dm_draw_display_list(DMP, bsg_view_obj_root(s->gedp));
-}
-
-/*
- * Create a display list for "sp" for every display manager
- * manager that:
- * 1 - supports display lists
- * 2 - is actively using display lists
- * 3 - has not already been created (i.e. sharing with a
- * display manager that has already created the display list)
- */
-void
-createDListSolid(void *vlist_ctx, struct bv_scene_obj *sp)
-{
-    struct mged_state *s = (struct mged_state *)vlist_ctx;
-    MGED_CK_STATE(s);
-    struct mged_dm *save_dlp;
-
-    save_dlp = s->mged_curr_dm;
-
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *dlp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	if (dlp->dm_mapped &&
-		dm_get_displaylist(dlp->dm_dmp) &&
-		dlp->dm_mged_variables->mv_dlist) {
-	    if (sp->s_dlist == 0)
-		sp->s_dlist = dm_gen_dlists(DMP, 1);
-
-	    dm_set_dirty(DMP, 1);
-	    (void)dm_make_current(DMP);
-	    (void)dm_begin_dlist(DMP, sp->s_dlist);
-	    if (sp->s_iflag == UP)
-		(void)dm_set_fg(DMP, 255, 255, 255, 0, sp->s_os->transparency);
-	    else
-		(void)dm_set_fg(DMP,
-			(unsigned char)sp->s_color[0],
-			(unsigned char)sp->s_color[1],
-			(unsigned char)sp->s_color[2], 0, sp->s_os->transparency);
-	    (void)dm_draw_vlist(DMP, (struct bv_vlist *)&sp->s_vlist);
-	    (void)dm_end_dlist(DMP);
-	}
-
-	dlp->dm_dirty = 1;
-	dm_set_dirty(DMP, 1);
-    }
-
-    set_curr_dm(s, save_dlp);
-}
-
-
-/*
- * Free the range of display lists for all display managers
- * that support display lists and have them activated.
- */
-void
-freeDListsAll(void *data, unsigned int dlist, int range)
-{
-    struct mged_state *s = (struct mged_state *)data;
-    MGED_CK_STATE(s);
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *dlp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-	if (dm_get_displaylist(dlp->dm_dmp) &&
-	    dlp->dm_mged_variables->mv_dlist) {
-	    (void)dm_make_current(DMP);
-	    (void)dm_free_dlists(dlp->dm_dmp, dlist, range);
-	}
-
-	dlp->dm_dirty = 1;
-	dm_set_dirty(DMP, 1);
-    }
-}
-
 
 /*
  * Local Variables:

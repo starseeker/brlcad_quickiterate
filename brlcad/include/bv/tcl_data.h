@@ -57,7 +57,7 @@ struct bv_scene_obj_old_settings {
  *
  * NOTE: this type is no longer used by any BRL-CAD library.  It is kept here
  * temporarily for external consumers; use the bsg_view_obj_* API in
- * include/ged/bsg_view_obj.h instead.  This definition will be removed in a
+ * include/ged/bsg_ged_draw.h instead.  This definition will be removed in a
  * future release. */
 struct display_list {
     struct bu_list      l;

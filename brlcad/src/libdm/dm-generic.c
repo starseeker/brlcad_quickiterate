@@ -847,12 +847,6 @@ dm_draw(struct dm *dmp, struct bv_vlist *(*callback)(void *), void **data)
     return dmp->i->dm_draw(dmp, callback, data);
 }
 int
-dm_draw_display_list(struct dm *dmp, struct bv_scene_obj *root)
-{
-    if (!dmp || !root) return 0;
-    return dmp->i->dm_draw_display_list(dmp, root);
-}
-int
 dm_set_depth_mask(struct dm *dmp, int d_on)
 {
     if (UNLIKELY(!dmp)) return 0;

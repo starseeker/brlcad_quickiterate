@@ -1543,41 +1543,6 @@ int gl_genDLists(struct dm *dmp, size_t range)
     return glGenLists((GLsizei)range);
 }
 
-/* Per-shape callback for gl_draw_display_list: compile one solid's vlist into
- * a named OpenGL display list.  Invoked by bsg_visit for every BSG_NODE_SHAPE
- * node in the draw tree. */
-static int
-_gl_compile_dlist(bsg_node *n, void *userdata)
-{
-    struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
-    struct dm *dmp = (struct dm *)userdata;
-
-    if (sp->s_dlist == 0)
-	sp->s_dlist = gl_genDLists(dmp, 1);
-
-    (void)dm_make_current(dmp);
-    (void)gl_beginDList(dmp, sp->s_dlist);
-    if (sp->s_iflag == UP)
-	(void)dm_set_fg(dmp, 255, 255, 255, 0, sp->s_os->transparency);
-    else {
-	/* TODO - do we need to respect override color here?? */
-	(void)dm_set_fg(dmp,
-		(unsigned char)sp->s_color[0],
-		(unsigned char)sp->s_color[1],
-		(unsigned char)sp->s_color[2], 0, sp->s_os->transparency);
-    }
-    (void)dm_draw_vlist(dmp, (struct bv_vlist *)&sp->s_vlist);
-    (void)gl_endDList(dmp);
-    return 1; /* continue visiting */
-}
-
-int gl_draw_display_list(struct dm *dmp, struct bv_scene_obj *root)
-{
-    gl_debug_print(dmp, "gl_draw_obj", dmp->i->dm_debugLevel);
-    bsg_visit((bsg_node *)root, BSG_NODE_SHAPE, _gl_compile_dlist, (void *)dmp);
-    return 0;
-}
-
 int gl_getDisplayImage(struct dm *dmp, unsigned char **image, int flip, int alpha)
 {
     gl_debug_print(dmp, "gl_getDisplayImage", dmp->i->dm_debugLevel);

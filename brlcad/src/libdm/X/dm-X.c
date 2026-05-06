@@ -2210,7 +2210,6 @@ struct dm_impl dm_X_impl = {
     null_drawDList,
     null_freeDLists,
     null_genDLists,
-    NULL,
     X_getDisplayImage, /* display to image function */
     X_reshape,
     null_makeCurrent,

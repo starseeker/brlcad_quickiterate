@@ -29,7 +29,7 @@
 #include "bsg/util.h"
 #include "bsg/visit.h"
 #include "ged.h"
-#include "ged/bsg_view_obj.h"
+#include "ged/bsg_ged_draw.h"
 #include "tclcad.h"
 
 /* Private headers */
@@ -100,23 +100,22 @@ go_draw_solid(struct bview *gdvp, struct bv_scene_obj *sp)
 	dm_loadmatrix(dmp, edit_model2view, 0);
     }
 
-    if (tgd->go_dmv.dlist_on) {
-	dm_draw_dlist(dmp, sp->s_dlist);
-    } else {
-	if (sp->s_iflag == UP)
-	    (void)dm_set_fg(dmp, 255, 255, 255, 0, sp->s_os->transparency);
-	else
-	    (void)dm_set_fg(dmp,
-			    (unsigned char)sp->s_color[0],
-			    (unsigned char)sp->s_color[1],
-			    (unsigned char)sp->s_color[2], 0, sp->s_os->transparency);
+    if (sp->s_iflag == UP)
+	(void)dm_set_fg(dmp, 255, 255, 255, 0, sp->s_os->transparency);
+    else
+	(void)dm_set_fg(dmp,
+			(unsigned char)sp->s_color[0],
+			(unsigned char)sp->s_color[1],
+			(unsigned char)sp->s_color[2], 0, sp->s_os->transparency);
 
-	if (sp->s_os->s_dmode == 4) {
-	    (void)dm_draw_vlist_hidden_line(dmp, (struct bv_vlist *)&sp->s_vlist);
-	} else {
-	    (void)dm_draw_vlist(dmp, (struct bv_vlist *)&sp->s_vlist);
-	}
-    }
+    /* Phase 13 (drawing_stack_modernization): the GL backend now lazily
+     * compiles per-shape display lists on first draw (matching the qged
+     * model).  Route through dm_draw_obj so gl_draw_obj handles dlist
+     * generation/replay, hidden-line mode, and the standard vlist walk
+     * itself.  The legacy `dlist_on` Tcl toggle is retained as a
+     * no-op for backward compatibility. */
+    (void)dm_draw_obj(dmp, sp);
+
     if (params) {
 	dm_loadmatrix(dmp, save_mat, 0);
     }

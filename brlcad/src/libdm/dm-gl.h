@@ -165,7 +165,6 @@ DMGL_EXPORT extern int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s);
 DMGL_EXPORT extern const struct dm_backend_ops gl_backend_ops;
 
 DMGL_EXPORT extern int gl_draw_data_axes(struct dm *dmp, fastf_t sf,  struct bv_data_axes_state *bndasp);
-DMGL_EXPORT extern int gl_draw_display_list(struct dm *dmp, struct bv_scene_obj *root);
 DMGL_EXPORT extern int gl_endDList(struct dm *dmp);
 DMGL_EXPORT extern int gl_freeDLists(struct dm *dmp, unsigned int list, int range);
 DMGL_EXPORT extern int gl_genDLists(struct dm *dmp, size_t range);

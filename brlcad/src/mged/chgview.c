@@ -1046,14 +1046,12 @@ cmd_zap(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), con
     struct cmdtab *ctp = (struct cmdtab *)clientData;
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
-    void (*tmp_callback)(void *, unsigned int, int) = s->gedp->ged_destroy_vlist_callback;
     const char *av[1] = {"zap"};
 
     CHECK_DBI_NULL;
 
     s->update_views = 1;
     dm_set_dirty(DMP, 1);
-    s->gedp->ged_destroy_vlist_callback = freeDListsAll;
 
     /* FIRST, reject any editing in progress */
     if (s->global_editing_state != ST_VIEW) {
@@ -1064,8 +1062,6 @@ cmd_zap(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), con
 
     (void)chg_state(s, s->global_editing_state, s->global_editing_state, "zap");
     solid_list_callback(s);
-
-    s->gedp->ged_destroy_vlist_callback = tmp_callback;
 
     return TCL_OK;
 }

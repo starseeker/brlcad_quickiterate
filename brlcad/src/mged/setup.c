@@ -532,9 +532,6 @@ mged_setup(struct mged_state *s)
     s->gedp->ged_output_handler = mged_output_handler;
     s->gedp->ged_refresh_clientdata = (void *)s;
     s->gedp->ged_refresh_handler = mged_refresh_handler;
-    s->gedp->vlist_ctx = (void *)s;
-    s->gedp->ged_create_vlist_scene_obj_callback = createDListSolid;
-    s->gedp->ged_destroy_vlist_callback = freeDListsAll;
     s->gedp->ged_create_io_handler = &tclcad_create_io_handler;
     s->gedp->ged_delete_io_handler = &tclcad_delete_io_handler;
 

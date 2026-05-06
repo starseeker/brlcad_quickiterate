@@ -31,7 +31,7 @@
 #include "bu/cmd.h"
 #include "bu/str.h"
 #include "dm.h"
-#include "ged/bsg_view_obj.h"
+#include "ged/bsg_ged_draw.h"
 #include "../ged_private.h"
 
 /* Callback data for how command */

@@ -61,13 +61,24 @@ Completed work includes:
   (`s_dlist`/`s_dlist_mode`/`s_dlist_stale`/`s_dlist_free_callback`) are
   marked `BV_DEPRECATED` and retained for source compatibility through the
   Phase 13 cleanup window.
+- Phase 13 (partial): the Phase 10 deprecated path-string mutation/lookup
+  entry points (`bsg_view_obj_lookup_or_add_path`, `bsg_view_obj_erase_by_path`,
+  `bsg_view_obj_erase_all_paths`, `bsg_view_obj_group_set_path`) and the
+  `BSG_DEPRECATED_PATH_STR` machinery have been removed.  The
+  `include/ged/bsg_view_obj.h` compatibility shim has been retired and all
+  in-tree includes now use the canonical `include/ged/bsg_ged_draw.h`
+  directly.  Backend-field cleanup (`s_dlist*`, `s_dlist_free_callback`,
+  legacy `createDListSolid`/`to_create_vlist_callback_solid` paths) and
+  `gd_illum_solid` collapse remain.
 
 The remaining work is not to make the current tree viable; it is follow-on
 architecture cleanup and backend selection:
 
 - Phase 12: benchmark-based default backend decision.
-- Phase 13: retirement of deprecated/transitional fields and APIs after the new
-  backend contract lands.
+- Phase 13 (remaining): retirement of the BV_DEPRECATED `s_dlist*` fields
+  and the legacy display-list pre-generation paths in MGED + tclcad; and
+  collapse of `gd_illum_solid` once libged's internal use sites no longer
+  rely on it as the O(1) identity cache.
 
 Current architecture
 --------------------
@@ -133,7 +144,6 @@ Start with these files before making drawing-stack changes:
 - `draw_migration_plan.rtf` (repository root; original rationale)
 - `brlcad/doc/notes/drawing_stack_modernization.txt` (this handoff)
 - `brlcad/include/ged/bsg_ged_draw.h`
-- `brlcad/include/ged/bsg_view_obj.h`
 - `brlcad/include/bsg/draw_ctx.h`
 - `brlcad/include/bsg/draw_set.h`
 - `brlcad/include/bsg/overlay.h`
@@ -221,11 +231,11 @@ Step 9.3: illumination NodeSensor
 
 Phase 10: public libged API cleanup — DONE
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-The canonical GED drawing header is now `include/ged/bsg_ged_draw.h`.
-`include/ged/bsg_view_obj.h` remains as a compatibility shim that includes the
-canonical header.
+The canonical GED drawing header is `include/ged/bsg_ged_draw.h`.  The
+former compatibility shim `include/ged/bsg_view_obj.h` was retired in
+Phase 13; all in-tree includes now reference `bsg_ged_draw.h` directly.
 
-New db_full_path-keyed APIs are available:
+The db_full_path-keyed APIs are:
 
 - `bsg_view_obj_lookup_or_add_dbpath()`
 - `bsg_view_obj_erase_by_dbpath()`
@@ -233,15 +243,12 @@ New db_full_path-keyed APIs are available:
 - `bsg_view_obj_group_dbpath()`
 - `bsg_view_obj_group_set_dbpath()`
 
-All in-tree callers of the path-keyed mutation/lookup APIs have been migrated to
-construct a `db_full_path` at the call site and use the dbpath variants.  The old
-path-string variants remain for compatibility but are deprecated with
-`BSG_DEPRECATED_PATH_STR`:
-
-- `bsg_view_obj_lookup_or_add_path()`
-- `bsg_view_obj_erase_by_path()`
-- `bsg_view_obj_erase_all_paths()`
-- `bsg_view_obj_group_set_path()`
+All in-tree callers of the path-keyed mutation/lookup APIs construct a
+`db_full_path` at the call site and use the dbpath variants.  The Phase 10
+deprecated path-string variants
+(`bsg_view_obj_lookup_or_add_path`, `_erase_by_path`, `_erase_all_paths`,
+`_group_set_path`) and the `BSG_DEPRECATED_PATH_STR` macro were removed in
+Phase 13.
 
 `bsg_view_obj_group_path()` and `bsg_view_obj_erase_by_name()` are intentionally
 not deprecated: the former is the natural string accessor for current internal
@@ -329,24 +336,62 @@ and is no worse than 10% on the others:
 
 Otherwise keep dm-gl as the default and ship Obol as opt-in.
 
-Phase 13: retire transitional APIs and fields
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Phase 13: retire transitional APIs and fields — IN PROGRESS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Goal: remove compatibility surfaces once Phase 11 provides the replacement
 architecture and downstream callers have had a migration window.
 
-Candidates to remove or collapse:
+Done:
 
-- path-string mutation/lookup APIs deprecated during Phase 10;
-- backend-specific scene-object fields that Phase 11 replaces;
-- `gd_illum_solid`, once all users can rely on sensor/revision-backed
-  illumination state;
-- any remaining compatibility path that reintroduces display-list-era semantics
-  into public drawing APIs.
+- The Phase 10 deprecated path-string mutation/lookup APIs
+  (`bsg_view_obj_lookup_or_add_path`, `bsg_view_obj_erase_by_path`,
+  `bsg_view_obj_erase_all_paths`, `bsg_view_obj_group_set_path`) and the
+  `BSG_DEPRECATED_PATH_STR` deprecation macro have been deleted from
+  `include/ged/bsg_ged_draw.h` and `src/libged/bsg_ged_draw.c`.  The
+  db_full_path-keyed wrappers continue to forward to the file-private
+  path-string helpers (`_sg_add_path`, `_sg_erase_path`, `_sg_erase_all_paths`)
+  inside `bsg_ged_draw.c`.
+- The `include/ged/bsg_view_obj.h` compatibility shim has been removed;
+  `include/ged/bsg_ged_draw.h` is the only canonical header.  All in-tree
+  includes (libged, libtclcad, mged, and the bsg_view_obj test) now
+  reference the canonical header directly.
 
-Do not remove these prematurely: Phase 13 should happen after the Phase 11
-contract has had a migration window for in-tree/out-of-tree consumers (any
-remaining direct readers of the BV_DEPRECATED `s_dlist*` fields in tclcad/mged
-are tracked there).
+Remaining candidates:
+
+- backend-specific scene-object fields that Phase 11 replaces — the
+  BV_DEPRECATED `s_dlist`, `s_dlist_mode`, `s_dlist_stale`, and
+  `s_dlist_free_callback` fields on `bv_scene_obj`.  Removing these
+  requires migrating the GL backend (`src/libdm/dm-gl_lod.cpp`,
+  `gl_backend_ops`) to attach a small per-shape struct via
+  `s_backend->handle` and migrating the legacy display-list pre-generation
+  paths in MGED (`src/mged/dozoom.c::createDListSolid`,
+  `src/mged/set.c`) and tclcad (`src/libtclcad/commands.c::to_create_vlist_callback_solid`,
+  `src/libtclcad/view/draw.c`) to read/write the dlist handle through a
+  libdm-side accessor instead of touching the deprecated field directly.
+  Once no caller touches the BV_DEPRECATED fields, the storage and the
+  legacy `s_dlist_free_callback` compat firing in
+  `src/libbv/{util.cpp,view_sets.cpp,lod.cpp}`,
+  `src/libbsg/{draw_set.c,overlay.c}` can go.
+- `gd_illum_solid`, once libged's internal use sites no longer rely on it
+  as the O(1) identity cache.  Today the architecture intentionally
+  retains `gd_illum_solid` as the fast identity path used by
+  `bsg_view_obj_set_iflag(DOWN)` and the per-solid free callback.  The
+  sensor-revision side (`gd_illum_sensor` / `gd_illum_rev` /
+  `bsg_view_obj_illum_rev()`) is already in place; what is missing is a
+  refactor of those internal use sites to read identity through the
+  sensor instead of polling the field.  Until that refactor, the
+  public `bsg_view_obj_set_illum()` setter (used by MGED's selection
+  path) and `bsg_view_obj_get_illum()` accessor (used by the bsg_view_obj
+  regression test) are retained.
+- any remaining compatibility path that reintroduces display-list-era
+  semantics into public drawing APIs — the legacy
+  `ged_create_vlist_scene_obj_callback` / `ged_destroy_vlist_callback`
+  hook fields on `struct ged` exist purely to drive the per-object
+  display-list pre-generation paths above; they will be retired alongside
+  the s_dlist field cleanup.
+
+Do not remove these prematurely: each remaining item has at least one
+in-tree caller that must be migrated first.
 
 What not to redo
 ----------------

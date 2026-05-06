@@ -22,7 +22,7 @@
  * Phase 6.5 (drawing-stack modernization) — Step 1 regression test.
  *
  * Exercises the bsg_view_obj_* migration-target API declared in
- * include/ged/bsg_view_obj.h.  Each helper is currently a thin wrapper
+ * include/ged/bsg_ged_draw.h.  Each helper is currently a thin wrapper
  * over the legacy dl_* functions; this test pins the API surface so
  * that subsequent caller migrations (Step 2) and the eventual swap to
  * a pure BSG view-tree implementation (Step 7) can be done without
@@ -47,7 +47,7 @@
 #include "bv/util.h"
 #include "dm.h"
 #include <ged.h>
-#include "ged/bsg_view_obj.h"
+#include "ged/bsg_ged_draw.h"
 #include "bsg/defines.h"
 #include "bsg/draw_set.h"
 #include "bsg/field.h"
@@ -130,24 +130,12 @@ main(int ac, char *av[])
      * 1. NULL-arg safety: every helper must tolerate NULL gedp/path.   *
      * ---------------------------------------------------------------- */
     bu_log("[1] NULL-arg safety...\n");
-    /* The path-string variants are intentionally exercised here as a
-     * regression test for their NULL-safe contract; the deprecation
-     * warning is silenced for this section. */
-#if defined(__GNUC__) || defined(__clang__)
-#  pragma GCC diagnostic push
-#  pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#endif
-    ASSERT(bsg_view_obj_lookup_or_add_path(NULL, "any") == NULL);
-    ASSERT(bsg_view_obj_lookup_or_add_path(gedp, NULL) == NULL);
-    bsg_view_obj_erase_by_path(NULL, "x");              /* no crash */
-    bsg_view_obj_erase_by_path(gedp, NULL);             /* no crash */
+    /* Phase 13: the path-string mutation/lookup variants
+     * (bsg_view_obj_lookup_or_add_path / _erase_by_path / _erase_all_paths /
+     * _group_set_path) were removed; only the db_full_path-keyed and
+     * name-keyed entry points remain (exercised in section [10] below). */
     bsg_view_obj_erase_by_name(NULL, "x");              /* no crash */
     bsg_view_obj_erase_by_name(gedp, NULL);             /* no crash */
-    bsg_view_obj_erase_all_paths(NULL, "x");            /* no crash */
-    bsg_view_obj_erase_all_paths(gedp, NULL);           /* no crash */
-#if defined(__GNUC__) || defined(__clang__)
-#  pragma GCC diagnostic pop
-#endif
     bsg_view_obj_set_iflag(NULL, 0);                       /* no crash */
     bsg_view_obj_color_from_soltab(NULL);                  /* no crash */
     ASSERT(bsg_view_obj_name_hash(NULL) == 0);

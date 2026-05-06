@@ -37,7 +37,7 @@ extern "C" {
 #include "bu/vls.h"
 #include "bv.h"
 #include "raytrace.h"
-#include "ged/bsg_view_obj.h"
+#include "ged/bsg_ged_draw.h"
 }
 #include "./ged_view.h"
 #include "../ged_private.h"

@@ -64,7 +64,7 @@
 #include "bv/view_sets.h"
 
 #include "ged.h"
-#include "ged/bsg_view_obj.h"
+#include "ged/bsg_ged_draw.h"
 #include "./ged_private.h"
 
 /* ------------------------------------------------------------------ */
@@ -940,24 +940,6 @@ bsg_view_obj_root(struct ged *gedp)
 }
 
 
-struct bv_scene_obj *
-bsg_view_obj_lookup_or_add_path(struct ged *gedp, const char *path)
-{
-    if (!gedp || !path)
-        return NULL;
-    return (struct bv_scene_obj *)_sg_add_path(gedp, path);
-}
-
-
-void
-bsg_view_obj_erase_by_path(struct ged *gedp, const char *path)
-{
-    if (!gedp || !path)
-        return;
-    _sg_erase_path(gedp, path);
-}
-
-
 void
 bsg_view_obj_erase_by_name(struct ged *gedp, const char *name)
 {
@@ -967,25 +949,15 @@ bsg_view_obj_erase_by_name(struct ged *gedp, const char *name)
 }
 
 
-void
-bsg_view_obj_erase_all_paths(struct ged *gedp, const char *path)
-{
-    if (!gedp || !path)
-        return;
-    _sg_erase_all_paths(gedp, path);
-}
-
-
 /*
- * Phase 10 (drawing-stack modernization): db_full_path-keyed counterparts
- * to the path-string entry points above.  All three are thin facades that
- * format @p dfp via db_path_to_string() and forward to the existing
- * implementation.  Once internal storage on group nodes also moves to a
- * struct db_full_path, these become the canonical path and the wrappers
- * flip — at that point the path-string variants can be marked
- * __attribute__((deprecated)) and eventually removed.
+ * Phase 10/13 (drawing-stack modernization): db_full_path-keyed
+ * lookup/erase entry points.  Each formats @p dfp via db_path_to_string()
+ * and forwards to the file-private path-string helpers (_sg_add_path,
+ * _sg_erase_path, _sg_erase_all_paths).  The Phase 10 deprecated
+ * public path-string wrappers (bsg_view_obj_lookup_or_add_path /
+ * _erase_by_path / _erase_all_paths) were removed in Phase 13.
  *
- * db_path_to_string() prepends a leading '/'; the legacy path-string
+ * db_path_to_string() prepends a leading '/'; the path-string
  * implementations expect no leading slash, so normalize before
  * forwarding.
  */
@@ -1422,18 +1394,11 @@ bsg_view_obj_append_to_last_group(struct ged *gedp, struct bv_scene_obj *sp)
 }
 
 
-void
-bsg_view_obj_group_set_path(struct bv_scene_obj *group, const char *new_path)
-{
-    if (!group || !new_path)
-        return;
-    bu_vls_sprintf(&group->s_name, "%s", new_path);
-}
-
-
 /*
- * Phase 10: db_full_path-keyed setter.  Formats @p new_dfp via
- * db_path_to_string() and delegates to the path-string variant.
+ * Phase 10/13: db_full_path-keyed setter.  Formats @p new_dfp via
+ * db_path_to_string() and writes the (slash-stripped) string into the
+ * group's s_name.  The Phase 10 deprecated public path-string variant
+ * bsg_view_obj_group_set_path() was removed in Phase 13.
  */
 void
 bsg_view_obj_group_set_dbpath(struct bv_scene_obj *group,
@@ -1444,8 +1409,6 @@ bsg_view_obj_group_set_dbpath(struct bv_scene_obj *group,
     char *s = db_path_to_string(new_dfp);
     if (!s)
         return;
-    /* Write s_name directly so this entry point does not depend on the
-     * deprecated public path-string wrapper. */
     bu_vls_sprintf(&group->s_name, "%s", _dbpath_skip_lead_slash(s));
     bu_free(s, "bsg_view_obj_group_set_dbpath: path string");
 }

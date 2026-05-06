@@ -54,7 +54,7 @@
 #include "bu/process.h"
 #include "vmath.h"
 
-#include "ged/bsg_view_obj.h"
+#include "ged/bsg_ged_draw.h"
 #include "../qray.h"
 #include "../ged_private.h"
 

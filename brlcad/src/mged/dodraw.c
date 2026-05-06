@@ -145,8 +145,6 @@ drawH_part2(struct mged_state *s, int dashflag, struct bu_list *vhead, const str
 	    sp->s_old.s_regionid = tsp->ts_regionid;
     }
 
-    createDListSolid(s, sp);
-
     /* Solid is successfully drawn */
     if (!existing_sp) {
 	/* Add to linked list of solid structs */

@@ -48,20 +48,6 @@ static void set_dlist(const struct bu_structparse *, const char *, void *, const
 static void set_rotate_about(const struct bu_structparse *, const char *, void *, const char *, void *);
 static void toggle_perspective(const struct bu_structparse *, const char *, void *, const char *, void *);
 
-struct set_free_dlists_ctx { struct mged_dm *dlp; };
-static int
-set_free_dlists_cb(struct bv_scene_obj *g, void *ud) {
-    struct set_free_dlists_ctx *ctx = (struct set_free_dlists_ctx *)ud;
-    if (bsg_view_obj_group_is_nonempty(g)) {
-        (void)dm_make_current(ctx->dlp->dm_dmp);
-        (void)dm_free_dlists(ctx->dlp->dm_dmp,
-            bsg_view_obj_group_first_solid(g)->s_dlist,
-            bsg_view_obj_group_last_solid(g)->s_dlist -
-            bsg_view_obj_group_first_solid(g)->s_dlist + 1);
-    }
-    return 1;
-}
-
 static char *read_var(ClientData clientData, Tcl_Interp *interp, const char *name1, const char *name2, int flags);
 static char *write_var(ClientData clientData, Tcl_Interp *interp, const char *name1, const char *name2, int flags);
 static char *unset_var(ClientData clientData, Tcl_Interp *interp, const char *name1, const char *name2, int flags);
@@ -403,69 +389,22 @@ set_dlist(const struct bu_structparse *UNUSED(sdp),
     MGED_CK_STATE(s);
     struct mged_dm *save_dlp;
 
-    /* save current display manager */
+    /* Phase 13 (drawing_stack_modernization): the GL backend now owns
+     * the dlist lifecycle and lazily compiles per-shape display lists
+     * on first draw (matching the qged model).  The mv_dlist Tcl
+     * variable is retained for backward compatibility but no longer
+     * controls dlist generation; we just track dl_active bookkeeping
+     * and dirty the affected dms so the next refresh repopulates. */
     save_dlp = s->mged_curr_dm;
 
-    if (mged_variables->mv_dlist) {
-	/* create display lists */
-
-	/* for each display manager dlp1 that shares its dm_mged_variables with save_dlp */
-	for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-
-	    struct mged_dm *dlp1 = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-
-	    if (dlp1->dm_mged_variables != save_dlp->dm_mged_variables) {
-		continue;
-	    }
-
-	    if (dm_get_displaylist(dlp1->dm_dmp) &&
-		dlp1->dm_dlist_state->dl_active == 0) {
-		set_curr_dm(s, dlp1);
-		createDLists((void *)s, ged_dl(s->gedp));
-		dlp1->dm_dlist_state->dl_active = 1;
-		dlp1->dm_dirty = 1;
-		dm_set_dirty(dlp1->dm_dmp, 1);
-	    }
-	}
-    } else {
-	/*
-	 * Free display lists if not being used by another display manager
-	 */
-
-	/* for each display manager dlp1 that shares its dm_mged_variables with save_dlp */
-	for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-
-	    struct mged_dm *dlp1 = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-
-	    if (dlp1->dm_mged_variables != save_dlp->dm_mged_variables)
-		continue;
-
-	    if (dlp1->dm_dlist_state->dl_active) {
-		/* for each display manager dlp2 that is sharing display lists with dlp1 */
-		struct mged_dm *dlp2 = MGED_DM_NULL;
-		for (size_t dj = 0; dj < BU_PTBL_LEN(&active_dm_set); dj++) {
-		    struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
-
-		    if (m_dmp->dm_dlist_state != dlp1->dm_dlist_state) {
-			continue;
-		    }
-
-		    /* found a dlp2 that is actively using dlp1's display lists */
-		    if (dlp2 && dlp2->dm_mged_variables->mv_dlist) {
-			dlp2 = m_dmp;
-			break;
-		    }
-		}
-
-		/* these display lists are not being used, so free them */
-		if (dlp2 == MGED_DM_NULL) {
-		    struct set_free_dlists_ctx sfd_ctx;
-		    sfd_ctx.dlp = dlp1;
-		    dlp1->dm_dlist_state->dl_active = 0;
-		    bsg_view_obj_foreach_group(s->gedp, set_free_dlists_cb, &sfd_ctx);
-		}
-	    }
-	}
+    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
+	struct mged_dm *dlp1 = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
+	if (dlp1->dm_mged_variables != save_dlp->dm_mged_variables)
+	    continue;
+	if (dm_get_displaylist(dlp1->dm_dmp))
+	    dlp1->dm_dlist_state->dl_active = mged_variables->mv_dlist ? 1 : 0;
+	dlp1->dm_dirty = 1;
+	dm_set_dirty(dlp1->dm_dmp, 1);
     }
 
     /* restore current display manager */
