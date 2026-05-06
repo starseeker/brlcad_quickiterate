@@ -291,6 +291,54 @@ DM_EXPORT extern void dm_fire_dlist_sensors(struct dm *dmp);
 DM_EXPORT extern void dm_dlist_sensors_clear(struct dm *dmp);
 
 
+/* Phase 11 (drawing_stack_modernization): renderer-backend contract.
+ *
+ * struct dm_backend_ops is the display-manager-side counterpart of
+ * struct bv_obj_backend.  A backend (dm-gl, dm-swrast, future dm-obol)
+ * registers a single static dm_backend_ops with each dm instance it
+ * creates; clients invoke per-shape backend operations through the
+ * thin dm_backend_*() wrappers below, which forward to the registered
+ * ops if any.  This replaces the previous pattern of widening
+ * struct bv_scene_obj with backend-specific fields.
+ *
+ * Lifecycle of a per-shape backend resource:
+ *  - draw_obj:       per-frame draw of one shape; if non-NULL, the
+ *                    common BSG traversal in dm_draw_objs() routes the
+ *                    per-shape call through this op rather than through
+ *                    dm_impl::dm_draw_obj.  Backends that don't supply
+ *                    one fall back to the legacy dm_draw_obj path.
+ *  - invalidate_obj: source data has changed; any cached GPU resource
+ *                    on s_backend must be regenerated next frame.
+ *                    Optional.
+ *  - release_obj:    shape is being destroyed/recycled; release any
+ *                    GPU resource and free the s_backend descriptor.
+ *                    Required if the backend ever attaches s_backend.
+ *
+ * Backends that do not need per-shape state can leave their dm_impl's
+ * backend_ops pointer NULL; the legacy code paths continue to work.
+ *
+ * The actual backend_ops pointer lives in struct dm_impl (libdm-private)
+ * and is set during dm initialization. */
+struct bv_scene_obj;
+struct dm_backend_ops {
+    uint32_t type_tag;                                                       /**< @brief BV_BACKEND_* matching the tag stamped on s_backend */
+    int  (*draw_obj)(struct dm *dmp, struct bv_scene_obj *s);                /**< @brief per-shape draw; NULL => fall back to dm_impl::dm_draw_obj */
+    void (*invalidate_obj)(struct dm *dmp, struct bv_scene_obj *s);          /**< @brief mark cached backend resource stale; NULL => no-op */
+    void (*release_obj)(struct dm *dmp, struct bv_scene_obj *s);             /**< @brief release cached backend resource and free s_backend */
+};
+
+/* Backend-ops accessors (libdm-private storage on dm_impl). */
+DM_EXPORT extern const struct dm_backend_ops *dm_get_backend_ops(struct dm *dmp);
+DM_EXPORT extern void dm_set_backend_ops(struct dm *dmp, const struct dm_backend_ops *ops);
+
+/* Backend-ops dispatch wrappers.  Each is safe to call with a NULL dmp or
+ * a NULL ops pointer; draw_obj falls back to dm_impl::dm_draw_obj when no
+ * ops are registered, the others are no-ops in that case. */
+DM_EXPORT extern int  dm_backend_draw_obj(struct dm *dmp, struct bv_scene_obj *s);
+DM_EXPORT extern void dm_backend_invalidate_obj(struct dm *dmp, struct bv_scene_obj *s);
+DM_EXPORT extern void dm_backend_release_obj(struct dm *dmp, struct bv_scene_obj *s);
+
+
 /* Rather low level exposure of display list concepts.  Needed for MGED
  * and libtclcad, but we want to get to a point where the use (or not)
  * of display lists is an implementation level action rather than something

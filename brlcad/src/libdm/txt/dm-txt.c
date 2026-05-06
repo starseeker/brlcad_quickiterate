@@ -575,7 +575,8 @@ struct dm_impl dm_txt_impl = {
     0,				/* Tcl interpreter */
     NULL,                       /* Drawing context */
     NULL,                       /* App data */
-    NULL                        /* dlist sensors */
+    NULL,                       /* dlist sensors */
+    NULL                        /* Phase 11: backend ops; set at dm_open by dm_set_backend_ops */
 };
 
 struct dm dm_txt = { DM_MAGIC, &dm_txt_impl, 0 };

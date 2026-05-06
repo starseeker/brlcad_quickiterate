@@ -133,8 +133,9 @@ bsg_erase_overlay_by_name(bsg_node *draw_root, const char *name)
 	if (!BU_STR_EQUAL(name, bu_vls_cstr(&sp->s_name)))
 	    continue;
 
-	if (sp->s_dlist_free_callback)
-	    (*sp->s_dlist_free_callback)(sp);
+	/* Phase 11: release backend resources via the generic contract
+	 * (also fires the legacy s_dlist_free_callback for compat). */
+	bv_scene_obj_release_backend(sp);
 	bu_ptbl_rm(&ov->children, (const long *)sp);
 	/* bump rev via root (sp->parent now being cleared) */
 	bsg_bump_rev_node(draw_root);

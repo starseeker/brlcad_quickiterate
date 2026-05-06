@@ -113,6 +113,56 @@ dm_dlist_sensors_clear(struct dm *dmp)
 /* --- end dlist sensor API --- */
 
 
+/* --- Phase 11 backend-ops accessors / dispatch wrappers --- */
+
+const struct dm_backend_ops *
+dm_get_backend_ops(struct dm *dmp)
+{
+    if (UNLIKELY(!dmp || !dmp->i)) return NULL;
+    return dmp->i->dm_backend_ops;
+}
+
+void
+dm_set_backend_ops(struct dm *dmp, const struct dm_backend_ops *ops)
+{
+    if (UNLIKELY(!dmp || !dmp->i)) return;
+    dmp->i->dm_backend_ops = ops;
+}
+
+int
+dm_backend_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
+{
+    if (UNLIKELY(!dmp)) return -1;
+    /* If a backend has registered a draw_obj op, prefer it; otherwise fall
+     * back to the dm_impl::dm_draw_obj path so legacy backends keep
+     * rendering correctly. */
+    const struct dm_backend_ops *ops = dm_get_backend_ops(dmp);
+    if (ops && ops->draw_obj)
+	return ops->draw_obj(dmp, s);
+    return dmp->i->dm_draw_obj ? dmp->i->dm_draw_obj(dmp, s) : 0;
+}
+
+void
+dm_backend_invalidate_obj(struct dm *dmp, struct bv_scene_obj *s)
+{
+    if (UNLIKELY(!dmp || !s)) return;
+    const struct dm_backend_ops *ops = dm_get_backend_ops(dmp);
+    if (ops && ops->invalidate_obj)
+	ops->invalidate_obj(dmp, s);
+}
+
+void
+dm_backend_release_obj(struct dm *dmp, struct bv_scene_obj *s)
+{
+    if (UNLIKELY(!dmp || !s)) return;
+    const struct dm_backend_ops *ops = dm_get_backend_ops(dmp);
+    if (ops && ops->release_obj)
+	ops->release_obj(dmp, s);
+}
+
+/* --- end Phase 11 backend-ops API --- */
+
+
 void
 dm_fogHint(struct dm *dmp, int fastfog)
 {

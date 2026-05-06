@@ -64,8 +64,9 @@ bv_set_free(struct bview_set *s)
 	    BU_LIST_DEQUEUE(&((sp)->l));
 	    if (sp->s_free_callback)
 		(*sp->s_free_callback)(sp);
-	    if (sp->s_dlist_free_callback)
-		(*sp->s_dlist_free_callback)(sp);
+	    /* Phase 11: route backend release through the generic contract
+	     * (also fires the legacy s_dlist_free_callback for compat). */
+	    bv_scene_obj_release_backend(sp);
 	    bu_ptbl_free(&sp->children);
 	    BU_PUT(sp, struct bv_scene_obj);
 	    sp = nsp;
