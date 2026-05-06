@@ -206,11 +206,17 @@ ged_draw2_core(struct ged *gedp, int argc, const char *argv[])
     // Before we start doing anything with the object set, record if things are
     // starting out empty.
     int blank_slate = 0;
-    struct bu_ptbl *dobjs = bv_view_objs(cv, BV_DB_OBJS);
-    struct bu_ptbl *local_dobjs = bv_view_objs(cv, BV_DB_OBJS);
+    /* Phase B: use bv_view_objs_visit_db for DB objects (handles BSG tree
+     * when gv_draw_root is set so blank_slate is correct after B-full-1). */
+    int have_db_obj = 0;
+    auto _count_one_db = [](struct bv_scene_obj *, void *data) -> int {
+	*((int *)data) = 1;
+	return 0; /* stop after first hit */
+    };
+    bv_view_objs_visit_db(cv, _count_one_db, &have_db_obj);
     struct bu_ptbl *vobjs = bv_view_objs(cv, BV_VIEW_OBJS);
     struct bu_ptbl *vlobjs = bv_view_objs(cv, BV_VIEW_OBJS | BV_LOCAL_OBJS);
-    if ((!dobjs || !BU_PTBL_LEN(dobjs)) && (!local_dobjs || !BU_PTBL_LEN(local_dobjs)) &&
+    if (!have_db_obj &&
 	    (!vobjs || !BU_PTBL_LEN(vobjs)) && (!vlobjs || !BU_PTBL_LEN(vlobjs))) {
 	blank_slate = 1;
     }

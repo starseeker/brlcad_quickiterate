@@ -254,6 +254,21 @@ line_tol_sq(struct bview *v, int lwidth)
     return lrsize*lrsize;
 }
 
+/* Phase B: context for snap BV_DB_OBJS bv_view_objs_visit_db callback. */
+struct _bv_snap_db_ctx {
+    struct bv_cp_info *s;
+    point_t *p;
+    int *ret;
+};
+
+static int
+_bv_snap_db_obj_cb(struct bv_scene_obj *so, void *data)
+{
+    struct _bv_snap_db_ctx *ctx = (struct _bv_snap_db_ctx *)data;
+    *ctx->ret += _find_closest_obj_point(ctx->s, ctx->p, so);
+    return 1;
+}
+
 int
 bv_snap_lines_3d(point_t *out_pt, struct bview *v, point_t *p)
 {
@@ -283,20 +298,15 @@ bv_snap_lines_3d(point_t *out_pt, struct bview *v, point_t *p)
 	    }
 	} else {
 	    if (!gv_s->gv_snap_flags || (gv_s->gv_snap_flags & BV_SNAP_DB)) {
-		if (!gv_s->gv_snap_flags || (gv_s->gv_snap_flags & BV_SNAP_SHARED)) {
-		    struct bu_ptbl *sobjs = bv_view_objs(v, BV_DB_OBJS);
-		    for (size_t i = 0; i < BU_PTBL_LEN(sobjs); i++) {
-			struct bv_scene_obj *so = (struct bv_scene_obj *)BU_PTBL_GET(sobjs, i);
-			ret += _find_closest_obj_point(s, p, so);
-		    }
-		}
-		if (!gv_s->gv_snap_flags || (gv_s->gv_snap_flags & BV_SNAP_LOCAL)) {
-		    struct bu_ptbl *sobjs = bv_view_objs(v, BV_DB_OBJS | BV_LOCAL_OBJS);
-		    for (size_t i = 0; i < BU_PTBL_LEN(sobjs); i++) {
-			struct bv_scene_obj *so = (struct bv_scene_obj *)BU_PTBL_GET(sobjs, i);
-			ret += _find_closest_obj_point(s, p, so);
-		    }
-		}
+		/* Phase B: use bv_view_objs_visit_db to traverse BSG tree when
+		 * gv_draw_root is set; falls back to shared+local ptbls for
+		 * non-GED consumers.  The BV_SNAP_SHARED/LOCAL sub-distinction
+		 * is handled transparently by the helper's two-ptbl fallback. */
+		struct _bv_snap_db_ctx snap_ctx;
+		snap_ctx.s = s;
+		snap_ctx.p = p;
+		snap_ctx.ret = &ret;
+		bv_view_objs_visit_db(v, _bv_snap_db_obj_cb, &snap_ctx);
 	    }
 	    if (!gv_s->gv_snap_flags || (gv_s->gv_snap_flags & BV_SNAP_VIEW)) {
 		if (!gv_s->gv_snap_flags || (gv_s->gv_snap_flags & BV_SNAP_SHARED)) {

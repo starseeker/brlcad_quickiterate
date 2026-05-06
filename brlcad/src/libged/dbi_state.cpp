@@ -3062,7 +3062,7 @@ BViewState::scene_obj(
     }
 
     // No pre-existing object - make a new one
-    sp = bv_obj_get(v, BV_DB_OBJS);
+    sp = bv_obj_get_unregistered(v, BV_DB_OBJS);
 
     // Find the leaf directory pointer
     struct directory *dp = dbis->get_hdp(path_hashes[path_hashes.size()-1]);
@@ -3146,10 +3146,11 @@ BViewState::scene_obj(
     s_map[phash][sp->s_os->s_dmode] = sp;
     s_keys[phash] = path_hashes;
 
-    /* Phase B short-term hot-fix: attach the new leaf as a BSG_NODE_SHAPE
-     * under gd_draw_root so that dm_draw_objs / bsg_view_traverse can find
-     * it.  BViewState's s_map[phash][mode] continues to own the path-hash
-     * → bv_scene_obj mapping; this only changes where the leaf lives. */
+    /* Phase B-full: the leaf is allocated via bv_obj_get_unregistered so it
+     * does NOT enter any gv_objs ptbl.  The BSG tree (gd_draw_root) is the
+     * sole index for rendering and iteration (bv_view_objs_visit_db).
+     * BViewState's s_map[phash][mode] continues to own the path-hash
+     * → bv_scene_obj mapping lifetime. */
     if (dbis && dbis->gedp)
 	_bview_state_attach_leaf(dbis->gedp, sp, path_hashes, dbis);
 
@@ -3258,18 +3259,15 @@ BViewState::gather_paths(
 void
 BViewState::clear()
 {
-    /* Phase B: detach every BSG-attached leaf before clearing s_map.
-     * The leaves themselves are still owned by the per-view BV_DB_OBJS
-     * ptbl and will be freed by the bv_clear() call that follows
-     * bvs->clear() in zap2_core (or by the next bv_obj_put on each
-     * leaf).  Do NOT call bsg_view_obj_zap() here: with shared
-     * BViewStates and multiple views, the BSG tree is shared and
-     * may still contain leaves owned by other views; those would
-     * then be double-freed via bv_obj_put. */
+    /* Phase B-full: detach and free every leaf.  After B-full-1 the leaves are
+     * allocated via bv_obj_get_unregistered, so they are NOT in any gv_objs
+     * ptbl.  We must explicitly call bv_obj_put to return them to the free
+     * list; relying on a subsequent bv_clear() would leak. */
     if (dbis && dbis->gedp) {
 	for (auto &kv : s_map) {
 	    for (auto &mkv : kv.second) {
 		_bview_state_detach_leaf(mkv.second);
+		bv_obj_put(mkv.second);
 	    }
 	}
     }
@@ -3462,7 +3460,7 @@ BViewState::refresh(struct bview *v, int argc, const char **argv)
 	    }
 	    if (!s)
 		continue;
-	    struct bv_scene_obj *nso = bv_obj_get(v, BV_DB_OBJS);
+	    struct bv_scene_obj *nso = bv_obj_get_unregistered(v, BV_DB_OBJS);
 	    bv_obj_sync(nso, s);
 	    nso->s_i_data = s->s_i_data;
 	    s->s_i_data = NULL;
@@ -3608,7 +3606,7 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
 		    bv_obj_reset(s);
 		    s->s_v = v;
 		} else {
-		    s = bv_obj_get(v, BV_DB_OBJS);
+		    s = bv_obj_get_unregistered(v, BV_DB_OBJS);
 		    // print path name, set view - otherwise empty
 		    dbis->print_path(&s->s_name, cp);
 		    s->s_v = v;
@@ -3664,7 +3662,7 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
 	}
 	for (sz_it = draw_invalid_collapsed.begin(); sz_it != draw_invalid_collapsed.end(); sz_it++) {
 	    std::vector<unsigned long long> cpath = ms_it->second[*sz_it];
-	    struct bv_scene_obj *s = bv_obj_get(v, BV_DB_OBJS);
+	    struct bv_scene_obj *s = bv_obj_get_unregistered(v, BV_DB_OBJS);
 	    // print path name, set view - otherwise empty
 	    dbis->print_path(&s->s_name, cpath);
 	    s->s_v = v;
@@ -4984,6 +4982,63 @@ DbiState::wait_for_pipeline(int max_ms)
 }
 
 /** @} */
+/* ============================================================
+ * Phase D: thin C interface to DbiState / BViewState
+ * (drawing_stack_modernization.txt "Phase D" section).
+ *
+ * These wrappers let C callers query drawn-set state without
+ * depending on the C++ dbi.h private header.  They are safe
+ * to call with any ged instance: when dbi_state is NULL (e.g.
+ * MGED) they return 0 / empty immediately.
+ * ============================================================ */
+
+extern "C" {
+
+int
+ged_dbi_is_drawn(struct ged *gedp, struct bview *v, const char *path)
+{
+    if (!gedp || !gedp->dbi_state || !path)
+	return 0;
+
+    DbiState *dbis = (DbiState *)gedp->dbi_state;
+
+    /* Resolve the view: fall back to the shared view state when v is NULL. */
+    BViewState *bvs = dbis->get_view_state(v);
+    if (!bvs)
+	return 0;
+
+    /* Digest the path string to the per-object hash sequence. */
+    std::vector<unsigned long long> hashes = dbis->digest_path(path);
+    if (hashes.empty())
+	return 0;
+
+    /* The drawn check is keyed on the full-path hash (last element of the
+     * digest, which encodes the complete path). */
+    unsigned long long phash = dbis->path_hash(hashes, 0);
+    return bvs->is_hdrawn(-1, phash);
+}
+
+size_t
+ged_dbi_list_drawn(struct ged *gedp, struct bview *v, int mode, struct bu_vls *result)
+{
+    if (!gedp || !gedp->dbi_state || !result)
+	return 0;
+
+    DbiState *dbis = (DbiState *)gedp->dbi_state;
+
+    BViewState *bvs = dbis->get_view_state(v);
+    if (!bvs)
+	return 0;
+
+    std::vector<std::string> paths = bvs->list_drawn_paths(mode, /*list_collapsed=*/false);
+    for (const std::string &p : paths) {
+	bu_vls_printf(result, "%s\n", p.c_str());
+    }
+    return paths.size();
+}
+
+} /* extern "C" */
+
 // Local Variables:
 // tab-width: 8
 // mode: C++

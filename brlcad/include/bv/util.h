@@ -332,6 +332,14 @@ bv_obj_create(struct bview *v, int type);
 BV_EXPORT struct bv_scene_obj *
 bv_obj_get(struct bview *v, int type);
 
+/* Like bv_obj_get, but does NOT register the object in any gv_objs ptbl.
+ * Use this when the object will be owned and indexed by an external structure
+ * (e.g. the BSG draw tree) so that ptbl-based iterators do not double-count
+ * it.  The object type flags are set as requested; lifecycle management
+ * (bv_obj_put) works normally. */
+BV_EXPORT struct bv_scene_obj *
+bv_obj_get_unregistered(struct bview *v, int type);
+
 /* Given an object, create an object that is a child of that object.  Issues
  * such as memory management as a function of view settings are handled
  * internally, so client codes don't need to manage it. */
@@ -399,6 +407,26 @@ bv_illum_obj(struct bv_scene_obj *s, char ill_state);
  * set with bv_obj_for_view. */
 BV_EXPORT struct bu_ptbl *
 bv_view_objs(struct bview *v, int type);
+
+/* Iterate all database-derived shape leaves visible to @p v, invoking
+ * @p cb(obj, data) for each one.  Return 0 from @p cb to stop early.
+ *
+ * When @p v->gv_draw_root is non-NULL (GED consumers with the BSG draw tree),
+ * the tree is traversed depth-first and the callback is invoked for every node
+ * whose s_type_flags has BV_DB_OBJS set.
+ *
+ * When @p v->gv_draw_root is NULL (non-GED / legacy consumers), the callback
+ * is invoked for every object in bv_view_objs(v, BV_DB_OBJS) and
+ * bv_view_objs(v, BV_DB_OBJS | BV_LOCAL_OBJS), preserving the previous flat
+ * ptbl semantics.
+ *
+ * Phase B (drawing_stack_modernization): this is the single migration target
+ * for all callers that previously read bv_view_objs(v, BV_DB_OBJS) directly.
+ */
+BV_EXPORT void
+bv_view_objs_visit_db(struct bview *v,
+		      int (*cb)(struct bv_scene_obj *obj, void *data),
+		      void *data);
 
 /* Given a view, construct the view plane */
 BV_EXPORT int

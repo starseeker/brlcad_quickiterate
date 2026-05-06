@@ -275,24 +275,20 @@ QgQuadView::changeToQuadFrame()
 	bv_autoview(views[i]->view(), BV_AUTOVIEW_SCALE_DEFAULT, 0);
 	bv_view_bounds(views[i]->view());
     }
-    struct bu_ptbl *db_objs = bv_view_objs(views[UPPER_RIGHT_QUADRANT]->view(), BV_DB_OBJS);
-    if (db_objs) {
-	for (size_t i = 0; i < BU_PTBL_LEN(db_objs); i++) {
-	    struct bv_scene_obj *so = (struct bv_scene_obj *)BU_PTBL_GET(db_objs, i);
-	    for (int j = UPPER_RIGHT_QUADRANT + 1; j < LOWER_RIGHT_QUADRANT + 1; j++) {
-		draw_scene(so, views[j]->view());
-	    }
+    /* Phase B: use bv_view_objs_visit_db to iterate DB-derived objects so
+     * the BSG draw tree is used when gv_draw_root is set. */
+    struct {
+	QgQuadView *qv;
+    } quad_ctx;
+    quad_ctx.qv = this;
+    auto _quad_draw_cb = [](struct bv_scene_obj *so, void *udata) -> int {
+	QgQuadView *qv = ((decltype(quad_ctx) *)udata)->qv;
+	for (int j = UPPER_RIGHT_QUADRANT + 1; j < LOWER_RIGHT_QUADRANT + 1; j++) {
+	    draw_scene(so, qv->views[j]->view());
 	}
-    }
-    struct bu_ptbl *local_db_objs = bv_view_objs(views[UPPER_RIGHT_QUADRANT]->view(), BV_DB_OBJS | BV_LOCAL_OBJS);
-    if (local_db_objs) {
-	for (size_t i = 0; i < BU_PTBL_LEN(local_db_objs); i++) {
-	    struct bv_scene_obj *so = (struct bv_scene_obj *)BU_PTBL_GET(local_db_objs, i);
-	    for (int j = UPPER_RIGHT_QUADRANT + 1; j < LOWER_RIGHT_QUADRANT + 1; j++) {
-		draw_scene(so, views[j]->view());
-	    }
-	}
-    }
+	return 1;
+    };
+    bv_view_objs_visit_db(views[UPPER_RIGHT_QUADRANT]->view(), _quad_draw_cb, &quad_ctx);
 
     for (int i = UPPER_RIGHT_QUADRANT + 1; i < LOWER_RIGHT_QUADRANT + 1; i++) {
 	views[i]->view()->gv_width = views[UPPER_RIGHT_QUADRANT]->view()->gv_width;

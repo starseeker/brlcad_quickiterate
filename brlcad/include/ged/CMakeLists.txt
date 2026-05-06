@@ -3,6 +3,7 @@ set(
   bsg_ged_draw.h
   commands.h
   database.h
+  dbi_state.h
   debug.h
   defines.h
   objects.h
