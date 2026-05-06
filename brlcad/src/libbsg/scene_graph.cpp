@@ -143,36 +143,13 @@ bsg_scene_root_sync(bsg_node *root, struct bview *v)
 	return;
     }
 
-    /* Legacy fallback: read from the view's gv_objs ptbls.  Used when no GED
-     * draw tree has been registered (e.g. non-GED BSG consumers). */
-
-    /* Shared db objects */
-    struct bu_ptbl *sobjs = bv_view_objs(v, BV_DB_OBJS);
-    if (sobjs) {
-	for (size_t i = 0; i < BU_PTBL_LEN(sobjs); i++)
-	    bu_ptbl_ins(&r->children, BU_PTBL_GET(sobjs, i));
-    }
-
-    /* Local db objects (only if distinct from shared) */
-    struct bu_ptbl *lobjs = bv_view_objs(v, BV_DB_OBJS | BV_LOCAL_OBJS);
-    if (lobjs && lobjs != sobjs) {
-	for (size_t i = 0; i < BU_PTBL_LEN(lobjs); i++)
-	    bu_ptbl_ins(&r->children, BU_PTBL_GET(lobjs, i));
-    }
-
-    /* Shared view-only objects */
-    struct bu_ptbl *vobjs = bv_view_objs(v, BV_VIEW_OBJS);
-    if (vobjs) {
-	for (size_t i = 0; i < BU_PTBL_LEN(vobjs); i++)
-	    bu_ptbl_ins(&r->children, BU_PTBL_GET(vobjs, i));
-    }
-
-    /* Local view-only objects (only if distinct from shared) */
-    struct bu_ptbl *lvobjs = bv_view_objs(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
-    if (lvobjs && lvobjs != vobjs) {
-	for (size_t i = 0; i < BU_PTBL_LEN(lvobjs); i++)
-	    bu_ptbl_ins(&r->children, BU_PTBL_GET(lvobjs, i));
-    }
+    /* Phase E (drawing_stack_modernization): the legacy gv_objs fallback
+     * (BV_DB_OBJS reads for non-GED BSG consumers) has been retired.  All
+     * known consumers — MGED, qged, Archer — register a GED draw root via
+     * bsg_view_obj_* APIs, so the gv_draw_root branch above is always taken
+     * for any live view.  If gv_draw_root is not yet set (e.g. a freshly
+     * initialised view before the first draw call), the root children list
+     * remains empty and nothing is rendered, which is the correct behaviour. */
 }
 
 

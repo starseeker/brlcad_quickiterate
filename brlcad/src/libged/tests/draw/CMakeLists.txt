@@ -219,7 +219,7 @@ if(TARGET ged_test_aet)
 endif(TARGET ged_test_aet)
 
 # Phase 4 exit criteria: bsg_view_traverse vs legacy dl_* pixel parity
-brlcad_addexec(ged_test_bsg_parity "bsg_parity.cpp;util.cpp" "libged;libdm;libbsg" TEST)
+brlcad_addexec(ged_test_bsg_parity "bsg_parity.cpp;util.cpp" "libged;libdm" TEST)
 if(TARGET ged_test_bsg_parity)
   foreach(tdp ${test_deps})
     if (TARGET tdp)

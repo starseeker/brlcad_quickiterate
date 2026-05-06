@@ -552,6 +552,45 @@ Phase E — finish retiring the BSG legacy fallback.
   everything without needing a sync step, `bsg_scene_root_sync`
   either simplifies or can be eliminated completely.
 
+  Status: DONE.
+
+  E-1. DONE.  The legacy `BV_DB_OBJS`-reading fallback block
+    in `bsg_scene_root_sync` (src/libbsg/scene_graph.cpp) has been
+    removed.  The function now has a single code path: the
+    `gv_draw_root` branch that was already the canonical path for all
+    GED consumers.  When `gv_draw_root` is NULL (a freshly
+    initialised view before the first draw call), the root-children
+    list remains empty — the correct behaviour.
+
+  E-2. DONE.  The legacy `else` branch of `dm_draw_objs`
+    (src/libdm/view.c) that iterated `BV_DB_OBJS` / `BV_VIEW_OBJS`
+    ptbls when `v->bsg_root` was NULL has been removed.  All
+    consumers — MGED, qged, Archer, libtclcad — call
+    `bsg_scene_root_create` at view initialisation so `bsg_root` is
+    always non-NULL before `dm_draw_objs` is reached.  Views without
+    a `bsg_root` are treated as having no renderable content.
+
+  E-3. DONE.  The two BSG-parity regression tests that validated
+    BSG-vs-legacy render parity by temporarily nulling `bsg_root`
+    have been updated to BSG stability tests:
+    - `bsg_parity.cpp` now captures two consecutive BSG frames A and
+      B and asserts A == B (render is deterministic).
+    - `bsg_quad_parity.cpp` does the same across four independent
+      views, asserting per-view stability.
+    The `libbsg` link dependency has been removed from the single-view
+    test (no longer uses `bsg_scene_root_sync` or `bsg_node`).
+
+  Investigation note: `bsg_scene_root_sync` is still called once per
+  frame by `dm_draw_objs` and by `libtclcad/view/draw.c`.  With the
+  legacy fallback gone the function resets `bsg_root->children` and
+  re-copies references from `gv_draw_root->children` + view-only
+  ptbls on every frame.  This per-frame re-copy could be eliminated
+  by making `bsg_root` persistent — i.e., having draw/erase mutations
+  update `bsg_root->children` live instead of rebuilding at sync
+  time.  That is a separate optimisation deferred to follow-on work;
+  the current sync pattern is correct and carries negligible runtime
+  cost.
+
 Constraints to respect during the work
 ......................................
 

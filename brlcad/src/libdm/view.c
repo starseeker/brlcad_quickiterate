@@ -1004,42 +1004,13 @@ dm_draw_objs(struct bview *v, void (*dm_draw_custom)(struct bview *, void *), vo
 	} else {
 	    _bsg_view_traverse_impl(v, v->bsg_root, /*transparency_pass=*/0, NULL);
 	}
-    } else {
-	// Draw geometry view objects
-	// TODO - draw opaque, then transparent
-	struct bu_ptbl *sobjs = bv_view_objs(v, BV_DB_OBJS);
-	if (!v->independent && sobjs) {
-	    for (size_t i = 0; i < BU_PTBL_LEN(sobjs); i++) {
-		struct bv_scene_group *g = (struct bv_scene_group *)BU_PTBL_GET(sobjs, i);
-		//bu_log("dm_draw_objs %s\n", bu_vls_cstr(&g->s_name));
-		draw_scene_obj(dmp, g, v, g->s_force_draw, (g->s_inherit_settings) ? g->s_os : NULL);
-	    }
-	}
-	struct bu_ptbl *iobjs = bv_view_objs(v, BV_DB_OBJS | BV_LOCAL_OBJS);
-	if (iobjs && (iobjs != sobjs || v->independent)) {
-	    for (size_t i = 0; i < BU_PTBL_LEN(iobjs); i++) {
-		struct bv_scene_group *g = (struct bv_scene_group *)BU_PTBL_GET(iobjs, i);
-		//bu_log("dm_draw_objs(i) %s\n", bu_vls_cstr(&g->s_name));
-		draw_scene_obj(dmp, g, v, g->s_force_draw, (g->s_inherit_settings) ? g->s_os : NULL);
-	    }
-	}
-
-	// Draw view-only objects
-	struct bu_ptbl *view_objs = bv_view_objs(v, BV_VIEW_OBJS);
-	if (view_objs && !v->independent) {
-	    for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
-		struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(view_objs, i);
-		draw_scene_obj(dmp, s, v, s->s_force_draw, (s->s_inherit_settings) ? s->s_os : NULL);
-	    }
-	}
-	struct bu_ptbl *vo = bv_view_objs(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
-	if (vo && (vo != view_objs || v->independent)) {
-	    for (size_t i = 0; i < BU_PTBL_LEN(vo); i++) {
-		struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(vo, i);
-		draw_scene_obj(dmp, s, v, s->s_force_draw, (s->s_inherit_settings) ? s->s_os : NULL);
-	    }
-	}
     }
+    /* Phase E (drawing_stack_modernization): the gv_objs-based legacy render
+     * path (BV_DB_OBJS / BV_VIEW_OBJS ptbl iteration when bsg_root is NULL)
+     * has been retired.  All consumers — MGED, qged, Archer, libtclcad —
+     * call bsg_scene_root_create at view initialisation so bsg_root is always
+     * non-NULL before dm_draw_objs is reached.  Views without a bsg_root are
+     * treated as having no renderable content. */
 
     // Done with perspective/orthogonal drawing
     dm_pop_pmatrix(dmp);

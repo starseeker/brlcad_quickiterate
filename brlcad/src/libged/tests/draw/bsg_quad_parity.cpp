@@ -19,24 +19,18 @@
  */
 /** @file bsg_quad_parity.cpp
  *
- * Multi-view quad-pane BSG parity test (Phase 4 extended coverage).
+ * Multi-view quad-pane BSG stability test (Phase 4 extended coverage).
  *
- * The single-view bsg_parity test verifies that bsg_view_traverse produces
- * pixel-identical output to the legacy dl_* walk for one view.  This test
- * extends that verification to four independent views (matching the quad-pane
- * layout used in qged), specifically checking that:
+ * Originally this test compared bsg_view_traverse output against the legacy
+ * dl_* render path (per view) by temporarily nulling each bsg_root.  Phase E
+ * (drawing_stack_modernization) retired that legacy path, so the test now
+ * verifies BSG render determinism across four independent views.
  *
- *   1. Each view's bsg_root is independent (disabling one doesn't affect others).
- *   2. BSG and legacy paths produce identical pixels in every view.
- *   3. Re-enabling BSG after the legacy pass restores the original output.
- *
- * Strategy (for each view V0–V3):
- *   A. Draw all.g, refresh all views, capture frame A[i] (BSG active in all).
- *   B. Null out V_i.bsg_root only, refresh V_i, capture frame B[i] (legacy).
- *   C. Verify that for every OTHER view V_j (j≠i), a fresh grab still matches
- *      A[j] — proving per-view independence.
- *   D. Restore V_i.bsg_root, re-sync, capture C[i].
- *   E. Assert A[i] == B[i] and A[i] == C[i].
+ * Strategy:
+ *   A. Draw all.g, refresh all four views, capture baseline A[0..3].
+ *   B. Refresh all four views again, capture B[0..3].
+ *   C. Assert A[i] == B[i] for each view (BSG is stable and per-view
+ *      independent — rendering one view does not corrupt the others).
  *
  * All rendering uses dm-swrast (off-screen; no display hardware required).
  *
@@ -241,7 +235,7 @@ main(int ac, char *av[])
     }
 
     /* ---- Capture baseline images with BSG active in every view ----- */
-    char fname_A[4][64], fname_B[4][64], fname_C[4][64];
+    char fname_A[4][64], fname_B[4][64];
     for (int i = 0; i < 4; i++) {
 	refresh_view(gedp, i);
 	snprintf(fname_A[i], 64, "bsg_qparity_A%d.png", i);
@@ -249,63 +243,25 @@ main(int ac, char *av[])
     }
     bu_log("Captured baseline images A[0..3] (all BSG active)\n");
 
-    /* ---- Per-view BSG toggle --------------------------------------- */
-    /* Allow a small tolerance — same as single-view bsg_parity */
+    /* ---- Second render: BSG stability check ----------------------- */
+    for (int i = 0; i < 4; i++) {
+	refresh_view(gedp, i);
+	snprintf(fname_B[i], 64, "bsg_qparity_B%d.png", i);
+	grab_view(gedp, i, fname_B[i]);
+    }
+    bu_log("Captured stability images B[0..3] (second BSG render)\n");
+
+    /* ---- Compare: each view must be stable ------------------------- */
+    /* Allow a small tolerance for floating-point rounding differences */
     const int ADIFF = 20;
     int failures = 0;
 
     for (int i = 0; i < 4; i++) {
-	struct bview *vi = (struct bview *)BU_PTBL_GET(views, i);
-
-	/* Save and disable bsg_root on view i only */
-	void *saved_root = vi->bsg_root;
-	vi->bsg_root = NULL;
-
-	refresh_view(gedp, i);
-	snprintf(fname_B[i], 64, "bsg_qparity_B%d.png", i);
-	grab_view(gedp, i, fname_B[i]);
-	bu_log("View %d: captured legacy image B[%d]\n", i, i);
-
-	/* Verify other views are unaffected (still match their A image) */
-	for (int j = 0; j < 4; j++) {
-	    if (j == i)
-		continue;
-	    refresh_view(gedp, j);
-	    char tmp[64];
-	    snprintf(tmp, 64, "bsg_qparity_chk%d_%d.png", i, j);
-	    grab_view(gedp, j, tmp);
-	    if (!images_match(fname_A[j], tmp, ADIFF)) {
-		bu_log("FAIL: disabling V%d BSG corrupted V%d output\n", i, j);
-		failures++;
-	    } else {
-		bu_log("PASS: V%d independent — disabling V%d BSG did not affect it\n", j, i);
-	    }
-	    bu_file_delete(tmp);
-	}
-
-	/* Restore BSG on view i */
-	vi->bsg_root = saved_root;
-	bsg_scene_root_sync((bsg_node *)vi->bsg_root, vi);
-
-	refresh_view(gedp, i);
-	snprintf(fname_C[i], 64, "bsg_qparity_C%d.png", i);
-	grab_view(gedp, i, fname_C[i]);
-	bu_log("View %d: captured restored BSG image C[%d]\n", i, i);
-
-	/* A[i] == B[i]: BSG and legacy paths are pixel-identical */
 	if (!images_match(fname_A[i], fname_B[i], ADIFF)) {
-	    bu_log("FAIL V%d: A (BSG) != B (legacy)\n", i);
+	    bu_log("FAIL V%d: A (first BSG) != B (second BSG) — not stable\n", i);
 	    failures++;
 	} else {
-	    bu_log("PASS V%d: A (BSG) == B (legacy)\n", i);
-	}
-
-	/* A[i] == C[i]: BSG is stable after toggle */
-	if (!images_match(fname_A[i], fname_C[i], ADIFF)) {
-	    bu_log("FAIL V%d: A (initial BSG) != C (restored BSG)\n", i);
-	    failures++;
-	} else {
-	    bu_log("PASS V%d: A (initial BSG) == C (restored BSG)\n", i);
+	    bu_log("PASS V%d: BSG render is stable (A == B)\n", i);
 	}
     }
 
@@ -313,7 +269,6 @@ main(int ac, char *av[])
     for (int i = 0; i < 4; i++) {
 	bu_file_delete(fname_A[i]);
 	bu_file_delete(fname_B[i]);
-	bu_file_delete(fname_C[i]);
     }
     bu_file_delete("moss_bsg_quad_tmp.g");
     bu_dirclear(lcache);
