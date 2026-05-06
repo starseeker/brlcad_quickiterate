@@ -1844,7 +1844,10 @@ dlist_stale(struct bv_scene_obj *s)
 	struct bv_scene_group *cg = (struct bv_scene_group *)BU_PTBL_GET(&s->children, i);
 	dlist_stale(cg);
     }
-    s->s_dlist_stale = 1;
+    /* Phase 11: route through the backend contract so any registered
+     * invalidate callback fires; also keeps the legacy s_dlist_stale flag
+     * in sync for backward compatibility. */
+    bv_scene_obj_invalidate_backend(s);
 }
 
 extern "C" int

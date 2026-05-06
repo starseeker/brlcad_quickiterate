@@ -44,6 +44,8 @@
 #include <bu.h>
 #include <bv.h>
 #include "bv/tcl_data.h"
+#include "bv/util.h"
+#include "dm.h"
 #include <ged.h>
 #include "ged/bsg_view_obj.h"
 #include "bsg/defines.h"
@@ -1006,6 +1008,127 @@ main(int ac, char *av[])
 	ASSERT(dl_count(gedp) == 0);
 
 	db_free_full_path(&dfp);
+    }
+
+
+    /* ---------------------------------------------------------------- *
+     * [16] Phase 11: renderer-backend contract.                         *
+     *      Stub a dm_backend_ops, attach an s_backend descriptor on a  *
+     *      shape, and verify that bv_scene_obj_invalidate_backend /    *
+     *      bv_scene_obj_release_backend fire the new ops AND keep the  *
+     *      legacy s_dlist_stale / s_dlist_free_callback paths working  *
+     *      for backward compatibility.                                  *
+     * ---------------------------------------------------------------- */
+    {
+	bu_log("[16] Phase 11: renderer-backend contract...\n");
+
+	/* State captured by the stub callbacks. */
+	struct phase11_state {
+	    int free_calls;
+	    int invalidate_calls;
+	    int legacy_free_calls;
+	    struct bv_scene_obj *last_obj;
+	} st;
+	memset(&st, 0, sizeof(st));
+
+	/* Re-use a fresh draw of all.g and pick a shape under it. */
+	{
+	    const char *s_av[2] = {"zap", NULL};
+	    ged_exec(gedp, 1, s_av);
+	}
+	{
+	    const char *dav[3] = {"draw", "all.g", NULL};
+	    ged_exec(gedp, 2, dav);
+	}
+	struct bv_scene_obj *target = bsg_view_obj_first_solid(gedp);
+	ASSERT(target != NULL);
+
+	/* Stub backend free / invalidate.  These match the
+	 * struct bv_obj_backend signature in include/bv/defines.h. */
+	struct phase11_helpers {
+	    static void backend_free(struct bv_scene_obj *s) {
+		struct phase11_state *p = (struct phase11_state *)
+		    s->s_backend->handle;
+		p->free_calls++;
+		p->last_obj = s;
+		BU_PUT(s->s_backend, struct bv_obj_backend);
+	    }
+	    static void backend_invalidate(struct bv_scene_obj *s) {
+		struct phase11_state *p = (struct phase11_state *)
+		    s->s_backend->handle;
+		p->invalidate_calls++;
+		p->last_obj = s;
+	    }
+	};
+
+	/* Attach a backend descriptor to the target shape. */
+	struct bv_obj_backend *be;
+	BU_GET(be, struct bv_obj_backend);
+	be->type_tag   = BV_BACKEND_GL;  /* any tag works for the stub */
+	be->handle     = &st;
+	be->free       = phase11_helpers::backend_free;
+	be->invalidate = phase11_helpers::backend_invalidate;
+	target->s_backend = be;
+
+	/* Sub-test 1: invalidate fires the new contract callback AND
+	 * keeps the legacy s_dlist_stale flag set for compat. */
+	target->s_dlist_stale = 0;
+	bv_scene_obj_invalidate_backend(target);
+	ASSERT(st.invalidate_calls == 1);
+	ASSERT(st.last_obj == target);
+	ASSERT(target->s_dlist_stale == 1);
+
+	/* Sub-test 2: bv_obj_stale recurses into children and ultimately
+	 * reaches our shape via bv_scene_obj_invalidate_backend. */
+	st.invalidate_calls = 0;
+	target->s_dlist_stale = 0;
+	bv_obj_stale(target);
+	ASSERT(st.invalidate_calls == 1);
+	ASSERT(target->s_dlist_stale == 1);
+
+	/* Sub-test 3: release_backend fires the new free, also fires the
+	 * legacy s_dlist_free_callback (compat shim), and clears the
+	 * s_backend slot.  We register a separate legacy callback that
+	 * just bumps a counter via s_dlist_mode. */
+	int legacy_seen = 0;
+	target->s_dlist_mode = 0;
+	target->s_dlist_free_callback =
+	    +[] (struct bv_scene_obj *s) {
+		/* Legacy compat: BV_DEPRECATED, but Phase 11 promises
+		 * to keep firing it during the transition window. */
+		s->s_dlist_mode = 42;  /* sentinel */
+	    };
+	bv_scene_obj_release_backend(target);
+	ASSERT(st.free_calls == 1);
+	ASSERT(target->s_backend == NULL);
+	ASSERT(target->s_dlist_mode == 42);
+	ASSERT(target->s_dlist_free_callback == NULL); /* cleared by release */
+	(void)legacy_seen;
+
+	/* Sub-test 4: release_backend on an object with no backend slot
+	 * is a safe no-op (and still fires any legacy callback). */
+	struct bv_scene_obj *bare = bsg_view_obj_next_solid(gedp, target);
+	if (bare && bare != target) {
+	    int bare_seen = 0;
+	    bare->s_dlist_mode = 0;
+	    bare->s_backend = NULL;
+	    bare->s_dlist_free_callback =
+		+[] (struct bv_scene_obj *s) { s->s_dlist_mode = 7; };
+	    bv_scene_obj_release_backend(bare);
+	    ASSERT(bare->s_dlist_mode == 7);
+	    ASSERT(bare->s_dlist_free_callback == NULL);
+	    (void)bare_seen;
+	}
+
+	/* Sub-test 5: dm-side dispatch wrappers tolerate a NULL dmp. */
+	bv_scene_obj_release_backend(NULL); /* must not crash */
+	dm_backend_invalidate_obj(NULL, target);
+	dm_backend_release_obj(NULL, target);
+
+	{
+	    const char *eav[3] = {"erase", "all.g", NULL};
+	    ged_exec(gedp, 2, eav);
+	}
     }
 
 

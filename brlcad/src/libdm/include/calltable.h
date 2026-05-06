@@ -178,6 +178,11 @@ struct dm_impl {
     void *dm_udata;		/**< @brief associate general application data here */
     /** @brief singly-linked list of dlist sensors; NULL when empty */
     struct dm_dlist_sensor *dm_dlist_sensors;
+    /** @brief Phase 11 (drawing_stack_modernization): renderer-backend
+     * contract ops.  Set by dm initialization for backends that support the
+     * Phase 11 contract; NULL otherwise.  See include/dm.h for the
+     * dispatch wrappers (dm_backend_draw_obj/invalidate_obj/release_obj). */
+    const struct dm_backend_ops *dm_backend_ops;
 };
 
 struct fb_impl {

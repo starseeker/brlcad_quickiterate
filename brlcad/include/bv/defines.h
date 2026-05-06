@@ -192,6 +192,45 @@ struct bview;
 #define BV_CHILD_OBJS 0x08
 
 struct bv_scene_obj_internal;
+struct bv_scene_obj;
+
+/* Phase 11 (drawing_stack_modernization): renderer-backend contract.
+ *
+ * type_tag values for struct bv_obj_backend.  Backends register their tag at
+ * dm registration time; the per-shape s_backend slot carries the matching tag
+ * so cross-backend handle confusion can be caught.  More tags will be added as
+ * additional backends adopt the contract (e.g. dm-obol). */
+#define BV_BACKEND_NONE  0u   /* no backend state attached */
+#define BV_BACKEND_GL    1u   /* OpenGL/GL-via-software-rasterizer (dm-gl, dm-swrast, dm-qtgl, dm-glx, dm-wgl) */
+
+/**
+ * Phase 11 (drawing_stack_modernization): per-shape backend state.
+ *
+ * Replaces the previous pattern of adding backend-specific fields directly on
+ * struct bv_scene_obj.  One bv_obj_backend describes a single backend's
+ * per-shape state; the active scene object stores the descriptor in
+ * bv_scene_obj::s_backend.
+ *
+ * Lifecycle:
+ *  - allocated lazily by the backend (typically when it first needs to cache
+ *    a GPU resource for the shape);
+ *  - released by bv_scene_obj_release_backend() when the shape is destroyed
+ *    or recycled (also called from bv_obj_reset, bv_obj_put, the libbsg tree
+ *    free paths, and bv_scene_obj_release_backend's compat shim for the
+ *    legacy s_dlist_free_callback);
+ *  - invalidated by bv_scene_obj_invalidate_backend() when the source data
+ *    that drives the cached resource has changed (called from
+ *    bv_obj_stale() and any other code that previously set s_dlist_stale=1).
+ *
+ * Backends are expected to provide a free callback; invalidate is optional
+ * and may be NULL for backends that have no separately-cacheable resource.
+ */
+struct bv_obj_backend {
+    uint32_t type_tag;                          /**< @brief BV_BACKEND_* identifying the owner */
+    void *handle;                               /**< @brief backend-private per-shape state */
+    void (*free)(struct bv_scene_obj *);        /**< @brief release backend resources and free this descriptor */
+    void (*invalidate)(struct bv_scene_obj *);  /**< @brief mark cached resource stale; may be NULL */
+};
 
 struct bv_scene_obj  {
     struct bu_list l;
@@ -232,15 +271,45 @@ struct bv_scene_obj  {
     struct bu_list s_vlist;	/**< @brief  Pointer to unclipped vector list */
     size_t s_vlen;			/**< @brief  Number of actual cmd[] entries in vlist */
 
-    /* Display lists accelerate drawing when we can use them */
-    unsigned int s_dlist;	/**< @brief  display list index */
-    int s_dlist_mode;		/**< @brief  drawing mode in which display list was generated (if it doesn't match s_os.s_dmode, dlist is out of date.) */
-    /* BV_DEPRECATED: replaced by dm_register_dlist_sensor / dm_fire_dlist_sensors
-     * in libdm.  Remains for backward compatibility; will be removed after one release cycle. */
-    int s_dlist_stale;		/**< @brief  set by client codes when dlist is out of date - dm must update. */
-    /* BV_DEPRECATED: dlist teardown is now handled via dm_register_dlist_sensor
-     * callbacks. */
-    void (*s_dlist_free_callback)(struct bv_scene_obj *);  /**< @brief free any dlist specific data */
+    /* Display lists accelerate drawing when we can use them.
+     *
+     * BV_DEPRECATED (Phase 11, drawing_stack_modernization): the four fields
+     * below (s_dlist, s_dlist_mode, s_dlist_stale, s_dlist_free_callback) are
+     * GL-backend-specific per-shape state that historically leaked onto every
+     * scene object.  They are retained for source compatibility during the
+     * Phase 11 transition window and will be removed in Phase 13.  New
+     * backend-private state should attach via the generic s_backend slot
+     * (struct bv_obj_backend) below; per-shape resource invalidation/release
+     * should go through bv_scene_obj_invalidate_backend() /
+     * bv_scene_obj_release_backend() (which also fire the legacy callback for
+     * compatibility) and dm_backend_invalidate_obj() / dm_backend_release_obj()
+     * on the display-manager side. */
+    unsigned int s_dlist;	/**< @brief  BV_DEPRECATED: display list index */
+    int s_dlist_mode;		/**< @brief  BV_DEPRECATED: drawing mode in which display list was generated (if it doesn't match s_os.s_dmode, dlist is out of date.) */
+    int s_dlist_stale;		/**< @brief  BV_DEPRECATED (Phase 11): set by client codes when dlist is out of date - dm must update.  Use bv_scene_obj_invalidate_backend() instead. */
+    void (*s_dlist_free_callback)(struct bv_scene_obj *);  /**< @brief BV_DEPRECATED (Phase 11): free any dlist specific data.  Use bv_scene_obj_release_backend() / dm_backend_release_obj() instead. */
+
+    /* Phase 11 (drawing_stack_modernization): generic renderer-backend slot.
+     *
+     * One backend-owned pointer per scene object replaces the previous pattern
+     * of adding backend-specific fields directly on bv_scene_obj.  The
+     * descriptor records:
+     *   - type_tag: identifies the owning backend (e.g. BV_BACKEND_GL, future
+     *     BV_BACKEND_OBOL) so cross-backend mistakes can be caught;
+     *   - handle:   backend-private per-shape state (compiled GL display list,
+     *     vertex buffer object, GPU resource handle, ...);
+     *   - free:     cleanup callback fired by bv_scene_obj_release_backend()
+     *     when the shape is destroyed/recycled — mirrors the role of the
+     *     legacy s_dlist_free_callback but is backend-agnostic;
+     *   - invalidate: optional callback fired by
+     *     bv_scene_obj_invalidate_backend() when the source data has changed
+     *     and any cached GPU resource must be recomputed.
+     *
+     * NULL if the active backend does not need per-shape state.  Backends are
+     * expected to allocate one bv_obj_backend per shape (typically lazily) and
+     * store it here; bv_obj_reset() / bv_obj_put() will fire the free callback
+     * and clear the slot. */
+    struct bv_obj_backend *s_backend;
 
     /* 3D geometry metadata */
     fastf_t s_size;		/**< @brief  Distance across solid, in model space */

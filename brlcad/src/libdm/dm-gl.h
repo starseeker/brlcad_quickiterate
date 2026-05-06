@@ -156,6 +156,14 @@ DMGL_EXPORT extern int gl_drawPoints3D(struct dm *dmp, int npoints, point_t *poi
 DMGL_EXPORT extern int gl_drawVList(struct dm *dmp, struct bv_vlist *vp);
 DMGL_EXPORT extern int gl_drawVListHiddenLine(struct dm *dmp, struct bv_vlist *vp);
 DMGL_EXPORT extern int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s);
+
+/* Phase 11 (drawing_stack_modernization): renderer-backend contract for the
+ * GL family of display managers (dm-gl, dm-qtgl, dm-glx, dm-wgl, dm-swrast).
+ * Each GL plugin slots this into dm_impl::dm_backend_ops at static-init time
+ * so dm_backend_draw_obj/invalidate_obj/release_obj() route through the
+ * GL-aware implementations defined in dm-gl_lod.cpp. */
+DMGL_EXPORT extern const struct dm_backend_ops gl_backend_ops;
+
 DMGL_EXPORT extern int gl_draw_data_axes(struct dm *dmp, fastf_t sf,  struct bv_data_axes_state *bndasp);
 DMGL_EXPORT extern int gl_draw_display_list(struct dm *dmp, struct bv_scene_obj *root);
 DMGL_EXPORT extern int gl_endDList(struct dm *dmp);

@@ -70,6 +70,51 @@ dlist_free_callback(struct bv_scene_obj *s)
     s->s_dlist_mode = 0;
 }
 
+/* ---------------------------------------------------------------------
+ * Phase 11 (drawing_stack_modernization): renderer-backend contract for
+ * the GL family of display managers (dm-gl, dm-qtgl, dm-glx, dm-wgl,
+ * dm-swrast).
+ *
+ * The current GL backend stores its per-shape state in the legacy
+ * BV_DEPRECATED fields s_dlist / s_dlist_mode / s_dlist_stale on
+ * bv_scene_obj.  Phase 11 introduces a generic backend-ops contract on
+ * the dm side; for now the GL ops simply forward to the existing logic,
+ * so:
+ *
+ *   - draw_obj       == gl_draw_obj (same path as dm_impl::dm_draw_obj),
+ *   - invalidate_obj == set the BV_DEPRECATED s_dlist_stale flag so the
+ *                       next draw-time check regenerates the list,
+ *   - release_obj    == call dlist_free_callback to delete the GL list.
+ *
+ * Phase 13 will move the backing storage from the legacy fields into a
+ * struct gl_backend_handle attached via s_backend->handle and drop the
+ * BV_DEPRECATED fields entirely; the contract here will not change. */
+extern "C" int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s);
+
+static void
+gl_backend_invalidate_obj(struct dm *dmp, struct bv_scene_obj *s)
+{
+    (void)dmp;
+    if (!s)
+	return;
+    s->s_dlist_stale = 1;
+}
+
+static void
+gl_backend_release_obj(struct dm *dmp, struct bv_scene_obj *s)
+{
+    (void)dmp;
+    dlist_free_callback(s);
+}
+
+extern "C" const struct dm_backend_ops gl_backend_ops = {
+    BV_BACKEND_GL,
+    gl_draw_obj,
+    gl_backend_invalidate_obj,
+    gl_backend_release_obj,
+};
+
+
 // TODO - We can't currently use display lists for really large meshes, as we
 // won't be able to hold both the original data and the compiled display list
 // in memory at the same time.  For that scenario, we would first need to break

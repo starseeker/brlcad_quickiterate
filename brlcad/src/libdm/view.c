@@ -684,9 +684,15 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
 	if (vo->s_update_callback)
 	    (*vo->s_update_callback)(vo, v, 0);
 
-	dm_draw_obj(dmp, vo);
+	/* Phase 11 (drawing_stack_modernization): renderer-backend contract.
+	 * dm_backend_draw_obj() routes through the dm's registered
+	 * struct dm_backend_ops::draw_obj (e.g. gl_backend_ops::gl_draw_obj
+	 * for the GL family) when present, and falls back to the legacy
+	 * dm_impl::dm_draw_obj path otherwise.  The fallback keeps backends
+	 * that have not (yet) registered Phase 11 ops rendering correctly. */
+	dm_backend_draw_obj(dmp, vo);
     } else {
-	dm_draw_obj(dmp, s);
+	dm_backend_draw_obj(dmp, s);
     }
 
     /* Phase 9.2 (BSG render contract): per-frame generation stamp.

@@ -192,12 +192,12 @@ bsg_free_children_recursive(bsg_node *gn, struct bv_scene_obj *fso)
 		FREE_BV_SCENE_OBJ(child, &cfso->l, child->vlfree);
 	} else {
 	    /* Fire per-object teardown callbacks before recycling.
-	     * s_dlist_free_callback releases display-list GPU resources
-	     * registered by libdm.  s_free_callback fires the illumination-
-	     * clear registered as ged_bv_illum_free_cb at shape-creation
-	     * time (Phase 7 Steps 8-9). */
-	    if (child->s_dlist_free_callback)
-		(*child->s_dlist_free_callback)(child);
+	     * Phase 11: bv_scene_obj_release_backend releases display-list
+	     * GPU resources via the new backend contract and also fires the
+	     * legacy s_dlist_free_callback for compatibility.  s_free_callback
+	     * fires the illumination-clear registered as ged_bv_illum_free_cb
+	     * at shape-creation time (Phase 7 Steps 8-9). */
+	    bv_scene_obj_release_backend(child);
 	    if (child->s_free_callback)
 		(*child->s_free_callback)(child);
 	    child->parent = NULL;
@@ -321,8 +321,8 @@ bsg_erase_nested_subpath(bsg_node *parent_node,
 	    for (size_t j = 0; j < BU_PTBL_LEN(&snap); j++) {
 		struct bv_scene_obj *sp =
 		    (struct bv_scene_obj *)BU_PTBL_GET(&snap, j);
-		if (sp->s_dlist_free_callback)
-		    (*sp->s_dlist_free_callback)(sp);
+		/* Phase 11: route teardown through the backend contract. */
+		bv_scene_obj_release_backend(sp);
 		if (sp->s_free_callback)
 		    (*sp->s_free_callback)(sp);
 		bu_ptbl_rm(&cur->children, (const long *)sp);

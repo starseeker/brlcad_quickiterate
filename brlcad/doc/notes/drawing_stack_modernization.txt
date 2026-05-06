@@ -55,11 +55,16 @@ Completed work includes:
   and sensorized illumination revision tracking.
 - Phase 10: public API cleanup through db_full_path-keyed entry points and
   deprecation of the remaining path-string mutation/lookup APIs.
+- Phase 11: renderer-backend contract; backends attach per-shape state via a
+  single generic slot on `bv_scene_obj` (`s_backend`) and a libdm-side ops
+  table (`struct dm_backend_ops`).  The legacy GL fields
+  (`s_dlist`/`s_dlist_mode`/`s_dlist_stale`/`s_dlist_free_callback`) are
+  marked `BV_DEPRECATED` and retained for source compatibility through the
+  Phase 13 cleanup window.
 
 The remaining work is not to make the current tree viable; it is follow-on
 architecture cleanup and backend selection:
 
-- Phase 11: renderer-backend contract.
 - Phase 12: benchmark-based default backend decision.
 - Phase 13: retirement of deprecated/transitional fields and APIs after the new
   backend contract lands.
@@ -272,34 +277,43 @@ semantics explicitly.
 Remaining work
 --------------
 
-Phase 11: renderer-backend contract
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Phase 11: renderer-backend contract: DONE
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Goal: replace ad-hoc backend fields on `bv_scene_obj` with a real backend
-contract.  Today fields such as GL display-list state are still stored directly
-on scene objects.  A cleaner design should provide one backend-owned slot plus a
-destructor/cleanup path and a display-manager backend function table.
+contract.  Per-shape backend state now attaches via one generic slot on the
+scene object plus a libdm-side ops table; new backends can hook in without
+widening `bv_scene_obj`.
 
-Expected outcome:
+What landed:
 
-- dm-gl and dm-swrast use the same backend contract;
-- experimental Obol/qged backend work can attach without widening
-  `bv_scene_obj` again;
-- the Phase 8 render contract is captured in shared helper logic that backends
-  can opt into or faithfully replace;
-- backend-specific resources are invalidated/freed through the generic contract,
-  not by adding more fields to `bv_scene_obj`.
-
-Suggested starting points:
-
-- `include/bv/defines.h` for current per-scene-object backend/display-list
-  fields;
-- `include/dm.h` and `src/libdm/include/calltable.h` for current display-manager
-  hooks;
-- `src/libdm/view.c` for the default BSG traversal/render loop;
-- `src/libdm/dm-gl_lod.cpp` for GL display-list replay and invalidation
-  expectations;
-- `include/bsg/draw_set.h` and `src/libbsg/draw_set.c` for cleanup callbacks
-  currently fired when shapes are removed.
+- `struct bv_obj_backend` (include/bv/defines.h) holds a per-shape
+  `{type_tag, handle, free, invalidate}` descriptor; `bv_scene_obj::s_backend`
+  is the single backend-owned slot.  `BV_BACKEND_*` tags identify the owning
+  backend so cross-backend handle confusion can be caught.
+- `bv_scene_obj_release_backend()` and `bv_scene_obj_invalidate_backend()`
+  (include/bv/util.h, src/libbv/util.cpp) are the canonical entry points for
+  releasing/invalidating per-shape backend resources.  They fire the new
+  contract callbacks and, for compatibility, also fire the legacy
+  `s_dlist_free_callback` and set `s_dlist_stale=1`.
+- `struct dm_backend_ops` and the `dm_backend_draw_obj` /
+  `dm_backend_invalidate_obj` / `dm_backend_release_obj` dispatch wrappers
+  (include/dm.h, src/libdm/dm-generic.c) are the display-manager-side
+  counterpart.  Each `dm_impl` carries a `dm_backend_ops` pointer.
+- `gl_backend_ops` (src/libdm/dm-gl_lod.cpp) provides the GL implementation
+  (`gl_draw_obj`, `s_dlist_stale=1`, `dlist_free_callback`).  Every GL plugin
+  (dm-gl, dm-qtgl, dm-glx, dm-wgl, dm-swrast) wires it into its `dm_impl`
+  template.
+- All in-tree fire points for the legacy `s_dlist_free_callback` and direct
+  `s_dlist_stale=1` writes (libbv/util.cpp, libbv/view_sets.cpp,
+  libbv/lod.cpp, libbsg/draw_set.c, libbsg/overlay.c) now route through the
+  helpers, so ops registered on `s_backend` fire automatically.
+- The legacy fields `s_dlist`, `s_dlist_mode`, `s_dlist_stale`,
+  `s_dlist_free_callback` carry `BV_DEPRECATED` notices; their storage is
+  retained through Phase 13 to keep `libtclcad/{commands.c, view/draw.c}` and
+  `mged/{dozoom.c, set.c}` compiling unchanged.
+- Section [16] in `src/libged/tests/draw/bsg_view_obj.cpp` exercises the
+  contract with a stub backend and verifies both the new ops and the legacy
+  callback fire on release/invalidate.
 
 Phase 12: default backend decision
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -329,8 +343,10 @@ Candidates to remove or collapse:
 - any remaining compatibility path that reintroduces display-list-era semantics
   into public drawing APIs.
 
-Do not remove these prematurely: Phase 13 should happen after Phase 11 lands and
-after in-tree/out-of-tree compatibility expectations are reviewed.
+Do not remove these prematurely: Phase 13 should happen after the Phase 11
+contract has had a migration window for in-tree/out-of-tree consumers (any
+remaining direct readers of the BV_DEPRECATED `s_dlist*` fields in tclcad/mged
+are tracked there).
 
 What not to redo
 ----------------
@@ -346,8 +362,10 @@ Do not spend future sessions rediscovering or re-litigating these settled points
   change callers must bump it.
 - Do not restore per-frame full-tree `s_flag` resets; use `gv_frame_rev` and
   `s_drawn_rev`.
-- Do not add backend-specific fields to `bv_scene_obj` as a long-term solution;
-  implement Phase 11's backend-owned slot/contract first.
+- Do not add backend-specific fields to `bv_scene_obj`; attach state via the
+  `s_backend` slot and a `dm_backend_ops` table (Phase 11 contract).  In
+  particular, do not add new direct callers of the `BV_DEPRECATED`
+  `s_dlist_*` fields — they will be removed in Phase 13.
 - Do not remove the deprecated path-string APIs before the planned Phase 13
   compatibility cleanup.
 
