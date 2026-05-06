@@ -349,6 +349,60 @@ and is no worse than 10% on the others:
 
 Otherwise keep dm-gl as the default and ship Obol as opt-in.
 
+Phase B short-term hot-fix: BViewState writes through BSG — DONE
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Background: `bsg_scene_root_sync` (libbsg/scene_graph.cpp) preferred
+`v->gv_draw_root` whenever it was non-NULL, but `ged_open` eagerly
+initialised that pointer via `bsg_view_obj_ensure_root`.  The
+`ged_draw2_core` / `BViewState::redraw` path placed every freshly
+allocated scene object into `bv_view_objs(v, BV_DB_OBJS)` rather than
+under `gd_draw_root`, so `dm_draw_objs` could not see them and
+`ged_test_drawing_*` produced nearly-blank images.
+
+Fix landed in two parts (both committed together):
+
+1. `bsg_scene_root_sync` now also folds the view-only ptbls
+   (`BV_VIEW_OBJS` and `BV_VIEW_OBJS|BV_LOCAL_OBJS`) into the render
+   root when `gv_draw_root` is set.  `BV_DB_OBJS` is intentionally NOT
+   folded in — that ptbl is a derived/compat index for db-objects, and
+   `gd_draw_root` remains the single source of truth for db-objects
+   rendering.  This fixes the 2-D view-only / faceplate / polygon
+   tests.
+
+2. `BViewState::scene_obj()` and the redraw "swap"/invalidation paths
+   now route freshly-allocated leaves through
+   `bsg_view_obj_lookup_or_add_dbpath` +
+   `bsg_view_obj_append_solid_to_group` so each leaf becomes a
+   `BSG_NODE_SHAPE` under `gd_draw_root` with intermediate sub-group
+   nodes for combs.  `BViewState`'s `s_map[phash][mode] → bv_scene_obj`
+   semantics are preserved (only the *storage location* of the leaf
+   moved from the flat ptbl to a tree leaf); per-mode multiplicity is
+   naturally supported because each (path, mode) leaf is a distinct
+   shape child under the same comb group.
+
+   `BViewState::erase_hpath()` and `BViewState::clear()` (and the
+   redraw replacement path) detach the leaf from its BSG parent before
+   `bv_obj_put`.  `clear()` deliberately does NOT call
+   `bsg_view_obj_zap()` — `gd_draw_root` is shared across views, and
+   zapping it would tear down leaves owned by other views, leading to
+   a double-free at the subsequent `bv_clear()`.
+
+The new helpers `_bview_state_attach_leaf` and `_bview_state_detach_leaf`
+in `dbi_state.cpp` are static; they are the only seam where draw2's
+BViewState path interacts with the BSG tree.
+
+Validation: `ged_test_drawing_basic` passes its wireframe (mode 0),
+polygon, label, axes, and faceplate cases (previously all blank);
+`ged_test_drawing_faceplate` passes; the existing `ged_test_bsg_view_obj`,
+`ged_test_bsg_parity`, and `ged_test_mged_shaded_mode_bsg` still pass.
+Remaining open issues (not addressed by this short-term fix): shaded
+mode 1 with LoD disabled, hidden lines (mode 4), and the LoD test
+suite still produce blank/incorrect images for some scenarios; these
+likely require additional work in the adaptive-plot / view-object
+(`bv_obj_for_view`) integration with the BSG render contract and are
+candidates for the long-term Phase B/C/D follow-on described in the
+parent plan.
+
 Phase 13: retire transitional APIs and fields — IN PROGRESS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Goal: remove compatibility surfaces once Phase 11 provides the replacement
