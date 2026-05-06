@@ -108,16 +108,38 @@ bsg_scene_root_sync(bsg_node *root, struct bview *v)
     bu_ptbl_reset(&r->children);
 
     /* Phase 7 step 7 A3: when a GED draw-tree root is registered on the view,
-     * use it as the authoritative source.  The draw tree's top-level children
-     * (groups + overlay group) are inserted directly into the render root;
-     * bsg_view_traverse() handles the nested structure recursively.
-     * This makes gv_objs a "derived index" — it is still kept in sync by
-     * libged for backward-compat callers, but the render path no longer reads
-     * from it when gv_draw_root is set. */
+     * use it as the authoritative source for db-objects.  The draw tree's
+     * top-level children (groups + overlay group) are inserted directly into
+     * the render root; bsg_view_traverse() handles the nested structure
+     * recursively.
+     *
+     * View-only objects (faceplate polygons, axes, labels, etc.) were never
+     * moved into the BSG draw tree — they continue to live in the view's
+     * BV_VIEW_OBJS / BV_VIEW_OBJS|BV_LOCAL_OBJS ptbls.  We must therefore
+     * also append those when a GED draw root is set, otherwise faceplate /
+     * view-only geometry is invisible to the BSG render path.
+     *
+     * BV_DB_OBJS is intentionally not folded in here when gv_draw_root is
+     * set: that ptbl is a derived/compat index and must not become a second
+     * source of truth for db-objects rendering. */
     if (v->gv_draw_root) {
 	struct bv_scene_obj *dr = (struct bv_scene_obj *)v->gv_draw_root;
 	for (size_t i = 0; i < BU_PTBL_LEN(&dr->children); i++)
 	    bu_ptbl_ins(&r->children, BU_PTBL_GET(&dr->children, i));
+
+	/* Shared view-only objects */
+	struct bu_ptbl *vobjs_a = bv_view_objs(v, BV_VIEW_OBJS);
+	if (vobjs_a) {
+	    for (size_t i = 0; i < BU_PTBL_LEN(vobjs_a); i++)
+		bu_ptbl_ins(&r->children, BU_PTBL_GET(vobjs_a, i));
+	}
+
+	/* Local view-only objects (only if distinct from shared) */
+	struct bu_ptbl *lvobjs_a = bv_view_objs(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
+	if (lvobjs_a && lvobjs_a != vobjs_a) {
+	    for (size_t i = 0; i < BU_PTBL_LEN(lvobjs_a); i++)
+		bu_ptbl_ins(&r->children, BU_PTBL_GET(lvobjs_a, i));
+	}
 	return;
     }
 
