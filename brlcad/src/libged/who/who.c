@@ -68,7 +68,7 @@ who_group_cb(struct bv_scene_obj *group, void *userdata)
 int
 ged_who_core(struct ged *gedp, int argc, const char *argv[])
 {
-    if (gedp->new_cmd_forms)
+    if (gedp->dbi_state)
 	return ged_who2_core(gedp, argc, argv);
 
     struct who_data data;

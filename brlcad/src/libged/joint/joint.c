@@ -294,7 +294,7 @@ joint_mesh(struct ged *gedp, int argc, const char *argv[])
 	}
     }
 
-    if (gedp->new_cmd_forms) {
+    if (gedp->dbi_state) {
 	struct bview *view = gedp->ged_gvp;
 	bv_vlblock_obj(vbp, view, "joint");
     } else {

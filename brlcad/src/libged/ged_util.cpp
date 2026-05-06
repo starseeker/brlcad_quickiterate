@@ -1075,7 +1075,7 @@ who_argc_cb(struct bv_scene_obj * /* group */, void *userdata)
 size_t
 ged_who_argc(struct ged *gedp)
 {
-    if (gedp->new_cmd_forms) {
+    if (gedp->dbi_state) {
 	if (!gedp || !gedp->ged_gvp || !gedp->dbi_state)
 	    return 0;
 	DbiState *dbis = (DbiState *)gedp->dbi_state;
@@ -1140,7 +1140,7 @@ ged_who_argv(struct ged *gedp, char **start, const char **end)
     char **vp = start;
     if (!gedp)
 	return 0;
-    if (gedp->new_cmd_forms) {
+    if (gedp->dbi_state) {
 	if (!gedp->ged_gvp || !gedp->dbi_state)
 	    return 0;
 	DbiState *dbis = (DbiState *)gedp->dbi_state;
@@ -1730,7 +1730,7 @@ _ged_rt_set_eye_model(struct ged *gedp,
 	    extremum[1][i] = -INFINITY;
 	}
 
-	if (gedp->new_cmd_forms) {
+	if (gedp->dbi_state) {
 	    VSETALL(extremum[0],  INFINITY);
 	    VSETALL(extremum[1], -INFINITY);
 	    struct bu_ptbl *db_objs = bv_view_objs(gedp->ged_gvp, BV_DB_OBJS);
@@ -1887,7 +1887,7 @@ _ged_rt_output_handler(void *clientData, int mask)
     BU_CKMAG(rrtp, GED_CMD_MAGIC, "ged subprocess");
 
     struct ged *gedp = rrtp->gedp;
-    if (gedp->new_cmd_forms) {
+    if (gedp->dbi_state) {
 	_ged_rt_output_handler2(clientData, mask);
 	return;
     }
@@ -2048,7 +2048,7 @@ _ged_rt_write(struct ged *gedp,
      * remove the -1 case.) */
     if (argc >= 0) {
 	if (!argc) {
-	    if (gedp->new_cmd_forms) {
+	    if (gedp->dbi_state) {
 		DbiState *dbis = (DbiState *)gedp->dbi_state;
 		BViewState *bvs = dbis->get_view_state(gedp->ged_gvp);
 		if (bvs) {

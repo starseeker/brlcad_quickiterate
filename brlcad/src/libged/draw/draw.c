@@ -1683,7 +1683,7 @@ extern int ged_draw2_core(struct ged *gedp, int argc, const char *argv[]);
 int
 ged_draw_core(struct ged *gedp, int argc, const char *argv[])
 {
-    if (gedp->new_cmd_forms)
+    if (gedp->dbi_state)
 	return ged_draw2_core(gedp, argc, argv);
 
     return ged_draw_guts(gedp, argc, argv, _GED_DRAW_WIREFRAME);
@@ -1744,7 +1744,7 @@ dl_redraw_path_cb(struct bv_scene_obj *g, void *ud) {
 int
 ged_redraw_core(struct ged *gedp, int argc, const char *argv[])
 {
-    if (gedp->new_cmd_forms)
+    if (gedp->dbi_state)
 	return ged_redraw2_core(gedp, argc, argv);
 
     int ret;

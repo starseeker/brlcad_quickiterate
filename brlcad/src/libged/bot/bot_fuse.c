@@ -127,7 +127,7 @@ show_dangling_edges(struct ged *gedp, const uint32_t *magic_p, const char *name,
 
     if (out_type == 1) {
 	/* Add overlay */
-	if (gedp->new_cmd_forms) {
+	if (gedp->dbi_state) {
 	    struct bu_vls nroot = BU_VLS_INIT_ZERO;
 	    bu_vls_sprintf(&nroot, "bot_fuse::%s", name);
 	    struct bview *view = gedp->ged_gvp;

@@ -771,7 +771,7 @@ ged_view_core(struct ged *gedp, int argc, const char *argv[])
 int
 ged_view_func_core(struct ged *gedp, int argc, const char *argv[])
 {
-    if (gedp->new_cmd_forms)
+    if (gedp->dbi_state)
 	return ged_view_core(gedp, argc, argv);
 
 

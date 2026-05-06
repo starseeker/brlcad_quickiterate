@@ -341,7 +341,7 @@ int check_overlaps(struct ged *gedp, struct current_state *state,
     printOverlaps(gedp, &callbackdata, options);
 
     if (options->overlaps_overlay_flag) {
-	if (gedp->new_cmd_forms) {
+	if (gedp->dbi_state) {
 	    struct bview *view = gedp->ged_gvp;
 	    bv_vlblock_obj(check_plot.vbp, view, "check::overlaps");
 	} else {

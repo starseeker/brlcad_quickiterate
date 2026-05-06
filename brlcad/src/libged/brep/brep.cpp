@@ -788,7 +788,7 @@ _brep_cmd_intersect(void *bs, int argc, const char **argv)
 	bu_vls_printf(gedp->ged_result_str, "Invalid intersection type %s.\n", argv[6]);
     }
 
-    if (gedp->new_cmd_forms) {
+    if (gedp->dbi_state) {
 	struct bview *view = gedp->ged_gvp;
 	bv_vlblock_obj(gb->vbp, view, "brep_intersect");
     } else {
