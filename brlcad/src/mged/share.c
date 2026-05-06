@@ -97,7 +97,6 @@ f_share(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *ar
 {
     struct cmdtab *ctp = (struct cmdtab *)clientData;
     MGED_CK_CMD(ctp);
-    (void)ctp;
 
     int uflag = 0;		/* unshare flag */
     struct mged_dm *dlp1 = MGED_DM_NULL;
