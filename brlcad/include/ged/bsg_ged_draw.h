@@ -58,19 +58,12 @@
  * "raytrace.h" or "rt/db_fullpath.h" anyway. */
 struct db_full_path;
 
-/* Phase 10 (drawing-stack modernization): the path-string entry points
- * documented as @deprecated below are scheduled for removal once all
- * out-of-tree callers have migrated to their `db_full_path *`-keyed
- * counterparts.  In-tree callers were migrated as part of the Phase 10
- * caller-migration step, so the path-string variants now carry an
- * __attribute__((deprecated)) marker that produces a compile-time
- * warning (an error under -Werror) at every remaining call site. */
-#if defined(__GNUC__) || defined(__clang__)
-#  define BSG_DEPRECATED_PATH_STR \
-    __attribute__((deprecated("use the db_full_path-keyed variant")))
-#else
-#  define BSG_DEPRECATED_PATH_STR
-#endif
+/* Phase 13 (drawing-stack modernization): the legacy path-string
+ * mutation/lookup entry points (bsg_view_obj_lookup_or_add_path,
+ * bsg_view_obj_erase_by_path, bsg_view_obj_erase_all_paths,
+ * bsg_view_obj_group_set_path) deprecated in Phase 10 have been removed.
+ * Callers must construct a `struct db_full_path` and use the
+ * db_full_path-keyed variants below. */
 
 __BEGIN_DECLS
 
@@ -101,49 +94,28 @@ GED_EXPORT extern struct bv_scene_obj *
 bsg_view_obj_root(struct ged *gedp);
 
 /**
- * Look up a drawn path on @p gedp's active view set, or insert a new
- * top-level scene-group entry for it if not already present.  Returns
- * an opaque handle (a ged_scene_group *) usable as the
- * insertion-point for child scene objects.  Returns NULL if the leaf
- * directory entry does not exist or any argument is NULL.
- *
- * Replaces dl_addToDisplay().
- *
- * @deprecated Phase 10: prefer @ref bsg_view_obj_lookup_or_add_dbpath
- *    which takes a `struct db_full_path *` directly and avoids the
- *    parse-then-resolve round trip.
- */
-GED_EXPORT extern struct bv_scene_obj *
-bsg_view_obj_lookup_or_add_path(struct ged *gedp, const char *path) BSG_DEPRECATED_PATH_STR;
-
-/**
- * Phase 10 (drawing-stack modernization): db_full_path-keyed counterpart to
- * @ref bsg_view_obj_lookup_or_add_path.  Look up the drawn entry whose path
- * equals @p dfp, or insert a new top-level scene-group for it if not already
- * present.  @p dfp must be a fully-resolved db_full_path against @p gedp's
- * dbip.  Returns NULL on invalid input or if the leaf directory entry no
+ * Phase 10/13 (drawing-stack modernization): db_full_path-keyed entry
+ * point.  Look up the drawn entry whose path equals @p dfp, or insert
+ * a new top-level scene-group for it if not already present.  @p dfp
+ * must be a fully-resolved db_full_path against @p gedp's dbip.
+ * Returns NULL on invalid input or if the leaf directory entry no
  * longer exists.
+ *
+ * Replaces dl_addToDisplay() and the Phase 10 path-string variant
+ * bsg_view_obj_lookup_or_add_path() which was removed in Phase 13.
  */
 GED_EXPORT extern struct bv_scene_obj *
 bsg_view_obj_lookup_or_add_dbpath(struct ged *gedp,
 				  const struct db_full_path *dfp);
 
 /**
- * Erase from @p gedp's drawn-object set every entry whose path string
- * matches @p path exactly.  When the scene-group's path is a strict
- * ancestor of the erase path, the matching sub-tree is removed
- * without disturbing sibling sub-groups.
+ * Phase 10/13: db_full_path-keyed entry point.  Erase from @p gedp's
+ * drawn-object set the entry whose path equals @p dfp.  When the
+ * scene-group's path is a strict ancestor of the erase path, the
+ * matching sub-tree is removed without disturbing sibling sub-groups.
  *
- * Replaces dl_erasePathFromDisplay().
- *
- * @deprecated Phase 10: prefer @ref bsg_view_obj_erase_by_dbpath.
- */
-GED_EXPORT extern void
-bsg_view_obj_erase_by_path(struct ged *gedp, const char *path) BSG_DEPRECATED_PATH_STR;
-
-/**
- * Phase 10: db_full_path-keyed counterpart to @ref bsg_view_obj_erase_by_path.
- * Erase the drawn entry whose path equals @p dfp.
+ * Replaces dl_erasePathFromDisplay() and the Phase 10 path-string
+ * variant bsg_view_obj_erase_by_path() which was removed in Phase 13.
  */
 GED_EXPORT extern void
 bsg_view_obj_erase_by_dbpath(struct ged *gedp,
@@ -159,19 +131,12 @@ GED_EXPORT extern void
 bsg_view_obj_erase_by_name(struct ged *gedp, const char *name);
 
 /**
- * Erase from @p gedp's drawn-object set every scene object whose path
- * has @p path as a prefix subset.
+ * Phase 10/13: db_full_path-keyed entry point.  Erase every drawn
+ * scene object whose path has @p dfp as a prefix subset.
  *
- * Replaces _dl_eraseAllPathsFromDisplay().
- *
- * @deprecated Phase 10: prefer @ref bsg_view_obj_erase_all_dbpaths.
- */
-GED_EXPORT extern void
-bsg_view_obj_erase_all_paths(struct ged *gedp, const char *path) BSG_DEPRECATED_PATH_STR;
-
-/**
- * Phase 10: db_full_path-keyed counterpart to @ref bsg_view_obj_erase_all_paths.
- * Erase every drawn scene object whose path has @p dfp as a prefix subset.
+ * Replaces _dl_eraseAllPathsFromDisplay() and the Phase 10
+ * path-string variant bsg_view_obj_erase_all_paths() which was
+ * removed in Phase 13.
  */
 GED_EXPORT extern void
 bsg_view_obj_erase_all_dbpaths(struct ged *gedp,
@@ -484,20 +449,13 @@ GED_EXPORT extern void
 bsg_view_obj_append_to_last_group(struct ged *gedp, struct bv_scene_obj *sp);
 
 /**
- * Set or update the path string associated with a group.  @p group
- * must be a valid group and @p new_path must be non-NULL.
+ * Phase 10/13: db_full_path-keyed setter.  Set or update the path
+ * associated with @p group from @p new_dfp.  @p group and @p new_dfp
+ * must both be non-NULL.
  *
- * Replaces direct writes to gdlp->dl_path via bu_vls_free/bu_vls_printf.
- *
- * @deprecated Phase 10: prefer @ref bsg_view_obj_group_set_dbpath.
- */
-GED_EXPORT extern void
-bsg_view_obj_group_set_path(struct bv_scene_obj *group, const char *new_path) BSG_DEPRECATED_PATH_STR;
-
-/**
- * Phase 10: structured counterpart to @ref bsg_view_obj_group_set_path.
- * Set or update the path associated with @p group from @p new_dfp.
- * @p group and @p new_dfp must both be non-NULL.
+ * Replaces direct writes to gdlp->dl_path via bu_vls_free/bu_vls_printf
+ * and the Phase 10 path-string variant bsg_view_obj_group_set_path()
+ * which was removed in Phase 13.
  */
 GED_EXPORT extern void
 bsg_view_obj_group_set_dbpath(struct bv_scene_obj *group,
