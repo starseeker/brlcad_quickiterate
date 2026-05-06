@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "bu/app.h"
 #include "bu/malloc.h"
 #include "bv/defines.h"
 #include "bv/util.h"
@@ -352,8 +353,9 @@ test_payload_type(void)
 /* ------------------------------------------------------------------ */
 
 int
-main(int UNUSED(argc), const char **UNUSED(argv))
+main(int UNUSED(argc), const char **argv)
 {
+    bu_setprogname(argv[0]);
     int failures = 0;
 
     failures += test_field_accessor();
