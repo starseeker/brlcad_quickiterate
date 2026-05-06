@@ -630,12 +630,28 @@ int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
 	    /* Hidden-line mode always uses the explicit vlist path so the
 	     * line/edge drawing logic in dm_draw_vlist_hidden_line runs. */
 	    dm_draw_vlist_hidden_line(dmp, (struct bv_vlist *)&s->s_vlist);
-	} else if (dm_get_displaylist(dmp) && s->s_dlist != 0) {
-	    /* Phase 2 (BSG render contract): if a compiled GL display list
-	     * has been generated for this object (gl_draw_display_list +
-	     * _gl_compile_dlist) and the dm has its display-list mode on,
-	     * replay it via dm_draw_dlist instead of re-walking the vlist
-	     * each frame.  This restores the legacy mv_dlist fast path. */
+	} else if (dm_get_displaylist(dmp)) {
+	    /* Phase 13 (drawing_stack_modernization): the GL backend owns the
+	     * dlist lifecycle.  When the dm supports display lists, lazily
+	     * compile this shape's vlist into a named GL list on first draw,
+	     * then replay it via dm_draw_dlist on subsequent frames.  The
+	     * legacy s_dlist_stale flag (flipped by gl_backend_invalidate_obj)
+	     * forces a regenerate on the next draw.  This replaces the
+	     * MGED/libtclcad eager pre-generation paths
+	     * (createDListSolid / to_create_vlist_callback_solid) which used
+	     * to compile lists at vlist-creation time on every active dm. */
+	    if (s->s_dlist != 0 && s->s_dlist_stale) {
+		glDeleteLists(s->s_dlist, 1);
+		s->s_dlist = 0;
+		s->s_dlist_stale = 0;
+	    }
+	    if (s->s_dlist == 0) {
+		s->s_dlist = glGenLists(1);
+		s->s_dlist_free_callback = &dlist_free_callback;
+		glNewList(s->s_dlist, GL_COMPILE);
+		dm_draw_vlist(dmp, (struct bv_vlist *)&s->s_vlist);
+		glEndList();
+	    }
 	    dm_draw_dlist(dmp, s->s_dlist);
 	} else {
 	    dm_draw_vlist(dmp, (struct bv_vlist *)&s->s_vlist);

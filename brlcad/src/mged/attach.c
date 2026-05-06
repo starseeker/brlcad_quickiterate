@@ -508,7 +508,10 @@ mged_attach(struct mged_state *s, const char *wp_name, int argc, const char *arg
     share_dlist(s->mged_curr_dm);
 
     if (dm_get_displaylist(DMP) && mged_variables->mv_dlist && !dlist_state->dl_active) {
-	createDLists(s, ged_dl(s->gedp));
+	/* Phase 13 (drawing_stack_modernization): the GL backend now
+	 * lazily compiles per-shape display lists on first draw, so we
+	 * just flip the dl_active bookkeeping bit and let the next refresh
+	 * populate the dlists. */
 	dlist_state->dl_active = 1;
     }
 
