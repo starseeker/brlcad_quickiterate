@@ -3809,14 +3809,9 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
     // sets of drawn paths
     cache_collapsed();
 
-    // Phase 4-E: keep every view's BSG scene root in sync with the
-    // finalized draw state so that bsg_view_traverse() in dm_draw_objs
-    // sees up-to-date children on the next paint event.
-    for (v_it = views.begin(); v_it != views.end(); v_it++) {
-	struct bview *lv = *v_it;
-	if (lv->bsg_root)
-	    bsg_scene_root_sync((bsg_node *)lv->bsg_root, lv);
-    }
+    // Phase F (drawing_stack_modernization): bsg_root is now an alias for
+    // gv_draw_root; bsg_root->children is maintained live by the draw-tree
+    // mutations above.  No per-view sync is needed here.
 
     return ret;
 }

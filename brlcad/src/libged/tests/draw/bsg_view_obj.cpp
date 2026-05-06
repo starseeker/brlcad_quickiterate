@@ -665,12 +665,13 @@ main(int ac, char *av[])
     }
 
     /* ---------------------------------------------------------------- *
-     * [11] A3: gv_draw_root registration + bsg_scene_root_sync.        *
-     *      bsg_view_obj_ensure_root sets v->gv_draw_root; after a draw  *
-     *      command the sync uses the GED tree, not gv_objs.             *
+     * [11] A3: gv_draw_root registration (Phase F aliasing).           *
+     *      Phase F: bsg_root IS gv_draw_root (same pointer).           *
+     *      bsg_root->children IS gv_draw_root->children — no sync      *
+     *      rebuild is needed.                                           *
      * ---------------------------------------------------------------- */
     {
-	bu_log("[11] A3: gv_draw_root / bsg_scene_root_sync...\n");
+	bu_log("[11] A3: gv_draw_root / Phase F aliasing...\n");
 
 	/* Draw one object to populate the tree. */
 	{
@@ -684,6 +685,10 @@ main(int ac, char *av[])
 	/* gv_draw_root must be set now (registered by _sg_root via ensure_root) */
 	ASSERT(v->gv_draw_root != NULL);
 	ASSERT(v->gv_draw_root == gedp->i->ged_gdp->gd_draw_root);
+
+	/* Phase F: bsg_root is now an alias for gv_draw_root */
+	ASSERT(v->bsg_root != NULL);
+	ASSERT(v->bsg_root == v->gv_draw_root);
 
 	/* bsg_group_find_child / bsg_group_ensure_child smoke test */
 	bsg_node *draw_root = (bsg_node *)v->gv_draw_root;
@@ -705,24 +710,22 @@ main(int ac, char *av[])
 	    ASSERT(bsg_draw_tree_depth((bsg_node *)first_child) == 1);
 	}
 
-	/* bsg_scene_root_sync now reads from gv_draw_root when set.
-	 * Manually invoke it and verify the view's bsg_root children match
-	 * the draw root's children. */
-	ASSERT(v->bsg_root != NULL);
-	bsg_scene_root_sync((bsg_node *)v->bsg_root, v);
+	/* Phase F: bsg_root == gv_draw_root, so bsg_root->children IS
+	 * gv_draw_root->children.  bsg_scene_root_sync is a no-op but the
+	 * children match trivially since they are the same ptbl. */
 	struct bv_scene_obj *bsg_r = (struct bv_scene_obj *)v->bsg_root;
+	ASSERT(bsg_r == dr);  /* same pointer — trivially true */
 	ASSERT(BU_PTBL_LEN(&bsg_r->children) ==
 	       BU_PTBL_LEN(&dr->children));
 
-	/* The children pointers must match exactly (borrowed references). */
+	/* The children pointers must match exactly (same ptbl). */
 	for (size_t i = 0; i < BU_PTBL_LEN(&dr->children); i++) {
 	    ASSERT(BU_PTBL_GET(&bsg_r->children, i) ==
 		   BU_PTBL_GET(&dr->children, i));
 	}
 
-	/* After zap the draw root has no children; sync produces empty list. */
+	/* After zap the draw root has no children. */
 	bsg_view_obj_zap(gedp);
-	bsg_scene_root_sync((bsg_node *)v->bsg_root, v);
 	ASSERT(BU_PTBL_LEN(&bsg_r->children) == 0);
 
 	/* gv_draw_root itself remains valid after zap (root node not freed). */

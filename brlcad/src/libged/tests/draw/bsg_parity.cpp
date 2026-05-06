@@ -19,18 +19,20 @@
  */
 /** @file bsg_parity.cpp
  *
- * Phase 4 exit-criteria regression: verify that the bsg_view_traverse
- * render path produces pixel-identical output to the legacy dl_* walk.
+ * Phase 4 exit-criteria regression: verify that successive BSG renders
+ * produce pixel-identical output (BSG render stability).
+ *
+ * Originally this test compared bsg_view_traverse output against the legacy
+ * dl_* render path by temporarily nulling out bsg_root.  Phase E
+ * (drawing_stack_modernization) retired that legacy path, so the test now
+ * verifies BSG render determinism only.
  *
  * Strategy:
  *   1. Open moss.g with a swrast off-screen dm (BSG path active because
  *      ged_open calls bsg_scene_root_create for the default view).
- *   2. Draw all.g, refresh, and capture image A (BSG path).
- *   3. Null out view->bsg_root (legacy path), refresh again, capture B.
- *   4. Restore bsg_root, refresh, capture C (BSG path again, for
- *      round-trip confidence).
- *   5. Assert A == B (BSG output is identical to legacy output).
- *   6. Assert B == C (legacy then BSG again is stable).
+ *   2. Draw all.g, refresh, and capture image A (first BSG render).
+ *   3. Refresh again without any changes, capture image B (second BSG render).
+ *   4. Assert A == B (BSG output is stable across successive draws).
  *
  * Uses dm-swrast for off-screen rendering; no display hardware required.
  *
@@ -50,7 +52,6 @@
 #include <ged.h>
 
 #include "../../dbi.h"
-#include "bsg/util.h"
 
 extern "C" void ged_changed_callback(struct db_i *UNUSED(dbip), struct directory *dp, int mode, void *u_data);
 
@@ -182,54 +183,32 @@ main(int ac, char *av[])
     s_av[0] = "autoview"; s_av[1] = NULL;
     ged_exec_autoview(gedp, 1, s_av);
 
-    /* ---- Image A: BSG path ----------------------------------------- */
+    /* ---- Image A: first BSG render --------------------------------- */
     do_refresh(gedp);
     capture(gedp, "bsg_parity_A.png");
-    bu_log("Captured image A (BSG path)\n");
+    bu_log("Captured image A (first BSG render)\n");
 
-    /* ---- Image B: legacy dl_* path (clear bsg_root temporarily) ---- */
-    void *saved_root = v->bsg_root;
-    v->bsg_root = NULL;
-
+    /* ---- Image B: second BSG render (stability check) -------------- */
     do_refresh(gedp);
     capture(gedp, "bsg_parity_B.png");
-    bu_log("Captured image B (legacy dl_* path)\n");
-
-    /* ---- Image C: BSG path restored -------------------------------- */
-    v->bsg_root = saved_root;
-    /* Resync in case any state changed */
-    bsg_scene_root_sync((bsg_node *)v->bsg_root, v);
-
-    do_refresh(gedp);
-    capture(gedp, "bsg_parity_C.png");
-    bu_log("Captured image C (BSG path restored)\n");
+    bu_log("Captured image B (second BSG render)\n");
 
     /* ---- Compare --------------------------------------------------- */
     int ret = 0;
 
-    /* Allow a small tolerance: a BSG path that mirrors the dl_* walk pixel-by-pixel
-     * may have up to ~20 off-by-1 pixels from floating-point rounding differences
-     * in the scene-root-sync shim vs direct ptbl iteration. */
+    /* Allow a small tolerance for floating-point rounding differences */
     const int ADIFF = 20;
 
     if (!images_identical("bsg_parity_A.png", "bsg_parity_B.png", ADIFF)) {
-	bu_log("FAIL: BSG path (A) != legacy path (B) — render parity broken\n");
+	bu_log("FAIL: BSG first render (A) != second render (B) — BSG not stable\n");
 	ret++;
     } else {
-	bu_log("PASS: BSG path == legacy path (A == B)\n");
-    }
-
-    if (!images_identical("bsg_parity_B.png", "bsg_parity_C.png", ADIFF)) {
-	bu_log("FAIL: legacy (B) != BSG restored (C) — unstable across path switch\n");
-	ret++;
-    } else {
-	bu_log("PASS: BSG restored path == legacy path (B == C)\n");
+	bu_log("PASS: BSG render is stable (A == B)\n");
     }
 
     /* Cleanup */
     bu_file_delete("bsg_parity_A.png");
     bu_file_delete("bsg_parity_B.png");
-    bu_file_delete("bsg_parity_C.png");
     bu_file_delete("moss_bsg_parity_tmp.g");
     bu_dirclear(lcache);
 

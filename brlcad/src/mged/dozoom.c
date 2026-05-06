@@ -197,8 +197,8 @@ dozoom(struct mged_state *s, int which_eye)
      *   - framebuffer overlay/underlay
      *   - dm_loadmatrix(gv_model2view)
      *   - dm_loadpmatrix(gv_pmat) for perspective (incl. stereo eye-offset)
-     *   - bsg_scene_root_sync + bsg_view_traverse (BSG path, since
-     *     setup.c has called bsg_scene_root_create for this view)
+     *   - Phase F: BSG render via bsg_view_traverse directly on gv_draw_root
+     *     (bsg_root is an alias for gv_draw_root; no per-frame sync needed)
      *   - per-object edit matrix swap for s_iflag == UP objects
      */
     dm_draw_objs(v, NULL, NULL);

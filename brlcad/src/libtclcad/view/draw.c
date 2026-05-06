@@ -196,66 +196,14 @@ go_draw(struct bview *gdvp)
     else
 	(void)dm_loadpmatrix(dmp, (fastf_t *)NULL);
 
-    /* Phase 5 (drawing_stack_modernization): when a BSG scene root has been
-     * created for this view, synchronise it from the view-object tables and
-     * then iterate its children via go_draw_solid().  This preserves Archer's
-     * per-path edit-matrix logic (tgd->go_dmv.edited_paths) while getting
-     * scene management through the modern BSG infrastructure.  Views without
-     * a BSG root (e.g. during application start-up) fall back to the legacy
-     * go_draw_dlist() path. */
-    if (gdvp->bsg_root) {
-	bsg_scene_root_sync((bsg_node *)gdvp->bsg_root, gdvp);
-	struct bv_scene_obj *root = (struct bv_scene_obj *)gdvp->bsg_root;
-	int line_style = -1;
-
-	if (dm_get_transparency(dmp)) {
-	    /* First pass — opaque objects */
-	    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
-		struct bv_scene_obj *sp =
-		    (struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
-		if (!sp || sp->s_os->transparency < 1.0)
-		    continue;
-		if (line_style != sp->s_soldash) {
-		    line_style = sp->s_soldash;
-		    (void)dm_set_line_attr(dmp, dm_get_linewidth(dmp), line_style);
-		}
-		go_draw_solid(gdvp, sp);
-	    }
-
-	    /* disable write to depth buffer for transparent pass */
-	    (void)dm_set_depth_mask(dmp, 0);
-
-	    /* Second pass — transparent objects */
-	    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
-		struct bv_scene_obj *sp =
-		    (struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
-		if (!sp || ZERO(sp->s_os->transparency - 1.0))
-		    continue;
-		if (line_style != sp->s_soldash) {
-		    line_style = sp->s_soldash;
-		    (void)dm_set_line_attr(dmp, dm_get_linewidth(dmp), line_style);
-		}
-		go_draw_solid(gdvp, sp);
-	    }
-
-	    /* re-enable write to depth buffer */
-	    (void)dm_set_depth_mask(dmp, 1);
-	} else {
-	    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
-		struct bv_scene_obj *sp =
-		    (struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
-		if (!sp)
-		    continue;
-		if (line_style != sp->s_soldash) {
-		    line_style = sp->s_soldash;
-		    (void)dm_set_line_attr(dmp, dm_get_linewidth(dmp), line_style);
-		}
-		go_draw_solid(gdvp, sp);
-	    }
-	}
-	return;
-    }
-
+    /* Phase F (drawing_stack_modernization): bsg_root is now an alias for
+     * gv_draw_root; bsg_root->children IS the live draw-tree children list.
+     * The former BSG block (which iterated bsg_root->children via
+     * go_draw_solid) was silently broken: BSG_NODE_GROUP nodes — the direct
+     * children of the draw root — have no s_u_data, so go_draw_solid skipped
+     * them all.  go_draw_dlist() uses bsg_visit(draw_root, BSG_NODE_SHAPE)
+     * which descends to the leaf shape nodes correctly and is the right path
+     * for all libtclcad/Archer views. */
     go_draw_dlist(gdvp);
 }
 

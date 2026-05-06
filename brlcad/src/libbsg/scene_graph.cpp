@@ -23,11 +23,21 @@
  * lifecycle and query helpers.
  *
  * bsg_node is a typedef for struct bv_scene_obj; this file implements:
- *   bsg_scene_root_create  — allocate a synthetic root node for a view
- *   bsg_scene_root_sync    — mirror view objs into root children (shim)
- *   bsg_scene_root_destroy — release root node back to the view pool
+ *   bsg_scene_root_create  — wire v->bsg_root to v->gv_draw_root (Phase F)
+ *   bsg_scene_root_sync    — no-op shim kept for binary compatibility
+ *   bsg_scene_root_destroy — clear v->bsg_root pointer
  *   bsg_view_find_by_type  — locate first child matching type flags
  *   bsg_sensor_fire        — invoke callbacks on BSG_NODE_SENSOR nodes
+ *
+ * Phase F (drawing_stack_modernization): bsg_root is no longer a separate
+ * synthetic node.  v->bsg_root is an alias for v->gv_draw_root — the same
+ * bv_scene_obj that the BSG draw tree uses as its root.  bsg_root->children
+ * IS gv_draw_root->children; it is maintained live by draw/erase mutations
+ * (bsg_group_ensure_child / bsg_free_group in libbsg/draw_set.c) and by
+ * bsg_view_obj_zap.  No per-frame rebuild is needed; bsg_scene_root_sync is
+ * now a no-op.  View-only objects (BV_VIEW_OBJS ptbls) are iterated directly
+ * in the render loops (dm_draw_objs in libdm/view.c) after the main BSG
+ * traversal.
  *
  * bsg_view_traverse() is intentionally NOT implemented here because it
  * must call dm_draw_obj() and other libdm rendering functions.  It lives
@@ -37,36 +47,13 @@
 
 #include "common.h"
 
-#include "bu/log.h"
 #include "bu/malloc.h"
-#include "bu/ptbl.h"
-#include "bu/vls.h"
 #include "bv/defines.h"
-#include "bv/util.h"
 
 #include "bsg/defines.h"
-#include "bsg/draw_set.h"
 #include "bsg/util.h"
 #include "bsg/visit.h"
 #include "bsg/scene_set.h"
-
-/* ---------------------------------------------------------------------- */
-/* Internal helpers                                                         */
-/* ---------------------------------------------------------------------- */
-
-/**
- * bsg_node_init — minimal initialisation of a freshly allocated root node.
- * The node is expected to have been produced by bv_obj_create() so that
- * its i-pointer, vlfree, free_scene_obj and children ptbl are valid.
- */
-static void
-bsg_node_init_root(bsg_node *root, struct bview *v)
-{
-    root->s_type_flags = (unsigned long long)BSG_NODE_ROOT;
-    root->s_flag = UP;
-    root->s_v = v;
-    bu_vls_sprintf(&root->s_name, "bsg_root");
-}
 
 /* ---------------------------------------------------------------------- */
 /* Public API                                                               */
@@ -78,101 +65,24 @@ bsg_scene_root_create(struct bview *v)
     if (!v)
 	return NULL;
 
-    /* Allocate through libbv so the node gets a proper i-pointer,
-     * vlfree reference, etc.  bv_obj_create does NOT insert the object
-     * into any view table, which is exactly what we need for a synthetic
-     * root. */
-    struct bv_scene_obj *root = bv_obj_create(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
-    if (!root) {
-	bu_log("bsg_scene_root_create: bv_obj_create failed for view %s\n",
-	       bu_vls_cstr(&v->gv_name));
-	return NULL;
-    }
-
-    bsg_node_init_root(root, v);
-
-    v->bsg_root = root;
-    return (bsg_node *)root;
+    /* Phase F (drawing_stack_modernization): bsg_root is now an alias for
+     * gv_draw_root — no separate synthetic node is allocated.  If gv_draw_root
+     * is already set (e.g. the view was reused after ged_open) wire it up now;
+     * otherwise bsg_root stays NULL and will be set by _sg_root() in
+     * bsg_ged_draw.c when the first draw command runs. */
+    v->bsg_root = v->gv_draw_root;
+    return (bsg_node *)v->bsg_root;
 }
 
 
+/* Phase F: bsg_root->children IS gv_draw_root->children — maintained live by
+ * the draw-tree mutation helpers (bsg_group_ensure_child / bsg_free_group /
+ * bsg_view_obj_zap).  No per-frame rebuild is required; this function is kept
+ * only for binary / source compatibility with callers that have not yet been
+ * updated.  It is a deliberate no-op. */
 void
-bsg_scene_root_sync(bsg_node *root, struct bview *v)
+bsg_scene_root_sync(bsg_node *UNUSED(root), struct bview *UNUSED(v))
 {
-    if (!root || !v)
-	return;
-
-    struct bv_scene_obj *r = (struct bv_scene_obj *)root;
-
-    /* Reset children without freeing them — they are borrowed references. */
-    bu_ptbl_reset(&r->children);
-
-    /* Phase 7 step 7 A3: when a GED draw-tree root is registered on the view,
-     * use it as the authoritative source for db-objects.  The draw tree's
-     * top-level children (groups + overlay group) are inserted directly into
-     * the render root; bsg_view_traverse() handles the nested structure
-     * recursively.
-     *
-     * View-only objects (faceplate polygons, axes, labels, etc.) were never
-     * moved into the BSG draw tree — they continue to live in the view's
-     * BV_VIEW_OBJS / BV_VIEW_OBJS|BV_LOCAL_OBJS ptbls.  We must therefore
-     * also append those when a GED draw root is set, otherwise faceplate /
-     * view-only geometry is invisible to the BSG render path.
-     *
-     * BV_DB_OBJS is intentionally not folded in here when gv_draw_root is
-     * set: that ptbl is a derived/compat index and must not become a second
-     * source of truth for db-objects rendering. */
-    if (v->gv_draw_root) {
-	struct bv_scene_obj *dr = (struct bv_scene_obj *)v->gv_draw_root;
-	for (size_t i = 0; i < BU_PTBL_LEN(&dr->children); i++)
-	    bu_ptbl_ins(&r->children, BU_PTBL_GET(&dr->children, i));
-
-	/* Shared view-only objects */
-	struct bu_ptbl *vobjs_a = bv_view_objs(v, BV_VIEW_OBJS);
-	if (vobjs_a) {
-	    for (size_t i = 0; i < BU_PTBL_LEN(vobjs_a); i++)
-		bu_ptbl_ins(&r->children, BU_PTBL_GET(vobjs_a, i));
-	}
-
-	/* Local view-only objects (only if distinct from shared) */
-	struct bu_ptbl *lvobjs_a = bv_view_objs(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
-	if (lvobjs_a && lvobjs_a != vobjs_a) {
-	    for (size_t i = 0; i < BU_PTBL_LEN(lvobjs_a); i++)
-		bu_ptbl_ins(&r->children, BU_PTBL_GET(lvobjs_a, i));
-	}
-	return;
-    }
-
-    /* Legacy fallback: read from the view's gv_objs ptbls.  Used when no GED
-     * draw tree has been registered (e.g. non-GED BSG consumers). */
-
-    /* Shared db objects */
-    struct bu_ptbl *sobjs = bv_view_objs(v, BV_DB_OBJS);
-    if (sobjs) {
-	for (size_t i = 0; i < BU_PTBL_LEN(sobjs); i++)
-	    bu_ptbl_ins(&r->children, BU_PTBL_GET(sobjs, i));
-    }
-
-    /* Local db objects (only if distinct from shared) */
-    struct bu_ptbl *lobjs = bv_view_objs(v, BV_DB_OBJS | BV_LOCAL_OBJS);
-    if (lobjs && lobjs != sobjs) {
-	for (size_t i = 0; i < BU_PTBL_LEN(lobjs); i++)
-	    bu_ptbl_ins(&r->children, BU_PTBL_GET(lobjs, i));
-    }
-
-    /* Shared view-only objects */
-    struct bu_ptbl *vobjs = bv_view_objs(v, BV_VIEW_OBJS);
-    if (vobjs) {
-	for (size_t i = 0; i < BU_PTBL_LEN(vobjs); i++)
-	    bu_ptbl_ins(&r->children, BU_PTBL_GET(vobjs, i));
-    }
-
-    /* Local view-only objects (only if distinct from shared) */
-    struct bu_ptbl *lvobjs = bv_view_objs(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
-    if (lvobjs && lvobjs != vobjs) {
-	for (size_t i = 0; i < BU_PTBL_LEN(lvobjs); i++)
-	    bu_ptbl_ins(&r->children, BU_PTBL_GET(lvobjs, i));
-    }
 }
 
 
@@ -182,17 +92,13 @@ bsg_scene_root_destroy(bsg_node *root)
     if (!root)
 	return;
 
+    /* Phase F: bsg_root is now the same pointer as gv_draw_root, which has its
+     * own lifecycle managed by bsg_ged_draw.c / bsg_view_obj_zap.  Do NOT call
+     * bv_obj_put here — that would free the live draw-tree root.  Just clear
+     * the view's back-reference. */
     struct bv_scene_obj *r = (struct bv_scene_obj *)root;
-
-    /* Children are borrowed refs — clear without freeing. */
-    bu_ptbl_reset(&r->children);
-
-    /* Clear the view's back-reference if it still points at us. */
     if (r->s_v && r->s_v->bsg_root == root)
 	r->s_v->bsg_root = NULL;
-
-    /* Return the node to the libbv free pool. */
-    bv_obj_put(r);
 }
 
 
