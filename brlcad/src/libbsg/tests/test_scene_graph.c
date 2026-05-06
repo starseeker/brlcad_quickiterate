@@ -160,9 +160,7 @@ test_sync_noop(void)
     if (!dr) { g_fail++; free_view(v); return; }
 
     bsg_node *root = bsg_scene_root_create(v);
-    if (!root) { g_fail++; v->gv_draw_root = NULL; bv_obj_put(dr); free_view(v); return; }
-
-    /* root->children is empty; calling sync must leave it empty. */
+    if (!root) { g_fail++; v->gv_draw_root = NULL; free_view(v); return; }
     struct bv_scene_obj *r = (struct bv_scene_obj *)root;
     BSGCHECK(BU_PTBL_LEN(&r->children) == 0, "children empty before sync");
 
@@ -212,11 +210,12 @@ test_find_by_type(void)
     if (found && !notfound)
 	bu_log("  PASS: find_by_type\n");
 
-    bu_ptbl_reset(&((struct bv_scene_obj *)root)->children);
-    bv_obj_put(child);
+    /* Cleanup: clear bsg_root and draw-root pointers; gv_free() handles the
+     * rest.  The child object and fake draw root are freed when the view's
+     * free pool is collected.  We do NOT call bv_obj_put on individual child
+     * objects here — let free_view() sweep the pool. */
     bsg_scene_root_destroy(root);
     v->gv_draw_root = NULL;
-    bv_obj_put(dr);
     free_view(v);
 }
 
@@ -242,7 +241,7 @@ test_sensor_fire(void)
     if (!dr) { g_fail++; free_view(v); return; }
 
     bsg_node *root = bsg_scene_root_create(v);
-    if (!root) { g_fail++; v->gv_draw_root = NULL; bv_obj_put(dr); free_view(v); return; }
+    if (!root) { g_fail++; v->gv_draw_root = NULL; free_view(v); return; }
 
     /* Add a sensor child directly to root->children. */
     struct bv_scene_obj *sensor_child = bv_obj_create(v, BV_CHILD_OBJS);
@@ -250,7 +249,6 @@ test_sensor_fire(void)
 	g_fail++;
 	bsg_scene_root_destroy(root);
 	v->gv_draw_root = NULL;
-	bv_obj_put(dr);
 	free_view(v);
 	return;
     }
@@ -269,11 +267,10 @@ test_sensor_fire(void)
     bsg_sensor_fire(root, v);
     BSGCHECK(g_sensor_fired == 2, "sensor callback invoked again on second fire");
 
-    bu_ptbl_reset(&((struct bv_scene_obj *)root)->children);
-    bv_obj_put(sensor_child);
+    /* Cleanup: same pattern as test 4 — clear bsg_root, reset draw-root
+     * pointer; free_view handles the pool sweep. */
     bsg_scene_root_destroy(root);
     v->gv_draw_root = NULL;
-    bv_obj_put(dr);
     free_view(v);
 }
 
