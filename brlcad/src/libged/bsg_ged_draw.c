@@ -192,12 +192,10 @@ ged_bv_illum_free_cb(struct bv_scene_obj *sp)
     if (!bdata->gedp)
         return;
     struct ged_drawable *gdp = bdata->gedp->i->ged_gdp;
-    if (gdp->gd_illum_solid == sp) {
-        gdp->gd_illum_solid = NULL;
-        if (gdp->gd_illum_sensor) {
-            bsg_sensor_destroy((bsg_node *)gdp->gd_illum_sensor);
-            gdp->gd_illum_sensor = NULL;
-        }
+    if (gdp->gd_illum_sensor
+        && bsg_sensor_target((bsg_node *)gdp->gd_illum_sensor) == (bsg_node *)sp) {
+        bsg_sensor_destroy((bsg_node *)gdp->gd_illum_sensor);
+        gdp->gd_illum_sensor = NULL;
         gdp->gd_illum_rev++;
     }
 }
@@ -797,7 +795,7 @@ _sg_bump_mater_rev(struct ged *gedp)
  * fired on every bsg_node_field_touch() targeting the currently-illuminated
  * solid.  Bumps gd_illum_rev so external observers can detect highlight-
  * state changes by comparing snapshots — without needing to subscribe to
- * the sensor themselves or poll gd_illum_solid directly.
+ * the sensor themselves.
  */
 static int
 _sg_illum_sensor_cb(bsg_node *target, void *data)
@@ -805,12 +803,11 @@ _sg_illum_sensor_cb(bsg_node *target, void *data)
     struct ged *gedp = (struct ged *)data;
     if (!gedp || !target)
         return 1;
-    /* Only bump while the touched node is still the registered illum
-     * solid; if it was un-set out from under the sensor (which
-     * shouldn't happen — _sg_set_illum tears down the sensor first —
-     * but be defensive), do nothing. */
-    if (gedp->i->ged_gdp->gd_illum_solid == (struct bv_scene_obj *)target)
-        gedp->i->ged_gdp->gd_illum_rev++;
+    /* The sensor's lifecycle is tied to the illumination identity: it is
+     * created in _sg_set_illum and torn down before any transition to a
+     * different target, so by the time this callback fires the target
+     * is, by construction, the currently illuminated solid. */
+    gedp->i->ged_gdp->gd_illum_rev++;
     return 1;
 }
 
@@ -826,11 +823,42 @@ _sg_illum_sensor_cb(bsg_node *target, void *data)
  * down the previous sensor (if any), bumps gd_illum_rev, and creates a
  * fresh sensor on the new target.
  */
+/*
+ * Return the currently illuminated solid (the watched target of the
+ * NodeSensor on @p gdp), or NULL when nothing is illuminated.
+ *
+ * Phase 13: the registered NodeSensor is the source of truth for the
+ * illuminated-solid identity; the file no longer maintains a separate
+ * gd_illum_solid cache.
+ */
+static struct bv_scene_obj *
+_sg_illum_node(const struct ged_drawable *gdp)
+{
+    if (!gdp || !gdp->gd_illum_sensor)
+        return NULL;
+    return (struct bv_scene_obj *)bsg_sensor_target(
+        (bsg_node *)gdp->gd_illum_sensor);
+}
+
+/*
+ * Register @p sp as the single currently-illuminated solid.
+ * Clears the s_iflag of any previously registered solid first.
+ * Passing NULL deregisters without setting a new illuminated solid (used
+ * after operations that place multiple solids in the UP state, such as
+ * matpick, so that the fallback O(N) sweep remains safe).
+ *
+ * Phase 9.3 / 13: identity is tracked through the NodeSensor (target
+ * field) rather than a parallel gd_illum_solid cache.  Each transition
+ * (clear, replace, or set) tears down the previous sensor (if any),
+ * creates a fresh sensor on the new target (so both the identity and the
+ * field-touch notification side share the same handle), and bumps
+ * gd_illum_rev.
+ */
 static void
 _sg_set_illum(struct ged *gedp, struct bv_scene_obj *sp)
 {
     struct ged_drawable *gdp = gedp->i->ged_gdp;
-    struct bv_scene_obj *old = gdp->gd_illum_solid;
+    struct bv_scene_obj *old = _sg_illum_node(gdp);
 
     if (old == sp) {
         /* No-op fast path: same target, no transition. */
@@ -841,7 +869,6 @@ _sg_set_illum(struct ged *gedp, struct bv_scene_obj *sp)
         old->s_iflag = DOWN;
     if (sp)
         sp->s_iflag = UP;
-    gdp->gd_illum_solid = sp;
 
     /* Tear down any previously-registered NodeSensor. */
     if (gdp->gd_illum_sensor) {
@@ -849,10 +876,11 @@ _sg_set_illum(struct ged *gedp, struct bv_scene_obj *sp)
         gdp->gd_illum_sensor = NULL;
     }
 
-    /* Register a fresh sensor on the new target.  Keep going on
-     * registry-full: the gd_illum_solid cache still works as before;
-     * only the lazy-notification side is degraded to "must poll
-     * gd_illum_solid directly". */
+    /* Register a fresh sensor on the new target.  This both records the
+     * illuminated-solid identity (read back via bsg_sensor_target) and
+     * arms the field-touch notification side; if registry-full, both go
+     * away together — consumers must subscribe their own sensors or
+     * fall back to other means. */
     if (sp && gdp->gd_draw_root) {
         gdp->gd_illum_sensor = bsg_node_sensor_create(
             (bsg_node *)gdp->gd_draw_root,
@@ -1031,15 +1059,12 @@ bsg_view_obj_set_iflag(struct ged *gedp, int iflag)
         /* B5 fast path: when exactly one solid is illuminated and tracked,
          * clear only that solid in O(1) rather than sweeping the whole tree. */
         struct ged_drawable *gdp = gedp->i->ged_gdp;
-        struct bv_scene_obj *illum = gdp->gd_illum_solid;
+        struct bv_scene_obj *illum = _sg_illum_node(gdp);
         if (illum) {
             illum->s_iflag = DOWN;
-            gdp->gd_illum_solid = NULL;
-            /* Phase 9.3: tear down NodeSensor + bump highlight rev. */
-            if (gdp->gd_illum_sensor) {
-                bsg_sensor_destroy((bsg_node *)gdp->gd_illum_sensor);
-                gdp->gd_illum_sensor = NULL;
-            }
+            /* Phase 9.3 / 13: tear down NodeSensor + bump highlight rev. */
+            bsg_sensor_destroy((bsg_node *)gdp->gd_illum_sensor);
+            gdp->gd_illum_sensor = NULL;
             gdp->gd_illum_rev++;
             return;
         }
@@ -1487,8 +1512,8 @@ bsg_view_obj_zap(struct ged *gedp)
     /* Clear illuminated-solid tracker: the solid no longer exists. */
     {
         struct ged_drawable *gdp = gedp->i->ged_gdp;
-        gdp->gd_illum_solid = NULL;
-        /* Phase 9.3: tear down sensor + bump highlight rev. */
+        /* Phase 9.3 / 13: tear down sensor (which also forgets the
+         * illuminated-solid identity) + bump highlight rev. */
         if (gdp->gd_illum_sensor) {
             bsg_sensor_destroy((bsg_node *)gdp->gd_illum_sensor);
             gdp->gd_illum_sensor = NULL;
@@ -1605,7 +1630,7 @@ bsg_view_obj_get_illum(const struct ged *gedp)
 {
     if (!gedp)
         return NULL;
-    return gedp->i->ged_gdp->gd_illum_solid;
+    return _sg_illum_node(gedp->i->ged_gdp);
 }
 
 
@@ -1616,8 +1641,8 @@ bsg_view_obj_get_illum(const struct ged *gedp)
  * illuminated solid (delivered through the registered NodeSensor).
  *
  * Cache a snapshot, then compare against a later live read to detect
- * "highlight may have changed since I last looked" without polling
- * gd_illum_solid identity directly.
+ * "highlight may have changed since I last looked" without subscribing
+ * to the NodeSensor or calling bsg_view_obj_get_illum repeatedly.
  */
 uint64_t
 bsg_view_obj_illum_rev(const struct ged *gedp)

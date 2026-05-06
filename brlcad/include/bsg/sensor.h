@@ -114,6 +114,17 @@ BSG_EXPORT extern void
 bsg_sensor_destroy(bsg_node *sensor);
 
 /**
+ * Return the watched target node for the sensor identified by @p sensor,
+ * or NULL if @p sensor is NULL, not found in the registry, or is a
+ * TimerSensor (which does not watch a target).
+ *
+ * This lets callers treat a registered sensor as the source of truth for
+ * the identity it is tracking, rather than maintaining a parallel cache.
+ */
+BSG_EXPORT extern bsg_node *
+bsg_sensor_target(bsg_node *sensor);
+
+/**
  * Internal: walk the global registry and fire all FieldSensor and NodeSensor
  * callbacks watching @p target/@p fid.  Called by bsg_node_field_touch().
  * Not intended for direct use by application code.
