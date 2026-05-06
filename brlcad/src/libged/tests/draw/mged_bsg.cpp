@@ -493,9 +493,8 @@ test_bsg_legacy_parity(const char *datadir)
     capture(gedp, "mged_bsg_t5_B.png");
     bu_log("Captured image B (legacy dl_* path)\n");
 
-    /* Restore BSG root */
+    /* Restore BSG root (Phase F: bsg_root == gv_draw_root, no sync needed) */
     v->bsg_root = saved_root;
-    bsg_scene_root_sync((bsg_node *)v->bsg_root, v);
 
     int fail = 0;
     if (!images_identical("mged_bsg_t5_A.png", "mged_bsg_t5_B.png", 20)) {

@@ -981,14 +981,16 @@ dm_draw_objs(struct bview *v, void (*dm_draw_custom)(struct bview *, void *), vo
     }
 
 
-    // Phase 4-D/E: if this view has a BSG scene root, use bsg_view_traverse
-    // as the render loop instead of the legacy dl_* walk.  bsg_scene_root_sync
-    // mirrors the current view-obj tables into the root's children list before
-    // traversal so that the output is identical to the legacy path.
-    // Note: explicit cast from void* is required for C++ compilation.
+    // Phase F (drawing_stack_modernization): bsg_root is now an alias for
+    // gv_draw_root — no per-frame bsg_scene_root_sync rebuild is needed.
+    // bsg_root->children IS gv_draw_root->children, maintained live by
+    // draw/erase mutations.  View-only objects (BV_VIEW_OBJS ptbls) are
+    // iterated separately below after the main BSG traversal.
+    //
+    // When bsg_root is NULL (view not yet associated with a GED draw tree,
+    // e.g. before the first draw command) there is no renderable content and
+    // the block is skipped.
     if (v->bsg_root) {
-	bsg_scene_root_sync((bsg_node *)v->bsg_root, v);
-
 	/* Phase 1 (BSG render contract): two-pass transparency render.
 	 * Opaque first with depth writes on, then transparent with depth
 	 * writes off.  When the dm doesn't support / want transparency
@@ -1004,13 +1006,36 @@ dm_draw_objs(struct bview *v, void (*dm_draw_custom)(struct bview *, void *), vo
 	} else {
 	    _bsg_view_traverse_impl(v, v->bsg_root, /*transparency_pass=*/0, NULL);
 	}
+
+	/* View-only objects (polygon sketches, measurement overlays, axes,
+	 * etc.) live in BV_VIEW_OBJS ptbls, not in the BSG draw tree.
+	 * Render them in a single pass after the 3D scene content so that
+	 * they overlay DB geometry. */
+	struct bu_ptbl *vobjs_a = bv_view_objs(v, BV_VIEW_OBJS);
+	if (vobjs_a) {
+	    for (size_t i = 0; i < BU_PTBL_LEN(vobjs_a); i++) {
+		struct bv_scene_obj *sp =
+		    (struct bv_scene_obj *)BU_PTBL_GET(vobjs_a, i);
+		if (!sp)
+		    continue;
+		_dm_draw_scene_obj_internal(dmp, sp, v, sp->s_force_draw,
+					    sp->s_inherit_settings ? sp->s_os : NULL,
+					    /*transparency_pass=*/0, NULL);
+	    }
+	}
+	struct bu_ptbl *lvobjs_a = bv_view_objs(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
+	if (lvobjs_a && lvobjs_a != vobjs_a) {
+	    for (size_t i = 0; i < BU_PTBL_LEN(lvobjs_a); i++) {
+		struct bv_scene_obj *sp =
+		    (struct bv_scene_obj *)BU_PTBL_GET(lvobjs_a, i);
+		if (!sp)
+		    continue;
+		_dm_draw_scene_obj_internal(dmp, sp, v, sp->s_force_draw,
+					    sp->s_inherit_settings ? sp->s_os : NULL,
+					    /*transparency_pass=*/0, NULL);
+	    }
+	}
     }
-    /* Phase E (drawing_stack_modernization): the gv_objs-based legacy render
-     * path (BV_DB_OBJS / BV_VIEW_OBJS ptbl iteration when bsg_root is NULL)
-     * has been retired.  All consumers — MGED, qged, Archer, libtclcad —
-     * call bsg_scene_root_create at view initialisation so bsg_root is always
-     * non-NULL before dm_draw_objs is reached.  Views without a bsg_root are
-     * treated as having no renderable content. */
 
     // Done with perspective/orthogonal drawing
     dm_pop_pmatrix(dmp);

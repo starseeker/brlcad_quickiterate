@@ -95,9 +95,9 @@ extern void createDListSolid(struct bv_scene_obj *sp);
 
 /*
  * Lazily create (on first draw) and return the per-GED draw root.
- * Also stores the root in gedp->ged_gvp->gv_draw_root so that libbsg
- * helpers (bsg_scene_root_sync in particular) can find it without
- * accessing GED-private headers (Phase 7 step 7 A3).
+ * Also stores the root in gedp->ged_gvp->gv_draw_root and
+ * gedp->ged_gvp->bsg_root (Phase F alias) so that the BSG render
+ * path in dm_draw_objs can traverse it directly (Phase 7 step 7 A3).
  */
 static struct bv_scene_obj *
 _sg_root(struct ged *gedp)
@@ -129,9 +129,13 @@ _sg_root(struct ged *gedp)
     gedp->i->ged_gdp->bsg_ctx.fso      = bv_set_fsos(&gedp->ged_views);
     root->s_i_data = &gedp->i->ged_gdp->bsg_ctx;
 
-    /* A3: register in the view so that bsg_scene_root_sync can use the GED
-     * draw tree directly without reading gv_objs. */
+    /* A3: register in the view so that the BSG render loop can traverse the
+     * draw tree directly without reading gv_objs (Phase 7 step 7 A3).
+     * Phase F: bsg_root is an alias for gv_draw_root — same pointer, same
+     * children list, maintained live by draw/erase mutations.  No per-frame
+     * bsg_scene_root_sync rebuild is needed. */
     v->gv_draw_root = root;
+    v->bsg_root = root;
 
     return root;
 }

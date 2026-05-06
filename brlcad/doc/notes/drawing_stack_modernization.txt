@@ -580,16 +580,41 @@ Phase E — finish retiring the BSG legacy fallback.
     The `libbsg` link dependency has been removed from the single-view
     test (no longer uses `bsg_scene_root_sync` or `bsg_node`).
 
-  Investigation note: `bsg_scene_root_sync` is still called once per
-  frame by `dm_draw_objs` and by `libtclcad/view/draw.c`.  With the
-  legacy fallback gone the function resets `bsg_root->children` and
-  re-copies references from `gv_draw_root->children` + view-only
-  ptbls on every frame.  This per-frame re-copy could be eliminated
-  by making `bsg_root` persistent — i.e., having draw/erase mutations
-  update `bsg_root->children` live instead of rebuilding at sync
-  time.  That is a separate optimisation deferred to follow-on work;
-  the current sync pattern is correct and carries negligible runtime
-  cost.
+  Investigation note resolved — Phase F DONE.
+
+  `bsg_root` is now an alias for `gv_draw_root` (same pointer).
+  `bsg_root->children` IS `gv_draw_root->children`, maintained live by
+  draw/erase mutations (`bsg_group_ensure_child` / `bsg_free_group` /
+  `bsg_view_obj_zap`).  No per-frame rebuild is required.
+
+  Changes made:
+  - `bsg_scene_root_create` (scene_graph.cpp): sets `v->bsg_root =
+    v->gv_draw_root` instead of allocating a synthetic node.  Returns
+    NULL if `gv_draw_root` is not yet set; `_sg_root()` in
+    `bsg_ged_draw.c` sets both `v->gv_draw_root` and `v->bsg_root` on
+    the first draw command.
+  - `bsg_scene_root_sync` (scene_graph.cpp): deliberate no-op.  Kept
+    for binary compatibility.
+  - `bsg_scene_root_destroy` (scene_graph.cpp): clears `v->bsg_root`
+    without freeing the node (draw-tree lifecycle owns it).
+  - `dm_draw_objs` (libdm/view.c): removed the `bsg_scene_root_sync`
+    call.  The `_bsg_view_traverse_impl` call now traverses
+    `v->bsg_root` (= `gv_draw_root`) directly for DB objects.  A new
+    loop iterates `BV_VIEW_OBJS` ptbls directly for view-only objects
+    after the main BSG pass.
+  - `go_draw` (libtclcad/view/draw.c): removed the broken BSG block
+    (was silently skipping all groups since `go_draw_solid` requires
+    `s_u_data`, which group nodes don't have).  `go_draw_dlist` is now
+    the sole rendering path.
+  - `BViewState::redraw` (libged/dbi_state.cpp): removed the
+    per-view `bsg_scene_root_sync` loop.
+  - `_sg_root()` (libged/bsg_ged_draw.c): sets `v->bsg_root = root`
+    alongside `v->gv_draw_root = root`.
+  - `test_scene_graph.c` (libbsg/tests): updated to Phase F semantics
+    (create_alias, sync_noop tests; find_by_type/sensor_fire populate
+    root->children directly instead of relying on sync).
+  - `bsg_view_obj.cpp` test [11] and `mged_bsg.cpp` updated to reflect
+    Phase F aliasing.
 
 Constraints to respect during the work
 ......................................

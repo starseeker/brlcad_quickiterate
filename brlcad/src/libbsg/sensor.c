@@ -117,8 +117,8 @@ _registry_remove(bsg_node *handle)
 
 
 /* Allocate a sensor bsg_node from the owning view.  We use bv_obj_create
- * (which does NOT insert into view tables) to keep the sensor off the render
- * children list that bsg_scene_root_sync mirrors each frame. */
+ * (which does NOT insert into view tables) to keep the sensor off the draw
+ * root's children list (Phase F: bsg_root->children IS gv_draw_root->children). */
 static bsg_node *
 _alloc_sensor_node(bsg_node *root, unsigned long long stype)
 {
