@@ -193,8 +193,7 @@ bsg_free_children_recursive(bsg_node *gn, struct bv_scene_obj *fso)
 	} else {
 	    /* Fire per-object teardown callbacks before recycling.
 	     * Phase 11: bv_scene_obj_release_backend releases display-list
-	     * GPU resources via the new backend contract and also fires the
-	     * legacy s_dlist_free_callback for compatibility.  s_free_callback
+	     * GPU resources via the new backend contract.  s_free_callback
 	     * fires the illumination-clear registered as ged_bv_illum_free_cb
 	     * at shape-creation time (Phase 7 Steps 8-9). */
 	    bv_scene_obj_release_backend(child);

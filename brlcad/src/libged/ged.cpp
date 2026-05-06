@@ -183,8 +183,6 @@ ged_init(struct ged *gedp)
     gedp->ged_refresh_handler = NULL;
     gedp->ged_refresh_clientdata = NULL;
     gedp->ged_output_handler = NULL;
-    gedp->ged_create_vlist_scene_obj_callback = NULL;
-    gedp->ged_destroy_vlist_callback = NULL;
     gedp->ged_create_io_handler = NULL;
     gedp->ged_delete_io_handler = NULL;
     gedp->ged_io_data = NULL;
@@ -475,32 +473,6 @@ ged_output_handler_cb(struct ged *gedp, char *str)
 	}
 	(*gedp->ged_output_handler)(gedp, str);
 	gedp->ged_cbs->ged_output_handler_cnt--;
-    }
-}
-
-void
-ged_create_vlist_solid_cb(struct ged *gedp, struct bv_scene_obj *s)
-{
-    if (gedp->ged_create_vlist_scene_obj_callback != GED_CREATE_VLIST_SOLID_FUNC_NULL) {
-	gedp->ged_cbs->ged_create_vlist_scene_obj_callback_cnt++;
-	if (gedp->ged_cbs->ged_create_vlist_scene_obj_callback_cnt > 1) {
-	    bu_log("Warning - recursive call of gedp->ged_create_vlist_scene_obj_callback!\n");
-	}
-	(*gedp->ged_create_vlist_scene_obj_callback)(gedp->vlist_ctx, s);
-	gedp->ged_cbs->ged_create_vlist_scene_obj_callback_cnt--;
-    }
-}
-
-void
-ged_destroy_vlist_cb(struct ged *gedp, unsigned int i, int j)
-{
-    if (gedp->ged_destroy_vlist_callback != GED_DESTROY_VLIST_FUNC_NULL) {
-	gedp->ged_cbs->ged_destroy_vlist_callback_cnt++;
-	if (gedp->ged_cbs->ged_destroy_vlist_callback_cnt > 1) {
-	    bu_log("Warning - recursive call of gedp->ged_destroy_vlist_callback!\n");
-	}
-	(*gedp->ged_destroy_vlist_callback)(gedp->vlist_ctx, i, j);
-	gedp->ged_cbs->ged_destroy_vlist_callback_cnt--;
     }
 }
 

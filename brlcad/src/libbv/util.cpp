@@ -356,8 +356,7 @@ bv_free(struct bview *gvp)
 	BU_LIST_DEQUEUE(&((sp)->l));
 	if (sp->s_free_callback)
 	    (*sp->s_free_callback)(sp);
-	/* Phase 11: release backend state via the generic contract (also
-	 * fires the legacy s_dlist_free_callback for compatibility). */
+	/* Phase 11: release backend state via the generic contract. */
 	bv_scene_obj_release_backend(sp);
 	bu_ptbl_free(&sp->children);
 	BU_PUT(sp, struct bv_scene_obj);
@@ -1154,15 +1153,6 @@ bv_scene_obj_release_backend(struct bv_scene_obj *s)
 	(*s->s_backend->free)(s);
     }
     s->s_backend = NULL;
-
-    /* Compatibility: also fire the legacy per-shape display-list free
-     * callback so callers that have not yet migrated to the Phase 11
-     * contract still get their cleanup.  This callback is BV_DEPRECATED
-     * (see bv/defines.h) and will be removed in Phase 13. */
-    if (s->s_dlist_free_callback) {
-	(*s->s_dlist_free_callback)(s);
-	s->s_dlist_free_callback = NULL;
-    }
 }
 
 void
@@ -1177,11 +1167,6 @@ bv_scene_obj_invalidate_backend(struct bv_scene_obj *s)
     if (s->s_backend && s->s_backend->invalidate) {
 	(*s->s_backend->invalidate)(s);
     }
-
-    /* Compatibility: keep the legacy s_dlist_stale flag in sync so callers
-     * that still poll it see the same notification.  BV_DEPRECATED,
-     * removed in Phase 13. */
-    s->s_dlist_stale = 1;
 }
 
 void
@@ -1266,7 +1251,6 @@ bv_obj_create(struct bview *v, int type)
     // Zero out callback pointers
     s->s_type_flags = 0;
     s->s_free_callback = NULL;
-    s->s_dlist_free_callback = NULL;
     /* Phase 11: zero the backend slot so any prior owner state is dropped. */
     s->s_backend = NULL;
 
@@ -1371,9 +1355,7 @@ bv_obj_reset(struct bv_scene_obj *s)
     s->s_free_callback = NULL;
 
     // Phase 11: release any backend-owned per-shape state via the generic
-    // contract.  This also fires the legacy s_dlist_free_callback for
-    // compatibility, so callers that haven't migrated still get their
-    // cleanup.  Replaces the standalone s_dlist_free_callback invocation.
+    // contract.
     bv_scene_obj_release_backend(s);
 
     // If we have a label, do the label freeing steps

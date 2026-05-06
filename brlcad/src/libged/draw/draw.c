@@ -126,7 +126,6 @@ dl_add_path(int dashflag, struct bu_list *vhead, const struct db_full_path *path
 
     solid_set_color_info(sp, wireframe_color_override, tsp);
 
-    sp->s_dlist = 0;
     sp->s_os->transparency = dgcdp->vs.transparency;
     sp->s_os->s_dmode = dgcdp->vs.s_dmode;
 
@@ -134,8 +133,6 @@ dl_add_path(int dashflag, struct bu_list *vhead, const struct db_full_path *path
     bu_semaphore_acquire(RT_SEM_MODEL);
     bsg_view_obj_append_solid_to_group(dgcdp->gedp, dgcdp->gdlp, sp);
     bu_semaphore_release(RT_SEM_MODEL);
-
-    ged_create_vlist_solid_cb(dgcdp->gedp, sp);
 
 }
 
@@ -238,8 +235,6 @@ _dl_redraw_shape_cb(bsg_node *n, void *ud)
     struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
     if (!ctx->skip_subtractions || !sp->s_soldash)
 	ctx->ret += redraw_solid(sp, ctx->dbip, ctx->tsp, ctx->gvp, ctx->vlfree);
-    /* Phase 6.5 Step 3: fire the per-solid vlist callback for each solid. */
-    ged_create_vlist_solid_cb(ctx->gedp, sp);
     return 1;
 }
 
@@ -441,7 +436,6 @@ append_solid_to_display_list(
 	}
     }
 
-    sp->s_dlist = 0;
     sp->s_os->transparency = bv_data->transparency;
     sp->s_os->s_dmode = bv_data->dmode;
     MAT_COPY(sp->s_mat, tsp->ts_mat);

@@ -215,12 +215,12 @@ struct bv_scene_obj;
  *  - allocated lazily by the backend (typically when it first needs to cache
  *    a GPU resource for the shape);
  *  - released by bv_scene_obj_release_backend() when the shape is destroyed
- *    or recycled (also called from bv_obj_reset, bv_obj_put, the libbsg tree
- *    free paths, and bv_scene_obj_release_backend's compat shim for the
- *    legacy s_dlist_free_callback);
+ *    or recycled (also called from bv_obj_reset, bv_obj_put, and the libbsg
+ *    tree free paths);
  *  - invalidated by bv_scene_obj_invalidate_backend() when the source data
  *    that drives the cached resource has changed (called from
- *    bv_obj_stale() and any other code that previously set s_dlist_stale=1).
+ *    bv_obj_stale() and any other code that needs to flag the cached
+ *    resource as out of date).
  *
  * Backends are expected to provide a free callback; invalidate is optional
  * and may be NULL for backends that have no separately-cacheable resource.
@@ -271,24 +271,6 @@ struct bv_scene_obj  {
     struct bu_list s_vlist;	/**< @brief  Pointer to unclipped vector list */
     size_t s_vlen;			/**< @brief  Number of actual cmd[] entries in vlist */
 
-    /* Display lists accelerate drawing when we can use them.
-     *
-     * BV_DEPRECATED (Phase 11, drawing_stack_modernization): the four fields
-     * below (s_dlist, s_dlist_mode, s_dlist_stale, s_dlist_free_callback) are
-     * GL-backend-specific per-shape state that historically leaked onto every
-     * scene object.  They are retained for source compatibility during the
-     * Phase 11 transition window and will be removed in Phase 13.  New
-     * backend-private state should attach via the generic s_backend slot
-     * (struct bv_obj_backend) below; per-shape resource invalidation/release
-     * should go through bv_scene_obj_invalidate_backend() /
-     * bv_scene_obj_release_backend() (which also fire the legacy callback for
-     * compatibility) and dm_backend_invalidate_obj() / dm_backend_release_obj()
-     * on the display-manager side. */
-    unsigned int s_dlist;	/**< @brief  BV_DEPRECATED: display list index */
-    int s_dlist_mode;		/**< @brief  BV_DEPRECATED: drawing mode in which display list was generated (if it doesn't match s_os.s_dmode, dlist is out of date.) */
-    int s_dlist_stale;		/**< @brief  BV_DEPRECATED (Phase 11): set by client codes when dlist is out of date - dm must update.  Use bv_scene_obj_invalidate_backend() instead. */
-    void (*s_dlist_free_callback)(struct bv_scene_obj *);  /**< @brief BV_DEPRECATED (Phase 11): free any dlist specific data.  Use bv_scene_obj_release_backend() / dm_backend_release_obj() instead. */
-
     /* Phase 11 (drawing_stack_modernization): generic renderer-backend slot.
      *
      * One backend-owned pointer per scene object replaces the previous pattern
@@ -299,8 +281,7 @@ struct bv_scene_obj  {
      *   - handle:   backend-private per-shape state (compiled GL display list,
      *     vertex buffer object, GPU resource handle, ...);
      *   - free:     cleanup callback fired by bv_scene_obj_release_backend()
-     *     when the shape is destroyed/recycled — mirrors the role of the
-     *     legacy s_dlist_free_callback but is backend-agnostic;
+     *     when the shape is destroyed/recycled;
      *   - invalidate: optional callback fired by
      *     bv_scene_obj_invalidate_backend() when the source data has changed
      *     and any cached GPU resource must be recomputed.
@@ -308,7 +289,10 @@ struct bv_scene_obj  {
      * NULL if the active backend does not need per-shape state.  Backends are
      * expected to allocate one bv_obj_backend per shape (typically lazily) and
      * store it here; bv_obj_reset() / bv_obj_put() will fire the free callback
-     * and clear the slot. */
+     * and clear the slot.  See struct gl_backend_handle in libdm/dm-gl_lod.cpp
+     * for the GL family's per-shape state (display list index/mode/stale
+     * flag) — formerly the BV_DEPRECATED s_dlist / s_dlist_mode /
+     * s_dlist_stale / s_dlist_free_callback fields, retired in Phase 13. */
     struct bv_obj_backend *s_backend;
 
     /* 3D geometry metadata */

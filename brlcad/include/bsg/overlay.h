@@ -71,10 +71,10 @@ bsg_ensure_overlay_group(bsg_node *draw_root, struct bview *v);
 /**
  * Erase all overlay shapes named @p name from the @c _overlays group.
  *
- * Fires each matching shape's @c s_dlist_free_callback and
- * @c s_free_callback before recycling the node.  Bumps the draw-tree
- * revision counter.  Removes the @c _overlays group itself if it becomes
- * empty after the erasure.
+ * Releases each matching shape's backend state via
+ * bv_scene_obj_release_backend() and fires its @c s_free_callback before
+ * recycling the node.  Bumps the draw-tree revision counter.  Removes the
+ * @c _overlays group itself if it becomes empty after the erasure.
  *
  * Does nothing if @p draw_root is NULL or has no @c _overlays child.
  */

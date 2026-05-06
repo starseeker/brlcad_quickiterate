@@ -61,7 +61,8 @@ struct dm_vars {
 /**
  * Singly-linked list node for the display-list sensor mechanism.
  * Sensors are fired by dm_fire_dlist_sensors() when a display list is
- * regenerated, providing a push-based alternative to polling s_dlist_stale.
+ * regenerated, providing a push-based alternative to polling per-shape
+ * invalidation flags.
  */
 struct dm_dlist_sensor {
     struct bv_scene_obj *s;                         /**< @brief associated scene object */
