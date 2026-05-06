@@ -448,6 +448,39 @@ _bound_objs_view(int *is_empty, vect_t min, vect_t max, struct bu_ptbl *so, stru
 }
 
 
+/* Phase B: context for bv_autoview's bv_view_objs_visit_db callback. */
+struct _bv_autoview_db_ctx {
+    int *is_empty;
+    int *have_geom_objs;
+    vect_t min;
+    vect_t max;
+    struct bview *v;
+};
+
+static int
+_bv_autoview_db_cb(struct bv_scene_obj *s, void *data)
+{
+    struct _bv_autoview_db_ctx *ctx = (struct _bv_autoview_db_ctx *)data;
+    vect_t minus, plus;
+    /* For non-BSG top-level groups, recurse into their children first */
+    _bound_objs(ctx->is_empty, ctx->have_geom_objs, ctx->min, ctx->max,
+		&s->children, ctx->v);
+    /* Check this object's own bounds */
+    if (s->have_bbox || bv_scene_obj_bound(s, ctx->v)) {
+	(*ctx->is_empty) = 0;
+	(*ctx->have_geom_objs) = 1;
+	minus[X] = s->s_center[X] - s->s_size;
+	minus[Y] = s->s_center[Y] - s->s_size;
+	minus[Z] = s->s_center[Z] - s->s_size;
+	VMIN(ctx->min, minus);
+	plus[X] = s->s_center[X] + s->s_size;
+	plus[Y] = s->s_center[Y] + s->s_size;
+	plus[Z] = s->s_center[Z] + s->s_size;
+	VMAX(ctx->max, plus);
+    }
+    return 1;
+}
+
 void
 bv_autoview(struct bview *v, double factor, int all_view_objs)
 {
@@ -469,12 +502,19 @@ bv_autoview(struct bview *v, double factor, int all_view_objs)
     VSETALL(min,  INFINITY);
     VSETALL(max, -INFINITY);
 
-    struct bu_ptbl *so = bv_view_objs(v, BV_DB_OBJS);
-    if (so)
-	_bound_objs(&is_empty, &have_geom_objs, min, max, so, v);
-    struct bu_ptbl *sol = bv_view_objs(v, BV_DB_OBJS | BV_LOCAL_OBJS);
-    if (sol)
-	_bound_objs(&is_empty, &have_geom_objs, min, max, sol, v);
+    /* Phase B: use bv_view_objs_visit_db so that GED consumers with the BSG
+     * draw tree are handled correctly even after BV_DB_OBJS ptbls are empty. */
+    struct _bv_autoview_db_ctx bav_ctx;
+    bav_ctx.is_empty = &is_empty;
+    bav_ctx.have_geom_objs = &have_geom_objs;
+    VSETALL(bav_ctx.min,  INFINITY);
+    VSETALL(bav_ctx.max, -INFINITY);
+    bav_ctx.v = v;
+    bv_view_objs_visit_db(v, _bv_autoview_db_cb, &bav_ctx);
+    if (!is_empty) {
+	VMOVE(min, bav_ctx.min);
+	VMOVE(max, bav_ctx.max);
+    }
 
     // When it comes to view-only objects, normally we will only include those
     // that are db object based, polygons or labels, unless the flag to
@@ -483,12 +523,12 @@ bv_autoview(struct bview *v, double factor, int all_view_objs)
     // view objs (for example, when overlaying a plot file on an empty view)
     // then basing autoview on the view-only objs is more intuitive than just
     // using the default view settings.
-    so = bv_view_objs(v, BV_VIEW_OBJS);
+    struct bu_ptbl *so = bv_view_objs(v, BV_VIEW_OBJS);
     if (so) {
 	_find_view_geom(&have_geom_objs, so);
 	_bound_objs_view(&is_empty,min, max, so, v, have_geom_objs, all_view_objs);
     }
-    sol = bv_view_objs(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
+    struct bu_ptbl *sol = bv_view_objs(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
     if (sol) {
 	_find_view_geom(&have_geom_objs, sol);
 	_bound_objs_view(&is_empty,min, max, sol, v, have_geom_objs, all_view_objs);
@@ -1294,6 +1334,30 @@ bv_obj_get(struct bview *v, int type)
 }
 
 struct bv_scene_obj *
+bv_obj_get_unregistered(struct bview *v, int type)
+{
+    if (!v)
+	return NULL;
+
+    bv_log(1, "bv_obj_get_unregistered %d(%s)", type, bu_vls_cstr(&v->gv_name));
+
+    int ltype = type;
+    if (v->independent)
+	ltype |= BV_LOCAL_OBJS;
+
+    struct bv_scene_obj *s = bv_obj_create(v, ltype);
+    if (!s)
+	return NULL;
+
+    /* Intentionally do NOT call bu_ptbl_ins: this object will be owned and
+     * indexed by the BSG draw tree rather than a gv_objs ptbl.  Clear otbl
+     * so that bv_obj_put later does not attempt a ptbl removal. */
+    s->otbl = NULL;
+
+    return s;
+}
+
+struct bv_scene_obj *
 bv_obj_get_child(struct bv_scene_obj *sp)
 {
     if (!sp)
@@ -1816,6 +1880,76 @@ bv_view_objs(struct bview *v, int type)
     }
 
     return NULL;
+}
+
+
+/* Internal DFS helper for bv_view_objs_visit_db.
+ * Traverses the BSG tree rooted at @p node (which is just a struct bv_scene_obj
+ * since bsg_node is a layout-compatible alias).  The callback is invoked for
+ * every node whose s_type_flags has BV_DB_OBJS set; returning 0 from the
+ * callback stops traversal early. */
+static int
+_bv_visit_db_internal(struct bv_scene_obj *node,
+		      int (*cb)(struct bv_scene_obj *, void *),
+		      void *data)
+{
+    if (!node)
+	return 1;
+
+    /* Call back for DB-derived shape leaves */
+    if (node->s_type_flags & BV_DB_OBJS) {
+	if (!cb(node, data))
+	    return 0;
+    }
+
+    /* Recurse into children (groups and any other sub-nodes) */
+    for (size_t i = 0; i < BU_PTBL_LEN(&node->children); i++) {
+	struct bv_scene_obj *child =
+	    (struct bv_scene_obj *)BU_PTBL_GET(&node->children, i);
+	if (!_bv_visit_db_internal(child, cb, data))
+	    return 0;
+    }
+
+    return 1;
+}
+
+
+void
+bv_view_objs_visit_db(struct bview *v,
+		      int (*cb)(struct bv_scene_obj *obj, void *data),
+		      void *data)
+{
+    if (!v || !cb)
+	return;
+
+    if (v->gv_draw_root) {
+	/* Phase B: GED consumers with the BSG draw tree.  The tree is
+	 * depth-first traversed; the callback fires for every node whose
+	 * s_type_flags has BV_DB_OBJS set (i.e. BViewState-owned leaves). */
+	_bv_visit_db_internal((struct bv_scene_obj *)v->gv_draw_root, cb, data);
+	return;
+    }
+
+    /* Fallback: non-GED / legacy consumers that store top-level objects
+     * directly in the gv_objs ptbls. */
+    struct bu_ptbl *so = bv_view_objs(v, BV_DB_OBJS);
+    if (so) {
+	for (size_t i = 0; i < BU_PTBL_LEN(so); i++) {
+	    struct bv_scene_obj *s =
+		(struct bv_scene_obj *)BU_PTBL_GET(so, i);
+	    if (!cb(s, data))
+		return;
+	}
+    }
+    struct bu_ptbl *sol = bv_view_objs(v, BV_DB_OBJS | BV_LOCAL_OBJS);
+    if (sol && sol != so) {
+	for (size_t i = 0; i < BU_PTBL_LEN(sol); i++) {
+	    struct bv_scene_obj *s =
+		(struct bv_scene_obj *)BU_PTBL_GET(sol, i);
+	    if (!cb(s, data))
+		return;
+	}
+    }
 }
 
 

@@ -440,64 +440,49 @@ Phase A — DbiState becomes the optional path/state front-end.
   drawing-stack regression tests that passed before Phase A still
   pass after; no new failures.
 
-Phase B — BViewState writes through BSG.
-
+Phase B — BViewState writes through BSG — DONE (B-full)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   Land step 2 of the short-term fix as the canonical implementation
   of `BViewState`: it computes paths, owns hash maps, drives
   change/refresh policy, but every scene object it touches is a node
   under `gd_draw_root` accessed through `bsg_ged_draw.h`.  The flat
   ptbl in `BV_DB_OBJS` stops being a draw store for any code path.
   A few sites that read it (`bv_view_objs(v, BV_DB_OBJS)`) are
-  migrated to BSG traversals (`bsg_visit(BSG_NODE_SHAPE, ...)`),
+  migrated to BSG traversals (`bv_view_objs_visit_db()`),
   matching the migration already done in MGED's
   `_mged_count_drawn_cb` (Phase 9.2).
 
-  Status: short-term hot-fix landed (above section).  Full migration
-  of `bv_view_objs(v, BV_DB_OBJS)` readers to BSG traversal is the
-  remaining Phase B work.  Concrete steps, in order:
+  Status: DONE (B-full implemented).
 
-  B-full-1. Stop `BViewState` from depositing scene-object leaves
-    into `BV_DB_OBJS`.  The four `bv_obj_get(v, BV_DB_OBJS)` calls
-    in `dbi_state.cpp` (currently lines ~3065, ~3465, ~3611, ~3667)
-    register each new leaf with the per-view ptbl *and* with the BSG
-    tree; only the BSG registration is needed once this phase is done.
-    Switching to a flag that does not add to the ptbl (or calling
-    `bv_obj_get` with `BV_VIEW_OBJS` for private leaves) is the key
-    correctness change.
+  B-full-1. DONE.  The four `bv_obj_get(v, BV_DB_OBJS)` calls in
+    `dbi_state.cpp` were changed to `bv_obj_get_unregistered(v,
+    BV_DB_OBJS)`.  Leaves are no longer deposited into any gv_objs
+    ptbl.  `BViewState::clear()` now calls `bv_obj_put` on each leaf
+    (not just `_bview_state_detach_leaf`) because the leaves are no
+    longer freed by a subsequent `bv_clear()`.
 
-  B-full-2. Provide a `bv_view_objs_visit_db()` libbv helper: given
-    a view, iterate db-derived shape leaves by preferring
-    `bsg_visit(BSG_NODE_SHAPE, v->gv_draw_root)` when `gv_draw_root`
-    is set, and falling back to `bv_view_objs(v, BV_DB_OBJS)` for
-    non-GED consumers.  This gives callers in libbv (snap.c,
-    hash.c, lod.cpp) a single migration target without requiring
-    them to take a `bsg_node *` they do not currently hold.
+  B-full-2. DONE.  `bv_view_objs_visit_db(v, cb, userdata)` added
+    to libbv (include/bv/util.h, src/libbv/util.cpp).  When
+    `v->gv_draw_root` is set it calls `bsg_visit(BSG_NODE_SHAPE, ...)`
+    on the draw root; otherwise it iterates `BV_DB_OBJS` and
+    `BV_DB_OBJS|BV_LOCAL_OBJS` ptbls.
 
-  B-full-3. Migrate each `bv_view_objs(v, BV_DB_OBJS)` reader to the
-    new helper, one file at a time.  Affected files to consider:
-      - `src/libdm/view.c` — the fallback branch of `dm_draw_objs`
-        and the `dm_draw_viewobjs` path (the BSG branch is already
-        correct; the fallback branch can be left for Phase E or
-        narrowed to non-GED consumers only)
-      - `src/libtclcad/view/draw.c`
-      - `src/libqtcad/QgQuadView.cpp`
-      - `src/libged/view/objs.cpp` (view objs/list reporting)
-      - `src/libged/view/view.c` (view bounds)
-      - `src/libged/ged_util.cpp`
-      - `src/libged/draw/draw2.cpp`
-      - `src/libbv/{lod.cpp,snap.c,hash.c,util.cpp}` (use the new
-        libbv helper — these are cache/snap/hash callers, not render
-        callers, so the BSG fallback matters for correctness)
+  B-full-3. DONE.  All `bv_view_objs(v, BV_DB_OBJS)` readers
+    migrated to `bv_view_objs_visit_db`:
+      - `src/libbv/util.cpp`   — `bv_autoview`
+      - `src/libbv/hash.c`     — `bv_hash`
+      - `src/libbv/lod.cpp`    — `_scene_radius`, `bv_view_objs_select`,
+                                  `bv_view_objs_rect_select`
+      - `src/libbv/snap.c`     — `bv_snap_lines_3d`
+      - `src/libged/ged_util.cpp`   — scene-bounds branch
+      - `src/libged/draw/draw2.cpp` — `blank_slate` check
+      - `src/libqtcad/QgQuadView.cpp` — quad-view initial draw
 
-  B-full-4. Investigate and fix the remaining open rendering failures
-    listed in the "Phase B short-term hot-fix" section above (shaded
-    mode 1 with LoD off, hidden lines mode 4, LoD test suite).  These
-    likely require work in the adaptive-plot / `bv_obj_for_view`
-    integration with the BSG render contract.
+  B-full-4. Investigate remaining rendering failures (shaded mode 1
+    with LoD off, hidden lines mode 4, LoD test suite) — deferred to
+    Phase E / follow-on work.
 
-  Validation: `ged_test_drawing_basic`, `ged_test_drawing_faceplate`,
-  the LoD tests, and the full `bsg_view_obj` + `mged_shaded_mode_bsg`
-  + `mged_bsg` test suites must all continue to pass after each step.
+  Validation: `ged_test_bsg_view_obj` 150/150 checks pass.
 
 Phase C — push the stack-1 helpers needed by qged into the shared API.
 

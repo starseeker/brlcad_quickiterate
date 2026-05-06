@@ -35,12 +35,10 @@
  *
  * Group nodes are allocated via bv_obj_create(v, BV_CHILD_OBJS) so
  * they are NOT inserted into any view object table.  Shape nodes are
- * allocated via bv_obj_get(v, BV_DB_OBJS) as before — they remain
- * in gv_objs.db_objs for the render path (bsg_scene_root_sync).
- *
- * gv_objs ptbls become a flat rendering index; the tree is the
- * authoritative store for group membership, path identity, and
- * ordered iteration.
+ * allocated via bv_obj_get_unregistered(v, BV_DB_OBJS) — they have
+ * s_type_flags = BV_DB_OBJS but are NOT inserted into any gv_objs ptbl.
+ * The BSG tree (gd_draw_root) is the sole index for rendering and
+ * iteration (bv_view_objs_visit_db).
  */
 
 #include "common.h"

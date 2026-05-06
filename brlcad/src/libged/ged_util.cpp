@@ -248,51 +248,44 @@ _ged_subcmd2_help(struct ged *gedp, struct bu_opt_desc *gopts, std::map<std::str
     return BRLCAD_OK;
 }
 
-/* NOTE - caller must initialize vmin and vmax to INFINITY and -INFINITY
- * respectively (we don't do it here so callers may run this routine
- * repeatedly over different tables to accumulate bounds. */
+/* Phase B: context + callback for bv_view_objs_visit_db used to accumulate
+ * bounding sphere extents (replaces scene_bounding_sph for GED sessions). */
+struct _scene_bsph_ctx {
+    vect_t *vmin;
+    vect_t *vmax;
+};
+
 static int
-scene_bounding_sph(struct bu_ptbl *so, vect_t *vmin, vect_t *vmax, int pflag)
+_scene_bsph_cb(struct bv_scene_obj *s, void *data)
 {
-    struct bv_scene_obj *sp;
+    struct _scene_bsph_ctx *ctx = (struct _scene_bsph_ctx *)data;
     vect_t minus, plus;
-    int is_empty = 1;
-
-    /* calculate the bounding for of all solids being displayed */
-    for (size_t i = 0; i < BU_PTBL_LEN(so); i++) {
-	struct bv_scene_group *g = (struct bv_scene_group *)BU_PTBL_GET(so, i);
-	if (BU_PTBL_LEN(&g->children)) {
-	    for (size_t j = 0; j < BU_PTBL_LEN(&g->children); j++) {
-		sp = (struct bv_scene_obj *)BU_PTBL_GET(&g->children, j);
-		minus[X] = sp->s_center[X] - sp->s_size;
-		minus[Y] = sp->s_center[Y] - sp->s_size;
-		minus[Z] = sp->s_center[Z] - sp->s_size;
-		VMIN((*vmin), minus);
-		plus[X] = sp->s_center[X] + sp->s_size;
-		plus[Y] = sp->s_center[Y] + sp->s_size;
-		plus[Z] = sp->s_center[Z] + sp->s_size;
-		VMAX((*vmax), plus);
-
-		is_empty = 0;
-	    }
-	} else {
-	    // If we're an evaluated object, the group itself has the
-	    // necessary info.
-	    minus[X] = g->s_center[X] - g->s_size;
-	    minus[Y] = g->s_center[Y] - g->s_size;
-	    minus[Z] = g->s_center[Z] - g->s_size;
-	    VMIN((*vmin), minus);
-	    plus[X] = g->s_center[X] + g->s_size;
-	    plus[Y] = g->s_center[Y] + g->s_size;
-	    plus[Z] = g->s_center[Z] + g->s_size;
-	    VMAX((*vmax), plus);
+    /* For BSG leaf nodes s_center/s_size are authoritative.
+     * For non-BSG top-level groups, recurse into children first. */
+    if (BU_PTBL_LEN(&s->children)) {
+	for (size_t j = 0; j < BU_PTBL_LEN(&s->children); j++) {
+	    struct bv_scene_obj *sp =
+		(struct bv_scene_obj *)BU_PTBL_GET(&s->children, j);
+	    minus[X] = sp->s_center[X] - sp->s_size;
+	    minus[Y] = sp->s_center[Y] - sp->s_size;
+	    minus[Z] = sp->s_center[Z] - sp->s_size;
+	    VMIN(*ctx->vmin, minus);
+	    plus[X] = sp->s_center[X] + sp->s_size;
+	    plus[Y] = sp->s_center[Y] + sp->s_size;
+	    plus[Z] = sp->s_center[Z] + sp->s_size;
+	    VMAX(*ctx->vmax, plus);
 	}
+    } else {
+	minus[X] = s->s_center[X] - s->s_size;
+	minus[Y] = s->s_center[Y] - s->s_size;
+	minus[Z] = s->s_center[Z] - s->s_size;
+	VMIN(*ctx->vmin, minus);
+	plus[X] = s->s_center[X] + s->s_size;
+	plus[Y] = s->s_center[Y] + s->s_size;
+	plus[Z] = s->s_center[Z] + s->s_size;
+	VMAX(*ctx->vmax, plus);
     }
-    if (!pflag) {
-	bu_log("todo - handle pflag\n");
-    }
-
-    return is_empty;
+    return 1;
 }
 
 
@@ -1733,12 +1726,13 @@ _ged_rt_set_eye_model(struct ged *gedp,
 	if (gedp->dbi_state) {
 	    VSETALL(extremum[0],  INFINITY);
 	    VSETALL(extremum[1], -INFINITY);
-	    struct bu_ptbl *db_objs = bv_view_objs(gedp->ged_gvp, BV_DB_OBJS);
-	    if (db_objs)
-		(void)scene_bounding_sph(db_objs, &(extremum[0]), &(extremum[1]), 1);
-	    struct bu_ptbl *local_db_objs = bv_view_objs(gedp->ged_gvp, BV_DB_OBJS | BV_LOCAL_OBJS);
-	    if (local_db_objs)
-		(void)scene_bounding_sph(local_db_objs, &(extremum[0]), &(extremum[1]), 1);
+	    /* Phase B: use bv_view_objs_visit_db to traverse BSG tree when
+	     * gv_draw_root is set, so GED sessions work after BV_DB_OBJS
+	     * ptbls are emptied by B-full-1. */
+	    struct _scene_bsph_ctx bsph_ctx;
+	    bsph_ctx.vmin = &extremum[0];
+	    bsph_ctx.vmax = &extremum[1];
+	    bv_view_objs_visit_db(gedp->ged_gvp, _scene_bsph_cb, &bsph_ctx);
 	} else {
 	    (void)bsg_view_obj_bounds(gedp, &(extremum[0]), &(extremum[1]), 1);
 	}

@@ -197,6 +197,22 @@ obb_arb(vect_t obb_center, vect_t obb_extent1, vect_t obb_extent2, vect_t obb_ex
     return str;
 }
 
+/* Phase B: context for _scene_radius callback. */
+struct _scene_radius_ctx {
+    int *have_objs;
+    vect_t *min;
+    vect_t *max;
+    struct bview *v;
+};
+
+static int
+_scene_radius_cb(struct bv_scene_obj *g, void *data)
+{
+    struct _scene_radius_ctx *ctx = (struct _scene_radius_ctx *)data;
+    obj_bb(ctx->have_objs, ctx->min, ctx->max, g, ctx->v);
+    return 1;
+}
+
 static void
 view_obb(struct bview *v,
 	point_t sbbc, fastf_t radius,
@@ -238,20 +254,13 @@ _scene_radius(point_t *sbbc, fastf_t *radius, struct bview *v)
     VSETALL(min,  INFINITY);
     VSETALL(max, -INFINITY);
     int have_objs = 0;
-    struct bu_ptbl *so = bv_view_objs(v, BV_DB_OBJS);
-    if (!so)
-	return;
-    for (size_t i = 0; i < BU_PTBL_LEN(so); i++) {
-	struct bv_scene_obj *g = (struct bv_scene_obj *)BU_PTBL_GET(so, i);
-	obj_bb(&have_objs, &min, &max, g, v);
-    }
-    struct bu_ptbl *sol = bv_view_objs(v, BV_DB_OBJS | BV_LOCAL_OBJS);
-    if (sol) {
-	for (size_t i = 0; i < BU_PTBL_LEN(sol); i++) {
-	    struct bv_scene_obj *g = (struct bv_scene_obj *)BU_PTBL_GET(sol, i);
-	    obj_bb(&have_objs, &min, &max, g, v);
-	}
-    }
+    /* Phase B: use bv_view_objs_visit_db to traverse BSG tree when available */
+    struct _scene_radius_ctx sr_ctx;
+    sr_ctx.have_objs = &have_objs;
+    sr_ctx.min = &min;
+    sr_ctx.max = &max;
+    sr_ctx.v = v;
+    bv_view_objs_visit_db(v, _scene_radius_cb, &sr_ctx);
     if (have_objs) {
 	VADD2SCALE(*sbbc, max, min, 0.5);
 	VSUB2SCALE(work, max, min, 0.5);
@@ -347,6 +356,26 @@ _find_active_objs(std::set<struct bv_scene_obj *> &active, struct bv_scene_obj *
     }
 }
 
+/* Phase B: context for bv_view_objs_select / bv_view_objs_rect_select
+ * bv_view_objs_visit_db callback. */
+struct _select_db_ctx {
+    std::set<struct bv_scene_obj *> *active;
+    struct bview *v;
+    point_t obb_c;
+    point_t obb_e1;
+    point_t obb_e2;
+    point_t obb_e3;
+};
+
+static int
+_select_db_cb(struct bv_scene_obj *s, void *data)
+{
+    struct _select_db_ctx *ctx = (struct _select_db_ctx *)data;
+    _find_active_objs(*ctx->active, s, ctx->v,
+		      ctx->obb_c, ctx->obb_e1, ctx->obb_e2, ctx->obb_e3);
+    return 1;
+}
+
 int
 bv_view_objs_select(struct bu_ptbl *sset, struct bview *v, int x, int y)
 {
@@ -415,20 +444,15 @@ bv_view_objs_select(struct bu_ptbl *sset, struct bview *v, int x, int y)
     // Having constructed the box, test the scene objects against it.  Any that intersect,
     // add them to the set
     std::set<struct bv_scene_obj *> active;
-    struct bu_ptbl *so = bv_view_objs(v, BV_DB_OBJS);
-    if (so) {
-	for (size_t i = 0; i < BU_PTBL_LEN(so); i++) {
-	    struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(so, i);
-	    _find_active_objs(active, s, v, obb_c, obb_e1, obb_e2, obb_e3);
-	}
-    }
-    struct bu_ptbl *sol = bv_view_objs(v, BV_DB_OBJS | BV_LOCAL_OBJS);
-    if (sol) {
-	for (size_t i = 0; i < BU_PTBL_LEN(sol); i++) {
-	    struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(sol, i);
-	    _find_active_objs(active, s, v, obb_c, obb_e1, obb_e2, obb_e3);
-	}
-    }
+    /* Phase B: use bv_view_objs_visit_db to traverse BSG tree when available */
+    struct _select_db_ctx sel_ctx;
+    sel_ctx.active = &active;
+    sel_ctx.v = v;
+    VMOVE(sel_ctx.obb_c, obb_c);
+    VMOVE(sel_ctx.obb_e1, obb_e1);
+    VMOVE(sel_ctx.obb_e2, obb_e2);
+    VMOVE(sel_ctx.obb_e3, obb_e3);
+    bv_view_objs_visit_db(v, _select_db_cb, &sel_ctx);
     if (active.size()) {
 	std::set<struct bv_scene_obj *>::iterator a_it;
 	for (a_it = active.begin(); a_it != active.end(); a_it++) {
@@ -513,20 +537,15 @@ bv_view_objs_rect_select(struct bu_ptbl *sset, struct bview *v, int x1, int y1, 
     // Having constructed the box, test the scene objects against it.  Any that intersect,
     // add them to the set
     std::set<struct bv_scene_obj *> active;
-    struct bu_ptbl *so = bv_view_objs(v, BV_DB_OBJS);
-    if (so) {
-	for (size_t i = 0; i < BU_PTBL_LEN(so); i++) {
-	    struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(so, i);
-	    _find_active_objs(active, s, v, obb_c, obb_e1, obb_e2, obb_e3);
-	}
-    }
-    struct bu_ptbl *sol = bv_view_objs(v, BV_DB_OBJS | BV_LOCAL_OBJS);
-    if (sol) {
-	for (size_t i = 0; i < BU_PTBL_LEN(sol); i++) {
-	    struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(sol, i);
-	    _find_active_objs(active, s, v, obb_c, obb_e1, obb_e2, obb_e3);
-	}
-    }
+    /* Phase B: use bv_view_objs_visit_db to traverse BSG tree when available */
+    struct _select_db_ctx rsel_ctx;
+    rsel_ctx.active = &active;
+    rsel_ctx.v = v;
+    VMOVE(rsel_ctx.obb_c, obb_c);
+    VMOVE(rsel_ctx.obb_e1, obb_e1);
+    VMOVE(rsel_ctx.obb_e2, obb_e2);
+    VMOVE(rsel_ctx.obb_e3, obb_e3);
+    bv_view_objs_visit_db(v, _select_db_cb, &rsel_ctx);
     if (active.size()) {
 	std::set<struct bv_scene_obj *>::iterator a_it;
 	for (a_it = active.begin(); a_it != active.end(); a_it++) {

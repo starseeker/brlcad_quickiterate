@@ -249,6 +249,22 @@ bv_settings_hash(struct bu_data_hash_state *state, struct bview_settings *s)
 
 }
 
+/* Phase B: callback for bv_view_objs_visit_db in bv_hash. */
+static int
+_bv_hash_db_obj_cb(struct bv_scene_obj *s, void *data)
+{
+    struct bu_data_hash_state *state = (struct bu_data_hash_state *)data;
+    /* Hash children first (view-specific adaptive objects) */
+    if (BU_PTBL_IS_INITIALIZED(&s->children)) {
+	for (size_t j = 0; j < BU_PTBL_LEN(&s->children); j++) {
+	    struct bv_scene_obj *s_c = (struct bv_scene_obj *)BU_PTBL_GET(&s->children, j);
+	    bv_scene_obj_hash(state, s_c);
+	}
+    }
+    bv_scene_obj_hash(state, s);
+    return 1;
+}
+
 unsigned long long
 bv_hash(struct bview *v)
 {
@@ -278,12 +294,13 @@ bv_hash(struct bview *v)
     _bv_data_polygon_state_hash(state, &v->gv_tcl.gv_sdata_polygons);
     _bv_other_state_hash(state, &v->gv_tcl.gv_prim_labels);
 
-    struct bu_ptbl *tbls[4];
-    tbls[0] = bv_view_objs(v, BV_DB_OBJS);
-    tbls[1] = bv_view_objs(v, BV_DB_OBJS | BV_LOCAL_OBJS);
-    tbls[2] = bv_view_objs(v, BV_VIEW_OBJS);
-    tbls[3] = bv_view_objs(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
-    for (int t = 0; t < 4; t++) {
+    /* Phase B: use bv_view_objs_visit_db for DB-derived objects so the BSG
+     * draw tree is used when gv_draw_root is set.  VIEW_OBJS remain
+     * ptbl-based as before. */
+    struct bu_ptbl *tbls[2];
+    tbls[0] = bv_view_objs(v, BV_VIEW_OBJS);
+    tbls[1] = bv_view_objs(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
+    for (int t = 0; t < 2; t++) {
 	if (!tbls[t])
 	    continue;
 	for (size_t i = 0; i < BU_PTBL_LEN(tbls[t]); i++) {
@@ -297,6 +314,9 @@ bv_hash(struct bview *v)
 	    bv_scene_obj_hash(state, g);
 	}
     }
+
+    /* Hash DB-derived objects via the BSG-aware helper */
+    bv_view_objs_visit_db(v, _bv_hash_db_obj_cb, state);
 
     unsigned long long hash_val = bu_data_hash_val(state);
     bu_data_hash_destroy(state);
