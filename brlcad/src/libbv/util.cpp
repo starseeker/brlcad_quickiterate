@@ -1336,6 +1336,10 @@ bv_obj_get(struct bview *v, int type)
 struct bv_scene_obj *
 bv_obj_get_unregistered(struct bview *v, int type)
 {
+    /* Allocates a scene object with s_type_flags set but does NOT insert it
+     * into any gv_objs ptbl.  Used by BViewState for leaves that are owned
+     * exclusively by the BSG draw tree (gd_draw_root) rather than the legacy
+     * flat ptbl.  The caller is responsible for freeing via bv_obj_put. */
     if (!v)
 	return NULL;
 
@@ -1919,6 +1923,13 @@ bv_view_objs_visit_db(struct bview *v,
 		      int (*cb)(struct bv_scene_obj *obj, void *data),
 		      void *data)
 {
+    /* Iterate all DB-derived scene objects visible from @p v.  When the view
+     * has a BSG draw root (GED consumers after Phase B), the BSG tree is
+     * traversed depth-first and the callback fires for every node with
+     * BV_DB_OBJS set in s_type_flags.  For non-GED consumers (no gv_draw_root)
+     * the legacy BV_DB_OBJS and BV_DB_OBJS|BV_LOCAL_OBJS ptbls are iterated.
+     * Returning 0 from the callback stops traversal early.
+     * See include/bv/util.h for the full API contract. */
     if (!v || !cb)
 	return;
 
