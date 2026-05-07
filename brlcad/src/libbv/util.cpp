@@ -1742,7 +1742,19 @@ bv_scene_obj_bound(struct bv_scene_obj *sp, struct bview *v)
     int calc = 0;
     // If we have a view object, use that, otherwise it's
     // the top level object
+#if defined(__clang__)
+#  pragma clang diagnostic push
+#  pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#elif defined(__GNUC__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
     struct bv_scene_obj *s = bv_obj_for_view(sp, v);
+#if defined(__clang__)
+#  pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#  pragma GCC diagnostic pop
+#endif
     if (!s)
 	s = sp;
     struct bv_scene_obj *lod = NULL;
