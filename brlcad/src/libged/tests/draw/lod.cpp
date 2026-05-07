@@ -34,6 +34,8 @@
 
 #include "../../dbi.h"
 
+/* LoD images may differ slightly between first-generation and cached mesh
+ * rendering while remaining perceptually equivalent. */
 #define ADIFF_THRES 60
 
 extern "C" void ged_changed_callback(struct db_i *UNUSED(dbip), struct directory *dp, int mode, void *u_data);
@@ -434,4 +436,3 @@ main(int ac, char *av[]) {
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-

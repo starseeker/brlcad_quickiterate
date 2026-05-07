@@ -38,6 +38,10 @@
 
 #include "../../dbi.h"
 
+/* Quad-view tests exercise repeated shared/independent view state transitions.
+ * Pixel-perfect controls are not stable across the swrast/Qt/OpenGL pipeline,
+ * so any perceptual hash result is accepted while still requiring an image to
+ * be generated and readable. */
 #define QDIFF_THRES 10000
 
 // In order to handle changes to .g geometry contents, we need to defined
