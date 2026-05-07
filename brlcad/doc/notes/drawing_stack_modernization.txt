@@ -649,8 +649,8 @@ V4 implementation snapshot (2026-05-07):
 - `include/bsg/defines.h`: VIEW_REF/BRIDGE marked deprecated
 - All draw regression tests pass
 
-Phase V5 — retire the per-view duplicate-subtree API
-----------------------------------------------------
+Phase V5 — retire the per-view duplicate-subtree API  [DONE 2026-05-07]
+-----------------------------------------------------------------------
 After V3 the only remaining callers of `bv_obj_for_view` /
 `bv_obj_get_vo` / `bv_obj_have_vo` / `bv_clear_view_obj` are the
 adaptive-toggle bookkeeping in `dbi_state.cpp` (Gap 2).  Their
@@ -665,9 +665,20 @@ Mechanical work:
   for the next frame is sufficient to force regen).
 - Delete `bv_obj_get_vo`, `bv_obj_have_vo`, `bv_clear_view_obj`
   and the `vobjs` unordered_map from `bv_scene_obj_internal`.
-- Keep `bv_obj_for_view` ONLY if we need a "view-private variant"
-  hook for edit highlights; otherwise delete it too.  Audit
-  needed.
+- Keep `bv_obj_for_view` for now as a compatibility hook while
+  the highlight path remains under evaluation (Priority 3).
+
+V5 implementation snapshot (2026-05-07):
+- `src/libged/dbi_state.cpp`: adaptive-toggle bookkeeping now calls
+  `ged_lod_adaptive_toggle_sync` on LoD nodes and stales the owning
+  shape when toggles change.
+- `src/libged/bsg_ged_draw.c`: `ged_lod_state` now tracks per-view
+  adaptive-toggle state and a one-shot `force_stale` trigger consumed
+  by `_lod_is_stale`; added `ged_lod_adaptive_toggle_sync`.
+- `src/libbv/bv_private.h`: removed `bv_scene_obj_internal::vobjs`.
+- `include/bv/util.h` + `src/libbv/util.cpp`: removed
+  `bv_obj_get_vo`, `bv_obj_have_vo`, `bv_clear_view_obj`; retained
+  `bv_obj_for_view` as a compatibility no-op (returns NULL).
 
 Tests: full draw regression set, plus `ged_test_drawing_lod` and
 `ged_test_lod_crossrun` to verify the adaptive toggle path is

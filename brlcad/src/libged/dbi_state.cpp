@@ -3012,50 +3012,30 @@ BViewState::scene_obj(
 
 	    // Most view setting changes won't alter geometry, and adaptive
 	    // drawing updating is handled via callbacks.  However, adaptive
-	    // plotting enablement/disablement changes which type of objects
-	    // we need.  Make sure we're synced.
-	    // TODO(Phase V5): remove deprecated per-view duplicate-subtree
-	    // API usage in this adaptive toggle path.
-#if defined(__clang__)
-#  pragma clang diagnostic push
-#  pragma clang diagnostic ignored "-Wdeprecated-declarations"
-#elif defined(__GNUC__)
-#  pragma GCC diagnostic push
-#  pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#endif
-	    std::unordered_set<struct bview *>::iterator v_it;
-	    if (sp->csg_obj) {
+	    // plotting enablement/disablement must invalidate LoD state so
+	    // the next bsg_lod_update pass regenerates level geometry.
+	    struct bv_scene_obj *lod = NULL;
+	    if (sp->s_type_flags & BSG_NODE_LOD) {
+		lod = sp;
+	    } else {
+		struct bv_scene_obj *pp = (struct bv_scene_obj *)sp->parent;
+		if (pp && (pp->s_type_flags & BSG_NODE_LOD))
+		    lod = pp;
+	    }
+	    if (lod) {
+		std::unordered_set<struct bview *>::iterator v_it;
 		for (v_it = views.begin(); v_it != views.end(); v_it++) {
-		    int have_adaptive = bv_obj_have_vo(sp, *v_it);
-		    if ((*v_it)->gv_s->adaptive_plot_csg && !have_adaptive) {
-			bv_obj_stale(sp);
-			sp->curve_scale = -1; // Make sure a rework is triggered
-			objs.insert(sp);
-		    }
-		    if (!(*v_it)->gv_s->adaptive_plot_csg && have_adaptive && bv_clear_view_obj(sp, *v_it)) {
+		    int adaptive_on = 0;
+		    if (sp->csg_obj)
+			adaptive_on = ((*v_it)->gv_s->adaptive_plot_csg) ? 1 : 0;
+		    if (sp->mesh_obj)
+			adaptive_on = ((*v_it)->gv_s->adaptive_plot_mesh) ? 1 : 0;
+		    if (ged_lod_adaptive_toggle_sync(lod, *v_it, adaptive_on)) {
 			bv_obj_stale(sp);
 			objs.insert(sp);
 		    }
 		}
 	    }
-	    if (sp->mesh_obj) {
-		for (v_it = views.begin(); v_it != views.end(); v_it++) {
-		    int have_adaptive = bv_obj_have_vo(sp, *v_it);
-		    if ((*v_it)->gv_s->adaptive_plot_mesh && !have_adaptive) {
-			bv_obj_stale(sp);
-			objs.insert(sp);
-		    }
-		    if (!(*v_it)->gv_s->adaptive_plot_mesh && have_adaptive && bv_clear_view_obj(sp, *v_it)) {
-			bv_obj_stale(sp);
-			objs.insert(sp);
-		    }
-		}
-	    }
-#if defined(__clang__)
-#  pragma clang diagnostic pop
-#elif defined(__GNUC__)
-#  pragma GCC diagnostic pop
-#endif
 
 	    // Refresh s_color from the current path color so that material
 	    // changes (or a cache corruption that left stale values) are always

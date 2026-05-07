@@ -30,7 +30,6 @@
 #include "bu/list.h"
 #include "bu/ptbl.h"
 #include "bv/defines.h"
-#include <unordered_map>
 
 struct bview_set_internal {
     struct bu_ptbl views;
@@ -46,7 +45,6 @@ struct bview_set_internal {
 };
 
 struct bv_scene_obj_internal {
-    std::unordered_map<struct bview *, struct bv_scene_obj *> vobjs;
 };
 
 #endif /* LIBBV_BV_PRIVATE_H */

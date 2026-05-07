@@ -94,7 +94,69 @@ extern int csg_wireframe_update(struct bv_scene_obj *vo, struct bview *v, int fl
 
 struct ged_lod_state {
     struct bv_scene_obj *s;
+    struct bview **views;
+    int *adaptive_on;
+    size_t vcnt;
+    size_t vcap;
+    int force_stale;
 };
+
+static int
+_lod_state_adaptive_index(struct ged_lod_state *st, struct bview *v)
+{
+    if (!st || !v)
+	return -1;
+
+    for (size_t i = 0; i < st->vcnt; i++) {
+	if (st->views[i] == v)
+	    return (int)i;
+    }
+
+    return -1;
+}
+
+static int
+_lod_state_adaptive_get(struct ged_lod_state *st, struct bview *v, int *known)
+{
+    if (known)
+	*known = 0;
+    if (!st || !v)
+	return 0;
+
+    int idx = _lod_state_adaptive_index(st, v);
+    if (idx < 0)
+	return 0;
+    if (known)
+	*known = 1;
+
+    return st->adaptive_on[idx];
+}
+
+static void
+_lod_state_adaptive_set(struct ged_lod_state *st, struct bview *v, int adaptive_on)
+{
+    if (!st || !v)
+	return;
+
+    int idx = _lod_state_adaptive_index(st, v);
+    if (idx >= 0) {
+	st->adaptive_on[idx] = adaptive_on ? 1 : 0;
+	return;
+    }
+
+    if (st->vcnt + 1 > st->vcap) {
+	size_t ncap = (st->vcap < 4) ? 4 : (st->vcap * 2);
+	struct bview **nviews = (struct bview **)bu_realloc(st->views, ncap * sizeof(struct bview *), "lod_state_views");
+	int *nadaptive = (int *)bu_realloc(st->adaptive_on, ncap * sizeof(int), "lod_state_adaptive");
+	st->views = nviews;
+	st->adaptive_on = nadaptive;
+	st->vcap = ncap;
+    }
+
+    st->views[st->vcnt] = v;
+    st->adaptive_on[st->vcnt] = adaptive_on ? 1 : 0;
+    st->vcnt++;
+}
 
 static int
 _mesh_lod_select_level(bsg_node *node, struct bview *v)
@@ -124,6 +186,13 @@ _lod_activate_level(bsg_node *node, struct bview *v, int level)
 static int
 _lod_is_stale(bsg_node *node, struct bview *v)
 {
+    struct bsg_lod_payload *pl = (struct bsg_lod_payload *)((struct bv_scene_obj *)node)->s_i_data;
+    struct ged_lod_state *st = (pl && pl->user_data) ? (struct ged_lod_state *)pl->user_data : NULL;
+    if (st && st->force_stale) {
+	st->force_stale = 0;
+	return 1;
+    }
+
     struct bsg_lod_view_cursor *c = bsg_lod_node_get_cursor(node, v);
     if (!c || !v)
 	return 0;
@@ -142,6 +211,11 @@ _mesh_lod_free(bsg_node *node)
     struct bsg_lod_payload *pl = (struct bsg_lod_payload *)((struct bv_scene_obj *)node)->s_i_data;
     if (!pl || !pl->user_data)
 	return;
+    struct ged_lod_state *st = (struct ged_lod_state *)pl->user_data;
+    if (st->views)
+	bu_free(st->views, "_mesh_lod_state_views");
+    if (st->adaptive_on)
+	bu_free(st->adaptive_on, "_mesh_lod_state_adaptive");
     bu_free(pl->user_data, "_mesh_lod_state");
 }
 
@@ -189,6 +263,11 @@ ged_lod_install_mesh_ops(struct bv_scene_obj *lod, struct bv_scene_obj *s)
     struct ged_lod_state *st;
     BU_GET(st, struct ged_lod_state);
     st->s = s;
+    st->views = NULL;
+    st->adaptive_on = NULL;
+    st->vcnt = 0;
+    st->vcap = 0;
+    st->force_stale = 0;
     bsg_lod_node_set_ops((bsg_node *)lod, &_mesh_lod_ops, (void *)st);
     return 0;
 }
@@ -201,7 +280,37 @@ ged_lod_install_csg_ops(struct bv_scene_obj *lod, struct bv_scene_obj *s)
     struct ged_lod_state *st;
     BU_GET(st, struct ged_lod_state);
     st->s = s;
+    st->views = NULL;
+    st->adaptive_on = NULL;
+    st->vcnt = 0;
+    st->vcap = 0;
+    st->force_stale = 0;
     bsg_lod_node_set_ops((bsg_node *)lod, &_csg_lod_ops, (void *)st);
+    return 0;
+}
+
+int
+ged_lod_adaptive_toggle_sync(struct bv_scene_obj *lod, struct bview *v, int adaptive_on)
+{
+    if (!lod || !v || !(lod->s_type_flags & BSG_NODE_LOD))
+	return 0;
+
+    struct bsg_lod_payload *pl = (struct bsg_lod_payload *)lod->s_i_data;
+    if (!pl || !pl->user_data)
+	return 0;
+
+    struct ged_lod_state *st = (struct ged_lod_state *)pl->user_data;
+    int known = 0;
+    int prev = _lod_state_adaptive_get(st, v, &known);
+    _lod_state_adaptive_set(st, v, adaptive_on);
+    if (known && prev != (adaptive_on ? 1 : 0)) {
+	struct bsg_lod_view_cursor *c = bsg_lod_node_get_cursor((bsg_node *)lod, v);
+	if (c)
+	    c->level = -1;
+	st->force_stale = 1;
+	return 1;
+    }
+
     return 0;
 }
 
