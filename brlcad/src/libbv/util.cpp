@@ -1802,7 +1802,7 @@ bv_view_obj_visit(struct bview *v,
 	    struct bv_scene_obj *obj = (struct bv_scene_obj *)BU_PTBL_GET(&scope->children, j);
 	    if (!obj)
 		continue;
-	    /* API contract: callback returns 0 to stop iteration early. */
+	    /* API contract: callback returns 0/false to stop iteration early. */
 	    if (!cb(obj, data))
 		return;
 	}
