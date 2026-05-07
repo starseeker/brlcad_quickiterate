@@ -303,10 +303,8 @@ _view_cmd_independent(void *bs, int argc, const char **argv)
     }
 
     if (BU_STR_EQUAL(argv[1], "0")) {
-	if (!bv_view_is_independent(v)) {
-	    v->independent = 0;
+	if (!bv_view_is_independent(v))
 	    return BRLCAD_OK;
-	}
 	const char *z_av[4] = {"Z", "-V", NULL, "-g"};
 	z_av[2] = bu_vls_cstr(&v->gv_name);
 	ged_exec_Z(gedp, 4, z_av);
