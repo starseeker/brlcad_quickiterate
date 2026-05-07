@@ -84,11 +84,21 @@ bsg_scene_root_create(struct bview *v)
 	}
     }
 
-    /* Phase F (drawing_stack_modernization): bsg_root is now an alias for
-     * gv_draw_root — no separate synthetic node is allocated.  If gv_draw_root
-     * is already set (e.g. the view was reused after ged_open) wire it up now;
-     * otherwise bsg_root stays NULL and will be set by _sg_root() in
-     * bsg_ged_draw.c when the first draw command runs. */
+    /* Phase F (drawing_stack_modernization): bsg_root is normally an alias for
+     * gv_draw_root.  GED-backed views create gv_draw_root in _sg_root(); for
+     * standalone libbsg/libbv consumers and unit tests, allocate a minimal root
+     * here so the public scene-root API remains usable without libged. */
+    if (!v->gv_draw_root) {
+	struct bv_scene_obj *root = bv_obj_get_unregistered(v, BV_CHILD_OBJS);
+	if (!root)
+	    return NULL;
+	root->s_type_flags = BSG_NODE_GROUP;
+	root->s_flag = UP;
+	root->parent = NULL;
+	bu_vls_sprintf(&root->s_name, "_draw_root");
+	v->gv_draw_root = root;
+    }
+
     v->bsg_root = v->gv_draw_root;
     return (bsg_node *)v->bsg_root;
 }

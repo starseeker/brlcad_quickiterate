@@ -537,16 +537,26 @@ _view_cmd_objs(void *bs, int argc, const char **argv)
 
     std::set<std::string> unified_cmds = {"create", "remove", "list", "info", "set"};
 
-    // High level options are only defined prior to the subcommand
-    int cmd_pos = -1;
+    // High level options are only defined prior to the subcommand.  A legacy
+    // object command may contain words such as "create" after the object name
+    // and type ("view obj c1 polygon create ..."), so only treat the first
+    // non-option argument as a unified subcommand candidate.
+    int first_pos = -1;
     for (int i = 0; i < argc; i++) {
-    if (unified_cmds.find(std::string(argv[i])) != unified_cmds.end()) {
-	    cmd_pos = i;
-	    break;
+	if (argv[i][0] == '-') {
+	    if ((BU_STR_EQUAL(argv[i], "-g") || BU_STR_EQUAL(argv[i], "--gobj")) && i + 1 < argc)
+		i++;
+	    continue;
 	}
+	first_pos = i;
+	break;
     }
 
-    int acnt = (cmd_pos >= 0) ? cmd_pos : argc;
+    int cmd_pos = -1;
+    if (first_pos >= 0 && unified_cmds.find(std::string(argv[first_pos])) != unified_cmds.end())
+	cmd_pos = first_pos;
+
+    int acnt = (first_pos >= 0) ? first_pos : argc;
     (void)bu_opt_parse(NULL, acnt, argv, d);
 
     if (!list_db && !list_view)
@@ -562,6 +572,52 @@ _view_cmd_objs(void *bs, int argc, const char **argv)
 	_ged_subcmd_help(gedp, (struct bu_opt_desc *)d, (const struct bu_cmdtab *)_obj_cmds, "view obj", "[options] subcommand [args]", gd, hargc, hargv);
 	bu_vls_free(&gobj_path);
 	return BRLCAD_OK;
+    }
+
+    // Legacy grammar: view obj [options] <name> <field-or-type> [args...]
+    if (first_pos >= 0 && cmd_pos < 0) {
+	if (argc - first_pos < 2) {
+	    bu_vls_free(&gobj_path);
+	    bu_vls_printf(gd->gedp->ged_result_str,
+		    "Usage: view obj [options] <name> <field-or-type> [args...]");
+	    return BRLCAD_ERROR;
+	}
+
+	gd->vobj = argv[first_pos];
+	gd->s = _view_obj_find(v, gd->vobj, list_view, list_db, gd->local_obj);
+
+	const char *field = argv[first_pos + 1];
+	int largc = argc - first_pos - 1;
+	const char **largv = argv + first_pos + 1;
+	int ret = BRLCAD_ERROR;
+
+	if (BU_STR_EQUAL(field, "line")) {
+	    ret = _view_cmd_lines(bs, largc, largv);
+	} else if (BU_STR_EQUAL(field, "axes")) {
+	    ret = _view_cmd_axes(bs, largc, largv);
+	} else if (BU_STR_EQUAL(field, "label")) {
+	    ret = _view_cmd_labels(bs, largc, largv);
+	} else if (BU_STR_EQUAL(field, "polygon")) {
+	    ret = _view_cmd_polygons(bs, largc, largv);
+	} else if (BU_STR_EQUAL(field, "update")) {
+	    ret = _objs_cmd_update(bs, largc, largv);
+	} else if (BU_STR_EQUAL(field, "draw")) {
+	    ret = _objs_cmd_draw(bs, largc, largv);
+	} else if (BU_STR_EQUAL(field, "color")) {
+	    ret = _objs_cmd_color(bs, largc, largv);
+	} else if (BU_STR_EQUAL(field, "arrow")) {
+	    ret = _objs_cmd_arrow(bs, largc, largv);
+	} else if (BU_STR_EQUAL(field, "lcnt")) {
+	    ret = _objs_cmd_lcnt(bs, largc, largv);
+	} else if (BU_STR_EQUAL(field, "del") || BU_STR_EQUAL(field, "delete")) {
+	    ret = _objs_cmd_delete(bs, largc, largv);
+	} else {
+	    bu_vls_printf(gd->gedp->ged_result_str,
+		    "Unsupported view object field or type %s", field);
+	}
+
+	bu_vls_free(&gobj_path);
+	return ret;
     }
 
     // default list
