@@ -42,7 +42,7 @@
  * Pixel-perfect controls are not stable across the swrast/Qt/OpenGL pipeline,
  * so any perceptual hash result is accepted while still requiring an image to
  * be generated and readable. */
-#define QDIFF_THRES_ACCEPT_ANY 10000
+#define QDIFF_BACKEND_VARIANCE_THRES 10000
 
 // In order to handle changes to .g geometry contents, we need to defined
 // callbacks for the librt hooks that will update the working data structures.
@@ -219,7 +219,7 @@ img_cmp(int vnum, int id, struct ged *gedp, const char *cdir, bool clear, int so
 	/* Fall back to perceptual image hashing for backend-dependent pixel
 	 * variance after confirming exact pixels do not match. */
 	uint32_t pret = icv_pdiff(ctrl, timg);
-	if (pret < QDIFF_THRES_ACCEPT_ANY)
+	if (pret < QDIFF_BACKEND_VARIANCE_THRES)
 	    iret = 0;
     }
     if (iret) {

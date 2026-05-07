@@ -542,17 +542,17 @@ _view_cmd_objs(void *bs, int argc, const char **argv)
     // and type ("view obj c1 polygon create ..."), so only treat the first
     // non-option argument as a unified subcommand candidate.
     int first_pos = -1;
-    int i = 0;
-    while (i < argc) {
-	if (argv[i][0] == '-') {
-	    if ((BU_STR_EQUAL(argv[i], "-g") || BU_STR_EQUAL(argv[i], "--gobj")) && i + 1 < argc) {
-		i += 2;
+    int arg_idx = 0;
+    while (arg_idx < argc) {
+	if (argv[arg_idx][0] == '-') {
+	    if ((BU_STR_EQUAL(argv[arg_idx], "-g") || BU_STR_EQUAL(argv[arg_idx], "--gobj")) && arg_idx + 1 < argc) {
+		arg_idx += 2;
 		continue;
 	    }
-	    i++;
+	    arg_idx++;
 	    continue;
 	}
-	first_pos = i;
+	first_pos = arg_idx;
 	break;
     }
 
