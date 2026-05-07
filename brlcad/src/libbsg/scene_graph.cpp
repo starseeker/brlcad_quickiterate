@@ -49,6 +49,7 @@
 
 #include "bu/malloc.h"
 #include "bv/defines.h"
+#include "bv/util.h"
 #include "bv/view_sets.h"
 
 #include "bsg/defines.h"
