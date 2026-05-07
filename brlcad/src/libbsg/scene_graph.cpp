@@ -90,6 +90,8 @@ bsg_scene_root_create(struct bview *v)
      * standalone libbsg/libbv consumers and unit tests, allocate a minimal root
      * here so the public scene-root API remains usable without libged. */
     if (!v->gv_draw_root) {
+	/* This path is for non-GED callers.  GED command flows continue to use
+	 * libged's _sg_root() so gd_draw_root and bsg_draw_ctx are installed. */
 	struct bv_scene_obj *root = bv_obj_get_unregistered(v, BV_CHILD_OBJS);
 	if (!root) {
 	    bu_log("bsg_scene_root_create: failed to allocate standalone draw root\n");

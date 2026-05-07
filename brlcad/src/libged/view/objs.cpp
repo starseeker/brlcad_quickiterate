@@ -544,10 +544,6 @@ _view_cmd_objs(void *bs, int argc, const char **argv)
     int first_pos = -1;
     int i = 0;
     while (i < argc) {
-	if (!argv[i]) {
-	    i++;
-	    continue;
-	}
 	if (argv[i][0] == '-') {
 	    if ((BU_STR_EQUAL(argv[i], "-g") || BU_STR_EQUAL(argv[i], "--gobj")) && i + 1 < argc) {
 		i += 2;
