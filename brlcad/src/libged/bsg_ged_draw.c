@@ -102,17 +102,21 @@ struct ged_lod_state {
 };
 
 static int
-_lod_state_adaptive_index(struct ged_lod_state *st, struct bview *v)
+_lod_state_adaptive_index(struct ged_lod_state *st, struct bview *v, size_t *idx)
 {
-    if (!st || !v)
-	return -1;
+    if (idx)
+	*idx = 0;
+    if (!st || !v || !idx)
+	return 0;
 
     for (size_t i = 0; i < st->vcnt; i++) {
-	if (st->views[i] == v)
-	    return (int)i;
+	if (st->views[i] == v) {
+	    *idx = i;
+	    return 1;
+	}
     }
 
-    return -1;
+    return 0;
 }
 
 static int
@@ -123,8 +127,8 @@ _lod_state_adaptive_get(struct ged_lod_state *st, struct bview *v, int *known)
     if (!st || !v)
 	return 0;
 
-    int idx = _lod_state_adaptive_index(st, v);
-    if (idx < 0)
+    size_t idx = 0;
+    if (!_lod_state_adaptive_index(st, v, &idx))
 	return 0;
     if (known)
 	*known = 1;
@@ -138,8 +142,8 @@ _lod_state_adaptive_set(struct ged_lod_state *st, struct bview *v, int adaptive_
     if (!st || !v)
 	return;
 
-    int idx = _lod_state_adaptive_index(st, v);
-    if (idx >= 0) {
+    size_t idx = 0;
+    if (_lod_state_adaptive_index(st, v, &idx)) {
 	st->adaptive_on[idx] = adaptive_on ? 1 : 0;
 	return;
     }
@@ -303,7 +307,7 @@ ged_lod_adaptive_toggle_sync(struct bv_scene_obj *lod, struct bview *v, int adap
     int known = 0;
     int prev = _lod_state_adaptive_get(st, v, &known);
     _lod_state_adaptive_set(st, v, adaptive_on);
-    if (known && prev != (adaptive_on ? 1 : 0)) {
+    if (known && prev != adaptive_on) {
 	struct bsg_lod_view_cursor *c = bsg_lod_node_get_cursor((bsg_node *)lod, v);
 	if (c)
 	    c->level = -1;
