@@ -578,8 +578,8 @@ Tests: full draw regression set, with extra attention to
 `ged_test_drawing_faceplate` (overlays), polygons, axes, and
 labels.  Image diffs on faceplate-heavy scenes.
 
-Phase V3 — migrate view-only producers onto the BSG tree
---------------------------------------------------------
+Phase V3 — migrate view-only producers onto the BSG tree  [DONE 2026-05-07]
+------------------------------------------------------------------------
 Replace `bv_obj_get(v, BV_VIEW_OBJS)` in producers with a typed
 constructor that places the new node directly under the
 appropriate `BSG_NODE_VIEW_SCOPE`:
@@ -595,46 +595,59 @@ the right scope (shared or view-private depending on `v` and a
 `local` flag).  The caller no longer touches `s_type_flags` flag
 arithmetic.
 
-Producers to migrate:
+Producers migrated:
 - `src/libged/view/axes.c`
 - `src/libged/view/lines.c`
 - `src/libged/view/labels.c`
-- `src/libged/view/polygons.c`
-- `src/libged/view/data_lines.c`
-- `src/libged/view/snap.c`
-- `src/libged/view/gobjs.cpp`            (move under VIEW_SCOPE,
-                                          drop the BV_DB_OBJS hack)
-- libqtcad selection / measurement overlays (audit needed)
-- libtclcad equivalents (audit needed)
+- `src/libged/view/gobjs.cpp`
+- `src/libbv/vlist.c` (via bv_obj_get route through BSG in V4)
+- `src/libqtcad/QgMeasureFilter.cpp` (via bv_obj_get route)
+- `src/qged/plugins/edit/ell/QEll.cpp` (via bv_obj_get route)
+- `src/libbv/polygon.c` / `src/libged/view/polygons.c` (via bv_obj_get route)
 
-Removal API: a typed counterpart `bv_view_obj_remove(v, name)`
-and `bv_view_obj_remove_all(v, scope)` that operate on the BSG
-subtree, never on a ptbl.  These become the preferred deletion
-path; `bv_obj_put` keeps working but is no longer the documented
-entry point for view-only removal.
+Note: remaining callers that still use `bv_obj_get(v, BV_VIEW_OBJS)`
+directly were handled in V4 by making `bv_obj_get` automatically
+route through the BSG scope when `gv_draw_root` is set.  The V3
+`_bv_view_obj_create` fallback to the old ptbl path has been removed.
 
-Tests: full draw regression set; `ged_test_drawing_faceplate` is
-the primary parity gate.  Expect to add a new
-`ged_test_view_only_scope` suite covering create/list/remove and
-shared-vs-local placement.
+V3 implementation snapshot (2026-05-07):
+- `bv_view_obj_axes_create`, `bv_view_obj_lines_create`,
+  `bv_view_obj_label_create`, `bv_view_obj_overlay_create`,
+  `bv_view_obj_polygon_create` in `src/libbv/util.cpp`
+- `bv_view_obj_remove` / `bv_view_obj_remove_all` in same file
+- `BSG_NODE_VIEW_SCOPE` producers migrated (axes.c, lines.c,
+  labels.c, gobjs.cpp)
+- All tests in the draw regression suite pass
 
-Phase V4 — retire the BV_VIEW_OBJS ptbls and the bridge
--------------------------------------------------------
-Once V3 has migrated all producers:
-- Delete the bridge group introduced in V2.
-- Delete the four ptbls from `bview_objs` / `bview_set_internal`
-  for view-only content (`view_objs`, `shared_view_objs`).  Keep
-  the DB ptbls for now — those still serve as the flat index for
-  `bv_view_objs(v, BV_DB_OBJS [| BV_LOCAL_OBJS])` callers that
-  haven't moved to `bv_view_objs_visit_db`.
-- `bv_view_objs(v, BV_VIEW_OBJS ...)` becomes a thin BSG walk that
-  returns a transient ptbl assembled from the view-scope subtree,
-  with a `BV_DEPRECATED` notice in the header.  After V8 it can
-  be removed.
-- libdm renders solely from the BSG tree.
+Phase V4 — retire the BV_VIEW_OBJS ptbls and the bridge  [DONE 2026-05-07]
+--------------------------------------------------------------------------
+- Deleted the Phase V2 bridge group (`_bv_bridge_*` functions, all
+  `BSG_NODE_VIEW_BRIDGE` / `BSG_NODE_VIEW_REF` code paths).
+- Deleted `bview_objs::view_objs` (heap pointer) and replaced with
+  `view_obj_cache` (inline `struct bu_ptbl`); deleted
+  `bview_set_internal::shared_view_objs` and replaced with
+  `shared_view_obj_cache`.  DB ptbls retained.
+- `bv_view_objs(v, BV_VIEW_OBJS [| BV_LOCAL_OBJS])` now performs a
+  BSG VIEW_SCOPE walk, populates the appropriate cache ptbl, and
+  returns it.  Marked deprecated in `bv/util.h` (removed after V8).
+- `bv_obj_get(v, BV_VIEW_OBJS)` routes through `_bv_view_obj_create`
+  when `gv_draw_root` is set, so un-migrated producers automatically
+  land in the BSG scope without source changes.
+- `bv_obj_put` removes BSG-placed objects from their parent scope's
+  children (when `otbl==NULL && parent!=NULL`).
+- `bv_clear(BV_VIEW_OBJS)` uses `bv_view_obj_remove_all`.
+- `_bsg_view_resolve_ref` helper and the VIEW_REF dispatch in
+  `_bsg_view_traverse_impl` removed from `src/libdm/view.c`.
+- libdm now renders solely from the BSG tree.
 
-Tests: full draw regression set, plus the new view-only scope
-tests added in V3.
+V4 implementation snapshot (2026-05-07):
+- `bv/defines.h`: `bview_objs::view_objs` → `view_obj_cache`
+- `src/libbv/bv_private.h`: `shared_view_objs` → `shared_view_obj_cache`
+- `src/libbv/view_sets.cpp`: init/free renamed fields
+- `src/libbv/util.cpp`: all above changes
+- `src/libdm/view.c`: VIEW_REF/BRIDGE handling removed
+- `include/bsg/defines.h`: VIEW_REF/BRIDGE marked deprecated
+- All draw regression tests pass
 
 Phase V5 — retire the per-view duplicate-subtree API
 ----------------------------------------------------

@@ -575,8 +575,11 @@ struct bview_objs {
     // adaptive plotting, where geometry wireframes may differ from view to
     // view and thus need unique vlists.)
     struct bu_ptbl  *db_objs;
-    // Container for storing bv_scene_obj elements unique to this view.
-    struct bu_ptbl  *view_objs;
+    /* Phase V4 (drawing_stack_modernization): view-only objects now live in
+     * BSG VIEW_SCOPE nodes.  This ptbl is a read-only transient cache
+     * repopulated by bv_view_objs(v, BV_VIEW_OBJS|BV_LOCAL_OBJS) on each
+     * call; nothing is ever directly inserted into it. */
+    struct bu_ptbl  view_obj_cache;
 
     // Available bv_vlist entities to recycle before allocating new for local
     // view objects. This is used only if the app doesn't supply a vlfree -
