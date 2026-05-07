@@ -40,6 +40,14 @@
 
 __BEGIN_DECLS
 
+struct bn_tol;
+struct db_i;
+struct directory;
+struct region;
+struct rt_db_internal;
+struct rt_i;
+struct xray;
+
 /* apply a matrix transformation */
 /**
  * apply a matrix transformation to a given input object, setting the

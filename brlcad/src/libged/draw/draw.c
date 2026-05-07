@@ -37,8 +37,6 @@
 #include "../ged_private.h"
 #include "./ged_draw.h"
 
-extern int ged_E_core(struct ged *gedp, int argc, const char *argv[]);
-
 /* declare our callbacks used by _ged_drawtrees() */
 static int drawtrees_depth = 0;
 
