@@ -38,7 +38,7 @@
 
 #include "../../dbi.h"
 
-#define QDIFF_THRES 500
+#define QDIFF_THRES 10000
 
 // In order to handle changes to .g geometry contents, we need to defined
 // callbacks for the librt hooks that will update the working data structures.
