@@ -92,10 +92,14 @@ extern fastf_t brep_est_avg_curve_len(struct rt_brep_internal *bi);
 extern void createDListSolid(struct bv_scene_obj *sp);
 extern int csg_wireframe_update(struct bv_scene_obj *vo, struct bview *v, int flag);
 
+struct ged_lod_vstate {
+    struct bview *v;
+    int adaptive_on;
+};
+
 struct ged_lod_state {
     struct bv_scene_obj *s;
-    struct bview **views;
-    int *adaptive_on;
+    struct ged_lod_vstate *vstates;
     size_t vcnt;
     size_t vcap;
 };
@@ -108,7 +112,7 @@ _lod_state_adaptive_index(struct ged_lod_state *st, struct bview *v, size_t *idx
     *idx = 0;
 
     for (size_t i = 0; i < st->vcnt; i++) {
-	if (st->views[i] == v) {
+	if (st->vstates[i].v == v) {
 	    *idx = i;
 	    return 1;
 	}
@@ -131,7 +135,7 @@ _lod_state_adaptive_get(struct ged_lod_state *st, struct bview *v, int *known)
     if (known)
 	*known = 1;
 
-    return st->adaptive_on[idx];
+    return st->vstates[idx].adaptive_on;
 }
 
 static void
@@ -142,21 +146,19 @@ _lod_state_adaptive_set(struct ged_lod_state *st, struct bview *v, int adaptive_
 
     size_t idx = 0;
     if (_lod_state_adaptive_index(st, v, &idx)) {
-	st->adaptive_on[idx] = adaptive_on ? 1 : 0;
+	st->vstates[idx].adaptive_on = adaptive_on ? 1 : 0;
 	return;
     }
 
     if (st->vcnt >= st->vcap) {
 	size_t ncap = (st->vcap < 4) ? 4 : (st->vcap * 2);
-	struct bview **nviews = (struct bview **)bu_realloc(st->views, ncap * sizeof(struct bview *), "lod_state_views");
-	int *nadaptive = (int *)bu_realloc(st->adaptive_on, ncap * sizeof(int), "lod_state_adaptive");
-	st->views = nviews;
-	st->adaptive_on = nadaptive;
+	struct ged_lod_vstate *nstates = (struct ged_lod_vstate *)bu_realloc(st->vstates, ncap * sizeof(struct ged_lod_vstate), "lod_state_vstates");
+	st->vstates = nstates;
 	st->vcap = ncap;
     }
 
-    st->views[st->vcnt] = v;
-    st->adaptive_on[st->vcnt] = adaptive_on ? 1 : 0;
+    st->vstates[st->vcnt].v = v;
+    st->vstates[st->vcnt].adaptive_on = adaptive_on ? 1 : 0;
     st->vcnt++;
 }
 
@@ -201,17 +203,21 @@ _lod_is_stale(bsg_node *node, struct bview *v)
 }
 
 static void
-_mesh_lod_free(bsg_node *node)
+_lod_state_free(bsg_node *node, const char *label)
 {
     struct bsg_lod_payload *pl = (struct bsg_lod_payload *)((struct bv_scene_obj *)node)->s_i_data;
     if (!pl || !pl->user_data)
 	return;
     struct ged_lod_state *st = (struct ged_lod_state *)pl->user_data;
-    if (st->views)
-	bu_free(st->views, "_lod_state_views");
-    if (st->adaptive_on)
-	bu_free(st->adaptive_on, "_lod_state_adaptive");
-    bu_free(pl->user_data, "_mesh_lod_state");
+    if (st->vstates)
+	bu_free(st->vstates, "lod_state_vstates");
+    bu_free(pl->user_data, label);
+}
+
+static void
+_mesh_lod_free(bsg_node *node)
+{
+    _lod_state_free(node, "_mesh_lod_state");
 }
 
 static struct bsg_lod_ops _mesh_lod_ops = {
@@ -237,10 +243,7 @@ _csg_lod_select_level(bsg_node *node, struct bview *v)
 static void
 _csg_lod_free(bsg_node *node)
 {
-    struct bsg_lod_payload *pl = (struct bsg_lod_payload *)((struct bv_scene_obj *)node)->s_i_data;
-    if (!pl || !pl->user_data)
-	return;
-    bu_free(pl->user_data, "_csg_lod_state");
+    _lod_state_free(node, "_csg_lod_state");
 }
 
 static struct bsg_lod_ops _csg_lod_ops = {
@@ -258,8 +261,7 @@ ged_lod_install_mesh_ops(struct bv_scene_obj *lod, struct bv_scene_obj *s)
     struct ged_lod_state *st;
     BU_GET(st, struct ged_lod_state);
     st->s = s;
-    st->views = NULL;
-    st->adaptive_on = NULL;
+    st->vstates = NULL;
     st->vcnt = 0;
     st->vcap = 0;
     bsg_lod_node_set_ops((bsg_node *)lod, &_mesh_lod_ops, (void *)st);
@@ -274,8 +276,7 @@ ged_lod_install_csg_ops(struct bv_scene_obj *lod, struct bv_scene_obj *s)
     struct ged_lod_state *st;
     BU_GET(st, struct ged_lod_state);
     st->s = s;
-    st->views = NULL;
-    st->adaptive_on = NULL;
+    st->vstates = NULL;
     st->vcnt = 0;
     st->vcap = 0;
     bsg_lod_node_set_ops((bsg_node *)lod, &_csg_lod_ops, (void *)st);
@@ -296,7 +297,7 @@ ged_lod_adaptive_toggle_sync(struct bv_scene_obj *lod, struct bview *v, int adap
     int known = 0;
     int prev = _lod_state_adaptive_get(st, v, &known);
     _lod_state_adaptive_set(st, v, adaptive_on);
-    if (known && prev != adaptive_on) {
+    if (!known || prev != adaptive_on) {
 	struct bsg_lod_view_cursor *c = bsg_lod_node_get_cursor((bsg_node *)lod, v);
 	if (c)
 	    c->level = -1;
