@@ -494,7 +494,7 @@ Three "per-view" meanings and current producer placement:
   and the remaining adaptive-toggle cleanup path is in
   `dbi_state.cpp` (Phase V5).
 
-Phase V1 — add a view-scope concept to the BSG tree
+Phase V1 — add a view-scope concept to the BSG tree  [DONE 2026-05-07]
 ---------------------------------------------------
 Introduce structural support in libbsg so view-only objects can
 live in the same tree as DB content.  Design choice: a
@@ -517,6 +517,28 @@ Mechanical work:
 
 No producers move yet.  Tests: existing draw tests must remain
 green (the new node kind has no instances in the wild).
+
+Phase V1 implementation snapshot (2026-05-07)
+---------------------------------------------
+- `BSG_NODE_VIEW_SCOPE 0x800000000ULL` added to `include/bsg/defines.h`
+  (bit 35, immediately above the sensor range).  The payload bit-allocation
+  comment updated to document the new bit.
+- New `include/bsg/view_scope.h` declares:
+    bsg_node *bsg_view_scope_create(struct bview *v);
+    int       bsg_view_scope_visible(bsg_node *node, struct bview *v);
+    void      bsg_view_scope_destroy(bsg_node *scope);
+- New `src/libbsg/view_scope.c` implements the three functions.
+  `bsg_view_scope_create` allocates via `bv_obj_create` and sets
+  `s_type_flags = BSG_NODE_VIEW_SCOPE` and `s_v = v`.
+  `bsg_view_scope_visible` returns 1 when `s_v==NULL` (shared) or
+  `s_v==v` (owner), 0 otherwise.
+- `src/libdm/view.c` (`_bsg_view_traverse_impl`): new block after the
+  sensor-skip check — if a child has `BSG_NODE_VIEW_SCOPE` set, the
+  subtree is skipped when `s_v != NULL && s_v != v`; when the scope is
+  visible the function recurses into the scope's children and continues.
+- `src/libbsg/tests/test_view_scope.c` with 7 tests (create, visible_match,
+  visible_nomatch, visible_shared, null_guards, destroy, wrong_type).
+  Registered as `libbsg_view_scope` in the libbsg test CMakeLists.
 
 Phase V2 — make BSG the rendering source of truth in dm_draw_objs
 -----------------------------------------------------------------

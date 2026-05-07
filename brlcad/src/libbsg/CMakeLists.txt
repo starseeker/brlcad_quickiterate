@@ -12,6 +12,7 @@ set(
   payload.c
   scene_graph.cpp
   sensor.c
+  view_scope.c
   visit.c
   vlist.c
 )
@@ -43,6 +44,7 @@ cmakefiles(
   overlay.c
   payload.c
   sensor.c
+  view_scope.c
   visit.c
 )
 

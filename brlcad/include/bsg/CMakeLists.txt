@@ -15,6 +15,7 @@ set(
   scene_set.h
   sensor.h
   util.h
+  view_scope.h
   visit.h
   vlist.h
 )
