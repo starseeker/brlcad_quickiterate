@@ -153,6 +153,8 @@ _lod_state_adaptive_set(struct ged_lod_state *st, struct bview *v, int adaptive_
     if (st->vcnt >= st->vcap) {
 	size_t ncap = (st->vcap < 4) ? 4 : (st->vcap * 2);
 	struct ged_lod_vstate *nstates = (struct ged_lod_vstate *)bu_realloc(st->vstates, ncap * sizeof(struct ged_lod_vstate), "lod_state_vstates");
+	if (!nstates)
+	    return;
 	st->vstates = nstates;
 	st->vcap = ncap;
     }
@@ -203,7 +205,7 @@ _lod_is_stale(bsg_node *node, struct bview *v)
 }
 
 static void
-_lod_state_free(bsg_node *node, const char *label)
+_lod_state_free(bsg_node *node, const char *alloc_label)
 {
     struct bsg_lod_payload *pl = (struct bsg_lod_payload *)((struct bv_scene_obj *)node)->s_i_data;
     if (!pl || !pl->user_data)
@@ -211,7 +213,7 @@ _lod_state_free(bsg_node *node, const char *label)
     struct ged_lod_state *st = (struct ged_lod_state *)pl->user_data;
     if (st->vstates)
 	bu_free(st->vstates, "lod_state_vstates");
-    bu_free(pl->user_data, label);
+    bu_free(pl->user_data, alloc_label);
 }
 
 static void
