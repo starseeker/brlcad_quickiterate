@@ -344,13 +344,23 @@ BV_EXPORT struct bv_scene_obj *
 bv_obj_get_unregistered(struct bview *v, int type);
 
 /* Create and attach view-only objects directly under BSG view-scope nodes.
- * These constructors are the preferred API for view-only producers. */
+ * This is the preferred API family for view-only producers. */
+struct bv_view_obj_opts {
+    int local;
+    int arrow;
+};
+#define BV_VIEW_OBJ_OPTS_INIT {0, 0}
+
+BV_EXPORT struct bv_scene_obj *
+bv_view_obj_create(struct bview *v, const char *name, unsigned long long type_flags, const struct bv_view_obj_opts *opts);
 BV_EXPORT struct bv_scene_obj *
 bv_view_obj_axes_create(struct bview *v, const char *name, int local);
 BV_EXPORT struct bv_scene_obj *
 bv_view_obj_lines_create(struct bview *v, const char *name, int local);
 BV_EXPORT struct bv_scene_obj *
 bv_view_obj_label_create(struct bview *v, const char *name, int local);
+BV_EXPORT struct bv_scene_obj *
+bv_view_obj_arrow_create(struct bview *v, const char *name, int local);
 BV_EXPORT struct bv_scene_obj *
 bv_view_obj_overlay_create(struct bview *v, const char *name, int local);
 
@@ -367,6 +377,13 @@ BV_EXPORT int
 bv_view_obj_remove(struct bview *v, const char *name);
 BV_EXPORT size_t
 bv_view_obj_remove_all(struct bview *v, int scope);
+BV_EXPORT struct bv_scene_obj *
+bv_view_obj_find(struct bview *v, const char *name);
+BV_EXPORT void
+bv_view_obj_visit(struct bview *v,
+		  int scope_mask,
+		  int (*cb)(struct bv_scene_obj *obj, void *data),
+		  void *data);
 
 /* Given an object, create an object that is a child of that object.  Issues
  * such as memory management as a function of view settings are handled
@@ -404,13 +421,6 @@ bv_find_obj(struct bview *v, const char *vname);
 BV_EXPORT void
 bv_uniq_obj_name(struct bu_vls *oname, const char *seed, struct bview *v);
 
-/* For the specified object/view pairing, return the appropriate scene object
- * to use with that view.  Usually this will return s, but if a Level of Detail
- * scheme or some other view-aware rendering of the object is active, that object
- * will be returned instead. */
-DEPRECATED BV_EXPORT struct bv_scene_obj *
-bv_obj_for_view(struct bv_scene_obj *s, struct bview *v);
-
 /* Set the illumination state on the object and its children to ill_state.
  * Returns 0 if no states were changed, and 1 if one or more states were
  * updated. */
@@ -419,8 +429,7 @@ bv_illum_obj(struct bv_scene_obj *s, char ill_state);
 
 /* For the given view, return a pointer to the bu_ptbl holding active scene
  * objects with the specified type.  Note that view-specific db objects are not
- * part of these sets - they should be retrieved from the scene objects in this
- * set with bv_obj_for_view.
+ * part of these sets.
  *
  * DEPRECATED for BV_VIEW_OBJS queries (Phase V4, drawing_stack_modernization):
  * When called with BV_VIEW_OBJS (with or without BV_LOCAL_OBJS), this function

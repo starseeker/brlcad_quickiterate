@@ -540,7 +540,7 @@ _view_cmd_objs(void *bs, int argc, const char **argv)
     // High level options are only defined prior to the subcommand
     int cmd_pos = -1;
     for (int i = 0; i < argc; i++) {
-	if (unified_cmds.find(std::string(argv[i])) != unified_cmds.end() || bu_cmd_valid(_obj_cmds, argv[i]) == BRLCAD_OK) {
+    if (unified_cmds.find(std::string(argv[i])) != unified_cmds.end()) {
 	    cmd_pos = i;
 	    break;
 	}
@@ -746,23 +746,9 @@ _view_cmd_objs(void *bs, int argc, const char **argv)
 	}
     }
 
-    // Legacy grammar: view obj <name> <legacy-subcommand>...
-    if (cmd_pos < 1) {
-	bu_vls_free(&gobj_path);
-	bu_vls_printf(gd->gedp->ged_result_str, "need view object name");
-	return BRLCAD_ERROR;
-    }
-    gd->vobj = argv[cmd_pos - 1];
-    gd->s = _view_obj_find(v, gd->vobj, list_view, list_db, gd->local_obj);
-    if (!gd->s && list_view)
-	gd->s = _view_obj_find(v, gd->vobj, 1, 0, gd->local_obj);
-    if (!gd->s)
-	gd->s = _view_obj_find(v, gd->vobj, 0, 1, gd->local_obj);
-
-    int ret = _ged_subcmd_exec(gedp, (struct bu_opt_desc *)d, (const struct bu_cmdtab *)_obj_cmds,
-	    "view obj", "[options] subcommand [args]", gd, argc - cmd_pos, argv + cmd_pos, 0, 0);
     bu_vls_free(&gobj_path);
-    return ret;
+    bu_vls_printf(gd->gedp->ged_result_str, "Unsupported subcommand %s", subcmd_argv[0]);
+    return BRLCAD_ERROR;
 }
 
 

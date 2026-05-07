@@ -731,7 +731,6 @@ const struct bu_cmdtab _view_cmds[] = {
     { "center",     _view_cmd_center},
     { "eye",        _view_cmd_eye},
     { "faceplate",  _view_cmd_faceplate},
-    { "gobjs",      _view_cmd_gobjs},
     { "height",     _view_cmd_height},
     { "independent",_view_cmd_independent},
     { "knob",       _view_cmd_knob},

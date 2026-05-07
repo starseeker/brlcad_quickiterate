@@ -792,6 +792,19 @@ Tests: full draw regression set + the new view-command and
 view-scope test suites.  Documentation update for libged plugins
 and libbv consumers.
 
+V8 implementation snapshot (2026-05-07):
+- `include/bv/util.h` + `src/libbv/util.cpp`: added public generic
+  `bv_view_obj_create(v,name,type_flags,opts)` API, typed arrow wrapper,
+  and public `bv_view_obj_find`/`bv_view_obj_visit` helpers for BSG
+  view-scope keyed lookup/iteration.
+- `src/libdm/view.c`: removed `bv_obj_for_view` compatibility usage.
+- `src/libged/view/view.c`: removed `view gobjs` top-level command alias.
+- `src/libged/view/objs.cpp`: removed legacy
+  `view obj <name> <subtype> ...` grammar fallback; unified
+  `create/remove/list/info/set` surface is now the supported path.
+- `src/libged/tests/draw/view_command.cpp`: updated coverage for removed
+  legacy aliases and retained unified `view obj -g <dbpath>` flow.
+
 
 Why this sequencing
 -------------------
