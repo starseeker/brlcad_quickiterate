@@ -98,7 +98,6 @@ struct ged_lod_state {
     int *adaptive_on;
     size_t vcnt;
     size_t vcap;
-    int force_stale;
 };
 
 static int
@@ -189,13 +188,6 @@ _lod_activate_level(bsg_node *node, struct bview *v, int level)
 static int
 _lod_is_stale(bsg_node *node, struct bview *v)
 {
-    struct bsg_lod_payload *pl = (struct bsg_lod_payload *)((struct bv_scene_obj *)node)->s_i_data;
-    struct ged_lod_state *st = (pl && pl->user_data) ? (struct ged_lod_state *)pl->user_data : NULL;
-    if (st && st->force_stale) {
-	st->force_stale = 0;
-	return 1;
-    }
-
     struct bsg_lod_view_cursor *c = bsg_lod_node_get_cursor(node, v);
     if (!c || !v)
 	return 0;
@@ -270,7 +262,6 @@ ged_lod_install_mesh_ops(struct bv_scene_obj *lod, struct bv_scene_obj *s)
     st->adaptive_on = NULL;
     st->vcnt = 0;
     st->vcap = 0;
-    st->force_stale = 0;
     bsg_lod_node_set_ops((bsg_node *)lod, &_mesh_lod_ops, (void *)st);
     return 0;
 }
@@ -287,7 +278,6 @@ ged_lod_install_csg_ops(struct bv_scene_obj *lod, struct bv_scene_obj *s)
     st->adaptive_on = NULL;
     st->vcnt = 0;
     st->vcap = 0;
-    st->force_stale = 0;
     bsg_lod_node_set_ops((bsg_node *)lod, &_csg_lod_ops, (void *)st);
     return 0;
 }
@@ -310,7 +300,6 @@ ged_lod_adaptive_toggle_sync(struct bv_scene_obj *lod, struct bview *v, int adap
 	struct bsg_lod_view_cursor *c = bsg_lod_node_get_cursor((bsg_node *)lod, v);
 	if (c)
 	    c->level = -1;
-	st->force_stale = 1;
 	return 1;
     }
 

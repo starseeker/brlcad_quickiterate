@@ -3020,7 +3020,7 @@ BViewState::scene_obj(
 	    } else {
 		/* Adaptive LoD leaves are wrapped by a direct BSG_NODE_LOD parent
 		 * in BViewState::redraw (Phase L3 insertion). */
-		struct bv_scene_obj *pp = (struct bv_scene_obj *)sp->parent;
+		struct bv_scene_obj *pp = static_cast<struct bv_scene_obj *>(sp->parent);
 		if (pp && (pp->s_type_flags & BSG_NODE_LOD))
 		    lod = pp;
 	    }
