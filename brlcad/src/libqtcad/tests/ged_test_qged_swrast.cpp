@@ -24,8 +24,8 @@
  * This test exercises the Qt widget-level path (QgSW + libqtcad) that the
  * dm-swrast libged draw tests bypass.  Specifically it validates:
  *
- *   • bsg_scene_root_create() is called correctly from the QgSW constructor
- *     (Phase 4), so v->bsg_root is non-NULL after widget construction.
+ *   • once the widget view is bound to an active GED draw tree, v->bsg_root
+ *     aliases that draw root and is non-NULL.
  *   • QgSW::paintEvent() runs without crashing on the offscreen platform.
  *   • dm_draw_objs() called through the Qt paint path produces a non-blank
  *     framebuffer when geometry is present in the view.
@@ -43,7 +43,7 @@
  *      (render() calls QWidget::paintEvent internally.)
  *   8. Read framebuffer content via dm_get_display_image after DM init.
  *   9. Verify:
- *      a. sw.v->bsg_root != NULL  (Phase 4 BSG init)
+ *      a. sw.v->bsg_root != NULL  (after GED bind + draw)
  *      b. sw.dmp != NULL          (DM opened during paintEvent)
  *      c. At least one pixel differs from the background color (geometry rendered)
  *
@@ -162,10 +162,7 @@ main(int ac, char *av[])
     QgSW sw;
     sw.resize(512, 512);
 
-    /* Phase 4 assertion: bsg_root must be non-NULL immediately after ctor */
     SWCHECK(sw.v != NULL, "QgSW::v (local_v) must be non-NULL after construction");
-    SWCHECK(sw.v && sw.v->bsg_root != NULL,
-            "bsg_scene_root_create must have been called — v->bsg_root must be non-NULL");
 
     /* ---- Open moss.g and hook up the model ---- */
     struct ged *gedp = ged_open("db", "moss_qgswrast_tmp.g", 1);
@@ -200,6 +197,8 @@ main(int ac, char *av[])
 
     /* Let DbiState update with the new draw content */
     dbis->update();
+    SWCHECK(sw.v && sw.v->bsg_root != NULL,
+	    "after binding QgSW view to GED and drawing, v->bsg_root must be non-NULL");
 
     /* ---- Force paintEvent via QWidget::render() ---- */
     /* With the Qt offscreen platform, render() will trigger paintEvent,
