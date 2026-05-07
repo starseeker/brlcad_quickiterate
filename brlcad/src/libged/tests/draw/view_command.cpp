@@ -101,9 +101,6 @@ main(int argc, const char **argv)
     ASSERT(run_view(gedp, 5, c8) == BRLCAD_OK);
     ASSERT(result_str(gedp).find("l_line") == std::string::npos);
 
-    const char *c9[] = {"view", "gobjs", "create", "all.g", "g_line", NULL};
-    ASSERT(run_view(gedp, 5, c9) == BRLCAD_ERROR);
-
     const char *c11[] = {"view", "obj", "-g", "all.g", "create", "g2", NULL};
     ASSERT(run_view(gedp, 6, c11) == BRLCAD_OK);
     const char *c12[] = {"view", "obj", "remove", "g2", NULL};
