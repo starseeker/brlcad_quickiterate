@@ -85,6 +85,8 @@ draw_view(struct ged *gedp, const char *view_name, const char *path)
 int
 main(int argc, const char **argv)
 {
+    bu_setprogname(argv[0]);
+
     if (argc != 2)
 	bu_exit(EXIT_FAILURE, "Usage: ged_test_view_independent <directory-containing-moss.g>\n");
 
