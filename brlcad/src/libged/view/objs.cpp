@@ -544,6 +544,10 @@ _view_cmd_objs(void *bs, int argc, const char **argv)
     int first_pos = -1;
     int i = 0;
     while (i < argc) {
+	if (!argv[i]) {
+	    i++;
+	    continue;
+	}
 	if (argv[i][0] == '-') {
 	    if ((BU_STR_EQUAL(argv[i], "-g") || BU_STR_EQUAL(argv[i], "--gobj")) && i + 1 < argc) {
 		i += 2;
@@ -590,34 +594,34 @@ _view_cmd_objs(void *bs, int argc, const char **argv)
 	gd->vobj = argv[first_pos];
 	gd->s = _view_obj_find(v, gd->vobj, list_view, list_db, gd->local_obj);
 
-	const char *field = argv[first_pos + 1];
+	const char *field_or_type = argv[first_pos + 1];
 	int largc = argc - first_pos - 1;
 	const char **largv = argv + first_pos + 1;
 	int ret = BRLCAD_ERROR;
 
-	if (BU_STR_EQUAL(field, "line")) {
+	if (BU_STR_EQUAL(field_or_type, "line")) {
 	    ret = _view_cmd_lines(bs, largc, largv);
-	} else if (BU_STR_EQUAL(field, "axes")) {
+	} else if (BU_STR_EQUAL(field_or_type, "axes")) {
 	    ret = _view_cmd_axes(bs, largc, largv);
-	} else if (BU_STR_EQUAL(field, "label")) {
+	} else if (BU_STR_EQUAL(field_or_type, "label")) {
 	    ret = _view_cmd_labels(bs, largc, largv);
-	} else if (BU_STR_EQUAL(field, "polygon")) {
+	} else if (BU_STR_EQUAL(field_or_type, "polygon")) {
 	    ret = _view_cmd_polygons(bs, largc, largv);
-	} else if (BU_STR_EQUAL(field, "update")) {
+	} else if (BU_STR_EQUAL(field_or_type, "update")) {
 	    ret = _objs_cmd_update(bs, largc, largv);
-	} else if (BU_STR_EQUAL(field, "draw")) {
+	} else if (BU_STR_EQUAL(field_or_type, "draw")) {
 	    ret = _objs_cmd_draw(bs, largc, largv);
-	} else if (BU_STR_EQUAL(field, "color")) {
+	} else if (BU_STR_EQUAL(field_or_type, "color")) {
 	    ret = _objs_cmd_color(bs, largc, largv);
-	} else if (BU_STR_EQUAL(field, "arrow")) {
+	} else if (BU_STR_EQUAL(field_or_type, "arrow")) {
 	    ret = _objs_cmd_arrow(bs, largc, largv);
-	} else if (BU_STR_EQUAL(field, "lcnt")) {
+	} else if (BU_STR_EQUAL(field_or_type, "lcnt")) {
 	    ret = _objs_cmd_lcnt(bs, largc, largv);
-	} else if (BU_STR_EQUAL(field, "del") || BU_STR_EQUAL(field, "delete")) {
+	} else if (BU_STR_EQUAL(field_or_type, "del") || BU_STR_EQUAL(field_or_type, "delete")) {
 	    ret = _objs_cmd_delete(bs, largc, largv);
 	} else {
 	    bu_vls_printf(gd->gedp->ged_result_str,
-		    "Unsupported view object field or type %s", field);
+		    "Unsupported view object field or type %s", field_or_type);
 	}
 
 	bu_vls_free(&gobj_path);

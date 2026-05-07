@@ -91,8 +91,10 @@ bsg_scene_root_create(struct bview *v)
      * here so the public scene-root API remains usable without libged. */
     if (!v->gv_draw_root) {
 	struct bv_scene_obj *root = bv_obj_get_unregistered(v, BV_CHILD_OBJS);
-	if (!root)
+	if (!root) {
+	    bu_log("bsg_scene_root_create: failed to allocate standalone draw root\n");
 	    return NULL;
+	}
 	root->s_type_flags = BSG_NODE_GROUP;
 	root->s_flag = UP;
 	root->parent = NULL;

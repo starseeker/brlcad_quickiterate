@@ -216,6 +216,8 @@ img_cmp(int vnum, int id, struct ged *gedp, const char *cdir, bool clear, int so
     int off_by_many_cnt = 0;
     int iret = icv_diff(&matching_cnt, &off_by_1_cnt, &off_by_many_cnt, ctrl,timg);
     if (iret) {
+	/* Fall back to perceptual image hashing for backend-dependent pixel
+	 * variance after confirming exact pixels do not match. */
 	uint32_t pret = icv_pdiff(ctrl, timg);
 	if (pret < QDIFF_THRES)
 	    iret = 0;
