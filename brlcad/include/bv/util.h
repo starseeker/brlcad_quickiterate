@@ -349,6 +349,7 @@ struct bv_view_obj_opts {
     int local;
     int arrow;
 };
+/* C99/C++ aggregate initializer for bv_view_obj_opts. */
 #define BV_VIEW_OBJ_OPTS_INIT {0, 0}
 
 BV_EXPORT struct bv_scene_obj *
@@ -380,6 +381,7 @@ bv_view_obj_remove_all(struct bview *v, int scope);
 BV_EXPORT struct bv_scene_obj *
 bv_view_obj_find(struct bview *v, const char *name);
 /* Visit view-only objects visible in @p v for the requested scope mask.
+ * Callback signature is cb(struct bv_scene_obj *obj, void *data).
  * Callback contract: return non-zero to continue iteration, return 0 to stop. */
 BV_EXPORT void
 bv_view_obj_visit(struct bview *v,

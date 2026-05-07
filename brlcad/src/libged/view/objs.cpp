@@ -747,7 +747,9 @@ _view_cmd_objs(void *bs, int argc, const char **argv)
     }
 
     bu_vls_free(&gobj_path);
-    bu_vls_printf(gd->gedp->ged_result_str, "Unsupported subcommand %s", argv[cmd_pos]);
+    bu_vls_printf(gd->gedp->ged_result_str,
+	    "Unsupported subcommand %s (valid: create, remove, list, info, set)",
+	    argv[cmd_pos]);
     return BRLCAD_ERROR;
 }
 
