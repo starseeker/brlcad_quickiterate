@@ -41,23 +41,44 @@ Most relevant regression targets:
 
 Executive summary
 -----------------
-The structural merge is mostly done.
+The structural merge is done for database-derived geometry and the
+LoD redesign is complete.  One real architectural gap remains, and it
+is the focus of the new plan in this note.
 
-There is now one canonical drawn-set model for GED consumers:
-- the drawn database scene lives in a BSG tree rooted at
-  `ged_drawable::gd_draw_root`;
-- views point at that tree through `bview::gv_draw_root`;
-- `bsg_root` is now just an alias for `gv_draw_root`;
-- qged's `DbiState` / `BViewState` no longer maintain a separate draw
-  store and instead write through the same BSG tree used by MGED/Archer;
-- libdm renders through the BSG traversal path rather than a legacy
-  display-list-owned model.
+What is done:
+- DB geometry has a single canonical scene model: the BSG tree rooted
+  at `ged_drawable::gd_draw_root`, with `bview::gv_draw_root` and
+  `bview::bsg_root` both pointing at it.
+- qged's `DbiState` / `BViewState` writes through that tree; there is
+  no separate qged draw store.
+- libdm renders DB content via a single BSG traversal in
+  `dm_draw_objs` → `_bsg_view_traverse_impl`, with a single LoD update
+  pass (`bsg_lod_update`) at the top.
+- LoD is a first-class `BSG_NODE_LOD` node kind with per-view cursors
+  (Phase L plan, complete).  No `s_update_callback` side passes, no
+  per-view duplicate adaptive scene_objs.
 
-That means the qged/ged drawing test stack and the newer BSG stack are
-no longer separate architectures.  qged still has an extra front-end
-state layer (`dbi_state`) for path bookkeeping, invalidation, and
-selection, but it now targets the same underlying scene tree and render
-contract as mged/Archer.
+What is NOT yet done — the open architectural gap:
+- View-only objects (axes, lines, labels, polygons, gobjs editing
+  wireframes, faceplate-adjacent overlays) still live OUTSIDE the BSG
+  tree, in four flat `bu_ptbl` tables behind `bv_view_objs(v, ...)`.
+  `dm_draw_objs` runs a *second* iteration over those ptbls after the
+  BSG traversal.  Two render contracts coexist on the same view.
+- `view independent` is a bview boolean that switches `bv_obj_get` to
+  `BV_LOCAL_OBJS`, but there is no first-class "view-private subtree"
+  concept in the BSG world.  The independence story works by accident,
+  not by design.
+- The libged `view` / `view obj` / `view gobjs` command surface is
+  sprawling, inconsistent, and partly duplicated.  It is the user-
+  facing API for adding and removing view-only objects, and it does
+  not reflect any of the BSG cleanup that has happened underneath it.
+- Legacy per-view duplicate-subtree APIs (`bv_obj_for_view`,
+  `bv_obj_get_vo`, `bv_obj_have_vo`, `bv_clear_view_obj`) remain
+  exported and partly used in `dbi_state.cpp` adaptive-toggle paths,
+  but no new code should be calling them after Phase L4.
+
+The "View-only object unification" plan (Phases V0–V8) below targets
+that gap and is now the next work package after the LoD redesign.
 
 What is done
 ------------
@@ -115,490 +136,669 @@ These constraints should guide future changes:
 - Preserve multi-mode semantics: a path may still have multiple draw-mode
   leaves at once.
 
-Assessment of the qged/ged + BSG merge
---------------------------------------
-The merge is functionally advanced and architecturally sound.
+LoD redesign — completed (Phases L0–L7)
+---------------------------------------
+The Open-Inventor-style LoD redesign described in earlier revisions of
+this note has landed in full.  Summary of the resulting contract:
 
-What is working:
-- qged's path/state layer is no longer fighting the BSG tree.
-- MGED/Archer and qged now converge on one renderable scene structure.
-- DB-object iteration helpers have been updated for the BSG-backed world.
-- Core drawing regressions (basic, faceplate, BSG stability/parity,
-  view-object tests) have dedicated coverage.
+- LoD is a first-class node kind: `BSG_NODE_LOD` (taxonomy bit reserved
+  in `include/bsg/defines.h`).  An adaptive path is realised as
+  `BSG_NODE_GROUP -> BSG_NODE_LOD -> { BSG_NODE_SHAPE level_0, ... }`.
+- Selection is an ops vtable on the LoD node (`bsg_lod_ops`) with
+  `select_level(node, view)`, `activate_level(node, level)`, and
+  `is_stale(node, view)`.  Two ops sets ship in tree: pop-buffer mesh
+  LoD and CSG `ft_adaptive_plot` wrapping (`ged_lod_install_mesh_ops`,
+  `ged_lod_install_csg_ops` in `src/libged/bsg_ged_draw.c`).
+- Per-view state on an LoD node is a small `view * -> cursor` map
+  (level + view metrics), not a duplicate subtree.
+- There is exactly one LoD update site: `bsg_lod_update(root, v)` at
+  the top of `dm_draw_objs` in `src/libdm/view.c`.  No
+  `BViewState::redraw` side pass, no `s_update_callback` for LoD.
+- `BV_MESH_LOD` / `BV_CSG_LOD` leaf flags are deprecated.
+  `s_update_callback` is no longer fired by libdm for adaptive update.
+- `bv_scene_obj_bound` resolves LoD-managed bounds via the LoD node's
+  selected child rather than a leaf-side `BV_MESH_LOD` branch.
 
-What is still not fully finished:
-- adaptive/view-specific drawing behavior is not yet fully expressed as a
-  clean BSG-native contract; the next section ("LoD: design rethink")
-  is the design and plan for closing this gap;
-- some redraw/update responsibilities still live in `BViewState::redraw`
-  as explicit side passes rather than in a shared scene-graph traversal
-  — this is a direct consequence of the above;
-- remaining image-level gaps are concentrated in LoD, hidden-line, and
-  shaded-mode interactions rather than in basic draw/erase ownership.
+The phases (L0 wiring, L1 update impl, L2 dm site, L3 producers,
+L4 drop per-view duplicate scene_objs, L5 drop the BViewState side
+pass, L6 retire `s_update_callback` + leaf flags, L7 image parity)
+are all DONE and validated; see git history and the L-test surface
+listed below.
 
-In short: the stacks are merged for core scene ownership and rendering,
-but not yet fully merged for all adaptive per-view behaviors.
+Cleanup also already complete:
+- dbpath-keyed draw mutation APIs are the public libged surface;
+- the path-string mutation/lookup compatibility layer is gone;
+- per-shape backend state hangs off `bv_scene_obj::s_backend`;
+- direct `s_dlist*` storage on `bv_scene_obj` is gone;
+- aggregate subtree bbox caching is in place;
+- `gd_illum_solid` retired; illumination identity reads via
+  `bsg_sensor_target((bsg_node *)gdp->gd_illum_sensor)`;
+- `new_cmd_forms` is no longer a runtime mode toggle (only used at
+  open() to gate `dbi_state` allocation).
 
-LoD: design rethink
-===================
-LoD is the largest remaining architectural gap, and the place where the
-"push everything into the scene object" model from the original qged
-work hurts the most.  This section is a deliberate redesign, not a
-patch-list against the current code.
+What is no longer relevant in this note:
+- the "long-term unification plan A–E" milestones — done;
+- the "Phase 11 backend contract / Phase 12 backend decision /
+  Phase 13 cleanup" framing — Phases 11+13 are done; backend default
+  decision stays open as Priority 4 below.
 
-What exists today
------------------
-- mesh LoD (pop-buffer) in libbv: levels precomputed and cached, level
-  selection driven by view scale and screen-space bbox metrics, with
-  per-level memshrink to keep RAM cost bounded;
-- adaptive CSG wireframe plotting in libged: `ft_adaptive_plot` in each
-  primitive's idb_meth, view-frustum-clipped via OBB, regenerates vlists
-  when curve_scale, point_scale, or view_scale change beyond a threshold;
-- `view lod` user command for visibility settings and tunables;
-- LoD data caching with cross-run validation (`ged_test_lod_crossrun`);
-- per-view "view objects" parallel to the parent scene object, kept in
-  `bv_scene_obj::i->vobjs` and selected at draw time by
-  `bv_obj_for_view()`;
-- libdm honoring `s_update_callback` during the draw walk
-  (libdm/view.c calls it on every drawable just before backend draw);
-- `BViewState::redraw()` running its own LoD update pass over `s_map`
-  so zoom/redraw_on_zoom-driven view changes propagate even when the
-  in-draw callback path is bypassed (qged-only side loop);
-- the public BSG LoD API (`bsg_lod_update`, `bsg_lod_stale`) is still a
-  Phase-4 stub — it walks the root's immediate children only, calls
-  `bv_mesh_lod_view` for `BV_MESH_LOD` flagged leaves, and conservatively
-  reports "not stale".
 
-Why the current shape is hard to reason about
----------------------------------------------
-The original qged drawing work pushed responsibility for "how should
-this object be drawn in this view" down into the scene object itself.
-Two kinds of state then ended up living on `bv_scene_obj`:
+Remaining design gaps
+=====================
+With the LoD redesign and the BSG merge for DB content done, the
+honest assessment of correctness, robustness, cleanliness, and
+design integrity comes down to four interrelated gaps.  All four
+revolve around per-view objects and the user-facing API for adding
+and removing them.
 
-  1. identity / classification:
-       - DB object vs. view-only object (BV_DB_OBJS vs. BV_VIEW_OBJS),
-       - "is this leaf an LoD leaf?" (BV_MESH_LOD / BV_CSG_LOD flag bits
-         on `s_type_flags`),
-       - per-view duplicates in `i->vobjs` so each view can have its
-         own active level / vlist.
+Gap 1 — view-only objects are still outside the BSG tree
+--------------------------------------------------------
+The Phase E/F unification stopped at DB content.  View-only objects
+(axes, lines, labels, polygons, gobjs editing wireframes, snap
+indicators, miscellaneous overlays) still live in the four flat
+ptbls behind `bv_view_objs(v, type)`:
 
-  2. update mechanism:
-       - `s_update_callback` fired by the renderer during draw,
-       - explicit re-walks from `BViewState::redraw()` to compensate
-         when no draw happened but state still needed to advance.
+- `v->vset->i->shared_view_objs`            (BV_VIEW_OBJS, shared)
+- `v->vset->i->shared_db_objs`              (BV_DB_OBJS,   shared)
+- `v->gv_objs.view_objs`                    (BV_VIEW_OBJS, local)
+- `v->gv_objs.db_objs`                      (BV_DB_OBJS,   local)
 
-The clunky parts are the predictable consequence of that:
-  - "what does this leaf actually represent" is answered by combining
-    a flag bit, a callback pointer, an i->vobjs entry, and possibly an
-    s_path — different combinations for mesh LoD, CSG LoD, view-only
-    overlays, edit highlights, and faceplate widgets;
-  - the *renderer* ends up with policy responsibilities (it has to
-    decide when to call the update callback, with what view, before
-    which draw);
-  - the *front end* (qged) ends up with a parallel update responsibility
-    because the renderer's callback path doesn't always fire (e.g.
-    redraw-on-zoom from BViewState, multi-view Quad layouts, headless
-    image generation);
-  - per-view duplicate scene objects cost memory and duplicate
-    invalidation paths (`bv_clear_view_obj`, `bv_obj_have_vo`,
-    `bv_obj_for_view`) for what is conceptually "show level N for
-    this view" rather than "store an entire alternate object per view";
-  - bbox computation has to special-case BV_MESH_LOD because the bbox
-    actually lives in the LoD container hanging off `draw_data`, not
-    in any view-shared place.
+`bv_obj_get(v, type)` adds to one of these depending on `type` and
+`v->independent` (which OR's in BV_LOCAL_OBJS).  No producer of a
+view-only object ever attaches it to `gv_draw_root`.
 
-What Open Inventor / Coin3D / Obol get right
---------------------------------------------
-Open Inventor's LoD design is worth borrowing because it cleanly
-separates the three jobs we have currently fused:
+Consequences in the renderer:
+- `dm_draw_objs` has TWO render contracts running back-to-back
+  (`src/libdm/view.c:1010-1063`):
+    (a) `bsg_lod_update` + `_bsg_view_traverse_impl` over the BSG
+        tree — handles DB content, runs LoD, runs the two-pass
+        transparency split;
+    (b) a hand-rolled loop over `bv_view_objs(v, BV_VIEW_OBJS)` and
+        `bv_view_objs(v, BV_VIEW_OBJS|BV_LOCAL_OBJS)` that calls
+        `_dm_draw_scene_obj_internal` directly with
+        `transparency_pass=0`.
+  This means transparency, depth-mask, and any future per-frame
+  invariants we add to the BSG traversal silently do not apply to
+  view-only objects.
+- The shared-vs-local rendering order for view-only objects is
+  hard-coded in libdm; the user/app cannot reorder it via tree
+  placement (which is the point of having a tree).
+- Selection / picking helpers like `bv_view_objs_select` only see
+  ptbl content; the BSG tree is not consulted for view-only hits.
+- `bv_view_objs_visit_db()` was added precisely so callers could
+  iterate DB content uniformly across the BSG and ptbl worlds —
+  but no equivalent exists for view-only content, so callers that
+  want "all visible scene objects" must still mix and match.
 
-  - *selection*:
-      `SoLOD` / `SoLevelOfDetail` are grouping nodes whose *only* job
-      is to choose, at traversal time, which child to render based on
-      the current action's view state (camera distance for SoLOD,
-      projected screen-space bbox area for SoLevelOfDetail).
-  - *representation*:
-      the children of an LoD group are ordinary scene-graph subtrees,
-      one per detail level.  They are not "LoD nodes" — they are just
-      geometry.  The geometry has no idea it is being switched between.
-  - *triggering*:
-      level selection happens during traversal of a render action, not
-      via callbacks fired from the backend.  The traversal is the same
-      walk that produces the frame; the action carries the view, the
-      LoD node consults it, the representation children draw.  No
-      out-of-band "redraw side loop" is needed because nothing about
-      LoD lives outside the traversal.
+Consequences in invariant maintenance:
+- Memory-pool ownership for view-only objects is split across
+  `bview_objs::free_scene_obj` (per-view local pool) and the bview
+  set's shared pool, with subtle rules in `bv_obj_get` /
+  `bv_obj_get_vo` / `bv_clear_view_obj`.  Adding a fifth bucket
+  (e.g. "view-only but lifetime-tied to a DB path") is impractical;
+  the model does not extend.
+- Dirty / invalidation tracking has no place to live for view-only
+  objects.  `gv_frame_rev` and `s_drawn_rev` ride along on the BSG
+  traversal, but the ptbl scan does not consult them.
 
-Two consequences of that design that we want:
-  - the scene graph is *shared* across views.  Per-view state is the
-    cursor that identifies which child the LoD group should pick,
-    plus a small cache of "what view scale did I last pick at" for
-    staleness detection.  It is not a duplicate subtree per view.
-  - geometry leaves do not carry "I am an LoD-aware leaf" flags.
-    Aware-ness lives in the parent grouping node.
+This is the single largest remaining inconsistency in the drawing
+stack.  Until it is closed, claims that "the BSG tree is the
+canonical scene" are only true for DB-derived content.
 
-Best-answer design for BRL-CAD
-------------------------------
-Promote LoD from "a flag bit on a drawable leaf plus a callback the
-renderer fires" to "a first-class BSG node kind that owns selection".
-The taxonomy slot is already reserved (`BSG_NODE_LOD`,
-include/bsg/defines.h:61) but no producer creates such nodes today.
+Gap 2 — per-view duplicate-subtree API still exposed
+----------------------------------------------------
+`bv_obj_for_view`, `bv_obj_get_vo`, `bv_obj_have_vo`, and
+`bv_clear_view_obj` (in `src/libbv/util.cpp`) implement the
+per-view duplicate-`bv_scene_obj` model that Phase L4 explicitly
+moved away from for adaptive geometry.  The functions remain:
 
-Concretely:
+- declared in `include/bv/util.h` as part of the public libbv API;
+- exported, with no deprecation marker;
+- still called in `src/libged/dbi_state.cpp` (lines ~3020–3039) in
+  the BViewState adaptive-toggle bookkeeping (clear stale per-view
+  duplicates when the user toggles `adaptive_plot_csg` /
+  `adaptive_plot_mesh` off).
 
-  1. LoD becomes a tree node, not a leaf attribute.
-     - A path that wants adaptive drawing is realized as
-         BSG_NODE_GROUP (path/mode group)
-           └─ BSG_NODE_LOD          (LoD selector)
-                ├─ BSG_NODE_SHAPE   (level 0 representation)
-                ├─ BSG_NODE_SHAPE   (level 1 representation)
-                └─ ...              (levels added lazily)
-     - For pop-buffer mesh LoD, the children are the same `bv_scene_obj`
-       leaves the libbv pop-buffer code already produces; the LoD node
-       owns the pool, not a single leaf.
-     - For CSG wireframe LoD, the children are vlist-bearing leaves
-       regenerated by `ft_adaptive_plot`; the LoD node owns the
-       regeneration policy, not a single leaf.
-     - Static (non-adaptive) drawing has no LoD node at all — the path
-       group's child is just a SHAPE leaf, exactly as today.
+There are two real per-view-object use cases that remain legitimate:
+edit-mode highlights and any future "view N has its own copy of
+this overlay" scenario.  Today both of those go through the same
+`vobjs` map plus the BV_VIEW_OBJS ptbls, blurring the distinction
+between "view-only object" and "per-view variant of a shared
+object".  Post-L4, no in-tree consumer needs the `vobjs` map for
+correctness; the surviving callers are leftover bookkeeping.
 
-  2. Selection is a small ops vtable on the LoD node.
-     - `bsg_lod_ops::select_level(node, view) -> int` decides the level
-       index from view state (gv_scale, gv_perspective, screen-space
-       bbox area, curve_scale, point_scale).
-     - `bsg_lod_ops::activate_level(node, level)` makes that level the
-       node's currently-rendered child for the calling view (cheap:
-       set a per-view cursor; expensive only the first time, when the
-       child does not yet exist and must be materialised).
-     - `bsg_lod_ops::is_stale(node, view) -> bool` compares cached
-       view metrics against current ones for that view.
-     - Two concrete ops sets ship in the tree: one wrapping libbv
-       pop-buffer mesh LoD, one wrapping libged CSG `ft_adaptive_plot`.
+Gap 3 — `independent` view is a mode bit, not a scene structure
+---------------------------------------------------------------
+`bview::independent` is a boolean.  When set:
+- `bv_obj_get` quietly OR's `BV_LOCAL_OBJS` into the requested type;
+- `bv_view_objs(v, type)` returns the view's local ptbl instead of
+  the bview-set's shared ptbl;
+- `view independent <view> 1` (in `src/libged/view/view.c:140-204`)
+  walks the *shared* DB-object set and re-runs `draw -V <view>` for
+  each entry to seed the view's local ptbl.
 
-  3. Per-view state is a cursor, not a duplicate subtree.
-     - The LoD node carries a small `view * -> {level, view_scale,
-       curve_scale, point_scale, perspective_flag, last_seen_frame_rev}`
-       map.  That replaces `bv_scene_obj::i->vobjs` for the LoD case.
-     - Children (the level representations) are shared across views.
-     - `bv_obj_for_view()` is preserved for legitimately per-view
-       objects (edit-mode highlights, faceplate widgets, view-only
-       overlays).  It is no longer the LoD path.
+What it does NOT do:
+- It does not give the view a private subtree under `gd_draw_root`;
+- It does not change how `dm_draw_objs` walks the BSG tree (the
+  whole shared draw root is still walked);
+- It does not give libdm any way to know that this view should
+  *only* render its own private content.
 
-  4. There is exactly one place LoD updates run: the render walk.
-     - `dm_draw_objs(dmp, v)` calls `bsg_lod_update(v->gv_draw_root, v)`
-       once at the top.  That walk visits every BSG_NODE_LOD node, asks
-       `is_stale`, and if so calls `select_level` then `activate_level`.
-     - The subsequent traversal in libdm draws whatever child the LoD
-       node has currently selected for `v`.  The renderer never calls
-       back into update logic.
-     - `s_update_callback` is removed from the per-leaf drawable path.
-       Adaptive regeneration triggered by the LoD ops is the only
-       update mechanism.
+The end-state is: the user's mental model ("this view is independent")
+is implemented as a soft preference about where new objects go,
+rather than as a structural property of the rendered scene.  The
+comment block above `_view_cmd_independent` is candid about the
+fragility: "any object in the independent list that are not present
+in the shared set will remain, since there is no way for the library
+to know if the intent is to preserve or remove such objects".
 
-  5. Identity ("DB object" vs. "view object") moves out of the leaf.
-     - DB-ness is expressed by tree placement: the path group above the
-       LoD node (or above a static SHAPE leaf) is what carries the
-       db_full_path.  The leaf does not need BV_DB_OBJS to be drawable.
-     - View-only overlays remain leaves under view-scoped roots and
-       have no LoD parent.
-     - This finishes the BV_DB_OBJS / BV_VIEW_OBJS collapse already
-       under way (see Phase B/E in the long-form plan).
+Gap 4 — the `view` / `view obj` / `view gobjs` command surface
+--------------------------------------------------------------
+The user-facing API for adding and removing view-only objects is
+the `view` command in libged.  Its current shape leaks every
+implementation detail of Gaps 1–3 directly to the user and is
+internally inconsistent.
 
-  6. Mechanism in libbsg, policy in libbv/libged.
-     - libbsg owns: the LoD node kind, the per-view cursor map, the
-       traversal hook, the bbox aggregation, child lifecycle.
-     - libbv owns: pop-buffer level computation, mesh memshrink,
-       cache key plumbing, screen-space metric helpers.
-     - libged owns: `ft_adaptive_plot` driver, OBB-vs-frustum cull,
-       curve_scale/point_scale wiring from `gv_s`.
-     - The ops vtables are how libbsg pulls policy in without depending
-       on libbv/libged headers.
+Concrete problems in `src/libged/view/`:
 
-Why this is the right shape
----------------------------
-- It makes the answer to "where does LoD update happen?" exactly one
-  line: `dm_draw_objs` calls `bsg_lod_update(root, v)` before drawing.
-  No qged-side compensation, no renderer callbacks, no parallel paths.
-- It eliminates the per-view duplicate scene_obj for adaptive cases.
-  Memory and invalidation cost scale with paths, not paths × views.
-- It localises the awkward special-cases (BV_MESH_LOD bbox math,
-  adaptive_plot regeneration) to the ops implementation, instead of
-  letting them leak into bv_scene_obj_bound, dm_draw_scene_obj, and
-  BViewState::redraw simultaneously.
-- It plays well with non-Qt front ends: mged/Archer hit the same
-  `dm_draw_objs` path qged hits, so adaptive zoom works identically
-  without anyone having to remember to run a side loop.
-- It keeps both existing strengths intact: the pop-buffer mesh LoD's
-  pre-cached, memshrinkable level set is exactly the right thing to
-  hang under an LoD node, and the CSG wireframe regen-on-view-change
-  is exactly an `is_stale` + `activate_level` cycle.
-- It maps directly onto BSG_NODE_LOD, which is already reserved in the
-  taxonomy.  Nothing in this design requires inventing new core
-  concepts; it requires populating a slot the tree already has.
+a) Two parallel dispatch entry points coexist:
+   - `ged_view_core` (`view.c:664`): the modern subcommand-table
+     dispatcher (`_view_cmds`);
+   - `ged_view_func_core` (`view.c:772`): a legacy if/else dispatch
+     used when `gedp->dbi_state` is NULL.
+   They expose overlapping but not identical subcommand sets, and
+   `ged_view_func_core` re-dispatches into modern subcommands by
+   `BU_STR_EQUAL` chains — duplicated logic, easy to drift.
 
-Implementable multi-step plan
------------------------------
-The phases below are intentionally sequenced so the tree continues to
-build, test, and render at every step.  Each phase ends with a fully
-green draw test set.
+b) The "current view" indirection in `view.c` is implemented by
+   `gd->gedp->ged_gvp = gd->cv;` save/restore around every per-
+   subcommand `ged_*_core` call (15+ call sites).  The
+   subcommand cores read the current view from `gedp->ged_gvp`
+   rather than receiving it as an argument.  This is a known
+   thread-hostile pattern and the source of subtle bugs when a
+   subcommand fails partway through.
 
-Phase L0 — define the LoD node abstraction in libbsg  DONE
-  - Added `bsg/lod_ops.h`: `bsg_lod_ops` vtable, `bsg_lod_view_cursor`,
-    `bsg_lod_payload`, and constructor API declarations.
-  - `src/libbsg/lod_node.c`: `bsg_lod_node_create`, `bsg_lod_node_set_ops`,
-    `bsg_lod_node_attach_level`, `bsg_lod_node_get_cursor`,
-    `bsg_lod_node_active_level`, `bsg_lod_node_level_count`.
-  - `_bsg_view_traverse_impl` in libdm/view.c handles BSG_NODE_LOD by
-    reading the per-view cursor and recursing into the selected child only.
-  - libbsg unit test `test_lod_node.c` (libbsg_lod_node) — 11 tests PASS.
-  - `ged_test_bsg_view_obj` section [17] — synthetic ops lifecycle test
-    (176/176 checks PASS).
+c) `view obj` (`objs.cpp:_view_cmd_objs`) does the same name lookup
+   FOUR times in succession (shared view-only ptbl, local view-only
+   ptbl, shared db_objs ptbl with two flavors of nested children,
+   local db_objs ptbl with the same).  The same fourfold loop is
+   repeated for the listing-with-no-args path.  Every new container
+   added to `bv_view_objs` widens this footprint linearly.
 
-Phase L1 — implement `bsg_lod_update` and `bsg_lod_stale` for real  DONE
-  - Replaced Phase-4 stub in `src/libbsg/lod.cpp` with a recursive DFS
-    that, at each BSG_NODE_LOD node, calls `ops->is_stale` and on true
-    calls `ops->select_level` then `ops->activate_level`.
-  - `bsg_lod_stale(node, v)` delegates to `ops->is_stale` for
-    BSG_NODE_LOD nodes; returns 0 for all other node kinds.
-  - No producers yet; the function runs but is a no-op on production
-    trees (no BSG_NODE_LOD nodes in the wild).
+d) Subcommand grammar is not consistent:
+   - `view obj NAME draw` toggles UP/DOWN (text);
+   - `view obj NAME arrow` uses `0`/`1` (and supports `width #` /
+     `length #` as in-line modifiers);
+   - `view obj NAME color` takes `r/g/b` and an optional `-r`
+     recursion flag;
+   - `view obj NAME del` removes only objects with `BV_VIEWONLY`
+     set; for DB-backed it tells the user to use `erase` (which
+     lives in a different command);
+   - `view gobjs NAME del` calls `bv_obj_put` directly but always
+     errors out because `_view_cmd_gobjs` sets `gd->s = NULL`
+     unconditionally before subcommand dispatch (`gobjs.cpp:256`);
+   - `view obj NAME update` reads `s->s_update_callback` and fires
+     it manually (`objs.cpp:280-287`), which is the very pattern
+     Phase L6 was trying to retire.
+   - `view obj` and `view gobjs` are separate top-level subcommands
+     even though `view gobjs create` produces what is conceptually
+     a view-only object (it stores it under `BV_DB_OBJS`,
+     compounding the confusion).
+   - `view vZ` self-deprecates in its help text but still runs four
+     near-identical loops over the four ptbls returning a value
+     that's clearly wrong (it sets `vZ = calc_mode` rather than
+     `vZ = calc_val` in every branch — `view.c:413,418,429,...`).
+   - `view obj info mode` falls through to `_view_cmd_old_obj`
+     (`objs.cpp:603`), which uses `bsg_view_obj_foreach_solid` and
+     `_ged_build_dpp` — a legacy compat path with no test coverage.
 
-Phase L2 — wire the canonical update site in libdm  DONE
-  - Added `bsg_lod_update((bsg_node *)v->bsg_root, v)` at the top of
-    the `if (v->bsg_root)` block in `dm_draw_objs` in view.c, before
-    the per-object traversal walk.
-  - `s_update_callback` invocation in `_dm_draw_scene_obj_internal`
-    remains in place for compat; both paths coexist while producers
-    migrate (Phase L3).
-  - `ged_test_lod_crossrun` PASS; all other drawing tests show no new
-    failures vs baseline.
+e) View-only constructors are flag-sites rather than typed APIs:
+   axes, lines, labels, polygons, and gobjs each call
+   `bv_obj_get(v, BV_VIEW_OBJS [| BV_LOCAL_OBJS])` and then OR in
+   `BV_VIEWONLY` and a payload-type bit by hand.  The caller is
+   responsible for getting the flag arithmetic right; there is no
+   `bv_view_obj_create_axes(v, ...)` or similar typed entry point.
 
-Phase L3 — migrate libged producers to emit LoD nodes  DONE
-  Architecture (discovered during L0/L1/L2 session):
-  - `_bview_state_attach_leaf` runs BEFORE geometry generation.  The mesh_obj
-    / csg_obj fields and s_update_callback on the per-view 'vo' are NOT set
-    at attach time; they are set by draw_scene() (called from the loop at
-    dbi_state.cpp:3722-3728) which runs after all objects are attached.
-  - Therefore the BSG_NODE_LOD wrapping cannot happen in
-    `_bview_state_attach_leaf`.  It must happen AFTER the draw_scene loop.
+The result is that "how do I add a user-supplied marker to view N?"
+has at least three different answers depending on whether you are
+talking to a script user, a libged plugin author, or a libbv API
+consumer, and none of them go through the BSG tree.
 
-  Completed:
-  - Added `bsg_lod_node_insert_above(bsg_node *leaf, struct bview *v)` in
-    `src/libbsg/lod_node.c` and declaration in `include/bsg/lod_ops.h`.
-    It wraps a leaf with `BSG_NODE_LOD` in-place (same parent slot), then
-    bumps draw rev and invalidates parent/ancestor cached bbox state.
-  - Added mesh-LoD and CSG-LoD ops adapters in `src/libged/bsg_ged_draw.c`
-    (`ged_lod_install_mesh_ops` / `ged_lod_install_csg_ops`) that:
-      * select via `bv_obj_for_view(s, v)` and call
-        `bv_mesh_lod_view(vo, v, 0)` or `csg_wireframe_update(vo, v, 0)`,
-      * track staleness by cursor view-scale and perspective flag deltas,
-      * update cursor level/view metrics on activation,
-      * free per-node adapter state on LoD node teardown.
-  - Added post-`draw_scene` wrapping pass in `BViewState::redraw()`:
-    for each adaptive `sp` in `objs`, if parent is not already `BSG_NODE_LOD`,
-    insert LoD above `sp`, install mesh/CSG ops, and pre-create cursors for
-    all active views.
-  - Added `test_insert_above` coverage in `src/libbsg/tests/test_lod_node.c`
-    to verify parent-slot replacement and level-0 child wiring.
 
-  Phase L3 coexistence with existing s_update_callback:
-  - The per-view 'vo' still has s_update_callback set (BV_MESH_LOD flag
-    on vo).  `_dm_draw_scene_obj_internal` still calls vo->s_update_callback
-    via the children-recursion path.  bsg_lod_update also calls
-    ops->select_level (which calls bv_mesh_lod_view on vo).  The double call
-    is benign — bv_mesh_lod_view is idempotent for the same view state.
-  - Full cleanup of the double-call is Phase L5+L6.
+Two use cases, evaluated against the current state
+--------------------------------------------------
 
-  Tests: `ged_test_lod_crossrun` (must remain green), `libbsg_lod_node`,
-  `ged_test_bsg_view_obj`, `ged_test_drawing_lod` (images).
+Use case A — per-view objects (vs. shared-across-views tree)
+............................................................
+"Per-view" today actually means three different things, conflated
+in the code:
 
-Phase L4 — remove per-view duplicate scene_objs for adaptive cases  DONE
-  - For LoD-managed paths, stop populating `s->i->vobjs`.  The LoD
-    node's per-view cursor replaces it.
-  - Audit `bv_obj_for_view` callers: keep the function and the vobjs
-    map for non-LoD per-view objects (edit highlights, view overlays);
-    remove the LoD-path users.
-  - Update `bv_scene_obj_bound` to consult the LoD node's currently
-    selected child via the ops, not the legacy BV_MESH_LOD branch on
-    a leaf.
-  - Tests: full draw regression set, with extra attention to Quad
-    view (multiple bviews sharing a draw root) and to memory growth.
+  1. "View-only" — the object exists for visualisation purposes
+     and has no DB backing (axes, polygon overlay).  Today: lives
+     in BV_VIEW_OBJS ptbl, not in the BSG tree.
 
-  Completed:
-  - `src/libged/draw.cpp` adaptive mesh/BREP/CSG producers now keep LoD
-    state on the shared shape leaf (`s`) and no longer create adaptive
-    per-view duplicates via `bv_obj_get_vo`.
-  - `src/libged/bsg_ged_draw.c` LoD adapters (`_mesh_lod_select_level`,
-    `_csg_lod_select_level`) now operate directly on the shared shape
-    leaf and no longer call `bv_obj_for_view`.
-  - `src/libbv/util.cpp: bv_scene_obj_bound` now resolves LoD-managed
-    bounds via the selected child of the enclosing `BSG_NODE_LOD`.
+  2. "View-private DB content" — the object IS a DB-backed thing
+     but the user wants it drawn only in this view (the
+     `view independent` workflow).  Today: realised by setting
+     `v->independent = 1` and re-running `draw -V` against the
+     shared list.  The view still walks the shared `gd_draw_root`,
+     so independence relies on the local ptbl not being inserted
+     into the shared subtree.
 
-Phase L5 — retire the BViewState::redraw LoD side pass  DONE
-  - Delete the explicit `bv_mesh_lod_view` / `csg_wireframe_update`
-    loop near `src/libged/dbi_state.cpp:3760`.
-  - With L2+L3+L4 in place, redraw-on-zoom propagates LoD because
-    the next `dm_draw_objs` runs `bsg_lod_update`.  No qged-only
-    compensation should be needed.
-  - Tests: full draw regression set; specifically verify zoom-driven
-    redraws and headless image regeneration paths.
-  Completed:
-  - `src/libged/dbi_state.cpp` no longer runs the explicit redraw-side
-    LoD loop (`bv_mesh_lod_view` / `csg_wireframe_update`); LoD updates
-    are now driven by `dm_draw_objs` via `bsg_lod_update`.
+  3. "Per-view variant" — a single shared object whose
+     representation differs by view (active-edit highlight,
+     adaptive level).  Today: pre-L4 used `vobjs` map; post-L4
+     LoD uses BSG_NODE_LOD cursors; edit highlights still use
+     the `vobjs` map and the illumination sensor.
 
-Phase L6 — retire `s_update_callback` and the BV_MESH_LOD/BV_CSG_LOD
-            leaf flags  DONE
-  - Once no producer sets `s_update_callback`, remove the field from
-    `bv_scene_obj` and the call site in `_dm_draw_scene_obj_internal`.
-  - Once no consumer tests `BV_MESH_LOD` / `BV_CSG_LOD` on a leaf
-    (LoD-aware code goes through the LoD node), remove the flag bits
-    or repurpose them as ops-internal markers only.
-  - Simplify `bv_scene_obj_bound`: remove the leaf-side BV_MESH_LOD
-    special case; aggregate bbox is then a pure tree walk.
-  - Tests: full draw regression set; this phase is mostly mechanical
-    once L5 is green.
-  Completed:
-  - `src/libged/draw.cpp`: removed `s->s_update_callback = &bv_mesh_lod_view`
-    and `s->s_update_callback = &csg_wireframe_update` assignments; removed
-    `s->s_type_flags |= BV_MESH_LOD` and `s->s_type_flags |= BV_CSG_LOD`
-    flag-setting.  LoD updates are now driven exclusively by bsg_lod_update
-    via dm_draw_objs.
-  - `src/librt/primitives/generic.c`: removed `s->s_type_flags |= BV_CSG_LOD`
-    from `rt_wireframe_plot`.
-  - `src/libdm/view.c`: removed the `s_update_callback` call for BV_DB_OBJS
-    in `_dm_draw_scene_obj_internal`; removed the `BV_MESH_LOD` guard on
-    `dm_add_arrows` (the function's own `s->s_arrow` check makes it a no-op
-    for mesh objects).
-  - `src/libdm/dm-gl_lod.cpp`: replaced `BV_MESH_LOD` check with
-    `s->mesh_obj && s->draw_data` in `gl_draw_obj`; removed the `BV_CSG_LOD`
-    early-return so CSG adaptive wireframes use the standard vlist path
-    (which handles all draw modes including hidden-line).
-  - `src/libbv/util.cpp`: replaced `BV_MESH_LOD` checks with
-    `mesh_obj && draw_data` in `bv_scene_obj_bound`.
-  - `include/bv/defines.h`: BV_MESH_LOD and BV_CSG_LOD marked deprecated
-    (retained for binary compatibility); s_update_callback comment updated.
+These three should not look the same to the user, and they should
+not look the same in the API.  The current code mostly conflates
+(1) and (2), and exposes (3) only as side-effects of LoD and
+selection state.
 
-Phase L7 — image-level parity and front-end verification  DONE
-  - Re-run `ged_test_drawing_lod` and `ged_test_lod_crossrun` for
-    image diffs.
-  - Re-check the known weak spots that LoD ambiguity may have been
-    masking:
-      * shaded mode 1 with LoD disabled,
-      * hidden-line mode 4,
-      * mixed draw modes on the same path.
-  - Verify mged, Archer, and qged produce visually identical output
-    for adaptive zoom, multi-view Quad, and headless image runs.
-  - Only after this is solid, return to the open backend default
-    decision (Priority 4 below).
-  Completed:
-  - Image-level LoD parity surface is green:
-    `ged_test_drawing_lod`, `ged_test_lod_crossrun`,
-    `ged_test_mged_shaded_mode_bsg`.
-  - Core draw/no-LoD baselines remain green:
-    `ged_test_drawing_basic`, `ged_test_drawing_faceplate`,
-    `ged_test_bsg_parity`, `ged_test_bsg_quad_parity`,
-    `ged_test_bsg_view_obj`, `libbsg_lod_node`.
-  - Front-end parity regressions addressed for qged/mged/Archer paths:
-    - shared draw-root aliasing now propagates to non-default views
-      (`bsg_scene_root_create` inheritance from view sets; `_sg_root`
-      now rebinds `gedp->ged_gvp` when reusing an existing draw root),
-    - `ged_test_qged_swrast`, `ged_test_mged_bsg`, and
-      `ged_test_rtwizard_bsg` now pass under the Phase E/F contract
-      (no legacy dl_* fallback parity mode; shared BSG draw root).
+Use case B — adding/removing user-supplied view-only data
+.........................................................
+Today, from a script:
+
+  view [-V <name>] obj <name> axes  X Y Z
+  view [-V <name>] obj <name> line  ...
+  view [-V <name>] obj <name> polygon ...
+  view [-V <name>] obj <name> label ...
+  view [-V <name>] gobjs <gpath> create <vname>
+  view [-V <name>] obj <name> del          # only if BV_VIEWONLY
+  view [-V <name>] gobjs <vname> del       # currently broken — gd->s
+                                           #   is unconditionally NULL
+  zap [-V <name>] -v                       # nuke all view-only objs
+
+  The "shared vs. local" distinction is a CLI flag (-L) on
+  `view obj`, but `view gobjs` has no such option.
+
+From a C API:
+
+  s = bv_obj_get(v, BV_VIEW_OBJS [| BV_LOCAL_OBJS]);
+  /* hand-fill s_color, s_vlist, s_type_flags |= BV_VIEWONLY |
+     BV_AXES, etc.  Caller owns the BV_* flag arithmetic. */
+  bv_obj_put(s);   /* removes from ptbl + recycles */
+
+There is no removal API that takes the view + name pair, no
+typed constructors, no equivalent of the dbpath-keyed APIs that
+exist for DB content, and no integration with the BSG tree.
+
+
+View-only object unification — implementation plan
+==================================================
+The phases below close Gaps 1–4 above.  They are sequenced so that
+the tree continues to build, test, and render at every step, and
+each phase is independently land-able and revertible.  Each phase
+ends with a fully green draw test set (see the test surface block
+at the bottom of this note).
+
+Naming convention: `Phase V<n>` (View-only) to distinguish from the
+completed Phases A–E (BSG merge), L0–L7 (LoD), and the legacy 0–13
+numbering.
+
+Phase V0 — audit and freeze the current contract
+------------------------------------------------
+Goal: nail down "what is a view-only object?" before changing how
+it is stored, so the migration in V1+ has unambiguous semantics.
+
+Mechanical work:
+- Inventory every in-tree producer of an object that ends up in
+  `BV_VIEW_OBJS` (search for `bv_obj_get(.*, BV_VIEW_OBJS`,
+  `flags = BV_VIEW_OBJS`, `BV_VIEWONLY`).
+- Classify each one by lifecycle: per-frame transient (snap
+  indicator), per-session persistent (axes, polygon), or
+  edit-bound (gobjs editing wireframe, illumination highlight).
+- Document, in this note, the three "per-view" meanings (view-only,
+  view-private DB content, per-view variant) and which producer
+  belongs in which bucket.
+- Add a deprecation marker (`__attribute__((deprecated))`) to
+  `bv_obj_for_view`, `bv_obj_get_vo`, `bv_obj_have_vo`,
+  `bv_clear_view_obj` so that any new caller is flagged at
+  compile time.  The two surviving call sites in `dbi_state.cpp`
+  (Gap 2) get a local `#pragma` suppression with a TODO referring
+  to Phase V5.
+
+Tests: no behavioural change.  Build must remain warning-clean
+under the deprecation markers.
+
+Phase V1 — add a view-scope concept to the BSG tree
+---------------------------------------------------
+Introduce structural support in libbsg so view-only objects can
+live in the same tree as DB content.  Design choice: a
+`BSG_NODE_VIEW_SCOPE` node kind whose children are skipped during
+traversal of any view that does not match its `s_v` slot.
+
+Mechanical work:
+- Reserve `BSG_NODE_VIEW_SCOPE` in `include/bsg/defines.h`
+  (next free bit, e.g. 0x800000000ULL).  Document layout in the
+  taxonomy block.
+- Add `bsg_view_scope_create(struct bview *v)` and a small
+  predicate `bsg_view_scope_visible(node, v)` in libbsg.
+- Extend `_bsg_view_traverse_impl` (libdm/view.c) to skip
+  view-scope nodes whose owner is not `v`.  When the owner *is*
+  `v` (or NULL = shared), traverse normally.
+- The render root keeps a single `BSG_NODE_VIEW_SCOPE(NULL)`
+  conceptual sub-area for "shared view-only" content so the
+  per-view scope check is uniform; a per-view scope hangs off the
+  same root and is gated by `v` identity.
+
+No producers move yet.  Tests: existing draw tests must remain
+green (the new node kind has no instances in the wild).
+
+Phase V2 — make BSG the rendering source of truth in dm_draw_objs
+-----------------------------------------------------------------
+Currently `dm_draw_objs` runs the BSG traversal and then a manual
+ptbl scan over BV_VIEW_OBJS.  Even before producers migrate, we
+can make the renderer behaviour BSG-first by collapsing the two
+paths:
+
+- Add a temporary "view-only ptbl bridge" group under the render
+  root: a `BSG_NODE_VIEW_SCOPE` whose children are *references*
+  (s_path-style proxies) to the BV_VIEW_OBJS entries.  Maintain
+  it from the existing producer call sites (one wrapper added in
+  `bv_obj_get` / `bv_obj_put`).  This is a bridge, not a
+  destination — V3 will drop it once producers migrate.
+- Remove the manual BV_VIEW_OBJS scan from `dm_draw_objs`.  Now
+  every drawn object goes through the BSG traversal, so two-pass
+  transparency, future LoD on overlays, etc. apply uniformly.
+- Mark `dm_draw_objs`'s previous view-only block with a note that
+  the bridge is the only legitimate code path until V3.
+
+Tests: full draw regression set, with extra attention to
+`ged_test_drawing_faceplate` (overlays), polygons, axes, and
+labels.  Image diffs on faceplate-heavy scenes.
+
+Phase V3 — migrate view-only producers onto the BSG tree
+--------------------------------------------------------
+Replace `bv_obj_get(v, BV_VIEW_OBJS)` in producers with a typed
+constructor that places the new node directly under the
+appropriate `BSG_NODE_VIEW_SCOPE`:
+
+- `bv_view_obj_axes_create(v, name, ...)`
+- `bv_view_obj_lines_create(v, name, ...)`
+- `bv_view_obj_label_create(v, name, ...)`
+- `bv_view_obj_polygon_create(v, name, ...)`
+- `bv_view_obj_overlay_create(v, name, vlist, ...)`  (generic)
+
+Each constructor returns a `bv_scene_obj *` already attached to
+the right scope (shared or view-private depending on `v` and a
+`local` flag).  The caller no longer touches `s_type_flags` flag
+arithmetic.
+
+Producers to migrate:
+- `src/libged/view/axes.c`
+- `src/libged/view/lines.c`
+- `src/libged/view/labels.c`
+- `src/libged/view/polygons.c`
+- `src/libged/view/data_lines.c`
+- `src/libged/view/snap.c`
+- `src/libged/view/gobjs.cpp`            (move under VIEW_SCOPE,
+                                          drop the BV_DB_OBJS hack)
+- libqtcad selection / measurement overlays (audit needed)
+- libtclcad equivalents (audit needed)
+
+Removal API: a typed counterpart `bv_view_obj_remove(v, name)`
+and `bv_view_obj_remove_all(v, scope)` that operate on the BSG
+subtree, never on a ptbl.  These become the preferred deletion
+path; `bv_obj_put` keeps working but is no longer the documented
+entry point for view-only removal.
+
+Tests: full draw regression set; `ged_test_drawing_faceplate` is
+the primary parity gate.  Expect to add a new
+`ged_test_view_only_scope` suite covering create/list/remove and
+shared-vs-local placement.
+
+Phase V4 — retire the BV_VIEW_OBJS ptbls and the bridge
+-------------------------------------------------------
+Once V3 has migrated all producers:
+- Delete the bridge group introduced in V2.
+- Delete the four ptbls from `bview_objs` / `bview_set_internal`
+  for view-only content (`view_objs`, `shared_view_objs`).  Keep
+  the DB ptbls for now — those still serve as the flat index for
+  `bv_view_objs(v, BV_DB_OBJS [| BV_LOCAL_OBJS])` callers that
+  haven't moved to `bv_view_objs_visit_db`.
+- `bv_view_objs(v, BV_VIEW_OBJS ...)` becomes a thin BSG walk that
+  returns a transient ptbl assembled from the view-scope subtree,
+  with a `BV_DEPRECATED` notice in the header.  After V8 it can
+  be removed.
+- libdm renders solely from the BSG tree.
+
+Tests: full draw regression set, plus the new view-only scope
+tests added in V3.
+
+Phase V5 — retire the per-view duplicate-subtree API
+----------------------------------------------------
+After V3 the only remaining callers of `bv_obj_for_view` /
+`bv_obj_get_vo` / `bv_obj_have_vo` / `bv_clear_view_obj` are the
+adaptive-toggle bookkeeping in `dbi_state.cpp` (Gap 2).  Their
+purpose is to clean up stale per-view leaves when the user toggles
+adaptive-mesh or adaptive-CSG off.  After Phase L4, those stale
+leaves no longer exist for the LoD path; the toggle merely needs
+to invalidate the LoD node cursor and bump `gd_draw_rev`.
+
+Mechanical work:
+- Replace the four call sites in `dbi_state.cpp` with calls into
+  the new LoD ops (`ops->is_stale` returning true unconditionally
+  for the next frame is sufficient to force regen).
+- Delete `bv_obj_get_vo`, `bv_obj_have_vo`, `bv_clear_view_obj`
+  and the `vobjs` unordered_map from `bv_scene_obj_internal`.
+- Keep `bv_obj_for_view` ONLY if we need a "view-private variant"
+  hook for edit highlights; otherwise delete it too.  Audit
+  needed.
+
+Tests: full draw regression set, plus `ged_test_drawing_lod` and
+`ged_test_lod_crossrun` to verify the adaptive toggle path is
+clean.
+
+Phase V6 — `view independent` becomes a structural property
+-----------------------------------------------------------
+Re-express view independence as a tree placement rather than a
+mode bit:
+
+- A view marked independent gets a private `BSG_NODE_VIEW_SCOPE`
+  hung off `gd_draw_root` (or a private root entirely, depending
+  on whether shared geometry should be hidden — the latter is the
+  more honest implementation of "independent").
+- `view independent <view> 1` clones (or moves, depending on the
+  user's intent — make it an explicit option) shared draw entries
+  into the private scope.
+- `view independent <view> 0` discards the private scope and lets
+  the view fall back to the shared draw root.
+- `bview::independent` becomes a derived property (computed from
+  whether the view has its own private scope) rather than a
+  source of truth.
+
+Tests: existing `view independent` behaviour must be preserved.
+Add a `ged_test_view_independent` suite with create / draw /
+toggle-back / re-share scenarios.
+
+Phase V7 — libged `view` command consolidation
+----------------------------------------------
+Refactor `src/libged/view/` to address Gap 4 directly.  This is
+the user-visible payoff for the work in V0–V6.
+
+Mechanical work:
+- Delete `ged_view_func_core` (the legacy non-`dbi_state` dispatch
+  path).  All callers reach `ged_view_core` unconditionally; the
+  modern subcommand table is the only API.
+- Replace the 15+ `ged_gvp` save/restore patterns in `view.c` with
+  a small inline helper, or change subcommand cores to take an
+  explicit `struct bview *` instead of reading `ged_gvp`.  The
+  latter is the right long-term shape; the former is the safe
+  intermediate step.
+- Collapse `view obj` and `view gobjs` into a single `view obj`
+  command with a `-g <dbpath>` option for the gobjs case.
+  `view gobjs` becomes a deprecated alias.
+- Rewrite `view obj` lookup / listing as a single BSG walk over
+  the view-scope subtree(s).  Drop the fourfold ptbl scan.
+- Standardise subcommand grammar:
+   - `view obj [-V view] [-L] create  <name> <type> <args...>`
+   - `view obj [-V view] [-L] remove  <name>`
+   - `view obj [-V view] [-L] list    [<glob>]`
+   - `view obj [-V view] [-L] info    <name> [field]`
+   - `view obj [-V view] [-L] set     <name> <field> <value>`
+  All sub-typed creators (`axes`, `line`, `polygon`, `label`,
+  `arrow`) become `<type>` selectors of the unified `create`
+  rather than independent subcommands.  Old subcommand names
+  remain as deprecated aliases for one release cycle.
+- Fix `view gobjs del` so the lookup populates `gd->s` before
+  dispatch (the bug at `gobjs.cpp:256`).
+- Remove or finish `_view_cmd_old_obj` — it has no test coverage
+  and is reachable only via `view obj <p> info mode` on the
+  legacy non-`dbi_state` code path.
+- Fix the `view vZ` `vZ = calc_mode` bug (the assignment should
+  be `vZ = calc_val`).  Decide whether `view vZ` survives at all;
+  it self-deprecates in its own help text.
+
+Tests: a new `ged_test_view_command` suite covering grammar
+parity, alias behaviour, `-V` semantics, `-L` semantics, and
+error reporting.  Existing user scripts (mged, archer) that use
+the old subcommand spellings must continue to work — the alias
+layer is the contract.
+
+Phase V8 — public C API for view-only objects + deprecation cleanup
+-------------------------------------------------------------------
+Final-form public API; this is what user code (tools, plugins,
+libqtcad, libtclcad) is expected to call after the refactor.
+
+Public surface:
+- `bv_view_obj_create(v, name, type, opts)` — generic constructor
+  returning a node attached to the right view scope.
+- Typed convenience wrappers (axes/line/label/polygon/arrow/
+  overlay) sitting on top of `bv_view_obj_create`.
+- `bv_view_obj_remove(v, name)`, `bv_view_obj_remove_all(v, scope)`.
+- `bv_view_obj_find(v, name)` returning the BSG node, or NULL.
+- `bv_view_obj_visit(v, scope, cb, data)` for iteration.
+- All keyed by name; no caller writes to `s_type_flags` directly.
+
+Deprecation removal:
+- After one release, drop `bv_obj_for_view` (if not retained per
+  V5) and the legacy `view obj <subtype>` spellings retained as
+  aliases in V7.
+- Drop the `bv_view_objs(v, BV_VIEW_OBJS ...)` shim retained in V4.
+- Update `draw_migration_plan.rtf` and this note to reflect the
+  final shape.
+
+Tests: full draw regression set + the new view-command and
+view-scope test suites.  Documentation update for libged plugins
+and libbv consumers.
+
+
+Why this sequencing
+-------------------
+- V0 makes the next steps land safely by giving the deprecation
+  guardrails a chance to flag bad new callers immediately.
+- V1 + V2 separate "structural support exists" from "behaviour
+  changed" — V1 is pure additions, V2 is the contract change with
+  no new producers yet.
+- V3 is the heavy migration, but every producer is a small, local
+  change with image-diff tests right next to it.
+- V4 is the cleanup that justifies V1–V3 by deleting the parallel
+  ptbl world.
+- V5 finishes Gap 2 (per-view duplicate API) once the LoD path
+  has confirmed the new model is sufficient.
+- V6 fixes Gap 3 (`independent` mode) by reusing the V1
+  view-scope mechanism, so it's a small additional step rather
+  than a separate redesign.
+- V7 is the user-visible cleanup of the `view` command surface.
+  It sits late so it can lean on the simplified storage model
+  from V1–V6.
+- V8 is purely deprecation removal and documentation.
+
 
 Test surface to keep green at every phase
 -----------------------------------------
 - `ged_test_bsg_view_obj`         (LoD node lifecycle, cursor)
 - `ged_test_drawing_basic`        (no-LoD baseline)
-- `ged_test_drawing_faceplate`    (view-only objects unaffected)
+- `ged_test_drawing_faceplate`    (view-only objects + faceplate;
+                                   primary parity gate for V2–V4)
 - `ged_test_drawing_lod`          (image diffs for mesh + CSG LoD)
 - `ged_test_lod_crossrun`         (cross-run cache reuse)
 - `ged_test_mged_shaded_mode_bsg` (shaded mode + LoD interaction)
-- `ged_test_bsg_parity`, `ged_test_bsg_quad_parity`
-                                  (no regression in non-LoD paths)
+- `ged_test_bsg_parity`,
+  `ged_test_bsg_quad_parity`      (no regression in non-LoD paths)
+- `ged_test_qged_swrast`,
+  `ged_test_mged_bsg`,
+  `ged_test_rtwizard_bsg`         (front-end parity)
+- `libbsg_lod_node`               (LoD node unit tests)
 
-Deferred / non-goals for this work package
-------------------------------------------
-- Backend default decision (the open dm-qtgl vs dm-swrast benchmark
-  question) is still deferred until after LoD parity lands.  See
-  Priority 4 below.
-- Bigger Inventor-style ideas (e.g. SoCache, traversal-state caches,
-  full action pattern) are explicitly out of scope.  We are borrowing
-  the *node-as-selector* idea and the *one-traversal* invariant, not
-  rebuilding the action framework.
-- Selection-highlight rework is unaffected; the LoD redesign is
-  orthogonal to `gd_illum_sensor` / `gd_illum_rev`.
+To be added during the V plan:
+- `ged_test_view_only_scope`      (V1/V3: BSG_NODE_VIEW_SCOPE
+                                   visibility, shared vs. local)
+- `ged_test_view_independent`     (V6: structural independence)
+- `ged_test_view_command`         (V7: command grammar / aliases)
+
 
 Prioritized remaining work
 --------------------------
-Priority 1 — execute the LoD redesign above (Phases L0–L7).  DONE.
+Priority 1 — execute the View-only object unification (Phases V0–V8).
+  This is the next active work package.
 
-Priority 2 — close image-level parity gaps once LoD is unambiguous.  DONE.
-  (shaded mode 1 / hidden-line mode 4 / LoD image regressions)
+Priority 2 — backend policy / default-backend decision (dm-qtgl vs.
+  dm-swrast benchmarks).  Open, deferred behind Priority 1; it does
+  not block any of the V phases.
 
-Priority 3 — verify front-end parity (qged / mged / Archer).  DONE.
-  (draw/erase/redraw/zoom + mixed-mode regression surface)
+Priority 3 — selection-highlight rework (`gd_illum_sensor` /
+  `gd_illum_rev`).  Out of scope for the V plan; keep it on the
+  long-tail list.  Phase V5 may reveal whether `bv_obj_for_view`
+  should be retained as a per-view-variant hook for highlights or
+  whether a different mechanism is preferable.
 
-Priority 4 — backend policy / default-backend decision.  Open, but
-  not a blocker for the LoD work and not a blocker for declaring the
-  qged/mged stack merge complete.
+Already complete (do not re-open):
+- LoD redesign (Phases L0–L7).
+- BSG / qged merge for DB content (Phases A–E, F).
+- `s_update_callback` + leaf-side LoD flag retirement.
+- `dbpath`-keyed draw mutation API surface.
+- `gd_illum_solid` retirement; sensor-based illumination identity.
 
-Recommended next steps
-----------------------
-1. Treat the LoD redesign (Phases L0–L7) as the next work package.
-2. Land L0 + L1 first; they are additive and risk-free (no producers
-   touch BSG_NODE_LOD yet).
-3. Land L2 next as a no-op wiring change so the call site is in
-   place before any producer migrates.
-4. Migrate producers (L3) one primitive family at a time if needed
-   (mesh first, then CSG), keeping the legacy `s_update_callback`
-   path live during the transition.
-5. Once L3 is complete for all adaptive producers, land L4 to drop
-   the per-view duplicate scene objects, then L5 to drop the
-   BViewState::redraw side pass.
-6. L6 is the cleanup that finalises the design: removing
-   `s_update_callback` and the leaf-side BV_MESH_LOD/BV_CSG_LOD
-   flags.
-7. L7 is the parity / image-diff phase; only after it is green
-   should attention return to the deferred backend default decision.
 
 Files to read first
 -------------------
+For the BSG / LoD baseline (already DONE; reference only):
 - `draw_migration_plan.rtf`
-- `brlcad/doc/notes/drawing_stack_modernization.txt`
-- `brlcad/include/ged/bsg_ged_draw.h`
-- `brlcad/include/ged/dbi_state.h`
-- `brlcad/include/bv/util.h`
-- `brlcad/include/bsg/lod.h`
-- `brlcad/src/libged/bsg_ged_draw.c`
-- `brlcad/src/libged/dbi_state.cpp`
-- `brlcad/src/libged/draw.cpp`
-- `brlcad/src/libged/view/lod.cpp`
-- `brlcad/src/libbsg/draw_set.c`
+- `brlcad/include/bsg/defines.h`     (taxonomy bits)
+- `brlcad/include/bsg/lod.h`         (LoD entry points)
+- `brlcad/src/libbsg/scene_graph.cpp`
 - `brlcad/src/libbsg/lod.cpp`
-- `brlcad/src/libdm/view.c`
-- `brlcad/src/libdm/dm-gl_lod.cpp`
-- `brlcad/src/libged/tests/draw/bsg_view_obj.cpp`
-- `brlcad/src/libged/tests/draw/lod.cpp`
-- `brlcad/src/libged/tests/draw/lod_crossrun.cpp`
+- `brlcad/src/libbsg/lod_node.c`
+- `brlcad/src/libged/dbi_state.cpp`  (BViewState attach/detach)
+- `brlcad/src/libged/draw.cpp`       (adaptive producers post-L4)
+- `brlcad/src/libdm/view.c`          (dm_draw_objs)
+
+For the V plan starting points:
+- `brlcad/include/bv/util.h`         (bv_view_objs, bv_obj_for_view)
+- `brlcad/src/libbv/util.cpp`        (bv_obj_get / bv_obj_get_vo /
+                                      bv_view_objs / vobjs map)
+- `brlcad/src/libged/view/view.c`    (dispatch + independent + vZ)
+- `brlcad/src/libged/view/objs.cpp`  (view obj subcommands)
+- `brlcad/src/libged/view/gobjs.cpp` (view gobjs subcommands)
+- `brlcad/src/libged/view/{axes,lines,labels,polygons,data_lines,snap}.c[pp]`
+  (view-only producers)
+- `brlcad/src/libged/zap/zap2.cpp`   (view-only clearing semantics)
+
 
 What not to undo
 ----------------
-- Do not make gv_objs DB tables authoritative again.
+- Do not make the gv_objs DB ptbls authoritative again.
 - Do not move qged's higher-level state model into libbsg.
 - Do not add backend-specific fields back onto `bv_scene_obj`.
-- Do not add a second, parallel LoD update path once the shared one is
-  in place.  After Phase L2, `dm_draw_objs` calling `bsg_lod_update`
-  must remain the single update site.
-- Do not push LoD selection logic back down into individual scene-object
-  leaves or per-leaf callbacks.  The LoD node owns selection; leaves
-  are pure representations.
-- Do not reintroduce per-view duplicate `bv_scene_obj` subtrees for
-  adaptive geometry once Phase L4 has removed them.  Per-view state
-  for LoD is a cursor on the LoD node, not a duplicate subtree.
-- Do not re-fuse "is this a DB object?" with "is this an LoD leaf?"
-  on `bv_scene_obj`.  Identity belongs to tree placement; LoD
-  awareness belongs to the LoD node kind.
-- Do not judge success by qged alone; the target is one stack that works
-  cleanly for qged and for mged/Archer.
+- Do not reintroduce a second LoD update path; `dm_draw_objs`
+  calling `bsg_lod_update` is the single update site.
+- Do not push LoD selection logic back into per-leaf callbacks;
+  `s_update_callback` for adaptive update is gone for good.
+- Do not reintroduce per-view duplicate `bv_scene_obj` subtrees
+  for adaptive geometry (Phase L4 contract).
+- Do not re-fuse "is this a DB object?" with "is this an LoD
+  leaf?" on `bv_scene_obj`.
+- Do not add new producers that call `bv_obj_for_view` /
+  `bv_obj_get_vo` / `bv_obj_have_vo` / `bv_clear_view_obj`
+  (these are deprecation candidates as of V0).
+- Do not add new direct callers of `bv_view_objs(v, BV_VIEW_OBJS
+  [| BV_LOCAL_OBJS])`; new code goes through the V8 typed API.
+- Do not extend the `view` / `view obj` / `view gobjs` command
+  surface in its current shape; new functionality is added under
+  the V7-consolidated grammar (or, before V7, with explicit
+  awareness that the surface is going to be reshaped).
+- Do not judge success by qged alone; the target remains one
+  stack that works cleanly for qged and for mged/Archer.
