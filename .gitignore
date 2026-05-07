@@ -73,3 +73,7 @@ CMakeLists.txt.user
 
 
 bsg_view_obj_tmp.g
+bsg_qparity_cache/
+ged_test_bsg_quad_parity-*.log
+moss_bsg_quad_tmp.g
+*.bomb.log

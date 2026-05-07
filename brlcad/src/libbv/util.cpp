@@ -1769,14 +1769,14 @@ bv_scene_obj_bound(struct bv_scene_obj *sp, struct bview *v)
 	    }
 	}
     }
-    if (!calc && (s->s_type_flags & BV_MESH_LOD)) {
+    if (!calc && s->mesh_obj && s->draw_data) {
 	struct bv_mesh_lod *i = (struct bv_mesh_lod *)s->draw_data;
 	if (i) {
 	    point_t obmin, obmax;
 	    VMOVE(obmin, i->bmin);
 	    VMOVE(obmax, i->bmax);
 	    // Apply the scene matrix to the bounding box values to bound this
-	    // instance, since the BV_MESH_LOD data is based on the
+	    // instance, since the mesh LoD data is based on the
 	    // non-instanced mesh.
 	    MAT4X3PNT(s->bmin, s->s_mat, obmin);
 	    MAT4X3PNT(s->bmax, s->s_mat, obmax);
@@ -1797,14 +1797,14 @@ bv_scene_obj_bound(struct bv_scene_obj *sp, struct bview *v)
 	std::unordered_map<struct bview *, struct bv_scene_obj *>::iterator vo_it;
 	for (vo_it = s->i->vobjs.begin(); vo_it != s->i->vobjs.end(); vo_it++) {
 	    struct bv_scene_obj *lv = vo_it->second;
-	    if (lv->s_type_flags & BV_MESH_LOD) {
+	    if (lv->mesh_obj && lv->draw_data) {
 		struct bv_mesh_lod *i = (struct bv_mesh_lod *)lv->draw_data;
 		if (i) {
 		    point_t obmin, obmax;
 		    VMOVE(obmin, i->bmin);
 		    VMOVE(obmax, i->bmax);
 		    // Apply the scene matrix to the bounding box values to bound this
-		    // instance, since the BV_MESH_LOD data is based on the
+		    // instance, since the mesh LoD data is based on the
 		    // non-instanced mesh.
 		    MAT4X3PNT(lv->bmin, lv->s_mat, obmin);
 		    MAT4X3PNT(lv->bmax, lv->s_mat, obmax);

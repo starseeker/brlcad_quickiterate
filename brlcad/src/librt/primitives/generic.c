@@ -255,7 +255,6 @@ rt_wireframe_plot(struct bv_scene_obj *s, struct rt_db_internal *ip, const struc
     if (v && s->adaptive_wireframe && ip->idb_meth->ft_adaptive_plot) {
 
         ip->idb_meth->ft_adaptive_plot(&s->s_vlist, ip, tol, v, s->s_size);
-        s->s_type_flags |= BV_CSG_LOD;
 
 	return BRLCAD_OK;
     }

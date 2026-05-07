@@ -180,7 +180,6 @@ csg_wireframe_update(struct bv_scene_obj *vo, struct bview *v, int flag)
 
     if (ip->idb_meth->ft_adaptive_plot) {
 	ip->idb_meth->ft_adaptive_plot(&vo->s_vlist, ip, d->tol, v, vo->s_size);
-	vo->s_type_flags |= BV_CSG_LOD;
 	bv_obj_stale(vo);
     }
 
@@ -366,9 +365,6 @@ bot_adaptive_plot(struct bv_scene_obj *s, struct bview *v)
 	bv_mesh_lod_detail_clear_clbk(lod, &bot_mesh_info_clear_clbk);
 	bv_mesh_lod_detail_free_clbk(lod, &bot_mesh_info_free_clbk);
 
-	// LoD will need to re-check its level settings whenever the view changes.
-	// Phase 2-B: BViewState::redraw() also drives LoD updates explicitly.
-	s->s_update_callback = &bv_mesh_lod_view;
 	s->s_free_callback = &mesh_lod_draw_free;
 
 	// Initialize the LoD data to the current view
@@ -376,9 +372,6 @@ bot_adaptive_plot(struct bv_scene_obj *s, struct bview *v)
 	if (level < 0) {
 	    bu_log("Error loading info for initial LoD view\n");
 	}
-
-	// Mark the object as a Mesh LoD so the drawing routine knows to handle it differently
-	s->s_type_flags |= BV_MESH_LOD;
     }
 
     bv_mesh_lod_view(s, v, 0);
@@ -508,9 +501,6 @@ brep_adaptive_plot(struct bv_scene_obj *s, struct bview *v)
 	bv_mesh_lod_detail_clear_clbk(lod, &bot_mesh_info_clear_clbk);
 	bv_mesh_lod_detail_free_clbk(lod, &bot_mesh_info_free_clbk);
 
-	// LoD will need to re-check its level settings whenever the view changes.
-	// Phase 2-B: BViewState::redraw() also drives LoD updates explicitly.
-	s->s_update_callback = &bv_mesh_lod_view;
 	s->s_free_callback = &mesh_lod_draw_free;
 
 	// Initialize the LoD data to the current view
@@ -518,9 +508,6 @@ brep_adaptive_plot(struct bv_scene_obj *s, struct bview *v)
 	if (level < 0) {
 	    bu_log("Error loading info for initial LoD view\n");
 	}
-
-	// Mark the object as a Mesh LoD so the drawing routine knows to handle it differently
-	s->s_type_flags |= BV_MESH_LOD;
     }
 
     bv_mesh_lod_view(s, v, 0);
@@ -553,8 +540,6 @@ wireframe_plot(struct bv_scene_obj *s, struct bview *v, struct rt_db_internal *i
 
     // If we're adaptive, call the primitive's adaptive plotting, if any.
     if (ip->idb_meth->ft_adaptive_plot) {
-	s->s_update_callback = &csg_wireframe_update;
-	s->s_type_flags |= BV_CSG_LOD;
 	csg_wireframe_update(s, v, 1);
 	return;
     }

@@ -181,7 +181,11 @@ struct bv_obj_settings {
 #define BV_LABELS         0x08
 #define BV_AXES           0x10
 #define BV_POLYGONS       0x20
+/* BV_DEPRECATED (Phase L6): no longer set by any in-tree producer; flag bits
+ * retained for binary-compatibility of out-of-tree code only. */
 #define BV_MESH_LOD       0x40
+/* BV_DEPRECATED (Phase L6): no longer set by any in-tree producer; flag bits
+ * retained for binary-compatibility of out-of-tree code only. */
 #define BV_CSG_LOD        0x80
 
 struct bview;
@@ -261,8 +265,9 @@ struct bv_scene_obj  {
      * manage any custom data specific to this object */
     void *s_i_data;  /**< @brief custom view data (bv_line_seg, bv_label, bv_polyon, etc) */
 
-    /* BV_DEPRECATED: LoD and CSG adaptive-wireframe update callbacks will be
-     * triggered by BViewState::redraw() rather than being registered here.
+    /* BV_DEPRECATED: LoD and CSG adaptive-wireframe update callbacks are now
+     * driven by the BSG LoD node (bsg_lod_update via dm_draw_objs); this field
+     * is retained for non-LoD users such as polygon update callbacks.
      */
     int (*s_update_callback)(struct bv_scene_obj *, struct bview *, int);  /**< @brief custom update/generator for s_vlist */
     void (*s_free_callback)(struct bv_scene_obj *);  /**< @brief free any info stored in s_i_data, s_path and draw_data */
