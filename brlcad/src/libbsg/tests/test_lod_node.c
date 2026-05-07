@@ -35,6 +35,7 @@
  *                      and the cursor tracks the selected level.
  *  10. null_guards   — NULL inputs must not crash.
  *  11. ops_free      — the ops->free callback fires when the node is freed.
+ *  12. insert_above  — bsg_lod_node_insert_above wraps a leaf in-place.
  *
  * Usage: test_bsg_lod_node
  *   Returns 0 on success, non-zero on failure.
@@ -451,6 +452,42 @@ test_ops_free(void)
     return 0;
 }
 
+/* Test 12: insert_above preserves parent slot and wraps leaf */
+static int
+test_insert_above(void)
+{
+    printf("=== Test 12: insert_above ===\n");
+    struct bview *v = make_view("t12");
+
+    struct bv_scene_obj *parent = (struct bv_scene_obj *)bsg_group_create(v);
+    struct bv_scene_obj *leaf = (struct bv_scene_obj *)bsg_shape_create(v);
+    struct bv_scene_obj *sib = (struct bv_scene_obj *)bsg_shape_create(v);
+    CHECK(parent && leaf && sib, "test nodes created");
+
+    leaf->parent = parent;
+    sib->parent = parent;
+    bu_ptbl_ins(&parent->children, (long *)leaf);
+    bu_ptbl_ins(&parent->children, (long *)sib);
+    CHECK(BU_PTBL_LEN(&parent->children) == 2, "parent has two children");
+
+    bsg_node *lod = bsg_lod_node_insert_above((bsg_node *)leaf, v);
+    CHECK(lod != NULL, "insert_above returned lod node");
+    CHECK((((struct bv_scene_obj *)lod)->s_type_flags & BSG_NODE_LOD) != 0,
+	  "inserted node is BSG_NODE_LOD");
+    CHECK(BU_PTBL_LEN(&parent->children) == 2, "parent child count unchanged");
+    CHECK((struct bv_scene_obj *)BU_PTBL_GET(&parent->children, 0) == (struct bv_scene_obj *)lod,
+	  "lod replaced original leaf slot");
+    CHECK((struct bv_scene_obj *)BU_PTBL_GET(&parent->children, 1) == sib,
+	  "sibling order preserved");
+    CHECK(leaf->parent == (struct bv_scene_obj *)lod, "leaf parent updated to lod");
+    CHECK(BU_PTBL_LEN(&((struct bv_scene_obj *)lod)->children) == 1, "lod has one child");
+    CHECK((struct bv_scene_obj *)BU_PTBL_GET(&((struct bv_scene_obj *)lod)->children, 0) == leaf,
+	  "lod level-0 child is original leaf");
+
+    free_view(v);
+    return 0;
+}
+
 
 /* ================================================================== */
 /* Main                                                                */
@@ -473,6 +510,7 @@ main(int argc, char *argv[])
     ret |= test_synthetic_ops();
     ret |= test_null_guards();
     ret |= test_ops_free();
+    ret |= test_insert_above();
 
     if (g_fail == 0) {
 	printf("\nAll LoD node tests PASSED.\n");

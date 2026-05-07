@@ -231,6 +231,18 @@ bsg_lod_node_active_level(bsg_node *node, struct bview *v);
 BSG_EXPORT extern int
 bsg_lod_node_level_count(bsg_node *node);
 
+/**
+ * Insert a new BSG_NODE_LOD node between @p leaf and its current parent.
+ *
+ * The new LoD node is inserted in the same parent-child slot formerly
+ * occupied by @p leaf, and @p leaf is attached as level-0 child of the
+ * new LoD node.
+ *
+ * Returns the new LoD node, or NULL on failure.
+ */
+BSG_EXPORT extern bsg_node *
+bsg_lod_node_insert_above(bsg_node *leaf, struct bview *v);
+
 __END_DECLS
 
 #endif /* BSG_LOD_OPS_H */

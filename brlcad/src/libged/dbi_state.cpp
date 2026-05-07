@@ -61,6 +61,7 @@
 #include "./ged_private.h"
 #include "bsg/util.h"
 #include "bsg/draw_set.h"
+#include "bsg/lod_ops.h"
 
 #include "./dbi.h"
 
@@ -3724,6 +3725,27 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
 	for (o_it = objs.begin(); o_it != objs.end(); o_it++) {
 	    bv_log(3, "redraw %s[%s]", bu_vls_cstr(&((*(*o_it)).s_name)), bu_vls_cstr(&((*(*v_it)).gv_name)));
 	    draw_scene(*o_it, *v_it);
+	}
+    }
+
+    struct bview *first_view = v ? v : *(views.begin());
+    if (first_view) {
+	for (auto sp : objs) {
+	    if (!sp)
+		continue;
+	    if (!(sp->mesh_obj || sp->csg_obj))
+		continue;
+	    if (sp->parent && (((struct bv_scene_obj *)sp->parent)->s_type_flags & BSG_NODE_LOD))
+		continue;
+	    struct bv_scene_obj *lod = (struct bv_scene_obj *)bsg_lod_node_insert_above((bsg_node *)sp, first_view);
+	    if (!lod)
+		continue;
+	    if (sp->mesh_obj)
+		ged_lod_install_mesh_ops(lod, sp);
+	    else if (sp->csg_obj)
+		ged_lod_install_csg_ops(lod, sp);
+	    for (auto lv : views)
+		bsg_lod_node_get_cursor((bsg_node *)lod, lv);
 	}
     }
 

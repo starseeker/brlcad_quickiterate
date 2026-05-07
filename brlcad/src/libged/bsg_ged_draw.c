@@ -49,12 +49,14 @@
 #include "bu/ptbl.h"
 #include "bu/str.h"
 #include "bu/color.h"
+#include "bv/lod.h"
 #include "bv/plot3.h"
 #include "bg/clip.h"
 #include "bsg/defines.h"
 #include "bsg/draw_ctx.h"
 #include "bsg/draw_set.h"
 #include "bsg/field.h"
+#include "bsg/lod_ops.h"
 #include "bsg/overlay.h"
 #include "bsg/sensor.h"
 #include "bsg/visit.h"
@@ -88,6 +90,138 @@ _sg_bump_rev_node(struct bv_scene_obj *n)
 /* defined in draw_calc.cpp */
 extern fastf_t brep_est_avg_curve_len(struct rt_brep_internal *bi);
 extern void createDListSolid(struct bv_scene_obj *sp);
+extern int csg_wireframe_update(struct bv_scene_obj *vo, struct bview *v, int flag);
+
+struct _mesh_lod_state {
+    struct bv_scene_obj *s;
+};
+
+struct _csg_lod_state {
+    struct bv_scene_obj *s;
+};
+
+static int
+_mesh_lod_select_level(bsg_node *node, struct bview *v)
+{
+    struct bsg_lod_payload *pl = (struct bsg_lod_payload *)((struct bv_scene_obj *)node)->s_i_data;
+    if (!pl || !pl->user_data || !v)
+	return 0;
+    struct _mesh_lod_state *st = (struct _mesh_lod_state *)pl->user_data;
+    struct bv_scene_obj *vo = bv_obj_for_view(st->s, v);
+    if (!vo)
+	return 0;
+    bv_mesh_lod_view(vo, v, 0);
+    return 0;
+}
+
+static void
+_mesh_lod_activate_level(bsg_node *node, struct bview *v, int level)
+{
+    struct bsg_lod_view_cursor *c = bsg_lod_node_get_cursor(node, v);
+    if (!c || !v)
+	return;
+    c->level = level;
+    c->view_scale = v->gv_scale;
+    c->perspective_flag = (SMALL_FASTF < v->gv_perspective) ? 1 : 0;
+    c->last_frame_rev = v->gv_frame_rev;
+}
+
+static int
+_mesh_lod_is_stale(bsg_node *node, struct bview *v)
+{
+    struct bsg_lod_view_cursor *c = bsg_lod_node_get_cursor(node, v);
+    if (!c || !v)
+	return 0;
+    if (c->level < 0)
+	return 1;
+    if (!ZERO(c->view_scale - v->gv_scale))
+	return 1;
+    if (c->perspective_flag != ((SMALL_FASTF < v->gv_perspective) ? 1 : 0))
+	return 1;
+    return 0;
+}
+
+static void
+_mesh_lod_free(bsg_node *node)
+{
+    struct bsg_lod_payload *pl = (struct bsg_lod_payload *)((struct bv_scene_obj *)node)->s_i_data;
+    if (!pl || !pl->user_data)
+	return;
+    bu_free(pl->user_data, "_mesh_lod_state");
+}
+
+static struct bsg_lod_ops _mesh_lod_ops = {
+    _mesh_lod_select_level,
+    _mesh_lod_activate_level,
+    _mesh_lod_is_stale,
+    _mesh_lod_free
+};
+
+static int
+_csg_lod_select_level(bsg_node *node, struct bview *v)
+{
+    struct bsg_lod_payload *pl = (struct bsg_lod_payload *)((struct bv_scene_obj *)node)->s_i_data;
+    if (!pl || !pl->user_data || !v)
+	return 0;
+    struct _csg_lod_state *st = (struct _csg_lod_state *)pl->user_data;
+    struct bv_scene_obj *vo = bv_obj_for_view(st->s, v);
+    if (!vo)
+	return 0;
+    csg_wireframe_update(vo, v, 0);
+    return 0;
+}
+
+static void
+_csg_lod_activate_level(bsg_node *node, struct bview *v, int level)
+{
+    _mesh_lod_activate_level(node, v, level);
+}
+
+static int
+_csg_lod_is_stale(bsg_node *node, struct bview *v)
+{
+    return _mesh_lod_is_stale(node, v);
+}
+
+static void
+_csg_lod_free(bsg_node *node)
+{
+    struct bsg_lod_payload *pl = (struct bsg_lod_payload *)((struct bv_scene_obj *)node)->s_i_data;
+    if (!pl || !pl->user_data)
+	return;
+    bu_free(pl->user_data, "_csg_lod_state");
+}
+
+static struct bsg_lod_ops _csg_lod_ops = {
+    _csg_lod_select_level,
+    _csg_lod_activate_level,
+    _csg_lod_is_stale,
+    _csg_lod_free
+};
+
+int
+ged_lod_install_mesh_ops(struct bv_scene_obj *lod, struct bv_scene_obj *s)
+{
+    if (!lod || !s)
+	return -1;
+    struct _mesh_lod_state *st;
+    BU_GET(st, struct _mesh_lod_state);
+    st->s = s;
+    bsg_lod_node_set_ops((bsg_node *)lod, &_mesh_lod_ops, (void *)st);
+    return 0;
+}
+
+int
+ged_lod_install_csg_ops(struct bv_scene_obj *lod, struct bv_scene_obj *s)
+{
+    if (!lod || !s)
+	return -1;
+    struct _csg_lod_state *st;
+    BU_GET(st, struct _csg_lod_state);
+    st->s = s;
+    bsg_lod_node_set_ops((bsg_node *)lod, &_csg_lod_ops, (void *)st);
+    return 0;
+}
 
 /* ------------------------------------------------------------------ */
 /* BSG group-tree helpers (file-private)                               */
