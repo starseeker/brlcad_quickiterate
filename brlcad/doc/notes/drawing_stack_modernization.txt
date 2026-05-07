@@ -434,7 +434,7 @@ Phase L4 — remove per-view duplicate scene_objs for adaptive cases  DONE
   - `src/libbv/util.cpp: bv_scene_obj_bound` now resolves LoD-managed
     bounds via the selected child of the enclosing `BSG_NODE_LOD`.
 
-Phase L5 — retire the BViewState::redraw LoD side pass
+Phase L5 — retire the BViewState::redraw LoD side pass  DONE
   - Delete the explicit `bv_mesh_lod_view` / `csg_wireframe_update`
     loop near `src/libged/dbi_state.cpp:3760`.
   - With L2+L3+L4 in place, redraw-on-zoom propagates LoD because
@@ -442,6 +442,10 @@ Phase L5 — retire the BViewState::redraw LoD side pass
     compensation should be needed.
   - Tests: full draw regression set; specifically verify zoom-driven
     redraws and headless image regeneration paths.
+  Completed:
+  - `src/libged/dbi_state.cpp` no longer runs the explicit redraw-side
+    LoD loop (`bv_mesh_lod_view` / `csg_wireframe_update`); LoD updates
+    are now driven by `dm_draw_objs` via `bsg_lod_update`.
 
 Phase L6 — retire `s_update_callback` and the BV_MESH_LOD/BV_CSG_LOD
             leaf flags

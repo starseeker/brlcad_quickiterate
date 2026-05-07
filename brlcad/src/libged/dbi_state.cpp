@@ -65,9 +65,8 @@
 
 #include "./dbi.h"
 
-/* Forward declarations for drawing helpers defined in draw.cpp (Phase 2-B) */
+/* Forward declaration for drawing helper defined in draw.cpp */
 extern "C" void draw_scene(struct bv_scene_obj *s, struct bview *v);
-extern "C" int  csg_wireframe_update(struct bv_scene_obj *vo, struct bview *v, int flag);
 
 // Subdirectory in BRL-CAD cache to Dbi state data
 #define DBI_CACHEDIR ".Dbi"
@@ -3784,34 +3783,6 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
 	}
 	if (!items.empty())
 	    dbis->start_geom_load(items);
-    }
-
-    // Phase 2-B: Update LoD levels for all drawn adaptive objects.
-    // BViewState now explicitly drives this pass in addition to the per-frame
-    // s_update_callback path in libdm/view.c, so that view-scale changes from
-    // BViewState::redraw() (e.g. redraw_on_zoom) also propagate LoD levels.
-    for (v_it = views.begin(); v_it != views.end(); v_it++) {
-	struct bview *lv = *v_it;
-	std::unordered_map<unsigned long long, std::unordered_map<int, struct bv_scene_obj *>>::iterator ls_it;
-	for (ls_it = s_map.begin(); ls_it != s_map.end(); ls_it++) {
-	    for (auto &mm : ls_it->second) {
-		struct bv_scene_obj *so = mm.second;
-		if (!so) continue;
-		// Recurse into view-specific children
-		for (size_t ci = 0; ci < BU_PTBL_LEN(&so->children); ci++) {
-		    struct bv_scene_obj *co = (struct bv_scene_obj *)BU_PTBL_GET(&so->children, ci);
-		    if (!co) continue;
-		    if (co->s_type_flags & BV_MESH_LOD)
-			bv_mesh_lod_view(co, lv, 0);
-		    if (co->s_type_flags & BV_CSG_LOD)
-			csg_wireframe_update(co, lv, 0);
-		}
-		if (so->s_type_flags & BV_MESH_LOD)
-		    bv_mesh_lod_view(so, lv, 0);
-		if (so->s_type_flags & BV_CSG_LOD)
-		    csg_wireframe_update(so, lv, 0);
-	    }
-	}
     }
 
     // We need to check if any drawn solids are selected.  If so, we need
