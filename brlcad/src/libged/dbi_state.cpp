@@ -3728,18 +3728,25 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
 	}
     }
 
-    struct bview *first_view = v ? v : *(views.begin());
+    struct bview *first_view = NULL;
+    if (v) {
+	first_view = v;
+    } else if (!views.empty()) {
+	first_view = *(views.begin());
+    }
     if (first_view) {
 	for (auto sp : objs) {
 	    if (!sp)
 		continue;
 	    if (!(sp->mesh_obj || sp->csg_obj))
 		continue;
-	    if (sp->parent && (((struct bv_scene_obj *)sp->parent)->s_type_flags & BSG_NODE_LOD))
+	    struct bv_scene_obj *pp = (struct bv_scene_obj *)sp->parent;
+	    if (pp && (pp->s_type_flags & BSG_NODE_LOD))
 		continue;
 	    struct bv_scene_obj *lod = (struct bv_scene_obj *)bsg_lod_node_insert_above((bsg_node *)sp, first_view);
 	    if (!lod)
 		continue;
+	    /* mesh_obj takes precedence if both flags are set */
 	    if (sp->mesh_obj)
 		ged_lod_install_mesh_ops(lod, sp);
 	    else if (sp->csg_obj)
