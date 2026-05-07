@@ -187,7 +187,7 @@ set helplib_data(dgo_illum)		{{[-n] obj} {illuminate/highlight obj}}
 set helplib_data(dgo_nirt)		{{[nirt(1) options] [x y z]}	{trace a single ray from current view}}
 set helplib_data(dgo_observer)		{{cmd [args]} {Attach/detach observer to/from list}}
 set helplib_data(dgo_open)		{{name wdb_obj} {open/create a new drawable geometry object}}
-set helplib_data(dgo_overlay)		{{file.plot3 [name]}	{overlay the specified 2D/3D UNIX plot file}}
+set helplib_data(dgo_overlay)		{{[-N name] file.plot3 [file2.plot3 ...]}	{overlay one or more 2D/3D UNIX plot files}}
 set helplib_data(dgo_qray)		{{subcommand}	{get/set query_ray characteristics}}
 set helplib_data(dgo_solid_report)	{{[lvl]} {print solid table & vector list}}
 set helplib_data(dgo_rt)		{{[options] [-- objects]}	{do raytrace of view or specified objects}}

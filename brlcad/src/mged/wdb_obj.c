@@ -1829,7 +1829,6 @@ static struct bu_cmdtab wdb_newcmds[] = {
     {"concat",		(int (*)(void *, int, const char **))ged_exec_concat},
     {"copyeval",	(int (*)(void *, int, const char **))ged_exec_copyeval},
     {"cp",		(int (*)(void *, int, const char **))ged_exec_cp},
-    {"dbip",		(int (*)(void *, int, const char **))ged_exec_dbip}, // TODO - this needs to go away
     {"dump",		(int (*)(void *, int, const char **))ged_exec_dump},
     {"dup",		(int (*)(void *, int, const char **))ged_exec_dup},
     {"edcomb",		(int (*)(void *, int, const char **))ged_exec_edcomb},
