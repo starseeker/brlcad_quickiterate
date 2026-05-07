@@ -673,7 +673,19 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
     // Primary object drawing.  See if we have an active view-specific object - if so,
     // use that, otherwise use the original object
     if (s->s_type_flags & BV_DB_OBJS) {
+#if defined(__clang__)
+#  pragma clang diagnostic push
+#  pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#elif defined(__GNUC__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
 	struct bv_scene_obj *vo = bv_obj_for_view(s, v);
+#if defined(__clang__)
+#  pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#  pragma GCC diagnostic pop
+#endif
 	if (!vo) {
 	    vo = s;
 	    bv_log(1, "dm_draw_scene_obj - no view obj, drawing %s", bu_vls_cstr(&s->s_name));

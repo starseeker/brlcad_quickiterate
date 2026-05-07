@@ -462,6 +462,38 @@ Mechanical work:
 Tests: no behavioural change.  Build must remain warning-clean
 under the deprecation markers.
 
+Phase V0 audit snapshot (2026-05-07)
+------------------------------------
+The in-tree producers currently creating objects in `BV_VIEW_OBJS`
+fall into these lifecycle buckets:
+
+- Per-session persistent:
+  - `src/libged/view/axes.c` (`_axes_cmd_create`)
+  - `src/libged/view/lines.c` (`_line_cmd_create`)
+  - `src/libged/view/labels.c` (`_label_cmd_create`)
+  - `src/libged/view/polygons.c` (`_poly_cmd_create`,
+    `_poly_cmd_import`)
+  - `src/libqtcad/QgPolyFilter.cpp` (`QPolyCreateFilter`)
+  - `src/qged/plugins/polygon/QPolyCreate.cpp`
+    (`QPolyCreate::do_import_sketch`)
+- Per-frame / interaction transient:
+  - `src/libqtcad/QgMeasureFilter.cpp` (`QgMeasureFilter`)
+  - `src/libbv/vlist.c` (`bv_vlblock_obj`)
+- Edit-bound:
+  - `src/qged/plugins/edit/ell/QEll.cpp`
+    (`QEll::update_obj_wireframe`, `QEll::update_viewobj_name`)
+
+Three "per-view" meanings and current producer placement:
+- View-only object (visualization-only, no DB identity): axes, lines,
+  labels, polygons, measurement overlays, and vlblock overlays above.
+- View-private DB content (DB-backed, drawn only in one view): this is
+  still driven by `view independent` and `BV_DB_OBJS|BV_LOCAL_OBJS`;
+  no audited `BV_VIEW_OBJS` producer belongs in this bucket.
+- Per-view variant of a shared object: `QEll` editing wireframe
+  overlays currently use `BV_VIEW_OBJS`; adaptive LoD no longer does,
+  and the remaining adaptive-toggle cleanup path is in
+  `dbi_state.cpp` (Phase V5).
+
 Phase V1 — add a view-scope concept to the BSG tree
 ---------------------------------------------------
 Introduce structural support in libbsg so view-only objects can
