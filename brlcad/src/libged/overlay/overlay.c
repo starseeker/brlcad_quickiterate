@@ -188,7 +188,7 @@ ged_overlay_core(struct ged *gedp, int argc, const char *argv[])
 		char **files = NULL;
 		size_t count = bu_file_list(".", argv[ai], &files);
 		if (count <= 0) {
-		    bu_vls_printf(gedp->ged_result_str, "ged_overlay_core: failed to open file - %s\n", argv[ai]);
+		    bu_vls_printf(gedp->ged_result_str, "overlay: failed to open file - %s\n", argv[ai]);
 		    bv_vlblock_free(vbp);
 		    bu_vls_free(&nroot);
 		    bu_vls_free(&vname);
@@ -196,7 +196,7 @@ ged_overlay_core(struct ged *gedp, int argc, const char *argv[])
 		}
 		for (size_t i = 0; i < count; i++) {
 		    if ((fp = fopen(files[i], "rb")) == NULL) {
-			bu_vls_printf(gedp->ged_result_str, "ged_overlay_core: failed to open file - %s\n", files[i]);
+			bu_vls_printf(gedp->ged_result_str, "overlay: failed to open file - %s\n", files[i]);
 			bv_vlblock_free(vbp);
 			bu_argv_free(count, files);
 			bu_vls_free(&nroot);
