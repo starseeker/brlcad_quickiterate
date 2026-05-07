@@ -30,9 +30,16 @@ brlcad_add_test(NAME libbsg_scene_graph COMMAND test_bsg_scene_graph)
 brlcad_addexec(test_bsg_phase6 test_phase6.c "libbsg;libbv;libbu" TEST)
 brlcad_add_test(NAME libbsg_phase6 COMMAND test_bsg_phase6)
 
+#
+# Phase L0: BSG_NODE_LOD lifecycle (create/set_ops/attach_level/cursor)
+#
+brlcad_addexec(test_bsg_lod_node test_lod_node.c "libbsg;libbv;libbu" TEST)
+brlcad_add_test(NAME libbsg_lod_node COMMAND test_bsg_lod_node)
+
 cmakefiles(
   CMakeLists.txt
   test_arb8.c
+  test_lod_node.c
   test_phase6.c
   test_scene_graph.c
   test_vlist.c

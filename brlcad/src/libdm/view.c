@@ -29,6 +29,8 @@
 #include "bv/util.h"
 #include "bsg/util.h"
 #include "bsg/defines.h"
+#include "bsg/lod.h"
+#include "bsg/lod_ops.h"
 #include "bsg/visit.h"
 #define DM_WITH_RT
 #include "dm.h"
@@ -882,6 +884,28 @@ _bsg_view_traverse_impl(struct bview *v, void *root,
 	if (s->s_type_flags & BSG_NODE_SENSOR)
 	    continue;
 
+	/* Phase L0 (LoD redesign): for BSG_NODE_LOD nodes, render only
+	 * the child selected by the per-view cursor.  bsg_lod_update()
+	 * (called once before this traversal from dm_draw_objs) has already
+	 * run select_level/activate_level, so we just need to read the
+	 * cursor and recurse into the right child.  When no level has been
+	 * selected yet (level == -1) we fall through to the child at index 0
+	 * as a safe default. */
+	if (s->s_type_flags & BSG_NODE_LOD) {
+	    int active = bsg_lod_node_active_level((bsg_node *)s, v);
+	    int nlevels = bsg_lod_node_level_count((bsg_node *)s);
+	    if (nlevels > 0) {
+		if (active < 0 || active >= nlevels)
+		    active = 0;
+		struct bv_scene_obj *child =
+		    (struct bv_scene_obj *)BU_PTBL_GET(&s->children, active);
+		if (child)
+		    _bsg_view_traverse_impl(v, child,
+					    transparency_pass, cur_mat);
+	    }
+	    continue;
+	}
+
 	/* Phase 6 (BSG render contract): handle transform nodes — push
 	 * matrix, recurse, pop.  Carry the new accumulated matrix
 	 * through to dm_draw_scene_obj so that an s_iflag==UP child
@@ -991,6 +1015,14 @@ dm_draw_objs(struct bview *v, void (*dm_draw_custom)(struct bview *, void *), vo
     // e.g. before the first draw command) there is no renderable content and
     // the block is skipped.
     if (v->bsg_root) {
+	/* Phase L2 (LoD redesign): run the LoD update pass once per frame
+	 * before the render traversal.  Visits every BSG_NODE_LOD node in
+	 * the tree and, for any that are stale for this view, calls
+	 * select_level then activate_level.  This is a no-op on trees that
+	 * contain no BSG_NODE_LOD nodes (i.e. all existing production trees
+	 * until Phase L3 migrates producers). */
+	bsg_lod_update((bsg_node *)v->bsg_root, v);
+
 	/* Phase 1 (BSG render contract): two-pass transparency render.
 	 * Opaque first with depth writes on, then transparent with depth
 	 * writes off.  When the dm doesn't support / want transparency
