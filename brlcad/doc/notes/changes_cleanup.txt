@@ -4,37 +4,42 @@ CHANGES Cleanup Plan (pre-7.40 entries)
 Scope decisions
 ---------------
 - Do now: low + medium disruption items.
-- Also do now: include/bg/chull.h transition completion.
 - Defer for later: high-disruption items and struct hit.hit_point / hit_normal.
 - Defer explicitly: ~/.density handling.
 
-Batching strategy
------------------
-1) CHULL transition completion
-   - Ensure replacement/index-based APIs are fully implemented in libbg.
-   - Add/extend tests to cover replacement behavior.
-   - Keep behavior stable for existing callers while enabling migration.
 
-2) Low disruption removals
-   - Remove summary command legacy p/r/g argument handling.
-   - Remove MGED menu exposure of Pick Raytrace-Object(s).
-   - Remove MGED dbip/get_dbip command exposure.
+Low disruption
 
-3) Medium disruption removals (initial tranche)
-   - Remove selected deprecated MGED/libged command aliases where a tested replacement exists.
-   - Keep changes narrowly scoped per batch to simplify validation and rollback.
+    include/vmath.h: remove VCOMB3, VCOMB3N, VJOIN4; no source uses found outside definitions.
+    nmg_model_break_e_on_v: replacement nmg_break_e_on_v exists and old function is a wrapper.
+    src/tclscripts/mged/bots.tcl: likely standalone Tcl removal plus install list/docs cleanup.
 
-4) CHANGES bookkeeping
-   - As each item is actually applied, move it from DEPRECATED to OBSOLETED with release note text.
-   - Keep deferred items in DEPRECATED until implemented.
+Medium disruption
+
+    MGED E command: replacement drawing mode exists, but command registration, docs, tests, and aliases must be cleaned carefully.
+    Distillation-era MGED/libged commands still present, including db_glob, debugbu, debugdir, debuglib, debugnmg, match, preview, regdef, rrt, savekey, shaded_mode, sync, etc.
+    Image/signal tools: at least alias-pix, asc2pix, bw-a, and double-asc still build; verify icv/cv replacement coverage before removing binaries/docs/tests.
+    BU_PTBL_* macros: many internal uses remain; replace internal usage first, then remove public macros.
+    XDR byte-order API and db4 matrix conversion functions: replacements exist, but internal uses remain.
+    rt_prep_timer / rt_get_timer: many internal uses remain; migrate to bu_timer / bu_elapsed.
+
+High disruption
+
+    Legacy MGED commands replaced by rm, search, comb, debug, edit, nirt, push: replacements exist, but aliases are broadly registered and may be used by Tcl scripts/tests.
+    Tcl classes Mged, Database, Db, Dm, Drawable, Display, QuadDisplay, View: still present; replacing with Ged is likely broad GUI/Tcl work.
+    bspline, poly, hf, and FASTGEN4 CLINE: still wired into librt primitive tables, headers, tests, and conversion paths.
+    RT_DBHASH / RT_DBNHASH: still used in public headers and librt internals; requires privatization strategy.
+    rt_comb_internal fields and reserved attribute migrations: behavior-sensitive database compatibility work.
+
+IMPORTANT - update CHANGES file per standard policy whenever a deprecated feature is retired.
 
 Validation approach
 -------------------
 - Build touched targets after each batch.
-- Run focused tests for modified areas (libbg tests for convex hull work; libged/mged tests for command-surface changes).
+- Run focused tests for modified areas (libged/mged tests for command-surface changes).
 - Keep behavior-preserving changes small and reviewable.
 
-Deferred list (this round)
+Deferred list
 --------------------------
 - struct hit.hit_point / struct hit.hit_normal removal.
 - High-disruption primitive/database compatibility removals.
