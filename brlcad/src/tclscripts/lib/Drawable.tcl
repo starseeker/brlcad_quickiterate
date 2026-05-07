@@ -252,7 +252,7 @@
     $help add illum		{{name} {illuminate object}}
     $help add label		{{[-n] obj} {label objects}}
     $help add nirt		{{[nirt(1) options] [x y z]}	{trace a single ray from current view}}
-    $help add overlay		{{file.plot3 [name]} {overlay the specified 2D/3D UNIX plot file}}
+    $help add overlay		{{[-N name] file.plot3 [file2.plot3 ...]} {overlay one or more 2D/3D UNIX plot files}}
     $help add qray		{{subcommand}	{get/set query_ray characteristics}}
     $help add rt		{{[options] [-- objects]} {do raytrace of view or specified objects}}
     $help add rtabort		{{} {abort the associated raytraces}}

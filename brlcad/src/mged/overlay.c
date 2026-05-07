@@ -32,7 +32,7 @@
 #include "./sedit.h"
 #include "./mged_dm.h"
 
-/* Usage:  overlay file.plot3 [name] */
+/* Usage:  overlay [-N name] file.plot3 [file2.plot3 ...] */
 int
 cmd_overlay(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 {

@@ -252,13 +252,6 @@ MGED gui
 	only as lower level settings when there are sensible defaults
 	that are seldom changed.)
 
-MGED overlay command
-	Instead of an optional second argument being the view object
-	name, command will take (potentially) multiple plot files
-	as input to overlay.  Optional view object name will be
-	specified with the -N option.
-	[deprecated 7.32]
-
 7.30
 ----
 ~/.density
@@ -440,6 +433,11 @@ MGED commands
 
 MGED gui
 	Settings->Mouse Behavior->Pick Raytrace-Object(s) menu entry removed
+	[deprecated 7.32]
+
+MGED overlay command
+	Removed positional overlay-name argument; overlay names now use
+	-N/--view-obj and multiple plot files can be specified positionally.
 	[deprecated 7.32]
 
 7.42.2

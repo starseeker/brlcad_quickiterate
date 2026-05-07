@@ -79,7 +79,7 @@ ged_overlay_core(struct ged *gedp, int argc, const char *argv[])
     struct bu_vls vname = BU_VLS_INIT_ZERO;
     struct bu_list *vlfree = &rt_vlfree;
 
-    static char usage[] = "Usage: overlay [options] file\n";
+    static char usage[] = "Usage: overlay [options] file [file ...]\n";
 
     struct bu_opt_desc d[15];
     BU_OPT(d[0],  "h", "help",           "",     NULL,            &print_help,       "Print help and exit");
@@ -161,23 +161,12 @@ ged_overlay_core(struct ged *gedp, int argc, const char *argv[])
 	bu_vls_free(&vname);
 	return GED_HELP;
     }
-    /* check arg cnt */
-    if (argc > 2) {
-	_ged_cmd_help(gedp, usage, d);
-	bu_vls_free(&vname);
-	return GED_HELP;
-    }
-
-    /* Second arg, if present, is view obj name */
-    if (argc == 2) {
-	bu_vls_sprintf(&vname, "%s", argv[1]);
-    } else {
-	if (!bu_vls_strlen(&vname))
-	    bu_vls_sprintf(&vname, "_PLOT_OVERLAY_");
-    }
 
     if (!write_fb) {
 	struct bv_vlblock*vbp;
+
+	if (!bu_vls_strlen(&vname))
+	    bu_vls_sprintf(&vname, "_PLOT_OVERLAY_");
 
 	struct bu_vls nroot = BU_VLS_INIT_ZERO;
 	if (!BU_STR_EQUAL(bu_vls_cstr(&vname), "_PLOT_OVERLAY_")) {
@@ -188,49 +177,52 @@ ged_overlay_core(struct ged *gedp, int argc, const char *argv[])
 	    bu_vls_prepend(&nroot, "overlay::");
 	}
 
-	FILE *fp = fopen(argv[0], "rb");
+	vbp = bv_vlblock_init(vlfree, 32);
+	for (int ai = 0; ai < argc; ai++) {
+	    FILE *fp = fopen(argv[ai], "rb");
 
-	/* If we don't have an exact filename match, see if we got a pattern -
-	 * it is practical to plot many plot files simultaneously, so that may
-	 * be what was specified. */
-	if (fp == NULL) {
-	    char **files = NULL;
-	    size_t count = bu_file_list(".", argv[0], &files);
-	    if (count <= 0) {
-		bu_vls_printf(gedp->ged_result_str, "ged_overlay_core: failed to open file - %s\n", argv[1]);
-		bu_vls_free(&nroot);
-		bu_vls_free(&vname);
-		return BRLCAD_ERROR;
-	    }
-	    vbp = bv_vlblock_init(vlfree, 32);
-	    for (size_t i = 0; i < count; i++) {
-		if ((fp = fopen(files[i], "rb")) == NULL) {
-		    bu_vls_printf(gedp->ged_result_str, "ged_overlay_core: failed to open file - %s\n", files[i]);
-		    bu_argv_free(count, files);
+	    /* If we don't have an exact filename match, see if we got a pattern -
+	     * it is practical to plot many plot files simultaneously, so that may
+	     * be what was specified. */
+	    if (fp == NULL) {
+		char **files = NULL;
+		size_t count = bu_file_list(".", argv[ai], &files);
+		if (count <= 0) {
+		    bu_vls_printf(gedp->ged_result_str, "ged_overlay_core: failed to open file - %s\n", argv[ai]);
+		    bv_vlblock_free(vbp);
 		    bu_vls_free(&nroot);
 		    bu_vls_free(&vname);
 		    return BRLCAD_ERROR;
 		}
+		for (size_t i = 0; i < count; i++) {
+		    if ((fp = fopen(files[i], "rb")) == NULL) {
+			bu_vls_printf(gedp->ged_result_str, "ged_overlay_core: failed to open file - %s\n", files[i]);
+			bv_vlblock_free(vbp);
+			bu_argv_free(count, files);
+			bu_vls_free(&nroot);
+			bu_vls_free(&vname);
+			return BRLCAD_ERROR;
+		    }
+		    ret = rt_uplot_to_vlist(vbp, fp, size, gedp->i->ged_gdp->gd_uplotOutputMode);
+		    fclose(fp);
+		    if (ret < 0) {
+			bv_vlblock_free(vbp);
+			bu_argv_free(count, files);
+			bu_vls_free(&nroot);
+			bu_vls_free(&vname);
+			return BRLCAD_ERROR;
+		    }
+		}
+		bu_argv_free(count, files);
+	    } else {
 		ret = rt_uplot_to_vlist(vbp, fp, size, gedp->i->ged_gdp->gd_uplotOutputMode);
 		fclose(fp);
 		if (ret < 0) {
 		    bv_vlblock_free(vbp);
-		    bu_argv_free(count, files);
 		    bu_vls_free(&nroot);
 		    bu_vls_free(&vname);
 		    return BRLCAD_ERROR;
 		}
-	    }
-	    bu_argv_free(count, files);
-	} else {
-	    vbp = bv_vlblock_init(vlfree, 32);
-	    ret = rt_uplot_to_vlist(vbp, fp, size, gedp->i->ged_gdp->gd_uplotOutputMode);
-	    fclose(fp);
-	    if (ret < 0) {
-		bv_vlblock_free(vbp);
-		bu_vls_free(&nroot);
-		bu_vls_free(&vname);
-		return BRLCAD_ERROR;
 	    }
 	}
 
@@ -248,6 +240,12 @@ ged_overlay_core(struct ged *gedp, int argc, const char *argv[])
 	return BRLCAD_OK;
 
     } else {
+	/* Framebuffer mode handles a single input image. */
+	if (argc != 1) {
+	    _ged_cmd_help(gedp, usage, d);
+	    bu_vls_free(&vname);
+	    return GED_HELP;
+	}
 
 	if (!bu_file_exists(argv[0], NULL)) {
 	    bu_vls_printf(gedp->ged_result_str, ": file %s not found", argv[0]);
