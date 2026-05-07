@@ -198,7 +198,7 @@ main(int ac, char *av[])
     /* Let DbiState update with the new draw content */
     dbis->update();
     SWCHECK(sw.v && sw.v->bsg_root != NULL,
-	    "after binding QgSW view to GED and drawing, v->bsg_root must be non-NULL");
+            "after binding QgSW view to GED and drawing, v->bsg_root must be non-NULL");
 
     /* ---- Force paintEvent via QWidget::render() ---- */
     /* With the Qt offscreen platform, render() will trigger paintEvent,
