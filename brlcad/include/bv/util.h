@@ -379,6 +379,8 @@ BV_EXPORT size_t
 bv_view_obj_remove_all(struct bview *v, int scope);
 BV_EXPORT struct bv_scene_obj *
 bv_view_obj_find(struct bview *v, const char *name);
+/* Visit view-only objects visible in @p v for the requested scope mask.
+ * Callback contract: return non-zero to continue iteration, return 0 to stop. */
 BV_EXPORT void
 bv_view_obj_visit(struct bview *v,
 		  int scope_mask,
