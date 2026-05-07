@@ -62,6 +62,17 @@ __BEGIN_DECLS
 #define BSG_NODE_VLIST       0x100000000ULL  /**< @brief raw vlist node */
 #define BSG_NODE_TRANSFORM   0x200000000ULL  /**< @brief transform node */
 #define BSG_NODE_SENSOR      0x400000000ULL  /**< @brief sensor / trigger node */
+/**
+ * Phase V1 (drawing_stack_modernization):
+ * A view-scope container node.  Children are skipped during traversal of any
+ * view whose pointer does not match the node's s_v slot.  When s_v is NULL
+ * the scope is "shared" and its children are visible to all views.
+ *
+ * Bit allocation note:
+ *   bits 28-34: BSG_NODE_* taxonomy flags (ROOT through SENSOR)
+ *   bit  35:    BSG_NODE_VIEW_SCOPE (0x800000000)
+ */
+#define BSG_NODE_VIEW_SCOPE  0x800000000ULL  /**< @brief view-scope container node */
 
 /**
  * Payload type flags — stored in s_type_flags alongside BSG_NODE_* bits.
@@ -69,6 +80,7 @@ __BEGIN_DECLS
  *
  * Bit allocation:
  *   bits 28-34: BSG_NODE_* taxonomy flags
+ *   bit  35:    BSG_NODE_VIEW_SCOPE
  *   bits 36-38: BSG_SENSOR_* sub-type flags (defined in sensor.h)
  *   bits 40-44: BSG_PAYLOAD_* payload type flags (this block)
  */

@@ -36,12 +36,19 @@ brlcad_add_test(NAME libbsg_phase6 COMMAND test_bsg_phase6)
 brlcad_addexec(test_bsg_lod_node test_lod_node.c "libbsg;libbv;libbu" TEST)
 brlcad_add_test(NAME libbsg_lod_node COMMAND test_bsg_lod_node)
 
+#
+# Phase V1: BSG_NODE_VIEW_SCOPE lifecycle (create/visible/destroy)
+#
+brlcad_addexec(test_bsg_view_scope test_view_scope.c "libbsg;libbv;libbu" TEST)
+brlcad_add_test(NAME libbsg_view_scope COMMAND test_bsg_view_scope)
+
 cmakefiles(
   CMakeLists.txt
   test_arb8.c
   test_lod_node.c
   test_phase6.c
   test_scene_graph.c
+  test_view_scope.c
   test_vlist.c
 )
 

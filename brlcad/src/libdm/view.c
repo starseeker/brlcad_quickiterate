@@ -32,6 +32,7 @@
 #include "bsg/lod.h"
 #include "bsg/lod_ops.h"
 #include "bsg/visit.h"
+#include "bsg/view_scope.h"
 #define DM_WITH_RT
 #include "dm.h"
 
@@ -888,6 +889,18 @@ _bsg_view_traverse_impl(struct bview *v, void *root,
 	/* Phase 6: skip sensor nodes — they are not drawable */
 	if (s->s_type_flags & BSG_NODE_SENSOR)
 	    continue;
+
+	/* Phase V1 (view-scope): skip nodes scoped to a different view.
+	 * A NULL owner means "shared" (visible to all views); a non-NULL
+	 * owner means view-private (only visible to the owning view).
+	 * When the scope is visible, recurse into children and continue — the
+	 * scope node itself contributes no geometry. */
+	if (s->s_type_flags & BSG_NODE_VIEW_SCOPE) {
+	    if (s->s_v != NULL && s->s_v != v)
+		continue; /* wrong view — skip entire subtree */
+	    _bsg_view_traverse_impl(v, s, transparency_pass, cur_mat);
+	    continue;
+	}
 
 	/* Phase L0 (LoD redesign): for BSG_NODE_LOD nodes, render only
 	 * the child selected by the per-view cursor.  bsg_lod_update()
