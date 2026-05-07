@@ -103,6 +103,15 @@ draw_free_data(struct bv_scene_obj *s)
     s->s_i_data = NULL;
 }
 
+static void
+mesh_lod_draw_free(struct bv_scene_obj *s)
+{
+    if (!s)
+	return;
+    bv_mesh_lod_free(s);
+    draw_free_data(s);
+}
+
 
 /* Non-static: called directly by BViewState::redraw() for Phase 2-B */
 extern "C" int
@@ -256,14 +265,10 @@ bot_adaptive_plot(struct bv_scene_obj *s, struct bview *v)
 
     bv_log(1, "bot_adaptive_plot %s[%s]", bu_vls_cstr(&s->s_name), (v) ? bu_vls_cstr(&v->gv_name) : "NULL");
 
-    struct bv_scene_obj *vo = bv_obj_for_view(s, v);
+    if (!s->draw_data) {
 
-    if (!vo) {
-
-	vo = bv_obj_get_vo(s, v);
-
-	vo->csg_obj = 0;
-	vo->mesh_obj = 1;
+	s->csg_obj = 0;
+	s->mesh_obj = 1;
 
 	struct draw_update_data_t *d = (struct draw_update_data_t *)s->s_i_data;
 	if (!d || !d->mesh_c)
@@ -336,18 +341,16 @@ bot_adaptive_plot(struct bv_scene_obj *s, struct bview *v)
 
 	// Assign the LoD information to the object's draw_data, and let
 	// the LoD know which object it is associated with.
-	vo->draw_data = (void *)lod;
-	lod->s = vo;
+	s->draw_data = (void *)lod;
+	lod->s = s;
 
 	// The object bounds are based on the LoD's calculations.  Because the LoD
 	// cache stores only one cached data set per object, but full path
 	// instances in the scene can be placed with matrices, we must apply the
 	// s_mat transformation to the "baseline" LoD bbox info to get the correct
 	// box for the instance.
-	MAT4X3PNT(vo->bmin, s->s_mat, lod->bmin);
-	MAT4X3PNT(vo->bmax, s->s_mat, lod->bmax);
-	VMOVE(s->bmin, vo->bmin);
-	VMOVE(s->bmax, vo->bmax);
+	MAT4X3PNT(s->bmin, s->s_mat, lod->bmin);
+	MAT4X3PNT(s->bmax, s->s_mat, lod->bmax);
 
 	// Record the necessary information for full detail information recovery.  We
 	// don't duplicate the full mesh detail in the on-disk LoD storage, since we
@@ -365,21 +368,21 @@ bot_adaptive_plot(struct bv_scene_obj *s, struct bview *v)
 
 	// LoD will need to re-check its level settings whenever the view changes.
 	// Phase 2-B: BViewState::redraw() also drives LoD updates explicitly.
-	vo->s_update_callback = &bv_mesh_lod_view;
-	vo->s_free_callback = &bv_mesh_lod_free;
+	s->s_update_callback = &bv_mesh_lod_view;
+	s->s_free_callback = &mesh_lod_draw_free;
 
 	// Initialize the LoD data to the current view
-	int level = bv_mesh_lod_view(vo, vo->s_v, 0);
+	int level = bv_mesh_lod_view(s, v, 0);
 	if (level < 0) {
 	    bu_log("Error loading info for initial LoD view\n");
 	}
 
 	// Mark the object as a Mesh LoD so the drawing routine knows to handle it differently
-	vo->s_type_flags |= BV_MESH_LOD;
+	s->s_type_flags |= BV_MESH_LOD;
     }
 
-    bv_mesh_lod_view(vo, v, 0);
-    bv_obj_stale(vo);
+    bv_mesh_lod_view(s, v, 0);
+    bv_obj_stale(s);
 
     return;
 }
@@ -397,14 +400,7 @@ brep_adaptive_plot(struct bv_scene_obj *s, struct bview *v)
     s->csg_obj = 0;
     s->mesh_obj = 1;
 
-    struct bv_scene_obj *vo = bv_obj_for_view(s, v);
-
-    if (!vo) {
-
-	vo = bv_obj_get_vo(s, v);
-
-	vo->csg_obj = 0;
-	vo->mesh_obj = 1;
+    if (!s->draw_data) {
 
 	struct db_i *dbip = d->dbip;
 	struct db_full_path *fp = (struct db_full_path *)s->s_path;
@@ -487,18 +483,16 @@ brep_adaptive_plot(struct bv_scene_obj *s, struct bview *v)
 
 	// Assign the LoD information to the object's draw_data, and let
 	// the LoD know which object it is associated with.
-	vo->draw_data = (void *)lod;
-	lod->s = vo;
+	s->draw_data = (void *)lod;
+	lod->s = s;
 
 	// The object bounds are based on the LoD's calculations.  Because the LoD
 	// cache stores only one cached data set per object, but full path
 	// instances in the scene can be placed with matrices, we must apply the
 	// s_mat transformation to the "baseline" LoD bbox info to get the correct
 	// box for the instance.
-	MAT4X3PNT(vo->bmin, s->s_mat, lod->bmin);
-	MAT4X3PNT(vo->bmax, s->s_mat, lod->bmax);
-	VMOVE(s->bmin, vo->bmin);
-	VMOVE(s->bmax, vo->bmax);
+	MAT4X3PNT(s->bmin, s->s_mat, lod->bmin);
+	MAT4X3PNT(s->bmax, s->s_mat, lod->bmax);
 
 	// Record the necessary information for full detail information recovery.  We
 	// don't duplicate the full mesh detail in the on-disk LoD storage, since we
@@ -516,21 +510,21 @@ brep_adaptive_plot(struct bv_scene_obj *s, struct bview *v)
 
 	// LoD will need to re-check its level settings whenever the view changes.
 	// Phase 2-B: BViewState::redraw() also drives LoD updates explicitly.
-	vo->s_update_callback = &bv_mesh_lod_view;
-	vo->s_free_callback = &bv_mesh_lod_free;
+	s->s_update_callback = &bv_mesh_lod_view;
+	s->s_free_callback = &mesh_lod_draw_free;
 
 	// Initialize the LoD data to the current view
-	int level = bv_mesh_lod_view(vo, vo->s_v, 0);
+	int level = bv_mesh_lod_view(s, v, 0);
 	if (level < 0) {
 	    bu_log("Error loading info for initial LoD view\n");
 	}
 
 	// Mark the object as a Mesh LoD so the drawing routine knows to handle it differently
-	vo->s_type_flags |= BV_MESH_LOD;
+	s->s_type_flags |= BV_MESH_LOD;
     }
 
-    bv_mesh_lod_view(vo, vo->s_v, 0);
-    bv_obj_stale(vo);
+    bv_mesh_lod_view(s, v, 0);
+    bv_obj_stale(s);
 
     return;
 }
@@ -559,30 +553,9 @@ wireframe_plot(struct bv_scene_obj *s, struct bview *v, struct rt_db_internal *i
 
     // If we're adaptive, call the primitive's adaptive plotting, if any.
     if (ip->idb_meth->ft_adaptive_plot) {
-	struct bv_scene_obj *vo = bv_obj_for_view(s, v);
-	if (!vo) {
-	    vo = bv_obj_get_vo(s, v);
-
-	    // Make a copy of the draw info for vo.
-	    struct draw_update_data_t *ld;
-	    BU_GET(ld, struct draw_update_data_t);
-	    ld->fp = (struct db_full_path *)s->s_path;
-	    ld->dbip = d->dbip;
-	    ld->tol = d->tol;
-	    ld->ttol = d->ttol;
-	    ld->mesh_c = d->mesh_c;
-	    vo->s_i_data= (void *)ld;
-
-	    // We're adaptive - have to plot when the view changes.  Set the
-	    // callbacks.  Phase 2-B: BViewState::redraw() also drives this.
-	    vo->s_update_callback = &csg_wireframe_update;
-	    vo->s_free_callback = &draw_free_data;
-
-	    // Mark type as CSG LoD
-	    vo->s_type_flags |= BV_CSG_LOD;
-	}
-
-	csg_wireframe_update(vo, v, 1);
+	s->s_update_callback = &csg_wireframe_update;
+	s->s_type_flags |= BV_CSG_LOD;
+	csg_wireframe_update(s, v, 1);
 	return;
     }
 
@@ -1051,4 +1024,3 @@ draw_gather_paths(struct db_full_path *path, mat_t *curr_mat, void *client_data)
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-
