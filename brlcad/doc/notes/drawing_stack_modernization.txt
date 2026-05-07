@@ -374,17 +374,55 @@ Phase L2 — wire the canonical update site in libdm  DONE
     failures vs baseline.
 
 Phase L3 — migrate libged producers to emit LoD nodes
-  - In `src/libged/draw.cpp`, change the producers that currently
-    create a SHAPE leaf and flip `s_type_flags |= BV_MESH_LOD` /
-    register `s_update_callback = csg_wireframe_update` to instead
-    construct a BSG_NODE_LOD node above the leaf, assign the right
-    ops, and attach the existing leaf as level 0.
-  - Higher levels are lazily attached by `activate_level` as needed.
-  - DB identity (db_full_path) continues to live on the path group
-    above the LoD node, not on the leaf.
-  - Tests: `ged_test_drawing_lod`, `ged_test_lod_crossrun`,
-    `ged_test_drawing_basic`, `ged_test_drawing_faceplate`,
-    `ged_test_mged_shaded_mode_bsg`.
+  Architecture (discovered during L0/L1/L2 session):
+  - `_bview_state_attach_leaf` runs BEFORE geometry generation.  The mesh_obj
+    / csg_obj fields and s_update_callback on the per-view 'vo' are NOT set
+    at attach time; they are set by draw_scene() (called from the loop at
+    dbi_state.cpp:3722-3728) which runs after all objects are attached.
+  - Therefore the BSG_NODE_LOD wrapping cannot happen in
+    `_bview_state_attach_leaf`.  It must happen AFTER the draw_scene loop.
+
+  Implementation steps:
+  1. Add `bsg_lod_node_insert_above(bsg_node *leaf, struct bview *v)` to
+     `src/libbsg/lod_node.c`: detaches leaf from its parent children ptbl,
+     creates a BSG_NODE_LOD node, inserts it in the parent's children in
+     the same position, then adds leaf as level-0 child of the LoD node.
+     Returns the new BSG_NODE_LOD node (or NULL on failure).
+     Declare in `include/bsg/lod_ops.h`.
+
+  2. Implement mesh-LoD and CSG-LoD ops adapters in
+     `src/libged/bsg_ged_draw.c` (already the home of other BSG+GED
+     integration code):
+       struct _mesh_lod_state { struct bv_scene_obj *s; };
+         select_level  : bv_obj_for_view(s,v) → bv_mesh_lod_view(vo,v,0);
+                         returns 0 (single child in L3)
+         activate_level: update cursor view_scale/perspective_flag/frame_rev
+         is_stale      : cursor->view_scale != v->gv_scale ||
+                         cursor->perspective_flag changes
+         free          : bu_free(user_data)
+       Similarly for CSG: select_level calls csg_wireframe_update(vo,v,0).
+
+  3. After the draw_scene loop in BViewState::redraw (dbi_state.cpp:3728),
+     add a wrapping pass:
+       for each sp in objs:
+         if (sp->mesh_obj || sp->csg_obj) AND sp->parent not a LOD node:
+           lod = bsg_lod_node_insert_above((bsg_node *)sp, first_view)
+           install ops + user_data on lod
+           create cursor for each view in views
+
+  4. In bsg_lod_node_insert_above, bump rev on the parent after insertion
+     (bsg_bump_rev_node) and invalidate bbox (bsg_node_bbox_invalidate).
+
+  Phase L3 coexistence with existing s_update_callback:
+  - The per-view 'vo' still has s_update_callback set (BV_MESH_LOD flag
+    on vo).  `_dm_draw_scene_obj_internal` still calls vo->s_update_callback
+    via the children-recursion path.  bsg_lod_update also calls
+    ops->select_level (which calls bv_mesh_lod_view on vo).  The double call
+    is benign — bv_mesh_lod_view is idempotent for the same view state.
+  - Full cleanup of the double-call is Phase L5+L6.
+
+  Tests: `ged_test_lod_crossrun` (must remain green), `libbsg_lod_node`,
+  `ged_test_bsg_view_obj`, `ged_test_drawing_lod` (images).
 
 Phase L4 — remove per-view duplicate scene_objs for adaptive cases
   - For LoD-managed paths, stop populating `s->i->vobjs`.  The LoD
