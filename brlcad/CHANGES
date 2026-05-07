@@ -230,14 +230,6 @@ include/bu/process.h
 	bu_terminate: replaced by bu_pid_terminate
 	[deprecated 7.40]
 
-MGED commands
-	p, r and g optional arguments to summary command -
-	info can be obtained via search [deprecated 7.40]
-
-	dbip, get_dbip - exposure of low-level pointer information
-        Shouldn't be using this at a user/scripting level
-	[deprecated 7.40]
-
 7.38
 ----
 MGED commands
@@ -259,9 +251,6 @@ MGED gui
 	features, can be accomplished another way, or will be exposed
 	only as lower level settings when there are sensible defaults
 	that are seldom changed.)
-
-	Settings->Mouse Behavior->Pick Raytrace-Object(s)
-	[deprecated 7.32]
 
 MGED overlay command
 	Instead of an optional second argument being the view object
@@ -438,6 +427,20 @@ include/raytrace.h
 ***                       OBSOLETED CHANGES                        ***
 **********************************************************************
                     (reverse chronological order)
+
+7.43.0
+------
+
+MGED commands
+	p, r and g optional arguments to summary command
+	removed, use search for filtered object reporting [deprecated 7.40]
+
+	dbip/get_dbip command exposure removed from MGED command surfaces
+	[deprecated 7.40]
+
+MGED gui
+	Settings->Mouse Behavior->Pick Raytrace-Object(s) menu entry removed
+	[deprecated 7.32]
 
 7.42.2
 ------

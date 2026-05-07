@@ -1146,14 +1146,6 @@ hoc_register_menu_data "Create" "$ptype..." "Make a $ptype" $ksl
 	\t\t2\t\tDraw raytrace-rectangle
 	\t\t3\t\tZoom in by a factor of 2" }
 	    { see_also "rset, vars" } }
-    .$id.menubar.settings.mouse_behavior add radiobutton -value o -variable mged_gui($id,mouse_behavior)\
-	-label "Pick Raytrace-Object(s)" -underline 14\
-	-command "set_mouse_behavior $id"
-    hoc_register_menu_data "Mouse Behavior" "Pick Raytrace-Object(s)" "Pick Raytrace-Object(s)"\
-	{ { synopsis "Enter pick raytrace-object mode." }
-	    { description "Pick an object for raytracing or for adding to the
-	list of objects to be raytraced." }
-	    { see_also "rset, vars" } }
     .$id.menubar.settings.mouse_behavior add separator
     .$id.menubar.settings.mouse_behavior add radiobutton -value q -variable mged_gui($id,mouse_behavior)\
 	-label "Query Ray" -underline 0\

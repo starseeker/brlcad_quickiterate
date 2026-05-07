@@ -1,0 +1,41 @@
+CHANGES Cleanup Plan (pre-7.40 entries)
+=======================================
+
+Scope decisions
+---------------
+- Do now: low + medium disruption items.
+- Also do now: include/bg/chull.h transition completion.
+- Defer for later: high-disruption items and struct hit.hit_point / hit_normal.
+- Defer explicitly: ~/.density handling.
+
+Batching strategy
+-----------------
+1) CHULL transition completion
+   - Ensure replacement/index-based APIs are fully implemented in libbg.
+   - Add/extend tests to cover replacement behavior.
+   - Keep behavior stable for existing callers while enabling migration.
+
+2) Low disruption removals
+   - Remove summary command legacy p/r/g argument handling.
+   - Remove MGED menu exposure of Pick Raytrace-Object(s).
+   - Remove MGED dbip/get_dbip command exposure.
+
+3) Medium disruption removals (initial tranche)
+   - Remove selected deprecated MGED/libged command aliases where a tested replacement exists.
+   - Keep changes narrowly scoped per batch to simplify validation and rollback.
+
+4) CHANGES bookkeeping
+   - As each item is actually applied, move it from DEPRECATED to OBSOLETED with release note text.
+   - Keep deferred items in DEPRECATED until implemented.
+
+Validation approach
+-------------------
+- Build touched targets after each batch.
+- Run focused tests for modified areas (libbg tests for convex hull work; libged/mged tests for command-surface changes).
+- Keep behavior-preserving changes small and reviewable.
+
+Deferred list (this round)
+--------------------------
+- struct hit.hit_point / struct hit.hit_normal removal.
+- High-disruption primitive/database compatibility removals.
+- ~/.density deprecation follow-up.

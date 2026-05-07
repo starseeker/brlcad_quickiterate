@@ -206,35 +206,6 @@ ged_summary_core(struct ged *gedp, int argc, const char *argv[])
 	return BRLCAD_OK;
     }
 
-    /* TODO: deprecate me */
-    if (argc == 1 && strlen(argv[0]) == 1) {
-	// NOTE:  special casing of p, r and g is deprecated, but for now
-	// handle these options as we originally would have.
-	const char *cp = (const char *)argv[0];
-	int flags = 0;
-	while (*cp) {
-	    switch (*cp++) {
-		case 'p':
-		    flags |= RT_DIR_SOLID;
-		    break;
-		case 'r':
-		    flags |= RT_DIR_REGION;
-		    break;
-		case 'g':
-		    flags |= RT_DIR_COMB;
-		    break;
-		default:
-		    flags = 0;
-	    }
-	}
-
-	if (flags) {
-	    summary_dir(gedp, flags, NULL);
-	    bu_vls_free(&obj_name);
-	    return BRLCAD_OK;
-	}
-    }
-
     /* ensure we have one object name */
     if (!bu_vls_strlen(&obj_name)) {
 	if (argc != 1) {

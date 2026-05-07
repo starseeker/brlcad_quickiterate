@@ -39,8 +39,12 @@ main(int UNUSED(argc), const char **argv)
 	int retval = 0;
 	int fc = 0;
 	int vc = 0;
+	int ifc = 0;
+	int ivc = 0;
 	point_t *vert_array;
 	int *faces;
+	int *ifaces;
+	int *iverts;
 	point_t *input_verts = (point_t *)bu_calloc(8, sizeof(point_t), "vertex array");
 	VSET(input_verts[0], -1000.0, 1000.0, 1000.0);
 	VSET(input_verts[1], 1000.0, -1000.0, 1000.0);
@@ -64,6 +68,16 @@ main(int UNUSED(argc), const char **argv)
 	    bu_log("      face %d: %d, %d, %d\n", i, faces[i*3], faces[i*3+1], faces[i*3+2]);
 	}
 	if (retval != 3) {return -1;} else {bu_log("Cube Test Passed!\n");}
+
+	retval = bg_3d_chull2(&ifaces, &ifc, &iverts, &ivc, (const point_t *)input_verts, 8);
+	bu_log("Test #001-2:  Cube (index output):\n");
+	if (retval != 3) {return -1;}
+	if (ifc != fc) {return -1;}
+	if (ivc != 8) {return -1;}
+	for (i = 0; i < ifc * 3; i++) {
+	    if (ifaces[i] < 0 || ifaces[i] > 7) return -1;
+	}
+	bu_log("Cube Index Test Passed!\n");
     }
 
     /* Cube with center point */
