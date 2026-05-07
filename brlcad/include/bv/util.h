@@ -408,18 +408,6 @@ bv_uniq_obj_name(struct bu_vls *oname, const char *seed, struct bview *v);
 DEPRECATED BV_EXPORT struct bv_scene_obj *
 bv_obj_for_view(struct bv_scene_obj *s, struct bview *v);
 
-/* Get a view-specific object vobj for view v on object s.  */
-DEPRECATED BV_EXPORT struct bv_scene_obj *
-bv_obj_get_vo(struct bv_scene_obj *s, struct bview *v);
-
-/* Check for the presence of view-specific objects */
-DEPRECATED BV_EXPORT int
-bv_obj_have_vo(struct bv_scene_obj *s, struct bview *v);
-
-/* Clear view-specific objects */
-DEPRECATED BV_EXPORT int
-bv_clear_view_obj(struct bv_scene_obj *s, struct bview *v);
-
 /* Set the illumination state on the object and its children to ill_state.
  * Returns 0 if no states were changed, and 1 if one or more states were
  * updated. */
