@@ -412,7 +412,7 @@ Phase L3 — migrate libged producers to emit LoD nodes  DONE
   Tests: `ged_test_lod_crossrun` (must remain green), `libbsg_lod_node`,
   `ged_test_bsg_view_obj`, `ged_test_drawing_lod` (images).
 
-Phase L4 — remove per-view duplicate scene_objs for adaptive cases
+Phase L4 — remove per-view duplicate scene_objs for adaptive cases  DONE
   - For LoD-managed paths, stop populating `s->i->vobjs`.  The LoD
     node's per-view cursor replaces it.
   - Audit `bv_obj_for_view` callers: keep the function and the vobjs
@@ -423,6 +423,16 @@ Phase L4 — remove per-view duplicate scene_objs for adaptive cases
     a leaf.
   - Tests: full draw regression set, with extra attention to Quad
     view (multiple bviews sharing a draw root) and to memory growth.
+
+  Completed:
+  - `src/libged/draw.cpp` adaptive mesh/BREP/CSG producers now keep LoD
+    state on the shared shape leaf (`s`) and no longer create adaptive
+    per-view duplicates via `bv_obj_get_vo`.
+  - `src/libged/bsg_ged_draw.c` LoD adapters (`_mesh_lod_select_level`,
+    `_csg_lod_select_level`) now operate directly on the shared shape
+    leaf and no longer call `bv_obj_for_view`.
+  - `src/libbv/util.cpp: bv_scene_obj_bound` now resolves LoD-managed
+    bounds via the selected child of the enclosing `BSG_NODE_LOD`.
 
 Phase L5 — retire the BViewState::redraw LoD side pass
   - Delete the explicit `bv_mesh_lod_view` / `csg_wireframe_update`

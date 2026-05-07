@@ -103,10 +103,9 @@ _mesh_lod_select_level(bsg_node *node, struct bview *v)
     if (!pl || !pl->user_data || !v)
 	return 0;
     struct ged_lod_state *st = (struct ged_lod_state *)pl->user_data;
-    struct bv_scene_obj *vo = bv_obj_for_view(st->s, v);
-    if (!vo || !vo->draw_data)
+    if (!st->s || !st->s->draw_data)
 	return 0;
-    bv_mesh_lod_view(vo, v, 0);
+    bv_mesh_lod_view(st->s, v, 0);
     return 0;
 }
 
@@ -160,10 +159,9 @@ _csg_lod_select_level(bsg_node *node, struct bview *v)
     if (!pl || !pl->user_data || !v)
 	return 0;
     struct ged_lod_state *st = (struct ged_lod_state *)pl->user_data;
-    struct bv_scene_obj *vo = bv_obj_for_view(st->s, v);
-    if (!vo || !vo->s_i_data)
+    if (!st->s || !st->s->s_i_data)
 	return 0;
-    csg_wireframe_update(vo, v, 0);
+    csg_wireframe_update(st->s, v, 0);
     return 0;
 }
 

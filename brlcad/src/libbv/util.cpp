@@ -39,6 +39,8 @@
 #include "bv/util.h"
 #include "bv/view_sets.h"
 #include "bv/vlist.h"
+#include "bsg/defines.h"
+#include "bsg/lod_ops.h"
 #include "./bv_private.h"
 
 #define VIEW_NAME_MAXTRIES 100000
@@ -1743,7 +1745,31 @@ bv_scene_obj_bound(struct bv_scene_obj *sp, struct bview *v)
     struct bv_scene_obj *s = bv_obj_for_view(sp, v);
     if (!s)
 	s = sp;
-    if (s->s_type_flags & BV_MESH_LOD) {
+    struct bv_scene_obj *lod = NULL;
+    if (s->s_type_flags & BSG_NODE_LOD) {
+	lod = s;
+    } else {
+	struct bv_scene_obj *p = (struct bv_scene_obj *)s->parent;
+	if (p && (p->s_type_flags & BSG_NODE_LOD))
+	    lod = p;
+    }
+    if (lod) {
+	int active = bsg_lod_node_active_level((bsg_node *)lod, v);
+	int nlevels = bsg_lod_node_level_count((bsg_node *)lod);
+	if (nlevels > 0) {
+	    if (active < 0 || active >= nlevels)
+		active = 0;
+	    struct bv_scene_obj *ls = (struct bv_scene_obj *)BU_PTBL_GET(&lod->children, active);
+	    if (ls) {
+		s = ls;
+		if (isfinite(s->bmin[X]) && isfinite(s->bmin[Y]) && isfinite(s->bmin[Z]) &&
+		    isfinite(s->bmax[X]) && isfinite(s->bmax[Y]) && isfinite(s->bmax[Z])) {
+		    calc = 1;
+		}
+	    }
+	}
+    }
+    if (!calc && (s->s_type_flags & BV_MESH_LOD)) {
 	struct bv_mesh_lod *i = (struct bv_mesh_lod *)s->draw_data;
 	if (i) {
 	    point_t obmin, obmax;
@@ -1756,7 +1782,7 @@ bv_scene_obj_bound(struct bv_scene_obj *sp, struct bview *v)
 	    MAT4X3PNT(s->bmax, s->s_mat, obmax);
 	    calc = 1;
 	}
-    } else if (bu_list_len(&s->s_vlist)) {
+    } else if (!calc && bu_list_len(&s->s_vlist)) {
 	int dismode;
 	cmd = bv_vlist_bbox(&s->s_vlist, &s->bmin, &s->bmax, NULL, &dismode);
 	if (cmd) {
