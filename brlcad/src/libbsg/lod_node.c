@@ -42,6 +42,7 @@
 #include "bv/util.h"
 
 #include "bsg/defines.h"
+#include "bsg/draw_set.h"
 #include "bsg/lod_ops.h"
 #include "bsg/node_group.h"
 
@@ -220,6 +221,39 @@ bsg_lod_node_level_count(bsg_node *node)
     if (!(n->s_type_flags & BSG_NODE_LOD))
 	return 0;
     return (int)BU_PTBL_LEN(&n->children);
+}
+
+
+bsg_node *
+bsg_lod_node_insert_above(bsg_node *leaf, struct bview *v)
+{
+    if (!leaf || !v)
+	return NULL;
+
+    struct bv_scene_obj *sleaf = (struct bv_scene_obj *)leaf;
+    struct bv_scene_obj *parent = (struct bv_scene_obj *)sleaf->parent;
+    if (!parent)
+	return NULL;
+
+    intmax_t loc = bu_ptbl_locate(&parent->children, (const long *)sleaf);
+    if (loc < 0)
+	return NULL;
+
+    bsg_node *lod = bsg_lod_node_create(v);
+    if (!lod)
+	return NULL;
+
+    struct bv_scene_obj *slod = (struct bv_scene_obj *)lod;
+    slod->parent = parent;
+    BU_PTBL_SET(&parent->children, (size_t)loc, slod);
+
+    sleaf->parent = slod;
+    bsg_lod_node_attach_level(lod, leaf);
+
+    bsg_bump_rev_node((bsg_node *)parent);
+    bsg_node_bbox_invalidate((bsg_node *)parent);
+
+    return lod;
 }
 
 

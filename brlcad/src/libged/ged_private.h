@@ -470,6 +470,8 @@ GED_EXPORT extern int ged_view_data_lines(struct ged *gedp, int argc, const char
 
 GED_EXPORT extern void ged_push_scene_obj(struct ged *gedp, struct bv_scene_obj *sp);
 GED_EXPORT extern struct bv_scene_obj *ged_pop_scene_obj(struct ged *gedp);
+GED_EXPORT extern int ged_lod_install_mesh_ops(struct bv_scene_obj *lod, struct bv_scene_obj *s);
+GED_EXPORT extern int ged_lod_install_csg_ops(struct bv_scene_obj *lod, struct bv_scene_obj *s);
 
 GED_EXPORT extern int
 _ged_subcmd_help(struct ged *gedp, struct bu_opt_desc *gopts, const struct bu_cmdtab *cmds,
