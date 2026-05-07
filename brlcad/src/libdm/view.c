@@ -881,6 +881,12 @@ _bsg_view_traverse_impl(struct bview *v, void *root,
 	return;
 
     struct bv_scene_obj *r = (struct bv_scene_obj *)root;
+    int independent_root = 0;
+    struct bv_scene_obj *ind_scope = NULL;
+    if (bv_view_is_independent(v) && r == (struct bv_scene_obj *)v->bsg_root) {
+	independent_root = 1;
+	ind_scope = bv_view_independent_scope(v, 0);
+    }
     for (size_t i = 0; i < BU_PTBL_LEN(&r->children); i++) {
 	struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(&r->children, i);
 	if (!s)
@@ -888,6 +894,12 @@ _bsg_view_traverse_impl(struct bview *v, void *root,
 
 	/* Phase 6: skip sensor nodes — they are not drawable */
 	if (s->s_type_flags & BSG_NODE_SENSOR)
+	    continue;
+
+	if (independent_root &&
+	    !(s->s_type_flags & BSG_NODE_VIEW_SCOPE) &&
+	    (!BU_VLS_IS_INITIALIZED(&s->s_name) ||
+	     !BU_STR_EQUAL("_overlays", bu_vls_cstr(&s->s_name))))
 	    continue;
 
 	/* Phase V1 (view-scope): skip nodes scoped to a different view.
@@ -898,6 +910,12 @@ _bsg_view_traverse_impl(struct bview *v, void *root,
 	if (s->s_type_flags & BSG_NODE_VIEW_SCOPE) {
 	    if (s->s_v != NULL && s->s_v != v)
 		continue; /* wrong view — skip entire subtree */
+	    if (independent_root && s->s_v == v && ind_scope && s != ind_scope &&
+		BU_VLS_IS_INITIALIZED(&s->s_name) &&
+		BU_STR_EQUAL(bu_vls_cstr(&s->s_name), "_view_obj_scope_local")) {
+		_bsg_view_traverse_impl(v, s, transparency_pass, cur_mat);
+		continue;
+	    }
 	    _bsg_view_traverse_impl(v, s, transparency_pass, cur_mat);
 	    continue;
 	}

@@ -1871,7 +1871,7 @@ DbiState::get_path_bbox(point_t *bbmin, point_t *bbmax, std::vector<unsigned lon
 BViewState *
 DbiState::get_view_state(struct bview *v)
 {
-    if (!v->independent)
+    if (!bv_view_is_independent(v))
 	return shared_vs;
     if (view_states.find(v) != view_states.end())
 	return view_states[v];
@@ -2463,18 +2463,23 @@ _bview_state_attach_leaf(struct ged *gedp,
     db_full_path_init(&top_dfp);
     db_add_node_to_full_path(&top_dfp, top_dp);
 
+    struct bview *cv = gedp->ged_gvp;
+    gedp->ged_gvp = sp->s_v;
     struct bv_scene_obj *gdlp =
 	bsg_view_obj_lookup_or_add_dbpath(gedp, &top_dfp);
     db_free_full_path(&top_dfp);
     db_free_full_path(&leaf_dfp);
 
-    if (!gdlp)
+    if (!gdlp) {
+	gedp->ged_gvp = cv;
 	return;
+    }
 
     /* Append the leaf to the BSG tree.  This walks down from the
      * top-level group, creating intermediate sub-group nodes as needed
      * based on bdata->s_fullpath. */
     bsg_view_obj_append_solid_to_group(gedp, gdlp, sp);
+    gedp->ged_gvp = cv;
 }
 
 /*
@@ -3520,7 +3525,7 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
 	// If we have multiple views, we want a non-independent view
 	for (v_it = views.begin(); v_it != views.end(); v_it++) {
 	    struct bview *nv = *v_it;
-	    if (nv->independent)
+	    if (bv_view_is_independent(nv))
 		continue;
 	    v = nv;
 	    break;

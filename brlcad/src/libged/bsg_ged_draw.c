@@ -509,6 +509,12 @@ _sg_add_path(struct ged *gedp, const char *name)
     struct bv_scene_obj *root = _sg_root(gedp);
     if (!root)
         return NULL;
+    struct bv_scene_obj *base = root;
+    if (gedp->ged_gvp && bv_view_is_independent(gedp->ged_gvp)) {
+	struct bv_scene_obj *scope = bv_view_independent_scope(gedp->ged_gvp, 1);
+	if (scope)
+	    base = scope;
+    }
 
     struct db_i *dbip = gedp->dbip;
 
@@ -521,7 +527,7 @@ _sg_add_path(struct ged *gedp, const char *name)
         struct directory *dp = db_lookup(dbip, cp, LOOKUP_NOISY);
         if (dp == RT_DIR_NULL)
             return NULL;
-        return _sg_find_or_create_child_group(gedp, root, cp);
+        return _sg_find_or_create_child_group(gedp, base, cp);
     }
 
     if (pathcomp.fp_len == 0) {
@@ -530,7 +536,7 @@ _sg_add_path(struct ged *gedp, const char *name)
     }
 
     /* Navigate/create one group node per path component starting from root */
-    struct bv_scene_obj *cur = root;
+    struct bv_scene_obj *cur = base;
     for (size_t i = 0; i < pathcomp.fp_len; i++) {
         const char *comp = pathcomp.fp_names[i]->d_namep;
         struct bv_scene_obj *child =

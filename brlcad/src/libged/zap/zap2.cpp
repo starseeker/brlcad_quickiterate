@@ -125,7 +125,7 @@ ged_zap2_core(struct ged *gedp, int argc, const char *argv[])
     struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
     for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
 	v = (struct bview *)BU_PTBL_GET(views, i);
-	if (v->independent && !clear_all_views)
+	if (bv_view_is_independent(v) && !clear_all_views)
 	    continue;
 	int flags = 0;
 	if (clear_solid_objs) {

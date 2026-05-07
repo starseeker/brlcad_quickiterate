@@ -37,6 +37,9 @@ __BEGIN_DECLS
 /* Set default values for a bv. */
 BV_EXPORT extern void bv_init(struct bview *v, struct bview_set *s);
 BV_EXPORT extern void bv_free(struct bview *v);
+BV_EXPORT extern int bv_view_is_independent(const struct bview *v);
+BV_EXPORT extern struct bv_scene_obj *bv_view_independent_scope(struct bview *v, int create);
+BV_EXPORT extern void bv_view_independent_scope_destroy(struct bview *v);
 
 /**
  * FIXME: this routine is suspect and needs investigating.  if run

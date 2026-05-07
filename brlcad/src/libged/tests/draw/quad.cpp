@@ -131,6 +131,20 @@ scene_clear(struct ged *gedp, int vnum, int cnum)
     dm_refresh(gedp, vnum);
 }
 
+void
+set_independent(struct ged *gedp, int vnum, int independent)
+{
+    struct bu_vls vname = BU_VLS_INIT_ZERO;
+    const char *s_av[5] = {NULL};
+    s_av[0] = "view";
+    s_av[1] = "independent";
+    bu_vls_sprintf(&vname, "V%d", vnum);
+    s_av[2] = bu_vls_cstr(&vname);
+    s_av[3] = independent ? "1" : "0";
+    ged_exec_view(gedp, 4, s_av);
+    bu_vls_free(&vname);
+}
+
 int
 img_cmp(int vnum, int id, struct ged *gedp, const char *cdir, bool clear, int soft_fail)
 {
@@ -152,7 +166,7 @@ img_cmp(int vnum, int id, struct ged *gedp, const char *cdir, bool clear, int so
     if (!v)
 	bu_exit(EXIT_FAILURE, "Invalid view specifier: %d\n", vnum);
     struct dm *dmp = (struct dm *)v->dmp;
-    int cnum = (v->independent) ? vnum : -1;
+    int cnum = (bv_view_is_independent(v)) ? vnum : -1;
 
     const char *s_av[4] = {NULL};
     s_av[0] = "screengrab";
@@ -582,8 +596,7 @@ main(int ac, char *av[]) {
 
     struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
     for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
-	struct bview *v = (struct bview *)BU_PTBL_GET(views, i);
-	v->independent = 1;
+	set_independent(gedp, (int)i, 1);
     }
 
     s_av[0] = "draw";
@@ -791,8 +804,7 @@ main(int ac, char *av[]) {
     scene_clear(gedp, 3, 3);
 
     for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
-	struct bview *v = (struct bview *)BU_PTBL_GET(views, i);
-	v->independent = 0;
+	set_independent(gedp, (int)i, 0);
     }
     scene_clear(gedp, 0, -1);
 
@@ -1017,10 +1029,10 @@ main(int ac, char *av[]) {
 
     // Next, test a mix of shared and independent views
     bu_log("Testing mixed shared and independent views\n");
-    ((struct bview *)BU_PTBL_GET(views, 0))->independent = 1;
-    ((struct bview *)BU_PTBL_GET(views, 1))->independent = 0;
-    ((struct bview *)BU_PTBL_GET(views, 2))->independent = 1;
-    ((struct bview *)BU_PTBL_GET(views, 3))->independent = 0;
+    set_independent(gedp, 0, 1);
+    set_independent(gedp, 1, 0);
+    set_independent(gedp, 2, 1);
+    set_independent(gedp, 3, 0);
 
     // First, draw without specifying any particular view.
     // This should result in the non-independent views being
@@ -1098,4 +1110,3 @@ main(int ac, char *av[]) {
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-
