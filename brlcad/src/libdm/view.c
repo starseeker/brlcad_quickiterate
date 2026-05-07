@@ -869,6 +869,25 @@ dm_draw_viewobjs(struct rt_wdb *wdbp, struct bview *v, struct dm_view_data *vd)
  * accumulated transform-stack matrix.  Public bsg_view_traverse() and
  * dm_draw_objs() both delegate here. */
 static void
+_bsg_view_resolve_ref(struct bv_scene_obj **sp)
+{
+    if (!sp || !*sp)
+	return;
+
+    struct bv_scene_obj *s = *sp;
+    if (!(s->s_type_flags & BSG_NODE_VIEW_REF))
+	return;
+    if (!s->s_path)
+	return;
+
+    struct bv_scene_obj *ref = (struct bv_scene_obj *)s->s_path;
+    if (!ref || ref == s)
+	return;
+
+    *sp = ref;
+}
+
+static void
 _bsg_view_traverse_impl(struct bview *v, void *root,
 			int transparency_pass,
 			const fastf_t *cur_mat)
@@ -907,14 +926,10 @@ _bsg_view_traverse_impl(struct bview *v, void *root,
 	 * BV_VIEW_OBJS scene object.  Resolve it here so downstream logic
 	 * (LoD, transform, draw callbacks, labels/axes) operates on the
 	 * referenced object exactly as if it were in-tree natively. */
-	if (s->s_type_flags & BSG_NODE_VIEW_REF) {
-	    if (!s->s_path)
-		continue;
-	    struct bv_scene_obj *ref = (struct bv_scene_obj *)s->s_path;
-	    if (!ref || ref == s)
-		continue;
-	    s = ref;
-	}
+	int was_ref = (s->s_type_flags & BSG_NODE_VIEW_REF) ? 1 : 0;
+	_bsg_view_resolve_ref(&s);
+	if (was_ref && (s->s_type_flags & BSG_NODE_VIEW_REF))
+	    continue;
 
 	/* Phase L0 (LoD redesign): for BSG_NODE_LOD nodes, render only
 	 * the child selected by the per-view cursor.  bsg_lod_update()

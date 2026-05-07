@@ -82,6 +82,8 @@ __BEGIN_DECLS
  * geometry itself.
  */
 #define BSG_NODE_VIEW_REF   0x8000000000ULL  /**< @brief view-object bridge proxy node */
+/** @brief internal bridge container group used by Phase V2 wrappers */
+#define BSG_NODE_VIEW_BRIDGE 0x200000000000ULL
 
 /**
  * Payload type flags — stored in s_type_flags alongside BSG_NODE_* bits.
@@ -93,6 +95,7 @@ __BEGIN_DECLS
  *   bits 36-38: BSG_SENSOR_* sub-type flags (defined in sensor.h)
  *   bit  39:    BSG_NODE_VIEW_REF
  *   bits 40-44: BSG_PAYLOAD_* payload type flags (this block)
+ *   bit  45:    BSG_NODE_VIEW_BRIDGE
  */
 #define BSG_PAYLOAD_VLIST   0x10000000000ULL  /**< @brief raw bv_vlist payload (bit 40) */
 #define BSG_PAYLOAD_CSG     0x20000000000ULL  /**< @brief CSG wireframe payload (bit 41) */

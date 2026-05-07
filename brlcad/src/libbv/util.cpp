@@ -56,8 +56,6 @@ _bv_vname(struct bview *v)
     return bu_vls_cstr(&v->gv_name);
 }
 
-static const char *BV_BRIDGE_MARKER = "_view_obj_ptbl_bridge_marker";
-
 static void
 _data_tclcad_init(struct bv_data_tclcad *d)
 {
@@ -1335,9 +1333,9 @@ _bv_bridge_find_group(struct bv_scene_obj *root)
 	struct bv_scene_obj *c = (struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
 	if (!c)
 	    continue;
-	if (!(c->s_type_flags & BSG_NODE_GROUP))
+	if (!(c->s_type_flags & BSG_NODE_VIEW_BRIDGE))
 	    continue;
-	if (c->dp == (void *)BV_BRIDGE_MARKER)
+	if (c->s_type_flags & BSG_NODE_GROUP)
 	    return c;
     }
 
@@ -1358,8 +1356,7 @@ _bv_bridge_ensure_group(struct bview *v)
     bridge = bv_obj_get_unregistered(v, BV_CHILD_OBJS | BV_LOCAL_OBJS);
     if (!bridge)
 	return NULL;
-    bridge->s_type_flags = BSG_NODE_GROUP;
-    bridge->dp = (void *)BV_BRIDGE_MARKER;
+    bridge->s_type_flags = BSG_NODE_GROUP | BSG_NODE_VIEW_BRIDGE;
     bu_vls_sprintf(&bridge->s_name, "_view_obj_ptbl_bridge");
     bridge->parent = root;
     bu_ptbl_ins(&root->children, (long *)bridge);
@@ -1464,7 +1461,9 @@ _bv_bridge_remove_ref_for_view(struct bv_scene_obj *target, struct bview *v)
     if (!scope)
 	return;
 
-    for (long i = (long)BU_PTBL_LEN(&scope->children) - 1; i >= 0; i--) {
+    size_t i = BU_PTBL_LEN(&scope->children);
+    while (i > 0) {
+	i--;
 	struct bv_scene_obj *c = (struct bv_scene_obj *)BU_PTBL_GET(&scope->children, i);
 	if (!c)
 	    continue;
