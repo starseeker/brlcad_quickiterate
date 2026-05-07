@@ -38,6 +38,7 @@ struct _ged_view_info {
     const struct bu_cmdtab *cmds;
     struct bu_opt_desc *gopts;
     const char *vobj;
+    const char *gobj_dbpath;
     struct bview *cv;
     struct bv_scene_obj *s;
     int local_obj;
@@ -50,6 +51,8 @@ extern int _view_cmd_lod(void *bs, int argc, const char **argv);
 extern int _view_cmd_polygons(void *bs, int argc, const char **argv);
 extern int _view_cmd_objs(void *bs, int argc, const char **argv);
 extern int _view_cmd_gobjs(void *bs, int argc, const char **argv);
+extern int _gobjs_cmd_create(void *bs, int argc, const char **argv);
+extern int _gobjs_cmd_delete(void *bs, int argc, const char **argv);
 
 extern int ged_aet_core(struct ged *gedp, int argc, const char **argv);
 extern int ged_align_core(struct ged *gedp, int argc, const char **argv);
@@ -66,8 +69,6 @@ extern int ged_size_core(struct ged *gedp, int argc, const char **argv);
 extern int ged_view_snap(struct ged *gedp, int argc, const char *argv[]);
 extern int ged_viewdir_core(struct ged *gedp, int argc, const char *argv[]);
 extern int ged_ypr_core(struct ged *gedp, int argc, const char **argv);
-
-extern int _view_cmd_old_obj(struct ged *gedp, int argc, const char *argv[]);
 
 __END_DECLS
 

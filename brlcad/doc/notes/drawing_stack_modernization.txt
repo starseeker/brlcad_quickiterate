@@ -751,6 +751,20 @@ error reporting.  Existing user scripts (mged, archer) that use
 the old subcommand spellings must continue to work — the alias
 layer is the contract.
 
+V7 implementation snapshot (2026-05-07):
+- `src/libged/view/view.c`: dropped `ged_view_func_core`; `view_func`
+  now routes through `ged_view_core`; consolidated `ged_gvp` override
+  wrappers and fixed `view vZ` calc assignment to use `calc_val`.
+- `src/libged/view/objs.cpp`: unified `view obj` grammar (`create`,
+  `remove`, `list`, `info`, `set`), added `-g <dbpath>` for gobjs-style
+  creation, and switched list/lookup to a BSG walk.
+- `src/libged/view/gobjs.cpp`: `view gobjs` now behaves as a deprecated
+  alias that forwards into the unified `view obj` grammar.
+- `src/libged/tests/draw/view_command.cpp` +
+  `src/libged/tests/draw/CMakeLists.txt`: added `ged_test_view_command`
+  regression coverage for unified grammar, alias behavior, and view scope
+  selection.
+
 Phase V8 — public C API for view-only objects + deprecation cleanup
 -------------------------------------------------------------------
 Final-form public API; this is what user code (tools, plugins,

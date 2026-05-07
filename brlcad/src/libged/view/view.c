@@ -57,6 +57,18 @@ struct _view_independent_path {
     int mode;
 };
 
+typedef int (*view_core_cmd_func)(struct ged *, int, const char **);
+
+static int
+_view_call_on_gd_view(struct _ged_view_info *gd, view_core_cmd_func cmd, int argc, const char **argv)
+{
+    struct bview *cv = gd->gedp->ged_gvp;
+    gd->gedp->ged_gvp = gd->cv;
+    int ret = cmd(gd->gedp, argc, argv);
+    gd->gedp->ged_gvp = cv;
+    return ret;
+}
+
 static void
 _view_independent_paths_free(struct _view_independent_path *paths, size_t path_cnt)
 {
@@ -153,11 +165,7 @@ _view_cmd_aet(void *bs, int argc, const char **argv)
 	return BRLCAD_OK;
     }
 
-    struct bview *cv = gd->gedp->ged_gvp;
-    gd->gedp->ged_gvp = gd->cv;
-    int ret = ged_aet_core(gd->gedp, argc, argv);
-    gd->gedp->ged_gvp = cv;
-    return ret;
+    return _view_call_on_gd_view(gd, ged_aet_core, argc, argv);
 }
 
 int
@@ -170,11 +178,7 @@ _view_cmd_center(void *bs, int argc, const char **argv)
 	return BRLCAD_OK;
     }
 
-    struct bview *cv = gd->gedp->ged_gvp;
-    gd->gedp->ged_gvp = gd->cv;
-    int ret = ged_center_core(gd->gedp, argc, argv);
-    gd->gedp->ged_gvp = cv;
-    return ret;
+    return _view_call_on_gd_view(gd, ged_center_core, argc, argv);
 }
 
 int
@@ -187,11 +191,7 @@ _view_cmd_eye(void *bs, int argc, const char **argv)
 	return BRLCAD_OK;
     }
 
-    struct bview *cv = gd->gedp->ged_gvp;
-    gd->gedp->ged_gvp = gd->cv;
-    int ret = ged_eye_core(gd->gedp, argc, argv);
-    gd->gedp->ged_gvp = cv;
-    return ret;
+    return _view_call_on_gd_view(gd, ged_eye_core, argc, argv);
 }
 
 int
@@ -204,11 +204,7 @@ _view_cmd_faceplate(void *bs, int argc, const char **argv)
 	return BRLCAD_OK;
     }
 
-    struct bview *cv = gd->gedp->ged_gvp;
-    gd->gedp->ged_gvp = gd->cv;
-    int ret = ged_faceplate_core(gd->gedp, argc, argv);
-    gd->gedp->ged_gvp = cv;
-    return ret;
+    return _view_call_on_gd_view(gd, ged_faceplate_core, argc, argv);
 }
 
 /* When a view is "independent", it displays only those objects when have been
@@ -350,11 +346,7 @@ _view_cmd_quat(void *bs, int argc, const char **argv)
 	return BRLCAD_OK;
     }
 
-    struct bview *cv = gd->gedp->ged_gvp;
-    gd->gedp->ged_gvp = gd->cv;
-    int ret = ged_quat_core(gd->gedp, argc, argv);
-    gd->gedp->ged_gvp = cv;
-    return ret;
+    return _view_call_on_gd_view(gd, ged_quat_core, argc, argv);
 }
 
 int
@@ -390,11 +382,7 @@ _view_cmd_size(void *bs, int argc, const char **argv)
 	return BRLCAD_OK;
     }
 
-    struct bview *cv = gd->gedp->ged_gvp;
-    gd->gedp->ged_gvp = gd->cv;
-    int ret = ged_size_core(gd->gedp, argc, argv);
-    gd->gedp->ged_gvp = cv;
-    return ret;
+    return _view_call_on_gd_view(gd, ged_size_core, argc, argv);
 }
 
 int
@@ -407,11 +395,7 @@ _view_cmd_snap(void *bs, int argc, const char **argv)
 	return BRLCAD_OK;
     }
 
-    struct bview *cv = gd->gedp->ged_gvp;
-    gd->gedp->ged_gvp = gd->cv;
-    int ret = ged_view_snap(gd->gedp, argc, argv);
-    gd->gedp->ged_gvp = cv;
-    return ret;
+    return _view_call_on_gd_view(gd, ged_view_snap, argc, argv);
 }
 
 int
@@ -424,11 +408,7 @@ _view_cmd_ypr(void *bs, int argc, const char **argv)
 	return BRLCAD_OK;
     }
 
-    struct bview *cv = gd->gedp->ged_gvp;
-    gd->gedp->ged_gvp = gd->cv;
-    int ret = ged_ypr_core(gd->gedp, argc, argv);
-    gd->gedp->ged_gvp = cv;
-    return ret;
+    return _view_call_on_gd_view(gd, ged_ypr_core, argc, argv);
 }
 
 
@@ -523,12 +503,12 @@ _view_cmd_vZ(void *bs, int argc, const char **argv)
 		    fastf_t calc_val = bv_vZ_calc(s, gd->cv, calc_mode);
 		    if (calc_mode) {
 			if (calc_val > vZ) {
-			    vZ = calc_mode;
+			    vZ = calc_val;
 			    have_vz = 1;
 			}
 		    } else {
 			if (calc_val < vZ) {
-			    vZ = calc_mode;
+			    vZ = calc_val;
 			    have_vz = 1;
 			}
 		    }
@@ -540,12 +520,12 @@ _view_cmd_vZ(void *bs, int argc, const char **argv)
 		    fastf_t calc_val = bv_vZ_calc(s, gd->cv, calc_mode);
 		    if (calc_mode) {
 			if (calc_val > vZ) {
-			    vZ = calc_mode;
+			    vZ = calc_val;
 			    have_vz = 1;
 			}
 		    } else {
 			if (calc_val < vZ) {
-			    vZ = calc_mode;
+			    vZ = calc_val;
 			    have_vz = 1;
 			}
 		    }
@@ -559,12 +539,12 @@ _view_cmd_vZ(void *bs, int argc, const char **argv)
 			fastf_t calc_val = bv_vZ_calc(cg, gd->cv, calc_mode);
 			if (calc_mode) {
 			    if (calc_val > vZ) {
-				vZ = calc_mode;
+				vZ = calc_val;
 				have_vz = 1;
 			    }
 			} else {
 			    if (calc_val < vZ) {
-				vZ = calc_mode;
+				vZ = calc_val;
 				have_vz = 1;
 			    }
 			}
@@ -574,12 +554,12 @@ _view_cmd_vZ(void *bs, int argc, const char **argv)
 			    fastf_t calc_val = bv_vZ_calc(s, gd->cv, calc_mode);
 			    if (calc_mode) {
 				if (calc_val > vZ) {
-				    vZ = calc_mode;
+				    vZ = calc_val;
 				    have_vz = 1;
 				}
 			    } else {
 				if (calc_val < vZ) {
-				    vZ = calc_mode;
+				    vZ = calc_val;
 				    have_vz = 1;
 				}
 			    }
@@ -594,12 +574,12 @@ _view_cmd_vZ(void *bs, int argc, const char **argv)
 			fastf_t calc_val = bv_vZ_calc(cg, gd->cv, calc_mode);
 			if (calc_mode) {
 			    if (calc_val > vZ) {
-				vZ = calc_mode;
+				vZ = calc_val;
 				have_vz = 1;
 			    }
 			} else {
 			    if (calc_val < vZ) {
-				vZ = calc_mode;
+				vZ = calc_val;
 				have_vz = 1;
 			    }
 			}
@@ -609,12 +589,12 @@ _view_cmd_vZ(void *bs, int argc, const char **argv)
 			    fastf_t calc_val = bv_vZ_calc(s, gd->cv, calc_mode);
 			    if (calc_mode) {
 				if (calc_val > vZ) {
-				    vZ = calc_mode;
+				    vZ = calc_val;
 				    have_vz = 1;
 				}
 			    } else {
 				if (calc_val < vZ) {
-				    vZ = calc_mode;
+				    vZ = calc_val;
 				    have_vz = 1;
 				}
 			    }
@@ -742,11 +722,7 @@ _view_cmd_knob(void *bs, int argc, const char **argv)
 	return BRLCAD_OK;
     }
 
-    struct bview *cv = gd->gedp->ged_gvp;
-    gd->gedp->ged_gvp = gd->cv;
-    int ret = ged_knob_core(gd->gedp, argc, argv);
-    gd->gedp->ged_gvp = cv;
-    return ret;
+    return _view_call_on_gd_view(gd, ged_knob_core, argc, argv);
 }
 
 const struct bu_cmdtab _view_cmds[] = {
@@ -781,6 +757,7 @@ ged_view_core(struct ged *gedp, int argc, const char *argv[])
     gd.gedp = gedp;
     gd.cmds = _view_cmds;
     gd.cv = NULL;
+    gd.gobj_dbpath = NULL;
     gd.verbosity = 0;
 
     // Sanity
@@ -881,102 +858,6 @@ ged_view_core(struct ged *gedp, int argc, const char *argv[])
     return BRLCAD_ERROR;
 }
 
-int
-ged_view_func_core(struct ged *gedp, int argc, const char *argv[])
-{
-    if (gedp->dbi_state)
-	return ged_view_core(gedp, argc, argv);
-
-
-    static const char *usage = "ae|aet|auto|center|eye|knob|lookat|print|quat|save|size|ypr [args]";
-
-    GED_CHECK_VIEW(gedp, BRLCAD_ERROR);
-    GED_CHECK_ARGC_GT_0(gedp, argc, BRLCAD_ERROR);
-
-    /* initialize result */
-    bu_vls_trunc(gedp->ged_result_str, 0);
-
-    /* must be wanting help */
-    if (argc == 1) {
-	bu_vls_printf(gedp->ged_result_str, "Usage: %s %s", argv[0], usage);
-	return BRLCAD_ERROR;
-    }
-
-    if (BU_STR_EQUAL(argv[1], "aet") || BU_STR_EQUAL(argv[1], "ae")) {
-	return ged_aet_core(gedp, argc-1, argv+1);
-    }
-
-    if (BU_STR_EQUAL(argv[1], "align")) {
-	return ged_align_core(gedp, argc-1, argv+1);
-    }
-
-    if (BU_STR_EQUAL(argv[1], "autoview") || BU_STR_EQUAL(argv[1], "auto")) {
-	return ged_autoview_core(gedp, argc-1, argv+1);
-    }
-
-    if (BU_STR_EQUAL(argv[1], "center")) {
-	return ged_center_core(gedp, argc-1, argv+1);
-    }
-
-    if (BU_STR_EQUAL(argv[1], "data_lines") || BU_STR_EQUAL(argv[1], "sdata_lines")) {
-	return ged_view_data_lines(gedp, argc-1, argv+1);
-    }
-
-    if (BU_STR_EQUAL(argv[1], "eye")) {
-	return ged_eye_core(gedp, argc-1, argv+1);
-    }
-
-    if (BU_STR_EQUAL(argv[1], "faceplate")) {
-	return ged_faceplate_core(gedp, argc-1, argv+1);
-    }
-
-    if (BU_STR_EQUAL(argv[1], "knob")) {
-	return ged_knob_core(gedp, argc-1, argv+1);
-    }
-
-    if (BU_STR_EQUAL(argv[1], "lookat")) {
-	return ged_lookat_core(gedp, argc-1, argv+1);
-    }
-
-    if (BU_STR_EQUAL(argv[1], "obj")) {
-	return _view_cmd_old_obj(gedp, argc-1, argv+1);
-    }
-
-    if (BU_STR_EQUAL(argv[1], "print")) {
-	return _view_cmd_print(gedp, argc-1, argv+1);
-    }
-
-    if (BU_STR_EQUAL(argv[1], "quat")) {
-	return ged_quat_core(gedp, argc-1, argv+1);
-    }
-
-    if (BU_STR_EQUAL(argv[1], "qvrot") || BU_STR_EQUAL(argv[1], "dir")) {
-	if (argc < 4)
-	    return ged_viewdir_core(gedp, argc-1, argv+1);
-	return ged_qvrot_core(gedp, argc-1, argv+1);
-    }
-
-    if (BU_STR_EQUAL(argv[1], "saveview") || BU_STR_EQUAL(argv[1], "save")) {
-	return ged_saveview_core(gedp, argc-1, argv+1);
-    }
-
-    if (BU_STR_EQUAL(argv[1], "size")) {
-	return ged_size_core(gedp, argc-1, argv+1);
-    }
-
-    if (BU_STR_EQUAL(argv[1], "snap")) {
-	return ged_view_snap(gedp, argc-1, argv+1);
-    }
-
-    if (BU_STR_EQUAL(argv[1], "ypr")) {
-	return ged_ypr_core(gedp, argc-1, argv+1);
-    }
-
-    bu_vls_printf(gedp->ged_result_str, "Usage: %s %s", argv[0], usage);
-    return BRLCAD_ERROR;
-}
-
-
 #include "../include/plugin.h"
 
 #define GED_VIEW_COMMANDS(X, XID) \
@@ -996,7 +877,7 @@ ged_view_func_core(struct ged *gedp, int argc, const char *argv[])
     X(size, ged_size_core, GED_CMD_DEFAULT) \
     X(view, ged_view_core, GED_CMD_DEFAULT) \
     X(view2, ged_view_core, GED_CMD_DEFAULT) \
-    X(view_func, ged_view_func_core, GED_CMD_DEFAULT) \
+    X(view_func, ged_view_core, GED_CMD_DEFAULT) \
     X(viewdir, ged_viewdir_core, GED_CMD_DEFAULT) \
     X(ypr, ged_ypr_core, GED_CMD_DEFAULT) \
 

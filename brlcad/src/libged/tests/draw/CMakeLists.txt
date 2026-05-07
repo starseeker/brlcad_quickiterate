@@ -340,6 +340,21 @@ if(TARGET ged_test_view_independent)
   set_property(TEST ged_test_view_independent APPEND PROPERTY ENVIRONMENT BRLCAD_ROOT=${CMAKE_BINARY_DIR})
 endif()
 
+# Phase V7: consolidated view command grammar and aliases
+brlcad_addexec(ged_test_view_command "view_command.cpp" "libged;libbsg" TEST)
+if(TARGET ged_test_view_command)
+  foreach(tdp ${test_deps})
+    if (TARGET tdp)
+      add_dependencies(ged_test_view_command ${tdp})
+    endif ()
+  endforeach()
+endif(TARGET ged_test_view_command)
+brlcad_add_test(NAME ged_test_view_command
+  COMMAND ged_test_view_command "${CMAKE_CURRENT_SOURCE_DIR}")
+if(TARGET ged_test_view_command)
+  set_property(TEST ged_test_view_command APPEND PROPERTY ENVIRONMENT BRLCAD_ROOT=${CMAKE_BINARY_DIR})
+endif()
+
 # Phase 7: lighting/zbuffer/zclip regression test (mged_shaded_mode_helper path)
 brlcad_addexec(ged_test_mged_shaded_mode_bsg "mged_shaded_mode_bsg.cpp;util.cpp" "libged;libdm;libbsg;libicv" TEST)
 if(TARGET ged_test_mged_shaded_mode_bsg)
@@ -370,6 +385,7 @@ cmakefiles(
   bsg_quad_parity.cpp
   bsg_view_obj.cpp
   view_independent.cpp
+  view_command.cpp
   lod_crossrun.cpp
   mged_bsg.cpp
   mged_shaded_mode_bsg.cpp
