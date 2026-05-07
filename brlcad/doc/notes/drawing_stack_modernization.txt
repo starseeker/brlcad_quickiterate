@@ -673,8 +673,8 @@ V5 implementation snapshot (2026-05-07):
   `ged_lod_adaptive_toggle_sync` on LoD nodes and stales the owning
   shape when toggles change.
 - `src/libged/bsg_ged_draw.c`: `ged_lod_state` now tracks per-view
-  adaptive-toggle state and a one-shot `force_stale` trigger consumed
-  by `_lod_is_stale`; added `ged_lod_adaptive_toggle_sync`.
+  adaptive-toggle state and invalidates the per-view LoD cursor on
+  toggles via `ged_lod_adaptive_toggle_sync`.
 - `src/libbv/bv_private.h`: removed `bv_scene_obj_internal::vobjs`.
 - `include/bv/util.h` + `src/libbv/util.cpp`: removed
   `bv_obj_get_vo`, `bv_obj_have_vo`, `bv_clear_view_obj`; retained

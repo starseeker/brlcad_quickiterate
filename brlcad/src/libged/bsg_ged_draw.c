@@ -208,9 +208,9 @@ _mesh_lod_free(bsg_node *node)
 	return;
     struct ged_lod_state *st = (struct ged_lod_state *)pl->user_data;
     if (st->views)
-	bu_free(st->views, "_mesh_lod_state_views");
+	bu_free(st->views, "_lod_state_views");
     if (st->adaptive_on)
-	bu_free(st->adaptive_on, "_mesh_lod_state_adaptive");
+	bu_free(st->adaptive_on, "_lod_state_adaptive");
     bu_free(pl->user_data, "_mesh_lod_state");
 }
 
