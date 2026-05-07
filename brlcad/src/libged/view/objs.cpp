@@ -61,10 +61,13 @@ _view_obj_scope_list(struct bu_vls *out, struct bv_scene_obj *root, struct bview
 	if ((c->s_type_flags & BSG_NODE_VIEW_REF) && c->s_path)
 	    s = (struct bv_scene_obj *)c->s_path;
 	if (s && (s->s_type_flags & BV_VIEW_OBJS)) {
+	    if (!BU_VLS_IS_INITIALIZED(&s->s_name))
+		goto recurse;
 	    const char *n = bu_vls_cstr(&s->s_name);
 	    if (n && strlen(n) && seen.insert(std::string(n)).second)
 		bu_vls_printf(out, "%s\n", n);
 	}
+recurse:
 	_view_obj_scope_list(out, c, v, seen);
     }
 }

@@ -24,6 +24,7 @@
  */
 
 #include "common.h"
+#include <queue>
 #include <string.h>
 #include "vmath.h"
 #include "bu/log.h"
@@ -1977,7 +1978,7 @@ bv_find_obj(struct bview *v, const char *name)
 	    struct bv_scene_obj *t = c;
 	    if ((c->s_type_flags & BSG_NODE_VIEW_REF) && c->s_path)
 		t = (struct bv_scene_obj *)c->s_path;
-	    if (t && !bu_path_match(name, bu_vls_cstr(&t->s_name), 0))
+	    if (t && BU_VLS_IS_INITIALIZED(&t->s_name) && !bu_path_match(name, bu_vls_cstr(&t->s_name), 0))
 		return t;
 	    nqueue.push(c);
 	}
