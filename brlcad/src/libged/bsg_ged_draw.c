@@ -104,10 +104,9 @@ struct ged_lod_state {
 static int
 _lod_state_adaptive_index(struct ged_lod_state *st, struct bview *v, size_t *idx)
 {
-    if (idx)
-	*idx = 0;
     if (!st || !v || !idx)
 	return 0;
+    *idx = 0;
 
     for (size_t i = 0; i < st->vcnt; i++) {
 	if (st->views[i] == v) {
@@ -148,7 +147,7 @@ _lod_state_adaptive_set(struct ged_lod_state *st, struct bview *v, int adaptive_
 	return;
     }
 
-    if (st->vcnt + 1 > st->vcap) {
+    if (st->vcnt >= st->vcap) {
 	size_t ncap = (st->vcap < 4) ? 4 : (st->vcap * 2);
 	struct bview **nviews = (struct bview **)bu_realloc(st->views, ncap * sizeof(struct bview *), "lod_state_views");
 	int *nadaptive = (int *)bu_realloc(st->adaptive_on, ncap * sizeof(int), "lod_state_adaptive");
