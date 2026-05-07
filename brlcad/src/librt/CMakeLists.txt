@@ -4,9 +4,7 @@ brlcad_find_package(manifold REQUIRED)
 brlcad_find_package(mmesh REQUIRED)
 brlcad_find_package(OPENNURBS REQUIRED SYSPATTERN openNURBS)
 brlcad_find_package(REGEX REQUIRED)
-brlcad_find_package(Geogram REQUIRED SYSPATTERN geogram)
 find_package_gte(REQUIRED)
-add_definitions(-DUSE_GEOGRAM)
 
 if(BRLCAD_ENABLE_OPENCL)
   add_definitions(-DUSE_OPENCL)
@@ -14,12 +12,17 @@ endif(BRLCAD_ENABLE_OPENCL)
 
 set(
   LIBRT_PRIMEDIT_SOURCES
+  primitives/annot/edannot.c
   primitives/arb8/edarb.c
+  primitives/arbn/edarbn.c
   primitives/ars/edars.c
   primitives/bot/edbot.c
+  primitives/brep/edbrep.cpp
   primitives/bspline/edbspline.c
   primitives/cline/edcline.c
   primitives/datum/eddatum.c
+  primitives/datum/eddatum2.c
+  primitives/revolve/edrevolve.c
   primitives/dsp/eddsp.c
   primitives/ebm/edebm.c
   primitives/ehy/edehy.c
@@ -29,6 +32,7 @@ set(
   primitives/extrude/edextrude.c
   primitives/grip/edgrip.c
   primitives/half/edhalf.c
+  primitives/hrt/edhrt.c
   primitives/hyp/edhyp.c
   primitives/metaball/edmetaball.c
   primitives/nmg/ednmg.c
@@ -108,6 +112,7 @@ set(
   comb/edcomb.c
   material/material.c
   constraint.c
+  edit_constraint.c
   cut.c
   cut_hlbvh.c
   db5_alloc.c
@@ -255,6 +260,7 @@ set(
   primitives/poly/poly_brep.cpp
   primitives/poly/poly_mirror.c
   primitives/primitive_util.c
+  primitives/rec/edrec.c
   primitives/rec/rec.c
   primitives/revolve/revolve.c
   primitives/revolve/revolve_brep.cpp
@@ -271,6 +277,7 @@ set(
   primitives/sketch/sketch.c
   primitives/sketch/sketch_brep.cpp
   primitives/sketch/sketch_tess.cpp
+  primitives/sph/edsph.c
   primitives/sph/sph.c
   primitives/sph/sph_brep.cpp
   primitives/submodel/submodel.c
@@ -411,28 +418,27 @@ set(
   LIBRT_LIBS
   ${OPENCL_LIBS}
   ${librt_deps}
-  OPENNURBS::OPENNURBS
-  Geogram::geogram
+  ${OPENNURBS_LIBRARIES}
   mmesh::mmesh
-  REGEX::REGEX
+  ${REGEX_LIBRARIES}
   ${WINSOCK_LIB}
   ${RPCRT_LIB}
   ${STDCXX_LIBRARIES}
   manifold::manifold
 )
 
-# Include directories needed by librt users; OPENNURBS include dirs are
-# carried transitively by the OPENNURBS::OPENNURBS imported target.
-set(RT_INCLUDE_DIRS ${OPENCL_INCLUDE_DIRS})
+# Include directories needed by librt users
+# ${GTE_INCLUDE_DIR} is still needed by primitives/bot/bot_oriented_bbox.cpp
+# which uses GTE's ContOrientedBox3.h.
+set(RT_INCLUDE_DIRS ${OPENNURBS_INCLUDE_DIRS} ${OPENCL_INCLUDE_DIRS}
+  ${GTE_INCLUDE_DIR})
 
-# locally used but not needed by users of the library; Geogram include
-# dirs are carried by the Geogram::geogram imported target.
+# locally used but not needed by users of the library
 set(
   RT_LOCAL_INCLUDE_DIRS
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_CURRENT_SOURCE_DIR}/vds
   ${REGEX_INCLUDE_DIRS}
-  ${GTE_INCLUDE_DIR}
 )
 # FIXME: needs materialX
 #  ${CMAKE_CURRENT_SOURCE_DIR}/../../../MaterialXSource/source

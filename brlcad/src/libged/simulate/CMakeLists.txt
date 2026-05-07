@@ -1,7 +1,13 @@
 if(BRLCAD_ENABLE_BULLET)
   set(BULLET_ROOT ${PROJECT_BINARY_DIR})
-  brlcad_find_package(Bullet REQUIRED)
+  brlcad_find_package(Bullet)
+  if (NOT BULLET_LIBRARIES)
+    message(WARNING "BRLCAD_ENABLE_BULLET=ON, but Bullet3 not found - disabling")
+    set(BRLCAD_ENABLE_BULLET OFF)
+  endif()
+endif()
 
+if(BRLCAD_ENABLE_BULLET)
   if(BULLET_LIBRARIES)
     add_definitions(-DHAVE_BULLET=1)
     # We build double precision
@@ -18,7 +24,6 @@ if(BRLCAD_ENABLE_BULLET)
       endif()
     else()
       set(BULLET_INCLUDE_DIR "${BULLET_INCLUDE_DIR_FULL}")
-      message("EXISTS:  BULLET_INCLUDE_DIR: ${BULLET_INCLUDE_DIR}")
     endif()
     set(BULLET_INCLUDE_DIRS "${BULLET_INCLUDE_DIR}")
     if (NOT EXISTS "${BULLET_INCLUDE_DIRS}")
@@ -26,7 +31,6 @@ if(BRLCAD_ENABLE_BULLET)
     endif()
     set(BULLET_INCLUDE_DIRS "${BULLET_INCLUDE_DIRS}")
   endif()
-  message("BULLET_LIBRARIES: ${BULLET_LIBRARIES}")
 endif()
 
 add_subdirectory(tests)
@@ -40,13 +44,14 @@ set(
   rt_instance.cpp
   rt_motion_state.cpp
   rt_roi_collision_shape.cpp
+  sim_animate.cpp
   simulation.cpp
   utility.cpp
 )
 
 set(SIM_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/simulate)
 set(SIM_SYSTEM_INCLUDE_DIRS ${BULLET_INCLUDE_DIRS})
-set(SIM_LIBS libged libbu libbv ${BULLET_LIBRARIES})
+set(SIM_LIBS libged libicv libbv libbu ${BULLET_LIBRARIES})
 
 check_cxx_compiler_flag(-Wno-nonnull-compare NO_NONNULL_COMPARE)
 
@@ -69,6 +74,7 @@ cmakefiles(
   rt_instance.hpp
   rt_motion_state.hpp
   rt_roi_collision_shape.hpp
+  sim_animate.hpp
   simulation.hpp
   utility.hpp
 )

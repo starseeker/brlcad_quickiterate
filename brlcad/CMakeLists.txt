@@ -231,7 +231,7 @@ set(CMAKE_FIND_USE_PACKAGE_REGISTRY FALSE)
 # Prepare to manage and build BRL-CAD's external dependencies. Specifies a
 # specific commit hash to use in the 'bext' repository.
 include(BRLCAD_ExternalDeps)
-brlcad_bext_init(f8e0be4212aae912abb8a03a3becb121a2fc21fd)
+brlcad_bext_init(dda9c16a80a9cdd1509c50cd286974d6013c92c4)
 
 #---------------------------------------------------------------------
 # Define various utilities.
@@ -898,6 +898,93 @@ check_c_flag(Qunused-arguments)
 check_cxx_flag(Qunused-arguments)
 
 cmake_pop_check_state()
+
+# *******************************************************************
+# Compiler feature checks used by embedded geogram (libbg)
+# *******************************************************************
+
+# Check whether the compiler supports __restrict__ (GCC/Clang form)
+check_c_source_compiles(
+  "int main(int argc, char *argv[]) { int * __restrict__ p = (int *)0; (void)p; (void)argc; (void)argv; return 0; }"
+  HAVE_RESTRICT__
+)
+if(HAVE_RESTRICT__)
+  config_h_append(BRLCAD "#define HAVE_RESTRICT__ 1\n")
+endif(HAVE_RESTRICT__)
+
+# Check whether the compiler supports __restrict (MSVC / other single-underscore form).
+# GCC and Clang also accept __restrict, but HAVE_RESTRICT__ above is preferred.
+# This check is here so that memory.h can fall back to __restrict on MSVC.
+if(NOT HAVE_RESTRICT__)
+  check_c_source_compiles(
+    "int main(int argc, char *argv[]) { int * __restrict p = (int *)0; (void)p; (void)argc; (void)argv; return 0; }"
+    HAVE_RESTRICT
+  )
+  if(HAVE_RESTRICT)
+    config_h_append(BRLCAD "#define HAVE_RESTRICT 1\n")
+  endif(HAVE_RESTRICT)
+endif()
+
+# Check whether the compiler supports __builtin_assume_aligned (GCC/Clang)
+check_c_source_compiles(
+  "int main(int argc, char *argv[]) { void *p = (void *)0; p = __builtin_assume_aligned(p, 64); (void)p; (void)argc; (void)argv; return 0; }"
+  HAVE_BUILTIN_ASSUME_ALIGNED
+)
+if(HAVE_BUILTIN_ASSUME_ALIGNED)
+  config_h_append(BRLCAD "#define HAVE_BUILTIN_ASSUME_ALIGNED 1\n")
+endif(HAVE_BUILTIN_ASSUME_ALIGNED)
+
+# Check whether the compiler supports __debugbreak() (MSVC/Windows)
+check_c_source_compiles(
+  "int main(int argc, char *argv[]) { __debugbreak(); (void)argc; (void)argv; return 0; }"
+  HAVE_DEBUGBREAK
+)
+if(HAVE_DEBUGBREAK)
+  config_h_append(BRLCAD "#define HAVE_DEBUGBREAK 1\n")
+endif(HAVE_DEBUGBREAK)
+
+# Check whether #pragma fp_contract(off) is accepted without warnings (MSVC only).
+# GCC/Clang only warn about this unknown pragma; the test must be run with
+# -Werror so that unsupported compilers cause the test to fail.
+cmake_push_check_state()
+if(NOT MSVC)
+  set(CMAKE_REQUIRED_FLAGS "-Werror=unknown-pragmas")
+endif()
+check_c_source_compiles(
+  "#pragma fp_contract(off)\nint main(int argc, char *argv[]) { (void)argc; (void)argv; return 0; }"
+  HAVE_PRAGMA_FP_CONTRACT
+)
+cmake_pop_check_state()
+if(HAVE_PRAGMA_FP_CONTRACT)
+  config_h_append(BRLCAD "#define HAVE_PRAGMA_FP_CONTRACT 1\n")
+endif(HAVE_PRAGMA_FP_CONTRACT)
+
+# Check for _mm_pause (x86/x86_64 spinlock hint via Intel intrinsics)
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64|x86|i[36789]86")
+  check_c_source_compiles(
+    "#include <immintrin.h>\nint main(int argc, char *argv[]) { _mm_pause(); (void)argc; (void)argv; return 0; }"
+    HAVE_MM_PAUSE
+  )
+  if(HAVE_MM_PAUSE)
+    config_h_append(BRLCAD "#define HAVE_MM_PAUSE 1\n")
+  endif(HAVE_MM_PAUSE)
+endif()
+
+# Check for _aligned_malloc / _aligned_free (Windows-specific)
+check_c_source_compiles(
+  "#include <malloc.h>\nint main(int argc, char *argv[]) { void *p = _aligned_malloc(64, 64); _aligned_free(p); (void)argc; (void)argv; return 0; }"
+  HAVE_ALIGNED_MALLOC
+)
+if(HAVE_ALIGNED_MALLOC)
+  config_h_append(BRLCAD "#define HAVE_ALIGNED_MALLOC 1\n")
+endif(HAVE_ALIGNED_MALLOC)
+
+# On Linux the default thread stack is 8-10 MB (vs 1 MB on Windows, 512 KB on
+# macOS).  geogram's exact-arithmetic predicates use this to allocate
+# multi-precision temporaries on the stack for performance.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  config_h_append(BRLCAD "#define BRLCAD_HAS_BIG_STACK 1\n")
+endif()
 
 # The following tests are almost entirely for gcc/llvm style flags, so
 # we don't unnecessarily slow down the Windows build.
@@ -2224,196 +2311,6 @@ if(NOT BRLCAD_DISABLE_SUMMARY)
   include(BRLCAD_Summary)
   brlcad_summary()
 endif(NOT BRLCAD_DISABLE_SUMMARY)
-
-# *******************************************************************
-# ***              Modern find_package(BRLCAD) support            ***
-# *******************************************************************
-# Generate BRLCADConfig.cmake, BRLCADConfigVersion.cmake and install
-# the exported target files so that downstream projects can do:
-#
-#   find_package(BRLCAD 7.40 REQUIRED COMPONENTS rt wdb ged)
-#   target_link_libraries(myapp PRIVATE BRLCAD::rt BRLCAD::wdb BRLCAD::ged)
-#
-include(CMakePackageConfigHelpers)
-
-# The destination directory for all cmake package files
-set(BRLCAD_CMAKE_PKG_DIR "${LIB_DIR}/cmake/BRLCAD")
-
-# ---- Build-time feature booleans (substituted into the config template) ----
-if(BRLCAD_ENABLE_TCL)
-  set(BRLCAD_HAVE_TCL TRUE)
-else()
-  set(BRLCAD_HAVE_TCL FALSE)
-endif()
-if(BRLCAD_ENABLE_QT)
-  set(BRLCAD_HAVE_QT TRUE)
-else()
-  set(BRLCAD_HAVE_QT FALSE)
-endif()
-if(BRLCAD_ENABLE_OPENGL)
-  set(BRLCAD_HAVE_OPENGL TRUE)
-else()
-  set(BRLCAD_HAVE_OPENGL FALSE)
-endif()
-if(BRLCAD_ENABLE_GDAL)
-  set(BRLCAD_HAVE_GDAL TRUE)
-else()
-  set(BRLCAD_HAVE_GDAL FALSE)
-endif()
-if(BRLCAD_ENABLE_STEP)
-  set(BRLCAD_HAVE_STEP TRUE)
-else()
-  set(BRLCAD_HAVE_STEP FALSE)
-endif()
-if(BRLCAD_ENABLE_OPENCL)
-  set(BRLCAD_HAVE_OPENCL TRUE)
-else()
-  set(BRLCAD_HAVE_OPENCL FALSE)
-endif()
-# OSMesa: check for the target being present
-if(TARGET OSMesa)
-  set(BRLCAD_HAVE_OSMESA TRUE)
-else()
-  set(BRLCAD_HAVE_OSMESA FALSE)
-endif()
-
-# ---- find_dependency() fragments (only emitted when the dep was used) -------
-# Each variable expands to a find_dependency() call in the config template.
-# For bundled deps (installed under our own prefix) we rely on the modules/
-# directory that is shipped alongside BRLCADConfig.cmake.
-if(ZLIB_FOUND OR TARGET ZLIB::ZLIB)
-  set(BRLCAD_FIND_DEP_ZLIB "find_dependency(ZLIB)")
-else()
-  set(BRLCAD_FIND_DEP_ZLIB "# ZLIB not used in this build")
-endif()
-if(LMDB_FOUND OR TARGET LMDB::LMDB)
-  set(BRLCAD_FIND_DEP_LMDB "find_dependency(LMDB)")
-else()
-  set(BRLCAD_FIND_DEP_LMDB "# LMDB not used in this build")
-endif()
-if(REGEX_FOUND OR TARGET REGEX::REGEX)
-  set(BRLCAD_FIND_DEP_REGEX "find_dependency(REGEX)")
-else()
-  set(BRLCAD_FIND_DEP_REGEX "# REGEX not used in this build")
-endif()
-if(PNG_FOUND OR TARGET PNG::PNG)
-  set(BRLCAD_FIND_DEP_PNG "find_dependency(PNG)")
-else()
-  set(BRLCAD_FIND_DEP_PNG "# PNG not used in this build")
-endif()
-if(OPENNURBS_FOUND OR TARGET OPENNURBS::OPENNURBS)
-  set(BRLCAD_FIND_DEP_OPENNURBS "find_dependency(OPENNURBS)")
-else()
-  set(BRLCAD_FIND_DEP_OPENNURBS "# OPENNURBS not used in this build")
-endif()
-if(Geogram_FOUND OR TARGET Geogram::geogram)
-  set(BRLCAD_FIND_DEP_GEOGRAM "find_dependency(Geogram)")
-else()
-  set(BRLCAD_FIND_DEP_GEOGRAM "# Geogram not used in this build")
-endif()
-if(NETPBM_FOUND OR TARGET NETPBM::NETPBM)
-  set(BRLCAD_FIND_DEP_NETPBM "find_dependency(NETPBM)")
-else()
-  set(BRLCAD_FIND_DEP_NETPBM "# NETPBM not used in this build")
-endif()
-if(JPEG_FOUND OR TARGET JPEG::JPEG)
-  set(BRLCAD_FIND_DEP_JPEG "find_dependency(JPEG)")
-else()
-  set(BRLCAD_FIND_DEP_JPEG "# JPEG not used in this build")
-endif()
-
-# ---- Install-tree BRLCADConfig.cmake ----------------------------------------
-# This file is installed to <prefix>/lib/cmake/BRLCAD/BRLCADConfig.cmake.
-# The path variables are relative to the install prefix so the package
-# relocates correctly.
-set(BRLCAD_INCLUDE_INSTALL_DIR   "${INCLUDE_DIR}")
-set(BRLCAD_LIB_INSTALL_DIR       "${LIB_DIR}")
-set(BRLCAD_DATA_INSTALL_DIR      "${DATA_DIR}/brlcad/${BRLCAD_VERSION}")
-
-configure_package_config_file(
-  "${BRLCAD_CMAKE_DIR}/BRLCADConfig.cmake.in"
-  "${CMAKE_CURRENT_BINARY_DIR}/BRLCADConfig-install.cmake"
-  INSTALL_DESTINATION "${BRLCAD_CMAKE_PKG_DIR}"
-  PATH_VARS
-    BRLCAD_INCLUDE_INSTALL_DIR
-    BRLCAD_LIB_INSTALL_DIR
-    BRLCAD_DATA_INSTALL_DIR
-)
-
-write_basic_package_version_file(
-  "${CMAKE_CURRENT_BINARY_DIR}/BRLCADConfigVersion.cmake"
-  VERSION ${BRLCAD_VERSION}
-  COMPATIBILITY SameMinorVersion
-)
-
-# Install the package config files (rename -install variant to the canonical name)
-install(
-  FILES "${CMAKE_CURRENT_BINARY_DIR}/BRLCADConfig-install.cmake"
-  DESTINATION "${BRLCAD_CMAKE_PKG_DIR}"
-  RENAME BRLCADConfig.cmake
-)
-install(
-  FILES "${CMAKE_CURRENT_BINARY_DIR}/BRLCADConfigVersion.cmake"
-  DESTINATION "${BRLCAD_CMAKE_PKG_DIR}"
-)
-
-# Install the generated targets file (populated by BRLCAD_ADDLIB calls above)
-install(
-  EXPORT BRLCADTargets
-  NAMESPACE BRLCAD::
-  DESTINATION "${BRLCAD_CMAKE_PKG_DIR}"
-  FILE BRLCADTargets.cmake
-)
-
-# Install the static targets file when BUILD_STATIC_LIBS is enabled.
-# BRLCADStaticTargets.cmake is populated by BRLCAD_ADDLIB for every library
-# that is built alongside its shared twin (i.e. when BUILD_STATIC_LIBS=ON).
-if(BUILD_STATIC_LIBS)
-  install(
-    EXPORT BRLCADStaticTargets
-    NAMESPACE BRLCAD::
-    DESTINATION "${BRLCAD_CMAKE_PKG_DIR}"
-    FILE BRLCADStaticTargets.cmake
-  )
-endif(BUILD_STATIC_LIBS)
-
-# Install the private find-modules that bundled deps may need
-install(
-  DIRECTORY "${BRLCAD_CMAKE_DIR}/"
-  DESTINATION "${BRLCAD_CMAKE_PKG_DIR}/modules"
-  FILES_MATCHING PATTERN "Find*.cmake"
-  # Exclude the top-level FindBRLCAD.cmake itself (that's shipped separately)
-  PATTERN "FindBRLCAD.cmake" EXCLUDE
-)
-
-# ---- Build-tree BRLCADConfig.cmake ------------------------------------------
-# Allows sibling projects to do:
-#   find_package(BRLCAD CONFIG REQUIRED PATHS /path/to/brlcad_build NO_DEFAULT_PATH)
-# without installing first (useful for quickiterate-style workflows).
-# BRLCADConfig.cmake in the build directory points at the build-tree includes
-# and libraries so all paths resolve without a prior install.
-
-set(BRLCAD_INCLUDE_INSTALL_DIR  "${BRLCAD_BINARY_DIR}/${INCLUDE_DIR}")
-set(BRLCAD_LIB_INSTALL_DIR      "${BRLCAD_BINARY_DIR}/${LIB_DIR}")
-set(BRLCAD_DATA_INSTALL_DIR     "${BRLCAD_BINARY_DIR}/${DATA_DIR}/brlcad/${BRLCAD_VERSION}")
-
-configure_package_config_file(
-  "${BRLCAD_CMAKE_DIR}/BRLCADConfig.cmake.in"
-  "${CMAKE_CURRENT_BINARY_DIR}/BRLCADConfig.cmake"
-  INSTALL_DESTINATION "${CMAKE_CURRENT_BINARY_DIR}"
-  PATH_VARS
-    BRLCAD_INCLUDE_INSTALL_DIR
-    BRLCAD_LIB_INSTALL_DIR
-    BRLCAD_DATA_INSTALL_DIR
-)
-
-# Export the build-tree targets file (shared only; static targets have
-# internal build-time deps that cannot be resolved without an install).
-export(
-  EXPORT BRLCADTargets
-  NAMESPACE BRLCAD::
-  FILE "${CMAKE_CURRENT_BINARY_DIR}/BRLCADTargets.cmake"
-)
 
 # *******************************************************************
 # ***                      Timestamp Rules                        ***

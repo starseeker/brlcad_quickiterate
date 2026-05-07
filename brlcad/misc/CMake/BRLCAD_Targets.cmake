@@ -348,6 +348,69 @@ function(BRLCAD_ADDEXEC execname srcslist libslist)
 endfunction(BRLCAD_ADDEXEC execname srcslist libslist)
 
 
+# Resolve a dependency token to a static-variant target when available.
+function(BRLCAD_STATIC_VARIANT out_var dep)
+  set(_dep "${dep}")
+  if(TARGET "${dep}")
+    get_target_property(_svt "${dep}" BRLCAD_STATIC_VARIANT_TARGET)
+    if(_svt AND TARGET "${_svt}")
+      set(_dep "${_svt}")
+    elseif(TARGET "${dep}-static")
+      set(_dep "${dep}-static")
+    elseif(TARGET "${dep}_static")
+      set(_dep "${dep}_static")
+    endif()
+  endif(TARGET "${dep}")
+  set(${out_var} "${_dep}" PARENT_SCOPE)
+endfunction(BRLCAD_STATIC_VARIANT)
+
+
+# Given a list of dependency tokens, resolve static variants when requested.
+function(BRLCAD_RESOLVE_LIBDEPS out_var link_mode)
+  set(_resolved)
+  foreach(_dep ${ARGN})
+    if("${_dep}" STREQUAL "" OR "${_dep}" STREQUAL "NONE")
+      continue()
+    endif()
+    if("${link_mode}" STREQUAL "STATIC")
+      brlcad_static_variant(_resolved_dep "${_dep}")
+    else()
+      set(_resolved_dep "${_dep}")
+    endif()
+    list(APPEND _resolved "${_resolved_dep}")
+  endforeach()
+  set(${out_var} ${_resolved} PARENT_SCOPE)
+endfunction(BRLCAD_RESOLVE_LIBDEPS)
+
+
+# Collect include directories from dependency targets.  Also check one level
+# of interface-linked targets to account for transitive public headers.
+function(BRLCAD_COLLECT_DEP_INCLUDES out_var)
+  set(_incs)
+  foreach(_ll ${ARGN})
+    if(TARGET ${_ll})
+      get_target_property(IDIRS ${_ll} INTERFACE_INCLUDE_DIRECTORIES)
+      if(IDIRS)
+        list(APPEND _incs ${IDIRS})
+      endif(IDIRS)
+      get_target_property(_child_links ${_ll} INTERFACE_LINK_LIBRARIES)
+      if(_child_links)
+        foreach(_cl ${_child_links})
+          if(TARGET ${_cl})
+            get_target_property(_child_idirs ${_cl} INTERFACE_INCLUDE_DIRECTORIES)
+            if(_child_idirs)
+              list(APPEND _incs ${_child_idirs})
+            endif(_child_idirs)
+          endif(TARGET ${_cl})
+        endforeach(_cl ${_child_links})
+      endif(_child_links)
+    endif(TARGET ${_ll})
+  endforeach(_ll ${ARGN})
+  list(REMOVE_DUPLICATES _incs)
+  set(${out_var} ${_incs} PARENT_SCOPE)
+endfunction(BRLCAD_COLLECT_DEP_INCLUDES)
+
+
 #---------------------------------------------------------------------
 # Library function handles both shared and static libs, so one
 # "BRLCAD_ADDLIB" statement will cover both automatically
@@ -359,7 +422,7 @@ function(
     include_dirs
     local_include_dirs
   )
-  cmake_parse_arguments(L "SHARED;STATIC;NO_INSTALL;NO_STRICT;NO_STRICT_CXX;NO_UNITY" "FOLDER" "SHARED_SRCS;STATIC_SRCS;UNITY_BUILD_SKIP" ${ARGN})
+  cmake_parse_arguments(L "SHARED;STATIC;NO_INSTALL;NO_STRICT;NO_STRICT_CXX;NO_UNITY" "FOLDER" "SHARED_SRCS;STATIC_SRCS;UNITY_BUILD_SKIP;PUBLIC_LIBS;PRIVATE_LIBS;INTERFACE_LIBS" ${ARGN})
 
   # Let CMAKEFILES know what's going on
   cmakefiles(${srcslist} ${L_SHARED_SRCS} ${L_STATIC_SRCS})
@@ -381,27 +444,32 @@ function(
     set(SUBFOLDER "/${L_FOLDER}")
   endif(L_FOLDER)
 
+  # Determine library dependency visibility.  If no explicit list is
+  # supplied, use the legacy argument behavior where libslist is public.
+  set(_public_libs ${L_PUBLIC_LIBS})
+  set(_private_libs ${L_PRIVATE_LIBS})
+  set(_interface_libs ${L_INTERFACE_LIBS})
+  if(NOT _public_libs AND NOT _private_libs AND NOT _interface_libs)
+    if(NOT "${libslist}" STREQUAL "" AND NOT "${libslist}" STREQUAL "NONE")
+      set(_public_libs ${libslist})
+    endif()
+  endif()
+
+  # Resolve dependencies for shared and static variants.
+  brlcad_resolve_libdeps(SHARED_PUBLIC_LIBS SHARED ${_public_libs})
+  brlcad_resolve_libdeps(SHARED_PRIVATE_LIBS SHARED ${_private_libs})
+  brlcad_resolve_libdeps(SHARED_INTERFACE_LIBS SHARED ${_interface_libs})
+  brlcad_resolve_libdeps(STATIC_PUBLIC_LIBS STATIC ${_public_libs})
+  brlcad_resolve_libdeps(STATIC_PRIVATE_LIBS STATIC ${_private_libs})
+  brlcad_resolve_libdeps(STATIC_INTERFACE_LIBS STATIC ${_interface_libs})
+
   # Set up includes
   set(PUBLIC_HDRS ${include_dirs})
-  foreach(ll ${libslist})
-    if(TARGET ${ll})
-      get_target_property(IDIRS ${ll} INTERFACE_INCLUDE_DIRECTORIES)
-      if(IDIRS)
-        foreach(_idir ${IDIRS})
-          # Accept raw paths directly.
-          # Unwrap $<BUILD_INTERFACE:path> to get the build-tree path used
-          # for compilation.  Skip $<INSTALL_INTERFACE:...> and any other
-          # generator expression that does not carry a build-tree path.
-          if(_idir MATCHES "^\\$<BUILD_INTERFACE:(.+)>$")
-            list(APPEND PUBLIC_HDRS "${CMAKE_MATCH_1}")
-          elseif(NOT _idir MATCHES "^\\$<")
-            list(APPEND PUBLIC_HDRS "${_idir}")
-          endif()
-        endforeach()
-      endif(IDIRS)
-    endif(TARGET ${ll})
-  endforeach(ll ${libslist})
+  brlcad_collect_dep_includes(_pub_dep_includes ${SHARED_PUBLIC_LIBS} ${SHARED_INTERFACE_LIBS})
+  list(APPEND PUBLIC_HDRS ${_pub_dep_includes})
   set(PRIVATE_HDRS ${local_include_dirs})
+  brlcad_collect_dep_includes(_priv_dep_includes ${SHARED_PRIVATE_LIBS})
+  list(APPEND PRIVATE_HDRS ${_priv_dep_includes})
 
   # If we need it, set up the OBJECT library build
   if(USE_OBJECT_LIBS)
@@ -429,13 +497,14 @@ function(
     # cause very hard-to-debut intermittent build failures, especially
     # with parallel builds, as build order is not guaranteed without
     # explicit deps.
-    if(NOT "${libslist}" STREQUAL "" AND NOT "${libslist}" STREQUAL "NONE")
-      foreach(ll ${libslist})
+    set(_obj_deps ${SHARED_PUBLIC_LIBS} ${SHARED_PRIVATE_LIBS} ${SHARED_INTERFACE_LIBS})
+    if(_obj_deps)
+      foreach(ll ${_obj_deps})
         if(TARGET ${ll})
           add_dependencies(${libname}-obj ${ll})
         endif(TARGET ${ll})
-      endforeach(ll ${libslist})
-    endif(NOT "${libslist}" STREQUAL "" AND NOT "${libslist}" STREQUAL "NONE")
+      endforeach(ll ${_obj_deps})
+    endif(_obj_deps)
 
     # Apply unity (jumbo) build batching to the object library when the global
     # option is enabled.  Any source files listed in UNITY_BUILD_SKIP are
@@ -461,88 +530,16 @@ function(
       set_target_properties(${libname} PROPERTIES PREFIX "")
     endif(${libname} MATCHES "^lib*")
 
-    # Set the EXPORT_NAME so installed targets appear as BRLCAD::<short>
-    # (e.g. BRLCAD::bu rather than BRLCAD::libbu).
-    set_target_properties(${libname} PROPERTIES EXPORT_NAME ${LOWERCORE})
-
     # Set the standard build definitions for all BRL-CAD targets
     target_compile_definitions(${libname} PRIVATE BRLCADBUILD HAVE_CONFIG_H)
 
-    # Set includes on shared target.
-    # brlcad_include_dirs() adds paths with correct ordering and SYSTEM flags;
-    # this populates both INCLUDE_DIRECTORIES (for building the lib itself) and
-    # INTERFACE_INCLUDE_DIRECTORIES (for consumers).  The raw absolute paths it
-    # puts in INTERFACE_INCLUDE_DIRECTORIES must be replaced with generator
-    # expressions so that the exported BRLCADTargets.cmake is relocatable.
+    # Set includes on shared target
     brlcad_include_dirs(${libname} PUBLIC_HDRS PUBLIC)
     brlcad_include_dirs(${libname} PRIVATE_HDRS PRIVATE)
 
-    # Replace raw absolute paths in INTERFACE_INCLUDE_DIRECTORIES with
-    # BUILD_INTERFACE-guarded versions and add the INSTALL_INTERFACE entry.
-    # INCLUDE_DIRECTORIES (used to compile this target) is left untouched.
-    # Paths that are already generator expressions (propagated from deps)
-    # are dropped here — they remain accessible transitively through
-    # INTERFACE_LINK_LIBRARIES and re-wrapping causes nested genexprs.
-    get_target_property(_raw_iface_dirs ${libname} INTERFACE_INCLUDE_DIRECTORIES)
-    set_property(TARGET ${libname} PROPERTY INTERFACE_INCLUDE_DIRECTORIES)
-    if(_raw_iface_dirs)
-      foreach(_dir ${_raw_iface_dirs})
-        if(NOT _dir MATCHES "^\\$<")
-          target_include_directories(${libname} INTERFACE $<BUILD_INTERFACE:${_dir}>)
-        endif()
-      endforeach()
-    endif()
-    target_include_directories(${libname} INTERFACE $<INSTALL_INTERFACE:include>;$<INSTALL_INTERFACE:include/brlcad>)
-
-    # INTERFACE_SYSTEM_INCLUDE_DIRECTORIES can accumulate raw build-tree paths
-    # from transitive deps whose find-modules set INTERFACE_INCLUDE_DIRECTORIES
-    # to absolute paths (e.g. Geogram::geogram, OPENNURBS::OPENNURBS).  Wrap
-    # every raw path in $<BUILD_INTERFACE:...> so it is only visible when
-    # consuming the build tree; install-tree consumers re-create those targets
-    # via find_dependency() in BRLCADConfig.cmake and therefore get the correct
-    # include dirs from those re-found targets instead.
-    get_target_property(_raw_sys_dirs ${libname} INTERFACE_SYSTEM_INCLUDE_DIRECTORIES)
-    if(_raw_sys_dirs)
-      set_property(TARGET ${libname} PROPERTY INTERFACE_SYSTEM_INCLUDE_DIRECTORIES)
-      foreach(_sdir ${_raw_sys_dirs})
-        if(NOT _sdir MATCHES "^\\$<")
-          set_property(TARGET ${libname} APPEND PROPERTY
-            INTERFACE_SYSTEM_INCLUDE_DIRECTORIES $<BUILD_INTERFACE:${_sdir}>)
-        else()
-          set_property(TARGET ${libname} APPEND PROPERTY
-            INTERFACE_SYSTEM_INCLUDE_DIRECTORIES ${_sdir})
-        endif()
-      endforeach()
-    endif()
-
-    # Strip raw build-tree paths from INTERFACE_LINK_LIBRARIES on the
-    # shared-library target.  For a shared library the ELF DT_NEEDED
-    # entries already encode all runtime dependencies; a raw absolute
-    # path to a bundled library in the build tree is therefore both
-    # redundant and harmful in the installed BRLCADTargets.cmake (it
-    # references a path that does not exist on consumers' machines).
-    # Named targets (BRLCAD::*, ZLIB::*, etc.) and generator expressions
-    # are preserved; only bare paths are removed.
-    get_target_property(_raw_iface_libs ${libname} INTERFACE_LINK_LIBRARIES)
-    if(_raw_iface_libs)
-      set_property(TARGET ${libname} PROPERTY INTERFACE_LINK_LIBRARIES)
-      foreach(_lib ${_raw_iface_libs})
-        if(_lib MATCHES "^/" OR _lib MATCHES "^[A-Za-z]:\\\\")
-          # Raw absolute path — guard it so it is only used from the build tree.
-          set_property(TARGET ${libname} APPEND PROPERTY
-            INTERFACE_LINK_LIBRARIES $<BUILD_INTERFACE:${_lib}>)
-        else()
-          set_property(TARGET ${libname} APPEND PROPERTY
-            INTERFACE_LINK_LIBRARIES ${_lib})
-        endif()
-      endforeach()
-    endif()
-
     if(HIDE_INTERNAL_SYMBOLS)
       set_property(TARGET ${libname} APPEND PROPERTY COMPILE_DEFINITIONS "${UPPER_CORE}_DLL_EXPORTS")
-      # Use target_compile_definitions so the INTERFACE entry is exported via
-      # install(EXPORT) and consumers automatically get the right import macro.
-      target_compile_definitions(${libname} INTERFACE "${UPPER_CORE}_DLL_IMPORTS")
+      set_property(TARGET ${libname} APPEND PROPERTY INTERFACE_COMPILE_DEFINITIONS "${UPPER_CORE}_DLL_IMPORTS")
     endif(HIDE_INTERNAL_SYMBOLS)
 
     # Enable unity build on the shared library target.  When USE_OBJECT_LIBS is
@@ -611,112 +608,29 @@ function(
 
   # Extra static lib specific work
   if(L_STATIC OR (BUILD_STATIC_LIBS AND NOT L_SHARED))
-    # Make sure the target depends on any targets in the libslist
-    foreach(ll ${libslist})
+    # Make sure the target depends on any targets in the dependency lists
+    foreach(ll ${STATIC_PUBLIC_LIBS} ${STATIC_PRIVATE_LIBS} ${STATIC_INTERFACE_LIBS})
       if(TARGET ${ll})
         add_dependencies(${libstatic} ${ll})
       endif(TARGET ${ll})
-    endforeach(ll ${libslist})
+    endforeach(ll ${STATIC_PUBLIC_LIBS} ${STATIC_PRIVATE_LIBS} ${STATIC_INTERFACE_LIBS})
+
+    if(STATIC_PUBLIC_LIBS)
+      target_link_libraries(${libstatic} PUBLIC ${STATIC_PUBLIC_LIBS})
+    endif(STATIC_PUBLIC_LIBS)
+    if(STATIC_PRIVATE_LIBS)
+      target_link_libraries(${libstatic} PRIVATE ${STATIC_PRIVATE_LIBS})
+    endif(STATIC_PRIVATE_LIBS)
+    if(STATIC_INTERFACE_LIBS)
+      target_link_libraries(${libstatic} INTERFACE ${STATIC_INTERFACE_LIBS})
+    endif(STATIC_INTERFACE_LIBS)
+
     set_target_properties(${libstatic} PROPERTIES FOLDER "BRL-CAD Static Libraries${SUBFOLDER}")
     validate_style("${libstatic}" "${srcslist};${L_STATIC_SRCS}")
-
-    # ----------------------------------------------------------------
-    # Export setup for static targets
-    #
-    # L_STATIC means this library is built static-only (no shared twin);
-    # it belongs in the primary BRLCADTargets export under the plain
-    # short name (e.g. BRLCAD::bu).
-    #
-    # When both shared and static are built (BUILD_STATIC_LIBS), the
-    # static variant gets a "-static" suffix (e.g. BRLCAD::bu-static)
-    # and goes into the separate BRLCADStaticTargets export so consumers
-    # can opt in via BRLCAD_USE_STATIC_LIBS=ON.
-    if(L_STATIC)
-      set_target_properties(${libstatic} PROPERTIES EXPORT_NAME ${LOWERCORE})
-      set(_static_export_name ${LOWERCORE})
-      set(_static_export_set  BRLCADTargets)
-    else()
-      set_target_properties(${libstatic} PROPERTIES EXPORT_NAME ${LOWERCORE}-static)
-      set(_static_export_name ${LOWERCORE}-static)
-      set(_static_export_set  BRLCADStaticTargets)
-    endif()
-
-    # Link static variants of each BRL-CAD dep.  For targets that exist
-    # only as shared (no -static twin), fall back to the shared target
-    # so the consumer at least gets the right link interface.
-    if(NOT "${libslist}" STREQUAL "" AND NOT "${libslist}" STREQUAL "NONE")
-      foreach(ll ${libslist})
-        if(TARGET ${ll}-static)
-          target_link_libraries(${libstatic} PUBLIC ${ll}-static)
-        elseif(TARGET ${ll})
-          target_link_libraries(${libstatic} PUBLIC ${ll})
-        else()
-          target_link_libraries(${libstatic} PUBLIC ${ll})
-        endif()
-      endforeach()
-    endif()
-
-    # Fix INTERFACE_INCLUDE_DIRECTORIES for export: replace the raw
-    # absolute paths set by brlcad_include_dirs() with BUILD_INTERFACE-
-    # guarded genexprs and add the INSTALL_INTERFACE entry.
-    # Paths that are already generator expressions (propagated from dep
-    # targets) are dropped here — they are served transitively through
-    # INTERFACE_LINK_LIBRARIES and re-adding them causes nested genexprs.
-    get_target_property(_raw_siface_dirs ${libstatic} INTERFACE_INCLUDE_DIRECTORIES)
-    set_property(TARGET ${libstatic} PROPERTY INTERFACE_INCLUDE_DIRECTORIES)
-    if(_raw_siface_dirs)
-      foreach(_dir ${_raw_siface_dirs})
-        if(NOT _dir MATCHES "^\\$<")
-          target_include_directories(${libstatic} INTERFACE $<BUILD_INTERFACE:${_dir}>)
-        endif()
-      endforeach()
-    endif()
-    target_include_directories(${libstatic} INTERFACE $<INSTALL_INTERFACE:include>;$<INSTALL_INTERFACE:include/brlcad>)
-
-    # Same fix for INTERFACE_SYSTEM_INCLUDE_DIRECTORIES on the static target.
-    get_target_property(_raw_ssys_dirs ${libstatic} INTERFACE_SYSTEM_INCLUDE_DIRECTORIES)
-    if(_raw_ssys_dirs)
-      set_property(TARGET ${libstatic} PROPERTY INTERFACE_SYSTEM_INCLUDE_DIRECTORIES)
-      foreach(_sdir ${_raw_ssys_dirs})
-        if(NOT _sdir MATCHES "^\\$<")
-          set_property(TARGET ${libstatic} APPEND PROPERTY
-            INTERFACE_SYSTEM_INCLUDE_DIRECTORIES $<BUILD_INTERFACE:${_sdir}>)
-        else()
-          set_property(TARGET ${libstatic} APPEND PROPERTY
-            INTERFACE_SYSTEM_INCLUDE_DIRECTORIES ${_sdir})
-        endif()
-      endforeach()
-    endif()
-
-    # Strip raw build-tree paths from INTERFACE_LINK_LIBRARIES on the
-    # static target.  Unlike shared libs, static libs do need transitive
-    # link deps recorded for consumers, but build-tree absolute paths are
-    # invalid in the installed targets file.  Guard them with
-    # $<BUILD_INTERFACE:...> so they are only visible when building in-tree.
-    get_target_property(_raw_siface_libs ${libstatic} INTERFACE_LINK_LIBRARIES)
-    if(_raw_siface_libs)
-      set_property(TARGET ${libstatic} PROPERTY INTERFACE_LINK_LIBRARIES)
-      foreach(_lib ${_raw_siface_libs})
-        if(_lib MATCHES "^/" OR _lib MATCHES "^[A-Za-z]:\\\\")
-          set_property(TARGET ${libstatic} APPEND PROPERTY
-            INTERFACE_LINK_LIBRARIES $<BUILD_INTERFACE:${_lib}>)
-        else()
-          set_property(TARGET ${libstatic} APPEND PROPERTY
-            INTERFACE_LINK_LIBRARIES ${_lib})
-        endif()
-      endforeach()
-    endif()
-
-    # Propagate the DLL-import compile definition so Windows consumers
-    # don't need to set it manually.
-    if(HIDE_INTERNAL_SYMBOLS)
-      target_compile_definitions(${libstatic} INTERFACE "${UPPER_CORE}_DLL_IMPORTS")
-    endif(HIDE_INTERNAL_SYMBOLS)
 
     if(NOT L_NO_INSTALL)
       install(
         TARGETS ${libstatic}
-        EXPORT ${_static_export_set}
         RUNTIME DESTINATION ${BIN_DIR}
         LIBRARY DESTINATION ${LIB_DIR}
         ARCHIVE DESTINATION ${LIB_DIR}
@@ -728,14 +642,18 @@ function(
   if(L_SHARED OR (BUILD_SHARED_LIBS AND NOT L_STATIC))
     set_target_properties(${libname} PROPERTIES FOLDER "BRL-CAD Shared Libraries${SUBFOLDER}")
     validate_style("${libname}" "${srcslist};${L_SHARED_SRCS}")
-    # If we have libraries to link for a shared library, link them.
-    if(NOT "${libslist}" STREQUAL "" AND NOT "${libslist}" STREQUAL "NONE")
-      target_link_libraries(${libname} PUBLIC ${libslist})
-    endif(NOT "${libslist}" STREQUAL "" AND NOT "${libslist}" STREQUAL "NONE")
+    if(SHARED_PUBLIC_LIBS)
+      target_link_libraries(${libname} PUBLIC ${SHARED_PUBLIC_LIBS})
+    endif(SHARED_PUBLIC_LIBS)
+    if(SHARED_PRIVATE_LIBS)
+      target_link_libraries(${libname} PRIVATE ${SHARED_PRIVATE_LIBS})
+    endif(SHARED_PRIVATE_LIBS)
+    if(SHARED_INTERFACE_LIBS)
+      target_link_libraries(${libname} INTERFACE ${SHARED_INTERFACE_LIBS})
+    endif(SHARED_INTERFACE_LIBS)
     if(NOT L_NO_INSTALL)
       install(
         TARGETS ${libname}
-        EXPORT BRLCADTargets
         RUNTIME DESTINATION ${BIN_DIR}
         LIBRARY DESTINATION ${LIB_DIR}
         ARCHIVE DESTINATION ${LIB_DIR}
