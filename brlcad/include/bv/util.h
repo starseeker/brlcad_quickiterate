@@ -340,6 +340,25 @@ bv_obj_get(struct bview *v, int type);
 BV_EXPORT struct bv_scene_obj *
 bv_obj_get_unregistered(struct bview *v, int type);
 
+/* Create and attach view-only objects directly under BSG view-scope nodes.
+ * These constructors are the preferred API for view-only producers. */
+BV_EXPORT struct bv_scene_obj *
+bv_view_obj_axes_create(struct bview *v, const char *name, int local);
+BV_EXPORT struct bv_scene_obj *
+bv_view_obj_lines_create(struct bview *v, const char *name, int local);
+BV_EXPORT struct bv_scene_obj *
+bv_view_obj_label_create(struct bview *v, const char *name, int local);
+BV_EXPORT struct bv_scene_obj *
+bv_view_obj_overlay_create(struct bview *v, const char *name, int local);
+
+#define BV_VIEW_OBJ_SCOPE_SHARED 0x1
+#define BV_VIEW_OBJ_SCOPE_LOCAL  0x2
+#define BV_VIEW_OBJ_SCOPE_ALL    (BV_VIEW_OBJ_SCOPE_SHARED | BV_VIEW_OBJ_SCOPE_LOCAL)
+BV_EXPORT int
+bv_view_obj_remove(struct bview *v, const char *name);
+BV_EXPORT size_t
+bv_view_obj_remove_all(struct bview *v, int scope);
+
 /* Given an object, create an object that is a child of that object.  Issues
  * such as memory management as a function of view settings are handled
  * internally, so client codes don't need to manage it. */

@@ -34,15 +34,42 @@
 #include <cstdlib>
 #include <cstring>
 #include <map>
+#include <set>
+#include <string>
 
 #include "bu/cmd.h"
 #include "bu/color.h"
 #include "bu/opt.h"
 #include "bu/vls.h"
 #include "bv.h"
+#include "bsg/defines.h"
 
 #include "../ged_private.h"
 #include "./ged_view.h"
+
+static void
+_gobj_scope_list(struct bu_vls *out, struct bv_scene_obj *root, struct bview *v, std::set<std::string> &seen)
+{
+    if (!out || !root || !v)
+	return;
+
+    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+	struct bv_scene_obj *c = (struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
+	if (!c)
+	    continue;
+	if ((c->s_type_flags & BSG_NODE_VIEW_SCOPE) && c->s_v && c->s_v != v)
+	    continue;
+	struct bv_scene_obj *s = c;
+	if ((c->s_type_flags & BSG_NODE_VIEW_REF) && c->s_path)
+	    s = (struct bv_scene_obj *)c->s_path;
+	if (s && (s->s_type_flags & BV_VIEW_OBJS)) {
+	    const char *n = bu_vls_cstr(&s->s_name);
+	    if (n && strlen(n) && seen.insert(std::string(n)).second)
+		bu_vls_printf(out, "%s\n", n);
+	}
+	_gobj_scope_list(out, c, v, seen);
+    }
+}
 
 static void
 gobjs_scene_free(struct bv_scene_obj *s)
@@ -121,13 +148,12 @@ _gobjs_cmd_create(void *bs, int argc, const char **argv)
     }
 
     /* Set up the toplevel object */
-    struct bv_scene_group *g = bv_obj_get(v, BV_DB_OBJS);
+    struct bv_scene_group *g = (struct bv_scene_group *)bv_view_obj_overlay_create(v, argv[1], 0);
     if (!g)
 	return BRLCAD_ERROR;
     BU_GET(g->s_path, struct db_full_path);
     db_full_path_init((struct db_full_path *)g->s_path);
     db_dup_full_path((struct db_full_path *)g->s_path, fp);
-    db_path_to_vls(&g->s_name, fp);
     g->s_i_data = (void *)ip;
     g->s_free_callback = &gobjs_scene_free;
 
@@ -236,28 +262,34 @@ _view_cmd_gobjs(void *bs, int argc, const char **argv)
     // If we're not wanting help and we have no subcommand, list current gobjs objects
     struct bview *v = gd->cv;
     if (!ac && cmd_pos < 0 && !help) {
+	std::set<std::string> listed;
 	struct bu_ptbl *view_objs = bv_view_objs(v, BV_VIEW_OBJS);
 	if (view_objs) {
 	    for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
 		struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(view_objs, i);
-		bu_vls_printf(gd->gedp->ged_result_str, "%s\n", bu_vls_cstr(&s->s_name));
+		const char *n = bu_vls_cstr(&s->s_name);
+		if (listed.insert(std::string(n)).second)
+		    bu_vls_printf(gd->gedp->ged_result_str, "%s\n", n);
 	    }
 	}
 	struct bu_ptbl *local_view_objs = bv_view_objs(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
 	if (local_view_objs) {
 	    for (size_t i = 0; i < BU_PTBL_LEN(local_view_objs); i++) {
 		struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(local_view_objs, i);
-		bu_vls_printf(gd->gedp->ged_result_str, "%s\n", bu_vls_cstr(&s->s_name));
+		const char *n = bu_vls_cstr(&s->s_name);
+		if (listed.insert(std::string(n)).second)
+		    bu_vls_printf(gd->gedp->ged_result_str, "%s\n", n);
 	    }
 	}
+	if (v->gv_draw_root)
+	    _gobj_scope_list(gd->gedp->ged_result_str, (struct bv_scene_obj *)v->gv_draw_root, v, listed);
 	return BRLCAD_OK;
     }
 
     gd->s = NULL;
-
-    if (!gd->s) {
-	// View object doesn't already exist.  subcommands will either need to create it
-	// or handle the error case
+    if (ac > 0) {
+	gd->vobj = argv[0];
+	gd->s = bv_find_obj(v, gd->vobj);
     }
 
     return _ged_subcmd_exec(gedp, (struct bu_opt_desc *)d, (const struct bu_cmdtab *)_gobjs_cmds,
@@ -272,4 +304,3 @@ _view_cmd_gobjs(void *bs, int argc, const char **argv)
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-

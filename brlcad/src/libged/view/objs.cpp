@@ -29,6 +29,8 @@
 #include <cstdlib>
 #include <cstring>
 #include <queue>
+#include <set>
+#include <string>
 
 extern "C" {
 #include "bu/cmd.h"
@@ -36,11 +38,36 @@ extern "C" {
 #include "bu/opt.h"
 #include "bu/vls.h"
 #include "bv.h"
+#include "bsg/defines.h"
 #include "raytrace.h"
 #include "ged/bsg_ged_draw.h"
 }
 #include "./ged_view.h"
 #include "../ged_private.h"
+
+static void
+_view_obj_scope_list(struct bu_vls *out, struct bv_scene_obj *root, struct bview *v, std::set<std::string> &seen)
+{
+    if (!out || !root || !v)
+	return;
+
+    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+	struct bv_scene_obj *c = (struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
+	if (!c)
+	    continue;
+	if ((c->s_type_flags & BSG_NODE_VIEW_SCOPE) && c->s_v && c->s_v != v)
+	    continue;
+	struct bv_scene_obj *s = c;
+	if ((c->s_type_flags & BSG_NODE_VIEW_REF) && c->s_path)
+	    s = (struct bv_scene_obj *)c->s_path;
+	if (s && (s->s_type_flags & BV_VIEW_OBJS)) {
+	    const char *n = bu_vls_cstr(&s->s_name);
+	    if (n && strlen(n) && seen.insert(std::string(n)).second)
+		bu_vls_printf(out, "%s\n", n);
+	}
+	_view_obj_scope_list(out, c, v, seen);
+    }
+}
 
 int
 _objs_cmd_draw(void *bs, int argc, const char **argv)
@@ -433,11 +460,14 @@ _view_cmd_objs(void *bs, int argc, const char **argv)
 	    }
 	}
 	if (list_view) {
+	    std::set<std::string> listed;
 	    struct bu_ptbl *view_objs = bv_view_objs(v, BV_VIEW_OBJS);
 	    if (view_objs) {
 		for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
 		    struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(view_objs, i);
-		    bu_vls_printf(gd->gedp->ged_result_str, "%s\n", bu_vls_cstr(&s->s_name));
+		    const char *n = bu_vls_cstr(&s->s_name);
+		    if (listed.insert(std::string(n)).second)
+			bu_vls_printf(gd->gedp->ged_result_str, "%s\n", n);
 		}
 	    }
 
@@ -445,9 +475,13 @@ _view_cmd_objs(void *bs, int argc, const char **argv)
 	    if (local_view_objs) {
 		for (size_t i = 0; i < BU_PTBL_LEN(local_view_objs); i++) {
 		    struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(local_view_objs, i);
-		    bu_vls_printf(gd->gedp->ged_result_str, "%s\n", bu_vls_cstr(&s->s_name));
+		    const char *n = bu_vls_cstr(&s->s_name);
+		    if (listed.insert(std::string(n)).second)
+			bu_vls_printf(gd->gedp->ged_result_str, "%s\n", n);
 		}
 	    }
+	    if (v->gv_draw_root)
+		_view_obj_scope_list(gd->gedp->ged_result_str, (struct bv_scene_obj *)v->gv_draw_root, v, listed);
 	}
 	return BRLCAD_OK;
     }
@@ -487,6 +521,10 @@ _view_cmd_objs(void *bs, int argc, const char **argv)
 		}
 	    }
 	}
+    }
+
+    if (!gd->s && list_view) {
+	gd->s = bv_find_obj(v, gd->vobj);
     }
 
     if (!gd->s) {
@@ -647,4 +685,3 @@ _view_cmd_old_obj(struct ged *gedp, int argc, const char *argv[])
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-
