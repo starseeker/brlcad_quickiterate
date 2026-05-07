@@ -128,115 +128,380 @@ What is working:
 
 What is still not fully finished:
 - adaptive/view-specific drawing behavior is not yet fully expressed as a
-  clean BSG-native contract;
+  clean BSG-native contract; the next section ("LoD: design rethink")
+  is the design and plan for closing this gap;
 - some redraw/update responsibilities still live in `BViewState::redraw`
-  as explicit side passes rather than in a shared scene-graph traversal;
+  as explicit side passes rather than in a shared scene-graph traversal
+  — this is a direct consequence of the above;
 - remaining image-level gaps are concentrated in LoD, hidden-line, and
   shaded-mode interactions rather than in basic draw/erase ownership.
 
 In short: the stacks are merged for core scene ownership and rendering,
 but not yet fully merged for all adaptive per-view behaviors.
 
-LoD assessment
---------------
-LoD is the largest remaining architectural and test gap.
+LoD: design rethink
+===================
+LoD is the largest remaining architectural gap, and the place where the
+"push everything into the scene object" model from the original qged
+work hurts the most.  This section is a deliberate redesign, not a
+patch-list against the current code.
 
-What exists today:
-- mesh LoD and adaptive CSG plotting exist in libbv/libged;
-- `view lod` manages user-visible LoD settings;
-- LoD data caching exists, including cross-run cache validation;
-- LoD objects use view-specific scene objects via `bv_obj_for_view()`;
-- libdm still honors per-object `s_update_callback` during draw;
-- `BViewState::redraw()` also performs an explicit LoD update pass over
-  its `s_map` so zoom/redraw-driven view changes propagate LoD levels.
+What exists today
+-----------------
+- mesh LoD (pop-buffer) in libbv: levels precomputed and cached, level
+  selection driven by view scale and screen-space bbox metrics, with
+  per-level memshrink to keep RAM cost bounded;
+- adaptive CSG wireframe plotting in libged: `ft_adaptive_plot` in each
+  primitive's idb_meth, view-frustum-clipped via OBB, regenerates vlists
+  when curve_scale, point_scale, or view_scale change beyond a threshold;
+- `view lod` user command for visibility settings and tunables;
+- LoD data caching with cross-run validation (`ged_test_lod_crossrun`);
+- per-view "view objects" parallel to the parent scene object, kept in
+  `bv_scene_obj::i->vobjs` and selected at draw time by
+  `bv_obj_for_view()`;
+- libdm honoring `s_update_callback` during the draw walk
+  (libdm/view.c calls it on every drawable just before backend draw);
+- `BViewState::redraw()` running its own LoD update pass over `s_map`
+  so zoom/redraw_on_zoom-driven view changes propagate even when the
+  in-draw callback path is bypassed (qged-only side loop);
+- the public BSG LoD API (`bsg_lod_update`, `bsg_lod_stale`) is still a
+  Phase-4 stub — it walks the root's immediate children only, calls
+  `bv_mesh_lod_view` for `BV_MESH_LOD` flagged leaves, and conservatively
+  reports "not stale".
 
-What that means:
-- LoD works as a feature set, but it is not yet cleanly absorbed into the
-  unified BSG scene-graph contract.
-- The current implementation still depends on qged-side redraw policy in
-  addition to renderer-side callbacks.
-- The public BSG LoD API (`bsg_lod_update`, `bsg_lod_stale`) is still a
-  Phase-4 stub, which is a strong sign the final LoD integration step has
-  not happened yet.
+Why the current shape is hard to reason about
+---------------------------------------------
+The original qged drawing work pushed responsibility for "how should
+this object be drawn in this view" down into the scene object itself.
+Two kinds of state then ended up living on `bv_scene_obj`:
 
-Practical reading of the current state:
-- non-LoD drawing is in much better shape than LoD drawing;
-- LoD infrastructure is real, not speculative;
-- the unfinished part is unification and parity, not basic existence.
+  1. identity / classification:
+       - DB object vs. view-only object (BV_DB_OBJS vs. BV_VIEW_OBJS),
+       - "is this leaf an LoD leaf?" (BV_MESH_LOD / BV_CSG_LOD flag bits
+         on `s_type_flags`),
+       - per-view duplicates in `i->vobjs` so each view can have its
+         own active level / vlist.
 
-LoD-specific remaining work
+  2. update mechanism:
+       - `s_update_callback` fired by the renderer during draw,
+       - explicit re-walks from `BViewState::redraw()` to compensate
+         when no draw happened but state still needed to advance.
+
+The clunky parts are the predictable consequence of that:
+  - "what does this leaf actually represent" is answered by combining
+    a flag bit, a callback pointer, an i->vobjs entry, and possibly an
+    s_path — different combinations for mesh LoD, CSG LoD, view-only
+    overlays, edit highlights, and faceplate widgets;
+  - the *renderer* ends up with policy responsibilities (it has to
+    decide when to call the update callback, with what view, before
+    which draw);
+  - the *front end* (qged) ends up with a parallel update responsibility
+    because the renderer's callback path doesn't always fire (e.g.
+    redraw-on-zoom from BViewState, multi-view Quad layouts, headless
+    image generation);
+  - per-view duplicate scene objects cost memory and duplicate
+    invalidation paths (`bv_clear_view_obj`, `bv_obj_have_vo`,
+    `bv_obj_for_view`) for what is conceptually "show level N for
+    this view" rather than "store an entire alternate object per view";
+  - bbox computation has to special-case BV_MESH_LOD because the bbox
+    actually lives in the LoD container hanging off `draw_data`, not
+    in any view-shared place.
+
+What Open Inventor / Coin3D / Obol get right
+--------------------------------------------
+Open Inventor's LoD design is worth borrowing because it cleanly
+separates the three jobs we have currently fused:
+
+  - *selection*:
+      `SoLOD` / `SoLevelOfDetail` are grouping nodes whose *only* job
+      is to choose, at traversal time, which child to render based on
+      the current action's view state (camera distance for SoLOD,
+      projected screen-space bbox area for SoLevelOfDetail).
+  - *representation*:
+      the children of an LoD group are ordinary scene-graph subtrees,
+      one per detail level.  They are not "LoD nodes" — they are just
+      geometry.  The geometry has no idea it is being switched between.
+  - *triggering*:
+      level selection happens during traversal of a render action, not
+      via callbacks fired from the backend.  The traversal is the same
+      walk that produces the frame; the action carries the view, the
+      LoD node consults it, the representation children draw.  No
+      out-of-band "redraw side loop" is needed because nothing about
+      LoD lives outside the traversal.
+
+Two consequences of that design that we want:
+  - the scene graph is *shared* across views.  Per-view state is the
+    cursor that identifies which child the LoD group should pick,
+    plus a small cache of "what view scale did I last pick at" for
+    staleness detection.  It is not a duplicate subtree per view.
+  - geometry leaves do not carry "I am an LoD-aware leaf" flags.
+    Aware-ness lives in the parent grouping node.
+
+Best-answer design for BRL-CAD
+------------------------------
+Promote LoD from "a flag bit on a drawable leaf plus a callback the
+renderer fires" to "a first-class BSG node kind that owns selection".
+The taxonomy slot is already reserved (`BSG_NODE_LOD`,
+include/bsg/defines.h:61) but no producer creates such nodes today.
+
+Concretely:
+
+  1. LoD becomes a tree node, not a leaf attribute.
+     - A path that wants adaptive drawing is realized as
+         BSG_NODE_GROUP (path/mode group)
+           └─ BSG_NODE_LOD          (LoD selector)
+                ├─ BSG_NODE_SHAPE   (level 0 representation)
+                ├─ BSG_NODE_SHAPE   (level 1 representation)
+                └─ ...              (levels added lazily)
+     - For pop-buffer mesh LoD, the children are the same `bv_scene_obj`
+       leaves the libbv pop-buffer code already produces; the LoD node
+       owns the pool, not a single leaf.
+     - For CSG wireframe LoD, the children are vlist-bearing leaves
+       regenerated by `ft_adaptive_plot`; the LoD node owns the
+       regeneration policy, not a single leaf.
+     - Static (non-adaptive) drawing has no LoD node at all — the path
+       group's child is just a SHAPE leaf, exactly as today.
+
+  2. Selection is a small ops vtable on the LoD node.
+     - `bsg_lod_ops::select_level(node, view) -> int` decides the level
+       index from view state (gv_scale, gv_perspective, screen-space
+       bbox area, curve_scale, point_scale).
+     - `bsg_lod_ops::activate_level(node, level)` makes that level the
+       node's currently-rendered child for the calling view (cheap:
+       set a per-view cursor; expensive only the first time, when the
+       child does not yet exist and must be materialised).
+     - `bsg_lod_ops::is_stale(node, view) -> bool` compares cached
+       view metrics against current ones for that view.
+     - Two concrete ops sets ship in the tree: one wrapping libbv
+       pop-buffer mesh LoD, one wrapping libged CSG `ft_adaptive_plot`.
+
+  3. Per-view state is a cursor, not a duplicate subtree.
+     - The LoD node carries a small `view * -> {level, view_scale,
+       curve_scale, point_scale, perspective_flag, last_seen_frame_rev}`
+       map.  That replaces `bv_scene_obj::i->vobjs` for the LoD case.
+     - Children (the level representations) are shared across views.
+     - `bv_obj_for_view()` is preserved for legitimately per-view
+       objects (edit-mode highlights, faceplate widgets, view-only
+       overlays).  It is no longer the LoD path.
+
+  4. There is exactly one place LoD updates run: the render walk.
+     - `dm_draw_objs(dmp, v)` calls `bsg_lod_update(v->gv_draw_root, v)`
+       once at the top.  That walk visits every BSG_NODE_LOD node, asks
+       `is_stale`, and if so calls `select_level` then `activate_level`.
+     - The subsequent traversal in libdm draws whatever child the LoD
+       node has currently selected for `v`.  The renderer never calls
+       back into update logic.
+     - `s_update_callback` is removed from the per-leaf drawable path.
+       Adaptive regeneration triggered by the LoD ops is the only
+       update mechanism.
+
+  5. Identity ("DB object" vs. "view object") moves out of the leaf.
+     - DB-ness is expressed by tree placement: the path group above the
+       LoD node (or above a static SHAPE leaf) is what carries the
+       db_full_path.  The leaf does not need BV_DB_OBJS to be drawable.
+     - View-only overlays remain leaves under view-scoped roots and
+       have no LoD parent.
+     - This finishes the BV_DB_OBJS / BV_VIEW_OBJS collapse already
+       under way (see Phase B/E in the long-form plan).
+
+  6. Mechanism in libbsg, policy in libbv/libged.
+     - libbsg owns: the LoD node kind, the per-view cursor map, the
+       traversal hook, the bbox aggregation, child lifecycle.
+     - libbv owns: pop-buffer level computation, mesh memshrink,
+       cache key plumbing, screen-space metric helpers.
+     - libged owns: `ft_adaptive_plot` driver, OBB-vs-frustum cull,
+       curve_scale/point_scale wiring from `gv_s`.
+     - The ops vtables are how libbsg pulls policy in without depending
+       on libbv/libged headers.
+
+Why this is the right shape
 ---------------------------
-1. Make LoD update ownership explicit and shared.
-   - Pick one canonical place for LoD/staleness decisions.
-   - The likely target is a BSG/libdm-visible traversal step rather than
-     a `BViewState::redraw()`-only side loop.
+- It makes the answer to "where does LoD update happen?" exactly one
+  line: `dm_draw_objs` calls `bsg_lod_update(root, v)` before drawing.
+  No qged-side compensation, no renderer callbacks, no parallel paths.
+- It eliminates the per-view duplicate scene_obj for adaptive cases.
+  Memory and invalidation cost scale with paths, not paths × views.
+- It localises the awkward special-cases (BV_MESH_LOD bbox math,
+  adaptive_plot regeneration) to the ops implementation, instead of
+  letting them leak into bv_scene_obj_bound, dm_draw_scene_obj, and
+  BViewState::redraw simultaneously.
+- It plays well with non-Qt front ends: mged/Archer hit the same
+  `dm_draw_objs` path qged hits, so adaptive zoom works identically
+  without anyone having to remember to run a side loop.
+- It keeps both existing strengths intact: the pop-buffer mesh LoD's
+  pre-cached, memshrinkable level set is exactly the right thing to
+  hang under an LoD node, and the CSG wireframe regen-on-view-change
+  is exactly an `is_stale` + `activate_level` cycle.
+- It maps directly onto BSG_NODE_LOD, which is already reserved in the
+  taxonomy.  Nothing in this design requires inventing new core
+  concepts; it requires populating a slot the tree already has.
 
-2. Replace the current split responsibility.
-   - Today LoD can update from both `s_update_callback` during draw and
-     the explicit `BViewState::redraw()` pass.
-   - That split is hard to reason about and is a likely source of qged vs
-     mged/Archer behavioral drift.
+Implementable multi-step plan
+-----------------------------
+The phases below are intentionally sequenced so the tree continues to
+build, test, and render at every step.  Each phase ends with a fully
+green draw test set.
 
-3. Finish the BSG-native LoD contract.
-   - Implement real logic behind `bsg_lod_update()` and
-     `bsg_lod_stale()`.
-   - Drive adaptive mesh/CSG updates from the shared scene tree rather
-     than from qged-only bookkeeping.
+Phase L0 — define the LoD node abstraction in libbsg
+  - Add `bsg_lod_ops` (select_level / activate_level / is_stale /
+    free) in a new `bsg/lod_ops.h` private header used by libbv and
+    libged.
+  - Extend the BSG_NODE_LOD node payload to carry: an `ops` pointer,
+    a per-view cursor map, an opaque `void *user_data` for the policy
+    (mesh-LoD context handle, CSG adaptive driver state, etc.), and a
+    children-by-level index built on top of the existing children
+    ptbl.
+  - Add `bsg_lod_node_create()`, `bsg_lod_node_set_ops()`,
+    `bsg_lod_node_attach_level()` constructors used by libbv/libged.
+  - No producers yet; the node kind exists but is unused.  Existing
+    bbox aggregation handles it as a group (children union).
+  - Tests: extend `ged_test_bsg_view_obj` with a synthetic ops set
+    that toggles between two preformed children and asserts cursor
+    bookkeeping.
 
-4. Re-test the known weak spots after the contract is unified.
-   - shaded mode 1 with LoD disabled,
-   - hidden-line mode 4,
-   - the `ged_test_drawing_lod` image suite,
-   - cross-run cache reuse (`ged_test_lod_crossrun`).
+Phase L1 — implement `bsg_lod_update` and `bsg_lod_stale` for real
+  - Replace the Phase-4 stub in `src/libbsg/lod.cpp` with a recursive
+    traversal that, at each BSG_NODE_LOD node, calls `ops->is_stale`
+    and on true calls `ops->select_level` then `ops->activate_level`.
+  - `bsg_lod_stale(node, v)` becomes a thin caller-side accessor
+    backed by the cursor compare.
+  - Mesh-LoD ops adapter wraps `bv_mesh_lod_view`.  CSG ops adapter
+    wraps `csg_wireframe_update` (still in libged for now).
+  - Producers are not yet wired; the function is reachable but only
+    runs on synthetic test trees.
+  - Tests: unit test in libbsg that drives a tree of synthetic LoD
+    nodes through a sequence of view-scale changes and asserts
+    `select_level` is invoked iff `is_stale` reports true.
 
-5. Confirm MGED/Archer parity for adaptive behavior.
-   - The end goal is not merely that qged redraws correctly.
-   - The same LoD semantics must hold when the scene is driven from the
-     non-`dbi_state` front ends.
+Phase L2 — wire the canonical update site in libdm
+  - Call `bsg_lod_update(v->gv_draw_root, v)` once at the top of
+    `dm_draw_objs` in `src/libdm/view.c`, before the per-object
+    traversal walk.
+  - Leave `s_update_callback` invocation in `_dm_draw_scene_obj_internal`
+    in place for now (compat); both paths coexist while producers
+    migrate.
+  - Tests: full draw regression set.  No behaviour change is expected
+    yet because no producer emits BSG_NODE_LOD nodes; the new walk is
+    a no-op on production trees.
+
+Phase L3 — migrate libged producers to emit LoD nodes
+  - In `src/libged/draw.cpp`, change the producers that currently
+    create a SHAPE leaf and flip `s_type_flags |= BV_MESH_LOD` /
+    register `s_update_callback = csg_wireframe_update` to instead
+    construct a BSG_NODE_LOD node above the leaf, assign the right
+    ops, and attach the existing leaf as level 0.
+  - Higher levels are lazily attached by `activate_level` as needed.
+  - DB identity (db_full_path) continues to live on the path group
+    above the LoD node, not on the leaf.
+  - Tests: `ged_test_drawing_lod`, `ged_test_lod_crossrun`,
+    `ged_test_drawing_basic`, `ged_test_drawing_faceplate`,
+    `ged_test_mged_shaded_mode_bsg`.
+
+Phase L4 — remove per-view duplicate scene_objs for adaptive cases
+  - For LoD-managed paths, stop populating `s->i->vobjs`.  The LoD
+    node's per-view cursor replaces it.
+  - Audit `bv_obj_for_view` callers: keep the function and the vobjs
+    map for non-LoD per-view objects (edit highlights, view overlays);
+    remove the LoD-path users.
+  - Update `bv_scene_obj_bound` to consult the LoD node's currently
+    selected child via the ops, not the legacy BV_MESH_LOD branch on
+    a leaf.
+  - Tests: full draw regression set, with extra attention to Quad
+    view (multiple bviews sharing a draw root) and to memory growth.
+
+Phase L5 — retire the BViewState::redraw LoD side pass
+  - Delete the explicit `bv_mesh_lod_view` / `csg_wireframe_update`
+    loop near `src/libged/dbi_state.cpp:3760`.
+  - With L2+L3+L4 in place, redraw-on-zoom propagates LoD because
+    the next `dm_draw_objs` runs `bsg_lod_update`.  No qged-only
+    compensation should be needed.
+  - Tests: full draw regression set; specifically verify zoom-driven
+    redraws and headless image regeneration paths.
+
+Phase L6 — retire `s_update_callback` and the BV_MESH_LOD/BV_CSG_LOD
+            leaf flags
+  - Once no producer sets `s_update_callback`, remove the field from
+    `bv_scene_obj` and the call site in `_dm_draw_scene_obj_internal`.
+  - Once no consumer tests `BV_MESH_LOD` / `BV_CSG_LOD` on a leaf
+    (LoD-aware code goes through the LoD node), remove the flag bits
+    or repurpose them as ops-internal markers only.
+  - Simplify `bv_scene_obj_bound`: remove the leaf-side BV_MESH_LOD
+    special case; aggregate bbox is then a pure tree walk.
+  - Tests: full draw regression set; this phase is mostly mechanical
+    once L5 is green.
+
+Phase L7 — image-level parity and front-end verification
+  - Re-run `ged_test_drawing_lod` and `ged_test_lod_crossrun` for
+    image diffs.
+  - Re-check the known weak spots that LoD ambiguity may have been
+    masking:
+      * shaded mode 1 with LoD disabled,
+      * hidden-line mode 4,
+      * mixed draw modes on the same path.
+  - Verify mged, Archer, and qged produce visually identical output
+    for adaptive zoom, multi-view Quad, and headless image runs.
+  - Only after this is solid, return to the open backend default
+    decision (Priority 4 below).
+
+Test surface to keep green at every phase
+-----------------------------------------
+- `ged_test_bsg_view_obj`         (LoD node lifecycle, cursor)
+- `ged_test_drawing_basic`        (no-LoD baseline)
+- `ged_test_drawing_faceplate`    (view-only objects unaffected)
+- `ged_test_drawing_lod`          (image diffs for mesh + CSG LoD)
+- `ged_test_lod_crossrun`         (cross-run cache reuse)
+- `ged_test_mged_shaded_mode_bsg` (shaded mode + LoD interaction)
+- `ged_test_bsg_parity`, `ged_test_bsg_quad_parity`
+                                  (no regression in non-LoD paths)
+
+Deferred / non-goals for this work package
+------------------------------------------
+- Backend default decision (the open dm-qtgl vs dm-swrast benchmark
+  question) is still deferred until after LoD parity lands.  See
+  Priority 4 below.
+- Bigger Inventor-style ideas (e.g. SoCache, traversal-state caches,
+  full action pattern) are explicitly out of scope.  We are borrowing
+  the *node-as-selector* idea and the *one-traversal* invariant, not
+  rebuilding the action framework.
+- Selection-highlight rework is unaffected; the LoD redesign is
+  orthogonal to `gd_illum_sensor` / `gd_illum_rev`.
 
 Prioritized remaining work
 --------------------------
-Priority 1 — finish adaptive drawing unification
-- Centralize LoD/adaptive update logic in the shared scene/render path.
-- Eliminate the need for qged-specific redraw-side compensation where
-  possible.
-- Re-check `bv_obj_for_view()` interactions under BSG traversal.
+Priority 1 — execute the LoD redesign above (Phases L0–L7).
+  This is the next major work package.
 
-Priority 2 — close image-level parity gaps
-- Resolve the remaining problem cases around:
-  - shaded mode 1 with LoD disabled,
-  - hidden-line mode 4,
-  - LoD image regressions.
-- Treat these as the main blockers to calling the merged stack fully
-  tested and fully functional.
+Priority 2 — close image-level parity gaps once LoD is unambiguous:
+  shaded mode 1 with LoD disabled, hidden-line mode 4, LoD image
+  regressions.  These are largely re-tests after L7.
 
-Priority 3 — verify front-end parity
-- Confirm the same scene behavior from qged, mged, and Archer for:
-  - draw / erase / redraw,
-  - selection-highlight interactions,
-  - adaptive redraw on zoom,
-  - mixed draw modes on the same path.
+Priority 3 — verify front-end parity (qged / mged / Archer) for
+  draw, erase, redraw, selection-highlight, adaptive zoom, mixed
+  draw modes on the same path.  L4–L5 should make this fall out
+  naturally.
 
-Priority 4 — backend policy decision
-- The benchmark-based default backend decision remains open.
-- This is important, but it is not the main blocker for the qged/mged
-  stack merge itself.
+Priority 4 — backend policy / default-backend decision.  Open, but
+  not a blocker for the LoD work and not a blocker for declaring the
+  qged/mged stack merge complete.
 
 Recommended next steps
 ----------------------
-1. Treat LoD as the next major work package.
-2. Start by removing ambiguity about where LoD updates are supposed to
-   happen.
-3. Implement the shared BSG/libdm LoD update/stale path.
-4. Reduce or remove the compensating LoD loop in `BViewState::redraw`
-   once the shared path is correct.
-5. Re-run the draw regression set, with special attention to
-   `ged_test_drawing_lod`, `ged_test_lod_crossrun`, and
-   `ged_test_mged_shaded_mode_bsg`.
-6. After LoD is stable, revisit hidden-line and any remaining mode-1
-   shading gaps.
-7. Only after functional parity is solid, spend effort on the default
-   backend choice.
+1. Treat the LoD redesign (Phases L0–L7) as the next work package.
+2. Land L0 + L1 first; they are additive and risk-free (no producers
+   touch BSG_NODE_LOD yet).
+3. Land L2 next as a no-op wiring change so the call site is in
+   place before any producer migrates.
+4. Migrate producers (L3) one primitive family at a time if needed
+   (mesh first, then CSG), keeping the legacy `s_update_callback`
+   path live during the transition.
+5. Once L3 is complete for all adaptive producers, land L4 to drop
+   the per-view duplicate scene objects, then L5 to drop the
+   BViewState::redraw side pass.
+6. L6 is the cleanup that finalises the design: removing
+   `s_update_callback` and the leaf-side BV_MESH_LOD/BV_CSG_LOD
+   flags.
+7. L7 is the parity / image-diff phase; only after it is green
+   should attention return to the deferred backend default decision.
 
 Files to read first
 -------------------
@@ -264,6 +529,16 @@ What not to undo
 - Do not move qged's higher-level state model into libbsg.
 - Do not add backend-specific fields back onto `bv_scene_obj`.
 - Do not add a second, parallel LoD update path once the shared one is
-  in place.
+  in place.  After Phase L2, `dm_draw_objs` calling `bsg_lod_update`
+  must remain the single update site.
+- Do not push LoD selection logic back down into individual scene-object
+  leaves or per-leaf callbacks.  The LoD node owns selection; leaves
+  are pure representations.
+- Do not reintroduce per-view duplicate `bv_scene_obj` subtrees for
+  adaptive geometry once Phase L4 has removed them.  Per-view state
+  for LoD is a cursor on the LoD node, not a duplicate subtree.
+- Do not re-fuse "is this a DB object?" with "is this an LoD leaf?"
+  on `bv_scene_obj`.  Identity belongs to tree placement; LoD
+  awareness belongs to the LoD node kind.
 - Do not judge success by qged alone; the target is one stack that works
   cleanly for qged and for mged/Archer.
