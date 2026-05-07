@@ -136,6 +136,39 @@ _lod_is_stale(bsg_node *node, struct bview *v)
     return 0;
 }
 
+static int
+_csg_lod_is_stale(bsg_node *node, struct bview *v)
+{
+    struct bsg_lod_payload *pl = (struct bsg_lod_payload *)((struct bv_scene_obj *)node)->s_i_data;
+    if (!pl || !pl->user_data || !v)
+	return 0;
+
+    struct ged_lod_state *st = (struct ged_lod_state *)pl->user_data;
+    if (!st->s)
+	return 0;
+
+    struct bsg_lod_view_cursor *c = bsg_lod_node_get_cursor(node, v);
+    if (!c)
+	return 0;
+    if (c->level < 0)
+	return 1;
+
+    if (!!st->s->adaptive_wireframe != !!v->gv_s->adaptive_plot_csg)
+	return 1;
+    if (!NEAR_EQUAL(st->s->curve_scale, v->gv_s->curve_scale, SMALL_FASTF))
+	return 1;
+    if (!NEAR_EQUAL(st->s->point_scale, v->gv_s->point_scale, SMALL_FASTF))
+	return 1;
+    if (c->perspective_flag != ((SMALL_FASTF < v->gv_perspective) ? 1 : 0))
+	return 1;
+
+    fastf_t delta = st->s->view_scale * 0.1/st->s->view_scale;
+    if (!NEAR_EQUAL(st->s->view_scale, v->gv_scale, delta))
+	return 1;
+
+    return 0;
+}
+
 static void
 _mesh_lod_free(bsg_node *node)
 {
@@ -158,10 +191,16 @@ _csg_lod_select_level(bsg_node *node, struct bview *v)
     struct bsg_lod_payload *pl = (struct bsg_lod_payload *)((struct bv_scene_obj *)node)->s_i_data;
     if (!pl || !pl->user_data || !v)
 	return 0;
+    struct bsg_lod_view_cursor *c = bsg_lod_node_get_cursor(node, v);
     struct ged_lod_state *st = (struct ged_lod_state *)pl->user_data;
     if (!st->s || !st->s->s_i_data)
 	return 0;
-    csg_wireframe_update(st->s, v, 0);
+    int force = 0;
+    if (!c || c->level < 0)
+	force = 1;
+    if (!!st->s->adaptive_wireframe != !!v->gv_s->adaptive_plot_csg)
+	force = 1;
+    csg_wireframe_update(st->s, v, force);
     return 0;
 }
 
@@ -177,7 +216,7 @@ _csg_lod_free(bsg_node *node)
 static struct bsg_lod_ops _csg_lod_ops = {
     _csg_lod_select_level,
     _lod_activate_level,
-    _lod_is_stale,
+    _csg_lod_is_stale,
     _csg_lod_free
 };
 
