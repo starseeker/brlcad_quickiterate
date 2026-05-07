@@ -180,8 +180,6 @@ csg_wireframe_update(struct bv_scene_obj *vo, struct bview *v, int flag)
 
     if (ip->idb_meth->ft_adaptive_plot) {
 	ip->idb_meth->ft_adaptive_plot(&vo->s_vlist, ip, d->tol, v, vo->s_size);
-	bv_scene_obj_bound(vo, v);
-	vo->adaptive_wireframe = v->gv_s->adaptive_plot_csg;
 	bv_obj_stale(vo);
     }
 
