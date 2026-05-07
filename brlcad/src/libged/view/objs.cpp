@@ -46,12 +46,12 @@ extern "C" {
 #include "./ged_view.h"
 #include "../ged_private.h"
 
-struct _view_obj_walk {
-    struct bview *v = NULL;
-    int list_view = 1;
-    int list_db = 0;
-    int local_only = 0;
-    const char *glob = NULL;
+struct view_obj_walk_state {
+    struct bview *v;
+    int list_view;
+    int list_db;
+    int local_only;
+    const char *glob;
     std::set<std::string> names;
     std::map<std::string, struct bv_scene_obj *> by_name;
 };
@@ -65,7 +65,7 @@ _view_obj_name_match(const char *glob, const char *name)
 }
 
 static void
-_view_obj_walk_bsg(struct _view_obj_walk &w, struct bv_scene_obj *root)
+_view_obj_walk_bsg(struct view_obj_walk_state &w, struct bv_scene_obj *root)
 {
     if (!root || !w.v)
 	return;
@@ -106,7 +106,7 @@ _view_obj_find(struct bview *v, const char *name, int list_view, int list_db, in
     if (!v || !name || !strlen(name))
 	return NULL;
 
-    struct _view_obj_walk w;
+    struct view_obj_walk_state w;
     w.v = v;
     w.list_view = list_view;
     w.list_db = list_db;
@@ -125,7 +125,7 @@ _view_obj_list(struct bu_vls *out, struct bview *v, int list_view, int list_db, 
 {
     if (!out || !v || !v->gv_draw_root)
 	return;
-    struct _view_obj_walk w;
+    struct view_obj_walk_state w;
     w.v = v;
     w.list_view = list_view;
     w.list_db = list_db;
@@ -514,6 +514,12 @@ _view_cmd_objs(void *bs, int argc, const char **argv)
 	bu_vls_printf(gedp->ged_result_str, ": no view current in GED");
 	return BRLCAD_ERROR;
     }
+    if (!gd->cv->gv_draw_root) {
+	struct bview *cv = gedp->ged_gvp;
+	gedp->ged_gvp = gd->cv;
+	bsg_view_obj_ensure_root(gedp);
+	gedp->ged_gvp = cv;
+    }
 
     // See if we have any high level options set
     struct bu_opt_desc d[6];
@@ -571,17 +577,17 @@ _view_cmd_objs(void *bs, int argc, const char **argv)
 	return BRLCAD_ERROR;
     }
 
-    int iargc = argc - cmd_pos;
-    const char **iargv = argv + cmd_pos;
+    int subcmd_argc = argc - cmd_pos;
+    const char **subcmd_argv = argv + cmd_pos;
 
     // Unified grammar
-    if (unified_cmds.find(std::string(iargv[0])) != unified_cmds.end()) {
-	const char *ucmd = iargv[0];
+    if (unified_cmds.find(std::string(subcmd_argv[0])) != unified_cmds.end()) {
+	const char *ucmd = subcmd_argv[0];
 	if (BU_STR_EQUAL(ucmd, "list")) {
-	    const char *glob = (iargc > 1) ? iargv[1] : NULL;
-	    if (iargc > 2) {
+	    const char *glob = (subcmd_argc > 1) ? subcmd_argv[1] : NULL;
+	    if (subcmd_argc > 2) {
 		bu_vls_free(&gobj_path);
-		bu_vls_printf(gd->gedp->ged_result_str, "Usage: view obj [-V view] [-L] list [glob]");
+		bu_vls_printf(gd->gedp->ged_result_str, "Usage: view obj [-V view] [-L] list [glob_pattern]");
 		return BRLCAD_ERROR;
 	    }
 	    _view_obj_list(gd->gedp->ged_result_str, v, list_view, list_db, gd->local_obj, glob);
@@ -591,26 +597,28 @@ _view_cmd_objs(void *bs, int argc, const char **argv)
 
 	if (BU_STR_EQUAL(ucmd, "create")) {
 	    if (gd->gobj_dbpath) {
-		if (iargc != 2) {
+		if (subcmd_argc != 2) {
 		    bu_vls_free(&gobj_path);
 		    bu_vls_printf(gd->gedp->ged_result_str, "Usage: view obj [-V view] [-L] -g <dbpath> create <name>");
 		    return BRLCAD_ERROR;
 		}
-		const char *gargv[4] = {"create", gd->gobj_dbpath, iargv[1], NULL};
+		const char *gargv[4] = {"create", gd->gobj_dbpath, subcmd_argv[1], NULL};
 		int ret = _gobjs_cmd_create(bs, 3, gargv);
 		bu_vls_free(&gobj_path);
 		return ret;
 	    }
-	    if (iargc < 3) {
+	    if (subcmd_argc < 3) {
 		bu_vls_free(&gobj_path);
 		bu_vls_printf(gd->gedp->ged_result_str, "Usage: view obj [-V view] [-L] create <name> <type> <args...>");
 		return BRLCAD_ERROR;
 	    }
-	    gd->vobj = iargv[1];
-	    gd->s = _view_obj_find(v, gd->vobj, 1, 1, gd->local_obj);
-	    const char *otype = iargv[2];
-	    const char **cargv = iargv + 2;
-	    int cargc = iargc - 2;
+	    gd->vobj = subcmd_argv[1];
+	    const int find_view_objs = 1;
+	    const int find_db_objs = 1;
+	    gd->s = _view_obj_find(v, gd->vobj, find_view_objs, find_db_objs, gd->local_obj);
+	    const char *otype = subcmd_argv[2];
+	    const char **cargv = subcmd_argv + 2;
+	    int cargc = subcmd_argc - 2;
 	    int ret = BRLCAD_ERROR;
 	    if (BU_STR_EQUAL(otype, "line")) {
 		ret = _view_cmd_lines(bs, cargc, cargv);
@@ -641,12 +649,12 @@ _view_cmd_objs(void *bs, int argc, const char **argv)
 	    return ret;
 	}
 
-	if (iargc < 2) {
+	if (subcmd_argc < 2) {
 	    bu_vls_free(&gobj_path);
 	    bu_vls_printf(gd->gedp->ged_result_str, "Usage: view obj [-V view] [-L] %s <name>", ucmd);
 	    return BRLCAD_ERROR;
 	}
-	gd->vobj = iargv[1];
+	gd->vobj = subcmd_argv[1];
 	gd->s = _view_obj_find(v, gd->vobj, list_view, list_db, gd->local_obj);
 
 	if (BU_STR_EQUAL(ucmd, "remove")) {
@@ -662,72 +670,78 @@ _view_cmd_objs(void *bs, int argc, const char **argv)
 		bu_vls_printf(gd->gedp->ged_result_str, "No view object named %s\n", gd->vobj);
 		return BRLCAD_ERROR;
 	    }
-	    if (iargc == 2) {
+	    if (subcmd_argc == 2) {
 		bu_vls_printf(gedp->ged_result_str, "%s %s\n", gd->vobj, _view_obj_type(gd->s));
 		bu_vls_free(&gobj_path);
 		return BRLCAD_OK;
 	    }
-	    if (BU_STR_EQUAL(iargv[2], "mode")) {
+	    if (BU_STR_EQUAL(subcmd_argv[2], "mode")) {
 		_view_obj_mode_string(gedp->ged_result_str, gd->s);
 		bu_vls_free(&gobj_path);
 		return BRLCAD_OK;
 	    }
-	    if (BU_STR_EQUAL(iargv[2], "color")) {
-		const char *iargv[2] = {"color", NULL};
-		int ret = _objs_cmd_color(bs, 1, iargv);
+	    if (BU_STR_EQUAL(subcmd_argv[2], "color")) {
+		const char *fargv[2] = {"color", NULL};
+		int ret = _objs_cmd_color(bs, 1, fargv);
 		bu_vls_free(&gobj_path);
 		return ret;
 	    }
-	    if (BU_STR_EQUAL(iargv[2], "draw")) {
-		const char *iargv[2] = {"draw", NULL};
-		int ret = _objs_cmd_draw(bs, 1, iargv);
+	    if (BU_STR_EQUAL(subcmd_argv[2], "draw")) {
+		const char *fargv[2] = {"draw", NULL};
+		int ret = _objs_cmd_draw(bs, 1, fargv);
 		bu_vls_free(&gobj_path);
 		return ret;
 	    }
-	    if (BU_STR_EQUAL(iargv[2], "lcnt")) {
-		const char *iargv[2] = {"lcnt", NULL};
-		int ret = _objs_cmd_lcnt(bs, 1, iargv);
+	    if (BU_STR_EQUAL(subcmd_argv[2], "lcnt")) {
+		const char *fargv[2] = {"lcnt", NULL};
+		int ret = _objs_cmd_lcnt(bs, 1, fargv);
 		bu_vls_free(&gobj_path);
 		return ret;
 	    }
-	    if (BU_STR_EQUAL(iargv[2], "type")) {
+	    if (BU_STR_EQUAL(subcmd_argv[2], "type")) {
 		bu_vls_printf(gedp->ged_result_str, "%s\n", _view_obj_type(gd->s));
 		bu_vls_free(&gobj_path);
 		return BRLCAD_OK;
 	    }
 	    bu_vls_free(&gobj_path);
-	    bu_vls_printf(gd->gedp->ged_result_str, "Unsupported info field %s", iargv[2]);
+	    bu_vls_printf(gd->gedp->ged_result_str, "Unsupported info field %s", subcmd_argv[2]);
 	    return BRLCAD_ERROR;
 	}
 
 	if (BU_STR_EQUAL(ucmd, "set")) {
-	    if (!gd->s || iargc < 4) {
+	    if (!gd->s || subcmd_argc < 4) {
 		bu_vls_free(&gobj_path);
 		bu_vls_printf(gd->gedp->ged_result_str, "Usage: view obj [-V view] [-L] set <name> <field> <value>");
 		return BRLCAD_ERROR;
 	    }
-	    if (BU_STR_EQUAL(iargv[2], "draw")) {
-		int ret = _objs_cmd_draw(bs, iargc - 2, iargv + 2);
+	    if (BU_STR_EQUAL(subcmd_argv[2], "draw")) {
+		if (subcmd_argc == 4 && (BU_STR_EQUAL(subcmd_argv[3], "0") || BU_STR_EQUAL(subcmd_argv[3], "1"))) {
+		    const char *dargv[3] = {"draw", BU_STR_EQUAL(subcmd_argv[3], "1") ? "UP" : "DOWN", NULL};
+		    int ret = _objs_cmd_draw(bs, 2, dargv);
+		    bu_vls_free(&gobj_path);
+		    return ret;
+		}
+		int ret = _objs_cmd_draw(bs, subcmd_argc - 2, subcmd_argv + 2);
 		bu_vls_free(&gobj_path);
 		return ret;
 	    }
-	    if (BU_STR_EQUAL(iargv[2], "color")) {
-		int ret = _objs_cmd_color(bs, iargc - 2, iargv + 2);
+	    if (BU_STR_EQUAL(subcmd_argv[2], "color")) {
+		int ret = _objs_cmd_color(bs, subcmd_argc - 2, subcmd_argv + 2);
 		bu_vls_free(&gobj_path);
 		return ret;
 	    }
-	    if (BU_STR_EQUAL(iargv[2], "arrow")) {
-		int ret = _objs_cmd_arrow(bs, iargc - 2, iargv + 2);
+	    if (BU_STR_EQUAL(subcmd_argv[2], "arrow")) {
+		int ret = _objs_cmd_arrow(bs, subcmd_argc - 2, subcmd_argv + 2);
 		bu_vls_free(&gobj_path);
 		return ret;
 	    }
-	    if (BU_STR_EQUAL(iargv[2], "update")) {
-		int ret = _objs_cmd_update(bs, iargc - 2, iargv + 2);
+	    if (BU_STR_EQUAL(subcmd_argv[2], "update")) {
+		int ret = _objs_cmd_update(bs, subcmd_argc - 2, subcmd_argv + 2);
 		bu_vls_free(&gobj_path);
 		return ret;
 	    }
 	    bu_vls_free(&gobj_path);
-	    bu_vls_printf(gd->gedp->ged_result_str, "Unsupported set field %s", iargv[2]);
+	    bu_vls_printf(gd->gedp->ged_result_str, "Unsupported set field %s", subcmd_argv[2]);
 	    return BRLCAD_ERROR;
 	}
     }
@@ -746,7 +760,7 @@ _view_cmd_objs(void *bs, int argc, const char **argv)
 	gd->s = _view_obj_find(v, gd->vobj, 0, 1, gd->local_obj);
 
     int ret = _ged_subcmd_exec(gedp, (struct bu_opt_desc *)d, (const struct bu_cmdtab *)_obj_cmds,
-	    "view obj", "[options] subcommand [args]", gd, argc - (cmd_pos - 1), argv + (cmd_pos - 1), 0, 1);
+	    "view obj", "[options] subcommand [args]", gd, argc - cmd_pos, argv + cmd_pos, 0, 0);
     bu_vls_free(&gobj_path);
     return ret;
 }

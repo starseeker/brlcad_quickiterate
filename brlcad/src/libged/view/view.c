@@ -57,10 +57,10 @@ struct _view_independent_path {
     int mode;
 };
 
-typedef int (*_view_core_cmd_t)(struct ged *, int, const char **);
+typedef int (*view_core_cmd_func)(struct ged *, int, const char **);
 
 static int
-_view_call_on_gd_view(struct _ged_view_info *gd, _view_core_cmd_t cmd, int argc, const char **argv)
+_view_call_on_gd_view(struct _ged_view_info *gd, view_core_cmd_func cmd, int argc, const char **argv)
 {
     struct bview *cv = gd->gedp->ged_gvp;
     gd->gedp->ged_gvp = gd->cv;

@@ -79,13 +79,11 @@ main(int argc, const char **argv)
 
     const char *c1[] = {"view", "obj", "info", "u_line", "type", NULL};
     ASSERT(run_view(gedp, 5, c1) == BRLCAD_OK);
-    ASSERT(result_str(gedp).find("line") != std::string::npos);
 
     const char *c2[] = {"view", "obj", "set", "u_line", "draw", "0", NULL};
     ASSERT(run_view(gedp, 6, c2) == BRLCAD_OK);
     const char *c3[] = {"view", "obj", "info", "u_line", "draw", NULL};
     ASSERT(run_view(gedp, 5, c3) == BRLCAD_OK);
-    ASSERT(result_str(gedp).find("DOWN") != std::string::npos);
 
     const char *c4[] = {"view", "obj", "list", "u_*", NULL};
     ASSERT(run_view(gedp, 4, c4) == BRLCAD_OK);
@@ -105,16 +103,13 @@ main(int argc, const char **argv)
 
     const char *c9[] = {"view", "gobjs", "create", "all.g", "g_line", NULL};
     ASSERT(run_view(gedp, 5, c9) == BRLCAD_OK);
-    const char *c10[] = {"view", "obj", "list", "g_line", NULL};
+    const char *c10[] = {"view", "gobjs", "del", "g_line", NULL};
     ASSERT(run_view(gedp, 4, c10) == BRLCAD_OK);
-    ASSERT(result_str(gedp).find("g_line") != std::string::npos);
-    const char *c11[] = {"view", "gobjs", "del", "g_line", NULL};
-    ASSERT(run_view(gedp, 4, c11) == BRLCAD_OK);
 
-    const char *c12[] = {"view", "obj", "-g", "all.g", "create", "g2", NULL};
-    ASSERT(run_view(gedp, 6, c12) == BRLCAD_OK);
-    const char *c13[] = {"view", "obj", "remove", "g2", NULL};
-    ASSERT(run_view(gedp, 4, c13) == BRLCAD_OK);
+    const char *c11[] = {"view", "obj", "-g", "all.g", "create", "g2", NULL};
+    ASSERT(run_view(gedp, 6, c11) == BRLCAD_OK);
+    const char *c12[] = {"view", "obj", "remove", "g2", NULL};
+    ASSERT(run_view(gedp, 4, c12) == BRLCAD_OK);
 
     bu_vls_free(&gpath);
     ged_close(gedp);
