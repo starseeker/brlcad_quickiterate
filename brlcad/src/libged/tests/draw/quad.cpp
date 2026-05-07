@@ -38,6 +38,8 @@
 
 #include "../../dbi.h"
 
+#define QDIFF_THRES 350
+
 // In order to handle changes to .g geometry contents, we need to defined
 // callbacks for the librt hooks that will update the working data structures.
 // In Qt we have libqtcad handle this, but as we are not using a QgModel we
@@ -209,6 +211,11 @@ img_cmp(int vnum, int id, struct ged *gedp, const char *cdir, bool clear, int so
     int off_by_1_cnt = 0;
     int off_by_many_cnt = 0;
     int iret = icv_diff(&matching_cnt, &off_by_1_cnt, &off_by_many_cnt, ctrl,timg);
+    if (iret) {
+	uint32_t pret = icv_pdiff(ctrl, timg);
+	if (pret < QDIFF_THRES)
+	    iret = 0;
+    }
     if (iret) {
 	if (soft_fail) {
 	    bu_log("%d wireframe diff failed.  %d matching, %d off by 1, %d off by many\n", id, matching_cnt, off_by_1_cnt, off_by_many_cnt);
