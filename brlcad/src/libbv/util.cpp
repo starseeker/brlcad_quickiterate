@@ -1586,33 +1586,69 @@ _bv_view_obj_create(struct bview *v, const char *name, int local, unsigned long 
 }
 
 struct bv_scene_obj *
+bv_view_obj_create(struct bview *v, const char *name, unsigned long long type_flags, const struct bv_view_obj_opts *opts)
+{
+    int local = 0;
+    if (opts)
+	local = opts->local ? 1 : 0;
+
+    struct bv_scene_obj *s = _bv_view_obj_create(v, name, local, type_flags);
+    if (!s)
+	return NULL;
+
+    if (opts && opts->arrow)
+	s->s_arrow = 1;
+
+    return s;
+}
+
+struct bv_scene_obj *
 bv_view_obj_axes_create(struct bview *v, const char *name, int local)
 {
-    return _bv_view_obj_create(v, name, local, BV_AXES);
+    struct bv_view_obj_opts opts = BV_VIEW_OBJ_OPTS_INIT;
+    opts.local = local;
+    return bv_view_obj_create(v, name, BV_AXES, &opts);
 }
 
 struct bv_scene_obj *
 bv_view_obj_lines_create(struct bview *v, const char *name, int local)
 {
-    return _bv_view_obj_create(v, name, local, 0);
+    struct bv_view_obj_opts opts = BV_VIEW_OBJ_OPTS_INIT;
+    opts.local = local;
+    return bv_view_obj_create(v, name, 0, &opts);
 }
 
 struct bv_scene_obj *
 bv_view_obj_label_create(struct bview *v, const char *name, int local)
 {
-    return _bv_view_obj_create(v, name, local, BV_LABELS);
+    struct bv_view_obj_opts opts = BV_VIEW_OBJ_OPTS_INIT;
+    opts.local = local;
+    return bv_view_obj_create(v, name, BV_LABELS, &opts);
+}
+
+struct bv_scene_obj *
+bv_view_obj_arrow_create(struct bview *v, const char *name, int local)
+{
+    struct bv_view_obj_opts opts = BV_VIEW_OBJ_OPTS_INIT;
+    opts.local = local;
+    opts.arrow = 1;
+    return bv_view_obj_create(v, name, 0, &opts);
 }
 
 struct bv_scene_obj *
 bv_view_obj_overlay_create(struct bview *v, const char *name, int local)
 {
-    return _bv_view_obj_create(v, name, local, 0);
+    struct bv_view_obj_opts opts = BV_VIEW_OBJ_OPTS_INIT;
+    opts.local = local;
+    return bv_view_obj_create(v, name, 0, &opts);
 }
 
 struct bv_scene_obj *
 bv_view_obj_polygon_create(struct bview *v, const char *name, int local)
 {
-    return _bv_view_obj_create(v, name, local, BV_VIEWONLY);
+    struct bv_view_obj_opts opts = BV_VIEW_OBJ_OPTS_INIT;
+    opts.local = local;
+    return bv_view_obj_create(v, name, BV_VIEWONLY, &opts);
 }
 
 static int
@@ -1706,6 +1742,71 @@ bv_view_obj_remove_all(struct bview *v, int scope_mask)
     }
 
     return removed;
+}
+
+struct bv_scene_obj *
+bv_view_obj_find(struct bview *v, const char *name)
+{
+    if (!v || !name || !strlen(name) || !v->gv_draw_root)
+	return NULL;
+
+    struct bv_scene_obj *root = (struct bv_scene_obj *)v->gv_draw_root;
+    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+	struct bv_scene_obj *scope = (struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
+	if (!scope || !(scope->s_type_flags & BSG_NODE_VIEW_SCOPE))
+	    continue;
+	if (_bv_is_independent_scope(scope, v))
+	    continue;
+	if (!_bv_view_scope_visible(scope, v))
+	    continue;
+	for (size_t j = 0; j < BU_PTBL_LEN(&scope->children); j++) {
+	    struct bv_scene_obj *obj = (struct bv_scene_obj *)BU_PTBL_GET(&scope->children, j);
+	    if (!obj)
+		continue;
+	    if (!BU_STR_EQUAL(name, bu_vls_cstr(&obj->s_name)))
+		continue;
+	    return obj;
+	}
+    }
+
+    return NULL;
+}
+
+void
+bv_view_obj_visit(struct bview *v,
+		  int scope_mask,
+		  int (*cb)(struct bv_scene_obj *obj, void *data),
+		  void *data)
+{
+    if (!v || !cb || !v->gv_draw_root)
+	return;
+
+    if (!scope_mask)
+	scope_mask = BV_VIEW_OBJ_SCOPE_ALL;
+
+    struct bv_scene_obj *root = (struct bv_scene_obj *)v->gv_draw_root;
+    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+	struct bv_scene_obj *scope = (struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
+	if (!scope || !(scope->s_type_flags & BSG_NODE_VIEW_SCOPE))
+	    continue;
+	if (_bv_is_independent_scope(scope, v))
+	    continue;
+	int is_local = scope->s_v ? 1 : 0;
+	if (is_local && !(scope_mask & BV_VIEW_OBJ_SCOPE_LOCAL))
+	    continue;
+	if (!is_local && !(scope_mask & BV_VIEW_OBJ_SCOPE_SHARED))
+	    continue;
+	if (!_bv_view_scope_visible(scope, v))
+	    continue;
+	for (size_t j = 0; j < BU_PTBL_LEN(&scope->children); j++) {
+	    struct bv_scene_obj *obj = (struct bv_scene_obj *)BU_PTBL_GET(&scope->children, j);
+	    if (!obj)
+		continue;
+	    /* API contract: callback returns 0/false to stop iteration early. */
+	    if (!cb(obj, data))
+		return;
+	}
+    }
 }
 
 struct bv_scene_obj *
@@ -1962,16 +2063,6 @@ bv_uniq_obj_name(struct bu_vls *oname, const char *seed, struct bview *v)
 
     bu_vls_sprintf(oname, "%s", bu_vls_cstr(&vseed));
     bu_vls_free(&vseed);
-}
-
-struct bv_scene_obj *
-bv_obj_for_view(struct bv_scene_obj *s, struct bview *v)
-{
-    if (!v || !s)
-	return NULL;
-
-    bv_log(1, "bv_obj_for_view %s(%s) - NONE", bu_vls_cstr(&s->s_name), bu_vls_cstr(&v->gv_name));
-    return NULL;
 }
 
 struct bv_scene_obj *
