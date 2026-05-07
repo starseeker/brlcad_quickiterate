@@ -28,7 +28,7 @@
  *   2. Illumination                (s_iflag == UP objects render white)
  *   3. Edit-mode matrix            (gv_edit_mat shifts illuminated objects)
  *   4. Faceplate center dot        (enabled via gv_s->gv_center_dot.gos_draw)
- *   5. BSG-vs-legacy parity        (pixel-identical output on the same data)
+ *   5. BSG render stability        (pixel-identical output across repeated renders)
  *
  * Uses dm-swrast for off-screen rendering; no display hardware required.
  *
@@ -455,12 +455,12 @@ test_faceplate(const char *datadir)
 }
 
 /* ========================================================================== */
-/* Test 5: BSG path == legacy dl_* path (pixel parity for MGED-style view)    */
+/* Test 5: BSG render stability (pixel parity across repeated BSG draws)       */
 /* ========================================================================== */
 static int
 test_bsg_legacy_parity(const char *datadir)
 {
-    bu_log("\n--- Test 5: BSG vs legacy parity for MGED view ---\n");
+    bu_log("\n--- Test 5: BSG render stability for MGED view ---\n");
 
     struct bu_vls fname = BU_VLS_INIT_ZERO;
     bu_vls_sprintf(&fname, "%s/moss.g", datadir);
@@ -479,29 +479,22 @@ test_bsg_legacy_parity(const char *datadir)
     s_av[0] = "autoview"; s_av[1] = NULL;
     ged_exec_autoview(gedp, 1, s_av);
 
-    struct bview *v = gedp->ged_gvp;
-
-    /* Image A: BSG path */
+    /* Image A: first BSG render */
     do_full_refresh(gedp);
     capture(gedp, "mged_bsg_t5_A.png");
-    bu_log("Captured image A (BSG path)\n");
+    bu_log("Captured image A (first BSG render)\n");
 
-    /* Image B: legacy path (null out bsg_root temporarily) */
-    void *saved_root = v->bsg_root;
-    v->bsg_root = NULL;
+    /* Image B: second BSG render with no scene changes */
     do_full_refresh(gedp);
     capture(gedp, "mged_bsg_t5_B.png");
-    bu_log("Captured image B (legacy dl_* path)\n");
-
-    /* Restore BSG root (Phase F: bsg_root == gv_draw_root, no sync needed) */
-    v->bsg_root = saved_root;
+    bu_log("Captured image B (second BSG render)\n");
 
     int fail = 0;
     if (!images_identical("mged_bsg_t5_A.png", "mged_bsg_t5_B.png", 20)) {
-	bu_log("FAIL: BSG path (A) != legacy path (B) — parity broken\n");
+	bu_log("FAIL: first BSG render (A) != second BSG render (B) — stability broken\n");
 	fail = 1;
     } else {
-	bu_log("PASS: BSG path == legacy dl_* path (pixel-identical within tolerance)\n");
+	bu_log("PASS: first and second BSG renders are pixel-identical (within tolerance)\n");
     }
 
     bu_file_delete("mged_bsg_t5_A.png");

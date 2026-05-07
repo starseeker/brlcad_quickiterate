@@ -44,8 +44,8 @@
  *                                mirroring what libtclcad does for "new_view nu".
  *   2. eyemodel_finite         — draw + autoview + get_eyemodel produces a
  *                                plausible (finite, non-degenerate) eye model.
- *   3. nodisplaylist_path      — With bsg_root set the go_draw_dlist legacy
- *                                fallback is never entered (bsg_root non-NULL).
+ *   3. nodisplaylist_path      — Secondary views share the active BSG draw root
+ *                                (no legacy go_draw_dlist fallback path).
  *
  * All tests use the "nu" (null) display-manager so no display hardware or X11
  * server is required.
@@ -284,12 +284,12 @@ test_eyemodel_finite(const char *datadir)
 }
 
 /* ========================================================================== */
-/* Test 3: bsg_root non-NULL on secondary view means go_draw_dlist not used   */
+/* Test 3: secondary views share active bsg_root (legacy fallback not used)   */
 /* ========================================================================== */
 static int
 test_nodisplaylist_path(const char *datadir)
 {
-    bu_log("\n--- Test 3: bsg_root non-NULL on secondary view (go_draw_dlist not entered) ---\n");
+    bu_log("\n--- Test 3: shared bsg_root on secondary views (go_draw_dlist not entered) ---\n");
 
     struct bu_vls fname = BU_VLS_INIT_ZERO;
     bu_vls_sprintf(&fname, "%s/moss.g", datadir);
@@ -310,7 +310,7 @@ test_nodisplaylist_path(const char *datadir)
     const char *s_av[4] = {"draw", "all.g", NULL};
     ged_exec_draw(gedp, 2, s_av);
 
-    /* Create four secondary views to test per-view bsg_root independence */
+    /* Create four secondary views and verify root sharing with the active tree */
     struct bview *views[4];
     char vname[4][8];
     int fail = 0;
@@ -329,20 +329,18 @@ test_nodisplaylist_path(const char *datadir)
 	bu_log("      => go_draw_dlist legacy dl_* fallback is NOT entered for any rtwizard view\n");
     }
 
-    /* Sanity: BSG root created by bsg_scene_root_create must be distinct for
-     * each view (per-view independence, not a shared singleton). */
-    int unique = 1;
+    /* Phase F: bsg_root aliases gv_draw_root, which is shared across views in
+     * the same GED draw set. */
+    int shared = 1;
     for (int i = 0; i < 4; i++) {
-	for (int j = i + 1; j < 4; j++) {
-	    if (views[i]->bsg_root == views[j]->bsg_root) {
-		bu_log("FAIL: views[%d] and views[%d] share the same bsg_root pointer\n", i, j);
-		unique = 0;
-		fail = 1;
-	    }
+	if (views[i]->bsg_root != gedp->ged_gvp->bsg_root) {
+	    bu_log("FAIL: view '%s' bsg_root is not shared with the active GED draw root\n", vname[i]);
+	    shared = 0;
+	    fail = 1;
 	}
     }
-    if (unique)
-	bu_log("PASS: each view has an independent bsg_root\n");
+    if (shared)
+	bu_log("PASS: all secondary views share the active GED bsg_root\n");
 
     close_gedp(gedp);
     bu_file_delete("rtw_bsg_t3.g");

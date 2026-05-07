@@ -218,8 +218,16 @@ ged_lod_install_csg_ops(struct bv_scene_obj *lod, struct bv_scene_obj *s)
 static struct bv_scene_obj *
 _sg_root(struct ged *gedp)
 {
-    if (gedp->i->ged_gdp->gd_draw_root)
+    if (gedp->i->ged_gdp->gd_draw_root) {
+	struct bview *v = gedp->ged_gvp;
+	if (v) {
+	    /* Phase F aliasing: bsg_root and gv_draw_root intentionally point to
+	     * the same shared draw-tree root for the active GED view. */
+	    v->gv_draw_root = gedp->i->ged_gdp->gd_draw_root;
+	    v->bsg_root = gedp->i->ged_gdp->gd_draw_root;
+	}
         return gedp->i->ged_gdp->gd_draw_root;
+    }
 
     struct bview *v = gedp->ged_gvp;
     if (!v)

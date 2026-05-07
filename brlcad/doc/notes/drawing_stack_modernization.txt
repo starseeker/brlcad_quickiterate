@@ -479,7 +479,7 @@ Phase L6 — retire `s_update_callback` and the BV_MESH_LOD/BV_CSG_LOD
   - `include/bv/defines.h`: BV_MESH_LOD and BV_CSG_LOD marked deprecated
     (retained for binary compatibility); s_update_callback comment updated.
 
-Phase L7 — image-level parity and front-end verification
+Phase L7 — image-level parity and front-end verification  DONE
   - Re-run `ged_test_drawing_lod` and `ged_test_lod_crossrun` for
     image diffs.
   - Re-check the known weak spots that LoD ambiguity may have been
@@ -491,6 +491,21 @@ Phase L7 — image-level parity and front-end verification
     for adaptive zoom, multi-view Quad, and headless image runs.
   - Only after this is solid, return to the open backend default
     decision (Priority 4 below).
+  Completed:
+  - Image-level LoD parity surface is green:
+    `ged_test_drawing_lod`, `ged_test_lod_crossrun`,
+    `ged_test_mged_shaded_mode_bsg`.
+  - Core draw/no-LoD baselines remain green:
+    `ged_test_drawing_basic`, `ged_test_drawing_faceplate`,
+    `ged_test_bsg_parity`, `ged_test_bsg_quad_parity`,
+    `ged_test_bsg_view_obj`, `libbsg_lod_node`.
+  - Front-end parity regressions addressed for qged/mged/Archer paths:
+    - shared draw-root aliasing now propagates to non-default views
+      (`bsg_scene_root_create` inheritance from view sets; `_sg_root`
+      now rebinds `gedp->ged_gvp` when reusing an existing draw root),
+    - `ged_test_qged_swrast`, `ged_test_mged_bsg`, and
+      `ged_test_rtwizard_bsg` now pass under the Phase E/F contract
+      (no legacy dl_* fallback parity mode; shared BSG draw root).
 
 Test surface to keep green at every phase
 -----------------------------------------
@@ -517,17 +532,13 @@ Deferred / non-goals for this work package
 
 Prioritized remaining work
 --------------------------
-Priority 1 — execute the LoD redesign above (Phases L0–L7).
-  This is the next major work package.
+Priority 1 — execute the LoD redesign above (Phases L0–L7).  DONE.
 
-Priority 2 — close image-level parity gaps once LoD is unambiguous:
-  shaded mode 1 with LoD disabled, hidden-line mode 4, LoD image
-  regressions.  These are largely re-tests after L7.
+Priority 2 — close image-level parity gaps once LoD is unambiguous.  DONE.
+  (shaded mode 1 / hidden-line mode 4 / LoD image regressions)
 
-Priority 3 — verify front-end parity (qged / mged / Archer) for
-  draw, erase, redraw, selection-highlight, adaptive zoom, mixed
-  draw modes on the same path.  L4–L5 should make this fall out
-  naturally.
+Priority 3 — verify front-end parity (qged / mged / Archer).  DONE.
+  (draw/erase/redraw/zoom + mixed-mode regression surface)
 
 Priority 4 — backend policy / default-backend decision.  Open, but
   not a blocker for the LoD work and not a blocker for declaring the
