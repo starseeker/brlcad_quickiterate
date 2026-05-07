@@ -108,11 +108,15 @@ test_create_alias(void)
 {
     bu_log("=== Test 1: create_alias ===\n");
 
-    /* Without a draw root: bsg_scene_root_create must return NULL */
+    /* Without a draw root: standalone libbsg consumers get a minimal root. */
     struct bview *v = make_view();
     bsg_node *root = bsg_scene_root_create(v);
-    BSGCHECK(root == NULL,     "bsg_scene_root_create(no draw root) returns NULL");
-    BSGCHECK(v->bsg_root == NULL, "view->bsg_root is NULL when no draw root");
+    BSGCHECK(root != NULL,     "bsg_scene_root_create(no draw root) creates root");
+    BSGCHECK(v->bsg_root == root, "view->bsg_root is set when no draw root");
+    BSGCHECK(v->gv_draw_root == root, "view->gv_draw_root is set when no draw root");
+    bsg_scene_root_destroy(root);
+    v->gv_draw_root = NULL;
+    bv_obj_put((struct bv_scene_obj *)root);
 
     /* Set up a fake draw root and re-run */
     struct bv_scene_obj *dr = attach_fake_draw_root(v);
