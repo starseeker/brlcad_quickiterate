@@ -580,7 +580,7 @@ _view_cmd_objs(void *bs, int argc, const char **argv)
 
     // Legacy grammar: view obj [options] <name> <field-or-type> [args...]
     if (first_pos >= 0 && cmd_pos < 0) {
-	if (argc - first_pos < 2) {
+	if ((argc - first_pos) < 2) {
 	    bu_vls_free(&gobj_path);
 	    bu_vls_printf(gd->gedp->ged_result_str,
 		    "Usage: view obj [options] <name> <field-or-type> [args...]");

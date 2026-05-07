@@ -35,9 +35,9 @@
 
 #include "../../dbi.h"
 
-/* Selection highlighting is sensitive to backend anti-aliasing and shaded
- * color-path differences; observed validated variance topped out at 322, so
- * 350 keeps a bounded margin while preserving perceptual regression checks. */
+// Selection highlighting is sensitive to backend anti-aliasing and shaded
+// color-path differences; observed validated variance topped out at 322, so
+// 350 keeps a bounded margin while preserving perceptual regression checks.
 #define ADIFF_THRES 350
 
 extern "C" void ged_changed_callback(struct db_i *UNUSED(dbip), struct directory *dp, int mode, void *u_data);

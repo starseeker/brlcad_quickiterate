@@ -34,9 +34,9 @@
 
 #include "../../dbi.h"
 
-/* LoD images may differ slightly between first-generation and cached mesh
- * rendering while remaining perceptually equivalent.  The observed validated
- * first-generation variance was 54, so 60 keeps a small margin. */
+// LoD images may differ slightly between first-generation and cached mesh
+// rendering while remaining perceptually equivalent.  The observed validated
+// first-generation variance was 54, so 60 keeps a small margin.
 #define ADIFF_THRES 60
 
 extern "C" void ged_changed_callback(struct db_i *UNUSED(dbip), struct directory *dp, int mode, void *u_data);
