@@ -3014,6 +3014,15 @@ BViewState::scene_obj(
 	    // drawing updating is handled via callbacks.  However, adaptive
 	    // plotting enablement/disablement changes which type of objects
 	    // we need.  Make sure we're synced.
+	    // TODO(Phase V5): remove deprecated per-view duplicate-subtree
+	    // API usage in this adaptive toggle path.
+#if defined(__clang__)
+#  pragma clang diagnostic push
+#  pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#elif defined(__GNUC__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
 	    std::unordered_set<struct bview *>::iterator v_it;
 	    if (sp->csg_obj) {
 		for (v_it = views.begin(); v_it != views.end(); v_it++) {
@@ -3042,6 +3051,11 @@ BViewState::scene_obj(
 		    }
 		}
 	    }
+#if defined(__clang__)
+#  pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#  pragma GCC diagnostic pop
+#endif
 
 	    // Refresh s_color from the current path color so that material
 	    // changes (or a cache corruption that left stale values) are always
