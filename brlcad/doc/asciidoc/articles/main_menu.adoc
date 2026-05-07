@@ -803,7 +803,6 @@
 ** ../../mann/en/3ptarb.php[3 Ptarb]
 ** ../../mann/en/adc.php[ADC]
 ** ../../mann/en/ae.php[AE]
-** ../../mann/en/alias-pix.php[Alias Pix]
 ** ../../mann/en/analyze.php[Analyze]
 ** ../../mann/en/animmate.php[Animmate]
 ** ../../mann/en/apropos.php[Apropos]

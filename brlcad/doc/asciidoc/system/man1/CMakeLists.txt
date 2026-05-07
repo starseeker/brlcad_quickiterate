@@ -1,7 +1,6 @@
 set(
   man1_EN
   3dm-g.adoc
-  alias-pix.adoc
   ap-pix.adoc
   asc-nmg.adoc
   asc-plot3.adoc

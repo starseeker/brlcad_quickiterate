@@ -37,6 +37,8 @@
 #include "../ged_private.h"
 #include "./ged_draw.h"
 
+extern int ged_E_core(struct ged *gedp, int argc, const char *argv[]);
+
 /* declare our callbacks used by _ged_drawtrees() */
 static int drawtrees_depth = 0;
 
@@ -1237,7 +1239,7 @@ _ged_drawtrees(struct ged *gedp, int argc, const char *argv[], int kind, struct 
 		for (int ie = 0; ie < argc; ie++) {
 		    eav[ie+1] = argv[ie];
 		}
-		int eret = ged_exec_E(gedp, argc+1, eav);
+		int eret = ged_E_core(gedp, argc+1, eav);
 		bu_free(eav, "eav");
 		return eret;
 	    } else {
@@ -1719,12 +1721,10 @@ ged_redraw_core(struct ged *gedp, int argc, const char *argv[])
 
 #define GED_DRAW_COMMANDS(X, XID) \
     X(draw, ged_draw_core, GED_CMD_DEFAULT) \
-    X(E, ged_E_core, GED_CMD_DEFAULT) \
     X(e, ged_draw_core, GED_CMD_DEFAULT) \
     X(ev, ged_ev_core, GED_CMD_DEFAULT) \
     X(redraw, ged_redraw_core, GED_CMD_DEFAULT) \
-    X(loadview, ged_loadview_core, GED_CMD_DEFAULT) \
-    X(preview, ged_preview_core, GED_CMD_DEFAULT)
+    X(loadview, ged_loadview_core, GED_CMD_DEFAULT)
 
 GED_DECLARE_COMMAND_SET(GED_DRAW_COMMANDS)
 GED_DECLARE_PLUGIN_MANIFEST("libged_draw", 1, GED_DRAW_COMMANDS)
@@ -1738,4 +1738,3 @@ GED_DECLARE_PLUGIN_MANIFEST("libged_draw", 1, GED_DRAW_COMMANDS)
  * End:
  * ex: shiftwidth=4 tabstop=8
  */
-

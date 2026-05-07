@@ -8,7 +8,6 @@ set(
   bindings.tcl
   bot_face_select.tcl
   bot_vertex_fuse_all.tcl
-  bots.tcl
   botedit.tcl
   build_region.tcl
   calipers.tcl

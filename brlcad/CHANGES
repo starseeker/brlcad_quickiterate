@@ -431,6 +431,23 @@ MGED commands
 	dbip/get_dbip command exposure removed from MGED command surfaces
 	[deprecated 7.40]
 
+	db_glob, debugbu, debugdir, debuglib, debugnmg, match, preview,
+	regdef, rrt, savekey, shaded_mode, sync and E command removed from
+	MGED/libged command surfaces [deprecated 7.28]
+
+include/vmath.h
+	VCOMB3, VCOMB3N, VJOIN4 removed [deprecated 7.28]
+
+include/nmg/model.h libnmg
+	nmg_model_break_e_on_v removed; use nmg_break_e_on_v [deprecated 7.22]
+
+tclscripts/mged
+	src/tclscripts/mged/bots.tcl removed [deprecated 7.14]
+
+image/signal tools
+	alias-pix, asc2pix, bw-a, double-asc removed from builds
+	[deprecated 7.26]
+
 MGED gui
 	Settings->Mouse Behavior->Pick Raytrace-Object(s) menu entry removed
 	[deprecated 7.32]

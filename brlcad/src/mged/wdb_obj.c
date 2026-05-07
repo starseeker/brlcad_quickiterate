@@ -1854,7 +1854,6 @@ static struct bu_cmdtab wdb_newcmds[] = {
     {"lt",		(int (*)(void *, int, const char **))ged_exec_lt},
     {"make",		(int (*)(void *, int, const char **))ged_exec_make},
     {"make_name",	(int (*)(void *, int, const char **))ged_exec_make_name},
-    {"match",		(int (*)(void *, int, const char **))ged_exec_match},
     {"mater",		(int (*)(void *, int, const char **))ged_exec_mater},
     {"mirror",		(int (*)(void *, int, const char **))ged_exec_mirror},
     {"mv",		(int (*)(void *, int, const char **))ged_exec_mv},

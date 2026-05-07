@@ -25,7 +25,7 @@ A ray-tracing lighting model, for rendering pictures of *mged*(1) CSG models. Se
 
 
 *conv*::
-Programs to convert *mged*(1) and *pix*(3) format binary files to a portable ASCII form, and back again. See *asc2g*(1), *asc2pix*(1), *conv-vg2g*(1), *g2asc*(1), *pix2asc*(1).
+Programs to convert *mged*(1) and *pix*(3) format binary files to a portable ASCII form, and back again. See *asc2g*(1), *conv-vg2g*(1), *g2asc*(1), *pix2asc*(1).
 
 
 *libpkg*::
