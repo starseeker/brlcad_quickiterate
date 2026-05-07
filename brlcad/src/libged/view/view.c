@@ -30,8 +30,10 @@
 #include <string.h>
 
 #include "bu/cmd.h"
+#include "bu/malloc.h"
 #include "bu/vls.h"
 
+#include "ged/bsg_ged_draw.h"
 #include "../ged_private.h"
 #include "./ged_view.h"
 
@@ -48,6 +50,97 @@ _view_cmd_msgs(void *bs, int argc, const char **argv, const char *us, const char
 	return 1;
     }
     return 0;
+}
+
+struct _view_independent_path {
+    char *path;
+    int mode;
+};
+
+static void
+_view_independent_paths_free(struct _view_independent_path *paths, size_t path_cnt)
+{
+    if (!paths)
+	return;
+
+    for (size_t i = 0; i < path_cnt; i++) {
+	if (paths[i].path)
+	    bu_free(paths[i].path, "independent path");
+    }
+
+    bu_free(paths, "independent paths");
+}
+
+static int
+_view_independent_paths_add(struct _view_independent_path **paths,
+			    size_t *path_cnt,
+			    size_t *path_cap,
+			    const char *path,
+			    int mode)
+{
+    if (!paths || !path_cnt || !path_cap || !path || !path[0])
+	return BRLCAD_ERROR;
+
+    for (size_t i = 0; i < *path_cnt; i++) {
+	if ((*paths)[i].mode == mode && BU_STR_EQUAL((*paths)[i].path, path))
+	    return BRLCAD_OK;
+    }
+
+    if (*path_cnt >= *path_cap) {
+	size_t ncap = (*path_cap < 8) ? 8 : (*path_cap * 2);
+	struct _view_independent_path *npaths = (struct _view_independent_path *)bu_realloc(
+		*paths, ncap * sizeof(struct _view_independent_path), "independent paths");
+	if (!npaths)
+	    return BRLCAD_ERROR;
+	*paths = npaths;
+	*path_cap = ncap;
+    }
+
+    (*paths)[*path_cnt].path = bu_strdup(path);
+    (*paths)[*path_cnt].mode = mode;
+    (*path_cnt)++;
+
+    return BRLCAD_OK;
+}
+
+static int
+_view_independent_collect_paths(struct _view_independent_path **paths,
+				size_t *path_cnt,
+				size_t *path_cap,
+				struct bv_scene_obj *node)
+{
+    if (!node)
+	return BRLCAD_OK;
+
+    if (node->s_type_flags & BSG_NODE_VIEW_SCOPE)
+	return BRLCAD_OK;
+
+    if (node->s_type_flags & BV_DB_OBJS) {
+	struct ged_bv_data *bdata = node->s_u_data ? (struct ged_bv_data *)node->s_u_data : NULL;
+	if (bdata && bdata->s_fullpath.fp_len > 0) {
+	    char *fpath = db_path_to_string(&bdata->s_fullpath);
+	    const char *npath = (fpath && fpath[0] == '/') ? fpath + 1 : fpath;
+	    if (npath && strlen(npath)) {
+		int mode = (node->s_os) ? node->s_os->s_dmode : 0;
+		int ret = _view_independent_paths_add(paths, path_cnt, path_cap, npath, mode);
+		if (fpath)
+		    bu_free(fpath, "db path string");
+		if (ret != BRLCAD_OK)
+		    return ret;
+	    } else if (fpath) {
+		bu_free(fpath, "db path string");
+	    }
+	}
+    }
+
+    for (size_t i = 0; i < BU_PTBL_LEN(&node->children); i++) {
+	struct bv_scene_obj *child = (struct bv_scene_obj *)BU_PTBL_GET(&node->children, i);
+	int ret = _view_independent_collect_paths(paths, path_cnt, path_cap, child);
+	if (ret != BRLCAD_OK)
+	    return ret;
+    }
+
+    return BRLCAD_OK;
 }
 
 int
@@ -162,40 +255,60 @@ _view_cmd_independent(void *bs, int argc, const char **argv)
     }
 
     if (argc == 1) {
-	bu_vls_printf(gedp->ged_result_str, "%d\n", v->independent);
+	bu_vls_printf(gedp->ged_result_str, "%d\n", bv_view_is_independent(v));
 	return BRLCAD_OK;
     }
 
     if (BU_STR_EQUAL(argv[1], "1")) {
-	v->independent = 1;
-	// Initialize local containers with current shared grps
-	struct bu_ptbl *sg = bv_view_objs(v, BV_DB_OBJS);
-	if (!sg)
+	if (bv_view_is_independent(v))
 	    return BRLCAD_OK;
-	for (size_t i = 0; i < BU_PTBL_LEN(sg); i++) {
-	    struct bv_scene_group *cg = (struct bv_scene_group *)BU_PTBL_GET(sg, i);
-	    struct bu_vls opath = BU_VLS_INIT_ZERO;
-	    bu_vls_sprintf(&opath, "%s", bu_vls_cstr(&cg->s_name));
-	    const char *av[5] = {"draw", "-R", "-V", NULL, NULL};
-	    av[3] = bu_vls_cstr(&v->gv_name);
-	    av[4] = bu_vls_cstr(&opath);
-	    ged_exec_draw(gedp, 5, av);
-	    bu_vls_free(&opath);
+
+	struct _view_independent_path *paths = NULL;
+	size_t path_cnt = 0;
+	size_t path_cap = 0;
+	if (gedp->i->ged_gdp->gd_draw_root) {
+	    int ret = _view_independent_collect_paths(&paths, &path_cnt, &path_cap,
+		    gedp->i->ged_gdp->gd_draw_root);
+	    if (ret != BRLCAD_OK) {
+		_view_independent_paths_free(paths, path_cnt);
+		bu_vls_printf(gedp->ged_result_str, "failed to snapshot shared draw state\n");
+		return BRLCAD_ERROR;
+	    }
 	}
+
+	struct bview *cv = gedp->ged_gvp;
+	gedp->ged_gvp = v;
+	bsg_view_obj_ensure_root(gedp);
+	gedp->ged_gvp = cv;
+
+	if (!v->gv_draw_root || !bv_view_independent_scope(v, 1)) {
+	    _view_independent_paths_free(paths, path_cnt);
+	    bu_vls_printf(gedp->ged_result_str, "failed to create independent draw scope for %s\n",
+		    argv[0]);
+	    return BRLCAD_ERROR;
+	}
+
+	for (size_t i = 0; i < path_cnt; i++) {
+	    struct bu_vls mode = BU_VLS_INIT_ZERO;
+	    bu_vls_sprintf(&mode, "-m%d", paths[i].mode);
+	    const char *av[7] = {"draw", "-R", "-V", NULL, NULL, NULL, NULL};
+	    av[3] = bu_vls_cstr(&v->gv_name);
+	    av[4] = bu_vls_cstr(&mode);
+	    av[5] = paths[i].path;
+	    ged_exec_draw(gedp, 6, av);
+	    bu_vls_free(&mode);
+	}
+	_view_independent_paths_free(paths, path_cnt);
 	return BRLCAD_OK;
     }
 
     if (BU_STR_EQUAL(argv[1], "0")) {
-	v->independent = 0;
-	// Clear local containers
-	struct bu_ptbl *sg = bv_view_objs(v, BV_DB_OBJS | BV_LOCAL_OBJS);
-	if (sg) {
-	    for (size_t i = 0; i < BU_PTBL_LEN(sg); i++) {
-		struct bv_scene_group *cg = (struct bv_scene_group *)BU_PTBL_GET(sg, i);
-		bv_obj_put(cg);
-	    }
-	    bu_ptbl_reset(sg);
-	}
+	if (!bv_view_is_independent(v))
+	    return BRLCAD_OK;
+	const char *z_av[4] = {"Z", "-V", NULL, "-g"};
+	z_av[2] = bu_vls_cstr(&v->gv_name);
+	ged_exec_Z(gedp, 4, z_av);
+	bv_view_independent_scope_destroy(v);
 	return BRLCAD_OK;
     }
 

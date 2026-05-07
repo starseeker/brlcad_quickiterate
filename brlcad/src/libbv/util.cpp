@@ -46,6 +46,7 @@
 
 #define VIEW_NAME_MAXTRIES 100000
 #define DM_DEFAULT_FONT_SIZE 20
+#define BV_INDEPENDENT_SCOPE_NAME "_independent_db_scope"
 
 static const char *
 _bv_vname(struct bview *v)
@@ -55,6 +56,135 @@ _bv_vname(struct bview *v)
     if (!BU_VLS_IS_INITIALIZED(&v->gv_name))
 	return "<unnamed>";
     return bu_vls_cstr(&v->gv_name);
+}
+
+static int
+_bv_is_independent_scope(struct bv_scene_obj *s, const struct bview *owner)
+{
+    if (!s)
+	return 0;
+    if (!(s->s_type_flags & BSG_NODE_VIEW_SCOPE))
+	return 0;
+    if (s->s_v != owner)
+	return 0;
+    if (!BU_VLS_IS_INITIALIZED(&s->s_name))
+	return 0;
+    return BU_STR_EQUAL(bu_vls_cstr(&s->s_name), BV_INDEPENDENT_SCOPE_NAME);
+}
+
+static struct bv_scene_obj *
+_bv_independent_scope_find(struct bv_scene_obj *root, const struct bview *owner)
+{
+    if (!root || !owner)
+	return NULL;
+
+    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+	struct bv_scene_obj *c = (struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
+	if (_bv_is_independent_scope(c, owner))
+	    return c;
+    }
+
+    return NULL;
+}
+
+static void
+_bv_scope_free_recursive(struct bv_scene_obj *node)
+{
+    if (!node)
+	return;
+
+    size_t i = BU_PTBL_LEN(&node->children);
+    while (i > 0) {
+	i--;
+	struct bv_scene_obj *child = (struct bv_scene_obj *)BU_PTBL_GET(&node->children, i);
+	if (!child)
+	    continue;
+	bu_ptbl_rm(&node->children, (long *)child);
+	_bv_scope_free_recursive(child);
+    }
+
+    bv_obj_put(node);
+}
+
+static int
+_bv_independent_root_skip_child(struct bview *v, struct bv_scene_obj *parent, struct bv_scene_obj *child)
+{
+    if (!v || !parent || !child)
+	return 0;
+    if (!bv_view_is_independent(v))
+	return 0;
+    if (parent != (struct bv_scene_obj *)v->gv_draw_root)
+	return 0;
+    if (child->s_type_flags & BSG_NODE_VIEW_SCOPE)
+	return 0;
+    if (!BU_VLS_IS_INITIALIZED(&child->s_name))
+	return 1;
+    return BU_STR_EQUAL("_overlays", bu_vls_cstr(&child->s_name)) ? 0 : 1;
+}
+
+int
+bv_view_is_independent(const struct bview *v)
+{
+    if (!v)
+	return 0;
+
+    if (v->gv_draw_root) {
+	struct bv_scene_obj *root = (struct bv_scene_obj *)v->gv_draw_root;
+	return (_bv_independent_scope_find(root, v) != NULL) ? 1 : 0;
+    }
+
+    return v->independent ? 1 : 0;
+}
+
+struct bv_scene_obj *
+bv_view_independent_scope(struct bview *v, int create)
+{
+    if (!v || !v->gv_draw_root)
+	return NULL;
+
+    struct bv_scene_obj *root = (struct bv_scene_obj *)v->gv_draw_root;
+    struct bv_scene_obj *scope = _bv_independent_scope_find(root, v);
+    if (scope || !create) {
+	v->independent = scope ? 1 : 0;
+	return scope;
+    }
+
+    scope = bv_obj_get_unregistered(v, BV_CHILD_OBJS | BV_LOCAL_OBJS);
+    if (!scope)
+	return NULL;
+
+    scope->s_type_flags = BSG_NODE_VIEW_SCOPE | BV_LOCAL_OBJS;
+    scope->s_flag = UP;
+    scope->s_v = v;
+    scope->parent = root;
+    bu_vls_sprintf(&scope->s_name, "%s", BV_INDEPENDENT_SCOPE_NAME);
+    bu_ptbl_ins(&root->children, (long *)scope);
+    v->independent = 1;
+
+    return scope;
+}
+
+void
+bv_view_independent_scope_destroy(struct bview *v)
+{
+    if (!v)
+	return;
+
+    if (!v->gv_draw_root) {
+	v->independent = 0;
+	return;
+    }
+
+    struct bv_scene_obj *root = (struct bv_scene_obj *)v->gv_draw_root;
+    struct bv_scene_obj *scope = _bv_independent_scope_find(root, v);
+    if (!scope) {
+	v->independent = 0;
+	return;
+    }
+
+    bu_ptbl_rm(&root->children, (long *)scope);
+    _bv_scope_free_recursive(scope);
+    v->independent = 0;
 }
 
 static void
@@ -1158,7 +1288,7 @@ bv_clear(struct bview *v, int flags)
 	bv_view_obj_remove_all(v, scope_mask);
     }
 
-    if (!flags || flags & BV_LOCAL_OBJS || v->independent) {
+    if (!flags || flags & BV_LOCAL_OBJS || bv_view_is_independent(v)) {
 	if (!flags || flags & BV_DB_OBJS) {
 	    struct bu_ptbl *sg = bv_view_objs(v, BV_DB_OBJS | (flags & ~BV_VIEW_OBJS) | BV_LOCAL_OBJS);
 	    if (sg) {
@@ -1247,7 +1377,7 @@ bv_obj_create(struct bview *v, int type)
     // regardless of whether or not a shared repository is available.
     struct bv_scene_obj *free_scene_obj = NULL;
     struct bu_list *vlfree = NULL;
-    if (type & BV_LOCAL_OBJS || type & BV_CHILD_OBJS || v->independent || !v->vset)  {
+    if (type & BV_LOCAL_OBJS || type & BV_CHILD_OBJS || bv_view_is_independent(v) || !v->vset)  {
 	free_scene_obj = v->gv_objs.free_scene_obj;
 	vlfree = &v->gv_objs.gv_vlfree;
     } else {
@@ -1261,7 +1391,7 @@ bv_obj_create(struct bview *v, int type)
     // to be stored in it, because they are part of the scene only by virtue
     // of their parent object
     struct bu_ptbl *otbl = NULL;
-    if (type & BV_LOCAL_OBJS || type & BV_CHILD_OBJS || v->independent || !v->vset)  {
+    if (type & BV_LOCAL_OBJS || type & BV_CHILD_OBJS || bv_view_is_independent(v) || !v->vset)  {
 	if (!(type & BV_CHILD_OBJS)) {
 	    if (type & BV_DB_OBJS) {
 		otbl = v->gv_objs.db_objs;
@@ -1325,8 +1455,8 @@ bv_obj_get(struct bview *v, int type)
     bv_log(1, "bv_obj_get %d(%s)", type, _bv_vname(v));
 
    int ltype = type;
-   if (v->independent)
-       ltype |= BV_LOCAL_OBJS;
+   if (bv_view_is_independent(v))
+	ltype |= BV_LOCAL_OBJS;
 
     /* Phase V4: when the caller requests a view-only object and this view has
      * a BSG draw root, route through the typed BSG scope path so the object
@@ -1360,7 +1490,7 @@ bv_obj_get_unregistered(struct bview *v, int type)
     bv_log(1, "bv_obj_get_unregistered %d(%s)", type, _bv_vname(v));
 
     int ltype = type;
-    if (v->independent)
+    if (bv_view_is_independent(v))
 	ltype |= BV_LOCAL_OBJS;
 
     struct bv_scene_obj *s = bv_obj_create(v, ltype);
@@ -1386,6 +1516,8 @@ _bv_view_scope_find(struct bv_scene_obj *root, struct bview *owner)
 	if (!c)
 	    continue;
 	if (!(c->s_type_flags & BSG_NODE_VIEW_SCOPE))
+	    continue;
+	if (_bv_is_independent_scope(c, owner))
 	    continue;
 	if (c->s_v != owner)
 	    continue;
@@ -1506,6 +1638,8 @@ bv_view_obj_remove(struct bview *v, const char *name)
 	struct bv_scene_obj *scope = (struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
 	if (!scope || !(scope->s_type_flags & BSG_NODE_VIEW_SCOPE))
 	    continue;
+	if (_bv_is_independent_scope(scope, v))
+	    continue;
 	if (!_bv_view_scope_visible(scope, v))
 	    continue;
 	size_t j = BU_PTBL_LEN(&scope->children);
@@ -1545,6 +1679,8 @@ bv_view_obj_remove_all(struct bview *v, int scope_mask)
 	i--;
 	struct bv_scene_obj *scope = (struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
 	if (!scope || !(scope->s_type_flags & BSG_NODE_VIEW_SCOPE))
+	    continue;
+	if (_bv_is_independent_scope(scope, v))
 	    continue;
 	int is_local = scope->s_v ? 1 : 0;
 	if (is_local && !(scope_mask & BV_VIEW_OBJ_SCOPE_LOCAL))
@@ -1735,7 +1871,7 @@ bv_find_obj(struct bview *v, const char *name)
 	return NULL;
 
     // First look for matches in shared sets, if any are defined
-    if (!v->independent && v->vset) {
+    if (!bv_view_is_independent(v) && v->vset) {
 	for (size_t i = 0; i < BU_PTBL_LEN(&v->vset->i->shared_db_objs); i++) {
 	    struct bv_scene_obj *s_c = (struct bv_scene_obj *)BU_PTBL_GET(&v->vset->i->shared_db_objs, i);
 	    if (!bu_path_match(name, bu_vls_cstr(&s_c->s_name), 0))
@@ -1761,6 +1897,8 @@ bv_find_obj(struct bview *v, const char *name)
 	for (size_t i = 0; i < BU_PTBL_LEN(&n->children); i++) {
 	    struct bv_scene_obj *c = (struct bv_scene_obj *)BU_PTBL_GET(&n->children, i);
 	    if (!c)
+		continue;
+	    if (_bv_independent_root_skip_child(v, n, c))
 		continue;
 	    if ((c->s_type_flags & BSG_NODE_VIEW_SCOPE) && !_bv_view_scope_visible(c, v))
 		continue;
@@ -1974,7 +2112,7 @@ bv_view_objs(struct bview *v, int type)
 	return NULL;
 
     if (type & BV_DB_OBJS) {
-	if (type & BV_LOCAL_OBJS) {
+	if (type & BV_LOCAL_OBJS || bv_view_is_independent(v)) {
 	    return v->gv_objs.db_objs;
 	} else {
 	    if (v->vset)
@@ -2007,6 +2145,8 @@ bv_view_objs(struct bview *v, int type)
 	for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
 	    struct bv_scene_obj *scope = (struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
 	    if (!scope || !(scope->s_type_flags & BSG_NODE_VIEW_SCOPE))
+		continue;
+	    if (_bv_is_independent_scope(scope, v))
 		continue;
 	    /* shared scope: s_v == NULL; local scope: s_v == v */
 	    if (local && scope->s_v != v)
@@ -2042,7 +2182,7 @@ _bv_visit_db_internal(struct bv_scene_obj *node,
 	return 1;
 
     /* Call back for DB-derived shape leaves */
-    if (node->s_type_flags & BV_DB_OBJS) {
+    if ((node->s_type_flags & BV_DB_OBJS) && !(node->s_type_flags & BSG_NODE_VIEW_SCOPE)) {
 	if (!cb(node, data))
 	    return 0;
     }
@@ -2078,7 +2218,14 @@ bv_view_objs_visit_db(struct bview *v,
 	/* Phase B: GED consumers with the BSG draw tree.  The tree is
 	 * depth-first traversed; the callback fires for every node whose
 	 * s_type_flags has BV_DB_OBJS set (i.e. BViewState-owned leaves). */
-	_bv_visit_db_internal((struct bv_scene_obj *)v->gv_draw_root, cb, data);
+	struct bv_scene_obj *root = (struct bv_scene_obj *)v->gv_draw_root;
+	if (bv_view_is_independent(v)) {
+	    struct bv_scene_obj *scope = _bv_independent_scope_find(root, v);
+	    if (scope)
+		_bv_visit_db_internal(scope, cb, data);
+	} else {
+	    _bv_visit_db_internal(root, cb, data);
+	}
 	return;
     }
 

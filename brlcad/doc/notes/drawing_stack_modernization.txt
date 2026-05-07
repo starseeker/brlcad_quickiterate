@@ -684,27 +684,28 @@ Tests: full draw regression set, plus `ged_test_drawing_lod` and
 `ged_test_lod_crossrun` to verify the adaptive toggle path is
 clean.
 
-Phase V6 — `view independent` becomes a structural property
------------------------------------------------------------
-Re-express view independence as a tree placement rather than a
-mode bit:
+Phase V6 — `view independent` becomes a structural property  [DONE 2026-05-07]
+---------------------------------------------------------------------------
+Implemented as a private `BSG_NODE_VIEW_SCOPE` hanging off the
+shared GED draw root:
 
-- A view marked independent gets a private `BSG_NODE_VIEW_SCOPE`
-  hung off `gd_draw_root` (or a private root entirely, depending
-  on whether shared geometry should be hidden — the latter is the
-  more honest implementation of "independent").
-- `view independent <view> 1` clones (or moves, depending on the
-  user's intent — make it an explicit option) shared draw entries
-  into the private scope.
-- `view independent <view> 0` discards the private scope and lets
-  the view fall back to the shared draw root.
-- `bview::independent` becomes a derived property (computed from
-  whether the view has its own private scope) rather than a
-  source of truth.
+- `view independent <view> 1` creates a per-view private scope,
+  snapshots the currently shared drawn paths, and replays them into
+  that scope so the view keeps the same visible DB geometry.
+- `view independent <view> 0` clears the private DB draw state,
+  destroys the private scope, and lets the view fall back to the
+  shared draw root again.
+- `bview::independent` is no longer authoritative for GED/BSG
+  consumers; `bv_view_is_independent()` derives the state from the
+  presence of the private scope (with the legacy field retained only
+  as a pre-BSG fallback).
+- Render traversal and DB-object iteration now suppress shared DB
+  groups for independent views while still allowing the normal
+  shared/local view-object scopes to render.
 
-Tests: existing `view independent` behaviour must be preserved.
-Add a `ged_test_view_independent` suite with create / draw /
-toggle-back / re-share scenarios.
+Tests: existing `view independent` behaviour is preserved by the
+new `ged_test_view_independent` suite (create / draw / toggle-back /
+re-share) plus the existing `ged_test_bsg_view_obj` coverage.
 
 Phase V7 — libged `view` command consolidation
 ----------------------------------------------
