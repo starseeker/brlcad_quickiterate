@@ -71,25 +71,37 @@ main(int UNUSED(argc), const char **argv)
 
 	retval = bg_3d_chull2(&ifaces, &ifc, &iverts, &ivc, (const point_t *)input_verts, 8);
 	bu_log("Test #001-2:  Cube (index output):\n");
-	if (retval != 3) {return -1;}
-	if (ifc != fc) {return -1;}
-	if (ivc != 8) {return -1;}
+	if (retval != 3) {bu_log("Cube Index Test Failed: retval=%d\n", retval); return -1;}
+	if (ifc != fc) {bu_log("Cube Index Test Failed: ifc=%d fc=%d\n", ifc, fc); return -1;}
+	if (ivc != 8) {bu_log("Cube Index Test Failed: ivc=%d\n", ivc); return -1;}
 	int seen[8] = {0};
 	for (i = 0; i < ivc; i++) {
-	    if (iverts[i] < 0 || iverts[i] > 7) return -1;
+	    if (iverts[i] < 0 || iverts[i] > 7) {
+		bu_log("Cube Index Test Failed: iverts[%d]=%d out of range\n", i, iverts[i]);
+		return -1;
+	    }
 	    seen[iverts[i]] = 1;
 	}
 	for (i = 0; i < 8; i++) {
-	    if (!seen[i]) return -1;
+	    if (!seen[i]) {
+		bu_log("Cube Index Test Failed: missing hull vertex index %d\n", i);
+		return -1;
+	    }
 	}
 	for (i = 0; i < ifc * 3; i++) {
-	    if (ifaces[i] < 0 || ifaces[i] > 7) return -1;
+	    if (ifaces[i] < 0 || ifaces[i] > 7) {
+		bu_log("Cube Index Test Failed: ifaces[%d]=%d out of range\n", i, ifaces[i]);
+		return -1;
+	    }
 	}
 	for (i = 0; i < ifc; i++) {
 	    int f0 = ifaces[i*3];
 	    int f1 = ifaces[i*3+1];
 	    int f2 = ifaces[i*3+2];
-	    if (f0 == f1 || f1 == f2 || f0 == f2) return -1;
+	    if (f0 == f1 || f1 == f2 || f0 == f2) {
+		bu_log("Cube Index Test Failed: degenerate face %d = (%d,%d,%d)\n", i, f0, f1, f2);
+		return -1;
+	    }
 	}
 	bu_free(ifaces, "ifaces");
 	bu_free(iverts, "iverts");

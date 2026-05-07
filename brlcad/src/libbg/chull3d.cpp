@@ -166,7 +166,7 @@ bg_3d_chull2(int **faces, int *num_faces, int **vertices, int *num_vertices,
     for (auto it = vertexBuffer.begin(); it != vertexBuffer.end(); it++) {
 	int input_idx = _chull3d_find_input_idx(input_points_3d, num_input_pnts, *it, input_idx_map);
 	if (input_idx < 0) {
-	    bu_log("bg_3d_chull2: failed to map hull vertex back to input point\n");
+	    bu_log("bg_3d_chull2: failed to map hull vertex (%g, %g, %g) back to input point\n", it->x, it->y, it->z);
 	    return 0;
 	}
 	vmap.push_back(input_idx);
