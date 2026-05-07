@@ -1313,6 +1313,210 @@ bv_obj_create(struct bview *v, int type)
     return s;
 }
 
+static struct bv_scene_obj *
+_bv_bridge_find_group(struct bv_scene_obj *root)
+{
+    if (!root)
+	return NULL;
+
+    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+	struct bv_scene_obj *c = (struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
+	if (!c)
+	    continue;
+	if (!(c->s_type_flags & BSG_NODE_GROUP))
+	    continue;
+	if (BU_STR_EQUAL(bu_vls_cstr(&c->s_name), "_view_obj_ptbl_bridge"))
+	    return c;
+    }
+
+    return NULL;
+}
+
+static struct bv_scene_obj *
+_bv_bridge_ensure_group(struct bview *v)
+{
+    if (!v || !v->gv_draw_root)
+	return NULL;
+
+    struct bv_scene_obj *root = (struct bv_scene_obj *)v->gv_draw_root;
+    struct bv_scene_obj *bridge = _bv_bridge_find_group(root);
+    if (bridge)
+	return bridge;
+
+    bridge = bv_obj_get_unregistered(v, BV_CHILD_OBJS | BV_LOCAL_OBJS);
+    if (!bridge)
+	return NULL;
+    bridge->s_type_flags = BSG_NODE_GROUP;
+    bu_vls_sprintf(&bridge->s_name, "_view_obj_ptbl_bridge");
+    bridge->parent = root;
+    bu_ptbl_ins(&root->children, (long *)bridge);
+    return bridge;
+}
+
+static struct bv_scene_obj *
+_bv_bridge_find_scope(struct bv_scene_obj *bridge, struct bview *v)
+{
+    if (!bridge || !v)
+	return NULL;
+
+    for (size_t i = 0; i < BU_PTBL_LEN(&bridge->children); i++) {
+	struct bv_scene_obj *c = (struct bv_scene_obj *)BU_PTBL_GET(&bridge->children, i);
+	if (!c)
+	    continue;
+	if (!(c->s_type_flags & BSG_NODE_VIEW_SCOPE))
+	    continue;
+	if (c->s_v == v)
+	    return c;
+    }
+
+    return NULL;
+}
+
+static struct bv_scene_obj *
+_bv_bridge_ensure_scope(struct bv_scene_obj *bridge, struct bview *v)
+{
+    if (!bridge || !v)
+	return NULL;
+
+    struct bv_scene_obj *scope = _bv_bridge_find_scope(bridge, v);
+    if (scope)
+	return scope;
+
+    scope = bv_obj_get_unregistered(v, BV_CHILD_OBJS | BV_LOCAL_OBJS);
+    if (!scope)
+	return NULL;
+    scope->s_type_flags = BSG_NODE_VIEW_SCOPE;
+    scope->s_v = v;
+    bu_vls_sprintf(&scope->s_name, "_view_obj_ptbl_scope:%s", bu_vls_cstr(&v->gv_name));
+    scope->parent = bridge;
+    bu_ptbl_ins(&bridge->children, (long *)scope);
+    return scope;
+}
+
+static int
+_bv_bridge_scope_has_ref(struct bv_scene_obj *scope, struct bv_scene_obj *target)
+{
+    if (!scope || !target)
+	return 0;
+
+    for (size_t i = 0; i < BU_PTBL_LEN(&scope->children); i++) {
+	struct bv_scene_obj *c = (struct bv_scene_obj *)BU_PTBL_GET(&scope->children, i);
+	if (!c)
+	    continue;
+	if (!(c->s_type_flags & BSG_NODE_VIEW_REF))
+	    continue;
+	if (c->s_path == (void *)target)
+	    return 1;
+    }
+
+    return 0;
+}
+
+static void
+_bv_bridge_add_ref_for_view(struct bv_scene_obj *target, struct bview *v)
+{
+    if (!target || !v || !v->gv_draw_root)
+	return;
+
+    struct bv_scene_obj *bridge = _bv_bridge_ensure_group(v);
+    if (!bridge)
+	return;
+    struct bv_scene_obj *scope = _bv_bridge_ensure_scope(bridge, v);
+    if (!scope)
+	return;
+    if (_bv_bridge_scope_has_ref(scope, target))
+	return;
+
+    struct bv_scene_obj *proxy = bv_obj_get_unregistered(v, BV_CHILD_OBJS | BV_LOCAL_OBJS);
+    if (!proxy)
+	return;
+    proxy->s_type_flags = BSG_NODE_VIEW_REF;
+    proxy->s_path = (void *)target;
+    bu_vls_sprintf(&proxy->s_name, "%s", bu_vls_cstr(&target->s_name));
+    proxy->parent = scope;
+    bu_ptbl_ins(&scope->children, (long *)proxy);
+}
+
+static void
+_bv_bridge_remove_ref_for_view(struct bv_scene_obj *target, struct bview *v)
+{
+    if (!target || !v || !v->gv_draw_root)
+	return;
+
+    struct bv_scene_obj *root = (struct bv_scene_obj *)v->gv_draw_root;
+    struct bv_scene_obj *bridge = _bv_bridge_find_group(root);
+    if (!bridge)
+	return;
+    struct bv_scene_obj *scope = _bv_bridge_find_scope(bridge, v);
+    if (!scope)
+	return;
+
+    for (long i = (long)BU_PTBL_LEN(&scope->children) - 1; i >= 0; i--) {
+	struct bv_scene_obj *c = (struct bv_scene_obj *)BU_PTBL_GET(&scope->children, i);
+	if (!c)
+	    continue;
+	if (!(c->s_type_flags & BSG_NODE_VIEW_REF))
+	    continue;
+	if (c->s_path != (void *)target)
+	    continue;
+	bu_ptbl_rm(&scope->children, (long *)c);
+	bv_obj_put(c);
+    }
+
+    if (!BU_PTBL_LEN(&scope->children)) {
+	bu_ptbl_rm(&bridge->children, (long *)scope);
+	bv_obj_put(scope);
+    }
+    if (!BU_PTBL_LEN(&bridge->children)) {
+	bu_ptbl_rm(&root->children, (long *)bridge);
+	bv_obj_put(bridge);
+    }
+}
+
+static void
+_bv_bridge_track_add(struct bv_scene_obj *s)
+{
+    if (!s || !(s->s_type_flags & BV_VIEW_OBJS) || (s->s_type_flags & BV_CHILD_OBJS))
+	return;
+    if (!s->s_v)
+	return;
+
+    if (s->s_v->vset && !(s->s_type_flags & BV_LOCAL_OBJS) && !s->s_v->independent) {
+	struct bu_ptbl *views = bv_set_views(s->s_v->vset);
+	if (!views)
+	    return;
+	for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
+	    struct bview *tv = (struct bview *)BU_PTBL_GET(views, i);
+	    _bv_bridge_add_ref_for_view(s, tv);
+	}
+	return;
+    }
+
+    _bv_bridge_add_ref_for_view(s, s->s_v);
+}
+
+static void
+_bv_bridge_track_remove(struct bv_scene_obj *s)
+{
+    if (!s || !(s->s_type_flags & BV_VIEW_OBJS) || (s->s_type_flags & BV_CHILD_OBJS))
+	return;
+    if (!s->s_v)
+	return;
+
+    if (s->s_v->vset && !(s->s_type_flags & BV_LOCAL_OBJS) && !s->s_v->independent) {
+	struct bu_ptbl *views = bv_set_views(s->s_v->vset);
+	if (!views)
+	    return;
+	for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
+	    struct bview *tv = (struct bview *)BU_PTBL_GET(views, i);
+	    _bv_bridge_remove_ref_for_view(s, tv);
+	}
+	return;
+    }
+
+    _bv_bridge_remove_ref_for_view(s, s->s_v);
+}
+
 struct bv_scene_obj *
 bv_obj_get(struct bview *v, int type)
 {
@@ -1331,6 +1535,8 @@ bv_obj_get(struct bview *v, int type)
 
     if (s->otbl)
 	bu_ptbl_ins(s->otbl, (long *)s);
+
+    _bv_bridge_track_add(s);
 
     return s;
 }
@@ -1488,6 +1694,8 @@ bv_obj_reset(struct bv_scene_obj *s)
 void
 bv_obj_put(struct bv_scene_obj *s)
 {
+    _bv_bridge_track_remove(s);
+
     bv_log(1, "bv_obj_put %s[%s]", bu_vls_cstr(&s->s_name), (s->s_v) ? bu_vls_cstr(&s->s_v->gv_name) : "NULL");
     for (size_t i = 0; i < BU_PTBL_LEN(&s->children); i++) {
 	struct bv_scene_group *cg = (struct bv_scene_group *)BU_PTBL_GET(&s->children, i);

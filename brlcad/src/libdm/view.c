@@ -902,6 +902,20 @@ _bsg_view_traverse_impl(struct bview *v, void *root,
 	    continue;
 	}
 
+	/* Phase V2 (view-only bridge): BSG_NODE_VIEW_REF is a temporary
+	 * proxy node whose s_path stores a borrowed pointer to the actual
+	 * BV_VIEW_OBJS scene object.  Resolve it here so downstream logic
+	 * (LoD, transform, draw callbacks, labels/axes) operates on the
+	 * referenced object exactly as if it were in-tree natively. */
+	if (s->s_type_flags & BSG_NODE_VIEW_REF) {
+	    if (!s->s_path)
+		continue;
+	    struct bv_scene_obj *ref = (struct bv_scene_obj *)s->s_path;
+	    if (!ref || ref == s)
+		continue;
+	    s = ref;
+	}
+
 	/* Phase L0 (LoD redesign): for BSG_NODE_LOD nodes, render only
 	 * the child selected by the per-view cursor.  bsg_lod_update()
 	 * (called once before this traversal from dm_draw_objs) has already
@@ -1026,8 +1040,13 @@ dm_draw_objs(struct bview *v, void (*dm_draw_custom)(struct bview *, void *), vo
     // Phase F (drawing_stack_modernization): bsg_root is now an alias for
     // gv_draw_root — no per-frame bsg_scene_root_sync rebuild is needed.
     // bsg_root->children IS gv_draw_root->children, maintained live by
-    // draw/erase mutations.  View-only objects (BV_VIEW_OBJS ptbls) are
-    // iterated separately below after the main BSG traversal.
+    // draw/erase mutations.
+    //
+    // Phase V2 (view-only bridge): BV_VIEW_OBJS producers now maintain
+    // BSG_NODE_VIEW_REF proxies under BSG_NODE_VIEW_SCOPE bridge nodes via
+    // bv_obj_get/bv_obj_put wrappers.  dm_draw_objs must not manually scan
+    // BV_VIEW_OBJS ptbls; the BSG traversal below is the sole render path
+    // until Phase V3 migrates producers to native BSG placement.
     //
     // When bsg_root is NULL (view not yet associated with a GED draw tree,
     // e.g. before the first draw command) there is no renderable content and
@@ -1057,34 +1076,6 @@ dm_draw_objs(struct bview *v, void (*dm_draw_custom)(struct bview *, void *), vo
 	    _bsg_view_traverse_impl(v, v->bsg_root, /*transparency_pass=*/0, NULL);
 	}
 
-	/* View-only objects (polygon sketches, measurement overlays, axes,
-	 * etc.) live in BV_VIEW_OBJS ptbls, not in the BSG draw tree.
-	 * Render them in a single pass after the 3D scene content so that
-	 * they overlay DB geometry. */
-	struct bu_ptbl *vobjs_a = bv_view_objs(v, BV_VIEW_OBJS);
-	if (vobjs_a) {
-	    for (size_t i = 0; i < BU_PTBL_LEN(vobjs_a); i++) {
-		struct bv_scene_obj *sp =
-		    (struct bv_scene_obj *)BU_PTBL_GET(vobjs_a, i);
-		if (!sp)
-		    continue;
-		_dm_draw_scene_obj_internal(dmp, sp, v, sp->s_force_draw,
-					    sp->s_inherit_settings ? sp->s_os : NULL,
-					    /*transparency_pass=*/0, NULL);
-	    }
-	}
-	struct bu_ptbl *lvobjs_a = bv_view_objs(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
-	if (lvobjs_a && lvobjs_a != vobjs_a) {
-	    for (size_t i = 0; i < BU_PTBL_LEN(lvobjs_a); i++) {
-		struct bv_scene_obj *sp =
-		    (struct bv_scene_obj *)BU_PTBL_GET(lvobjs_a, i);
-		if (!sp)
-		    continue;
-		_dm_draw_scene_obj_internal(dmp, sp, v, sp->s_force_draw,
-					    sp->s_inherit_settings ? sp->s_os : NULL,
-					    /*transparency_pass=*/0, NULL);
-	    }
-	}
     }
 
     // Done with perspective/orthogonal drawing

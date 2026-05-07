@@ -540,8 +540,8 @@ Phase V1 implementation snapshot (2026-05-07)
   visible_nomatch, visible_shared, null_guards, destroy, wrong_type).
   Registered as `libbsg_view_scope` in the libbsg test CMakeLists.
 
-Phase V2 — make BSG the rendering source of truth in dm_draw_objs
------------------------------------------------------------------
+Phase V2 — make BSG the rendering source of truth in dm_draw_objs  [DONE 2026-05-07]
+--------------------------------------------------------------------------------------
 Currently `dm_draw_objs` runs the BSG traversal and then a manual
 ptbl scan over BV_VIEW_OBJS.  Even before producers migrate, we
 can make the renderer behaviour BSG-first by collapsing the two
@@ -558,6 +558,21 @@ paths:
   transparency, future LoD on overlays, etc. apply uniformly.
 - Mark `dm_draw_objs`'s previous view-only block with a note that
   the bridge is the only legitimate code path until V3.
+
+Phase V2 implementation snapshot (2026-05-07)
+- New `BSG_NODE_VIEW_REF` node type in `include/bsg/defines.h`.  The
+  temporary bridge stores borrowed pointers to BV_VIEW_OBJS entries in
+  `s_path` and resolves them during traversal.
+- `src/libbv/util.cpp` (`bv_obj_get` / `bv_obj_put`): added wrapper
+  maintenance for a `_view_obj_ptbl_bridge` subtree under `gv_draw_root`.
+  Per-view `BSG_NODE_VIEW_SCOPE` nodes track references to shared and
+  local BV_VIEW_OBJS producers.
+- `src/libdm/view.c`:
+  - `_bsg_view_traverse_impl` resolves `BSG_NODE_VIEW_REF` proxies to
+    their referenced scene objects before LoD/transform/draw logic.
+  - Removed the manual `BV_VIEW_OBJS` / `BV_VIEW_OBJS|BV_LOCAL_OBJS`
+    post-traversal scan from `dm_draw_objs`; BSG traversal is now the
+    sole render path for view-only objects.
 
 Tests: full draw regression set, with extra attention to
 `ged_test_drawing_faceplate` (overlays), polygons, axes, and
