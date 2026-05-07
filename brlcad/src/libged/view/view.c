@@ -78,7 +78,7 @@ _view_independent_paths_add(struct _view_independent_path **paths,
 			    const char *path,
 			    int mode)
 {
-    if (!paths || !path_cnt || !path_cap || !path || !strlen(path))
+    if (!paths || !path_cnt || !path_cap || !path || !path[0])
 	return BRLCAD_ERROR;
 
     for (size_t i = 0; i < *path_cnt; i++) {
@@ -119,9 +119,7 @@ _view_independent_collect_paths(struct _view_independent_path **paths,
 	struct ged_bv_data *bdata = node->s_u_data ? (struct ged_bv_data *)node->s_u_data : NULL;
 	if (bdata && bdata->s_fullpath.fp_len > 0) {
 	    char *fpath = db_path_to_string(&bdata->s_fullpath);
-	    const char *npath = fpath;
-	    if (npath && npath[0] == '/')
-		npath++;
+	    const char *npath = (fpath && fpath[0] == '/') ? fpath + 1 : fpath;
 	    if (npath && strlen(npath)) {
 		int mode = (node->s_os) ? node->s_os->s_dmode : 0;
 		int ret = _view_independent_paths_add(paths, path_cnt, path_cap, npath, mode);
@@ -309,7 +307,7 @@ _view_cmd_independent(void *bs, int argc, const char **argv)
 	    v->independent = 0;
 	    return BRLCAD_OK;
 	}
-	const char *z_av[5] = {"Z", "-V", NULL, "-g", NULL};
+	const char *z_av[4] = {"Z", "-V", NULL, "-g"};
 	z_av[2] = bu_vls_cstr(&v->gv_name);
 	ged_exec_Z(gedp, 4, z_av);
 	bv_view_independent_scope_destroy(v);

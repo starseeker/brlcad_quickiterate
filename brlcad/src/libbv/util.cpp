@@ -106,6 +106,22 @@ _bv_scope_free_recursive(struct bv_scene_obj *node)
     bv_obj_put(node);
 }
 
+static int
+_bv_independent_root_skip_child(struct bview *v, struct bv_scene_obj *parent, struct bv_scene_obj *child)
+{
+    if (!v || !parent || !child)
+	return 0;
+    if (!bv_view_is_independent(v))
+	return 0;
+    if (parent != (struct bv_scene_obj *)v->gv_draw_root)
+	return 0;
+    if (child->s_type_flags & BSG_NODE_VIEW_SCOPE)
+	return 0;
+    if (!BU_VLS_IS_INITIALIZED(&child->s_name))
+	return 1;
+    return BU_STR_EQUAL("_overlays", bu_vls_cstr(&child->s_name)) ? 0 : 1;
+}
+
 int
 bv_view_is_independent(const struct bview *v)
 {
@@ -151,9 +167,8 @@ bv_view_independent_scope(struct bview *v, int create)
 void
 bv_view_independent_scope_destroy(struct bview *v)
 {
-    if (!v) {
+    if (!v)
 	return;
-    }
 
     if (!v->gv_draw_root) {
 	v->independent = 0;
@@ -1883,11 +1898,7 @@ bv_find_obj(struct bview *v, const char *name)
 	    struct bv_scene_obj *c = (struct bv_scene_obj *)BU_PTBL_GET(&n->children, i);
 	    if (!c)
 		continue;
-	    if (bv_view_is_independent(v) &&
-		n == (struct bv_scene_obj *)v->gv_draw_root &&
-		!(c->s_type_flags & BSG_NODE_VIEW_SCOPE) &&
-		(!BU_VLS_IS_INITIALIZED(&c->s_name) ||
-		 !BU_STR_EQUAL("_overlays", bu_vls_cstr(&c->s_name))))
+	    if (_bv_independent_root_skip_child(v, n, c))
 		continue;
 	    if ((c->s_type_flags & BSG_NODE_VIEW_SCOPE) && !_bv_view_scope_visible(c, v))
 		continue;
