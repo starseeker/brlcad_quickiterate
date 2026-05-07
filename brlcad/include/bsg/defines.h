@@ -76,13 +76,12 @@ __BEGIN_DECLS
 #define BSG_NODE_VIEW_SCOPE  0x800000000ULL  /**< @brief view-scope container node */
 /**
  * Phase V2 (drawing_stack_modernization):
- * A lightweight proxy/reference node used by the temporary BV_VIEW_OBJS
- * bridge.  s_path stores a borrowed pointer to the referenced scene object.
- * During BSG traversal, this node is resolved to its target and contributes no
- * geometry itself.
+ * DEPRECATED (Phase V4): The temporary BV_VIEW_OBJS bridge has been removed.
+ * These defines are retained only for ABI compatibility; no new code should
+ * reference BSG_NODE_VIEW_REF or BSG_NODE_VIEW_BRIDGE.
  */
-#define BSG_NODE_VIEW_REF   0x8000000000ULL  /**< @brief view-object bridge proxy node */
-/** @brief internal bridge container group used by Phase V2 wrappers */
+#define BSG_NODE_VIEW_REF   0x8000000000ULL  /**< @brief DEPRECATED: view-object bridge proxy node */
+/** @brief DEPRECATED: internal bridge container group (Phase V2 only) */
 #define BSG_NODE_VIEW_BRIDGE 0x200000000000ULL
 
 /**

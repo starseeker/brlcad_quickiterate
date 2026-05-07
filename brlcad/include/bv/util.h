@@ -351,6 +351,12 @@ bv_view_obj_label_create(struct bview *v, const char *name, int local);
 BV_EXPORT struct bv_scene_obj *
 bv_view_obj_overlay_create(struct bview *v, const char *name, int local);
 
+/** Create a view-only polygon container under the BSG view scope for @p v.
+ * Equivalent to bv_view_obj_overlay_create but marks the object with
+ * BV_VIEWONLY so downstream renderers treat it as a polygon carrier. */
+BV_EXPORT struct bv_scene_obj *
+bv_view_obj_polygon_create(struct bview *v, const char *name, int local);
+
 #define BV_VIEW_OBJ_SCOPE_SHARED 0x1
 #define BV_VIEW_OBJ_SCOPE_LOCAL  0x2
 #define BV_VIEW_OBJ_SCOPE_ALL    (BV_VIEW_OBJ_SCOPE_SHARED | BV_VIEW_OBJ_SCOPE_LOCAL)
@@ -423,7 +429,15 @@ bv_illum_obj(struct bv_scene_obj *s, char ill_state);
 /* For the given view, return a pointer to the bu_ptbl holding active scene
  * objects with the specified type.  Note that view-specific db objects are not
  * part of these sets - they should be retrieved from the scene objects in this
- * set with bv_obj_for_view. */
+ * set with bv_obj_for_view.
+ *
+ * DEPRECATED for BV_VIEW_OBJS queries (Phase V4, drawing_stack_modernization):
+ * When called with BV_VIEW_OBJS (with or without BV_LOCAL_OBJS), this function
+ * now performs a BSG VIEW_SCOPE walk and returns a transient cache ptbl owned
+ * by the view.  The returned ptbl is repopulated on every call; callers must
+ * not hold pointers across calls and must not modify the ptbl contents.
+ * Scheduled for removal after Phase V8.  Prefer the BSG walk APIs instead.
+ */
 BV_EXPORT struct bu_ptbl *
 bv_view_objs(struct bview *v, int type);
 

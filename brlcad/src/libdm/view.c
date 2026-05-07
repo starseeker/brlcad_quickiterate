@@ -869,25 +869,6 @@ dm_draw_viewobjs(struct rt_wdb *wdbp, struct bview *v, struct dm_view_data *vd)
  * accumulated transform-stack matrix.  Public bsg_view_traverse() and
  * dm_draw_objs() both delegate here. */
 static void
-_bsg_view_resolve_ref(struct bv_scene_obj **sp)
-{
-    if (!sp || !*sp)
-	return;
-
-    struct bv_scene_obj *s = *sp;
-    if (!(s->s_type_flags & BSG_NODE_VIEW_REF))
-	return;
-    if (!s->s_path)
-	return;
-
-    struct bv_scene_obj *ref = (struct bv_scene_obj *)s->s_path;
-    if (!ref || ref == s)
-	return;
-
-    *sp = ref;
-}
-
-static void
 _bsg_view_traverse_impl(struct bview *v, void *root,
 			int transparency_pass,
 			const fastf_t *cur_mat)
@@ -921,14 +902,10 @@ _bsg_view_traverse_impl(struct bview *v, void *root,
 	    continue;
 	}
 
-	/* Phase V2 (view-only bridge): BSG_NODE_VIEW_REF is a temporary
-	 * proxy node whose s_path stores a borrowed pointer to the actual
-	 * BV_VIEW_OBJS scene object.  Resolve it here so downstream logic
-	 * (LoD, transform, draw callbacks, labels/axes) operates on the
-	 * referenced object exactly as if it were in-tree natively. */
-	int was_ref = (s->s_type_flags & BSG_NODE_VIEW_REF) ? 1 : 0;
-	_bsg_view_resolve_ref(&s);
-	if (was_ref && (s->s_type_flags & BSG_NODE_VIEW_REF))
+	/* Phase V4: BSG_NODE_VIEW_REF and BSG_NODE_VIEW_BRIDGE were removed
+	 * when the legacy ptbl bridge was retired.  Skip any stale nodes
+	 * from pre-V4 trees so the traversal stays correct. */
+	if (s->s_type_flags & BSG_NODE_VIEW_BRIDGE)
 	    continue;
 
 	/* Phase L0 (LoD redesign): for BSG_NODE_LOD nodes, render only
@@ -1057,11 +1034,10 @@ dm_draw_objs(struct bview *v, void (*dm_draw_custom)(struct bview *, void *), vo
     // bsg_root->children IS gv_draw_root->children, maintained live by
     // draw/erase mutations.
     //
-    // Phase V2 (view-only bridge): BV_VIEW_OBJS producers now maintain
-    // BSG_NODE_VIEW_REF proxies under BSG_NODE_VIEW_SCOPE bridge nodes via
-    // bv_obj_get/bv_obj_put wrappers.  dm_draw_objs must not manually scan
-    // BV_VIEW_OBJS ptbls; the BSG traversal below is the sole render path
-    // until Phase V3 migrates producers to native BSG placement.
+    // Phase V4 (drawing_stack_modernization): BV_VIEW_OBJS producers now place
+    // objects natively under BSG_NODE_VIEW_SCOPE nodes.  The legacy bridge and
+    // VIEW_REF proxy mechanism (Phase V2) has been removed; the BSG traversal
+    // below is the sole render path for both DB and view-only objects.
     //
     // When bsg_root is NULL (view not yet associated with a GED draw tree,
     // e.g. before the first draw command) there is no renderable content and
