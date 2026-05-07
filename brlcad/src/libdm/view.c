@@ -681,11 +681,6 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
 	    bv_log(1, "dm_draw_scene_obj - drawing view obj %s[%s]", bu_vls_cstr(&vo->s_name), bu_vls_cstr(&v->gv_name));
 	}
 
-	// If this is a database object, it may have a view dependent
-	// update to do.
-	if (vo->s_update_callback)
-	    (*vo->s_update_callback)(vo, v, 0);
-
 	/* Phase 11 (drawing_stack_modernization): renderer-backend contract.
 	 * dm_backend_draw_obj() routes through the dm's registered
 	 * struct dm_backend_ops::draw_obj (e.g. gl_backend_ops::gl_draw_obj
@@ -719,9 +714,7 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
 	    dm_loadmatrix(dmp, v->gv_model2view, 0);
     }
 
-    if (!(s->s_type_flags & BV_MESH_LOD)) {
-	dm_add_arrows(dmp, s);
-    }
+    dm_add_arrows(dmp, s);
 
     if (s->s_type_flags & BV_AXES) {
 	dm_draw_scene_axes(dmp, s);

@@ -448,7 +448,7 @@ Phase L5 — retire the BViewState::redraw LoD side pass  DONE
     are now driven by `dm_draw_objs` via `bsg_lod_update`.
 
 Phase L6 — retire `s_update_callback` and the BV_MESH_LOD/BV_CSG_LOD
-            leaf flags
+            leaf flags  DONE
   - Once no producer sets `s_update_callback`, remove the field from
     `bv_scene_obj` and the call site in `_dm_draw_scene_obj_internal`.
   - Once no consumer tests `BV_MESH_LOD` / `BV_CSG_LOD` on a leaf
@@ -458,6 +458,26 @@ Phase L6 — retire `s_update_callback` and the BV_MESH_LOD/BV_CSG_LOD
     special case; aggregate bbox is then a pure tree walk.
   - Tests: full draw regression set; this phase is mostly mechanical
     once L5 is green.
+  Completed:
+  - `src/libged/draw.cpp`: removed `s->s_update_callback = &bv_mesh_lod_view`
+    and `s->s_update_callback = &csg_wireframe_update` assignments; removed
+    `s->s_type_flags |= BV_MESH_LOD` and `s->s_type_flags |= BV_CSG_LOD`
+    flag-setting.  LoD updates are now driven exclusively by bsg_lod_update
+    via dm_draw_objs.
+  - `src/librt/primitives/generic.c`: removed `s->s_type_flags |= BV_CSG_LOD`
+    from `rt_wireframe_plot`.
+  - `src/libdm/view.c`: removed the `s_update_callback` call for BV_DB_OBJS
+    in `_dm_draw_scene_obj_internal`; removed the `BV_MESH_LOD` guard on
+    `dm_add_arrows` (the function's own `s->s_arrow` check makes it a no-op
+    for mesh objects).
+  - `src/libdm/dm-gl_lod.cpp`: replaced `BV_MESH_LOD` check with
+    `s->mesh_obj && s->draw_data` in `gl_draw_obj`; removed the `BV_CSG_LOD`
+    early-return so CSG adaptive wireframes use the standard vlist path
+    (which handles all draw modes including hidden-line).
+  - `src/libbv/util.cpp`: replaced `BV_MESH_LOD` checks with
+    `mesh_obj && draw_data` in `bv_scene_obj_bound`.
+  - `include/bv/defines.h`: BV_MESH_LOD and BV_CSG_LOD marked deprecated
+    (retained for binary compatibility); s_update_callback comment updated.
 
 Phase L7 — image-level parity and front-end verification
   - Re-run `ged_test_drawing_lod` and `ged_test_lod_crossrun` for
