@@ -51,6 +51,8 @@
 #include "bsg/defines.h"
 #include "bsg/draw_set.h"
 #include "bsg/field.h"
+#include "bsg/lod_ops.h"
+#include "bsg/node_group.h"
 #include "bsg/util.h"
 #include "bsg/visit.h"
 #include "../../ged_private.h"
@@ -1093,6 +1095,147 @@ main(int ac, char *av[])
 	    const char *eav[3] = {"erase", "all.g", NULL};
 	    ged_exec(gedp, 2, eav);
 	}
+    }
+
+
+    /* ---------------------------------------------------------------- *
+     * [17] Phase L0: BSG_NODE_LOD lifecycle and cursor bookkeeping.    *
+     *      Exercises bsg_lod_node_create / set_ops / attach_level /    *
+     *      get_cursor / active_level with a synthetic ops set that      *
+     *      toggles between two children.                               *
+     * ---------------------------------------------------------------- */
+    {
+	bu_log("[17] Phase L0: BSG_NODE_LOD node lifecycle...\n");
+
+	struct bview *lv = gedp->ged_gvp;
+	ASSERT(lv != NULL);
+
+	/* Create a BSG_NODE_LOD node. */
+	bsg_node *lod = bsg_lod_node_create(lv);
+	ASSERT(lod != NULL);
+	{
+	    struct bv_scene_obj *n = (struct bv_scene_obj *)lod;
+	    ASSERT((n->s_type_flags & BSG_NODE_LOD) != 0);
+	    ASSERT(n->s_i_data != NULL);
+	}
+
+	/* No children yet. */
+	ASSERT(bsg_lod_node_level_count(lod) == 0);
+
+	/* Attach two level representations. */
+	bsg_node *lvl0 = bsg_group_create(lv);
+	bsg_node *lvl1 = bsg_group_create(lv);
+	ASSERT(lvl0 != NULL);
+	ASSERT(lvl1 != NULL);
+	bsg_lod_node_attach_level(lod, lvl0);
+	bsg_lod_node_attach_level(lod, lvl1);
+	ASSERT(bsg_lod_node_level_count(lod) == 2);
+
+	/* Duplicate attach must not change the count. */
+	bsg_lod_node_attach_level(lod, lvl0);
+	ASSERT(bsg_lod_node_level_count(lod) == 2);
+
+	/* No cursor for this view yet → active level is -1. */
+	ASSERT(bsg_lod_node_active_level(lod, lv) == -1);
+
+	/* Install a synthetic ops set. */
+	struct _lod17_state {
+	    int select_calls;
+	    int activate_calls;
+	    int stale_val;
+	    int select_val;
+	} st17;
+	memset(&st17, 0, sizeof(st17));
+	st17.stale_val  = 1;
+	st17.select_val = 0;
+
+	auto lod17_select = [](bsg_node *node, struct bview */*v*/) -> int {
+	    auto *pl = (struct bsg_lod_payload *)
+		((struct bv_scene_obj *)node)->s_i_data;
+	    auto *st = (struct _lod17_state *)pl->user_data;
+	    st->select_calls++;
+	    return st->select_val;
+	};
+	auto lod17_activate = [](bsg_node *node, struct bview *v, int level) {
+	    auto *pl = (struct bsg_lod_payload *)
+		((struct bv_scene_obj *)node)->s_i_data;
+	    auto *st = (struct _lod17_state *)pl->user_data;
+	    st->activate_calls++;
+	    auto *cur = bsg_lod_node_get_cursor(node, v);
+	    if (cur) cur->level = level;
+	};
+	auto lod17_stale = [](bsg_node *node, struct bview */*v*/) -> int {
+	    auto *pl = (struct bsg_lod_payload *)
+		((struct bv_scene_obj *)node)->s_i_data;
+	    auto *st = (struct _lod17_state *)pl->user_data;
+	    return st->stale_val;
+	};
+
+	struct bsg_lod_ops ops17;
+	memset(&ops17, 0, sizeof(ops17));
+	ops17.select_level   = lod17_select;
+	ops17.activate_level = lod17_activate;
+	ops17.is_stale       = lod17_stale;
+	bsg_lod_node_set_ops(lod, &ops17, &st17);
+
+	/* Pre-create cursor (simulates bsg_lod_update). */
+	struct bsg_lod_view_cursor *cur = bsg_lod_node_get_cursor(lod, lv);
+	ASSERT(cur != NULL);
+	ASSERT(cur->v == lv);
+	ASSERT(cur->level == -1);
+
+	/* Second get_cursor must return the same slot. */
+	struct bsg_lod_view_cursor *cur2 = bsg_lod_node_get_cursor(lod, lv);
+	ASSERT(cur2 == cur);
+
+	/* Simulate bsg_lod_update round 1: stale → select 0 → activate 0. */
+	{
+	    auto *pl = (struct bsg_lod_payload *)
+		((struct bv_scene_obj *)lod)->s_i_data;
+	    if (pl->ops->is_stale(lod, lv)) {
+		int lvl_idx = pl->ops->select_level(lod, lv);
+		pl->ops->activate_level(lod, lv, lvl_idx);
+	    }
+	}
+	ASSERT(st17.select_calls   == 1);
+	ASSERT(st17.activate_calls == 1);
+	ASSERT(bsg_lod_node_active_level(lod, lv) == 0);
+
+	/* Round 2: stale → select 1 → activate 1. */
+	st17.select_val = 1;
+	{
+	    auto *pl = (struct bsg_lod_payload *)
+		((struct bv_scene_obj *)lod)->s_i_data;
+	    if (pl->ops->is_stale(lod, lv)) {
+		int lvl_idx = pl->ops->select_level(lod, lv);
+		pl->ops->activate_level(lod, lv, lvl_idx);
+	    }
+	}
+	ASSERT(st17.select_calls   == 2);
+	ASSERT(st17.activate_calls == 2);
+	ASSERT(bsg_lod_node_active_level(lod, lv) == 1);
+
+	/* Round 3: not stale → no callbacks fired. */
+	st17.stale_val = 0;
+	{
+	    auto *pl = (struct bsg_lod_payload *)
+		((struct bv_scene_obj *)lod)->s_i_data;
+	    if (pl->ops->is_stale(lod, lv)) {
+		int lvl_idx = pl->ops->select_level(lod, lv);
+		pl->ops->activate_level(lod, lv, lvl_idx);
+	    }
+	}
+	ASSERT(st17.select_calls   == 2);
+	ASSERT(st17.activate_calls == 2);
+	ASSERT(bsg_lod_node_active_level(lod, lv) == 1);
+
+	/* Cleanup: fire free callback manually (simulates node destruction).
+	 * Do NOT set ops->free since user_data lives on our stack. */
+	ops17.free = NULL;
+	struct bv_scene_obj *lod_raw = (struct bv_scene_obj *)lod;
+	if (lod_raw->s_free_callback)
+	    lod_raw->s_free_callback(lod_raw);
+	ASSERT(lod_raw->s_i_data == NULL);
     }
 
 

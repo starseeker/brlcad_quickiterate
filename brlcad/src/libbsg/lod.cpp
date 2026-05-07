@@ -19,23 +19,73 @@
  */
 /** @file libbsg/lod.cpp
  *
- * Phase 4: Level-of-detail helpers for the BSG scene graph.
+ * Phase L1 (drawing_stack_modernization):
+ * Level-of-detail update helpers for the BSG scene graph.
  *
- * In Phase 4 these are thin stubs.  The full implementations will be
- * added as Phase 5 brings LoD-aware scene-graph traversal.  The stubs
- * are provided so that the public bsg/lod.h API compiles and links
- * cleanly from day one.
+ * bsg_lod_update() does a depth-first walk of the BSG tree and, at each
+ * BSG_NODE_LOD node, calls the node's ops->is_stale / select_level /
+ * activate_level cycle.  The traversal handles nested LoD nodes and skips
+ * any node that has no ops installed.
+ *
+ * bsg_lod_stale() is a thin accessor: it looks up the per-view cursor and
+ * returns whether the cached metrics still match current view state.
  */
 
 #include "common.h"
 
+#include "bu/ptbl.h"
 #include "bv/defines.h"
-#include "bv/lod.h"
-#include "bv/util.h"
 
 #include "bsg/defines.h"
 #include "bsg/lod.h"
+#include "bsg/lod_ops.h"
 
+
+/* ------------------------------------------------------------------ */
+/* Internal recursive walker                                           */
+/* ------------------------------------------------------------------ */
+
+static void
+_lod_update_recursive(bsg_node *node, struct bview *v)
+{
+    if (!node || !v)
+	return;
+
+    struct bv_scene_obj *n = (struct bv_scene_obj *)node;
+
+    if (n->s_type_flags & BSG_NODE_LOD) {
+	struct bsg_lod_payload *pl =
+	    (struct bsg_lod_payload *)n->s_i_data;
+	if (pl && pl->ops) {
+	    /* Ensure a cursor exists for this view. */
+	    bsg_lod_node_get_cursor(node, v);
+
+	    if (pl->ops->is_stale(node, v)) {
+		int lvl = pl->ops->select_level(node, v);
+		pl->ops->activate_level(node, v, lvl);
+	    }
+	}
+	/* Recurse into the LoD node's children (level representations
+	 * may themselves contain further LoD nodes in nested cases). */
+    }
+
+    /* Walk children regardless of node type so we find nested LoD nodes. */
+    for (size_t i = 0; i < BU_PTBL_LEN(&n->children); i++) {
+	struct bv_scene_obj *child =
+	    (struct bv_scene_obj *)BU_PTBL_GET(&n->children, i);
+	if (!child)
+	    continue;
+	/* Skip leaf nodes — they cannot contain BSG_NODE_LOD children. */
+	if (child->s_type_flags & BSG_NODE_SHAPE)
+	    continue;
+	_lod_update_recursive((bsg_node *)child, v);
+    }
+}
+
+
+/* ------------------------------------------------------------------ */
+/* Public API                                                          */
+/* ------------------------------------------------------------------ */
 
 void
 bsg_lod_update(bsg_node *root, struct bview *v)
@@ -43,21 +93,8 @@ bsg_lod_update(bsg_node *root, struct bview *v)
     if (!root || !v)
 	return;
 
-    /* Phase 4 stub: walk the subtree and call bv_mesh_lod_view / csg
-     * wireframe update for any BV_MESH_LOD / BV_CSG_LOD nodes found.
-     * The traversal mirrors the LoD pass already present in
-     * BViewState::redraw() — this placeholder keeps the logic
-     * centralised once Phase 5 merges that pass into bsg_lod_update(). */
-    struct bv_scene_obj *r = (struct bv_scene_obj *)root;
-    for (size_t i = 0; i < BU_PTBL_LEN(&r->children); i++) {
-	struct bv_scene_obj *child =
-	    (struct bv_scene_obj *)BU_PTBL_GET(&r->children, i);
-	if (!child)
-	    continue;
-	if (child->s_type_flags & BV_MESH_LOD)
-	    bv_mesh_lod_view(child, v, 0);
-	/* CSG LoD update via s_update_callback (already wired in Phase 2-B). */
-    }
+    /* Walk the entire subtree looking for BSG_NODE_LOD nodes. */
+    _lod_update_recursive(root, v);
 }
 
 
@@ -67,12 +104,16 @@ bsg_lod_stale(bsg_node *n, struct bview *v)
     if (!n || !v)
 	return 0;
 
-    /* Phase 4 stub: conservatively report "not stale" so callers don't
-     * force unnecessary redraws.  Phase 5 will implement proper view-scale
-     * change detection. */
-    (void)n;
-    (void)v;
-    return 0;
+    /* Only BSG_NODE_LOD nodes carry staleness state. */
+    struct bv_scene_obj *s = (struct bv_scene_obj *)n;
+    if (!(s->s_type_flags & BSG_NODE_LOD))
+	return 0;
+
+    struct bsg_lod_payload *pl = (struct bsg_lod_payload *)s->s_i_data;
+    if (!pl || !pl->ops || !pl->ops->is_stale)
+	return 0;
+
+    return pl->ops->is_stale(n, v);
 }
 
 /*
