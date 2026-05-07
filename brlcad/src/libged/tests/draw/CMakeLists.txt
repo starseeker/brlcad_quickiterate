@@ -325,6 +325,21 @@ endif()
 distclean(${CMAKE_CURRENT_BINARY_DIR}/bsg_view_obj_tmp.g)
 distclean(${CMAKE_CURRENT_BINARY_DIR}/ged_bsg_view_obj_cache)
 
+# Phase V6: independent-view state is structural BSG scope, not a mode bit
+brlcad_addexec(ged_test_view_independent "view_independent.cpp" "libged;libbsg" TEST)
+if(TARGET ged_test_view_independent)
+  foreach(tdp ${test_deps})
+    if (TARGET tdp)
+      add_dependencies(ged_test_view_independent ${tdp})
+    endif ()
+  endforeach()
+endif(TARGET ged_test_view_independent)
+brlcad_add_test(NAME ged_test_view_independent
+  COMMAND ged_test_view_independent "${CMAKE_CURRENT_SOURCE_DIR}")
+if(TARGET ged_test_view_independent)
+  set_property(TEST ged_test_view_independent APPEND PROPERTY ENVIRONMENT BRLCAD_ROOT=${CMAKE_BINARY_DIR})
+endif()
+
 # Phase 7: lighting/zbuffer/zclip regression test (mged_shaded_mode_helper path)
 brlcad_addexec(ged_test_mged_shaded_mode_bsg "mged_shaded_mode_bsg.cpp;util.cpp" "libged;libdm;libbsg;libicv" TEST)
 if(TARGET ged_test_mged_shaded_mode_bsg)
@@ -354,6 +369,7 @@ cmakefiles(
   bsg_parity.cpp
   bsg_quad_parity.cpp
   bsg_view_obj.cpp
+  view_independent.cpp
   lod_crossrun.cpp
   mged_bsg.cpp
   mged_shaded_mode_bsg.cpp
