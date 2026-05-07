@@ -28,6 +28,11 @@
 #include <set>
 #include <map>
 #include <cmath>
+#include <string>
+#include <vector>
+#include <unordered_map>
+#include <sstream>
+#include <iomanip>
 
 #include <float.h>
 #include <locale.h>
@@ -43,9 +48,27 @@
 #include "bn/tol.h"
 #include "bg/chull.h"
 
-static int
-_chull3d_find_input_idx(const point_t *input_points_3d, int num_input_pnts, const quickhull::Vector3<fastf_t> &v)
+static std::string
+_chull3d_point_key(const fastf_t x, const fastf_t y, const fastf_t z)
 {
+    std::ostringstream pkey;
+    pkey << std::setprecision(17) << x << "|" << y << "|" << z;
+    return pkey.str();
+}
+
+static int
+_chull3d_find_input_idx(const point_t *input_points_3d, int num_input_pnts, const quickhull::Vector3<fastf_t> &v, std::unordered_map<std::string, std::vector<int>> &input_idx_map)
+{
+    /* Fast path for exact coordinate matches */
+    std::string key = _chull3d_point_key(v.x, v.y, v.z);
+    auto m_it = input_idx_map.find(key);
+    if (m_it != input_idx_map.end() && !m_it->second.empty()) {
+	int idx = m_it->second.back();
+	m_it->second.pop_back();
+	return idx;
+    }
+
+    /* Fallback for near-equal comparisons */
     for (int i = 0; i < num_input_pnts; i++) {
 	if (NEAR_EQUAL(input_points_3d[i][0], v.x, BN_TOL_DIST)
 		&& NEAR_EQUAL(input_points_3d[i][1], v.y, BN_TOL_DIST)
@@ -132,11 +155,16 @@ bg_3d_chull2(int **faces, int *num_faces, int **vertices, int *num_vertices,
     auto indexBuffer = hull.getIndexBuffer();
     auto vertexBuffer = hull.getVertexBuffer();
 
+    std::unordered_map<std::string, std::vector<int>> input_idx_map;
+    for (int i = 0; i < num_input_pnts; i++) {
+	input_idx_map[_chull3d_point_key(input_points_3d[i][0], input_points_3d[i][1], input_points_3d[i][2])].push_back(i);
+    }
+
     std::vector<int> vmap;
     vmap.reserve(vertexBuffer.size());
     std::set<int> unique_input_indices;
     for (auto it = vertexBuffer.begin(); it != vertexBuffer.end(); it++) {
-	int input_idx = _chull3d_find_input_idx(input_points_3d, num_input_pnts, *it);
+	int input_idx = _chull3d_find_input_idx(input_points_3d, num_input_pnts, *it, input_idx_map);
 	if (input_idx < 0) {
 	    bu_log("bg_3d_chull2: failed to map hull vertex back to input point\n");
 	    return 0;
