@@ -43,7 +43,7 @@ _label_cmd_create(void *bs, int argc, const char **argv)
 {
     struct _ged_view_info *gd = (struct _ged_view_info *)bs;
     struct ged *gedp = gd->gedp;
-    const char *usage_string = "view obj <objname> label create text x y [z] [px py pz]";
+    const char *usage_string = "view obj create <objname> label create text x y [z] [px py pz]";
     const char *purpose_string = "start a label at point x,y,[z], possibly targeting point px,py,pz";
     if (_view_cmd_msgs(bs, argc, argv, usage_string, purpose_string))
 	return BRLCAD_OK;

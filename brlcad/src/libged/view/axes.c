@@ -45,7 +45,7 @@ _axes_cmd_create(void *bs, int argc, const char **argv)
 {
     struct _ged_view_info *gd = (struct _ged_view_info *)bs;
     struct ged *gedp = gd->gedp;
-    const char *usage_string = "view obj <objname> axes create x y z";
+    const char *usage_string = "view obj create <objname> axes create x y z";
     const char *purpose_string = "define data axes at point x,y,z";
     if (_view_cmd_msgs(bs, argc, argv, usage_string, purpose_string))
 	return BRLCAD_OK;
@@ -99,7 +99,7 @@ _axes_cmd_pos(void *bs, int argc, const char **argv)
 {
     struct _ged_view_info *gd = (struct _ged_view_info *)bs;
     struct ged *gedp = gd->gedp;
-    const char *usage_string = "view obj <objname> axes pos [x y z]";
+    const char *usage_string = "view obj create <objname> axes pos [x y z]";
     const char *purpose_string = "adjust axes position";
     if (_view_cmd_msgs(bs, argc, argv, usage_string, purpose_string))
 	return BRLCAD_OK;
@@ -146,7 +146,7 @@ _axes_cmd_size(void *bs, int argc, const char **argv)
 {
     struct _ged_view_info *gd = (struct _ged_view_info *)bs;
     struct ged *gedp = gd->gedp;
-    const char *usage_string = "view obj <objname> axes size [#]";
+    const char *usage_string = "view obj create <objname> axes size [#]";
     const char *purpose_string = "adjust axes size";
     if (_view_cmd_msgs(bs, argc, argv, usage_string, purpose_string))
 	return BRLCAD_OK;
@@ -192,7 +192,7 @@ _axes_cmd_linewidth(void *bs, int argc, const char **argv)
 {
     struct _ged_view_info *gd = (struct _ged_view_info *)bs;
     struct ged *gedp = gd->gedp;
-    const char *usage_string = "view obj <objname> axes linewidth [#]";
+    const char *usage_string = "view obj create <objname> axes linewidth [#]";
     const char *purpose_string = "adjust axes line width";
     if (_view_cmd_msgs(bs, argc, argv, usage_string, purpose_string))
 	return BRLCAD_OK;
@@ -243,7 +243,7 @@ _axes_cmd_axes_color(void *bs, int argc, const char **argv)
 {
     struct _ged_view_info *gd = (struct _ged_view_info *)bs;
     struct ged *gedp = gd->gedp;
-    const char *usage_string = "view obj <objname> axes color [r/g/b]";
+    const char *usage_string = "view obj create <objname> axes color [r/g/b]";
     const char *purpose_string = "get/set color of axes";
     if (_view_cmd_msgs(bs, argc, argv, usage_string, purpose_string))
 	return BRLCAD_OK;
