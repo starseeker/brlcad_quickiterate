@@ -1,0 +1,223 @@
+Tcl/Tk survey for src/tclscripts
+================================
+
+Purpose
+-------
+This note surveys the Tcl logic in src/tclscripts and identifies what is
+primarily Tcl/Tk UI glue versus what looks like reusable application logic that
+could move into libged or another non-Tcl layer.
+
+High-level inventory
+--------------------
+The tree contains 222 script files spread across a small number of broad roles:
+
+* mged/ (75 files): MGED command helpers, editors, event bindings, and control
+  panels.
+* archer/ (42 files) and rtwizard/ (20 files): larger Tcl/Tk applications.
+* lib/ (29 files): Tcl object wrappers and widget libraries.
+* util/ (4 files) plus a handful of root-level scripts: small utility helpers.
+* boteditor/, checker/, geometree/, igraph/, plot3-dm/, shotvis/, sdialogs/,
+  swidgets/, hv3/, tcllib/: mostly specialized GUI support.
+
+At a high level, most of src/tclscripts falls into one of four buckets:
+
+1. Tcl/Tk interface code that should remain Tcl/Tk.
+2. Tcl binding layers around existing libged/libtclcad capabilities.
+3. Thin wrappers that already delegate to non-Tcl commands.
+4. Small but useful geometry/database algorithms that are good migration
+   candidates.
+
+What is present
+---------------
+
+A. Tcl/Tk user interface framework and applications
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+These files are mostly UI construction, event bindings, and widget state.  They
+are important, but not good direct candidates for migration unless BRL-CAD first
+builds a cross-interface abstraction for the same concepts.
+
+* Generic widgets and dialogs:
+  - fs_dialog.tk implements a file selection dialog entirely in Tk widgets and
+    listboxes (/src/tclscripts/fs_dialog.tk:22-33,42-120).
+  - hoc.tcl builds and binds the Help-On-Context system around Tk widgets and
+    right-click bindings (/src/tclscripts/hoc.tcl:22-24,31-38,109-140).
+  - mged/grid.tcl is a Tk control panel for grid settings with buttons,
+    entries, hoc metadata, and toplevel window management
+    (/src/tclscripts/mged/grid.tcl:22-24,26-132,134-218).
+  - mged/bindings.tcl is mostly Tk bind statements for key and mouse behavior
+    in MGED display windows (/src/tclscripts/mged/bindings.tcl:25-47,104-160).
+
+* Application-level Tcl/Tk code:
+  - Archer is a Tcl/Tk mega-widget application with plugin loading and many
+    Itcl methods (/src/tclscripts/archer/Archer.tcl:22-24,30-64,73-120).
+  - mged/comb.tcl is explicitly a widget for editing combinations and documents
+    a deep Tk widget hierarchy (/src/tclscripts/mged/comb.tcl:22-24,29-158).
+  - mged/shaders.tcl says up front that it implements the GUI for BRL-CAD
+    shaders and then proceeds to create frames, entries, labels, traces, and
+    hoc metadata (/src/tclscripts/mged/shaders.tcl:21-26,64-145,159-220).
+
+Assessment: these are mostly poor migration candidates.  They are real UI
+layers, not hidden stores of portable modeling logic.
+
+B. Tcl binding layers over existing non-Tcl functionality
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Some large Tcl files are not really where the underlying functionality lives;
+they are interface layers over C libraries.
+
+* lib/Ged.tcl defines the cadwidgets::Ged class, wraps LIBTCLCAD's GED object,
+  and exposes a very large method surface over existing commands
+  (/src/tclscripts/lib/Ged.tcl:22-24,30-45,105-120).
+* lib/Command.tcl implements a command window widget with history, prompt
+  handling, bindings, and editing behavior (/src/tclscripts/lib/Command.tcl:22-
+  25,26-43,47-120).
+
+Assessment: these files should not be treated as a backlog of missing libged
+features.  They are mostly the Tcl-side integration surface for features that
+already exist lower in the stack.
+
+C. Thin wrappers already superseded or nearly superseded
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+A few scripts are now only compatibility wrappers over lower-level commands.
+
+* mged/xclone.tcl documents that --xpush is forwarded to libged clone and the
+  Tcl proc is now just `clone --xpush` wrapped in catch/return logic
+  (/src/tclscripts/mged/xclone.tcl:24-33,36-40).
+
+Assessment: this is no longer a substantive Tcl implementation.  It is a good
+example of the desired end state: migrate the real behavior into libged, then
+leave only a compatibility shim or remove the Tcl wrapper once callers are
+updated.
+
+D. Reusable non-GUI logic embedded in Tcl scripts
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+This is the most promising bucket.  These scripts encode logic that is not
+fundamentally about Tk or the Tcl interpreter itself.
+
+* util/expand_int_ranges.tcl parses integer range expressions such as
+  `2,10-12,6` into explicit integer lists using straight parsing logic and
+  validation (/src/tclscripts/util/expand_int_ranges.tcl:22-30,32-67).
+* util/luniq.tcl removes consecutive duplicate values from a list using a pure
+  list algorithm (/src/tclscripts/util/luniq.tcl:22-25,27-39).
+* mged/build_region.tcl constructs combination trees from naming patterns,
+  detects unions/intersections/subtractions based on suffix conventions, and
+  creates or appends regions using regdef/put/adjust
+  (/src/tclscripts/mged/build_region.tcl:22-45,47-149,151-198).
+* mged/get_regions.tcl recursively traverses a hierarchy, recognizes regions,
+  accumulates children, and de-duplicates the result list
+  (/src/tclscripts/mged/get_regions.tcl:22-23,25-39,41-85).
+* util/metastrength.tcl searches a hierarchy for metaballs, reports point field
+  strengths, optionally clones, and batch updates metaball strength values
+  (/src/tclscripts/util/metastrength.tcl:22-29,31-51,59-167).
+* util/regionstobots.tcl performs a batch search/facetize/replace workflow over
+  all regions in a database (/src/tclscripts/util/regionstobots.tcl:21-38).
+* mged/apply.tcl coordinates applying a command to the active display manager,
+  the local pane set, a caller-provided list, or all display managers
+  (/src/tclscripts/mged/apply.tcl:22-23,25-96,98-131).
+* mged/color.tcl is mostly UI, but it also contains reusable color parsing and
+  RGB-to-widget conversion helpers that are not inherently MGED-specific
+  (/src/tclscripts/mged/color.tcl:22-31,172-219).
+
+Best refactoring candidates
+---------------------------
+
+Tier 1: best immediate candidates
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1. build_region.tcl
+   Why: this is a real modeling algorithm rather than a GUI helper.  It derives
+   boolean trees from solid naming conventions, handles append-vs-create logic,
+   and applies region defaults.  That behavior would be useful from any
+   interface that wants scripted or batch region construction, not just Tcl
+   (/src/tclscripts/mged/build_region.tcl:22-45,75-149,151-198).
+   Likely destination: libged command.
+
+2. get_regions.tcl
+   Why: recursive region discovery under a hierarchy is general-purpose database
+   querying logic.  Other interfaces would benefit from a native command or API
+   that returns unique regions under an object without having to reimplement the
+   traversal in each frontend (/src/tclscripts/mged/get_regions.tcl:22-23,
+   41-85).
+   Likely destination: libged command or db query helper.
+
+3. metastrength.tcl
+   Why: the Tcl script bundles a useful batch-edit workflow for metaball field
+   strengths: search, inspect, optional clone, and update.  None of that is
+   intrinsically Tk-specific, and it would be useful in batch, CLI, GUI, and
+   library consumers (/src/tclscripts/util/metastrength.tcl:22-29,35-50,
+   59-167).
+   Likely destination: one or more libged commands or a libged subcommand on
+   metaball objects.
+
+Tier 2: good smaller candidates
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+4. regionstobots.tcl
+   Why: the script codifies a reusable bulk conversion workflow: find regions,
+   facetize each one, replace the old region with the generated BOT-backed
+   object.  The exact policy may need refinement before migration, but the
+   workflow itself is cross-interface useful
+   (/src/tclscripts/util/regionstobots.tcl:21-38).
+   Likely destination: libged helper/command for bulk region-to-BOT conversion.
+
+5. expand_int_ranges.tcl
+   Why: this is pure parsing logic with no GUI dependencies.  It is not a large
+   feature, but if the same syntax is useful outside Tcl it should live in a
+   common non-Tcl utility library rather than remain Tcl-only
+   (/src/tclscripts/util/expand_int_ranges.tcl:22-30,32-67).
+   Likely destination: libbu helper or shared parser utility rather than a
+   standalone libged feature.
+
+6. color.tcl helper logic
+   Why: the widget-building half should stay Tcl/Tk, but the color validation
+   and normalization helpers are reusable.  If other interfaces need consistent
+   color parsing, the logic should be centralized below Tcl
+   (/src/tclscripts/mged/color.tcl:172-219).
+   Likely destination: libbu/libged color parsing helper.
+
+Tier 3: candidates with caveats
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+7. mged/apply.tcl
+   Why: the multi-display-manager apply logic is useful, but this file is tied
+   to MGED pane naming, winset, and GUI state variables.  A refactor here would
+   need a lower-level notion of "apply this operation to these views" before the
+   Tcl can shrink meaningfully (/src/tclscripts/mged/apply.tcl:25-96,98-131).
+   Likely destination: libdm/libged view-iteration helper, then a thinner Tcl
+   wrapper.
+
+8. luniq.tcl
+   Why: it is pure reusable logic, but also very small and generic.  This is a
+   cleanup candidate rather than a strategically important migration target
+   (/src/tclscripts/util/luniq.tcl:22-25,27-39).
+   Likely destination: libbu helper if there is repeated need for the behavior.
+
+Lower-priority or poor candidates
+---------------------------------
+
+* Tk widget construction, bindings, dialogs, and help systems should mostly
+  remain Tcl/Tk: fs_dialog.tk, hoc.tcl, mged/grid.tcl, mged/bindings.tcl.
+* Large application frameworks such as Archer and the MGED editors are mostly
+  interface code; their data models can sometimes be thinned, but wholesale
+  migration out of Tcl is not the right first step.
+* lib/Ged.tcl and similar Tcl classes are binding layers over lower-level code,
+  so they are not evidence that the underlying feature is missing outside Tcl.
+* mged/xclone.tcl shows that once lower layers gain the real behavior, the Tcl
+  side can collapse to a compatibility wrapper or disappear.
+
+Recommended refactoring order
+-----------------------------
+1. Move substantive geometry/database workflows first:
+   build_region, get_regions, metastrength, regionstobots.
+2. Move shared utility logic next:
+   expand_int_ranges and any reusable color parsing helpers.
+3. Revisit MGED-specific controller logic later:
+   mged/apply and similar files only after there is a cleaner non-Tcl view/API
+   abstraction to target.
+4. Leave pure Tk UI layers in Tcl/Tk unless BRL-CAD is intentionally replacing
+   those interfaces.
+
+Bottom line
+-----------
+The largest opportunities to reduce Tcl footprint are not in the big Tk widget
+files; they are in the smaller procedural scripts that encode portable database
+queries, geometry tree construction, and batch editing workflows.  The best
+near-term targets are build_region.tcl, get_regions.tcl, metastrength.tcl, and
+regionstobots.tcl, with expand_int_ranges.tcl and color helper logic as useful
+secondary cleanup candidates.
