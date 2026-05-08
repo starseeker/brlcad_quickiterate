@@ -20,6 +20,7 @@
 
 #include "common.h"
 
+#include "bu/str.h"
 #include "bu/time.h"
 #include "bu/units.h"
 #include "bu/vls.h"
@@ -399,7 +400,9 @@ dm_draw_labels(struct dm *dmp, struct bv_data_label_state *gdlsp, matp_t m2vmat)
     /* DEPRECATED (Phase T3, drawing_stack_modernization): this function is
      * retained only to keep external consumers that reference the symbol from
      * breaking.  All internal callers have been removed as part of Phase T2.
-     * Do not add new callers; use the BSG view-scope label API instead. */
+     * Do not add new callers; use bv_view_obj_labels_sync() (bv/util.h)
+     * instead, which populates BSG VIEW_SCOPE label objects that are rendered
+     * by dm_draw_objs() without any direct dm_* call site in the producer. */
 
     /* set color */
     (void)dm_set_fg(dmp,
@@ -568,23 +571,15 @@ dm_draw_scene_obj(struct dm *dmp, struct bv_scene_obj *s, struct bview *v, int f
 				/*transparency_pass=*/0, /*cur_mat=*/NULL);
 }
 
-/* Internal alias — keeps existing static call sites compiling unchanged. */
-static void
-draw_scene_obj(struct dm *dmp, struct bv_scene_obj *s, struct bview *v, int force_draw, struct bv_obj_settings *obj_settings)
-{
-    dm_draw_scene_obj(dmp, s, v, force_draw, obj_settings);
-}
-
-
 // Phase 4-D (drawing_stack_modernization): BSG render traversal.
 // Declared in dm/view.h as DM_EXPORT.  Defined here (in libdm) rather
-// than in libbsg because the traversal calls draw_scene_obj() which
+// than in libbsg because the traversal calls dm_draw_scene_obj() which
 // requires dm_* rendering functions — putting it here avoids a
 // libbsg → libdm circular dependency.
 //
 // bsg_view_traverse syncs the scene root from the view's current draw
-// state and then draws each child node using the same draw_scene_obj
-// path as the legacy dl_* walk, producing identical output.
+// state and then draws each child node using dm_draw_scene_obj, producing
+// the same output as the legacy dl_* walk.
 
 /* Internal traversal — supports transparency-pass filtering and the
  * accumulated transform-stack matrix.  Public bsg_view_traverse() and

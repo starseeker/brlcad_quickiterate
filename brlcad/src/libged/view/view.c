@@ -545,7 +545,11 @@ _view_cmd_vZ(void *bs, int argc, const char **argv)
 
 
     if (!argc) {
-	bu_vls_printf(gedp->ged_result_str, "%g\n", gd->cv->gv_tcl.gv_data_vZ);
+	if (!gd->cv->gv_tcl) {
+	    bu_vls_printf(gedp->ged_result_str, "%g\n", 0.0);
+	    return BRLCAD_OK;
+	}
+	bu_vls_printf(gedp->ged_result_str, "%g\n", gd->cv->gv_tcl->gv_data_vZ);
 	return BRLCAD_OK;
     }
 
@@ -553,7 +557,9 @@ _view_cmd_vZ(void *bs, int argc, const char **argv)
     if (argc == 1) {
 	fastf_t val;
 	if (bu_opt_fastf_t(NULL, 1, (const char **)&argv[0], (void *)&val) == 1) {
-	    gd->cv->gv_tcl.gv_data_vZ = val;
+	    if (!gd->cv->gv_tcl)
+		return BRLCAD_OK;
+	    gd->cv->gv_tcl->gv_data_vZ = val;
 	    return BRLCAD_OK;
 	}
     }
@@ -568,7 +574,9 @@ _view_cmd_vZ(void *bs, int argc, const char **argv)
 	}
 	vect_t vpt;
 	MAT4X3PNT(vpt, gd->cv->gv_model2view, mpt);
-	gd->cv->gv_tcl.gv_data_vZ = vpt[Z];
+	if (!gd->cv->gv_tcl)
+	    return BRLCAD_OK;
+	gd->cv->gv_tcl->gv_data_vZ = vpt[Z];
 	return BRLCAD_OK;
     }
 

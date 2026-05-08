@@ -728,8 +728,9 @@ struct bview {
     /* Virtual trackball position */
     point_t     orig_pos;
 
-    // libtclcad data
-    struct bv_data_tclcad gv_tcl;
+    // libtclcad data (optional: NULL for non-Tcl views, allocated and owned by
+    // libtclcad tclcad_view_data when a Tcl-backed view is created)
+    struct bv_data_tclcad *gv_tcl;
 
     /* Callback, external data */
     void          (*gv_callback)(struct bview *, void *);  /**< @brief  called in ged_view_update with gvp and gv_clientData */

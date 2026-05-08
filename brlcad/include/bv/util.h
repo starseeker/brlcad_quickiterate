@@ -37,6 +37,11 @@ __BEGIN_DECLS
 /* Set default values for a bv. */
 BV_EXPORT extern void bv_init(struct bview *v, struct bview_set *s);
 BV_EXPORT extern void bv_free(struct bview *v);
+
+/* Phase T3 (drawing_stack_modernization): zero-initialize a bv_data_tclcad
+ * block.  Called by libtclcad when creating a new Tcl-backed view; also used
+ * by any consumer that allocates its own bv_data_tclcad. */
+BV_EXPORT extern void bv_data_tclcad_init(struct bv_data_tclcad *d);
 BV_EXPORT extern int bv_view_is_independent(const struct bview *v);
 BV_EXPORT extern struct bv_scene_obj *bv_view_independent_scope(struct bview *v, int create);
 BV_EXPORT extern void bv_view_independent_scope_destroy(struct bview *v);
@@ -390,6 +395,20 @@ bv_view_obj_visit(struct bview *v,
 		  int scope_mask,
 		  int (*cb)(struct bv_scene_obj *obj, void *data),
 		  void *data);
+
+/* Phase T3 (drawing_stack_modernization): BSG-backed label sync helper.
+ * Replaces the deprecated dm_draw_labels() direct-render path.  Removes any
+ * existing BSG VIEW_SCOPE object named @p bsg_name, then – if gdlsp->gdls_draw
+ * is set and there are labels – creates a new VIEW_SCOPE container under @p v
+ * with one BV_LABELS child per label entry.  The result is picked up by
+ * dm_draw_objs() on the next frame without any direct dm_* calls.
+ * External consumers that previously called dm_draw_labels() should call this
+ * instead.
+ */
+BV_EXPORT void
+bv_view_obj_labels_sync(struct bview *v,
+                        struct bv_data_label_state *gdlsp,
+                        const char *bsg_name);
 
 /* Phase A3 (drawing_stack_modernization): typed setters for view-only object
  * properties.  These mutate fields that BSG-resident view-only objects expose

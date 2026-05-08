@@ -80,7 +80,6 @@ extern int tclcad_eval_noresult(Tcl_Interp *interp, const char *command, size_t 
 extern int Bu_Init(Tcl_Interp *interp);
 extern int Bn_Init(Tcl_Interp *interp);
 extern int Dm_Init(Tcl_Interp *interp);
-extern int Dmo_Init(Tcl_Interp *interp);
 extern int Fbo_Init(Tcl_Interp *interp);
 extern int Ged_Init(Tcl_Interp *interp);
 

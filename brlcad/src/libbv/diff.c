@@ -477,19 +477,25 @@ bv_differ(struct bview *v1, struct bview *v2)
     BV_NDIFF(1,gv_rscale);
     BV_NDIFF(1,gv_sscale);
 
-    BV_NDIFF(1, gv_tcl.gv_data_vZ);
-
-    BV_CDIFF(1, _bv_data_arrow_state_differ, gv_tcl.gv_data_arrows);
-    BV_CDIFF(1, _bv_data_axes_state_differ, gv_tcl.gv_data_axes);
-    BV_CDIFF(1, _bv_data_label_state_differ, gv_tcl.gv_data_labels);
-    BV_CDIFF(1, _bv_data_line_state_differ, gv_tcl.gv_data_lines);
-    BV_CDIFF(1, _bv_data_polygon_state_differ, gv_tcl.gv_data_polygons);
-    BV_CDIFF(1, _bv_data_arrow_state_differ, gv_tcl.gv_sdata_arrows);
-    BV_CDIFF(1, _bv_data_axes_state_differ, gv_tcl.gv_sdata_axes);
-    BV_CDIFF(1, _bv_data_label_state_differ, gv_tcl.gv_sdata_labels);
-    BV_CDIFF(1, _bv_data_line_state_differ, gv_tcl.gv_sdata_lines);
-    BV_CDIFF(1, _bv_data_polygon_state_differ, gv_tcl.gv_sdata_polygons);
-    BV_CDIFF(1, _bv_other_state_differ, gv_tcl.gv_prim_labels);
+    /* Phase T3 (drawing_stack_modernization): gv_tcl is now a pointer.
+     * Skip Tcl-specific diff when either view has no Tcl data. */
+    if (v1->gv_tcl && v2->gv_tcl) {
+	if (!NEAR_EQUAL((double)v1->gv_tcl->gv_data_vZ, (double)v2->gv_tcl->gv_data_vZ, VDIVIDE_TOL))
+	    return 1;
+	if (_bv_data_arrow_state_differ(&v1->gv_tcl->gv_data_arrows, &v2->gv_tcl->gv_data_arrows)) return 1;
+	if (_bv_data_axes_state_differ(&v1->gv_tcl->gv_data_axes, &v2->gv_tcl->gv_data_axes)) return 1;
+	if (_bv_data_label_state_differ(&v1->gv_tcl->gv_data_labels, &v2->gv_tcl->gv_data_labels)) return 1;
+	if (_bv_data_line_state_differ(&v1->gv_tcl->gv_data_lines, &v2->gv_tcl->gv_data_lines)) return 1;
+	if (_bv_data_polygon_state_differ(&v1->gv_tcl->gv_data_polygons, &v2->gv_tcl->gv_data_polygons)) return 1;
+	if (_bv_data_arrow_state_differ(&v1->gv_tcl->gv_sdata_arrows, &v2->gv_tcl->gv_sdata_arrows)) return 1;
+	if (_bv_data_axes_state_differ(&v1->gv_tcl->gv_sdata_axes, &v2->gv_tcl->gv_sdata_axes)) return 1;
+	if (_bv_data_label_state_differ(&v1->gv_tcl->gv_sdata_labels, &v2->gv_tcl->gv_sdata_labels)) return 1;
+	if (_bv_data_line_state_differ(&v1->gv_tcl->gv_sdata_lines, &v2->gv_tcl->gv_sdata_lines)) return 1;
+	if (_bv_data_polygon_state_differ(&v1->gv_tcl->gv_sdata_polygons, &v2->gv_tcl->gv_sdata_polygons)) return 1;
+	if (_bv_other_state_differ(&v1->gv_tcl->gv_prim_labels, &v2->gv_tcl->gv_prim_labels)) return 1;
+    } else if (v1->gv_tcl != v2->gv_tcl) {
+	return 1;
+    }
 
     if (v1->gv_s != v2->gv_s) {
 	return 1;
