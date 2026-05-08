@@ -54,109 +54,13 @@ _bv_axes_hash(struct bu_data_hash_state *state, struct bv_axes *v)
     bu_data_hash_update(state, v, sizeof(struct bv_axes));
 }
 
-static void
-_bv_data_arrow_state_hash(struct bu_data_hash_state *state, struct bv_data_arrow_state *v)
-{
-    /* First, do sanity checks */
-    if (!v || !state)
-	return;
-
-    bu_data_hash_update(state, v, sizeof(struct bv_data_arrow_state));
-}
-
-static void
-_bv_data_axes_state_hash(struct bu_data_hash_state *state, struct bv_data_axes_state *v)
-{
-    /* First, do sanity checks */
-    if (!v || !state)
-	return;
-
-    bu_data_hash_update(state, v, sizeof(struct bv_data_axes_state));
-    if (v->num_points)
-	bu_data_hash_update(state, v->points, v->num_points * sizeof(point_t));
-}
-
-static void
-_bv_data_label_state_hash(struct bu_data_hash_state *state, struct bv_data_label_state *v)
-{
-    /* First, do sanity checks */
-    if (!v || !state)
-	return;
-
-    bu_data_hash_update(state, v, sizeof(struct bv_data_label_state));
-    if (v->gdls_size)
-	bu_data_hash_update(state, v->gdls_points, v->gdls_size * sizeof(point_t));
-    for (int i = 0; i < v->gdls_num_labels; i++) {
-	if (strlen(v->gdls_labels[i]))
-	    bu_data_hash_update(state, v->gdls_labels[i], strlen(v->gdls_labels[i]));
-    }
-}
-
-
-static void
-_bv_data_line_state_hash(struct bu_data_hash_state *state, struct bv_data_line_state *v)
-{
-    /* First, do sanity checks */
-    if (!v || !state)
-	return;
-
-    bu_data_hash_update(state, v, sizeof(struct bv_data_line_state));
-    if (v->gdls_num_points)
-	bu_data_hash_update(state, v->gdls_points, v->gdls_num_points * sizeof(point_t));
-}
-
-static void
-_bg_poly_contour_hash(struct bu_data_hash_state *state, struct bg_poly_contour *v)
-{
-    /* First, do sanity checks */
-    if (!v || !state)
-	return;
-
-    bu_data_hash_update(state, v, sizeof(struct bg_poly_contour));
-    if (v->num_points)
-	bu_data_hash_update(state, v->point, v->num_points * sizeof(point_t));
-}
-
-static void
-_bg_polygon_hash(struct bu_data_hash_state *state, struct bg_polygon *v)
-{
-    /* First, do sanity checks */
-    if (!v || !state)
-	return;
-
-    bu_data_hash_update(state, v, sizeof(struct bg_polygon));
-
-    for (size_t i = 0; i < v->num_contours; i++) {
-	_bg_poly_contour_hash(state, &v->contour[i]);
-    }
-    if (v->hole && v->num_contours) {
-	bu_data_hash_update(state, v->hole, v->num_contours * sizeof(int));
-    }
-}
-
-static void
-_bg_polygons_hash(struct bu_data_hash_state *state, struct bg_polygons *v)
-{
-    /* First, do sanity checks */
-    if (!v || !state)
-	return;
-
-    bu_data_hash_update(state, v, sizeof(struct bg_polygons));
-    for (size_t i = 0; i < v->num_polygons; i++) {
-	_bg_polygon_hash(state, &v->polygon[i]);
-    }
-}
-
-static void
-_bv_data_polygon_state_hash(struct bu_data_hash_state *state, bv_data_polygon_state *v)
-{
-    /* First, do sanity checks */
-    if (!v || !state)
-	return;
-
-    bu_data_hash_update(state, v, sizeof(bv_data_polygon_state));
-    _bg_polygons_hash(state, &v->gdps_polygons);
-}
+/* Phase T-final (drawing_stack_modernization): the legacy gv_tcl per-state
+ * hash helpers (_bv_data_arrow_state_hash, _bv_data_axes_state_hash,
+ * _bv_data_label_state_hash, _bv_data_line_state_hash, _bg_poly_contour_hash,
+ * _bg_polygon_hash, _bg_polygons_hash, _bv_data_polygon_state_hash) were
+ * removed.  After T1, the same renderable state is hashed indirectly via
+ * the BSG view-scope visit below (each `_tcl_*` BSG object's vlist is
+ * hashed by _bv_hash_view_obj_cb). */
 
 static void
 _bv_grid_state_hash(struct bu_data_hash_state *state, struct bv_grid_state *v)
@@ -299,19 +203,14 @@ bv_hash(struct bview *v)
 	bv_settings_hash(state, v->gv_s);
     bv_settings_hash(state, &v->gv_ls);
 
-    if (v->gv_tcl) {
-	_bv_data_arrow_state_hash(state, &v->gv_tcl->gv_data_arrows);
-	_bv_data_axes_state_hash(state, &v->gv_tcl->gv_data_axes);
-	_bv_data_label_state_hash(state, &v->gv_tcl->gv_data_labels);
-	_bv_data_line_state_hash(state, &v->gv_tcl->gv_data_lines);
-	_bv_data_polygon_state_hash(state, &v->gv_tcl->gv_data_polygons);
-	_bv_data_arrow_state_hash(state, &v->gv_tcl->gv_sdata_arrows);
-	_bv_data_axes_state_hash(state, &v->gv_tcl->gv_sdata_axes);
-	_bv_data_label_state_hash(state, &v->gv_tcl->gv_sdata_labels);
-	_bv_data_line_state_hash(state, &v->gv_tcl->gv_sdata_lines);
-	_bv_data_polygon_state_hash(state, &v->gv_tcl->gv_sdata_polygons);
-	_bv_other_state_hash(state, &v->gv_tcl->gv_prim_labels);
-    }
+    /* Phase T-final (drawing_stack_modernization): the Tcl-specific
+     * gv_tcl block (gv_data_arrows / gv_data_axes / gv_data_labels /
+     * gv_data_lines / gv_data_polygons and their sdata twins, plus
+     * gv_prim_labels) is no longer hashed here.  After T1 these are
+     * mirrored into BSG VIEW_SCOPE objects (`_tcl_data_*` /
+     * `_tcl_sdata_*`) and are picked up by the bv_view_obj_visit walk
+     * below.  BSG is now the source of truth for renderable view
+     * adornment state. */
 
     /* Phase A0 (drawing_stack_modernization): use bv_view_obj_visit so we
      * walk the BSG view-scope subtree directly rather than the legacy

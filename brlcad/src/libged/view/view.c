@@ -543,45 +543,17 @@ _view_cmd_vZ(void *bs, int argc, const char **argv)
 	return BRLCAD_OK;
     }
 
-
-    if (!argc) {
-	if (!gd->cv->gv_tcl) {
-	    bu_vls_printf(gedp->ged_result_str, "%g\n", 0.0);
-	    return BRLCAD_OK;
-	}
-	bu_vls_printf(gedp->ged_result_str, "%g\n", gd->cv->gv_tcl->gv_data_vZ);
-	return BRLCAD_OK;
-    }
-
-    // First, see if it's a direct low level view space Z value
-    if (argc == 1) {
-	fastf_t val;
-	if (bu_opt_fastf_t(NULL, 1, (const char **)&argv[0], (void *)&val) == 1) {
-	    if (!gd->cv->gv_tcl)
-		return BRLCAD_OK;
-	    gd->cv->gv_tcl->gv_data_vZ = val;
-	    return BRLCAD_OK;
-	}
-    }
-
-    // If not, try it as a model space point
-    if (argc == 1 || argc == 3) {
-	vect_t mpt;
-	int acnt = bu_opt_vect_t(NULL, argc, (const char **)argv, (void *)&mpt);
-	if (acnt != 1 && acnt != 3) {
-	    bu_vls_printf(gedp->ged_result_str, "Invalid argument %s\n", argv[0]);
-	    return BRLCAD_ERROR;
-	}
-	vect_t vpt;
-	MAT4X3PNT(vpt, gd->cv->gv_model2view, mpt);
-	if (!gd->cv->gv_tcl)
-	    return BRLCAD_OK;
-	gd->cv->gv_tcl->gv_data_vZ = vpt[Z];
-	return BRLCAD_OK;
-    }
-
-    bu_vls_printf(gedp->ged_result_str, "Usage:\n%s", usage_string);
-    return BRLCAD_ERROR;
+    /* Phase T-final (drawing_stack_modernization): the legacy get/set
+     * scratch path that read or wrote `gv_tcl->gv_data_vZ` was removed
+     * from libged.  `gv_data_vZ` is a Tcl-mode editing scratch scalar
+     * that has no meaning to BSG rendering or to non-Tcl libged callers,
+     * and the deprecation message above already tells users to set vZ
+     * values on data objects directly.  Tcl callers that still need the
+     * scratch can use the `data_vZ` command exposed by libtclcad
+     * (commands.c), which keeps the gv_tcl-resident scalar consistent
+     * with the rest of the Tcl editing-mode plumbing. */
+    bu_vls_printf(gedp->ged_result_str, "[WARNING] this command is deprecated - vZ values should be set on data objects.\n\nUsage:\n%s", usage_string);
+    return GED_HELP;
 }
 int
 _view_cmd_width(void *ds, int argc, const char **argv)

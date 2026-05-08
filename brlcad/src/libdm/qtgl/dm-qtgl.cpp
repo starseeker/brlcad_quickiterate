@@ -602,7 +602,6 @@ struct dm_impl dm_qtgl_impl = {
     gl_drawVList,
     gl_drawVListHiddenLine,
     gl_draw_obj,
-    gl_draw_data_axes,
     gl_draw,
     gl_setFGColor,
     gl_setBGColor,

@@ -394,32 +394,6 @@ dm_draw_label(struct dm *dmp, struct bv_scene_obj *s)
     }
 }
 
-void
-dm_draw_labels(struct dm *dmp, struct bv_data_label_state *gdlsp, matp_t m2vmat)
-{
-    /* DEPRECATED (Phase T3, drawing_stack_modernization): this function is
-     * retained only to keep external consumers that reference the symbol from
-     * breaking.  All internal callers have been removed as part of Phase T2.
-     * Do not add new callers; use bv_view_obj_labels_sync() (bv/util.h)
-     * instead, which populates BSG VIEW_SCOPE label objects that are rendered
-     * by dm_draw_objs() without any direct dm_* call site in the producer. */
-
-    /* set color */
-    (void)dm_set_fg(dmp,
-		    gdlsp->gdls_color[0],
-		    gdlsp->gdls_color[1],
-		    gdlsp->gdls_color[2], 1, 1.0);
-
-    for (int i = 0; i < gdlsp->gdls_num_labels; ++i) {
-	point_t vpoint;
-
-	MAT4X3PNT(vpoint, m2vmat,
-		  gdlsp->gdls_points[i]);
-	(void)dm_draw_string_2d(dmp, gdlsp->gdls_labels[i],
-				vpoint[X], vpoint[Y], 0, 1);
-    }
-}
-
 /* Phase 8 BSG render contract:
  *
  *   transparency_pass values for the BSG traversal helpers below:

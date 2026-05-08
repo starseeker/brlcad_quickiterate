@@ -103,10 +103,6 @@ DM_EXPORT extern void dm_draw_adc(struct dm *dmp,
 				  struct bv_adc_state *adcp, mat_t view2model, mat_t model2view);
 
 /* axes.c */
-DM_EXPORT extern void dm_draw_data_axes(struct dm *dmp,
-					fastf_t viewSize,
-					struct bv_data_axes_state *bndasp);
-
 DM_EXPORT extern void dm_draw_scene_axes(struct dm *dmp, struct bv_scene_obj *s);
 
 

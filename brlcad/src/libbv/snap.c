@@ -49,128 +49,12 @@ struct bv_cp_info {
 };
 #define BV_CP_INFO_INIT {BN_TOL_DIST, VINIT_ZERO, DBL_MAX, VINIT_ZERO, DBL_MAX}
 
-struct bv_cp_info_tcl {
-    struct bv_cp_info c;
-    struct bv_data_line_state *c_lset; // container holding closest line
-    int c_l;     // index of closest line
-
-    struct bv_data_line_state *c_lset2; // container holding 2nd closest line
-    int c_l2;   // index of 2nd closest line
-};
-#define BV_CP_INFO_TCL_INIT {BV_CP_INFO_INIT, NULL, -1, NULL, -1}
-
-static int
-_find_closest_tcl_point(struct bv_cp_info_tcl *s, point_t *p, struct bv_data_line_state *lines)
-{
-    int ret = 0;
-    point_t P0, P1;
-
-    if (lines->gdls_num_points < 2) {
-	return ret;
-    }
-
-    // TODO - if we have a large number of lines drawn, we could really benefit
-    // from an acceleration structure such as the RTree to localize these tests
-    // rather than checking everything...
-    for (int i = 0; i < lines->gdls_num_points; i+=2) {
-	if (s->c_l == i && s->c_lset == lines) {
-	    continue;
-	}
-	point_t c;
-	VMOVE(P0, lines->gdls_points[i]);
-	VMOVE(P1, lines->gdls_points[i+1]);
-	double dsq = bg_distsq_lseg3_pt(&c, P0, P1, *p);
-	// If we're outside tolerance, continue
-	if (dsq > s->c.ctol_sq) {
-	    continue;
-	}
-	// If this is the closest we've seen, record it
-	if (s->c.dsq > dsq) {
-	    // Closest is now second closest
-	    VMOVE(s->c.cp2, s->c.cp);
-	    s->c.dsq2 = s->c.dsq;
-	    s->c_l2 = s->c_l;
-	    s->c_lset2 = s->c_lset;
-
-	    // set new closest
-	    VMOVE(s->c.cp, c);
-	    s->c.dsq = dsq;
-	    s->c_l = i;
-	    s->c_lset = lines;
-	    ret = 1;
-	    continue;
-	}
-	// Not the closest - is it closer than the second closest?
-	if (s->c.dsq2 > dsq) {
-	    VMOVE(s->c.cp2, c);
-	    s->c.dsq2 = dsq;
-	    s->c_l2 = i;
-	    s->c_lset2 = lines;
-	    ret = 2;
-	    continue;
-	}
-    }
-
-    return ret;
-}
-
-static void
-_find_close_isect(struct bv_cp_info *s, point_t *p, point_t *P0, point_t *P1, point_t *Q0, point_t *Q1)
-{
-    point_t c1, c2;
-
-    if (!s || !p)
-	return;
-
-    double csdist_sq = bg_distsq_lseg3_lseg3(&c1, &c2, *P0, *P1, *Q0, *Q1);
-    if (csdist_sq > s->ctol_sq) {
-	// Line segments are too far away to use both of them to override the
-	// original answer
-	return;
-    }
-
-    // If either closest segment point is too far from the test point, go with
-    // the original answer rather than changing it
-    double d1_sq = DIST_PNT_PNT_SQ(*p, c1);
-    if (d1_sq > s->ctol_sq) {
-	// Too far away to work
-	return;
-    }
-
-    double d2_sq = DIST_PNT_PNT_SQ(*p, c2);
-     if (d2_sq > s->ctol_sq) {
-	// Too far away to work
-	return;
-    }
-
-    // Go with the closest segment point to the original point.  If
-    // the segments intersect the two points should be the same and
-    // it won't matter which is chosen, but if they don't then the
-    // intuitive behavior is to prefer the closest point that attempts
-    // to satisfy both line segments
-    if (d1_sq < d2_sq) {
-	VMOVE(s->cp, c1);
-    } else {
-	VMOVE(s->cp, c2);
-    }
-}
-
-static void
-_find_close_isect_tcl(struct bv_cp_info_tcl *s, point_t *p)
-{
-    point_t P0, P1, Q0, Q1;
-
-    if (!s || !s->c_lset || !p)
-	return;
-
-    VMOVE(P0, s->c_lset->gdls_points[s->c_l]);
-    VMOVE(P1, s->c_lset->gdls_points[s->c_l+1]);
-
-    VMOVE(Q0, s->c_lset2->gdls_points[s->c_l2]);
-    VMOVE(Q1, s->c_lset2->gdls_points[s->c_l2+1]);
-
-    _find_close_isect(&s->c, p, &P0, &P1, &Q0, &Q1);
-}
+/* Phase T-final (drawing_stack_modernization): the legacy gv_tcl
+ * data_line_state snapping helpers (bv_cp_info_tcl /
+ * _find_closest_tcl_point / _find_close_isect_tcl) were removed.  Tcl
+ * data_lines / sdata_lines are now stored as BSG VIEW_SCOPE line objects
+ * (`_tcl_data_lines`, `_tcl_sdata_lines`) and snapped through the same
+ * vlist-based path used for every other view-only line object. */
 
 static int
 _find_closest_obj_point(struct bv_cp_info *s, point_t *p, struct bv_scene_obj *o)
@@ -284,14 +168,14 @@ bv_snap_lines_3d(point_t *out_pt, struct bview *v, point_t *p)
 {
     int ret = 0;
     struct bview_settings *gv_s = (v->gv_s) ? v->gv_s : &v->gv_ls;
-    struct bv_cp_info_tcl cpinfo = BV_CP_INFO_TCL_INIT;
+    struct bv_cp_info cpinfo = BV_CP_INFO_INIT;
 
     if (!p || !v) return 0;
 
     // If we're not in Tcl mode only, we are looking at objects - either
     // all of them, or a specified subset
     if (gv_s->gv_snap_flags != BV_SNAP_TCL) {
-	struct bv_cp_info *s = &cpinfo.c;
+	struct bv_cp_info *s = &cpinfo;
 	s->ctol_sq = line_tol_sq(v, 1);
 	if (BU_PTBL_LEN(&gv_s->gv_snap_objs) > 0) {
 	    for (size_t i = 0; i < BU_PTBL_LEN(&gv_s->gv_snap_objs); i++) {
@@ -344,33 +228,26 @@ bv_snap_lines_3d(point_t *out_pt, struct bview *v, point_t *p)
     // and how do we handle snapping when close enough to multiple lines?  We
     // probably want to prefer intersections between lines to closest line
     // point if we are close to multiple lines...
-    if (!gv_s->gv_snap_flags || gv_s->gv_snap_flags & BV_SNAP_TCL) {
-	if (v->gv_tcl) {
-	    int tret = 0;
-	    int lwidth;
-	    lwidth = (v->gv_tcl->gv_data_lines.gdls_line_width) ? v->gv_tcl->gv_data_lines.gdls_line_width : 1;
-	    cpinfo.c.ctol_sq = line_tol_sq(v, lwidth);
-	    tret += _find_closest_tcl_point(&cpinfo, p, &v->gv_tcl->gv_data_lines);
-	    lwidth = (v->gv_tcl->gv_sdata_lines.gdls_line_width) ? v->gv_tcl->gv_sdata_lines.gdls_line_width : 1;
-	    cpinfo.c.ctol_sq = line_tol_sq(v, lwidth);
-	    tret += _find_closest_tcl_point(&cpinfo, p, &v->gv_tcl->gv_sdata_lines);
-
-	    // Check if we are close enough to two line segments to warrant using the
-	    // closest approach point.  The intersection may not be close enough to
-	    // use, but if it is prefer it as it satisfies two lines instead of one.
-	    //
-	    // TODO - as implemented this will only prefer the intersection between
-	    // two Tcl lines, rather than all lines...
-	    if (tret > 1) {
-		_find_close_isect_tcl(&cpinfo, p);
-	    }
-	    ret += tret;
-	}
+    //
+    // Phase T-final (drawing_stack_modernization): the legacy gv_tcl
+    // data_lines / sdata_lines snap branch was removed.  After T1, the Tcl
+    // data_lines state is mirrored into BSG view-scope objects
+    // (`_tcl_data_lines`, `_tcl_sdata_lines`), which the BV_SNAP_VIEW
+    // branch above already snaps against via bv_view_obj_visit.  The
+    // BV_SNAP_TCL flag is now equivalent to BV_SNAP_VIEW and is retained
+    // only for caller backward-compatibility.
+    if (gv_s->gv_snap_flags == BV_SNAP_TCL) {
+	int scope_mask = BV_VIEW_OBJ_SCOPE_ALL;
+	struct _bv_snap_db_ctx snap_ctx;
+	snap_ctx.s = &cpinfo;
+	snap_ctx.p = p;
+	snap_ctx.ret = &ret;
+	bv_view_obj_visit(v, scope_mask, _bv_snap_view_obj_cb, &snap_ctx);
     }
 
     // If we found something, we can snap
     if (ret) {
-	VMOVE(*out_pt, cpinfo.c.cp);
+	VMOVE(*out_pt, cpinfo.cp);
 	return 1;
     }
 

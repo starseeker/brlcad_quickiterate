@@ -405,6 +405,171 @@ The three remaining items from the problem statement are now DONE (2026-05-08):
   the now-deleted private `_sync_tcl_labels_to_bsg()`.
   `dm_draw_labels` comment updated to reference the new public API.
 
+
+Phase T-final — make BSG the source of truth and eliminate gv_tcl
+-----------------------------------------------------------------
+Status: PARTIAL (2026-05-08). What this session settled, what is still
+pending, and the order in which a follow-up should attack it.
+
+Audit summary
+^^^^^^^^^^^^^
+Coming into this session, BSG already owned every renderable adornment
+(arrows, axes, labels, lines, polygons) via the per-state sync helpers
+(`_sync_tcl_arrows_to_bsg`, `_sync_tcl_axes_to_bsg`,
+`bv_view_obj_labels_sync`, `_sync_dlines_to_bsg`, plus the polygon
+flow).  The remaining gv_tcl footprint fell into three groups:
+
+  1. Dead direct-render libdm entry points that pre-dated the BSG
+     contract (`dm_draw_data_axes` slot, `dm_draw_labels` deprecated
+     stub, `gl_draw_data_axes` per-backend impls and the matching
+     calltable slot, `dm_obj.c` standalone path, `init_dm_obj` Tcl
+     proc).  These exist for legacy ABI reasons only and have zero
+     in-tree callers.
+
+  2. libbv readers that hashed / diffed the gv_tcl per-state shapes
+     directly (`hash.c`, `diff.c`, `snap.c`).  These ran in parallel
+     with the BSG view-scope walks the same files already perform and
+     produced double-counted change signals.
+
+  3. libged consumers that still poked `gv_tcl` directly even outside
+     the libtclcad command surface — `bot/dump/obj.c::obj_write_data`
+     (OBJ adornment bake-out) and `view/view.c::_view_cmd_data_vZ`
+     (Tcl editing-mode scratch storage).  Both predate the BSG cutover
+     and partially shadow Tcl-side commands that already do the right
+     thing.
+
+Done in this session
+^^^^^^^^^^^^^^^^^^^^
+
+A. libdm cleanup (the user explicitly waived libdm ABI compat).
+   - Removed the `dm_draw_data_axes` slot from `dm_impl_t::dm_backend_ops`
+     in `src/libdm/include/calltable.h` and the matching initializer
+     entries in every backend (glx/dm-ogl.c, wgl/dm-wgl.c, X/dm-X.c,
+     txt/dm-txt.c, null/dm-Null.c, postscript/dm-ps.c, plot/dm-plot.c,
+     swrast/dm-swrast.cpp, qtgl/dm-qtgl.cpp).
+   - Removed the `dm_draw_data_axes` public wrapper from
+     `include/dm.h` and `src/libdm/axes.c`.
+   - Removed `gl_draw_data_axes` from `src/libdm/dm-gl.c` /
+     `src/libdm/dm-gl.h` (the GL family's per-backend implementation
+     that the now-deleted slot used to dispatch into).
+   - Removed the `dm_draw_labels` public stub in `src/libdm/view.c`
+     (the deprecated direct-render label path the BSG label-sync API
+     replaced).
+   - Removed the `dm_obj.c FB_USE_INTERNAL_API` line in
+     `src/libdm/CMakeLists.txt` (the standalone dm_obj source file is
+     gone after Phase T3).
+   - Replaced the `init_dm_obj` Tcl proc in
+     `src/tclscripts/libtclcad.tcl` with an explanatory empty stub
+     (no callers; preserved as a stub because the file is referenced
+     by the libtclcad CMake script).
+
+B. libbv: drop gv_tcl-direct readers; BSG view-scope walk now stands
+   alone as the source of truth for renderable adornment state.
+   - `hash.c::bv_view_hash`: removed the gv_tcl per-state hash block
+     (arrows / axes / labels / lines / polygons + sdata twins +
+     prim_labels).  Their hashed content is already covered by the
+     BSG view-scope visit later in the same function.  Removed the
+     now-unused `_bv_data_arrow_state_hash`, `_bv_data_axes_state_hash`,
+     `_bv_data_label_state_hash`, `_bv_data_line_state_hash`,
+     `_bg_poly_contour_hash`, `_bg_polygon_hash`, `_bg_polygons_hash`,
+     `_bv_data_polygon_state_hash` helpers (kept `_bv_other_state_hash`
+     since it is still used for the non-Tcl gv_center_dot /
+     gv_view_scale states).
+   - `diff.c::bv_differ`: removed the parallel gv_tcl per-state diff
+     block and the eight matching helpers.
+   - `snap.c::bv_snap_lines_3d`: removed the gv_tcl-only branch and
+     the bv_cp_info_tcl wrapper / `_find_closest_tcl_point` /
+     `_find_close_isect_tcl` / `_find_close_isect` helpers.  The
+     `BV_SNAP_TCL` flag now resolves to a BSG view-scope visit (the
+     `_tcl_data_lines` / `_tcl_sdata_lines` BSG objects are picked up
+     by the same `_bv_snap_view_obj_cb` pass that already serves
+     BV_SNAP_VIEW).  Behaviour is preserved because vlist-based snap
+     distance is computed identically via `_find_closest_obj_point`.
+
+C. libged: no more direct gv_tcl access from non-Tcl libged code.
+   - `bot/dump/obj.c::obj_write_data`: replaced the gv_tcl-coupled
+     OBJ adornment exporter with a no-op stub.  The legacy bake-out
+     was a Tcl-only feature that produced nothing for Qt callers
+     anyway.  A future replacement could iterate `_tcl_data_*` BSG
+     vlists if the bake-out is ever reinstated.  The four `static`
+     helpers (`write_data_arrows`, `write_data_axes`,
+     `write_data_lines`, plus `obj_get_material` callsite) were
+     removed.
+   - `view/view.c::_view_cmd_data_vZ`: removed the get/set scratch
+     path that read/wrote `gv_tcl->gv_data_vZ` in libged.  The
+     command's `-N` / `-F` BSG-canonical calc path remains (this is
+     what the deprecation message at the top of the command already
+     directs callers towards).  The Tcl-mode scratch scalar continues
+     to be settable via the existing `data_vZ` command in
+     `libtclcad/commands.c`, which is the correct home for editing-
+     mode scratch state.
+
+After (B) and (C), libged and libbv have zero direct `gv_tcl` reads
+or writes.  Every remaining `gv_tcl` reference is in libtclcad, where
+it represents true Tcl editing-mode state (mouse drag scratch,
+polygon Z-plane, etc.).
+
+Pending in a follow-up session (with the order to tackle them)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+1. Migrate `data_lines` writes off `gv_tcl`.
+   `src/libged/view/data_lines.c` is the libged "data_lines" command
+   surface.  Today its mutators write `gv_tcl->gv_data_lines` /
+   `gv_sdata_lines` and rely on `_sync_dlines_to_bsg` to push state
+   into the BSG `_tcl_data_lines` mirror.  To make BSG the canonical
+   producer:
+     a. Move the read/write code path to operate directly on the
+        BSG view-scope line object's vlist via
+        `bv_view_obj_overlay_create` and the new line-scope setters
+        (the helpers used by `_sync_dlines_to_bsg` already exist).
+     b. Drop the `_sync_dlines_to_bsg` helper once BSG is written
+        first.
+     c. Keep a thin compatibility shim in libtclcad that mirrors the
+        BSG state back into `gv_tcl->gv_data_lines` for any remaining
+        Tcl readers (mouse.c uses `gv_data_lines` as a coordinate
+        source during interactive line drawing).
+   Estimated scope: ~200 LoC including the new BSG-first writer and
+   the libtclcad mirror layer.
+
+2. Decide where data_vZ lives long-term.
+   `gv_tcl->gv_data_vZ` is a Tcl-mode editing-Z-plane scalar consumed
+   by libtclcad mouse.c, polygons.c, and the libtclcad "data_vZ"
+   command in commands.c.  The cleanest endgame is to move the field
+   into a new `bv_editing_state` struct attached to the view (or onto
+   `bview` directly), so libtclcad becomes a consumer of a BV-owned
+   value rather than the owner.  That refactor is small (one struct
+   move + ~6 callsite renames in libtclcad) but it churns the public
+   `bv_data_tclcad` ABI.  Defer until the next ABI break.
+
+3. Do the same for `gv_data_arrows` / `gv_data_axes` / `gv_data_labels`
+   / `gv_data_polygons` and their sdata twins inside `bv_data_tclcad`.
+   These are Tcl-only state structs (libtclcad/commands.c is the
+   single writer).  After step 1, they become the only `gv_tcl`
+   members that still represent renderable state.  Two options:
+     a. Keep them in libtclcad but rename to make their ownership
+        explicit (`tclcad_view_data::data_lines` etc.); BSG remains
+        the rendered cache.
+     b. Eliminate the gv_tcl mirror entirely: make libtclcad's
+        commands write BSG view-scope objects directly, and recover
+        the values for "view get" Tcl introspection by reading the
+        BSG side.
+   Option (b) is the user's "properly eliminate gv_tcl" target.
+   Estimated scope: ~600 LoC across libtclcad (commands.c + view/*).
+
+4. Sweep stale comments.
+   `include/bv/tcl_data.h` still talks about `dm_draw_arrows` /
+   `dm_draw_data_axes` / `dm_draw_lines` / `dm_draw_polys` as the
+   render path.  Update to describe the BSG canonical path and the
+   sync-helper names.  `src/libbsg/scene_graph.cpp` and `bsg/util.h`
+   contain pre-Phase-D ptbl-cache references that should be retired.
+
+5. Reach production-ready state.
+   After (1)–(4), the only gv_tcl-resident state is genuine Tcl
+   editing scratch (mouse_pos, prev_point, etc.).  At that point the
+   canonical drawing pipeline is BSG-only end-to-end and the `gv_tcl`
+   pointer is purely an ergonomic handle for libtclcad — the user's
+   "production ready state" goal.
+
 No further structural modernization work is expected at this time.
 
 
