@@ -36,7 +36,13 @@
 
 /* Phase T1 (drawing_stack_modernization): keep a BSG VIEW_SCOPE object in sync
  * with the gv_tcl data-arrows state so the modern BSG renderer picks up arrows
- * without the legacy dm_draw_arrows path. */
+ * without the legacy dm_draw_arrows path.
+ *
+ * Phase T3 (drawing_stack_modernization): the "view get" introspection path
+ * (getters in to_data_arrows_func) now recovers values by reading the BSG
+ * object fields rather than gv_tcl directly, making BSG the canonical read
+ * source for Tcl introspection.  The gv_tcl mirror is still written for
+ * backward compatibility with callers like commands.c to_data_pick_func. */
 static void
 _sync_tcl_arrows_to_bsg(struct bview *v, struct bv_data_arrow_state *gdasp, const char *bsg_name)
 {
@@ -161,7 +167,9 @@ to_data_arrows_func(Tcl_Interp *interp,
 
     if (BU_STR_EQUAL(argv[1], "draw")) {
 	if (argc == 2) {
-	    bu_vls_printf(gedp->ged_result_str, "%d", gdasp->gdas_draw);
+	    /* T3: read draw state from BSG (object presence encodes draw=1). */
+	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    bu_vls_printf(gedp->ged_result_str, "%d", _s ? 1 : 0);
 	    return BRLCAD_OK;
 	}
 
@@ -186,8 +194,13 @@ to_data_arrows_func(Tcl_Interp *interp,
 
     if (BU_STR_EQUAL(argv[1], "color")) {
 	if (argc == 2) {
-	    bu_vls_printf(gedp->ged_result_str, "%d %d %d",
-			  V3ARGS(gdasp->gdas_color));
+	    /* T3: read color from BSG object. */
+	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    if (_s)
+		bu_vls_printf(gedp->ged_result_str, "%d %d %d",
+			      (int)_s->s_color[0], (int)_s->s_color[1], (int)_s->s_color[2]);
+	    else
+		bu_vls_printf(gedp->ged_result_str, "0 0 0");
 	    return BRLCAD_OK;
 	}
 
@@ -218,7 +231,12 @@ to_data_arrows_func(Tcl_Interp *interp,
 
     if (BU_STR_EQUAL(argv[1], "line_width")) {
 	if (argc == 2) {
-	    bu_vls_printf(gedp->ged_result_str, "%d", gdasp->gdas_line_width);
+	    /* T3: read line_width from BSG object settings. */
+	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    if (_s && _s->s_os)
+		bu_vls_printf(gedp->ged_result_str, "%d", _s->s_os->s_line_width);
+	    else
+		bu_vls_printf(gedp->ged_result_str, "0");
 	    return BRLCAD_OK;
 	}
 
@@ -242,9 +260,17 @@ to_data_arrows_func(Tcl_Interp *interp,
 	register int i;
 
 	if (argc == 2) {
-	    for (i = 0; i < gdasp->gdas_num_points; ++i) {
-		bu_vls_printf(gedp->ged_result_str, " {%lf %lf %lf} ",
-			      V3ARGS(gdasp->gdas_points[i]));
+	    /* T3: read points from BSG vlist. */
+	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    if (_s) {
+		struct bv_vlist *_vp;
+		size_t _j;
+		for (BU_LIST_FOR(_vp, bv_vlist, &_s->s_vlist)) {
+		    for (_j = 0; _j < (size_t)_vp->nused; _j++) {
+			bu_vls_printf(gedp->ged_result_str, " {%lf %lf %lf} ",
+				      V3ARGS(_vp->pt[_j]));
+		    }
+		}
 	    }
 	    return BRLCAD_OK;
 	}
@@ -305,7 +331,12 @@ to_data_arrows_func(Tcl_Interp *interp,
 
     if (BU_STR_EQUAL(argv[1], "tip_length")) {
 	if (argc == 2) {
-	    bu_vls_printf(gedp->ged_result_str, "%d", gdasp->gdas_tip_length);
+	    /* T3: read tip_length from BSG object settings. */
+	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    if (_s && _s->s_os)
+		bu_vls_printf(gedp->ged_result_str, "%d", (int)_s->s_os->s_arrow_tip_length);
+	    else
+		bu_vls_printf(gedp->ged_result_str, "0");
 	    return BRLCAD_OK;
 	}
 
@@ -327,7 +358,12 @@ to_data_arrows_func(Tcl_Interp *interp,
 
     if (BU_STR_EQUAL(argv[1], "tip_width")) {
 	if (argc == 2) {
-	    bu_vls_printf(gedp->ged_result_str, "%d", gdasp->gdas_tip_width);
+	    /* T3: read tip_width from BSG object settings. */
+	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    if (_s && _s->s_os)
+		bu_vls_printf(gedp->ged_result_str, "%d", (int)_s->s_os->s_arrow_tip_width);
+	    else
+		bu_vls_printf(gedp->ged_result_str, "0");
 	    return BRLCAD_OK;
 	}
 

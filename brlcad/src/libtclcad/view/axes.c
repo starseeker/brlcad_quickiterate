@@ -40,12 +40,12 @@
  * with the gv_tcl data-axes state so the modern BSG renderer draws data axes
  * without the legacy dm_draw_data_axes path.
  *
- * Note: bv_data_axes_state.size is in "view coordinates" — it is scaled by
- * sf = gv_size / dm_width at draw time in the legacy path.  We replicate that
- * scaling at sync time using the current view dimensions so the vlist geometry
- * approximates the correct model-space size.  The BSG object will be rebuilt
- * whenever any setter is called, so the size stays accurate for interactive
- * Tcl use. */
+ * Phase T3 (drawing_stack_modernization): the draw, color and line_width
+ * getters in to_data_axes_func now recover values from the BSG object.
+ * The size and points getters continue to read from gv_tcl because recovering
+ * the original size scalar from the pre-scaled vlist geometry is view-dependent
+ * and the center-point array requires decoding the 6-entries-per-axis vlist
+ * format; both are deferred to a future ABI-break cycle. */
 #define BVDAS_DEFAULT_DM_WIDTH 512  /* fallback pixel width when no DM is attached */
 static void
 _sync_tcl_axes_to_bsg(struct bview *v, struct bv_data_axes_state *gdasp, const char *bsg_name)
@@ -604,7 +604,12 @@ to_data_axes_func(Tcl_Interp *interp,
 
     if (BU_STR_EQUAL(argv[1], "draw")) {
 	if (argc == 2) {
-	    bu_vls_printf(gedp->ged_result_str, "%d", gdasp->draw);
+	    /* T3: recover draw state from BSG (object presence encodes draw>0).
+	     * Note: gv_tcl stores draw as 0/1/2 (ticked mode); BSG only encodes
+	     * present/absent.  For the common 0-vs-nonzero check this is correct;
+	     * the gv_tcl mirror preserves the exact value for ticked-mode callers. */
+	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    bu_vls_printf(gedp->ged_result_str, "%d", _s ? gdasp->draw : 0);
 	    return BRLCAD_OK;
 	}
 
@@ -629,8 +634,13 @@ to_data_axes_func(Tcl_Interp *interp,
 
     if (BU_STR_EQUAL(argv[1], "color")) {
 	if (argc == 2) {
-	    bu_vls_printf(gedp->ged_result_str, "%d %d %d",
-			  V3ARGS(gdasp->color));
+	    /* T3: read color from BSG object. */
+	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    if (_s)
+		bu_vls_printf(gedp->ged_result_str, "%d %d %d",
+			      (int)_s->s_color[0], (int)_s->s_color[1], (int)_s->s_color[2]);
+	    else
+		bu_vls_printf(gedp->ged_result_str, "0 0 0");
 	    return BRLCAD_OK;
 	}
 
@@ -661,7 +671,12 @@ to_data_axes_func(Tcl_Interp *interp,
 
     if (BU_STR_EQUAL(argv[1], "line_width")) {
 	if (argc == 2) {
-	    bu_vls_printf(gedp->ged_result_str, "%d", gdasp->line_width);
+	    /* T3: read line_width from BSG object settings. */
+	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    if (_s && _s->s_os)
+		bu_vls_printf(gedp->ged_result_str, "%d", _s->s_os->s_line_width);
+	    else
+		bu_vls_printf(gedp->ged_result_str, "0");
 	    return BRLCAD_OK;
 	}
 
