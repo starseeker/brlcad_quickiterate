@@ -144,181 +144,13 @@ _bv_axes_differ(struct bv_axes *v1, struct bv_axes *v2)
     return 0;
 }
 
-static int
-_bv_data_arrow_state_differ(struct bv_data_arrow_state *v1, struct bv_data_arrow_state *v2)
-{
-    /* First, do sanity checks */
-    if (!v1 && !v2)
-	return -1;
-    if ((v1 && !v2) || (!v1 && v2))
-	return -1;
-
-    BV_NDIFF(1,gdas_draw);
-    BV_IVDIFF(1,gdas_color);
-    BV_NDIFF(1,gdas_line_width);
-    BV_NDIFF(1,gdas_tip_length);
-    BV_NDIFF(1,gdas_tip_width);
-    BV_NDIFF(1,gdas_num_points);
-    // If we have the same number of points, check them
-    for (int i = 0; i < v1->gdas_num_points; i++) {
-	BV_VDIFF(1,gdas_points[i]);
-    }
-    return 0;
-}
-
-static int
-_bv_data_axes_state_differ(struct bv_data_axes_state *v1, struct bv_data_axes_state *v2)
-{
-    /* First, do sanity checks */
-    if (!v1 && !v2)
-	return -1;
-    if ((v1 && !v2) || (!v1 && v2))
-	return -1;
-
-    BV_NDIFF(1,draw);
-    BV_IVDIFF(1,color);
-    BV_NDIFF(1,line_width);
-    BV_NDIFF(1,size);
-    BV_NDIFF(1,num_points);
-    // If we have the same number of points, check them
-    for (int i = 0; i < v1->num_points; i++) {
-	BV_VDIFF(1,points[i]);
-    }
-    return 0;
-}
-
-static int
-_bv_data_label_state_differ(struct bv_data_label_state *v1, struct bv_data_label_state *v2)
-{
-    /* First, do sanity checks */
-    if (!v1 && !v2)
-	return -1;
-    if ((v1 && !v2) || (!v1 && v2))
-	return -1;
-
-    BV_NDIFF(1,gdls_draw);
-    BV_IVDIFF(1,gdls_color);
-    BV_NDIFF(1,gdls_num_labels);
-    // If we have the same number of labels, check them
-    for (int i = 0; i < v1->gdls_num_labels; i++) {
-	BV_SDIFF(1,gdls_labels[i]);
-    }
-    BV_NDIFF(1,gdls_size);
-    // If we have the same number of points, check them
-    for (int i = 0; i < v1->gdls_size; i++) {
-	BV_VDIFF(1,gdls_points[i]);
-    }
-    return 0;
-}
-
-
-static int
-_bv_data_line_state_differ(struct bv_data_line_state *v1, struct bv_data_line_state *v2)
-{
-    /* First, do sanity checks */
-    if (!v1 && !v2)
-	return -1;
-    if ((v1 && !v2) || (!v1 && v2))
-	return -1;
-
-    BV_NDIFF(1,gdls_draw);
-    BV_IVDIFF(1,gdls_color);
-    BV_NDIFF(1,gdls_line_width);
-    BV_NDIFF(1,gdls_num_points);
-    // If we have the same number of points, check them
-    for (int i = 0; i < v1->gdls_num_points; i++) {
-	BV_VDIFF(1,gdls_points[i]);
-    }
-    return 0;
-}
-
-static int
-_bg_poly_contour_differ(struct bg_poly_contour *v1, struct bg_poly_contour *v2)
-{
-/* First, do sanity checks */
-    if (!v1 && !v2)
-	return -1;
-    if ((v1 && !v2) || (!v1 && v2))
-	return -1;
-
-    BV_NDIFF(1,num_points);
-    for (size_t i = 0; i < v1->num_points; i++) {
-	BV_VDIFF(1,point[i]);
-    }
-
-    return 0;
-}
-
-static int
-_bg_polygon_differ(struct bg_polygon *v1, struct bg_polygon *v2)
-{
-/* First, do sanity checks */
-    if (!v1 && !v2)
-	return -1;
-    if ((v1 && !v2) || (!v1 && v2))
-	return -1;
-
-    BV_NDIFF(1,num_contours);
-    BV_IVDIFF(1,gp_color);
-    BV_NDIFF(1,gp_line_width);
-    BV_NDIFF(1,gp_line_style);
-    for (size_t i = 0; i < v1->num_contours; i++) {
-	BV_CDIFF(1, _bg_poly_contour_differ, contour[i]);
-    }
-    if (v1->hole && v2->hole) {
-	for (size_t i = 0; i < v1->num_contours; i++) {
-	    BV_NDIFF(1,hole[i]);
-	}
-    }
-    return 0;
-}
-
-static int
-_bg_polygons_differ(struct bg_polygons *v1, struct bg_polygons *v2)
-{
-/* First, do sanity checks */
-    if (!v1 && !v2)
-	return -1;
-    if ((v1 && !v2) || (!v1 && v2))
-	return -1;
-
-    BV_NDIFF(1,num_polygons);
-    for (size_t i = 0; i < v1->num_polygons; i++) {
-	BV_CDIFF(1, _bg_polygon_differ, polygon[i]);
-    }
-    return 0;
-}
-
-static int
-_bv_data_polygon_state_differ(bv_data_polygon_state *v1, bv_data_polygon_state *v2)
-{
-    /* First, do sanity checks */
-    if (!v1 && !v2)
-	return -1;
-    if ((v1 && !v2) || (!v1 && v2))
-	return -1;
-
-    BV_NDIFF(1,gdps_draw);
-    BV_NDIFF(1,gdps_moveAll);
-    BV_IVDIFF(1,gdps_color);
-    BV_NDIFF(1,gdps_line_width);
-    BV_NDIFF(1,gdps_line_style);
-    BV_NDIFF(1,gdps_cflag);
-    BV_NDIFF(1,gdps_target_polygon_i);
-    BV_NDIFF(1,gdps_curr_polygon_i);
-    BV_NDIFF(1,gdps_curr_point_i);
-    BV_VDIFF(1,gdps_prev_point);
-    BV_DIFF(1,gdps_clip_type);
-    BV_NDIFF(1,gdps_scale);
-    BV_VDIFF(1,gdps_origin);
-    BV_MDIFF(1,gdps_rotation);
-    BV_MDIFF(1,gdps_view2model);
-    BV_MDIFF(1,gdps_model2view);
-    BV_NDIFF(1,gdps_data_vZ);
-    BV_CDIFF(1, _bg_polygons_differ, gdps_polygons);
-
-    return 0;
-}
+/* Phase T-final (drawing_stack_modernization): legacy gv_tcl per-state
+ * differ helpers (_bv_data_arrow_state_differ, _bv_data_axes_state_differ,
+ * _bv_data_label_state_differ, _bv_data_line_state_differ,
+ * _bg_poly_contour_differ, _bg_polygon_differ, _bg_polygons_differ,
+ * _bv_data_polygon_state_differ) were removed; the equivalent renderable
+ * state now lives in BSG view-scope objects whose s_changed flag drives
+ * view diffs without needing the legacy bv_data_* compares. */
 
 static int
 _bv_grid_state_differ(struct bv_grid_state *v1, struct bv_grid_state *v2)
@@ -477,25 +309,12 @@ bv_differ(struct bview *v1, struct bview *v2)
     BV_NDIFF(1,gv_rscale);
     BV_NDIFF(1,gv_sscale);
 
-    /* Phase T3 (drawing_stack_modernization): gv_tcl is now a pointer.
-     * Skip Tcl-specific diff when either view has no Tcl data. */
-    if (v1->gv_tcl && v2->gv_tcl) {
-	if (!NEAR_EQUAL((double)v1->gv_tcl->gv_data_vZ, (double)v2->gv_tcl->gv_data_vZ, VDIVIDE_TOL))
-	    return 1;
-	if (_bv_data_arrow_state_differ(&v1->gv_tcl->gv_data_arrows, &v2->gv_tcl->gv_data_arrows)) return 1;
-	if (_bv_data_axes_state_differ(&v1->gv_tcl->gv_data_axes, &v2->gv_tcl->gv_data_axes)) return 1;
-	if (_bv_data_label_state_differ(&v1->gv_tcl->gv_data_labels, &v2->gv_tcl->gv_data_labels)) return 1;
-	if (_bv_data_line_state_differ(&v1->gv_tcl->gv_data_lines, &v2->gv_tcl->gv_data_lines)) return 1;
-	if (_bv_data_polygon_state_differ(&v1->gv_tcl->gv_data_polygons, &v2->gv_tcl->gv_data_polygons)) return 1;
-	if (_bv_data_arrow_state_differ(&v1->gv_tcl->gv_sdata_arrows, &v2->gv_tcl->gv_sdata_arrows)) return 1;
-	if (_bv_data_axes_state_differ(&v1->gv_tcl->gv_sdata_axes, &v2->gv_tcl->gv_sdata_axes)) return 1;
-	if (_bv_data_label_state_differ(&v1->gv_tcl->gv_sdata_labels, &v2->gv_tcl->gv_sdata_labels)) return 1;
-	if (_bv_data_line_state_differ(&v1->gv_tcl->gv_sdata_lines, &v2->gv_tcl->gv_sdata_lines)) return 1;
-	if (_bv_data_polygon_state_differ(&v1->gv_tcl->gv_sdata_polygons, &v2->gv_tcl->gv_sdata_polygons)) return 1;
-	if (_bv_other_state_differ(&v1->gv_tcl->gv_prim_labels, &v2->gv_tcl->gv_prim_labels)) return 1;
-    } else if (v1->gv_tcl != v2->gv_tcl) {
-	return 1;
-    }
+    /* Phase T-final (drawing_stack_modernization): the gv_tcl per-state
+     * compare block was removed.  After T1, every renderable adornment
+     * mirrors into BSG VIEW_SCOPE objects whose s_changed flag drives
+     * downstream redraws.  The gv_data_vZ scalar is internal scratch for
+     * the libged "view vZ" command; it does not affect rendering and
+     * therefore intentionally does not contribute to bv_differ(). */
 
     if (v1->gv_s != v2->gv_s) {
 	return 1;

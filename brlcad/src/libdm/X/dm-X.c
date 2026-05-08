@@ -2183,7 +2183,6 @@ struct dm_impl dm_X_impl = {
     X_drawVList,
     X_drawVList,
     X_draw_obj,
-    NULL,
     X_draw,
     X_setFGColor,
     X_setBGColor,

@@ -889,7 +889,6 @@ struct dm_impl dm_wgl_impl = {
     gl_drawVList,
     gl_drawVListHiddenLine,
     null_draw_obj,
-    gl_draw_data_axes,
     gl_draw,
     gl_setFGColor,
     gl_setBGColor,

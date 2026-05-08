@@ -862,7 +862,6 @@ struct dm_impl dm_ps_impl = {
     ps_drawVList,
     ps_drawVList,
     null_draw_obj,
-    NULL,
     ps_draw,
     ps_setFGColor,
     ps_setBGColor,

@@ -491,7 +491,6 @@ struct dm_impl dm_txt_impl = {
     txt_drawVList,
     txt_drawVListHiddenLine,
     txt_draw_obj,
-    NULL,
     txt_draw,
     txt_setFGColor,
     txt_setBGColor,
