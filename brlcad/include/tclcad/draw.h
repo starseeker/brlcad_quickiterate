@@ -34,6 +34,7 @@
 #include "dm.h"
 #include "ged.h"
 #include "tclcad/defines.h"
+#include "bv/tcl_data.h"
 
 __BEGIN_DECLS
 
@@ -46,6 +47,12 @@ struct tclcad_view_data {
     struct bu_vls	gdv_callback;
     int			gdv_callback_cnt;
     struct fbserv_obj	gdv_fbs;
+    /* Phase T3 (drawing_stack_modernization): Tcl-specific adornment state
+     * that was previously embedded directly in bview::gv_tcl.  Ownership
+     * moves here so that non-Tcl views keep bview clean.  The pointer
+     * bview::gv_tcl is set to &tcl_data by to_new_view and cleared when the
+     * view is freed. */
+    struct bv_data_tclcad tcl_data;
 };
 
 TCLCAD_EXPORT extern void go_refresh(struct ged *gedp,

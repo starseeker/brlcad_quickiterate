@@ -381,10 +381,31 @@ Suggested next-session order
 ----------------------------
 All five items from the previous session plan are DONE (2026-05-08).
 
-Remaining work:
-- Remove `bv_data_tclcad` / `gv_tcl.*` state from `bview` (medium complexity).
-- Remove `dm_obj` standalone path in `src/libtclcad/dm.c`.
-- Port `dm_draw_labels` to a BSG label-scope API (currently retained for ABI).
+The three remaining items from the problem statement are now DONE (2026-05-08):
+
+- Remove `bv_data_tclcad` / `gv_tcl.*` state from `bview` (DONE).
+  `bview::gv_tcl` is now a pointer (NULL for non-Tcl views).
+  Ownership moved to `tclcad_view_data::tcl_data`.
+  Public API: `bv_data_tclcad_init()` in `bv/util.h`.
+  libbv (hash, diff, snap) guards `if (v->gv_tcl)` before accessing.
+  libtclcad (commands, mouse, polygons, view/*) uses `->` throughout.
+  libged (view/view.c, view/data_lines.c, bot/dump/obj.c) also guarded.
+
+- Remove `dm_obj` standalone path in `src/libtclcad/dm.c` (DONE).
+  The entire `struct dm_obj` system (≈2730 lines) has been deleted.
+  `Dmo_Init` declaration removed from `tclcad_private.h`.
+  `Dm_Init` no longer calls `Dmo_Init`.
+  `Dm.tcl::createDm` now raises an error pointing to the Qt path.
+  `helplib.tcl` dm_open entry removed.
+
+- Port `dm_draw_labels` to BSG label-scope API (DONE).
+  New public function `bv_view_obj_labels_sync(v, gdlsp, bsg_name)` in
+  `libbv/util.cpp`, declared in `bv/util.h`.
+  `libtclcad/view/labels.c` calls `bv_view_obj_labels_sync()` instead of
+  the now-deleted private `_sync_tcl_labels_to_bsg()`.
+  `dm_draw_labels` comment updated to reference the new public API.
+
+No further structural modernization work is expected at this time.
 
 
 Do not reopen

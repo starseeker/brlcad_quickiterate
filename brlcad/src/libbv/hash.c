@@ -299,17 +299,19 @@ bv_hash(struct bview *v)
 	bv_settings_hash(state, v->gv_s);
     bv_settings_hash(state, &v->gv_ls);
 
-    _bv_data_arrow_state_hash(state, &v->gv_tcl.gv_data_arrows);
-    _bv_data_axes_state_hash(state, &v->gv_tcl.gv_data_axes);
-    _bv_data_label_state_hash(state, &v->gv_tcl.gv_data_labels);
-    _bv_data_line_state_hash(state, &v->gv_tcl.gv_data_lines);
-    _bv_data_polygon_state_hash(state, &v->gv_tcl.gv_data_polygons);
-    _bv_data_arrow_state_hash(state, &v->gv_tcl.gv_sdata_arrows);
-    _bv_data_axes_state_hash(state, &v->gv_tcl.gv_sdata_axes);
-    _bv_data_label_state_hash(state, &v->gv_tcl.gv_sdata_labels);
-    _bv_data_line_state_hash(state, &v->gv_tcl.gv_sdata_lines);
-    _bv_data_polygon_state_hash(state, &v->gv_tcl.gv_sdata_polygons);
-    _bv_other_state_hash(state, &v->gv_tcl.gv_prim_labels);
+    if (v->gv_tcl) {
+	_bv_data_arrow_state_hash(state, &v->gv_tcl->gv_data_arrows);
+	_bv_data_axes_state_hash(state, &v->gv_tcl->gv_data_axes);
+	_bv_data_label_state_hash(state, &v->gv_tcl->gv_data_labels);
+	_bv_data_line_state_hash(state, &v->gv_tcl->gv_data_lines);
+	_bv_data_polygon_state_hash(state, &v->gv_tcl->gv_data_polygons);
+	_bv_data_arrow_state_hash(state, &v->gv_tcl->gv_sdata_arrows);
+	_bv_data_axes_state_hash(state, &v->gv_tcl->gv_sdata_axes);
+	_bv_data_label_state_hash(state, &v->gv_tcl->gv_sdata_labels);
+	_bv_data_line_state_hash(state, &v->gv_tcl->gv_sdata_lines);
+	_bv_data_polygon_state_hash(state, &v->gv_tcl->gv_sdata_polygons);
+	_bv_other_state_hash(state, &v->gv_tcl->gv_prim_labels);
+    }
 
     /* Phase A0 (drawing_stack_modernization): use bv_view_obj_visit so we
      * walk the BSG view-scope subtree directly rather than the legacy

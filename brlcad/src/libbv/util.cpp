@@ -177,8 +177,8 @@ bv_view_independent_scope_destroy(struct bview *v)
     _bv_scope_free_recursive(scope);
 }
 
-static void
-_data_tclcad_init(struct bv_data_tclcad *d)
+void
+bv_data_tclcad_init(struct bv_data_tclcad *d)
 {
     d->gv_polygon_mode = 0;
     d->gv_hide = 0;
@@ -405,10 +405,6 @@ bv_init(struct bview *gvp, struct bview_set *s)
     /* FIXME: this causes the shaders.sh regression to fail */
     /* bv_mat_aet(gvp); */
 
-    gvp->gv_tcl.gv_prim_labels.gos_draw = 0;
-    gvp->gv_tcl.gv_prim_labels.gos_font_size = DM_DEFAULT_FONT_SIZE;
-    VSET(gvp->gv_tcl.gv_prim_labels.gos_text_color, 255, 255, 0);
-
 
     // gv_objs.db_objs is local to this view and thus is controlled
     // by the bv init and free routines.
@@ -450,9 +446,11 @@ bv_init(struct bview *gvp, struct bview_set *s)
     // Initialize trackball pos
     MAT_DELTAS_GET_NEG(gvp->orig_pos, gvp->gv_center);
 
-    // Initialize tclcad specific data (primarily doing this so hashing calculations
-    // can succeed)
-    _data_tclcad_init(&gvp->gv_tcl);
+    // Phase T3 (drawing_stack_modernization): gv_tcl is no longer embedded;
+    // ownership has moved to libtclcad's tclcad_view_data.  For non-Tcl views
+    // the pointer stays NULL.  libtclcad sets gv_tcl = &tvd->tcl_data after
+    // calling bv_data_tclcad_init().
+    gvp->gv_tcl = NULL;
 
     // No BSG scene root until bsg_scene_root_create() is called
     gvp->bsg_root = NULL;
@@ -1691,6 +1689,50 @@ bv_view_obj_polygon_create(struct bview *v, const char *name, int local)
     struct bv_view_obj_opts opts = BV_VIEW_OBJ_OPTS_INIT;
     opts.local = local;
     return bv_view_obj_create(v, name, BV_VIEWONLY, &opts);
+}
+
+void
+bv_view_obj_labels_sync(struct bview *v,
+                        struct bv_data_label_state *gdlsp,
+                        const char *bsg_name)
+{
+    /* Phase T3 (drawing_stack_modernization): BSG-backed label-scope sync.
+     * This is the replacement for the deprecated dm_draw_labels() path.
+     * Remove any previous BSG object for this slot, then rebuild from the
+     * supplied gdlsp if drawing is enabled and there are labels to show. */
+    if (!v || !gdlsp || !bsg_name)
+	return;
+
+    bv_view_obj_remove(v, bsg_name);
+
+    if (!gdlsp->gdls_draw || gdlsp->gdls_num_labels < 1)
+	return;
+
+    /* Create a container object (no geometry of its own) to hold per-label
+     * BV_LABELS child objects, so the whole group is removed as one unit. */
+    struct bv_scene_obj *parent = bv_view_obj_lines_create(v, bsg_name, 1 /* local */);
+    if (!parent)
+	return;
+
+    for (int i = 0; i < gdlsp->gdls_num_labels; ++i) {
+	struct bv_scene_obj *child = bv_obj_get_child(parent);
+	if (!child)
+	    continue;
+
+	child->s_type_flags |= BV_LABELS;
+	VSET(child->s_color, gdlsp->gdls_color[0], gdlsp->gdls_color[1], gdlsp->gdls_color[2]);
+	child->s_flag = UP;
+
+	struct bv_label *l;
+	BU_GET(l, struct bv_label);
+	BU_VLS_INIT(&l->label);
+	bu_vls_sprintf(&l->label, "%s", gdlsp->gdls_labels[i]);
+	VMOVE(l->p, gdlsp->gdls_points[i]);
+	l->line_flag = 0;
+	l->anchor    = BV_ANCHOR_AUTO;
+	l->arrow     = 0;
+	child->s_i_data = (void *)l;
+    }
 }
 
 static int

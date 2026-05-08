@@ -322,10 +322,18 @@ ged_view_data_lines(struct ged *gedp, int argc, const char *argv[])
     }
 
     if (argv[0][0] == 's') {
-	vs.gdlsp = &gedp->ged_gvp->gv_tcl.gv_sdata_lines;
+	if (!gedp->ged_gvp->gv_tcl) {
+	    bu_vls_printf(gedp->ged_result_str, "view has no Tcl data");
+	    return BRLCAD_ERROR;
+	}
+	vs.gdlsp = &gedp->ged_gvp->gv_tcl->gv_sdata_lines;
 	vs.bsg_name = "_tcl_sdata_lines";
     } else {
-	vs.gdlsp = &gedp->ged_gvp->gv_tcl.gv_data_lines;
+	if (!gedp->ged_gvp->gv_tcl) {
+	    bu_vls_printf(gedp->ged_result_str, "view has no Tcl data");
+	    return BRLCAD_ERROR;
+	}
+	vs.gdlsp = &gedp->ged_gvp->gv_tcl->gv_data_lines;
 	vs.bsg_name = "_tcl_data_lines";
     }
 

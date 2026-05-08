@@ -597,9 +597,9 @@ to_data_axes_func(Tcl_Interp *interp,
     struct bv_data_axes_state *gdasp;
 
     if (argv[0][0] == 's')
-	gdasp = &gdvp->gv_tcl.gv_sdata_axes;
+	gdasp = &gdvp->gv_tcl->gv_sdata_axes;
     else
-	gdasp = &gdvp->gv_tcl.gv_data_axes;
+	gdasp = &gdvp->gv_tcl->gv_data_axes;
     const char *bsg_name = (argv[0][0] == 's') ? "_tcl_sdata_axes" : "_tcl_data_axes";
 
     if (BU_STR_EQUAL(argv[1], "draw")) {

@@ -421,14 +421,16 @@ write_data_lines(struct _ged_bot_dump_client_data *d, struct bv_data_line_state 
 void
 obj_write_data(struct _ged_bot_dump_client_data *d, struct ged *gedp, FILE *fp)
 {
-    write_data_arrows(d, &gedp->ged_gvp->gv_tcl.gv_data_arrows, fp, 0);
-    write_data_arrows(d, &gedp->ged_gvp->gv_tcl.gv_sdata_arrows, fp, 1);
+    if (!gedp->ged_gvp || !gedp->ged_gvp->gv_tcl)
+	return;
+    write_data_arrows(d, &gedp->ged_gvp->gv_tcl->gv_data_arrows, fp, 0);
+    write_data_arrows(d, &gedp->ged_gvp->gv_tcl->gv_sdata_arrows, fp, 1);
 
-    write_data_axes(d, &gedp->ged_gvp->gv_tcl.gv_data_axes, fp, 0);
-    write_data_axes(d, &gedp->ged_gvp->gv_tcl.gv_sdata_axes, fp, 1);
+    write_data_axes(d, &gedp->ged_gvp->gv_tcl->gv_data_axes, fp, 0);
+    write_data_axes(d, &gedp->ged_gvp->gv_tcl->gv_sdata_axes, fp, 1);
 
-    write_data_lines(d, &gedp->ged_gvp->gv_tcl.gv_data_lines, fp, 0);
-    write_data_lines(d, &gedp->ged_gvp->gv_tcl.gv_sdata_lines, fp, 1);
+    write_data_lines(d, &gedp->ged_gvp->gv_tcl->gv_data_lines, fp, 0);
+    write_data_lines(d, &gedp->ged_gvp->gv_tcl->gv_sdata_lines, fp, 1);
 }
 
 /*

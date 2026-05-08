@@ -215,15 +215,15 @@ to_data_polygons_func(Tcl_Interp *interp,
     const char *bsg_name;
 
     if (argv[0][0] == 's') {
-	gdpsp = &gdvp->gv_tcl.gv_sdata_polygons;
+	gdpsp = &gdvp->gv_tcl->gv_sdata_polygons;
 	bsg_name = "_tcl_sdata_polygons";
     } else {
-	gdpsp = &gdvp->gv_tcl.gv_data_polygons;
+	gdpsp = &gdvp->gv_tcl->gv_data_polygons;
 	bsg_name = "_tcl_data_polygons";
     }
 
     gdpsp->gdps_scale = gdvp->gv_scale;
-    gdpsp->gdps_data_vZ = gdvp->gv_tcl.gv_data_vZ;
+    gdpsp->gdps_data_vZ = gdvp->gv_tcl->gv_data_vZ;
     VMOVE(gdpsp->gdps_origin, gdvp->gv_center);
     MAT_COPY(gdpsp->gdps_rotation, gdvp->gv_rotation);
     MAT_COPY(gdpsp->gdps_model2view, gdvp->gv_model2view);
@@ -618,7 +618,7 @@ to_data_polygons_func(Tcl_Interp *interp,
 									  "realloc polygon");
 
 	    if (to_extract_contours_av(interp, gedp, gdvp, &gdpsp->gdps_polygons.polygon[i],
-				       contour_ac, contour_av, gdvp->gv_tcl.gv_polygon_mode, 0) != BRLCAD_OK) {
+				       contour_ac, contour_av, gdvp->gv_tcl->gv_polygon_mode, 0) != BRLCAD_OK) {
 		Tcl_Free((char *)contour_av);
 		return BRLCAD_ERROR;
 	    }
@@ -908,7 +908,7 @@ to_data_polygons_func(Tcl_Interp *interp,
 		return BRLCAD_OK;
 	    }
 
-	    if (to_extract_polygons_av(interp, gedp, gdvp, gdpsp, polygon_ac, polygon_av, gdvp->gv_tcl.gv_polygon_mode, vflag) != BRLCAD_OK) {
+	    if (to_extract_polygons_av(interp, gedp, gdvp, gdpsp, polygon_ac, polygon_av, gdvp->gv_tcl->gv_polygon_mode, vflag) != BRLCAD_OK) {
 		Tcl_Free((char *)polygon_av);
 		return BRLCAD_ERROR;
 	    }
@@ -947,7 +947,7 @@ to_data_polygons_func(Tcl_Interp *interp,
 	}
 	contour_ac = ac;
 
-	if (to_extract_contours_av(interp, gedp, gdvp, &gp, contour_ac, contour_av, gdvp->gv_tcl.gv_polygon_mode, 0) != BRLCAD_OK) {
+	if (to_extract_contours_av(interp, gedp, gdvp, &gp, contour_ac, contour_av, gdvp->gv_tcl->gv_polygon_mode, 0) != BRLCAD_OK) {
 	    Tcl_Free((char *)contour_av);
 	    return BRLCAD_ERROR;
 	}
@@ -1246,9 +1246,9 @@ to_poly_circ_mode_func(Tcl_Interp *interp,
     bv_data_polygon_state *gdpsp;
 
     if (argv[0][0] == 's')
-	gdpsp = &gdvp->gv_tcl.gv_sdata_polygons;
+	gdpsp = &gdvp->gv_tcl->gv_sdata_polygons;
     else
-	gdpsp = &gdvp->gv_tcl.gv_data_polygons;
+	gdpsp = &gdvp->gv_tcl->gv_data_polygons;
 
     gdpsp->gdps_scale = gdvp->gv_scale;
     VMOVE(gdpsp->gdps_origin, gdvp->gv_center);
@@ -1266,12 +1266,12 @@ to_poly_circ_mode_func(Tcl_Interp *interp,
 
     gdvp->gv_prevMouseX = x;
     gdvp->gv_prevMouseY = y;
-    gdvp->gv_tcl.gv_polygon_mode = BV_POLY_CIRCLE_MODE;
+    gdvp->gv_tcl->gv_polygon_mode = BV_POLY_CIRCLE_MODE;
 
     gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
     gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
     bv_screen_to_view(gdvp, &fx, &fy, x, y);
-    VSET(v_pt, fx, fy, gdvp->gv_tcl.gv_data_vZ);
+    VSET(v_pt, fx, fy, gdvp->gv_tcl->gv_data_vZ);
     int snapped = 0;
     if (gedp->ged_gvp->gv_s->gv_snap_lines) {
 	gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
@@ -1321,9 +1321,9 @@ to_poly_cont_build_func(Tcl_Interp *interp,
     bv_data_polygon_state *gdpsp;
 
     if (argv[0][0] == 's')
-	gdpsp = &gdvp->gv_tcl.gv_sdata_polygons;
+	gdpsp = &gdvp->gv_tcl->gv_sdata_polygons;
     else
-	gdpsp = &gdvp->gv_tcl.gv_data_polygons;
+	gdpsp = &gdvp->gv_tcl->gv_data_polygons;
 
     gdpsp->gdps_scale = gdvp->gv_scale;
     VMOVE(gdpsp->gdps_origin, gdvp->gv_center);
@@ -1341,12 +1341,12 @@ to_poly_cont_build_func(Tcl_Interp *interp,
 
     gdvp->gv_prevMouseX = x;
     gdvp->gv_prevMouseY = y;
-    gdvp->gv_tcl.gv_polygon_mode = BV_POLY_CONTOUR_MODE;
+    gdvp->gv_tcl->gv_polygon_mode = BV_POLY_CONTOUR_MODE;
 
     gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
     gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
     bv_screen_to_view(gdvp, &fx, &fy, x, y);
-    VSET(v_pt, fx, fy, gdvp->gv_tcl.gv_data_vZ);
+    VSET(v_pt, fx, fy, gdvp->gv_tcl->gv_data_vZ);
     int snapped = 0;
     if (gedp->ged_gvp->gv_s->gv_snap_lines) {
 	gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
@@ -1568,10 +1568,10 @@ to_poly_cont_build_end(struct ged *gedp,
 	bv_data_polygon_state *gdpsp;
 	const char *bsg_name;
 	if (argv[0][0] == 's') {
-	    gdpsp = &gdvp->gv_tcl.gv_sdata_polygons;
+	    gdpsp = &gdvp->gv_tcl->gv_sdata_polygons;
 	    bsg_name = "_tcl_sdata_polygons";
 	} else {
-	    gdpsp = &gdvp->gv_tcl.gv_data_polygons;
+	    gdpsp = &gdvp->gv_tcl->gv_data_polygons;
 	    bsg_name = "_tcl_data_polygons";
 	}
 	_sync_tcl_polygons_to_bsg(gdvp, gdpsp, bsg_name);
@@ -1587,9 +1587,9 @@ to_poly_cont_build_end_func(struct bview *gdvp,
 			    const char *argv[])
 {
     if (argv[0][0] == 's')
-	gdvp->gv_tcl.gv_sdata_polygons.gdps_cflag = 0;
+	gdvp->gv_tcl->gv_sdata_polygons.gdps_cflag = 0;
     else
-	gdvp->gv_tcl.gv_data_polygons.gdps_cflag = 0;
+	gdvp->gv_tcl->gv_data_polygons.gdps_cflag = 0;
 
     return BRLCAD_OK;
 }
@@ -1696,9 +1696,9 @@ to_poly_ell_mode_func(Tcl_Interp *interp,
     bv_data_polygon_state *gdpsp;
 
     if (argv[0][0] == 's')
-	gdpsp = &gdvp->gv_tcl.gv_sdata_polygons;
+	gdpsp = &gdvp->gv_tcl->gv_sdata_polygons;
     else
-	gdpsp = &gdvp->gv_tcl.gv_data_polygons;
+	gdpsp = &gdvp->gv_tcl->gv_data_polygons;
 
     gdpsp->gdps_scale = gdvp->gv_scale;
     VMOVE(gdpsp->gdps_origin, gdvp->gv_center);
@@ -1716,12 +1716,12 @@ to_poly_ell_mode_func(Tcl_Interp *interp,
 
     gdvp->gv_prevMouseX = x;
     gdvp->gv_prevMouseY = y;
-    gdvp->gv_tcl.gv_polygon_mode = TCLCAD_POLY_ELLIPSE_MODE;
+    gdvp->gv_tcl->gv_polygon_mode = TCLCAD_POLY_ELLIPSE_MODE;
 
     gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
     gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
     bv_screen_to_view(gdvp, &fx, &fy, x, y);
-    VSET(v_pt, fx, fy, gdvp->gv_tcl.gv_data_vZ);
+    VSET(v_pt, fx, fy, gdvp->gv_tcl->gv_data_vZ);
     int snapped = 0;
     if (gedp->ged_gvp->gv_s->gv_snap_lines) {
 	gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
@@ -1856,9 +1856,9 @@ to_poly_rect_mode_func(Tcl_Interp *interp,
     bv_data_polygon_state *gdpsp;
 
     if (argv[0][0] == 's')
-	gdpsp = &gdvp->gv_tcl.gv_sdata_polygons;
+	gdpsp = &gdvp->gv_tcl->gv_sdata_polygons;
     else
-	gdpsp = &gdvp->gv_tcl.gv_data_polygons;
+	gdpsp = &gdvp->gv_tcl->gv_data_polygons;
 
     gdpsp->gdps_scale = gdvp->gv_scale;
     VMOVE(gdpsp->gdps_origin, gdvp->gv_center);
@@ -1886,14 +1886,14 @@ to_poly_rect_mode_func(Tcl_Interp *interp,
     gdvp->gv_prevMouseY = y;
 
     if (sflag)
-	gdvp->gv_tcl.gv_polygon_mode = TCLCAD_POLY_SQUARE_MODE;
+	gdvp->gv_tcl->gv_polygon_mode = TCLCAD_POLY_SQUARE_MODE;
     else
-	gdvp->gv_tcl.gv_polygon_mode = TCLCAD_POLY_RECTANGLE_MODE;
+	gdvp->gv_tcl->gv_polygon_mode = TCLCAD_POLY_RECTANGLE_MODE;
 
     gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
     gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
     bv_screen_to_view(gdvp, &fx, &fy, x, y);
-    VSET(v_pt, fx, fy, gdvp->gv_tcl.gv_data_vZ);
+    VSET(v_pt, fx, fy, gdvp->gv_tcl->gv_data_vZ);
     int snapped = 0;
     if (gedp->ged_gvp->gv_s->gv_snap_lines) {
 	gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
