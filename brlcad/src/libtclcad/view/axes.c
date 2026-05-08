@@ -46,6 +46,7 @@
  * approximates the correct model-space size.  The BSG object will be rebuilt
  * whenever any setter is called, so the size stays accurate for interactive
  * Tcl use. */
+#define BVDAS_DEFAULT_DM_WIDTH 512  /* fallback pixel width when no DM is attached */
 static void
 _sync_tcl_axes_to_bsg(struct bview *v, struct bv_data_axes_state *gdasp, const char *bsg_name)
 {
@@ -59,7 +60,7 @@ _sync_tcl_axes_to_bsg(struct bview *v, struct bv_data_axes_state *gdasp, const c
 
     /* Compute the view-to-model scale factor.  This mirrors the sf used by
      * dm_draw_data_axes: sf = gv_size / dm_width. */
-    fastf_t dm_width = 512.0;
+    fastf_t dm_width = BVDAS_DEFAULT_DM_WIDTH;
     if (v->dmp) {
 	int w = dm_get_width((struct dm *)v->dmp);
 	dm_width = (fastf_t)w;
