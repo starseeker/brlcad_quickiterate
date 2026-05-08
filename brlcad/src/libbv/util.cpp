@@ -1843,7 +1843,11 @@ bv_view_obj_set_line_width(struct bv_scene_obj *s, int line_width)
 	return;
     if (line_width < 0)
 	line_width = 0;
-    s->s_os->s_line_width = line_width;
+    /* By convention bv_obj_reset() sets s_os = &s->s_local_os, but other
+     * code paths in this file defensively fall back to s_local_os when
+     * s_os is unset; do the same here. */
+    struct bv_obj_settings *os = (s->s_os) ? s->s_os : &s->s_local_os;
+    os->s_line_width = line_width;
     s->s_changed++;
     bv_obj_stale(s);
 }
