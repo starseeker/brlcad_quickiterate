@@ -43,7 +43,7 @@ _line_cmd_create(void *bs, int argc, const char **argv)
 {
     struct _ged_view_info *gd = (struct _ged_view_info *)bs;
     struct ged *gedp = gd->gedp;
-    const char *usage_string = "view obj <objname> line create x y z";
+    const char *usage_string = "view obj create <objname> line create x y z";
     const char *purpose_string = "start a polyline at point x,y,z";
     if (_view_cmd_msgs(bs, argc, argv, usage_string, purpose_string))
 	return BRLCAD_OK;
@@ -92,7 +92,7 @@ _line_cmd_append(void *bs, int argc, const char **argv)
 {
     struct _ged_view_info *gd = (struct _ged_view_info *)bs;
     struct ged *gedp = gd->gedp;
-    const char *usage_string = "view obj <objname> line append x y z";
+    const char *usage_string = "view obj create <objname> line append x y z";
     const char *purpose_string = "append point to a polyline";
     if (_view_cmd_msgs(bs, argc, argv, usage_string, purpose_string))
 	return BRLCAD_OK;

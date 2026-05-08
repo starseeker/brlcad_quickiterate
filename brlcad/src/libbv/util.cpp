@@ -2079,6 +2079,24 @@ bv_find_child(struct bv_scene_obj *s, const char *vname)
     return NULL;
 }
 
+static int
+_bv_lod_node_active_level(struct bv_scene_obj *lod, struct bview *v)
+{
+    if (!lod || !(lod->s_type_flags & BSG_NODE_LOD) || !v)
+	return -1;
+
+    struct bsg_lod_payload *pl = (struct bsg_lod_payload *)lod->s_i_data;
+    if (!pl)
+	return -1;
+
+    for (size_t i = 0; i < pl->cursor_count; i++) {
+	if (pl->cursors[i].v == v)
+	    return pl->cursors[i].level;
+    }
+
+    return -1;
+}
+
 int
 bv_scene_obj_bound(struct bv_scene_obj *sp, struct bview *v)
 {
@@ -2096,8 +2114,8 @@ bv_scene_obj_bound(struct bv_scene_obj *sp, struct bview *v)
 	    lod = p;
     }
     if (lod) {
-	int active = bsg_lod_node_active_level((bsg_node *)lod, v);
-	int nlevels = bsg_lod_node_level_count((bsg_node *)lod);
+	int active = _bv_lod_node_active_level(lod, v);
+	int nlevels = (int)BU_PTBL_LEN(&lod->children);
 	if (nlevels > 0) {
 	    if (active < 0 || active >= nlevels)
 		active = 0;

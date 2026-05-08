@@ -192,7 +192,7 @@ _objs_cmd_draw(void *bs, int argc, const char **argv)
 {
     struct _ged_view_info *gd = (struct _ged_view_info *)bs;
     struct ged *gedp = gd->gedp;
-    const char *usage_string = "view obj name draw [0|1]";
+    const char *usage_string = "view obj set <name> draw [0|1|UP|DOWN]";
     const char *purpose_string = "toggle view polygons";
     if (_view_cmd_msgs(bs, argc, argv, usage_string, purpose_string))
 	return BRLCAD_OK;
@@ -235,7 +235,7 @@ _objs_cmd_delete(void *bs, int argc, const char **argv)
 {
     struct _ged_view_info *gd = (struct _ged_view_info *)bs;
     struct ged *gedp = gd->gedp;
-    const char *usage_string = "view obj name delete";
+    const char *usage_string = "view obj remove <name>";
     const char *purpose_string = "delete view object";
     if (_view_cmd_msgs(bs, argc, argv, usage_string, purpose_string))
 	return BRLCAD_OK;
@@ -264,7 +264,7 @@ _objs_cmd_color(void *bs, int argc, const char **argv)
 {
     struct _ged_view_info *gd = (struct _ged_view_info *)bs;
     struct ged *gedp = gd->gedp;
-    const char *usage_string = "view obj name color [r/g/b]";
+    const char *usage_string = "view obj set <name> color [r/g/b]";
     const char *purpose_string = "show/set obj color";
     if (_view_cmd_msgs(bs, argc, argv, usage_string, purpose_string))
 	return BRLCAD_OK;
@@ -335,7 +335,7 @@ _objs_cmd_arrow(void *bs, int argc, const char **argv)
 {
     struct _ged_view_info *gd = (struct _ged_view_info *)bs;
     struct ged *gedp = gd->gedp;
-    const char *usage_string = "view obj name arrow [0|1] [width [#]] [length [#]]";
+    const char *usage_string = "view obj set <name> arrow [0|1] [width [#]] [length [#]]";
     const char *purpose_string = "toggle arrow drawing, for those objects that support it";
     if (_view_cmd_msgs(bs, argc, argv, usage_string, purpose_string))
 	return BRLCAD_OK;
@@ -399,7 +399,7 @@ _objs_cmd_lcnt(void *bs, int argc, const char **argv)
 {
     struct _ged_view_info *gd = (struct _ged_view_info *)bs;
     struct ged *gedp = gd->gedp;
-    const char *usage_string = "view obj name lcnt";
+    const char *usage_string = "view obj info <name> lcnt";
     const char *purpose_string = "print the number of vlist entities";
     if (_view_cmd_msgs(bs, argc, argv, usage_string, purpose_string))
 	return BRLCAD_OK;
@@ -436,7 +436,7 @@ _objs_cmd_update(void *bs, int argc, const char **argv)
 {
     struct _ged_view_info *gd = (struct _ged_view_info *)bs;
     struct ged *gedp = gd->gedp;
-    const char *usage_string = "view obj update name [x y]";
+    const char *usage_string = "view obj set <name> update [x y]";
     const char *purpose_string = "update object";
     if (_view_cmd_msgs(bs, argc, argv, usage_string, purpose_string))
 	return BRLCAD_OK;
@@ -537,16 +537,28 @@ _view_cmd_objs(void *bs, int argc, const char **argv)
 
     std::set<std::string> unified_cmds = {"create", "remove", "list", "info", "set"};
 
-    // High level options are only defined prior to the subcommand
-    int cmd_pos = -1;
-    for (int i = 0; i < argc; i++) {
-    if (unified_cmds.find(std::string(argv[i])) != unified_cmds.end()) {
-	    cmd_pos = i;
-	    break;
+    // High level options are only defined prior to the subcommand.  Find
+    // the first non-option argument to check against the unified subcommand set.
+    int first_pos = -1;
+    int arg_idx = 0;
+    while (arg_idx < argc) {
+	if (argv[arg_idx][0] == '-') {
+	    if ((BU_STR_EQUAL(argv[arg_idx], "-g") || BU_STR_EQUAL(argv[arg_idx], "--gobj")) && arg_idx + 1 < argc) {
+		arg_idx += 2;
+		continue;
+	    }
+	    arg_idx++;
+	    continue;
 	}
+	first_pos = arg_idx;
+	break;
     }
 
-    int acnt = (cmd_pos >= 0) ? cmd_pos : argc;
+    int cmd_pos = -1;
+    if (first_pos >= 0 && unified_cmds.find(std::string(argv[first_pos])) != unified_cmds.end())
+	cmd_pos = first_pos;
+
+    int acnt = (first_pos >= 0) ? first_pos : argc;
     (void)bu_opt_parse(NULL, acnt, argv, d);
 
     if (!list_db && !list_view)
@@ -564,8 +576,15 @@ _view_cmd_objs(void *bs, int argc, const char **argv)
 	return BRLCAD_OK;
     }
 
-    // default list
+    // No subcommand: default list (only when there are no positional args at all)
     if (cmd_pos < 0) {
+	if (first_pos >= 0) {
+	    bu_vls_free(&gobj_path);
+	    bu_vls_printf(gd->gedp->ged_result_str,
+		    "Unsupported subcommand '%s' (valid: create, remove, list, info, set)",
+		    argv[first_pos]);
+	    return BRLCAD_ERROR;
+	}
 	_view_obj_list(gd->gedp->ged_result_str, v, list_view, list_db, gd->local_obj, NULL);
 	bu_vls_free(&gobj_path);
 	return BRLCAD_OK;
