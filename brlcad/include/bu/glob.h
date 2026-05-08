@@ -151,13 +151,6 @@ typedef struct bu_glob_context bu_glob_t;
 
 
 /**
- * Zero-initialiser for a bu_glob_context declared on the stack.
- * All callback pointers default to NULL (filesystem callbacks used).
- */
-#define BU_GLOB_INIT_ZERO {0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
-
-
-/**
  * initialize a globbing context for use prior to calling bu_glob()
  */
 BU_EXPORT struct bu_glob_context *bu_glob_ctx_create(void);
