@@ -317,14 +317,55 @@ Deferred item:
 
 Priority 5 — backend default decision (Phase B)
 -----------------------------------------------
-Status: NOT STARTED.
+Status: DONE (2026-05-08).
 
-This is an open policy choice, not a migration blocker.
+Policy decision (based on architectural analysis; see rationale below):
+- **qged default backend**: dm-qtgl (hardware OpenGL via QgGL widget).
+  Fall back to dm-swrast when the user passes -s / --swrast or when
+  BRL-CAD is built without OpenGL support.
+- **mged / legacy applications**: dm-bestXType selects from {wgl, ogl, X}
+  (the priority_list in src/libdm/dm_plugins.cpp).  dm-qtgl is intentionally
+  absent because it requires a Qt widget context that only qged provides;
+  for headless/scripted mged use, pass --dm-type swrast.
 
-What to do:
-- add a benchmark-style draw test for `dm-qtgl` vs `dm-swrast`
-- codify the default backend in qged and the matching mged path
-- document the rationale once data exists
+What was done:
+
+### B1 — benchmark test
+- Added `src/libqtcad/tests/ged_test_dm_backend_bench.cpp`:
+  - Registers as CTest target `ged_test_dm_backend_bench`.
+  - Part 1 (always runs): times dm_draw_objs via QgSW / dm-swrast on Qt's
+    offscreen platform over N iterations; reports avg ms/frame and fps.
+  - Part 2 (hardware optional): attempts QgGL / dm-qtgl init; if an OpenGL
+    context is available, times dm_draw_objs the same way; otherwise prints
+    a diagnostic note and skips.  On CI/headless machines Part 2 is skipped
+    automatically; on developer hardware with a GPU both sections run and
+    produce a direct performance comparison.
+  - Exit status is always 0 — the test is purely informational.
+
+### B2 — codify qged default backend
+- `src/qged/QgEdApp.cpp` (QgEdApp constructor): replaced the implicit
+  QgView_AUTO (0) pass-through with an explicit canvas_type selection:
+    #ifdef BRLCAD_OPENGL
+        canvas_type = swrast_mode ? QgView_SW : QgView_GL;
+    #else
+        canvas_type = QgView_SW;
+    #endif
+  The comment above the selection block documents the policy in the source.
+
+### B3 — codify mged / libdm default path
+- `src/libdm/dm_plugins.cpp` (priority_list): Added a block comment above
+  the priority_list explaining why dm-qtgl and dm-swrast are absent and
+  documenting the recommended --dm-type swrast flag for headless mged use.
+
+Rationale:
+  dm-qtgl is the qged default because it delegates rendering to the system
+  GPU via hardware OpenGL.  For interactive 3-D work this is substantially
+  faster than dm-swrast (Mesa OSMesa, CPU-only), which is available for
+  environments without functional OpenGL hardware.  The benchmark test
+  provides the infrastructure to confirm this on any given machine.
+  mged cannot use dm-qtgl (no Qt widget context is available), so its
+  priority list continues to prefer the platform-native OpenGL backend
+  (ogl/wgl) before falling back to X or null.
 
 
 Suggested next-session order
