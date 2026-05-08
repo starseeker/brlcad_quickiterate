@@ -72,8 +72,6 @@ What still blocks a fully finished stack:
   `dm_draw_objs`.
 - Some producers/readers still rely on compatibility paths instead of the
   typed API.
-- The per-view-variant/highlight model is still unresolved, which blocks the
-  final `QEll` migration.
 - Final deprecation removal and backend-default policy are intentionally
   deferred until the migration work is complete.
 
@@ -108,6 +106,12 @@ Completed baseline (do not reopen without a new design reason)
    - libged readers in `view.c`, `draw2.cpp`, `rtcheck2.cpp`, and
      `polygons.c` use typed iteration / lookup where the change was
      mechanical.
+
+6. Per-view-variant / highlight model (Phase H) is complete.
+   - Design decision: LOCAL VIEW_SCOPE overlays (no new node type).
+   - `bsg_view_obj_illum_by_name` public API added.
+   - `QEll` migrated onto `bv_view_obj_overlay_create` and the new
+     illumination API.
 
 
 Still-open work, in priority order
@@ -240,24 +244,47 @@ Phase H (per-view-variant/highlight model) as noted below.
 
 Priority 3 — define the per-view-variant / highlight model (Phase H)
 --------------------------------------------------------------------
-Status: NOT STARTED.
+Status: DONE.
 
-Why:
-- The remaining edit/highlight use case is not the same as ordinary
-  view-only objects.
-- `QEll` and future edit tools need a sanctioned API instead of reaching into
-  sensor or legacy compatibility paths.
+Design decision — overlay scope, no new node type:
+- Edit overlays are LOCAL (per-view) BSG view-scope objects created via
+  `bv_view_obj_overlay_create(v, name, 1/*local*/)`.  A fixed name
+  (`"_ell_edit"` for the ellipsoid tool) is used at creation time so the
+  BSG scope owns the object's lifetime without extra bookkeeping.
+  No new BSG node concept is needed: the existing LOCAL VIEW_SCOPE
+  already provides per-view containment, automatic cleanup, and
+  proper integration with `bv_obj_put`.
+- This is the "overlay scope" option from the design question; the
+  dedicated-node-concept option was rejected because it would require a
+  new BSG payload type and offer no additional capability over what the
+  existing LOCAL VIEW_SCOPE already provides.
 
-What to decide:
-- Whether per-view variants should be a dedicated node concept or an overlay
-  scope attached to the edited object.
-- What the public `bv_scene_obj_highlight_*` API should look like on top of
-  `gd_illum_sensor`.
+Highlight API (`bsg_view_obj_illum_by_name`):
+- Added to `include/ged/bsg_ged_draw.h` and `src/libged/bsg_ged_draw.c`.
+- Walks drawn display-list groups via `bsg_view_obj_foreach_group`.
+- Basename-matches the last slash-separated component of each group path
+  against `name`; illuminates the first solid in the first matching group
+  via `bsg_view_obj_set_illum`.
+- Returns the illuminated solid, or NULL (and clears any highlight) when
+  no matching drawn solid is found.
+- Builds on the pre-existing `bsg_view_obj_set_illum` /
+  `bsg_view_obj_get_illum` infrastructure; does not touch `gd_illum_sensor`
+  directly.
 
-Deliverables:
-- a clear design choice
-- public highlight API
-- `QEll` migration onto that API
+`QEll` migration:
+- `src/qged/plugins/edit/ell/QEll.cpp`:
+  - Added `#include "ged/bsg_ged_draw.h"`.
+  - Both `bv_obj_get(v, BV_VIEW_OBJS)` calls replaced with
+    `bv_view_obj_overlay_create(v, "_ell_edit", 1/*local*/)`.  The BSG
+    scope sets the object name at creation; the old manual
+    `bu_vls_sprintf(&p->s_name, ...)` line was removed.
+  - `update_viewobj_name`: when the typed name resolves to a known DB
+    object, calls `bsg_view_obj_illum_by_name(gedp, name)` to highlight
+    the drawn representation.  When the name becomes invalid, calls
+    `bsg_view_obj_set_illum(gedp, NULL)` to clear the highlight.
+  - Destructor: `bv_obj_put(p)` retained unchanged — it correctly removes
+    BSG-native overlay objects from their parent scope (Phase V4 path in
+    `bv_obj_put`).
 
 
 Priority 4 — final cleanup after the migrations are stable (Phase D)

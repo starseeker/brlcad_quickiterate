@@ -1871,6 +1871,64 @@ bsg_view_obj_get_illum(const struct ged *gedp)
 
 
 /**
+ * Phase H (drawing_stack_modernization): find the first drawn solid in
+ * any display-list group whose basename (last slash-separated path
+ * component) equals @p name.  Illuminates that solid via
+ * bsg_view_obj_set_illum() and returns it.  Passes NULL to
+ * bsg_view_obj_set_illum() (clearing any current highlight) when no
+ * match is found.
+ */
+
+struct _illum_by_name_ctx {
+    struct ged          *gedp;
+    const char          *name;
+    struct bv_scene_obj *result;
+};
+
+static int
+_illum_by_name_group_cb(struct bv_scene_obj *group, void *udata)
+{
+    struct _illum_by_name_ctx *ctx = (struct _illum_by_name_ctx *)udata;
+    const char *path = bsg_view_obj_group_path(group);
+    if (!path)
+        return 1; /* continue */
+
+    /* Extract the last path component (after the final '/') */
+    const char *tail = path;
+    const char *p = path;
+    while (*p) {
+        if (*p == '/')
+            tail = p + 1;
+        p++;
+    }
+    if (!BU_STR_EQUAL(tail, ctx->name))
+        return 1; /* continue */
+
+    struct bv_scene_obj *sp = bsg_view_obj_group_first_solid(group);
+    if (!sp)
+        return 1; /* continue */
+
+    ctx->result = sp;
+    return 0; /* stop */
+}
+
+struct bv_scene_obj *
+bsg_view_obj_illum_by_name(struct ged *gedp, const char *name)
+{
+    if (!gedp || !name)
+        return NULL;
+    struct _illum_by_name_ctx ctx;
+    ctx.gedp   = gedp;
+    ctx.name   = name;
+    ctx.result = NULL;
+    bsg_view_obj_foreach_group(gedp, _illum_by_name_group_cb, &ctx);
+    /* NULL clears any existing highlight when no match is found */
+    bsg_view_obj_set_illum(gedp, ctx.result);
+    return ctx.result;
+}
+
+
+/**
  * Phase 9.3 (drawing_stack_modernization B5 residual): return the
  * highlight-state revision counter.  Bumped on every transition of
  * gd_illum_solid and on every bsg_node_field_touch on the currently
