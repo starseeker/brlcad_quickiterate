@@ -133,7 +133,8 @@ bv_view_is_independent(const struct bview *v)
 	return (_bv_independent_scope_find(root, v) != NULL) ? 1 : 0;
     }
 
-    return v->independent ? 1 : 0;
+    /* Phase D: no draw root → view is not yet registered, treat as shared. */
+    return 0;
 }
 
 struct bv_scene_obj *
@@ -144,10 +145,8 @@ bv_view_independent_scope(struct bview *v, int create)
 
     struct bv_scene_obj *root = (struct bv_scene_obj *)v->gv_draw_root;
     struct bv_scene_obj *scope = _bv_independent_scope_find(root, v);
-    if (scope || !create) {
-	v->independent = scope ? 1 : 0;
+    if (scope || !create)
 	return scope;
-    }
 
     scope = bv_obj_get_unregistered(v, BV_CHILD_OBJS | BV_LOCAL_OBJS);
     if (!scope)
@@ -159,7 +158,6 @@ bv_view_independent_scope(struct bview *v, int create)
     scope->parent = root;
     bu_vls_sprintf(&scope->s_name, "%s", BV_INDEPENDENT_SCOPE_NAME);
     bu_ptbl_ins(&root->children, (long *)scope);
-    v->independent = 1;
 
     return scope;
 }
@@ -167,24 +165,16 @@ bv_view_independent_scope(struct bview *v, int create)
 void
 bv_view_independent_scope_destroy(struct bview *v)
 {
-    if (!v)
+    if (!v || !v->gv_draw_root)
 	return;
-
-    if (!v->gv_draw_root) {
-	v->independent = 0;
-	return;
-    }
 
     struct bv_scene_obj *root = (struct bv_scene_obj *)v->gv_draw_root;
     struct bv_scene_obj *scope = _bv_independent_scope_find(root, v);
-    if (!scope) {
-	v->independent = 0;
+    if (!scope)
 	return;
-    }
 
     bu_ptbl_rm(&root->children, (long *)scope);
     _bv_scope_free_recursive(scope);
-    v->independent = 0;
 }
 
 static void
@@ -374,9 +364,8 @@ bv_init(struct bview *gvp, struct bview_set *s)
     }
 #endif
 
-    // If we're part of a set, we're not independent
-    gvp->independent = (gvp->vset) ? 0 : 1;
-
+    /* Phase D: independent state is now tracked solely via the BSG
+     * independent scope node; no per-view flag is needed. */
     gvp->gv_scale = 500.0;
     gvp->gv_i_scale = gvp->gv_scale;
     gvp->gv_a_scale = 1.0 - gvp->gv_scale / gvp->gv_i_scale;

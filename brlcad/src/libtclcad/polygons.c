@@ -40,6 +40,61 @@
 #include "./tclcad_private.h"
 #include "./view/view.h"
 
+/* Phase T1 (drawing_stack_modernization): keep a BSG VIEW_SCOPE object in sync
+ * with the gv_tcl data-polygons state so the modern BSG renderer picks up
+ * polygon outlines without the legacy dm_draw_polys path.
+ *
+ * One scene object per polygon-group (data or sdata) is created under the
+ * local view scope.  All polygon contours are packed into a single vlist so
+ * the object can be rendered by the standard _bsg_view_traverse_impl path.
+ *
+ * Per-contour dash style is not preserved here (s_soldash is a per-object
+ * flag); hole contours are rendered with the same style as regular ones.
+ * The closing segment of the active contour is omitted when a contour-mode
+ * build is in progress (gdps_cflag != 0). */
+static void
+_sync_tcl_polygons_to_bsg(struct bview *v, bv_data_polygon_state *gdpsp, const char *bsg_name)
+{
+    if (!v || !gdpsp || !bsg_name)
+	return;
+
+    bv_view_obj_remove(v, bsg_name);
+
+    if (!gdpsp->gdps_draw || gdpsp->gdps_polygons.num_polygons < 1)
+	return;
+
+    struct bv_scene_obj *s = bv_view_obj_lines_create(v, bsg_name, 1 /* local */);
+    if (!s)
+	return;
+
+    for (size_t i = 0; i < gdpsp->gdps_polygons.num_polygons; i++) {
+	struct bg_polygon *pg = &gdpsp->gdps_polygons.polygon[i];
+	for (size_t j = 0; j < pg->num_contours; j++) {
+	    size_t npts = pg->contour[j].num_points;
+	    if (npts < 1)
+		continue;
+	    point_t *pts = pg->contour[j].point;
+	    BV_ADD_VLIST(s->vlfree, &s->s_vlist, pts[0], BV_VLIST_LINE_MOVE);
+	    for (size_t k = 1; k < npts; k++)
+		BV_ADD_VLIST(s->vlfree, &s->s_vlist, pts[k], BV_VLIST_LINE_DRAW);
+	    /* Skip closing segment when actively building this contour */
+	    int building = (gdpsp->gdps_cflag
+			    && i == gdpsp->gdps_curr_polygon_i
+			    && j == pg->num_contours - 1);
+	    if (!building && npts >= 2)
+		BV_ADD_VLIST(s->vlfree, &s->s_vlist, pts[0], BV_VLIST_LINE_DRAW);
+	}
+    }
+
+    bv_view_obj_set_color(s,
+			  gdpsp->gdps_color[0],
+			  gdpsp->gdps_color[1],
+			  gdpsp->gdps_color[2]);
+    bv_view_obj_set_line_width(s, gdpsp->gdps_line_width);
+    s->s_soldash = gdpsp->gdps_line_style;
+    bv_view_obj_set_visible(s, 1);
+}
+
 static int
 to_extract_contours_av(Tcl_Interp *interp, struct ged *gedp, struct bview *gdvp, struct bg_polygon *gpp, size_t contour_ac, const char **contour_av, int mode, int vflag)
 {
@@ -157,11 +212,15 @@ to_data_polygons_func(Tcl_Interp *interp,
 		      const char *argv[])
 {
     bv_data_polygon_state *gdpsp;
+    const char *bsg_name;
 
-    if (argv[0][0] == 's')
+    if (argv[0][0] == 's') {
 	gdpsp = &gdvp->gv_tcl.gv_sdata_polygons;
-    else
+	bsg_name = "_tcl_sdata_polygons";
+    } else {
 	gdpsp = &gdvp->gv_tcl.gv_data_polygons;
+	bsg_name = "_tcl_data_polygons";
+    }
 
     gdpsp->gdps_scale = gdvp->gv_scale;
     gdpsp->gdps_data_vZ = gdvp->gv_tcl.gv_data_vZ;
@@ -227,6 +286,9 @@ to_data_polygons_func(Tcl_Interp *interp,
 	    else
 		gdpsp->gdps_draw = 0;
 
+	    _sync_tcl_polygons_to_bsg(gdvp, gdpsp, bsg_name);
+
+
 	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
 	}
@@ -250,6 +312,9 @@ to_data_polygons_func(Tcl_Interp *interp,
 		gdpsp->gdps_moveAll = 1;
 	    else
 		gdpsp->gdps_moveAll = 0;
+
+	    _sync_tcl_polygons_to_bsg(gdvp, gdpsp, bsg_name);
+
 
 	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
@@ -300,6 +365,9 @@ to_data_polygons_func(Tcl_Interp *interp,
 	    /* Set the color for polygon i */
 	    VSET(gdpsp->gdps_polygons.polygon[i].gp_color, r, g, b);
 
+	    _sync_tcl_polygons_to_bsg(gdvp, gdpsp, bsg_name);
+
+
 	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
 	}
@@ -344,6 +412,9 @@ to_data_polygons_func(Tcl_Interp *interp,
 	    /* Set the default polygon color */
 	    VSET(gdpsp->gdps_color, r, g, b);
 
+	    _sync_tcl_polygons_to_bsg(gdvp, gdpsp, bsg_name);
+
+
 	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
 	}
@@ -384,6 +455,9 @@ to_data_polygons_func(Tcl_Interp *interp,
 
 	    gdpsp->gdps_polygons.polygon[i].gp_line_width = line_width;
 
+	    _sync_tcl_polygons_to_bsg(gdvp, gdpsp, bsg_name);
+
+
 	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
 	}
@@ -419,6 +493,9 @@ to_data_polygons_func(Tcl_Interp *interp,
 
 	    /* Set the default line width */
 	    gdpsp->gdps_line_width = line_width;
+
+	    _sync_tcl_polygons_to_bsg(gdvp, gdpsp, bsg_name);
+
 
 	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
@@ -461,6 +538,9 @@ to_data_polygons_func(Tcl_Interp *interp,
 	    else
 		gdpsp->gdps_polygons.polygon[i].gp_line_style = 1;
 
+	    _sync_tcl_polygons_to_bsg(gdvp, gdpsp, bsg_name);
+
+
 	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
 	}
@@ -498,6 +578,9 @@ to_data_polygons_func(Tcl_Interp *interp,
 
 	    /* Set the default line style */
 	    gdpsp->gdps_line_style = line_style;
+
+	    _sync_tcl_polygons_to_bsg(gdvp, gdpsp, bsg_name);
+
 
 	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
@@ -545,6 +628,9 @@ to_data_polygons_func(Tcl_Interp *interp,
 	    gdpsp->gdps_polygons.polygon[i].gp_line_width = gdpsp->gdps_line_width;
 
 	    Tcl_Free((char *)contour_av);
+
+	    _sync_tcl_polygons_to_bsg(gdvp, gdpsp, bsg_name);
+
 
 	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
@@ -620,6 +706,9 @@ to_data_polygons_func(Tcl_Interp *interp,
 	/* Free the clipped polygon container */
 	bu_free((void *)gpp, "clip gpp");
 
+	_sync_tcl_polygons_to_bsg(gdvp, gdpsp, bsg_name);
+
+
 	to_refresh_view(gdvp);
 	return BRLCAD_OK;
     }
@@ -671,6 +760,9 @@ to_data_polygons_func(Tcl_Interp *interp,
 	VMOVE(gdpsp->gdps_polygons.polygon[i].gp_color, gdpsp->gdps_color);
 	gdpsp->gdps_polygons.polygon[i].gp_line_style = gdpsp->gdps_line_style;
 	gdpsp->gdps_polygons.polygon[i].gp_line_width = gdpsp->gdps_line_width;
+
+	_sync_tcl_polygons_to_bsg(gdvp, gdpsp, bsg_name);
+
 
 	to_refresh_view(gdvp);
 	return BRLCAD_OK;
@@ -810,6 +902,8 @@ to_data_polygons_func(Tcl_Interp *interp,
 	    gdpsp->gdps_target_polygon_i = 0;
 
 	    if (polygon_ac < 1) {
+		_sync_tcl_polygons_to_bsg(gdvp, gdpsp, bsg_name);
+
 		to_refresh_view(gdvp);
 		return BRLCAD_OK;
 	    }
@@ -820,6 +914,8 @@ to_data_polygons_func(Tcl_Interp *interp,
 	    }
 
 	    Tcl_Free((char *)polygon_av);
+	    _sync_tcl_polygons_to_bsg(gdvp, gdpsp, bsg_name);
+
 	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
 	}
@@ -863,6 +959,9 @@ to_data_polygons_func(Tcl_Interp *interp,
 	gdpsp->gdps_polygons.polygon[i].hole = gp.hole;
 	gdpsp->gdps_polygons.polygon[i].contour = gp.contour;
 
+	_sync_tcl_polygons_to_bsg(gdvp, gdpsp, bsg_name);
+
+
 	to_refresh_view(gdvp);
 	return BRLCAD_OK;
     }
@@ -895,6 +994,8 @@ to_data_polygons_func(Tcl_Interp *interp,
 											   gdpsp->gdps_polygons.polygon[i].contour[j].num_points * sizeof(point_t),
 											   "realloc point");
 	VMOVE(gdpsp->gdps_polygons.polygon[i].contour[j].point[k], pt);
+	_sync_tcl_polygons_to_bsg(gdvp, gdpsp, bsg_name);
+
 	to_refresh_view(gdvp);
 	return BRLCAD_OK;
     }
@@ -952,6 +1053,8 @@ to_data_polygons_func(Tcl_Interp *interp,
 	    goto bad;
 
 	VMOVE(gdpsp->gdps_polygons.polygon[i].contour[j].point[k], pt);
+	_sync_tcl_polygons_to_bsg(gdvp, gdpsp, bsg_name);
+
 	to_refresh_view(gdvp);
 	return BRLCAD_OK;
     }
@@ -1460,6 +1563,19 @@ to_poly_cont_build_end(struct ged *gedp,
     argv[1] = argv[0];
     ret = to_poly_cont_build_end_func(gdvp, argc-1, argv+1);
 
+    /* Phase T1: sync BSG after cflag reset (closing segment now rendered) */
+    {
+	bv_data_polygon_state *gdpsp;
+	const char *bsg_name;
+	if (argv[0][0] == 's') {
+	    gdpsp = &gdvp->gv_tcl.gv_sdata_polygons;
+	    bsg_name = "_tcl_sdata_polygons";
+	} else {
+	    gdpsp = &gdvp->gv_tcl.gv_data_polygons;
+	    bsg_name = "_tcl_data_polygons";
+	}
+	_sync_tcl_polygons_to_bsg(gdvp, gdpsp, bsg_name);
+    }
     to_refresh_view(gdvp);
     return ret;
 }

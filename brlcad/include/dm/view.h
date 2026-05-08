@@ -80,24 +80,8 @@ DM_EXPORT extern void dm_draw_scene_obj(struct dm *dmp,
  * calling them.  Not ideal, but pulling in rt also pulls in openNURBS, which
  * can have significant implications. */
 #ifdef DM_WITH_RT
-/* TODO - needed for dm_draw_labels, which cracks the database
- * objects to generate label info.  Need to think about how to
- * better handle this... - ideally should be a callback of some
- * sort on a bv scene object... */
 #include "rt/wdb.h"
-
-/* DEPRECATED (Phase T0, drawing_stack_modernization): legacy view-renderer
- * used only by libtclcad's go_refresh_draw path (Archer / classic mged).
- * Mixes faceplate-adornment direct rendering (gv_tcl arrows/axes/lines/
- * polygons) with a flat ptbl scan over BV_VIEW_OBJS / BV_DB_OBJS, and
- * therefore bypasses the BSG render contract (two-pass transparency, LoD
- * cursor pass, gv_frame_rev / s_drawn_rev stamping, BSG_NODE_VIEW_SCOPE
- * gating).  All new render call sites must use dm_draw_objs() instead.
- * Scheduled for removal in Phase T3 once libtclcad migrates to dm_draw_objs.
- *
- * Do not add new callers. */
-DM_EXPORT extern void dm_draw_viewobjs(struct rt_wdb *wdbp, struct bview *v, struct dm_view_data *d);
-#endif /* DM_NO_RT */
+#endif /* DM_WITH_RT */
 
 /* Stripped down form of dm_draw_viewobjs that does just what's needed for the new setup */
 DM_EXPORT extern void dm_draw_objs(struct bview *v, void (*dm_draw_custom)(struct bview *, void *), void *u_data);

@@ -325,6 +325,23 @@ endif()
 distclean(${CMAKE_CURRENT_BINARY_DIR}/bsg_view_obj_tmp.g)
 distclean(${CMAKE_CURRENT_BINARY_DIR}/ged_bsg_view_obj_cache)
 
+# Phase T1/T4 (drawing_stack_modernization): BSG adornment object lifecycle
+# structural test — verifies create/find/visit/remove without a display manager.
+brlcad_addexec(ged_test_tcl_adornment_bsg "tcl_adornment_bsg.cpp" "libged;libdm" TEST)
+if(TARGET ged_test_tcl_adornment_bsg)
+  foreach(tdp ${test_deps})
+    if (TARGET tdp)
+      add_dependencies(ged_test_tcl_adornment_bsg ${tdp})
+    endif ()
+  endforeach()
+endif(TARGET ged_test_tcl_adornment_bsg)
+brlcad_add_test(NAME ged_test_tcl_adornment_bsg
+  COMMAND ged_test_tcl_adornment_bsg "${CMAKE_CURRENT_SOURCE_DIR}")
+if(TARGET ged_test_tcl_adornment_bsg)
+  set_property(TEST ged_test_tcl_adornment_bsg APPEND PROPERTY ENVIRONMENT BRLCAD_ROOT=${CMAKE_BINARY_DIR})
+endif()
+distclean(${CMAKE_CURRENT_BINARY_DIR}/tcl_adornment_bsg_tmp.g)
+
 # Phase V6: independent-view state is structural BSG scope, not a mode bit
 brlcad_addexec(ged_test_view_independent "view_independent.cpp" "libged;libbsg" TEST)
 if(TARGET ged_test_view_independent)
@@ -384,6 +401,7 @@ cmakefiles(
   bsg_parity.cpp
   bsg_quad_parity.cpp
   bsg_view_obj.cpp
+  tcl_adornment_bsg.cpp
   view_independent.cpp
   view_command.cpp
   lod_crossrun.cpp

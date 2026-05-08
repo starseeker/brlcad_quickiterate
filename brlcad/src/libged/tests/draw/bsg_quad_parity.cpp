@@ -48,6 +48,7 @@
 #define DM_WITH_RT
 #include <dm.h>
 #include <ged.h>
+#include "bv/util.h"
 
 #include "../../dbi.h"
 #include "bsg/util.h"
@@ -178,7 +179,7 @@ main(int ac, char *av[])
 	bu_vls_sprintf(&v->gv_name, "V%d", i);
 	bv_set_add_view(&gedp->ged_views, v);
 	bu_ptbl_ins(&gedp->ged_free_views, (long *)v);
-	v->independent = 1;
+	bv_view_independent_scope(v, 1 /*create*/);  /* Phase D: replaces v->independent = 1 */
 
 	/* Attach one swrast DM per view */
 	struct bu_vls dm_name = BU_VLS_INIT_ZERO;

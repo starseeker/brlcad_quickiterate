@@ -695,12 +695,6 @@ struct bview {
     struct bview_settings *gv_s;     /**< @brief shared settings supplied by user */
     struct bview_settings gv_ls;     /**< @brief locally maintained settings specific to view (used if gv_s is null) */
 
-    /* If a view is marked as independent, its local containers are used even
-     * if pointers to shared tables are set. This allows for fully independent
-     * views with the same GED instance, at the cost of increased memory usage
-     * if multiple views draw the same objects. */
-    int independent;
-
     /* Set containing this view.  Also holds pointers to resources shared
      * across multiple views */
     struct bview_set *vset;

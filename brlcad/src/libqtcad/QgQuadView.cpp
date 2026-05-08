@@ -116,7 +116,7 @@ QgQuadView::createView(unsigned int index)
     view->installEventFilter(this);
 
     view->view()->vset = &gedp->ged_views;
-    view->view()->independent = 0;
+    /* Phase D: independent state managed via BSG scope, not a direct flag. */
 
     QObject::connect(view, &QgView::changed, this, &QgQuadView::do_view_changed);
     QObject::connect(view, &QgView::init_done, this, &QgQuadView::do_init_done);
