@@ -127,7 +127,7 @@ Phase T0 is done:
 - Deprecation notes were added to `dm_draw_viewobjs` and `bv_data_tclcad`.
 
 ### T1 — migrate Tcl faceplate adornments onto BSG view-scope objects
-Status: DONE (partial — lines, arrows, labels migrated; axes and polygons deferred).
+Status: DONE (partial — lines, arrows, labels, axes migrated; polygons deferred).
 
 What was done:
 - `src/libtclcad/view/arrows.c`: Added `_sync_tcl_arrows_to_bsg()`; every
@@ -143,11 +143,17 @@ What was done:
 - `src/libbv/util.cpp` (`bv_obj_reset`): Fixed a latent null-dereference that
   would crash when a `BV_LABELS` scene object was reused from the free list;
   added an `&& s->s_i_data` guard.
+- `src/libtclcad/view/axes.c`: Added `_sync_tcl_axes_to_bsg()`; every setter
+  (draw/color/line_width/size/points) now calls the helper to create or
+  replace a `_tcl_data_axes` / `_tcl_sdata_axes` BSG VIEW_SCOPE vlist object.
+  The legacy `dm_draw_data_axes` scales axis half-size by
+  `sf = gv_size / dm_width`; the BSG sync bakes in the current sf at setter
+  call time so the geometry is accurate when set and stays fixed until the
+  next setter call (acceptable for legacy Tcl use, where data_axes are
+  configured once rather than continuously resized on zoom).
 
 Deferred (not migrated — require view-size-dependent geometry or BSG polygon
 support that does not exist yet):
-- `src/libtclcad/view/axes.c` (data_axes): tip/size geometry depends on the
-  run-time view scale factor `sf = v->gv_size / width`; deferred to T1-axes.
 - `src/libtclcad/view/polygons.c` (data_polygons): complex contour mode;
   deferred to T1-polygons.
 
@@ -167,12 +173,12 @@ What was done:
 
 Still to do (T2-final):
 - Replace `dm_draw_viewobjs(...)` in `src/libtclcad/view/refresh.c` with
-  `dm_draw_objs(...)` once the deferred T1 adornment kinds (axes, polygons)
-  are migrated so the BSG path renders the full faceplate.
+  `dm_draw_objs(...)` once the deferred T1 adornment kind (polygons) is
+  migrated so the BSG path renders the full faceplate.
 
 ### T3 — delete the legacy renderer
 Status: PARTIAL (dm_draw_arrows, dm_draw_lines, dm_draw_polys, dm_draw_labels
-deprecated; full removal blocked on T2-final and T1 axes/polygons).
+deprecated; full removal blocked on T2-final and T1 polygons).
 
 What was done:
 - `src/libdm/view.c`: Added DEPRECATED banners to `dm_draw_arrows`,
@@ -182,7 +188,7 @@ What was done:
 Still to do (T3-final):
 - Remove `dm_draw_viewobjs` from libdm and its header declarations.
 - Remove `bv_data_tclcad` and the `gv_tcl.*` state from `bview` (once T1
-  axes/polygons migration is complete).
+  polygons migration is complete).
 - Remove the deprecated `dm_draw_arrows/lines/polys/labels` stubs.
 - Remove the standalone `dm_obj` path in `src/libtclcad/dm.c`.
 
@@ -370,16 +376,14 @@ Rationale:
 
 Suggested next-session order
 ----------------------------
-1. Migrate T1 axes (data_axes/sdata_axes): requires view-size-dependent BSG
-   geometry update or an on-draw callback; see T1 deferred items above.
-2. Migrate T1 polygons (data_polygons/sdata_polygons) via BSG polygon API.
-3. Complete T2-final: replace dm_draw_viewobjs with dm_draw_objs in refresh.c.
-4. Complete T3-final: remove dm_draw_viewobjs declaration, gv_tcl state, and
-   deprecated dm_draw_* stubs once axes/polygons are migrated.
-5. Add T4 faceplate parity tests (ged_test_archer_bsg or similar).
-6. Finish polygon/vlist typed-API migration work in A0/A1/A2.
-7. Resolve Phase H and then migrate `QEll`.
-8. Remove `bview::independent` once all direct readers have been migrated to
+1. Migrate T1 polygons (data_polygons/sdata_polygons) via BSG polygon API.
+2. Complete T2-final: replace dm_draw_viewobjs with dm_draw_objs in refresh.c
+   (now that only polygons remain unmigrated, T2-final can proceed once
+   polygons are done).
+3. Complete T3-final: remove dm_draw_viewobjs declaration, gv_tcl state, and
+   deprecated dm_draw_* stubs once polygons are migrated and T2-final lands.
+4. Add T4 faceplate parity tests (ged_test_archer_bsg or similar).
+5. Remove `bview::independent` once all direct readers have been migrated to
    bv_view_is_independent() / bv_view_independent_scope() (Phase D deferred).
 
 

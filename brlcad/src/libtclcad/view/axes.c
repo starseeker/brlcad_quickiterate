@@ -26,12 +26,81 @@
 
 #include "common.h"
 #include "bu/units.h"
+#include "bv/util.h"
+#include "bv/vlist.h"
+#include "dm.h"
 #include "ged.h"
 #include "tclcad.h"
 
 /* Private headers */
 #include "../tclcad_private.h"
 #include "../view/view.h"
+
+/* Phase T1 (drawing_stack_modernization): keep a BSG VIEW_SCOPE object in sync
+ * with the gv_tcl data-axes state so the modern BSG renderer draws data axes
+ * without the legacy dm_draw_data_axes path.
+ *
+ * Note: bv_data_axes_state.size is in "view coordinates" — it is scaled by
+ * sf = gv_size / dm_width at draw time in the legacy path.  We replicate that
+ * scaling at sync time using the current view dimensions so the vlist geometry
+ * approximates the correct model-space size.  The BSG object will be rebuilt
+ * whenever any setter is called, so the size stays accurate for interactive
+ * Tcl use. */
+#define BVDAS_DEFAULT_DM_WIDTH 512  /* fallback pixel width when no DM is attached */
+static void
+_sync_tcl_axes_to_bsg(struct bview *v, struct bv_data_axes_state *gdasp, const char *bsg_name)
+{
+    if (!v || !gdasp || !bsg_name)
+	return;
+
+    bv_view_obj_remove(v, bsg_name);
+
+    if (!gdasp->draw || gdasp->num_points < 1)
+	return;
+
+    /* Compute the view-to-model scale factor.  This mirrors the sf used by
+     * dm_draw_data_axes: sf = gv_size / dm_width. */
+    fastf_t dm_width = BVDAS_DEFAULT_DM_WIDTH;
+    if (v->dmp) {
+	int w = dm_get_width((struct dm *)v->dmp);
+	dm_width = (fastf_t)w;
+    }
+    if (dm_width < 1.0)
+	dm_width = 1.0;
+    fastf_t sf = v->gv_size / dm_width;
+    fastf_t halfAxesSize = gdasp->size * 0.5 * sf;
+
+    struct bv_scene_obj *s = bv_view_obj_lines_create(v, bsg_name, 1 /* local */);
+    if (!s)
+	return;
+
+    /* Build vlist: three axis segments (X, Y, Z) per point. */
+    for (int i = 0; i < gdasp->num_points; i++) {
+	point_t ptA, ptB;
+
+	/* X axis */
+	VSET(ptA, gdasp->points[i][X] - halfAxesSize, gdasp->points[i][Y], gdasp->points[i][Z]);
+	VSET(ptB, gdasp->points[i][X] + halfAxesSize, gdasp->points[i][Y], gdasp->points[i][Z]);
+	BV_ADD_VLIST(s->vlfree, &s->s_vlist, ptA, BV_VLIST_LINE_MOVE);
+	BV_ADD_VLIST(s->vlfree, &s->s_vlist, ptB, BV_VLIST_LINE_DRAW);
+
+	/* Y axis */
+	VSET(ptA, gdasp->points[i][X], gdasp->points[i][Y] - halfAxesSize, gdasp->points[i][Z]);
+	VSET(ptB, gdasp->points[i][X], gdasp->points[i][Y] + halfAxesSize, gdasp->points[i][Z]);
+	BV_ADD_VLIST(s->vlfree, &s->s_vlist, ptA, BV_VLIST_LINE_MOVE);
+	BV_ADD_VLIST(s->vlfree, &s->s_vlist, ptB, BV_VLIST_LINE_DRAW);
+
+	/* Z axis */
+	VSET(ptA, gdasp->points[i][X], gdasp->points[i][Y], gdasp->points[i][Z] - halfAxesSize);
+	VSET(ptB, gdasp->points[i][X], gdasp->points[i][Y], gdasp->points[i][Z] + halfAxesSize);
+	BV_ADD_VLIST(s->vlfree, &s->s_vlist, ptA, BV_VLIST_LINE_MOVE);
+	BV_ADD_VLIST(s->vlfree, &s->s_vlist, ptB, BV_VLIST_LINE_DRAW);
+    }
+
+    bv_view_obj_set_color(s, gdasp->color[0], gdasp->color[1], gdasp->color[2]);
+    bv_view_obj_set_line_width(s, gdasp->line_width);
+    bv_view_obj_set_visible(s, 1);
+}
 
 int
 to_axes(struct ged *gedp,
@@ -531,6 +600,7 @@ to_data_axes_func(Tcl_Interp *interp,
 	gdasp = &gdvp->gv_tcl.gv_sdata_axes;
     else
 	gdasp = &gdvp->gv_tcl.gv_data_axes;
+    const char *bsg_name = (argv[0][0] == 's') ? "_tcl_sdata_axes" : "_tcl_data_axes";
 
     if (BU_STR_EQUAL(argv[1], "draw")) {
 	if (argc == 2) {
@@ -549,6 +619,7 @@ to_data_axes_func(Tcl_Interp *interp,
 	    else
 		gdasp->draw = 0;
 
+	    _sync_tcl_axes_to_bsg(gdvp, gdasp, bsg_name);
 	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
 	}
@@ -580,6 +651,7 @@ to_data_axes_func(Tcl_Interp *interp,
 
 	    VSET(gdasp->color, r, g, b);
 
+	    _sync_tcl_axes_to_bsg(gdvp, gdasp, bsg_name);
 	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
 	}
@@ -601,6 +673,7 @@ to_data_axes_func(Tcl_Interp *interp,
 
 	    gdasp->line_width = line_width;
 
+	    _sync_tcl_axes_to_bsg(gdvp, gdasp, bsg_name);
 	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
 	}
@@ -622,6 +695,7 @@ to_data_axes_func(Tcl_Interp *interp,
 
 	    gdasp->size = size;
 
+	    _sync_tcl_axes_to_bsg(gdvp, gdasp, bsg_name);
 	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
 	}
@@ -655,6 +729,7 @@ to_data_axes_func(Tcl_Interp *interp,
 
 	    /* Clear out data points */
 	    if (ac < 1) {
+		_sync_tcl_axes_to_bsg(gdvp, gdasp, bsg_name);
 		to_refresh_view(gdvp);
 		Tcl_Free((char *)av);
 		return BRLCAD_OK;
@@ -672,6 +747,7 @@ to_data_axes_func(Tcl_Interp *interp,
 		    gdasp->points = (point_t *)0;
 		    gdasp->num_points = 0;
 
+		    _sync_tcl_axes_to_bsg(gdvp, gdasp, bsg_name);
 		    to_refresh_view(gdvp);
 		    Tcl_Free((char *)av);
 		    return BRLCAD_ERROR;
@@ -680,6 +756,7 @@ to_data_axes_func(Tcl_Interp *interp,
 		VMOVE(gdasp->points[i], scan);
 	    }
 
+	    _sync_tcl_axes_to_bsg(gdvp, gdasp, bsg_name);
 	    to_refresh_view(gdvp);
 	    Tcl_Free((char *)av);
 	    return BRLCAD_OK;
