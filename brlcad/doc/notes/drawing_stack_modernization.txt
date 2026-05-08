@@ -289,17 +289,30 @@ Highlight API (`bsg_view_obj_illum_by_name`):
 
 Priority 4 — final cleanup after the migrations are stable (Phase D)
 --------------------------------------------------------------------
-Status: NOT STARTED.
+Status: DONE (2026-05-08).
 
-Run this only after T and A are complete and the tree has been stable for at
-least one release cycle.
+Completed cleanup items:
+- Removed `BV_MESH_LOD` and `BV_CSG_LOD` deprecated flag bits (no in-tree
+  producers remained; binary-compat grace period ended).
+- Removed the `BV_VIEW_OBJS` auto-routing fallback from `bv_obj_get` (all
+  callers were already migrated to bv_view_obj_*_create APIs).
+- Removed the `BV_VIEW_OBJS` branch from `bv_view_objs` (bv_view_objs now only
+  serves BV_DB_OBJS queries; BV_VIEW_OBJS returns NULL with a comment).
+- Removed `view_obj_cache` from `bview_objs` and `shared_view_obj_cache` from
+  `bview_set_internal`; removed corresponding init/free calls in bv_init,
+  bv_free, view_sets.cpp, and mged/attach.c.
+- Migrated `bv_autoview` from `bv_view_objs(BV_VIEW_OBJS)` to
+  `bv_view_obj_visit` (two-pass: find-geom first, then bound).
+- Migrated `bv_clear` object-count return value to use `bv_view_obj_visit`.
+- Migrated `dm_draw_viewobjs` view-only rendering to use `bv_view_obj_visit`
+  (replacing the two bv_view_objs(BV_VIEW_OBJS) ptbl loops).
+- Updated `bv_view_objs` header comment to reflect BV_VIEW_OBJS removal.
 
-Cleanup targets:
-- remove `bv_view_objs(...)` and the cache fields that exist only for
-  compatibility
-- remove the `BV_VIEW_OBJS` auto-routing fallback from `bv_obj_get`
-- remove remaining deprecated flag bits / compatibility shims
-- remove the legacy `bview::independent` boolean if no live readers remain
+Deferred item:
+- `bview::independent` boolean: still read/written directly in libbv, libqtcad,
+  mged, and tests.  Phase V6 derives independence structurally from BSG scope
+  nodes, but the field is kept as a write-through cache.  Remove only when all
+  direct readers are migrated to bv_view_is_independent()/bv_view_independent_scope().
 
 
 Priority 5 — backend default decision (Phase B)
@@ -325,7 +338,8 @@ Suggested next-session order
 5. Add T4 faceplate parity tests (ged_test_archer_bsg or similar).
 6. Finish polygon/vlist typed-API migration work in A0/A1/A2.
 7. Resolve Phase H and then migrate `QEll`.
-8. Run Phase D cleanup only after the compatibility window is no longer needed.
+8. Remove `bview::independent` once all direct readers have been migrated to
+   bv_view_is_independent() / bv_view_independent_scope() (Phase D deferred).
 
 
 Do not reopen

@@ -426,10 +426,6 @@ bv_init(struct bview *gvp, struct bview_set *s)
     BU_GET(gvp->gv_objs.db_objs, struct bu_ptbl);
     bu_ptbl_init(gvp->gv_objs.db_objs, 8, "view_objs init");
 
-    // Phase V4: gv_objs.view_obj_cache is an inline transient BSG-walk cache;
-    // it does not own objects and requires only an initial empty init.
-    bu_ptbl_init(&gvp->gv_objs.view_obj_cache, 8, "view_obj_cache init");
-
     // Until the app tells us differently, we need to use our local
     // containers
     BU_GET(gvp->gv_objs.free_scene_obj, struct bv_scene_obj);
@@ -487,8 +483,6 @@ bv_free(struct bview *gvp)
     bu_vls_free(&gvp->gv_name);
     bu_ptbl_free(gvp->gv_objs.db_objs);
     BU_PUT(gvp->gv_objs.db_objs, struct bu_ptbl);
-    /* Phase V4: view_obj_cache is inline — just free the ptbl contents. */
-    bu_ptbl_free(&gvp->gv_objs.view_obj_cache);
 
     // TODO - clean up local vlfree list contents
     struct bv_scene_obj *sp, *nsp;
@@ -623,6 +617,60 @@ _bv_autoview_db_cb(struct bv_scene_obj *s, void *data)
     return 1;
 }
 
+/* Phase D (drawing_stack_modernization): context for bv_autoview's
+ * bv_view_obj_visit pass, replacing the bv_view_objs(BV_VIEW_OBJS) calls. */
+struct _bv_autoview_view_ctx {
+    int *is_empty;
+    vect_t min;
+    vect_t max;
+    struct bview *v;
+    int have_geom_objs;
+    int all_view_objs;
+};
+
+/* Pass 1 callback: set have_geom_objs if any view object has a geometric type. */
+static int
+_bv_find_view_geom_visit_cb(struct bv_scene_obj *s, void *data)
+{
+    int *have_geom_objs = (int *)data;
+    _find_view_geom(have_geom_objs, &s->children);
+    if (!(*have_geom_objs)) {
+	if ((s->s_type_flags & BV_DBOBJ_BASED) ||
+	    (s->s_type_flags & BV_POLYGONS) ||
+	    (s->s_type_flags & BV_LABELS))
+	    (*have_geom_objs) = 1;
+    }
+    return 1;
+}
+
+/* Pass 2 callback: bound each view object and its children. */
+static int
+_bv_bound_view_obj_cb(struct bv_scene_obj *s, void *data)
+{
+    struct _bv_autoview_view_ctx *ctx = (struct _bv_autoview_view_ctx *)data;
+    vect_t minus, plus;
+    _bound_objs_view(ctx->is_empty, ctx->min, ctx->max, &s->children,
+		     ctx->v, ctx->have_geom_objs, ctx->all_view_objs);
+    if (ctx->have_geom_objs && !ctx->all_view_objs) {
+	if (!(s->s_type_flags & BV_DBOBJ_BASED) &&
+	    !(s->s_type_flags & BV_POLYGONS) &&
+	    !(s->s_type_flags & BV_LABELS))
+	    return 1;
+    }
+    if (bv_scene_obj_bound(s, ctx->v)) {
+	(*ctx->is_empty) = 0;
+	minus[X] = s->s_center[X] - s->s_size;
+	minus[Y] = s->s_center[Y] - s->s_size;
+	minus[Z] = s->s_center[Z] - s->s_size;
+	VMIN(ctx->min, minus);
+	plus[X] = s->s_center[X] + s->s_size;
+	plus[Y] = s->s_center[Y] + s->s_size;
+	plus[Z] = s->s_center[Z] + s->s_size;
+	VMAX(ctx->max, plus);
+    }
+    return 1;
+}
+
 void
 bv_autoview(struct bview *v, double factor, int all_view_objs)
 {
@@ -665,15 +713,22 @@ bv_autoview(struct bview *v, double factor, int all_view_objs)
     // view objs (for example, when overlaying a plot file on an empty view)
     // then basing autoview on the view-only objs is more intuitive than just
     // using the default view settings.
-    struct bu_ptbl *so = bv_view_objs(v, BV_VIEW_OBJS);
-    if (so) {
-	_find_view_geom(&have_geom_objs, so);
-	_bound_objs_view(&is_empty,min, max, so, v, have_geom_objs, all_view_objs);
-    }
-    struct bu_ptbl *sol = bv_view_objs(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
-    if (sol) {
-	_find_view_geom(&have_geom_objs, sol);
-	_bound_objs_view(&is_empty,min, max, sol, v, have_geom_objs, all_view_objs);
+
+    /* Phase D: use bv_view_obj_visit instead of bv_view_objs(BV_VIEW_OBJS).
+     * Two passes: collect have_geom_objs across all view objects first, then
+     * bound them so the geom-filter logic has complete information. */
+    bv_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _bv_find_view_geom_visit_cb, &have_geom_objs);
+    {
+	struct _bv_autoview_view_ctx vctx;
+	vctx.is_empty = &is_empty;
+	VMOVE(vctx.min, min);
+	VMOVE(vctx.max, max);
+	vctx.v = v;
+	vctx.have_geom_objs = have_geom_objs;
+	vctx.all_view_objs = all_view_objs;
+	bv_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _bv_bound_view_obj_cb, &vctx);
+	VMOVE(min, vctx.min);
+	VMOVE(max, vctx.max);
     }
 
     if (is_empty) {
@@ -1260,6 +1315,15 @@ bv_view_plane(plane_t *p, struct bview *v)
     return bg_plane_pt_nrml(p, cpt, vnrml);
 }
 
+/* Phase D: count callback for bv_view_obj_visit used in bv_clear. */
+static int
+_bv_count_view_obj_cb(struct bv_scene_obj *UNUSED(obj), void *data)
+{
+    size_t *count = (size_t *)data;
+    (*count)++;
+    return 1;
+}
+
 size_t
 bv_clear(struct bview *v, int flags)
 {
@@ -1305,14 +1369,14 @@ bv_clear(struct bview *v, int flags)
     struct bu_ptbl *sg = bv_view_objs(v, BV_DB_OBJS);
     struct bu_ptbl *sgl = bv_view_objs(v, BV_DB_OBJS | BV_LOCAL_OBJS);
 
-    struct bu_ptbl *sv = bv_view_objs(v, BV_VIEW_OBJS);
-    struct bu_ptbl *svl = bv_view_objs(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
+    /* Phase D: count view-only objects via bv_view_obj_visit. */
+    size_t vo_count = 0;
+    bv_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _bv_count_view_obj_cb, &vo_count);
 
     size_t ocnt = 0;
     ocnt += (sg) ? BU_PTBL_LEN(sg) : 0;
     ocnt += (sgl && sgl != sg) ? BU_PTBL_LEN(sgl) : 0;
-    ocnt += (sv) ? BU_PTBL_LEN(sv) : 0;
-    ocnt += (svl && svl != sv) ? BU_PTBL_LEN(svl) : 0;
+    ocnt += vo_count;
     return ocnt;
 }
 
@@ -1396,15 +1460,13 @@ bv_obj_create(struct bview *v, int type)
 	    if (type & BV_DB_OBJS) {
 		otbl = v->gv_objs.db_objs;
 	    }
-	    /* Phase V4: BV_VIEW_OBJS objects are tracked in BSG VIEW_SCOPE
-	     * nodes, not in the retired view_objs ptbl.  Leave otbl = NULL. */
+	    /* BV_VIEW_OBJS objects are tracked in BSG VIEW_SCOPE nodes; otbl = NULL. */
 	}
     } else {
 	if (type & BV_DB_OBJS) {
 	    otbl = &v->vset->i->shared_db_objs;
 	}
-	/* Phase V4: shared BV_VIEW_OBJS objects live in BSG VIEW_SCOPE;
-	 * shared_view_obj_cache is a read-only BSG-walk result.  otbl = NULL. */
+	/* BV_VIEW_OBJS objects live in BSG VIEW_SCOPE; otbl = NULL. */
     }
     if (!free_scene_obj)
 	return NULL;
@@ -1457,15 +1519,6 @@ bv_obj_get(struct bview *v, int type)
    int ltype = type;
    if (bv_view_is_independent(v))
 	ltype |= BV_LOCAL_OBJS;
-
-    /* Phase V4: when the caller requests a view-only object and this view has
-     * a BSG draw root, route through the typed BSG scope path so the object
-     * lives natively in the tree.  This covers legacy callers that have not
-     * yet been migrated to bv_view_obj_*_create(). */
-    if ((ltype & BV_VIEW_OBJS) && !(ltype & BV_CHILD_OBJS) && v->gv_draw_root) {
-	int local = (ltype & BV_LOCAL_OBJS) ? 1 : 0;
-	return _bv_view_obj_create(v, NULL, local, 0);
-    }
 
     struct bv_scene_obj *s = bv_obj_create(v, ltype);
     if (!s)
@@ -2282,49 +2335,8 @@ bv_view_objs(struct bview *v, int type)
 	}
     }
 
-    /* Phase V4 (drawing_stack_modernization): BV_VIEW_OBJS objects live in
-     * BSG VIEW_SCOPE nodes.  Walk the scope subtree visible to v, populate the
-     * appropriate transient cache, and return it.  Callers must not modify the
-     * returned ptbl; it is repopulated on every call. */
-    if (type & BV_VIEW_OBJS) {
-	int local = (type & BV_LOCAL_OBJS) ? 1 : 0;
-	struct bu_ptbl *cache = NULL;
-	if (local) {
-	    cache = &v->gv_objs.view_obj_cache;
-	} else {
-	    if (v->vset)
-		cache = &v->vset->i->shared_view_obj_cache;
-	}
-	if (!cache)
-	    return NULL;
-
-	bu_ptbl_reset(cache);
-
-	if (!v->gv_draw_root)
-	    return cache; /* empty: no BSG tree yet */
-
-	struct bv_scene_obj *root = (struct bv_scene_obj *)v->gv_draw_root;
-	for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
-	    struct bv_scene_obj *scope = (struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
-	    if (!scope || !(scope->s_type_flags & BSG_NODE_VIEW_SCOPE))
-		continue;
-	    if (_bv_is_independent_scope(scope, v))
-		continue;
-	    /* shared scope: s_v == NULL; local scope: s_v == v */
-	    if (local && scope->s_v != v)
-		continue;
-	    if (!local && scope->s_v != NULL)
-		continue;
-	    for (size_t j = 0; j < BU_PTBL_LEN(&scope->children); j++) {
-		struct bv_scene_obj *obj =
-		    (struct bv_scene_obj *)BU_PTBL_GET(&scope->children, j);
-		if (obj)
-		    bu_ptbl_ins(cache, (long *)obj);
-	    }
-	}
-
-	return cache;
-    }
+    /* BV_VIEW_OBJS queries are no longer supported (Phase D,
+     * drawing_stack_modernization); use bv_view_obj_visit instead. */
 
     return NULL;
 }

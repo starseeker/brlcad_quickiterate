@@ -460,12 +460,9 @@ bv_illum_obj(struct bv_scene_obj *s, char ill_state);
  * objects with the specified type.  Note that view-specific db objects are not
  * part of these sets.
  *
- * DEPRECATED for BV_VIEW_OBJS queries (Phase V4, drawing_stack_modernization):
- * When called with BV_VIEW_OBJS (with or without BV_LOCAL_OBJS), this function
- * now performs a BSG VIEW_SCOPE walk and returns a transient cache ptbl owned
- * by the view.  The returned ptbl is repopulated on every call; callers must
- * not hold pointers across calls and must not modify the ptbl contents.
- * Scheduled for removal after Phase V8.  Prefer the BSG walk APIs instead.
+ * Valid type flags: BV_DB_OBJS, BV_DB_OBJS|BV_LOCAL_OBJS.
+ * BV_VIEW_OBJS queries are no longer supported (Phase D,
+ * drawing_stack_modernization); use bv_view_obj_visit instead.
  */
 BV_EXPORT struct bu_ptbl *
 bv_view_objs(struct bview *v, int type);
