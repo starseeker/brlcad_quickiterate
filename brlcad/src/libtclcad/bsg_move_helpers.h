@@ -44,6 +44,12 @@
 
 __BEGIN_DECLS
 
+#if defined(__GNUC__)
+#  define _BSG_HELPER_STATIC static __attribute__((unused))
+#else
+#  define _BSG_HELPER_STATIC static
+#endif
+
 /* --------------------------------------------------------------------------
  * Point extraction
  * -------------------------------------------------------------------------- */
@@ -54,7 +60,7 @@ __BEGIN_DECLS
  * Caller must bu_free(*pts_out, "bsg pts").
  * Returns the number of points extracted (0 if none or s is NULL).
  */
-static inline int
+_BSG_HELPER_STATIC int
 _bsg_extract_pts(struct bv_scene_obj *s, point_t **pts_out)
 {
     if (!s || !pts_out) return 0;
@@ -88,7 +94,7 @@ _bsg_extract_pts(struct bv_scene_obj *s, point_t **pts_out)
  * points.  Caller must bu_free(*pts_out, "bsg axes pts").
  * Returns the number of center points extracted.
  */
-static inline int
+_BSG_HELPER_STATIC int
 _bsg_extract_axes_centers(struct bv_scene_obj *s, point_t **pts_out)
 {
     if (!pts_out) return 0;
@@ -125,7 +131,7 @@ _bsg_extract_axes_centers(struct bv_scene_obj *s, point_t **pts_out)
  * Consecutive pairs of points define arrow shafts (pt[0]→pt[1], pt[2]→pt[3]).
  * Existing object (if any) is removed first.
  */
-static inline void
+_BSG_HELPER_STATIC void
 _bsg_rebuild_arrows(struct bview *v,
 		    const char *bsg_name,
 		    point_t *pts, int npts,
@@ -158,7 +164,7 @@ _bsg_rebuild_arrows(struct bview *v,
  * Rebuild a BSG lines object from an explicit flat point array.
  * Consecutive pairs of points define line segments.
  */
-static inline void
+_BSG_HELPER_STATIC void
 _bsg_rebuild_lines(struct bview *v,
 		   const char *bsg_name,
 		   point_t *pts, int npts,
@@ -186,7 +192,7 @@ _bsg_rebuild_lines(struct bview *v,
  * Rebuild a BSG data-axes object from an array of center points and a
  * half-axes-size.  Generates 6 vlist entries per center (X/Y/Z axis pairs).
  */
-static inline void
+_BSG_HELPER_STATIC void
 _bsg_rebuild_axes(struct bview *v,
 		  const char *bsg_name,
 		  point_t *centers, int ncenters,
@@ -234,7 +240,7 @@ _bsg_rebuild_axes(struct bview *v,
  * Read display style fields from an existing BSG scene object into caller-
  * supplied output variables.  Safe to call with a NULL @p s (fills defaults).
  */
-static inline void
+_BSG_HELPER_STATIC void
 _bsg_read_style(struct bv_scene_obj *s,
 		int color_out[3],
 		int *lw_out,
@@ -267,6 +273,8 @@ _bsg_read_style(struct bv_scene_obj *s,
 }
 
 __END_DECLS
+
+#undef _BSG_HELPER_STATIC
 
 #endif /* LIBTCLCAD_BSG_MOVE_HELPERS_H */
 

@@ -521,17 +521,18 @@ Pending in a follow-up session (with the order to tackle them)
        persistent store; no gv_tcl mirror is allocated.  The "points"
        getter walks the BSG vlist; draw/color/line_width getters read
        BSG object fields.
-     - For Tcl views: gv_tcl mirror fields are still written as a
-       compatibility shim for libtclcad callers (mouse.c uses
-       `gv_data_lines` as a pick/snap source during interactive
-       line drawing); BSG is always written first.
+     - For Tcl views: BSG is now the sole persistent store here as well.
+       The old gv_tcl compatibility shim was removed after commands.c
+       pick/move and mouse.c line/arrow/label paths were migrated to BSG.
      - `ged_view_data_lines()` no longer errors on views without
        gv_tcl; it just sets gdlsp = NULL and takes the BSG-only path.
 
 2. Decide where data_vZ lives long-term.
    `gv_tcl->gv_data_vZ` is a Tcl-mode editing-Z-plane scalar consumed
-   by libtclcad mouse.c, polygons.c, and the libtclcad "data_vZ"
-   command in commands.c.  The cleanest endgame is to move the field
+   by polygon setup in libtclcad/polygons.c, cached into
+   `bv_data_polygon_state::gdps_data_vZ`, and exposed via the
+   libtclcad "data_vZ" command in commands.c.  The cleanest endgame is
+   to move the field
    onto `bview` directly — it is the "current Z height" for the view
    plane in 3D space, a concept that the view reasonably owns.
    libtclcad becomes a consumer of a BV-owned value rather than the
