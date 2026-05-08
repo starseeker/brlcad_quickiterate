@@ -27,6 +27,7 @@
 /* Private headers */
 #include "./tclcad_private.h"
 #include "./view/view.h"
+#include "./bsg_move_helpers.h"
 
 int
 to_get_prev_mouse(struct ged *gedp,
@@ -3107,41 +3108,56 @@ to_data_scale(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    /* scale data arrows */
+    /* scale data arrows - T3: read/write BSG vlist instead of gv_tcl */
     {
-	struct bv_data_arrow_state *gdasp = &gdvp->gv_tcl->gv_data_arrows;
-	point_t vcenter = {0, 0, 0};
+	struct bv_scene_obj *_as = bv_view_obj_find(gdvp, "_tcl_data_arrows");
+	if (_as) {
+	    point_t vcenter = {0, 0, 0};
+	    point_t *_pts = NULL;
+	    int _npts = _bsg_extract_pts(_as, &_pts);
 
-	/* Scale the length of each arrow */
-	for (i = 0; i < gdasp->gdas_num_points; i += 2) {
-	    vect_t diff;
-	    point_t vpoint;
+	    /* Scale the length of each arrow (even-indexed endpoints = shaft starts) */
+	    for (i = 0; i < _npts; i += 2) {
+		vect_t diff;
+		point_t vpoint;
+		MAT4X3PNT(vpoint, gedp->ged_gvp->gv_model2view, _pts[i]);
+		vcenter[Z] = vpoint[Z];
+		VSUB2(diff, vpoint, vcenter);
+		VSCALE(diff, diff, sf);
+		VADD2(vpoint, vcenter, diff);
+		MAT4X3PNT(_pts[i], gedp->ged_gvp->gv_view2model, vpoint);
+	    }
 
-	    MAT4X3PNT(vpoint, gedp->ged_gvp->gv_model2view, gdasp->gdas_points[i]);
-	    vcenter[Z] = vpoint[Z];
-	    VSUB2(diff, vpoint, vcenter);
-	    VSCALE(diff, diff, sf);
-	    VADD2(vpoint, vcenter, diff);
-	    MAT4X3PNT(gdasp->gdas_points[i], gedp->ged_gvp->gv_view2model, vpoint);
+	    int _color[3]; int _lw, _tl, _tw, _vis;
+	    _bsg_read_style(_as, _color, &_lw, &_tl, &_tw, &_vis);
+	    _bsg_rebuild_arrows(gdvp, "_tcl_data_arrows", _pts, _npts,
+			       _color, _lw, _tl, _tw, _vis);
+	    bu_free(_pts, "bsg pts");
 	}
     }
 
-    /* scale data labels */
+    /* scale data labels - T3: modify bv_label.p in BSG children instead of gv_tcl */
     {
-	struct bv_data_label_state *gdlsp = &gdvp->gv_tcl->gv_data_labels;
-	point_t vcenter = {0, 0, 0};
-	point_t vpoint;
+	struct bv_scene_obj *_lp = bv_view_obj_find(gdvp, "_tcl_data_labels");
+	if (_lp && BU_PTBL_LEN(&_lp->children) > 0) {
+	    point_t vcenter = {0, 0, 0};
+	    point_t vpoint;
 
-	/* Scale the location of each label WRT the view center */
-	for (i = 0; i < gdlsp->gdls_num_labels; ++i) {
-	    vect_t diff;
+	    for (size_t _k = 0; _k < BU_PTBL_LEN(&_lp->children); _k++) {
+		struct bv_scene_obj *_c =
+		    (struct bv_scene_obj *)BU_PTBL_GET(&_lp->children, _k);
+		if (!_c || !_c->s_i_data) continue;
+		struct bv_label *_l = (struct bv_label *)_c->s_i_data;
+		vect_t diff;
 
-	    MAT4X3PNT(vpoint, gedp->ged_gvp->gv_model2view, gdlsp->gdls_points[i]);
-	    vcenter[Z] = vpoint[Z];
-	    VSUB2(diff, vpoint, vcenter);
-	    VSCALE(diff, diff, sf);
-	    VADD2(vpoint, vcenter, diff);
-	    MAT4X3PNT(gdlsp->gdls_points[i], gedp->ged_gvp->gv_view2model, vpoint);
+		MAT4X3PNT(vpoint, gedp->ged_gvp->gv_model2view, _l->p);
+		vcenter[Z] = vpoint[Z];
+		VSUB2(diff, vpoint, vcenter);
+		VSCALE(diff, diff, sf);
+		VADD2(vpoint, vcenter, diff);
+		MAT4X3PNT(_l->p, gedp->ged_gvp->gv_view2model, vpoint);
+	    }
+	    bv_obj_stale(_lp);
 	}
     }
 

@@ -83,6 +83,7 @@
 #include "brlcad_version.h"
 #include "./tclcad_private.h"
 #include "./view/view.h"
+#include "./bsg_move_helpers.h"
 
 static int to_base2local(struct ged *gedp,
 	int argc,
@@ -1929,234 +1930,269 @@ to_data_move_func(struct ged *gedp,
     }
 
     if (BU_STR_EQUAL(argv[1], "data_arrows")) {
-	struct bv_data_arrow_state *gdasp = &gdvp->gv_tcl->gv_data_arrows;
+	/* T3: operate on BSG vlist directly instead of gv_tcl */
+	const char *_bsg_name = "_tcl_data_arrows";
+	struct bv_scene_obj *_s = bv_view_obj_find(gdvp, _bsg_name);
+	if (!_s) return BRLCAD_OK; /* nothing to move */
 
-	/* Silently ignore */
-	if (dindex >= gdvp->gv_tcl->gv_data_arrows.gdas_num_points)
-	    return BRLCAD_OK;
+	point_t *_pts = NULL;
+	int _npts = _bsg_extract_pts(_s, &_pts);
 
-	/* This section is for moving the entire arrow */
+	if (dindex >= _npts) { bu_free(_pts, "bsg pts"); return BRLCAD_OK; }
+
 	if (gdvp->gv_tcl->gv_polygon_mode == TCLCAD_DATA_MOVE_OBJECT_MODE) {
-	    int dindexA, dindexB;
+	    int dindexA = dindex;
+	    int dindexB = (dindex % 2) ? dindex - 1 : dindex + 1;
+
+	    if (dindexB < 0 || dindexB >= _npts) { bu_free(_pts, "bsg pts"); return BRLCAD_OK; }
+
 	    point_t old_mpoint, new_mpoint;
 	    vect_t diff;
-
-	    dindexA = dindex;
-	    if (dindex%2)
-		dindexB = dindex - 1;
-	    else
-		dindexB = dindex + 1;
-
-	    VMOVE(old_mpoint, gdasp->gdas_points[dindexA]);
-
-	    MAT4X3PNT(vpoint, gdvp->gv_model2view, gdasp->gdas_points[dindexA]);
-	    vpoint[X] = vx;
-	    vpoint[Y] = vy;
+	    VMOVE(old_mpoint, _pts[dindexA]);
+	    MAT4X3PNT(vpoint, gdvp->gv_model2view, _pts[dindexA]);
+	    vpoint[X] = vx; vpoint[Y] = vy;
 	    MAT4X3PNT(new_mpoint, gdvp->gv_view2model, vpoint);
 	    VSUB2(diff, new_mpoint, old_mpoint);
-
-	    VMOVE(gdasp->gdas_points[dindexA], new_mpoint);
-	    VADD2(gdasp->gdas_points[dindexB], gdasp->gdas_points[dindexB], diff);
+	    VMOVE(_pts[dindexA], new_mpoint);
+	    VADD2(_pts[dindexB], _pts[dindexB], diff);
 	} else {
-	    MAT4X3PNT(vpoint, gdvp->gv_model2view, gdasp->gdas_points[dindex]);
-	    vpoint[X] = vx;
-	    vpoint[Y] = vy;
+	    MAT4X3PNT(vpoint, gdvp->gv_model2view, _pts[dindex]);
+	    vpoint[X] = vx; vpoint[Y] = vy;
 	    MAT4X3PNT(mpoint, gdvp->gv_view2model, vpoint);
-	    VMOVE(gdasp->gdas_points[dindex], mpoint);
+	    VMOVE(_pts[dindex], mpoint);
 	}
 
+	int _color[3]; int _lw, _tl, _tw, _vis;
+	_bsg_read_style(_s, _color, &_lw, &_tl, &_tw, &_vis);
+	_bsg_rebuild_arrows(gdvp, _bsg_name, _pts, _npts, _color, _lw, _tl, _tw, _vis);
+	bu_free(_pts, "bsg pts");
 	to_refresh_view(gdvp);
 	return BRLCAD_OK;
     }
 
     if (BU_STR_EQUAL(argv[1], "sdata_arrows")) {
-	struct bv_data_arrow_state *gdasp = &gdvp->gv_tcl->gv_sdata_arrows;
+	/* T3: operate on BSG vlist directly instead of gv_tcl */
+	const char *_bsg_name = "_tcl_sdata_arrows";
+	struct bv_scene_obj *_s = bv_view_obj_find(gdvp, _bsg_name);
+	if (!_s) return BRLCAD_OK;
 
-	/* Silently ignore */
-	if (dindex >= gdvp->gv_tcl->gv_sdata_arrows.gdas_num_points)
-	    return BRLCAD_OK;
+	point_t *_pts = NULL;
+	int _npts = _bsg_extract_pts(_s, &_pts);
 
-	/* This section is for moving the entire arrow */
+	if (dindex >= _npts) { bu_free(_pts, "bsg pts"); return BRLCAD_OK; }
+
 	if (gdvp->gv_tcl->gv_polygon_mode == TCLCAD_DATA_MOVE_OBJECT_MODE) {
-	    int dindexA, dindexB;
+	    int dindexA = dindex;
+	    int dindexB = (dindex % 2) ? dindex - 1 : dindex + 1;
+
+	    if (dindexB < 0 || dindexB >= _npts) { bu_free(_pts, "bsg pts"); return BRLCAD_OK; }
+
 	    point_t old_mpoint, new_mpoint;
 	    vect_t diff;
-
-	    dindexA = dindex;
-	    if (dindex%2)
-		dindexB = dindex - 1;
-	    else
-		dindexB = dindex + 1;
-
-	    VMOVE(old_mpoint, gdasp->gdas_points[dindexA]);
-
-	    MAT4X3PNT(vpoint, gdvp->gv_model2view, gdasp->gdas_points[dindexA]);
-	    vpoint[X] = vx;
-	    vpoint[Y] = vy;
+	    VMOVE(old_mpoint, _pts[dindexA]);
+	    MAT4X3PNT(vpoint, gdvp->gv_model2view, _pts[dindexA]);
+	    vpoint[X] = vx; vpoint[Y] = vy;
 	    MAT4X3PNT(new_mpoint, gdvp->gv_view2model, vpoint);
 	    VSUB2(diff, new_mpoint, old_mpoint);
-
-	    VMOVE(gdasp->gdas_points[dindexA], new_mpoint);
-	    VADD2(gdasp->gdas_points[dindexB], gdasp->gdas_points[dindexB], diff);
+	    VMOVE(_pts[dindexA], new_mpoint);
+	    VADD2(_pts[dindexB], _pts[dindexB], diff);
 	} else {
-	    MAT4X3PNT(vpoint, gdvp->gv_model2view, gdasp->gdas_points[dindex]);
-	    vpoint[X] = vx;
-	    vpoint[Y] = vy;
+	    MAT4X3PNT(vpoint, gdvp->gv_model2view, _pts[dindex]);
+	    vpoint[X] = vx; vpoint[Y] = vy;
 	    MAT4X3PNT(mpoint, gdvp->gv_view2model, vpoint);
-	    VMOVE(gdasp->gdas_points[dindex], mpoint);
+	    VMOVE(_pts[dindex], mpoint);
 	}
 
+	int _color[3]; int _lw, _tl, _tw, _vis;
+	_bsg_read_style(_s, _color, &_lw, &_tl, &_tw, &_vis);
+	_bsg_rebuild_arrows(gdvp, _bsg_name, _pts, _npts, _color, _lw, _tl, _tw, _vis);
+	bu_free(_pts, "bsg pts");
 	to_refresh_view(gdvp);
 	return BRLCAD_OK;
     }
 
     if (BU_STR_EQUAL(argv[1], "data_axes")) {
-	struct bv_data_axes_state *gdasp = &gdvp->gv_tcl->gv_data_axes;
+	/* T3: extract center points from BSG vlist, move one, rebuild */
+	const char *_bsg_name = "_tcl_data_axes";
+	struct bv_scene_obj *_s = bv_view_obj_find(gdvp, _bsg_name);
+	if (!_s) return BRLCAD_OK;
 
-	/* Silently ignore */
-	if (dindex >= gdvp->gv_tcl->gv_data_axes.num_points)
-	    return BRLCAD_OK;
+	point_t *_cpts = NULL;
+	int _ncpts = _bsg_extract_axes_centers(_s, &_cpts);
 
-	MAT4X3PNT(vpoint, gdvp->gv_model2view, gdasp->points[dindex]);
-	vpoint[X] = vx;
-	vpoint[Y] = vy;
+	if (dindex >= _ncpts) { bu_free(_cpts, "bsg axes pts"); return BRLCAD_OK; }
+
+	MAT4X3PNT(vpoint, gdvp->gv_model2view, _cpts[dindex]);
+	vpoint[X] = vx; vpoint[Y] = vy;
 	MAT4X3PNT(mpoint, gdvp->gv_view2model, vpoint);
-	VMOVE(gdasp->points[dindex], mpoint);
+	VMOVE(_cpts[dindex], mpoint);
 
+	/* Recover halfAxesSize from X-axis endpoints of first center group */
+	point_t *_all = NULL;
+	int _ntotal = _bsg_extract_pts(_s, &_all);
+	fastf_t _half = (_ntotal >= 2) ? (_all[1][X] - _all[0][X]) * 0.5 : 1.0;
+	bu_free(_all, "bsg pts");
+
+	int _color[3]; int _lw, _vis;
+	_bsg_read_style(_s, _color, &_lw, NULL, NULL, &_vis);
+	_bsg_rebuild_axes(gdvp, _bsg_name, _cpts, _ncpts, _half, _color, _lw, _vis);
+	bu_free(_cpts, "bsg axes pts");
 	to_refresh_view(gdvp);
 	return BRLCAD_OK;
     }
 
     if (BU_STR_EQUAL(argv[1], "sdata_axes")) {
-	struct bv_data_axes_state *gdasp = &gdvp->gv_tcl->gv_sdata_axes;
+	/* T3: extract center points from BSG vlist, move one, rebuild */
+	const char *_bsg_name = "_tcl_sdata_axes";
+	struct bv_scene_obj *_s = bv_view_obj_find(gdvp, _bsg_name);
+	if (!_s) return BRLCAD_OK;
 
-	/* Silently ignore */
-	if (dindex >= gdvp->gv_tcl->gv_sdata_axes.num_points)
-	    return BRLCAD_OK;
+	point_t *_cpts = NULL;
+	int _ncpts = _bsg_extract_axes_centers(_s, &_cpts);
 
-	MAT4X3PNT(vpoint, gdvp->gv_model2view, gdasp->points[dindex]);
-	vpoint[X] = vx;
-	vpoint[Y] = vy;
+	if (dindex >= _ncpts) { bu_free(_cpts, "bsg axes pts"); return BRLCAD_OK; }
+
+	MAT4X3PNT(vpoint, gdvp->gv_model2view, _cpts[dindex]);
+	vpoint[X] = vx; vpoint[Y] = vy;
 	MAT4X3PNT(mpoint, gdvp->gv_view2model, vpoint);
-	VMOVE(gdasp->points[dindex], mpoint);
+	VMOVE(_cpts[dindex], mpoint);
 
+	point_t *_all = NULL;
+	int _ntotal = _bsg_extract_pts(_s, &_all);
+	fastf_t _half = (_ntotal >= 2) ? (_all[1][X] - _all[0][X]) * 0.5 : 1.0;
+	bu_free(_all, "bsg pts");
+
+	int _color[3]; int _lw, _vis;
+	_bsg_read_style(_s, _color, &_lw, NULL, NULL, &_vis);
+	_bsg_rebuild_axes(gdvp, _bsg_name, _cpts, _ncpts, _half, _color, _lw, _vis);
+	bu_free(_cpts, "bsg axes pts");
 	to_refresh_view(gdvp);
 	return BRLCAD_OK;
     }
 
 
     if (BU_STR_EQUAL(argv[1], "data_labels")) {
-	struct bv_data_label_state *gdlsp = &gdvp->gv_tcl->gv_data_labels;
+	/* T3: modify bv_label.p of BSG child directly instead of gv_tcl */
+	const char *_bsg_name = "_tcl_data_labels";
+	struct bv_scene_obj *_lp = bv_view_obj_find(gdvp, _bsg_name);
+	if (!_lp) return BRLCAD_OK;
 
-	/* Silently ignore */
-	if (dindex >= gdvp->gv_tcl->gv_data_labels.gdls_num_labels)
-	    return BRLCAD_OK;
+	if ((size_t)dindex >= BU_PTBL_LEN(&_lp->children)) return BRLCAD_OK;
 
-	MAT4X3PNT(vpoint, gdvp->gv_model2view, gdlsp->gdls_points[dindex]);
-	vpoint[X] = vx;
-	vpoint[Y] = vy;
+	struct bv_scene_obj *_c = (struct bv_scene_obj *)BU_PTBL_GET(&_lp->children, dindex);
+	if (!_c || !_c->s_i_data) return BRLCAD_OK;
+	struct bv_label *_l = (struct bv_label *)_c->s_i_data;
+
+	MAT4X3PNT(vpoint, gdvp->gv_model2view, _l->p);
+	vpoint[X] = vx; vpoint[Y] = vy;
 	MAT4X3PNT(mpoint, gdvp->gv_view2model, vpoint);
-	VMOVE(gdlsp->gdls_points[dindex], mpoint);
+	VMOVE(_l->p, mpoint);
+	bv_obj_stale(_lp);
 
 	to_refresh_view(gdvp);
 	return BRLCAD_OK;
     }
 
     if (BU_STR_EQUAL(argv[1], "sdata_labels")) {
-	struct bv_data_label_state *gdlsp = &gdvp->gv_tcl->gv_sdata_labels;
+	/* T3: modify bv_label.p of BSG child directly */
+	const char *_bsg_name = "_tcl_sdata_labels";
+	struct bv_scene_obj *_lp = bv_view_obj_find(gdvp, _bsg_name);
+	if (!_lp) return BRLCAD_OK;
 
-	/* Silently ignore */
-	if (dindex >= gdvp->gv_tcl->gv_sdata_labels.gdls_num_labels)
-	    return BRLCAD_OK;
+	if ((size_t)dindex >= BU_PTBL_LEN(&_lp->children)) return BRLCAD_OK;
 
-	MAT4X3PNT(vpoint, gdvp->gv_model2view, gdlsp->gdls_points[dindex]);
-	vpoint[X] = vx;
-	vpoint[Y] = vy;
+	struct bv_scene_obj *_c = (struct bv_scene_obj *)BU_PTBL_GET(&_lp->children, dindex);
+	if (!_c || !_c->s_i_data) return BRLCAD_OK;
+	struct bv_label *_l = (struct bv_label *)_c->s_i_data;
+
+	MAT4X3PNT(vpoint, gdvp->gv_model2view, _l->p);
+	vpoint[X] = vx; vpoint[Y] = vy;
 	MAT4X3PNT(mpoint, gdvp->gv_view2model, vpoint);
-	VMOVE(gdlsp->gdls_points[dindex], mpoint);
+	VMOVE(_l->p, mpoint);
+	bv_obj_stale(_lp);
 
 	to_refresh_view(gdvp);
 	return BRLCAD_OK;
     }
 
     if (BU_STR_EQUAL(argv[1], "data_lines")) {
-	struct bv_data_line_state *gdlsp = &gdvp->gv_tcl->gv_data_lines;
+	/* T3: operate on BSG vlist directly instead of gv_tcl */
+	const char *_bsg_name = "_tcl_data_lines";
+	struct bv_scene_obj *_s = bv_view_obj_find(gdvp, _bsg_name);
+	if (!_s) return BRLCAD_OK;
 
-	/* Silently ignore */
-	if (dindex >= gdvp->gv_tcl->gv_data_lines.gdls_num_points)
-	    return BRLCAD_OK;
+	point_t *_pts = NULL;
+	int _npts = _bsg_extract_pts(_s, &_pts);
 
-	/* This section is for moving the entire line */
+	if (dindex >= _npts) { bu_free(_pts, "bsg pts"); return BRLCAD_OK; }
+
 	if (gdvp->gv_tcl->gv_polygon_mode == TCLCAD_DATA_MOVE_OBJECT_MODE) {
-	    int dindexA, dindexB;
+	    int dindexA = dindex;
+	    int dindexB = (dindex % 2) ? dindex - 1 : dindex + 1;
+
+	    if (dindexB < 0 || dindexB >= _npts) { bu_free(_pts, "bsg pts"); return BRLCAD_OK; }
+
 	    point_t old_mpoint, new_mpoint;
 	    vect_t diff;
-
-	    dindexA = dindex;
-	    if (dindex%2)
-		dindexB = dindex - 1;
-	    else
-		dindexB = dindex + 1;
-
-	    VMOVE(old_mpoint, gdlsp->gdls_points[dindexA]);
-
-	    MAT4X3PNT(vpoint, gdvp->gv_model2view, gdlsp->gdls_points[dindexA]);
-	    vpoint[X] = vx;
-	    vpoint[Y] = vy;
+	    VMOVE(old_mpoint, _pts[dindexA]);
+	    MAT4X3PNT(vpoint, gdvp->gv_model2view, _pts[dindexA]);
+	    vpoint[X] = vx; vpoint[Y] = vy;
 	    MAT4X3PNT(new_mpoint, gdvp->gv_view2model, vpoint);
 	    VSUB2(diff, new_mpoint, old_mpoint);
-
-	    VMOVE(gdlsp->gdls_points[dindexA], new_mpoint);
-	    VADD2(gdlsp->gdls_points[dindexB], gdlsp->gdls_points[dindexB], diff);
+	    VMOVE(_pts[dindexA], new_mpoint);
+	    VADD2(_pts[dindexB], _pts[dindexB], diff);
 	} else {
-	    MAT4X3PNT(vpoint, gdvp->gv_model2view, gdlsp->gdls_points[dindex]);
-	    vpoint[X] = vx;
-	    vpoint[Y] = vy;
+	    MAT4X3PNT(vpoint, gdvp->gv_model2view, _pts[dindex]);
+	    vpoint[X] = vx; vpoint[Y] = vy;
 	    MAT4X3PNT(mpoint, gdvp->gv_view2model, vpoint);
-	    VMOVE(gdlsp->gdls_points[dindex], mpoint);
+	    VMOVE(_pts[dindex], mpoint);
 	}
 
+	int _color[3]; int _lw, _vis;
+	_bsg_read_style(_s, _color, &_lw, NULL, NULL, &_vis);
+	_bsg_rebuild_lines(gdvp, _bsg_name, _pts, _npts, _color, _lw, _vis);
+	bu_free(_pts, "bsg pts");
 	to_refresh_view(gdvp);
 	return BRLCAD_OK;
     }
 
     if (BU_STR_EQUAL(argv[1], "sdata_lines")) {
-	struct bv_data_line_state *gdlsp = &gdvp->gv_tcl->gv_sdata_lines;
+	/* T3: operate on BSG vlist directly instead of gv_tcl */
+	const char *_bsg_name = "_tcl_sdata_lines";
+	struct bv_scene_obj *_s = bv_view_obj_find(gdvp, _bsg_name);
+	if (!_s) return BRLCAD_OK;
 
-	/* Silently ignore */
-	if (dindex >= gdvp->gv_tcl->gv_sdata_lines.gdls_num_points)
-	    return BRLCAD_OK;
+	point_t *_pts = NULL;
+	int _npts = _bsg_extract_pts(_s, &_pts);
 
-	/* This section is for moving the entire line */
+	if (dindex >= _npts) { bu_free(_pts, "bsg pts"); return BRLCAD_OK; }
+
 	if (gdvp->gv_tcl->gv_polygon_mode == TCLCAD_DATA_MOVE_OBJECT_MODE) {
-	    int dindexA, dindexB;
+	    int dindexA = dindex;
+	    int dindexB = (dindex % 2) ? dindex - 1 : dindex + 1;
+
+	    if (dindexB < 0 || dindexB >= _npts) { bu_free(_pts, "bsg pts"); return BRLCAD_OK; }
+
 	    point_t old_mpoint, new_mpoint;
 	    vect_t diff;
-
-	    dindexA = dindex;
-	    if (dindex%2)
-		dindexB = dindex - 1;
-	    else
-		dindexB = dindex + 1;
-
-	    VMOVE(old_mpoint, gdlsp->gdls_points[dindexA]);
-
-	    MAT4X3PNT(vpoint, gdvp->gv_model2view, gdlsp->gdls_points[dindexA]);
-	    vpoint[X] = vx;
-	    vpoint[Y] = vy;
+	    VMOVE(old_mpoint, _pts[dindexA]);
+	    MAT4X3PNT(vpoint, gdvp->gv_model2view, _pts[dindexA]);
+	    vpoint[X] = vx; vpoint[Y] = vy;
 	    MAT4X3PNT(new_mpoint, gdvp->gv_view2model, vpoint);
 	    VSUB2(diff, new_mpoint, old_mpoint);
-
-	    VMOVE(gdlsp->gdls_points[dindexA], new_mpoint);
-	    VADD2(gdlsp->gdls_points[dindexB], gdlsp->gdls_points[dindexB], diff);
+	    VMOVE(_pts[dindexA], new_mpoint);
+	    VADD2(_pts[dindexB], _pts[dindexB], diff);
 	} else {
-	    MAT4X3PNT(vpoint, gdvp->gv_model2view, gdlsp->gdls_points[dindex]);
-	    vpoint[X] = vx;
-	    vpoint[Y] = vy;
+	    MAT4X3PNT(vpoint, gdvp->gv_model2view, _pts[dindex]);
+	    vpoint[X] = vx; vpoint[Y] = vy;
 	    MAT4X3PNT(mpoint, gdvp->gv_view2model, vpoint);
-	    VMOVE(gdlsp->gdls_points[dindex], mpoint);
+	    VMOVE(_pts[dindex], mpoint);
 	}
 
+	int _color[3]; int _lw, _vis;
+	_bsg_read_style(_s, _color, &_lw, NULL, NULL, &_vis);
+	_bsg_rebuild_lines(gdvp, _bsg_name, _pts, _npts, _color, _lw, _vis);
+	bu_free(_pts, "bsg pts");
 	to_refresh_view(gdvp);
 	return BRLCAD_OK;
     }
@@ -2506,63 +2542,71 @@ to_data_pick_func(struct ged *gedp,
 	return BRLCAD_OK;
     }
 
-    /* check for label points */
-    if (gdvp->gv_tcl->gv_data_labels.gdls_draw &&
-	    gdvp->gv_tcl->gv_data_labels.gdls_num_labels) {
-	struct bv_data_label_state *gdlsp = &gdvp->gv_tcl->gv_data_labels;
+    /* check for label points - T3: read from BSG children instead of gv_tcl */
+    {
+	struct bv_scene_obj *_lp = bv_view_obj_find(gdvp, "_tcl_data_labels");
+	if (_lp && BU_PTBL_LEN(&_lp->children) > 0) {
+	    for (size_t _k = 0; _k < BU_PTBL_LEN(&_lp->children); _k++) {
+		fastf_t minX, maxX;
+		fastf_t minY, maxY;
 
-	for (i = 0; i < gdlsp->gdls_num_labels; ++i) {
-	    fastf_t minX, maxX;
-	    fastf_t minY, maxY;
+		struct bv_scene_obj *_c = (struct bv_scene_obj *)BU_PTBL_GET(&_lp->children, _k);
+		if (!_c || !_c->s_i_data) continue;
+		struct bv_label *_l = (struct bv_label *)_c->s_i_data;
 
-	    VMOVE(dpoint, gdlsp->gdls_points[i]);
-	    MAT4X3PNT(vpoint, gdvp->gv_model2view, dpoint);
+		VMOVE(dpoint, _l->p);
+		MAT4X3PNT(vpoint, gdvp->gv_model2view, dpoint);
 
-	    minX = vpoint[X];
-	    maxX = vpoint[X] + (2 * tol);
-	    minY = vpoint[Y];
-	    maxY = vpoint[Y] + (2 * tol);
+		minX = vpoint[X];
+		maxX = vpoint[X] + (2 * tol);
+		minY = vpoint[Y];
+		maxY = vpoint[Y] + (2 * tol);
 
-	    if (minX < vx && vx < maxX &&
-		    minY < vy && vy < maxY) {
-		if (!found_top || top_z < vpoint[Z]) {
-		    top_z = vpoint[Z];
-		    top_data_str = data_labels_str;
-		    top_i = i;
-		    top_data_label = gdlsp->gdls_labels[i];
-		    VMOVE(top_point, dpoint);
-		    found_top = 1;
+		if (minX < vx && vx < maxX &&
+			minY < vy && vy < maxY) {
+		    if (!found_top || top_z < vpoint[Z]) {
+			top_z = vpoint[Z];
+			top_data_str = data_labels_str;
+			top_i = _k;
+			top_data_label = bu_vls_cstr(&_l->label);
+			VMOVE(top_point, dpoint);
+			found_top = 1;
+		    }
 		}
 	    }
 	}
     }
 
-    /* check for selected label points */
-    if (gdvp->gv_tcl->gv_sdata_labels.gdls_draw &&
-	    gdvp->gv_tcl->gv_sdata_labels.gdls_num_labels) {
-	struct bv_data_label_state *gdlsp = &gdvp->gv_tcl->gv_sdata_labels;
+    /* check for selected label points - T3: read from BSG children */
+    {
+	struct bv_scene_obj *_lp = bv_view_obj_find(gdvp, "_tcl_sdata_labels");
+	if (_lp && BU_PTBL_LEN(&_lp->children) > 0) {
+	    for (size_t _k = 0; _k < BU_PTBL_LEN(&_lp->children); _k++) {
+		fastf_t minX, maxX;
+		fastf_t minY, maxY;
 
-	for (i = 0; i < gdlsp->gdls_num_labels; ++i) {
-	    fastf_t minX, maxX;
-	    fastf_t minY, maxY;
+		struct bv_scene_obj *_c = (struct bv_scene_obj *)BU_PTBL_GET(&_lp->children, _k);
+		if (!_c || !_c->s_i_data) continue;
+		struct bv_label *_l = (struct bv_label *)_c->s_i_data;
 
-	    VMOVE(dpoint, gdlsp->gdls_points[i]);
-	    MAT4X3PNT(vpoint, gdvp->gv_model2view, dpoint);
+		VMOVE(dpoint, _l->p);
+		MAT4X3PNT(vpoint, gdvp->gv_model2view, dpoint);
 
-	    minX = vpoint[X];
-	    maxX = vpoint[X] + (2 * tol);
-	    minY = vpoint[Y];
-	    maxY = vpoint[Y] + (2 * tol);
+		minX = vpoint[X];
+		maxX = vpoint[X] + (2 * tol);
+		minY = vpoint[Y];
+		maxY = vpoint[Y] + (2 * tol);
 
-	    if (minX < vx && vx < maxX &&
-		    minY < vy && vy < maxY) {
-		if (!found_top || top_z < vpoint[Z]) {
-		    top_z = vpoint[Z];
-		    top_data_str = sdata_labels_str;
-		    top_i = i;
-		    top_data_label = gdlsp->gdls_labels[i];
-		    VMOVE(top_point, dpoint);
-		    found_top = 1;
+		if (minX < vx && vx < maxX &&
+			minY < vy && vy < maxY) {
+		    if (!found_top || top_z < vpoint[Z]) {
+			top_z = vpoint[Z];
+			top_data_str = sdata_labels_str;
+			top_i = _k;
+			top_data_label = bu_vls_cstr(&_l->label);
+			VMOVE(top_point, dpoint);
+			found_top = 1;
+		    }
 		}
 	    }
 	}
@@ -2574,120 +2618,53 @@ to_data_pick_func(struct ged *gedp,
 	return BRLCAD_OK;
     }
 
-    /* check for line points */
-    if (gdvp->gv_tcl->gv_data_lines.gdls_draw &&
-	    gdvp->gv_tcl->gv_data_lines.gdls_num_points) {
-	struct bv_data_line_state *gdlsp = &gdvp->gv_tcl->gv_data_lines;
-
-	for (i = 0; i < gdlsp->gdls_num_points; ++i) {
-	    fastf_t minX, maxX;
-	    fastf_t minY, maxY;
-
-	    VMOVE(dpoint, gdlsp->gdls_points[i]);
-	    MAT4X3PNT(vpoint, gdvp->gv_model2view, dpoint);
-
-	    minX = vpoint[X] - tol;
-	    maxX = vpoint[X] + tol;
-	    minY = vpoint[Y] - tol;
-	    maxY = vpoint[Y] + tol;
-	    if (minX < vx && vx < maxX &&
-		    minY < vy && vy < maxY) {
-		bu_vls_printf(gedp->ged_result_str, "data_lines %d {%lf %lf %lf}", i, V3ARGS(dpoint));
-		return BRLCAD_OK;
+    /* check for line points - T3: read from BSG vlist instead of gv_tcl */
+    {
+	struct bv_scene_obj *_ls = bv_view_obj_find(gdvp, "_tcl_data_lines");
+	if (_ls) {
+	    point_t *_lpts = NULL;
+	    int _lnpts = _bsg_extract_pts(_ls, &_lpts);
+	    for (i = 0; i < _lnpts; ++i) {
+		fastf_t minX, maxX;
+		fastf_t minY, maxY;
+		VMOVE(dpoint, _lpts[i]);
+		MAT4X3PNT(vpoint, gdvp->gv_model2view, dpoint);
+		minX = vpoint[X] - tol; maxX = vpoint[X] + tol;
+		minY = vpoint[Y] - tol; maxY = vpoint[Y] + tol;
+		if (minX < vx && vx < maxX && minY < vy && vy < maxY) {
+		    bu_vls_printf(gedp->ged_result_str, "data_lines %d {%lf %lf %lf}", i, V3ARGS(dpoint));
+		    bu_free(_lpts, "bsg pts");
+		    return BRLCAD_OK;
+		}
 	    }
+	    bu_free(_lpts, "bsg pts");
 	}
     }
 
-    /* check for selected line points */
-    if (gdvp->gv_tcl->gv_sdata_lines.gdls_draw &&
-	    gdvp->gv_tcl->gv_sdata_lines.gdls_num_points) {
-	struct bv_data_line_state *gdlsp = &gdvp->gv_tcl->gv_sdata_lines;
-
-	for (i = 0; i < gdlsp->gdls_num_points; ++i) {
-	    fastf_t minX, maxX;
-	    fastf_t minY, maxY;
-
-	    VMOVE(dpoint, gdlsp->gdls_points[i]);
-	    MAT4X3PNT(vpoint, gdvp->gv_model2view, dpoint);
-
-	    minX = vpoint[X] - tol;
-	    maxX = vpoint[X] + tol;
-	    minY = vpoint[Y] - tol;
-	    maxY = vpoint[Y] + tol;
-	    if (minX < vx && vx < maxX &&
-		    minY < vy && vy < maxY) {
-		if (!found_top || top_z < vpoint[Z]) {
-		    top_z = vpoint[Z];
-		    top_data_str = sdata_lines_str;
-		    top_i = i;
-		    VMOVE(top_point, dpoint);
-		    found_top = 1;
+    /* check for selected line points - T3: read from BSG vlist */
+    {
+	struct bv_scene_obj *_ls = bv_view_obj_find(gdvp, "_tcl_sdata_lines");
+	if (_ls) {
+	    point_t *_lpts = NULL;
+	    int _lnpts = _bsg_extract_pts(_ls, &_lpts);
+	    for (i = 0; i < _lnpts; ++i) {
+		fastf_t minX, maxX;
+		fastf_t minY, maxY;
+		VMOVE(dpoint, _lpts[i]);
+		MAT4X3PNT(vpoint, gdvp->gv_model2view, dpoint);
+		minX = vpoint[X] - tol; maxX = vpoint[X] + tol;
+		minY = vpoint[Y] - tol; maxY = vpoint[Y] + tol;
+		if (minX < vx && vx < maxX && minY < vy && vy < maxY) {
+		    if (!found_top || top_z < vpoint[Z]) {
+			top_z = vpoint[Z];
+			top_data_str = sdata_lines_str;
+			top_i = (size_t)i;
+			VMOVE(top_point, dpoint);
+			found_top = 1;
+		    }
 		}
 	    }
-	}
-    }
-
-    if (found_top) {
-	bu_vls_printf(gedp->ged_result_str, "%s %zu {%lf %lf %lf}",
-		top_data_str, top_i, V3ARGS(top_point));
-	return BRLCAD_OK;
-    }
-
-    /* check for arrow points */
-    if (gdvp->gv_tcl->gv_data_arrows.gdas_draw &&
-	    gdvp->gv_tcl->gv_data_arrows.gdas_num_points) {
-	struct bv_data_arrow_state *gdasp = &gdvp->gv_tcl->gv_data_arrows;
-
-	for (i = 0; i < gdasp->gdas_num_points; ++i) {
-	    fastf_t minX, maxX;
-	    fastf_t minY, maxY;
-
-	    VMOVE(dpoint, gdasp->gdas_points[i]);
-	    MAT4X3PNT(vpoint, gdvp->gv_model2view, dpoint);
-
-	    minX = vpoint[X] - tol;
-	    maxX = vpoint[X] + tol;
-	    minY = vpoint[Y] - tol;
-	    maxY = vpoint[Y] + tol;
-	    if (minX < vx && vx < maxX &&
-		    minY < vy && vy < maxY) {
-		if (!found_top || top_z < vpoint[Z]) {
-		    top_z = vpoint[Z];
-		    top_data_str = data_arrows_str;
-		    top_i = i;
-		    VMOVE(top_point, dpoint);
-		    found_top = 1;
-		}
-	    }
-	}
-    }
-
-    /* check for selected arrow points */
-    if (gdvp->gv_tcl->gv_sdata_arrows.gdas_draw &&
-	    gdvp->gv_tcl->gv_sdata_arrows.gdas_num_points) {
-	struct bv_data_arrow_state *gdasp = &gdvp->gv_tcl->gv_sdata_arrows;
-
-	for (i = 0; i < gdasp->gdas_num_points; ++i) {
-	    fastf_t minX, maxX;
-	    fastf_t minY, maxY;
-
-	    VMOVE(dpoint, gdasp->gdas_points[i]);
-	    MAT4X3PNT(vpoint, gdvp->gv_model2view, dpoint);
-
-	    minX = vpoint[X] - tol;
-	    maxX = vpoint[X] + tol;
-	    minY = vpoint[Y] - tol;
-	    maxY = vpoint[Y] + tol;
-	    if (minX < vx && vx < maxX &&
-		    minY < vy && vy < maxY) {
-		if (!found_top || top_z < vpoint[Z]) {
-		    top_z = vpoint[Z];
-		    top_data_str = sdata_arrows_str;
-		    top_i = i;
-		    VMOVE(top_point, dpoint);
-		    found_top = 1;
-		}
-	    }
+	    bu_free(_lpts, "bsg pts");
 	}
     }
 
@@ -2697,61 +2674,113 @@ to_data_pick_func(struct ged *gedp,
 	return BRLCAD_OK;
     }
 
-    /* check for axes points */
-    if (gdvp->gv_tcl->gv_data_axes.draw &&
-	    gdvp->gv_tcl->gv_data_axes.num_points) {
-	struct bv_data_axes_state *gdasp = &gdvp->gv_tcl->gv_data_axes;
-
-	for (i = 0; i < gdasp->num_points; ++i) {
-	    fastf_t minX, maxX;
-	    fastf_t minY, maxY;
-
-	    VMOVE(dpoint, gdasp->points[i]);
-	    MAT4X3PNT(vpoint, gdvp->gv_model2view, dpoint);
-
-	    minX = vpoint[X] - tol;
-	    maxX = vpoint[X] + tol;
-	    minY = vpoint[Y] - tol;
-	    maxY = vpoint[Y] + tol;
-	    if (minX < vx && vx < maxX &&
-		    minY < vy && vy < maxY) {
-		if (!found_top || top_z < vpoint[Z]) {
-		    top_z = vpoint[Z];
-		    top_i = i;
-		    top_data_str = data_axes_str;
-		    VMOVE(top_point, dpoint);
-		    found_top = 1;
+    /* check for arrow points - T3: read from BSG vlist instead of gv_tcl */
+    {
+	struct bv_scene_obj *_as = bv_view_obj_find(gdvp, "_tcl_data_arrows");
+	if (_as) {
+	    point_t *_apts = NULL;
+	    int _anpts = _bsg_extract_pts(_as, &_apts);
+	    for (i = 0; i < _anpts; ++i) {
+		fastf_t minX, maxX, minY, maxY;
+		VMOVE(dpoint, _apts[i]);
+		MAT4X3PNT(vpoint, gdvp->gv_model2view, dpoint);
+		minX = vpoint[X] - tol; maxX = vpoint[X] + tol;
+		minY = vpoint[Y] - tol; maxY = vpoint[Y] + tol;
+		if (minX < vx && vx < maxX && minY < vy && vy < maxY) {
+		    if (!found_top || top_z < vpoint[Z]) {
+			top_z = vpoint[Z];
+			top_data_str = data_arrows_str;
+			top_i = (size_t)i;
+			VMOVE(top_point, dpoint);
+			found_top = 1;
+		    }
 		}
 	    }
+	    bu_free(_apts, "bsg pts");
 	}
     }
 
-    /* check for selected axes points */
-    if (gdvp->gv_tcl->gv_sdata_axes.draw &&
-	    gdvp->gv_tcl->gv_sdata_axes.num_points) {
-	struct bv_data_axes_state *gdasp = &gdvp->gv_tcl->gv_sdata_axes;
-
-	for (i = 0; i < gdasp->num_points; ++i) {
-	    fastf_t minX, maxX;
-	    fastf_t minY, maxY;
-
-	    VMOVE(dpoint, gdasp->points[i]);
-	    MAT4X3PNT(vpoint, gdvp->gv_model2view, dpoint);
-
-	    minX = vpoint[X] - tol;
-	    maxX = vpoint[X] + tol;
-	    minY = vpoint[Y] - tol;
-	    maxY = vpoint[Y] + tol;
-	    if (minX < vx && vx < maxX &&
-		    minY < vy && vy < maxY) {
-		if (!found_top || top_z < vpoint[Z]) {
-		    top_z = vpoint[Z];
-		    top_i = i;
-		    top_data_str = sdata_axes_str;
-		    VMOVE(top_point, dpoint);
-		    found_top = 1;
+    /* check for selected arrow points - T3: read from BSG vlist */
+    {
+	struct bv_scene_obj *_as = bv_view_obj_find(gdvp, "_tcl_sdata_arrows");
+	if (_as) {
+	    point_t *_apts = NULL;
+	    int _anpts = _bsg_extract_pts(_as, &_apts);
+	    for (i = 0; i < _anpts; ++i) {
+		fastf_t minX, maxX, minY, maxY;
+		VMOVE(dpoint, _apts[i]);
+		MAT4X3PNT(vpoint, gdvp->gv_model2view, dpoint);
+		minX = vpoint[X] - tol; maxX = vpoint[X] + tol;
+		minY = vpoint[Y] - tol; maxY = vpoint[Y] + tol;
+		if (minX < vx && vx < maxX && minY < vy && vy < maxY) {
+		    if (!found_top || top_z < vpoint[Z]) {
+			top_z = vpoint[Z];
+			top_data_str = sdata_arrows_str;
+			top_i = (size_t)i;
+			VMOVE(top_point, dpoint);
+			found_top = 1;
+		    }
 		}
 	    }
+	    bu_free(_apts, "bsg pts");
+	}
+    }
+
+    if (found_top) {
+	bu_vls_printf(gedp->ged_result_str, "%s %zu {%lf %lf %lf}",
+		top_data_str, top_i, V3ARGS(top_point));
+	return BRLCAD_OK;
+    }
+
+    /* check for axes points - T3: recover center points from BSG vlist */
+    {
+	struct bv_scene_obj *_axs = bv_view_obj_find(gdvp, "_tcl_data_axes");
+	if (_axs) {
+	    point_t *_cpts = NULL;
+	    int _ncpts = _bsg_extract_axes_centers(_axs, &_cpts);
+	    for (i = 0; i < _ncpts; ++i) {
+		fastf_t minX, maxX, minY, maxY;
+		VMOVE(dpoint, _cpts[i]);
+		MAT4X3PNT(vpoint, gdvp->gv_model2view, dpoint);
+		minX = vpoint[X] - tol; maxX = vpoint[X] + tol;
+		minY = vpoint[Y] - tol; maxY = vpoint[Y] + tol;
+		if (minX < vx && vx < maxX && minY < vy && vy < maxY) {
+		    if (!found_top || top_z < vpoint[Z]) {
+			top_z = vpoint[Z];
+			top_i = (size_t)i;
+			top_data_str = data_axes_str;
+			VMOVE(top_point, dpoint);
+			found_top = 1;
+		    }
+		}
+	    }
+	    bu_free(_cpts, "bsg axes pts");
+	}
+    }
+
+    /* check for selected axes points - T3: recover center points from BSG vlist */
+    {
+	struct bv_scene_obj *_axs = bv_view_obj_find(gdvp, "_tcl_sdata_axes");
+	if (_axs) {
+	    point_t *_cpts = NULL;
+	    int _ncpts = _bsg_extract_axes_centers(_axs, &_cpts);
+	    for (i = 0; i < _ncpts; ++i) {
+		fastf_t minX, maxX, minY, maxY;
+		VMOVE(dpoint, _cpts[i]);
+		MAT4X3PNT(vpoint, gdvp->gv_model2view, dpoint);
+		minX = vpoint[X] - tol; maxX = vpoint[X] + tol;
+		minY = vpoint[Y] - tol; maxY = vpoint[Y] + tol;
+		if (minX < vx && vx < maxX && minY < vy && vy < maxY) {
+		    if (!found_top || top_z < vpoint[Z]) {
+			top_z = vpoint[Z];
+			top_i = (size_t)i;
+			top_data_str = sdata_axes_str;
+			VMOVE(top_point, dpoint);
+			found_top = 1;
+		    }
+		}
+	    }
+	    bu_free(_cpts, "bsg axes pts");
 	}
     }
 

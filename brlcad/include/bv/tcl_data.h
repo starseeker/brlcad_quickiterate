@@ -155,20 +155,23 @@ typedef struct {
  * bv_view_obj_labels_sync, and the inlined logic in data_lines.c) are now the
  * sole renderable form consumed by dm_draw_objs().
  *
- * Phase T3 progress:
- *  • data_lines.c (libged): BSG-first rewrite; non-Tcl views supported;
- *    gv_data_lines / gv_sdata_lines kept as optional Tcl-compat mirror.
- *  • arrows.c: all getters (draw/color/line_width/points/tip_length/tip_width)
- *    now read from BSG; setters still write gv_tcl as a mirror for commands.c.
- *  • axes.c: draw/color/line_width getters read from BSG; size/points deferred
- *    (require view-dependent decoding from vlist or ABI-break field addition).
- *  • labels.c: draw/color/labels getters read from BSG children; size deferred.
+ * Phase T3 progress (COMPLETE 2026-05-08):
+ *  • data_lines.c (libged): BSG-first rewrite; gv_tcl mirror removed;
+ *    all views read/write BSG vlist as sole store.
+ *  • arrows.c: all getters and setters operate on BSG directly;
+ *    gv_tcl no longer read or written.
+ *  • axes.c: all getters (draw/color/line_width/size/points) and setters
+ *    operate on BSG directly; gv_tcl no longer read or written.
+ *  • labels.c: draw/color/labels getters/setters via BSG children (size
+ *    getter still reads gv_tcl — no BSG field for font size yet).
+ *  • commands.c: to_data_pick_func and to_data_move_func now read from
+ *    BSG children/vlist directly (labels from bv_label.p, lines/arrows/
+ *    axes from BSG vlist).  mouse.c to_data_scale likewise BSG-only.
  *  • gv_data_polygons / gv_sdata_polygons: deferred (uses gv_data_vZ and
  *    complex polygon state; target for a future ABI-break session).
  *
- * Remaining work: fully eliminate gv_data_arrows/gv_data_axes/gv_data_labels
- * and their sdata twins after migrating commands.c pick/move to BSG reads
- * (deferred to avoid churning the public bv_data_tclcad ABI).
+ * Remaining work: migrate labels size getter (needs font-size field in
+ * bv_obj_settings or bv_label, ABI break); migrate polygon state.
  *
  * Do not add new producers that touch these fields; do not add new fields
  * here.  New view-only adornment storage belongs in the BSG tree. */

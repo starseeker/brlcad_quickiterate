@@ -545,20 +545,20 @@ Pending in a follow-up session (with the order to tackle them)
    intermediate storage:
      - arrows.c: ALL getters (draw/color/line_width/points/tip_length/
        tip_width) now read from the BSG _tcl_data_arrows object.
-     - axes.c: draw/color/line_width getters read from BSG.  size and
-       points getters still read from gv_tcl (BSG geometry is
-       view-scaled vlist; recovering the original scalar or center-point
-       array requires an ABI-break field addition to bv_obj_settings).
+     - axes.c: draw/color/line_width/size/points all read from BSG
+       (size and points recovered by decoding vlist geometry using
+       _bsg_extract_axes_centers / half-size from X-axis endpoints).
      - labels.c: draw/color/labels getters read from BSG label children
        (bv_label structs in s_i_data).  size getter still reads gv_tcl.
-     - All setters still write gv_tcl as a mirror so commands.c
-       to_data_pick/move_func continues to work without change.
+     - Phase T3 COMPLETE (2026-05-08): all setters in arrows.c and
+       axes.c no longer write gv_tcl.  data_lines.c gv_tcl mirror removed.
+       commands.c to_data_pick_func and to_data_move_func read from BSG
+       directly (labels from bv_label children, lines/arrows/axes from
+       BSG vlist).  mouse.c to_data_scale for arrows/labels reads/writes
+       BSG directly.
    Remaining work to fully eliminate gv_tcl mirror:
-     b. Migrate commands.c pick/move callsites to read from BSG child
-        objects rather than gv_tcl fields (then gv_tcl writes in setters
-        can be removed).
      c. Add a "size" scalar field to bv_obj_settings (ABI break) and
-        migrate axes size + labels size getters.
+        migrate the labels size getter (currently still reads gv_tcl).
      d. Migrate gv_data_polygons / gv_sdata_polygons (complex; uses
         gv_data_vZ and bg_polygons; deferred).
 

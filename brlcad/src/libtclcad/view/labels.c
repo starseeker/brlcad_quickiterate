@@ -43,7 +43,11 @@
  * Phase T3 (drawing_stack_modernization): the draw, color and labels getters in
  * to_data_labels_func now recover values by reading BSG object/child data
  * instead of gv_tcl directly.  The size getter still uses gv_tcl because font
- * size is not stored in the BSG child objects yet. */
+ * size is not stored in the BSG child objects yet.
+ *
+ * gv_tcl continues to be written by setters here because bv_view_obj_labels_sync
+ * takes a bv_data_label_state* as input.  This is now internal state used solely
+ * for the sync call; commands.c pick/move/scale read from BSG children directly. */
 
 int
 go_data_labels(Tcl_Interp *interp,

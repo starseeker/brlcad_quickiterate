@@ -33,43 +33,16 @@
 /* Private headers */
 #include "../tclcad_private.h"
 #include "../view/view.h"
+#include "../bsg_move_helpers.h"
 
-/* Phase T1 (drawing_stack_modernization): keep a BSG VIEW_SCOPE object in sync
- * with the gv_tcl data-arrows state so the modern BSG renderer picks up arrows
- * without the legacy dm_draw_arrows path.
- *
- * Phase T3 (drawing_stack_modernization): the "view get" introspection path
+/* Phase T3 (drawing_stack_modernization): the "view get" introspection path
  * (getters in to_data_arrows_func) now recovers values by reading the BSG
  * object fields rather than gv_tcl directly, making BSG the canonical read
- * source for Tcl introspection.  The gv_tcl mirror is still written for
- * backward compatibility with callers like commands.c to_data_pick_func. */
-static void
-_sync_tcl_arrows_to_bsg(struct bview *v, struct bv_data_arrow_state *gdasp, const char *bsg_name)
-{
-    if (!v || !gdasp || !bsg_name)
-	return;
-
-    bv_view_obj_remove(v, bsg_name);
-
-    if (!gdasp->gdas_draw || gdasp->gdas_num_points < 2)
-	return;
-
-    struct bv_scene_obj *s = bv_view_obj_arrow_create(v, bsg_name, 1 /* local */);
-    if (!s)
-	return;
-
-    /* Build vlist: consecutive pairs form arrow shafts. */
-    for (int i = 0; i + 1 < gdasp->gdas_num_points; i += 2) {
-	BV_ADD_VLIST(s->vlfree, &s->s_vlist, gdasp->gdas_points[i],   BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(s->vlfree, &s->s_vlist, gdasp->gdas_points[i+1], BV_VLIST_LINE_DRAW);
-    }
-
-    bv_view_obj_set_color(s, gdasp->gdas_color[0], gdasp->gdas_color[1], gdasp->gdas_color[2]);
-    bv_view_obj_set_line_width(s, gdasp->gdas_line_width);
-    s->s_os->s_arrow_tip_length = (fastf_t)gdasp->gdas_tip_length;
-    s->s_os->s_arrow_tip_width  = (fastf_t)gdasp->gdas_tip_width;
-    bv_view_obj_set_visible(s, 1);
-}
+ * source for Tcl introspection.
+ *
+ * Setters no longer write gv_tcl at all; they mutate the BSG object in-place
+ * (color, line_width, tip_length, tip_width, draw) or rebuild it from scratch
+ * preserving current style (points).  gv_tcl is no longer mirrored. */
 
 int
 go_data_arrows(Tcl_Interp *interp,
@@ -157,12 +130,7 @@ to_data_arrows_func(Tcl_Interp *interp,
 		    int argc,
 		    const char *argv[])
 {
-    struct bv_data_arrow_state *gdasp;
-
-    if (argv[0][0] == 's')
-	gdasp = &gdvp->gv_tcl->gv_sdata_arrows;
-    else
-	gdasp = &gdvp->gv_tcl->gv_data_arrows;
+    /* T3: BSG object name is the only per-variant state needed here. */
     const char *bsg_name = (argv[0][0] == 's') ? "_tcl_sdata_arrows" : "_tcl_data_arrows";
 
     if (BU_STR_EQUAL(argv[1], "draw")) {
@@ -179,12 +147,13 @@ to_data_arrows_func(Tcl_Interp *interp,
 	    if (bu_sscanf(argv[2], "%d", &i) != 1)
 		goto bad;
 
-	    if (i)
-		gdasp->gdas_draw = 1;
-	    else
-		gdasp->gdas_draw = 0;
+	    /* T3: toggle visibility of existing BSG object (no gv_tcl write). */
+	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    if (_s)
+		bv_view_obj_set_visible(_s, i ? 1 : 0);
+	    /* If no BSG object exists and draw=1 is requested, nothing to show
+	     * yet (no points have been set); silently no-op. */
 
-	    _sync_tcl_arrows_to_bsg(gdvp, gdasp, bsg_name);
 	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
 	}
@@ -219,9 +188,11 @@ to_data_arrows_func(Tcl_Interp *interp,
 		b < 0 || 255 < b)
 		goto bad;
 
-	    VSET(gdasp->gdas_color, r, g, b);
+	    /* T3: update BSG object in-place (no gv_tcl write). */
+	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    if (_s)
+		bv_view_obj_set_color(_s, r, g, b);
 
-	    _sync_tcl_arrows_to_bsg(gdvp, gdasp, bsg_name);
 	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
 	}
@@ -246,9 +217,11 @@ to_data_arrows_func(Tcl_Interp *interp,
 	    if (bu_sscanf(argv[2], "%d", &line_width) != 1)
 		goto bad;
 
-	    gdasp->gdas_line_width = line_width;
+	    /* T3: update BSG object in-place (no gv_tcl write). */
+	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    if (_s)
+		bv_view_obj_set_line_width(_s, line_width);
 
-	    _sync_tcl_arrows_to_bsg(gdvp, gdasp, bsg_name);
 	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
 	}
@@ -286,45 +259,43 @@ to_data_arrows_func(Tcl_Interp *interp,
 
 	    if (ac % 2) {
 		bu_vls_printf(gedp->ged_result_str, "%s: must be an even number of points", argv[0]);
+		Tcl_Free((char *)av);
 		return BRLCAD_ERROR;
 	    }
 
-	    bu_free((void *)gdasp->gdas_points, "data points");
-	    gdasp->gdas_points = (point_t *)0;
-	    gdasp->gdas_num_points = 0;
+	    /* T3: save style from existing BSG object before replacing it. */
+	    int saved_color[3]; int saved_lw, saved_tl, saved_tw, saved_vis;
+	    struct bv_scene_obj *old_s = bv_view_obj_find(gdvp, bsg_name);
+	    _bsg_read_style(old_s, saved_color, &saved_lw, &saved_tl, &saved_tw, &saved_vis);
 
-	    /* Clear out data points */
-	    if (ac < 1) {
-		_sync_tcl_arrows_to_bsg(gdvp, gdasp, bsg_name);
-		to_refresh_view(gdvp);
+	    /* Clear out: remove old BSG object. */
+	    if (ac < 2) {
+		bv_view_obj_remove(gdvp, bsg_name);
 		Tcl_Free((char *)av);
+		to_refresh_view(gdvp);
 		return BRLCAD_OK;
 	    }
 
-	    gdasp->gdas_num_points = ac;
-	    gdasp->gdas_points = (point_t *)bu_calloc(ac, sizeof(point_t), "data points");
+	    /* Parse points into temporary local array. */
+	    point_t *pts = (point_t *)bu_calloc(ac, sizeof(point_t), "arrow points");
 	    for (i = 0; i < ac; ++i) {
 		double scan[ELEMENTS_PER_VECT];
 
 		if (bu_sscanf(av[i], "%lf %lf %lf", &scan[X], &scan[Y], &scan[Z]) != 3) {
-
 		    bu_vls_printf(gedp->ged_result_str, "bad data point - %s\n", av[i]);
-
-		    bu_free((void *)gdasp->gdas_points, "data points");
-		    gdasp->gdas_points = (point_t *)0;
-		    gdasp->gdas_num_points = 0;
-
-		    to_refresh_view(gdvp);
+		    bu_free(pts, "arrow points");
 		    Tcl_Free((char *)av);
 		    return BRLCAD_ERROR;
 		}
-		/* convert double to fastf_t */
-		VMOVE(gdasp->gdas_points[i], scan);
+		VMOVE(pts[i], scan);
 	    }
 
-	    _sync_tcl_arrows_to_bsg(gdvp, gdasp, bsg_name);
-	    to_refresh_view(gdvp);
+	    /* T3: rebuild BSG from new points, preserving style (no gv_tcl write). */
+	    _bsg_rebuild_arrows(gdvp, bsg_name, pts, ac,
+			       saved_color, saved_lw, saved_tl, saved_tw, saved_vis);
+	    bu_free(pts, "arrow points");
 	    Tcl_Free((char *)av);
+	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
 	}
     }
@@ -346,9 +317,13 @@ to_data_arrows_func(Tcl_Interp *interp,
 	    if (bu_sscanf(argv[2], "%d", &tip_length) != 1)
 		goto bad;
 
-	    gdasp->gdas_tip_length = tip_length;
+	    /* T3: update BSG object in-place (no gv_tcl write). */
+	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    if (_s && _s->s_os) {
+		_s->s_os->s_arrow_tip_length = (fastf_t)tip_length;
+		bv_obj_stale(_s);
+	    }
 
-	    _sync_tcl_arrows_to_bsg(gdvp, gdasp, bsg_name);
 	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
 	}
@@ -373,9 +348,13 @@ to_data_arrows_func(Tcl_Interp *interp,
 	    if (bu_sscanf(argv[2], "%d", &tip_width) != 1)
 		goto bad;
 
-	    gdasp->gdas_tip_width = tip_width;
+	    /* T3: update BSG object in-place (no gv_tcl write). */
+	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    if (_s && _s->s_os) {
+		_s->s_os->s_arrow_tip_width = (fastf_t)tip_width;
+		bv_obj_stale(_s);
+	    }
 
-	    _sync_tcl_arrows_to_bsg(gdvp, gdasp, bsg_name);
 	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
 	}

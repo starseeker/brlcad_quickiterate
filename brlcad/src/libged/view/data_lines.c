@@ -22,12 +22,9 @@
  * Logic for drawing arbitrary lines not associated with geometry.
  *
  * Phase T1 (drawing_stack_modernization): BSG-first rewrite.  The BSG
- * VIEW_SCOPE object (_tcl_data_lines / _tcl_sdata_lines) is now the primary
- * storage for both Tcl and non-Tcl views.  For Tcl views (gv_tcl != NULL) the
- * gv_data_lines / gv_sdata_lines mirror fields are also kept in sync so that
- * Tcl callers reading gv_tcl directly (e.g. commands.c to_data_pick_func)
- * continue to work without change.  For non-Tcl views (gv_tcl == NULL) the
- * BSG vlist is the sole persistent store; there is no gv_tcl mirror.
+ * VIEW_SCOPE object (_tcl_data_lines / _tcl_sdata_lines) is the sole persistent
+ * store for both Tcl and non-Tcl views.  gv_tcl is no longer mirrored because
+ * commands.c to_data_pick_func and to_data_move_func now read from BSG directly.
  *
  * Usage example (Archer / QGED):
  *
@@ -56,14 +53,11 @@
 
 struct view_dlines_state {
     struct ged *gedp;
-    struct bv_data_line_state *gdlsp; /* NULL for non-Tcl views */
     const char *bsg_name;
 };
 
 /* Phase T1 (drawing_stack_modernization): BSG-first helper – rebuild the BSG
- * VIEW_SCOPE line object from an explicit point array.  Called by the Tcl-view
- * setter path (where gdlsp provides the canonical data) and by the non-Tcl
- * "points" setter (where a temporary array is built from parsed args).
+ * VIEW_SCOPE line object from an explicit point array.
  *
  * Pass draw=1 to create/replace the object; draw=0 to only remove it. */
 static void
@@ -100,16 +94,10 @@ _view_dlines_cmd_draw(void *bs, int argc, const char **argv)
     struct view_dlines_state *vs = (struct view_dlines_state *)bs;
     struct ged *gedp = vs->gedp;
     struct bview *v = gedp->ged_gvp;
-    struct bv_data_line_state *gdlsp = vs->gdlsp;
 
     if (argc == 1) {
-	if (gdlsp) {
-	    bu_vls_printf(gedp->ged_result_str, "%d", gdlsp->gdls_draw);
-	} else {
-	    /* Non-Tcl view: BSG presence encodes draw state. */
-	    struct bv_scene_obj *s = bv_view_obj_find(v, vs->bsg_name);
-	    bu_vls_printf(gedp->ged_result_str, "%d", s ? 1 : 0);
-	}
+	struct bv_scene_obj *s = bv_view_obj_find(v, vs->bsg_name);
+	bu_vls_printf(gedp->ged_result_str, "%d", s ? 1 : 0);
 	return BRLCAD_OK;
     }
 
@@ -118,19 +106,10 @@ _view_dlines_cmd_draw(void *bs, int argc, const char **argv)
 
 	if (bu_sscanf(argv[1], "%d", &i) != 1) return BRLCAD_ERROR;
 
-	if (gdlsp) {
-	    /* Tcl view: update mirror and rebuild BSG. */
-	    gdlsp->gdls_draw = i ? 1 : 0;
-	    _rebuild_bsg_dlines(v, vs->bsg_name, gdlsp->gdls_draw,
-			       gdlsp->gdls_points, gdlsp->gdls_num_points,
-			       gdlsp->gdls_color, gdlsp->gdls_line_width);
-	} else {
-	    /* Non-Tcl view: BSG object is the sole owner; just remove it. */
-	    if (!i)
-		bv_view_obj_remove(v, vs->bsg_name);
-	    /* draw=1 on a non-Tcl view is a no-op here; use "points" to create
-	     * the object (which is visible by default on creation). */
-	}
+	/* BSG is the sole owner; just remove or hide the object. */
+	if (!i)
+	    bv_view_obj_remove(v, vs->bsg_name);
+	/* draw=1 is a no-op here; use "points" to create/re-enable. */
 
 	ged_refresh_cb(gedp);
 
@@ -169,19 +148,14 @@ _view_dlines_cmd_color(void *bs, int argc, const char **argv)
     struct view_dlines_state *vs = (struct view_dlines_state *)bs;
     struct ged *gedp = vs->gedp;
     struct bview *v = gedp->ged_gvp;
-    struct bv_data_line_state *gdlsp = vs->gdlsp;
 
     if (argc == 1) {
-	if (gdlsp) {
-	    bu_vls_printf(gedp->ged_result_str, "%d %d %d", V3ARGS(gdlsp->gdls_color));
-	} else {
-	    struct bv_scene_obj *s = bv_view_obj_find(v, vs->bsg_name);
-	    if (s)
-		bu_vls_printf(gedp->ged_result_str, "%d %d %d",
-			      (int)s->s_color[0], (int)s->s_color[1], (int)s->s_color[2]);
-	    else
-		bu_vls_printf(gedp->ged_result_str, "0 0 0");
-	}
+	struct bv_scene_obj *s = bv_view_obj_find(v, vs->bsg_name);
+	if (s)
+	    bu_vls_printf(gedp->ged_result_str, "%d %d %d",
+			  (int)s->s_color[0], (int)s->s_color[1], (int)s->s_color[2]);
+	else
+	    bu_vls_printf(gedp->ged_result_str, "0 0 0");
 	return BRLCAD_OK;
     }
 
@@ -200,16 +174,9 @@ _view_dlines_cmd_color(void *bs, int argc, const char **argv)
 		b < 0 || 255 < b)
 	    return BRLCAD_ERROR;
 
-	if (gdlsp) {
-	    VSET(gdlsp->gdls_color, r, g, b);
-	    _rebuild_bsg_dlines(v, vs->bsg_name, gdlsp->gdls_draw,
-			       gdlsp->gdls_points, gdlsp->gdls_num_points,
-			       gdlsp->gdls_color, gdlsp->gdls_line_width);
-	} else {
-	    struct bv_scene_obj *s = bv_view_obj_find(v, vs->bsg_name);
-	    if (s)
-		bv_view_obj_set_color(s, r, g, b);
-	}
+	struct bv_scene_obj *s = bv_view_obj_find(v, vs->bsg_name);
+	if (s)
+	    bv_view_obj_set_color(s, r, g, b);
 
 	ged_refresh_cb(gedp);
 
@@ -225,18 +192,13 @@ _view_dlines_cmd_line_width(void *bs, int argc, const char **argv)
     struct view_dlines_state *vs = (struct view_dlines_state *)bs;
     struct ged *gedp = vs->gedp;
     struct bview *v = gedp->ged_gvp;
-    struct bv_data_line_state *gdlsp = vs->gdlsp;
 
     if (argc == 1) {
-	if (gdlsp) {
-	    bu_vls_printf(gedp->ged_result_str, "%d", gdlsp->gdls_line_width);
-	} else {
-	    struct bv_scene_obj *s = bv_view_obj_find(v, vs->bsg_name);
-	    if (s && s->s_os)
-		bu_vls_printf(gedp->ged_result_str, "%d", s->s_os->s_line_width);
-	    else
-		bu_vls_printf(gedp->ged_result_str, "0");
-	}
+	struct bv_scene_obj *s = bv_view_obj_find(v, vs->bsg_name);
+	if (s && s->s_os)
+	    bu_vls_printf(gedp->ged_result_str, "%d", s->s_os->s_line_width);
+	else
+	    bu_vls_printf(gedp->ged_result_str, "0");
 	return BRLCAD_OK;
     }
 
@@ -246,16 +208,9 @@ _view_dlines_cmd_line_width(void *bs, int argc, const char **argv)
 	if (bu_sscanf(argv[1], "%d", &line_width) != 1)
 	    return BRLCAD_ERROR;
 
-	if (gdlsp) {
-	    gdlsp->gdls_line_width = line_width;
-	    _rebuild_bsg_dlines(v, vs->bsg_name, gdlsp->gdls_draw,
-			       gdlsp->gdls_points, gdlsp->gdls_num_points,
-			       gdlsp->gdls_color, gdlsp->gdls_line_width);
-	} else {
-	    struct bv_scene_obj *s = bv_view_obj_find(v, vs->bsg_name);
-	    if (s)
-		bv_view_obj_set_line_width(s, line_width);
-	}
+	struct bv_scene_obj *s = bv_view_obj_find(v, vs->bsg_name);
+	if (s)
+	    bv_view_obj_set_line_width(s, line_width);
 
 	ged_refresh_cb(gedp);
 
@@ -271,24 +226,17 @@ _view_dlines_cmd_points(void *bs, int argc, const char **argv)
     struct view_dlines_state *vs = (struct view_dlines_state *)bs;
     struct ged *gedp = vs->gedp;
     struct bview *v = gedp->ged_gvp;
-    struct bv_data_line_state *gdlsp = vs->gdlsp;
     int i;
 
     if (argc == 1) {
-	if (gdlsp) {
-	    for (i = 0; i < gdlsp->gdls_num_points; ++i) {
-		bu_vls_printf(gedp->ged_result_str, " {%lf %lf %lf} ", V3ARGS(gdlsp->gdls_points[i]));
-	    }
-	} else {
-	    /* Non-Tcl view: walk the BSG vlist. */
-	    struct bv_scene_obj *s = bv_view_obj_find(v, vs->bsg_name);
-	    if (s) {
-		struct bv_vlist *vp;
-		size_t j;
-		for (BU_LIST_FOR(vp, bv_vlist, &s->s_vlist)) {
-		    for (j = 0; j < (size_t)vp->nused; j++) {
-			bu_vls_printf(gedp->ged_result_str, " {%lf %lf %lf} ", V3ARGS(vp->pt[j]));
-		    }
+	/* Read: walk the BSG vlist. */
+	struct bv_scene_obj *s = bv_view_obj_find(v, vs->bsg_name);
+	if (s) {
+	    struct bv_vlist *vp;
+	    size_t j;
+	    for (BU_LIST_FOR(vp, bv_vlist, &s->s_vlist)) {
+		for (j = 0; j < (size_t)vp->nused; j++) {
+		    bu_vls_printf(gedp->ged_result_str, " {%lf %lf %lf} ", V3ARGS(vp->pt[j]));
 		}
 	    }
 	}
@@ -310,82 +258,42 @@ _view_dlines_cmd_points(void *bs, int argc, const char **argv)
 	    return BRLCAD_ERROR;
 	}
 
-	if (gdlsp) {
-	    /* Tcl view: update mirror storage, then rebuild BSG. */
-	    if (gdlsp->gdls_num_points) {
-		bu_free((void *)gdlsp->gdls_points, "data points");
-		gdlsp->gdls_points = (point_t *)0;
-		gdlsp->gdls_num_points = 0;
-	    }
-
-	    if (ac < 1) {
-		_rebuild_bsg_dlines(v, vs->bsg_name, 0, NULL, 0, NULL, 0);
-		ged_refresh_cb(gedp);
-		bu_free((char *)av, "av");
-		return BRLCAD_OK;
-	    }
-
-	    gdlsp->gdls_num_points = ac;
-	    gdlsp->gdls_points = (point_t *)bu_calloc(ac, sizeof(point_t), "data points");
-	    for (i = 0; i < ac; ++i) {
-		double scan[3];
-
-		if (bu_sscanf(av[i], "%lf %lf %lf", &scan[X], &scan[Y], &scan[Z]) != 3) {
-		    bu_vls_printf(gedp->ged_result_str, "bad data point - %s\n", av[i]);
-
-		    bu_free((void *)gdlsp->gdls_points, "data points");
-		    gdlsp->gdls_points = (point_t *)0;
-		    gdlsp->gdls_num_points = 0;
-
-		    ged_refresh_cb(gedp);
-		    bu_free((char *)av, "av");
-		    return BRLCAD_ERROR;
-		}
-		VMOVE(gdlsp->gdls_points[i], scan);
-	    }
-
-	    _rebuild_bsg_dlines(v, vs->bsg_name, gdlsp->gdls_draw,
-			       gdlsp->gdls_points, gdlsp->gdls_num_points,
-			       gdlsp->gdls_color, gdlsp->gdls_line_width);
-	} else {
-	    /* Non-Tcl view: parse into a temporary array and build BSG directly.
-	     * The BSG vlist becomes the sole persistent storage.
-	     * Preserve color/line_width from the existing BSG object if any. */
-	    int saved_color[3] = {255, 255, 0}; /* default yellow */
-	    int saved_lw = 0;
-	    struct bv_scene_obj *old_s = bv_view_obj_find(v, vs->bsg_name);
-	    if (old_s) {
-		saved_color[0] = (int)old_s->s_color[0];
-		saved_color[1] = (int)old_s->s_color[1];
-		saved_color[2] = (int)old_s->s_color[2];
-		if (old_s->s_os)
-		    saved_lw = old_s->s_os->s_line_width;
-	    }
-	    if (ac < 2) {
-		bv_view_obj_remove(v, vs->bsg_name);
-		ged_refresh_cb(gedp);
-		bu_free((char *)av, "av");
-		return BRLCAD_OK;
-	    }
-
-	    point_t *pts = (point_t *)bu_calloc(ac, sizeof(point_t), "data points");
-	    for (i = 0; i < ac; ++i) {
-		double scan[3];
-
-		if (bu_sscanf(av[i], "%lf %lf %lf", &scan[X], &scan[Y], &scan[Z]) != 3) {
-		    bu_vls_printf(gedp->ged_result_str, "bad data point - %s\n", av[i]);
-		    bu_free((void *)pts, "data points");
-		    ged_refresh_cb(gedp);
-		    bu_free((char *)av, "av");
-		    return BRLCAD_ERROR;
-		}
-		VMOVE(pts[i], scan);
-	    }
-
-	    _rebuild_bsg_dlines(v, vs->bsg_name, 1 /* draw=1 on explicit set */,
-			       pts, ac, saved_color, saved_lw);
-	    bu_free((void *)pts, "data points");
+	/* BSG is the sole persistent store; preserve style from existing object. */
+	int saved_color[3] = {255, 255, 0}; /* default yellow */
+	int saved_lw = 0;
+	struct bv_scene_obj *old_s = bv_view_obj_find(v, vs->bsg_name);
+	if (old_s) {
+	    saved_color[0] = (int)old_s->s_color[0];
+	    saved_color[1] = (int)old_s->s_color[1];
+	    saved_color[2] = (int)old_s->s_color[2];
+	    if (old_s->s_os)
+		saved_lw = old_s->s_os->s_line_width;
 	}
+
+	if (ac < 2) {
+	    bv_view_obj_remove(v, vs->bsg_name);
+	    ged_refresh_cb(gedp);
+	    bu_free((char *)av, "av");
+	    return BRLCAD_OK;
+	}
+
+	point_t *pts = (point_t *)bu_calloc(ac, sizeof(point_t), "data points");
+	for (i = 0; i < ac; ++i) {
+	    double scan[3];
+
+	    if (bu_sscanf(av[i], "%lf %lf %lf", &scan[X], &scan[Y], &scan[Z]) != 3) {
+		bu_vls_printf(gedp->ged_result_str, "bad data point - %s\n", av[i]);
+		bu_free((void *)pts, "data points");
+		ged_refresh_cb(gedp);
+		bu_free((char *)av, "av");
+		return BRLCAD_ERROR;
+	    }
+	    VMOVE(pts[i], scan);
+	}
+
+	_rebuild_bsg_dlines(v, vs->bsg_name, 1 /* draw=1 on explicit set */,
+			   pts, ac, saved_color, saved_lw);
+	bu_free((void *)pts, "data points");
 
 	ged_refresh_cb(gedp);
 	bu_free((char *)av, "av");
@@ -427,10 +335,8 @@ ged_view_data_lines(struct ged *gedp, int argc, const char *argv[])
     }
 
     if (argv[0][0] == 's') {
-	vs.gdlsp = gedp->ged_gvp->gv_tcl ? &gedp->ged_gvp->gv_tcl->gv_sdata_lines : NULL;
 	vs.bsg_name = "_tcl_sdata_lines";
     } else {
-	vs.gdlsp = gedp->ged_gvp->gv_tcl ? &gedp->ged_gvp->gv_tcl->gv_data_lines : NULL;
 	vs.bsg_name = "_tcl_data_lines";
     }
 
