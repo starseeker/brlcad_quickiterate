@@ -142,6 +142,10 @@ dm_add_arrows(struct dm *dmp, struct bv_scene_obj *s)
 	dm_draw_arrow(dmp, A, B, s->s_os->s_arrow_tip_length, s->s_os->s_arrow_tip_width, 1.0);
 }
 
+/* DEPRECATED (Phase T3, drawing_stack_modernization): dm_draw_arrows was
+ * called only by dm_draw_viewobjs for the gv_tcl arrows, which has been
+ * removed in Phase T2.  Retained for ABI compatibility until the next major
+ * version.  Do not add new callers. */
 void
 dm_draw_arrows(struct dm *dmp, struct bv_data_arrow_state *gdasp, fastf_t sf)
 {
@@ -261,6 +265,10 @@ dm_draw_arrows(struct dm *dmp, struct bv_data_arrow_state *gdasp, fastf_t sf)
 	}}
 
 
+/* DEPRECATED (Phase T3, drawing_stack_modernization): dm_draw_polys was
+ * called only by dm_draw_viewobjs for the gv_tcl polygons, which has been
+ * removed in Phase T2.  Retained for ABI compatibility.  Do not add new
+ * callers. */
 void
 dm_draw_polys(struct dm *dmp, bv_data_polygon_state *gdpsp, int mode)
 {
@@ -289,6 +297,10 @@ dm_draw_polys(struct dm *dmp, bv_data_polygon_state *gdpsp, int mode)
     (void)dm_set_line_attr(dmp, saveLineWidth, saveLineStyle);
 }
 
+/* DEPRECATED (Phase T3, drawing_stack_modernization): dm_draw_lines was
+ * called only by dm_draw_viewobjs for the gv_tcl lines, which has been
+ * removed in Phase T2.  Retained for ABI compatibility.  Do not add new
+ * callers. */
 void
 dm_draw_lines(struct dm *dmp, struct bv_data_line_state *gdlsp)
 {
@@ -575,6 +587,11 @@ dm_draw_label(struct dm *dmp, struct bv_scene_obj *s)
 void
 dm_draw_labels(struct dm *dmp, struct bv_data_label_state *gdlsp, matp_t m2vmat)
 {
+    /* DEPRECATED (Phase T3, drawing_stack_modernization): this function is
+     * retained only to keep external consumers that reference the symbol from
+     * breaking.  All internal callers have been removed as part of Phase T2.
+     * Do not add new callers; use the BSG view-scope label API instead. */
+
     /* set color */
     (void)dm_set_fg(dmp,
 		    gdlsp->gdls_color[0],
@@ -753,41 +770,11 @@ void
 dm_draw_viewobjs(struct rt_wdb *wdbp, struct bview *v, struct dm_view_data *vd)
 {
     bv_log(3, "libdm:dm_draw_viewobjs");
+    /* Phase T2: wdbp/vd were used only for the prim_labels path which has
+     * been removed.  Parameters are kept for ABI compatibility. */
+    (void)wdbp;
+    (void)vd;
     struct dm *dmp = (struct dm *)v->dmp;
-    int width = dm_get_width(dmp);
-    fastf_t sf = (fastf_t)(v->gv_size) / (fastf_t)width;
-
-    if (v->gv_tcl.gv_data_arrows.gdas_draw)
-	dm_draw_arrows(dmp, &v->gv_tcl.gv_data_arrows, sf);
-
-    if (v->gv_tcl.gv_sdata_arrows.gdas_draw)
-	dm_draw_arrows(dmp, &v->gv_tcl.gv_sdata_arrows, sf);
-
-    if (v->gv_tcl.gv_data_axes.draw)
-	dm_draw_data_axes(dmp, sf, &v->gv_tcl.gv_data_axes);
-
-    if (v->gv_tcl.gv_sdata_axes.draw)
-	dm_draw_data_axes(dmp, sf, &v->gv_tcl.gv_sdata_axes);
-
-    if (v->gv_tcl.gv_data_lines.gdls_draw)
-	dm_draw_lines(dmp, &v->gv_tcl.gv_data_lines);
-
-    if (v->gv_tcl.gv_sdata_lines.gdls_draw)
-	dm_draw_lines(dmp, &v->gv_tcl.gv_sdata_lines);
-
-    if (v->gv_tcl.gv_data_polygons.gdps_draw)
-	dm_draw_polys(dmp, &v->gv_tcl.gv_data_polygons, v->gv_tcl.gv_polygon_mode);
-
-    if (v->gv_tcl.gv_sdata_polygons.gdps_draw)
-	dm_draw_polys(dmp, &v->gv_tcl.gv_sdata_polygons, v->gv_tcl.gv_polygon_mode);
-
-#if 0
-    // Update selections (if any)
-    for (size_t i = 0; i < BU_PTBL_LEN(v->gv_selected); i++) {
-	struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(v->gv_selected, i);
-	// TODO - set illum flag or otherwise visually indicate what is selected
-    }
-#endif
 
     // Draw geometry view objects
     struct bu_ptbl *db_objs = bv_view_objs(v, BV_DB_OBJS);
@@ -805,7 +792,9 @@ dm_draw_viewobjs(struct rt_wdb *wdbp, struct bview *v, struct dm_view_data *vd)
 	}
     }
 
-    // Draw view-only objects
+    // Draw view-only objects (Phase T2: BSG VIEW_SCOPE objects only; the
+    // gv_tcl adornment rendering has been removed — those objects are now
+    // created as BSG objects by the T1 sync helpers in libtclcad/libged).
     struct bu_ptbl *view_objs = bv_view_objs(v, BV_VIEW_OBJS);
     if (view_objs) {
 	for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
@@ -814,7 +803,7 @@ dm_draw_viewobjs(struct rt_wdb *wdbp, struct bview *v, struct dm_view_data *vd)
 	}
     }
     struct bu_ptbl *local_view_objs = bv_view_objs(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
-    if (view_objs) {
+    if (local_view_objs) {
 	for (size_t i = 0; i < BU_PTBL_LEN(local_view_objs); i++) {
 	    struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(local_view_objs, i);
 	    draw_scene_obj(dmp, s, v, s->s_force_draw, (s->s_inherit_settings) ? s->s_os : NULL);
@@ -825,24 +814,6 @@ dm_draw_viewobjs(struct rt_wdb *wdbp, struct bview *v, struct dm_view_data *vd)
     (void)dm_hud_begin(dmp);
 
     dm_draw_faceplate(v);
-
-    if (v->gv_tcl.gv_data_labels.gdls_draw)
-	dm_draw_labels(dmp, &v->gv_tcl.gv_data_labels, v->gv_model2view);
-
-    if (v->gv_tcl.gv_sdata_labels.gdls_draw)
-	dm_draw_labels(dmp, &v->gv_tcl.gv_sdata_labels, v->gv_model2view);
-
-    /* Draw labels */
-    if (wdbp && vd && v->gv_tcl.gv_prim_labels.gos_draw) {
-	for (int i = 0; i < vd->prim_label_list_size; ++i) {
-	    dm_draw_prim_labels(dmp,
-			   wdbp,
-			   bu_vls_cstr(&vd->prim_label_list[i]),
-			   v->gv_model2view,
-			   v->gv_tcl.gv_prim_labels.gos_text_color,
-			   NULL, NULL);
-	}
-    }
 
     /* Restore non-HUD settings. */
     (void)dm_hud_end(dmp);

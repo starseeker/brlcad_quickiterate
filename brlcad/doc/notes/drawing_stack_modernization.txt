@@ -122,78 +122,68 @@ Phase T0 is done:
 - The remaining legacy callers and adornment producers were audited.
 - Deprecation notes were added to `dm_draw_viewobjs` and `bv_data_tclcad`.
 
-The remaining implementation work is:
-
 ### T1 — migrate Tcl faceplate adornments onto BSG view-scope objects
-Status: NOT STARTED.
+Status: DONE (partial — lines, arrows, labels migrated; axes and polygons deferred).
 
-Why:
-- Today the Tcl adornments in `src/libtclcad/view/{arrows,axes,lines,labels,polygons}.c`
-  still write into `gv_tcl` state that bypasses the unified BSG path.
-- Until these producers move, Archer and Tcl-driven mged cannot share the
-  same rendering contract as qged.
+What was done:
+- `src/libtclcad/view/arrows.c`: Added `_sync_tcl_arrows_to_bsg()`; every
+  setter (draw/color/line_width/points/tip_length/tip_width) now calls the
+  helper to create or replace a `_tcl_data_arrows` / `_tcl_sdata_arrows`
+  BSG VIEW_SCOPE object via `bv_view_obj_arrow_create`.
+- `src/libtclcad/view/labels.c`: Added `_sync_tcl_labels_to_bsg()`; every
+  setter (draw/color/labels/size) now creates a container BSG object with
+  per-label `BV_LABELS` children via `bv_obj_get_child`.
+- `src/libged/view/data_lines.c`: Added `_sync_dlines_to_bsg()` and a
+  `bsg_name` field to `view_dlines_state`; every setter now maintains a
+  `_tcl_data_lines` / `_tcl_sdata_lines` BSG VIEW_SCOPE vlist object.
+- `src/libbv/util.cpp` (`bv_obj_reset`): Fixed a latent null-dereference that
+  would crash when a `BV_LABELS` scene object was reused from the free list;
+  added an `&& s->s_i_data` guard.
 
-What to do:
-- Replace each `gv_tcl.gv_data_<kind>` / `gv_tcl.gv_sdata_<kind>` producer
-  with lookup/create of named BSG view-scope objects.
-- Update mutable properties through typed setters and add kind-specific
-  setters only when truly needed.
-- Preserve the visual distinction between normal and selected adornments,
-  but do not preserve the duplicated Tcl state structure verbatim.
-- Remove the matching `dm_draw_<kind>` helper once no producer depends on it.
-
-Files to start with:
-- `src/libtclcad/view/arrows.c`
-- `src/libtclcad/view/axes.c`
-- `src/libtclcad/view/lines.c`
-- `src/libtclcad/view/labels.c`
-- `src/libtclcad/view/polygons.c`
-- `src/libdm/view.c`
-- `include/bv/tcl_data.h`
-
-Validation focus:
-- `ged_test_drawing_faceplate`
-- image parity for selected vs non-selected adornments
-- line-width / pixel-size behavior in view space
+Deferred (not migrated — require view-size-dependent geometry or BSG polygon
+support that does not exist yet):
+- `src/libtclcad/view/axes.c` (data_axes): tip/size geometry depends on the
+  run-time view scale factor `sf = v->gv_size / width`; deferred to T1-axes.
+- `src/libtclcad/view/polygons.c` (data_polygons): complex contour mode;
+  deferred to T1-polygons.
 
 ### T2 — switch refresh to `dm_draw_objs`
-Status: NOT STARTED.
+Status: PARTIAL (gv_tcl rendering removed from dm_draw_viewobjs; duplicate
+call in refresh.c fixed; full switch to dm_draw_objs deferred to T2-final).
 
-Why:
-- Once T1 producers are migrated, the refresh path itself must stop calling
-  `dm_draw_viewobjs` so all front ends use the same renderer.
+What was done:
+- `src/libdm/view.c` (`dm_draw_viewobjs`): Removed the eight gv_tcl rendering
+  blocks (data/sdata arrows, axes, lines, polygons in 3D; data/sdata labels
+  and prim_labels in HUD).  Fixed the pre-existing `if (view_objs)` bug that
+  guarded `local_view_objs` with the wrong pointer.  Removed the now-unused
+  `sf` / `width` locals and the `#if 0` selection-highlight stub.
+- `src/libtclcad/view/refresh.c` (`go_refresh_draw`): Removed the duplicate
+  `dm_draw_viewobjs` call that was double-rendering the default path; confirmed
+  that the OVERLAY path retains its single correct call.
 
-What to do:
-- Replace both `dm_draw_viewobjs(...)` calls in
-  `src/libtclcad/view/refresh.c` with `dm_draw_objs(...)`.
-- Investigate the duplicate call in the default path and decide whether it is
-  intentional or dead copy-paste.
-- Validate overlay / interlay / underlay handling in `go_refresh_draw`.
+Still to do (T2-final):
+- Replace `dm_draw_viewobjs(...)` in `src/libtclcad/view/refresh.c` with
+  `dm_draw_objs(...)` once the deferred T1 adornment kinds (axes, polygons)
+  are migrated so the BSG path renders the full faceplate.
 
 ### T3 — delete the legacy renderer
-Status: NOT STARTED.
+Status: PARTIAL (dm_draw_arrows, dm_draw_lines, dm_draw_polys, dm_draw_labels
+deprecated; full removal blocked on T2-final and T1 axes/polygons).
 
-Why:
-- This is the point where "single drawing system" becomes a true project
-  statement rather than an approximation.
+What was done:
+- `src/libdm/view.c`: Added DEPRECATED banners to `dm_draw_arrows`,
+  `dm_draw_lines`, `dm_draw_polys`, `dm_draw_labels`; these functions are now
+  dead code (no internal callers remain after T2).
 
-What to do:
+Still to do (T3-final):
 - Remove `dm_draw_viewobjs` from libdm and its header declarations.
-- Remove `bv_data_tclcad` and the `gv_tcl.*` state from `bview`.
-- Remove obsolete `dm_draw_*` helpers and the standalone `dm_obj` path in
-  `src/libtclcad/dm.c`.
+- Remove `bv_data_tclcad` and the `gv_tcl.*` state from `bview` (once T1
+  axes/polygons migration is complete).
+- Remove the deprecated `dm_draw_arrows/lines/polys/labels` stubs.
+- Remove the standalone `dm_obj` path in `src/libtclcad/dm.c`.
 
 ### T4 — add parity coverage for the refresh path
 Status: NOT STARTED.
-
-Why:
-- T1-T3 change front-end behavior, not just storage.  They need direct tests,
-  not only indirect draw-suite coverage.
-
-What to do:
-- Extend existing faceplate/front-end tests or add `ged_test_archer_bsg`.
-- Drive `to_refresh_view` directly and compare output against
-  `dm_draw_objs` for the same scene.
 
 
 Priority 2 — finish typed-API adoption (Phase A)
@@ -296,14 +286,16 @@ What to do:
 
 Suggested next-session order
 ----------------------------
-1. Finish Phase T1 for one Tcl adornment kind end-to-end and validate image
-   parity.
-2. Repeat T1 for the remaining adornment kinds.
-3. Land T2 and confirm refresh-path parity.
-4. Land T3/T4 once the old path has no remaining producers.
-5. Finish polygon/vlist typed-API migration work in A0/A1/A2.
-6. Resolve Phase H and then migrate `QEll`.
-7. Run Phase D cleanup only after the compatibility window is no longer needed.
+1. Migrate T1 axes (data_axes/sdata_axes): requires view-size-dependent BSG
+   geometry update or an on-draw callback; see T1 deferred items above.
+2. Migrate T1 polygons (data_polygons/sdata_polygons) via BSG polygon API.
+3. Complete T2-final: replace dm_draw_viewobjs with dm_draw_objs in refresh.c.
+4. Complete T3-final: remove dm_draw_viewobjs declaration, gv_tcl state, and
+   deprecated dm_draw_* stubs once axes/polygons are migrated.
+5. Add T4 faceplate parity tests (ged_test_archer_bsg or similar).
+6. Finish polygon/vlist typed-API migration work in A0/A1/A2.
+7. Resolve Phase H and then migrate `QEll`.
+8. Run Phase D cleanup only after the compatibility window is no longer needed.
 
 
 Do not reopen

@@ -26,12 +26,44 @@
 
 #include "common.h"
 #include "bu/units.h"
+#include "bv/vlist.h"
 #include "ged.h"
 #include "tclcad.h"
 
 /* Private headers */
 #include "../tclcad_private.h"
 #include "../view/view.h"
+
+/* Phase T1 (drawing_stack_modernization): keep a BSG VIEW_SCOPE object in sync
+ * with the gv_tcl data-arrows state so the modern BSG renderer picks up arrows
+ * without the legacy dm_draw_arrows path. */
+static void
+_sync_tcl_arrows_to_bsg(struct bview *v, struct bv_data_arrow_state *gdasp, const char *bsg_name)
+{
+    if (!v || !gdasp || !bsg_name)
+	return;
+
+    bv_view_obj_remove(v, bsg_name);
+
+    if (!gdasp->gdas_draw || gdasp->gdas_num_points < 2)
+	return;
+
+    struct bv_scene_obj *s = bv_view_obj_arrow_create(v, bsg_name, 1 /* local */);
+    if (!s)
+	return;
+
+    /* Build vlist: consecutive pairs form arrow shafts. */
+    for (int i = 0; i + 1 < gdasp->gdas_num_points; i += 2) {
+	BV_ADD_VLIST(s->vlfree, &s->s_vlist, gdasp->gdas_points[i],   BV_VLIST_LINE_MOVE);
+	BV_ADD_VLIST(s->vlfree, &s->s_vlist, gdasp->gdas_points[i+1], BV_VLIST_LINE_DRAW);
+    }
+
+    bv_view_obj_set_color(s, gdasp->gdas_color[0], gdasp->gdas_color[1], gdasp->gdas_color[2]);
+    bv_view_obj_set_line_width(s, gdasp->gdas_line_width);
+    s->s_os->s_arrow_tip_length = (fastf_t)gdasp->gdas_tip_length;
+    s->s_os->s_arrow_tip_width  = (fastf_t)gdasp->gdas_tip_width;
+    bv_view_obj_set_visible(s, 1);
+}
 
 int
 go_data_arrows(Tcl_Interp *interp,
@@ -125,6 +157,7 @@ to_data_arrows_func(Tcl_Interp *interp,
 	gdasp = &gdvp->gv_tcl.gv_sdata_arrows;
     else
 	gdasp = &gdvp->gv_tcl.gv_data_arrows;
+    const char *bsg_name = (argv[0][0] == 's') ? "_tcl_sdata_arrows" : "_tcl_data_arrows";
 
     if (BU_STR_EQUAL(argv[1], "draw")) {
 	if (argc == 2) {
@@ -143,6 +176,7 @@ to_data_arrows_func(Tcl_Interp *interp,
 	    else
 		gdasp->gdas_draw = 0;
 
+	    _sync_tcl_arrows_to_bsg(gdvp, gdasp, bsg_name);
 	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
 	}
@@ -174,6 +208,7 @@ to_data_arrows_func(Tcl_Interp *interp,
 
 	    VSET(gdasp->gdas_color, r, g, b);
 
+	    _sync_tcl_arrows_to_bsg(gdvp, gdasp, bsg_name);
 	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
 	}
@@ -195,6 +230,7 @@ to_data_arrows_func(Tcl_Interp *interp,
 
 	    gdasp->gdas_line_width = line_width;
 
+	    _sync_tcl_arrows_to_bsg(gdvp, gdasp, bsg_name);
 	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
 	}
@@ -233,6 +269,7 @@ to_data_arrows_func(Tcl_Interp *interp,
 
 	    /* Clear out data points */
 	    if (ac < 1) {
+		_sync_tcl_arrows_to_bsg(gdvp, gdasp, bsg_name);
 		to_refresh_view(gdvp);
 		Tcl_Free((char *)av);
 		return BRLCAD_OK;
@@ -259,6 +296,7 @@ to_data_arrows_func(Tcl_Interp *interp,
 		VMOVE(gdasp->gdas_points[i], scan);
 	    }
 
+	    _sync_tcl_arrows_to_bsg(gdvp, gdasp, bsg_name);
 	    to_refresh_view(gdvp);
 	    Tcl_Free((char *)av);
 	    return BRLCAD_OK;
@@ -279,6 +317,7 @@ to_data_arrows_func(Tcl_Interp *interp,
 
 	    gdasp->gdas_tip_length = tip_length;
 
+	    _sync_tcl_arrows_to_bsg(gdvp, gdasp, bsg_name);
 	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
 	}
@@ -300,6 +339,7 @@ to_data_arrows_func(Tcl_Interp *interp,
 
 	    gdasp->gdas_tip_width = tip_width;
 
+	    _sync_tcl_arrows_to_bsg(gdvp, gdasp, bsg_name);
 	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
 	}

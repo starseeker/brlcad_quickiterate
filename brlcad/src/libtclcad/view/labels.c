@@ -26,12 +26,55 @@
 
 #include "common.h"
 #include "bu/units.h"
+#include "bv/util.h"
+#include "bv/vlist.h"
 #include "ged.h"
 #include "tclcad.h"
 
 /* Private headers */
 #include "../tclcad_private.h"
 #include "../view/view.h"
+
+/* Phase T1 (drawing_stack_modernization): keep BSG VIEW_SCOPE label objects in
+ * sync with the gv_tcl data-labels state so the modern BSG renderer draws
+ * labels without the legacy dm_draw_labels path. */
+static void
+_sync_tcl_labels_to_bsg(struct bview *v, struct bv_data_label_state *gdlsp, const char *bsg_name)
+{
+    if (!v || !gdlsp || !bsg_name)
+	return;
+
+    bv_view_obj_remove(v, bsg_name);
+
+    if (!gdlsp->gdls_draw || gdlsp->gdls_num_labels < 1)
+	return;
+
+    /* Create a container object (no geometry of its own) to hold per-label
+     * BV_LABELS child objects, so the whole group is removed as one unit. */
+    struct bv_scene_obj *parent = bv_view_obj_lines_create(v, bsg_name, 1 /* local */);
+    if (!parent)
+	return;
+
+    for (int i = 0; i < gdlsp->gdls_num_labels; ++i) {
+	struct bv_scene_obj *child = bv_obj_get_child(parent);
+	if (!child)
+	    continue;
+
+	child->s_type_flags |= BV_LABELS;
+	VSET(child->s_color, gdlsp->gdls_color[0], gdlsp->gdls_color[1], gdlsp->gdls_color[2]);
+	child->s_flag = UP;
+
+	struct bv_label *l;
+	BU_GET(l, struct bv_label);
+	BU_VLS_INIT(&l->label);
+	bu_vls_sprintf(&l->label, "%s", gdlsp->gdls_labels[i]);
+	VMOVE(l->p, gdlsp->gdls_points[i]);
+	l->line_flag = 0;
+	l->anchor    = BV_ANCHOR_AUTO;
+	l->arrow     = 0;
+	child->s_i_data = (void *)l;
+    }
+}
 
 int
 go_data_labels(Tcl_Interp *interp,
@@ -125,6 +168,7 @@ to_data_labels_func(Tcl_Interp *interp,
 	gdlsp = &gdvp->gv_tcl.gv_sdata_labels;
     else
 	gdlsp = &gdvp->gv_tcl.gv_data_labels;
+    const char *bsg_name = (argv[0][0] == 's') ? "_tcl_sdata_labels" : "_tcl_data_labels";
 
     if (BU_STR_EQUAL(argv[1], "draw")) {
 	if (argc == 2) {
@@ -143,6 +187,7 @@ to_data_labels_func(Tcl_Interp *interp,
 	    else
 		gdlsp->gdls_draw = 0;
 
+	    _sync_tcl_labels_to_bsg(gdvp, gdlsp, bsg_name);
 	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
 	}
@@ -174,6 +219,7 @@ to_data_labels_func(Tcl_Interp *interp,
 
 	    VSET(gdlsp->gdls_color, r, g, b);
 
+	    _sync_tcl_labels_to_bsg(gdvp, gdlsp, bsg_name);
 	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
 	}
@@ -215,6 +261,7 @@ to_data_labels_func(Tcl_Interp *interp,
 	    /* Clear out data points */
 	    if (ac < 1) {
 		Tcl_Free((char *)av);
+		_sync_tcl_labels_to_bsg(gdvp, gdlsp, bsg_name);
 		to_refresh_view(gdvp);
 		return BRLCAD_OK;
 	    }
@@ -279,6 +326,7 @@ to_data_labels_func(Tcl_Interp *interp,
 	    }
 
 	    Tcl_Free((char *)av);
+	    _sync_tcl_labels_to_bsg(gdvp, gdlsp, bsg_name);
 	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
 	}
@@ -298,6 +346,7 @@ to_data_labels_func(Tcl_Interp *interp,
 
 	    gdlsp->gdls_size = size;
 
+	    _sync_tcl_labels_to_bsg(gdvp, gdlsp, bsg_name);
 	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
 	}

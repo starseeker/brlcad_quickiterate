@@ -58,13 +58,46 @@
 #include "bu/opt.h"
 #include "bu/str.h"
 #include "bu/vls.h"
+#include "bv/vlist.h"
 #include "../ged_private.h"
 #include "./ged_view.h"
 
 struct view_dlines_state {
     struct ged *gedp;
     struct bv_data_line_state *gdlsp;
+    const char *bsg_name;
 };
+
+/* Phase T1 (drawing_stack_modernization): sync the gv_tcl data-lines state to
+ * a BSG VIEW_SCOPE object so the modern BSG renderer (dm_draw_viewobjs /
+ * dm_draw_objs) picks up lines without the legacy dm_draw_lines path. */
+static void
+_sync_dlines_to_bsg(struct bview *v, struct bv_data_line_state *gdlsp, const char *bsg_name)
+{
+    if (!v || !gdlsp || !bsg_name)
+	return;
+
+    /* Remove any previous BSG object for this slot. */
+    bv_view_obj_remove(v, bsg_name);
+
+    /* Nothing to create when hidden or empty. */
+    if (!gdlsp->gdls_draw || gdlsp->gdls_num_points < 2)
+	return;
+
+    struct bv_scene_obj *s = bv_view_obj_lines_create(v, bsg_name, 1 /* local */);
+    if (!s)
+	return;
+
+    /* Build vlist: consecutive pairs form line segments. */
+    for (int i = 0; i + 1 < gdlsp->gdls_num_points; i += 2) {
+	BV_ADD_VLIST(s->vlfree, &s->s_vlist, gdlsp->gdls_points[i],   BV_VLIST_LINE_MOVE);
+	BV_ADD_VLIST(s->vlfree, &s->s_vlist, gdlsp->gdls_points[i+1], BV_VLIST_LINE_DRAW);
+    }
+
+    bv_view_obj_set_color(s, gdlsp->gdls_color[0], gdlsp->gdls_color[1], gdlsp->gdls_color[2]);
+    bv_view_obj_set_line_width(s, gdlsp->gdls_line_width);
+    bv_view_obj_set_visible(s, 1);
+}
 
 static int
 _view_dlines_cmd_draw(void *bs, int argc, const char **argv)
@@ -84,6 +117,7 @@ _view_dlines_cmd_draw(void *bs, int argc, const char **argv)
 
 	gdlsp->gdls_draw = (i) ? 1 : 0;
 
+	_sync_dlines_to_bsg(gedp->ged_gvp, gdlsp, vs->bsg_name);
 	ged_refresh_cb(gedp);
 
 	return BRLCAD_OK;
@@ -144,6 +178,7 @@ _view_dlines_cmd_color(void *bs, int argc, const char **argv)
 
 	VSET(gdlsp->gdls_color, r, g, b);
 
+	_sync_dlines_to_bsg(gedp->ged_gvp, gdlsp, vs->bsg_name);
 	ged_refresh_cb(gedp);
 
 	return BRLCAD_OK;
@@ -172,6 +207,7 @@ _view_dlines_cmd_line_width(void *bs, int argc, const char **argv)
 
 	gdlsp->gdls_line_width = line_width;
 
+	_sync_dlines_to_bsg(gedp->ged_gvp, gdlsp, vs->bsg_name);
 	ged_refresh_cb(gedp);
 
 	return BRLCAD_OK;
@@ -217,6 +253,7 @@ _view_dlines_cmd_points(void *bs, int argc, const char **argv)
 
 	/* Clear out data points */
 	if (ac < 1) {
+	    _sync_dlines_to_bsg(gedp->ged_gvp, gdlsp, vs->bsg_name);
 	    ged_refresh_cb(gedp);
 
 	    bu_free((char *)av, "av");
@@ -244,6 +281,7 @@ _view_dlines_cmd_points(void *bs, int argc, const char **argv)
 	    VMOVE(gdlsp->gdls_points[i], scan);
 	}
 
+	_sync_dlines_to_bsg(gedp->ged_gvp, gdlsp, vs->bsg_name);
 	ged_refresh_cb(gedp);
 	bu_free((char *)av, "av");
 	return BRLCAD_OK;
@@ -285,8 +323,10 @@ ged_view_data_lines(struct ged *gedp, int argc, const char *argv[])
 
     if (argv[0][0] == 's') {
 	vs.gdlsp = &gedp->ged_gvp->gv_tcl.gv_sdata_lines;
+	vs.bsg_name = "_tcl_sdata_lines";
     } else {
 	vs.gdlsp = &gedp->ged_gvp->gv_tcl.gv_data_lines;
+	vs.bsg_name = "_tcl_data_lines";
     }
 
     argc--;argv++;
