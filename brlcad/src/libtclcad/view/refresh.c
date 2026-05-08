@@ -137,7 +137,6 @@ go_refresh_draw(struct ged *gedp, struct bview *gdvp, int restore_zbuffer)
     gdvp->gv_local2base = gedp->dbip->dbi_local2base;
     gdvp->gv_base2local = gedp->dbip->dbi_base2local;
     dm_draw_viewobjs(wdbp, gdvp, &tgd->go_dmv);
-    dm_draw_viewobjs(wdbp, gdvp, &tgd->go_dmv);
     gdvp->gv_local2base = l2b;
     gdvp->gv_base2local = b2l;
 }
