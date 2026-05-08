@@ -43,8 +43,8 @@
 #include <string.h>
 
 #include "bu/cmd.h"
-#include "bu/getopt.h"
 #include "bu/glob.h"
+#include "bu/opt.h"
 #include "bu/vls.h"
 #include "raytrace.h"
 #include "rt/search.h"
@@ -245,14 +245,27 @@ _rm_expand_operand(const char *operand, struct db_i *dbip, struct bu_ptbl *out)
 int
 ged_rm_core(struct ged *gedp, int argc, const char *argv[])
 {
-    int c;
     int fflag = 0;   /* force */
     int rflag = 0;   /* recursive */
     int nflag = 0;   /* dry-run */
+    int print_help = 0;
     int ret = BRLCAD_OK;
+    int opt_ret;
     size_t i;
+    struct bu_opt_desc d[9];
+    struct bu_vls optparse_msg = BU_VLS_INIT_ZERO;
     struct bu_ptbl operands = BU_PTBL_INIT_ZERO;
-    static const char *usage = "[-f] [-r] [-n] object|path ...";
+    static const char *usage = "Usage: rm [-f|--force] [-r|--recursive] [-n|--dry-run] object|path ...";
+
+    BU_OPT(d[0], "f", "force",     "", NULL, &fflag,      "Force deletion");
+    BU_OPT(d[1], "r", "recursive", "", NULL, &rflag,      "Recursively delete unshared descendants");
+    BU_OPT(d[2], "n", "dry-run",   "", NULL, &nflag,      "Report what would be deleted without modifying the database");
+    BU_OPT(d[3], "F", "",          "", NULL, &fflag,      "");
+    BU_OPT(d[4], "R", "",          "", NULL, &rflag,      "");
+    BU_OPT(d[5], "N", "",          "", NULL, &nflag,      "");
+    BU_OPT(d[6], "h", "help",      "", NULL, &print_help, "Print help and exit");
+    BU_OPT(d[7], "?", "",          "", NULL, &print_help, "");
+    BU_OPT_NULL(d[8]);
 
     GED_CHECK_DATABASE_OPEN(gedp, BRLCAD_ERROR);
     GED_CHECK_DRAWABLE(gedp, BRLCAD_ERROR);
@@ -262,36 +275,30 @@ ged_rm_core(struct ged *gedp, int argc, const char *argv[])
     bu_vls_trunc(gedp->ged_result_str, 0);
 
     if (argc == 1) {
-	bu_vls_printf(gedp->ged_result_str, "Usage: %s %s", argv[0], usage);
+	_ged_cmd_help(gedp, usage, d);
 	return GED_HELP;
     }
 
-    bu_optind = 1;
-    while ((c = bu_getopt(argc, (char * const *)argv, "fFrRnN")) != -1) {
-	switch (c) {
-	    case 'f':
-	    case 'F':
-		fflag = 1;
-		break;
-	    case 'r':
-	    case 'R':
-		rflag = 1;
-		break;
-	    case 'n':
-	    case 'N':
-		nflag = 1;
-		break;
-	    default:
-		bu_vls_printf(gedp->ged_result_str, "Usage: %s %s", argv[0], usage);
-		return BRLCAD_ERROR;
-	}
+    opt_ret = bu_opt_parse(&optparse_msg, argc, argv, d);
+    if (opt_ret < 0) {
+	bu_vls_printf(gedp->ged_result_str, "%s\n", bu_vls_cstr(&optparse_msg));
+	bu_vls_free(&optparse_msg);
+	return BRLCAD_ERROR;
     }
 
-    argc -= (bu_optind - 1);
-    argv += (bu_optind - 1);
+    if (print_help) {
+	_ged_cmd_help(gedp, usage, d);
+	bu_vls_free(&optparse_msg);
+	return GED_HELP;
+    }
 
-    if (argc < 2) {
-	bu_vls_printf(gedp->ged_result_str, "Usage: %s %s", argv[0], usage);
+    argc = opt_ret;
+    argc -= (argc > 0);
+    argv += (argc > 0);
+    bu_vls_free(&optparse_msg);
+
+    if (argc < 1) {
+	bu_vls_printf(gedp->ged_result_str, "%s", usage);
 	return BRLCAD_ERROR;
     }
 
@@ -300,7 +307,7 @@ ged_rm_core(struct ged *gedp, int argc, const char *argv[])
 
     /* Expand glob patterns; build flat list of resolved operands */
     bu_ptbl_init(&operands, 64, "rm operands");
-    for (i = 1; (int)i < argc; i++) {
+    for (i = 0; (int)i < argc; i++) {
 	_rm_expand_operand(argv[i], gedp->dbip, &operands);
     }
 

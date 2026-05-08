@@ -10,7 +10,7 @@ rm - safely delete database objects, force-delete objects, or remove a child fro
 
 [source]
 ----
-rm [-f] [-r] [-n] {object-or-path}...
+rm [-f|--force] [-r|--recursive] [-n|--dry-run] {object-or-path}...
 ----
 
 
@@ -42,17 +42,20 @@ dry-run reporting, and glob expansion.
 The current implementation recognizes the following options:
 
 *-f*::
+*--force*::
 Force deletion. For object operands this uses the same direct-delete behavior as
 *kill*: the named object is removed immediately, even if it is referenced
 elsewhere. For path operands, missing parent combinations are ignored.
 
 *-r*::
+*--recursive*::
 Recursive deletion. Walk the hierarchy below each named object and delete
 unshared members. Objects still referenced outside the walked subtree are left
 in place. If *-f* is also supplied, the top-level object is deleted even if it
 remains referenced elsewhere after the recursive pass.
 
 *-n*::
+*--dry-run*::
 Dry run. Report what would be deleted or which combination/member path would be
 edited, but do not modify the database.
 

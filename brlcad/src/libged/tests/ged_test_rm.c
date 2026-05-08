@@ -395,6 +395,25 @@ test_legacy_remove_still_works(void)
 }
 
 
+/** T14: long options work */
+static void
+test_long_options(void)
+{
+    struct ged *gedp = open_test_db();
+    if (!gedp) { fprintf(stderr, "SKIP T14: open failed\n"); return; }
+
+    const char *av[] = {"rm", "--dry-run", "--force", "standalone_prim.s", NULL};
+    bu_vls_trunc(gedp->ged_result_str, 0);
+    int ret = ged_exec_rm(gedp, 4, av);
+    CHECK(ret == BRLCAD_OK, "T14: rm --dry-run --force standalone_prim.s should succeed");
+    CHECK(strstr(bu_vls_cstr(gedp->ged_result_str), "standalone_prim.s") != NULL,
+          "T14: long-option dry-run output should name the object");
+    CHECK_PRESENT(gedp, "standalone_prim.s");
+
+    ged_close(gedp);
+}
+
+
 /* -----------------------------------------------------------------------
  * Main
  * --------------------------------------------------------------------- */
@@ -418,6 +437,7 @@ main(int argc, char *argv[])
     test_missing_operand_force();
     test_glob_delete();
     test_legacy_remove_still_works();
+    test_long_options();
 
     if (g_failures) {
         fprintf(stderr, "\nged_test_rm: %d test(s) FAILED\n", g_failures);
