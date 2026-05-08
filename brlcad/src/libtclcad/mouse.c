@@ -3116,22 +3116,25 @@ to_data_scale(struct ged *gedp,
 	    point_t *_pts = NULL;
 	    int _npts = _bsg_extract_pts(_as, &_pts);
 
-	    /* Scale the length of each arrow (even-indexed endpoints = shaft starts) */
-	    for (i = 0; i < _npts; i += 2) {
-		vect_t diff;
-		point_t vpoint;
-		MAT4X3PNT(vpoint, gedp->ged_gvp->gv_model2view, _pts[i]);
-		vcenter[Z] = vpoint[Z];
-		VSUB2(diff, vpoint, vcenter);
-		VSCALE(diff, diff, sf);
-		VADD2(vpoint, vcenter, diff);
-		MAT4X3PNT(_pts[i], gedp->ged_gvp->gv_view2model, vpoint);
-	    }
+	    /* Arrows are stored as MOVE/DRAW pairs; need even count. */
+	    if (_npts >= 2 && (_npts % 2) == 0) {
+		/* Scale the length of each arrow (even-indexed endpoints = shaft starts) */
+		for (i = 0; i < _npts; i += 2) {
+		    vect_t diff;
+		    point_t vpoint;
+		    MAT4X3PNT(vpoint, gedp->ged_gvp->gv_model2view, _pts[i]);
+		    vcenter[Z] = vpoint[Z];
+		    VSUB2(diff, vpoint, vcenter);
+		    VSCALE(diff, diff, sf);
+		    VADD2(vpoint, vcenter, diff);
+		    MAT4X3PNT(_pts[i], gedp->ged_gvp->gv_view2model, vpoint);
+		}
 
-	    int _color[3]; int _lw, _tl, _tw, _vis;
-	    _bsg_read_style(_as, _color, &_lw, &_tl, &_tw, &_vis);
-	    _bsg_rebuild_arrows(gdvp, "_tcl_data_arrows", _pts, _npts,
-			       _color, _lw, _tl, _tw, _vis);
+		int _color[3]; int _lw, _tl, _tw, _vis;
+		_bsg_read_style(_as, _color, &_lw, &_tl, &_tw, &_vis);
+		_bsg_rebuild_arrows(gdvp, "_tcl_data_arrows", _pts, _npts,
+				   _color, _lw, _tl, _tw, _vis);
+	    }
 	    bu_free(_pts, "bsg pts");
 	}
     }
