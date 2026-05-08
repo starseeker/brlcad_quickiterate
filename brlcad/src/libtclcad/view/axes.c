@@ -609,7 +609,9 @@ to_data_axes_func(Tcl_Interp *interp,
 	     * present/absent.  For the common 0-vs-nonzero check this is correct;
 	     * the gv_tcl mirror preserves the exact value for ticked-mode callers. */
 	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
-	    bu_vls_printf(gedp->ged_result_str, "%d", _s ? gdasp->draw : 0);
+	    /* gdasp is always non-NULL here (set from gv_tcl above); use it to
+	     * return the exact draw mode (0/1/2) when the object exists. */
+	    bu_vls_printf(gedp->ged_result_str, "%d", _s ? (gdasp ? gdasp->draw : 1) : 0);
 	    return BRLCAD_OK;
 	}
 

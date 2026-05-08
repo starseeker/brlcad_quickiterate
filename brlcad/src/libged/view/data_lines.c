@@ -349,7 +349,18 @@ _view_dlines_cmd_points(void *bs, int argc, const char **argv)
 			       gdlsp->gdls_color, gdlsp->gdls_line_width);
 	} else {
 	    /* Non-Tcl view: parse into a temporary array and build BSG directly.
-	     * The BSG vlist becomes the sole persistent storage. */
+	     * The BSG vlist becomes the sole persistent storage.
+	     * Preserve color/line_width from the existing BSG object if any. */
+	    int saved_color[3] = {255, 255, 0}; /* default yellow */
+	    int saved_lw = 0;
+	    struct bv_scene_obj *old_s = bv_view_obj_find(v, vs->bsg_name);
+	    if (old_s) {
+		saved_color[0] = (int)old_s->s_color[0];
+		saved_color[1] = (int)old_s->s_color[1];
+		saved_color[2] = (int)old_s->s_color[2];
+		if (old_s->s_os)
+		    saved_lw = old_s->s_os->s_line_width;
+	    }
 	    if (ac < 2) {
 		bv_view_obj_remove(v, vs->bsg_name);
 		ged_refresh_cb(gedp);
@@ -372,7 +383,7 @@ _view_dlines_cmd_points(void *bs, int argc, const char **argv)
 	    }
 
 	    _rebuild_bsg_dlines(v, vs->bsg_name, 1 /* draw=1 on explicit set */,
-			       pts, ac, NULL, 0);
+			       pts, ac, saved_color, saved_lw);
 	    bu_free((void *)pts, "data points");
 	}
 

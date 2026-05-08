@@ -168,7 +168,10 @@ to_data_labels_func(Tcl_Interp *interp,
 
     if (BU_STR_EQUAL(argv[1], "color")) {
 	if (argc == 2) {
-	    /* T3: read color from first BSG label child. */
+	    /* T3: read color from first BSG label child.
+	     * All label children are created with the same color (from the
+	     * single gdls_color[3] field in bv_data_label_state), so reading
+	     * the first child reflects the entire set. */
 	    struct bv_scene_obj *_parent = bv_view_obj_find(gdvp, bsg_name);
 	    if (_parent && BU_PTBL_LEN(&_parent->children) > 0) {
 		struct bv_scene_obj *_c =
