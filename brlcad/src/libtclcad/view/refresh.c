@@ -27,7 +27,6 @@
 #include "common.h"
 #include "bu/units.h"
 #include "ged.h"
-#define DM_WITH_RT
 #include "tclcad.h"
 
 /* Private headers */
@@ -38,21 +37,18 @@ void
 go_refresh_draw(struct ged *gedp, struct bview *gdvp, int restore_zbuffer)
 {
     struct tclcad_view_data *tvd = (struct tclcad_view_data *)gdvp->u_data;
-    struct tclcad_ged_data *tgd = (struct tclcad_ged_data *)current_top->to_gedp->u_data;
-    struct rt_wdb *wdbp = wdb_dbopen(gedp->dbip, RT_WDB_TYPE_DB_DEFAULT);
     if (tvd->gdv_fbs.fbs_mode == TCLCAD_OBJ_FB_MODE_OVERLAY) {
 	if (gdvp->gv_s->gv_rect.draw) {
 	    go_draw(gdvp);
 
-	    // TODO - I wouldn't expect these values to differ from the dbi
-	    // versions, but to preserve the old behavior where the factors
-	    // were passed explicitly we stash and restore.  Need to figure
-	    // out whether this is ever needed (shouldn't be?)
+	    /* Phase T2-final: replaced dm_draw_viewobjs with dm_draw_objs.
+	     * Stash/restore gv_local2base|base2local to keep faceplate unit
+	     * display consistent with the database unit factors. */
 	    double l2b = gdvp->gv_local2base;
 	    double b2l = gdvp->gv_base2local;
 	    gdvp->gv_local2base = gedp->dbip->dbi_local2base;
 	    gdvp->gv_base2local = gedp->dbip->dbi_base2local;
-	    dm_draw_viewobjs(wdbp, gdvp, &tgd->go_dmv);
+	    dm_draw_objs(gdvp, NULL, NULL);
 	    gdvp->gv_local2base = l2b;
 	    gdvp->gv_base2local = b2l;
 
@@ -128,15 +124,15 @@ go_refresh_draw(struct ged *gedp, struct bview *gdvp, int restore_zbuffer)
 	go_draw(gdvp);
     }
 
-    // TODO - I wouldn't expect these values to differ from the dbi versions,
-    // but to preserve the old behavior where the factors were passed
-    // explicitly we stash and restore.  Need to figure out whether this is
-    // ever needed (shouldn't be?)
+    /* Phase T2-final: replaced dm_draw_viewobjs with dm_draw_objs so the
+     * full BSG view-scope object set (including T1-migrated adornments) and
+     * faceplate are rendered through the modern path.  Stash/restore the
+     * unit-conversion factors as before. */
     double l2b = gdvp->gv_local2base;
     double b2l = gdvp->gv_base2local;
     gdvp->gv_local2base = gedp->dbip->dbi_local2base;
     gdvp->gv_base2local = gedp->dbip->dbi_base2local;
-    dm_draw_viewobjs(wdbp, gdvp, &tgd->go_dmv);
+    dm_draw_objs(gdvp, NULL, NULL);
     gdvp->gv_local2base = l2b;
     gdvp->gv_base2local = b2l;
 }

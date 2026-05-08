@@ -154,46 +154,50 @@ What was done:
 
 Deferred (not migrated — require view-size-dependent geometry or BSG polygon
 support that does not exist yet):
-- `src/libtclcad/view/polygons.c` (data_polygons): complex contour mode;
-  deferred to T1-polygons.
+- `src/libtclcad/view/polygons.c` (data_polygons): DONE (2026-05-08).
+  `_sync_tcl_polygons_to_bsg()` added; all 16 `to_refresh_view` call sites
+  and `to_poly_cont_build_end` now call the helper.  All five T1 adornment
+  kinds (arrows, lines, labels, axes, polygons) are now migrated.
 
 ### T2 — switch refresh to `dm_draw_objs`
-Status: PARTIAL (gv_tcl rendering removed from dm_draw_viewobjs; duplicate
-call in refresh.c fixed; full switch to dm_draw_objs deferred to T2-final).
+Status: DONE (2026-05-08) — T2-final complete.
 
-What was done:
-- `src/libdm/view.c` (`dm_draw_viewobjs`): Removed the eight gv_tcl rendering
-  blocks (data/sdata arrows, axes, lines, polygons in 3D; data/sdata labels
-  and prim_labels in HUD).  Fixed the pre-existing `if (view_objs)` bug that
-  guarded `local_view_objs` with the wrong pointer.  Removed the now-unused
-  `sf` / `width` locals and the `#if 0` selection-highlight stub.
-- `src/libtclcad/view/refresh.c` (`go_refresh_draw`): Removed the duplicate
-  `dm_draw_viewobjs` call that was double-rendering the default path; confirmed
-  that the OVERLAY path retains its single correct call.
-
-Still to do (T2-final):
-- Replace `dm_draw_viewobjs(...)` in `src/libtclcad/view/refresh.c` with
-  `dm_draw_objs(...)` once the deferred T1 adornment kind (polygons) is
-  migrated so the BSG path renders the full faceplate.
+What was done (T2-final):
+- `src/libtclcad/view/refresh.c` (`go_refresh_draw`): Replaced both
+  `dm_draw_viewobjs(wdbp, gdvp, &tgd->go_dmv)` call sites with
+  `dm_draw_objs(gdvp, NULL, NULL)`.  Removed now-unused `wdbp` / `tgd`
+  locals and the `DM_WITH_RT` define (no longer needed by the caller).
 
 ### T3 — delete the legacy renderer
-Status: PARTIAL (dm_draw_arrows, dm_draw_lines, dm_draw_polys, dm_draw_labels
-deprecated; full removal blocked on T2-final and T1 polygons).
+Status: DONE (2026-05-08) — T3-final complete.
 
-What was done:
-- `src/libdm/view.c`: Added DEPRECATED banners to `dm_draw_arrows`,
-  `dm_draw_lines`, `dm_draw_polys`, `dm_draw_labels`; these functions are now
-  dead code (no internal callers remain after T2).
+What was done (T3-final):
+- `include/dm/view.h`: Removed `dm_draw_viewobjs` declaration and the
+  `TODO - needed for dm_draw_labels` comment; the `#ifdef DM_WITH_RT` block
+  now only conditionally includes `rt/wdb.h` (still needed by labels.c).
+- `src/libdm/view.c`: Removed `dm_draw_viewobjs` implementation (and the
+  `_dm_draw_view_objs_ctx` / `_dm_draw_view_obj_cb` helpers that only it
+  used).  Removed `dm_draw_arrows`, `dm_draw_polys`, `dm_draw_lines`
+  deprecated stubs.  Removed top-level `#define DM_WITH_RT` (no longer
+  needed after viewobjs removal).
+- `src/libtclcad/CMakeLists.txt`: Removed the stale comment about why
+  refresh.c needed UNITY_BUILD_SKIP for `DM_WITH_RT`.
+- `dm_draw_labels` retained (has external consumers per comment).
 
-Still to do (T3-final):
-- Remove `dm_draw_viewobjs` from libdm and its header declarations.
-- Remove `bv_data_tclcad` and the `gv_tcl.*` state from `bview` (once T1
-  polygons migration is complete).
-- Remove the deprecated `dm_draw_arrows/lines/polys/labels` stubs.
+Still to do:
+- Remove `bv_data_tclcad` and the `gv_tcl.*` state from `bview` (medium
+  complexity — requires auditing all libtclcad callers).
 - Remove the standalone `dm_obj` path in `src/libtclcad/dm.c`.
 
 ### T4 — add parity coverage for the refresh path
-Status: NOT STARTED.
+Status: DONE (2026-05-08).
+
+What was done:
+- `src/libged/tests/draw/tcl_adornment_bsg.cpp`: Added headless structural
+  test (`ged_test_tcl_adornment_bsg`) that exercises the BSG view-scope
+  object lifecycle used by T1 sync helpers: create/find/vlist/setters/visit/
+  remove/idempotency/multi-slot.  Registered in CMakeLists.txt alongside
+  the existing bsg_view_obj test.
 
 
 Priority 2 — finish typed-API adoption (Phase A)
@@ -315,10 +319,9 @@ Completed cleanup items:
 - Updated `bv_view_objs` header comment to reflect BV_VIEW_OBJS removal.
 
 Deferred item:
-- `bview::independent` boolean: still read/written directly in libbv, libqtcad,
-  mged, and tests.  Phase V6 derives independence structurally from BSG scope
-  nodes, but the field is kept as a write-through cache.  Remove only when all
-  direct readers are migrated to bv_view_is_independent()/bv_view_independent_scope().
+- `bview::independent` boolean: DONE (2026-05-08). Field removed from bview.
+  Direct accesses in libbv, libqtcad, mged, and tests migrated to
+  bv_view_is_independent() / bv_view_independent_scope().
 
 
 Priority 5 — backend default decision (Phase B)
@@ -376,15 +379,12 @@ Rationale:
 
 Suggested next-session order
 ----------------------------
-1. Migrate T1 polygons (data_polygons/sdata_polygons) via BSG polygon API.
-2. Complete T2-final: replace dm_draw_viewobjs with dm_draw_objs in refresh.c
-   (now that only polygons remain unmigrated, T2-final can proceed once
-   polygons are done).
-3. Complete T3-final: remove dm_draw_viewobjs declaration, gv_tcl state, and
-   deprecated dm_draw_* stubs once polygons are migrated and T2-final lands.
-4. Add T4 faceplate parity tests (ged_test_archer_bsg or similar).
-5. Remove `bview::independent` once all direct readers have been migrated to
-   bv_view_is_independent() / bv_view_independent_scope() (Phase D deferred).
+All five items from the previous session plan are DONE (2026-05-08).
+
+Remaining work:
+- Remove `bv_data_tclcad` / `gv_tcl.*` state from `bview` (medium complexity).
+- Remove `dm_obj` standalone path in `src/libtclcad/dm.c`.
+- Port `dm_draw_labels` to a BSG label-scope API (currently retained for ABI).
 
 
 Do not reopen

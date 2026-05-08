@@ -727,7 +727,7 @@ dm_var_init(struct mged_state *s, struct mged_dm *target_dm)
     bu_ptbl_init(view_state->vs_gvp->gv_objs.db_objs, 8, "view_objs init");
 
     view_state->vs_gvp->vset = &s->gedp->ged_views;
-    view_state->vs_gvp->independent = 0;
+    /* Phase D: independent state managed via BSG scope, not a direct flag. */
 
     view_state->vs_gvp->gv_clientData = (void *)view_state;
     view_state->vs_gvp->gv_s->adaptive_plot_csg = 0;

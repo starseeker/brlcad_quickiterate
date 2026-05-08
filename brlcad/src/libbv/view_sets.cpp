@@ -84,9 +84,9 @@ bv_set_add_view(struct bview_set *s, struct bview *v){
 
     v->vset = s;
 
-    // By default, when we add a view to a set it is no longer considered
-    // independent
-    v->independent = 0;
+    // By default, when we add a view to a set it is no longer independent;
+    // remove any existing independent scope from the BSG tree.
+    bv_view_independent_scope_destroy(v);
 }
 
 void
@@ -103,9 +103,9 @@ bv_set_rm_view(struct bview_set *s, struct bview *v){
 
     v->vset = NULL;
 
-    // By default, when we remove a view from a set it is considered
-    // independent
-    v->independent = 1;
+    // By default, when we remove a view from a set it is independent;
+    // create an independent scope in the BSG tree when possible.
+    bv_view_independent_scope(v, 1 /*create*/);
 }
 
 

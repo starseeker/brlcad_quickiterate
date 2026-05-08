@@ -326,7 +326,7 @@ QgModel::QgModel(QObject *p, const char *npath)
     bv_set_add_view(&gedp->ged_views, empty_gvp);
     gedp->ged_gvp = empty_gvp;
     bu_vls_sprintf(&gedp->ged_gvp->gv_name, "default");
-    gedp->ged_gvp->independent = 0;
+    /* Phase D: independent state is managed via BSG scope; no direct flag. */
 
     // Set up the root item
     rootItem = new QgItem(0, this);

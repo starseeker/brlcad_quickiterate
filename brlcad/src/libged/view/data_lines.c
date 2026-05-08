@@ -69,8 +69,8 @@ struct view_dlines_state {
 };
 
 /* Phase T1 (drawing_stack_modernization): sync the gv_tcl data-lines state to
- * a BSG VIEW_SCOPE object so the modern BSG renderer (dm_draw_viewobjs /
- * dm_draw_objs) picks up lines without the legacy dm_draw_lines path. */
+ * a BSG VIEW_SCOPE object so the modern BSG renderer (dm_draw_objs) picks up
+ * lines without the legacy dm_draw_lines path. */
 static void
 _sync_dlines_to_bsg(struct bview *v, struct bv_data_line_state *gdlsp, const char *bsg_name)
 {
