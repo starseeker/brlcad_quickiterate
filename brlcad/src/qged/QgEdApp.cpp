@@ -178,8 +178,25 @@ QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode) :QAppl
     QTextStream stream(&file);
     setStyleSheet(stream.readAll());
 
+    // Backend policy (Phase B, drawing_stack_modernization):
+    //   - dm-qtgl  (hardware OpenGL via QgGL) is the default when BRL-CAD is
+    //     built with OpenGL support.  It delegates rendering to the system GPU
+    //     and is substantially faster than software rasterization for
+    //     interactive 3-D work.
+    //   - dm-swrast (Mesa OSMesa software rasterizer via QgSW) is the fallback
+    //     selected by the user with the -s / --swrast command-line flag, or
+    //     used automatically when OpenGL support is unavailable.
+    //
+    // QgEdMainWindow expects a QgView_* canvas type constant, not the raw
+    // swrast_mode boolean.  Translate here so the policy lives in one place.
+#ifdef BRLCAD_OPENGL
+    int canvas_type = swrast_mode ? QgView_SW : QgView_GL;
+#else
+    int canvas_type = QgView_SW; /* No OpenGL support — software rasterizer only */
+#endif
+
     // Create the windows
-    w = new QgEdMainWindow(swrast_mode, quad_mode);
+    w = new QgEdMainWindow(canvas_type, quad_mode);
 
     /* GED needs some information and methods from QGED - make
      * those assignment */

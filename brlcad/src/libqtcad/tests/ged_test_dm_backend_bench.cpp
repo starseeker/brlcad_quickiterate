@@ -1,0 +1,308 @@
+/*        G E D _ T E S T _ D M _ B A C K E N D _ B E N C H . C P P
+ * BRL-CAD
+ *
+ * Copyright (c) 2026 United States Government as represented by
+ * the U.S. Army Research Laboratory.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * version 2.1 as published by the Free Software Foundation.
+ *
+ * This library is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this file; see the file named COPYING for more
+ * information.
+ */
+/** @file ged_test_dm_backend_bench.cpp
+ *
+ * Phase B (drawing_stack_modernization): measure dm_draw_objs throughput
+ * for dm-swrast and dm-qtgl backends so that an evidence-based
+ * default-backend decision can be made.
+ *
+ * Design
+ * ------
+ * Both backends are tested through their respective Qt widget paths so that
+ * the measured time includes the same per-frame overhead that production qged
+ * experiences:
+ *
+ *   dm-swrast path: QgSW widget  → dm_draw_objs (Mesa OSMesa CPU path)
+ *   dm-qtgl  path:  QgGL widget  → dm_draw_objs (hardware OpenGL path)
+ *
+ * The swrast section always runs (no display hardware required; uses Qt's
+ * offscreen platform).  The qtgl section requires a working OpenGL context;
+ * on headless / CI machines it is skipped gracefully with a diagnostic note.
+ *
+ * Exit status: always 0 — this is a benchmark, not a pass/fail test.
+ *
+ * Usage: ged_test_dm_backend_bench [-n <iters>] <dir-containing-moss.g>
+ */
+
+#include "common.h"
+
+#include <fstream>
+#include <cstring>
+
+#include <QApplication>
+#include <QTimer>
+
+#include <bu.h>
+#include "bu/opt.h"
+#include "bu/time.h"
+#include <bv/lod.h>
+#define DM_WITH_RT
+#include <dm.h>
+#include <ged.h>
+
+#include "qtcad/QgSW.h"
+#ifdef BRLCAD_OPENGL
+#  include "qtcad/QgGL.h"
+#endif
+
+#include "../../libged/dbi.h"
+
+/* ------------------------------------------------------------------ */
+/* Geometry-change callback required when using GED without QgModel   */
+extern "C" void
+ged_changed_callback(struct db_i *UNUSED(dbip), struct directory *dp, int mode, void *u_data)
+{
+    unsigned long long hash;
+    struct ged *gedp = (struct ged *)u_data;
+    DbiState *ctx = (DbiState *)gedp->dbi_state;
+    if (!ctx) return;
+    ctx->clear_cache(dp);
+    if (dp->d_minor_type == DB5_MINORTYPE_BRLCAD_BOT && ctx->gedp) {
+	unsigned long long key = bv_mesh_lod_key_get(ctx->gedp->ged_lod, dp->d_namep);
+	if (key) {
+	    bv_mesh_lod_clear_cache(ctx->gedp->ged_lod, key);
+	    bv_mesh_lod_key_put(ctx->gedp->ged_lod, dp->d_namep, 0);
+	}
+    }
+    switch (mode) {
+	case 0: ctx->changed.insert(dp); break;
+	case 1: ctx->added.insert(dp);   break;
+	case 2:
+	    hash = bu_data_hash(dp->d_namep, strlen(dp->d_namep)*sizeof(char));
+	    ctx->removed.insert(hash);
+	    ctx->old_names[hash] = std::string(dp->d_namep);
+	    break;
+	default: break;
+    }
+}
+
+/* ------------------------------------------------------------------ */
+/* Print a timing result in a human-readable, script-parseable form   */
+static void
+print_bench_result(const char *backend, int n, int64_t elapsed_us)
+{
+    double total_ms  = elapsed_us / 1000.0;
+    double avg_ms    = total_ms / n;
+    double fps       = (n * 1.0e6) / elapsed_us;
+    bu_log("BENCH %-8s  iters=%d  total=%.1f ms  avg=%.2f ms/frame  fps=%.1f\n",
+	   backend, n, total_ms, avg_ms, fps);
+}
+
+/* ------------------------------------------------------------------ */
+/* Set up GED for drawing: open file, create dbi_state, draw all.g    */
+static struct ged *
+open_and_draw(const char *gfile)
+{
+    struct ged *gedp = ged_open("db", gfile, 1);
+    if (!gedp)
+	return NULL;
+    gedp->dbi_state = new DbiState(gedp);
+    gedp->new_cmd_forms = 1;
+    gedp->ged_lod = bv_mesh_lod_context_create(gedp->dbip->dbi_filename);
+    db_add_changed_clbk(gedp->dbip, &ged_changed_callback, (void *)gedp);
+
+    const char *ae_av[] = {"ae", "35", "25", NULL};
+    ged_exec(gedp, 3, ae_av);
+
+    const char *draw_av[] = {"draw", "all.g", NULL};
+    ged_exec(gedp, 2, draw_av);
+
+    const char *av_av[] = {"autoview", NULL};
+    ged_exec(gedp, 1, av_av);
+
+    DbiState *dbis = (DbiState *)gedp->dbi_state;
+    dbis->update();
+
+    return gedp;
+}
+
+/* ------------------------------------------------------------------ */
+/* Clean up GED state                                                  */
+static void
+close_ged(struct ged *gedp)
+{
+    if (!gedp)
+	return;
+    DbiState *dbis = (DbiState *)gedp->dbi_state;
+    delete dbis;
+    gedp->dbi_state = NULL;
+    ged_close(gedp);
+}
+
+/* ================================================================== */
+int
+main(int ac, char *av[])
+{
+    bu_setprogname(av[0]);
+
+    int n_iters = 30;
+    struct bu_opt_desc d[2];
+    BU_OPT(d[0], "n", "iters", "#", bu_opt_int, &n_iters,
+	   "Number of draw iterations per backend (default 30)");
+    BU_OPT_NULL(d[1]);
+
+    int uac = bu_opt_parse(NULL, ac, (const char **)av, d);
+    if (uac != 2) {
+	bu_exit(EXIT_FAILURE,
+		"Usage: %s [-n <iters>] <dir-containing-moss.g>\n", av[0]);
+    }
+    const char *datadir = av[uac - 1];
+    if (!bu_file_directory(datadir))
+	bu_exit(EXIT_FAILURE, "ERROR: [%s] is not a directory\n", datadir);
+    if (n_iters < 1)
+	n_iters = 1;
+
+    /* Qt requires the offscreen platform so no display is needed. */
+    bu_setenv("QT_QPA_PLATFORM", "offscreen", 1);
+    bu_setenv("LIBRT_USE_COMB_INSTANCE_SPECIFIERS", "1", 1);
+    bu_setenv("DM_SWRAST", "1", 1);
+
+    char lcache[MAXPATHLEN];
+    bu_dir(lcache, MAXPATHLEN, BU_DIR_CURR, "dmbench_cache", NULL);
+    bu_mkdir(lcache);
+    bu_setenv("BU_DIR_CACHE", lcache, 1);
+
+    /* ---- Create single QApplication (required for any Qt widget) -- */
+    int fake_argc = 1;
+    char *fake_argv[2] = { av[0], NULL };
+    QApplication app(fake_argc, fake_argv);
+
+    /* ================================================================
+     * Part 1: dm-swrast via QgSW (always runs)
+     * ================================================================ */
+    bu_log("\n--- dm-swrast benchmark (%d iterations) ---\n", n_iters);
+
+    /* Private working copy of moss.g */
+    struct bu_vls srcpath = BU_VLS_INIT_ZERO;
+    bu_vls_sprintf(&srcpath, "%s/moss.g", datadir);
+    std::ifstream orig_sw(bu_vls_cstr(&srcpath), std::ios::binary);
+    std::ofstream tmpg_sw("dmbench_swrast_tmp.g", std::ios::binary);
+    tmpg_sw << orig_sw.rdbuf();
+    orig_sw.close(); tmpg_sw.close();
+
+    struct ged *gedp_sw = open_and_draw("dmbench_swrast_tmp.g");
+    if (!gedp_sw) {
+	bu_log("SKIP swrast: ged_open failed\n");
+    } else {
+	QgSW sw;
+	sw.resize(512, 512);
+
+	/* Bind the GED view to this widget's view */
+	gedp_sw->ged_gvp = sw.v;
+	bv_set_add_view(&gedp_sw->ged_views, sw.v);
+	sw.v->gv_base2local = gedp_sw->dbip->dbi_base2local;
+	sw.v->gv_local2base = gedp_sw->dbip->dbi_local2base;
+
+	/* Force first paint → DM init */
+	sw.show();
+	QCoreApplication::processEvents();
+	/* Second chance in case init is asynchronous */
+	QCoreApplication::processEvents();
+
+	if (!sw.dmp) {
+	    bu_log("SKIP swrast: DM did not initialise after first paint\n");
+	} else {
+	    /* Warm-up: one draw before timing */
+	    dm_draw_objs(sw.v, NULL, NULL);
+	    dm_draw_end(sw.dmp);
+
+	    /* Timed loop */
+	    int64_t t0 = bu_gettime();
+	    for (int i = 0; i < n_iters; i++) {
+		dm_draw_objs(sw.v, NULL, NULL);
+		dm_draw_end(sw.dmp);
+	    }
+	    int64_t elapsed_sw = bu_gettime() - t0;
+	    print_bench_result("swrast", n_iters, elapsed_sw);
+	}
+
+	close_ged(gedp_sw);
+    }
+    bu_file_delete("dmbench_swrast_tmp.g");
+
+    /* ================================================================
+     * Part 2: dm-qtgl via QgGL (requires hardware OpenGL; skipped if
+     * the context cannot be created on this platform)
+     * ================================================================ */
+#ifdef BRLCAD_OPENGL
+    bu_log("\n--- dm-qtgl benchmark (%d iterations) ---\n", n_iters);
+
+    std::ifstream orig_gl(bu_vls_cstr(&srcpath), std::ios::binary);
+    std::ofstream tmpg_gl("dmbench_qtgl_tmp.g", std::ios::binary);
+    tmpg_gl << orig_gl.rdbuf();
+    orig_gl.close(); tmpg_gl.close();
+
+    struct ged *gedp_gl = open_and_draw("dmbench_qtgl_tmp.g");
+    if (!gedp_gl) {
+	bu_log("SKIP qtgl: ged_open failed\n");
+    } else {
+	QgGL gl;
+	gl.resize(512, 512);
+
+	gedp_gl->ged_gvp = gl.v;
+	bv_set_add_view(&gedp_gl->ged_views, gl.v);
+	gl.v->gv_base2local = gedp_gl->dbip->dbi_base2local;
+	gl.v->gv_local2base = gedp_gl->dbip->dbi_local2base;
+
+	gl.show();
+	QCoreApplication::processEvents();
+	QCoreApplication::processEvents();
+
+	if (!gl.dmp) {
+	    bu_log("SKIP qtgl: OpenGL context not available on this platform "
+		   "(expected in headless / CI environments)\n");
+	} else {
+	    /* Warm-up */
+	    dm_draw_objs(gl.v, NULL, NULL);
+	    dm_draw_end(gl.dmp);
+
+	    int64_t t0 = bu_gettime();
+	    for (int i = 0; i < n_iters; i++) {
+		dm_draw_objs(gl.v, NULL, NULL);
+		dm_draw_end(gl.dmp);
+	    }
+	    int64_t elapsed_gl = bu_gettime() - t0;
+	    print_bench_result("qtgl", n_iters, elapsed_gl);
+	}
+
+	close_ged(gedp_gl);
+    }
+    bu_file_delete("dmbench_qtgl_tmp.g");
+#else
+    bu_log("\n--- dm-qtgl benchmark ---\n");
+    bu_log("SKIP qtgl: BRL-CAD built without OpenGL support\n");
+#endif /* BRLCAD_OPENGL */
+
+    bu_vls_free(&srcpath);
+    bu_dirclear(lcache);
+
+    bu_log("\nBenchmark complete.\n");
+    /* Always exit 0 — this is a timing benchmark, not a pass/fail test. */
+    return 0;
+}
+
+// Local Variables:
+// tab-width: 8
+// mode: C++
+// c-basic-offset: 4
+// indent-tabs-mode: t
+// c-file-style: "stroustrup"
+// End:
+// ex: shiftwidth=4 tabstop=8

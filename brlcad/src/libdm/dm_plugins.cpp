@@ -109,6 +109,24 @@ dm_graphics_system(const char *dmtype)
 }
 
 
+/* Backend default policy (Phase B, drawing_stack_modernization):
+ *
+ * The priority_list drives dm_bestXType / dm_default_type for legacy
+ * applications such as mged that open a DM via dm_open() outside of a Qt
+ * widget context.  The ordering reflects historical platform priorities:
+ *   wgl  — Windows OpenGL (MSVC / MinGW builds)
+ *   ogl  — X11 OpenGL (Linux / macOS native GL)
+ *   X    — X11 non-GL fallback
+ *
+ * The Qt-based backends (dm-qtgl, dm-swrast) are intentionally absent from
+ * this list because they require a Qt widget context that only qged provides.
+ * mged's attach.c explicitly notes that qtgl "needs a context from a parent
+ * Qt widget and won't work in MGED."  For qged the default backend is chosen
+ * at the application level (see QgEdApp.cpp).
+ *
+ * For headless / scripted use with mged, pass --dm-type swrast on the command
+ * line.
+ */
 static const char *priority_list[] = {"wgl", "ogl", "X", NULL};
 
 

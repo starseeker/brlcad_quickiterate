@@ -1,0 +1,276 @@
+Drawing Stack Modernization — Concise Status and Next-Session Plan
+=================================================================
+
+Purpose
+-------
+This note is the short handoff for future drawing-stack work.  It records
+what is already settled, why that work matters, and what still needs to be
+done to finish the migration to one clean rendering model.
+
+Use `draw_migration_plan.rtf` only when deeper historical design rationale is
+needed.  This file should stay focused on current status and the remaining
+implementation plan.
+
+Build setup
+-----------
+Drawing-stack work is Qt-sensitive.  Configure with Qt enabled unless a task
+explicitly asks for non-Qt validation:
+
+  REPO_ROOT=/home/runner/work/brlcad_quickiterate/brlcad_quickiterate
+  mkdir -p brlcad_build
+  cmake -S "$REPO_ROOT/brlcad" -B "$REPO_ROOT/brlcad_build" \
+    -DBRLCAD_EXT_DIR="$REPO_ROOT/bext_output" \
+    -DBRLCAD_EXTRADOCS=OFF \
+    -DBRLCAD_ENABLE_STEP=OFF \
+    -DBRLCAD_ENABLE_GDAL=OFF \
+    -DBRLCAD_ENABLE_QT=ON \
+    -DBRLCAD_ENABLE_OPENGL=ON
+
+Keep these targets healthy when touching this area:
+- `libqtcad`
+- `dm-qtgl`
+- `dm-swrast`
+- `qged`
+- `archer`
+
+Most relevant regression tests:
+- `ged_test_qged_swrast` (when present)
+- `ged_test_drawing_*`
+- draw-related tests in `src/libged/tests/draw/`
+
+
+Historical record
+-----------------
+Previous copilot sessions (before the upstream sync that reset this branch)
+implemented the following work.  All of it was lost when main was re-synced
+from upstream brlcad/brlcad.  This section records what was done so that it
+can be re-implemented methodically.
+
+1. BSG (Bounded Scene Graph) tree infrastructure (Phases V4–V8):
+   - Added `libbsg` library with `BSG_NODE_*` type flags and BSG tree traversal.
+   - Added `BSG_NODE_VIEW_SCOPE` concept for shared vs per-view object containment.
+   - Added `BSG_NODE_LOD` for adaptive Level-of-Detail.
+   - Added typed public APIs to libbv:
+       bv_view_obj_create, bv_view_obj_arrow_create,
+       bv_view_obj_lines_create, bv_view_obj_overlay_create,
+       bv_view_obj_find, bv_view_obj_visit, bv_view_obj_remove,
+       bv_view_obj_set_color, bv_view_obj_set_line_width, bv_view_obj_set_visible.
+   - Retired `bview::independent` boolean in favour of structural BSG independence.
+   - Unified the `view obj` command surface around create/remove/list/info/set.
+
+2. Phase T — retire the Tcl/legacy render path (partial):
+   - T0: audited legacy callers; added deprecation notes.
+   - T1 (partial): added `_sync_tcl_arrows_to_bsg`, `_sync_tcl_labels_to_bsg`,
+     `_sync_dlines_to_bsg` in libtclcad/libged; each keeps a BSG VIEW_SCOPE
+     object in sync with the gv_tcl adornment state so dm_draw_objs picks it up.
+     Axes and polygons were deferred (view-size-dependent geometry / BSG polygon
+     support not yet ready).
+   - T2 (partial): removed gv_tcl rendering blocks from dm_draw_viewobjs; fixed
+     duplicate dm_draw_viewobjs call in refresh.c.
+   - T3 (partial): deprecated dm_draw_arrows/lines/polys/labels.
+   - T2-final / T3-final blocked on T1-axes and T1-polygons.
+
+3. Phase A — typed-API adoption (complete):
+   - A0: bv_vlblock_obj → bv_view_obj_find + bv_view_obj_overlay_create;
+     bv_view_select_polygon typed wrapper added.
+   - A1: polygon creation paths fixed (spurious bu_vls_init removed).
+   - A2: QgMeasureFilter, QgPolyFilter, QPolyCreate, QPolyMod migrated from
+     bv_view_objs ptbl loops to bv_view_obj_visit callbacks.
+
+4. Phase H — per-view-variant / highlight model (complete):
+   - Design: LOCAL VIEW_SCOPE overlays, no new node type.
+   - Added bsg_view_obj_illum_by_name to libged.
+   - QEll migrated to bv_view_obj_overlay_create + bsg_view_obj_illum_by_name.
+
+5. Phase D — final cleanup (complete except bview::independent):
+   - Removed BV_MESH_LOD and BV_CSG_LOD flag bits.
+   - Removed BV_VIEW_OBJS auto-routing from bv_obj_get.
+   - Removed BV_VIEW_OBJS branch from bv_view_objs (replaced by bv_view_obj_visit).
+   - Removed view_obj_cache from bview_objs and shared_view_obj_cache from
+     bview_set_internal.
+   - Migrated bv_autoview and bv_clear to bv_view_obj_visit.
+   - Migrated dm_draw_viewobjs view-only rendering to bv_view_obj_visit.
+   - bview::independent deferred: still read/written in libbv, libqtcad, mged.
+
+6. Phase B — backend default decision (done in previous session;
+   re-implemented in this session; see "Completed this session" below).
+
+
+Current code state (2026-05-08 after upstream re-sync)
+-------------------------------------------------------
+All of the above work has been lost in an upstream sync.  The current
+brlcad/ tree is essentially stock upstream BRL-CAD with the following
+relevant state:
+
+- dm_draw_objs: EXISTS, but still uses bv_view_objs(BV_VIEW_OBJS) ptbl loops.
+- dm_draw_viewobjs: EXISTS with all gv_tcl rendering blocks intact.
+- BSG tree / libbsg: NOT PRESENT.
+- bv_view_obj_visit and typed creation APIs: NOT PRESENT.
+- BV_VIEW_OBJS, BV_MESH_LOD, BV_CSG_LOD flag bits: still present.
+- view_obj_cache / shared_view_obj_cache fields: still present.
+- QgEdApp passes swrast_mode directly (canvas_type logic absent).
+
+Phase B (backend default decision):
+- Status: DONE in this session (see below).
+
+
+Completed this session
+----------------------
+
+Phase B — backend default decision  DONE (2026-05-08)
+
+Policy:
+- qged default backend: dm-qtgl (hardware OpenGL via QgGL widget) when
+  BRL-CAD is built with OpenGL support.  Falls back to dm-swrast when the
+  user passes -s / --swrast or when BRL-CAD is built without OpenGL support.
+- mged / legacy applications: dm-bestXType selects from {wgl, ogl, X} via
+  the priority_list in src/libdm/dm_plugins.cpp.  dm-qtgl is intentionally
+  absent because it requires a Qt widget context only qged provides.
+
+What was done:
+
+### B1 — codify qged default backend
+- src/qged/QgEdApp.cpp: replaced the implicit `swrast_mode` pass-through
+  with an explicit canvas_type selection:
+    #ifdef BRLCAD_OPENGL
+        canvas_type = swrast_mode ? QgView_SW : QgView_GL;
+    #else
+        canvas_type = QgView_SW;
+    #endif
+  Documented rationale in a comment block above the selection.
+
+### B2 — codify mged / libdm default path
+- src/libdm/dm_plugins.cpp: added a block comment above priority_list
+  explaining why dm-qtgl and dm-swrast are absent, and documenting the
+  --dm-type swrast flag for headless mged use.
+
+### B3 — dm backend benchmark test
+- src/libqtcad/tests/ged_test_dm_backend_bench.cpp: new file.
+  Times dm_draw_objs throughput via the QgSW (dm-swrast) widget path.
+  The dm-qtgl section requires hardware OpenGL; it is skipped gracefully on
+  headless / CI machines.  Exit status is always 0 (benchmark, not pass/fail).
+- src/libqtcad/tests/CMakeLists.txt: added build/registration for the test.
+
+
+Still-open work, in priority order
+====================================
+
+The following phases require the BSG tree infrastructure to be re-built
+from scratch before they can be worked on.  They are listed in the order
+they should be implemented.
+
+Priority 1 — rebuild BSG tree infrastructure (Phases V4–V8)
+------------------------------------------------------------
+Status: NOT STARTED (code was lost in upstream sync).
+
+This is the foundation for all remaining work.  Until this is done,
+Phases T, A, H, and D are blocked.
+
+What to re-implement (roughly in order):
+1. Add libbsg library with BSG_NODE_* type flags.
+2. Add BSG_NODE_VIEW_SCOPE concept and per-view/shared scope model.
+3. Add typed libbv APIs:
+   - bv_view_obj_create (generic)
+   - bv_view_obj_arrow_create (typed arrow helper)
+   - bv_view_obj_lines_create (typed lines helper)
+   - bv_view_obj_overlay_create (edit overlay helper, local scope)
+   - bv_view_obj_find / bv_view_obj_visit / bv_view_obj_remove
+   - bv_view_obj_set_color / set_line_width / set_visible (typed setters)
+4. Retire bv_view_objs(BV_VIEW_OBJS) and view_obj_cache (Phase D).
+5. Unify view obj command surface around create/remove/list/info/set (V7-V8).
+6. Add BSG_NODE_LOD for adaptive LoD, removing per-view duplicate subtrees.
+
+Reference: see historical sections above and the merged PR diffs in the
+GitHub repo (PRs #410–419 were the V4–V8 phases).
+
+
+Priority 2 — retire the Tcl/legacy render path (Phase T)
+---------------------------------------------------------
+Status: NOT STARTED (depends on BSG infrastructure).
+
+Phase T0: audit legacy callers and add deprecation markers.
+
+Phase T1 — migrate Tcl faceplate adornments onto BSG view-scope objects
+Status: NOT STARTED.
+
+Why:
+- dm_draw_viewobjs renders gv_tcl adornments (arrows, axes, lines, polygons,
+  labels) via legacy dm_draw_arrows/dm_draw_axes/etc. helpers.
+- Until these producers move onto BSG VIEW_SCOPE objects, dm_draw_objs
+  cannot replace dm_draw_viewobjs.
+
+What to do (start here, in order):
+- src/libtclcad/view/arrows.c: add _sync_tcl_arrows_to_bsg().
+- src/libtclcad/view/labels.c: add _sync_tcl_labels_to_bsg().
+- src/libged/view/data_lines.c: add _sync_dlines_to_bsg().
+- src/libtclcad/view/axes.c: add _sync_tcl_axes_to_bsg() (NOTE: axes
+  geometry depends on run-time view scale factor; needs on-draw callback
+  or view-size-dependent update path).
+- src/libtclcad/view/polygons.c: add BSG polygon support.
+- Remove the matching dm_draw_<kind> blocks from dm_draw_viewobjs.
+
+Phase T2 — switch refresh to dm_draw_objs  (after T1 is complete)
+Phase T3 — delete legacy renderer  (after T2)
+Phase T4 — add faceplate parity tests
+
+
+Priority 3 — finish typed-API adoption (Phase A)
+------------------------------------------------
+Status: NOT STARTED (depends on BSG infrastructure).
+
+### A0 — libbv internal producer migration
+- Migrate bv_vlblock_obj to bv_view_obj_find + bv_view_obj_overlay_create.
+- Migrate bv_create_polygon to typed API.
+
+### A1 — libged polygon creation paths
+- Fix spurious bu_vls_init in polygon.c and polygons.c create paths.
+
+### A2 — libqtcad and qged plugin producers
+- QgMeasureFilter, QgPolyFilter, QPolyCreate, QPolyMod: replace
+  bv_view_objs ptbl loops with bv_view_obj_visit callbacks.
+- QEll: migrate after Phase H (per-view-variant model) is resolved.
+
+
+Priority 4 — define the per-view-variant / highlight model (Phase H)
+--------------------------------------------------------------------
+Status: NOT STARTED (depends on BSG infrastructure).
+
+Decision (from previous session, now to be re-made):
+- Edit overlays are LOCAL per-view BSG view-scope objects via
+  bv_view_obj_overlay_create(v, name, 1/*local*/).
+- bsg_view_obj_illum_by_name: public API for illuminating by object basename.
+- QEll migrated onto this model.
+
+
+Priority 5 — final cleanup (Phase D)
+-------------------------------------
+Status: NOT STARTED (depends on BSG infrastructure).
+
+- Remove BV_MESH_LOD and BV_CSG_LOD flag bits.
+- Remove BV_VIEW_OBJS auto-routing from bv_obj_get.
+- Remove BV_VIEW_OBJS branch from bv_view_objs.
+- Remove view_obj_cache from bview_objs and shared_view_obj_cache.
+- Migrate bv_autoview, bv_clear, dm_draw_viewobjs view-only rendering.
+
+Deferred item:
+- Remove bview::independent once all direct readers have been migrated to
+  bv_view_is_independent() / bv_view_independent_scope().
+
+
+Suggested next-session order
+----------------------------
+1. Re-implement BSG tree foundation (V4 core: BSG_NODE_VIEW_SCOPE, typed
+   object create/visit APIs in libbv).
+2. Migrate arrows and labels (T1 easy cases) as early validation.
+3. Continue V5-V8 structural work (view independence, LoD node).
+4. Complete T1 for axes and polygons once view-scale callback path exists.
+5. Land T2/T3/T4 to retire dm_draw_viewobjs.
+6. Re-implement Phase A (typed API adoption across producers).
+7. Re-implement Phase H (per-view edit overlay + QEll).
+8. Run Phase D cleanup once the compatibility window is closed.
+9. Remove bview::independent (Phase D deferred).
+
+
+Do not reopen
+-------------
+- Phase B (backend default policy and benchmark) — completed this session.
