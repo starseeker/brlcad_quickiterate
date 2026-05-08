@@ -537,10 +537,8 @@ _view_cmd_objs(void *bs, int argc, const char **argv)
 
     std::set<std::string> unified_cmds = {"create", "remove", "list", "info", "set"};
 
-    // High level options are only defined prior to the subcommand.  A legacy
-    // object command may contain words such as "create" after the object name
-    // and type ("view obj c1 polygon create ..."), so only treat the first
-    // non-option argument as a unified subcommand candidate.
+    // High level options are only defined prior to the subcommand.  Find
+    // the first non-option argument to check against the unified subcommand set.
     int first_pos = -1;
     int arg_idx = 0;
     while (arg_idx < argc) {
