@@ -255,11 +255,12 @@ ged_rm_core(struct ged *gedp, int argc, const char *argv[])
     struct bu_opt_desc d[9];
     struct bu_vls optparse_msg = BU_VLS_INIT_ZERO;
     struct bu_ptbl operands = BU_PTBL_INIT_ZERO;
-    static const char *usage = "Usage: rm [-f|--force] [-r|--recursive] [-n|--dry-run] object|path ...";
+    static const char *usage = "Usage: rm [-f/--force] [-r/--recursive] [-n/--dry-run] object|path ...";
 
     BU_OPT(d[0], "f", "force",     "", NULL, &fflag,      "Force deletion");
     BU_OPT(d[1], "r", "recursive", "", NULL, &rflag,      "Recursively delete unshared descendants");
     BU_OPT(d[2], "n", "dry-run",   "", NULL, &nflag,      "Report what would be deleted without modifying the database");
+    /* Preserve legacy uppercase short-option aliases. */
     BU_OPT(d[3], "F", "",          "", NULL, &fflag,      "");
     BU_OPT(d[4], "R", "",          "", NULL, &rflag,      "");
     BU_OPT(d[5], "N", "",          "", NULL, &nflag,      "");
@@ -292,9 +293,14 @@ ged_rm_core(struct ged *gedp, int argc, const char *argv[])
 	return GED_HELP;
     }
 
+    /* bu_opt_parse leaves unused argv entries at the front of argv,
+     * including the command name in argv[0].  Skip that command token
+     * so the remaining argc/argv pair describes only rm operands. */
     argc = opt_ret;
-    argv += (argc > 0);
-    argc -= (argc > 0);
+    if (argc > 0) {
+	argv++;
+	argc--;
+    }
     bu_vls_free(&optparse_msg);
 
     if (argc < 1) {

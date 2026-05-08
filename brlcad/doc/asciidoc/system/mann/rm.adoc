@@ -10,7 +10,7 @@ rm - safely delete database objects, force-delete objects, or remove a child fro
 
 [source]
 ----
-rm [-f|--force] [-r|--recursive] [-n|--dry-run] {object-or-path}...
+rm [-f/--force] [-r/--recursive] [-n/--dry-run] {object-or-path}...
 ----
 
 
