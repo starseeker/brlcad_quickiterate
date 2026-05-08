@@ -19,7 +19,7 @@
  */
 /** @file tests/glob.c
  *
- * Unit tests for bu_glob() / bu_glob_init() / bu_glob_free().
+ * Unit tests for bu_glob() / bu_glob_ctx_create() / bu_glob_ctx_destroy().
  *
  * The tests exercise bu_glob against a small in-memory tree so they do
  * not rely on filesystem layout.
@@ -161,7 +161,7 @@ _test_lstat(const char *path, struct bu_stat *sb, void *UNUSED(data))
 static struct bu_glob_context *
 _make_test_ctx(void)
 {
-    struct bu_glob_context *gp = bu_glob_init();
+    struct bu_glob_context *gp = bu_glob_ctx_create();
     gp->gl_opendir  = _test_opendir;
     gp->gl_readdir  = _test_readdir;
     gp->gl_closedir = _test_closedir;
@@ -201,7 +201,7 @@ test_glob_star_s(void)
     if ( _in_results(gp, "baz.r")) { bu_log("FAIL: *.s wrongly matched baz.r\n"); errors++; }
     if ( _in_results(gp, "sub1"))  { bu_log("FAIL: *.s wrongly matched sub1\n"); errors++; }
 
-    bu_glob_free(gp);
+    bu_glob_ctx_destroy(gp);
     return errors;
 }
 
@@ -216,7 +216,7 @@ test_glob_literal(void)
     if (gp->gl_pathc != 1) { bu_log("FAIL: literal match count != 1 (got %d)\n", gp->gl_pathc); errors++; }
     if (!_in_results(gp, "foo.s")) { bu_log("FAIL: literal did not match foo.s\n"); errors++; }
 
-    bu_glob_free(gp);
+    bu_glob_ctx_destroy(gp);
     return errors;
 }
 
@@ -230,7 +230,7 @@ test_glob_no_match(void)
     bu_glob("*.g", 0, gp);
     if (gp->gl_pathc != 0) { bu_log("FAIL: *.g should have 0 matches, got %d\n", gp->gl_pathc); errors++; }
 
-    bu_glob_free(gp);
+    bu_glob_ctx_destroy(gp);
     return errors;
 }
 
@@ -247,7 +247,7 @@ test_glob_subdir(void)
     if (!_in_results(gp, "sub1/part_a.s")) { bu_log("FAIL: missing sub1/part_a.s\n"); errors++; }
     if (!_in_results(gp, "sub1/part_b.s")) { bu_log("FAIL: missing sub1/part_b.s\n"); errors++; }
 
-    bu_glob_free(gp);
+    bu_glob_ctx_destroy(gp);
     return errors;
 }
 
@@ -262,7 +262,7 @@ test_glob_wildcard_dir(void)
     if (bu_glob("sub*/*.s", 0, gp) != 0) { bu_log("bu_glob returned error\n"); errors++; }
     if (gp->gl_pathc != 2) { bu_log("FAIL: sub*/*.s count=%d, want 2\n", gp->gl_pathc); errors++; }
 
-    bu_glob_free(gp);
+    bu_glob_ctx_destroy(gp);
     return errors;
 }
 
@@ -281,7 +281,7 @@ test_glob_append(void)
     if (gp->gl_pathc <= first_count) { bu_log("FAIL: APPEND did not add entries\n"); errors++; }
     if (!_in_results(gp, "baz.r")) { bu_log("FAIL: *.r did not match baz.r\n"); errors++; }
 
-    bu_glob_free(gp);
+    bu_glob_ctx_destroy(gp);
     return errors;
 }
 
@@ -298,7 +298,7 @@ test_glob_question(void)
     if (!_in_results(gp, "sub1")) { bu_log("FAIL: sub? missing sub1\n"); errors++; }
     if (!_in_results(gp, "sub2")) { bu_log("FAIL: sub? missing sub2\n"); errors++; }
 
-    bu_glob_free(gp);
+    bu_glob_ctx_destroy(gp);
     return errors;
 }
 

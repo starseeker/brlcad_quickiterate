@@ -72,8 +72,9 @@ struct bu_stat {
  * Main context structure used by bu_glob() to specify behavior,
  * supply custom callbacks, and accumulate results.
  *
- * Initialise with bu_glob_init() and release with bu_glob_free().
+ * Initialise with bu_glob_ctx_create() and release with bu_glob_ctx_destroy().
  */
+struct bu_glob_ctx_impl;
 struct bu_glob_context {
 
 #define BU_GLOB_APPEND     0x0001  /**< Append to output from previous call. */
@@ -141,7 +142,7 @@ struct bu_glob_context {
 
     /* --- Private --- */
 
-    void *priv;   /**< Reserved; do not use. */
+    struct bu_glob_ctx_impl *i;  /**< Implementation details; do not use directly. */
 };
 typedef struct bu_glob_context bu_glob_t;
 
@@ -156,14 +157,14 @@ typedef struct bu_glob_context bu_glob_t;
 /**
  * initialize a globbing context for use prior to calling bu_glob()
  */
-BU_EXPORT struct bu_glob_context *bu_glob_init(void);
+BU_EXPORT struct bu_glob_context *bu_glob_ctx_create(void);
 
 
 /**
  * release any resources allocated during bu_glob(), including any
  * returned paths
  */
-BU_EXPORT extern void bu_glob_free(struct bu_glob_context *);
+BU_EXPORT extern void bu_glob_ctx_destroy(struct bu_glob_context *);
 
 
 /**
@@ -176,7 +177,7 @@ BU_EXPORT extern void bu_glob_free(struct bu_glob_context *);
  * globbing will map to the local filesystem.
  *
  * Function takes an input pattern, a set of flags, and a globbing
- * context from bu_glob_alloc().
+ * context from bu_glob_ctx_create().
  *
  * Returns zero on success, non-zero on failure.
  *

@@ -194,8 +194,8 @@ RT_EXPORT extern int db_cyclic_paths(struct bu_ptbl *cyclic_paths, const struct 
  * object names in the database rather than the filesystem.
  *
  * Matching results accumulate in @a gp->gl_pathv / @a gp->gl_pathc.
- * The context must be initialised with bu_glob_init() before the first
- * call and released with bu_glob_free() after the last.  Passing
+ * The context must be initialised with bu_glob_ctx_create() before the first
+ * call and released with bu_glob_ctx_destroy() after the last.  Passing
  * BU_GLOB_APPEND in @a flags appends to any results already in @a gp.
  *
  * Flat patterns (no '/') match all objects in the database by name.

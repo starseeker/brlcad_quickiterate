@@ -392,21 +392,32 @@ bu_vls_free(&de_name);
 
 
 /* --------------------------------------------------------------------------
+ * Pimpl implementation type
+ * -------------------------------------------------------------------------- */
+
+struct bu_glob_ctx_impl {
+    int _reserved;  /**< placeholder for future internal state */
+};
+
+
+/* --------------------------------------------------------------------------
  * Public API
  * -------------------------------------------------------------------------- */
 
 struct bu_glob_context *
-bu_glob_init(void)
+bu_glob_ctx_create(void)
 {
     struct bu_glob_context *gp;
     BU_ALLOC(gp, struct bu_glob_context);
     memset(gp, 0, sizeof(*gp));
+    BU_GET(gp->i, struct bu_glob_ctx_impl);
+    gp->i->_reserved = 0;
     return gp;
 }
 
 
 void
-bu_glob_free(struct bu_glob_context *gp)
+bu_glob_ctx_destroy(struct bu_glob_context *gp)
 {
     int i;
     if (!gp)
@@ -423,6 +434,10 @@ gp->gl_pathv = NULL;
     }
     gp->gl_pathc = 0;
     gp->gl_matchc = 0;
+    if (gp->i) {
+	BU_PUT(gp->i, struct bu_glob_ctx_impl);
+	gp->i = NULL;
+    }
     bu_free(gp, "bu_glob_context");
 }
 

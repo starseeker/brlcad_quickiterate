@@ -153,7 +153,7 @@ _ged_expand_str_glob(struct bu_vls *dest, const char *input, struct db_i *dbip, 
 
 	if (is_fnmatch) {
 	    /* Use db_path_glob for pattern expansion against the database */
-	    struct bu_glob_context *gp = bu_glob_init();
+	    struct bu_glob_context *gp = bu_glob_ctx_create();
 	    int i;
 
 	    db_path_glob(gp, bu_vls_addr(&word), BU_GLOB_NOSORT, dbip);
@@ -176,7 +176,7 @@ _ged_expand_str_glob(struct bu_vls *dest, const char *input, struct db_i *dbip, 
 		match_cnt++;
 	    }
 
-	    bu_glob_free(gp);
+	    bu_glob_ctx_destroy(gp);
 
 	    if (match_cnt == 0 || bu_vls_strlen(&temp) == 0) {
 		_debackslash(&temp, &word);
