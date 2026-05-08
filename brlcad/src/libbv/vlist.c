@@ -588,11 +588,13 @@ bv_vlblock_obj(struct bv_vlblock *vbp, struct bview *v, const char *name)
     if (!vbp || !v)
 	return NULL;
 
-    struct bv_scene_obj *s = bv_find_obj(v, name);
+    /* Phase A0 (drawing_stack_modernization): use typed view-object APIs
+     * directly rather than the legacy bv_find_obj + bv_obj_get path. */
+    struct bv_scene_obj *s = bv_view_obj_find(v, name);
     if (s) {
 	bv_obj_reset(s);
     } else {
-	s = bv_obj_get(v, BV_VIEW_OBJS);
+	s = bv_view_obj_overlay_create(v, name, 0);
     }
 
     for (size_t i = 0; i < vbp->nused; i++) {

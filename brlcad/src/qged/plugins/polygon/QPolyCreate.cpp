@@ -32,6 +32,59 @@
 #include "QPolyCreate.h"
 #include "qtcad/QgSignalFlags.h"
 
+/* Phase A2 (drawing_stack_modernization): typed visitor helpers that replace
+ * bv_view_objs(BV_VIEW_OBJS) ptbl loops with bv_view_obj_visit callbacks. */
+
+/* Collect polygon objects, optionally excluding one. */
+struct _qpolycreate_poly_collect {
+    std::vector<struct bv_scene_obj *> *polys;
+    struct bv_scene_obj *exclude;
+};
+extern "C" static int
+_qpolycreate_poly_collect_cb(struct bv_scene_obj *obj, void *data)
+{
+    struct _qpolycreate_poly_collect *s = (struct _qpolycreate_poly_collect *)data;
+    if ((obj->s_type_flags & BV_POLYGONS) && obj != s->exclude)
+	s->polys->push_back(obj);
+    return 1;
+}
+
+/* Clear point selection on all polygons, track whether any changed. */
+struct _qpolycreate_clear_pts {
+    bool *draw_change;
+};
+extern "C" static int
+_qpolycreate_clear_pts_cb(struct bv_scene_obj *obj, void *data)
+{
+    if (!(obj->s_type_flags & BV_POLYGONS))
+	return 1;
+    struct _qpolycreate_clear_pts *s = (struct _qpolycreate_clear_pts *)data;
+    struct bv_polygon *ip = (struct bv_polygon *)obj->s_i_data;
+    if (ip && ip->curr_point_i != -1) {
+	*s->draw_change = true;
+	ip->curr_point_i = -1;
+	ip->curr_contour_i = 0;
+	bv_update_polygon(obj, obj->s_v, BV_POLYGON_UPDATE_PROPS_ONLY);
+    }
+    return 1;
+}
+
+/* Collect polygon objects into a snap-objs ptbl, excluding current wp. */
+struct _qpolycreate_snap_collect {
+    struct bv_scene_obj *exclude;
+    struct bu_ptbl *snap_objs;
+};
+extern "C" static int
+_qpolycreate_snap_collect_cb(struct bv_scene_obj *obj, void *data)
+{
+    struct _qpolycreate_snap_collect *s = (struct _qpolycreate_snap_collect *)data;
+    if (obj == s->exclude)
+	return 1;
+    if (obj->s_type_flags & BV_POLYGONS)
+	bu_ptbl_ins(s->snap_objs, (long *)obj);
+    return 1;
+}
+
 QPolyCreate::QPolyCreate()
     : QWidget()
 {
@@ -390,22 +443,12 @@ QPolyCreate::toggle_line_snapping(bool s)
     if (!s) {
 	v->gv_s->gv_snap_lines = 0;
     } else {
-	// Turn snapping on if we have other polygons to snap to
-	struct bu_ptbl *view_objs = bv_view_objs(v, BV_VIEW_OBJS);
-	if (!view_objs)
-	    return;
-	for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
-	    struct bv_scene_obj *so = (struct bv_scene_obj *)BU_PTBL_GET(view_objs, i);
-	    if (so == co)
-		continue;
-	    if (so->s_type_flags & BV_POLYGONS)
-		bu_ptbl_ins(&v->gv_s->gv_snap_objs, (long *)so);
-	}
-	if (BU_PTBL_LEN(&v->gv_s->gv_snap_objs)) {
-	    v->gv_s->gv_snap_lines = 1;
-	} else {
-	    v->gv_s->gv_snap_lines = 0;
-	}
+	/* Phase A2: use bv_view_obj_visit instead of bv_view_objs ptbl. */
+	struct _qpolycreate_snap_collect sc;
+	sc.exclude = co;
+	sc.snap_objs = &v->gv_s->gv_snap_objs;
+	bv_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _qpolycreate_snap_collect_cb, &sc);
+	v->gv_s->gv_snap_lines = BU_PTBL_LEN(&v->gv_s->gv_snap_objs) ? 1 : 0;
     }
 
     emit settings_changed(QG_VIEW_DRAWN);
@@ -495,22 +538,10 @@ QPolyCreate::toplevel_config(bool)
     // This function is called when a top level mode change was initiated
     // by a selection button.  Clear any selected points being displayed.
     if (gedp) {
-	struct bu_ptbl *view_objs = bv_view_objs(gedp->ged_gvp, BV_VIEW_OBJS);
-	if (!view_objs)
-	    return;
-	for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
-	    struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(view_objs, i);
-	    if (s->s_type_flags & BV_POLYGONS) {
-		// clear any selected points in non-current polygons
-		struct bv_polygon *ip = (struct bv_polygon *)s->s_i_data;
-		if (ip->curr_point_i != -1) {
-		    draw_change = true;
-		    ip->curr_point_i = -1;
-		    ip->curr_contour_i = 0;
-		    bv_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_PROPS_ONLY);
-		}
-	    }
-	}
+	/* Phase A2: use bv_view_obj_visit instead of bv_view_objs ptbl. */
+	struct _qpolycreate_clear_pts cps;
+	cps.draw_change = &draw_change;
+	bv_view_obj_visit(gedp->ged_gvp, BV_VIEW_OBJ_SCOPE_ALL, _qpolycreate_clear_pts_cb, &cps);
     }
 
     if (draw_change && gedp)
@@ -604,14 +635,15 @@ QPolyCreate::eventFilter(QObject *, QEvent *e)
     // For this particular application, we want to apply booleans to
     // all polygons
     bu_ptbl_reset(&pcf->bool_objs);
-    struct bu_ptbl *view_objs = bv_view_objs(gedp->ged_gvp, BV_VIEW_OBJS);
-    if (view_objs) {
-	for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
-	    struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(view_objs, i);
-	    if (s->s_type_flags & BV_POLYGONS && s != p) {
-		bu_ptbl_ins(&pcf->bool_objs, (long *)s);
-	    }
-	}
+    /* Phase A2: use bv_view_obj_visit instead of bv_view_objs ptbl. */
+    {
+	std::vector<struct bv_scene_obj *> polyvec;
+	struct _qpolycreate_poly_collect pc;
+	pc.polys = &polyvec;
+	pc.exclude = p;
+	bv_view_obj_visit(gedp->ged_gvp, BV_VIEW_OBJ_SCOPE_ALL, _qpolycreate_poly_collect_cb, &pc);
+	for (auto *s : polyvec)
+	    bu_ptbl_ins(&pcf->bool_objs, (long *)s);
     }
 
     bool ret = cf->eventFilter(NULL, e);

@@ -211,8 +211,8 @@ end:
 	BU_PUT(p, struct bv_polygon);
 	return NULL;
     }
-    bu_vls_init(&s->s_name);
-    bu_vls_printf(&s->s_name, "%s", sname);
+    /* Phase A1: s_name is initialized by bv_obj_reset; just overwrite. */
+    bu_vls_sprintf(&s->s_name, "%s", sname);
 
     // check attributes for visual properties
     int have_view = 1;
