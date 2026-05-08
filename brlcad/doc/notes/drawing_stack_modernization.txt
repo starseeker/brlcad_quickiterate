@@ -52,7 +52,7 @@ Most relevant regression tests:
 
 Executive summary
 -----------------
-The main architectural merge is done:
+The major architectural merge is done:
 - DB-backed drawing now uses the BSG tree as the canonical scene model.
 - LoD is a first-class BSG concept, not a per-view duplicate-subtree hack.
 - View-only objects also now live on the BSG side, and the `view obj`
