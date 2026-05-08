@@ -86,6 +86,16 @@ DM_EXPORT extern void dm_draw_scene_obj(struct dm *dmp,
  * sort on a bv scene object... */
 #include "rt/wdb.h"
 
+/* DEPRECATED (Phase T0, drawing_stack_modernization): legacy view-renderer
+ * used only by libtclcad's go_refresh_draw path (Archer / classic mged).
+ * Mixes faceplate-adornment direct rendering (gv_tcl arrows/axes/lines/
+ * polygons) with a flat ptbl scan over BV_VIEW_OBJS / BV_DB_OBJS, and
+ * therefore bypasses the BSG render contract (two-pass transparency, LoD
+ * cursor pass, gv_frame_rev / s_drawn_rev stamping, BSG_NODE_VIEW_SCOPE
+ * gating).  All new render call sites must use dm_draw_objs() instead.
+ * Scheduled for removal in Phase T3 once libtclcad migrates to dm_draw_objs.
+ *
+ * Do not add new callers. */
 DM_EXPORT extern void dm_draw_viewobjs(struct rt_wdb *wdbp, struct bview *v, struct dm_view_data *d);
 #endif /* DM_NO_RT */
 
