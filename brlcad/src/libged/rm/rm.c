@@ -255,7 +255,7 @@ ged_rm_core(struct ged *gedp, int argc, const char *argv[])
     struct bu_opt_desc d[9];
     struct bu_vls optparse_msg = BU_VLS_INIT_ZERO;
     struct bu_ptbl operands = BU_PTBL_INIT_ZERO;
-    static const char *usage = "Usage: rm [-f/--force] [-r/--recursive] [-n/--dry-run] object|path ...";
+    static const char *usage = "Usage: rm [-f | --force] [-r | --recursive] [-n | --dry-run] object|path ...";
 
     BU_OPT(d[0], "f", "force",     "", NULL, &fflag,      "Force deletion");
     BU_OPT(d[1], "r", "recursive", "", NULL, &rflag,      "Recursively delete unshared descendants");

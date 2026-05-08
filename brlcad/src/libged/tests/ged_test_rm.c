@@ -293,7 +293,7 @@ test_path_instance_delete(void)
                 struct rt_comb_internal *comb =
                     (struct rt_comb_internal *)intern.idb_ptr;
                 RT_CK_COMB(comb);
-                /* There should be no leaf matching "leaf_comb.c" */
+                /* A second removal attempt should fail because the member is already gone. */
                 int found = (db_tree_rm_dbleaf(&comb->tree, "leaf_comb.c", 1) >= 0);
                 CHECK(!found, "T8: leaf_comb.c should be removed from parent_comb.c tree");
                 rt_db_free_internal(&intern);
