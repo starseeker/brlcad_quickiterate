@@ -396,7 +396,9 @@ bu_vls_free(&de_name);
  * -------------------------------------------------------------------------- */
 
 struct bu_glob_ctx_impl {
-    int _reserved;  /**< placeholder for future internal state */
+    int _reserved;  /**< placeholder; reserved for future internal engine state
+                     *   (e.g. stack depth limit, per-call allocation arena).
+                     *   Do not access directly. */
 };
 
 

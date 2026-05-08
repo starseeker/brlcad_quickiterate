@@ -74,6 +74,9 @@ struct bu_stat {
  *
  * Initialise with bu_glob_ctx_create() and release with bu_glob_ctx_destroy().
  */
+/** Opaque implementation type; defined in glob.c.  API consumers must not
+ *  access this structure directly.
+ */
 struct bu_glob_ctx_impl;
 struct bu_glob_context {
 
