@@ -1809,6 +1809,59 @@ bv_view_obj_visit(struct bview *v,
     }
 }
 
+/* Phase A3 (drawing_stack_modernization): typed setters for view-only object
+ * properties.  Each mutates the matching bv_scene_obj field and bumps the
+ * stale flag so the renderer's backend cache is invalidated for the next
+ * frame.  Callers must not write s_color / s_line_width / s_force_draw
+ * directly. */
+static int
+_bv_clamp_byte(int v)
+{
+    if (v < 0)
+	return 0;
+    if (v > 255)
+	return 255;
+    return v;
+}
+
+void
+bv_view_obj_set_color(struct bv_scene_obj *s, int r, int g, int b)
+{
+    if (!s)
+	return;
+    s->s_color[0] = (unsigned char)_bv_clamp_byte(r);
+    s->s_color[1] = (unsigned char)_bv_clamp_byte(g);
+    s->s_color[2] = (unsigned char)_bv_clamp_byte(b);
+    s->s_changed++;
+    bv_obj_stale(s);
+}
+
+void
+bv_view_obj_set_line_width(struct bv_scene_obj *s, int line_width)
+{
+    if (!s)
+	return;
+    if (line_width < 0)
+	line_width = 0;
+    /* By convention bv_obj_reset() sets s_os = &s->s_local_os, but other
+     * code paths in this file defensively fall back to s_local_os when
+     * s_os is unset; do the same here. */
+    struct bv_obj_settings *os = (s->s_os) ? s->s_os : &s->s_local_os;
+    os->s_line_width = line_width;
+    s->s_changed++;
+    bv_obj_stale(s);
+}
+
+void
+bv_view_obj_set_visible(struct bv_scene_obj *s, int visible)
+{
+    if (!s)
+	return;
+    s->s_force_draw = visible ? 1 : 0;
+    s->s_changed++;
+    bv_obj_stale(s);
+}
+
 struct bv_scene_obj *
 bv_obj_get_child(struct bv_scene_obj *sp)
 {

@@ -37,6 +37,35 @@
 #include "../ged_private.h"
 #include "./ged_view.h"
 
+/* Phase A1 (drawing_stack_modernization): visit context + callback for the
+ * "view vZ" autodetect path.  Used with both bv_view_obj_visit and
+ * bv_view_objs_visit_db; their callback signature matches. */
+struct _view_vZ_ctx {
+    struct bview *cv;
+    int calc_mode;
+    double vZ;
+    int have_vz;
+};
+
+static int
+_view_vZ_visit_cb(struct bv_scene_obj *s, void *data)
+{
+    struct _view_vZ_ctx *c = (struct _view_vZ_ctx *)data;
+    fastf_t calc_val = bv_vZ_calc(s, c->cv, c->calc_mode);
+    if (c->calc_mode) {
+	if (calc_val > c->vZ) {
+	    c->vZ = calc_val;
+	    c->have_vz = 1;
+	}
+    } else {
+	if (calc_val < c->vZ) {
+	    c->vZ = calc_val;
+	    c->have_vz = 1;
+	}
+    }
+    return 1;
+}
+
 int
 _view_cmd_msgs(void *bs, int argc, const char **argv, const char *us, const char *ps)
 {
@@ -491,119 +520,24 @@ _view_cmd_vZ(void *bs, int argc, const char **argv)
 	} else {
 	    // No specific view object to use - check all drawn
 	    // view objects.
-	    struct bu_ptbl *view_objs = bv_view_objs(v, BV_VIEW_OBJS);
-	    struct bu_ptbl *local_view_objs = bv_view_objs(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
-	    struct bu_ptbl *db_objs = bv_view_objs(v, BV_DB_OBJS);
-	    struct bu_ptbl *local_db_objs = bv_view_objs(v, BV_DB_OBJS | BV_LOCAL_OBJS);
-	    double vZ = (calc_mode) ? -DBL_MAX : DBL_MAX;
-	    int have_vz = 0;
-	    if (view_objs) {
-		for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
-		    struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(view_objs, i);
-		    fastf_t calc_val = bv_vZ_calc(s, gd->cv, calc_mode);
-		    if (calc_mode) {
-			if (calc_val > vZ) {
-			    vZ = calc_val;
-			    have_vz = 1;
-			}
-		    } else {
-			if (calc_val < vZ) {
-			    vZ = calc_val;
-			    have_vz = 1;
-			}
-		    }
-		}
-	    }
-	    if (local_view_objs) {
-		for (size_t i = 0; i < BU_PTBL_LEN(local_view_objs); i++) {
-		    struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(local_view_objs, i);
-		    fastf_t calc_val = bv_vZ_calc(s, gd->cv, calc_mode);
-		    if (calc_mode) {
-			if (calc_val > vZ) {
-			    vZ = calc_val;
-			    have_vz = 1;
-			}
-		    } else {
-			if (calc_val < vZ) {
-			    vZ = calc_val;
-			    have_vz = 1;
-			}
-		    }
-		}
-	    }
-
-	    if (db_objs) {
-		for (size_t i = 0; i < BU_PTBL_LEN(db_objs); i++) {
-		    struct bv_scene_group *cg = (struct bv_scene_group *)BU_PTBL_GET(db_objs, i);
-		    if (bu_list_len(&cg->s_vlist)) {
-			fastf_t calc_val = bv_vZ_calc(cg, gd->cv, calc_mode);
-			if (calc_mode) {
-			    if (calc_val > vZ) {
-				vZ = calc_val;
-				have_vz = 1;
-			    }
-			} else {
-			    if (calc_val < vZ) {
-				vZ = calc_val;
-				have_vz = 1;
-			    }
-			}
-		    } else {
-			for (size_t j = 0; j < BU_PTBL_LEN(&cg->children); j++) {
-			    struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(&cg->children, j);
-			    fastf_t calc_val = bv_vZ_calc(s, gd->cv, calc_mode);
-			    if (calc_mode) {
-				if (calc_val > vZ) {
-				    vZ = calc_val;
-				    have_vz = 1;
-				}
-			    } else {
-				if (calc_val < vZ) {
-				    vZ = calc_val;
-				    have_vz = 1;
-				}
-			    }
-			}
-		    }
-		}
-	    }
-	    if (local_db_objs) {
-		for (size_t i = 0; i < BU_PTBL_LEN(local_db_objs); i++) {
-		    struct bv_scene_group *cg = (struct bv_scene_group *)BU_PTBL_GET(local_db_objs, i);
-		    if (bu_list_len(&cg->s_vlist)) {
-			fastf_t calc_val = bv_vZ_calc(cg, gd->cv, calc_mode);
-			if (calc_mode) {
-			    if (calc_val > vZ) {
-				vZ = calc_val;
-				have_vz = 1;
-			    }
-			} else {
-			    if (calc_val < vZ) {
-				vZ = calc_val;
-				have_vz = 1;
-			    }
-			}
-		    } else {
-			for (size_t j = 0; j < BU_PTBL_LEN(&cg->children); j++) {
-			    struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(&cg->children, j);
-			    fastf_t calc_val = bv_vZ_calc(s, gd->cv, calc_mode);
-			    if (calc_mode) {
-				if (calc_val > vZ) {
-				    vZ = calc_val;
-				    have_vz = 1;
-				}
-			    } else {
-				if (calc_val < vZ) {
-				    vZ = calc_val;
-				    have_vz = 1;
-				}
-			    }
-			}
-		    }
-		}
-	    }
-	    if (have_vz) {
-		bu_vls_sprintf(gedp->ged_result_str, "%0.15f", vZ);
+	    //
+	    // Phase A1 (drawing_stack_modernization): replaced the legacy
+	    // fourfold BV_VIEW_OBJS / BV_DB_OBJS ptbl scan with typed-API
+	    // visits (bv_view_obj_visit + bv_view_objs_visit_db).  The
+	    // BSG-aware helpers cover both shared and local scopes for
+	    // view-only objects, and the DB visit walks every leaf of the
+	    // BSG draw tree (preserving the previous "if no s_vlist, walk
+	    // children" behaviour by virtue of the BSG traversal stopping
+	    // at leaves). */
+	    struct _view_vZ_ctx ctx;
+	    ctx.cv = gd->cv;
+	    ctx.calc_mode = calc_mode;
+	    ctx.vZ = (calc_mode) ? -DBL_MAX : DBL_MAX;
+	    ctx.have_vz = 0;
+	    bv_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _view_vZ_visit_cb, &ctx);
+	    bv_view_objs_visit_db(v, _view_vZ_visit_cb, &ctx);
+	    if (ctx.have_vz) {
+		bu_vls_sprintf(gedp->ged_result_str, "%0.15f", ctx.vZ);
 	    }
 	}
 	return BRLCAD_OK;

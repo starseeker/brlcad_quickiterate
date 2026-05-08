@@ -111,18 +111,25 @@ rtcheck_vector_handler(void *clientData, int type)
 
 	// Clear any prior rtcheck outputs - whether or not we have new
 	// overlaps to draw, we're eliminating all the old objects
+	//
+	// Phase A1 (drawing_stack_modernization): use bv_view_obj_visit
+	// instead of the legacy BV_VIEW_OBJS ptbl shim.  Both shared and
+	// local view scopes can hold prior rtcheck output, so visit ALL.
 	const char *sname = "rtcheck::";
 	struct bview *v = gedp->ged_gvp;
-	struct bu_ptbl *vobjs = bv_view_objs(v, BV_VIEW_OBJS);
 	std::set<struct bv_scene_obj *> robjs;
-	if (vobjs) {
-	    for (i = 0; i < BU_PTBL_LEN(vobjs); i++) {
-		struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(vobjs, i);
-		if (!bu_strncmp(sname, bu_vls_cstr(&s->s_name), strlen(sname))) {
-		    robjs.insert(s);
-		}
-	    }
-	}
+	struct _rtcheck_collect_ctx {
+	    const char *sname;
+	    size_t sname_len;
+	    std::set<struct bv_scene_obj *> *robjs;
+	} cctx = {sname, strlen(sname), &robjs};
+	auto _collect_rtcheck = [](struct bv_scene_obj *s, void *data) -> int {
+	    struct _rtcheck_collect_ctx *c = (struct _rtcheck_collect_ctx *)data;
+	    if (!bu_strncmp(c->sname, bu_vls_cstr(&s->s_name), c->sname_len))
+		c->robjs->insert(s);
+	    return 1;
+	};
+	bv_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _collect_rtcheck, &cctx);
 	std::set<struct bv_scene_obj *>::iterator r_it;
 	for (r_it = robjs.begin(); r_it != robjs.end(); r_it++) {
 	    struct bv_scene_obj *s = *r_it;

@@ -806,6 +806,204 @@ V8 implementation snapshot (2026-05-07):
   legacy aliases and retained unified `view obj -g <dbpath>` flow.
 
 
+Phase T — Tcl/legacy renderer retirement
+========================================
+Goal: delete the second render path so Archer and Tcl-driven mged use the
+same BSG pipeline as qged and the tests.  Until `dm_draw_viewobjs` is gone,
+"single drawing system" is not a true claim for the project.
+
+Phase T0 — audit and freeze [DONE 2026-05-08]
+---------------------------------------------
+- `dm_draw_viewobjs` callers (the entire legacy render path):
+    src/libtclcad/view/refresh.c:55  (FB OVERLAY mode)
+    src/libtclcad/view/refresh.c:139 (default mode, first call)
+    src/libtclcad/view/refresh.c:140 (default mode, second call — likely
+                                      a copy-paste; investigate during T2)
+- `gv_tcl` adornment producers (faceplate adornments stored outside BSG):
+    src/libtclcad/view/arrows.c       (gv_data_arrows / gv_sdata_arrows)
+    src/libtclcad/view/axes.c         (gv_data_axes / gv_sdata_axes)
+    src/libtclcad/view/lines.c        (gv_data_lines / gv_sdata_lines)
+    src/libtclcad/view/labels.c       (gv_data_labels / gv_sdata_labels)
+    src/libtclcad/view/polygons.c     (gv_data_polygons / gv_sdata_polygons)
+    src/libtclcad/dm.c:625            (uses dm_draw_data_axes directly via
+                                       the standalone dm_obj path)
+- `to_refresh_view` / `to_refresh_all_views` invocation density: >40 sites
+  spanning src/libtclcad/{mouse,fb,view/*,polygons,commands}.c.
+  Every interactive Archer/mged refresh ultimately drives the legacy
+  renderer; full T1 must preserve the visual contract for all of them.
+- `gv_data_*` vs `gv_sdata_*` mapping decision: the `gv_sdata_*` variants
+  are the Tcl-side "selected" duplicates of the same adornment kind.  In
+  the BSG model these become per-view-variant (or simply named-suffix)
+  view-scope objects; Phase T1 should NOT preserve the duplicated state
+  structure verbatim, it should instead emit two named BSG view-scope
+  objects per Tcl command (one for the "data" set, one for the "sdata"
+  selected set) so the rendering flows through dm_draw_objs uniformly.
+- Deprecation markers added (T0 deliverable):
+    include/dm/view.h         — `dm_draw_viewobjs` prologue calls out the
+                                 retirement plan and forbids new callers.
+    include/bv/tcl_data.h     — `bv_data_tclcad` prologue forbids new
+                                 producers / new fields, points readers at
+                                 the BSG view-scope API and Phase A3
+                                 typed setters.
+- Test surface that must stay green during T1+: existing test surface
+  listed at the bottom of this note, plus a new `ged_test_archer_bsg`
+  (T2/T4) that drives `to_refresh_view` and asserts pixel parity with
+  `dm_draw_objs` for the same scene.
+
+Phase T1 — migrate Tcl faceplate adornments onto BSG view-scope objects
+-----------------------------------------------------------------------
+NOT YET STARTED.  This is the architectural workhorse phase.  Each Tcl
+adornment producer in src/libtclcad/view/{arrows,axes,lines,labels,
+polygons}.c writes into a rich `gv_tcl.gv_*` state struct (positions,
+sizes, colors, line widths, point arrays, label arrays).  Migration steps
+per producer:
+- Replace `gv_tcl.gv_data_<KIND>` writes with creation/lookup of a named
+  BSG view-scope object via `bv_view_obj_<KIND>_create()` /
+  `bv_view_obj_find()`.
+- Translate the structure's mutable fields (color, line width, draw flag,
+  point arrays) into typed setter calls (`bv_view_obj_set_color`,
+  `bv_view_obj_set_line_width`, `bv_view_obj_set_visible`, plus
+  KIND-specific setters added in A3 as needed).
+- Remove the matching `dm_draw_<KIND>` rendering helper from
+  src/libdm/view.c once no producer touches the matching `gv_tcl` field.
+- Image-diff against the BSG render to confirm parity, paying close
+  attention to view-space sizing (line widths in pixels) and the
+  `gv_data_*` / `gv_sdata_*` (selected) variants.
+
+Phase T2 — switch `go_refresh_draw` to call `dm_draw_objs`
+----------------------------------------------------------
+NOT YET STARTED.  Replace both `dm_draw_viewobjs(...)` call sites in
+src/libtclcad/view/refresh.c with `dm_draw_objs(...)`; investigate the
+duplicate call at lines 139-140 (likely copy-paste).  Validate framebuffer
+overlay / interlay / underlay branches in `go_refresh_draw`.
+
+Phase T3 — delete the legacy renderer
+--------------------------------------
+NOT YET STARTED.  Once T1 is complete and T2 has switched the refresh
+path:
+- Remove `dm_draw_viewobjs` from `src/libdm/view.c` and `include/dm/view.h`.
+- Remove `bv_data_tclcad` from `bview` (and the gv_tcl.* fields).
+- Remove the `dm_draw_arrows`, `dm_draw_data_axes` (and its ifaces in
+  calltable.h / per-backend axes.c), `dm_draw_lines`, `dm_draw_polys`
+  helpers in libdm and the standalone `dm_obj` callsite in
+  `src/libtclcad/dm.c`.
+
+Phase T4 — tests and validation
+-------------------------------
+NOT YET STARTED.  Extend `ged_test_drawing_faceplate` and
+`ged_test_mged_bsg` (or add `ged_test_archer_bsg`) to drive
+`to_refresh_view` directly, asserting pixel parity with `dm_draw_objs` for
+the same scene.  Re-run the full draw test surface.
+
+
+Phase A — V8 typed-API adoption
+===============================
+Goal: every producer in tree uses the typed API; nothing but legacy
+compat layers calls `bv_obj_get(v, BV_VIEW_OBJS)` or
+`bv_view_objs(v, BV_VIEW_OBJS)`.
+
+Phase A3 — typed setter / mutation API surface [DONE 2026-05-08]
+----------------------------------------------------------------
+Added the foundational typed-setter API needed by every Phase A migration
+and by Phase T1's Tcl-adornment migration:
+- `bv_view_obj_set_color(s, r, g, b)` — clamps each channel to [0,255],
+  writes `s_color`, bumps `s_changed`, calls `bv_obj_stale`.
+- `bv_view_obj_set_line_width(s, line_width)` — clamps to >=0, writes
+  `s_os->s_line_width`, bumps `s_changed`, calls `bv_obj_stale`.
+- `bv_view_obj_set_visible(s, visible)` — writes `s_force_draw` (0/1),
+  bumps `s_changed`, calls `bv_obj_stale`.
+Citations: include/bv/util.h ; src/libbv/util.cpp.
+
+Phase A0 — libbv internal producer/reader migrations
+----------------------------------------------------
+PARTIAL [DONE 2026-05-08].  Reader migrations done:
+- `src/libbv/hash.c` — replaced two BV_VIEW_OBJS ptbl scans (shared and
+  local) with a single `bv_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, ...)`
+  walk via a `_bv_hash_view_obj_cb` callback.  DB-side hashing already
+  uses `bv_view_objs_visit_db`.
+- `src/libbv/snap.c` — replaced two BV_VIEW_OBJS ptbl scans with a
+  single `bv_view_obj_visit(v, scope_mask, ...)` call where
+  scope_mask honours the BV_SNAP_SHARED / BV_SNAP_LOCAL distinction.
+Remaining producer migrations (vlist.c::bv_vlblock_obj,
+polygon.c::bv_create_polygon) are straightforward but each needs
+verifying their producers do not depend on the ptbl insertion side-
+effect of the legacy `bv_obj_get` route.
+
+Phase A1 — libged producer/reader migrations
+--------------------------------------------
+PARTIAL [DONE 2026-05-08].  Reader migrations done where mechanical:
+- `view vZ` (src/libged/view/view.c): replaced fourfold ptbl scan
+  (BV_VIEW_OBJS shared + local + BV_DB_OBJS shared + local) with a
+  single typed-API context visit that drives both
+  `bv_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _view_vZ_visit_cb, ...)`
+  and `bv_view_objs_visit_db(v, _view_vZ_visit_cb, ...)`.
+- `src/libged/draw/draw2.cpp` blank-slate detection: replaced the
+  paired BV_VIEW_OBJS ptbl checks with a `bv_view_obj_visit` early-out
+  callback to mirror the existing `bv_view_objs_visit_db` short-circuit.
+- `src/libged/rtcheck/rtcheck2.cpp:116` rtcheck output cleanup: replaced
+  BV_VIEW_OBJS ptbl scan with `bv_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL,
+  _collect_rtcheck, ...)`.
+- `src/libged/view/polygons.c:516,824` overlap/clip lookup: replaced two
+  pairs of ptbl scans with a single `bv_view_obj_find` call each.
+zap2.cpp uses bv_clear, which already routes through
+bv_view_obj_remove_all (Phase V4) — no migration needed.
+Polygon producers in `polygons.c` are deliberately NOT migrated yet —
+they share helpers with libbv polygon.c and with QPolyCreate, and should
+move together in Phase A2.
+
+Phase A2 — libqtcad and qged plugin migrations
+----------------------------------------------
+NOT YET STARTED.  Producers in src/libqtcad/QgMeasureFilter.cpp,
+src/libqtcad/QgPolyFilter.cpp, src/qged/plugins/polygon/QPolyCreate.cpp,
+src/qged/plugins/polygon/QPolyMod.cpp, and src/qged/plugins/edit/ell/
+QEll.cpp.  QEll.cpp specifically intersects Phase H (per-view-variant
+model) and should not be migrated until that design lands.
+
+
+Phase D — final deprecation removal
+===================================
+Run only after T and A are merged and the tree has been clean for a
+release.  Pieces:
+- Remove `bv_view_objs(struct bview *v, int type)` from
+  `include/bv/util.h` and `src/libbv/util.cpp`; delete
+  `view_obj_cache` / `shared_view_obj_cache` cache fields.
+- Remove the auto-routing fallback in `bv_obj_get` for `BV_VIEW_OBJS`;
+  that flag becomes a pure type tag, not a storage selector.
+- Reclaim `BSG_NODE_VIEW_REF` (bit 39) and `BSG_NODE_VIEW_BRIDGE`
+  (bit 45) in `include/bsg/defines.h`.  Remove the defensive skip in
+  `_bsg_view_traverse_impl` and the `s_path` indirection in
+  `src/libged/view/objs.cpp`.
+- Remove `BV_MESH_LOD` and `BV_CSG_LOD` leaf flag bits from
+  `include/bv/defines.h`.
+- Remove the `bview::independent` boolean if no readers remain;
+  otherwise migrate the last few to `bv_view_is_independent(v)`.
+- Drop the deprecated `view obj <subtype>` aliases that V7 retained
+  for one release (already removed at V8 — verify clean).
+
+
+Phase B — backend default decision
+==================================
+Open design question, not a refactor.  Status: NOT YET STARTED.
+- Add `ged_test_dm_backend_bench` that drives `dm_draw_objs` against a
+  reference scene with both `dm-qtgl` and `dm-swrast`, reporting frame
+  time and image fidelity.
+- Codify a default in `qged/main.cpp` and the corresponding mged path;
+  document the rationale.
+
+
+Phase H — selection-highlight and per-view-variant model
+========================================================
+Open design question.  Status: NOT YET STARTED.
+- Decide whether per-view-variant content lives as a new node kind
+  (`BSG_NODE_VIEW_VARIANT` parallel to `BSG_NODE_VIEW_SCOPE`) or as an
+  edit-overlay scope hung off the active edit's owning leaf.
+- Write the `bv_scene_obj_highlight_*` API on top of `gd_illum_sensor`
+  so editors do not reach into sensor internals.
+- Migrate `QEll` (and any future edit-mode plugin) onto that API.
+- Must land before Phase A2 finishes, since QEll is one of the producers
+  A2 must migrate.
+
+
 Why this sequencing
 -------------------
 - V0 makes the next steps land safely by giving the deprecation

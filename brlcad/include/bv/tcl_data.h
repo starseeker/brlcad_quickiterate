@@ -145,6 +145,22 @@ typedef struct {
  * calculate vZ values based on model spaces inputs, and these should be
  * used to generate the value supplied to gv_data_vZ.
  */
+/* DEPRECATED (Phase T0, drawing_stack_modernization): the `gv_tcl` adornment
+ * fields below are the legacy faceplate-adornment storage used by the
+ * dm_draw_viewobjs() renderer (i.e., libtclcad's go_refresh_draw path used by
+ * Archer and classic mged).  They store rich state that is rendered directly
+ * by dm_draw_arrows / dm_draw_data_axes / dm_draw_lines / dm_draw_polys, in
+ * parallel to the canonical BSG render pipeline (dm_draw_objs).
+ *
+ * Phase T1 will migrate every producer in src/libtclcad/view/{arrows,axes,
+ * lines,labels,polygons}.c to create BSG_NODE_VIEW_SCOPE-resident objects via
+ * the V8 typed API (bv_view_obj_axes_create, bv_view_obj_lines_create, ...),
+ * and the typed setters added in Phase A3 (bv_view_obj_set_color /
+ * bv_view_obj_set_line_width / bv_view_obj_set_visible).  After T1 these
+ * fields are orphaned and can be removed in Phase T3.
+ *
+ * Do not add new producers that touch these fields; do not add new fields
+ * here.  New view-only adornment storage belongs in the BSG tree. */
 struct bv_data_tclcad {
     int           		gv_polygon_mode;  // libtclcad polygon modes
     int		  		gv_hide;          // libtclcad setting for hiding view - unused?

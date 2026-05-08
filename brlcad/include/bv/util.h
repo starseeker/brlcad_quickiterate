@@ -391,6 +391,29 @@ bv_view_obj_visit(struct bview *v,
 		  int (*cb)(struct bv_scene_obj *obj, void *data),
 		  void *data);
 
+/* Phase A3 (drawing_stack_modernization): typed setters for view-only object
+ * properties.  These mutate fields that BSG-resident view-only objects expose
+ * and stale the object so the next frame picks up the change.  They are the
+ * forcing-function API for Phase T1's Tcl-adornment migration: any new
+ * adornment producer should call into these rather than poking
+ * bv_scene_obj fields directly.
+ *
+ * - bv_view_obj_set_color: set RGB color (0-255 per channel).  Sets the
+ *   per-shape color override path (s_color).
+ * - bv_view_obj_set_line_width: set the wireframe line width in pixels.
+ * - bv_view_obj_set_visible: set the per-shape visibility / force-draw flag.
+ *   When 0, the object is skipped during BSG traversal; when 1, it draws
+ *   regardless of inherited s_flag state.
+ *
+ * All setters are no-ops on NULL objects.  All setters call bv_obj_stale(s)
+ * so dependent backend caches are invalidated. */
+BV_EXPORT void
+bv_view_obj_set_color(struct bv_scene_obj *s, int r, int g, int b);
+BV_EXPORT void
+bv_view_obj_set_line_width(struct bv_scene_obj *s, int line_width);
+BV_EXPORT void
+bv_view_obj_set_visible(struct bv_scene_obj *s, int visible);
+
 /* Given an object, create an object that is a child of that object.  Issues
  * such as memory management as a function of view settings are handled
  * internally, so client codes don't need to manage it. */
