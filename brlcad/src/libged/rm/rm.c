@@ -293,8 +293,8 @@ ged_rm_core(struct ged *gedp, int argc, const char *argv[])
     }
 
     argc = opt_ret;
-    argc -= (argc > 0);
     argv += (argc > 0);
+    argc -= (argc > 0);
     bu_vls_free(&optparse_msg);
 
     if (argc < 1) {
@@ -307,7 +307,7 @@ ged_rm_core(struct ged *gedp, int argc, const char *argv[])
 
     /* Expand glob patterns; build flat list of resolved operands */
     bu_ptbl_init(&operands, 64, "rm operands");
-    for (i = 0; (int)i < argc; i++) {
+    for (i = 0; i < (size_t)argc; i++) {
 	_rm_expand_operand(argv[i], gedp->dbip, &operands);
     }
 
