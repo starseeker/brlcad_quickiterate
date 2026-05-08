@@ -91,8 +91,39 @@ if(TARGET Qt6::Widgets)
   distclean(${CMAKE_CURRENT_BINARY_DIR}/qgswrast_cache)
 endif(TARGET Qt6::Widgets)
 
+# Phase B: dm-swrast vs dm-qtgl backend benchmark.
+# Reports per-frame timing and fps for each backend.  The dm-qtgl section
+# requires hardware OpenGL and is skipped gracefully in headless environments.
+# Exit status is always 0 — this is a benchmark, not a pass/fail test.
+if(TARGET Qt6::Widgets)
+  set(GED_TEST_DM_BACKEND_BENCH_DATA_DIR "${CMAKE_SOURCE_DIR}/src/libged/tests/draw")
+  add_executable(ged_test_dm_backend_bench ged_test_dm_backend_bench.cpp)
+  target_include_directories(ged_test_dm_backend_bench PRIVATE
+    "${CMAKE_SOURCE_DIR}/src/libged"
+  )
+  set(_bench_libs libqtcad libged libdm libbsg librt libbu Qt6::Widgets)
+  if(TARGET dm-swrast)
+    list(APPEND _bench_libs dm-swrast)
+  endif()
+  if(TARGET dm-qtgl)
+    list(APPEND _bench_libs dm-qtgl)
+  endif()
+  target_link_libraries(ged_test_dm_backend_bench ${_bench_libs})
+  target_compile_definitions(ged_test_dm_backend_bench PRIVATE BRLCADBUILD HAVE_CONFIG_H)
+  brlcad_add_test(NAME ged_test_dm_backend_bench
+    COMMAND ged_test_dm_backend_bench "${GED_TEST_DM_BACKEND_BENCH_DATA_DIR}")
+  set_property(TEST ged_test_dm_backend_bench
+    APPEND PROPERTY ENVIRONMENT BRLCAD_ROOT=${CMAKE_BINARY_DIR})
+  set_property(TEST ged_test_dm_backend_bench
+    APPEND PROPERTY ENVIRONMENT QT_QPA_PLATFORM=offscreen)
+  distclean(${CMAKE_CURRENT_BINARY_DIR}/dmbench_swrast_tmp.g)
+  distclean(${CMAKE_CURRENT_BINARY_DIR}/dmbench_qtgl_tmp.g)
+  distclean(${CMAKE_CURRENT_BINARY_DIR}/dmbench_cache)
+endif(TARGET Qt6::Widgets)
+
 cmakefiles(
   CMakeLists.txt
+  ged_test_dm_backend_bench.cpp
   ged_test_qged_swrast.cpp
   ${QGMODEL_SRCS}
   ${QGVIEW_SRCS}
