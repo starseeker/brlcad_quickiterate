@@ -44,7 +44,7 @@ The current implementation recognizes the following options:
 *-f*::
 Force deletion. For object operands this uses the same direct-delete behavior as
 *kill*: the named object is removed immediately, even if it is referenced
-elsewhere. For path operands, missing targets are ignored.
+elsewhere. For path operands, missing parent combinations are ignored.
 
 *-r*::
 Recursive deletion. Walk the hierarchy below each named object and delete
