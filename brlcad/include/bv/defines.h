@@ -181,12 +181,6 @@ struct bv_obj_settings {
 #define BV_LABELS         0x08
 #define BV_AXES           0x10
 #define BV_POLYGONS       0x20
-/* BV_DEPRECATED (Phase L6): no longer set by any in-tree producer; flag bits
- * retained for binary-compatibility of out-of-tree code only. */
-#define BV_MESH_LOD       0x40
-/* BV_DEPRECATED (Phase L6): no longer set by any in-tree producer; flag bits
- * retained for binary-compatibility of out-of-tree code only. */
-#define BV_CSG_LOD        0x80
 
 struct bview;
 
@@ -575,11 +569,6 @@ struct bview_objs {
     // adaptive plotting, where geometry wireframes may differ from view to
     // view and thus need unique vlists.)
     struct bu_ptbl  *db_objs;
-    /* Phase V4 (drawing_stack_modernization): view-only objects now live in
-     * BSG VIEW_SCOPE nodes.  This ptbl is a read-only transient cache
-     * repopulated by bv_view_objs(v, BV_VIEW_OBJS|BV_LOCAL_OBJS) on each
-     * call; nothing is ever directly inserted into it. */
-    struct bu_ptbl  view_obj_cache;
 
     // Available bv_vlist entities to recycle before allocating new for local
     // view objects. This is used only if the app doesn't supply a vlfree -

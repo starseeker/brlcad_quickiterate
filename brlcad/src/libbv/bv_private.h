@@ -34,11 +34,6 @@
 struct bview_set_internal {
     struct bu_ptbl views;
     struct bu_ptbl shared_db_objs;
-    /* Phase V4 (drawing_stack_modernization): shared view-only objects are
-     * now stored in BSG VIEW_SCOPE nodes.  This ptbl is a read-only transient
-     * cache populated by bv_view_objs(v, BV_VIEW_OBJS) on each call; nothing
-     * is ever directly inserted into it. */
-    struct bu_ptbl shared_view_obj_cache;
 
     struct bv_scene_obj  *free_scene_obj;
     struct bu_list vlfree;

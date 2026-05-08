@@ -766,6 +766,22 @@ draw_scene_obj(struct dm *dmp, struct bv_scene_obj *s, struct bview *v, int forc
     dm_draw_scene_obj(dmp, s, v, force_draw, obj_settings);
 }
 
+/* Phase D: context and callback for bv_view_obj_visit in dm_draw_viewobjs,
+ * replacing the bv_view_objs(BV_VIEW_OBJS) ptbl loops. */
+struct _dm_draw_view_objs_ctx {
+    struct dm *dmp;
+    struct bview *v;
+};
+
+static int
+_dm_draw_view_obj_cb(struct bv_scene_obj *s, void *data)
+{
+    struct _dm_draw_view_objs_ctx *ctx = (struct _dm_draw_view_objs_ctx *)data;
+    draw_scene_obj(ctx->dmp, s, ctx->v, s->s_force_draw,
+		   (s->s_inherit_settings) ? s->s_os : NULL);
+    return 1;
+}
+
 void
 dm_draw_viewobjs(struct rt_wdb *wdbp, struct bview *v, struct dm_view_data *vd)
 {
@@ -792,23 +808,10 @@ dm_draw_viewobjs(struct rt_wdb *wdbp, struct bview *v, struct dm_view_data *vd)
 	}
     }
 
-    // Draw view-only objects (Phase T2: BSG VIEW_SCOPE objects only; the
-    // gv_tcl adornment rendering has been removed — those objects are now
-    // created as BSG objects by the T1 sync helpers in libtclcad/libged).
-    struct bu_ptbl *view_objs = bv_view_objs(v, BV_VIEW_OBJS);
-    if (view_objs) {
-	for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
-	    struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(view_objs, i);
-	    draw_scene_obj(dmp, s, v, s->s_force_draw, (s->s_inherit_settings) ? s->s_os : NULL);
-	}
-    }
-    struct bu_ptbl *local_view_objs = bv_view_objs(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
-    if (local_view_objs) {
-	for (size_t i = 0; i < BU_PTBL_LEN(local_view_objs); i++) {
-	    struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(local_view_objs, i);
-	    draw_scene_obj(dmp, s, v, s->s_force_draw, (s->s_inherit_settings) ? s->s_os : NULL);
-	}
-    }
+    // Draw view-only objects (Phase D: use bv_view_obj_visit instead of
+    // bv_view_objs(BV_VIEW_OBJS); BSG VIEW_SCOPE objects only).
+    struct _dm_draw_view_objs_ctx rctx = { dmp, v };
+    bv_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _dm_draw_view_obj_cb, &rctx);
 
     /* Set up matrices for HUD drawing, rather than 3D scene drawing. */
     (void)dm_hud_begin(dmp);
