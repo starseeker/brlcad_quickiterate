@@ -1,4 +1,4 @@
-Drawing Stack Modernization — concise status and next-session plan
+Drawing Stack Modernization — Concise Status and Next-Session Plan
 =================================================================
 
 Purpose
@@ -303,8 +303,7 @@ Suggested next-session order
 4. Land T3/T4 once the old path has no remaining producers.
 5. Finish polygon/vlist typed-API migration work in A0/A1/A2.
 6. Resolve Phase H and then migrate `QEll`.
-7. Run Phase D cleanup only after the compatibility window is no longer
-   needed.
+7. Run Phase D cleanup only after the compatibility window is no longer needed.
 
 
 Do not re-open
