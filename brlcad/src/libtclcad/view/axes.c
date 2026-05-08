@@ -35,72 +35,13 @@
 /* Private headers */
 #include "../tclcad_private.h"
 #include "../view/view.h"
+#include "../bsg_move_helpers.h"
 
-/* Phase T1 (drawing_stack_modernization): keep a BSG VIEW_SCOPE object in sync
- * with the gv_tcl data-axes state so the modern BSG renderer draws data axes
- * without the legacy dm_draw_data_axes path.
- *
- * Note: bv_data_axes_state.size is in "view coordinates" — it is scaled by
- * sf = gv_size / dm_width at draw time in the legacy path.  We replicate that
- * scaling at sync time using the current view dimensions so the vlist geometry
- * approximates the correct model-space size.  The BSG object will be rebuilt
- * whenever any setter is called, so the size stays accurate for interactive
- * Tcl use. */
+/* Phase T3 (drawing_stack_modernization): all getters and setters in
+ * to_data_axes_func now operate on BSG objects directly.  gv_tcl is no longer
+ * read or written by this path; BSG is the sole canonical store.
+ * BVDAS_DEFAULT_DM_WIDTH is the pixel-width fallback for dm_width in sf calcs. */
 #define BVDAS_DEFAULT_DM_WIDTH 512  /* fallback pixel width when no DM is attached */
-static void
-_sync_tcl_axes_to_bsg(struct bview *v, struct bv_data_axes_state *gdasp, const char *bsg_name)
-{
-    if (!v || !gdasp || !bsg_name)
-	return;
-
-    bv_view_obj_remove(v, bsg_name);
-
-    if (!gdasp->draw || gdasp->num_points < 1)
-	return;
-
-    /* Compute the view-to-model scale factor.  This mirrors the sf used by
-     * dm_draw_data_axes: sf = gv_size / dm_width. */
-    fastf_t dm_width = BVDAS_DEFAULT_DM_WIDTH;
-    if (v->dmp) {
-	int w = dm_get_width((struct dm *)v->dmp);
-	dm_width = (fastf_t)w;
-    }
-    if (dm_width < 1.0)
-	dm_width = 1.0;
-    fastf_t sf = v->gv_size / dm_width;
-    fastf_t halfAxesSize = gdasp->size * 0.5 * sf;
-
-    struct bv_scene_obj *s = bv_view_obj_lines_create(v, bsg_name, 1 /* local */);
-    if (!s)
-	return;
-
-    /* Build vlist: three axis segments (X, Y, Z) per point. */
-    for (int i = 0; i < gdasp->num_points; i++) {
-	point_t ptA, ptB;
-
-	/* X axis */
-	VSET(ptA, gdasp->points[i][X] - halfAxesSize, gdasp->points[i][Y], gdasp->points[i][Z]);
-	VSET(ptB, gdasp->points[i][X] + halfAxesSize, gdasp->points[i][Y], gdasp->points[i][Z]);
-	BV_ADD_VLIST(s->vlfree, &s->s_vlist, ptA, BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(s->vlfree, &s->s_vlist, ptB, BV_VLIST_LINE_DRAW);
-
-	/* Y axis */
-	VSET(ptA, gdasp->points[i][X], gdasp->points[i][Y] - halfAxesSize, gdasp->points[i][Z]);
-	VSET(ptB, gdasp->points[i][X], gdasp->points[i][Y] + halfAxesSize, gdasp->points[i][Z]);
-	BV_ADD_VLIST(s->vlfree, &s->s_vlist, ptA, BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(s->vlfree, &s->s_vlist, ptB, BV_VLIST_LINE_DRAW);
-
-	/* Z axis */
-	VSET(ptA, gdasp->points[i][X], gdasp->points[i][Y], gdasp->points[i][Z] - halfAxesSize);
-	VSET(ptB, gdasp->points[i][X], gdasp->points[i][Y], gdasp->points[i][Z] + halfAxesSize);
-	BV_ADD_VLIST(s->vlfree, &s->s_vlist, ptA, BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(s->vlfree, &s->s_vlist, ptB, BV_VLIST_LINE_DRAW);
-    }
-
-    bv_view_obj_set_color(s, gdasp->color[0], gdasp->color[1], gdasp->color[2]);
-    bv_view_obj_set_line_width(s, gdasp->line_width);
-    bv_view_obj_set_visible(s, 1);
-}
 
 int
 to_axes(struct ged *gedp,
@@ -594,17 +535,14 @@ to_data_axes_func(Tcl_Interp *interp,
 		  int argc,
 		  const char *argv[])
 {
-    struct bv_data_axes_state *gdasp;
-
-    if (argv[0][0] == 's')
-	gdasp = &gdvp->gv_tcl->gv_sdata_axes;
-    else
-	gdasp = &gdvp->gv_tcl->gv_data_axes;
+    /* T3: BSG object name is the only per-variant state needed here. */
     const char *bsg_name = (argv[0][0] == 's') ? "_tcl_sdata_axes" : "_tcl_data_axes";
 
     if (BU_STR_EQUAL(argv[1], "draw")) {
 	if (argc == 2) {
-	    bu_vls_printf(gedp->ged_result_str, "%d", gdasp->draw);
+	    /* T3: BSG object presence encodes draw>0. Return 1/0. */
+	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    bu_vls_printf(gedp->ged_result_str, "%d", _s ? 1 : 0);
 	    return BRLCAD_OK;
 	}
 
@@ -614,12 +552,11 @@ to_data_axes_func(Tcl_Interp *interp,
 	    if (bu_sscanf(argv[2], "%d", &i) != 1)
 		goto bad;
 
-	    if (0 <= i && i <= 2)
-		gdasp->draw = i;
-	    else
-		gdasp->draw = 0;
+	    /* T3: toggle visibility; no gv_tcl write. */
+	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    if (_s)
+		bv_view_obj_set_visible(_s, i ? 1 : 0);
 
-	    _sync_tcl_axes_to_bsg(gdvp, gdasp, bsg_name);
 	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
 	}
@@ -629,8 +566,13 @@ to_data_axes_func(Tcl_Interp *interp,
 
     if (BU_STR_EQUAL(argv[1], "color")) {
 	if (argc == 2) {
-	    bu_vls_printf(gedp->ged_result_str, "%d %d %d",
-			  V3ARGS(gdasp->color));
+	    /* T3: read color from BSG object. */
+	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    if (_s)
+		bu_vls_printf(gedp->ged_result_str, "%d %d %d",
+			      (int)_s->s_color[0], (int)_s->s_color[1], (int)_s->s_color[2]);
+	    else
+		bu_vls_printf(gedp->ged_result_str, "0 0 0");
 	    return BRLCAD_OK;
 	}
 
@@ -649,9 +591,11 @@ to_data_axes_func(Tcl_Interp *interp,
 		b < 0 || 255 < b)
 		goto bad;
 
-	    VSET(gdasp->color, r, g, b);
+	    /* T3: update BSG object in-place; no gv_tcl write. */
+	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    if (_s)
+		bv_view_obj_set_color(_s, r, g, b);
 
-	    _sync_tcl_axes_to_bsg(gdvp, gdasp, bsg_name);
 	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
 	}
@@ -661,7 +605,12 @@ to_data_axes_func(Tcl_Interp *interp,
 
     if (BU_STR_EQUAL(argv[1], "line_width")) {
 	if (argc == 2) {
-	    bu_vls_printf(gedp->ged_result_str, "%d", gdasp->line_width);
+	    /* T3: read line_width from BSG object settings. */
+	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    if (_s && _s->s_os)
+		bu_vls_printf(gedp->ged_result_str, "%d", _s->s_os->s_line_width);
+	    else
+		bu_vls_printf(gedp->ged_result_str, "0");
 	    return BRLCAD_OK;
 	}
 
@@ -671,9 +620,11 @@ to_data_axes_func(Tcl_Interp *interp,
 	    if (bu_sscanf(argv[2], "%d", &line_width) != 1)
 		goto bad;
 
-	    gdasp->line_width = line_width;
+	    /* T3: update BSG object in-place; no gv_tcl write. */
+	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    if (_s)
+		bv_view_obj_set_line_width(_s, line_width);
 
-	    _sync_tcl_axes_to_bsg(gdvp, gdasp, bsg_name);
 	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
 	}
@@ -683,7 +634,29 @@ to_data_axes_func(Tcl_Interp *interp,
 
     if (BU_STR_EQUAL(argv[1], "size")) {
 	if (argc == 2) {
-	    bu_vls_printf(gedp->ged_result_str, "%lf", gdasp->size);
+	    /* T3: recover the encoded half-size from BSG X-axis endpoints and
+	     * back-compute size = 2*half / sf.  Returns approximate value. */
+	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    if (_s) {
+		point_t *_all = NULL;
+		int _ntotal = _bsg_extract_pts(_s, &_all);
+		if (_ntotal >= 2) {
+		    fastf_t _half = (_all[1][X] - _all[0][X]) * 0.5;
+		    fastf_t _dm_width = (fastf_t)BVDAS_DEFAULT_DM_WIDTH;
+		    if (gdvp->dmp) {
+			int _w = dm_get_width((struct dm *)gdvp->dmp);
+			if (_w > 0) _dm_width = (fastf_t)_w;
+		    }
+		    fastf_t _sf = gdvp->gv_size / _dm_width;
+		    fastf_t _size = (_sf > 0.0) ? (_half * 2.0 / _sf) : 0.0;
+		    bu_vls_printf(gedp->ged_result_str, "%lf", _size);
+		} else {
+		    bu_vls_printf(gedp->ged_result_str, "0.0");
+		}
+		bu_free(_all, "bsg pts");
+	    } else {
+		bu_vls_printf(gedp->ged_result_str, "0.0");
+	    }
 	    return BRLCAD_OK;
 	}
 
@@ -693,9 +666,25 @@ to_data_axes_func(Tcl_Interp *interp,
 	    if (bu_sscanf(argv[2], "%lf", &size) != 1)
 		goto bad;
 
-	    gdasp->size = size;
+	    /* T3: extract current centers, rebuild with new halfAxesSize; no gv_tcl write. */
+	    struct bv_scene_obj *old_s = bv_view_obj_find(gdvp, bsg_name);
+	    int _color[3]; int _lw, _vis;
+	    _bsg_read_style(old_s, _color, &_lw, NULL, NULL, &_vis);
 
-	    _sync_tcl_axes_to_bsg(gdvp, gdasp, bsg_name);
+	    point_t *_cpts = NULL;
+	    int _ncpts = old_s ? _bsg_extract_axes_centers(old_s, &_cpts) : 0;
+
+	    fastf_t _dm_width = (fastf_t)BVDAS_DEFAULT_DM_WIDTH;
+	    if (gdvp->dmp) {
+		int _w = dm_get_width((struct dm *)gdvp->dmp);
+		if (_w > 0) _dm_width = (fastf_t)_w;
+	    }
+	    fastf_t _sf = gdvp->gv_size / _dm_width;
+	    fastf_t _half = (fastf_t)size * 0.5f * _sf;
+
+	    _bsg_rebuild_axes(gdvp, bsg_name, _cpts, _ncpts, _half, _color, _lw, _vis);
+	    bu_free(_cpts, "bsg axes pts");
+
 	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
 	}
@@ -707,9 +696,14 @@ to_data_axes_func(Tcl_Interp *interp,
 	register int i;
 
 	if (argc == 2) {
-	    for (i = 0; i < gdasp->num_points; ++i) {
-		bu_vls_printf(gedp->ged_result_str, " {%lf %lf %lf} ",
-			      V3ARGS(gdasp->points[i]));
+	    /* T3: recover center points from BSG vlist. */
+	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    if (_s) {
+		point_t *_cpts = NULL;
+		int _ncpts = _bsg_extract_axes_centers(_s, &_cpts);
+		for (i = 0; i < _ncpts; ++i)
+		    bu_vls_printf(gedp->ged_result_str, " {%lf %lf %lf} ", V3ARGS(_cpts[i]));
+		bu_free(_cpts, "bsg axes pts");
 	    }
 	    return BRLCAD_OK;
 	}
@@ -723,42 +717,48 @@ to_data_axes_func(Tcl_Interp *interp,
 		return BRLCAD_ERROR;
 	    }
 
-	    bu_free((void *)gdasp->points, "data points");
-	    gdasp->points = (point_t *)0;
-	    gdasp->num_points = 0;
+	    /* T3: save style and size from existing BSG object before replacing it. */
+	    struct bv_scene_obj *old_s = bv_view_obj_find(gdvp, bsg_name);
+	    int _color[3]; int _lw, _vis;
+	    _bsg_read_style(old_s, _color, &_lw, NULL, NULL, &_vis);
 
-	    /* Clear out data points */
+	    /* Recover halfAxesSize from existing object (use default 1.0 if none). */
+	    fastf_t _half = 1.0;
+	    if (old_s) {
+		point_t *_all = NULL;
+		int _ntotal = _bsg_extract_pts(old_s, &_all);
+		if (_ntotal >= 2)
+		    _half = (_all[1][X] - _all[0][X]) * 0.5;
+		bu_free(_all, "bsg pts");
+	    }
+
+	    /* Clear out: remove old BSG object. */
 	    if (ac < 1) {
-		_sync_tcl_axes_to_bsg(gdvp, gdasp, bsg_name);
+		bv_view_obj_remove(gdvp, bsg_name);
 		to_refresh_view(gdvp);
 		Tcl_Free((char *)av);
 		return BRLCAD_OK;
 	    }
 
-	    gdasp->num_points = ac;
-	    gdasp->points = (point_t *)bu_calloc(ac, sizeof(point_t), "data points");
+	    /* Parse new center points into temporary local array. */
+	    point_t *pts = (point_t *)bu_calloc(ac, sizeof(point_t), "axes points");
 	    for (i = 0; i < ac; ++i) {
 		double scan[3];
 
 		if (bu_sscanf(av[i], "%lf %lf %lf", &scan[X], &scan[Y], &scan[Z]) != 3) {
 		    bu_vls_printf(gedp->ged_result_str, "bad data point - %s\n", av[i]);
-
-		    bu_free((void *)gdasp->points, "data points");
-		    gdasp->points = (point_t *)0;
-		    gdasp->num_points = 0;
-
-		    _sync_tcl_axes_to_bsg(gdvp, gdasp, bsg_name);
-		    to_refresh_view(gdvp);
+		    bu_free(pts, "axes points");
 		    Tcl_Free((char *)av);
 		    return BRLCAD_ERROR;
 		}
-		/* convert double to fastf_t */
-		VMOVE(gdasp->points[i], scan);
+		VMOVE(pts[i], scan);
 	    }
 
-	    _sync_tcl_axes_to_bsg(gdvp, gdasp, bsg_name);
-	    to_refresh_view(gdvp);
+	    /* T3: rebuild BSG from new centers, preserving style; no gv_tcl write. */
+	    _bsg_rebuild_axes(gdvp, bsg_name, pts, ac, _half, _color, _lw, _vis);
+	    bu_free(pts, "axes points");
 	    Tcl_Free((char *)av);
+	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
 	}
     }

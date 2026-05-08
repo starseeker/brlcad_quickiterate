@@ -27,6 +27,7 @@
 /* Private headers */
 #include "./tclcad_private.h"
 #include "./view/view.h"
+#include "./bsg_move_helpers.h"
 
 int
 to_get_prev_mouse(struct ged *gedp,
@@ -2026,7 +2027,7 @@ to_mouse_otranslate(struct ged *gedp,
 
 	if (!params) {
 	    BU_GET(params, struct dm_path_edit_params);
-	    params->edit_mode = gdvp->gv_tcl->gv_polygon_mode;
+	    params->edit_mode = tvd->tcl_data.gv_polygon_mode;
 	    params->dx = params->dy = 0.0;
 	    (void)bu_hash_set(tgd->go_dmv.edited_paths,
 			      (uint8_t *)path_string,
@@ -2162,12 +2163,13 @@ to_mouse_poly_circ_func(Tcl_Interp *interp,
     point_t v_pt, m_pt;
     struct bu_vls plist = BU_VLS_INIT_ZERO;
     struct bu_vls i_vls = BU_VLS_INIT_ZERO;
+    struct tclcad_view_data *tvd = (struct tclcad_view_data *)gdvp->u_data;
     bv_data_polygon_state *gdpsp;
 
     if (argv[0][0] == 's')
-	gdpsp = &gdvp->gv_tcl->gv_sdata_polygons;
+	gdpsp = &tvd->tcl_data.gv_sdata_polygons;
     else
-	gdpsp = &gdvp->gv_tcl->gv_data_polygons;
+	gdpsp = &tvd->tcl_data.gv_data_polygons;
 
     if (bu_sscanf(argv[1], "%d", &x) != 1 ||
 	bu_sscanf(argv[2], "%d", &y) != 1) {
@@ -2199,7 +2201,7 @@ to_mouse_poly_circ_func(Tcl_Interp *interp,
 	fastf_t curr_fx, curr_fy;
 	register int nsegs, n;
 
-	VSET(v_pt, fx, fy, gdvp->gv_tcl->gv_data_vZ);
+	VSET(v_pt, fx, fy, gdpsp->gdps_data_vZ);
 	VSUB2(vdiff, v_pt, gdpsp->gdps_prev_point);
 	r = MAGNITUDE(vdiff);
 
@@ -2222,7 +2224,7 @@ to_mouse_poly_circ_func(Tcl_Interp *interp,
 
 	    curr_fx = cos(ang*DEG2RAD) * r + gdpsp->gdps_prev_point[X];
 	    curr_fy = sin(ang*DEG2RAD) * r + gdpsp->gdps_prev_point[Y];
-	    VSET(v_pt, curr_fx, curr_fy, gdvp->gv_tcl->gv_data_vZ);
+	    VSET(v_pt, curr_fx, curr_fy, gdpsp->gdps_data_vZ);
 	    MAT4X3PNT(m_pt, gdvp->gv_view2model, v_pt);
 	    bu_vls_printf(&plist, " {%lf %lf %lf}", V3ARGS(m_pt));
 	}
@@ -2336,12 +2338,13 @@ to_mouse_poly_cont_func(Tcl_Interp *interp,
     int x, y;
     fastf_t fx, fy;
     point_t v_pt, m_pt;
+    struct tclcad_view_data *tvd = (struct tclcad_view_data *)gdvp->u_data;
     bv_data_polygon_state *gdpsp;
 
     if (argv[0][0] == 's')
-	gdpsp = &gdvp->gv_tcl->gv_sdata_polygons;
+	gdpsp = &tvd->tcl_data.gv_sdata_polygons;
     else
-	gdpsp = &gdvp->gv_tcl->gv_data_polygons;
+	gdpsp = &tvd->tcl_data.gv_data_polygons;
 
     if (bu_sscanf(argv[1], "%d", &x) != 1 ||
 	bu_sscanf(argv[2], "%d", &y) != 1) {
@@ -2355,7 +2358,7 @@ to_mouse_poly_cont_func(Tcl_Interp *interp,
     gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
     gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
     bv_screen_to_view(gdvp, &fx, &fy, x, y);
-    VSET(v_pt, fx, fy, gdvp->gv_tcl->gv_data_vZ);
+    VSET(v_pt, fx, fy, gdpsp->gdps_data_vZ);
 
     MAT4X3PNT(m_pt, gdvp->gv_view2model, v_pt);
     gedp->ged_gvp = gdvp;
@@ -2479,12 +2482,13 @@ to_mouse_poly_ell_func(Tcl_Interp *interp,
     point_t m_pt;
     struct bu_vls plist = BU_VLS_INIT_ZERO;
     struct bu_vls i_vls = BU_VLS_INIT_ZERO;
+    struct tclcad_view_data *tvd = (struct tclcad_view_data *)gdvp->u_data;
     bv_data_polygon_state *gdpsp;
 
     if (argv[0][0] == 's')
-	gdpsp = &gdvp->gv_tcl->gv_sdata_polygons;
+	gdpsp = &tvd->tcl_data.gv_sdata_polygons;
     else
-	gdpsp = &gdvp->gv_tcl->gv_data_polygons;
+	gdpsp = &tvd->tcl_data.gv_data_polygons;
 
     if (bu_sscanf(argv[1], "%d", &x) != 1 ||
 	bu_sscanf(argv[2], "%d", &y) != 1) {
@@ -2528,8 +2532,8 @@ to_mouse_poly_ell_func(Tcl_Interp *interp,
 	 * note that sin(alpha) is cos(90-alpha).
 	 */
 
-	VSET(A, a, 0, gdvp->gv_tcl->gv_data_vZ);
-	VSET(B, 0, b, gdvp->gv_tcl->gv_data_vZ);
+	VSET(A, a, 0, gdpsp->gdps_data_vZ);
+	VSET(B, 0, b, gdpsp->gdps_data_vZ);
 
 	/* use a variable number of segments based on the size of the
 	 * circle being created so small circles have few segments and
@@ -2665,12 +2669,13 @@ to_mouse_poly_rect_func(Tcl_Interp *interp,
     point_t v_pt, m_pt;
     struct bu_vls plist = BU_VLS_INIT_ZERO;
     struct bu_vls i_vls = BU_VLS_INIT_ZERO;
+    struct tclcad_view_data *tvd = (struct tclcad_view_data *)gdvp->u_data;
     bv_data_polygon_state *gdpsp;
 
     if (argv[0][0] == 's')
-	gdpsp = &gdvp->gv_tcl->gv_sdata_polygons;
+	gdpsp = &tvd->tcl_data.gv_sdata_polygons;
     else
-	gdpsp = &gdvp->gv_tcl->gv_data_polygons;
+	gdpsp = &tvd->tcl_data.gv_data_polygons;
 
     if (bu_sscanf(argv[1], "%d", &x) != 1 ||
 	bu_sscanf(argv[2], "%d", &y) != 1) {
@@ -2695,7 +2700,7 @@ to_mouse_poly_rect_func(Tcl_Interp *interp,
     }
 
 
-    if (gdvp->gv_tcl->gv_polygon_mode == TCLCAD_POLY_SQUARE_MODE) {
+    if (tvd->tcl_data.gv_polygon_mode == TCLCAD_POLY_SQUARE_MODE) {
 	fastf_t dx, dy;
 
 	dx = fx - gdpsp->gdps_prev_point[X];
@@ -2717,14 +2722,14 @@ to_mouse_poly_rect_func(Tcl_Interp *interp,
     MAT4X3PNT(m_pt, gdvp->gv_view2model, gdpsp->gdps_prev_point);
     bu_vls_printf(&plist, "{0 {%lf %lf %lf} ",  V3ARGS(m_pt));
 
-    VSET(v_pt, gdpsp->gdps_prev_point[X], fy, gdvp->gv_tcl->gv_data_vZ);
+    VSET(v_pt, gdpsp->gdps_prev_point[X], fy, gdpsp->gdps_data_vZ);
     MAT4X3PNT(m_pt, gdvp->gv_view2model, v_pt);
     bu_vls_printf(&plist, "{%lf %lf %lf} ",  V3ARGS(m_pt));
 
-    VSET(v_pt, fx, fy, gdvp->gv_tcl->gv_data_vZ);
+    VSET(v_pt, fx, fy, gdpsp->gdps_data_vZ);
     MAT4X3PNT(m_pt, gdvp->gv_view2model, v_pt);
     bu_vls_printf(&plist, "{%lf %lf %lf} ",  V3ARGS(m_pt));
-    VSET(v_pt, fx, gdpsp->gdps_prev_point[Y], gdvp->gv_tcl->gv_data_vZ);
+    VSET(v_pt, fx, gdpsp->gdps_prev_point[Y], gdpsp->gdps_data_vZ);
     MAT4X3PNT(m_pt, gdvp->gv_view2model, v_pt);
     bu_vls_printf(&plist, "{%lf %lf %lf} }",  V3ARGS(m_pt));
 
@@ -3107,41 +3112,59 @@ to_data_scale(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    /* scale data arrows */
+    /* scale data arrows - T3: read/write BSG vlist instead of gv_tcl */
     {
-	struct bv_data_arrow_state *gdasp = &gdvp->gv_tcl->gv_data_arrows;
-	point_t vcenter = {0, 0, 0};
+	struct bv_scene_obj *_as = bv_view_obj_find(gdvp, "_tcl_data_arrows");
+	if (_as) {
+	    point_t vcenter = {0, 0, 0};
+	    point_t *_pts = NULL;
+	    int _npts = _bsg_extract_pts(_as, &_pts);
 
-	/* Scale the length of each arrow */
-	for (i = 0; i < gdasp->gdas_num_points; i += 2) {
-	    vect_t diff;
-	    point_t vpoint;
+	    /* Arrows are stored as MOVE/DRAW pairs; need even count. */
+	    if (_npts >= 2 && (_npts % 2) == 0) {
+		/* Scale the length of each arrow (even-indexed endpoints = shaft starts) */
+		for (i = 0; i < _npts; i += 2) {
+		    vect_t diff;
+		    point_t vpoint;
+		    MAT4X3PNT(vpoint, gedp->ged_gvp->gv_model2view, _pts[i]);
+		    vcenter[Z] = vpoint[Z];
+		    VSUB2(diff, vpoint, vcenter);
+		    VSCALE(diff, diff, sf);
+		    VADD2(vpoint, vcenter, diff);
+		    MAT4X3PNT(_pts[i], gedp->ged_gvp->gv_view2model, vpoint);
+		}
 
-	    MAT4X3PNT(vpoint, gedp->ged_gvp->gv_model2view, gdasp->gdas_points[i]);
-	    vcenter[Z] = vpoint[Z];
-	    VSUB2(diff, vpoint, vcenter);
-	    VSCALE(diff, diff, sf);
-	    VADD2(vpoint, vcenter, diff);
-	    MAT4X3PNT(gdasp->gdas_points[i], gedp->ged_gvp->gv_view2model, vpoint);
+		int _color[3]; int _lw, _tl, _tw, _vis;
+		_bsg_read_style(_as, _color, &_lw, &_tl, &_tw, &_vis);
+		_bsg_rebuild_arrows(gdvp, "_tcl_data_arrows", _pts, _npts,
+				   _color, _lw, _tl, _tw, _vis);
+	    }
+	    bu_free(_pts, "bsg pts");
 	}
     }
 
-    /* scale data labels */
+    /* scale data labels - T3: modify bv_label.p in BSG children instead of gv_tcl */
     {
-	struct bv_data_label_state *gdlsp = &gdvp->gv_tcl->gv_data_labels;
-	point_t vcenter = {0, 0, 0};
-	point_t vpoint;
+	struct bv_scene_obj *_lp = bv_view_obj_find(gdvp, "_tcl_data_labels");
+	if (_lp && BU_PTBL_LEN(&_lp->children) > 0) {
+	    point_t vcenter = {0, 0, 0};
+	    point_t vpoint;
 
-	/* Scale the location of each label WRT the view center */
-	for (i = 0; i < gdlsp->gdls_num_labels; ++i) {
-	    vect_t diff;
+	    for (size_t _k = 0; _k < BU_PTBL_LEN(&_lp->children); _k++) {
+		struct bv_scene_obj *_c =
+		    (struct bv_scene_obj *)BU_PTBL_GET(&_lp->children, _k);
+		if (!_c || !_c->s_i_data) continue;
+		struct bv_label *_l = (struct bv_label *)_c->s_i_data;
+		vect_t diff;
 
-	    MAT4X3PNT(vpoint, gedp->ged_gvp->gv_model2view, gdlsp->gdls_points[i]);
-	    vcenter[Z] = vpoint[Z];
-	    VSUB2(diff, vpoint, vcenter);
-	    VSCALE(diff, diff, sf);
-	    VADD2(vpoint, vcenter, diff);
-	    MAT4X3PNT(gdlsp->gdls_points[i], gedp->ged_gvp->gv_view2model, vpoint);
+		MAT4X3PNT(vpoint, gedp->ged_gvp->gv_model2view, _l->p);
+		vcenter[Z] = vpoint[Z];
+		VSUB2(diff, vpoint, vcenter);
+		VSCALE(diff, diff, sf);
+		VADD2(vpoint, vcenter, diff);
+		MAT4X3PNT(_l->p, gedp->ged_gvp->gv_view2model, vpoint);
+	    }
+	    bv_obj_stale(_lp);
 	}
     }
 

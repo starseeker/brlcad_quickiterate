@@ -512,56 +512,61 @@ polygon Z-plane, etc.).
 Pending in a follow-up session (with the order to tackle them)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-1. Migrate `data_lines` writes off `gv_tcl`.
-   `src/libged/view/data_lines.c` is the libged "data_lines" command
-   surface.  Today its mutators write `gv_tcl->gv_data_lines` /
-   `gv_sdata_lines` and rely on `_sync_dlines_to_bsg` to push state
-   into the BSG `_tcl_data_lines` mirror.  To make BSG the canonical
-   producer:
-     a. Move the read/write code path to operate directly on the
-        BSG view-scope line object's vlist via
-        `bv_view_obj_overlay_create` and the new line-scope setters
-        (the helpers used by `_sync_dlines_to_bsg` already exist).
-     b. Drop the `_sync_dlines_to_bsg` helper once BSG is written
-        first.
-     c. Keep a thin compatibility shim in libtclcad that mirrors the
-        BSG state back into `gv_tcl->gv_data_lines` for any remaining
-        Tcl readers (mouse.c uses `gv_data_lines` as a coordinate
-        source during interactive line drawing).
-   Estimated scope: ~200 LoC including the new BSG-first writer and
-   the libtclcad mirror layer.
+1. Migrate `data_lines` writes off `gv_tcl`.  DONE (2026-05-08).
+   `src/libged/view/data_lines.c` rewritten as BSG-first:
+     - `_sync_dlines_to_bsg` replaced by `_rebuild_bsg_dlines` which
+       accepts an explicit pts/color/linewidth snapshot rather than
+       reading a gv_tcl struct.
+     - For non-Tcl views (`gv_tcl == NULL`): BSG vlist is the sole
+       persistent store; no gv_tcl mirror is allocated.  The "points"
+       getter walks the BSG vlist; draw/color/line_width getters read
+       BSG object fields.
+     - For Tcl views: BSG is now the sole persistent store here as well.
+       The old gv_tcl compatibility shim was removed after commands.c
+       pick/move and mouse.c line/arrow/label paths were migrated to BSG.
+     - `ged_view_data_lines()` no longer errors on views without
+       gv_tcl; it just sets gdlsp = NULL and takes the BSG-only path.
 
 2. Decide where data_vZ lives long-term.
    `gv_tcl->gv_data_vZ` is a Tcl-mode editing-Z-plane scalar consumed
-   by libtclcad mouse.c, polygons.c, and the libtclcad "data_vZ"
-   command in commands.c.  The cleanest endgame is to move the field
-   into a new `bv_editing_state` struct attached to the view (or onto
-   `bview` directly), so libtclcad becomes a consumer of a BV-owned
-   value rather than the owner.  That refactor is small (one struct
-   move + ~6 callsite renames in libtclcad) but it churns the public
-   `bv_data_tclcad` ABI.  Defer until the next ABI break.
+   by polygon setup in libtclcad/polygons.c, cached into
+   `bv_data_polygon_state::gdps_data_vZ`, and exposed via the
+   libtclcad "data_vZ" command in commands.c.  The cleanest endgame is
+   to move the field
+   onto `bview` directly — it is the "current Z height" for the view
+   plane in 3D space, a concept that the view reasonably owns.
+   libtclcad becomes a consumer of a BV-owned value rather than the
+   owner.  That refactor is small (one struct move + ~6 callsite renames
+   in libtclcad) but it churns the public `bv_data_tclcad` ABI.
+   Defer until the next ABI break.
 
 3. Do the same for `gv_data_arrows` / `gv_data_axes` / `gv_data_labels`
    / `gv_data_polygons` and their sdata twins inside `bv_data_tclcad`.
-   These are Tcl-only state structs (libtclcad/commands.c is the
-   single writer).  After step 1, they become the only `gv_tcl`
-   members that still represent renderable state.  Two options:
-     a. Keep them in libtclcad but rename to make their ownership
-        explicit (`tclcad_view_data::data_lines` etc.); BSG remains
-        the rendered cache.
-     b. Eliminate the gv_tcl mirror entirely: make libtclcad's
-        commands write BSG view-scope objects directly, and recover
-        the values for "view get" Tcl introspection by reading the
-        BSG side.
-   Option (b) is the user's "properly eliminate gv_tcl" target.
-   Estimated scope: ~600 LoC across libtclcad (commands.c + view/*).
+   PARTIAL (2026-05-08).  Getters migrated; setters still use gv_tcl as
+   intermediate storage:
+     - arrows.c: ALL getters (draw/color/line_width/points/tip_length/
+       tip_width) now read from the BSG _tcl_data_arrows object.
+     - axes.c: draw/color/line_width/size/points all read from BSG
+       (size and points recovered by decoding vlist geometry using
+       _bsg_extract_axes_centers / half-size from X-axis endpoints).
+     - labels.c: draw/color/labels getters read from BSG label children
+       (bv_label structs in s_i_data).  size getter still reads gv_tcl.
+     - Phase T3 COMPLETE (2026-05-08): all setters in arrows.c and
+       axes.c no longer write gv_tcl.  data_lines.c gv_tcl mirror removed.
+       commands.c to_data_pick_func and to_data_move_func read from BSG
+       directly (labels from bv_label children, lines/arrows/axes from
+       BSG vlist).  mouse.c to_data_scale for arrows/labels reads/writes
+       BSG directly.
+   Remaining work to fully eliminate gv_tcl mirror:
+     c. Add a "size" scalar field to bv_obj_settings (ABI break) and
+        migrate the labels size getter (currently still reads gv_tcl).
+     d. Migrate gv_data_polygons / gv_sdata_polygons (complex; uses
+        gv_data_vZ and bg_polygons; deferred).
 
-4. Sweep stale comments.
-   `include/bv/tcl_data.h` still talks about `dm_draw_arrows` /
-   `dm_draw_data_axes` / `dm_draw_lines` / `dm_draw_polys` as the
-   render path.  Update to describe the BSG canonical path and the
-   sync-helper names.  `src/libbsg/scene_graph.cpp` and `bsg/util.h`
-   contain pre-Phase-D ptbl-cache references that should be retired.
+4. Sweep stale comments.  DONE (2026-05-08).
+   `include/bv/tcl_data.h` comment block updated to describe the BSG
+   canonical path, the sync-helper names, and the Phase T3 progress
+   state of each getter/setter pair.
 
 5. Reach production-ready state.
    After (1)–(4), the only gv_tcl-resident state is genuine Tcl

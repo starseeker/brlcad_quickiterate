@@ -38,7 +38,16 @@
 /* Phase T1 (drawing_stack_modernization): keep BSG VIEW_SCOPE label objects in
  * sync with the gv_tcl data-labels state so the modern BSG renderer draws
  * labels without the legacy dm_draw_labels path.  Delegates to the public
- * bv_view_obj_labels_sync() API which lives in libbv/util.cpp. */
+ * bv_view_obj_labels_sync() API which lives in libbv/util.cpp.
+ *
+ * Phase T3 (drawing_stack_modernization): the draw, color and labels getters in
+ * to_data_labels_func now recover values by reading BSG object/child data
+ * instead of gv_tcl directly.  The size getter still uses gv_tcl because font
+ * size is not stored in the BSG child objects yet.
+ *
+ * gv_tcl continues to be written by setters here because bv_view_obj_labels_sync
+ * takes a bv_data_label_state* as input.  This is now internal state used solely
+ * for the sync call; commands.c pick/move/scale read from BSG children directly. */
 
 int
 go_data_labels(Tcl_Interp *interp,
@@ -136,7 +145,9 @@ to_data_labels_func(Tcl_Interp *interp,
 
     if (BU_STR_EQUAL(argv[1], "draw")) {
 	if (argc == 2) {
-	    bu_vls_printf(gedp->ged_result_str, "%d", gdlsp->gdls_draw);
+	    /* T3: recover draw state from BSG object presence. */
+	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    bu_vls_printf(gedp->ged_result_str, "%d", _s ? 1 : 0);
 	    return BRLCAD_OK;
 	}
 
@@ -161,8 +172,19 @@ to_data_labels_func(Tcl_Interp *interp,
 
     if (BU_STR_EQUAL(argv[1], "color")) {
 	if (argc == 2) {
-	    bu_vls_printf(gedp->ged_result_str, "%d %d %d",
-			  V3ARGS(gdlsp->gdls_color));
+	    /* T3: read color from first BSG label child.
+	     * All label children are created with the same color (from the
+	     * single gdls_color[3] field in bv_data_label_state), so reading
+	     * the first child reflects the entire set. */
+	    struct bv_scene_obj *_parent = bv_view_obj_find(gdvp, bsg_name);
+	    if (_parent && BU_PTBL_LEN(&_parent->children) > 0) {
+		struct bv_scene_obj *_c =
+		    (struct bv_scene_obj *)BU_PTBL_GET(&_parent->children, 0);
+		bu_vls_printf(gedp->ged_result_str, "%d %d %d",
+			      (int)_c->s_color[0], (int)_c->s_color[1], (int)_c->s_color[2]);
+	    } else {
+		bu_vls_printf(gedp->ged_result_str, "0 0 0");
+	    }
 	    return BRLCAD_OK;
 	}
 
@@ -197,10 +219,18 @@ to_data_labels_func(Tcl_Interp *interp,
 	/* { {{label this} {0 0 0}} {{label that} {100 100 100}} }*/
 
 	if (argc == 2) {
-	    for (i = 0; i < gdlsp->gdls_num_labels; ++i) {
-		bu_vls_printf(gedp->ged_result_str, "{{%s}", gdlsp->gdls_labels[i]);
-		bu_vls_printf(gedp->ged_result_str, " {%lf %lf %lf}} ",
-			      V3ARGS(gdlsp->gdls_points[i]));
+	    /* T3: read label strings and positions from BSG label children. */
+	    struct bv_scene_obj *_parent = bv_view_obj_find(gdvp, bsg_name);
+	    if (_parent) {
+		for (size_t _k = 0; _k < BU_PTBL_LEN(&_parent->children); _k++) {
+		    struct bv_scene_obj *_c =
+			(struct bv_scene_obj *)BU_PTBL_GET(&_parent->children, _k);
+		    if (!_c->s_i_data)
+			continue;
+		    struct bv_label *_l = (struct bv_label *)_c->s_i_data;
+		    bu_vls_printf(gedp->ged_result_str, "{{%s}", bu_vls_cstr(&_l->label));
+		    bu_vls_printf(gedp->ged_result_str, " {%lf %lf %lf}} ", V3ARGS(_l->p));
+		}
 	    }
 	    return BRLCAD_OK;
 	}

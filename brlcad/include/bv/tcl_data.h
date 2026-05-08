@@ -145,19 +145,33 @@ typedef struct {
  * calculate vZ values based on model spaces inputs, and these should be
  * used to generate the value supplied to gv_data_vZ.
  */
-/* DEPRECATED (Phase T0, drawing_stack_modernization): the `gv_tcl` adornment
- * fields below are the legacy faceplate-adornment storage used by the
- * dm_draw_viewobjs() renderer (i.e., libtclcad's go_refresh_draw path used by
- * Archer and classic mged).  They store rich state that is rendered directly
- * by dm_draw_arrows / dm_draw_data_axes / dm_draw_lines / dm_draw_polys, in
- * parallel to the canonical BSG render pipeline (dm_draw_objs).
+/* Phase T1/T3 (drawing_stack_modernization): the `gv_tcl` adornment fields
+ * below are the legacy faceplate-adornment storage originally used by the
+ * dm_draw_viewobjs() renderer (dm_draw_arrows / dm_draw_data_axes /
+ * dm_draw_lines / dm_draw_polys / dm_draw_labels).  Those dm_draw_* render
+ * helpers were deprecated in Phase T2 and are no longer called by the
+ * canonical go_refresh_draw path.  The BSG VIEW_SCOPE objects created by the
+ * sync helpers (_sync_tcl_arrows_to_bsg, _sync_tcl_axes_to_bsg,
+ * bv_view_obj_labels_sync, and the inlined logic in data_lines.c) are now the
+ * sole renderable form consumed by dm_draw_objs().
  *
- * Phase T1 will migrate every producer in src/libtclcad/view/{arrows,axes,
- * lines,labels,polygons}.c to create BSG_NODE_VIEW_SCOPE-resident objects via
- * the V8 typed API (bv_view_obj_axes_create, bv_view_obj_lines_create, ...),
- * and the typed setters added in Phase A3 (bv_view_obj_set_color /
- * bv_view_obj_set_line_width / bv_view_obj_set_visible).  After T1 these
- * fields are orphaned and can be removed in Phase T3.
+ * Phase T3 progress (COMPLETE 2026-05-08):
+ *  • data_lines.c (libged): BSG-first rewrite; gv_tcl mirror removed;
+ *    all views read/write BSG vlist as sole store.
+ *  • arrows.c: all getters and setters operate on BSG directly;
+ *    gv_tcl no longer read or written.
+ *  • axes.c: all getters (draw/color/line_width/size/points) and setters
+ *    operate on BSG directly; gv_tcl no longer read or written.
+ *  • labels.c: draw/color/labels getters/setters via BSG children (size
+ *    getter still reads gv_tcl — no BSG field for font size yet).
+ *  • commands.c: to_data_pick_func and to_data_move_func now read from
+ *    BSG children/vlist directly (labels from bv_label.p, lines/arrows/
+ *    axes from BSG vlist).  mouse.c to_data_scale likewise BSG-only.
+ *  • gv_data_polygons / gv_sdata_polygons: deferred (uses gv_data_vZ and
+ *    complex polygon state; target for a future ABI-break session).
+ *
+ * Remaining work: migrate labels size getter (needs font-size field in
+ * bv_obj_settings or bv_label, ABI break); migrate polygon state.
  *
  * Do not add new producers that touch these fields; do not add new fields
  * here.  New view-only adornment storage belongs in the BSG tree. */
