@@ -618,11 +618,13 @@ _bv_autoview_db_cb(struct bv_scene_obj *s, void *data)
 }
 
 /* Phase D (drawing_stack_modernization): context for bv_autoview's
- * bv_view_obj_visit pass, replacing the bv_view_objs(BV_VIEW_OBJS) calls. */
+ * bv_view_obj_visit pass, replacing the bv_view_objs(BV_VIEW_OBJS) calls.
+ * All output fields are pointers so the callback updates the caller's storage
+ * in-place (consistent with is_empty and v, both of which are also pointers). */
 struct _bv_autoview_view_ctx {
     int *is_empty;
-    vect_t min;
-    vect_t max;
+    fastf_t *min;   /* vect_t — fastf_t[3] */
+    fastf_t *max;   /* vect_t — fastf_t[3] */
     struct bview *v;
     int have_geom_objs;
     int all_view_objs;
@@ -721,14 +723,12 @@ bv_autoview(struct bview *v, double factor, int all_view_objs)
     {
 	struct _bv_autoview_view_ctx vctx;
 	vctx.is_empty = &is_empty;
-	VMOVE(vctx.min, min);
-	VMOVE(vctx.max, max);
+	vctx.min = min;
+	vctx.max = max;
 	vctx.v = v;
 	vctx.have_geom_objs = have_geom_objs;
 	vctx.all_view_objs = all_view_objs;
 	bv_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _bv_bound_view_obj_cb, &vctx);
-	VMOVE(min, vctx.min);
-	VMOVE(max, vctx.max);
     }
 
     if (is_empty) {
