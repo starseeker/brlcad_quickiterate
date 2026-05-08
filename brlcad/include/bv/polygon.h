@@ -90,8 +90,12 @@ BV_EXPORT extern int bv_update_polygon(struct bv_scene_obj *s, struct bview *v, 
 // Update just the scene obj vlist, without altering the source polygon
 BV_EXPORT extern void bv_polygon_vlist(struct bv_scene_obj *s);
 
-// Find the closest polygon obj to a point
+// Find the closest polygon obj to a point (caller-supplied ptbl)
 BV_EXPORT extern struct bv_scene_obj *bv_select_polygon(struct bu_ptbl *objs, point_t *cp);
+
+/* Phase A0/A2: typed variant - walks all BSG view-scope nodes visible to v
+ * and returns the polygon object closest to cp. */
+BV_EXPORT extern struct bv_scene_obj *bv_view_select_polygon(struct bview *v, point_t *cp);
 
 BV_EXPORT extern int bv_move_polygon(struct bv_scene_obj *s, point_t *cp, point_t *pp);
 BV_EXPORT extern struct bv_scene_obj *bv_dup_view_polygon(const char *nname, struct bv_scene_obj *s);

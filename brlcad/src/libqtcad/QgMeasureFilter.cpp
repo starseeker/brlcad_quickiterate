@@ -146,14 +146,13 @@ QgMeasureFilter::eventFilter(QObject *, QEvent *e)
 
 	    if (s)
 		bv_obj_put(s);
-	    s = bv_obj_get(v, BV_VIEW_OBJS);
+	    /* Phase A2: use typed view-object API instead of legacy bv_obj_get. */
+	    s = bv_view_obj_lines_create(v, oname.c_str(), 0);
 
 	    mode = 1;
 	    VMOVE(p1, mpnt);
 	    VMOVE(p2, mpnt);
 	    BV_ADD_VLIST(s->vlfree, &s->s_vlist, p1, BV_VLIST_LINE_MOVE);
-	    bu_vls_init(&s->s_name);
-	    bu_vls_printf(&s->s_name, "%s", oname.c_str());
 	    emit view_updated(QG_VIEW_REFRESH);
 	    return true;
 	}

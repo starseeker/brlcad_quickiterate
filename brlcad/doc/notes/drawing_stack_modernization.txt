@@ -192,47 +192,50 @@ The architecture is in place, but not every producer/reader uses it directly
 yet.  The remaining work should eliminate compatibility-path dependence.
 
 ### A0 — finish libbv internal producer migration
-Status: PARTIAL.
+Status: DONE.
 
 Already done:
 - Reader migrations in `src/libbv/hash.c`
 - Reader migrations in `src/libbv/snap.c`
-
-Still to do:
-- Migrate `src/libbv/vlist.c::bv_vlblock_obj`
-- Migrate `src/libbv/polygon.c::bv_create_polygon`
-- Verify that neither producer still depends on legacy ptbl insertion side
-  effects from `bv_obj_get`
+- `src/libbv/vlist.c::bv_vlblock_obj` migrated to `bv_view_obj_find` +
+  `bv_view_obj_overlay_create` (removes `bv_find_obj` + `bv_obj_get` path).
+- `src/libbv/polygon.c::bv_dup_view_polygon` spurious `bu_vls_init` removed
+  (object is already initialized by `bv_obj_reset`).
+- `bv_create_polygon_obj`: `BV_VIEW_OBJS` path already uses
+  `bv_view_obj_overlay_create` — no legacy ptbl insertion dependency.
+- Added `bv_view_select_polygon(v, cp)` typed wrapper (declared in
+  `include/bv/polygon.h`) that uses `bv_view_obj_visit` internally.
 
 ### A1 — finish libged producer migration
-Status: PARTIAL.
+Status: DONE.
 
 Already done:
 - typed reader/lookup conversions in `view.c`, `draw2.cpp`, `rtcheck2.cpp`,
   and `view/polygons.c`
-
-Still to do:
-- Move polygon producers in `src/libged/view/polygons.c` together with the
-  libbv/qged polygon-side migration so all polygon creation paths land on the
-  same final API shape.
+- `src/libged/view/polygons.c` polygon create: `bu_vls_init`+`bu_vls_printf`
+  replaced with `bu_vls_sprintf` (name was already initialized by `bv_obj_reset`).
+- `src/librt/primitives/sketch/polygons.c::db_sketch_to_scene_obj`: same fix.
+  All polygon creation paths now use the typed BSG-scope API uniformly.
 
 ### A2 — migrate libqtcad and qged plugin producers
-Status: NOT STARTED.
+Status: DONE.
 
-Why:
-- These are the remaining user-facing producers outside the completed V work.
+Completed:
+- `src/libqtcad/QgMeasureFilter.cpp`: replaced `bv_obj_get(v, BV_VIEW_OBJS)` +
+  post-creation `bu_vls_init/printf` with `bv_view_obj_lines_create(v, name, 0)`.
+- `src/libqtcad/QgPolyFilter.cpp::QPolySelectFilter::eventFilter`: replaced
+  `bv_view_objs` + `bv_select_polygon(ptbl, ...)` with typed
+  `bv_view_select_polygon(v, cp)`.
+- `src/qged/plugins/polygon/QPolyCreate.cpp`: all `bv_view_objs(BV_VIEW_OBJS)`
+  ptbl loops replaced with `bv_view_obj_visit` callbacks (toggle_line_snapping,
+  toplevel_config, eventFilter bool_objs collection).
+- `src/qged/plugins/polygon/QPolyMod.cpp`: all `bv_view_objs(BV_VIEW_OBJS)`
+  ptbl loops replaced with `bv_view_obj_visit` callbacks (mod_names_reset,
+  toplevel_config, select, toggle_closed_poly, apply_bool_op,
+  toggle_line_snapping).
 
-Targets:
-- `src/libqtcad/QgMeasureFilter.cpp`
-- `src/libqtcad/QgPolyFilter.cpp`
-- `src/qged/plugins/polygon/QPolyCreate.cpp`
-- `src/qged/plugins/polygon/QPolyMod.cpp`
-- `src/qged/plugins/edit/ell/QEll.cpp`
-
-Important constraint:
-- `QEll.cpp` is blocked by Phase H below.  Do not force that migration onto
-  the generic view-only model until the per-view-variant/highlight design is
-  settled.
+Note: `src/qged/plugins/edit/ell/QEll.cpp` migration remains blocked by
+Phase H (per-view-variant/highlight model) as noted below.
 
 
 Priority 3 — define the per-view-variant / highlight model (Phase H)

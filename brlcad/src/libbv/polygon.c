@@ -367,6 +367,37 @@ bv_select_polygon(struct bu_ptbl *objs, point_t *cp)
     return closest;
 }
 
+/* Phase A0/A2 (drawing_stack_modernization): typed version of bv_select_polygon
+ * that uses bv_view_obj_visit internally rather than a caller-supplied ptbl.
+ * Walks all BSG view-scope nodes visible to v, finds the polygon object whose
+ * edge is closest to cp, and returns it. */
+struct _bv_poly_select_ptbl {
+    struct bu_ptbl objs;
+};
+
+static int
+_bv_poly_collect_cb(struct bv_scene_obj *obj, void *data)
+{
+    struct _bv_poly_select_ptbl *s = (struct _bv_poly_select_ptbl *)data;
+    if (obj->s_type_flags & BV_POLYGONS)
+	bu_ptbl_ins(&s->objs, (long *)obj);
+    return 1;
+}
+
+struct bv_scene_obj *
+bv_view_select_polygon(struct bview *v, point_t *cp)
+{
+    if (!v || !cp)
+	return NULL;
+
+    struct _bv_poly_select_ptbl state;
+    bu_ptbl_init(&state.objs, 8, "bv_view_select_polygon objs");
+    bv_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _bv_poly_collect_cb, &state);
+    struct bv_scene_obj *result = bv_select_polygon(&state.objs, cp);
+    bu_ptbl_free(&state.objs);
+    return result;
+}
+
 int
 bv_select_polygon_pt(struct bv_scene_obj *s, point_t *cp)
 {
@@ -849,8 +880,7 @@ bv_dup_view_polygon(const char *nname, struct bv_scene_obj *s)
     // Update scene obj vlist
     bv_polygon_vlist(np);
 
-    // Set new name
-    bu_vls_init(&np->s_name);
+    // Set new name (s_name was initialized by bv_obj_reset; just overwrite it)
     bu_vls_sprintf(&np->s_name, "%s", nname);
 
     // Return new object

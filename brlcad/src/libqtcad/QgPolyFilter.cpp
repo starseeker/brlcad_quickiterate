@@ -337,16 +337,14 @@ QPolySelectFilter::eventFilter(QObject *, QEvent *e)
 
     // Handle Left Click
     if (m_e->type() == QEvent::MouseButtonPress && m_e->buttons().testFlag(Qt::LeftButton)) {
-	struct bu_ptbl *view_objs = bv_view_objs(v, BV_VIEW_OBJS);
-	if (view_objs) {
-	    wp = bv_select_polygon(view_objs, &v->gv_point);
-	    if (!wp)
-		return true;
-	    struct bv_polygon *vp = (struct bv_polygon *)wp->s_i_data;
-	    ptype = vp->type;
-	    close_general_poly = (vp->polygon.contour) ? vp->polygon.contour[0].open : 1;
-	    // TODO - either set or sync other C++ class setting copies (color, fill, etc.)
-	}
+	/* Phase A2: use typed bv_view_select_polygon instead of bv_view_objs
+	 * + bv_select_polygon to avoid the legacy ptbl compatibility path. */
+	wp = bv_view_select_polygon(v, &v->gv_point);
+	if (!wp)
+	    return true;
+	struct bv_polygon *vp = (struct bv_polygon *)wp->s_i_data;
+	ptype = vp->type;
+	close_general_poly = (vp->polygon.contour) ? vp->polygon.contour[0].open : 1;
 
 	return true;
     }
