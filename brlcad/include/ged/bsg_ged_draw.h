@@ -185,6 +185,21 @@ GED_EXPORT extern struct bv_scene_obj *
 bsg_view_obj_get_illum(const struct ged *gedp);
 
 /**
+ * Phase H (drawing_stack_modernization): find the first drawn solid in
+ * any display-list group whose path ends with @p name (basename match
+ * against the last slash-separated component), illuminate it via
+ * bsg_view_obj_set_illum(), and return it.  When no matching drawn solid
+ * is found, passes NULL to bsg_view_obj_set_illum() (clearing any
+ * current highlight) and returns NULL.
+ *
+ * Intended for edit-mode widgets that know only the primitive name and
+ * want to highlight the drawn representation without constructing a full
+ * db_full_path.
+ */
+GED_EXPORT extern struct bv_scene_obj *
+bsg_view_obj_illum_by_name(struct ged *gedp, const char *name);
+
+/**
  * Phase 9.3: return the highlight-state revision counter.  Bumped on every
  * transition of the illuminated solid and on every bsg_node_field_touch on
  * that solid (delivered through a libbsg NodeSensor that bsg_view_obj_set_illum

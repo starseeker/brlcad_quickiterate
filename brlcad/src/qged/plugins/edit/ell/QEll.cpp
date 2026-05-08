@@ -27,6 +27,7 @@
 #include <QButtonGroup>
 #include <QGroupBox>
 #include "../../../QgEdApp.h"
+#include "ged/bsg_ged_draw.h"
 #include "QEll.h"
 
 QEll::QEll()
@@ -176,9 +177,10 @@ QEll::update_obj_wireframe()
     if (!v)
 	return;
 
-    // Make the object, if we've not already done so
+    // Make the object, if we've not already done so.  Phase H: use the
+    // typed BSG overlay API instead of the legacy bv_obj_get path.
     if (!p)
-	p = bv_obj_get(v, BV_VIEW_OBJS);
+	p = bv_view_obj_overlay_create(v, "_ell_edit", 1/*local*/);
 
     // Clear any old wireframes, labels, etc.
     bv_obj_reset(p);
@@ -251,9 +253,10 @@ QEll::update_viewobj_name(const QString &)
     if (!v)
 	return;
 
-    // Make the view object, if we've not already done so
+    // Make the view object, if we've not already done so.  Phase H: use
+    // the typed BSG overlay API instead of the legacy bv_obj_get path.
     if (!p)
-	p = bv_obj_get(v, BV_VIEW_OBJS);
+	p = bv_view_obj_overlay_create(v, "_ell_edit", 1/*local*/);
 
     // Make sure the view object names match whatever the dialog says
     // is the current (proposed) name for the written object
@@ -264,7 +267,6 @@ QEll::update_viewobj_name(const QString &)
 	bu_vls_sprintf(&oname, "%s", ell_name->text().toLocal8Bit().data());
     if (!bu_vls_strlen(&oname))
 	return;
-    bu_vls_sprintf(&p->s_name, "%s:%s", bu_vls_cstr(&v->gv_name), bu_vls_cstr(&oname));
 
     // Update the directory pointer to reflect the name.  If there is a change,
     // and that change points us to a new object, we need to read the info from
@@ -273,9 +275,12 @@ QEll::update_viewobj_name(const QString &)
     if (ndp != dp) {
 	dp = ndp;
 	if (dp) {
+	    // Phase H: illuminate the drawn solid for this object (if drawn)
+	    bsg_view_obj_illum_by_name(gedp, bu_vls_cstr(&oname));
 	    read_from_db();
 	} else {
-	    // Turning off wireframe - obj name is now invalid
+	    // Turning off wireframe - obj name is now invalid; clear highlight
+	    bsg_view_obj_set_illum(gedp, NULL);
 	    p->s_flag = DOWN;
 	    emit view_updated(QG_VIEW_REFRESH);
 	}
