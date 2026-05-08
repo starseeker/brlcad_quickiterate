@@ -206,18 +206,23 @@ ged_draw2_core(struct ged *gedp, int argc, const char *argv[])
     // Before we start doing anything with the object set, record if things are
     // starting out empty.
     int blank_slate = 0;
-    /* Phase B: use bv_view_objs_visit_db for DB objects (handles BSG tree
-     * when gv_draw_root is set so blank_slate is correct after B-full-1). */
+    /* Phase A1 (drawing_stack_modernization): use the typed visitor APIs
+     * for both DB and view-only checks so we no longer rely on the legacy
+     * BV_VIEW_OBJS ptbl shim.  Both visitors stop after the first hit by
+     * returning 0 from the callback. */
     int have_db_obj = 0;
+    int have_view_obj = 0;
     auto _count_one_db = [](struct bv_scene_obj *, void *data) -> int {
 	*((int *)data) = 1;
 	return 0; /* stop after first hit */
     };
+    auto _count_one_view = [](struct bv_scene_obj *, void *data) -> int {
+	*((int *)data) = 1;
+	return 0; /* stop after first hit */
+    };
     bv_view_objs_visit_db(cv, _count_one_db, &have_db_obj);
-    struct bu_ptbl *vobjs = bv_view_objs(cv, BV_VIEW_OBJS);
-    struct bu_ptbl *vlobjs = bv_view_objs(cv, BV_VIEW_OBJS | BV_LOCAL_OBJS);
-    if (!have_db_obj &&
-	    (!vobjs || !BU_PTBL_LEN(vobjs)) && (!vlobjs || !BU_PTBL_LEN(vlobjs))) {
+    bv_view_obj_visit(cv, BV_VIEW_OBJ_SCOPE_ALL, _count_one_view, &have_view_obj);
+    if (!have_db_obj && !have_view_obj) {
 	blank_slate = 1;
     }
 

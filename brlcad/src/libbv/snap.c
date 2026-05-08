@@ -269,6 +269,16 @@ _bv_snap_db_obj_cb(struct bv_scene_obj *so, void *data)
     return 1;
 }
 
+/* Phase A0 (drawing_stack_modernization): callback for snap_lines view-only
+ * scope iteration via bv_view_obj_visit. */
+static int
+_bv_snap_view_obj_cb(struct bv_scene_obj *so, void *data)
+{
+    struct _bv_snap_db_ctx *ctx = (struct _bv_snap_db_ctx *)data;
+    *ctx->ret += _find_closest_obj_point(ctx->s, ctx->p, so);
+    return 1;
+}
+
 int
 bv_snap_lines_3d(point_t *out_pt, struct bview *v, point_t *p)
 {
@@ -309,19 +319,21 @@ bv_snap_lines_3d(point_t *out_pt, struct bview *v, point_t *p)
 		bv_view_objs_visit_db(v, _bv_snap_db_obj_cb, &snap_ctx);
 	    }
 	    if (!gv_s->gv_snap_flags || (gv_s->gv_snap_flags & BV_SNAP_VIEW)) {
-		if (!gv_s->gv_snap_flags || (gv_s->gv_snap_flags & BV_SNAP_SHARED)) {
-		    struct bu_ptbl *sobjs = bv_view_objs(v, BV_VIEW_OBJS);
-		    for (size_t i = 0; i < BU_PTBL_LEN(sobjs); i++) {
-			struct bv_scene_obj *so = (struct bv_scene_obj *)BU_PTBL_GET(sobjs, i);
-			ret += _find_closest_obj_point(s, p, so);
-		    }
-		}
-		if (!gv_s->gv_snap_flags || (gv_s->gv_snap_flags & BV_SNAP_LOCAL)) {
-		    struct bu_ptbl *sobjs = bv_view_objs(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
-		    for (size_t i = 0; i < BU_PTBL_LEN(sobjs); i++) {
-			struct bv_scene_obj *so = (struct bv_scene_obj *)BU_PTBL_GET(sobjs, i);
-			ret += _find_closest_obj_point(s, p, so);
-		    }
+		/* Phase A0 (drawing_stack_modernization): use bv_view_obj_visit
+		 * for the view-only scope.  scope_mask honors the same
+		 * BV_SNAP_SHARED / BV_SNAP_LOCAL distinction as the legacy
+		 * ptbl scan. */
+		int scope_mask = 0;
+		if (!gv_s->gv_snap_flags || (gv_s->gv_snap_flags & BV_SNAP_SHARED))
+		    scope_mask |= BV_VIEW_OBJ_SCOPE_SHARED;
+		if (!gv_s->gv_snap_flags || (gv_s->gv_snap_flags & BV_SNAP_LOCAL))
+		    scope_mask |= BV_VIEW_OBJ_SCOPE_LOCAL;
+		if (scope_mask) {
+		    struct _bv_snap_db_ctx snap_ctx;
+		    snap_ctx.s = s;
+		    snap_ctx.p = p;
+		    snap_ctx.ret = &ret;
+		    bv_view_obj_visit(v, scope_mask, _bv_snap_view_obj_cb, &snap_ctx);
 		}
 	    }
 	}

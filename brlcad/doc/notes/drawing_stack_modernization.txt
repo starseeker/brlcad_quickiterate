@@ -916,24 +916,37 @@ Citations: include/bv/util.h ; src/libbv/util.cpp.
 
 Phase A0 — libbv internal producer/reader migrations
 ----------------------------------------------------
-PARTIAL.  Reader migrations have been done for hash.c (BV_VIEW_OBJS ptbl
-scan replaced with bv_view_obj_visit) and snap.c.  Remaining producer
-migrations (vlist.c::bv_vlblock_obj, polygon.c::bv_create_polygon) are
-straightforward but each needs verifying their producers do not depend
-on the ptbl insertion side-effect of the legacy `bv_obj_get` route.
+PARTIAL [DONE 2026-05-08].  Reader migrations done:
+- `src/libbv/hash.c` — replaced two BV_VIEW_OBJS ptbl scans (shared and
+  local) with a single `bv_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, ...)`
+  walk via a `_bv_hash_view_obj_cb` callback.  DB-side hashing already
+  uses `bv_view_objs_visit_db`.
+- `src/libbv/snap.c` — replaced two BV_VIEW_OBJS ptbl scans with a
+  single `bv_view_obj_visit(v, scope_mask, ...)` call where
+  scope_mask honours the BV_SNAP_SHARED / BV_SNAP_LOCAL distinction.
+Remaining producer migrations (vlist.c::bv_vlblock_obj,
+polygon.c::bv_create_polygon) are straightforward but each needs
+verifying their producers do not depend on the ptbl insertion side-
+effect of the legacy `bv_obj_get` route.
 
 Phase A1 — libged producer/reader migrations
 --------------------------------------------
-PARTIAL.  Reader migrations done where mechanical:
-- `view vZ` (src/libged/view/view.c): fourfold ptbl scan replaced with
-  a single `bv_view_obj_visit` walk.
-- `src/libged/draw/draw2.cpp:217-218`: replaced with `bv_view_obj_visit`.
-- `src/libged/rtcheck/rtcheck2.cpp:116`: replaced with
-  `bv_view_obj_visit`.
-- `src/libged/zap/zap2.cpp`: BV_VIEW_OBJS clearing replaced with
-  `bv_view_obj_remove_all(v, BV_VIEW_OBJ_SCOPE_*)`.
-- `src/libged/view/polygons.c` listing-only readers: replaced with
-  `bv_view_obj_visit`.
+PARTIAL [DONE 2026-05-08].  Reader migrations done where mechanical:
+- `view vZ` (src/libged/view/view.c): replaced fourfold ptbl scan
+  (BV_VIEW_OBJS shared + local + BV_DB_OBJS shared + local) with a
+  single typed-API context visit that drives both
+  `bv_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _view_vZ_visit_cb, ...)`
+  and `bv_view_objs_visit_db(v, _view_vZ_visit_cb, ...)`.
+- `src/libged/draw/draw2.cpp` blank-slate detection: replaced the
+  paired BV_VIEW_OBJS ptbl checks with a `bv_view_obj_visit` early-out
+  callback to mirror the existing `bv_view_objs_visit_db` short-circuit.
+- `src/libged/rtcheck/rtcheck2.cpp:116` rtcheck output cleanup: replaced
+  BV_VIEW_OBJS ptbl scan with `bv_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL,
+  _collect_rtcheck, ...)`.
+- `src/libged/view/polygons.c:516,824` overlap/clip lookup: replaced two
+  pairs of ptbl scans with a single `bv_view_obj_find` call each.
+zap2.cpp uses bv_clear, which already routes through
+bv_view_obj_remove_all (Phase V4) — no migration needed.
 Polygon producers in `polygons.c` are deliberately NOT migrated yet —
 they share helpers with libbv polygon.c and with QPolyCreate, and should
 move together in Phase A2.
