@@ -50,7 +50,6 @@
 #include "bv/tcl_data.h"
 #include "bv/util.h"
 #include "bv/vlist.h"
-#define DM_WITH_RT
 #include <dm.h>
 #include <ged.h>
 
