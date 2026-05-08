@@ -306,8 +306,8 @@ Suggested next-session order
 7. Run Phase D cleanup only after the compatibility window is no longer needed.
 
 
-Do not re-open
---------------
+Do not reopen
+-------------
 - BSG ownership of DB-backed draw content
 - LoD node architecture
 - V1-V8 view-only object unification
