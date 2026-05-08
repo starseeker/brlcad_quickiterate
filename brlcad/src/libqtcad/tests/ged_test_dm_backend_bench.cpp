@@ -217,7 +217,7 @@ main(int ac, char *av[])
 	QCoreApplication::processEvents();
 
 	if (!sw.dmp) {
-	    bu_log("SKIP swrast: DM did not initialise after first paint\n");
+	    bu_log("SKIP swrast: DM did not initialize after first paint\n");
 	} else {
 	    /* Warm-up: one draw before timing */
 	    dm_draw_objs(sw.v, NULL, NULL);
