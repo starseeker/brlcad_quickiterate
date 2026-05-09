@@ -730,12 +730,16 @@ dm_draw_objs(struct bview *v, void (*dm_draw_custom)(struct bview *, void *), vo
 	    if (xmax > rw - 1) xmax = rw - 1;
 	    if (ymax > rh - 1) ymax = rh - 1;
 	    if (xmin <= xmax && ymin <= ymax) {
+		int refresh_width;
+		int refresh_height;
 		/*
 		 * Bounds above are clamped/validated to the visible fb area.
 		 * Dirty bounds are inclusive pixel indices, so width/height
 		 * are computed as +1 from max-min.
 		 */
-		fb_refresh(fbp, xmin, ymin, xmax - xmin + 1, ymax - ymin + 1);
+		refresh_width = xmax - xmin + 1;
+		refresh_height = ymax - ymin + 1;
+		fb_refresh(fbp, xmin, ymin, refresh_width, refresh_height);
 	    }
 	}
 	if (zbuff_restore)

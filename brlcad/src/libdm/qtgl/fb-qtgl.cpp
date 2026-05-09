@@ -102,6 +102,8 @@ static int
 _qtgl_texture_enabled(void)
 {
     const char *ev = getenv("BRLCAD_QTGL_FB_TEXTURE");
+    /* Runtime perf toggle for normal user sessions; do not rely on this
+     * variable in privileged execution contexts. */
     if (!ev || !ev[0])
 	return 1; /* Default to texture-backed blit path for better incremental update performance. */
     if (!strcmp(ev, "0") || !strcmp(ev, "false") ||
@@ -120,7 +122,7 @@ qtgl_xmit_texture(struct fb *ifp, int ybase, int nlines, int xbase, int npix)
     if (!qi->fb_use_texture)
 	return;
     if (ifp->i->if_xzoom != 1 || ifp->i->if_yzoom != 1)
-	return; /* texture path assumes 1:1 pixel mapping; fall back for zoomed views */
+	return; /* texture path assumes 1:1 pixel mapping; caller falls through to glDrawPixels path */
     if (ifp->i->if_mem == NULL || ifp->i->if_width <= 0 || ifp->i->if_height <= 0)
 	return;
 

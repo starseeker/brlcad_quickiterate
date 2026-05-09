@@ -33,6 +33,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 
 #ifdef HAVE_STRINGS_H
 # include <strings.h>
@@ -361,11 +362,14 @@ ssize_t fb_read(struct fb *ifp, int x, int y, unsigned char *pp, size_t count)
 ssize_t fb_write(struct fb *ifp, int x, int y, const unsigned char *pp, size_t count)
 {
     ssize_t ret;
+    int dcount;
     if (!ifp)
 	return 0;
     ret = (*ifp->i->if_write)(ifp, x, y, pp, count);
-    if (ret > 0)
-	_fb_dirty_mark(ifp, x, y, (int)ret, 1);
+    if (ret > 0) {
+	dcount = (ret > INT_MAX) ? INT_MAX : (int)ret;
+	_fb_dirty_mark(ifp, x, y, dcount, 1);
+    }
     return ret;
 }
 int fb_rmap(struct fb *ifp, ColorMap *cmap)
