@@ -95,7 +95,7 @@ drop_client(struct fbserv_obj *fbsp, int sub)
 	if (fbsp->fbs_fbp && fbsp->fbs_fbp->i &&
 	    fbsp->fbs_fbp->i->if_active_clients == 0 &&
 	    fbsp->fbs_fbp->i->dmp) {
-	    struct dm *dmp = (struct dm *)fbsp->fbs_fbp->i->dmp;
+	    struct dm *dmp = fbsp->fbs_fbp->i->dmp;
 	    int dw = dm_get_width(dmp);
 	    int dh = dm_get_height(dmp);
 	    if (dw > 0 && dh > 0 &&
