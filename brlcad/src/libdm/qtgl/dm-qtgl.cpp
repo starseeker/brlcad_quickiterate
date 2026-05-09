@@ -338,7 +338,6 @@ qtgl_open(void *ctx, void *UNUSED(interp), int argc, const char **argv)
 static int
 qtgl_drawString2D(struct dm *dmp, const char *str, fastf_t ix, fastf_t iy, int UNUSED(size), int use_aspect)
 {
-    struct gl_vars *mvars = (struct gl_vars *)dmp->i->m_vars;
     struct qtgl_vars *privars = (struct qtgl_vars *)dmp->i->dm_vars.priv_vars;
 
     gl_debug_print(dmp, "qtgl_drawString2D", dmp->i->dm_debugLevel);
@@ -411,19 +410,12 @@ qtgl_drawString2D(struct dm *dmp, const char *str, fastf_t ix, fastf_t iy, int U
 	if (dmp->i->dm_debugLevel > 4)
 	    gl_debug_print(dmp, "qtgl_drawString2D 5:", dmp->i->dm_debugLevel);
 
-	// Restore view matrix (changed by glOrtho call)
-	glPopMatrix();
-	if (dmp->i->dm_debugLevel > 4)
-	    gl_debug_print(dmp, "qtgl_drawString2D 6:", dmp->i->dm_debugLevel);
-
 	// Put us back in whatever mode we were in before starting the text draw
 	glMatrixMode(mm);
 	if (dmp->i->dm_debugLevel > 4)
-	    gl_debug_print(dmp, "qtgl_drawString2D 7:", dmp->i->dm_debugLevel);
+	    gl_debug_print(dmp, "qtgl_drawString2D 6:", dmp->i->dm_debugLevel);
 
 	if (!blend_state) glDisable(GL_BLEND);
-
-	glOrtho(-mvars->i.xlim_view, mvars->i.xlim_view, -mvars->i.ylim_view, mvars->i.ylim_view, dmp->i->dm_clipmin[2], dmp->i->dm_clipmax[2]);
     }
 
     if (dmp->i->dm_debugLevel > 1)
@@ -492,9 +484,7 @@ qtgl_String2DBBox(struct dm *dmp, vect2d_t *bmin, vect2d_t *bmax, const char *st
 	//bu_log("%s bounds: min(%f,%f) max(%f,%f)\n", str, bounds[0], bounds[1], bounds[2], bounds[3]);
 	//bu_log("%s width %d\n", str, width);
 
-	// Done with text, put matrices back
-	glPopMatrix();
-	glMatrixMode(GL_PROJECTION);
+	// Done with text, restore projection matrix
 	glPopMatrix();
 
 	if (bmin)
