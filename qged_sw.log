@@ -1,982 +1,489 @@
-Script started on 2026-05-09 13:44:22-04:00 [TERM="xterm-256color" TTY="/dev/pts/3" COLUMNS="123" LINES="60"]
-[?2004h]0;cyapp@ubuntu: ~/brlcad/build[01;32mcyapp@ubuntu[00m:[01;34m~/brlcad/build[00m (newdraw) $ [7m./bin/qged -s share/db/moss.g[27m./bin/qged -s share/db/moss.g
+Script started on 2026-05-09 15:22:54-04:00 [TERM="xterm-256color" TTY="/dev/pts/3" COLUMNS="123" LINES="60"]
+[?2004h]0;cyapp@ubuntu: ~/brlcad_quickiterate/brlcad/build[01;32mcyapp@ubuntu[00m:[01;34m~/brlcad_quickiterate/brlcad/build[00m (copilot/add-debug-printing-for-sigkill) $ exit./bin/qged -s share/db/moss.g
 [?2004lReading settings from /home/cyapp/.config/BRL-CAD/QGED.conf
 update nref callback
 qt.qpa.theme.gnome: dbus reply error: [ "org.freedesktop.DBus.Error.UnknownMethod" ] "No such interface “org.freedesktop.portal.Settings” on object at path /org/freedesktop/portal/desktop"
-swrast_makeCurrent: MISMATCH gv=(1430,1140) dm=(0,0) - OSMesa will use gv dims
-swrast_configureWin: gv=(1430,1140) dm_current=(0,0)
-gl_reshape: setting dm=(1430,1140) was=(0,0), glViewport will be (0,0,1430,1140)
-swrast_getmem: allocating if_mem for if_size=(1430,1140) pixsize=6522336
-swrast_configureWindow: FULL path w=1430 h=1140 if_was=(1430,1140) win_was=(1430,1140)
-swrast_configureWin: gv=(1430,1140) dm_current=(1430,1140)
-gl_reshape: setting dm=(1430,1140) was=(1430,1140), glViewport will be (0,0,1430,1140)
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
+swrast_makeCurrent: MISMATCH gv=(1595,1157) dm=(0,0) - OSMesa will use gv dims
+swrast_configureWin: gv=(1595,1157) dm_current=(0,0)
+gl_reshape: setting dm=(1595,1157) was=(0,0), glViewport will be (0,0,1595,1157)
+swrast_getmem: allocating if_mem for if_size=(1595,1157) pixsize=7383196
+swrast_configureWindow: FULL path w=1595 h=1157 if_was=(1595,1157) win_was=(1595,1157)
+swrast_configureWin: gv=(1595,1157) dm_current=(1595,1157)
+gl_reshape: setting dm=(1595,1157) was=(1595,1157), glViewport will be (0,0,1595,1157)
+QgSW::paintEvent: pre-draw gv=(1595,1157) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: gv=(1595,1157) dm=(1595,1157) [OK]
+swrast_makeCurrent: gv=(1595,1157) dm=(1595,1157) [OK]
+swrast_getDisplayImage: dm=(1595,1157) OSMesa_buf=(1595,1157) [OK]
+QgSW::paintEvent: pre-draw gv=(1595,1157) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: gv=(1595,1157) dm=(1595,1157) [OK]
+swrast_makeCurrent: gv=(1595,1157) dm=(1595,1157) [OK]
+swrast_getDisplayImage: dm=(1595,1157) OSMesa_buf=(1595,1157) [OK]
+QgSW::paintEvent: pre-draw gv=(1595,1157) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: gv=(1595,1157) dm=(1595,1157) [OK]
+swrast_makeCurrent: gv=(1595,1157) dm=(1595,1157) [OK]
+swrast_getDisplayImage: dm=(1595,1157) OSMesa_buf=(1595,1157) [OK]
+QgSW::paintEvent: pre-draw gv=(1595,1157) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: gv=(1595,1157) dm=(1595,1157) [OK]
+swrast_makeCurrent: gv=(1595,1157) dm=(1595,1157) [OK]
+swrast_getDisplayImage: dm=(1595,1157) OSMesa_buf=(1595,1157) [OK]
+mainwindow write settings
+
+exit
+QThreadStorage: entry 2 destroyed before end of thread 0x5c46315284e0
+QThreadStorage: entry 1 destroyed before end of thread 0x5c46315284e0
+[?2004h]0;cyapp@ubuntu: ~/brlcad_quickiterate/brlcad/build[01;32mcyapp@ubuntu[00m:[01;34m~/brlcad_quickiterate/brlcad/build[00m (copilot/add-debug-printing-for-sigkill) $ ./bin/qged -s share/db/moss.g
+[?2004lReading settings from /home/cyapp/.config/BRL-CAD/QGED.conf
+update nref callback
+qt.qpa.theme.gnome: dbus reply error: [ "org.freedesktop.DBus.Error.UnknownMethod" ] "No such interface “org.freedesktop.portal.Settings” on object at path /org/freedesktop/portal/desktop"
+swrast_makeCurrent: MISMATCH gv=(1595,1157) dm=(0,0) - OSMesa will use gv dims
+swrast_configureWin: gv=(1595,1157) dm_current=(0,0)
+gl_reshape: setting dm=(1595,1157) was=(0,0), glViewport will be (0,0,1595,1157)
+swrast_getmem: allocating if_mem for if_size=(1595,1157) pixsize=7383196
+swrast_configureWindow: FULL path w=1595 h=1157 if_was=(1595,1157) win_was=(1595,1157)
+swrast_configureWin: gv=(1595,1157) dm_current=(1595,1157)
+gl_reshape: setting dm=(1595,1157) was=(1595,1157), glViewport will be (0,0,1595,1157)
+QgSW::paintEvent: pre-draw gv=(1595,1157) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: gv=(1595,1157) dm=(1595,1157) [OK]
+swrast_makeCurrent: gv=(1595,1157) dm=(1595,1157) [OK]
+swrast_getDisplayImage: dm=(1595,1157) OSMesa_buf=(1595,1157) [OK]
+QgSW::paintEvent: pre-draw gv=(1595,1157) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: gv=(1595,1157) dm=(1595,1157) [OK]
+swrast_makeCurrent: gv=(1595,1157) dm=(1595,1157) [OK]
+swrast_getDisplayImage: dm=(1595,1157) OSMesa_buf=(1595,1157) [OK]
+QgSW::paintEvent: pre-draw gv=(1595,1157) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: gv=(1595,1157) dm=(1595,1157) [OK]
+swrast_makeCurrent: gv=(1595,1157) dm=(1595,1157) [OK]
+swrast_getDisplayImage: dm=(1595,1157) OSMesa_buf=(1595,1157) [OK]
+QgSW::paintEvent: pre-draw gv=(1595,1157) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: gv=(1595,1157) dm=(1595,1157) [OK]
+swrast_makeCurrent: gv=(1595,1157) dm=(1595,1157) [OK]
+swrast_getDisplayImage: dm=(1595,1157) OSMesa_buf=(1595,1157) [OK]
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
 fbs_open_ipc: pe rfd=29 wfd=28  ce rfd=64 wfd=65  ce_addr='PKG_ADDR=pipe:64,65'
 open_ipc_client_handler (SW)
 fbs_open_ipc: new ipc_child stored (rfd=64 wfd=65) slot=31 effective_fd=29
 ert: setting PKG_ADDR='pipe:64,65' for rt subprocess
-ert: calling _ged_run_rt (using_ipc=1 fb_size=1430x1140)
+ert: calling _ged_run_rt (using_ipc=1 fb_size=1595x1157)
 Start listening: 2
-ert: _ged_run_rt returned 0 rt_pid=178159
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-Stop listening: 2
-_ged_rt_finalize: waiting for rt pid=178159 (timeout=120s)
-Raytrace complete.
-_ged_rt_finalize: dropping IPC client slot 31 fd=29
-drop_client: sub=31 dm=(1430,1140) if=(1430,1140) => no resize needed
-close_ipc_client_handler
-QgSW::paintEvent: pre-draw gv=(1430,1140) dm=(1430,1140) dpr=1.5 widget=(953,760)
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_makeCurrent: gv=(1430,1140) dm=(1430,1140) [OK]
-swrast_getDisplayImage: dm=(1430,1140) OSMesa_buf=(1430,1140) [OK]
-QgSW::resizeEvent: logical=(939,750) physical/render=(1409,1125) dpr=1.5
-QgSW::resizeEvent: gv_width=1409 gv_height=1125 dm_w=1409 dm_h=1125 (after set)
-swrast_configureWin: gv=(1409,1125) dm_current=(1409,1125)
-gl_reshape: setting dm=(1409,1125) was=(1409,1125), glViewport will be (0,0,1409,1125)
-swrast_configureWindow: FULL path w=1409 h=1125 if_was=(1430,1140) win_was=(1430,1140)
-swrast_getmem: allocating if_mem for if_size=(1409,1125) pixsize=6342036
-swrast_makeCurrent: gv=(1409,1125) dm=(1409,1125) [OK]
-QgSW::paintEvent: pre-draw gv=(1409,1125) dm=(1409,1125) dpr=1.5 widget=(939,750)
-swrast_makeCurrent: gv=(1409,1125) dm=(1409,1125) [OK]
-swrast_makeCurrent: gv=(1409,1125) dm=(1409,1125) [OK]
-swrast_getDisplayImage: dm=(1409,1125) OSMesa_buf=(1409,1125) [OK]
-QgSW::resizeEvent: logical=(845,691) physical/render=(1268,1037) dpr=1.5
-QgSW::resizeEvent: gv_width=1268 gv_height=1037 dm_w=1268 dm_h=1037 (after set)
-swrast_configureWin: gv=(1268,1037) dm_current=(1268,1037)
-gl_reshape: setting dm=(1268,1037) was=(1268,1037), glViewport will be (0,0,1268,1037)
-swrast_configureWindow: FULL path w=1268 h=1037 if_was=(1409,1125) win_was=(1409,1125)
-swrast_getmem: allocating if_mem for if_size=(1268,1037) pixsize=5261200
-swrast_makeCurrent: gv=(1268,1037) dm=(1268,1037) [OK]
-QgSW::paintEvent: pre-draw gv=(1268,1037) dm=(1268,1037) dpr=1.5 widget=(845,691)
-swrast_makeCurrent: gv=(1268,1037) dm=(1268,1037) [OK]
-swrast_makeCurrent: gv=(1268,1037) dm=(1268,1037) [OK]
-swrast_getDisplayImage: dm=(1268,1037) OSMesa_buf=(1268,1037) [OK]
-QgSW::resizeEvent: logical=(840,687) physical/render=(1260,1031) dpr=1.5
-QgSW::resizeEvent: gv_width=1260 gv_height=1031 dm_w=1260 dm_h=1031 (after set)
-swrast_configureWin: gv=(1260,1031) dm_current=(1260,1031)
-gl_reshape: setting dm=(1260,1031) was=(1260,1031), glViewport will be (0,0,1260,1031)
-swrast_configureWindow: FULL path w=1260 h=1031 if_was=(1268,1037) win_was=(1268,1037)
-swrast_getmem: allocating if_mem for if_size=(1260,1031) pixsize=5197776
-swrast_makeCurrent: gv=(1260,1031) dm=(1260,1031) [OK]
-QgSW::paintEvent: pre-draw gv=(1260,1031) dm=(1260,1031) dpr=1.5 widget=(840,687)
-swrast_makeCurrent: gv=(1260,1031) dm=(1260,1031) [OK]
-swrast_makeCurrent: gv=(1260,1031) dm=(1260,1031) [OK]
-swrast_getDisplayImage: dm=(1260,1031) OSMesa_buf=(1260,1031) [OK]
-QgSW::resizeEvent: logical=(836,683) physical/render=(1254,1025) dpr=1.5
-QgSW::resizeEvent: gv_width=1254 gv_height=1025 dm_w=1254 dm_h=1025 (after set)
-swrast_configureWin: gv=(1254,1025) dm_current=(1254,1025)
-gl_reshape: setting dm=(1254,1025) was=(1254,1025), glViewport will be (0,0,1254,1025)
-swrast_configureWindow: FULL path w=1254 h=1025 if_was=(1260,1031) win_was=(1260,1031)
-swrast_getmem: allocating if_mem for if_size=(1254,1025) pixsize=5142936
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-fbs_open_ipc: pe rfd=29 wfd=28  ce rfd=66 wfd=67  ce_addr='PKG_ADDR=pipe:66,67'
-open_ipc_client_handler (SW)
-fbs_open_ipc: closing old ipc_child rfd=64 wfd=65
-fbs_open_ipc: new ipc_child stored (rfd=66 wfd=67) slot=31 effective_fd=29
-ert: setting PKG_ADDR='pipe:66,67' for rt subprocess
-ert: calling _ged_run_rt (using_ipc=1 fb_size=1254x1025)
-Start listening: 2
-ert: _ged_run_rt returned 0 rt_pid=178192
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-Stop listening: 2
-_ged_rt_finalize: waiting for rt pid=178192 (timeout=120s)
-Raytrace complete.
-_ged_rt_finalize: dropping IPC client slot 31 fd=29
-drop_client: sub=31 dm=(1254,1025) if=(1254,1025) => no resize needed
-close_ipc_client_handler
-QgSW::paintEvent: pre-draw gv=(1254,1025) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_makeCurrent: gv=(1254,1025) dm=(1254,1025) [OK]
-swrast_getDisplayImage: dm=(1254,1025) OSMesa_buf=(1254,1025) [OK]
-QgSW::paintEvent: pre-draw gv=(836,683) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_getDisplayImage: DIM MISMATCH: dm=(1254,1025) OSMesa_buf=(836,683) gv=(836,683)
-QgSW::mousePressEvent: setting gv to logical (836,683) was (836,683) dm=(1254,1025)
-QgSW::paintEvent: pre-draw gv=(836,683) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_getDisplayImage: DIM MISMATCH: dm=(1254,1025) OSMesa_buf=(836,683) gv=(836,683)
-QgSW::mouseMoveEvent: setting gv to logical (836,683) was (836,683) dm=(1254,1025)
-QgSW::mouseMoveEvent: setting gv to logical (836,683) was (836,683) dm=(1254,1025)
-QgSW::paintEvent: pre-draw gv=(836,683) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_getDisplayImage: DIM MISMATCH: dm=(1254,1025) OSMesa_buf=(836,683) gv=(836,683)
-QgSW::mouseMoveEvent: setting gv to logical (836,683) was (836,683) dm=(1254,1025)
-QgSW::paintEvent: pre-draw gv=(836,683) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_getDisplayImage: DIM MISMATCH: dm=(1254,1025) OSMesa_buf=(836,683) gv=(836,683)
-QgSW::mouseMoveEvent: setting gv to logical (836,683) was (836,683) dm=(1254,1025)
-QgSW::paintEvent: pre-draw gv=(836,683) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_getDisplayImage: DIM MISMATCH: dm=(1254,1025) OSMesa_buf=(836,683) gv=(836,683)
-QgSW::mouseMoveEvent: setting gv to logical (836,683) was (836,683) dm=(1254,1025)
-QgSW::paintEvent: pre-draw gv=(836,683) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_getDisplayImage: DIM MISMATCH: dm=(1254,1025) OSMesa_buf=(836,683) gv=(836,683)
-QgSW::mouseMoveEvent: setting gv to logical (836,683) was (836,683) dm=(1254,1025)
-QgSW::paintEvent: pre-draw gv=(836,683) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_getDisplayImage: DIM MISMATCH: dm=(1254,1025) OSMesa_buf=(836,683) gv=(836,683)
-QgSW::mouseMoveEvent: setting gv to logical (836,683) was (836,683) dm=(1254,1025)
-QgSW::paintEvent: pre-draw gv=(836,683) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_getDisplayImage: DIM MISMATCH: dm=(1254,1025) OSMesa_buf=(836,683) gv=(836,683)
-QgSW::mouseMoveEvent: setting gv to logical (836,683) was (836,683) dm=(1254,1025)
-QgSW::paintEvent: pre-draw gv=(836,683) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_getDisplayImage: DIM MISMATCH: dm=(1254,1025) OSMesa_buf=(836,683) gv=(836,683)
-QgSW::mouseMoveEvent: setting gv to logical (836,683) was (836,683) dm=(1254,1025)
-QgSW::paintEvent: pre-draw gv=(836,683) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_getDisplayImage: DIM MISMATCH: dm=(1254,1025) OSMesa_buf=(836,683) gv=(836,683)
-QgSW::mouseMoveEvent: setting gv to logical (836,683) was (836,683) dm=(1254,1025)
-QgSW::paintEvent: pre-draw gv=(836,683) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_getDisplayImage: DIM MISMATCH: dm=(1254,1025) OSMesa_buf=(836,683) gv=(836,683)
-QgSW::mouseMoveEvent: setting gv to logical (836,683) was (836,683) dm=(1254,1025)
-QgSW::paintEvent: pre-draw gv=(836,683) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_getDisplayImage: DIM MISMATCH: dm=(1254,1025) OSMesa_buf=(836,683) gv=(836,683)
-QgSW::mouseMoveEvent: setting gv to logical (836,683) was (836,683) dm=(1254,1025)
-QgSW::paintEvent: pre-draw gv=(836,683) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_getDisplayImage: DIM MISMATCH: dm=(1254,1025) OSMesa_buf=(836,683) gv=(836,683)
-QgSW::mouseMoveEvent: setting gv to logical (836,683) was (836,683) dm=(1254,1025)
-QgSW::paintEvent: pre-draw gv=(836,683) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_getDisplayImage: DIM MISMATCH: dm=(1254,1025) OSMesa_buf=(836,683) gv=(836,683)
-QgSW::mouseMoveEvent: setting gv to logical (836,683) was (836,683) dm=(1254,1025)
-QgSW::paintEvent: pre-draw gv=(836,683) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_getDisplayImage: DIM MISMATCH: dm=(1254,1025) OSMesa_buf=(836,683) gv=(836,683)
-QgSW::mouseMoveEvent: setting gv to logical (836,683) was (836,683) dm=(1254,1025)
-QgSW::paintEvent: pre-draw gv=(836,683) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_getDisplayImage: DIM MISMATCH: dm=(1254,1025) OSMesa_buf=(836,683) gv=(836,683)
-QgSW::mouseMoveEvent: setting gv to logical (836,683) was (836,683) dm=(1254,1025)
-QgSW::paintEvent: pre-draw gv=(836,683) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_getDisplayImage: DIM MISMATCH: dm=(1254,1025) OSMesa_buf=(836,683) gv=(836,683)
-QgSW::mouseMoveEvent: setting gv to logical (836,683) was (836,683) dm=(1254,1025)
-QgSW::paintEvent: pre-draw gv=(836,683) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_getDisplayImage: DIM MISMATCH: dm=(1254,1025) OSMesa_buf=(836,683) gv=(836,683)
-QgSW::mouseMoveEvent: setting gv to logical (836,683) was (836,683) dm=(1254,1025)
-QgSW::paintEvent: pre-draw gv=(836,683) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_getDisplayImage: DIM MISMATCH: dm=(1254,1025) OSMesa_buf=(836,683) gv=(836,683)
-QgSW::mouseMoveEvent: setting gv to logical (836,683) was (836,683) dm=(1254,1025)
-QgSW::paintEvent: pre-draw gv=(836,683) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_getDisplayImage: DIM MISMATCH: dm=(1254,1025) OSMesa_buf=(836,683) gv=(836,683)
-QgSW::mouseMoveEvent: setting gv to logical (836,683) was (836,683) dm=(1254,1025)
-QgSW::paintEvent: pre-draw gv=(836,683) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_getDisplayImage: DIM MISMATCH: dm=(1254,1025) OSMesa_buf=(836,683) gv=(836,683)
-QgSW::mouseMoveEvent: setting gv to logical (836,683) was (836,683) dm=(1254,1025)
-QgSW::paintEvent: pre-draw gv=(836,683) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_getDisplayImage: DIM MISMATCH: dm=(1254,1025) OSMesa_buf=(836,683) gv=(836,683)
-QgSW::mouseMoveEvent: setting gv to logical (836,683) was (836,683) dm=(1254,1025)
-QgSW::paintEvent: pre-draw gv=(836,683) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_getDisplayImage: DIM MISMATCH: dm=(1254,1025) OSMesa_buf=(836,683) gv=(836,683)
-QgSW::mouseMoveEvent: setting gv to logical (836,683) was (836,683) dm=(1254,1025)
-QgSW::paintEvent: pre-draw gv=(836,683) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_getDisplayImage: DIM MISMATCH: dm=(1254,1025) OSMesa_buf=(836,683) gv=(836,683)
-QgSW::mouseMoveEvent: setting gv to logical (836,683) was (836,683) dm=(1254,1025)
-QgSW::paintEvent: pre-draw gv=(836,683) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_getDisplayImage: DIM MISMATCH: dm=(1254,1025) OSMesa_buf=(836,683) gv=(836,683)
-QgSW::mouseMoveEvent: setting gv to logical (836,683) was (836,683) dm=(1254,1025)
-QgSW::paintEvent: pre-draw gv=(836,683) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_getDisplayImage: DIM MISMATCH: dm=(1254,1025) OSMesa_buf=(836,683) gv=(836,683)
-QgSW::mouseMoveEvent: setting gv to logical (836,683) was (836,683) dm=(1254,1025)
-QgSW::paintEvent: pre-draw gv=(836,683) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_getDisplayImage: DIM MISMATCH: dm=(1254,1025) OSMesa_buf=(836,683) gv=(836,683)
-QgSW::mouseMoveEvent: setting gv to logical (836,683) was (836,683) dm=(1254,1025)
-QgSW::paintEvent: pre-draw gv=(836,683) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_getDisplayImage: DIM MISMATCH: dm=(1254,1025) OSMesa_buf=(836,683) gv=(836,683)
-QgSW::mouseMoveEvent: setting gv to logical (836,683) was (836,683) dm=(1254,1025)
-QgSW::paintEvent: pre-draw gv=(836,683) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_getDisplayImage: DIM MISMATCH: dm=(1254,1025) OSMesa_buf=(836,683) gv=(836,683)
-QgSW::mouseMoveEvent: setting gv to logical (836,683) was (836,683) dm=(1254,1025)
-QgSW::paintEvent: pre-draw gv=(836,683) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_getDisplayImage: DIM MISMATCH: dm=(1254,1025) OSMesa_buf=(836,683) gv=(836,683)
-QgSW::paintEvent: pre-draw gv=(836,683) dm=(1254,1025) dpr=1.5 widget=(836,683)
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_makeCurrent: MISMATCH gv=(836,683) dm=(1254,1025) - OSMesa will use gv dims
-swrast_getDisplayImage: DIM MISMATCH: dm=(1254,1025) OSMesa_buf=(836,683) gv=(836,683)
-mainwindow write settings
-
-exit
-QThreadStorage: entry 2 destroyed before end of thread 0x636ee3ad6460
-QThreadStorage: entry 1 destroyed before end of thread 0x636ee3ad6460
-[?2004h]0;cyapp@ubuntu: ~/brlcad/build[01;32mcyapp@ubuntu[00m:[01;34m~/brlcad/build[00m (newdraw) $ exit
-[?2004lexit
-
-Script done on 2026-05-09 13:45:31-04:00 [COMMAND_EXIT_CODE="0"]
+ert: _ged_run_rt returned 0 rt_pid=252200
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595,1157) - OSMesa will use gv dims
+swrast_getDisplayImage: DIM MISMATCH: dm=(1595,1157) OSMesa_buf=(1063,771) gv=(1063,771)
+QgSW::paintEvent: pre-draw gv=(1063,771) dm=(1595,1157) dpr=1.5 widget=(1063,771)
+swrast_makeCurrent: MISMATCH gv=(1063,771) dm=(1595
