@@ -103,7 +103,7 @@ _qtgl_texture_enabled(void)
 {
     const char *ev = getenv("BRLCAD_QTGL_FB_TEXTURE");
     if (!ev || !ev[0])
-	return 1; /* Phase C default */
+	return 1; /* Default to texture-backed blit path for better incremental update performance. */
     if (!strcmp(ev, "0") || !strcmp(ev, "false") ||
 	!strcmp(ev, "False") || !strcmp(ev, "off") ||
 	!strcmp(ev, "OFF"))
@@ -120,7 +120,7 @@ qtgl_xmit_texture(struct fb *ifp, int ybase, int nlines, int xbase, int npix)
     if (!qi->fb_use_texture)
 	return;
     if (ifp->i->if_xzoom != 1 || ifp->i->if_yzoom != 1)
-	return; /* preserve legacy zoom semantics */
+	return; /* texture path assumes 1:1 pixel mapping; fall back for zoomed views */
     if (ifp->i->if_mem == NULL || ifp->i->if_width <= 0 || ifp->i->if_height <= 0)
 	return;
 
@@ -129,8 +129,8 @@ qtgl_xmit_texture(struct fb *ifp, int ybase, int nlines, int xbase, int npix)
 	glBindTexture(GL_TEXTURE_2D, qi->fb_tex);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	qi->fb_tex_width = 0;
 	qi->fb_tex_height = 0;
     } else {
@@ -598,14 +598,15 @@ qtgl_free(struct fb *ifp)
 	(void)free(ifp->i->if_mem);
     }
 
-    if (ifp->i->dmp)
-	dm_make_current(ifp->i->dmp);
-    if (QTGL(ifp)->fb_tex) {
+    int have_gl_ctx = 0;
+    if (ifp->i->dmp && dm_make_current(ifp->i->dmp) == BRLCAD_OK)
+	have_gl_ctx = 1;
+    if (QTGL(ifp)->fb_tex && have_gl_ctx) {
 	glDeleteTextures(1, &QTGL(ifp)->fb_tex);
-	QTGL(ifp)->fb_tex = 0;
-	QTGL(ifp)->fb_tex_width = 0;
-	QTGL(ifp)->fb_tex_height = 0;
     }
+    QTGL(ifp)->fb_tex = 0;
+    QTGL(ifp)->fb_tex_width = 0;
+    QTGL(ifp)->fb_tex_height = 0;
 
     if (QTGLL(ifp) != NULL) {
 	(void)free((char *)QTGLL(ifp));

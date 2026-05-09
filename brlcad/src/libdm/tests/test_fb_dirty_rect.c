@@ -71,7 +71,7 @@ main(int argc, char **argv)
 
     CHECK(fb_dirty_consume(fbp, &x0, &y0, &x1, &y1) == 0, "initial dirty region empty");
 
-    /* Last pixel (rightmost column, bottom row) must not be dropped. */
+    /* Last pixel (rightmost column, bottom row) must be included in dirty bounds. */
     CHECK(fb_write(fbp, width - 1, height - 1, px, 1) == 1, "fb_write last pixel");
     expect_rect(fbp, width - 1, height - 1, width - 1, height - 1, "consume last-pixel rect");
 

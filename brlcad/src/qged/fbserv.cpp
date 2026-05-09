@@ -43,6 +43,12 @@
 #include "qtcad/QgSW.h"
 #include <QElapsedTimer>
 
+namespace {
+static const qint64 DRAIN_TIME_BUDGET_MS = 4;
+static const size_t DRAIN_BYTES_BUDGET = 512 * 1024;
+static const int DRAIN_ITERATION_CAP = 256;
+}
+
 void
 QFBSocket::client_handler()
 {
@@ -324,17 +330,12 @@ QFBIPCSocket::ipc_handler()
      *  - stop if we spend too long in one notifier callback (UI fairness)
      *  - or if we have already drained a large burst of data
      *  - with an absolute iteration cap as a final guardrail. */
-    const qint64 time_budget_ms = 4;
-    const size_t bytes_budget = 512 * 1024;
-    const int iter_cap = 256;
-    for (int iter = 0; iter < iter_cap; ++iter) {
-	int inend_before = pkc->pkc_inend;
+    for (int iter = 0; iter < DRAIN_ITERATION_CAP; ++iter) {
 	int r = pkg_suckin(pkc);
 	if (r > 0) {
 	    data_read = 1;
-	    if (pkc->pkc_inend > inend_before)
-		bytes_drained += (size_t)(pkc->pkc_inend - inend_before);
-	    if (bytes_drained >= bytes_budget || drain_timer.hasExpired(time_budget_ms))
+	    bytes_drained += (size_t)r;
+	    if (bytes_drained >= DRAIN_BYTES_BUDGET || drain_timer.hasExpired(DRAIN_TIME_BUDGET_MS))
 		break;
 	    continue;
 	}
