@@ -92,12 +92,13 @@ swrast_draw_line_rgba(struct swrast_vars_fast *pv, int w, int h, int x0, int y0,
     int dy = -abs(y1 - y0);
     int sy = y0 < y1 ? 1 : -1;
     int err = dx + dy;
+    int e2;
 
     for (;;) {
 	swrast_put_pixel_rgba(pv, w, h, x0, y0, fg);
 	if (x0 == x1 && y0 == y1)
 	    break;
-	int e2 = 2 * err;
+	e2 = 2 * err;
 	if (e2 >= dy) {
 	    err += dy;
 	    x0 += sx;
@@ -132,17 +133,29 @@ clip_line_to_win(int *x0, int *y0, int *x1, int *y1, int w, int h)
 	int c = c0 ? c0 : c1;
 	int x = 0, y = 0;
 	if (c & TOP) {
+	    int yden = *y1 - *y0;
+	    if (!yden)
+		yden = 1;
 	    y = h - 1;
-	    x = *x0 + (*x1 - *x0) * (y - *y0) / ((*y1 - *y0) ? (*y1 - *y0) : 1);
+	    x = *x0 + (*x1 - *x0) * (y - *y0) / yden;
 	} else if (c & BOTTOM) {
+	    int yden = *y1 - *y0;
+	    if (!yden)
+		yden = 1;
 	    y = 0;
-	    x = *x0 + (*x1 - *x0) * (y - *y0) / ((*y1 - *y0) ? (*y1 - *y0) : 1);
+	    x = *x0 + (*x1 - *x0) * (y - *y0) / yden;
 	} else if (c & RIGHT) {
+	    int xden = *x1 - *x0;
+	    if (!xden)
+		xden = 1;
 	    x = w - 1;
-	    y = *y0 + (*y1 - *y0) * (x - *x0) / ((*x1 - *x0) ? (*x1 - *x0) : 1);
+	    y = *y0 + (*y1 - *y0) * (x - *x0) / xden;
 	} else {
+	    int xden = *x1 - *x0;
+	    if (!xden)
+		xden = 1;
 	    x = 0;
-	    y = *y0 + (*y1 - *y0) * (x - *x0) / ((*x1 - *x0) ? (*x1 - *x0) : 1);
+	    y = *y0 + (*y1 - *y0) * (x - *x0) / xden;
 	}
 
 	if (c == c0) {
