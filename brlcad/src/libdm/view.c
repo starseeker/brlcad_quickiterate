@@ -704,7 +704,22 @@ dm_draw_objs(struct bview *v, void (*dm_draw_custom)(struct bview *, void *), vo
     if (v->gv_s->gv_fb_mode && dm_get_fb(dmp)) {
 	int zbuff_restore = dm_get_zbuffer(dmp);
 	dm_set_zbuffer(dmp, 0);
-	fb_refresh(dm_get_fb(dmp), 0, 0, dm_get_width(dmp), dm_get_height(dmp));
+	/* Phase A2 (ert reliability): clamp the fb_refresh region to the
+	 * intersection of the framebuffer canvas and the dm widget so an
+	 * in-flight rt-driven fb that hasn't yet matched the resized
+	 * widget cannot induce out-of-bounds reads or stretched/tiled
+	 * artefacts.  When dm == fb (steady state) this is a no-op. */
+	struct fb *fbp = dm_get_fb(dmp);
+	int rw = dm_get_width(dmp);
+	int rh = dm_get_height(dmp);
+	if (fbp) {
+	    int fbw = fb_getwidth(fbp);
+	    int fbh = fb_getheight(fbp);
+	    if (fbw > 0 && fbw < rw) rw = fbw;
+	    if (fbh > 0 && fbh < rh) rh = fbh;
+	}
+	if (rw > 0 && rh > 0)
+	    fb_refresh(fbp, 0, 0, rw, rh);
 	if (zbuff_restore)
 	    dm_set_zbuffer(dmp, 1);
 	if (v->gv_s->gv_fb_mode == 1) {

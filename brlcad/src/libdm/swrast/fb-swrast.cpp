@@ -273,6 +273,20 @@ swrast_configureWindow(struct fb *ifp, int width, int height)
     if (!SWRAST(ifp)->mi_memwidth)
 	getmem = 1;
 
+    /* Phase A1 (ert reliability): if any fbserv client is streaming
+     * pixels into this framebuffer, we MUST NOT mutate the canvas
+     * dimensions or reallocate if_mem.  Doing so re-interprets in-flight
+     * scanline writes from rt as different-width rows, which produces
+     * the "tiled distorted copies of the raytrace output" symptom.
+     * Instead, just record the new viewport size — the OpenGL composite
+     * in paintGL/paintEvent stretches the existing fb image to fit. */
+    if (ifp->i->if_active_clients > 0) {
+	SWRAST(ifp)->vp_width = width;
+	SWRAST(ifp)->vp_height = height;
+	dm_make_current(ifp->i->dmp);
+	return 0;
+    }
+
     SWRAST(ifp)->vp_width = width;
     SWRAST(ifp)->vp_height = height;
 
@@ -308,7 +322,14 @@ swrast_do_event(struct fb *UNUSED(ifp))
 #endif
 {
 #ifdef SWRAST_QT
-    SWRAST(ifp)->mw->update();
+    /* Phase F (ert reliability): only drive updates from the *standalone*
+     * Qt mainwindow path (where SWRAST(ifp)->mw is non-NULL).  In the
+     * embedded path used by qged, fb pixel writes flow through the libpkg
+     * client handler whose ::updated → dm_set_dirty + widget update()
+     * chain already coalesces redraws on a per-message-batch basis.
+     * Calling mw->update() here when mw is NULL causes a crash. */
+    if (SWRAST(ifp)->mw)
+	SWRAST(ifp)->mw->update();
 #endif
 }
 
@@ -793,7 +814,9 @@ swrast_writerect(struct fb *ifp, int xmin, int ymin, int width, int height, cons
     }
 
 #ifdef SWRAST_QT
-    SWRAST(ifp)->mw->update();
+    /* Phase F: standalone-window-only update (see comment in swrast_do_event). */
+    if (SWRAST(ifp)->mw)
+	SWRAST(ifp)->mw->update();
 #endif
     return width*height;
 }
@@ -835,7 +858,9 @@ swrast_bwwriterect(struct fb *ifp, int xmin, int ymin, int width, int height, co
     }
 
 #ifdef SWRAST_QT
-    SWRAST(ifp)->mw->update();
+    /* Phase F: standalone-window-only update (see comment in swrast_do_event). */
+    if (SWRAST(ifp)->mw)
+	SWRAST(ifp)->mw->update();
 #endif
     return width*height;
 }
@@ -1016,7 +1041,8 @@ struct fb_impl swrast_interface_impl =
     {0}, /* u3 */
     {0}, /* u4 */
     {0}, /* u5 */
-    {0}  /* u6 */
+    {0},  /* u6 */
+    0     /* if_active_clients */
 };
 
 extern "C" {

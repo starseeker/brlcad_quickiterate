@@ -76,6 +76,11 @@ drop_client(struct fbserv_obj *fbsp, int sub)
     }
 
     if (fbsp->fbs_clients[sub].fbsc_fd != 0) {
+	/* Phase A1 (ert reliability): release the framebuffer-dimension
+	 * lock now that this client is no longer streaming. */
+	if (fbsp->fbs_fbp && fbsp->fbs_fbp->i &&
+	    fbsp->fbs_fbp->i->if_active_clients > 0)
+	    fbsp->fbs_fbp->i->if_active_clients--;
 	/* Use the IPC-specific close handler if the client was opened via IPC
 	 * and the caller registered one; otherwise fall back to the generic
 	 * TCP close handler. */
@@ -1137,6 +1142,11 @@ fbs_new_client(struct fbserv_obj *fbsp, struct pkg_conn *pcp, void *data)
 	fbsp->fbs_clients[i].fbsc_auth_ok = 0;
 	fbsp->fbs_clients[i].fbsc_pending_drop = 0;
 	fbs_setup_socket(pkg_get_read_fd(pcp));
+	/* Phase A1 (ert reliability): mark the framebuffer as having an
+	 * active streaming client so its dimensions won't be mutated under
+	 * the client's feet by GUI events (e.g. window resize). */
+	if (fbsp->fbs_fbp && fbsp->fbs_fbp->i)
+	    fbsp->fbs_fbp->i->if_active_clients++;
 
 	/* Point pkc_server_data at the fbserv_client so handlers can
 	 * reach back to the fbserv_obj (needed for auth checks). */
@@ -1214,6 +1224,9 @@ fbs_open_ipc(struct fbserv_obj *fbsp)
 	fbsp->fbs_clients[i].fbsc_pending_drop = 0;
 	fbsp->fbs_clients[i].fbsc_is_ipc  = 1;
 	pc->pkc_server_data = (void *)&fbsp->fbs_clients[i];
+	/* Phase A1 (ert reliability): mark the fb dimension lock active. */
+	if (fbsp->fbs_fbp && fbsp->fbs_fbp->i)
+	    fbsp->fbs_fbp->i->if_active_clients++;
 
 	/* Call the IPC-specific open handler if one is registered, otherwise
 	 * fall back to the generic TCP client handler.  Callers that use the
@@ -1239,7 +1252,43 @@ fbs_open_ipc(struct fbserv_obj *fbsp)
 	pkg_close(fbsp->fbs_listener.fbsl_ipc_child);
     fbsp->fbs_listener.fbsl_ipc_child = ce;
 
+#ifndef _WIN32
+    /* Phase C1 (ert reliability): make the parent's read+write fds
+     * non-blocking so that pkg_suckin() driven from a Qt event-loop
+     * notifier can never block the GUI thread when the kernel buffer
+     * is empty (e.g. on a level-triggered notifier re-fire after the
+     * fd has already been drained).  pkg_suckin() returns 0 with
+     * pc->pkc_would_block == 1 in that case, which the IPC handler
+     * uses to short-circuit cleanly.  The child end (ce) intentionally
+     * remains blocking — rt's writes against it must back-pressure on
+     * a slow consumer rather than spinning. */
+    {
+	int rfd = pkg_get_read_fd(pc);
+	int wfd = pkg_get_write_fd(pc);
+	int flags;
+	if (rfd >= 0 && (flags = fcntl(rfd, F_GETFL, 0)) != -1)
+	    (void)fcntl(rfd, F_SETFL, flags | O_NONBLOCK);
+	if (wfd >= 0 && wfd != rfd && (flags = fcntl(wfd, F_GETFL, 0)) != -1)
+	    (void)fcntl(wfd, F_SETFL, flags | O_NONBLOCK);
+    }
+#endif
+
     return BRLCAD_OK;
+}
+
+
+/**
+ * Public wrapper around drop_client() so toolkit-specific client
+ * handlers (e.g. qged's QFBIPCSocket) can request a clean teardown
+ * after detecting EOF / error on the IPC fd without depending on the
+ * select-based fbs_existing_client_handler path.
+ */
+void
+fbs_drop_client(struct fbserv_obj *fbsp, int sub)
+{
+    if (!fbsp || sub < 0 || sub >= MAX_CLIENTS)
+	return;
+    drop_client(fbsp, sub);
 }
 
 
