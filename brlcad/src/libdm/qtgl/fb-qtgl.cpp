@@ -316,7 +316,10 @@ qtgl_configureWindow(struct fb *ifp, int width, int height)
 static void
 qtgl_do_event(struct fb *ifp)
 {
-    QTGL(ifp)->mw->update();
+    /* Phase F (ert reliability): only standalone-window has mw set; embedded
+     * Qt path drives updates via the libpkg client handler chain. */
+    if (QTGL(ifp)->mw)
+	QTGL(ifp)->mw->update();
 }
 
 static int
@@ -785,7 +788,9 @@ qtgl_writerect(struct fb *ifp, int xmin, int ymin, int width, int height, const 
 	}
     }
 
-    QTGL(ifp)->mw->update();
+    /* Phase F: standalone-only update (see comment in qtgl_do_event). */
+    if (QTGL(ifp)->mw)
+	QTGL(ifp)->mw->update();
 
     return width*height;
 }
@@ -826,7 +831,9 @@ qtgl_bwwriterect(struct fb *ifp, int xmin, int ymin, int width, int height, cons
 	}
     }
 
-    QTGL(ifp)->mw->update();
+    /* Phase F: standalone-only update (see comment in qtgl_do_event). */
+    if (QTGL(ifp)->mw)
+	QTGL(ifp)->mw->update();
 
     return width*height;
 }

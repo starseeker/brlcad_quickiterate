@@ -1239,7 +1239,43 @@ fbs_open_ipc(struct fbserv_obj *fbsp)
 	pkg_close(fbsp->fbs_listener.fbsl_ipc_child);
     fbsp->fbs_listener.fbsl_ipc_child = ce;
 
+#ifndef _WIN32
+    /* Phase C1 (ert reliability): make the parent's read+write fds
+     * non-blocking so that pkg_suckin() driven from a Qt event-loop
+     * notifier can never block the GUI thread when the kernel buffer
+     * is empty (e.g. on a level-triggered notifier re-fire after the
+     * fd has already been drained).  pkg_suckin() returns 0 with
+     * pc->pkc_would_block == 1 in that case, which the IPC handler
+     * uses to short-circuit cleanly.  The child end (ce) intentionally
+     * remains blocking — rt's writes against it must back-pressure on
+     * a slow consumer rather than spinning. */
+    {
+	int rfd = pkg_get_read_fd(pc);
+	int wfd = pkg_get_write_fd(pc);
+	int flags;
+	if (rfd >= 0 && (flags = fcntl(rfd, F_GETFL, 0)) != -1)
+	    (void)fcntl(rfd, F_SETFL, flags | O_NONBLOCK);
+	if (wfd >= 0 && wfd != rfd && (flags = fcntl(wfd, F_GETFL, 0)) != -1)
+	    (void)fcntl(wfd, F_SETFL, flags | O_NONBLOCK);
+    }
+#endif
+
     return BRLCAD_OK;
+}
+
+
+/**
+ * Public wrapper around drop_client() so toolkit-specific client
+ * handlers (e.g. qged's QFBIPCSocket) can request a clean teardown
+ * after detecting EOF / error on the IPC fd without depending on the
+ * select-based fbs_existing_client_handler path.
+ */
+void
+fbs_drop_client(struct fbserv_obj *fbsp, int sub)
+{
+    if (!fbsp || sub < 0 || sub >= MAX_CLIENTS)
+	return;
+    drop_client(fbsp, sub);
 }
 
 
