@@ -105,6 +105,7 @@ set(
   cache_lz4.c
   cmd.c
   cyclic.c
+  db_glob.c
   comb/comb.c
   comb/comb_brep.cpp
   comb/comb_mirror.c
@@ -112,6 +113,7 @@ set(
   comb/edcomb.c
   material/material.c
   constraint.c
+  edit_constraint.c
   cut.c
   cut_hlbvh.c
   db5_alloc.c
