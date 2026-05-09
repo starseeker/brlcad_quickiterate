@@ -46,8 +46,8 @@ struct swrast_vars_fast {
     void *os_b;
 };
 
-static const fastf_t SWRAST_PERSPECTIVE_DELTA_FACTOR = 0.0001;
-static const int SWRAST_GED_COORD_SCALE = 2047;
+static const fastf_t GL_SWRAST_PERSPECTIVE_DELTA_FACTOR = 0.0001;
+static const int GL_SWRAST_GED_COORD_SCALE = 2047;
 
 static int
 gl_swrast_database_wireframe(struct dm *dmp, struct bv_scene_obj *s)
@@ -192,7 +192,7 @@ swrast_drawVList_fast(struct dm *dmp, struct bv_vlist *vp)
     int have_lpnt = 0;
     point_t *pt_prev = NULL;
     fastf_t dist_prev = 1.0;
-    fastf_t delta = xmat[15] * SWRAST_PERSPECTIVE_DELTA_FACTOR;
+    fastf_t delta = xmat[15] * GL_SWRAST_PERSPECTIVE_DELTA_FACTOR;
     if (delta < 0.0)
 	delta = -delta;
     if (delta < SQRT_SMALL_FASTF)
@@ -230,8 +230,8 @@ swrast_drawVList_fast(struct dm *dmp, struct bv_vlist *vp)
 			pt_prev = pt;
 		    }
 		    MAT4X3PNT(lpnt, xmat, *pt);
-		    lpnt[0] *= SWRAST_GED_COORD_SCALE;
-		    lpnt[1] *= SWRAST_GED_COORD_SCALE * dmp->i->dm_aspect;
+		    lpnt[0] *= GL_SWRAST_GED_COORD_SCALE;
+		    lpnt[1] *= GL_SWRAST_GED_COORD_SCALE * dmp->i->dm_aspect;
 		    have_lpnt = 1;
 		    continue;
 		}
@@ -264,8 +264,8 @@ swrast_drawVList_fast(struct dm *dmp, struct bv_vlist *vp)
 		    } else {
 			MAT4X3PNT(pnt, xmat, *pt);
 		    }
-		    pnt[0] *= SWRAST_GED_COORD_SCALE;
-		    pnt[1] *= SWRAST_GED_COORD_SCALE * dmp->i->dm_aspect;
+		    pnt[0] *= GL_SWRAST_GED_COORD_SCALE;
+		    pnt[1] *= GL_SWRAST_GED_COORD_SCALE * dmp->i->dm_aspect;
 
 		    int x0 = GED_TO_Xx(dmp, lpnt[0]);
 		    int y0 = GED_TO_Xy(dmp, lpnt[1]);
@@ -758,17 +758,26 @@ int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
     // "Standard" vlist object drawing
     if (bu_list_len(&s->s_vlist)) {
 	if (gl_swrast_wireframe_obj(dmp, s)) {
+	    if (gl_swrast_database_wireframe(dmp, s)) {
+		lightingWasEnabled = glIsEnabled(GL_LIGHTING);
+		if (lightingWasEnabled) {
+		    unsigned char *fg = dm_get_fg(dmp);
+		    glDisable(GL_LIGHTING);
+		    glColor3ub((GLubyte)fg[0], (GLubyte)fg[1], (GLubyte)fg[2]);
+		}
+		int fast_ret = swrast_drawVList_fast(dmp, (struct bv_vlist *)&s->s_vlist);
+		if (lightingWasEnabled)
+		    glEnable(GL_LIGHTING);
+		if (fast_ret == BRLCAD_OK)
+		    return BRLCAD_OK;
+	    }
+
 	    lightingWasEnabled = glIsEnabled(GL_LIGHTING);
 	    if (lightingWasEnabled) {
 		unsigned char *fg = dm_get_fg(dmp);
 		glDisable(GL_LIGHTING);
 		glColor3ub((GLubyte)fg[0], (GLubyte)fg[1], (GLubyte)fg[2]);
 		restoreLighting = 1;
-	    }
-	    if (gl_swrast_database_wireframe(dmp, s) && swrast_drawVList_fast(dmp, (struct bv_vlist *)&s->s_vlist) == BRLCAD_OK) {
-		if (restoreLighting)
-		    glEnable(GL_LIGHTING);
-		return BRLCAD_OK;
 	    }
 	    glGetIntegerv(GL_SHADE_MODEL, &originalShadeModel);
 	    if (originalShadeModel != GL_FLAT) {
